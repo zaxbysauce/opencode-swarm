@@ -15,12 +15,12 @@
  */
 import { afterEach, beforeEach, describe, expect, it } from 'bun:test';
 import type { PluginConfig } from '../../../src/config';
+import { createDelegationGateHook } from '../../../src/hooks/delegation-gate';
 import {
 	ensureAgentSession,
 	resetSwarmState,
 	swarmState,
 } from '../../../src/state';
-import { createDelegationGateHook } from '../../../src/hooks/delegation-gate';
 
 function makeConfig(): PluginConfig {
 	return {
@@ -45,7 +45,12 @@ function makeConfig(): PluginConfig {
 function makeMessages(
 	text: string,
 	sessionID: string | null,
-): { messages: Array<{ info: Record<string, unknown>; parts: Array<{ type: string; text: string }> }> } {
+): {
+	messages: Array<{
+		info: Record<string, unknown>;
+		parts: Array<{ type: string; text: string }>;
+	}>;
+} {
 	return {
 		messages: [
 			{
@@ -114,7 +119,10 @@ describe('delegation-gate: priorCoderTaskId side-effect fix', () => {
 			expect(swarmState.agentSessions.size).toBe(0);
 
 			// Call messagesTransform with null sessionID
-			const { messages } = makeMessages('Hello, please help with the code.', null);
+			const { messages } = makeMessages(
+				'Hello, please help with the code.',
+				null,
+			);
 			// eslint-disable-next-line @typescript-eslint/no-explicit-any
 			await hook.messagesTransform({}, { messages } as any);
 

@@ -1,9 +1,13 @@
-import { describe, test, expect, beforeEach, afterEach } from 'bun:test';
+import { afterEach, beforeEach, describe, expect, test } from 'bun:test';
 import * as fs from 'node:fs';
-import * as path from 'node:path';
 import * as os from 'node:os';
+import * as path from 'node:path';
 
-import { resetSwarmState, ensureAgentSession, recordPhaseAgentDispatch } from '../../../src/state';
+import {
+	ensureAgentSession,
+	recordPhaseAgentDispatch,
+	resetSwarmState,
+} from '../../../src/state';
 import { createIsolatedTestEnv } from '../../helpers/isolated-test-env';
 
 // Import the tool after setting up environment

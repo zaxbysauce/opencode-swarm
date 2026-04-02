@@ -1,20 +1,35 @@
-import { describe, it, expect, beforeEach, afterEach } from 'bun:test';
-import { unlinkSync, existsSync, mkdirSync, readFileSync, rmSync, writeFileSync } from 'node:fs';
+import { afterEach, beforeEach, describe, expect, it } from 'bun:test';
+import {
+	existsSync,
+	mkdirSync,
+	readFileSync,
+	rmSync,
+	unlinkSync,
+	writeFileSync,
+} from 'node:fs';
 import { mkdir } from 'node:fs/promises';
-import * as path from 'node:path';
 import * as os from 'node:os';
+import * as path from 'node:path';
 import { readMergedKnowledge } from '../../../src/hooks/knowledge-reader.js';
 import type { KnowledgeConfig } from '../../../src/hooks/knowledge-types.js';
 
 // Test constants
 const TEST_DIR = path.join(process.cwd(), '.swarm-test-relevance');
 const TEST_SWARM_SUBDIR = path.join(TEST_DIR, '.swarm');
-const TEST_SWARM_KNOWLEDGE_FILE = path.join(TEST_SWARM_SUBDIR, 'knowledge.jsonl');
-const TEMP_HIVE_DIR = path.join(os.tmpdir(), 'opencode-swarm-hive-test-' + Date.now());
+const TEST_SWARM_KNOWLEDGE_FILE = path.join(
+	TEST_SWARM_SUBDIR,
+	'knowledge.jsonl',
+);
+const TEMP_HIVE_DIR = path.join(
+	os.tmpdir(),
+	'opencode-swarm-hive-test-' + Date.now(),
+);
 const TEMP_HIVE_FILE = path.join(TEMP_HIVE_DIR, 'hive-knowledge.jsonl');
 
 // Helper function to create a minimal KnowledgeConfig
-function createTestConfig(overrides?: Partial<KnowledgeConfig>): KnowledgeConfig {
+function createTestConfig(
+	overrides?: Partial<KnowledgeConfig>,
+): KnowledgeConfig {
 	return {
 		enabled: true,
 		swarm_max_entries: 100,
@@ -22,7 +37,7 @@ function createTestConfig(overrides?: Partial<KnowledgeConfig>): KnowledgeConfig
 		auto_promote_days: 90,
 		max_inject_count: 10,
 		dedup_threshold: 0.6,
-		scope_filter: ['global'],
+		scope_filter: ['global', 'project'],
 		hive_enabled: false,
 		rejected_max_entries: 20,
 		validation_enabled: true,
@@ -88,7 +103,11 @@ describe('Task 3.4: Relevance Scoring Algorithm Implementation', () => {
 				status: 'validated',
 				created_at: '2024-01-01T00:00:00Z',
 			};
-			writeFileSync(TEST_SWARM_KNOWLEDGE_FILE, JSON.stringify(swarmEntry) + '\n', 'utf-8');
+			writeFileSync(
+				TEST_SWARM_KNOWLEDGE_FILE,
+				JSON.stringify(swarmEntry) + '\n',
+				'utf-8',
+			);
 
 			// Context with phase that matches category 'testing'
 			const context = {
@@ -99,7 +118,11 @@ describe('Task 3.4: Relevance Scoring Algorithm Implementation', () => {
 
 			const config = createTestConfig();
 
-			const result = await readMergedKnowledge(TEST_DIR, config, context as any);
+			const result = await readMergedKnowledge(
+				TEST_DIR,
+				config,
+				context as any,
+			);
 
 			expect(result.length).toBe(1);
 			expect(result[0].relevanceScore.category).toBe(1.0); // Full match
@@ -124,7 +147,11 @@ describe('Task 3.4: Relevance Scoring Algorithm Implementation', () => {
 				status: 'validated',
 				created_at: '2024-01-01T00:00:00Z',
 			};
-			writeFileSync(TEST_SWARM_KNOWLEDGE_FILE, JSON.stringify(swarmEntry) + '\n', 'utf-8');
+			writeFileSync(
+				TEST_SWARM_KNOWLEDGE_FILE,
+				JSON.stringify(swarmEntry) + '\n',
+				'utf-8',
+			);
 
 			const context = {
 				projectName: 'test-project',
@@ -133,7 +160,11 @@ describe('Task 3.4: Relevance Scoring Algorithm Implementation', () => {
 
 			const config = createTestConfig();
 
-			const result = await readMergedKnowledge(TEST_DIR, config, context as any);
+			const result = await readMergedKnowledge(
+				TEST_DIR,
+				config,
+				context as any,
+			);
 
 			expect(result.length).toBe(1);
 			expect(result[0].relevanceScore.confidence).toBe(0.5);
@@ -150,7 +181,11 @@ describe('Task 3.4: Relevance Scoring Algorithm Implementation', () => {
 				status: 'validated',
 				created_at: '2024-01-01T00:00:00Z',
 			};
-			writeFileSync(TEST_SWARM_KNOWLEDGE_FILE, JSON.stringify(swarmEntry) + '\n', 'utf-8');
+			writeFileSync(
+				TEST_SWARM_KNOWLEDGE_FILE,
+				JSON.stringify(swarmEntry) + '\n',
+				'utf-8',
+			);
 
 			const context = {
 				projectName: 'test-project',
@@ -160,7 +195,11 @@ describe('Task 3.4: Relevance Scoring Algorithm Implementation', () => {
 
 			const config = createTestConfig();
 
-			const result = await readMergedKnowledge(TEST_DIR, config, context as any);
+			const result = await readMergedKnowledge(
+				TEST_DIR,
+				config,
+				context as any,
+			);
 
 			expect(result.length).toBe(1);
 			expect(result[0].relevanceScore.keywords).toBeGreaterThan(0);
@@ -180,7 +219,11 @@ describe('Task 3.4: Relevance Scoring Algorithm Implementation', () => {
 				status: 'validated',
 				created_at: '2024-01-01T00:00:00Z',
 			};
-			writeFileSync(TEST_SWARM_KNOWLEDGE_FILE, JSON.stringify(swarmEntry) + '\n', 'utf-8');
+			writeFileSync(
+				TEST_SWARM_KNOWLEDGE_FILE,
+				JSON.stringify(swarmEntry) + '\n',
+				'utf-8',
+			);
 
 			const context = {
 				projectName: 'test-project',
@@ -189,7 +232,11 @@ describe('Task 3.4: Relevance Scoring Algorithm Implementation', () => {
 
 			const config = createTestConfig();
 
-			const result = await readMergedKnowledge(TEST_DIR, config, context as any);
+			const result = await readMergedKnowledge(
+				TEST_DIR,
+				config,
+				context as any,
+			);
 
 			expect(result.length).toBe(1);
 			expect(result[0].relevanceScore.category).toBe(1.0);
@@ -206,7 +253,11 @@ describe('Task 3.4: Relevance Scoring Algorithm Implementation', () => {
 				status: 'validated',
 				created_at: '2024-01-01T00:00:00Z',
 			};
-			writeFileSync(TEST_SWARM_KNOWLEDGE_FILE, JSON.stringify(swarmEntry) + '\n', 'utf-8');
+			writeFileSync(
+				TEST_SWARM_KNOWLEDGE_FILE,
+				JSON.stringify(swarmEntry) + '\n',
+				'utf-8',
+			);
 
 			const context = {
 				projectName: 'test-project',
@@ -215,7 +266,11 @@ describe('Task 3.4: Relevance Scoring Algorithm Implementation', () => {
 
 			const config = createTestConfig();
 
-			const result = await readMergedKnowledge(TEST_DIR, config, context as any);
+			const result = await readMergedKnowledge(
+				TEST_DIR,
+				config,
+				context as any,
+			);
 
 			expect(result.length).toBe(1);
 			expect(result[0].relevanceScore.category).toBe(1.0);
@@ -232,7 +287,11 @@ describe('Task 3.4: Relevance Scoring Algorithm Implementation', () => {
 				status: 'validated',
 				created_at: '2024-01-01T00:00:00Z',
 			};
-			writeFileSync(TEST_SWARM_KNOWLEDGE_FILE, JSON.stringify(swarmEntry) + '\n', 'utf-8');
+			writeFileSync(
+				TEST_SWARM_KNOWLEDGE_FILE,
+				JSON.stringify(swarmEntry) + '\n',
+				'utf-8',
+			);
 
 			const context = {
 				projectName: 'test-project',
@@ -241,7 +300,11 @@ describe('Task 3.4: Relevance Scoring Algorithm Implementation', () => {
 
 			const config = createTestConfig();
 
-			const result = await readMergedKnowledge(TEST_DIR, config, context as any);
+			const result = await readMergedKnowledge(
+				TEST_DIR,
+				config,
+				context as any,
+			);
 
 			expect(result.length).toBe(1);
 			expect(result[0].relevanceScore.category).toBe(0.5);
@@ -258,7 +321,11 @@ describe('Task 3.4: Relevance Scoring Algorithm Implementation', () => {
 				status: 'validated',
 				created_at: '2024-01-01T00:00:00Z',
 			};
-			writeFileSync(TEST_SWARM_KNOWLEDGE_FILE, JSON.stringify(swarmEntry) + '\n', 'utf-8');
+			writeFileSync(
+				TEST_SWARM_KNOWLEDGE_FILE,
+				JSON.stringify(swarmEntry) + '\n',
+				'utf-8',
+			);
 
 			const context = {
 				projectName: 'test-project',
@@ -266,7 +333,11 @@ describe('Task 3.4: Relevance Scoring Algorithm Implementation', () => {
 
 			const config = createTestConfig();
 
-			const result = await readMergedKnowledge(TEST_DIR, config, context as any);
+			const result = await readMergedKnowledge(
+				TEST_DIR,
+				config,
+				context as any,
+			);
 
 			expect(result.length).toBe(1);
 			expect(result[0].relevanceScore.category).toBe(0.5);
@@ -283,7 +354,11 @@ describe('Task 3.4: Relevance Scoring Algorithm Implementation', () => {
 				status: 'validated',
 				created_at: '2024-01-01T00:00:00Z',
 			};
-			writeFileSync(TEST_SWARM_KNOWLEDGE_FILE, JSON.stringify(swarmEntry) + '\n', 'utf-8');
+			writeFileSync(
+				TEST_SWARM_KNOWLEDGE_FILE,
+				JSON.stringify(swarmEntry) + '\n',
+				'utf-8',
+			);
 
 			const context = {
 				projectName: 'test-project',
@@ -292,7 +367,11 @@ describe('Task 3.4: Relevance Scoring Algorithm Implementation', () => {
 
 			const config = createTestConfig();
 
-			const result = await readMergedKnowledge(TEST_DIR, config, context as any);
+			const result = await readMergedKnowledge(
+				TEST_DIR,
+				config,
+				context as any,
+			);
 
 			expect(result.length).toBe(1);
 			// When phase context exists and category doesn't match (and isn't 'process'), score is 0
@@ -312,7 +391,11 @@ describe('Task 3.4: Relevance Scoring Algorithm Implementation', () => {
 				status: 'validated',
 				created_at: '2024-01-01T00:00:00Z',
 			};
-			writeFileSync(TEST_SWARM_KNOWLEDGE_FILE, JSON.stringify(swarmEntry) + '\n', 'utf-8');
+			writeFileSync(
+				TEST_SWARM_KNOWLEDGE_FILE,
+				JSON.stringify(swarmEntry) + '\n',
+				'utf-8',
+			);
 
 			const context = {
 				projectName: 'test-project',
@@ -320,7 +403,11 @@ describe('Task 3.4: Relevance Scoring Algorithm Implementation', () => {
 
 			const config = createTestConfig();
 
-			const result = await readMergedKnowledge(TEST_DIR, config, context as any);
+			const result = await readMergedKnowledge(
+				TEST_DIR,
+				config,
+				context as any,
+			);
 
 			expect(result.length).toBe(1);
 			expect(result[0].relevanceScore.confidence).toBe(1.0);
@@ -337,7 +424,11 @@ describe('Task 3.4: Relevance Scoring Algorithm Implementation', () => {
 				status: 'validated',
 				created_at: '2024-01-01T00:00:00Z',
 			};
-			writeFileSync(TEST_SWARM_KNOWLEDGE_FILE, JSON.stringify(swarmEntry) + '\n', 'utf-8');
+			writeFileSync(
+				TEST_SWARM_KNOWLEDGE_FILE,
+				JSON.stringify(swarmEntry) + '\n',
+				'utf-8',
+			);
 
 			const context = {
 				projectName: 'test-project',
@@ -345,7 +436,11 @@ describe('Task 3.4: Relevance Scoring Algorithm Implementation', () => {
 
 			const config = createTestConfig();
 
-			const result = await readMergedKnowledge(TEST_DIR, config, context as any);
+			const result = await readMergedKnowledge(
+				TEST_DIR,
+				config,
+				context as any,
+			);
 
 			expect(result.length).toBe(1);
 			expect(result[0].relevanceScore.confidence).toBe(0.5);
@@ -362,7 +457,11 @@ describe('Task 3.4: Relevance Scoring Algorithm Implementation', () => {
 				status: 'validated',
 				created_at: '2024-01-01T00:00:00Z',
 			};
-			writeFileSync(TEST_SWARM_KNOWLEDGE_FILE, JSON.stringify(swarmEntry) + '\n', 'utf-8');
+			writeFileSync(
+				TEST_SWARM_KNOWLEDGE_FILE,
+				JSON.stringify(swarmEntry) + '\n',
+				'utf-8',
+			);
 
 			const context = {
 				projectName: 'test-project',
@@ -370,7 +469,11 @@ describe('Task 3.4: Relevance Scoring Algorithm Implementation', () => {
 
 			const config = createTestConfig();
 
-			const result = await readMergedKnowledge(TEST_DIR, config, context as any);
+			const result = await readMergedKnowledge(
+				TEST_DIR,
+				config,
+				context as any,
+			);
 
 			expect(result.length).toBe(1);
 			expect(result[0].relevanceScore.confidence).toBe(0.0);
@@ -389,7 +492,11 @@ describe('Task 3.4: Relevance Scoring Algorithm Implementation', () => {
 				status: 'validated',
 				created_at: '2024-01-01T00:00:00Z',
 			};
-			writeFileSync(TEST_SWARM_KNOWLEDGE_FILE, JSON.stringify(swarmEntry) + '\n', 'utf-8');
+			writeFileSync(
+				TEST_SWARM_KNOWLEDGE_FILE,
+				JSON.stringify(swarmEntry) + '\n',
+				'utf-8',
+			);
 
 			const context = {
 				projectName: 'test-project',
@@ -398,7 +505,11 @@ describe('Task 3.4: Relevance Scoring Algorithm Implementation', () => {
 
 			const config = createTestConfig();
 
-			const result = await readMergedKnowledge(TEST_DIR, config, context as any);
+			const result = await readMergedKnowledge(
+				TEST_DIR,
+				config,
+				context as any,
+			);
 
 			expect(result.length).toBe(1);
 			expect(result[0].relevanceScore.keywords).toBe(1.0);
@@ -415,7 +526,11 @@ describe('Task 3.4: Relevance Scoring Algorithm Implementation', () => {
 				status: 'validated',
 				created_at: '2024-01-01T00:00:00Z',
 			};
-			writeFileSync(TEST_SWARM_KNOWLEDGE_FILE, JSON.stringify(swarmEntry) + '\n', 'utf-8');
+			writeFileSync(
+				TEST_SWARM_KNOWLEDGE_FILE,
+				JSON.stringify(swarmEntry) + '\n',
+				'utf-8',
+			);
 
 			const context = {
 				projectName: 'test-project',
@@ -424,7 +539,11 @@ describe('Task 3.4: Relevance Scoring Algorithm Implementation', () => {
 
 			const config = createTestConfig();
 
-			const result = await readMergedKnowledge(TEST_DIR, config, context as any);
+			const result = await readMergedKnowledge(
+				TEST_DIR,
+				config,
+				context as any,
+			);
 
 			expect(result.length).toBe(1);
 			// 2 matching tags out of 4 = 0.5
@@ -442,7 +561,11 @@ describe('Task 3.4: Relevance Scoring Algorithm Implementation', () => {
 				status: 'validated',
 				created_at: '2024-01-01T00:00:00Z',
 			};
-			writeFileSync(TEST_SWARM_KNOWLEDGE_FILE, JSON.stringify(swarmEntry) + '\n', 'utf-8');
+			writeFileSync(
+				TEST_SWARM_KNOWLEDGE_FILE,
+				JSON.stringify(swarmEntry) + '\n',
+				'utf-8',
+			);
 
 			const context = {
 				projectName: 'test-project',
@@ -451,7 +574,11 @@ describe('Task 3.4: Relevance Scoring Algorithm Implementation', () => {
 
 			const config = createTestConfig();
 
-			const result = await readMergedKnowledge(TEST_DIR, config, context as any);
+			const result = await readMergedKnowledge(
+				TEST_DIR,
+				config,
+				context as any,
+			);
 
 			expect(result.length).toBe(1);
 			expect(result[0].relevanceScore.keywords).toBe(0.0);
@@ -468,7 +595,11 @@ describe('Task 3.4: Relevance Scoring Algorithm Implementation', () => {
 				status: 'validated',
 				created_at: '2024-01-01T00:00:00Z',
 			};
-			writeFileSync(TEST_SWARM_KNOWLEDGE_FILE, JSON.stringify(swarmEntry) + '\n', 'utf-8');
+			writeFileSync(
+				TEST_SWARM_KNOWLEDGE_FILE,
+				JSON.stringify(swarmEntry) + '\n',
+				'utf-8',
+			);
 
 			const context = {
 				projectName: 'test-project',
@@ -477,7 +608,11 @@ describe('Task 3.4: Relevance Scoring Algorithm Implementation', () => {
 
 			const config = createTestConfig();
 
-			const result = await readMergedKnowledge(TEST_DIR, config, context as any);
+			const result = await readMergedKnowledge(
+				TEST_DIR,
+				config,
+				context as any,
+			);
 
 			expect(result.length).toBe(1);
 			expect(result[0].relevanceScore.keywords).toBe(1.0);
@@ -494,7 +629,11 @@ describe('Task 3.4: Relevance Scoring Algorithm Implementation', () => {
 				status: 'validated',
 				created_at: '2024-01-01T00:00:00Z',
 			};
-			writeFileSync(TEST_SWARM_KNOWLEDGE_FILE, JSON.stringify(swarmEntry) + '\n', 'utf-8');
+			writeFileSync(
+				TEST_SWARM_KNOWLEDGE_FILE,
+				JSON.stringify(swarmEntry) + '\n',
+				'utf-8',
+			);
 
 			const context = {
 				projectName: 'test-project',
@@ -503,7 +642,11 @@ describe('Task 3.4: Relevance Scoring Algorithm Implementation', () => {
 
 			const config = createTestConfig();
 
-			const result = await readMergedKnowledge(TEST_DIR, config, context as any);
+			const result = await readMergedKnowledge(
+				TEST_DIR,
+				config,
+				context as any,
+			);
 
 			expect(result.length).toBe(1);
 			expect(result[0].relevanceScore.keywords).toBe(0.5);
@@ -520,7 +663,11 @@ describe('Task 3.4: Relevance Scoring Algorithm Implementation', () => {
 				status: 'validated',
 				created_at: '2024-01-01T00:00:00Z',
 			};
-			writeFileSync(TEST_SWARM_KNOWLEDGE_FILE, JSON.stringify(swarmEntry) + '\n', 'utf-8');
+			writeFileSync(
+				TEST_SWARM_KNOWLEDGE_FILE,
+				JSON.stringify(swarmEntry) + '\n',
+				'utf-8',
+			);
 
 			const context = {
 				projectName: 'test-project',
@@ -529,7 +676,11 @@ describe('Task 3.4: Relevance Scoring Algorithm Implementation', () => {
 
 			const config = createTestConfig();
 
-			const result = await readMergedKnowledge(TEST_DIR, config, context as any);
+			const result = await readMergedKnowledge(
+				TEST_DIR,
+				config,
+				context as any,
+			);
 
 			expect(result.length).toBe(1);
 			// Both tags should match due to substring logic
@@ -561,7 +712,8 @@ describe('Task 3.4: Relevance Scoring Algorithm Implementation', () => {
 				created_at: '2024-12-01T00:00:00Z',
 			};
 
-			const content = JSON.stringify(olderEntry) + '\n' + JSON.stringify(newerEntry) + '\n';
+			const content =
+				JSON.stringify(olderEntry) + '\n' + JSON.stringify(newerEntry) + '\n';
 			writeFileSync(TEST_SWARM_KNOWLEDGE_FILE, content, 'utf-8');
 
 			const context = {
@@ -570,7 +722,11 @@ describe('Task 3.4: Relevance Scoring Algorithm Implementation', () => {
 
 			const config = createTestConfig();
 
-			const result = await readMergedKnowledge(TEST_DIR, config, context as any);
+			const result = await readMergedKnowledge(
+				TEST_DIR,
+				config,
+				context as any,
+			);
 
 			expect(result.length).toBe(2);
 			// Both entries should have identical scores
@@ -603,7 +759,11 @@ describe('Task 3.4: Relevance Scoring Algorithm Implementation', () => {
 				created_at: '2024-01-01T00:00:00Z',
 			};
 
-			const content = JSON.stringify(lowerScoreEntry) + '\n' + JSON.stringify(higherScoreEntry) + '\n';
+			const content =
+				JSON.stringify(lowerScoreEntry) +
+				'\n' +
+				JSON.stringify(higherScoreEntry) +
+				'\n';
 			writeFileSync(TEST_SWARM_KNOWLEDGE_FILE, content, 'utf-8');
 
 			const context = {
@@ -612,7 +772,11 @@ describe('Task 3.4: Relevance Scoring Algorithm Implementation', () => {
 
 			const config = createTestConfig();
 
-			const result = await readMergedKnowledge(TEST_DIR, config, context as any);
+			const result = await readMergedKnowledge(
+				TEST_DIR,
+				config,
+				context as any,
+			);
 
 			expect(result.length).toBe(2);
 			// Higher score should come first regardless of age
@@ -644,7 +808,8 @@ describe('Task 3.4: Relevance Scoring Algorithm Implementation', () => {
 				created_at: '2024-12-01T00:00:00Z',
 			};
 
-			const content = JSON.stringify(olderEntry) + '\n' + JSON.stringify(newerEntry) + '\n';
+			const content =
+				JSON.stringify(olderEntry) + '\n' + JSON.stringify(newerEntry) + '\n';
 			writeFileSync(TEST_SWARM_KNOWLEDGE_FILE, content, 'utf-8');
 
 			const context = {
@@ -653,11 +818,17 @@ describe('Task 3.4: Relevance Scoring Algorithm Implementation', () => {
 
 			const config = createTestConfig();
 
-			const result = await readMergedKnowledge(TEST_DIR, config, context as any);
+			const result = await readMergedKnowledge(
+				TEST_DIR,
+				config,
+				context as any,
+			);
 
 			expect(result.length).toBe(2);
 			// Scores should be identical (within 0.001)
-			expect(Math.abs(result[0].finalScore - result[1].finalScore)).toBeLessThanOrEqual(0.001);
+			expect(
+				Math.abs(result[0].finalScore - result[1].finalScore),
+			).toBeLessThanOrEqual(0.001);
 			// Newer entry should come first due to tiebreaker
 			expect(result[0].id).toBe('swarm-newer-001');
 		});
@@ -675,7 +846,11 @@ describe('Task 3.4: Relevance Scoring Algorithm Implementation', () => {
 				status: 'validated',
 				created_at: '2024-01-01T00:00:00Z',
 			};
-			writeFileSync(TEST_SWARM_KNOWLEDGE_FILE, JSON.stringify(swarmEntry) + '\n', 'utf-8');
+			writeFileSync(
+				TEST_SWARM_KNOWLEDGE_FILE,
+				JSON.stringify(swarmEntry) + '\n',
+				'utf-8',
+			);
 
 			const context = {
 				projectName: 'test-project',
@@ -685,7 +860,11 @@ describe('Task 3.4: Relevance Scoring Algorithm Implementation', () => {
 
 			const config = createTestConfig();
 
-			const result = await readMergedKnowledge(TEST_DIR, config, context as any);
+			const result = await readMergedKnowledge(
+				TEST_DIR,
+				config,
+				context as any,
+			);
 
 			expect(result.length).toBe(1);
 			// Score should be clamped to 1.0
@@ -704,7 +883,11 @@ describe('Task 3.4: Relevance Scoring Algorithm Implementation', () => {
 				status: 'validated',
 				created_at: '2024-01-01T00:00:00Z',
 			};
-			writeFileSync(TEST_SWARM_KNOWLEDGE_FILE, JSON.stringify(swarmEntry) + '\n', 'utf-8');
+			writeFileSync(
+				TEST_SWARM_KNOWLEDGE_FILE,
+				JSON.stringify(swarmEntry) + '\n',
+				'utf-8',
+			);
 
 			const context = {
 				projectName: 'test-project',
@@ -714,7 +897,11 @@ describe('Task 3.4: Relevance Scoring Algorithm Implementation', () => {
 
 			const config = createTestConfig();
 
-			const result = await readMergedKnowledge(TEST_DIR, config, context as any);
+			const result = await readMergedKnowledge(
+				TEST_DIR,
+				config,
+				context as any,
+			);
 
 			expect(result.length).toBe(1);
 			// Score should be clamped to at least 0.0
@@ -732,7 +919,11 @@ describe('Task 3.4: Relevance Scoring Algorithm Implementation', () => {
 				status: 'validated',
 				created_at: '2024-01-01T00:00:00Z',
 			};
-			writeFileSync(TEST_SWARM_KNOWLEDGE_FILE, JSON.stringify(swarmEntry) + '\n', 'utf-8');
+			writeFileSync(
+				TEST_SWARM_KNOWLEDGE_FILE,
+				JSON.stringify(swarmEntry) + '\n',
+				'utf-8',
+			);
 
 			const context = {
 				projectName: 'test-project',
@@ -741,7 +932,11 @@ describe('Task 3.4: Relevance Scoring Algorithm Implementation', () => {
 
 			const config = createTestConfig();
 
-			const result = await readMergedKnowledge(TEST_DIR, config, context as any);
+			const result = await readMergedKnowledge(
+				TEST_DIR,
+				config,
+				context as any,
+			);
 
 			expect(result.length).toBe(1);
 			// Score should be within 0-1 range
@@ -796,7 +991,11 @@ describe('Task 3.4: Relevance Scoring Algorithm Implementation', () => {
 
 			const config = createTestConfig();
 
-			const result = await readMergedKnowledge(TEST_DIR, config, context as any);
+			const result = await readMergedKnowledge(
+				TEST_DIR,
+				config,
+				context as any,
+			);
 
 			expect(result.length).toBe(3);
 			// Entries should be sorted by finalScore descending
@@ -818,7 +1017,11 @@ describe('Task 3.4: Relevance Scoring Algorithm Implementation', () => {
 				status: 'validated',
 				created_at: '2024-01-01T00:00:00Z',
 			};
-			writeFileSync(TEST_SWARM_KNOWLEDGE_FILE, JSON.stringify(swarmEntry) + '\n', 'utf-8');
+			writeFileSync(
+				TEST_SWARM_KNOWLEDGE_FILE,
+				JSON.stringify(swarmEntry) + '\n',
+				'utf-8',
+			);
 
 			const context = {
 				projectName: 'test-project',
@@ -826,7 +1029,11 @@ describe('Task 3.4: Relevance Scoring Algorithm Implementation', () => {
 
 			const config = createTestConfig();
 
-			const result = await readMergedKnowledge(TEST_DIR, config, context as any);
+			const result = await readMergedKnowledge(
+				TEST_DIR,
+				config,
+				context as any,
+			);
 
 			// Verify swarm entry structure
 			expect(result.length).toBe(1);

@@ -10,18 +10,18 @@
  * 5. STATE CORRUPTION - invalid phases, NaN/Infinity, negative values
  */
 
-import { describe, test, expect, beforeEach, afterEach } from 'bun:test';
+import { afterEach, beforeEach, describe, expect, test } from 'bun:test';
 import * as fs from 'fs';
-import * as path from 'path';
-import { mkdtempSync, rmSync, writeFileSync, mkdirSync } from 'fs';
+import { mkdirSync, mkdtempSync, rmSync, writeFileSync } from 'fs';
 import { tmpdir } from 'os';
+import * as path from 'path';
+import { resetGlobalEventBus } from '../../src/background/event-bus';
+import { AutomationStatusArtifact } from '../../src/background/status-artifact';
 import {
+	type PhaseBoundaryResult,
 	PhaseBoundaryTrigger,
 	PreflightTriggerManager,
-	type PhaseBoundaryResult,
 } from '../../src/background/trigger';
-import { AutomationStatusArtifact } from '../../src/background/status-artifact';
-import { resetGlobalEventBus } from '../../src/background/event-bus';
 
 // Helper to create enabled config
 function createEnabledConfig(mode: 'hybrid' | 'auto' = 'hybrid') {
@@ -180,7 +180,10 @@ describe('ATTACK: Malformed Artifacts', () => {
 	describe('corrupted JSON attacks', () => {
 		test('should handle completely corrupted JSON file', () => {
 			// Write garbage to file
-			writeFileSync(path.join(tempDir, 'automation-status.json'), 'not json at all {{{');
+			writeFileSync(
+				path.join(tempDir, 'automation-status.json'),
+				'not json at all {{{',
+			);
 
 			// Should create new default snapshot without crashing
 			artifact = new AutomationStatusArtifact(tempDir);
@@ -372,9 +375,9 @@ describe('ATTACK: Path/Filename Abuse', () => {
 
 		test('SECURE: null byte in filename is rejected at constructor', () => {
 			// SECURE BEHAVIOR: Validation rejects null bytes at constructor
-			expect(() => new AutomationStatusArtifact(tempDir, 'status\x00.json')).toThrow(
-				/Invalid filename.*null byte/,
-			);
+			expect(
+				() => new AutomationStatusArtifact(tempDir, 'status\x00.json'),
+			).toThrow(/Invalid filename.*null byte/);
 		});
 	});
 
@@ -382,9 +385,9 @@ describe('ATTACK: Path/Filename Abuse', () => {
 		test('SECURE: unicode in filename is rejected at constructor', () => {
 			// SECURE BEHAVIOR: Unicode characters are rejected at constructor
 			// Only alphanumeric, dots, underscores, and hyphens are allowed
-			expect(() => new AutomationStatusArtifact(tempDir, '状态-🎉.json')).toThrow(
-				/Invalid filename.*unsafe characters/,
-			);
+			expect(
+				() => new AutomationStatusArtifact(tempDir, '状态-🎉.json'),
+			).toThrow(/Invalid filename.*unsafe characters/);
 		});
 
 		test('SECURE: extremely long filename is rejected at constructor', () => {
@@ -409,12 +412,12 @@ describe('ATTACK: Path/Filename Abuse', () => {
 		test('SECURE: path separators in filename are rejected at constructor', () => {
 			// Forward slash and backslash in filename
 			// SECURE BEHAVIOR: Path separators are rejected at constructor
-			expect(() => new AutomationStatusArtifact(tempDir, 'sub/status.json')).toThrow(
-				/Invalid filename.*path separator/,
-			);
-			expect(() => new AutomationStatusArtifact(tempDir, 'sub\\status.json')).toThrow(
-				/Invalid filename.*path separator/,
-			);
+			expect(
+				() => new AutomationStatusArtifact(tempDir, 'sub/status.json'),
+			).toThrow(/Invalid filename.*path separator/);
+			expect(
+				() => new AutomationStatusArtifact(tempDir, 'sub\\status.json'),
+			).toThrow(/Invalid filename.*path separator/);
 		});
 	});
 
@@ -629,7 +632,9 @@ describe('ATTACK: State Corruption Inputs', () => {
 		});
 
 		test('should handle very large pending actions', () => {
-			expect(() => artifact.updatePendingActions(Number.MAX_SAFE_INTEGER)).not.toThrow();
+			expect(() =>
+				artifact.updatePendingActions(Number.MAX_SAFE_INTEGER),
+			).not.toThrow();
 		});
 
 		test('should handle invalid outcome states', () => {
@@ -643,7 +648,9 @@ describe('ATTACK: State Corruption Inputs', () => {
 
 		test('should handle null/undefined in recordTrigger params', () => {
 			// @ts-expect-error - intentionally passing invalid values
-			expect(() => artifact.recordTrigger(null, null, null, null)).not.toThrow();
+			expect(() =>
+				artifact.recordTrigger(null, null, null, null),
+			).not.toThrow();
 		});
 	});
 
@@ -730,7 +737,10 @@ describe('ATTACK: Combined Integration Attacks', () => {
 
 	test('should handle rapid create/destroy cycles', () => {
 		for (let i = 0; i < 100; i++) {
-			const tempArtifact = new AutomationStatusArtifact(tempDir, `status-${i}.json`);
+			const tempArtifact = new AutomationStatusArtifact(
+				tempDir,
+				`status-${i}.json`,
+			);
 			tempArtifact.updatePhase(i);
 		}
 
@@ -774,17 +784,24 @@ describe('SECURITY FINDINGS: Task 5.5', () => {
 				prototypePollution: 'MITIGATED - no pollution detected',
 			},
 			pathFilenameAbuse: {
-				traversal: 'SECURE - rejected at constructor with path separator validation',
-				absolutePathInFilename: 'SECURE - rejected at constructor (contains path separator)',
+				traversal:
+					'SECURE - rejected at constructor with path separator validation',
+				absolutePathInFilename:
+					'SECURE - rejected at constructor (contains path separator)',
 				nullBytes: 'SECURE - rejected at constructor with null byte validation',
-				specialChars: 'SECURE - rejected at constructor with safe character pattern',
-				longFilenames: 'SECURE - rejected at constructor with length validation (max 255)',
-				pathSeparators: 'SECURE - rejected at constructor with path separator validation',
+				specialChars:
+					'SECURE - rejected at constructor with safe character pattern',
+				longFilenames:
+					'SECURE - rejected at constructor with length validation (max 255)',
+				pathSeparators:
+					'SECURE - rejected at constructor with path separator validation',
 			},
 			queueFlooding: {
 				sizeLimit: 'MITIGATED - maxSize of 100 enforced',
-				overflowBehavior: 'SECURE - returns false gracefully when queue is full',
-				concurrentFlood: 'SECURE - returns false gracefully for concurrent overflow',
+				overflowBehavior:
+					'SECURE - returns false gracefully when queue is full',
+				concurrentFlood:
+					'SECURE - returns false gracefully for concurrent overflow',
 			},
 			stateCorruption: {
 				negativePhases: 'HANDLED - treated as numbers (consider validation)',

@@ -1,7 +1,11 @@
-import { describe, expect, test, beforeEach, afterEach } from 'bun:test';
-import { createGuardrailsHooks } from '../../../src/hooks/guardrails';
-import { resetSwarmState, ensureAgentSession, swarmState } from '../../../src/state';
+import { afterEach, beforeEach, describe, expect, test } from 'bun:test';
 import type { GuardrailsConfig } from '../../../src/config/schema';
+import { createGuardrailsHooks } from '../../../src/hooks/guardrails';
+import {
+	ensureAgentSession,
+	resetSwarmState,
+	swarmState,
+} from '../../../src/state';
 
 const TEST_DIR = '/test/project';
 
@@ -14,7 +18,13 @@ const defaultConfig: GuardrailsConfig = {
 	warning_threshold: 0.75,
 	idle_timeout_minutes: 60,
 	qa_gates: {
-		required_tools: ['diff', 'syntax_check', 'placeholder_scan', 'lint', 'pre_check_batch'],
+		required_tools: [
+			'diff',
+			'syntax_check',
+			'placeholder_scan',
+			'lint',
+			'pre_check_batch',
+		],
 		require_reviewer_test_engineer: true,
 	},
 };
@@ -403,7 +413,11 @@ describe('guardrails model fallback retry logic (toolAfter)', () => {
 	// Test 15: Session doesn't exist → no crash
 	// -------------------------------------------------------------------------
 	test('toolAfter with non-existent session → no crash', async () => {
-		const input = { tool: 'bash', sessionID: 'non-existent-session', callID: 'call-1' };
+		const input = {
+			tool: 'bash',
+			sessionID: 'non-existent-session',
+			callID: 'call-1',
+		};
 		const output = {
 			title: 'bash',
 			output: null,
@@ -504,7 +518,12 @@ describe('guardrails model fallback retry logic (toolAfter)', () => {
 
 		// First transient error
 		const input1 = { tool: 'bash', sessionID: sessionId, callID: 'call-1' };
-		const output1 = { title: 'bash', output: null, error: 'rate limit', metadata: {} };
+		const output1 = {
+			title: 'bash',
+			output: null,
+			error: 'rate limit',
+			metadata: {},
+		};
 		await hooks.toolAfter(input1 as any, output1 as any);
 		expect(session.model_fallback_index).toBe(1);
 
@@ -517,7 +536,12 @@ describe('guardrails model fallback retry logic (toolAfter)', () => {
 
 		// Another transient error should increment from 0
 		const input3 = { tool: 'bash', sessionID: sessionId, callID: 'call-3' };
-		const output3 = { title: 'bash', output: null, error: 'timeout', metadata: {} };
+		const output3 = {
+			title: 'bash',
+			output: null,
+			error: 'timeout',
+			metadata: {},
+		};
 		await hooks.toolAfter(input3 as any, output3 as any);
 		expect(session.model_fallback_index).toBe(1); // Back to 1, not 2
 	});

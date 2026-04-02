@@ -11,10 +11,14 @@
  * - Regression: batch detection still works
  */
 
-import { describe, it, expect, afterEach, beforeEach } from 'bun:test';
-import { createDelegationGateHook } from '../../../src/hooks/delegation-gate';
-import { swarmState, resetSwarmState, ensureAgentSession } from '../../../src/state';
+import { afterEach, beforeEach, describe, expect, it } from 'bun:test';
 import type { PluginConfig } from '../../../src/config';
+import { createDelegationGateHook } from '../../../src/hooks/delegation-gate';
+import {
+	ensureAgentSession,
+	resetSwarmState,
+	swarmState,
+} from '../../../src/state';
 
 function makeConfig(overrides?: Record<string, unknown>): PluginConfig {
 	return {
@@ -34,12 +38,18 @@ function makeConfig(overrides?: Record<string, unknown>): PluginConfig {
 	} as PluginConfig;
 }
 
-function makeMessages(text: string, agent?: string, sessionID = 'test-session') {
+function makeMessages(
+	text: string,
+	agent?: string,
+	sessionID = 'test-session',
+) {
 	return {
-		messages: [{
-			info: { role: 'user' as const, agent, sessionID },
-			parts: [{ type: 'text', text }],
-		}],
+		messages: [
+			{
+				info: { role: 'user' as const, agent, sessionID },
+				parts: [{ type: 'text', text }],
+			},
+		],
 	};
 }
 
@@ -58,7 +68,10 @@ describe('Task 1.5: [NEXT] Guidance - Model-Only System Message', () => {
 			const hook = createDelegationGateHook(config);
 
 			// Architect message with no prior gate context
-			const messages = makeMessages('TASK: Implement feature X\nFILE: src/x.ts', 'architect');
+			const messages = makeMessages(
+				'TASK: Implement feature X\nFILE: src/x.ts',
+				'architect',
+			);
 
 			await hook.messagesTransform({}, messages);
 
@@ -72,7 +85,9 @@ describe('Task 1.5: [NEXT] Guidance - Model-Only System Message', () => {
 			expect(systemMessages[0].parts[0].text).toContain('[NEXT]');
 
 			// The user message should still contain original text
-			const userMessage = messages.messages.find((m) => m?.info?.role === 'user');
+			const userMessage = messages.messages.find(
+				(m) => m?.info?.role === 'user',
+			);
 			expect(userMessage?.parts[0].text).toContain('TASK: Implement feature X');
 		});
 
@@ -89,7 +104,10 @@ describe('Task 1.5: [NEXT] Guidance - Model-Only System Message', () => {
 				timestamp: Date.now(),
 			};
 
-			const messages = makeMessages('TASK: Continue with next task\nFILE: src/y.ts', 'architect');
+			const messages = makeMessages(
+				'TASK: Continue with next task\nFILE: src/y.ts',
+				'architect',
+			);
 
 			await hook.messagesTransform({}, messages);
 
@@ -116,7 +134,10 @@ describe('Task 1.5: [NEXT] Guidance - Model-Only System Message', () => {
 				timestamp: Date.now(),
 			};
 
-			const messages = makeMessages('TASK: Fix issues\nFILE: src/fix.ts', 'architect');
+			const messages = makeMessages(
+				'TASK: Fix issues\nFILE: src/fix.ts',
+				'architect',
+			);
 
 			await hook.messagesTransform({}, messages);
 
@@ -146,10 +167,16 @@ describe('Task 1.5: [NEXT] Guidance - Model-Only System Message', () => {
 
 			for (const invalidID of invalidSessionIDs) {
 				const messages = {
-					messages: [{
-						info: { role: 'user' as const, agent: 'architect', sessionID: invalidID },
-						parts: [{ type: 'text', text: 'TASK: test' }],
-					}],
+					messages: [
+						{
+							info: {
+								role: 'user' as const,
+								agent: 'architect',
+								sessionID: invalidID,
+							},
+							parts: [{ type: 'text', text: 'TASK: test' }],
+						},
+					],
 				};
 
 				// Should not throw - should skip guidance injection
@@ -176,10 +203,16 @@ describe('Task 1.5: [NEXT] Guidance - Model-Only System Message', () => {
 
 			for (const validID of validSessionIDs) {
 				const messages = {
-					messages: [{
-						info: { role: 'user' as const, agent: 'architect', sessionID: validID },
-						parts: [{ type: 'text', text: 'TASK: test' }],
-					}],
+					messages: [
+						{
+							info: {
+								role: 'user' as const,
+								agent: 'architect',
+								sessionID: validID,
+							},
+							parts: [{ type: 'text', text: 'TASK: test' }],
+						},
+					],
 				};
 
 				await hook.messagesTransform({}, messages);
@@ -201,7 +234,10 @@ describe('Task 1.5: [NEXT] Guidance - Model-Only System Message', () => {
 			const session = ensureAgentSession('test-session');
 			expect(session.lastGateOutcome).toBeNull();
 
-			const messages = makeMessages('TASK: First task\nFILE: src/a.ts', 'architect');
+			const messages = makeMessages(
+				'TASK: First task\nFILE: src/a.ts',
+				'architect',
+			);
 
 			// Should not throw
 			await hook.messagesTransform({}, messages);
@@ -221,7 +257,10 @@ describe('Task 1.5: [NEXT] Guidance - Model-Only System Message', () => {
 			const session = ensureAgentSession('test-session');
 			// lastGateOutcome starts as null, not undefined
 
-			const messages = makeMessages('TASK: Second task\nFILE: src/b.ts', 'architect');
+			const messages = makeMessages(
+				'TASK: Second task\nFILE: src/b.ts',
+				'architect',
+			);
 
 			await hook.messagesTransform({}, messages);
 
@@ -239,7 +278,10 @@ describe('Task 1.5: [NEXT] Guidance - Model-Only System Message', () => {
 			// @ts-expect-error - intentionally malformed
 			session.lastGateOutcome = { gate: 'lint' }; // Missing passed, taskId, timestamp
 
-			const messages = makeMessages('TASK: Third task\nFILE: src/c.ts', 'architect');
+			const messages = makeMessages(
+				'TASK: Third task\nFILE: src/c.ts',
+				'architect',
+			);
 
 			// Should not throw - should handle gracefully
 			await hook.messagesTransform({}, messages);
@@ -289,10 +331,7 @@ describe('Task 1.5: [NEXT] Guidance - Model-Only System Message', () => {
 			session.architectWriteCount = 1; // Architect has written files
 
 			// Message is NOT a coder delegation but has a task ID different from last coder delegation
-			const messages = makeMessages(
-				'TASK: 1.2\nFILE: src/new.ts',
-				'architect',
-			);
+			const messages = makeMessages('TASK: 1.2\nFILE: src/new.ts', 'architect');
 			// Set last coder delegation to different task
 			session.lastCoderDelegationTaskId = '1.1';
 
@@ -371,10 +410,12 @@ describe('Task 1.5: [NEXT] Guidance - Model-Only System Message', () => {
 
 			// No agent specified - should be treated as architect (main session)
 			const messages = {
-				messages: [{
-					info: { role: 'user' as const, sessionID: 'test-session' }, // No agent field
-					parts: [{ type: 'text', text: 'TASK: test\nFILE: src/t.ts' }],
-				}],
+				messages: [
+					{
+						info: { role: 'user' as const, sessionID: 'test-session' }, // No agent field
+						parts: [{ type: 'text', text: 'TASK: test\nFILE: src/t.ts' }],
+					},
+				],
 			};
 
 			await hook.messagesTransform({}, messages);
@@ -401,8 +442,12 @@ describe('Task 1.5: [NEXT] Guidance - Model-Only System Message', () => {
 			await hook.messagesTransform({}, messages2);
 
 			// Batch warning is injected as a system message (not prepended to user message text)
-			const systemMessages = messages2.messages.filter((m) => m?.info?.role === 'system');
-			const systemText = systemMessages.map((m) => m.parts?.[0]?.text ?? '').join('\n');
+			const systemMessages = messages2.messages.filter(
+				(m) => m?.info?.role === 'system',
+			);
+			const systemText = systemMessages
+				.map((m) => m.parts?.[0]?.text ?? '')
+				.join('\n');
 			expect(systemText).toContain('BATCH DETECTED');
 			expect(systemText).toContain('and also');
 		});
@@ -412,17 +457,32 @@ describe('Task 1.5: [NEXT] Guidance - Model-Only System Message', () => {
 			const hook = createDelegationGateHook(config);
 
 			const messages = {
-				messages: [{
-					info: { role: 'user' as const, agent: 'architect', sessionID: 'test-session' },
-					parts: [{ type: 'text', text: 'coder\nTASK: Fix both\nFILE: a.ts\nFILE: b.ts' }],
-				}],
+				messages: [
+					{
+						info: {
+							role: 'user' as const,
+							agent: 'architect',
+							sessionID: 'test-session',
+						},
+						parts: [
+							{
+								type: 'text',
+								text: 'coder\nTASK: Fix both\nFILE: a.ts\nFILE: b.ts',
+							},
+						],
+					},
+				],
 			};
 
 			await hook.messagesTransform({}, messages);
 
 			// Batch warning is injected as a system message (not into user message text)
-			const systemMessages = messages.messages.filter((m) => m?.info?.role === 'system');
-			const systemText = systemMessages.map((m) => m.parts?.[0]?.text ?? '').join('\n');
+			const systemMessages = messages.messages.filter(
+				(m) => m?.info?.role === 'system',
+			);
+			const systemText = systemMessages
+				.map((m) => m.parts?.[0]?.text ?? '')
+				.join('\n');
 			expect(systemText).toContain('Multiple FILE: directives');
 		});
 	});
@@ -432,7 +492,8 @@ describe('Task 1.5: [NEXT] Guidance - Model-Only System Message', () => {
 			const config = makeConfig();
 			const hook = createDelegationGateHook(config);
 
-			const originalText = 'coder\nTASK: Implement login\nFILE: src/auth/login.ts\nACCEPTANCE: User can log in';
+			const originalText =
+				'coder\nTASK: Implement login\nFILE: src/auth/login.ts\nACCEPTANCE: User can log in';
 			const messages = makeMessages(originalText, 'architect');
 
 			await hook.messagesTransform({}, messages);
@@ -445,7 +506,9 @@ describe('Task 1.5: [NEXT] Guidance - Model-Only System Message', () => {
 			expect(userMessage).toBeDefined();
 			expect(userMessage?.parts[0].text).toContain('TASK: Implement login');
 			expect(userMessage?.parts[0].text).toContain('FILE: src/auth/login.ts');
-			expect(userMessage?.parts[0].text).toContain('ACCEPTANCE: User can log in');
+			expect(userMessage?.parts[0].text).toContain(
+				'ACCEPTANCE: User can log in',
+			);
 		});
 
 		it('should not replace user message text with [NEXT] guidance', async () => {
@@ -473,7 +536,10 @@ describe('Task 1.5: [NEXT] Guidance - Model-Only System Message', () => {
 			const config = makeConfig();
 			const hook = createDelegationGateHook(config);
 
-			const messages = makeMessages('TASK: test\nFILE: src/test.ts', 'architect');
+			const messages = makeMessages(
+				'TASK: test\nFILE: src/test.ts',
+				'architect',
+			);
 
 			await hook.messagesTransform({}, messages);
 

@@ -3,17 +3,17 @@
  * Tests extractDocConstraints and doc_extract tool
  */
 
-import { describe, it, expect, beforeEach, afterEach } from 'bun:test';
+import { afterEach, beforeEach, describe, expect, it } from 'bun:test';
 import * as fs from 'node:fs';
 import * as os from 'node:os';
 import * as path from 'node:path';
-import {
-	extractDocConstraints,
-	doc_extract,
-	scanDocIndex,
-} from '../../../src/tools/doc-scan';
 import { readKnowledge } from '../../../src/hooks/knowledge-store';
 import type { SwarmKnowledgeEntry } from '../../../src/hooks/knowledge-types';
+import {
+	doc_extract,
+	extractDocConstraints,
+	scanDocIndex,
+} from '../../../src/tools/doc-scan';
 
 // Helper to create temp test directories
 function createTempDir(): string {
@@ -21,7 +21,11 @@ function createTempDir(): string {
 }
 
 // Helper to create test markdown files with forward-slash paths
-function createTestFile(dir: string, filename: string, content: string): string {
+function createTestFile(
+	dir: string,
+	filename: string,
+	content: string,
+): string {
 	const relativePath = filename.replace(/\\/g, '/');
 	const parts = relativePath.split('/');
 	let currentDir = dir;
@@ -39,7 +43,9 @@ function createTestFile(dir: string, filename: string, content: string): string 
 }
 
 // Helper to parse knowledge.jsonl entries
-async function readKnowledgeEntries(dir: string): Promise<SwarmKnowledgeEntry[]> {
+async function readKnowledgeEntries(
+	dir: string,
+): Promise<SwarmKnowledgeEntry[]> {
 	const knowledgePath = path.join(dir, '.swarm', 'knowledge.jsonl');
 	return readKnowledge<SwarmKnowledgeEntry>(knowledgePath);
 }
@@ -69,12 +75,16 @@ describe('doc-scan extract constraints tests', () => {
 	describe('basic extraction', () => {
 		it('should extract MUST constraint from CONTRIBUTING.md', async () => {
 			// Create CONTRIBUTING.md with a MUST constraint
-			createTestFile(tempDir, 'CONTRIBUTING.md', `# Contributing
+			createTestFile(
+				tempDir,
+				'CONTRIBUTING.md',
+				`# Contributing
 
 All commits MUST follow conventional commit format.
 
 Guidelines for contributors.
-`);
+`,
+			);
 
 			// Use task_files containing the doc path to ensure overlap
 			// Using the doc path multiple times increases Jaccard overlap
@@ -97,12 +107,16 @@ Guidelines for contributors.
 		});
 
 		it('should extract SHOULD constraint from documentation', async () => {
-			createTestFile(tempDir, 'docs/guide.md', `# Development Guide
+			createTestFile(
+				tempDir,
+				'docs/guide.md',
+				`# Development Guide
 
 You SHOULD use TypeScript for all new files.
 
 Getting started with the project.
-`);
+`,
+			);
 
 			// Use task context that overlaps with doc content
 			const result = await extractDocConstraints(
@@ -118,12 +132,16 @@ Getting started with the project.
 
 		it('should extract NEVER constraint from documentation', async () => {
 			// Use docs/guide.md because multi-word filenames create more bigram overlaps
-			createTestFile(tempDir, 'docs/guide.md', `# Development Guide
+			createTestFile(
+				tempDir,
+				'docs/guide.md',
+				`# Development Guide
 
 You NEVER should commit secrets to the repository.
 
 Security guidelines.
-`);
+`,
+			);
 
 			// Use task context that overlaps with doc content
 			const result = await extractDocConstraints(
@@ -139,12 +157,16 @@ Security guidelines.
 
 		it('should extract ALWAYS constraint from documentation', async () => {
 			// Use docs/guide.md because multi-word filenames create more bigram overlaps
-			createTestFile(tempDir, 'docs/guide.md', `# Development Guide
+			createTestFile(
+				tempDir,
+				'docs/guide.md',
+				`# Development Guide
 
 You ALWAYS must run tests before committing.
 
 Development workflow.
-`);
+`,
+			);
 
 			// Use task context that overlaps with doc content
 			const result = await extractDocConstraints(
@@ -160,12 +182,16 @@ Development workflow.
 
 		it('should extract REQUIRED constraint from documentation', async () => {
 			// Use docs/guide.md because multi-word filenames create more bigram overlaps
-			createTestFile(tempDir, 'docs/guide.md', `# Development Guide
+			createTestFile(
+				tempDir,
+				'docs/guide.md',
+				`# Development Guide
 
 REQUIRED: Update the changelog before merging.
 
 Development workflow.
-`);
+`,
+			);
 
 			// Use task context that overlaps with doc content
 			const result = await extractDocConstraints(
@@ -184,10 +210,14 @@ Development workflow.
 	describe('relevance scoring', () => {
 		it('should score doc with matching keywords above threshold', async () => {
 			// Use CLAUDE.md with constraint pattern and short summary
-			createTestFile(tempDir, 'CLAUDE.md', `# CLAUDE
+			createTestFile(
+				tempDir,
+				'CLAUDE.md',
+				`# CLAUDE
 
 You MUST follow these guidelines.
-`);
+`,
+			);
 
 			// Use task context with repeated file path to increase overlap
 			const result = await extractDocConstraints(
@@ -203,12 +233,16 @@ You MUST follow these guidelines.
 		});
 
 		it('should skip doc with no matching keywords (score <= 0.1)', async () => {
-			createTestFile(tempDir, 'UNRELATED.md', `# Random Docs
+			createTestFile(
+				tempDir,
+				'UNRELATED.md',
+				`# Random Docs
 
 This is about cooking recipes.
 
 Make sure to add salt and pepper.
-`);
+`,
+			);
 
 			// Use task context that has no overlap with cooking/recipes
 			// Only CLAUDE.md is in patterns, so UNRELATED.md won't be found
@@ -219,16 +253,22 @@ Make sure to add salt and pepper.
 			);
 
 			// UNRELATED.md should not be in manifest at all since it doesn't match doc patterns
-			const unrelatedDoc = result.details.find((d) => d.path === 'UNRELATED.md');
+			const unrelatedDoc = result.details.find(
+				(d) => d.path === 'UNRELATED.md',
+			);
 			expect(unrelatedDoc).toBeUndefined();
 		});
 
 		it('should use task_files and task_description for scoring', async () => {
 			// Use CLAUDE.md with constraint pattern and short summary
-			createTestFile(tempDir, 'CLAUDE.md', `# CLAUDE
+			createTestFile(
+				tempDir,
+				'CLAUDE.md',
+				`# CLAUDE
 
 You SHOULD follow the schema design.
-`);
+`,
+			);
 
 			// Use task context with repeated file path to increase overlap
 			const result = await extractDocConstraints(
@@ -245,12 +285,16 @@ You SHOULD follow the schema design.
 	// ============ 3. 15-char Minimum Length Tests ============
 	describe('15-char minimum length', () => {
 		it('should include constraint "use async/await" (17 chars)', async () => {
-			createTestFile(tempDir, 'docs/guide.md', `# Development Guide
+			createTestFile(
+				tempDir,
+				'docs/guide.md',
+				`# Development Guide
 
 You MUST use async/await for all async operations.
 
 Best practices.
-`);
+`,
+			);
 
 			// Use task context that overlaps with doc content
 			const result = await extractDocConstraints(
@@ -265,12 +309,16 @@ Best practices.
 		});
 
 		it('should skip constraint "use types" (9 chars) as too short', async () => {
-			createTestFile(tempDir, 'docs/guide.md', `# Development Guide
+			createTestFile(
+				tempDir,
+				'docs/guide.md',
+				`# Development Guide
 
 You MUST use types for safety.
 
 Best practices.
-`);
+`,
+			);
 
 			// Use task context that overlaps with doc content
 			const result = await extractDocConstraints(
@@ -285,12 +333,16 @@ Best practices.
 		});
 
 		it('should include constraint at exactly 15 chars', async () => {
-			createTestFile(tempDir, 'docs/guide.md', `# Development Guide
+			createTestFile(
+				tempDir,
+				'docs/guide.md',
+				`# Development Guide
 
 You MUST run all tests.
 
 Best practices.
-`);
+`,
+			);
 
 			// Use task context that overlaps with doc content
 			const result = await extractDocConstraints(
@@ -425,12 +477,16 @@ You ALWAYS update docs.
 	// ============ 6. Deduplication Tests ============
 	describe('deduplication', () => {
 		it('should not re-extract same constraint on second run', async () => {
-			createTestFile(tempDir, 'docs/guide.md', `# Development Guide
+			createTestFile(
+				tempDir,
+				'docs/guide.md',
+				`# Development Guide
 
 You MUST write tests for all new code.
 
 Best practices.
-`);
+`,
+			);
 
 			// First run - use task context that overlaps with doc content
 			const firstResult = await extractDocConstraints(
@@ -456,13 +512,17 @@ Best practices.
 		});
 
 		it('should extract different constraint after first run', async () => {
-			createTestFile(tempDir, 'docs/guide.md', `# Development Guide
+			createTestFile(
+				tempDir,
+				'docs/guide.md',
+				`# Development Guide
 
 You MUST write tests for all new code.
 You SHOULD use TypeScript.
 
 Best practices.
-`);
+`,
+			);
 
 			// First run - use task context that overlaps with doc content
 			await extractDocConstraints(
@@ -605,86 +665,198 @@ Best practices.
 	// ============ 8. isConstraintLine patterns (tested indirectly) ============
 	describe('isConstraintLine patterns (tested indirectly)', () => {
 		it('should extract MUST pattern constraint', async () => {
-			createTestFile(tempDir, 'docs/guide.md', `# Development Guide\nYou MUST follow this rule\n`);
-			const result = await extractDocConstraints(tempDir, ['docs/guide.md'], 'update development guide');
+			createTestFile(
+				tempDir,
+				'docs/guide.md',
+				`# Development Guide\nYou MUST follow this rule\n`,
+			);
+			const result = await extractDocConstraints(
+				tempDir,
+				['docs/guide.md'],
+				'update development guide',
+			);
 			expect(result.extracted).toBeGreaterThan(0);
 		});
 
 		it('should extract MUST NOT pattern constraint', async () => {
-			createTestFile(tempDir, 'docs/guide.md', `# Development Guide\nYou MUST NOT skip tests\n`);
-			const result = await extractDocConstraints(tempDir, ['docs/guide.md'], 'update development guide');
+			createTestFile(
+				tempDir,
+				'docs/guide.md',
+				`# Development Guide\nYou MUST NOT skip tests\n`,
+			);
+			const result = await extractDocConstraints(
+				tempDir,
+				['docs/guide.md'],
+				'update development guide',
+			);
 			expect(result.extracted).toBeGreaterThan(0);
 		});
 
 		it('should extract SHOULD pattern constraint', async () => {
-			createTestFile(tempDir, 'docs/guide.md', `# Development Guide\nYou SHOULD write tests\n`);
-			const result = await extractDocConstraints(tempDir, ['docs/guide.md'], 'update development guide');
+			createTestFile(
+				tempDir,
+				'docs/guide.md',
+				`# Development Guide\nYou SHOULD write tests\n`,
+			);
+			const result = await extractDocConstraints(
+				tempDir,
+				['docs/guide.md'],
+				'update development guide',
+			);
 			expect(result.extracted).toBeGreaterThan(0);
 		});
 
 		it('should extract SHOULD NOT pattern constraint', async () => {
-			createTestFile(tempDir, 'docs/guide.md', `# Development Guide\nYou SHOULD NOT use var\n`);
-			const result = await extractDocConstraints(tempDir, ['docs/guide.md'], 'update development guide');
+			createTestFile(
+				tempDir,
+				'docs/guide.md',
+				`# Development Guide\nYou SHOULD NOT use var\n`,
+			);
+			const result = await extractDocConstraints(
+				tempDir,
+				['docs/guide.md'],
+				'update development guide',
+			);
 			expect(result.extracted).toBeGreaterThan(0);
 		});
 
 		it('should extract DO NOT pattern constraint', async () => {
-			createTestFile(tempDir, 'docs/guide.md', `# Development Guide\nDO NOT commit secrets\n`);
-			const result = await extractDocConstraints(tempDir, ['docs/guide.md'], 'update development guide');
+			createTestFile(
+				tempDir,
+				'docs/guide.md',
+				`# Development Guide\nDO NOT commit secrets\n`,
+			);
+			const result = await extractDocConstraints(
+				tempDir,
+				['docs/guide.md'],
+				'update development guide',
+			);
 			expect(result.extracted).toBeGreaterThan(0);
 		});
 
 		it('should extract ALWAYS pattern constraint', async () => {
-			createTestFile(tempDir, 'docs/guide.md', `# Development Guide\nYou ALWAYS must verify builds\n`);
-			const result = await extractDocConstraints(tempDir, ['docs/guide.md'], 'update development guide');
+			createTestFile(
+				tempDir,
+				'docs/guide.md',
+				`# Development Guide\nYou ALWAYS must verify builds\n`,
+			);
+			const result = await extractDocConstraints(
+				tempDir,
+				['docs/guide.md'],
+				'update development guide',
+			);
 			expect(result.extracted).toBeGreaterThan(0);
 		});
 
 		it('should extract NEVER pattern constraint', async () => {
-			createTestFile(tempDir, 'docs/guide.md', `# Development Guide\nYou NEVER should skip reviews\n`);
-			const result = await extractDocConstraints(tempDir, ['docs/guide.md'], 'update development guide');
+			createTestFile(
+				tempDir,
+				'docs/guide.md',
+				`# Development Guide\nYou NEVER should skip reviews\n`,
+			);
+			const result = await extractDocConstraints(
+				tempDir,
+				['docs/guide.md'],
+				'update development guide',
+			);
 			expect(result.extracted).toBeGreaterThan(0);
 		});
 
 		it('should extract REQUIRED pattern constraint', async () => {
-			createTestFile(tempDir, 'docs/guide.md', `# Development Guide\nREQUIRED: Update docs\n`);
-			const result = await extractDocConstraints(tempDir, ['docs/guide.md'], 'update development guide');
+			createTestFile(
+				tempDir,
+				'docs/guide.md',
+				`# Development Guide\nREQUIRED: Update docs\n`,
+			);
+			const result = await extractDocConstraints(
+				tempDir,
+				['docs/guide.md'],
+				'update development guide',
+			);
 			expect(result.extracted).toBeGreaterThan(0);
 		});
 
 		it('should extract bullet point with action word "must"', async () => {
-			createTestFile(tempDir, 'docs/guide.md', `# Development Guide\n- must use TypeScript\n`);
-			const result = await extractDocConstraints(tempDir, ['docs/guide.md'], 'update development guide');
+			createTestFile(
+				tempDir,
+				'docs/guide.md',
+				`# Development Guide\n- must use TypeScript\n`,
+			);
+			const result = await extractDocConstraints(
+				tempDir,
+				['docs/guide.md'],
+				'update development guide',
+			);
 			expect(result.extracted).toBeGreaterThan(0);
 		});
 
 		it('should extract bullet point with action word "should"', async () => {
-			createTestFile(tempDir, 'docs/guide.md', `# Development Guide\n* should follow guidelines\n`);
-			const result = await extractDocConstraints(tempDir, ['docs/guide.md'], 'update development guide');
+			createTestFile(
+				tempDir,
+				'docs/guide.md',
+				`# Development Guide\n* should follow guidelines\n`,
+			);
+			const result = await extractDocConstraints(
+				tempDir,
+				['docs/guide.md'],
+				'update development guide',
+			);
 			expect(result.extracted).toBeGreaterThan(0);
 		});
 
 		it('should extract bullet point with action word "avoid"', async () => {
-			createTestFile(tempDir, 'docs/guide.md', `# Development Guide\n- avoid using any type\n`);
-			const result = await extractDocConstraints(tempDir, ['docs/guide.md'], 'update development guide');
+			createTestFile(
+				tempDir,
+				'docs/guide.md',
+				`# Development Guide\n- avoid using any type\n`,
+			);
+			const result = await extractDocConstraints(
+				tempDir,
+				['docs/guide.md'],
+				'update development guide',
+			);
 			expect(result.extracted).toBeGreaterThan(0);
 		});
 
 		it('should extract bullet point with action word "use"', async () => {
-			createTestFile(tempDir, 'docs/guide.md', `# Development Guide\n• use async/await\n`);
-			const result = await extractDocConstraints(tempDir, ['docs/guide.md'], 'update development guide');
+			createTestFile(
+				tempDir,
+				'docs/guide.md',
+				`# Development Guide\n• use async/await\n`,
+			);
+			const result = await extractDocConstraints(
+				tempDir,
+				['docs/guide.md'],
+				'update development guide',
+			);
 			expect(result.extracted).toBeGreaterThan(0);
 		});
 
 		it('should extract bullet point with action word "ensure"', async () => {
-			createTestFile(tempDir, 'docs/guide.md', `# Development Guide\n- ensure tests pass\n`);
-			const result = await extractDocConstraints(tempDir, ['docs/guide.md'], 'update development guide');
+			createTestFile(
+				tempDir,
+				'docs/guide.md',
+				`# Development Guide\n- ensure tests pass\n`,
+			);
+			const result = await extractDocConstraints(
+				tempDir,
+				['docs/guide.md'],
+				'update development guide',
+			);
 			expect(result.extracted).toBeGreaterThan(0);
 		});
 
 		it('should extract bullet point with action word "follow"', async () => {
-			createTestFile(tempDir, 'docs/guide.md', `# Development Guide\n* follow the style guide\n`);
-			const result = await extractDocConstraints(tempDir, ['docs/guide.md'], 'update development guide');
+			createTestFile(
+				tempDir,
+				'docs/guide.md',
+				`# Development Guide\n* follow the style guide\n`,
+			);
+			const result = await extractDocConstraints(
+				tempDir,
+				['docs/guide.md'],
+				'update development guide',
+			);
 			expect(result.extracted).toBeGreaterThan(0);
 		});
 
@@ -705,10 +877,14 @@ Best practices.
 
 		it('should not extract questions', async () => {
 			// Use CLAUDE.md to avoid subdirectory path issues on Windows
-			createTestFile(tempDir, 'CLAUDE.md', `# CLAUDE
+			createTestFile(
+				tempDir,
+				'CLAUDE.md',
+				`# CLAUDE
 
 Should I use TypeScript?
-`);
+`,
+			);
 			const result = await extractDocConstraints(
 				tempDir,
 				['CLAUDE.md'],
@@ -721,7 +897,11 @@ Should I use TypeScript?
 		});
 
 		it('should not extract bullet point without action word', async () => {
-			createTestFile(tempDir, 'docs/guide.md', `# Development Guide\n\n- This is a note\n`);
+			createTestFile(
+				tempDir,
+				'docs/guide.md',
+				`# Development Guide\n\n- This is a note\n`,
+			);
 			const result = await extractDocConstraints(
 				tempDir,
 				['docs/guide.md'],
@@ -734,12 +914,16 @@ Should I use TypeScript?
 	// ============ 9. Auto-manifest Generation Tests ============
 	describe('auto-manifest generation', () => {
 		it('should generate manifest if doc-manifest.json does not exist', async () => {
-			createTestFile(tempDir, 'docs/guide.md', `# Development Guide
+			createTestFile(
+				tempDir,
+				'docs/guide.md',
+				`# Development Guide
 
 You MUST follow guidelines.
 
 Project info.
-`);
+`,
+			);
 
 			// Ensure no manifest exists
 			const manifestPath = path.join(tempDir, '.swarm', 'doc-manifest.json');
@@ -757,12 +941,16 @@ Project info.
 		});
 
 		it('should use existing manifest if it exists', async () => {
-			createTestFile(tempDir, 'docs/guide.md', `# Development Guide
+			createTestFile(
+				tempDir,
+				'docs/guide.md',
+				`# Development Guide
 
 You MUST follow guidelines.
 
 Project info.
-`);
+`,
+			);
 
 			// First create manifest via scanDocIndex
 			await scanDocIndex(tempDir);
@@ -784,12 +972,16 @@ Project info.
 	// ============ 10. Empty Task Context Tests ============
 	describe('empty task context', () => {
 		it('should return 0 extracted when task_files is empty and task_description is empty', async () => {
-			createTestFile(tempDir, 'docs/guide.md', `# Development Guide
+			createTestFile(
+				tempDir,
+				'docs/guide.md',
+				`# Development Guide
 
 You MUST follow guidelines.
 
 Project info.
-`);
+`,
+			);
 
 			const result = await extractDocConstraints(tempDir, [], '');
 
@@ -799,12 +991,16 @@ Project info.
 		});
 
 		it('should still process if only task_files provided (empty task_description)', async () => {
-			createTestFile(tempDir, 'docs/guide.md', `# Development Guide
+			createTestFile(
+				tempDir,
+				'docs/guide.md',
+				`# Development Guide
 
 You MUST follow guidelines.
 
 Project info.
-`);
+`,
+			);
 
 			const result = await extractDocConstraints(
 				tempDir,
@@ -818,14 +1014,22 @@ Project info.
 		});
 
 		it('should still process if only task_description provided (empty task_files)', async () => {
-			createTestFile(tempDir, 'docs/guide.md', `# Development Guide
+			createTestFile(
+				tempDir,
+				'docs/guide.md',
+				`# Development Guide
 
 You MUST follow guidelines.
 
 Project info.
-`);
+`,
+			);
 
-			const result = await extractDocConstraints(tempDir, [], 'update development guide');
+			const result = await extractDocConstraints(
+				tempDir,
+				[],
+				'update development guide',
+			);
 
 			// Should still work with just task_description
 			expect(result).toBeDefined();
@@ -836,12 +1040,16 @@ Project info.
 	// ============ 11. doc_extract Tool Execute Tests ============
 	describe('doc_extract tool execute', () => {
 		it('should return JSON with success and extraction results', async () => {
-			createTestFile(tempDir, 'docs/guide.md', `# Development Guide
+			createTestFile(
+				tempDir,
+				'docs/guide.md',
+				`# Development Guide
 
 You MUST follow the coding standards.
 
 Guidelines.
-`);
+`,
+			);
 
 			const result = await doc_extract.execute(
 				{
@@ -889,10 +1097,9 @@ Guidelines.
 				},
 			);
 
-			const result = await doc_extract.execute(
-				maliciousArgs,
-				{ cwd: tempDir } as any,
-			);
+			const result = await doc_extract.execute(maliciousArgs, {
+				cwd: tempDir,
+			} as any);
 
 			const parsed = JSON.parse(result);
 			// Should return error, not crash
@@ -903,12 +1110,16 @@ Guidelines.
 	// ============ 12. Missing knowledge.jsonl Tests ============
 	describe('missing knowledge.jsonl', () => {
 		it('should create knowledge.jsonl on first run', async () => {
-			createTestFile(tempDir, 'docs/guide.md', `# Development Guide
+			createTestFile(
+				tempDir,
+				'docs/guide.md',
+				`# Development Guide
 
 You MUST follow guidelines.
 
 Project info.
-`);
+`,
+			);
 
 			const knowledgePath = path.join(tempDir, '.swarm', 'knowledge.jsonl');
 			expect(fs.existsSync(knowledgePath)).toBe(false);
@@ -923,12 +1134,16 @@ Project info.
 		});
 
 		it('should read existing knowledge.jsonl on subsequent runs', async () => {
-			createTestFile(tempDir, 'docs/guide.md', `# Development Guide
+			createTestFile(
+				tempDir,
+				'docs/guide.md',
+				`# Development Guide
 
 You MUST write tests.
 
 Project info.
-`);
+`,
+			);
 
 			// First run
 			await extractDocConstraints(
@@ -956,12 +1171,16 @@ Project info.
 	// ============ 13. Constraint from Bullet Point Tests ============
 	describe('constraint from bullet point', () => {
 		it('should extract constraint from bullet point with "Always" keyword', async () => {
-			createTestFile(tempDir, 'docs/guide.md', `# Development Guide
+			createTestFile(
+				tempDir,
+				'docs/guide.md',
+				`# Development Guide
 
 - Always use TypeScript for new files
 
 Best practices.
-`);
+`,
+			);
 
 			const result = await extractDocConstraints(
 				tempDir,
@@ -974,12 +1193,16 @@ Best practices.
 		});
 
 		it('should extract constraint from bullet point with "must" keyword', async () => {
-			createTestFile(tempDir, 'docs/guide.md', `# Development Guide
+			createTestFile(
+				tempDir,
+				'docs/guide.md',
+				`# Development Guide
 
 * must use async/await
 
 Best practices.
-`);
+`,
+			);
 
 			const result = await extractDocConstraints(
 				tempDir,
@@ -992,12 +1215,16 @@ Best practices.
 		});
 
 		it('should extract constraint from bullet point with "should" keyword', async () => {
-			createTestFile(tempDir, 'docs/guide.md', `# Development Guide
+			createTestFile(
+				tempDir,
+				'docs/guide.md',
+				`# Development Guide
 
 • should follow the style guide
 
 Best practices.
-`);
+`,
+			);
 
 			const result = await extractDocConstraints(
 				tempDir,
@@ -1010,12 +1237,16 @@ Best practices.
 		});
 
 		it('should extract constraint from bullet point with "avoid" keyword', async () => {
-			createTestFile(tempDir, 'docs/guide.md', `# Development Guide
+			createTestFile(
+				tempDir,
+				'docs/guide.md',
+				`# Development Guide
 
 - avoid using any type
 
 Best practices.
-`);
+`,
+			);
 
 			const result = await extractDocConstraints(
 				tempDir,
@@ -1028,12 +1259,16 @@ Best practices.
 		});
 
 		it('should extract constraint from bullet point with "use" keyword', async () => {
-			createTestFile(tempDir, 'docs/guide.md', `# Development Guide
+			createTestFile(
+				tempDir,
+				'docs/guide.md',
+				`# Development Guide
 
 * use TypeScript for type safety
 
 Best practices.
-`);
+`,
+			);
 
 			const result = await extractDocConstraints(
 				tempDir,
@@ -1046,12 +1281,16 @@ Best practices.
 		});
 
 		it('should extract constraint from bullet point with "ensure" keyword', async () => {
-			createTestFile(tempDir, 'docs/guide.md', `# Development Guide
+			createTestFile(
+				tempDir,
+				'docs/guide.md',
+				`# Development Guide
 
 - ensure tests pass before merge
 
 Best practices.
-`);
+`,
+			);
 
 			const result = await extractDocConstraints(
 				tempDir,
@@ -1064,12 +1303,16 @@ Best practices.
 		});
 
 		it('should extract constraint from bullet point with "follow" keyword', async () => {
-			createTestFile(tempDir, 'docs/guide.md', `# Development Guide
+			createTestFile(
+				tempDir,
+				'docs/guide.md',
+				`# Development Guide
 
 * follow conventional commits
 
 Best practices.
-`);
+`,
+			);
 
 			const result = await extractDocConstraints(
 				tempDir,
@@ -1078,18 +1321,22 @@ Best practices.
 			);
 
 			const entries = await readKnowledgeEntries(tempDir);
-			expect(entries.some((e) => e.lesson.includes('conventional commits'))).toBe(
-				true,
-			);
+			expect(
+				entries.some((e) => e.lesson.includes('conventional commits')),
+			).toBe(true);
 		});
 
 		it('should extract constraint from bullet point with "don\'t" keyword', async () => {
-			createTestFile(tempDir, 'docs/guide.md', `# Development Guide
+			createTestFile(
+				tempDir,
+				'docs/guide.md',
+				`# Development Guide
 
 - don't use var for declarations
 
 Best practices.
-`);
+`,
+			);
 
 			const result = await extractDocConstraints(
 				tempDir,
@@ -1105,14 +1352,18 @@ Best practices.
 	// ============ 14. No Constraint Lines Tests ============
 	describe('no constraint lines in doc', () => {
 		it('should extract 0 constraints from doc with no imperative patterns', async () => {
-			createTestFile(tempDir, 'docs/guide.md', `# Development Guide
+			createTestFile(
+				tempDir,
+				'docs/guide.md',
+				`# Development Guide
 
 This is a description of the project.
 
 Features include TypeScript support.
 
 Contact us at example@example.com.
-`);
+`,
+			);
 
 			const result = await extractDocConstraints(
 				tempDir,
@@ -1125,12 +1376,16 @@ Contact us at example@example.com.
 		});
 
 		it('should skip doc with only questions and comments', async () => {
-			createTestFile(tempDir, 'docs/guide.md', `# Development Guide FAQ
+			createTestFile(
+				tempDir,
+				'docs/guide.md',
+				`# Development Guide FAQ
 
 How do I contribute?
 // Check the guidelines
 What about TypeScript?
-`);
+`,
+			);
 
 			const result = await extractDocConstraints(
 				tempDir,
@@ -1142,12 +1397,16 @@ What about TypeScript?
 		});
 
 		it('should handle doc with only bullet points without action words', async () => {
-			createTestFile(tempDir, 'docs/guide.md', `# Development Guide Notes
+			createTestFile(
+				tempDir,
+				'docs/guide.md',
+				`# Development Guide Notes
 
 - This is a note
 - Another note
 * Just some text
-`);
+`,
+			);
 
 			const result = await extractDocConstraints(
 				tempDir,
@@ -1162,12 +1421,16 @@ What about TypeScript?
 	// ============ SwarmKnowledgeEntry Structure Tests ============
 	describe('SwarmKnowledgeEntry structure', () => {
 		it('should create entry with correct tier, category, and tags', async () => {
-			createTestFile(tempDir, 'CONTRIBUTING.md', `# Contributing
+			createTestFile(
+				tempDir,
+				'CONTRIBUTING.md',
+				`# Contributing
 
 All commits MUST follow conventional format.
 
 Guidelines.
-`);
+`,
+			);
 
 			await extractDocConstraints(
 				tempDir,
@@ -1219,7 +1482,11 @@ You SHOULD review code.
 	// ============ Edge Cases ============
 	describe('edge cases', () => {
 		it('should handle Windows-style line endings (CRLF)', async () => {
-			createTestFile(tempDir, 'docs/guide.md', `# Development Guide\r\n\r\nYou MUST follow the rules.\r\n`);
+			createTestFile(
+				tempDir,
+				'docs/guide.md',
+				`# Development Guide\r\n\r\nYou MUST follow the rules.\r\n`,
+			);
 			const result = await extractDocConstraints(
 				tempDir,
 				['docs/guide.md'],

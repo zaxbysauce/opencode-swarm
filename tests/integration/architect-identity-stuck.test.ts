@@ -180,7 +180,10 @@ describe('Architect Identity-Stuck Regression Tests', () => {
 
 			// Chat.message fires with "mega_architect" as agent
 			// EXPECTED: Should recognize as architect and set delegationActive=false
-			await delegationHook({ sessionID: sessionId, agent: 'mega_architect' }, {});
+			await delegationHook(
+				{ sessionID: sessionId, agent: 'mega_architect' },
+				{},
+			);
 
 			// CURRENT BUG: This fails too - needs prefix stripping
 			expect(session.delegationActive).toBe(false);

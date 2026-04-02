@@ -1,7 +1,7 @@
-import { describe, it, expect } from 'vitest';
+import { describe, expect, it } from 'vitest';
 import {
+	type KnowledgeConfig,
 	KnowledgeConfigSchema,
-	KnowledgeConfig,
 	PluginConfigSchema,
 } from '../../../src/config/schema.js';
 
@@ -299,7 +299,12 @@ describe('KnowledgeConfigSchema', () => {
 				scope_filter: ['global', 'project', 'module', 'function'],
 			});
 
-			expect(result.scope_filter).toEqual(['global', 'project', 'module', 'function']);
+			expect(result.scope_filter).toEqual([
+				'global',
+				'project',
+				'module',
+				'function',
+			]);
 		});
 
 		it('should accept swarm_max_entries at max value (10000)', () => {

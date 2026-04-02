@@ -4,7 +4,13 @@
  */
 
 import { afterEach, beforeEach, describe, expect, it } from 'bun:test';
-import { mkdirSync, mkdtempSync, readFileSync, rmSync, writeFileSync } from 'node:fs';
+import {
+	mkdirSync,
+	mkdtempSync,
+	readFileSync,
+	rmSync,
+	writeFileSync,
+} from 'node:fs';
 import * as os from 'node:os';
 import * as path from 'node:path';
 import {
@@ -80,9 +86,11 @@ describe('Scenario A — Happy path (code task)', () => {
 		await recordGateEvidence(tmpDir, '1.1', 'reviewer', 'sess-a');
 		await recordGateEvidence(tmpDir, '1.1', 'test_engineer', 'sess-a');
 
-		const result = await executeUpdateTaskStatus(
-			{ task_id: '1.1', status: 'completed', working_directory: tmpDir },
-		);
+		const result = await executeUpdateTaskStatus({
+			task_id: '1.1',
+			status: 'completed',
+			working_directory: tmpDir,
+		});
 		expect(result.success).toBe(true);
 
 		// Verify plan.json has task 1.1 as completed
@@ -103,9 +111,11 @@ describe('Scenario B — Happy path (docs task)', () => {
 
 		await recordGateEvidence(tmpDir, '1.2', 'docs', 'sess-b');
 
-		const result = await executeUpdateTaskStatus(
-			{ task_id: '1.2', status: 'completed', working_directory: tmpDir },
-		);
+		const result = await executeUpdateTaskStatus({
+			task_id: '1.2',
+			status: 'completed',
+			working_directory: tmpDir,
+		});
 		expect(result.success).toBe(true);
 	});
 });
@@ -127,12 +137,18 @@ describe('Scenario C — Gate expansion (docs → code)', () => {
 		// Coder dispatch expands gates
 		await recordAgentDispatch(tmpDir, '1.3', 'coder');
 		evidence = await readTaskEvidence(tmpDir, '1.3');
-		expect(evidence!.required_gates).toEqual(['docs', 'reviewer', 'test_engineer']);
+		expect(evidence!.required_gates).toEqual([
+			'docs',
+			'reviewer',
+			'test_engineer',
+		]);
 
 		// Should be BLOCKED (missing reviewer, test_engineer)
-		const blocked = await executeUpdateTaskStatus(
-			{ task_id: '1.3', status: 'completed', working_directory: tmpDir },
-		);
+		const blocked = await executeUpdateTaskStatus({
+			task_id: '1.3',
+			status: 'completed',
+			working_directory: tmpDir,
+		});
 		expect(blocked.success).toBe(false);
 		expect(blocked.errors?.join('')).toContain('missing required gates');
 
@@ -140,9 +156,11 @@ describe('Scenario C — Gate expansion (docs → code)', () => {
 		await recordGateEvidence(tmpDir, '1.3', 'reviewer', 'sess-c');
 		await recordGateEvidence(tmpDir, '1.3', 'test_engineer', 'sess-c');
 
-		const ok = await executeUpdateTaskStatus(
-			{ task_id: '1.3', status: 'completed', working_directory: tmpDir },
-		);
+		const ok = await executeUpdateTaskStatus({
+			task_id: '1.3',
+			status: 'completed',
+			working_directory: tmpDir,
+		});
 		expect(ok.success).toBe(true);
 	});
 });
@@ -155,8 +173,16 @@ describe('Scenario D — Cross-session recovery', () => {
 			taskId: '1.1',
 			required_gates: ['reviewer', 'test_engineer'],
 			gates: {
-				reviewer: { sessionId: 'old-sess-1', timestamp: '2026-01-01T00:00:00Z', agent: 'reviewer' },
-				test_engineer: { sessionId: 'old-sess-2', timestamp: '2026-01-01T00:01:00Z', agent: 'test_engineer' },
+				reviewer: {
+					sessionId: 'old-sess-1',
+					timestamp: '2026-01-01T00:00:00Z',
+					agent: 'reviewer',
+				},
+				test_engineer: {
+					sessionId: 'old-sess-2',
+					timestamp: '2026-01-01T00:01:00Z',
+					agent: 'test_engineer',
+				},
 			},
 		};
 		writeFileSync(
@@ -169,9 +195,11 @@ describe('Scenario D — Cross-session recovery', () => {
 		// Fresh state — no in-memory sessions
 		resetSwarmState();
 
-		const result = await executeUpdateTaskStatus(
-			{ task_id: '1.1', status: 'completed', working_directory: tmpDir },
-		);
+		const result = await executeUpdateTaskStatus({
+			task_id: '1.1',
+			status: 'completed',
+			working_directory: tmpDir,
+		});
 		expect(result.success).toBe(true);
 	});
 });
@@ -198,15 +226,19 @@ describe('Scenario E — Task isolation', () => {
 		// so we need to ensure coder dispatch was recorded to expand required_gates
 		await recordAgentDispatch(tmpDir, '1.1', 'coder');
 
-		const blocked = await executeUpdateTaskStatus(
-			{ task_id: '1.1', status: 'completed', working_directory: tmpDir },
-		);
+		const blocked = await executeUpdateTaskStatus({
+			task_id: '1.1',
+			status: 'completed',
+			working_directory: tmpDir,
+		});
 		expect(blocked.success).toBe(false);
 
 		// 1.2 should succeed
-		const ok = await executeUpdateTaskStatus(
-			{ task_id: '1.2', status: 'completed', working_directory: tmpDir },
-		);
+		const ok = await executeUpdateTaskStatus({
+			task_id: '1.2',
+			status: 'completed',
+			working_directory: tmpDir,
+		});
 		expect(ok.success).toBe(true);
 	});
 });
@@ -264,7 +296,9 @@ describe('Scenario F — Plan regression protection', () => {
 		// Read back plan.json — task 1.1 should still be completed
 		const raw = readFileSync(path.join(tmpDir, '.swarm', 'plan.json'), 'utf-8');
 		const saved = JSON.parse(raw);
-		const task11 = saved.phases[0].tasks.find((t: { id: string }) => t.id === '1.1');
+		const task11 = saved.phases[0].tasks.find(
+			(t: { id: string }) => t.id === '1.1',
+		);
 		expect(task11.status).toBe('completed');
 
 		// Phase status should be 'complete' (all tasks completed)

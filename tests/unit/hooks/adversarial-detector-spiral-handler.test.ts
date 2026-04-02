@@ -3,13 +3,13 @@
  * Tests: event logging, checkpoint creation, architect notification, non-fatal failures, label format
  */
 
-import { describe, test, expect, beforeEach, afterEach, jest } from 'bun:test';
+import { afterEach, beforeEach, describe, expect, jest, test } from 'bun:test';
 import * as fs from 'node:fs';
-import * as path from 'node:path';
 import * as os from 'node:os';
+import * as path from 'node:path';
 import {
-	handleDebuggingSpiral,
 	type AdversarialPatternMatch,
+	handleDebuggingSpiral,
 } from '../../../src/hooks/adversarial-detector';
 
 // Mock the checkpoint module
@@ -29,14 +29,14 @@ describe('handleDebuggingSpiral', () => {
 		// Create a temp directory
 		tempDir = `test-spiral-handler-${Date.now()}`;
 		originalCwd = process.cwd();
-		
+
 		// Change to parent directory where we'll create our test directory
 		process.chdir(os.tmpdir());
-		
+
 		// Create the test directory with .swarm subdirectory
 		fs.mkdirSync(tempDir, { recursive: true });
 		fs.mkdirSync(path.join(tempDir, '.swarm'), { recursive: true });
-		
+
 		// Reset mock
 		jest.clearAllMocks();
 	});
@@ -62,7 +62,7 @@ describe('handleDebuggingSpiral', () => {
 
 			// Mock checkpoint to succeed
 			(checkpoint.execute as jest.Mock).mockResolvedValue(
-				JSON.stringify({ success: true })
+				JSON.stringify({ success: true }),
 			);
 
 			await handleDebuggingSpiral(match, '1.1', tempDir);
@@ -70,14 +70,16 @@ describe('handleDebuggingSpiral', () => {
 			// Verify event was logged
 			const eventsPath = path.join(tempDir, '.swarm', 'events.jsonl');
 			expect(fs.existsSync(eventsPath)).toBe(true);
-			
+
 			const content = fs.readFileSync(eventsPath, 'utf-8');
 			const event = JSON.parse(content.trim());
-			
+
 			expect(event.event).toBe('debugging_spiral_detected');
 			expect(event.taskId).toBe('1.1');
 			expect(event.pattern).toBe('DEBUGGING_SPIRAL');
-			expect(event.matchedText).toBe('Same rejection reason resurfacing: "type error"');
+			expect(event.matchedText).toBe(
+				'Same rejection reason resurfacing: "type error"',
+			);
 			expect(event.confidence).toBe('HIGH');
 		});
 
@@ -91,12 +93,16 @@ describe('handleDebuggingSpiral', () => {
 
 			// Mock checkpoint to succeed
 			(checkpoint.execute as jest.Mock).mockResolvedValue(
-				JSON.stringify({ success: true })
+				JSON.stringify({ success: true }),
 			);
 
 			// Call with invalid directory - should not throw
-			const result = await handleDebuggingSpiral(match, '1.1', '/nonexistent/path');
-			
+			const result = await handleDebuggingSpiral(
+				match,
+				'1.1',
+				'/nonexistent/path',
+			);
+
 			// Should still return valid result
 			expect(result.eventLogged).toBe(true);
 			expect(result.checkpointCreated).toBe(true);
@@ -115,16 +121,19 @@ describe('handleDebuggingSpiral', () => {
 
 			// Mock checkpoint to succeed
 			(checkpoint.execute as jest.Mock).mockResolvedValue(
-				JSON.stringify({ success: true })
+				JSON.stringify({ success: true }),
 			);
 
 			await handleDebuggingSpiral(match, '1.1', tempDir);
 
 			// Verify checkpoint.execute was called
 			expect(checkpoint.execute).toHaveBeenCalledTimes(1);
-			
+
 			const callArgs = (checkpoint.execute as jest.Mock).mock.calls[0];
-			expect(callArgs[0]).toEqual({ action: 'save', label: expect.any(String) });
+			expect(callArgs[0]).toEqual({
+				action: 'save',
+				label: expect.any(String),
+			});
 		});
 
 		test('sets checkpointCreated to true when checkpoint succeeds', async () => {
@@ -137,7 +146,7 @@ describe('handleDebuggingSpiral', () => {
 
 			// Mock checkpoint to succeed
 			(checkpoint.execute as jest.Mock).mockResolvedValue(
-				JSON.stringify({ success: true })
+				JSON.stringify({ success: true }),
 			);
 
 			const result = await handleDebuggingSpiral(match, '1.1', tempDir);
@@ -155,7 +164,7 @@ describe('handleDebuggingSpiral', () => {
 
 			// Mock checkpoint to fail
 			(checkpoint.execute as jest.Mock).mockResolvedValue(
-				JSON.stringify({ success: false, error: 'No changes to save' })
+				JSON.stringify({ success: false, error: 'No changes to save' }),
 			);
 
 			const result = await handleDebuggingSpiral(match, '1.1', tempDir);
@@ -174,14 +183,18 @@ describe('handleDebuggingSpiral', () => {
 			};
 
 			(checkpoint.execute as jest.Mock).mockResolvedValue(
-				JSON.stringify({ success: true })
+				JSON.stringify({ success: true }),
 			);
 
 			const result = await handleDebuggingSpiral(match, '1.1', tempDir);
 
 			expect(result.message).toContain('[FOR: architect]');
-			expect(result.message).toContain('DEBUGGING SPIRAL DETECTED for task 1.1');
-			expect(result.message).toContain('Issue: Same rejection reason resurfacing: "type error"');
+			expect(result.message).toContain(
+				'DEBUGGING SPIRAL DETECTED for task 1.1',
+			);
+			expect(result.message).toContain(
+				'Issue: Same rejection reason resurfacing: "type error"',
+			);
 			expect(result.message).toContain('Confidence: HIGH');
 		});
 
@@ -194,7 +207,7 @@ describe('handleDebuggingSpiral', () => {
 			};
 
 			(checkpoint.execute as jest.Mock).mockResolvedValue(
-				JSON.stringify({ success: true })
+				JSON.stringify({ success: true }),
 			);
 
 			const result = await handleDebuggingSpiral(match, '1.1', tempDir);
@@ -211,7 +224,7 @@ describe('handleDebuggingSpiral', () => {
 			};
 
 			(checkpoint.execute as jest.Mock).mockResolvedValue(
-				JSON.stringify({ success: false })
+				JSON.stringify({ success: false }),
 			);
 
 			const result = await handleDebuggingSpiral(match, '1.1', tempDir);
@@ -228,13 +241,17 @@ describe('handleDebuggingSpiral', () => {
 			};
 
 			(checkpoint.execute as jest.Mock).mockResolvedValue(
-				JSON.stringify({ success: true })
+				JSON.stringify({ success: true }),
 			);
 
 			const result = await handleDebuggingSpiral(match, '1.1', tempDir);
 
-			expect(result.message).toContain('Recommendation: Consider escalating to user or taking a different approach');
-			expect(result.message).toContain('The current fix strategy appears to be cycling without progress');
+			expect(result.message).toContain(
+				'Recommendation: Consider escalating to user or taking a different approach',
+			);
+			expect(result.message).toContain(
+				'The current fix strategy appears to be cycling without progress',
+			);
 		});
 	});
 
@@ -249,7 +266,7 @@ describe('handleDebuggingSpiral', () => {
 
 			// Mock checkpoint to throw
 			(checkpoint.execute as jest.Mock).mockRejectedValue(
-				new Error('Checkpoint service unavailable')
+				new Error('Checkpoint service unavailable'),
 			);
 
 			// Should not throw
@@ -291,7 +308,7 @@ describe('handleDebuggingSpiral', () => {
 
 			// Both should fail
 			(checkpoint.execute as jest.Mock).mockRejectedValue(
-				new Error('Service unavailable')
+				new Error('Service unavailable'),
 			);
 
 			// Should not throw
@@ -314,7 +331,7 @@ describe('handleDebuggingSpiral', () => {
 			};
 
 			(checkpoint.execute as jest.Mock).mockResolvedValue(
-				JSON.stringify({ success: true })
+				JSON.stringify({ success: true }),
 			);
 
 			await handleDebuggingSpiral(match, '5.7.1', tempDir);
@@ -335,7 +352,7 @@ describe('handleDebuggingSpiral', () => {
 			};
 
 			(checkpoint.execute as jest.Mock).mockResolvedValue(
-				JSON.stringify({ success: true })
+				JSON.stringify({ success: true }),
 			);
 
 			await handleDebuggingSpiral(match, '1.1', tempDir);
@@ -359,7 +376,7 @@ describe('handleDebuggingSpiral', () => {
 			};
 
 			(checkpoint.execute as jest.Mock).mockResolvedValue(
-				JSON.stringify({ success: true })
+				JSON.stringify({ success: true }),
 			);
 
 			const result = await handleDebuggingSpiral(match, '3.2', tempDir);
@@ -381,7 +398,7 @@ describe('handleDebuggingSpiral', () => {
 			};
 
 			(checkpoint.execute as jest.Mock).mockResolvedValue(
-				JSON.stringify({ success: true })
+				JSON.stringify({ success: true }),
 			);
 
 			const result = await handleDebuggingSpiral(match, '5.7', tempDir);
@@ -392,9 +409,13 @@ describe('handleDebuggingSpiral', () => {
 			expect(result.message).toContain('[FOR: architect]');
 			expect(result.message).toContain('DEBUGGING SPIRAL DETECTED');
 			expect(result.message).toContain('5.7');
-			expect(result.message).toContain('3+ cycles with different rejection reasons (5 unique)');
+			expect(result.message).toContain(
+				'3+ cycles with different rejection reasons (5 unique)',
+			);
 			expect(result.message).toContain('MEDIUM');
-			expect(result.message).toContain('Recommendation: Consider escalating to user');
+			expect(result.message).toContain(
+				'Recommendation: Consider escalating to user',
+			);
 
 			// Verify event file exists
 			const eventsPath = path.join(tempDir, '.swarm', 'events.jsonl');

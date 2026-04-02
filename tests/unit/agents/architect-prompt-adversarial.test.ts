@@ -1,4 +1,4 @@
-import { describe, it, expect } from 'bun:test';
+import { describe, expect, it } from 'bun:test';
 import { createArchitectAgent } from '../../../src/agents/architect';
 
 /**
@@ -36,7 +36,9 @@ describe('architect-prompt-adversarial: attack vectors for task 11.1', () => {
 
 			// Extract only the actual template examples (code blocks after the warning line)
 			// The warning line ends with "must be reproduced exactly.\n\n"
-			const warningEndIndex = filesSection.indexOf('must be reproduced exactly.');
+			const warningEndIndex = filesSection.indexOf(
+				'must be reproduced exactly.',
+			);
 			expect(warningEndIndex).toBeGreaterThan(0);
 
 			// Find the first \n\n after the warning to get to the template examples
@@ -86,9 +88,21 @@ describe('architect-prompt-adversarial: attack vectors for task 11.1', () => {
 
 		it('scan for ALL old bracket fill-ins in template examples', () => {
 			const forbiddenPatterns = [
-				'[Project]', '[task]', '[date]', '[Phase]', '[phase]', '[N]', '[reason]',
-				'[decision]', '[rationale]', '[domain]', '[guidance]', '[pattern]',
-				'[description]', '[name]', '[usage]'
+				'[Project]',
+				'[task]',
+				'[date]',
+				'[Phase]',
+				'[phase]',
+				'[N]',
+				'[reason]',
+				'[decision]',
+				'[rationale]',
+				'[domain]',
+				'[guidance]',
+				'[pattern]',
+				'[description]',
+				'[name]',
+				'[usage]',
 			];
 
 			const lines = templateExamplesOnly.split('\n');
@@ -107,7 +121,9 @@ describe('architect-prompt-adversarial: attack vectors for task 11.1', () => {
 				const violationDetails = violations
 					.map((v) => `  ${v.pattern} in "${v.line}"`)
 					.join('\n');
-				expect().fail(`\nFound leaked bracket patterns in template examples:\n${violationDetails}`);
+				expect().fail(
+					`\nFound leaked bracket patterns in template examples:\n${violationDetails}`,
+				);
 			}
 		});
 	});
@@ -121,7 +137,10 @@ describe('architect-prompt-adversarial: attack vectors for task 11.1', () => {
 			const contextStart = prompt.indexOf('.swarm/context.md:');
 			expect(contextStart).toBeGreaterThanOrEqual(0);
 
-			const contextEnd = prompt.indexOf('```', contextStart + '.swarm/context.md:'.length + 50);
+			const contextEnd = prompt.indexOf(
+				'```',
+				contextStart + '.swarm/context.md:'.length + 50,
+			);
 			expect(contextEnd).toBeGreaterThan(contextStart);
 
 			contextMdSection = prompt.substring(contextStart, contextEnd + 3);
@@ -207,7 +226,10 @@ describe('architect-prompt-adversarial: attack vectors for task 11.1', () => {
 			const codeBlockEnd = prompt.indexOf('```', codeBlockStart + 3);
 			expect(codeBlockEnd).toBeGreaterThan(codeBlockStart);
 
-			const contextMdSection = prompt.substring(codeBlockStart, codeBlockEnd + 3);
+			const contextMdSection = prompt.substring(
+				codeBlockStart,
+				codeBlockEnd + 3,
+			);
 			expect(contextMdSection).toContain('{{SWARM_ID}}');
 		});
 
@@ -373,12 +395,15 @@ describe('architect-prompt-adversarial: attack vectors for task 11.1', () => {
 				'[BLOCKED]': (filesSection.match(/\[BLOCKED\]/g) || []).length,
 				'[SMALL]': (filesSection.match(/\[SMALL\]/g) || []).length,
 				'[MEDIUM]': (filesSection.match(/\[MEDIUM\]/g) || []).length,
-				'[LARGE]': (filesSection.match(/\[LARGE\]/g) || []).length
+				'[LARGE]': (filesSection.match(/\[LARGE\]/g) || []).length,
 			};
 
 			// Each should appear at least once
 			for (const [token, count] of Object.entries(counts)) {
-				expect(count, `${token} should appear at least once`).toBeGreaterThanOrEqual(1);
+				expect(
+					count,
+					`${token} should appear at least once`,
+				).toBeGreaterThanOrEqual(1);
 			}
 		});
 
@@ -442,7 +467,9 @@ describe('architect-prompt-adversarial: attack vectors for task 11.1', () => {
 			const filesSection = prompt.substring(filesStart);
 
 			// Extract only the actual template examples (code blocks after the warning line)
-			const warningEndIndex = filesSection.indexOf('must be reproduced exactly.');
+			const warningEndIndex = filesSection.indexOf(
+				'must be reproduced exactly.',
+			);
 			expect(warningEndIndex).toBeGreaterThan(0);
 
 			const templateStartIndex = filesSection.indexOf('\n\n', warningEndIndex);
@@ -463,10 +490,14 @@ describe('architect-prompt-adversarial: attack vectors for task 11.1', () => {
 				/\[x\]/,
 				/\[ \]/,
 				/\[x\]\s*\d+\.\d+:/, // Checkbox with task number
-				/\[ \]\s*\d+\.\d+:/ // Unchecked checkbox with task number
+				/\[ \]\s*\d+\.\d+:/, // Unchecked checkbox with task number
 			];
 
-			const suspicious: { lineNum: number; pattern: string; context: string }[] = [];
+			const suspicious: {
+				lineNum: number;
+				pattern: string;
+				context: string;
+			}[] = [];
 
 			lines.forEach((line, idx) => {
 				const lineNum = idx + 1;
@@ -499,7 +530,7 @@ describe('architect-prompt-adversarial: attack vectors for task 11.1', () => {
 						suspicious.push({
 							lineNum,
 							pattern: match,
-							context: trimmedLine.substring(0, 80)
+							context: trimmedLine.substring(0, 80),
 						});
 					}
 				});
@@ -507,9 +538,14 @@ describe('architect-prompt-adversarial: attack vectors for task 11.1', () => {
 
 			if (suspicious.length > 0) {
 				const report = suspicious
-					.map((s) => `  Line ${s.lineNum}: Found ${s.pattern} in "${s.context}..."`)
+					.map(
+						(s) =>
+							`  Line ${s.lineNum}: Found ${s.pattern} in "${s.context}..."`,
+					)
 					.join('\n');
-				expect().fail(`\nSuspicious bracket patterns found in template examples:\n${report}`);
+				expect().fail(
+					`\nSuspicious bracket patterns found in template examples:\n${report}`,
+				);
 			}
 		});
 	});
@@ -525,11 +561,17 @@ describe('architect-prompt-adversarial: attack vectors for task 11.1', () => {
 			expect(modePlanStart).toBeGreaterThanOrEqual(0);
 
 			// Find the next major section (MODE: CRITIC-GATE or END)
-			const nextSectionStart = prompt.indexOf('### MODE: CRITIC-GATE', modePlanStart);
-			const nextSectionStart2 = prompt.indexOf('### MODE: EXECUTE', modePlanStart);
+			const nextSectionStart = prompt.indexOf(
+				'### MODE: CRITIC-GATE',
+				modePlanStart,
+			);
+			const nextSectionStart2 = prompt.indexOf(
+				'### MODE: EXECUTE',
+				modePlanStart,
+			);
 			const endOfPlan = Math.min(
 				nextSectionStart > 0 ? nextSectionStart : Infinity,
-				nextSectionStart2 > 0 ? nextSectionStart2 : Infinity
+				nextSectionStart2 > 0 ? nextSectionStart2 : Infinity,
 			);
 
 			modePlanSection = prompt.substring(modePlanStart, endOfPlan);
@@ -569,7 +611,7 @@ describe('architect-prompt-adversarial: attack vectors for task 11.1', () => {
 				/__proto__/,
 				/constructor/i,
 				/function\s*\(\)/,
-				/=>\s*{/
+				/=>\s*{/,
 			];
 
 			for (const pattern of maliciousPatterns) {
@@ -588,12 +630,14 @@ describe('architect-prompt-adversarial: attack vectors for task 11.1', () => {
 				/private[_-]?key/i,
 				/bearer\s+token/i,
 				/oauth/i,
-				/session/i
+				/session/i,
 			];
 
 			for (const pattern of secretPatterns) {
 				// These should NOT appear in the example call itself
-				expect(savePlanExample).not.toMatch(new RegExp(pattern.source + '\\s*[:=]', 'i'));
+				expect(savePlanExample).not.toMatch(
+					new RegExp(pattern.source + '\\s*[:=]', 'i'),
+				);
 			}
 		});
 
@@ -602,7 +646,9 @@ describe('architect-prompt-adversarial: attack vectors for task 11.1', () => {
 			expect(savePlanExample).toContain('"My Real Project"');
 			expect(savePlanExample).toContain('"mega"');
 			expect(savePlanExample).toContain('"Setup"');
-			expect(savePlanExample).toContain('"Install dependencies and configure TypeScript"');
+			expect(savePlanExample).toContain(
+				'"Install dependencies and configure TypeScript"',
+			);
 		});
 	});
 
@@ -615,11 +661,17 @@ describe('architect-prompt-adversarial: attack vectors for task 11.1', () => {
 			const modePlanStart = prompt.indexOf('### MODE: PLAN');
 			expect(modePlanStart).toBeGreaterThanOrEqual(0);
 
-			const nextSectionStart = prompt.indexOf('### MODE: CRITIC-GATE', modePlanStart);
-			const nextSectionStart2 = prompt.indexOf('### MODE: EXECUTE', modePlanStart);
+			const nextSectionStart = prompt.indexOf(
+				'### MODE: CRITIC-GATE',
+				modePlanStart,
+			);
+			const nextSectionStart2 = prompt.indexOf(
+				'### MODE: EXECUTE',
+				modePlanStart,
+			);
 			const endOfPlan = Math.min(
 				nextSectionStart > 0 ? nextSectionStart : Infinity,
-				nextSectionStart2 > 0 ? nextSectionStart2 : Infinity
+				nextSectionStart2 > 0 ? nextSectionStart2 : Infinity,
 			);
 
 			modePlanSection = prompt.substring(modePlanStart, endOfPlan);
@@ -728,11 +780,17 @@ describe('architect-prompt-adversarial: attack vectors for task 11.1', () => {
 
 		it('extract MODE:PLAN section', () => {
 			const modePlanStart = prompt.indexOf('### MODE: PLAN');
-			const nextSectionStart = prompt.indexOf('### MODE: CRITIC-GATE', modePlanStart);
-			const nextSectionStart2 = prompt.indexOf('### MODE: EXECUTE', modePlanStart);
+			const nextSectionStart = prompt.indexOf(
+				'### MODE: CRITIC-GATE',
+				modePlanStart,
+			);
+			const nextSectionStart2 = prompt.indexOf(
+				'### MODE: EXECUTE',
+				modePlanStart,
+			);
 			const endOfPlan = Math.min(
 				nextSectionStart > 0 ? nextSectionStart : Infinity,
-				nextSectionStart2 > 0 ? nextSectionStart2 : Infinity
+				nextSectionStart2 > 0 ? nextSectionStart2 : Infinity,
 			);
 
 			modePlanSection = prompt.substring(modePlanStart, endOfPlan);
@@ -744,8 +802,14 @@ describe('architect-prompt-adversarial: attack vectors for task 11.1', () => {
 
 			// Find the end of this section (next heading or end of MODE:PLAN)
 			// Looking for TASK GRANULARITY RULES which follows the fallback section
-			const nextSectionStart = modePlanSection.indexOf('TASK GRANULARITY RULES', fallbackStart);
-			fallbackDelegation = modePlanSection.substring(fallbackStart, nextSectionStart);
+			const nextSectionStart = modePlanSection.indexOf(
+				'TASK GRANULARITY RULES',
+				fallbackStart,
+			);
+			fallbackDelegation = modePlanSection.substring(
+				fallbackStart,
+				nextSectionStart,
+			);
 
 			expect(fallbackDelegation).toContain('{{AGENT_PREFIX}}coder');
 			expect(fallbackDelegation).toContain('.swarm/plan.md');
@@ -758,7 +822,9 @@ describe('architect-prompt-adversarial: attack vectors for task 11.1', () => {
 
 		it('should enforce EXACT content writing constraint', () => {
 			expect(fallbackDelegation).toContain('EXACTLY');
-			expect(fallbackDelegation).toContain('Do not modify, summarize, or interpret');
+			expect(fallbackDelegation).toContain(
+				'Do not modify, summarize, or interpret',
+			);
 		});
 
 		it('should NOT allow coder to make decisions about plan content', () => {
@@ -774,13 +840,17 @@ describe('architect-prompt-adversarial: attack vectors for task 11.1', () => {
 		it('should not be easily confused as the primary path', () => {
 			// Check that save_plan tool is mentioned first and is the primary recommendation
 			const savePlanIndex = modePlanSection.indexOf('save_plan');
-			const fallbackIndex = modePlanSection.indexOf('If `save_plan` is unavailable');
+			const fallbackIndex = modePlanSection.indexOf(
+				'If `save_plan` is unavailable',
+			);
 
 			expect(savePlanIndex).toBeLessThan(fallbackIndex);
 		});
 
 		it('should have strong constraint language', () => {
-			const constraintSection = fallbackDelegation.substring(fallbackDelegation.indexOf('CONSTRAINT:'));
+			const constraintSection = fallbackDelegation.substring(
+				fallbackDelegation.indexOf('CONSTRAINT:'),
+			);
 			expect(constraintSection).toMatch(/[A-Z]{4,}/); // Should have uppercase emphasis
 		});
 	});
@@ -792,11 +862,17 @@ describe('architect-prompt-adversarial: attack vectors for task 11.1', () => {
 
 		it('extract MODE:PLAN section', () => {
 			const modePlanStart = prompt.indexOf('### MODE: PLAN');
-			const nextSectionStart = prompt.indexOf('### MODE: CRITIC-GATE', modePlanStart);
-			const nextSectionStart2 = prompt.indexOf('### MODE: EXECUTE', modePlanStart);
+			const nextSectionStart = prompt.indexOf(
+				'### MODE: CRITIC-GATE',
+				modePlanStart,
+			);
+			const nextSectionStart2 = prompt.indexOf(
+				'### MODE: EXECUTE',
+				modePlanStart,
+			);
 			const endOfPlan = Math.min(
 				nextSectionStart > 0 ? nextSectionStart : Infinity,
-				nextSectionStart2 > 0 ? nextSectionStart2 : Infinity
+				nextSectionStart2 > 0 ? nextSectionStart2 : Infinity,
 			);
 
 			modePlanSection = prompt.substring(modePlanStart, endOfPlan);
@@ -839,12 +915,12 @@ describe('architect-prompt-adversarial: attack vectors for task 11.1', () => {
 			const example = modePlanSection.substring(exampleStart, exampleEnd);
 
 			const dangerousPatterns = [
-				/\.\.\//,        // Parent directory traversal
-				/\\\\/,           // Backslash (Windows path separator) - use double backslash in regex
-				/[\\/]\s*\.swarm/,  // Attempt to write to .swarm
-				/[;&|`$]/,       // Shell injection characters
-				/\${/,           // Template injection
-				/<%/             // Template injection
+				/\.\.\//, // Parent directory traversal
+				/\\\\/, // Backslash (Windows path separator) - use double backslash in regex
+				/[\\/]\s*\.swarm/, // Attempt to write to .swarm
+				/[;&|`$]/, // Shell injection characters
+				/\${/, // Template injection
+				/<%/, // Template injection
 			];
 
 			for (const pattern of dangerousPatterns) {
@@ -856,7 +932,7 @@ describe('architect-prompt-adversarial: attack vectors for task 11.1', () => {
 			if (swarmIdMatch) {
 				const swarmIdValue = swarmIdMatch[1];
 				expect(swarmIdValue).not.toMatch(/[\\/]/); // No path separators
-				expect(swarmIdValue).not.toContain('..');   // No parent directory references
+				expect(swarmIdValue).not.toContain('..'); // No parent directory references
 			}
 		});
 
@@ -886,11 +962,17 @@ describe('architect-prompt-adversarial: attack vectors for task 11.1', () => {
 
 		it('extract MODE:PLAN section', () => {
 			const modePlanStart = prompt.indexOf('### MODE: PLAN');
-			const nextSectionStart = prompt.indexOf('### MODE: CRITIC-GATE', modePlanStart);
-			const nextSectionStart2 = prompt.indexOf('### MODE: EXECUTE', modePlanStart);
+			const nextSectionStart = prompt.indexOf(
+				'### MODE: CRITIC-GATE',
+				modePlanStart,
+			);
+			const nextSectionStart2 = prompt.indexOf(
+				'### MODE: EXECUTE',
+				modePlanStart,
+			);
 			const endOfPlan = Math.min(
 				nextSectionStart > 0 ? nextSectionStart : Infinity,
-				nextSectionStart2 > 0 ? nextSectionStart2 : Infinity
+				nextSectionStart2 > 0 ? nextSectionStart2 : Infinity,
 			);
 
 			modePlanSection = prompt.substring(modePlanStart, endOfPlan);
@@ -917,10 +999,14 @@ describe('architect-prompt-adversarial: attack vectors for task 11.1', () => {
 				/INPUT:\s*\[.*\]/, // INPUT placeholder in fallback section
 				/\{\s*id:/, // Array/object notation in example (not square brackets alone)
 				/phases:\s*\[/, // phases array in example
-				/tasks:\s*\[/ // tasks array in example
+				/tasks:\s*\[/, // tasks array in example
 			];
 
-			const suspicious: { lineNum: number; pattern: string; context: string }[] = [];
+			const suspicious: {
+				lineNum: number;
+				pattern: string;
+				context: string;
+			}[] = [];
 
 			lines.forEach((line, idx) => {
 				const lineNum = idx + 1;
@@ -944,18 +1030,37 @@ describe('architect-prompt-adversarial: attack vectors for task 11.1', () => {
 					}
 
 					// Also check if it's in a warning/context that makes it valid
-					if (trimmedLine.includes('REJECTED') || trimmedLine.includes('forbidden') || trimmedLine.includes('INPUT:')) {
+					if (
+						trimmedLine.includes('REJECTED') ||
+						trimmedLine.includes('forbidden') ||
+						trimmedLine.includes('INPUT:')
+					) {
 						isValid = true;
 					}
 
 					// Format tokens
-					if (['[COMPLETE]', '[IN PROGRESS]', '[BLOCKED]', '[SMALL]', '[MEDIUM]', '[LARGE]', '[x]', '[ ]'].includes(match)) {
+					if (
+						[
+							'[COMPLETE]',
+							'[IN PROGRESS]',
+							'[BLOCKED]',
+							'[SMALL]',
+							'[MEDIUM]',
+							'[LARGE]',
+							'[x]',
+							'[ ]',
+						].includes(match)
+					) {
 						isValid = true;
 					}
 
 					// Check if it's part of array/object syntax (like [{ ... }] or phases: [)
 					// These are valid when part of JavaScript/TypeScript syntax
-					if (trimmedLine.includes('save_plan') || trimmedLine.includes('phases:') || trimmedLine.includes('tasks:')) {
+					if (
+						trimmedLine.includes('save_plan') ||
+						trimmedLine.includes('phases:') ||
+						trimmedLine.includes('tasks:')
+					) {
 						isValid = true;
 					}
 
@@ -968,7 +1073,7 @@ describe('architect-prompt-adversarial: attack vectors for task 11.1', () => {
 						suspicious.push({
 							lineNum,
 							pattern: match,
-							context: trimmedLine.substring(0, 80)
+							context: trimmedLine.substring(0, 80),
 						});
 					}
 				});
@@ -976,9 +1081,14 @@ describe('architect-prompt-adversarial: attack vectors for task 11.1', () => {
 
 			if (suspicious.length > 0) {
 				const report = suspicious
-					.map((s) => `  Line ${s.lineNum}: Found ${s.pattern} in "${s.context}..."`)
+					.map(
+						(s) =>
+							`  Line ${s.lineNum}: Found ${s.pattern} in "${s.context}..."`,
+					)
 					.join('\n');
-				expect().fail(`\nSuspicious bracket patterns found in MODE:PLAN:\n${report}`);
+				expect().fail(
+					`\nSuspicious bracket patterns found in MODE:PLAN:\n${report}`,
+				);
 			}
 		});
 

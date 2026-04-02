@@ -7,17 +7,16 @@
  * 3. safeHook isolation prevents preflight failures from breaking hook execution
  */
 
-import { describe, it, expect, beforeEach, afterEach, vi } from 'bun:test';
-import { mkdtempSync, rmSync, mkdirSync, writeFileSync } from 'node:fs';
+import { afterEach, beforeEach, describe, expect, it, vi } from 'bun:test';
+import { mkdirSync, mkdtempSync, rmSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import * as path from 'node:path';
-
-import { createPhaseMonitorHook } from '../../src/hooks/phase-monitor';
-import { safeHook, composeHandlers } from '../../src/hooks/utils';
-import { savePlan, loadPlan } from '../../src/plan/manager';
 import { PreflightTriggerManager } from '../../src/background/trigger';
-import { Plan, PlanSchema } from '../../src/config/plan-schema';
+import { type Plan, PlanSchema } from '../../src/config/plan-schema';
 import { AutomationConfigSchema } from '../../src/config/schema';
+import { createPhaseMonitorHook } from '../../src/hooks/phase-monitor';
+import { composeHandlers, safeHook } from '../../src/hooks/utils';
+import { loadPlan, savePlan } from '../../src/plan/manager';
 
 describe('Phase Preflight Auto-Trigger Integration', () => {
 	let tempDir: string;
@@ -51,13 +50,19 @@ describe('Phase Preflight Auto-Trigger Integration', () => {
 				id: i + 1,
 				name: `Phase ${i + 1}`,
 				// Previous phase should be complete, current phase is in_progress or pending
-				status: isPreviousPhase ? 'complete' as const : (isCurrentPhase ? 'in_progress' as const : 'pending' as const),
+				status: isPreviousPhase
+					? ('complete' as const)
+					: isCurrentPhase
+						? ('in_progress' as const)
+						: ('pending' as const),
 				tasks: [
 					{
 						id: `${i + 1}.1`,
 						phase: i + 1,
 						// Previous phase tasks completed, current phase pending
-						status: isPreviousPhase ? 'completed' as const : 'pending' as const,
+						status: isPreviousPhase
+							? ('completed' as const)
+							: ('pending' as const),
 						size: 'small' as const,
 						description: `Task in phase ${i + 1}`,
 						depends: [],
@@ -84,7 +89,10 @@ describe('Phase Preflight Auto-Trigger Integration', () => {
 	/**
 	 * Helper: Create a minimal valid plan with given phase
 	 */
-	async function createTestPlan(currentPhase: number, phaseCount: number = 2): Promise<Plan> {
+	async function createTestPlan(
+		currentPhase: number,
+		phaseCount: number = 2,
+	): Promise<Plan> {
 		return createTestPlanWithPreviousPhaseComplete(currentPhase, phaseCount);
 	}
 
@@ -158,9 +166,33 @@ describe('Phase Preflight Auto-Trigger Integration', () => {
 					name: 'Phase 1',
 					status: 'complete' as const,
 					tasks: [
-						{ id: '1.1', phase: 1, status: 'completed' as const, size: 'small' as const, description: 'Task 1', depends: [], files_touched: [] },
-						{ id: '1.2', phase: 1, status: 'completed' as const, size: 'small' as const, description: 'Task 2', depends: [], files_touched: [] },
-						{ id: '1.3', phase: 1, status: 'completed' as const, size: 'small' as const, description: 'Task 3', depends: [], files_touched: [] },
+						{
+							id: '1.1',
+							phase: 1,
+							status: 'completed' as const,
+							size: 'small' as const,
+							description: 'Task 1',
+							depends: [],
+							files_touched: [],
+						},
+						{
+							id: '1.2',
+							phase: 1,
+							status: 'completed' as const,
+							size: 'small' as const,
+							description: 'Task 2',
+							depends: [],
+							files_touched: [],
+						},
+						{
+							id: '1.3',
+							phase: 1,
+							status: 'completed' as const,
+							size: 'small' as const,
+							description: 'Task 3',
+							depends: [],
+							files_touched: [],
+						},
 					],
 				},
 				{
@@ -168,7 +200,15 @@ describe('Phase Preflight Auto-Trigger Integration', () => {
 					name: 'Phase 2',
 					status: 'pending' as const,
 					tasks: [
-						{ id: '2.1', phase: 2, status: 'pending' as const, size: 'small' as const, description: 'Task 4', depends: [], files_touched: [] },
+						{
+							id: '2.1',
+							phase: 2,
+							status: 'pending' as const,
+							size: 'small' as const,
+							description: 'Task 4',
+							depends: [],
+							files_touched: [],
+						},
 					],
 				},
 			];
@@ -247,7 +287,9 @@ describe('Phase Preflight Auto-Trigger Integration', () => {
 				phases: plan!.phases.map((phase) => ({
 					...phase,
 					tasks: phase.tasks.map((task) =>
-						task.id === '1.1' ? { ...task, status: 'completed' as const } : task,
+						task.id === '1.1'
+							? { ...task, status: 'completed' as const }
+							: task,
 					),
 				})),
 			};
@@ -294,7 +336,9 @@ describe('Phase Preflight Auto-Trigger Integration', () => {
 			);
 
 			// Override checkAndTrigger to throw
-			failingManager.checkAndTrigger = vi.fn().mockRejectedValue(new Error('Preflight failed!'));
+			failingManager.checkAndTrigger = vi
+				.fn()
+				.mockRejectedValue(new Error('Preflight failed!'));
 
 			const hook = createPhaseMonitorHook(tempDir, failingManager);
 
@@ -326,12 +370,14 @@ describe('Phase Preflight Auto-Trigger Integration', () => {
 			);
 
 			// Make it fail on first phase transition only
-			failingManager.checkAndTrigger = vi.fn().mockImplementation(async (phase) => {
-				if (shouldFail && phase === 2) {
-					throw new Error('Simulated preflight failure');
-				}
-				return false;
-			});
+			failingManager.checkAndTrigger = vi
+				.fn()
+				.mockImplementation(async (phase) => {
+					if (shouldFail && phase === 2) {
+						throw new Error('Simulated preflight failure');
+					}
+					return false;
+				});
 
 			const hook = createPhaseMonitorHook(tempDir, failingManager);
 
@@ -370,7 +416,10 @@ describe('Phase Preflight Auto-Trigger Integration', () => {
 			const mockManager = createMockPreflightManager();
 
 			// Create a handler that throws
-			const throwingHandler = async (_input: unknown, _output: unknown): Promise<void> => {
+			const throwingHandler = async (
+				_input: unknown,
+				_output: unknown,
+			): Promise<void> => {
 				throw new Error('Handler exploded!');
 			};
 
@@ -393,13 +442,19 @@ describe('Phase Preflight Auto-Trigger Integration', () => {
 			const mockManager = createMockPreflightManager();
 
 			// First handler throws
-			const failingHandler = async (_input: unknown, _output: unknown): Promise<void> => {
+			const failingHandler = async (
+				_input: unknown,
+				_output: unknown,
+			): Promise<void> => {
 				throw new Error('First handler failed');
 			};
 
 			// Second handler tracks calls
 			let secondHandlerCalled = false;
-			const succeedingHandler = async (_input: unknown, _output: unknown): Promise<void> => {
+			const succeedingHandler = async (
+				_input: unknown,
+				_output: unknown,
+			): Promise<void> => {
 				secondHandlerCalled = true;
 			};
 
@@ -592,7 +647,10 @@ describe('Phase Preflight Auto-Trigger Integration', () => {
 				current_phase: 'two', // Should be number
 				phases: 'not an array', // Should be array
 			};
-			await Bun.write(path.join(swarmDir, 'plan.json'), JSON.stringify(malformedPlan));
+			await Bun.write(
+				path.join(swarmDir, 'plan.json'),
+				JSON.stringify(malformedPlan),
+			);
 
 			const mockManager = createMockPreflightManager();
 			const hook = createPhaseMonitorHook(tempDir, mockManager);
@@ -614,7 +672,10 @@ describe('Phase Preflight Auto-Trigger Integration', () => {
 				current_phase: -1,
 				phases: [{ id: 1, name: 'P1', status: 'pending', tasks: [] }],
 			};
-			await Bun.write(path.join(swarmDir, 'plan.json'), JSON.stringify(malformedPlan));
+			await Bun.write(
+				path.join(swarmDir, 'plan.json'),
+				JSON.stringify(malformedPlan),
+			);
 
 			const mockManager = createMockPreflightManager();
 			const hook = createPhaseMonitorHook(tempDir, mockManager);
@@ -636,7 +697,10 @@ describe('Phase Preflight Auto-Trigger Integration', () => {
 				current_phase: 1.999999,
 				phases: [{ id: 1.5, name: 'P1', status: 'pending', tasks: [] }],
 			};
-			await Bun.write(path.join(swarmDir, 'plan.json'), JSON.stringify(malformedPlan));
+			await Bun.write(
+				path.join(swarmDir, 'plan.json'),
+				JSON.stringify(malformedPlan),
+			);
 
 			const mockManager = createMockPreflightManager();
 			const hook = createPhaseMonitorHook(tempDir, mockManager);
@@ -656,22 +720,29 @@ describe('Phase Preflight Auto-Trigger Integration', () => {
 				title: 'Test',
 				swarm: 'test',
 				current_phase: 1,
-				phases: [{
-					id: 1,
-					name: 'Phase 1',
-					status: 'invalid_status_xyz',
-					tasks: [{
-						id: '1.1',
-						phase: 1,
-						status: '__proto__',
-						size: 'gigantic',
-						description: 'test',
-						depends: [],
-						files_touched: [],
-					}],
-				}],
+				phases: [
+					{
+						id: 1,
+						name: 'Phase 1',
+						status: 'invalid_status_xyz',
+						tasks: [
+							{
+								id: '1.1',
+								phase: 1,
+								status: '__proto__',
+								size: 'gigantic',
+								description: 'test',
+								depends: [],
+								files_touched: [],
+							},
+						],
+					},
+				],
 			};
-			await Bun.write(path.join(swarmDir, 'plan.json'), JSON.stringify(malformedPlan));
+			await Bun.write(
+				path.join(swarmDir, 'plan.json'),
+				JSON.stringify(malformedPlan),
+			);
 
 			const mockManager = createMockPreflightManager();
 			const hook = createPhaseMonitorHook(tempDir, mockManager);
@@ -695,7 +766,10 @@ describe('Phase Preflight Auto-Trigger Integration', () => {
 				__proto__: { polluted: true },
 				constructor: { prototype: { polluted: true } },
 			};
-			await Bun.write(path.join(swarmDir, 'plan.json'), JSON.stringify(maliciousPlan));
+			await Bun.write(
+				path.join(swarmDir, 'plan.json'),
+				JSON.stringify(maliciousPlan),
+			);
 
 			const mockManager = createMockPreflightManager();
 			const hook = createPhaseMonitorHook(tempDir, mockManager);
@@ -724,7 +798,10 @@ describe('Phase Preflight Auto-Trigger Integration', () => {
 			deeplyNested.title = 'Deep';
 			deeplyNested.swarm = 'test';
 
-			await Bun.write(path.join(swarmDir, 'plan.json'), JSON.stringify(deeplyNested));
+			await Bun.write(
+				path.join(swarmDir, 'plan.json'),
+				JSON.stringify(deeplyNested),
+			);
 
 			const mockManager = createMockPreflightManager();
 			const hook = createPhaseMonitorHook(tempDir, mockManager);
@@ -744,22 +821,32 @@ describe('Phase Preflight Auto-Trigger Integration', () => {
 				title: 'Test \u0000\x00 null bytes \u202E\u202E',
 				swarm: 'test\n\r\t<script>alert(1)</script>',
 				current_phase: 1,
-				phases: [{
-					id: 1,
-					name: '\uD83D\uDE00 emoji \u0000',
-					status: 'pending',
-					tasks: [{
-						id: '1.1',
-						phase: 1,
+				phases: [
+					{
+						id: 1,
+						name: '\uD83D\uDE00 emoji \u0000',
 						status: 'pending',
-						size: 'small',
-						description: '\u202E<script>alert("xss")</script>',
-						depends: [],
-						files_touched: ['../../etc/passwd', '../../../windows/system32'],
-					}],
-				}],
+						tasks: [
+							{
+								id: '1.1',
+								phase: 1,
+								status: 'pending',
+								size: 'small',
+								description: '\u202E<script>alert("xss")</script>',
+								depends: [],
+								files_touched: [
+									'../../etc/passwd',
+									'../../../windows/system32',
+								],
+							},
+						],
+					},
+				],
 			};
-			await Bun.write(path.join(swarmDir, 'plan.json'), JSON.stringify(unicodePlan));
+			await Bun.write(
+				path.join(swarmDir, 'plan.json'),
+				JSON.stringify(unicodePlan),
+			);
 
 			const mockManager = createMockPreflightManager();
 			const hook = createPhaseMonitorHook(tempDir, mockManager);
@@ -780,15 +867,17 @@ describe('Phase Preflight Auto-Trigger Integration', () => {
 				id: i + 1,
 				name: `Phase ${i + 1}`,
 				status: 'pending' as const,
-				tasks: [{
-					id: `${i + 1}.1`,
-					phase: i + 1,
-					status: 'pending' as const,
-					size: 'small' as const,
-					description: `Task for phase ${i + 1}`,
-					depends: [],
-					files_touched: [],
-				}],
+				tasks: [
+					{
+						id: `${i + 1}.1`,
+						phase: i + 1,
+						status: 'pending' as const,
+						size: 'small' as const,
+						description: `Task for phase ${i + 1}`,
+						depends: [],
+						files_touched: [],
+					},
+				],
 			}));
 
 			const largePlan = {
@@ -798,7 +887,10 @@ describe('Phase Preflight Auto-Trigger Integration', () => {
 				current_phase: 1,
 				phases,
 			};
-			await Bun.write(path.join(swarmDir, 'plan.json'), JSON.stringify(largePlan));
+			await Bun.write(
+				path.join(swarmDir, 'plan.json'),
+				JSON.stringify(largePlan),
+			);
 
 			const mockManager = createMockPreflightManager();
 			const hook = createPhaseMonitorHook(tempDir, mockManager);
@@ -828,14 +920,19 @@ describe('Phase Preflight Auto-Trigger Integration', () => {
 				title: 'Many Tasks',
 				swarm: 'test',
 				current_phase: 1,
-				phases: [{
-					id: 1,
-					name: 'Phase 1',
-					status: 'pending' as const,
-					tasks,
-				}],
+				phases: [
+					{
+						id: 1,
+						name: 'Phase 1',
+						status: 'pending' as const,
+						tasks,
+					},
+				],
 			};
-			await Bun.write(path.join(swarmDir, 'plan.json'), JSON.stringify(largePlan));
+			await Bun.write(
+				path.join(swarmDir, 'plan.json'),
+				JSON.stringify(largePlan),
+			);
 
 			const mockManager = createMockPreflightManager();
 			const hook = createPhaseMonitorHook(tempDir, mockManager);
@@ -858,22 +955,29 @@ describe('Phase Preflight Auto-Trigger Integration', () => {
 				title: hugeString,
 				swarm: 'test',
 				current_phase: 1,
-				phases: [{
-					id: 1,
-					name: hugeString.substring(0, 10000),
-					status: 'pending' as const,
-					tasks: [{
-						id: '1.1',
-						phase: 1,
+				phases: [
+					{
+						id: 1,
+						name: hugeString.substring(0, 10000),
 						status: 'pending' as const,
-						size: 'small' as const,
-						description: hugeString.substring(0, 100000),
-						depends: [],
-						files_touched: [],
-					}],
-				}],
+						tasks: [
+							{
+								id: '1.1',
+								phase: 1,
+								status: 'pending' as const,
+								size: 'small' as const,
+								description: hugeString.substring(0, 100000),
+								depends: [],
+								files_touched: [],
+							},
+						],
+					},
+				],
 			};
-			await Bun.write(path.join(swarmDir, 'plan.json'), JSON.stringify(largePlan));
+			await Bun.write(
+				path.join(swarmDir, 'plan.json'),
+				JSON.stringify(largePlan),
+			);
 
 			const mockManager = createMockPreflightManager();
 			const hook = createPhaseMonitorHook(tempDir, mockManager);
@@ -893,14 +997,19 @@ describe('Phase Preflight Auto-Trigger Integration', () => {
 				title: 'Boundary Test',
 				swarm: 'test',
 				current_phase: Number.MAX_SAFE_INTEGER,
-				phases: [{
-					id: Number.MAX_SAFE_INTEGER,
-					name: 'Max Phase',
-					status: 'pending' as const,
-					tasks: [],
-				}],
+				phases: [
+					{
+						id: Number.MAX_SAFE_INTEGER,
+						name: 'Max Phase',
+						status: 'pending' as const,
+						tasks: [],
+					},
+				],
 			};
-			await Bun.write(path.join(swarmDir, 'plan.json'), JSON.stringify(boundaryPlan));
+			await Bun.write(
+				path.join(swarmDir, 'plan.json'),
+				JSON.stringify(boundaryPlan),
+			);
 
 			const mockManager = createMockPreflightManager();
 			const hook = createPhaseMonitorHook(tempDir, mockManager);
@@ -920,18 +1029,47 @@ describe('Phase Preflight Auto-Trigger Integration', () => {
 				title: 'Cyclic Deps',
 				swarm: 'test',
 				current_phase: 1,
-				phases: [{
-					id: 1,
-					name: 'Phase 1',
-					status: 'pending' as const,
-					tasks: [
-						{ id: '1.1', phase: 1, status: 'pending' as const, size: 'small' as const, description: 'T1', depends: ['1.2'], files_touched: [] },
-						{ id: '1.2', phase: 1, status: 'pending' as const, size: 'small' as const, description: 'T2', depends: ['1.3'], files_touched: [] },
-						{ id: '1.3', phase: 1, status: 'pending' as const, size: 'small' as const, description: 'T3', depends: ['1.1'], files_touched: [] },
-					],
-				}],
+				phases: [
+					{
+						id: 1,
+						name: 'Phase 1',
+						status: 'pending' as const,
+						tasks: [
+							{
+								id: '1.1',
+								phase: 1,
+								status: 'pending' as const,
+								size: 'small' as const,
+								description: 'T1',
+								depends: ['1.2'],
+								files_touched: [],
+							},
+							{
+								id: '1.2',
+								phase: 1,
+								status: 'pending' as const,
+								size: 'small' as const,
+								description: 'T2',
+								depends: ['1.3'],
+								files_touched: [],
+							},
+							{
+								id: '1.3',
+								phase: 1,
+								status: 'pending' as const,
+								size: 'small' as const,
+								description: 'T3',
+								depends: ['1.1'],
+								files_touched: [],
+							},
+						],
+					},
+				],
 			};
-			await Bun.write(path.join(swarmDir, 'plan.json'), JSON.stringify(cyclicPlan));
+			await Bun.write(
+				path.join(swarmDir, 'plan.json'),
+				JSON.stringify(cyclicPlan),
+			);
 
 			const mockManager = createMockPreflightManager();
 			const hook = createPhaseMonitorHook(tempDir, mockManager);
@@ -949,7 +1087,8 @@ describe('Phase Preflight Auto-Trigger Integration', () => {
 	describe('ADVERSARIAL: Corruption Scenarios', () => {
 		it('should handle partial/truncated JSON file', async () => {
 			// Valid start but truncated
-			const truncated = '{"schema_version":"1.0.0","title":"Test","swarm":"test","current_phase":1,"phases":[{"id":1,"name":"P1","status":"pendi';
+			const truncated =
+				'{"schema_version":"1.0.0","title":"Test","swarm":"test","current_phase":1,"phases":[{"id":1,"name":"P1","status":"pendi';
 			await Bun.write(path.join(swarmDir, 'plan.json'), truncated);
 
 			const mockManager = createMockPreflightManager();
@@ -982,7 +1121,10 @@ describe('Phase Preflight Auto-Trigger Integration', () => {
 		it('should handle .swarm directory being a file', async () => {
 			// Remove the .swarm directory and create a file with same name
 			rmSync(swarmDir, { recursive: true, force: true });
-			await Bun.write(path.join(tempDir, '.swarm'), 'I am a file, not a directory');
+			await Bun.write(
+				path.join(tempDir, '.swarm'),
+				'I am a file, not a directory',
+			);
 
 			const mockManager = createMockPreflightManager();
 			const hook = createPhaseMonitorHook(tempDir, mockManager);
@@ -1065,7 +1207,10 @@ describe('Phase Preflight Auto-Trigger Integration', () => {
 				current_phase: 0,
 				phases: [{ id: 1, name: 'P1', status: 'pending', tasks: [] }],
 			};
-			await Bun.write(path.join(swarmDir, 'plan.json'), JSON.stringify(zeroPhasePlan));
+			await Bun.write(
+				path.join(swarmDir, 'plan.json'),
+				JSON.stringify(zeroPhasePlan),
+			);
 
 			let threw = false;
 			try {
@@ -1129,7 +1274,10 @@ describe('Phase Preflight Auto-Trigger Integration', () => {
 				current_phase: 1,
 				phases: [],
 			};
-			await Bun.write(path.join(swarmDir, 'plan.json'), JSON.stringify(emptyPhasesPlan));
+			await Bun.write(
+				path.join(swarmDir, 'plan.json'),
+				JSON.stringify(emptyPhasesPlan),
+			);
 
 			const mockManager = createMockPreflightManager();
 			const hook = createPhaseMonitorHook(tempDir, mockManager);
@@ -1149,14 +1297,19 @@ describe('Phase Preflight Auto-Trigger Integration', () => {
 				title: 'No Tasks',
 				swarm: 'test',
 				current_phase: 1,
-				phases: [{
-					id: 1,
-					name: 'Empty Phase',
-					status: 'pending' as const,
-					tasks: [],
-				}],
+				phases: [
+					{
+						id: 1,
+						name: 'Empty Phase',
+						status: 'pending' as const,
+						tasks: [],
+					},
+				],
 			};
-			await Bun.write(path.join(swarmDir, 'plan.json'), JSON.stringify(emptyTasksPlan));
+			await Bun.write(
+				path.join(swarmDir, 'plan.json'),
+				JSON.stringify(emptyTasksPlan),
+			);
 
 			const mockManager = createMockPreflightManager();
 			const hook = createPhaseMonitorHook(tempDir, mockManager);
@@ -1178,7 +1331,10 @@ describe('Phase Preflight Auto-Trigger Integration', () => {
 				current_phase: 999,
 				phases: [{ id: 1, name: 'Only Phase', status: 'pending', tasks: [] }],
 			};
-			await Bun.write(path.join(swarmDir, 'plan.json'), JSON.stringify(invalidRefPlan));
+			await Bun.write(
+				path.join(swarmDir, 'plan.json'),
+				JSON.stringify(invalidRefPlan),
+			);
 
 			const mockManager = createMockPreflightManager();
 			const hook = createPhaseMonitorHook(tempDir, mockManager);
@@ -1237,7 +1393,10 @@ describe('Phase Preflight Auto-Trigger Integration', () => {
 			await createTestPlan(1, 2);
 
 			const explodingManager = new PreflightTriggerManager(
-				AutomationConfigSchema.parse({ mode: 'hybrid', capabilities: { phase_preflight: true } }),
+				AutomationConfigSchema.parse({
+					mode: 'hybrid',
+					capabilities: { phase_preflight: true },
+				}),
 			);
 			// Override to throw synchronously
 			(explodingManager as any).checkAndTrigger = () => {
@@ -1263,7 +1422,10 @@ describe('Phase Preflight Auto-Trigger Integration', () => {
 			await createTestPlan(1, 2);
 
 			const rejectingManager = new PreflightTriggerManager(
-				AutomationConfigSchema.parse({ mode: 'hybrid', capabilities: { phase_preflight: true } }),
+				AutomationConfigSchema.parse({
+					mode: 'hybrid',
+					capabilities: { phase_preflight: true },
+				}),
 			);
 			(rejectingManager as any).checkAndTrigger = async () => {
 				return Promise.reject(new Error('Async rejection!'));
@@ -1287,7 +1449,10 @@ describe('Phase Preflight Auto-Trigger Integration', () => {
 			await createTestPlan(1, 2);
 
 			const deepRecursionManager = new PreflightTriggerManager(
-				AutomationConfigSchema.parse({ mode: 'hybrid', capabilities: { phase_preflight: true } }),
+				AutomationConfigSchema.parse({
+					mode: 'hybrid',
+					capabilities: { phase_preflight: true },
+				}),
 			);
 
 			// Use deep but finite recursion (100 levels) instead of infinite
@@ -1327,7 +1492,9 @@ describe('Phase Preflight Auto-Trigger Integration', () => {
 			const maliciousInput = {
 				__proto__: { injected: true },
 				constructor: { prototype: { injected: true } },
-				toString: () => { throw new Error('Input toString threw'); },
+				toString: () => {
+					throw new Error('Input toString threw');
+				},
 			};
 
 			let threw = false;
@@ -1347,7 +1514,9 @@ describe('Phase Preflight Auto-Trigger Integration', () => {
 
 			// Try to pass malicious output
 			const maliciousOutput = {
-				get system() { throw new Error('Output getter threw'); },
+				get system() {
+					throw new Error('Output getter threw');
+				},
 			};
 
 			let threw = false;
@@ -1366,7 +1535,10 @@ describe('Phase Preflight Auto-Trigger Integration', () => {
 			let globalModified = false;
 
 			const stateChangingManager = new PreflightTriggerManager(
-				AutomationConfigSchema.parse({ mode: 'hybrid', capabilities: { phase_preflight: true } }),
+				AutomationConfigSchema.parse({
+					mode: 'hybrid',
+					capabilities: { phase_preflight: true },
+				}),
 			);
 			(stateChangingManager as any).checkAndTrigger = async () => {
 				globalModified = true;
@@ -1390,9 +1562,15 @@ describe('Phase Preflight Auto-Trigger Integration', () => {
 		});
 
 		it('should handle multiple safeHook wrapped handlers with cascading failures', async () => {
-			const throw1 = async () => { throw new Error('First'); };
-			const throw2 = async () => { throw new Error('Second'); };
-			const throw3 = async () => { throw new Error('Third'); };
+			const throw1 = async () => {
+				throw new Error('First');
+			};
+			const throw2 = async () => {
+				throw new Error('Second');
+			};
+			const throw3 = async () => {
+				throw new Error('Third');
+			};
 			const success = vi.fn();
 
 			const composed = composeHandlers(throw1, throw2, throw3, success);
@@ -1406,7 +1584,10 @@ describe('Phase Preflight Auto-Trigger Integration', () => {
 			await createTestPlan(1, 2);
 
 			const failingManager = new PreflightTriggerManager(
-				AutomationConfigSchema.parse({ mode: 'hybrid', capabilities: { phase_preflight: true } }),
+				AutomationConfigSchema.parse({
+					mode: 'hybrid',
+					capabilities: { phase_preflight: true },
+				}),
 			);
 
 			// Create a large object that shouldn't be retained
@@ -1438,7 +1619,9 @@ describe('Phase Preflight Auto-Trigger Integration', () => {
 
 			// Object that throws when Symbol properties are accessed
 			const symbolThrower = {
-				[Symbol.toPrimitive]: () => { throw new Error('Symbol access'); },
+				[Symbol.toPrimitive]: () => {
+					throw new Error('Symbol access');
+				},
 				[Symbol.toStringTag]: 'Thrower',
 			};
 
@@ -1455,10 +1638,14 @@ describe('Phase Preflight Auto-Trigger Integration', () => {
 			await createTestPlan(1, 2);
 
 			const thenableRejectManager = new PreflightTriggerManager(
-				AutomationConfigSchema.parse({ mode: 'hybrid', capabilities: { phase_preflight: true } }),
+				AutomationConfigSchema.parse({
+					mode: 'hybrid',
+					capabilities: { phase_preflight: true },
+				}),
 			);
 			(thenableRejectManager as any).checkAndTrigger = () => ({
-				then: (_resolve: any, reject: any) => reject(new Error('Thenable rejected')),
+				then: (_resolve: any, reject: any) =>
+					reject(new Error('Thenable rejected')),
 			});
 
 			const hook = createPhaseMonitorHook(tempDir, thenableRejectManager);
@@ -1489,9 +1676,13 @@ describe('Phase Preflight Auto-Trigger Integration', () => {
 			}
 
 			const maliciousManager = new PreflightTriggerManager(
-				AutomationConfigSchema.parse({ mode: 'hybrid', capabilities: { phase_preflight: true } }),
+				AutomationConfigSchema.parse({
+					mode: 'hybrid',
+					capabilities: { phase_preflight: true },
+				}),
 			);
-			(maliciousManager as any).checkAndTrigger = () => new MaliciousPromise(() => {});
+			(maliciousManager as any).checkAndTrigger = () =>
+				new MaliciousPromise(() => {});
 
 			const hook = createPhaseMonitorHook(tempDir, maliciousManager);
 			await hook({}, {}); // Initialize

@@ -7,7 +7,7 @@ import * as fs from 'node:fs';
 import * as path from 'node:path';
 import { type ToolDefinition, tool } from '@opencode-ai/plugin/tool';
 import type { Phase, Plan, Task } from '../config/plan-schema';
-import { releaseLock, tryAcquireLock } from '../parallel/file-locks.js';
+import { tryAcquireLock } from '../parallel/file-locks.js';
 import { writeCheckpoint } from '../plan/checkpoint';
 import { savePlan } from '../plan/manager';
 import { swarmState } from '../state';
@@ -236,7 +236,7 @@ export async function executeSavePlan(
 	const planFilePath = 'plan.json';
 	try {
 		// Acquire file lock to prevent concurrent plan writes
-		const lockResult = tryAcquireLock(
+		const lockResult = await tryAcquireLock(
 			dir,
 			planFilePath,
 			'architect',
@@ -297,7 +297,9 @@ export async function executeSavePlan(
 				...(warnings.length > 0 ? { warnings } : {}),
 			};
 		} finally {
-			releaseLock(dir, planFilePath, lockTaskId);
+			if (lockResult.acquired && lockResult.lock._release) {
+				await lockResult.lock._release().catch(() => {});
+			}
 		}
 	} catch (error) {
 		return {

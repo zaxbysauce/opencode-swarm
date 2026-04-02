@@ -1,9 +1,9 @@
-import { describe, test, expect, beforeEach, afterEach } from 'bun:test';
+import { afterEach, beforeEach, describe, expect, test } from 'bun:test';
 import * as fs from 'node:fs';
-import * as path from 'node:path';
 import * as os from 'node:os';
+import * as path from 'node:path';
 
-import { createIsolatedTestEnv, assertSafeForWrite } from './isolated-test-env';
+import { assertSafeForWrite, createIsolatedTestEnv } from './isolated-test-env';
 
 describe('isolated-test-env', () => {
 	describe('createIsolatedTestEnv', () => {
@@ -117,7 +117,8 @@ describe('isolated-test-env', () => {
 			// Restore original state
 			if (originalXDG !== undefined) process.env.XDG_CONFIG_HOME = originalXDG;
 			if (originalAPPDATA !== undefined) process.env.APPDATA = originalAPPDATA;
-			if (originalLOCALAPPDATA !== undefined) process.env.LOCALAPPDATA = originalLOCALAPPDATA;
+			if (originalLOCALAPPDATA !== undefined)
+				process.env.LOCALAPPDATA = originalLOCALAPPDATA;
 			if (originalHOME !== undefined) process.env.HOME = originalHOME;
 		});
 
@@ -133,19 +134,33 @@ describe('isolated-test-env', () => {
 
 	describe('assertSafeForWrite', () => {
 		test('throws for path.join(os.homedir(), ".config", "opencode", "opencode-swarm.json")', () => {
-			const targetPath = path.join(os.homedir(), '.config', 'opencode', 'opencode-swarm.json');
+			const targetPath = path.join(
+				os.homedir(),
+				'.config',
+				'opencode',
+				'opencode-swarm.json',
+			);
 
 			expect(() => assertSafeForWrite(targetPath)).toThrow();
 		});
 
 		test('throws for path.join(os.homedir(), ".config", "opencode", "config.json")', () => {
-			const targetPath = path.join(os.homedir(), '.config', 'opencode', 'config.json');
+			const targetPath = path.join(
+				os.homedir(),
+				'.config',
+				'opencode',
+				'config.json',
+			);
 
 			expect(() => assertSafeForWrite(targetPath)).toThrow();
 		});
 
 		test('does NOT throw for path.join(os.tmpdir(), "swarm-test-abc", "config.json")', () => {
-			const targetPath = path.join(os.tmpdir(), 'swarm-test-abc', 'config.json');
+			const targetPath = path.join(
+				os.tmpdir(),
+				'swarm-test-abc',
+				'config.json',
+			);
 
 			// Should not throw
 			expect(() => assertSafeForWrite(targetPath)).not.toThrow();
@@ -154,7 +169,12 @@ describe('isolated-test-env', () => {
 		test('handles Windows backslash paths correctly', () => {
 			// Test with explicit Windows-style path under actual homedir
 			const homeDir = os.homedir();
-			const targetPath = path.join(homeDir, '.config', 'opencode', 'config.json');
+			const targetPath = path.join(
+				homeDir,
+				'.config',
+				'opencode',
+				'config.json',
+			);
 
 			// On Windows, this should use backslash separator but resolve correctly
 			expect(() => assertSafeForWrite(targetPath)).toThrow();

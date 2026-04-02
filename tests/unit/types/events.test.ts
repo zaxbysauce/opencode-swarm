@@ -3,13 +3,13 @@
  * Task 1.4 - V6.19 Event Types Verification
  */
 
-import { describe, it, expect } from 'bun:test';
+import { describe, expect, it } from 'bun:test';
 import type {
-	SoundingBoardConsultedEvent,
 	ArchitectLoopDetectedEvent,
-	PrecedentManipulationDetectedEvent,
-	CoderSelfAuditEvent,
 	CoderRetryCircuitBreakerEvent,
+	CoderSelfAuditEvent,
+	PrecedentManipulationDetectedEvent,
+	SoundingBoardConsultedEvent,
 	V619Event,
 } from '../../../src/types/events';
 

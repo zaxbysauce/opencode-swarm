@@ -1,9 +1,9 @@
-import { describe, it, expect, beforeEach } from 'bun:test';
+import { beforeEach, describe, expect, it } from 'bun:test';
+import type { GuardrailsConfig } from '../../../src/config/schema';
 import { createGuardrailsHooks } from '../../../src/hooks/guardrails';
 import { resetSwarmState, startAgentSession } from '../../../src/state';
-import type { GuardrailsConfig } from '../../../src/config/schema';
 
-	const TEST_DIR = '/tmp';
+const TEST_DIR = '/tmp';
 
 /**
  * Adversarial security tests for the bash test suite execution guard (Task 1.3)
@@ -52,15 +52,25 @@ describe('bash test suite execution guard - adversarial', () => {
 		it('blocks "bun test --reporter verbose" (flag value, not a file)', async () => {
 			const hooks = createGuardrailsHooks(TEST_DIR, undefined, defaultConfig());
 			await expect(
-				hooks.toolBefore(makeBashInput('bun test --reporter verbose'), makeOutput('bun test --reporter verbose')),
-			).rejects.toThrow('BLOCKED: Full test suite execution is not allowed in-session');
+				hooks.toolBefore(
+					makeBashInput('bun test --reporter verbose'),
+					makeOutput('bun test --reporter verbose'),
+				),
+			).rejects.toThrow(
+				'BLOCKED: Full test suite execution is not allowed in-session',
+			);
 		});
 
 		it('blocks "npx vitest run" (subcommand token, not a file)', async () => {
 			const hooks = createGuardrailsHooks(TEST_DIR, undefined, defaultConfig());
 			await expect(
-				hooks.toolBefore(makeBashInput('npx vitest run'), makeOutput('npx vitest run')),
-			).rejects.toThrow('BLOCKED: Full test suite execution is not allowed in-session');
+				hooks.toolBefore(
+					makeBashInput('npx vitest run'),
+					makeOutput('npx vitest run'),
+				),
+			).rejects.toThrow(
+				'BLOCKED: Full test suite execution is not allowed in-session',
+			);
 		});
 
 		it('blocks "bun test --config vitest.config.ts"', async () => {
@@ -68,22 +78,35 @@ describe('bash test suite execution guard - adversarial', () => {
 			// This is an acceptable edge case per the design spec.
 			const hooks = createGuardrailsHooks(TEST_DIR, undefined, defaultConfig());
 			await expect(
-				hooks.toolBefore(makeBashInput('bun test --config vitest.config.ts'), makeOutput('bun test --config vitest.config.ts')),
+				hooks.toolBefore(
+					makeBashInput('bun test --config vitest.config.ts'),
+					makeOutput('bun test --config vitest.config.ts'),
+				),
 			).resolves.toBeUndefined();
 		});
 
 		it('blocks "bun test --watch --passWithNoTests" (multiple flags)', async () => {
 			const hooks = createGuardrailsHooks(TEST_DIR, undefined, defaultConfig());
 			await expect(
-				hooks.toolBefore(makeBashInput('bun test --watch --passWithNoTests'), makeOutput('bun test --watch --passWithNoTests')),
-			).rejects.toThrow('BLOCKED: Full test suite execution is not allowed in-session');
+				hooks.toolBefore(
+					makeBashInput('bun test --watch --passWithNoTests'),
+					makeOutput('bun test --watch --passWithNoTests'),
+				),
+			).rejects.toThrow(
+				'BLOCKED: Full test suite execution is not allowed in-session',
+			);
 		});
 
 		it('blocks "npm test -- --watch --coverage" (npm test with flags)', async () => {
 			const hooks = createGuardrailsHooks(TEST_DIR, undefined, defaultConfig());
 			await expect(
-				hooks.toolBefore(makeBashInput('npm test -- --watch --coverage'), makeOutput('npm test -- --watch --coverage')),
-			).rejects.toThrow('BLOCKED: Full test suite execution is not allowed in-session');
+				hooks.toolBefore(
+					makeBashInput('npm test -- --watch --coverage'),
+					makeOutput('npm test -- --watch --coverage'),
+				),
+			).rejects.toThrow(
+				'BLOCKED: Full test suite execution is not allowed in-session',
+			);
 		});
 	});
 
@@ -116,14 +139,21 @@ describe('bash test suite execution guard - adversarial', () => {
 			const hooks = createGuardrailsHooks(TEST_DIR, undefined, defaultConfig());
 			await expect(
 				hooks.toolBefore(makeBashInput('bun  test'), makeOutput('bun  test')),
-			).rejects.toThrow('BLOCKED: Full test suite execution is not allowed in-session');
+			).rejects.toThrow(
+				'BLOCKED: Full test suite execution is not allowed in-session',
+			);
 		});
 
 		it('blocks "bun   test   --coverage" (extra whitespace)', async () => {
 			const hooks = createGuardrailsHooks(TEST_DIR, undefined, defaultConfig());
 			await expect(
-				hooks.toolBefore(makeBashInput('bun   test   --coverage'), makeOutput('bun   test   --coverage')),
-			).rejects.toThrow('BLOCKED: Full test suite execution is not allowed in-session');
+				hooks.toolBefore(
+					makeBashInput('bun   test   --coverage'),
+					makeOutput('bun   test   --coverage'),
+				),
+			).rejects.toThrow(
+				'BLOCKED: Full test suite execution is not allowed in-session',
+			);
 		});
 	});
 
@@ -132,49 +162,70 @@ describe('bash test suite execution guard - adversarial', () => {
 			// .ts file should be recognized as a file argument
 			const hooks = createGuardrailsHooks(TEST_DIR, undefined, defaultConfig());
 			await expect(
-				hooks.toolBefore(makeBashInput('bun test foo.spec.ts'), makeOutput('bun test foo.spec.ts')),
+				hooks.toolBefore(
+					makeBashInput('bun test foo.spec.ts'),
+					makeOutput('bun test foo.spec.ts'),
+				),
 			).resolves.toBeUndefined();
 		});
 
 		it('allows "bun test ./tests/unit/guardrails.test.ts"', async () => {
 			const hooks = createGuardrailsHooks(TEST_DIR, undefined, defaultConfig());
 			await expect(
-				hooks.toolBefore(makeBashInput('bun test ./tests/unit/guardrails.test.ts'), makeOutput('bun test ./tests/unit/guardrails.test.ts')),
+				hooks.toolBefore(
+					makeBashInput('bun test ./tests/unit/guardrails.test.ts'),
+					makeOutput('bun test ./tests/unit/guardrails.test.ts'),
+				),
 			).resolves.toBeUndefined();
 		});
 
 		it('allows "bun test tests\\hooks\\guardrails.test.ts" (Windows backslash paths)', async () => {
 			const hooks = createGuardrailsHooks(TEST_DIR, undefined, defaultConfig());
 			await expect(
-				hooks.toolBefore(makeBashInput('bun test tests\\hooks\\guardrails.test.ts'), makeOutput('bun test tests\\hooks\\guardrails.test.ts')),
+				hooks.toolBefore(
+					makeBashInput('bun test tests\\hooks\\guardrails.test.ts'),
+					makeOutput('bun test tests\\hooks\\guardrails.test.ts'),
+				),
 			).resolves.toBeUndefined();
 		});
 
 		it('allows "bun test src/tools/foo.test.js"', async () => {
 			const hooks = createGuardrailsHooks(TEST_DIR, undefined, defaultConfig());
 			await expect(
-				hooks.toolBefore(makeBashInput('bun test src/tools/foo.test.js'), makeOutput('bun test src/tools/foo.test.js')),
+				hooks.toolBefore(
+					makeBashInput('bun test src/tools/foo.test.js'),
+					makeOutput('bun test src/tools/foo.test.js'),
+				),
 			).resolves.toBeUndefined();
 		});
 
 		it('allows "bun test src/tools/foo.test.tsx"', async () => {
 			const hooks = createGuardrailsHooks(TEST_DIR, undefined, defaultConfig());
 			await expect(
-				hooks.toolBefore(makeBashInput('bun test src/tools/foo.test.tsx'), makeOutput('bun test src/tools/foo.test.tsx')),
+				hooks.toolBefore(
+					makeBashInput('bun test src/tools/foo.test.tsx'),
+					makeOutput('bun test src/tools/foo.test.tsx'),
+				),
 			).resolves.toBeUndefined();
 		});
 
 		it('allows "bun test src/tools/foo.test.mts"', async () => {
 			const hooks = createGuardrailsHooks(TEST_DIR, undefined, defaultConfig());
 			await expect(
-				hooks.toolBefore(makeBashInput('bun test src/tools/foo.test.mts'), makeOutput('bun test src/tools/foo.test.mts')),
+				hooks.toolBefore(
+					makeBashInput('bun test src/tools/foo.test.mts'),
+					makeOutput('bun test src/tools/foo.test.mts'),
+				),
 			).resolves.toBeUndefined();
 		});
 
 		it('allows "bun test src/tools/foo.test.mjs"', async () => {
 			const hooks = createGuardrailsHooks(TEST_DIR, undefined, defaultConfig());
 			await expect(
-				hooks.toolBefore(makeBashInput('bun test src/tools/foo.test.mjs'), makeOutput('bun test src/tools/foo.test.mjs')),
+				hooks.toolBefore(
+					makeBashInput('bun test src/tools/foo.test.mjs'),
+					makeOutput('bun test src/tools/foo.test.mjs'),
+				),
 			).resolves.toBeUndefined();
 		});
 
@@ -182,15 +233,25 @@ describe('bash test suite execution guard - adversarial', () => {
 			// "src" has no extension and no path separators, so it's not a recognized file arg
 			const hooks = createGuardrailsHooks(TEST_DIR, undefined, defaultConfig());
 			await expect(
-				hooks.toolBefore(makeBashInput('bun test src'), makeOutput('bun test src')),
-			).rejects.toThrow('BLOCKED: Full test suite execution is not allowed in-session');
+				hooks.toolBefore(
+					makeBashInput('bun test src'),
+					makeOutput('bun test src'),
+				),
+			).rejects.toThrow(
+				'BLOCKED: Full test suite execution is not allowed in-session',
+			);
 		});
 
 		it('blocks "bun test tests" (directory-like token without extension)', async () => {
 			const hooks = createGuardrailsHooks(TEST_DIR, undefined, defaultConfig());
 			await expect(
-				hooks.toolBefore(makeBashInput('bun test tests'), makeOutput('bun test tests')),
-			).rejects.toThrow('BLOCKED: Full test suite execution is not allowed in-session');
+				hooks.toolBefore(
+					makeBashInput('bun test tests'),
+					makeOutput('bun test tests'),
+				),
+			).rejects.toThrow(
+				'BLOCKED: Full test suite execution is not allowed in-session',
+			);
 		});
 	});
 
@@ -198,28 +259,40 @@ describe('bash test suite execution guard - adversarial', () => {
 		it('allows "echo bun test" (not at command start)', async () => {
 			const hooks = createGuardrailsHooks(TEST_DIR, undefined, defaultConfig());
 			await expect(
-				hooks.toolBefore(makeBashInput('echo bun test'), makeOutput('echo bun test')),
+				hooks.toolBefore(
+					makeBashInput('echo bun test'),
+					makeOutput('echo bun test'),
+				),
 			).resolves.toBeUndefined();
 		});
 
 		it('allows "cat package.json | bun test" (pipe - test runner not at start)', async () => {
 			const hooks = createGuardrailsHooks(TEST_DIR, undefined, defaultConfig());
 			await expect(
-				hooks.toolBefore(makeBashInput('cat package.json | bun test'), makeOutput('cat package.json | bun test')),
+				hooks.toolBefore(
+					makeBashInput('cat package.json | bun test'),
+					makeOutput('cat package.json | bun test'),
+				),
 			).resolves.toBeUndefined();
 		});
 
 		it('allows "bun run test" (bun run, not bun test)', async () => {
 			const hooks = createGuardrailsHooks(TEST_DIR, undefined, defaultConfig());
 			await expect(
-				hooks.toolBefore(makeBashInput('bun run test'), makeOutput('bun run test')),
+				hooks.toolBefore(
+					makeBashInput('bun run test'),
+					makeOutput('bun run test'),
+				),
 			).resolves.toBeUndefined();
 		});
 
 		it('allows "npm run test" (npm run, not npm test)', async () => {
 			const hooks = createGuardrailsHooks(TEST_DIR, undefined, defaultConfig());
 			await expect(
-				hooks.toolBefore(makeBashInput('npm run test'), makeOutput('npm run test')),
+				hooks.toolBefore(
+					makeBashInput('npm run test'),
+					makeOutput('npm run test'),
+				),
 			).resolves.toBeUndefined();
 		});
 
@@ -228,8 +301,13 @@ describe('bash test suite execution guard - adversarial', () => {
 			// Since "core" is not a recognized file arg, this is blocked.
 			const hooks = createGuardrailsHooks(TEST_DIR, undefined, defaultConfig());
 			await expect(
-				hooks.toolBefore(makeBashInput('npx vitest-core'), makeOutput('npx vitest-core')),
-			).rejects.toThrow('BLOCKED: Full test suite execution is not allowed in-session');
+				hooks.toolBefore(
+					makeBashInput('npx vitest-core'),
+					makeOutput('npx vitest-core'),
+				),
+			).rejects.toThrow(
+				'BLOCKED: Full test suite execution is not allowed in-session',
+			);
 		});
 
 		it('allows empty command string', async () => {
@@ -271,22 +349,38 @@ describe('bash test suite execution guard - adversarial', () => {
 
 		it('handles non-string command (number) gracefully', async () => {
 			const hooks = createGuardrailsHooks(TEST_DIR, undefined, defaultConfig());
-			const input = { tool: 'bash' as const, sessionID: 'test-session', callID: 'call-1' };
+			const input = {
+				tool: 'bash' as const,
+				sessionID: 'test-session',
+				callID: 'call-1',
+			};
 			const output = { args: { command: 12345 as unknown as string } };
 			await expect(hooks.toolBefore(input, output)).resolves.toBeUndefined();
 		});
 
 		it('handles non-string command (object) gracefully', async () => {
 			const hooks = createGuardrailsHooks(TEST_DIR, undefined, defaultConfig());
-			const input = { tool: 'bash' as const, sessionID: 'test-session', callID: 'call-1' };
-			const output = { args: { command: { cmd: 'bun test' } } as unknown as string };
+			const input = {
+				tool: 'bash' as const,
+				sessionID: 'test-session',
+				callID: 'call-1',
+			};
+			const output = {
+				args: { command: { cmd: 'bun test' } } as unknown as string,
+			};
 			await expect(hooks.toolBefore(input, output)).resolves.toBeUndefined();
 		});
 
 		it('handles array command gracefully', async () => {
 			const hooks = createGuardrailsHooks(TEST_DIR, undefined, defaultConfig());
-			const input = { tool: 'bash' as const, sessionID: 'test-session', callID: 'call-1' };
-			const output = { args: { command: ['bun', 'test'] } as unknown as string };
+			const input = {
+				tool: 'bash' as const,
+				sessionID: 'test-session',
+				callID: 'call-1',
+			};
+			const output = {
+				args: { command: ['bun', 'test'] } as unknown as string,
+			};
 			await expect(hooks.toolBefore(input, output)).resolves.toBeUndefined();
 		});
 	});
@@ -299,30 +393,46 @@ describe('bash test suite execution guard - adversarial', () => {
 			// recognized as a file arg, this should be blocked.
 			const hooks = createGuardrailsHooks(TEST_DIR, undefined, defaultConfig());
 			await expect(
-				hooks.toolBefore(makeBashInput('bun test -- ; echo hacked'), makeOutput('bun test -- ; echo hacked')),
-			).rejects.toThrow('BLOCKED: Full test suite execution is not allowed in-session');
+				hooks.toolBefore(
+					makeBashInput('bun test -- ; echo hacked'),
+					makeOutput('bun test -- ; echo hacked'),
+				),
+			).rejects.toThrow(
+				'BLOCKED: Full test suite execution is not allowed in-session',
+			);
 		});
 
 		it('allows "bun test ./file.test.js && bun test" (chained - second part has no file)', async () => {
 			// Guard only checks first token match; chained commands are not analyzed
 			const hooks = createGuardrailsHooks(TEST_DIR, undefined, defaultConfig());
 			await expect(
-				hooks.toolBefore(makeBashInput('bun test ./file.test.js && bun test'), makeOutput('bun test ./file.test.js && bun test')),
+				hooks.toolBefore(
+					makeBashInput('bun test ./file.test.js && bun test'),
+					makeOutput('bun test ./file.test.js && bun test'),
+				),
 			).resolves.toBeUndefined(); // Allowed because first file arg present
 		});
 
 		it('blocks "bun test && bun test" (chained - no file args)', async () => {
 			const hooks = createGuardrailsHooks(TEST_DIR, undefined, defaultConfig());
 			await expect(
-				hooks.toolBefore(makeBashInput('bun test && bun test'), makeOutput('bun test && bun test')),
-			).rejects.toThrow('BLOCKED: Full test suite execution is not allowed in-session');
+				hooks.toolBefore(
+					makeBashInput('bun test && bun test'),
+					makeOutput('bun test && bun test'),
+				),
+			).rejects.toThrow(
+				'BLOCKED: Full test suite execution is not allowed in-session',
+			);
 		});
 
 		it('allows path traversal attempt with file arg: "bun test ../foo.test.ts"', async () => {
 			// Path traversal IS detected as a file path (contains ../) and allowed
 			const hooks = createGuardrailsHooks(TEST_DIR, undefined, defaultConfig());
 			await expect(
-				hooks.toolBefore(makeBashInput('bun test ../foo.test.ts'), makeOutput('bun test ../foo.test.ts')),
+				hooks.toolBefore(
+					makeBashInput('bun test ../foo.test.ts'),
+					makeOutput('bun test ../foo.test.ts'),
+				),
 			).resolves.toBeUndefined();
 		});
 	});
@@ -331,15 +441,25 @@ describe('bash test suite execution guard - adversarial', () => {
 		it('blocks "bunx vitest" (no args)', async () => {
 			const hooks = createGuardrailsHooks(TEST_DIR, undefined, defaultConfig());
 			await expect(
-				hooks.toolBefore(makeBashInput('bunx vitest'), makeOutput('bunx vitest')),
-			).rejects.toThrow('BLOCKED: Full test suite execution is not allowed in-session');
+				hooks.toolBefore(
+					makeBashInput('bunx vitest'),
+					makeOutput('bunx vitest'),
+				),
+			).rejects.toThrow(
+				'BLOCKED: Full test suite execution is not allowed in-session',
+			);
 		});
 
 		it('blocks "bunx vitest run" (subcommand, not file)', async () => {
 			const hooks = createGuardrailsHooks(TEST_DIR, undefined, defaultConfig());
 			await expect(
-				hooks.toolBefore(makeBashInput('bunx vitest run'), makeOutput('bunx vitest run')),
-			).rejects.toThrow('BLOCKED: Full test suite execution is not allowed in-session');
+				hooks.toolBefore(
+					makeBashInput('bunx vitest run'),
+					makeOutput('bunx vitest run'),
+				),
+			).rejects.toThrow(
+				'BLOCKED: Full test suite execution is not allowed in-session',
+			);
 		});
 
 		it('blocks "bunx vitest tests/guardrails.test.ts" (file absorbed into runnerTokenCount)', async () => {
@@ -348,8 +468,13 @@ describe('bash test suite execution guard - adversarial', () => {
 			// hasFileArg = false, so this is blocked. This is a pre-existing guard limitation.
 			const hooks = createGuardrailsHooks(TEST_DIR, undefined, defaultConfig());
 			await expect(
-				hooks.toolBefore(makeBashInput('bunx vitest tests/guardrails.test.ts'), makeOutput('bunx vitest tests/guardrails.test.ts')),
-			).rejects.toThrow('BLOCKED: Full test suite execution is not allowed in-session');
+				hooks.toolBefore(
+					makeBashInput('bunx vitest tests/guardrails.test.ts'),
+					makeOutput('bunx vitest tests/guardrails.test.ts'),
+				),
+			).rejects.toThrow(
+				'BLOCKED: Full test suite execution is not allowed in-session',
+			);
 		});
 
 		it('blocks "bunx vitest  tests/guardrails.test.ts" (whitespace collapse still absorbs file)', async () => {
@@ -357,8 +482,13 @@ describe('bash test suite execution guard - adversarial', () => {
 			// The file path is absorbed into runnerTokenCount regardless of extra spaces.
 			const hooks = createGuardrailsHooks(TEST_DIR, undefined, defaultConfig());
 			await expect(
-				hooks.toolBefore(makeBashInput('bunx vitest  tests/guardrails.test.ts'), makeOutput('bunx vitest  tests/guardrails.test.ts')),
-			).rejects.toThrow('BLOCKED: Full test suite execution is not allowed in-session');
+				hooks.toolBefore(
+					makeBashInput('bunx vitest  tests/guardrails.test.ts'),
+					makeOutput('bunx vitest  tests/guardrails.test.ts'),
+				),
+			).rejects.toThrow(
+				'BLOCKED: Full test suite execution is not allowed in-session',
+			);
 		});
 	});
 
@@ -368,7 +498,9 @@ describe('bash test suite execution guard - adversarial', () => {
 			const hooks = createGuardrailsHooks(TEST_DIR, undefined, defaultConfig());
 			await expect(
 				hooks.toolBefore(makeBashInput(longCmd), makeOutput(longCmd)),
-			).rejects.toThrow('BLOCKED: Full test suite execution is not allowed in-session');
+			).rejects.toThrow(
+				'BLOCKED: Full test suite execution is not allowed in-session',
+			);
 		});
 
 		it('handles command that is just a path separator "/"', async () => {
@@ -381,8 +513,13 @@ describe('bash test suite execution guard - adversarial', () => {
 		it('handles command with only flags (dash-only values)', async () => {
 			const hooks = createGuardrailsHooks(TEST_DIR, undefined, defaultConfig());
 			await expect(
-				hooks.toolBefore(makeBashInput('bun test -- --testPathIgnorePatterns=tests'), makeOutput('bun test -- --testPathIgnorePatterns=tests')),
-			).rejects.toThrow('BLOCKED: Full test suite execution is not allowed in-session');
+				hooks.toolBefore(
+					makeBashInput('bun test -- --testPathIgnorePatterns=tests'),
+					makeOutput('bun test -- --testPathIgnorePatterns=tests'),
+				),
+			).rejects.toThrow(
+				'BLOCKED: Full test suite execution is not allowed in-session',
+			);
 		});
 	});
 });

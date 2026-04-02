@@ -1,8 +1,8 @@
-import { describe, test, expect, beforeEach, afterEach } from 'bun:test';
-import * as fs from 'node:fs';
-import * as path from 'node:path';
-import * as os from 'node:os';
+import { afterEach, beforeEach, describe, expect, test } from 'bun:test';
 import { execSync } from 'node:child_process';
+import * as fs from 'node:fs';
+import * as os from 'node:os';
+import * as path from 'node:path';
 
 import { handleCheckpointCommand } from '../../../src/commands/checkpoint';
 
@@ -20,6 +20,8 @@ describe('checkpoint command', () => {
 		execSync('git init', { encoding: 'utf-8' });
 		execSync('git config user.email "test@test.com"', { encoding: 'utf-8' });
 		execSync('git config user.name "Test"', { encoding: 'utf-8' });
+		// Disable commit signing for this local repo (overrides any global gpg config)
+		execSync('git config commit.gpgsign false', { encoding: 'utf-8' });
 		// Create initial commit
 		fs.writeFileSync(path.join(tempDir, 'initial.txt'), 'initial');
 		execSync('git add .', { encoding: 'utf-8' });
@@ -39,7 +41,10 @@ describe('checkpoint command', () => {
 
 	describe('save subcommand', () => {
 		test('creates checkpoint and returns success message', async () => {
-			const result = await handleCheckpointCommand(tempDir, ['save', 'my-checkpoint']);
+			const result = await handleCheckpointCommand(tempDir, [
+				'save',
+				'my-checkpoint',
+			]);
 
 			expect(result).toContain('✓');
 			expect(result).toContain('Checkpoint saved');
@@ -55,14 +60,20 @@ describe('checkpoint command', () => {
 		});
 
 		test('handles label with spaces', async () => {
-			const result = await handleCheckpointCommand(tempDir, ['save', 'my checkpoint name']);
+			const result = await handleCheckpointCommand(tempDir, [
+				'save',
+				'my checkpoint name',
+			]);
 
 			expect(result).toContain('✓');
 			expect(result).toContain('my checkpoint name');
 		});
 
 		test('handles label with special characters', async () => {
-			const result = await handleCheckpointCommand(tempDir, ['save', 'test-label_123']);
+			const result = await handleCheckpointCommand(tempDir, [
+				'save',
+				'test-label_123',
+			]);
 
 			expect(result).toContain('✓');
 		});
@@ -79,7 +90,10 @@ describe('checkpoint command', () => {
 			execSync('git commit -m "new commit"', { encoding: 'utf-8' });
 
 			// Now restore
-			const result = await handleCheckpointCommand(tempDir, ['restore', 'restore-me']);
+			const result = await handleCheckpointCommand(tempDir, [
+				'restore',
+				'restore-me',
+			]);
 
 			expect(result).toContain('✓');
 			expect(result).toContain('Restored');
@@ -95,7 +109,10 @@ describe('checkpoint command', () => {
 		});
 
 		test('returns error for non-existent checkpoint', async () => {
-			const result = await handleCheckpointCommand(tempDir, ['restore', 'does-not-exist']);
+			const result = await handleCheckpointCommand(tempDir, [
+				'restore',
+				'does-not-exist',
+			]);
 
 			expect(result).toContain('Error');
 			expect(result).toContain('not found');
@@ -108,7 +125,10 @@ describe('checkpoint command', () => {
 			await handleCheckpointCommand(tempDir, ['save', 'to-delete']);
 
 			// Now delete
-			const result = await handleCheckpointCommand(tempDir, ['delete', 'to-delete']);
+			const result = await handleCheckpointCommand(tempDir, [
+				'delete',
+				'to-delete',
+			]);
 
 			expect(result).toContain('✓');
 			expect(result).toContain('Checkpoint deleted');
@@ -124,7 +144,10 @@ describe('checkpoint command', () => {
 		});
 
 		test('returns error for non-existent checkpoint', async () => {
-			const result = await handleCheckpointCommand(tempDir, ['delete', 'does-not-exist']);
+			const result = await handleCheckpointCommand(tempDir, [
+				'delete',
+				'does-not-exist',
+			]);
 
 			expect(result).toContain('Error');
 			expect(result).toContain('not found');
@@ -166,21 +189,30 @@ describe('checkpoint command', () => {
 
 	describe('label parameter', () => {
 		test('label is passed correctly to save', async () => {
-			const result = await handleCheckpointCommand(tempDir, ['save', 'custom-label']);
+			const result = await handleCheckpointCommand(tempDir, [
+				'save',
+				'custom-label',
+			]);
 
 			expect(result).toContain('custom-label');
 		});
 
 		test('label is passed correctly to restore', async () => {
 			await handleCheckpointCommand(tempDir, ['save', 'label-test']);
-			const result = await handleCheckpointCommand(tempDir, ['restore', 'label-test']);
+			const result = await handleCheckpointCommand(tempDir, [
+				'restore',
+				'label-test',
+			]);
 
 			expect(result).toContain('label-test');
 		});
 
 		test('label is passed correctly to delete', async () => {
 			await handleCheckpointCommand(tempDir, ['save', 'delete-label-test']);
-			const result = await handleCheckpointCommand(tempDir, ['delete', 'delete-label-test']);
+			const result = await handleCheckpointCommand(tempDir, [
+				'delete',
+				'delete-label-test',
+			]);
 
 			expect(result).toContain('delete-label-test');
 		});
@@ -190,19 +222,25 @@ describe('checkpoint command', () => {
 		test('save without label shows user-friendly error', async () => {
 			const result = await handleCheckpointCommand(tempDir, ['save']);
 
-			expect(result).toBe('Error: Label required. Usage: `/swarm checkpoint save <label>`');
+			expect(result).toBe(
+				'Error: Label required. Usage: `/swarm checkpoint save <label>`',
+			);
 		});
 
 		test('restore without label shows user-friendly error', async () => {
 			const result = await handleCheckpointCommand(tempDir, ['restore']);
 
-			expect(result).toBe('Error: Label required. Usage: `/swarm checkpoint restore <label>`');
+			expect(result).toBe(
+				'Error: Label required. Usage: `/swarm checkpoint restore <label>`',
+			);
 		});
 
 		test('delete without label shows user-friendly error', async () => {
 			const result = await handleCheckpointCommand(tempDir, ['delete']);
 
-			expect(result).toBe('Error: Label required. Usage: `/swarm checkpoint delete <label>`');
+			expect(result).toBe(
+				'Error: Label required. Usage: `/swarm checkpoint delete <label>`',
+			);
 		});
 
 		test('invalid subcommand falls back to list', async () => {
@@ -214,7 +252,10 @@ describe('checkpoint command', () => {
 
 		test('handles tool execution errors gracefully', async () => {
 			// Try to restore from a non-existent checkpoint - should get error from tool
-			const result = await handleCheckpointCommand(tempDir, ['restore', 'non-existent']);
+			const result = await handleCheckpointCommand(tempDir, [
+				'restore',
+				'non-existent',
+			]);
 
 			expect(result).toContain('Error');
 			expect(result).toContain('not found');
@@ -224,7 +265,10 @@ describe('checkpoint command', () => {
 	describe('full workflow', () => {
 		test('complete checkpoint workflow: save, list, restore, delete', async () => {
 			// 1. Save a checkpoint
-			const saveResult = await handleCheckpointCommand(tempDir, ['save', 'workflow-test']);
+			const saveResult = await handleCheckpointCommand(tempDir, [
+				'save',
+				'workflow-test',
+			]);
 			expect(saveResult).toContain('✓');
 
 			// 2. List checkpoints - should show our checkpoint
@@ -237,12 +281,18 @@ describe('checkpoint command', () => {
 			execSync('git commit -m "workflow commit"', { encoding: 'utf-8' });
 
 			// 4. Restore to checkpoint
-			const restoreResult = await handleCheckpointCommand(tempDir, ['restore', 'workflow-test']);
+			const restoreResult = await handleCheckpointCommand(tempDir, [
+				'restore',
+				'workflow-test',
+			]);
 			expect(restoreResult).toContain('✓');
 			expect(restoreResult).toContain('workflow-test');
 
 			// 5. Delete checkpoint
-			const deleteResult = await handleCheckpointCommand(tempDir, ['delete', 'workflow-test']);
+			const deleteResult = await handleCheckpointCommand(tempDir, [
+				'delete',
+				'workflow-test',
+			]);
 			expect(deleteResult).toContain('✓');
 			expect(deleteResult).toContain('workflow-test');
 

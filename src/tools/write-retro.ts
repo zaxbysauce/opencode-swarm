@@ -65,6 +65,18 @@ export async function executeWriteRetro(
 	args: WriteRetroArgs,
 	directory: string,
 ): Promise<string> {
+	// Reject Windows reserved device names (e.g., CON:, NUL:, PRN:, COM1, LPT1)
+	if (/^(CON|PRN|AUX|NUL|COM[0-9]|LPT[0-9])(:|$)/i.test(directory)) {
+		return JSON.stringify(
+			{
+				success: false,
+				message: 'Invalid directory: reserved device name',
+			},
+			null,
+			2,
+		);
+	}
+
 	// Validate phase is a positive integer
 	const phase = args.phase;
 	if (!Number.isInteger(phase) || phase < 1) {

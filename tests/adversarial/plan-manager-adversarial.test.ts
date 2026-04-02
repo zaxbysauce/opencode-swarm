@@ -1,17 +1,24 @@
-import { describe, test, expect, beforeEach, afterEach } from 'bun:test';
-import { mkdtemp, writeFile, rm, mkdir, readFile, chmod } from 'node:fs/promises';
+import { afterEach, beforeEach, describe, expect, test } from 'bun:test';
 import { existsSync } from 'node:fs';
+import {
+	chmod,
+	mkdir,
+	mkdtemp,
+	readFile,
+	rm,
+	writeFile,
+} from 'node:fs/promises';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
+import type { Plan } from '../../src/config/plan-schema';
 import {
+	derivePlanMarkdown,
 	loadPlan,
 	loadPlanJsonOnly,
+	migrateLegacyPlan,
 	savePlan,
 	updateTaskStatus,
-	derivePlanMarkdown,
-	migrateLegacyPlan,
 } from '../../src/plan/manager';
-import type { Plan } from '../../src/config/plan-schema';
 
 // ============================================================================
 // Test Helpers
@@ -85,7 +92,7 @@ describe('ADVERSARIAL: Malformed plan files', () => {
 		// UTF-8 BOM followed by JSON
 		const bomContent = '\uFEFF' + JSON.stringify(createTestPlan());
 		await writeFile(join(swarmDir, 'plan.json'), bomContent);
-		
+
 		const result = await loadPlan(tempDir);
 		// Should still work (BOM is handled by JSON.parse) OR gracefully fall back
 		expect(result === null || result !== undefined).toBe(true);
@@ -96,7 +103,7 @@ describe('ADVERSARIAL: Malformed plan files', () => {
 		await mkdir(swarmDir, { recursive: true });
 		const nullByteJson = '{"schema_version": "1.0.0", "title": "Test\u0000"}';
 		await writeFile(join(swarmDir, 'plan.json'), nullByteJson);
-		
+
 		const result = await loadPlanJsonOnly(tempDir);
 		// Should reject invalid JSON or sanitize
 		expect(result === null).toBe(true);
@@ -106,14 +113,18 @@ describe('ADVERSARIAL: Malformed plan files', () => {
 		const swarmDir = join(tempDir, '.swarm');
 		await mkdir(swarmDir, { recursive: true });
 		// Create deeply nested object that could cause stack overflow
-		let deepJson = '{"schema_version": "1.0.0", "title": "Test", "swarm": "x", "current_phase": 1, "phases": [{"id": 1, "name": "P", "status": "pending", "tasks": [';
+		let deepJson =
+			'{"schema_version": "1.0.0", "title": "Test", "swarm": "x", "current_phase": 1, "phases": [{"id": 1, "name": "P", "status": "pending", "tasks": [';
 		for (let i = 0; i < 100; i++) {
-			deepJson += '{"id": "1.' + i + '", "phase": 1, "status": "pending", "size": "small", "description": "T", "depends": [], "files_touched": []}';
+			deepJson +=
+				'{"id": "1.' +
+				i +
+				'", "phase": 1, "status": "pending", "size": "small", "description": "T", "depends": [], "files_touched": []}';
 			if (i < 99) deepJson += ',';
 		}
 		deepJson += ']}]}';
 		await writeFile(join(swarmDir, 'plan.json'), deepJson);
-		
+
 		// Should handle or timeout gracefully
 		const result = await loadPlanJsonOnly(tempDir);
 		expect(result === null || result !== undefined).toBe(true);
@@ -127,25 +138,32 @@ describe('ADVERSARIAL: Malformed plan files', () => {
 			title: 'Test',
 			swarm: 'test',
 			current_phase: 1,
-			phases: [{
-				id: 1,
-				name: 'P',
-				status: 'pending',
-				tasks: [{
-					id: '1.1',
-					phase: 1,
+			phases: [
+				{
+					id: 1,
+					name: 'P',
 					status: 'pending',
-					size: 'small',
-					description: 'T',
-					depends: [],
-					files_touched: [],
-					// Attempt prototype pollution via __proto__
-				}]
-			}]
-		}).replace('"size": "small"', '"__proto__": {"evil": "value"}, "size": "small"');
-		
+					tasks: [
+						{
+							id: '1.1',
+							phase: 1,
+							status: 'pending',
+							size: 'small',
+							description: 'T',
+							depends: [],
+							files_touched: [],
+							// Attempt prototype pollution via __proto__
+						},
+					],
+				},
+			],
+		}).replace(
+			'"size": "small"',
+			'"__proto__": {"evil": "value"}, "size": "small"',
+		);
+
 		await writeFile(join(swarmDir, 'plan.json'), pollutedJson);
-		
+
 		const result = await loadPlanJsonOnly(tempDir);
 		// Zod schema should not allow __proto__ to affect anything
 		expect(result).not.toBeNull();
@@ -159,10 +177,14 @@ describe('ADVERSARIAL: Malformed plan files', () => {
 		const invalidUtf8 = Buffer.from([0x7f, 0x80, 0x81]);
 		const plan = createTestPlan();
 		const jsonStr = JSON.stringify(plan);
-		const mixed = Buffer.concat([Buffer.from(jsonStr.slice(0, 10)), invalidUtf8, Buffer.from(jsonStr.slice(10))]);
-		
+		const mixed = Buffer.concat([
+			Buffer.from(jsonStr.slice(0, 10)),
+			invalidUtf8,
+			Buffer.from(jsonStr.slice(10)),
+		]);
+
 		await writeFile(join(swarmDir, 'plan.json'), mixed);
-		
+
 		const result = await loadPlanJsonOnly(tempDir);
 		expect(result === null).toBe(true);
 	});
@@ -175,10 +197,13 @@ describe('ADVERSARIAL: Malformed plan files', () => {
 			title: 'Test',
 			swarm: 'test',
 			current_phase: 1,
-			phases: [{ id: 1, name: 'P', status: 'pending', tasks: [] }]
+			phases: [{ id: 1, name: 'P', status: 'pending', tasks: [] }],
 		};
-		await writeFile(join(swarmDir, 'plan.json'), JSON.stringify(spoofedVersion));
-		
+		await writeFile(
+			join(swarmDir, 'plan.json'),
+			JSON.stringify(spoofedVersion),
+		);
+
 		const result = await loadPlanJsonOnly(tempDir);
 		// Should still validate against literal '1.0.0'
 		expect(result).toBeNull();
@@ -205,16 +230,16 @@ describe('ADVERSARIAL: Hash tampering', () => {
 	test('regenerates plan.md when hash is tampered', async () => {
 		const plan = createTestPlan();
 		await writePlanJson(tempDir, plan);
-		
+
 		// Write plan.md with CORRECT content but WRONG hash
 		const validMd = derivePlanMarkdown(plan);
 		const tamperedMd = `<!-- PLAN_HASH: TAMPEREDHASH123 -->\n${validMd}`;
 		await writePlanMd(tempDir, tamperedMd);
-		
+
 		// Load should detect mismatch and regenerate
 		const result = await loadPlan(tempDir);
 		expect(result).not.toBeNull();
-		
+
 		// plan.md should now have correct hash
 		const newMd = await readPlanMd(tempDir);
 		expect(newMd).toContain('<!-- PLAN_HASH:');
@@ -224,11 +249,11 @@ describe('ADVERSARIAL: Hash tampering', () => {
 	test('handles missing hash in plan.md (legacy format)', async () => {
 		const plan = createTestPlan();
 		await writePlanJson(tempDir, plan);
-		
+
 		// Write plan.md WITHOUT hash (legacy format)
 		const legacyMd = `# ${plan.title}\nSwarm: ${plan.swarm}\nPhase: 1 [IN PROGRESS]`;
 		await writePlanMd(tempDir, legacyMd);
-		
+
 		// Should still work (backward compatibility)
 		const result = await loadPlan(tempDir);
 		expect(result).not.toBeNull();
@@ -237,7 +262,7 @@ describe('ADVERSARIAL: Hash tampering', () => {
 	test('regenerates when plan.md content differs but hash matches (collision attack)', async () => {
 		const plan = createTestPlan();
 		await writePlanJson(tempDir, plan);
-		
+
 		// Compute actual hash
 		const content = {
 			schema_version: plan.schema_version,
@@ -248,14 +273,14 @@ describe('ADVERSARIAL: Hash tampering', () => {
 			phases: plan.phases,
 		};
 		const correctHash = Bun.hash(JSON.stringify(content)).toString(36);
-		
+
 		// Write plan.md with correct hash but DIFFERENT content
 		const maliciousMd = `<!-- PLAN_HASH: ${correctHash} -->\n# MALICIOUS TITLE\nSwarm: HACKED\nPhase: 999 [COMPLETE]`;
 		await writePlanMd(tempDir, maliciousMd);
-		
+
 		// Load should detect content drift even if hash matches
 		const result = await loadPlan(tempDir);
-		
+
 		// Result should have original title, not malicious
 		expect(result?.title).toBe('Test Plan');
 	});
@@ -263,11 +288,11 @@ describe('ADVERSARIAL: Hash tampering', () => {
 	test('handles multiple hash comments (confusion attack)', async () => {
 		const plan = createTestPlan();
 		await writePlanJson(tempDir, plan);
-		
+
 		const validMd = derivePlanMarkdown(plan);
 		const confusedMd = `<!-- PLAN_HASH: FIRST -->\n<!-- PLAN_HASH: SECOND -->\n${validMd}`;
 		await writePlanMd(tempDir, confusedMd);
-		
+
 		const result = await loadPlan(tempDir);
 		expect(result).not.toBeNull();
 	});
@@ -275,7 +300,7 @@ describe('ADVERSARIAL: Hash tampering', () => {
 	test('handles hash in different comment formats', async () => {
 		const plan = createTestPlan();
 		await writePlanJson(tempDir, plan);
-		
+
 		// Various comment style attacks
 		const variants = [
 			`/* PLAN_HASH: hash */\n${derivePlanMarkdown(plan)}`,
@@ -283,7 +308,7 @@ describe('ADVERSARIAL: Hash tampering', () => {
 			`<!--PLAN_HASH:hash-->${derivePlanMarkdown(plan)}`,
 			`<!-- PLAN_HASH: hash -- >${derivePlanMarkdown(plan)}`, // malformed
 		];
-		
+
 		for (const variant of variants) {
 			await writePlanMd(tempDir, variant);
 			const result = await loadPlan(tempDir);
@@ -312,18 +337,44 @@ describe('ADVERSARIAL: Ordering edge cases', () => {
 
 	test('handles task IDs with leading zeros (001 vs 1)', async () => {
 		const plan = createTestPlan({
-			phases: [{
-				id: 1,
-				name: 'Phase 1',
-				status: 'pending',
-				tasks: [
-					{ id: '1.01', phase: 1, status: 'pending', size: 'small', description: 'Task 01', depends: [], files_touched: [] },
-					{ id: '1.1', phase: 1, status: 'pending', size: 'small', description: 'Task 1', depends: [], files_touched: [] },
-					{ id: '1.001', phase: 1, status: 'pending', size: 'small', description: 'Task 001', depends: [], files_touched: [] },
-				]
-			}]
+			phases: [
+				{
+					id: 1,
+					name: 'Phase 1',
+					status: 'pending',
+					tasks: [
+						{
+							id: '1.01',
+							phase: 1,
+							status: 'pending',
+							size: 'small',
+							description: 'Task 01',
+							depends: [],
+							files_touched: [],
+						},
+						{
+							id: '1.1',
+							phase: 1,
+							status: 'pending',
+							size: 'small',
+							description: 'Task 1',
+							depends: [],
+							files_touched: [],
+						},
+						{
+							id: '1.001',
+							phase: 1,
+							status: 'pending',
+							size: 'small',
+							description: 'Task 001',
+							depends: [],
+							files_touched: [],
+						},
+					],
+				},
+			],
 		});
-		
+
 		const md = derivePlanMarkdown(plan);
 		// Should handle gracefully - order deterministically
 		expect(md).toContain('Task 01');
@@ -333,17 +384,35 @@ describe('ADVERSARIAL: Ordering edge cases', () => {
 
 	test('handles non-numeric task IDs', async () => {
 		const plan = createTestPlan({
-			phases: [{
-				id: 1,
-				name: 'Phase 1',
-				status: 'pending',
-				tasks: [
-					{ id: 'a.b', phase: 1, status: 'pending', size: 'small', description: 'Task ab', depends: [], files_touched: [] },
-					{ id: '1.1', phase: 1, status: 'pending', size: 'small', description: 'Task 11', depends: [], files_touched: [] },
-				]
-			}]
+			phases: [
+				{
+					id: 1,
+					name: 'Phase 1',
+					status: 'pending',
+					tasks: [
+						{
+							id: 'a.b',
+							phase: 1,
+							status: 'pending',
+							size: 'small',
+							description: 'Task ab',
+							depends: [],
+							files_touched: [],
+						},
+						{
+							id: '1.1',
+							phase: 1,
+							status: 'pending',
+							size: 'small',
+							description: 'Task 11',
+							depends: [],
+							files_touched: [],
+						},
+					],
+				},
+			],
 		});
-		
+
 		const md = derivePlanMarkdown(plan);
 		// Should not crash
 		expect(md).toBeDefined();
@@ -351,16 +420,26 @@ describe('ADVERSARIAL: Ordering edge cases', () => {
 
 	test('handles negative task IDs', async () => {
 		const plan = createTestPlan({
-			phases: [{
-				id: 1,
-				name: 'Phase 1',
-				status: 'pending',
-				tasks: [
-					{ id: '1.-1', phase: 1, status: 'pending', size: 'small', description: 'Negative', depends: [], files_touched: [] },
-				]
-			}]
+			phases: [
+				{
+					id: 1,
+					name: 'Phase 1',
+					status: 'pending',
+					tasks: [
+						{
+							id: '1.-1',
+							phase: 1,
+							status: 'pending',
+							size: 'small',
+							description: 'Negative',
+							depends: [],
+							files_touched: [],
+						},
+					],
+				},
+			],
 		});
-		
+
 		// Should handle gracefully
 		const md = derivePlanMarkdown(plan);
 		expect(md).toBeDefined();
@@ -368,16 +447,26 @@ describe('ADVERSARIAL: Ordering edge cases', () => {
 
 	test('handles very long task IDs', async () => {
 		const plan = createTestPlan({
-			phases: [{
-				id: 1,
-				name: 'Phase 1',
-				status: 'pending',
-				tasks: [
-					{ id: '1.' + '9'.repeat(100), phase: 1, status: 'pending', size: 'small', description: 'Long', depends: [], files_touched: [] },
-				]
-			}]
+			phases: [
+				{
+					id: 1,
+					name: 'Phase 1',
+					status: 'pending',
+					tasks: [
+						{
+							id: '1.' + '9'.repeat(100),
+							phase: 1,
+							status: 'pending',
+							size: 'small',
+							description: 'Long',
+							depends: [],
+							files_touched: [],
+						},
+					],
+				},
+			],
 		});
-		
+
 		// Should handle without stack overflow
 		const md = derivePlanMarkdown(plan);
 		expect(md).toBeDefined();
@@ -395,7 +484,7 @@ Phase: 1
 - [x] 2.1: Completed task [medium]
 `;
 		const plan = migrateLegacyPlan(md);
-		
+
 		// Should parse correctly
 		expect(plan.phases[0].tasks.length).toBe(4);
 		// Tasks are in original parse order (not sorted - this is the actual behavior)
@@ -423,7 +512,7 @@ describe('ADVERSARIAL: Path/parse abuse', () => {
 
 	test('handles path with null bytes (directory traversal attempt)', async () => {
 		const maliciousPath = tempDir + '\0.hacked';
-		
+
 		// Should not read outside directory
 		const result = await loadPlan(maliciousPath);
 		expect(result === null).toBe(true);
@@ -432,7 +521,7 @@ describe('ADVERSARIAL: Path/parse abuse', () => {
 	test('handles path with parent directory traversal', async () => {
 		// Attempt to read parent directory
 		const traversalPath = join(tempDir, '..', '..', '.swarm');
-		
+
 		// Should either fail gracefully or not leak data
 		const result = await loadPlan(traversalPath);
 		// If it reads parent, it might find a plan.json there
@@ -450,7 +539,7 @@ describe('ADVERSARIAL: Path/parse abuse', () => {
 		} catch {
 			// Symlink creation may fail - that's OK
 		}
-		
+
 		// The actual test is that loadPlan doesn't follow symlinks insecurely
 		const result = await loadPlan(tempDir);
 		expect(result === null || result !== undefined).toBe(true);
@@ -459,7 +548,7 @@ describe('ADVERSARIAL: Path/parse abuse', () => {
 	test('handles very long paths', async () => {
 		// Create a very long directory path
 		const longPath = join(tempDir, 'a'.repeat(200));
-		
+
 		// Should handle gracefully without stack overflow
 		const result = await loadPlan(longPath);
 		expect(result === null).toBe(true);
@@ -496,7 +585,7 @@ Phase: 1
 	test('handles plan.json with very long strings (memory exhaustion)', async () => {
 		const swarmDir = join(tempDir, '.swarm');
 		await mkdir(swarmDir, { recursive: true });
-		
+
 		// Create plan with extremely long strings
 		const longString = 'x'.repeat(10 * 1024 * 1024); // 10MB
 		const plan = {
@@ -504,24 +593,28 @@ Phase: 1
 			title: longString,
 			swarm: longString,
 			current_phase: 1,
-			phases: [{
-				id: 1,
-				name: longString,
-				status: 'pending',
-				tasks: [{
-					id: '1.1',
-					phase: 1,
+			phases: [
+				{
+					id: 1,
+					name: longString,
 					status: 'pending',
-					size: 'small',
-					description: longString,
-					depends: [],
-					files_touched: [],
-				}]
-			}]
+					tasks: [
+						{
+							id: '1.1',
+							phase: 1,
+							status: 'pending',
+							size: 'small',
+							description: longString,
+							depends: [],
+							files_touched: [],
+						},
+					],
+				},
+			],
 		};
-		
+
 		await writeFile(join(swarmDir, 'plan.json'), JSON.stringify(plan));
-		
+
 		// Should handle or timeout gracefully
 		const result = await loadPlanJsonOnly(tempDir);
 		// May succeed or fail gracefully
@@ -549,19 +642,19 @@ describe('ADVERSARIAL: Failure injection around auto-heal', () => {
 	test('continues when plan.md regeneration fails (read-only .swarm)', async () => {
 		const plan = createTestPlan();
 		await writePlanJson(tempDir, plan);
-		
+
 		// Make .swarm directory read-only (if possible)
 		const swarmDir = join(tempDir, '.swarm');
 		try {
 			// Write plan.md first
 			await writePlanMd(tempDir, '<!-- PLAN_HASH: old -->old content');
-			
+
 			// Try to make it read-only (may not work on all platforms)
 			await chmod(swarmDir, 0o444).catch(() => {});
-			
+
 			// Load should fail to regenerate but still return valid plan.json
 			const result = await loadPlan(tempDir);
-			
+
 			// Should still return plan from plan.json despite regeneration failure
 			expect(result).not.toBeNull();
 			expect(result?.title).toBe('Test Plan');
@@ -573,11 +666,11 @@ describe('ADVERSARIAL: Failure injection around auto-heal', () => {
 
 	test('savePlan handles read-only directory (platform-dependent behavior)', async () => {
 		const plan = createTestPlan();
-		
+
 		// Try to save to read-only location
 		const readOnlyDir = join(tempDir, 'readonly');
 		await mkdir(readOnlyDir, { recursive: true });
-		
+
 		// On Windows, chmod to read-only may not work as expected
 		// The test verifies graceful handling
 		try {
@@ -593,21 +686,21 @@ describe('ADVERSARIAL: Failure injection around auto-heal', () => {
 
 	test('handles race condition during concurrent saves', async () => {
 		const plan = createTestPlan();
-		
+
 		// Run concurrent saves
 		const promises = [
 			savePlan(tempDir, { ...plan, title: 'Save 1' }),
 			savePlan(tempDir, { ...plan, title: 'Save 2' }),
 			savePlan(tempDir, { ...plan, title: 'Save 3' }),
 		];
-		
+
 		// Should complete without corruption
 		const results = await Promise.allSettled(promises);
-		
+
 		// At least one should succeed
-		const successCount = results.filter(r => r.status === 'fulfilled').length;
+		const successCount = results.filter((r) => r.status === 'fulfilled').length;
 		expect(successCount).toBeGreaterThan(0);
-		
+
 		// Final state should be valid
 		const final = await loadPlan(tempDir);
 		expect(final).not.toBeNull();
@@ -615,7 +708,7 @@ describe('ADVERSARIAL: Failure injection around auto-heal', () => {
 
 	test('savePlan handles invalid paths gracefully', async () => {
 		const plan = createTestPlan();
-		
+
 		// Try saving to an invalid path - behavior varies by platform
 		try {
 			const result = await savePlan('/nonexistent/path', plan);
@@ -630,14 +723,18 @@ describe('ADVERSARIAL: Failure injection around auto-heal', () => {
 	test('updateTaskStatus handles missing task gracefully', async () => {
 		const plan = createTestPlan();
 		await writePlanJson(tempDir, plan);
-		
+
 		// Try to update non-existent task
-		await expect(updateTaskStatus(tempDir, '999.999', 'completed')).rejects.toThrow('Task not found');
+		await expect(
+			updateTaskStatus(tempDir, '999.999', 'completed'),
+		).rejects.toThrow('Task not found');
 	});
 
 	test('updateTaskStatus handles missing plan gracefully', async () => {
 		// No plan.json exists
-		await expect(updateTaskStatus(tempDir, '1.1', 'completed')).rejects.toThrow('Plan not found');
+		await expect(updateTaskStatus(tempDir, '1.1', 'completed')).rejects.toThrow(
+			'Plan not found',
+		);
 	});
 });
 
@@ -660,17 +757,35 @@ describe('ADVERSARIAL: Additional edge cases', () => {
 
 	test('handles plan.json with circular depends', async () => {
 		const plan = createTestPlan({
-			phases: [{
-				id: 1,
-				name: 'Phase 1',
-				status: 'pending',
-				tasks: [
-					{ id: '1.1', phase: 1, status: 'pending', size: 'small', description: 'Task 1', depends: ['1.2'], files_touched: [] },
-					{ id: '1.2', phase: 1, status: 'pending', size: 'small', description: 'Task 2', depends: ['1.1'], files_touched: [] },
-				]
-			}]
+			phases: [
+				{
+					id: 1,
+					name: 'Phase 1',
+					status: 'pending',
+					tasks: [
+						{
+							id: '1.1',
+							phase: 1,
+							status: 'pending',
+							size: 'small',
+							description: 'Task 1',
+							depends: ['1.2'],
+							files_touched: [],
+						},
+						{
+							id: '1.2',
+							phase: 1,
+							status: 'pending',
+							size: 'small',
+							description: 'Task 2',
+							depends: ['1.1'],
+							files_touched: [],
+						},
+					],
+				},
+			],
 		});
-		
+
 		// Should still save and load (circular deps are user's responsibility)
 		await savePlan(tempDir, plan);
 		const loaded = await loadPlan(tempDir);
@@ -679,9 +794,9 @@ describe('ADVERSARIAL: Additional edge cases', () => {
 
 	test('handles empty phases array', async () => {
 		const plan = createTestPlan({
-			phases: []
+			phases: [],
 		});
-		
+
 		// Schema requires min(1) phases, so this should fail validation
 		await expect(savePlan(tempDir, plan)).rejects.toThrow();
 	});
@@ -689,13 +804,16 @@ describe('ADVERSARIAL: Additional edge cases', () => {
 	test('handles plan.json missing required fields', async () => {
 		const swarmDir = join(tempDir, '.swarm');
 		await mkdir(swarmDir, { recursive: true });
-		
+
 		const incompletePlan = {
 			// Missing: schema_version, title, swarm, current_phase, phases
-			something: 'else'
+			something: 'else',
 		};
-		await writeFile(join(swarmDir, 'plan.json'), JSON.stringify(incompletePlan));
-		
+		await writeFile(
+			join(swarmDir, 'plan.json'),
+			JSON.stringify(incompletePlan),
+		);
+
 		const result = await loadPlanJsonOnly(tempDir);
 		expect(result).toBeNull();
 	});
@@ -704,13 +822,13 @@ describe('ADVERSARIAL: Additional edge cases', () => {
 		const plan = createTestPlan({
 			// @ts-ignore - adding extra fields
 			extra_field: 'should be ignored',
-			another_extra: { nested: 'value' }
+			another_extra: { nested: 'value' },
 		});
-		
+
 		// Should strip extra fields on save
 		await savePlan(tempDir, plan);
 		const loaded = await loadPlan(tempDir);
-		
+
 		expect((loaded as any)?.extra_field).toBeUndefined();
 		expect((loaded as any)?.another_extra).toBeUndefined();
 	});

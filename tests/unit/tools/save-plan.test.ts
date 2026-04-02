@@ -3,12 +3,15 @@
  * Covers placeholder detection, save execution, and tool definition validation
  */
 
-import { describe, it, expect, beforeEach, afterEach } from 'bun:test';
-import * as fs from 'node:fs/promises';
+import { afterEach, beforeEach, describe, expect, it } from 'bun:test';
 import { mkdirSync, rmSync } from 'node:fs';
+import * as fs from 'node:fs/promises';
 import * as os from 'node:os';
 import * as path from 'node:path';
-import type { SavePlanArgs, SavePlanResult } from '../../../src/tools/save-plan';
+import type {
+	SavePlanArgs,
+	SavePlanResult,
+} from '../../../src/tools/save-plan';
 import {
 	detectPlaceholderContent,
 	executeSavePlan,
@@ -40,99 +43,176 @@ describe('save-plan tool verification tests', () => {
 			const args: SavePlanArgs = {
 				title: '[task]',
 				swarm_id: 'mega',
-				phases: [{ id: 1, name: 'Setup', tasks: [{ id: '1.1', description: 'Add auth' }] }],
+				phases: [
+					{
+						id: 1,
+						name: 'Setup',
+						tasks: [{ id: '1.1', description: 'Add auth' }],
+					},
+				],
 			};
 			const issues = detectPlaceholderContent(args);
 			expect(issues.length).toBeGreaterThan(0);
-			expect(issues.some(issue => issue.includes('Plan title') && issue.includes('[task]'))).toBe(true);
+			expect(
+				issues.some(
+					(issue) => issue.includes('Plan title') && issue.includes('[task]'),
+				),
+			).toBe(true);
 		});
 
 		it('[Project] in title returns issue', () => {
 			const args: SavePlanArgs = {
 				title: '[Project]',
 				swarm_id: 'mega',
-				phases: [{ id: 1, name: 'Setup', tasks: [{ id: '1.1', description: 'Add auth' }] }],
+				phases: [
+					{
+						id: 1,
+						name: 'Setup',
+						tasks: [{ id: '1.1', description: 'Add auth' }],
+					},
+				],
 			};
 			const issues = detectPlaceholderContent(args);
 			expect(issues.length).toBeGreaterThan(0);
-			expect(issues.some(issue => issue.includes('Plan title') && issue.includes('[Project]'))).toBe(true);
+			expect(
+				issues.some(
+					(issue) =>
+						issue.includes('Plan title') && issue.includes('[Project]'),
+				),
+			).toBe(true);
 		});
 
 		it('[date] in title returns issue', () => {
 			const args: SavePlanArgs = {
 				title: '[date]',
 				swarm_id: 'mega',
-				phases: [{ id: 1, name: 'Setup', tasks: [{ id: '1.1', description: 'Add auth' }] }],
+				phases: [
+					{
+						id: 1,
+						name: 'Setup',
+						tasks: [{ id: '1.1', description: 'Add auth' }],
+					},
+				],
 			};
 			const issues = detectPlaceholderContent(args);
 			expect(issues.length).toBeGreaterThan(0);
-			expect(issues.some(issue => issue.includes('Plan title') && issue.includes('[date]'))).toBe(true);
+			expect(
+				issues.some(
+					(issue) => issue.includes('Plan title') && issue.includes('[date]'),
+				),
+			).toBe(true);
 		});
 
 		it('[description] in phase name returns issue', () => {
 			const args: SavePlanArgs = {
 				title: 'My Project',
 				swarm_id: 'mega',
-				phases: [{ id: 1, name: '[description]', tasks: [{ id: '1.1', description: 'Add auth' }] }],
+				phases: [
+					{
+						id: 1,
+						name: '[description]',
+						tasks: [{ id: '1.1', description: 'Add auth' }],
+					},
+				],
 			};
 			const issues = detectPlaceholderContent(args);
 			expect(issues.length).toBeGreaterThan(0);
-			expect(issues.some(issue => issue.includes('Phase 1') && issue.includes('[description]'))).toBe(true);
+			expect(
+				issues.some(
+					(issue) =>
+						issue.includes('Phase 1') && issue.includes('[description]'),
+				),
+			).toBe(true);
 		});
 
 		it('[N] in task description returns issue', () => {
 			const args: SavePlanArgs = {
 				title: 'My Project',
 				swarm_id: 'mega',
-				phases: [{ id: 1, name: 'Setup', tasks: [{ id: '1.1', description: '[N]' }] }],
+				phases: [
+					{ id: 1, name: 'Setup', tasks: [{ id: '1.1', description: '[N]' }] },
+				],
 			};
 			const issues = detectPlaceholderContent(args);
 			expect(issues.length).toBeGreaterThan(0);
-			expect(issues.some(issue => issue.includes('Task 1.1') && issue.includes('[N]'))).toBe(true);
+			expect(
+				issues.some(
+					(issue) => issue.includes('Task 1.1') && issue.includes('[N]'),
+				),
+			).toBe(true);
 		});
 
 		it('" [task] " (whitespace-padded) in title returns issue (trim fix)', () => {
 			const args: SavePlanArgs = {
 				title: ' [task] ',
 				swarm_id: 'mega',
-				phases: [{ id: 1, name: 'Setup', tasks: [{ id: '1.1', description: 'Add auth' }] }],
+				phases: [
+					{
+						id: 1,
+						name: 'Setup',
+						tasks: [{ id: '1.1', description: 'Add auth' }],
+					},
+				],
 			};
 			const issues = detectPlaceholderContent(args);
 			expect(issues.length).toBeGreaterThan(0);
-			expect(issues.some(issue => issue.includes('Plan title'))).toBe(true);
+			expect(issues.some((issue) => issue.includes('Plan title'))).toBe(true);
 		});
 
 		it('"[task] " (trailing space) returns issue', () => {
 			const args: SavePlanArgs = {
 				title: '[task] ',
 				swarm_id: 'mega',
-				phases: [{ id: 1, name: 'Setup', tasks: [{ id: '1.1', description: 'Add auth' }] }],
+				phases: [
+					{
+						id: 1,
+						name: 'Setup',
+						tasks: [{ id: '1.1', description: 'Add auth' }],
+					},
+				],
 			};
 			const issues = detectPlaceholderContent(args);
 			expect(issues.length).toBeGreaterThan(0);
-			expect(issues.some(issue => issue.includes('Plan title'))).toBe(true);
+			expect(issues.some((issue) => issue.includes('Plan title'))).toBe(true);
 		});
 
 		it('" [Project]" (leading space) returns issue', () => {
 			const args: SavePlanArgs = {
 				title: ' [Project]',
 				swarm_id: 'mega',
-				phases: [{ id: 1, name: 'Setup', tasks: [{ id: '1.1', description: 'Add auth' }] }],
+				phases: [
+					{
+						id: 1,
+						name: 'Setup',
+						tasks: [{ id: '1.1', description: 'Add auth' }],
+					},
+				],
 			};
 			const issues = detectPlaceholderContent(args);
 			expect(issues.length).toBeGreaterThan(0);
-			expect(issues.some(issue => issue.includes('Plan title'))).toBe(true);
+			expect(issues.some((issue) => issue.includes('Plan title'))).toBe(true);
 		});
 
 		it('[Project Name] (multi-word bracket) returns issue', () => {
 			const args: SavePlanArgs = {
 				title: '[Project Name]',
 				swarm_id: 'mega',
-				phases: [{ id: 1, name: 'Setup', tasks: [{ id: '1.1', description: 'Add auth' }] }],
+				phases: [
+					{
+						id: 1,
+						name: 'Setup',
+						tasks: [{ id: '1.1', description: 'Add auth' }],
+					},
+				],
 			};
 			const issues = detectPlaceholderContent(args);
 			expect(issues.length).toBeGreaterThan(0);
-			expect(issues.some(issue => issue.includes('Plan title') && issue.includes('[Project Name]'))).toBe(true);
+			expect(
+				issues.some(
+					(issue) =>
+						issue.includes('Plan title') && issue.includes('[Project Name]'),
+				),
+			).toBe(true);
 		});
 
 		it('Multiple placeholders returns multiple issues', () => {
@@ -152,9 +232,9 @@ describe('save-plan tool verification tests', () => {
 			};
 			const issues = detectPlaceholderContent(args);
 			expect(issues.length).toBe(3);
-			expect(issues.some(issue => issue.includes('Plan title'))).toBe(true);
-			expect(issues.some(issue => issue.includes('Phase 1'))).toBe(true);
-			expect(issues.some(issue => issue.includes('Task 1.1'))).toBe(true);
+			expect(issues.some((issue) => issue.includes('Plan title'))).toBe(true);
+			expect(issues.some((issue) => issue.includes('Phase 1'))).toBe(true);
+			expect(issues.some((issue) => issue.includes('Task 1.1'))).toBe(true);
 		});
 	});
 
@@ -164,7 +244,13 @@ describe('save-plan tool verification tests', () => {
 			const args: SavePlanArgs = {
 				title: 'Add authentication to login service',
 				swarm_id: 'mega',
-				phases: [{ id: 1, name: 'Setup', tasks: [{ id: '1.1', description: 'Add auth' }] }],
+				phases: [
+					{
+						id: 1,
+						name: 'Setup',
+						tasks: [{ id: '1.1', description: 'Add auth' }],
+					},
+				],
 			};
 			const issues = detectPlaceholderContent(args);
 			expect(issues.length).toBe(0);
@@ -174,7 +260,13 @@ describe('save-plan tool verification tests', () => {
 			const args: SavePlanArgs = {
 				title: 'My Project',
 				swarm_id: 'mega',
-				phases: [{ id: 1, name: 'Phase 1: Authentication', tasks: [{ id: '1.1', description: 'Add auth' }] }],
+				phases: [
+					{
+						id: 1,
+						name: 'Phase 1: Authentication',
+						tasks: [{ id: '1.1', description: 'Add auth' }],
+					},
+				],
 			};
 			const issues = detectPlaceholderContent(args);
 			expect(issues.length).toBe(0);
@@ -184,7 +276,13 @@ describe('save-plan tool verification tests', () => {
 			const args: SavePlanArgs = {
 				title: 'Feature: [SMALL] scope task',
 				swarm_id: 'mega',
-				phases: [{ id: 1, name: 'Setup', tasks: [{ id: '1.1', description: 'Add auth' }] }],
+				phases: [
+					{
+						id: 1,
+						name: 'Setup',
+						tasks: [{ id: '1.1', description: 'Add auth' }],
+					},
+				],
 			};
 			const issues = detectPlaceholderContent(args);
 			expect(issues.length).toBe(0);
@@ -194,7 +292,13 @@ describe('save-plan tool verification tests', () => {
 			const args: SavePlanArgs = {
 				title: 'Implement [API] endpoint',
 				swarm_id: 'mega',
-				phases: [{ id: 1, name: 'Setup', tasks: [{ id: '1.1', description: 'Add auth' }] }],
+				phases: [
+					{
+						id: 1,
+						name: 'Setup',
+						tasks: [{ id: '1.1', description: 'Add auth' }],
+					},
+				],
 			};
 			const issues = detectPlaceholderContent(args);
 			expect(issues.length).toBe(0);
@@ -204,7 +308,13 @@ describe('save-plan tool verification tests', () => {
 			const args: SavePlanArgs = {
 				title: 'opencode-swarm v6.14.1 — Bug Fix',
 				swarm_id: 'mega',
-				phases: [{ id: 1, name: 'Setup', tasks: [{ id: '1.1', description: 'Add auth' }] }],
+				phases: [
+					{
+						id: 1,
+						name: 'Setup',
+						tasks: [{ id: '1.1', description: 'Add auth' }],
+					},
+				],
 			};
 			const issues = detectPlaceholderContent(args);
 			expect(issues.length).toBe(0);
@@ -219,7 +329,7 @@ describe('save-plan tool verification tests', () => {
 			const issues = detectPlaceholderContent(args);
 			// Should only report title issue, no phase issues since no phases
 			expect(issues.length).toBe(1);
-			expect(issues.some(issue => issue.includes('Plan title'))).toBe(true);
+			expect(issues.some((issue) => issue.includes('Plan title'))).toBe(true);
 		});
 	});
 
@@ -229,7 +339,13 @@ describe('save-plan tool verification tests', () => {
 			const args: SavePlanArgs = {
 				title: '[Project]',
 				swarm_id: 'mega',
-				phases: [{ id: 1, name: 'Setup', tasks: [{ id: '1.1', description: 'Add auth' }] }],
+				phases: [
+					{
+						id: 1,
+						name: 'Setup',
+						tasks: [{ id: '1.1', description: 'Add auth' }],
+					},
+				],
 				working_directory: tmpDir,
 			};
 
@@ -245,7 +361,13 @@ describe('save-plan tool verification tests', () => {
 			const args: SavePlanArgs = {
 				title: 'My Project',
 				swarm_id: 'mega',
-				phases: [{ id: 1, name: '[description]', tasks: [{ id: '1.1', description: 'Add auth' }] }],
+				phases: [
+					{
+						id: 1,
+						name: '[description]',
+						tasks: [{ id: '1.1', description: 'Add auth' }],
+					},
+				],
 				working_directory: tmpDir,
 			};
 
@@ -260,7 +382,13 @@ describe('save-plan tool verification tests', () => {
 			const args: SavePlanArgs = {
 				title: 'My Project',
 				swarm_id: 'mega',
-				phases: [{ id: 1, name: 'Setup', tasks: [{ id: '1.1', description: '[task]' }] }],
+				phases: [
+					{
+						id: 1,
+						name: 'Setup',
+						tasks: [{ id: '1.1', description: '[task]' }],
+					},
+				],
 				working_directory: tmpDir,
 			};
 
@@ -320,7 +448,10 @@ describe('save-plan tool verification tests', () => {
 			await executeSavePlan(args);
 
 			const planJsonPath = path.join(tmpDir, '.swarm', 'plan.json');
-			const exists = await fs.access(planJsonPath).then(() => true).catch(() => false);
+			const exists = await fs
+				.access(planJsonPath)
+				.then(() => true)
+				.catch(() => false);
 			expect(exists).toBe(true);
 
 			const content = await fs.readFile(planJsonPath, 'utf-8');
@@ -344,7 +475,10 @@ describe('save-plan tool verification tests', () => {
 			await executeSavePlan(args);
 
 			const planMdPath = path.join(tmpDir, '.swarm', 'plan.md');
-			const exists = await fs.access(planMdPath).then(() => true).catch(() => false);
+			const exists = await fs
+				.access(planMdPath)
+				.then(() => true)
+				.catch(() => false);
 			expect(exists).toBe(true);
 
 			const content = await fs.readFile(planMdPath, 'utf-8');
@@ -422,8 +556,12 @@ describe('save-plan tool verification tests', () => {
 
 			expect(plan.phases[0].tasks[0].depends).toEqual([]);
 			expect(plan.phases[0].tasks[1].depends).toEqual(['1.1']);
-			expect(plan.phases[0].tasks[0].acceptance).toBe('Database schema created');
-			expect(plan.phases[0].tasks[1].acceptance).toBe('Migrations run successfully');
+			expect(plan.phases[0].tasks[0].acceptance).toBe(
+				'Database schema created',
+			);
+			expect(plan.phases[0].tasks[1].acceptance).toBe(
+				'Migrations run successfully',
+			);
 		});
 	});
 
@@ -667,7 +805,13 @@ describe('save-plan tool verification tests', () => {
 			const args: SavePlanArgs = {
 				title: '  [task]  ',
 				swarm_id: 'mega',
-				phases: [{ id: 1, name: 'Setup', tasks: [{ id: '1.1', description: 'Add auth' }] }],
+				phases: [
+					{
+						id: 1,
+						name: 'Setup',
+						tasks: [{ id: '1.1', description: 'Add auth' }],
+					},
+				],
 			};
 			const issues = detectPlaceholderContent(args);
 			expect(issues.length).toBeGreaterThan(0);
@@ -677,7 +821,13 @@ describe('save-plan tool verification tests', () => {
 			const args: SavePlanArgs = {
 				title: '[Task Description]',
 				swarm_id: 'mega',
-				phases: [{ id: 1, name: 'Setup', tasks: [{ id: '1.1', description: 'Add auth' }] }],
+				phases: [
+					{
+						id: 1,
+						name: 'Setup',
+						tasks: [{ id: '1.1', description: 'Add auth' }],
+					},
+				],
 			};
 			const issues = detectPlaceholderContent(args);
 			expect(issues.length).toBeGreaterThan(0);
@@ -687,7 +837,13 @@ describe('save-plan tool verification tests', () => {
 			const args: SavePlanArgs = {
 				title: 'Task: Implement [feature name] by tomorrow',
 				swarm_id: 'mega',
-				phases: [{ id: 1, name: 'Setup', tasks: [{ id: '1.1', description: 'Add auth' }] }],
+				phases: [
+					{
+						id: 1,
+						name: 'Setup',
+						tasks: [{ id: '1.1', description: 'Add auth' }],
+					},
+				],
 			};
 			const issues = detectPlaceholderContent(args);
 			expect(issues.length).toBe(0);
@@ -700,7 +856,9 @@ describe('save-plan tool verification tests', () => {
 
 		beforeEach(() => {
 			// Create a temporary directory for each test
-			tmpDir = mkdirSync(os.tmpdir() + '/save-plan-test-' + Date.now(), { recursive: true }) as string;
+			tmpDir = mkdirSync(os.tmpdir() + '/save-plan-test-' + Date.now(), {
+				recursive: true,
+			}) as string;
 		});
 
 		afterEach(() => {
@@ -712,7 +870,13 @@ describe('save-plan tool verification tests', () => {
 			const args: SavePlanArgs = {
 				title: 'Test Project',
 				swarm_id: 'mega',
-				phases: [{ id: 0, name: 'Setup', tasks: [{ id: '1.1', description: 'Add auth' }] }],
+				phases: [
+					{
+						id: 0,
+						name: 'Setup',
+						tasks: [{ id: '1.1', description: 'Add auth' }],
+					},
+				],
 				working_directory: tmpDir,
 			};
 
@@ -722,14 +886,22 @@ describe('save-plan tool verification tests', () => {
 			expect(result.recovery_guidance).toBeDefined();
 			expect(typeof result.recovery_guidance).toBe('string');
 			expect(result.recovery_guidance!.length).toBeGreaterThan(0);
-			expect(result.message).toContain('Plan rejected: invalid phase or task IDs');
+			expect(result.message).toContain(
+				'Plan rejected: invalid phase or task IDs',
+			);
 		});
 
 		it('Phase ID = -1 returns success: false with recovery_guidance', async () => {
 			const args: SavePlanArgs = {
 				title: 'Test Project',
 				swarm_id: 'mega',
-				phases: [{ id: -1, name: 'Setup', tasks: [{ id: '1.1', description: 'Add auth' }] }],
+				phases: [
+					{
+						id: -1,
+						name: 'Setup',
+						tasks: [{ id: '1.1', description: 'Add auth' }],
+					},
+				],
 				working_directory: tmpDir,
 			};
 
@@ -743,7 +915,13 @@ describe('save-plan tool verification tests', () => {
 			const args: SavePlanArgs = {
 				title: 'Test Project',
 				swarm_id: 'mega',
-				phases: [{ id: 1.5, name: 'Setup', tasks: [{ id: '1.1', description: 'Add auth' }] }] as any,
+				phases: [
+					{
+						id: 1.5,
+						name: 'Setup',
+						tasks: [{ id: '1.1', description: 'Add auth' }],
+					},
+				] as any,
 				working_directory: tmpDir,
 			};
 
@@ -757,7 +935,13 @@ describe('save-plan tool verification tests', () => {
 			const args: SavePlanArgs = {
 				title: 'Test Project',
 				swarm_id: 'mega',
-				phases: [{ id: 1, name: 'Setup', tasks: [{ id: '1.1', description: 'Add auth' }] }],
+				phases: [
+					{
+						id: 1,
+						name: 'Setup',
+						tasks: [{ id: '1.1', description: 'Add auth' }],
+					},
+				],
 				working_directory: tmpDir,
 			};
 
@@ -771,7 +955,13 @@ describe('save-plan tool verification tests', () => {
 			const args: SavePlanArgs = {
 				title: 'Test Project',
 				swarm_id: 'mega',
-				phases: [{ id: 1, name: 'Setup', tasks: [{ id: 'abc', description: 'Add auth' }] }],
+				phases: [
+					{
+						id: 1,
+						name: 'Setup',
+						tasks: [{ id: 'abc', description: 'Add auth' }],
+					},
+				],
 				working_directory: tmpDir,
 			};
 
@@ -780,14 +970,20 @@ describe('save-plan tool verification tests', () => {
 			expect(result.success).toBe(false);
 			expect(result.recovery_guidance).toBeDefined();
 			expect(result.errors).toBeDefined();
-			expect(result.errors!.some(e => e.includes('abc'))).toBe(true);
+			expect(result.errors!.some((e) => e.includes('abc'))).toBe(true);
 		});
 
 		it('Task ID = "1" (missing dot) returns success: false with recovery_guidance', async () => {
 			const args: SavePlanArgs = {
 				title: 'Test Project',
 				swarm_id: 'mega',
-				phases: [{ id: 1, name: 'Setup', tasks: [{ id: '1', description: 'Add auth' }] }],
+				phases: [
+					{
+						id: 1,
+						name: 'Setup',
+						tasks: [{ id: '1', description: 'Add auth' }],
+					},
+				],
 				working_directory: tmpDir,
 			};
 
@@ -801,7 +997,13 @@ describe('save-plan tool verification tests', () => {
 			const args: SavePlanArgs = {
 				title: 'Test Project',
 				swarm_id: 'mega',
-				phases: [{ id: 1, name: 'Setup', tasks: [{ id: '.1', description: 'Add auth' }] }],
+				phases: [
+					{
+						id: 1,
+						name: 'Setup',
+						tasks: [{ id: '.1', description: 'Add auth' }],
+					},
+				],
 				working_directory: tmpDir,
 			};
 
@@ -815,7 +1017,13 @@ describe('save-plan tool verification tests', () => {
 			const args: SavePlanArgs = {
 				title: 'Test Project',
 				swarm_id: 'mega',
-				phases: [{ id: 1, name: 'Setup', tasks: [{ id: '1.a', description: 'Add auth' }] }],
+				phases: [
+					{
+						id: 1,
+						name: 'Setup',
+						tasks: [{ id: '1.a', description: 'Add auth' }],
+					},
+				],
 				working_directory: tmpDir,
 			};
 
@@ -829,7 +1037,13 @@ describe('save-plan tool verification tests', () => {
 			const args: SavePlanArgs = {
 				title: 'Test Project',
 				swarm_id: 'mega',
-				phases: [{ id: 0, name: 'Setup', tasks: [{ id: '1.1', description: 'Add auth' }] }],
+				phases: [
+					{
+						id: 0,
+						name: 'Setup',
+						tasks: [{ id: '1.1', description: 'Add auth' }],
+					},
+				],
 				working_directory: tmpDir,
 			};
 
@@ -844,7 +1058,13 @@ describe('save-plan tool verification tests', () => {
 			const args: SavePlanArgs = {
 				title: 'Test Project',
 				swarm_id: 'mega',
-				phases: [{ id: 0, name: 'Setup', tasks: [{ id: 'bad', description: 'Add auth' }] }],
+				phases: [
+					{
+						id: 0,
+						name: 'Setup',
+						tasks: [{ id: 'bad', description: 'Add auth' }],
+					},
+				],
 				working_directory: tmpDir,
 			};
 

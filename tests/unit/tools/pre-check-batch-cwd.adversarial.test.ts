@@ -19,11 +19,14 @@
  * 10. Empty files array, null files, undefined files
  */
 
-import { describe, it, expect, beforeEach, afterEach, spyOn } from 'bun:test';
+import { afterEach, beforeEach, describe, expect, it, spyOn } from 'bun:test';
 import * as fs from 'node:fs';
 import * as os from 'node:os';
 import * as path from 'node:path';
-import { runPreCheckBatch, type PreCheckBatchInput } from '../../../src/tools/pre-check-batch';
+import {
+	type PreCheckBatchInput,
+	runPreCheckBatch,
+} from '../../../src/tools/pre-check-batch';
 
 // Mock Bun.spawn to capture calls
 let originalSpawn: typeof Bun.spawn;
@@ -33,10 +36,10 @@ let spawnCalls: Array<{
 }> = [];
 
 function createMockSpawn() {
-	return function (
+	return (
 		cmd: string[],
 		opts: { cwd?: string; stdout?: string; stderr?: string },
-	) {
+	) => {
 		spawnCalls.push({
 			cmd,
 			opts: opts as { cwd?: string; stdout?: string; stderr?: string },
@@ -339,7 +342,7 @@ describe('ADVERSARIAL: workspaceDir extremely long paths', () => {
 
 	/**
 	 * ATTACK VECTOR 4: Extremely long path (10000+ chars)
-	 * Note: The path validation catches this as path traversal because /valid/aaa... 
+	 * Note: The path validation catches this as path traversal because /valid/aaa...
 	 * is an absolute path that resolves outside the workspace
 	 */
 	it('REJECTS: workspaceDir extremely long path (10000+ chars)', async () => {
@@ -839,9 +842,9 @@ describe('ADVERSARIAL: Bun.spawn cwd verification', () => {
 
 	/**
 	 * SECURITY: Verify binary path uses workspaceDir, not process.cwd()
-	 * 
+	 *
 	 * Note: When node_modules doesn't exist in the workspace, the tool falls back to npx.
-	 * The key security check is that the cwd is correct - the command will execute 
+	 * The key security check is that the cwd is correct - the command will execute
 	 * in the workspace directory regardless of how the binary is invoked.
 	 */
 	it('VERIFIES: binary runs in workspaceDir context (not process.cwd())', async () => {

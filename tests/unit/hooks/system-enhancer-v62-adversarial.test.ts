@@ -2,7 +2,7 @@
  * Adversarial tests for v6.2 system-enhancer config-hint logic:
  * - lint.enabled and secretscan.enabled config handling
  * Tests BOTH legacy path (scoring disabled) and scoring path (scoring enabled)
- * 
+ *
  * Attack vectors:
  * 1. Malformed config payloads (null, undefined)
  * 2. Type confusion (strings, numbers, objects where boolean expected)
@@ -11,13 +11,12 @@
  * 5. Null bytes
  * 6. Injection-like strings (attempting to escape hint format)
  */
-import { describe, it, expect, beforeEach, afterEach } from 'bun:test';
-import { createSystemEnhancerHook } from '../../../src/hooks/system-enhancer';
-import { resetSwarmState } from '../../../src/state';
-import { mkdtemp, writeFile, mkdir } from 'node:fs/promises';
-import { rm } from 'node:fs/promises';
+import { afterEach, beforeEach, describe, expect, it } from 'bun:test';
+import { mkdir, mkdtemp, rm, writeFile } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
+import { createSystemEnhancerHook } from '../../../src/hooks/system-enhancer';
+import { resetSwarmState } from '../../../src/state';
 
 describe('ADVERSARIAL: v6.2 System Enhancer Config-Hint Security', () => {
 	let tempDir: string;
@@ -547,7 +546,9 @@ describe('ADVERSARIAL: v6.2 System Enhancer Config-Hint Security', () => {
 			await createSwarmFiles();
 
 			// Include various control characters
-			const controlChars = String.fromCharCode(...Array.from({ length: 31 }, (_, i) => i + 1));
+			const controlChars = String.fromCharCode(
+				...Array.from({ length: 31 }, (_, i) => i + 1),
+			);
 
 			const config = {
 				...defaultConfig,
@@ -783,7 +784,7 @@ describe('ADVERSARIAL: v6.2 System Enhancer Config-Hint Security', () => {
 				...defaultConfig,
 				lint: {
 					// eslint-disable-next-line @typescript-eslint/no-explicit-any
-					enabled: (Symbol(false) as any),
+					enabled: Symbol(false) as any,
 					mode: 'check',
 				},
 			} as unknown as Parameters<typeof createSystemEnhancerHook>[0];

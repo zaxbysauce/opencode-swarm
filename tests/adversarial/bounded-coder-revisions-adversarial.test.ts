@@ -12,11 +12,15 @@
  * 8. revisionLimitHit blocks further increments
  * 9. Truthy-string revisionLimitHit still guards
  */
-import { describe, test, expect, beforeEach } from 'bun:test';
-import { GuardrailsConfigSchema } from '../../src/config/schema';
+import { beforeEach, describe, expect, test } from 'bun:test';
 import type { GuardrailsConfig } from '../../src/config/schema';
-import { resetSwarmState, swarmState, startAgentSession } from '../../src/state';
+import { GuardrailsConfigSchema } from '../../src/config/schema';
 import { createGuardrailsHooks } from '../../src/hooks/guardrails';
+import {
+	resetSwarmState,
+	startAgentSession,
+	swarmState,
+} from '../../src/state';
 
 // Helper to create a full valid GuardrailsConfig with customizable max_coder_revisions
 function makeConfig(maxCoderRevisions: number): GuardrailsConfig {
@@ -31,7 +35,13 @@ function makeConfig(maxCoderRevisions: number): GuardrailsConfig {
 		no_op_warning_threshold: 9999, // Set high to avoid no-op warning in tests
 		max_coder_revisions: maxCoderRevisions,
 		qa_gates: {
-			required_tools: ['diff', 'syntax_check', 'placeholder_scan', 'lint', 'pre_check_batch'],
+			required_tools: [
+				'diff',
+				'syntax_check',
+				'placeholder_scan',
+				'lint',
+				'pre_check_batch',
+			],
 			require_reviewer_test_engineer: true,
 		},
 	};
@@ -49,11 +59,19 @@ function createMockOutput(args?: Record<string, unknown>) {
 	return { args: args ?? {} };
 }
 
-function createMockToolAfterInput(tool: string, sessionID: string, callID: string, args?: Record<string, unknown>) {
+function createMockToolAfterInput(
+	tool: string,
+	sessionID: string,
+	callID: string,
+	args?: Record<string, unknown>,
+) {
 	return { tool, sessionID, callID, args };
 }
 
-function createMockToolAfterOutput(title: string = 'success', output: string = 'OK') {
+function createMockToolAfterOutput(
+	title: string = 'success',
+	output: string = 'OK',
+) {
 	return { title, output, metadata: null };
 }
 
@@ -93,7 +111,9 @@ describe('ATTACK: max_coder_revisions boundary enforcement', () => {
 			expect(session.coderRevisions).toBe(1);
 			expect(session.revisionLimitHit).toBe(true);
 			expect(session.pendingAdvisoryMessages?.length).toBeGreaterThan(0);
-			expect(session.pendingAdvisoryMessages?.[0]).toContain('CODER REVISION LIMIT');
+			expect(session.pendingAdvisoryMessages?.[0]).toContain(
+				'CODER REVISION LIMIT',
+			);
 			expect(session.pendingAdvisoryMessages?.[0]).toContain('1 times');
 		});
 
@@ -271,7 +291,7 @@ describe('ATTACK: non-integer value rejection', () => {
 	test('4.3 max_coder_revisions = 3.14159 is rejected by Zod (non-integer)', () => {
 		const result = GuardrailsConfigSchema.safeParse({
 			enabled: true,
-			max_coder_revisions: 3.14159,
+			max_coder_revisions: Math.PI,
 		});
 
 		expect(result.success).toBe(false);

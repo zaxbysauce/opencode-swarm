@@ -1,4 +1,4 @@
-import { spawn } from 'node:child_process';
+import * as child_process from 'node:child_process';
 
 // Known Node.js package manager binaries that require .cmd extension on Windows.
 // Only exact matches are extended — user-configured or other commands are left unchanged.
@@ -18,7 +18,10 @@ export function spawnAsync(
 				!rawCmd.includes('.')
 					? `${rawCmd}.cmd`
 					: rawCmd;
-			const proc = spawn(cmd, args, { cwd, stdio: ['ignore', 'pipe', 'pipe'] });
+			const proc = child_process.spawn(cmd, args, {
+				cwd,
+				stdio: ['ignore', 'pipe', 'pipe'],
+			});
 
 			let stdout = '';
 			let stderr = '';

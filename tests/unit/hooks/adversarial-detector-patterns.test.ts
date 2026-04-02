@@ -1,4 +1,4 @@
-import { describe, it, expect } from 'bun:test';
+import { describe, expect, it } from 'bun:test';
 import type { AdversarialPatternMatch } from '../../../src/hooks/adversarial-detector';
 import {
 	detectAdversarialPatterns,
@@ -47,7 +47,8 @@ describe('adversarial-detector - Pattern Detection Verification (Task 1.5)', () 
 		});
 
 		it('2.4: Detects "the reviewer didn\'t flag this pattern before" with HIGHEST severity', () => {
-			const text = 'The reviewer didn\'t flag this pattern before, so it is safe';
+			const text =
+				"The reviewer didn't flag this pattern before, so it is safe";
 			const result = detectAdversarialPatterns(text);
 			expect(result.length).toBeGreaterThan(0);
 			expect(result[0].pattern).toBe('PRECEDENT_MANIPULATION');
@@ -101,7 +102,7 @@ describe('adversarial-detector - Pattern Detection Verification (Task 1.5)', () 
 	// TEST 4: CONTENT_EXEMPTION with HIGH severity
 	describe('4: CONTENT_EXEMPTION pattern with HIGH severity', () => {
 		it('4.1: Detects "documentation doesn\'t need" with HIGH severity', () => {
-			const text = 'Documentation doesn\'t need full review';
+			const text = "Documentation doesn't need full review";
 			const result = detectAdversarialPatterns(text);
 			expect(result.length).toBeGreaterThan(0);
 			expect(result[0].pattern).toBe('CONTENT_EXEMPTION');
@@ -125,7 +126,7 @@ describe('adversarial-detector - Pattern Detection Verification (Task 1.5)', () 
 		});
 
 		it('4.4: Detects "test files don\'t need" with HIGH severity', () => {
-			const text = 'Test files don\'t need the full pipeline';
+			const text = "Test files don't need the full pipeline";
 			const result = detectAdversarialPatterns(text);
 			expect(result.length).toBeGreaterThan(0);
 			expect(result[0].pattern).toBe('CONTENT_EXEMPTION');
@@ -204,7 +205,7 @@ describe('adversarial-detector - Pattern Detection Verification (Task 1.5)', () 
 		});
 
 		it('6.2: Detects "since we\'re behind" with HIGH severity', () => {
-			const text = 'Since we\'re behind schedule, we can skip this step';
+			const text = "Since we're behind schedule, we can skip this step";
 			const result = detectAdversarialPatterns(text);
 			expect(result.length).toBeGreaterThan(0);
 			expect(result[0].pattern).toBe('VELOCITY_RATIONALIZATION');
@@ -280,7 +281,8 @@ describe('adversarial-detector - Pattern Detection Verification (Task 1.5)', () 
 		});
 
 		it('7.5: Detects multiple patterns in same text', () => {
-			const text = 'We skipped this in phase 1. I verified this myself to save time.';
+			const text =
+				'We skipped this in phase 1. I verified this myself to save time.';
 			const result = detectAdversarialPatterns(text);
 			expect(result.length).toBeGreaterThan(1);
 		});
@@ -416,7 +418,8 @@ describe('adversarial-detector - Pattern Detection Verification (Task 1.5)', () 
 		});
 
 		it('Detects patterns in long text', () => {
-			const longText = 'Normal text. '.repeat(100) + 'We skipped this in phase 1';
+			const longText =
+				'Normal text. '.repeat(100) + 'We skipped this in phase 1';
 			const result = detectAdversarialPatterns(longText);
 			expect(result.length).toBeGreaterThan(0);
 			expect(result[0].pattern).toBe('PRECEDENT_MANIPULATION');

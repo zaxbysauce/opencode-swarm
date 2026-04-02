@@ -1,7 +1,7 @@
-import { describe, test, expect } from 'bun:test';
-import { handleSpecifyCommand } from '../../../src/commands/specify';
-import { createSwarmCommandHandler } from '../../../src/commands/index';
+import { describe, expect, test } from 'bun:test';
 import type { AgentDefinition } from '../../../src/agents';
+import { createSwarmCommandHandler } from '../../../src/commands/index';
+import { handleSpecifyCommand } from '../../../src/commands/specify';
 
 describe('handleSpecifyCommand', () => {
 	test('returns correct format with description args', async () => {
@@ -36,9 +36,7 @@ describe('handleSpecifyCommand', () => {
 			'management',
 			'system',
 		]);
-		expect(result).toBe(
-			'[MODE: SPECIFY] Create a new user management system',
-		);
+		expect(result).toBe('[MODE: SPECIFY] Create a new user management system');
 	});
 
 	test('handles single word description', async () => {
@@ -47,9 +45,7 @@ describe('handleSpecifyCommand', () => {
 	});
 
 	test('trims leading and trailing whitespace from description', async () => {
-		const result = await handleSpecifyCommand('/test/dir', [
-			'  Build API  ',
-		]);
+		const result = await handleSpecifyCommand('/test/dir', ['  Build API  ']);
 		expect(result).toBe('[MODE: SPECIFY] Build API');
 	});
 
@@ -71,7 +67,8 @@ describe('handleSpecifyCommand — adversarial', () => {
 	});
 
 	test('special characters in description (backticks, brackets, markdown) — should be included verbatim', async () => {
-		const specialChars = 'Test `code` with [brackets] and {braces} and <angles> and markdown **bold** and _italic_';
+		const specialChars =
+			'Test `code` with [brackets] and {braces} and <angles> and markdown **bold** and _italic_';
 		const result = await handleSpecifyCommand('/test/dir', [specialChars]);
 		expect(result).toBeTypeOf('string');
 		expect(result).toContain('[MODE: SPECIFY]');
@@ -84,7 +81,11 @@ describe('handleSpecifyCommand — adversarial', () => {
 	});
 
 	test('newlines in args — args.join(" ") joins with spaces, but preserves newlines as actual newline chars', async () => {
-		const result = await handleSpecifyCommand('/test/dir', ['line1', '\n', 'line2']);
+		const result = await handleSpecifyCommand('/test/dir', [
+			'line1',
+			'\n',
+			'line2',
+		]);
 		// args.join(' ') will join with spaces, but \n becomes a literal newline character
 		expect(result).toBeTypeOf('string');
 		expect(result).toContain('[MODE: SPECIFY]');
@@ -122,7 +123,10 @@ describe('index.ts exports and HELP_TEXT', () => {
 		const output = { parts: [] as unknown[] };
 
 		// Trigger help by using unknown subcommand
-		await handler({ command: 'swarm', sessionID: 's1', arguments: 'unknown' }, output);
+		await handler(
+			{ command: 'swarm', sessionID: 's1', arguments: 'unknown' },
+			output,
+		);
 
 		const helpText = (output.parts[0] as { type: string; text: string }).text;
 		expect(helpText).toContain('/swarm specify');

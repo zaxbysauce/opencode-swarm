@@ -3,7 +3,7 @@
  * Focus: Attack vectors ONLY - no happy path tests
  */
 
-import { describe, it, expect } from 'bun:test';
+import { describe, expect, it } from 'bun:test';
 import { consolidateSystemMessages } from '../../../src/hooks/messages-transform';
 
 // Use the same type as the source, but allow for adversarial role types
@@ -27,7 +27,7 @@ describe('consolidateSystemMessages - ADVERSARIAL', () => {
 		it('content as JSON string with __proto__ payload', () => {
 			const input: AdversarialMessage[] = [
 				{ role: 'system', content: '{"__proto__":{"polluted":true}}' },
-				{ role: 'user', content: 'Hello' }
+				{ role: 'user', content: 'Hello' },
 			];
 			const result = consolidateSystemMessages(input as any);
 
@@ -43,7 +43,11 @@ describe('consolidateSystemMessages - ADVERSARIAL', () => {
 
 		it('message with __proto__ key', () => {
 			const input: AdversarialMessage[] = [
-				{ role: 'system', content: 'System prompt', '__proto__': { polluted: true } } as any
+				{
+					role: 'system',
+					content: 'System prompt',
+					__proto__: { polluted: true },
+				} as any,
 			];
 			const result = consolidateSystemMessages(input as any);
 
@@ -58,8 +62,12 @@ describe('consolidateSystemMessages - ADVERSARIAL', () => {
 
 		it('constructor property pollution attempt', () => {
 			const input: AdversarialMessage[] = [
-				{ role: 'system', content: 'System prompt', constructor: { prototype: { polluted: true } } } as any,
-				{ role: 'user', content: 'Hello' }
+				{
+					role: 'system',
+					content: 'System prompt',
+					constructor: { prototype: { polluted: true } },
+				} as any,
+				{ role: 'user', content: 'Hello' },
 			];
 			const result = consolidateSystemMessages(input as any);
 
@@ -74,7 +82,7 @@ describe('consolidateSystemMessages - ADVERSARIAL', () => {
 			const contentWithNullBytes = 'System\x00prompt\x00with\x00nulls';
 			const input: AdversarialMessage[] = [
 				{ role: 'system', content: contentWithNullBytes },
-				{ role: 'user', content: 'Hello' }
+				{ role: 'user', content: 'Hello' },
 			];
 			const result = consolidateSystemMessages(input as any);
 
@@ -88,7 +96,7 @@ describe('consolidateSystemMessages - ADVERSARIAL', () => {
 			const excessiveNewlines = 'System\n\n\n\n\n\n\n\n\n\nprompt';
 			const input: AdversarialMessage[] = [
 				{ role: 'system', content: excessiveNewlines },
-				{ role: 'user', content: 'Hello' }
+				{ role: 'user', content: 'Hello' },
 			];
 			const result = consolidateSystemMessages(input as any);
 
@@ -102,7 +110,7 @@ describe('consolidateSystemMessages - ADVERSARIAL', () => {
 			const longString = 'A'.repeat(110 * 1024); // 110KB
 			const input: AdversarialMessage[] = [
 				{ role: 'system', content: longString },
-				{ role: 'user', content: 'Hello' }
+				{ role: 'user', content: 'Hello' },
 			];
 			const result = consolidateSystemMessages(input as any);
 
@@ -116,7 +124,7 @@ describe('consolidateSystemMessages - ADVERSARIAL', () => {
 			const controlChars = 'System\x00\x01\x02\x03\x04\x05prompt';
 			const input: AdversarialMessage[] = [
 				{ role: 'system', content: controlChars },
-				{ role: 'user', content: 'Hello' }
+				{ role: 'user', content: 'Hello' },
 			];
 			const result = consolidateSystemMessages(input as any);
 
@@ -130,7 +138,7 @@ describe('consolidateSystemMessages - ADVERSARIAL', () => {
 			const emojiString = 'System 🎉🚀🔥 prompt with 😀😁😂';
 			const input: AdversarialMessage[] = [
 				{ role: 'system', content: emojiString },
-				{ role: 'user', content: 'Hello' }
+				{ role: 'user', content: 'Hello' },
 			];
 			const result = consolidateSystemMessages(input as any);
 
@@ -150,7 +158,7 @@ describe('consolidateSystemMessages - ADVERSARIAL', () => {
 
 		it('single message array (1 element)', () => {
 			const input: AdversarialMessage[] = [
-				{ role: 'system', content: 'System prompt' }
+				{ role: 'system', content: 'System prompt' },
 			];
 			const result = consolidateSystemMessages(input as any);
 
@@ -164,8 +172,8 @@ describe('consolidateSystemMessages - ADVERSARIAL', () => {
 				{ role: 'system', content: 'System' },
 				...Array.from({ length: 9999 }, (_, i) => ({
 					role: 'user',
-					content: `Message ${i}`
-				}))
+					content: `Message ${i}`,
+				})),
 			];
 			const result = consolidateSystemMessages(input as any);
 
@@ -179,9 +187,9 @@ describe('consolidateSystemMessages - ADVERSARIAL', () => {
 			const input: AdversarialMessage[] = [
 				...Array.from({ length: 9999 }, (_, i) => ({
 					role: 'user',
-					content: `Message ${i}`
+					content: `Message ${i}`,
 				})),
-				{ role: 'system', content: 'System prompt at end' }
+				{ role: 'system', content: 'System prompt at end' },
 			];
 			const result = consolidateSystemMessages(input as any);
 
@@ -193,10 +201,13 @@ describe('consolidateSystemMessages - ADVERSARIAL', () => {
 		});
 
 		it('array with alternating system messages', () => {
-			const input: AdversarialMessage[] = Array.from({ length: 100 }, (_, i) => ({
-				role: i % 2 === 0 ? 'system' : 'user',
-				content: `${i % 2 === 0 ? 'System' : 'User'} ${i}`
-			}));
+			const input: AdversarialMessage[] = Array.from(
+				{ length: 100 },
+				(_, i) => ({
+					role: i % 2 === 0 ? 'system' : 'user',
+					content: `${i % 2 === 0 ? 'System' : 'User'} ${i}`,
+				}),
+			);
 			const result = consolidateSystemMessages(input as any);
 
 			// Should collapse all 50 system messages into 1
@@ -210,7 +221,7 @@ describe('consolidateSystemMessages - ADVERSARIAL', () => {
 		it('role as uppercase "SYSTEM"', () => {
 			const input: AdversarialMessage[] = [
 				{ role: 'SYSTEM', content: 'System prompt' },
-				{ role: 'user', content: 'Hello' }
+				{ role: 'user', content: 'Hello' },
 			] as any;
 			const result = consolidateSystemMessages(input as any);
 
@@ -224,7 +235,7 @@ describe('consolidateSystemMessages - ADVERSARIAL', () => {
 		it('role as mixed case "System"', () => {
 			const input: AdversarialMessage[] = [
 				{ role: 'System', content: 'System prompt' },
-				{ role: 'user', content: 'Hello' }
+				{ role: 'user', content: 'Hello' },
 			] as any;
 			const result = consolidateSystemMessages(input as any);
 
@@ -238,7 +249,7 @@ describe('consolidateSystemMessages - ADVERSARIAL', () => {
 		it('role as number 0', () => {
 			const input: AdversarialMessage[] = [
 				{ role: 0, content: 'System prompt' },
-				{ role: 'user', content: 'Hello' }
+				{ role: 'user', content: 'Hello' },
 			] as any;
 			const result = consolidateSystemMessages(input as any);
 
@@ -250,7 +261,7 @@ describe('consolidateSystemMessages - ADVERSARIAL', () => {
 		it('role as null', () => {
 			const input: AdversarialMessage[] = [
 				{ role: null, content: 'System prompt' },
-				{ role: 'user', content: 'Hello' }
+				{ role: 'user', content: 'Hello' },
 			] as any;
 			const result = consolidateSystemMessages(input as any);
 
@@ -262,7 +273,7 @@ describe('consolidateSystemMessages - ADVERSARIAL', () => {
 		it('role as undefined', () => {
 			const input: AdversarialMessage[] = [
 				{ role: undefined, content: 'System prompt' },
-				{ role: 'user', content: 'Hello' }
+				{ role: 'user', content: 'Hello' },
 			] as any;
 			const result = consolidateSystemMessages(input as any);
 
@@ -276,7 +287,7 @@ describe('consolidateSystemMessages - ADVERSARIAL', () => {
 				{ role: 'system', content: 'Valid system' },
 				{ role: 'SYSTEM', content: 'Uppercase system' } as any,
 				{ role: null, content: 'Null role' } as any,
-				{ role: 'user', content: 'User message' }
+				{ role: 'user', content: 'User message' },
 			];
 			const result = consolidateSystemMessages(input as any);
 
@@ -297,7 +308,7 @@ describe('consolidateSystemMessages - ADVERSARIAL', () => {
 			const input: AdversarialMessage[] = [
 				{ role: 'system', content: 'System A' },
 				{ role: 'user', content: 'User' },
-				{ role: 'system', content: 'System B' }
+				{ role: 'system', content: 'System B' },
 			];
 			const originalInput = JSON.stringify(input);
 
@@ -311,10 +322,13 @@ describe('consolidateSystemMessages - ADVERSARIAL', () => {
 		});
 
 		it('original message objects should NOT be mutated', () => {
-			const systemMsg: AdversarialMessage = { role: 'system', content: 'System' };
+			const systemMsg: AdversarialMessage = {
+				role: 'system',
+				content: 'System',
+			};
 			const input: AdversarialMessage[] = [
 				systemMsg,
-				{ role: 'user', content: 'Hello' }
+				{ role: 'user', content: 'Hello' },
 			];
 			const originalContent = systemMsg.content;
 
@@ -328,7 +342,10 @@ describe('consolidateSystemMessages - ADVERSARIAL', () => {
 			const circular: any = { role: 'system', content: 'System' };
 			circular.self = circular;
 
-			const input: AdversarialMessage[] = [circular, { role: 'user', content: 'Hello' }];
+			const input: AdversarialMessage[] = [
+				circular,
+				{ role: 'user', content: 'Hello' },
+			];
 			const result = consolidateSystemMessages(input as any);
 
 			// Should not crash, handle gracefully
@@ -342,7 +359,7 @@ describe('consolidateSystemMessages - ADVERSARIAL', () => {
 
 			const input: AdversarialMessage[] = [
 				{ role: 'system', content: 'System', meta: nested },
-				{ role: 'user', content: 'Hello' }
+				{ role: 'user', content: 'Hello' },
 			];
 			const result = consolidateSystemMessages(input as any);
 
@@ -355,7 +372,7 @@ describe('consolidateSystemMessages - ADVERSARIAL', () => {
 		it('system message with content as number', () => {
 			const input: AdversarialMessage[] = [
 				{ role: 'system', content: 12345 },
-				{ role: 'user', content: 'Hello' }
+				{ role: 'user', content: 'Hello' },
 			] as any;
 			const result = consolidateSystemMessages(input as any);
 
@@ -367,7 +384,7 @@ describe('consolidateSystemMessages - ADVERSARIAL', () => {
 		it('system message with content as object', () => {
 			const input: AdversarialMessage[] = [
 				{ role: 'system', content: { foo: 'bar' } },
-				{ role: 'user', content: 'Hello' }
+				{ role: 'user', content: 'Hello' },
 			] as any;
 			const result = consolidateSystemMessages(input as any);
 
@@ -379,7 +396,7 @@ describe('consolidateSystemMessages - ADVERSARIAL', () => {
 		it('system message with content as boolean', () => {
 			const input: AdversarialMessage[] = [
 				{ role: 'system', content: true },
-				{ role: 'user', content: 'Hello' }
+				{ role: 'user', content: 'Hello' },
 			] as any;
 			const result = consolidateSystemMessages(input as any);
 
@@ -391,7 +408,7 @@ describe('consolidateSystemMessages - ADVERSARIAL', () => {
 		it('system message with content as function', () => {
 			const input: AdversarialMessage[] = [
 				{ role: 'system', content: () => 'dangerous' },
-				{ role: 'user', content: 'Hello' }
+				{ role: 'user', content: 'Hello' },
 			] as any;
 			const result = consolidateSystemMessages(input as any);
 
@@ -403,7 +420,7 @@ describe('consolidateSystemMessages - ADVERSARIAL', () => {
 		it('system message with missing content field', () => {
 			const input: AdversarialMessage[] = [
 				{ role: 'system' } as any,
-				{ role: 'user', content: 'Hello' }
+				{ role: 'user', content: 'Hello' },
 			];
 			const result = consolidateSystemMessages(input as any);
 
@@ -417,7 +434,7 @@ describe('consolidateSystemMessages - ADVERSARIAL', () => {
 		it('content array with null text', () => {
 			const input: AdversarialMessage[] = [
 				{ role: 'system', content: [{ type: 'text', text: null }] },
-				{ role: 'user', content: 'Hello' }
+				{ role: 'user', content: 'Hello' },
 			] as any;
 			const result = consolidateSystemMessages(input as any);
 
@@ -429,7 +446,7 @@ describe('consolidateSystemMessages - ADVERSARIAL', () => {
 		it('content array with empty string text', () => {
 			const input: AdversarialMessage[] = [
 				{ role: 'system', content: [{ type: 'text', text: '' }] },
-				{ role: 'user', content: 'Hello' }
+				{ role: 'user', content: 'Hello' },
 			];
 			const result = consolidateSystemMessages(input as any);
 
@@ -441,7 +458,7 @@ describe('consolidateSystemMessages - ADVERSARIAL', () => {
 		it('content array with whitespace-only text', () => {
 			const input: AdversarialMessage[] = [
 				{ role: 'system', content: [{ type: 'text', text: '   ' }] },
-				{ role: 'user', content: 'Hello' }
+				{ role: 'user', content: 'Hello' },
 			];
 			const result = consolidateSystemMessages(input as any);
 
@@ -453,7 +470,7 @@ describe('consolidateSystemMessages - ADVERSARIAL', () => {
 		it('content array with empty object', () => {
 			const input: AdversarialMessage[] = [
 				{ role: 'system', content: [{}] },
-				{ role: 'user', content: 'Hello' }
+				{ role: 'user', content: 'Hello' },
 			] as any;
 			const result = consolidateSystemMessages(input as any);
 
@@ -466,9 +483,11 @@ describe('consolidateSystemMessages - ADVERSARIAL', () => {
 			const input: AdversarialMessage[] = [
 				{
 					role: 'system',
-					content: [{ type: 'image', url: 'data:image/png;base64,iVBORw0KG...' }]
+					content: [
+						{ type: 'image', url: 'data:image/png;base64,iVBORw0KG...' },
+					],
 				},
-				{ role: 'user', content: 'Hello' }
+				{ role: 'user', content: 'Hello' },
 			] as any;
 			const result = consolidateSystemMessages(input as any);
 
@@ -485,10 +504,10 @@ describe('consolidateSystemMessages - ADVERSARIAL', () => {
 						{ type: 'text', text: null },
 						{ type: 'text', text: 'Valid' },
 						{ type: 'text', text: '' },
-						{ type: 'text', text: 'Another valid' }
-					]
+						{ type: 'text', text: 'Another valid' },
+					],
 				},
-				{ role: 'user', content: 'Hello' }
+				{ role: 'user', content: 'Hello' },
 			] as any;
 			const result = consolidateSystemMessages(input as any);
 
@@ -503,10 +522,10 @@ describe('consolidateSystemMessages - ADVERSARIAL', () => {
 					role: 'system',
 					content: [
 						{ type: '__proto__', text: 'malicious' },
-						{ type: 'constructor', text: 'payload' }
-					]
+						{ type: 'constructor', text: 'payload' },
+					],
 				} as any,
-				{ role: 'user', content: 'Hello' }
+				{ role: 'user', content: 'Hello' },
 			];
 			const result = consolidateSystemMessages(input as any);
 
@@ -524,11 +543,11 @@ describe('consolidateSystemMessages - ADVERSARIAL', () => {
 						{
 							type: 'text',
 							text: 'Nested',
-							nested: { deep: { array: [1, 2, 3] } }
-						}
-					]
+							nested: { deep: { array: [1, 2, 3] } },
+						},
+					],
 				} as any,
-				{ role: 'user', content: 'Hello' }
+				{ role: 'user', content: 'Hello' },
 			];
 			const result = consolidateSystemMessages(input as any);
 
@@ -543,9 +562,9 @@ describe('consolidateSystemMessages - ADVERSARIAL', () => {
 			const input: AdversarialMessage[] = [
 				...Array.from({ length: 100 }, (_, i) => ({
 					role: 'system',
-					content: `System message ${i}`
+					content: `System message ${i}`,
 				})),
-				{ role: 'user', content: 'Hello' }
+				{ role: 'user', content: 'Hello' },
 			];
 			const result = consolidateSystemMessages(input as any);
 
@@ -558,10 +577,13 @@ describe('consolidateSystemMessages - ADVERSARIAL', () => {
 		});
 
 		it('100 system messages with alternating empty content', () => {
-			const input: AdversarialMessage[] = Array.from({ length: 100 }, (_, i) => ({
-				role: 'system',
-				content: i % 2 === 0 ? `Valid ${i}` : ''
-			}));
+			const input: AdversarialMessage[] = Array.from(
+				{ length: 100 },
+				(_, i) => ({
+					role: 'system',
+					content: i % 2 === 0 ? `Valid ${i}` : '',
+				}),
+			);
 			const result = consolidateSystemMessages(input as any);
 
 			// Should merge only non-empty content
@@ -572,10 +594,13 @@ describe('consolidateSystemMessages - ADVERSARIAL', () => {
 		});
 
 		it('100 system messages with array format', () => {
-			const input: AdversarialMessage[] = Array.from({ length: 100 }, (_, i) => ({
-				role: 'system',
-				content: [{ type: 'text', text: `System ${i}` }]
-			}));
+			const input: AdversarialMessage[] = Array.from(
+				{ length: 100 },
+				(_, i) => ({
+					role: 'system',
+					content: [{ type: 'text', text: `System ${i}` }],
+				}),
+			);
 			const result = consolidateSystemMessages(input as any);
 
 			// Should merge all array-formatted system messages
@@ -587,10 +612,13 @@ describe('consolidateSystemMessages - ADVERSARIAL', () => {
 		});
 
 		it('100 system messages → verify join separator is consistent', () => {
-			const input: AdversarialMessage[] = Array.from({ length: 100 }, (_, i) => ({
-				role: 'system',
-				content: `S${i}`
-			}));
+			const input: AdversarialMessage[] = Array.from(
+				{ length: 100 },
+				(_, i) => ({
+					role: 'system',
+					content: `S${i}`,
+				}),
+			);
 			const result = consolidateSystemMessages(input as any);
 
 			// Verify separator is \n\n
@@ -604,13 +632,17 @@ describe('consolidateSystemMessages - ADVERSARIAL', () => {
 	describe('Combined attack vectors', () => {
 		it('prototype pollution + large array + type confusion', () => {
 			const input: AdversarialMessage[] = [
-				{ role: 'system', content: '{"__proto__":{"polluted":true}}', '__proto__': { test: true } } as any,
+				{
+					role: 'system',
+					content: '{"__proto__":{"polluted":true}}',
+					__proto__: { test: true },
+				} as any,
 				{ role: 'SYSTEM', content: 'Uppercase' } as any,
 				...Array.from({ length: 50 }, (_, i) => ({
 					role: 'system',
-					content: `System ${i}`
+					content: `System ${i}`,
 				})),
-				{ role: null, content: 'Null' } as any
+				{ role: null, content: 'Null' } as any,
 			];
 			const result = consolidateSystemMessages(input as any);
 
@@ -628,9 +660,9 @@ describe('consolidateSystemMessages - ADVERSARIAL', () => {
 				circular,
 				...Array.from({ length: 99 }, (_, i) => ({
 					role: 'system',
-					content: `System ${i}`
+					content: `System ${i}`,
 				})),
-				{ role: 'user', content: 'User' }
+				{ role: 'user', content: 'User' },
 			];
 			const result = consolidateSystemMessages(input as any);
 

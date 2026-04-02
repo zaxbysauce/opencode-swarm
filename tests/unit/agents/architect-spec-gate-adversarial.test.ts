@@ -11,7 +11,7 @@ describe('SPEC GATE — adversarial (standalone)', () => {
 		// The spec gate should warn but NOT block planning when user chooses to skip.
 		const specGateSection = prompt.substring(
 			prompt.indexOf('SPEC GATE'),
-			Math.min(prompt.indexOf('SPEC GATE') + 1000, prompt.length)
+			Math.min(prompt.indexOf('SPEC GATE') + 3500, prompt.length),
 		);
 
 		// These blocking phrases must NOT appear in the spec gate
@@ -20,7 +20,7 @@ describe('SPEC GATE — adversarial (standalone)', () => {
 			'blocked without spec',
 			'forbidden to plan',
 			'required before planning',
-			'cannot proceed without'
+			'cannot proceed without',
 		];
 
 		for (const phrase of blockingPhrases) {
@@ -34,7 +34,7 @@ describe('SPEC GATE — adversarial (standalone)', () => {
 		// Both options must be present together in the same context.
 		const specGateSection = prompt.substring(
 			prompt.indexOf('SPEC GATE'),
-			Math.min(prompt.indexOf('SPEC GATE') + 1000, prompt.length)
+			Math.min(prompt.indexOf('SPEC GATE') + 3500, prompt.length),
 		);
 
 		// Both options must be present
@@ -55,11 +55,13 @@ describe('SPEC GATE — adversarial (standalone)', () => {
 		// The phrase "do NOT modify any planning behavior" must be present.
 		const specGateSection = prompt.substring(
 			prompt.indexOf('SPEC GATE'),
-			Math.min(prompt.indexOf('SPEC GATE') + 1000, prompt.length)
+			Math.min(prompt.indexOf('SPEC GATE') + 3500, prompt.length),
 		);
 
 		expect(specGateSection).toContain('do NOT modify any planning behavior');
-		expect(specGateSection).toContain('continue with the steps below unchanged');
+		expect(specGateSection).toContain(
+			'continue with the steps below unchanged',
+		);
 	});
 
 	it('Spec-exists path does NOT force a re-spec', () => {
@@ -68,7 +70,7 @@ describe('SPEC GATE — adversarial (standalone)', () => {
 		// No language should require creating a new spec if spec.md already exists.
 		const specGateSection = prompt.substring(
 			prompt.indexOf('SPEC GATE'),
-			Math.min(prompt.indexOf('SPEC GATE') + 1000, prompt.length)
+			Math.min(prompt.indexOf('SPEC GATE') + 3500, prompt.length),
 		);
 
 		// These phrases would force re-spec and must NOT appear
@@ -77,7 +79,7 @@ describe('SPEC GATE — adversarial (standalone)', () => {
 			'rewrite the spec',
 			'must update spec',
 			'refresh the spec',
-			'generate a fresh spec'
+			'generate a fresh spec',
 		];
 
 		for (const phrase of reSpecPhrases) {
@@ -85,7 +87,9 @@ describe('SPEC GATE — adversarial (standalone)', () => {
 		}
 
 		// Should contain "Read it" (use existing, don't recreate)
-		expect(specGateSection).toContain('Read it and use it as the primary input');
+		expect(specGateSection).toContain(
+			'Read it and use it as the primary input',
+		);
 	});
 
 	it('FR-### pattern is specific enough to be matchable', () => {
@@ -94,12 +98,14 @@ describe('SPEC GATE — adversarial (standalone)', () => {
 		// The FR-### pattern must be explicitly mentioned for regex matching.
 		const specGateSection = prompt.substring(
 			prompt.indexOf('SPEC GATE'),
-			Math.min(prompt.indexOf('SPEC GATE') + 1000, prompt.length)
+			Math.min(prompt.indexOf('SPEC GATE') + 3500, prompt.length),
 		);
 
 		// Must contain FR-### pattern explicitly
 		expect(specGateSection).toContain('FR-###');
 		expect(specGateSection).toContain('Cross-reference requirements (FR-###)');
-		expect(specGateSection).toContain('Ensure every FR-### maps to at least one task');
+		expect(specGateSection).toContain(
+			'Ensure every FR-### maps to at least one task',
+		);
 	});
 });

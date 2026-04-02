@@ -3,7 +3,7 @@ import { createArchitectAgent } from '../../../src/agents/architect';
 
 /**
  * ADVERSARIAL TESTS: Orchestration Prompt Security (Task 3.2)
- * 
+ *
  * Attack vectors for orchestration prompt safety and gate bypass attempts:
  * - Sequence bypass (skip critic, skip phases)
  * - Gate skipping (skip tests, skip secretscan)
@@ -16,10 +16,14 @@ describe('ARCHITECT WORKFLOW: Sequence Bypass Prevention', () => {
 
 	test('SECURITY: Critic gate MUST run BEFORE implementation (Rule 6)', () => {
 		// Verify critic gate is mandatory and non-optional
-		expect(prompt).toContain('**CRITIC GATE (Execute BEFORE any implementation work)**');
+		expect(prompt).toContain(
+			'**CRITIC GATE (Execute BEFORE any implementation work)**',
+		);
 		expect(prompt).toContain('Delegate plan to {{AGENT_PREFIX}}critic');
-		expect(prompt).toContain('ONLY AFTER critic approval: Proceed to implementation (MODE: EXECUTE)');
-		
+		expect(prompt).toContain(
+			'ONLY AFTER critic approval: Proceed to implementation (MODE: EXECUTE)',
+		);
+
 		// Verify Phase 4.5 explicitly gates Phase 5
 		const phase45Pos = prompt.indexOf('### MODE: CRITIC-GATE');
 		const phase5Pos = prompt.indexOf('### MODE: EXECUTE');
@@ -31,11 +35,11 @@ describe('ARCHITECT WORKFLOW: Sequence Bypass Prevention', () => {
 		expect(prompt).toContain('**APPROVED** → Proceed to MODE: EXECUTE');
 		expect(prompt).toContain('**NEEDS_REVISION** → Revise the plan');
 		expect(prompt).toContain('**REJECTED** → Inform the user');
-		
+
 		// No bypass path exists
 		const between45and5 = prompt.substring(
 			prompt.indexOf('### MODE: CRITIC-GATE'),
-			prompt.indexOf('### MODE: EXECUTE')
+			prompt.indexOf('### MODE: EXECUTE'),
 		);
 		expect(between45and5.toLowerCase()).not.toContain('skip');
 		expect(between45and5.toLowerCase()).not.toContain('bypass');
@@ -43,14 +47,15 @@ describe('ARCHITECT WORKFLOW: Sequence Bypass Prevention', () => {
 
 	test('SECURITY: Phase sequence cannot be reordered (0→1→2→3→4→4.5→5→6)', () => {
 		const p0 = prompt.indexOf('### MODE: RESUME');
-		const p1 = prompt.indexOf('### MODE: CLARIFY');
+		// Use '\n' suffix to distinguish from ### MODE: CLARIFY-SPEC
+		const p1 = prompt.indexOf('### MODE: CLARIFY\n');
 		const p2 = prompt.indexOf('### MODE: DISCOVER');
 		const p3 = prompt.indexOf('### MODE: CONSULT');
 		const p4 = prompt.indexOf('### MODE: PLAN');
 		const p45 = prompt.indexOf('### MODE: CRITIC-GATE');
 		const p5 = prompt.indexOf('### MODE: EXECUTE');
 		const p6 = prompt.indexOf('### MODE: PHASE-WRAP');
-		
+
 		expect(p0).toBeLessThan(p1);
 		expect(p1).toBeLessThan(p2);
 		expect(p2).toBeLessThan(p3);
@@ -65,21 +70,25 @@ describe('ARCHITECT WORKFLOW: Gate Skipping Prevention', () => {
 	const prompt = createArchitectAgent('test-model').config.prompt;
 
 	test('SECURITY: Cannot skip verification tests (Phase 5l)', () => {
-		expect(prompt).toContain('5l. {{AGENT_PREFIX}}test_engineer - Verification tests');
+		expect(prompt).toContain(
+			'5l. {{AGENT_PREFIX}}test_engineer - Verification tests',
+		);
 		expect(prompt).toContain('FAIL → return to coder');
-		
+
 		// Verify step exists in sequence
 		const step5l = prompt.substring(
 			prompt.indexOf('5l.'),
-			prompt.indexOf('5m.')
+			prompt.indexOf('5m.'),
 		);
 		expect(step5l).toContain('Verification tests');
 	});
 
 	test('SECURITY: Cannot skip adversarial tests (Phase 5m)', () => {
-		expect(prompt).toContain('5m. {{AGENT_PREFIX}}test_engineer - Adversarial tests');
+		expect(prompt).toContain(
+			'5m. {{AGENT_PREFIX}}test_engineer - Adversarial tests',
+		);
 		expect(prompt).toContain('FAIL → return to coder');
-		
+
 		// Verify adversarial tests run AFTER verification tests
 		const verifPos = prompt.indexOf('Verification tests');
 		const adversPos = prompt.indexOf('Adversarial tests');
@@ -88,16 +97,16 @@ describe('ARCHITECT WORKFLOW: Gate Skipping Prevention', () => {
 
 	test('SECURITY: Cannot skip secretscan (now inside pre_check_batch at Phase 5i)', () => {
 		expect(prompt).toContain('secretscan');
-		
+
 		// In v6.10, secretscan is inside pre_check_batch at step 5i
 		// Verify pre_check_batch exists and contains secretscan
 		expect(prompt).toContain('5i. Run `pre_check_batch` tool');
 		const preCheckBatch = prompt.substring(
 			prompt.indexOf('5i.'),
-			prompt.indexOf('5j.')
+			prompt.indexOf('5j.'),
 		);
 		expect(preCheckBatch).toContain('secretscan');
-		
+
 		// Verify gates_passed logic controls progression
 		expect(prompt).toContain('gates_passed === false');
 		expect(prompt).toContain('gates_passed === true');
@@ -124,11 +133,11 @@ describe('ARCHITECT WORKFLOW: Secretscan Bypass Prevention', () => {
 		// Check the detailed step text, not just the sequence summary
 		const phase5Section = prompt.substring(
 			prompt.indexOf('### MODE: EXECUTE'),
-			prompt.indexOf('### MODE: PHASE-WRAP')
+			prompt.indexOf('### MODE: PHASE-WRAP'),
 		);
 		expect(phase5Section).toContain('pre_check_batch');
 		expect(phase5Section).toContain('secretscan');
-		
+
 		// Verify it runs before reviewer
 		const preCheckPos = phase5Section.indexOf('pre_check_batch');
 		const reviewerPos = phase5Section.indexOf('{{AGENT_PREFIX}}reviewer');
@@ -140,7 +149,7 @@ describe('ARCHITECT WORKFLOW: Secretscan Bypass Prevention', () => {
 		// Check that pre_check_batch step contains secretscan in the detailed section
 		const phase5Section = prompt.substring(
 			prompt.indexOf('### MODE: EXECUTE'),
-			prompt.indexOf('### MODE: PHASE-WRAP')
+			prompt.indexOf('### MODE: PHASE-WRAP'),
 		);
 		// Find the pre_check_batch section and check what tools it runs
 		expect(phase5Section).toContain('5i. Run `pre_check_batch`');
@@ -151,11 +160,11 @@ describe('ARCHITECT WORKFLOW: Secretscan Bypass Prevention', () => {
 		// In v6.10, secretscan is in pre_check_batch; gates_passed controls flow
 		expect(prompt).toContain('gates_passed === false');
 		expect(prompt).toContain('gates_passed === true');
-		
+
 		// Verify the pre_check_batch section contains secretscan and the flow control
 		const phase5Section = prompt.substring(
 			prompt.indexOf('### MODE: EXECUTE'),
-			prompt.indexOf('### MODE: PHASE-WRAP')
+			prompt.indexOf('### MODE: PHASE-WRAP'),
 		);
 		expect(phase5Section).toContain('secretscan');
 		expect(phase5Section).toContain('gates_passed');
@@ -170,8 +179,10 @@ describe('ARCHITECT WORKFLOW: Reviewer Order Manipulation Prevention', () => {
 		const importsPos = prompt.indexOf('Run `imports`');
 		const lintPos = prompt.indexOf('lint');
 		const secretscanPos = prompt.indexOf('secretscan');
-		const reviewerPos = prompt.indexOf('{{AGENT_PREFIX}}reviewer - General review');
-		
+		const reviewerPos = prompt.indexOf(
+			'{{AGENT_PREFIX}}reviewer - General review',
+		);
+
 		expect(reviewerPos).toBeGreaterThan(diffPos);
 		expect(reviewerPos).toBeGreaterThan(importsPos);
 		expect(reviewerPos).toBeGreaterThan(lintPos);
@@ -179,13 +190,15 @@ describe('ARCHITECT WORKFLOW: Reviewer Order Manipulation Prevention', () => {
 	});
 
 	test('SECURITY: Security review runs AFTER general review (Phase 5k)', () => {
-		const generalReviewPos = prompt.indexOf('5j. {{AGENT_PREFIX}}reviewer - General review');
+		const generalReviewPos = prompt.indexOf(
+			'5j. {{AGENT_PREFIX}}reviewer - General review',
+		);
 		const securityReviewPos = prompt.indexOf('Security gate');
-		
+
 		expect(securityReviewPos).toBeGreaterThan(generalReviewPos);
-		
+
 		// Security gate can still reject after general approval
-		expect(prompt).toContain('REJECTED → return to coder');
+		expect(prompt).toContain('REJECTED (< {{QA_RETRY_LIMIT}}) → coder retry');
 	});
 
 	test('SECURITY: Reviewer cannot run before diff tool', () => {
@@ -195,13 +208,13 @@ describe('ARCHITECT WORKFLOW: Reviewer Order Manipulation Prevention', () => {
 		expect(prompt).toContain('5g. Run `lint`');
 		expect(prompt).toContain('5i. Run `pre_check_batch`');
 		expect(prompt).toContain('5j. {{AGENT_PREFIX}}reviewer');
-		
+
 		// Sequential numbering enforces order
 		const phase5Section = prompt.substring(
 			prompt.indexOf('### MODE: EXECUTE'),
-			prompt.indexOf('### MODE: PHASE-WRAP')
+			prompt.indexOf('### MODE: PHASE-WRAP'),
 		);
-		
+
 		const stepC = phase5Section.indexOf('5c.');
 		const stepD = phase5Section.indexOf('5d.');
 		const stepE = phase5Section.indexOf('5e.');
@@ -210,7 +223,7 @@ describe('ARCHITECT WORKFLOW: Reviewer Order Manipulation Prevention', () => {
 		const stepH = phase5Section.indexOf('5h.');
 		const stepI = phase5Section.indexOf('5i.');
 		const stepJ = phase5Section.indexOf('5j.');
-		
+
 		expect(stepC).toBeLessThan(stepD);
 		expect(stepD).toBeLessThan(stepE);
 		expect(stepE).toBeLessThan(stepF);
@@ -232,27 +245,49 @@ describe('ARCHITECT WORKFLOW: UI Gate Bypass Prevention', () => {
 
 	test('SECURITY: UI trigger keywords are comprehensive (cannot be avoided)', () => {
 		const uiKeywords = [
-			'new page', 'new screen', 'new component', 'redesign',
-			'layout change', 'form', 'modal', 'dialog', 'dropdown',
-			'sidebar', 'navbar', 'dashboard', 'landing page',
-			'signup', 'login form', 'settings page', 'profile page'
+			'new page',
+			'new screen',
+			'new component',
+			'redesign',
+			'layout change',
+			'form',
+			'modal',
+			'dialog',
+			'dropdown',
+			'sidebar',
+			'navbar',
+			'dashboard',
+			'landing page',
+			'signup',
+			'login form',
+			'settings page',
+			'profile page',
 		];
-		
-		uiKeywords.forEach(keyword => {
+
+		uiKeywords.forEach((keyword) => {
 			expect(prompt.toLowerCase()).toContain(keyword);
 		});
 	});
 
 	test('SECURITY: UI file path triggers are comprehensive', () => {
-		const paths = ['pages/', 'components/', 'views/', 'screens/', 'ui/', 'layouts/'];
-		paths.forEach(path => {
+		const paths = [
+			'pages/',
+			'components/',
+			'views/',
+			'screens/',
+			'ui/',
+			'layouts/',
+		];
+		paths.forEach((path) => {
 			expect(prompt).toContain(path);
 		});
 	});
 
 	test('SECURITY: Designer produces scaffold that coder must follow', () => {
 		expect(prompt).toContain('produce a code scaffold');
-		expect(prompt).toContain('pass the scaffold to {{AGENT_PREFIX}}coder as INPUT');
+		expect(prompt).toContain(
+			'pass the scaffold to {{AGENT_PREFIX}}coder as INPUT',
+		);
 		// The coder implements TODOs in the scaffold
 		expect(prompt).toContain('The coder implements the TODOs');
 	});
@@ -264,13 +299,15 @@ describe('ARCHITECT WORKFLOW: Memory/Swarm Identity Protection', () => {
 	test('SECURITY: Must NOT store swarm identity in memory blocks (Rule 5)', () => {
 		expect(prompt).toContain('NEVER store your swarm identity');
 		expect(prompt).toContain('swarm ID, or agent prefix in memory blocks');
-		expect(prompt).toContain('Your identity comes ONLY from your system prompt');
+		expect(prompt).toContain(
+			'Your identity comes ONLY from your system prompt',
+		);
 		expect(prompt).toContain('Memory blocks are for project knowledge only');
 	});
 
 	test('SECURITY: Phase 0 purges stale memory on swarm resume', () => {
 		expect(prompt).toContain('Purge any memory blocks');
-		expect(prompt).toContain('that reference a different swarm\'s identity');
+		expect(prompt).toContain("that reference a different swarm's identity");
 	});
 });
 
@@ -284,7 +321,9 @@ describe('ARCHITECT WORKFLOW: Delegation Safety', () => {
 
 	test('SECURITY: Fallback only after QA_RETRY_LIMIT failures (Rule 4)', () => {
 		expect(prompt).toContain('Fallback: Only code yourself');
-		expect(prompt).toContain('after {{QA_RETRY_LIMIT}} {{AGENT_PREFIX}}coder failures');
+		expect(prompt).toContain(
+			'after {{QA_RETRY_LIMIT}} {{AGENT_PREFIX}}coder failures',
+		);
 		expect(prompt).toContain('on same task');
 	});
 
@@ -312,17 +351,19 @@ describe('ARCHITECT WORKFLOW: Adversarial Test Constraints', () => {
 		// In Rule 7 (MANDATORY QA GATE)
 		expect(prompt).toContain('adversarial tests');
 		expect(prompt).toContain('attack vectors only');
-		
+
 		// In delegation example
 		expect(prompt).toContain('CONSTRAINT: ONLY attack vectors');
-		expect(prompt).toContain('malformed inputs, oversized payloads, injection attempts');
+		expect(prompt).toContain(
+			'malformed inputs, oversized payloads, injection attempts',
+		);
 	});
 
 	test('SECURITY: Verification tests have different constraint than adversarial', () => {
 		// Verification tests are for functional correctness
 		const verifSection = prompt.substring(
 			prompt.indexOf('verification tests'),
-			prompt.indexOf('verification tests') + 100
+			prompt.indexOf('verification tests') + 100,
 		);
 		// Should NOT say "attack vectors" for verification
 		expect(verifSection.toLowerCase()).not.toContain('attack');
@@ -339,11 +380,11 @@ describe('ARCHITECT WORKFLOW: Retrospective Tracking', () => {
 
 	test('SECURITY: Evidence written BEFORE user summary in Phase 6', () => {
 		const phase6Start = prompt.indexOf('### MODE: PHASE-WRAP');
-		const phase6Section = prompt.substring(phase6Start, phase6Start + 1200);
-		
+		const phase6Section = prompt.substring(phase6Start, phase6Start + 3200);
+
 		const evidencePos = phase6Section.indexOf('Write retrospective evidence');
 		const summarizePos = phase6Section.indexOf('6. Summarize');
-		
+
 		expect(evidencePos).toBeGreaterThan(-1);
 		expect(summarizePos).toBeGreaterThan(-1);
 		expect(evidencePos).toBeLessThan(summarizePos);
@@ -391,7 +432,7 @@ describe('ARCHITECT WORKFLOW: Task Granularity Anti-Bypass (Phase 4)', () => {
 		// MEDIUM tasks must be split regardless of refactor classification
 		const granularitySection = prompt.substring(
 			prompt.indexOf('TASK GRANULARITY RULES'),
-			prompt.indexOf('### MODE: CRITIC-GATE')
+			prompt.indexOf('### MODE: CRITIC-GATE'),
 		);
 		// No exemption for refactors exists
 		expect(granularitySection.toLowerCase()).not.toContain('refactor exempt');
@@ -410,7 +451,7 @@ describe('ARCHITECT WORKFLOW: Failure Counting Anti-Bypass (Phase 6)', () => {
 		// Verify there's no "simple change" bypass
 		const retrySection = prompt.substring(
 			prompt.indexOf('QA_RETRY_LIMIT'),
-			prompt.indexOf('QA_RETRY_LIMIT') + 500
+			prompt.indexOf('QA_RETRY_LIMIT') + 500,
 		);
 		expect(retrySection.toLowerCase()).not.toContain('simple change bypass');
 		expect(retrySection.toLowerCase()).not.toContain('skip counter for');
@@ -448,7 +489,7 @@ describe('ARCHITECT WORKFLOW: Failure Counting Anti-Bypass (Phase 6)', () => {
 		// Counter persists until escalation or success - no manual reset
 		const retrySection = prompt.substring(
 			prompt.indexOf('QA_RETRY_LIMIT'),
-			prompt.indexOf('Fallback:') + 200
+			prompt.indexOf('Fallback:') + 200,
 		);
 		// Should not allow counter reset bypass
 		expect(retrySection.toLowerCase()).not.toContain('reset counter');
@@ -463,7 +504,7 @@ describe('ARCHITECT WORKFLOW: Failure Counting Anti-Bypass (Phase 6)', () => {
 		// Verify gates are re-checked after retry
 		const phase5Section = prompt.substring(
 			prompt.indexOf('### MODE: EXECUTE'),
-			prompt.indexOf('### MODE: PHASE-WRAP')
+			prompt.indexOf('### MODE: PHASE-WRAP'),
 		);
 		expect(phase5Section).toContain('gates_passed');
 	});
@@ -499,6 +540,8 @@ describe('ARCHITECT Anti-Rationalization Gate Hardening (Phase 7)', () => {
 	});
 
 	test('SECURITY: Commit without QA gate is named a violation', () => {
-		expect(prompt).toContain('A commit without a completed QA gate is a workflow violation');
+		expect(prompt).toContain(
+			'A commit without a completed QA gate is a workflow violation',
+		);
 	});
 });

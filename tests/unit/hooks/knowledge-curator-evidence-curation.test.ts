@@ -3,11 +3,9 @@
  * Tests the hook's handling of evidence JSON files in .swarm/evidence/retro-N/ directory.
  */
 
-import { vi, describe, test, expect, beforeEach } from 'vitest';
+import { beforeEach, describe, expect, test, vi } from 'vitest';
+import { createKnowledgeCuratorHook } from '../../../src/hooks/knowledge-curator.js';
 import type { KnowledgeConfig } from '../../../src/hooks/knowledge-types.js';
-import {
-	createKnowledgeCuratorHook,
-} from '../../../src/hooks/knowledge-curator.js';
 
 // Create local mock variables for knowledge-store
 const mockAppendKnowledge = vi.fn<[], Promise<void>>();
@@ -21,14 +19,22 @@ const mockComputeConfidence = vi.fn<[number, boolean], number>();
 const mockInferTags = vi.fn<[string], string[]>();
 
 // Create local mock variables for utils
-const mockReadSwarmFileAsync = vi.fn<[string, string], Promise<string | null>>();
+const mockReadSwarmFileAsync = vi.fn<
+	[string, string],
+	Promise<string | null>
+>();
 const mockSafeHook = vi.fn<(fn: unknown) => unknown>();
 const mockValidateSwarmPath = vi.fn<[string, string], string>();
 
 // Create local mock variable for knowledge-validator
 const mockValidateLesson = vi.fn<
 	[string, string[], { category: string; scope: string; confidence: number }],
-	{ valid: boolean; layer: number | null; reason: string | null; severity: string | null }
+	{
+		valid: boolean;
+		layer: number | null;
+		reason: string | null;
+		severity: string | null;
+	}
 >();
 const mockQuarantineEntry = vi.fn<
 	[string, string, string, 'architect' | 'user' | 'auto'],
@@ -37,13 +43,24 @@ const mockQuarantineEntry = vi.fn<
 const mockNormalize = vi.fn<[string], string>();
 
 // Create local mock variable for knowledge-reader
-const mockUpdateRetrievalOutcome = vi.fn<[string, string, boolean], Promise<void>>();
+const mockUpdateRetrievalOutcome = vi.fn<
+	[string, string, boolean],
+	Promise<void>
+>();
 
 vi.mock('../../../src/hooks/knowledge-validator.js', () => ({
 	validateLesson: (...args: unknown[]) =>
-		mockValidateLesson(...(args as [string, string[], { category: string; scope: string; confidence: number }])),
+		mockValidateLesson(
+			...(args as [
+				string,
+				string[],
+				{ category: string; scope: string; confidence: number },
+			]),
+		),
 	quarantineEntry: (...args: unknown[]) =>
-		mockQuarantineEntry(...(args as [string, string, string, 'architect' | 'user' | 'auto'])),
+		mockQuarantineEntry(
+			...(args as [string, string, string, 'architect' | 'user' | 'auto']),
+		),
 }));
 
 vi.mock('../../../src/hooks/knowledge-reader.js', () => ({
@@ -52,27 +69,42 @@ vi.mock('../../../src/hooks/knowledge-reader.js', () => ({
 }));
 
 vi.mock('../../../src/hooks/knowledge-store.js', () => ({
-	resolveSwarmKnowledgePath: (...args: unknown[]) => mockResolveSwarmKnowledgePath(...(args as [string])),
-	resolveSwarmRejectedPath: (...args: unknown[]) => mockResolveSwarmRejectedPath(...(args as [string])),
-	readKnowledge: (...args: unknown[]) => mockReadKnowledge(...(args as [string])),
+	resolveSwarmKnowledgePath: (...args: unknown[]) =>
+		mockResolveSwarmKnowledgePath(...(args as [string])),
+	resolveSwarmRejectedPath: (...args: unknown[]) =>
+		mockResolveSwarmRejectedPath(...(args as [string])),
+	readKnowledge: (...args: unknown[]) =>
+		mockReadKnowledge(...(args as [string])),
 	appendKnowledge: (...args: unknown[]) => mockAppendKnowledge(...(args as [])),
-	appendRejectedLesson: (...args: unknown[]) => mockAppendRejectedLesson(...(args as [])),
-	findNearDuplicate: (...args: unknown[]) => mockFindNearDuplicate(...(args as [string, unknown[], number])),
-	rewriteKnowledge: (...args: unknown[]) => mockRewriteKnowledge(...(args as [string, unknown[]])),
-	computeConfidence: (...args: unknown[]) => mockComputeConfidence(...(args as [number, boolean])),
+	appendRejectedLesson: (...args: unknown[]) =>
+		mockAppendRejectedLesson(...(args as [])),
+	findNearDuplicate: (...args: unknown[]) =>
+		mockFindNearDuplicate(...(args as [string, unknown[], number])),
+	rewriteKnowledge: (...args: unknown[]) =>
+		mockRewriteKnowledge(...(args as [string, unknown[]])),
+	computeConfidence: (...args: unknown[]) =>
+		mockComputeConfidence(...(args as [number, boolean])),
 	inferTags: (...args: unknown[]) => mockInferTags(...(args as [string])),
 	normalize: (...args: unknown[]) => mockNormalize(...(args as [string])),
 }));
 
 vi.mock('../../../src/hooks/utils.js', () => ({
-	readSwarmFileAsync: (...args: unknown[]) => mockReadSwarmFileAsync(...(args as [string, string])),
+	readSwarmFileAsync: (...args: unknown[]) =>
+		mockReadSwarmFileAsync(...(args as [string, string])),
 	safeHook: (...args: unknown[]) => mockSafeHook(...(args as [unknown])),
-	validateSwarmPath: (...args: unknown[]) => mockValidateSwarmPath(...(args as [string, string])),
+	validateSwarmPath: (...args: unknown[]) =>
+		mockValidateSwarmPath(...(args as [string, string])),
 }));
 
 vi.mock('../../../src/hooks/knowledge-validator.js', () => ({
 	validateLesson: (...args: unknown[]) =>
-		mockValidateLesson(...(args as [string, string[], { category: string; scope: string; confidence: number }])),
+		mockValidateLesson(
+			...(args as [
+				string,
+				string[],
+				{ category: string; scope: string; confidence: number },
+			]),
+		),
 }));
 
 // ============================================================================
@@ -105,8 +137,12 @@ describe('knowledge-curator - evidence file curation', () => {
 	beforeEach(() => {
 		vi.clearAllMocks();
 		// Reset mock implementations to defaults
-		mockResolveSwarmKnowledgePath.mockReturnValue('/project/.swarm/knowledge.jsonl');
-		mockResolveSwarmRejectedPath.mockReturnValue('/project/.swarm/rejected.jsonl');
+		mockResolveSwarmKnowledgePath.mockReturnValue(
+			'/project/.swarm/knowledge.jsonl',
+		);
+		mockResolveSwarmRejectedPath.mockReturnValue(
+			'/project/.swarm/rejected.jsonl',
+		);
 		mockReadKnowledge.mockResolvedValue([]);
 		mockAppendKnowledge.mockResolvedValue(undefined);
 		mockAppendRejectedLesson.mockResolvedValue(undefined);
@@ -116,10 +152,19 @@ describe('knowledge-curator - evidence file curation', () => {
 		mockInferTags.mockReturnValue([]);
 		mockReadSwarmFileAsync.mockResolvedValue(null);
 		mockSafeHook.mockImplementation((fn: unknown) => fn);
-		mockValidateSwarmPath.mockImplementation((dir: string, file: string) => `${dir}/.swarm/${file}`);
-		mockValidateLesson.mockReturnValue({ valid: true, layer: null, reason: null, severity: null });
+		mockValidateSwarmPath.mockImplementation(
+			(dir: string, file: string) => `${dir}/.swarm/${file}`,
+		);
+		mockValidateLesson.mockReturnValue({
+			valid: true,
+			layer: null,
+			reason: null,
+			severity: null,
+		});
 		mockQuarantineEntry.mockResolvedValue(undefined);
-		mockNormalize.mockImplementation((text: string) => text.toLowerCase().trim());
+		mockNormalize.mockImplementation((text: string) =>
+			text.toLowerCase().trim(),
+		);
 		mockUpdateRetrievalOutcome.mockResolvedValue(undefined);
 	});
 
@@ -127,7 +172,10 @@ describe('knowledge-curator - evidence file curation', () => {
 		test('trigger fires on evidence write', async () => {
 			// Setup: readSwarmFileAsync returns evidence JSON with lessons_learned
 			const evidenceContent = JSON.stringify({
-				lessons_learned: ['Always write tests before code', 'Use type safety everywhere'],
+				lessons_learned: [
+					'Always write tests before code',
+					'Use type safety everywhere',
+				],
 				project_name: 'test-project',
 				phase_number: 3,
 			});
@@ -136,12 +184,18 @@ describe('knowledge-curator - evidence file curation', () => {
 			const hook = createKnowledgeCuratorHook('/project', defaultConfig);
 
 			// Input: write to evidence file
-			const input = { toolName: 'write', path: '/project/.swarm/evidence/retro-3/evidence.json', sessionID: 'sess1' };
+			const input = {
+				toolName: 'write',
+				path: '/project/.swarm/evidence/retro-3/evidence.json',
+				sessionID: 'sess1',
+			};
 			await hook(input, {});
 
 			// Expected: curateAndStoreSwarm called (via appendKnowledge)
 			expect(mockAppendKnowledge).toHaveBeenCalledTimes(2);
-			const lessonsStored = mockAppendKnowledge.mock.calls.map(([, entry]) => entry.lesson);
+			const lessonsStored = mockAppendKnowledge.mock.calls.map(
+				([, entry]) => entry.lesson,
+			);
 			expect(lessonsStored).toContain('Always write tests before code');
 			expect(lessonsStored).toContain('Use type safety everywhere');
 		});
@@ -160,7 +214,11 @@ Phase: 1
 			const hook = createKnowledgeCuratorHook('/project', defaultConfig);
 
 			// Input: write to plan.md (not an evidence file)
-			const input = { toolName: 'write', path: '/project/.swarm/plan.md', sessionID: 'sess2' };
+			const input = {
+				toolName: 'write',
+				path: '/project/.swarm/plan.md',
+				sessionID: 'sess2',
+			};
 			await hook(input, {});
 
 			// Expected: curateAndStoreSwarm still called (plan.md trigger)
@@ -173,8 +231,14 @@ Phase: 1
 			);
 
 			// Verify it was plan.md path, not evidence path handling
-			expect(mockReadSwarmFileAsync).toHaveBeenCalledWith('/project', 'plan.md');
-			expect(mockReadSwarmFileAsync).not.toHaveBeenCalledWith('/project', expect.stringContaining('evidence/'));
+			expect(mockReadSwarmFileAsync).toHaveBeenCalledWith(
+				'/project',
+				'plan.md',
+			);
+			expect(mockReadSwarmFileAsync).not.toHaveBeenCalledWith(
+				'/project',
+				expect.stringContaining('evidence/'),
+			);
 		});
 	});
 
@@ -190,12 +254,18 @@ Phase: 1
 
 			const hook = createKnowledgeCuratorHook('/project', defaultConfig);
 
-			const input = { toolName: 'write', path: '/project/.swarm/evidence/retro-2/evidence.json', sessionID: 'sess3' };
+			const input = {
+				toolName: 'write',
+				path: '/project/.swarm/evidence/retro-2/evidence.json',
+				sessionID: 'sess3',
+			};
 			await hook(input, {});
 
 			// Expected: both lessons stored
 			expect(mockAppendKnowledge).toHaveBeenCalledTimes(2);
-			const lessonsStored = mockAppendKnowledge.mock.calls.map(([, entry]) => entry.lesson);
+			const lessonsStored = mockAppendKnowledge.mock.calls.map(
+				([, entry]) => entry.lesson,
+			);
 			expect(lessonsStored).toContain('Lesson 1 from flat');
 			expect(lessonsStored).toContain('Lesson 2 from flat');
 		});
@@ -216,7 +286,11 @@ Phase: 1
 
 			const hook = createKnowledgeCuratorHook('/project', defaultConfig);
 
-			const input = { toolName: 'write', path: '/project/.swarm/evidence/retro-1/evidence.json', sessionID: 'sess4' };
+			const input = {
+				toolName: 'write',
+				path: '/project/.swarm/evidence/retro-1/evidence.json',
+				sessionID: 'sess4',
+			};
 			await hook(input, {});
 
 			// Expected: lesson from entries[0].lessons_learned stored
@@ -240,7 +314,11 @@ Phase: 1
 
 			const hook = createKnowledgeCuratorHook('/project', defaultConfig);
 
-			const input = { toolName: 'write', path: '/project/.swarm/evidence/retro-1/evidence.json', sessionID: 'sess5' };
+			const input = {
+				toolName: 'write',
+				path: '/project/.swarm/evidence/retro-1/evidence.json',
+				sessionID: 'sess5',
+			};
 			await hook(input, {});
 
 			// Expected: curateAndStoreSwarm NOT called (early return on empty lessons)
@@ -260,7 +338,11 @@ Phase: 1
 			mockReadSwarmFileAsync.mockResolvedValue(evidenceContent);
 
 			const hook = createKnowledgeCuratorHook('/project', defaultConfig);
-			const input = { toolName: 'write', path: '/project/.swarm/evidence/retro-1/evidence.json', sessionID: 'sess-idempotent' };
+			const input = {
+				toolName: 'write',
+				path: '/project/.swarm/evidence/retro-1/evidence.json',
+				sessionID: 'sess-idempotent',
+			};
 
 			// Call hook twice with same session ID and same content
 			await hook(input, {});
@@ -290,7 +372,11 @@ Phase: 1
 				.mockResolvedValueOnce(evidenceContent2);
 
 			const hook = createKnowledgeCuratorHook('/project', defaultConfig);
-			const input = { toolName: 'write', path: '/project/.swarm/evidence/retro-1/evidence.json', sessionID: 'sess-change' };
+			const input = {
+				toolName: 'write',
+				path: '/project/.swarm/evidence/retro-1/evidence.json',
+				sessionID: 'sess-change',
+			};
 
 			// First call
 			await hook(input, {});
@@ -310,7 +396,11 @@ Phase: 1
 
 			const hook = createKnowledgeCuratorHook('/project', defaultConfig);
 
-			const input = { toolName: 'write', path: '/project/.swarm/evidence/retro-1/evidence.json', sessionID: 'sess-missing' };
+			const input = {
+				toolName: 'write',
+				path: '/project/.swarm/evidence/retro-1/evidence.json',
+				sessionID: 'sess-missing',
+			};
 
 			// Expected: hook completes without throwing
 			await expect(hook(input, {})).resolves.toBeUndefined();
@@ -325,7 +415,11 @@ Phase: 1
 
 			const hook = createKnowledgeCuratorHook('/project', defaultConfig);
 
-			const input = { toolName: 'write', path: '/project/.swarm/evidence/retro-1/evidence.json', sessionID: 'sess-bad-json' };
+			const input = {
+				toolName: 'write',
+				path: '/project/.swarm/evidence/retro-1/evidence.json',
+				sessionID: 'sess-bad-json',
+			};
 
 			// Expected: hook completes without throwing
 			await expect(hook(input, {})).resolves.toBeUndefined();
@@ -345,7 +439,11 @@ Phase: 1
 
 			const hook = createKnowledgeCuratorHook('/project', defaultConfig);
 
-			const input = { toolName: 'write', path: '/project/.swarm/evidence/retro-1/evidence.json', sessionID: 'sess-no-lessons' };
+			const input = {
+				toolName: 'write',
+				path: '/project/.swarm/evidence/retro-1/evidence.json',
+				sessionID: 'sess-no-lessons',
+			};
 
 			// Expected: hook completes without throwing
 			await expect(hook(input, {})).resolves.toBeUndefined();
@@ -365,7 +463,11 @@ Phase: 1
 
 			const hook = createKnowledgeCuratorHook('/project', defaultConfig);
 
-			const input = { toolName: 'write', path: '/project/.swarm/evidence/retro-1/evidence.json', sessionID: 'sess-empty-entries' };
+			const input = {
+				toolName: 'write',
+				path: '/project/.swarm/evidence/retro-1/evidence.json',
+				sessionID: 'sess-empty-entries',
+			};
 
 			// Expected: hook completes without throwing
 			await expect(hook(input, {})).resolves.toBeUndefined();
@@ -387,7 +489,11 @@ Phase: 1
 
 			const hook = createKnowledgeCuratorHook('/project', defaultConfig);
 
-			const input = { toolName: 'write', path: '/project/.swarm/evidence/retro-5/evidence.json', sessionID: 'sess-metadata' };
+			const input = {
+				toolName: 'write',
+				path: '/project/.swarm/evidence/retro-5/evidence.json',
+				sessionID: 'sess-metadata',
+			};
 			await hook(input, {});
 
 			// Expected: lesson stored with correct metadata
@@ -407,7 +513,11 @@ Phase: 1
 			);
 
 			// Expected: updateRetrievalOutcome called with phase number
-			expect(mockUpdateRetrievalOutcome).toHaveBeenCalledWith('/project', 'Phase 5', true);
+			expect(mockUpdateRetrievalOutcome).toHaveBeenCalledWith(
+				'/project',
+				'Phase 5',
+				true,
+			);
 		});
 
 		test('missing project_name defaults to "unknown"', async () => {
@@ -420,7 +530,11 @@ Phase: 1
 
 			const hook = createKnowledgeCuratorHook('/project', defaultConfig);
 
-			const input = { toolName: 'write', path: '/project/.swarm/evidence/retro-2/evidence.json', sessionID: 'sess-no-project' };
+			const input = {
+				toolName: 'write',
+				path: '/project/.swarm/evidence/retro-2/evidence.json',
+				sessionID: 'sess-no-project',
+			};
 			await hook(input, {});
 
 			// Expected: lesson stored with default project_name
@@ -444,7 +558,11 @@ Phase: 1
 
 			const hook = createKnowledgeCuratorHook('/project', defaultConfig);
 
-			const input = { toolName: 'write', path: '/project/.swarm/evidence/retro-1/evidence.json', sessionID: 'sess-no-phase' };
+			const input = {
+				toolName: 'write',
+				path: '/project/.swarm/evidence/retro-1/evidence.json',
+				sessionID: 'sess-no-phase',
+			};
 			await hook(input, {});
 
 			// Expected: lesson stored with default phase_number
@@ -462,7 +580,11 @@ Phase: 1
 			);
 
 			// Expected: updateRetrievalOutcome called with default phase
-			expect(mockUpdateRetrievalOutcome).toHaveBeenCalledWith('/project', 'Phase 1', true);
+			expect(mockUpdateRetrievalOutcome).toHaveBeenCalledWith(
+				'/project',
+				'Phase 1',
+				true,
+			);
 		});
 	});
 
@@ -479,7 +601,10 @@ Phase: 1
 			const hook = createKnowledgeCuratorHook('/project', defaultConfig);
 
 			// Input: no sessionID provided
-			const input = { toolName: 'write', path: '/project/.swarm/evidence/retro-1/evidence.json' };
+			const input = {
+				toolName: 'write',
+				path: '/project/.swarm/evidence/retro-1/evidence.json',
+			};
 			await hook(input, {});
 
 			// Expected: curateAndStoreSwarm still called (uses 'default' sessionID)
@@ -498,11 +623,19 @@ Phase: 1
 			const hook = createKnowledgeCuratorHook('/project', defaultConfig);
 
 			// First call with sessionID 'session-1'
-			const input1 = { toolName: 'write', path: '/project/.swarm/evidence/retro-1/evidence.json', sessionID: 'session-1' };
+			const input1 = {
+				toolName: 'write',
+				path: '/project/.swarm/evidence/retro-1/evidence.json',
+				sessionID: 'session-1',
+			};
 			await hook(input1, {});
 
 			// Second call with different sessionID 'session-2' - should NOT be idempotent
-			const input2 = { toolName: 'write', path: '/project/.swarm/evidence/retro-1/evidence.json', sessionID: 'session-2' };
+			const input2 = {
+				toolName: 'write',
+				path: '/project/.swarm/evidence/retro-1/evidence.json',
+				sessionID: 'session-2',
+			};
 			await hook(input2, {});
 
 			// Expected: curateAndStoreSwarm called twice (different sessionIDs)
@@ -523,11 +656,18 @@ Phase: 1
 			const hook = createKnowledgeCuratorHook('/project', defaultConfig);
 
 			// Input: Windows-style path with backslashes
-			const input = { toolName: 'write', path: '\\project\\.swarm\\evidence\\retro-1\\evidence.json', sessionID: 'sess-windows' };
+			const input = {
+				toolName: 'write',
+				path: '\\project\\.swarm\\evidence\\retro-1\\evidence.json',
+				sessionID: 'sess-windows',
+			};
 			await hook(input, {});
 
 			// Expected: path normalized and file read correctly
-			expect(mockReadSwarmFileAsync).toHaveBeenCalledWith('/project', 'evidence/retro-1/evidence.json');
+			expect(mockReadSwarmFileAsync).toHaveBeenCalledWith(
+				'/project',
+				'evidence/retro-1/evidence.json',
+			);
 			expect(mockAppendKnowledge).toHaveBeenCalledTimes(1);
 		});
 
@@ -543,11 +683,19 @@ Phase: 1
 			const hook = createKnowledgeCuratorHook('/project', defaultConfig);
 
 			// Test 'edit' operation
-			const editInput = { toolName: 'edit', path: '/project/.swarm/evidence/retro-1/evidence.json', sessionID: 'sess-edit' };
+			const editInput = {
+				toolName: 'edit',
+				path: '/project/.swarm/evidence/retro-1/evidence.json',
+				sessionID: 'sess-edit',
+			};
 			await hook(editInput, {});
 
 			// Test 'apply_patch' operation
-			const patchInput = { toolName: 'apply_patch', file: '/project/.swarm/evidence/retro-1/evidence.json', sessionID: 'sess-patch' };
+			const patchInput = {
+				toolName: 'apply_patch',
+				file: '/project/.swarm/evidence/retro-1/evidence.json',
+				sessionID: 'sess-patch',
+			};
 			await hook(patchInput, {});
 
 			// Expected: both operations trigger curation

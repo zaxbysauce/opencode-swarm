@@ -4,16 +4,16 @@
  * NO happy-path tests (those are in verification test files).
  */
 
-import { describe, it, expect, beforeEach, afterEach } from 'vitest';
 import { mkdir, rm } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
+import { afterEach, beforeEach, describe, expect, it } from 'vitest';
+import type { KnowledgeEntryBase } from '../../../src/hooks/knowledge-types.js';
 import {
+	auditEntryHealth,
 	quarantineEntry,
 	restoreEntry,
-	auditEntryHealth,
 } from '../../../src/hooks/knowledge-validator.js';
-import type { KnowledgeEntryBase } from '../../../src/hooks/knowledge-types.js';
 
 // Test data
 const createValidEntry = (): KnowledgeEntryBase => ({
@@ -25,8 +25,18 @@ const createValidEntry = (): KnowledgeEntryBase => ({
 	tags: ['typescript', 'strict-mode'],
 	created_at: '2024-01-01T00:00:00.000Z',
 	updated_at: '2024-01-01T00:00:00.000Z',
-	retrieval_outcomes: { applied_count: 5, succeeded_after_count: 3, failed_after_count: 1 },
-	confirmed_by: [{ phase_number: 1, confirmed_at: '2024-01-01T00:00:00.000Z', project_name: 'test' }],
+	retrieval_outcomes: {
+		applied_count: 5,
+		succeeded_after_count: 3,
+		failed_after_count: 1,
+	},
+	confirmed_by: [
+		{
+			phase_number: 1,
+			confirmed_at: '2024-01-01T00:00:00.000Z',
+			project_name: 'test',
+		},
+	],
 	tier: 'swarm',
 	status: 'established',
 	schema_version: 1,
@@ -103,7 +113,10 @@ describe('quarantineEntry - Injection Attacks on entryId', () => {
 	let testDir: string;
 
 	beforeEach(async () => {
-		testDir = join(tmpdir(), `test-${Date.now()}-${Math.random().toString(36).slice(2, 9)}`);
+		testDir = join(
+			tmpdir(),
+			`test-${Date.now()}-${Math.random().toString(36).slice(2, 9)}`,
+		);
 		tempDirs.push(testDir);
 		await mkdir(testDir, { recursive: true });
 		await mkdir(join(testDir, '.swarm'), { recursive: true });
@@ -139,7 +152,10 @@ describe('quarantineEntry - Injection Attacks on entryId', () => {
 
 		// Original entry should still exist
 		const { readFile } = await import('node:fs/promises');
-		const content = await readFile(join(testDir, '.swarm', 'knowledge.jsonl'), 'utf-8');
+		const content = await readFile(
+			join(testDir, '.swarm', 'knowledge.jsonl'),
+			'utf-8',
+		);
 		expect(content).toContain('123e4567-e89b-12d3-a456-426614174000');
 	});
 
@@ -153,7 +169,10 @@ describe('quarantineEntry - Injection Attacks on entryId', () => {
 
 		// Original entry should still exist
 		const { readFile } = await import('node:fs/promises');
-		const content = await readFile(join(testDir, '.swarm', 'knowledge.jsonl'), 'utf-8');
+		const content = await readFile(
+			join(testDir, '.swarm', 'knowledge.jsonl'),
+			'utf-8',
+		);
 		expect(content).toContain('123e4567-e89b-12d3-a456-426614174000');
 	});
 
@@ -202,7 +221,10 @@ describe('quarantineEntry - Boundary Cases for reason', () => {
 	let testDir: string;
 
 	beforeEach(async () => {
-		testDir = join(tmpdir(), `test-${Date.now()}-${Math.random().toString(36).slice(2, 9)}`);
+		testDir = join(
+			tmpdir(),
+			`test-${Date.now()}-${Math.random().toString(36).slice(2, 9)}`,
+		);
 		tempDirs.push(testDir);
 		await mkdir(testDir, { recursive: true });
 		await mkdir(join(testDir, '.swarm'), { recursive: true });
@@ -235,8 +257,13 @@ describe('quarantineEntry - Boundary Cases for reason', () => {
 		await quarantineEntry(testDir, entryId, reason, 'architect');
 
 		const { readFile } = await import('node:fs/promises');
-		const content = await readFile(join(testDir, '.swarm', 'knowledge-quarantined.jsonl'), 'utf-8');
-		const quarantined = JSON.parse(content.trim()) as { quarantine_reason: string };
+		const content = await readFile(
+			join(testDir, '.swarm', 'knowledge-quarantined.jsonl'),
+			'utf-8',
+		);
+		const quarantined = JSON.parse(content.trim()) as {
+			quarantine_reason: string;
+		};
 
 		expect(quarantined.quarantine_reason).toHaveLength(500);
 		expect(quarantined.quarantine_reason).toBe('a'.repeat(500));
@@ -249,8 +276,13 @@ describe('quarantineEntry - Boundary Cases for reason', () => {
 		await quarantineEntry(testDir, entryId, reason, 'architect');
 
 		const { readFile } = await import('node:fs/promises');
-		const content = await readFile(join(testDir, '.swarm', 'knowledge-quarantined.jsonl'), 'utf-8');
-		const quarantined = JSON.parse(content.trim()) as { quarantine_reason: string };
+		const content = await readFile(
+			join(testDir, '.swarm', 'knowledge-quarantined.jsonl'),
+			'utf-8',
+		);
+		const quarantined = JSON.parse(content.trim()) as {
+			quarantine_reason: string;
+		};
 
 		expect(quarantined.quarantine_reason).not.toContain('\0');
 		expect(quarantined.quarantine_reason).toBe('reasoninjected');
@@ -263,8 +295,13 @@ describe('quarantineEntry - Boundary Cases for reason', () => {
 		await quarantineEntry(testDir, entryId, reason, 'architect');
 
 		const { readFile } = await import('node:fs/promises');
-		const content = await readFile(join(testDir, '.swarm', 'knowledge-quarantined.jsonl'), 'utf-8');
-		const quarantined = JSON.parse(content.trim()) as { quarantine_reason: string };
+		const content = await readFile(
+			join(testDir, '.swarm', 'knowledge-quarantined.jsonl'),
+			'utf-8',
+		);
+		const quarantined = JSON.parse(content.trim()) as {
+			quarantine_reason: string;
+		};
 
 		expect(quarantined.quarantine_reason).not.toContain('\x0d');
 		expect(quarantined.quarantine_reason).toBe('reasoninjected');
@@ -277,8 +314,13 @@ describe('quarantineEntry - Boundary Cases for reason', () => {
 		await quarantineEntry(testDir, entryId, reason, 'architect');
 
 		const { readFile } = await import('node:fs/promises');
-		const content = await readFile(join(testDir, '.swarm', 'knowledge-quarantined.jsonl'), 'utf-8');
-		const quarantined = JSON.parse(content.trim()) as { quarantine_reason: string };
+		const content = await readFile(
+			join(testDir, '.swarm', 'knowledge-quarantined.jsonl'),
+			'utf-8',
+		);
+		const quarantined = JSON.parse(content.trim()) as {
+			quarantine_reason: string;
+		};
 
 		// CR is stripped by the control char regex
 		expect(quarantined.quarantine_reason).not.toContain('\r');
@@ -294,8 +336,13 @@ describe('quarantineEntry - Boundary Cases for reason', () => {
 		await quarantineEntry(testDir, entryId, reason, 'architect');
 
 		const { readFile } = await import('node:fs/promises');
-		const content = await readFile(join(testDir, '.swarm', 'knowledge-quarantined.jsonl'), 'utf-8');
-		const quarantined = JSON.parse(content.trim()) as { quarantine_reason: string };
+		const content = await readFile(
+			join(testDir, '.swarm', 'knowledge-quarantined.jsonl'),
+			'utf-8',
+		);
+		const quarantined = JSON.parse(content.trim()) as {
+			quarantine_reason: string;
+		};
 
 		expect(quarantined.quarantine_reason).toBe('Test with emoji 🚀 🎉 ✨');
 	});
@@ -306,7 +353,10 @@ describe('quarantineEntry - Concurrent-like Behavior', () => {
 	let testDir: string;
 
 	beforeEach(async () => {
-		testDir = join(tmpdir(), `test-${Date.now()}-${Math.random().toString(36).slice(2, 9)}`);
+		testDir = join(
+			tmpdir(),
+			`test-${Date.now()}-${Math.random().toString(36).slice(2, 9)}`,
+		);
 		tempDirs.push(testDir);
 		await mkdir(testDir, { recursive: true });
 		await mkdir(join(testDir, '.swarm'), { recursive: true });
@@ -345,8 +395,14 @@ describe('quarantineEntry - Concurrent-like Behavior', () => {
 
 		// Should still be in quarantine, not duplicated
 		const { readFile } = await import('node:fs/promises');
-		const content = await readFile(join(testDir, '.swarm', 'knowledge-quarantined.jsonl'), 'utf-8');
-		const lines = content.trim().split('\n').filter((l) => l.length > 0);
+		const content = await readFile(
+			join(testDir, '.swarm', 'knowledge-quarantined.jsonl'),
+			'utf-8',
+		);
+		const lines = content
+			.trim()
+			.split('\n')
+			.filter((l) => l.length > 0);
 
 		expect(lines).toHaveLength(1);
 		const quarantined = JSON.parse(lines[0]) as { quarantine_reason: string };
@@ -359,7 +415,10 @@ describe('restoreEntry - Concurrent-like Behavior', () => {
 	let testDir: string;
 
 	beforeEach(async () => {
-		testDir = join(tmpdir(), `test-${Date.now()}-${Math.random().toString(36).slice(2, 9)}`);
+		testDir = join(
+			tmpdir(),
+			`test-${Date.now()}-${Math.random().toString(36).slice(2, 9)}`,
+		);
 		tempDirs.push(testDir);
 		await mkdir(testDir, { recursive: true });
 		await mkdir(join(testDir, '.swarm'), { recursive: true });
@@ -398,15 +457,24 @@ describe('restoreEntry - Concurrent-like Behavior', () => {
 
 		// Verify entry is restored
 		const { readFile } = await import('node:fs/promises');
-		let knowledgeContent = await readFile(join(testDir, '.swarm', 'knowledge.jsonl'), 'utf-8');
+		let knowledgeContent = await readFile(
+			join(testDir, '.swarm', 'knowledge.jsonl'),
+			'utf-8',
+		);
 		expect(knowledgeContent).toContain(entryId);
 
 		// Second restore - should be no-op (entry already removed from quarantine.jsonl)
 		await expect(restoreEntry(testDir, entryId)).resolves.toBeUndefined();
 
 		// Knowledge file should still only have one entry (not duplicated)
-		knowledgeContent = await readFile(join(testDir, '.swarm', 'knowledge.jsonl'), 'utf-8');
-		const lines = knowledgeContent.trim().split('\n').filter((l) => l.length > 0);
+		knowledgeContent = await readFile(
+			join(testDir, '.swarm', 'knowledge.jsonl'),
+			'utf-8',
+		);
+		const lines = knowledgeContent
+			.trim()
+			.split('\n')
+			.filter((l) => l.length > 0);
 		expect(lines).toHaveLength(1);
 	});
 });
@@ -416,7 +484,11 @@ describe('auditEntryHealth - Edge Cases', () => {
 		const entry: KnowledgeEntryBase & { utility_score?: number } = {
 			...createValidEntry(),
 			utility_score: 0.0,
-			retrieval_outcomes: { applied_count: 5, succeeded_after_count: 3, failed_after_count: 1 },
+			retrieval_outcomes: {
+				applied_count: 5,
+				succeeded_after_count: 3,
+				failed_after_count: 1,
+			},
 		};
 
 		const result = auditEntryHealth(entry);
@@ -485,7 +557,13 @@ describe('auditEntryHealth - Edge Cases', () => {
 		const entry: KnowledgeEntryBase = {
 			...createValidEntry(),
 			auto_generated: true,
-			confirmed_by: [{ phase_number: 1, confirmed_at: '2024-01-01T00:00:00.000Z', project_name: 'test' }],
+			confirmed_by: [
+				{
+					phase_number: 1,
+					confirmed_at: '2024-01-01T00:00:00.000Z',
+					project_name: 'test',
+				},
+			],
 		};
 
 		const result = auditEntryHealth(entry);
@@ -497,7 +575,11 @@ describe('auditEntryHealth - Edge Cases', () => {
 		const entry: KnowledgeEntryBase & { utility_score?: number } = {
 			...createValidEntry(),
 			utility_score: 0.0,
-			retrieval_outcomes: { applied_count: 4, succeeded_after_count: 3, failed_after_count: 1 },
+			retrieval_outcomes: {
+				applied_count: 4,
+				succeeded_after_count: 3,
+				failed_after_count: 1,
+			},
 		};
 
 		const result = auditEntryHealth(entry);
@@ -508,7 +590,11 @@ describe('auditEntryHealth - Edge Cases', () => {
 	it('does not flag low-utility when utility_score is undefined', () => {
 		const entry: KnowledgeEntryBase = {
 			...createValidEntry(),
-			retrieval_outcomes: { applied_count: 5, succeeded_after_count: 3, failed_after_count: 1 },
+			retrieval_outcomes: {
+				applied_count: 5,
+				succeeded_after_count: 3,
+				failed_after_count: 1,
+			},
 		};
 		// Remove utility_score
 		delete (entry as { utility_score?: number }).utility_score;
@@ -522,7 +608,11 @@ describe('auditEntryHealth - Edge Cases', () => {
 		const entry: KnowledgeEntryBase & { utility_score?: number } = {
 			...createValidEntry(),
 			utility_score: 0.01,
-			retrieval_outcomes: { applied_count: 5, succeeded_after_count: 3, failed_after_count: 1 },
+			retrieval_outcomes: {
+				applied_count: 5,
+				succeeded_after_count: 3,
+				failed_after_count: 1,
+			},
 		};
 
 		const result = auditEntryHealth(entry);

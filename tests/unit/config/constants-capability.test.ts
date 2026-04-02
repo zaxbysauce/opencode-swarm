@@ -1,7 +1,7 @@
 import { describe, expect, it } from 'bun:test';
 import {
-	LOW_CAPABILITY_MODELS,
 	isLowCapabilityModel,
+	LOW_CAPABILITY_MODELS,
 } from '../../../src/config/constants';
 
 describe('isLowCapabilityModel — verification', () => {
@@ -35,7 +35,12 @@ describe('isLowCapabilityModel — verification', () => {
 	});
 
 	it('LOW_CAPABILITY_MODELS is readonly (as const) — contains exactly the 4 values', () => {
-		expect(LOW_CAPABILITY_MODELS).toEqual(['mini', 'nano', 'small', 'free'] as const);
+		expect(LOW_CAPABILITY_MODELS).toEqual([
+			'mini',
+			'nano',
+			'small',
+			'free',
+		] as const);
 		// Verify it's a tuple with exactly 4 elements
 		expect(LOW_CAPABILITY_MODELS.length).toBe(4);
 	});

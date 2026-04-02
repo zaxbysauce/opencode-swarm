@@ -2,10 +2,10 @@
  * Security Tests for symbols.ts - Adversarial Testing
  * Tests: malformed inputs, path traversal, symlink escape, oversized files, boundary violations
  */
-import { describe, it, expect, beforeAll, afterAll } from 'bun:test';
+import { afterAll, beforeAll, describe, expect, it } from 'bun:test';
 import * as fs from 'node:fs';
-import * as path from 'node:path';
 import * as os from 'node:os';
+import * as path from 'node:path';
 import { symbols } from '../../../src/tools/symbols';
 
 // Helper to parse JSON result
@@ -71,7 +71,10 @@ __all__ = ['public_function', 'PublicClass']`,
 
 	// Helper to execute tool
 	async function runSymbols(file: any, exportedOnly = true): Promise<any> {
-		const result = await symbols.execute({ file, exported_only: exportedOnly }, {} as any);
+		const result = await symbols.execute(
+			{ file, exported_only: exportedOnly },
+			{} as any,
+		);
 		return parseResult(result);
 	}
 
@@ -130,7 +133,8 @@ __all__ = ['public_function', 'PublicClass']`,
 
 		it('should reject binary-looking path', async () => {
 			// Binary characters in path
-			const binaryPath = Buffer.from([0x00, 0x01, 0x02]).toString('binary') + '.ts';
+			const binaryPath =
+				Buffer.from([0x00, 0x01, 0x02]).toString('binary') + '.ts';
 			const result = await runSymbols(binaryPath);
 			// Should be caught by control character check
 			expect(result.error).toMatch(/invalid|control/i);
@@ -314,91 +318,106 @@ __all__ = ['public_function', 'PublicClass']`,
 			}
 		})();
 
-		it.skipIf(!canCreateSymlinks)('should prevent symlink escape to parent directory', async () => {
-			// Create a symlink in workspace pointing outside
-			const outsideDir = fs.mkdtempSync(path.join(os.tmpdir(), 'outside-'));
-			const targetFile = path.join(outsideDir, 'secret.txt');
-			fs.writeFileSync(targetFile, 'super secret data');
+		it.skipIf(!canCreateSymlinks)(
+			'should prevent symlink escape to parent directory',
+			async () => {
+				// Create a symlink in workspace pointing outside
+				const outsideDir = fs.mkdtempSync(path.join(os.tmpdir(), 'outside-'));
+				const targetFile = path.join(outsideDir, 'secret.txt');
+				fs.writeFileSync(targetFile, 'super secret data');
 
-			const linkPath = path.join(workspaceDir, 'escape_link');
-			fs.symlinkSync(targetFile, linkPath);
+				const linkPath = path.join(workspaceDir, 'escape_link');
+				fs.symlinkSync(targetFile, linkPath);
 
-			const result = await runSymbols('escape_link');
-			// Should either reject or return empty (symlink points outside workspace)
-			expect(result.error || result.symbols).toBeDefined();
+				const result = await runSymbols('escape_link');
+				// Should either reject or return empty (symlink points outside workspace)
+				expect(result.error || result.symbols).toBeDefined();
 
-			fs.unlinkSync(linkPath);
-			fs.rmSync(outsideDir, { recursive: true });
-		});
+				fs.unlinkSync(linkPath);
+				fs.rmSync(outsideDir, { recursive: true });
+			},
+		);
 
-		it.skipIf(!canCreateSymlinks)('should prevent symlink escape with nested traversal', async () => {
-			// Create a directory structure that could be used to escape via symlink
-			const nestedDir = path.join(workspaceDir, 'nested');
-			fs.mkdirSync(nestedDir, { recursive: true });
+		it.skipIf(!canCreateSymlinks)(
+			'should prevent symlink escape with nested traversal',
+			async () => {
+				// Create a directory structure that could be used to escape via symlink
+				const nestedDir = path.join(workspaceDir, 'nested');
+				fs.mkdirSync(nestedDir, { recursive: true });
 
-			const outsideDir = fs.mkdtempSync(path.join(os.tmpdir(), 'outside2-'));
-			const targetFile = path.join(outsideDir, 'config.json');
-			fs.writeFileSync(targetFile, '{"secret": true}');
+				const outsideDir = fs.mkdtempSync(path.join(os.tmpdir(), 'outside2-'));
+				const targetFile = path.join(outsideDir, 'config.json');
+				fs.writeFileSync(targetFile, '{"secret": true}');
 
-			const linkPath = path.join(nestedDir, 'link_to_outside');
-			fs.symlinkSync(targetFile, linkPath);
+				const linkPath = path.join(nestedDir, 'link_to_outside');
+				fs.symlinkSync(targetFile, linkPath);
 
-			const result = await runSymbols('nested/link_to_outside');
-			// Should reject as outside workspace
-			expect(result.error || result.symbols).toBeDefined();
+				const result = await runSymbols('nested/link_to_outside');
+				// Should reject as outside workspace
+				expect(result.error || result.symbols).toBeDefined();
 
-			fs.unlinkSync(linkPath);
-			fs.rmSync(nestedDir, { recursive: true });
-			fs.rmSync(outsideDir, { recursive: true });
-		});
+				fs.unlinkSync(linkPath);
+				fs.rmSync(nestedDir, { recursive: true });
+				fs.rmSync(outsideDir, { recursive: true });
+			},
+		);
 
-		it.skipIf(!canCreateSymlinks)('should handle broken symlinks gracefully', async () => {
-			const linkPath = path.join(workspaceDir, 'broken_link');
-			fs.symlinkSync('/nonexistent/path/file.ts', linkPath);
+		it.skipIf(!canCreateSymlinks)(
+			'should handle broken symlinks gracefully',
+			async () => {
+				const linkPath = path.join(workspaceDir, 'broken_link');
+				fs.symlinkSync('/nonexistent/path/file.ts', linkPath);
 
-			const result = await runSymbols('broken_link');
-			// Should fail gracefully (no crash)
-			expect(result.error || result.symbols).toBeDefined();
+				const result = await runSymbols('broken_link');
+				// Should fail gracefully (no crash)
+				expect(result.error || result.symbols).toBeDefined();
 
-			fs.unlinkSync(linkPath);
-		});
+				fs.unlinkSync(linkPath);
+			},
+		);
 
-		it.skipIf(!canCreateSymlinks)('should handle circular symlinks', async () => {
-			// Create two directories with circular symlinks
-			const dirA = path.join(workspaceDir, 'dirA');
-			const dirB = path.join(workspaceDir, 'dirB');
-			fs.mkdirSync(dirA);
-			fs.mkdirSync(dirB);
+		it.skipIf(!canCreateSymlinks)(
+			'should handle circular symlinks',
+			async () => {
+				// Create two directories with circular symlinks
+				const dirA = path.join(workspaceDir, 'dirA');
+				const dirB = path.join(workspaceDir, 'dirB');
+				fs.mkdirSync(dirA);
+				fs.mkdirSync(dirB);
 
-			const linkA = path.join(dirA, 'toB');
-			const linkB = path.join(dirB, 'toA');
-			fs.symlinkSync(dirB, linkA);
-			fs.symlinkSync(dirA, linkB);
+				const linkA = path.join(dirA, 'toB');
+				const linkB = path.join(dirB, 'toA');
+				fs.symlinkSync(dirB, linkA);
+				fs.symlinkSync(dirA, linkB);
 
-			// Try to access via circular symlink - should fail gracefully
-			const result = await runSymbols('dirA/toB/toA/valid.ts');
+				// Try to access via circular symlink - should fail gracefully
+				const result = await runSymbols('dirA/toB/toA/valid.ts');
 
-			fs.unlinkSync(linkA);
-			fs.unlinkSync(linkB);
-			fs.rmSync(dirA, { recursive: true });
-			fs.rmSync(dirB, { recursive: true });
-		});
+				fs.unlinkSync(linkA);
+				fs.unlinkSync(linkB);
+				fs.rmSync(dirA, { recursive: true });
+				fs.rmSync(dirB, { recursive: true });
+			},
+		);
 
-		it.skipIf(!canCreateSymlinks)('should prevent symlink to absolute path outside workspace', async () => {
-			// On Windows, /tmp doesn't exist, use temp dir
-			const targetFile = path.join(os.tmpdir(), 'absolute_escape_target.ts');
-			fs.writeFileSync(targetFile, 'export const escape = 1;');
+		it.skipIf(!canCreateSymlinks)(
+			'should prevent symlink to absolute path outside workspace',
+			async () => {
+				// On Windows, /tmp doesn't exist, use temp dir
+				const targetFile = path.join(os.tmpdir(), 'absolute_escape_target.ts');
+				fs.writeFileSync(targetFile, 'export const escape = 1;');
 
-			const linkPath = path.join(workspaceDir, 'abs_link');
-			fs.symlinkSync(targetFile, linkPath);
+				const linkPath = path.join(workspaceDir, 'abs_link');
+				fs.symlinkSync(targetFile, linkPath);
 
-			const result = await runSymbols('abs_link');
-			// Should reject as outside workspace
-			expect(result.error || result.symbols).toBeDefined();
+				const result = await runSymbols('abs_link');
+				// Should reject as outside workspace
+				expect(result.error || result.symbols).toBeDefined();
 
-			fs.unlinkSync(linkPath);
-			fs.unlinkSync(targetFile);
-		});
+				fs.unlinkSync(linkPath);
+				fs.unlinkSync(targetFile);
+			},
+		);
 
 		it('should demonstrate symlink defense exists - validation via realpath', async () => {
 			// This test verifies the tool uses realpath validation
@@ -501,7 +520,8 @@ __all__ = ['public_function', 'PublicClass']`,
 			// Create deeply nested directory
 			let currentDir = workspaceDir;
 			let deepPath = '';
-			for (let i = 0; i < 20; i++) { // Reduced from 50 for performance
+			for (let i = 0; i < 20; i++) {
+				// Reduced from 50 for performance
 				currentDir = path.join(currentDir, 'd');
 				deepPath = path.join(deepPath, 'd');
 				fs.mkdirSync(currentDir, { recursive: true });
@@ -516,7 +536,10 @@ __all__ = ['public_function', 'PublicClass']`,
 
 			// Cleanup - just remove the top-level created directory
 			try {
-				fs.rmSync(path.join(workspaceDir, 'd'), { recursive: true, force: true });
+				fs.rmSync(path.join(workspaceDir, 'd'), {
+					recursive: true,
+					force: true,
+				});
 			} catch {}
 		});
 
@@ -571,7 +594,7 @@ __all__ = ['public_function', 'PublicClass']`,
 			const results = await Promise.all(promises);
 			// All should complete without crashing
 			expect(results.length).toBe(100);
-			results.forEach(r => expect(r).toBeDefined());
+			results.forEach((r) => expect(r).toBeDefined());
 		});
 
 		it('should handle concurrent malformed requests', async () => {
@@ -584,7 +607,7 @@ __all__ = ['public_function', 'PublicClass']`,
 				null,
 				undefined,
 			];
-			const promises = attacks.map(a => runSymbols(a));
+			const promises = attacks.map((a) => runSymbols(a));
 			const results = await Promise.allSettled(promises);
 			// Should handle all without crashing
 			expect(results.length).toBe(attacks.length);
@@ -618,7 +641,9 @@ class PrivateClass {}`,
 			const exportedOnly = await runSymbols('mixed.ts', true);
 			const allSymbols = await runSymbols('mixed.ts', false);
 
-			expect(exportedOnly.symbols.length).toBeLessThanOrEqual(allSymbols.symbols.length);
+			expect(exportedOnly.symbols.length).toBeLessThanOrEqual(
+				allSymbols.symbols.length,
+			);
 
 			fs.unlinkSync(path.join(workspaceDir, 'mixed.ts'));
 		});

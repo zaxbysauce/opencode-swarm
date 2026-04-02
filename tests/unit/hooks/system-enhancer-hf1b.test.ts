@@ -3,14 +3,13 @@
  * - HF-1: Prevent coder/test_engineer from self-verifying
  * - HF-1b: Prevent architect/null from running full test suite
  */
-import { describe, it, expect, beforeEach, afterEach } from 'bun:test';
-import { createSystemEnhancerHook } from '../../../src/hooks/system-enhancer';
-import type { PluginConfig } from '../../../src/config';
-import { resetSwarmState, swarmState } from '../../../src/state';
-import { mkdtemp, writeFile, mkdir } from 'node:fs/promises';
-import { rm } from 'node:fs/promises';
+import { afterEach, beforeEach, describe, expect, it } from 'bun:test';
+import { mkdir, mkdtemp, rm, writeFile } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
+import type { PluginConfig } from '../../../src/config';
+import { createSystemEnhancerHook } from '../../../src/hooks/system-enhancer';
+import { resetSwarmState, swarmState } from '../../../src/state';
 
 describe('v6.13.1-hotfix HF-1b Agent Execution Guardrails', () => {
 	let tempDir: string;
@@ -45,9 +44,7 @@ describe('v6.13.1-hotfix HF-1b Agent Execution Guardrails', () => {
 	/**
 	 * Helper to invoke the transform hook and return the output
 	 */
-	async function invokeHook(
-		sessionID = 'test-session',
-	): Promise<string[]> {
+	async function invokeHook(sessionID = 'test-session'): Promise<string[]> {
 		const config: PluginConfig = {
 			max_iterations: 5,
 			qa_retry_limit: 3,
@@ -73,7 +70,9 @@ describe('v6.13.1-hotfix HF-1b Agent Execution Guardrails', () => {
 	 */
 	function hasHF1Injection(systemOutput: string[]): boolean {
 		return systemOutput.some((s) =>
-			s.includes('[SWARM CONFIG] You must NOT run build, test, lint, or type-check commands'),
+			s.includes(
+				'[SWARM CONFIG] You must NOT run build, test, lint, or type-check commands',
+			),
 		);
 	}
 
@@ -238,14 +237,18 @@ describe('v6.13.1-hotfix HF-1b Agent Execution Guardrails', () => {
 
 			// Find the HF-1 injection
 			const hf1Line = systemOutput.find((s) =>
-				s.includes('[SWARM CONFIG] You must NOT run build, test, lint, or type-check commands'),
+				s.includes(
+					'[SWARM CONFIG] You must NOT run build, test, lint, or type-check commands',
+				),
 			);
 
 			expect(hf1Line).toBeDefined();
 			expect(hf1Line).toContain(
 				'You must NOT run build, test, lint, or type-check commands',
 			);
-			expect(hf1Line).toContain('npm run build, bun test, npx tsc, eslint, etc.');
+			expect(hf1Line).toContain(
+				'npm run build, bun test, npx tsc, eslint, etc.',
+			);
 			expect(hf1Line).toContain(
 				'Verification is handled by the reviewer agent',
 			);
@@ -264,10 +267,16 @@ describe('v6.13.1-hotfix HF-1b Agent Execution Guardrails', () => {
 			);
 
 			expect(hf1bLine).toBeDefined();
-			expect(hf1bLine).toContain('You must NEVER run the full test suite or batch test files');
-			expect(hf1bLine).toContain('run ONLY the specific test files for code YOU modified');
+			expect(hf1bLine).toContain(
+				'You must NEVER run the full test suite or batch test files',
+			);
+			expect(hf1bLine).toContain(
+				'run ONLY the specific test files for code YOU modified',
+			);
 			expect(hf1bLine).toContain('one file at a time, strictly serial');
-			expect(hf1bLine).toContain('delegate test execution to the test_engineer agent');
+			expect(hf1bLine).toContain(
+				'delegate test execution to the test_engineer agent',
+			);
 		});
 	});
 });

@@ -2,11 +2,10 @@ import { afterEach, beforeEach, describe, expect, it } from 'bun:test';
 import * as fs from 'node:fs';
 import * as os from 'node:os';
 import * as path from 'node:path';
-
+import type { AgentDefinition } from '../../../src/agents';
+import { createSwarmCommandHandler } from '../../../src/commands/index';
 // Import the handlers
 import { handlePromoteCommand } from '../../../src/commands/promote';
-import { createSwarmCommandHandler } from '../../../src/commands/index';
-import type { AgentDefinition } from '../../../src/agents';
 
 // Test utilities
 function createTempDir(): string {
@@ -78,10 +77,17 @@ describe('/swarm promote Command Registration', () => {
 
 		it('should export handlePromoteCommand from index.ts', async () => {
 			// Read the index.ts file to verify export exists
-			const actualIndexPath = path.join(process.cwd(), 'src', 'commands', 'index.ts');
+			const actualIndexPath = path.join(
+				process.cwd(),
+				'src',
+				'commands',
+				'index.ts',
+			);
 			const indexContent = fs.readFileSync(actualIndexPath, 'utf-8');
 
-			expect(indexContent).toContain("export { handlePromoteCommand } from './promote'");
+			expect(indexContent).toContain(
+				"export { handlePromoteCommand } from './promote'",
+			);
 		});
 	});
 
@@ -91,7 +97,11 @@ describe('/swarm promote Command Registration', () => {
 
 			// Use a lesson long enough to pass the 15-char minimum validator
 			await handler(
-				{ command: 'swarm', sessionID: 'test-123', arguments: 'promote Always validate inputs at system boundaries' },
+				{
+					command: 'swarm',
+					sessionID: 'test-123',
+					arguments: 'promote Always validate inputs at system boundaries',
+				},
 				output,
 			);
 
@@ -105,7 +115,10 @@ describe('/swarm promote Command Registration', () => {
 		it('should not interfere with other commands', async () => {
 			const output: { parts: unknown[] } = { parts: [] };
 
-			await handler({ command: 'swarm', sessionID: 'test-123', arguments: 'status' }, output);
+			await handler(
+				{ command: 'swarm', sessionID: 'test-123', arguments: 'status' },
+				output,
+			);
 
 			expect(output.parts.length).toBeGreaterThan(0);
 			const result = output.parts[0] as { type: string; text: string };
@@ -118,7 +131,12 @@ describe('/swarm promote Command Registration', () => {
 			// HELP_TEXT is built dynamically from VALID_COMMANDS via COMMAND_REGISTRY.
 			// 'promote' is registered in registry.ts. Verify index.ts exports handlePromoteCommand
 			// and re-exports COMMAND_REGISTRY/VALID_COMMANDS (which contain the promote entry).
-			const actualIndexPath = path.join(process.cwd(), 'src', 'commands', 'index.ts');
+			const actualIndexPath = path.join(
+				process.cwd(),
+				'src',
+				'commands',
+				'index.ts',
+			);
 			const indexContent = fs.readFileSync(actualIndexPath, 'utf-8');
 
 			expect(indexContent).toContain('handlePromoteCommand');
@@ -129,7 +147,10 @@ describe('/swarm promote Command Registration', () => {
 		it('should show help when no arguments provided', async () => {
 			const output: { parts: unknown[] } = { parts: [] };
 
-			await handler({ command: 'swarm', sessionID: 'test-123', arguments: 'promote' }, output);
+			await handler(
+				{ command: 'swarm', sessionID: 'test-123', arguments: 'promote' },
+				output,
+			);
 
 			expect(output.parts.length).toBeGreaterThan(0);
 			const result = output.parts[0] as { type: string; text: string };
@@ -141,7 +162,9 @@ describe('/swarm promote Command Registration', () => {
 
 	describe('Task 2.1.4: Direct Text Mode', () => {
 		it('should promote direct lesson text', async () => {
-			const result = await handlePromoteCommand(tempDir, ['This is a lesson text']);
+			const result = await handlePromoteCommand(tempDir, [
+				'This is a lesson text',
+			]);
 
 			// promoteToHive returns: `Promoted to hive: "..." (confidence: 1.0, source: manual)`
 			expect(result).toContain('Promoted to hive');
@@ -150,7 +173,9 @@ describe('/swarm promote Command Registration', () => {
 		});
 
 		it('should handle multi-word lesson text', async () => {
-			const result = await handlePromoteCommand(tempDir, ['This is a lesson with multiple words']);
+			const result = await handlePromoteCommand(tempDir, [
+				'This is a lesson with multiple words',
+			]);
 
 			expect(result).toContain('Promoted to hive');
 			expect(result).toContain('multiple words');
@@ -204,7 +229,10 @@ describe('/swarm promote Command Registration', () => {
 	describe('Task 2.1.6: --from-swarm Flag Parsing', () => {
 		it('should parse --from-swarm flag', async () => {
 			// promoteFromSwarm throws when lesson ID not found in .swarm/knowledge.jsonl
-			const result = await handlePromoteCommand(tempDir, ['--from-swarm', 'lesson-123']);
+			const result = await handlePromoteCommand(tempDir, [
+				'--from-swarm',
+				'lesson-123',
+			]);
 
 			// handlePromoteCommand catches error and returns message
 			expect(result).toContain('lesson-123');
@@ -212,14 +240,20 @@ describe('/swarm promote Command Registration', () => {
 		});
 
 		it('should not show lesson text when using --from-swarm', async () => {
-			const result = await handlePromoteCommand(tempDir, ['--from-swarm', 'lesson-456']);
+			const result = await handlePromoteCommand(tempDir, [
+				'--from-swarm',
+				'lesson-456',
+			]);
 
 			expect(result).toContain('lesson-456');
 			expect(result).not.toContain('Promoting to hive:');
 		});
 
 		it('should handle --from-swarm with valid lesson ID', async () => {
-			const result = await handlePromoteCommand(tempDir, ['--from-swarm', 'abc123def']);
+			const result = await handlePromoteCommand(tempDir, [
+				'--from-swarm',
+				'abc123def',
+			]);
 
 			expect(result).toContain('abc123def');
 		});
@@ -234,14 +268,20 @@ describe('/swarm promote Command Registration', () => {
 		});
 
 		it('should handle only flags without values', async () => {
-			const result = await handlePromoteCommand(tempDir, ['--category', '--from-swarm']);
+			const result = await handlePromoteCommand(tempDir, [
+				'--category',
+				'--from-swarm',
+			]);
 
 			// Should show usage since no lesson text or lesson id provided
 			expect(result).toContain('Usage:');
 		});
 
 		it('should handle --category without lesson text', async () => {
-			const result = await handlePromoteCommand(tempDir, ['--category', 'bugfix']);
+			const result = await handlePromoteCommand(tempDir, [
+				'--category',
+				'bugfix',
+			]);
 
 			expect(result).toContain('Usage:');
 		});
@@ -257,7 +297,10 @@ describe('/swarm promote Command Registration', () => {
 	describe('Task 2.1.8: Combined Flag Usage', () => {
 		it('should handle --from-swarm without --category', async () => {
 			// promoteFromSwarm throws when ID not found; error message contains the ID
-			const result = await handlePromoteCommand(tempDir, ['--from-swarm', 'lesson-789']);
+			const result = await handlePromoteCommand(tempDir, [
+				'--from-swarm',
+				'lesson-789',
+			]);
 
 			expect(result).toContain('lesson-789');
 		});

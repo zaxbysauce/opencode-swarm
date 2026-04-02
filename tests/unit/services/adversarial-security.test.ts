@@ -1,11 +1,11 @@
 /**
  * Adversarial Security Tests for run-memory.ts and context-budget-service.ts
- * 
+ *
  * Tests attack vectors: path traversal, malformed inputs, boundary violations,
  * injection attempts, null bytes, and extreme values
  */
 
-import { describe, it, expect, beforeEach, afterEach, mock } from 'bun:test';
+import { afterEach, beforeEach, describe, expect, it, mock } from 'bun:test';
 import * as fs from 'node:fs/promises';
 import * as os from 'node:os';
 import * as path from 'node:path';
@@ -19,31 +19,32 @@ mock.module('../../../src/utils/path-security', () => ({
 	validateDirectory: () => {},
 }));
 
-// Import services (after mock so transitive imports pick up the mock)
-import {
-	recordOutcome,
-	getRunMemorySummary,
-	getTaskHistory,
-	getFailures,
-	type RunMemoryEntry,
-} from '../../../src/services/run-memory';
-
-import {
-	getContextBudgetReport,
-	formatBudgetWarning,
-	getDefaultConfig,
-	type ContextBudgetConfig,
-} from '../../../src/services/context-budget-service';
-
 // Import validateSwarmPath to test path traversal directly
 import { validateSwarmPath } from '../../../src/hooks/utils';
+
+import {
+	type ContextBudgetConfig,
+	formatBudgetWarning,
+	getContextBudgetReport,
+	getDefaultConfig,
+} from '../../../src/services/context-budget-service';
+// Import services (after mock so transitive imports pick up the mock)
+import {
+	getFailures,
+	getRunMemorySummary,
+	getTaskHistory,
+	type RunMemoryEntry,
+	recordOutcome,
+} from '../../../src/services/run-memory';
 
 describe('ADVERSARIAL SECURITY TESTS - run-memory service', () => {
 	let tmpDir: string;
 	let attackDetected: boolean;
 
 	beforeEach(async () => {
-		tmpDir = await fs.mkdtemp(path.join(os.tmpdir(), 'run-memory-adversarial-'));
+		tmpDir = await fs.mkdtemp(
+			path.join(os.tmpdir(), 'run-memory-adversarial-'),
+		);
 		await fs.mkdir(path.join(tmpDir, '.swarm'), { recursive: true });
 		attackDetected = false;
 	});
@@ -82,7 +83,9 @@ describe('ADVERSARIAL SECURITY TESTS - run-memory service', () => {
 
 		it('validateSwarmPath should directly reject path traversal in filename', () => {
 			expect(() => validateSwarmPath(tmpDir, '../../../etc/passwd')).toThrow();
-			expect(() => validateSwarmPath(tmpDir, '..\\..\\windows\\system32')).toThrow();
+			expect(() =>
+				validateSwarmPath(tmpDir, '..\\..\\windows\\system32'),
+			).toThrow();
 		});
 
 		it('validateSwarmPath should reject null bytes', () => {
@@ -95,11 +98,12 @@ describe('ADVERSARIAL SECURITY TESTS - run-memory service', () => {
 	describe('Attack Vector 2: Malformed JSON in existing run-memory.jsonl', () => {
 		it('should handle truncated JSON lines gracefully', async () => {
 			const filePath = path.join(tmpDir, '.swarm', 'run-memory.jsonl');
-			
+
 			// Write malformed/truncated JSON
-			await fs.writeFile(filePath, 
+			await fs.writeFile(
+				filePath,
 				'{"timestamp":"2024-01-01T10:00:00.000Z","taskId":"1.1"\n' +
-				'{"timestamp":"2024-01-01T10:05:00.000Z","taskId":"1.2","outcome":"pass","attemptNumber":1}\n'
+					'{"timestamp":"2024-01-01T10:05:00.000Z","taskId":"1.2","outcome":"pass","attemptNumber":1}\n',
 			);
 
 			// These should NOT throw - should gracefully skip malformed lines
@@ -117,12 +121,13 @@ describe('ADVERSARIAL SECURITY TESTS - run-memory service', () => {
 
 		it('should handle completely invalid JSON lines gracefully', async () => {
 			const filePath = path.join(tmpDir, '.swarm', 'run-memory.jsonl');
-			
+
 			// Write completely invalid JSON
-			await fs.writeFile(filePath, 
+			await fs.writeFile(
+				filePath,
 				'NOT JSON AT ALL\n' +
-				'{invalid json}\n' +
-				'{"taskId":"1.1","outcome":"pass","attemptNumber":1}\n'
+					'{invalid json}\n' +
+					'{"taskId":"1.1","outcome":"pass","attemptNumber":1}\n',
 			);
 
 			const history = await getTaskHistory(tmpDir, '1.1');
@@ -133,10 +138,11 @@ describe('ADVERSARIAL SECURITY TESTS - run-memory service', () => {
 
 		it('should handle JSON with extra fields gracefully', async () => {
 			const filePath = path.join(tmpDir, '.swarm', 'run-memory.jsonl');
-			
+
 			// JSON with extra unexpected fields (potential injection)
-			await fs.writeFile(filePath, 
-				'{"timestamp":"2024-01-01T10:00:00.000Z","taskId":"1.1","outcome":"pass","attemptNumber":1,"__proto__":{"evil":"value"}}\n'
+			await fs.writeFile(
+				filePath,
+				'{"timestamp":"2024-01-01T10:00:00.000Z","taskId":"1.1","outcome":"pass","attemptNumber":1,"__proto__":{"evil":"value"}}\n',
 			);
 
 			const history = await getTaskHistory(tmpDir, '1.1');
@@ -150,9 +156,10 @@ describe('ADVERSARIAL SECURITY TESTS - run-memory service', () => {
 
 		it('should handle binary/null byte injection in JSON', async () => {
 			const filePath = path.join(tmpDir, '.swarm', 'run-memory.jsonl');
-			
+
 			// JSON with null bytes (should be rejected by validation or handled)
-			const maliciousContent = '{"timestamp":"2024-01-01T10:00:00.000Z","taskId":"1.1\x00","outcome":"pass","attemptNumber":1}\n';
+			const maliciousContent =
+				'{"timestamp":"2024-01-01T10:00:00.000Z","taskId":"1.1\x00","outcome":"pass","attemptNumber":1}\n';
 			await fs.writeFile(filePath, maliciousContent);
 
 			const history = await getTaskHistory(tmpDir, '1.1');
@@ -178,7 +185,7 @@ describe('ADVERSARIAL SECURITY TESTS - run-memory service', () => {
 
 			// Should succeed (append-only doesn't validate content length)
 			await recordOutcome(tmpDir, entry);
-			
+
 			// Reading should handle it gracefully
 			const history = await getTaskHistory(tmpDir, longTaskId);
 			expect(history.length).toBeGreaterThanOrEqual(0);
@@ -200,7 +207,7 @@ describe('ADVERSARIAL SECURITY TESTS - run-memory service', () => {
 
 			// Should succeed (append-only)
 			await recordOutcome(tmpDir, entry);
-			
+
 			const failures = await getFailures(tmpDir);
 			expect(Array.isArray(failures)).toBe(true);
 			attackDetected = true;
@@ -241,8 +248,11 @@ describe('ADVERSARIAL SECURITY TESTS - run-memory service', () => {
 
 			// JSON.stringify will escape null bytes
 			await recordOutcome(tmpDir, entryWithNull);
-			
-			const fileContent = await fs.readFile(path.join(tmpDir, '.swarm', 'run-memory.jsonl'), 'utf-8');
+
+			const fileContent = await fs.readFile(
+				path.join(tmpDir, '.swarm', 'run-memory.jsonl'),
+				'utf-8',
+			);
 			// Verify null bytes are escaped in JSON
 			expect(fileContent).not.toContain('\x00');
 			expect(fileContent).toContain('\\u0000');
@@ -262,8 +272,11 @@ describe('ADVERSARIAL SECURITY TESTS - run-memory service', () => {
 			};
 
 			await recordOutcome(tmpDir, entryWithNull);
-			
-			const fileContent = await fs.readFile(path.join(tmpDir, '.swarm', 'run-memory.jsonl'), 'utf-8');
+
+			const fileContent = await fs.readFile(
+				path.join(tmpDir, '.swarm', 'run-memory.jsonl'),
+				'utf-8',
+			);
 			expect(fileContent).not.toContain('\x00');
 			attackDetected = true;
 			expect(attackDetected).toBe(true);
@@ -276,7 +289,9 @@ describe('ADVERSARIAL SECURITY TESTS - context-budget service', () => {
 	let attackDetected: boolean;
 
 	beforeEach(async () => {
-		tmpDir = await fs.mkdtemp(path.join(os.tmpdir(), 'context-budget-adversarial-'));
+		tmpDir = await fs.mkdtemp(
+			path.join(os.tmpdir(), 'context-budget-adversarial-'),
+		);
 		await fs.mkdir(path.join(tmpDir, '.swarm', 'session'), { recursive: true });
 		attackDetected = false;
 	});
@@ -311,11 +326,20 @@ describe('ADVERSARIAL SECURITY TESTS - context-budget service', () => {
 	describe('Attack Vector 2: Malformed budget-state.json', () => {
 		it('should handle malformed JSON in budget-state.json gracefully', async () => {
 			// Write malformed budget state
-			const statePath = path.join(tmpDir, '.swarm', 'session', 'budget-state.json');
+			const statePath = path.join(
+				tmpDir,
+				'.swarm',
+				'session',
+				'budget-state.json',
+			);
 			await fs.writeFile(statePath, '{invalid json}');
 
 			const config = getDefaultConfig();
-			const report = await getContextBudgetReport(tmpDir, 'small prompt', config);
+			const report = await getContextBudgetReport(
+				tmpDir,
+				'small prompt',
+				config,
+			);
 
 			// Should still work - returns default state on parse failure
 			expect(report).toBeDefined();
@@ -325,11 +349,20 @@ describe('ADVERSARIAL SECURITY TESTS - context-budget service', () => {
 		});
 
 		it('should handle truncated JSON in budget-state.json', async () => {
-			const statePath = path.join(tmpDir, '.swarm', 'session', 'budget-state.json');
+			const statePath = path.join(
+				tmpDir,
+				'.swarm',
+				'session',
+				'budget-state.json',
+			);
 			await fs.writeFile(statePath, '{"warningFiredAtTurn": 5');
 
 			const config = getDefaultConfig();
-			const report = await getContextBudgetReport(tmpDir, 'small prompt', config);
+			const report = await getContextBudgetReport(
+				tmpDir,
+				'small prompt',
+				config,
+			);
 
 			expect(report).toBeDefined();
 			attackDetected = true;
@@ -337,11 +370,23 @@ describe('ADVERSARIAL SECURITY TESTS - context-budget service', () => {
 		});
 
 		it('should handle budget-state.json with extra fields', async () => {
-			const statePath = path.join(tmpDir, '.swarm', 'session', 'budget-state.json');
-			await fs.writeFile(statePath, '{"warningFiredAtTurn": 5, "__proto__": {"evil": "value"}, "extra": 123}');
+			const statePath = path.join(
+				tmpDir,
+				'.swarm',
+				'session',
+				'budget-state.json',
+			);
+			await fs.writeFile(
+				statePath,
+				'{"warningFiredAtTurn": 5, "__proto__": {"evil": "value"}, "extra": 123}',
+			);
 
 			const config = getDefaultConfig();
-			const report = await getContextBudgetReport(tmpDir, 'small prompt', config);
+			const report = await getContextBudgetReport(
+				tmpDir,
+				'small prompt',
+				config,
+			);
 
 			expect(report).toBeDefined();
 			attackDetected = true;
@@ -349,11 +394,20 @@ describe('ADVERSARIAL SECURITY TESTS - context-budget service', () => {
 		});
 
 		it('should handle budget-state.json with null bytes', async () => {
-			const statePath = path.join(tmpDir, '.swarm', 'session', 'budget-state.json');
+			const statePath = path.join(
+				tmpDir,
+				'.swarm',
+				'session',
+				'budget-state.json',
+			);
 			await fs.writeFile(statePath, '{"warningFiredAtTurn": 5\x00}');
 
 			const config = getDefaultConfig();
-			const report = await getContextBudgetReport(tmpDir, 'small prompt', config);
+			const report = await getContextBudgetReport(
+				tmpDir,
+				'small prompt',
+				config,
+			);
 
 			expect(report).toBeDefined();
 			attackDetected = true;
@@ -403,7 +457,11 @@ describe('ADVERSARIAL SECURITY TESTS - context-budget service', () => {
 			const unicodePrompt = '🎉🔥💀🚀'.repeat(1024 * 256); // ~2MB of unicode
 			const config = getDefaultConfig();
 
-			const report = await getContextBudgetReport(tmpDir, unicodePrompt, config);
+			const report = await getContextBudgetReport(
+				tmpDir,
+				unicodePrompt,
+				config,
+			);
 
 			expect(report).toBeDefined();
 			expect(report.systemPromptTokens).toBeGreaterThan(0);
@@ -424,12 +482,18 @@ describe('ADVERSARIAL SECURITY TESTS - context-budget service', () => {
 				warningIntervalTurns: 20,
 			};
 
-			const report = await getContextBudgetReport(tmpDir, 'test prompt', config);
+			const report = await getContextBudgetReport(
+				tmpDir,
+				'test prompt',
+				config,
+			);
 
 			// Should handle gracefully - negative budget causes division issues but should be handled
 			expect(report).toBeDefined();
 			// Negative budget causes Infinity or NaN - check it's handled
-			expect(Number.isFinite(report.budgetPct) || !Number.isNaN(report.budgetPct)).toBe(true);
+			expect(
+				Number.isFinite(report.budgetPct) || !Number.isNaN(report.budgetPct),
+			).toBe(true);
 			attackDetected = true;
 			expect(attackDetected).toBe(true);
 		});
@@ -444,11 +508,17 @@ describe('ADVERSARIAL SECURITY TESTS - context-budget service', () => {
 				warningIntervalTurns: 20,
 			};
 
-			const report = await getContextBudgetReport(tmpDir, 'test prompt', config);
+			const report = await getContextBudgetReport(
+				tmpDir,
+				'test prompt',
+				config,
+			);
 
 			// Zero budget causes division by zero - should be handled
 			expect(report).toBeDefined();
-			expect(Number.isFinite(report.budgetPct) || report.budgetPct === Infinity).toBe(true);
+			expect(
+				Number.isFinite(report.budgetPct) || report.budgetPct === Infinity,
+			).toBe(true);
 			attackDetected = true;
 			expect(attackDetected).toBe(true);
 		});
@@ -463,7 +533,11 @@ describe('ADVERSARIAL SECURITY TESTS - context-budget service', () => {
 				warningIntervalTurns: 20,
 			};
 
-			const report = await getContextBudgetReport(tmpDir, 'test prompt', config);
+			const report = await getContextBudgetReport(
+				tmpDir,
+				'test prompt',
+				config,
+			);
 
 			expect(report).toBeDefined();
 			expect(report.budgetPct).toBeLessThan(1); // Small percentage due to huge budget
@@ -481,7 +555,11 @@ describe('ADVERSARIAL SECURITY TESTS - context-budget service', () => {
 				warningIntervalTurns: 20,
 			};
 
-			const report = await getContextBudgetReport(tmpDir, 'test prompt', config);
+			const report = await getContextBudgetReport(
+				tmpDir,
+				'test prompt',
+				config,
+			);
 
 			expect(report).toBeDefined();
 			// Negative thresholds should result in 'critical' status
@@ -500,7 +578,11 @@ describe('ADVERSARIAL SECURITY TESTS - context-budget service', () => {
 				warningIntervalTurns: 20,
 			};
 
-			const report = await getContextBudgetReport(tmpDir, 'test prompt', config);
+			const report = await getContextBudgetReport(
+				tmpDir,
+				'test prompt',
+				config,
+			);
 
 			expect(report).toBeDefined();
 			// Should still produce a valid status
@@ -519,7 +601,11 @@ describe('ADVERSARIAL SECURITY TESTS - context-budget service', () => {
 				warningIntervalTurns: 0,
 			};
 
-			const report = await getContextBudgetReport(tmpDir, 'test prompt', config);
+			const report = await getContextBudgetReport(
+				tmpDir,
+				'test prompt',
+				config,
+			);
 			const warning = await formatBudgetWarning(report, tmpDir, config);
 
 			// Interval of 0 means warning fires every turn - should handle gracefully
@@ -538,7 +624,11 @@ describe('ADVERSARIAL SECURITY TESTS - context-budget service', () => {
 				warningIntervalTurns: -5,
 			};
 
-			const report = await getContextBudgetReport(tmpDir, 'test prompt', config);
+			const report = await getContextBudgetReport(
+				tmpDir,
+				'test prompt',
+				config,
+			);
 
 			expect(report).toBeDefined();
 			attackDetected = true;
@@ -555,10 +645,16 @@ describe('ADVERSARIAL SECURITY TESTS - context-budget service', () => {
 				warningIntervalTurns: 20,
 			};
 
-			const report = await getContextBudgetReport(tmpDir, 'test prompt', config);
+			const report = await getContextBudgetReport(
+				tmpDir,
+				'test prompt',
+				config,
+			);
 
 			expect(report).toBeDefined();
-			expect(Number.isNaN(report.budgetPct) || Number.isFinite(report.budgetPct)).toBe(true);
+			expect(
+				Number.isNaN(report.budgetPct) || Number.isFinite(report.budgetPct),
+			).toBe(true);
 			attackDetected = true;
 			expect(attackDetected).toBe(true);
 		});
@@ -573,7 +669,11 @@ describe('ADVERSARIAL SECURITY TESTS - context-budget service', () => {
 				warningIntervalTurns: 20,
 			};
 
-			const report = await getContextBudgetReport(tmpDir, 'test prompt', config);
+			const report = await getContextBudgetReport(
+				tmpDir,
+				'test prompt',
+				config,
+			);
 
 			expect(report).toBeDefined();
 			expect(report.budgetPct).toBe(0); // Infinity budget = 0%
@@ -616,7 +716,9 @@ describe('ADDITIONAL SECURITY BOUNDARY TESTS', () => {
 	it('run-memory: recordOutcome should validate directory is a valid path', () => {
 		// The real validateDirectory rejects empty strings.
 		// Since validateDirectory is mocked, verify the pattern directly.
-		const { validateDirectory: realValidate } = require('../../../src/utils/path-security');
+		const {
+			validateDirectory: realValidate,
+		} = require('../../../src/utils/path-security');
 		// The mock replaces it, so verify the real logic via pattern check
 		expect(() => {
 			const directory = '';
@@ -637,7 +739,11 @@ describe('ADDITIONAL SECURITY BOUNDARY TESTS', () => {
 		// the service may return a report or throw a file-system error.
 		// Either way, error messages should NOT expose sensitive file content.
 		try {
-			const report = await getContextBudgetReport(tmpDir + '/..', 'prompt', config);
+			const report = await getContextBudgetReport(
+				tmpDir + '/..',
+				'prompt',
+				config,
+			);
 			// If it returns a report, verify it doesn't contain sensitive data
 			expect(JSON.stringify(report)).not.toContain('SECRET_DATA');
 		} catch (error: any) {
@@ -648,7 +754,7 @@ describe('ADDITIONAL SECURITY BOUNDARY TESTS', () => {
 	it('context-budget: should handle missing events.jsonl gracefully', async () => {
 		const config = getDefaultConfig();
 		const report = await getContextBudgetReport(tmpDir, 'test', config);
-		
+
 		// Should handle gracefully with 0 turns
 		expect(report.estimatedTurnCount).toBe(0);
 	});
@@ -656,7 +762,7 @@ describe('ADDITIONAL SECURITY BOUNDARY TESTS', () => {
 	it('context-budget: should handle missing other swarm files gracefully', async () => {
 		const config = getDefaultConfig();
 		const report = await getContextBudgetReport(tmpDir, 'test', config);
-		
+
 		// All values should be defined (even if 0)
 		expect(report.knowledgeTokens).toBeDefined();
 		expect(report.runMemoryTokens).toBeDefined();

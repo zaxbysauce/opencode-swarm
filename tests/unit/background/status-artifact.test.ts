@@ -1,14 +1,8 @@
-import {
-	describe,
-	expect,
-	it,
-	beforeEach,
-	afterEach,
-} from 'bun:test';
+import { afterEach, beforeEach, describe, expect, it } from 'bun:test';
 import * as fs from 'fs';
-import * as path from 'path';
 import { mkdtempSync, rmSync } from 'fs';
 import { tmpdir } from 'os';
+import * as path from 'path';
 import { AutomationStatusArtifact } from '../../../src/background/status-artifact';
 
 describe('AutomationStatusArtifact', () => {
@@ -50,13 +44,13 @@ describe('AutomationStatusArtifact', () => {
 		it('should reject path separator / in filename', () => {
 			expect(() => {
 				new AutomationStatusArtifact(tempDir, '../etc/passwd');
-			}).toThrow("path separator");
+			}).toThrow('path separator');
 		});
 
 		it('should reject path separator \\ in filename', () => {
 			expect(() => {
 				new AutomationStatusArtifact(tempDir, '..\\etc\\passwd');
-			}).toThrow("path separator");
+			}).toThrow('path separator');
 		});
 
 		it('should reject forward slash in filename', () => {
@@ -97,12 +91,18 @@ describe('AutomationStatusArtifact', () => {
 		});
 
 		it('should accept valid filename', () => {
-			const validArtifact = new AutomationStatusArtifact(tempDir, 'status.json');
+			const validArtifact = new AutomationStatusArtifact(
+				tempDir,
+				'status.json',
+			);
 			expect(validArtifact).toBeDefined();
 		});
 
 		it('should accept filename with dashes and underscores', () => {
-			const validArtifact = new AutomationStatusArtifact(tempDir, 'my_status-file.json');
+			const validArtifact = new AutomationStatusArtifact(
+				tempDir,
+				'my_status-file.json',
+			);
 			expect(validArtifact).toBeDefined();
 		});
 
@@ -146,7 +146,10 @@ describe('AutomationStatusArtifact', () => {
 		});
 
 		// Create new instance - should load existing
-		const artifact2 = new AutomationStatusArtifact(tempDir, 'automation-status.json');
+		const artifact2 = new AutomationStatusArtifact(
+			tempDir,
+			'automation-status.json',
+		);
 		const snapshot = artifact2.getSnapshot();
 
 		expect(snapshot.currentPhase).toBe(5);
@@ -178,7 +181,12 @@ describe('AutomationStatusArtifact', () => {
 
 	it('should record trigger', () => {
 		const now = Date.now();
-		artifact.recordTrigger(now, 3, 'phase_boundary', 'Phase transition from 2 to 3');
+		artifact.recordTrigger(
+			now,
+			3,
+			'phase_boundary',
+			'Phase transition from 2 to 3',
+		);
 
 		const snapshot = artifact.getSnapshot();
 		expect(snapshot.lastTrigger).not.toBeNull();

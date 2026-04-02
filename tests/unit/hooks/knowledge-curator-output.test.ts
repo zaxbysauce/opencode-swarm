@@ -1,6 +1,6 @@
 /**
  * Verification tests for Task 3.1 — curator pipeline output improvements
- * 
+ *
  * Key behaviors tested:
  * 1. curateAndStoreSwarm returns { stored: N, skipped: M, rejected: K } for various input scenarios
  * 2. Empty lessons array → returns { 0, 0, 0 }
@@ -10,12 +10,16 @@
  * 6. Advisory message in phase-complete.ts includes "Knowledge: N applied, M skipped" text
  */
 
-import { describe, test, expect, beforeEach, afterEach, mock } from 'bun:test';
+import { afterEach, beforeEach, describe, expect, mock, test } from 'bun:test';
 import * as fs from 'node:fs';
-import * as path from 'node:path';
 import * as os from 'node:os';
-import { resetSwarmState, ensureAgentSession, recordPhaseAgentDispatch } from '../../../src/state';
+import * as path from 'node:path';
 import type { KnowledgeConfig } from '../../../src/hooks/knowledge-types';
+import {
+	ensureAgentSession,
+	recordPhaseAgentDispatch,
+	resetSwarmState,
+} from '../../../src/state';
 
 // =============================================================================
 // Mock modules using bun:test native mock.module
@@ -24,6 +28,7 @@ import type { KnowledgeConfig } from '../../../src/hooks/knowledge-types';
 // Mock knowledge-store module
 const mockAppendKnowledge = mock(async () => {});
 const mockAppendRejectedLesson = mock(async () => {});
+const mockEnforceKnowledgeCap = mock(async () => {});
 const mockFindNearDuplicate = mock(() => undefined);
 const mockReadKnowledge = mock(async () => []);
 const mockRewriteKnowledge = mock(async () => {});
@@ -44,6 +49,7 @@ mock.module('../../../src/hooks/knowledge-store.js', () => ({
 	computeConfidence: mockComputeConfidence,
 	inferTags: mockInferTags,
 	normalize: mockNormalize,
+	enforceKnowledgeCap: mockEnforceKnowledgeCap,
 }));
 
 // Mock knowledge-validator module
@@ -68,7 +74,9 @@ mock.module('../../../src/hooks/knowledge-reader.js', () => ({
 }));
 
 // Import after mocks are set up
-const { curateAndStoreSwarm } = await import('../../../src/hooks/knowledge-curator.js');
+const { curateAndStoreSwarm } = await import(
+	'../../../src/hooks/knowledge-curator.js'
+);
 
 // =============================================================================
 // Test data and helpers
@@ -115,8 +123,12 @@ describe('curateAndStoreSwarm return value verification (Task 3.1)', () => {
 		mockUpdateRetrievalOutcome.mockClear();
 
 		// Set default mock return values
-		mockResolveSwarmKnowledgePath.mockReturnValue('/project/.swarm/knowledge.jsonl');
-		mockResolveSwarmRejectedPath.mockReturnValue('/project/.swarm/rejected.jsonl');
+		mockResolveSwarmKnowledgePath.mockReturnValue(
+			'/project/.swarm/knowledge.jsonl',
+		);
+		mockResolveSwarmRejectedPath.mockReturnValue(
+			'/project/.swarm/rejected.jsonl',
+		);
 		mockReadKnowledge.mockResolvedValue([]);
 		mockAppendKnowledge.mockResolvedValue(undefined);
 		mockAppendRejectedLesson.mockResolvedValue(undefined);
@@ -124,7 +136,9 @@ describe('curateAndStoreSwarm return value verification (Task 3.1)', () => {
 		mockRewriteKnowledge.mockResolvedValue(undefined);
 		mockComputeConfidence.mockReturnValue(0.6);
 		mockInferTags.mockReturnValue([]);
-		mockNormalize.mockImplementation((text: string) => text.toLowerCase().trim());
+		mockNormalize.mockImplementation((text: string) =>
+			text.toLowerCase().trim(),
+		);
 		mockValidateLesson.mockReturnValue({
 			valid: true,
 			layer: null,
@@ -280,11 +294,36 @@ describe('curateAndStoreSwarm return value verification (Task 3.1)', () => {
 		];
 
 		mockValidateLesson
-			.mockReturnValueOnce({ valid: true, layer: null, reason: null, severity: null }) // Valid 1
-			.mockReturnValueOnce({ valid: false, layer: 1, reason: 'bad pattern', severity: 'error' }) // Rejected
-			.mockReturnValueOnce({ valid: true, layer: null, reason: null, severity: null }) // Valid 2
-			.mockReturnValueOnce({ valid: true, layer: null, reason: null, severity: null }) // Duplicate
-			.mockReturnValueOnce({ valid: true, layer: null, reason: null, severity: null }); // Valid 3
+			.mockReturnValueOnce({
+				valid: true,
+				layer: null,
+				reason: null,
+				severity: null,
+			}) // Valid 1
+			.mockReturnValueOnce({
+				valid: false,
+				layer: 1,
+				reason: 'bad pattern',
+				severity: 'error',
+			}) // Rejected
+			.mockReturnValueOnce({
+				valid: true,
+				layer: null,
+				reason: null,
+				severity: null,
+			}) // Valid 2
+			.mockReturnValueOnce({
+				valid: true,
+				layer: null,
+				reason: null,
+				severity: null,
+			}) // Duplicate
+			.mockReturnValueOnce({
+				valid: true,
+				layer: null,
+				reason: null,
+				severity: null,
+			}); // Valid 3
 
 		mockFindNearDuplicate
 			.mockReturnValueOnce(undefined) // Valid 1 - stored
@@ -349,7 +388,10 @@ describe('curateAndStoreSwarm return value verification (Task 3.1)', () => {
 
 		// Reset the mock to clear any previous behavior, then set the return value
 		mockFindNearDuplicate.mockReset();
-		mockFindNearDuplicate.mockReturnValue({ id: 'existing', lesson: 'existing' });
+		mockFindNearDuplicate.mockReturnValue({
+			id: 'existing',
+			lesson: 'existing',
+		});
 
 		const result = await curateAndStoreSwarm(
 			lessons,

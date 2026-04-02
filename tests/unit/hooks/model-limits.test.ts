@@ -1,9 +1,9 @@
-import { describe, test, expect, beforeEach } from 'bun:test';
+import { beforeEach, describe, expect, test } from 'bun:test';
 import {
-	resolveModelLimit,
 	extractModelInfo,
 	NATIVE_MODEL_LIMITS,
 	PROVIDER_CAPS,
+	resolveModelLimit,
 } from '../../../src/hooks/model-limits';
 
 // Helper function to create message objects matching OpenCode's message format
@@ -11,7 +11,10 @@ function makeMessage(
 	role: string,
 	modelID?: string,
 	providerID?: string,
-): { info: { role: string; modelID?: string; providerID?: string }; parts: Array<{ type: string }> } {
+): {
+	info: { role: string; modelID?: string; providerID?: string };
+	parts: Array<{ type: string }>;
+} {
 	return {
 		info: {
 			role,
@@ -108,7 +111,11 @@ describe('model-limits.ts - resolveModelLimit', () => {
 	describe('Prefix matching with versioned model IDs', () => {
 		test('Test 6: Prefix matching with versioned model ID', () => {
 			// Input: resolveModelLimit('claude-sonnet-4-6-20260301', 'anthropic', {})
-			const result = resolveModelLimit('claude-sonnet-4-6-20260301', 'anthropic', {});
+			const result = resolveModelLimit(
+				'claude-sonnet-4-6-20260301',
+				'anthropic',
+				{},
+			);
 
 			// Expected: 200000 (matches 'claude-sonnet-4' prefix in NATIVE_MODEL_LIMITS)
 			expect(result).toBe(200000);
@@ -119,7 +126,11 @@ describe('model-limits.ts - resolveModelLimit', () => {
 
 		test('Prefix matching selects longest match', () => {
 			// Test with multiple potential prefix matches
-			const result = resolveModelLimit('gpt-5.1-codex-variant', 'anthropic', {});
+			const result = resolveModelLimit(
+				'gpt-5.1-codex-variant',
+				'anthropic',
+				{},
+			);
 
 			// Should match 'gpt-5.1-codex' (longest prefix), not 'gpt-5.1'
 			expect(result).toBe(NATIVE_MODEL_LIMITS['gpt-5.1-codex']);
@@ -140,14 +151,22 @@ describe('model-limits.ts - resolveModelLimit', () => {
 		});
 
 		test('Fallback when modelID not in NATIVE_MODEL_LIMITS', () => {
-			const result = resolveModelLimit('unknown-model-x', 'unknown-provider', {});
+			const result = resolveModelLimit(
+				'unknown-model-x',
+				'unknown-provider',
+				{},
+			);
 
 			expect(result).toBe(128000);
 		});
 
 		test('Config.default override takes precedence before fallback', () => {
 			const config = { default: 64000 };
-			const result = resolveModelLimit('unknown-model', 'unknown-provider', config);
+			const result = resolveModelLimit(
+				'unknown-model',
+				'unknown-provider',
+				config,
+			);
 
 			expect(result).toBe(64000);
 		});

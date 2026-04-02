@@ -1,15 +1,19 @@
-import { describe, it, expect, vi, beforeEach } from 'vitest';
+import { beforeEach, describe, expect, it, vi } from 'vitest';
 
 // Mock console methods BEFORE importing
 const mockConsoleLog = vi.spyOn(console, 'log').mockImplementation(() => {});
-const mockConsoleError = vi.spyOn(console, 'error').mockImplementation(() => {});
+const mockConsoleError = vi
+	.spyOn(console, 'error')
+	.mockImplementation(() => {});
 
 // Mock process.argv to prevent default 'install' command
 const originalArgv = process.argv;
 process.argv = ['node', 'cli.js', '--help'];
 
 // Mock process.exit to prevent CLI from exiting
-const mockProcessExit = vi.spyOn(process, 'exit').mockImplementation(() => undefined as never);
+const mockProcessExit = vi
+	.spyOn(process, 'exit')
+	.mockImplementation(() => undefined as never);
 
 // Mock factories - declare BEFORE vi.mock() calls
 const mockHandleAgentsCommand = vi.fn();
@@ -46,42 +50,94 @@ const mockHandleTurboCommand = vi.fn();
 const mockHandleWriteRetroCommand = vi.fn();
 
 // Mock individual command files so registry.ts picks up the mocked handlers
-vi.mock('../../../src/commands/agents.js', () => ({ handleAgentsCommand: mockHandleAgentsCommand }));
-vi.mock('../../../src/commands/analyze.js', () => ({ handleAnalyzeCommand: mockHandleAnalyzeCommand }));
-vi.mock('../../../src/commands/archive.js', () => ({ handleArchiveCommand: mockHandleArchiveCommand }));
-vi.mock('../../../src/commands/benchmark.js', () => ({ handleBenchmarkCommand: mockHandleBenchmarkCommand }));
-vi.mock('../../../src/commands/checkpoint.js', () => ({ handleCheckpointCommand: mockHandleCheckpointCommand }));
-vi.mock('../../../src/commands/clarify.js', () => ({ handleClarifyCommand: mockHandleClarifyCommand }));
-vi.mock('../../../src/commands/config.js', () => ({ handleConfigCommand: mockHandleConfigCommand }));
-vi.mock('../../../src/commands/curate.js', () => ({ handleCurateCommand: mockHandleCurateCommand }));
-vi.mock('../../../src/commands/dark-matter.js', () => ({ handleDarkMatterCommand: mockHandleDarkMatterCommand }));
-vi.mock('../../../src/commands/diagnose.js', () => ({ handleDiagnoseCommand: mockHandleDiagnoseCommand }));
-vi.mock('../../../src/commands/doctor.js', () => ({ handleDoctorCommand: mockHandleDoctorCommand }));
+vi.mock('../../../src/commands/agents.js', () => ({
+	handleAgentsCommand: mockHandleAgentsCommand,
+}));
+vi.mock('../../../src/commands/analyze.js', () => ({
+	handleAnalyzeCommand: mockHandleAnalyzeCommand,
+}));
+vi.mock('../../../src/commands/archive.js', () => ({
+	handleArchiveCommand: mockHandleArchiveCommand,
+}));
+vi.mock('../../../src/commands/benchmark.js', () => ({
+	handleBenchmarkCommand: mockHandleBenchmarkCommand,
+}));
+vi.mock('../../../src/commands/checkpoint.js', () => ({
+	handleCheckpointCommand: mockHandleCheckpointCommand,
+}));
+vi.mock('../../../src/commands/clarify.js', () => ({
+	handleClarifyCommand: mockHandleClarifyCommand,
+}));
+vi.mock('../../../src/commands/config.js', () => ({
+	handleConfigCommand: mockHandleConfigCommand,
+}));
+vi.mock('../../../src/commands/curate.js', () => ({
+	handleCurateCommand: mockHandleCurateCommand,
+}));
+vi.mock('../../../src/commands/dark-matter.js', () => ({
+	handleDarkMatterCommand: mockHandleDarkMatterCommand,
+}));
+vi.mock('../../../src/commands/diagnose.js', () => ({
+	handleDiagnoseCommand: mockHandleDiagnoseCommand,
+}));
+vi.mock('../../../src/commands/doctor.js', () => ({
+	handleDoctorCommand: mockHandleDoctorCommand,
+}));
 vi.mock('../../../src/commands/evidence.js', () => ({
 	handleEvidenceCommand: mockHandleEvidenceCommand,
 	handleEvidenceSummaryCommand: mockHandleEvidenceSummaryCommand,
 }));
-vi.mock('../../../src/commands/export.js', () => ({ handleExportCommand: mockHandleExportCommand }));
-vi.mock('../../../src/commands/handoff.js', () => ({ handleHandoffCommand: mockHandleHandoffCommand }));
-vi.mock('../../../src/commands/history.js', () => ({ handleHistoryCommand: mockHandleHistoryCommand }));
+vi.mock('../../../src/commands/export.js', () => ({
+	handleExportCommand: mockHandleExportCommand,
+}));
+vi.mock('../../../src/commands/handoff.js', () => ({
+	handleHandoffCommand: mockHandleHandoffCommand,
+}));
+vi.mock('../../../src/commands/history.js', () => ({
+	handleHistoryCommand: mockHandleHistoryCommand,
+}));
 vi.mock('../../../src/commands/knowledge.js', () => ({
 	handleKnowledgeListCommand: mockHandleKnowledgeListCommand,
 	handleKnowledgeMigrateCommand: mockHandleKnowledgeMigrateCommand,
 	handleKnowledgeQuarantineCommand: mockHandleKnowledgeQuarantineCommand,
 	handleKnowledgeRestoreCommand: mockHandleKnowledgeRestoreCommand,
 }));
-vi.mock('../../../src/commands/plan.js', () => ({ handlePlanCommand: mockHandlePlanCommand }));
-vi.mock('../../../src/commands/preflight.js', () => ({ handlePreflightCommand: mockHandlePreflightCommand }));
-vi.mock('../../../src/commands/promote.js', () => ({ handlePromoteCommand: mockHandlePromoteCommand }));
-vi.mock('../../../src/commands/reset.js', () => ({ handleResetCommand: mockHandleResetCommand }));
-vi.mock('../../../src/commands/retrieve.js', () => ({ handleRetrieveCommand: mockHandleRetrieveCommand }));
-vi.mock('../../../src/commands/rollback.js', () => ({ handleRollbackCommand: mockHandleRollbackCommand }));
-vi.mock('../../../src/commands/simulate.js', () => ({ handleSimulateCommand: mockHandleSimulateCommand }));
-vi.mock('../../../src/commands/specify.js', () => ({ handleSpecifyCommand: mockHandleSpecifyCommand }));
-vi.mock('../../../src/commands/status.js', () => ({ handleStatusCommand: mockHandleStatusCommand }));
-vi.mock('../../../src/commands/sync-plan.js', () => ({ handleSyncPlanCommand: mockHandleSyncPlanCommand }));
-vi.mock('../../../src/commands/turbo.js', () => ({ handleTurboCommand: mockHandleTurboCommand }));
-vi.mock('../../../src/commands/write_retro.js', () => ({ handleWriteRetroCommand: mockHandleWriteRetroCommand }));
+vi.mock('../../../src/commands/plan.js', () => ({
+	handlePlanCommand: mockHandlePlanCommand,
+}));
+vi.mock('../../../src/commands/preflight.js', () => ({
+	handlePreflightCommand: mockHandlePreflightCommand,
+}));
+vi.mock('../../../src/commands/promote.js', () => ({
+	handlePromoteCommand: mockHandlePromoteCommand,
+}));
+vi.mock('../../../src/commands/reset.js', () => ({
+	handleResetCommand: mockHandleResetCommand,
+}));
+vi.mock('../../../src/commands/retrieve.js', () => ({
+	handleRetrieveCommand: mockHandleRetrieveCommand,
+}));
+vi.mock('../../../src/commands/rollback.js', () => ({
+	handleRollbackCommand: mockHandleRollbackCommand,
+}));
+vi.mock('../../../src/commands/simulate.js', () => ({
+	handleSimulateCommand: mockHandleSimulateCommand,
+}));
+vi.mock('../../../src/commands/specify.js', () => ({
+	handleSpecifyCommand: mockHandleSpecifyCommand,
+}));
+vi.mock('../../../src/commands/status.js', () => ({
+	handleStatusCommand: mockHandleStatusCommand,
+}));
+vi.mock('../../../src/commands/sync-plan.js', () => ({
+	handleSyncPlanCommand: mockHandleSyncPlanCommand,
+}));
+vi.mock('../../../src/commands/turbo.js', () => ({
+	handleTurboCommand: mockHandleTurboCommand,
+}));
+vi.mock('../../../src/commands/write_retro.js', () => ({
+	handleWriteRetroCommand: mockHandleWriteRetroCommand,
+}));
 
 // Import AFTER mocking is set up - use require for synchronous loading
 // @ts-ignore - Bun supports require for .js extensions
@@ -102,7 +158,9 @@ describe('run() function - Adversarial Tests', () => {
 		mockHandleConfigCommand.mockResolvedValue('config result');
 		mockHandleDoctorCommand.mockResolvedValue('doctor result');
 		mockHandleEvidenceCommand.mockResolvedValue('evidence result');
-		mockHandleEvidenceSummaryCommand.mockResolvedValue('evidence-summary result');
+		mockHandleEvidenceSummaryCommand.mockResolvedValue(
+			'evidence-summary result',
+		);
 		mockHandleDiagnoseCommand.mockResolvedValue('diagnose result');
 		mockHandlePreflightCommand.mockResolvedValue('preflight result');
 		mockHandleSyncPlanCommand.mockResolvedValue('sync-plan result');
@@ -115,9 +173,15 @@ describe('run() function - Adversarial Tests', () => {
 		mockHandleSpecifyCommand.mockResolvedValue('specify result');
 		mockHandleDarkMatterCommand.mockResolvedValue('dark-matter result');
 		mockHandleKnowledgeListCommand.mockResolvedValue('knowledge list result');
-		mockHandleKnowledgeMigrateCommand.mockResolvedValue('knowledge migrate result');
-		mockHandleKnowledgeQuarantineCommand.mockResolvedValue('knowledge quarantine result');
-		mockHandleKnowledgeRestoreCommand.mockResolvedValue('knowledge restore result');
+		mockHandleKnowledgeMigrateCommand.mockResolvedValue(
+			'knowledge migrate result',
+		);
+		mockHandleKnowledgeQuarantineCommand.mockResolvedValue(
+			'knowledge quarantine result',
+		);
+		mockHandleKnowledgeRestoreCommand.mockResolvedValue(
+			'knowledge restore result',
+		);
 	});
 
 	// Attack vector 1: Handler throws an error → does run() propagate the throw, or handle gracefully?
@@ -143,7 +207,9 @@ describe('run() function - Adversarial Tests', () => {
 
 	// Attack vector 3: Handler returns undefined → console.log(undefined), returns 0
 	it('3. Should call console.log(undefined) when handler returns undefined', async () => {
-		mockHandleStatusCommand.mockResolvedValueOnce(undefined as unknown as string);
+		mockHandleStatusCommand.mockResolvedValueOnce(
+			undefined as unknown as string,
+		);
 
 		const result = await run(['status']);
 
@@ -202,7 +268,9 @@ describe('run() function - Adversarial Tests', () => {
 
 		expect(result).toBe(0);
 		expect(mockHandleKnowledgeMigrateCommand).not.toHaveBeenCalled();
-		expect(mockHandleKnowledgeListCommand).toHaveBeenCalledWith(cwd, ['Migrate']);
+		expect(mockHandleKnowledgeListCommand).toHaveBeenCalledWith(cwd, [
+			'Migrate',
+		]);
 	});
 
 	// Attack vector 10: null in args array: `[null]` → TypeScript allows this at runtime; should hit unknown command default, returns 1
@@ -263,7 +331,10 @@ describe('run() function - Adversarial Tests', () => {
 		const result = await run(['knowledge', 'quarantine', '123', 'test reason']);
 
 		expect(result).toBe(0);
-		expect(mockHandleKnowledgeQuarantineCommand).toHaveBeenCalledWith(cwd, ['123', 'test reason']);
+		expect(mockHandleKnowledgeQuarantineCommand).toHaveBeenCalledWith(cwd, [
+			'123',
+			'test reason',
+		]);
 	});
 
 	// Test knowledge restore with correct case
@@ -271,7 +342,9 @@ describe('run() function - Adversarial Tests', () => {
 		const result = await run(['knowledge', 'restore', '123']);
 
 		expect(result).toBe(0);
-		expect(mockHandleKnowledgeRestoreCommand).toHaveBeenCalledWith(cwd, ['123']);
+		expect(mockHandleKnowledgeRestoreCommand).toHaveBeenCalledWith(cwd, [
+			'123',
+		]);
 	});
 
 	// Test knowledge migrate with correct case

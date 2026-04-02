@@ -7,25 +7,32 @@
  * 3. createSnapshotWriterHook - hook function behavior
  */
 
-import { describe, it, expect, beforeEach, afterEach } from 'vitest';
-import { mkdirSync, rmSync, existsSync } from 'node:fs';
-import * as path from 'node:path';
+import { existsSync, mkdirSync, rmSync } from 'node:fs';
 import * as os from 'node:os';
+import * as path from 'node:path';
+import { afterEach, beforeEach, describe, expect, it } from 'vitest';
 import {
-	serializeAgentSession,
-	writeSnapshot,
 	createSnapshotWriterHook,
 	flushPendingSnapshot,
-	type SnapshotData,
 	type SerializedAgentSession,
+	type SnapshotData,
+	serializeAgentSession,
+	writeSnapshot,
 } from '../../../src/session/snapshot-writer';
-import type { AgentSessionState, InvocationWindow, TaskWorkflowState } from '../../../src/state';
+import type {
+	AgentSessionState,
+	InvocationWindow,
+	TaskWorkflowState,
+} from '../../../src/state';
 
 let testDir: string;
 
 beforeEach(() => {
 	// Create a unique temporary directory for each test
-	testDir = path.join(os.tmpdir(), `snapshot-writer-test-${Date.now()}-${Math.random().toString(36).slice(2)}`);
+	testDir = path.join(
+		os.tmpdir(),
+		`snapshot-writer-test-${Date.now()}-${Math.random().toString(36).slice(2)}`,
+	);
 	mkdirSync(testDir, { recursive: true });
 });
 
@@ -391,11 +398,27 @@ describe('serializeAgentSession', () => {
 });
 
 describe('writeSnapshot', () => {
-		it('writes a valid JSON file to .swarm/session/state.json', async () => {
+	it('writes a valid JSON file to .swarm/session/state.json', async () => {
 		const state = {
-			toolAggregates: new Map([['read', { tool: 'read', count: 5, successCount: 4, failureCount: 1, totalDuration: 100 }]]),
+			toolAggregates: new Map([
+				[
+					'read',
+					{
+						tool: 'read',
+						count: 5,
+						successCount: 4,
+						failureCount: 1,
+						totalDuration: 100,
+					},
+				],
+			]),
 			activeAgent: new Map([['session-1', 'architect']]),
-			delegationChains: new Map([['session-1', [{ from: 'architect', to: 'coder', timestamp: Date.now() }]]]),
+			delegationChains: new Map([
+				[
+					'session-1',
+					[{ from: 'architect', to: 'coder', timestamp: Date.now() }],
+				],
+			]),
 			activeToolCalls: new Map(),
 			pendingEvents: 0,
 			agentSessions: new Map(),
@@ -451,10 +474,31 @@ describe('writeSnapshot', () => {
 
 	it('does NOT include activeToolCalls or pendingEvents in output', async () => {
 		const state = {
-			toolAggregates: new Map([['read', { tool: 'read', count: 1, successCount: 1, failureCount: 0, totalDuration: 10 }]]),
+			toolAggregates: new Map([
+				[
+					'read',
+					{
+						tool: 'read',
+						count: 1,
+						successCount: 1,
+						failureCount: 0,
+						totalDuration: 10,
+					},
+				],
+			]),
 			activeAgent: new Map(),
 			delegationChains: new Map(),
-			activeToolCalls: new Map([['call-1', { tool: 'write', sessionID: 's1', callID: 'call-1', startTime: Date.now() }]]),
+			activeToolCalls: new Map([
+				[
+					'call-1',
+					{
+						tool: 'write',
+						sessionID: 's1',
+						callID: 'call-1',
+						startTime: Date.now(),
+					},
+				],
+			]),
 			pendingEvents: 42,
 			agentSessions: new Map(),
 		};
@@ -482,7 +526,10 @@ describe('writeSnapshot', () => {
 		// Try to write to a path that will fail (e.g., directory that doesn't exist and can't be created)
 		// Using a path like "/root/nonexistent" that typically fails on most systems
 		// On Windows, try using an invalid path
-		const invalidDir = process.platform === 'win32' ? 'Z:\\nonexistent\\invalid' : '/root/nonexistent/path';
+		const invalidDir =
+			process.platform === 'win32'
+				? 'Z:\\nonexistent\\invalid'
+				: '/root/nonexistent/path';
 
 		await expect(writeSnapshot(invalidDir, state)).resolves.toBeUndefined();
 	});
@@ -803,7 +850,9 @@ describe('serializeAgentSession - taskWorkflowStates', () => {
 describe('serializeAgentSession - taskWorkflowStates adversarial', () => {
 	// Helper to create a minimal session with taskWorkflowStates
 	// Uses type assertion to bypass strict type checking (matching existing test patterns)
-	const createSessionWithWorkflowStates = (workflowStates: Map<string, TaskWorkflowState> | undefined): AgentSessionState => {
+	const createSessionWithWorkflowStates = (
+		workflowStates: Map<string, TaskWorkflowState> | undefined,
+	): AgentSessionState => {
 		return {
 			agentName: 'architect',
 			lastToolCallTime: 1000,
@@ -850,14 +899,16 @@ describe('serializeAgentSession - taskWorkflowStates adversarial', () => {
 		expect(result.taskWorkflowStates).toEqual({
 			'task:with:colons': 'idle',
 			'task-dash': 'coder_delegated',
-			'task_underscore': 'tests_run',
+			task_underscore: 'tests_run',
 			'task.dot': 'complete',
 		});
 	});
 
 	it('handles very long string keys (1000+ chars)', () => {
 		const longKey = 'a'.repeat(2000);
-		const session = createSessionWithWorkflowStates(new Map([[longKey, 'complete']]));
+		const session = createSessionWithWorkflowStates(
+			new Map([[longKey, 'complete']]),
+		);
 		const result = serializeAgentSession(session);
 		expect(result.taskWorkflowStates).toEqual({ [longKey]: 'complete' });
 	});
@@ -881,7 +932,9 @@ describe('serializeAgentSession - taskWorkflowStates adversarial', () => {
 			['task-2', null],
 			['task-3', 'complete'],
 		]);
-		const session = createSessionWithWorkflowStates(workflowStates as Map<string, TaskWorkflowState>);
+		const session = createSessionWithWorkflowStates(
+			workflowStates as Map<string, TaskWorkflowState>,
+		);
 		const result = serializeAgentSession(session);
 		// Object.fromEntries converts null to null (not filtered out)
 		expect(result.taskWorkflowStates).toEqual({
@@ -894,7 +947,14 @@ describe('serializeAgentSession - taskWorkflowStates adversarial', () => {
 	it('handles very large Map (1000+ entries) without crashing', () => {
 		const largeMap = new Map<string, TaskWorkflowState>();
 		for (let i = 0; i < 1500; i++) {
-			const states: TaskWorkflowState[] = ['idle', 'coder_delegated', 'pre_check_passed', 'reviewer_run', 'tests_run', 'complete'];
+			const states: TaskWorkflowState[] = [
+				'idle',
+				'coder_delegated',
+				'pre_check_passed',
+				'reviewer_run',
+				'tests_run',
+				'complete',
+			];
 			largeMap.set(`task-${i}`, states[i % 6]);
 		}
 		const session = createSessionWithWorkflowStates(largeMap);

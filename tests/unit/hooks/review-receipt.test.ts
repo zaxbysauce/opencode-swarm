@@ -13,28 +13,28 @@
  * 9. Path helpers — resolveReceiptsDir, resolveReceiptIndexPath
  */
 
-import { describe, it, expect, beforeEach, afterEach } from 'vitest';
-import * as fs from 'node:fs';
-import * as path from 'node:path';
-import * as os from 'node:os';
 import * as crypto from 'node:crypto';
+import * as fs from 'node:fs';
+import * as os from 'node:os';
+import * as path from 'node:path';
+import { afterEach, beforeEach, describe, expect, it } from 'vitest';
+import type {
+	ApprovedReviewReceipt,
+	RejectedReviewReceipt,
+	ReviewReceipt,
+} from '../../../src/hooks/review-receipt.js';
 import {
+	buildApprovedReceipt,
+	buildReceiptContextForDrift,
+	buildRejectedReceipt,
 	computeScopeFingerprint,
 	isScopeStale,
-	buildRejectedReceipt,
-	buildApprovedReceipt,
 	persistReviewReceipt,
+	readAllReceipts,
 	readReceiptById,
 	readReceiptsByScopeHash,
-	readAllReceipts,
-	buildReceiptContextForDrift,
-	resolveReceiptsDir,
 	resolveReceiptIndexPath,
-} from '../../../src/hooks/review-receipt.js';
-import type {
-	RejectedReviewReceipt,
-	ApprovedReviewReceipt,
-	ReviewReceipt,
+	resolveReceiptsDir,
 } from '../../../src/hooks/review-receipt.js';
 
 // ============================================================================
@@ -44,7 +44,10 @@ import type {
 let tmpDir: string;
 
 function makeTestDir(): string {
-	const dir = path.join(os.tmpdir(), `review-receipt-test-${Date.now()}-${Math.random().toString(36).slice(2)}`);
+	const dir = path.join(
+		os.tmpdir(),
+		`review-receipt-test-${Date.now()}-${Math.random().toString(36).slice(2)}`,
+	);
 	fs.mkdirSync(dir, { recursive: true });
 	return dir;
 }
@@ -185,7 +188,11 @@ describe('buildRejectedReceipt', () => {
 			scopeContent: 'buggy code diff',
 			scopeDescription: 'git-diff',
 			blockingFindings: [
-				{ location: 'src/foo.ts', summary: 'SQL injection', severity: 'critical' },
+				{
+					location: 'src/foo.ts',
+					summary: 'SQL injection',
+					severity: 'critical',
+				},
 			],
 			evidenceReferences: ['src/foo.ts:42'],
 			passConditions: ['sanitize all DB inputs'],
@@ -207,22 +214,50 @@ describe('buildRejectedReceipt', () => {
 	});
 
 	it('generates a UUID for id', () => {
-		const r1 = buildRejectedReceipt({ agent: 'r', scopeContent: 'a', scopeDescription: 'd', blockingFindings: [], evidenceReferences: [], passConditions: [] });
-		const r2 = buildRejectedReceipt({ agent: 'r', scopeContent: 'a', scopeDescription: 'd', blockingFindings: [], evidenceReferences: [], passConditions: [] });
+		const r1 = buildRejectedReceipt({
+			agent: 'r',
+			scopeContent: 'a',
+			scopeDescription: 'd',
+			blockingFindings: [],
+			evidenceReferences: [],
+			passConditions: [],
+		});
+		const r2 = buildRejectedReceipt({
+			agent: 'r',
+			scopeContent: 'a',
+			scopeDescription: 'd',
+			blockingFindings: [],
+			evidenceReferences: [],
+			passConditions: [],
+		});
 		expect(r1.id).toMatch(/^[0-9a-f-]{36}$/);
 		expect(r1.id).not.toBe(r2.id); // unique per call
 	});
 
 	it('sets reviewed_at to current ISO timestamp', () => {
 		const before = new Date().toISOString();
-		const receipt = buildRejectedReceipt({ agent: 'r', scopeContent: 'x', scopeDescription: 'd', blockingFindings: [], evidenceReferences: [], passConditions: [] });
+		const receipt = buildRejectedReceipt({
+			agent: 'r',
+			scopeContent: 'x',
+			scopeDescription: 'd',
+			blockingFindings: [],
+			evidenceReferences: [],
+			passConditions: [],
+		});
 		const after = new Date().toISOString();
 		expect(receipt.reviewed_at >= before).toBe(true);
 		expect(receipt.reviewed_at <= after).toBe(true);
 	});
 
 	it('sessionId is optional and omitted when not provided', () => {
-		const receipt = buildRejectedReceipt({ agent: 'r', scopeContent: 'x', scopeDescription: 'd', blockingFindings: [], evidenceReferences: [], passConditions: [] });
+		const receipt = buildRejectedReceipt({
+			agent: 'r',
+			scopeContent: 'x',
+			scopeDescription: 'd',
+			blockingFindings: [],
+			evidenceReferences: [],
+			passConditions: [],
+		});
 		expect(receipt.reviewer.session_id).toBeUndefined();
 	});
 });
@@ -244,14 +279,27 @@ describe('buildApprovedReceipt', () => {
 		expect(receipt.verdict).toBe('approved');
 		expect(receipt.reviewer.agent).toBe('curator');
 		expect(receipt.reviewer.session_id).toBe('sess-xyz');
-		expect(receipt.checked_aspects).toEqual(['security', 'correctness', 'test coverage']);
-		expect(receipt.validated_claims).toEqual(['all tests pass', 'no SQL injection']);
+		expect(receipt.checked_aspects).toEqual([
+			'security',
+			'correctness',
+			'test coverage',
+		]);
+		expect(receipt.validated_claims).toEqual([
+			'all tests pass',
+			'no SQL injection',
+		]);
 		expect(receipt.caveats).toEqual(['performance not checked']);
 		expect(receipt.scope_fingerprint.hash).toBe(sha256('clean code diff'));
 	});
 
 	it('caveats is optional', () => {
-		const receipt = buildApprovedReceipt({ agent: 'r', scopeContent: 'x', scopeDescription: 'd', checkedAspects: [], validatedClaims: [] });
+		const receipt = buildApprovedReceipt({
+			agent: 'r',
+			scopeContent: 'x',
+			scopeDescription: 'd',
+			checkedAspects: [],
+			validatedClaims: [],
+		});
 		expect(receipt.caveats).toBeUndefined();
 	});
 });
@@ -281,7 +329,9 @@ describe('persistReviewReceipt', () => {
 			agent: 'reviewer',
 			scopeContent: 'buggy diff',
 			scopeDescription: 'git-diff',
-			blockingFindings: [{ location: 'main.ts', summary: 'race condition', severity: 'high' }],
+			blockingFindings: [
+				{ location: 'main.ts', summary: 'race condition', severity: 'high' },
+			],
 			evidenceReferences: ['main.ts:10'],
 			passConditions: ['add mutex'],
 		});
@@ -297,14 +347,26 @@ describe('persistReviewReceipt', () => {
 	});
 
 	it('filename follows YYYY-MM-DD-<id>.json pattern', async () => {
-		const receipt = buildApprovedReceipt({ agent: 'r', scopeContent: 'c', scopeDescription: 'd', checkedAspects: [], validatedClaims: [] });
+		const receipt = buildApprovedReceipt({
+			agent: 'r',
+			scopeContent: 'c',
+			scopeDescription: 'd',
+			checkedAspects: [],
+			validatedClaims: [],
+		});
 		const receiptPath = await persistReviewReceipt(tmpDir, receipt);
 		const filename = path.basename(receiptPath);
 		expect(filename).toMatch(/^\d{4}-\d{2}-\d{2}-[0-9a-f-]{36}\.json$/);
 	});
 
 	it('updates the index.json with the new entry', async () => {
-		const receipt = buildApprovedReceipt({ agent: 'curator', scopeContent: 'code', scopeDescription: 'spec', checkedAspects: ['security'], validatedClaims: [] });
+		const receipt = buildApprovedReceipt({
+			agent: 'curator',
+			scopeContent: 'code',
+			scopeDescription: 'spec',
+			checkedAspects: ['security'],
+			validatedClaims: [],
+		});
 		await persistReviewReceipt(tmpDir, receipt);
 
 		const indexPath = resolveReceiptIndexPath(tmpDir);
@@ -321,9 +383,28 @@ describe('persistReviewReceipt', () => {
 	});
 
 	it('accumulates multiple receipts in the index', async () => {
-		const r1 = buildApprovedReceipt({ agent: 'r', scopeContent: 'c1', scopeDescription: 'd', checkedAspects: [], validatedClaims: [] });
-		const r2 = buildRejectedReceipt({ agent: 'r', scopeContent: 'c2', scopeDescription: 'd', blockingFindings: [], evidenceReferences: [], passConditions: [] });
-		const r3 = buildApprovedReceipt({ agent: 'r', scopeContent: 'c3', scopeDescription: 'd', checkedAspects: [], validatedClaims: [] });
+		const r1 = buildApprovedReceipt({
+			agent: 'r',
+			scopeContent: 'c1',
+			scopeDescription: 'd',
+			checkedAspects: [],
+			validatedClaims: [],
+		});
+		const r2 = buildRejectedReceipt({
+			agent: 'r',
+			scopeContent: 'c2',
+			scopeDescription: 'd',
+			blockingFindings: [],
+			evidenceReferences: [],
+			passConditions: [],
+		});
+		const r3 = buildApprovedReceipt({
+			agent: 'r',
+			scopeContent: 'c3',
+			scopeDescription: 'd',
+			checkedAspects: [],
+			validatedClaims: [],
+		});
 
 		await persistReviewReceipt(tmpDir, r1);
 		await persistReviewReceipt(tmpDir, r2);
@@ -336,7 +417,13 @@ describe('persistReviewReceipt', () => {
 
 	it('creates directory if it does not exist', async () => {
 		const deepDir = path.join(tmpDir, 'nested', 'project');
-		const receipt = buildApprovedReceipt({ agent: 'r', scopeContent: 'c', scopeDescription: 'd', checkedAspects: [], validatedClaims: [] });
+		const receipt = buildApprovedReceipt({
+			agent: 'r',
+			scopeContent: 'c',
+			scopeDescription: 'd',
+			checkedAspects: [],
+			validatedClaims: [],
+		});
 		await persistReviewReceipt(deepDir, receipt);
 
 		const receiptsDir = resolveReceiptsDir(deepDir);
@@ -350,7 +437,13 @@ describe('persistReviewReceipt', () => {
 
 describe('readReceiptById', () => {
 	it('returns the receipt for a known ID', async () => {
-		const receipt = buildApprovedReceipt({ agent: 'reviewer', scopeContent: 'c', scopeDescription: 'd', checkedAspects: ['security'], validatedClaims: [] });
+		const receipt = buildApprovedReceipt({
+			agent: 'reviewer',
+			scopeContent: 'c',
+			scopeDescription: 'd',
+			checkedAspects: ['security'],
+			validatedClaims: [],
+		});
 		await persistReviewReceipt(tmpDir, receipt);
 
 		const found = await readReceiptById(tmpDir, receipt.id);
@@ -384,7 +477,10 @@ describe('readReceiptById', () => {
 		});
 		await persistReviewReceipt(tmpDir, receipt);
 
-		const found = await readReceiptById(tmpDir, receipt.id) as RejectedReviewReceipt;
+		const found = (await readReceiptById(
+			tmpDir,
+			receipt.id,
+		)) as RejectedReviewReceipt;
 		expect(found.blocking_findings).toHaveLength(2);
 		expect(found.blocking_findings[0].severity).toBe('critical');
 	});
@@ -399,9 +495,28 @@ describe('readReceiptsByScopeHash', () => {
 		const contentA = 'scope A diff';
 		const contentB = 'scope B diff';
 
-		const r1 = buildApprovedReceipt({ agent: 'r', scopeContent: contentA, scopeDescription: 'diff', checkedAspects: [], validatedClaims: [] });
-		const r2 = buildApprovedReceipt({ agent: 'r', scopeContent: contentB, scopeDescription: 'diff', checkedAspects: [], validatedClaims: [] });
-		const r3 = buildRejectedReceipt({ agent: 'r', scopeContent: contentA, scopeDescription: 'diff', blockingFindings: [], evidenceReferences: [], passConditions: [] });
+		const r1 = buildApprovedReceipt({
+			agent: 'r',
+			scopeContent: contentA,
+			scopeDescription: 'diff',
+			checkedAspects: [],
+			validatedClaims: [],
+		});
+		const r2 = buildApprovedReceipt({
+			agent: 'r',
+			scopeContent: contentB,
+			scopeDescription: 'diff',
+			checkedAspects: [],
+			validatedClaims: [],
+		});
+		const r3 = buildRejectedReceipt({
+			agent: 'r',
+			scopeContent: contentA,
+			scopeDescription: 'diff',
+			blockingFindings: [],
+			evidenceReferences: [],
+			passConditions: [],
+		});
 
 		await persistReviewReceipt(tmpDir, r1);
 		await persistReviewReceipt(tmpDir, r2);
@@ -411,7 +526,7 @@ describe('readReceiptsByScopeHash', () => {
 		const results = await readReceiptsByScopeHash(tmpDir, hashA);
 
 		expect(results).toHaveLength(2);
-		const ids = results.map(r => r.id);
+		const ids = results.map((r) => r.id);
 		expect(ids).toContain(r1.id);
 		expect(ids).toContain(r3.id);
 		expect(ids).not.toContain(r2.id);
@@ -420,10 +535,23 @@ describe('readReceiptsByScopeHash', () => {
 	it('returns newest first', async () => {
 		const content = 'same scope';
 		// Persist with slight delays to ensure distinct timestamps would be ordered
-		const r1 = buildApprovedReceipt({ agent: 'r', scopeContent: content, scopeDescription: 'd', checkedAspects: [], validatedClaims: [] });
+		const r1 = buildApprovedReceipt({
+			agent: 'r',
+			scopeContent: content,
+			scopeDescription: 'd',
+			checkedAspects: [],
+			validatedClaims: [],
+		});
 		// Manually set an older timestamp on r1
-		(r1 as ApprovedReviewReceipt & { reviewed_at: string }).reviewed_at = '2024-01-01T00:00:00.000Z';
-		const r2 = buildApprovedReceipt({ agent: 'r', scopeContent: content, scopeDescription: 'd', checkedAspects: [], validatedClaims: [] });
+		(r1 as ApprovedReviewReceipt & { reviewed_at: string }).reviewed_at =
+			'2024-01-01T00:00:00.000Z';
+		const r2 = buildApprovedReceipt({
+			agent: 'r',
+			scopeContent: content,
+			scopeDescription: 'd',
+			checkedAspects: [],
+			validatedClaims: [],
+		});
 		r2.reviewed_at = '2024-06-01T00:00:00.000Z';
 
 		await persistReviewReceipt(tmpDir, r1);
@@ -435,7 +563,13 @@ describe('readReceiptsByScopeHash', () => {
 	});
 
 	it('returns empty array when no receipts match hash', async () => {
-		const r = buildApprovedReceipt({ agent: 'r', scopeContent: 'x', scopeDescription: 'd', checkedAspects: [], validatedClaims: [] });
+		const r = buildApprovedReceipt({
+			agent: 'r',
+			scopeContent: 'x',
+			scopeDescription: 'd',
+			checkedAspects: [],
+			validatedClaims: [],
+		});
 		await persistReviewReceipt(tmpDir, r);
 
 		const results = await readReceiptsByScopeHash(tmpDir, 'a'.repeat(64));
@@ -449,11 +583,30 @@ describe('readReceiptsByScopeHash', () => {
 
 describe('readAllReceipts', () => {
 	it('returns all persisted receipts, newest first', async () => {
-		const r1 = buildApprovedReceipt({ agent: 'r', scopeContent: 'c1', scopeDescription: 'd', checkedAspects: [], validatedClaims: [] });
+		const r1 = buildApprovedReceipt({
+			agent: 'r',
+			scopeContent: 'c1',
+			scopeDescription: 'd',
+			checkedAspects: [],
+			validatedClaims: [],
+		});
 		r1.reviewed_at = '2024-01-01T00:00:00.000Z';
-		const r2 = buildRejectedReceipt({ agent: 'r', scopeContent: 'c2', scopeDescription: 'd', blockingFindings: [], evidenceReferences: [], passConditions: [] });
+		const r2 = buildRejectedReceipt({
+			agent: 'r',
+			scopeContent: 'c2',
+			scopeDescription: 'd',
+			blockingFindings: [],
+			evidenceReferences: [],
+			passConditions: [],
+		});
 		r2.reviewed_at = '2024-09-01T00:00:00.000Z';
-		const r3 = buildApprovedReceipt({ agent: 'r', scopeContent: 'c3', scopeDescription: 'd', checkedAspects: [], validatedClaims: [] });
+		const r3 = buildApprovedReceipt({
+			agent: 'r',
+			scopeContent: 'c3',
+			scopeDescription: 'd',
+			checkedAspects: [],
+			validatedClaims: [],
+		});
 		r3.reviewed_at = '2024-06-01T00:00:00.000Z';
 
 		await persistReviewReceipt(tmpDir, r1);
@@ -530,7 +683,10 @@ describe('buildReceiptContextForDrift', () => {
 		});
 
 		// Pass modified content → should be stale
-		const text = buildReceiptContextForDrift([r], 'modified content different from original');
+		const text = buildReceiptContextForDrift(
+			[r],
+			'modified content different from original',
+		);
 		expect(text).toContain('SCOPE-STALE');
 	});
 
@@ -558,20 +714,25 @@ describe('buildReceiptContextForDrift', () => {
 			passConditions: [],
 		});
 
-		const text = buildReceiptContextForDrift([r], 'completely different content');
+		const text = buildReceiptContextForDrift(
+			[r],
+			'completely different content',
+		);
 		expect(text).not.toContain('SCOPE-STALE');
 	});
 
 	it('respects maxChars limit', () => {
 		const receipts: ReviewReceipt[] = [];
 		for (let i = 0; i < 20; i++) {
-			receipts.push(buildApprovedReceipt({
-				agent: 'reviewer',
-				scopeContent: `content-${i}`,
-				scopeDescription: 'diff',
-				checkedAspects: ['security', 'correctness', 'performance', 'testing'],
-				validatedClaims: ['claim a', 'claim b'],
-			}));
+			receipts.push(
+				buildApprovedReceipt({
+					agent: 'reviewer',
+					scopeContent: `content-${i}`,
+					scopeDescription: 'diff',
+					checkedAspects: ['security', 'correctness', 'performance', 'testing'],
+					validatedClaims: ['claim a', 'claim b'],
+				}),
+			);
 		}
 
 		const text = buildReceiptContextForDrift(receipts, undefined, 300);
@@ -579,13 +740,25 @@ describe('buildReceiptContextForDrift', () => {
 	});
 
 	it('includes staleness warning footer', () => {
-		const r = buildApprovedReceipt({ agent: 'r', scopeContent: 'c', scopeDescription: 'd', checkedAspects: [], validatedClaims: [] });
+		const r = buildApprovedReceipt({
+			agent: 'r',
+			scopeContent: 'c',
+			scopeDescription: 'd',
+			checkedAspects: [],
+			validatedClaims: [],
+		});
 		const text = buildReceiptContextForDrift([r]);
 		expect(text).toContain('Stale receipts must not be blindly trusted');
 	});
 
 	it('shows "No caveats recorded" when approved receipt has no caveats', () => {
-		const r = buildApprovedReceipt({ agent: 'r', scopeContent: 'c', scopeDescription: 'd', checkedAspects: ['security'], validatedClaims: [] });
+		const r = buildApprovedReceipt({
+			agent: 'r',
+			scopeContent: 'c',
+			scopeDescription: 'd',
+			checkedAspects: ['security'],
+			validatedClaims: [],
+		});
 		const text = buildReceiptContextForDrift([r]);
 		expect(text).toContain('No caveats recorded');
 	});
@@ -655,8 +828,26 @@ describe('Stale receipt invalidation end-to-end', () => {
 		const content = 'problematic diff';
 		const hash = sha256(content);
 
-		const r1 = buildRejectedReceipt({ agent: 'reviewer', scopeContent: content, scopeDescription: 'diff', blockingFindings: [{ location: 'x.ts', summary: 'bug 1', severity: 'high' }], evidenceReferences: [], passConditions: ['fix bug 1'] });
-		const r2 = buildRejectedReceipt({ agent: 'critic', scopeContent: content, scopeDescription: 'diff', blockingFindings: [{ location: 'y.ts', summary: 'bug 2', severity: 'medium' }], evidenceReferences: [], passConditions: ['fix bug 2'] });
+		const r1 = buildRejectedReceipt({
+			agent: 'reviewer',
+			scopeContent: content,
+			scopeDescription: 'diff',
+			blockingFindings: [
+				{ location: 'x.ts', summary: 'bug 1', severity: 'high' },
+			],
+			evidenceReferences: [],
+			passConditions: ['fix bug 1'],
+		});
+		const r2 = buildRejectedReceipt({
+			agent: 'critic',
+			scopeContent: content,
+			scopeDescription: 'diff',
+			blockingFindings: [
+				{ location: 'y.ts', summary: 'bug 2', severity: 'medium' },
+			],
+			evidenceReferences: [],
+			passConditions: ['fix bug 2'],
+		});
 
 		await persistReviewReceipt(tmpDir, r1);
 		await persistReviewReceipt(tmpDir, r2);

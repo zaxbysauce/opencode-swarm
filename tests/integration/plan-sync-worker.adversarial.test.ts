@@ -10,13 +10,19 @@
  * These tests verify the worker remains stable under adversarial conditions.
  */
 
-import { describe, it, expect, beforeEach, afterEach } from 'bun:test';
-import { mkdtempSync, rmSync, mkdirSync, writeFileSync, unlinkSync } from 'node:fs';
+import { afterEach, beforeEach, describe, expect, it } from 'bun:test';
+import {
+	mkdirSync,
+	mkdtempSync,
+	rmSync,
+	unlinkSync,
+	writeFileSync,
+} from 'node:fs';
 import { tmpdir } from 'node:os';
 import * as path from 'node:path';
 
 import { PlanSyncWorker } from '../../src/background/plan-sync-worker';
-import { Plan, PlanSchema } from '../../src/config/plan-schema';
+import { type Plan, PlanSchema } from '../../src/config/plan-schema';
 
 describe('ADVERSARIAL INTEGRATION: Plan Sync Worker Attack Vectors', () => {
 	let tempDir: string;
@@ -116,7 +122,7 @@ describe('ADVERSARIAL INTEGRATION: Plan Sync Worker Attack Vectors', () => {
 				writePromises.push(
 					(async () => {
 						writeRawPlanJson(JSON.stringify({ attack: `storm-${i}` }));
-					})()
+					})(),
 				);
 			}
 			await Promise.all(writePromises);
@@ -196,7 +202,7 @@ describe('ADVERSARIAL INTEGRATION: Plan Sync Worker Attack Vectors', () => {
 					(async () => {
 						writeRawPlanJson(JSON.stringify({ attack: `json-${i}` }));
 						await Bun.write(planMdPath, `# Attack ${i}\n`);
-					})()
+					})(),
 				);
 			}
 			await Promise.all(concurrentWrites);
@@ -357,7 +363,7 @@ describe('ADVERSARIAL INTEGRATION: Plan Sync Worker Attack Vectors', () => {
 				JSON.stringify({
 					title: 'Missing required fields',
 					// Missing schema_version, swarm, current_phase, phases
-				})
+				}),
 			);
 
 			await wait(300);
@@ -386,7 +392,8 @@ describe('ADVERSARIAL INTEGRATION: Plan Sync Worker Attack Vectors', () => {
 
 			// ATTACK: Write binary data (null bytes, non-UTF8)
 			const binaryData = Buffer.from([
-				0x00, 0x01, 0x02, 0xff, 0xfe, 0xfd, 0x7b, 0x22, 0x74, 0x65, 0x73, 0x74, 0x22,
+				0x00, 0x01, 0x02, 0xff, 0xfe, 0xfd, 0x7b, 0x22, 0x74, 0x65, 0x73, 0x74,
+				0x22,
 			]);
 			writeRawPlanJson(binaryData);
 
@@ -424,14 +431,14 @@ describe('ADVERSARIAL INTEGRATION: Plan Sync Worker Attack Vectors', () => {
 					phases: [{ id: 1, name: 'P1', status: 'pending', tasks: [] }],
 					__proto__: { polluted: true },
 					constructor: { prototype: { polluted: true } },
-				})
+				}),
 			);
 
 			await wait(300);
 
 			// SAFEGUARD: Worker survives, prototype not polluted
 			expect(worker.getStatus()).toBe('running');
-			expect({}.constructor.prototype.hasOwnProperty('polluted')).toBe(false);
+			expect(Object.hasOwn({}.constructor.prototype, 'polluted')).toBe(false);
 			worker.stop();
 			worker.dispose();
 		});
@@ -593,7 +600,9 @@ describe('ADVERSARIAL INTEGRATION: Plan Sync Worker Attack Vectors', () => {
 			// ATTACK: Write during poll check window
 			for (let i = 0; i < 20; i++) {
 				// Write exactly when poll might be checking
-				writeRawPlanJson(JSON.stringify({ attack: `race-${i}`, padding: 'x'.repeat(i * 100) }));
+				writeRawPlanJson(
+					JSON.stringify({ attack: `race-${i}`, padding: 'x'.repeat(i * 100) }),
+				);
 				await wait(15); // < poll interval
 			}
 

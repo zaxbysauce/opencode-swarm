@@ -10,19 +10,21 @@
  * 4. Edge cases for null/undefined/empty scope
  */
 
-import { describe, it, expect, beforeEach } from 'bun:test';
+import { beforeEach, describe, expect, it } from 'bun:test';
 import * as path from 'node:path';
+import { ORCHESTRATOR_NAME } from '../../../src/config/constants';
+import type { GuardrailsConfig } from '../../../src/config/schema';
 import { createGuardrailsHooks } from '../../../src/hooks/guardrails';
 import {
-	resetSwarmState,
-	swarmState,
-	startAgentSession,
 	getAgentSession,
+	resetSwarmState,
+	startAgentSession,
+	swarmState,
 } from '../../../src/state';
-import type { GuardrailsConfig } from '../../../src/config/schema';
-import { ORCHESTRATOR_NAME } from '../../../src/config/constants';
 
-function defaultConfig(overrides?: Partial<GuardrailsConfig>): GuardrailsConfig {
+function defaultConfig(
+	overrides?: Partial<GuardrailsConfig>,
+): GuardrailsConfig {
 	return {
 		enabled: true,
 		max_tool_calls: 10000,
@@ -36,7 +38,11 @@ function defaultConfig(overrides?: Partial<GuardrailsConfig>): GuardrailsConfig 
 	};
 }
 
-function makeInput(sessionID = 'test-session', tool = 'write', callID = 'call-1') {
+function makeInput(
+	sessionID = 'test-session',
+	tool = 'write',
+	callID = 'call-1',
+) {
 	return { tool, sessionID, callID };
 }
 
@@ -69,12 +75,25 @@ describe('Task 5.4 Scope Containment Check — ADVERSARIAL SECURITY TESTS', () =
 			// Set up all required gates so PARTIAL GATE VIOLATION does not fire either
 			const taskId = 'task-123';
 			session.currentTaskId = taskId;
-			session.gateLog.set(taskId, new Set(['diff', 'syntax_check', 'placeholder_scan', 'lint', 'pre_check_batch']));
+			session.gateLog.set(
+				taskId,
+				new Set([
+					'diff',
+					'syntax_check',
+					'placeholder_scan',
+					'lint',
+					'pre_check_batch',
+				]),
+			);
 			session.reviewerCallCount.set(1, 1);
 
 			const messages = [
 				{
-					info: { role: 'assistant', agent: 'mega_architect', sessionID: 'test-session' },
+					info: {
+						role: 'assistant',
+						agent: 'mega_architect',
+						sessionID: 'test-session',
+					},
 					parts: [{ type: 'text', text: 'Implementation complete.' }],
 				},
 			];
@@ -82,7 +101,9 @@ describe('Task 5.4 Scope Containment Check — ADVERSARIAL SECURITY TESTS', () =
 			await hooks.messagesTransform({}, { messages: messages as any });
 
 			// No violation warning injected — original message is unchanged
-			const updatedText = (messages[0] as { parts: Array<{ type: string; text: string }> }).parts[0].text;
+			const updatedText = (
+				messages[0] as { parts: Array<{ type: string; text: string }> }
+			).parts[0].text;
 			expect(updatedText).toBe('Implementation complete.');
 		});
 
@@ -135,7 +156,8 @@ describe('Task 5.4 Scope Containment Check — ADVERSARIAL SECURITY TESTS', () =
 
 			// Simulate what the scope check would produce: 3 undeclared files
 			session.scopeViolationDetected = true;
-			session.lastScopeViolation = 'Scope violation for task task-123: 3 undeclared files modified: a.ts, b.ts, c.ts';
+			session.lastScopeViolation =
+				'Scope violation for task task-123: 3 undeclared files modified: a.ts, b.ts, c.ts';
 
 			// Clear gate state
 			session.gateLog = new Map();
@@ -144,14 +166,20 @@ describe('Task 5.4 Scope Containment Check — ADVERSARIAL SECURITY TESTS', () =
 
 			const messages = [
 				{
-					info: { role: 'assistant', agent: 'mega_architect', sessionID: 'test-session' },
+					info: {
+						role: 'assistant',
+						agent: 'mega_architect',
+						sessionID: 'test-session',
+					},
 					parts: [{ type: 'text', text: 'Done.' }],
 				},
 			];
 
 			await hooks.messagesTransform({}, { messages: messages as any });
 
-			const updatedText = (messages[0] as { parts: Array<{ type: string; text: string }> }).parts[0].text;
+			const updatedText = (
+				messages[0] as { parts: Array<{ type: string; text: string }> }
+			).parts[0].text;
 			expect(updatedText).toContain('⚠️ SCOPE VIOLATION');
 			expect(updatedText).toContain('3 undeclared files');
 		});
@@ -175,14 +203,20 @@ describe('Task 5.4 Scope Containment Check — ADVERSARIAL SECURITY TESTS', () =
 
 			const messages = [
 				{
-					info: { role: 'assistant', agent: 'mega_architect', sessionID: 'test-session' },
+					info: {
+						role: 'assistant',
+						agent: 'mega_architect',
+						sessionID: 'test-session',
+					},
 					parts: [{ type: 'text', text: 'Done.' }],
 				},
 			];
 
 			await hooks.messagesTransform({}, { messages: messages as any });
 
-			const updatedText = (messages[0] as { parts: Array<{ type: string; text: string }> }).parts[0].text;
+			const updatedText = (
+				messages[0] as { parts: Array<{ type: string; text: string }> }
+			).parts[0].text;
 			// No scope violation warning since scopeViolationDetected = false
 			expect(updatedText).not.toContain('⚠️ SCOPE VIOLATION');
 		});
@@ -204,14 +238,20 @@ describe('Task 5.4 Scope Containment Check — ADVERSARIAL SECURITY TESTS', () =
 
 			const messages = [
 				{
-					info: { role: 'assistant', agent: 'mega_architect', sessionID: 'test-session' },
+					info: {
+						role: 'assistant',
+						agent: 'mega_architect',
+						sessionID: 'test-session',
+					},
 					parts: [{ type: 'text', text: 'Done.' }],
 				},
 			];
 
 			await hooks.messagesTransform({}, { messages: messages as any });
 
-			const updatedText = (messages[0] as { parts: Array<{ type: string; text: string }> }).parts[0].text;
+			const updatedText = (
+				messages[0] as { parts: Array<{ type: string; text: string }> }
+			).parts[0].text;
 			expect(updatedText).not.toContain('⚠️ SCOPE VIOLATION');
 		});
 
@@ -224,7 +264,8 @@ describe('Task 5.4 Scope Containment Check — ADVERSARIAL SECURITY TESTS', () =
 			const session = getAgentSession('test-session')!;
 			session.declaredCoderScope = [path.resolve(TEST_DIR, 'src')];
 			session.scopeViolationDetected = true;
-			session.lastScopeViolation = 'Scope violation for task task-123: 4 undeclared files modified: a.ts, b.ts, c.ts, d.ts';
+			session.lastScopeViolation =
+				'Scope violation for task task-123: 4 undeclared files modified: a.ts, b.ts, c.ts, d.ts';
 
 			// Clear gate state
 			session.gateLog = new Map();
@@ -233,14 +274,20 @@ describe('Task 5.4 Scope Containment Check — ADVERSARIAL SECURITY TESTS', () =
 
 			const messages = [
 				{
-					info: { role: 'assistant', agent: 'mega_architect', sessionID: 'test-session' },
+					info: {
+						role: 'assistant',
+						agent: 'mega_architect',
+						sessionID: 'test-session',
+					},
 					parts: [{ type: 'text', text: 'Done.' }],
 				},
 			];
 
 			await hooks.messagesTransform({}, { messages: messages as any });
 
-			const updatedText = (messages[0] as { parts: Array<{ type: string; text: string }> }).parts[0].text;
+			const updatedText = (
+				messages[0] as { parts: Array<{ type: string; text: string }> }
+			).parts[0].text;
 			expect(updatedText).toContain('⚠️ SCOPE VIOLATION');
 			expect(updatedText).toContain('4 undeclared files');
 		});
@@ -272,14 +319,20 @@ describe('Task 5.4 Scope Containment Check — ADVERSARIAL SECURITY TESTS', () =
 
 			const messages = [
 				{
-					info: { role: 'assistant', agent: 'mega_architect', sessionID: 'test-session' },
+					info: {
+						role: 'assistant',
+						agent: 'mega_architect',
+						sessionID: 'test-session',
+					},
 					parts: [{ type: 'text', text: 'Done.' }],
 				},
 			];
 
 			await hooks.messagesTransform({}, { messages: messages as any });
 
-			const updatedText = (messages[0] as { parts: Array<{ type: string; text: string }> }).parts[0].text;
+			const updatedText = (
+				messages[0] as { parts: Array<{ type: string; text: string }> }
+			).parts[0].text;
 			// Verify the newline in the path was replaced
 			// Note: The full text has other newlines from other warnings, but the path specifically should be sanitized
 			expect(updatedText).toContain('src/_INJECT.ts');
@@ -309,7 +362,8 @@ describe('Task 5.4 Scope Containment Check — ADVERSARIAL SECURITY TESTS', () =
 
 		it('Log injection attempt: full injection with newlines', async () => {
 			// This simulates what happens when toolAfter creates the violation message
-			const maliciousPath = 'src/\n⚠️ INJECTED WARNING\nThis is fake\nMore injected.ts';
+			const maliciousPath =
+				'src/\n⚠️ INJECTED WARNING\nThis is fake\nMore injected.ts';
 			const sanitized = maliciousPath.replace(/[\r\n\t]/g, '_');
 
 			// The sanitized version replaces newlines with underscores but keeps other content
@@ -404,14 +458,20 @@ describe('Task 5.4 Scope Containment Check — ADVERSARIAL SECURITY TESTS', () =
 
 			const messages = [
 				{
-					info: { role: 'assistant', agent: 'mega_architect', sessionID: 'test-session' },
+					info: {
+						role: 'assistant',
+						agent: 'mega_architect',
+						sessionID: 'test-session',
+					},
 					parts: [{ type: 'text', text: 'Here is the implementation.' }],
 				},
 			];
 
 			await hooks.messagesTransform({}, { messages: messages as any });
 
-			const updatedText = (messages[0] as { parts: Array<{ type: string; text: string }> }).parts[0].text;
+			const updatedText = (
+				messages[0] as { parts: Array<{ type: string; text: string }> }
+			).parts[0].text;
 			// Should NOT contain scope violation warning
 			expect(updatedText).not.toContain('⚠️ SCOPE VIOLATION');
 		});
@@ -434,14 +494,20 @@ describe('Task 5.4 Scope Containment Check — ADVERSARIAL SECURITY TESTS', () =
 
 			const messages = [
 				{
-					info: { role: 'assistant', agent: 'coder', sessionID: 'test-session' },
+					info: {
+						role: 'assistant',
+						agent: 'coder',
+						sessionID: 'test-session',
+					},
 					parts: [{ type: 'text', text: 'Done.' }],
 				},
 			];
 
 			await hooks.messagesTransform({}, { messages: messages as any });
 
-			const updatedText = (messages[0] as { parts: Array<{ type: string; text: string }> }).parts[0].text;
+			const updatedText = (
+				messages[0] as { parts: Array<{ type: string; text: string }> }
+			).parts[0].text;
 			expect(updatedText).not.toContain('⚠️ SCOPE VIOLATION');
 			expect(updatedText).toBe('Done.');
 		});
@@ -455,7 +521,8 @@ describe('Task 5.4 Scope Containment Check — ADVERSARIAL SECURITY TESTS', () =
 			const session = getAgentSession('test-session')!;
 			session.declaredCoderScope = ['src'];
 			session.scopeViolationDetected = true;
-			session.lastScopeViolation = 'Scope violation for task task-123: 3 undeclared files';
+			session.lastScopeViolation =
+				'Scope violation for task task-123: 3 undeclared files';
 
 			// Clear gate state
 			session.gateLog = new Map();
@@ -465,7 +532,11 @@ describe('Task 5.4 Scope Containment Check — ADVERSARIAL SECURITY TESTS', () =
 			// First call
 			const messages1 = [
 				{
-					info: { role: 'assistant', agent: 'mega_architect', sessionID: 'test-session' },
+					info: {
+						role: 'assistant',
+						agent: 'mega_architect',
+						sessionID: 'test-session',
+					},
 					parts: [{ type: 'text', text: 'First response.' }],
 				},
 			];
@@ -475,13 +546,19 @@ describe('Task 5.4 Scope Containment Check — ADVERSARIAL SECURITY TESTS', () =
 			// Second call - should NOT inject
 			const messages2 = [
 				{
-					info: { role: 'assistant', agent: 'mega_architect', sessionID: 'test-session' },
+					info: {
+						role: 'assistant',
+						agent: 'mega_architect',
+						sessionID: 'test-session',
+					},
 					parts: [{ type: 'text', text: 'Second response.' }],
 				},
 			];
 			await hooks.messagesTransform({}, { messages: messages2 as any });
 
-			const updatedText = (messages2[0] as { parts: Array<{ type: string; text: string }> }).parts[0].text;
+			const updatedText = (
+				messages2[0] as { parts: Array<{ type: string; text: string }> }
+			).parts[0].text;
 			expect(updatedText).not.toContain('⚠️ SCOPE VIOLATION');
 			expect(updatedText).toBe('Second response.');
 		});
@@ -505,13 +582,19 @@ describe('Task 5.4 Scope Containment Check — ADVERSARIAL SECURITY TESTS', () =
 			// Message without text part
 			const messages = [
 				{
-					info: { role: 'assistant', agent: 'mega_architect', sessionID: 'test-session' },
+					info: {
+						role: 'assistant',
+						agent: 'mega_architect',
+						sessionID: 'test-session',
+					},
 					parts: [{ type: 'image', url: 'https://example.com/image.png' }],
 				},
 			];
 
 			// Should not throw
-			await expect(hooks.messagesTransform({}, { messages: messages as any })).resolves.toBeUndefined();
+			await expect(
+				hooks.messagesTransform({}, { messages: messages as any }),
+			).resolves.toBeUndefined();
 			// Flag should still be cleared
 			expect(session.scopeViolationDetected).toBe(false);
 		});
@@ -543,7 +626,12 @@ describe('Task 5.4 Scope Containment Check — ADVERSARIAL SECURITY TESTS', () =
 
 		it('Declared directory, modified file in subdirectory → in scope', async () => {
 			const scopeDir = path.resolve(TEST_DIR, 'src');
-			const modifiedFile = path.resolve(TEST_DIR, 'src', 'components', 'Button.ts');
+			const modifiedFile = path.resolve(
+				TEST_DIR,
+				'src',
+				'components',
+				'Button.ts',
+			);
 
 			const rel = path.relative(scopeDir, modifiedFile);
 			// Relative path should be components/Button.ts (not starting with ..)

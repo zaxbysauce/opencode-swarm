@@ -1,5 +1,11 @@
-import { describe, it, expect, beforeEach, afterEach, mock } from 'bun:test';
-import { safeHook, composeHandlers, readSwarmFileAsync, estimateTokens, validateSwarmPath } from '../../../src/hooks/utils';
+import { afterEach, beforeEach, describe, expect, it, mock } from 'bun:test';
+import {
+	composeHandlers,
+	estimateTokens,
+	readSwarmFileAsync,
+	safeHook,
+	validateSwarmPath,
+} from '../../../src/hooks/utils';
 
 // Mock logger module at file scope so warn() bypasses DEBUG gate
 mock.module('../../../src/utils/logger', () => ({
@@ -7,8 +13,8 @@ mock.module('../../../src/utils/logger', () => ({
 	log: (...args: any[]) => console.log(...args),
 	error: (...args: any[]) => console.error(...args),
 }));
-import { mkdtemp, writeFile, unlink, mkdir } from 'node:fs/promises';
-import { rm } from 'node:fs/promises';
+
+import { mkdir, mkdtemp, rm, unlink, writeFile } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 
@@ -190,16 +196,25 @@ describe('Hook Utilities', () => {
 		});
 
 		it('if one handler throws, output from other handlers is preserved', async () => {
-			const handler1 = async (input: string, output: { a?: string; c?: string }) => {
+			const handler1 = async (
+				input: string,
+				output: { a?: string; c?: string },
+			) => {
 				output.a = 'from-handler-1';
 				throw new Error('Handler 1 error');
 			};
 
-			const handler2 = async (input: string, output: { a?: string; c?: string }) => {
+			const handler2 = async (
+				input: string,
+				output: { a?: string; c?: string },
+			) => {
 				throw new Error('Handler 2 error');
 			};
 
-			const handler3 = async (input: string, output: { a?: string; c?: string }) => {
+			const handler3 = async (
+				input: string,
+				output: { a?: string; c?: string },
+			) => {
 				output.c = 'from-handler-3';
 			};
 
@@ -265,7 +280,10 @@ describe('Hook Utilities', () => {
 
 		it('returns null on permission/other errors', async () => {
 			// Try to read from a directory that doesn't exist
-			const result = await readSwarmFileAsync('/nonexistent/directory', 'test.txt');
+			const result = await readSwarmFileAsync(
+				'/nonexistent/directory',
+				'test.txt',
+			);
 
 			expect(result).toBeNull();
 		});
@@ -333,41 +351,49 @@ describe('Hook Utilities', () => {
 			await writeFile(testFile, 'test content');
 
 			const result = validateSwarmPath(tempDir, 'test.txt');
-			
+
 			expect(result).toBe(testFile);
 		});
 
 		it('rejects filenames with null bytes', () => {
-			expect(() => validateSwarmPath(tempDir, 'test\0file.txt'))
-				.toThrow('Invalid filename: contains null bytes');
+			expect(() => validateSwarmPath(tempDir, 'test\0file.txt')).toThrow(
+				'Invalid filename: contains null bytes',
+			);
 		});
 
 		it('rejects path traversal attempts with ../', () => {
-			expect(() => validateSwarmPath(tempDir, '../outside.txt'))
-				.toThrow('Invalid filename: path traversal detected');
+			expect(() => validateSwarmPath(tempDir, '../outside.txt')).toThrow(
+				'Invalid filename: path traversal detected',
+			);
 		});
 
 		it('rejects path traversal attempts with ..\\', () => {
-			expect(() => validateSwarmPath(tempDir, '..\\outside.txt'))
-				.toThrow('Invalid filename: path traversal detected');
+			expect(() => validateSwarmPath(tempDir, '..\\outside.txt')).toThrow(
+				'Invalid filename: path traversal detected',
+			);
 		});
 
 		it('rejects path traversal attempts with directory traversal', () => {
-			expect(() => validateSwarmPath(tempDir, 'subdir/../../../outside.txt'))
-				.toThrow('Invalid filename: path traversal detected');
+			expect(() =>
+				validateSwarmPath(tempDir, 'subdir/../../../outside.txt'),
+			).toThrow('Invalid filename: path traversal detected');
 		});
 
 		it('rejects absolute paths', () => {
-			const absolutePath = process.platform === 'win32' ? 'C:\\windows\\system32\\cmd.exe' : '/etc/passwd';
-			expect(() => validateSwarmPath(tempDir, absolutePath))
-				.toThrow('Invalid filename: path escapes .swarm directory');
+			const absolutePath =
+				process.platform === 'win32'
+					? 'C:\\windows\\system32\\cmd.exe'
+					: '/etc/passwd';
+			expect(() => validateSwarmPath(tempDir, absolutePath)).toThrow(
+				'Invalid filename: path escapes .swarm directory',
+			);
 		});
 
 		it('handles normalized paths correctly', async () => {
 			const swarmDir = join(tempDir, '.swarm');
 			const subdir = join(swarmDir, 'subdir');
 			const testFile = join(subdir, 'test.txt');
-			
+
 			// Create the directory structure
 			await mkdir(subdir, { recursive: true });
 			await writeFile(testFile, 'test content');

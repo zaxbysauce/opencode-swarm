@@ -1,14 +1,19 @@
-import { describe, test, expect, beforeEach, afterEach } from 'bun:test';
+import { afterEach, beforeEach, describe, expect, test } from 'bun:test';
 import * as fs from 'node:fs';
-import * as path from 'node:path';
 import * as os from 'node:os';
-
-import { resetSwarmState, ensureAgentSession, recordPhaseAgentDispatch, swarmState } from '../../../src/state';
-
+import * as path from 'node:path';
 import type { ToolContext } from '@opencode-ai/plugin';
+import {
+	ensureAgentSession,
+	recordPhaseAgentDispatch,
+	resetSwarmState,
+	swarmState,
+} from '../../../src/state';
 
 // Import the tool after setting up environment
-const { phase_complete, executePhaseComplete } = await import('../../../src/tools/phase-complete');
+const { phase_complete, executePhaseComplete } = await import(
+	'../../../src/tools/phase-complete'
+);
 
 /**
  * Helper function to write a valid retro bundle for a phase
@@ -18,7 +23,12 @@ function writeRetroBundle(
 	phaseNumber: number,
 	verdict: 'pass' | 'fail' = 'pass',
 ): void {
-	const retroDir = path.join(directory, '.swarm', 'evidence', `retro-${phaseNumber}`);
+	const retroDir = path.join(
+		directory,
+		'.swarm',
+		'evidence',
+		`retro-${phaseNumber}`,
+	);
 	fs.mkdirSync(retroDir, { recursive: true });
 
 	const retroBundle = {
@@ -154,9 +164,12 @@ describe('phase_complete tool', () => {
 	describe('argument validation', () => {
 		test('returns error for invalid phase (NaN)', async () => {
 			ensureAgentSession('sess1');
-			const result = await phase_complete.execute({ phase: NaN, sessionID: 'sess1' });
+			const result = await phase_complete.execute({
+				phase: NaN,
+				sessionID: 'sess1',
+			});
 			const parsed = JSON.parse(result);
-			
+
 			expect(parsed.success).toBe(false);
 			expect(parsed.message).toBe('Invalid phase number');
 			expect(parsed.warnings).toContain('Phase must be a positive number');
@@ -164,18 +177,24 @@ describe('phase_complete tool', () => {
 
 		test('returns error for invalid phase (0)', async () => {
 			ensureAgentSession('sess1');
-			const result = await phase_complete.execute({ phase: 0, sessionID: 'sess1' });
+			const result = await phase_complete.execute({
+				phase: 0,
+				sessionID: 'sess1',
+			});
 			const parsed = JSON.parse(result);
-			
+
 			expect(parsed.success).toBe(false);
 			expect(parsed.message).toBe('Invalid phase number');
 		});
 
 		test('returns error for invalid phase (negative)', async () => {
 			ensureAgentSession('sess1');
-			const result = await phase_complete.execute({ phase: -1, sessionID: 'sess1' });
+			const result = await phase_complete.execute({
+				phase: -1,
+				sessionID: 'sess1',
+			});
 			const parsed = JSON.parse(result);
-			
+
 			expect(parsed.success).toBe(false);
 			expect(parsed.message).toBe('Invalid phase number');
 		});
@@ -183,7 +202,7 @@ describe('phase_complete tool', () => {
 		test('returns error when sessionID is missing', async () => {
 			const result = await phase_complete.execute({ phase: 1 });
 			const parsed = JSON.parse(result);
-			
+
 			expect(parsed.success).toBe(false);
 			expect(parsed.message).toBe('Session ID is required');
 		});
@@ -200,17 +219,20 @@ describe('phase_complete tool', () => {
 						enabled: false,
 						required_agents: ['coder'],
 						require_docs: false,
-						policy: 'enforce'
-					}
-				})
+						policy: 'enforce',
+					},
+				}),
 			);
-			
+
 			ensureAgentSession('sess1');
 			recordPhaseAgentDispatch('sess1', 'coder');
-			
-			const result = await phase_complete.execute({ phase: 1, sessionID: 'sess1' });
+
+			const result = await phase_complete.execute({
+				phase: 1,
+				sessionID: 'sess1',
+			});
 			const parsed = JSON.parse(result);
-			
+
 			expect(parsed.success).toBe(true);
 			expect(parsed.status).toBe('disabled');
 			expect(parsed.message).toContain('enforcement disabled');
@@ -223,10 +245,13 @@ describe('phase_complete tool', () => {
 			// and require_docs: true, policy: 'enforce'
 			ensureAgentSession('sess1');
 			// Only dispatch coder, missing reviewer, test_engineer, docs
-			
-			const result = await phase_complete.execute({ phase: 1, sessionID: 'sess1' });
+
+			const result = await phase_complete.execute({
+				phase: 1,
+				sessionID: 'sess1',
+			});
 			const parsed = JSON.parse(result);
-			
+
 			expect(parsed.success).toBe(false);
 			expect(parsed.status).toBe('incomplete');
 			expect(parsed.message).toContain('missing required agents');
@@ -241,20 +266,25 @@ describe('phase_complete tool', () => {
 			fs.mkdirSync(path.join(tempDir, '.opencode'), { recursive: true });
 			fs.writeFileSync(
 				path.join(tempDir, '.opencode', 'opencode-swarm.json'),
-				JSON.stringify({phase_complete: {
-							enabled: true,
-							required_agents: [],
-							require_docs: false,
-							policy: 'enforce'
-						}})
+				JSON.stringify({
+					phase_complete: {
+						enabled: true,
+						required_agents: [],
+						require_docs: false,
+						policy: 'enforce',
+					},
+				}),
 			);
-			
+
 			ensureAgentSession('sess1');
 			// No agents needed for empty required_agents
-			
-			const result = await phase_complete.execute({ phase: 1, sessionID: 'sess1' });
+
+			const result = await phase_complete.execute({
+				phase: 1,
+				sessionID: 'sess1',
+			});
 			const parsed = JSON.parse(result);
-			
+
 			expect(parsed.success).toBe(true);
 			expect(parsed.status).toBe('success');
 		});
@@ -271,22 +301,31 @@ describe('phase_complete tool', () => {
 						enabled: true,
 						required_agents: ['coder'],
 						require_docs: false,
-						policy: 'warn'
-					}
-				})
+						policy: 'warn',
+					},
+				}),
 			);
-			
+
 			ensureAgentSession('sess1');
 			// Don't dispatch coder - will be warned but succeed
-			
-			const result = await phase_complete.execute({ phase: 1, sessionID: 'sess1' });
+
+			const result = await phase_complete.execute({
+				phase: 1,
+				sessionID: 'sess1',
+			});
 			const parsed = JSON.parse(result);
-			
+
 			expect(parsed.success).toBe(true);
 			expect(parsed.status).toBe('warned');
 			expect(parsed.warnings.length).toBeGreaterThan(0);
-			expect(parsed.warnings.some((w: string) => w.includes('missing required agents'))).toBe(true);
-			expect(parsed.warnings.some((w: string) => w.includes('coder'))).toBe(true);
+			expect(
+				parsed.warnings.some((w: string) =>
+					w.includes('missing required agents'),
+				),
+			).toBe(true);
+			expect(parsed.warnings.some((w: string) => w.includes('coder'))).toBe(
+				true,
+			);
 		});
 	});
 
@@ -295,20 +334,25 @@ describe('phase_complete tool', () => {
 			fs.mkdirSync(path.join(tempDir, '.opencode'), { recursive: true });
 			fs.writeFileSync(
 				path.join(tempDir, '.opencode', 'opencode-swarm.json'),
-				JSON.stringify({phase_complete: {
-							enabled: true,
-							required_agents: ['coder'],
-							require_docs: false,
-							policy: 'enforce'
-						}})
+				JSON.stringify({
+					phase_complete: {
+						enabled: true,
+						required_agents: ['coder'],
+						require_docs: false,
+						policy: 'enforce',
+					},
+				}),
 			);
-			
+
 			ensureAgentSession('sess1');
 			recordPhaseAgentDispatch('sess1', 'coder');
-			
-			const result = await phase_complete.execute({ phase: 1, sessionID: 'sess1' });
+
+			const result = await phase_complete.execute({
+				phase: 1,
+				sessionID: 'sess1',
+			});
 			const parsed = JSON.parse(result);
-			
+
 			expect(parsed.success).toBe(true);
 			expect(parsed.status).toBe('success');
 			expect(parsed.agentsMissing).toEqual([]);
@@ -318,21 +362,26 @@ describe('phase_complete tool', () => {
 			fs.mkdirSync(path.join(tempDir, '.opencode'), { recursive: true });
 			fs.writeFileSync(
 				path.join(tempDir, '.opencode', 'opencode-swarm.json'),
-				JSON.stringify({phase_complete: {
-							enabled: true,
-							required_agents: ['coder', 'reviewer'],
-							require_docs: false,
-							policy: 'enforce'
-						}})
+				JSON.stringify({
+					phase_complete: {
+						enabled: true,
+						required_agents: ['coder', 'reviewer'],
+						require_docs: false,
+						policy: 'enforce',
+					},
+				}),
 			);
-			
+
 			ensureAgentSession('sess1');
 			recordPhaseAgentDispatch('sess1', 'coder');
 			// Missing reviewer
-			
-			const result = await phase_complete.execute({ phase: 1, sessionID: 'sess1' });
+
+			const result = await phase_complete.execute({
+				phase: 1,
+				sessionID: 'sess1',
+			});
 			const parsed = JSON.parse(result);
-			
+
 			expect(parsed.success).toBe(false);
 			expect(parsed.status).toBe('incomplete');
 			expect(parsed.agentsMissing).toContain('reviewer');
@@ -347,10 +396,13 @@ describe('phase_complete tool', () => {
 			recordPhaseAgentDispatch('sess1', 'reviewer');
 			recordPhaseAgentDispatch('sess1', 'test_engineer');
 			// Missing docs
-			
-			const result = await phase_complete.execute({ phase: 1, sessionID: 'sess1' });
+
+			const result = await phase_complete.execute({
+				phase: 1,
+				sessionID: 'sess1',
+			});
 			const parsed = JSON.parse(result);
-			
+
 			expect(parsed.success).toBe(false);
 			expect(parsed.agentsMissing).toContain('docs');
 		});
@@ -359,21 +411,26 @@ describe('phase_complete tool', () => {
 			fs.mkdirSync(path.join(tempDir, '.opencode'), { recursive: true });
 			fs.writeFileSync(
 				path.join(tempDir, '.opencode', 'opencode-swarm.json'),
-				JSON.stringify({phase_complete: {
-							enabled: true,
-							required_agents: ['coder'],
-							require_docs: false,
-							policy: 'enforce'
-						}})
+				JSON.stringify({
+					phase_complete: {
+						enabled: true,
+						required_agents: ['coder'],
+						require_docs: false,
+						policy: 'enforce',
+					},
+				}),
 			);
-			
+
 			ensureAgentSession('sess1');
 			recordPhaseAgentDispatch('sess1', 'coder');
 			// Missing docs should NOT cause failure
-			
-			const result = await phase_complete.execute({ phase: 1, sessionID: 'sess1' });
+
+			const result = await phase_complete.execute({
+				phase: 1,
+				sessionID: 'sess1',
+			});
 			const parsed = JSON.parse(result);
-			
+
 			expect(parsed.success).toBe(true);
 			expect(parsed.agentsMissing).not.toContain('docs');
 		});
@@ -384,27 +441,32 @@ describe('phase_complete tool', () => {
 			fs.mkdirSync(path.join(tempDir, '.opencode'), { recursive: true });
 			fs.writeFileSync(
 				path.join(tempDir, '.opencode', 'opencode-swarm.json'),
-				JSON.stringify({phase_complete: {
-							enabled: true,
-							required_agents: [],
-							require_docs: false,
-							policy: 'enforce'
-						}})
+				JSON.stringify({
+					phase_complete: {
+						enabled: true,
+						required_agents: [],
+						require_docs: false,
+						policy: 'enforce',
+					},
+				}),
 			);
-			
+
 			ensureAgentSession('sess1');
 			recordPhaseAgentDispatch('sess1', 'coder');
 			recordPhaseAgentDispatch('sess1', 'reviewer');
-			
+
 			// Verify state before
 			const sessionBefore = swarmState.agentSessions.get('sess1');
 			expect(sessionBefore?.phaseAgentsDispatched.size).toBe(2);
-			
-			const result = await phase_complete.execute({ phase: 1, sessionID: 'sess1' });
+
+			const result = await phase_complete.execute({
+				phase: 1,
+				sessionID: 'sess1',
+			});
 			const parsed = JSON.parse(result);
-			
+
 			expect(parsed.success).toBe(true);
-			
+
 			// Verify state reset
 			const sessionAfter = swarmState.agentSessions.get('sess1');
 			expect(sessionAfter?.phaseAgentsDispatched.size).toBe(0);
@@ -414,26 +476,35 @@ describe('phase_complete tool', () => {
 			fs.mkdirSync(path.join(tempDir, '.opencode'), { recursive: true });
 			fs.writeFileSync(
 				path.join(tempDir, '.opencode', 'opencode-swarm.json'),
-				JSON.stringify({phase_complete: {
-							enabled: true,
-							required_agents: [],
-							require_docs: false,
-							policy: 'enforce'
-						}})
+				JSON.stringify({
+					phase_complete: {
+						enabled: true,
+						required_agents: [],
+						require_docs: false,
+						policy: 'enforce',
+					},
+				}),
 			);
-			
+
 			ensureAgentSession('sess1');
 			const beforeTime = Date.now();
-			
-			const result = await phase_complete.execute({ phase: 1, sessionID: 'sess1' });
+
+			const result = await phase_complete.execute({
+				phase: 1,
+				sessionID: 'sess1',
+			});
 			const parsed = JSON.parse(result);
 			const afterTime = Date.now();
-			
+
 			expect(parsed.success).toBe(true);
-			
+
 			const session = swarmState.agentSessions.get('sess1');
-			expect(session?.lastPhaseCompleteTimestamp).toBeGreaterThanOrEqual(beforeTime);
-			expect(session?.lastPhaseCompleteTimestamp).toBeLessThanOrEqual(afterTime);
+			expect(session?.lastPhaseCompleteTimestamp).toBeGreaterThanOrEqual(
+				beforeTime,
+			);
+			expect(session?.lastPhaseCompleteTimestamp).toBeLessThanOrEqual(
+				afterTime,
+			);
 			expect(session?.lastPhaseCompletePhase).toBe(1);
 		});
 
@@ -442,12 +513,15 @@ describe('phase_complete tool', () => {
 			ensureAgentSession('sess1');
 			recordPhaseAgentDispatch('sess1', 'coder');
 			recordPhaseAgentDispatch('sess1', 'reviewer');
-			
-			const result = await phase_complete.execute({ phase: 1, sessionID: 'sess1' });
+
+			const result = await phase_complete.execute({
+				phase: 1,
+				sessionID: 'sess1',
+			});
 			const parsed = JSON.parse(result);
-			
+
 			expect(parsed.success).toBe(false);
-			
+
 			// State should NOT be reset
 			const session = swarmState.agentSessions.get('sess1');
 			expect(session?.phaseAgentsDispatched.size).toBe(2);
@@ -460,21 +534,26 @@ describe('phase_complete tool', () => {
 			fs.mkdirSync(path.join(tempDir, '.opencode'), { recursive: true });
 			fs.writeFileSync(
 				path.join(tempDir, '.opencode', 'opencode-swarm.json'),
-				JSON.stringify({phase_complete: {
-							enabled: true,
-							required_agents: ['coder'],
-							require_docs: false,
-							policy: 'enforce'
-						}})
+				JSON.stringify({
+					phase_complete: {
+						enabled: true,
+						required_agents: ['coder'],
+						require_docs: false,
+						policy: 'enforce',
+					},
+				}),
 			);
-			
+
 			ensureAgentSession('sess1');
 			// Use prefixed agent name
 			recordPhaseAgentDispatch('sess1', 'mega_coder');
-			
-			const result = await phase_complete.execute({ phase: 1, sessionID: 'sess1' });
+
+			const result = await phase_complete.execute({
+				phase: 1,
+				sessionID: 'sess1',
+			});
 			const parsed = JSON.parse(result);
-			
+
 			expect(parsed.success).toBe(true);
 			expect(parsed.agentsDispatched).toContain('coder');
 		});
@@ -488,17 +567,20 @@ describe('phase_complete tool', () => {
 						enabled: true,
 						required_agents: ['coder'],
 						require_docs: false,
-						policy: 'warn'
-					}
-				})
+						policy: 'warn',
+					},
+				}),
 			);
-			
+
 			ensureAgentSession('sess1');
 			recordPhaseAgentDispatch('sess1', 'local_reviewer');
-			
-			const result = await phase_complete.execute({ phase: 1, sessionID: 'sess1' });
+
+			const result = await phase_complete.execute({
+				phase: 1,
+				sessionID: 'sess1',
+			});
 			const parsed = JSON.parse(result);
-			
+
 			expect(parsed.success).toBe(true);
 			expect(parsed.agentsDispatched).toContain('reviewer');
 		});
@@ -507,24 +589,33 @@ describe('phase_complete tool', () => {
 			fs.mkdirSync(path.join(tempDir, '.opencode'), { recursive: true });
 			fs.writeFileSync(
 				path.join(tempDir, '.opencode', 'opencode-swarm.json'),
-				JSON.stringify({phase_complete: {
-							enabled: true,
-							required_agents: ['coder', 'reviewer'],
-							require_docs: false,
-							policy: 'enforce'
-						}})
+				JSON.stringify({
+					phase_complete: {
+						enabled: true,
+						required_agents: ['coder', 'reviewer'],
+						require_docs: false,
+						policy: 'enforce',
+					},
+				}),
 			);
-			
+
 			ensureAgentSession('sess1');
 			// Set up delegation chain with prefixed agents
 			swarmState.delegationChains.set('sess1', [
 				{ from: 'architect', to: 'mega_coder', timestamp: Date.now() - 5000 },
-				{ from: 'mega_coder', to: 'local_reviewer', timestamp: Date.now() - 3000 },
+				{
+					from: 'mega_coder',
+					to: 'local_reviewer',
+					timestamp: Date.now() - 3000,
+				},
 			]);
-			
-			const result = await phase_complete.execute({ phase: 1, sessionID: 'sess1' });
+
+			const result = await phase_complete.execute({
+				phase: 1,
+				sessionID: 'sess1',
+			});
 			const parsed = JSON.parse(result);
-			
+
 			expect(parsed.success).toBe(true);
 			expect(parsed.agentsDispatched).toContain('coder');
 			expect(parsed.agentsDispatched).toContain('reviewer');
@@ -536,42 +627,56 @@ describe('phase_complete tool', () => {
 			fs.mkdirSync(path.join(tempDir, '.opencode'), { recursive: true });
 			fs.writeFileSync(
 				path.join(tempDir, '.opencode', 'opencode-swarm.json'),
-				JSON.stringify({phase_complete: {
-							enabled: true,
-							required_agents: [],
-							require_docs: false,
-							policy: 'enforce'
-						}})
+				JSON.stringify({
+					phase_complete: {
+						enabled: true,
+						required_agents: [],
+						require_docs: false,
+						policy: 'enforce',
+					},
+				}),
 			);
-			
+
 			ensureAgentSession('sess1');
-			
+
 			// Create a summary longer than 500 characters
 			const longSummary = 'A'.repeat(600);
-			
-			const result = await phase_complete.execute({ phase: 1, sessionID: 'sess1', summary: longSummary });
+
+			const result = await phase_complete.execute({
+				phase: 1,
+				sessionID: 'sess1',
+				summary: longSummary,
+			});
 			const parsed = JSON.parse(result);
-			
-			expect(parsed.message.length).toBeLessThanOrEqual(500 + 'Phase 1 completed: '.length);
+
+			expect(parsed.message.length).toBeLessThanOrEqual(
+				500 + 'Phase 1 completed: '.length,
+			);
 		});
 
 		test('summary is included in message when provided', async () => {
 			fs.mkdirSync(path.join(tempDir, '.opencode'), { recursive: true });
 			fs.writeFileSync(
 				path.join(tempDir, '.opencode', 'opencode-swarm.json'),
-				JSON.stringify({phase_complete: {
-							enabled: true,
-							required_agents: [],
-							require_docs: false,
-							policy: 'enforce'
-						}})
+				JSON.stringify({
+					phase_complete: {
+						enabled: true,
+						required_agents: [],
+						require_docs: false,
+						policy: 'enforce',
+					},
+				}),
 			);
-			
+
 			ensureAgentSession('sess1');
-			
-			const result = await phase_complete.execute({ phase: 1, sessionID: 'sess1', summary: 'Test summary' });
+
+			const result = await phase_complete.execute({
+				phase: 1,
+				sessionID: 'sess1',
+				summary: 'Test summary',
+			});
 			const parsed = JSON.parse(result);
-			
+
 			expect(parsed.message).toContain('Test summary');
 		});
 	});
@@ -586,26 +691,40 @@ describe('phase_complete tool', () => {
 						enabled: true,
 						required_agents: [],
 						require_docs: false,
-						policy: 'enforce'
+						policy: 'enforce',
 					},
-					curator: { enabled: false }
-				})
+					curator: { enabled: false },
+				}),
 			);
-			
+
 			ensureAgentSession('sess1');
-			
-			const result = await phase_complete.execute({ phase: 1, sessionID: 'sess1', summary: 'Test phase' });
+
+			const result = await phase_complete.execute({
+				phase: 1,
+				sessionID: 'sess1',
+				summary: 'Test phase',
+			});
 			const parsed = JSON.parse(result);
-			
+
 			expect(parsed.success).toBe(true);
-			
+
 			const eventsPath = path.join(tempDir, '.swarm', 'events.jsonl');
 			expect(fs.existsSync(eventsPath)).toBe(true);
-			
+
 			const eventContent = fs.readFileSync(eventsPath, 'utf-8');
 			const lines = eventContent.trim().split('\n').filter(Boolean);
-			const event = lines.map((line: string) => { try { return JSON.parse(line); } catch { return null; } }).find((e: Record<string, unknown> | null) => e?.event === 'phase_complete');
-			
+			const event = lines
+				.map((line: string) => {
+					try {
+						return JSON.parse(line);
+					} catch {
+						return null;
+					}
+				})
+				.find(
+					(e: Record<string, unknown> | null) => e?.event === 'phase_complete',
+				);
+
 			expect(event.event).toBe('phase_complete');
 			expect(event.phase).toBe(1);
 			expect(event.status).toBe('success');
@@ -623,12 +742,14 @@ describe('phase_complete tool', () => {
 			fs.mkdirSync(path.join(tempDir, '.opencode'), { recursive: true });
 			fs.writeFileSync(
 				path.join(tempDir, '.opencode', 'opencode-swarm.json'),
-				JSON.stringify({phase_complete: {
-							enabled: true,
-							required_agents: [],
-							require_docs: false,
-							policy: 'enforce'
-						}})
+				JSON.stringify({
+					phase_complete: {
+						enabled: true,
+						required_agents: [],
+						require_docs: false,
+						policy: 'enforce',
+					},
+				}),
 			);
 
 			ensureAgentSession('sess1');
@@ -641,15 +762,24 @@ describe('phase_complete tool', () => {
 			writeGateEvidence(tempDir, 1);
 
 			// Create events.jsonl as a directory instead of file to cause write failure
-			fs.mkdirSync(path.join(tempDir, '.swarm', 'events.jsonl'), { recursive: true });
+			fs.mkdirSync(path.join(tempDir, '.swarm', 'events.jsonl'), {
+				recursive: true,
+			});
 
 			// This should NOT crash - just add a warning
-			const result = await phase_complete.execute({ phase: 1, sessionID: 'sess1' });
+			const result = await phase_complete.execute({
+				phase: 1,
+				sessionID: 'sess1',
+			});
 			const parsed = JSON.parse(result);
 
 			expect(parsed.success).toBe(true);
 			expect(parsed.warnings.length).toBeGreaterThan(0);
-			expect(parsed.warnings.some((w: string) => w.includes('failed to write phase complete event'))).toBe(true);
+			expect(
+				parsed.warnings.some((w: string) =>
+					w.includes('failed to write phase complete event'),
+				),
+			).toBe(true);
 		});
 	});
 
@@ -658,20 +788,25 @@ describe('phase_complete tool', () => {
 			fs.mkdirSync(path.join(tempDir, '.opencode'), { recursive: true });
 			fs.writeFileSync(
 				path.join(tempDir, '.opencode', 'opencode-swarm.json'),
-				JSON.stringify({phase_complete: {
-							enabled: true,
-							required_agents: [],
-							require_docs: false,
-							policy: 'enforce'
-						}})
+				JSON.stringify({
+					phase_complete: {
+						enabled: true,
+						required_agents: [],
+						require_docs: false,
+						policy: 'enforce',
+					},
+				}),
 			);
-			
+
 			ensureAgentSession('sess1');
 			// No agents recorded
-			
-			const result = await phase_complete.execute({ phase: 1, sessionID: 'sess1' });
+
+			const result = await phase_complete.execute({
+				phase: 1,
+				sessionID: 'sess1',
+			});
 			const parsed = JSON.parse(result);
-			
+
 			expect(parsed.success).toBe(true);
 			expect(parsed.agentsDispatched).toEqual([]);
 		});
@@ -682,27 +817,35 @@ describe('phase_complete tool', () => {
 			fs.mkdirSync(path.join(tempDir, '.opencode'), { recursive: true });
 			fs.writeFileSync(
 				path.join(tempDir, '.opencode', 'opencode-swarm.json'),
-				JSON.stringify({phase_complete: {
-							enabled: true,
-							required_agents: ['coder'],
-							require_docs: false,
-							policy: 'enforce'
-						}})
+				JSON.stringify({
+					phase_complete: {
+						enabled: true,
+						required_agents: ['coder'],
+						require_docs: false,
+						policy: 'enforce',
+					},
+				}),
 			);
-			
+
 			ensureAgentSession('sess1');
-			
+
 			// First completion - record coder
 			recordPhaseAgentDispatch('sess1', 'coder');
-			
-			const result1 = await phase_complete.execute({ phase: 1, sessionID: 'sess1' });
+
+			const result1 = await phase_complete.execute({
+				phase: 1,
+				sessionID: 'sess1',
+			});
 			const parsed1 = JSON.parse(result1);
 			expect(parsed1.success).toBe(true);
-			
+
 			// After success, state is reset, so add new agents for phase 2
 			recordPhaseAgentDispatch('sess1', 'coder');
-			
-			const result2 = await phase_complete.execute({ phase: 2, sessionID: 'sess1' });
+
+			const result2 = await phase_complete.execute({
+				phase: 2,
+				sessionID: 'sess1',
+			});
 			const parsed2 = JSON.parse(result2);
 			expect(parsed2.success).toBe(true);
 		});
@@ -711,32 +854,40 @@ describe('phase_complete tool', () => {
 			fs.mkdirSync(path.join(tempDir, '.opencode'), { recursive: true });
 			fs.writeFileSync(
 				path.join(tempDir, '.opencode', 'opencode-swarm.json'),
-				JSON.stringify({phase_complete: {
-							enabled: true,
-							required_agents: [],
-							require_docs: false,
-							policy: 'enforce'
-						}})
+				JSON.stringify({
+					phase_complete: {
+						enabled: true,
+						required_agents: [],
+						require_docs: false,
+						policy: 'enforce',
+					},
+				}),
 			);
-			
+
 			ensureAgentSession('sess1');
-			
+
 			// Complete phase 1
-			const result1 = await phase_complete.execute({ phase: 1, sessionID: 'sess1' });
+			const result1 = await phase_complete.execute({
+				phase: 1,
+				sessionID: 'sess1',
+			});
 			const parsed1 = JSON.parse(result1);
 			expect(parsed1.success).toBe(true);
 			expect(parsed1.phase).toBe(1);
-			
+
 			// Verify phase tracking
 			const session = swarmState.agentSessions.get('sess1');
 			expect(session?.lastPhaseCompletePhase).toBe(1);
-			
+
 			// Complete phase 2
-			const result2 = await phase_complete.execute({ phase: 2, sessionID: 'sess1' });
+			const result2 = await phase_complete.execute({
+				phase: 2,
+				sessionID: 'sess1',
+			});
 			const parsed2 = JSON.parse(result2);
 			expect(parsed2.success).toBe(true);
 			expect(parsed2.phase).toBe(2);
-			
+
 			// Phase should be updated
 			expect(session?.lastPhaseCompletePhase).toBe(2);
 		});
@@ -747,27 +898,32 @@ describe('phase_complete tool', () => {
 			fs.mkdirSync(path.join(tempDir, '.opencode'), { recursive: true });
 			fs.writeFileSync(
 				path.join(tempDir, '.opencode', 'opencode-swarm.json'),
-				JSON.stringify({phase_complete: {
-							enabled: true,
-							required_agents: ['coder', 'reviewer'],
-							require_docs: false,
-							policy: 'enforce'
-						}})
+				JSON.stringify({
+					phase_complete: {
+						enabled: true,
+						required_agents: ['coder', 'reviewer'],
+						require_docs: false,
+						policy: 'enforce',
+					},
+				}),
 			);
-			
+
 			ensureAgentSession('sess1');
-			
+
 			// Set up delegation chain for coder
 			swarmState.delegationChains.set('sess1', [
 				{ from: 'architect', to: 'coder', timestamp: Date.now() - 5000 },
 			]);
-			
+
 			// Add reviewer via phaseAgentsDispatched
 			recordPhaseAgentDispatch('sess1', 'reviewer');
-			
-			const result = await phase_complete.execute({ phase: 1, sessionID: 'sess1' });
+
+			const result = await phase_complete.execute({
+				phase: 1,
+				sessionID: 'sess1',
+			});
 			const parsed = JSON.parse(result);
-			
+
 			expect(parsed.success).toBe(true);
 			expect(parsed.agentsDispatched).toContain('coder');
 			expect(parsed.agentsDispatched).toContain('reviewer');
@@ -779,19 +935,24 @@ describe('phase_complete tool', () => {
 			fs.mkdirSync(path.join(tempDir, '.opencode'), { recursive: true });
 			fs.writeFileSync(
 				path.join(tempDir, '.opencode', 'opencode-swarm.json'),
-				JSON.stringify({phase_complete: {
-							enabled: true,
-							required_agents: [],
-							require_docs: false,
-							policy: 'enforce'
-						}})
+				JSON.stringify({
+					phase_complete: {
+						enabled: true,
+						required_agents: [],
+						require_docs: false,
+						policy: 'enforce',
+					},
+				}),
 			);
-			
+
 			ensureAgentSession('sess1');
-			
-			const result = await phase_complete.execute({ phase: 1, sessionID: 'sess1' });
+
+			const result = await phase_complete.execute({
+				phase: 1,
+				sessionID: 'sess1',
+			});
 			const parsed = JSON.parse(result);
-			
+
 			expect(parsed.timestamp).toBeDefined();
 			expect(parsed.duration_ms).toBeDefined();
 		});
@@ -802,30 +963,35 @@ describe('phase_complete tool', () => {
 			fs.mkdirSync(path.join(tempDir, '.opencode'), { recursive: true });
 			fs.writeFileSync(
 				path.join(tempDir, '.opencode', 'opencode-swarm.json'),
-				JSON.stringify({phase_complete: {
-							enabled: true,
-							required_agents: ['coder', 'reviewer'],
-							require_docs: false,
-							policy: 'enforce'
-						}})
+				JSON.stringify({
+					phase_complete: {
+						enabled: true,
+						required_agents: ['coder', 'reviewer'],
+						require_docs: false,
+						policy: 'enforce',
+					},
+				}),
 			);
-			
+
 			// Session 1: has coder
 			ensureAgentSession('sess1', 'coder');
 			recordPhaseAgentDispatch('sess1', 'coder');
 			// Update lastToolCallTime to be recent (within phase window)
 			swarmState.agentSessions.get('sess1')!.lastToolCallTime = Date.now();
-			
+
 			// Session 2: has reviewer
 			ensureAgentSession('sess2', 'reviewer');
 			recordPhaseAgentDispatch('sess2', 'reviewer');
 			// Update lastToolCallTime to be recent (within phase window)
 			swarmState.agentSessions.get('sess2')!.lastToolCallTime = Date.now();
-			
+
 			// Call phase_complete from sess1 - should aggregate coder from sess1 and reviewer from sess2
-			const result = await phase_complete.execute({ phase: 1, sessionID: 'sess1' });
+			const result = await phase_complete.execute({
+				phase: 1,
+				sessionID: 'sess1',
+			});
 			const parsed = JSON.parse(result);
-			
+
 			expect(parsed.success).toBe(true);
 			expect(parsed.status).toBe('success');
 			expect(parsed.agentsDispatched).toContain('coder');
@@ -837,30 +1003,35 @@ describe('phase_complete tool', () => {
 			fs.mkdirSync(path.join(tempDir, '.opencode'), { recursive: true });
 			fs.writeFileSync(
 				path.join(tempDir, '.opencode', 'opencode-swarm.json'),
-				JSON.stringify({phase_complete: {
-							enabled: true,
-							required_agents: ['coder', 'reviewer', 'test_engineer'],
-							require_docs: false,
-							policy: 'enforce'
-						}})
+				JSON.stringify({
+					phase_complete: {
+						enabled: true,
+						required_agents: ['coder', 'reviewer', 'test_engineer'],
+						require_docs: false,
+						policy: 'enforce',
+					},
+				}),
 			);
-			
+
 			// Session 1: has coder
 			ensureAgentSession('sess1', 'coder');
 			recordPhaseAgentDispatch('sess1', 'coder');
 			swarmState.agentSessions.get('sess1')!.lastToolCallTime = Date.now();
-			
+
 			// Session 2: has reviewer
 			ensureAgentSession('sess2', 'reviewer');
 			recordPhaseAgentDispatch('sess2', 'reviewer');
 			swarmState.agentSessions.get('sess2')!.lastToolCallTime = Date.now();
-			
+
 			// test_engineer is missing from ALL sessions
-			
+
 			// Call phase_complete from sess1 - should detect test_engineer is missing
-			const result = await phase_complete.execute({ phase: 1, sessionID: 'sess1' });
+			const result = await phase_complete.execute({
+				phase: 1,
+				sessionID: 'sess1',
+			});
 			const parsed = JSON.parse(result);
-			
+
 			expect(parsed.success).toBe(false);
 			expect(parsed.status).toBe('incomplete');
 			expect(parsed.agentsDispatched).toContain('coder');
@@ -872,24 +1043,26 @@ describe('phase_complete tool', () => {
 			fs.mkdirSync(path.join(tempDir, '.opencode'), { recursive: true });
 			fs.writeFileSync(
 				path.join(tempDir, '.opencode', 'opencode-swarm.json'),
-				JSON.stringify({phase_complete: {
-							enabled: true,
-							required_agents: ['coder', 'reviewer'],
-							require_docs: false,
-							policy: 'enforce'
-						}})
+				JSON.stringify({
+					phase_complete: {
+						enabled: true,
+						required_agents: ['coder', 'reviewer'],
+						require_docs: false,
+						policy: 'enforce',
+					},
+				}),
 			);
-			
+
 			// Session 1: has coder
 			ensureAgentSession('sess1', 'coder');
 			recordPhaseAgentDispatch('sess1', 'coder');
 			swarmState.agentSessions.get('sess1')!.lastToolCallTime = Date.now();
-			
+
 			// Session 2: has reviewer
 			ensureAgentSession('sess2', 'reviewer');
 			recordPhaseAgentDispatch('sess2', 'reviewer');
 			swarmState.agentSessions.get('sess2')!.lastToolCallTime = Date.now();
-			
+
 			// Verify state before
 			const sess1Before = swarmState.agentSessions.get('sess1');
 			const sess2Before = swarmState.agentSessions.get('sess2');
@@ -897,13 +1070,16 @@ describe('phase_complete tool', () => {
 			expect(sess2Before?.phaseAgentsDispatched.size).toBe(1);
 			expect(sess1Before?.lastPhaseCompleteTimestamp).toBe(0);
 			expect(sess2Before?.lastPhaseCompleteTimestamp).toBe(0);
-			
+
 			// Call phase_complete from sess1
-			const result = await phase_complete.execute({ phase: 1, sessionID: 'sess1' });
+			const result = await phase_complete.execute({
+				phase: 1,
+				sessionID: 'sess1',
+			});
 			const parsed = JSON.parse(result);
-			
+
 			expect(parsed.success).toBe(true);
-			
+
 			// Verify state reset for BOTH contributor sessions
 			const sess1After = swarmState.agentSessions.get('sess1');
 			const sess2After = swarmState.agentSessions.get('sess2');
@@ -919,38 +1095,45 @@ describe('phase_complete tool', () => {
 			fs.mkdirSync(path.join(tempDir, '.opencode'), { recursive: true });
 			fs.writeFileSync(
 				path.join(tempDir, '.opencode', 'opencode-swarm.json'),
-				JSON.stringify({phase_complete: {
-							enabled: true,
-							required_agents: ['coder'],
-							require_docs: false,
-							policy: 'enforce'
-						}})
+				JSON.stringify({
+					phase_complete: {
+						enabled: true,
+						required_agents: ['coder'],
+						require_docs: false,
+						policy: 'enforce',
+					},
+				}),
 			);
-			
+
 			// Session 1: recent activity (caller) with established phase reference timestamp
 			ensureAgentSession('sess1', 'coder');
 			recordPhaseAgentDispatch('sess1', 'coder');
 			swarmState.agentSessions.get('sess1')!.lastToolCallTime = Date.now();
 			// Establish non-zero phase reference timestamp so stale session exclusion works
-			swarmState.agentSessions.get('sess1')!.lastPhaseCompleteTimestamp = Date.now() - 60000;
+			swarmState.agentSessions.get('sess1')!.lastPhaseCompleteTimestamp =
+				Date.now() - 60000;
 			swarmState.agentSessions.get('sess1')!.lastPhaseCompletePhase = 0;
-			
+
 			// Session 2: stale activity (old session, should NOT be contributor)
 			ensureAgentSession('sess2', 'reviewer');
 			recordPhaseAgentDispatch('sess2', 'reviewer');
 			// Set lastToolCallTime to old timestamp (outside phase window)
-			swarmState.agentSessions.get('sess2')!.lastToolCallTime = Date.now() - (24 * 60 * 60 * 1000);
-			
+			swarmState.agentSessions.get('sess2')!.lastToolCallTime =
+				Date.now() - 24 * 60 * 60 * 1000;
+
 			// Call phase_complete from sess1
-			const result = await phase_complete.execute({ phase: 1, sessionID: 'sess1' });
+			const result = await phase_complete.execute({
+				phase: 1,
+				sessionID: 'sess1',
+			});
 			const parsed = JSON.parse(result);
-			
+
 			expect(parsed.success).toBe(true);
-			
+
 			// sess1 should be reset
 			const sess1After = swarmState.agentSessions.get('sess1');
 			expect(sess1After?.phaseAgentsDispatched.size).toBe(0);
-			
+
 			// sess2 should NOT be reset (was not a contributor)
 			const sess2After = swarmState.agentSessions.get('sess2');
 			expect(sess2After?.phaseAgentsDispatched.size).toBe(1);
@@ -961,12 +1144,14 @@ describe('phase_complete tool', () => {
 			fs.mkdirSync(path.join(tempDir, '.opencode'), { recursive: true });
 			fs.writeFileSync(
 				path.join(tempDir, '.opencode', 'opencode-swarm.json'),
-				JSON.stringify({phase_complete: {
-							enabled: true,
-							required_agents: ['reviewer', 'test_engineer'],
-							require_docs: false,
-							policy: 'enforce'
-						}})
+				JSON.stringify({
+					phase_complete: {
+						enabled: true,
+						required_agents: ['reviewer', 'test_engineer'],
+						require_docs: false,
+						policy: 'enforce',
+					},
+				}),
 			);
 
 			// Create BOTH sessions before setting any stale timestamps.
@@ -992,7 +1177,10 @@ describe('phase_complete tool', () => {
 
 			// Call phase_complete from session-b — should include session-a's agents
 			// despite session-a having stale lastToolCallTime (hasRestoredAgents fires instead)
-			const result = await phase_complete.execute({ phase: 1, sessionID: 'session-b' });
+			const result = await phase_complete.execute({
+				phase: 1,
+				sessionID: 'session-b',
+			});
 			const parsed = JSON.parse(result);
 
 			expect(parsed.success).toBe(true);
@@ -1028,7 +1216,10 @@ describe('phase_complete tool', () => {
 			writeRetroBundle(tempDir, 1, 'pass');
 
 			const ctx = mockCtx('ctx-wins', tempDir);
-			const result = await phase_complete.execute({ phase: 1, sessionID: 'args-ignored' }, ctx);
+			const result = await phase_complete.execute(
+				{ phase: 1, sessionID: 'args-ignored' },
+				ctx,
+			);
 			const parsed = JSON.parse(result);
 
 			// Should succeed using ctx-wins session (not args-ignored)
@@ -1049,14 +1240,17 @@ describe('phase_complete tool', () => {
 						enabled: true,
 						required_agents: ['coder'],
 						require_docs: false,
-						policy: 'enforce'
-					}
-				})
+						policy: 'enforce',
+					},
+				}),
 			);
 
 			// Create source file so completion-verify can find identifiers
 			fs.mkdirSync(path.join(tempDir, 'src'), { recursive: true });
-			fs.writeFileSync(path.join(tempDir, 'src', 'setup.ts'), 'export function setupProject() {}\n');
+			fs.writeFileSync(
+				path.join(tempDir, 'src', 'setup.ts'),
+				'export function setupProject() {}\n',
+			);
 
 			// Write plan.json with phase 1 status pending
 			const planJson = {
@@ -1070,27 +1264,37 @@ describe('phase_complete tool', () => {
 						name: 'Phase 1',
 						status: 'pending',
 						tasks: [
-							{ id: '1.1', phase: 1, status: 'completed', description: 'Implement `setupProject` in src/setup.ts' }
-						]
-					}
-				]
+							{
+								id: '1.1',
+								phase: 1,
+								status: 'completed',
+								description: 'Implement `setupProject` in src/setup.ts',
+							},
+						],
+					},
+				],
 			};
 			fs.writeFileSync(
 				path.join(tempDir, '.swarm', 'plan.json'),
-				JSON.stringify(planJson, null, 2)
+				JSON.stringify(planJson, null, 2),
 			);
 
 			ensureAgentSession('sess1');
 			recordPhaseAgentDispatch('sess1', 'coder');
 
-			const result = await phase_complete.execute({ phase: 1, sessionID: 'sess1' });
+			const result = await phase_complete.execute({
+				phase: 1,
+				sessionID: 'sess1',
+			});
 			const parsed = JSON.parse(result);
 
 			expect(parsed.success).toBe(true);
 			expect(parsed.status).toBe('success');
 
 			// Read plan.json back and verify phase status updated
-			const planAfter = JSON.parse(fs.readFileSync(path.join(tempDir, '.swarm', 'plan.json'), 'utf-8'));
+			const planAfter = JSON.parse(
+				fs.readFileSync(path.join(tempDir, '.swarm', 'plan.json'), 'utf-8'),
+			);
 			expect(planAfter.phases[0].status).toBe('complete');
 		});
 
@@ -1104,9 +1308,9 @@ describe('phase_complete tool', () => {
 						enabled: true,
 						required_agents: ['coder'],
 						require_docs: false,
-						policy: 'enforce'
-					}
-				})
+						policy: 'enforce',
+					},
+				}),
 			);
 
 			// Do NOT write plan.json
@@ -1114,13 +1318,20 @@ describe('phase_complete tool', () => {
 			ensureAgentSession('sess1');
 			recordPhaseAgentDispatch('sess1', 'coder');
 
-			const result = await phase_complete.execute({ phase: 1, sessionID: 'sess1' });
+			const result = await phase_complete.execute({
+				phase: 1,
+				sessionID: 'sess1',
+			});
 			const parsed = JSON.parse(result);
 
 			expect(parsed.success).toBe(true);
 			expect(parsed.status).toBe('success');
 			// Should have warning about plan.json failure
-			expect(parsed.warnings.some((w: string) => w.includes('failed to update plan.json'))).toBe(true);
+			expect(
+				parsed.warnings.some((w: string) =>
+					w.includes('failed to update plan.json'),
+				),
+			).toBe(true);
 		});
 
 		test('malformed plan.json produces warning but success is still true', async () => {
@@ -1133,26 +1344,33 @@ describe('phase_complete tool', () => {
 						enabled: true,
 						required_agents: ['coder'],
 						require_docs: false,
-						policy: 'enforce'
-					}
-				})
+						policy: 'enforce',
+					},
+				}),
 			);
 
 			// Write malformed JSON to plan.json
 			fs.writeFileSync(
 				path.join(tempDir, '.swarm', 'plan.json'),
-				'not valid json {{{'
+				'not valid json {{{',
 			);
 
 			ensureAgentSession('sess1');
 			recordPhaseAgentDispatch('sess1', 'coder');
 
-			const result = await phase_complete.execute({ phase: 1, sessionID: 'sess1' });
+			const result = await phase_complete.execute({
+				phase: 1,
+				sessionID: 'sess1',
+			});
 			const parsed = JSON.parse(result);
 
 			expect(parsed.success).toBe(true);
 			expect(parsed.status).toBe('success');
-			expect(parsed.warnings.some((w: string) => w.includes('failed to update plan.json'))).toBe(true);
+			expect(
+				parsed.warnings.some((w: string) =>
+					w.includes('failed to update plan.json'),
+				),
+			).toBe(true);
 		});
 
 		test('plan.json with no matching phase ID does not produce warning', async () => {
@@ -1165,9 +1383,9 @@ describe('phase_complete tool', () => {
 						enabled: true,
 						required_agents: ['coder'],
 						require_docs: false,
-						policy: 'enforce'
-					}
-				})
+						policy: 'enforce',
+					},
+				}),
 			);
 
 			// Write plan.json with only phase 99 (no phase 1)
@@ -1181,33 +1399,45 @@ describe('phase_complete tool', () => {
 						id: 1,
 						name: 'Phase 1',
 						status: 'pending',
-						tasks: []
+						tasks: [],
 					},
 					{
 						id: 99,
 						name: 'Phase 99',
 						status: 'pending',
 						tasks: [
-							{ id: '99.1', phase: 99, status: 'completed', description: 'Test task' }
-						]
-					}
-				]
+							{
+								id: '99.1',
+								phase: 99,
+								status: 'completed',
+								description: 'Test task',
+							},
+						],
+					},
+				],
 			};
 			fs.writeFileSync(
 				path.join(tempDir, '.swarm', 'plan.json'),
-				JSON.stringify(planJson, null, 2)
+				JSON.stringify(planJson, null, 2),
 			);
 
 			ensureAgentSession('sess1');
 			recordPhaseAgentDispatch('sess1', 'coder');
 
-			const result = await phase_complete.execute({ phase: 1, sessionID: 'sess1' });
+			const result = await phase_complete.execute({
+				phase: 1,
+				sessionID: 'sess1',
+			});
 			const parsed = JSON.parse(result);
 
 			expect(parsed.success).toBe(true);
 			expect(parsed.status).toBe('success');
 			// Should NOT have a warning about plan.json (phase just not found, silently skipped)
-			expect(parsed.warnings.every((w: string) => !w.includes('failed to update plan.json'))).toBe(true);
+			expect(
+				parsed.warnings.every(
+					(w: string) => !w.includes('failed to update plan.json'),
+				),
+			).toBe(true);
 		});
 	});
 
@@ -1222,14 +1452,17 @@ describe('phase_complete tool', () => {
 						enabled: true,
 						required_agents: ['coder'],
 						require_docs: false,
-						policy: 'enforce'
-					}
-				})
+						policy: 'enforce',
+					},
+				}),
 			);
 
 			// Create source file so completion-verify can find identifiers
 			fs.mkdirSync(path.join(tempDir, 'src'), { recursive: true });
-			fs.writeFileSync(path.join(tempDir, 'src', 'setup.ts'), 'export function setupProject() {}\n');
+			fs.writeFileSync(
+				path.join(tempDir, 'src', 'setup.ts'),
+				'export function setupProject() {}\n',
+			);
 
 			// Write plan.json with phase 1 having ALL tasks completed
 			const planJson = {
@@ -1243,27 +1476,44 @@ describe('phase_complete tool', () => {
 						name: 'Phase 1',
 						status: 'pending',
 						tasks: [
-							{ id: '1.1', phase: 1, status: 'completed', description: 'Implement `setupProject` in src/setup.ts' },
-							{ id: '1.2', phase: 1, status: 'completed', description: 'Implement `setupProject` in src/setup.ts' }
-						]
-					}
-				]
+							{
+								id: '1.1',
+								phase: 1,
+								status: 'completed',
+								description: 'Implement `setupProject` in src/setup.ts',
+							},
+							{
+								id: '1.2',
+								phase: 1,
+								status: 'completed',
+								description: 'Implement `setupProject` in src/setup.ts',
+							},
+						],
+					},
+				],
 			};
 			fs.writeFileSync(
 				path.join(tempDir, '.swarm', 'plan.json'),
-				JSON.stringify(planJson, null, 2)
+				JSON.stringify(planJson, null, 2),
 			);
 
 			// Set up session with NO agents dispatched (agents missing)
 			ensureAgentSession('sess1');
 			// No recordPhaseAgentDispatch call - simulating session restart
 
-			const result = await phase_complete.execute({ phase: 1, sessionID: 'sess1' });
+			const result = await phase_complete.execute({
+				phase: 1,
+				sessionID: 'sess1',
+			});
 			const parsed = JSON.parse(result);
 
 			expect(parsed.success).toBe(true);
 			expect(parsed.status).toBe('success');
-			expect(parsed.warnings.some((w: string) => w.includes('Agent dispatch fallback'))).toBe(true);
+			expect(
+				parsed.warnings.some((w: string) =>
+					w.includes('Agent dispatch fallback'),
+				),
+			).toBe(true);
 		});
 
 		test('fallback does NOT activate when tasks are incomplete', async () => {
@@ -1276,9 +1526,9 @@ describe('phase_complete tool', () => {
 						enabled: true,
 						required_agents: ['coder'],
 						require_docs: false,
-						policy: 'enforce'
-					}
-				})
+						policy: 'enforce',
+					},
+				}),
 			);
 
 			// Write plan.json with phase 1 having all pending tasks
@@ -1295,28 +1545,35 @@ describe('phase_complete tool', () => {
 						status: 'pending',
 						tasks: [
 							{ id: '1.1', phase: 1, status: 'pending', description: 'Task 1' },
-							{ id: '1.2', phase: 1, status: 'pending', description: 'Task 2' }
-						]
-					}
-				]
+							{ id: '1.2', phase: 1, status: 'pending', description: 'Task 2' },
+						],
+					},
+				],
 			};
 			fs.writeFileSync(
 				path.join(tempDir, '.swarm', 'plan.json'),
-				JSON.stringify(planJson, null, 2)
+				JSON.stringify(planJson, null, 2),
 			);
 
 			// Set up session with NO agents dispatched
 			ensureAgentSession('sess1');
 			// No agents dispatched - should fail because tasks are incomplete
 
-			const result = await phase_complete.execute({ phase: 1, sessionID: 'sess1' });
+			const result = await phase_complete.execute({
+				phase: 1,
+				sessionID: 'sess1',
+			});
 			const parsed = JSON.parse(result);
 
 			expect(parsed.success).toBe(false);
 			expect(parsed.status).toBe('incomplete');
 			expect(parsed.agentsMissing).toContain('coder');
 			// Fallback should NOT trigger - no fallback warning
-			expect(parsed.warnings.some((w: string) => w.includes('Agent dispatch fallback'))).toBe(false);
+			expect(
+				parsed.warnings.some((w: string) =>
+					w.includes('Agent dispatch fallback'),
+				),
+			).toBe(false);
 		});
 
 		test('fallback does NOT activate when phase has 0 tasks', async () => {
@@ -1329,9 +1586,9 @@ describe('phase_complete tool', () => {
 						enabled: true,
 						required_agents: ['coder'],
 						require_docs: false,
-						policy: 'enforce'
-					}
-				})
+						policy: 'enforce',
+					},
+				}),
 			);
 
 			// Write plan.json with phase 1 having empty tasks array
@@ -1345,27 +1602,34 @@ describe('phase_complete tool', () => {
 						id: 1,
 						name: 'Phase 1',
 						status: 'pending',
-						tasks: []
-					}
-				]
+						tasks: [],
+					},
+				],
 			};
 			fs.writeFileSync(
 				path.join(tempDir, '.swarm', 'plan.json'),
-				JSON.stringify(planJson, null, 2)
+				JSON.stringify(planJson, null, 2),
 			);
 
 			// Set up session with NO agents dispatched
 			ensureAgentSession('sess1');
 			// No agents dispatched - should fail because phase has 0 tasks (guard prevents fallback)
 
-			const result = await phase_complete.execute({ phase: 1, sessionID: 'sess1' });
+			const result = await phase_complete.execute({
+				phase: 1,
+				sessionID: 'sess1',
+			});
 			const parsed = JSON.parse(result);
 
 			expect(parsed.success).toBe(false);
 			// Should fail because agents are still missing and fallback can't activate with 0 tasks
 			expect(parsed.agentsMissing).toContain('coder');
 			// Fallback should NOT trigger
-			expect(parsed.warnings.some((w: string) => w.includes('Agent dispatch fallback'))).toBe(false);
+			expect(
+				parsed.warnings.some((w: string) =>
+					w.includes('Agent dispatch fallback'),
+				),
+			).toBe(false);
 		});
 
 		test('fallback does NOT activate when agents are already present', async () => {
@@ -1378,14 +1642,17 @@ describe('phase_complete tool', () => {
 						enabled: true,
 						required_agents: ['coder'],
 						require_docs: false,
-						policy: 'enforce'
-					}
-				})
+						policy: 'enforce',
+					},
+				}),
 			);
 
 			// Create source file so completion-verify can find identifiers
 			fs.mkdirSync(path.join(tempDir, 'src'), { recursive: true });
-			fs.writeFileSync(path.join(tempDir, 'src', 'setup.ts'), 'export function setupProject() {}\n');
+			fs.writeFileSync(
+				path.join(tempDir, 'src', 'setup.ts'),
+				'export function setupProject() {}\n',
+			);
 
 			// Write plan.json with phase 1 having all tasks completed
 			const planJson = {
@@ -1399,27 +1666,39 @@ describe('phase_complete tool', () => {
 						name: 'Phase 1',
 						status: 'pending',
 						tasks: [
-							{ id: '1.1', phase: 1, status: 'completed', description: 'Implement `setupProject` in src/setup.ts' }
-						]
-					}
-				]
+							{
+								id: '1.1',
+								phase: 1,
+								status: 'completed',
+								description: 'Implement `setupProject` in src/setup.ts',
+							},
+						],
+					},
+				],
 			};
 			fs.writeFileSync(
 				path.join(tempDir, '.swarm', 'plan.json'),
-				JSON.stringify(planJson, null, 2)
+				JSON.stringify(planJson, null, 2),
 			);
 
 			// Set up session WITH agents dispatched (agents ARE present)
 			ensureAgentSession('sess1');
 			recordPhaseAgentDispatch('sess1', 'coder');
 
-			const result = await phase_complete.execute({ phase: 1, sessionID: 'sess1' });
+			const result = await phase_complete.execute({
+				phase: 1,
+				sessionID: 'sess1',
+			});
 			const parsed = JSON.parse(result);
 
 			expect(parsed.success).toBe(true);
 			expect(parsed.status).toBe('success');
 			// Fallback should NOT trigger because agentsMissing.length === 0
-			expect(parsed.warnings.some((w: string) => w.includes('Agent dispatch fallback'))).toBe(false);
+			expect(
+				parsed.warnings.some((w: string) =>
+					w.includes('Agent dispatch fallback'),
+				),
+			).toBe(false);
 		});
 
 		// ==== ADVERSARIAL TESTS ====
@@ -1433,22 +1712,25 @@ describe('phase_complete tool', () => {
 						enabled: true,
 						required_agents: ['coder'],
 						require_docs: false,
-						policy: 'enforce'
-					}
-				})
+						policy: 'enforce',
+					},
+				}),
 			);
 
 			// Write garbage to plan.json (malformed JSON)
 			fs.writeFileSync(
 				path.join(tempDir, '.swarm', 'plan.json'),
-				'{ invalid json } garbage data'
+				'{ invalid json } garbage data',
 			);
 
 			// Set up session with NO agents dispatched
 			ensureAgentSession('sess1');
 			// No agents dispatched
 
-			const result = await phase_complete.execute({ phase: 1, sessionID: 'sess1' });
+			const result = await phase_complete.execute({
+				phase: 1,
+				sessionID: 'sess1',
+			});
 			const parsed = JSON.parse(result);
 
 			// JSON.parse throws, caught by try/catch, falls through to normal enforcement
@@ -1456,7 +1738,11 @@ describe('phase_complete tool', () => {
 			expect(parsed.status).toBe('incomplete');
 			expect(parsed.agentsMissing).toContain('coder');
 			// Fallback should NOT activate due to JSON parse error
-			expect(parsed.warnings.some((w: string) => w.includes('Agent dispatch fallback'))).toBe(false);
+			expect(
+				parsed.warnings.some((w: string) =>
+					w.includes('Agent dispatch fallback'),
+				),
+			).toBe(false);
 		});
 
 		test('ADVERSARY: plan.json with null phases field - normal enforcement applies', async () => {
@@ -1469,22 +1755,25 @@ describe('phase_complete tool', () => {
 						enabled: true,
 						required_agents: ['coder'],
 						require_docs: false,
-						policy: 'enforce'
-					}
-				})
+						policy: 'enforce',
+					},
+				}),
 			);
 
 			// Write plan.json with null phases field
 			fs.writeFileSync(
 				path.join(tempDir, '.swarm', 'plan.json'),
-				JSON.stringify({ phases: null })
+				JSON.stringify({ phases: null }),
 			);
 
 			// Set up session with NO agents dispatched
 			ensureAgentSession('sess1');
 			// No agents dispatched
 
-			const result = await phase_complete.execute({ phase: 1, sessionID: 'sess1' });
+			const result = await phase_complete.execute({
+				phase: 1,
+				sessionID: 'sess1',
+			});
 			const parsed = JSON.parse(result);
 
 			// .find() on null throws, caught by try/catch, falls through to normal enforcement
@@ -1492,7 +1781,11 @@ describe('phase_complete tool', () => {
 			expect(parsed.status).toBe('incomplete');
 			expect(parsed.agentsMissing).toContain('coder');
 			// Fallback should NOT activate due to null phases error
-			expect(parsed.warnings.some((w: string) => w.includes('Agent dispatch fallback'))).toBe(false);
+			expect(
+				parsed.warnings.some((w: string) =>
+					w.includes('Agent dispatch fallback'),
+				),
+			).toBe(false);
 		});
 
 		test('ADVERSARY: plan.json with task having unexpected status value - fallback does NOT activate', async () => {
@@ -1505,9 +1798,9 @@ describe('phase_complete tool', () => {
 						enabled: true,
 						required_agents: ['coder'],
 						require_docs: false,
-						policy: 'enforce'
-					}
-				})
+						policy: 'enforce',
+					},
+				}),
 			);
 
 			// Write plan.json with task status = 'in_progress' (not 'completed')
@@ -1522,21 +1815,29 @@ describe('phase_complete tool', () => {
 						name: 'Phase 1',
 						status: 'pending',
 						tasks: [
-							{ id: '1.1', phase: 1, status: 'in_progress', description: 'Task 1' }
-						]
-					}
-				]
+							{
+								id: '1.1',
+								phase: 1,
+								status: 'in_progress',
+								description: 'Task 1',
+							},
+						],
+					},
+				],
 			};
 			fs.writeFileSync(
 				path.join(tempDir, '.swarm', 'plan.json'),
-				JSON.stringify(planJson, null, 2)
+				JSON.stringify(planJson, null, 2),
 			);
 
 			// Set up session with NO agents dispatched
 			ensureAgentSession('sess1');
 			// No agents dispatched
 
-			const result = await phase_complete.execute({ phase: 1, sessionID: 'sess1' });
+			const result = await phase_complete.execute({
+				phase: 1,
+				sessionID: 'sess1',
+			});
 			const parsed = JSON.parse(result);
 
 			// .every() returns false because task status is not 'completed'
@@ -1544,7 +1845,11 @@ describe('phase_complete tool', () => {
 			expect(parsed.status).toBe('incomplete');
 			expect(parsed.agentsMissing).toContain('coder');
 			// Fallback should NOT activate because .every() returns false
-			expect(parsed.warnings.some((w: string) => w.includes('Agent dispatch fallback'))).toBe(false);
+			expect(
+				parsed.warnings.some((w: string) =>
+					w.includes('Agent dispatch fallback'),
+				),
+			).toBe(false);
 		});
 
 		test('ADVERSARY: concurrent modification simulation - plan.json remains valid and phase status updated', async () => {
@@ -1557,14 +1862,17 @@ describe('phase_complete tool', () => {
 						enabled: true,
 						required_agents: ['coder'],
 						require_docs: false,
-						policy: 'enforce'
-					}
-				})
+						policy: 'enforce',
+					},
+				}),
 			);
 
 			// Create source file so completion-verify can find identifiers
 			fs.mkdirSync(path.join(tempDir, 'src'), { recursive: true });
-			fs.writeFileSync(path.join(tempDir, 'src', 'setup.ts'), 'export function setupProject() {}\n');
+			fs.writeFileSync(
+				path.join(tempDir, 'src', 'setup.ts'),
+				'export function setupProject() {}\n',
+			);
 
 			// Write plan.json with phase 1 having ALL tasks completed
 			const planJson = {
@@ -1578,27 +1886,39 @@ describe('phase_complete tool', () => {
 						name: 'Phase 1',
 						status: 'pending',
 						tasks: [
-							{ id: '1.1', phase: 1, status: 'completed', description: 'Implement `setupProject` in src/setup.ts' }
-						]
-					}
-				]
+							{
+								id: '1.1',
+								phase: 1,
+								status: 'completed',
+								description: 'Implement `setupProject` in src/setup.ts',
+							},
+						],
+					},
+				],
 			};
 			fs.writeFileSync(
 				path.join(tempDir, '.swarm', 'plan.json'),
-				JSON.stringify(planJson, null, 2)
+				JSON.stringify(planJson, null, 2),
 			);
 
 			// Set up session with NO agents dispatched
 			ensureAgentSession('sess1');
 			// No agents dispatched - fallback should activate
 
-			const result = await phase_complete.execute({ phase: 1, sessionID: 'sess1' });
+			const result = await phase_complete.execute({
+				phase: 1,
+				sessionID: 'sess1',
+			});
 			const parsed = JSON.parse(result);
 
 			// Should succeed due to fallback
 			expect(parsed.success).toBe(true);
 			expect(parsed.status).toBe('success');
-			expect(parsed.warnings.some((w: string) => w.includes('Agent dispatch fallback'))).toBe(true);
+			expect(
+				parsed.warnings.some((w: string) =>
+					w.includes('Agent dispatch fallback'),
+				),
+			).toBe(true);
 
 			// Verify plan.json is still valid JSON (no corruption)
 			const planPath = path.join(tempDir, '.swarm', 'plan.json');
@@ -1627,16 +1947,16 @@ describe('phase_complete tool', () => {
 						enabled: true,
 						required_agents: [],
 						require_docs: false,
-						policy: 'enforce'
-					}
-				})
+						policy: 'enforce',
+					},
+				}),
 			);
 
 			// Write spec.md to trigger drift gate enforcement
 			fs.mkdirSync(path.join(tempDir, '.swarm'), { recursive: true });
 			fs.writeFileSync(
 				path.join(tempDir, '.swarm', 'spec.md'),
-				'# Test Spec\n\n## FR-01\nFeature requirement 1.\n'
+				'# Test Spec\n\n## FR-01\nFeature requirement 1.\n',
 			);
 
 			// DO NOT write drift-verifier.json - missing evidence
@@ -1645,7 +1965,10 @@ describe('phase_complete tool', () => {
 			ensureAgentSession('sess1');
 			recordPhaseAgentDispatch('sess1', 'coder');
 
-			const result = await executePhaseComplete({ phase: 3, sessionID: 'sess1' }, tempDir);
+			const result = await executePhaseComplete(
+				{ phase: 3, sessionID: 'sess1' },
+				tempDir,
+			);
 			const parsed = JSON.parse(result);
 
 			expect(parsed.success).toBe(false);
@@ -1666,9 +1989,9 @@ describe('phase_complete tool', () => {
 						enabled: true,
 						required_agents: [],
 						require_docs: false,
-						policy: 'enforce'
-					}
-				})
+						policy: 'enforce',
+					},
+				}),
 			);
 
 			// DO NOT write spec.md - no spec
@@ -1678,13 +2001,18 @@ describe('phase_complete tool', () => {
 			ensureAgentSession('sess1');
 			recordPhaseAgentDispatch('sess1', 'coder');
 
-			const result = await executePhaseComplete({ phase: 3, sessionID: 'sess1' }, tempDir);
+			const result = await executePhaseComplete(
+				{ phase: 3, sessionID: 'sess1' },
+				tempDir,
+			);
 			const parsed = JSON.parse(result);
 
 			expect(parsed.success).toBe(true);
 			expect(parsed.status).toBe('success');
 			// Should have warning about missing spec.md
-			expect(parsed.warnings.some((w: string) => w.includes('No spec.md'))).toBe(true);
+			expect(
+				parsed.warnings.some((w: string) => w.includes('No spec.md')),
+			).toBe(true);
 		});
 
 		/**
@@ -1699,16 +2027,16 @@ describe('phase_complete tool', () => {
 						enabled: true,
 						required_agents: [],
 						require_docs: false,
-						policy: 'enforce'
-					}
-				})
+						policy: 'enforce',
+					},
+				}),
 			);
 
 			// Write spec.md to trigger drift gate enforcement (would normally require drift evidence)
 			fs.mkdirSync(path.join(tempDir, '.swarm'), { recursive: true });
 			fs.writeFileSync(
 				path.join(tempDir, '.swarm', 'spec.md'),
-				'# Test Spec\n\n## FR-01\nFeature requirement 1.\n'
+				'# Test Spec\n\n## FR-01\nFeature requirement 1.\n',
 			);
 
 			// DO NOT write drift-verifier.json - would normally block
@@ -1719,7 +2047,10 @@ describe('phase_complete tool', () => {
 			swarmState.agentSessions.get('sess1')!.turboMode = true;
 			recordPhaseAgentDispatch('sess1', 'coder');
 
-			const result = await executePhaseComplete({ phase: 3, sessionID: 'sess1' }, tempDir);
+			const result = await executePhaseComplete(
+				{ phase: 3, sessionID: 'sess1' },
+				tempDir,
+			);
 			const parsed = JSON.parse(result);
 
 			// Should succeed even without drift evidence because turbo mode bypasses gates
@@ -1739,13 +2070,13 @@ describe('phase_complete tool', () => {
 						enabled: true,
 						required_agents: [],
 						require_docs: false,
-						policy: 'enforce'
+						policy: 'enforce',
 					},
 					curator: {
 						enabled: false,
-						phase_enabled: false
-					}
-				})
+						phase_enabled: false,
+					},
+				}),
 			);
 
 			writeRetroBundle(tempDir, 3, 'pass');
@@ -1753,14 +2084,21 @@ describe('phase_complete tool', () => {
 			ensureAgentSession('sess1');
 			recordPhaseAgentDispatch('sess1', 'coder');
 
-			const result = await executePhaseComplete({ phase: 3, sessionID: 'sess1' }, tempDir);
+			const result = await executePhaseComplete(
+				{ phase: 3, sessionID: 'sess1' },
+				tempDir,
+			);
 			const parsed = JSON.parse(result);
 
 			expect(parsed.success).toBe(true);
 			expect(parsed.status).toBe('success');
 			// No curator-related warnings should appear
-			expect(parsed.warnings.every((w: string) => !w.includes('CURATOR'))).toBe(true);
-			expect(parsed.warnings.every((w: string) => !w.includes('curator'))).toBe(true);
+			expect(parsed.warnings.every((w: string) => !w.includes('CURATOR'))).toBe(
+				true,
+			);
+			expect(parsed.warnings.every((w: string) => !w.includes('curator'))).toBe(
+				true,
+			);
 		});
 
 		/**
@@ -1776,16 +2114,16 @@ describe('phase_complete tool', () => {
 						enabled: true,
 						required_agents: [],
 						require_docs: false,
-						policy: 'enforce'
-					}
-				})
+						policy: 'enforce',
+					},
+				}),
 			);
 
 			// Write spec.md to indicate critic drift verifier should have run
 			fs.mkdirSync(path.join(tempDir, '.swarm'), { recursive: true });
 			fs.writeFileSync(
 				path.join(tempDir, '.swarm', 'spec.md'),
-				'# Test Spec\n\n## FR-01\nFeature requirement 1.\n'
+				'# Test Spec\n\n## FR-01\nFeature requirement 1.\n',
 			);
 
 			// DO NOT write drift-verifier.json - critic drift check was never run
@@ -1794,7 +2132,10 @@ describe('phase_complete tool', () => {
 			ensureAgentSession('sess1');
 			recordPhaseAgentDispatch('sess1', 'coder');
 
-			const result = await executePhaseComplete({ phase: 3, sessionID: 'sess1' }, tempDir);
+			const result = await executePhaseComplete(
+				{ phase: 3, sessionID: 'sess1' },
+				tempDir,
+			);
 			const parsed = JSON.parse(result);
 
 			expect(parsed.success).toBe(false);

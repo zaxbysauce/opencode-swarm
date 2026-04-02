@@ -3,10 +3,10 @@
  * Tests odd directory values, backward-compatibility edge cases, and guardrails flag preservation
  */
 
-import { describe, it, expect, beforeEach, afterEach } from 'bun:test';
-import { swarmState, resetSwarmState } from '../../../src/state';
-import { createDelegationTrackerHook } from '../../../src/hooks/delegation-tracker';
+import { afterEach, beforeEach, describe, expect, it } from 'bun:test';
 import type { PluginConfig } from '../../../src/config';
+import { createDelegationTrackerHook } from '../../../src/hooks/delegation-tracker';
+import { resetSwarmState, swarmState } from '../../../src/state';
 
 describe('delegation-tracker adversarial: directory handling', () => {
 	const defaultConfig: PluginConfig = {
@@ -30,7 +30,7 @@ describe('delegation-tracker adversarial: directory handling', () => {
 	it('should handle empty string directory without crashing', async () => {
 		const hook = createDelegationTrackerHook('', defaultConfig);
 		await hook({ sessionID: 'test-session', agent: 'coder' }, {});
-		
+
 		// Should not crash and should update state
 		expect(swarmState.activeAgent.get('test-session')).toBe('coder');
 	});
@@ -90,7 +90,7 @@ describe('delegation-tracker adversarial: directory handling', () => {
 			max_iterations: 10,
 			qa_retry_limit: 3,
 			inject_phase_reminders: true,
-			hooks: { 
+			hooks: {
 				system_enhancer: true,
 				compaction: true,
 				agent_activity: true,
@@ -110,7 +110,7 @@ describe('delegation-tracker adversarial: directory handling', () => {
 			max_iterations: 10,
 			qa_retry_limit: 3,
 			inject_phase_reminders: true,
-			hooks: { 
+			hooks: {
 				system_enhancer: true,
 				compaction: true,
 				agent_activity: true,
@@ -121,7 +121,11 @@ describe('delegation-tracker adversarial: directory handling', () => {
 			},
 		};
 
-		const hook = createDelegationTrackerHook(legacyConfig, false, '/custom/dir');
+		const hook = createDelegationTrackerHook(
+			legacyConfig,
+			false,
+			'/custom/dir',
+		);
 		expect(typeof hook).toBe('function');
 
 		await hook({ sessionID: 'test-session', agent: 'coder' }, {});
@@ -152,7 +156,10 @@ describe('delegation-tracker adversarial: directory handling', () => {
 	});
 
 	it('should handle undefined directory in new signature', async () => {
-		const hook = createDelegationTrackerHook(undefined as unknown as string, defaultConfig);
+		const hook = createDelegationTrackerHook(
+			undefined as unknown as string,
+			defaultConfig,
+		);
 		await hook({ sessionID: 'test-session', agent: 'coder' }, {});
 
 		expect(swarmState.activeAgent.get('test-session')).toBe('coder');
@@ -228,7 +235,10 @@ describe('delegation-tracker adversarial: directory handling', () => {
 
 	it('should handle numeric directory value', async () => {
 		// TypeScript would prevent this but runtime might pass weird values
-		const hook = createDelegationTrackerHook(12345 as unknown as string, defaultConfig);
+		const hook = createDelegationTrackerHook(
+			12345 as unknown as string,
+			defaultConfig,
+		);
 		await hook({ sessionID: 'test-session', agent: 'coder' }, {});
 
 		// Should handle without crashing
@@ -236,7 +246,10 @@ describe('delegation-tracker adversarial: directory handling', () => {
 	});
 
 	it('should handle null config in new signature', async () => {
-		const hook = createDelegationTrackerHook('/test/dir', null as unknown as PluginConfig);
+		const hook = createDelegationTrackerHook(
+			'/test/dir',
+			null as unknown as PluginConfig,
+		);
 
 		await hook({ sessionID: 'test-session', agent: 'coder' }, {});
 
@@ -245,7 +258,10 @@ describe('delegation-tracker adversarial: directory handling', () => {
 	});
 
 	it('should handle array as directory (type confusion)', async () => {
-		const hook = createDelegationTrackerHook(['/dir1', '/dir2'] as unknown as string, defaultConfig);
+		const hook = createDelegationTrackerHook(
+			['/dir1', '/dir2'] as unknown as string,
+			defaultConfig,
+		);
 		await hook({ sessionID: 'test-session', agent: 'coder' }, {});
 
 		// Should handle without crashing
@@ -253,7 +269,10 @@ describe('delegation-tracker adversarial: directory handling', () => {
 	});
 
 	it('should handle object as directory (type confusion)', async () => {
-		const hook = createDelegationTrackerHook({ path: '/test' } as unknown as string, defaultConfig);
+		const hook = createDelegationTrackerHook(
+			{ path: '/test' } as unknown as string,
+			defaultConfig,
+		);
 		await hook({ sessionID: 'test-session', agent: 'coder' }, {});
 
 		// Should handle without crashing

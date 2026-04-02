@@ -1,7 +1,11 @@
-import { describe, expect, test, beforeEach, afterEach } from 'bun:test';
-import { createGuardrailsHooks } from '../../../src/hooks/guardrails';
-import { resetSwarmState, ensureAgentSession, swarmState } from '../../../src/state';
+import { afterEach, beforeEach, describe, expect, test } from 'bun:test';
 import type { GuardrailsConfig } from '../../../src/config/schema';
+import { createGuardrailsHooks } from '../../../src/hooks/guardrails';
+import {
+	ensureAgentSession,
+	resetSwarmState,
+	swarmState,
+} from '../../../src/state';
 
 const TEST_DIR = '/test/project';
 
@@ -14,7 +18,13 @@ const defaultConfig: GuardrailsConfig = {
 	warning_threshold: 0.75,
 	idle_timeout_minutes: 60,
 	qa_gates: {
-		required_tools: ['diff', 'syntax_check', 'placeholder_scan', 'lint', 'pre_check_batch'],
+		required_tools: [
+			'diff',
+			'syntax_check',
+			'placeholder_scan',
+			'lint',
+			'pre_check_batch',
+		],
 		require_reviewer_test_engineer: true,
 	},
 };
@@ -41,7 +51,9 @@ describe('guardrails advisory injection', () => {
 
 		// Pre-populate pendingAdvisoryMessages
 		const session = swarmState.agentSessions.get(sessionId)!;
-		session.pendingAdvisoryMessages = ['SLOP CHECK: abstraction_bloat detected'];
+		session.pendingAdvisoryMessages = [
+			'SLOP CHECK: abstraction_bloat detected',
+		];
 
 		const systemMessage = {
 			info: { role: 'system', sessionID: sessionId },
@@ -61,7 +73,10 @@ describe('guardrails advisory injection', () => {
 		await hooks.messagesTransform({}, output as any);
 
 		// Check advisory was injected
-		const textPart = output.messages[0].parts[0] as { type: string; text: string };
+		const textPart = output.messages[0].parts[0] as {
+			type: string;
+			text: string;
+		};
 		expect(textPart.text).toContain('[ADVISORIES]');
 		expect(textPart.text).toContain('SLOP CHECK: abstraction_bloat detected');
 
@@ -79,7 +94,9 @@ describe('guardrails advisory injection', () => {
 
 		// Pre-populate pendingAdvisoryMessages
 		const session = swarmState.agentSessions.get(sessionId)!;
-		session.pendingAdvisoryMessages = ['SLOP CHECK: abstraction_bloat detected'];
+		session.pendingAdvisoryMessages = [
+			'SLOP CHECK: abstraction_bloat detected',
+		];
 
 		const systemMessage = {
 			info: { role: 'system', sessionID: sessionId },
@@ -132,7 +149,10 @@ describe('guardrails advisory injection', () => {
 		await hooks.messagesTransform({}, output as any);
 
 		// System message text should be unchanged — advisories are not injected for non-architect
-		const textPart = output.messages[0].parts[0] as { type: string; text: string };
+		const textPart = output.messages[0].parts[0] as {
+			type: string;
+			text: string;
+		};
 		expect(textPart.text).toBe('You are a coder agent.');
 
 		// Queue IS cleared even for non-architect sessions to prevent unbounded accumulation
@@ -167,7 +187,10 @@ describe('guardrails advisory injection', () => {
 		expect(output.messages.length).toBe(2);
 		expect(output.messages[0].info.role).toBe('system');
 
-		const textPart = output.messages[0].parts[0] as { type: string; text: string };
+		const textPart = output.messages[0].parts[0] as {
+			type: string;
+			text: string;
+		};
 		expect(textPart.text).toContain('[ADVISORIES]');
 		expect(textPart.text).toContain('CONTEXT PRESSURE: 52.3% memory used');
 	});
@@ -202,7 +225,10 @@ describe('guardrails advisory injection', () => {
 		await hooks.messagesTransform({}, output as any);
 
 		// Check all three elements are present within [ADVISORIES] block
-		const textPart = output.messages[0].parts[0] as { type: string; text: string };
+		const textPart = output.messages[0].parts[0] as {
+			type: string;
+			text: string;
+		};
 		expect(textPart.text).toContain('first advisory');
 		expect(textPart.text).toContain('---');
 		expect(textPart.text).toContain('second advisory');

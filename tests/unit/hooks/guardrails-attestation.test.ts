@@ -1,13 +1,13 @@
-import { describe, it, expect, beforeEach, vi } from 'bun:test';
-import { 
-	AttestationRecord, 
-	validateAttestation, 
-	recordAttestation, 
-	validateAndRecordAttestation 
-} from '../../../src/hooks/guardrails';
+import { beforeEach, describe, expect, it, vi } from 'bun:test';
 import * as fs from 'node:fs/promises';
-import * as path from 'node:path';
 import * as os from 'node:os';
+import * as path from 'node:path';
+import {
+	type AttestationRecord,
+	recordAttestation,
+	validateAndRecordAttestation,
+	validateAttestation,
+} from '../../../src/hooks/guardrails';
 
 describe('guardrails-attestation', () => {
 	let tempDir: string;
@@ -22,22 +22,29 @@ describe('guardrails-attestation', () => {
 			const record: AttestationRecord = {
 				findingId: 'finding-123',
 				agent: 'architect',
-				attestation: 'This is a valid justification text that exceeds 30 characters',
+				attestation:
+					'This is a valid justification text that exceeds 30 characters',
 				action: 'resolve',
 				timestamp: new Date().toISOString(),
 			};
 
 			expect(record.findingId).toBe('finding-123');
 			expect(record.agent).toBe('architect');
-			expect(record.attestation).toBe('This is a valid justification text that exceeds 30 characters');
+			expect(record.attestation).toBe(
+				'This is a valid justification text that exceeds 30 characters',
+			);
 			expect(record.action).toBe('resolve');
 			expect(record.timestamp).toBeDefined();
 			expect(typeof record.timestamp).toBe('string');
 		});
 
 		it('accepts all action types', () => {
-			const actions: Array<'resolve' | 'suppress' | 'defer'> = ['resolve', 'suppress', 'defer'];
-			
+			const actions: Array<'resolve' | 'suppress' | 'defer'> = [
+				'resolve',
+				'suppress',
+				'defer',
+			];
+
 			for (const action of actions) {
 				const record: AttestationRecord = {
 					findingId: 'test-id',
@@ -55,15 +62,20 @@ describe('guardrails-attestation', () => {
 		it('rejects strings under 30 characters', () => {
 			// Test with various lengths below 30
 			const shortStrings = [
-				'short',                           // 5 chars
-				'not long enough',                 // 16 chars
-				'123456789012345678901234567',     // 27 chars
-				'1234567890123456789012345678',   // 28 chars
-				'12345678901234567890123456789',  // 29 chars
+				'short', // 5 chars
+				'not long enough', // 16 chars
+				'123456789012345678901234567', // 27 chars
+				'1234567890123456789012345678', // 28 chars
+				'12345678901234567890123456789', // 29 chars
 			];
 
 			for (const attestation of shortStrings) {
-				const result = validateAttestation(attestation, 'finding-1', 'architect', 'resolve');
+				const result = validateAttestation(
+					attestation,
+					'finding-1',
+					'architect',
+					'resolve',
+				);
 				expect(result.valid).toBe(false);
 				if (!result.valid) {
 					expect(result.reason).toContain('too short');
@@ -75,28 +87,54 @@ describe('guardrails-attestation', () => {
 		it('accepts strings 30+ characters', () => {
 			// Test with exactly 30 characters
 			const exactly30 = '123456789012345678901234567890'; // 30 chars
-			const result30 = validateAttestation(exactly30, 'finding-1', 'architect', 'resolve');
+			const result30 = validateAttestation(
+				exactly30,
+				'finding-1',
+				'architect',
+				'resolve',
+			);
 			expect(result30.valid).toBe(true);
 
 			// Test with 31 characters
 			const exactly31 = '1234567890123456789012345678901'; // 31 chars
-			const result31 = validateAttestation(exactly31, 'finding-1', 'architect', 'resolve');
+			const result31 = validateAttestation(
+				exactly31,
+				'finding-1',
+				'architect',
+				'resolve',
+			);
 			expect(result31.valid).toBe(true);
 
 			// Test with longer strings
-			const longString = 'This is a much longer and more detailed justification for resolving a finding in the system.';
-			const resultLong = validateAttestation(longString, 'finding-1', 'architect', 'resolve');
+			const longString =
+				'This is a much longer and more detailed justification for resolving a finding in the system.';
+			const resultLong = validateAttestation(
+				longString,
+				'finding-1',
+				'architect',
+				'resolve',
+			);
 			expect(resultLong.valid).toBe(true);
 		});
 
 		it('accepts strings at boundary (30 chars)', () => {
 			const exactly30 = 'A12345678901234567890123456789'; // 30 chars
-			const result = validateAttestation(exactly30, 'finding-1', 'architect', 'resolve');
+			const result = validateAttestation(
+				exactly30,
+				'finding-1',
+				'architect',
+				'resolve',
+			);
 			expect(result.valid).toBe(true);
 		});
 
 		it('rejects empty string', () => {
-			const result = validateAttestation('', 'finding-1', 'architect', 'resolve');
+			const result = validateAttestation(
+				'',
+				'finding-1',
+				'architect',
+				'resolve',
+			);
 			expect(result.valid).toBe(false);
 			if (!result.valid) {
 				expect(result.reason).toContain('too short');
@@ -107,13 +145,13 @@ describe('guardrails-attestation', () => {
 	describe('attestation_rejected event logging', () => {
 		it('logs attestation_rejected event on validation failure', async () => {
 			const shortAttestation = 'too short';
-			
+
 			const result = await validateAndRecordAttestation(
 				tempDir,
 				'finding-123',
 				'architect',
 				shortAttestation,
-				'resolve'
+				'resolve',
 			);
 
 			expect(result.valid).toBe(false);
@@ -135,41 +173,51 @@ describe('guardrails-attestation', () => {
 		});
 
 		it('does not log rejected event when attestation is valid', async () => {
-			const validAttestation = 'This is a valid justification that exceeds 30 characters';
-			
+			const validAttestation =
+				'This is a valid justification that exceeds 30 characters';
+
 			const result = await validateAndRecordAttestation(
 				tempDir,
 				'finding-456',
 				'architect',
 				validAttestation,
-				'suppress'
+				'suppress',
 			);
 
 			expect(result.valid).toBe(true);
 
 			// Events file should not exist (no rejection occurred)
 			const eventsPath = path.join(tempDir, '.swarm', 'events.jsonl');
-			const exists = await fs.access(eventsPath).then(() => true).catch(() => false);
+			const exists = await fs
+				.access(eventsPath)
+				.then(() => true)
+				.catch(() => false);
 			expect(exists).toBe(false);
 		});
 	});
 
 	describe('Record appended to attestations.jsonl on success', () => {
 		it('appends record to attestations.jsonl on success', async () => {
-			const validAttestation = 'This is a valid justification that exceeds 30 characters for resolving a finding';
-			
+			const validAttestation =
+				'This is a valid justification that exceeds 30 characters for resolving a finding';
+
 			const result = await validateAndRecordAttestation(
 				tempDir,
 				'finding-789',
 				'reviewer',
 				validAttestation,
-				'resolve'
+				'resolve',
 			);
 
 			expect(result.valid).toBe(true);
 
 			// Check that attestations.jsonl was created with the record
-			const attestationsPath = path.join(tempDir, '.swarm', 'evidence', 'attestations.jsonl');
+			const attestationsPath = path.join(
+				tempDir,
+				'.swarm',
+				'evidence',
+				'attestations.jsonl',
+			);
 			const content = await fs.readFile(attestationsPath, 'utf-8');
 			const lines = content.trim().split('\n');
 			const record = JSON.parse(lines[0]);
@@ -182,18 +230,37 @@ describe('guardrails-attestation', () => {
 		});
 
 		it('appends multiple records to same file', async () => {
-			const validAtt1 = 'This is the first valid justification text that is long enough';
-			const validAtt2 = 'This is the second valid justification text that is also long enough';
+			const validAtt1 =
+				'This is the first valid justification text that is long enough';
+			const validAtt2 =
+				'This is the second valid justification text that is also long enough';
 
-			await validateAndRecordAttestation(tempDir, 'finding-1', 'architect', validAtt1, 'resolve');
-			await validateAndRecordAttestation(tempDir, 'finding-2', 'architect', validAtt2, 'suppress');
+			await validateAndRecordAttestation(
+				tempDir,
+				'finding-1',
+				'architect',
+				validAtt1,
+				'resolve',
+			);
+			await validateAndRecordAttestation(
+				tempDir,
+				'finding-2',
+				'architect',
+				validAtt2,
+				'suppress',
+			);
 
-			const attestationsPath = path.join(tempDir, '.swarm', 'evidence', 'attestations.jsonl');
+			const attestationsPath = path.join(
+				tempDir,
+				'.swarm',
+				'evidence',
+				'attestations.jsonl',
+			);
 			const content = await fs.readFile(attestationsPath, 'utf-8');
 			const lines = content.trim().split('\n');
 
 			expect(lines.length).toBe(2);
-			
+
 			const record1 = JSON.parse(lines[0]);
 			const record2 = JSON.parse(lines[1]);
 
@@ -204,14 +271,15 @@ describe('guardrails-attestation', () => {
 		});
 
 		it('creates .swarm/evidence directory if not exists', async () => {
-			const validAttestation = 'This is a valid justification text that exceeds 30 characters';
-			
+			const validAttestation =
+				'This is a valid justification text that exceeds 30 characters';
+
 			await validateAndRecordAttestation(
 				tempDir,
 				'finding-new',
 				'test-agent',
 				validAttestation,
-				'defer'
+				'defer',
 			);
 
 			const evidenceDir = path.join(tempDir, '.swarm', 'evidence');
@@ -226,19 +294,25 @@ describe('guardrails-attestation', () => {
 			const nestedDir = path.join(tempDir, 'subdir\\nested\\path');
 			await fs.mkdir(nestedDir, { recursive: true });
 
-			const validAttestation = 'This is a valid justification text that exceeds 30 characters';
-			
+			const validAttestation =
+				'This is a valid justification text that exceeds 30 characters';
+
 			const result = await validateAndRecordAttestation(
 				nestedDir,
 				'finding-win',
 				'architect',
 				validAttestation,
-				'resolve'
+				'resolve',
 			);
 
 			expect(result.valid).toBe(true);
 
-			const attestationsPath = path.join(nestedDir, '.swarm', 'evidence', 'attestations.jsonl');
+			const attestationsPath = path.join(
+				nestedDir,
+				'.swarm',
+				'evidence',
+				'attestations.jsonl',
+			);
 			const content = await fs.readFile(attestationsPath, 'utf-8');
 			const record = JSON.parse(content.trim().split('\n')[0]);
 			expect(record.findingId).toBe('finding-win');
@@ -249,36 +323,46 @@ describe('guardrails-attestation', () => {
 			const nestedDir = path.join(tempDir, 'subdir/nested/path');
 			await fs.mkdir(nestedDir, { recursive: true });
 
-			const validAttestation = 'This is a valid justification text that exceeds 30 characters';
-			
+			const validAttestation =
+				'This is a valid justification text that exceeds 30 characters';
+
 			const result = await validateAndRecordAttestation(
 				nestedDir,
 				'finding-unix',
 				'architect',
 				validAttestation,
-				'suppress'
+				'suppress',
 			);
 
 			expect(result.valid).toBe(true);
 
-			const attestationsPath = path.join(nestedDir, '.swarm', 'evidence', 'attestations.jsonl');
+			const attestationsPath = path.join(
+				nestedDir,
+				'.swarm',
+				'evidence',
+				'attestations.jsonl',
+			);
 			const content = await fs.readFile(attestationsPath, 'utf-8');
 			const record = JSON.parse(content.trim().split('\n')[0]);
 			expect(record.findingId).toBe('finding-unix');
 		});
 
 		it('handles paths with spaces', async () => {
-			const spacesTempDir = path.join(os.tmpdir(), 'attestation test dir with spaces');
+			const spacesTempDir = path.join(
+				os.tmpdir(),
+				'attestation test dir with spaces',
+			);
 			await fs.mkdir(spacesTempDir, { recursive: true });
 
-			const validAttestation = 'This is a valid justification text that exceeds 30 characters';
-			
+			const validAttestation =
+				'This is a valid justification text that exceeds 30 characters';
+
 			const result = await validateAndRecordAttestation(
 				spacesTempDir,
 				'finding-spaces',
 				'architect',
 				validAttestation,
-				'resolve'
+				'resolve',
 			);
 
 			expect(result.valid).toBe(true);

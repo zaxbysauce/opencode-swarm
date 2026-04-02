@@ -1,10 +1,17 @@
-import { describe, it, expect, beforeEach } from 'bun:test';
-import { createGuardrailsHooks } from '../../../src/hooks/guardrails';
-import { resetSwarmState, startAgentSession, ensureAgentSession, swarmState } from '../../../src/state';
+import { beforeEach, describe, expect, it } from 'bun:test';
 import { ORCHESTRATOR_NAME } from '../../../src/config/constants';
 import type { GuardrailsConfig } from '../../../src/config/schema';
+import { createGuardrailsHooks } from '../../../src/hooks/guardrails';
+import {
+	ensureAgentSession,
+	resetSwarmState,
+	startAgentSession,
+	swarmState,
+} from '../../../src/state';
 
-function defaultConfig(overrides?: Partial<GuardrailsConfig>): GuardrailsConfig {
+function defaultConfig(
+	overrides?: Partial<GuardrailsConfig>,
+): GuardrailsConfig {
 	return {
 		enabled: true,
 		max_tool_calls: 200,
@@ -50,7 +57,9 @@ describe('ADVERSARIAL: Task 1.7 edge-case fix verification - missing system mess
 			// Verify system message was created and prepended
 			expect(messages.messages.length).toBe(2);
 			expect(messages.messages[0].info.role).toBe('system');
-			expect(messages.messages[0].parts[0].text).toContain('SELF-CODING DETECTED');
+			expect(messages.messages[0].parts[0].text).toContain(
+				'SELF-CODING DETECTED',
+			);
 			// Original user message should still be intact
 			expect(messages.messages[1].info.role).toBe('user');
 		});
@@ -116,7 +125,9 @@ describe('ADVERSARIAL: Task 1.7 edge-case fix verification - missing system mess
 			};
 
 			// Should NOT throw - should handle gracefully
-			await expect(hooks.messagesTransform({}, messages as any)).resolves.toBeUndefined();
+			await expect(
+				hooks.messagesTransform({}, messages as any),
+			).resolves.toBeUndefined();
 		});
 
 		it('should NOT crash when existing system message has empty parts array', async () => {
@@ -144,7 +155,9 @@ describe('ADVERSARIAL: Task 1.7 edge-case fix verification - missing system mess
 			};
 
 			// Should NOT throw - should handle gracefully
-			await expect(hooks.messagesTransform({}, messages as any)).resolves.toBeUndefined();
+			await expect(
+				hooks.messagesTransform({}, messages as any),
+			).resolves.toBeUndefined();
 		});
 	});
 
@@ -164,7 +177,9 @@ describe('ADVERSARIAL: Task 1.7 edge-case fix verification - missing system mess
 				messages: [
 					{
 						info: { role: 'system' as const, sessionID: sessionId },
-						parts: [{ type: 'image' as const, url: 'https://example.com/image.png' }],
+						parts: [
+							{ type: 'image' as const, url: 'https://example.com/image.png' },
+						],
 					},
 					{
 						info: { role: 'user' as const, sessionID: sessionId },
@@ -174,7 +189,9 @@ describe('ADVERSARIAL: Task 1.7 edge-case fix verification - missing system mess
 			};
 
 			// Should NOT throw - should handle gracefully
-			await expect(hooks.messagesTransform({}, messages as any)).resolves.toBeUndefined();
+			await expect(
+				hooks.messagesTransform({}, messages as any),
+			).resolves.toBeUndefined();
 		});
 	});
 
@@ -210,7 +227,7 @@ describe('ADVERSARIAL: Task 1.7 edge-case fix verification - missing system mess
 			// Should have exactly 2 messages: 1 system (created) + 1 original user
 			expect(messages.messages.length).toBe(2);
 			expect(messages.messages[0].info.role).toBe('system');
-			
+
 			// System message should contain BOTH warnings
 			const systemText = messages.messages[0].parts[0].text;
 			expect(systemText).toContain('SELF-CODING DETECTED');
@@ -244,7 +261,8 @@ describe('ADVERSARIAL: Task 1.7 edge-case fix verification - missing system mess
 			expect(firstCallText).toContain('SELF-CODING DETECTED');
 
 			// Count occurrences in first call
-			const firstCount = (firstCallText.match(/SELF-CODING DETECTED/g) || []).length;
+			const firstCount = (firstCallText.match(/SELF-CODING DETECTED/g) || [])
+				.length;
 			expect(firstCount).toBe(1);
 
 			// Second call - reuse same session state
@@ -259,9 +277,10 @@ describe('ADVERSARIAL: Task 1.7 edge-case fix verification - missing system mess
 
 			await hooks.messagesTransform({}, messages2 as any);
 			const secondCallText = messages2.messages[0].parts[0].text;
-			
+
 			// Should still only have one warning (not duplicated)
-			const secondCount = (secondCallText.match(/SELF-CODING DETECTED/g) || []).length;
+			const secondCount = (secondCallText.match(/SELF-CODING DETECTED/g) || [])
+				.length;
 			expect(secondCount).toBe(1);
 		});
 	});
@@ -316,7 +335,9 @@ describe('ADVERSARIAL: Task 1.7 edge-case fix verification - missing system mess
 			};
 
 			// Should NOT throw
-			await expect(hooks.messagesTransform({}, messages as any)).resolves.toBeUndefined();
+			await expect(
+				hooks.messagesTransform({}, messages as any),
+			).resolves.toBeUndefined();
 		});
 	});
 

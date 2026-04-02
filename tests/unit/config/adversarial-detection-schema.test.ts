@@ -2,7 +2,7 @@
  * Verification tests for AdversarialDetectionConfigSchema
  * Tests the four required cases specified in the verification task
  */
-import { describe, it, expect } from 'bun:test';
+import { describe, expect, it } from 'bun:test';
 import {
 	AdversarialDetectionConfigSchema,
 	PluginConfigSchema,
@@ -69,7 +69,9 @@ describe('ADDITIONAL COVERAGE: AdversarialDetectionConfigSchema', () => {
 		});
 
 		it('Accepts policy: ignore', () => {
-			const result = AdversarialDetectionConfigSchema.parse({ policy: 'ignore' });
+			const result = AdversarialDetectionConfigSchema.parse({
+				policy: 'ignore',
+			});
 			expect(result.policy).toBe('ignore');
 		});
 	});
@@ -183,7 +185,9 @@ describe('ADDITIONAL COVERAGE: AdversarialDetectionConfigSchema', () => {
 			expect(result.adversarial_detection).toBeDefined();
 			expect(result.adversarial_detection?.enabled).toBe(true);
 			expect(result.adversarial_detection?.policy).toBe('warn');
-			expect(result.adversarial_detection?.pairs).toEqual([['coder', 'reviewer']]);
+			expect(result.adversarial_detection?.pairs).toEqual([
+				['coder', 'reviewer'],
+			]);
 		});
 	});
 });

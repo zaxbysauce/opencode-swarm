@@ -1,15 +1,20 @@
-import { describe, test, expect, beforeEach, afterEach } from 'bun:test';
+import { afterEach, beforeEach, describe, expect, test } from 'bun:test';
 import * as fs from 'node:fs';
-import * as path from 'node:path';
 import * as os from 'node:os';
-import { executeWriteRetro, type WriteRetroArgs } from '../../../src/tools/write-retro';
+import * as path from 'node:path';
+import {
+	executeWriteRetro,
+	type WriteRetroArgs,
+} from '../../../src/tools/write-retro';
 
 describe('write-retro adversarial security tests', () => {
 	let tempDir: string;
 	let originalCwd: string;
 
 	beforeEach(() => {
-		tempDir = fs.mkdtempSync(path.join(os.tmpdir(), 'write-retro-adversarial-'));
+		tempDir = fs.mkdtempSync(
+			path.join(os.tmpdir(), 'write-retro-adversarial-'),
+		);
 		originalCwd = process.cwd();
 
 		// Create .swarm directory structure
@@ -47,7 +52,9 @@ describe('write-retro adversarial security tests', () => {
 			const parsed = JSON.parse(result);
 
 			expect(parsed.success).toBe(false);
-			expect(parsed.message).toMatch(/path traversal|Invalid task ID|must match pattern/);
+			expect(parsed.message).toMatch(
+				/path traversal|Invalid task ID|must match pattern/,
+			);
 		});
 
 		test('rejects path traversal with ../../etc/passwd in task_id', async () => {
@@ -69,7 +76,9 @@ describe('write-retro adversarial security tests', () => {
 			const parsed = JSON.parse(result);
 
 			expect(parsed.success).toBe(false);
-			expect(parsed.message).toMatch(/path traversal|Invalid task ID|must match pattern/);
+			expect(parsed.message).toMatch(
+				/path traversal|Invalid task ID|must match pattern/,
+			);
 		});
 
 		test('rejects path traversal with ..\\ pattern in task_id', async () => {
@@ -91,7 +100,9 @@ describe('write-retro adversarial security tests', () => {
 			const parsed = JSON.parse(result);
 
 			expect(parsed.success).toBe(false);
-			expect(parsed.message).toMatch(/path traversal|Invalid task ID|must match pattern/);
+			expect(parsed.message).toMatch(
+				/path traversal|Invalid task ID|must match pattern/,
+			);
 		});
 
 		test('rejects path traversal with embedded ../ in task_id', async () => {
@@ -113,7 +124,9 @@ describe('write-retro adversarial security tests', () => {
 			const parsed = JSON.parse(result);
 
 			expect(parsed.success).toBe(false);
-			expect(parsed.message).toMatch(/path traversal|Invalid task ID|must match pattern/);
+			expect(parsed.message).toMatch(
+				/path traversal|Invalid task ID|must match pattern/,
+			);
 		});
 	});
 
@@ -187,7 +200,9 @@ describe('write-retro adversarial security tests', () => {
 			const parsed = JSON.parse(result);
 
 			expect(parsed.success).toBe(false);
-			expect(parsed.message).toMatch(/control characters|Invalid task ID|must match pattern/);
+			expect(parsed.message).toMatch(
+				/control characters|Invalid task ID|must match pattern/,
+			);
 		});
 
 		test('rejects control character \\x1f in task_id', async () => {
@@ -209,7 +224,9 @@ describe('write-retro adversarial security tests', () => {
 			const parsed = JSON.parse(result);
 
 			expect(parsed.success).toBe(false);
-			expect(parsed.message).toMatch(/control characters|Invalid task ID|must match pattern/);
+			expect(parsed.message).toMatch(
+				/control characters|Invalid task ID|must match pattern/,
+			);
 		});
 
 		test('rejects multiple control characters in task_id', async () => {
@@ -231,7 +248,9 @@ describe('write-retro adversarial security tests', () => {
 			const parsed = JSON.parse(result);
 
 			expect(parsed.success).toBe(false);
-			expect(parsed.message).toMatch(/control characters|Invalid task ID|must match pattern/);
+			expect(parsed.message).toMatch(
+				/control characters|Invalid task ID|must match pattern/,
+			);
 		});
 	});
 
@@ -670,7 +689,9 @@ describe('write-retro adversarial security tests', () => {
 		});
 
 		test('requires .swarm directory structure', async () => {
-			const emptyDir = fs.mkdtempSync(path.join(os.tmpdir(), 'write-retro-empty-'));
+			const emptyDir = fs.mkdtempSync(
+				path.join(os.tmpdir(), 'write-retro-empty-'),
+			);
 			try {
 				const args: WriteRetroArgs = {
 					phase: 1,

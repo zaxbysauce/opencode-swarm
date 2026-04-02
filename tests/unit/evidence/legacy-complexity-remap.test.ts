@@ -1,14 +1,17 @@
-import { describe, it, expect, beforeEach, afterEach } from 'bun:test';
-import { loadEvidence } from '../../../src/evidence/manager';
-import { EvidenceBundleSchema } from '../../../src/config/evidence-schema';
-import { mkdirSync, rmSync, writeFileSync, readFileSync } from 'node:fs';
+import { afterEach, beforeEach, describe, expect, it } from 'bun:test';
+import { mkdirSync, readFileSync, rmSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
+import { EvidenceBundleSchema } from '../../../src/config/evidence-schema';
+import { loadEvidence } from '../../../src/evidence/manager';
 
 let tempDir: string;
 
 beforeEach(() => {
-	tempDir = join(tmpdir(), `legacy-complexity-test-${Date.now()}-${Math.random().toString(36).slice(2)}`);
+	tempDir = join(
+		tmpdir(),
+		`legacy-complexity-test-${Date.now()}-${Math.random().toString(36).slice(2)}`,
+	);
 	mkdirSync(join(tempDir, '.swarm'), { recursive: true });
 });
 
@@ -43,7 +46,10 @@ describe('Legacy task_complexity remapping', () => {
 
 		const evidenceDir = join(tempDir, '.swarm', 'evidence', 'legacy-low');
 		mkdirSync(evidenceDir, { recursive: true });
-		writeFileSync(join(evidenceDir, 'evidence.json'), JSON.stringify(flatRetro));
+		writeFileSync(
+			join(evidenceDir, 'evidence.json'),
+			JSON.stringify(flatRetro),
+		);
 
 		const result = await loadEvidence(tempDir, 'legacy-low');
 
@@ -51,7 +57,7 @@ describe('Legacy task_complexity remapping', () => {
 		if (result.status !== 'found') return;
 
 		const entry = result.bundle.entries[0] as Record<string, unknown>;
-		
+
 		// Verify the remapped value
 		expect(entry.task_complexity).toBe('simple');
 
@@ -87,7 +93,10 @@ describe('Legacy task_complexity remapping', () => {
 
 		const evidenceDir = join(tempDir, '.swarm', 'evidence', 'legacy-medium');
 		mkdirSync(evidenceDir, { recursive: true });
-		writeFileSync(join(evidenceDir, 'evidence.json'), JSON.stringify(flatRetro));
+		writeFileSync(
+			join(evidenceDir, 'evidence.json'),
+			JSON.stringify(flatRetro),
+		);
 
 		const result = await loadEvidence(tempDir, 'legacy-medium');
 
@@ -95,7 +104,7 @@ describe('Legacy task_complexity remapping', () => {
 		if (result.status !== 'found') return;
 
 		const entry = result.bundle.entries[0] as Record<string, unknown>;
-		
+
 		// Verify the remapped value
 		expect(entry.task_complexity).toBe('moderate');
 
@@ -131,7 +140,10 @@ describe('Legacy task_complexity remapping', () => {
 
 		const evidenceDir = join(tempDir, '.swarm', 'evidence', 'legacy-high');
 		mkdirSync(evidenceDir, { recursive: true });
-		writeFileSync(join(evidenceDir, 'evidence.json'), JSON.stringify(flatRetro));
+		writeFileSync(
+			join(evidenceDir, 'evidence.json'),
+			JSON.stringify(flatRetro),
+		);
 
 		const result = await loadEvidence(tempDir, 'legacy-high');
 
@@ -139,7 +151,7 @@ describe('Legacy task_complexity remapping', () => {
 		if (result.status !== 'found') return;
 
 		const entry = result.bundle.entries[0] as Record<string, unknown>;
-		
+
 		// Verify the remapped value
 		expect(entry.task_complexity).toBe('complex');
 
@@ -175,7 +187,10 @@ describe('Legacy task_complexity remapping', () => {
 
 		const evidenceDir = join(tempDir, '.swarm', 'evidence', 'non-legacy');
 		mkdirSync(evidenceDir, { recursive: true });
-		writeFileSync(join(evidenceDir, 'evidence.json'), JSON.stringify(flatRetro));
+		writeFileSync(
+			join(evidenceDir, 'evidence.json'),
+			JSON.stringify(flatRetro),
+		);
 
 		const result = await loadEvidence(tempDir, 'non-legacy');
 
@@ -183,7 +198,7 @@ describe('Legacy task_complexity remapping', () => {
 		if (result.status !== 'found') return;
 
 		const entry = result.bundle.entries[0] as Record<string, unknown>;
-		
+
 		// Verify the value is preserved
 		expect(entry.task_complexity).toBe('trivial');
 	});
@@ -212,8 +227,16 @@ describe('Legacy task_complexity remapping', () => {
 			lessons_learned: [],
 		};
 
-		const evidencePath = join(tempDir, '.swarm', 'evidence', 'persist-test', 'evidence.json');
-		mkdirSync(join(tempDir, '.swarm', 'evidence', 'persist-test'), { recursive: true });
+		const evidencePath = join(
+			tempDir,
+			'.swarm',
+			'evidence',
+			'persist-test',
+			'evidence.json',
+		);
+		mkdirSync(join(tempDir, '.swarm', 'evidence', 'persist-test'), {
+			recursive: true,
+		});
 		writeFileSync(evidencePath, JSON.stringify(flatRetro));
 
 		// First load - triggers repair
@@ -243,7 +266,11 @@ describe('Legacy task_complexity remapping', () => {
 	it('handles all three legacy complexity values in sequence', async () => {
 		const legacyValues = [
 			{ task_id: 'test-low', task_complexity: 'low', expected: 'simple' },
-			{ task_id: 'test-medium', task_complexity: 'medium', expected: 'moderate' },
+			{
+				task_id: 'test-medium',
+				task_complexity: 'medium',
+				expected: 'moderate',
+			},
 			{ task_id: 'test-high', task_complexity: 'high', expected: 'complex' },
 		];
 
@@ -268,8 +295,16 @@ describe('Legacy task_complexity remapping', () => {
 				lessons_learned: [],
 			};
 
-			const evidencePath = join(tempDir, '.swarm', 'evidence', task_id, 'evidence.json');
-			mkdirSync(join(tempDir, '.swarm', 'evidence', task_id), { recursive: true });
+			const evidencePath = join(
+				tempDir,
+				'.swarm',
+				'evidence',
+				task_id,
+				'evidence.json',
+			);
+			mkdirSync(join(tempDir, '.swarm', 'evidence', task_id), {
+				recursive: true,
+			});
 			writeFileSync(evidencePath, JSON.stringify(flatRetro));
 
 			const result = await loadEvidence(tempDir, task_id);

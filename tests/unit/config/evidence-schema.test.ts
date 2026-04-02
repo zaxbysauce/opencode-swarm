@@ -1,27 +1,27 @@
-import { describe, it, expect } from 'bun:test';
+import { describe, expect, it } from 'bun:test';
 import {
-	EvidenceTypeSchema,
-	EvidenceVerdictSchema,
-	BaseEvidenceSchema,
-	ReviewEvidenceSchema,
-	TestEvidenceSchema,
-	DiffEvidenceSchema,
 	ApprovalEvidenceSchema,
-	NoteEvidenceSchema,
-	RetrospectiveEvidenceSchema,
-	SyntaxEvidenceSchema,
-	PlaceholderEvidenceSchema,
-	SastEvidenceSchema,
-	SbomEvidenceSchema,
+	BaseEvidenceSchema,
 	BuildEvidenceSchema,
-	QualityBudgetEvidenceSchema,
-	EvidenceSchema,
-	EvidenceBundleSchema,
+	DiffEvidenceSchema,
 	EVIDENCE_MAX_JSON_BYTES,
 	EVIDENCE_MAX_PATCH_BYTES,
 	EVIDENCE_MAX_TASK_BYTES,
 	type Evidence,
+	EvidenceBundleSchema,
+	EvidenceSchema,
 	type EvidenceType,
+	EvidenceTypeSchema,
+	EvidenceVerdictSchema,
+	NoteEvidenceSchema,
+	PlaceholderEvidenceSchema,
+	QualityBudgetEvidenceSchema,
+	RetrospectiveEvidenceSchema,
+	ReviewEvidenceSchema,
+	SastEvidenceSchema,
+	SbomEvidenceSchema,
+	SyntaxEvidenceSchema,
+	TestEvidenceSchema,
 } from '../../../src/config/evidence-schema';
 
 describe('EvidenceTypeSchema', () => {
@@ -452,7 +452,10 @@ describe('RetrospectiveEvidenceSchema', () => {
 			task_count: 5,
 			task_complexity: 'moderate' as const,
 			top_rejection_reasons: ['Code style', 'Missing tests'],
-			lessons_learned: ['Add more edge case tests', 'Review PR before submitting'],
+			lessons_learned: [
+				'Add more edge case tests',
+				'Review PR before submitting',
+			],
 		};
 		const result = RetrospectiveEvidenceSchema.safeParse(evidence);
 		expect(result.success).toBe(true);
@@ -597,8 +600,8 @@ describe('SyntaxEvidenceSchema', () => {
 					language: 'typescript',
 					ok: false,
 					errors: [
-						{ line: 10, column: 5, message: "Unexpected token" },
-						{ line: 15, column: 1, message: "Missing semicolon" },
+						{ line: 10, column: 5, message: 'Unexpected token' },
+						{ line: 15, column: 1, message: 'Missing semicolon' },
 					],
 				},
 			],
@@ -685,10 +688,34 @@ describe('PlaceholderEvidenceSchema', () => {
 			verdict: 'info' as const,
 			summary: 'Placeholder detection complete',
 			findings: [
-				{ path: 'src/a.ts', line: 1, kind: 'comment' as const, excerpt: '// TODO', rule_id: 't1' },
-				{ path: 'src/b.ts', line: 2, kind: 'string' as const, excerpt: '"FIXME"', rule_id: 't2' },
-				{ path: 'src/c.ts', line: 3, kind: 'function_body' as const, excerpt: 'throw new Error()', rule_id: 't3' },
-				{ path: 'src/d.ts', line: 4, kind: 'other' as const, excerpt: '...', rule_id: 't4' },
+				{
+					path: 'src/a.ts',
+					line: 1,
+					kind: 'comment' as const,
+					excerpt: '// TODO',
+					rule_id: 't1',
+				},
+				{
+					path: 'src/b.ts',
+					line: 2,
+					kind: 'string' as const,
+					excerpt: '"FIXME"',
+					rule_id: 't2',
+				},
+				{
+					path: 'src/c.ts',
+					line: 3,
+					kind: 'function_body' as const,
+					excerpt: 'throw new Error()',
+					rule_id: 't3',
+				},
+				{
+					path: 'src/d.ts',
+					line: 4,
+					kind: 'other' as const,
+					excerpt: '...',
+					rule_id: 't4',
+				},
 			],
 			files_scanned: 10,
 			files_with_findings: 4,
@@ -1028,9 +1055,33 @@ describe('BuildEvidenceSchema', () => {
 			verdict: 'pass' as const,
 			summary: 'All checks passed',
 			runs: [
-				{ kind: 'build' as const, command: 'npm run build', cwd: '.', exit_code: 0, duration_ms: 1000, stdout_tail: '', stderr_tail: '' },
-				{ kind: 'typecheck' as const, command: 'npm run typecheck', cwd: '.', exit_code: 0, duration_ms: 2000, stdout_tail: '', stderr_tail: '' },
-				{ kind: 'test' as const, command: 'npm test', cwd: '.', exit_code: 0, duration_ms: 5000, stdout_tail: '', stderr_tail: '' },
+				{
+					kind: 'build' as const,
+					command: 'npm run build',
+					cwd: '.',
+					exit_code: 0,
+					duration_ms: 1000,
+					stdout_tail: '',
+					stderr_tail: '',
+				},
+				{
+					kind: 'typecheck' as const,
+					command: 'npm run typecheck',
+					cwd: '.',
+					exit_code: 0,
+					duration_ms: 2000,
+					stdout_tail: '',
+					stderr_tail: '',
+				},
+				{
+					kind: 'test' as const,
+					command: 'npm test',
+					cwd: '.',
+					exit_code: 0,
+					duration_ms: 5000,
+					stdout_tail: '',
+					stderr_tail: '',
+				},
 			],
 			files_scanned: 50,
 			runs_count: 3,
@@ -1202,13 +1253,43 @@ describe('QualityBudgetEvidenceSchema', () => {
 			agent: 'mega_coder',
 			verdict: 'fail' as const,
 			summary: 'Multiple violations',
-			metrics: { complexity_delta: 20, public_api_delta: 10, duplication_ratio: 0.2, test_to_code_ratio: 0.3 },
-			thresholds: { max_complexity_delta: 10, max_public_api_delta: 5, max_duplication_ratio: 0.1, min_test_to_code_ratio: 0.8 },
+			metrics: {
+				complexity_delta: 20,
+				public_api_delta: 10,
+				duplication_ratio: 0.2,
+				test_to_code_ratio: 0.3,
+			},
+			thresholds: {
+				max_complexity_delta: 10,
+				max_public_api_delta: 5,
+				max_duplication_ratio: 0.1,
+				min_test_to_code_ratio: 0.8,
+			},
 			violations: [
-				{ type: 'complexity' as const, message: 'c', severity: 'error' as const, files: ['a.ts'] },
-				{ type: 'api' as const, message: 'a', severity: 'error' as const, files: ['b.ts'] },
-				{ type: 'duplication' as const, message: 'd', severity: 'error' as const, files: ['c.ts'] },
-				{ type: 'test_ratio' as const, message: 't', severity: 'warning' as const, files: ['d.ts'] },
+				{
+					type: 'complexity' as const,
+					message: 'c',
+					severity: 'error' as const,
+					files: ['a.ts'],
+				},
+				{
+					type: 'api' as const,
+					message: 'a',
+					severity: 'error' as const,
+					files: ['b.ts'],
+				},
+				{
+					type: 'duplication' as const,
+					message: 'd',
+					severity: 'error' as const,
+					files: ['c.ts'],
+				},
+				{
+					type: 'test_ratio' as const,
+					message: 't',
+					severity: 'warning' as const,
+					files: ['d.ts'],
+				},
 			],
 			files_analyzed: [],
 		};
@@ -1399,7 +1480,11 @@ describe('EvidenceSchema - All 12 Types Compilation', () => {
 			verdict: 'info' as const,
 			summary: 'SBOM generated',
 			components: [],
-			metadata: { timestamp: '2026-02-09T12:00:00.000Z', tool: 'syft', tool_version: '1.0.0' },
+			metadata: {
+				timestamp: '2026-02-09T12:00:00.000Z',
+				tool: 'syft',
+				tool_version: '1.0.0',
+			},
 			files: [],
 			components_count: 0,
 			output_path: 'sbom.json',
@@ -1439,8 +1524,18 @@ describe('EvidenceSchema - All 12 Types Compilation', () => {
 			agent: 'mega_coder',
 			verdict: 'pass' as const,
 			summary: 'Quality within budget',
-			metrics: { complexity_delta: 0, public_api_delta: 0, duplication_ratio: 0, test_to_code_ratio: 1 },
-			thresholds: { max_complexity_delta: 10, max_public_api_delta: 5, max_duplication_ratio: 0.1, min_test_to_code_ratio: 0.8 },
+			metrics: {
+				complexity_delta: 0,
+				public_api_delta: 0,
+				duplication_ratio: 0,
+				test_to_code_ratio: 1,
+			},
+			thresholds: {
+				max_complexity_delta: 10,
+				max_public_api_delta: 5,
+				max_duplication_ratio: 0.1,
+				min_test_to_code_ratio: 0.8,
+			},
 			files_analyzed: [],
 		};
 		const result = EvidenceSchema.safeParse(evidence);
@@ -1515,25 +1610,80 @@ describe('EvidenceSchema - Discriminated Union Exhaustive', () => {
 				case 'note':
 					break;
 				case 'retrospective':
-					data = { ...data, phase_number: 1, total_tool_calls: 0, coder_revisions: 0, reviewer_rejections: 0, test_failures: 0, security_findings: 0, integration_issues: 0, task_count: 1, task_complexity: 'simple' as const };
+					data = {
+						...data,
+						phase_number: 1,
+						total_tool_calls: 0,
+						coder_revisions: 0,
+						reviewer_rejections: 0,
+						test_failures: 0,
+						security_findings: 0,
+						integration_issues: 0,
+						task_count: 1,
+						task_complexity: 'simple' as const,
+					};
 					break;
 				case 'syntax':
 					data = { ...data, files_checked: 0, files_failed: 0 };
 					break;
 				case 'placeholder':
-					data = { ...data, files_scanned: 0, files_with_findings: 0, findings_count: 0 };
+					data = {
+						...data,
+						files_scanned: 0,
+						files_with_findings: 0,
+						findings_count: 0,
+					};
 					break;
 				case 'sast':
-					data = { ...data, findings: [], engine: 'tier_a' as const, files_scanned: 0, findings_count: 0, findings_by_severity: { critical: 0, high: 0, medium: 0, low: 0 } };
+					data = {
+						...data,
+						findings: [],
+						engine: 'tier_a' as const,
+						files_scanned: 0,
+						findings_count: 0,
+						findings_by_severity: { critical: 0, high: 0, medium: 0, low: 0 },
+					};
 					break;
 				case 'sbom':
-					data = { ...data, components: [], metadata: { timestamp: '2026-02-09T12:00:00.000Z', tool: 'test', tool_version: '1.0' }, files: [], components_count: 0, output_path: 'test.json' };
+					data = {
+						...data,
+						components: [],
+						metadata: {
+							timestamp: '2026-02-09T12:00:00.000Z',
+							tool: 'test',
+							tool_version: '1.0',
+						},
+						files: [],
+						components_count: 0,
+						output_path: 'test.json',
+					};
 					break;
 				case 'build':
-					data = { ...data, runs: [], files_scanned: 0, runs_count: 0, failed_count: 0 };
+					data = {
+						...data,
+						runs: [],
+						files_scanned: 0,
+						runs_count: 0,
+						failed_count: 0,
+					};
 					break;
 				case 'quality_budget':
-					data = { ...data, metrics: { complexity_delta: 0, public_api_delta: 0, duplication_ratio: 0, test_to_code_ratio: 1 }, thresholds: { max_complexity_delta: 10, max_public_api_delta: 5, max_duplication_ratio: 0.1, min_test_to_code_ratio: 0.8 }, files_analyzed: [] };
+					data = {
+						...data,
+						metrics: {
+							complexity_delta: 0,
+							public_api_delta: 0,
+							duplication_ratio: 0,
+							test_to_code_ratio: 1,
+						},
+						thresholds: {
+							max_complexity_delta: 10,
+							max_public_api_delta: 5,
+							max_duplication_ratio: 0.1,
+							min_test_to_code_ratio: 0.8,
+						},
+						files_analyzed: [],
+					};
 					break;
 			}
 			const result = EvidenceSchema.safeParse(data);
@@ -1589,9 +1739,40 @@ describe('EvidenceSchema - Type Guards', () => {
 
 	it('type narrowing in switch works correctly', () => {
 		const evidences: Evidence[] = [
-			{ task_id: '1', type: 'review', timestamp: '2026-02-09T12:00:00.000Z', agent: 'a', verdict: 'pass', summary: 's', risk: 'low', issues: [] },
-			{ task_id: '2', type: 'test', timestamp: '2026-02-09T12:00:00.000Z', agent: 'a', verdict: 'pass', summary: 's', tests_passed: 5, tests_failed: 0, failures: [] },
-			{ task_id: '3', type: 'sast', timestamp: '2026-02-09T12:00:00.000Z', agent: 'a', verdict: 'pass', summary: 's', findings: [], engine: 'tier_a', files_scanned: 1, findings_count: 0, findings_by_severity: { critical: 0, high: 0, medium: 0, low: 0 } },
+			{
+				task_id: '1',
+				type: 'review',
+				timestamp: '2026-02-09T12:00:00.000Z',
+				agent: 'a',
+				verdict: 'pass',
+				summary: 's',
+				risk: 'low',
+				issues: [],
+			},
+			{
+				task_id: '2',
+				type: 'test',
+				timestamp: '2026-02-09T12:00:00.000Z',
+				agent: 'a',
+				verdict: 'pass',
+				summary: 's',
+				tests_passed: 5,
+				tests_failed: 0,
+				failures: [],
+			},
+			{
+				task_id: '3',
+				type: 'sast',
+				timestamp: '2026-02-09T12:00:00.000Z',
+				agent: 'a',
+				verdict: 'pass',
+				summary: 's',
+				findings: [],
+				engine: 'tier_a',
+				files_scanned: 1,
+				findings_count: 0,
+				findings_by_severity: { critical: 0, high: 0, medium: 0, low: 0 },
+			},
 		];
 		const types = evidences.map((e) => e.type);
 		expect(types).toEqual(['review', 'test', 'sast']);
@@ -1727,10 +1908,48 @@ describe('EvidenceBundleSchema - All 12 Types', () => {
 			schema_version: '1.0.0' as const,
 			task_id: '1.1',
 			entries: [
-				{ task_id: '1.1', type: 'note' as const, timestamp: '2026-02-09T12:00:00.000Z', agent: 'a', verdict: 'info' as const, summary: 'n' },
-				{ task_id: '1.1', type: 'test' as const, timestamp: '2026-02-09T12:00:00.000Z', agent: 'a', verdict: 'pass' as const, summary: 't', tests_passed: 5, tests_failed: 0 },
-				{ task_id: '1.1', type: 'sast' as const, timestamp: '2026-02-09T12:00:00.000Z', agent: 'a', verdict: 'pass' as const, summary: 's', engine: 'tier_a' as const, files_scanned: 1, findings_count: 0, findings_by_severity: { critical: 0, high: 0, medium: 0, low: 0 } },
-				{ task_id: '1.1', type: 'build' as const, timestamp: '2026-02-09T12:00:00.000Z', agent: 'a', verdict: 'pass' as const, summary: 'b', runs: [], files_scanned: 1, runs_count: 0, failed_count: 0 },
+				{
+					task_id: '1.1',
+					type: 'note' as const,
+					timestamp: '2026-02-09T12:00:00.000Z',
+					agent: 'a',
+					verdict: 'info' as const,
+					summary: 'n',
+				},
+				{
+					task_id: '1.1',
+					type: 'test' as const,
+					timestamp: '2026-02-09T12:00:00.000Z',
+					agent: 'a',
+					verdict: 'pass' as const,
+					summary: 't',
+					tests_passed: 5,
+					tests_failed: 0,
+				},
+				{
+					task_id: '1.1',
+					type: 'sast' as const,
+					timestamp: '2026-02-09T12:00:00.000Z',
+					agent: 'a',
+					verdict: 'pass' as const,
+					summary: 's',
+					engine: 'tier_a' as const,
+					files_scanned: 1,
+					findings_count: 0,
+					findings_by_severity: { critical: 0, high: 0, medium: 0, low: 0 },
+				},
+				{
+					task_id: '1.1',
+					type: 'build' as const,
+					timestamp: '2026-02-09T12:00:00.000Z',
+					agent: 'a',
+					verdict: 'pass' as const,
+					summary: 'b',
+					runs: [],
+					files_scanned: 1,
+					runs_count: 0,
+					failed_count: 0,
+				},
 			],
 			created_at: '2026-02-09T12:00:00.000Z',
 			updated_at: '2026-02-09T12:00:00.000Z',
@@ -1747,18 +1966,153 @@ describe('EvidenceBundleSchema - All 12 Types', () => {
 			schema_version: '1.0.0' as const,
 			task_id: '1.1',
 			entries: [
-				{ task_id: '1.1', type: 'review' as const, timestamp: '2026-02-09T12:00:00.000Z', agent: 'a', verdict: 'pass' as const, summary: 's', risk: 'low' as const, issues: [] },
-				{ task_id: '1.1', type: 'test' as const, timestamp: '2026-02-09T12:00:00.000Z', agent: 'a', verdict: 'pass' as const, summary: 's', tests_passed: 1, tests_failed: 0 },
-				{ task_id: '1.1', type: 'diff' as const, timestamp: '2026-02-09T12:00:00.000Z', agent: 'a', verdict: 'info' as const, summary: 's', files_changed: [], additions: 0, deletions: 0 },
-				{ task_id: '1.1', type: 'approval' as const, timestamp: '2026-02-09T12:00:00.000Z', agent: 'a', verdict: 'approved' as const, summary: 's' },
-				{ task_id: '1.1', type: 'note' as const, timestamp: '2026-02-09T12:00:00.000Z', agent: 'a', verdict: 'info' as const, summary: 's' },
-				{ task_id: '1.1', type: 'retrospective' as const, timestamp: '2026-02-09T12:00:00.000Z', agent: 'a', verdict: 'info' as const, summary: 's', phase_number: 1, total_tool_calls: 0, coder_revisions: 0, reviewer_rejections: 0, test_failures: 0, security_findings: 0, integration_issues: 0, task_count: 1, task_complexity: 'simple' as const },
-				{ task_id: '1.1', type: 'syntax' as const, timestamp: '2026-02-09T12:00:00.000Z', agent: 'a', verdict: 'pass' as const, summary: 's', files_checked: 1, files_failed: 0 },
-				{ task_id: '1.1', type: 'placeholder' as const, timestamp: '2026-02-09T12:00:00.000Z', agent: 'a', verdict: 'info' as const, summary: 's', files_scanned: 1, files_with_findings: 0, findings_count: 0 },
-				{ task_id: '1.1', type: 'sast' as const, timestamp: '2026-02-09T12:00:00.000Z', agent: 'a', verdict: 'pass' as const, summary: 's', engine: 'tier_a' as const, files_scanned: 1, findings_count: 0, findings_by_severity: { critical: 0, high: 0, medium: 0, low: 0 } },
-				{ task_id: '1.1', type: 'sbom' as const, timestamp: '2026-02-09T12:00:00.000Z', agent: 'a', verdict: 'info' as const, summary: 's', components: [], metadata: { timestamp: '2026-02-09T12:00:00.000Z', tool: 't', tool_version: '1' }, files: [], components_count: 0, output_path: 'o.json' },
-				{ task_id: '1.1', type: 'build' as const, timestamp: '2026-02-09T12:00:00.000Z', agent: 'a', verdict: 'pass' as const, summary: 's', runs: [], files_scanned: 1, runs_count: 0, failed_count: 0 },
-				{ task_id: '1.1', type: 'quality_budget' as const, timestamp: '2026-02-09T12:00:00.000Z', agent: 'a', verdict: 'pass' as const, summary: 's', metrics: { complexity_delta: 0, public_api_delta: 0, duplication_ratio: 0, test_to_code_ratio: 1 }, thresholds: { max_complexity_delta: 10, max_public_api_delta: 5, max_duplication_ratio: 0.1, min_test_to_code_ratio: 0.8 }, files_analyzed: [] },
+				{
+					task_id: '1.1',
+					type: 'review' as const,
+					timestamp: '2026-02-09T12:00:00.000Z',
+					agent: 'a',
+					verdict: 'pass' as const,
+					summary: 's',
+					risk: 'low' as const,
+					issues: [],
+				},
+				{
+					task_id: '1.1',
+					type: 'test' as const,
+					timestamp: '2026-02-09T12:00:00.000Z',
+					agent: 'a',
+					verdict: 'pass' as const,
+					summary: 's',
+					tests_passed: 1,
+					tests_failed: 0,
+				},
+				{
+					task_id: '1.1',
+					type: 'diff' as const,
+					timestamp: '2026-02-09T12:00:00.000Z',
+					agent: 'a',
+					verdict: 'info' as const,
+					summary: 's',
+					files_changed: [],
+					additions: 0,
+					deletions: 0,
+				},
+				{
+					task_id: '1.1',
+					type: 'approval' as const,
+					timestamp: '2026-02-09T12:00:00.000Z',
+					agent: 'a',
+					verdict: 'approved' as const,
+					summary: 's',
+				},
+				{
+					task_id: '1.1',
+					type: 'note' as const,
+					timestamp: '2026-02-09T12:00:00.000Z',
+					agent: 'a',
+					verdict: 'info' as const,
+					summary: 's',
+				},
+				{
+					task_id: '1.1',
+					type: 'retrospective' as const,
+					timestamp: '2026-02-09T12:00:00.000Z',
+					agent: 'a',
+					verdict: 'info' as const,
+					summary: 's',
+					phase_number: 1,
+					total_tool_calls: 0,
+					coder_revisions: 0,
+					reviewer_rejections: 0,
+					test_failures: 0,
+					security_findings: 0,
+					integration_issues: 0,
+					task_count: 1,
+					task_complexity: 'simple' as const,
+				},
+				{
+					task_id: '1.1',
+					type: 'syntax' as const,
+					timestamp: '2026-02-09T12:00:00.000Z',
+					agent: 'a',
+					verdict: 'pass' as const,
+					summary: 's',
+					files_checked: 1,
+					files_failed: 0,
+				},
+				{
+					task_id: '1.1',
+					type: 'placeholder' as const,
+					timestamp: '2026-02-09T12:00:00.000Z',
+					agent: 'a',
+					verdict: 'info' as const,
+					summary: 's',
+					files_scanned: 1,
+					files_with_findings: 0,
+					findings_count: 0,
+				},
+				{
+					task_id: '1.1',
+					type: 'sast' as const,
+					timestamp: '2026-02-09T12:00:00.000Z',
+					agent: 'a',
+					verdict: 'pass' as const,
+					summary: 's',
+					engine: 'tier_a' as const,
+					files_scanned: 1,
+					findings_count: 0,
+					findings_by_severity: { critical: 0, high: 0, medium: 0, low: 0 },
+				},
+				{
+					task_id: '1.1',
+					type: 'sbom' as const,
+					timestamp: '2026-02-09T12:00:00.000Z',
+					agent: 'a',
+					verdict: 'info' as const,
+					summary: 's',
+					components: [],
+					metadata: {
+						timestamp: '2026-02-09T12:00:00.000Z',
+						tool: 't',
+						tool_version: '1',
+					},
+					files: [],
+					components_count: 0,
+					output_path: 'o.json',
+				},
+				{
+					task_id: '1.1',
+					type: 'build' as const,
+					timestamp: '2026-02-09T12:00:00.000Z',
+					agent: 'a',
+					verdict: 'pass' as const,
+					summary: 's',
+					runs: [],
+					files_scanned: 1,
+					runs_count: 0,
+					failed_count: 0,
+				},
+				{
+					task_id: '1.1',
+					type: 'quality_budget' as const,
+					timestamp: '2026-02-09T12:00:00.000Z',
+					agent: 'a',
+					verdict: 'pass' as const,
+					summary: 's',
+					metrics: {
+						complexity_delta: 0,
+						public_api_delta: 0,
+						duplication_ratio: 0,
+						test_to_code_ratio: 1,
+					},
+					thresholds: {
+						max_complexity_delta: 10,
+						max_public_api_delta: 5,
+						max_duplication_ratio: 0.1,
+						min_test_to_code_ratio: 0.8,
+					},
+					files_analyzed: [],
+				},
 			],
 			created_at: '2026-02-09T12:00:00.000Z',
 			updated_at: '2026-02-09T12:00:00.000Z',
@@ -1770,7 +2124,6 @@ describe('EvidenceBundleSchema - All 12 Types', () => {
 		}
 	});
 });
-
 
 describe('RetrospectiveEvidenceSchema - new fields (v6.13.3)', () => {
 	const validRetroBase = {
@@ -1797,11 +2150,31 @@ describe('RetrospectiveEvidenceSchema - new fields (v6.13.3)', () => {
 		const evidence = {
 			...validRetroBase,
 			user_directives: [
-				{ directive: 'Use TypeScript strict mode', category: 'tooling' as const, scope: 'session' as const },
-				{ directive: 'Follow naming conventions', category: 'code_style' as const, scope: 'project' as const },
-				{ directive: 'Keep functions small', category: 'architecture' as const, scope: 'global' as const },
-				{ directive: 'Write tests first', category: 'process' as const, scope: 'project' as const },
-				{ directive: 'Avoid magic numbers', category: 'other' as const, scope: 'session' as const },
+				{
+					directive: 'Use TypeScript strict mode',
+					category: 'tooling' as const,
+					scope: 'session' as const,
+				},
+				{
+					directive: 'Follow naming conventions',
+					category: 'code_style' as const,
+					scope: 'project' as const,
+				},
+				{
+					directive: 'Keep functions small',
+					category: 'architecture' as const,
+					scope: 'global' as const,
+				},
+				{
+					directive: 'Write tests first',
+					category: 'process' as const,
+					scope: 'project' as const,
+				},
+				{
+					directive: 'Avoid magic numbers',
+					category: 'other' as const,
+					scope: 'session' as const,
+				},
 			],
 		};
 		const result = RetrospectiveEvidenceSchema.safeParse(evidence);
@@ -1826,7 +2199,11 @@ describe('RetrospectiveEvidenceSchema - new fields (v6.13.3)', () => {
 		const evidence = {
 			...validRetroBase,
 			user_directives: [
-				{ directive: 'Test directive', category: 'invalid_cat' as any, scope: 'session' as const },
+				{
+					directive: 'Test directive',
+					category: 'invalid_cat' as any,
+					scope: 'session' as const,
+				},
 			],
 		};
 		const result = RetrospectiveEvidenceSchema.safeParse(evidence);
@@ -1837,7 +2214,11 @@ describe('RetrospectiveEvidenceSchema - new fields (v6.13.3)', () => {
 		const evidence = {
 			...validRetroBase,
 			user_directives: [
-				{ directive: 'Test directive', category: 'tooling' as const, scope: 'team' as any },
+				{
+					directive: 'Test directive',
+					category: 'tooling' as const,
+					scope: 'team' as any,
+				},
 			],
 		};
 		const result = RetrospectiveEvidenceSchema.safeParse(evidence);
@@ -1848,9 +2229,19 @@ describe('RetrospectiveEvidenceSchema - new fields (v6.13.3)', () => {
 		const evidence = {
 			...validRetroBase,
 			approaches_tried: [
-				{ approach: 'First approach - direct implementation', result: 'success' as const },
-				{ approach: 'Second approach - refactored implementation', result: 'failure' as const, abandoned_reason: 'Too complex' },
-				{ approach: 'Third approach - hybrid solution', result: 'partial' as const },
+				{
+					approach: 'First approach - direct implementation',
+					result: 'success' as const,
+				},
+				{
+					approach: 'Second approach - refactored implementation',
+					result: 'failure' as const,
+					abandoned_reason: 'Too complex',
+				},
+				{
+					approach: 'Third approach - hybrid solution',
+					result: 'partial' as const,
+				},
 			],
 		};
 		const result = RetrospectiveEvidenceSchema.safeParse(evidence);
@@ -1898,12 +2289,27 @@ describe('RetrospectiveEvidenceSchema - new fields (v6.13.3)', () => {
 		const evidence = {
 			...validRetroBase,
 			user_directives: [
-				{ directive: 'Use TypeScript strict mode', category: 'tooling' as const, scope: 'session' as const },
-				{ directive: 'Follow naming conventions', category: 'code_style' as const, scope: 'project' as const },
+				{
+					directive: 'Use TypeScript strict mode',
+					category: 'tooling' as const,
+					scope: 'session' as const,
+				},
+				{
+					directive: 'Follow naming conventions',
+					category: 'code_style' as const,
+					scope: 'project' as const,
+				},
 			],
 			approaches_tried: [
-				{ approach: 'First approach - direct implementation', result: 'success' as const },
-				{ approach: 'Second approach - refactored implementation', result: 'failure' as const, abandoned_reason: 'Too complex' },
+				{
+					approach: 'First approach - direct implementation',
+					result: 'success' as const,
+				},
+				{
+					approach: 'Second approach - refactored implementation',
+					result: 'failure' as const,
+					abandoned_reason: 'Too complex',
+				},
 			],
 		};
 		const result = RetrospectiveEvidenceSchema.safeParse(evidence);

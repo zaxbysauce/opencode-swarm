@@ -1,9 +1,8 @@
-import { describe, it, expect, beforeEach, afterEach } from 'bun:test';
-import { buildRetroInjection } from '../../../src/hooks/system-enhancer';
-import { mkdtemp, writeFile, mkdir } from 'node:fs/promises';
-import { rm } from 'node:fs/promises';
+import { afterEach, beforeEach, describe, expect, it } from 'bun:test';
+import { mkdir, mkdtemp, rm, writeFile } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
+import { buildRetroInjection } from '../../../src/hooks/system-enhancer';
 
 describe('System Enhancer - User Directives Injection (10 Tests)', () => {
 	let tempDir: string;
@@ -209,7 +208,9 @@ describe('System Enhancer - User Directives Injection (10 Tests)', () => {
 		const result = await buildRetroInjection(tempDir, 1);
 
 		expect(result).not.toBeNull();
-		expect(result).toContain('## Historical Lessons (from recent prior projects)');
+		expect(result).toContain(
+			'## Historical Lessons (from recent prior projects)',
+		);
 		expect(result).toContain('User directives carried forward:');
 		expect(result).toContain('- [code_style] Use ES modules');
 		expect(result).toContain('- [process] Write unit tests');

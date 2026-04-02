@@ -1,10 +1,14 @@
-import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
 import * as path from 'node:path';
-import type { LintSuccessResult, LintErrorResult, AdditionalLinter } from '../../../src/tools/lint';
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
+import type {
+	AdditionalLinter,
+	LintErrorResult,
+	LintSuccessResult,
+} from '../../../src/tools/lint';
 import {
 	getAdditionalLinterCommand,
-	runAdditionalLint,
 	MAX_OUTPUT_BYTES,
+	runAdditionalLint,
 } from '../../../src/tools/lint';
 
 // Mock node:fs
@@ -70,12 +74,20 @@ describe('getAdditionalLinterCommand', () => {
 
 	describe('golangci-lint', () => {
 		it('check mode returns golangci-lint run', () => {
-			const result = getAdditionalLinterCommand('golangci-lint', 'check', '/test');
+			const result = getAdditionalLinterCommand(
+				'golangci-lint',
+				'check',
+				'/test',
+			);
 			expect(result).toEqual(['golangci-lint', 'run']);
 		});
 
 		it('fix mode returns golangci-lint run --fix', () => {
-			const result = getAdditionalLinterCommand('golangci-lint', 'fix', '/test');
+			const result = getAdditionalLinterCommand(
+				'golangci-lint',
+				'fix',
+				'/test',
+			);
 			expect(result).toEqual(['golangci-lint', 'run', '--fix']);
 		});
 	});
@@ -98,7 +110,9 @@ describe('getAdditionalLinterCommand', () => {
 
 		it('check mode with no gradlew but gradle available returns gradle checkstyleMain', () => {
 			mockExistsSync.mockReturnValue(false);
-			mockIsCommandAvailable.mockImplementation((cmd: string) => cmd === 'gradle');
+			mockIsCommandAvailable.mockImplementation(
+				(cmd: string) => cmd === 'gradle',
+			);
 			const result = getAdditionalLinterCommand('checkstyle', 'check', '/test');
 			expect(result).toEqual(['gradle', 'checkstyleMain']);
 		});
@@ -119,7 +133,9 @@ describe('getAdditionalLinterCommand', () => {
 			});
 
 			const gradlewBatPath = path.join('/test', 'gradlew.bat');
-			mockExistsSync.mockImplementation((p: string) => p.endsWith('gradlew.bat'));
+			mockExistsSync.mockImplementation((p: string) =>
+				p.endsWith('gradlew.bat'),
+			);
 			mockIsCommandAvailable.mockReturnValue(false);
 			const result = getAdditionalLinterCommand('checkstyle', 'check', '/test');
 			expect(result).toEqual([gradlewBatPath, 'checkstyleMain']);
@@ -158,12 +174,20 @@ describe('getAdditionalLinterCommand', () => {
 
 	describe('dotnet-format', () => {
 		it('check mode returns dotnet format --verify-no-changes', () => {
-			const result = getAdditionalLinterCommand('dotnet-format', 'check', '/test');
+			const result = getAdditionalLinterCommand(
+				'dotnet-format',
+				'check',
+				'/test',
+			);
 			expect(result).toEqual(['dotnet', 'format', '--verify-no-changes']);
 		});
 
 		it('fix mode returns dotnet format', () => {
-			const result = getAdditionalLinterCommand('dotnet-format', 'fix', '/test');
+			const result = getAdditionalLinterCommand(
+				'dotnet-format',
+				'fix',
+				'/test',
+			);
 			expect(result).toEqual(['dotnet', 'format']);
 		});
 	});
@@ -194,7 +218,11 @@ describe('getAdditionalLinterCommand', () => {
 
 	describe('dart-analyze', () => {
 		it('check mode returns dart analyze', () => {
-			const result = getAdditionalLinterCommand('dart-analyze', 'check', '/test');
+			const result = getAdditionalLinterCommand(
+				'dart-analyze',
+				'check',
+				'/test',
+			);
 			expect(result).toEqual(['dart', 'analyze']);
 		});
 
@@ -206,13 +234,17 @@ describe('getAdditionalLinterCommand', () => {
 
 	describe('rubocop', () => {
 		it('check mode with bundle available returns bundle exec rubocop', () => {
-			mockIsCommandAvailable.mockImplementation((cmd: string) => cmd === 'bundle');
+			mockIsCommandAvailable.mockImplementation(
+				(cmd: string) => cmd === 'bundle',
+			);
 			const result = getAdditionalLinterCommand('rubocop', 'check', '/test');
 			expect(result).toEqual(['bundle', 'exec', 'rubocop']);
 		});
 
 		it('fix mode with bundle available returns bundle exec rubocop -A', () => {
-			mockIsCommandAvailable.mockImplementation((cmd: string) => cmd === 'bundle');
+			mockIsCommandAvailable.mockImplementation(
+				(cmd: string) => cmd === 'bundle',
+			);
 			const result = getAdditionalLinterCommand('rubocop', 'fix', '/test');
 			expect(result).toEqual(['bundle', 'exec', 'rubocop', '-A']);
 		});
@@ -257,7 +289,9 @@ describe('runAdditionalLint', () => {
 
 		expect(result.success).toBe(true);
 		expect((result as LintSuccessResult).linter).toBe('ruff');
-		expect((result as LintSuccessResult).message).toContain('completed successfully');
+		expect((result as LintSuccessResult).message).toContain(
+			'completed successfully',
+		);
 		expect((result as LintSuccessResult).exitCode).toBe(0);
 	});
 
@@ -273,7 +307,9 @@ describe('runAdditionalLint', () => {
 
 		expect(result.success).toBe(true);
 		expect((result as LintSuccessResult).linter).toBe('ruff');
-		expect((result as LintSuccessResult).message).toContain('check found issues');
+		expect((result as LintSuccessResult).message).toContain(
+			'check found issues',
+		);
 		expect((result as LintSuccessResult).exitCode).toBe(1);
 	});
 
@@ -289,7 +325,9 @@ describe('runAdditionalLint', () => {
 
 		expect(result.success).toBe(true);
 		expect((result as LintSuccessResult).linter).toBe('ruff');
-		expect((result as LintSuccessResult).message).toContain('completed successfully');
+		expect((result as LintSuccessResult).message).toContain(
+			'completed successfully',
+		);
 		expect((result as LintSuccessResult).exitCode).toBe(0);
 	});
 
@@ -317,7 +355,9 @@ describe('runAdditionalLint', () => {
 		const result = await runAdditionalLint('ruff', 'check', '/test');
 
 		expect(result.success).toBe(true);
-		expect((result as LintSuccessResult).output).toContain('... (output truncated)');
+		expect((result as LintSuccessResult).output).toContain(
+			'... (output truncated)',
+		);
 		expect((result as LintSuccessResult).output).toHaveLength(
 			MAX_OUTPUT_BYTES + '\n... (output truncated)'.length,
 		);
@@ -334,7 +374,9 @@ describe('runAdditionalLint', () => {
 		const result = await runAdditionalLint('ruff', 'check', '/test');
 
 		expect(result.success).toBe(true);
-		expect((result as LintSuccessResult).output).toBe('stdout output\nstderr message');
+		expect((result as LintSuccessResult).output).toBe(
+			'stdout output\nstderr message',
+		);
 	});
 
 	it('passes cwd to Bun.spawn', async () => {

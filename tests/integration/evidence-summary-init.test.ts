@@ -10,10 +10,10 @@
  * 5. Verify swarmDir is ctx.directory (not ctx.directory + '/.swarm')
  */
 
-import { beforeEach, describe, expect, it, afterEach } from 'bun:test';
-import * as path from 'node:path';
-import { mkdtempSync, writeFileSync, rmSync, mkdirSync } from 'node:fs';
+import { afterEach, beforeEach, describe, expect, it } from 'bun:test';
+import { mkdirSync, mkdtempSync, rmSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
+import * as path from 'node:path';
 
 // Import the config schema to test the conditional logic directly
 import { AutomationConfigSchema } from '../../src/config/schema';
@@ -115,7 +115,9 @@ describe('EvidenceSummaryIntegration wiring logic', () => {
 	it('should use ctx.directory as the base (evidence paths resolve relative to it)', () => {
 		// Verify that buildEvidenceSummary accepts a directory parameter
 		// and does not append '.swarm/' to it (callers are responsible for this)
-		const { buildEvidenceSummary } = require('../../src/services/evidence-summary-service');
+		const {
+			buildEvidenceSummary,
+		} = require('../../src/services/evidence-summary-service');
 		expect(typeof buildEvidenceSummary).toBe('function');
 		// The function signature: buildEvidenceSummary(directory: string, currentPhase?: number)
 		// Verify it accepts directory as first arg (not swarmDir)
@@ -164,7 +166,7 @@ describe('EvidenceSummaryIntegration integration with plugin', () => {
 	beforeEach(() => {
 		// Create a temp directory for each test
 		testDir = mkdtempSync(path.join(tmpdir(), 'evidence-summary-test-'));
-		
+
 		// Create .opencode subdirectory with config file
 		const opencodeDir = path.join(testDir, '.opencode');
 		mkdirSync(opencodeDir, { recursive: true });
@@ -183,7 +185,7 @@ describe('EvidenceSummaryIntegration integration with plugin', () => {
 	 * Full integration test: Run the plugin with different configs
 	 * and verify that evidence summary integration behavior is correct
 	 * based on the config.
-	 * 
+	 *
 	 * Note: This test verifies the config loading and schema parsing
 	 * works correctly for the automation config. The actual integration
 	 * call is tested in the unit tests above.
@@ -215,7 +217,9 @@ describe('EvidenceSummaryIntegration integration with plugin', () => {
 		expect(config.automation?.capabilities?.evidence_auto_summaries).toBe(true);
 
 		// Apply the same logic as in src/index.ts
-		const automationConfig = AutomationConfigSchema.parse(config.automation ?? {});
+		const automationConfig = AutomationConfigSchema.parse(
+			config.automation ?? {},
+		);
 		const shouldInit =
 			automationConfig.mode !== 'manual' &&
 			automationConfig.capabilities?.evidence_auto_summaries === true;
@@ -242,7 +246,9 @@ describe('EvidenceSummaryIntegration integration with plugin', () => {
 		const { loadPluginConfigWithMeta } = await import('../../src/config');
 		const { config } = loadPluginConfigWithMeta(testDir);
 
-		const automationConfig = AutomationConfigSchema.parse(config.automation ?? {});
+		const automationConfig = AutomationConfigSchema.parse(
+			config.automation ?? {},
+		);
 		const shouldInit =
 			automationConfig.mode !== 'manual' &&
 			automationConfig.capabilities?.evidence_auto_summaries === true;
@@ -269,7 +275,9 @@ describe('EvidenceSummaryIntegration integration with plugin', () => {
 		const { loadPluginConfigWithMeta } = await import('../../src/config');
 		const { config } = loadPluginConfigWithMeta(testDir);
 
-		const automationConfig = AutomationConfigSchema.parse(config.automation ?? {});
+		const automationConfig = AutomationConfigSchema.parse(
+			config.automation ?? {},
+		);
 		const shouldInit =
 			automationConfig.mode !== 'manual' &&
 			automationConfig.capabilities?.evidence_auto_summaries === true;

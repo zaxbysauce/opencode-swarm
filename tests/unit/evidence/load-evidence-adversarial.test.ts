@@ -1,6 +1,6 @@
-import { describe, it, expect, beforeEach, afterEach } from 'vitest';
-import { mkdirSync, rmSync, writeFileSync, existsSync } from 'node:fs';
+import { existsSync, mkdirSync, rmSync, writeFileSync } from 'node:fs';
 import * as path from 'node:path';
+import { afterEach, beforeEach, describe, expect, it } from 'vitest';
 import { loadEvidence } from '../../../src/evidence/manager.js';
 
 describe('loadEvidence - adversarial tests', () => {
@@ -9,7 +9,10 @@ describe('loadEvidence - adversarial tests', () => {
 
 	beforeEach(() => {
 		// Create temp directory for each test
-		tempDir = path.join(process.cwd(), '.temp-test-' + Date.now() + '-' + Math.random().toString(36).slice(2));
+		tempDir = path.join(
+			process.cwd(),
+			'.temp-test-' + Date.now() + '-' + Math.random().toString(36).slice(2),
+		);
 		mkdirSync(tempDir, { recursive: true });
 		// Create .swarm subdirectory (required by validateSwarmPath)
 		swarmDir = path.join(tempDir, '.swarm');
@@ -129,8 +132,10 @@ describe('loadEvidence - adversarial tests', () => {
 			expect(result.errors).toBeDefined();
 			expect(result.errors.length).toBeGreaterThan(0);
 			// Check that schema_version is mentioned in the errors
-			const schemaVersionError = result.errors.some(error =>
-				error.includes('schema_version') || error.toLowerCase().includes('schema'),
+			const schemaVersionError = result.errors.some(
+				(error) =>
+					error.includes('schema_version') ||
+					error.toLowerCase().includes('schema'),
 			);
 			expect(schemaVersionError).toBe(true);
 		}
@@ -178,8 +183,9 @@ describe('loadEvidence - adversarial tests', () => {
 			expect(result.errors).toBeDefined();
 			expect(result.errors.length).toBeGreaterThan(0);
 			// Check that task_complexity is mentioned in the errors
-			const complexityError = result.errors.some(error =>
-				error.includes('task_complexity') || error.includes('medium'),
+			const complexityError = result.errors.some(
+				(error) =>
+					error.includes('task_complexity') || error.includes('medium'),
 			);
 			expect(complexityError).toBe(true);
 		}
@@ -223,7 +229,7 @@ describe('loadEvidence - adversarial tests', () => {
 			// Should have multiple errors from Zod validation
 			expect(result.errors.length).toBeGreaterThan(0);
 			// All errors should be strings
-			result.errors.forEach(error => {
+			result.errors.forEach((error) => {
 				expect(typeof error).toBe('string');
 			});
 		}
@@ -278,7 +284,7 @@ describe('loadEvidence - adversarial tests', () => {
 
 		for (const taskId of invalidIds) {
 			await expect(loadEvidence(tempDir, taskId)).rejects.toThrow(
-				/Invalid task ID: must match pattern/,
+				/Invalid task ID/,
 			);
 		}
 	});

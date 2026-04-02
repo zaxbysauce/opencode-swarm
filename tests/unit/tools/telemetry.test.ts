@@ -1,15 +1,23 @@
-import { describe, test, expect, beforeEach, afterEach, beforeAll, afterAll } from 'bun:test';
+import {
+	afterAll,
+	afterEach,
+	beforeAll,
+	beforeEach,
+	describe,
+	expect,
+	test,
+} from 'bun:test';
 import * as fs from 'node:fs';
-import * as path from 'node:path';
 import * as os from 'node:os';
+import * as path from 'node:path';
 
 import {
-	initTelemetry,
-	emit,
 	addTelemetryListener,
+	emit,
+	initTelemetry,
+	resetTelemetryForTesting,
 	rotateTelemetryIfNeeded,
 	telemetry,
-	resetTelemetryForTesting,
 } from '../../../src/telemetry';
 
 // NOTE: The telemetry module uses module-level state that persists across tests.
@@ -46,12 +54,19 @@ describe('telemetry module', () => {
 
 	describe('emit (file I/O)', () => {
 		test('2. appends valid JSON lines to the file', async () => {
-			emit('session_started', { sessionId: 'test-123', agentName: 'test-agent' });
+			emit('session_started', {
+				sessionId: 'test-123',
+				agentName: 'test-agent',
+			});
 
 			// Wait for async write to complete and stream to flush
 			await new Promise((resolve) => setTimeout(resolve, 100));
 
-			const telemetryPath = path.join(sharedTempDir, '.swarm', 'telemetry.jsonl');
+			const telemetryPath = path.join(
+				sharedTempDir,
+				'.swarm',
+				'telemetry.jsonl',
+			);
 			const content = fs.readFileSync(telemetryPath, 'utf-8');
 			const lines = content.trim().split('\n').filter(Boolean);
 
@@ -93,7 +108,11 @@ describe('telemetry module', () => {
 
 			await new Promise((resolve) => setTimeout(resolve, 100));
 
-			const telemetryPath = path.join(sharedTempDir, '.swarm', 'telemetry.jsonl');
+			const telemetryPath = path.join(
+				sharedTempDir,
+				'.swarm',
+				'telemetry.jsonl',
+			);
 			const content = fs.readFileSync(telemetryPath, 'utf-8');
 			const lines = content.trim().split('\n').filter(Boolean);
 
@@ -104,21 +123,34 @@ describe('telemetry module', () => {
 
 	describe('addTelemetryListener', () => {
 		test('4. listener receives events', () => {
-			const receivedEvents: Array<{ event: string; data: Record<string, unknown> }> = [];
+			const receivedEvents: Array<{
+				event: string;
+				data: Record<string, unknown>;
+			}> = [];
 			addTelemetryListener((event, data) => {
 				receivedEvents.push({ event, data });
 			});
 
-			emit('session_started', { sessionId: 'listener-test-1', agentName: 'agent-1' });
-			emit('phase_changed', { sessionId: 'listener-test-1', oldPhase: 1, newPhase: 2 });
+			emit('session_started', {
+				sessionId: 'listener-test-1',
+				agentName: 'agent-1',
+			});
+			emit('phase_changed', {
+				sessionId: 'listener-test-1',
+				oldPhase: 1,
+				newPhase: 2,
+			});
 
 			expect(receivedEvents.length).toBeGreaterThanOrEqual(2);
 			// Check that our events are in the received events
 			const sessionStarted = receivedEvents.find(
-				(e) => e.event === 'session_started' && e.data.sessionId === 'listener-test-1',
+				(e) =>
+					e.event === 'session_started' &&
+					e.data.sessionId === 'listener-test-1',
 			);
 			const phaseChanged = receivedEvents.find(
-				(e) => e.event === 'phase_changed' && e.data.sessionId === 'listener-test-1',
+				(e) =>
+					e.event === 'phase_changed' && e.data.sessionId === 'listener-test-1',
 			);
 			expect(sessionStarted).toBeDefined();
 			expect(phaseChanged).toBeDefined();
@@ -151,7 +183,10 @@ describe('telemetry module', () => {
 			addTelemetryListener((event) => listener2Events.push(event));
 			addTelemetryListener((event) => listener3Events.push(event));
 
-			emit('session_started', { sessionId: 'multi-listener-test', agentName: 'agent' });
+			emit('session_started', {
+				sessionId: 'multi-listener-test',
+				agentName: 'agent',
+			});
 
 			expect(listener1Events.length).toBeGreaterThanOrEqual(1);
 			expect(listener2Events.length).toBeGreaterThanOrEqual(1);
@@ -163,12 +198,23 @@ describe('telemetry module', () => {
 		test('6. renames file when over limit', async () => {
 			// Emit events to ensure file has content
 			for (let i = 0; i < 5; i++) {
-				emit('session_started', { sessionId: `rotate-${i}`, agentName: 'agent' });
+				emit('session_started', {
+					sessionId: `rotate-${i}`,
+					agentName: 'agent',
+				});
 			}
 			await new Promise((resolve) => setTimeout(resolve, 100));
 
-			const telemetryPath = path.join(sharedTempDir, '.swarm', 'telemetry.jsonl');
-			const rotatedPath = path.join(sharedTempDir, '.swarm', 'telemetry.jsonl.1');
+			const telemetryPath = path.join(
+				sharedTempDir,
+				'.swarm',
+				'telemetry.jsonl',
+			);
+			const rotatedPath = path.join(
+				sharedTempDir,
+				'.swarm',
+				'telemetry.jsonl.1',
+			);
 
 			// Verify initial state
 			expect(fs.existsSync(telemetryPath)).toBe(true);
@@ -191,14 +237,24 @@ describe('telemetry module', () => {
 		});
 
 		test('does nothing when under limit', async () => {
-			const telemetryPath = path.join(sharedTempDir, '.swarm', 'telemetry.jsonl');
-			const rotatedPath = path.join(sharedTempDir, '.swarm', 'telemetry.jsonl.1');
+			const telemetryPath = path.join(
+				sharedTempDir,
+				'.swarm',
+				'telemetry.jsonl',
+			);
+			const rotatedPath = path.join(
+				sharedTempDir,
+				'.swarm',
+				'telemetry.jsonl.1',
+			);
 
 			// Emit something first
 			emit('session_started', { sessionId: 'under-limit', agentName: 'agent' });
 			await new Promise((resolve) => setTimeout(resolve, 100));
 
-			const sizeBefore = fs.existsSync(telemetryPath) ? fs.statSync(telemetryPath).size : 0;
+			const sizeBefore = fs.existsSync(telemetryPath)
+				? fs.statSync(telemetryPath).size
+				: 0;
 
 			rotateTelemetryIfNeeded(10 * 1024 * 1024); // 10MB limit
 
@@ -208,11 +264,22 @@ describe('telemetry module', () => {
 		});
 
 		test('rotation creates new file with less content', async () => {
-			const telemetryPath = path.join(sharedTempDir, '.swarm', 'telemetry.jsonl');
-			const rotatedPath = path.join(sharedTempDir, '.swarm', 'telemetry.jsonl.1');
+			const telemetryPath = path.join(
+				sharedTempDir,
+				'.swarm',
+				'telemetry.jsonl',
+			);
+			const rotatedPath = path.join(
+				sharedTempDir,
+				'.swarm',
+				'telemetry.jsonl.1',
+			);
 
 			// Emit something first
-			emit('session_started', { sessionId: 'rotation-size', agentName: 'agent' });
+			emit('session_started', {
+				sessionId: 'rotation-size',
+				agentName: 'agent',
+			});
 			await new Promise((resolve) => setTimeout(resolve, 100));
 
 			const originalSize = fs.statSync(telemetryPath).size;

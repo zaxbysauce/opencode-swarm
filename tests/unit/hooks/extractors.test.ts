@@ -1,6 +1,15 @@
-import { describe, it, expect } from 'bun:test';
-import { extractCurrentTask, extractIncompleteTasks, extractPatterns, extractCurrentPhase, extractDecisions, extractCurrentPhaseFromPlan, extractCurrentTaskFromPlan, extractIncompleteTasksFromPlan } from '../../../src/hooks/extractors';
+import { describe, expect, it } from 'bun:test';
 import type { Plan } from '../../../src/config/plan-schema';
+import {
+	extractCurrentPhase,
+	extractCurrentPhaseFromPlan,
+	extractCurrentTask,
+	extractCurrentTaskFromPlan,
+	extractDecisions,
+	extractIncompleteTasks,
+	extractIncompleteTasksFromPlan,
+	extractPatterns,
+} from '../../../src/hooks/extractors';
 
 function createTestPlan(overrides?: Partial<Plan>): Plan {
 	return {
@@ -8,23 +17,58 @@ function createTestPlan(overrides?: Partial<Plan>): Plan {
 		title: 'Test Plan',
 		swarm: 'test-swarm',
 		current_phase: 1,
-		phases: [{
-			id: 1,
-			name: 'Phase 1',
-			status: 'in_progress' as const,
-			tasks: [
-				{ id: '1.1', phase: 1, status: 'completed' as const, size: 'small' as const, description: 'Task one', depends: [], files_touched: [] },
-				{ id: '1.2', phase: 1, status: 'in_progress' as const, size: 'medium' as const, description: 'Task two', depends: ['1.1'], files_touched: [] },
-				{ id: '1.3', phase: 1, status: 'pending' as const, size: 'large' as const, description: 'Task three', depends: ['1.2'], files_touched: [] },
-			],
-		}, {
-			id: 2,
-			name: 'Phase 2',
-			status: 'pending' as const,
-			tasks: [
-				{ id: '2.1', phase: 2, status: 'pending' as const, size: 'small' as const, description: 'Future task', depends: [], files_touched: [] },
-			],
-		}],
+		phases: [
+			{
+				id: 1,
+				name: 'Phase 1',
+				status: 'in_progress' as const,
+				tasks: [
+					{
+						id: '1.1',
+						phase: 1,
+						status: 'completed' as const,
+						size: 'small' as const,
+						description: 'Task one',
+						depends: [],
+						files_touched: [],
+					},
+					{
+						id: '1.2',
+						phase: 1,
+						status: 'in_progress' as const,
+						size: 'medium' as const,
+						description: 'Task two',
+						depends: ['1.1'],
+						files_touched: [],
+					},
+					{
+						id: '1.3',
+						phase: 1,
+						status: 'pending' as const,
+						size: 'large' as const,
+						description: 'Task three',
+						depends: ['1.2'],
+						files_touched: [],
+					},
+				],
+			},
+			{
+				id: 2,
+				name: 'Phase 2',
+				status: 'pending' as const,
+				tasks: [
+					{
+						id: '2.1',
+						phase: 2,
+						status: 'pending' as const,
+						size: 'small' as const,
+						description: 'Future task',
+						depends: [],
+						files_touched: [],
+					},
+				],
+			},
+		],
 		...overrides,
 	};
 }
@@ -139,11 +183,14 @@ describe('extractCurrentTask', () => {
 	});
 
 	it('Handles tasks with complex formatting', () => {
-		const content = `# Project Plan
+		const content =
+			`# Project Plan
 
 ## Phase 1: Setup [IN PROGRESS]
 - [x] 1.1: Init project **done**
-- [ ] 1.2: Add config ` + '`important` settings' + `
+- [ ] 1.2: Add config ` +
+			'`important` settings' +
+			`
 - [ ] 1.3: Setup *tests* and **docs**`;
 		const result = extractCurrentTask(content);
 		expect(result).toBe('- [ ] 1.2: Add config `important` settings');
@@ -196,7 +243,9 @@ describe('extractIncompleteTasks', () => {
 
 ## Phase 2: Development [PENDING]`;
 		const result = extractIncompleteTasks(content);
-		expect(result).toBe('- [ ] 1.2: Add config\n- [ ] 1.3: Setup tests\n- [ ] 1.4: Write docs');
+		expect(result).toBe(
+			'- [ ] 1.2: Add config\n- [ ] 1.3: Setup tests\n- [ ] 1.4: Write docs',
+		);
 	});
 
 	it('Stops at next `## ` heading', () => {
@@ -286,7 +335,9 @@ ${longTask}`;
 - [ ] 1.3: Setup tests
 - [ ] 1.4: Write docs`;
 		const result = extractIncompleteTasks(content);
-		expect(result).toBe('- [ ] 1.2: Add config\n- [ ] Subtask 1\n- [ ] Subtask 2\n- [ ] 1.3: Setup tests\n- [ ] 1.4: Write docs');
+		expect(result).toBe(
+			'- [ ] 1.2: Add config\n- [ ] Subtask 1\n- [ ] Subtask 2\n- [ ] 1.3: Setup tests\n- [ ] 1.4: Write docs',
+		);
 	});
 });
 
@@ -326,7 +377,9 @@ Some content here`;
 ## Other section
 - Not a pattern`;
 		const result = extractPatterns(content);
-		expect(result).toBe('- Pattern 1: Always use TypeScript\n- Pattern 2: Prefer composition over inheritance\n- Pattern 3: Write comprehensive tests');
+		expect(result).toBe(
+			'- Pattern 1: Always use TypeScript\n- Pattern 2: Prefer composition over inheritance\n- Pattern 3: Write comprehensive tests',
+		);
 	});
 
 	it('Stops at next `## ` heading', () => {
@@ -340,7 +393,9 @@ Some content here`;
 - Decision 1
 - Decision 2`;
 		const result = extractPatterns(content);
-		expect(result).toBe('- Pattern 1: Use TypeScript\n- Pattern 2: Write tests');
+		expect(result).toBe(
+			'- Pattern 1: Use TypeScript\n- Pattern 2: Write tests',
+		);
 	});
 
 	it('Only collects lines starting with `- ` (ignores other lines)', () => {
@@ -353,7 +408,9 @@ Some explanatory text
 More explanatory text
 - Pattern 3: Document everything`;
 		const result = extractPatterns(content);
-		expect(result).toBe('- Pattern 1: Use TypeScript\n- Pattern 2: Write tests\n- Pattern 3: Document everything');
+		expect(result).toBe(
+			'- Pattern 1: Use TypeScript\n- Pattern 2: Write tests\n- Pattern 3: Document everything',
+		);
 	});
 
 	it('Respects maxChars truncation (appends "...")', () => {
@@ -417,14 +474,19 @@ Just text, no bullets
 	});
 
 	it('Extracts patterns with complex formatting', () => {
-		const content = `# Context
+		const content =
+			`# Context
 
 ## Patterns
-- **Pattern 1**: Always use ` + '`TypeScript`' + ` for new code
+- **Pattern 1**: Always use ` +
+			'`TypeScript`' +
+			` for new code
 - *Pattern 2*: Prefer **composition** over inheritance
 - Pattern 3: Write *comprehensive* tests **and** documentation`;
 		const result = extractPatterns(content);
-		expect(result).toBe('- **Pattern 1**: Always use `TypeScript` for new code\n- *Pattern 2*: Prefer **composition** over inheritance\n- Pattern 3: Write *comprehensive* tests **and** documentation');
+		expect(result).toBe(
+			'- **Pattern 1**: Always use `TypeScript` for new code\n- *Pattern 2*: Prefer **composition** over inheritance\n- Pattern 3: Write *comprehensive* tests **and** documentation',
+		);
 	});
 });
 
@@ -538,7 +600,9 @@ describe('extractDecisions', () => {
 ## Other section
 - Not a decision`;
 		const result = extractDecisions(content);
-		expect(result).toBe('- Use TypeScript for all new code\n- Follow existing coding standards\n- Write comprehensive tests');
+		expect(result).toBe(
+			'- Use TypeScript for all new code\n- Follow existing coding standards\n- Write comprehensive tests',
+		);
 	});
 
 	it('No ## Decisions section → null', () => {
@@ -612,7 +676,9 @@ ${longDecision}`;
 ## Patterns
 - Pattern 1: Follow standards`;
 		const result = extractDecisions(content);
-		expect(result).toBe('- Decision 1: Use TypeScript\n- Decision 2: Write tests');
+		expect(result).toBe(
+			'- Decision 1: Use TypeScript\n- Decision 2: Write tests',
+		);
 	});
 
 	it('Only collects `- ` lines (ignores other text)', () => {
@@ -625,7 +691,9 @@ Some explanatory text here
 More explanatory text
 - Decision 3: Document everything`;
 		const result = extractDecisions(content);
-		expect(result).toBe('- Decision 1: Use TypeScript\n- Decision 2: Write tests\n- Decision 3: Document everything');
+		expect(result).toBe(
+			'- Decision 1: Use TypeScript\n- Decision 2: Write tests\n- Decision 3: Document everything',
+		);
 	});
 });
 
@@ -638,12 +706,14 @@ describe('extractCurrentPhaseFromPlan', () => {
 
 	it('Returns correct status text for complete phase', () => {
 		const plan = createTestPlan({
-			phases: [{
-				id: 1,
-				name: 'Phase 1',
-				status: 'complete' as const,
-				tasks: [],
-			}],
+			phases: [
+				{
+					id: 1,
+					name: 'Phase 1',
+					status: 'complete' as const,
+					tasks: [],
+				},
+			],
 		});
 		const result = extractCurrentPhaseFromPlan(plan);
 		expect(result).toBe('Phase 1: Phase 1 [COMPLETE]');
@@ -673,12 +743,14 @@ describe('extractCurrentPhaseFromPlan', () => {
 
 	it('Returns correct status text for blocked phase', () => {
 		const plan = createTestPlan({
-			phases: [{
-				id: 1,
-				name: 'Phase 1',
-				status: 'blocked' as const,
-				tasks: [],
-			}],
+			phases: [
+				{
+					id: 1,
+					name: 'Phase 1',
+					status: 'blocked' as const,
+					tasks: [],
+				},
+			],
 		});
 		const result = extractCurrentPhaseFromPlan(plan);
 		expect(result).toBe('Phase 1: Phase 1 [BLOCKED]');
@@ -705,7 +777,15 @@ describe('extractCurrentPhaseFromPlan', () => {
 					name: 'Phase 2',
 					status: 'in_progress' as const,
 					tasks: [
-						{ id: '2.1', phase: 2, status: 'pending' as const, size: 'small' as const, description: 'Task 2.1', depends: [], files_touched: [] },
+						{
+							id: '2.1',
+							phase: 2,
+							status: 'pending' as const,
+							size: 'small' as const,
+							description: 'Task 2.1',
+							depends: [],
+							files_touched: [],
+						},
 					],
 				},
 			],
@@ -719,21 +799,49 @@ describe('extractCurrentTaskFromPlan', () => {
 	it('Returns first in_progress task (prioritizes over pending)', () => {
 		const plan = createTestPlan();
 		const result = extractCurrentTaskFromPlan(plan);
-		expect(result).toBe('- [ ] 1.2: Task two [MEDIUM] (depends: 1.1) ← CURRENT');
+		expect(result).toBe(
+			'- [ ] 1.2: Task two [MEDIUM] (depends: 1.1) ← CURRENT',
+		);
 	});
 
 	it('Returns first pending task when no in_progress task exists', () => {
 		const plan = createTestPlan({
-			phases: [{
-				id: 1,
-				name: 'Phase 1',
-				status: 'in_progress' as const,
-				tasks: [
-					{ id: '1.1', phase: 1, status: 'completed' as const, size: 'small' as const, description: 'Task one', depends: [], files_touched: [] },
-					{ id: '1.2', phase: 1, status: 'pending' as const, size: 'medium' as const, description: 'Task two', depends: ['1.1'], files_touched: [] },
-					{ id: '1.3', phase: 1, status: 'pending' as const, size: 'large' as const, description: 'Task three', depends: ['1.2'], files_touched: [] },
-				],
-			}],
+			phases: [
+				{
+					id: 1,
+					name: 'Phase 1',
+					status: 'in_progress' as const,
+					tasks: [
+						{
+							id: '1.1',
+							phase: 1,
+							status: 'completed' as const,
+							size: 'small' as const,
+							description: 'Task one',
+							depends: [],
+							files_touched: [],
+						},
+						{
+							id: '1.2',
+							phase: 1,
+							status: 'pending' as const,
+							size: 'medium' as const,
+							description: 'Task two',
+							depends: ['1.1'],
+							files_touched: [],
+						},
+						{
+							id: '1.3',
+							phase: 1,
+							status: 'pending' as const,
+							size: 'large' as const,
+							description: 'Task three',
+							depends: ['1.2'],
+							files_touched: [],
+						},
+					],
+				},
+			],
 		});
 		const result = extractCurrentTaskFromPlan(plan);
 		expect(result).toBe('- [ ] 1.2: Task two [MEDIUM] (depends: 1.1)');
@@ -741,15 +849,33 @@ describe('extractCurrentTaskFromPlan', () => {
 
 	it('Returns null when phase has only completed tasks', () => {
 		const plan = createTestPlan({
-			phases: [{
-				id: 1,
-				name: 'Phase 1',
-				status: 'in_progress' as const,
-				tasks: [
-					{ id: '1.1', phase: 1, status: 'completed' as const, size: 'small' as const, description: 'Task one', depends: [], files_touched: [] },
-					{ id: '1.2', phase: 1, status: 'completed' as const, size: 'medium' as const, description: 'Task two', depends: ['1.1'], files_touched: [] },
-				],
-			}],
+			phases: [
+				{
+					id: 1,
+					name: 'Phase 1',
+					status: 'in_progress' as const,
+					tasks: [
+						{
+							id: '1.1',
+							phase: 1,
+							status: 'completed' as const,
+							size: 'small' as const,
+							description: 'Task one',
+							depends: [],
+							files_touched: [],
+						},
+						{
+							id: '1.2',
+							phase: 1,
+							status: 'completed' as const,
+							size: 'medium' as const,
+							description: 'Task two',
+							depends: ['1.1'],
+							files_touched: [],
+						},
+					],
+				},
+			],
 		});
 		const result = extractCurrentTaskFromPlan(plan);
 		expect(result).toBeNull();
@@ -763,19 +889,47 @@ describe('extractCurrentTaskFromPlan', () => {
 
 	it('Includes dependency info in output', () => {
 		const plan = createTestPlan({
-			phases: [{
-				id: 1,
-				name: 'Phase 1',
-				status: 'in_progress' as const,
-				tasks: [
-					{ id: '1.1', phase: 1, status: 'completed' as const, size: 'small' as const, description: 'Task one', depends: [], files_touched: [] },
-					{ id: '1.2', phase: 1, status: 'pending' as const, size: 'medium' as const, description: 'Task with deps', depends: ['1.1', '1.3'], files_touched: [] },
-					{ id: '1.3', phase: 1, status: 'pending' as const, size: 'small' as const, description: 'Another task', depends: [], files_touched: [] },
-				],
-			}],
+			phases: [
+				{
+					id: 1,
+					name: 'Phase 1',
+					status: 'in_progress' as const,
+					tasks: [
+						{
+							id: '1.1',
+							phase: 1,
+							status: 'completed' as const,
+							size: 'small' as const,
+							description: 'Task one',
+							depends: [],
+							files_touched: [],
+						},
+						{
+							id: '1.2',
+							phase: 1,
+							status: 'pending' as const,
+							size: 'medium' as const,
+							description: 'Task with deps',
+							depends: ['1.1', '1.3'],
+							files_touched: [],
+						},
+						{
+							id: '1.3',
+							phase: 1,
+							status: 'pending' as const,
+							size: 'small' as const,
+							description: 'Another task',
+							depends: [],
+							files_touched: [],
+						},
+					],
+				},
+			],
 		});
 		const result = extractCurrentTaskFromPlan(plan);
-		expect(result).toBe('- [ ] 1.2: Task with deps [MEDIUM] (depends: 1.1, 1.3)');
+		expect(result).toBe(
+			'- [ ] 1.2: Task with deps [MEDIUM] (depends: 1.1, 1.3)',
+		);
 	});
 
 	it('Shows ← CURRENT marker for in_progress task', () => {
@@ -786,15 +940,33 @@ describe('extractCurrentTaskFromPlan', () => {
 
 	it('Does NOT show ← CURRENT for pending task', () => {
 		const plan = createTestPlan({
-			phases: [{
-				id: 1,
-				name: 'Phase 1',
-				status: 'in_progress' as const,
-				tasks: [
-					{ id: '1.1', phase: 1, status: 'completed' as const, size: 'small' as const, description: 'Task one', depends: [], files_touched: [] },
-					{ id: '1.2', phase: 1, status: 'pending' as const, size: 'medium' as const, description: 'Task two', depends: ['1.1'], files_touched: [] },
-				],
-			}],
+			phases: [
+				{
+					id: 1,
+					name: 'Phase 1',
+					status: 'in_progress' as const,
+					tasks: [
+						{
+							id: '1.1',
+							phase: 1,
+							status: 'completed' as const,
+							size: 'small' as const,
+							description: 'Task one',
+							depends: [],
+							files_touched: [],
+						},
+						{
+							id: '1.2',
+							phase: 1,
+							status: 'pending' as const,
+							size: 'medium' as const,
+							description: 'Task two',
+							depends: ['1.1'],
+							files_touched: [],
+						},
+					],
+				},
+			],
 		});
 		const result = extractCurrentTaskFromPlan(plan);
 		expect(result).not.toContain('← CURRENT');
@@ -805,20 +977,40 @@ describe('extractIncompleteTasksFromPlan', () => {
 	it('Returns all pending and in_progress tasks from current phase', () => {
 		const plan = createTestPlan();
 		const result = extractIncompleteTasksFromPlan(plan);
-		expect(result).toBe('- [ ] 1.2: Task two [MEDIUM] (depends: 1.1)\n- [ ] 1.3: Task three [LARGE] (depends: 1.2)');
+		expect(result).toBe(
+			'- [ ] 1.2: Task two [MEDIUM] (depends: 1.1)\n- [ ] 1.3: Task three [LARGE] (depends: 1.2)',
+		);
 	});
 
 	it('Returns null when all tasks are completed', () => {
 		const plan = createTestPlan({
-			phases: [{
-				id: 1,
-				name: 'Phase 1',
-				status: 'in_progress' as const,
-				tasks: [
-					{ id: '1.1', phase: 1, status: 'completed' as const, size: 'small' as const, description: 'Task one', depends: [], files_touched: [] },
-					{ id: '1.2', phase: 1, status: 'completed' as const, size: 'medium' as const, description: 'Task two', depends: ['1.1'], files_touched: [] },
-				],
-			}],
+			phases: [
+				{
+					id: 1,
+					name: 'Phase 1',
+					status: 'in_progress' as const,
+					tasks: [
+						{
+							id: '1.1',
+							phase: 1,
+							status: 'completed' as const,
+							size: 'small' as const,
+							description: 'Task one',
+							depends: [],
+							files_touched: [],
+						},
+						{
+							id: '1.2',
+							phase: 1,
+							status: 'completed' as const,
+							size: 'medium' as const,
+							description: 'Task two',
+							depends: ['1.1'],
+							files_touched: [],
+						},
+					],
+				},
+			],
 		});
 		const result = extractIncompleteTasksFromPlan(plan);
 		expect(result).toBeNull();
@@ -832,15 +1024,33 @@ describe('extractIncompleteTasksFromPlan', () => {
 
 	it('Respects maxChars truncation', () => {
 		const plan = createTestPlan({
-			phases: [{
-				id: 1,
-				name: 'Phase 1',
-				status: 'in_progress' as const,
-				tasks: [
-					{ id: '1.1', phase: 1, status: 'pending' as const, size: 'small' as const, description: 'A'.repeat(500), depends: [], files_touched: [] },
-					{ id: '1.2', phase: 1, status: 'pending' as const, size: 'small' as const, description: 'B'.repeat(500), depends: [], files_touched: [] },
-				],
-			}],
+			phases: [
+				{
+					id: 1,
+					name: 'Phase 1',
+					status: 'in_progress' as const,
+					tasks: [
+						{
+							id: '1.1',
+							phase: 1,
+							status: 'pending' as const,
+							size: 'small' as const,
+							description: 'A'.repeat(500),
+							depends: [],
+							files_touched: [],
+						},
+						{
+							id: '1.2',
+							phase: 1,
+							status: 'pending' as const,
+							size: 'small' as const,
+							description: 'B'.repeat(500),
+							depends: [],
+							files_touched: [],
+						},
+					],
+				},
+			],
 		});
 		const result = extractIncompleteTasksFromPlan(plan, 100);
 		expect(result).toContain('...');
@@ -860,12 +1070,14 @@ describe('extractIncompleteTasksFromPlan', () => {
 
 	it('Returns null when phase has no tasks', () => {
 		const plan = createTestPlan({
-			phases: [{
-				id: 1,
-				name: 'Phase 1',
-				status: 'in_progress' as const,
-				tasks: [],
-			}],
+			phases: [
+				{
+					id: 1,
+					name: 'Phase 1',
+					status: 'in_progress' as const,
+					tasks: [],
+				},
+			],
 		});
 		const result = extractIncompleteTasksFromPlan(plan);
 		expect(result).toBeNull();

@@ -6,15 +6,15 @@
  * - 4 adversarial tests for attack vector mitigation
  */
 
-import { describe, it, expect } from 'bun:test';
+import { describe, expect, it } from 'bun:test';
 import {
-	MessagePriority,
-	containsPlanContent,
-	isToolResult,
-	isDuplicateToolRead,
-	isStaleError,
 	classifyMessage,
 	classifyMessages,
+	containsPlanContent,
+	isDuplicateToolRead,
+	isStaleError,
+	isToolResult,
+	MessagePriority,
 	type MessageWithParts,
 } from '../../../src/hooks/message-priority';
 

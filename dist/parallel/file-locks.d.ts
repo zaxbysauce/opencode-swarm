@@ -4,21 +4,28 @@ export interface FileLock {
     taskId: string;
     timestamp: string;
     expiresAt: number;
+    _release?: () => Promise<void>;
 }
 /**
- * Try to acquire a lock on a file
+ * Try to acquire a lock on a file using proper-lockfile
  */
-export declare function tryAcquireLock(directory: string, filePath: string, agent: string, taskId: string): {
+export declare function tryAcquireLock(directory: string, filePath: string, agent: string, taskId: string): Promise<{
     acquired: true;
     lock: FileLock;
 } | {
     acquired: false;
     existing?: FileLock;
-};
+}>;
 /**
- * Release a lock on a file
+ * Release a lock on a file.
+ *
+ * The preferred release path is `lockResult.lock._release()` at the call site.
+ * This function is kept for API compatibility but is a no-op: callers that
+ * stored a proper-lockfile release function on `lock._release` should call
+ * that directly.  Callers that do not have the release function (e.g. tests
+ * that write lock sentinel files by hand) can ignore the return value.
  */
-export declare function releaseLock(directory: string, filePath: string, taskId: string): boolean;
+export declare function releaseLock(_directory: string, _filePath: string, _taskId: string): Promise<boolean>;
 /**
  * Check if a file is locked
  */

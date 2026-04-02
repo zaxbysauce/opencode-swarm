@@ -3,13 +3,21 @@
  * Covers tier filtering, status/category/score filters, formatted output, and architect-only access assumptions
  */
 
-import { describe, it, expect, beforeEach, afterEach, beforeAll, mock } from 'bun:test';
+import {
+	afterEach,
+	beforeAll,
+	beforeEach,
+	describe,
+	expect,
+	it,
+	mock,
+} from 'bun:test';
+import { rmSync, writeFileSync } from 'node:fs';
 import * as fs from 'node:fs/promises';
-import { writeFileSync, rmSync } from 'node:fs';
 import * as os from 'node:os';
 import * as path from 'node:path';
-import { knowledge_query } from '../../../src/tools/knowledge-query';
 import type { SwarmKnowledgeEntry } from '../../../src/hooks/knowledge-types';
+import { knowledge_query } from '../../../src/tools/knowledge-query';
 
 describe('knowledge-query tool verification tests', () => {
 	let tmpDir: string;
@@ -42,14 +50,19 @@ describe('knowledge-query tool verification tests', () => {
 	// should remain as real functions so swarm-tier tests work correctly.
 	beforeAll(() => {
 		mock.module('../../../src/hooks/knowledge-store.js', () => ({
-			resolveHiveKnowledgePath: () => path.join(tmpDir, '.swarm', 'shared-learnings.jsonl'),
+			resolveHiveKnowledgePath: () =>
+				path.join(tmpDir, '.swarm', 'shared-learnings.jsonl'),
 		}));
 	});
 
 	// Helper to write knowledge file
 	function writeSwarmKnowledge(entries: SwarmKnowledgeEntry[]): void {
 		const swarmPath = path.join(tmpDir, '.swarm', 'knowledge.jsonl');
-		writeFileSync(swarmPath, entries.map(e => JSON.stringify(e)).join('\n') + '\n', 'utf-8');
+		writeFileSync(
+			swarmPath,
+			entries.map((e) => JSON.stringify(e)).join('\n') + '\n',
+			'utf-8',
+		);
 	}
 
 	// ========== GROUP 1: knowledge_query ToolDefinition ==========
@@ -109,7 +122,11 @@ describe('knowledge-query tool verification tests', () => {
 				confidence: 0.8,
 				status: 'established',
 				confirmed_by: [],
-				retrieval_outcomes: { applied_count: 0, succeeded_after_count: 0, failed_after_count: 0 },
+				retrieval_outcomes: {
+					applied_count: 0,
+					succeeded_after_count: 0,
+					failed_after_count: 0,
+				},
 				schema_version: 1,
 				created_at: '2024-01-01T00:00:00Z',
 				updated_at: '2024-01-01T00:00:00Z',
@@ -135,10 +152,22 @@ describe('knowledge-query tool verification tests', () => {
 				confidence: 0.85,
 				status: 'established',
 				confirmed_by: [
-					{ phase_number: 1, confirmed_at: '2024-01-01T00:00:00Z', project_name: 'project-a' },
-					{ phase_number: 3, confirmed_at: '2024-02-01T00:00:00Z', project_name: 'project-b' },
+					{
+						phase_number: 1,
+						confirmed_at: '2024-01-01T00:00:00Z',
+						project_name: 'project-a',
+					},
+					{
+						phase_number: 3,
+						confirmed_at: '2024-02-01T00:00:00Z',
+						project_name: 'project-b',
+					},
 				],
-				retrieval_outcomes: { applied_count: 5, succeeded_after_count: 4, failed_after_count: 1 },
+				retrieval_outcomes: {
+					applied_count: 5,
+					succeeded_after_count: 4,
+					failed_after_count: 1,
+				},
 				schema_version: 1,
 				created_at: '2024-01-01T00:00:00Z',
 				updated_at: '2024-01-01T00:00:00Z',
@@ -173,7 +202,11 @@ describe('knowledge-query tool verification tests', () => {
 				confidence: 0.8,
 				status: 'established',
 				confirmed_by: [],
-				retrieval_outcomes: { applied_count: 0, succeeded_after_count: 0, failed_after_count: 0 },
+				retrieval_outcomes: {
+					applied_count: 0,
+					succeeded_after_count: 0,
+					failed_after_count: 0,
+				},
 				schema_version: 1,
 				created_at: '2024-01-01T00:00:00Z',
 				updated_at: '2024-01-01T00:00:00Z',
@@ -201,7 +234,11 @@ describe('knowledge-query tool verification tests', () => {
 				confidence: 0.5,
 				status: 'candidate',
 				confirmed_by: [],
-				retrieval_outcomes: { applied_count: 0, succeeded_after_count: 0, failed_after_count: 0 },
+				retrieval_outcomes: {
+					applied_count: 0,
+					succeeded_after_count: 0,
+					failed_after_count: 0,
+				},
 				schema_version: 1,
 				created_at: '2024-01-01T00:00:00Z',
 				updated_at: '2024-01-01T00:00:00Z',
@@ -217,7 +254,11 @@ describe('knowledge-query tool verification tests', () => {
 				confidence: 0.8,
 				status: 'established',
 				confirmed_by: [],
-				retrieval_outcomes: { applied_count: 0, succeeded_after_count: 0, failed_after_count: 0 },
+				retrieval_outcomes: {
+					applied_count: 0,
+					succeeded_after_count: 0,
+					failed_after_count: 0,
+				},
 				schema_version: 1,
 				created_at: '2024-01-01T00:00:00Z',
 				updated_at: '2024-01-01T00:00:00Z',
@@ -225,7 +266,10 @@ describe('knowledge-query tool verification tests', () => {
 			};
 			writeSwarmKnowledge([swarmData1, swarmData2]);
 
-			const result = await knowledge_query.execute({ tier: 'swarm', status: 'established' });
+			const result = await knowledge_query.execute({
+				tier: 'swarm',
+				status: 'established',
+			});
 
 			expect(result).toContain('entry-2');
 			expect(result).not.toContain('entry-1');
@@ -242,7 +286,11 @@ describe('knowledge-query tool verification tests', () => {
 				confidence: 0.95,
 				status: 'promoted',
 				confirmed_by: [],
-				retrieval_outcomes: { applied_count: 0, succeeded_after_count: 0, failed_after_count: 0 },
+				retrieval_outcomes: {
+					applied_count: 0,
+					succeeded_after_count: 0,
+					failed_after_count: 0,
+				},
 				schema_version: 1,
 				created_at: '2024-01-01T00:00:00Z',
 				updated_at: '2024-01-01T00:00:00Z',
@@ -250,7 +298,10 @@ describe('knowledge-query tool verification tests', () => {
 			};
 			writeSwarmKnowledge([swarmData]);
 
-			const result = await knowledge_query.execute({ tier: 'swarm', status: 'promoted' });
+			const result = await knowledge_query.execute({
+				tier: 'swarm',
+				status: 'promoted',
+			});
 
 			expect(result).toContain('promoted-entry');
 			expect(result).toContain('Status filter: promoted');
@@ -267,7 +318,11 @@ describe('knowledge-query tool verification tests', () => {
 				confidence: 0.8,
 				status: 'established',
 				confirmed_by: [],
-				retrieval_outcomes: { applied_count: 0, succeeded_after_count: 0, failed_after_count: 0 },
+				retrieval_outcomes: {
+					applied_count: 0,
+					succeeded_after_count: 0,
+					failed_after_count: 0,
+				},
 				schema_version: 1,
 				created_at: '2024-01-01T00:00:00Z',
 				updated_at: '2024-01-01T00:00:00Z',
@@ -275,7 +330,10 @@ describe('knowledge-query tool verification tests', () => {
 			};
 			writeSwarmKnowledge([swarmData]);
 
-			const result = await knowledge_query.execute({ tier: 'swarm', status: 'ESTABLISHED' });
+			const result = await knowledge_query.execute({
+				tier: 'swarm',
+				status: 'ESTABLISHED',
+			});
 
 			expect(result).toContain('test-status');
 			expect(result).toContain('Status filter: established');
@@ -306,7 +364,11 @@ describe('knowledge-query tool verification tests', () => {
 				confidence: 0.7,
 				status: 'established',
 				confirmed_by: [],
-				retrieval_outcomes: { applied_count: 0, succeeded_after_count: 0, failed_after_count: 0 },
+				retrieval_outcomes: {
+					applied_count: 0,
+					succeeded_after_count: 0,
+					failed_after_count: 0,
+				},
 				schema_version: 1,
 				created_at: '2024-01-01T00:00:00Z',
 				updated_at: '2024-01-01T00:00:00Z',
@@ -322,7 +384,11 @@ describe('knowledge-query tool verification tests', () => {
 				confidence: 0.9,
 				status: 'established',
 				confirmed_by: [],
-				retrieval_outcomes: { applied_count: 0, succeeded_after_count: 0, failed_after_count: 0 },
+				retrieval_outcomes: {
+					applied_count: 0,
+					succeeded_after_count: 0,
+					failed_after_count: 0,
+				},
 				schema_version: 1,
 				created_at: '2024-01-01T00:00:00Z',
 				updated_at: '2024-01-01T00:00:00Z',
@@ -330,14 +396,27 @@ describe('knowledge-query tool verification tests', () => {
 			};
 			writeSwarmKnowledge([swarmData1, swarmData2]);
 
-			const result = await knowledge_query.execute({ tier: 'swarm', category: 'security' });
+			const result = await knowledge_query.execute({
+				tier: 'swarm',
+				category: 'security',
+			});
 
 			expect(result).toContain('entry-security');
 			expect(result).not.toContain('entry-process');
 		});
 
 		it('Applies all valid categories correctly', async () => {
-			const categories = ['process', 'architecture', 'tooling', 'security', 'testing', 'debugging', 'performance', 'integration', 'other'] as const;
+			const categories = [
+				'process',
+				'architecture',
+				'tooling',
+				'security',
+				'testing',
+				'debugging',
+				'performance',
+				'integration',
+				'other',
+			] as const;
 
 			for (const cat of categories) {
 				const swarmData: SwarmKnowledgeEntry = {
@@ -350,7 +429,11 @@ describe('knowledge-query tool verification tests', () => {
 					confidence: 0.8,
 					status: 'established',
 					confirmed_by: [],
-					retrieval_outcomes: { applied_count: 0, succeeded_after_count: 0, failed_after_count: 0 },
+					retrieval_outcomes: {
+						applied_count: 0,
+						succeeded_after_count: 0,
+						failed_after_count: 0,
+					},
 					schema_version: 1,
 					created_at: '2024-01-01T00:00:00Z',
 					updated_at: '2024-01-01T00:00:00Z',
@@ -358,7 +441,10 @@ describe('knowledge-query tool verification tests', () => {
 				};
 				writeSwarmKnowledge([swarmData]);
 
-				const result = await knowledge_query.execute({ tier: 'swarm', category: cat });
+				const result = await knowledge_query.execute({
+					tier: 'swarm',
+					category: cat,
+				});
 
 				expect(result).toContain(`entry-${cat}`);
 				expect(result).toContain(`Category filter: ${cat}`);
@@ -376,7 +462,11 @@ describe('knowledge-query tool verification tests', () => {
 				confidence: 0.8,
 				status: 'established',
 				confirmed_by: [],
-				retrieval_outcomes: { applied_count: 0, succeeded_after_count: 0, failed_after_count: 0 },
+				retrieval_outcomes: {
+					applied_count: 0,
+					succeeded_after_count: 0,
+					failed_after_count: 0,
+				},
 				schema_version: 1,
 				created_at: '2024-01-01T00:00:00Z',
 				updated_at: '2024-01-01T00:00:00Z',
@@ -384,7 +474,10 @@ describe('knowledge-query tool verification tests', () => {
 			};
 			writeSwarmKnowledge([swarmData]);
 
-			const result = await knowledge_query.execute({ tier: 'swarm', category: 'SECURITY' });
+			const result = await knowledge_query.execute({
+				tier: 'swarm',
+				category: 'SECURITY',
+			});
 
 			expect(result).toContain('test-cat');
 		});
@@ -413,7 +506,11 @@ describe('knowledge-query tool verification tests', () => {
 				confidence: 0.3,
 				status: 'candidate',
 				confirmed_by: [],
-				retrieval_outcomes: { applied_count: 0, succeeded_after_count: 0, failed_after_count: 0 },
+				retrieval_outcomes: {
+					applied_count: 0,
+					succeeded_after_count: 0,
+					failed_after_count: 0,
+				},
 				schema_version: 1,
 				created_at: '2024-01-01T00:00:00Z',
 				updated_at: '2024-01-01T00:00:00Z',
@@ -429,7 +526,11 @@ describe('knowledge-query tool verification tests', () => {
 				confidence: 0.9,
 				status: 'established',
 				confirmed_by: [],
-				retrieval_outcomes: { applied_count: 0, succeeded_after_count: 0, failed_after_count: 0 },
+				retrieval_outcomes: {
+					applied_count: 0,
+					succeeded_after_count: 0,
+					failed_after_count: 0,
+				},
 				schema_version: 1,
 				created_at: '2024-01-01T00:00:00Z',
 				updated_at: '2024-01-01T00:00:00Z',
@@ -437,7 +538,10 @@ describe('knowledge-query tool verification tests', () => {
 			};
 			writeSwarmKnowledge([swarmData1, swarmData2]);
 
-			const result = await knowledge_query.execute({ tier: 'swarm', min_score: 0.5 });
+			const result = await knowledge_query.execute({
+				tier: 'swarm',
+				min_score: 0.5,
+			});
 
 			expect(result).toContain('entry-high');
 			expect(result).not.toContain('entry-low');
@@ -454,7 +558,11 @@ describe('knowledge-query tool verification tests', () => {
 				confidence: 0.1,
 				status: 'candidate',
 				confirmed_by: [],
-				retrieval_outcomes: { applied_count: 0, succeeded_after_count: 0, failed_after_count: 0 },
+				retrieval_outcomes: {
+					applied_count: 0,
+					succeeded_after_count: 0,
+					failed_after_count: 0,
+				},
 				schema_version: 1,
 				created_at: '2024-01-01T00:00:00Z',
 				updated_at: '2024-01-01T00:00:00Z',
@@ -470,7 +578,11 @@ describe('knowledge-query tool verification tests', () => {
 				confidence: 0.9,
 				status: 'established',
 				confirmed_by: [],
-				retrieval_outcomes: { applied_count: 0, succeeded_after_count: 0, failed_after_count: 0 },
+				retrieval_outcomes: {
+					applied_count: 0,
+					succeeded_after_count: 0,
+					failed_after_count: 0,
+				},
 				schema_version: 1,
 				created_at: '2024-01-01T00:00:00Z',
 				updated_at: '2024-01-01T00:00:00Z',
@@ -478,7 +590,10 @@ describe('knowledge-query tool verification tests', () => {
 			};
 			writeSwarmKnowledge([swarmData1, swarmData2]);
 
-			const result = await knowledge_query.execute({ tier: 'swarm', min_score: 0.0 });
+			const result = await knowledge_query.execute({
+				tier: 'swarm',
+				min_score: 0.0,
+			});
 
 			expect(result).toContain('entry-1');
 			expect(result).toContain('entry-2');
@@ -495,7 +610,11 @@ describe('knowledge-query tool verification tests', () => {
 				confidence: 0.99,
 				status: 'established',
 				confirmed_by: [],
-				retrieval_outcomes: { applied_count: 0, succeeded_after_count: 0, failed_after_count: 0 },
+				retrieval_outcomes: {
+					applied_count: 0,
+					succeeded_after_count: 0,
+					failed_after_count: 0,
+				},
 				schema_version: 1,
 				created_at: '2024-01-01T00:00:00Z',
 				updated_at: '2024-01-01T00:00:00Z',
@@ -511,7 +630,11 @@ describe('knowledge-query tool verification tests', () => {
 				confidence: 1.0,
 				status: 'promoted',
 				confirmed_by: [],
-				retrieval_outcomes: { applied_count: 0, succeeded_after_count: 0, failed_after_count: 0 },
+				retrieval_outcomes: {
+					applied_count: 0,
+					succeeded_after_count: 0,
+					failed_after_count: 0,
+				},
 				schema_version: 1,
 				created_at: '2024-01-01T00:00:00Z',
 				updated_at: '2024-01-01T00:00:00Z',
@@ -519,7 +642,10 @@ describe('knowledge-query tool verification tests', () => {
 			};
 			writeSwarmKnowledge([swarmData1, swarmData2]);
 
-			const result = await knowledge_query.execute({ tier: 'swarm', min_score: 1.0 });
+			const result = await knowledge_query.execute({
+				tier: 'swarm',
+				min_score: 1.0,
+			});
 
 			expect(result).toContain('entry-perfect');
 			expect(result).not.toContain('entry-imperfect');
@@ -539,22 +665,29 @@ describe('knowledge-query tool verification tests', () => {
 	// ========== GROUP 6: Limit handling ==========
 	describe('Group 6: Limit handling', () => {
 		it('Applies limit correctly', async () => {
-			const entries: SwarmKnowledgeEntry[] = Array.from({ length: 20 }, (_, i) => ({
-				id: `entry-${i}`,
-				tier: 'swarm' as const,
-				lesson: `Lesson ${i}`,
-				category: 'process' as const,
-				tags: [],
-				scope: 'global',
-				confidence: 0.8,
-				status: 'established' as const,
-				confirmed_by: [],
-				retrieval_outcomes: { applied_count: 0, succeeded_after_count: 0, failed_after_count: 0 },
-				schema_version: 1,
-				created_at: '2024-01-01T00:00:00Z',
-				updated_at: '2024-01-01T00:00:00Z',
-				project_name: 'test-project',
-			}));
+			const entries: SwarmKnowledgeEntry[] = Array.from(
+				{ length: 20 },
+				(_, i) => ({
+					id: `entry-${i}`,
+					tier: 'swarm' as const,
+					lesson: `Lesson ${i}`,
+					category: 'process' as const,
+					tags: [],
+					scope: 'global',
+					confidence: 0.8,
+					status: 'established' as const,
+					confirmed_by: [],
+					retrieval_outcomes: {
+						applied_count: 0,
+						succeeded_after_count: 0,
+						failed_after_count: 0,
+					},
+					schema_version: 1,
+					created_at: '2024-01-01T00:00:00Z',
+					updated_at: '2024-01-01T00:00:00Z',
+					project_name: 'test-project',
+				}),
+			);
 			writeSwarmKnowledge(entries);
 
 			const result = await knowledge_query.execute({ tier: 'swarm', limit: 5 });
@@ -565,22 +698,29 @@ describe('knowledge-query tool verification tests', () => {
 		});
 
 		it('Default limit is 10', async () => {
-			const entries: SwarmKnowledgeEntry[] = Array.from({ length: 15 }, (_, i) => ({
-				id: `entry-${i}`,
-				tier: 'swarm' as const,
-				lesson: `Lesson ${i}`,
-				category: 'process' as const,
-				tags: [],
-				scope: 'global',
-				confidence: 0.8,
-				status: 'established' as const,
-				confirmed_by: [],
-				retrieval_outcomes: { applied_count: 0, succeeded_after_count: 0, failed_after_count: 0 },
-				schema_version: 1,
-				created_at: '2024-01-01T00:00:00Z',
-				updated_at: '2024-01-01T00:00:00Z',
-				project_name: 'test-project',
-			}));
+			const entries: SwarmKnowledgeEntry[] = Array.from(
+				{ length: 15 },
+				(_, i) => ({
+					id: `entry-${i}`,
+					tier: 'swarm' as const,
+					lesson: `Lesson ${i}`,
+					category: 'process' as const,
+					tags: [],
+					scope: 'global',
+					confidence: 0.8,
+					status: 'established' as const,
+					confirmed_by: [],
+					retrieval_outcomes: {
+						applied_count: 0,
+						succeeded_after_count: 0,
+						failed_after_count: 0,
+					},
+					schema_version: 1,
+					created_at: '2024-01-01T00:00:00Z',
+					updated_at: '2024-01-01T00:00:00Z',
+					project_name: 'test-project',
+				}),
+			);
 			writeSwarmKnowledge(entries);
 
 			const result = await knowledge_query.execute({ tier: 'swarm' });
@@ -591,25 +731,35 @@ describe('knowledge-query tool verification tests', () => {
 		});
 
 		it('Limit is capped at 100', async () => {
-			const entries: SwarmKnowledgeEntry[] = Array.from({ length: 150 }, (_, i) => ({
-				id: `entry-${i}`,
-				tier: 'swarm' as const,
-				lesson: `Lesson ${i}`,
-				category: 'process' as const,
-				tags: [],
-				scope: 'global',
-				confidence: 0.8,
-				status: 'established' as const,
-				confirmed_by: [],
-				retrieval_outcomes: { applied_count: 0, succeeded_after_count: 0, failed_after_count: 0 },
-				schema_version: 1,
-				created_at: '2024-01-01T00:00:00Z',
-				updated_at: '2024-01-01T00:00:00Z',
-				project_name: 'test-project',
-			}));
+			const entries: SwarmKnowledgeEntry[] = Array.from(
+				{ length: 150 },
+				(_, i) => ({
+					id: `entry-${i}`,
+					tier: 'swarm' as const,
+					lesson: `Lesson ${i}`,
+					category: 'process' as const,
+					tags: [],
+					scope: 'global',
+					confidence: 0.8,
+					status: 'established' as const,
+					confirmed_by: [],
+					retrieval_outcomes: {
+						applied_count: 0,
+						succeeded_after_count: 0,
+						failed_after_count: 0,
+					},
+					schema_version: 1,
+					created_at: '2024-01-01T00:00:00Z',
+					updated_at: '2024-01-01T00:00:00Z',
+					project_name: 'test-project',
+				}),
+			);
 			writeSwarmKnowledge(entries);
 
-			const result = await knowledge_query.execute({ tier: 'swarm', limit: 150 });
+			const result = await knowledge_query.execute({
+				tier: 'swarm',
+				limit: 150,
+			});
 
 			// Should be capped at 100
 			expect(result).toContain('100 of 150 shown');
@@ -630,7 +780,11 @@ describe('knowledge-query tool verification tests', () => {
 					confidence: 0.9,
 					status: 'established',
 					confirmed_by: [],
-					retrieval_outcomes: { applied_count: 0, succeeded_after_count: 0, failed_after_count: 0 },
+					retrieval_outcomes: {
+						applied_count: 0,
+						succeeded_after_count: 0,
+						failed_after_count: 0,
+					},
 					schema_version: 1,
 					created_at: '2024-01-01T00:00:00Z',
 					updated_at: '2024-01-01T00:00:00Z',
@@ -646,7 +800,11 @@ describe('knowledge-query tool verification tests', () => {
 					confidence: 0.9,
 					status: 'candidate',
 					confirmed_by: [],
-					retrieval_outcomes: { applied_count: 0, succeeded_after_count: 0, failed_after_count: 0 },
+					retrieval_outcomes: {
+						applied_count: 0,
+						succeeded_after_count: 0,
+						failed_after_count: 0,
+					},
 					schema_version: 1,
 					created_at: '2024-01-01T00:00:00Z',
 					updated_at: '2024-01-01T00:00:00Z',
@@ -662,7 +820,11 @@ describe('knowledge-query tool verification tests', () => {
 					confidence: 0.9,
 					status: 'established',
 					confirmed_by: [],
-					retrieval_outcomes: { applied_count: 0, succeeded_after_count: 0, failed_after_count: 0 },
+					retrieval_outcomes: {
+						applied_count: 0,
+						succeeded_after_count: 0,
+						failed_after_count: 0,
+					},
 					schema_version: 1,
 					created_at: '2024-01-01T00:00:00Z',
 					updated_at: '2024-01-01T00:00:00Z',
@@ -678,7 +840,11 @@ describe('knowledge-query tool verification tests', () => {
 					confidence: 0.3,
 					status: 'established',
 					confirmed_by: [],
-					retrieval_outcomes: { applied_count: 0, succeeded_after_count: 0, failed_after_count: 0 },
+					retrieval_outcomes: {
+						applied_count: 0,
+						succeeded_after_count: 0,
+						failed_after_count: 0,
+					},
 					schema_version: 1,
 					created_at: '2024-01-01T00:00:00Z',
 					updated_at: '2024-01-01T00:00:00Z',
@@ -728,7 +894,11 @@ describe('knowledge-query tool verification tests', () => {
 				confidence: 0.8,
 				status: 'established',
 				confirmed_by: [],
-				retrieval_outcomes: { applied_count: 0, succeeded_after_count: 0, failed_after_count: 0 },
+				retrieval_outcomes: {
+					applied_count: 0,
+					succeeded_after_count: 0,
+					failed_after_count: 0,
+				},
 				schema_version: 1,
 				created_at: '2024-01-01T00:00:00Z',
 				updated_at: '2024-01-01T00:00:00Z',
@@ -752,7 +922,11 @@ describe('knowledge-query tool verification tests', () => {
 				confidence: 0.8,
 				status: 'established',
 				confirmed_by: [],
-				retrieval_outcomes: { applied_count: 0, succeeded_after_count: 0, failed_after_count: 0 },
+				retrieval_outcomes: {
+					applied_count: 0,
+					succeeded_after_count: 0,
+					failed_after_count: 0,
+				},
 				schema_version: 1,
 				created_at: '2024-01-01T00:00:00Z',
 				updated_at: '2024-01-01T00:00:00Z',
@@ -769,25 +943,35 @@ describe('knowledge-query tool verification tests', () => {
 		});
 
 		it('Output shows correct count when under limit', async () => {
-			const entries: SwarmKnowledgeEntry[] = Array.from({ length: 3 }, (_, i) => ({
-				id: `entry-${i}`,
-				tier: 'swarm' as const,
-				lesson: `Lesson ${i}`,
-				category: 'process' as const,
-				tags: [],
-				scope: 'global',
-				confidence: 0.8,
-				status: 'established' as const,
-				confirmed_by: [],
-				retrieval_outcomes: { applied_count: 0, succeeded_after_count: 0, failed_after_count: 0 },
-				schema_version: 1,
-				created_at: '2024-01-01T00:00:00Z',
-				updated_at: '2024-01-01T00:00:00Z',
-				project_name: 'test-project',
-			}));
+			const entries: SwarmKnowledgeEntry[] = Array.from(
+				{ length: 3 },
+				(_, i) => ({
+					id: `entry-${i}`,
+					tier: 'swarm' as const,
+					lesson: `Lesson ${i}`,
+					category: 'process' as const,
+					tags: [],
+					scope: 'global',
+					confidence: 0.8,
+					status: 'established' as const,
+					confirmed_by: [],
+					retrieval_outcomes: {
+						applied_count: 0,
+						succeeded_after_count: 0,
+						failed_after_count: 0,
+					},
+					schema_version: 1,
+					created_at: '2024-01-01T00:00:00Z',
+					updated_at: '2024-01-01T00:00:00Z',
+					project_name: 'test-project',
+				}),
+			);
 			writeSwarmKnowledge(entries);
 
-			const result = await knowledge_query.execute({ tier: 'swarm', limit: 10 });
+			const result = await knowledge_query.execute({
+				tier: 'swarm',
+				limit: 10,
+			});
 
 			// Should show "3 of 3 shown" when under limit
 			expect(result).toContain('3 of 3 shown');
@@ -805,7 +989,11 @@ describe('knowledge-query tool verification tests', () => {
 				confidence: 0.8,
 				status: 'established',
 				confirmed_by: [],
-				retrieval_outcomes: { applied_count: 0, succeeded_after_count: 0, failed_after_count: 0 },
+				retrieval_outcomes: {
+					applied_count: 0,
+					succeeded_after_count: 0,
+					failed_after_count: 0,
+				},
 				schema_version: 1,
 				created_at: '2024-01-01T00:00:00Z',
 				updated_at: '2024-01-01T00:00:00Z',
@@ -851,7 +1039,11 @@ describe('knowledge-query tool verification tests', () => {
 				confidence: 0.8,
 				status: 'established',
 				confirmed_by: [],
-				retrieval_outcomes: { applied_count: 0, succeeded_after_count: 0, failed_after_count: 0 },
+				retrieval_outcomes: {
+					applied_count: 0,
+					succeeded_after_count: 0,
+					failed_after_count: 0,
+				},
 				schema_version: 1,
 				created_at: '2024-01-01T00:00:00Z',
 				updated_at: '2024-01-01T00:00:00Z',

@@ -1,10 +1,10 @@
-import { describe, it, expect, beforeEach, afterEach } from 'bun:test';
-import { createSystemEnhancerHook } from '../../../src/hooks/system-enhancer';
-import type { PluginConfig } from '../../../src/config';
-import { swarmState, resetSwarmState } from '../../../src/state';
-import { mkdtemp, writeFile, mkdir, rm } from 'node:fs/promises';
+import { afterEach, beforeEach, describe, expect, it } from 'bun:test';
+import { mkdir, mkdtemp, rm, writeFile } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
+import type { PluginConfig } from '../../../src/config';
+import { createSystemEnhancerHook } from '../../../src/hooks/system-enhancer';
+import { resetSwarmState, swarmState } from '../../../src/state';
 
 describe('Task 2.4: System Enhancer Coder Retrospective Injection', () => {
 	let tempDir: string;
@@ -136,7 +136,11 @@ describe('Task 2.4: System Enhancer Coder Retrospective Injection', () => {
 			);
 
 			// Invoke the hook with mega_coder active
-			const systemOutput = await invokeHook(defaultConfig, 'test-session', 'mega_coder');
+			const systemOutput = await invokeHook(
+				defaultConfig,
+				'test-session',
+				'mega_coder',
+			);
 
 			// Assert SWARM RETROSPECTIVE injection is present
 			const coderRetro = systemOutput.find((s) =>
@@ -148,7 +152,9 @@ describe('Task 2.4: System Enhancer Coder Retrospective Injection', () => {
 			expect(coderRetro).toContain('lesson B');
 
 			// Should NOT contain the full "## Previous Phase Retrospective" block
-			const fullRetro = systemOutput.find((s) => s.includes('## Previous Phase Retrospective'));
+			const fullRetro = systemOutput.find((s) =>
+				s.includes('## Previous Phase Retrospective'),
+			);
 			expect(fullRetro).toBeUndefined();
 		});
 
@@ -173,10 +179,17 @@ describe('Task 2.4: System Enhancer Coder Retrospective Injection', () => {
 					},
 				],
 			};
-			await writeFile(join(swarmDir, 'plan.json'), JSON.stringify(plan, null, 2));
+			await writeFile(
+				join(swarmDir, 'plan.json'),
+				JSON.stringify(plan, null, 2),
+			);
 
 			// Invoke the hook with mega_coder active (no retro-0 exists)
-			const systemOutput = await invokeHook(defaultConfig, 'test-session', 'mega_coder');
+			const systemOutput = await invokeHook(
+				defaultConfig,
+				'test-session',
+				'mega_coder',
+			);
 
 			// Assert NO SWARM RETROSPECTIVE injection
 			const anyRetro = systemOutput.find((s) =>
@@ -199,7 +212,11 @@ describe('Task 2.4: System Enhancer Coder Retrospective Injection', () => {
 			);
 
 			// Invoke the hook with mega_coder active
-			const systemOutput = await invokeHook(defaultConfig, 'test-session', 'mega_coder');
+			const systemOutput = await invokeHook(
+				defaultConfig,
+				'test-session',
+				'mega_coder',
+			);
 
 			// Assert NO SWARM RETROSPECTIVE injection (fail verdict should be skipped)
 			const coderRetro = systemOutput.find((s) =>
@@ -222,7 +239,11 @@ describe('Task 2.4: System Enhancer Coder Retrospective Injection', () => {
 			);
 
 			// Invoke the hook with mega_architect active
-			const systemOutput = await invokeHook(defaultConfig, 'test-session', 'mega_architect');
+			const systemOutput = await invokeHook(
+				defaultConfig,
+				'test-session',
+				'mega_architect',
+			);
 
 			// Assert full "## Previous Phase Retrospective" block is present
 			const fullRetro = systemOutput.find((s) =>
@@ -245,17 +266,25 @@ describe('Task 2.4: System Enhancer Coder Retrospective Injection', () => {
 			await createSwarmFiles(2);
 
 			// Create retro-1 bundle with very long lessons
-			const longLesson = 'This is a very long lesson that adds lots of characters. '.repeat(20);
+			const longLesson =
+				'This is a very long lesson that adds lots of characters. '.repeat(20);
 			await createRetroBundle(
 				1,
 				'pass',
-				[longLesson, 'Another long lesson that extends beyond limit. '.repeat(20)],
+				[
+					longLesson,
+					'Another long lesson that extends beyond limit. '.repeat(20),
+				],
 				[],
 				'Phase 1 completed successfully.',
 			);
 
 			// Invoke the hook with mega_coder active
-			const systemOutput = await invokeHook(defaultConfig, 'test-session', 'mega_coder');
+			const systemOutput = await invokeHook(
+				defaultConfig,
+				'test-session',
+				'mega_coder',
+			);
 
 			// Assert coder retro is present and capped at 400 chars
 			const coderRetro = systemOutput.find((s) =>
@@ -281,14 +310,20 @@ describe('Task 2.4: System Enhancer Coder Retrospective Injection', () => {
 			);
 
 			// Invoke the hook with mega_coder active
-			const systemOutput = await invokeHook(defaultConfig, 'test-session', 'mega_coder');
+			const systemOutput = await invokeHook(
+				defaultConfig,
+				'test-session',
+				'mega_coder',
+			);
 
 			// Assert summary appears in header
 			const coderRetro = systemOutput.find((s) =>
 				s.includes('[SWARM RETROSPECTIVE] From Phase 1:'),
 			);
 			expect(coderRetro).toBeDefined();
-			expect(coderRetro).toContain('Phase 1 completed with great success and important insights.');
+			expect(coderRetro).toContain(
+				'Phase 1 completed with great success and important insights.',
+			);
 			expect(coderRetro).toContain('lesson A');
 		});
 
@@ -306,7 +341,11 @@ describe('Task 2.4: System Enhancer Coder Retrospective Injection', () => {
 			);
 
 			// Invoke the hook with mega_coder active
-			const systemOutput = await invokeHook(defaultConfig, 'test-session', 'mega_coder');
+			const systemOutput = await invokeHook(
+				defaultConfig,
+				'test-session',
+				'mega_coder',
+			);
 
 			// Assert all lessons appear
 			const coderRetro = systemOutput.find((s) =>
@@ -340,7 +379,11 @@ describe('Task 2.4: System Enhancer Coder Retrospective Injection', () => {
 			await writeFile(bundlePath, JSON.stringify(bundle, null, 2));
 
 			// Invoke the hook with mega_coder active - should NOT crash
-			const systemOutput = await invokeHook(defaultConfig, 'test-session', 'mega_coder');
+			const systemOutput = await invokeHook(
+				defaultConfig,
+				'test-session',
+				'mega_coder',
+			);
 
 			// Assert NO SWARM RETROSPECTIVE injection (graceful null)
 			const coderRetro = systemOutput.find((s) =>
@@ -354,17 +397,18 @@ describe('Task 2.4: System Enhancer Coder Retrospective Injection', () => {
 			await createSwarmFiles(2);
 
 			// Create retro-1 bundle with very long summary
-			const longSummary = 'This is an extremely long summary that exceeds the character limit. '.repeat(15);
-			await createRetroBundle(
-				1,
-				'pass',
-				['lesson A'],
-				[],
-				longSummary,
-			);
+			const longSummary =
+				'This is an extremely long summary that exceeds the character limit. '.repeat(
+					15,
+				);
+			await createRetroBundle(1, 'pass', ['lesson A'], [], longSummary);
 
 			// Invoke the hook with mega_coder active
-			const systemOutput = await invokeHook(defaultConfig, 'test-session', 'mega_coder');
+			const systemOutput = await invokeHook(
+				defaultConfig,
+				'test-session',
+				'mega_coder',
+			);
 
 			// Assert injection is capped at 400 chars
 			const coderRetro = systemOutput.find((s) =>
@@ -389,7 +433,11 @@ describe('Task 2.4: System Enhancer Coder Retrospective Injection', () => {
 			);
 
 			// Invoke the hook with mega_coder active - should NOT crash
-			const systemOutput = await invokeHook(defaultConfig, 'test-session', 'mega_coder');
+			const systemOutput = await invokeHook(
+				defaultConfig,
+				'test-session',
+				'mega_coder',
+			);
 
 			// Assert injection contains header but no lessons
 			const coderRetro = systemOutput.find((s) =>

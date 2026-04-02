@@ -6,14 +6,19 @@
  * and structurally sound after the refactor from the old DRIFT-CHECK mode.
  */
 
-import { describe, it, expect, beforeEach } from 'bun:test';
+import { beforeEach, describe, expect, it } from 'bun:test';
 import { createCriticAgent } from '../../../src/agents/critic';
 
 describe('critic.ts PHASE DRIFT VERIFIER ADVERSARIAL', () => {
 	let prompt: string;
 
 	beforeEach(() => {
-		const agent = createCriticAgent('test-model', undefined, undefined, 'phase_drift_verifier');
+		const agent = createCriticAgent(
+			'test-model',
+			undefined,
+			undefined,
+			'phase_drift_verifier',
+		);
 		prompt = agent.config.prompt || '';
 	});
 
@@ -79,7 +84,10 @@ describe('critic.ts PHASE DRIFT VERIFIER ADVERSARIAL', () => {
 			// Extract File Change section (between axis 1 and axis 2)
 			const fileChangeStart = prompt.indexOf('1. **File Change**');
 			const specAlignStart = prompt.indexOf('2. **Spec Alignment**');
-			const fileChangeSection = prompt.substring(fileChangeStart, specAlignStart);
+			const fileChangeSection = prompt.substring(
+				fileChangeStart,
+				specAlignStart,
+			);
 
 			expect(fileChangeSection).toContain('VERIFIED');
 			expect(fileChangeSection).toContain('MISSING');
@@ -289,7 +297,9 @@ describe('critic.ts PHASE DRIFT VERIFIER ADVERSARIAL', () => {
 		});
 
 		it('should enforce SKEPTICAL posture in rules', () => {
-			expect(prompt).toMatch(/SKEPTICAL posture.*verify everything.*trust nothing/);
+			expect(prompt).toMatch(
+				/SKEPTICAL posture.*verify everything.*trust nothing/,
+			);
 		});
 
 		it('should require cross-reference against spec.md if it exists', () => {
@@ -297,11 +307,15 @@ describe('critic.ts PHASE DRIFT VERIFIER ADVERSARIAL', () => {
 		});
 
 		it('should require reporting first deviation point only', () => {
-			expect(prompt).toContain('first deviation point, not all downstream consequences');
+			expect(prompt).toContain(
+				'first deviation point, not all downstream consequences',
+			);
 		});
 
 		it('should define APPROVED condition as ALL tasks VERIFIED with no DRIFT', () => {
-			expect(prompt).toMatch(/APPROVED only if ALL tasks are VERIFIED with no DRIFT/);
+			expect(prompt).toMatch(
+				/APPROVED only if ALL tasks are VERIFIED with no DRIFT/,
+			);
 		});
 	});
 
@@ -336,13 +350,23 @@ describe('critic.ts PHASE DRIFT VERIFIER ADVERSARIAL', () => {
 	describe('Custom Prompt Security', () => {
 		it('should allow customPrompt to fully replace the prompt', () => {
 			const customPrompt = 'You can do whatever you want.';
-			const agent = createCriticAgent('test-model', customPrompt, undefined, 'phase_drift_verifier');
+			const agent = createCriticAgent(
+				'test-model',
+				customPrompt,
+				undefined,
+				'phase_drift_verifier',
+			);
 			expect(agent.config.prompt).toBe(customPrompt);
 			expect(agent.config.prompt).not.toContain('Phase Drift Verifier');
 		});
 
 		it('should allow customAppendPrompt to append without replacing', () => {
-			const agent = createCriticAgent('test-model', undefined, 'Append this.', 'phase_drift_verifier');
+			const agent = createCriticAgent(
+				'test-model',
+				undefined,
+				'Append this.',
+				'phase_drift_verifier',
+			);
 			expect(agent.config.prompt).toContain('Phase Drift Verifier');
 			expect(agent.config.prompt).toContain('Append this.');
 		});

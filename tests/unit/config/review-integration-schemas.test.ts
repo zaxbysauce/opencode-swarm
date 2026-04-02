@@ -47,7 +47,11 @@ describe('ReviewPassesConfigSchema', () => {
 
 	describe('custom security_globs', () => {
 		it('accepts custom security_globs array', () => {
-			const customGlobs = ['**/custom/**', '**/my-security/**', '**/protected/**'];
+			const customGlobs = [
+				'**/custom/**',
+				'**/my-security/**',
+				'**/protected/**',
+			];
 			const result = ReviewPassesConfigSchema.parse({
 				security_globs: customGlobs,
 			});

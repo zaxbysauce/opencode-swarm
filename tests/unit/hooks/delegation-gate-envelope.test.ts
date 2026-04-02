@@ -1,7 +1,7 @@
-import { describe, it, expect, afterEach, beforeEach } from 'bun:test';
+import { afterEach, beforeEach, describe, expect, it } from 'bun:test';
 import {
-	validateDelegationEnvelope,
 	parseDelegationEnvelope,
+	validateDelegationEnvelope,
 } from '../../../src/hooks/delegation-gate';
 import { resetSwarmState } from '../../../src/state';
 
@@ -17,7 +17,13 @@ describe('delegation envelope validation', () => {
 	describe('validateDelegationEnvelope', () => {
 		const validContext = {
 			planTasks: ['1.1', '1.2', '2.1'],
-			validAgents: ['architect', 'coder', 'test_engineer', 'reviewer', 'explorer'],
+			validAgents: [
+				'architect',
+				'coder',
+				'test_engineer',
+				'reviewer',
+				'explorer',
+			],
 		};
 
 		it('valid envelope passes validation', () => {
@@ -50,7 +56,9 @@ describe('delegation envelope validation', () => {
 			const result = validateDelegationEnvelope(envelope, validContext);
 
 			expect(result.valid).toBe(false);
-			expect((result as { valid: false; reason: string }).reason).toBe('taskId_not_in_plan');
+			expect((result as { valid: false; reason: string }).reason).toBe(
+				'taskId_not_in_plan',
+			);
 		});
 
 		it('taskId validation skipped when planTasks is empty', () => {
@@ -88,7 +96,9 @@ describe('delegation envelope validation', () => {
 			const result = validateDelegationEnvelope(envelope, validContext);
 
 			expect(result.valid).toBe(false);
-			expect((result as { valid: false; reason: string }).reason).toBe('invalid_target_agent');
+			expect((result as { valid: false; reason: string }).reason).toBe(
+				'invalid_target_agent',
+			);
 		});
 
 		it('stripKnownSwarmPrefix used for agent normalization', () => {
@@ -138,7 +148,9 @@ describe('delegation envelope validation', () => {
 			const result = validateDelegationEnvelope(envelope, validContext);
 
 			expect(result.valid).toBe(false);
-			expect((result as { valid: false; reason: string }).reason).toBe('files_required_for_action');
+			expect((result as { valid: false; reason: string }).reason).toBe(
+				'files_required_for_action',
+			);
 		});
 
 		it('empty files array for review action rejected', () => {
@@ -155,7 +167,9 @@ describe('delegation envelope validation', () => {
 			const result = validateDelegationEnvelope(envelope, validContext);
 
 			expect(result.valid).toBe(false);
-			expect((result as { valid: false; reason: string }).reason).toBe('files_required_for_action');
+			expect((result as { valid: false; reason: string }).reason).toBe(
+				'files_required_for_action',
+			);
 		});
 
 		it('files allowed for other actions like query', () => {
@@ -188,7 +202,9 @@ describe('delegation envelope validation', () => {
 			const result = validateDelegationEnvelope(envelope, validContext);
 
 			expect(result.valid).toBe(false);
-			expect((result as { valid: false; reason: string }).reason).toBe('acceptanceCriteria_required');
+			expect((result as { valid: false; reason: string }).reason).toBe(
+				'acceptanceCriteria_required',
+			);
 		});
 
 		it('commandType slash_command rejected', () => {
@@ -205,21 +221,27 @@ describe('delegation envelope validation', () => {
 			const result = validateDelegationEnvelope(envelope, validContext);
 
 			expect(result.valid).toBe(false);
-			expect((result as { valid: false; reason: string }).reason).toBe('slash_command_delegation_blocked');
+			expect((result as { valid: false; reason: string }).reason).toBe(
+				'slash_command_delegation_blocked',
+			);
 		});
 
 		it('rejects non-object envelope', () => {
 			const result = validateDelegationEnvelope('not an object', validContext);
 
 			expect(result.valid).toBe(false);
-			expect((result as { valid: false; reason: string }).reason).toBe('envelope_not_object');
+			expect((result as { valid: false; reason: string }).reason).toBe(
+				'envelope_not_object',
+			);
 		});
 
 		it('rejects null envelope', () => {
 			const result = validateDelegationEnvelope(null, validContext);
 
 			expect(result.valid).toBe(false);
-			expect((result as { valid: false; reason: string }).reason).toBe('envelope_not_object');
+			expect((result as { valid: false; reason: string }).reason).toBe(
+				'envelope_not_object',
+			);
 		});
 
 		it('rejects missing required fields', () => {
@@ -231,7 +253,9 @@ describe('delegation envelope validation', () => {
 			const result = validateDelegationEnvelope(envelope, validContext);
 
 			expect(result.valid).toBe(false);
-			expect((result as { valid: false; reason: string }).reason).toContain('missing_field_');
+			expect((result as { valid: false; reason: string }).reason).toContain(
+				'missing_field_',
+			);
 		});
 	});
 
@@ -269,7 +293,10 @@ technicalContext: Using Express.js`;
 			expect(result?.action).toBe('implement');
 			expect(result?.commandType).toBe('task');
 			expect(result?.files).toEqual(['src/auth.ts', 'src/login.ts']);
-			expect(result?.acceptanceCriteria).toEqual(['User can login', 'User can logout']);
+			expect(result?.acceptanceCriteria).toEqual([
+				'User can login',
+				'User can logout',
+			]);
 			expect(result?.technicalContext).toBe('Using Express.js');
 		});
 

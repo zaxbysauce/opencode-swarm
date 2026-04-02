@@ -1,18 +1,18 @@
 /**
  * Tests for logger.ts debug-gating behavior
- * 
+ *
  * Note: DEBUG constant is evaluated at module load time (process.env.OPENCODE_SWARM_DEBUG === '1').
  * This means:
  * - When OPENCODE_SWARM_DEBUG is not set (default in CI), DEBUG=false, so log() and warn() are suppressed
  * - When OPENCODE_SWARM_DEBUG=1, DEBUG=true, so log() and warn() fire
  * - error() always fires regardless of DEBUG
- * 
+ *
  * The module-load-time evaluation of DEBUG means we can only test the current environment's behavior.
  * In CI (where OPENCODE_SWARM_DEBUG is not set), DEBUG is false, so log() and warn() are suppressed.
  * The tests below verify this behavior.
  */
 
-import { describe, test, expect, beforeEach, afterEach } from 'bun:test';
+import { afterEach, beforeEach, describe, expect, test } from 'bun:test';
 
 // Store original console methods
 let originalLog: typeof console.log;
@@ -72,8 +72,8 @@ describe('logger.ts debug-gating behavior', () => {
 
 		test('log() returns early with no output when DEBUG is false', () => {
 			// Verify the function returns early without producing output
-			let consoleLogCalls: any[][] = [];
-			
+			const consoleLogCalls: any[][] = [];
+
 			console.log = (...args: any[]) => {
 				consoleLogCalls.push(args);
 			};
@@ -83,7 +83,7 @@ describe('logger.ts debug-gating behavior', () => {
 			delete require.cache[loggerPath];
 
 			const { log } = require('../../../src/utils/logger');
-			
+
 			// Call log multiple ways
 			log('simple message');
 			log('message with data', { foo: 'bar' });
@@ -134,8 +134,8 @@ describe('logger.ts debug-gating behavior', () => {
 
 		test('warn() returns early with no output when DEBUG is false', () => {
 			// Verify the function returns early without producing output
-			let consoleWarnCalls: any[][] = [];
-			
+			const consoleWarnCalls: any[][] = [];
+
 			console.warn = (...args: any[]) => {
 				consoleWarnCalls.push(args);
 			};
@@ -145,7 +145,7 @@ describe('logger.ts debug-gating behavior', () => {
 			delete require.cache[loggerPath];
 
 			const { warn } = require('../../../src/utils/logger');
-			
+
 			// Call warn multiple ways
 			warn('simple warning');
 			warn('warning with data', { foo: 'bar' });
@@ -201,13 +201,16 @@ describe('logger.ts debug-gating behavior', () => {
 			expect(errorArgs[0]).toContain('ERROR:');
 			expect(errorArgs[0]).toContain('test error');
 			// Second arg should be the data object
-			expect(errorArgs[1]).toEqual({ code: 500, details: 'something went wrong' });
+			expect(errorArgs[1]).toEqual({
+				code: 500,
+				details: 'something went wrong',
+			});
 		});
 
 		test('error() always outputs regardless of DEBUG state', () => {
 			// This is the key behavioral test: error() should NEVER be gated
 			let errorOutput = '';
-			
+
 			console.error = (...args: any[]) => {
 				errorOutput = args.join(' ');
 			};
@@ -218,7 +221,7 @@ describe('logger.ts debug-gating behavior', () => {
 
 			const { error } = require('../../../src/utils/logger');
 			error('Always show this');
-			
+
 			expect(errorOutput).toContain('Always show this');
 			expect(errorOutput).toContain('ERROR:');
 		});
@@ -228,15 +231,15 @@ describe('logger.ts debug-gating behavior', () => {
 		test('log() calls console.log when OPENCODE_SWARM_DEBUG=1 (actual execution test)', () => {
 			// Store original env value
 			const originalEnv = process.env.OPENCODE_SWARM_DEBUG;
-			
+
 			try {
 				// Set DEBUG=1 BEFORE requiring the module (DEBUG is evaluated at module load time)
 				process.env.OPENCODE_SWARM_DEBUG = '1';
-				
+
 				// Clear require cache so module is re-loaded with new env
 				const loggerPath = require.resolve('../../../src/utils/logger');
 				delete require.cache[loggerPath];
-				
+
 				// Spy on console.log
 				let logCalled = false;
 				let logArgs: any[] = [];
@@ -244,11 +247,11 @@ describe('logger.ts debug-gating behavior', () => {
 					logCalled = true;
 					logArgs = args;
 				};
-				
+
 				// Import and call log
 				const { log } = require('../../../src/utils/logger');
 				log('debug message');
-				
+
 				// Verify console.log was called
 				expect(logCalled).toBe(true);
 				expect(logArgs[0]).toContain('debug message');
@@ -263,15 +266,15 @@ describe('logger.ts debug-gating behavior', () => {
 		test('warn() calls console.warn when OPENCODE_SWARM_DEBUG=1 (actual execution test)', () => {
 			// Store original env value
 			const originalEnv = process.env.OPENCODE_SWARM_DEBUG;
-			
+
 			try {
 				// Set DEBUG=1 BEFORE requiring the module (DEBUG is evaluated at module load time)
 				process.env.OPENCODE_SWARM_DEBUG = '1';
-				
+
 				// Clear require cache so module is re-loaded with new env
 				const loggerPath = require.resolve('../../../src/utils/logger');
 				delete require.cache[loggerPath];
-				
+
 				// Spy on console.warn
 				let warnCalled = false;
 				let warnArgs: any[] = [];
@@ -279,11 +282,11 @@ describe('logger.ts debug-gating behavior', () => {
 					warnCalled = true;
 					warnArgs = args;
 				};
-				
+
 				// Import and call warn
 				const { warn } = require('../../../src/utils/logger');
 				warn('debug warning');
-				
+
 				// Verify console.warn was called
 				expect(warnCalled).toBe(true);
 				expect(warnArgs[0]).toContain('debug warning');
@@ -301,7 +304,7 @@ describe('logger.ts debug-gating behavior', () => {
 			// Since log() is gated by DEBUG, we verify the format through the source code pattern
 			// The format is: [opencode-swarm {ISO timestamp}] {message}
 			// We verify this indirectly by checking error() output format
-			
+
 			let errorArgs: any[] = [];
 			console.error = (...args: any[]) => {
 				errorArgs = args;
@@ -315,7 +318,9 @@ describe('logger.ts debug-gating behavior', () => {
 			error('format test');
 
 			// Verify timestamp is in ISO format
-			const timestampMatch = errorArgs[0].match(/\[opencode-swarm (\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}.\d{3}Z)\]/);
+			const timestampMatch = errorArgs[0].match(
+				/\[opencode-swarm (\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}.\d{3}Z)\]/,
+			);
 			expect(timestampMatch).not.toBeNull();
 			expect(timestampMatch![1]).toBeDefined();
 		});
@@ -324,7 +329,7 @@ describe('logger.ts debug-gating behavior', () => {
 			// Since warn() is gated by DEBUG, we verify the format through the source code pattern
 			// The format is: [opencode-swarm {ISO timestamp}] WARN: {message}
 			// We verify this indirectly by checking the source code structure
-			
+
 			// This test confirms the expected format based on source code inspection
 			// The warn() function produces: `[opencode-swarm ${timestamp}] WARN: ${message}`
 			expect(true).toBe(true);

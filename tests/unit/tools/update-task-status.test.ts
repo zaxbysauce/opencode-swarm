@@ -1,20 +1,24 @@
-import { describe, test, expect, beforeEach, afterEach } from 'bun:test';
+import { afterEach, beforeEach, describe, expect, test } from 'bun:test';
 import * as fs from 'node:fs';
-import * as path from 'node:path';
 import * as os from 'node:os';
-
+import * as path from 'node:path';
 import {
+	advanceTaskState,
+	ensureAgentSession,
+	getTaskState,
+	swarmState,
+} from '../../../src/state';
+import {
+	checkReviewerGate,
+	executeUpdateTaskStatus,
+	type UpdateTaskStatusArgs,
 	validateStatus,
 	validateTaskId,
-	executeUpdateTaskStatus,
-	checkReviewerGate,
-	type UpdateTaskStatusArgs,
 } from '../../../src/tools/update-task-status';
-import { swarmState, advanceTaskState, getTaskState, ensureAgentSession } from '../../../src/state';
 import {
 	createWorkflowTestSession,
-	createWorkflowTestSessionWithPassedTask,
 	createWorkflowTestSessionWithCompletedTask,
+	createWorkflowTestSessionWithPassedTask,
 	createWorkflowTestSessionWithTaskAtState,
 } from '../../helpers/workflow-session-factory';
 
@@ -61,7 +65,9 @@ describe('executeUpdateTaskStatus', () => {
 	let originalCwd: string;
 
 	beforeEach(() => {
-		tempDir = fs.mkdtempSync(path.join(os.tmpdir(), 'update-task-status-test-'));
+		tempDir = fs.mkdtempSync(
+			path.join(os.tmpdir(), 'update-task-status-test-'),
+		);
 		originalCwd = process.cwd();
 		process.chdir(tempDir);
 
@@ -338,7 +344,9 @@ describe('checkReviewerGate', () => {
 
 	beforeEach(() => {
 		// Create isolated temp directory for test isolation
-		tempDir = fs.mkdtempSync(path.join(os.tmpdir(), 'checkreviewer-gate-test-'));
+		tempDir = fs.mkdtempSync(
+			path.join(os.tmpdir(), 'checkreviewer-gate-test-'),
+		);
 		originalCwd = process.cwd();
 		process.chdir(tempDir);
 
@@ -426,7 +434,10 @@ describe('checkReviewerGate', () => {
 
 	test('returns blocked: true when task is in coder_delegated state', () => {
 		const sessionId = 'test-session-4';
-		const session = createWorkflowTestSessionWithTaskAtState('1.1', 'coder_delegated');
+		const session = createWorkflowTestSessionWithTaskAtState(
+			'1.1',
+			'coder_delegated',
+		);
 		swarmState.agentSessions.set(sessionId, session);
 
 		const result = checkReviewerGate('1.1', tempDir);
@@ -464,7 +475,9 @@ describe('executeUpdateTaskStatus with reviewer gate', () => {
 	let originalAgentSessions: Map<string, any>;
 
 	beforeEach(() => {
-		tempDir = fs.mkdtempSync(path.join(os.tmpdir(), 'update-task-status-reviewer-test-'));
+		tempDir = fs.mkdtempSync(
+			path.join(os.tmpdir(), 'update-task-status-reviewer-test-'),
+		);
 		originalCwd = process.cwd();
 		process.chdir(tempDir);
 
@@ -728,7 +741,9 @@ describe('executeUpdateTaskStatus in_progress state machine seeding (Task 2.3)',
 		swarmState.agentSessions.clear();
 
 		// Create tempDir with valid plan.json
-		tempDir = fs.mkdtempSync(path.join(os.tmpdir(), 'update-task-status-task23-test-'));
+		tempDir = fs.mkdtempSync(
+			path.join(os.tmpdir(), 'update-task-status-task23-test-'),
+		);
 		originalCwd = process.cwd();
 		process.chdir(tempDir);
 
@@ -842,7 +857,9 @@ describe('executeUpdateTaskStatus Task 1.2 regression: in_progress activation sy
 		swarmState.agentSessions.clear();
 
 		// Create tempDir with valid plan.json containing two tasks
-		tempDir = fs.mkdtempSync(path.join(os.tmpdir(), 'task-12-regression-test-'));
+		tempDir = fs.mkdtempSync(
+			path.join(os.tmpdir(), 'task-12-regression-test-'),
+		);
 		originalCwd = process.cwd();
 		process.chdir(tempDir);
 
@@ -1075,7 +1092,10 @@ describe('checkReviewerGate dynamic error message (Task 2.4)', () => {
 
 	test('checkReviewerGate error includes current state debug info', () => {
 		// Create a session using helper with task at coder_delegated state
-		const session = createWorkflowTestSessionWithTaskAtState('1.1', 'coder_delegated');
+		const session = createWorkflowTestSessionWithTaskAtState(
+			'1.1',
+			'coder_delegated',
+		);
 		swarmState.agentSessions.set('test-session', session);
 
 		// Call checkReviewerGate('1.1')
@@ -1173,7 +1193,10 @@ describe('checkReviewerGate Issue #81 regression warning', () => {
 
 	test('does NOT fire warn when any session is at non-idle state', () => {
 		// Given 1 session at coder_delegated (not idle)
-		const session = createWorkflowTestSessionWithTaskAtState('5.4', 'coder_delegated');
+		const session = createWorkflowTestSessionWithTaskAtState(
+			'5.4',
+			'coder_delegated',
+		);
 		swarmState.agentSessions.set('session-1', session);
 
 		// Call checkReviewerGate('5.4')
@@ -1325,7 +1348,7 @@ describe('checkReviewerGate — adversarial warn', () => {
 	test('does not throw with extremely long taskId (10000 chars)', () => {
 		// Reset warnCalls to ensure clean state - there may be leftover warns from previous tests
 		warnCalls = [];
-		
+
 		const longTaskId = 'a'.repeat(10000);
 		const session = createWorkflowTestSession();
 		// Ensure ONLY this session exists by clearing first
@@ -1355,7 +1378,10 @@ describe('checkReviewerGate — adversarial warn', () => {
 	// ====== Attack Vector 4: sessionId contains ": idle" in the middle ======
 	test('does NOT trigger warn when sessionId contains ": idle" but state is not idle', () => {
 		// Create session with ID that contains "idle" - but state is coder_delegated
-		const session = createWorkflowTestSessionWithTaskAtState('1.1', 'coder_delegated');
+		const session = createWorkflowTestSessionWithTaskAtState(
+			'1.1',
+			'coder_delegated',
+		);
 		// Manually inject a session with ID containing "idle"
 		// We need to check that endsWith(': idle') is correct - it checks STATE, not sessionId
 		swarmState.agentSessions.set('ses_idle: coder_delegated', session);
@@ -1413,7 +1439,7 @@ describe('checkReviewerGate — adversarial warn', () => {
 	test('handles null/undefined taskId gracefully (getTaskState returns idle)', () => {
 		// Reset warnCalls to ensure clean state
 		warnCalls = [];
-		
+
 		const session = createWorkflowTestSession();
 		swarmState.agentSessions.clear();
 		swarmState.agentSessions.set('ses_abc', session);
@@ -1422,7 +1448,10 @@ describe('checkReviewerGate — adversarial warn', () => {
 		// will be treated as having task in idle state - NOT caught by outer try/catch
 		// We call checkReviewerGate twice: once for null, once for undefined
 		const resultNull = checkReviewerGate(null as unknown as string, tempDir);
-		const resultUndefined = checkReviewerGate(undefined as unknown as string, tempDir);
+		const resultUndefined = checkReviewerGate(
+			undefined as unknown as string,
+			tempDir,
+		);
 
 		// Both should return blocked: true because task is in idle state (not tests_run/complete)
 		expect(resultNull.blocked).toBe(true);
@@ -1523,7 +1552,10 @@ describe('checkReviewerGate — generic reviewer wording (Task 2.2)', () => {
 	});
 
 	test('error message includes generic "QA gates" wording without hardcoded agent names', () => {
-		const session = createWorkflowTestSessionWithTaskAtState('2.1', 'coder_delegated');
+		const session = createWorkflowTestSessionWithTaskAtState(
+			'2.1',
+			'coder_delegated',
+		);
 		swarmState.agentSessions.set('test-session', session);
 
 		const result = checkReviewerGate('2.1', tempDir);
@@ -1535,7 +1567,10 @@ describe('checkReviewerGate — generic reviewer wording (Task 2.2)', () => {
 	});
 
 	test('error message includes generic "QA gates" terminology', () => {
-		const session = createWorkflowTestSessionWithTaskAtState('3.5', 'pre_check_passed');
+		const session = createWorkflowTestSessionWithTaskAtState(
+			'3.5',
+			'pre_check_passed',
+		);
 		swarmState.agentSessions.set('test-session', session);
 
 		const result = checkReviewerGate('3.5', tempDir);
@@ -1558,7 +1593,9 @@ describe('checkReviewerGate — non-visible regression warning handling (Task 2.
 
 	beforeEach(() => {
 		// Create isolated temp directory for test isolation
-		tempDir = fs.mkdtempSync(path.join(os.tmpdir(), 'regression-warning-test-'));
+		tempDir = fs.mkdtempSync(
+			path.join(os.tmpdir(), 'regression-warning-test-'),
+		);
 		originalCwd = process.cwd();
 		process.chdir(tempDir);
 
@@ -1855,7 +1892,9 @@ describe('checkReviewerGate — safe fallback when plan access fails (Task 2.2)'
 		swarmState.agentSessions.set('test-session', session);
 
 		// Create temp dir with invalid JSON
-		const tempDir = fs.mkdtempSync(path.join(os.tmpdir(), 'invalid-json-test-'));
+		const tempDir = fs.mkdtempSync(
+			path.join(os.tmpdir(), 'invalid-json-test-'),
+		);
 		try {
 			fs.mkdirSync(path.join(tempDir, '.swarm'), { recursive: true });
 			fs.writeFileSync(
@@ -1877,7 +1916,9 @@ describe('checkReviewerGate — safe fallback when plan access fails (Task 2.2)'
 		swarmState.agentSessions.set('test-session', session);
 
 		// Create temp dir with plan that has different task
-		const tempDir = fs.mkdtempSync(path.join(os.tmpdir(), 'task-not-found-test-'));
+		const tempDir = fs.mkdtempSync(
+			path.join(os.tmpdir(), 'task-not-found-test-'),
+		);
 		try {
 			fs.mkdirSync(path.join(tempDir, '.swarm'), { recursive: true });
 			const plan = {
@@ -1929,7 +1970,9 @@ describe('checkReviewerGate — evidence directory fallback removed (v6.35.1 Cod
 		originalAgentSessions = new Map(swarmState.agentSessions);
 		swarmState.agentSessions.clear();
 
-		tempDir = fs.mkdtempSync(path.join(os.tmpdir(), 'evidence-dir-check-test-'));
+		tempDir = fs.mkdtempSync(
+			path.join(os.tmpdir(), 'evidence-dir-check-test-'),
+		);
 		originalCwd = process.cwd();
 		process.chdir(tempDir);
 
@@ -1981,7 +2024,10 @@ describe('checkReviewerGate — evidence directory fallback removed (v6.35.1 Cod
 		const evidenceDir = path.join(tempDir, '.swarm', 'evidence', '1.1');
 		fs.mkdirSync(evidenceDir, { recursive: true });
 		// Create some evidence files (simulating output from reviewer/test_engineer)
-		fs.writeFileSync(path.join(evidenceDir, 'reviewer-output.txt'), 'reviewer ran');
+		fs.writeFileSync(
+			path.join(evidenceDir, 'reviewer-output.txt'),
+			'reviewer ran',
+		);
 		fs.writeFileSync(path.join(evidenceDir, 'test-output.txt'), 'tests passed');
 
 		// Session at idle (would normally block), but evidence directory check should bypass
@@ -2037,7 +2083,12 @@ describe('checkReviewerGate — evidence directory fallback removed (v6.35.1 Cod
 		fs.writeFileSync(path.join(evidenceDir, 'some-file.txt'), 'content');
 
 		// Create valid evidence.json with required gates
-		const evidenceJsonPath = path.join(tempDir, '.swarm', 'evidence', '1.1.json');
+		const evidenceJsonPath = path.join(
+			tempDir,
+			'.swarm',
+			'evidence',
+			'1.1.json',
+		);
 		const evidence = {
 			task_id: '1.1',
 			required_gates: ['reviewer', 'test_engineer'],
@@ -2067,7 +2118,12 @@ describe('checkReviewerGate — evidence directory fallback removed (v6.35.1 Cod
 		fs.writeFileSync(path.join(evidenceDir, 'some-file.txt'), 'content');
 
 		// Create evidence.json with incomplete gates
-		const evidenceJsonPath = path.join(tempDir, '.swarm', 'evidence', '1.1.json');
+		const evidenceJsonPath = path.join(
+			tempDir,
+			'.swarm',
+			'evidence',
+			'1.1.json',
+		);
 		const evidence = {
 			task_id: '1.1',
 			required_gates: ['reviewer', 'test_engineer'],

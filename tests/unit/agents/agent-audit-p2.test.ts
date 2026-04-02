@@ -3,15 +3,15 @@
  * Tests for: X3 (critic/designer), CR1, CR2, DS1, DS2, C3, C4, R3, E2, S2, D2, A1, A2, A3, T5
  */
 import { describe, expect, it } from 'bun:test';
+import { createArchitectAgent } from '../../../src/agents/architect';
+import { createCoderAgent } from '../../../src/agents/coder';
 import { createCriticAgent } from '../../../src/agents/critic';
 import { createDesignerAgent } from '../../../src/agents/designer';
-import { createCoderAgent } from '../../../src/agents/coder';
-import { createReviewerAgent } from '../../../src/agents/reviewer';
-import { createExplorerAgent } from '../../../src/agents/explorer';
-import { createSMEAgent } from '../../../src/agents/sme';
 import { createDocsAgent } from '../../../src/agents/docs';
+import { createExplorerAgent } from '../../../src/agents/explorer';
+import { createReviewerAgent } from '../../../src/agents/reviewer';
+import { createSMEAgent } from '../../../src/agents/sme';
 import { createTestEngineerAgent } from '../../../src/agents/test-engineer';
-import { createArchitectAgent } from '../../../src/agents/architect';
 
 // ─── X3: Structured output enforcement ───────────────────────────────────────
 
@@ -19,7 +19,10 @@ describe('X3: Critic structured output enforcement', () => {
 	const prompt = createCriticAgent('test-model').config.prompt!;
 
 	it('plan review OUTPUT FORMAT is marked MANDATORY', () => {
-		const planReviewOutput = prompt.substring(0, prompt.indexOf('### MODE: ANALYZE'));
+		const planReviewOutput = prompt.substring(
+			0,
+			prompt.indexOf('### MODE: ANALYZE'),
+		);
 		expect(planReviewOutput).toContain('MANDATORY');
 	});
 
@@ -30,7 +33,12 @@ describe('X3: Critic structured output enforcement', () => {
 	});
 
 	it('PHASE_DRIFT_VERIFIER OUTPUT FORMAT is marked MANDATORY', () => {
-		const driftVerifierAgent = createCriticAgent('test-model', undefined, undefined, 'phase_drift_verifier');
+		const driftVerifierAgent = createCriticAgent(
+			'test-model',
+			undefined,
+			undefined,
+			'phase_drift_verifier',
+		);
 		const driftPrompt = driftVerifierAgent.config.prompt!;
 		expect(driftPrompt).toContain('MANDATORY');
 	});
@@ -93,7 +101,12 @@ describe('CR1: Plan assessment dimensions', () => {
 // ─── CR2: Phase drift verifier metrics ────────────────────────────────────────
 
 describe('CR2: Phase drift verifier metrics', () => {
-	const driftVerifierAgent = createCriticAgent('test-model', undefined, undefined, 'phase_drift_verifier');
+	const driftVerifierAgent = createCriticAgent(
+		'test-model',
+		undefined,
+		undefined,
+		'phase_drift_verifier',
+	);
 	const prompt = driftVerifierAgent.config.prompt!;
 
 	it('defines per-task verdict categories', () => {
@@ -243,7 +256,9 @@ describe('R3: Severity calibration', () => {
 	});
 
 	it('prohibits blank APPROVED without reasoning', () => {
-		expect(prompt).toMatch(/blank APPROVED.*not acceptable|blank.*APPROVED.*not valid/i);
+		expect(prompt).toMatch(
+			/blank APPROVED.*not acceptable|blank.*APPROVED.*not valid/i,
+		);
 	});
 });
 

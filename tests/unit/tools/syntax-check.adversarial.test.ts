@@ -25,14 +25,16 @@
  * CONSTRAINT: DO NOT modify src/tools/syntax-check.ts or src/lang/runtime.ts
  * These tests verify the bug fixes are working correctly.
  */
-import { describe, test, expect, beforeEach, afterEach, vi } from 'bun:test';
+import { afterEach, beforeEach, describe, expect, test, vi } from 'bun:test';
 import * as fs from 'node:fs';
 import * as os from 'node:os';
 import * as path from 'node:path';
-
-// Import the module under test
-import { syntaxCheck, type SyntaxCheckInput } from '../../../src/tools/syntax-check';
 import type { PluginConfig } from '../../../src/config';
+// Import the module under test
+import {
+	type SyntaxCheckInput,
+	syntaxCheck,
+} from '../../../src/tools/syntax-check';
 
 // Mock the saveEvidence function
 vi.mock('../../../src/evidence/manager', () => ({
@@ -162,9 +164,7 @@ describe('syntax-check.ts - ADVERSARIAL SECURITY TESTS', () => {
 	describe('Attack Vector 2: Path traversal patterns', () => {
 		test('rejects path traversal via ../ (file read error)', async () => {
 			const input: SyntaxCheckInput = {
-				changed_files: [
-					{ path: '../../etc/passwd.js', additions: 1 },
-				],
+				changed_files: [{ path: '../../etc/passwd.js', additions: 1 }],
 				mode: 'changed',
 			};
 
@@ -213,9 +213,7 @@ describe('syntax-check.ts - ADVERSARIAL SECURITY TESTS', () => {
 		test('rejects absolute path to system directories', async () => {
 			// Use an absolute path that likely doesn't exist
 			const input: SyntaxCheckInput = {
-				changed_files: [
-					{ path: '/System/Library/test.js', additions: 1 },
-				],
+				changed_files: [{ path: '/System/Library/test.js', additions: 1 }],
 				mode: 'changed',
 			};
 
@@ -689,9 +687,7 @@ describe('syntax-check.ts - ADVERSARIAL SECURITY TESTS', () => {
 			// Try to create a file with null-byte in path
 			// Note: This will fail at filesystem level, but we test our handling
 			const input: SyntaxCheckInput = {
-				changed_files: [
-					{ path: 'test\x00.js', additions: 1 },
-				],
+				changed_files: [{ path: 'test\x00.js', additions: 1 }],
 				mode: 'changed',
 			};
 
@@ -748,7 +744,7 @@ describe('syntax-check.ts - ADVERSARIAL SECURITY TESTS', () => {
 
 	// ============ Attack Vector 10: Configuration Edge Cases ============
 
- 	describe('Attack Vector 10: Configuration edge cases', () => {
+	describe('Attack Vector 10: Configuration edge cases', () => {
 		test('respects syntax_check disabled in config', async () => {
 			const testFile = path.join(tmpDir, 'test.js');
 			fs.writeFileSync(testFile, 'const x = 1;');

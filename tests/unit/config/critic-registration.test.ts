@@ -1,4 +1,5 @@
 import { describe, expect, test } from 'bun:test';
+import type { CriticRole } from '../../../src/agents/critic';
 import {
 	AGENT_TOOL_MAP,
 	ALL_AGENT_NAMES,
@@ -6,7 +7,6 @@ import {
 	DEFAULT_MODELS,
 	QA_AGENTS,
 } from '../../../src/config/constants';
-import type { CriticRole } from '../../../src/agents/critic';
 
 describe('Critic Agent Registration', () => {
 	describe('QA_AGENTS includes critic variants', () => {

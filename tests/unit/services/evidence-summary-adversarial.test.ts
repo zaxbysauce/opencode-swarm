@@ -1,36 +1,42 @@
 /**
  * ADVERSARIAL SECURITY TESTS for Evidence Summary Pipeline (Task 5.8)
- * 
+ *
  * Attack vectors tested:
  * 1. Malformed evidence payloads
  * 2. Blocker spoofing
- * 3. Artifact path abuse  
+ * 3. Artifact path abuse
  * 4. Event spam
  */
 
-import { describe, it, expect, beforeEach, afterEach, jest } from 'bun:test';
-import { mkdirSync, rmSync, writeFileSync, existsSync, readFileSync } from 'node:fs';
-import { join, resolve } from 'node:path';
+import { afterEach, beforeEach, describe, expect, it, jest } from 'bun:test';
+import {
+	existsSync,
+	mkdirSync,
+	readFileSync,
+	rmSync,
+	writeFileSync,
+} from 'node:fs';
 import { tmpdir } from 'node:os';
-import {
-	buildEvidenceSummary,
-	isAutoSummaryEnabled,
-	type EvidenceSummaryArtifact,
-	type PhaseBlocker,
-} from '../../../src/services/evidence-summary-service';
-import {
-	EvidenceSummaryIntegration,
-	createEvidenceSummaryIntegration,
-	type EvidenceSummaryIntegrationConfig,
-} from '../../../src/background/evidence-summary-integration';
+import { join, resolve } from 'node:path';
 import {
 	AutomationEventBus,
 	getGlobalEventBus,
 	resetGlobalEventBus,
 } from '../../../src/background/event-bus';
-import { sanitizeTaskId } from '../../../src/evidence/manager';
-import type { Plan } from '../../../src/config/plan-schema';
+import {
+	createEvidenceSummaryIntegration,
+	EvidenceSummaryIntegration,
+	type EvidenceSummaryIntegrationConfig,
+} from '../../../src/background/evidence-summary-integration';
 import type { EvidenceBundle } from '../../../src/config/evidence-schema';
+import type { Plan } from '../../../src/config/plan-schema';
+import { sanitizeTaskId } from '../../../src/evidence/manager';
+import {
+	buildEvidenceSummary,
+	type EvidenceSummaryArtifact,
+	isAutoSummaryEnabled,
+	type PhaseBlocker,
+} from '../../../src/services/evidence-summary-service';
 
 // Mocks
 jest.mock('../../../src/plan/manager', () => ({
@@ -42,13 +48,18 @@ jest.mock('../../../src/evidence/manager', () => ({
 	listEvidenceTaskIds: jest.fn(),
 }));
 
+import {
+	listEvidenceTaskIds,
+	loadEvidence,
+} from '../../../src/evidence/manager';
 import { loadPlanJsonOnly } from '../../../src/plan/manager';
-import { loadEvidence, listEvidenceTaskIds } from '../../../src/evidence/manager';
 
 const mockLoadPlanJsonOnly = loadPlanJsonOnly as jest.MockedFunction<
 	typeof loadPlanJsonOnly
 >;
-const mockLoadEvidence = loadEvidence as jest.MockedFunction<typeof loadEvidence>;
+const mockLoadEvidence = loadEvidence as jest.MockedFunction<
+	typeof loadEvidence
+>;
 const mockListEvidenceTaskIds = listEvidenceTaskIds as jest.MockedFunction<
 	typeof listEvidenceTaskIds
 >;
@@ -268,7 +279,7 @@ describe('ATTACK: Malformed Evidence Payloads', () => {
 
 		const result = await buildEvidenceSummary(tempDir);
 		expect(result).toBeDefined();
-		
+
 		// Verify prototype wasn't polluted
 		expect(({} as Record<string, unknown>).polluted).toBeUndefined();
 	});
@@ -394,7 +405,9 @@ describe('ATTACK: Blocker Spoofing', () => {
 			// Verify XSS payload appears in output but is not executed
 			// (The payload should be in the blocker reason as plain text)
 			if (result && result.phaseSummaries[0]?.blockers.length > 0) {
-				expect(typeof result.phaseSummaries[0].blockers[0].reason).toBe('string');
+				expect(typeof result.phaseSummaries[0].blockers[0].reason).toBe(
+					'string',
+				);
 			}
 		}
 	});
@@ -404,7 +417,7 @@ describe('ATTACK: Blocker Spoofing', () => {
 			"'; DROP TABLE tasks; --",
 			"' OR '1'='1",
 			"'; EXEC xp_cmdshell('dir'); --",
-			"1; DELETE FROM evidence WHERE 1=1",
+			'1; DELETE FROM evidence WHERE 1=1',
 		];
 
 		for (const payload of sqliPayloads) {
@@ -495,7 +508,7 @@ describe('ATTACK: Blocker Spoofing', () => {
 
 		mockLoadPlanJsonOnly.mockResolvedValue(plan);
 		mockListEvidenceTaskIds.mockResolvedValue(['1.1']);
-		
+
 		// Only review, missing test - should be HIGH severity
 		mockLoadEvidence.mockResolvedValue({
 			schema_version: '1.0.0',
@@ -515,14 +528,14 @@ describe('ATTACK: Blocker Spoofing', () => {
 		});
 
 		const result = await buildEvidenceSummary(tempDir);
-		
+
 		expect(result).toBeDefined();
-		
+
 		// Missing evidence should always be high severity - not manipulable
 		const missingEvidenceBlocker = result?.phaseSummaries[0]?.blockers.find(
-			(b) => b.type === 'missing_evidence'
+			(b) => b.type === 'missing_evidence',
 		);
-		
+
 		expect(missingEvidenceBlocker?.severity).toBe('high');
 	});
 
@@ -582,11 +595,13 @@ describe('ATTACK: Blocker Spoofing', () => {
 		});
 
 		const result = await buildEvidenceSummary(tempDir);
-		
+
 		expect(result).toBeDefined();
-		
+
 		// Should detect the blocker even though status is completed
-		const task = result?.phaseSummaries[0]?.tasks.find((t) => t.taskId === '1.1');
+		const task = result?.phaseSummaries[0]?.tasks.find(
+			(t) => t.taskId === '1.1',
+		);
 		expect(task?.blockers.length).toBeGreaterThan(0);
 	});
 });
@@ -624,17 +639,22 @@ describe('ATTACK: Artifact Path Abuse', () => {
 
 		// Null byte has its own specific check
 		expect(() => sanitizeTaskId('task\x00')).toThrow(/null bytes/i);
-		
+
 		// CRLF should fail the regex check (newline is control char)
 		expect(() => sanitizeTaskId('task\r\n')).toThrow();
 	});
 
 	it('should handle integration with malicious swarmDir path', async () => {
 		const eventBus = getGlobalEventBus();
-		
+
 		// Attack: path traversal in swarmDir
-		const maliciousPath = join(tempDir, 'project', '.swarm', '..\\..\\..\\..\\tmp');
-		
+		const maliciousPath = join(
+			tempDir,
+			'project',
+			'.swarm',
+			'..\\..\\..\\..\\tmp',
+		);
+
 		const config: EvidenceSummaryIntegrationConfig = {
 			automationConfig: {
 				mode: 'hybrid',
@@ -653,7 +673,7 @@ describe('ATTACK: Artifact Path Abuse', () => {
 		};
 
 		const integration = new EvidenceSummaryIntegration(config);
-		
+
 		// The integration should handle this gracefully
 		// Either by rejecting or normalizing the path
 		expect(integration).toBeDefined();
@@ -706,7 +726,7 @@ describe('ATTACK: Artifact Path Abuse', () => {
 			};
 
 			const integration = new EvidenceSummaryIntegration(config);
-			
+
 			// Should not throw or create files outside .swarm directory
 			try {
 				await integration.generateSummary(1, 'preflight.completed');
@@ -761,7 +781,10 @@ describe('ATTACK: Artifact Path Abuse', () => {
 		const result = await integration.generateSummary(1, 'preflight.completed');
 
 		// Verify secret data wasn't overwritten or exposed
-		const secretContent = readFileSync(join(symlinkTarget, 'secret.txt'), 'utf-8');
+		const secretContent = readFileSync(
+			join(symlinkTarget, 'secret.txt'),
+			'utf-8',
+		);
 		expect(secretContent).toBe('SECRET_DATA');
 
 		rmSync(symlinkTarget, { recursive: true, force: true });
@@ -775,7 +798,7 @@ describe('ATTACK: Artifact Path Abuse', () => {
 describe('ATTACK: Event Spam / Resource Exhaustion', () => {
 	it('should handle rapid event publishing without memory leak', async () => {
 		const eventBus = new AutomationEventBus({ maxHistorySize: 100 });
-		
+
 		// Attack: spam 1000+ events rapidly
 		const eventCount = 1000;
 		const startMemory = process.memoryUsage().heapUsed;
@@ -792,7 +815,7 @@ describe('ATTACK: Event Spam / Resource Exhaustion', () => {
 
 		// History should be capped at maxHistorySize
 		expect(eventBus.getHistory().length).toBe(100);
-		
+
 		// Memory growth should be bounded (not 1000x the events)
 		expect(memoryGrowth).toBeLessThan(5 * 1024 * 1024); // < 5MB growth
 	});
@@ -827,7 +850,7 @@ describe('ATTACK: Event Spam / Resource Exhaustion', () => {
 
 	it('should handle large event payloads without crash', async () => {
 		const eventBus = new AutomationEventBus();
-		
+
 		// Attack: extremely large payload (1MB+)
 		const largePayload = {
 			phase: 1,
@@ -836,7 +859,7 @@ describe('ATTACK: Event Spam / Resource Exhaustion', () => {
 
 		// Should handle without crashing
 		await eventBus.publish('preflight.completed', largePayload);
-		
+
 		expect(eventBus.getHistory().length).toBe(1);
 	});
 
@@ -902,19 +925,15 @@ describe('ATTACK: Event Spam / Resource Exhaustion', () => {
 		};
 
 		const integration = createEvidenceSummaryIntegration(config, false);
-		intitializeWithMockPlan: {
-			// Initialize subscriptions
-			integration.initialize();
-		}
+		// Initialize subscriptions
+		integration.initialize();
 
 		const eventBus = getGlobalEventBus();
 
 		// Spam many events rapidly
 		const eventPromises: Promise<void>[] = [];
 		for (let i = 0; i < 50; i++) {
-			eventPromises.push(
-				eventBus.publish('preflight.completed', { phase: 1 })
-			);
+			eventPromises.push(eventBus.publish('preflight.completed', { phase: 1 }));
 		}
 
 		// Should not crash or hang
@@ -1016,12 +1035,14 @@ describe('DEFENSE: Security Controls Validation', () => {
 		const result2 = await buildEvidenceSummary(tempDir);
 
 		// Core metrics should be identical
-		expect(result1?.overallCompletionRatio).toBe(result2?.overallCompletionRatio);
+		expect(result1?.overallCompletionRatio).toBe(
+			result2?.overallCompletionRatio,
+		);
 		expect(result1?.phaseSummaries[0]?.totalTasks).toBe(
-			result2?.phaseSummaries[0]?.totalTasks
+			result2?.phaseSummaries[0]?.totalTasks,
 		);
 		expect(result1?.phaseSummaries[0]?.completedTasks).toBe(
-			result2?.phaseSummaries[0]?.completedTasks
+			result2?.phaseSummaries[0]?.completedTasks,
 		);
 	});
 });

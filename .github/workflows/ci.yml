@@ -16,7 +16,7 @@ jobs:
       - uses: actions/checkout@34e114876b0b11c390a56381ad16ebd13914f8d5 # v4
       - uses: oven-sh/setup-bun@3d267786b128fe76c2f16a390aa2448b815359f3 # v2
         with:
-          bun-version: latest
+          bun-version: "1.3.8"
       - name: Cache bun dependencies
         uses: actions/cache@0057852bfaa89a56745cba8c7296529d2fc39830 # v4
         with:
@@ -42,7 +42,7 @@ jobs:
       - uses: actions/checkout@34e114876b0b11c390a56381ad16ebd13914f8d5 # v4
       - uses: oven-sh/setup-bun@3d267786b128fe76c2f16a390aa2448b815359f3 # v2
         with:
-          bun-version: latest
+          bun-version: "1.3.8"
       - name: Cache bun dependencies
         uses: actions/cache@0057852bfaa89a56745cba8c7296529d2fc39830 # v4
         with:
@@ -59,10 +59,28 @@ jobs:
         run: bun --smol test tests/unit/hooks/knowledge-types*.test.ts tests/unit/hooks/knowledge-validator*.test.ts tests/unit/hooks/knowledge-registration*.test.ts tests/unit/hooks/knowledge-store*.test.ts tests/unit/hooks/knowledge-quarantine*.test.ts --timeout 120000
       - name: Unit tests (hooks - knowledge reader/migrator)
         if: runner.os != 'Windows'
-        run: bun --smol test tests/unit/hooks/knowledge-reader*.test.ts tests/unit/hooks/knowledge-migrator*.test.ts --timeout 120000
+        shell: bash
+        run: |
+          failed=0
+          for f in tests/unit/hooks/knowledge-reader*.test.ts tests/unit/hooks/knowledge-migrator*.test.ts; do
+            [ -f "$f" ] || continue
+            if ! bun --smol test "$f" --timeout 120000; then
+              failed=1
+            fi
+          done
+          exit $failed
       - name: Unit tests (hooks - knowledge injector)
         if: runner.os != 'Windows'
-        run: bun --smol test tests/unit/hooks/knowledge-injector*.test.ts --timeout 120000
+        shell: bash
+        run: |
+          failed=0
+          for f in tests/unit/hooks/knowledge-injector*.test.ts; do
+            [ -f "$f" ] || continue
+            if ! bun --smol test "$f" --timeout 120000; then
+              failed=1
+            fi
+          done
+          exit $failed
       - name: Unit tests (hooks - knowledge-curator)
         if: runner.os != 'Windows'
         run: bun --smol test tests/unit/hooks/knowledge-curator*.test.ts --timeout 120000
@@ -86,9 +104,30 @@ jobs:
         run: bun --smol test tests/unit/hooks/adversarial-detect*.test.ts --timeout 120000
       - name: Unit tests (hooks - remaining)
         if: runner.os != 'Windows'
-        run: bun --smol test tests/unit/hooks/advisory*.test.ts tests/unit/hooks/agent*.test.ts tests/unit/hooks/co-change*.test.ts tests/unit/hooks/compaction*.test.ts tests/unit/hooks/context*.test.ts tests/unit/hooks/dark*.test.ts tests/unit/hooks/extractors*.test.ts tests/unit/hooks/gate*.test.ts tests/unit/hooks/log*.test.ts tests/unit/hooks/message*.test.ts tests/unit/hooks/mode*.test.ts tests/unit/hooks/model*.test.ts tests/unit/hooks/phase*.test.ts tests/unit/hooks/pipeline*.test.ts tests/unit/hooks/plan*.test.ts tests/unit/hooks/self*.test.ts tests/unit/hooks/steering*.test.ts tests/unit/hooks/system-message*.test.ts tests/unit/hooks/tool*.test.ts tests/unit/hooks/utils*.test.ts --timeout 120000
+        shell: bash
+        run: |
+          failed=0
+          for f in tests/unit/hooks/advisory*.test.ts tests/unit/hooks/agent*.test.ts tests/unit/hooks/co-change*.test.ts tests/unit/hooks/compaction*.test.ts tests/unit/hooks/context*.test.ts tests/unit/hooks/dark*.test.ts tests/unit/hooks/extractors*.test.ts tests/unit/hooks/gate*.test.ts tests/unit/hooks/log*.test.ts tests/unit/hooks/message*.test.ts tests/unit/hooks/mode*.test.ts tests/unit/hooks/model*.test.ts tests/unit/hooks/phase*.test.ts tests/unit/hooks/pipeline*.test.ts tests/unit/hooks/plan*.test.ts tests/unit/hooks/self*.test.ts tests/unit/hooks/steering*.test.ts tests/unit/hooks/system-message*.test.ts tests/unit/hooks/tool*.test.ts tests/unit/hooks/utils*.test.ts; do
+            [ -f "$f" ] || continue
+            if ! bun --smol test "$f" --timeout 120000; then
+              failed=1
+            fi
+          done
+          exit $failed
       - name: Unit tests (commands, config)
-        run: bun --smol test tests/unit/commands tests/unit/config --timeout 120000
+        shell: bash
+        run: |
+          # Per-file isolation to prevent --smol cache poisoning (#330).
+          failed=0
+          for dir in tests/unit/commands tests/unit/config; do
+            for f in "$dir"/*.test.ts; do
+              [ -f "$f" ] || continue
+              if ! bun --smol test "$f" --timeout 120000; then
+                failed=1
+              fi
+            done
+          done
+          exit $failed
       - name: Unit tests (cli)
         run: bun --smol test tests/unit/cli --timeout 120000
       - name: Unit tests (tools)
@@ -105,8 +144,6 @@ jobs:
           exit $failed
       - name: Unit tests (services, build, quality, sast, sbom, scripts)
         shell: bash
-        # continue-on-error: 43 pre-existing test bugs remain (tracked in #332)
-        continue-on-error: true
         run: |
           # Per-file isolation to prevent --smol cache poisoning (#330).
           failed=0
@@ -121,8 +158,6 @@ jobs:
           exit $failed
       - name: Unit tests (state, agents, knowledge, evidence, plan, misc)
         shell: bash
-        # continue-on-error: 43 pre-existing test bugs remain (tracked in #332)
-        continue-on-error: true
         run: |
           # Per-file isolation to prevent --smol cache poisoning (#330).
           failed=0
@@ -151,7 +186,7 @@ jobs:
       - uses: actions/checkout@34e114876b0b11c390a56381ad16ebd13914f8d5 # v4
       - uses: oven-sh/setup-bun@3d267786b128fe76c2f16a390aa2448b815359f3 # v2
         with:
-          bun-version: latest
+          bun-version: "1.3.8"
       - name: Cache bun dependencies
         uses: actions/cache@0057852bfaa89a56745cba8c7296529d2fc39830 # v4
         with:
@@ -174,6 +209,32 @@ jobs:
           done
           exit $failed
 
+  dist-check:
+    needs: quality
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@34e114876b0b11c390a56381ad16ebd13914f8d5 # v4
+      - uses: oven-sh/setup-bun@3d267786b128fe76c2f16a390aa2448b815359f3 # v2
+        with:
+          bun-version: "1.3.8"
+      - name: Cache bun dependencies
+        uses: actions/cache@0057852bfaa89a56745cba8c7296529d2fc39830 # v4
+        with:
+          path: ~/.bun/install/cache
+          key: ${{ runner.os }}-bun-${{ hashFiles('**/bun.lock') }}
+          restore-keys: ${{ runner.os }}-bun-
+      - name: Install dependencies
+        run: bun install --frozen-lockfile
+      - name: Build
+        run: bun run build
+      - name: Check dist/ for uncommitted drift
+        run: |
+          git diff --exit-code dist/ || {
+            echo "ERROR: dist/ has uncommitted changes after build."
+            echo "Run 'bun run build' locally and commit the updated dist/."
+            exit 1
+          }
+
   security:
     needs: quality
     runs-on: ubuntu-latest
@@ -181,7 +242,7 @@ jobs:
       - uses: actions/checkout@34e114876b0b11c390a56381ad16ebd13914f8d5 # v4
       - uses: oven-sh/setup-bun@3d267786b128fe76c2f16a390aa2448b815359f3 # v2
         with:
-          bun-version: latest
+          bun-version: "1.3.8"
       - name: Cache bun dependencies
         uses: actions/cache@0057852bfaa89a56745cba8c7296529d2fc39830 # v4
         with:
@@ -194,7 +255,7 @@ jobs:
         run: bun test tests/security --timeout 120000
 
   smoke:
-    needs: [unit, integration]
+    needs: [unit, integration, dist-check]
     strategy:
       fail-fast: false
       matrix:
@@ -205,7 +266,7 @@ jobs:
       - uses: actions/checkout@34e114876b0b11c390a56381ad16ebd13914f8d5 # v4
       - uses: oven-sh/setup-bun@3d267786b128fe76c2f16a390aa2448b815359f3 # v2
         with:
-          bun-version: latest
+          bun-version: "1.3.8"
       - name: Cache bun dependencies
         uses: actions/cache@0057852bfaa89a56745cba8c7296529d2fc39830 # v4
         with:

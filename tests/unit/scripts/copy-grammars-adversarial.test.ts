@@ -3,7 +3,7 @@
  * Focus: Attack vectors, malformed inputs, path traversal, injection attempts, boundary violations
  */
 
-import { describe, it, expect, beforeEach, afterEach, vi } from 'vitest';
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 
 // Mock fs functions
 vi.mock('node:fs', () => ({
@@ -21,9 +21,18 @@ vi.mock('node:path', () => ({
 }));
 
 // Import after mocking
-import { existsSync, mkdirSync, copyFileSync, readdirSync, cpSync } from 'node:fs';
+import {
+	copyFileSync,
+	cpSync,
+	existsSync,
+	mkdirSync,
+	readdirSync,
+} from 'node:fs';
 import { join } from 'node:path';
-import { copyGrammars, copyGrammarsToDist } from '../../../scripts/copy-grammars';
+import {
+	copyGrammars,
+	copyGrammarsToDist,
+} from '../../../scripts/copy-grammars';
 
 // Mock console functions
 const originalConsole = { ...console };
@@ -97,7 +106,24 @@ describe('copy-grammars.ts - Adversarial Tests', () => {
 		});
 
 		it('should handle filenames with special characters', () => {
-			const specialChars = ['../', './', '~', '$', '`', ';', '&', '|', '<', '>', '*', '?', '[', ']', '{', '}'];
+			const specialChars = [
+				'../',
+				'./',
+				'~',
+				'$',
+				'`',
+				';',
+				'&',
+				'|',
+				'<',
+				'>',
+				'*',
+				'?',
+				'[',
+				']',
+				'{',
+				'}',
+			];
 
 			specialChars.forEach((char) => {
 				const maliciousFile = `tree-sitter${char}kotlin.wasm`;
@@ -322,7 +348,10 @@ describe('copy-grammars.ts - Adversarial Tests', () => {
 		});
 
 		it('should handle very large number of files (DoS protection)', () => {
-			const hugeFileList = Array.from({ length: 100000 }, (_, i) => `file-${i}.wasm`);
+			const hugeFileList = Array.from(
+				{ length: 100000 },
+				(_, i) => `file-${i}.wasm`,
+			);
 
 			(existsSync as any).mockReturnValue(true);
 			(mkdirSync as any).mockReturnValue(undefined);
@@ -336,7 +365,12 @@ describe('copy-grammars.ts - Adversarial Tests', () => {
 		});
 
 		it('should handle files without .wasm extension', () => {
-			const nonWasmFiles = ['README.md', 'package.json', '.gitignore', 'script.sh'];
+			const nonWasmFiles = [
+				'README.md',
+				'package.json',
+				'.gitignore',
+				'script.sh',
+			];
 
 			(existsSync as any).mockReturnValue(true);
 			(mkdirSync as any).mockReturnValue(undefined);
@@ -368,7 +402,11 @@ describe('copy-grammars.ts - Adversarial Tests', () => {
 		it('should handle when vendored grammars are missing', () => {
 			(existsSync as any).mockImplementation((path: string) => {
 				// Vendored grammars don't exist
-				if (path.includes('kotlin') || path.includes('swift') || path.includes('dart')) {
+				if (
+					path.includes('kotlin') ||
+					path.includes('swift') ||
+					path.includes('dart')
+				) {
 					return false;
 				}
 				return true;
@@ -385,7 +423,7 @@ describe('copy-grammars.ts - Adversarial Tests', () => {
 
 			// Should warn about missing vendored grammars
 			expect(warnSpy).toHaveBeenCalledWith(
-				expect.stringContaining('Vendored grammar missing')
+				expect.stringContaining('Vendored grammar missing'),
 			);
 		});
 

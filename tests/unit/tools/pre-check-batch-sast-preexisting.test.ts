@@ -10,7 +10,7 @@
  * 6. Integration: runPreCheckBatch gate behavior with pre-existing vs new findings
  */
 
-import { describe, test, expect, mock, beforeEach, afterEach } from 'bun:test';
+import { afterEach, beforeEach, describe, expect, mock, test } from 'bun:test';
 import * as fs from 'node:fs';
 import * as os from 'node:os';
 import * as path from 'node:path';
@@ -190,20 +190,14 @@ describe('parseDiffLineRanges', () => {
 	});
 
 	test('parses hunk with count 0 (pure deletion)', () => {
-		const diff = [
-			'+++ b/src/foo.ts',
-			'@@ -10,3 +10,0 @@',
-		].join('\n');
+		const diff = ['+++ b/src/foo.ts', '@@ -10,3 +10,0 @@'].join('\n');
 
 		const result = parseDiffLineRanges(diff);
 		expect(result.get('src/foo.ts')!.size).toBe(0);
 	});
 
 	test('parses hunk with no count (single line change)', () => {
-		const diff = [
-			'+++ b/src/foo.ts',
-			'@@ -10 +20 @@',
-		].join('\n');
+		const diff = ['+++ b/src/foo.ts', '@@ -10 +20 @@'].join('\n');
 
 		const result = parseDiffLineRanges(diff);
 		const lines = result.get('src/foo.ts')!;
@@ -233,7 +227,9 @@ describe('parseDiffLineRanges', () => {
 
 describe('getChangedLineRanges', () => {
 	test('returns null for non-git directory', async () => {
-		const result = await getChangedLineRanges('/tmp/definitely-not-a-git-repo-' + Date.now());
+		const result = await getChangedLineRanges(
+			'/tmp/definitely-not-a-git-repo-' + Date.now(),
+		);
 		expect(result).toBeNull();
 	});
 });
@@ -353,171 +349,213 @@ describe('runPreCheckBatch SAST gate integration', () => {
 		}
 	});
 
-	test('SAST with new HIGH finding on changed line → gates_passed false', { timeout: 30_000 }, async () => {
-		// SAST returns a HIGH finding — and git diff is unavailable (non-git dir)
-		// so fail-closed treats it as new
-		mockSastScan.mockImplementationOnce(async () => ({
-			verdict: 'fail' as const,
-			findings: [
-				{
-					rule_id: 'sql-injection',
-					severity: 'high' as const,
-					message: 'SQL injection detected',
-					location: { file: path.join(tempDir, 'test.ts'), line: 1 },
+	test(
+		'SAST with new HIGH finding on changed line → gates_passed false',
+		{ timeout: 30_000 },
+		async () => {
+			// SAST returns a HIGH finding — and git diff is unavailable (non-git dir)
+			// so fail-closed treats it as new
+			mockSastScan.mockImplementationOnce(async () => ({
+				verdict: 'fail' as const,
+				findings: [
+					{
+						rule_id: 'sql-injection',
+						severity: 'high' as const,
+						message: 'SQL injection detected',
+						location: { file: path.join(tempDir, 'test.ts'), line: 1 },
+					},
+				],
+				summary: {
+					engine: 'tier_a' as const,
+					files_scanned: 1,
+					findings_count: 1,
+					findings_by_severity: { critical: 0, high: 1, medium: 0, low: 0 },
 				},
-			],
-			summary: {
-				engine: 'tier_a' as const,
-				files_scanned: 1,
-				findings_count: 1,
-				findings_by_severity: { critical: 0, high: 1, medium: 0, low: 0 },
-			},
-		}));
+			}));
 
-		const result = await runPreCheckBatch({
-			files: ['test.ts'],
-			directory: tempDir,
-		});
+			const result = await runPreCheckBatch({
+				files: ['test.ts'],
+				directory: tempDir,
+			});
 
-		expect(result.gates_passed).toBe(false);
-		expect(result.sast_preexisting_findings).toBeUndefined();
-	});
+			expect(result.gates_passed).toBe(false);
+			expect(result.sast_preexisting_findings).toBeUndefined();
+		},
+	);
 
-	test('SAST with only pre-existing HIGH finding (no changed lines) → gates_passed true + sast_preexisting_findings', { timeout: 30_000 }, async () => {
-		// Initialize a git repo with two commits so HEAD~1 strategy works
-		const { execSync } = await import('node:child_process');
-		try {
-			execSync('git init', { cwd: tempDir, stdio: 'pipe' });
-			execSync('git config user.email "test@test.com"', { cwd: tempDir, stdio: 'pipe' });
-			execSync('git config user.name "Test"', { cwd: tempDir, stdio: 'pipe' });
-			// First commit with the file
-			execSync('git add -A && git commit -m "init"', { cwd: tempDir, stdio: 'pipe' });
-			// Second commit (empty) so HEAD~1 diff shows no changes to test.ts
-			fs.writeFileSync(path.join(tempDir, 'other.txt'), 'unrelated\n');
-			execSync('git add -A && git commit -m "other"', { cwd: tempDir, stdio: 'pipe' });
-		} catch {
-			// Git may not be available; skip this test gracefully
-			return;
-		}
+	test(
+		'SAST with only pre-existing HIGH finding (no changed lines) → gates_passed true + sast_preexisting_findings',
+		{ timeout: 30_000 },
+		async () => {
+			// Initialize a git repo with two commits so HEAD~1 strategy works
+			const { execSync } = await import('node:child_process');
+			try {
+				execSync('git init', { cwd: tempDir, stdio: 'pipe' });
+				execSync('git config user.email "test@test.com"', {
+					cwd: tempDir,
+					stdio: 'pipe',
+				});
+				execSync('git config user.name "Test"', {
+					cwd: tempDir,
+					stdio: 'pipe',
+				});
+				// First commit with the file
+				execSync('git add -A && git commit -m "init"', {
+					cwd: tempDir,
+					stdio: 'pipe',
+				});
+				// Second commit (empty) so HEAD~1 diff shows no changes to test.ts
+				fs.writeFileSync(path.join(tempDir, 'other.txt'), 'unrelated\n');
+				execSync('git add -A && git commit -m "other"', {
+					cwd: tempDir,
+					stdio: 'pipe',
+				});
+			} catch {
+				// Git may not be available; skip this test gracefully
+				return;
+			}
 
-		const findingFile = path.join(tempDir, 'test.ts');
-		mockSastScan.mockImplementationOnce(async () => ({
-			verdict: 'fail' as const,
-			findings: [
-				{
-					rule_id: 'sql-injection',
-					severity: 'high' as const,
-					message: 'Pre-existing SQL injection',
-					location: { file: findingFile, line: 1 },
+			const findingFile = path.join(tempDir, 'test.ts');
+			mockSastScan.mockImplementationOnce(async () => ({
+				verdict: 'fail' as const,
+				findings: [
+					{
+						rule_id: 'sql-injection',
+						severity: 'high' as const,
+						message: 'Pre-existing SQL injection',
+						location: { file: findingFile, line: 1 },
+					},
+				],
+				summary: {
+					engine: 'tier_a' as const,
+					files_scanned: 1,
+					findings_count: 1,
+					findings_by_severity: { critical: 0, high: 1, medium: 0, low: 0 },
 				},
-			],
-			summary: {
-				engine: 'tier_a' as const,
-				files_scanned: 1,
-				findings_count: 1,
-				findings_by_severity: { critical: 0, high: 1, medium: 0, low: 0 },
-			},
-		}));
+			}));
 
-		const result = await runPreCheckBatch({
-			files: ['test.ts'],
-			directory: tempDir,
-		});
+			const result = await runPreCheckBatch({
+				files: ['test.ts'],
+				directory: tempDir,
+			});
 
-		// test.ts was not modified in the last commit — finding is pre-existing
-		expect(result.gates_passed).toBe(true);
-		expect(result.sast_preexisting_findings).toBeDefined();
-		expect(result.sast_preexisting_findings).toHaveLength(1);
-		expect(result.sast_preexisting_findings![0].rule_id).toBe('sql-injection');
-	});
+			// test.ts was not modified in the last commit — finding is pre-existing
+			expect(result.gates_passed).toBe(true);
+			expect(result.sast_preexisting_findings).toBeDefined();
+			expect(result.sast_preexisting_findings).toHaveLength(1);
+			expect(result.sast_preexisting_findings![0].rule_id).toBe(
+				'sql-injection',
+			);
+		},
+	);
 
-	test('SAST with mixed findings (one new + one pre-existing) → gates_passed false', { timeout: 30_000 }, async () => {
-		// In a non-git directory, fail-closed means ALL are treated as new → blocks
-		mockSastScan.mockImplementationOnce(async () => ({
-			verdict: 'fail' as const,
-			findings: [
-				{
-					rule_id: 'xss-new',
-					severity: 'critical' as const,
-					message: 'XSS on changed line',
-					location: { file: path.join(tempDir, 'test.ts'), line: 1 },
+	test(
+		'SAST with mixed findings (one new + one pre-existing) → gates_passed false',
+		{ timeout: 30_000 },
+		async () => {
+			// In a non-git directory, fail-closed means ALL are treated as new → blocks
+			mockSastScan.mockImplementationOnce(async () => ({
+				verdict: 'fail' as const,
+				findings: [
+					{
+						rule_id: 'xss-new',
+						severity: 'critical' as const,
+						message: 'XSS on changed line',
+						location: { file: path.join(tempDir, 'test.ts'), line: 1 },
+					},
+					{
+						rule_id: 'sql-old',
+						severity: 'high' as const,
+						message: 'Pre-existing SQL injection',
+						location: { file: path.join(tempDir, 'test.ts'), line: 50 },
+					},
+				],
+				summary: {
+					engine: 'tier_a' as const,
+					files_scanned: 1,
+					findings_count: 2,
+					findings_by_severity: { critical: 1, high: 1, medium: 0, low: 0 },
 				},
-				{
-					rule_id: 'sql-old',
-					severity: 'high' as const,
-					message: 'Pre-existing SQL injection',
-					location: { file: path.join(tempDir, 'test.ts'), line: 50 },
+			}));
+
+			const result = await runPreCheckBatch({
+				files: ['test.ts'],
+				directory: tempDir,
+			});
+
+			// Non-git dir → fail-closed → all findings are new → blocks
+			expect(result.gates_passed).toBe(false);
+			expect(result.sast_preexisting_findings).toBeUndefined();
+		},
+	);
+
+	test(
+		'reviewer receives structured sast_preexisting_findings field',
+		{ timeout: 30_000 },
+		async () => {
+			// Use git repo where file is committed (no changed lines)
+			const { execSync } = await import('node:child_process');
+			try {
+				execSync('git init', { cwd: tempDir, stdio: 'pipe' });
+				execSync('git config user.email "test@test.com"', {
+					cwd: tempDir,
+					stdio: 'pipe',
+				});
+				execSync('git config user.name "Test"', {
+					cwd: tempDir,
+					stdio: 'pipe',
+				});
+				execSync('git add -A && git commit -m "init"', {
+					cwd: tempDir,
+					stdio: 'pipe',
+				});
+				// Second commit so HEAD~1 works
+				fs.writeFileSync(path.join(tempDir, 'other.txt'), 'unrelated\n');
+				execSync('git add -A && git commit -m "other"', {
+					cwd: tempDir,
+					stdio: 'pipe',
+				});
+			} catch {
+				return; // Skip if git unavailable
+			}
+
+			const findingFile = path.join(tempDir, 'test.ts');
+			mockSastScan.mockImplementationOnce(async () => ({
+				verdict: 'fail' as const,
+				findings: [
+					{
+						rule_id: 'hardcoded-secret',
+						severity: 'critical' as const,
+						message: 'Hardcoded secret on unchanged line',
+						location: { file: findingFile, line: 1 },
+						remediation: 'Use environment variables',
+					},
+				],
+				summary: {
+					engine: 'tier_a' as const,
+					files_scanned: 1,
+					findings_count: 1,
+					findings_by_severity: { critical: 1, high: 0, medium: 0, low: 0 },
 				},
-			],
-			summary: {
-				engine: 'tier_a' as const,
-				files_scanned: 1,
-				findings_count: 2,
-				findings_by_severity: { critical: 1, high: 1, medium: 0, low: 0 },
-			},
-		}));
+			}));
 
-		const result = await runPreCheckBatch({
-			files: ['test.ts'],
-			directory: tempDir,
-		});
+			const result = await runPreCheckBatch({
+				files: ['test.ts'],
+				directory: tempDir,
+			});
 
-		// Non-git dir → fail-closed → all findings are new → blocks
-		expect(result.gates_passed).toBe(false);
-		expect(result.sast_preexisting_findings).toBeUndefined();
-	});
+			expect(result.gates_passed).toBe(true);
+			expect(result.sast_preexisting_findings).toBeDefined();
 
-	test('reviewer receives structured sast_preexisting_findings field', { timeout: 30_000 }, async () => {
-		// Use git repo where file is committed (no changed lines)
-		const { execSync } = await import('node:child_process');
-		try {
-			execSync('git init', { cwd: tempDir, stdio: 'pipe' });
-			execSync('git config user.email "test@test.com"', { cwd: tempDir, stdio: 'pipe' });
-			execSync('git config user.name "Test"', { cwd: tempDir, stdio: 'pipe' });
-			execSync('git add -A && git commit -m "init"', { cwd: tempDir, stdio: 'pipe' });
-			// Second commit so HEAD~1 works
-			fs.writeFileSync(path.join(tempDir, 'other.txt'), 'unrelated\n');
-			execSync('git add -A && git commit -m "other"', { cwd: tempDir, stdio: 'pipe' });
-		} catch {
-			return; // Skip if git unavailable
-		}
-
-		const findingFile = path.join(tempDir, 'test.ts');
-		mockSastScan.mockImplementationOnce(async () => ({
-			verdict: 'fail' as const,
-			findings: [
-				{
-					rule_id: 'hardcoded-secret',
-					severity: 'critical' as const,
-					message: 'Hardcoded secret on unchanged line',
-					location: { file: findingFile, line: 1 },
-					remediation: 'Use environment variables',
-				},
-			],
-			summary: {
-				engine: 'tier_a' as const,
-				files_scanned: 1,
-				findings_count: 1,
-				findings_by_severity: { critical: 1, high: 0, medium: 0, low: 0 },
-			},
-		}));
-
-		const result = await runPreCheckBatch({
-			files: ['test.ts'],
-			directory: tempDir,
-		});
-
-		expect(result.gates_passed).toBe(true);
-		expect(result.sast_preexisting_findings).toBeDefined();
-
-		const finding = result.sast_preexisting_findings![0];
-		expect(finding.rule_id).toBe('hardcoded-secret');
-		expect(finding.severity).toBe('critical');
-		expect(finding.message).toBe('Hardcoded secret on unchanged line');
-		expect(finding.location.file).toBe(findingFile);
-		expect(finding.location.line).toBe(1);
-		expect(finding.remediation).toBe('Use environment variables');
-	});
+			const finding = result.sast_preexisting_findings![0];
+			expect(finding.rule_id).toBe('hardcoded-secret');
+			expect(finding.severity).toBe('critical');
+			expect(finding.message).toBe('Hardcoded secret on unchanged line');
+			expect(finding.location.file).toBe(findingFile);
+			expect(finding.location.line).toBe(1);
+			expect(finding.remediation).toBe('Use environment variables');
+		},
+	);
 
 	test(
 		'no false deadlock: changed file is clean, unchanged file has HIGH SAST finding → gates_passed true, finding surfaced to reviewer',
@@ -530,19 +568,34 @@ describe('runPreCheckBatch SAST gate integration', () => {
 			const tempDir = fs.mkdtempSync(path.join(os.tmpdir(), 'pcb-nodeadlock-'));
 			try {
 				// Create two files: clean.ts (changed) and legacy.ts (unchanged with finding)
-				fs.writeFileSync(path.join(tempDir, 'clean.ts'), 'export const x = 1;\n');
+				fs.writeFileSync(
+					path.join(tempDir, 'clean.ts'),
+					'export const x = 1;\n',
+				);
 				fs.writeFileSync(path.join(tempDir, 'legacy.ts'), 'eval(userInput);\n');
 
 				// Set up git repo: legacy.ts committed first, then clean.ts added in second commit
 				const { execSync } = await import('node:child_process');
 				try {
 					execSync('git init', { cwd: tempDir, stdio: 'pipe' });
-					execSync('git config user.email "test@test.com"', { cwd: tempDir, stdio: 'pipe' });
-					execSync('git config user.name "Test"', { cwd: tempDir, stdio: 'pipe' });
+					execSync('git config user.email "test@test.com"', {
+						cwd: tempDir,
+						stdio: 'pipe',
+					});
+					execSync('git config user.name "Test"', {
+						cwd: tempDir,
+						stdio: 'pipe',
+					});
 					// First commit: legacy.ts only
-					execSync('git add legacy.ts && git commit -m "add legacy"', { cwd: tempDir, stdio: 'pipe' });
+					execSync('git add legacy.ts && git commit -m "add legacy"', {
+						cwd: tempDir,
+						stdio: 'pipe',
+					});
 					// Second commit: add clean.ts (this is the "changed" file)
-					execSync('git add clean.ts && git commit -m "add clean"', { cwd: tempDir, stdio: 'pipe' });
+					execSync('git add clean.ts && git commit -m "add clean"', {
+						cwd: tempDir,
+						stdio: 'pipe',
+					});
 				} catch {
 					// Git not available — skip gracefully
 					return;
@@ -580,7 +633,9 @@ describe('runPreCheckBatch SAST gate integration', () => {
 				// Must surface the pre-existing finding to reviewer
 				expect(result.sast_preexisting_findings).toBeDefined();
 				expect(result.sast_preexisting_findings).toHaveLength(1);
-				expect(result.sast_preexisting_findings![0].rule_id).toBe('eval-injection');
+				expect(result.sast_preexisting_findings![0].rule_id).toBe(
+					'eval-injection',
+				);
 			} finally {
 				fs.rmSync(tempDir, { recursive: true, force: true });
 			}

@@ -7,13 +7,13 @@
  * NO HAPPY PATHS - ONLY ATTACK VECTORS
  */
 
-import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
 import * as path from 'node:path';
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import {
 	getAdditionalLinterCommand,
-	runAdditionalLint,
-	MAX_OUTPUT_BYTES,
 	MAX_COMMAND_LENGTH,
+	MAX_OUTPUT_BYTES,
+	runAdditionalLint,
 } from '../../../src/tools/lint';
 
 // Mock node:fs
@@ -99,7 +99,8 @@ describe('getAdditionalLinterCommand — injection and path attacks', () => {
 		expect(result).toBeDefined();
 		expect(Array.isArray(result)).toBe(true);
 		// The gradlew path should be a single array element with the full path including spaces
-		const gradlewName = process.platform === 'win32' ? 'gradlew.bat' : 'gradlew';
+		const gradlewName =
+			process.platform === 'win32' ? 'gradlew.bat' : 'gradlew';
 		expect(result[0]).toContain(gradlewName);
 		expect(result[0]).toContain('my project');
 	});
@@ -129,11 +130,7 @@ describe('getAdditionalLinterCommand — injection and path attacks', () => {
 		mockExistsSync.mockReturnValue(true);
 		mockIsCommandAvailable.mockReturnValue(false);
 
-		const result = getAdditionalLinterCommand(
-			'checkstyle',
-			'check',
-			longCwd,
-		);
+		const result = getAdditionalLinterCommand('checkstyle', 'check', longCwd);
 		expect(result).toBeDefined();
 		expect(Array.isArray(result)).toBe(true);
 		// getAdditionalLinterCommand returns the command regardless of length
@@ -182,9 +179,15 @@ describe('getAdditionalLinterCommand — Gradlew path edge cases', () => {
 			// gradlew exists, gradlew.bat does not
 			return p.endsWith('gradlew') && !p.endsWith('.bat');
 		});
-		mockIsCommandAvailable.mockImplementation((cmd: string) => cmd === 'gradle');
+		mockIsCommandAvailable.mockImplementation(
+			(cmd: string) => cmd === 'gradle',
+		);
 
-		const result = getAdditionalLinterCommand('checkstyle', 'check', '/some/cwd');
+		const result = getAdditionalLinterCommand(
+			'checkstyle',
+			'check',
+			'/some/cwd',
+		);
 		expect(result).toBeDefined();
 		expect(Array.isArray(result)).toBe(true);
 		// Should fall back to gradle since gradlew.bat is expected on Windows
@@ -209,7 +212,11 @@ describe('getAdditionalLinterCommand — Gradlew path edge cases', () => {
 			return p.endsWith('gradlew.bat') || p.endsWith('gradlew');
 		});
 
-		const result = getAdditionalLinterCommand('checkstyle', 'check', '/some/cwd');
+		const result = getAdditionalLinterCommand(
+			'checkstyle',
+			'check',
+			'/some/cwd',
+		);
 		expect(result).toBeDefined();
 		expect(Array.isArray(result)).toBe(true);
 		// Should use gradlew.bat on Windows
@@ -233,7 +240,11 @@ describe('getAdditionalLinterCommand — Gradlew path edge cases', () => {
 			return p.endsWith('gradlew') && !p.endsWith('.bat');
 		});
 
-		const result = getAdditionalLinterCommand('checkstyle', 'check', '/some/cwd');
+		const result = getAdditionalLinterCommand(
+			'checkstyle',
+			'check',
+			'/some/cwd',
+		);
 		expect(result).toBeDefined();
 		expect(Array.isArray(result)).toBe(true);
 		// Should use gradlew on Linux
@@ -258,7 +269,11 @@ describe('getAdditionalLinterCommand — Gradlew path edge cases', () => {
 			return p.endsWith('gradlew.bat');
 		});
 
-		const result = getAdditionalLinterCommand('checkstyle', 'check', '/some/cwd');
+		const result = getAdditionalLinterCommand(
+			'checkstyle',
+			'check',
+			'/some/cwd',
+		);
 		expect(result).toBeDefined();
 		expect(Array.isArray(result)).toBe(true);
 		// Should use gradlew.bat
@@ -347,11 +362,7 @@ describe('runAdditionalLint — resource and error attacks', () => {
 		expect(commandStr.length).toBeGreaterThan(MAX_COMMAND_LENGTH);
 
 		// runAdditionalLint should reject this early
-		const result = await runAdditionalLint(
-			'checkstyle',
-			'check',
-			longCwd,
-		);
+		const result = await runAdditionalLint('checkstyle', 'check', longCwd);
 		expect(result).toEqual({
 			success: false,
 			mode: 'check',
@@ -522,7 +533,11 @@ describe('getAdditionalLinterCommand — type safety edge cases', () => {
 
 	it('should return undefined for undefined linter (bypasses TypeScript type check)', () => {
 		// TypeScript prevents this at compile time, but runtime behavior should be documented
-		const result = getAdditionalLinterCommand(undefined as any, 'check', '/cwd');
+		const result = getAdditionalLinterCommand(
+			undefined as any,
+			'check',
+			'/cwd',
+		);
 		expect(result).toBeUndefined();
 	});
 

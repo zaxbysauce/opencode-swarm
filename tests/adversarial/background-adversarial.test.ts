@@ -9,28 +9,28 @@
  * 5. Malformed payload injection - circular refs, prototype pollution, extreme sizes
  */
 
-import { describe, test, expect, beforeEach, afterEach } from 'bun:test';
+import { afterEach, beforeEach, describe, expect, test } from 'bun:test';
+import {
+	CircuitBreaker,
+	type CircuitBreakerConfig,
+	LoopProtection,
+	type LoopProtectionConfig,
+} from '../../src/background/circuit-breaker';
 import {
 	AutomationEventBus,
-	resetGlobalEventBus,
 	type AutomationEventType,
+	resetGlobalEventBus,
 } from '../../src/background/event-bus';
+import {
+	type AutomationFrameworkConfig,
+	BackgroundAutomationManager,
+	resetAutomationManager,
+} from '../../src/background/manager';
 import {
 	AutomationQueue,
 	type QueueItem,
 	type QueuePriority,
 } from '../../src/background/queue';
-import {
-	CircuitBreaker,
-	LoopProtection,
-	type CircuitBreakerConfig,
-	type LoopProtectionConfig,
-} from '../../src/background/circuit-breaker';
-import {
-	BackgroundAutomationManager,
-	resetAutomationManager,
-	type AutomationFrameworkConfig,
-} from '../../src/background/manager';
 
 // ============================================================================
 // ATTACK VECTOR 1: EVENT SPAM
@@ -62,7 +62,9 @@ describe('ATTACK: Event Spam', () => {
 
 			// Most recent events should be preserved
 			const lastEvent = history[history.length - 1];
-			expect((lastEvent?.payload as { itemId: string }).itemId).toContain('spam-');
+			expect((lastEvent?.payload as { itemId: string }).itemId).toContain(
+				'spam-',
+			);
 		});
 
 		test('should handle rapid concurrent event spam', async () => {
@@ -91,27 +93,39 @@ describe('ATTACK: Event Spam', () => {
 
 			// Register 1000 listeners
 			for (let i = 0; i < spamCount; i++) {
-				const unsub = eventBus.subscribe('test.spam' as AutomationEventType, () => {});
+				const unsub = eventBus.subscribe(
+					'test.spam' as AutomationEventType,
+					() => {},
+				);
 				unsubs.push(unsub);
 			}
 
-			expect(eventBus.getListenerCount('test.spam' as AutomationEventType)).toBe(spamCount);
+			expect(
+				eventBus.getListenerCount('test.spam' as AutomationEventType),
+			).toBe(spamCount);
 
 			// Cleanup should work
 			for (const unsub of unsubs) {
 				unsub();
 			}
 
-			expect(eventBus.getListenerCount('test.spam' as AutomationEventType)).toBe(0);
+			expect(
+				eventBus.getListenerCount('test.spam' as AutomationEventType),
+			).toBe(0);
 		});
 
 		test('should handle rapid subscribe/unsubscribe cycles', () => {
 			for (let cycle = 0; cycle < 100; cycle++) {
-				const unsub = eventBus.subscribe('test.cycle' as AutomationEventType, () => {});
+				const unsub = eventBus.subscribe(
+					'test.cycle' as AutomationEventType,
+					() => {},
+				);
 				unsub();
 			}
 
-			expect(eventBus.getListenerCount('test.cycle' as AutomationEventType)).toBe(0);
+			expect(
+				eventBus.getListenerCount('test.cycle' as AutomationEventType),
+			).toBe(0);
 		});
 	});
 
@@ -169,7 +183,9 @@ describe('ATTACK: Queue Flooding', () => {
 			}
 
 			// Should throw on attempt to exceed
-			expect(() => queue.enqueue('overflow', 'normal')).toThrow('Queue is full');
+			expect(() => queue.enqueue('overflow', 'normal')).toThrow(
+				'Queue is full',
+			);
 			expect(queue.size()).toBe(100);
 		});
 
@@ -294,7 +310,10 @@ describe('ATTACK: Retry Abuse', () => {
 
 	beforeEach(() => {
 		resetGlobalEventBus();
-		queue = new AutomationQueue({ defaultMaxRetries: 3, defaultBackoffMs: 100 });
+		queue = new AutomationQueue({
+			defaultMaxRetries: 3,
+			defaultBackoffMs: 100,
+		});
 	});
 
 	describe('retry limit bypass attempts', () => {
@@ -443,9 +462,7 @@ describe('ATTACK: Circuit Breaker Bypass', () => {
 				),
 			);
 
-			const allFailed = attempts.every(
-				(r) => r.status === 'rejected',
-			);
+			const allFailed = attempts.every((r) => r.status === 'rejected');
 			expect(allFailed).toBe(true);
 		});
 

@@ -1,6 +1,9 @@
-import { describe, it, expect, vi, beforeEach } from 'vitest';
+import { beforeEach, describe, expect, it, vi } from 'vitest';
 
-import { syntaxCheck, type SyntaxCheckInput } from '../../../src/tools/syntax-check';
+import {
+	type SyntaxCheckInput,
+	syntaxCheck,
+} from '../../../src/tools/syntax-check';
 
 // Declare local mock variables
 const mockGetProfileForFile = vi.fn();
@@ -16,7 +19,8 @@ vi.mock('../../../src/lang/detector', () => ({
 }));
 
 vi.mock('../../../src/lang/registry', () => ({
-	getLanguageForExtension: (...args: unknown[]) => mockGetLanguageForExtension(...args),
+	getLanguageForExtension: (...args: unknown[]) =>
+		mockGetLanguageForExtension(...args),
 	getParserForFile: (...args: unknown[]) => mockGetParserForFile(...args),
 }));
 
@@ -308,15 +312,9 @@ describe('syntaxCheck - Profile-Driven Grammar Resolution Adversarial Tests', ()
 	describe('ADVERSARIAL 7: Languages array with injection strings', () => {
 		it('should handle XSS/injection strings in languages array', async () => {
 			const input: SyntaxCheckInput = {
-				changed_files: [
-					{ path: 'test.kt', additions: 10 },
-				],
+				changed_files: [{ path: 'test.kt', additions: 10 }],
 				mode: 'changed',
-				languages: [
-					'<script>alert(1)</script>',
-					'kotlin\x00',
-					'; DROP TABLE',
-				],
+				languages: ['<script>alert(1)</script>', 'kotlin\x00', '; DROP TABLE'],
 			};
 
 			mockGetProfileForFile.mockReturnValue({
@@ -548,9 +546,7 @@ describe('syntaxCheck - Profile-Driven Grammar Resolution Adversarial Tests', ()
 
 		it('should handle language filter when langId is null/undefined', async () => {
 			const input: SyntaxCheckInput = {
-				changed_files: [
-					{ path: 'test.unknown', additions: 10 },
-				],
+				changed_files: [{ path: 'test.unknown', additions: 10 }],
 				mode: 'changed',
 				languages: ['unknown'],
 			};

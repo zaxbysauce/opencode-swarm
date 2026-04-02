@@ -1,7 +1,7 @@
-import { describe, test, expect, beforeEach, afterEach } from 'bun:test';
+import { afterEach, beforeEach, describe, expect, test } from 'bun:test';
 import * as fs from 'node:fs';
-import * as path from 'node:path';
 import * as os from 'node:os';
+import * as path from 'node:path';
 
 // Import the tool AFTER setting up test environment
 const { imports } = await import('../../../src/tools/imports');
@@ -42,12 +42,12 @@ describe('imports tool', () => {
 
 			// Create consumer with exact symbol match
 			const consumerFile = path.join(tempDir, 'consumer.ts');
-			fs.writeFileSync(
-				consumerFile,
-				`import { myFunc } from './utils';`,
-			);
+			fs.writeFileSync(consumerFile, `import { myFunc } from './utils';`);
 
-			const result = await imports.execute({ file: targetFile, symbol: 'myFunc' });
+			const result = await imports.execute({
+				file: targetFile,
+				symbol: 'myFunc',
+			});
 			const parsed = JSON.parse(result);
 
 			expect(parsed.error).toBeUndefined();
@@ -63,13 +63,13 @@ describe('imports tool', () => {
 
 			// Create consumer
 			const consumerFile = path.join(tempDir, 'consumer.ts');
-			fs.writeFileSync(
-				consumerFile,
-				`import { myFunction } from './utils';`,
-			);
+			fs.writeFileSync(consumerFile, `import { myFunction } from './utils';`);
 
 			// Search for partial name should not match
-			const result = await imports.execute({ file: targetFile, symbol: 'myFunc' });
+			const result = await imports.execute({
+				file: targetFile,
+				symbol: 'myFunc',
+			});
 			const parsed = JSON.parse(result);
 
 			expect(parsed.error).toBeUndefined();
@@ -88,7 +88,10 @@ describe('imports tool', () => {
 				`import { originalName as aliasName } from './utils';`,
 			);
 
-			const result = await imports.execute({ file: targetFile, symbol: 'aliasName' });
+			const result = await imports.execute({
+				file: targetFile,
+				symbol: 'aliasName',
+			});
 			const parsed = JSON.parse(result);
 
 			expect(parsed.error).toBeUndefined();
@@ -108,7 +111,10 @@ describe('imports tool', () => {
 				`import { originalName as aliasName } from './utils';`,
 			);
 
-			const result = await imports.execute({ file: targetFile, symbol: 'originalName' });
+			const result = await imports.execute({
+				file: targetFile,
+				symbol: 'originalName',
+			});
 			const parsed = JSON.parse(result);
 
 			expect(parsed.error).toBeUndefined();
@@ -122,12 +128,12 @@ describe('imports tool', () => {
 
 			// Create consumer
 			const consumerFile = path.join(tempDir, 'consumer.ts');
-			fs.writeFileSync(
-				consumerFile,
-				`import myHelper from './utils';`,
-			);
+			fs.writeFileSync(consumerFile, `import myHelper from './utils';`);
 
-			const result = await imports.execute({ file: targetFile, symbol: 'myHelper' });
+			const result = await imports.execute({
+				file: targetFile,
+				symbol: 'myHelper',
+			});
 			const parsed = JSON.parse(result);
 
 			expect(parsed.error).toBeUndefined();
@@ -142,10 +148,7 @@ describe('imports tool', () => {
 
 			// Create consumer with namespace import
 			const consumerFile = path.join(tempDir, 'consumer.ts');
-			fs.writeFileSync(
-				consumerFile,
-				`import * as utils from './utils';`,
-			);
+			fs.writeFileSync(consumerFile, `import * as utils from './utils';`);
 
 			const result = await imports.execute({ file: targetFile, symbol: 'a' });
 			const parsed = JSON.parse(result);
@@ -160,7 +163,10 @@ describe('imports tool', () => {
 		test('parses multiline named imports', async () => {
 			// Create target file
 			const targetFile = path.join(tempDir, 'utils.ts');
-			fs.writeFileSync(targetFile, 'export const foo = 1; export const bar = 2;');
+			fs.writeFileSync(
+				targetFile,
+				'export const foo = 1; export const bar = 2;',
+			);
 
 			// Create consumer with multiline import
 			const consumerFile = path.join(tempDir, 'consumer.ts');
@@ -183,7 +189,10 @@ describe('imports tool', () => {
 		test('matches symbol in multiline import', async () => {
 			// Create target file
 			const targetFile = path.join(tempDir, 'utils.ts');
-			fs.writeFileSync(targetFile, 'export const foo = 1; export const bar = 2; export const baz = 3;');
+			fs.writeFileSync(
+				targetFile,
+				'export const foo = 1; export const bar = 2; export const baz = 3;',
+			);
 
 			// Create consumer with multiline import
 			const consumerFile = path.join(tempDir, 'consumer.ts');
@@ -419,7 +428,8 @@ describe('imports tool', () => {
 
 			// Create a file that exceeds MAX_FILE_SIZE_BYTES (1MB)
 			const largeFile = path.join(tempDir, 'large.ts');
-			const largeContent = 'import { foo } from "./utils";\n' + 'x'.repeat(1024 * 1024 + 100);
+			const largeContent =
+				'import { foo } from "./utils";\n' + 'x'.repeat(1024 * 1024 + 100);
 			fs.writeFileSync(largeFile, largeContent);
 
 			// Create a normal consumer
@@ -430,8 +440,12 @@ describe('imports tool', () => {
 			const parsed = JSON.parse(result);
 
 			// Should find the normal consumer but skip the large file
-			expect(parsed.consumers.some((c: { file: string }) => c.file === consumerFile)).toBe(true);
-			expect(parsed.consumers.some((c: { file: string }) => c.file === largeFile)).toBe(false);
+			expect(
+				parsed.consumers.some((c: { file: string }) => c.file === consumerFile),
+			).toBe(true);
+			expect(
+				parsed.consumers.some((c: { file: string }) => c.file === largeFile),
+			).toBe(false);
 		});
 	});
 
@@ -519,8 +533,14 @@ describe('imports tool', () => {
 			expect(parsed.consumers).toHaveLength(3);
 
 			// Should be sorted alphabetically (case-insensitive)
-			const files = parsed.consumers.map((c: { file: string }) => path.basename(c.file));
-			expect(files).toEqual(['a-consumer.ts', 'm-consumer.ts', 'z-consumer.ts']);
+			const files = parsed.consumers.map((c: { file: string }) =>
+				path.basename(c.file),
+			);
+			expect(files).toEqual([
+				'a-consumer.ts',
+				'm-consumer.ts',
+				'z-consumer.ts',
+			]);
 		});
 
 		test('produces consistent results across multiple scans', async () => {
@@ -618,7 +638,10 @@ describe('imports tool', () => {
 			const targetFile = path.join(tempDir, 'utils.ts');
 			fs.writeFileSync(targetFile, 'export const foo = 1;');
 
-			const result = await imports.execute({ file: targetFile, symbol: '../secret' });
+			const result = await imports.execute({
+				file: targetFile,
+				symbol: '../secret',
+			});
 			const parsed = JSON.parse(result);
 
 			expect(parsed.error).toBeDefined();
@@ -629,7 +652,10 @@ describe('imports tool', () => {
 			const targetFile = path.join(tempDir, 'utils.ts');
 			fs.writeFileSync(targetFile, 'export const foo = 1;');
 
-			const result = await imports.execute({ file: targetFile, symbol: 'foo\nbar' });
+			const result = await imports.execute({
+				file: targetFile,
+				symbol: 'foo\nbar',
+			});
 			const parsed = JSON.parse(result);
 
 			expect(parsed.error).toBeDefined();
@@ -643,9 +669,15 @@ describe('imports tool', () => {
 			// Create a binary file that might look like it has imports
 			const binaryFile = path.join(tempDir, 'binary.ts');
 			const binaryBuffer = Buffer.from([
-				0x89, 0x50, 0x4e, 0x47, // PNG signature
-				0x00, 0x00, 0x00, 0x00,
-				...Buffer.from("import { foo } from './utils';")
+				0x89,
+				0x50,
+				0x4e,
+				0x47, // PNG signature
+				0x00,
+				0x00,
+				0x00,
+				0x00,
+				...Buffer.from("import { foo } from './utils';"),
 			]);
 			fs.writeFileSync(binaryFile, binaryBuffer);
 
@@ -654,7 +686,9 @@ describe('imports tool', () => {
 
 			// Binary file should be skipped without error
 			expect(parsed.error).toBeUndefined();
-			expect(parsed.consumers.some((c: { file: string }) => c.file === binaryFile)).toBe(false);
+			expect(
+				parsed.consumers.some((c: { file: string }) => c.file === binaryFile),
+			).toBe(false);
 		});
 
 		test('handles files with read errors gracefully', async () => {
@@ -718,9 +752,18 @@ import {
 			const targetFile = path.join(tempDir, 'utils.ts');
 			fs.writeFileSync(targetFile, 'export const foo = 1;');
 
-			fs.writeFileSync(path.join(tempDir, 'a.ts'), `import { foo } from './utils';`);
-			fs.writeFileSync(path.join(tempDir, 'b.ts'), `import { foo } from './utils';`);
-			fs.writeFileSync(path.join(tempDir, 'c.ts'), `import { foo } from './utils';`);
+			fs.writeFileSync(
+				path.join(tempDir, 'a.ts'),
+				`import { foo } from './utils';`,
+			);
+			fs.writeFileSync(
+				path.join(tempDir, 'b.ts'),
+				`import { foo } from './utils';`,
+			);
+			fs.writeFileSync(
+				path.join(tempDir, 'c.ts'),
+				`import { foo } from './utils';`,
+			);
 
 			const result = await imports.execute({ file: targetFile });
 			const parsed = JSON.parse(result);
@@ -731,7 +774,10 @@ import {
 
 		test('finds multiple imports from same file', async () => {
 			const targetFile = path.join(tempDir, 'utils.ts');
-			fs.writeFileSync(targetFile, 'export const foo = 1; export const bar = 2;');
+			fs.writeFileSync(
+				targetFile,
+				'export const foo = 1; export const bar = 2;',
+			);
 
 			const consumerFile = path.join(tempDir, 'consumer.ts');
 			fs.writeFileSync(
@@ -749,11 +795,23 @@ import { bar } from './utils';`,
 
 		test('filters by symbol across multiple consumers', async () => {
 			const targetFile = path.join(tempDir, 'utils.ts');
-			fs.writeFileSync(targetFile, 'export const foo = 1; export const bar = 2;');
+			fs.writeFileSync(
+				targetFile,
+				'export const foo = 1; export const bar = 2;',
+			);
 
-			fs.writeFileSync(path.join(tempDir, 'a.ts'), `import { foo } from './utils';`);
-			fs.writeFileSync(path.join(tempDir, 'b.ts'), `import { bar } from './utils';`);
-			fs.writeFileSync(path.join(tempDir, 'c.ts'), `import { foo, bar } from './utils';`);
+			fs.writeFileSync(
+				path.join(tempDir, 'a.ts'),
+				`import { foo } from './utils';`,
+			);
+			fs.writeFileSync(
+				path.join(tempDir, 'b.ts'),
+				`import { bar } from './utils';`,
+			);
+			fs.writeFileSync(
+				path.join(tempDir, 'c.ts'),
+				`import { foo, bar } from './utils';`,
+			);
 
 			const result = await imports.execute({ file: targetFile, symbol: 'foo' });
 			const parsed = JSON.parse(result);

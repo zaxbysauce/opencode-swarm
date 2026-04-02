@@ -3,15 +3,15 @@
  * Tests attack vectors: malformed offset/limit, oversized limit clamp, offset beyond lines,
  * invalid summary IDs, path traversal, null bytes, control characters, loop-prevention
  */
-import { describe, it, expect, beforeEach, afterEach } from 'bun:test';
+import { afterEach, beforeEach, describe, expect, it } from 'bun:test';
 import * as fs from 'node:fs';
-import * as path from 'node:path';
 import { tmpdir } from 'node:os';
-import { retrieve_summary } from '../../src/tools/retrieve-summary';
-import { sanitizeSummaryId } from '../../src/summaries/manager';
+import * as path from 'node:path';
+import type { ToolContext } from '@opencode-ai/plugin';
 import { SummaryConfigSchema } from '../../src/config/schema';
 import { createToolSummarizerHook } from '../../src/hooks/tool-summarizer';
-import type { ToolContext } from '@opencode-ai/plugin';
+import { sanitizeSummaryId } from '../../src/summaries/manager';
+import { retrieve_summary } from '../../src/tools/retrieve-summary';
 
 describe('ADVERSARIAL: retrieve_summary security and boundary tests', () => {
 	let testDir: string;
@@ -34,13 +34,16 @@ describe('ADVERSARIAL: retrieve_summary security and boundary tests', () => {
 	// Helper to create a summary file
 	const createSummary = (id: string, content: string) => {
 		const summaryPath = path.join(swarmDir, 'summaries', `${id}.json`);
-		fs.writeFileSync(summaryPath, JSON.stringify({
-			id,
-			summaryText: `Summary of ${id}`,
-			fullOutput: content,
-			timestamp: Date.now(),
-			originalBytes: Buffer.byteLength(content, 'utf8'),
-		}));
+		fs.writeFileSync(
+			summaryPath,
+			JSON.stringify({
+				id,
+				summaryText: `Summary of ${id}`,
+				fullOutput: content,
+				timestamp: Date.now(),
+				originalBytes: Buffer.byteLength(content, 'utf8'),
+			}),
+		);
 	};
 
 	describe('1. Invalid summary ID attack vectors', () => {
@@ -50,17 +53,26 @@ describe('ADVERSARIAL: retrieve_summary security and boundary tests', () => {
 		});
 
 		it('should reject null bytes in summary ID', async () => {
-			const result = await retrieve_summary.execute({ id: 'S1\u0000' }, mockContext);
+			const result = await retrieve_summary.execute(
+				{ id: 'S1\u0000' },
+				mockContext,
+			);
 			expect(result).toContain('Error: invalid summary ID format');
 		});
 
 		it('should reject control characters in summary ID', async () => {
-			const result = await retrieve_summary.execute({ id: 'S1\x01\x02' }, mockContext);
+			const result = await retrieve_summary.execute(
+				{ id: 'S1\x01\x02' },
+				mockContext,
+			);
 			expect(result).toContain('Error: invalid summary ID format');
 		});
 
 		it('should reject path traversal in summary ID (dots)', async () => {
-			const result = await retrieve_summary.execute({ id: 'S1/../../../etc/passwd' }, mockContext);
+			const result = await retrieve_summary.execute(
+				{ id: 'S1/../../../etc/passwd' },
+				mockContext,
+			);
 			expect(result).toContain('Error: invalid summary ID format');
 		});
 
@@ -70,7 +82,10 @@ describe('ADVERSARIAL: retrieve_summary security and boundary tests', () => {
 		});
 
 		it('should reject path traversal in summary ID (backslash)', async () => {
-			const result = await retrieve_summary.execute({ id: 'S1..\\..\\windows\\system32' }, mockContext);
+			const result = await retrieve_summary.execute(
+				{ id: 'S1..\\..\\windows\\system32' },
+				mockContext,
+			);
 			expect(result).toContain('Error: invalid summary ID format');
 		});
 
@@ -80,7 +95,10 @@ describe('ADVERSARIAL: retrieve_summary security and boundary tests', () => {
 		});
 
 		it('should reject pattern with letters after S', async () => {
-			const result = await retrieve_summary.execute({ id: 'Sabc' }, mockContext);
+			const result = await retrieve_summary.execute(
+				{ id: 'Sabc' },
+				mockContext,
+			);
 			expect(result).toContain('Error: invalid summary ID format');
 		});
 
@@ -96,7 +114,8 @@ describe('ADVERSARIAL: retrieve_summary security and boundary tests', () => {
 	});
 
 	describe('2. Malformed offset/limit boundary cases', () => {
-		const multiLineContent = 'line1\nline2\nline3\nline4\nline5\nline6\nline7\nline8\nline9\nline10';
+		const multiLineContent =
+			'line1\nline2\nline3\nline4\nline5\nline6\nline7\nline8\nline9\nline10';
 
 		beforeEach(() => {
 			createSummary('S1', multiLineContent);
@@ -104,13 +123,19 @@ describe('ADVERSARIAL: retrieve_summary security and boundary tests', () => {
 
 		it('should handle negative offset (below min)', async () => {
 			// Schema enforces min(0), so this tests runtime fallback
-			const result = await retrieve_summary.execute({ id: 'S1', offset: -1, limit: 10 }, mockContext);
+			const result = await retrieve_summary.execute(
+				{ id: 'S1', offset: -1, limit: 10 },
+				mockContext,
+			);
 			// With schema validation, -1 becomes 0
 			expect(result).toContain('Lines 1-');
 		});
 
 		it('should handle zero offset', async () => {
-			const result = await retrieve_summary.execute({ id: 'S1', offset: 0, limit: 5 }, mockContext);
+			const result = await retrieve_summary.execute(
+				{ id: 'S1', offset: 0, limit: 5 },
+				mockContext,
+			);
 			expect(result).toContain('Lines 1-5');
 			expect(result).toContain('line1');
 			expect(result).not.toContain('line6');
@@ -118,33 +143,48 @@ describe('ADVERSARIAL: retrieve_summary security and boundary tests', () => {
 
 		it('should handle fractional offset (floor to integer)', async () => {
 			// Note: Schema validation may convert this - testing actual behavior
-			const result = await retrieve_summary.execute({ id: 'S1', offset: 2.7, limit: 3 }, mockContext);
+			const result = await retrieve_summary.execute(
+				{ id: 'S1', offset: 2.7, limit: 3 },
+				mockContext,
+			);
 			// Should work without crashing
 			expect(result).toBeDefined();
 		});
 
 		it('should handle NaN offset gracefully', async () => {
 			// @ts-ignore - testing runtime behavior
-			const result = await retrieve_summary.execute({ id: 'S1', offset: NaN, limit: 5 }, mockContext);
+			const result = await retrieve_summary.execute(
+				{ id: 'S1', offset: NaN, limit: 5 },
+				mockContext,
+			);
 			// Should use default or fail gracefully
 			expect(result).toBeDefined();
 		});
 
 		it('should handle Infinity offset', async () => {
 			// @ts-ignore - testing runtime behavior
-			const result = await retrieve_summary.execute({ id: 'S1', offset: Infinity, limit: 5 }, mockContext);
+			const result = await retrieve_summary.execute(
+				{ id: 'S1', offset: Infinity, limit: 5 },
+				mockContext,
+			);
 			// Should use safe fallback
 			expect(result).toBeDefined();
 		});
 
 		it('should handle undefined offset (uses default 0)', async () => {
-			const result = await retrieve_summary.execute({ id: 'S1', limit: 3 }, mockContext);
+			const result = await retrieve_summary.execute(
+				{ id: 'S1', limit: 3 },
+				mockContext,
+			);
 			expect(result).toContain('Lines 1-3');
 			expect(result).toContain('line1');
 		});
 
 		it('should handle undefined limit (uses default 200)', async () => {
-			const result = await retrieve_summary.execute({ id: 'S1', offset: 0 }, mockContext);
+			const result = await retrieve_summary.execute(
+				{ id: 'S1', offset: 0 },
+				mockContext,
+			);
 			// Should return up to 200 lines or all 10
 			expect(result).toContain('Lines 1-10');
 		});
@@ -158,7 +198,10 @@ describe('ADVERSARIAL: retrieve_summary security and boundary tests', () => {
 		});
 
 		it('should clamp limit to max 500', async () => {
-			const result = await retrieve_summary.execute({ id: 'S1', offset: 0, limit: 1000 }, mockContext);
+			const result = await retrieve_summary.execute(
+				{ id: 'S1', offset: 0, limit: 1000 },
+				mockContext,
+			);
 			// Should clamp to 500 or file length
 			expect(result).toContain('Lines 1-');
 			// Should NOT return more than 500 lines worth
@@ -166,32 +209,47 @@ describe('ADVERSARIAL: retrieve_summary security and boundary tests', () => {
 		});
 
 		it('should handle limit at exact max (500)', async () => {
-			const result = await retrieve_summary.execute({ id: 'S1', offset: 0, limit: 500 }, mockContext);
+			const result = await retrieve_summary.execute(
+				{ id: 'S1', offset: 0, limit: 500 },
+				mockContext,
+			);
 			expect(result).toBeDefined();
 		});
 
 		it('should handle limit above max (501+)', async () => {
-			const result = await retrieve_summary.execute({ id: 'S1', offset: 0, limit: 501 }, mockContext);
+			const result = await retrieve_summary.execute(
+				{ id: 'S1', offset: 0, limit: 501 },
+				mockContext,
+			);
 			// Should clamp to 500
 			expect(result).toBeDefined();
 		});
 
 		it('should handle extremely large limit (10000)', async () => {
-			const result = await retrieve_summary.execute({ id: 'S1', offset: 0, limit: 10000 }, mockContext);
+			const result = await retrieve_summary.execute(
+				{ id: 'S1', offset: 0, limit: 10000 },
+				mockContext,
+			);
 			// Should clamp to 500
 			expect(result).toBeDefined();
 		});
 
 		it('should handle negative limit (schema min: 1)', async () => {
 			// Schema enforces min(1), so this tests runtime
-			const result = await retrieve_summary.execute({ id: 'S1', offset: 0, limit: -5 }, mockContext);
+			const result = await retrieve_summary.execute(
+				{ id: 'S1', offset: 0, limit: -5 },
+				mockContext,
+			);
 			// Should either clamp to 1 or use default
 			expect(result).toBeDefined();
 		});
 
 		it('should handle zero limit', async () => {
 			// Schema enforces min(1), runtime should handle
-			const result = await retrieve_summary.execute({ id: 'S1', offset: 0, limit: 0 }, mockContext);
+			const result = await retrieve_summary.execute(
+				{ id: 'S1', offset: 0, limit: 0 },
+				mockContext,
+			);
 			expect(result).toBeDefined();
 		});
 	});
@@ -204,22 +262,34 @@ describe('ADVERSARIAL: retrieve_summary security and boundary tests', () => {
 		});
 
 		it('should handle offset equal to total lines', async () => {
-			const result = await retrieve_summary.execute({ id: 'S1', offset: 2, limit: 10 }, mockContext);
+			const result = await retrieve_summary.execute(
+				{ id: 'S1', offset: 2, limit: 10 },
+				mockContext,
+			);
 			expect(result).toContain('--- Offset beyond range ---');
 		});
 
 		it('should handle offset beyond total lines', async () => {
-			const result = await retrieve_summary.execute({ id: 'S1', offset: 100, limit: 10 }, mockContext);
+			const result = await retrieve_summary.execute(
+				{ id: 'S1', offset: 100, limit: 10 },
+				mockContext,
+			);
 			expect(result).toContain('--- Offset beyond range ---');
 		});
 
 		it('should handle very large offset', async () => {
-			const result = await retrieve_summary.execute({ id: 'S1', offset: 999999, limit: 10 }, mockContext);
+			const result = await retrieve_summary.execute(
+				{ id: 'S1', offset: 999999, limit: 10 },
+				mockContext,
+			);
 			expect(result).toBeDefined();
 		});
 
 		it('should return empty content when offset >= totalLines', async () => {
-			const result = await retrieve_summary.execute({ id: 'S1', offset: 5, limit: 10 }, mockContext);
+			const result = await retrieve_summary.execute(
+				{ id: 'S1', offset: 5, limit: 10 },
+				mockContext,
+			);
 			// Should show range but empty content
 			expect(result).toContain('--- Offset beyond range ---');
 		});
@@ -227,7 +297,10 @@ describe('ADVERSARIAL: retrieve_summary security and boundary tests', () => {
 
 	describe('5. Non-existent summary ID', () => {
 		it('should return not found for non-existent ID', async () => {
-			const result = await retrieve_summary.execute({ id: 'S999' }, mockContext);
+			const result = await retrieve_summary.execute(
+				{ id: 'S999' },
+				mockContext,
+			);
 			expect(result).toContain('not found');
 		});
 
@@ -235,7 +308,7 @@ describe('ADVERSARIAL: retrieve_summary security and boundary tests', () => {
 			// Create then delete
 			createSummary('S1', 'content');
 			fs.unlinkSync(path.join(swarmDir, 'summaries', 'S1.json'));
-			
+
 			const result = await retrieve_summary.execute({ id: 'S1' }, mockContext);
 			expect(result).toContain('not found');
 		});
@@ -279,25 +352,36 @@ describe('ADVERSARIAL: retrieve_summary security and boundary tests', () => {
 	});
 
 	describe('8. Pagination response format', () => {
-		const manyLines = Array.from({ length: 50 }, (_, i) => `line${i + 1}`).join('\n');
+		const manyLines = Array.from({ length: 50 }, (_, i) => `line${i + 1}`).join(
+			'\n',
+		);
 
 		beforeEach(() => {
 			createSummary('S1', manyLines);
 		});
 
 		it('should include range header', async () => {
-			const result = await retrieve_summary.execute({ id: 'S1', offset: 0, limit: 10 }, mockContext);
+			const result = await retrieve_summary.execute(
+				{ id: 'S1', offset: 0, limit: 10 },
+				mockContext,
+			);
 			expect(result).toMatch(/--- Lines \d+-\d+ of \d+ ---/);
 		});
 
 		it('should include continuation hint when more lines exist', async () => {
-			const result = await retrieve_summary.execute({ id: 'S1', offset: 0, limit: 10 }, mockContext);
+			const result = await retrieve_summary.execute(
+				{ id: 'S1', offset: 0, limit: 10 },
+				mockContext,
+			);
 			expect(result).toContain('more lines');
 			expect(result).toContain('offset=');
 		});
 
 		it('should not include continuation hint at end of content', async () => {
-			const result = await retrieve_summary.execute({ id: 'S1', offset: 40, limit: 20 }, mockContext);
+			const result = await retrieve_summary.execute(
+				{ id: 'S1', offset: 40, limit: 20 },
+				mockContext,
+			);
 			expect(result).not.toContain('more lines');
 		});
 	});
@@ -314,19 +398,25 @@ describe('ADVERSARIAL: retrieve_summary security and boundary tests', () => {
 		it('should handle single line without newline', async () => {
 			createSummary('S1', 'single line');
 
-			const result = await retrieve_summary.execute({ id: 'S1', offset: 0, limit: 5 }, mockContext);
+			const result = await retrieve_summary.execute(
+				{ id: 'S1', offset: 0, limit: 5 },
+				mockContext,
+			);
 			expect(result).toContain('single line');
 		});
 
 		it('should handle MAX_SAFE_INTEGER offset without crashing', async () => {
 			createSummary('S1', 'line1\nline2\nline3');
-			
+
 			// Should handle MAX_SAFE_INTEGER gracefully
-			const result = await retrieve_summary.execute({ 
-				id: 'S1', 
-				offset: Number.MAX_SAFE_INTEGER, 
-				limit: 10 
-			}, mockContext);
+			const result = await retrieve_summary.execute(
+				{
+					id: 'S1',
+					offset: Number.MAX_SAFE_INTEGER,
+					limit: 10,
+				},
+				mockContext,
+			);
 			// Should return offset-beyond-range response, not crash
 			expect(result).toBeDefined();
 			expect(result).toMatch(/Offset beyond range|No content/);
@@ -334,12 +424,15 @@ describe('ADVERSARIAL: retrieve_summary security and boundary tests', () => {
 
 		it('should handle limit=500 on 1-line file without overflow', async () => {
 			createSummary('S1', 'only one line');
-			
-			const result = await retrieve_summary.execute({ 
-				id: 'S1', 
-				offset: 0, 
-				limit: 500 
-			}, mockContext);
+
+			const result = await retrieve_summary.execute(
+				{
+					id: 'S1',
+					offset: 0,
+					limit: 500,
+				},
+				mockContext,
+			);
 			// Should return exactly 1 line, not overflow
 			expect(result).toContain('only one line');
 			expect(result).toContain('Lines 1-1 of 1');
@@ -403,12 +496,12 @@ describe('ADVERSARIAL: exempt tool defaults and loop prevention', () => {
 		it('should skip summarization for exempt tool "read"', async () => {
 			const config = SummaryConfigSchema.parse({});
 			const summarizer = createToolSummarizerHook(config, testDir);
-			
+
 			const input = { tool: 'read', args: {} };
 			const output = { output: 'x'.repeat(200000) }; // Above threshold
-			
+
 			await summarizer(input as any, output as any);
-			
+
 			// Output should NOT be summarized (should remain original)
 			expect(output.output).toBe('x'.repeat(200000));
 		});
@@ -416,24 +509,24 @@ describe('ADVERSARIAL: exempt tool defaults and loop prevention', () => {
 		it('should skip summarization for exempt tool "retrieve_summary"', async () => {
 			const config = SummaryConfigSchema.parse({});
 			const summarizer = createToolSummarizerHook(config, testDir);
-			
+
 			const input = { tool: 'retrieve_summary', args: {} };
 			const output = { output: 'x'.repeat(200000) };
-			
+
 			await summarizer(input as any, output as any);
-			
+
 			expect(output.output).toBe('x'.repeat(200000));
 		});
 
 		it('should skip summarization for exempt tool "task"', async () => {
 			const config = SummaryConfigSchema.parse({});
 			const summarizer = createToolSummarizerHook(config, testDir);
-			
+
 			const input = { tool: 'task', args: {} };
 			const output = { output: 'x'.repeat(200000) };
-			
+
 			await summarizer(input as any, output as any);
-			
+
 			expect(output.output).toBe('x'.repeat(200000));
 		});
 
@@ -442,12 +535,12 @@ describe('ADVERSARIAL: exempt tool defaults and loop prevention', () => {
 				exempt_tools: [], // Empty - no exemptions
 			});
 			const summarizer = createToolSummarizerHook(config, testDir);
-			
+
 			const input = { tool: 'write', args: {} };
 			const output = { output: 'x'.repeat(200000) };
-			
+
 			await summarizer(input as any, output as any);
-			
+
 			// Output should be summarized
 			expect(output.output).not.toBe('x'.repeat(200000));
 			expect(output.output).toContain('S'); // Summary ID
@@ -456,12 +549,12 @@ describe('ADVERSARIAL: exempt tool defaults and loop prevention', () => {
 		it('should skip empty outputs', async () => {
 			const config = SummaryConfigSchema.parse({});
 			const summarizer = createToolSummarizerHook(config, testDir);
-			
+
 			const input = { tool: 'write', args: {} };
 			const output = { output: '' };
-			
+
 			await summarizer(input as any, output as any);
-			
+
 			// Should not crash, output should remain empty
 			expect(output.output).toBe('');
 		});
@@ -469,10 +562,10 @@ describe('ADVERSARIAL: exempt tool defaults and loop prevention', () => {
 		it('should skip non-string outputs', async () => {
 			const config = SummaryConfigSchema.parse({});
 			const summarizer = createToolSummarizerHook(config, testDir);
-			
+
 			const input = { tool: 'write', args: {} };
 			const output = { output: null as any };
-			
+
 			await summarizer(input as any, output as any);
 			// Should not crash
 		});

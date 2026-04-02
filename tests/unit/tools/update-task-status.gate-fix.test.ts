@@ -1,14 +1,16 @@
-import { describe, test, expect, beforeEach, afterEach } from 'bun:test';
+import { afterEach, beforeEach, describe, expect, test } from 'bun:test';
 import * as fs from 'node:fs';
-import * as path from 'node:path';
 import * as os from 'node:os';
-
+import * as path from 'node:path';
+import {
+	readTaskEvidenceRaw,
+	type TaskEvidence,
+} from '../../../src/gate-evidence';
+import { swarmState } from '../../../src/state';
 import {
 	checkReviewerGate,
 	type ReviewerGateResult,
 } from '../../../src/tools/update-task-status';
-import { readTaskEvidenceRaw, type TaskEvidence } from '../../../src/gate-evidence';
-import { swarmState } from '../../../src/state';
 import {
 	createWorkflowTestSession,
 	createWorkflowTestSessionWithPassedTask,
@@ -23,7 +25,9 @@ describe('readTaskEvidenceRaw', () => {
 	let originalCwd: string;
 
 	beforeEach(() => {
-		tempDir = fs.mkdtempSync(path.join(os.tmpdir(), 'read-task-evidence-raw-test-'));
+		tempDir = fs.mkdtempSync(
+			path.join(os.tmpdir(), 'read-task-evidence-raw-test-'),
+		);
 		originalCwd = process.cwd();
 		process.chdir(tempDir);
 		// Create .swarm/evidence directory
@@ -40,8 +44,16 @@ describe('readTaskEvidenceRaw', () => {
 			taskId: '1.1',
 			required_gates: ['reviewer', 'test_engineer'],
 			gates: {
-				reviewer: { sessionId: 'session-1', timestamp: '2025-01-01T00:00:00.000Z', agent: 'reviewer' },
-				test_engineer: { sessionId: 'session-1', timestamp: '2025-01-01T00:00:00.000Z', agent: 'test_engineer' },
+				reviewer: {
+					sessionId: 'session-1',
+					timestamp: '2025-01-01T00:00:00.000Z',
+					agent: 'reviewer',
+				},
+				test_engineer: {
+					sessionId: 'session-1',
+					timestamp: '2025-01-01T00:00:00.000Z',
+					agent: 'test_engineer',
+				},
 			},
 		};
 		fs.writeFileSync(
@@ -119,10 +131,14 @@ describe('readTaskEvidenceRaw', () => {
 	});
 
 	test('6. throws on invalid taskId format (assertValidTaskId)', () => {
-		expect(() => readTaskEvidenceRaw(tempDir, 'invalid')).toThrow(/Invalid taskId/);
+		expect(() => readTaskEvidenceRaw(tempDir, 'invalid')).toThrow(
+			/Invalid taskId/,
+		);
 		expect(() => readTaskEvidenceRaw(tempDir, '')).toThrow(/Invalid taskId/);
 		expect(() => readTaskEvidenceRaw(tempDir, '1')).toThrow(/Invalid taskId/);
-		expect(() => readTaskEvidenceRaw(tempDir, '../etc')).toThrow(/Invalid taskId/);
+		expect(() => readTaskEvidenceRaw(tempDir, '../etc')).toThrow(
+			/Invalid taskId/,
+		);
 	});
 
 	test('7. evidence with empty required_gates is valid (empty array passes every)', () => {
@@ -147,9 +163,21 @@ describe('readTaskEvidenceRaw', () => {
 			taskId: '1.1',
 			required_gates: ['reviewer'],
 			gates: {
-				reviewer: { sessionId: 'session-1', timestamp: '2025-01-01T00:00:00.000Z', agent: 'reviewer' },
-				test_engineer: { sessionId: 'session-1', timestamp: '2025-01-01T00:00:00.000Z', agent: 'test_engineer' },
-				diff: { sessionId: 'session-1', timestamp: '2025-01-01T00:00:00.000Z', agent: 'diff' },
+				reviewer: {
+					sessionId: 'session-1',
+					timestamp: '2025-01-01T00:00:00.000Z',
+					agent: 'reviewer',
+				},
+				test_engineer: {
+					sessionId: 'session-1',
+					timestamp: '2025-01-01T00:00:00.000Z',
+					agent: 'test_engineer',
+				},
+				diff: {
+					sessionId: 'session-1',
+					timestamp: '2025-01-01T00:00:00.000Z',
+					agent: 'diff',
+				},
 			},
 		};
 		fs.writeFileSync(
@@ -232,8 +260,16 @@ describe('checkReviewerGate — evidence-first gate (Phase 3.1 fix)', () => {
 			taskId: '1.1',
 			required_gates: ['reviewer', 'test_engineer'],
 			gates: {
-				reviewer: { sessionId: 'session-1', timestamp: '2025-01-01T00:00:00.000Z', agent: 'reviewer' },
-				test_engineer: { sessionId: 'session-1', timestamp: '2025-01-01T00:00:00.000Z', agent: 'test_engineer' },
+				reviewer: {
+					sessionId: 'session-1',
+					timestamp: '2025-01-01T00:00:00.000Z',
+					agent: 'reviewer',
+				},
+				test_engineer: {
+					sessionId: 'session-1',
+					timestamp: '2025-01-01T00:00:00.000Z',
+					agent: 'test_engineer',
+				},
 			},
 		};
 		fs.writeFileSync(
@@ -257,7 +293,11 @@ describe('checkReviewerGate — evidence-first gate (Phase 3.1 fix)', () => {
 			taskId: '1.1',
 			required_gates: ['reviewer', 'test_engineer'],
 			gates: {
-				reviewer: { sessionId: 'session-1', timestamp: '2025-01-01T00:00:00.000Z', agent: 'reviewer' },
+				reviewer: {
+					sessionId: 'session-1',
+					timestamp: '2025-01-01T00:00:00.000Z',
+					agent: 'reviewer',
+				},
 				// test_engineer is MISSING
 			},
 		};
@@ -325,8 +365,16 @@ describe('checkReviewerGate — evidence-first gate (Phase 3.1 fix)', () => {
 			taskId: '1.1',
 			required_gates: ['reviewer', 'test_engineer'],
 			gates: {
-				reviewer: { sessionId: 'session-999', timestamp: '2025-01-01T00:00:00.000Z', agent: 'reviewer' },
-				test_engineer: { sessionId: 'session-999', timestamp: '2025-01-01T00:00:00.000Z', agent: 'test_engineer' },
+				reviewer: {
+					sessionId: 'session-999',
+					timestamp: '2025-01-01T00:00:00.000Z',
+					agent: 'reviewer',
+				},
+				test_engineer: {
+					sessionId: 'session-999',
+					timestamp: '2025-01-01T00:00:00.000Z',
+					agent: 'test_engineer',
+				},
 			},
 		};
 		fs.writeFileSync(
@@ -370,8 +418,16 @@ describe('checkReviewerGate — evidence-first gate (Phase 3.1 fix)', () => {
 			taskId: '1.1',
 			required_gates: ['reviewer'],
 			gates: {
-				reviewer: { sessionId: 'session-1', timestamp: '2025-01-01T00:00:00.000Z', agent: 'reviewer' },
-				test_engineer: { sessionId: 'session-1', timestamp: '2025-01-01T00:00:00.000Z', agent: 'test_engineer' },
+				reviewer: {
+					sessionId: 'session-1',
+					timestamp: '2025-01-01T00:00:00.000Z',
+					agent: 'reviewer',
+				},
+				test_engineer: {
+					sessionId: 'session-1',
+					timestamp: '2025-01-01T00:00:00.000Z',
+					agent: 'test_engineer',
+				},
 			},
 		};
 		fs.writeFileSync(
@@ -427,8 +483,16 @@ describe('checkReviewerGate — evidence-first gate (Phase 3.1 fix)', () => {
 			taskId: '1.1',
 			required_gates: ['reviewer', 'test_engineer', 'diff'],
 			gates: {
-				reviewer: { sessionId: 'session-1', timestamp: '2025-01-01T00:00:00.000Z', agent: 'reviewer' },
-				test_engineer: { sessionId: 'session-1', timestamp: '2025-01-01T00:00:00.000Z', agent: 'test_engineer' },
+				reviewer: {
+					sessionId: 'session-1',
+					timestamp: '2025-01-01T00:00:00.000Z',
+					agent: 'reviewer',
+				},
+				test_engineer: {
+					sessionId: 'session-1',
+					timestamp: '2025-01-01T00:00:00.000Z',
+					agent: 'test_engineer',
+				},
 				// diff is MISSING
 			},
 		};
@@ -455,7 +519,9 @@ describe('checkReviewerGate — evidence-first edge cases', () => {
 	let originalAgentSessions: Map<string, any>;
 
 	beforeEach(() => {
-		tempDir = fs.mkdtempSync(path.join(os.tmpdir(), 'gate-fix-edge-case-test-'));
+		tempDir = fs.mkdtempSync(
+			path.join(os.tmpdir(), 'gate-fix-edge-case-test-'),
+		);
 		originalCwd = process.cwd();
 		process.chdir(tempDir);
 
@@ -472,11 +538,24 @@ describe('checkReviewerGate — evidence-first edge cases', () => {
 					id: 1,
 					name: 'Phase 1',
 					status: 'in_progress',
-					tasks: [{ id: '1.1', phase: 1, status: 'pending', size: 'small', description: 'Test task', depends: [], files_touched: [] }],
+					tasks: [
+						{
+							id: '1.1',
+							phase: 1,
+							status: 'pending',
+							size: 'small',
+							description: 'Test task',
+							depends: [],
+							files_touched: [],
+						},
+					],
 				},
 			],
 		};
-		fs.writeFileSync(path.join(tempDir, '.swarm', 'plan.json'), JSON.stringify(plan, null, 2));
+		fs.writeFileSync(
+			path.join(tempDir, '.swarm', 'plan.json'),
+			JSON.stringify(plan, null, 2),
+		);
 
 		originalAgentSessions = new Map(swarmState.agentSessions);
 		swarmState.agentSessions.clear();
@@ -498,7 +577,11 @@ describe('checkReviewerGate — evidence-first edge cases', () => {
 			taskId: '1.1',
 			// required_gates is MISSING
 			gates: {
-				reviewer: { sessionId: 'session-1', timestamp: '2025-01-01T00:00:00.000Z', agent: 'reviewer' },
+				reviewer: {
+					sessionId: 'session-1',
+					timestamp: '2025-01-01T00:00:00.000Z',
+					agent: 'reviewer',
+				},
 			},
 		};
 		fs.writeFileSync(
@@ -540,8 +623,16 @@ describe('checkReviewerGate — evidence-first edge cases', () => {
 			required_gates: ['reviewer', 'test_engineer'],
 			turbo: true,
 			gates: {
-				reviewer: { sessionId: 'session-1', timestamp: '2025-01-01T00:00:00.000Z', agent: 'reviewer' },
-				test_engineer: { sessionId: 'session-1', timestamp: '2025-01-01T00:00:00.000Z', agent: 'test_engineer' },
+				reviewer: {
+					sessionId: 'session-1',
+					timestamp: '2025-01-01T00:00:00.000Z',
+					agent: 'reviewer',
+				},
+				test_engineer: {
+					sessionId: 'session-1',
+					timestamp: '2025-01-01T00:00:00.000Z',
+					agent: 'test_engineer',
+				},
 			},
 		};
 		fs.writeFileSync(
@@ -621,7 +712,10 @@ describe('checkReviewerGate — evidence directory fallback removed (v6.35.1 Cod
 		const evidenceDir = path.join(tempDir, '.swarm', 'evidence', '1.1');
 		fs.mkdirSync(evidenceDir, { recursive: true });
 		// Create some marker files to simulate agent output files in the evidence directory
-		fs.writeFileSync(path.join(evidenceDir, 'reviewer-output.md'), '# Review output');
+		fs.writeFileSync(
+			path.join(evidenceDir, 'reviewer-output.md'),
+			'# Review output',
+		);
 		fs.writeFileSync(path.join(evidenceDir, 'test-results.json'), '{}');
 
 		// Session in idle state (would block if session state was used)
@@ -701,8 +795,16 @@ describe('checkReviewerGate — evidence directory fallback removed (v6.35.1 Cod
 			taskId: '1.1',
 			required_gates: ['reviewer', 'test_engineer'],
 			gates: {
-				reviewer: { sessionId: 'session-1', timestamp: '2025-01-01T00:00:00.000Z', agent: 'reviewer' },
-				test_engineer: { sessionId: 'session-1', timestamp: '2025-01-01T00:00:00.000Z', agent: 'test_engineer' },
+				reviewer: {
+					sessionId: 'session-1',
+					timestamp: '2025-01-01T00:00:00.000Z',
+					agent: 'reviewer',
+				},
+				test_engineer: {
+					sessionId: 'session-1',
+					timestamp: '2025-01-01T00:00:00.000Z',
+					agent: 'test_engineer',
+				},
 			},
 		};
 		fs.writeFileSync(
@@ -713,7 +815,10 @@ describe('checkReviewerGate — evidence directory fallback removed (v6.35.1 Cod
 		// Also create an evidence directory with files (should not matter since evidence.json exists)
 		const evidenceDir = path.join(tempDir, '.swarm', 'evidence', '1.1');
 		fs.mkdirSync(evidenceDir, { recursive: true });
-		fs.writeFileSync(path.join(evidenceDir, 'extra-file.txt'), 'should be ignored');
+		fs.writeFileSync(
+			path.join(evidenceDir, 'extra-file.txt'),
+			'should be ignored',
+		);
 
 		const result = checkReviewerGate('1.1', tempDir);
 
@@ -727,7 +832,11 @@ describe('checkReviewerGate — evidence directory fallback removed (v6.35.1 Cod
 			taskId: '1.1',
 			required_gates: ['reviewer', 'test_engineer'],
 			gates: {
-				reviewer: { sessionId: 'session-1', timestamp: '2025-01-01T00:00:00.000Z', agent: 'reviewer' },
+				reviewer: {
+					sessionId: 'session-1',
+					timestamp: '2025-01-01T00:00:00.000Z',
+					agent: 'reviewer',
+				},
 				// test_engineer is MISSING
 			},
 		};
@@ -739,7 +848,10 @@ describe('checkReviewerGate — evidence directory fallback removed (v6.35.1 Cod
 		// Create evidence directory with files (should not matter since evidence.json exists and is authoritative)
 		const evidenceDir = path.join(tempDir, '.swarm', 'evidence', '1.1');
 		fs.mkdirSync(evidenceDir, { recursive: true });
-		fs.writeFileSync(path.join(evidenceDir, 'extra-file.txt'), 'should be ignored');
+		fs.writeFileSync(
+			path.join(evidenceDir, 'extra-file.txt'),
+			'should be ignored',
+		);
 
 		const result = checkReviewerGate('1.1', tempDir);
 

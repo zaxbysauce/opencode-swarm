@@ -1,15 +1,14 @@
-import { describe, test, expect, beforeEach, afterEach } from 'bun:test';
+import { afterEach, beforeEach, describe, expect, test } from 'bun:test';
 import * as fs from 'node:fs';
-import * as path from 'node:path';
 import * as os from 'node:os';
-
+import * as path from 'node:path';
+import { advanceTaskState, getTaskState, swarmState } from '../../../src/state';
 import {
-	validateTaskIdFormat,
-	validateFiles,
-	executeDeclareScope,
 	type DeclareScopeArgs,
+	executeDeclareScope,
+	validateFiles,
+	validateTaskIdFormat,
 } from '../../../src/tools/declare-scope';
-import { swarmState, advanceTaskState, getTaskState } from '../../../src/state';
 import { createWorkflowTestSession } from '../../helpers/workflow-session-factory';
 
 describe('validateTaskIdFormat', () => {
@@ -47,7 +46,9 @@ describe('validateFiles', () => {
 	test('rejects path with .. (path traversal)', () => {
 		const errors = validateFiles(['src/../etc/passwd']);
 		expect(errors.length).toBe(1);
-		expect(errors[0]).toContain('path traversal sequences (..) are not allowed');
+		expect(errors[0]).toContain(
+			'path traversal sequences (..) are not allowed',
+		);
 	});
 
 	test('rejects path exceeding 4096 characters', () => {
@@ -230,7 +231,9 @@ describe('executeDeclareScope', () => {
 
 		expect(result.success).toBe(false);
 		expect(result.errors).toBeDefined();
-		expect(result.errors?.[0]).toContain('Cannot declare scope for completed task');
+		expect(result.errors?.[0]).toContain(
+			'Cannot declare scope for completed task',
+		);
 	});
 
 	// Test 7: Whitelist merges into declaredCoderScope
@@ -291,9 +294,15 @@ describe('executeDeclareScope', () => {
 		await executeDeclareScope(args, tempDir);
 
 		// All sessions should have the scope set
-		expect(swarmState.agentSessions.get('session-1')?.declaredCoderScope).toEqual(['src/index.ts']);
-		expect(swarmState.agentSessions.get('session-2')?.declaredCoderScope).toEqual(['src/index.ts']);
-		expect(swarmState.agentSessions.get('session-3')?.declaredCoderScope).toEqual(['src/index.ts']);
+		expect(
+			swarmState.agentSessions.get('session-1')?.declaredCoderScope,
+		).toEqual(['src/index.ts']);
+		expect(
+			swarmState.agentSessions.get('session-2')?.declaredCoderScope,
+		).toEqual(['src/index.ts']);
+		expect(
+			swarmState.agentSessions.get('session-3')?.declaredCoderScope,
+		).toEqual(['src/index.ts']);
 	});
 
 	// Test 10: working_directory validation - directory doesn't exist
@@ -383,7 +392,9 @@ describe('executeDeclareScope', () => {
 
 		expect(result.success).toBe(false);
 		expect(result.errors).toBeDefined();
-		expect(result.errors?.[0]).toContain('Windows device paths are not allowed');
+		expect(result.errors?.[0]).toContain(
+			'Windows device paths are not allowed',
+		);
 	});
 
 	// Test 15: Valid working_directory with valid plan succeeds
@@ -408,7 +419,12 @@ describe('executeDeclareScope', () => {
 		const session = createWorkflowTestSession();
 		swarmState.agentSessions.set('test-session', session);
 
-		const absolutePath = path.join(tempDir, 'src', 'services', 'price-calculator.ts');
+		const absolutePath = path.join(
+			tempDir,
+			'src',
+			'services',
+			'price-calculator.ts',
+		);
 		const args: DeclareScopeArgs = {
 			taskId: '1.1',
 			files: [absolutePath],
@@ -419,13 +435,17 @@ describe('executeDeclareScope', () => {
 		expect(result.success).toBe(true);
 		expect(result.warnings).toBeDefined();
 		expect(result.warnings!.length).toBe(1);
-		expect(result.warnings![0]).toContain('Absolute path normalized to relative');
+		expect(result.warnings![0]).toContain(
+			'Absolute path normalized to relative',
+		);
 		expect(result.warnings![0]).toContain('src/services/price-calculator.ts');
 
 		// Verify the stored scope is relative, not absolute
 		const updatedSession = swarmState.agentSessions.get('test-session');
 		expect(updatedSession?.declaredCoderScope).toBeDefined();
-		expect(updatedSession!.declaredCoderScope![0]).toBe('src/services/price-calculator.ts');
+		expect(updatedSession!.declaredCoderScope![0]).toBe(
+			'src/services/price-calculator.ts',
+		);
 	});
 
 	test('relative paths produce no warnings', async () => {
@@ -461,7 +481,10 @@ describe('executeDeclareScope', () => {
 		expect(result.fileCount).toBe(2);
 
 		const updatedSession = swarmState.agentSessions.get('test-session');
-		expect(updatedSession?.declaredCoderScope).toEqual(['src/index.ts', 'src/auth.ts']);
+		expect(updatedSession?.declaredCoderScope).toEqual([
+			'src/index.ts',
+			'src/auth.ts',
+		]);
 	});
 
 	test('rejects absolute paths that resolve outside the project directory', async () => {
@@ -477,6 +500,8 @@ describe('executeDeclareScope', () => {
 
 		expect(result.success).toBe(false);
 		expect(result.errors).toBeDefined();
-		expect(result.errors![0]).toContain('resolves outside the project directory');
+		expect(result.errors![0]).toContain(
+			'resolves outside the project directory',
+		);
 	});
 });

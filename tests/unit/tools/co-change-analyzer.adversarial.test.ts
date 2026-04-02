@@ -1,39 +1,91 @@
-import { describe, it, expect, vi, beforeEach } from 'vitest';
-import {
-	parseGitLog,
-	buildCoChangeMatrix,
-	getStaticEdges,
-	darkMatterToKnowledgeEntries,
-	formatDarkMatterOutput,
-	type CoChangeEntry,
-} from '../../../src/tools/co-change-analyzer.js';
+import { beforeAll, beforeEach, describe, expect, it, mock } from 'bun:test';
+import { promisify } from 'node:util';
 
-// Mock node:fs/promises
-const mockReaddir = vi.fn();
-const mockReadFile = vi.fn();
-const mockStat = vi.fn();
-vi.mock('node:fs/promises', () => ({
+// mock.module() must be called before importing the module under test.
+// Declare mock functions first, then register the module overrides.
+
+const mockReaddir = mock(() => Promise.resolve([]));
+const mockReadFile = mock(() => Promise.resolve(''));
+const mockStat = mock(() =>
+	Promise.resolve({ isFile: () => true, isDirectory: () => false }),
+);
+const mockExecFile = mock(
+	(
+		_cmd: unknown,
+		_args: unknown,
+		_opts: unknown,
+		cb: (err: null, out: string, errOut: string) => void,
+	) => {
+		cb(null, '', '');
+	},
+);
+
+// Add util.promisify.custom so that promisify(mockExecFile) returns { stdout, stderr }
+// instead of just the first callback argument. The source code calls:
+//   const { stdout } = await promisify(child_process.execFile)(...)
+// Without this symbol, promisify resolves with a plain string, making { stdout } === undefined.
+(mockExecFile as unknown as Record<symbol, unknown>)[promisify.custom] = (
+	...args: unknown[]
+): Promise<{ stdout: string; stderr: string }> =>
+	new Promise((resolve, reject) => {
+		(mockExecFile as unknown as (...a: unknown[]) => void)(
+			...args,
+			(err: Error | null, stdout: string, stderr: string) => {
+				if (err) reject(err);
+				else resolve({ stdout, stderr });
+			},
+		);
+	});
+
+mock.module('node:fs/promises', () => ({
 	readdir: mockReaddir,
 	readFile: mockReadFile,
 	stat: mockStat,
 }));
 
-// Mock node:child_process - using callback style since parseGitLog uses promisify
-const mockExecFile = vi.fn();
-// Try both 'node:child_process' and 'child_process' since module resolution can differ
-vi.mock('child_process', () => ({ execFile: mockExecFile }), { virtual: true });
+mock.module('node:child_process', () => ({ execFile: mockExecFile }));
+
+// Dynamic import after mock.module() so Bun intercepts before the source loads.
+let buildCoChangeMatrix: typeof import('../../../src/tools/co-change-analyzer.js')['buildCoChangeMatrix'];
+let CoChangeEntry: unknown;
+let darkMatterToKnowledgeEntries: typeof import('../../../src/tools/co-change-analyzer.js')['darkMatterToKnowledgeEntries'];
+let formatDarkMatterOutput: typeof import('../../../src/tools/co-change-analyzer.js')['formatDarkMatterOutput'];
+let getStaticEdges: typeof import('../../../src/tools/co-change-analyzer.js')['getStaticEdges'];
+let parseGitLog: typeof import('../../../src/tools/co-change-analyzer.js')['parseGitLog'];
+
+import type { CoChangeEntry as CoChangeEntryType } from '../../../src/tools/co-change-analyzer.js';
+
+beforeAll(async () => {
+	const mod = await import('../../../src/tools/co-change-analyzer.js');
+	buildCoChangeMatrix = mod.buildCoChangeMatrix;
+	darkMatterToKnowledgeEntries = mod.darkMatterToKnowledgeEntries;
+	formatDarkMatterOutput = mod.formatDarkMatterOutput;
+	getStaticEdges = mod.getStaticEdges;
+	parseGitLog = mod.parseGitLog;
+});
 
 describe('Co-Change Analyzer - ADVERSARIAL TESTS', () => {
 	beforeEach(() => {
-		vi.clearAllMocks();
+		mockReaddir.mockReset();
+		mockReadFile.mockReset();
+		mockStat.mockReset();
+		mockExecFile.mockReset();
 	});
 
 	describe('1. Git log injection via malicious commit hash', () => {
-		it.skip('should treat commit hash with shell injection as literal - SKIPPED: Mock not working in Bun/Vitest environment (node:child_process module resolution issue)', async () => {
-			const maliciousOutput = 'COMMIT:abc123; rm -rf /\nsrc/file1.ts\nsrc/file2.ts\n';
-			mockExecFile.mockImplementation((cmd: string, args: any, opts: any, cb: (err: Error | null, stdout: string, stderr: string) => void) => {
-				cb(null, maliciousOutput, '');
-			});
+		it('should treat commit hash with shell injection as literal', async () => {
+			const maliciousOutput =
+				'COMMIT:abc123; rm -rf /\nsrc/file1.ts\nsrc/file2.ts\n';
+			mockExecFile.mockImplementation(
+				(
+					cmd: string,
+					args: unknown,
+					opts: unknown,
+					cb: (err: Error | null, stdout: string, stderr: string) => void,
+				) => {
+					cb(null, maliciousOutput, '');
+				},
+			);
 
 			const result = await parseGitLog('/fake/dir', 100);
 
@@ -47,11 +99,19 @@ describe('Co-Change Analyzer - ADVERSARIAL TESTS', () => {
 			}
 		});
 
-		it.skip('should treat path traversal file paths as literal strings - SKIPPED: Mock not working in Bun/Vitest environment (node:child_process module resolution issue)', async () => {
-			const maliciousOutput = 'COMMIT:abc123\n../../etc/passwd\nsrc/normal.ts\n';
-			mockExecFile.mockImplementation((cmd: string, args: any, opts: any, cb: (err: Error | null, stdout: string, stderr: string) => void) => {
-				cb(null, maliciousOutput, '');
-			});
+		it('should treat path traversal file paths as literal strings', async () => {
+			const maliciousOutput =
+				'COMMIT:abc123\n../../etc/passwd\nsrc/normal.ts\n';
+			mockExecFile.mockImplementation(
+				(
+					cmd: string,
+					args: unknown,
+					opts: unknown,
+					cb: (err: Error | null, stdout: string, stderr: string) => void,
+				) => {
+					cb(null, maliciousOutput, '');
+				},
+			);
 
 			const result = await parseGitLog('/fake/dir', 100);
 
@@ -198,7 +258,7 @@ describe('Co-Change Analyzer - ADVERSARIAL TESTS', () => {
 	});
 
 	describe('7. Malformed git log output', () => {
-		it.skip('should gracefully ignore random garbage lines - SKIPPED: Mock not working in Bun/Vitest environment (node:child_process module resolution issue)', async () => {
+		it('should gracefully ignore random garbage lines', async () => {
 			const malformedOutput = `
 COMMIT:abc123
 src/file1.ts
@@ -208,9 +268,16 @@ ANOTHER_RANDOM_LINE
 COMMIT:def456
 src/file3.ts
 `;
-			mockExecFile.mockImplementation((cmd: string, args: any, opts: any, cb: (err: Error | null, stdout: string, stderr: string) => void) => {
-				cb(null, malformedOutput, '');
-			});
+			mockExecFile.mockImplementation(
+				(
+					cmd: string,
+					args: unknown,
+					opts: unknown,
+					cb: (err: Error | null, stdout: string, stderr: string) => void,
+				) => {
+					cb(null, malformedOutput, '');
+				},
+			);
 
 			const result = await parseGitLog('/fake/dir', 100);
 
@@ -221,28 +288,41 @@ src/file3.ts
 			expect(result.get('def456')?.has('src/file3.ts')).toBe(true);
 		});
 
-		it.skip('should handle COMMIT: with empty hash - SKIPPED: Mock not working in Bun/Vitest environment (node:child_process module resolution issue)', async () => {
+		it('should handle COMMIT: with empty hash', async () => {
 			const malformedOutput = 'COMMIT:\nsrc/file1.ts\nsrc/file2.ts\n';
-			mockExecFile.mockImplementation((cmd: string, args: any, opts: any, cb: (err: Error | null, stdout: string, stderr: string) => void) => {
-				cb(null, malformedOutput, '');
-			});
+			mockExecFile.mockImplementation(
+				(
+					cmd: string,
+					args: unknown,
+					opts: unknown,
+					cb: (err: Error | null, stdout: string, stderr: string) => void,
+				) => {
+					cb(null, malformedOutput, '');
+				},
+			);
 
 			const result = await parseGitLog('/fake/dir', 100);
 
 			expect(result).toBeInstanceOf(Map);
-			// Empty string key is allowed (though it's an edge case)
-			expect(result.has('')).toBe(true);
-			const files = result.get('');
-			if (files) {
-				expect(files.has('src/file1.ts')).toBe(true);
-			}
+			// The source guards against empty-string commit hashes (falsy currentCommit is skipped),
+			// so COMMIT: with no hash produces no entry in the map.
+			expect(result.has('')).toBe(false);
+			expect(result.size).toBe(0);
 		});
 
-		it.skip('should handle file paths with only spaces - SKIPPED: Mock not working in Bun/Vitest environment (node:child_process module resolution issue)', async () => {
-			const malformedOutput = 'COMMIT:abc123\n   \nsrc/file1.ts\nsrc/file2.ts\n';
-			mockExecFile.mockImplementation((cmd: string, args: any, opts: any, cb: (err: Error | null, stdout: string, stderr: string) => void) => {
-				cb(null, malformedOutput, '');
-			});
+		it('should handle file paths with only spaces', async () => {
+			const malformedOutput =
+				'COMMIT:abc123\n   \nsrc/file1.ts\nsrc/file2.ts\n';
+			mockExecFile.mockImplementation(
+				(
+					cmd: string,
+					args: unknown,
+					opts: unknown,
+					cb: (err: Error | null, stdout: string, stderr: string) => void,
+				) => {
+					cb(null, malformedOutput, '');
+				},
+			);
 
 			const result = await parseGitLog('/fake/dir', 100);
 
@@ -256,11 +336,18 @@ src/file3.ts
 			}
 		});
 
-		it.skip('should handle Unicode filenames - SKIPPED: Mock not working in Bun/Vitest environment (node:child_process module resolution issue)', async () => {
+		it('should handle Unicode filenames', async () => {
 			const unicodeOutput = 'COMMIT:abc123\nsrc/测试.ts\nsrc/hello世界.js\n';
-			mockExecFile.mockImplementation((cmd: string, args: any, opts: any, cb: (err: Error | null, stdout: string, stderr: string) => void) => {
-				cb(null, unicodeOutput, '');
-			});
+			mockExecFile.mockImplementation(
+				(
+					cmd: string,
+					args: unknown,
+					opts: unknown,
+					cb: (err: Error | null, stdout: string, stderr: string) => void,
+				) => {
+					cb(null, unicodeOutput, '');
+				},
+			);
 
 			const result = await parseGitLog('/fake/dir', 100);
 
@@ -278,7 +365,7 @@ src/file3.ts
 			const longNameA = 'a'.repeat(150);
 			const longNameB = 'b'.repeat(150);
 
-			const pairs: CoChangeEntry[] = [
+			const pairs: CoChangeEntryType[] = [
 				{
 					fileA: `${longNameA}.ts`,
 					fileB: `${longNameB}.ts`,
@@ -304,7 +391,7 @@ src/file3.ts
 			const nameA = 'x'.repeat(60);
 			const nameB = 'y'.repeat(60);
 
-			const pairs: CoChangeEntry[] = [
+			const pairs: CoChangeEntryType[] = [
 				{
 					fileA: nameA,
 					fileB: nameB,
@@ -328,7 +415,7 @@ src/file3.ts
 
 	describe('9. formatDarkMatterOutput with edge case NPMI values', () => {
 		it('should format near-zero NPMI with 3 decimal places', () => {
-			const pairs: CoChangeEntry[] = [
+			const pairs: CoChangeEntryType[] = [
 				{
 					fileA: 'src/fileA.ts',
 					fileB: 'src/fileB.ts',
@@ -349,7 +436,7 @@ src/file3.ts
 		});
 
 		it('should handle negative NPMI values', () => {
-			const pairs: CoChangeEntry[] = [
+			const pairs: CoChangeEntryType[] = [
 				{
 					fileA: 'src/fileA.ts',
 					fileB: 'src/fileB.ts',
@@ -369,7 +456,7 @@ src/file3.ts
 		});
 
 		it('should handle zero lift values', () => {
-			const pairs: CoChangeEntry[] = [
+			const pairs: CoChangeEntryType[] = [
 				{
 					fileA: 'src/fileA.ts',
 					fileB: 'src/fileB.ts',
@@ -391,7 +478,7 @@ src/file3.ts
 
 	describe('10. darkMatterToKnowledgeEntries with coChangeCount=0', () => {
 		it('should calculate minimum confidence of 0.3 for coChangeCount=0', () => {
-			const pairs: CoChangeEntry[] = [
+			const pairs: CoChangeEntryType[] = [
 				{
 					fileA: 'src/fileA.ts',
 					fileB: 'src/fileB.ts',
@@ -413,7 +500,7 @@ src/file3.ts
 		});
 
 		it('should generate valid UUID v4 for id field', () => {
-			const pairs: CoChangeEntry[] = [
+			const pairs: CoChangeEntryType[] = [
 				{
 					fileA: 'src/fileA.ts',
 					fileB: 'src/fileB.ts',
@@ -432,7 +519,9 @@ src/file3.ts
 			expect(entries).toHaveLength(1);
 			const uuid = entries[0].id;
 			// UUID v4 format: xxxxxxxx-xxxx-4xxx-yxxx-xxxxxxxxxxxx
-			expect(uuid).toMatch(/^[0-9a-f]{8}-[0-9a-f]{4}-4[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i);
+			expect(uuid).toMatch(
+				/^[0-9a-f]{8}-[0-9a-f]{4}-4[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i,
+			);
 		});
 	});
 
@@ -503,18 +592,21 @@ import { a } from './file1';
 			]);
 
 			// Mock readdir to return files in the src directory
-			mockReaddir.mockImplementationOnce(async () => [
-				{
-					name: 'foo.ts',
-					isDirectory: () => false,
-					isFile: () => true,
-				},
-				{
-					name: 'bar.ts',
-					isDirectory: () => false,
-					isFile: () => true,
-				},
-			] as any);
+			mockReaddir.mockImplementationOnce(
+				async () =>
+					[
+						{
+							name: 'foo.ts',
+							isDirectory: () => false,
+							isFile: () => true,
+						},
+						{
+							name: 'bar.ts',
+							isDirectory: () => false,
+							isFile: () => true,
+						},
+					] as any,
+			);
 
 			// Mock file content with import
 			mockReadFile.mockResolvedValue("import { bar } from './bar';");
@@ -615,7 +707,7 @@ import { a } from './file1';
 	});
 
 	describe('13. Path injection attempts', () => {
-		it.skip('should not execute commands from malicious file paths - SKIPPED: Mock not working in Bun/Vitest environment (node:child_process module resolution issue)', async () => {
+		it('should not execute commands from malicious file paths', async () => {
 			const maliciousPaths = [
 				'$(whoami).ts',
 				'`touch /tmp/pwn`.ts',
@@ -623,14 +715,18 @@ import { a } from './file1';
 				'&& echo pwned.ts',
 			];
 
-			const output = [
-				'COMMIT:abc123',
-				...maliciousPaths,
-			].join('\n');
+			const output = ['COMMIT:abc123', ...maliciousPaths].join('\n');
 
-			mockExecFile.mockImplementation((cmd: string, args: any, opts: any, cb: (err: Error | null, stdout: string, stderr: string) => void) => {
-				cb(null, output, '');
-			});
+			mockExecFile.mockImplementation(
+				(
+					cmd: string,
+					args: unknown,
+					opts: unknown,
+					cb: (err: Error | null, stdout: string, stderr: string) => void,
+				) => {
+					cb(null, output, '');
+				},
+			);
 
 			const result = await parseGitLog('/fake/dir', 100);
 

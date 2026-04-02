@@ -7,18 +7,28 @@
  * Happy-path tests are in hive-promoter.test.ts
  */
 
-import { describe, it, expect, vi, beforeEach } from 'vitest';
+import { beforeEach, describe, expect, it, vi } from 'vitest';
 import {
 	checkHivePromotions,
 	createHivePromoterHook,
 } from '../../../src/hooks/hive-promoter.js';
-import type { SwarmKnowledgeEntry, HiveKnowledgeEntry, KnowledgeConfig } from '../../../src/hooks/knowledge-types.js';
+import type {
+	HiveKnowledgeEntry,
+	KnowledgeConfig,
+	SwarmKnowledgeEntry,
+} from '../../../src/hooks/knowledge-types.js';
 
 // Mock knowledge-store module
 vi.mock('../../../src/hooks/knowledge-store.js', () => ({
-	resolveHiveKnowledgePath: vi.fn().mockReturnValue('/hive/shared-learnings.jsonl'),
-	resolveHiveRejectedPath: vi.fn().mockReturnValue('/hive/shared-learnings-rejected.jsonl'),
-	resolveSwarmKnowledgePath: vi.fn().mockReturnValue('/swarm/.swarm/knowledge.jsonl'),
+	resolveHiveKnowledgePath: vi
+		.fn()
+		.mockReturnValue('/hive/shared-learnings.jsonl'),
+	resolveHiveRejectedPath: vi
+		.fn()
+		.mockReturnValue('/hive/shared-learnings-rejected.jsonl'),
+	resolveSwarmKnowledgePath: vi
+		.fn()
+		.mockReturnValue('/swarm/.swarm/knowledge.jsonl'),
 	readKnowledge: vi.fn().mockResolvedValue([]),
 	appendKnowledge: vi.fn().mockResolvedValue(undefined),
 	rewriteKnowledge: vi.fn().mockResolvedValue(undefined),
@@ -28,12 +38,12 @@ vi.mock('../../../src/hooks/knowledge-store.js', () => ({
 
 // Import after mocking to ensure mocks are applied
 import {
+	appendKnowledge,
+	findNearDuplicate,
+	readKnowledge,
 	resolveHiveKnowledgePath,
 	resolveHiveRejectedPath,
-	readKnowledge,
-	appendKnowledge,
 	rewriteKnowledge,
-	findNearDuplicate,
 } from '../../../src/hooks/knowledge-store.js';
 
 // Mock validateLesson to pass by default (we'll override in specific tests)
@@ -96,11 +106,27 @@ describe('hive-promoter adversarial tests', () => {
 				confidence: 0.8,
 				status: 'candidate',
 				confirmed_by: [
-					{ phase_number: 1, confirmed_at: '2024-01-01T00:00:00Z', project_name: 'project-a' },
-					{ phase_number: 2, confirmed_at: '2024-01-02T00:00:00Z', project_name: 'project-a' },
-					{ phase_number: 3, confirmed_at: '2024-01-03T00:00:00Z', project_name: 'project-a' },
+					{
+						phase_number: 1,
+						confirmed_at: '2024-01-01T00:00:00Z',
+						project_name: 'project-a',
+					},
+					{
+						phase_number: 2,
+						confirmed_at: '2024-01-02T00:00:00Z',
+						project_name: 'project-a',
+					},
+					{
+						phase_number: 3,
+						confirmed_at: '2024-01-03T00:00:00Z',
+						project_name: 'project-a',
+					},
 				],
-				retrieval_outcomes: { applied_count: 0, succeeded_after_count: 0, failed_after_count: 0 },
+				retrieval_outcomes: {
+					applied_count: 0,
+					succeeded_after_count: 0,
+					failed_after_count: 0,
+				},
 				schema_version: 1,
 				created_at: '2024-01-01T00:00:00Z',
 				updated_at: '2024-01-01T00:00:00Z',
@@ -204,7 +230,11 @@ describe('hive-promoter adversarial tests', () => {
 					confidence: 0.5,
 					status: 'candidate',
 					confirmed_by: [],
-					retrieval_outcomes: { applied_count: 0, succeeded_after_count: 0, failed_after_count: 0 },
+					retrieval_outcomes: {
+						applied_count: 0,
+						succeeded_after_count: 0,
+						failed_after_count: 0,
+					},
 					schema_version: 1,
 					created_at: '2024-01-01T00:00:00Z',
 					updated_at: '2024-01-01T00:00:00Z',
@@ -222,9 +252,21 @@ describe('hive-promoter adversarial tests', () => {
 					id: 'swarm-2',
 					hive_eligible: true,
 					confirmed_by: [
-						{ phase_number: 1, confirmed_at: '2024-01-01T00:00:00Z', project_name: 'project-a' },
-						{ phase_number: 2, confirmed_at: '2024-01-02T00:00:00Z', project_name: 'project-a' },
-						{ phase_number: 3, confirmed_at: '2024-01-03T00:00:00Z', project_name: 'project-a' },
+						{
+							phase_number: 1,
+							confirmed_at: '2024-01-01T00:00:00Z',
+							project_name: 'project-a',
+						},
+						{
+							phase_number: 2,
+							confirmed_at: '2024-01-02T00:00:00Z',
+							project_name: 'project-a',
+						},
+						{
+							phase_number: 3,
+							confirmed_at: '2024-01-03T00:00:00Z',
+							project_name: 'project-a',
+						},
 					],
 				},
 			];
@@ -258,9 +300,21 @@ describe('hive-promoter adversarial tests', () => {
 				tags: [], // No fast-track tag
 				created_at: new Date().toISOString(), // Recent entry so age route won't trigger
 				confirmed_by: [
-					{ phase_number: 1, confirmed_at: '2024-01-01T00:00:00Z', project_name: 'project-a' },
-					{ phase_number: 1, confirmed_at: '2024-01-02T00:00:00Z', project_name: 'project-a' },
-					{ phase_number: 1, confirmed_at: '2024-01-03T00:00:00Z', project_name: 'project-a' },
+					{
+						phase_number: 1,
+						confirmed_at: '2024-01-01T00:00:00Z',
+						project_name: 'project-a',
+					},
+					{
+						phase_number: 1,
+						confirmed_at: '2024-01-02T00:00:00Z',
+						project_name: 'project-a',
+					},
+					{
+						phase_number: 1,
+						confirmed_at: '2024-01-03T00:00:00Z',
+						project_name: 'project-a',
+					},
 				],
 			};
 
@@ -290,7 +344,11 @@ describe('hive-promoter adversarial tests', () => {
 					{ project_name: 'project-a', confirmed_at: '2024-01-02T00:00:00Z' },
 					{ project_name: 'project-a', confirmed_at: '2024-01-03T00:00:00Z' },
 				],
-				retrieval_outcomes: { applied_count: 0, succeeded_after_count: 0, failed_after_count: 0 },
+				retrieval_outcomes: {
+					applied_count: 0,
+					succeeded_after_count: 0,
+					failed_after_count: 0,
+				},
 				schema_version: 1,
 				created_at: '2024-01-01T00:00:00Z',
 				updated_at: '2024-01-01T00:00:00Z',
@@ -309,7 +367,8 @@ describe('hive-promoter adversarial tests', () => {
 			// Should not advance to established (only 1 distinct project, not 3)
 			const hiveModified = (rewriteKnowledge as vi.Mock).mock.calls.length > 0;
 			if (hiveModified) {
-				const updatedHive = (rewriteKnowledge as vi.Mock).mock.calls[0][1] as HiveKnowledgeEntry[];
+				const updatedHive = (rewriteKnowledge as vi.Mock).mock
+					.calls[0][1] as HiveKnowledgeEntry[];
 				const entry = updatedHive[0];
 				expect(entry.status).toBe('candidate'); // Should NOT be established
 			}
@@ -391,11 +450,14 @@ describe('hive-promoter adversarial tests', () => {
 
 	describe('SCENARIO 10: Very large swarm entries array (1000 entries)', () => {
 		it('should process 1000 entries without hanging or error', async () => {
-			const largeArray: SwarmKnowledgeEntry[] = Array.from({ length: 1000 }, (_, i) => ({
-				...mockSwarmEntries[0],
-				id: `swarm-${i}`,
-				lesson: `Lesson number ${i}`,
-			}));
+			const largeArray: SwarmKnowledgeEntry[] = Array.from(
+				{ length: 1000 },
+				(_, i) => ({
+					...mockSwarmEntries[0],
+					id: `swarm-${i}`,
+					lesson: `Lesson number ${i}`,
+				}),
+			);
 
 			// Should not throw
 			await checkHivePromotions(largeArray, mockConfig);

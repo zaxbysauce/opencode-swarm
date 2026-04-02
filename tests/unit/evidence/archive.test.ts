@@ -1,14 +1,14 @@
-import { describe, test, expect, beforeEach, afterEach } from 'bun:test';
-import * as path from 'node:path';
-import * as os from 'node:os';
+import { afterEach, beforeEach, describe, expect, test } from 'bun:test';
 import { mkdirSync, rmSync } from 'node:fs';
+import * as os from 'node:os';
+import * as path from 'node:path';
+import type { Evidence } from '../../../src/config/evidence-schema';
 import {
 	archiveEvidence,
-	saveEvidence,
-	loadEvidence,
 	deleteEvidence,
+	loadEvidence,
+	saveEvidence,
 } from '../../../src/evidence/manager';
-import type { Evidence } from '../../../src/config/evidence-schema';
 
 describe('archiveEvidence', () => {
 	let tempDir: string;
@@ -47,7 +47,11 @@ describe('archiveEvidence', () => {
 	test('archiveEvidence keeps bundles newer than maxAgeDays', async () => {
 		// Create recent bundle
 		const taskId = 'task-1';
-		await saveEvidence(tempDir, taskId, createNoteEvidence(taskId, 'Recent note'));
+		await saveEvidence(
+			tempDir,
+			taskId,
+			createNoteEvidence(taskId, 'Recent note'),
+		);
 
 		// Archive with maxAgeDays=90
 		const archived = await archiveEvidence(tempDir, 90);
@@ -63,12 +67,20 @@ describe('archiveEvidence', () => {
 	test('archiveEvidence with mixed old/new bundles only deletes old ones', async () => {
 		// Create old bundle
 		const oldTaskId = 'old-task';
-		await saveEvidence(tempDir, oldTaskId, createNoteEvidence(oldTaskId, 'Old note'));
+		await saveEvidence(
+			tempDir,
+			oldTaskId,
+			createNoteEvidence(oldTaskId, 'Old note'),
+		);
 		await makeBundleOld(tempDir, oldTaskId, 100);
 
 		// Create new bundle
 		const newTaskId = 'new-task';
-		await saveEvidence(tempDir, newTaskId, createNoteEvidence(newTaskId, 'New note'));
+		await saveEvidence(
+			tempDir,
+			newTaskId,
+			createNoteEvidence(newTaskId, 'New note'),
+		);
 
 		// Archive with maxAgeDays=90
 		const archived = await archiveEvidence(tempDir, 90);
@@ -86,7 +98,11 @@ describe('archiveEvidence', () => {
 		// Create 5 bundles
 		const taskIds = ['task-1', 'task-2', 'task-3', 'task-4', 'task-5'];
 		for (const taskId of taskIds) {
-			await saveEvidence(tempDir, taskId, createNoteEvidence(taskId, `Note for ${taskId}`));
+			await saveEvidence(
+				tempDir,
+				taskId,
+				createNoteEvidence(taskId, `Note for ${taskId}`),
+			);
 		}
 
 		// Make task-1 oldest (updated 10 days ago), task-5 newest (updated 2 days ago)
@@ -125,7 +141,11 @@ describe('archiveEvidence', () => {
 		// Create 3 bundles
 		const taskIds = ['task-1', 'task-2', 'task-3'];
 		for (const taskId of taskIds) {
-			await saveEvidence(tempDir, taskId, createNoteEvidence(taskId, `Note for ${taskId}`));
+			await saveEvidence(
+				tempDir,
+				taskId,
+				createNoteEvidence(taskId, `Note for ${taskId}`),
+			);
 		}
 
 		// Archive with maxAgeDays=1 (none deleted by age) and maxBundles=10
@@ -143,9 +163,20 @@ describe('archiveEvidence', () => {
 
 	test('archiveEvidence with both age and maxBundles: age first, then maxBundles', async () => {
 		// Create 6 bundles with varying ages
-		const taskIds = ['task-1', 'task-2', 'task-3', 'task-4', 'task-5', 'task-6'];
+		const taskIds = [
+			'task-1',
+			'task-2',
+			'task-3',
+			'task-4',
+			'task-5',
+			'task-6',
+		];
 		for (const taskId of taskIds) {
-			await saveEvidence(tempDir, taskId, createNoteEvidence(taskId, `Note for ${taskId}`));
+			await saveEvidence(
+				tempDir,
+				taskId,
+				createNoteEvidence(taskId, `Note for ${taskId}`),
+			);
 		}
 
 		// Make some old, some new
@@ -193,7 +224,11 @@ describe('archiveEvidence', () => {
 		// Create 5 bundles
 		const taskIds = ['task-1', 'task-2', 'task-3', 'task-4', 'task-5'];
 		for (const taskId of taskIds) {
-			await saveEvidence(tempDir, taskId, createNoteEvidence(taskId, `Note for ${taskId}`));
+			await saveEvidence(
+				tempDir,
+				taskId,
+				createNoteEvidence(taskId, `Note for ${taskId}`),
+			);
 		}
 
 		// Archive with maxAgeDays=1 (none deleted by age) and maxBundles undefined

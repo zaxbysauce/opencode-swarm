@@ -1,9 +1,11 @@
-import { describe, it, expect, beforeEach, mock } from 'bun:test';
+import { beforeEach, describe, expect, it, mock } from 'bun:test';
 
 // Mock only execFile while preserving every other export (#330).
-const mockExecFile = mock((cmd: string, args: string[], opts: unknown, cb: Function) => {
-	cb(null, { stdout: '' }, '');
-});
+const mockExecFile = mock(
+	(cmd: string, args: string[], opts: unknown, cb: Function) => {
+		cb(null, { stdout: '' }, '');
+	},
+);
 
 const realChildProcess = await import('node:child_process');
 mock.module('node:child_process', () => ({
@@ -493,7 +495,9 @@ describe('formatDarkMatterOutput', () => {
 
 		const result = formatDarkMatterOutput(pairs);
 
-		expect(result).toContain('These pairs likely share an architectural concern');
+		expect(result).toContain(
+			'These pairs likely share an architectural concern',
+		);
 		expect(result).toContain('Consider adding explicit documentation');
 	});
 });

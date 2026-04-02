@@ -1,9 +1,10 @@
-import { describe, test, expect } from 'bun:test';
+import { describe, expect, test } from 'bun:test';
 import { getAgentConfigs } from '../../../src/agents';
 import type { PluginConfig } from '../../../src/config';
 
 // Helper to create minimal valid PluginConfig
-const minimalConfig = (partial: Partial<PluginConfig> = {}): PluginConfig => partial as PluginConfig;
+const minimalConfig = (partial: Partial<PluginConfig> = {}): PluginConfig =>
+	partial as PluginConfig;
 
 describe('getAgentConfigs - Architect Task Permission Hotfix', () => {
 	describe('architect agents get task:allow permission', () => {

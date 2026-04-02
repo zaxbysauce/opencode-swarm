@@ -1,7 +1,11 @@
-import { describe, expect, test, beforeEach, afterEach } from 'bun:test';
-import { createGuardrailsHooks } from '../../../src/hooks/guardrails';
-import { resetSwarmState, ensureAgentSession, swarmState } from '../../../src/state';
+import { afterEach, beforeEach, describe, expect, test } from 'bun:test';
 import type { GuardrailsConfig } from '../../../src/config/schema';
+import { createGuardrailsHooks } from '../../../src/hooks/guardrails';
+import {
+	ensureAgentSession,
+	resetSwarmState,
+	swarmState,
+} from '../../../src/state';
 
 const TEST_DIR = '/test/project';
 
@@ -14,7 +18,13 @@ const defaultConfig: GuardrailsConfig = {
 	warning_threshold: 0.75,
 	idle_timeout_minutes: 60,
 	qa_gates: {
-		required_tools: ['diff', 'syntax_check', 'placeholder_scan', 'lint', 'pre_check_batch'],
+		required_tools: [
+			'diff',
+			'syntax_check',
+			'placeholder_scan',
+			'lint',
+			'pre_check_batch',
+		],
 		require_reviewer_test_engineer: true,
 	},
 };
@@ -247,7 +257,12 @@ describe('guardrails model fallback adversarial tests', () => {
 
 		// First error
 		const input1 = { tool: 'bash', sessionID: sessionId, callID: 'call-1' };
-		const output1 = { title: 'bash', output: null, error: 'rate limit', metadata: {} };
+		const output1 = {
+			title: 'bash',
+			output: null,
+			error: 'rate limit',
+			metadata: {},
+		};
 		await hooks.toolAfter(input1 as any, output1 as any);
 
 		expect(session.model_fallback_index).toBe(1);
@@ -256,7 +271,12 @@ describe('guardrails model fallback adversarial tests', () => {
 
 		// Rapid second error
 		const input2 = { tool: 'bash', sessionID: sessionId, callID: 'call-2' };
-		const output2 = { title: 'bash', output: null, error: 'timeout', metadata: {} };
+		const output2 = {
+			title: 'bash',
+			output: null,
+			error: 'timeout',
+			metadata: {},
+		};
 		await hooks.toolAfter(input2 as any, output2 as any);
 
 		// Should NOT increment or add advisory
@@ -265,7 +285,12 @@ describe('guardrails model fallback adversarial tests', () => {
 
 		// Rapid third error
 		const input3 = { tool: 'bash', sessionID: sessionId, callID: 'call-3' };
-		const output3 = { title: 'bash', output: null, error: 'overloaded', metadata: {} };
+		const output3 = {
+			title: 'bash',
+			output: null,
+			error: 'overloaded',
+			metadata: {},
+		};
 		await hooks.toolAfter(input3 as any, output3 as any);
 
 		expect(session.model_fallback_index).toBe(1);
@@ -289,7 +314,12 @@ describe('guardrails model fallback adversarial tests', () => {
 
 		// First error
 		const input1 = { tool: 'bash', sessionID: sessionId, callID: 'call-1' };
-		const output1 = { title: 'bash', output: null, error: 'rate limit', metadata: {} };
+		const output1 = {
+			title: 'bash',
+			output: null,
+			error: 'rate limit',
+			metadata: {},
+		};
 		await hooks.toolAfter(input1 as any, output1 as any);
 
 		expect(session.model_fallback_index).toBe(1);
@@ -306,7 +336,12 @@ describe('guardrails model fallback adversarial tests', () => {
 
 		// Second error should fire a NEW advisory (advisory count increases)
 		const input3 = { tool: 'bash', sessionID: sessionId, callID: 'call-3' };
-		const output3 = { title: 'bash', output: null, error: 'timeout', metadata: {} };
+		const output3 = {
+			title: 'bash',
+			output: null,
+			error: 'timeout',
+			metadata: {},
+		};
 		await hooks.toolAfter(input3 as any, output3 as any);
 
 		expect(session.model_fallback_index).toBe(1);

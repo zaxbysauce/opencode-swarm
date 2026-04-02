@@ -7,10 +7,11 @@
  * Note: Uses a simpler test approach without complex module mocking to avoid circular dependencies
  */
 
-import { describe, it, expect, beforeEach, afterEach, vi } from 'vitest';
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 
 const TARGET_DIR = 'C:/opencode/opencode-swarm/src/lang/grammars';
-const SOURCE_DIR = 'C:/opencode/opencode-swarm/node_modules/@vscode/tree-sitter-wasm/wasm';
+const SOURCE_DIR =
+	'C:/opencode/opencode-swarm/node_modules/@vscode/tree-sitter-wasm/wasm';
 
 // Direct test of vendored grammar verification behavior
 // We're testing the logic without mocking the entire module
@@ -29,20 +30,24 @@ describe('Vendored Grammar Verification Logic', () => {
 	});
 
 	// Helper that simulates the vendored grammar verification logic from copyGrammars()
-	const simulateVerification = (grammarsPresent: string[]): { missing: string[] } => {
+	const simulateVerification = (
+		grammarsPresent: string[],
+	): { missing: string[] } => {
 		const VENDORED_GRAMMARS = [
 			'tree-sitter-kotlin.wasm',
 			'tree-sitter-swift.wasm',
 			'tree-sitter-dart.wasm',
 		] as const;
 
-		let missing: string[] = [];
+		const missing: string[] = [];
 
 		for (const vendored of VENDORED_GRAMMARS) {
 			const exists = grammarsPresent.includes(vendored);
 			if (!exists) {
 				console.warn(`Warning: Vendored grammar missing: ${vendored}`);
-				console.warn('  See comment above VENDORED_GRAMMARS for rebuild instructions.');
+				console.warn(
+					'  See comment above VENDORED_GRAMMARS for rebuild instructions.',
+				);
 				missing.push(vendored);
 			} else {
 				console.log(`Vendored: ${vendored} (present)`);
@@ -50,7 +55,9 @@ describe('Vendored Grammar Verification Logic', () => {
 		}
 
 		if (missing.length > 0) {
-			console.warn(`\n${missing.length} vendored grammar(s) missing — syntax-check will skip these languages.`);
+			console.warn(
+				`\n${missing.length} vendored grammar(s) missing — syntax-check will skip these languages.`,
+			);
 		}
 
 		return { missing };
@@ -69,9 +76,15 @@ describe('Vendored Grammar Verification Logic', () => {
 			expect(consoleWarnSpy).not.toHaveBeenCalled();
 
 			// Verify: All 3 vendored grammars reported as present
-			expect(consoleLogSpy).toHaveBeenCalledWith('Vendored: tree-sitter-kotlin.wasm (present)');
-			expect(consoleLogSpy).toHaveBeenCalledWith('Vendored: tree-sitter-swift.wasm (present)');
-			expect(consoleLogSpy).toHaveBeenCalledWith('Vendored: tree-sitter-dart.wasm (present)');
+			expect(consoleLogSpy).toHaveBeenCalledWith(
+				'Vendored: tree-sitter-kotlin.wasm (present)',
+			);
+			expect(consoleLogSpy).toHaveBeenCalledWith(
+				'Vendored: tree-sitter-swift.wasm (present)',
+			);
+			expect(consoleLogSpy).toHaveBeenCalledWith(
+				'Vendored: tree-sitter-dart.wasm (present)',
+			);
 		});
 	});
 
@@ -87,13 +100,23 @@ describe('Vendored Grammar Verification Logic', () => {
 			expect(result.missing).toEqual(['tree-sitter-swift.wasm']);
 
 			// Verify: Warning for missing tree-sitter-swift.wasm
-			expect(consoleWarnSpy).toHaveBeenCalledWith('Warning: Vendored grammar missing: tree-sitter-swift.wasm');
-			expect(consoleWarnSpy).toHaveBeenCalledWith('  See comment above VENDORED_GRAMMARS for rebuild instructions.');
-			expect(consoleWarnSpy).toHaveBeenCalledWith('\n1 vendored grammar(s) missing — syntax-check will skip these languages.');
+			expect(consoleWarnSpy).toHaveBeenCalledWith(
+				'Warning: Vendored grammar missing: tree-sitter-swift.wasm',
+			);
+			expect(consoleWarnSpy).toHaveBeenCalledWith(
+				'  See comment above VENDORED_GRAMMARS for rebuild instructions.',
+			);
+			expect(consoleWarnSpy).toHaveBeenCalledWith(
+				'\n1 vendored grammar(s) missing — syntax-check will skip these languages.',
+			);
 
 			// Verify: Present grammars reported correctly
-			expect(consoleLogSpy).toHaveBeenCalledWith('Vendored: tree-sitter-kotlin.wasm (present)');
-			expect(consoleLogSpy).toHaveBeenCalledWith('Vendored: tree-sitter-dart.wasm (present)');
+			expect(consoleLogSpy).toHaveBeenCalledWith(
+				'Vendored: tree-sitter-kotlin.wasm (present)',
+			);
+			expect(consoleLogSpy).toHaveBeenCalledWith(
+				'Vendored: tree-sitter-dart.wasm (present)',
+			);
 		});
 
 		it('should warn when tree-sitter-kotlin.wasm is missing', () => {
@@ -107,8 +130,12 @@ describe('Vendored Grammar Verification Logic', () => {
 			expect(result.missing).toEqual(['tree-sitter-kotlin.wasm']);
 
 			// Verify: Warning for missing tree-sitter-kotlin.wasm
-			expect(consoleWarnSpy).toHaveBeenCalledWith('Warning: Vendored grammar missing: tree-sitter-kotlin.wasm');
-			expect(consoleWarnSpy).toHaveBeenCalledWith('\n1 vendored grammar(s) missing — syntax-check will skip these languages.');
+			expect(consoleWarnSpy).toHaveBeenCalledWith(
+				'Warning: Vendored grammar missing: tree-sitter-kotlin.wasm',
+			);
+			expect(consoleWarnSpy).toHaveBeenCalledWith(
+				'\n1 vendored grammar(s) missing — syntax-check will skip these languages.',
+			);
 		});
 
 		it('should warn when tree-sitter-dart.wasm is missing', () => {
@@ -122,28 +149,41 @@ describe('Vendored Grammar Verification Logic', () => {
 			expect(result.missing).toEqual(['tree-sitter-dart.wasm']);
 
 			// Verify: Warning for missing tree-sitter-dart.wasm
-			expect(consoleWarnSpy).toHaveBeenCalledWith('Warning: Vendored grammar missing: tree-sitter-dart.wasm');
-			expect(consoleWarnSpy).toHaveBeenCalledWith('\n1 vendored grammar(s) missing — syntax-check will skip these languages.');
+			expect(consoleWarnSpy).toHaveBeenCalledWith(
+				'Warning: Vendored grammar missing: tree-sitter-dart.wasm',
+			);
+			expect(consoleWarnSpy).toHaveBeenCalledWith(
+				'\n1 vendored grammar(s) missing — syntax-check will skip these languages.',
+			);
 		});
 	});
 
 	describe('Two Vendored Grammars Missing', () => {
 		it('should warn when 2 vendored grammar files are missing', () => {
 			// Simulate tree-sitter-kotlin.wasm and tree-sitter-swift.wasm are missing
-			const result = simulateVerification([
-				'tree-sitter-dart.wasm',
-			]);
+			const result = simulateVerification(['tree-sitter-dart.wasm']);
 
 			// Verify: Result shows 2 missing grammars
-			expect(result.missing).toEqual(['tree-sitter-kotlin.wasm', 'tree-sitter-swift.wasm']);
+			expect(result.missing).toEqual([
+				'tree-sitter-kotlin.wasm',
+				'tree-sitter-swift.wasm',
+			]);
 
 			// Verify: Warnings for missing files
-			expect(consoleWarnSpy).toHaveBeenCalledWith('Warning: Vendored grammar missing: tree-sitter-kotlin.wasm');
-			expect(consoleWarnSpy).toHaveBeenCalledWith('Warning: Vendored grammar missing: tree-sitter-swift.wasm');
-			expect(consoleWarnSpy).toHaveBeenCalledWith('\n2 vendored grammar(s) missing — syntax-check will skip these languages.');
+			expect(consoleWarnSpy).toHaveBeenCalledWith(
+				'Warning: Vendored grammar missing: tree-sitter-kotlin.wasm',
+			);
+			expect(consoleWarnSpy).toHaveBeenCalledWith(
+				'Warning: Vendored grammar missing: tree-sitter-swift.wasm',
+			);
+			expect(consoleWarnSpy).toHaveBeenCalledWith(
+				'\n2 vendored grammar(s) missing — syntax-check will skip these languages.',
+			);
 
 			// Verify: Present grammar reported correctly
-			expect(consoleLogSpy).toHaveBeenCalledWith('Vendored: tree-sitter-dart.wasm (present)');
+			expect(consoleLogSpy).toHaveBeenCalledWith(
+				'Vendored: tree-sitter-dart.wasm (present)',
+			);
 		});
 	});
 
@@ -160,13 +200,23 @@ describe('Vendored Grammar Verification Logic', () => {
 			]);
 
 			// Verify: All 3 warnings issued
-			expect(consoleWarnSpy).toHaveBeenCalledWith('Warning: Vendored grammar missing: tree-sitter-kotlin.wasm');
-			expect(consoleWarnSpy).toHaveBeenCalledWith('Warning: Vendored grammar missing: tree-sitter-swift.wasm');
-			expect(consoleWarnSpy).toHaveBeenCalledWith('Warning: Vendored grammar missing: tree-sitter-dart.wasm');
-			expect(consoleWarnSpy).toHaveBeenCalledWith('\n3 vendored grammar(s) missing — syntax-check will skip these languages.');
+			expect(consoleWarnSpy).toHaveBeenCalledWith(
+				'Warning: Vendored grammar missing: tree-sitter-kotlin.wasm',
+			);
+			expect(consoleWarnSpy).toHaveBeenCalledWith(
+				'Warning: Vendored grammar missing: tree-sitter-swift.wasm',
+			);
+			expect(consoleWarnSpy).toHaveBeenCalledWith(
+				'Warning: Vendored grammar missing: tree-sitter-dart.wasm',
+			);
+			expect(consoleWarnSpy).toHaveBeenCalledWith(
+				'\n3 vendored grammar(s) missing — syntax-check will skip these languages.',
+			);
 
 			// Verify: No "present" logs
-			expect(consoleLogSpy).not.toHaveBeenCalledWith(expect.stringContaining('Vendored:'));
+			expect(consoleLogSpy).not.toHaveBeenCalledWith(
+				expect.stringContaining('Vendored:'),
+			);
 		});
 	});
 
@@ -179,10 +229,18 @@ describe('Vendored Grammar Verification Logic', () => {
 			expect(result.missing).toHaveLength(3);
 
 			// Verify: All warnings issued
-			expect(consoleWarnSpy).toHaveBeenCalledWith('Warning: Vendored grammar missing: tree-sitter-kotlin.wasm');
-			expect(consoleWarnSpy).toHaveBeenCalledWith('Warning: Vendored grammar missing: tree-sitter-swift.wasm');
-			expect(consoleWarnSpy).toHaveBeenCalledWith('Warning: Vendored grammar missing: tree-sitter-dart.wasm');
-			expect(consoleWarnSpy).toHaveBeenCalledWith('\n3 vendored grammar(s) missing — syntax-check will skip these languages.');
+			expect(consoleWarnSpy).toHaveBeenCalledWith(
+				'Warning: Vendored grammar missing: tree-sitter-kotlin.wasm',
+			);
+			expect(consoleWarnSpy).toHaveBeenCalledWith(
+				'Warning: Vendored grammar missing: tree-sitter-swift.wasm',
+			);
+			expect(consoleWarnSpy).toHaveBeenCalledWith(
+				'Warning: Vendored grammar missing: tree-sitter-dart.wasm',
+			);
+			expect(consoleWarnSpy).toHaveBeenCalledWith(
+				'\n3 vendored grammar(s) missing — syntax-check will skip these languages.',
+			);
 		});
 
 		it('should correctly handle unexpected grammar names', () => {
@@ -200,26 +258,43 @@ describe('Vendored Grammar Verification Logic', () => {
 			]);
 
 			// Verify: All warnings issued
-			expect(consoleWarnSpy).toHaveBeenCalledWith('Warning: Vendored grammar missing: tree-sitter-kotlin.wasm');
-			expect(consoleWarnSpy).toHaveBeenCalledWith('Warning: Vendored grammar missing: tree-sitter-swift.wasm');
-			expect(consoleWarnSpy).toHaveBeenCalledWith('Warning: Vendored grammar missing: tree-sitter-dart.wasm');
-			expect(consoleWarnSpy).toHaveBeenCalledWith('\n3 vendored grammar(s) missing — syntax-check will skip these languages.');
+			expect(consoleWarnSpy).toHaveBeenCalledWith(
+				'Warning: Vendored grammar missing: tree-sitter-kotlin.wasm',
+			);
+			expect(consoleWarnSpy).toHaveBeenCalledWith(
+				'Warning: Vendored grammar missing: tree-sitter-swift.wasm',
+			);
+			expect(consoleWarnSpy).toHaveBeenCalledWith(
+				'Warning: Vendored grammar missing: tree-sitter-dart.wasm',
+			);
+			expect(consoleWarnSpy).toHaveBeenCalledWith(
+				'\n3 vendored grammar(s) missing — syntax-check will skip these languages.',
+			);
 		});
 
 		it('should handle partial matches correctly', () => {
 			// Simulate partial matches (only 1 of 3 present)
-			const result = simulateVerification([
-				'tree-sitter-kotlin.wasm',
-			]);
+			const result = simulateVerification(['tree-sitter-kotlin.wasm']);
 
 			// Verify: Result shows 2 missing grammars
-			expect(result.missing).toEqual(['tree-sitter-swift.wasm', 'tree-sitter-dart.wasm']);
+			expect(result.missing).toEqual([
+				'tree-sitter-swift.wasm',
+				'tree-sitter-dart.wasm',
+			]);
 
 			// Verify: Correct mix of logs and warnings
-			expect(consoleLogSpy).toHaveBeenCalledWith('Vendored: tree-sitter-kotlin.wasm (present)');
-			expect(consoleWarnSpy).toHaveBeenCalledWith('Warning: Vendored grammar missing: tree-sitter-swift.wasm');
-			expect(consoleWarnSpy).toHaveBeenCalledWith('Warning: Vendored grammar missing: tree-sitter-dart.wasm');
-			expect(consoleWarnSpy).toHaveBeenCalledWith('\n2 vendored grammar(s) missing — syntax-check will skip these languages.');
+			expect(consoleLogSpy).toHaveBeenCalledWith(
+				'Vendored: tree-sitter-kotlin.wasm (present)',
+			);
+			expect(consoleWarnSpy).toHaveBeenCalledWith(
+				'Warning: Vendored grammar missing: tree-sitter-swift.wasm',
+			);
+			expect(consoleWarnSpy).toHaveBeenCalledWith(
+				'Warning: Vendored grammar missing: tree-sitter-dart.wasm',
+			);
+			expect(consoleWarnSpy).toHaveBeenCalledWith(
+				'\n2 vendored grammar(s) missing — syntax-check will skip these languages.',
+			);
 		});
 	});
 
@@ -234,7 +309,9 @@ describe('Vendored Grammar Verification Logic', () => {
 				'tree-sitter-dart.wasm',
 			]);
 			expect(result.missing).toHaveLength(0);
-			expect(consoleWarnSpy).not.toHaveBeenCalledWith(expect.stringContaining('missing'));
+			expect(consoleWarnSpy).not.toHaveBeenCalledWith(
+				expect.stringContaining('missing'),
+			);
 
 			// Clear for next scenario
 			vi.clearAllMocks();
@@ -247,7 +324,9 @@ describe('Vendored Grammar Verification Logic', () => {
 				'tree-sitter-swift.wasm',
 			]);
 			expect(result.missing).toHaveLength(1);
-			expect(consoleWarnSpy).toHaveBeenCalledWith('\n1 vendored grammar(s) missing — syntax-check will skip these languages.');
+			expect(consoleWarnSpy).toHaveBeenCalledWith(
+				'\n1 vendored grammar(s) missing — syntax-check will skip these languages.',
+			);
 
 			// Clear for next scenario
 			vi.clearAllMocks();
@@ -255,11 +334,11 @@ describe('Vendored Grammar Verification Logic', () => {
 			consoleWarnSpy = vi.spyOn(console, 'warn').mockImplementation(() => {});
 
 			// Scenario 3: 2 missing
-			result = simulateVerification([
-				'tree-sitter-kotlin.wasm',
-			]);
+			result = simulateVerification(['tree-sitter-kotlin.wasm']);
 			expect(result.missing).toHaveLength(2);
-			expect(consoleWarnSpy).toHaveBeenCalledWith('\n2 vendored grammar(s) missing — syntax-check will skip these languages.');
+			expect(consoleWarnSpy).toHaveBeenCalledWith(
+				'\n2 vendored grammar(s) missing — syntax-check will skip these languages.',
+			);
 
 			// Clear for next scenario
 			vi.clearAllMocks();
@@ -269,7 +348,9 @@ describe('Vendored Grammar Verification Logic', () => {
 			// Scenario 4: 3 missing
 			result = simulateVerification([]);
 			expect(result.missing).toHaveLength(3);
-			expect(consoleWarnSpy).toHaveBeenCalledWith('\n3 vendored grammar(s) missing — syntax-check will skip these languages.');
+			expect(consoleWarnSpy).toHaveBeenCalledWith(
+				'\n3 vendored grammar(s) missing — syntax-check will skip these languages.',
+			);
 		});
 	});
 
@@ -285,9 +366,15 @@ describe('Vendored Grammar Verification Logic', () => {
 			// Verify our test uses the same list
 			const result = simulateVerification([...VENDORED_GRAMMARS_IN_SOURCE]);
 			expect(result.missing).toHaveLength(0);
-			expect(consoleLogSpy).toHaveBeenCalledWith('Vendored: tree-sitter-kotlin.wasm (present)');
-			expect(consoleLogSpy).toHaveBeenCalledWith('Vendored: tree-sitter-swift.wasm (present)');
-			expect(consoleLogSpy).toHaveBeenCalledWith('Vendored: tree-sitter-dart.wasm (present)');
+			expect(consoleLogSpy).toHaveBeenCalledWith(
+				'Vendored: tree-sitter-kotlin.wasm (present)',
+			);
+			expect(consoleLogSpy).toHaveBeenCalledWith(
+				'Vendored: tree-sitter-swift.wasm (present)',
+			);
+			expect(consoleLogSpy).toHaveBeenCalledWith(
+				'Vendored: tree-sitter-dart.wasm (present)',
+			);
 		});
 	});
 });

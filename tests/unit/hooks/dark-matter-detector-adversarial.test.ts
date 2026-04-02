@@ -11,14 +11,14 @@
  * - Empty/null/undefined content
  */
 
-import { describe, it, expect, beforeEach, afterEach } from 'vitest';
 import * as fs from 'node:fs';
-import * as path from 'node:path';
 import * as os from 'node:os';
+import * as path from 'node:path';
+import { afterEach, beforeEach, describe, expect, it } from 'vitest';
 import {
+	createDarkMatterDetectorHook,
 	parseDarkMatterGaps,
 	readDarkMatterMd,
-	createDarkMatterDetectorHook,
 } from '../../../src/hooks/dark-matter-detector.js';
 
 describe('adversarial: dark-matter-detector', () => {
@@ -47,7 +47,8 @@ describe('adversarial: dark-matter-detector', () => {
 		});
 
 		it('should handle binary-like content', () => {
-			const binaryContent = '\x00\x01\x02\x03\x04\x05\x06\x07\x08\x09\x0a\x0b\x0c\x0d\x0e\x0f';
+			const binaryContent =
+				'\x00\x01\x02\x03\x04\x05\x06\x07\x08\x09\x0a\x0b\x0c\x0d\x0e\x0f';
 			const result = parseDarkMatterGaps(binaryContent);
 			expect(result.unresolved).toHaveLength(0);
 			expect(result.resolved).toHaveLength(0);
@@ -79,21 +80,24 @@ describe('adversarial: dark-matter-detector', () => {
 		});
 
 		it('should handle zero-width characters', () => {
-			const content = '- [ ] \u200B\u200C\u200D\u200E\u200Fitem1\n- [x] \uFEFFitem2';
+			const content =
+				'- [ ] \u200B\u200C\u200D\u200E\u200Fitem1\n- [x] \uFEFFitem2';
 			const result = parseDarkMatterGaps(content);
 			expect(result.unresolved).toHaveLength(1);
 			expect(result.resolved).toHaveLength(1);
 		});
 
 		it('should handle deeply nested brackets in description', () => {
-			const nestedBrackets = '- [ ] item with [[[[]]]] brackets\n- [x] another [[item]]';
+			const nestedBrackets =
+				'- [ ] item with [[[[]]]] brackets\n- [x] another [[item]]';
 			const result = parseDarkMatterGaps(nestedBrackets);
 			expect(result.unresolved).toHaveLength(1);
 			expect(result.resolved).toHaveLength(1);
 		});
 
 		it('should handle checkbox variations', () => {
-			const content = '- [ ] item1\n- [X] item2\n- [x] item3\n- [ ]item4\n- [ ]  item5';
+			const content =
+				'- [ ] item1\n- [X] item2\n- [x] item3\n- [ ]item4\n- [ ]  item5';
 			const result = parseDarkMatterGaps(content);
 			// All should be parsed, regardless of spacing variations
 			expect(result.unresolved.length).toBeGreaterThan(0);
@@ -115,7 +119,8 @@ describe('adversarial: dark-matter-detector', () => {
 		});
 
 		it('should handle XSS-like content in descriptions', () => {
-			const content = '- [ ] <script>alert("xss")</script>\n- [x] "><img src=x onerror=alert(1)> item';
+			const content =
+				'- [ ] <script>alert("xss")</script>\n- [x] "><img src=x onerror=alert(1)> item';
 			const result = parseDarkMatterGaps(content);
 			expect(result.unresolved).toHaveLength(1);
 			expect(result.resolved).toHaveLength(1);
@@ -157,7 +162,8 @@ describe('adversarial: dark-matter-detector', () => {
 		});
 
 		it('should handle checkboxes with HTML entities', () => {
-			const content = '- [ ] &lt;script&gt;item&lt;/script&gt;\n- [x] &amp; test';
+			const content =
+				'- [ ] &lt;script&gt;item&lt;/script&gt;\n- [x] &amp; test';
 			const result = parseDarkMatterGaps(content);
 			expect(result.unresolved).toHaveLength(1);
 			expect(result.resolved).toHaveLength(1);
@@ -230,7 +236,9 @@ describe('adversarial: dark-matter-detector', () => {
 		it('should handle path traversal in directory parameter', async () => {
 			// The actual path validation is in validateSwarmPath
 			// Try reading from a non-existent directory
-			const result = await readDarkMatterMd(path.join(tempDir, '../../../nonexistent'));
+			const result = await readDarkMatterMd(
+				path.join(tempDir, '../../../nonexistent'),
+			);
 			expect(result).toBeNull();
 		});
 	});
@@ -349,7 +357,7 @@ describe('adversarial: dark-matter-detector', () => {
 		});
 
 		it('should handle race conditions with file modifications', async () => {
-			let content = '- [ ] gap1';
+			const content = '- [ ] gap1';
 			fs.writeFileSync(path.join(swarmDir, 'dark-matter.md'), content);
 
 			const hook = createDarkMatterDetectorHook(tempDir);
@@ -360,7 +368,10 @@ describe('adversarial: dark-matter-detector', () => {
 				promises.push(
 					hook({}, {}).then(() => {
 						// Modify file after each call
-						fs.writeFileSync(path.join(swarmDir, 'dark-matter.md'), `- [ ] gap${i}`);
+						fs.writeFileSync(
+							path.join(swarmDir, 'dark-matter.md'),
+							`- [ ] gap${i}`,
+						);
 					}),
 				);
 			}
@@ -458,7 +469,10 @@ describe('adversarial: dark-matter-detector', () => {
 
 	describe('readDarkMatterMd - Boundary conditions', () => {
 		it('should handle file with exactly one gap', async () => {
-			fs.writeFileSync(path.join(swarmDir, 'dark-matter.md'), '- [ ] single gap');
+			fs.writeFileSync(
+				path.join(swarmDir, 'dark-matter.md'),
+				'- [ ] single gap',
+			);
 			const result = await readDarkMatterMd(tempDir);
 			expect(result?.unresolved).toHaveLength(1);
 			expect(result?.resolved).toHaveLength(0);

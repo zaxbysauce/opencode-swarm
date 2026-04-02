@@ -1,11 +1,10 @@
-import { describe, it, expect, beforeEach, afterEach } from 'bun:test';
-import { createSystemEnhancerHook } from '../../../src/hooks/system-enhancer';
-import type { PluginConfig } from '../../../src/config';
-import { resetSwarmState, swarmState } from '../../../src/state';
-import { mkdtemp, writeFile, mkdir } from 'node:fs/promises';
-import { rm } from 'node:fs/promises';
+import { afterEach, beforeEach, describe, expect, it } from 'bun:test';
+import { mkdir, mkdtemp, rm, writeFile } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
+import type { PluginConfig } from '../../../src/config';
+import { createSystemEnhancerHook } from '../../../src/hooks/system-enhancer';
+import { resetSwarmState, swarmState } from '../../../src/state';
 
 describe('v6.7 System Enhancer Decision Drift Detection', () => {
 	let tempDir: string;
@@ -21,14 +20,20 @@ describe('v6.7 System Enhancer Decision Drift Detection', () => {
 		} catch {}
 	});
 
-	async function createSwarmFiles(planContent: string, contextContent: string): Promise<void> {
+	async function createSwarmFiles(
+		planContent: string,
+		contextContent: string,
+	): Promise<void> {
 		const swarmDir = join(tempDir, '.swarm');
 		await mkdir(swarmDir, { recursive: true });
 		await writeFile(join(swarmDir, 'plan.md'), planContent);
 		await writeFile(join(swarmDir, 'context.md'), contextContent);
 	}
 
-	async function invokeHook(config: PluginConfig, sessionID?: string): Promise<string[]> {
+	async function invokeHook(
+		config: PluginConfig,
+		sessionID?: string,
+	): Promise<string[]> {
 		const hooks = createSystemEnhancerHook(config, tempDir);
 		const transform = hooks['experimental.chat.system.transform'] as (
 			input: { sessionID?: string },
@@ -47,7 +52,9 @@ describe('v6.7 System Enhancer Decision Drift Detection', () => {
 	};
 
 	// Helper to create complete automation capabilities
-	const withCapabilities = (decisionDrift: boolean): PluginConfig['automation'] => ({
+	const withCapabilities = (
+		decisionDrift: boolean,
+	): PluginConfig['automation'] => ({
 		mode: 'manual',
 		capabilities: {
 			plan_sync: false,
@@ -71,7 +78,9 @@ describe('v6.7 System Enhancer Decision Drift Detection', () => {
 		};
 
 		const systemOutput = await invokeHook(config);
-		const driftContent = systemOutput.filter((s) => s.includes('DECISION DRIFT'));
+		const driftContent = systemOutput.filter((s) =>
+			s.includes('DECISION DRIFT'),
+		);
 		expect(driftContent).toHaveLength(0);
 	});
 
@@ -90,7 +99,9 @@ describe('v6.7 System Enhancer Decision Drift Detection', () => {
 		swarmState.activeAgent.set('test-session', 'swarm_coder');
 
 		const systemOutput = await invokeHook(config, 'test-session');
-		const driftContent = systemOutput.filter((s) => s.includes('DECISION DRIFT'));
+		const driftContent = systemOutput.filter((s) =>
+			s.includes('DECISION DRIFT'),
+		);
 		expect(driftContent).toHaveLength(0);
 	});
 
@@ -109,7 +120,9 @@ describe('v6.7 System Enhancer Decision Drift Detection', () => {
 		swarmState.activeAgent.set('test-session', 'swarm_architect');
 
 		const systemOutput = await invokeHook(config, 'test-session');
-		const driftContent = systemOutput.filter((s) => s.includes('DECISION DRIFT'));
+		const driftContent = systemOutput.filter((s) =>
+			s.includes('DECISION DRIFT'),
+		);
 		expect(driftContent.length).toBeGreaterThan(0);
 		expect(driftContent[0]).toContain('stale');
 	});
@@ -127,7 +140,9 @@ describe('v6.7 System Enhancer Decision Drift Detection', () => {
 
 		// No active agent set - defaults to architect
 		const systemOutput = await invokeHook(config, 'test-session');
-		const driftContent = systemOutput.filter((s) => s.includes('DECISION DRIFT'));
+		const driftContent = systemOutput.filter((s) =>
+			s.includes('DECISION DRIFT'),
+		);
 		expect(driftContent.length).toBeGreaterThan(0);
 	});
 
@@ -143,7 +158,9 @@ describe('v6.7 System Enhancer Decision Drift Detection', () => {
 		};
 
 		const systemOutput = await invokeHook(config);
-		const driftContent = systemOutput.filter((s) => s.includes('DECISION DRIFT'));
+		const driftContent = systemOutput.filter((s) =>
+			s.includes('DECISION DRIFT'),
+		);
 		expect(driftContent).toHaveLength(0);
 	});
 
@@ -156,7 +173,9 @@ describe('v6.7 System Enhancer Decision Drift Detection', () => {
 
 		const systemOutput = await invokeHook(config);
 		// Should not crash, just not include drift
-		const driftContent = systemOutput.filter((s) => s.includes('DECISION DRIFT'));
+		const driftContent = systemOutput.filter((s) =>
+			s.includes('DECISION DRIFT'),
+		);
 		expect(driftContent).toHaveLength(0);
 	});
 });

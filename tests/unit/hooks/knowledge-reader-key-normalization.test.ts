@@ -17,10 +17,10 @@
  * 6. Case-insensitive match ('phase 3: something' → 'Phase 3')
  */
 
-import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
 import * as fs from 'node:fs';
-import * as path from 'node:path';
 import * as os from 'node:os';
+import * as path from 'node:path';
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 
 // ============================================================================
 // Mocks
@@ -34,14 +34,24 @@ vi.mock('../../../src/hooks/knowledge-store.js', () => ({
 		return intersection.size / union.size;
 	}),
 	normalize: vi.fn((text: string) =>
-		text.toLowerCase().replace(/[^\w\s]/g, ' ').replace(/\s+/g, ' ').trim(),
+		text
+			.toLowerCase()
+			.replace(/[^\w\s]/g, ' ')
+			.replace(/\s+/g, ' ')
+			.trim(),
 	),
 	readKnowledge: vi.fn(async () => []),
 	rewriteKnowledge: vi.fn(async () => {}),
 	resolveSwarmKnowledgePath: vi.fn(() => '/mock/.swarm/knowledge.jsonl'),
 	resolveHiveKnowledgePath: vi.fn(() => '/mock/hive/shared-learnings.jsonl'),
 	wordBigrams: vi.fn((text: string) => {
-		const words = text.toLowerCase().replace(/[^\w\s]/g, ' ').replace(/\s+/g, ' ').trim().split(' ').filter(Boolean);
+		const words = text
+			.toLowerCase()
+			.replace(/[^\w\s]/g, ' ')
+			.replace(/\s+/g, ' ')
+			.trim()
+			.split(' ')
+			.filter(Boolean);
 		const bigrams = new Set<string>();
 		for (let i = 0; i < words.length - 1; i++) {
 			bigrams.add(`${words[i]} ${words[i + 1]}`);
@@ -50,8 +60,11 @@ vi.mock('../../../src/hooks/knowledge-store.js', () => ({
 	}),
 }));
 
-import { readKnowledge, rewriteKnowledge } from '../../../src/hooks/knowledge-store.js';
 import { updateRetrievalOutcome } from '../../../src/hooks/knowledge-reader.js';
+import {
+	readKnowledge,
+	rewriteKnowledge,
+} from '../../../src/hooks/knowledge-store.js';
 
 // ============================================================================
 // Helpers
@@ -61,7 +74,10 @@ let tmpDir: string;
 let shownFile: string;
 
 beforeEach(() => {
-	tmpDir = path.join(os.tmpdir(), `key-norm-test-${Date.now()}-${Math.random().toString(36).slice(2)}`);
+	tmpDir = path.join(
+		os.tmpdir(),
+		`key-norm-test-${Date.now()}-${Math.random().toString(36).slice(2)}`,
+	);
 	fs.mkdirSync(path.join(tmpDir, '.swarm'), { recursive: true });
 	shownFile = path.join(tmpDir, '.swarm', '.knowledge-shown.json');
 	vi.clearAllMocks();
@@ -104,7 +120,11 @@ describe('updateRetrievalOutcome — Phase N key lookup', () => {
 			confidence: 0.7,
 			status: 'candidate',
 			confirmed_by: [],
-			retrieval_outcomes: { applied_count: 0, succeeded_after_count: 0, failed_after_count: 0 },
+			retrieval_outcomes: {
+				applied_count: 0,
+				succeeded_after_count: 0,
+				failed_after_count: 0,
+			},
 			created_at: new Date().toISOString(),
 			updated_at: new Date().toISOString(),
 		};
@@ -114,7 +134,8 @@ describe('updateRetrievalOutcome — Phase N key lookup', () => {
 
 		// rewriteKnowledge should have been called with the updated entry
 		expect(rewriteKnowledge).toHaveBeenCalled();
-		const [, writtenEntries] = (rewriteKnowledge as ReturnType<typeof vi.fn>).mock.calls[0];
+		const [, writtenEntries] = (rewriteKnowledge as ReturnType<typeof vi.fn>)
+			.mock.calls[0];
 		const updated = writtenEntries.find((e: typeof entry) => e.id === lessonId);
 		expect(updated).toBeDefined();
 		expect(updated.retrieval_outcomes.applied_count).toBe(1);
@@ -136,7 +157,11 @@ describe('updateRetrievalOutcome — Phase N key lookup', () => {
 			confidence: 0.6,
 			status: 'candidate',
 			confirmed_by: [],
-			retrieval_outcomes: { applied_count: 2, succeeded_after_count: 1, failed_after_count: 0 },
+			retrieval_outcomes: {
+				applied_count: 2,
+				succeeded_after_count: 1,
+				failed_after_count: 0,
+			},
 			created_at: new Date().toISOString(),
 			updated_at: new Date().toISOString(),
 		};
@@ -144,7 +169,8 @@ describe('updateRetrievalOutcome — Phase N key lookup', () => {
 
 		await updateRetrievalOutcome(tmpDir, 'Phase 2', true);
 
-		const [, writtenEntries] = (rewriteKnowledge as ReturnType<typeof vi.fn>).mock.calls[0];
+		const [, writtenEntries] = (rewriteKnowledge as ReturnType<typeof vi.fn>)
+			.mock.calls[0];
 		const updated = writtenEntries.find((e: typeof entry) => e.id === id);
 		expect(updated.retrieval_outcomes.applied_count).toBe(3); // was 2
 		expect(updated.retrieval_outcomes.succeeded_after_count).toBe(2); // was 1
@@ -165,7 +191,11 @@ describe('updateRetrievalOutcome — Phase N key lookup', () => {
 			confidence: 0.5,
 			status: 'candidate',
 			confirmed_by: [],
-			retrieval_outcomes: { applied_count: 1, succeeded_after_count: 1, failed_after_count: 0 },
+			retrieval_outcomes: {
+				applied_count: 1,
+				succeeded_after_count: 1,
+				failed_after_count: 0,
+			},
 			created_at: new Date().toISOString(),
 			updated_at: new Date().toISOString(),
 		};
@@ -173,7 +203,8 @@ describe('updateRetrievalOutcome — Phase N key lookup', () => {
 
 		await updateRetrievalOutcome(tmpDir, 'Phase 3', false);
 
-		const [, writtenEntries] = (rewriteKnowledge as ReturnType<typeof vi.fn>).mock.calls[0];
+		const [, writtenEntries] = (rewriteKnowledge as ReturnType<typeof vi.fn>)
+			.mock.calls[0];
 		const updated = writtenEntries.find((e: typeof entry) => e.id === id);
 		expect(updated.retrieval_outcomes.applied_count).toBe(2);
 		expect(updated.retrieval_outcomes.failed_after_count).toBe(1);

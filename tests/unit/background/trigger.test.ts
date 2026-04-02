@@ -1,19 +1,13 @@
-import {
-	describe,
-	expect,
-	it,
-	beforeEach,
-	afterEach,
-} from 'bun:test';
+import { afterEach, beforeEach, describe, expect, it } from 'bun:test';
 import * as fs from 'fs';
-import * as path from 'path';
 import { tmpdir } from 'os';
+import * as path from 'path';
+import { resetGlobalEventBus } from '../../../src/background/event-bus';
+import type { AutomationQueue } from '../../../src/background/queue';
 import {
 	PhaseBoundaryTrigger,
 	PreflightTriggerManager,
 } from '../../../src/background/trigger';
-import { resetGlobalEventBus } from '../../../src/background/event-bus';
-import { AutomationQueue } from '../../../src/background/queue';
 
 describe('PhaseBoundaryTrigger', () => {
 	let trigger: PhaseBoundaryTrigger;
@@ -65,7 +59,8 @@ describe('PhaseBoundaryTrigger', () => {
 		expect(boundaryResult.detected).toBe(true);
 
 		// But should not trigger preflight due to threshold
-		const shouldTrigger = triggerWithThreshold.shouldTriggerPreflight(boundaryResult);
+		const shouldTrigger =
+			triggerWithThreshold.shouldTriggerPreflight(boundaryResult);
 		expect(shouldTrigger).toBe(false);
 	});
 
@@ -75,7 +70,8 @@ describe('PhaseBoundaryTrigger', () => {
 		});
 
 		const boundaryResult = triggerWithThreshold.detectBoundary(2, 5, 10);
-		const shouldTrigger = triggerWithThreshold.shouldTriggerPreflight(boundaryResult);
+		const shouldTrigger =
+			triggerWithThreshold.shouldTriggerPreflight(boundaryResult);
 
 		expect(shouldTrigger).toBe(true);
 	});
@@ -87,7 +83,8 @@ describe('PhaseBoundaryTrigger', () => {
 		});
 
 		const boundaryResult = triggerWithZero.detectBoundary(2, 0, 10);
-		const shouldTrigger = triggerWithZero.shouldTriggerPreflight(boundaryResult);
+		const shouldTrigger =
+			triggerWithZero.shouldTriggerPreflight(boundaryResult);
 
 		expect(shouldTrigger).toBe(true);
 	});
@@ -241,16 +238,20 @@ describe('PreflightTriggerManager', () => {
 	});
 
 	it('should not trigger when task threshold not met', async () => {
-		const manager = new PreflightTriggerManager({
-			mode: 'hybrid',
-			capabilities: {
-				phase_preflight: true,
-				plan_sync: false,
-				config_doctor_on_startup: false,
-				evidence_auto_summaries: false,
-				decision_drift_detection: false,
+		const manager = new PreflightTriggerManager(
+			{
+				mode: 'hybrid',
+				capabilities: {
+					phase_preflight: true,
+					plan_sync: false,
+					config_doctor_on_startup: false,
+					evidence_auto_summaries: false,
+					decision_drift_detection: false,
+				},
 			},
-		}, undefined, { minCompletedTasksThreshold: 10 });
+			undefined,
+			{ minCompletedTasksThreshold: 10 },
+		);
 
 		// Only 5 tasks completed, but 10 required
 		const triggered = await manager.checkAndTrigger(2, 5, 10);
@@ -321,17 +322,21 @@ describe('PreflightTriggerManager', () => {
 			// Fill the queue to capacity (100 items by default in PreflightTriggerManager)
 			// The trigger uses 'high' priority, so we need to fill up with high priority items
 			// We'll directly access the queue and fill it
-			const queue = (manager as unknown as { requestQueue: AutomationQueue }).requestQueue;
-			
+			const queue = (manager as unknown as { requestQueue: AutomationQueue })
+				.requestQueue;
+
 			// Fill the queue to max capacity
 			for (let i = 0; i < 100; i++) {
-				queue.enqueue({
-					id: `flood-${i}`,
-					triggeredAt: Date.now(),
-					currentPhase: 1,
-					source: 'phase_boundary',
-					reason: 'test',
-				}, 'high');
+				queue.enqueue(
+					{
+						id: `flood-${i}`,
+						triggeredAt: Date.now(),
+						currentPhase: 1,
+						source: 'phase_boundary',
+						reason: 'test',
+					},
+					'high',
+				);
 			}
 
 			expect(queue.isFull()).toBe(true);
@@ -357,17 +362,21 @@ describe('PreflightTriggerManager', () => {
 				},
 			});
 
-			const queue = (manager as unknown as { requestQueue: AutomationQueue }).requestQueue;
-			
+			const queue = (manager as unknown as { requestQueue: AutomationQueue })
+				.requestQueue;
+
 			// Fill the queue
 			for (let i = 0; i < 100; i++) {
-				queue.enqueue({
-					id: `flood-${i}`,
-					triggeredAt: Date.now(),
-					currentPhase: 1,
-					source: 'phase_boundary',
-					reason: 'test',
-				}, 'high');
+				queue.enqueue(
+					{
+						id: `flood-${i}`,
+						triggeredAt: Date.now(),
+						currentPhase: 1,
+						source: 'phase_boundary',
+						reason: 'test',
+					},
+					'high',
+				);
 			}
 
 			// Should return false gracefully without crashing
@@ -402,7 +411,10 @@ describe('PreflightTriggerManager', () => {
 
 		it('should fail-safe when capabilities is null', () => {
 			// eslint-disable-next-line @typescript-eslint/no-explicit-any
-			const manager = new PreflightTriggerManager({ mode: 'hybrid', capabilities: null } as any);
+			const manager = new PreflightTriggerManager({
+				mode: 'hybrid',
+				capabilities: null,
+			} as any);
 
 			expect(manager.isEnabled()).toBe(false);
 		});

@@ -1,9 +1,9 @@
-import { describe, expect, it, beforeEach } from 'bun:test';
+import { beforeEach, describe, expect, it } from 'bun:test';
 import {
 	getLanguageForExtension,
-	listSupportedLanguages,
 	getParserForFile,
 	isSupportedFile,
+	listSupportedLanguages,
 } from '../../../src/lang/registry';
 import { clearParserCache } from '../../../src/lang/runtime';
 
@@ -66,7 +66,7 @@ describe('Language Registry', () => {
 	describe('listSupportedLanguages', () => {
 		it('should return all supported languages', () => {
 			const languages = listSupportedLanguages();
-			expect(languages.length).toBe(5);
+			expect(languages.length).toBe(6);
 
 			const ids = languages.map((l) => l.id);
 			expect(ids).toContain('javascript');
@@ -215,8 +215,12 @@ describe('Language Registry', () => {
 				const parserLower = await getParserForFile('file.JS');
 				const parserNormal = await getParserForFile('file.js');
 				// Both should either return null or return parser
-				expect(parserLower === null || typeof parserLower === 'object').toBe(true);
-				expect(parserNormal === null || typeof parserNormal === 'object').toBe(true);
+				expect(parserLower === null || typeof parserLower === 'object').toBe(
+					true,
+				);
+				expect(parserNormal === null || typeof parserNormal === 'object').toBe(
+					true,
+				);
 			} catch {
 				expect(false).toBe(true);
 			}
@@ -231,7 +235,7 @@ describe('Language Registry', () => {
 		it('should cache loaded parsers for subsequent calls', async () => {
 			// Get parser for a file
 			const parser1 = await getParserForFile('test.js');
-			
+
 			// If parser was loaded, verify caching by checking cache state
 			if (parser1 !== null) {
 				// Get parser again - should return same cached instance
@@ -243,9 +247,9 @@ describe('Language Registry', () => {
 		it('should cache different language parsers separately', async () => {
 			// Get parser for TypeScript
 			const tsParser = await getParserForFile('test.ts');
-			// Get parser for JavaScript  
+			// Get parser for JavaScript
 			const jsParser = await getParserForFile('test.js');
-			
+
 			if (tsParser !== null && jsParser !== null) {
 				// They should be different instances for different languages
 				expect(tsParser).not.toBe(jsParser);
@@ -255,10 +259,10 @@ describe('Language Registry', () => {
 		it('clearParserCache should enable reloading parsers', async () => {
 			// Get parser first time
 			const parser1 = await getParserForFile('test.js');
-			
+
 			// Clear cache
 			clearParserCache();
-			
+
 			// Get parser again - should work (or return null if no WASM)
 			const parser2 = await getParserForFile('test.js');
 			// parser2 can be null (no WASM) or different instance after cache clear

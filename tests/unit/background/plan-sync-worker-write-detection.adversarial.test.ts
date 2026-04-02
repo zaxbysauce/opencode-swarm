@@ -1,7 +1,15 @@
-import { describe, test, expect, beforeEach, afterEach, mock, mockModule } from 'bun:test';
+import {
+	afterEach,
+	beforeEach,
+	describe,
+	expect,
+	mock,
+	mockModule,
+	test,
+} from 'bun:test';
 import * as fs from 'node:fs';
-import * as path from 'node:path';
 import { tmpdir } from 'node:os';
+import * as path from 'node:path';
 
 // Track log calls for testing
 const logCalls: { message: string; data?: unknown }[] = [];
@@ -28,8 +36,16 @@ mock.module('../../../src/plan/manager', () => ({
 import { PlanSyncWorker } from '../../../src/background/plan-sync-worker';
 
 // Helper to create temp directory structure
-function setupTempDir(): { tempDir: string; swarmDir: string; planJsonPath: string; markerPath: string } {
-	const tempDir = path.join(tmpdir(), `.test-unauthorized-write-adversarial-${Date.now()}-${Math.random().toString(36).slice(2)}`);
+function setupTempDir(): {
+	tempDir: string;
+	swarmDir: string;
+	planJsonPath: string;
+	markerPath: string;
+} {
+	const tempDir = path.join(
+		tmpdir(),
+		`.test-unauthorized-write-adversarial-${Date.now()}-${Math.random().toString(36).slice(2)}`,
+	);
 	const swarmDir = path.join(tempDir, '.swarm');
 	const planJsonPath = path.join(swarmDir, 'plan.json');
 	const markerPath = path.join(swarmDir, '.plan-write-marker');
@@ -57,14 +73,17 @@ function cleanupTempDir(tempDir: string): void {
 
 // Helper to create a valid plan.json
 function createPlanJson(planJsonPath: string): void {
-	fs.writeFileSync(planJsonPath, JSON.stringify({
-		schema_version: '1.0.0',
-		title: 'Test Plan',
-		swarm: 'test-swarm',
-		current_phase: 1,
-		phases: [],
-		migration_status: 'none',
-	}));
+	fs.writeFileSync(
+		planJsonPath,
+		JSON.stringify({
+			schema_version: '1.0.0',
+			title: 'Test Plan',
+			swarm: 'test-swarm',
+			current_phase: 1,
+			phases: [],
+			migration_status: 'none',
+		}),
+	);
 }
 
 describe('checkForUnauthorizedWrite - ADVERSARIAL TESTS', () => {
@@ -96,10 +115,13 @@ describe('checkForUnauthorizedWrite - ADVERSARIAL TESTS', () => {
 			// Create marker with malicious timestamp: "not-a-date"
 			// new Date("not-a-date").getTime() returns NaN
 			// Comparison: planMtime > NaN + 5000 is false
-			fs.writeFileSync(markerPath, JSON.stringify({
-				timestamp: 'not-a-date',
-				source: 'save_plan',
-			}));
+			fs.writeFileSync(
+				markerPath,
+				JSON.stringify({
+					timestamp: 'not-a-date',
+					source: 'save_plan',
+				}),
+			);
 
 			// Call the method - should NOT throw
 			const worker = new PlanSyncWorker({ directory: tempDir });
@@ -108,8 +130,8 @@ describe('checkForUnauthorizedWrite - ADVERSARIAL TESTS', () => {
 			}).not.toThrow();
 
 			// Should NOT have logged any warning about unauthorized write
-			const warningCalls = logCalls.filter(call =>
-				call.message.includes('WARNING')
+			const warningCalls = logCalls.filter((call) =>
+				call.message.includes('WARNING'),
 			);
 			expect(warningCalls.length).toBe(0);
 		});
@@ -122,14 +144,19 @@ describe('checkForUnauthorizedWrite - ADVERSARIAL TESTS', () => {
 
 			// Get current plan.json mtime
 			const planStats = fs.statSync(planJsonPath);
-			
+
 			// Create marker with timestamp 100 years in the future
 			// This simulates an attacker trying to suppress the warning
-			const futureDate = new Date(planStats.mtimeMs + 100 * 365 * 24 * 60 * 60 * 1000);
-			fs.writeFileSync(markerPath, JSON.stringify({
-				timestamp: futureDate.toISOString(),
-				source: 'save_plan',
-			}));
+			const futureDate = new Date(
+				planStats.mtimeMs + 100 * 365 * 24 * 60 * 60 * 1000,
+			);
+			fs.writeFileSync(
+				markerPath,
+				JSON.stringify({
+					timestamp: futureDate.toISOString(),
+					source: 'save_plan',
+				}),
+			);
 
 			// Call the method - should NOT throw
 			const worker = new PlanSyncWorker({ directory: tempDir });
@@ -138,8 +165,8 @@ describe('checkForUnauthorizedWrite - ADVERSARIAL TESTS', () => {
 			}).not.toThrow();
 
 			// Should NOT log warning (plan.json mtime is always less than 100 years in future)
-			const warningCalls = logCalls.filter(call =>
-				call.message.includes('WARNING')
+			const warningCalls = logCalls.filter((call) =>
+				call.message.includes('WARNING'),
 			);
 			expect(warningCalls.length).toBe(0);
 		});
@@ -152,9 +179,12 @@ describe('checkForUnauthorizedWrite - ADVERSARIAL TESTS', () => {
 
 			// Create marker with missing timestamp field
 			// new Date(undefined).getTime() returns NaN
-			fs.writeFileSync(markerPath, JSON.stringify({
-				source: 'save_plan',
-			}));
+			fs.writeFileSync(
+				markerPath,
+				JSON.stringify({
+					source: 'save_plan',
+				}),
+			);
 
 			// Call the method - should NOT throw
 			const worker = new PlanSyncWorker({ directory: tempDir });
@@ -163,8 +193,8 @@ describe('checkForUnauthorizedWrite - ADVERSARIAL TESTS', () => {
 			}).not.toThrow();
 
 			// Should NOT log warning
-			const warningCalls = logCalls.filter(call =>
-				call.message.includes('WARNING')
+			const warningCalls = logCalls.filter((call) =>
+				call.message.includes('WARNING'),
 			);
 			expect(warningCalls.length).toBe(0);
 		});
@@ -178,10 +208,13 @@ describe('checkForUnauthorizedWrite - ADVERSARIAL TESTS', () => {
 			// Create marker with null timestamp
 			// new Date(null).getTime() returns 0
 			// So any plan.json with mtime > 5000 will trigger warning
-			fs.writeFileSync(markerPath, JSON.stringify({
-				timestamp: null,
-				source: 'save_plan',
-			}));
+			fs.writeFileSync(
+				markerPath,
+				JSON.stringify({
+					timestamp: null,
+					source: 'save_plan',
+				}),
+			);
 
 			// Call the method - should NOT throw
 			const worker = new PlanSyncWorker({ directory: tempDir });
@@ -191,22 +224,24 @@ describe('checkForUnauthorizedWrite - ADVERSARIAL TESTS', () => {
 
 			// SHOULD log warning because new Date(null).getTime() = 0
 			// and plan.json mtime (current time) > 5000
-			const warningCalls = logCalls.filter(call =>
-				call.message.includes('WARNING')
+			const warningCalls = logCalls.filter((call) =>
+				call.message.includes('WARNING'),
 			);
 			expect(warningCalls.length).toBe(1);
-			expect(warningCalls[0].message).toContain('unauthorized direct write suspected');
+			expect(warningCalls[0].message).toContain(
+				'unauthorized direct write suspected',
+			);
 		});
 
 		test('documenting expected behavior: null timestamp means marker has no valid time, so any real plan mtime triggers warning', () => {
 			// Verify the underlying behavior: new Date(null).getTime() returns 0
 			expect(new Date(null).getTime()).toBe(0);
 			expect(new Date(0).getTime()).toBe(0);
-			
+
 			// Current timestamp is always > 5000 (we're past 1970)
 			const currentTime = Date.now();
 			expect(currentTime).toBeGreaterThan(5000);
-			
+
 			// Therefore: currentTime > 0 + 5000 = currentTime > 5000 = true
 			expect(currentTime > 0 + 5000).toBe(true);
 		});
@@ -228,8 +263,8 @@ describe('checkForUnauthorizedWrite - ADVERSARIAL TESTS', () => {
 			}).not.toThrow();
 
 			// Should NOT log warning (caught silently)
-			const warningCalls = logCalls.filter(call =>
-				call.message.includes('WARNING')
+			const warningCalls = logCalls.filter((call) =>
+				call.message.includes('WARNING'),
 			);
 			expect(warningCalls.length).toBe(0);
 		});
@@ -252,8 +287,8 @@ describe('checkForUnauthorizedWrite - ADVERSARIAL TESTS', () => {
 			}).not.toThrow();
 
 			// Should NOT log warning (caught silently)
-			const warningCalls = logCalls.filter(call =>
-				call.message.includes('WARNING')
+			const warningCalls = logCalls.filter((call) =>
+				call.message.includes('WARNING'),
 			);
 			expect(warningCalls.length).toBe(0);
 		});
@@ -263,10 +298,13 @@ describe('checkForUnauthorizedWrite - ADVERSARIAL TESTS', () => {
 		test('should complete without error when two concurrent calls on same instance', async () => {
 			// Create plan.json with a marker
 			createPlanJson(planJsonPath);
-			fs.writeFileSync(markerPath, JSON.stringify({
-				timestamp: new Date().toISOString(),
-				source: 'save_plan',
-			}));
+			fs.writeFileSync(
+				markerPath,
+				JSON.stringify({
+					timestamp: new Date().toISOString(),
+					source: 'save_plan',
+				}),
+			);
 
 			const worker = new PlanSyncWorker({ directory: tempDir });
 
@@ -279,28 +317,35 @@ describe('checkForUnauthorizedWrite - ADVERSARIAL TESTS', () => {
 			expect(call2).not.toThrow();
 
 			// Run them truly concurrently using Promise.all
-			await expect(Promise.all([
-				Promise.resolve((worker as any).checkForUnauthorizedWrite()),
-				Promise.resolve((worker as any).checkForUnauthorizedWrite()),
-			])).resolves.toBeDefined();
+			await expect(
+				Promise.all([
+					Promise.resolve((worker as any).checkForUnauthorizedWrite()),
+					Promise.resolve((worker as any).checkForUnauthorizedWrite()),
+				]),
+			).resolves.toBeDefined();
 		});
 
 		test('should complete without error when multiple concurrent calls on different instances', async () => {
 			// Create plan.json and marker
 			createPlanJson(planJsonPath);
-			fs.writeFileSync(markerPath, JSON.stringify({
-				timestamp: new Date().toISOString(),
-				source: 'save_plan',
-			}));
+			fs.writeFileSync(
+				markerPath,
+				JSON.stringify({
+					timestamp: new Date().toISOString(),
+					source: 'save_plan',
+				}),
+			);
 
 			const worker1 = new PlanSyncWorker({ directory: tempDir });
 			const worker2 = new PlanSyncWorker({ directory: tempDir });
 
 			// Execute concurrent calls on different instances
-			await expect(Promise.all([
-				Promise.resolve((worker1 as any).checkForUnauthorizedWrite()),
-				Promise.resolve((worker2 as any).checkForUnauthorizedWrite()),
-			])).resolves.toBeDefined();
+			await expect(
+				Promise.all([
+					Promise.resolve((worker1 as any).checkForUnauthorizedWrite()),
+					Promise.resolve((worker2 as any).checkForUnauthorizedWrite()),
+				]),
+			).resolves.toBeDefined();
 
 			// Both should complete without error
 			expect(() => (worker1 as any).checkForUnauthorizedWrite()).not.toThrow();
@@ -315,10 +360,13 @@ describe('checkForUnauthorizedWrite - ADVERSARIAL TESTS', () => {
 
 			// Create marker with timestamp set to undefined via JSON
 			// Note: JSON.stringify turns undefined to null
-			fs.writeFileSync(markerPath, JSON.stringify({
-				timestamp: undefined,
-				source: 'save_plan',
-			}));
+			fs.writeFileSync(
+				markerPath,
+				JSON.stringify({
+					timestamp: undefined,
+					source: 'save_plan',
+				}),
+			);
 
 			// Call the method - should NOT throw
 			const worker = new PlanSyncWorker({ directory: tempDir });
@@ -328,8 +376,8 @@ describe('checkForUnauthorizedWrite - ADVERSARIAL TESTS', () => {
 
 			// With undefined, JSON.stringify converts to null
 			// So this becomes same as null timestamp case: warning logged
-			const warningCalls = logCalls.filter(call =>
-				call.message.includes('WARNING')
+			const warningCalls = logCalls.filter((call) =>
+				call.message.includes('WARNING'),
 			);
 			// Note: JSON.stringify({timestamp: undefined}) produces {"source":"save_plan"}
 			// So timestamp is actually missing, not null - no warning
@@ -341,10 +389,13 @@ describe('checkForUnauthorizedWrite - ADVERSARIAL TESTS', () => {
 
 			// Create marker with empty string timestamp
 			// new Date("").getTime() returns NaN
-			fs.writeFileSync(markerPath, JSON.stringify({
-				timestamp: '',
-				source: 'save_plan',
-			}));
+			fs.writeFileSync(
+				markerPath,
+				JSON.stringify({
+					timestamp: '',
+					source: 'save_plan',
+				}),
+			);
 
 			// Call the method - should NOT throw
 			const worker = new PlanSyncWorker({ directory: tempDir });
@@ -353,8 +404,8 @@ describe('checkForUnauthorizedWrite - ADVERSARIAL TESTS', () => {
 			}).not.toThrow();
 
 			// Should NOT log warning (NaN comparison)
-			const warningCalls = logCalls.filter(call =>
-				call.message.includes('WARNING')
+			const warningCalls = logCalls.filter((call) =>
+				call.message.includes('WARNING'),
 			);
 			expect(warningCalls.length).toBe(0);
 
@@ -368,10 +419,13 @@ describe('checkForUnauthorizedWrite - ADVERSARIAL TESTS', () => {
 
 			// Create marker with timestamp at epoch (1970-01-01)
 			// new Date(0).getTime() returns 0
-			fs.writeFileSync(markerPath, JSON.stringify({
-				timestamp: '1970-01-01T00:00:00.000Z',
-				source: 'save_plan',
-			}));
+			fs.writeFileSync(
+				markerPath,
+				JSON.stringify({
+					timestamp: '1970-01-01T00:00:00.000Z',
+					source: 'save_plan',
+				}),
+			);
 
 			// Call the method
 			const worker = new PlanSyncWorker({ directory: tempDir });
@@ -380,8 +434,8 @@ describe('checkForUnauthorizedWrite - ADVERSARIAL TESTS', () => {
 			}).not.toThrow();
 
 			// SHOULD log warning because current plan.json mtime > 5000
-			const warningCalls = logCalls.filter(call =>
-				call.message.includes('WARNING')
+			const warningCalls = logCalls.filter((call) =>
+				call.message.includes('WARNING'),
 			);
 			expect(warningCalls.length).toBe(1);
 		});
@@ -392,10 +446,13 @@ describe('checkForUnauthorizedWrite - ADVERSARIAL TESTS', () => {
 
 			// Create marker with numeric timestamp
 			// new Date(1234567890000).getTime() works fine
-			fs.writeFileSync(markerPath, JSON.stringify({
-				timestamp: Date.now(),
-				source: 'save_plan',
-			}));
+			fs.writeFileSync(
+				markerPath,
+				JSON.stringify({
+					timestamp: Date.now(),
+					source: 'save_plan',
+				}),
+			);
 
 			// Call the method - should NOT throw
 			const worker = new PlanSyncWorker({ directory: tempDir });
@@ -404,8 +461,8 @@ describe('checkForUnauthorizedWrite - ADVERSARIAL TESTS', () => {
 			}).not.toThrow();
 
 			// Should NOT log warning (timestamp is recent)
-			const warningCalls = logCalls.filter(call =>
-				call.message.includes('WARNING')
+			const warningCalls = logCalls.filter((call) =>
+				call.message.includes('WARNING'),
 			);
 			expect(warningCalls.length).toBe(0);
 		});
@@ -416,10 +473,13 @@ describe('checkForUnauthorizedWrite - ADVERSARIAL TESTS', () => {
 
 			// Create marker with array instead of timestamp
 			// new Date([...]).getTime() returns NaN
-			fs.writeFileSync(markerPath, JSON.stringify({
-				timestamp: ['invalid'],
-				source: 'save_plan',
-			}));
+			fs.writeFileSync(
+				markerPath,
+				JSON.stringify({
+					timestamp: ['invalid'],
+					source: 'save_plan',
+				}),
+			);
 
 			// Call the method - should NOT throw
 			const worker = new PlanSyncWorker({ directory: tempDir });
@@ -428,8 +488,8 @@ describe('checkForUnauthorizedWrite - ADVERSARIAL TESTS', () => {
 			}).not.toThrow();
 
 			// Should NOT log warning
-			const warningCalls = logCalls.filter(call =>
-				call.message.includes('WARNING')
+			const warningCalls = logCalls.filter((call) =>
+				call.message.includes('WARNING'),
 			);
 			expect(warningCalls.length).toBe(0);
 
@@ -443,10 +503,13 @@ describe('checkForUnauthorizedWrite - ADVERSARIAL TESTS', () => {
 
 			// Create marker with object instead of timestamp
 			// new Date({}).getTime() returns NaN
-			fs.writeFileSync(markerPath, JSON.stringify({
-				timestamp: { invalid: true },
-				source: 'save_plan',
-			}));
+			fs.writeFileSync(
+				markerPath,
+				JSON.stringify({
+					timestamp: { invalid: true },
+					source: 'save_plan',
+				}),
+			);
 
 			// Call the method - should NOT throw
 			const worker = new PlanSyncWorker({ directory: tempDir });
@@ -455,8 +518,8 @@ describe('checkForUnauthorizedWrite - ADVERSARIAL TESTS', () => {
 			}).not.toThrow();
 
 			// Should NOT log warning
-			const warningCalls = logCalls.filter(call =>
-				call.message.includes('WARNING')
+			const warningCalls = logCalls.filter((call) =>
+				call.message.includes('WARNING'),
 			);
 			expect(warningCalls.length).toBe(0);
 		});
@@ -469,10 +532,13 @@ describe('checkForUnauthorizedWrite - ADVERSARIAL TESTS', () => {
 			// new Date(true).getTime() returns 1 (true converts to 1)
 			// new Date(false).getTime() returns 0 (false converts to 0)
 			// Both will trigger warning since plan.json mtime > 5000
-			fs.writeFileSync(markerPath, JSON.stringify({
-				timestamp: false, // Use false to get 0
-				source: 'save_plan',
-			}));
+			fs.writeFileSync(
+				markerPath,
+				JSON.stringify({
+					timestamp: false, // Use false to get 0
+					source: 'save_plan',
+				}),
+			);
 
 			// Call the method - should NOT throw
 			const worker = new PlanSyncWorker({ directory: tempDir });
@@ -482,8 +548,8 @@ describe('checkForUnauthorizedWrite - ADVERSARIAL TESTS', () => {
 
 			// SHOULD log warning because new Date(false).getTime() = 0
 			// and plan.json mtime > 5000
-			const warningCalls = logCalls.filter(call =>
-				call.message.includes('WARNING')
+			const warningCalls = logCalls.filter((call) =>
+				call.message.includes('WARNING'),
 			);
 			expect(warningCalls.length).toBe(1);
 

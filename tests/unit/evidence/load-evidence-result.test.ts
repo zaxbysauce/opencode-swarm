@@ -1,8 +1,11 @@
-import { describe, it, expect, beforeEach, afterEach } from 'bun:test';
-import { mkdtemp, writeFile, mkdir, rm } from 'node:fs/promises';
+import { afterEach, beforeEach, describe, expect, it } from 'bun:test';
+import { mkdir, mkdtemp, rm, writeFile } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
-import { loadEvidence, LoadEvidenceResult } from '../../../src/evidence/manager.js';
+import {
+	type LoadEvidenceResult,
+	loadEvidence,
+} from '../../../src/evidence/manager.js';
 
 // Helper function to write evidence file to a task directory
 async function writeEvidenceFile(
@@ -43,7 +46,10 @@ describe('loadEvidence LoadEvidenceResult discriminated union', () => {
 
 	describe('not_found status', () => {
 		it('returns { status: "not_found" } when evidence directory does not exist at all', async () => {
-			const result: LoadEvidenceResult = await loadEvidence(tempDir, 'nonexistent-task');
+			const result: LoadEvidenceResult = await loadEvidence(
+				tempDir,
+				'nonexistent-task',
+			);
 
 			expect(result.status).toBe('not_found');
 			expect(result).not.toHaveProperty('bundle');
@@ -54,7 +60,10 @@ describe('loadEvidence LoadEvidenceResult discriminated union', () => {
 			const taskDir = join(tempDir, '.swarm', 'evidence', 'task-without-file');
 			await mkdir(taskDir, { recursive: true });
 
-			const result: LoadEvidenceResult = await loadEvidence(tempDir, 'task-without-file');
+			const result: LoadEvidenceResult = await loadEvidence(
+				tempDir,
+				'task-without-file',
+			);
 
 			expect(result.status).toBe('not_found');
 			expect(result).not.toHaveProperty('bundle');
@@ -69,7 +78,10 @@ describe('loadEvidence LoadEvidenceResult discriminated union', () => {
 		it('returns { status: "invalid_schema" } with errors array when JSON is malformed', async () => {
 			await writeEvidenceFile(tempDir, 'bad-json', '{ invalid }');
 
-			const result: LoadEvidenceResult = await loadEvidence(tempDir, 'bad-json');
+			const result: LoadEvidenceResult = await loadEvidence(
+				tempDir,
+				'bad-json',
+			);
 
 			expect(result.status).toBe('invalid_schema');
 			if (result.status === 'invalid_schema') {
@@ -82,7 +94,10 @@ describe('loadEvidence LoadEvidenceResult discriminated union', () => {
 		it('returns { status: "invalid_schema" } with errors array when file is empty string', async () => {
 			await writeEvidenceFile(tempDir, 'empty-file', '');
 
-			const result: LoadEvidenceResult = await loadEvidence(tempDir, 'empty-file');
+			const result: LoadEvidenceResult = await loadEvidence(
+				tempDir,
+				'empty-file',
+			);
 
 			expect(result.status).toBe('invalid_schema');
 			if (result.status === 'invalid_schema') {
@@ -94,7 +109,10 @@ describe('loadEvidence LoadEvidenceResult discriminated union', () => {
 		it('returns { status: "invalid_schema" } with errors array when file contains JSON null', async () => {
 			await writeEvidenceFile(tempDir, 'null-content', 'null');
 
-			const result: LoadEvidenceResult = await loadEvidence(tempDir, 'null-content');
+			const result: LoadEvidenceResult = await loadEvidence(
+				tempDir,
+				'null-content',
+			);
 
 			expect(result.status).toBe('invalid_schema');
 			if (result.status === 'invalid_schema') {
@@ -112,7 +130,10 @@ describe('loadEvidence LoadEvidenceResult discriminated union', () => {
 			});
 			await writeEvidenceFile(tempDir, 'missing-schema-version', bundle);
 
-			const result: LoadEvidenceResult = await loadEvidence(tempDir, 'missing-schema-version');
+			const result: LoadEvidenceResult = await loadEvidence(
+				tempDir,
+				'missing-schema-version',
+			);
 
 			expect(result.status).toBe('invalid_schema');
 			if (result.status === 'invalid_schema') {
@@ -128,7 +149,10 @@ describe('loadEvidence LoadEvidenceResult discriminated union', () => {
 			});
 			await writeEvidenceFile(tempDir, 'missing-timestamps', bundle);
 
-			const result: LoadEvidenceResult = await loadEvidence(tempDir, 'missing-timestamps');
+			const result: LoadEvidenceResult = await loadEvidence(
+				tempDir,
+				'missing-timestamps',
+			);
 
 			expect(result.status).toBe('invalid_schema');
 			if (result.status === 'invalid_schema') {
@@ -153,7 +177,10 @@ describe('loadEvidence LoadEvidenceResult discriminated union', () => {
 			});
 			await writeEvidenceFile(tempDir, 'entries-string', bundle);
 
-			const result: LoadEvidenceResult = await loadEvidence(tempDir, 'entries-string');
+			const result: LoadEvidenceResult = await loadEvidence(
+				tempDir,
+				'entries-string',
+			);
 
 			expect(result.status).toBe('invalid_schema');
 			if (result.status === 'invalid_schema') {
@@ -171,7 +198,10 @@ describe('loadEvidence LoadEvidenceResult discriminated union', () => {
 			const bundle = makeValidBundle('task-empty', []);
 			await writeEvidenceFile(tempDir, 'task-empty', bundle);
 
-			const result: LoadEvidenceResult = await loadEvidence(tempDir, 'task-empty');
+			const result: LoadEvidenceResult = await loadEvidence(
+				tempDir,
+				'task-empty',
+			);
 
 			expect(result.status).toBe('found');
 			if (result.status === 'found') {
@@ -252,7 +282,10 @@ describe('loadEvidence LoadEvidenceResult discriminated union', () => {
 			});
 			await writeEvidenceFile(tempDir, 'task-complete', bundle);
 
-			const result: LoadEvidenceResult = await loadEvidence(tempDir, 'task-complete');
+			const result: LoadEvidenceResult = await loadEvidence(
+				tempDir,
+				'task-complete',
+			);
 
 			expect(result.status).toBe('found');
 			if (result.status === 'found') {
@@ -271,7 +304,10 @@ describe('loadEvidence LoadEvidenceResult discriminated union', () => {
 		it('errors is an array on invalid_schema result', async () => {
 			await writeEvidenceFile(tempDir, 'errors-test-1', '{ invalid }');
 
-			const result: LoadEvidenceResult = await loadEvidence(tempDir, 'errors-test-1');
+			const result: LoadEvidenceResult = await loadEvidence(
+				tempDir,
+				'errors-test-1',
+			);
 
 			expect(result.status).toBe('invalid_schema');
 			if (result.status === 'invalid_schema') {
@@ -289,7 +325,10 @@ describe('loadEvidence LoadEvidenceResult discriminated union', () => {
 			});
 			await writeEvidenceFile(tempDir, 'errors-test-2', bundle);
 
-			const result: LoadEvidenceResult = await loadEvidence(tempDir, 'errors-test-2');
+			const result: LoadEvidenceResult = await loadEvidence(
+				tempDir,
+				'errors-test-2',
+			);
 
 			expect(result.status).toBe('invalid_schema');
 			if (result.status === 'invalid_schema') {
@@ -302,7 +341,10 @@ describe('loadEvidence LoadEvidenceResult discriminated union', () => {
 		it('for malformed JSON, errors[0] is a non-empty string describing the parse error', async () => {
 			await writeEvidenceFile(tempDir, 'errors-test-3', '{ broken json');
 
-			const result: LoadEvidenceResult = await loadEvidence(tempDir, 'errors-test-3');
+			const result: LoadEvidenceResult = await loadEvidence(
+				tempDir,
+				'errors-test-3',
+			);
 
 			expect(result.status).toBe('invalid_schema');
 			if (result.status === 'invalid_schema') {
@@ -313,12 +355,16 @@ describe('loadEvidence LoadEvidenceResult discriminated union', () => {
 
 		it('errors array contains multiple messages when multiple fields fail validation', async () => {
 			const taskId = 'test-multi-error';
-			await writeEvidenceFile(tempDir, taskId, JSON.stringify({
-				schema_version: '1.0.0',
-				task_id: taskId,
-				entries: [],
-				// Missing created_at AND updated_at — should produce 2 errors
-			}));
+			await writeEvidenceFile(
+				tempDir,
+				taskId,
+				JSON.stringify({
+					schema_version: '1.0.0',
+					task_id: taskId,
+					entries: [],
+					// Missing created_at AND updated_at — should produce 2 errors
+				}),
+			);
 			const result = await loadEvidence(tempDir, taskId);
 			expect(result.status).toBe('invalid_schema');
 			if (result.status === 'invalid_schema') {
@@ -336,7 +382,10 @@ describe('loadEvidence LoadEvidenceResult discriminated union', () => {
 			const bundle = makeValidBundle('narrow-found', []);
 			await writeEvidenceFile(tempDir, 'narrow-found', bundle);
 
-			const result: LoadEvidenceResult = await loadEvidence(tempDir, 'narrow-found');
+			const result: LoadEvidenceResult = await loadEvidence(
+				tempDir,
+				'narrow-found',
+			);
 
 			if (result.status === 'found') {
 				// This should compile and work correctly
@@ -348,7 +397,10 @@ describe('loadEvidence LoadEvidenceResult discriminated union', () => {
 		});
 
 		it('after result.status === "not_found", there is no bundle property', async () => {
-			const result: LoadEvidenceResult = await loadEvidence(tempDir, 'nonexistent');
+			const result: LoadEvidenceResult = await loadEvidence(
+				tempDir,
+				'nonexistent',
+			);
 
 			if (result.status === 'not_found') {
 				expect(!('bundle' in result)).toBe(true);
@@ -360,7 +412,10 @@ describe('loadEvidence LoadEvidenceResult discriminated union', () => {
 		it('after result.status === "invalid_schema", there is no bundle property but errors exists', async () => {
 			await writeEvidenceFile(tempDir, 'narrow-invalid', '{ invalid }');
 
-			const result: LoadEvidenceResult = await loadEvidence(tempDir, 'narrow-invalid');
+			const result: LoadEvidenceResult = await loadEvidence(
+				tempDir,
+				'narrow-invalid',
+			);
 
 			if (result.status === 'invalid_schema') {
 				expect(!('bundle' in result)).toBe(true);

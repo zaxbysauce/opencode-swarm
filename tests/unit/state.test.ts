@@ -1,5 +1,23 @@
-import { describe, it, expect, beforeEach } from 'bun:test';
-import { swarmState, resetSwarmState, ToolCallEntry, ToolAggregate, DelegationEntry, startAgentSession, endAgentSession, getAgentSession, ensureAgentSession, updateAgentEventTime, beginInvocation, getActiveWindow, pruneOldWindows, advanceTaskState, getTaskState, type InvocationWindow, type TaskWorkflowState } from '../../src/state';
+import { beforeEach, describe, expect, it } from 'bun:test';
+import {
+	advanceTaskState,
+	beginInvocation,
+	type DelegationEntry,
+	endAgentSession,
+	ensureAgentSession,
+	getActiveWindow,
+	getAgentSession,
+	getTaskState,
+	type InvocationWindow,
+	pruneOldWindows,
+	resetSwarmState,
+	startAgentSession,
+	swarmState,
+	type TaskWorkflowState,
+	type ToolAggregate,
+	type ToolCallEntry,
+	updateAgentEventTime,
+} from '../../src/state';
 
 describe('state module', () => {
 	beforeEach(() => {
@@ -39,13 +57,13 @@ describe('state module', () => {
 			tool: 'test-tool',
 			sessionID: 'session-123',
 			callID: 'call-456',
-			startTime: Date.now()
+			startTime: Date.now(),
 		};
 
 		it('should set and get ToolCallEntry correctly', () => {
 			const key = 'test-key';
 			swarmState.activeToolCalls.set(key, mockToolCall);
-			
+
 			const retrieved = swarmState.activeToolCalls.get(key);
 			expect(retrieved).toEqual(mockToolCall);
 			expect(swarmState.activeToolCalls.size).toBe(1);
@@ -55,7 +73,7 @@ describe('state module', () => {
 			const key = 'test-key';
 			swarmState.activeToolCalls.set(key, mockToolCall);
 			expect(swarmState.activeToolCalls.size).toBe(1);
-			
+
 			swarmState.activeToolCalls.delete(key);
 			expect(swarmState.activeToolCalls.size).toBe(0);
 			expect(swarmState.activeToolCalls.get(key)).toBeUndefined();
@@ -64,7 +82,7 @@ describe('state module', () => {
 		it('should store entries with correct ToolCallEntry shape', () => {
 			const key = 'test-key';
 			swarmState.activeToolCalls.set(key, mockToolCall);
-			
+
 			const entry = swarmState.activeToolCalls.get(key)!;
 			expect(entry.tool).toBe('test-tool');
 			expect(entry.sessionID).toBe('session-123');
@@ -80,13 +98,13 @@ describe('state module', () => {
 			count: 5,
 			successCount: 4,
 			failureCount: 1,
-			totalDuration: 1000
+			totalDuration: 1000,
 		};
 
 		it('should set and get ToolAggregate correctly', () => {
 			const key = 'aggregate-key';
 			swarmState.toolAggregates.set(key, mockAggregate);
-			
+
 			const retrieved = swarmState.toolAggregates.get(key);
 			expect(retrieved).toEqual(mockAggregate);
 			expect(swarmState.toolAggregates.size).toBe(1);
@@ -95,7 +113,7 @@ describe('state module', () => {
 		it('should store entries with correct ToolAggregate shape', () => {
 			const key = 'aggregate-key';
 			swarmState.toolAggregates.set(key, mockAggregate);
-			
+
 			const entry = swarmState.toolAggregates.get(key)!;
 			expect(entry.tool).toBe('test-aggregate-tool');
 			expect(entry.count).toBe(5);
@@ -107,13 +125,13 @@ describe('state module', () => {
 		it('should update existing entries', () => {
 			const key = 'aggregate-key';
 			swarmState.toolAggregates.set(key, mockAggregate);
-			
+
 			const updatedAggregate: ToolAggregate = {
 				...mockAggregate,
 				count: 10,
-				successCount: 8
+				successCount: 8,
 			};
-			
+
 			swarmState.toolAggregates.set(key, updatedAggregate);
 			expect(swarmState.toolAggregates.get(key)?.count).toBe(10);
 			expect(swarmState.toolAggregates.get(key)?.successCount).toBe(8);
@@ -125,7 +143,7 @@ describe('state module', () => {
 		it('should set and get session→agent mapping', () => {
 			const sessionId = 'session-abc';
 			const agentId = 'agent-xyz';
-			
+
 			swarmState.activeAgent.set(sessionId, agentId);
 			expect(swarmState.activeAgent.get(sessionId)).toBe(agentId);
 			expect(swarmState.activeAgent.size).toBe(1);
@@ -134,9 +152,9 @@ describe('state module', () => {
 		it('should support has() method for session→agent mapping', () => {
 			const sessionId = 'session-abc';
 			const agentId = 'agent-xyz';
-			
+
 			expect(swarmState.activeAgent.has(sessionId)).toBe(false);
-			
+
 			swarmState.activeAgent.set(sessionId, agentId);
 			expect(swarmState.activeAgent.has(sessionId)).toBe(true);
 		});
@@ -145,10 +163,10 @@ describe('state module', () => {
 			const sessionId = 'session-abc';
 			const agentId1 = 'agent-xyz';
 			const agentId2 = 'agent-def';
-			
+
 			swarmState.activeAgent.set(sessionId, agentId1);
 			expect(swarmState.activeAgent.get(sessionId)).toBe(agentId1);
-			
+
 			swarmState.activeAgent.set(sessionId, agentId2);
 			expect(swarmState.activeAgent.get(sessionId)).toBe(agentId2);
 			expect(swarmState.activeAgent.size).toBe(1);
@@ -158,7 +176,7 @@ describe('state module', () => {
 			swarmState.activeAgent.set('session-1', 'agent-1');
 			swarmState.activeAgent.set('session-2', 'agent-2');
 			swarmState.activeAgent.set('session-3', 'agent-3');
-			
+
 			expect(swarmState.activeAgent.get('session-1')).toBe('agent-1');
 			expect(swarmState.activeAgent.get('session-2')).toBe('agent-2');
 			expect(swarmState.activeAgent.get('session-3')).toBe('agent-3');
@@ -170,16 +188,16 @@ describe('state module', () => {
 		const mockDelegation: DelegationEntry = {
 			from: 'agent-from',
 			to: 'agent-to',
-			timestamp: Date.now()
+			timestamp: Date.now(),
 		};
 
 		it('should set and get arrays of DelegationEntry', () => {
 			const chainId = 'chain-123';
 			const chain = [mockDelegation];
-			
+
 			swarmState.delegationChains.set(chainId, chain);
 			const retrieved = swarmState.delegationChains.get(chainId);
-			
+
 			expect(retrieved).toEqual(chain);
 			expect(Array.isArray(retrieved)).toBe(true);
 			expect(swarmState.delegationChains.size).toBe(1);
@@ -188,7 +206,7 @@ describe('state module', () => {
 		it('should store entries with correct DelegationEntry shape', () => {
 			const chainId = 'chain-123';
 			swarmState.delegationChains.set(chainId, [mockDelegation]);
-			
+
 			const entry = swarmState.delegationChains.get(chainId)![0];
 			expect(entry.from).toBe('agent-from');
 			expect(entry.to).toBe('agent-to');
@@ -203,25 +221,29 @@ describe('state module', () => {
 				{
 					from: 'agent-to',
 					to: 'agent-final',
-					timestamp: Date.now()
-				}
+					timestamp: Date.now(),
+				},
 			];
-			
+
 			swarmState.delegationChains.set(chainId, chain);
 			const retrieved = swarmState.delegationChains.get(chainId);
-			
+
 			expect(retrieved?.length).toBe(2);
 			expect(retrieved?.[0].from).toBe('agent-from');
 			expect(retrieved?.[1].to).toBe('agent-final');
 		});
 
 		it('should support multiple delegation chains', () => {
-			const chain1: DelegationEntry[] = [{ from: 'a', to: 'b', timestamp: Date.now() }];
-			const chain2: DelegationEntry[] = [{ from: 'c', to: 'd', timestamp: Date.now() }];
-			
+			const chain1: DelegationEntry[] = [
+				{ from: 'a', to: 'b', timestamp: Date.now() },
+			];
+			const chain2: DelegationEntry[] = [
+				{ from: 'c', to: 'd', timestamp: Date.now() },
+			];
+
 			swarmState.delegationChains.set('chain-1', chain1);
 			swarmState.delegationChains.set('chain-2', chain2);
-			
+
 			expect(swarmState.delegationChains.size).toBe(2);
 			expect(swarmState.delegationChains.get('chain-1')).toEqual(chain1);
 			expect(swarmState.delegationChains.get('chain-2')).toEqual(chain2);
@@ -236,7 +258,7 @@ describe('state module', () => {
 		it('should increment correctly', () => {
 			swarmState.pendingEvents = 1;
 			expect(swarmState.pendingEvents).toBe(1);
-			
+
 			swarmState.pendingEvents = 5;
 			expect(swarmState.pendingEvents).toBe(5);
 		});
@@ -254,37 +276,39 @@ describe('state module', () => {
 				tool: 'test-tool',
 				sessionID: 'session-1',
 				callID: 'call-1',
-				startTime: Date.now()
+				startTime: Date.now(),
 			});
-			
+
 			swarmState.toolAggregates.set('key2', {
 				tool: 'test-aggregate-tool',
 				count: 5,
 				successCount: 4,
 				failureCount: 1,
-				totalDuration: 1000
+				totalDuration: 1000,
 			});
-			
+
 			swarmState.activeAgent.set('session-1', 'agent-1');
-			
-			swarmState.delegationChains.set('chain-1', [{
-				from: 'agent-from',
-				to: 'agent-to',
-				timestamp: Date.now()
-			}]);
-			
+
+			swarmState.delegationChains.set('chain-1', [
+				{
+					from: 'agent-from',
+					to: 'agent-to',
+					timestamp: Date.now(),
+				},
+			]);
+
 			swarmState.pendingEvents = 10;
-			
+
 			// Verify data was added
 			expect(swarmState.activeToolCalls.size).toBe(1);
 			expect(swarmState.toolAggregates.size).toBe(1);
 			expect(swarmState.activeAgent.size).toBe(1);
 			expect(swarmState.delegationChains.size).toBe(1);
 			expect(swarmState.pendingEvents).toBe(10);
-			
+
 			// Reset
 			resetSwarmState();
-			
+
 			// Verify all data was cleared
 			expect(swarmState.activeToolCalls.size).toBe(0);
 			expect(swarmState.toolAggregates.size).toBe(0);
@@ -299,24 +323,24 @@ describe('state module', () => {
 				tool: 'test-tool',
 				sessionID: 'session-1',
 				callID: 'call-1',
-				startTime: Date.now()
+				startTime: Date.now(),
 			});
 			swarmState.pendingEvents = 5;
-			
+
 			// First reset
 			resetSwarmState();
 			expect(swarmState.pendingEvents).toBe(0);
 			expect(swarmState.activeToolCalls.size).toBe(0);
-			
+
 			// Second reset - should not cause any issues
 			resetSwarmState();
 			expect(swarmState.pendingEvents).toBe(0);
 			expect(swarmState.activeToolCalls.size).toBe(0);
-			
+
 			// Add data again and reset again
 			swarmState.pendingEvents = 3;
 			swarmState.activeAgent.set('session-1', 'agent-1');
-			
+
 			resetSwarmState();
 			expect(swarmState.pendingEvents).toBe(0);
 			expect(swarmState.activeAgent.size).toBe(0);
@@ -330,7 +354,7 @@ describe('state module', () => {
 				tool: 'test-tool',
 				sessionID: 'session-1',
 				callID: 'call-1',
-				startTime: Date.now()
+				startTime: Date.now(),
 			});
 
 			swarmState.toolAggregates.set('key2', {
@@ -338,16 +362,18 @@ describe('state module', () => {
 				count: 5,
 				successCount: 4,
 				failureCount: 1,
-				totalDuration: 1000
+				totalDuration: 1000,
 			});
 
 			swarmState.activeAgent.set('session-1', 'agent-1');
 
-			swarmState.delegationChains.set('chain-1', [{
-				from: 'agent-from',
-				to: 'agent-to',
-				timestamp: Date.now()
-			}]);
+			swarmState.delegationChains.set('chain-1', [
+				{
+					from: 'agent-from',
+					to: 'agent-to',
+					timestamp: Date.now(),
+				},
+			]);
 
 			swarmState.pendingEvents = 10;
 
@@ -515,45 +541,45 @@ describe('state module', () => {
 			expect(session.agentName).toBe('paid_architect');
 		});
 
-	it('updates agent name when switching from non-unknown to different agent', () => {
-		ensureAgentSession('test-session', 'architect');
-		const session = ensureAgentSession('test-session', 'coder');
-		expect(session.agentName).toBe('coder'); // Should change
-	});
+		it('updates agent name when switching from non-unknown to different agent', () => {
+			ensureAgentSession('test-session', 'architect');
+			const session = ensureAgentSession('test-session', 'coder');
+			expect(session.agentName).toBe('coder'); // Should change
+		});
 
-	it('updates session metadata when switching agents', () => {
-		// Start with architect
-		const session = ensureAgentSession('test-session', 'architect');
+		it('updates session metadata when switching agents', () => {
+			// Start with architect
+			const session = ensureAgentSession('test-session', 'architect');
 
-		// Switch to coder
-		ensureAgentSession('test-session', 'coder');
+			// Switch to coder
+			ensureAgentSession('test-session', 'coder');
 
-		// Session metadata should be updated
-		expect(session.agentName).toBe('coder');
-		expect(session.delegationActive).toBe(false);
-		expect(session.windows).toEqual({});
-		expect(session.activeInvocationId).toBe(0);
-		expect(session.lastInvocationIdByAgent).toEqual({});
-	});
+			// Session metadata should be updated
+			expect(session.agentName).toBe('coder');
+			expect(session.delegationActive).toBe(false);
+			expect(session.windows).toEqual({});
+			expect(session.activeInvocationId).toBe(0);
+			expect(session.lastInvocationIdByAgent).toEqual({});
+		});
 
-	it('initializes window tracking when updating from unknown', () => {
-		const session = ensureAgentSession('test-session'); // unknown
+		it('initializes window tracking when updating from unknown', () => {
+			const session = ensureAgentSession('test-session'); // unknown
 
-		ensureAgentSession('test-session', 'architect');
-		expect(session.agentName).toBe('architect');
-		expect(session.windows).toEqual({});
-		expect(session.activeInvocationId).toBe(0);
-	});
+			ensureAgentSession('test-session', 'architect');
+			expect(session.agentName).toBe('architect');
+			expect(session.windows).toEqual({});
+			expect(session.activeInvocationId).toBe(0);
+		});
 
-	it('initializes window tracking when switching from unknown to real agent', () => {
-		const session = ensureAgentSession('test-session'); // unknown
+		it('initializes window tracking when switching from unknown to real agent', () => {
+			const session = ensureAgentSession('test-session'); // unknown
 
-		ensureAgentSession('test-session', 'architect');
-		expect(session.agentName).toBe('architect');
-		expect(session.windows).toEqual({});
-		expect(session.activeInvocationId).toBe(0);
-		expect(session.lastInvocationIdByAgent).toEqual({});
-	});
+			ensureAgentSession('test-session', 'architect');
+			expect(session.agentName).toBe('architect');
+			expect(session.windows).toEqual({});
+			expect(session.activeInvocationId).toBe(0);
+			expect(session.lastInvocationIdByAgent).toEqual({});
+		});
 
 		it('returns same session object for same sessionID', () => {
 			const s1 = ensureAgentSession('same-id', 'architect');
@@ -639,7 +665,7 @@ describe('state module', () => {
 
 			it('returns current state after advanceTaskState sets it', () => {
 				const session = getAgentSession(sessionId)!;
-				
+
 				advanceTaskState(session, 'task-1', 'coder_delegated');
 				expect(getTaskState(session, 'task-1')).toBe('coder_delegated');
 
@@ -675,28 +701,38 @@ describe('state module', () => {
 
 			describe('advanceTaskState returns without mutation for invalid taskId', () => {
 				it('returns without throwing for null taskId', () => {
-					expect(() => advanceTaskState(session, null as any, 'coder_delegated')).not.toThrow();
+					expect(() =>
+						advanceTaskState(session, null as any, 'coder_delegated'),
+					).not.toThrow();
 					// Verify no entry was added
 					expect(session.taskWorkflowStates.size).toBe(0);
 				});
 
 				it('returns without throwing for undefined taskId', () => {
-					expect(() => advanceTaskState(session, undefined as any, 'coder_delegated')).not.toThrow();
+					expect(() =>
+						advanceTaskState(session, undefined as any, 'coder_delegated'),
+					).not.toThrow();
 					expect(session.taskWorkflowStates.size).toBe(0);
 				});
 
 				it('returns without throwing for empty string taskId', () => {
-					expect(() => advanceTaskState(session, '', 'coder_delegated')).not.toThrow();
+					expect(() =>
+						advanceTaskState(session, '', 'coder_delegated'),
+					).not.toThrow();
 					expect(session.taskWorkflowStates.size).toBe(0);
 				});
 
 				it('returns without throwing for whitespace-only taskId', () => {
-					expect(() => advanceTaskState(session, '   ', 'coder_delegated')).not.toThrow();
+					expect(() =>
+						advanceTaskState(session, '   ', 'coder_delegated'),
+					).not.toThrow();
 					expect(session.taskWorkflowStates.size).toBe(0);
 				});
 
 				it('returns without throwing for tab/newline taskId', () => {
-					expect(() => advanceTaskState(session, '\t\n', 'coder_delegated')).not.toThrow();
+					expect(() =>
+						advanceTaskState(session, '\t\n', 'coder_delegated'),
+					).not.toThrow();
 					expect(session.taskWorkflowStates.size).toBe(0);
 				});
 
@@ -722,14 +758,18 @@ describe('state module', () => {
 		describe('advanceTaskState valid forward transitions', () => {
 			it('idle → coder_delegated succeeds', () => {
 				const session = getAgentSession(sessionId)!;
-				expect(() => advanceTaskState(session, 'task-1', 'coder_delegated')).not.toThrow();
+				expect(() =>
+					advanceTaskState(session, 'task-1', 'coder_delegated'),
+				).not.toThrow();
 				expect(getTaskState(session, 'task-1')).toBe('coder_delegated');
 			});
 
 			it('coder_delegated → pre_check_passed succeeds', () => {
 				const session = getAgentSession(sessionId)!;
 				advanceTaskState(session, 'task-1', 'coder_delegated');
-				expect(() => advanceTaskState(session, 'task-1', 'pre_check_passed')).not.toThrow();
+				expect(() =>
+					advanceTaskState(session, 'task-1', 'pre_check_passed'),
+				).not.toThrow();
 				expect(getTaskState(session, 'task-1')).toBe('pre_check_passed');
 			});
 
@@ -737,7 +777,9 @@ describe('state module', () => {
 				const session = getAgentSession(sessionId)!;
 				advanceTaskState(session, 'task-1', 'coder_delegated');
 				advanceTaskState(session, 'task-1', 'pre_check_passed');
-				expect(() => advanceTaskState(session, 'task-1', 'reviewer_run')).not.toThrow();
+				expect(() =>
+					advanceTaskState(session, 'task-1', 'reviewer_run'),
+				).not.toThrow();
 				expect(getTaskState(session, 'task-1')).toBe('reviewer_run');
 			});
 
@@ -746,7 +788,9 @@ describe('state module', () => {
 				advanceTaskState(session, 'task-1', 'coder_delegated');
 				advanceTaskState(session, 'task-1', 'pre_check_passed');
 				advanceTaskState(session, 'task-1', 'reviewer_run');
-				expect(() => advanceTaskState(session, 'task-1', 'tests_run')).not.toThrow();
+				expect(() =>
+					advanceTaskState(session, 'task-1', 'tests_run'),
+				).not.toThrow();
 				expect(getTaskState(session, 'task-1')).toBe('tests_run');
 			});
 
@@ -756,7 +800,9 @@ describe('state module', () => {
 				advanceTaskState(session, 'task-1', 'pre_check_passed');
 				advanceTaskState(session, 'task-1', 'reviewer_run');
 				advanceTaskState(session, 'task-1', 'tests_run');
-				expect(() => advanceTaskState(session, 'task-1', 'complete')).not.toThrow();
+				expect(() =>
+					advanceTaskState(session, 'task-1', 'complete'),
+				).not.toThrow();
 				expect(getTaskState(session, 'task-1')).toBe('complete');
 			});
 		});
@@ -764,20 +810,26 @@ describe('state module', () => {
 		describe('advanceTaskState skips forward (valid)', () => {
 			it('idle → reviewer_run succeeds (skips states)', () => {
 				const session = getAgentSession(sessionId)!;
-				expect(() => advanceTaskState(session, 'task-1', 'reviewer_run')).not.toThrow();
+				expect(() =>
+					advanceTaskState(session, 'task-1', 'reviewer_run'),
+				).not.toThrow();
 				expect(getTaskState(session, 'task-1')).toBe('reviewer_run');
 			});
 
 			it('idle → complete throws (must pass through tests_run)', () => {
 				const session = getAgentSession(sessionId)!;
 				expect(() => advanceTaskState(session, 'task-1', 'complete')).toThrow();
-				expect(() => advanceTaskState(session, 'task-1', 'complete')).toThrow(/INVALID_TASK_STATE_TRANSITION/);
+				expect(() => advanceTaskState(session, 'task-1', 'complete')).toThrow(
+					/INVALID_TASK_STATE_TRANSITION/,
+				);
 			});
 
 			it('coder_delegated → tests_run succeeds (skips reviewer_run)', () => {
 				const session = getAgentSession(sessionId)!;
 				advanceTaskState(session, 'task-1', 'coder_delegated');
-				expect(() => advanceTaskState(session, 'task-1', 'tests_run')).not.toThrow();
+				expect(() =>
+					advanceTaskState(session, 'task-1', 'tests_run'),
+				).not.toThrow();
 				expect(getTaskState(session, 'task-1')).toBe('tests_run');
 			});
 		});
@@ -789,22 +841,32 @@ describe('state module', () => {
 				advanceTaskState(session, 'task-1', 'pre_check_passed');
 				advanceTaskState(session, 'task-1', 'reviewer_run');
 
-				expect(() => advanceTaskState(session, 'task-1', 'coder_delegated')).toThrow();
-				expect(() => advanceTaskState(session, 'task-1', 'coder_delegated')).toThrow(/INVALID_TASK_STATE_TRANSITION/);
+				expect(() =>
+					advanceTaskState(session, 'task-1', 'coder_delegated'),
+				).toThrow();
+				expect(() =>
+					advanceTaskState(session, 'task-1', 'coder_delegated'),
+				).toThrow(/INVALID_TASK_STATE_TRANSITION/);
 			});
 
 			it('throws on same-state transition (coder_delegated → coder_delegated)', () => {
 				const session = getAgentSession(sessionId)!;
 				advanceTaskState(session, 'task-1', 'coder_delegated');
 
-				expect(() => advanceTaskState(session, 'task-1', 'coder_delegated')).toThrow();
-				expect(() => advanceTaskState(session, 'task-1', 'coder_delegated')).toThrow(/INVALID_TASK_STATE_TRANSITION/);
+				expect(() =>
+					advanceTaskState(session, 'task-1', 'coder_delegated'),
+				).toThrow();
+				expect(() =>
+					advanceTaskState(session, 'task-1', 'coder_delegated'),
+				).toThrow(/INVALID_TASK_STATE_TRANSITION/);
 			});
 
 			it('throws on idle → idle (same state)', () => {
 				const session = getAgentSession(sessionId)!;
 				expect(() => advanceTaskState(session, 'task-1', 'idle')).toThrow();
-				expect(() => advanceTaskState(session, 'task-1', 'idle')).toThrow(/INVALID_TASK_STATE_TRANSITION/);
+				expect(() => advanceTaskState(session, 'task-1', 'idle')).toThrow(
+					/INVALID_TASK_STATE_TRANSITION/,
+				);
 			});
 
 			it('throws on complete → tests_run (backward)', () => {
@@ -816,8 +878,12 @@ describe('state module', () => {
 				advanceTaskState(session, 'task-1', 'tests_run');
 				advanceTaskState(session, 'task-1', 'complete');
 
-				expect(() => advanceTaskState(session, 'task-1', 'tests_run')).toThrow();
-				expect(() => advanceTaskState(session, 'task-1', 'tests_run')).toThrow(/INVALID_TASK_STATE_TRANSITION/);
+				expect(() =>
+					advanceTaskState(session, 'task-1', 'tests_run'),
+				).toThrow();
+				expect(() => advanceTaskState(session, 'task-1', 'tests_run')).toThrow(
+					/INVALID_TASK_STATE_TRANSITION/,
+				);
 			});
 		});
 
@@ -850,10 +916,10 @@ describe('state module', () => {
 				const session = ensureAgentSession('migration-session', 'architect');
 				// @ts-expect-error - deliberately removing field to test migration
 				delete session.taskWorkflowStates;
-				
+
 				// Now call ensureAgentSession again - should initialize it
 				const migratedSession = ensureAgentSession('migration-session');
-				
+
 				expect(migratedSession.taskWorkflowStates).toBeInstanceOf(Map);
 			});
 
@@ -861,9 +927,9 @@ describe('state module', () => {
 				const session = ensureAgentSession('migration-session2', 'architect');
 				// @ts-expect-error - deliberately setting to null to test migration
 				session.taskWorkflowStates = null;
-				
+
 				const migratedSession = ensureAgentSession('migration-session2');
-				
+
 				expect(migratedSession.taskWorkflowStates).toBeInstanceOf(Map);
 			});
 		});
@@ -871,17 +937,17 @@ describe('state module', () => {
 		describe('multiple tasks tracked independently', () => {
 			it('advancing task A does not affect task B', () => {
 				const session = getAgentSession(sessionId)!;
-				
+
 				// Advance task A
 				advanceTaskState(session, 'task-A', 'coder_delegated');
 				advanceTaskState(session, 'task-A', 'pre_check_passed');
-				
+
 				// Task B should still be idle
 				expect(getTaskState(session, 'task-B')).toBe('idle');
-				
+
 				// Advance task B independently
 				advanceTaskState(session, 'task-B', 'tests_run');
-				
+
 				// Verify each task has its own state
 				expect(getTaskState(session, 'task-A')).toBe('pre_check_passed');
 				expect(getTaskState(session, 'task-B')).toBe('tests_run');
@@ -889,24 +955,24 @@ describe('state module', () => {
 
 			it('full workflow for multiple tasks', () => {
 				const session = getAgentSession(sessionId)!;
-				
+
 				// Task 1: full workflow
 				advanceTaskState(session, 'task-1', 'coder_delegated');
 				advanceTaskState(session, 'task-1', 'pre_check_passed');
 				advanceTaskState(session, 'task-1', 'reviewer_run');
 				advanceTaskState(session, 'task-1', 'tests_run');
 				advanceTaskState(session, 'task-1', 'complete');
-				
+
 				// Task 2: partial workflow
 				advanceTaskState(session, 'task-2', 'coder_delegated');
 				advanceTaskState(session, 'task-2', 'pre_check_passed');
-				
+
 				// Verify task 1 is complete
 				expect(getTaskState(session, 'task-1')).toBe('complete');
-				
+
 				// Verify task 2 is at pre_check_passed
 				expect(getTaskState(session, 'task-2')).toBe('pre_check_passed');
-				
+
 				// Task 3 hasn't been touched
 				expect(getTaskState(session, 'task-3')).toBe('idle');
 			});

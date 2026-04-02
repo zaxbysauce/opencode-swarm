@@ -1,4 +1,4 @@
-import { describe, test, expect } from 'bun:test';
+import { describe, expect, test } from 'bun:test';
 import {
 	formatContinuationPrompt,
 	type HandoffData,
@@ -214,7 +214,9 @@ describe('formatContinuationPrompt', () => {
 			};
 
 			const result = formatContinuationPrompt(data);
-			const withoutFence = result.replace(/^```markdown\n/, '').replace(/\n```$/, '');
+			const withoutFence = result
+				.replace(/^```markdown\n/, '')
+				.replace(/\n```$/, '');
 
 			expect(withoutFence).toContain('**Phase**: Phase 1: Test');
 			expect(withoutFence).toContain('**Current Task**: 1.1');

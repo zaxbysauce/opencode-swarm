@@ -1,5 +1,9 @@
-import { describe, test, expect } from 'bun:test';
-import { TOOL_NAMES, TOOL_NAME_SET, ToolName } from '../../../src/tools/tool-names';
+import { describe, expect, test } from 'bun:test';
+import {
+	TOOL_NAME_SET,
+	TOOL_NAMES,
+	type ToolName,
+} from '../../../src/tools/tool-names';
 
 describe('tool-names', () => {
 	test('TOOL_NAMES includes declare_scope', () => {

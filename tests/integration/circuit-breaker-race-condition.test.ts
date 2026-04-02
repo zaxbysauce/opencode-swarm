@@ -10,10 +10,10 @@
  * the architect from being misidentified as a subagent.
  */
 
+import { afterEach, beforeEach, describe, expect, it } from 'bun:test';
 import * as fs from 'node:fs';
 import * as os from 'node:os';
 import * as path from 'node:path';
-import { afterEach, beforeEach, describe, expect, it } from 'bun:test';
 import { ORCHESTRATOR_NAME } from '../../src/config/constants';
 import type { GuardrailsConfig } from '../../src/config/schema';
 import { createGuardrailsHooks } from '../../src/hooks/guardrails';
@@ -41,7 +41,9 @@ describe('Circuit Breaker Race Condition', () => {
 
 	afterEach(() => {
 		process.chdir(originalCwd);
-		try { fs.rmSync(tempDir, { recursive: true, force: true }); } catch {}
+		try {
+			fs.rmSync(tempDir, { recursive: true, force: true });
+		} catch {}
 		resetSwarmState();
 	});
 

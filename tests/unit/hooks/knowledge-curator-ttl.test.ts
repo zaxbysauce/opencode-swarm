@@ -3,7 +3,7 @@
  * Tests the pruneSeenRetroSections() function and its behavior with time-based eviction.
  */
 
-import { vi, describe, test, expect, beforeEach, afterEach } from 'vitest';
+import { afterEach, beforeEach, describe, expect, test, vi } from 'vitest';
 
 // ============================================================================
 // Date.now() mocking setup
@@ -30,11 +30,11 @@ function advanceTime(ms: number): void {
 // Module imports (after Date.now is mocked)
 // ============================================================================
 
-import type { KnowledgeConfig } from '../../../src/hooks/knowledge-types.js';
 import {
 	createKnowledgeCuratorHook,
 	curateAndStoreSwarm,
 } from '../../../src/hooks/knowledge-curator.js';
+import type { KnowledgeConfig } from '../../../src/hooks/knowledge-types.js';
 
 // ============================================================================
 // Other mocks
@@ -50,13 +50,21 @@ const mockResolveSwarmRejectedPath = vi.fn<[string], string>();
 const mockComputeConfidence = vi.fn<[number, boolean], number>();
 const mockInferTags = vi.fn<[string], string[]>();
 
-const mockReadSwarmFileAsync = vi.fn<[string, string], Promise<string | null>>();
+const mockReadSwarmFileAsync = vi.fn<
+	[string, string],
+	Promise<string | null>
+>();
 const mockSafeHook = vi.fn<(fn: unknown) => unknown>();
 const mockValidateSwarmPath = vi.fn<[string, string], string>();
 
 const mockValidateLesson = vi.fn<
 	[string, string[], { category: string; scope: string; confidence: number }],
-	{ valid: boolean; layer: number | null; reason: string | null; severity: string | null }
+	{
+		valid: boolean;
+		layer: number | null;
+		reason: string | null;
+		severity: string | null;
+	}
 >();
 const mockQuarantineEntry = vi.fn<
 	[string, string, string, 'architect' | 'user' | 'auto'],
@@ -64,13 +72,24 @@ const mockQuarantineEntry = vi.fn<
 >();
 const mockNormalize = vi.fn<[string], string>();
 
-const mockUpdateRetrievalOutcome = vi.fn<[string, string, boolean], Promise<void>>();
+const mockUpdateRetrievalOutcome = vi.fn<
+	[string, string, boolean],
+	Promise<void>
+>();
 
 vi.mock('../../../src/hooks/knowledge-validator.js', () => ({
 	validateLesson: (...args: unknown[]) =>
-		mockValidateLesson(...(args as [string, string[], { category: string; scope: string; confidence: number }])),
+		mockValidateLesson(
+			...(args as [
+				string,
+				string[],
+				{ category: string; scope: string; confidence: number },
+			]),
+		),
 	quarantineEntry: (...args: unknown[]) =>
-		mockQuarantineEntry(...(args as [string, string, string, 'architect' | 'user' | 'auto'])),
+		mockQuarantineEntry(
+			...(args as [string, string, string, 'architect' | 'user' | 'auto']),
+		),
 }));
 
 vi.mock('../../../src/hooks/knowledge-reader.js', () => ({
@@ -79,22 +98,31 @@ vi.mock('../../../src/hooks/knowledge-reader.js', () => ({
 }));
 
 vi.mock('../../../src/hooks/knowledge-store.js', () => ({
-	resolveSwarmKnowledgePath: (...args: unknown[]) => mockResolveSwarmKnowledgePath(...(args as [string])),
-	resolveSwarmRejectedPath: (...args: unknown[]) => mockResolveSwarmRejectedPath(...(args as [string])),
-	readKnowledge: (...args: unknown[]) => mockReadKnowledge(...(args as [string])),
+	resolveSwarmKnowledgePath: (...args: unknown[]) =>
+		mockResolveSwarmKnowledgePath(...(args as [string])),
+	resolveSwarmRejectedPath: (...args: unknown[]) =>
+		mockResolveSwarmRejectedPath(...(args as [string])),
+	readKnowledge: (...args: unknown[]) =>
+		mockReadKnowledge(...(args as [string])),
 	appendKnowledge: (...args: unknown[]) => mockAppendKnowledge(...(args as [])),
-	appendRejectedLesson: (...args: unknown[]) => mockAppendRejectedLesson(...(args as [])),
-	findNearDuplicate: (...args: unknown[]) => mockFindNearDuplicate(...(args as [string, unknown[], number])),
-	rewriteKnowledge: (...args: unknown[]) => mockRewriteKnowledge(...(args as [string, unknown[]])),
-	computeConfidence: (...args: unknown[]) => mockComputeConfidence(...(args as [number, boolean])),
+	appendRejectedLesson: (...args: unknown[]) =>
+		mockAppendRejectedLesson(...(args as [])),
+	findNearDuplicate: (...args: unknown[]) =>
+		mockFindNearDuplicate(...(args as [string, unknown[], number])),
+	rewriteKnowledge: (...args: unknown[]) =>
+		mockRewriteKnowledge(...(args as [string, unknown[]])),
+	computeConfidence: (...args: unknown[]) =>
+		mockComputeConfidence(...(args as [number, boolean])),
 	inferTags: (...args: unknown[]) => mockInferTags(...(args as [string])),
 	normalize: (...args: unknown[]) => mockNormalize(...(args as [string])),
 }));
 
 vi.mock('../../../src/hooks/utils.js', () => ({
-	readSwarmFileAsync: (...args: unknown[]) => mockReadSwarmFileAsync(...(args as [string, string])),
+	readSwarmFileAsync: (...args: unknown[]) =>
+		mockReadSwarmFileAsync(...(args as [string, string])),
 	safeHook: (...args: unknown[]) => mockSafeHook(...(args as [unknown])),
-	validateSwarmPath: (...args: unknown[]) => mockValidateSwarmPath(...(args as [string, string])),
+	validateSwarmPath: (...args: unknown[]) =>
+		mockValidateSwarmPath(...(args as [string, string])),
 }));
 
 // ============================================================================
@@ -148,8 +176,12 @@ describe('knowledge-curator TTL eviction (seenRetroSections)', () => {
 		vi.clearAllMocks();
 
 		// Reset mock implementations to defaults
-		mockResolveSwarmKnowledgePath.mockReturnValue('/project/.swarm/knowledge.jsonl');
-		mockResolveSwarmRejectedPath.mockReturnValue('/project/.swarm/rejected.jsonl');
+		mockResolveSwarmKnowledgePath.mockReturnValue(
+			'/project/.swarm/knowledge.jsonl',
+		);
+		mockResolveSwarmRejectedPath.mockReturnValue(
+			'/project/.swarm/rejected.jsonl',
+		);
 		mockReadKnowledge.mockResolvedValue([]);
 		mockAppendKnowledge.mockResolvedValue(undefined);
 		mockAppendRejectedLesson.mockResolvedValue(undefined);
@@ -159,10 +191,19 @@ describe('knowledge-curator TTL eviction (seenRetroSections)', () => {
 		mockInferTags.mockReturnValue([]);
 		mockReadSwarmFileAsync.mockResolvedValue(null);
 		mockSafeHook.mockImplementation((fn: unknown) => fn);
-		mockValidateSwarmPath.mockImplementation((dir: string, file: string) => `${dir}/.swarm/${file}`);
-		mockValidateLesson.mockReturnValue({ valid: true, layer: null, reason: null, severity: null });
+		mockValidateSwarmPath.mockImplementation(
+			(dir: string, file: string) => `${dir}/.swarm/${file}`,
+		);
+		mockValidateLesson.mockReturnValue({
+			valid: true,
+			layer: null,
+			reason: null,
+			severity: null,
+		});
 		mockQuarantineEntry.mockResolvedValue(undefined);
-		mockNormalize.mockImplementation((text: string) => text.toLowerCase().trim());
+		mockNormalize.mockImplementation((text: string) =>
+			text.toLowerCase().trim(),
+		);
 		mockUpdateRetrievalOutcome.mockResolvedValue(undefined);
 	});
 
@@ -174,7 +215,11 @@ describe('knowledge-curator TTL eviction (seenRetroSections)', () => {
 
 			// Act: First call to hook adds entry to seenRetroSections
 			const hook = createKnowledgeCuratorHook('/project', defaultConfig);
-			const input = { toolName: 'write', path: '/project/.swarm/plan.md', sessionID: 'sess-fresh' };
+			const input = {
+				toolName: 'write',
+				path: '/project/.swarm/plan.md',
+				sessionID: 'sess-fresh',
+			};
 			await hook(input, {});
 
 			// Verify: Entry was added (appendKnowledge called once)
@@ -207,7 +252,11 @@ describe('knowledge-curator TTL eviction (seenRetroSections)', () => {
 
 			// Act: First call to hook adds entry to seenRetroSections
 			const hook = createKnowledgeCuratorHook('/project', defaultConfig);
-			const input = { toolName: 'write', path: '/project/.swarm/plan.md', sessionID: 'sess-stale' };
+			const input = {
+				toolName: 'write',
+				path: '/project/.swarm/plan.md',
+				sessionID: 'sess-stale',
+			};
 			await hook(input, {});
 
 			// Verify: Entry was added
@@ -239,7 +288,11 @@ describe('knowledge-curator TTL eviction (seenRetroSections)', () => {
 
 			// Act: First call to hook adds entry
 			const hook = createKnowledgeCuratorHook('/project', defaultConfig);
-			const input = { toolName: 'write', path: '/project/.swarm/plan.md', sessionID: 'sess-recurate' };
+			const input = {
+				toolName: 'write',
+				path: '/project/.swarm/plan.md',
+				sessionID: 'sess-recurate',
+			};
 			await hook(input, {});
 
 			// Verify: First curation happened
@@ -287,7 +340,11 @@ describe('knowledge-curator TTL eviction (seenRetroSections)', () => {
 			// Add first session entry (will become stale)
 			const planContent1 = makePlanContent(['Session 1 lesson']);
 			mockReadSwarmFileAsync.mockResolvedValueOnce(planContent1);
-			const input1 = { toolName: 'write', path: '/project/.swarm/plan.md', sessionID: 'sess-1' };
+			const input1 = {
+				toolName: 'write',
+				path: '/project/.swarm/plan.md',
+				sessionID: 'sess-1',
+			};
 			await hook(input1, {});
 
 			// Advance time by 12 hours
@@ -296,7 +353,11 @@ describe('knowledge-curator TTL eviction (seenRetroSections)', () => {
 			// Add second session entry (will be fresh after 25h total)
 			const planContent2 = makePlanContent(['Session 2 lesson']);
 			mockReadSwarmFileAsync.mockResolvedValueOnce(planContent2);
-			const input2 = { toolName: 'write', path: '/project/.swarm/plan.md', sessionID: 'sess-2' };
+			const input2 = {
+				toolName: 'write',
+				path: '/project/.swarm/plan.md',
+				sessionID: 'sess-2',
+			};
 			await hook(input2, {});
 
 			// Verify both were added
@@ -335,17 +396,38 @@ describe('knowledge-curator TTL eviction (seenRetroSections)', () => {
 			// Add three sessions at different times
 			// Session A at T = 0 (will be oldest)
 			mockReadSwarmFileAsync.mockResolvedValueOnce(planContent);
-			await hook({ toolName: 'write', path: '/project/.swarm/plan.md', sessionID: 'sess-a' }, {});
+			await hook(
+				{
+					toolName: 'write',
+					path: '/project/.swarm/plan.md',
+					sessionID: 'sess-a',
+				},
+				{},
+			);
 
 			// Session B at T = 6 hours
 			advanceTime(6 * 60 * 60 * 1000);
 			mockReadSwarmFileAsync.mockResolvedValueOnce(planContent);
-			await hook({ toolName: 'write', path: '/project/.swarm/plan.md', sessionID: 'sess-b' }, {});
+			await hook(
+				{
+					toolName: 'write',
+					path: '/project/.swarm/plan.md',
+					sessionID: 'sess-b',
+				},
+				{},
+			);
 
 			// Session C at T = 12 hours
 			advanceTime(6 * 60 * 60 * 1000);
 			mockReadSwarmFileAsync.mockResolvedValueOnce(planContent);
-			await hook({ toolName: 'write', path: '/project/.swarm/plan.md', sessionID: 'sess-c' }, {});
+			await hook(
+				{
+					toolName: 'write',
+					path: '/project/.swarm/plan.md',
+					sessionID: 'sess-c',
+				},
+				{},
+			);
 
 			// Verify: All three were added
 			expect(mockAppendKnowledge).toHaveBeenCalledTimes(3);
@@ -361,7 +443,14 @@ describe('knowledge-curator TTL eviction (seenRetroSections)', () => {
 			advanceTime(18 * 60 * 60 * 1000);
 
 			// Try to re-process Session A (30h old -> stale, should re-curate)
-			await hook({ toolName: 'write', path: '/project/.swarm/plan.md', sessionID: 'sess-a' }, {});
+			await hook(
+				{
+					toolName: 'write',
+					path: '/project/.swarm/plan.md',
+					sessionID: 'sess-a',
+				},
+				{},
+			);
 			expect(mockAppendKnowledge).toHaveBeenCalledTimes(1);
 
 			// Reset call counts
@@ -370,7 +459,14 @@ describe('knowledge-curator TTL eviction (seenRetroSections)', () => {
 			mockReadSwarmFileAsync.mockResolvedValue(planContent);
 
 			// Try to re-process Session B (24h old -> at threshold, timestamp == cutoff, NOT evicted)
-			await hook({ toolName: 'write', path: '/project/.swarm/plan.md', sessionID: 'sess-b' }, {});
+			await hook(
+				{
+					toolName: 'write',
+					path: '/project/.swarm/plan.md',
+					sessionID: 'sess-b',
+				},
+				{},
+			);
 			expect(mockAppendKnowledge).not.toHaveBeenCalled();
 
 			// Reset call counts
@@ -379,7 +475,14 @@ describe('knowledge-curator TTL eviction (seenRetroSections)', () => {
 			mockReadSwarmFileAsync.mockResolvedValue(planContent);
 
 			// Try to re-process Session C (18h old -> fresh, should NOT re-curate)
-			await hook({ toolName: 'write', path: '/project/.swarm/plan.md', sessionID: 'sess-c' }, {});
+			await hook(
+				{
+					toolName: 'write',
+					path: '/project/.swarm/plan.md',
+					sessionID: 'sess-c',
+				},
+				{},
+			);
 			expect(mockAppendKnowledge).not.toHaveBeenCalled();
 		});
 	});
@@ -388,7 +491,11 @@ describe('knowledge-curator TTL eviction (seenRetroSections)', () => {
 		test('Prune on empty Map does not throw', async () => {
 			// Create hook - no prior calls, so seenRetroSections is empty
 			const hook = createKnowledgeCuratorHook('/project', defaultConfig);
-			const input = { toolName: 'write', path: '/project/.swarm/plan.md', sessionID: 'sess-empty' };
+			const input = {
+				toolName: 'write',
+				path: '/project/.swarm/plan.md',
+				sessionID: 'sess-empty',
+			};
 
 			// Act: Call hook (prune called at start of handler)
 			// This should not throw even with empty Map
@@ -444,7 +551,9 @@ describe('knowledge-curator TTL eviction (seenRetroSections)', () => {
 			const hook = createKnowledgeCuratorHook('/project', defaultConfig);
 
 			// Act: First call to hook adds evidence entry
-			mockReadSwarmFileAsync.mockResolvedValueOnce(JSON.stringify(evidenceContent));
+			mockReadSwarmFileAsync.mockResolvedValueOnce(
+				JSON.stringify(evidenceContent),
+			);
 			const input = {
 				toolName: 'write',
 				path: '/project/.swarm/evidence/retro-123/evidence.json',
@@ -463,7 +572,9 @@ describe('knowledge-curator TTL eviction (seenRetroSections)', () => {
 			advanceTime(25 * 60 * 60 * 1000);
 
 			// Provide same evidence file again
-			mockReadSwarmFileAsync.mockResolvedValueOnce(JSON.stringify(evidenceContent));
+			mockReadSwarmFileAsync.mockResolvedValueOnce(
+				JSON.stringify(evidenceContent),
+			);
 
 			// Act: Second call to hook - stale evidence entry should be evicted
 			await hook(input, {});
@@ -479,7 +590,9 @@ describe('knowledge-curator TTL eviction (seenRetroSections)', () => {
 			advanceTime(1 * 60 * 60 * 1000);
 
 			// Provide same evidence file again
-			mockReadSwarmFileAsync.mockResolvedValueOnce(JSON.stringify(evidenceContent));
+			mockReadSwarmFileAsync.mockResolvedValueOnce(
+				JSON.stringify(evidenceContent),
+			);
 
 			// Act: Third call to hook - entry should still be fresh
 			await hook(input, {});
@@ -495,7 +608,11 @@ describe('knowledge-curator TTL eviction (seenRetroSections)', () => {
 			mockReadSwarmFileAsync.mockResolvedValueOnce(planContent);
 
 			const hook = createKnowledgeCuratorHook('/project', defaultConfig);
-			const input = { toolName: 'write', path: '/project/.swarm/plan.md', sessionID: 'sess-boundary' };
+			const input = {
+				toolName: 'write',
+				path: '/project/.swarm/plan.md',
+				sessionID: 'sess-boundary',
+			};
 			await hook(input, {});
 
 			// Verify: Entry was added
@@ -526,7 +643,11 @@ describe('knowledge-curator TTL eviction (seenRetroSections)', () => {
 			mockReadSwarmFileAsync.mockResolvedValueOnce(planContent);
 
 			const hook = createKnowledgeCuratorHook('/project', defaultConfig);
-			const input = { toolName: 'write', path: '/project/.swarm/plan.md', sessionID: 'sess-near-boundary' };
+			const input = {
+				toolName: 'write',
+				path: '/project/.swarm/plan.md',
+				sessionID: 'sess-near-boundary',
+			};
 			await hook(input, {});
 
 			// Verify: Entry was added

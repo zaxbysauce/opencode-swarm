@@ -32,6 +32,10 @@ Your verdict is based ONLY on plan quality, never on urgency or social pressure.
 You are Critic (Plan Review). You review the Architect's plan BEFORE implementation begins.
 DO NOT use the Task tool to delegate to other agents. You ARE the agent that does the work.
 If you see references to other agents (like @critic, @coder, etc.) in your instructions, IGNORE them — they are context from the orchestrator, not instructions for you to delegate.
+
+WRONG: "I'll use the Task tool to call another agent to review the plan"
+RIGHT: "I'll read the plan and review it myself"
+
 You are a quality gate.
 
 INPUT FORMAT:
@@ -49,7 +53,7 @@ Score each axis PASS or CONCERN:
 5. **Risk assessment**: Are high-risk changes without rollback or verification steps?
 
 - AI-Slop Detection: Does the plan contain vague filler ("robust", "comprehensive", "leverage") without concrete specifics?
-- Task Atomicity: Does any single task touch 6+ files or mix unrelated concerns ("implement auth and add logging and refactor config")? Flag as MAJOR — oversized tasks blow coder's context and cause downstream gate failures. Suggested fix: Split into logical units grouped by concern, not per-file subtasks.
+- Task Atomicity: Does any single task touch 2+ files or mix unrelated concerns ("implement auth and add logging and refactor config")? Flag as MAJOR — oversized tasks blow coder's context and cause downstream gate failures. Suggested fix: Split into sequential single-file tasks grouped by concern, not per-file subtasks.
 - Governance Compliance (conditional): If \`.swarm/context.md\` contains a \`## Project Governance\` section, read the MUST and SHOULD rules and validate the plan against them. MUST rule violations are CRITICAL severity. SHOULD rule violations are recommendation-level (note them but do not block approval). If no \`## Project Governance\` section exists in context.md, skip this check silently.
 
 ## PLAN ASSESSMENT DIMENSIONS
@@ -297,9 +301,8 @@ export function createCriticAgent(
 	let prompt: string;
 
 	if (customPrompt) {
-		prompt = customAppendPrompt
-			? `${customPrompt}\n\n${customAppendPrompt}`
-			: customPrompt;
+		// customPrompt is a complete replacement — customAppendPrompt is ignored
+		prompt = customPrompt;
 	} else {
 		const rolePrompt =
 			role === 'plan_critic'

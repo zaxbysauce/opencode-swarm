@@ -1,7 +1,15 @@
-import { describe, test, expect, beforeEach, afterEach, mock, mockModule } from 'bun:test';
+import {
+	afterEach,
+	beforeEach,
+	describe,
+	expect,
+	mock,
+	mockModule,
+	test,
+} from 'bun:test';
 import * as fs from 'node:fs';
-import * as path from 'node:path';
 import { tmpdir } from 'node:os';
+import * as path from 'node:path';
 
 // Track log calls for testing
 const logCalls: { message: string; data?: unknown }[] = [];
@@ -28,8 +36,16 @@ mock.module('../../../src/plan/manager', () => ({
 import { PlanSyncWorker } from '../../../src/background/plan-sync-worker';
 
 // Helper to create temp directory structure
-function setupTempDir(): { tempDir: string; swarmDir: string; planJsonPath: string; markerPath: string } {
-	const tempDir = path.join(tmpdir(), `.test-unauthorized-write-${Date.now()}-${Math.random().toString(36).slice(2)}`);
+function setupTempDir(): {
+	tempDir: string;
+	swarmDir: string;
+	planJsonPath: string;
+	markerPath: string;
+} {
+	const tempDir = path.join(
+		tmpdir(),
+		`.test-unauthorized-write-${Date.now()}-${Math.random().toString(36).slice(2)}`,
+	);
 	const swarmDir = path.join(tempDir, '.swarm');
 	const planJsonPath = path.join(swarmDir, 'plan.json');
 	const markerPath = path.join(swarmDir, '.plan-write-marker');
@@ -57,14 +73,17 @@ function cleanupTempDir(tempDir: string): void {
 
 // Helper to create a valid plan.json
 function createPlanJson(planJsonPath: string): void {
-	fs.writeFileSync(planJsonPath, JSON.stringify({
-		schema_version: '1.0.0',
-		title: 'Test Plan',
-		swarm: 'test-swarm',
-		current_phase: 1,
-		phases: [],
-		migration_status: 'none',
-	}));
+	fs.writeFileSync(
+		planJsonPath,
+		JSON.stringify({
+			schema_version: '1.0.0',
+			title: 'Test Plan',
+			swarm: 'test-swarm',
+			current_phase: 1,
+			phases: [],
+			migration_status: 'none',
+		}),
+	);
 }
 
 // Helper to create a valid marker file
@@ -101,7 +120,7 @@ describe('checkForUnauthorizedWrite', () => {
 
 			// Get plan.json current mtime
 			const planStats = fs.statSync(planJsonPath);
-			
+
 			// Create marker with a timestamp 1 second BEFORE plan.json mtime
 			// This means planMtime > markerTimestamp + 5000 is FALSE (within threshold)
 			const markerTimestamp = new Date(planStats.mtimeMs - 1000);
@@ -112,8 +131,8 @@ describe('checkForUnauthorizedWrite', () => {
 			(worker as any).checkForUnauthorizedWrite();
 
 			// Should NOT have logged any warning about unauthorized write
-			const warningCalls = logCalls.filter(call =>
-				call.message.includes('WARNING')
+			const warningCalls = logCalls.filter((call) =>
+				call.message.includes('WARNING'),
 			);
 			expect(warningCalls.length).toBe(0);
 		});
@@ -134,8 +153,8 @@ describe('checkForUnauthorizedWrite', () => {
 			(worker as any).checkForUnauthorizedWrite();
 
 			// Should NOT log warning (boundary condition: <= 5000ms)
-			const warningCalls = logCalls.filter(call =>
-				call.message.includes('WARNING')
+			const warningCalls = logCalls.filter((call) =>
+				call.message.includes('WARNING'),
 			);
 			expect(warningCalls.length).toBe(0);
 		});
@@ -158,11 +177,13 @@ describe('checkForUnauthorizedWrite', () => {
 			(worker as any).checkForUnauthorizedWrite();
 
 			// Should have logged a warning
-			const warningCalls = logCalls.filter(call =>
-				call.message.includes('WARNING')
+			const warningCalls = logCalls.filter((call) =>
+				call.message.includes('WARNING'),
 			);
 			expect(warningCalls.length).toBe(1);
-			expect(warningCalls[0].message).toContain('unauthorized direct write suspected');
+			expect(warningCalls[0].message).toContain(
+				'unauthorized direct write suspected',
+			);
 		});
 	});
 
@@ -178,8 +199,8 @@ describe('checkForUnauthorizedWrite', () => {
 			}).not.toThrow();
 
 			// Should not have logged any warning
-			const warningCalls = logCalls.filter(call =>
-				call.message.includes('WARNING')
+			const warningCalls = logCalls.filter((call) =>
+				call.message.includes('WARNING'),
 			);
 			expect(warningCalls.length).toBe(0);
 		});
@@ -197,8 +218,8 @@ describe('checkForUnauthorizedWrite', () => {
 			}).not.toThrow();
 
 			// Should not have logged any warning
-			const warningCalls = logCalls.filter(call =>
-				call.message.includes('WARNING')
+			const warningCalls = logCalls.filter((call) =>
+				call.message.includes('WARNING'),
 			);
 			expect(warningCalls.length).toBe(0);
 		});
@@ -219,8 +240,8 @@ describe('checkForUnauthorizedWrite', () => {
 			}).not.toThrow();
 
 			// Should not have logged any warning
-			const warningCalls = logCalls.filter(call =>
-				call.message.includes('WARNING')
+			const warningCalls = logCalls.filter((call) =>
+				call.message.includes('WARNING'),
 			);
 			expect(warningCalls.length).toBe(0);
 		});
@@ -237,7 +258,10 @@ describe('checkForUnauthorizedWrite', () => {
 
 			// The key test: checkForUnauthorizedWrite should not throw
 			// even when it detects a potential unauthorized write
-			const worker = new PlanSyncWorker({ directory: tempDir, syncTimeoutMs: 5000 });
+			const worker = new PlanSyncWorker({
+				directory: tempDir,
+				syncTimeoutMs: 5000,
+			});
 
 			// Just calling the check method should not throw
 			expect(() => {
@@ -245,8 +269,8 @@ describe('checkForUnauthorizedWrite', () => {
 			}).not.toThrow();
 
 			// A warning should have been logged
-			const warningCalls = logCalls.filter(call =>
-				call.message.includes('WARNING')
+			const warningCalls = logCalls.filter((call) =>
+				call.message.includes('WARNING'),
 			);
 			expect(warningCalls.length).toBe(1);
 
@@ -258,7 +282,10 @@ describe('checkForUnauthorizedWrite', () => {
 			// Create neither plan.json nor marker - this should cause errors in the check
 			// but not propagate
 
-			const worker = new PlanSyncWorker({ directory: tempDir, syncTimeoutMs: 5000 });
+			const worker = new PlanSyncWorker({
+				directory: tempDir,
+				syncTimeoutMs: 5000,
+			});
 
 			// Should not throw even when files don't exist
 			expect(() => {
@@ -266,8 +293,8 @@ describe('checkForUnauthorizedWrite', () => {
 			}).not.toThrow();
 
 			// No warning should be logged due to silent error handling
-			const warningCalls = logCalls.filter(call =>
-				call.message.includes('WARNING')
+			const warningCalls = logCalls.filter((call) =>
+				call.message.includes('WARNING'),
 			);
 			expect(warningCalls.length).toBe(0);
 

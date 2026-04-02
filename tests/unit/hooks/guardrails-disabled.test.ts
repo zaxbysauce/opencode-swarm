@@ -1,4 +1,4 @@
-import { describe, it, expect } from 'bun:test';
+import { describe, expect, it } from 'bun:test';
 import * as fs from 'node:fs';
 import * as os from 'node:os';
 import * as path from 'node:path';
@@ -88,7 +88,7 @@ describe('guardrails disabled — end-to-end', () => {
 
 				// _loadedFromFile should NOT be present in the config object
 				// (Zod strips unknown fields)
-				expect(Object.prototype.hasOwnProperty.call(config, '_loadedFromFile')).toBe(false);
+				expect(Object.hasOwn(config, '_loadedFromFile')).toBe(false);
 			} finally {
 				fs.rmSync(projectDir, { recursive: true, force: true });
 			}

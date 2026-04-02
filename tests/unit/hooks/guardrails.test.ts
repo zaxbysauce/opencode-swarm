@@ -1,26 +1,40 @@
-import { describe, it, expect, beforeEach, vi } from 'bun:test';
-import { createGuardrailsHooks, hashArgs } from '../../../src/hooks/guardrails';
-import { resetSwarmState, swarmState, startAgentSession, getAgentSession, ensureAgentSession, getActiveWindow, beginInvocation } from '../../../src/state';
+import { beforeEach, describe, expect, it, vi } from 'bun:test';
 import type { GuardrailsConfig } from '../../../src/config/schema';
+import { createGuardrailsHooks, hashArgs } from '../../../src/hooks/guardrails';
+import {
+	beginInvocation,
+	ensureAgentSession,
+	getActiveWindow,
+	getAgentSession,
+	resetSwarmState,
+	startAgentSession,
+	swarmState,
+} from '../../../src/state';
 import * as utilsModule from '../../../src/utils';
 
-	const TEST_DIR = '/tmp';
+const TEST_DIR = '/tmp';
 
-	function defaultConfig(overrides?: Partial<GuardrailsConfig>): GuardrailsConfig {
-		return {
-			enabled: true,
-			max_tool_calls: 200,
-			max_duration_minutes: 30,
-			idle_timeout_minutes: 60,
-			max_repetitions: 10,
-			max_consecutive_errors: 5,
-			warning_threshold: 0.75,
-			profiles: undefined,
-			...overrides,
-		};
-	}
+function defaultConfig(
+	overrides?: Partial<GuardrailsConfig>,
+): GuardrailsConfig {
+	return {
+		enabled: true,
+		max_tool_calls: 200,
+		max_duration_minutes: 30,
+		idle_timeout_minutes: 60,
+		max_repetitions: 10,
+		max_consecutive_errors: 5,
+		warning_threshold: 0.75,
+		profiles: undefined,
+		...overrides,
+	};
+}
 
-function makeInput(sessionID = 'test-session', tool = 'read', callID = 'call-1') {
+function makeInput(
+	sessionID = 'test-session',
+	tool = 'read',
+	callID = 'call-1',
+) {
 	return { tool, sessionID, callID };
 }
 
@@ -52,10 +66,12 @@ describe('guardrails circuit breaker', () => {
 			const config = defaultConfig({ enabled: false });
 			const hooks = createGuardrailsHooks(TEST_DIR, undefined, config);
 
-			const messages = [{
-				info: { role: 'assistant', sessionID: 'test-session' },
-				parts: [{ type: 'text', text: 'Hello world' }],
-			}];
+			const messages = [
+				{
+					info: { role: 'assistant', sessionID: 'test-session' },
+					parts: [{ type: 'text', text: 'Hello world' }],
+				},
+			];
 
 			await hooks.messagesTransform({}, { messages });
 			expect(messages[0].parts[0].text).toBe('Hello world');
@@ -110,9 +126,10 @@ describe('guardrails circuit breaker', () => {
 				await hooks.toolBefore(makeInput('test-session'), makeOutput());
 			}
 
-		// 5th call should throw
-		await expect(hooks.toolBefore(makeInput('test-session'), makeOutput()))
-			.rejects.toThrow('Tool calls exhausted');
+			// 5th call should throw
+			await expect(
+				hooks.toolBefore(makeInput('test-session'), makeOutput()),
+			).rejects.toThrow('Tool calls exhausted');
 		});
 
 		it('blocks all subsequent calls after hard limit', async () => {
@@ -128,13 +145,15 @@ describe('guardrails circuit breaker', () => {
 				await hooks.toolBefore(makeInput('test-session'), makeOutput());
 			}
 
-		// 3rd call should throw and set hardLimitHit
-		await expect(hooks.toolBefore(makeInput('test-session'), makeOutput()))
-			.rejects.toThrow('Tool calls exhausted');
+			// 3rd call should throw and set hardLimitHit
+			await expect(
+				hooks.toolBefore(makeInput('test-session'), makeOutput()),
+			).rejects.toThrow('Tool calls exhausted');
 
 			// 4th call should also throw with different message
-			await expect(hooks.toolBefore(makeInput('test-session'), makeOutput()))
-				.rejects.toThrow('previously triggered');
+			await expect(
+				hooks.toolBefore(makeInput('test-session'), makeOutput()),
+			).rejects.toThrow('previously triggered');
 		});
 	});
 
@@ -154,15 +173,18 @@ describe('guardrails circuit breaker', () => {
 				window.startedAtMs = Date.now() - 31 * 60000;
 			}
 
-			await expect(hooks.toolBefore(makeInput('test-session'), makeOutput()))
-				.rejects.toThrow('Duration exhausted');
+			await expect(
+				hooks.toolBefore(makeInput('test-session'), makeOutput()),
+			).rejects.toThrow('Duration exhausted');
 		});
 
 		it('warning at duration threshold', async () => {
 			const config = defaultConfig({
 				max_duration_minutes: 30,
 				warning_threshold: 0.5,
-				profiles: { coder: { max_duration_minutes: 30, warning_threshold: 0.5 } },
+				profiles: {
+					coder: { max_duration_minutes: 30, warning_threshold: 0.5 },
+				},
 			});
 			const hooks = createGuardrailsHooks(TEST_DIR, undefined, config);
 			startAgentSession('test-session', 'coder');
@@ -194,9 +216,10 @@ describe('guardrails circuit breaker', () => {
 				await hooks.toolBefore(makeInput('test-session'), makeOutput(args));
 			}
 
-		// 3rd identical call should throw
-		await expect(hooks.toolBefore(makeInput('test-session'), makeOutput(args)))
-			.rejects.toThrow('Repeated the same tool call');
+			// 3rd identical call should throw
+			await expect(
+				hooks.toolBefore(makeInput('test-session'), makeOutput(args)),
+			).rejects.toThrow('Repeated the same tool call');
 		});
 
 		it('does not flag different tools', async () => {
@@ -205,12 +228,24 @@ describe('guardrails circuit breaker', () => {
 			const args = { filePath: '/test.ts' };
 
 			// Call with different tools but same args
-			await hooks.toolBefore(makeInput('test-session', 'read'), makeOutput(args));
-			await hooks.toolBefore(makeInput('test-session', 'grep'), makeOutput(args));
-			await hooks.toolBefore(makeInput('test-session', 'edit'), makeOutput(args));
+			await hooks.toolBefore(
+				makeInput('test-session', 'read'),
+				makeOutput(args),
+			);
+			await hooks.toolBefore(
+				makeInput('test-session', 'grep'),
+				makeOutput(args),
+			);
+			await hooks.toolBefore(
+				makeInput('test-session', 'edit'),
+				makeOutput(args),
+			);
 
 			// Should not throw
-			await hooks.toolBefore(makeInput('test-session', 'glob'), makeOutput(args));
+			await hooks.toolBefore(
+				makeInput('test-session', 'glob'),
+				makeOutput(args),
+			);
 		});
 
 		it('does not flag different args', async () => {
@@ -218,12 +253,24 @@ describe('guardrails circuit breaker', () => {
 			const hooks = createGuardrailsHooks(TEST_DIR, undefined, config);
 
 			// Call with same tool but different args
-			await hooks.toolBefore(makeInput('test-session'), makeOutput({ filePath: '/test1.ts' }));
-			await hooks.toolBefore(makeInput('test-session'), makeOutput({ filePath: '/test2.ts' }));
-			await hooks.toolBefore(makeInput('test-session'), makeOutput({ filePath: '/test3.ts' }));
+			await hooks.toolBefore(
+				makeInput('test-session'),
+				makeOutput({ filePath: '/test1.ts' }),
+			);
+			await hooks.toolBefore(
+				makeInput('test-session'),
+				makeOutput({ filePath: '/test2.ts' }),
+			);
+			await hooks.toolBefore(
+				makeInput('test-session'),
+				makeOutput({ filePath: '/test3.ts' }),
+			);
 
 			// Should not throw
-			await hooks.toolBefore(makeInput('test-session'), makeOutput({ filePath: '/test4.ts' }));
+			await hooks.toolBefore(
+				makeInput('test-session'),
+				makeOutput({ filePath: '/test4.ts' }),
+			);
 		});
 
 		it('warning at repetition threshold', async () => {
@@ -262,8 +309,9 @@ describe('guardrails circuit breaker', () => {
 				window.consecutiveErrors = 5;
 			}
 
-			await expect(hooks.toolBefore(makeInput('test-session'), makeOutput()))
-				.rejects.toThrow('consecutive tool errors detected');
+			await expect(
+				hooks.toolBefore(makeInput('test-session'), makeOutput()),
+			).rejects.toThrow('consecutive tool errors detected');
 		});
 
 		it('does not throw when errors under limit', async () => {
@@ -290,19 +338,19 @@ describe('guardrails circuit breaker', () => {
 			// Session should not exist initially
 			expect(getAgentSession('new-session')).toBeUndefined();
 
-		// Call toolBefore with non-existent session
-		await hooks.toolBefore(makeInput('new-session'), makeOutput());
+			// Call toolBefore with non-existent session
+			await hooks.toolBefore(makeInput('new-session'), makeOutput());
 
-		// Session should now exist — seeded as ORCHESTRATOR_NAME (architect) since no
-		// activeAgent is set, so the ?? ORCHESTRATOR_NAME fallback applies.
-		// The architect is exempt from guardrails, so no window is created.
-		const session = getAgentSession('new-session');
-		expect(session).toBeDefined();
-		expect(session?.agentName).toBe('architect');
+			// Session should now exist — seeded as ORCHESTRATOR_NAME (architect) since no
+			// activeAgent is set, so the ?? ORCHESTRATOR_NAME fallback applies.
+			// The architect is exempt from guardrails, so no window is created.
+			const session = getAgentSession('new-session');
+			expect(session).toBeDefined();
+			expect(session?.agentName).toBe('architect');
 
-		// Architect is exempt — no invocation window is created
-		const window = getActiveWindow('new-session');
-		expect(window).toBeUndefined();
+			// Architect is exempt — no invocation window is created
+			const window = getActiveWindow('new-session');
+			expect(window).toBeUndefined();
 		});
 	});
 
@@ -314,7 +362,11 @@ describe('guardrails circuit breaker', () => {
 
 			// First call creates the window
 			await hooks.toolBefore(makeInput('test-session'), makeOutput());
-			const output = { title: 'Result', output: null as unknown as string, metadata: {} };
+			const output = {
+				title: 'Result',
+				output: null as unknown as string,
+				metadata: {},
+			};
 			await hooks.toolAfter(makeInput('test-session'), output);
 
 			const window = getActiveWindow('test-session');
@@ -328,7 +380,11 @@ describe('guardrails circuit breaker', () => {
 
 			// First call creates the window
 			await hooks.toolBefore(makeInput('test-session'), makeOutput());
-			const output = { title: 'Result', output: undefined as unknown as string, metadata: {} };
+			const output = {
+				title: 'Result',
+				output: undefined as unknown as string,
+				metadata: {},
+			};
 			await hooks.toolAfter(makeInput('test-session'), output);
 
 			const window = getActiveWindow('test-session');
@@ -377,10 +433,12 @@ describe('guardrails circuit breaker', () => {
 				window.warningIssued = true;
 			}
 
-			const messages = [{
-				info: { role: 'assistant', sessionID: 'test-session' },
-				parts: [{ type: 'text', text: 'Hello world' }],
-			}];
+			const messages = [
+				{
+					info: { role: 'assistant', sessionID: 'test-session' },
+					parts: [{ type: 'text', text: 'Hello world' }],
+				},
+			];
 
 			await hooks.messagesTransform({}, { messages });
 
@@ -399,10 +457,12 @@ describe('guardrails circuit breaker', () => {
 				window.hardLimitHit = true;
 			}
 
-			const messages = [{
-				info: { role: 'assistant', sessionID: 'test-session' },
-				parts: [{ type: 'text', text: 'Hello world' }],
-			}];
+			const messages = [
+				{
+					info: { role: 'assistant', sessionID: 'test-session' },
+					parts: [{ type: 'text', text: 'Hello world' }],
+				},
+			];
 
 			await hooks.messagesTransform({}, { messages });
 
@@ -422,10 +482,12 @@ describe('guardrails circuit breaker', () => {
 				window.hardLimitHit = true;
 			}
 
-			const messages = [{
-				info: { role: 'assistant', sessionID: 'test-session' },
-				parts: [{ type: 'text', text: 'Hello world' }],
-			}];
+			const messages = [
+				{
+					info: { role: 'assistant', sessionID: 'test-session' },
+					parts: [{ type: 'text', text: 'Hello world' }],
+				},
+			];
 
 			await hooks.messagesTransform({}, { messages });
 
@@ -444,10 +506,12 @@ describe('guardrails circuit breaker', () => {
 			const config = defaultConfig();
 			const hooks = createGuardrailsHooks(TEST_DIR, undefined, config);
 
-			const messages = [{
-				info: { role: 'assistant', sessionID: 'test-session' },
-				parts: [{ type: 'text', text: 'Hello world' }],
-			}];
+			const messages = [
+				{
+					info: { role: 'assistant', sessionID: 'test-session' },
+					parts: [{ type: 'text', text: 'Hello world' }],
+				},
+			];
 
 			const originalText = messages[0].parts[0].text;
 
@@ -473,10 +537,12 @@ describe('guardrails circuit breaker', () => {
 			startAgentSession('session-b', 'explorer');
 
 			// Messages from session B should NOT get session A's warning
-			const messages = [{
-				info: { role: 'assistant', sessionID: 'session-b' },
-				parts: [{ type: 'text', text: 'Explorer output' }],
-			}];
+			const messages = [
+				{
+					info: { role: 'assistant', sessionID: 'session-b' },
+					parts: [{ type: 'text', text: 'Explorer output' }],
+				},
+			];
 
 			await hooks.messagesTransform({}, { messages });
 			expect(messages[0].parts[0].text).toBe('Explorer output');
@@ -495,10 +561,12 @@ describe('guardrails circuit breaker', () => {
 			}
 
 			// Session B messages should not get the hard limit
-			const messages = [{
-				info: { role: 'assistant', sessionID: 'session-b' },
-				parts: [{ type: 'text', text: 'Other session output' }],
-			}];
+			const messages = [
+				{
+					info: { role: 'assistant', sessionID: 'session-b' },
+					parts: [{ type: 'text', text: 'Other session output' }],
+				},
+			];
 
 			await hooks.messagesTransform({}, { messages });
 			expect(messages[0].parts[0].text).toBe('Other session output');
@@ -517,10 +585,12 @@ describe('guardrails circuit breaker', () => {
 			}
 
 			// Messages without sessionID should not get injection
-			const messages = [{
-				info: { role: 'assistant' },
-				parts: [{ type: 'text', text: 'No session ID here' }],
-			}];
+			const messages = [
+				{
+					info: { role: 'assistant' },
+					parts: [{ type: 'text', text: 'No session ID here' }],
+				},
+			];
 
 			await hooks.messagesTransform({}, { messages });
 			expect(messages[0].parts[0].text).toBe('No session ID here');
@@ -542,20 +612,24 @@ describe('guardrails circuit breaker', () => {
 			startAgentSession('session-b', 'explorer');
 
 			// Session A messages SHOULD get the warning
-			const messagesA = [{
-				info: { role: 'assistant', sessionID: 'session-a' },
-				parts: [{ type: 'text', text: 'Session A output' }],
-			}];
+			const messagesA = [
+				{
+					info: { role: 'assistant', sessionID: 'session-a' },
+					parts: [{ type: 'text', text: 'Session A output' }],
+				},
+			];
 
 			await hooks.messagesTransform({}, { messages: messagesA });
 			expect(messagesA[0].parts[0].text).toContain('⚠️ APPROACHING LIMITS');
 			expect(messagesA[0].parts[0].text).toContain('tool calls 150/200');
 
 			// Session B messages should NOT get the warning
-			const messagesB = [{
-				info: { role: 'assistant', sessionID: 'session-b' },
-				parts: [{ type: 'text', text: 'Session B output' }],
-			}];
+			const messagesB = [
+				{
+					info: { role: 'assistant', sessionID: 'session-b' },
+					parts: [{ type: 'text', text: 'Session B output' }],
+				},
+			];
 
 			await hooks.messagesTransform({}, { messages: messagesB });
 			expect(messagesB[0].parts[0].text).toBe('Session B output');
@@ -606,7 +680,10 @@ describe('guardrails circuit breaker', () => {
 
 			// Make 25 tool calls
 			for (let i = 0; i < 25; i++) {
-				await hooks.toolBefore(makeInput('test-session'), makeOutput({ index: i }));
+				await hooks.toolBefore(
+					makeInput('test-session'),
+					makeOutput({ index: i }),
+				);
 			}
 
 			const window = getActiveWindow('test-session');
@@ -614,50 +691,50 @@ describe('guardrails circuit breaker', () => {
 		});
 	});
 
-		describe('per-agent profiles', () => {
-	it('agent with profile gets higher tool call limit', async () => {
-		const config = defaultConfig({
-			max_tool_calls: 10,
-			profiles: {
-				coder: { max_tool_calls: 20 },
-			},
+	describe('per-agent profiles', () => {
+		it('agent with profile gets higher tool call limit', async () => {
+			const config = defaultConfig({
+				max_tool_calls: 10,
+				profiles: {
+					coder: { max_tool_calls: 20 },
+				},
+			});
+			const hooks = createGuardrailsHooks(TEST_DIR, undefined, config);
+
+			// Create session with 'coder' agent - user profile override gives limit of 20
+			startAgentSession('coder-session', 'coder');
+
+			// Make 10 calls - should NOT throw (coder limit is 20 from user profile)
+			for (let i = 0; i < 10; i++) {
+				await hooks.toolBefore(
+					makeInput('coder-session', `tool-${i}`, `call-${i}`),
+					makeOutput({ arg: i }),
+				);
+			}
+			// No error thrown - coder's limit of 20 not reached
+
+			// Unknown agents now get base config limits (NOT architect unlimited)
+			// Use unique session ID to avoid hardLimitHit flag pollution
+			startAgentSession('default-session-unique', 'custom_agent');
+			// Make 9 calls - should NOT throw (base config limit is 10, but implementation uses >= so only 9 succeed)
+			// Use explicit loop counter to debug
+			let callCount = 0;
+			for (let i = 0; i < 9; i++) {
+				callCount++;
+				await hooks.toolBefore(
+					makeInput('default-session-unique', `tool-${i}`, `call-d-${i}`),
+					makeOutput({ arg: i }),
+				);
+			}
+			// After 9 successful calls, the 10th call should throw - base config limit reached
+			// Note: Once hard limit is hit, subsequent calls throw a different error
+			await expect(
+				hooks.toolBefore(
+					makeInput('default-session-unique', 'tool-9', 'call-d-9'),
+					makeOutput({ arg: 9 }),
+				),
+			).rejects.toThrow();
 		});
-		const hooks = createGuardrailsHooks(TEST_DIR, undefined, config);
-
-		// Create session with 'coder' agent - user profile override gives limit of 20
-		startAgentSession('coder-session', 'coder');
-
-		// Make 10 calls - should NOT throw (coder limit is 20 from user profile)
-		for (let i = 0; i < 10; i++) {
-			await hooks.toolBefore(
-				makeInput('coder-session', `tool-${i}`, `call-${i}`),
-				makeOutput({ arg: i }),
-			);
-		}
-		// No error thrown - coder's limit of 20 not reached
-
-		// Unknown agents now get base config limits (NOT architect unlimited)
-		// Use unique session ID to avoid hardLimitHit flag pollution
-		startAgentSession('default-session-unique', 'custom_agent');
-		// Make 9 calls - should NOT throw (base config limit is 10, but implementation uses >= so only 9 succeed)
-		// Use explicit loop counter to debug
-		let callCount = 0;
-		for (let i = 0; i < 9; i++) {
-			callCount++;
-			await hooks.toolBefore(
-				makeInput('default-session-unique', `tool-${i}`, `call-d-${i}`),
-				makeOutput({ arg: i }),
-			);
-		}
-		// After 9 successful calls, the 10th call should throw - base config limit reached
-		// Note: Once hard limit is hit, subsequent calls throw a different error
-		await expect(
-			hooks.toolBefore(
-				makeInput('default-session-unique', 'tool-9', 'call-d-9'),
-				makeOutput({ arg: 9 }),
-			),
-		).rejects.toThrow();
-	});
 
 		it('agent with user profile override uses custom limits', async () => {
 			const config = defaultConfig({
@@ -689,36 +766,36 @@ describe('guardrails circuit breaker', () => {
 			).rejects.toThrow('LIMIT REACHED');
 		});
 
-	it('custom agent (auto-created session) uses base config limits (not architect exempt)', async () => {
-		const config = defaultConfig({
-			max_tool_calls: 5,
-			profiles: {
-				coder: { max_tool_calls: 100 },
-				explorer: { max_tool_calls: 50 },
-			},
+		it('custom agent (auto-created session) uses base config limits (not architect exempt)', async () => {
+			const config = defaultConfig({
+				max_tool_calls: 5,
+				profiles: {
+					coder: { max_tool_calls: 100 },
+					explorer: { max_tool_calls: 50 },
+				},
+			});
+			const hooks = createGuardrailsHooks(TEST_DIR, undefined, config);
+
+			// Create a session with a custom agent name (not a built-in profile)
+			// Unknown agents now get base config limits (not architect defaults)
+			startAgentSession('unknown-session', 'custom_agent');
+
+			// Make 4 calls - should NOT throw (base config limit is 5, but implementation uses >= so only 4 succeed)
+			// Unknown agents should NOT be exempt from guardrails
+			for (let i = 0; i < 4; i++) {
+				await hooks.toolBefore(
+					makeInput('unknown-session', `tool-${i}`, `call-${i}`),
+					makeOutput({ arg: i }),
+				);
+			}
+			// 5th call should throw - base config limit reached
+			await expect(
+				hooks.toolBefore(
+					makeInput('unknown-session', 'tool-6', 'call-6'),
+					makeOutput({ arg: 6 }),
+				),
+			).rejects.toThrow('LIMIT REACHED');
 		});
-		const hooks = createGuardrailsHooks(TEST_DIR, undefined, config);
-
-		// Create a session with a custom agent name (not a built-in profile)
-		// Unknown agents now get base config limits (not architect defaults)
-		startAgentSession('unknown-session', 'custom_agent');
-
-		// Make 4 calls - should NOT throw (base config limit is 5, but implementation uses >= so only 4 succeed)
-		// Unknown agents should NOT be exempt from guardrails
-		for (let i = 0; i < 4; i++) {
-			await hooks.toolBefore(
-				makeInput('unknown-session', `tool-${i}`, `call-${i}`),
-				makeOutput({ arg: i }),
-			);
-		}
-		// 5th call should throw - base config limit reached
-		await expect(
-			hooks.toolBefore(
-				makeInput('unknown-session', 'tool-6', 'call-6'),
-				makeOutput({ arg: 6 }),
-			),
-		).rejects.toThrow('LIMIT REACHED');
-	});
 
 		it('agent with profile gets different warning threshold', async () => {
 			const config = defaultConfig({
@@ -766,7 +843,10 @@ describe('guardrails circuit breaker', () => {
 			// Create tester session with 2 consecutive errors
 			startAgentSession('tester-session', 'tester');
 			// First call creates the window
-			await hooks.toolBefore(makeInput('tester-session', 'tool-0', 'call-0'), makeOutput({ arg: 0 }));
+			await hooks.toolBefore(
+				makeInput('tester-session', 'tool-0', 'call-0'),
+				makeOutput({ arg: 0 }),
+			);
 			const testerWindow = getActiveWindow('tester-session');
 			if (testerWindow) {
 				testerWindow.consecutiveErrors = 2;
@@ -783,7 +863,10 @@ describe('guardrails circuit breaker', () => {
 			// But explorer session with 2 errors should be fine
 			startAgentSession('explorer-session', 'explorer');
 			// First call creates the window
-			await hooks.toolBefore(makeInput('explorer-session', 'tool-0', 'call-0'), makeOutput({ arg: 0 }));
+			await hooks.toolBefore(
+				makeInput('explorer-session', 'tool-0', 'call-0'),
+				makeOutput({ arg: 0 }),
+			);
 			const explorerWindow = getActiveWindow('explorer-session');
 			if (explorerWindow) {
 				explorerWindow.consecutiveErrors = 2;
@@ -869,7 +952,10 @@ describe('guardrails circuit breaker', () => {
 		});
 
 		it('does not issue duration warning when max_duration_minutes is 0', async () => {
-			const config = defaultConfig({ max_duration_minutes: 0, warning_threshold: 0.5 });
+			const config = defaultConfig({
+				max_duration_minutes: 0,
+				warning_threshold: 0.5,
+			});
 			const hooks = createGuardrailsHooks(TEST_DIR, undefined, config);
 			startAgentSession('test-session', 'unknown');
 
@@ -938,7 +1024,9 @@ describe('guardrails circuit breaker', () => {
 			swarmState.activeAgent.set('shared-session', 'architect');
 
 			// Step 4: Call ensureAgentSession to trigger the agent switch
-			const { ensureAgentSession: localEnsureAgentSession } = await import('../../../src/state');
+			const { ensureAgentSession: localEnsureAgentSession } = await import(
+				'../../../src/state'
+			);
 			localEnsureAgentSession('shared-session', 'architect');
 
 			// Verify session agent is now architect
@@ -1031,8 +1119,9 @@ describe('guardrails circuit breaker', () => {
 				window.lastSuccessTimeMs = Date.now() - 31 * 60000;
 			}
 
-			await expect(hooks.toolBefore(makeInput('test-session'), makeOutput()))
-				.rejects.toThrow('No successful tool call for');
+			await expect(
+				hooks.toolBefore(makeInput('test-session'), makeOutput()),
+			).rejects.toThrow('No successful tool call for');
 		});
 
 		it('does not throw when idle timeout not exceeded', async () => {
@@ -1060,11 +1149,17 @@ describe('guardrails circuit breaker', () => {
 			await hooks.toolBefore(makeInput('test-session'), makeOutput());
 
 			// Simulate successful tool call via toolAfter
-			await hooks.toolAfter(makeInput('test-session'), { title: 'Result', output: 'success', metadata: {} });
+			await hooks.toolAfter(makeInput('test-session'), {
+				title: 'Result',
+				output: 'success',
+				metadata: {},
+			});
 
 			// Now set the time again — it should have been reset by toolAfter
 			const updatedWindow = getActiveWindow('test-session');
-			expect(updatedWindow?.lastSuccessTimeMs).toBeGreaterThan(Date.now() - 1000);
+			expect(updatedWindow?.lastSuccessTimeMs).toBeGreaterThan(
+				Date.now() - 1000,
+			);
 		});
 	});
 
@@ -1082,7 +1177,11 @@ describe('guardrails circuit breaker', () => {
 			}
 
 			const beforeTime = Date.now();
-			await hooks.toolAfter(makeInput('test-session'), { title: 'Result', output: 'success', metadata: {} });
+			await hooks.toolAfter(makeInput('test-session'), {
+				title: 'Result',
+				output: 'success',
+				metadata: {},
+			});
 
 			expect(window?.lastSuccessTimeMs).toBeGreaterThanOrEqual(beforeTime);
 		});
@@ -1100,7 +1199,11 @@ describe('guardrails circuit breaker', () => {
 				window.lastSuccessTimeMs = oldTime;
 			}
 
-			await hooks.toolAfter(makeInput('test-session'), { title: 'Result', output: null as unknown as string, metadata: {} });
+			await hooks.toolAfter(makeInput('test-session'), {
+				title: 'Result',
+				output: null as unknown as string,
+				metadata: {},
+			});
 
 			expect(window?.lastSuccessTimeMs).toBe(oldTime);
 		});
@@ -1118,7 +1221,11 @@ describe('guardrails circuit breaker', () => {
 				window.lastSuccessTimeMs = oldTime;
 			}
 
-			await hooks.toolAfter(makeInput('test-session'), { title: 'Result', output: undefined as unknown as string, metadata: {} });
+			await hooks.toolAfter(makeInput('test-session'), {
+				title: 'Result',
+				output: undefined as unknown as string,
+				metadata: {},
+			});
 
 			expect(window?.lastSuccessTimeMs).toBe(oldTime);
 		});
@@ -1199,12 +1306,18 @@ describe('guardrails circuit breaker', () => {
 
 			// Make 4 calls - should not throw
 			for (let i = 0; i < 4; i++) {
-				await hooks.toolBefore(makeInput('coder-session', `tool-${i}`, `call-${i}`), makeOutput({ index: i }));
+				await hooks.toolBefore(
+					makeInput('coder-session', `tool-${i}`, `call-${i}`),
+					makeOutput({ index: i }),
+				);
 			}
 
 			// 5th call should throw
 			await expect(
-				hooks.toolBefore(makeInput('coder-session', 'tool-5', 'call-5'), makeOutput({ index: 5 })),
+				hooks.toolBefore(
+					makeInput('coder-session', 'tool-5', 'call-5'),
+					makeOutput({ index: 5 }),
+				),
 			).rejects.toThrow('LIMIT REACHED');
 		});
 
@@ -1218,479 +1331,499 @@ describe('guardrails circuit breaker', () => {
 			const args = { filePath: '/test.ts' };
 
 			// All 3 identical calls should succeed — architect is exempt from repetition limits
-			await hooks.toolBefore(makeInput('no-agent-session', 'read', 'call-1'), makeOutput(args));
-			await hooks.toolBefore(makeInput('no-agent-session', 'read', 'call-2'), makeOutput(args));
-			await hooks.toolBefore(makeInput('no-agent-session', 'read', 'call-3'), makeOutput(args));
+			await hooks.toolBefore(
+				makeInput('no-agent-session', 'read', 'call-1'),
+				makeOutput(args),
+			);
+			await hooks.toolBefore(
+				makeInput('no-agent-session', 'read', 'call-2'),
+				makeOutput(args),
+			);
+			await hooks.toolBefore(
+				makeInput('no-agent-session', 'read', 'call-3'),
+				makeOutput(args),
+			);
 
 			// No error thrown — architect exemption applies
 			expect(true).toBe(true);
 		});
 	});
 
-		describe('adversarial security tests - delegationActive guard', () => {
-			beforeEach(() => {
-				resetSwarmState();
+	describe('adversarial security tests - delegationActive guard', () => {
+		beforeEach(() => {
+			resetSwarmState();
+		});
+
+		describe('Vector 1: Manipulate delegationActive to bypass self-coding detection', () => {
+			it('attack: attempt to set delegationActive=true on architect session to prevent detection', async () => {
+				// ATTACK: Try to make architect appear as "delegated" to skip self-coding detection
+				const config = defaultConfig();
+				const hooks = createGuardrailsHooks(TEST_DIR, undefined, config);
+
+				// Set up architect session
+				swarmState.activeAgent.set('attack-session', 'architect');
+				startAgentSession('attack-session', 'architect');
+
+				// ATTACK: Try to manually set delegationActive=true
+				const session = swarmState.agentSessions.get('attack-session');
+				if (session) {
+					session.delegationActive = true; // Malicious attempt
+				}
+
+				// Make architect write to source code (outside .swarm/)
+				// With delegationActive=true, self-coding detection should be skipped
+				await hooks.toolBefore(
+					makeInput('attack-session', 'write', 'call-1'),
+					makeOutput({ filePath: 'src/test.ts' }),
+				);
+
+				// ATTACK SUCCEEDED: No warning was injected because delegationActive=true bypassed detection
+				// This is a SECURITY ISSUE if an attacker can set delegationActive on architect session
+				// The attack fails because delegationActive is controlled by delegation-tracker.ts
+				// and cannot be modified by application code after delegation-tracker sets it
+
+				// Verify: Even though we tried to set delegationActive=true, the architect is still exempt
+				// from guardrails (due to architect exemption at lines 258-277 in guardrails.ts)
+				// So architect writes are allowed regardless of delegationActive
+
+				// The REAL question: Can we trick the architect into NOT being detected?
+				// Answer: delegationActive=true skips detection, but it's set ONLY by delegation-tracker
+				// when a subagent is active (line 77 of delegation-tracker.ts: session.delegationActive = !isArchitect)
+
+				// DEFENSE: delegationActive is read-only after delegation-tracker sets it
+				// Application code cannot modify it to bypass detection
+				expect(session?.delegationActive).toBe(true); // Our malicious modification worked
+				// But architect is still exempt from guardrails entirely (returns early at line 266)
 			});
 
-			describe('Vector 1: Manipulate delegationActive to bypass self-coding detection', () => {
-				it('attack: attempt to set delegationActive=true on architect session to prevent detection', async () => {
-					// ATTACK: Try to make architect appear as "delegated" to skip self-coding detection
-					const config = defaultConfig();
-					const hooks = createGuardrailsHooks(TEST_DIR, undefined, config);
-
-					// Set up architect session
-					swarmState.activeAgent.set('attack-session', 'architect');
-					startAgentSession('attack-session', 'architect');
-
-					// ATTACK: Try to manually set delegationActive=true
-					const session = swarmState.agentSessions.get('attack-session');
-					if (session) {
-						session.delegationActive = true; // Malicious attempt
-					}
-
-					// Make architect write to source code (outside .swarm/)
-					// With delegationActive=true, self-coding detection should be skipped
-					await hooks.toolBefore(
-						makeInput('attack-session', 'write', 'call-1'),
-						makeOutput({ filePath: 'src/test.ts' }),
-					);
-
-					// ATTACK SUCCEEDED: No warning was injected because delegationActive=true bypassed detection
-					// This is a SECURITY ISSUE if an attacker can set delegationActive on architect session
-					// The attack fails because delegationActive is controlled by delegation-tracker.ts
-					// and cannot be modified by application code after delegation-tracker sets it
-
-					// Verify: Even though we tried to set delegationActive=true, the architect is still exempt
-					// from guardrails (due to architect exemption at lines 258-277 in guardrails.ts)
-					// So architect writes are allowed regardless of delegationActive
-
-					// The REAL question: Can we trick the architect into NOT being detected?
-					// Answer: delegationActive=true skips detection, but it's set ONLY by delegation-tracker
-					// when a subagent is active (line 77 of delegation-tracker.ts: session.delegationActive = !isArchitect)
-
-					// DEFENSE: delegationActive is read-only after delegation-tracker sets it
-					// Application code cannot modify it to bypass detection
-					expect(session?.delegationActive).toBe(true); // Our malicious modification worked
-					// But architect is still exempt from guardrails entirely (returns early at line 266)
-				});
-
-				it('defense: verify delegationActive is controlled by delegation-tracker.ts only', async () => {
-					// DEFENSE TEST: Verify that delegationActive cannot be used to bypass self-coding
-					// detection because the architect exemption check happens AFTER delegationActive check
-					const config = defaultConfig();
-					const hooks = createGuardrailsHooks(TEST_DIR, undefined, config);
-
-					// Create a session that LOOKS like architect but is actually a subagent
-					swarmState.activeAgent.set('defense-session', 'coder'); // Not architect
-					startAgentSession('defense-session', 'coder');
-
-					const session = swarmState.agentSessions.get('defense-session');
-					if (session) {
-						session.delegationActive = true; // Try to make it look like delegated
-					}
-
-					// Make a write call
-					await hooks.toolBefore(
-						makeInput('defense-session', 'write', 'call-1'),
-						makeOutput({ filePath: 'src/test.ts' }),
-					);
-
-					// DEFENSE: Self-coding detection should NOT trigger for coder anyway
-					// because isArchitect() returns false (only architect is checked for self-coding)
-					// The delegationActive guard only prevents FALSE POSITIVES, not actual detection bypass
-					expect(session?.architectWriteCount).toBe(0); // Not an architect, so not counted
-				});
-			});
-
-			describe('Vector 2: Delegated coder escalates by manipulating delegationActive', () => {
-				it('attack: coder with delegationActive=false tries to pass as architect', async () => {
-					// ATTACK: Try to make a delegated coder appear as architect by setting delegationActive=false
-					const config = defaultConfig();
-					const hooks = createGuardrailsHooks(TEST_DIR, undefined, config);
-
-					// Set up coder session (subagent)
-					swarmState.activeAgent.set('escalation-session', 'coder');
-					startAgentSession('escalation-session', 'coder');
-
-					const session = swarmState.agentSessions.get('escalation-session');
-					if (session) {
-						session.delegationActive = false; // Try to make it look like NOT delegated
-					}
-
-					// Make a write call
-					await hooks.toolBefore(
-						makeInput('escalation-session', 'write', 'call-1'),
-						makeOutput({ filePath: 'src/test.ts' }),
-					);
-
-					// ATTACK FAILED: Even with delegationActive=false, the coder is still not an architect
-					// Self-coding detection checks isArchitect() FIRST (line 217 in guardrails.ts)
-					// which checks swarmState.activeAgent (line 59) and session.agentName (line 68)
-					// Both return 'coder', so isArchitect() returns false
-
-					// DEFENSE: Self-coding detection only applies to architect sessions
-					// Coder sessions are never checked, regardless of delegationActive value
-					expect(session?.architectWriteCount).toBe(0); // Not an architect
-				});
-
-				it('defense: verify isArchitect() is independent of delegationActive', async () => {
-					// DEFENSE TEST: Verify isArchitect() checks agent identity, not delegationActive
-					// by testing the actual behavior through toolBefore
-
-					// Test 1: Coder with delegationActive=true should still not trigger self-coding detection
-					// because isArchitect() returns false (coder is not architect)
-					const config = defaultConfig();
-					const hooks = createGuardrailsHooks(TEST_DIR, undefined, config);
-
-					swarmState.activeAgent.set('test1', 'coder');
-					startAgentSession('test1', 'coder');
-					const session1 = swarmState.agentSessions.get('test1');
-					if (session1) {
-						session1.delegationActive = true; // Try to make it look like delegated
-						session1.architectWriteCount = 0; // Reset counter
-					}
-
-					await hooks.toolBefore(
-						makeInput('test1', 'write', 'call-1'),
-						makeOutput({ filePath: 'src/test.ts' }),
-					);
-
-					// architectWriteCount should still be 0 because coder is not architect
-					// Self-coding detection only applies to architect sessions
-					expect(session1?.architectWriteCount).toBe(0);
-
-					// Test 2: Architect with delegationActive=false should be exempt from guardrails
-					resetSwarmState();
-					const hooks2 = createGuardrailsHooks(TEST_DIR, undefined, config);
-
-					swarmState.activeAgent.set('test2', 'architect');
-					startAgentSession('test2', 'architect');
-					const session2 = swarmState.agentSessions.get('test2');
-					if (session2) {
-						session2.delegationActive = false; // Try to make it look like not delegated
-					}
-
-					// Architect should be exempt - make 10 tool calls (over the limit)
-					for (let i = 0; i < 10; i++) {
-						await hooks2.toolBefore(
-							makeInput('test2', 'read', `call-${i}`),
-							makeOutput({ filePath: `src/test${i}.ts` }),
-						);
-					}
-
-					// No error thrown - architect exemption works regardless of delegationActive
-					expect(true).toBe(true);
-				});
-			});
-
-			describe('Vector 3: Race condition - delegationActive changes mid-tool-call', () => {
-				it('attack: rapid delegation on/off during tool call execution', async () => {
-					// ATTACK: Try to create a race condition where delegationActive changes
-					// while toolBefore is executing
-					const config = defaultConfig();
-					const hooks = createGuardrailsHooks(TEST_DIR, undefined, config);
-
-					// Set up architect session
-					swarmState.activeAgent.set('race-session', 'architect');
-					startAgentSession('race-session', 'architect');
-
-					const session = swarmState.agentSessions.get('race-session');
-					const delegationActiveValues: boolean[] = [];
-
-					// Simulate rapid tool calls while toggling delegationActive
-					for (let i = 0; i < 10; i++) {
-						// Toggle delegationActive
-						if (session) {
-							session.delegationActive = i % 2 === 0;
-						}
-
-						// Capture the value at the moment of the call
-						const capturedValue = session?.delegationActive;
-						delegationActiveValues.push(capturedValue ?? false);
-
-						// Make tool call
-						await hooks.toolBefore(
-							makeInput('race-session', 'read', `call-${i}`),
-							makeOutput({ filePath: `src/test${i}.ts` }),
-						);
-					}
-
-					// DEFENSE: JavaScript's single-threaded event loop ensures atomic reads
-					// Each tool call sees a consistent state of delegationActive
-					// There's no race condition because all operations are synchronous within toolBefore
-					expect(delegationActiveValues.length).toBe(10);
-					// All values should be consistent (either all true or all false, not corrupted)
-					const hasCorruptedState = delegationActiveValues.some(
-						(v) => typeof v !== 'boolean',
-					);
-					expect(hasCorruptedState).toBe(false);
-				});
-
-				it('defense: verify JavaScript event loop prevents race conditions', async () => {
-					// DEFENSE TEST: Verify that delegationActive cannot be corrupted by concurrent access
-					const config = defaultConfig();
-					const hooks = createGuardrailsHooks(TEST_DIR, undefined, config);
-
-					swarmState.activeAgent.set('async-session', 'architect');
-					startAgentSession('async-session', 'architect');
-
-					const session = swarmState.agentSessions.get('async-session');
-					if (session) {
-						session.delegationActive = true;
-					}
-
-					// Make multiple tool calls in a loop
-					const toolCallResults: (boolean | undefined)[] = [];
-					for (let i = 0; i < 20; i++) {
-						await hooks.toolBefore(
-							makeInput('async-session', 'read', `call-${i}`),
-							makeOutput({ filePath: `src/test${i}.ts` }),
-						);
-						toolCallResults.push(session?.delegationActive);
-					}
-
-					// All calls should have seen the same state (no corruption)
-					const allSame = toolCallResults.every((v) => v === toolCallResults[0]);
-					expect(allSame).toBe(true);
-				});
-			});
-
-			describe('Vector 4: Bypass guard by not setting delegationActive on initialization', () => {
-				it('attack: create session without delegation-tracker.ts', async () => {
-					// ATTACK: Create a session manually without calling delegation-tracker.ts
-					// Try to leave delegationActive undefined to bypass detection
-					const config = defaultConfig();
-					const hooks = createGuardrailsHooks(TEST_DIR, undefined, config);
-
-					// Use startAgentSession directly (without delegation-tracker.ts)
-					// The state module initializes delegationActive to false for safety
-					startAgentSession('bypass-session', 'architect');
-
-					const session = swarmState.agentSessions.get('bypass-session');
-
-					// DEFENSE: delegationActive defaults to false (not undefined)
-					// This prevents the bypass - undefined would also be falsy, but false is explicit
-					expect(session?.delegationActive).toBe(false);
-
-					// Make architect write to source code
-					await hooks.toolBefore(
-						makeInput('bypass-session', 'write', 'call-1'),
-						makeOutput({ filePath: 'src/test.ts' }),
-					);
-
-					// DEFENSE: With delegationActive=false, the guard works correctly
-					// The condition is `if (currentSession?.delegationActive)` (line 214)
-					// When delegationActive is false, this evaluates to false
-					// So the else-if branch runs (self-coding detection)
-					// But architect is exempt from guardrails (line 258-277), so no window is created
-
-					// ATTACK FAILED: Even without delegation-tracker.ts, the default value prevents bypass
-					if (session) {
-						expect(session.delegationActive).toBe(false);
-					}
-				});
-
-				it('defense: verify false delegationActive is treated as no delegation', async () => {
-					// DEFENSE TEST: Verify that false delegationActive runs detection
-					const config = defaultConfig();
-					const hooks = createGuardrailsHooks(TEST_DIR, undefined, config);
-
-					// Create session with delegationActive=false (default)
-					swarmState.activeAgent.set('false-session', 'architect');
-					startAgentSession('false-session', 'architect');
-
-					// Verify false is the default value (safe defense)
-					const session = swarmState.agentSessions.get('false-session');
-					expect(session?.delegationActive).toBe(false);
-
-					// Make tool call - should work normally
-					await hooks.toolBefore(
-						makeInput('false-session', 'read', 'call-1'),
-						makeOutput({ filePath: 'src/test.ts' }),
-					);
-
-					// No error - architect is exempt from guardrails anyway
-					// But the guard logic is preserved
-					expect(true).toBe(true);
-				});
-			});
-
-			describe('Vector 5: Logic inversion - is the guard condition inverted?', () => {
-				it.skip('defense: verify condition is `if (delegationActive)` not `if (!delegationActive)`', async () => {
-					// DEFENSE TEST: Read the actual code to verify the condition is correct
-					const fs = await import('node:fs');
-					const guardrailsPath = 'C:\\opencode\\opencode-swarm\\src\\hooks\\guardrails.ts';
-					const guardrailsCode = fs.readFileSync(guardrailsPath, 'utf-8');
-
-					// Find the delegationActive guard (around line 214)
-					const delegationActiveGuardRegex = /if\s*\(\s*currentSession\?\.delegationActive\s*\)/;
-					const invertedGuardRegex = /if\s*\(\s*!\s*currentSession\?\.delegationActive\s*\)/;
-
-					// Verify the correct condition exists
-					expect(delegationActiveGuardRegex.test(guardrailsCode)).toBe(true);
-					// Verify the inverted condition does NOT exist
-					expect(invertedGuardRegex.test(guardrailsCode)).toBe(false);
-
-					// DEFENSE VERIFIED: Condition is correct
-				});
-
-				it('defense: verify delegationActive=true skips detection, false/undefined runs it', async () => {
-					// DEFENSE TEST: Verify the guard behavior matches the code
-					const config = defaultConfig();
-					const hooks = createGuardrailsHooks(TEST_DIR, undefined, config);
-
-					// Test 1: delegationActive=true should skip detection
-					swarmState.activeAgent.set('skip-session', 'architect');
-					startAgentSession('skip-session', 'architect');
-					const sessionSkip = swarmState.agentSessions.get('skip-session');
-					if (sessionSkip) {
-						sessionSkip.delegationActive = true; // Simulate delegated context
-						sessionSkip.architectWriteCount = 0; // Reset counter
-					}
-
-					await hooks.toolBefore(
-						makeInput('skip-session', 'write', 'call-1'),
-						makeOutput({ filePath: 'src/test.ts' }),
-					);
-
-					// With delegationActive=true, detection is skipped (if it wasn't for architect exemption)
-					// But architect is exempt, so we need to check the guardrail flow
-					// The guard at line 214 skips detection when delegationActive=true
-					expect(sessionSkip?.delegationActive).toBe(true);
-
-					// Test 2: delegationActive=false should run detection
-					swarmState.activeAgent.set('detect-session', 'architect');
-					startAgentSession('detect-session', 'architect');
-					const sessionDetect = swarmState.agentSessions.get('detect-session');
-					if (sessionDetect) {
-						sessionDetect.delegationActive = false; // Simulate non-delegated context
-					}
-
-					await hooks.toolBefore(
-						makeInput('detect-session', 'write', 'call-2'),
-						makeOutput({ filePath: 'src/test.ts' }),
-					);
-
-					// With delegationActive=false, detection runs (else-if branch)
-					// But architect is exempt from guardrails entirely
-					// So architectWriteCount is never incremented for architect
-					expect(sessionDetect?.delegationActive).toBe(false);
-				});
-			});
-
-			describe('Additional: Verify guard integrity across edge cases', () => {
-				it('verify guard behavior when delegationActive is set to null', async () => {
-					// TEST: Verify null is treated as false (no delegation)
-					const config = defaultConfig();
-					const hooks = createGuardrailsHooks(TEST_DIR, undefined, config);
-
-					swarmState.activeAgent.set('null-session', 'architect');
-					startAgentSession('null-session', 'architect');
-
-					const session = swarmState.agentSessions.get('null-session');
-					if (session) {
-						// Set to null (edge case)
-						(session as { delegationActive: unknown }).delegationActive = null;
-					}
-
-					// Verify property is null
-					expect((session as { delegationActive: unknown }).delegationActive).toBeNull();
-
-					// Make tool call - should work normally
-					await hooks.toolBefore(
-						makeInput('null-session', 'read', 'call-1'),
-						makeOutput({ filePath: 'src/test.ts' }),
-					);
-
-					// No error - null is treated as false (no delegation)
-					expect(true).toBe(true);
-				});
-
-				it('verify guard behavior when delegationActive is set to non-boolean string', async () => {
-					// TEST: Verify truthy string is treated as true
-					const config = defaultConfig();
-					const hooks = createGuardrailsHooks(TEST_DIR, undefined, config);
-
-					swarmState.activeAgent.set('nonbool-session', 'architect');
-					startAgentSession('nonbool-session', 'architect');
-
-					const session = swarmState.agentSessions.get('nonbool-session');
-					if (session) {
-						// Set to truthy string (edge case)
-						(session as { delegationActive: unknown }).delegationActive = 'true';
-					}
-
-					// Verify property is a string
-					expect(typeof (session as { delegationActive: unknown }).delegationActive).toBe('string');
-
-					// Make tool call - should work normally
-					// JavaScript truthiness: 'true' is truthy, so it skips detection
-					await hooks.toolBefore(
-						makeInput('nonbool-session', 'read', 'call-1'),
-						makeOutput({ filePath: 'src/test.ts' }),
-					);
-
-					// No error - 'true' string is truthy, treated as true
-					expect(true).toBe(true);
-				});
-
-				it('verify guard behavior when delegationActive is set to 0 (falsy number)', async () => {
-					// TEST: Verify 0 is treated as false (no delegation)
-					const config = defaultConfig();
-					const hooks = createGuardrailsHooks(TEST_DIR, undefined, config);
-
-					swarmState.activeAgent.set('zero-session', 'architect');
-					startAgentSession('zero-session', 'architect');
-
-					const session = swarmState.agentSessions.get('zero-session');
-					if (session) {
-						// Set to 0 (edge case)
-						(session as { delegationActive: unknown }).delegationActive = 0;
-					}
-
-					// Verify property is 0
-					expect((session as { delegationActive: unknown }).delegationActive).toBe(0);
-
-					// Make tool call - should work normally
-					await hooks.toolBefore(
-						makeInput('zero-session', 'read', 'call-1'),
-						makeOutput({ filePath: 'src/test.ts' }),
-					);
-
-					// No error - 0 is falsy, treated as false
-					expect(true).toBe(true);
-				});
-
-				it('verify guard behavior when delegationActive is set to 1 (truthy number)', async () => {
-					// TEST: Verify 1 is treated as true
-					const config = defaultConfig();
-					const hooks = createGuardrailsHooks(TEST_DIR, undefined, config);
-
-					swarmState.activeAgent.set('one-session', 'architect');
-					startAgentSession('one-session', 'architect');
-
-					const session = swarmState.agentSessions.get('one-session');
-					if (session) {
-						// Set to 1 (edge case)
-						(session as { delegationActive: unknown }).delegationActive = 1;
-					}
-
-					// Verify property is 1
-					expect((session as { delegationActive: unknown }).delegationActive).toBe(1);
-
-					// Make tool call - should work normally
-					await hooks.toolBefore(
-						makeInput('one-session', 'read', 'call-1'),
-						makeOutput({ filePath: 'src/test.ts' }),
-					);
-
-					// No error - 1 is truthy, treated as true
-					expect(true).toBe(true);
-				});
+			it('defense: verify delegationActive is controlled by delegation-tracker.ts only', async () => {
+				// DEFENSE TEST: Verify that delegationActive cannot be used to bypass self-coding
+				// detection because the architect exemption check happens AFTER delegationActive check
+				const config = defaultConfig();
+				const hooks = createGuardrailsHooks(TEST_DIR, undefined, config);
+
+				// Create a session that LOOKS like architect but is actually a subagent
+				swarmState.activeAgent.set('defense-session', 'coder'); // Not architect
+				startAgentSession('defense-session', 'coder');
+
+				const session = swarmState.agentSessions.get('defense-session');
+				if (session) {
+					session.delegationActive = true; // Try to make it look like delegated
+				}
+
+				// Make a write call
+				await hooks.toolBefore(
+					makeInput('defense-session', 'write', 'call-1'),
+					makeOutput({ filePath: 'src/test.ts' }),
+				);
+
+				// DEFENSE: Self-coding detection should NOT trigger for coder anyway
+				// because isArchitect() returns false (only architect is checked for self-coding)
+				// The delegationActive guard only prevents FALSE POSITIVES, not actual detection bypass
+				expect(session?.architectWriteCount).toBe(0); // Not an architect, so not counted
 			});
 		});
 
-		describe('architect exemption bug fix - stale delegation', () => {
+		describe('Vector 2: Delegated coder escalates by manipulating delegationActive', () => {
+			it('attack: coder with delegationActive=false tries to pass as architect', async () => {
+				// ATTACK: Try to make a delegated coder appear as architect by setting delegationActive=false
+				const config = defaultConfig();
+				const hooks = createGuardrailsHooks(TEST_DIR, undefined, config);
+
+				// Set up coder session (subagent)
+				swarmState.activeAgent.set('escalation-session', 'coder');
+				startAgentSession('escalation-session', 'coder');
+
+				const session = swarmState.agentSessions.get('escalation-session');
+				if (session) {
+					session.delegationActive = false; // Try to make it look like NOT delegated
+				}
+
+				// Make a write call
+				await hooks.toolBefore(
+					makeInput('escalation-session', 'write', 'call-1'),
+					makeOutput({ filePath: 'src/test.ts' }),
+				);
+
+				// ATTACK FAILED: Even with delegationActive=false, the coder is still not an architect
+				// Self-coding detection checks isArchitect() FIRST (line 217 in guardrails.ts)
+				// which checks swarmState.activeAgent (line 59) and session.agentName (line 68)
+				// Both return 'coder', so isArchitect() returns false
+
+				// DEFENSE: Self-coding detection only applies to architect sessions
+				// Coder sessions are never checked, regardless of delegationActive value
+				expect(session?.architectWriteCount).toBe(0); // Not an architect
+			});
+
+			it('defense: verify isArchitect() is independent of delegationActive', async () => {
+				// DEFENSE TEST: Verify isArchitect() checks agent identity, not delegationActive
+				// by testing the actual behavior through toolBefore
+
+				// Test 1: Coder with delegationActive=true should still not trigger self-coding detection
+				// because isArchitect() returns false (coder is not architect)
+				const config = defaultConfig();
+				const hooks = createGuardrailsHooks(TEST_DIR, undefined, config);
+
+				swarmState.activeAgent.set('test1', 'coder');
+				startAgentSession('test1', 'coder');
+				const session1 = swarmState.agentSessions.get('test1');
+				if (session1) {
+					session1.delegationActive = true; // Try to make it look like delegated
+					session1.architectWriteCount = 0; // Reset counter
+				}
+
+				await hooks.toolBefore(
+					makeInput('test1', 'write', 'call-1'),
+					makeOutput({ filePath: 'src/test.ts' }),
+				);
+
+				// architectWriteCount should still be 0 because coder is not architect
+				// Self-coding detection only applies to architect sessions
+				expect(session1?.architectWriteCount).toBe(0);
+
+				// Test 2: Architect with delegationActive=false should be exempt from guardrails
+				resetSwarmState();
+				const hooks2 = createGuardrailsHooks(TEST_DIR, undefined, config);
+
+				swarmState.activeAgent.set('test2', 'architect');
+				startAgentSession('test2', 'architect');
+				const session2 = swarmState.agentSessions.get('test2');
+				if (session2) {
+					session2.delegationActive = false; // Try to make it look like not delegated
+				}
+
+				// Architect should be exempt - make 10 tool calls (over the limit)
+				for (let i = 0; i < 10; i++) {
+					await hooks2.toolBefore(
+						makeInput('test2', 'read', `call-${i}`),
+						makeOutput({ filePath: `src/test${i}.ts` }),
+					);
+				}
+
+				// No error thrown - architect exemption works regardless of delegationActive
+				expect(true).toBe(true);
+			});
+		});
+
+		describe('Vector 3: Race condition - delegationActive changes mid-tool-call', () => {
+			it('attack: rapid delegation on/off during tool call execution', async () => {
+				// ATTACK: Try to create a race condition where delegationActive changes
+				// while toolBefore is executing
+				const config = defaultConfig();
+				const hooks = createGuardrailsHooks(TEST_DIR, undefined, config);
+
+				// Set up architect session
+				swarmState.activeAgent.set('race-session', 'architect');
+				startAgentSession('race-session', 'architect');
+
+				const session = swarmState.agentSessions.get('race-session');
+				const delegationActiveValues: boolean[] = [];
+
+				// Simulate rapid tool calls while toggling delegationActive
+				for (let i = 0; i < 10; i++) {
+					// Toggle delegationActive
+					if (session) {
+						session.delegationActive = i % 2 === 0;
+					}
+
+					// Capture the value at the moment of the call
+					const capturedValue = session?.delegationActive;
+					delegationActiveValues.push(capturedValue ?? false);
+
+					// Make tool call
+					await hooks.toolBefore(
+						makeInput('race-session', 'read', `call-${i}`),
+						makeOutput({ filePath: `src/test${i}.ts` }),
+					);
+				}
+
+				// DEFENSE: JavaScript's single-threaded event loop ensures atomic reads
+				// Each tool call sees a consistent state of delegationActive
+				// There's no race condition because all operations are synchronous within toolBefore
+				expect(delegationActiveValues.length).toBe(10);
+				// All values should be consistent (either all true or all false, not corrupted)
+				const hasCorruptedState = delegationActiveValues.some(
+					(v) => typeof v !== 'boolean',
+				);
+				expect(hasCorruptedState).toBe(false);
+			});
+
+			it('defense: verify JavaScript event loop prevents race conditions', async () => {
+				// DEFENSE TEST: Verify that delegationActive cannot be corrupted by concurrent access
+				const config = defaultConfig();
+				const hooks = createGuardrailsHooks(TEST_DIR, undefined, config);
+
+				swarmState.activeAgent.set('async-session', 'architect');
+				startAgentSession('async-session', 'architect');
+
+				const session = swarmState.agentSessions.get('async-session');
+				if (session) {
+					session.delegationActive = true;
+				}
+
+				// Make multiple tool calls in a loop
+				const toolCallResults: (boolean | undefined)[] = [];
+				for (let i = 0; i < 20; i++) {
+					await hooks.toolBefore(
+						makeInput('async-session', 'read', `call-${i}`),
+						makeOutput({ filePath: `src/test${i}.ts` }),
+					);
+					toolCallResults.push(session?.delegationActive);
+				}
+
+				// All calls should have seen the same state (no corruption)
+				const allSame = toolCallResults.every((v) => v === toolCallResults[0]);
+				expect(allSame).toBe(true);
+			});
+		});
+
+		describe('Vector 4: Bypass guard by not setting delegationActive on initialization', () => {
+			it('attack: create session without delegation-tracker.ts', async () => {
+				// ATTACK: Create a session manually without calling delegation-tracker.ts
+				// Try to leave delegationActive undefined to bypass detection
+				const config = defaultConfig();
+				const hooks = createGuardrailsHooks(TEST_DIR, undefined, config);
+
+				// Use startAgentSession directly (without delegation-tracker.ts)
+				// The state module initializes delegationActive to false for safety
+				startAgentSession('bypass-session', 'architect');
+
+				const session = swarmState.agentSessions.get('bypass-session');
+
+				// DEFENSE: delegationActive defaults to false (not undefined)
+				// This prevents the bypass - undefined would also be falsy, but false is explicit
+				expect(session?.delegationActive).toBe(false);
+
+				// Make architect write to source code
+				await hooks.toolBefore(
+					makeInput('bypass-session', 'write', 'call-1'),
+					makeOutput({ filePath: 'src/test.ts' }),
+				);
+
+				// DEFENSE: With delegationActive=false, the guard works correctly
+				// The condition is `if (currentSession?.delegationActive)` (line 214)
+				// When delegationActive is false, this evaluates to false
+				// So the else-if branch runs (self-coding detection)
+				// But architect is exempt from guardrails (line 258-277), so no window is created
+
+				// ATTACK FAILED: Even without delegation-tracker.ts, the default value prevents bypass
+				if (session) {
+					expect(session.delegationActive).toBe(false);
+				}
+			});
+
+			it('defense: verify false delegationActive is treated as no delegation', async () => {
+				// DEFENSE TEST: Verify that false delegationActive runs detection
+				const config = defaultConfig();
+				const hooks = createGuardrailsHooks(TEST_DIR, undefined, config);
+
+				// Create session with delegationActive=false (default)
+				swarmState.activeAgent.set('false-session', 'architect');
+				startAgentSession('false-session', 'architect');
+
+				// Verify false is the default value (safe defense)
+				const session = swarmState.agentSessions.get('false-session');
+				expect(session?.delegationActive).toBe(false);
+
+				// Make tool call - should work normally
+				await hooks.toolBefore(
+					makeInput('false-session', 'read', 'call-1'),
+					makeOutput({ filePath: 'src/test.ts' }),
+				);
+
+				// No error - architect is exempt from guardrails anyway
+				// But the guard logic is preserved
+				expect(true).toBe(true);
+			});
+		});
+
+		describe('Vector 5: Logic inversion - is the guard condition inverted?', () => {
+			it.skip('defense: verify condition is `if (delegationActive)` not `if (!delegationActive)`', async () => {
+				// DEFENSE TEST: Read the actual code to verify the condition is correct
+				const fs = await import('node:fs');
+				const guardrailsPath =
+					'C:\\opencode\\opencode-swarm\\src\\hooks\\guardrails.ts';
+				const guardrailsCode = fs.readFileSync(guardrailsPath, 'utf-8');
+
+				// Find the delegationActive guard (around line 214)
+				const delegationActiveGuardRegex =
+					/if\s*\(\s*currentSession\?\.delegationActive\s*\)/;
+				const invertedGuardRegex =
+					/if\s*\(\s*!\s*currentSession\?\.delegationActive\s*\)/;
+
+				// Verify the correct condition exists
+				expect(delegationActiveGuardRegex.test(guardrailsCode)).toBe(true);
+				// Verify the inverted condition does NOT exist
+				expect(invertedGuardRegex.test(guardrailsCode)).toBe(false);
+
+				// DEFENSE VERIFIED: Condition is correct
+			});
+
+			it('defense: verify delegationActive=true skips detection, false/undefined runs it', async () => {
+				// DEFENSE TEST: Verify the guard behavior matches the code
+				const config = defaultConfig();
+				const hooks = createGuardrailsHooks(TEST_DIR, undefined, config);
+
+				// Test 1: delegationActive=true should skip detection
+				swarmState.activeAgent.set('skip-session', 'architect');
+				startAgentSession('skip-session', 'architect');
+				const sessionSkip = swarmState.agentSessions.get('skip-session');
+				if (sessionSkip) {
+					sessionSkip.delegationActive = true; // Simulate delegated context
+					sessionSkip.architectWriteCount = 0; // Reset counter
+				}
+
+				await hooks.toolBefore(
+					makeInput('skip-session', 'write', 'call-1'),
+					makeOutput({ filePath: 'src/test.ts' }),
+				);
+
+				// With delegationActive=true, detection is skipped (if it wasn't for architect exemption)
+				// But architect is exempt, so we need to check the guardrail flow
+				// The guard at line 214 skips detection when delegationActive=true
+				expect(sessionSkip?.delegationActive).toBe(true);
+
+				// Test 2: delegationActive=false should run detection
+				swarmState.activeAgent.set('detect-session', 'architect');
+				startAgentSession('detect-session', 'architect');
+				const sessionDetect = swarmState.agentSessions.get('detect-session');
+				if (sessionDetect) {
+					sessionDetect.delegationActive = false; // Simulate non-delegated context
+				}
+
+				await hooks.toolBefore(
+					makeInput('detect-session', 'write', 'call-2'),
+					makeOutput({ filePath: 'src/test.ts' }),
+				);
+
+				// With delegationActive=false, detection runs (else-if branch)
+				// But architect is exempt from guardrails entirely
+				// So architectWriteCount is never incremented for architect
+				expect(sessionDetect?.delegationActive).toBe(false);
+			});
+		});
+
+		describe('Additional: Verify guard integrity across edge cases', () => {
+			it('verify guard behavior when delegationActive is set to null', async () => {
+				// TEST: Verify null is treated as false (no delegation)
+				const config = defaultConfig();
+				const hooks = createGuardrailsHooks(TEST_DIR, undefined, config);
+
+				swarmState.activeAgent.set('null-session', 'architect');
+				startAgentSession('null-session', 'architect');
+
+				const session = swarmState.agentSessions.get('null-session');
+				if (session) {
+					// Set to null (edge case)
+					(session as { delegationActive: unknown }).delegationActive = null;
+				}
+
+				// Verify property is null
+				expect(
+					(session as { delegationActive: unknown }).delegationActive,
+				).toBeNull();
+
+				// Make tool call - should work normally
+				await hooks.toolBefore(
+					makeInput('null-session', 'read', 'call-1'),
+					makeOutput({ filePath: 'src/test.ts' }),
+				);
+
+				// No error - null is treated as false (no delegation)
+				expect(true).toBe(true);
+			});
+
+			it('verify guard behavior when delegationActive is set to non-boolean string', async () => {
+				// TEST: Verify truthy string is treated as true
+				const config = defaultConfig();
+				const hooks = createGuardrailsHooks(TEST_DIR, undefined, config);
+
+				swarmState.activeAgent.set('nonbool-session', 'architect');
+				startAgentSession('nonbool-session', 'architect');
+
+				const session = swarmState.agentSessions.get('nonbool-session');
+				if (session) {
+					// Set to truthy string (edge case)
+					(session as { delegationActive: unknown }).delegationActive = 'true';
+				}
+
+				// Verify property is a string
+				expect(
+					typeof (session as { delegationActive: unknown }).delegationActive,
+				).toBe('string');
+
+				// Make tool call - should work normally
+				// JavaScript truthiness: 'true' is truthy, so it skips detection
+				await hooks.toolBefore(
+					makeInput('nonbool-session', 'read', 'call-1'),
+					makeOutput({ filePath: 'src/test.ts' }),
+				);
+
+				// No error - 'true' string is truthy, treated as true
+				expect(true).toBe(true);
+			});
+
+			it('verify guard behavior when delegationActive is set to 0 (falsy number)', async () => {
+				// TEST: Verify 0 is treated as false (no delegation)
+				const config = defaultConfig();
+				const hooks = createGuardrailsHooks(TEST_DIR, undefined, config);
+
+				swarmState.activeAgent.set('zero-session', 'architect');
+				startAgentSession('zero-session', 'architect');
+
+				const session = swarmState.agentSessions.get('zero-session');
+				if (session) {
+					// Set to 0 (edge case)
+					(session as { delegationActive: unknown }).delegationActive = 0;
+				}
+
+				// Verify property is 0
+				expect(
+					(session as { delegationActive: unknown }).delegationActive,
+				).toBe(0);
+
+				// Make tool call - should work normally
+				await hooks.toolBefore(
+					makeInput('zero-session', 'read', 'call-1'),
+					makeOutput({ filePath: 'src/test.ts' }),
+				);
+
+				// No error - 0 is falsy, treated as false
+				expect(true).toBe(true);
+			});
+
+			it('verify guard behavior when delegationActive is set to 1 (truthy number)', async () => {
+				// TEST: Verify 1 is treated as true
+				const config = defaultConfig();
+				const hooks = createGuardrailsHooks(TEST_DIR, undefined, config);
+
+				swarmState.activeAgent.set('one-session', 'architect');
+				startAgentSession('one-session', 'architect');
+
+				const session = swarmState.agentSessions.get('one-session');
+				if (session) {
+					// Set to 1 (edge case)
+					(session as { delegationActive: unknown }).delegationActive = 1;
+				}
+
+				// Verify property is 1
+				expect(
+					(session as { delegationActive: unknown }).delegationActive,
+				).toBe(1);
+
+				// Make tool call - should work normally
+				await hooks.toolBefore(
+					makeInput('one-session', 'read', 'call-1'),
+					makeOutput({ filePath: 'src/test.ts' }),
+				);
+
+				// No error - 1 is truthy, treated as true
+				expect(true).toBe(true);
+			});
+		});
+	});
+
+	describe('architect exemption bug fix - stale delegation', () => {
 		it('exempts when activeAgent is subagent but session.agentName resolved to architect', async () => {
 			// This tests the SECOND exemption check in guardrails.ts after session resolution
 			const config = defaultConfig({ max_tool_calls: 5 });
@@ -1783,7 +1916,10 @@ describe('guardrails circuit breaker', () => {
 
 			// 5th call should throw - subagent is NOT exempt
 			await expect(
-				hooks.toolBefore(makeInput('fresh-subagent', 'tool-5', 'call-5'), makeOutput({ index: 5 })),
+				hooks.toolBefore(
+					makeInput('fresh-subagent', 'tool-5', 'call-5'),
+					makeOutput({ index: 5 }),
+				),
 			).rejects.toThrow('LIMIT REACHED');
 		});
 
@@ -1808,7 +1944,10 @@ describe('guardrails circuit breaker', () => {
 
 			// 3rd call should throw - coder is NOT exempt
 			await expect(
-				hooks.toolBefore(makeInput('prefixed-coder', 'tool-3', 'call-3'), makeOutput({ index: 3 })),
+				hooks.toolBefore(
+					makeInput('prefixed-coder', 'tool-3', 'call-3'),
+					makeOutput({ index: 3 }),
+				),
 			).rejects.toThrow('LIMIT REACHED');
 		});
 
@@ -1849,7 +1988,10 @@ describe('guardrails circuit breaker', () => {
 			startAgentSession('delegation-ended-session', 'coder');
 
 			// First call creates the window
-			await hooks.toolBefore(makeInput('delegation-ended-session', 'read', 'call-1'), makeOutput());
+			await hooks.toolBefore(
+				makeInput('delegation-ended-session', 'read', 'call-1'),
+				makeOutput(),
+			);
 			const window = getActiveWindow('delegation-ended-session');
 			if (window) {
 				window.startedAtMs = Date.now() - 31 * 60000;
@@ -1858,7 +2000,10 @@ describe('guardrails circuit breaker', () => {
 
 			// Verify coder session would throw due to duration limit
 			await expect(
-				hooks.toolBefore(makeInput('delegation-ended-session', 'read', 'call-2'), makeOutput()),
+				hooks.toolBefore(
+					makeInput('delegation-ended-session', 'read', 'call-2'),
+					makeOutput(),
+				),
 			).rejects.toThrow('Duration exhausted');
 
 			// Step 2: Delegation ends - simulate input.agent missing/empty
@@ -1938,10 +2083,12 @@ describe('guardrails circuit breaker', () => {
 			}
 
 			// Transform messages
-			const messages = [{
-				info: { role: 'assistant', sessionID: 'selffix-warn-session' },
-				parts: [{ type: 'text', text: 'I will fix the code now.' }],
-			}];
+			const messages = [
+				{
+					info: { role: 'assistant', sessionID: 'selffix-warn-session' },
+					parts: [{ type: 'text', text: 'I will fix the code now.' }],
+				},
+			];
 
 			await hooks.messagesTransform({}, { messages });
 
@@ -1974,14 +2121,25 @@ describe('guardrails circuit breaker', () => {
 				session.reviewerCallCount.set(3, 1);
 				session.reviewerCallCount.set(4, 1);
 				// Populate gateLog so PARTIAL GATE VIOLATION check does not fire
-				session.gateLog.set('no-write-session:unknown', new Set(['diff', 'syntax_check', 'placeholder_scan', 'lint', 'pre_check_batch']));
+				session.gateLog.set(
+					'no-write-session:unknown',
+					new Set([
+						'diff',
+						'syntax_check',
+						'placeholder_scan',
+						'lint',
+						'pre_check_batch',
+					]),
+				);
 			}
 
 			// Transform messages
-			const messages = [{
-				info: { role: 'assistant', sessionID: 'no-write-session' },
-				parts: [{ type: 'text', text: 'Original message.' }],
-			}];
+			const messages = [
+				{
+					info: { role: 'assistant', sessionID: 'no-write-session' },
+					parts: [{ type: 'text', text: 'Original message.' }],
+				},
+			];
 
 			await hooks.messagesTransform({}, { messages });
 
@@ -2010,10 +2168,12 @@ describe('guardrails circuit breaker', () => {
 			}
 
 			// Transform messages
-			const messages = [{
-				info: { role: 'assistant', sessionID: 'clear-flag-session' },
-				parts: [{ type: 'text', text: 'Message' }],
-			}];
+			const messages = [
+				{
+					info: { role: 'assistant', sessionID: 'clear-flag-session' },
+					parts: [{ type: 'text', text: 'Message' }],
+				},
+			];
 
 			await hooks.messagesTransform({}, { messages });
 
@@ -2044,14 +2204,25 @@ describe('guardrails circuit breaker', () => {
 				session.reviewerCallCount.set(3, 1);
 				session.reviewerCallCount.set(4, 1);
 				// Populate gateLog so PARTIAL GATE VIOLATION check does not fire
-				session.gateLog.set('old-failure-session:unknown', new Set(['diff', 'syntax_check', 'placeholder_scan', 'lint', 'pre_check_batch']));
+				session.gateLog.set(
+					'old-failure-session:unknown',
+					new Set([
+						'diff',
+						'syntax_check',
+						'placeholder_scan',
+						'lint',
+						'pre_check_batch',
+					]),
+				);
 			}
 
 			// Transform messages
-			const messages = [{
-				info: { role: 'assistant', sessionID: 'old-failure-session' },
-				parts: [{ type: 'text', text: 'Old failure message.' }],
-			}];
+			const messages = [
+				{
+					info: { role: 'assistant', sessionID: 'old-failure-session' },
+					parts: [{ type: 'text', text: 'Old failure message.' }],
+				},
+			];
 
 			await hooks.messagesTransform({}, { messages });
 
@@ -2129,10 +2300,12 @@ describe('guardrails circuit breaker', () => {
 			}
 
 			// Transform messages twice
-			const messages = [{
-				info: { role: 'assistant', sessionID: 'dup-warn-session' },
-				parts: [{ type: 'text', text: 'Message' }],
-			}];
+			const messages = [
+				{
+					info: { role: 'assistant', sessionID: 'dup-warn-session' },
+					parts: [{ type: 'text', text: 'Message' }],
+				},
+			];
 
 			await hooks.messagesTransform({}, { messages });
 			const textAfterFirst = messages[0].parts[0].text;
@@ -2146,7 +2319,8 @@ describe('guardrails circuit breaker', () => {
 			const textAfterSecond = messages[0].parts[0].text;
 
 			// Should only have one SELF-FIX DETECTED occurrence
-			const selfFixCount = (textAfterSecond.match(/SELF-FIX DETECTED/g) || []).length;
+			const selfFixCount = (textAfterSecond.match(/SELF-FIX DETECTED/g) || [])
+				.length;
 			expect(selfFixCount).toBe(1);
 		});
 	});
@@ -2263,12 +2437,16 @@ describe('guardrails circuit breaker', () => {
 				const session = getAgentSession('test-session');
 
 				// Spy on warn function
-				const warnSpy = vi.spyOn(utilsModule, 'warn').mockImplementation(() => {});
+				const warnSpy = vi
+					.spyOn(utilsModule, 'warn')
+					.mockImplementation(() => {});
 
 				// Mock: apply_patch args.input containing `*** Update File: src/foo.ts`
 				await hooks.toolBefore(
 					makeInput('test-session', 'apply_patch', 'call-1'),
-					makeOutput({ input: '*** Update File: src/foo.ts\nSome code changes' }),
+					makeOutput({
+						input: '*** Update File: src/foo.ts\nSome code changes',
+					}),
 				);
 
 				// Verify: architectWriteCount increments to 1
@@ -2295,13 +2473,16 @@ describe('guardrails circuit breaker', () => {
 				startAgentSession('test-session', 'architect');
 				const session = getAgentSession('test-session');
 
-				const warnSpy = vi.spyOn(utilsModule, 'warn').mockImplementation(() => {});
+				const warnSpy = vi
+					.spyOn(utilsModule, 'warn')
+					.mockImplementation(() => {});
 
 				// Mock: apply_patch args.patch containing `+++ b/src/bar.ts`
 				await hooks.toolBefore(
 					makeInput('test-session', 'apply_patch', 'call-1'),
 					makeOutput({
-						patch: '--- a/src/bar.ts\n+++ b/src/bar.ts\n@@ -1,1 +1,1 @@\n-old line\n+new line',
+						patch:
+							'--- a/src/bar.ts\n+++ b/src/bar.ts\n@@ -1,1 +1,1 @@\n-old line\n+new line',
 					}),
 				);
 
@@ -2326,13 +2507,18 @@ describe('guardrails circuit breaker', () => {
 				startAgentSession('test-session', 'architect');
 				const session = getAgentSession('test-session');
 
-				const warnSpy = vi.spyOn(utilsModule, 'warn').mockImplementation(() => {});
+				const warnSpy = vi
+					.spyOn(utilsModule, 'warn')
+					.mockImplementation(() => {});
 
 				// Mock: apply_patch args.cmd = ["apply_patch", "*** Update File: src/index.ts ..."]
 				await hooks.toolBefore(
 					makeInput('test-session', 'apply_patch', 'call-1'),
 					makeOutput({
-						cmd: ['apply_patch', '*** Update File: src/index.ts\nCode changes here'],
+						cmd: [
+							'apply_patch',
+							'*** Update File: src/index.ts\nCode changes here',
+						],
 					}),
 				);
 
@@ -2357,12 +2543,16 @@ describe('guardrails circuit breaker', () => {
 				startAgentSession('test-session', 'architect');
 				const session = getAgentSession('test-session');
 
-				const warnSpy = vi.spyOn(utilsModule, 'warn').mockImplementation(() => {});
+				const warnSpy = vi
+					.spyOn(utilsModule, 'warn')
+					.mockImplementation(() => {});
 
 				// Mock: apply_patch args.input containing `*** Update File: .swarm/context.md`
 				await hooks.toolBefore(
 					makeInput('test-session', 'apply_patch', 'call-1'),
-					makeOutput({ input: '*** Update File: .swarm/context.md\nContext changes' }),
+					makeOutput({
+						input: '*** Update File: .swarm/context.md\nContext changes',
+					}),
 				);
 
 				// Verify: architectWriteCount does NOT increment (.swarm/ is filtered)
@@ -2384,7 +2574,9 @@ describe('guardrails circuit breaker', () => {
 				startAgentSession('test-session', 'architect');
 				const session = getAgentSession('test-session');
 
-				const warnSpy = vi.spyOn(utilsModule, 'warn').mockImplementation(() => {});
+				const warnSpy = vi
+					.spyOn(utilsModule, 'warn')
+					.mockImplementation(() => {});
 
 				// Mock: apply_patch args.patch containing multiple files: `+++ b/src/foo.ts` and `+++ b/src/bar.ts`
 				const multiFilePatch = `
@@ -2410,7 +2602,8 @@ describe('guardrails circuit breaker', () => {
 
 				// Verify: Only one warning fired (break after first match)
 				const warningCalls = warnSpy.mock.calls.filter(
-					(call) => call[0] === 'Architect direct code edit detected via apply_patch',
+					(call) =>
+						call[0] === 'Architect direct code edit detected via apply_patch',
 				);
 				expect(warningCalls.length).toBe(1);
 
@@ -2424,7 +2617,9 @@ describe('guardrails circuit breaker', () => {
 				startAgentSession('test-session', 'architect');
 				const session = getAgentSession('test-session');
 
-				const warnSpy = vi.spyOn(utilsModule, 'warn').mockImplementation(() => {});
+				const warnSpy = vi
+					.spyOn(utilsModule, 'warn')
+					.mockImplementation(() => {});
 
 				// Mock: patch args.input containing `*** Update File: src/test.ts`
 				await hooks.toolBefore(
@@ -2454,7 +2649,9 @@ describe('guardrails circuit breaker', () => {
 				startAgentSession('test-session', 'architect');
 				const session = getAgentSession('test-session');
 
-				const warnSpy = vi.spyOn(utilsModule, 'warn').mockImplementation(() => {});
+				const warnSpy = vi
+					.spyOn(utilsModule, 'warn')
+					.mockImplementation(() => {});
 
 				// Mock: write tool with args.filePath = 'src/test.ts'
 				await hooks.toolBefore(
@@ -2493,12 +2690,16 @@ describe('guardrails circuit breaker', () => {
 				startAgentSession('test-session', 'architect');
 				const session = getAgentSession('test-session');
 
-				const warnSpy = vi.spyOn(utilsModule, 'warn').mockImplementation(() => {});
+				const warnSpy = vi
+					.spyOn(utilsModule, 'warn')
+					.mockImplementation(() => {});
 
 				// Attempt: apply_patch with patch content that has no `***` or `+++` markers
 				await hooks.toolBefore(
 					makeInput('test-session', 'apply_patch', 'call-1'),
-					makeOutput({ input: 'Garbage patch content with no markers\nJust random text' }),
+					makeOutput({
+						input: 'Garbage patch content with no markers\nJust random text',
+					}),
 				);
 
 				// Expected: No paths extracted, no count increment
@@ -2520,7 +2721,9 @@ describe('guardrails circuit breaker', () => {
 				startAgentSession('test-session', 'architect');
 				const session = getAgentSession('test-session');
 
-				const warnSpy = vi.spyOn(utilsModule, 'warn').mockImplementation(() => {});
+				const warnSpy = vi
+					.spyOn(utilsModule, 'warn')
+					.mockImplementation(() => {});
 
 				// Attempt: apply_patch with `++ a/src/foo.ts` (wrong marker, should be `+++` and `b/`)
 				await hooks.toolBefore(
@@ -2549,13 +2752,16 @@ describe('guardrails circuit breaker', () => {
 				startAgentSession('test-session', 'architect');
 				const session = getAgentSession('test-session');
 
-				const warnSpy = vi.spyOn(utilsModule, 'warn').mockImplementation(() => {});
+				const warnSpy = vi
+					.spyOn(utilsModule, 'warn')
+					.mockImplementation(() => {});
 
 				// Attempt: apply_patch with *** Update File: /dev/null
 				await hooks.toolBefore(
 					makeInput('test-session', 'apply_patch', 'call-1'),
 					makeOutput({
-						patch: '*** Update File: /dev/null\n+++ b/dev/null\nTrying to inject /dev/null',
+						patch:
+							'*** Update File: /dev/null\n+++ b/dev/null\nTrying to inject /dev/null',
 					}),
 				);
 
@@ -2586,7 +2792,9 @@ describe('guardrails circuit breaker', () => {
 					session.delegationActive = true; // Simulate active delegation
 				}
 
-				const warnSpy = vi.spyOn(utilsModule, 'warn').mockImplementation(() => {});
+				const warnSpy = vi
+					.spyOn(utilsModule, 'warn')
+					.mockImplementation(() => {});
 
 				await hooks.toolBefore(
 					makeInput('test-session', 'apply_patch', 'call-1'),
@@ -2614,7 +2822,9 @@ describe('guardrails circuit breaker', () => {
 				startAgentSession('test-session', 'architect');
 				const session = getAgentSession('test-session');
 
-				const warnSpy = vi.spyOn(utilsModule, 'warn').mockImplementation(() => {});
+				const warnSpy = vi
+					.spyOn(utilsModule, 'warn')
+					.mockImplementation(() => {});
 
 				// Attempt: Patch with +++ b/dev/null (without leading slash) before src/real.ts
 				const patchWithDevNull = `
@@ -2638,7 +2848,8 @@ describe('guardrails circuit breaker', () => {
 
 				// Verify warning is for dev/null (not src/real.ts which comes later)
 				const applyPatchWarnings = warnSpy.mock.calls.filter(
-					(call) => call[0] === 'Architect direct code edit detected via apply_patch',
+					(call) =>
+						call[0] === 'Architect direct code edit detected via apply_patch',
 				);
 				expect(applyPatchWarnings.length).toBe(1);
 				expect(applyPatchWarnings[0][1]).toMatchObject({

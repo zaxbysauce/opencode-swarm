@@ -1,9 +1,15 @@
-import { describe, test, expect, beforeEach, afterEach } from 'bun:test';
-import { mkdtempSync, writeFileSync, mkdirSync, rmSync, statSync } from 'node:fs';
-import { join, dirname } from 'node:path';
+import { afterEach, beforeEach, describe, expect, test } from 'bun:test';
+import {
+	mkdirSync,
+	mkdtempSync,
+	rmSync,
+	statSync,
+	writeFileSync,
+} from 'node:fs';
 import { tmpdir } from 'node:os';
-import { evidence_check } from '../../../src/tools/evidence-check';
+import { dirname, join } from 'node:path';
 import type { ToolContext } from '@opencode-ai/plugin';
+import { evidence_check } from '../../../src/tools/evidence-check';
 
 // Store original cwd
 let originalCwd: string;
@@ -184,8 +190,14 @@ describe('evidence-check verification tests', () => {
 `);
 		// All tasks have full evidence
 		for (let i = 1; i <= 3; i++) {
-			createEvidenceFile(`1_${i}-review.json`, { task_id: `1.${i}`, type: 'review' });
-			createEvidenceFile(`1_${i}-test.json`, { task_id: `1.${i}`, type: 'test' });
+			createEvidenceFile(`1_${i}-review.json`, {
+				task_id: `1.${i}`,
+				type: 'review',
+			});
+			createEvidenceFile(`1_${i}-test.json`, {
+				task_id: `1.${i}`,
+				type: 'test',
+			});
 		}
 
 		const result = runEvidenceCheck();
@@ -202,7 +214,10 @@ describe('evidence-check verification tests', () => {
 - [x] 1.2: Task two
 `);
 		// Remove evidence directory
-		rmSync(join(testDir, '.swarm', 'evidence'), { recursive: true, force: true });
+		rmSync(join(testDir, '.swarm', 'evidence'), {
+			recursive: true,
+			force: true,
+		});
 
 		const result = runEvidenceCheck();
 		const parsed = await parseResult(result);
@@ -254,7 +269,10 @@ describe('evidence-check verification tests', () => {
 - [x] 1.1: Task one
 `);
 		// Create evidence file with wrong structure (valid filename but missing task_id/type)
-		createEvidenceFile('1_1-wrong.json', { wrong_field: 'value', another: 123 });
+		createEvidenceFile('1_1-wrong.json', {
+			wrong_field: 'value',
+			another: 123,
+		});
 		// Also create a valid one for same task
 		createEvidenceFile('1_1-review.json', { task_id: '1.1', type: 'review' });
 		createEvidenceFile('1_1-test.json', { task_id: '1.1', type: 'test' });
@@ -272,7 +290,10 @@ describe('evidence-check verification tests', () => {
 `);
 		// Only review and test - missing diff (legacy types normalized to current gates)
 		createEvidenceFile('1_1-review.json', { task_id: '1.1', type: 'reviewer' });
-		createEvidenceFile('1_1-test.json', { task_id: '1.1', type: 'test_engineer' });
+		createEvidenceFile('1_1-test.json', {
+			task_id: '1.1',
+			type: 'test_engineer',
+		});
 
 		const result = runEvidenceCheck('review,test,diff');
 		const parsed = await parseResult(result);
@@ -334,13 +355,13 @@ describe('evidence-check adversarial tests', () => {
 		// Test the filename regex - path traversal should be blocked
 		const pathTraversalFilename = '../evil.json';
 		const regex = /^[a-zA-Z0-9_-]+\.json$/;
-		
+
 		expect(regex.test(pathTraversalFilename)).toBe(false);
-		
+
 		// Also verify normal valid filenames with underscores work
 		const validFilename = '1_1-review.json';
 		expect(regex.test(validFilename)).toBe(true);
-		
+
 		// And verify filenames with dots are NOT valid (the regex doesn't allow dots)
 		const dotFilename = '1.1-review.json';
 		expect(regex.test(dotFilename)).toBe(false);
@@ -352,8 +373,12 @@ describe('evidence-check adversarial tests', () => {
 `);
 		// Create a large evidence file (>1MB)
 		const largeContent = 'x'.repeat(1024 * 1024 + 1); // >1MB
-		createEvidenceFile('1_1-review.json', { task_id: '1.1', type: 'review', content: largeContent });
-		
+		createEvidenceFile('1_1-review.json', {
+			task_id: '1.1',
+			type: 'review',
+			content: largeContent,
+		});
+
 		// Verify file is actually large
 		const filePath = join(testDir, '.swarm', 'evidence', '1_1-review.json');
 		const fileStat = statSync(filePath);
@@ -410,7 +435,10 @@ describe('evidence-check adversarial tests', () => {
 - [x] 1.21: Dotted task
 `);
 			// Test that filename with dot in the middle works (1.21-review.json)
-			createEvidenceFile('1.21-review.json', { task_id: '1.21', type: 'review' });
+			createEvidenceFile('1.21-review.json', {
+				task_id: '1.21',
+				type: 'review',
+			});
 			createEvidenceFile('1.21-test.json', { task_id: '1.21', type: 'test' });
 
 			const result = runEvidenceCheck();
@@ -535,8 +563,14 @@ describe('evidence-check adversarial tests', () => {
 			createPlanFile(`
 - [x] 1.2: Two segment task
 `);
-			createEvidenceFile('1_2-review.json', { task_id: '1.2', type: 'reviewer' });
-			createEvidenceFile('1_2-test.json', { task_id: '1.2', type: 'test_engineer' });
+			createEvidenceFile('1_2-review.json', {
+				task_id: '1.2',
+				type: 'reviewer',
+			});
+			createEvidenceFile('1_2-test.json', {
+				task_id: '1.2',
+				type: 'test_engineer',
+			});
 
 			const result = runEvidenceCheck();
 			const parsed = await parseResult(result);
@@ -550,8 +584,14 @@ describe('evidence-check adversarial tests', () => {
 			createPlanFile(`
 - [x] 1.2.3: Three segment task
 `);
-			createEvidenceFile('1_2_3-review.json', { task_id: '1.2.3', type: 'reviewer' });
-			createEvidenceFile('1_2_3-test.json', { task_id: '1.2.3', type: 'test_engineer' });
+			createEvidenceFile('1_2_3-review.json', {
+				task_id: '1.2.3',
+				type: 'reviewer',
+			});
+			createEvidenceFile('1_2_3-test.json', {
+				task_id: '1.2.3',
+				type: 'test_engineer',
+			});
 
 			const result = runEvidenceCheck();
 			const parsed = await parseResult(result);
@@ -565,8 +605,14 @@ describe('evidence-check adversarial tests', () => {
 			createPlanFile(`
 - [x] 1.2.3.4: Four segment task
 `);
-			createEvidenceFile('1_2_3_4-review.json', { task_id: '1.2.3.4', type: 'reviewer' });
-			createEvidenceFile('1_2_3_4-test.json', { task_id: '1.2.3.4', type: 'test_engineer' });
+			createEvidenceFile('1_2_3_4-review.json', {
+				task_id: '1.2.3.4',
+				type: 'reviewer',
+			});
+			createEvidenceFile('1_2_3_4-test.json', {
+				task_id: '1.2.3.4',
+				type: 'test_engineer',
+			});
 
 			const result = runEvidenceCheck();
 			const parsed = await parseResult(result);
@@ -584,14 +630,38 @@ describe('evidence-check adversarial tests', () => {
 - [x] 1.2.3.4: Deeper task
 `);
 			// Create evidence for all tasks
-			createEvidenceFile('1_1-review.json', { task_id: '1.1', type: 'reviewer' });
-			createEvidenceFile('1_1-test.json', { task_id: '1.1', type: 'test_engineer' });
-			createEvidenceFile('1_21-review.json', { task_id: '1.21', type: 'reviewer' });
-			createEvidenceFile('1_21-test.json', { task_id: '1.21', type: 'test_engineer' });
-			createEvidenceFile('1_2_3-review.json', { task_id: '1.2.3', type: 'reviewer' });
-			createEvidenceFile('1_2_3-test.json', { task_id: '1.2.3', type: 'test_engineer' });
-			createEvidenceFile('1_2_3_4-review.json', { task_id: '1.2.3.4', type: 'reviewer' });
-			createEvidenceFile('1_2_3_4-test.json', { task_id: '1.2.3.4', type: 'test_engineer' });
+			createEvidenceFile('1_1-review.json', {
+				task_id: '1.1',
+				type: 'reviewer',
+			});
+			createEvidenceFile('1_1-test.json', {
+				task_id: '1.1',
+				type: 'test_engineer',
+			});
+			createEvidenceFile('1_21-review.json', {
+				task_id: '1.21',
+				type: 'reviewer',
+			});
+			createEvidenceFile('1_21-test.json', {
+				task_id: '1.21',
+				type: 'test_engineer',
+			});
+			createEvidenceFile('1_2_3-review.json', {
+				task_id: '1.2.3',
+				type: 'reviewer',
+			});
+			createEvidenceFile('1_2_3-test.json', {
+				task_id: '1.2.3',
+				type: 'test_engineer',
+			});
+			createEvidenceFile('1_2_3_4-review.json', {
+				task_id: '1.2.3.4',
+				type: 'reviewer',
+			});
+			createEvidenceFile('1_2_3_4-test.json', {
+				task_id: '1.2.3.4',
+				type: 'test_engineer',
+			});
 
 			const result = runEvidenceCheck();
 			const parsed = await parseResult(result);
@@ -655,8 +725,14 @@ describe('evidence-check adversarial tests', () => {
 				},
 			});
 			// Task 1.2 uses legacy flat format
-			createEvidenceFile('1_2-review.json', { task_id: '1.2', type: 'reviewer' });
-			createEvidenceFile('1_2-test.json', { task_id: '1.2', type: 'test_engineer' });
+			createEvidenceFile('1_2-review.json', {
+				task_id: '1.2',
+				type: 'reviewer',
+			});
+			createEvidenceFile('1_2-test.json', {
+				task_id: '1.2',
+				type: 'test_engineer',
+			});
 
 			const result = runEvidenceCheck();
 			const parsed = await parseResult(result);
@@ -772,7 +848,11 @@ describe('evidence-check adversarial tests', () => {
 			const parsed = await parseResult(result);
 
 			// Legacy types should be normalized to current gate names
-			expect(parsed.requiredTypes).toEqual(['reviewer', 'test_engineer', 'diff']);
+			expect(parsed.requiredTypes).toEqual([
+				'reviewer',
+				'test_engineer',
+				'diff',
+			]);
 			// Both reviewer and test_engineer should be present
 			expect(parsed.gaps).toHaveLength(1);
 			expect(parsed.gaps[0].missing).toContain('diff');
@@ -783,8 +863,14 @@ describe('evidence-check adversarial tests', () => {
 - [x] 1.1: Default types task
 `);
 			// Use current gate type names
-			createEvidenceFile('1_1-review.json', { task_id: '1.1', type: 'reviewer' });
-			createEvidenceFile('1_1-test.json', { task_id: '1.1', type: 'test_engineer' });
+			createEvidenceFile('1_1-review.json', {
+				task_id: '1.1',
+				type: 'reviewer',
+			});
+			createEvidenceFile('1_1-test.json', {
+				task_id: '1.1',
+				type: 'test_engineer',
+			});
 
 			const result = runEvidenceCheck();
 			const parsed = await parseResult(result);
@@ -799,7 +885,10 @@ describe('evidence-check adversarial tests', () => {
 `);
 			// Mix of legacy and current type names
 			createEvidenceFile('1_1-review.json', { task_id: '1.1', type: 'review' }); // legacy
-			createEvidenceFile('1_1-test.json', { task_id: '1.1', type: 'test_engineer' }); // current
+			createEvidenceFile('1_1-test.json', {
+				task_id: '1.1',
+				type: 'test_engineer',
+			}); // current
 
 			const result = runEvidenceCheck();
 			const parsed = await parseResult(result);

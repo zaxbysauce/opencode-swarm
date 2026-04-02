@@ -12,14 +12,21 @@
  * 5. Stale temp file: pre-existing .tmp from crash
  */
 
-import { describe, it, expect, beforeEach, afterEach, vi } from 'vitest';
-import { mkdtemp, writeFile, mkdir, rm, stat, readFile } from 'node:fs/promises';
+import { existsSync, readFileSync } from 'node:fs';
+import {
+	mkdir,
+	mkdtemp,
+	readFile,
+	rm,
+	stat,
+	writeFile,
+} from 'node:fs/promises';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
-import { existsSync, readFileSync } from 'node:fs';
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import type { PluginConfig } from '../../../src/config';
-import { swarmState, resetSwarmState } from '../../../src/state';
 import { _flushForTesting } from '../../../src/hooks/agent-activity';
+import { resetSwarmState, swarmState } from '../../../src/state';
 
 const defaultConfig: PluginConfig = {
 	max_iterations: 5,
@@ -133,7 +140,9 @@ describe('Agent Activity — Adversarial Security & Edge Cases', () => {
 			});
 
 			// Fire 5 flushes in rapid succession
-			const flushes = Array(5).fill(null).map(() => _flushForTesting(tempDir));
+			const flushes = Array(5)
+				.fill(null)
+				.map(() => _flushForTesting(tempDir));
 
 			await Promise.all(flushes);
 
@@ -165,16 +174,16 @@ describe('Agent Activity — Adversarial Security & Edge Cases', () => {
 			// Mock Bun.write to block on first call, then release
 			const originalWrite = Bun.write;
 			let writeCount = 0;
-			const writeSpy = vi.spyOn(Bun, 'write').mockImplementation(
-				async (path: string, data: string | BunFile) => {
+			const writeSpy = vi
+				.spyOn(Bun, 'write')
+				.mockImplementation(async (path: string, data: string | BunFile) => {
 					writeCount++;
 					if (writeCount === 1) {
 						// Block first write to create race condition
 						await writeBlocker;
 					}
 					return originalWrite(path, data);
-				},
-			);
+				});
 
 			// Start first flush (will block)
 			const flush1 = _flushForTesting(tempDir);
@@ -360,7 +369,9 @@ describe('Agent Activity — Adversarial Security & Edge Cases', () => {
 			// Verify context.md was not corrupted
 			const content = await Bun.file(contextPath).text();
 			// Either contains the expected data or is unchanged
-			expect(content.includes('## Agent Activity') || content === '# Initial\n').toBe(true);
+			expect(
+				content.includes('## Agent Activity') || content === '# Initial\n',
+			).toBe(true);
 
 			warnSpy.mockRestore();
 		});
@@ -376,9 +387,9 @@ describe('Agent Activity — Adversarial Security & Edge Cases', () => {
 			await writeFile(contextPath, '# Initial\n');
 
 			// Mock Bun.write to simulate write error
-			const writeSpy = vi.spyOn(Bun, 'write').mockRejectedValueOnce(
-				new Error('ENOSPC: no space left on device'),
-			);
+			const writeSpy = vi
+				.spyOn(Bun, 'write')
+				.mockRejectedValueOnce(new Error('ENOSPC: no space left on device'));
 
 			// Flush should fail gracefully
 			await _flushForTesting(tempDir);
@@ -399,7 +410,10 @@ describe('Agent Activity — Adversarial Security & Edge Cases', () => {
 });
 
 // Helper function to list files recursively
-async function listFiles(dir: string, baseDir: string = dir): Promise<string[]> {
+async function listFiles(
+	dir: string,
+	baseDir: string = dir,
+): Promise<string[]> {
 	const files: string[] = [];
 	const entries = await Bun.file(dir).arrayBuffer();
 

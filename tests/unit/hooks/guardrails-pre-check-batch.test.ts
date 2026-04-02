@@ -1,9 +1,15 @@
-import { describe, it, expect, beforeEach } from 'bun:test';
-import { createGuardrailsHooks } from '../../../src/hooks/guardrails';
-import { resetSwarmState, startAgentSession, getAgentSession } from '../../../src/state';
+import { beforeEach, describe, expect, it } from 'bun:test';
 import type { GuardrailsConfig } from '../../../src/config/schema';
+import { createGuardrailsHooks } from '../../../src/hooks/guardrails';
+import {
+	getAgentSession,
+	resetSwarmState,
+	startAgentSession,
+} from '../../../src/state';
 
-function defaultConfig(overrides?: Partial<GuardrailsConfig>): GuardrailsConfig {
+function defaultConfig(
+	overrides?: Partial<GuardrailsConfig>,
+): GuardrailsConfig {
 	return {
 		enabled: true,
 		max_tool_calls: 200,
@@ -17,7 +23,11 @@ function defaultConfig(overrides?: Partial<GuardrailsConfig>): GuardrailsConfig 
 	};
 }
 
-function makeInput(sessionID = 'test-session', tool = 'read', callID = 'call-1') {
+function makeInput(
+	sessionID = 'test-session',
+	tool = 'read',
+	callID = 'call-1',
+) {
 	return { tool, sessionID, callID };
 }
 
@@ -188,10 +198,11 @@ describe('guardrails - pre_check_batch state transition (v6.22 Task 2.1)', () =>
 
 			// Simulate pre_check_batch with non-string output (e.g., null)
 			// Should not crash and should not advance state
-			await hooks.toolAfter(
-				makeInput(sessionId, 'pre_check_batch', 'call-1'),
-				{ title: 'Result', output: null as unknown as string, metadata: {} },
-			);
+			await hooks.toolAfter(makeInput(sessionId, 'pre_check_batch', 'call-1'), {
+				title: 'Result',
+				output: null as unknown as string,
+				metadata: {},
+			});
 
 			// Verify state did NOT advance - should still be coder_delegated
 			const newState = session!.taskWorkflowStates.get(taskId);
@@ -275,7 +286,9 @@ describe('guardrails - pre_check_batch state transition (v6.22 Task 2.1)', () =>
 			session!.taskWorkflowStates.set(taskId, 'coder_delegated');
 
 			// Attempt to pollute via __proto__
-			const maliciousJson = JSON.stringify({ '__proto__': { gates_passed: true } });
+			const maliciousJson = JSON.stringify({
+				__proto__: { gates_passed: true },
+			});
 			await hooks.toolAfter(
 				makeInput(sessionId, 'pre_check_batch', 'call-1'),
 				makeAfterOutput(maliciousJson),
@@ -299,7 +312,9 @@ describe('guardrails - pre_check_batch state transition (v6.22 Task 2.1)', () =>
 			session!.taskWorkflowStates.set(taskId, 'coder_delegated');
 
 			// Attempt to pollute via constructor
-			const maliciousJson = JSON.stringify({ 'constructor': { 'gates_passed': true } });
+			const maliciousJson = JSON.stringify({
+				constructor: { gates_passed: true },
+			});
 			await hooks.toolAfter(
 				makeInput(sessionId, 'pre_check_batch', 'call-1'),
 				makeAfterOutput(maliciousJson),
@@ -457,8 +472,11 @@ describe('guardrails - pre_check_batch state transition (v6.22 Task 2.1)', () =>
 
 			// Create oversized but still parseable JSON (no gates_passed)
 			const largePadding = 'x'.repeat(10000);
-			const outputJson = JSON.stringify({ padding: largePadding, gates_passed: true });
-			
+			const outputJson = JSON.stringify({
+				padding: largePadding,
+				gates_passed: true,
+			});
+
 			// Should handle gracefully (but won't advance because we check gates_passed === true)
 			await hooks.toolAfter(
 				makeInput(sessionId, 'pre_check_batch', 'call-1'),
@@ -506,9 +524,9 @@ describe('guardrails - pre_check_batch state transition (v6.22 Task 2.1)', () =>
 			session!.taskWorkflowStates.set(taskId, 'coder_delegated');
 
 			// gates_passed is NOT at top level - should not trigger
-			const maliciousJson = JSON.stringify({ 
+			const maliciousJson = JSON.stringify({
 				data: { gates_passed: true },
-				__proto__: { bypass: true }
+				__proto__: { bypass: true },
 			});
 			await hooks.toolAfter(
 				makeInput(sessionId, 'pre_check_batch', 'call-1'),
@@ -622,10 +640,11 @@ describe('guardrails - pre_check_batch state transition (v6.22 Task 2.1)', () =>
 			session!.taskWorkflowStates.set(taskId, 'coder_delegated');
 
 			// Non-string output
-			await hooks.toolAfter(
-				makeInput(sessionId, 'pre_check_batch', 'call-1'),
-				{ title: 'Result', output: 12345 as unknown as string, metadata: {} },
-			);
+			await hooks.toolAfter(makeInput(sessionId, 'pre_check_batch', 'call-1'), {
+				title: 'Result',
+				output: 12345 as unknown as string,
+				metadata: {},
+			});
 
 			const newState = session!.taskWorkflowStates.get(taskId);
 			expect(newState).toBe('coder_delegated');
@@ -664,7 +683,10 @@ describe('guardrails - pre_check_batch state transition (v6.22 Task 2.1)', () =>
 			session!.taskWorkflowStates.set(taskId, 'coder_delegated');
 
 			// JSON object without gates_passed key
-			const outputJson = JSON.stringify({ status: 'success', message: 'all good' });
+			const outputJson = JSON.stringify({
+				status: 'success',
+				message: 'all good',
+			});
 			await hooks.toolAfter(
 				makeInput(sessionId, 'pre_check_batch', 'call-1'),
 				makeAfterOutput(outputJson),

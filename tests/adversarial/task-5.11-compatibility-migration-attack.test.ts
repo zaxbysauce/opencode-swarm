@@ -1,24 +1,41 @@
 /**
  * ADVERSARIAL TESTS: Task 5.11 - Backward Compatibility + Migration Security
- * 
+ *
  * Attack vectors covered:
  * 1. Malformed legacy config attacks
  * 2. Migration artifact tampering
  * 3. Fallback behavior abuse
- * 
+ *
  * These tests verify that v6.7 config loading and plan migration
  * remain secure under adversarial conditions.
  */
-import { describe, test, expect, beforeEach, afterEach } from 'bun:test';
-import { mkdtemp, writeFile, rm, mkdir, readFile, symlink, unlink, stat } from 'node:fs/promises';
-import { existsSync, statSync, mkdtempSync, rmSync } from 'node:fs';
+import { afterEach, beforeEach, describe, expect, test } from 'bun:test';
+import { existsSync, mkdtempSync, rmSync, statSync } from 'node:fs';
+import {
+	mkdir,
+	mkdtemp,
+	readFile,
+	rm,
+	stat,
+	symlink,
+	unlink,
+	writeFile,
+} from 'node:fs/promises';
 import { tmpdir } from 'node:os';
 import { join, resolve } from 'node:path';
-import { loadPluginConfig, loadPluginConfigWithMeta } from '../../src/config/loader';
-import { loadPlan, migrateLegacyPlan, savePlan, derivePlanMarkdown } from '../../src/plan/manager';
-import { PluginConfigSchema } from '../../src/config/schema';
-import { PlanSchema } from '../../src/config/plan-schema';
+import {
+	loadPluginConfig,
+	loadPluginConfigWithMeta,
+} from '../../src/config/loader';
 import type { Plan } from '../../src/config/plan-schema';
+import { PlanSchema } from '../../src/config/plan-schema';
+import { PluginConfigSchema } from '../../src/config/schema';
+import {
+	derivePlanMarkdown,
+	loadPlan,
+	migrateLegacyPlan,
+	savePlan,
+} from '../../src/plan/manager';
 
 // ============================================================================
 // Test Helpers
@@ -59,7 +76,10 @@ async function createTestDir(prefix: string): Promise<string> {
 async function writeConfig(dir: string, config: Record<string, unknown>) {
 	const opencodeDir = join(dir, '.opencode');
 	await mkdir(opencodeDir, { recursive: true });
-	await writeFile(join(opencodeDir, 'opencode-swarm.json'), JSON.stringify(config, null, 2));
+	await writeFile(
+		join(opencodeDir, 'opencode-swarm.json'),
+		JSON.stringify(config, null, 2),
+	);
 }
 
 async function writePlanJson(dir: string, plan: Plan) {
@@ -104,7 +124,11 @@ describe('ATTACK: Malformed legacy config', () => {
 		} else {
 			process.env.XDG_CONFIG_HOME = originalXdgConfigHome;
 		}
-		try { rmSync(xdgConfigHome, { recursive: true, force: true }); } catch { /* ignore */ }
+		try {
+			rmSync(xdgConfigHome, { recursive: true, force: true });
+		} catch {
+			/* ignore */
+		}
 
 		if (existsSync(tempDir)) {
 			await rm(tempDir, { recursive: true, force: true });
@@ -117,14 +141,14 @@ describe('ATTACK: Malformed legacy config', () => {
 			const largeConfig = {
 				guardrails: { enabled: false },
 				// Pad with large array to exceed 100KB
-				_padding: 'x'.repeat(102_401)
+				_padding: 'x'.repeat(102_401),
 			};
-			
+
 			await writeConfig(tempDir, largeConfig);
-			
+
 			// Loader should reject and fallback to safe defaults
 			const config = loadPluginConfig(tempDir);
-			
+
 			// SECURITY: Must fall back to safe defaults with guardrails ENABLED
 			expect(config.guardrails?.enabled).toBe(true);
 		});
@@ -132,7 +156,7 @@ describe('ATTACK: Malformed legacy config', () => {
 		test('handles config that grows between stat and read (TOCTOU)', async () => {
 			// Write initial valid config
 			await writeConfig(tempDir, { guardrails: { enabled: false } });
-			
+
 			// This test validates the TOCTOU guard in loadRawConfigFromPath
 			// The loader should re-check size after reading
 			const config = loadPluginConfig(tempDir);
@@ -145,13 +169,13 @@ describe('ATTACK: Malformed legacy config', () => {
 			const maliciousConfig = {
 				guardrails: { enabled: false },
 				__proto__: { injected: true },
-				constructor: { prototype: { injected: true } }
+				constructor: { prototype: { injected: true } },
 			};
-			
+
 			await writeConfig(tempDir, maliciousConfig);
-			
+
 			const config = loadPluginConfig(tempDir);
-			
+
 			// Should not have injected properties on the config object
 			// Note: __proto__ is always present on objects, but should not affect our config values
 			expect((config as any).injected).toBeUndefined();
@@ -163,15 +187,15 @@ describe('ATTACK: Malformed legacy config', () => {
 					enabled: false,
 					profiles: {
 						__proto__: { max_tool_calls: 99999 },
-						constructor: { max_tool_calls: 99999 }
-					}
-				}
+						constructor: { max_tool_calls: 99999 },
+					},
+				},
 			};
-			
+
 			await writeConfig(tempDir, maliciousConfig);
-			
+
 			const config = loadPluginConfig(tempDir);
-			
+
 			// Config should still be valid and usable
 			expect(config).toBeDefined();
 			// The loader should handle this gracefully (may fallback to user config or defaults)
@@ -182,17 +206,17 @@ describe('ATTACK: Malformed legacy config', () => {
 		test('invalid automation mode values are rejected', async () => {
 			const invalidConfig = {
 				automation: {
-					mode: 'malicious_mode',  // Invalid enum value
+					mode: 'malicious_mode', // Invalid enum value
 					capabilities: {
-						config_doctor_autofix: true  // Sensitive capability
-					}
-				}
+						config_doctor_autofix: true, // Sensitive capability
+					},
+				},
 			};
-			
+
 			await writeConfig(tempDir, invalidConfig);
-			
+
 			const config = loadPluginConfig(tempDir);
-			
+
 			// Invalid mode should NOT be 'malicious_mode'
 			expect(config.automation?.mode).not.toBe('malicious_mode');
 			// If automation exists, mode should be a valid value
@@ -205,16 +229,16 @@ describe('ATTACK: Malformed legacy config', () => {
 			const outOfBoundsConfig = {
 				guardrails: {
 					enabled: true,
-					max_tool_calls: 99999,  // Exceeds max 1000
-					max_duration_minutes: 9999,  // Exceeds max 480
-					warning_threshold: 5.0  // Exceeds max 0.9
-				}
+					max_tool_calls: 99999, // Exceeds max 1000
+					max_duration_minutes: 9999, // Exceeds max 480
+					warning_threshold: 5.0, // Exceeds max 0.9
+				},
 			};
-			
+
 			await writeConfig(tempDir, outOfBoundsConfig);
-			
+
 			const config = loadPluginConfig(tempDir);
-			
+
 			// Values should be within bounds (either clamped or rejected)
 			if (config.guardrails?.max_tool_calls !== undefined) {
 				expect(config.guardrails.max_tool_calls).toBeLessThanOrEqual(1000);
@@ -231,12 +255,12 @@ describe('ATTACK: Malformed legacy config', () => {
 			const injectionConfig = {
 				guardrails: {
 					enabled: true,
-					max_tool_calls: "999; DROP TABLE users;" as unknown as number
-				}
+					max_tool_calls: '999; DROP TABLE users;' as unknown as number,
+				},
 			};
-			
+
 			await writeConfig(tempDir, injectionConfig);
-			
+
 			// Should fall back to safe config (loader handles this gracefully)
 			const config = loadPluginConfig(tempDir);
 			expect(config).toBeDefined();
@@ -246,15 +270,17 @@ describe('ATTACK: Malformed legacy config', () => {
 	describe('1.4 Deep merge bomb attacks', () => {
 		test('handles deeply nested config objects', async () => {
 			// Create deeply nested config that could cause stack overflow
-			let deepObj: Record<string, unknown> = { guardrails: { enabled: false } };
+			const deepObj: Record<string, unknown> = {
+				guardrails: { enabled: false },
+			};
 			let current = deepObj;
 			for (let i = 0; i < 100; i++) {
 				current.nested = { level: i };
 				current = current.nested as Record<string, unknown>;
 			}
-			
+
 			await writeConfig(tempDir, deepObj);
-			
+
 			// Should not crash on deep merge
 			const config = loadPluginConfig(tempDir);
 			expect(config).toBeDefined();
@@ -266,12 +292,12 @@ describe('ATTACK: Malformed legacy config', () => {
 				"guardrails": { "enabled": false },
 				"self": "CIRCULAR_REF_PLACEHOLDER"
 			}`;
-			
+
 			// Replace placeholder with actual self-reference (this is synthetic)
 			const opencodeDir = join(tempDir, '.opencode');
 			await mkdir(opencodeDir, { recursive: true });
 			await writeFile(join(opencodeDir, 'opencode-swarm.json'), circularJson);
-			
+
 			// Should parse valid JSON (without actual circular refs in JSON)
 			const config = loadPluginConfig(tempDir);
 			expect(config).toBeDefined();
@@ -282,29 +308,29 @@ describe('ATTACK: Malformed legacy config', () => {
 		test('handles Unicode homograph attacks in agent names', async () => {
 			const homographConfig = {
 				agents: {
-					'аrchitect': { disabled: false },  // Cyrillic 'а' instead of 'a'
-					'archіtect': { disabled: false }   // Cyrillic 'і' instead of 'i'
-				}
+					аrchitect: { disabled: false }, // Cyrillic 'а' instead of 'a'
+					archіtect: { disabled: false }, // Cyrillic 'і' instead of 'i'
+				},
 			};
-			
+
 			await writeConfig(tempDir, homographConfig);
-			
+
 			const config = loadPluginConfig(tempDir);
-			
+
 			// Should either reject or sanitize homograph agent names
 			expect(config).toBeDefined();
 		});
 
 		test('handles zero-width characters in config keys', async () => {
 			const zwjConfig = {
-				'guard\u200Brails': { enabled: false },  // Zero-width space
-				'auto\u200Dmation': { mode: 'auto' }      // Zero-width joiner
+				'guard\u200Brails': { enabled: false }, // Zero-width space
+				'auto\u200Dmation': { mode: 'auto' }, // Zero-width joiner
 			};
-			
+
 			await writeConfig(tempDir, zwjConfig);
-			
+
 			const config = loadPluginConfig(tempDir);
-			
+
 			// Invalid keys should not affect security settings
 			expect(config.guardrails?.enabled).not.toBe(false);
 		});
@@ -312,11 +338,12 @@ describe('ATTACK: Malformed legacy config', () => {
 		test('handles BOM in config file', async () => {
 			const opencodeDir = join(tempDir, '.opencode');
 			await mkdir(opencodeDir, { recursive: true });
-			
+
 			// Write config with UTF-8 BOM
-			const bomContent = '\uFEFF' + JSON.stringify({ guardrails: { enabled: true } });
+			const bomContent =
+				'\uFEFF' + JSON.stringify({ guardrails: { enabled: true } });
 			await writeFile(join(opencodeDir, 'opencode-swarm.json'), bomContent);
-			
+
 			// Should handle BOM gracefully
 			const config = loadPluginConfig(tempDir);
 			expect(config.guardrails?.enabled).toBe(true);
@@ -353,7 +380,7 @@ Phase: 1
 - [ ] 1.3: [link](javascript:alert(1)) [small]
 `;
 			const plan = migrateLegacyPlan(maliciousMd);
-			
+
 			// Should preserve description but not execute anything
 			expect(plan.phases[0].tasks[0].description).toContain('<script>');
 			expect(plan.migration_status).toBe('migrated');
@@ -369,9 +396,9 @@ Phase: 1
 - [ ] 1.2: Task with ; DELETE FROM tasks [small]
 `;
 			const plan = migrateLegacyPlan(sqlInjectionMd);
-			
+
 			// Should preserve content without executing SQL
-			expect(plan.swarm).toContain("DROP TABLE");
+			expect(plan.swarm).toContain('DROP TABLE');
 			expect(plan.migration_status).toBe('migrated');
 		});
 
@@ -386,7 +413,7 @@ Phase: 1
 - [ ] 1.3: Task with | cat /etc/passwd [small]
 `;
 			const plan = migrateLegacyPlan(cmdInjectionMd);
-			
+
 			// Should preserve content without executing commands
 			expect(plan.phases[0].tasks[0].description).toContain('$(whoami)');
 			expect(plan.phases[0].tasks[1].description).toContain('`id`');
@@ -402,9 +429,11 @@ Phase: 1
 - [ ] 1.2: Task with ..\\\\..\\\\..\\\\windows\\\\system32 [small]
 `;
 			const plan = migrateLegacyPlan(traversalMd);
-			
+
 			// Should preserve content without path traversal
-			expect(plan.phases[0].tasks[0].description).toContain('../../../etc/passwd');
+			expect(plan.phases[0].tasks[0].description).toContain(
+				'../../../etc/passwd',
+			);
 		});
 	});
 
@@ -415,19 +444,21 @@ Phase: 1
 				title: 'Test',
 				swarm: 'test',
 				current_phase: 1,
-				phases: [{
-					id: 1,
-					name: 'Phase 1',
-					status: 'pending',
-					tasks: []
-				}],
-				migration_status: 'injected_malicious_status'
+				phases: [
+					{
+						id: 1,
+						name: 'Phase 1',
+						status: 'pending',
+						tasks: [],
+					},
+				],
+				migration_status: 'injected_malicious_status',
 			};
-			
+
 			await writePlanJson(tempDir, invalidPlan as Plan);
-			
+
 			const result = await loadPlan(tempDir);
-			
+
 			// Invalid migration_status should cause fallback
 			expect(result).toBeNull();
 		});
@@ -436,13 +467,15 @@ Phase: 1
 			// Empty plan.md should trigger migration_failed
 			const emptyMd = `# Just a title
 No valid phases here.`;
-			
+
 			const plan = migrateLegacyPlan(emptyMd);
-			
+
 			// Should create a blocked task for manual review
 			expect(plan.migration_status).toBe('migration_failed');
 			expect(plan.phases[0].status).toBe('blocked');
-			expect(plan.phases[0].tasks[0].blocked_reason).toContain('could not be parsed');
+			expect(plan.phases[0].tasks[0].blocked_reason).toContain(
+				'could not be parsed',
+			);
 		});
 	});
 
@@ -453,18 +486,20 @@ No valid phases here.`;
 				title: 'Future Plan',
 				swarm: 'test',
 				current_phase: 1,
-				phases: [{
-					id: 1,
-					name: 'Phase 1',
-					status: 'pending',
-					tasks: []
-				}]
+				phases: [
+					{
+						id: 1,
+						name: 'Phase 1',
+						status: 'pending',
+						tasks: [],
+					},
+				],
 			};
-			
+
 			await writePlanJson(tempDir, futurePlan as Plan);
-			
+
 			const result = await loadPlan(tempDir);
-			
+
 			// Should reject non-1.0.0 schema version
 			expect(result).toBeNull();
 		});
@@ -475,18 +510,20 @@ No valid phases here.`;
 				title: 'Legacy Plan',
 				swarm: 'test',
 				current_phase: 1,
-				phases: [{
-					id: 1,
-					name: 'Phase 1',
-					status: 'pending',
-					tasks: []
-				}]
+				phases: [
+					{
+						id: 1,
+						name: 'Phase 1',
+						status: 'pending',
+						tasks: [],
+					},
+				],
 			};
-			
+
 			await writePlanJson(tempDir, downgradePlan as Plan);
-			
+
 			const result = await loadPlan(tempDir);
-			
+
 			// Should reject version < 1.0.0
 			expect(result).toBeNull();
 		});
@@ -496,24 +533,24 @@ No valid phases here.`;
 		test('symlink to sensitive file is handled safely', async () => {
 			const swarmDir = join(tempDir, '.swarm');
 			await mkdir(swarmDir, { recursive: true });
-			
+
 			// Create a symlink to a non-existent sensitive file
 			const symlinkPath = join(swarmDir, 'plan.json');
 			const targetPath = join(tmpdir(), 'sensitive-file-' + Date.now());
-			
+
 			try {
 				await symlink(targetPath, symlinkPath);
 			} catch {
 				// Symlink creation may fail on Windows without admin
 				return;
 			}
-			
+
 			// Should handle dangling symlink gracefully
 			const result = await loadPlan(tempDir);
-			
+
 			// Either loads nothing or handles gracefully
 			expect(result === null || result !== undefined).toBe(true);
-			
+
 			// Cleanup
 			try {
 				await unlink(symlinkPath);
@@ -525,7 +562,7 @@ No valid phases here.`;
 		test('detects content drift despite hash match attempt', async () => {
 			const plan = createTestPlan();
 			await writePlanJson(tempDir, plan);
-			
+
 			// Write plan.md with hash that doesn't match content
 			const maliciousMd = `<!-- PLAN_HASH: fakehash123 -->
 # MALICIOUS TITLE
@@ -536,9 +573,9 @@ Phase: 999 [COMPLETE]
 - [x] 999.1: Take over the world [large]
 `;
 			await writePlanMd(tempDir, maliciousMd);
-			
+
 			const result = await loadPlan(tempDir);
-			
+
 			// plan.json should be source of truth
 			expect(result?.title).toBe('Test Plan');
 			expect(result?.swarm).toBe('test-swarm');
@@ -548,7 +585,7 @@ Phase: 999 [COMPLETE]
 		test('multiple PLAN_HASH comments - uses first match', async () => {
 			const plan = createTestPlan();
 			await writePlanJson(tempDir, plan);
-			
+
 			const confusedMd = `<!-- PLAN_HASH: first -->
 <!-- PLAN_HASH: second -->
 # Test Plan
@@ -556,7 +593,7 @@ Swarm: test-swarm
 Phase: 1 [IN PROGRESS]
 `;
 			await writePlanMd(tempDir, confusedMd);
-			
+
 			// Should handle gracefully without crashing
 			const result = await loadPlan(tempDir);
 			expect(result).not.toBeNull();
@@ -589,7 +626,11 @@ describe('ATTACK: Fallback behavior abuse', () => {
 		} else {
 			process.env.XDG_CONFIG_HOME = originalXdgConfigHome;
 		}
-		try { rmSync(xdgConfigHome, { recursive: true, force: true }); } catch { /* ignore */ }
+		try {
+			rmSync(xdgConfigHome, { recursive: true, force: true });
+		} catch {
+			/* ignore */
+		}
 
 		if (existsSync(tempDir)) {
 			await rm(tempDir, { recursive: true, force: true });
@@ -601,10 +642,13 @@ describe('ATTACK: Fallback behavior abuse', () => {
 			// Write invalid JSON to force parse error
 			const opencodeDir = join(tempDir, '.opencode');
 			await mkdir(opencodeDir, { recursive: true });
-			await writeFile(join(opencodeDir, 'opencode-swarm.json'), '{ invalid json }');
-			
+			await writeFile(
+				join(opencodeDir, 'opencode-swarm.json'),
+				'{ invalid json }',
+			);
+
 			const config = loadPluginConfig(tempDir);
-			
+
 			// SECURITY: Must enable guardrails on parse failure
 			expect(config.guardrails?.enabled).toBe(true);
 		});
@@ -613,9 +657,9 @@ describe('ATTACK: Fallback behavior abuse', () => {
 			const opencodeDir = join(tempDir, '.opencode');
 			await mkdir(opencodeDir, { recursive: true });
 			await writeFile(join(opencodeDir, 'opencode-swarm.json'), '');
-			
+
 			const config = loadPluginConfig(tempDir);
-			
+
 			// Empty file should trigger safe defaults
 			expect(config.guardrails?.enabled).toBe(true);
 		});
@@ -623,10 +667,13 @@ describe('ATTACK: Fallback behavior abuse', () => {
 		test('cannot bypass guardrails via non-object config', async () => {
 			const opencodeDir = join(tempDir, '.opencode');
 			await mkdir(opencodeDir, { recursive: true });
-			await writeFile(join(opencodeDir, 'opencode-swarm.json'), '"string config"');
-			
+			await writeFile(
+				join(opencodeDir, 'opencode-swarm.json'),
+				'"string config"',
+			);
+
 			const config = loadPluginConfig(tempDir);
-			
+
 			// Non-object should trigger safe defaults
 			expect(config.guardrails?.enabled).toBe(true);
 		});
@@ -635,9 +682,9 @@ describe('ATTACK: Fallback behavior abuse', () => {
 			const opencodeDir = join(tempDir, '.opencode');
 			await mkdir(opencodeDir, { recursive: true });
 			await writeFile(join(opencodeDir, 'opencode-swarm.json'), '[1, 2, 3]');
-			
+
 			const config = loadPluginConfig(tempDir);
-			
+
 			// Array should trigger safe defaults
 			expect(config.guardrails?.enabled).toBe(true);
 		});
@@ -646,10 +693,12 @@ describe('ATTACK: Fallback behavior abuse', () => {
 	describe('3.2 User config fallback exploitation', () => {
 		test('project config cannot bypass validation', async () => {
 			// Create project config that tries to bypass validation
-			await writeConfig(tempDir, { guardrails: { enabled: false, max_tool_calls: 9999 } });
-			
+			await writeConfig(tempDir, {
+				guardrails: { enabled: false, max_tool_calls: 9999 },
+			});
+
 			const config = loadPluginConfig(tempDir);
-			
+
 			// Config should be valid and within bounds
 			// (may fall back to user config or safe defaults)
 			expect(config).toBeDefined();
@@ -661,16 +710,16 @@ describe('ATTACK: Fallback behavior abuse', () => {
 				guardrails: {
 					enabled: false,
 					// Invalid: warning_threshold > 0.9
-					warning_threshold: 5.0
+					warning_threshold: 5.0,
 				},
 				// Invalid: max_iterations > 10
-				max_iterations: 999
+				max_iterations: 999,
 			};
-			
+
 			await writeConfig(tempDir, badConfig);
-			
+
 			const config = loadPluginConfig(tempDir);
-			
+
 			// Should handle gracefully - config should still be valid
 			expect(config).toBeDefined();
 		});
@@ -681,12 +730,15 @@ describe('ATTACK: Fallback behavior abuse', () => {
 			// Create a directory where config exists but is unreadable
 			const opencodeDir = join(tempDir, '.opencode');
 			await mkdir(opencodeDir, { recursive: true });
-			
+
 			const configPath = join(opencodeDir, 'opencode-swarm.json');
-			
+
 			// Write valid config first
-			await writeFile(configPath, JSON.stringify({ guardrails: { enabled: false } }));
-			
+			await writeFile(
+				configPath,
+				JSON.stringify({ guardrails: { enabled: false } }),
+			);
+
 			// Try to make file unreadable (may not work on all platforms)
 			try {
 				const { chmod } = await import('node:fs/promises');
@@ -694,9 +746,9 @@ describe('ATTACK: Fallback behavior abuse', () => {
 			} catch {
 				// Skip if chmod fails (e.g., Windows)
 			}
-			
+
 			const config = loadPluginConfig(tempDir);
-			
+
 			// On read error, should fall back to safe defaults
 			// Note: This may not work on Windows where permissions work differently
 			expect(config).toBeDefined();
@@ -709,15 +761,15 @@ describe('ATTACK: Fallback behavior abuse', () => {
 				automation: {
 					mode: 'fully_auto_bypass_all_checks' as any,
 					capabilities: {
-						config_doctor_autofix: true
-					}
-				}
+						config_doctor_autofix: true,
+					},
+				},
 			};
-			
+
 			await writeConfig(tempDir, config);
-			
+
 			const loaded = loadPluginConfig(tempDir);
-			
+
 			// Invalid mode should NOT be 'fully_auto_bypass_all_checks'
 			expect(loaded.automation?.mode).not.toBe('fully_auto_bypass_all_checks');
 			// If automation exists, mode should be a valid value
@@ -729,7 +781,7 @@ describe('ATTACK: Fallback behavior abuse', () => {
 		test('missing automation config uses safe defaults', () => {
 			// Test with no automation key at all
 			const parsed = PluginConfigSchema.parse({});
-			
+
 			// Automation should not be defined (uses defaults elsewhere)
 			expect(parsed.automation).toBeUndefined();
 		});
@@ -741,16 +793,18 @@ describe('ATTACK: Fallback behavior abuse', () => {
 					capabilities: {
 						config_doctor_on_startup: true,
 						// Note: config_doctor_autofix is NOT set
-					}
-				}
+					},
+				},
 			};
-			
+
 			await writeConfig(tempDir, config);
-			
+
 			const loaded = loadPluginConfig(tempDir);
-			
+
 			// Even with config_doctor_on_startup, autofix should be false
-			expect(loaded.automation?.capabilities?.config_doctor_autofix).toBe(false);
+			expect(loaded.automation?.capabilities?.config_doctor_autofix).toBe(
+				false,
+			);
 		});
 	});
 });
@@ -775,15 +829,15 @@ describe('ATTACK: Concurrent state manipulation', () => {
 	describe('4.1 Race condition attempts', () => {
 		test('atomic write pattern prevents partial reads', async () => {
 			const plan = createTestPlan();
-			
+
 			// Start save operation
 			const savePromise = savePlan(tempDir, plan);
-			
+
 			// Immediately try to load (race condition attempt)
 			const loadPromise = loadPlan(tempDir);
-			
+
 			const [_, loadedPlan] = await Promise.all([savePromise, loadPromise]);
-			
+
 			// Should either get old state, new state, or null - never corrupted
 			if (loadedPlan !== null) {
 				expect(loadedPlan.schema_version).toBe('1.0.0');
@@ -793,14 +847,14 @@ describe('ATTACK: Concurrent state manipulation', () => {
 		test('temp file cleanup on interrupted write', async () => {
 			const plan = createTestPlan();
 			await savePlan(tempDir, plan);
-			
+
 			// Check that no temp files remain
 			const swarmDir = join(tempDir, '.swarm');
-			const files = await import('node:fs/promises').then(fs => 
-				fs.readdir(swarmDir)
+			const files = await import('node:fs/promises').then((fs) =>
+				fs.readdir(swarmDir),
 			);
-			
-			const tempFiles = files.filter(f => f.includes('.tmp.'));
+
+			const tempFiles = files.filter((f) => f.includes('.tmp.'));
 			expect(tempFiles.length).toBe(0);
 		});
 	});
@@ -810,7 +864,7 @@ describe('ATTACK: Concurrent state manipulation', () => {
 			// Write v1.0.0 plan.json
 			const modernPlan = createTestPlan();
 			await writePlanJson(tempDir, modernPlan);
-			
+
 			// Try to inject legacy format plan.md with malicious content
 			const legacyMd = `# DOWNGRADED
 Swarm: malicious
@@ -820,9 +874,9 @@ Phase: 999
 - [x] 999.1: Pwned [large]
 `;
 			await writePlanMd(tempDir, legacyMd);
-			
+
 			const result = await loadPlan(tempDir);
-			
+
 			// plan.json should be source of truth
 			expect(result?.title).toBe('Test Plan');
 			expect(result?.swarm).toBe('test-swarm');
@@ -854,13 +908,13 @@ describe('ATTACK: Edge case exploitation', () => {
 				title: 'Empty',
 				swarm: 'test',
 				current_phase: 1,
-				phases: []
+				phases: [],
 			};
-			
+
 			await writePlanJson(tempDir, emptyPhases as Plan);
-			
+
 			const result = await loadPlan(tempDir);
-			
+
 			// Empty phases should fail validation (min 1 phase)
 			expect(result).toBeNull();
 		});
@@ -871,18 +925,20 @@ describe('ATTACK: Edge case exploitation', () => {
 				title: 'Null Tasks',
 				swarm: 'test',
 				current_phase: 1,
-				phases: [{
-					id: 1,
-					name: 'Phase 1',
-					status: 'pending',
-					tasks: null
-				}]
+				phases: [
+					{
+						id: 1,
+						name: 'Phase 1',
+						status: 'pending',
+						tasks: null,
+					},
+				],
 			};
-			
+
 			await writePlanJson(tempDir, nullTasks as unknown as Plan);
-			
+
 			const result = await loadPlan(tempDir);
-			
+
 			// Should handle null gracefully
 			expect(result === null || result?.phases[0]?.tasks !== null).toBe(true);
 		});
@@ -892,22 +948,26 @@ describe('ATTACK: Edge case exploitation', () => {
 		test('handles extremely long description', async () => {
 			const longDesc = 'x'.repeat(1_000_000);
 			const plan = createTestPlan({
-				phases: [{
-					id: 1,
-					name: 'Phase 1',
-					status: 'pending',
-					tasks: [{
-						id: '1.1',
-						phase: 1,
+				phases: [
+					{
+						id: 1,
+						name: 'Phase 1',
 						status: 'pending',
-						size: 'small',
-						description: longDesc,
-						depends: [],
-						files_touched: []
-					}]
-				}]
+						tasks: [
+							{
+								id: '1.1',
+								phase: 1,
+								status: 'pending',
+								size: 'small',
+								description: longDesc,
+								depends: [],
+								files_touched: [],
+							},
+						],
+					},
+				],
 			});
-			
+
 			// Should not crash on long description
 			const md = derivePlanMarkdown(plan);
 			expect(md).toContain('x'.repeat(100));
@@ -916,26 +976,30 @@ describe('ATTACK: Edge case exploitation', () => {
 		test('handles extremely long file paths in files_touched', async () => {
 			const longPath = '/'.repeat(10_000) + 'file.ts';
 			const plan = createTestPlan({
-				phases: [{
-					id: 1,
-					name: 'Phase 1',
-					status: 'pending',
-					tasks: [{
-						id: '1.1',
-						phase: 1,
+				phases: [
+					{
+						id: 1,
+						name: 'Phase 1',
 						status: 'pending',
-						size: 'small',
-						description: 'Task',
-						depends: [],
-						files_touched: [longPath]
-					}]
-				}]
+						tasks: [
+							{
+								id: '1.1',
+								phase: 1,
+								status: 'pending',
+								size: 'small',
+								description: 'Task',
+								depends: [],
+								files_touched: [longPath],
+							},
+						],
+					},
+				],
 			});
-			
+
 			await writePlanJson(tempDir, plan);
-			
+
 			const result = await loadPlan(tempDir);
-			
+
 			expect(result).not.toBeNull();
 		});
 
@@ -944,17 +1008,19 @@ describe('ATTACK: Edge case exploitation', () => {
 				schema_version: '1.0.0',
 				title: 'Invalid Phase',
 				swarm: 'test',
-				current_phase: 999,  // No phase 999 exists
-				phases: [{
-					id: 1,
-					name: 'Phase 1',
-					status: 'pending',
-					tasks: []
-				}]
+				current_phase: 999, // No phase 999 exists
+				phases: [
+					{
+						id: 1,
+						name: 'Phase 1',
+						status: 'pending',
+						tasks: [],
+					},
+				],
 			};
-			
+
 			await writePlanJson(tempDir, invalidPhase as Plan);
-			
+
 			// Should load (validation doesn't check phase bounds)
 			const result = await loadPlan(tempDir);
 			expect(result?.current_phase).toBe(999);
@@ -964,19 +1030,37 @@ describe('ATTACK: Edge case exploitation', () => {
 	describe('5.3 Circular dependency attacks', () => {
 		test('handles circular task dependencies', async () => {
 			const circularDeps = createTestPlan({
-				phases: [{
-					id: 1,
-					name: 'Phase 1',
-					status: 'pending',
-					tasks: [
-						{ id: '1.1', phase: 1, status: 'pending', size: 'small', description: 'A', depends: ['1.2'], files_touched: [] },
-						{ id: '1.2', phase: 1, status: 'pending', size: 'small', description: 'B', depends: ['1.1'], files_touched: [] }
-					]
-				}]
+				phases: [
+					{
+						id: 1,
+						name: 'Phase 1',
+						status: 'pending',
+						tasks: [
+							{
+								id: '1.1',
+								phase: 1,
+								status: 'pending',
+								size: 'small',
+								description: 'A',
+								depends: ['1.2'],
+								files_touched: [],
+							},
+							{
+								id: '1.2',
+								phase: 1,
+								status: 'pending',
+								size: 'small',
+								description: 'B',
+								depends: ['1.1'],
+								files_touched: [],
+							},
+						],
+					},
+				],
 			});
-			
+
 			await writePlanJson(tempDir, circularDeps);
-			
+
 			// Should load without infinite loop
 			const result = await loadPlan(tempDir);
 			expect(result).not.toBeNull();
@@ -984,18 +1068,28 @@ describe('ATTACK: Edge case exploitation', () => {
 
 		test('handles self-referential task dependency', async () => {
 			const selfRef = createTestPlan({
-				phases: [{
-					id: 1,
-					name: 'Phase 1',
-					status: 'pending',
-					tasks: [
-						{ id: '1.1', phase: 1, status: 'pending', size: 'small', description: 'Self', depends: ['1.1'], files_touched: [] }
-					]
-				}]
+				phases: [
+					{
+						id: 1,
+						name: 'Phase 1',
+						status: 'pending',
+						tasks: [
+							{
+								id: '1.1',
+								phase: 1,
+								status: 'pending',
+								size: 'small',
+								description: 'Self',
+								depends: ['1.1'],
+								files_touched: [],
+							},
+						],
+					},
+				],
 			});
-			
+
 			await writePlanJson(tempDir, selfRef);
-			
+
 			// Should load without issues
 			const result = await loadPlan(tempDir);
 			expect(result?.phases[0].tasks[0].depends).toContain('1.1');
@@ -1012,7 +1106,7 @@ Phase: 1
 - [ ] 1.1: Z̷̢̛ą̷l̵̨g̵̢o̷ ̷t̵̨a̵̢s̷k̸ [small]
 `;
 			const plan = migrateLegacyPlan(zalgoMd);
-			
+
 			// Should parse without crashing
 			expect(plan.title).toBeDefined();
 		});
@@ -1026,7 +1120,7 @@ Phase: 1
 - [ ] 1.1: Normal task [small]
 `;
 			const plan = migrateLegacyPlan(rtlMd);
-			
+
 			// RTL override should be preserved in title
 			expect(plan.title).toContain('\u202E');
 		});
@@ -1046,33 +1140,35 @@ describe('SECURITY SUMMARY: All attack vectors', () => {
 			'1.3 Type coercion attacks (invalid enum, out of bounds)',
 			'1.4 Deep merge bomb attacks (nested objects)',
 			'1.5 Unicode and encoding attacks (homographs, BOM, ZWJ)',
-			
+
 			// Attack Vector 2: Migration Artifact Tampering
 			'2.1 Malicious plan.md injection (XSS, SQL, command, path traversal)',
 			'2.2 migration_status manipulation',
 			'2.3 Schema version manipulation',
 			'2.4 Symlink attacks during migration',
 			'2.5 Hash collision and drift attacks',
-			
+
 			// Attack Vector 3: Fallback Behavior Abuse
 			'3.1 Fail-secure bypass attempts',
 			'3.2 User config fallback exploitation',
 			'3.3 Error state manipulation',
 			'3.4 Automation mode fallback attacks',
-			
+
 			// Attack Vector 4: Concurrent State Manipulation
 			'4.1 Race condition attempts',
 			'4.2 State rollback attacks',
-			
+
 			// Attack Vector 5: Edge Case Exploitation
 			'5.1 Empty/null edge cases',
 			'5.2 Extreme value attacks',
 			'5.3 Circular dependency attacks',
-			'5.4 Unicode bomb attacks'
+			'5.4 Unicode bomb attacks',
 		];
-		
+
 		// This test documents all covered vectors
 		expect(attackVectors.length).toBe(20);
-		console.log('✅ Security test coverage: ' + attackVectors.length + ' attack vectors');
+		console.log(
+			'✅ Security test coverage: ' + attackVectors.length + ' attack vectors',
+		);
 	});
 });

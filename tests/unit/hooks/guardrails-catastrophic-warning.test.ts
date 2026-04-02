@@ -8,17 +8,32 @@
  * the architect completes phases without required QA review.
  */
 
-import { describe, it, expect, beforeEach, afterEach, mock, spyOn } from 'bun:test';
+import {
+	afterEach,
+	beforeEach,
+	describe,
+	expect,
+	it,
+	mock,
+	spyOn,
+} from 'bun:test';
 import * as fs from 'node:fs';
 import * as os from 'node:os';
 import * as path from 'node:path';
 import { ORCHESTRATOR_NAME } from '../../../src/config/constants';
-import { createGuardrailsHooks } from '../../../src/hooks/guardrails';
-import { resetSwarmState, swarmState, startAgentSession, getAgentSession } from '../../../src/state';
-import type { GuardrailsConfig } from '../../../src/config/schema';
 import type { Plan } from '../../../src/config/plan-schema';
+import type { GuardrailsConfig } from '../../../src/config/schema';
+import { createGuardrailsHooks } from '../../../src/hooks/guardrails';
+import {
+	getAgentSession,
+	resetSwarmState,
+	startAgentSession,
+	swarmState,
+} from '../../../src/state';
 
-function defaultConfig(overrides?: Partial<GuardrailsConfig>): GuardrailsConfig {
+function defaultConfig(
+	overrides?: Partial<GuardrailsConfig>,
+): GuardrailsConfig {
 	return {
 		enabled: true,
 		max_tool_calls: 200,
@@ -50,7 +65,9 @@ describe('Catastrophic Zero-Reviewer Warning (v6.12 Task 2.3)', () => {
 	/**
 	 * Helper to create a plan.json file in a temp directory
 	 */
-	function createPlanJson(phases: Array<{ id: number; name: string; status: string }>): string {
+	function createPlanJson(
+		phases: Array<{ id: number; name: string; status: string }>,
+	): string {
 		const swarmDir = path.join(tempDir, '.swarm');
 		fs.mkdirSync(swarmDir, { recursive: true });
 
@@ -86,10 +103,12 @@ describe('Catastrophic Zero-Reviewer Warning (v6.12 Task 2.3)', () => {
 			startAgentSession('architect-session', 'architect');
 
 			// Transform messages
-			const messages = [{
-				info: { role: 'assistant', sessionID: 'architect-session' },
-				parts: [{ type: 'text', text: 'Phase 1 is complete.' }],
-			}];
+			const messages = [
+				{
+					info: { role: 'assistant', sessionID: 'architect-session' },
+					parts: [{ type: 'text', text: 'Phase 1 is complete.' }],
+				},
+			];
 
 			await hooks.messagesTransform({}, { messages });
 
@@ -117,20 +136,33 @@ describe('Catastrophic Zero-Reviewer Warning (v6.12 Task 2.3)', () => {
 				// Set up all required gates to prevent PARTIAL GATE VIOLATION from firing
 				const taskId = 'test-task';
 				session.currentTaskId = taskId;
-				session.gateLog.set(taskId, new Set(['diff', 'syntax_check', 'placeholder_scan', 'lint', 'pre_check_batch']));
+				session.gateLog.set(
+					taskId,
+					new Set([
+						'diff',
+						'syntax_check',
+						'placeholder_scan',
+						'lint',
+						'pre_check_batch',
+					]),
+				);
 			}
 
 			// Transform messages
-			const messages = [{
-				info: { role: 'assistant', sessionID: 'architect-reviewed-session' },
-				parts: [{ type: 'text', text: 'Phase 1 is complete and reviewed.' }],
-			}];
+			const messages = [
+				{
+					info: { role: 'assistant', sessionID: 'architect-reviewed-session' },
+					parts: [{ type: 'text', text: 'Phase 1 is complete and reviewed.' }],
+				},
+			];
 
 			await hooks.messagesTransform({}, { messages });
 
 			// No catastrophic warning should be injected (no new system message created)
 			expect(messages[0].parts[0].text).not.toContain('CATASTROPHIC VIOLATION');
-			expect(messages[0].parts[0].text).toBe('Phase 1 is complete and reviewed.');
+			expect(messages[0].parts[0].text).toBe(
+				'Phase 1 is complete and reviewed.',
+			);
 		});
 
 		it('does NOT inject warning for phases that are not complete', async () => {
@@ -146,10 +178,15 @@ describe('Catastrophic Zero-Reviewer Warning (v6.12 Task 2.3)', () => {
 			startAgentSession('architect-inprogress-session', 'architect');
 
 			// Transform messages
-			const messages = [{
-				info: { role: 'assistant', sessionID: 'architect-inprogress-session' },
-				parts: [{ type: 'text', text: 'Phase 1 is in progress.' }],
-			}];
+			const messages = [
+				{
+					info: {
+						role: 'assistant',
+						sessionID: 'architect-inprogress-session',
+					},
+					parts: [{ type: 'text', text: 'Phase 1 is in progress.' }],
+				},
+			];
 
 			await hooks.messagesTransform({}, { messages });
 
@@ -170,10 +207,12 @@ describe('Catastrophic Zero-Reviewer Warning (v6.12 Task 2.3)', () => {
 			startAgentSession('coder-session', 'coder');
 
 			// Transform messages
-			const messages = [{
-				info: { role: 'assistant', sessionID: 'coder-session' },
-				parts: [{ type: 'text', text: 'I am coding.' }],
-			}];
+			const messages = [
+				{
+					info: { role: 'assistant', sessionID: 'coder-session' },
+					parts: [{ type: 'text', text: 'I am coding.' }],
+				},
+			];
 
 			await hooks.messagesTransform({}, { messages });
 
@@ -196,18 +235,22 @@ describe('Catastrophic Zero-Reviewer Warning (v6.12 Task 2.3)', () => {
 			startAgentSession('dedup-session', 'architect');
 
 			// First transform - should inject warning
-			const messages1 = [{
-				info: { role: 'assistant', sessionID: 'dedup-session' },
-				parts: [{ type: 'text', text: 'First message.' }],
-			}];
+			const messages1 = [
+				{
+					info: { role: 'assistant', sessionID: 'dedup-session' },
+					parts: [{ type: 'text', text: 'First message.' }],
+				},
+			];
 			await hooks.messagesTransform({}, { messages: messages1 });
 			expect(messages1[0].parts[0].text).toContain('CATASTROPHIC VIOLATION');
 
 			// Second transform - should NOT inject duplicate warning
-			const messages2 = [{
-				info: { role: 'assistant', sessionID: 'dedup-session' },
-				parts: [{ type: 'text', text: 'Second message.' }],
-			}];
+			const messages2 = [
+				{
+					info: { role: 'assistant', sessionID: 'dedup-session' },
+					parts: [{ type: 'text', text: 'Second message.' }],
+				},
+			];
 			await hooks.messagesTransform({}, { messages: messages2 });
 
 			// The second message should not have the warning prepended again
@@ -232,10 +275,12 @@ describe('Catastrophic Zero-Reviewer Warning (v6.12 Task 2.3)', () => {
 			startAgentSession('multi-phase-session', 'architect');
 
 			// First transform - should warn about first complete phase without reviewers
-			const messages1 = [{
-				info: { role: 'assistant', sessionID: 'multi-phase-session' },
-				parts: [{ type: 'text', text: 'Checking phases.' }],
-			}];
+			const messages1 = [
+				{
+					info: { role: 'assistant', sessionID: 'multi-phase-session' },
+					parts: [{ type: 'text', text: 'Checking phases.' }],
+				},
+			];
 			await hooks.messagesTransform({}, { messages: messages1 });
 
 			const session = getAgentSession('multi-phase-session');
@@ -261,15 +306,26 @@ describe('Catastrophic Zero-Reviewer Warning (v6.12 Task 2.3)', () => {
 			if (session) {
 				const taskId = 'test-task';
 				session.currentTaskId = taskId;
-				session.gateLog.set(taskId, new Set(['diff', 'syntax_check', 'placeholder_scan', 'lint', 'pre_check_batch']));
+				session.gateLog.set(
+					taskId,
+					new Set([
+						'diff',
+						'syntax_check',
+						'placeholder_scan',
+						'lint',
+						'pre_check_batch',
+					]),
+				);
 				session.reviewerCallCount.set(1, 1);
 			}
 
 			// Transform messages - should not throw
-			const messages = [{
-				info: { role: 'assistant', sessionID: 'no-plan-session' },
-				parts: [{ type: 'text', text: 'No plan here.' }],
-			}];
+			const messages = [
+				{
+					info: { role: 'assistant', sessionID: 'no-plan-session' },
+					parts: [{ type: 'text', text: 'No plan here.' }],
+				},
+			];
 
 			// If this throws, the test will fail naturally
 			await hooks.messagesTransform({}, { messages });
@@ -291,10 +347,12 @@ describe('Catastrophic Zero-Reviewer Warning (v6.12 Task 2.3)', () => {
 			startAgentSession('malformed-plan-session', 'architect');
 
 			// Transform messages - should not throw
-			const messages = [{
-				info: { role: 'assistant', sessionID: 'malformed-plan-session' },
-				parts: [{ type: 'text', text: 'Malformed plan.' }],
-			}];
+			const messages = [
+				{
+					info: { role: 'assistant', sessionID: 'malformed-plan-session' },
+					parts: [{ type: 'text', text: 'Malformed plan.' }],
+				},
+			];
 
 			// If this throws, the test will fail naturally
 			await hooks.messagesTransform({}, { messages });
@@ -314,10 +372,12 @@ describe('Catastrophic Zero-Reviewer Warning (v6.12 Task 2.3)', () => {
 			startAgentSession('empty-phases-session', 'architect');
 
 			// Transform messages
-			const messages = [{
-				info: { role: 'assistant', sessionID: 'empty-phases-session' },
-				parts: [{ type: 'text', text: 'Empty phases.' }],
-			}];
+			const messages = [
+				{
+					info: { role: 'assistant', sessionID: 'empty-phases-session' },
+					parts: [{ type: 'text', text: 'Empty phases.' }],
+				},
+			];
 
 			await hooks.messagesTransform({}, { messages });
 			expect(messages[0].parts[0].text).not.toContain('CATASTROPHIC VIOLATION');
@@ -336,10 +396,14 @@ describe('Catastrophic Zero-Reviewer Warning (v6.12 Task 2.3)', () => {
 			startAgentSession('already-warned-session', 'architect');
 
 			// Message already contains the warning
-			const messages = [{
-				info: { role: 'assistant', sessionID: 'already-warned-session' },
-				parts: [{ type: 'text', text: '[CATASTROPHIC VIOLATION: Already warned]' }],
-			}];
+			const messages = [
+				{
+					info: { role: 'assistant', sessionID: 'already-warned-session' },
+					parts: [
+						{ type: 'text', text: '[CATASTROPHIC VIOLATION: Already warned]' },
+					],
+				},
+			];
 
 			await hooks.messagesTransform({}, { messages });
 
@@ -369,10 +433,12 @@ describe('Catastrophic Zero-Reviewer Warning (v6.12 Task 2.3)', () => {
 			}
 
 			// Transform messages - should not throw
-			const messages = [{
-				info: { role: 'assistant', sessionID: 'no-warnings-set-session' },
-				parts: [{ type: 'text', text: 'Legacy session.' }],
-			}];
+			const messages = [
+				{
+					info: { role: 'assistant', sessionID: 'no-warnings-set-session' },
+					parts: [{ type: 'text', text: 'Legacy session.' }],
+				},
+			];
 
 			// If this throws, the test will fail naturally
 			await hooks.messagesTransform({}, { messages });
@@ -384,7 +450,9 @@ describe('Catastrophic Zero-Reviewer Warning (v6.12 Task 2.3)', () => {
 	describe('Warning Message Content', () => {
 		it('includes phase number in warning message', async () => {
 			// Create plan with Phase 3 complete
-			createPlanJson([{ id: 3, name: 'Implementation Phase', status: 'complete' }]);
+			createPlanJson([
+				{ id: 3, name: 'Implementation Phase', status: 'complete' },
+			]);
 			process.chdir(tempDir);
 
 			const config = defaultConfig();
@@ -395,10 +463,12 @@ describe('Catastrophic Zero-Reviewer Warning (v6.12 Task 2.3)', () => {
 			startAgentSession('phase3-session', 'architect');
 
 			// Transform messages
-			const messages = [{
-				info: { role: 'assistant', sessionID: 'phase3-session' },
-				parts: [{ type: 'text', text: 'Phase 3 done.' }],
-			}];
+			const messages = [
+				{
+					info: { role: 'assistant', sessionID: 'phase3-session' },
+					parts: [{ type: 'text', text: 'Phase 3 done.' }],
+				},
+			];
 
 			await hooks.messagesTransform({}, { messages });
 
@@ -419,16 +489,20 @@ describe('Catastrophic Zero-Reviewer Warning (v6.12 Task 2.3)', () => {
 			startAgentSession('recommend-session', 'architect');
 
 			// Transform messages
-			const messages = [{
-				info: { role: 'assistant', sessionID: 'recommend-session' },
-				parts: [{ type: 'text', text: 'Done.' }],
-			}];
+			const messages = [
+				{
+					info: { role: 'assistant', sessionID: 'recommend-session' },
+					parts: [{ type: 'text', text: 'Done.' }],
+				},
+			];
 
 			await hooks.messagesTransform({}, { messages });
 
 			// Warning should include recommendation
 			expect(messages[0].parts[0].text).toContain('retrospective review');
-			expect(messages[0].parts[0].text).toContain('Every coder task requires reviewer approval');
+			expect(messages[0].parts[0].text).toContain(
+				'Every coder task requires reviewer approval',
+			);
 		});
 	});
 
@@ -449,10 +523,12 @@ describe('Catastrophic Zero-Reviewer Warning (v6.12 Task 2.3)', () => {
 			swarmState.activeAgent.set('via-active-agent', 'architect');
 
 			// Transform messages
-			const messages = [{
-				info: { role: 'assistant', sessionID: 'via-active-agent' },
-				parts: [{ type: 'text', text: 'Testing.' }],
-			}];
+			const messages = [
+				{
+					info: { role: 'assistant', sessionID: 'via-active-agent' },
+					parts: [{ type: 'text', text: 'Testing.' }],
+				},
+			];
 
 			await hooks.messagesTransform({}, { messages });
 
@@ -472,10 +548,12 @@ describe('Catastrophic Zero-Reviewer Warning (v6.12 Task 2.3)', () => {
 			startAgentSession('via-session-name', 'architect');
 
 			// Transform messages
-			const messages = [{
-				info: { role: 'assistant', sessionID: 'via-session-name' },
-				parts: [{ type: 'text', text: 'Testing.' }],
-			}];
+			const messages = [
+				{
+					info: { role: 'assistant', sessionID: 'via-session-name' },
+					parts: [{ type: 'text', text: 'Testing.' }],
+				},
+			];
 
 			await hooks.messagesTransform({}, { messages });
 
@@ -496,10 +574,12 @@ describe('Catastrophic Zero-Reviewer Warning (v6.12 Task 2.3)', () => {
 			startAgentSession('orch-name-session', ORCHESTRATOR_NAME);
 
 			// Transform messages
-			const messages = [{
-				info: { role: 'assistant', sessionID: 'orch-name-session' },
-				parts: [{ type: 'text', text: 'Testing.' }],
-			}];
+			const messages = [
+				{
+					info: { role: 'assistant', sessionID: 'orch-name-session' },
+					parts: [{ type: 'text', text: 'Testing.' }],
+				},
+			];
 
 			await hooks.messagesTransform({}, { messages });
 

@@ -11,7 +11,10 @@ import * as os from 'node:os';
 import * as path from 'node:path';
 
 // Import the functions to test
-import { listEvidenceTaskIds, loadEvidence } from '../../../src/evidence/manager';
+import {
+	listEvidenceTaskIds,
+	loadEvidence,
+} from '../../../src/evidence/manager';
 
 describe('Task 2.1 Adversarial Tests - Evidence Loading/Parsing', () => {
 	let tempDir: string;
@@ -166,10 +169,7 @@ describe('Task 2.1 Adversarial Tests - Evidence Loading/Parsing', () => {
 		// This is actually correct behavior - listEvidenceTaskIds doesn't validate that evidence.json exists
 		const junkDir = path.join(tempDir, evidenceDir, 'sbom');
 		fs.mkdirSync(junkDir, { recursive: true });
-		fs.writeFileSync(
-			path.join(junkDir, 'some-file.txt'),
-			'junk content',
-		);
+		fs.writeFileSync(path.join(junkDir, 'some-file.txt'), 'junk content');
 
 		// Create invalid directory names that should be filtered
 		const invalidDir2 = path.join(tempDir, evidenceDir, 'test@dir');
@@ -190,13 +190,17 @@ describe('Task 2.1 Adversarial Tests - Evidence Loading/Parsing', () => {
 	it('retro bundle with extremely long lessons_learned entries (10000 chars) loads without truncation', async () => {
 		const taskId = 'retro-6';
 		const longLesson = 'A'.repeat(10000); // 10k character lesson
-		const bundle = createBundle(taskId, [createRetroEntry(1, 'pass', [longLesson])]);
+		const bundle = createBundle(taskId, [
+			createRetroEntry(1, 'pass', [longLesson]),
+		]);
 		writeEvidenceFile(taskId, bundle);
 
 		const result = await loadEvidence(tempDir, taskId);
 
 		expect(result.status).toBe('found');
-		const retroEntry = result.bundle.entries.find((e) => e.type === 'retrospective');
+		const retroEntry = result.bundle.entries.find(
+			(e) => e.type === 'retrospective',
+		);
 		expect(retroEntry).toBeDefined();
 		// @ts-expect-error - we know this is a retro entry
 		expect(retroEntry.lessons_learned[0].length).toBe(10000);
@@ -207,15 +211,15 @@ describe('Task 2.1 Adversarial Tests - Evidence Loading/Parsing', () => {
 	 */
 	it('retro bundle with empty lessons_learned and empty top_rejection_reasons loads correctly', async () => {
 		const taskId = 'retro-7';
-		const bundle = createBundle(taskId, [
-			createRetroEntry(1, 'pass', [], []),
-		]);
+		const bundle = createBundle(taskId, [createRetroEntry(1, 'pass', [], [])]);
 		writeEvidenceFile(taskId, bundle);
 
 		const result = await loadEvidence(tempDir, taskId);
 
 		expect(result.status).toBe('found');
-		const retroEntry = result.bundle.entries.find((e) => e.type === 'retrospective');
+		const retroEntry = result.bundle.entries.find(
+			(e) => e.type === 'retrospective',
+		);
 		expect(retroEntry).toBeDefined();
 		// @ts-expect-error - we know this is a retro entry
 		expect(retroEntry.lessons_learned).toEqual([]);
@@ -268,9 +272,7 @@ describe('Task 2.1 Adversarial Tests - Evidence Loading/Parsing', () => {
 		);
 
 		// Verify the actual file exists but wasn't loaded
-		expect(
-			fs.existsSync(path.join(outsideDir, 'evidence.json')),
-		).toBeTrue();
+		expect(fs.existsSync(path.join(outsideDir, 'evidence.json'))).toBeTrue();
 	});
 
 	/**
@@ -380,7 +382,9 @@ describe('Task 2.1 Adversarial Tests - Evidence Loading/Parsing', () => {
 
 		// Bundle should still load
 		expect(result.status).toBe('found');
-		const retroEntry = result.bundle.entries.find((e) => e.type === 'retrospective');
+		const retroEntry = result.bundle.entries.find(
+			(e) => e.type === 'retrospective',
+		);
 		expect(retroEntry).toBeDefined();
 		// @ts-expect-error - we know this is a retro entry
 		expect(retroEntry.verdict).toBe('fail');

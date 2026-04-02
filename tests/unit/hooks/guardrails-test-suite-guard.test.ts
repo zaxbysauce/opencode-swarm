@@ -1,9 +1,9 @@
-import { describe, it, expect, beforeEach } from 'bun:test';
+import { beforeEach, describe, expect, it } from 'bun:test';
+import type { GuardrailsConfig } from '../../../src/config/schema';
 import { createGuardrailsHooks } from '../../../src/hooks/guardrails';
 import { resetSwarmState, startAgentSession } from '../../../src/state';
-import type { GuardrailsConfig } from '../../../src/config/schema';
 
-	const TEST_DIR = '/tmp';
+const TEST_DIR = '/tmp';
 
 /**
  * Verification tests for the bash test suite execution guard (Task 1.3)
@@ -41,20 +41,30 @@ describe('bash test suite execution guard - verification', () => {
 			const hooks = createGuardrailsHooks(TEST_DIR, undefined, defaultConfig());
 			await expect(
 				hooks.toolBefore(makeBashInput('bun test'), makeOutput('bun test')),
-			).rejects.toThrow('BLOCKED: Full test suite execution is not allowed in-session');
+			).rejects.toThrow(
+				'BLOCKED: Full test suite execution is not allowed in-session',
+			);
 		});
 
 		it('blocks "bun test --coverage" (flags only)', async () => {
 			const hooks = createGuardrailsHooks(TEST_DIR, undefined, defaultConfig());
 			await expect(
-				hooks.toolBefore(makeBashInput('bun test --coverage'), makeOutput('bun test --coverage')),
-			).rejects.toThrow('BLOCKED: Full test suite execution is not allowed in-session');
+				hooks.toolBefore(
+					makeBashInput('bun test --coverage'),
+					makeOutput('bun test --coverage'),
+				),
+			).rejects.toThrow(
+				'BLOCKED: Full test suite execution is not allowed in-session',
+			);
 		});
 
 		it('allows "bun test src/tools/foo.test.ts" (file path present)', async () => {
 			const hooks = createGuardrailsHooks(TEST_DIR, undefined, defaultConfig());
 			await expect(
-				hooks.toolBefore(makeBashInput('bun test src/tools/foo.test.ts'), makeOutput('bun test src/tools/foo.test.ts')),
+				hooks.toolBefore(
+					makeBashInput('bun test src/tools/foo.test.ts'),
+					makeOutput('bun test src/tools/foo.test.ts'),
+				),
 			).resolves.toBeUndefined();
 		});
 
@@ -74,14 +84,21 @@ describe('bash test suite execution guard - verification', () => {
 			const hooks = createGuardrailsHooks(TEST_DIR, undefined, defaultConfig());
 			await expect(
 				hooks.toolBefore(makeBashInput('npm test'), makeOutput('npm test')),
-			).rejects.toThrow('BLOCKED: Full test suite execution is not allowed in-session');
+			).rejects.toThrow(
+				'BLOCKED: Full test suite execution is not allowed in-session',
+			);
 		});
 
 		it('blocks "npm test" with flags only', async () => {
 			const hooks = createGuardrailsHooks(TEST_DIR, undefined, defaultConfig());
 			await expect(
-				hooks.toolBefore(makeBashInput('npm test -- --coverage'), makeOutput('npm test -- --coverage')),
-			).rejects.toThrow('BLOCKED: Full test suite execution is not allowed in-session');
+				hooks.toolBefore(
+					makeBashInput('npm test -- --coverage'),
+					makeOutput('npm test -- --coverage'),
+				),
+			).rejects.toThrow(
+				'BLOCKED: Full test suite execution is not allowed in-session',
+			);
 		});
 	});
 
@@ -90,17 +107,25 @@ describe('bash test suite execution guard - verification', () => {
 			const hooks = createGuardrailsHooks(TEST_DIR, undefined, defaultConfig());
 			await expect(
 				hooks.toolBefore(makeBashInput('npx vitest'), makeOutput('npx vitest')),
-			).rejects.toThrow('BLOCKED: Full test suite execution is not allowed in-session');
+			).rejects.toThrow(
+				'BLOCKED: Full test suite execution is not allowed in-session',
+			);
 		});
 	});
 
 	describe('shell tool variant', () => {
 		it('blocks full test suite on "shell" tool too', async () => {
 			const hooks = createGuardrailsHooks(TEST_DIR, undefined, defaultConfig());
-			const shellInput = { tool: 'shell' as const, sessionID: 'test-session', callID: 'call-1' };
+			const shellInput = {
+				tool: 'shell' as const,
+				sessionID: 'test-session',
+				callID: 'call-1',
+			};
 			await expect(
 				hooks.toolBefore(shellInput, makeOutput('bun test')),
-			).rejects.toThrow('BLOCKED: Full test suite execution is not allowed in-session');
+			).rejects.toThrow(
+				'BLOCKED: Full test suite execution is not allowed in-session',
+			);
 		});
 	});
 
@@ -115,14 +140,20 @@ describe('bash test suite execution guard - verification', () => {
 		it('allows "node test.js" (not a blocked prefix)', async () => {
 			const hooks = createGuardrailsHooks(TEST_DIR, undefined, defaultConfig());
 			await expect(
-				hooks.toolBefore(makeBashInput('node test.js'), makeOutput('node test.js')),
+				hooks.toolBefore(
+					makeBashInput('node test.js'),
+					makeOutput('node test.js'),
+				),
 			).resolves.toBeUndefined();
 		});
 
 		it('allows "bun run tests" (bun run, not bun test)', async () => {
 			const hooks = createGuardrailsHooks(TEST_DIR, undefined, defaultConfig());
 			await expect(
-				hooks.toolBefore(makeBashInput('bun run tests'), makeOutput('bun run tests')),
+				hooks.toolBefore(
+					makeBashInput('bun run tests'),
+					makeOutput('bun run tests'),
+				),
 			).resolves.toBeUndefined();
 		});
 

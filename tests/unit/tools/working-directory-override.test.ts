@@ -9,12 +9,7 @@
  */
 
 import { afterEach, beforeEach, describe, expect, it } from 'bun:test';
-import {
-	mkdirSync,
-	mkdtempSync,
-	rmSync,
-	writeFileSync,
-} from 'node:fs';
+import { mkdirSync, mkdtempSync, rmSync, writeFileSync } from 'node:fs';
 import * as os from 'node:os';
 import * as path from 'node:path';
 import type { ToolContext } from '@opencode-ai/plugin';
@@ -71,10 +66,14 @@ describe('working_directory override — check_gate_status', () => {
 	afterEach(() => {
 		try {
 			rmSync(wrongDir, { recursive: true, force: true });
-		} catch { /* best effort */ }
+		} catch {
+			/* best effort */
+		}
 		try {
 			rmSync(rightDir, { recursive: true, force: true });
-		} catch { /* best effort */ }
+		} catch {
+			/* best effort */
+		}
 	});
 
 	it('reads evidence from wrong directory when working_directory is not provided', async () => {
@@ -151,8 +150,7 @@ describe('working_directory override — completion_verify (via executeCompletio
 						tasks: [
 							{
 								id: '1.1',
-								description:
-									'Create `helperFunction` in src/utils/helper.ts',
+								description: 'Create `helperFunction` in src/utils/helper.ts',
 								status: 'completed',
 								files_touched: ['src/utils/helper.ts'],
 							},
@@ -178,10 +176,14 @@ describe('working_directory override — completion_verify (via executeCompletio
 	afterEach(() => {
 		try {
 			rmSync(wrongDir, { recursive: true, force: true });
-		} catch { /* best effort */ }
+		} catch {
+			/* best effort */
+		}
 		try {
 			rmSync(rightDir, { recursive: true, force: true });
-		} catch { /* best effort */ }
+		} catch {
+			/* best effort */
+		}
 	});
 
 	it('reads plan.json from wrong dir when called with wrong directory', async () => {
@@ -222,10 +224,14 @@ describe('working_directory override — phase_complete (via executePhaseComplet
 	afterEach(() => {
 		try {
 			rmSync(wrongDir, { recursive: true, force: true });
-		} catch { /* best effort */ }
+		} catch {
+			/* best effort */
+		}
 		try {
 			rmSync(rightDir, { recursive: true, force: true });
-		} catch { /* best effort */ }
+		} catch {
+			/* best effort */
+		}
 	});
 
 	it('loads config from correct directory when working_directory is provided', async () => {

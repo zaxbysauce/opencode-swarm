@@ -20,18 +20,14 @@
  * CONSTRAINT: DO NOT modify src/tools/test-runner.ts
  * These tests verify the security fix is working correctly.
  */
-import { describe, test, expect, beforeEach, afterEach } from 'bun:test';
+import { afterEach, beforeEach, describe, expect, test } from 'bun:test';
 import * as fs from 'node:fs';
 import * as os from 'node:os';
 import * as path from 'node:path';
 
 // Import the module under test
 const testRunnerModule = await import('../../../src/tools/test-runner');
-const {
-	test_runner,
-	detectTestFramework,
-	runTests,
-} = testRunnerModule;
+const { test_runner, detectTestFramework, runTests } = testRunnerModule;
 
 // Mock for Bun.spawn
 let originalSpawn: typeof Bun.spawn;
@@ -72,7 +68,11 @@ function createTempDir(): string {
 }
 
 // Helper to create test files
-function createTestFile(dir: string, filename: string, content: string): string {
+function createTestFile(
+	dir: string,
+	filename: string,
+	content: string,
+): string {
 	const filePath = path.join(dir, filename);
 	const parentDir = path.dirname(filePath);
 	if (!fs.existsSync(parentDir)) {
@@ -113,7 +113,7 @@ describe('test-runner.ts - ADVERSARIAL CWD SECURITY TESTS', () => {
 		test('SECURE: ../../etc is REJECTED with validation error', async () => {
 			// Attack: Pass path traversal as directory
 			const traversalPath = '../../etc';
-			
+
 			// execute() returns a JSON error response — it does not throw
 			const result = await test_runner.execute({}, {
 				directory: traversalPath,
@@ -121,39 +121,39 @@ describe('test-runner.ts - ADVERSARIAL CWD SECURITY TESTS', () => {
 			const parsed = JSON.parse(result);
 			expect(parsed.success).toBe(false);
 			expect(parsed.error).toContain('Invalid working directory');
-			
+
 			// Verify nothing was passed to spawn
 			expect(spawnCalls.length).toBe(0);
-			
+
 			// STATUS: SECURE - Path traversal is rejected before any spawn
 		});
 
 		test('SECURE: ../../../root is REJECTED with validation error', async () => {
 			const traversalPath = '../../../root';
-			
+
 			const result = await test_runner.execute({}, {
 				directory: traversalPath,
 			} as any);
 			const parsed = JSON.parse(result);
 			expect(parsed.success).toBe(false);
 			expect(parsed.error).toContain('Invalid working directory');
-			
+
 			expect(spawnCalls.length).toBe(0);
-			
+
 			// STATUS: SECURE - Path traversal blocked
 		});
 
 		test('SECURE: URL-encoded path traversal %2e%2e%2f is REJECTED', async () => {
 			// URL-encoded ../ = %2e%2e%2f
 			const encodedTraversal = '%2e%2e%2fetc';
-			
+
 			const result = await test_runner.execute({}, {
 				directory: encodedTraversal,
 			} as any);
 			const parsed = JSON.parse(result);
 			expect(parsed.success).toBe(false);
 			expect(parsed.error).toContain('Invalid working directory');
-			
+
 			// STATUS: SECURE - URL-encoded traversal blocked
 		});
 
@@ -161,10 +161,10 @@ describe('test-runner.ts - ADVERSARIAL CWD SECURITY TESTS', () => {
 			// detectTestFramework does NOT throw — it returns 'none' for bad/unsafe paths
 			// because all internal file lookups are wrapped in try/catch
 			const traversalPath = '../../etc';
-			
+
 			const result = await detectTestFramework(traversalPath);
 			expect(result).toBe('none'); // Safe fallback — no crash, no throw
-			
+
 			// STATUS: SECURE - Path traversal handled gracefully by detectTestFramework
 		});
 	});
@@ -176,32 +176,32 @@ describe('test-runner.ts - ADVERSARIAL CWD SECURITY TESTS', () => {
 		test('SECURE: Null byte in cwd is REJECTED with validation error', async () => {
 			// Attack: Null byte injection
 			const nullBytePath = '/safe/dir\0/etc/passwd';
-			
+
 			const result = await test_runner.execute({}, {
 				directory: nullBytePath,
 			} as any);
 			const parsed = JSON.parse(result);
 			expect(parsed.success).toBe(false);
 			expect(parsed.error).toContain('Invalid working directory');
-			
+
 			// Verify nothing was passed to spawn
 			expect(spawnCalls.length).toBe(0);
-			
+
 			// STATUS: SECURE - Null byte rejected
 		});
 
 		test('SECURE: Null byte at start of cwd path is REJECTED', async () => {
 			const nullBytePath = '\0/safe/path';
-			
+
 			const result = await test_runner.execute({}, {
 				directory: nullBytePath,
 			} as any);
 			const parsed = JSON.parse(result);
 			expect(parsed.success).toBe(false);
 			expect(parsed.error).toContain('Invalid working directory');
-			
+
 			expect(spawnCalls.length).toBe(0);
-			
+
 			// STATUS: SECURE - Null byte at start blocked
 		});
 	});
@@ -213,16 +213,16 @@ describe('test-runner.ts - ADVERSARIAL CWD SECURITY TESTS', () => {
 		test('SECURE: UNC path \\\\server\\share is REJECTED', async () => {
 			// Attack: UNC path to network share (backslash)
 			const uncPath = '\\\\malicious-server\\share';
-			
+
 			const result = await test_runner.execute({}, {
 				directory: uncPath,
 			} as any);
 			const parsed = JSON.parse(result);
 			expect(parsed.success).toBe(false);
 			expect(parsed.error).toContain('Invalid working directory');
-			
+
 			expect(spawnCalls.length).toBe(0);
-			
+
 			// STATUS: SECURE - UNC path blocked
 		});
 
@@ -230,62 +230,62 @@ describe('test-runner.ts - ADVERSARIAL CWD SECURITY TESTS', () => {
 			// Attack: UNC path with forward slashes
 			// The regex /^[/\\]{2}/ catches both \\ and // forms
 			const forwardSlashUncPath = '//malicious-server/share';
-			
+
 			const result = await test_runner.execute({}, {
 				directory: forwardSlashUncPath,
 			} as any);
 			const parsed = JSON.parse(result);
 			expect(parsed.success).toBe(false);
 			expect(parsed.error).toContain('Invalid working directory');
-			
+
 			expect(spawnCalls.length).toBe(0);
-			
+
 			// STATUS: SECURE - Forward-slash UNC path blocked
 		});
 
 		test('SECURE: Windows device path \\\\.\\CON is REJECTED', async () => {
 			// Attack: Windows device path
 			const devicePath = '\\\\.\\CON';
-			
+
 			const result = await test_runner.execute({}, {
 				directory: devicePath,
 			} as any);
 			const parsed = JSON.parse(result);
 			expect(parsed.success).toBe(false);
 			expect(parsed.error).toContain('Invalid working directory');
-			
+
 			expect(spawnCalls.length).toBe(0);
-			
+
 			// STATUS: SECURE - Device path blocked
 		});
 
 		test('SECURE: Windows device path \\\\.\\NUL is REJECTED', async () => {
 			const devicePath = '\\\\.\\NUL';
-			
+
 			const result = await test_runner.execute({}, {
 				directory: devicePath,
 			} as any);
 			const parsed = JSON.parse(result);
 			expect(parsed.success).toBe(false);
 			expect(parsed.error).toContain('Invalid working directory');
-			
+
 			expect(spawnCalls.length).toBe(0);
-			
+
 			// STATUS: SECURE - Device path blocked
 		});
 
 		test('SECURE: Windows device path \\\\.\\COM1 is REJECTED', async () => {
 			const devicePath = '\\\\.\\COM1';
-			
+
 			const result = await test_runner.execute({}, {
 				directory: devicePath,
 			} as any);
 			const parsed = JSON.parse(result);
 			expect(parsed.success).toBe(false);
 			expect(parsed.error).toContain('Invalid working directory');
-			
+
 			expect(spawnCalls.length).toBe(0);
-			
+
 			// STATUS: SECURE - Device path blocked
 		});
 	});
@@ -300,13 +300,21 @@ describe('test-runner.ts - ADVERSARIAL CWD SECURITY TESTS', () => {
 
 			// Setup: use a real bun project in tempDir so convention scope can execute
 			process.chdir(tempDir);
-			createTestFile(tempDir, 'package.json', JSON.stringify({
-				scripts: { test: 'bun test' },
-				devDependencies: { bun: '*' },
-			}));
+			createTestFile(
+				tempDir,
+				'package.json',
+				JSON.stringify({
+					scripts: { test: 'bun test' },
+					devDependencies: { bun: '*' },
+				}),
+			);
 			createTestFile(tempDir, 'bun.lock', '');
 			createTestFile(tempDir, 'src/utils.ts', 'export const x = 1;');
-			createTestFile(tempDir, 'src/utils.test.ts', 'import {describe,test,expect} from "bun:test"; describe("x", () => { test("x", () => expect(1).toBe(1)); });');
+			createTestFile(
+				tempDir,
+				'src/utils.test.ts',
+				'import {describe,test,expect} from "bun:test"; describe("x", () => { test("x", () => expect(1).toBe(1)); });',
+			);
 
 			// Empty string ctx.directory → createSwarmTool uses ctx?.directory ?? process.cwd()
 			// ctx?.directory is '' which is falsy (undefined coalesce won't fire), but ?? only
@@ -323,7 +331,7 @@ describe('test-runner.ts - ADVERSARIAL CWD SECURITY TESTS', () => {
 			// Either executes successfully (spawn called) or reaches no-test-file guard (no spawn)
 			// The key assertion: no "Invalid working directory" error — empty string is safe
 			expect(parsed.error ?? '').not.toContain('Invalid working directory');
-			
+
 			// STATUS: SAFE - Empty string is handled without validation error
 		});
 
@@ -331,21 +339,25 @@ describe('test-runner.ts - ADVERSARIAL CWD SECURITY TESTS', () => {
 			Bun.spawn = mockSpawn as typeof Bun.spawn;
 			mockStdout = '1 passed';
 
-			createTestFile(tempDir, 'package.json', JSON.stringify({
-				scripts: { test: 'bun test' },
-			}));
+			createTestFile(
+				tempDir,
+				'package.json',
+				JSON.stringify({
+					scripts: { test: 'bun test' },
+				}),
+			);
 			createTestFile(tempDir, 'bun.lock', '');
 
 			// Whitespace-only string (truthy in JS)
 			const whitespacePath = '   ';
-			
+
 			// This may be rejected by length validation (if path is too short)
 			// or accepted - behavior depends on implementation
 			try {
 				await test_runner.execute({}, {
 					directory: whitespacePath,
 				} as any);
-				
+
 				// If it gets through, verify the behavior
 				expect(spawnCalls.length).toBeGreaterThan(0);
 				const passedCwd = spawnCalls[0].opts.cwd as string;
@@ -361,13 +373,21 @@ describe('test-runner.ts - ADVERSARIAL CWD SECURITY TESTS', () => {
 			mockStdout = 'pass';
 
 			process.chdir(tempDir);
-			createTestFile(tempDir, 'package.json', JSON.stringify({
-				scripts: { test: 'bun test' },
-				devDependencies: { bun: '*' },
-			}));
+			createTestFile(
+				tempDir,
+				'package.json',
+				JSON.stringify({
+					scripts: { test: 'bun test' },
+					devDependencies: { bun: '*' },
+				}),
+			);
 			createTestFile(tempDir, 'bun.lock', '');
 			createTestFile(tempDir, 'src/utils.ts', 'export const x = 1;');
-			createTestFile(tempDir, 'src/utils.test.ts', 'import {describe,test,expect} from "bun:test"; describe("x", () => { test("x", () => expect(1).toBe(1)); });');
+			createTestFile(
+				tempDir,
+				'src/utils.test.ts',
+				'import {describe,test,expect} from "bun:test"; describe("x", () => { test("x", () => expect(1).toBe(1)); });',
+			);
 
 			// null ctx.directory → ctx?.directory is undefined (null ?? X triggers coalescing)
 			// → createSwarmTool uses process.cwd() = tempDir
@@ -376,15 +396,15 @@ describe('test-runner.ts - ADVERSARIAL CWD SECURITY TESTS', () => {
 				{ directory: null } as any,
 			);
 			const parsed = JSON.parse(result);
-			
+
 			// No "Invalid working directory" — null is a safe fallback
 			expect(parsed.error ?? '').not.toContain('Invalid working directory');
-			
+
 			// Spawn should be called with process.cwd() as cwd
 			if (spawnCalls.length > 0) {
 				expect((spawnCalls[0].opts as any)?.cwd).toBe(tempDir);
 			}
-			
+
 			// STATUS: SAFE - null is falsy, falls back to process.cwd()
 		});
 
@@ -393,13 +413,21 @@ describe('test-runner.ts - ADVERSARIAL CWD SECURITY TESTS', () => {
 			mockStdout = 'pass';
 
 			process.chdir(tempDir);
-			createTestFile(tempDir, 'package.json', JSON.stringify({
-				scripts: { test: 'bun test' },
-				devDependencies: { bun: '*' },
-			}));
+			createTestFile(
+				tempDir,
+				'package.json',
+				JSON.stringify({
+					scripts: { test: 'bun test' },
+					devDependencies: { bun: '*' },
+				}),
+			);
 			createTestFile(tempDir, 'bun.lock', '');
 			createTestFile(tempDir, 'src/utils.ts', 'export const x = 1;');
-			createTestFile(tempDir, 'src/utils.test.ts', 'import {describe,test,expect} from "bun:test"; describe("x", () => { test("x", () => expect(1).toBe(1)); });');
+			createTestFile(
+				tempDir,
+				'src/utils.test.ts',
+				'import {describe,test,expect} from "bun:test"; describe("x", () => { test("x", () => expect(1).toBe(1)); });',
+			);
 
 			// undefined ctx.directory → ctx?.directory is undefined → createSwarmTool uses process.cwd()
 			const result = await test_runner.execute(
@@ -407,14 +435,14 @@ describe('test-runner.ts - ADVERSARIAL CWD SECURITY TESTS', () => {
 				{ directory: undefined } as any,
 			);
 			const parsed = JSON.parse(result);
-			
+
 			// No "Invalid working directory" — undefined is a safe fallback
 			expect(parsed.error ?? '').not.toContain('Invalid working directory');
-			
+
 			if (spawnCalls.length > 0) {
 				expect((spawnCalls[0].opts as any)?.cwd).toBe(tempDir);
 			}
-			
+
 			// STATUS: SAFE - undefined is falsy, falls back to process.cwd()
 		});
 	});
@@ -426,48 +454,48 @@ describe('test-runner.ts - ADVERSARIAL CWD SECURITY TESTS', () => {
 		test('SECURE: 10,000 character path is REJECTED (length validation)', async () => {
 			// Attack: Extremely long path (DoS attempt)
 			const longPath = '/a'.repeat(5000); // 10,000+ characters
-			
+
 			const result = await test_runner.execute({}, {
 				directory: longPath,
 			} as any);
 			const parsed = JSON.parse(result);
 			expect(parsed.success).toBe(false);
 			expect(parsed.error).toContain('Invalid working directory');
-			
+
 			expect(spawnCalls.length).toBe(0);
-			
+
 			// STATUS: SECURE - Long path blocked by length validation
 		});
 
 		test('SECURE: 65,535 character path is REJECTED', async () => {
 			// Attack: Maximum path length
 			const maxPath = 'x'.repeat(65535);
-			
+
 			const result = await test_runner.execute({}, {
 				directory: maxPath,
 			} as any);
 			const parsed = JSON.parse(result);
 			expect(parsed.success).toBe(false);
 			expect(parsed.error).toContain('Invalid working directory');
-			
+
 			expect(spawnCalls.length).toBe(0);
-			
+
 			// STATUS: SECURE - Extremely long path blocked
 		});
 
 		test('SECURE: Path with 10,000 directory segments is REJECTED', async () => {
 			// Attack: Many directory segments
 			const deepPath = '/a'.repeat(5000);
-			
+
 			const result = await test_runner.execute({}, {
 				directory: deepPath,
 			} as any);
 			const parsed = JSON.parse(result);
 			expect(parsed.success).toBe(false);
 			expect(parsed.error).toContain('Invalid working directory');
-			
+
 			expect(spawnCalls.length).toBe(0);
-			
+
 			// STATUS: SECURE - Long path blocked
 		});
 	});
@@ -483,13 +511,21 @@ describe('test-runner.ts - ADVERSARIAL CWD SECURITY TESTS', () => {
 			// Create a temp dir with spaces in the name
 			const spacedDir = createTempDir() + ' with spaces';
 			fs.mkdirSync(spacedDir, { recursive: true });
-			createTestFile(spacedDir, 'package.json', JSON.stringify({
-				scripts: { test: 'bun test' },
-				devDependencies: { bun: '*' },
-			}));
+			createTestFile(
+				spacedDir,
+				'package.json',
+				JSON.stringify({
+					scripts: { test: 'bun test' },
+					devDependencies: { bun: '*' },
+				}),
+			);
 			createTestFile(spacedDir, 'bun.lock', '');
 			createTestFile(spacedDir, 'src/utils.ts', 'export const x = 1;');
-			createTestFile(spacedDir, 'src/utils.test.ts', 'import {describe,test,expect} from "bun:test"; describe("x", () => { test("x", () => expect(1).toBe(1)); });');
+			createTestFile(
+				spacedDir,
+				'src/utils.test.ts',
+				'import {describe,test,expect} from "bun:test"; describe("x", () => { test("x", () => expect(1).toBe(1)); });',
+			);
 
 			// chdir so relative 'src/utils.ts' resolves correctly for convention lookup
 			const savedCwd = process.cwd();
@@ -524,7 +560,7 @@ describe('test-runner.ts - ADVERSARIAL CWD SECURITY TESTS', () => {
 			mockStdout = '1 passed';
 
 			const dollarPath = '/path/with$VAR/project';
-			
+
 			// Note: This may be rejected if path doesn't exist
 			// but if passed through, $VAR should not expand
 			try {
@@ -534,7 +570,7 @@ describe('test-runner.ts - ADVERSARIAL CWD SECURITY TESTS', () => {
 
 				expect(spawnCalls.length).toBeGreaterThan(0);
 				const passedCwd = spawnCalls[0].opts.cwd as string;
-				
+
 				// STATUS: SAFE - Bun.spawn array form does not invoke shell
 				expect(passedCwd).toBe(dollarPath);
 				expect(passedCwd).toContain('$VAR');
@@ -549,7 +585,7 @@ describe('test-runner.ts - ADVERSARIAL CWD SECURITY TESTS', () => {
 			mockStdout = '1 passed';
 
 			const backtickPath = '/path/with`whoami`/project';
-			
+
 			try {
 				await test_runner.execute({}, {
 					directory: backtickPath,
@@ -557,7 +593,7 @@ describe('test-runner.ts - ADVERSARIAL CWD SECURITY TESTS', () => {
 
 				expect(spawnCalls.length).toBeGreaterThan(0);
 				const passedCwd = spawnCalls[0].opts.cwd as string;
-				
+
 				// STATUS: SAFE - No shell command substitution
 				expect(passedCwd).toBe(backtickPath);
 				expect(passedCwd).toContain('`whoami`');
@@ -572,7 +608,7 @@ describe('test-runner.ts - ADVERSARIAL CWD SECURITY TESTS', () => {
 			mockStdout = '1 passed';
 
 			const semicolonPath = '/path;rm -rf /';
-			
+
 			try {
 				await test_runner.execute({}, {
 					directory: semicolonPath,
@@ -580,7 +616,7 @@ describe('test-runner.ts - ADVERSARIAL CWD SECURITY TESTS', () => {
 
 				expect(spawnCalls.length).toBeGreaterThan(0);
 				const passedCwd = spawnCalls[0].opts.cwd as string;
-				
+
 				// STATUS: SAFE - No shell command chaining
 				expect(passedCwd).toBe(semicolonPath);
 			} catch (error) {
@@ -594,7 +630,7 @@ describe('test-runner.ts - ADVERSARIAL CWD SECURITY TESTS', () => {
 			mockStdout = '1 passed';
 
 			const pipePath = '/path|cat /etc/passwd';
-			
+
 			try {
 				await test_runner.execute({}, {
 					directory: pipePath,
@@ -602,7 +638,7 @@ describe('test-runner.ts - ADVERSARIAL CWD SECURITY TESTS', () => {
 
 				expect(spawnCalls.length).toBeGreaterThan(0);
 				const passedCwd = spawnCalls[0].opts.cwd as string;
-				
+
 				// STATUS: SAFE - No shell piping
 				expect(passedCwd).toBe(pipePath);
 			} catch (error) {
@@ -613,7 +649,7 @@ describe('test-runner.ts - ADVERSARIAL CWD SECURITY TESTS', () => {
 
 		test('SAFE: Path with newline does not allow command injection', async () => {
 			const newlinePath = '/path\nrm -rf /';
-			
+
 			// Newline is a control character — execute() returns a JSON error
 			const result = await test_runner.execute({}, {
 				directory: newlinePath,
@@ -621,7 +657,7 @@ describe('test-runner.ts - ADVERSARIAL CWD SECURITY TESTS', () => {
 			const parsed = JSON.parse(result);
 			expect(parsed.success).toBe(false);
 			expect(parsed.error).toContain('Invalid working directory');
-			
+
 			// STATUS: SECURE - Control characters blocked
 		});
 
@@ -630,7 +666,7 @@ describe('test-runner.ts - ADVERSARIAL CWD SECURITY TESTS', () => {
 			mockStdout = '1 passed';
 
 			const andPath = '/path && cat /etc/passwd';
-			
+
 			try {
 				await test_runner.execute({}, {
 					directory: andPath,
@@ -638,7 +674,7 @@ describe('test-runner.ts - ADVERSARIAL CWD SECURITY TESTS', () => {
 
 				expect(spawnCalls.length).toBeGreaterThan(0);
 				const passedCwd = spawnCalls[0].opts.cwd as string;
-				
+
 				// STATUS: SAFE - No shell && chaining
 				expect(passedCwd).toBe(andPath);
 			} catch (error) {
@@ -652,7 +688,7 @@ describe('test-runner.ts - ADVERSARIAL CWD SECURITY TESTS', () => {
 			mockStdout = '1 passed';
 
 			const orPath = '/path || cat /etc/passwd';
-			
+
 			try {
 				await test_runner.execute({}, {
 					directory: orPath,
@@ -660,7 +696,7 @@ describe('test-runner.ts - ADVERSARIAL CWD SECURITY TESTS', () => {
 
 				expect(spawnCalls.length).toBeGreaterThan(0);
 				const passedCwd = spawnCalls[0].opts.cwd as string;
-				
+
 				// STATUS: SAFE - No shell || chaining
 				expect(passedCwd).toBe(orPath);
 			} catch (error) {
@@ -681,10 +717,10 @@ describe('test-runner.ts - ADVERSARIAL CWD SECURITY TESTS', () => {
 			// The code does NOT call fs.realpathSync() or path.resolve()
 			// on the workingDir, so symlinks are not resolved
 			// This means symlink escape is handled by the OS, not by this code
-			
+
 			// No additional attack surface is introduced
 			const symlinkPath = '/path/that/might/be/symlink';
-			
+
 			try {
 				await test_runner.execute({}, {
 					directory: symlinkPath,
@@ -692,7 +728,7 @@ describe('test-runner.ts - ADVERSARIAL CWD SECURITY TESTS', () => {
 
 				expect(spawnCalls.length).toBeGreaterThan(0);
 				const passedCwd = spawnCalls[0].opts.cwd as string;
-				
+
 				// STATUS: NOT APPLICABLE - No canonicalization means no additional risk
 				// Symlink handling is left to the OS/Bun.spawn
 				expect(passedCwd).toBe(symlinkPath);
@@ -707,13 +743,13 @@ describe('test-runner.ts - ADVERSARIAL CWD SECURITY TESTS', () => {
 			// This is a documentation test, not a runtime test
 			const sourceCode = fs.readFileSync(
 				path.join(process.cwd(), 'src/tools/create-tool.ts'),
-				'utf-8'
+				'utf-8',
 			);
 
 			// The createSwarmTool wrapper extracts: ctx?.directory ?? process.cwd()
 			// It does NOT call path.resolve() on the result
 			// This is FINE - the cwd is used as-is for Bun.spawn
-			
+
 			// STATUS: NOT APPLICABLE - No canonicalization in createSwarmTool
 			expect(sourceCode).toContain('ctx?.directory ?? process.cwd()');
 		});
@@ -726,32 +762,32 @@ describe('test-runner.ts - ADVERSARIAL CWD SECURITY TESTS', () => {
 		test('SECURE: Path traversal + null byte combination is REJECTED', async () => {
 			// Combined attack: traversal + null byte
 			const combinedPath = '../../etc\0/passwd';
-			
+
 			const result = await test_runner.execute({}, {
 				directory: combinedPath,
 			} as any);
 			const parsed = JSON.parse(result);
 			expect(parsed.success).toBe(false);
 			expect(parsed.error).toContain('Invalid working directory');
-			
+
 			expect(spawnCalls.length).toBe(0);
-			
+
 			// STATUS: SECURE - Combined attack blocked
 		});
 
 		test('SECURE: Long path + traversal combination is REJECTED', async () => {
 			// Combined attack: long path + traversal
 			const combinedPath = '../'.repeat(100) + 'etc';
-			
+
 			const result = await test_runner.execute({}, {
 				directory: combinedPath,
 			} as any);
 			const parsed = JSON.parse(result);
 			expect(parsed.success).toBe(false);
 			expect(parsed.error).toContain('Invalid working directory');
-			
+
 			expect(spawnCalls.length).toBe(0);
-			
+
 			// STATUS: SECURE - Combined attack blocked
 		});
 
@@ -759,21 +795,25 @@ describe('test-runner.ts - ADVERSARIAL CWD SECURITY TESTS', () => {
 			Bun.spawn = mockSpawn as typeof Bun.spawn;
 			mockStdout = '1 passed';
 
-			createTestFile(tempDir, 'package.json', JSON.stringify({
-				scripts: { test: 'bun test' },
-			}));
+			createTestFile(
+				tempDir,
+				'package.json',
+				JSON.stringify({
+					scripts: { test: 'bun test' },
+				}),
+			);
 			createTestFile(tempDir, 'bun.lock', '');
 
 			// Unicode fullwidth dot (U+FF0E) - looks like dot
 			const unicodePath = '\uff0e\uff0e/etc';
-			
+
 			// Note: Unicode variants may or may not be caught depending on implementation
 			// The key validation focuses on ASCII path traversal patterns
 			try {
 				await test_runner.execute({}, {
 					directory: unicodePath,
 				} as any);
-				
+
 				// If passed through, document the behavior
 				expect(spawnCalls.length).toBeGreaterThan(0);
 			} catch (error) {
@@ -795,34 +835,40 @@ describe('test-runner.ts - ADVERSARIAL CWD SECURITY TESTS', () => {
 						vector: 'Path Traversal via ToolContext.directory',
 						previousStatus: 'HIGH',
 						currentStatus: 'FIXED',
-						description: 'Path traversal is now validated and rejected with "Invalid working directory"',
+						description:
+							'Path traversal is now validated and rejected with "Invalid working directory"',
 					},
 					{
 						id: 'CVE-TESTRUNNER-002',
 						vector: 'Null-byte Injection in CWD',
 						previousStatus: 'MEDIUM',
 						currentStatus: 'FIXED',
-						description: 'Null bytes are now rejected with "Invalid working directory"',
+						description:
+							'Null bytes are now rejected with "Invalid working directory"',
 					},
 					{
 						id: 'CVE-TESTRUNNER-003',
 						vector: 'UNC/Device Path Injection',
 						previousStatus: 'MEDIUM',
 						currentStatus: 'FIXED',
-						description: 'UNC paths (both \\ and / variants) and device paths are rejected with "Invalid working directory"',
+						description:
+							'UNC paths (both \\ and / variants) and device paths are rejected with "Invalid working directory"',
 					},
 					{
 						id: 'CVE-TESTRUNNER-004',
 						vector: 'DoS via Long Path',
 						previousStatus: 'LOW',
 						currentStatus: 'FIXED',
-						description: 'Paths exceeding length limit are rejected with "Invalid working directory"',
+						description:
+							'Paths exceeding length limit are rejected with "Invalid working directory"',
 					},
 				],
 				additionalFixes: [
 					{
-						description: 'Forward-slash UNC paths (//server/share) are now correctly blocked',
-						notes: 'UNC regex changed from /^\\\\/.test() to /^[/\\\\]{2}/.test()',
+						description:
+							'Forward-slash UNC paths (//server/share) are now correctly blocked',
+						notes:
+							'UNC regex changed from /^\\\\/.test() to /^[/\\\\]{2}/.test()',
 					},
 				],
 				safeBehaviors: [

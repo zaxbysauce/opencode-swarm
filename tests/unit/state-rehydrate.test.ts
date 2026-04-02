@@ -1,11 +1,8 @@
 import { afterEach, beforeEach, describe, expect, it } from 'bun:test';
 import * as fs from 'node:fs/promises';
 import * as path from 'node:path';
-import {
-	rehydrateSessionFromDisk,
-	resetSwarmState,
-} from '../../src/state';
 import type { AgentSessionState } from '../../src/state';
+import { rehydrateSessionFromDisk, resetSwarmState } from '../../src/state';
 
 describe('rehydrateSessionFromDisk', () => {
 	const testDir = '/tmp/rehydrate-test-' + Date.now();
@@ -18,8 +15,16 @@ describe('rehydrateSessionFromDisk', () => {
 	}
 
 	// Helper to create a valid evidence file
-	async function writeEvidence(taskId: string, evidence: object): Promise<void> {
-		const evidencePath = path.join(testDir, '.swarm', 'evidence', `${taskId}.json`);
+	async function writeEvidence(
+		taskId: string,
+		evidence: object,
+	): Promise<void> {
+		const evidencePath = path.join(
+			testDir,
+			'.swarm',
+			'evidence',
+			`${taskId}.json`,
+		);
 		await fs.writeFile(evidencePath, JSON.stringify(evidence), 'utf-8');
 	}
 
@@ -33,7 +38,9 @@ describe('rehydrateSessionFromDisk', () => {
 	beforeEach(async () => {
 		resetSwarmState();
 		// Create test directory structure
-		await fs.mkdir(path.join(testDir, '.swarm', 'evidence'), { recursive: true });
+		await fs.mkdir(path.join(testDir, '.swarm', 'evidence'), {
+			recursive: true,
+		});
 		// Create a minimal session with required fields
 		session = {
 			agentName: 'mega_coder',
@@ -89,7 +96,13 @@ describe('rehydrateSessionFromDisk', () => {
 					name: 'Phase 1',
 					status: 'in_progress',
 					tasks: [
-						{ id: '1.1', phase: 1, status: 'in_progress', size: 'small', description: 'Test task' },
+						{
+							id: '1.1',
+							phase: 1,
+							status: 'in_progress',
+							size: 'small',
+							description: 'Test task',
+						},
 					],
 				},
 			],
@@ -110,7 +123,13 @@ describe('rehydrateSessionFromDisk', () => {
 					name: 'Phase 1',
 					status: 'complete',
 					tasks: [
-						{ id: '1.1', phase: 1, status: 'completed', size: 'small', description: 'Test task' },
+						{
+							id: '1.1',
+							phase: 1,
+							status: 'completed',
+							size: 'small',
+							description: 'Test task',
+						},
 					],
 				},
 			],
@@ -131,7 +150,13 @@ describe('rehydrateSessionFromDisk', () => {
 					name: 'Phase 1',
 					status: 'pending',
 					tasks: [
-						{ id: '1.1', phase: 1, status: 'pending', size: 'small', description: 'Test task' },
+						{
+							id: '1.1',
+							phase: 1,
+							status: 'pending',
+							size: 'small',
+							description: 'Test task',
+						},
 					],
 				},
 			],
@@ -152,7 +177,13 @@ describe('rehydrateSessionFromDisk', () => {
 					name: 'Phase 1',
 					status: 'in_progress',
 					tasks: [
-						{ id: '1.1', phase: 1, status: 'in_progress', size: 'small', description: 'Test task' },
+						{
+							id: '1.1',
+							phase: 1,
+							status: 'in_progress',
+							size: 'small',
+							description: 'Test task',
+						},
 					],
 				},
 			],
@@ -186,7 +217,13 @@ describe('rehydrateSessionFromDisk', () => {
 					name: 'Phase 1',
 					status: 'in_progress',
 					tasks: [
-						{ id: '1.1', phase: 1, status: 'in_progress', size: 'small', description: 'Test task' },
+						{
+							id: '1.1',
+							phase: 1,
+							status: 'in_progress',
+							size: 'small',
+							description: 'Test task',
+						},
 					],
 				},
 			],
@@ -220,7 +257,13 @@ describe('rehydrateSessionFromDisk', () => {
 					name: 'Phase 1',
 					status: 'in_progress',
 					tasks: [
-						{ id: '1.1', phase: 1, status: 'in_progress', size: 'small', description: 'Test task' },
+						{
+							id: '1.1',
+							phase: 1,
+							status: 'in_progress',
+							size: 'small',
+							description: 'Test task',
+						},
 					],
 				},
 			],
@@ -254,7 +297,9 @@ describe('rehydrateSessionFromDisk', () => {
 		await fs.rm(path.join(testDir, '.swarm'), { recursive: true, force: true });
 
 		// Should not throw - use rejects.toBeUndefined for async void
-		await expect(rehydrateSessionFromDisk(testDir, session)).resolves.toBeUndefined();
+		await expect(
+			rehydrateSessionFromDisk(testDir, session),
+		).resolves.toBeUndefined();
 
 		// Session should remain unchanged
 		expect(session.taskWorkflowStates?.size).toBe(0);
@@ -265,15 +310,22 @@ describe('rehydrateSessionFromDisk', () => {
 		await fs.rm(path.join(testDir, '.swarm', 'plan.json'), { force: true });
 
 		// Should not throw
-		await expect(rehydrateSessionFromDisk(testDir, session)).resolves.toBeUndefined();
+		await expect(
+			rehydrateSessionFromDisk(testDir, session),
+		).resolves.toBeUndefined();
 	});
 
 	// Edge case: Missing evidence directory - should be non-fatal
 	it('should be non-fatal when evidence directory does not exist', async () => {
-		await fs.rm(path.join(testDir, '.swarm', 'evidence'), { recursive: true, force: true });
+		await fs.rm(path.join(testDir, '.swarm', 'evidence'), {
+			recursive: true,
+			force: true,
+		});
 
 		// Should not throw
-		await expect(rehydrateSessionFromDisk(testDir, session)).resolves.toBeUndefined();
+		await expect(
+			rehydrateSessionFromDisk(testDir, session),
+		).resolves.toBeUndefined();
 	});
 
 	// Edge case: Empty plan.json
@@ -281,7 +333,9 @@ describe('rehydrateSessionFromDisk', () => {
 		await writePlan({});
 
 		// Should not throw
-		await expect(rehydrateSessionFromDisk(testDir, session)).resolves.toBeUndefined();
+		await expect(
+			rehydrateSessionFromDisk(testDir, session),
+		).resolves.toBeUndefined();
 
 		// Session should remain unchanged
 		expect(session.taskWorkflowStates?.size).toBe(0);
@@ -297,7 +351,13 @@ describe('rehydrateSessionFromDisk', () => {
 					name: 'Phase 1',
 					status: 'in_progress',
 					tasks: [
-						{ id: '1.1', phase: 1, status: 'in_progress', size: 'small', description: 'Test task' },
+						{
+							id: '1.1',
+							phase: 1,
+							status: 'in_progress',
+							size: 'small',
+							description: 'Test task',
+						},
 					],
 				},
 			],
@@ -316,7 +376,9 @@ describe('rehydrateSessionFromDisk', () => {
 		await fs.writeFile(planPath, '{ invalid json }', 'utf-8');
 
 		// Should not throw
-		await expect(rehydrateSessionFromDisk(testDir, session)).resolves.toBeUndefined();
+		await expect(
+			rehydrateSessionFromDisk(testDir, session),
+		).resolves.toBeUndefined();
 	});
 
 	// Edge case: Malformed evidence file - should be non-fatal (skip file)
@@ -329,7 +391,13 @@ describe('rehydrateSessionFromDisk', () => {
 					name: 'Phase 1',
 					status: 'in_progress',
 					tasks: [
-						{ id: '1.1', phase: 1, status: 'in_progress', size: 'small', description: 'Test task' },
+						{
+							id: '1.1',
+							phase: 1,
+							status: 'in_progress',
+							size: 'small',
+							description: 'Test task',
+						},
 					],
 				},
 			],
@@ -340,7 +408,9 @@ describe('rehydrateSessionFromDisk', () => {
 		await fs.writeFile(evidencePath, '{ invalid json }', 'utf-8');
 
 		// Should not throw
-		await expect(rehydrateSessionFromDisk(testDir, session)).resolves.toBeUndefined();
+		await expect(
+			rehydrateSessionFromDisk(testDir, session),
+		).resolves.toBeUndefined();
 
 		// Should fall back to plan state
 		expect(session.taskWorkflowStates?.get('1.1')).toBe('coder_delegated');
@@ -356,18 +426,29 @@ describe('rehydrateSessionFromDisk', () => {
 					name: 'Phase 1',
 					status: 'in_progress',
 					tasks: [
-						{ id: '1.1', phase: 1, status: 'in_progress', size: 'small', description: 'Test task' },
+						{
+							id: '1.1',
+							phase: 1,
+							status: 'in_progress',
+							size: 'small',
+							description: 'Test task',
+						},
 					],
 				},
 			],
 		});
 
-		// Write evidence file with path traversal attempt
-		const evidencePath = path.join(testDir, '.swarm', 'evidence', '../plan.json');
+		// Write evidence file with invalid taskId format (non-numeric, skipped by regex)
+		const evidencePath = path.join(
+			testDir,
+			'.swarm',
+			'evidence',
+			'invalid-format.json',
+		);
 		await fs.writeFile(
 			evidencePath,
 			JSON.stringify({
-				taskId: '../plan.json',
+				taskId: 'invalid-format',
 				required_gates: ['reviewer'],
 				gates: { reviewer: { sessionId: 'x', timestamp: 'y', agent: 'z' } },
 			}),
@@ -390,7 +471,13 @@ describe('rehydrateSessionFromDisk', () => {
 					name: 'Phase 1',
 					status: 'in_progress',
 					tasks: [
-						{ id: '1.1', phase: 1, status: 'in_progress', size: 'small', description: 'Test task' },
+						{
+							id: '1.1',
+							phase: 1,
+							status: 'in_progress',
+							size: 'small',
+							description: 'Test task',
+						},
 					],
 				},
 			],
@@ -418,7 +505,13 @@ describe('rehydrateSessionFromDisk', () => {
 					name: 'Phase 1',
 					status: 'in_progress',
 					tasks: [
-						{ id: '1.1', phase: 1, status: 'in_progress', size: 'small', description: 'Test task' },
+						{
+							id: '1.1',
+							phase: 1,
+							status: 'in_progress',
+							size: 'small',
+							description: 'Test task',
+						},
 					],
 				},
 			],
@@ -450,7 +543,13 @@ describe('rehydrateSessionFromDisk', () => {
 					name: 'Phase 1',
 					status: 'in_progress',
 					tasks: [
-						{ id: '1.1', phase: 1, status: 'in_progress', size: 'small', description: 'Test task' },
+						{
+							id: '1.1',
+							phase: 1,
+							status: 'in_progress',
+							size: 'small',
+							description: 'Test task',
+						},
 					],
 				},
 			],
@@ -476,7 +575,13 @@ describe('rehydrateSessionFromDisk', () => {
 					name: 'Phase 1',
 					status: 'in_progress',
 					tasks: [
-						{ id: '1.1', phase: 1, status: 'in_progress', size: 'small', description: 'Test task' },
+						{
+							id: '1.1',
+							phase: 1,
+							status: 'in_progress',
+							size: 'small',
+							description: 'Test task',
+						},
 					],
 				},
 			],
@@ -501,7 +606,13 @@ describe('rehydrateSessionFromDisk', () => {
 					name: 'Phase 1',
 					status: 'in_progress',
 					tasks: [
-						{ id: '1.1', phase: 1, status: 'in_progress', size: 'small', description: 'Test task' },
+						{
+							id: '1.1',
+							phase: 1,
+							status: 'in_progress',
+							size: 'small',
+							description: 'Test task',
+						},
 					],
 				},
 			],
@@ -539,7 +650,13 @@ describe('rehydrateSessionFromDisk', () => {
 					name: 'Phase 1',
 					status: 'in_progress',
 					tasks: [
-						{ id: '1.1', phase: 1, status: 'in_progress', size: 'small', description: 'Test task' },
+						{
+							id: '1.1',
+							phase: 1,
+							status: 'in_progress',
+							size: 'small',
+							description: 'Test task',
+						},
 					],
 				},
 			],
@@ -574,8 +691,20 @@ describe('rehydrateSessionFromDisk', () => {
 					name: 'Phase 1',
 					status: 'complete',
 					tasks: [
-						{ id: '1.1', phase: 1, status: 'completed', size: 'small', description: 'Test task 1' },
-						{ id: '1.2', phase: 1, status: 'in_progress', size: 'small', description: 'Test task 2' },
+						{
+							id: '1.1',
+							phase: 1,
+							status: 'completed',
+							size: 'small',
+							description: 'Test task 1',
+						},
+						{
+							id: '1.2',
+							phase: 1,
+							status: 'in_progress',
+							size: 'small',
+							description: 'Test task 2',
+						},
 					],
 				},
 				{
@@ -583,7 +712,13 @@ describe('rehydrateSessionFromDisk', () => {
 					name: 'Phase 2',
 					status: 'pending',
 					tasks: [
-						{ id: '2.1', phase: 2, status: 'pending', size: 'small', description: 'Test task 3' },
+						{
+							id: '2.1',
+							phase: 2,
+							status: 'pending',
+							size: 'small',
+							description: 'Test task 3',
+						},
 					],
 				},
 			],
@@ -610,7 +745,13 @@ describe('rehydrateSessionFromDisk', () => {
 					name: 'Phase 1',
 					status: 'in_progress',
 					tasks: [
-						{ id: '1.1', phase: 1, status: 'in_progress', size: 'small', description: 'Test task' },
+						{
+							id: '1.1',
+							phase: 1,
+							status: 'in_progress',
+							size: 'small',
+							description: 'Test task',
+						},
 					],
 				},
 			],
@@ -653,7 +794,13 @@ describe('rehydrateSessionFromDisk', () => {
 					name: 'Phase 1',
 					status: 'in_progress',
 					tasks: [
-						{ id: '1.1', phase: 1, status: 'in_progress', size: 'small', description: 'Test task' },
+						{
+							id: '1.1',
+							phase: 1,
+							status: 'in_progress',
+							size: 'small',
+							description: 'Test task',
+						},
 					],
 				},
 			],
@@ -676,7 +823,13 @@ describe('rehydrateSessionFromDisk', () => {
 					name: 'Phase 1',
 					status: 'in_progress',
 					tasks: [
-						{ id: '1.1', phase: 1, status: 'blocked', size: 'small', description: 'Test task' },
+						{
+							id: '1.1',
+							phase: 1,
+							status: 'blocked',
+							size: 'small',
+							description: 'Test task',
+						},
 					],
 				},
 			],

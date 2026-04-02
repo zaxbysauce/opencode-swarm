@@ -11,13 +11,12 @@
  *
  * All tests ensure the system is robust against malformed inputs and edge cases.
  */
-import { describe, it, expect, beforeEach, afterEach } from 'bun:test';
-import { createSystemEnhancerHook } from '../../../src/hooks/system-enhancer';
-import { resetSwarmState, swarmState } from '../../../src/state';
-import { mkdtemp, writeFile, mkdir } from 'node:fs/promises';
-import { rm } from 'node:fs/promises';
+import { afterEach, beforeEach, describe, expect, it } from 'bun:test';
+import { mkdir, mkdtemp, rm, writeFile } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
+import { createSystemEnhancerHook } from '../../../src/hooks/system-enhancer';
+import { resetSwarmState, swarmState } from '../../../src/state';
 
 describe('system-enhancer: Adversarial Detection Attack Tests', () => {
 	let tempDir: string;
@@ -522,9 +521,7 @@ describe('system-enhancer: Adversarial Detection Attack Tests', () => {
 
 			expect(result.error).toBeUndefined();
 
-			const warning = result.output.find((s) =>
-				s.includes('GATE POLICY'),
-			);
+			const warning = result.output.find((s) => s.includes('GATE POLICY'));
 			expect(warning).toBeDefined();
 			expect(warning).toContain('coder and checker coder');
 		});

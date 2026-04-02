@@ -1,10 +1,13 @@
-import { describe, it, expect, beforeEach, afterEach } from 'bun:test';
-import { createToolSummarizerHook, resetSummaryIdCounter } from '../../../src/hooks/tool-summarizer';
-import { handleRetrieveCommand } from '../../../src/commands/retrieve';
-import type { SummaryConfig } from '../../../src/config/schema';
-import { mkdirSync, rmSync, existsSync } from 'node:fs';
+import { afterEach, beforeEach, describe, expect, it } from 'bun:test';
+import { existsSync, mkdirSync, rmSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
+import { handleRetrieveCommand } from '../../../src/commands/retrieve';
+import type { SummaryConfig } from '../../../src/config/schema';
+import {
+	createToolSummarizerHook,
+	resetSummaryIdCounter,
+} from '../../../src/hooks/tool-summarizer';
 
 function defaultConfig(overrides?: Partial<SummaryConfig>): SummaryConfig {
 	return {
@@ -22,7 +25,10 @@ describe('tool-summarizer', () => {
 
 	beforeEach(() => {
 		resetSummaryIdCounter();
-		tempDir = join(tmpdir(), `test-tool-summarizer-${Date.now()}-${Math.random().toString(36).slice(2)}`);
+		tempDir = join(
+			tmpdir(),
+			`test-tool-summarizer-${Date.now()}-${Math.random().toString(36).slice(2)}`,
+		);
 		mkdirSync(join(tempDir, '.swarm'), { recursive: true });
 	});
 
@@ -36,7 +42,11 @@ describe('tool-summarizer', () => {
 
 		const largeOutput = 'x'.repeat(30000); // Large output - size irrelevant when disabled
 		const input = { tool: 'Read', sessionID: 'test-session', callID: 'call-1' };
-		const output = { title: 'Read Result', output: largeOutput, metadata: null };
+		const output = {
+			title: 'Read Result',
+			output: largeOutput,
+			metadata: null,
+		};
 
 		await hook(input, output);
 
@@ -50,7 +60,11 @@ describe('tool-summarizer', () => {
 
 		const smallOutput = 'Hello world';
 		const input = { tool: 'Read', sessionID: 'test-session', callID: 'call-1' };
-		const output = { title: 'Read Result', output: smallOutput, metadata: null };
+		const output = {
+			title: 'Read Result',
+			output: smallOutput,
+			metadata: null,
+		};
 
 		await hook(input, output);
 
@@ -69,7 +83,11 @@ describe('tool-summarizer', () => {
 
 		const largeOutput = 'x'.repeat(2000); // 2000 bytes > 1024 * 1.25 = 1280
 		const input = { tool: 'Read', sessionID: 'test-session', callID: 'call-1' };
-		const output = { title: 'Read Result', output: largeOutput, metadata: null };
+		const output = {
+			title: 'Read Result',
+			output: largeOutput,
+			metadata: null,
+		};
 
 		await hook(input, output);
 
@@ -91,18 +109,39 @@ describe('tool-summarizer', () => {
 		const hook = createToolSummarizerHook(config, tempDir);
 
 		// First call
-		const output1 = { title: 'Result 1', output: 'a'.repeat(2000), metadata: null };
-		await hook({ tool: 'Read', sessionID: 'test-session', callID: 'call-1' }, output1);
+		const output1 = {
+			title: 'Result 1',
+			output: 'a'.repeat(2000),
+			metadata: null,
+		};
+		await hook(
+			{ tool: 'Read', sessionID: 'test-session', callID: 'call-1' },
+			output1,
+		);
 		expect(output1.output).toContain('[SUMMARY S1]');
 
 		// Second call
-		const output2 = { title: 'Result 2', output: 'b'.repeat(2000), metadata: null };
-		await hook({ tool: 'Read', sessionID: 'test-session', callID: 'call-2' }, output2);
+		const output2 = {
+			title: 'Result 2',
+			output: 'b'.repeat(2000),
+			metadata: null,
+		};
+		await hook(
+			{ tool: 'Read', sessionID: 'test-session', callID: 'call-2' },
+			output2,
+		);
 		expect(output2.output).toContain('[SUMMARY S2]');
 
 		// Third call
-		const output3 = { title: 'Result 3', output: 'c'.repeat(2000), metadata: null };
-		await hook({ tool: 'Read', sessionID: 'test-session', callID: 'call-3' }, output3);
+		const output3 = {
+			title: 'Result 3',
+			output: 'c'.repeat(2000),
+			metadata: null,
+		};
+		await hook(
+			{ tool: 'Read', sessionID: 'test-session', callID: 'call-3' },
+			output3,
+		);
 		expect(output3.output).toContain('[SUMMARY S3]');
 	});
 
@@ -114,16 +153,30 @@ describe('tool-summarizer', () => {
 		const hook = createToolSummarizerHook(config, tempDir);
 
 		// First call produces S1
-		const output1 = { title: 'Result 1', output: 'x'.repeat(2000), metadata: null };
-		await hook({ tool: 'Read', sessionID: 'test-session', callID: 'call-1' }, output1);
+		const output1 = {
+			title: 'Result 1',
+			output: 'x'.repeat(2000),
+			metadata: null,
+		};
+		await hook(
+			{ tool: 'Read', sessionID: 'test-session', callID: 'call-1' },
+			output1,
+		);
 		expect(output1.output).toContain('[SUMMARY S1]');
 
 		// Reset the counter
 		resetSummaryIdCounter();
 
 		// Next call should produce S1 again, not S2
-		const output2 = { title: 'Result 2', output: 'y'.repeat(2000), metadata: null };
-		await hook({ tool: 'Read', sessionID: 'test-session', callID: 'call-2' }, output2);
+		const output2 = {
+			title: 'Result 2',
+			output: 'y'.repeat(2000),
+			metadata: null,
+		};
+		await hook(
+			{ tool: 'Read', sessionID: 'test-session', callID: 'call-2' },
+			output2,
+		);
 		expect(output2.output).toContain('[SUMMARY S1]');
 	});
 
@@ -137,7 +190,11 @@ describe('tool-summarizer', () => {
 
 		const largeOutput = 'x'.repeat(2000); // 2000 bytes > max_stored_bytes of 10
 		const input = { tool: 'Read', sessionID: 'test-session', callID: 'call-1' };
-		const output = { title: 'Read Result', output: largeOutput, metadata: null };
+		const output = {
+			title: 'Read Result',
+			output: largeOutput,
+			metadata: null,
+		};
 
 		await hook(input, output);
 
@@ -161,7 +218,10 @@ describe('tool-summarizer integration', () => {
 
 	beforeEach(() => {
 		resetSummaryIdCounter();
-		tempDir = join(tmpdir(), `test-summarizer-integration-${Date.now()}-${Math.random().toString(36).slice(2)}`);
+		tempDir = join(
+			tmpdir(),
+			`test-summarizer-integration-${Date.now()}-${Math.random().toString(36).slice(2)}`,
+		);
 		mkdirSync(join(tempDir, '.swarm'), { recursive: true });
 	});
 
@@ -179,9 +239,14 @@ describe('tool-summarizer integration', () => {
 		const hook = createToolSummarizerHook(config, tempDir);
 
 		// Generate large output that will exceed threshold
-		const originalOutput = 'Line ' + 'x'.repeat(2000) + '\nAnother line of content';
+		const originalOutput =
+			'Line ' + 'x'.repeat(2000) + '\nAnother line of content';
 		const input = { tool: 'Read', sessionID: 'test-session', callID: 'call-1' };
-		const output = { title: 'Read Result', output: originalOutput, metadata: null };
+		const output = {
+			title: 'Read Result',
+			output: originalOutput,
+			metadata: null,
+		};
 
 		// Step 1: Hook summarizes the output
 		await hook(input, output);

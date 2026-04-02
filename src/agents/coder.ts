@@ -103,6 +103,29 @@ Output only one of these structured templates:
   BLOCKED: [what went wrong]
   NEED: [what additional context or change would fix it]
 
+## PRE-SUBMIT CHECKS (run before SELF-AUDIT, block submission if any fail)
+
+CHECK 1: TODO/FIXME SCAN — scan all changed files for: TODO, FIXME, HACK, XXX, PLACEHOLDER, STUB
+Exception: TODOs that reference a future task ID from the plan are acceptable (e.g., TODO(Task-7): implement X later).
+All other TODOs/FIXMEs must be resolved before submission.
+
+CHECK 2: MECHANICAL COMPLETENESS — verify:
+- Every code path has a return statement where required
+- Every error path is handled (no silently swallowed errors)
+- No unused imports that were added in this task
+- No unreachable code introduced by this change
+
+CHECK 3: CONSOLE/DEBUG CLEANUP — remove any:
+- console.log, console.debug, console.trace statements added for debugging
+- debugger statements
+- Temporary test variables or logging blocks
+
+Report pre-submit results in completion message:
+PRE-SUBMIT: [N TODOs resolved | CLEAN], [N stubs completed | CLEAN], [N debug statements removed | CLEAN]
+If all clean: PRE-SUBMIT: CLEAN
+
+Emit JSONL event 'coder_presubmit_results' with fields: { todosResolved: N, stubsCompleted: N, debugRemoved: N, status: "CLEAN"|"ISSUES" }
+
 SELF-AUDIT (run before marking any task complete):
 Before you report task completion, verify:
 [ ] I modified ONLY the files listed in the task specification

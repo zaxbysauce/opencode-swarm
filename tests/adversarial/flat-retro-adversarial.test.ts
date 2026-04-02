@@ -1,13 +1,20 @@
-import { describe, it, expect, beforeEach, afterEach } from 'bun:test';
-import { loadEvidence, saveEvidence, sanitizeTaskId } from '../../src/evidence/manager';
-import { mkdirSync, rmSync, writeFileSync, readFileSync } from 'node:fs';
+import { afterEach, beforeEach, describe, expect, it } from 'bun:test';
+import { mkdirSync, readFileSync, rmSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
+import {
+	loadEvidence,
+	sanitizeTaskId,
+	saveEvidence,
+} from '../../src/evidence/manager';
 
 let tempDir: string;
 
 beforeEach(() => {
-	tempDir = join(tmpdir(), `retro-adversarial-${Date.now()}-${Math.random().toString(36).slice(2)}`);
+	tempDir = join(
+		tmpdir(),
+		`retro-adversarial-${Date.now()}-${Math.random().toString(36).slice(2)}`,
+	);
 	mkdirSync(join(tempDir, '.swarm'), { recursive: true });
 });
 
@@ -27,26 +34,34 @@ describe('Flat retrospective detection adversarial tests', () => {
 			task_id: '1.1',
 			created_at: '2024-01-01T00:00:00.000Z',
 			updated_at: '2024-01-01T00:00:00.000Z',
-			entries: [{
-				type: 'retrospective',
-				task_id: '1.1',
-				timestamp: '2024-01-01T00:00:00.000Z',
-				agent: 'test',
-				verdict: 'info',
-				summary: 'test',
-				phase_number: 1,
-				total_tool_calls: 10,
-				coder_revisions: 1,
-				reviewer_rejections: 0,
-				test_failures: 0,
-				security_findings: 0,
-				integration_issues: 0,
-				task_count: 1,
-				task_complexity: 'simple',
-			}],
+			entries: [
+				{
+					type: 'retrospective',
+					task_id: '1.1',
+					timestamp: '2024-01-01T00:00:00.000Z',
+					agent: 'test',
+					verdict: 'info',
+					summary: 'test',
+					phase_number: 1,
+					total_tool_calls: 10,
+					coder_revisions: 1,
+					reviewer_rejections: 0,
+					test_failures: 0,
+					security_findings: 0,
+					integration_issues: 0,
+					task_count: 1,
+					task_complexity: 'simple',
+				},
+			],
 		};
 
-		const evidencePath = join(tempDir, '.swarm', 'evidence', '1.1', 'evidence.json');
+		const evidencePath = join(
+			tempDir,
+			'.swarm',
+			'evidence',
+			'1.1',
+			'evidence.json',
+		);
 		mkdirSync(join(tempDir, '.swarm', 'evidence', '1.1'), { recursive: true });
 		writeFileSync(evidencePath, JSON.stringify(bundleWithSchema));
 
@@ -60,7 +75,13 @@ describe('Flat retrospective detection adversarial tests', () => {
 	it('rejects arrays with type: retrospective', async () => {
 		const maliciousPayload = JSON.stringify([{ type: 'retrospective' }]);
 
-		const evidencePath = join(tempDir, '.swarm', 'evidence', '1.1', 'evidence.json');
+		const evidencePath = join(
+			tempDir,
+			'.swarm',
+			'evidence',
+			'1.1',
+			'evidence.json',
+		);
 		mkdirSync(join(tempDir, '.swarm', 'evidence', '1.1'), { recursive: true });
 		writeFileSync(evidencePath, maliciousPayload);
 
@@ -70,7 +91,13 @@ describe('Flat retrospective detection adversarial tests', () => {
 	});
 
 	it('rejects null value', async () => {
-		const evidencePath = join(tempDir, '.swarm', 'evidence', '1.1', 'evidence.json');
+		const evidencePath = join(
+			tempDir,
+			'.swarm',
+			'evidence',
+			'1.1',
+			'evidence.json',
+		);
 		mkdirSync(join(tempDir, '.swarm', 'evidence', '1.1'), { recursive: true });
 		writeFileSync(evidencePath, 'null');
 
@@ -82,8 +109,16 @@ describe('Flat retrospective detection adversarial tests', () => {
 		const primitives = ['"string"', '123', 'true'];
 
 		for (const primitive of primitives) {
-			const evidencePath = join(tempDir, '.swarm', 'evidence', '1.1', 'evidence.json');
-			mkdirSync(join(tempDir, '.swarm', 'evidence', '1.1'), { recursive: true });
+			const evidencePath = join(
+				tempDir,
+				'.swarm',
+				'evidence',
+				'1.1',
+				'evidence.json',
+			);
+			mkdirSync(join(tempDir, '.swarm', 'evidence', '1.1'), {
+				recursive: true,
+			});
 			writeFileSync(evidencePath, primitive);
 
 			const result = await loadEvidence(tempDir, '1.1');
@@ -98,7 +133,13 @@ describe('Flat retrospective detection adversarial tests', () => {
 		const maliciousObj = Object.create(prototype);
 		// Don't add 'type' as own property
 
-		const evidencePath = join(tempDir, '.swarm', 'evidence', '1.1', 'evidence.json');
+		const evidencePath = join(
+			tempDir,
+			'.swarm',
+			'evidence',
+			'1.1',
+			'evidence.json',
+		);
 		mkdirSync(join(tempDir, '.swarm', 'evidence', '1.1'), { recursive: true });
 		writeFileSync(evidencePath, JSON.stringify(maliciousObj));
 
@@ -114,7 +155,13 @@ describe('Flat retrospective detection adversarial tests', () => {
 			// schema_version is not present (undefined)
 		};
 
-		const evidencePath = join(tempDir, '.swarm', 'evidence', '1.1', 'evidence.json');
+		const evidencePath = join(
+			tempDir,
+			'.swarm',
+			'evidence',
+			'1.1',
+			'evidence.json',
+		);
 		mkdirSync(join(tempDir, '.swarm', 'evidence', '1.1'), { recursive: true });
 		writeFileSync(evidencePath, JSON.stringify(payload));
 
@@ -129,7 +176,13 @@ describe('Flat retrospective detection adversarial tests', () => {
 			schema_version: null,
 		};
 
-		const evidencePath = join(tempDir, '.swarm', 'evidence', '1.1', 'evidence.json');
+		const evidencePath = join(
+			tempDir,
+			'.swarm',
+			'evidence',
+			'1.1',
+			'evidence.json',
+		);
 		mkdirSync(join(tempDir, '.swarm', 'evidence', '1.1'), { recursive: true });
 		writeFileSync(evidencePath, JSON.stringify(payload));
 
@@ -144,7 +197,13 @@ describe('Flat retrospective detection adversarial tests', () => {
 			schema_version: '',
 		};
 
-		const evidencePath = join(tempDir, '.swarm', 'evidence', '1.1', 'evidence.json');
+		const evidencePath = join(
+			tempDir,
+			'.swarm',
+			'evidence',
+			'1.1',
+			'evidence.json',
+		);
 		mkdirSync(join(tempDir, '.swarm', 'evidence', '1.1'), { recursive: true });
 		writeFileSync(evidencePath, JSON.stringify(payload));
 
@@ -170,7 +229,13 @@ describe('Flat retrospective wrapping security tests', () => {
 			summary: 'test',
 		};
 
-		const evidencePath = join(tempDir, '.swarm', 'evidence', '1.1', 'evidence.json');
+		const evidencePath = join(
+			tempDir,
+			'.swarm',
+			'evidence',
+			'1.1',
+			'evidence.json',
+		);
 		mkdirSync(join(tempDir, '.swarm', 'evidence', '1.1'), { recursive: true });
 		writeFileSync(evidencePath, JSON.stringify(flatRetro));
 
@@ -190,7 +255,13 @@ describe('Flat retrospective wrapping security tests', () => {
 			summary: 'test',
 		};
 
-		const evidencePath = join(tempDir, '.swarm', 'evidence', '1.1', 'evidence.json');
+		const evidencePath = join(
+			tempDir,
+			'.swarm',
+			'evidence',
+			'1.1',
+			'evidence.json',
+		);
 		mkdirSync(join(tempDir, '.swarm', 'evidence', '1.1'), { recursive: true });
 		writeFileSync(evidencePath, JSON.stringify(flatRetro));
 
@@ -211,9 +282,15 @@ describe('Flat retrospective wrapping security tests', () => {
 		};
 
 		// Verify Object.prototype is clean before
-		expect(({}).pollution).toBeUndefined();
+		expect({}.pollution).toBeUndefined();
 
-		const evidencePath = join(tempDir, '.swarm', 'evidence', '1.1', 'evidence.json');
+		const evidencePath = join(
+			tempDir,
+			'.swarm',
+			'evidence',
+			'1.1',
+			'evidence.json',
+		);
 		mkdirSync(join(tempDir, '.swarm', 'evidence', '1.1'), { recursive: true });
 		writeFileSync(evidencePath, JSON.stringify(flatRetro));
 
@@ -222,7 +299,7 @@ describe('Flat retrospective wrapping security tests', () => {
 		// The result status depends on whether required fields are present
 
 		// Verify Object.prototype is still clean after
-		expect(({}).pollution).toBeUndefined();
+		expect({}.pollution).toBeUndefined();
 	});
 
 	it('handles constructor property injection', async () => {
@@ -236,13 +313,19 @@ describe('Flat retrospective wrapping security tests', () => {
 			summary: 'test',
 		};
 
-		const evidencePath = join(tempDir, '.swarm', 'evidence', '1.1', 'evidence.json');
+		const evidencePath = join(
+			tempDir,
+			'.swarm',
+			'evidence',
+			'1.1',
+			'evidence.json',
+		);
 		mkdirSync(join(tempDir, '.swarm', 'evidence', '1.1'), { recursive: true });
 		writeFileSync(evidencePath, JSON.stringify(flatRetro));
 
 		const result = await loadEvidence(tempDir, '1.1');
 		// Should either succeed or fail validation, but should not affect Object.constructor
-		expect(typeof ({}).constructor).toBe('function');
+		expect(typeof {}.constructor).toBe('function');
 	});
 
 	it('handles number instead of string for task_id (type coercion)', async () => {
@@ -255,7 +338,13 @@ describe('Flat retrospective wrapping security tests', () => {
 			summary: 'test',
 		};
 
-		const evidencePath = join(tempDir, '.swarm', 'evidence', '1.1', 'evidence.json');
+		const evidencePath = join(
+			tempDir,
+			'.swarm',
+			'evidence',
+			'1.1',
+			'evidence.json',
+		);
 		mkdirSync(join(tempDir, '.swarm', 'evidence', '1.1'), { recursive: true });
 		writeFileSync(evidencePath, JSON.stringify(flatRetro));
 
@@ -275,7 +364,13 @@ describe('Flat retrospective wrapping security tests', () => {
 			summary: 'test',
 		};
 
-		const evidencePath = join(tempDir, '.swarm', 'evidence', '1.1', 'evidence.json');
+		const evidencePath = join(
+			tempDir,
+			'.swarm',
+			'evidence',
+			'1.1',
+			'evidence.json',
+		);
 		mkdirSync(join(tempDir, '.swarm', 'evidence', '1.1'), { recursive: true });
 		writeFileSync(evidencePath, JSON.stringify(flatRetro));
 
@@ -294,7 +389,13 @@ describe('Flat retrospective wrapping security tests', () => {
 			summary: 'test',
 		};
 
-		const evidencePath = join(tempDir, '.swarm', 'evidence', '1.1', 'evidence.json');
+		const evidencePath = join(
+			tempDir,
+			'.swarm',
+			'evidence',
+			'1.1',
+			'evidence.json',
+		);
 		mkdirSync(join(tempDir, '.swarm', 'evidence', '1.1'), { recursive: true });
 		writeFileSync(evidencePath, JSON.stringify(flatRetro));
 
@@ -312,7 +413,13 @@ describe('Flat retrospective wrapping security tests', () => {
 			summary: 'test',
 		};
 
-		const evidencePath = join(tempDir, '.swarm', 'evidence', '1.1', 'evidence.json');
+		const evidencePath = join(
+			tempDir,
+			'.swarm',
+			'evidence',
+			'1.1',
+			'evidence.json',
+		);
 		mkdirSync(join(tempDir, '.swarm', 'evidence', '1.1'), { recursive: true });
 		writeFileSync(evidencePath, JSON.stringify(flatRetro));
 
@@ -330,7 +437,13 @@ describe('Flat retrospective wrapping security tests', () => {
 			summary: 'test',
 		};
 
-		const evidencePath = join(tempDir, '.swarm', 'evidence', '1.1', 'evidence.json');
+		const evidencePath = join(
+			tempDir,
+			'.swarm',
+			'evidence',
+			'1.1',
+			'evidence.json',
+		);
 		mkdirSync(join(tempDir, '.swarm', 'evidence', '1.1'), { recursive: true });
 		writeFileSync(evidencePath, JSON.stringify(flatRetro));
 
@@ -355,14 +468,20 @@ describe('Malformed flat retrospectives return invalid_schema', () => {
 			summary: 'test',
 		};
 
-		const evidencePath = join(tempDir, '.swarm', 'evidence', '1.1', 'evidence.json');
+		const evidencePath = join(
+			tempDir,
+			'.swarm',
+			'evidence',
+			'1.1',
+			'evidence.json',
+		);
 		mkdirSync(join(tempDir, '.swarm', 'evidence', '1.1'), { recursive: true });
 		writeFileSync(evidencePath, JSON.stringify(flatRetro));
 
 		const result = await loadEvidence(tempDir, '1.1');
 		expect(result.status).toBe('invalid_schema');
 		if (result.status === 'invalid_schema') {
-			expect(result.errors.some(e => e.includes('agent'))).toBe(true);
+			expect(result.errors.some((e) => e.includes('agent'))).toBe(true);
 		}
 	});
 
@@ -376,7 +495,13 @@ describe('Malformed flat retrospectives return invalid_schema', () => {
 			summary: 'test',
 		};
 
-		const evidencePath = join(tempDir, '.swarm', 'evidence', '1.1', 'evidence.json');
+		const evidencePath = join(
+			tempDir,
+			'.swarm',
+			'evidence',
+			'1.1',
+			'evidence.json',
+		);
 		mkdirSync(join(tempDir, '.swarm', 'evidence', '1.1'), { recursive: true });
 		writeFileSync(evidencePath, JSON.stringify(flatRetro));
 
@@ -394,7 +519,13 @@ describe('Malformed flat retrospectives return invalid_schema', () => {
 			// missing summary
 		};
 
-		const evidencePath = join(tempDir, '.swarm', 'evidence', '1.1', 'evidence.json');
+		const evidencePath = join(
+			tempDir,
+			'.swarm',
+			'evidence',
+			'1.1',
+			'evidence.json',
+		);
 		mkdirSync(join(tempDir, '.swarm', 'evidence', '1.1'), { recursive: true });
 		writeFileSync(evidencePath, JSON.stringify(flatRetro));
 
@@ -412,7 +543,13 @@ describe('Malformed flat retrospectives return invalid_schema', () => {
 			summary: 'test',
 		};
 
-		const evidencePath = join(tempDir, '.swarm', 'evidence', '1.1', 'evidence.json');
+		const evidencePath = join(
+			tempDir,
+			'.swarm',
+			'evidence',
+			'1.1',
+			'evidence.json',
+		);
 		mkdirSync(join(tempDir, '.swarm', 'evidence', '1.1'), { recursive: true });
 		writeFileSync(evidencePath, JSON.stringify(flatRetro));
 
@@ -430,7 +567,13 @@ describe('Malformed flat retrospectives return invalid_schema', () => {
 			summary: 'test',
 		};
 
-		const evidencePath = join(tempDir, '.swarm', 'evidence', '1.1', 'evidence.json');
+		const evidencePath = join(
+			tempDir,
+			'.swarm',
+			'evidence',
+			'1.1',
+			'evidence.json',
+		);
 		mkdirSync(join(tempDir, '.swarm', 'evidence', '1.1'), { recursive: true });
 		writeFileSync(evidencePath, JSON.stringify(flatRetro));
 
@@ -450,14 +593,20 @@ describe('Malformed flat retrospectives return invalid_schema', () => {
 			// missing required retrospective fields
 		};
 
-		const evidencePath = join(tempDir, '.swarm', 'evidence', '1.1', 'evidence.json');
+		const evidencePath = join(
+			tempDir,
+			'.swarm',
+			'evidence',
+			'1.1',
+			'evidence.json',
+		);
 		mkdirSync(join(tempDir, '.swarm', 'evidence', '1.1'), { recursive: true });
 		writeFileSync(evidencePath, JSON.stringify(flatRetro));
 
 		const result = await loadEvidence(tempDir, '1.1');
 		expect(result.status).toBe('invalid_schema');
 		if (result.status === 'invalid_schema') {
-			expect(result.errors.some(e => e.includes('phase_number'))).toBe(true);
+			expect(result.errors.some((e) => e.includes('phase_number'))).toBe(true);
 		}
 	});
 
@@ -474,7 +623,13 @@ describe('Malformed flat retrospectives return invalid_schema', () => {
 			// missing task_count
 		};
 
-		const evidencePath = join(tempDir, '.swarm', 'evidence', '1.1', 'evidence.json');
+		const evidencePath = join(
+			tempDir,
+			'.swarm',
+			'evidence',
+			'1.1',
+			'evidence.json',
+		);
 		mkdirSync(join(tempDir, '.swarm', 'evidence', '1.1'), { recursive: true });
 		writeFileSync(evidencePath, JSON.stringify(flatRetro));
 
@@ -483,7 +638,13 @@ describe('Malformed flat retrospectives return invalid_schema', () => {
 	});
 
 	it('completely empty object returns invalid_schema', async () => {
-		const evidencePath = join(tempDir, '.swarm', 'evidence', '1.1', 'evidence.json');
+		const evidencePath = join(
+			tempDir,
+			'.swarm',
+			'evidence',
+			'1.1',
+			'evidence.json',
+		);
 		mkdirSync(join(tempDir, '.swarm', 'evidence', '1.1'), { recursive: true });
 		writeFileSync(evidencePath, JSON.stringify({}));
 
@@ -507,7 +668,13 @@ describe('Valid flat retrospective wrapping', () => {
 			summary: 'Phase 5 completed successfully',
 		};
 
-		const evidencePath = join(tempDir, '.swarm', 'evidence', '2.5', 'evidence.json');
+		const evidencePath = join(
+			tempDir,
+			'.swarm',
+			'evidence',
+			'2.5',
+			'evidence.json',
+		);
 		mkdirSync(join(tempDir, '.swarm', 'evidence', '2.5'), { recursive: true });
 		writeFileSync(evidencePath, JSON.stringify(flatRetro));
 
@@ -535,7 +702,13 @@ describe('Valid flat retrospective wrapping', () => {
 			task_complexity: 'moderate',
 		};
 
-		const evidencePath = join(tempDir, '.swarm', 'evidence', '2.5', 'evidence.json');
+		const evidencePath = join(
+			tempDir,
+			'.swarm',
+			'evidence',
+			'2.5',
+			'evidence.json',
+		);
 		mkdirSync(join(tempDir, '.swarm', 'evidence', '2.5'), { recursive: true });
 		writeFileSync(evidencePath, JSON.stringify(flatRetro));
 
@@ -570,8 +743,16 @@ describe('Valid flat retrospective wrapping', () => {
 			task_complexity: 'moderate',
 		};
 
-		const evidencePath = join(tempDir, '.swarm', 'evidence', 'fallback-id', 'evidence.json');
-		mkdirSync(join(tempDir, '.swarm', 'evidence', 'fallback-id'), { recursive: true });
+		const evidencePath = join(
+			tempDir,
+			'.swarm',
+			'evidence',
+			'fallback-id',
+			'evidence.json',
+		);
+		mkdirSync(join(tempDir, '.swarm', 'evidence', 'fallback-id'), {
+			recursive: true,
+		});
 		writeFileSync(evidencePath, JSON.stringify(flatRetro));
 
 		const result = await loadEvidence(tempDir, 'fallback-id');
@@ -603,7 +784,13 @@ describe('Valid flat retrospective wrapping', () => {
 			task_complexity: 'simple',
 		};
 
-		const evidencePath = join(tempDir, '.swarm', 'evidence', '3.1', 'evidence.json');
+		const evidencePath = join(
+			tempDir,
+			'.swarm',
+			'evidence',
+			'3.1',
+			'evidence.json',
+		);
 		mkdirSync(join(tempDir, '.swarm', 'evidence', '3.1'), { recursive: true });
 		writeFileSync(evidencePath, JSON.stringify(flatRetro));
 

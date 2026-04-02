@@ -15,13 +15,13 @@
  * 7. Non-existent file returns without error
  */
 
-import { describe, it, expect, beforeEach, afterEach } from 'vitest';
 import * as fs from 'node:fs';
-import * as path from 'node:path';
 import * as os from 'node:os';
+import * as path from 'node:path';
+import { afterEach, beforeEach, describe, expect, it } from 'vitest';
 import {
-	enforceKnowledgeCap,
 	appendKnowledge,
+	enforceKnowledgeCap,
 	readKnowledge,
 } from '../../../src/hooks/knowledge-store.js';
 
@@ -38,7 +38,10 @@ let tmpDir: string;
 let testFile: string;
 
 beforeEach(() => {
-	tmpDir = path.join(os.tmpdir(), `caps-test-${Date.now()}-${Math.random().toString(36).slice(2)}`);
+	tmpDir = path.join(
+		os.tmpdir(),
+		`caps-test-${Date.now()}-${Math.random().toString(36).slice(2)}`,
+	);
 	fs.mkdirSync(tmpDir, { recursive: true });
 	testFile = path.join(tmpDir, 'knowledge.jsonl');
 });
@@ -68,7 +71,7 @@ describe('enforceKnowledgeCap', () => {
 
 		const entries = await readKnowledge<TestEntry>(testFile);
 		expect(entries).toHaveLength(5);
-		expect(entries.map(e => e.id)).toEqual([0, 1, 2, 3, 4]);
+		expect(entries.map((e) => e.id)).toEqual([0, 1, 2, 3, 4]);
 	});
 
 	it('is a no-op when entry count equals the cap exactly', async () => {
@@ -97,7 +100,7 @@ describe('enforceKnowledgeCap', () => {
 		const entries = await readKnowledge<TestEntry>(testFile);
 		expect(entries).toHaveLength(5);
 		// Last 5 entries (ids 15-19) must survive
-		const ids = entries.map(e => e.id);
+		const ids = entries.map((e) => e.id);
 		expect(ids).toEqual([15, 16, 17, 18, 19]);
 	});
 
@@ -122,7 +125,9 @@ describe('enforceKnowledgeCap', () => {
 
 	it('does not error when file does not exist', async () => {
 		const nonExistent = path.join(tmpDir, 'ghost.jsonl');
-		await expect(enforceKnowledgeCap<TestEntry>(nonExistent, 10)).resolves.toBeUndefined();
+		await expect(
+			enforceKnowledgeCap<TestEntry>(nonExistent, 10),
+		).resolves.toBeUndefined();
 	});
 
 	it('cap enforcement is idempotent — running twice does not over-truncate', async () => {

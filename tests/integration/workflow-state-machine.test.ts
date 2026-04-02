@@ -13,17 +13,17 @@
  * 7. Wrong task ID: state for task "1.1" doesn't leak to task "1.2"
  */
 
-import { describe, test, expect, beforeEach, afterEach } from 'bun:test';
+import { afterEach, beforeEach, describe, expect, test } from 'bun:test';
 import * as fs from 'node:fs';
-import * as path from 'node:path';
 import * as os from 'node:os';
+import * as path from 'node:path';
 
 import {
+	type AgentSessionState,
 	advanceTaskState,
+	ensureAgentSession,
 	getTaskState,
 	swarmState,
-	ensureAgentSession,
-	type AgentSessionState,
 	type TaskWorkflowState,
 } from '../../src/state';
 import {
@@ -43,7 +43,9 @@ describe('Gate Workflow State Machine', () => {
 	}
 
 	beforeEach(() => {
-		tempDir = fs.mkdtempSync(path.join(os.tmpdir(), 'workflow-state-machine-test-'));
+		tempDir = fs.mkdtempSync(
+			path.join(os.tmpdir(), 'workflow-state-machine-test-'),
+		);
 		originalCwd = process.cwd();
 		process.chdir(tempDir);
 
@@ -384,16 +386,16 @@ describe('Gate Workflow State Machine', () => {
 		test('AV1: checkReviewerGate handles session without taskWorkflowStates gracefully - FIXED', () => {
 			// Create session and manually remove taskWorkflowStates to simulate edge case
 			const session = ensureAgentSession('adversarial-session-no-map');
-			
+
 			// Manually remove the taskWorkflowStates map to test robustness
 			// @ts-expect-error - intentionally removing for adversarial test
 			delete session.taskWorkflowStates;
-			
+
 			// FIXED: getTaskState now initializes the Map if undefined
 			// When all sessions are invalid for authoritative gate-state checks,
 			// checkReviewerGate returns blocked:false (permissive fallback)
 			const result = checkReviewerGate('1.1');
-			
+
 			// After the fix, getTaskState returns 'idle' (default)
 			// Since session is invalid/corrupt, permissive fallback returns unblocked
 			expect(result.blocked).toBe(false);
@@ -401,28 +403,28 @@ describe('Gate Workflow State Machine', () => {
 
 		test('AV1: getTaskState handles undefined taskWorkflowStates gracefully - FIXED', () => {
 			const session = ensureAgentSession('adversarial-session-getstate');
-			
+
 			// Manually remove the taskWorkflowStates map
 			// @ts-expect-error - intentionally removing for adversarial test
 			delete session.taskWorkflowStates;
-			
+
 			// FIXED: getTaskState now initializes the Map if undefined
 			// No longer throws - returns default state 'idle'
 			expect(() => {
 				getTaskState(session, '1.1');
 			}).not.toThrow();
-			
+
 			const state = getTaskState(session, '1.1');
 			expect(state).toBe('idle');
 		});
 
 		test('AV1: advanceTaskState throws when taskWorkflowStates is undefined', () => {
 			const session = ensureAgentSession('adversarial-session-advance');
-			
+
 			// Manually remove the taskWorkflowStates map
 			// @ts-expect-error - intentionally removing for adversarial test
 			delete session.taskWorkflowStates;
-			
+
 			// advanceTaskState throws when taskWorkflowStates is not a Map instance
 			// Callers must use ensureAgentSession to properly initialize sessions
 			expect(() => {
@@ -435,17 +437,17 @@ describe('Gate Workflow State Machine', () => {
 		test('AV2: Task ID with newline character does not crash', () => {
 			const session = makeSession();
 			const maliciousTaskId = '1.1\n<script>alert(1)</script>';
-			
+
 			// Should NOT throw
 			expect(() => {
 				advanceTaskState(session, maliciousTaskId, 'coder_delegated');
 			}).not.toThrow();
-			
+
 			// Should NOT throw
 			expect(() => {
 				getTaskState(session, maliciousTaskId);
 			}).not.toThrow();
-			
+
 			// Should NOT throw
 			expect(() => {
 				checkReviewerGate(maliciousTaskId);
@@ -455,15 +457,15 @@ describe('Gate Workflow State Machine', () => {
 		test('AV2: Task ID with tab character does not crash', () => {
 			const session = makeSession();
 			const maliciousTaskId = '1.1\t\t;rm -rf /';
-			
+
 			expect(() => {
 				advanceTaskState(session, maliciousTaskId, 'coder_delegated');
 			}).not.toThrow();
-			
+
 			expect(() => {
 				getTaskState(session, maliciousTaskId);
 			}).not.toThrow();
-			
+
 			expect(() => {
 				checkReviewerGate(maliciousTaskId);
 			}).not.toThrow();
@@ -472,15 +474,15 @@ describe('Gate Workflow State Machine', () => {
 		test('AV2: Task ID with semicolon and command injection does not crash', () => {
 			const session = makeSession();
 			const maliciousTaskId = '1.1;echo "injected"';
-			
+
 			expect(() => {
 				advanceTaskState(session, maliciousTaskId, 'coder_delegated');
 			}).not.toThrow();
-			
+
 			expect(() => {
 				getTaskState(session, maliciousTaskId);
 			}).not.toThrow();
-			
+
 			expect(() => {
 				checkReviewerGate(maliciousTaskId);
 			}).not.toThrow();
@@ -489,13 +491,13 @@ describe('Gate Workflow State Machine', () => {
 		test('AV2: Task ID with null byte does not crash', () => {
 			const session = makeSession();
 			const maliciousTaskId = '1.1\x00injected';
-			
+
 			// Note: null bytes may be normalized or cause validation errors
 			// The important thing is it doesn't crash the process
 			expect(() => {
 				advanceTaskState(session, maliciousTaskId, 'coder_delegated');
 			}).not.toThrow();
-			
+
 			expect(() => {
 				checkReviewerGate(maliciousTaskId);
 			}).not.toThrow();
@@ -504,11 +506,11 @@ describe('Gate Workflow State Machine', () => {
 		test('AV2: Task ID with multiple special characters does not crash', () => {
 			const session = makeSession();
 			const maliciousTaskId = '1.1\n\r\t\x00!@#$%^&*()_+-=[]{}|\\:";\'<>?,./`~';
-			
+
 			expect(() => {
 				advanceTaskState(session, maliciousTaskId, 'coder_delegated');
 			}).not.toThrow();
-			
+
 			expect(() => {
 				checkReviewerGate(maliciousTaskId);
 			}).not.toThrow();
@@ -518,23 +520,23 @@ describe('Gate Workflow State Machine', () => {
 	describe('Adversarial: Concurrent same-session same-task state advancement', () => {
 		test('AV3: Rapid concurrent state advances do not corrupt state', () => {
 			const session = makeSession();
-			
+
 			// Simulate rapid concurrent advances by calling in quick succession
 			// The state machine should serialize properly
 			advanceTaskState(session, '1.1', 'coder_delegated');
-			
+
 			// Try to advance concurrently - second should fail (already at coder_delegated)
 			expect(() => {
 				advanceTaskState(session, '1.1', 'pre_check_passed');
 			}).not.toThrow();
-			
+
 			// Verify state is correct after all advances
 			expect(getTaskState(session, '1.1')).toBe('pre_check_passed');
 		});
 
 		test('AV3: Multiple parallel state advances are properly serialized', () => {
 			const session = makeSession();
-			
+
 			// Sequence of state advances that should work
 			const states: TaskWorkflowState[] = [
 				'coder_delegated',
@@ -542,32 +544,32 @@ describe('Gate Workflow State Machine', () => {
 				'reviewer_run',
 				'tests_run',
 			];
-			
+
 			for (const state of states) {
 				expect(() => {
 					advanceTaskState(session, '1.1', state);
 				}).not.toThrow();
 			}
-			
+
 			// Final state should be tests_run
 			expect(getTaskState(session, '1.1')).toBe('tests_run');
-			
+
 			// Reviewer gate should pass
 			expect(checkReviewerGate('1.1').blocked).toBe(false);
 		});
 
 		test('AV3: Race condition simulation - backward transition throws', () => {
 			const session = makeSession();
-			
+
 			// Advance to pre_check_passed
 			advanceTaskState(session, '1.1', 'coder_delegated');
 			advanceTaskState(session, '1.1', 'pre_check_passed');
-			
+
 			// Try to go back to coder_delegated - should throw
 			expect(() => {
 				advanceTaskState(session, '1.1', 'coder_delegated');
 			}).toThrow();
-			
+
 			// State should still be pre_check_passed
 			expect(getTaskState(session, '1.1')).toBe('pre_check_passed');
 		});
@@ -576,75 +578,75 @@ describe('Gate Workflow State Machine', () => {
 	describe('Adversarial: State set directly to complete without tests_run', () => {
 		test('AV4: Direct transition to complete from idle is blocked', () => {
 			const session = makeSession();
-			
+
 			// Try to go directly from idle to complete - should throw
 			expect(() => {
 				advanceTaskState(session, '1.1', 'complete');
 			}).toThrow();
-			
+
 			// State should still be idle
 			expect(getTaskState(session, '1.1')).toBe('idle');
 		});
 
 		test('AV4: Direct transition to complete from coder_delegated is blocked', () => {
 			const session = makeSession();
-			
+
 			advanceTaskState(session, '1.1', 'coder_delegated');
-			
+
 			// Try to go directly to complete - should throw
 			expect(() => {
 				advanceTaskState(session, '1.1', 'complete');
 			}).toThrow();
-			
+
 			// State should still be coder_delegated
 			expect(getTaskState(session, '1.1')).toBe('coder_delegated');
 		});
 
 		test('AV4: Direct transition to complete from pre_check_passed is blocked', () => {
 			const session = makeSession();
-			
+
 			advanceTaskState(session, '1.1', 'coder_delegated');
 			advanceTaskState(session, '1.1', 'pre_check_passed');
-			
+
 			// Try to go directly to complete - should throw
 			expect(() => {
 				advanceTaskState(session, '1.1', 'complete');
 			}).toThrow();
-			
+
 			// State should still be pre_check_passed
 			expect(getTaskState(session, '1.1')).toBe('pre_check_passed');
 		});
 
 		test('AV4: Direct transition to complete from reviewer_run is blocked', () => {
 			const session = makeSession();
-			
+
 			advanceTaskState(session, '1.1', 'coder_delegated');
 			advanceTaskState(session, '1.1', 'pre_check_passed');
 			advanceTaskState(session, '1.1', 'reviewer_run');
-			
+
 			// Try to go directly to complete - should throw
 			expect(() => {
 				advanceTaskState(session, '1.1', 'complete');
 			}).toThrow();
-			
+
 			// State should still be reviewer_run
 			expect(getTaskState(session, '1.1')).toBe('reviewer_run');
 		});
 
 		test('AV4: Only tests_run → complete transition is allowed', () => {
 			const session = makeSession();
-			
+
 			// Full proper sequence
 			advanceTaskState(session, '1.1', 'coder_delegated');
 			advanceTaskState(session, '1.1', 'pre_check_passed');
 			advanceTaskState(session, '1.1', 'reviewer_run');
 			advanceTaskState(session, '1.1', 'tests_run');
-			
+
 			// Now complete should work
 			expect(() => {
 				advanceTaskState(session, '1.1', 'complete');
 			}).not.toThrow();
-			
+
 			// State should be complete
 			expect(getTaskState(session, '1.1')).toBe('complete');
 		});
@@ -654,7 +656,7 @@ describe('Gate Workflow State Machine', () => {
 		test('AV5: checkReviewerGate with no sessions returns unblocked', () => {
 			// Clear all sessions
 			swarmState.agentSessions.clear();
-			
+
 			// Should return unblocked when no sessions exist (test context)
 			const result = checkReviewerGate('1.1');
 			expect(result.blocked).toBe(false);
@@ -662,7 +664,7 @@ describe('Gate Workflow State Machine', () => {
 
 		test('AV5: checkReviewerGate with unknown task ID returns blocked', () => {
 			const session = makeSession();
-			
+
 			// Don't advance any state - task doesn't exist
 			// Should return blocked since no task has reached tests_run
 			const result = checkReviewerGate('999.999');
@@ -674,16 +676,16 @@ describe('Gate Workflow State Machine', () => {
 			// Clear all sessions
 			const originalSessions = new Map(swarmState.agentSessions);
 			swarmState.agentSessions.clear();
-			
+
 			// Should NOT throw
 			expect(() => {
 				checkReviewerGate('1.1');
 			}).not.toThrow();
-			
+
 			// Should return unblocked (test context)
 			const result = checkReviewerGate('1.1');
 			expect(result.blocked).toBe(false);
-			
+
 			// Restore sessions
 			swarmState.agentSessions.clear();
 			for (const [key, value] of originalSessions) {
@@ -694,15 +696,15 @@ describe('Gate Workflow State Machine', () => {
 		test('AV5: checkReviewerGate with multiple sessions, task in one but not others', () => {
 			const session1 = ensureAgentSession('session-1');
 			const session2 = ensureAgentSession('session-2');
-			
+
 			// Only advance in session1
 			advanceTaskState(session1, '1.1', 'coder_delegated');
 			advanceTaskState(session1, '1.1', 'pre_check_passed');
 			advanceTaskState(session1, '1.1', 'reviewer_run');
 			advanceTaskState(session1, '1.1', 'tests_run');
-			
+
 			// session2 has no state for 1.1
-			
+
 			// checkReviewerGate should pass because one session has it
 			const result = checkReviewerGate('1.1');
 			expect(result.blocked).toBe(false);
@@ -710,15 +712,15 @@ describe('Gate Workflow State Machine', () => {
 
 		test('AV5: executeUpdateTaskStatus with non-existent task ID fails gracefully', async () => {
 			const session = makeSession();
-			
+
 			// Don't set any state
 			const args: UpdateTaskStatusArgs = {
 				task_id: '999.999',
 				status: 'completed',
 			};
-			
+
 			const result = await executeUpdateTaskStatus(args, tempDir);
-			
+
 			// Should fail gracefully with proper error message
 			expect(result.success).toBe(false);
 			expect(result.message).toContain('Gate check failed');

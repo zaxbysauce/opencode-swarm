@@ -1,12 +1,12 @@
-import { describe, test, expect, beforeEach, afterEach, mock } from 'bun:test';
+import { afterEach, beforeEach, describe, expect, mock, test } from 'bun:test';
 import * as fs from 'node:fs';
 import * as os from 'node:os';
 import * as path from 'node:path';
-import {
-	runPreCheckBatch,
-	type PreCheckBatchInput,
-} from '../../../src/tools/pre-check-batch';
 import type { SecretscanEvidence } from '../../../src/config/evidence-schema';
+import {
+	type PreCheckBatchInput,
+	runPreCheckBatch,
+} from '../../../src/tools/pre-check-batch';
 
 // Mock the tool modules
 const mockDetectAvailableLinter = mock(async () => 'biome');
@@ -169,7 +169,8 @@ describe('secretscan evidence persistence', () => {
 
 		// Verify saveEvidence was called with secretscan task
 		expect(mockSaveEvidence).toHaveBeenCalled();
-		const lastCall = mockSaveEvidence.mock.calls[mockSaveEvidence.mock.calls.length - 1];
+		const lastCall =
+			mockSaveEvidence.mock.calls[mockSaveEvidence.mock.calls.length - 1];
 		expect(lastCall[0]).toBe(tempDir); // directory
 		expect(lastCall[1]).toBe('secretscan'); // taskId
 
@@ -209,7 +210,8 @@ describe('secretscan evidence persistence', () => {
 
 		// Verify saveEvidence was called with secretscan task
 		expect(mockSaveEvidence).toHaveBeenCalled();
-		const lastCall = mockSaveEvidence.mock.calls[mockSaveEvidence.mock.calls.length - 1];
+		const lastCall =
+			mockSaveEvidence.mock.calls[mockSaveEvidence.mock.calls.length - 1];
 		const evidence = lastCall[2] as SecretscanEvidence;
 
 		expect(evidence.verdict).toBe('fail');
@@ -221,10 +223,7 @@ describe('secretscan evidence persistence', () => {
 	// ============ Evidence Schema Validation ============
 
 	test('evidence object matches SecretscanEvidenceSchema structure', async () => {
-		fs.writeFileSync(
-			path.join(tempDir, 'clean.ts'),
-			'export const x = 1;\n',
-		);
+		fs.writeFileSync(path.join(tempDir, 'clean.ts'), 'export const x = 1;\n');
 
 		const input: PreCheckBatchInput = {
 			files: ['clean.ts'],
@@ -234,7 +233,8 @@ describe('secretscan evidence persistence', () => {
 		await runPreCheckBatch(input);
 
 		expect(mockSaveEvidence).toHaveBeenCalled();
-		const lastCall = mockSaveEvidence.mock.calls[mockSaveEvidence.mock.calls.length - 1];
+		const lastCall =
+			mockSaveEvidence.mock.calls[mockSaveEvidence.mock.calls.length - 1];
 		const evidence = lastCall[2] as SecretscanEvidence;
 
 		// Verify all required fields are present and correctly typed
@@ -273,10 +273,7 @@ describe('secretscan evidence persistence', () => {
 
 	test('evidence persistence failure does not crash the pipeline', async () => {
 		// Create a clean file
-		fs.writeFileSync(
-			path.join(tempDir, 'clean.ts'),
-			'export const x = 1;\n',
-		);
+		fs.writeFileSync(path.join(tempDir, 'clean.ts'), 'export const x = 1;\n');
 
 		// Make saveEvidence throw an error
 		mockSaveEvidence.mockRejectedValueOnce(new Error('Filesystem error'));
@@ -314,7 +311,8 @@ export const token = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJzdWIiOiIxMjM0NTY3O
 
 		expect(result.gates_passed).toBe(false);
 
-		const lastCall = mockSaveEvidence.mock.calls[mockSaveEvidence.mock.calls.length - 1];
+		const lastCall =
+			mockSaveEvidence.mock.calls[mockSaveEvidence.mock.calls.length - 1];
 		const evidence = lastCall[2] as SecretscanEvidence;
 
 		expect(evidence.verdict).toBe('fail');
@@ -336,7 +334,8 @@ export const token = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJzdWIiOiIxMjM0NTY3O
 
 		expect(result.gates_passed).toBe(true);
 
-		const lastCall = mockSaveEvidence.mock.calls[mockSaveEvidence.mock.calls.length - 1];
+		const lastCall =
+			mockSaveEvidence.mock.calls[mockSaveEvidence.mock.calls.length - 1];
 		const evidence = lastCall[2] as SecretscanEvidence;
 
 		expect(evidence.verdict).toBe('pass');
@@ -346,10 +345,7 @@ export const token = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJzdWIiOiIxMjM0NTY3O
 	// ============ Evidence Summary Format ============
 
 	test('evidence summary contains scan statistics', async () => {
-		fs.writeFileSync(
-			path.join(tempDir, 'clean.ts'),
-			'export const x = 1;\n',
-		);
+		fs.writeFileSync(path.join(tempDir, 'clean.ts'), 'export const x = 1;\n');
 
 		const input: PreCheckBatchInput = {
 			files: ['clean.ts'],
@@ -358,11 +354,14 @@ export const token = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJzdWIiOiIxMjM0NTY3O
 
 		await runPreCheckBatch(input);
 
-		const lastCall = mockSaveEvidence.mock.calls[mockSaveEvidence.mock.calls.length - 1];
+		const lastCall =
+			mockSaveEvidence.mock.calls[mockSaveEvidence.mock.calls.length - 1];
 		const evidence = lastCall[2] as SecretscanEvidence;
 
 		// Summary format: "Secretscan: X finding(s), Y files scanned, Z skipped"
-		expect(evidence.summary).toMatch(/^Secretscan: \d+ finding\(s\), \d+ files scanned, \d+ skipped$/);
+		expect(evidence.summary).toMatch(
+			/^Secretscan: \d+ finding\(s\), \d+ files scanned, \d+ skipped$/,
+		);
 	});
 
 	// ============ Multiple Files Scanned ============
@@ -379,7 +378,8 @@ export const token = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJzdWIiOiIxMjM0NTY3O
 
 		await runPreCheckBatch(input);
 
-		const lastCall = mockSaveEvidence.mock.calls[mockSaveEvidence.mock.calls.length - 1];
+		const lastCall =
+			mockSaveEvidence.mock.calls[mockSaveEvidence.mock.calls.length - 1];
 		const evidence = lastCall[2] as SecretscanEvidence;
 
 		// All 3 files should be scanned
@@ -418,7 +418,8 @@ export const token = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJzdWIiOiIxMjM0NTY3O
 
 		await runPreCheckBatch(input);
 
-		const lastCall = mockSaveEvidence.mock.calls[mockSaveEvidence.mock.calls.length - 1];
+		const lastCall =
+			mockSaveEvidence.mock.calls[mockSaveEvidence.mock.calls.length - 1];
 		const evidence = lastCall[2] as SecretscanEvidence;
 
 		// .md file should be skipped
@@ -428,10 +429,7 @@ export const token = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJzdWIiOiIxMjM0NTY3O
 	// ============ Evidence Saved to Correct Directory ============
 
 	test('evidence is saved to the provided directory, not cwd', async () => {
-		fs.writeFileSync(
-			path.join(tempDir, 'clean.ts'),
-			'export const x = 1;\n',
-		);
+		fs.writeFileSync(path.join(tempDir, 'clean.ts'), 'export const x = 1;\n');
 
 		const input: PreCheckBatchInput = {
 			files: ['clean.ts'],

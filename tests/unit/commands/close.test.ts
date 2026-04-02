@@ -2,14 +2,26 @@
  * Tests for handleCloseCommand
  * Verifies the command handler for /swarm close
  */
-import { describe, it, expect, beforeEach, afterEach, mock } from 'bun:test';
-import { mkdirSync, mkdtempSync, rmSync, writeFileSync, readFileSync, existsSync } from 'node:fs';
-import path from 'node:path';
+import { afterEach, beforeEach, describe, expect, it, mock } from 'bun:test';
+import {
+	existsSync,
+	mkdirSync,
+	mkdtempSync,
+	readFileSync,
+	rmSync,
+	writeFileSync,
+} from 'node:fs';
 import os from 'node:os';
+import path from 'node:path';
 
 // Mock dependencies before importing the module
 const mockExecuteWriteRetro = mock(async (_args: unknown, _directory: string) =>
-	JSON.stringify({ success: true, phase: 1, task_id: 'retro-1', message: 'Done' })
+	JSON.stringify({
+		success: true,
+		phase: 1,
+		task_id: 'retro-1',
+		message: 'Done',
+	}),
 );
 
 const mockCurateAndStoreSwarm = mock(async () => {});
@@ -96,7 +108,7 @@ describe('handleCloseCommand', () => {
 			};
 			writeFileSync(
 				path.join(testDir, '.swarm', 'plan.json'),
-				JSON.stringify(planData)
+				JSON.stringify(planData),
 			);
 
 			await handleCloseCommand(testDir, []);
@@ -108,7 +120,7 @@ describe('handleCloseCommand', () => {
 					summary: 'Phase closed via /swarm close',
 					task_count: 2,
 				}),
-				testDir
+				testDir,
 			);
 		});
 
@@ -138,7 +150,7 @@ describe('handleCloseCommand', () => {
 			};
 			writeFileSync(
 				path.join(testDir, '.swarm', 'plan.json'),
-				JSON.stringify(planData)
+				JSON.stringify(planData),
 			);
 
 			await handleCloseCommand(testDir, []);
@@ -162,7 +174,7 @@ describe('handleCloseCommand', () => {
 			};
 			writeFileSync(
 				path.join(testDir, '.swarm', 'plan.json'),
-				JSON.stringify(planData)
+				JSON.stringify(planData),
 			);
 
 			await handleCloseCommand(testDir, []);
@@ -173,7 +185,7 @@ describe('handleCloseCommand', () => {
 				'Test Project',
 				{ phase_number: 0 },
 				testDir,
-				expect.any(Object)
+				expect.any(Object),
 			);
 		});
 	});
@@ -196,13 +208,13 @@ describe('handleCloseCommand', () => {
 			};
 			writeFileSync(
 				path.join(testDir, '.swarm', 'plan.json'),
-				JSON.stringify(planData)
+				JSON.stringify(planData),
 			);
 
 			await handleCloseCommand(testDir, []);
 
 			const updatedPlan = JSON.parse(
-				readFileSync(path.join(testDir, '.swarm', 'plan.json'), 'utf-8')
+				readFileSync(path.join(testDir, '.swarm', 'plan.json'), 'utf-8'),
 			);
 			expect(updatedPlan.phases[0].status).toBe('closed');
 			expect(updatedPlan.phases[0].tasks[0].status).toBe('complete');
@@ -229,14 +241,14 @@ describe('handleCloseCommand', () => {
 			};
 			writeFileSync(
 				path.join(testDir, '.swarm', 'plan.json'),
-				JSON.stringify(planData)
+				JSON.stringify(planData),
 			);
 
 			const result = await handleCloseCommand(testDir, []);
 
 			expect(result).toContain('closed successfully');
 			const updatedPlan = JSON.parse(
-				readFileSync(path.join(testDir, '.swarm', 'plan.json'), 'utf-8')
+				readFileSync(path.join(testDir, '.swarm', 'plan.json'), 'utf-8'),
 			);
 			expect(updatedPlan.phases[0].status).toBe('complete');
 			expect(updatedPlan.phases[1].status).toBe('closed');
@@ -268,13 +280,13 @@ describe('handleCloseCommand', () => {
 			};
 			writeFileSync(
 				path.join(testDir, '.swarm', 'plan.json'),
-				JSON.stringify(planData)
+				JSON.stringify(planData),
 			);
 
 			await handleCloseCommand(testDir, []);
 
 			const updatedPlan = JSON.parse(
-				readFileSync(path.join(testDir, '.swarm', 'plan.json'), 'utf-8')
+				readFileSync(path.join(testDir, '.swarm', 'plan.json'), 'utf-8'),
 			);
 			expect(updatedPlan.phases[0].status).toBe('completed');
 			expect(updatedPlan.phases[0].tasks[0].status).toBe('completed');
@@ -301,13 +313,13 @@ describe('handleCloseCommand', () => {
 			};
 			writeFileSync(
 				path.join(testDir, '.swarm', 'plan.json'),
-				JSON.stringify(planData)
+				JSON.stringify(planData),
 			);
 
 			await handleCloseCommand(testDir, []);
 
 			const updatedPlan = JSON.parse(
-				readFileSync(path.join(testDir, '.swarm', 'plan.json'), 'utf-8')
+				readFileSync(path.join(testDir, '.swarm', 'plan.json'), 'utf-8'),
 			);
 			// When closing, all non-complete phases get closed
 			// complete phases remain complete since allDone is false (due to in_progress phase)
@@ -331,7 +343,7 @@ describe('handleCloseCommand', () => {
 			};
 			writeFileSync(
 				path.join(testDir, '.swarm', 'plan.json'),
-				JSON.stringify(planData)
+				JSON.stringify(planData),
 			);
 
 			await handleCloseCommand(testDir, []);
@@ -359,7 +371,7 @@ describe('handleCloseCommand', () => {
 			};
 			writeFileSync(
 				path.join(testDir, '.swarm', 'plan.json'),
-				JSON.stringify(planData)
+				JSON.stringify(planData),
 			);
 
 			await handleCloseCommand(testDir, []);
@@ -375,10 +387,16 @@ describe('handleCloseCommand', () => {
 			expect(summary).toContain('## Tasks Closed: 1');
 			expect(summary).toContain('- 1.2');
 			expect(summary).toContain('## Actions Performed');
-			expect(summary).toContain('- Wrote retrospectives for in-progress phases');
+			expect(summary).toContain(
+				'- Wrote retrospectives for in-progress phases',
+			);
 			expect(summary).toContain('- Archived evidence bundles');
-			expect(summary).toContain('- Cleared agent sessions and delegation chains');
-			expect(summary).toContain('- Set non-completed phases/tasks to closed status');
+			expect(summary).toContain(
+				'- Cleared agent sessions and delegation chains',
+			);
+			expect(summary).toContain(
+				'- Set non-completed phases/tasks to closed status',
+			);
 		});
 
 		it('should handle case with no incomplete tasks', async () => {
@@ -395,7 +413,7 @@ describe('handleCloseCommand', () => {
 			};
 			writeFileSync(
 				path.join(testDir, '.swarm', 'plan.json'),
-				JSON.stringify(planData)
+				JSON.stringify(planData),
 			);
 
 			await handleCloseCommand(testDir, []);
@@ -422,7 +440,7 @@ describe('handleCloseCommand', () => {
 			};
 			writeFileSync(
 				path.join(testDir, '.swarm', 'plan.json'),
-				JSON.stringify(planData)
+				JSON.stringify(planData),
 			);
 
 			await handleCloseCommand(testDir, []);
@@ -453,7 +471,7 @@ describe('handleCloseCommand', () => {
 			};
 			writeFileSync(
 				path.join(testDir, '.swarm', 'plan.json'),
-				JSON.stringify(planData)
+				JSON.stringify(planData),
 			);
 
 			const result = await handleCloseCommand(testDir, []);
@@ -478,7 +496,7 @@ describe('handleCloseCommand', () => {
 			};
 			writeFileSync(
 				path.join(testDir, '.swarm', 'plan.json'),
-				JSON.stringify(planData)
+				JSON.stringify(planData),
 			);
 
 			const result = await handleCloseCommand(testDir, []);
@@ -501,7 +519,7 @@ describe('handleCloseCommand', () => {
 			};
 			writeFileSync(
 				path.join(testDir, '.swarm', 'plan.json'),
-				JSON.stringify(planData)
+				JSON.stringify(planData),
 			);
 
 			// First run
@@ -522,7 +540,7 @@ describe('handleCloseCommand', () => {
 			};
 			writeFileSync(
 				path.join(testDir, '.swarm', 'plan.json'),
-				JSON.stringify(planData)
+				JSON.stringify(planData),
 			);
 
 			const result = await handleCloseCommand(testDir, []);
@@ -542,8 +560,8 @@ describe('handleCloseCommand', () => {
 		});
 
 		it('should handle executeWriteRetro returning non-success', async () => {
-			mockExecuteWriteRetro.mockImplementation(
-				async () => JSON.stringify({ success: false, message: 'Failed' })
+			mockExecuteWriteRetro.mockImplementation(async () =>
+				JSON.stringify({ success: false, message: 'Failed' }),
 			);
 
 			const planData = {
@@ -559,7 +577,7 @@ describe('handleCloseCommand', () => {
 			};
 			writeFileSync(
 				path.join(testDir, '.swarm', 'plan.json'),
-				JSON.stringify(planData)
+				JSON.stringify(planData),
 			);
 
 			const result = await handleCloseCommand(testDir, []);
@@ -570,7 +588,9 @@ describe('handleCloseCommand', () => {
 		});
 
 		it('should handle executeWriteRetro returning non-JSON', async () => {
-			mockExecuteWriteRetro.mockImplementation(async () => 'NOT JSON {{{{' as any);
+			mockExecuteWriteRetro.mockImplementation(
+				async () => 'NOT JSON {{{{' as any,
+			);
 
 			const planData = {
 				title: 'Test Project',
@@ -585,7 +605,7 @@ describe('handleCloseCommand', () => {
 			};
 			writeFileSync(
 				path.join(testDir, '.swarm', 'plan.json'),
-				JSON.stringify(planData)
+				JSON.stringify(planData),
 			);
 
 			const result = await handleCloseCommand(testDir, []);
@@ -614,7 +634,7 @@ describe('handleCloseCommand', () => {
 			};
 			writeFileSync(
 				path.join(testDir, '.swarm', 'plan.json'),
-				JSON.stringify(planData)
+				JSON.stringify(planData),
 			);
 
 			const result = await handleCloseCommand(testDir, []);

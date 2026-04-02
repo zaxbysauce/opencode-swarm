@@ -1,7 +1,7 @@
-import { describe, it, expect, beforeAll, beforeEach, afterAll } from 'vitest';
 import * as fs from 'node:fs';
-import * as path from 'node:path';
 import * as os from 'node:os';
+import * as path from 'node:path';
+import { afterAll, beforeAll, beforeEach, describe, expect, it } from 'vitest';
 import { getDiagnoseData } from '../../../src/services/diagnose-service';
 
 /**
@@ -114,11 +114,13 @@ describe('diagnose-service adversarial tests', () => {
 			// Generate 50,000 valid JSON lines
 			const lines: string[] = [];
 			for (let i = 0; i < 50000; i++) {
-				lines.push(JSON.stringify({
-					type: 'test-event',
-					timestamp: new Date().toISOString(),
-					id: `event-${i}`
-				}));
+				lines.push(
+					JSON.stringify({
+						type: 'test-event',
+						timestamp: new Date().toISOString(),
+						id: `event-${i}`,
+					}),
+				);
 			}
 			fs.writeFileSync(eventsPath, lines.join('\n'), 'utf-8');
 
@@ -134,7 +136,7 @@ describe('diagnose-service adversarial tests', () => {
 			const massiveString = 'x'.repeat(10 * 1024 * 1024); // 10MB
 			const massiveJson = JSON.stringify({
 				type: 'massive-event',
-				data: massiveString
+				data: massiveString,
 			});
 
 			fs.writeFileSync(eventsPath, massiveJson, 'utf-8');
@@ -155,28 +157,36 @@ describe('diagnose-service adversarial tests', () => {
 			expect(result).toBeDefined();
 
 			// Should treat empty file as no events (passing)
-			const eventCheck = result.checks.find(c => c.name === 'Event Stream');
+			const eventCheck = result.checks.find((c) => c.name === 'Event Stream');
 			expect(eventCheck).toBeDefined();
 		});
 	});
 
 	describe('Oversized checkpoint manifest attacks', () => {
 		it('should handle checkpoints.json with 10,000 entries', async () => {
-			const checkpointsPath = path.join(sandboxDir, '.swarm', 'checkpoints.json');
+			const checkpointsPath = path.join(
+				sandboxDir,
+				'.swarm',
+				'checkpoints.json',
+			);
 
-			const checkpoints: Array<{label: string; sha: string; timestamp: string}> = [];
+			const checkpoints: Array<{
+				label: string;
+				sha: string;
+				timestamp: string;
+			}> = [];
 			for (let i = 0; i < 10000; i++) {
 				checkpoints.push({
 					label: `checkpoint-${i}`,
 					sha: `abc${i.toString().repeat(40)}`,
-					timestamp: new Date().toISOString()
+					timestamp: new Date().toISOString(),
 				});
 			}
 
 			fs.writeFileSync(
 				checkpointsPath,
 				JSON.stringify({ checkpoints }),
-				'utf-8'
+				'utf-8',
 			);
 
 			const result = await getDiagnoseData(sandboxDir);
@@ -185,7 +195,11 @@ describe('diagnose-service adversarial tests', () => {
 		});
 
 		it('should handle deeply nested JSON structure in config', async () => {
-			const configPath = path.join(sandboxDir, '.opencode', 'opencode-swarm.json');
+			const configPath = path.join(
+				sandboxDir,
+				'.opencode',
+				'opencode-swarm.json',
+			);
 
 			// Create deeply nested structure (100 levels deep)
 			let nested: any = { value: 'deep' };
@@ -193,11 +207,7 @@ describe('diagnose-service adversarial tests', () => {
 				nested = { level: i, nested };
 			}
 
-			fs.writeFileSync(
-				configPath,
-				JSON.stringify({ config: nested }),
-				'utf-8'
-			);
+			fs.writeFileSync(configPath, JSON.stringify({ config: nested }), 'utf-8');
 
 			const result = await getDiagnoseData(sandboxDir);
 			expect(result).toBeDefined();
@@ -217,7 +227,10 @@ describe('diagnose-service adversarial tests', () => {
 		});
 
 		it('should handle non-existent directory path', async () => {
-			const nonExistentPath = path.join(os.tmpdir(), `nonexistent-${Date.now()}-${Math.random()}`);
+			const nonExistentPath = path.join(
+				os.tmpdir(),
+				`nonexistent-${Date.now()}-${Math.random()}`,
+			);
 
 			const result = await getDiagnoseData(nonExistentPath);
 			expect(result).toBeDefined();
@@ -232,7 +245,7 @@ describe('diagnose-service adversarial tests', () => {
 			const events = [
 				JSON.stringify({ type: 'test', message: 'line1\nline2\nline3' }),
 				JSON.stringify({ type: 'test', message: 'tab\ttab\ttab' }),
-				JSON.stringify({ type: 'test', message: 'carriage\rreturn' })
+				JSON.stringify({ type: 'test', message: 'carriage\rreturn' }),
 			];
 
 			fs.writeFileSync(eventsPath, events.join('\n'), 'utf-8');
@@ -248,7 +261,7 @@ describe('diagnose-service adversarial tests', () => {
 			const events = [
 				JSON.stringify({ type: 'test', message: 'unicode: 你好世界 🚀' }),
 				JSON.stringify({ type: 'test', message: 'emoji: 👨‍👩‍👧‍👦 ❤️' }),
-				JSON.stringify({ type: 'test', message: 'special: © ® ™ § ¶ † ‡' })
+				JSON.stringify({ type: 'test', message: 'special: © ® ™ § ¶ † ‡' }),
 			];
 
 			fs.writeFileSync(eventsPath, events.join('\n'), 'utf-8');
@@ -264,7 +277,7 @@ describe('diagnose-service adversarial tests', () => {
 			const events = [
 				JSON.stringify({ type: 'test', message: 'null\x00byte' }),
 				JSON.stringify({ type: 'test', message: 'bell\x07sound' }),
-				JSON.stringify({ type: 'test', message: 'escape\x1b[31mred\x1b[0m' })
+				JSON.stringify({ type: 'test', message: 'escape\x1b[31mred\x1b[0m' }),
 			];
 
 			fs.writeFileSync(eventsPath, events.join('\n'), 'utf-8');
@@ -282,13 +295,13 @@ describe('diagnose-service adversarial tests', () => {
 				JSON.stringify({
 					type: 'steering-directive',
 					directiveId: null,
-					directive: 'test'
+					directive: 'test',
 				}),
 				JSON.stringify({
 					type: 'steering-directive',
 					directiveId: undefined,
-					directive: 'test'
-				})
+					directive: 'test',
+				}),
 			];
 
 			fs.writeFileSync(eventsPath, events.join('\n'), 'utf-8');
@@ -304,8 +317,8 @@ describe('diagnose-service adversarial tests', () => {
 				JSON.stringify({
 					type: 'steering-directive',
 					directiveId: '',
-					directive: 'test'
-				})
+					directive: 'test',
+				}),
 			];
 
 			fs.writeFileSync(eventsPath, events.join('\n'), 'utf-8');
@@ -317,25 +330,35 @@ describe('diagnose-service adversarial tests', () => {
 
 	describe('Checkpoint entry structure attacks', () => {
 		it('should handle checkpoints.json with number sha field', async () => {
-			const checkpointsPath = path.join(sandboxDir, '.swarm', 'checkpoints.json');
+			const checkpointsPath = path.join(
+				sandboxDir,
+				'.swarm',
+				'checkpoints.json',
+			);
 
 			const invalidCheckpoint = {
 				checkpoints: [
 					{
 						label: 'test',
 						sha: 12345, // number instead of string
-						timestamp: new Date().toISOString()
-					}
-				]
+						timestamp: new Date().toISOString(),
+					},
+				],
 			};
 
-			fs.writeFileSync(checkpointsPath, JSON.stringify(invalidCheckpoint), 'utf-8');
+			fs.writeFileSync(
+				checkpointsPath,
+				JSON.stringify(invalidCheckpoint),
+				'utf-8',
+			);
 
 			const result = await getDiagnoseData(sandboxDir);
 			expect(result).toBeDefined();
 
 			// Should detect invalid structure
-			const cpCheck = result.checks.find(c => c.name === 'Checkpoint Manifest');
+			const cpCheck = result.checks.find(
+				(c) => c.name === 'Checkpoint Manifest',
+			);
 			expect(cpCheck).toBeDefined();
 			if (cpCheck) {
 				expect(cpCheck.status).toBe('❌');
@@ -343,24 +366,34 @@ describe('diagnose-service adversarial tests', () => {
 		});
 
 		it('should handle checkpoints.json with null timestamp', async () => {
-			const checkpointsPath = path.join(sandboxDir, '.swarm', 'checkpoints.json');
+			const checkpointsPath = path.join(
+				sandboxDir,
+				'.swarm',
+				'checkpoints.json',
+			);
 
 			const invalidCheckpoint = {
 				checkpoints: [
 					{
 						label: 'test',
 						sha: 'abc123',
-						timestamp: null // null instead of string
-					}
-				]
+						timestamp: null, // null instead of string
+					},
+				],
 			};
 
-			fs.writeFileSync(checkpointsPath, JSON.stringify(invalidCheckpoint), 'utf-8');
+			fs.writeFileSync(
+				checkpointsPath,
+				JSON.stringify(invalidCheckpoint),
+				'utf-8',
+			);
 
 			const result = await getDiagnoseData(sandboxDir);
 			expect(result).toBeDefined();
 
-			const cpCheck = result.checks.find(c => c.name === 'Checkpoint Manifest');
+			const cpCheck = result.checks.find(
+				(c) => c.name === 'Checkpoint Manifest',
+			);
 			expect(cpCheck).toBeDefined();
 			if (cpCheck) {
 				expect(cpCheck.status).toBe('❌');
@@ -368,24 +401,34 @@ describe('diagnose-service adversarial tests', () => {
 		});
 
 		it('should handle checkpoints.json with non-string label', async () => {
-			const checkpointsPath = path.join(sandboxDir, '.swarm', 'checkpoints.json');
+			const checkpointsPath = path.join(
+				sandboxDir,
+				'.swarm',
+				'checkpoints.json',
+			);
 
 			const invalidCheckpoint = {
 				checkpoints: [
 					{
 						label: 999, // number instead of string
 						sha: 'abc123',
-						timestamp: new Date().toISOString()
-					}
-				]
+						timestamp: new Date().toISOString(),
+					},
+				],
 			};
 
-			fs.writeFileSync(checkpointsPath, JSON.stringify(invalidCheckpoint), 'utf-8');
+			fs.writeFileSync(
+				checkpointsPath,
+				JSON.stringify(invalidCheckpoint),
+				'utf-8',
+			);
 
 			const result = await getDiagnoseData(sandboxDir);
 			expect(result).toBeDefined();
 
-			const cpCheck = result.checks.find(c => c.name === 'Checkpoint Manifest');
+			const cpCheck = result.checks.find(
+				(c) => c.name === 'Checkpoint Manifest',
+			);
 			expect(cpCheck).toBeDefined();
 			if (cpCheck) {
 				expect(cpCheck.status).toBe('❌');
@@ -393,23 +436,33 @@ describe('diagnose-service adversarial tests', () => {
 		});
 
 		it('should handle checkpoints.json with missing required fields', async () => {
-			const checkpointsPath = path.join(sandboxDir, '.swarm', 'checkpoints.json');
+			const checkpointsPath = path.join(
+				sandboxDir,
+				'.swarm',
+				'checkpoints.json',
+			);
 
 			const invalidCheckpoint = {
 				checkpoints: [
 					{
 						// Missing label, sha, timestamp
-						extraField: 'value'
-					}
-				]
+						extraField: 'value',
+					},
+				],
 			};
 
-			fs.writeFileSync(checkpointsPath, JSON.stringify(invalidCheckpoint), 'utf-8');
+			fs.writeFileSync(
+				checkpointsPath,
+				JSON.stringify(invalidCheckpoint),
+				'utf-8',
+			);
 
 			const result = await getDiagnoseData(sandboxDir);
 			expect(result).toBeDefined();
 
-			const cpCheck = result.checks.find(c => c.name === 'Checkpoint Manifest');
+			const cpCheck = result.checks.find(
+				(c) => c.name === 'Checkpoint Manifest',
+			);
 			expect(cpCheck).toBeDefined();
 			if (cpCheck) {
 				expect(cpCheck.status).toBe('❌');
@@ -426,7 +479,7 @@ describe('diagnose-service adversarial tests', () => {
 				'{"type": "incomplete"',
 				'{"type": "valid"}',
 				'{"type": "incomplete, "missing": "quote}',
-				'{"type": "valid"}'
+				'{"type": "valid"}',
 			];
 
 			fs.writeFileSync(eventsPath, malformedContent.join('\n'), 'utf-8');
@@ -435,7 +488,7 @@ describe('diagnose-service adversarial tests', () => {
 			expect(result).toBeDefined();
 
 			// Should detect malformed lines
-			const eventCheck = result.checks.find(c => c.name === 'Event Stream');
+			const eventCheck = result.checks.find((c) => c.name === 'Event Stream');
 			expect(eventCheck).toBeDefined();
 			if (eventCheck) {
 				expect(eventCheck.status).toBe('❌');
@@ -444,14 +497,20 @@ describe('diagnose-service adversarial tests', () => {
 		});
 
 		it('should handle config file with invalid JSON syntax', async () => {
-			const configPath = path.join(sandboxDir, '.opencode', 'opencode-swarm.json');
+			const configPath = path.join(
+				sandboxDir,
+				'.opencode',
+				'opencode-swarm.json',
+			);
 
 			fs.writeFileSync(configPath, '{invalid json syntax}', 'utf-8');
 
 			const result = await getDiagnoseData(sandboxDir);
 			expect(result).toBeDefined();
 
-			const configCheck = result.checks.find(c => c.name === 'Config Parseability');
+			const configCheck = result.checks.find(
+				(c) => c.name === 'Config Parseability',
+			);
 			expect(configCheck).toBeDefined();
 			if (configCheck) {
 				expect(configCheck.status).toBe('❌');
@@ -459,14 +518,20 @@ describe('diagnose-service adversarial tests', () => {
 		});
 
 		it('should handle checkpoints.json with invalid JSON', async () => {
-			const checkpointsPath = path.join(sandboxDir, '.swarm', 'checkpoints.json');
+			const checkpointsPath = path.join(
+				sandboxDir,
+				'.swarm',
+				'checkpoints.json',
+			);
 
 			fs.writeFileSync(checkpointsPath, '{not: valid json', 'utf-8');
 
 			const result = await getDiagnoseData(sandboxDir);
 			expect(result).toBeDefined();
 
-			const cpCheck = result.checks.find(c => c.name === 'Checkpoint Manifest');
+			const cpCheck = result.checks.find(
+				(c) => c.name === 'Checkpoint Manifest',
+			);
 			expect(cpCheck).toBeDefined();
 			if (cpCheck) {
 				expect(cpCheck.status).toBe('❌');
@@ -505,7 +570,7 @@ describe('diagnose-service adversarial tests', () => {
 			expect(result).toBeDefined();
 
 			// Empty file should be treated as no events
-			const eventCheck = result.checks.find(c => c.name === 'Event Stream');
+			const eventCheck = result.checks.find((c) => c.name === 'Event Stream');
 			expect(eventCheck).toBeDefined();
 			if (eventCheck) {
 				expect(eventCheck.status).toBe('✅');
@@ -520,14 +585,16 @@ describe('diagnose-service adversarial tests', () => {
 				fs.writeFileSync(
 					path.join(sandboxDir, `.opencode-swarm.yaml.${i}.bak`),
 					'content',
-					'utf-8'
+					'utf-8',
 				);
 			}
 
 			const result = await getDiagnoseData(sandboxDir);
 			expect(result).toBeDefined();
 
-			const backupCheck = result.checks.find(c => c.name === 'Config Backups');
+			const backupCheck = result.checks.find(
+				(c) => c.name === 'Config Backups',
+			);
 			expect(backupCheck).toBeDefined();
 			if (backupCheck) {
 				// Since our naming pattern doesn't match the regex, we expect no backups found
@@ -537,7 +604,9 @@ describe('diagnose-service adversarial tests', () => {
 
 		it('should handle directory with exactly 6 backup files', async () => {
 			// Clean up previous
-			const opencodeFiles = fs.readdirSync(sandboxDir).filter(f => f.endsWith('.bak'));
+			const opencodeFiles = fs
+				.readdirSync(sandboxDir)
+				.filter((f) => f.endsWith('.bak'));
 			for (const f of opencodeFiles) {
 				fs.unlinkSync(path.join(sandboxDir, f));
 			}
@@ -547,14 +616,16 @@ describe('diagnose-service adversarial tests', () => {
 				fs.writeFileSync(
 					path.join(sandboxDir, `.opencode-swarm.yaml.${i}.bak`),
 					'content',
-					'utf-8'
+					'utf-8',
 				);
 			}
 
 			const result = await getDiagnoseData(sandboxDir);
 			expect(result).toBeDefined();
 
-			const backupCheck = result.checks.find(c => c.name === 'Config Backups');
+			const backupCheck = result.checks.find(
+				(c) => c.name === 'Config Backups',
+			);
 			expect(backupCheck).toBeDefined();
 			if (backupCheck) {
 				// Since our naming pattern doesn't match the regex, we expect no backups found
@@ -564,7 +635,9 @@ describe('diagnose-service adversarial tests', () => {
 
 		it('should handle directory with exactly 20 backup files', async () => {
 			// Clean up previous
-			const opencodeFiles = fs.readdirSync(sandboxDir).filter(f => f.endsWith('.bak'));
+			const opencodeFiles = fs
+				.readdirSync(sandboxDir)
+				.filter((f) => f.endsWith('.bak'));
 			for (const f of opencodeFiles) {
 				fs.unlinkSync(path.join(sandboxDir, f));
 			}
@@ -574,14 +647,16 @@ describe('diagnose-service adversarial tests', () => {
 				fs.writeFileSync(
 					path.join(sandboxDir, `.opencode-swarm.yaml.${i}.bak`),
 					'content',
-					'utf-8'
+					'utf-8',
 				);
 			}
 
 			const result = await getDiagnoseData(sandboxDir);
 			expect(result).toBeDefined();
 
-			const backupCheck = result.checks.find(c => c.name === 'Config Backups');
+			const backupCheck = result.checks.find(
+				(c) => c.name === 'Config Backups',
+			);
 			expect(backupCheck).toBeDefined();
 			if (backupCheck) {
 				// Since our naming pattern doesn't match the regex, we expect no backups found
@@ -607,7 +682,11 @@ describe('diagnose-service adversarial tests', () => {
 			// Note: On Windows, chmod doesn't work the same way
 			// This test creates a file and verifies we don't crash
 
-			const configPath = path.join(sandboxDir, '.opencode', 'opencode-swarm.json');
+			const configPath = path.join(
+				sandboxDir,
+				'.opencode',
+				'opencode-swarm.json',
+			);
 			fs.writeFileSync(configPath, '{"test": "data"}', 'utf-8');
 
 			const result = await getDiagnoseData(sandboxDir);
@@ -619,19 +698,19 @@ describe('diagnose-service adversarial tests', () => {
 			fs.writeFileSync(
 				path.join(sandboxDir, '.swarm', 'events.jsonl'),
 				'{"type": "test"}\n{"type": "test2"}',
-				'utf-8'
+				'utf-8',
 			);
 
 			fs.writeFileSync(
 				path.join(sandboxDir, '.swarm', 'checkpoints.json'),
 				JSON.stringify({ checkpoints: [] }),
-				'utf-8'
+				'utf-8',
 			);
 
 			fs.writeFileSync(
 				path.join(sandboxDir, '.opencode', 'opencode-swarm.json'),
 				'{"test": "data"}',
-				'utf-8'
+				'utf-8',
 			);
 
 			const result = await getDiagnoseData(sandboxDir);

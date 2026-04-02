@@ -1,14 +1,17 @@
-import { describe, it, expect, beforeEach, afterEach } from 'bun:test';
-import { loadEvidence } from '../../../src/evidence/manager';
-import { EvidenceBundleSchema } from '../../../src/config/evidence-schema';
+import { afterEach, beforeEach, describe, expect, it } from 'bun:test';
 import { mkdirSync, rmSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
+import { EvidenceBundleSchema } from '../../../src/config/evidence-schema';
+import { loadEvidence } from '../../../src/evidence/manager';
 
 let tempDir: string;
 
 beforeEach(() => {
-	tempDir = join(tmpdir(), `flat-retro-test-${Date.now()}-${Math.random().toString(36).slice(2)}`);
+	tempDir = join(
+		tmpdir(),
+		`flat-retro-test-${Date.now()}-${Math.random().toString(36).slice(2)}`,
+	);
 	mkdirSync(join(tempDir, '.swarm'), { recursive: true });
 });
 
@@ -45,7 +48,10 @@ describe('loadEvidence flat retrospective detection', () => {
 
 		const evidenceDir = join(tempDir, '.swarm', 'evidence', 'retro-1');
 		mkdirSync(evidenceDir, { recursive: true });
-		writeFileSync(join(evidenceDir, 'evidence.json'), JSON.stringify(flatRetro));
+		writeFileSync(
+			join(evidenceDir, 'evidence.json'),
+			JSON.stringify(flatRetro),
+		);
 
 		const result = await loadEvidence(tempDir, 'retro-1');
 
@@ -89,7 +95,10 @@ describe('loadEvidence flat retrospective detection', () => {
 
 		const evidenceDir = join(tempDir, '.swarm', 'evidence', 'retro-2');
 		mkdirSync(evidenceDir, { recursive: true });
-		writeFileSync(join(evidenceDir, 'evidence.json'), JSON.stringify(flatRetro));
+		writeFileSync(
+			join(evidenceDir, 'evidence.json'),
+			JSON.stringify(flatRetro),
+		);
 
 		const result = await loadEvidence(tempDir, 'retro-2');
 
@@ -115,7 +124,10 @@ describe('loadEvidence flat retrospective detection', () => {
 
 		const evidenceDir = join(tempDir, '.swarm', 'evidence', 'bad-incomplete');
 		mkdirSync(evidenceDir, { recursive: true });
-		writeFileSync(join(evidenceDir, 'evidence.json'), JSON.stringify(flatRetro));
+		writeFileSync(
+			join(evidenceDir, 'evidence.json'),
+			JSON.stringify(flatRetro),
+		);
 
 		const result = await loadEvidence(tempDir, 'bad-incomplete');
 
@@ -137,7 +149,10 @@ describe('loadEvidence flat retrospective detection', () => {
 
 		const evidenceDir = join(tempDir, '.swarm', 'evidence', 'bad-1');
 		mkdirSync(evidenceDir, { recursive: true });
-		writeFileSync(join(evidenceDir, 'evidence.json'), JSON.stringify(malformed));
+		writeFileSync(
+			join(evidenceDir, 'evidence.json'),
+			JSON.stringify(malformed),
+		);
 
 		const result = await loadEvidence(tempDir, 'bad-1');
 
@@ -186,7 +201,10 @@ describe('loadEvidence flat retrospective detection', () => {
 
 		const evidenceDir = join(tempDir, '.swarm', 'evidence', 'good-1');
 		mkdirSync(evidenceDir, { recursive: true });
-		writeFileSync(join(evidenceDir, 'evidence.json'), JSON.stringify(validBundle));
+		writeFileSync(
+			join(evidenceDir, 'evidence.json'),
+			JSON.stringify(validBundle),
+		);
 
 		const result = await loadEvidence(tempDir, 'good-1');
 

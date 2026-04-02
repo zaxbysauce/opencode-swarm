@@ -1,10 +1,13 @@
-import { test, expect, describe, beforeEach, afterEach } from 'bun:test';
-import { createToolSummarizerHook, resetSummaryIdCounter } from '../../src/hooks/tool-summarizer';
-import { handleRetrieveCommand } from '../../src/commands/retrieve';
-import type { SummaryConfig } from '../../src/config/schema';
-import { mkdirSync, rmSync, readdirSync, existsSync } from 'node:fs';
+import { afterEach, beforeEach, describe, expect, test } from 'bun:test';
+import { existsSync, mkdirSync, readdirSync, rmSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
+import { handleRetrieveCommand } from '../../src/commands/retrieve';
+import type { SummaryConfig } from '../../src/config/schema';
+import {
+	createToolSummarizerHook,
+	resetSummaryIdCounter,
+} from '../../src/hooks/tool-summarizer';
 
 /**
  * Default configuration helper
@@ -51,7 +54,11 @@ describe('summarization loop fix integration', () => {
 
 		// Large retrieve_summary output that SHOULD be exempt but won't be
 		const largeOutput = 'retrieve_summary content'.repeat(100);
-		const input = { tool: 'retrieve_summary', sessionID: 'test', callID: 'call-1' };
+		const input = {
+			tool: 'retrieve_summary',
+			sessionID: 'test',
+			callID: 'call-1',
+		};
 		const output = { title: 'retrieve', output: largeOutput, metadata: {} };
 
 		await hook(input, output);
@@ -67,7 +74,11 @@ describe('summarization loop fix integration', () => {
 		const hook = createToolSummarizerHook(config, tempDir);
 
 		const largeOutput = 'retrieve_summary content'.repeat(100);
-		const input = { tool: 'retrieve_summary', sessionID: 'test', callID: 'call-1' };
+		const input = {
+			tool: 'retrieve_summary',
+			sessionID: 'test',
+			callID: 'call-1',
+		};
 		const output = { title: 'retrieve', output: largeOutput, metadata: {} };
 
 		await hook(input, output);
@@ -95,7 +106,14 @@ describe('summarization loop fix integration', () => {
 	test('ADVERSARY: duplicate entries work but are wasteful', async () => {
 		// Defense check: duplicates don't crash, just waste cycles
 		const config = defaultConfig({
-			exempt_tools: ['read', 'read', 'read', 'task', 'task', 'retrieve_summary'],
+			exempt_tools: [
+				'read',
+				'read',
+				'read',
+				'task',
+				'task',
+				'retrieve_summary',
+			],
 		});
 		const hook = createToolSummarizerHook(config, tempDir);
 
@@ -201,7 +219,9 @@ describe('summarization loop fix integration', () => {
 		expect(retrieveOutputObj.output).toBe(summaryText);
 
 		// Assert: Only ONE summary file exists in .swarm/summaries/
-		const summaryFiles = readdirSync(summaryDir).filter((f) => f.endsWith('.json'));
+		const summaryFiles = readdirSync(summaryDir).filter((f) =>
+			f.endsWith('.json'),
+		);
 		expect(summaryFiles.length).toBe(1);
 		expect(summaryFiles[0]).toBe('S1.json');
 
@@ -238,7 +258,9 @@ describe('summarization loop fix integration', () => {
 		const summaryDir = join(tempDir, '.swarm', 'summaries');
 		// Check if summaries directory exists (it won't be created if no summarization occurred)
 		if (existsSync(summaryDir)) {
-			const summaryFiles = readdirSync(summaryDir).filter((f) => f.endsWith('.json'));
+			const summaryFiles = readdirSync(summaryDir).filter((f) =>
+				f.endsWith('.json'),
+			);
 			expect(summaryFiles.length).toBe(0);
 		} else {
 			// Directory doesn't exist, which is also correct
@@ -272,11 +294,15 @@ describe('summarization loop fix integration', () => {
 		// Assert: output replaced with summary
 		expect(bashOutputObj.output).not.toBe(bashOutput);
 		expect(bashOutputObj.output).toContain('[SUMMARY S1]');
-		expect(bashOutputObj.output).toContain('Use /swarm retrieve S1 for full content');
+		expect(bashOutputObj.output).toContain(
+			'Use /swarm retrieve S1 for full content',
+		);
 
 		// Verify summary file was created
 		const summaryDir = join(tempDir, '.swarm', 'summaries');
-		const summaryFiles = readdirSync(summaryDir).filter((f) => f.endsWith('.json'));
+		const summaryFiles = readdirSync(summaryDir).filter((f) =>
+			f.endsWith('.json'),
+		);
 		expect(summaryFiles.length).toBe(1);
 		expect(summaryFiles[0]).toBe('S1.json');
 	});

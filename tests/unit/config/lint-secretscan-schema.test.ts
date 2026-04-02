@@ -1,8 +1,8 @@
-import { describe, it, expect } from 'bun:test';
+import { describe, expect, it } from 'bun:test';
 import {
 	LintConfigSchema,
-	SecretscanConfigSchema,
 	PluginConfigSchema,
+	SecretscanConfigSchema,
 } from '../../../src/config/schema';
 
 describe('LintConfigSchema', () => {
@@ -145,7 +145,9 @@ describe('LintConfigSchema', () => {
 	});
 
 	it('rejects exclude as string', () => {
-		const result = LintConfigSchema.safeParse({ exclude: '**/node_modules/**' });
+		const result = LintConfigSchema.safeParse({
+			exclude: '**/node_modules/**',
+		});
 		expect(result.success).toBe(false);
 	});
 
@@ -274,7 +276,9 @@ describe('SecretscanConfigSchema', () => {
 	});
 
 	it('rejects exclude as string', () => {
-		const result = SecretscanConfigSchema.safeParse({ exclude: '**/node_modules/**' });
+		const result = SecretscanConfigSchema.safeParse({
+			exclude: '**/node_modules/**',
+		});
 		expect(result.success).toBe(false);
 	});
 
@@ -293,7 +297,9 @@ describe('SecretscanConfigSchema', () => {
 	});
 
 	it('accepts extensions without leading dot (schema does not validate dot prefix)', () => {
-		const result = SecretscanConfigSchema.safeParse({ extensions: ['env', 'yaml'] });
+		const result = SecretscanConfigSchema.safeParse({
+			extensions: ['env', 'yaml'],
+		});
 		expect(result.success).toBe(true);
 	});
 

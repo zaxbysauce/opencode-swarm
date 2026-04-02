@@ -1,4 +1,4 @@
-import { describe, it, expect, beforeEach, afterEach, spyOn } from 'bun:test';
+import { afterEach, beforeEach, describe, expect, it, spyOn } from 'bun:test';
 import * as fs from 'node:fs';
 import { complexity_hotspots } from '../../../src/tools/complexity-hotspots';
 
@@ -8,19 +8,22 @@ let mockExitCode: number = 0;
 let mockStdout: string = '';
 let mockStderr: string = '';
 
-function mockSpawn(cmd: string[], opts: { cwd?: string; stdout?: string; stderr?: string }) {
+function mockSpawn(
+	cmd: string[],
+	opts: { cwd?: string; stdout?: string; stderr?: string },
+) {
 	const encoder = new TextEncoder();
 	const stdoutReadable = new ReadableStream({
 		start(controller) {
 			controller.enqueue(encoder.encode(mockStdout));
 			controller.close();
-		}
+		},
 	});
 	const stderrReadable = new ReadableStream({
 		start(controller) {
 			controller.enqueue(encoder.encode(mockStderr));
 			controller.close();
-		}
+		},
 	});
 
 	return {
@@ -48,27 +51,39 @@ describe('complexity_hotspots', () => {
 
 	describe('Verification: Fail-fast guard', () => {
 		it('returns error JSON for empty string directory ""', async () => {
-			const result = await complexity_hotspots.execute({}, { directory: '' } as any);
+			const result = await complexity_hotspots.execute({}, {
+				directory: '',
+			} as any);
 			const parsed = JSON.parse(result);
 
-			expect(parsed.error).toBe('project directory is required but was not provided');
+			expect(parsed.error).toBe(
+				'project directory is required but was not provided',
+			);
 			expect(parsed.analyzedFiles).toBe(0);
 			expect(parsed.hotspots).toEqual([]);
 		});
 
 		it('returns error JSON for whitespace-only directory "  "', async () => {
-			const result = await complexity_hotspots.execute({}, { directory: '  ' } as any);
+			const result = await complexity_hotspots.execute({}, {
+				directory: '  ',
+			} as any);
 			const parsed = JSON.parse(result);
 
-			expect(parsed.error).toBe('project directory is required but was not provided');
+			expect(parsed.error).toBe(
+				'project directory is required but was not provided',
+			);
 			expect(parsed.analyzedFiles).toBe(0);
 		});
 
 		it('returns error JSON for newline-only directory "\\n"', async () => {
-			const result = await complexity_hotspots.execute({}, { directory: '\n' } as any);
+			const result = await complexity_hotspots.execute({}, {
+				directory: '\n',
+			} as any);
 			const parsed = JSON.parse(result);
 
-			expect(parsed.error).toBe('project directory is required but was not provided');
+			expect(parsed.error).toBe(
+				'project directory is required but was not provided',
+			);
 			expect(parsed.analyzedFiles).toBe(0);
 		});
 	});
@@ -93,7 +108,9 @@ describe('complexity_hotspots', () => {
 		it('Bun.spawn is called with cwd: directory when valid directory provided', async () => {
 			const testDir = '/test/project';
 
-			const result = await complexity_hotspots.execute({}, { directory: testDir } as any);
+			const result = await complexity_hotspots.execute({}, {
+				directory: testDir,
+			} as any);
 			const parsed = JSON.parse(result);
 
 			// Verify spawn was called
@@ -138,10 +155,14 @@ describe('complexity_hotspots', () => {
 			// Set up mock git output with some TypeScript files
 			mockStdout = 'src/main.ts\nsrc/utils.ts\nsrc/app.ts\n';
 			mockExitCode = 0;
-			
+
 			existsSyncSpy = spyOn(fs, 'existsSync').mockImplementation(() => false);
-			readFileSyncSpy = spyOn(fs, 'readFileSync').mockImplementation(() => 'const x = 1;');
-			statSyncSpy = spyOn(fs, 'statSync').mockImplementation(() => ({ size: 100 }) as any);
+			readFileSyncSpy = spyOn(fs, 'readFileSync').mockImplementation(
+				() => 'const x = 1;',
+			);
+			statSyncSpy = spyOn(fs, 'statSync').mockImplementation(
+				() => ({ size: 100 }) as any,
+			);
 		});
 
 		afterEach(() => {
@@ -153,7 +174,9 @@ describe('complexity_hotspots', () => {
 		it('analyzeHotspots receives directory and uses it in file resolution', async () => {
 			const testDir = '/custom/project/path';
 
-			const result = await complexity_hotspots.execute({}, { directory: testDir } as any);
+			const result = await complexity_hotspots.execute({}, {
+				directory: testDir,
+			} as any);
 			const parsed = JSON.parse(result);
 
 			// Verify fs.existsSync was called
@@ -172,7 +195,7 @@ describe('complexity_hotspots', () => {
 
 		it('different directories result in different cwd being passed to spawn', async () => {
 			let capturedCwd: string | undefined;
-			
+
 			// Override spawn to capture the cwd
 			const originalBunSpawn = Bun.spawn;
 			Bun.spawn = ((cmd: string[], opts: any) => {
@@ -202,103 +225,151 @@ describe('complexity_hotspots', () => {
 		it('directory = null → uses process.cwd() fallback (no error)', async () => {
 			// When directory is null in ToolContext, createSwarmTool falls back to process.cwd()
 			// The tool should run without error from the fail-fast guard
-			const result = await complexity_hotspots.execute({}, { directory: null } as any);
+			const result = await complexity_hotspots.execute({}, {
+				directory: null,
+			} as any);
 			const parsed = JSON.parse(result);
 
 			// Should NOT have the fail-fast error - it uses fallback
-			expect(parsed.error).not.toBe('project directory is required but was not provided');
+			expect(parsed.error).not.toBe(
+				'project directory is required but was not provided',
+			);
 		});
 
 		it('directory = undefined → uses process.cwd() fallback (no error)', async () => {
 			// When directory is undefined in ToolContext, createSwarmTool falls back to process.cwd()
-			const result = await complexity_hotspots.execute({}, { directory: undefined } as any);
+			const result = await complexity_hotspots.execute({}, {
+				directory: undefined,
+			} as any);
 			const parsed = JSON.parse(result);
 
 			// Should NOT have the fail-fast error - it uses fallback
-			expect(parsed.error).not.toBe('project directory is required but was not provided');
+			expect(parsed.error).not.toBe(
+				'project directory is required but was not provided',
+			);
 		});
 	});
 
 	describe('Adversarial: invalid type directory', () => {
 		it('directory = 0 (number) → fail-fast returns error', async () => {
-			const result = await complexity_hotspots.execute({}, { directory: 0 } as any);
+			const result = await complexity_hotspots.execute({}, {
+				directory: 0,
+			} as any);
 			const parsed = JSON.parse(result);
 
-			expect(parsed.error).toBe('project directory is required but was not provided');
+			expect(parsed.error).toBe(
+				'project directory is required but was not provided',
+			);
 			// 0 is falsy, so it triggers the fail-fast
 		});
 
 		it('directory = {} (object) → fail-fast returns error', async () => {
-			const result = await complexity_hotspots.execute({}, { directory: {} } as any);
+			const result = await complexity_hotspots.execute({}, {
+				directory: {},
+			} as any);
 			const parsed = JSON.parse(result);
 
-			expect(parsed.error).toBe('project directory is required but was not provided');
+			expect(parsed.error).toBe(
+				'project directory is required but was not provided',
+			);
 			// typeof {} !== 'string' triggers the fail-fast
 		});
 
 		it('directory = [] (array) → fail-fast returns error', async () => {
-			const result = await complexity_hotspots.execute({}, { directory: [] } as any);
+			const result = await complexity_hotspots.execute({}, {
+				directory: [],
+			} as any);
 			const parsed = JSON.parse(result);
 
-			expect(parsed.error).toBe('project directory is required but was not provided');
+			expect(parsed.error).toBe(
+				'project directory is required but was not provided',
+			);
 		});
 
 		it('directory = function → fail-fast returns error', async () => {
-			const result = await complexity_hotspots.execute({}, { directory: (() => {}) } as any);
+			const result = await complexity_hotspots.execute({}, {
+				directory: () => {},
+			} as any);
 			const parsed = JSON.parse(result);
 
-			expect(parsed.error).toBe('project directory is required but was not provided');
+			expect(parsed.error).toBe(
+				'project directory is required but was not provided',
+			);
 		});
 	});
 
 	describe('Adversarial: whitespace-only directory', () => {
 		it('directory = "\\t\\n  " (only whitespace chars) → fail-fast returns error', async () => {
-			const result = await complexity_hotspots.execute({}, { directory: '\t\n  ' } as any);
+			const result = await complexity_hotspots.execute({}, {
+				directory: '\t\n  ',
+			} as any);
 			const parsed = JSON.parse(result);
 
-			expect(parsed.error).toBe('project directory is required but was not provided');
+			expect(parsed.error).toBe(
+				'project directory is required but was not provided',
+			);
 			// directory.trim() === '' triggers the fail-fast
 		});
 
 		it('directory = "\\t" (tab only) → fail-fast returns error', async () => {
-			const result = await complexity_hotspots.execute({}, { directory: '\t' } as any);
+			const result = await complexity_hotspots.execute({}, {
+				directory: '\t',
+			} as any);
 			const parsed = JSON.parse(result);
 
-			expect(parsed.error).toBe('project directory is required but was not provided');
+			expect(parsed.error).toBe(
+				'project directory is required but was not provided',
+			);
 		});
 
 		it('directory = "\\r" (carriage return only) → fail-fast returns error', async () => {
-			const result = await complexity_hotspots.execute({}, { directory: '\r' } as any);
+			const result = await complexity_hotspots.execute({}, {
+				directory: '\r',
+			} as any);
 			const parsed = JSON.parse(result);
 
-			expect(parsed.error).toBe('project directory is required but was not provided');
+			expect(parsed.error).toBe(
+				'project directory is required but was not provided',
+			);
 		});
 	});
 
 	describe('Adversarial: special string values', () => {
 		it('directory = "null" (string) → passes validation (different from null value)', async () => {
 			// This is a valid string "null", not the null value
-			const result = await complexity_hotspots.execute({}, { directory: 'null' } as any);
+			const result = await complexity_hotspots.execute({}, {
+				directory: 'null',
+			} as any);
 			const parsed = JSON.parse(result);
 
 			// Should NOT trigger fail-fast because "null" is a valid non-empty string
 			// It will try to run git in directory "null" which will fail with analysis error
-			expect(parsed.error).not.toBe('project directory is required but was not provided');
+			expect(parsed.error).not.toBe(
+				'project directory is required but was not provided',
+			);
 		});
 
 		it('directory = "undefined" (string) → passes validation', async () => {
-			const result = await complexity_hotspots.execute({}, { directory: 'undefined' } as any);
+			const result = await complexity_hotspots.execute({}, {
+				directory: 'undefined',
+			} as any);
 			const parsed = JSON.parse(result);
 
 			// Should NOT trigger fail-fast because "undefined" is a valid string
-			expect(parsed.error).not.toBe('project directory is required but was not provided');
+			expect(parsed.error).not.toBe(
+				'project directory is required but was not provided',
+			);
 		});
 
 		it('directory = "   " (spaces) → fail-fast returns error', async () => {
-			const result = await complexity_hotspots.execute({}, { directory: '   ' } as any);
+			const result = await complexity_hotspots.execute({}, {
+				directory: '   ',
+			} as any);
 			const parsed = JSON.parse(result);
 
-			expect(parsed.error).toBe('project directory is required but was not provided');
+			expect(parsed.error).toBe(
+				'project directory is required but was not provided',
+			);
 		});
 	});
 });

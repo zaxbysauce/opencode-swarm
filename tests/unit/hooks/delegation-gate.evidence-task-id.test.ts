@@ -1,4 +1,4 @@
-import { describe, it, expect, afterEach, beforeEach } from 'bun:test';
+import { afterEach, beforeEach, describe, expect, it } from 'bun:test';
 import { resetSwarmState } from '../../../src/state';
 
 // Helper that replicates the directArgs.task_id preference logic from delegation-gate.ts
@@ -38,12 +38,18 @@ describe('delegation-gate — directArgs.task_id evidence preference (task 3.2)'
 	});
 
 	it('falls back when directArgs.task_id is null', () => {
-		const result = resolveEvidenceTaskId({ task_id: null as unknown as string }, '2.5');
+		const result = resolveEvidenceTaskId(
+			{ task_id: null as unknown as string },
+			'2.5',
+		);
 		expect(result).toBe('2.5');
 	});
 
 	it('falls back when directArgs.task_id is a number', () => {
-		const result = resolveEvidenceTaskId({ task_id: 3.1 as unknown as string }, '2.5');
+		const result = resolveEvidenceTaskId(
+			{ task_id: 3.1 as unknown as string },
+			'2.5',
+		);
 		expect(result).toBe('2.5');
 	});
 

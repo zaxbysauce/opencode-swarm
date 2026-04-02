@@ -1,8 +1,11 @@
-import { describe, it, expect } from 'bun:test';
+import { describe, expect, it } from 'bun:test';
 import * as fs from 'node:fs';
 import * as os from 'node:os';
 import * as path from 'node:path';
-import { extractFilename, extract_code_blocks } from '../../../src/tools/file-extractor';
+import {
+	extract_code_blocks,
+	extractFilename,
+} from '../../../src/tools/file-extractor';
 
 describe('file-extractor', () => {
 	describe('extractFilename', () => {
@@ -52,7 +55,9 @@ describe('file-extractor', () => {
 		it('falls back to timestamp-based name when no patterns match', () => {
 			const code = `some random code\nwith no patterns`;
 			const result = extractFilename(code, 'python', 0);
-			expect(result).toMatch(/^output_1_\d{4}-\d{2}-\d{2}T\d{2}-\d{2}-\d{2}\.py$/);
+			expect(result).toMatch(
+				/^output_1_\d{4}-\d{2}-\d{2}T\d{2}-\d{2}-\d{2}\.py$/,
+			);
 		});
 
 		it('uses correct extensions from EXT_MAP for known languages', () => {
@@ -88,19 +93,22 @@ describe('file-extractor', () => {
 		it('extracts single code block and writes to disk', async () => {
 			const tempDir = fs.mkdtempSync(path.join(os.tmpdir(), 'extractor-test-'));
 			const content = '```python\nprint("hello")\n```';
-			
+
 			const result = await extract_code_blocks.execute(
 				{ content, output_dir: tempDir },
-				{} as any
+				{} as any,
 			);
 
 			expect(result).toContain('Extracted 1 file(s):');
 			expect(result).toContain(tempDir);
-			
+
 			const files = fs.readdirSync(tempDir);
 			expect(files).toHaveLength(1);
-			
-			const fileContent = fs.readFileSync(path.join(tempDir, files[0]), 'utf-8');
+
+			const fileContent = fs.readFileSync(
+				path.join(tempDir, files[0]),
+				'utf-8',
+			);
 			expect(fileContent).toBe('print("hello")');
 
 			// Cleanup
@@ -122,18 +130,18 @@ console.log("world");
 
 			const result = await extract_code_blocks.execute(
 				{ content, output_dir: tempDir },
-				{} as any
+				{} as any,
 			);
 
 			expect(result).toContain('Extracted 2 file(s):');
-			
+
 			const files = fs.readdirSync(tempDir);
 			expect(files).toHaveLength(2);
-			
+
 			// Check that both files were created with correct extensions
-			const pyFile = files.find(f => f.endsWith('.py'));
-			const jsFile = files.find(f => f.endsWith('.js'));
-			
+			const pyFile = files.find((f) => f.endsWith('.py'));
+			const jsFile = files.find((f) => f.endsWith('.js'));
+
 			expect(pyFile).toBeDefined();
 			expect(jsFile).toBeDefined();
 
@@ -147,11 +155,11 @@ console.log("world");
 
 			const result = await extract_code_blocks.execute(
 				{ content, output_dir: tempDir },
-				{} as any
+				{} as any,
 			);
 
 			expect(result).toBe('No code blocks found in content.');
-			
+
 			const files = fs.readdirSync(tempDir);
 			expect(files).toHaveLength(0);
 
@@ -165,11 +173,11 @@ console.log("world");
 
 			const result = await extract_code_blocks.execute(
 				{ content, output_dir: tempDir, prefix: 'test_prefix' },
-				{} as any
+				{} as any,
 			);
 
 			expect(result).toContain('test_prefix_');
-			
+
 			const files = fs.readdirSync(tempDir);
 			expect(files[0]).toStartWith('test_prefix_');
 
@@ -190,38 +198,41 @@ print("second")
 `;
 
 			// Manually create a file first to force collision
-			const existingFile = path.join(tempDir, 'output_1_1970-01-01T00-00-00.py');
+			const existingFile = path.join(
+				tempDir,
+				'output_1_1970-01-01T00-00-00.py',
+			);
 			fs.writeFileSync(existingFile, 'existing content');
 
 			const result = await extract_code_blocks.execute(
 				{ content, output_dir: tempDir },
-				{} as any
+				{} as any,
 			);
 
 			const files = fs.readdirSync(tempDir);
 			expect(files).toHaveLength(3); // existing + 2 new files
-			
+
 			// Should have counter appended to avoid collision
-			const newFiles = files.filter(f => f !== path.basename(existingFile));
-			expect(newFiles.some(f => f.includes('_1_'))).toBe(true);
+			const newFiles = files.filter((f) => f !== path.basename(existingFile));
+			expect(newFiles.some((f) => f.includes('_1_'))).toBe(true);
 
 			// Cleanup
 			fs.rmSync(tempDir, { recursive: true, force: true });
 		});
 
-		it('creates output directory if it doesn\'t exist', async () => {
+		it("creates output directory if it doesn't exist", async () => {
 			const tempDir = fs.mkdtempSync(path.join(os.tmpdir(), 'extractor-test-'));
 			const nonExistentDir = path.join(tempDir, 'non-existent-subdir');
 			const content = '```python\nprint("hello")\n```';
 
 			const result = await extract_code_blocks.execute(
 				{ content, output_dir: nonExistentDir },
-				{} as any
+				{} as any,
 			);
 
 			expect(fs.existsSync(nonExistentDir)).toBe(true);
 			expect(result).toContain('Extracted 1 file(s):');
-			
+
 			const files = fs.readdirSync(nonExistentDir);
 			expect(files).toHaveLength(1);
 

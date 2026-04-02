@@ -1,15 +1,16 @@
-import { describe, it, expect } from 'bun:test';
+import { describe, expect, it } from 'bun:test';
 import {
+	type AdversarialPatternMatch,
 	detectAdversarialPatterns,
 	formatPrecedentManipulationEvent,
-	type AdversarialPatternMatch,
 } from '../../../src/hooks/adversarial-detector';
 
 describe('adversarial-detector - Pattern Detection Adversarial Testing', () => {
 	describe('ATTACK VECTOR 1: Regex Injection via User Input', () => {
 		it('INJECT-1: Embedded regex modifiers in user text should not crash', () => {
 			// Attempt to inject regex modifiers like (?i) for case insensitive
-			const maliciousText = 'I verified the code (?i) and it looks correct to me';
+			const maliciousText =
+				'I verified the code (?i) and it looks correct to me';
 			expect(() => detectAdversarialPatterns(maliciousText)).not.toThrow();
 			const result = detectAdversarialPatterns(maliciousText);
 			expect(Array.isArray(result)).toBe(true);
@@ -17,19 +18,22 @@ describe('adversarial-detector - Pattern Detection Adversarial Testing', () => {
 
 		it('INJECT-2: Regex quantifier overflow attempts should not crash', () => {
 			// Attempt to inject pathological quantifier sequences
-			const maliciousText = 'I verified the code {1000000} and reviewed myself {999999} times';
+			const maliciousText =
+				'I verified the code {1000000} and reviewed myself {999999} times';
 			expect(() => detectAdversarialPatterns(maliciousText)).not.toThrow();
 		});
 
 		it('INJECT-3: Backreference injection attempts', () => {
 			// Attempt to inject backreferences that could crash the regex engine
-			const maliciousText = 'This is consistent with \\1 and I checked \\2 myself';
+			const maliciousText =
+				'This is consistent with \\1 and I checked \\2 myself';
 			expect(() => detectAdversarialPatterns(maliciousText)).not.toThrow();
 		});
 
 		it('INJECT-4: Lookahead/lookbehind injection attempts', () => {
 			// Attempt to inject lookaheads/lookbehinds
-			const maliciousText = 'Code looks correct to me (?=in phase) and (?<=review)';
+			const maliciousText =
+				'Code looks correct to me (?=in phase) and (?<=review)';
 			expect(() => detectAdversarialPatterns(maliciousText)).not.toThrow();
 		});
 
@@ -40,7 +44,9 @@ describe('adversarial-detector - Pattern Detection Adversarial Testing', () => {
 			const result = detectAdversarialPatterns(maliciousText);
 			// Matches both VELOCITY_RATIONALIZATION ("to save time") and PRECEDENT_MANIPULATION ("we skipped ... in phase 1")
 			expect(result.length).toBeGreaterThanOrEqual(1);
-			expect(result.some((r) => r.pattern === 'PRECEDENT_MANIPULATION')).toBe(true);
+			expect(result.some((r) => r.pattern === 'PRECEDENT_MANIPULATION')).toBe(
+				true,
+			);
 		});
 	});
 
@@ -58,7 +64,7 @@ describe('adversarial-detector - Pattern Detection Adversarial Testing', () => {
 			expect(Array.isArray(result)).toBe(true);
 		});
 
-		it('REDOS-2: Pattern /we skipped .* in phase \d+/i with long input - should complete quickly', () => {
+		it('REDOS-2: Pattern /we skipped .* in phase d+/i with long input - should complete quickly', () => {
 			const start = Date.now();
 			// The greedy .* before "in phase" could cause issues
 			const longText = 'we skipped ' + 'a'.repeat(1000) + ' in phase 1';
@@ -87,7 +93,8 @@ describe('adversarial-detector - Pattern Detection Adversarial Testing', () => {
 		it('REDOS-4: Nested overlapping patterns - should complete quickly', () => {
 			const start = Date.now();
 			// Text with overlapping pattern matches
-			const nestedText = 'I verified the code and checked myself since we skipped code review in phase 1 to save time';
+			const nestedText =
+				'I verified the code and checked myself since we skipped code review in phase 1 to save time';
 			const result = detectAdversarialPatterns(nestedText);
 			const elapsed = Date.now() - start;
 
@@ -163,7 +170,9 @@ describe('adversarial-detector - Pattern Detection Adversarial Testing', () => {
 			const result = detectAdversarialPatterns(text);
 			expect(result.length).toBeGreaterThan(0);
 			// Should detect at least GATE_DELEGATION_BYPASS
-			const hasGateBypass = result.some((r) => r.pattern === 'GATE_DELEGATION_BYPASS');
+			const hasGateBypass = result.some(
+				(r) => r.pattern === 'GATE_DELEGATION_BYPASS',
+			);
 			expect(hasGateBypass).toBe(true);
 		});
 
@@ -228,9 +237,12 @@ describe('adversarial-detector - Pattern Detection Adversarial Testing', () => {
 
 		it('COLLISION-5: All HIGHEST severity patterns in same text', () => {
 			// PRECEDENT_MANIPULATION and GATE_DELEGATION_BYPASS are both HIGHEST
-			const text = 'We skipped tests in phase 2 and I verified the changes myself';
+			const text =
+				'We skipped tests in phase 2 and I verified the changes myself';
 			const result = detectAdversarialPatterns(text);
-			const highestSeverityPatterns = result.filter((r) => r.severity === 'HIGHEST');
+			const highestSeverityPatterns = result.filter(
+				(r) => r.severity === 'HIGHEST',
+			);
 			expect(highestSeverityPatterns.length).toBeGreaterThanOrEqual(2);
 		});
 
@@ -299,7 +311,8 @@ describe('adversarial-detector - Pattern Detection Adversarial Testing', () => {
 
 		it('FALSE-POS-3: Velocity pressure vs legitimate speed optimization', () => {
 			// Legitimate optimization language vs "to save time"
-			const text = 'We can optimize this for speed. Performance improvement for efficiency.';
+			const text =
+				'We can optimize this for speed. Performance improvement for efficiency.';
 			const result = detectAdversarialPatterns(text);
 
 			// "for efficiency" should trigger VELOCITY_RATIONALIZATION
@@ -310,7 +323,8 @@ describe('adversarial-detector - Pattern Detection Adversarial Testing', () => {
 
 		it('FALSE-POS-4: "The code looks correct" - legitimate assessment vs bypass', () => {
 			// Engineer might say this after careful review
-			const text = 'After thorough review, the code looks correct and implements the requirements properly.';
+			const text =
+				'After thorough review, the code looks correct and implements the requirements properly.';
 			const result = detectAdversarialPatterns(text);
 
 			// Pattern /this (looks|seems|appears) (good|correct|fine)/i requires "this" before "looks correct"
@@ -340,7 +354,8 @@ describe('adversarial-detector - Pattern Detection Adversarial Testing', () => {
 
 		it('FALSE-POS-7: Edge case: "consistent with" in technical context', () => {
 			// Could be about algorithm consistency or precedent manipulation
-			const text = 'This implementation is consistent with the API specification.';
+			const text =
+				'This implementation is consistent with the API specification.';
 			const result = detectAdversarialPatterns(text);
 
 			// Pattern /this is consistent with/i requires "this is" before "consistent with"
@@ -393,7 +408,11 @@ describe('adversarial-detector - Pattern Detection Adversarial Testing', () => {
 				confidence: 'HIGH',
 			};
 			const largePhase = 999999;
-			const result = formatPrecedentManipulationEvent(match, 'agent-1', largePhase);
+			const result = formatPrecedentManipulationEvent(
+				match,
+				'agent-1',
+				largePhase,
+			);
 			expect(result).toContain('999999');
 		});
 

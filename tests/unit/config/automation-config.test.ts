@@ -1,4 +1,4 @@
-import { describe, test, expect } from 'bun:test';
+import { describe, expect, test } from 'bun:test';
 import { z } from 'zod';
 import {
 	AutomationCapabilitiesSchema,
@@ -83,9 +83,7 @@ describe('AutomationCapabilitiesSchema', () => {
 			evidence_auto_summaries: false,
 			decision_drift_detection: false,
 		};
-		expect(AutomationCapabilitiesSchema.parse(trueConfig).plan_sync).toBe(
-			true,
-		);
+		expect(AutomationCapabilitiesSchema.parse(trueConfig).plan_sync).toBe(true);
 		expect(AutomationCapabilitiesSchema.parse(falseConfig).plan_sync).toBe(
 			false,
 		);
@@ -252,8 +250,6 @@ describe('Backward compatibility', () => {
 		expect(result.automation?.mode).toBe('hybrid');
 		expect(result.automation?.capabilities?.plan_sync).toBe(true);
 		expect(result.automation?.capabilities?.phase_preflight).toBe(true);
-		expect(result.automation?.capabilities?.evidence_auto_summaries).toBe(
-			true,
-		);
+		expect(result.automation?.capabilities?.evidence_auto_summaries).toBe(true);
 	});
 });

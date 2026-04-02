@@ -8,12 +8,15 @@
  * - Error propagation
  */
 
-import { describe, it, expect, beforeEach, afterEach, vi } from 'vitest';
 import * as fs from 'node:fs';
 import * as path from 'node:path';
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 
 // Test directory
-const TEST_DIR = path.join(process.cwd(), 'test-tmp-discovery-profiles-adversarial');
+const TEST_DIR = path.join(
+	process.cwd(),
+	'test-tmp-discovery-profiles-adversarial',
+);
 
 // ============ Mock Pattern Setup ============
 // Always use local mock variables, not vi.mocked()
@@ -24,12 +27,15 @@ const mockIsCommandAvailable = vi.fn();
 
 // Mock the detector module
 vi.mock('../../../src/lang/detector', () => ({
-	detectProjectLanguages: (...args: unknown[]) => mockDetectProjectLanguages(...args),
+	detectProjectLanguages: (...args: unknown[]) =>
+		mockDetectProjectLanguages(...args),
 }));
 
 // Mock the profiles module
 vi.mock('../../../src/lang/profiles', () => ({
-	LANGUAGE_REGISTRY: { get: (...args: unknown[]) => mockLangRegistryGet(...args) },
+	LANGUAGE_REGISTRY: {
+		get: (...args: unknown[]) => mockLangRegistryGet(...args),
+	},
 }));
 
 // Mock the isCommandAvailable function by importing from the real module and replacing it
@@ -54,7 +60,11 @@ interface MockLanguageProfile {
 	};
 	test: { detectFiles: string[]; frameworks: unknown[] };
 	lint: { detectFiles: string[]; linters: unknown[] };
-	audit: { detectFiles: string[]; command: string | null; outputFormat: 'json' | 'text' };
+	audit: {
+		detectFiles: string[];
+		command: string | null;
+		outputFormat: 'json' | 'text';
+	};
 	sast: { nativeRuleSet: string | null; semgrepSupport: string };
 	prompts: { coderConstraints: string[]; reviewerChecklist: string[] };
 }
@@ -90,12 +100,12 @@ describe('discoverBuildCommandsFromProfiles - Attack: Malformed workingDir', () 
 		module.clearToolchainCache();
 
 		// Act & Assert: Should not throw, just return empty results
-		await expect(
-			module.discoverBuildCommandsFromProfiles(''),
-		).resolves.toEqual({
-			commands: [],
-			skipped: [],
-		});
+		await expect(module.discoverBuildCommandsFromProfiles('')).resolves.toEqual(
+			{
+				commands: [],
+				skipped: [],
+			},
+		);
 	});
 
 	it('should not throw when workingDir is a path that does not exist', async () => {

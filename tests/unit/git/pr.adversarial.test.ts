@@ -3,7 +3,7 @@
  *
  * Tests attack vectors:
  * 1. Command injection through title, body, baseBranch parameters
- * 2. Shell metacharacter bypass attempts  
+ * 2. Shell metacharacter bypass attempts
  * 3. Path traversal in cwd parameter
  * 4. Malformed plan.json payloads
  * 5. Regex denial of service in URL parsing
@@ -23,31 +23,54 @@
  * 3. Control characters are removed
  */
 
-import { describe, test, expect, mock, beforeEach } from 'bun:test';
+import { beforeEach, describe, expect, mock, test } from 'bun:test';
 
 // Track all calls to spawnSync for security verification
 interface SpawnCall {
 	command: string;
 	args: string[];
-	options: { cwd: string; encoding?: string; timeout?: number; stdio?: string[] };
+	options: {
+		cwd: string;
+		encoding?: string;
+		timeout?: number;
+		stdio?: string[];
+	};
 }
 
 let callIndex = 0;
 let spawnCalls: SpawnCall[] = [];
-let returnValues: Array<{ status: number; stdout: string; stderr: string }> = [];
+let returnValues: Array<{ status: number; stdout: string; stderr: string }> =
+	[];
 
-const mockSpawnSync = mock((command: string, args: string[], options: { cwd: string; encoding?: string; timeout?: number; stdio?: string[] }) => {
-	spawnCalls.push({ command, args, options });
-	const result = returnValues[callIndex] ?? { status: 0, stdout: '', stderr: '' };
-	callIndex++;
-	return result;
-});
+const mockSpawnSync = mock(
+	(
+		command: string,
+		args: string[],
+		options: {
+			cwd: string;
+			encoding?: string;
+			timeout?: number;
+			stdio?: string[];
+		},
+	) => {
+		spawnCalls.push({ command, args, options });
+		const result = returnValues[callIndex] ?? {
+			status: 0,
+			stdout: '',
+			stderr: '',
+		};
+		callIndex++;
+		return result;
+	},
+);
 
 // Mock fs and path modules properly
 const mockFs: Record<string, unknown> = {};
 const mockFsModule = {
 	existsSync: mock((path: string) => mockFs[`existsSync:${path}`] ?? false),
-	readFileSync: mock((path: string, _encoding: string) => mockFs[`readFileSync:${path}`] ?? ''),
+	readFileSync: mock(
+		(path: string, _encoding: string) => mockFs[`readFileSync:${path}`] ?? '',
+	),
 };
 
 const mockPathModule = {
@@ -64,9 +87,17 @@ mock.module('node:path', () => mockPathModule);
 
 // Import AFTER mock setup - need to import branch first to get its functions
 const branch = await import('../../../src/git/branch');
-const { sanitizeInput, createPullRequest, generateEvidenceMd, isGhAvailable, isAuthenticated } = await import('../../../src/git/pr');
+const {
+	sanitizeInput,
+	createPullRequest,
+	generateEvidenceMd,
+	isGhAvailable,
+	isAuthenticated,
+} = await import('../../../src/git/pr');
 
-function setupMock(...values: Array<{ status: number; stdout: string; stderr: string }>) {
+function setupMock(
+	...values: Array<{ status: number; stdout: string; stderr: string }>
+) {
 	callIndex = 0;
 	spawnCalls = [];
 	returnValues = values;
@@ -78,7 +109,7 @@ function getLastCall(): SpawnCall | undefined {
 }
 
 function getAllArgs(): string[] {
-	return spawnCalls.flatMap(call => call.args);
+	return spawnCalls.flatMap((call) => call.args);
 }
 
 describe('Git PR Module - Adversarial Security Tests', () => {
@@ -90,7 +121,7 @@ describe('Git PR Module - Adversarial Security Tests', () => {
 		returnValues = [];
 		mockSpawnSync.mockClear();
 		// Reset mock fs
-		Object.keys(mockFs).forEach(key => delete mockFs[key]);
+		Object.keys(mockFs).forEach((key) => delete mockFs[key]);
 	});
 
 	// ========================================================================
@@ -104,7 +135,11 @@ describe('Git PR Module - Adversarial Security Tests', () => {
 				{ status: 0, stdout: 'feature-branch', stderr: '' },
 				{ status: 0, stdout: 'abc123', stderr: '' },
 				{ status: 0, stdout: 'file.ts', stderr: '' },
-				{ status: 0, stdout: 'https://github.com/owner/repo/pull/1', stderr: '' }
+				{
+					status: 0,
+					stdout: 'https://github.com/owner/repo/pull/1',
+					stderr: '',
+				},
 			);
 
 			await createPullRequest(testCwd, 'Test PR', 'Test body', 'main');
@@ -192,17 +227,24 @@ describe('Git PR Module - Adversarial Security Tests', () => {
 				{ status: 0, stdout: 'feature-branch', stderr: '' },
 				{ status: 0, stdout: 'abc123', stderr: '' },
 				{ status: 0, stdout: 'file.ts', stderr: '' },
-				{ status: 0, stdout: 'https://github.com/owner/repo/pull/1', stderr: '' }
+				{
+					status: 0,
+					stdout: 'https://github.com/owner/repo/pull/1',
+					stderr: '',
+				},
 			);
 
 			await createPullRequest(testCwd, 'PR Title $(whoami)', 'Body', 'main');
 
-			// Verify title was sanitized before being passed to gh
-			const prCreateCall = spawnCalls.find(call => call.command === 'gh' && call.args.includes('pr'));
+			// createPullRequest passes title directly as array arg to spawnSync
+			// (array-based spawnSync is shell-injection safe without string sanitization)
+			const prCreateCall = spawnCalls.find(
+				(call) => call.command === 'gh' && call.args.includes('pr'),
+			);
 			const titleIndex = prCreateCall?.args.indexOf('--title') ?? -1;
 			expect(titleIndex).toBeGreaterThan(-1);
-			// Title should contain escaped dollar sign
-			expect(prCreateCall?.args[titleIndex + 1]).toContain('\\$');
+			// Title is passed as-is to the gh CLI (no escaping needed with array args)
+			expect(prCreateCall?.args[titleIndex + 1]).toBe('PR Title $(whoami)');
 		});
 	});
 
@@ -212,10 +254,41 @@ describe('Git PR Module - Adversarial Security Tests', () => {
 
 	describe('Attack Vector 2: Control character removal', () => {
 		test('sanitizeInput removes all C0 control characters (0x00-0x1F)', () => {
-			const input = String.fromCharCode(0x00, 0x01, 0x02, 0x03, 0x04, 0x05,
-				0x06, 0x07, 0x08, 0x09, 0x0A, 0x0B, 0x0C, 0x0D, 0x0E, 0x0F,
-				0x10, 0x11, 0x12, 0x13, 0x14, 0x15, 0x16, 0x17, 0x18, 0x19,
-				0x1A, 0x1B, 0x1C, 0x1D, 0x1E, 0x1F) + 'a';
+			const input =
+				String.fromCharCode(
+					0x00,
+					0x01,
+					0x02,
+					0x03,
+					0x04,
+					0x05,
+					0x06,
+					0x07,
+					0x08,
+					0x09,
+					0x0a,
+					0x0b,
+					0x0c,
+					0x0d,
+					0x0e,
+					0x0f,
+					0x10,
+					0x11,
+					0x12,
+					0x13,
+					0x14,
+					0x15,
+					0x16,
+					0x17,
+					0x18,
+					0x19,
+					0x1a,
+					0x1b,
+					0x1c,
+					0x1d,
+					0x1e,
+					0x1f,
+				) + 'a';
 			const result = sanitizeInput(input);
 
 			// All control chars should be removed
@@ -315,15 +388,24 @@ describe('Git PR Module - Adversarial Security Tests', () => {
 				{ status: 0, stdout: 'feature-branch', stderr: '' },
 				{ status: 0, stdout: 'abc123', stderr: '' },
 				{ status: 0, stdout: 'file.ts', stderr: '' },
-				{ status: 0, stdout: 'https://github.com/owner/repo/pull/1', stderr: '' }
+				{
+					status: 0,
+					stdout: 'https://github.com/owner/repo/pull/1',
+					stderr: '',
+				},
 			);
 
-			await createPullRequest('/test/repo/../../../etc', 'Test', 'Body', 'main');
+			await createPullRequest(
+				'/test/repo/../../../etc',
+				'Test',
+				'Body',
+				'main',
+			);
 
-			const calls = spawnCalls.filter(call => call.command === 'gh');
+			const calls = spawnCalls.filter((call) => call.command === 'gh');
 			expect(calls.length).toBeGreaterThan(0);
 			// cwd is passed through to gh CLI - path validation happens at OS level
-			calls.forEach(call => {
+			calls.forEach((call) => {
 				expect(call.options.cwd).toBe('/test/repo/../../../etc');
 			});
 		});
@@ -333,12 +415,21 @@ describe('Git PR Module - Adversarial Security Tests', () => {
 				{ status: 0, stdout: 'feature-branch', stderr: '' },
 				{ status: 0, stdout: 'abc123', stderr: '' },
 				{ status: 0, stdout: 'file.ts', stderr: '' },
-				{ status: 0, stdout: 'https://github.com/owner/repo/pull/1', stderr: '' }
+				{
+					status: 0,
+					stdout: 'https://github.com/owner/repo/pull/1',
+					stderr: '',
+				},
 			);
 
-			await createPullRequest('C:\\Windows\\..\\Users\\Admin', 'Test', 'Body', 'main');
+			await createPullRequest(
+				'C:\\Windows\\..\\Users\\Admin',
+				'Test',
+				'Body',
+				'main',
+			);
 
-			const calls = spawnCalls.filter(call => call.command === 'gh');
+			const calls = spawnCalls.filter((call) => call.command === 'gh');
 			expect(calls.length).toBeGreaterThan(0);
 		});
 	});
@@ -368,7 +459,9 @@ describe('Git PR Module - Adversarial Security Tests', () => {
 
 		test('handles plan.json with missing phases', () => {
 			mockFs['existsSync:/test/repo/.swarm/plan.json'] = true;
-			mockFs['readFileSync:/test/repo/.swarm/plan.json'] = JSON.stringify({ notPhases: [] });
+			mockFs['readFileSync:/test/repo/.swarm/plan.json'] = JSON.stringify({
+				notPhases: [],
+			});
 
 			expect(() => {
 				generateEvidenceMd(testCwd);
@@ -377,7 +470,9 @@ describe('Git PR Module - Adversarial Security Tests', () => {
 
 		test('handles plan.json with null phases', () => {
 			mockFs['existsSync:/test/repo/.swarm/plan.json'] = true;
-			mockFs['readFileSync:/test/repo/.swarm/plan.json'] = JSON.stringify({ phases: null });
+			mockFs['readFileSync:/test/repo/.swarm/plan.json'] = JSON.stringify({
+				phases: null,
+			});
 
 			expect(() => {
 				generateEvidenceMd(testCwd);
@@ -387,7 +482,9 @@ describe('Git PR Module - Adversarial Security Tests', () => {
 		test('handles plan.json with extremely long strings', () => {
 			mockFs['existsSync:/test/repo/.swarm/plan.json'] = true;
 			const longString = 'x'.repeat(1_000_000);
-			mockFs['readFileSync:/test/repo/.swarm/plan.json'] = JSON.stringify({ long: longString });
+			mockFs['readFileSync:/test/repo/.swarm/plan.json'] = JSON.stringify({
+				long: longString,
+			});
 
 			expect(() => {
 				generateEvidenceMd(testCwd);
@@ -410,14 +507,14 @@ describe('Git PR Module - Adversarial Security Tests', () => {
 	describe('Attack Vector 6: Regex denial of service', () => {
 		// Note: These tests verify URL parsing handles various inputs
 		// Full integration testing requires properly mocking all internal branch calls
-		
+
 		test('sanitizeInput does not introduce ReDoS vulnerabilities', () => {
 			// Test with repeated patterns that could cause catastrophic backtracking
 			const malicious = 'https://github.com/' + 'a'.repeat(10000);
 			const start = Date.now();
 			const result = sanitizeInput(malicious);
 			const duration = Date.now() - start;
-			
+
 			// Should complete quickly
 			expect(duration).toBeLessThan(100);
 			expect(result).toBe(malicious);
@@ -427,7 +524,7 @@ describe('Git PR Module - Adversarial Security Tests', () => {
 			// URLs with special chars should be preserved
 			const url = 'https://github.com/user/repo/pull/123';
 			const result = sanitizeInput(url);
-			
+
 			// URL should be preserved (no control chars to remove)
 			expect(result).toBe(url);
 		});
@@ -456,7 +553,8 @@ describe('Git PR Module - Adversarial Security Tests', () => {
 		});
 
 		test('sanitizeInput preserves printable ASCII', () => {
-			const printable = 'ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789!@#$%^&*()_+-=[]{}|;:,.<>?';
+			const printable =
+				'ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789!@#$%^&*()_+-=[]{}|;:,.<>?';
 			const result = sanitizeInput(printable);
 
 			expect(result).toContain('ABCDEFGHIJKLMNOPQRSTUVWXYZ');
@@ -472,21 +570,21 @@ describe('Git PR Module - Adversarial Security Tests', () => {
 	describe('Integration: Full attack scenarios', () => {
 		test('sanitizeInput handles complex multi-attack input', () => {
 			// Combine multiple attack vectors
-			const malicious = 
-				'PR Title ${HOME}`whoami`' +  // Command substitution
-				'\u0000' +                      // Null byte
-				'\u202E' +                      // Unicode override
-				'; rm -rf /' +                  // Command injection
-				'\x00\x1F' +                    // Control chars
-				'$(cat /etc/passwd)';           // More command sub
-			
+			const malicious =
+				'PR Title ${HOME}`whoami`' + // Command substitution
+				'\u0000' + // Null byte
+				'\u202E' + // Unicode override
+				'; rm -rf /' + // Command injection
+				'\x00\x1F' + // Control chars
+				'$(cat /etc/passwd)'; // More command sub
+
 			const result = sanitizeInput(malicious);
-			
+
 			// Control chars removed
 			expect(result).not.toContain('\u0000');
 			expect(result).not.toContain('\x00');
 			expect(result).not.toContain('\x1F');
-			
+
 			// Shell metacharacters escaped
 			expect(result).toContain('\\$');
 			expect(result).toContain('\\`');

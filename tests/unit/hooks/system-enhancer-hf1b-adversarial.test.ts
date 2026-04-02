@@ -5,14 +5,13 @@
  * agent execution guardrails (HF-1: coder/test_engineer self-verification guard,
  * HF-1b: architect/null full test suite guard).
  */
-import { describe, it, expect, beforeEach, afterEach } from 'bun:test';
-import { createSystemEnhancerHook } from '../../../src/hooks/system-enhancer';
-import type { PluginConfig } from '../../../src/config';
-import { resetSwarmState, swarmState } from '../../../src/state';
-import { mkdtemp, writeFile, mkdir } from 'node:fs/promises';
-import { rm } from 'node:fs/promises';
+import { afterEach, beforeEach, describe, expect, it } from 'bun:test';
+import { mkdir, mkdtemp, rm, writeFile } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
+import type { PluginConfig } from '../../../src/config';
+import { createSystemEnhancerHook } from '../../../src/hooks/system-enhancer';
+import { resetSwarmState, swarmState } from '../../../src/state';
 
 describe('system-enhancer HF-1b - Adversarial Attack Vector Testing', () => {
 	let tempDir: string;
@@ -47,9 +46,7 @@ describe('system-enhancer HF-1b - Adversarial Attack Vector Testing', () => {
 	/**
 	 * Helper to invoke the transform hook and return the output
 	 */
-	async function invokeHook(
-		sessionID?: string,
-	): Promise<string[]> {
+	async function invokeHook(sessionID?: string): Promise<string[]> {
 		const config: PluginConfig = {
 			max_iterations: 5,
 			qa_retry_limit: 3,
@@ -75,7 +72,9 @@ describe('system-enhancer HF-1b - Adversarial Attack Vector Testing', () => {
 	 */
 	function hasHF1Injection(systemOutput: string[]): boolean {
 		return systemOutput.some((s) =>
-			s.includes('[SWARM CONFIG] You must NOT run build, test, lint, or type-check commands'),
+			s.includes(
+				'[SWARM CONFIG] You must NOT run build, test, lint, or type-check commands',
+			),
 		);
 	}
 
@@ -306,7 +305,7 @@ describe('system-enhancer HF-1b - Adversarial Attack Vector Testing', () => {
 	});
 
 	describe('ATTACK 7: Null sessionID', () => {
-		it('null sessionID → get(\'\') → undefined → baseRole null → HF-1b fires', async () => {
+		it("null sessionID → get('') → undefined → baseRole null → HF-1b fires", async () => {
 			await createSwarmFiles();
 
 			// Don't set any active agent, and use empty sessionID (equivalent to null)
@@ -317,7 +316,7 @@ describe('system-enhancer HF-1b - Adversarial Attack Vector Testing', () => {
 			expect(hasHF1bInjection(systemOutput)).toBe(true);
 		});
 
-		it('undefined sessionID → get(\'\') → undefined → baseRole null → HF-1b fires', async () => {
+		it("undefined sessionID → get('') → undefined → baseRole null → HF-1b fires", async () => {
 			await createSwarmFiles();
 
 			// Invoke hook without sessionID (undefined)
@@ -493,7 +492,10 @@ describe('system-enhancer HF-1b - Adversarial Attack Vector Testing', () => {
 			await createSwarmFiles();
 
 			// Set active agent to SQL injection string
-			swarmState.activeAgent.set('test-session', "coder'; DROP TABLE agents; --");
+			swarmState.activeAgent.set(
+				'test-session',
+				"coder'; DROP TABLE agents; --",
+			);
 
 			const systemOutput = await invokeHook('test-session');
 
@@ -510,7 +512,10 @@ describe('system-enhancer HF-1b - Adversarial Attack Vector Testing', () => {
 			await createSwarmFiles();
 
 			// Set active agent to SQL injection with UNION
-			swarmState.activeAgent.set('test-session', "coder' UNION SELECT 'architect' --");
+			swarmState.activeAgent.set(
+				'test-session',
+				"coder' UNION SELECT 'architect' --",
+			);
 
 			const systemOutput = await invokeHook('test-session');
 
@@ -565,7 +570,10 @@ describe('system-enhancer HF-1b - Adversarial Attack Vector Testing', () => {
 			await createSwarmFiles();
 
 			// Set active agent to XSS script
-			swarmState.activeAgent.set('test-session', '<script>alert("XSS")</script>');
+			swarmState.activeAgent.set(
+				'test-session',
+				'<script>alert("XSS")</script>',
+			);
 
 			const systemOutput = await invokeHook('test-session');
 
@@ -582,7 +590,10 @@ describe('system-enhancer HF-1b - Adversarial Attack Vector Testing', () => {
 			await createSwarmFiles();
 
 			// Set active agent to XSS img tag
-			swarmState.activeAgent.set('test-session', '<img src=x onerror=alert(1)>');
+			swarmState.activeAgent.set(
+				'test-session',
+				'<img src=x onerror=alert(1)>',
+			);
 
 			const systemOutput = await invokeHook('test-session');
 

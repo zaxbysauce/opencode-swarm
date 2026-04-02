@@ -1,20 +1,20 @@
-import { describe, it, expect, beforeEach, afterEach } from 'bun:test';
-import {
-	validateArgs,
-	containsPathTraversal,
-	containsControlChars,
-	getLinterCommand,
-	detectAvailableLinter,
-	_detectAvailableLinter,
-	getBiomeBinPath,
-	getEslintBinPath,
-	MAX_OUTPUT_BYTES,
-	MAX_COMMAND_LENGTH,
-	SUPPORTED_LINTERS,
-	type SupportedLinter,
-} from '../../../src/tools/lint';
+import { afterEach, beforeEach, describe, expect, it } from 'bun:test';
 import * as fs from 'node:fs';
 import * as path from 'node:path';
+import {
+	_detectAvailableLinter,
+	containsControlChars,
+	containsPathTraversal,
+	detectAvailableLinter,
+	getBiomeBinPath,
+	getEslintBinPath,
+	getLinterCommand,
+	MAX_COMMAND_LENGTH,
+	MAX_OUTPUT_BYTES,
+	SUPPORTED_LINTERS,
+	type SupportedLinter,
+	validateArgs,
+} from '../../../src/tools/lint';
 
 // ============ Adversarial: Malformed Inputs ============
 describe('ADVERSARIAL: validateArgs - Malformed Inputs', () => {
@@ -158,12 +158,14 @@ describe('ADVERSARIAL: containsControlChars - Control Character Injection', () =
 
 // Use a stable temp directory for path-dependent tests.
 const TEST_DIR = '/tmp/lint-test-' + Math.random().toString(36).slice(2);
-const biomeExpectedBin = process.platform === 'win32'
-	? path.join(TEST_DIR, 'node_modules', '.bin', 'biome.EXE')
-	: path.join(TEST_DIR, 'node_modules', '.bin', 'biome');
-const eslintExpectedBin = process.platform === 'win32'
-	? path.join(TEST_DIR, 'node_modules', '.bin', 'eslint.cmd')
-	: path.join(TEST_DIR, 'node_modules', '.bin', 'eslint');
+const biomeExpectedBin =
+	process.platform === 'win32'
+		? path.join(TEST_DIR, 'node_modules', '.bin', 'biome.EXE')
+		: path.join(TEST_DIR, 'node_modules', '.bin', 'biome');
+const eslintExpectedBin =
+	process.platform === 'win32'
+		? path.join(TEST_DIR, 'node_modules', '.bin', 'eslint.cmd')
+		: path.join(TEST_DIR, 'node_modules', '.bin', 'eslint');
 
 // ============ Adversarial: Command Length Boundary ============
 describe('ADVERSARIAL: Command Length Boundaries', () => {
@@ -218,7 +220,9 @@ describe('ADVERSARIAL: Process Timeout Protection', () => {
 
 		// Should complete within reasonable time (with timeout it's 2s per linter)
 		expect(elapsed).toBeLessThan(5000);
-		expect(result === 'biome' || result === 'eslint' || result === null).toBe(true);
+		expect(result === 'biome' || result === 'eslint' || result === null).toBe(
+			true,
+		);
 	}, 10000);
 
 	it('detectAvailableLinter does not hang indefinitely', async () => {
@@ -229,7 +233,9 @@ describe('ADVERSARIAL: Process Timeout Protection', () => {
 
 		// Promise should still be settleable (not hung)
 		const result = await promise;
-		expect(result === 'biome' || result === 'eslint' || result === null).toBe(true);
+		expect(result === 'biome' || result === 'eslint' || result === null).toBe(
+			true,
+		);
 	}, 10000);
 });
 
@@ -269,7 +275,12 @@ describe('ADVERSARIAL: Resource Exhaustion Protection', () => {
 		expect(eslintFix[0]).toBe(eslintExpectedBin);
 
 		// Verify no shell metacharacters
-		const allCommands = [...biomeCheck, ...biomeFix, ...eslintCheck, ...eslintFix];
+		const allCommands = [
+			...biomeCheck,
+			...biomeFix,
+			...eslintCheck,
+			...eslintFix,
+		];
 		allCommands.forEach((cmd) => {
 			expect(cmd).not.toMatch(/[;&|`$()]/);
 			expect(cmd).not.toMatch(/\|/);
@@ -284,8 +295,9 @@ describe('ADVERSARIAL: Resource Exhaustion Protection', () => {
 
 		// Simulate truncation
 		const hugeOutput = 'x'.repeat(MAX_BYTES + 1000);
-		const truncated = hugeOutput.slice(0, MAX_BYTES) + '\n... (output truncated)';
-		
+		const truncated =
+			hugeOutput.slice(0, MAX_BYTES) + '\n... (output truncated)';
+
 		expect(truncated.length).toBeLessThanOrEqual(MAX_BYTES + 50);
 		expect(truncated).toContain('output truncated');
 	});
@@ -341,12 +353,12 @@ describe('ADVERSARIAL: Security Constants', () => {
 // The fix: detectAvailableLinter checks fs.existsSync(localBinPath) before returning.
 // This proves detection and execution paths are now consistent.
 describe('ISSUE #209: detectAvailableLinter path consistency', () => {
-
 	it('getBiomeBinPath returns the same path getLinterCommand uses for biome', () => {
 		const dir = '/my/project';
-		const expected = process.platform === 'win32'
-			? path.join(dir, 'node_modules', '.bin', 'biome.EXE')
-			: path.join(dir, 'node_modules', '.bin', 'biome');
+		const expected =
+			process.platform === 'win32'
+				? path.join(dir, 'node_modules', '.bin', 'biome.EXE')
+				: path.join(dir, 'node_modules', '.bin', 'biome');
 		expect(getBiomeBinPath(dir)).toBe(expected);
 		expect(getLinterCommand('biome', 'check', dir)[0]).toBe(expected);
 		expect(getLinterCommand('biome', 'fix', dir)[0]).toBe(expected);
@@ -354,9 +366,10 @@ describe('ISSUE #209: detectAvailableLinter path consistency', () => {
 
 	it('getEslintBinPath returns the same path getLinterCommand uses for eslint', () => {
 		const dir = '/my/project';
-		const expected = process.platform === 'win32'
-			? path.join(dir, 'node_modules', '.bin', 'eslint.cmd')
-			: path.join(dir, 'node_modules', '.bin', 'eslint');
+		const expected =
+			process.platform === 'win32'
+				? path.join(dir, 'node_modules', '.bin', 'eslint.cmd')
+				: path.join(dir, 'node_modules', '.bin', 'eslint');
 		expect(getEslintBinPath(dir)).toBe(expected);
 		expect(getLinterCommand('eslint', 'check', dir)[0]).toBe(expected);
 		expect(getLinterCommand('eslint', 'fix', dir)[0]).toBe(expected);
@@ -384,7 +397,11 @@ describe('ISSUE #209: detectAvailableLinter path consistency', () => {
 		expect(fs.existsSync(fakeBiomeBin)).toBe(false);
 		// And that detection returns null (or eslint if npx finds it, but we use a path
 		// where npx also won't find anything — so null is the safe expectation).
-		const result = await _detectAvailableLinter('/nonexistent', fakeBiomeBin, realEslintBin);
+		const result = await _detectAvailableLinter(
+			'/nonexistent',
+			fakeBiomeBin,
+			realEslintBin,
+		);
 		// Since neither npx biome nor npx eslint will succeed in /nonexistent,
 		// and neither local binary exists, the result should be null.
 		expect(result).toBeNull();
@@ -397,7 +414,11 @@ describe('ISSUE #209: detectAvailableLinter path consistency', () => {
 		const fakeEslintBin = '/nonexistent/node_modules/.bin/eslint';
 
 		expect(fs.existsSync(fakeEslintBin)).toBe(false);
-		const result = await _detectAvailableLinter('/nonexistent', realBiomeBin, fakeEslintBin);
+		const result = await _detectAvailableLinter(
+			'/nonexistent',
+			realBiomeBin,
+			fakeEslintBin,
+		);
 		expect(result).toBeNull();
 	});
 

@@ -1,16 +1,25 @@
 /**
  * ADVERSARIAL SECURITY TESTS for run-memory.ts and context-budget-service.ts
- * 
+ *
  * Tests path traversal vulnerabilities for directory validation.
  * Verifies that all malicious directory inputs are properly rejected with errors.
  */
 
-import { describe, test, expect, beforeEach, afterEach } from 'bun:test';
-import { mkdtemp, rm, mkdir, writeFile } from 'node:fs/promises';
+import { afterEach, beforeEach, describe, expect, test } from 'bun:test';
+import { mkdir, mkdtemp, rm, writeFile } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
-import { join, dirname } from 'node:path';
-import { recordOutcome, getRunMemorySummary, getTaskHistory, getFailures } from '../../../src/services/run-memory';
-import { getContextBudgetReport, formatBudgetWarning, getDefaultConfig } from '../../../src/services/context-budget-service';
+import { dirname, join } from 'node:path';
+import {
+	formatBudgetWarning,
+	getContextBudgetReport,
+	getDefaultConfig,
+} from '../../../src/services/context-budget-service';
+import {
+	getFailures,
+	getRunMemorySummary,
+	getTaskHistory,
+	recordOutcome,
+} from '../../../src/services/run-memory';
 
 describe('ADVERSARIAL: run-memory.ts path traversal security', () => {
 	let tempDir: string;
@@ -31,7 +40,8 @@ describe('ADVERSARIAL: run-memory.ts path traversal security', () => {
 		const swarmDir = join(tempDir, '.swarm');
 		const filePath = join(swarmDir, filename);
 		await mkdir(dirname(filePath), { recursive: true });
-		const data = typeof content === 'string' ? content : JSON.stringify(content, null, 2);
+		const data =
+			typeof content === 'string' ? content : JSON.stringify(content, null, 2);
 		await writeFile(filePath, data);
 		return filePath;
 	}
@@ -41,7 +51,6 @@ describe('ADVERSARIAL: run-memory.ts path traversal security', () => {
 	// =========================================================================
 
 	describe('Path Traversal Attacks: directory parameter', () => {
-		
 		test('rejects "../etc" as directory - path traversal detected', async () => {
 			await expect(async () => {
 				await recordOutcome('../etc', {
@@ -101,7 +110,6 @@ describe('ADVERSARIAL: run-memory.ts path traversal security', () => {
 	});
 
 	describe('Absolute Path Attacks: directory parameter', () => {
-		
 		test('rejects "/etc" as directory - absolute path detected', async () => {
 			await expect(async () => {
 				await recordOutcome('/etc', {
@@ -135,7 +143,6 @@ describe('ADVERSARIAL: run-memory.ts path traversal security', () => {
 	});
 
 	describe('Windows Absolute Path Attacks: directory parameter', () => {
-		
 		test('rejects "C:\\Windows" as directory - Windows absolute path detected', async () => {
 			await expect(async () => {
 				await recordOutcome('C:\\Windows', {
@@ -169,7 +176,6 @@ describe('ADVERSARIAL: run-memory.ts path traversal security', () => {
 	});
 
 	describe('Empty Directory Attacks: directory parameter', () => {
-		
 		test('rejects empty string as directory', async () => {
 			await expect(async () => {
 				await recordOutcome('', {
@@ -197,7 +203,6 @@ describe('ADVERSARIAL: run-memory.ts path traversal security', () => {
 	});
 
 	describe('Valid directories are accepted', () => {
-		
 		test('accepts simple relative directory name', async () => {
 			// This should NOT throw validation error - directory might not exist but validation passes
 			// The function validates directory format, not existence
@@ -248,7 +253,8 @@ describe('ADVERSARIAL: context-budget-service.ts path traversal security', () =>
 		const swarmDir = join(tempDir, '.swarm');
 		const filePath = join(swarmDir, filename);
 		await mkdir(dirname(filePath), { recursive: true });
-		const data = typeof content === 'string' ? content : JSON.stringify(content, null, 2);
+		const data =
+			typeof content === 'string' ? content : JSON.stringify(content, null, 2);
 		await writeFile(filePath, data);
 		return filePath;
 	}
@@ -258,10 +264,13 @@ describe('ADVERSARIAL: context-budget-service.ts path traversal security', () =>
 	// =========================================================================
 
 	describe('Path Traversal Attacks: directory parameter', () => {
-		
 		test('rejects "../etc" as directory - path traversal detected', async () => {
 			await expect(async () => {
-				await getContextBudgetReport('../etc', 'test prompt', getDefaultConfig());
+				await getContextBudgetReport(
+					'../etc',
+					'test prompt',
+					getDefaultConfig(),
+				);
 			}).toThrow(/path traversal|Invalid directory/);
 		});
 
@@ -273,31 +282,46 @@ describe('ADVERSARIAL: context-budget-service.ts path traversal security', () =>
 
 		test('rejects "../other" as directory - path traversal detected', async () => {
 			await expect(async () => {
-				await getContextBudgetReport('../other', 'test prompt', getDefaultConfig());
+				await getContextBudgetReport(
+					'../other',
+					'test prompt',
+					getDefaultConfig(),
+				);
 			}).toThrow(/path traversal|Invalid directory/);
 		});
 
 		test('rejects "foo/../bar" as directory - path traversal detected', async () => {
 			await expect(async () => {
-				await getContextBudgetReport('foo/../bar', 'test prompt', getDefaultConfig());
+				await getContextBudgetReport(
+					'foo/../bar',
+					'test prompt',
+					getDefaultConfig(),
+				);
 			}).toThrow(/path traversal|Invalid directory/);
 		});
 
 		test('rejects "foo/..\\bar" as directory - path traversal detected', async () => {
 			await expect(async () => {
-				await getContextBudgetReport('foo/..\\bar', 'test prompt', getDefaultConfig());
+				await getContextBudgetReport(
+					'foo/..\\bar',
+					'test prompt',
+					getDefaultConfig(),
+				);
 			}).toThrow(/path traversal|Invalid directory/);
 		});
 
 		test('rejects "../../etc" as directory - path traversal detected', async () => {
 			await expect(async () => {
-				await getContextBudgetReport('../../etc', 'test prompt', getDefaultConfig());
+				await getContextBudgetReport(
+					'../../etc',
+					'test prompt',
+					getDefaultConfig(),
+				);
 			}).toThrow(/path traversal|Invalid directory/);
 		});
 	});
 
 	describe('Absolute Path Attacks: directory parameter', () => {
-		
 		test('rejects "/etc" as directory - absolute path detected', async () => {
 			await expect(async () => {
 				await getContextBudgetReport('/etc', 'test prompt', getDefaultConfig());
@@ -306,14 +330,18 @@ describe('ADVERSARIAL: context-budget-service.ts path traversal security', () =>
 
 		test('rejects "/usr/bin" as directory - absolute path detected', async () => {
 			await expect(async () => {
-				await getContextBudgetReport('/usr/bin', 'test prompt', getDefaultConfig());
+				await getContextBudgetReport(
+					'/usr/bin',
+					'test prompt',
+					getDefaultConfig(),
+				);
 			}).toThrow(/absolute path|Invalid directory/);
 		});
 
 		test('rejects "\\Windows" as directory - absolute path detected', async () => {
 			await expect(async () => {
 				await formatBudgetWarning(
-					{ 
+					{
 						timestamp: new Date().toISOString(),
 						systemPromptTokens: 1000,
 						planCursorTokens: 100,
@@ -326,10 +354,10 @@ describe('ADVERSARIAL: context-budget-service.ts path traversal security', () =>
 						estimatedSessionTokens: 6500,
 						budgetPct: 3.25,
 						status: 'warning',
-						recommendation: 'Test'
+						recommendation: 'Test',
 					},
 					'\\Windows',
-					getDefaultConfig()
+					getDefaultConfig(),
 				);
 			}).toThrow(/absolute path|Invalid directory/);
 		});
@@ -337,7 +365,7 @@ describe('ADVERSARIAL: context-budget-service.ts path traversal security', () =>
 		test('rejects "\\" as directory - absolute path detected', async () => {
 			await expect(async () => {
 				await formatBudgetWarning(
-					{ 
+					{
 						timestamp: new Date().toISOString(),
 						systemPromptTokens: 1000,
 						planCursorTokens: 100,
@@ -350,32 +378,43 @@ describe('ADVERSARIAL: context-budget-service.ts path traversal security', () =>
 						estimatedSessionTokens: 6500,
 						budgetPct: 3.25,
 						status: 'warning',
-						recommendation: 'Test'
+						recommendation: 'Test',
 					},
 					'\\',
-					getDefaultConfig()
+					getDefaultConfig(),
 				);
 			}).toThrow(/absolute path|Invalid directory/);
 		});
 	});
 
 	describe('Windows Absolute Path Attacks: directory parameter', () => {
-		
 		test('rejects "C:\\Windows" as directory - Windows absolute path detected', async () => {
 			await expect(async () => {
-				await getContextBudgetReport('C:\\Windows', 'test prompt', getDefaultConfig());
+				await getContextBudgetReport(
+					'C:\\Windows',
+					'test prompt',
+					getDefaultConfig(),
+				);
 			}).toThrow(/Windows absolute path|Invalid directory/);
 		});
 
 		test('rejects "C:/Windows" as directory - Windows absolute path detected', async () => {
 			await expect(async () => {
-				await getContextBudgetReport('C:/Windows', 'test prompt', getDefaultConfig());
+				await getContextBudgetReport(
+					'C:/Windows',
+					'test prompt',
+					getDefaultConfig(),
+				);
 			}).toThrow(/Windows absolute path|Invalid directory/);
 		});
 
 		test('rejects "D:\\Users" as directory - Windows absolute path detected', async () => {
 			await expect(async () => {
-				await getContextBudgetReport('D:\\Users', 'test prompt', getDefaultConfig());
+				await getContextBudgetReport(
+					'D:\\Users',
+					'test prompt',
+					getDefaultConfig(),
+				);
 			}).toThrow(/Windows absolute path|Invalid directory/);
 		});
 
@@ -387,7 +426,6 @@ describe('ADVERSARIAL: context-budget-service.ts path traversal security', () =>
 	});
 
 	describe('Empty Directory Attacks: directory parameter', () => {
-		
 		test('rejects empty string as directory', async () => {
 			await expect(async () => {
 				await getContextBudgetReport('', 'test prompt', getDefaultConfig());
@@ -397,7 +435,7 @@ describe('ADVERSARIAL: context-budget-service.ts path traversal security', () =>
 		test('rejects whitespace-only string as directory', async () => {
 			await expect(async () => {
 				await formatBudgetWarning(
-					{ 
+					{
 						timestamp: new Date().toISOString(),
 						systemPromptTokens: 1000,
 						planCursorTokens: 100,
@@ -410,10 +448,10 @@ describe('ADVERSARIAL: context-budget-service.ts path traversal security', () =>
 						estimatedSessionTokens: 6500,
 						budgetPct: 3.25,
 						status: 'warning',
-						recommendation: 'Test'
+						recommendation: 'Test',
 					},
 					'   ',
-					getDefaultConfig()
+					getDefaultConfig(),
 				);
 			}).toThrow(/empty|Invalid directory/);
 		});
@@ -426,11 +464,14 @@ describe('ADVERSARIAL: context-budget-service.ts path traversal security', () =>
 	});
 
 	describe('Valid directories are accepted', () => {
-		
 		test('accepts simple relative directory name', async () => {
 			// This should NOT throw validation error
 			await expect(async () => {
-				await getContextBudgetReport('valid-workspace', 'test prompt', getDefaultConfig());
+				await getContextBudgetReport(
+					'valid-workspace',
+					'test prompt',
+					getDefaultConfig(),
+				);
 			}).not.toThrow(/Invalid directory/);
 		});
 
@@ -438,7 +479,7 @@ describe('ADVERSARIAL: context-budget-service.ts path traversal security', () =>
 			// This should NOT throw validation error
 			await expect(async () => {
 				await formatBudgetWarning(
-					{ 
+					{
 						timestamp: new Date().toISOString(),
 						systemPromptTokens: 1000,
 						planCursorTokens: 100,
@@ -451,10 +492,10 @@ describe('ADVERSARIAL: context-budget-service.ts path traversal security', () =>
 						estimatedSessionTokens: 6500,
 						budgetPct: 3.25,
 						status: 'warning',
-						recommendation: 'Test'
+						recommendation: 'Test',
 					},
 					'valid-workspace/nested',
-					getDefaultConfig()
+					getDefaultConfig(),
 				);
 			}).not.toThrow(/Invalid directory/);
 		});

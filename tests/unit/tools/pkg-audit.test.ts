@@ -1,9 +1,9 @@
-import { describe, it, expect, beforeEach, afterEach } from 'bun:test';
+import { afterEach, beforeEach, describe, expect, it } from 'bun:test';
 import * as fs from 'node:fs';
-import * as path from 'node:path';
 import * as os from 'node:os';
-import { pkg_audit } from '../../../src/tools/pkg-audit';
+import * as path from 'node:path';
 import type { ToolContext } from '@opencode-ai/plugin';
+import { pkg_audit } from '../../../src/tools/pkg-audit';
 
 // Mock for Bun.spawn
 let originalSpawn: typeof Bun.spawn;
@@ -26,13 +26,13 @@ function mockSpawn(cmd: string[], opts: unknown) {
 		start(controller) {
 			controller.enqueue(encoder.encode(mockStdout));
 			controller.close();
-		}
+		},
 	});
 	const stderrReadable = new ReadableStream({
 		start(controller) {
 			controller.enqueue(encoder.encode(mockStderr));
 			controller.close();
-		}
+		},
 	});
 
 	return {
@@ -88,7 +88,10 @@ describe('pkg-audit tool', () => {
 	describe('validation', () => {
 		it('should return error for invalid ecosystem value', async () => {
 			// Note: The tool validates args and returns error as JSON string
-			const result = await pkg_audit.execute({ ecosystem: 'evil' }, getMockContext());
+			const result = await pkg_audit.execute(
+				{ ecosystem: 'evil' },
+				getMockContext(),
+			);
 			const parsed = JSON.parse(result);
 			expect(parsed.error).toContain('Invalid arguments');
 		});
@@ -103,7 +106,10 @@ describe('pkg-audit tool', () => {
 			mockExitCode = 0;
 			mockStdout = '{"vulnerabilities": {}}';
 
-			const result = await pkg_audit.execute({ ecosystem: 'auto' }, getMockContext());
+			const result = await pkg_audit.execute(
+				{ ecosystem: 'auto' },
+				getMockContext(),
+			);
 			const parsed = JSON.parse(result);
 
 			expect(parsed.ecosystems).toContain('npm');
@@ -116,7 +122,10 @@ describe('pkg-audit tool', () => {
 			mockExitCode = 0;
 			mockStdout = '[]';
 
-			const result = await pkg_audit.execute({ ecosystem: 'auto' }, getMockContext());
+			const result = await pkg_audit.execute(
+				{ ecosystem: 'auto' },
+				getMockContext(),
+			);
 			const parsed = JSON.parse(result);
 
 			expect(parsed.ecosystems).toContain('pip');
@@ -129,7 +138,10 @@ describe('pkg-audit tool', () => {
 			mockExitCode = 0;
 			mockStdout = '[]';
 
-			const result = await pkg_audit.execute({ ecosystem: 'auto' }, getMockContext());
+			const result = await pkg_audit.execute(
+				{ ecosystem: 'auto' },
+				getMockContext(),
+			);
 			const parsed = JSON.parse(result);
 
 			expect(parsed.ecosystems).toContain('pip');
@@ -137,12 +149,18 @@ describe('pkg-audit tool', () => {
 
 		it('should auto-detect cargo from Cargo.toml presence', async () => {
 			// Create Cargo.toml
-			fs.writeFileSync(path.join(tempDir, 'Cargo.toml'), '[package]\nname = "test"');
+			fs.writeFileSync(
+				path.join(tempDir, 'Cargo.toml'),
+				'[package]\nname = "test"',
+			);
 
 			mockExitCode = 0;
 			mockStdout = '{"vulnerabilities": null}';
 
-			const result = await pkg_audit.execute({ ecosystem: 'auto' }, getMockContext());
+			const result = await pkg_audit.execute(
+				{ ecosystem: 'auto' },
+				getMockContext(),
+			);
 			const parsed = JSON.parse(result);
 
 			expect(parsed.ecosystems).toContain('cargo');
@@ -154,7 +172,10 @@ describe('pkg-audit tool', () => {
 			mockExitCode = 0;
 			mockStdout = '';
 
-			const result = await pkg_audit.execute({ ecosystem: 'auto' }, getMockContext());
+			const result = await pkg_audit.execute(
+				{ ecosystem: 'auto' },
+				getMockContext(),
+			);
 			const parsed = JSON.parse(result);
 
 			expect(parsed.ecosystems).toEqual([]);
@@ -168,18 +189,21 @@ describe('pkg-audit tool', () => {
 			mockExitCode = 1; // non-zero exit code means vulnerabilities found
 			mockStdout = JSON.stringify({
 				vulnerabilities: {
-					"lodash": {
-						severity: "high",
-						range: "4.17.15",
-						fixAvailable: { version: "4.17.21" },
-						title: "Prototype Pollution in lodash",
-						cves: ["CVE-2021-23337"],
-						url: "https://nvd.nist.gov/vuln/detail/CVE-2021-23337"
-					}
-				}
+					lodash: {
+						severity: 'high',
+						range: '4.17.15',
+						fixAvailable: { version: '4.17.21' },
+						title: 'Prototype Pollution in lodash',
+						cves: ['CVE-2021-23337'],
+						url: 'https://nvd.nist.gov/vuln/detail/CVE-2021-23337',
+					},
+				},
 			});
 
-			const result = await pkg_audit.execute({ ecosystem: 'npm' }, getMockContext());
+			const result = await pkg_audit.execute(
+				{ ecosystem: 'npm' },
+				getMockContext(),
+			);
 			const parsed = JSON.parse(result);
 
 			expect(parsed.clean).toBe(false);
@@ -194,16 +218,19 @@ describe('pkg-audit tool', () => {
 			mockExitCode = 1;
 			mockStdout = JSON.stringify({
 				vulnerabilities: {
-					"express": {
-						severity: "moderate",
-						range: "4.0.0",
+					express: {
+						severity: 'moderate',
+						range: '4.0.0',
 						fixAvailable: true,
-						title: "Some vuln"
-					}
-				}
+						title: 'Some vuln',
+					},
+				},
 			});
 
-			const result = await pkg_audit.execute({ ecosystem: 'npm' }, getMockContext());
+			const result = await pkg_audit.execute(
+				{ ecosystem: 'npm' },
+				getMockContext(),
+			);
 			const parsed = JSON.parse(result);
 
 			expect(parsed.findings[0].patchedVersion).toBe('latest');
@@ -213,7 +240,10 @@ describe('pkg-audit tool', () => {
 			mockExitCode = 0;
 			mockStdout = '{"vulnerabilities": {}}';
 
-			const result = await pkg_audit.execute({ ecosystem: 'npm' }, getMockContext());
+			const result = await pkg_audit.execute(
+				{ ecosystem: 'npm' },
+				getMockContext(),
+			);
 			const parsed = JSON.parse(result);
 
 			expect(parsed.clean).toBe(true);
@@ -223,7 +253,10 @@ describe('pkg-audit tool', () => {
 		it('should return clean:true when tool not installed', async () => {
 			mockSpawnError = new Error("'npm' is not recognized");
 
-			const result = await pkg_audit.execute({ ecosystem: 'npm' }, getMockContext());
+			const result = await pkg_audit.execute(
+				{ ecosystem: 'npm' },
+				getMockContext(),
+			);
 			const parsed = JSON.parse(result);
 
 			expect(parsed.clean).toBe(true);
@@ -235,7 +268,10 @@ describe('pkg-audit tool', () => {
 			mockStdout = 'not valid json at all';
 			mockStderr = '';
 
-			const result = await pkg_audit.execute({ ecosystem: 'npm' }, getMockContext());
+			const result = await pkg_audit.execute(
+				{ ecosystem: 'npm' },
+				getMockContext(),
+			);
 			const parsed = JSON.parse(result);
 
 			// Should return clean with note about parsing issue
@@ -248,7 +284,10 @@ describe('pkg-audit tool', () => {
 			mockStdout = '';
 			mockStderr = '';
 
-			const result = await pkg_audit.execute({ ecosystem: 'npm' }, getMockContext());
+			const result = await pkg_audit.execute(
+				{ ecosystem: 'npm' },
+				getMockContext(),
+			);
 			const parsed = JSON.parse(result);
 
 			expect(parsed.clean).toBe(true);
@@ -261,19 +300,22 @@ describe('pkg-audit tool', () => {
 			mockExitCode = 1;
 			mockStdout = JSON.stringify([
 				{
-					name: "django",
-					version: "3.2.0",
+					name: 'django',
+					version: '3.2.0',
 					vulns: [
 						{
-							id: "CVE-2021-44420",
-							aliases: ["CVE-2021-44420"],
-							fix_versions: ["3.2.10"]
-						}
-					]
-				}
+							id: 'CVE-2021-44420',
+							aliases: ['CVE-2021-44420'],
+							fix_versions: ['3.2.10'],
+						},
+					],
+				},
 			]);
 
-			const result = await pkg_audit.execute({ ecosystem: 'pip' }, getMockContext());
+			const result = await pkg_audit.execute(
+				{ ecosystem: 'pip' },
+				getMockContext(),
+			);
 			const parsed = JSON.parse(result);
 
 			expect(parsed.clean).toBe(false);
@@ -287,19 +329,22 @@ describe('pkg-audit tool', () => {
 			mockExitCode = 1;
 			mockStdout = JSON.stringify([
 				{
-					name: "some-package",
-					version: "1.0.0",
+					name: 'some-package',
+					version: '1.0.0',
 					vulns: [
 						{
-							id: "PYSEC-2021-001",
-							aliases: [],  // empty aliases -> moderate
-							fix_versions: []
-						}
-					]
-				}
+							id: 'PYSEC-2021-001',
+							aliases: [], // empty aliases -> moderate
+							fix_versions: [],
+						},
+					],
+				},
 			]);
 
-			const result = await pkg_audit.execute({ ecosystem: 'pip' }, getMockContext());
+			const result = await pkg_audit.execute(
+				{ ecosystem: 'pip' },
+				getMockContext(),
+			);
 			const parsed = JSON.parse(result);
 
 			expect(parsed.findings[0].severity).toBe('moderate'); // no aliases -> moderate
@@ -309,16 +354,22 @@ describe('pkg-audit tool', () => {
 			mockExitCode = 0;
 			mockStdout = '[]';
 
-			const result = await pkg_audit.execute({ ecosystem: 'pip' }, getMockContext());
+			const result = await pkg_audit.execute(
+				{ ecosystem: 'pip' },
+				getMockContext(),
+			);
 			const parsed = JSON.parse(result);
 
 			expect(parsed.clean).toBe(true);
 		});
 
 		it('should handle pip-audit not installed', async () => {
-			mockSpawnError = new Error("pip-audit: command not found");
+			mockSpawnError = new Error('pip-audit: command not found');
 
-			const result = await pkg_audit.execute({ ecosystem: 'pip' }, getMockContext());
+			const result = await pkg_audit.execute(
+				{ ecosystem: 'pip' },
+				getMockContext(),
+			);
 			const parsed = JSON.parse(result);
 
 			expect(parsed.clean).toBe(true);
@@ -331,26 +382,30 @@ describe('pkg-audit tool', () => {
 		it('should parse cargo audit JSON format correctly - vulnerabilities.list array', async () => {
 			mockExitCode = 1;
 			// cargo audit outputs multiple JSON objects, one per line
-			mockStdout = JSON.stringify({
-				vulnerabilities: {
-					list: [
-						{
-							advisory: {
-								package: "serde",
-								title: "Arbitrary Code Execution in serde",
-								id: "RUSTSEC-2021-001",
-								aliases: ["CVE-2021-43740"],
-								url: "https://rustsec.org/advisories/RUSTSEC-2021-001",
-								cvss: 9.5
+			mockStdout =
+				JSON.stringify({
+					vulnerabilities: {
+						list: [
+							{
+								advisory: {
+									package: 'serde',
+									title: 'Arbitrary Code Execution in serde',
+									id: 'RUSTSEC-2021-001',
+									aliases: ['CVE-2021-43740'],
+									url: 'https://rustsec.org/advisories/RUSTSEC-2021-001',
+									cvss: 9.5,
+								},
+								package: { version: '1.0.0' },
+								versions: { patched: ['1.0.1'] },
 							},
-							package: { version: "1.0.0" },
-							versions: { patched: ["1.0.1"] }
-						}
-					]
-				}
-			}) + '\n';
+						],
+					},
+				}) + '\n';
 
-			const result = await pkg_audit.execute({ ecosystem: 'cargo' }, getMockContext());
+			const result = await pkg_audit.execute(
+				{ ecosystem: 'cargo' },
+				getMockContext(),
+			);
 			const parsed = JSON.parse(result);
 
 			expect(parsed.clean).toBe(false);
@@ -361,26 +416,30 @@ describe('pkg-audit tool', () => {
 
 		it('should map CVSS 9.5 to critical severity', async () => {
 			mockExitCode = 1;
-			mockStdout = JSON.stringify({
-				vulnerabilities: {
-					list: [
-						{
-							advisory: {
-								package: "test",
-								title: "Test",
-								id: "RUSTSEC-2021-001",
-								aliases: [],
-								url: "",
-								cvss: 9.5
+			mockStdout =
+				JSON.stringify({
+					vulnerabilities: {
+						list: [
+							{
+								advisory: {
+									package: 'test',
+									title: 'Test',
+									id: 'RUSTSEC-2021-001',
+									aliases: [],
+									url: '',
+									cvss: 9.5,
+								},
+								package: { version: '1.0.0' },
+								versions: { patched: [] },
 							},
-							package: { version: "1.0.0" },
-							versions: { patched: [] }
-						}
-					]
-				}
-			}) + '\n';
+						],
+					},
+				}) + '\n';
 
-			const result = await pkg_audit.execute({ ecosystem: 'cargo' }, getMockContext());
+			const result = await pkg_audit.execute(
+				{ ecosystem: 'cargo' },
+				getMockContext(),
+			);
 			const parsed = JSON.parse(result);
 
 			expect(parsed.findings[0].severity).toBe('critical');
@@ -388,26 +447,30 @@ describe('pkg-audit tool', () => {
 
 		it('should map CVSS 7.5 to high severity', async () => {
 			mockExitCode = 1;
-			mockStdout = JSON.stringify({
-				vulnerabilities: {
-					list: [
-						{
-							advisory: {
-								package: "test",
-								title: "Test",
-								id: "RUSTSEC-2021-001",
-								aliases: [],
-								url: "",
-								cvss: 7.5
+			mockStdout =
+				JSON.stringify({
+					vulnerabilities: {
+						list: [
+							{
+								advisory: {
+									package: 'test',
+									title: 'Test',
+									id: 'RUSTSEC-2021-001',
+									aliases: [],
+									url: '',
+									cvss: 7.5,
+								},
+								package: { version: '1.0.0' },
+								versions: { patched: [] },
 							},
-							package: { version: "1.0.0" },
-							versions: { patched: [] }
-						}
-					]
-				}
-			}) + '\n';
+						],
+					},
+				}) + '\n';
 
-			const result = await pkg_audit.execute({ ecosystem: 'cargo' }, getMockContext());
+			const result = await pkg_audit.execute(
+				{ ecosystem: 'cargo' },
+				getMockContext(),
+			);
 			const parsed = JSON.parse(result);
 
 			expect(parsed.findings[0].severity).toBe('high');
@@ -415,26 +478,30 @@ describe('pkg-audit tool', () => {
 
 		it('should map CVSS 5.0 to moderate severity', async () => {
 			mockExitCode = 1;
-			mockStdout = JSON.stringify({
-				vulnerabilities: {
-					list: [
-						{
-							advisory: {
-								package: "test",
-								title: "Test",
-								id: "RUSTSEC-2021-001",
-								aliases: [],
-								url: "",
-								cvss: 5.0
+			mockStdout =
+				JSON.stringify({
+					vulnerabilities: {
+						list: [
+							{
+								advisory: {
+									package: 'test',
+									title: 'Test',
+									id: 'RUSTSEC-2021-001',
+									aliases: [],
+									url: '',
+									cvss: 5.0,
+								},
+								package: { version: '1.0.0' },
+								versions: { patched: [] },
 							},
-							package: { version: "1.0.0" },
-							versions: { patched: [] }
-						}
-					]
-				}
-			}) + '\n';
+						],
+					},
+				}) + '\n';
 
-			const result = await pkg_audit.execute({ ecosystem: 'cargo' }, getMockContext());
+			const result = await pkg_audit.execute(
+				{ ecosystem: 'cargo' },
+				getMockContext(),
+			);
 			const parsed = JSON.parse(result);
 
 			expect(parsed.findings[0].severity).toBe('moderate');
@@ -442,26 +509,30 @@ describe('pkg-audit tool', () => {
 
 		it('should map CVSS 2.0 to low severity', async () => {
 			mockExitCode = 1;
-			mockStdout = JSON.stringify({
-				vulnerabilities: {
-					list: [
-						{
-							advisory: {
-								package: "test",
-								title: "Test",
-								id: "RUSTSEC-2021-001",
-								aliases: [],
-								url: "",
-								cvss: 2.0
+			mockStdout =
+				JSON.stringify({
+					vulnerabilities: {
+						list: [
+							{
+								advisory: {
+									package: 'test',
+									title: 'Test',
+									id: 'RUSTSEC-2021-001',
+									aliases: [],
+									url: '',
+									cvss: 2.0,
+								},
+								package: { version: '1.0.0' },
+								versions: { patched: [] },
 							},
-							package: { version: "1.0.0" },
-							versions: { patched: [] }
-						}
-					]
-				}
-			}) + '\n';
+						],
+					},
+				}) + '\n';
 
-			const result = await pkg_audit.execute({ ecosystem: 'cargo' }, getMockContext());
+			const result = await pkg_audit.execute(
+				{ ecosystem: 'cargo' },
+				getMockContext(),
+			);
 			const parsed = JSON.parse(result);
 
 			expect(parsed.findings[0].severity).toBe('low');
@@ -469,26 +540,30 @@ describe('pkg-audit tool', () => {
 
 		it('should map undefined/0 CVSS to low severity', async () => {
 			mockExitCode = 1;
-			mockStdout = JSON.stringify({
-				vulnerabilities: {
-					list: [
-						{
-							advisory: {
-								package: "test",
-								title: "Test",
-								id: "RUSTSEC-2021-001",
-								aliases: [],
-								url: "",
-								cvss: 0
+			mockStdout =
+				JSON.stringify({
+					vulnerabilities: {
+						list: [
+							{
+								advisory: {
+									package: 'test',
+									title: 'Test',
+									id: 'RUSTSEC-2021-001',
+									aliases: [],
+									url: '',
+									cvss: 0,
+								},
+								package: { version: '1.0.0' },
+								versions: { patched: [] },
 							},
-							package: { version: "1.0.0" },
-							versions: { patched: [] }
-						}
-					]
-				}
-			}) + '\n';
+						],
+					},
+				}) + '\n';
 
-			const result = await pkg_audit.execute({ ecosystem: 'cargo' }, getMockContext());
+			const result = await pkg_audit.execute(
+				{ ecosystem: 'cargo' },
+				getMockContext(),
+			);
 			const parsed = JSON.parse(result);
 
 			// cvss = 0 falls to default case, returning low
@@ -499,7 +574,10 @@ describe('pkg-audit tool', () => {
 			mockExitCode = 0;
 			mockStdout = '{"vulnerabilities": null}';
 
-			const result = await pkg_audit.execute({ ecosystem: 'cargo' }, getMockContext());
+			const result = await pkg_audit.execute(
+				{ ecosystem: 'cargo' },
+				getMockContext(),
+			);
 			const parsed = JSON.parse(result);
 
 			expect(parsed.clean).toBe(true);
@@ -507,9 +585,12 @@ describe('pkg-audit tool', () => {
 		});
 
 		it('should handle cargo-audit not installed', async () => {
-			mockSpawnError = new Error("cargo-audit: command not found");
+			mockSpawnError = new Error('cargo-audit: command not found');
 
-			const result = await pkg_audit.execute({ ecosystem: 'cargo' }, getMockContext());
+			const result = await pkg_audit.execute(
+				{ ecosystem: 'cargo' },
+				getMockContext(),
+			);
 			const parsed = JSON.parse(result);
 
 			expect(parsed.clean).toBe(true);
@@ -522,7 +603,10 @@ describe('pkg-audit tool', () => {
 		it('should combine results from multiple ecosystems', async () => {
 			// Create multiple project files
 			fs.writeFileSync(path.join(tempDir, 'package.json'), '{}');
-			fs.writeFileSync(path.join(tempDir, 'Cargo.toml'), '[package]\nname = "test"');
+			fs.writeFileSync(
+				path.join(tempDir, 'Cargo.toml'),
+				'[package]\nname = "test"',
+			);
 
 			// First call is npm (exit 0), second is cargo (exit 0)
 			let callCount = 0;
@@ -537,7 +621,10 @@ describe('pkg-audit tool', () => {
 				return mockSpawn(cmd, opts);
 			};
 
-			const result = await pkg_audit.execute({ ecosystem: 'auto' }, getMockContext());
+			const result = await pkg_audit.execute(
+				{ ecosystem: 'auto' },
+				getMockContext(),
+			);
 			const parsed = JSON.parse(result);
 
 			expect(parsed.ecosystems.length).toBe(2);
@@ -551,7 +638,10 @@ describe('pkg-audit tool', () => {
 	// ============ Adversarial Tests ============
 	describe('adversarial tests', () => {
 		it('should handle invalid ecosystem value: "evil"', async () => {
-			const result = await pkg_audit.execute({ ecosystem: 'evil' as any }, getMockContext());
+			const result = await pkg_audit.execute(
+				{ ecosystem: 'evil' as any },
+				getMockContext(),
+			);
 			const parsed = JSON.parse(result);
 
 			expect(parsed.error).toBeDefined();
@@ -563,7 +653,10 @@ describe('pkg-audit tool', () => {
 			mockStdout = 'this is not { valid json';
 			mockStderr = '';
 
-			const result = await pkg_audit.execute({ ecosystem: 'npm' }, getMockContext());
+			const result = await pkg_audit.execute(
+				{ ecosystem: 'npm' },
+				getMockContext(),
+			);
 			const parsed = JSON.parse(result);
 
 			// Should return clean with note
@@ -576,7 +669,10 @@ describe('pkg-audit tool', () => {
 			mockStdout = '';
 			mockStderr = '';
 
-			const result = await pkg_audit.execute({ ecosystem: 'npm' }, getMockContext());
+			const result = await pkg_audit.execute(
+				{ ecosystem: 'npm' },
+				getMockContext(),
+			);
 			const parsed = JSON.parse(result);
 
 			// Empty output with exit code 0 means clean
@@ -590,7 +686,10 @@ describe('pkg-audit tool', () => {
 			mockStdout = '';
 			mockStderr = '';
 
-			const result = await pkg_audit.execute({ ecosystem: 'npm' }, getMockContext());
+			const result = await pkg_audit.execute(
+				{ ecosystem: 'npm' },
+				getMockContext(),
+			);
 			const parsed = JSON.parse(result);
 
 			// Verify we got a result (basic sanity)
@@ -604,25 +703,28 @@ describe('pkg-audit tool', () => {
 			mockExitCode = 1;
 			mockStdout = JSON.stringify({
 				vulnerabilities: {
-					"lodash": {
-						severity: "critical",
-						range: "4.17.15",
-						fixAvailable: { version: "4.17.21" }
+					lodash: {
+						severity: 'critical',
+						range: '4.17.15',
+						fixAvailable: { version: '4.17.21' },
 					},
-					"express": {
-						severity: "high",
-						range: "4.0.0",
-						fixAvailable: true
+					express: {
+						severity: 'high',
+						range: '4.0.0',
+						fixAvailable: true,
 					},
-					"moment": {
-						severity: "moderate",
-						range: "2.29.0",
-						fixAvailable: { version: "2.29.4" }
-					}
-				}
+					moment: {
+						severity: 'moderate',
+						range: '2.29.0',
+						fixAvailable: { version: '2.29.4' },
+					},
+				},
 			});
 
-			const result = await pkg_audit.execute({ ecosystem: 'npm' }, getMockContext());
+			const result = await pkg_audit.execute(
+				{ ecosystem: 'npm' },
+				getMockContext(),
+			);
 			const parsed = JSON.parse(result);
 
 			expect(parsed.criticalCount).toBe(1);
@@ -639,55 +741,82 @@ describe('pkg-audit tool', () => {
 			mockExitCode = 0;
 			mockStdout = '';
 
-			const result = await pkg_audit.execute({ ecosystem: 'auto' }, getMockContext());
+			const result = await pkg_audit.execute(
+				{ ecosystem: 'auto' },
+				getMockContext(),
+			);
 			const parsed = JSON.parse(result);
 
 			expect(parsed.ecosystems).toContain('go');
 		});
 
 		it('should auto-detect dotnet from .csproj presence', async () => {
-			fs.writeFileSync(path.join(tempDir, 'TestProject.csproj'), '<Project></Project>');
+			fs.writeFileSync(
+				path.join(tempDir, 'TestProject.csproj'),
+				'<Project></Project>',
+			);
 
 			mockExitCode = 0;
 			mockStdout = '';
 
-			const result = await pkg_audit.execute({ ecosystem: 'auto' }, getMockContext());
+			const result = await pkg_audit.execute(
+				{ ecosystem: 'auto' },
+				getMockContext(),
+			);
 			const parsed = JSON.parse(result);
 
 			expect(parsed.ecosystems).toContain('dotnet');
 		});
 
 		it('should auto-detect dotnet from .sln presence', async () => {
-			fs.writeFileSync(path.join(tempDir, 'TestSolution.sln'), 'Solution file content');
+			fs.writeFileSync(
+				path.join(tempDir, 'TestSolution.sln'),
+				'Solution file content',
+			);
 
 			mockExitCode = 0;
 			mockStdout = '';
 
-			const result = await pkg_audit.execute({ ecosystem: 'auto' }, getMockContext());
+			const result = await pkg_audit.execute(
+				{ ecosystem: 'auto' },
+				getMockContext(),
+			);
 			const parsed = JSON.parse(result);
 
 			expect(parsed.ecosystems).toContain('dotnet');
 		});
 
 		it('should auto-detect ruby from Gemfile presence', async () => {
-			fs.writeFileSync(path.join(tempDir, 'Gemfile'), 'source "https://rubygems.org"');
+			fs.writeFileSync(
+				path.join(tempDir, 'Gemfile'),
+				'source "https://rubygems.org"',
+			);
 
 			mockExitCode = 0;
 			mockStdout = '';
 
-			const result = await pkg_audit.execute({ ecosystem: 'auto' }, getMockContext());
+			const result = await pkg_audit.execute(
+				{ ecosystem: 'auto' },
+				getMockContext(),
+			);
 			const parsed = JSON.parse(result);
 
 			expect(parsed.ecosystems).toContain('ruby');
 		});
 
 		it('should auto-detect ruby from Gemfile.lock presence', async () => {
-			fs.writeFileSync(path.join(tempDir, 'Gemfile.lock'), 'GEM\n  remote: https://rubygems.org/');
+			fs.writeFileSync(
+				path.join(tempDir, 'Gemfile.lock'),
+				'GEM\n  remote: https://rubygems.org/',
+			);
 
 			mockExitCode = 0;
 			mockStdout = '';
 
-			const result = await pkg_audit.execute({ ecosystem: 'auto' }, getMockContext());
+			const result = await pkg_audit.execute(
+				{ ecosystem: 'auto' },
+				getMockContext(),
+			);
 			const parsed = JSON.parse(result);
 
 			expect(parsed.ecosystems).toContain('ruby');
@@ -699,7 +828,10 @@ describe('pkg-audit tool', () => {
 			mockExitCode = 0;
 			mockStdout = '';
 
-			const result = await pkg_audit.execute({ ecosystem: 'auto' }, getMockContext());
+			const result = await pkg_audit.execute(
+				{ ecosystem: 'auto' },
+				getMockContext(),
+			);
 			const parsed = JSON.parse(result);
 
 			expect(parsed.ecosystems).toContain('dart');
@@ -707,14 +839,23 @@ describe('pkg-audit tool', () => {
 
 		it('should detect multiple new ecosystems together', async () => {
 			fs.writeFileSync(path.join(tempDir, 'go.mod'), 'module test');
-			fs.writeFileSync(path.join(tempDir, 'TestProject.csproj'), '<Project></Project>');
-			fs.writeFileSync(path.join(tempDir, 'Gemfile'), 'source "https://rubygems.org"');
+			fs.writeFileSync(
+				path.join(tempDir, 'TestProject.csproj'),
+				'<Project></Project>',
+			);
+			fs.writeFileSync(
+				path.join(tempDir, 'Gemfile'),
+				'source "https://rubygems.org"',
+			);
 			fs.writeFileSync(path.join(tempDir, 'pubspec.yaml'), 'name: test');
 
 			mockExitCode = 0;
 			mockStdout = '';
 
-			const result = await pkg_audit.execute({ ecosystem: 'auto' }, getMockContext());
+			const result = await pkg_audit.execute(
+				{ ecosystem: 'auto' },
+				getMockContext(),
+			);
 			const parsed = JSON.parse(result);
 
 			expect(parsed.ecosystems).toContain('go');
@@ -729,7 +870,10 @@ describe('pkg-audit tool', () => {
 		it('should return clean with note when govulncheck not on PATH', async () => {
 			mockSpawnError = new Error("'govulncheck' is not recognized");
 
-			const result = await pkg_audit.execute({ ecosystem: 'go' }, getMockContext());
+			const result = await pkg_audit.execute(
+				{ ecosystem: 'go' },
+				getMockContext(),
+			);
 			const parsed = JSON.parse(result);
 
 			expect(parsed.clean).toBe(true);
@@ -739,24 +883,33 @@ describe('pkg-audit tool', () => {
 		it('should parse govulncheck JSON Lines output correctly with exit code 3', async () => {
 			mockExitCode = 3; // vulns found
 			// govulncheck outputs multiple JSON objects, one per line
-			mockStdout = JSON.stringify({
-				osv: {
-					id: 'GO-2021-0053',
-					summary: 'Unbounded memory consumption in gzip',
-					aliases: ['CVE-2021-33196']
-				}
-			}) + '\n' + JSON.stringify({
-				finding: {
-					osv: 'GO-2021-0053',
-					trace: [{
-						module: 'compress/gzip',
-						version: 'v1.0.0'
-					}],
-					fixed_by: 'v1.0.1'
-				}
-			}) + '\n';
+			mockStdout =
+				JSON.stringify({
+					osv: {
+						id: 'GO-2021-0053',
+						summary: 'Unbounded memory consumption in gzip',
+						aliases: ['CVE-2021-33196'],
+					},
+				}) +
+				'\n' +
+				JSON.stringify({
+					finding: {
+						osv: 'GO-2021-0053',
+						trace: [
+							{
+								module: 'compress/gzip',
+								version: 'v1.0.0',
+							},
+						],
+						fixed_by: 'v1.0.1',
+					},
+				}) +
+				'\n';
 
-			const result = await pkg_audit.execute({ ecosystem: 'go' }, getMockContext());
+			const result = await pkg_audit.execute(
+				{ ecosystem: 'go' },
+				getMockContext(),
+			);
 			const parsed = JSON.parse(result);
 
 			// Skip assertions if govulncheck is not installed
@@ -774,21 +927,28 @@ describe('pkg-audit tool', () => {
 
 		it('should extract CVE alias and map to high severity', async () => {
 			mockExitCode = 3;
-			mockStdout = JSON.stringify({
-				osv: {
-					id: 'GO-2021-0053',
-					summary: 'Unbounded memory consumption in gzip',
-					aliases: ['CVE-2021-33196', 'GHSA-xxxxx']
-				}
-			}) + '\n' + JSON.stringify({
-				finding: {
-					osv: 'GO-2021-0053',
-					trace: [{ module: 'test', version: '1.0.0' }],
-					fixed_by: null
-				}
-			}) + '\n';
+			mockStdout =
+				JSON.stringify({
+					osv: {
+						id: 'GO-2021-0053',
+						summary: 'Unbounded memory consumption in gzip',
+						aliases: ['CVE-2021-33196', 'GHSA-xxxxx'],
+					},
+				}) +
+				'\n' +
+				JSON.stringify({
+					finding: {
+						osv: 'GO-2021-0053',
+						trace: [{ module: 'test', version: '1.0.0' }],
+						fixed_by: null,
+					},
+				}) +
+				'\n';
 
-			const result = await pkg_audit.execute({ ecosystem: 'go' }, getMockContext());
+			const result = await pkg_audit.execute(
+				{ ecosystem: 'go' },
+				getMockContext(),
+			);
 			const parsed = JSON.parse(result);
 
 			if (parsed.note?.includes('not installed')) return;
@@ -799,21 +959,28 @@ describe('pkg-audit tool', () => {
 
 		it('should map to moderate severity when no CVE alias', async () => {
 			mockExitCode = 3;
-			mockStdout = JSON.stringify({
-				osv: {
-					id: 'GO-2021-0053',
-					summary: 'Unbounded memory consumption',
-					aliases: [] // no CVE alias
-				}
-			}) + '\n' + JSON.stringify({
-				finding: {
-					osv: 'GO-2021-0053',
-					trace: [{ module: 'test', version: '1.0.0' }],
-					fixed_by: null
-				}
-			}) + '\n';
+			mockStdout =
+				JSON.stringify({
+					osv: {
+						id: 'GO-2021-0053',
+						summary: 'Unbounded memory consumption',
+						aliases: [], // no CVE alias
+					},
+				}) +
+				'\n' +
+				JSON.stringify({
+					finding: {
+						osv: 'GO-2021-0053',
+						trace: [{ module: 'test', version: '1.0.0' }],
+						fixed_by: null,
+					},
+				}) +
+				'\n';
 
-			const result = await pkg_audit.execute({ ecosystem: 'go' }, getMockContext());
+			const result = await pkg_audit.execute(
+				{ ecosystem: 'go' },
+				getMockContext(),
+			);
 			const parsed = JSON.parse(result);
 
 			if (parsed.note?.includes('not installed')) return;
@@ -826,7 +993,10 @@ describe('pkg-audit tool', () => {
 			mockExitCode = 0;
 			mockStdout = '';
 
-			const result = await pkg_audit.execute({ ecosystem: 'go' }, getMockContext());
+			const result = await pkg_audit.execute(
+				{ ecosystem: 'go' },
+				getMockContext(),
+			);
 			const parsed = JSON.parse(result);
 
 			if (parsed.note?.includes('not installed')) return;
@@ -839,7 +1009,10 @@ describe('pkg-audit tool', () => {
 			mockExitCode = 2; // not 0 or 3
 			mockStdout = '';
 
-			const result = await pkg_audit.execute({ ecosystem: 'go' }, getMockContext());
+			const result = await pkg_audit.execute(
+				{ ecosystem: 'go' },
+				getMockContext(),
+			);
 			const parsed = JSON.parse(result);
 
 			if (parsed.note?.includes('not installed')) return;
@@ -854,7 +1027,10 @@ describe('pkg-audit tool', () => {
 			mockExitCode = 0;
 			mockStdout = '';
 
-			const result = await pkg_audit.execute({ ecosystem: 'go' }, getMockContext());
+			const result = await pkg_audit.execute(
+				{ ecosystem: 'go' },
+				getMockContext(),
+			);
 			const parsed = JSON.parse(result);
 
 			expect(parsed).toBeDefined();
@@ -862,17 +1038,30 @@ describe('pkg-audit tool', () => {
 
 		it('should skip malformed JSON lines gracefully', async () => {
 			mockExitCode = 3;
-			mockStdout = JSON.stringify({
-				osv: { id: 'GO-2021-0053', summary: 'Test', aliases: ['CVE-2021-33196'] }
-			}) + '\n' + 'not valid json' + '\n' + JSON.stringify({
-				finding: {
-					osv: 'GO-2021-0053',
-					trace: [{ module: 'test', version: '1.0.0' }],
-					fixed_by: null
-				}
-			}) + '\n';
+			mockStdout =
+				JSON.stringify({
+					osv: {
+						id: 'GO-2021-0053',
+						summary: 'Test',
+						aliases: ['CVE-2021-33196'],
+					},
+				}) +
+				'\n' +
+				'not valid json' +
+				'\n' +
+				JSON.stringify({
+					finding: {
+						osv: 'GO-2021-0053',
+						trace: [{ module: 'test', version: '1.0.0' }],
+						fixed_by: null,
+					},
+				}) +
+				'\n';
 
-			const result = await pkg_audit.execute({ ecosystem: 'go' }, getMockContext());
+			const result = await pkg_audit.execute(
+				{ ecosystem: 'go' },
+				getMockContext(),
+			);
 			const parsed = JSON.parse(result);
 
 			if (parsed.note?.includes('not installed')) return;
@@ -887,7 +1076,10 @@ describe('pkg-audit tool', () => {
 		it('should return clean with note when dotnet not on PATH', async () => {
 			mockSpawnError = new Error("'dotnet' is not recognized");
 
-			const result = await pkg_audit.execute({ ecosystem: 'dotnet' }, getMockContext());
+			const result = await pkg_audit.execute(
+				{ ecosystem: 'dotnet' },
+				getMockContext(),
+			);
 			const parsed = JSON.parse(result);
 
 			expect(parsed.clean).toBe(true);
@@ -906,7 +1098,10 @@ Project > TestProject
 Project has the following vulnerable packages
 `;
 
-			const result = await pkg_audit.execute({ ecosystem: 'dotnet' }, getMockContext());
+			const result = await pkg_audit.execute(
+				{ ecosystem: 'dotnet' },
+				getMockContext(),
+			);
 			const parsed = JSON.parse(result);
 
 			if (parsed.note?.includes('not installed')) return;
@@ -915,7 +1110,9 @@ Project has the following vulnerable packages
 			expect(parsed.findings.length).toBe(1);
 			expect(parsed.findings[0].package).toBe('Newtonsoft.Json');
 			expect(parsed.findings[0].severity).toBe('critical');
-			expect(parsed.findings[0].url).toBe('https://nvd.nist.gov/vuln/detail/CVE-2021-31120');
+			expect(parsed.findings[0].url).toBe(
+				'https://nvd.nist.gov/vuln/detail/CVE-2021-31120',
+			);
 		});
 
 		it('should parse text output regex for High vulnerabilities', async () => {
@@ -926,7 +1123,10 @@ Project has the following vulnerable packages
 Project has the following vulnerable packages
 `;
 
-			const result = await pkg_audit.execute({ ecosystem: 'dotnet' }, getMockContext());
+			const result = await pkg_audit.execute(
+				{ ecosystem: 'dotnet' },
+				getMockContext(),
+			);
 			const parsed = JSON.parse(result);
 
 			if (parsed.note?.includes('not installed')) return;
@@ -942,7 +1142,10 @@ Project has the following vulnerable packages
 Project has the following vulnerable packages
 `;
 
-			const result = await pkg_audit.execute({ ecosystem: 'dotnet' }, getMockContext());
+			const result = await pkg_audit.execute(
+				{ ecosystem: 'dotnet' },
+				getMockContext(),
+			);
 			const parsed = JSON.parse(result);
 
 			if (parsed.note?.includes('not installed')) return;
@@ -958,7 +1161,10 @@ Project has the following vulnerable packages
 Project has the following vulnerable packages
 `;
 
-			const result = await pkg_audit.execute({ ecosystem: 'dotnet' }, getMockContext());
+			const result = await pkg_audit.execute(
+				{ ecosystem: 'dotnet' },
+				getMockContext(),
+			);
 			const parsed = JSON.parse(result);
 
 			if (parsed.note?.includes('not installed')) return;
@@ -970,7 +1176,10 @@ Project has the following vulnerable packages
 			mockExitCode = 1;
 			mockStdout = 'Some other error message';
 
-			const result = await pkg_audit.execute({ ecosystem: 'dotnet' }, getMockContext());
+			const result = await pkg_audit.execute(
+				{ ecosystem: 'dotnet' },
+				getMockContext(),
+			);
 			const parsed = JSON.parse(result);
 
 			if (parsed.note?.includes('not installed')) return;
@@ -987,7 +1196,10 @@ Project has the following vulnerable packages
 Project has the following vulnerable packages
 `;
 
-			const result = await pkg_audit.execute({ ecosystem: 'dotnet' }, getMockContext());
+			const result = await pkg_audit.execute(
+				{ ecosystem: 'dotnet' },
+				getMockContext(),
+			);
 			const parsed = JSON.parse(result);
 
 			if (parsed.note?.includes('not installed')) return;
@@ -1000,7 +1212,10 @@ Project has the following vulnerable packages
 			mockExitCode = 0;
 			mockStdout = '';
 
-			const result = await pkg_audit.execute({ ecosystem: 'dotnet' }, getMockContext());
+			const result = await pkg_audit.execute(
+				{ ecosystem: 'dotnet' },
+				getMockContext(),
+			);
 			const parsed = JSON.parse(result);
 
 			expect(parsed).toBeDefined();
@@ -1010,7 +1225,10 @@ Project has the following vulnerable packages
 			mockExitCode = 0;
 			mockStdout = '';
 
-			const result = await pkg_audit.execute({ ecosystem: 'dotnet' }, getMockContext());
+			const result = await pkg_audit.execute(
+				{ ecosystem: 'dotnet' },
+				getMockContext(),
+			);
 			const parsed = JSON.parse(result);
 
 			if (parsed.note?.includes('not installed')) return;
@@ -1024,7 +1242,10 @@ Project has the following vulnerable packages
 		it('should return clean with note when neither bundle-audit nor bundle on PATH', async () => {
 			mockSpawnError = new Error("'bundle-audit' is not recognized");
 
-			const result = await pkg_audit.execute({ ecosystem: 'ruby' }, getMockContext());
+			const result = await pkg_audit.execute(
+				{ ecosystem: 'ruby' },
+				getMockContext(),
+			);
 			const parsed = JSON.parse(result);
 
 			expect(parsed.clean).toBe(true);
@@ -1035,7 +1256,10 @@ Project has the following vulnerable packages
 			mockExitCode = 0;
 			mockStdout = '{}';
 
-			const result = await pkg_audit.execute({ ecosystem: 'ruby' }, getMockContext());
+			const result = await pkg_audit.execute(
+				{ ecosystem: 'ruby' },
+				getMockContext(),
+			);
 			const parsed = JSON.parse(result);
 
 			if (parsed.note?.includes('not installed')) return;
@@ -1058,14 +1282,17 @@ Project has the following vulnerable packages
 							title: 'Possible XSS vulnerability in Rack',
 							cvss_v3: 7.5,
 							patched_versions: ['~> 1.6.4', '~> 1.5.5', '>= 2.0.1'],
-							criticality: 'High'
-						}
-					}
+							criticality: 'High',
+						},
+					},
 				],
-				ignored: []
+				ignored: [],
 			});
 
-			const result = await pkg_audit.execute({ ecosystem: 'ruby' }, getMockContext());
+			const result = await pkg_audit.execute(
+				{ ecosystem: 'ruby' },
+				getMockContext(),
+			);
 			const parsed = JSON.parse(result);
 
 			if (parsed.note?.includes('not installed')) return;
@@ -1080,7 +1307,10 @@ Project has the following vulnerable packages
 			mockExitCode = 2;
 			mockStdout = 'Error occurred';
 
-			const result = await pkg_audit.execute({ ecosystem: 'ruby' }, getMockContext());
+			const result = await pkg_audit.execute(
+				{ ecosystem: 'ruby' },
+				getMockContext(),
+			);
 			const parsed = JSON.parse(result);
 
 			if (parsed.note?.includes('not installed')) return;
@@ -1101,14 +1331,17 @@ Project has the following vulnerable packages
 							url: 'https://example.com',
 							title: 'Test vuln',
 							patched_versions: ['2.0.0'],
-							criticality: 'Critical'
-						}
-					}
+							criticality: 'Critical',
+						},
+					},
 				],
-				ignored: []
+				ignored: [],
 			});
 
-			const result = await pkg_audit.execute({ ecosystem: 'ruby' }, getMockContext());
+			const result = await pkg_audit.execute(
+				{ ecosystem: 'ruby' },
+				getMockContext(),
+			);
 			const parsed = JSON.parse(result);
 
 			if (parsed.note?.includes('not installed')) return;
@@ -1128,14 +1361,17 @@ Project has the following vulnerable packages
 							url: 'https://example.com',
 							title: 'Test vuln',
 							patched_versions: ['2.0.0'],
-							criticality: 'High'
-						}
-					}
+							criticality: 'High',
+						},
+					},
 				],
-				ignored: []
+				ignored: [],
 			});
 
-			const result = await pkg_audit.execute({ ecosystem: 'ruby' }, getMockContext());
+			const result = await pkg_audit.execute(
+				{ ecosystem: 'ruby' },
+				getMockContext(),
+			);
 			const parsed = JSON.parse(result);
 
 			if (parsed.note?.includes('not installed')) return;
@@ -1155,14 +1391,17 @@ Project has the following vulnerable packages
 							url: 'https://example.com',
 							title: 'Test vuln',
 							patched_versions: ['2.0.0'],
-							criticality: 'Medium'
-						}
-					}
+							criticality: 'Medium',
+						},
+					},
 				],
-				ignored: []
+				ignored: [],
 			});
 
-			const result = await pkg_audit.execute({ ecosystem: 'ruby' }, getMockContext());
+			const result = await pkg_audit.execute(
+				{ ecosystem: 'ruby' },
+				getMockContext(),
+			);
 			const parsed = JSON.parse(result);
 
 			if (parsed.note?.includes('not installed')) return;
@@ -1182,14 +1421,17 @@ Project has the following vulnerable packages
 							url: 'https://example.com',
 							title: 'Test vuln',
 							patched_versions: ['2.0.0'],
-							criticality: 'Low'
-						}
-					}
+							criticality: 'Low',
+						},
+					},
 				],
-				ignored: []
+				ignored: [],
 			});
 
-			const result = await pkg_audit.execute({ ecosystem: 'ruby' }, getMockContext());
+			const result = await pkg_audit.execute(
+				{ ecosystem: 'ruby' },
+				getMockContext(),
+			);
 			const parsed = JSON.parse(result);
 
 			if (parsed.note?.includes('not installed')) return;
@@ -1209,15 +1451,18 @@ Project has the following vulnerable packages
 							url: 'https://example.com',
 							title: 'Test vuln',
 							cvss_v3: 9.5,
-							patched_versions: ['2.0.0']
+							patched_versions: ['2.0.0'],
 							// no criticality field
-						}
-					}
+						},
+					},
 				],
-				ignored: []
+				ignored: [],
 			});
 
-			const result = await pkg_audit.execute({ ecosystem: 'ruby' }, getMockContext());
+			const result = await pkg_audit.execute(
+				{ ecosystem: 'ruby' },
+				getMockContext(),
+			);
 			const parsed = JSON.parse(result);
 
 			if (parsed.note?.includes('not installed')) return;
@@ -1236,14 +1481,17 @@ Project has the following vulnerable packages
 							id: 'TEST-001',
 							url: 'https://example.com',
 							title: 'Test vuln',
-							patched_versions: ['~> 2.0.0', '>= 3.0.0']
-						}
-					}
+							patched_versions: ['~> 2.0.0', '>= 3.0.0'],
+						},
+					},
 				],
-				ignored: []
+				ignored: [],
 			});
 
-			const result = await pkg_audit.execute({ ecosystem: 'ruby' }, getMockContext());
+			const result = await pkg_audit.execute(
+				{ ecosystem: 'ruby' },
+				getMockContext(),
+			);
 			const parsed = JSON.parse(result);
 
 			if (parsed.note?.includes('not installed')) return;
@@ -1255,7 +1503,10 @@ Project has the following vulnerable packages
 			mockExitCode = 1;
 			mockStdout = 'not valid json';
 
-			const result = await pkg_audit.execute({ ecosystem: 'ruby' }, getMockContext());
+			const result = await pkg_audit.execute(
+				{ ecosystem: 'ruby' },
+				getMockContext(),
+			);
 			const parsed = JSON.parse(result);
 
 			if (parsed.note?.includes('not installed')) return;
@@ -1270,7 +1521,10 @@ Project has the following vulnerable packages
 		it('should return clean with note when neither dart nor flutter on PATH', async () => {
 			mockSpawnError = new Error("'dart' is not recognized");
 
-			const result = await pkg_audit.execute({ ecosystem: 'dart' }, getMockContext());
+			const result = await pkg_audit.execute(
+				{ ecosystem: 'dart' },
+				getMockContext(),
+			);
 			const parsed = JSON.parse(result);
 
 			expect(parsed.clean).toBe(true);
@@ -1281,7 +1535,10 @@ Project has the following vulnerable packages
 			mockExitCode = 1;
 			mockStdout = '';
 
-			const result = await pkg_audit.execute({ ecosystem: 'dart' }, getMockContext());
+			const result = await pkg_audit.execute(
+				{ ecosystem: 'dart' },
+				getMockContext(),
+			);
 			const parsed = JSON.parse(result);
 
 			if (parsed.note?.includes('not installed')) return;
@@ -1298,12 +1555,15 @@ Project has the following vulnerable packages
 						package: 'up-to-date-pkg',
 						current: { version: '1.0.0' },
 						latest: { version: '1.0.0' },
-						upgradable: { version: '1.0.0' }
-					}
-				]
+						upgradable: { version: '1.0.0' },
+					},
+				],
 			});
 
-			const result = await pkg_audit.execute({ ecosystem: 'dart' }, getMockContext());
+			const result = await pkg_audit.execute(
+				{ ecosystem: 'dart' },
+				getMockContext(),
+			);
 			const parsed = JSON.parse(result);
 
 			if (parsed.note?.includes('not installed')) return;
@@ -1319,12 +1579,15 @@ Project has the following vulnerable packages
 						package: 'outdated-pkg',
 						current: { version: '1.0.0' },
 						latest: { version: '2.0.0' },
-						upgradable: { version: '1.5.0' }
-					}
-				]
+						upgradable: { version: '1.5.0' },
+					},
+				],
 			});
 
-			const result = await pkg_audit.execute({ ecosystem: 'dart' }, getMockContext());
+			const result = await pkg_audit.execute(
+				{ ecosystem: 'dart' },
+				getMockContext(),
+			);
 			const parsed = JSON.parse(result);
 
 			if (parsed.note?.includes('not installed')) return;
@@ -1342,12 +1605,15 @@ Project has the following vulnerable packages
 						package: 'test-pkg',
 						current: { version: '1.0.0' },
 						latest: { version: '2.0.0' },
-						upgradable: { version: '1.5.0' }
-					}
-				]
+						upgradable: { version: '1.5.0' },
+					},
+				],
 			});
 
-			const result = await pkg_audit.execute({ ecosystem: 'dart' }, getMockContext());
+			const result = await pkg_audit.execute(
+				{ ecosystem: 'dart' },
+				getMockContext(),
+			);
 			const parsed = JSON.parse(result);
 
 			if (parsed.note?.includes('not installed')) return;
@@ -1363,12 +1629,15 @@ Project has the following vulnerable packages
 						package: 'test-pkg',
 						current: { version: '1.0.0' },
 						latest: { version: '2.0.0' },
-						upgradable: { version: '1.5.0' }
-					}
-				]
+						upgradable: { version: '1.5.0' },
+					},
+				],
 			});
 
-			const result = await pkg_audit.execute({ ecosystem: 'dart' }, getMockContext());
+			const result = await pkg_audit.execute(
+				{ ecosystem: 'dart' },
+				getMockContext(),
+			);
 			const parsed = JSON.parse(result);
 
 			if (parsed.note?.includes('not installed')) return;
@@ -1384,12 +1653,15 @@ Project has the following vulnerable packages
 						package: 'test-pkg',
 						current: { version: '1.0.0' },
 						latest: { version: '2.0.0' },
-						upgradable: { version: '1.5.0' }
-					}
-				]
+						upgradable: { version: '1.5.0' },
+					},
+				],
 			});
 
-			const result = await pkg_audit.execute({ ecosystem: 'dart' }, getMockContext());
+			const result = await pkg_audit.execute(
+				{ ecosystem: 'dart' },
+				getMockContext(),
+			);
 			const parsed = JSON.parse(result);
 
 			if (parsed.note?.includes('not installed')) return;
@@ -1401,7 +1673,10 @@ Project has the following vulnerable packages
 			mockExitCode = 0;
 			mockStdout = 'not valid json';
 
-			const result = await pkg_audit.execute({ ecosystem: 'dart' }, getMockContext());
+			const result = await pkg_audit.execute(
+				{ ecosystem: 'dart' },
+				getMockContext(),
+			);
 			const parsed = JSON.parse(result);
 
 			if (parsed.note?.includes('not installed')) return;

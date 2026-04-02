@@ -7,7 +7,7 @@
  * - Leakage of unintended data in the summary payload
  */
 
-import { describe, it, expect, vi, beforeEach } from 'vitest';
+import { beforeEach, describe, expect, it, vi } from 'vitest';
 
 // Mock curator module
 const mockReadCuratorSummary = vi.fn();
@@ -20,9 +20,15 @@ vi.mock('../../../src/hooks/curator.js', () => ({
 
 // Mock knowledge-store module
 vi.mock('../../../src/hooks/knowledge-store.js', () => ({
-	resolveHiveKnowledgePath: vi.fn().mockReturnValue('/hive/shared-learnings.jsonl'),
-	resolveHiveRejectedPath: vi.fn().mockReturnValue('/hive/shared-learnings-rejected.jsonl'),
-	resolveSwarmKnowledgePath: vi.fn().mockReturnValue('/swarm/.swarm/knowledge.jsonl'),
+	resolveHiveKnowledgePath: vi
+		.fn()
+		.mockReturnValue('/hive/shared-learnings.jsonl'),
+	resolveHiveRejectedPath: vi
+		.fn()
+		.mockReturnValue('/hive/shared-learnings-rejected.jsonl'),
+	resolveSwarmKnowledgePath: vi
+		.fn()
+		.mockReturnValue('/swarm/.swarm/knowledge.jsonl'),
 	readKnowledge: vi.fn().mockResolvedValue([]),
 	appendKnowledge: vi.fn().mockResolvedValue(undefined),
 	rewriteKnowledge: vi.fn().mockResolvedValue(undefined),
@@ -138,7 +144,7 @@ describe('Task 3.4: curator-summary feedback integration adversarial tests', () 
 			// The bug: string gets spread into array characters!
 			expect(mockWriteCuratorSummary).toHaveBeenCalled();
 			const writtenSummary = mockWriteCuratorSummary.mock.calls[0][1];
-			
+
 			// knowledge_recommendations will contain string characters as array elements
 			// e.g., ['c', 'o', 'r', 'r', 'u', 'p', 't', 'e', 'd', ' ', 'd', 'a', 't', 'a', {...recommendation}]
 			const recs = writtenSummary.knowledge_recommendations;
@@ -164,7 +170,7 @@ describe('Task 3.4: curator-summary feedback integration adversarial tests', () 
 
 			// This might not crash but could cause issues downstream
 			await hook({}, {});
-			
+
 			// The hook uses safeHook which suppresses errors, so let's check write wasn't called with bad data
 			// Note: This test documents the vulnerability
 		});
@@ -201,7 +207,7 @@ describe('Task 3.4: curator-summary feedback integration adversarial tests', () 
 			});
 
 			const hook = createHivePromoterHook('/test-project', mockConfig);
-			
+
 			// Should not crash
 			await hook({}, {});
 
@@ -245,7 +251,7 @@ describe('Task 3.4: curator-summary feedback integration adversarial tests', () 
 
 			expect(mockWriteCuratorSummary).toHaveBeenCalled();
 			const writtenSummary = mockWriteCuratorSummary.mock.calls[0][1];
-			
+
 			// Check the recommendation doesn't contain file paths
 			const rec = writtenSummary.knowledge_recommendations[0];
 			expect(rec.lesson).not.toContain('/test-project');
@@ -273,7 +279,7 @@ describe('Task 3.4: curator-summary feedback integration adversarial tests', () 
 
 			expect(mockWriteCuratorSummary).toHaveBeenCalled();
 			const writtenSummary = mockWriteCuratorSummary.mock.calls[0][1];
-			
+
 			const rec = writtenSummary.knowledge_recommendations[0];
 			// The reason JSON should only contain promotion stats, not paths
 			expect(rec.reason).not.toContain('.ssh');
@@ -297,16 +303,16 @@ describe('Task 3.4: curator-summary feedback integration adversarial tests', () 
 
 			expect(mockWriteCuratorSummary).toHaveBeenCalled();
 			const writtenSummary = mockWriteCuratorSummary.mock.calls[0][1];
-			
+
 			const rec = writtenSummary.knowledge_recommendations[0];
-			
+
 			// Lesson should only contain these words (aggregate counts)
 			expect(rec.lesson).toMatch(/Hive promotion:/);
 			expect(rec.lesson).toMatch(/new/);
 			expect(rec.lesson).toMatch(/encounters/);
 			expect(rec.lesson).toMatch(/advancements/);
 			expect(rec.lesson).toMatch(/total entries/);
-			
+
 			// Should NOT contain individual lesson content
 			expect(rec.lesson).not.toContain('lesson:');
 			expect(rec.lesson).not.toContain('Test lesson');
@@ -333,9 +339,9 @@ describe('Task 3.4: curator-summary feedback integration adversarial tests', () 
 
 			expect(mockWriteCuratorSummary).toHaveBeenCalled();
 			const writtenSummary = mockWriteCuratorSummary.mock.calls[0][1];
-			
+
 			const rec = writtenSummary.knowledge_recommendations[0];
-			
+
 			// Reason should be valid JSON
 			const parsedReason = JSON.parse(rec.reason);
 			expect(parsedReason).toHaveProperty('new_promotions');
@@ -363,12 +369,12 @@ describe('Task 3.4: curator-summary feedback integration adversarial tests', () 
 
 			expect(mockWriteCuratorSummary).toHaveBeenCalled();
 			const writtenSummary = mockWriteCuratorSummary.mock.calls[0][1];
-			
+
 			const rec = writtenSummary.knowledge_recommendations[0];
-			
+
 			// Reason should be valid parseable JSON
 			expect(() => JSON.parse(rec.reason)).not.toThrow();
-			
+
 			// The parsed result should have expected structure
 			const parsed = JSON.parse(rec.reason);
 			expect(typeof parsed.timestamp).toBe('string');
@@ -397,9 +403,9 @@ describe('Task 3.4: curator-summary feedback integration adversarial tests', () 
 
 			expect(mockWriteCuratorSummary).toHaveBeenCalled();
 			const writtenSummary = mockWriteCuratorSummary.mock.calls[0][1];
-			
+
 			const rec = writtenSummary.knowledge_recommendations[0];
-			
+
 			// Round-trip: parse and re-stringify should produce same result
 			const parsed = JSON.parse(rec.reason);
 			const reStringified = JSON.stringify(parsed);
@@ -421,10 +427,10 @@ describe('Task 3.4: curator-summary feedback integration adversarial tests', () 
 			});
 
 			const hook = createHivePromoterHook('/test-project', mockConfig);
-			
+
 			// Should not crash
 			await hook({}, {});
-			
+
 			expect(mockWriteCuratorSummary).toHaveBeenCalled();
 		});
 
@@ -441,9 +447,9 @@ describe('Task 3.4: curator-summary feedback integration adversarial tests', () 
 			});
 
 			const hook = createHivePromoterHook('/test-project', mockConfig);
-			
+
 			await hook({}, {});
-			
+
 			expect(mockWriteCuratorSummary).toHaveBeenCalled();
 		});
 	});

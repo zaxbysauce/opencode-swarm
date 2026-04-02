@@ -1,5 +1,8 @@
 import { describe, expect, it } from 'vitest';
-import { loadEvidence, type LoadEvidenceResult } from '../../../src/evidence/index.js';
+import {
+	type LoadEvidenceResult,
+	loadEvidence,
+} from '../../../src/evidence/index.js';
 
 describe('LoadEvidenceResult export', () => {
 	it('should be importable from the barrel path', () => {

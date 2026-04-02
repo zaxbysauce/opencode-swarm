@@ -24,7 +24,8 @@
  * 3. Tools execute successfully with provided contexts
  */
 
-import { describe, it, expect, vi, beforeEach } from 'vitest';
+import * as os from 'node:os';
+import { beforeEach, describe, expect, it, vi } from 'vitest';
 
 // ===== MOCK HELPER FUNCTIONS =====
 // Mock isCommandAvailable
@@ -63,19 +64,19 @@ vi.mock('../../../src/sast/semgrep', () => ({
 	resetSemgrepCache: vi.fn(),
 }));
 
-// ===== IMPORT ALL 12 TOOLS =====
-import { test_runner } from '../../../src/tools/test-runner';
-import { lint } from '../../../src/tools/lint';
-import { pkg_audit } from '../../../src/tools/pkg-audit';
-import { save_plan } from '../../../src/tools/save-plan';
-import { todo_extract } from '../../../src/tools/todo-extract';
-import { schema_drift } from '../../../src/tools/schema-drift';
-import { sbom_generate } from '../../../src/tools/sbom-generate';
-import { evidence_check } from '../../../src/tools/evidence-check';
-import { pre_check_batch } from '../../../src/tools/pre-check-batch';
 import { build_check } from '../../../src/tools/build-check';
 import { complexity_hotspots } from '../../../src/tools/complexity-hotspots';
+import { evidence_check } from '../../../src/tools/evidence-check';
 import { extract_code_blocks } from '../../../src/tools/file-extractor';
+import { lint } from '../../../src/tools/lint';
+import { pkg_audit } from '../../../src/tools/pkg-audit';
+import { pre_check_batch } from '../../../src/tools/pre-check-batch';
+import { save_plan } from '../../../src/tools/save-plan';
+import { sbom_generate } from '../../../src/tools/sbom-generate';
+import { schema_drift } from '../../../src/tools/schema-drift';
+// ===== IMPORT ALL 12 TOOLS =====
+import { test_runner } from '../../../src/tools/test-runner';
+import { todo_extract } from '../../../src/tools/todo-extract';
 
 describe('Batch tool migration: createSwarmTool integration verification', () => {
 	beforeEach(() => {
@@ -101,10 +102,9 @@ describe('Batch tool migration: createSwarmTool integration verification', () =>
 	// ===== TEST-RUNNER =====
 	describe('test-runner tool', () => {
 		it('executes successfully with provided directory context', async () => {
-			const result = await test_runner.execute(
-				{ scope: 'all' },
-				{ directory: '/test/project' } as unknown as any,
-			);
+			const result = await test_runner.execute({ scope: 'all' }, {
+				directory: '/test/project',
+			} as unknown as any);
 
 			// Should return valid JSON
 			const parsed = JSON.parse(result);
@@ -129,17 +129,19 @@ describe('Batch tool migration: createSwarmTool integration verification', () =>
 	// ===== LINT =====
 	describe('lint tool', () => {
 		it('executes successfully with provided directory context', async () => {
-			const result = await lint.execute(
-				{ mode: 'check' },
-				{ directory: '/test/lint' } as unknown as any,
-			);
+			const result = await lint.execute({ mode: 'check' }, {
+				directory: '/test/lint',
+			} as unknown as any);
 
 			const parsed = JSON.parse(result);
 			expect(parsed).toHaveProperty('success');
 		});
 
 		it('executes successfully without context (uses cwd)', async () => {
-			const result = await lint.execute({ mode: 'check' }, undefined as unknown as any);
+			const result = await lint.execute(
+				{ mode: 'check' },
+				undefined as unknown as any,
+			);
 
 			const parsed = JSON.parse(result);
 			expect(parsed).toHaveProperty('success');
@@ -149,17 +151,19 @@ describe('Batch tool migration: createSwarmTool integration verification', () =>
 	// ===== PKG-AUDIT =====
 	describe('pkg-audit tool', () => {
 		it('executes successfully with provided directory context', async () => {
-			const result = await pkg_audit.execute(
-				{ ecosystem: 'npm' },
-				{ directory: '/test/pkg-audit' } as unknown as any,
-			);
+			const result = await pkg_audit.execute({ ecosystem: 'npm' }, {
+				directory: '/test/pkg-audit',
+			} as unknown as any);
 
 			const parsed = JSON.parse(result);
 			expect(parsed).toHaveProperty('clean');
 		});
 
 		it('executes successfully without context (uses cwd)', async () => {
-			const result = await pkg_audit.execute({ ecosystem: 'npm' }, undefined as unknown as any);
+			const result = await pkg_audit.execute(
+				{ ecosystem: 'npm' },
+				undefined as unknown as any,
+			);
 
 			const parsed = JSON.parse(result);
 			expect(parsed).toHaveProperty('clean');
@@ -225,10 +229,9 @@ describe('Batch tool migration: createSwarmTool integration verification', () =>
 			// SKIPPED: todo-extract uses `import * as fs from 'node:fs'` (namespace import).
 			// The mock only intercepts the default export; named fs.statSync is the real
 			// function, which returns a Stats object that behaves unexpectedly on mock paths.
-			const result = await todo_extract.execute(
-				{},
-				{ directory: '/test/todo-extract' } as unknown as any,
-			);
+			const result = await todo_extract.execute({}, {
+				directory: '/test/todo-extract',
+			} as unknown as any);
 
 			const parsed = JSON.parse(result);
 			expect(parsed).toHaveProperty('total');
@@ -236,7 +239,10 @@ describe('Batch tool migration: createSwarmTool integration verification', () =>
 
 		it.skip('executes successfully without context (uses cwd)', async () => {
 			// SKIPPED: same reason as above
-			const result = await todo_extract.execute({}, undefined as unknown as any);
+			const result = await todo_extract.execute(
+				{},
+				undefined as unknown as any,
+			);
 
 			const parsed = JSON.parse(result);
 			expect(parsed).toHaveProperty('total');
@@ -246,17 +252,19 @@ describe('Batch tool migration: createSwarmTool integration verification', () =>
 	// ===== SCHEMA-DRIFT =====
 	describe('schema-drift tool', () => {
 		it('executes successfully with provided directory context', async () => {
-			const result = await schema_drift.execute(
-				{},
-				{ directory: '/test/schema-drift' } as unknown as any,
-			);
+			const result = await schema_drift.execute({}, {
+				directory: '/test/schema-drift',
+			} as unknown as any);
 
 			const parsed = JSON.parse(result);
 			expect(parsed).toHaveProperty('consistent');
 		});
 
 		it('executes successfully without context (uses cwd)', async () => {
-			const result = await schema_drift.execute({}, undefined as unknown as any);
+			const result = await schema_drift.execute(
+				{},
+				undefined as unknown as any,
+			);
 
 			const parsed = JSON.parse(result);
 			expect(parsed).toHaveProperty('consistent');
@@ -266,17 +274,19 @@ describe('Batch tool migration: createSwarmTool integration verification', () =>
 	// ===== SBOM-GENERATE =====
 	describe('sbom-generate tool', () => {
 		it('executes successfully with provided directory context', async () => {
-			const result = await sbom_generate.execute(
-				{ scope: 'all' },
-				{ directory: '/test/sbom-generate' } as unknown as any,
-			);
+			const result = await sbom_generate.execute({ scope: 'all' }, {
+				directory: '/test/sbom-generate',
+			} as unknown as any);
 
 			const parsed = JSON.parse(result);
 			expect(parsed).toHaveProperty('verdict');
 		});
 
 		it('executes successfully without context (uses cwd)', async () => {
-			const result = await sbom_generate.execute({ scope: 'all' }, undefined as unknown as any);
+			const result = await sbom_generate.execute(
+				{ scope: 'all' },
+				undefined as unknown as any,
+			);
 
 			const parsed = JSON.parse(result);
 			expect(parsed).toHaveProperty('verdict');
@@ -286,17 +296,19 @@ describe('Batch tool migration: createSwarmTool integration verification', () =>
 	// ===== EVIDENCE-CHECK =====
 	describe('evidence-check tool', () => {
 		it('executes successfully with provided directory context', async () => {
-			const result = await evidence_check.execute(
-				{},
-				{ directory: '/test/evidence-check' } as unknown as any,
-			);
+			const result = await evidence_check.execute({}, {
+				directory: '/test/evidence-check',
+			} as unknown as any);
 
 			const parsed = JSON.parse(result);
 			expect(parsed).toHaveProperty('completeness');
 		});
 
 		it('executes successfully without context (uses cwd)', async () => {
-			const result = await evidence_check.execute({}, undefined as unknown as any);
+			const result = await evidence_check.execute(
+				{},
+				undefined as unknown as any,
+			);
 
 			const parsed = JSON.parse(result);
 			expect(parsed).toHaveProperty('completeness');
@@ -330,10 +342,9 @@ describe('Batch tool migration: createSwarmTool integration verification', () =>
 	// ===== BUILD-CHECK =====
 	describe('build-check tool', () => {
 		it('executes successfully with provided directory context', async () => {
-			const result = await build_check.execute(
-				{ scope: 'all' },
-				{ directory: '/test/build-check' } as unknown as any,
-			);
+			const result = await build_check.execute({ scope: 'all' }, {
+				directory: '/test/build-check',
+			} as unknown as any);
 
 			const parsed = JSON.parse(result);
 			expect(parsed).toHaveProperty('verdict');
@@ -342,7 +353,10 @@ describe('Batch tool migration: createSwarmTool integration verification', () =>
 		it.skip('executes successfully without context (uses cwd)', async () => {
 			// SKIPPED: build-check with real cwd discovers and runs actual build commands,
 			// causing a timeout. Directory injection is verified by the context test above.
-			const result = await build_check.execute({ scope: 'all' }, undefined as unknown as any);
+			const result = await build_check.execute(
+				{ scope: 'all' },
+				undefined as unknown as any,
+			);
 
 			const parsed = JSON.parse(result);
 			expect(parsed).toHaveProperty('verdict');
@@ -352,17 +366,19 @@ describe('Batch tool migration: createSwarmTool integration verification', () =>
 	// ===== COMPLEXITY-HOTSPOTS =====
 	describe('complexity-hotspots tool', () => {
 		it('executes successfully with provided directory context', async () => {
-			const result = await complexity_hotspots.execute(
-				{},
-				{ directory: '/test/complexity-hotspots' } as unknown as any,
-			);
+			const result = await complexity_hotspots.execute({}, {
+				directory: '/test/complexity-hotspots',
+			} as unknown as any);
 
 			const parsed = JSON.parse(result);
 			expect(parsed).toHaveProperty('hotspots');
 		});
 
 		it('executes successfully without context (uses cwd)', async () => {
-			const result = await complexity_hotspots.execute({}, undefined as unknown as any);
+			const result = await complexity_hotspots.execute(
+				{},
+				undefined as unknown as any,
+			);
 
 			const parsed = JSON.parse(result);
 			expect(parsed).toHaveProperty('hotspots');
@@ -374,7 +390,9 @@ describe('Batch tool migration: createSwarmTool integration verification', () =>
 		it('executes successfully with provided directory context', async () => {
 			const result = await extract_code_blocks.execute(
 				{ content: '```js\ntest code\n```' },
-				{ directory: '/test/file-extractor' } as unknown as any,
+				// Use os.tmpdir() so the test works in CI environments where
+				// /test does not exist and cannot be created.
+				{ directory: os.tmpdir() } as unknown as any,
 			);
 
 			// file-extractor actually writes files, so check for success message
@@ -391,5 +409,4 @@ describe('Batch tool migration: createSwarmTool integration verification', () =>
 			expect(result).toContain('Extracted');
 		});
 	});
-
 });

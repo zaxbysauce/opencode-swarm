@@ -1,9 +1,9 @@
-import { describe, it, expect, beforeEach } from 'bun:test';
+import { beforeEach, describe, expect, it } from 'bun:test';
 import {
-	loadGrammar,
-	isGrammarAvailable,
 	clearParserCache,
 	getSupportedLanguages,
+	isGrammarAvailable,
+	loadGrammar,
 	parserCache,
 } from '../../../src/lang/runtime';
 
@@ -121,12 +121,16 @@ describe('runtime.ts - Security Verification Tests', () => {
 		});
 
 		it('isGrammarAvailable should return false for object', async () => {
-			const result = await isGrammarAvailable({ foo: 'bar' } as unknown as string);
+			const result = await isGrammarAvailable({
+				foo: 'bar',
+			} as unknown as string);
 			expect(result).toBe(false);
 		});
 
 		it('isGrammarAvailable should return false for array', async () => {
-			const result = await isGrammarAvailable(['javascript'] as unknown as string);
+			const result = await isGrammarAvailable([
+				'javascript',
+			] as unknown as string);
 			expect(result).toBe(false);
 		});
 
@@ -202,7 +206,9 @@ describe('runtime.ts - Security Verification Tests', () => {
 				await loadGrammar('');
 			} catch (e) {
 				threw = true;
-				expect((e as Error).message).toMatch(/Invalid language ID|empty after sanitization/);
+				expect((e as Error).message).toMatch(
+					/Invalid language ID|empty after sanitization/,
+				);
 			}
 			expect(threw).toBe(true);
 		});

@@ -1,13 +1,13 @@
-import { describe, it, expect, beforeEach, afterEach } from 'bun:test';
-import {
-	loadEvidence,
-	listEvidenceTaskIds,
-} from '../../../src/evidence/manager';
-import { mkdtemp, writeFile, mkdir, rm } from 'node:fs/promises';
+import { afterEach, beforeEach, describe, expect, it } from 'bun:test';
+import { readFileSync } from 'node:fs';
+import { mkdir, mkdtemp, rm, writeFile } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
-import { readFileSync } from 'node:fs';
 import type { EvidenceBundle } from '../../../src/config/evidence-schema';
+import {
+	listEvidenceTaskIds,
+	loadEvidence,
+} from '../../../src/evidence/manager';
 
 describe('Task 2.2: System Enhancer Retrospective Deduplication', () => {
 	let tempDir: string;

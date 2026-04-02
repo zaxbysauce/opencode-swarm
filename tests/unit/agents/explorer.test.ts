@@ -1,4 +1,4 @@
-import { describe, it, expect } from 'bun:test';
+import { describe, expect, it } from 'bun:test';
 import {
 	createExplorerAgent,
 	createExplorerCuratorAgent,
@@ -28,8 +28,10 @@ describe('explorer.ts', () => {
 
 			// Verify key elements of the section
 			expect(prompt).toContain('## DOCUMENTATION DISCOVERY MODE');
-			expect(prompt).toContain('Activates automatically during codebase reality check');
-			expect(prompt).toContain('Glob for documentation files');
+			expect(prompt).toContain(
+				'Activates automatically during codebase reality check',
+			);
+			expect(prompt).toContain('glob for documentation files');
 			expect(prompt).toContain('.swarm/doc-manifest.json');
 			expect(prompt).toContain('Score by keyword overlap:');
 			expect(prompt).toContain('.swarm/knowledge/doc-constraints.jsonl');
@@ -111,7 +113,11 @@ describe('explorer.ts', () => {
 
 		it('accepts customAppendPrompt and appends it', () => {
 			const customAppend = 'Additional curator guidance';
-			const agent = createExplorerCuratorAgent('gpt-4', 'CURATOR_INIT', customAppend);
+			const agent = createExplorerCuratorAgent(
+				'gpt-4',
+				'CURATOR_INIT',
+				customAppend,
+			);
 			expect(agent.config.prompt).toContain(customAppend);
 		});
 	});

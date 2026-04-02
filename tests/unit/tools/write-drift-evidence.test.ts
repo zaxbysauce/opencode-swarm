@@ -2,7 +2,15 @@
  * Tests for writeDriftEvidence tool
  */
 
-import { describe, test, expect, beforeEach, afterEach, mock, spyOn } from 'bun:test';
+import {
+	afterEach,
+	beforeEach,
+	describe,
+	expect,
+	mock,
+	spyOn,
+	test,
+} from 'bun:test';
 import fs from 'node:fs';
 import path from 'node:path';
 
@@ -14,7 +22,9 @@ describe('executeWriteDriftEvidence', () => {
 
 	beforeEach(async () => {
 		// Create a temp directory for each test
-		tempDir = await fs.promises.mkdtemp(path.join(process.env.TEMP || '/tmp', 'drift-evidence-test-'));
+		tempDir = await fs.promises.mkdtemp(
+			path.join(process.env.TEMP || '/tmp', 'drift-evidence-test-'),
+		);
 	});
 
 	afterEach(async () => {
@@ -71,7 +81,9 @@ describe('executeWriteDriftEvidence', () => {
 		const parsed = JSON.parse(result);
 
 		expect(parsed.success).toBe(false);
-		expect(parsed.message).toBe("Invalid verdict: must be 'APPROVED' or 'NEEDS_REVISION'");
+		expect(parsed.message).toBe(
+			"Invalid verdict: must be 'APPROVED' or 'NEEDS_REVISION'",
+		);
 	});
 
 	// Test 3: Empty summary rejection
@@ -126,7 +138,11 @@ describe('executeWriteDriftEvidence', () => {
 	// Test 6: Successful write with approved verdict
 	test('writes evidence file successfully with approved verdict', async () => {
 		const result = await executeWriteDriftEvidence(
-			{ phase: 1, verdict: 'APPROVED', summary: 'Phase 1 drift verification passed' },
+			{
+				phase: 1,
+				verdict: 'APPROVED',
+				summary: 'Phase 1 drift verification passed',
+			},
 			tempDir,
 		);
 		const parsed = JSON.parse(result);
@@ -134,11 +150,22 @@ describe('executeWriteDriftEvidence', () => {
 		expect(parsed.success).toBe(true);
 		expect(parsed.phase).toBe(1);
 		expect(parsed.verdict).toBe('approved');
-		expect(parsed.message).toBe('Drift evidence written to .swarm/evidence/1/drift-verifier.json');
+		expect(parsed.message).toBe(
+			'Drift evidence written to .swarm/evidence/1/drift-verifier.json',
+		);
 
 		// Verify file was created in correct location
-		const expectedPath = path.join(tempDir, '.swarm', 'evidence', '1', 'drift-verifier.json');
-		const fileExists = await fs.promises.access(expectedPath).then(() => true).catch(() => false);
+		const expectedPath = path.join(
+			tempDir,
+			'.swarm',
+			'evidence',
+			'1',
+			'drift-verifier.json',
+		);
+		const fileExists = await fs.promises
+			.access(expectedPath)
+			.then(() => true)
+			.catch(() => false);
 		expect(fileExists).toBe(true);
 
 		// Verify the content includes gate-contract format
@@ -147,14 +174,20 @@ describe('executeWriteDriftEvidence', () => {
 		expect(parsedContent.entries).toBeArrayOfSize(1);
 		expect(parsedContent.entries[0].type).toBe('drift-verification');
 		expect(parsedContent.entries[0].verdict).toBe('approved');
-		expect(parsedContent.entries[0].summary).toBe('Phase 1 drift verification passed');
+		expect(parsedContent.entries[0].summary).toBe(
+			'Phase 1 drift verification passed',
+		);
 		expect(parsedContent.entries[0].timestamp).toBeString();
 	});
 
 	// Test 7: Successful write with rejected verdict
 	test('writes evidence file successfully with rejected verdict', async () => {
 		const result = await executeWriteDriftEvidence(
-			{ phase: 2, verdict: 'NEEDS_REVISION', summary: 'Phase 2 drift issues found' },
+			{
+				phase: 2,
+				verdict: 'NEEDS_REVISION',
+				summary: 'Phase 2 drift issues found',
+			},
 			tempDir,
 		);
 		const parsed = JSON.parse(result);
@@ -164,7 +197,13 @@ describe('executeWriteDriftEvidence', () => {
 		expect(parsed.verdict).toBe('rejected');
 
 		// Verify the content includes rejected verdict
-		const expectedPath = path.join(tempDir, '.swarm', 'evidence', '2', 'drift-verifier.json');
+		const expectedPath = path.join(
+			tempDir,
+			'.swarm',
+			'evidence',
+			'2',
+			'drift-verifier.json',
+		);
 		const fileContent = await fs.promises.readFile(expectedPath, 'utf-8');
 		const parsedContent = JSON.parse(fileContent);
 		expect(parsedContent.entries[0].verdict).toBe('rejected');
@@ -196,7 +235,9 @@ describe('executeWriteDriftEvidence', () => {
 
 		// Rename from temp to final location
 		expect(renameFrom).toBe(tempPath);
-		expect(renameTo).toBe(path.join(tempDir, '.swarm', 'evidence', '7', 'drift-verifier.json'));
+		expect(renameTo).toBe(
+			path.join(tempDir, '.swarm', 'evidence', '7', 'drift-verifier.json'),
+		);
 
 		writeFileSpy.mockRestore();
 		renameSpy.mockRestore();
@@ -208,7 +249,13 @@ describe('executeWriteDriftEvidence', () => {
 			tempDir,
 		);
 
-		const expectedPath = path.join(tempDir, '.swarm', 'evidence', '1', 'drift-verifier.json');
+		const expectedPath = path.join(
+			tempDir,
+			'.swarm',
+			'evidence',
+			'1',
+			'drift-verifier.json',
+		);
 		const fileContent = await fs.promises.readFile(expectedPath, 'utf-8');
 		const parsedContent = JSON.parse(fileContent);
 		expect(parsedContent.entries[0].summary).toBe('trimmed summary');

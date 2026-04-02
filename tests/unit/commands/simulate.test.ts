@@ -1,23 +1,30 @@
-import { describe, it, expect, beforeEach, afterEach, mock } from 'bun:test';
+import { afterEach, beforeEach, describe, expect, it, mock } from 'bun:test';
 import { mkdirSync, rmSync } from 'node:fs';
 import { stat } from 'node:fs/promises';
-import * as path from 'node:path';
 import * as os from 'node:os';
+import * as path from 'node:path';
 
 async function pathExists(p: string): Promise<boolean> {
-	return stat(p).then(() => true).catch(() => false);
+	return stat(p)
+		.then(() => true)
+		.catch(() => false);
 }
+
 import type { CoChangeEntry } from '../../../src/tools/co-change-analyzer.js';
 
 // Mock only co-change-analyzer (app-specific, no contamination risk)
-const mockDetectDarkMatter = mock(async (_dir: string, _options: any) => [] as CoChangeEntry[]);
+const mockDetectDarkMatter = mock(
+	async (_dir: string, _options: any) => [] as CoChangeEntry[],
+);
 
 mock.module('../../../src/tools/co-change-analyzer.js', () => ({
 	detectDarkMatter: mockDetectDarkMatter,
 }));
 
 // Import AFTER mock setup
-const { handleSimulateCommand } = await import('../../../src/commands/simulate.js');
+const { handleSimulateCommand } = await import(
+	'../../../src/commands/simulate.js'
+);
 
 // Use a unique temp dir per test to avoid state leakage
 let testDir: string;
@@ -89,7 +96,9 @@ describe('handleSimulateCommand', () => {
 
 		await handleSimulateCommand(testDir, ['--threshold', '0.7']);
 
-		expect(mockDetectDarkMatter).toHaveBeenCalledWith(testDir, { npmiThreshold: 0.7 });
+		expect(mockDetectDarkMatter).toHaveBeenCalledWith(testDir, {
+			npmiThreshold: 0.7,
+		});
 	});
 
 	it('Parses --threshold flag correctly when valid (0.0)', async () => {
@@ -97,7 +106,9 @@ describe('handleSimulateCommand', () => {
 
 		await handleSimulateCommand(testDir, ['--threshold', '0.0']);
 
-		expect(mockDetectDarkMatter).toHaveBeenCalledWith(testDir, { npmiThreshold: 0 });
+		expect(mockDetectDarkMatter).toHaveBeenCalledWith(testDir, {
+			npmiThreshold: 0,
+		});
 	});
 
 	it('Parses --threshold flag correctly when valid (1.0)', async () => {
@@ -105,7 +116,9 @@ describe('handleSimulateCommand', () => {
 
 		await handleSimulateCommand(testDir, ['--threshold', '1.0']);
 
-		expect(mockDetectDarkMatter).toHaveBeenCalledWith(testDir, { npmiThreshold: 1 });
+		expect(mockDetectDarkMatter).toHaveBeenCalledWith(testDir, {
+			npmiThreshold: 1,
+		});
 	});
 
 	it('Ignores invalid threshold > 1', async () => {
@@ -157,7 +170,9 @@ describe('handleSimulateCommand', () => {
 
 		await handleSimulateCommand(testDir, ['--min-commits', '50']);
 
-		expect(mockDetectDarkMatter).toHaveBeenCalledWith(testDir, { minCommits: 50 });
+		expect(mockDetectDarkMatter).toHaveBeenCalledWith(testDir, {
+			minCommits: 50,
+		});
 	});
 
 	it('Ignores invalid min-commits (0)', async () => {
@@ -196,7 +211,12 @@ describe('handleSimulateCommand', () => {
 	it('Parses both flags together correctly', async () => {
 		mockDetectDarkMatter.mockImplementation(async () => mockPairs);
 
-		await handleSimulateCommand(testDir, ['--threshold', '0.6', '--min-commits', '30']);
+		await handleSimulateCommand(testDir, [
+			'--threshold',
+			'0.6',
+			'--min-commits',
+			'30',
+		]);
 
 		expect(mockDetectDarkMatter).toHaveBeenCalledWith(testDir, {
 			npmiThreshold: 0.6,
@@ -207,7 +227,12 @@ describe('handleSimulateCommand', () => {
 	it('Handles flags in reverse order', async () => {
 		mockDetectDarkMatter.mockImplementation(async () => mockPairs);
 
-		await handleSimulateCommand(testDir, ['--min-commits', '40', '--threshold', '0.8']);
+		await handleSimulateCommand(testDir, [
+			'--min-commits',
+			'40',
+			'--threshold',
+			'0.8',
+		]);
 
 		expect(mockDetectDarkMatter).toHaveBeenCalledWith(testDir, {
 			npmiThreshold: 0.8,
@@ -280,8 +305,12 @@ describe('handleSimulateCommand', () => {
 		expect(capturedReport).toContain('Generated:');
 		expect(capturedReport).toContain('## Dark Matter Analysis');
 		expect(capturedReport).toContain('2 hidden coupling pairs detected:');
-		expect(capturedReport).toContain('| File A | File B | NPMI | Co-Changes | Lift |');
-		expect(capturedReport).toContain('|--------|--------|------|------------|------|');
+		expect(capturedReport).toContain(
+			'| File A | File B | NPMI | Co-Changes | Lift |',
+		);
+		expect(capturedReport).toContain(
+			'|--------|--------|------|------------|------|',
+		);
 		expect(capturedReport).toContain('src/utils/helper.ts');
 		expect(capturedReport).toContain('src/components/Button.tsx');
 		expect(capturedReport).toContain('0.823');
@@ -296,7 +325,9 @@ describe('handleSimulateCommand', () => {
 		await handleSimulateCommand(testDir, []);
 
 		const capturedReport = await readReport();
-		expect(capturedReport).toContain('2 hidden coupling pairs may cause unexpected side effects when modified.');
+		expect(capturedReport).toContain(
+			'2 hidden coupling pairs may cause unexpected side effects when modified.',
+		);
 	});
 
 	it('Report formats NPMI with 3 decimal places', async () => {
@@ -338,11 +369,15 @@ describe('handleSimulateCommand', () => {
 		// Should not have any data rows after header
 		const lines = capturedReport.split('\n');
 		const tableHeaderIndex = lines.findIndex((l) => l.includes('| File A |'));
-		const headerSeparatorIndex = lines.findIndex((l) => l.includes('|--------|'));
+		const headerSeparatorIndex = lines.findIndex((l) =>
+			l.includes('|--------|'),
+		);
 		expect(tableHeaderIndex).toBeGreaterThanOrEqual(0);
 		expect(headerSeparatorIndex).toBeGreaterThanOrEqual(0);
 		// Next line after separator should not be a table row (should be empty or recommendation)
-		expect(lines[headerSeparatorIndex + 1].trim()).toMatch(/^$|## Recommendation/);
+		expect(lines[headerSeparatorIndex + 1].trim()).toMatch(
+			/^$|## Recommendation/,
+		);
 	});
 
 	it('Handles multiple pairs in report', async () => {

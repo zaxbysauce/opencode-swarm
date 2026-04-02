@@ -5,51 +5,97 @@
  * These tests verify the COMMAND_REGISTRY and resolveCommand() function
  * independently of the CLI or hook entry points.
  */
-import { describe, it, expect, vi, beforeEach } from 'vitest';
+import { beforeEach, describe, expect, it, vi } from 'vitest';
 
 // Mock all individual command files so we can import the registry
 // without triggering real I/O in handler modules
-vi.mock('../../src/commands/status.js', () => ({ handleStatusCommand: vi.fn() }));
+vi.mock('../../src/commands/status.js', () => ({
+	handleStatusCommand: vi.fn(),
+}));
 vi.mock('../../src/commands/plan.js', () => ({ handlePlanCommand: vi.fn() }));
-vi.mock('../../src/commands/agents.js', () => ({ handleAgentsCommand: vi.fn() }));
-vi.mock('../../src/commands/archive.js', () => ({ handleArchiveCommand: vi.fn() }));
-vi.mock('../../src/commands/history.js', () => ({ handleHistoryCommand: vi.fn() }));
-vi.mock('../../src/commands/config.js', () => ({ handleConfigCommand: vi.fn() }));
-vi.mock('../../src/commands/doctor.js', () => ({ handleDoctorCommand: vi.fn() }));
+vi.mock('../../src/commands/agents.js', () => ({
+	handleAgentsCommand: vi.fn(),
+}));
+vi.mock('../../src/commands/archive.js', () => ({
+	handleArchiveCommand: vi.fn(),
+}));
+vi.mock('../../src/commands/history.js', () => ({
+	handleHistoryCommand: vi.fn(),
+}));
+vi.mock('../../src/commands/config.js', () => ({
+	handleConfigCommand: vi.fn(),
+}));
+vi.mock('../../src/commands/doctor.js', () => ({
+	handleDoctorCommand: vi.fn(),
+}));
 vi.mock('../../src/commands/evidence.js', () => ({
 	handleEvidenceCommand: vi.fn(),
 	handleEvidenceSummaryCommand: vi.fn(),
 }));
-vi.mock('../../src/commands/diagnose.js', () => ({ handleDiagnoseCommand: vi.fn() }));
-vi.mock('../../src/commands/preflight.js', () => ({ handlePreflightCommand: vi.fn() }));
-vi.mock('../../src/commands/sync-plan.js', () => ({ handleSyncPlanCommand: vi.fn() }));
-vi.mock('../../src/commands/benchmark.js', () => ({ handleBenchmarkCommand: vi.fn() }));
-vi.mock('../../src/commands/export.js', () => ({ handleExportCommand: vi.fn() }));
+vi.mock('../../src/commands/diagnose.js', () => ({
+	handleDiagnoseCommand: vi.fn(),
+}));
+vi.mock('../../src/commands/preflight.js', () => ({
+	handlePreflightCommand: vi.fn(),
+}));
+vi.mock('../../src/commands/sync-plan.js', () => ({
+	handleSyncPlanCommand: vi.fn(),
+}));
+vi.mock('../../src/commands/benchmark.js', () => ({
+	handleBenchmarkCommand: vi.fn(),
+}));
+vi.mock('../../src/commands/export.js', () => ({
+	handleExportCommand: vi.fn(),
+}));
 vi.mock('../../src/commands/reset.js', () => ({ handleResetCommand: vi.fn() }));
-vi.mock('../../src/commands/retrieve.js', () => ({ handleRetrieveCommand: vi.fn() }));
-vi.mock('../../src/commands/clarify.js', () => ({ handleClarifyCommand: vi.fn() }));
-vi.mock('../../src/commands/analyze.js', () => ({ handleAnalyzeCommand: vi.fn() }));
-vi.mock('../../src/commands/specify.js', () => ({ handleSpecifyCommand: vi.fn() }));
-vi.mock('../../src/commands/dark-matter.js', () => ({ handleDarkMatterCommand: vi.fn() }));
+vi.mock('../../src/commands/retrieve.js', () => ({
+	handleRetrieveCommand: vi.fn(),
+}));
+vi.mock('../../src/commands/clarify.js', () => ({
+	handleClarifyCommand: vi.fn(),
+}));
+vi.mock('../../src/commands/analyze.js', () => ({
+	handleAnalyzeCommand: vi.fn(),
+}));
+vi.mock('../../src/commands/specify.js', () => ({
+	handleSpecifyCommand: vi.fn(),
+}));
+vi.mock('../../src/commands/dark-matter.js', () => ({
+	handleDarkMatterCommand: vi.fn(),
+}));
 vi.mock('../../src/commands/knowledge.js', () => ({
 	handleKnowledgeListCommand: vi.fn(),
 	handleKnowledgeMigrateCommand: vi.fn(),
 	handleKnowledgeQuarantineCommand: vi.fn(),
 	handleKnowledgeRestoreCommand: vi.fn(),
 }));
-vi.mock('../../src/commands/rollback.js', () => ({ handleRollbackCommand: vi.fn() }));
-vi.mock('../../src/commands/promote.js', () => ({ handlePromoteCommand: vi.fn() }));
-vi.mock('../../src/commands/handoff.js', () => ({ handleHandoffCommand: vi.fn() }));
+vi.mock('../../src/commands/rollback.js', () => ({
+	handleRollbackCommand: vi.fn(),
+}));
+vi.mock('../../src/commands/promote.js', () => ({
+	handlePromoteCommand: vi.fn(),
+}));
+vi.mock('../../src/commands/handoff.js', () => ({
+	handleHandoffCommand: vi.fn(),
+}));
 vi.mock('../../src/commands/turbo.js', () => ({ handleTurboCommand: vi.fn() }));
-vi.mock('../../src/commands/simulate.js', () => ({ handleSimulateCommand: vi.fn() }));
-vi.mock('../../src/commands/curate.js', () => ({ handleCurateCommand: vi.fn() }));
-vi.mock('../../src/commands/write_retro.js', () => ({ handleWriteRetroCommand: vi.fn() }));
-vi.mock('../../src/commands/checkpoint.js', () => ({ handleCheckpointCommand: vi.fn() }));
+vi.mock('../../src/commands/simulate.js', () => ({
+	handleSimulateCommand: vi.fn(),
+}));
+vi.mock('../../src/commands/curate.js', () => ({
+	handleCurateCommand: vi.fn(),
+}));
+vi.mock('../../src/commands/write_retro.js', () => ({
+	handleWriteRetroCommand: vi.fn(),
+}));
+vi.mock('../../src/commands/checkpoint.js', () => ({
+	handleCheckpointCommand: vi.fn(),
+}));
 
 import {
 	COMMAND_REGISTRY,
-	VALID_COMMANDS,
 	resolveCommand,
+	VALID_COMMANDS,
 } from '../../src/commands/registry.js';
 
 describe('COMMAND_REGISTRY', () => {
@@ -90,30 +136,47 @@ describe('resolveCommand()', () => {
 			const result = resolveCommand(['evidence', 'summary']);
 			expect(result).not.toBeNull();
 			// The resolved entry description should match "evidence summary", not plain "evidence"
-			expect(result!.entry.description).toBe(COMMAND_REGISTRY['evidence summary'].description);
-			expect(result!.entry.description).not.toBe(COMMAND_REGISTRY['evidence'].description);
+			expect(result!.entry.description).toBe(
+				COMMAND_REGISTRY['evidence summary'].description,
+			);
+			expect(result!.entry.description).not.toBe(
+				COMMAND_REGISTRY['evidence'].description,
+			);
 			expect(result!.remainingArgs).toEqual([]);
 		});
 
 		it('["config", "doctor"] resolves to the "config doctor" entry, not bare "config"', () => {
 			const result = resolveCommand(['config', 'doctor']);
 			expect(result).not.toBeNull();
-			expect(result!.entry.description).toBe(COMMAND_REGISTRY['config doctor'].description);
-			expect(result!.entry.description).not.toBe(COMMAND_REGISTRY['config'].description);
+			expect(result!.entry.description).toBe(
+				COMMAND_REGISTRY['config doctor'].description,
+			);
+			expect(result!.entry.description).not.toBe(
+				COMMAND_REGISTRY['config'].description,
+			);
 			expect(result!.remainingArgs).toEqual([]);
 		});
 
 		it('["knowledge", "migrate"] resolves to "knowledge migrate", not bare "knowledge"', () => {
 			const result = resolveCommand(['knowledge', 'migrate']);
 			expect(result).not.toBeNull();
-			expect(result!.entry.description).toBe(COMMAND_REGISTRY['knowledge migrate'].description);
+			expect(result!.entry.description).toBe(
+				COMMAND_REGISTRY['knowledge migrate'].description,
+			);
 			expect(result!.remainingArgs).toEqual([]);
 		});
 
 		it('compound resolution passes remaining args correctly', () => {
-			const result = resolveCommand(['evidence', 'summary', '--verbose', '--json']);
+			const result = resolveCommand([
+				'evidence',
+				'summary',
+				'--verbose',
+				'--json',
+			]);
 			expect(result).not.toBeNull();
-			expect(result!.entry.description).toBe(COMMAND_REGISTRY['evidence summary'].description);
+			expect(result!.entry.description).toBe(
+				COMMAND_REGISTRY['evidence summary'].description,
+			);
 			expect(result!.remainingArgs).toEqual(['--verbose', '--json']);
 		});
 	});
@@ -122,21 +185,27 @@ describe('resolveCommand()', () => {
 		it('["evidence", "list"] resolves to bare "evidence" (not a compound key)', () => {
 			const result = resolveCommand(['evidence', 'list']);
 			expect(result).not.toBeNull();
-			expect(result!.entry.description).toBe(COMMAND_REGISTRY['evidence'].description);
+			expect(result!.entry.description).toBe(
+				COMMAND_REGISTRY['evidence'].description,
+			);
 			expect(result!.remainingArgs).toEqual(['list']);
 		});
 
 		it('["knowledge"] resolves to bare "knowledge"', () => {
 			const result = resolveCommand(['knowledge']);
 			expect(result).not.toBeNull();
-			expect(result!.entry.description).toBe(COMMAND_REGISTRY['knowledge'].description);
+			expect(result!.entry.description).toBe(
+				COMMAND_REGISTRY['knowledge'].description,
+			);
 			expect(result!.remainingArgs).toEqual([]);
 		});
 
 		it('single-token resolution passes remaining args correctly', () => {
 			const result = resolveCommand(['diagnose', '--verbose']);
 			expect(result).not.toBeNull();
-			expect(result!.entry.description).toBe(COMMAND_REGISTRY['diagnose'].description);
+			expect(result!.entry.description).toBe(
+				COMMAND_REGISTRY['diagnose'].description,
+			);
 			expect(result!.remainingArgs).toEqual(['--verbose']);
 		});
 	});

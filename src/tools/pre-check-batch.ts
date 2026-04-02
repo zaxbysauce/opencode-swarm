@@ -99,7 +99,7 @@ function validatePath(
 		return 'path must be a string';
 	}
 
-	if (!inputPath || inputPath.length === 0) {
+	if (!inputPath || inputPath.trim().length === 0) {
 		return 'path is required';
 	}
 

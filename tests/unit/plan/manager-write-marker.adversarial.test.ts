@@ -1,10 +1,10 @@
-import { describe, test, expect, beforeEach, afterEach } from 'bun:test';
-import { mkdtemp, rm, readFile, writeFile, chmod } from 'node:fs/promises';
+import { afterEach, beforeEach, describe, expect, test } from 'bun:test';
 import { existsSync, mkdirSync, readFileSync } from 'node:fs';
+import { chmod, mkdtemp, readFile, rm, writeFile } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
-import { savePlan } from '../../../src/plan/manager';
 import type { Plan } from '../../../src/config/plan-schema';
+import { savePlan } from '../../../src/plan/manager';
 
 function createTestPlan(overrides?: Partial<Plan>): Plan {
 	return {
@@ -54,7 +54,7 @@ describe('savePlan write-marker adversarial tests', () => {
 	 */
 	test('1. Marker path traversal - trailing slash does not escape directory', async () => {
 		const testPlan = createTestPlan();
-		
+
 		// Test with trailing slash
 		const dirWithTrailingSlash = tempDir + '/';
 		await savePlan(dirWithTrailingSlash, testPlan);
@@ -79,26 +79,26 @@ describe('savePlan write-marker adversarial tests', () => {
 
 	test('1. Marker path traversal - trailing dots do not escape directory', async () => {
 		const testPlan = createTestPlan();
-		
+
 		// Test with trailing dots
 		const dirWithDots = tempDir + '/.';
 		await savePlan(dirWithDots, testPlan);
 
 		const expectedMarkerPath = join(tempDir, '.swarm', '.plan-write-marker');
-		
+
 		// Marker should be in the correct location
 		expect(existsSync(expectedMarkerPath)).toBe(true);
 	});
 
 	test('1. Marker path traversal - multiple trailing slashes', async () => {
 		const testPlan = createTestPlan();
-		
+
 		// Test with multiple trailing slashes
 		const dirWithMultipleSlashes = tempDir + '///';
 		await savePlan(dirWithMultipleSlashes, testPlan);
 
 		const expectedMarkerPath = join(tempDir, '.swarm', '.plan-write-marker');
-		
+
 		// Marker should be in the correct location
 		expect(existsSync(expectedMarkerPath)).toBe(true);
 	});
@@ -130,7 +130,7 @@ describe('savePlan write-marker adversarial tests', () => {
 				},
 			],
 		});
-		
+
 		await savePlan(tempDir, minimalPlan);
 
 		const markerPath = join(tempDir, '.swarm', '.plan-write-marker');
@@ -138,7 +138,7 @@ describe('savePlan write-marker adversarial tests', () => {
 
 		// Should parse as valid JSON
 		const marker = JSON.parse(markerContent);
-		
+
 		// Values should be numbers (not strings that could be injected)
 		expect(typeof marker.phases_count).toBe('number');
 		expect(typeof marker.tasks_count).toBe('number');
@@ -168,7 +168,7 @@ describe('savePlan write-marker adversarial tests', () => {
 				},
 			],
 		});
-		
+
 		await savePlan(tempDir, largePlan);
 
 		const markerPath = join(tempDir, '.swarm', '.plan-write-marker');
@@ -190,10 +190,12 @@ describe('savePlan write-marker adversarial tests', () => {
 
 		// Timestamp should be valid ISO 8601
 		const date = new Date(marker.timestamp);
-		expect(isNaN(date.getTime())).toBe(false);
-		
+		expect(Number.isNaN(date.getTime())).toBe(false);
+
 		// Should contain T and Z (ISO 8601 format)
-		expect(marker.timestamp).toMatch(/^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}.\d{3}Z$/);
+		expect(marker.timestamp).toMatch(
+			/^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}.\d{3}Z$/,
+		);
 	});
 
 	/**
@@ -237,7 +239,7 @@ describe('savePlan write-marker adversarial tests', () => {
 		// Marker should exist (last write wins)
 		const markerPath = join(tempDir, '.swarm', '.plan-write-marker');
 		expect(existsSync(markerPath)).toBe(true);
-		
+
 		// Marker should be valid JSON
 		const markerContent = await readFile(markerPath, 'utf-8');
 		const marker = JSON.parse(markerContent);
@@ -308,9 +310,14 @@ describe('savePlan write-marker adversarial tests', () => {
 		const marker = JSON.parse(markerContent);
 
 		// Marker should have exactly these 4 fields
-		const allowedFields = ['source', 'timestamp', 'phases_count', 'tasks_count'];
+		const allowedFields = [
+			'source',
+			'timestamp',
+			'phases_count',
+			'tasks_count',
+		];
 		const markerKeys = Object.keys(marker);
-		
+
 		expect(markerKeys.sort()).toEqual(allowedFields.sort());
 
 		// Verify values are safe (no leakage)
@@ -324,7 +331,7 @@ describe('savePlan write-marker adversarial tests', () => {
 		expect(content).not.toContain('passwd');
 		expect(content).not.toContain('.ssh');
 		expect(content).not.toContain('.env');
-		
+
 		// Verify counts are correct
 		expect(marker.phases_count).toBe(2);
 		expect(marker.tasks_count).toBe(3);
@@ -351,10 +358,10 @@ describe('savePlan write-marker adversarial tests', () => {
 
 		const testPlan = createTestPlan();
 		const swarmDir = join(tempDir, '.swarm');
-		
+
 		// Create .swarm directory
 		mkdirSync(swarmDir, { recursive: true });
-		
+
 		// Make the directory read-only (no write permission)
 		await chmod(swarmDir, 0o555);
 
@@ -370,7 +377,7 @@ describe('savePlan write-marker adversarial tests', () => {
 			}
 
 			expect(threw).toBe(false);
-			
+
 			// Plan files should still be written
 			expect(existsSync(join(swarmDir, 'plan.json'))).toBe(true);
 			expect(existsSync(join(swarmDir, 'plan.md'))).toBe(true);
@@ -387,10 +394,10 @@ describe('savePlan write-marker adversarial tests', () => {
 		const testPlan = createTestPlan();
 		const swarmDir = join(tempDir, '.swarm');
 		const markerPath = join(swarmDir, '.plan-write-marker');
-		
+
 		// Create .swarm directory
 		mkdirSync(swarmDir, { recursive: true });
-		
+
 		// Create marker file as read-only
 		await writeFile(markerPath, 'existing');
 		await chmod(markerPath, 0o444);
@@ -405,7 +412,7 @@ describe('savePlan write-marker adversarial tests', () => {
 			}
 
 			expect(threw).toBe(false);
-			
+
 			// Plan files should still be written
 			expect(existsSync(join(swarmDir, 'plan.json'))).toBe(true);
 			expect(existsSync(join(swarmDir, 'plan.md'))).toBe(true);
@@ -417,15 +424,15 @@ describe('savePlan write-marker adversarial tests', () => {
 
 	test('5. Plan save succeeds - marker directory does not exist (will be created)', async () => {
 		const testPlan = createTestPlan();
-		
+
 		// Don't create .swarm directory - savePlan should create it
 		// and the marker should be written successfully
-		
+
 		await savePlan(tempDir, testPlan);
 
 		const swarmDir = join(tempDir, '.swarm');
 		const markerPath = join(swarmDir, '.plan-write-marker');
-		
+
 		// All files should exist
 		expect(existsSync(join(swarmDir, 'plan.json'))).toBe(true);
 		expect(existsSync(join(swarmDir, 'plan.md'))).toBe(true);

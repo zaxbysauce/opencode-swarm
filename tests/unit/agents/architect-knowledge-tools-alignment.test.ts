@@ -19,14 +19,19 @@
  * 7. QA_RETRY_LIMIT placeholder is resolved
  */
 
-import { describe, it, expect } from 'vitest';
+import { describe, expect, it } from 'vitest';
 import { createArchitectAgent } from '../../../src/agents/architect.js';
 import { AGENT_TOOL_MAP } from '../../../src/config/constants.js';
 
 // Extract the raw prompt from createArchitectAgent with no turbo mode
 // so we can inspect the template before QA_RETRY_LIMIT/SWARM_ID are replaced.
 // createArchitectAgent(model, prompt, appendPrompt, adversarialConfig) — call with no turbo
-const architectAgent = createArchitectAgent('claude-opus-4-6', undefined, undefined, undefined);
+const architectAgent = createArchitectAgent(
+	'claude-opus-4-6',
+	undefined,
+	undefined,
+	undefined,
+);
 // The raw prompt before SWARM_ID/AGENT_PREFIX replacement (those happen in agents/index.ts)
 const ARCHITECT_PROMPT = architectAgent.config.prompt ?? '';
 
@@ -103,19 +108,25 @@ describe('Curator init flow coverage verification', () => {
 	// This test verifies the structural wiring: curator init is gated by enabled+init_enabled.
 
 	it('CuratorConfigSchema.enabled defaults to true (enabled by default)', async () => {
-		const { CuratorConfigSchema } = await import('../../../src/config/schema.js');
+		const { CuratorConfigSchema } = await import(
+			'../../../src/config/schema.js'
+		);
 		const defaults = CuratorConfigSchema.parse({});
 		expect(defaults.enabled).toBe(true);
 	});
 
 	it('CuratorConfigSchema.init_enabled defaults to true (runs when curator is enabled)', async () => {
-		const { CuratorConfigSchema } = await import('../../../src/config/schema.js');
+		const { CuratorConfigSchema } = await import(
+			'../../../src/config/schema.js'
+		);
 		const defaults = CuratorConfigSchema.parse({});
 		expect(defaults.init_enabled).toBe(true);
 	});
 
 	it('Curator init fires when enabled and init_enabled are both true (both defaults)', async () => {
-		const { CuratorConfigSchema } = await import('../../../src/config/schema.js');
+		const { CuratorConfigSchema } = await import(
+			'../../../src/config/schema.js'
+		);
 		const defaults = CuratorConfigSchema.parse({});
 		// enabled=true is the primary guard; init_enabled=true is ready and unblocked
 		expect(defaults.enabled).toBe(true);

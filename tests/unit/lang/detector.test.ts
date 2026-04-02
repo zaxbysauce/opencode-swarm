@@ -4,11 +4,14 @@
  * Verification and adversarial tests for src/lang/detector.ts
  */
 
-import { describe, it, expect, beforeEach, afterEach } from 'vitest';
-import { mkdtemp, writeFile, mkdir, rm } from 'node:fs/promises';
+import { mkdir, mkdtemp, rm, writeFile } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
-import { getProfileForFile, detectProjectLanguages } from '../../../src/lang/detector.js';
+import { afterEach, beforeEach, describe, expect, it } from 'vitest';
+import {
+	detectProjectLanguages,
+	getProfileForFile,
+} from '../../../src/lang/detector.js';
 import { LANGUAGE_REGISTRY } from '../../../src/lang/profiles.js';
 
 describe('getProfileForFile', () => {
@@ -86,14 +89,20 @@ describe('detectProjectLanguages', () => {
 	});
 
 	it('Dir with only package.json file → detects typescript profile', async () => {
-		await writeFile(join(tempDir, 'package.json'), JSON.stringify({ name: 'test' }));
+		await writeFile(
+			join(tempDir, 'package.json'),
+			JSON.stringify({ name: 'test' }),
+		);
 		const profiles = await detectProjectLanguages(tempDir);
 		expect(profiles).toHaveLength(1);
 		expect(profiles[0].id).toBe('typescript');
 	});
 
 	it('Dir with only Cargo.toml file → detects rust profile', async () => {
-		await writeFile(join(tempDir, 'Cargo.toml'), '[package]\nname = "test"\nversion = "0.1.0"');
+		await writeFile(
+			join(tempDir, 'Cargo.toml'),
+			'[package]\nname = "test"\nversion = "0.1.0"',
+		);
 		const profiles = await detectProjectLanguages(tempDir);
 		expect(profiles).toHaveLength(1);
 		expect(profiles[0].id).toBe('rust');
@@ -107,14 +116,20 @@ describe('detectProjectLanguages', () => {
 	});
 
 	it('Dir with only pubspec.yaml file → detects dart profile', async () => {
-		await writeFile(join(tempDir, 'pubspec.yaml'), 'name: test\nversion: 1.0.0');
+		await writeFile(
+			join(tempDir, 'pubspec.yaml'),
+			'name: test\nversion: 1.0.0',
+		);
 		const profiles = await detectProjectLanguages(tempDir);
 		expect(profiles).toHaveLength(1);
 		expect(profiles[0].id).toBe('dart');
 	});
 
 	it('Dir with package.json AND go.mod → detects both typescript and go profiles', async () => {
-		await writeFile(join(tempDir, 'package.json'), JSON.stringify({ name: 'test' }));
+		await writeFile(
+			join(tempDir, 'package.json'),
+			JSON.stringify({ name: 'test' }),
+		);
 		await writeFile(join(tempDir, 'go.mod'), 'module test\n\ngo 1.21');
 		const profiles = await detectProjectLanguages(tempDir);
 		expect(profiles).toHaveLength(2);
@@ -124,7 +139,10 @@ describe('detectProjectLanguages', () => {
 	});
 
 	it('Dir with build.gradle.kts file → detects kotlin profile', async () => {
-		await writeFile(join(tempDir, 'build.gradle.kts'), 'plugins { kotlin("jvm") version "1.9.0" }');
+		await writeFile(
+			join(tempDir, 'build.gradle.kts'),
+			'plugins { kotlin("jvm") version "1.9.0" }',
+		);
 		const profiles = await detectProjectLanguages(tempDir);
 		// build.gradle.kts is in detectFiles for both kotlin and java
 		expect(profiles.length).toBeGreaterThanOrEqual(1);
@@ -145,10 +163,16 @@ describe('detectProjectLanguages', () => {
 	});
 
 	it('Monorepo: root has package.json, subdirectory has Cargo.toml → both typescript and rust detected', async () => {
-		await writeFile(join(tempDir, 'package.json'), JSON.stringify({ name: 'root' }));
+		await writeFile(
+			join(tempDir, 'package.json'),
+			JSON.stringify({ name: 'root' }),
+		);
 		const subdir = join(tempDir, 'rust-service');
 		await mkdir(subdir);
-		await writeFile(join(subdir, 'Cargo.toml'), '[package]\nname = "rust-service"\nversion = "0.1.0"');
+		await writeFile(
+			join(subdir, 'Cargo.toml'),
+			'[package]\nname = "rust-service"\nversion = "0.1.0"',
+		);
 		const profiles = await detectProjectLanguages(tempDir);
 		expect(profiles).toHaveLength(2);
 		const ids = profiles.map((p) => p.id);
@@ -157,8 +181,14 @@ describe('detectProjectLanguages', () => {
 	});
 
 	it('Results sorted: Tier 1 profiles come before Tier 2 profiles (package.json + build.gradle.kts → typescript before kotlin)', async () => {
-		await writeFile(join(tempDir, 'package.json'), JSON.stringify({ name: 'test' }));
-		await writeFile(join(tempDir, 'build.gradle.kts'), 'plugins { kotlin("jvm") version "1.9.0" }');
+		await writeFile(
+			join(tempDir, 'package.json'),
+			JSON.stringify({ name: 'test' }),
+		);
+		await writeFile(
+			join(tempDir, 'build.gradle.kts'),
+			'plugins { kotlin("jvm") version "1.9.0" }',
+		);
 		const profiles = await detectProjectLanguages(tempDir);
 		// package.json → TypeScript (tier 1), build.gradle.kts → Kotlin & Java (both tier 2) = 3 profiles total
 		expect(profiles.length).toBeGreaterThanOrEqual(2);
@@ -191,9 +221,10 @@ describe('detectProjectLanguages adversarial', () => {
 	it('Unreadable directory path → returns empty array, does not throw', async () => {
 		// On Windows, we need to handle path restrictions differently
 		// Use a non-existent path with invalid characters for the OS
-		const unreadablePath = process.platform === 'win32'
-			? 'NUL\\invalid\\path'  // NUL is reserved on Windows
-			: '/dev/null/invalid/path'; // /dev/null is a special file
+		const unreadablePath =
+			process.platform === 'win32'
+				? 'NUL\\invalid\\path' // NUL is reserved on Windows
+				: '/dev/null/invalid/path'; // /dev/null is a special file
 
 		// This should not throw and should return an empty array
 		const profiles = await detectProjectLanguages(unreadablePath);
@@ -217,7 +248,10 @@ describe('detectProjectLanguages adversarial', () => {
 		// The C# profile has "*.csproj" as a detectFiles entry which is a glob pattern
 		// According to the detector.ts code, glob patterns are skipped (lines 48-49)
 		// So we should verify detection happens via .cs extension instead
-		await writeFile(join(tempDir, 'App.cs'), 'namespace Test { class App { } }');
+		await writeFile(
+			join(tempDir, 'App.cs'),
+			'namespace Test { class App { } }',
+		);
 		const profiles = await detectProjectLanguages(tempDir);
 		expect(profiles).toHaveLength(1);
 		expect(profiles[0].id).toBe('csharp');

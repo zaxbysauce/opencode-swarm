@@ -10,14 +10,11 @@
 
 import { beforeEach, describe, expect, it, vi } from 'bun:test';
 import * as fs from 'node:fs';
-import * as path from 'node:path';
 import { tmpdir } from 'node:os';
+import * as path from 'node:path';
 import type { PluginConfig } from '../../../src/config';
-import {
-	sastScan,
-	type SastScanInput,
-} from '../../../src/tools/sast-scan';
 import { resetSemgrepCache } from '../../../src/sast/semgrep';
+import { type SastScanInput, sastScan } from '../../../src/tools/sast-scan';
 
 // Mock the saveEvidence function
 vi.mock('../../../src/evidence/manager', () => ({
@@ -158,7 +155,10 @@ describe('sastScan', () => {
 	describe('Language-specific tests', () => {
 		it('should scan Python files', async () => {
 			const testFile = path.join(tempDir, 'test.py');
-			fs.writeFileSync(testFile, 'import pickle\ndata = pickle.loads(raw_data)');
+			fs.writeFileSync(
+				testFile,
+				'import pickle\ndata = pickle.loads(raw_data)',
+			);
 
 			const input: SastScanInput = {
 				changed_files: [testFile],
@@ -377,7 +377,10 @@ int main() {
 		it('should only fail on critical with critical threshold', async () => {
 			// Use Python pickle which is high severity
 			const testFile = path.join(tempDir, 'test.py');
-			fs.writeFileSync(testFile, 'import pickle\ndata = pickle.loads(raw_data)');
+			fs.writeFileSync(
+				testFile,
+				'import pickle\ndata = pickle.loads(raw_data)',
+			);
 
 			const input: SastScanInput = {
 				changed_files: [testFile],

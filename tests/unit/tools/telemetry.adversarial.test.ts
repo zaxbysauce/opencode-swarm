@@ -1,14 +1,14 @@
-import { describe, test, expect, beforeEach, afterEach } from 'bun:test';
+import { afterEach, beforeEach, describe, expect, test } from 'bun:test';
 import * as fs from 'node:fs';
-import * as path from 'node:path';
 import * as os from 'node:os';
+import * as path from 'node:path';
 
 import {
-	initTelemetry,
-	emit,
 	addTelemetryListener,
-	rotateTelemetryIfNeeded,
+	emit,
+	initTelemetry,
 	resetTelemetryForTesting,
+	rotateTelemetryIfNeeded,
 } from '../../../src/telemetry';
 
 // =============================================================================
@@ -117,7 +117,9 @@ describe('telemetry adversarial tests', () => {
 		// Create a directory and make it read-only (if we can)
 		// On Windows, we can try setting read-only attribute
 		// On Unix, we can try chmod 000
-		const readOnlyDir = fs.mkdtempSync(path.join(os.tmpdir(), 'telemetry-readonly-'));
+		const readOnlyDir = fs.mkdtempSync(
+			path.join(os.tmpdir(), 'telemetry-readonly-'),
+		);
 
 		try {
 			// Try to make it read-only (may fail on Windows without admin, but that's ok)
@@ -189,7 +191,10 @@ describe('telemetry adversarial tests', () => {
 
 		// Emit some data
 		for (let i = 0; i < 10; i++) {
-			emit('session_started', { sessionId: `rapid-rotate-${i}`, agentName: 'agent' });
+			emit('session_started', {
+				sessionId: `rapid-rotate-${i}`,
+				agentName: 'agent',
+			});
 		}
 		await new Promise((resolve) => setTimeout(resolve, 50));
 
@@ -212,12 +217,18 @@ describe('telemetry adversarial tests', () => {
 			// Re-enter emit from within listener
 			if (emitCount < maxEmits) {
 				emitCount++;
-				emit('session_started', { sessionId: `re-entrant-${emitCount}`, agentName: 'agent' });
+				emit('session_started', {
+					sessionId: `re-entrant-${emitCount}`,
+					agentName: 'agent',
+				});
 			}
 		});
 
 		expect(() => {
-			emit('session_started', { sessionId: 're-entrant-start', agentName: 'agent' });
+			emit('session_started', {
+				sessionId: 're-entrant-start',
+				agentName: 'agent',
+			});
 		}).not.toThrow();
 
 		// Give async writes time to complete
@@ -285,7 +296,10 @@ describe('telemetry adversarial tests', () => {
 		const count = 150;
 		expect(() => {
 			for (let i = 0; i < count; i++) {
-				emit('session_started', { sessionId: `rapid-${i}`, agentName: 'agent' });
+				emit('session_started', {
+					sessionId: `rapid-${i}`,
+					agentName: 'agent',
+				});
 			}
 		}).not.toThrow();
 
@@ -328,7 +342,7 @@ describe('telemetry adversarial tests', () => {
 			sessionId: 'function-test',
 			callback: () => {},
 			// @ts-ignore - intentionally testing edge case
-			anonFunction: function () {},
+			anonFunction: () => {},
 		};
 
 		expect(() => {

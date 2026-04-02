@@ -3,13 +3,14 @@
  * Testing Task 3.3: 9 new test framework detectors and their wiring
  */
 
-import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { detectTestFramework } from '../../../src/tools/test-runner';
 
 // Mock isCommandAvailable using module mock
 const mockIsCommandAvailable = vi.fn<[string], boolean>();
 vi.mock('../../../src/build/discovery', () => ({
-	isCommandAvailable: (...args: unknown[]) => mockIsCommandAvailable(...(args as [string])),
+	isCommandAvailable: (...args: unknown[]) =>
+		mockIsCommandAvailable(...(args as [string])),
 }));
 
 import * as fs from 'node:fs';
@@ -140,7 +141,9 @@ describe('detectTestFramework - Adversarial Security Tests', () => {
 
 		it('should throw TypeError when cwd is null (path.join cannot handle non-string)', async () => {
 			// detectTestFramework does not guard against non-string cwd; path.join throws
-			await expect(detectTestFramework(null as unknown as string)).rejects.toThrow(TypeError);
+			await expect(
+				detectTestFramework(null as unknown as string),
+			).rejects.toThrow(TypeError);
 		});
 
 		it('should throw TypeError when cwd is undefined (path.join cannot handle non-string)', async () => {
@@ -162,7 +165,9 @@ describe('detectTestFramework - Adversarial Security Tests', () => {
 	describe('4. Detection priority — no cross-framework false positives', () => {
 		it('should return go-test when both go.mod and pom.xml exist', async () => {
 			// Mock go test detection
-			mockIsCommandAvailable.mockImplementation((cmd: string) => cmd === 'go' || cmd === 'mvn');
+			mockIsCommandAvailable.mockImplementation(
+				(cmd: string) => cmd === 'go' || cmd === 'mvn',
+			);
 			fsExistsSyncSpy.mockImplementation((p) => {
 				const pathStr = String(p);
 				// Return true for both go.mod and pom.xml
@@ -357,7 +362,9 @@ describe('detectTestFramework - Adversarial Security Tests', () => {
 		});
 
 		it('should handle repeated path separators safely', async () => {
-			const result = await detectTestFramework('some///path\\\\\\\\to\\\\folder');
+			const result = await detectTestFramework(
+				'some///path\\\\\\\\to\\\\folder',
+			);
 			expect(result).toBe('none');
 		});
 
@@ -382,14 +389,36 @@ describe('detectTestFramework - Adversarial Security Tests', () => {
 				const pathStr = String(p);
 				// Only return true for paths that don't match any framework marker
 				const frameworkMarkers = [
-					'go.mod', 'pom.xml', 'build.gradle', 'build.gradle.kts', '.csproj',
-					'CMakeLists.txt', 'CMakeCache.txt', 'Package.swift', 'pubspec.yaml',
-					'.rspec', 'Gemfile', 'Rakefile', 'pester.config.ps1', 'pester.config.ps1.json',
-					'tests.ps1', 'test', 'package.json', 'Cargo.toml', 'pyproject.toml',
-					'setup.cfg', 'requirements.txt', 'bun.lockb', 'bun.lock', 'gradlew', 'gradlew.bat',
-					'spec'
+					'go.mod',
+					'pom.xml',
+					'build.gradle',
+					'build.gradle.kts',
+					'.csproj',
+					'CMakeLists.txt',
+					'CMakeCache.txt',
+					'Package.swift',
+					'pubspec.yaml',
+					'.rspec',
+					'Gemfile',
+					'Rakefile',
+					'pester.config.ps1',
+					'pester.config.ps1.json',
+					'tests.ps1',
+					'test',
+					'package.json',
+					'Cargo.toml',
+					'pyproject.toml',
+					'setup.cfg',
+					'requirements.txt',
+					'bun.lockb',
+					'bun.lock',
+					'gradlew',
+					'gradlew.bat',
+					'spec',
 				];
-				const isFrameworkMarker = frameworkMarkers.some(marker => pathStr.endsWith(marker));
+				const isFrameworkMarker = frameworkMarkers.some((marker) =>
+					pathStr.endsWith(marker),
+				);
 				return !isFrameworkMarker && idx % 2 === 0;
 			});
 

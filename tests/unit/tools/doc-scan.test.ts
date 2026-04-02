@@ -3,11 +3,11 @@
  * Tests Pass 1 documentation index tool: scanDocIndex, doc_scan tool
  */
 
-import { describe, it, expect, beforeEach, afterEach } from 'bun:test';
+import { afterEach, beforeEach, describe, expect, it } from 'bun:test';
 import * as fs from 'node:fs';
 import * as os from 'node:os';
 import * as path from 'node:path';
-import { scanDocIndex, doc_scan } from '../../../src/tools/doc-scan';
+import { doc_scan, scanDocIndex } from '../../../src/tools/doc-scan';
 
 // Helper to create temp test directories
 function createTempDir(): string {
@@ -15,7 +15,11 @@ function createTempDir(): string {
 }
 
 // Helper to create test markdown files with forward-slash paths
-function createTestFile(dir: string, filename: string, content: string): string {
+function createTestFile(
+	dir: string,
+	filename: string,
+	content: string,
+): string {
 	// Use forward slashes in the path for consistency with what doc-scan stores
 	const relativePath = filename.replace(/\\/g, '/');
 	const parts = relativePath.split('/');
@@ -80,7 +84,11 @@ describe('doc-scan tool verification tests', () => {
 	// ============ Manifest Generation Tests ============
 	describe('manifest generation', () => {
 		it('should generate manifest with correct structure for README.md', async () => {
-			createTestFile(tempDir, 'README.md', '# My Project\n\nThis is a test project.\n\n## Features\n\n- Feature 1\n- Feature 2\n');
+			createTestFile(
+				tempDir,
+				'README.md',
+				'# My Project\n\nThis is a test project.\n\n## Features\n\n- Feature 1\n- Feature 2\n',
+			);
 
 			const { manifest, cached } = await scanDocIndex(tempDir);
 
@@ -94,10 +102,18 @@ describe('doc-scan tool verification tests', () => {
 
 		it('should discover README.md, CONTRIBUTING.md, and docs/guide.md', async () => {
 			createTestFile(tempDir, 'README.md', '# Project\n\nSummary line.\n');
-			createTestFile(tempDir, 'CONTRIBUTING.md', '# Contributing\n\nGuidelines.\n');
+			createTestFile(
+				tempDir,
+				'CONTRIBUTING.md',
+				'# Contributing\n\nGuidelines.\n',
+			);
 			createTestFile(tempDir, 'docs/guide.md', '# Guide\n\nDocumentation.\n');
 			// src/README.md also matches README.md pattern since basename is README.md
-			createTestFile(tempDir, 'src/README.md', '# Src README\n\nThis also matches.\n');
+			createTestFile(
+				tempDir,
+				'src/README.md',
+				'# Src README\n\nThis also matches.\n',
+			);
 
 			const { manifest } = await scanDocIndex(tempDir);
 
@@ -110,7 +126,8 @@ describe('doc-scan tool verification tests', () => {
 		});
 
 		it('should include path, title, summary, lines, and mtime for each file', async () => {
-			const content = '# Test Title\n\nThis is the summary paragraph.\n\n## Section\n\nMore content here.\n';
+			const content =
+				'# Test Title\n\nThis is the summary paragraph.\n\n## Section\n\nMore content here.\n';
 			createTestFile(tempDir, 'README.md', content);
 
 			const { manifest } = await scanDocIndex(tempDir);
@@ -145,7 +162,11 @@ describe('doc-scan tool verification tests', () => {
 	// ============ Title Extraction Tests ============
 	describe('title extraction', () => {
 		it('should extract title from first # heading', async () => {
-			createTestFile(tempDir, 'README.md', '# My Custom Title\n\nContent here.\n');
+			createTestFile(
+				tempDir,
+				'README.md',
+				'# My Custom Title\n\nContent here.\n',
+			);
 
 			const { manifest } = await scanDocIndex(tempDir);
 
@@ -153,7 +174,11 @@ describe('doc-scan tool verification tests', () => {
 		});
 
 		it('should fallback to filename when no # heading exists', async () => {
-			createTestFile(tempDir, 'README.md', 'No heading here.\nJust plain text.\n');
+			createTestFile(
+				tempDir,
+				'README.md',
+				'No heading here.\nJust plain text.\n',
+			);
 
 			const { manifest } = await scanDocIndex(tempDir);
 
@@ -164,7 +189,7 @@ describe('doc-scan tool verification tests', () => {
 			createTestFile(
 				tempDir,
 				'README.md',
-				'# First Title\n\n## Second Title\n\n### Third Title\n'
+				'# First Title\n\n## Second Title\n\n### Third Title\n',
 			);
 
 			const { manifest } = await scanDocIndex(tempDir);
@@ -201,28 +226,36 @@ describe('doc-scan tool verification tests', () => {
 			createTestFile(
 				tempDir,
 				'README.md',
-				'# Title\n\nThis is the first paragraph.\nIt continues on multiple lines.\n\n## Section\n\nThis is a second paragraph.\n'
+				'# Title\n\nThis is the first paragraph.\nIt continues on multiple lines.\n\n## Section\n\nThis is a second paragraph.\n',
 			);
 
 			const { manifest } = await scanDocIndex(tempDir);
 
 			// Summary should be the first paragraph
-			expect(manifest.files[0].summary).toContain('This is the first paragraph');
+			expect(manifest.files[0].summary).toContain(
+				'This is the first paragraph',
+			);
 		});
 
 		it('should extract summary from file without headings', async () => {
-			createTestFile(tempDir, 'README.md', 'Plain text without any markdown headings.\n');
+			createTestFile(
+				tempDir,
+				'README.md',
+				'Plain text without any markdown headings.\n',
+			);
 
 			const { manifest } = await scanDocIndex(tempDir);
 
-			expect(manifest.files[0].summary).toBe('Plain text without any markdown headings.');
+			expect(manifest.files[0].summary).toBe(
+				'Plain text without any markdown headings.',
+			);
 		});
 
 		it('should skip heading lines when building summary', async () => {
 			createTestFile(
 				tempDir,
 				'README.md',
-				'# Title\n\n## Section One\n\n### SubSection\n\nThis is actual content.\n'
+				'# Title\n\n## Section One\n\n### SubSection\n\nThis is actual content.\n',
 			);
 
 			const { manifest } = await scanDocIndex(tempDir);
@@ -235,7 +268,7 @@ describe('doc-scan tool verification tests', () => {
 			createTestFile(
 				tempDir,
 				'README.md',
-				'# Title\n\nLine one of paragraph.\nLine two of paragraph.\nLine three.\n'
+				'# Title\n\nLine one of paragraph.\nLine two of paragraph.\nLine three.\n',
 			);
 
 			const { manifest } = await scanDocIndex(tempDir);
@@ -281,7 +314,11 @@ describe('doc-scan tool verification tests', () => {
 	describe('skip directories', () => {
 		it('should skip files in node_modules', async () => {
 			fs.mkdirSync(path.join(tempDir, 'node_modules'), { recursive: true });
-			createTestFile(path.join(tempDir, 'node_modules'), 'README.md', '# Secret\n\nShould be skipped.\n');
+			createTestFile(
+				path.join(tempDir, 'node_modules'),
+				'README.md',
+				'# Secret\n\nShould be skipped.\n',
+			);
 			createTestFile(tempDir, 'README.md', '# Real\n\nReal readme.\n');
 
 			const { manifest } = await scanDocIndex(tempDir);
@@ -293,7 +330,11 @@ describe('doc-scan tool verification tests', () => {
 
 		it('should skip files in .git directory', async () => {
 			fs.mkdirSync(path.join(tempDir, '.git'), { recursive: true });
-			createTestFile(path.join(tempDir, '.git'), 'README.md', '# Git Readme\n\nSkipped.\n');
+			createTestFile(
+				path.join(tempDir, '.git'),
+				'README.md',
+				'# Git Readme\n\nSkipped.\n',
+			);
 			createTestFile(tempDir, 'README.md', '# Real\n\nReal readme.\n');
 
 			const { manifest } = await scanDocIndex(tempDir);
@@ -304,7 +345,11 @@ describe('doc-scan tool verification tests', () => {
 		});
 
 		it('should skip files in .swarm directory', async () => {
-			createTestFile(tempDir, '.swarm/README.md', '# Swarm Readme\n\nShould be skipped.\n');
+			createTestFile(
+				tempDir,
+				'.swarm/README.md',
+				'# Swarm Readme\n\nShould be skipped.\n',
+			);
 			createTestFile(tempDir, 'README.md', '# Real\n\nReal readme.\n');
 
 			const { manifest } = await scanDocIndex(tempDir);
@@ -317,7 +362,11 @@ describe('doc-scan tool verification tests', () => {
 		it('should skip files in dist, build, .next, vendor directories', async () => {
 			for (const dir of ['dist', 'build', '.next', 'vendor']) {
 				fs.mkdirSync(path.join(tempDir, dir), { recursive: true });
-				createTestFile(path.join(tempDir, dir), 'README.md', `# ${dir}\n\nSkipped.\n`);
+				createTestFile(
+					path.join(tempDir, dir),
+					'README.md',
+					`# ${dir}\n\nSkipped.\n`,
+				);
 			}
 			createTestFile(tempDir, 'README.md', '# Real\n\nReal readme.\n');
 
@@ -336,7 +385,11 @@ describe('doc-scan tool verification tests', () => {
 	describe('skip test and type definition files', () => {
 		it('should skip *.test.ts files', async () => {
 			createTestFile(tempDir, 'README.md', '# Readme\n\nReal readme.\n');
-			createTestFile(tempDir, 'docs/test-foo.test.ts', '# Test\n\nShould be skipped.\n');
+			createTestFile(
+				tempDir,
+				'docs/test-foo.test.ts',
+				'# Test\n\nShould be skipped.\n',
+			);
 
 			const { manifest } = await scanDocIndex(tempDir);
 
@@ -347,7 +400,11 @@ describe('doc-scan tool verification tests', () => {
 
 		it('should skip *.spec.ts files', async () => {
 			createTestFile(tempDir, 'README.md', '# Readme\n\nReal readme.\n');
-			createTestFile(tempDir, 'docs/test.spec.ts', '# Spec\n\nShould be skipped.\n');
+			createTestFile(
+				tempDir,
+				'docs/test.spec.ts',
+				'# Spec\n\nShould be skipped.\n',
+			);
 
 			const { manifest } = await scanDocIndex(tempDir);
 
@@ -358,7 +415,11 @@ describe('doc-scan tool verification tests', () => {
 
 		it('should skip *.d.ts type definition files', async () => {
 			createTestFile(tempDir, 'README.md', '# Readme\n\nReal readme.\n');
-			createTestFile(tempDir, 'types.doc.d.ts', '# Types\n\nShould be skipped.\n');
+			createTestFile(
+				tempDir,
+				'types.doc.d.ts',
+				'# Types\n\nShould be skipped.\n',
+			);
 
 			const { manifest } = await scanDocIndex(tempDir);
 
@@ -369,7 +430,11 @@ describe('doc-scan tool verification tests', () => {
 
 		it('should skip files with .test. in the middle of name', async () => {
 			createTestFile(tempDir, 'README.md', '# Readme\n\nReal readme.\n');
-			createTestFile(tempDir, 'my.test.file.md', '# Test\n\nShould be skipped.\n');
+			createTestFile(
+				tempDir,
+				'my.test.file.md',
+				'# Test\n\nShould be skipped.\n',
+			);
 
 			const { manifest } = await scanDocIndex(tempDir);
 
@@ -399,7 +464,11 @@ describe('doc-scan tool verification tests', () => {
 		});
 
 		it('should return cached: false when file mtime changes (cache invalidation)', async () => {
-			const filePath = createTestFile(tempDir, 'README.md', '# Project\n\nSummary.\n');
+			const filePath = createTestFile(
+				tempDir,
+				'README.md',
+				'# Project\n\nSummary.\n',
+			);
 
 			// First scan
 			const first = await scanDocIndex(tempDir);
@@ -415,7 +484,11 @@ describe('doc-scan tool verification tests', () => {
 		});
 
 		it('should return cached: false when file is deleted (cache invalidation)', async () => {
-			const filePath = createTestFile(tempDir, 'README.md', '# Project\n\nSummary.\n');
+			const filePath = createTestFile(
+				tempDir,
+				'README.md',
+				'# Project\n\nSummary.\n',
+			);
 
 			// First scan
 			const first = await scanDocIndex(tempDir);
@@ -431,7 +504,11 @@ describe('doc-scan tool verification tests', () => {
 		});
 
 		it('should return cached: false when existing file is modified', async () => {
-			const filePath = createTestFile(tempDir, 'README.md', '# Project\n\nSummary.\n');
+			const filePath = createTestFile(
+				tempDir,
+				'README.md',
+				'# Project\n\nSummary.\n',
+			);
 
 			// First scan
 			const first = await scanDocIndex(tempDir);
@@ -457,7 +534,9 @@ describe('doc-scan tool verification tests', () => {
 			// Second scan
 			const second = await scanDocIndex(tempDir);
 
-			expect(second.manifest.schema_version).toBe(first.manifest.schema_version);
+			expect(second.manifest.schema_version).toBe(
+				first.manifest.schema_version,
+			);
 			// scanned_at timestamps may differ slightly due to timing; check within 1 second
 			const firstTime = new Date(first.manifest.scanned_at).getTime();
 			const secondTime = new Date(second.manifest.scanned_at).getTime();
@@ -472,7 +551,9 @@ describe('doc-scan tool verification tests', () => {
 			createTestFile(tempDir, 'README.md', '# Project\n\nSummary.\n');
 
 			// Scan with force
-			const result = await doc_scan.execute({ force: true }, { cwd: tempDir } as any);
+			const result = await doc_scan.execute({ force: true }, {
+				cwd: tempDir,
+			} as any);
 			const parsed = parseToolResult(result);
 
 			expect(parsed.success).toBe(true);
@@ -506,7 +587,11 @@ describe('doc-scan tool verification tests', () => {
 		it('should add warning to first file when files exceed 100', async () => {
 			// Create 105 CHANGELOG files (they match **/CHANGELOG.md pattern)
 			for (let i = 0; i < 105; i++) {
-				createTestFile(tempDir, `docs/changelog${i}.md`, `# Doc ${i}\n\nContent for document ${i}.\n`);
+				createTestFile(
+					tempDir,
+					`docs/changelog${i}.md`,
+					`# Doc ${i}\n\nContent for document ${i}.\n`,
+				);
 			}
 
 			const { manifest } = await scanDocIndex(tempDir);
@@ -521,7 +606,11 @@ describe('doc-scan tool verification tests', () => {
 		it('should not add warning if files <= 100', async () => {
 			// Create exactly 100 CHANGELOG files
 			for (let i = 0; i < 100; i++) {
-				createTestFile(tempDir, `docs/changelog${i}.md`, `# Doc ${i}\n\nContent.\n`);
+				createTestFile(
+					tempDir,
+					`docs/changelog${i}.md`,
+					`# Doc ${i}\n\nContent.\n`,
+				);
 			}
 
 			const { manifest } = await scanDocIndex(tempDir);
@@ -533,7 +622,11 @@ describe('doc-scan tool verification tests', () => {
 		it('should truncate at exactly 100 files', async () => {
 			// Create 150 CHANGELOG files
 			for (let i = 0; i < 150; i++) {
-				createTestFile(tempDir, `docs/changelog${i}.md`, `# File ${i}\n\nContent.\n`);
+				createTestFile(
+					tempDir,
+					`docs/changelog${i}.md`,
+					`# File ${i}\n\nContent.\n`,
+				);
 			}
 
 			const { manifest } = await scanDocIndex(tempDir);
@@ -579,7 +672,9 @@ describe('doc-scan tool verification tests', () => {
 				},
 			);
 
-			const result = await doc_scan.execute(maliciousArgs, { cwd: tempDir } as any);
+			const result = await doc_scan.execute(maliciousArgs, {
+				cwd: tempDir,
+			} as any);
 			const parsed = parseToolResult(result);
 
 			// Should still succeed despite malicious getter
@@ -619,12 +714,18 @@ describe('doc-scan tool verification tests', () => {
 		});
 
 		it('should handle deeply nested documentation files', async () => {
-			createTestFile(tempDir, 'a/b/c/d/CHANGELOG.md', '# Deep Doc\n\nNested content.\n');
+			createTestFile(
+				tempDir,
+				'a/b/c/d/CHANGELOG.md',
+				'# Deep Doc\n\nNested content.\n',
+			);
 
 			const { manifest } = await scanDocIndex(tempDir);
 
 			expect(manifest.files.length).toBe(1);
-			expect(normalizePath(manifest.files[0].path)).toBe('a/b/c/d/CHANGELOG.md');
+			expect(normalizePath(manifest.files[0].path)).toBe(
+				'a/b/c/d/CHANGELOG.md',
+			);
 		});
 
 		it('should handle file with very long lines', async () => {
@@ -663,7 +764,11 @@ describe('doc-scan tool verification tests', () => {
 		});
 
 		it('should handle file with # in content but not as heading', async () => {
-			createTestFile(tempDir, 'README.md', '# Title\n\nCode example: #include <stdio.h>\n');
+			createTestFile(
+				tempDir,
+				'README.md',
+				'# Title\n\nCode example: #include <stdio.h>\n',
+			);
 
 			const { manifest } = await scanDocIndex(tempDir);
 
@@ -675,7 +780,11 @@ describe('doc-scan tool verification tests', () => {
 	// ============ Pattern Matching with Extra Patterns ============
 	describe('extra patterns (ARCHITECTURE.md, CLAUDE.md, AGENTS.md, .github/*.md, doc/**/*.md)', () => {
 		it('should match ARCHITECTURE.md', async () => {
-			createTestFile(tempDir, 'ARCHITECTURE.md', '# Architecture\n\nSystem design.\n');
+			createTestFile(
+				tempDir,
+				'ARCHITECTURE.md',
+				'# Architecture\n\nSystem design.\n',
+			);
 
 			const { manifest } = await scanDocIndex(tempDir);
 
@@ -684,7 +793,11 @@ describe('doc-scan tool verification tests', () => {
 		});
 
 		it('should match CLAUDE.md', async () => {
-			createTestFile(tempDir, 'CLAUDE.md', '# Claude Instructions\n\nAI guidelines.\n');
+			createTestFile(
+				tempDir,
+				'CLAUDE.md',
+				'# Claude Instructions\n\nAI guidelines.\n',
+			);
 
 			const { manifest } = await scanDocIndex(tempDir);
 
@@ -712,7 +825,11 @@ describe('doc-scan tool verification tests', () => {
 
 		it('should match doc/**/*.md files', async () => {
 			createTestFile(tempDir, 'doc/intro.md', '# Intro\n\nGetting started.\n');
-			createTestFile(tempDir, 'doc/subdir/advanced.md', '# Advanced\n\nDeep dive.\n');
+			createTestFile(
+				tempDir,
+				'doc/subdir/advanced.md',
+				'# Advanced\n\nDeep dive.\n',
+			);
 
 			const { manifest } = await scanDocIndex(tempDir);
 

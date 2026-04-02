@@ -3,15 +3,18 @@
  * Testing Task 5.1 changes in src/tools/sast-scan.ts
  */
 
-import { describe, it, expect, beforeEach, afterEach, mock } from 'bun:test';
-import { mkdtempSync, writeFileSync, rmSync } from 'node:fs';
+import { afterEach, beforeEach, describe, expect, it, mock } from 'bun:test';
+import { mkdtempSync, rmSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 
 // Mutable mock state
 let mockSemgrepAvailable = false;
 const mockRunSemgrepCalls: any[] = [];
-let mockRunSemgrepResult: { findings: any[]; engine: 'tier_a' | 'tier_a+tier_b' } = {
+let mockRunSemgrepResult: {
+	findings: any[];
+	engine: 'tier_a' | 'tier_a+tier_b';
+} = {
 	findings: [],
 	engine: 'tier_a+tier_b',
 };
@@ -88,11 +91,9 @@ describe('SAST Scan - Profile-Driven Behavior', () => {
 		writeFileSync(testFile, 'const x = 1;');
 
 		// Act
-		const result = await sastScan(
-			{ changed_files: ['test.ts'] },
-			tmpDir,
-			{ gates: { sast_scan: { enabled: false } } } as any,
-		);
+		const result = await sastScan({ changed_files: ['test.ts'] }, tmpDir, {
+			gates: { sast_scan: { enabled: false } },
+		} as any);
 
 		// Assert
 		expect(result.verdict).toBe('pass');

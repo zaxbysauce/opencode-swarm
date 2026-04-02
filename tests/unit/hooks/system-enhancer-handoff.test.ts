@@ -1,11 +1,11 @@
-import { describe, it, expect, beforeEach, afterEach, jest } from 'bun:test';
-import { createSystemEnhancerHook } from '../../../src/hooks/system-enhancer';
-import type { PluginConfig } from '../../../src/config';
-import { swarmState, resetSwarmState } from '../../../src/state';
-import { mkdtemp, writeFile, mkdir, rm } from 'node:fs/promises';
-import { existsSync, unlinkSync, renameSync } from 'node:fs';
+import { afterEach, beforeEach, describe, expect, it, jest } from 'bun:test';
+import { existsSync, renameSync, unlinkSync } from 'node:fs';
+import { mkdir, mkdtemp, rm, writeFile } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
+import type { PluginConfig } from '../../../src/config';
+import { createSystemEnhancerHook } from '../../../src/hooks/system-enhancer';
+import { resetSwarmState, swarmState } from '../../../src/state';
 
 describe('System Enhancer Hook - Handoff Detection', () => {
 	let tempDir: string;
@@ -81,7 +81,8 @@ describe('System Enhancer Hook - Handoff Detection', () => {
 			// Arrange
 			const swarmDir = await createPlanWithActiveTask();
 			const handoffPath = join(swarmDir, 'handoff.md');
-			const handoffContent = 'Previous session ended. Here is context from model switch.';
+			const handoffContent =
+				'Previous session ended. Here is context from model switch.';
 			await writeFile(handoffPath, handoffContent);
 
 			const config = { ...defaultConfig };
@@ -99,7 +100,9 @@ describe('System Enhancer Hook - Handoff Detection', () => {
 			expect(existsSync(join(swarmDir, 'handoff-consumed.md'))).toBe(true);
 
 			// Assert - content should be injected
-			const handoffInjection = output.system.find((s) => s.includes('[HANDOFF BRIEF]'));
+			const handoffInjection = output.system.find((s) =>
+				s.includes('[HANDOFF BRIEF]'),
+			);
 			expect(handoffInjection).toBeDefined();
 			expect(handoffInjection).toContain(handoffContent);
 		});
@@ -122,9 +125,11 @@ describe('System Enhancer Hook - Handoff Detection', () => {
 			await transformHook(input, output);
 
 			// Assert - when rename succeeds, handoff should be injected
-			const handoffInjection = output.system.find((s) => s.includes('[HANDOFF BRIEF]'));
+			const handoffInjection = output.system.find((s) =>
+				s.includes('[HANDOFF BRIEF]'),
+			);
 			expect(handoffInjection).toBeDefined();
-			
+
 			// And file should be renamed
 			expect(existsSync(handoffPath)).toBe(false);
 			expect(existsSync(join(swarmDir, 'handoff-consumed.md'))).toBe(true);
@@ -155,7 +160,9 @@ describe('System Enhancer Hook - Handoff Detection', () => {
 			expect(threw).toBe(false);
 
 			// No handoff injection should be present
-			const handoffInjection = output.system.find((s) => s.includes('[HANDOFF BRIEF]'));
+			const handoffInjection = output.system.find((s) =>
+				s.includes('[HANDOFF BRIEF]'),
+			);
 			expect(handoffInjection).toBeUndefined();
 		});
 
@@ -189,7 +196,9 @@ describe('System Enhancer Hook - Handoff Detection', () => {
 			expect(consumedContent).toBe('New handoff content');
 
 			// Handoff should still be injected
-			const handoffInjection = output.system.find((s) => s.includes('[HANDOFF BRIEF]'));
+			const handoffInjection = output.system.find((s) =>
+				s.includes('[HANDOFF BRIEF]'),
+			);
 			expect(handoffInjection).toBeDefined();
 		});
 
@@ -222,7 +231,9 @@ describe('System Enhancer Hook - Handoff Detection', () => {
 			expect(existsSync(consumedPath)).toBe(true);
 
 			// Content should be injected
-			const handoffInjection = output.system.find((s) => s.includes('[HANDOFF BRIEF]'));
+			const handoffInjection = output.system.find((s) =>
+				s.includes('[HANDOFF BRIEF]'),
+			);
 			expect(handoffInjection).toBeDefined();
 		});
 	});
@@ -248,7 +259,9 @@ describe('System Enhancer Hook - Handoff Detection', () => {
 			await transformHook(input, output);
 
 			// Assert - handoff should NOT be injected in DISCOVER mode
-			const handoffInjection = output.system.find((s) => s.includes('[HANDOFF BRIEF]'));
+			const handoffInjection = output.system.find((s) =>
+				s.includes('[HANDOFF BRIEF]'),
+			);
 			expect(handoffInjection).toBeUndefined();
 		});
 	});
@@ -282,7 +295,9 @@ describe('System Enhancer Hook - Handoff Detection', () => {
 			await transformHook(input, output);
 
 			// Assert - handoff should be injected
-			const handoffInjection = output.system.find((s) => s.includes('[HANDOFF BRIEF]'));
+			const handoffInjection = output.system.find((s) =>
+				s.includes('[HANDOFF BRIEF]'),
+			);
 			expect(handoffInjection).toBeDefined();
 			expect(handoffInjection).toContain(handoffContent);
 
@@ -323,7 +338,9 @@ describe('System Enhancer Hook - Handoff Detection', () => {
 			// Assert
 			expect(threw).toBe(false);
 
-			const handoffInjection = output.system.find((s) => s.includes('[HANDOFF BRIEF]'));
+			const handoffInjection = output.system.find((s) =>
+				s.includes('[HANDOFF BRIEF]'),
+			);
 			expect(handoffInjection).toBeUndefined();
 		});
 	});

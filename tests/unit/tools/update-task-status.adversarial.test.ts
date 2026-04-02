@@ -3,23 +3,27 @@
  * Tests malformed inputs, boundary violations, injection attempts, path traversal
  */
 
-import { describe, it, expect, beforeEach, afterEach } from 'bun:test';
+import { afterEach, beforeEach, describe, expect, it } from 'bun:test';
 import * as fs from 'node:fs/promises';
-import * as path from 'node:path';
 import * as os from 'node:os';
+import * as path from 'node:path';
 import {
-	executeUpdateTaskStatus,
-	validateTaskId,
-	validateStatus,
+	advanceTaskState,
+	resetSwarmState,
+	swarmState,
+} from '../../../src/state';
+import {
 	checkReviewerGate,
+	executeUpdateTaskStatus,
 	type UpdateTaskStatusArgs,
+	validateStatus,
+	validateTaskId,
 } from '../../../src/tools/update-task-status';
-import { swarmState, resetSwarmState, advanceTaskState } from '../../../src/state';
 import {
 	createWorkflowTestSession,
-	createWorkflowTestSessionWithTaskAtState,
-	createWorkflowTestSessionWithPassedTask,
 	createWorkflowTestSessionWithCompletedTask,
+	createWorkflowTestSessionWithPassedTask,
+	createWorkflowTestSessionWithTaskAtState,
 } from '../../helpers/workflow-session-factory';
 
 describe('update-task-status adversarial tests', () => {
@@ -28,7 +32,9 @@ describe('update-task-status adversarial tests', () => {
 
 	beforeEach(async () => {
 		// Create temp directory for each test
-		tempDir = await fs.mkdtemp(path.join(os.tmpdir(), 'update-task-adversarial-'));
+		tempDir = await fs.mkdtemp(
+			path.join(os.tmpdir(), 'update-task-adversarial-'),
+		);
 		tempDirs.push(tempDir);
 		// Create .swarm directory with a valid plan
 		await fs.mkdir(path.join(tempDir, '.swarm'), { recursive: true });
@@ -400,7 +406,9 @@ describe('update-task-status adversarial tests', () => {
 	describe('Group 6: Working directory handling security', () => {
 		it('explicit working_directory takes precedence over cwd', async () => {
 			// Create a second temp directory with a different plan
-			const otherDir = await fs.mkdtemp(path.join(os.tmpdir(), 'update-task-other-'));
+			const otherDir = await fs.mkdtemp(
+				path.join(os.tmpdir(), 'update-task-other-'),
+			);
 			tempDirs.push(otherDir);
 			await fs.mkdir(path.join(otherDir, '.swarm'), { recursive: true });
 			const otherPlan = {
@@ -451,7 +459,10 @@ describe('update-task-status adversarial tests', () => {
 
 				// Verify otherDir's plan was updated
 				const otherPlanContent = JSON.parse(
-					await fs.readFile(path.join(otherDir, '.swarm', 'plan.json'), 'utf-8'),
+					await fs.readFile(
+						path.join(otherDir, '.swarm', 'plan.json'),
+						'utf-8',
+					),
 				);
 				expect(otherPlanContent.phases[0].tasks[0].status).toBe('completed');
 
@@ -537,7 +548,13 @@ describe('update-task-status adversarial tests', () => {
 		});
 
 		it('handles rapid consecutive updates without data corruption', async () => {
-			const statuses = ['in_progress', 'completed', 'blocked', 'in_progress', 'completed'];
+			const statuses = [
+				'in_progress',
+				'completed',
+				'blocked',
+				'in_progress',
+				'completed',
+			];
 
 			for (const status of statuses) {
 				const args: UpdateTaskStatusArgs = {
@@ -585,7 +602,9 @@ describe('update-task-status adversarial tests', () => {
 				await fs.readFile(path.join(tempDir, '.swarm', 'plan.json'), 'utf-8'),
 			);
 			// Final status should be one of the two concurrent statuses
-			expect(['in_progress', 'completed']).toContain(plan.phases[0].tasks[0].status);
+			expect(['in_progress', 'completed']).toContain(
+				plan.phases[0].tasks[0].status,
+			);
 		});
 
 		it('handles rapid updates with invalid statuses between valid ones', async () => {
@@ -847,7 +866,10 @@ describe('update-task-status adversarial tests', () => {
 				// Cannot use advanceTaskState with empty string - it rejects invalid task IDs
 				// Manually set state to simulate what would happen if it were allowed
 				// but the canonical rule is: empty task IDs cannot advance
-				(session.taskWorkflowStates as Map<string, string>).set('', 'tests_run');
+				(session.taskWorkflowStates as Map<string, string>).set(
+					'',
+					'tests_run',
+				);
 				swarmState.agentSessions.set('empty-taskid-pass-session', session);
 
 				// Despite being in tests_run in the map, checkReviewerGate should still
@@ -899,7 +921,10 @@ describe('update-task-status adversarial tests', () => {
 			});
 
 			it('blocks when task is in coder_delegated state', () => {
-				const session = createWorkflowTestSessionWithTaskAtState('1.1', 'coder_delegated');
+				const session = createWorkflowTestSessionWithTaskAtState(
+					'1.1',
+					'coder_delegated',
+				);
 				swarmState.agentSessions.set('coder-delegated-session', session);
 
 				const result = checkReviewerGate('1.1', tempDir);
@@ -907,7 +932,10 @@ describe('update-task-status adversarial tests', () => {
 			});
 
 			it('blocks when task is in pre_check_passed state', () => {
-				const session = createWorkflowTestSessionWithTaskAtState('1.1', 'pre_check_passed');
+				const session = createWorkflowTestSessionWithTaskAtState(
+					'1.1',
+					'pre_check_passed',
+				);
 				swarmState.agentSessions.set('pre-check-session', session);
 
 				const result = checkReviewerGate('1.1', tempDir);
@@ -915,7 +943,10 @@ describe('update-task-status adversarial tests', () => {
 			});
 
 			it('blocks when task is in reviewer_run state (tests not yet run)', () => {
-				const session = createWorkflowTestSessionWithTaskAtState('1.1', 'reviewer_run');
+				const session = createWorkflowTestSessionWithTaskAtState(
+					'1.1',
+					'reviewer_run',
+				);
 				swarmState.agentSessions.set('reviewer-run-session', session);
 
 				const result = checkReviewerGate('1.1', tempDir);
@@ -976,7 +1007,9 @@ describe('update-task-status adversarial tests', () => {
 				const original = swarmState.agentSessions;
 				const throwingMap = new Map();
 				Object.defineProperty(throwingMap, 'size', {
-					get: () => { throw new Error('Simulated access error'); },
+					get: () => {
+						throw new Error('Simulated access error');
+					},
 					configurable: true,
 				});
 				swarmState.agentSessions = throwingMap as any;
@@ -1002,10 +1035,16 @@ describe('update-task-status adversarial tests', () => {
 			});
 
 			it('blocks when all sessions have task in sub-threshold states', () => {
-				const sessionA = createWorkflowTestSessionWithTaskAtState('1.1', 'coder_delegated');
+				const sessionA = createWorkflowTestSessionWithTaskAtState(
+					'1.1',
+					'coder_delegated',
+				);
 				swarmState.agentSessions.set('session-a2', sessionA);
 
-				const sessionB = createWorkflowTestSessionWithTaskAtState('1.1', 'pre_check_passed');
+				const sessionB = createWorkflowTestSessionWithTaskAtState(
+					'1.1',
+					'pre_check_passed',
+				);
 				swarmState.agentSessions.set('session-b2', sessionB);
 
 				const result = checkReviewerGate('1.1', tempDir);
@@ -1015,7 +1054,10 @@ describe('update-task-status adversarial tests', () => {
 
 		describe('Attack vector 6: executeUpdateTaskStatus gate enforcement', () => {
 			it('rejects completed status when task is in coder_delegated state', async () => {
-				const session = createWorkflowTestSessionWithTaskAtState('1.1', 'coder_delegated');
+				const session = createWorkflowTestSessionWithTaskAtState(
+					'1.1',
+					'coder_delegated',
+				);
 				swarmState.agentSessions.set('gate-test-session', session);
 
 				const args: UpdateTaskStatusArgs = {
@@ -1044,7 +1086,10 @@ describe('update-task-status adversarial tests', () => {
 			});
 
 			it('blocks completed when sessions exist but task never reached tests_run', async () => {
-				swarmState.agentSessions.set('no-tests-session', createWorkflowTestSession());
+				swarmState.agentSessions.set(
+					'no-tests-session',
+					createWorkflowTestSession(),
+				);
 
 				const args: UpdateTaskStatusArgs = {
 					task_id: '1.1',
@@ -1088,7 +1133,6 @@ describe('update-task-status adversarial tests', () => {
 	// ========== GROUP 12: Additional Adversarial Tests for checkReviewerGate ==========
 	// These target the specific attack vectors identified in the adversarial focus
 	describe('Group 12: checkReviewerGate - Additional Adversarial Vectors', () => {
-
 		// Attack Vector 1: Concurrent session pollution
 		// Can a second session in tests_run for a DIFFERENT task allow through a different taskId?
 		describe('Attack vector 1: Concurrent session pollution', () => {
@@ -1219,7 +1263,9 @@ describe('update-task-status adversarial tests', () => {
 				session.taskWorkflowStates = new Proxy(throwingMap, {
 					get(target, prop) {
 						if (prop === 'get') {
-							return () => { throw new Error('Simulated getTaskState error'); };
+							return () => {
+								throw new Error('Simulated getTaskState error');
+							};
 						}
 						return (target as any)[prop];
 					},

@@ -9,10 +9,10 @@
  * 5. Force architect takeover during active subagent execution - Task tool handoff
  */
 
-import { describe, expect, it, beforeEach } from 'bun:test';
-import { swarmState, resetSwarmState, type ToolCallEntry } from '../src/state';
+import { beforeEach, describe, expect, it } from 'bun:test';
 import { ORCHESTRATOR_NAME } from '../src/config/constants';
 import { stripKnownSwarmPrefix } from '../src/config/schema';
+import { resetSwarmState, swarmState, type ToolCallEntry } from '../src/state';
 
 // Mock the tool.execute.before logic directly from src/index.ts
 // This tests the actual stale-delegation guard logic
@@ -44,7 +44,9 @@ async function executeToolBeforeGuard(input: {
 	// Check for OTHER in-flight tool calls (excluding current callID)
 	// This prevents stale-delegation from incorrectly resetting while another
 	// tool call is in progress for this session
-	const hasActiveToolCall = Array.from(swarmState.activeToolCalls.values()).some(
+	const hasActiveToolCall = Array.from(
+		swarmState.activeToolCalls.values(),
+	).some(
 		(entry) =>
 			entry.sessionID === input.sessionID && entry.callID !== input.callID,
 	);
@@ -100,7 +102,8 @@ async function executeToolAfterHandoff(input: {
 
 	return {
 		activeAgent: swarmState.activeAgent.get(input.sessionID)!,
-		delegationActive: swarmState.agentSessions.get(input.sessionID)?.delegationActive ?? false,
+		delegationActive:
+			swarmState.agentSessions.get(input.sessionID)?.delegationActive ?? false,
 	};
 }
 
@@ -123,7 +126,20 @@ describe('Stale-Delegation Guard - Adversarial Tests', () => {
 				delegationActive: true,
 				activeInvocationId: 1,
 				lastInvocationIdByAgent: { coder: 1 },
-				windows: { 'coder:1': { id: 1, agentName: 'coder', startedAtMs: Date.now() - 15000, toolCalls: 5, consecutiveErrors: 0, hardLimitHit: false, lastSuccessTimeMs: Date.now(), recentToolCalls: [], warningIssued: false, warningReason: '' } },
+				windows: {
+					'coder:1': {
+						id: 1,
+						agentName: 'coder',
+						startedAtMs: Date.now() - 15000,
+						toolCalls: 5,
+						consecutiveErrors: 0,
+						hardLimitHit: false,
+						lastSuccessTimeMs: Date.now(),
+						recentToolCalls: [],
+						warningIssued: false,
+						warningReason: '',
+					},
+				},
 				lastCompactionHint: 0,
 				architectWriteCount: 0,
 				lastCoderDelegationTaskId: null,
@@ -184,7 +200,20 @@ describe('Stale-Delegation Guard - Adversarial Tests', () => {
 				delegationActive: true,
 				activeInvocationId: 1,
 				lastInvocationIdByAgent: { coder: 1 },
-				windows: { 'coder:1': { id: 1, agentName: 'coder', startedAtMs: Date.now(), toolCalls: 5, consecutiveErrors: 0, hardLimitHit: false, lastSuccessTimeMs: Date.now(), recentToolCalls: [], warningIssued: false, warningReason: '' } },
+				windows: {
+					'coder:1': {
+						id: 1,
+						agentName: 'coder',
+						startedAtMs: Date.now(),
+						toolCalls: 5,
+						consecutiveErrors: 0,
+						hardLimitHit: false,
+						lastSuccessTimeMs: Date.now(),
+						recentToolCalls: [],
+						warningIssued: false,
+						warningReason: '',
+					},
+				},
 				lastCompactionHint: 0,
 				architectWriteCount: 0,
 				lastCoderDelegationTaskId: null,
@@ -239,7 +268,20 @@ describe('Stale-Delegation Guard - Adversarial Tests', () => {
 				delegationActive: true,
 				activeInvocationId: 1,
 				lastInvocationIdByAgent: { reviewer: 1 },
-				windows: { 'reviewer:1': { id: 1, agentName: 'reviewer', startedAtMs: Date.now(), toolCalls: 3, consecutiveErrors: 0, hardLimitHit: false, lastSuccessTimeMs: Date.now(), recentToolCalls: [], warningIssued: false, warningReason: '' } },
+				windows: {
+					'reviewer:1': {
+						id: 1,
+						agentName: 'reviewer',
+						startedAtMs: Date.now(),
+						toolCalls: 3,
+						consecutiveErrors: 0,
+						hardLimitHit: false,
+						lastSuccessTimeMs: Date.now(),
+						recentToolCalls: [],
+						warningIssued: false,
+						warningReason: '',
+					},
+				},
 				lastCompactionHint: 0,
 				architectWriteCount: 0,
 				lastCoderDelegationTaskId: null,

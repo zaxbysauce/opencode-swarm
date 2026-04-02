@@ -3,9 +3,13 @@
  * Tests: duplicate entries, wrong-role exposure, invalid tool-name drift, accidental mutation of other roles.
  */
 
-import { describe, it, expect } from 'bun:test';
+import { describe, expect, it } from 'bun:test';
 import { AGENT_TOOL_MAP, ALL_AGENT_NAMES } from '../../src/config/constants';
-import { TOOL_NAME_SET, TOOL_NAMES, type ToolName } from '../../src/tools/tool-names';
+import {
+	TOOL_NAME_SET,
+	TOOL_NAMES,
+	type ToolName,
+} from '../../src/tools/tool-names';
 
 describe('ADVERSARIAL: Architect whitelist check_gate_status', () => {
 	describe('DUPLICATE ENTRIES: check_gate_status should appear exactly once in architect', () => {
@@ -29,20 +33,18 @@ describe('ADVERSARIAL: Architect whitelist check_gate_status', () => {
 			(agent) => agent !== 'architect',
 		);
 
-		it.each(nonArchitectRoles)(
-			'should NOT expose check_gate_status to $role role',
-			(role) => {
-				const roleTools = AGENT_TOOL_MAP[role as keyof typeof AGENT_TOOL_MAP];
-				expect(roleTools).not.toContain('check_gate_status');
-			},
-		);
+		it.each(
+			nonArchitectRoles,
+		)('should NOT expose check_gate_status to $role role', (role) => {
+			const roleTools = AGENT_TOOL_MAP[role as keyof typeof AGENT_TOOL_MAP];
+			expect(roleTools).not.toContain('check_gate_status');
+		});
 
 		it('should only have check_gate_status in architect role', () => {
-			const rolesWithCheckGateStatus = (Object.keys(
-				AGENT_TOOL_MAP,
-			) as Array<keyof typeof AGENT_TOOL_MAP>).filter(
-				(role) =>
-					AGENT_TOOL_MAP[role]?.includes('check_gate_status' as ToolName),
+			const rolesWithCheckGateStatus = (
+				Object.keys(AGENT_TOOL_MAP) as Array<keyof typeof AGENT_TOOL_MAP>
+			).filter((role) =>
+				AGENT_TOOL_MAP[role]?.includes('check_gate_status' as ToolName),
 			);
 			expect(rolesWithCheckGateStatus).toEqual(['architect']);
 		});
@@ -68,9 +70,7 @@ describe('ADVERSARIAL: Architect whitelist check_gate_status', () => {
 		it('should not have typosquatting variations of check_gate_status', () => {
 			const architectTools = AGENT_TOOL_MAP['architect'];
 			const suspiciousTools = architectTools.filter(
-				(t) =>
-					t.includes('check_gate') &&
-					t !== 'check_gate_status',
+				(t) => t.includes('check_gate') && t !== 'check_gate_status',
 			);
 			expect(suspiciousTools).toEqual([]);
 		});
@@ -174,11 +174,7 @@ describe('ADVERSARIAL: Architect whitelist check_gate_status', () => {
 		});
 
 		it('designer should retain original 3 tools', () => {
-			const expected = [
-				'extract_code_blocks',
-				'retrieve_summary',
-				'symbols',
-			];
+			const expected = ['extract_code_blocks', 'retrieve_summary', 'symbols'];
 			expect(AGENT_TOOL_MAP['designer']).toEqual(expected);
 		});
 	});

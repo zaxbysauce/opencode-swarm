@@ -7,9 +7,9 @@ describe('AGENT_TOOL_MAP — declare_scope permission (task 5.7)', () => {
 	});
 
 	it('declare_scope is architect-only (no other agent has it)', () => {
-		const otherAgents = (Object.keys(AGENT_TOOL_MAP) as Array<keyof typeof AGENT_TOOL_MAP>).filter(
-			(agent) => agent !== 'architect',
-		);
+		const otherAgents = (
+			Object.keys(AGENT_TOOL_MAP) as Array<keyof typeof AGENT_TOOL_MAP>
+		).filter((agent) => agent !== 'architect');
 
 		for (const agent of otherAgents) {
 			expect(AGENT_TOOL_MAP[agent]).not.toContain('declare_scope');

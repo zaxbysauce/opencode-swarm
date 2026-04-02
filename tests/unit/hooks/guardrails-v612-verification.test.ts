@@ -9,7 +9,7 @@
  * 5. Explicit enabled:false wins in index.ts fallback logic
  */
 
-import { describe, it, expect, beforeEach, afterEach } from 'bun:test';
+import { afterEach, beforeEach, describe, expect, it } from 'bun:test';
 import * as fs from 'node:fs';
 import * as os from 'node:os';
 import * as path from 'node:path';
@@ -24,12 +24,12 @@ import {
 } from '../../../src/config/schema';
 import { createGuardrailsHooks } from '../../../src/hooks/guardrails';
 import {
-	resetSwarmState,
-	swarmState,
-	startAgentSession,
+	beginInvocation,
 	ensureAgentSession,
 	getActiveWindow,
-	beginInvocation,
+	resetSwarmState,
+	startAgentSession,
+	swarmState,
 } from '../../../src/state';
 
 describe('v6.1.2 Guardrails Remediation', () => {
@@ -347,9 +347,9 @@ describe('v6.1.2 Guardrails Remediation', () => {
 		it('startAgentSession with architect sets both maps correctly', () => {
 			startAgentSession('architect-session', ORCHESTRATOR_NAME);
 
-			expect(
-				swarmState.agentSessions.get('architect-session')?.agentName,
-			).toBe(ORCHESTRATOR_NAME);
+			expect(swarmState.agentSessions.get('architect-session')?.agentName).toBe(
+				ORCHESTRATOR_NAME,
+			);
 			expect(swarmState.activeAgent.get('architect-session')).toBe(
 				ORCHESTRATOR_NAME,
 			);
@@ -364,9 +364,9 @@ describe('v6.1.2 Guardrails Remediation', () => {
 
 			// activeAgent should be updated
 			expect(swarmState.activeAgent.get('overwrite-session')).toBe('coder');
-			expect(
-				swarmState.agentSessions.get('overwrite-session')?.agentName,
-			).toBe('coder');
+			expect(swarmState.agentSessions.get('overwrite-session')?.agentName).toBe(
+				'coder',
+			);
 		});
 
 		it('guardrails can resolve agentName from activeAgent after startAgentSession', async () => {
@@ -443,7 +443,10 @@ describe('v6.1.2 Guardrails Remediation', () => {
 
 				// But explicit enabled: false should still be honored
 				// Simulate the index.ts fallback logic:
-				const guardrailsFallback: { enabled?: boolean; [key: string]: unknown } =
+				const guardrailsFallback: {
+					enabled?: boolean;
+					[key: string]: unknown;
+				} =
 					config.guardrails?.enabled === false
 						? { ...config.guardrails, enabled: false }
 						: loadedFromFile
@@ -477,7 +480,10 @@ describe('v6.1.2 Guardrails Remediation', () => {
 				expect(config.guardrails?.enabled).toBe(true);
 
 				// Fallback logic should use loadedFromFile path
-				const guardrailsFallback: { enabled?: boolean; [key: string]: unknown } =
+				const guardrailsFallback: {
+					enabled?: boolean;
+					[key: string]: unknown;
+				} =
 					config.guardrails?.enabled === false
 						? { ...config.guardrails, enabled: false }
 						: loadedFromFile
@@ -502,7 +508,10 @@ describe('v6.1.2 Guardrails Remediation', () => {
 				expect(loadedFromFile).toBe(false);
 
 				// Fallback logic should disable guardrails when no file exists
-				const guardrailsFallback: { enabled?: boolean; [key: string]: unknown } =
+				const guardrailsFallback: {
+					enabled?: boolean;
+					[key: string]: unknown;
+				} =
 					config.guardrails?.enabled === false
 						? { ...config.guardrails, enabled: false }
 						: loadedFromFile

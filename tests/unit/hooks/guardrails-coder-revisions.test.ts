@@ -1,10 +1,16 @@
-import { describe, expect, test, beforeEach, afterEach } from 'bun:test';
-import { createGuardrailsHooks } from '../../../src/hooks/guardrails';
-import { resetSwarmState, ensureAgentSession, startAgentSession, getAgentSession, swarmState } from '../../../src/state';
-import { GuardrailsConfigSchema } from '../../../src/config/schema';
-import { serializeAgentSession } from '../../../src/session/snapshot-writer';
-import { deserializeAgentSession } from '../../../src/session/snapshot-reader';
+import { afterEach, beforeEach, describe, expect, test } from 'bun:test';
 import type { GuardrailsConfig } from '../../../src/config/schema';
+import { GuardrailsConfigSchema } from '../../../src/config/schema';
+import { createGuardrailsHooks } from '../../../src/hooks/guardrails';
+import { deserializeAgentSession } from '../../../src/session/snapshot-reader';
+import { serializeAgentSession } from '../../../src/session/snapshot-writer';
+import {
+	ensureAgentSession,
+	getAgentSession,
+	resetSwarmState,
+	startAgentSession,
+	swarmState,
+} from '../../../src/state';
 
 const TEST_DIR = '/test/project';
 
@@ -19,7 +25,13 @@ const defaultConfig: GuardrailsConfig = {
 	no_op_warning_threshold: 15,
 	max_coder_revisions: 5,
 	qa_gates: {
-		required_tools: ['diff', 'syntax_check', 'placeholder_scan', 'lint', 'pre_check_batch'],
+		required_tools: [
+			'diff',
+			'syntax_check',
+			'placeholder_scan',
+			'lint',
+			'pre_check_batch',
+		],
 		require_reviewer_test_engineer: true,
 	},
 };
@@ -31,7 +43,10 @@ function makeTaskArgs(subagentType: string, prompt = 'Fix the bug') {
 /**
  * Sets up an architect session for testing.
  */
-function setupArchitectSession(sessionId: string, config: GuardrailsConfig = defaultConfig) {
+function setupArchitectSession(
+	sessionId: string,
+	config: GuardrailsConfig = defaultConfig,
+) {
 	ensureAgentSession(sessionId, 'architect');
 	swarmState.activeAgent.set(sessionId, 'architect');
 	return { hooks: createGuardrailsHooks(TEST_DIR, config), sessionId };
@@ -54,7 +69,11 @@ async function simulateCoderDelegation(
 	taskId = '1.1',
 ) {
 	// toolBefore: architect delegates to coder
-	const beforeInput = { tool: 'Task', sessionID: sessionId, callID: `${callId}-before` };
+	const beforeInput = {
+		tool: 'Task',
+		sessionID: sessionId,
+		callID: `${callId}-before`,
+	};
 	const beforeOutput = { args: makeTaskArgs('coder', prompt) };
 	await hooks.toolBefore(beforeInput as any, beforeOutput as any);
 
@@ -114,14 +133,18 @@ describe('guardrails bounded coder revisions', () => {
 	// Test 3: Config parsing — min violation
 	// -------------------------------------------------------------------------
 	test('GuardrailsConfigSchema.parse({ max_coder_revisions: 0 }) fails (min 1)', () => {
-		expect(() => GuardrailsConfigSchema.parse({ max_coder_revisions: 0 })).toThrow();
+		expect(() =>
+			GuardrailsConfigSchema.parse({ max_coder_revisions: 0 }),
+		).toThrow();
 	});
 
 	// -------------------------------------------------------------------------
 	// Test 4: Config parsing — max violation
 	// -------------------------------------------------------------------------
 	test('GuardrailsConfigSchema.parse({ max_coder_revisions: 21 }) fails (max 20)', () => {
-		expect(() => GuardrailsConfigSchema.parse({ max_coder_revisions: 21 })).toThrow();
+		expect(() =>
+			GuardrailsConfigSchema.parse({ max_coder_revisions: 21 }),
+		).toThrow();
 	});
 
 	// -------------------------------------------------------------------------
@@ -158,8 +181,14 @@ describe('guardrails bounded coder revisions', () => {
 	// This test documents the actual behavior.
 	// -------------------------------------------------------------------------
 	test('multiple delegations — coderRevisions cycles between 0 and 1', async () => {
-		const customConfig: GuardrailsConfig = { ...defaultConfig, max_coder_revisions: 3 };
-		({ hooks, sessionId } = setupArchitectSession('session-multi', customConfig));
+		const customConfig: GuardrailsConfig = {
+			...defaultConfig,
+			max_coder_revisions: 3,
+		};
+		({ hooks, sessionId } = setupArchitectSession(
+			'session-multi',
+			customConfig,
+		));
 		const session = getAgentSession(sessionId)!;
 
 		// First delegation: coderRevisions=1 after completion
@@ -183,8 +212,14 @@ describe('guardrails bounded coder revisions', () => {
 	// Test 8: After limit hit (max=1), further delegations don't increment
 	// -------------------------------------------------------------------------
 	test('after limit hit (max=1), further delegations do not increment coderRevisions', async () => {
-		const customConfig: GuardrailsConfig = { ...defaultConfig, max_coder_revisions: 1 };
-		({ hooks, sessionId } = setupArchitectSession('session-post-limit', customConfig));
+		const customConfig: GuardrailsConfig = {
+			...defaultConfig,
+			max_coder_revisions: 1,
+		};
+		({ hooks, sessionId } = setupArchitectSession(
+			'session-post-limit',
+			customConfig,
+		));
 		const session = getAgentSession(sessionId)!;
 
 		// Hit the limit on first completion
@@ -195,11 +230,20 @@ describe('guardrails bounded coder revisions', () => {
 		// Try another delegation — should NOT increment because revisionLimitHit is true
 		session.lastCoderDelegationTaskId = '1.2';
 
-		const beforeInput = { tool: 'Task', sessionID: sessionId, callID: 'call-3-before' };
+		const beforeInput = {
+			tool: 'Task',
+			sessionID: sessionId,
+			callID: 'call-3-before',
+		};
 		const beforeOutput = { args: makeTaskArgs('coder', 'Another fix') };
 		await hooks.toolBefore(beforeInput as any, beforeOutput as any);
 
-		const afterInput = { tool: 'Task', sessionID: sessionId, callID: 'call-3-after', args: makeTaskArgs('coder', 'Another fix') };
+		const afterInput = {
+			tool: 'Task',
+			sessionID: sessionId,
+			callID: 'call-3-after',
+			args: makeTaskArgs('coder', 'Another fix'),
+		};
 		const afterOutput = { title: 'Task', output: 'Done', metadata: {} };
 		await hooks.toolAfter(afterInput as any, afterOutput as any);
 
@@ -213,8 +257,14 @@ describe('guardrails bounded coder revisions', () => {
 	// (revisionLimitHit=true blocks the reset in toolBefore)
 	// -------------------------------------------------------------------------
 	test('new coder delegation after limit hit → coderRevisions NOT reset (revisionLimitHit guards)', async () => {
-		const customConfig: GuardrailsConfig = { ...defaultConfig, max_coder_revisions: 1 };
-		({ hooks, sessionId } = setupArchitectSession('session-no-reset', customConfig));
+		const customConfig: GuardrailsConfig = {
+			...defaultConfig,
+			max_coder_revisions: 1,
+		};
+		({ hooks, sessionId } = setupArchitectSession(
+			'session-no-reset',
+			customConfig,
+		));
 		const session = getAgentSession(sessionId)!;
 
 		// Hit the limit
@@ -223,7 +273,11 @@ describe('guardrails bounded coder revisions', () => {
 		expect(session.revisionLimitHit).toBe(true);
 
 		// Trigger a new coder delegation via toolBefore
-		const beforeInput = { tool: 'Task', sessionID: sessionId, callID: 'call-reset-before' };
+		const beforeInput = {
+			tool: 'Task',
+			sessionID: sessionId,
+			callID: 'call-reset-before',
+		};
 		const beforeOutput = { args: makeTaskArgs('coder', 'Should not reset') };
 		await hooks.toolBefore(beforeInput as any, beforeOutput as any);
 
@@ -246,7 +300,11 @@ describe('guardrails bounded coder revisions', () => {
 		expect(session.revisionLimitHit).toBe(false);
 
 		// Trigger a new coder delegation via toolBefore — should reset to 0
-		const beforeInput = { tool: 'Task', sessionID: sessionId, callID: 'call-reset-before' };
+		const beforeInput = {
+			tool: 'Task',
+			sessionID: sessionId,
+			callID: 'call-reset-before',
+		};
 		const beforeOutput = { args: makeTaskArgs('coder', 'New task') };
 		await hooks.toolBefore(beforeInput as any, beforeOutput as any);
 
@@ -267,11 +325,20 @@ describe('guardrails bounded coder revisions', () => {
 		expect(session.coderRevisions).toBe(1);
 
 		// Delegate to reviewer instead
-		const beforeInput = { tool: 'Task', sessionID: sessionId, callID: 'call-rev-before' };
+		const beforeInput = {
+			tool: 'Task',
+			sessionID: sessionId,
+			callID: 'call-rev-before',
+		};
 		const beforeOutput = { args: makeTaskArgs('reviewer', 'Review code') };
 		await hooks.toolBefore(beforeInput as any, beforeOutput as any);
 
-		const afterInput = { tool: 'Task', sessionID: sessionId, callID: 'call-rev-after', args: makeTaskArgs('reviewer', 'Review code') };
+		const afterInput = {
+			tool: 'Task',
+			sessionID: sessionId,
+			callID: 'call-rev-after',
+			args: makeTaskArgs('reviewer', 'Review code'),
+		};
 		const afterOutput = { title: 'Task', output: 'Review done', metadata: {} };
 		await hooks.toolAfter(afterInput as any, afterOutput as any);
 
@@ -319,8 +386,14 @@ describe('guardrails bounded coder revisions', () => {
 	// Test 14: Advisory message content includes actual count and max
 	// -------------------------------------------------------------------------
 	test('advisory message content includes actual count and max', async () => {
-		const customConfig: GuardrailsConfig = { ...defaultConfig, max_coder_revisions: 1 };
-		({ hooks, sessionId } = setupArchitectSession('session-advisory-content', customConfig));
+		const customConfig: GuardrailsConfig = {
+			...defaultConfig,
+			max_coder_revisions: 1,
+		};
+		({ hooks, sessionId } = setupArchitectSession(
+			'session-advisory-content',
+			customConfig,
+		));
 		const session = getAgentSession(sessionId)!;
 
 		// With max=1, first completion hits the limit
@@ -337,8 +410,14 @@ describe('guardrails bounded coder revisions', () => {
 	// Test 15: swarmState.pendingEvents incremented when limit hit
 	// -------------------------------------------------------------------------
 	test('swarmState.pendingEvents incremented when limit hit', async () => {
-		const customConfig: GuardrailsConfig = { ...defaultConfig, max_coder_revisions: 1 };
-		({ hooks, sessionId } = setupArchitectSession('session-pending-events', customConfig));
+		const customConfig: GuardrailsConfig = {
+			...defaultConfig,
+			max_coder_revisions: 1,
+		};
+		({ hooks, sessionId } = setupArchitectSession(
+			'session-pending-events',
+			customConfig,
+		));
 
 		expect(swarmState.pendingEvents).toBe(0);
 
@@ -352,8 +431,14 @@ describe('guardrails bounded coder revisions', () => {
 	// Test 16: Custom max_coder_revisions (e.g., 3) in config
 	// -------------------------------------------------------------------------
 	test('custom max_coder_revisions=3 works correctly', async () => {
-		const customConfig: GuardrailsConfig = { ...defaultConfig, max_coder_revisions: 3 };
-		({ hooks, sessionId } = setupArchitectSession('session-custom-max', customConfig));
+		const customConfig: GuardrailsConfig = {
+			...defaultConfig,
+			max_coder_revisions: 3,
+		};
+		({ hooks, sessionId } = setupArchitectSession(
+			'session-custom-max',
+			customConfig,
+		));
 		const session = getAgentSession(sessionId)!;
 
 		// Complete one delegation (doesn't hit limit yet with max=3)
@@ -377,8 +462,14 @@ describe('guardrails bounded coder revisions', () => {
 	// Test 17: max_coder_revisions=1 edge case
 	// -------------------------------------------------------------------------
 	test('max_coder_revisions=1 hits limit on first completion', async () => {
-		const customConfig: GuardrailsConfig = { ...defaultConfig, max_coder_revisions: 1 };
-		({ hooks, sessionId } = setupArchitectSession('session-max-1', customConfig));
+		const customConfig: GuardrailsConfig = {
+			...defaultConfig,
+			max_coder_revisions: 1,
+		};
+		({ hooks, sessionId } = setupArchitectSession(
+			'session-max-1',
+			customConfig,
+		));
 		const session = getAgentSession(sessionId)!;
 
 		await simulateCoderDelegation(hooks, sessionId, 'call-1', 'Fix bug #1');
@@ -392,8 +483,14 @@ describe('guardrails bounded coder revisions', () => {
 	// Test 18: max_coder_revisions=20 (max value)
 	// -------------------------------------------------------------------------
 	test('max_coder_revisions=20 works (boundary)', async () => {
-		const customConfig: GuardrailsConfig = { ...defaultConfig, max_coder_revisions: 20 };
-		({ hooks, sessionId } = setupArchitectSession('session-max-20', customConfig));
+		const customConfig: GuardrailsConfig = {
+			...defaultConfig,
+			max_coder_revisions: 20,
+		};
+		({ hooks, sessionId } = setupArchitectSession(
+			'session-max-20',
+			customConfig,
+		));
 		const session = getAgentSession(sessionId)!;
 
 		// Complete 5 delegations with reviewer delegations in between to avoid loop detection
@@ -407,14 +504,28 @@ describe('guardrails bounded coder revisions', () => {
 		];
 		for (let i = 0; i < 5; i++) {
 			// Coder delegation
-			await simulateCoderDelegation(hooks, sessionId, `coder-${i}`, coderPrompts[i]);
+			await simulateCoderDelegation(
+				hooks,
+				sessionId,
+				`coder-${i}`,
+				coderPrompts[i],
+			);
 
 			// Reviewer delegation (breaks consecutive coder pattern for loop detection)
-			const revBeforeInput = { tool: 'Task', sessionID: sessionId, callID: `rev-${i}-before` };
+			const revBeforeInput = {
+				tool: 'Task',
+				sessionID: sessionId,
+				callID: `rev-${i}-before`,
+			};
 			const revBeforeOutput = { args: makeTaskArgs('reviewer', 'Review') };
 			await hooks.toolBefore(revBeforeInput as any, revBeforeOutput as any);
 
-			const revAfterInput = { tool: 'Task', sessionID: sessionId, callID: `rev-${i}-after`, args: makeTaskArgs('reviewer', 'Review') };
+			const revAfterInput = {
+				tool: 'Task',
+				sessionID: sessionId,
+				callID: `rev-${i}-after`,
+				args: makeTaskArgs('reviewer', 'Review'),
+			};
 			const revAfterOutput = { title: 'Task', output: 'Done', metadata: {} };
 			await hooks.toolAfter(revAfterInput as any, revAfterOutput as any);
 		}
@@ -432,15 +543,29 @@ describe('guardrails bounded coder revisions', () => {
 		const session = getAgentSession(sessionId)!;
 
 		// First coder delegation
-		await simulateCoderDelegation(hooks, sessionId, 'call-coder-1', 'Fix bug #1');
+		await simulateCoderDelegation(
+			hooks,
+			sessionId,
+			'call-coder-1',
+			'Fix bug #1',
+		);
 		expect(session.coderRevisions).toBe(1);
 
 		// Reviewer delegation in between
-		const revBeforeInput = { tool: 'Task', sessionID: sessionId, callID: 'call-rev-before' };
+		const revBeforeInput = {
+			tool: 'Task',
+			sessionID: sessionId,
+			callID: 'call-rev-before',
+		};
 		const revBeforeOutput = { args: makeTaskArgs('reviewer', 'Review') };
 		await hooks.toolBefore(revBeforeInput as any, revBeforeOutput as any);
 
-		const revAfterInput = { tool: 'Task', sessionID: sessionId, callID: 'call-rev-after', args: makeTaskArgs('reviewer', 'Review') };
+		const revAfterInput = {
+			tool: 'Task',
+			sessionID: sessionId,
+			callID: 'call-rev-after',
+			args: makeTaskArgs('reviewer', 'Review'),
+		};
 		const revAfterOutput = { title: 'Task', output: 'Done', metadata: {} };
 		await hooks.toolAfter(revAfterInput as any, revAfterOutput as any);
 
@@ -448,7 +573,11 @@ describe('guardrails bounded coder revisions', () => {
 		expect(session.coderRevisions).toBe(1);
 
 		// New coder delegation — should reset to 0
-		const coderBeforeInput = { tool: 'Task', sessionID: sessionId, callID: 'call-coder-2-before' };
+		const coderBeforeInput = {
+			tool: 'Task',
+			sessionID: sessionId,
+			callID: 'call-coder-2-before',
+		};
 		const coderBeforeOutput = { args: makeTaskArgs('coder', 'New task') };
 		await hooks.toolBefore(coderBeforeInput as any, coderBeforeOutput as any);
 
@@ -459,11 +588,20 @@ describe('guardrails bounded coder revisions', () => {
 	// Test 20: Multiple architect sessions are independent
 	// -------------------------------------------------------------------------
 	test('multiple sessions have independent coderRevisions counters', async () => {
-		const customConfig: GuardrailsConfig = { ...defaultConfig, max_coder_revisions: 3 };
+		const customConfig: GuardrailsConfig = {
+			...defaultConfig,
+			max_coder_revisions: 3,
+		};
 
 		// Setup two separate sessions
-		const { hooks: hooks1, sessionId: sessionId1 } = setupArchitectSession('session-1', customConfig);
-		const { hooks: hooks2, sessionId: sessionId2 } = setupArchitectSession('session-2', customConfig);
+		const { hooks: hooks1, sessionId: sessionId1 } = setupArchitectSession(
+			'session-1',
+			customConfig,
+		);
+		const { hooks: hooks2, sessionId: sessionId2 } = setupArchitectSession(
+			'session-2',
+			customConfig,
+		);
 
 		// Complete one delegation in session 1
 		await simulateCoderDelegation(hooks1, sessionId1, 'call-1', 'Fix bug #1');

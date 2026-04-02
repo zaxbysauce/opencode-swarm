@@ -1,11 +1,13 @@
-import { describe, it, expect, beforeEach, afterEach, vi } from 'bun:test';
-import { checkFileAuthority } from '../../../src/hooks/guardrails';
+import { afterEach, beforeEach, describe, expect, it, vi } from 'bun:test';
 import * as fs from 'node:fs/promises';
-import * as path from 'node:path';
 import * as os from 'node:os';
+import * as path from 'node:path';
+import { checkFileAuthority } from '../../../src/hooks/guardrails';
 
 // Helper to check if result is a denial
-function isDenied(result: ReturnType<typeof checkFileAuthority>): result is { allowed: false; reason: string } {
+function isDenied(
+	result: ReturnType<typeof checkFileAuthority>,
+): result is { allowed: false; reason: string } {
 	return !result.allowed;
 }
 
@@ -36,7 +38,11 @@ describe('guardrails-authority - File Authority Enforcement', () => {
 		});
 
 		it('blocks architect from writing to .swarm/plan.json', () => {
-			const result = checkFileAuthority('architect', '.swarm/plan.json', tempDir);
+			const result = checkFileAuthority(
+				'architect',
+				'.swarm/plan.json',
+				tempDir,
+			);
 			expect(result.allowed).toBe(false);
 			if (isDenied(result)) {
 				expect(result.reason).toContain('Path blocked');
@@ -44,7 +50,11 @@ describe('guardrails-authority - File Authority Enforcement', () => {
 		});
 
 		it('allows architect to write to src files', () => {
-			const result = checkFileAuthority('architect', 'src/utils/helper.ts', tempDir);
+			const result = checkFileAuthority(
+				'architect',
+				'src/utils/helper.ts',
+				tempDir,
+			);
 			// Architect has no allowedPrefixes so should be allowed
 			// (blockedExact is checked, but src/ is not in blocked)
 			expect(result.allowed).toBe(true);
@@ -53,7 +63,11 @@ describe('guardrails-authority - File Authority Enforcement', () => {
 
 	describe('Coder blocked from evidence/', () => {
 		it('blocks coder from writing to .swarm/evidence/', () => {
-			const result = checkFileAuthority('coder', '.swarm/evidence/test.json', tempDir);
+			const result = checkFileAuthority(
+				'coder',
+				'.swarm/evidence/test.json',
+				tempDir,
+			);
 			expect(result.allowed).toBe(false);
 			if (isDenied(result)) {
 				expect(result.reason).toContain('Path blocked');
@@ -77,12 +91,20 @@ describe('guardrails-authority - File Authority Enforcement', () => {
 		});
 
 		it('allows coder to write to src/', () => {
-			const result = checkFileAuthority('coder', 'src/services/api.ts', tempDir);
+			const result = checkFileAuthority(
+				'coder',
+				'src/services/api.ts',
+				tempDir,
+			);
 			expect(result.allowed).toBe(true);
 		});
 
 		it('allows coder to write to tests/', () => {
-			const result = checkFileAuthority('coder', 'tests/unit/api.test.ts', tempDir);
+			const result = checkFileAuthority(
+				'coder',
+				'tests/unit/api.test.ts',
+				tempDir,
+			);
 			expect(result.allowed).toBe(true);
 		});
 
@@ -107,12 +129,20 @@ describe('guardrails-authority - File Authority Enforcement', () => {
 
 	describe('Reviewer allowed in evidence/', () => {
 		it('allows reviewer to write to .swarm/evidence/', () => {
-			const result = checkFileAuthority('reviewer', '.swarm/evidence/test.json', tempDir);
+			const result = checkFileAuthority(
+				'reviewer',
+				'.swarm/evidence/test.json',
+				tempDir,
+			);
 			expect(result.allowed).toBe(true);
 		});
 
 		it('allows reviewer to write to .swarm/outputs/', () => {
-			const result = checkFileAuthority('reviewer', '.swarm/outputs/report.md', tempDir);
+			const result = checkFileAuthority(
+				'reviewer',
+				'.swarm/outputs/report.md',
+				tempDir,
+			);
 			expect(result.allowed).toBe(true);
 		});
 
@@ -135,7 +165,11 @@ describe('guardrails-authority - File Authority Enforcement', () => {
 
 	describe('Explorer read-only (no writes)', () => {
 		it('blocks explorer from writing to any path', () => {
-			const result = checkFileAuthority('explorer', 'any/path/file.ts', tempDir);
+			const result = checkFileAuthority(
+				'explorer',
+				'any/path/file.ts',
+				tempDir,
+			);
 			expect(result.allowed).toBe(false);
 			if (isDenied(result)) {
 				expect(result.reason).toContain('Path blocked');
@@ -148,7 +182,11 @@ describe('guardrails-authority - File Authority Enforcement', () => {
 		});
 
 		it('blocks explorer from writing to .swarm/', () => {
-			const result = checkFileAuthority('explorer', '.swarm/evidence/file.json', tempDir);
+			const result = checkFileAuthority(
+				'explorer',
+				'.swarm/evidence/file.json',
+				tempDir,
+			);
 			expect(result.allowed).toBe(false);
 		});
 	});
@@ -167,17 +205,29 @@ describe('guardrails-authority - File Authority Enforcement', () => {
 
 	describe('Test Engineer write scope', () => {
 		it('allows test_engineer to write to tests/', () => {
-			const result = checkFileAuthority('test_engineer', 'tests/unit/test.ts', tempDir);
+			const result = checkFileAuthority(
+				'test_engineer',
+				'tests/unit/test.ts',
+				tempDir,
+			);
 			expect(result.allowed).toBe(true);
 		});
 
 		it('allows test_engineer to write to .swarm/evidence/', () => {
-			const result = checkFileAuthority('test_engineer', '.swarm/evidence/test.json', tempDir);
+			const result = checkFileAuthority(
+				'test_engineer',
+				'.swarm/evidence/test.json',
+				tempDir,
+			);
 			expect(result.allowed).toBe(true);
 		});
 
 		it('blocks test_engineer from writing to src/', () => {
-			const result = checkFileAuthority('test_engineer', 'src/file.ts', tempDir);
+			const result = checkFileAuthority(
+				'test_engineer',
+				'src/file.ts',
+				tempDir,
+			);
 			expect(result.allowed).toBe(false);
 			if (isDenied(result)) {
 				expect(result.reason).toContain('Path blocked');
@@ -185,7 +235,11 @@ describe('guardrails-authority - File Authority Enforcement', () => {
 		});
 
 		it('blocks test_engineer from writing to .swarm/plan.md', () => {
-			const result = checkFileAuthority('test_engineer', '.swarm/plan.md', tempDir);
+			const result = checkFileAuthority(
+				'test_engineer',
+				'.swarm/plan.md',
+				tempDir,
+			);
 			expect(result.allowed).toBe(false);
 		});
 	});
@@ -197,7 +251,11 @@ describe('guardrails-authority - File Authority Enforcement', () => {
 		});
 
 		it('allows docs to write to .swarm/outputs/', () => {
-			const result = checkFileAuthority('docs', '.swarm/outputs/file.md', tempDir);
+			const result = checkFileAuthority(
+				'docs',
+				'.swarm/outputs/file.md',
+				tempDir,
+			);
 			expect(result.allowed).toBe(true);
 		});
 
@@ -219,7 +277,11 @@ describe('guardrails-authority - File Authority Enforcement', () => {
 
 	describe('Critic write scope', () => {
 		it('allows critic to write to .swarm/evidence/', () => {
-			const result = checkFileAuthority('critic', '.swarm/evidence/notes.txt', tempDir);
+			const result = checkFileAuthority(
+				'critic',
+				'.swarm/evidence/notes.txt',
+				tempDir,
+			);
 			expect(result.allowed).toBe(true);
 		});
 
@@ -236,7 +298,11 @@ describe('guardrails-authority - File Authority Enforcement', () => {
 
 	describe('Unknown agent denied by default', () => {
 		it('blocks unknown agent', () => {
-			const result = checkFileAuthority('unknown-agent', 'src/file.ts', tempDir);
+			const result = checkFileAuthority(
+				'unknown-agent',
+				'src/file.ts',
+				tempDir,
+			);
 			expect(result.allowed).toBe(false);
 			if (isDenied(result)) {
 				expect(result.reason).toContain('Unknown agent');
@@ -276,20 +342,33 @@ describe('guardrails-authority - File Authority Enforcement', () => {
 	describe('Cross-platform paths work', () => {
 		it('handles Windows backslash paths in file path', () => {
 			// The filePath parameter can contain backslashes
-			const result = checkFileAuthority('architect', '.swarm\\plan.md', tempDir);
+			const result = checkFileAuthority(
+				'architect',
+				'.swarm\\plan.md',
+				tempDir,
+			);
 			// Path normalization should handle this - should still be blocked
 			expect(result.allowed).toBe(false);
 		});
 
 		it('handles Windows backslash in coder path', () => {
-			const result = checkFileAuthority('coder', 'src\\utils\\helper.ts', tempDir);
+			const result = checkFileAuthority(
+				'coder',
+				'src\\utils\\helper.ts',
+				tempDir,
+			);
 			expect(result.allowed).toBe(true);
 		});
 	});
 
 	describe('Absolute path normalization (issue #259)', () => {
 		it('allows coder to write to src/ via absolute path', () => {
-			const absolutePath = path.join(tempDir, 'src', 'services', 'price-calculator.ts');
+			const absolutePath = path.join(
+				tempDir,
+				'src',
+				'services',
+				'price-calculator.ts',
+			);
 			const result = checkFileAuthority('coder', absolutePath, tempDir);
 			expect(result.allowed).toBe(true);
 		});

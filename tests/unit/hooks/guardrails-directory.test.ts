@@ -1,11 +1,17 @@
-import { describe, it, expect, beforeEach, vi } from 'bun:test';
-import { createGuardrailsHooks } from '../../../src/hooks/guardrails';
-import { resetSwarmState, startAgentSession, swarmState } from '../../../src/state';
-import type { GuardrailsConfig } from '../../../src/config/schema';
-import * as planManager from '../../../src/plan/manager';
+import { beforeEach, describe, expect, it, vi } from 'bun:test';
 import * as path from 'node:path';
+import type { GuardrailsConfig } from '../../../src/config/schema';
+import { createGuardrailsHooks } from '../../../src/hooks/guardrails';
+import * as planManager from '../../../src/plan/manager';
+import {
+	resetSwarmState,
+	startAgentSession,
+	swarmState,
+} from '../../../src/state';
 
-function defaultConfig(overrides?: Partial<GuardrailsConfig>): GuardrailsConfig {
+function defaultConfig(
+	overrides?: Partial<GuardrailsConfig>,
+): GuardrailsConfig {
 	return {
 		enabled: true,
 		max_tool_calls: 200,
@@ -19,7 +25,11 @@ function defaultConfig(overrides?: Partial<GuardrailsConfig>): GuardrailsConfig 
 	};
 }
 
-function makeInput(sessionID = 'test-session', tool = 'read', callID = 'call-1') {
+function makeInput(
+	sessionID = 'test-session',
+	tool = 'read',
+	callID = 'call-1',
+) {
 	return { tool, sessionID, callID };
 }
 
@@ -68,7 +78,9 @@ describe('guardrails directory parameter injection', () => {
 			const hooks = createGuardrailsHooks(testDirectory, config);
 
 			// Mock loadPlan to verify it's called with the injected directory
-			const loadPlanSpy = vi.spyOn(planManager, 'loadPlan').mockResolvedValue(null);
+			const loadPlanSpy = vi
+				.spyOn(planManager, 'loadPlan')
+				.mockResolvedValue(null);
 
 			// Set up session for toolAfter hook (use coder to avoid architect exemption)
 			startAgentSession('test-session', 'coder');
@@ -174,7 +186,9 @@ describe('guardrails directory parameter injection', () => {
 			const hooks = createGuardrailsHooks(testDirectory, config);
 
 			// Mock loadPlan to verify the directory parameter
-			const loadPlanSpy = vi.spyOn(planManager, 'loadPlan').mockResolvedValue(null);
+			const loadPlanSpy = vi
+				.spyOn(planManager, 'loadPlan')
+				.mockResolvedValue(null);
 
 			// Set up session with gate log (use coder to avoid architect exemption)
 			startAgentSession('test-session', 'coder');
@@ -204,26 +218,28 @@ describe('guardrails directory parameter injection', () => {
 			loadPlanSpy.mockRestore();
 		});
 
-	it('loads plan from injected directory in messagesTransform', async () => {
-		const config = defaultConfig();
-		const testDirectory = '/custom/project/dir';
-		const hooks = createGuardrailsHooks(testDirectory, config);
+		it('loads plan from injected directory in messagesTransform', async () => {
+			const config = defaultConfig();
+			const testDirectory = '/custom/project/dir';
+			const hooks = createGuardrailsHooks(testDirectory, config);
 
-		// Mock loadPlan to verify the directory parameter
-		const mockPlan = {
-			schema_version: '1.0.0' as const,
-			title: 'Test Plan',
-			swarm: 'test-swarm',
-			phases: [
-				{
-					id: 1,
-					name: 'Phase 1',
-					tasks: [],
-					status: 'complete' as const,
-				},
-			],
-		};
-		const loadPlanSpy = vi.spyOn(planManager, 'loadPlan').mockResolvedValue(mockPlan);
+			// Mock loadPlan to verify the directory parameter
+			const mockPlan = {
+				schema_version: '1.0.0' as const,
+				title: 'Test Plan',
+				swarm: 'test-swarm',
+				phases: [
+					{
+						id: 1,
+						name: 'Phase 1',
+						tasks: [],
+						status: 'complete' as const,
+					},
+				],
+			};
+			const loadPlanSpy = vi
+				.spyOn(planManager, 'loadPlan')
+				.mockResolvedValue(mockPlan);
 
 			// Set up session with gate log and catastrophic warnings
 			startAgentSession('test-session', 'architect');
@@ -236,7 +252,11 @@ describe('guardrails directory parameter injection', () => {
 			// Call messagesTransform (which checks catastrophic warnings and loads plan)
 			const messages = [
 				{
-					info: { role: 'assistant', sessionID: 'test-session', agent: 'architect' },
+					info: {
+						role: 'assistant',
+						sessionID: 'test-session',
+						agent: 'architect',
+					},
 					parts: [{ type: 'text', text: 'Phase complete' }],
 				},
 			];
@@ -260,7 +280,9 @@ describe('guardrails directory parameter injection', () => {
 			startAgentSession('test-session', 'architect');
 
 			const input = makeInput('test-session', 'write', 'call-1');
-			const output = makeOutput({ filePath: path.join(testDirectory, 'src/file.ts') });
+			const output = makeOutput({
+				filePath: path.join(testDirectory, 'src/file.ts'),
+			});
 
 			// Mock warn to capture warnings
 			const warnSpy = vi.spyOn(console, 'warn').mockImplementation(() => {});
@@ -282,58 +304,62 @@ describe('guardrails directory parameter injection', () => {
 			warnSpy.mockRestore();
 		});
 
-	it('toolAfter does not use process.cwd() for plan loading', async () => {
-		const config = defaultConfig();
-		const testDirectory = '/project/dir';
-		const hooks = createGuardrailsHooks(testDirectory, config);
+		it('toolAfter does not use process.cwd() for plan loading', async () => {
+			const config = defaultConfig();
+			const testDirectory = '/project/dir';
+			const hooks = createGuardrailsHooks(testDirectory, config);
 
-		// Mock loadPlan to capture directory parameter
-		const loadPlanSpy = vi.spyOn(planManager, 'loadPlan').mockResolvedValue(null);
+			// Mock loadPlan to capture directory parameter
+			const loadPlanSpy = vi
+				.spyOn(planManager, 'loadPlan')
+				.mockResolvedValue(null);
 
-		// Set up session (use coder to avoid architect exemption)
-		startAgentSession('test-session', 'coder');
-		const session = swarmState.agentSessions.get('test-session');
-		if (session) {
-			session.gateLog.set('task-1', new Set());
-			session.reviewerCallCount.set(1, 0);
-		}
+			// Set up session (use coder to avoid architect exemption)
+			startAgentSession('test-session', 'coder');
+			const session = swarmState.agentSessions.get('test-session');
+			if (session) {
+				session.gateLog.set('task-1', new Set());
+				session.reviewerCallCount.set(1, 0);
+			}
 
-		// Call toolAfter with Task delegation
-		const input = makeInput('test-session', 'Task', 'call-1');
-		await hooks.toolBefore(input, { args: { subagent_type: 'reviewer' } });
+			// Call toolAfter with Task delegation
+			const input = makeInput('test-session', 'Task', 'call-1');
+			await hooks.toolBefore(input, { args: { subagent_type: 'reviewer' } });
 
-		const output = {
-			title: 'Task Result',
-			output: 'success',
-			metadata: {},
-		};
+			const output = {
+				title: 'Task Result',
+				output: 'success',
+				metadata: {},
+			};
 
-		await hooks.toolAfter(input, output);
+			await hooks.toolAfter(input, output);
 
-		// Verify loadPlan was called only with injected directory
-		expect(loadPlanSpy).toHaveBeenCalledWith(testDirectory);
-		expect(loadPlanSpy).toHaveBeenCalledTimes(1);
+			// Verify loadPlan was called only with injected directory
+			expect(loadPlanSpy).toHaveBeenCalledWith(testDirectory);
+			expect(loadPlanSpy).toHaveBeenCalledTimes(1);
 
-		// Verify no call to process.cwd()
-		const calls = loadPlanSpy.mock.calls.map((call) => call[0]);
-		expect(calls).not.toContain(process.cwd());
+			// Verify no call to process.cwd()
+			const calls = loadPlanSpy.mock.calls.map((call) => call[0]);
+			expect(calls).not.toContain(process.cwd());
 
-		loadPlanSpy.mockRestore();
-	});
+			loadPlanSpy.mockRestore();
+		});
 
-	it('messagesTransform does not use process.cwd() for plan loading', async () => {
-		const config = defaultConfig();
-		const testDirectory = '/test/directory';
-		const hooks = createGuardrailsHooks(testDirectory, config);
+		it('messagesTransform does not use process.cwd() for plan loading', async () => {
+			const config = defaultConfig();
+			const testDirectory = '/test/directory';
+			const hooks = createGuardrailsHooks(testDirectory, config);
 
-		// Mock loadPlan to capture directory parameter
-		const mockPlan = {
-			schema_version: '1.0.0' as const,
-			title: 'Test Plan',
-			swarm: 'test-swarm',
-			phases: [],
-		};
-		const loadPlanSpy = vi.spyOn(planManager, 'loadPlan').mockResolvedValue(mockPlan);
+			// Mock loadPlan to capture directory parameter
+			const mockPlan = {
+				schema_version: '1.0.0' as const,
+				title: 'Test Plan',
+				swarm: 'test-swarm',
+				phases: [],
+			};
+			const loadPlanSpy = vi
+				.spyOn(planManager, 'loadPlan')
+				.mockResolvedValue(mockPlan);
 
 			// Set up session
 			startAgentSession('test-session', 'architect');
@@ -345,7 +371,11 @@ describe('guardrails directory parameter injection', () => {
 			// Call messagesTransform
 			const messages = [
 				{
-					info: { role: 'assistant', sessionID: 'test-session', agent: 'architect' },
+					info: {
+						role: 'assistant',
+						sessionID: 'test-session',
+						agent: 'architect',
+					},
 					parts: [{ type: 'text', text: 'Test message' }],
 				},
 			];
@@ -366,7 +396,9 @@ describe('guardrails directory parameter injection', () => {
 			const hooks = createGuardrailsHooks(absoluteDirectory, config);
 
 			// Mock loadPlan
-			const loadPlanSpy = vi.spyOn(planManager, 'loadPlan').mockResolvedValue(null);
+			const loadPlanSpy = vi
+				.spyOn(planManager, 'loadPlan')
+				.mockResolvedValue(null);
 
 			// Set up session (use coder to avoid architect exemption)
 			startAgentSession('test-session', 'coder');
@@ -400,7 +432,9 @@ describe('guardrails directory parameter injection', () => {
 			const hooks = createGuardrailsHooks(relativeDirectory, config);
 
 			// Mock loadPlan
-			const loadPlanSpy = vi.spyOn(planManager, 'loadPlan').mockResolvedValue(null);
+			const loadPlanSpy = vi
+				.spyOn(planManager, 'loadPlan')
+				.mockResolvedValue(null);
 
 			// Set up session (use coder to avoid architect exemption)
 			startAgentSession('test-session', 'coder');
@@ -434,7 +468,9 @@ describe('guardrails directory parameter injection', () => {
 			const hooks = createGuardrailsHooks(windowsDirectory, config);
 
 			// Mock loadPlan
-			const loadPlanSpy = vi.spyOn(planManager, 'loadPlan').mockResolvedValue(null);
+			const loadPlanSpy = vi
+				.spyOn(planManager, 'loadPlan')
+				.mockResolvedValue(null);
 
 			// Set up session (use coder to avoid architect exemption)
 			startAgentSession('test-session', 'coder');

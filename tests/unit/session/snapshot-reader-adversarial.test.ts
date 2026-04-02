@@ -4,13 +4,21 @@
  * Focus: Path traversal, malicious JSON, prototype pollution, edge cases.
  */
 
-import { describe, it, expect, beforeEach, afterEach } from 'vitest';
 import * as fs from 'node:fs';
-import * as path from 'node:path';
 import { tmpdir } from 'node:os';
-import { deserializeAgentSession, readSnapshot, rehydrateState, loadSnapshot } from '../../../src/session/snapshot-reader';
+import * as path from 'node:path';
+import { afterEach, beforeEach, describe, expect, it } from 'vitest';
+import {
+	deserializeAgentSession,
+	loadSnapshot,
+	readSnapshot,
+	rehydrateState,
+} from '../../../src/session/snapshot-reader';
+import type {
+	SerializedAgentSession,
+	SnapshotData,
+} from '../../../src/session/snapshot-writer';
 import { resetSwarmState, swarmState } from '../../../src/state';
-import type { SerializedAgentSession, SnapshotData } from '../../../src/session/snapshot-writer';
 
 describe('snapshot-reader ADVERSARIAL tests', () => {
 	let testDir: string;
@@ -21,7 +29,10 @@ describe('snapshot-reader ADVERSARIAL tests', () => {
 		resetSwarmState();
 
 		// Create unique test directory
-		testDir = path.join(tmpdir(), `swarm-test-${Date.now()}-${Math.random().toString(36).slice(2)}`);
+		testDir = path.join(
+			tmpdir(),
+			`swarm-test-${Date.now()}-${Math.random().toString(36).slice(2)}`,
+		);
 		swarmDir = path.join(testDir, '.swarm');
 		sessionDir = path.join(swarmDir, 'session');
 		fs.mkdirSync(sessionDir, { recursive: true });
@@ -357,11 +368,17 @@ describe('snapshot-reader ADVERSARIAL tests', () => {
 			const deserialized = deserializeAgentSession(serialized);
 			// Creates a Set with string values (not numbers) - verify behavior
 			expect(deserialized.catastrophicPhaseWarnings.size).toBe(2);
-			expect(Array.from(deserialized.catastrophicPhaseWarnings)).toEqual(['1', '2']);
+			expect(Array.from(deserialized.catastrophicPhaseWarnings)).toEqual([
+				'1',
+				'2',
+			]);
 		});
 
 		it('should handle very large Set restoration (10,000 entries) without hanging', () => {
-			const largeStringArray = Array.from({ length: 10000 }, (_, i) => `item${i}`);
+			const largeStringArray = Array.from(
+				{ length: 10000 },
+				(_, i) => `item${i}`,
+			);
 			const largeNumberArray = Array.from({ length: 10000 }, (_, i) => i);
 
 			const serialized: SerializedAgentSession = {
@@ -460,7 +477,15 @@ describe('snapshot-reader ADVERSARIAL tests', () => {
 			const snapshot1: SnapshotData = {
 				version: 1,
 				writtenAt: Date.now(),
-				toolAggregates: { tool1: { tool: 'tool1', count: 1, successCount: 1, failureCount: 0, totalDuration: 100 } },
+				toolAggregates: {
+					tool1: {
+						tool: 'tool1',
+						count: 1,
+						successCount: 1,
+						failureCount: 0,
+						totalDuration: 100,
+					},
+				},
 				activeAgent: { session1: 'agent1' },
 				delegationChains: {},
 				agentSessions: {},
@@ -469,7 +494,15 @@ describe('snapshot-reader ADVERSARIAL tests', () => {
 			const snapshot2: SnapshotData = {
 				version: 1,
 				writtenAt: Date.now(),
-				toolAggregates: { tool2: { tool: 'tool2', count: 2, successCount: 2, failureCount: 0, totalDuration: 200 } },
+				toolAggregates: {
+					tool2: {
+						tool: 'tool2',
+						count: 2,
+						successCount: 2,
+						failureCount: 0,
+						totalDuration: 200,
+					},
+				},
 				activeAgent: { session2: 'agent2' },
 				delegationChains: {},
 				agentSessions: {},
@@ -499,7 +532,15 @@ describe('snapshot-reader ADVERSARIAL tests', () => {
 			const snapshot: SnapshotData = {
 				version: 1,
 				writtenAt: Date.now(),
-				toolAggregates: { tool2: { tool: 'tool2', count: 5, successCount: 4, failureCount: 1, totalDuration: 500 } },
+				toolAggregates: {
+					tool2: {
+						tool: 'tool2',
+						count: 5,
+						successCount: 4,
+						failureCount: 1,
+						totalDuration: 500,
+					},
+				},
 				activeAgent: { session2: 'agent2' },
 				delegationChains: {},
 				agentSessions: {},
@@ -555,7 +596,14 @@ describe('snapshot-reader ADVERSARIAL tests', () => {
 			const statePath = path.join(sessionDir, 'state.json');
 			fs.writeFileSync(
 				statePath,
-				JSON.stringify({ version: 999, writtenAt: Date.now(), toolAggregates: {}, activeAgent: {}, delegationChains: {}, agentSessions: {} }),
+				JSON.stringify({
+					version: 999,
+					writtenAt: Date.now(),
+					toolAggregates: {},
+					activeAgent: {},
+					delegationChains: {},
+					agentSessions: {},
+				}),
 			);
 
 			const result = await readSnapshot(testDir);
@@ -566,7 +614,14 @@ describe('snapshot-reader ADVERSARIAL tests', () => {
 			const statePath = path.join(sessionDir, 'state.json');
 			fs.writeFileSync(
 				statePath,
-				JSON.stringify({ version: 0, writtenAt: Date.now(), toolAggregates: {}, activeAgent: {}, delegationChains: {}, agentSessions: {} }),
+				JSON.stringify({
+					version: 0,
+					writtenAt: Date.now(),
+					toolAggregates: {},
+					activeAgent: {},
+					delegationChains: {},
+					agentSessions: {},
+				}),
 			);
 
 			const result = await readSnapshot(testDir);

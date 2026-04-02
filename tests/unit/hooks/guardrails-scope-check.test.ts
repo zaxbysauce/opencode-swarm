@@ -1,10 +1,17 @@
-import { describe, it, expect, beforeEach } from 'bun:test';
-import { createGuardrailsHooks } from '../../../src/hooks/guardrails';
-import { resetSwarmState, startAgentSession, getAgentSession, swarmState } from '../../../src/state';
-import type { GuardrailsConfig } from '../../../src/config/schema';
+import { beforeEach, describe, expect, it } from 'bun:test';
 import { ORCHESTRATOR_NAME } from '../../../src/config/constants';
+import type { GuardrailsConfig } from '../../../src/config/schema';
+import { createGuardrailsHooks } from '../../../src/hooks/guardrails';
+import {
+	getAgentSession,
+	resetSwarmState,
+	startAgentSession,
+	swarmState,
+} from '../../../src/state';
 
-function defaultConfig(overrides?: Partial<GuardrailsConfig>): GuardrailsConfig {
+function defaultConfig(
+	overrides?: Partial<GuardrailsConfig>,
+): GuardrailsConfig {
 	return {
 		enabled: true,
 		max_tool_calls: 200,
@@ -18,7 +25,11 @@ function defaultConfig(overrides?: Partial<GuardrailsConfig>): GuardrailsConfig 
 	};
 }
 
-function makeInput(sessionID = 'test-session', tool = 'write', callID = 'call-1') {
+function makeInput(
+	sessionID = 'test-session',
+	tool = 'write',
+	callID = 'call-1',
+) {
 	return { tool, sessionID, callID };
 }
 
@@ -39,17 +50,31 @@ describe('guardrails scope containment check (Task 5.4)', () => {
 			const session = getAgentSession('test-session')!;
 			session.declaredCoderScope = ['src'];
 			session.scopeViolationDetected = true;
-			session.lastScopeViolation = 'Scope violation for task task-123: 3 undeclared files modified: lib/file1.ts, lib/file2.ts, lib/file3.ts';
+			session.lastScopeViolation =
+				'Scope violation for task task-123: 3 undeclared files modified: lib/file1.ts, lib/file2.ts, lib/file3.ts';
 			// Set up gates to prevent PARTIAL GATE VIOLATION from also firing
 			const taskId = 'task-123';
 			session.currentTaskId = taskId;
-			session.gateLog.set(taskId, new Set(['diff', 'syntax_check', 'placeholder_scan', 'lint', 'pre_check_batch']));
+			session.gateLog.set(
+				taskId,
+				new Set([
+					'diff',
+					'syntax_check',
+					'placeholder_scan',
+					'lint',
+					'pre_check_batch',
+				]),
+			);
 			session.reviewerCallCount.set(1, 1);
 
 			// Simulate messagesTransform with architect session
 			const messages = [
 				{
-					info: { role: 'assistant', agent: 'mega_architect', sessionID: 'test-session' },
+					info: {
+						role: 'assistant',
+						agent: 'mega_architect',
+						sessionID: 'test-session',
+					},
 					parts: [{ type: 'text', text: 'Here is the implementation.' }],
 				},
 			];
@@ -58,14 +83,21 @@ describe('guardrails scope containment check (Task 5.4)', () => {
 
 			// v6.22.8: SCOPE VIOLATION is now injected into a system message (model-only guidance)
 			// A new system message is created at index 0; the original message moves to index 1
-			const systemMessage = (messages[0] as { info: { role: string }; parts: Array<{ type: string; text: string }> });
+			const systemMessage = messages[0] as {
+				info: { role: string };
+				parts: Array<{ type: string; text: string }>;
+			};
 			expect(systemMessage.info.role).toBe('system');
 			expect(systemMessage.parts[0].text).toContain('⚠️ SCOPE VIOLATION');
 			expect(systemMessage.parts[0].text).toContain('[MODEL_ONLY_GUIDANCE]');
-			expect(systemMessage.parts[0].text).toContain('Only modify files within your declared scope');
+			expect(systemMessage.parts[0].text).toContain(
+				'Only modify files within your declared scope',
+			);
 
 			// Original message is preserved and unchanged at index 1
-			const originalMessage = (messages[1] as { parts: Array<{ type: string; text: string }> });
+			const originalMessage = messages[1] as {
+				parts: Array<{ type: string; text: string }>;
+			};
 			expect(originalMessage.parts[0].text).toBe('Here is the implementation.');
 		});
 
@@ -79,11 +111,16 @@ describe('guardrails scope containment check (Task 5.4)', () => {
 			const session = getAgentSession('test-session')!;
 			session.declaredCoderScope = ['src'];
 			session.scopeViolationDetected = true;
-			session.lastScopeViolation = 'Scope violation for task task-123: 3 undeclared files modified: lib/file1.ts, lib/file2.ts, lib/file3.ts';
+			session.lastScopeViolation =
+				'Scope violation for task task-123: 3 undeclared files modified: lib/file1.ts, lib/file2.ts, lib/file3.ts';
 
 			const messages = [
 				{
-					info: { role: 'assistant', agent: 'mega_architect', sessionID: 'test-session' },
+					info: {
+						role: 'assistant',
+						agent: 'mega_architect',
+						sessionID: 'test-session',
+					},
 					parts: [{ type: 'text', text: 'Here is the implementation.' }],
 				},
 			];
@@ -110,7 +147,11 @@ describe('guardrails scope containment check (Task 5.4)', () => {
 
 			const messages = [
 				{
-					info: { role: 'assistant', agent: 'mega_architect', sessionID: 'test-session' },
+					info: {
+						role: 'assistant',
+						agent: 'mega_architect',
+						sessionID: 'test-session',
+					},
 					parts: [{ type: 'text', text: 'Here is the implementation.' }],
 				},
 			];
@@ -118,7 +159,9 @@ describe('guardrails scope containment check (Task 5.4)', () => {
 			await hooks.messagesTransform({}, { messages });
 
 			// Check that scope violation warning was NOT prepended (but other warnings might still fire)
-			const updatedText = (messages[0] as { parts: Array<{ type: string; text: string }> }).parts[0].text;
+			const updatedText = (
+				messages[0] as { parts: Array<{ type: string; text: string }> }
+			).parts[0].text;
 			// Note: Other warnings (like partial gate violation) may still fire
 			// We're just checking that SCOPE VIOLATION specifically is not present
 			expect(updatedText).not.toMatch(/⚠️ SCOPE VIOLATION/);
@@ -139,7 +182,11 @@ describe('guardrails scope containment check (Task 5.4)', () => {
 
 			const messages = [
 				{
-					info: { role: 'assistant', agent: 'coder', sessionID: 'test-session' },
+					info: {
+						role: 'assistant',
+						agent: 'coder',
+						sessionID: 'test-session',
+					},
 					parts: [{ type: 'text', text: 'Here is the implementation.' }],
 				},
 			];
@@ -147,7 +194,9 @@ describe('guardrails scope containment check (Task 5.4)', () => {
 			await hooks.messagesTransform({}, { messages });
 
 			// Warning should NOT be injected for non-architect session
-			const updatedText = (messages[0] as { parts: Array<{ type: string; text: string }> }).parts[0].text;
+			const updatedText = (
+				messages[0] as { parts: Array<{ type: string; text: string }> }
+			).parts[0].text;
 			expect(updatedText).not.toContain('⚠️ SCOPE VIOLATION');
 			expect(updatedText).toBe('Here is the implementation.');
 		});
@@ -161,11 +210,16 @@ describe('guardrails scope containment check (Task 5.4)', () => {
 			const session = getAgentSession('test-session')!;
 			session.declaredCoderScope = ['src'];
 			session.scopeViolationDetected = true;
-			session.lastScopeViolation = 'Scope violation for task task-123: 3 undeclared files modified: lib/file1.ts, lib/file2.ts, lib/file3.ts';
+			session.lastScopeViolation =
+				'Scope violation for task task-123: 3 undeclared files modified: lib/file1.ts, lib/file2.ts, lib/file3.ts';
 
 			const messages = [
 				{
-					info: { role: 'assistant', agent: undefined, sessionID: 'test-session' },
+					info: {
+						role: 'assistant',
+						agent: undefined,
+						sessionID: 'test-session',
+					},
 					parts: [{ type: 'text', text: 'Here is the implementation.' }],
 				},
 			];
@@ -173,7 +227,9 @@ describe('guardrails scope containment check (Task 5.4)', () => {
 			await hooks.messagesTransform({}, { messages });
 
 			// Warning should be injected
-			const updatedText = (messages[0] as { parts: Array<{ type: string; text: string }> }).parts[0].text;
+			const updatedText = (
+				messages[0] as { parts: Array<{ type: string; text: string }> }
+			).parts[0].text;
 			expect(updatedText).toContain('⚠️ SCOPE VIOLATION');
 		});
 	});
@@ -182,7 +238,7 @@ describe('guardrails scope containment check (Task 5.4)', () => {
 		// These tests verify basic state management for scope checking
 		// Note: Full scope violation detection depends on path resolution which requires
 		// proper directory setup. These tests focus on state field behavior.
-		
+
 		it('declaredCoderScope === null skips scope check', async () => {
 			const config = defaultConfig();
 			const hooks = createGuardrailsHooks('/test/dir', config);
@@ -191,17 +247,21 @@ describe('guardrails scope containment check (Task 5.4)', () => {
 			const session = getAgentSession('test-session')!;
 			// declaredCoderScope defaults to null
 			session.lastCoderDelegationTaskId = 'task-123';
-			session.modifiedFilesThisCoderTask = ['lib/file1.ts', 'lib/file2.ts', 'lib/file3.ts'];
+			session.modifiedFilesThisCoderTask = [
+				'lib/file1.ts',
+				'lib/file2.ts',
+				'lib/file3.ts',
+			];
 
-			await hooks.toolBefore(
-				makeInput('test-session', 'Task', 'call-1'),
-				{ args: { subagent_type: 'coder', task: 'Implement feature' } },
-			);
+			await hooks.toolBefore(makeInput('test-session', 'Task', 'call-1'), {
+				args: { subagent_type: 'coder', task: 'Implement feature' },
+			});
 
-			await hooks.toolAfter(
-				makeInput('test-session', 'Task', 'call-1'),
-				{ title: 'Task', output: 'Task completed', metadata: {} },
-			);
+			await hooks.toolAfter(makeInput('test-session', 'Task', 'call-1'), {
+				title: 'Task',
+				output: 'Task completed',
+				metadata: {},
+			});
 
 			// No violation because declaredCoderScope is null
 			expect(session.scopeViolationDetected).toBe(false);
@@ -215,18 +275,22 @@ describe('guardrails scope containment check (Task 5.4)', () => {
 			const session = getAgentSession('test-session')!;
 			session.declaredCoderScope = ['src'];
 			session.lastCoderDelegationTaskId = 'task-123';
-			session.modifiedFilesThisCoderTask = ['lib/file1.ts', 'lib/file2.ts', 'lib/file3.ts'];
+			session.modifiedFilesThisCoderTask = [
+				'lib/file1.ts',
+				'lib/file2.ts',
+				'lib/file3.ts',
+			];
 
 			// Reviewer delegation (not coder)
-			await hooks.toolBefore(
-				makeInput('test-session', 'Task', 'call-1'),
-				{ args: { subagent_type: 'reviewer', task: 'Review code' } },
-			);
+			await hooks.toolBefore(makeInput('test-session', 'Task', 'call-1'), {
+				args: { subagent_type: 'reviewer', task: 'Review code' },
+			});
 
-			await hooks.toolAfter(
-				makeInput('test-session', 'Task', 'call-1'),
-				{ title: 'Task', output: 'Review completed', metadata: {} },
-			);
+			await hooks.toolAfter(makeInput('test-session', 'Task', 'call-1'), {
+				title: 'Task',
+				output: 'Review completed',
+				metadata: {},
+			});
 
 			// No violation because it's a reviewer, not coder
 			expect(session.scopeViolationDetected).toBe(false);
@@ -240,17 +304,21 @@ describe('guardrails scope containment check (Task 5.4)', () => {
 			const session = getAgentSession('test-session')!;
 			session.declaredCoderScope = ['src'];
 			// lastCoderDelegationTaskId is NOT set
-			session.modifiedFilesThisCoderTask = ['lib/file1.ts', 'lib/file2.ts', 'lib/file3.ts'];
+			session.modifiedFilesThisCoderTask = [
+				'lib/file1.ts',
+				'lib/file2.ts',
+				'lib/file3.ts',
+			];
 
-			await hooks.toolBefore(
-				makeInput('test-session', 'Task', 'call-1'),
-				{ args: { subagent_type: 'coder', task: 'Implement feature' } },
-			);
+			await hooks.toolBefore(makeInput('test-session', 'Task', 'call-1'), {
+				args: { subagent_type: 'coder', task: 'Implement feature' },
+			});
 
-			await hooks.toolAfter(
-				makeInput('test-session', 'Task', 'call-1'),
-				{ title: 'Task', output: 'Task completed', metadata: {} },
-			);
+			await hooks.toolAfter(makeInput('test-session', 'Task', 'call-1'), {
+				title: 'Task',
+				output: 'Task completed',
+				metadata: {},
+			});
 
 			// No violation because lastCoderDelegationTaskId was not set
 			expect(session.scopeViolationDetected).toBe(false);
@@ -273,7 +341,11 @@ describe('guardrails scope containment check (Task 5.4)', () => {
 
 			const messages = [
 				{
-					info: { role: 'assistant', agent: 'mega_architect', sessionID: 'test-session' },
+					info: {
+						role: 'assistant',
+						agent: 'mega_architect',
+						sessionID: 'test-session',
+					},
 					parts: [{ type: 'text', text: 'Test response.' }],
 				},
 			];
@@ -293,18 +365,25 @@ describe('guardrails scope containment check (Task 5.4)', () => {
 
 			const session = getAgentSession('test-session')!;
 			session.scopeViolationDetected = true;
-			session.lastScopeViolation = 'Scope violation for task 5.1: 3 undeclared files modified: lib/a.ts, lib/b.ts, lib/c.ts';
+			session.lastScopeViolation =
+				'Scope violation for task 5.1: 3 undeclared files modified: lib/a.ts, lib/b.ts, lib/c.ts';
 
 			const messages = [
 				{
-					info: { role: 'assistant', agent: 'mega_architect', sessionID: 'test-session' },
+					info: {
+						role: 'assistant',
+						agent: 'mega_architect',
+						sessionID: 'test-session',
+					},
 					parts: [{ type: 'text', text: 'Done.' }],
 				},
 			];
 
 			await hooks.messagesTransform({}, { messages });
 
-			const text = (messages[0] as { parts: Array<{ type: string; text: string }> }).parts[0].text;
+			const text = (
+				messages[0] as { parts: Array<{ type: string; text: string }> }
+			).parts[0].text;
 			// Verify the message format
 			expect(text).toContain('⚠️ SCOPE VIOLATION:');
 			expect(text).toContain('Scope violation for task 5.1');
@@ -323,18 +402,25 @@ describe('guardrails scope containment check (Task 5.4)', () => {
 			session.scopeViolationDetected = true;
 			// Task ID with special characters - the sanitization happens when setting lastScopeViolation
 			// So we set it already sanitized (as it would be after toolAfter)
-			session.lastScopeViolation = 'Scope violation for task task_with_newlines: 3 undeclared files';
+			session.lastScopeViolation =
+				'Scope violation for task task_with_newlines: 3 undeclared files';
 
 			const messages = [
 				{
-					info: { role: 'assistant', agent: 'mega_architect', sessionID: 'test-session' },
+					info: {
+						role: 'assistant',
+						agent: 'mega_architect',
+						sessionID: 'test-session',
+					},
 					parts: [{ type: 'text', text: 'Done.' }],
 				},
 			];
 
 			await hooks.messagesTransform({}, { messages });
 
-			const text = (messages[0] as { parts: Array<{ type: string; text: string }> }).parts[0].text;
+			const text = (
+				messages[0] as { parts: Array<{ type: string; text: string }> }
+			).parts[0].text;
 			// Verify sanitized version is present
 			expect(text).toContain('task_with_newlines');
 			expect(text).not.toContain('task\nwith\r\nnewlines');

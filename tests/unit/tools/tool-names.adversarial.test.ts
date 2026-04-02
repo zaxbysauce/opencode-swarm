@@ -4,8 +4,12 @@
  * and accidental omission between union and array
  */
 
-import { describe, test, expect } from 'bun:test';
-import { ToolName, TOOL_NAMES, TOOL_NAME_SET } from '../../../src/tools/tool-names';
+import { describe, expect, test } from 'bun:test';
+import {
+	TOOL_NAME_SET,
+	TOOL_NAMES,
+	type ToolName,
+} from '../../../src/tools/tool-names';
 
 describe('tool-names registry integrity - adversarial', () => {
 	describe('duplicate detection in TOOL_NAMES array', () => {
@@ -68,7 +72,9 @@ describe('tool-names registry integrity - adversarial', () => {
 		});
 
 		test('should have check_gate_status appear exactly once in TOOL_NAMES', () => {
-			const occurrences = TOOL_NAMES.filter(name => name === 'check_gate_status');
+			const occurrences = TOOL_NAMES.filter(
+				(name) => name === 'check_gate_status',
+			);
 			expect(occurrences).toHaveLength(1);
 		});
 	});
@@ -150,6 +156,8 @@ describe('tool-names registry integrity - adversarial', () => {
 				'knowledgeAdd',
 				'knowledgeRecall',
 				'knowledgeRemove',
+				'write_drift_evidence',
+				'co_change_analyzer',
 			];
 
 			expect(TOOL_NAMES.length).toBe(expectedTools.length);
@@ -198,9 +206,13 @@ describe('tool-names registry integrity - adversarial', () => {
 				'knowledgeAdd',
 				'knowledgeRecall',
 				'knowledgeRemove',
+				'write_drift_evidence',
+				'co_change_analyzer',
 			]);
 
-			const extraTools = TOOL_NAMES.filter(name => !expectedToolsSet.has(name));
+			const extraTools = TOOL_NAMES.filter(
+				(name) => !expectedToolsSet.has(name),
+			);
 			expect(extraTools).toEqual([]);
 		});
 	});
@@ -209,7 +221,7 @@ describe('tool-names registry integrity - adversarial', () => {
 		test('should handle maximum array length', () => {
 			// Verify array has expected count
 			expect(TOOL_NAMES.length).toBeGreaterThan(0);
-			expect(TOOL_NAMES.length).toBe(37); // Explicit expected count
+			expect(TOOL_NAMES.length).toBe(39); // Explicit expected count
 		});
 
 		test('should have non-empty registry', () => {
@@ -251,7 +263,7 @@ describe('tool-names registry integrity - adversarial', () => {
 				'check_gate_status',
 				'lint',
 				'test_runner',
-				'knowledge_query'
+				'knowledge_query',
 			];
 
 			for (const tool of testTools) {

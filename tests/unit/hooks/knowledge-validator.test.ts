@@ -3,14 +3,14 @@
  * Three-layer validation gate testing: structural, content safety, and semantic quality.
  */
 
-import { describe, it, expect } from 'vitest';
-import {
-	validateLesson,
-	DANGEROUS_COMMAND_PATTERNS,
-	SECURITY_DEGRADING_PATTERNS,
-	INJECTION_PATTERNS,
-} from '../../../src/hooks/knowledge-validator.js';
+import { describe, expect, it } from 'vitest';
 import type { KnowledgeCategory } from '../../../src/hooks/knowledge-types.js';
+import {
+	DANGEROUS_COMMAND_PATTERNS,
+	INJECTION_PATTERNS,
+	SECURITY_DEGRADING_PATTERNS,
+	validateLesson,
+} from '../../../src/hooks/knowledge-validator.js';
 
 describe('knowledge-validator', () => {
 	// =========================================================================
@@ -78,7 +78,7 @@ describe('knowledge-validator', () => {
 					category: 'unknown' as KnowledgeCategory,
 					scope: 'global',
 					confidence: 0.9,
-				}
+				},
 			);
 			expect(result).toEqual({
 				valid: false,
@@ -96,7 +96,7 @@ describe('knowledge-validator', () => {
 					category: 'testing',
 					scope: 'local',
 					confidence: 0.9,
-				}
+				},
 			);
 			expect(result.valid).toBe(false);
 			expect(result.layer).toBe(1);
@@ -111,7 +111,7 @@ describe('knowledge-validator', () => {
 					category: 'testing',
 					scope: 'global',
 					confidence: 0.9,
-				}
+				},
 			);
 			expect(result.layer).not.toBe(1);
 		});
@@ -124,7 +124,7 @@ describe('knowledge-validator', () => {
 					category: 'testing',
 					scope: 'stack:typescript',
 					confidence: 0.9,
-				}
+				},
 			);
 			expect(result.layer).not.toBe(1);
 		});
@@ -137,7 +137,7 @@ describe('knowledge-validator', () => {
 					category: 'testing',
 					scope: 'global',
 					confidence: -0.1,
-				}
+				},
 			);
 			expect(result).toEqual({
 				valid: false,
@@ -155,7 +155,7 @@ describe('knowledge-validator', () => {
 					category: 'testing',
 					scope: 'global',
 					confidence: 1.1,
-				}
+				},
 			);
 			expect(result).toEqual({
 				valid: false,
@@ -173,7 +173,7 @@ describe('knowledge-validator', () => {
 					category: 'testing',
 					scope: 'global',
 					confidence: NaN,
-				}
+				},
 			);
 			expect(result).toEqual({
 				valid: false,
@@ -191,7 +191,7 @@ describe('knowledge-validator', () => {
 					category: 'testing',
 					scope: 'global',
 					confidence: Infinity,
-				}
+				},
 			);
 			expect(result).toEqual({
 				valid: false,
@@ -254,21 +254,21 @@ describe('knowledge-validator', () => {
 
 		it('matches "sudo rm file"', () => {
 			const matches = DANGEROUS_COMMAND_PATTERNS.some((p) =>
-				p.test('sudo rm file')
+				p.test('sudo rm file'),
 			);
 			expect(matches).toBe(true);
 		});
 
 		it('matches "mkfs.ext4 /dev/sda"', () => {
 			const matches = DANGEROUS_COMMAND_PATTERNS.some((p) =>
-				p.test('mkfs.ext4 /dev/sda')
+				p.test('mkfs.ext4 /dev/sda'),
 			);
 			expect(matches).toBe(true);
 		});
 
 		it('matches "kill -9 123"', () => {
 			const matches = DANGEROUS_COMMAND_PATTERNS.some((p) =>
-				p.test('kill -9 123')
+				p.test('kill -9 123'),
 			);
 			expect(matches).toBe(true);
 		});
@@ -281,21 +281,21 @@ describe('knowledge-validator', () => {
 
 		it('matches "disable the firewall completely"', () => {
 			const matches = SECURITY_DEGRADING_PATTERNS.some((p) =>
-				p.test('disable the firewall completely')
+				p.test('disable the firewall completely'),
 			);
 			expect(matches).toBe(true);
 		});
 
 		it('matches "skip auth entirely"', () => {
 			const matches = SECURITY_DEGRADING_PATTERNS.some((p) =>
-				p.test('skip auth entirely')
+				p.test('skip auth entirely'),
 			);
 			expect(matches).toBe(true);
 		});
 
 		it('matches "disable ssl for speed"', () => {
 			const matches = SECURITY_DEGRADING_PATTERNS.some((p) =>
-				p.test('disable ssl for speed')
+				p.test('disable ssl for speed'),
 			);
 			expect(matches).toBe(true);
 		});
@@ -323,7 +323,7 @@ describe('knowledge-validator', () => {
 
 		it('matches control character \\x01', () => {
 			const matches = INJECTION_PATTERNS.some((p) =>
-				p.test('\x01lesson with control char')
+				p.test('\x01lesson with control char'),
 			);
 			expect(matches).toBe(true);
 		});
@@ -340,14 +340,14 @@ describe('knowledge-validator', () => {
 
 		it('matches "<script>alert(1)</script>"', () => {
 			const matches = INJECTION_PATTERNS.some((p) =>
-				p.test('<script>alert(1)</script>')
+				p.test('<script>alert(1)</script>'),
 			);
 			expect(matches).toBe(true);
 		});
 
 		it('matches "javascript:void(0)"', () => {
 			const matches = INJECTION_PATTERNS.some((p) =>
-				p.test('javascript:void(0)')
+				p.test('javascript:void(0)'),
 			);
 			expect(matches).toBe(true);
 		});

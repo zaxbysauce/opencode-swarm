@@ -1,7 +1,7 @@
-import { describe, test, expect, beforeEach, afterEach } from 'bun:test';
+import { afterEach, beforeEach, describe, expect, test } from 'bun:test';
 import * as fs from 'node:fs';
-import * as path from 'node:path';
 import * as os from 'node:os';
+import * as path from 'node:path';
 
 // Import the module under test
 const discoveryModule = await import('../../../src/build/discovery');
@@ -44,9 +44,24 @@ describe('build/discovery.ts - Types and Constants', () => {
 		});
 
 		test('priority determines sort order', () => {
-			const cmd1: BuildCommand = { ecosystem: 'a', command: 'cmd1', cwd: '/', priority: 3 };
-			const cmd2: BuildCommand = { ecosystem: 'b', command: 'cmd2', cwd: '/', priority: 1 };
-			const cmd3: BuildCommand = { ecosystem: 'c', command: 'cmd3', cwd: '/', priority: 2 };
+			const cmd1: BuildCommand = {
+				ecosystem: 'a',
+				command: 'cmd1',
+				cwd: '/',
+				priority: 3,
+			};
+			const cmd2: BuildCommand = {
+				ecosystem: 'b',
+				command: 'cmd2',
+				cwd: '/',
+				priority: 1,
+			};
+			const cmd3: BuildCommand = {
+				ecosystem: 'c',
+				command: 'cmd3',
+				cwd: '/',
+				priority: 2,
+			};
 			const sorted = [cmd1, cmd2, cmd3].sort((a, b) => a.priority - b.priority);
 			expect(sorted[0].priority).toBe(1);
 			expect(sorted[1].priority).toBe(2);
@@ -124,7 +139,9 @@ describe('build/discovery.ts - Toolchain Detection', () => {
 		});
 
 		test('handles non-existent commands', () => {
-			const result = isCommandAvailable('this-command-definitely-does-not-exist-xyz');
+			const result = isCommandAvailable(
+				'this-command-definitely-does-not-exist-xyz',
+			);
 			expect(result).toBe(false);
 		});
 	});
@@ -146,7 +163,9 @@ describe('build/discovery.ts - Discovery Function', () => {
 	let tempDir: string;
 
 	beforeEach(async () => {
-		tempDir = await fs.promises.mkdtemp(path.join(os.tmpdir(), 'discovery-test-'));
+		tempDir = await fs.promises.mkdtemp(
+			path.join(os.tmpdir(), 'discovery-test-'),
+		);
 	});
 
 	afterEach(async () => {
@@ -174,7 +193,9 @@ describe('build/discovery.ts - Discovery Function', () => {
 
 		test('accepts scope option', async () => {
 			const resultAll = await discoverBuildCommands(tempDir, { scope: 'all' });
-			const resultChanged = await discoverBuildCommands(tempDir, { scope: 'changed' });
+			const resultChanged = await discoverBuildCommands(tempDir, {
+				scope: 'changed',
+			});
 			expect(resultAll).toHaveProperty('commands');
 			expect(resultChanged).toHaveProperty('commands');
 		});
@@ -215,8 +236,12 @@ describe('build/discovery.ts - Discovery Function', () => {
 			// which covers 'node' via PROFILE_TO_ECOSYSTEM_NAMES mapping.
 			// So either a typescript/node command is found, or node appears in skipped.
 			const hasNodeOrTypeScript =
-				result.commands.some(c => c.ecosystem === 'node' || c.ecosystem === 'typescript') ||
-				result.skipped.some(s => s.ecosystem === 'node' || s.ecosystem === 'typescript');
+				result.commands.some(
+					(c) => c.ecosystem === 'node' || c.ecosystem === 'typescript',
+				) ||
+				result.skipped.some(
+					(s) => s.ecosystem === 'node' || s.ecosystem === 'typescript',
+				);
 			expect(hasNodeOrTypeScript).toBe(true);
 		});
 
@@ -236,9 +261,9 @@ describe('build/discovery.ts - Discovery Function', () => {
 
 			const result = await discoverBuildCommands(tempDir);
 			// If npm is available, should include repo-defined scripts
-			const nodeCmds = result.commands.filter(c => c.ecosystem === 'node');
+			const nodeCmds = result.commands.filter((c) => c.ecosystem === 'node');
 			if (nodeCmds.length > 0) {
-				const hasBuild = nodeCmds.some(c => c.command.includes('build'));
+				const hasBuild = nodeCmds.some((c) => c.command.includes('build'));
 				expect(hasBuild).toBe(true);
 			}
 		});
@@ -253,7 +278,10 @@ describe('build/discovery.ts - Discovery Function', () => {
 
 			const result = await discoverBuildCommands(tempDir);
 			// Should either have commands or be skipped due to missing cargo
-			expect(result.commands.some(c => c.ecosystem === 'rust') || result.skipped.some(s => s.ecosystem === 'rust')).toBe(true);
+			expect(
+				result.commands.some((c) => c.ecosystem === 'rust') ||
+					result.skipped.some((s) => s.ecosystem === 'rust'),
+			).toBe(true);
 		});
 	});
 
@@ -265,7 +293,10 @@ describe('build/discovery.ts - Discovery Function', () => {
 			);
 
 			const result = await discoverBuildCommands(tempDir);
-			expect(result.commands.some(c => c.ecosystem === 'go') || result.skipped.some(s => s.ecosystem === 'go')).toBe(true);
+			expect(
+				result.commands.some((c) => c.ecosystem === 'go') ||
+					result.skipped.some((s) => s.ecosystem === 'go'),
+			).toBe(true);
 		});
 	});
 
@@ -277,7 +308,10 @@ describe('build/discovery.ts - Discovery Function', () => {
 			);
 
 			const result = await discoverBuildCommands(tempDir);
-			expect(result.commands.some(c => c.ecosystem === 'python') || result.skipped.some(s => s.ecosystem === 'python')).toBe(true);
+			expect(
+				result.commands.some((c) => c.ecosystem === 'python') ||
+					result.skipped.some((s) => s.ecosystem === 'python'),
+			).toBe(true);
 		});
 
 		test('detects setup.py', async () => {
@@ -287,7 +321,10 @@ describe('build/discovery.ts - Discovery Function', () => {
 			);
 
 			const result = await discoverBuildCommands(tempDir);
-			expect(result.commands.some(c => c.ecosystem === 'python') || result.skipped.some(s => s.ecosystem === 'python')).toBe(true);
+			expect(
+				result.commands.some((c) => c.ecosystem === 'python') ||
+					result.skipped.some((s) => s.ecosystem === 'python'),
+			).toBe(true);
 		});
 	});
 
@@ -299,7 +336,14 @@ describe('build/discovery.ts - Discovery Function', () => {
 			);
 
 			const result = await discoverBuildCommands(tempDir);
-			expect(result.commands.some(c => c.ecosystem === 'java-maven') || result.skipped.some(s => s.ecosystem === 'java-maven')).toBe(true);
+			expect(
+				result.commands.some(
+					(c) => c.ecosystem === 'java' || c.ecosystem === 'java-maven',
+				) ||
+					result.skipped.some(
+						(s) => s.ecosystem === 'java' || s.ecosystem === 'java-maven',
+					),
+			).toBe(true);
 		});
 
 		test('detects build.gradle for Gradle', async () => {
@@ -309,7 +353,14 @@ describe('build/discovery.ts - Discovery Function', () => {
 			);
 
 			const result = await discoverBuildCommands(tempDir);
-			expect(result.commands.some(c => c.ecosystem === 'java-gradle') || result.skipped.some(s => s.ecosystem === 'java-gradle')).toBe(true);
+			expect(
+				result.commands.some(
+					(c) => c.ecosystem === 'java' || c.ecosystem === 'java-gradle',
+				) ||
+					result.skipped.some(
+						(s) => s.ecosystem === 'java' || s.ecosystem === 'java-gradle',
+					),
+			).toBe(true);
 		});
 	});
 
@@ -321,7 +372,10 @@ describe('build/discovery.ts - Discovery Function', () => {
 			);
 
 			const result = await discoverBuildCommands(tempDir);
-			expect(result.commands.some(c => c.ecosystem === 'dotnet') || result.skipped.some(s => s.ecosystem === 'dotnet')).toBe(true);
+			expect(
+				result.commands.some((c) => c.ecosystem === 'dotnet') ||
+					result.skipped.some((s) => s.ecosystem === 'dotnet'),
+			).toBe(true);
 		});
 	});
 
@@ -333,7 +387,10 @@ describe('build/discovery.ts - Discovery Function', () => {
 			);
 
 			const result = await discoverBuildCommands(tempDir);
-			expect(result.commands.some(c => c.ecosystem === 'swift') || result.skipped.some(s => s.ecosystem === 'swift')).toBe(true);
+			expect(
+				result.commands.some((c) => c.ecosystem === 'swift') ||
+					result.skipped.some((s) => s.ecosystem === 'swift'),
+			).toBe(true);
 		});
 	});
 
@@ -345,7 +402,10 @@ describe('build/discovery.ts - Discovery Function', () => {
 			);
 
 			const result = await discoverBuildCommands(tempDir);
-			expect(result.commands.some(c => c.ecosystem === 'dart') || result.skipped.some(s => s.ecosystem === 'dart')).toBe(true);
+			expect(
+				result.commands.some((c) => c.ecosystem === 'dart') ||
+					result.skipped.some((s) => s.ecosystem === 'dart'),
+			).toBe(true);
 		});
 	});
 
@@ -357,7 +417,10 @@ describe('build/discovery.ts - Discovery Function', () => {
 			);
 
 			const result = await discoverBuildCommands(tempDir);
-			expect(result.commands.some(c => c.ecosystem === 'cpp') || result.skipped.some(s => s.ecosystem === 'cpp')).toBe(true);
+			expect(
+				result.commands.some((c) => c.ecosystem === 'cpp') ||
+					result.skipped.some((s) => s.ecosystem === 'cpp'),
+			).toBe(true);
 		});
 
 		test('detects CMakeLists.txt', async () => {
@@ -367,7 +430,10 @@ describe('build/discovery.ts - Discovery Function', () => {
 			);
 
 			const result = await discoverBuildCommands(tempDir);
-			expect(result.commands.some(c => c.ecosystem === 'cpp') || result.skipped.some(s => s.ecosystem === 'cpp')).toBe(true);
+			expect(
+				result.commands.some((c) => c.ecosystem === 'cpp') ||
+					result.skipped.some((s) => s.ecosystem === 'cpp'),
+			).toBe(true);
 		});
 	});
 
@@ -385,8 +451,12 @@ describe('build/discovery.ts - Discovery Function', () => {
 
 			const result = await discoverBuildCommands(tempDir);
 			// Both should be detected (or skipped if toolchain not available)
-			const hasNode = result.commands.some(c => c.ecosystem === 'node') || result.skipped.some(s => s.ecosystem === 'node');
-			const hasCpp = result.commands.some(c => c.ecosystem === 'cpp') || result.skipped.some(s => s.ecosystem === 'cpp');
+			const hasNode =
+				result.commands.some((c) => c.ecosystem === 'node') ||
+				result.skipped.some((s) => s.ecosystem === 'node');
+			const hasCpp =
+				result.commands.some((c) => c.ecosystem === 'cpp') ||
+				result.skipped.some((s) => s.ecosystem === 'cpp');
 			expect(hasNode || hasCpp).toBe(true);
 		});
 	});
@@ -403,7 +473,9 @@ describe('build/discovery.ts - Discovery Function', () => {
 			// If there are multiple commands, they should be sorted
 			if (result.commands.length > 1) {
 				for (let i = 0; i < result.commands.length - 1; i++) {
-					expect(result.commands[i].priority).toBeLessThanOrEqual(result.commands[i + 1].priority);
+					expect(result.commands[i].priority).toBeLessThanOrEqual(
+						result.commands[i + 1].priority,
+					);
 				}
 			}
 		});
@@ -429,7 +501,9 @@ describe('build/discovery.ts - Edge Cases', () => {
 	let tempDir: string;
 
 	beforeEach(async () => {
-		tempDir = await fs.promises.mkdtemp(path.join(os.tmpdir(), 'discovery-edge-'));
+		tempDir = await fs.promises.mkdtemp(
+			path.join(os.tmpdir(), 'discovery-edge-'),
+		);
 	});
 
 	afterEach(async () => {

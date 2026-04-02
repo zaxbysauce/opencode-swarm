@@ -2,12 +2,12 @@
  * Tests for v6.1 agent registration constants
  * Verifies that docs and designer agents are properly registered
  */
-import { describe, test, expect } from 'bun:test';
+import { describe, expect, test } from 'bun:test';
 import {
-	ALL_SUBAGENT_NAMES,
 	ALL_AGENT_NAMES,
-	PIPELINE_AGENTS,
+	ALL_SUBAGENT_NAMES,
 	DEFAULT_MODELS,
+	PIPELINE_AGENTS,
 } from '../../../src/config/constants';
 
 describe('v6.1 Agent Registration Constants', () => {
@@ -57,7 +57,9 @@ describe('v6.1 Agent Registration Constants', () => {
 		});
 
 		test('DEFAULT_MODELS has "designer" key with "opencode/trinity-large-preview-free"', () => {
-			expect(DEFAULT_MODELS.designer).toBe('opencode/trinity-large-preview-free');
+			expect(DEFAULT_MODELS.designer).toBe(
+				'opencode/trinity-large-preview-free',
+			);
 		});
 
 		test('DEFAULT_MODELS does NOT have "architect" key (inherits OpenCode UI selection)', () => {

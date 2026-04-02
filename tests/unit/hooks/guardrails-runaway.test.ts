@@ -1,9 +1,19 @@
-import { describe, test, expect, beforeEach, afterEach, mock } from 'bun:test';
+import { afterEach, beforeEach, describe, expect, mock, test } from 'bun:test';
 import * as os from 'node:os';
 import * as path from 'node:path';
-import { createGuardrailsHooks, getStoredInputArgs, setStoredInputArgs, deleteStoredInputArgs } from '../../../src/hooks/guardrails';
-import { resetSwarmState, ensureAgentSession, getAgentSession, swarmState } from '../../../src/state';
 import type { GuardrailsConfig } from '../../../src/config/schema';
+import {
+	createGuardrailsHooks,
+	deleteStoredInputArgs,
+	getStoredInputArgs,
+	setStoredInputArgs,
+} from '../../../src/hooks/guardrails';
+import {
+	ensureAgentSession,
+	getAgentSession,
+	resetSwarmState,
+	swarmState,
+} from '../../../src/state';
 
 const TEST_DIR = path.join(os.tmpdir(), 'guardrails-runaway-test');
 
@@ -19,7 +29,13 @@ const defaultConfig: GuardrailsConfig = {
 	max_coder_revisions: 5,
 	runaway_output_max_turns: 5,
 	qa_gates: {
-		required_tools: ['diff', 'syntax_check', 'placeholder_scan', 'lint', 'pre_check_batch'],
+		required_tools: [
+			'diff',
+			'syntax_check',
+			'placeholder_scan',
+			'lint',
+			'pre_check_batch',
+		],
 		require_reviewer_test_engineer: true,
 	},
 };
@@ -28,7 +44,10 @@ const defaultConfig: GuardrailsConfig = {
  * Sets up an architect session for testing.
  * The runaway output detector only runs for architect sessions.
  */
-function setupArchitectSession(sessionId: string, config: GuardrailsConfig = defaultConfig) {
+function setupArchitectSession(
+	sessionId: string,
+	config: GuardrailsConfig = defaultConfig,
+) {
 	ensureAgentSession(sessionId, 'architect');
 	swarmState.activeAgent.set(sessionId, 'architect');
 	return { hooks: createGuardrailsHooks(TEST_DIR, config), sessionId };
@@ -41,8 +60,12 @@ function makeAssistantMessage(
 	sessionId: string,
 	text: string,
 	hasToolUse = false,
-): { info: { role: string; agent?: string; sessionID?: string }; parts: Array<{ type: string; text?: string; [key: string]: unknown }> } {
-	const parts: Array<{ type: string; text?: string; [key: string]: unknown }> = [];
+): {
+	info: { role: string; agent?: string; sessionID?: string };
+	parts: Array<{ type: string; text?: string; [key: string]: unknown }>;
+} {
+	const parts: Array<{ type: string; text?: string; [key: string]: unknown }> =
+		[];
 	if (text) {
 		parts.push({ type: 'text', text });
 	}
@@ -55,7 +78,10 @@ function makeAssistantMessage(
 	};
 }
 
-function makeSystemMessage(text = ''): { info: { role: string }; parts: Array<{ type: string; text: string }> } {
+function makeSystemMessage(text = ''): {
+	info: { role: string };
+	parts: Array<{ type: string; text: string }>;
+} {
 	return {
 		info: { role: 'system' },
 		parts: [{ type: 'text', text }],
@@ -127,7 +153,9 @@ describe('runaway output detector', () => {
 	// -------------------------------------------------------------------------
 	test('GuardrailsConfig defaults include runaway_output_max_turns=5', async () => {
 		// Use schema parse to apply defaults
-		const { GuardrailsConfigSchema } = await import('../../../src/config/schema');
+		const { GuardrailsConfigSchema } = await import(
+			'../../../src/config/schema'
+		);
 		const config = GuardrailsConfigSchema.parse({});
 		expect(config.runaway_output_max_turns).toBe(5);
 	});
@@ -150,7 +178,11 @@ describe('runaway output detector', () => {
 		await hooks.messagesTransform({}, { messages });
 
 		// Now call toolBefore - this should reset the counter
-		const toolInput = { tool: 'read', sessionID: sessionId, callID: 'call-reset' };
+		const toolInput = {
+			tool: 'read',
+			sessionID: sessionId,
+			callID: 'call-reset',
+		};
 		const toolOutput = { args: { filePath: '/test.ts' } };
 		await hooks.toolBefore(toolInput as any, toolOutput as any);
 
@@ -167,8 +199,8 @@ describe('runaway output detector', () => {
 		// We can't directly check the counter, but the advisory should NOT be injected
 		// because count would be 1 (< 3 threshold)
 		const session = getAgentSession(sessionId);
-		const hasRunawayWarning = session?.pendingAdvisoryMessages?.some((m: string) =>
-			m.includes('runaway output'),
+		const hasRunawayWarning = session?.pendingAdvisoryMessages?.some(
+			(m: string) => m.includes('runaway output'),
 		);
 		expect(hasRunawayWarning).toBeFalsy();
 	});
@@ -206,8 +238,8 @@ describe('runaway output detector', () => {
 		// Counter was reset by the tool_use message, so we should have count=1, not count=2
 		// Advisory should NOT fire because count < 3
 		const session = getAgentSession(sessionId);
-		const hasRunawayWarning = session?.pendingAdvisoryMessages?.some((m: string) =>
-			m.includes('runaway output'),
+		const hasRunawayWarning = session?.pendingAdvisoryMessages?.some(
+			(m: string) => m.includes('runaway output'),
 		);
 		expect(hasRunawayWarning).toBeFalsy();
 	});
@@ -251,7 +283,9 @@ describe('runaway output detector', () => {
 		// Advisory text: "WARNING: Model is generating analysis without taking action. 3 consecutive high-output responses..."
 		expect(messages3[0].parts[0].text).toContain('ADVISORIES');
 		expect(messages3[0].parts[0].text).toContain('WARNING');
-		expect(messages3[0].parts[0].text).toContain('3 consecutive high-output responses');
+		expect(messages3[0].parts[0].text).toContain(
+			'3 consecutive high-output responses',
+		);
 	});
 
 	// -------------------------------------------------------------------------
@@ -293,8 +327,8 @@ describe('runaway output detector', () => {
 		// Counter was reset by short ack, so we should have count=1
 		// No advisory should fire yet
 		const session = getAgentSession(sessionId);
-		const hasRunawayWarning = session?.pendingAdvisoryMessages?.some((m: string) =>
-			m.includes('runaway output'),
+		const hasRunawayWarning = session?.pendingAdvisoryMessages?.some(
+			(m: string) => m.includes('runaway output'),
 		);
 		expect(hasRunawayWarning).toBeFalsy();
 	});
@@ -363,8 +397,8 @@ describe('runaway output detector', () => {
 		// After 5 messages, hard STOP should have been injected
 		// We can verify by checking that the counter was reset after injection
 		// and that advisory is NOT present (because STOP takes precedence)
-		const hasRunawayWarning = session?.pendingAdvisoryMessages?.some((m: string) =>
-			m.includes('runaway output'),
+		const hasRunawayWarning = session?.pendingAdvisoryMessages?.some(
+			(m: string) => m.includes('runaway output'),
 		);
 		// Advisory should not be present because hard STOP was triggered instead
 		expect(hasRunawayWarning).toBeFalsy();
@@ -375,7 +409,10 @@ describe('runaway output detector', () => {
 	// -------------------------------------------------------------------------
 	test('hard STOP fires at custom maxTurns=3', async () => {
 		const customConfig = { ...defaultConfig, runaway_output_max_turns: 3 };
-		({ hooks, sessionId } = setupArchitectSession('session-custom-max-test', customConfig));
+		({ hooks, sessionId } = setupArchitectSession(
+			'session-custom-max-test',
+			customConfig,
+		));
 
 		const highOutputText = 'A'.repeat(5000);
 
@@ -390,8 +427,8 @@ describe('runaway output detector', () => {
 
 		// STOP should have been injected
 		const session = getAgentSession(sessionId);
-		const hasRunawayWarning = session?.pendingAdvisoryMessages?.some((m: string) =>
-			m.includes('runaway output'),
+		const hasRunawayWarning = session?.pendingAdvisoryMessages?.some(
+			(m: string) => m.includes('runaway output'),
 		);
 		// No advisory because STOP was triggered at maxTurns
 		expect(hasRunawayWarning).toBeFalsy();
@@ -462,8 +499,8 @@ describe('runaway output detector', () => {
 
 		// No advisory should be injected for non-architect
 		const session = getAgentSession(nonArchSessionId);
-		const hasRunawayWarning = session?.pendingAdvisoryMessages?.some((m: string) =>
-			m.includes('runaway output'),
+		const hasRunawayWarning = session?.pendingAdvisoryMessages?.some(
+			(m: string) => m.includes('runaway output'),
 		);
 		expect(hasRunawayWarning).toBeFalsy();
 	});
@@ -472,7 +509,9 @@ describe('runaway output detector', () => {
 	// Test 11: Advisory only fires once per cycle
 	// -------------------------------------------------------------------------
 	test('advisory warning fires only once per cycle (before STOP)', async () => {
-		({ hooks, sessionId } = setupArchitectSession('session-advisory-once-test'));
+		({ hooks, sessionId } = setupArchitectSession(
+			'session-advisory-once-test',
+		));
 
 		const highOutputText = 'A'.repeat(5000);
 
@@ -509,22 +548,36 @@ describe('runaway output detector', () => {
 	// Test 12: STOP injection check via messages array
 	// -------------------------------------------------------------------------
 	test('STOP is injected into first system message', async () => {
-		({ hooks, sessionId } = setupArchitectSession('session-stop-injection-test'));
+		({ hooks, sessionId } = setupArchitectSession(
+			'session-stop-injection-test',
+		));
 
 		const highOutputText = 'A'.repeat(5000);
 		const systemText = 'You are the architect. Be helpful.';
 
 		// Create messages with a specific system text we can check
 		const messages = [
-			{ info: { role: 'system' as const }, parts: [{ type: 'text' as const, text: systemText }] },
-			{ info: { role: 'assistant' as const, sessionID: sessionId }, parts: [{ type: 'text' as const, text: highOutputText }] },
+			{
+				info: { role: 'system' as const },
+				parts: [{ type: 'text' as const, text: systemText }],
+			},
+			{
+				info: { role: 'assistant' as const, sessionID: sessionId },
+				parts: [{ type: 'text' as const, text: highOutputText }],
+			},
 		];
 
 		// Send 5 high-output messages to trigger STOP
 		for (let i = 0; i < 5; i++) {
 			const currentMessages = [
-				{ info: { role: 'system' as const }, parts: [{ type: 'text' as const, text: systemText }] },
-				{ info: { role: 'assistant' as const, sessionID: sessionId }, parts: [{ type: 'text' as const, text: highOutputText }] },
+				{
+					info: { role: 'system' as const },
+					parts: [{ type: 'text' as const, text: systemText }],
+				},
+				{
+					info: { role: 'assistant' as const, sessionID: sessionId },
+					parts: [{ type: 'text' as const, text: highOutputText }],
+				},
 			];
 			await hooks.messagesTransform({}, { messages: currentMessages });
 		}
@@ -533,8 +586,14 @@ describe('runaway output detector', () => {
 		// We check the actual messages array
 		// Since we create fresh messages each time, we need to check the modified one
 		const finalMessages = [
-			{ info: { role: 'system' as const }, parts: [{ type: 'text' as const, text: systemText }] },
-			{ info: { role: 'assistant' as const, sessionID: sessionId }, parts: [{ type: 'text' as const, text: highOutputText }] },
+			{
+				info: { role: 'system' as const },
+				parts: [{ type: 'text' as const, text: systemText }],
+			},
+			{
+				info: { role: 'assistant' as const, sessionID: sessionId },
+				parts: [{ type: 'text' as const, text: highOutputText }],
+			},
 		];
 		await hooks.messagesTransform({}, { messages: finalMessages });
 
@@ -562,8 +621,14 @@ describe('runaway output detector', () => {
 		({ hooks, sessionId } = setupArchitectSession('session-no-sess-id-test'));
 
 		const messages = [
-			{ info: { role: 'system' }, parts: [{ type: 'text', text: 'You are the architect.' }] },
-			{ info: { role: 'assistant' }, parts: [{ type: 'text', text: 'A'.repeat(5000) }] }, // no sessionID
+			{
+				info: { role: 'system' },
+				parts: [{ type: 'text', text: 'You are the architect.' }],
+			},
+			{
+				info: { role: 'assistant' },
+				parts: [{ type: 'text', text: 'A'.repeat(5000) }],
+			}, // no sessionID
 		];
 
 		// Should not throw
@@ -640,8 +705,8 @@ describe('runaway output detector', () => {
 		await hooks.messagesTransform({}, { messages: messages4 });
 
 		const session = getAgentSession(sessionId);
-		const hasRunawayWarning = session?.pendingAdvisoryMessages?.some((m: string) =>
-			m.includes('runaway output'),
+		const hasRunawayWarning = session?.pendingAdvisoryMessages?.some(
+			(m: string) => m.includes('runaway output'),
 		);
 		// No warning yet because we only have 2 high-output after the reset
 		expect(hasRunawayWarning).toBeFalsy();

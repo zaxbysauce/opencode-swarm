@@ -1,4 +1,4 @@
-import { describe, it, expect, beforeEach, afterEach } from 'bun:test';
+import { afterEach, beforeEach, describe, expect, it } from 'bun:test';
 import * as fs from 'node:fs';
 import * as os from 'node:os';
 import * as path from 'node:path';
@@ -10,7 +10,11 @@ function createTempDir(): string {
 }
 
 // Helper to create test files
-function createTestFile(dir: string, filename: string, content: string): string {
+function createTestFile(
+	dir: string,
+	filename: string,
+	content: string,
+): string {
 	const filePath = path.join(dir, filename);
 	const parentDir = path.dirname(filePath);
 	if (!fs.existsSync(parentDir)) {
@@ -41,7 +45,7 @@ describe('placeholder_scan - plan file bracket-placeholder detection', () => {
 
 			const result = await placeholderScan(
 				{ changed_files: ['.swarm/plan.md'] },
-				tempDir
+				tempDir,
 			);
 
 			// File should be scanned (plan files are scanned)
@@ -55,7 +59,7 @@ describe('placeholder_scan - plan file bracket-placeholder detection', () => {
 
 			const result = await placeholderScan(
 				{ changed_files: ['project/.swarm/plan.md'] },
-				tempDir
+				tempDir,
 			);
 
 			expect(result.summary.files_scanned).toBe(1);
@@ -67,7 +71,7 @@ describe('placeholder_scan - plan file bracket-placeholder detection', () => {
 
 			const result = await placeholderScan(
 				{ changed_files: ['project/.swarm/plan.md'] },
-				tempDir
+				tempDir,
 			);
 
 			expect(result.summary.files_scanned).toBe(1);
@@ -78,7 +82,7 @@ describe('placeholder_scan - plan file bracket-placeholder detection', () => {
 
 			const result = await placeholderScan(
 				{ changed_files: ['.SWARM/plan.md'] },
-				tempDir
+				tempDir,
 			);
 
 			expect(result.summary.files_scanned).toBe(1);
@@ -89,7 +93,7 @@ describe('placeholder_scan - plan file bracket-placeholder detection', () => {
 
 			const result = await placeholderScan(
 				{ changed_files: ['plan.md'] },
-				tempDir
+				tempDir,
 			);
 
 			// plan.md should be scanned but not as a plan file (no bracket placeholder patterns)
@@ -101,7 +105,7 @@ describe('placeholder_scan - plan file bracket-placeholder detection', () => {
 
 			const result = await placeholderScan(
 				{ changed_files: ['src/plan.md'] },
-				tempDir
+				tempDir,
 			);
 
 			expect(result.summary.files_scanned).toBe(1);
@@ -112,7 +116,7 @@ describe('placeholder_scan - plan file bracket-placeholder detection', () => {
 
 			const result = await placeholderScan(
 				{ changed_files: ['.swarm/context.md'] },
-				tempDir
+				tempDir,
 			);
 
 			expect(result.summary.files_scanned).toBe(1);
@@ -128,7 +132,7 @@ describe('placeholder_scan - plan file bracket-placeholder detection', () => {
 
 			const result = await placeholderScan(
 				{ changed_files: ['.swarm/plan.md'] },
-				tempDir
+				tempDir,
 			);
 
 			expect(result.verdict).toBe('fail');
@@ -144,12 +148,14 @@ describe('placeholder_scan - plan file bracket-placeholder detection', () => {
 
 			const result = await placeholderScan(
 				{ changed_files: ['.swarm/plan.md'] },
-				tempDir
+				tempDir,
 			);
 
 			expect(result.verdict).toBe('fail');
 			expect(result.findings).toHaveLength(1);
-			expect(result.findings[0].rule_id).toBe('placeholder/plan-bracket-project');
+			expect(result.findings[0].rule_id).toBe(
+				'placeholder/plan-bracket-project',
+			);
 			expect(result.findings[0].line).toBe(1);
 		});
 
@@ -159,7 +165,7 @@ describe('placeholder_scan - plan file bracket-placeholder detection', () => {
 
 			const result = await placeholderScan(
 				{ changed_files: ['.swarm/plan.md'] },
-				tempDir
+				tempDir,
 			);
 
 			expect(result.verdict).toBe('fail');
@@ -174,12 +180,14 @@ describe('placeholder_scan - plan file bracket-placeholder detection', () => {
 
 			const result = await placeholderScan(
 				{ changed_files: ['.swarm/plan.md'] },
-				tempDir
+				tempDir,
 			);
 
 			expect(result.verdict).toBe('fail');
 			expect(result.findings).toHaveLength(1);
-			expect(result.findings[0].rule_id).toBe('placeholder/plan-bracket-reason');
+			expect(result.findings[0].rule_id).toBe(
+				'placeholder/plan-bracket-reason',
+			);
 			expect(result.findings[0].line).toBe(1);
 		});
 
@@ -189,12 +197,14 @@ describe('placeholder_scan - plan file bracket-placeholder detection', () => {
 
 			const result = await placeholderScan(
 				{ changed_files: ['.swarm/plan.md'] },
-				tempDir
+				tempDir,
 			);
 
 			expect(result.verdict).toBe('fail');
 			expect(result.findings).toHaveLength(1);
-			expect(result.findings[0].rule_id).toBe('placeholder/plan-bracket-description');
+			expect(result.findings[0].rule_id).toBe(
+				'placeholder/plan-bracket-description',
+			);
 			expect(result.findings[0].line).toBe(1);
 		});
 
@@ -204,7 +214,7 @@ describe('placeholder_scan - plan file bracket-placeholder detection', () => {
 
 			const result = await placeholderScan(
 				{ changed_files: ['.swarm/plan.md'] },
-				tempDir
+				tempDir,
 			);
 
 			expect(result.verdict).toBe('fail');
@@ -218,12 +228,14 @@ describe('placeholder_scan - plan file bracket-placeholder detection', () => {
 
 			const result = await placeholderScan(
 				{ changed_files: ['.swarm/plan.md'] },
-				tempDir
+				tempDir,
 			);
 
 			expect(result.verdict).toBe('fail');
 			expect(result.findings).toHaveLength(1);
-			expect(result.findings[0].rule_id).toBe('placeholder/plan-bracket-description');
+			expect(result.findings[0].rule_id).toBe(
+				'placeholder/plan-bracket-description',
+			);
 		});
 
 		it('Multiple placeholders → multiple findings returned', async () => {
@@ -235,7 +247,7 @@ Date: [date]`;
 
 			const result = await placeholderScan(
 				{ changed_files: ['.swarm/plan.md'] },
-				tempDir
+				tempDir,
 			);
 
 			expect(result.verdict).toBe('fail');
@@ -255,7 +267,7 @@ Date: [date]`;
 
 			const result = await placeholderScan(
 				{ changed_files: ['.swarm/plan.md'] },
-				tempDir
+				tempDir,
 			);
 
 			expect(result.verdict).toBe('pass');
@@ -269,7 +281,7 @@ Date: [date]`;
 
 			const result = await placeholderScan(
 				{ changed_files: ['.swarm/plan.md'] },
-				tempDir
+				tempDir,
 			);
 
 			expect(result.verdict).toBe('pass');
@@ -282,7 +294,7 @@ Date: [date]`;
 
 			const result = await placeholderScan(
 				{ changed_files: ['.swarm/plan.md'] },
-				tempDir
+				tempDir,
 			);
 
 			expect(result.verdict).toBe('pass');
@@ -295,7 +307,7 @@ Date: [date]`;
 
 			const result = await placeholderScan(
 				{ changed_files: ['.swarm/plan.md'] },
-				tempDir
+				tempDir,
 			);
 
 			expect(result.verdict).toBe('pass');
@@ -308,7 +320,7 @@ Date: [date]`;
 
 			const result = await placeholderScan(
 				{ changed_files: ['.swarm/plan.md'] },
-				tempDir
+				tempDir,
 			);
 
 			expect(result.verdict).toBe('pass');
@@ -321,7 +333,7 @@ Date: [date]`;
 
 			const result = await placeholderScan(
 				{ changed_files: ['.swarm/plan.md'] },
-				tempDir
+				tempDir,
 			);
 
 			expect(result.verdict).toBe('pass');
@@ -334,7 +346,7 @@ Date: [date]`;
 
 			const result = await placeholderScan(
 				{ changed_files: ['.swarm/plan.md'] },
-				tempDir
+				tempDir,
 			);
 
 			expect(result.verdict).toBe('pass');
@@ -347,7 +359,7 @@ Date: [date]`;
 
 			const result = await placeholderScan(
 				{ changed_files: ['.swarm/plan.md'] },
-				tempDir
+				tempDir,
 			);
 
 			expect(result.verdict).toBe('pass');
@@ -359,11 +371,15 @@ Date: [date]`;
 
 	describe('Non-plan.md files are not scanned with plan patterns', () => {
 		it('A file named src/config.ts with [task] text → NOT flagged by plan patterns', async () => {
-			createTestFile(tempDir, 'src/config.ts', '// Config file\nconst task = "[task]";');
+			createTestFile(
+				tempDir,
+				'src/config.ts',
+				'// Config file\nconst task = "[task]";',
+			);
 
 			const result = await placeholderScan(
 				{ changed_files: ['src/config.ts'] },
-				tempDir
+				tempDir,
 			);
 
 			// [task] is not a TODO/FIXME, so normal scanner won't flag it either
@@ -376,7 +392,7 @@ Date: [date]`;
 
 			const result = await placeholderScan(
 				{ changed_files: ['README.md'] },
-				tempDir
+				tempDir,
 			);
 
 			expect(result.verdict).toBe('pass');
@@ -388,7 +404,7 @@ Date: [date]`;
 
 			const result = await placeholderScan(
 				{ changed_files: ['docs/plan.md'] },
-				tempDir
+				tempDir,
 			);
 
 			// Not in .swarm, so plan patterns don't apply
@@ -406,7 +422,7 @@ Date: [date]`;
 
 			const result = await placeholderScan(
 				{ changed_files: ['.swarm/plan.md'] },
-				tempDir
+				tempDir,
 			);
 
 			expect(result.findings).toHaveLength(1);
@@ -426,7 +442,7 @@ Date: [date]`;
 
 			const result = await placeholderScan(
 				{ changed_files: ['.swarm/plan.md'] },
-				tempDir
+				tempDir,
 			);
 
 			expect(result.findings).toHaveLength(1);
@@ -443,14 +459,20 @@ Date: [date]`;
 
 			const result = await placeholderScan(
 				{ changed_files: ['.swarm/plan.md'] },
-				tempDir
+				tempDir,
 			);
 
 			expect(result.findings.length).toBeGreaterThanOrEqual(3);
 
-			const projectFinding = result.findings.find((f) => f.rule_id === 'placeholder/plan-bracket-project');
-			const taskFinding = result.findings.find((f) => f.rule_id === 'placeholder/plan-bracket-task');
-			const dateFinding = result.findings.find((f) => f.rule_id === 'placeholder/plan-bracket-date');
+			const projectFinding = result.findings.find(
+				(f) => f.rule_id === 'placeholder/plan-bracket-project',
+			);
+			const taskFinding = result.findings.find(
+				(f) => f.rule_id === 'placeholder/plan-bracket-task',
+			);
+			const dateFinding = result.findings.find(
+				(f) => f.rule_id === 'placeholder/plan-bracket-date',
+			);
 
 			expect(projectFinding?.line).toBe(1);
 			expect(taskFinding?.line).toBe(3);
@@ -469,7 +491,7 @@ Date: [date]`;
 
 			const result = await placeholderScan(
 				{ changed_files: ['.swarm/plan.md'] },
-				tempDir
+				tempDir,
 			);
 
 			// Plan file scanner only checks for bracket placeholders, not regular TODO patterns
@@ -485,7 +507,7 @@ Date: [date]`;
 
 			const result = await placeholderScan(
 				{ changed_files: ['.swarm/plan.md'] },
-				tempDir
+				tempDir,
 			);
 
 			// Only bracket placeholders are detected, not regular TODO patterns
@@ -502,7 +524,7 @@ Date: [date]`;
 
 			const result = await placeholderScan(
 				{ changed_files: ['.swarm/plan.md'] },
-				tempDir
+				tempDir,
 			);
 
 			expect(result.verdict).toBe('pass');
@@ -514,7 +536,7 @@ Date: [date]`;
 
 			const result = await placeholderScan(
 				{ changed_files: ['.swarm/plan.md'] },
-				tempDir
+				tempDir,
 			);
 
 			expect(result.verdict).toBe('pass');
@@ -527,7 +549,7 @@ Date: [date]`;
 
 			const result = await placeholderScan(
 				{ changed_files: ['.swarm/plan.md'] },
-				tempDir
+				tempDir,
 			);
 
 			expect(result.verdict).toBe('fail');
@@ -541,7 +563,7 @@ Date: [date]`;
 
 			const result = await placeholderScan(
 				{ changed_files: ['.swarm/plan.md'] },
-				tempDir
+				tempDir,
 			);
 
 			expect(result.verdict).toBe('fail');
@@ -550,11 +572,15 @@ Date: [date]`;
 		});
 
 		it('Plan file nested in subdirectory .swarm/plan.md → detected', async () => {
-			createTestFile(tempDir, 'project/.swarm/plan.md', `- [ ] 1.1: [task] [SMALL]`);
+			createTestFile(
+				tempDir,
+				'project/.swarm/plan.md',
+				`- [ ] 1.1: [task] [SMALL]`,
+			);
 
 			const result = await placeholderScan(
 				{ changed_files: ['project/.swarm/plan.md'] },
-				tempDir
+				tempDir,
 			);
 
 			expect(result.verdict).toBe('fail');
@@ -571,7 +597,7 @@ Date: [date]`;
 
 			const result = await placeholderScan(
 				{ changed_files: ['.swarm/plan.md'] },
-				tempDir
+				tempDir,
 			);
 
 			expect(result.summary.files_scanned).toBe(1);
@@ -588,7 +614,7 @@ Date: [date]`;
 
 			const result = await placeholderScan(
 				{ changed_files: ['.swarm/plan.md'] },
-				tempDir
+				tempDir,
 			);
 
 			expect(result.summary.files_scanned).toBe(1);
@@ -598,11 +624,15 @@ Date: [date]`;
 		});
 
 		it('Clean plan file contributes to files_scanned but not findings', async () => {
-			createTestFile(tempDir, '.swarm/plan.md', `# Plan\n- [ ] 1.1: Task [SMALL]`);
+			createTestFile(
+				tempDir,
+				'.swarm/plan.md',
+				`# Plan\n- [ ] 1.1: Task [SMALL]`,
+			);
 
 			const result = await placeholderScan(
 				{ changed_files: ['.swarm/plan.md'] },
-				tempDir
+				tempDir,
 			);
 
 			expect(result.summary.files_scanned).toBe(1);
@@ -634,7 +664,7 @@ Date: [date]`;
 				// Try to use a path traversal attack
 				const result = await placeholderScan(
 					{ changed_files: ['../.swarm/plan.md'] },
-					tempDir
+					tempDir,
 				);
 
 				// Should NOT scan the parent directory's plan.md (path not found or normalized)
@@ -645,7 +675,7 @@ Date: [date]`;
 			it('Path "../../etc/passwd" is NOT treated as plan file', async () => {
 				const result = await placeholderScan(
 					{ changed_files: ['../../etc/passwd'] },
-					tempDir
+					tempDir,
 				);
 
 				// Security: external system files should never be scanned
@@ -655,7 +685,7 @@ Date: [date]`;
 			it('Path "../../../.swarm/plan.md" is NOT treated as plan file', async () => {
 				const result = await placeholderScan(
 					{ changed_files: ['../../../.swarm/plan.md'] },
-					tempDir
+					tempDir,
 				);
 
 				// Security: multiple parent traversals should be blocked
@@ -665,7 +695,7 @@ Date: [date]`;
 			it('Path with URL encoding "%2e%2e%2f.swarm%2fplan.md" is NOT treated as plan file', async () => {
 				const result = await placeholderScan(
 					{ changed_files: ['%2e%2e%2f.swarm%2fplan.md'] },
-					tempDir
+					tempDir,
 				);
 
 				// Security: URL-encoded path traversal should be blocked
@@ -675,7 +705,7 @@ Date: [date]`;
 			it('Path "\\..\\.swarm\\plan.md" (Windows backslash traversal) is NOT treated as plan file', async () => {
 				const result = await placeholderScan(
 					{ changed_files: ['\\..\\.swarm\\plan.md'] },
-					tempDir
+					tempDir,
 				);
 
 				// Security: Windows-style traversal should be blocked
@@ -686,7 +716,7 @@ Date: [date]`;
 				// Note: Node.js fs will reject paths with null bytes
 				const result = await placeholderScan(
 					{ changed_files: ['.swarm/plan.md\x00.md'] },
-					tempDir
+					tempDir,
 				);
 
 				// Security: should not crash, should handle gracefully
@@ -701,7 +731,7 @@ Date: [date]`;
 				const absolutePath = path.join(tempDir, '.swarm', 'plan.md');
 				const result = await placeholderScan(
 					{ changed_files: [absolutePath] },
-					tempDir
+					tempDir,
 				);
 
 				// Behavior depends on whether absolute paths are allowed
@@ -723,7 +753,7 @@ Date: [date]`;
 				const startTime = Date.now();
 				const result = await placeholderScan(
 					{ changed_files: ['.swarm/plan.md'] },
-					tempDir
+					tempDir,
 				);
 				const duration = Date.now() - startTime;
 
@@ -741,7 +771,7 @@ Date: [date]`;
 				const startTime = Date.now();
 				const result = await placeholderScan(
 					{ changed_files: ['.swarm/plan.md'] },
-					tempDir
+					tempDir,
 				);
 				const duration = Date.now() - startTime;
 
@@ -760,7 +790,7 @@ Date: [date]`;
 				const startTime = Date.now();
 				const result = await placeholderScan(
 					{ changed_files: ['.swarm/plan.md'] },
-					tempDir
+					tempDir,
 				);
 				const duration = Date.now() - startTime;
 
@@ -778,7 +808,7 @@ Date: [date]`;
 				const startTime = Date.now();
 				const result = await placeholderScan(
 					{ changed_files: ['.swarm/plan.md'] },
-					tempDir
+					tempDir,
 				);
 				const duration = Date.now() - startTime;
 
@@ -796,7 +826,7 @@ Date: [date]`;
 				const startTime = Date.now();
 				const result = await placeholderScan(
 					{ changed_files: ['.swarm/plan.md'] },
-					tempDir
+					tempDir,
 				);
 				const duration = Date.now() - startTime;
 
@@ -817,7 +847,7 @@ Line 3: [task]`;
 
 				const result = await placeholderScan(
 					{ changed_files: ['.swarm/plan.md'] },
-					tempDir
+					tempDir,
 				);
 
 				// Security: all three lines should be detected, not just first one
@@ -834,12 +864,12 @@ Line 3: [task]`;
 
 				const result1 = await placeholderScan(
 					{ changed_files: ['.swarm/plan.md'] },
-					tempDir
+					tempDir,
 				);
 
 				const result2 = await placeholderScan(
 					{ changed_files: ['.swarm/plan.md'] },
-					tempDir
+					tempDir,
 				);
 
 				// Security: results should be identical
@@ -854,7 +884,7 @@ Line 3: [task]`;
 
 				const result = await placeholderScan(
 					{ changed_files: ['.swarm/plan.md'] },
-					tempDir
+					tempDir,
 				);
 
 				// Security: pattern.test() is used, not match(), so it returns true/false
@@ -870,7 +900,7 @@ Line 3: [task]`;
 
 				const result = await placeholderScan(
 					{ changed_files: ['.swarm/plan.md'] },
-					tempDir
+					tempDir,
 				);
 
 				// Security: all 5 patterns should trigger independently
@@ -894,7 +924,7 @@ Line 3: [task]`;
 
 				const result = await placeholderScan(
 					{ changed_files: ['.swarm/plan.md'] },
-					tempDir
+					tempDir,
 				);
 
 				// Security: binary files should be skipped to prevent crashes/UB
@@ -909,7 +939,7 @@ Line 3: [task]`;
 
 				const result = await placeholderScan(
 					{ changed_files: ['.swarm/plan.md'] },
-					tempDir
+					tempDir,
 				);
 
 				// Security: should skip completely
@@ -924,7 +954,7 @@ Line 3: [task]`;
 
 				const result = await placeholderScan(
 					{ changed_files: ['.swarm/plan.md'] },
-					tempDir
+					tempDir,
 				);
 
 				// Security: should handle without crashing
@@ -941,7 +971,7 @@ Line 3: [task]`;
 
 				const result = await placeholderScan(
 					{ changed_files: ['.swarm/plan.md'] },
-					tempDir
+					tempDir,
 				);
 
 				// Should scan successfully and detect placeholders
@@ -961,7 +991,7 @@ Line 3: [task]`;
 
 				const result = await placeholderScan(
 					{ changed_files: ['.swarm/plan.md'] },
-					tempDir
+					tempDir,
 				);
 
 				// Should scan (file size <= MAX_FILE_SIZE)
@@ -975,7 +1005,7 @@ Line 3: [task]`;
 
 				const result = await placeholderScan(
 					{ changed_files: ['.swarm/plan.md'] },
-					tempDir
+					tempDir,
 				);
 
 				// Security: should skip large files to prevent DoS
@@ -994,7 +1024,7 @@ Line 3: [task]`;
 
 				const result = await placeholderScan(
 					{ changed_files: ['.swarm/plan.md'] },
-					tempDir
+					tempDir,
 				);
 				const duration = Date.now() - startTime;
 
@@ -1009,7 +1039,7 @@ Line 3: [task]`;
 
 				const result = await placeholderScan(
 					{ changed_files: ['.swarm/plan.md'] },
-					tempDir
+					tempDir,
 				);
 
 				// Security: size check happens before reading content
@@ -1028,7 +1058,7 @@ Line 3: [task]`;
 				const startTime = Date.now();
 				const result = await placeholderScan(
 					{ changed_files: ['.swarm/plan.md'] },
-					tempDir
+					tempDir,
 				);
 				const duration = Date.now() - startTime;
 
@@ -1052,7 +1082,7 @@ Line 3: [task]`;
 
 				const result = await placeholderScan(
 					{ changed_files: ['.swarm/plan.md'] },
-					tempDir
+					tempDir,
 				);
 
 				// Security: should not crash or misinterpret
@@ -1070,7 +1100,7 @@ Line 3: [task]`;
 
 				const result = await placeholderScan(
 					{ changed_files: ['.swarm/plan.md'] },
-					tempDir
+					tempDir,
 				);
 
 				// Should scan successfully
@@ -1080,14 +1110,14 @@ Line 3: [task]`;
 			it('Plan content that looks like regex syntax but is not', async () => {
 				const content = `# Project Plan
 This document explains regex patterns:
-- We use /\[task\]/gi for task placeholders
-- We use /\[Project\]/g for project placeholders
+- We use /[task]/gi for task placeholders
+- We use /[Project]/g for project placeholders
 - [ ] 1.1: [task] Implement parser [SMALL]`;
 				makeTmpPlan(content);
 
 				const result = await placeholderScan(
 					{ changed_files: ['.swarm/plan.md'] },
-					tempDir
+					tempDir,
 				);
 
 				// Security: text explaining regex should not be treated as actual regex
@@ -1105,14 +1135,16 @@ Output: [1, 2, 3] array result
 
 				const result = await placeholderScan(
 					{ changed_files: ['.swarm/plan.md'] },
-					tempDir
+					tempDir,
 				);
 
 				// Should only detect [task] (the actual placeholder pattern)
 				// [RFC 1234], [PASS], [FAIL], [1, 2, 3] should not match
 				expect(result.verdict).toBe('fail');
 				expect(result.findings).toHaveLength(1);
-				expect(result.findings[0].rule_id).toBe('placeholder/plan-bracket-task');
+				expect(result.findings[0].rule_id).toBe(
+					'placeholder/plan-bracket-task',
+				);
 			});
 
 			it('Plan with nested brackets is handled correctly', async () => {
@@ -1121,7 +1153,7 @@ Output: [1, 2, 3] array result
 
 				const result = await placeholderScan(
 					{ changed_files: ['.swarm/plan.md'] },
-					tempDir
+					tempDir,
 				);
 
 				// Should detect [task] pattern(s)
@@ -1137,7 +1169,7 @@ In markdown, escape with backslash: \\[not a bracket\\]
 
 				const result = await placeholderScan(
 					{ changed_files: ['.swarm/plan.md'] },
-					tempDir
+					tempDir,
 				);
 
 				// Backslash-escaped [not a bracket] is literal text with backslash
@@ -1153,7 +1185,7 @@ In markdown, escape with backslash: \\[not a bracket\\]
 
 				const result = await placeholderScan(
 					{ changed_files: ['.swarm/plan.md'] },
-					tempDir
+					tempDir,
 				);
 
 				// Security: full-width brackets should NOT match (they're different chars)

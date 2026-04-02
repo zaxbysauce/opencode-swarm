@@ -8,10 +8,17 @@
  * 4. Module resolution edge cases - deep path imports, circular ref attempts
  */
 
-import { describe, it, expect, beforeEach, afterEach, afterAll } from 'bun:test';
-import * as path from 'node:path';
+import {
+	afterAll,
+	afterEach,
+	beforeEach,
+	describe,
+	expect,
+	it,
+} from 'bun:test';
 import * as fs from 'node:fs';
 import * as os from 'node:os';
+import * as path from 'node:path';
 
 // ============================================
 // ATTACK VECTOR 1: MALFORMED IMPORTS
@@ -23,7 +30,9 @@ describe('ATTACK: Malformed Imports', () => {
 		const indexModule = await import('../../src/background/index.js');
 
 		// Verify the malicious export doesn't exist
-		expect((indexModule as Record<string, unknown>).PlanSyncWorkerHacker).toBeUndefined();
+		expect(
+			(indexModule as Record<string, unknown>).PlanSyncWorkerHacker,
+		).toBeUndefined();
 	});
 
 	it('should expose only expected PlanSyncWorker exports', async () => {
@@ -32,8 +41,12 @@ describe('ATTACK: Malformed Imports', () => {
 		// Verify expected exports exist
 		expect(indexModule.PlanSyncWorker).toBeDefined();
 		// Types are erased at runtime - these are type-only exports
-		expect((indexModule as Record<string, unknown>).PlanSyncWorkerOptions).toBeUndefined();
-		expect((indexModule as Record<string, unknown>).PlanSyncWorkerStatus).toBeUndefined();
+		expect(
+			(indexModule as Record<string, unknown>).PlanSyncWorkerOptions,
+		).toBeUndefined();
+		expect(
+			(indexModule as Record<string, unknown>).PlanSyncWorkerStatus,
+		).toBeUndefined();
 
 		// Class should be constructable
 		expect(typeof indexModule.PlanSyncWorker).toBe('function');
@@ -138,7 +151,7 @@ describe('ATTACK: Export Collision Attempts', () => {
 		const originalStart = PlanSyncWorker.prototype.start;
 
 		// Attempt to replace method
-		PlanSyncWorker.prototype.start = function () {
+		PlanSyncWorker.prototype.start = () => {
 			throw new Error('Injected!');
 		};
 
@@ -213,7 +226,9 @@ describe('ATTACK: Runtime Misuse Patterns', () => {
 		expect(() => new PlanSyncWorker({ debounceMs: 0 })).not.toThrow();
 
 		// Very large debounce (effectively disabling sync)
-		expect(() => new PlanSyncWorker({ debounceMs: Number.MAX_SAFE_INTEGER })).not.toThrow();
+		expect(
+			() => new PlanSyncWorker({ debounceMs: Number.MAX_SAFE_INTEGER }),
+		).not.toThrow();
 	});
 
 	it('should handle NaN/Infinity in numeric options', async () => {
@@ -222,7 +237,9 @@ describe('ATTACK: Runtime Misuse Patterns', () => {
 		expect(() => new PlanSyncWorker({ debounceMs: NaN })).not.toThrow();
 		expect(() => new PlanSyncWorker({ debounceMs: Infinity })).not.toThrow();
 		expect(() => new PlanSyncWorker({ pollIntervalMs: NaN })).not.toThrow();
-		expect(() => new PlanSyncWorker({ pollIntervalMs: -Infinity })).not.toThrow();
+		expect(
+			() => new PlanSyncWorker({ pollIntervalMs: -Infinity }),
+		).not.toThrow();
 	});
 
 	it('should handle malicious callback in onSyncComplete', async () => {
@@ -234,7 +251,9 @@ describe('ATTACK: Runtime Misuse Patterns', () => {
 		};
 
 		// Construction should succeed
-		expect(() => new PlanSyncWorker({ onSyncComplete: throwingCallback })).not.toThrow();
+		expect(
+			() => new PlanSyncWorker({ onSyncComplete: throwingCallback }),
+		).not.toThrow();
 	});
 
 	it('should handle rapid start/stop cycles (state machine abuse)', async () => {
@@ -449,7 +468,11 @@ describe('DEFENSE: Export Surface Validation', () => {
 		const typesModule = await import('../../src/background/index.js');
 
 		// These should be undefined at runtime (type-only exports)
-		expect((typesModule as Record<string, unknown>).PlanSyncWorkerOptions).toBeUndefined();
-		expect((typesModule as Record<string, unknown>).PlanSyncWorkerStatus).toBeUndefined();
+		expect(
+			(typesModule as Record<string, unknown>).PlanSyncWorkerOptions,
+		).toBeUndefined();
+		expect(
+			(typesModule as Record<string, unknown>).PlanSyncWorkerStatus,
+		).toBeUndefined();
 	});
 });

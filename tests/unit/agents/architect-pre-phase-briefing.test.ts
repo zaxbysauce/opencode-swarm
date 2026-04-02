@@ -26,13 +26,13 @@ describe('PRE-PHASE BRIEFING Verification (Task 2.5)', () => {
 		expect(prompt).toContain('MODE: PRE-PHASE BRIEFING');
 	});
 
-	test('3. "PRE-PHASE BRIEFING" appears BEFORE "MODE: PLAN" (positional check)', () => {
+	test('3. "PRE-PHASE BRIEFING" appears AFTER "MODE: PLAN" (positional check)', () => {
 		const prePhaseBriefingIndex = prompt!.indexOf('MODE: PRE-PHASE BRIEFING');
 		const planIndex = prompt!.indexOf('MODE: PLAN');
 
 		expect(prePhaseBriefingIndex).not.toBe(-1);
 		expect(planIndex).not.toBe(-1);
-		expect(prePhaseBriefingIndex).toBeLessThan(planIndex);
+		expect(prePhaseBriefingIndex).toBeGreaterThan(planIndex);
 	});
 
 	test('4. "PRE-PHASE BRIEFING" appears AFTER "MODE: CONSULT" (positional check)', () => {
@@ -98,13 +98,20 @@ describe('PRE-PHASE BRIEFING Verification (Task 2.5)', () => {
 	test('12. "HARD REQUIREMENT" phrase present in PRE-PHASE BRIEFING section', () => {
 		// Find the PRE-PHASE BRIEFING section
 		const prePhaseBriefingStart = prompt!.indexOf('MODE: PRE-PHASE BRIEFING');
-		const planStart = prompt!.indexOf('MODE: PLAN');
+		// Find the next section after PRE-PHASE BRIEFING (CODEBASE REALITY CHECK)
+		const nextSectionStart = prompt!.indexOf(
+			'### CODEBASE REALITY CHECK',
+			prePhaseBriefingStart,
+		);
 
 		expect(prePhaseBriefingStart).not.toBe(-1);
-		expect(planStart).not.toBe(-1);
+		expect(nextSectionStart).not.toBe(-1);
 
 		// Extract the PRE-PHASE BRIEFING section
-		const prePhaseBriefingSection = prompt!.slice(prePhaseBriefingStart, planStart);
+		const prePhaseBriefingSection = prompt!.slice(
+			prePhaseBriefingStart,
+			nextSectionStart,
+		);
 
 		// Verify it contains "HARD REQUIREMENT"
 		expect(prePhaseBriefingSection).toContain('HARD REQUIREMENT');

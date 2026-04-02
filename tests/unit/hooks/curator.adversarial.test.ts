@@ -5,14 +5,32 @@
  * targeting the readCuratorSummary and writeCuratorSummary functions.
  */
 
-import { describe, it, expect, beforeEach, afterEach } from 'bun:test';
-import { readCuratorSummary, writeCuratorSummary, filterPhaseEvents, checkPhaseCompliance, runCuratorInit, runCuratorPhase, applyCuratorKnowledgeUpdates } from '../../../src/hooks/curator';
-import { getGlobalEventBus, resetGlobalEventBus } from '../../../src/background/event-bus.js';
-import type { CuratorSummary, CuratorConfig, KnowledgeRecommendation } from '../../../src/hooks/curator-types';
-import type { SwarmKnowledgeEntry, KnowledgeConfig } from '../../../src/hooks/knowledge-types';
-import { mkdirSync, rmSync, writeFileSync, existsSync } from 'node:fs';
+import { afterEach, beforeEach, describe, expect, it } from 'bun:test';
+import { existsSync, mkdirSync, rmSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
+import {
+	getGlobalEventBus,
+	resetGlobalEventBus,
+} from '../../../src/background/event-bus.js';
+import {
+	applyCuratorKnowledgeUpdates,
+	checkPhaseCompliance,
+	filterPhaseEvents,
+	readCuratorSummary,
+	runCuratorInit,
+	runCuratorPhase,
+	writeCuratorSummary,
+} from '../../../src/hooks/curator';
+import type {
+	CuratorConfig,
+	CuratorSummary,
+	KnowledgeRecommendation,
+} from '../../../src/hooks/curator-types';
+import type {
+	KnowledgeConfig,
+	SwarmKnowledgeEntry,
+} from '../../../src/hooks/knowledge-types';
 
 describe('curator.ts I/O - Adversarial Tests', () => {
 	let tempDir: string;
@@ -50,7 +68,9 @@ describe('curator.ts I/O - Adversarial Tests', () => {
 			const maliciousDir = '/tmp/test\0evil';
 			const summary = createValidSummary();
 			// writeCuratorSummary does not catch the error from validateSwarmPath
-			await expect(writeCuratorSummary(maliciousDir, summary)).rejects.toThrow();
+			await expect(
+				writeCuratorSummary(maliciousDir, summary),
+			).rejects.toThrow();
 		});
 	});
 
@@ -311,7 +331,13 @@ describe('filterPhaseEvents - Adversarial Tests', () => {
 		it('should handle 10,000 lines without hanging or crashing', () => {
 			const lines: string[] = [];
 			for (let i = 0; i < 10000; i++) {
-				lines.push(JSON.stringify({ phase: 1, timestamp: `2024-01-01T00:00:${i.toString().padStart(2, '0')}Z`, event: 'test' }));
+				lines.push(
+					JSON.stringify({
+						phase: 1,
+						timestamp: `2024-01-01T00:00:${i.toString().padStart(2, '0')}Z`,
+						event: 'test',
+					}),
+				);
 			}
 			const jsonl = lines.join('\n');
 
@@ -328,7 +354,11 @@ describe('filterPhaseEvents - Adversarial Tests', () => {
 	describe('Deeply nested JSON (1000 levels)', () => {
 		it('should handle 1000-level deep nested JSON without throwing', () => {
 			const deepEvent = createDeepNestedObject(1000);
-			const jsonl = JSON.stringify({ ...deepEvent, phase: 1, timestamp: '2024-01-01T00:00:00Z' });
+			const jsonl = JSON.stringify({
+				...deepEvent,
+				phase: 1,
+				timestamp: '2024-01-01T00:00:00Z',
+			});
 
 			const result = filterPhaseEvents(jsonl, 1);
 			expect(result).toBeDefined();
@@ -343,9 +373,12 @@ describe('filterPhaseEvents - Adversarial Tests', () => {
 	 */
 	describe('Prototype-polluting phase field', () => {
 		it('should not pollute global object when phase is __proto__', () => {
-			const jsonl = JSON.stringify({ phase: '__proto__', timestamp: '2024-01-01T00:00:00Z' });
+			const jsonl = JSON.stringify({
+				phase: '__proto__',
+				timestamp: '2024-01-01T00:00:00Z',
+			});
 			const result = filterPhaseEvents(jsonl, 1);
-			
+
 			// The event has phase = '__proto__', not phase = 1, so should not match
 			expect(result.length).toBe(0);
 			// Verify global object was not modified
@@ -353,16 +386,22 @@ describe('filterPhaseEvents - Adversarial Tests', () => {
 		});
 
 		it('should not pollute global object when phase is constructor', () => {
-			const jsonl = JSON.stringify({ phase: 'constructor', timestamp: '2024-01-01T00:00:00Z' });
+			const jsonl = JSON.stringify({
+				phase: 'constructor',
+				timestamp: '2024-01-01T00:00:00Z',
+			});
 			const result = filterPhaseEvents(jsonl, 1);
-			
+
 			expect(result.length).toBe(0);
 		});
 
 		it('should not pollute global object when phase is toString', () => {
-			const jsonl = JSON.stringify({ phase: 'toString', timestamp: '2024-01-01T00:00:00Z' });
+			const jsonl = JSON.stringify({
+				phase: 'toString',
+				timestamp: '2024-01-01T00:00:00Z',
+			});
 			const result = filterPhaseEvents(jsonl, 1);
-			
+
 			expect(result.length).toBe(0);
 		});
 	});
@@ -381,7 +420,10 @@ describe('filterPhaseEvents - Adversarial Tests', () => {
 		});
 
 		it('should handle timestamp as object', () => {
-			const jsonl = JSON.stringify({ phase: 1, timestamp: { iso: '2024-01-01T00:00:00Z' } });
+			const jsonl = JSON.stringify({
+				phase: 1,
+				timestamp: { iso: '2024-01-01T00:00:00Z' },
+			});
 			const result = filterPhaseEvents(jsonl, 1, '2024-01-01T00:00:00Z');
 			// Object > string comparison returns false
 			expect(result).toBeDefined();
@@ -395,7 +437,10 @@ describe('filterPhaseEvents - Adversarial Tests', () => {
 		});
 
 		it('should handle timestamp as array', () => {
-			const jsonl = JSON.stringify({ phase: 1, timestamp: ['2024-01-01T00:00:00Z'] });
+			const jsonl = JSON.stringify({
+				phase: 1,
+				timestamp: ['2024-01-01T00:00:00Z'],
+			});
 			const result = filterPhaseEvents(jsonl, 1, '2024-01-01T00:00:00Z');
 			// Array > string comparison returns false
 			expect(result).toBeDefined();
@@ -427,7 +472,11 @@ describe('filterPhaseEvents - Adversarial Tests', () => {
 	describe('Single very long line (100KB)', () => {
 		it('should handle 100KB line without crashing', () => {
 			const longPayload = 'x'.repeat(100 * 1024);
-			const jsonl = JSON.stringify({ phase: 1, timestamp: '2024-01-01T00:00:00Z', payload: longPayload });
+			const jsonl = JSON.stringify({
+				phase: 1,
+				timestamp: '2024-01-01T00:00:00Z',
+				payload: longPayload,
+			});
 
 			const result = filterPhaseEvents(jsonl, 1);
 			expect(result).toBeDefined();
@@ -440,27 +489,39 @@ describe('filterPhaseEvents - Adversarial Tests', () => {
 	 */
 	describe('Invalid phase parameter values', () => {
 		it('should handle negative phase number', () => {
-			const jsonl = JSON.stringify({ phase: -1, timestamp: '2024-01-01T00:00:00Z' });
+			const jsonl = JSON.stringify({
+				phase: -1,
+				timestamp: '2024-01-01T00:00:00Z',
+			});
 			const result = filterPhaseEvents(jsonl, -1);
 			expect(result).toBeDefined();
 			expect(result.length).toBe(1);
 		});
 
 		it('should handle phase 0', () => {
-			const jsonl = JSON.stringify({ phase: 0, timestamp: '2024-01-01T00:00:00Z' });
+			const jsonl = JSON.stringify({
+				phase: 0,
+				timestamp: '2024-01-01T00:00:00Z',
+			});
 			const result = filterPhaseEvents(jsonl, 0);
 			expect(result).toBeDefined();
 			expect(result.length).toBe(1);
 		});
 
 		it('should handle Infinity as phase', () => {
-			const jsonl = JSON.stringify({ phase: Infinity, timestamp: '2024-01-01T00:00:00Z' });
+			const jsonl = JSON.stringify({
+				phase: Infinity,
+				timestamp: '2024-01-01T00:00:00Z',
+			});
 			const result = filterPhaseEvents(jsonl, Infinity);
 			expect(result).toBeDefined();
 		});
 
 		it('should handle NaN as phase', () => {
-			const jsonl = JSON.stringify({ phase: NaN, timestamp: '2024-01-01T00:00:00Z' });
+			const jsonl = JSON.stringify({
+				phase: NaN,
+				timestamp: '2024-01-01T00:00:00Z',
+			});
 			const result = filterPhaseEvents(jsonl, NaN);
 			expect(result).toBeDefined();
 		});
@@ -544,10 +605,19 @@ describe('checkPhaseCompliance - Adversarial Tests', () => {
 		it('should handle 10,000 events without hanging', () => {
 			const events: object[] = [];
 			for (let i = 0; i < 10000; i++) {
-				events.push({ type: 'agent.delegation', agent: i % 2 === 0 ? 'coder' : 'reviewer', timestamp: '2024-01-01T00:00:00Z' });
+				events.push({
+					type: 'agent.delegation',
+					agent: i % 2 === 0 ? 'coder' : 'reviewer',
+					timestamp: '2024-01-01T00:00:00Z',
+				});
 			}
 
-			const result = checkPhaseCompliance(events, ['coder', 'reviewer'], ['coder', 'reviewer'], 1);
+			const result = checkPhaseCompliance(
+				events,
+				['coder', 'reviewer'],
+				['coder', 'reviewer'],
+				1,
+			);
 			expect(result).toBeDefined();
 			expect(Array.isArray(result)).toBe(true);
 		}, 30000);
@@ -560,13 +630,26 @@ describe('checkPhaseCompliance - Adversarial Tests', () => {
 	describe('Duplicate agent names in agentsDispatched', () => {
 		it('should not produce duplicate observations for duplicate agent names', () => {
 			const events = [
-				{ type: 'agent.delegation', agent: 'coder', timestamp: '2024-01-01T00:00:00Z' },
+				{
+					type: 'agent.delegation',
+					agent: 'coder',
+					timestamp: '2024-01-01T00:00:00Z',
+				},
 			];
 			// Multiple duplicate coders
-			const result = checkPhaseCompliance(events, ['coder', 'coder', 'coder'], ['coder'], 1);
-			
+			const result = checkPhaseCompliance(
+				events,
+				['coder', 'coder', 'coder'],
+				['coder'],
+				1,
+			);
+
 			// Should only have one observation for missing coder
-			const missingCoderObservations = result.filter(o => o.type === 'workflow_deviation' && o.description.includes("Agent 'coder'"));
+			const missingCoderObservations = result.filter(
+				(o) =>
+					o.type === 'workflow_deviation' &&
+					o.description.includes("Agent 'coder'"),
+			);
 			expect(missingCoderObservations.length).toBe(0); // coder is dispatched
 		});
 	});
@@ -577,10 +660,18 @@ describe('checkPhaseCompliance - Adversarial Tests', () => {
 	 */
 	describe('Empty requiredAgents array', () => {
 		it('should produce no workflow_deviation observations when requiredAgents is empty', () => {
-			const events = [{ type: 'agent.delegation', agent: 'coder', timestamp: '2024-01-01T00:00:00Z' }];
+			const events = [
+				{
+					type: 'agent.delegation',
+					agent: 'coder',
+					timestamp: '2024-01-01T00:00:00Z',
+				},
+			];
 			const result = checkPhaseCompliance(events, [], [], 1);
-			
-			const workflowDeviations = result.filter(o => o.type === 'workflow_deviation');
+
+			const workflowDeviations = result.filter(
+				(o) => o.type === 'workflow_deviation',
+			);
 			expect(workflowDeviations.length).toBe(0);
 		});
 	});
@@ -591,12 +682,21 @@ describe('checkPhaseCompliance - Adversarial Tests', () => {
 	 */
 	describe('Empty string in requiredAgents', () => {
 		it('should handle empty string agent name in requiredAgents', () => {
-			const events = [{ type: 'agent.delegation', agent: 'coder', timestamp: '2024-01-01T00:00:00Z' }];
+			const events = [
+				{
+					type: 'agent.delegation',
+					agent: 'coder',
+					timestamp: '2024-01-01T00:00:00Z',
+				},
+			];
 			const result = checkPhaseCompliance(events, [], [''], 1);
-			
+
 			expect(result).toBeDefined();
 			// Empty string normalizes to empty string, which won't match any dispatched agent
-			const missingEmpty = result.filter(o => o.type === "workflow_deviation" && o.description.includes("Agent ''"));
+			const missingEmpty = result.filter(
+				(o) =>
+					o.type === 'workflow_deviation' && o.description.includes("Agent ''"),
+			);
 			expect(missingEmpty.length).toBe(1);
 		});
 	});
@@ -609,10 +709,14 @@ describe('checkPhaseCompliance - Adversarial Tests', () => {
 		it('should handle 10,000 character agent name without throwing', () => {
 			const longName = 'a'.repeat(10000);
 			const events = [
-				{ type: 'agent.delegation', agent: longName, timestamp: '2024-01-01T00:00:00Z' },
+				{
+					type: 'agent.delegation',
+					agent: longName,
+					timestamp: '2024-01-01T00:00:00Z',
+				},
 			];
 			const result = checkPhaseCompliance(events, [longName], [longName], 1);
-			
+
 			expect(result).toBeDefined();
 			expect(Array.isArray(result)).toBe(true);
 		}, 30000);
@@ -625,20 +729,28 @@ describe('checkPhaseCompliance - Adversarial Tests', () => {
 	describe('Agent field as object', () => {
 		it('should handle agent as object without throwing', () => {
 			const events = [
-				{ type: 'agent.delegation', agent: { name: 'coder' }, timestamp: '2024-01-01T00:00:00Z' },
+				{
+					type: 'agent.delegation',
+					agent: { name: 'coder' },
+					timestamp: '2024-01-01T00:00:00Z',
+				},
 			];
 			const result = checkPhaseCompliance(events, [], ['coder'], 1);
-			
+
 			expect(result).toBeDefined();
 			// Should not crash and should handle gracefully
 		});
 
 		it('should handle nested object agent without throwing', () => {
 			const events = [
-				{ type: 'agent.delegation', agent: { nested: { deep: 'coder' } }, timestamp: '2024-01-01T00:00:00Z' },
+				{
+					type: 'agent.delegation',
+					agent: { nested: { deep: 'coder' } },
+					timestamp: '2024-01-01T00:00:00Z',
+				},
 			];
 			const result = checkPhaseCompliance(events, [], ['coder'], 1);
-			
+
 			expect(result).toBeDefined();
 		});
 	});
@@ -680,11 +792,17 @@ describe('checkPhaseCompliance - Adversarial Tests', () => {
 	describe('Coder delegation at last index', () => {
 		it('should emit missing_reviewer when coder is at last index with no reviewer after', () => {
 			const events = [
-				{ type: 'agent.delegation', agent: 'coder', timestamp: '2024-01-01T00:00:00Z' },
+				{
+					type: 'agent.delegation',
+					agent: 'coder',
+					timestamp: '2024-01-01T00:00:00Z',
+				},
 			];
 			const result = checkPhaseCompliance(events, ['coder'], [], 1);
-			
-			const missingReviewer = result.filter(o => o.type === 'missing_reviewer');
+
+			const missingReviewer = result.filter(
+				(o) => o.type === 'missing_reviewer',
+			);
 			expect(missingReviewer.length).toBe(1);
 		});
 	});
@@ -696,12 +814,22 @@ describe('checkPhaseCompliance - Adversarial Tests', () => {
 	describe('All coders have subsequent reviewers', () => {
 		it('should not emit missing_reviewer when all coders have reviewers after', () => {
 			const events = [
-				{ type: 'agent.delegation', agent: 'coder', timestamp: '2024-01-01T00:00:00Z' },
-				{ type: 'agent.delegation', agent: 'reviewer', timestamp: '2024-01-01T00:00:01Z' },
+				{
+					type: 'agent.delegation',
+					agent: 'coder',
+					timestamp: '2024-01-01T00:00:00Z',
+				},
+				{
+					type: 'agent.delegation',
+					agent: 'reviewer',
+					timestamp: '2024-01-01T00:00:01Z',
+				},
 			];
 			const result = checkPhaseCompliance(events, ['coder', 'reviewer'], [], 1);
-			
-			const missingReviewer = result.filter(o => o.type === 'missing_reviewer');
+
+			const missingReviewer = result.filter(
+				(o) => o.type === 'missing_reviewer',
+			);
 			expect(missingReviewer.length).toBe(0);
 		});
 	});
@@ -717,8 +845,8 @@ describe('checkPhaseCompliance - Adversarial Tests', () => {
 				{ type: 'retrospective.written', timestamp: '2024-01-01T00:00:01Z' },
 			];
 			const result = checkPhaseCompliance(events, [], [], 1);
-			
-			const missingRetro = result.filter(o => o.type === 'missing_retro');
+
+			const missingRetro = result.filter((o) => o.type === 'missing_retro');
 			expect(missingRetro.length).toBe(0);
 		});
 	});
@@ -731,7 +859,7 @@ describe('checkPhaseCompliance - Adversarial Tests', () => {
 		it('should handle deeply recursive event without throwing', () => {
 			const recursiveEvent = createDeepNestedObject(1000);
 			const events = [recursiveEvent];
-			
+
 			const result = checkPhaseCompliance(events, [], [], 1);
 			expect(result).toBeDefined();
 			expect(Array.isArray(result)).toBe(true);
@@ -770,7 +898,7 @@ function createLargeValidJson(sizeInBytes: number): string {
 		knowledge_recommendations: [],
 	};
 
-	let json = JSON.stringify(baseObj);
+	const json = JSON.stringify(baseObj);
 	// Pad to reach desired size
 	const padding = ' '.repeat(Math.max(0, sizeInBytes - json.length));
 	return json + padding;
@@ -894,7 +1022,11 @@ describe('runCuratorInit - Adversarial Tests', () => {
 					confidence: 0.8,
 					status: 'established',
 					confirmed_by: [],
-					retrieval_outcomes: { applied_count: 0, succeeded_after_count: 0, failed_after_count: 0 },
+					retrieval_outcomes: {
+						applied_count: 0,
+						succeeded_after_count: 0,
+						failed_after_count: 0,
+					},
 					schema_version: 1,
 					created_at: new Date().toISOString(),
 					updated_at: new Date().toISOString(),
@@ -933,7 +1065,11 @@ describe('runCuratorInit - Adversarial Tests', () => {
 					confidence: 1.0,
 					status: 'established',
 					confirmed_by: [],
-					retrieval_outcomes: { applied_count: 0, succeeded_after_count: 0, failed_after_count: 0 },
+					retrieval_outcomes: {
+						applied_count: 0,
+						succeeded_after_count: 0,
+						failed_after_count: 0,
+					},
 					schema_version: 1,
 					created_at: new Date().toISOString(),
 					updated_at: new Date().toISOString(),
@@ -970,7 +1106,11 @@ describe('runCuratorInit - Adversarial Tests', () => {
 				confidence: 0.9,
 				status: 'established',
 				confirmed_by: [],
-				retrieval_outcomes: { applied_count: 0, succeeded_after_count: 0, failed_after_count: 0 },
+				retrieval_outcomes: {
+					applied_count: 0,
+					succeeded_after_count: 0,
+					failed_after_count: 0,
+				},
 				schema_version: 1,
 				created_at: new Date().toISOString(),
 				updated_at: new Date().toISOString(),
@@ -1004,7 +1144,11 @@ describe('runCuratorInit - Adversarial Tests', () => {
 				confidence: 0.9,
 				status: 'established',
 				confirmed_by: [],
-				retrieval_outcomes: { applied_count: 0, succeeded_after_count: 0, failed_after_count: 0 },
+				retrieval_outcomes: {
+					applied_count: 0,
+					succeeded_after_count: 0,
+					failed_after_count: 0,
+				},
 				schema_version: 1,
 				created_at: new Date().toISOString(),
 				updated_at: new Date().toISOString(),
@@ -1034,7 +1178,9 @@ describe('runCuratorInit - Adversarial Tests', () => {
 			expect(result).toBeDefined();
 			expect(result.briefing).toContain('Context Summary');
 			// max_summary_tokens = 1000, so maxContextChars = 1000 * 2 = 2000
-			const contextMatch = result.briefing.match(/## Context Summary\n([\s\S]*?)$/m);
+			const contextMatch = result.briefing.match(
+				/## Context Summary\n([\s\S]*?)$/m,
+			);
 			expect(contextMatch).toBeDefined();
 			expect(contextMatch![1].length).toBeLessThanOrEqual(2000);
 		});
@@ -1058,7 +1204,11 @@ describe('runCuratorInit - Adversarial Tests', () => {
 				confidence: 0.9,
 				status: 'established',
 				confirmed_by: [],
-				retrieval_outcomes: { applied_count: 0, succeeded_after_count: 0, failed_after_count: 0 },
+				retrieval_outcomes: {
+					applied_count: 0,
+					succeeded_after_count: 0,
+					failed_after_count: 0,
+				},
 				schema_version: 1,
 				created_at: new Date().toISOString(),
 				updated_at: new Date().toISOString(),
@@ -1103,7 +1253,13 @@ describe('runCuratorInit - Adversarial Tests', () => {
 	describe('suppress_warnings: false with many compliance observations', () => {
 		it('should include all compliance observations when suppress_warnings is false', async () => {
 			// Create prior summary with many compliance observations
-			const observations: Array<{phase: number; timestamp: string; type: 'workflow_deviation'; severity: 'warning'; description: string}> = [];
+			const observations: Array<{
+				phase: number;
+				timestamp: string;
+				type: 'workflow_deviation';
+				severity: 'warning';
+				description: string;
+			}> = [];
 			for (let i = 0; i < 50; i++) {
 				observations.push({
 					phase: 1,
@@ -1126,7 +1282,10 @@ describe('runCuratorInit - Adversarial Tests', () => {
 			const filePath = join(tempDir, '.swarm', 'curator-summary.json');
 			writeFileSync(filePath, JSON.stringify(summary), 'utf-8');
 
-			const result = await runCuratorInit(tempDir, { ...defaultConfig, suppress_warnings: false });
+			const result = await runCuratorInit(tempDir, {
+				...defaultConfig,
+				suppress_warnings: false,
+			});
 
 			expect(result).toBeDefined();
 			expect(result.briefing).toContain('Compliance Observations');
@@ -1190,16 +1349,32 @@ describe('runCuratorPhase - Adversarial Tests', () => {
 
 			// Set up plan.json with 3 completed tasks so task count is accurate
 			const plan = {
-				schema_version: '1.0.0', title: 'Test', swarm: 'test', current_phase: 1,
-				phases: [{ id: 1, name: 'P1', status: 'in_progress', tasks: [
-					{ id: '1.1', phase: 1, status: 'completed', description: 'A' },
-					{ id: '1.2', phase: 1, status: 'completed', description: 'B' },
-					{ id: '1.3', phase: 1, status: 'completed', description: 'C' },
-				] }],
+				schema_version: '1.0.0',
+				title: 'Test',
+				swarm: 'test',
+				current_phase: 1,
+				phases: [
+					{
+						id: 1,
+						name: 'P1',
+						status: 'in_progress',
+						tasks: [
+							{ id: '1.1', phase: 1, status: 'completed', description: 'A' },
+							{ id: '1.2', phase: 1, status: 'completed', description: 'B' },
+							{ id: '1.3', phase: 1, status: 'completed', description: 'C' },
+						],
+					},
+				],
 			};
 			writeFileSync(join(tempDir, '.swarm', 'plan.json'), JSON.stringify(plan));
 
-			const result = await runCuratorPhase(tempDir, 1, ['reviewer', 'test_engineer'], defaultConfig, {});
+			const result = await runCuratorPhase(
+				tempDir,
+				1,
+				['reviewer', 'test_engineer'],
+				defaultConfig,
+				{},
+			);
 
 			expect(result).toBeDefined();
 			expect(result.digest.tasks_completed).toBe(3);
@@ -1216,24 +1391,42 @@ describe('runCuratorPhase - Adversarial Tests', () => {
 			const eventsPath = join(tempDir, '.swarm', 'events.jsonl');
 			const events: string[] = [];
 			for (let i = 0; i < 10000; i++) {
-				events.push(JSON.stringify({
-					phase: 1,
-					timestamp: `2024-01-01T00:00:${i.toString().padStart(2, '0')}Z`,
-					type: 'phase_complete',
-				}));
+				events.push(
+					JSON.stringify({
+						phase: 1,
+						timestamp: `2024-01-01T00:00:${i.toString().padStart(2, '0')}Z`,
+						type: 'phase_complete',
+					}),
+				);
 			}
 			writeFileSync(eventsPath, events.join('\n'), 'utf-8');
 
 			// Task count comes from plan.json, not events
 			const plan = {
-				schema_version: '1.0.0', title: 'Test', swarm: 'test', current_phase: 1,
-				phases: [{ id: 1, name: 'P1', status: 'in_progress', tasks: [
-					{ id: '1.1', phase: 1, status: 'completed', description: 'A' },
-				] }],
+				schema_version: '1.0.0',
+				title: 'Test',
+				swarm: 'test',
+				current_phase: 1,
+				phases: [
+					{
+						id: 1,
+						name: 'P1',
+						status: 'in_progress',
+						tasks: [
+							{ id: '1.1', phase: 1, status: 'completed', description: 'A' },
+						],
+					},
+				],
 			};
 			writeFileSync(join(tempDir, '.swarm', 'plan.json'), JSON.stringify(plan));
 
-			const result = await runCuratorPhase(tempDir, 1, ['reviewer', 'test_engineer'], defaultConfig, {});
+			const result = await runCuratorPhase(
+				tempDir,
+				1,
+				['reviewer', 'test_engineer'],
+				defaultConfig,
+				{},
+			);
 
 			expect(result).toBeDefined();
 			// Task count from plan.json (1 task), not from events (10,000 events)
@@ -1252,7 +1445,13 @@ describe('runCuratorPhase - Adversarial Tests', () => {
 				agents.push(i % 2 === 0 ? 'coder' : 'reviewer');
 			}
 
-			const result = await runCuratorPhase(tempDir, 1, agents, defaultConfig, {});
+			const result = await runCuratorPhase(
+				tempDir,
+				1,
+				agents,
+				defaultConfig,
+				{},
+			);
 
 			expect(result).toBeDefined();
 			expect(result.digest.agents_used).toContain('coder');
@@ -1280,14 +1479,20 @@ describe('runCuratorPhase - Adversarial Tests', () => {
 				errorEmitted = true;
 			});
 
-			const result = await runCuratorPhase(tempDir, 1, ['reviewer', 'test_engineer'], defaultConfig, {});
+			const result = await runCuratorPhase(
+				tempDir,
+				1,
+				['reviewer', 'test_engineer'],
+				defaultConfig,
+				{},
+			);
 
 			expect(result).toBeDefined();
 			expect(result.summary_updated).toBe(false);
-			
+
 			// Give async event time to propagate
-			await new Promise(resolve => setTimeout(resolve, 10));
-			
+			await new Promise((resolve) => setTimeout(resolve, 10));
+
 			expect(errorEmitted).toBe(true);
 			unsubscribe();
 		});
@@ -1299,7 +1504,13 @@ describe('runCuratorPhase - Adversarial Tests', () => {
 	 */
 	describe('phase = 0 (edge case)', () => {
 		it('should process phase 0 without throwing', async () => {
-			const result = await runCuratorPhase(tempDir, 0, ['reviewer', 'test_engineer'], defaultConfig, {});
+			const result = await runCuratorPhase(
+				tempDir,
+				0,
+				['reviewer', 'test_engineer'],
+				defaultConfig,
+				{},
+			);
 
 			expect(result).toBeDefined();
 			expect(result.phase).toBe(0);
@@ -1313,7 +1524,13 @@ describe('runCuratorPhase - Adversarial Tests', () => {
 	 */
 	describe('phase = -1 (negative)', () => {
 		it('should process negative phase without throwing', async () => {
-			const result = await runCuratorPhase(tempDir, -1, ['reviewer', 'test_engineer'], defaultConfig, {});
+			const result = await runCuratorPhase(
+				tempDir,
+				-1,
+				['reviewer', 'test_engineer'],
+				defaultConfig,
+				{},
+			);
 
 			expect(result).toBeDefined();
 			expect(result.phase).toBe(-1);
@@ -1327,7 +1544,13 @@ describe('runCuratorPhase - Adversarial Tests', () => {
 	 */
 	describe('phase = Infinity', () => {
 		it('should process Infinity phase without throwing', async () => {
-			const result = await runCuratorPhase(tempDir, Infinity, ['reviewer', 'test_engineer'], defaultConfig, {});
+			const result = await runCuratorPhase(
+				tempDir,
+				Infinity,
+				['reviewer', 'test_engineer'],
+				defaultConfig,
+				{},
+			);
 
 			expect(result).toBeDefined();
 			expect(result.phase).toBe(Infinity);
@@ -1345,7 +1568,13 @@ describe('runCuratorPhase - Adversarial Tests', () => {
 			const filePath = join(tempDir, '.swarm', 'context.md');
 			writeFileSync(filePath, contextMd, 'utf-8');
 
-			const result = await runCuratorPhase(tempDir, 1, ['reviewer', 'test_engineer'], defaultConfig, {});
+			const result = await runCuratorPhase(
+				tempDir,
+				1,
+				['reviewer', 'test_engineer'],
+				defaultConfig,
+				{},
+			);
 
 			expect(result).toBeDefined();
 			expect(result.digest.key_decisions).toContain('Decision 1');
@@ -1364,7 +1593,13 @@ describe('runCuratorPhase - Adversarial Tests', () => {
 			const filePath = join(tempDir, '.swarm', 'context.md');
 			writeFileSync(filePath, contextMd, 'utf-8');
 
-			const result = await runCuratorPhase(tempDir, 1, ['reviewer', 'test_engineer'], defaultConfig, {});
+			const result = await runCuratorPhase(
+				tempDir,
+				1,
+				['reviewer', 'test_engineer'],
+				defaultConfig,
+				{},
+			);
 
 			expect(result).toBeDefined();
 			expect(result.digest.key_decisions).toEqual([]);
@@ -1381,10 +1616,16 @@ describe('runCuratorPhase - Adversarial Tests', () => {
 
 			expect(result).toBeDefined();
 			// Should have compliance observations for missing reviewer and test_engineer
-			const missingAgents = result.compliance.filter(o => o.type === 'workflow_deviation');
+			const missingAgents = result.compliance.filter(
+				(o) => o.type === 'workflow_deviation',
+			);
 			expect(missingAgents.length).toBeGreaterThan(0);
-			expect(missingAgents.some(o => o.description.includes('reviewer'))).toBe(true);
-			expect(missingAgents.some(o => o.description.includes('test_engineer'))).toBe(true);
+			expect(
+				missingAgents.some((o) => o.description.includes('reviewer')),
+			).toBe(true);
+			expect(
+				missingAgents.some((o) => o.description.includes('test_engineer')),
+			).toBe(true);
 		});
 	});
 });
@@ -1436,7 +1677,11 @@ describe('applyCuratorKnowledgeUpdates - Adversarial Tests', () => {
 			const knowledgeConfig = {} as KnowledgeConfig;
 
 			// Should not throw - should handle gracefully
-			const result = await applyCuratorKnowledgeUpdates(maliciousDir, recommendations, knowledgeConfig);
+			const result = await applyCuratorKnowledgeUpdates(
+				maliciousDir,
+				recommendations,
+				knowledgeConfig,
+			);
 			expect(result).toBeDefined();
 			expect(typeof result.applied).toBe('number');
 			expect(typeof result.skipped).toBe('number');
@@ -1455,7 +1700,11 @@ describe('applyCuratorKnowledgeUpdates - Adversarial Tests', () => {
 			const knowledgeConfig = {} as KnowledgeConfig;
 
 			// Should handle gracefully without throwing
-			const result = await applyCuratorKnowledgeUpdates(maliciousDir, recommendations, knowledgeConfig);
+			const result = await applyCuratorKnowledgeUpdates(
+				maliciousDir,
+				recommendations,
+				knowledgeConfig,
+			);
 			expect(result).toBeDefined();
 		});
 	});
@@ -1478,13 +1727,21 @@ describe('applyCuratorKnowledgeUpdates - Adversarial Tests', () => {
 				confidence: 0.8,
 				status: 'established',
 				confirmed_by: [],
-				retrieval_outcomes: { applied_count: 0, succeeded_after_count: 0, failed_after_count: 0 },
+				retrieval_outcomes: {
+					applied_count: 0,
+					succeeded_after_count: 0,
+					failed_after_count: 0,
+				},
 				schema_version: 1,
 				created_at: new Date().toISOString(),
 				updated_at: new Date().toISOString(),
 				project_name: 'test-project',
 			};
-			writeFileSync(knowledgePath, JSON.stringify(existingEntry) + '\n', 'utf-8');
+			writeFileSync(
+				knowledgePath,
+				JSON.stringify(existingEntry) + '\n',
+				'utf-8',
+			);
 
 			// Try to apply recommendation with path separator in entry_id
 			const recommendations: KnowledgeRecommendation[] = [
@@ -1497,15 +1754,25 @@ describe('applyCuratorKnowledgeUpdates - Adversarial Tests', () => {
 			];
 			const knowledgeConfig = {} as KnowledgeConfig;
 
-			const result = await applyCuratorKnowledgeUpdates(tempDir, recommendations, knowledgeConfig);
+			const result = await applyCuratorKnowledgeUpdates(
+				tempDir,
+				recommendations,
+				knowledgeConfig,
+			);
 
 			// Should skip the entry (not found)
 			expect(result.skipped).toBe(1);
 			expect(result.applied).toBe(0);
 
 			// Verify the legitimate entry was NOT modified
-			const content = existsSync(knowledgePath) ? require('node:fs').readFileSync(knowledgePath, 'utf-8') : '';
-			const parsed = content.trim().split('\n').filter(Boolean).map(l => JSON.parse(l));
+			const content = existsSync(knowledgePath)
+				? require('node:fs').readFileSync(knowledgePath, 'utf-8')
+				: '';
+			const parsed = content
+				.trim()
+				.split('\n')
+				.filter(Boolean)
+				.map((l) => JSON.parse(l));
 			expect(parsed[0].status).toBe('established');
 			expect(parsed[0].confidence).toBe(0.8);
 		});
@@ -1522,13 +1789,21 @@ describe('applyCuratorKnowledgeUpdates - Adversarial Tests', () => {
 				confidence: 0.8,
 				status: 'established',
 				confirmed_by: [],
-				retrieval_outcomes: { applied_count: 0, succeeded_after_count: 0, failed_after_count: 0 },
+				retrieval_outcomes: {
+					applied_count: 0,
+					succeeded_after_count: 0,
+					failed_after_count: 0,
+				},
 				schema_version: 1,
 				created_at: new Date().toISOString(),
 				updated_at: new Date().toISOString(),
 				project_name: 'test-project',
 			};
-			writeFileSync(knowledgePath, JSON.stringify(existingEntry) + '\n', 'utf-8');
+			writeFileSync(
+				knowledgePath,
+				JSON.stringify(existingEntry) + '\n',
+				'utf-8',
+			);
 
 			const recommendations: KnowledgeRecommendation[] = [
 				{
@@ -1540,7 +1815,11 @@ describe('applyCuratorKnowledgeUpdates - Adversarial Tests', () => {
 			];
 			const knowledgeConfig = {} as KnowledgeConfig;
 
-			const result = await applyCuratorKnowledgeUpdates(tempDir, recommendations, knowledgeConfig);
+			const result = await applyCuratorKnowledgeUpdates(
+				tempDir,
+				recommendations,
+				knowledgeConfig,
+			);
 			// Should skip (not found)
 			expect(result.skipped).toBe(1);
 		});
@@ -1563,13 +1842,21 @@ describe('applyCuratorKnowledgeUpdates - Adversarial Tests', () => {
 				confidence: 0.8,
 				status: 'established',
 				confirmed_by: [],
-				retrieval_outcomes: { applied_count: 0, succeeded_after_count: 0, failed_after_count: 0 },
+				retrieval_outcomes: {
+					applied_count: 0,
+					succeeded_after_count: 0,
+					failed_after_count: 0,
+				},
 				schema_version: 1,
 				created_at: new Date().toISOString(),
 				updated_at: new Date().toISOString(),
 				project_name: 'test-project',
 			};
-			writeFileSync(knowledgePath, JSON.stringify(existingEntry) + '\n', 'utf-8');
+			writeFileSync(
+				knowledgePath,
+				JSON.stringify(existingEntry) + '\n',
+				'utf-8',
+			);
 
 			const longReason = 'x'.repeat(10000);
 			const recommendations: KnowledgeRecommendation[] = [
@@ -1582,7 +1869,11 @@ describe('applyCuratorKnowledgeUpdates - Adversarial Tests', () => {
 			];
 			const knowledgeConfig = {} as KnowledgeConfig;
 
-			const result = await applyCuratorKnowledgeUpdates(tempDir, recommendations, knowledgeConfig);
+			const result = await applyCuratorKnowledgeUpdates(
+				tempDir,
+				recommendations,
+				knowledgeConfig,
+			);
 
 			// Should apply successfully - slice(0, 50) handles it
 			expect(result.applied).toBe(1);
@@ -1590,8 +1881,14 @@ describe('applyCuratorKnowledgeUpdates - Adversarial Tests', () => {
 
 			// Verify the tag was added with truncated reason
 			const content = require('node:fs').readFileSync(knowledgePath, 'utf-8');
-			const parsed = content.trim().split('\n').filter(Boolean).map(l => JSON.parse(l));
-			const tag = parsed[0].tags.find((t: string) => t.startsWith('contradiction:'));
+			const parsed = content
+				.trim()
+				.split('\n')
+				.filter(Boolean)
+				.map((l) => JSON.parse(l));
+			const tag = parsed[0].tags.find((t: string) =>
+				t.startsWith('contradiction:'),
+			);
 			expect(tag).toBeDefined();
 			expect(tag.length).toBeLessThanOrEqual(64); // "contradiction:" (14) + reason.slice(0, 50) (50) = 64
 		}, 30000);
@@ -1614,13 +1911,21 @@ describe('applyCuratorKnowledgeUpdates - Adversarial Tests', () => {
 				confidence: 0.8,
 				status: 'established',
 				confirmed_by: [],
-				retrieval_outcomes: { applied_count: 0, succeeded_after_count: 0, failed_after_count: 0 },
+				retrieval_outcomes: {
+					applied_count: 0,
+					succeeded_after_count: 0,
+					failed_after_count: 0,
+				},
 				schema_version: 1,
 				created_at: new Date().toISOString(),
 				updated_at: new Date().toISOString(),
 				project_name: 'test-project',
 			};
-			writeFileSync(knowledgePath, JSON.stringify(existingEntry) + '\n', 'utf-8');
+			writeFileSync(
+				knowledgePath,
+				JSON.stringify(existingEntry) + '\n',
+				'utf-8',
+			);
 
 			// Empty string is not undefined, so it passes the !== undefined check
 			// But it won't match any entry.id
@@ -1634,7 +1939,11 @@ describe('applyCuratorKnowledgeUpdates - Adversarial Tests', () => {
 			];
 			const knowledgeConfig = {} as KnowledgeConfig;
 
-			const result = await applyCuratorKnowledgeUpdates(tempDir, recommendations, knowledgeConfig);
+			const result = await applyCuratorKnowledgeUpdates(
+				tempDir,
+				recommendations,
+				knowledgeConfig,
+			);
 
 			// Empty string entry_id should be counted as skipped (not found)
 			expect(result.skipped).toBe(1);
@@ -1662,20 +1971,33 @@ describe('applyCuratorKnowledgeUpdates - Adversarial Tests', () => {
 					confidence: 0.8,
 					status: 'established',
 					confirmed_by: [],
-					retrieval_outcomes: { applied_count: 0, succeeded_after_count: 0, failed_after_count: 0 },
+					retrieval_outcomes: {
+						applied_count: 0,
+						succeeded_after_count: 0,
+						failed_after_count: 0,
+					},
 					schema_version: 1,
 					created_at: new Date().toISOString(),
 					updated_at: new Date().toISOString(),
 					project_name: 'test-project',
 				});
 			}
-			writeFileSync(knowledgePath, entries.map(e => JSON.stringify(e)).join('\n'), 'utf-8');
+			writeFileSync(
+				knowledgePath,
+				entries.map((e) => JSON.stringify(e)).join('\n'),
+				'utf-8',
+			);
 
 			// Create 10,000 recommendations
 			const recommendations: KnowledgeRecommendation[] = [];
 			for (let i = 0; i < 10000; i++) {
 				recommendations.push({
-					action: i % 3 === 0 ? 'promote' : i % 3 === 1 ? 'archive' : 'flag_contradiction',
+					action:
+						i % 3 === 0
+							? 'promote'
+							: i % 3 === 1
+								? 'archive'
+								: 'flag_contradiction',
 					entry_id: `entry-${i % 100}`, // Only 100 entries exist
 					lesson: `Recommendation ${i}`,
 					reason: `Reason ${i}`,
@@ -1683,7 +2005,11 @@ describe('applyCuratorKnowledgeUpdates - Adversarial Tests', () => {
 			}
 			const knowledgeConfig = {} as KnowledgeConfig;
 
-			const result = await applyCuratorKnowledgeUpdates(tempDir, recommendations, knowledgeConfig);
+			const result = await applyCuratorKnowledgeUpdates(
+				tempDir,
+				recommendations,
+				knowledgeConfig,
+			);
 
 			// Should handle gracefully
 			expect(result).toBeDefined();
@@ -1711,13 +2037,21 @@ describe('applyCuratorKnowledgeUpdates - Adversarial Tests', () => {
 				confidence: 0.8,
 				status: 'established',
 				confirmed_by: [],
-				retrieval_outcomes: { applied_count: 0, succeeded_after_count: 0, failed_after_count: 0 },
+				retrieval_outcomes: {
+					applied_count: 0,
+					succeeded_after_count: 0,
+					failed_after_count: 0,
+				},
 				schema_version: 1,
 				created_at: new Date().toISOString(),
 				updated_at: new Date().toISOString(),
 				project_name: 'test-project',
 			};
-			writeFileSync(knowledgePath, JSON.stringify(existingEntry) + '\n', 'utf-8');
+			writeFileSync(
+				knowledgePath,
+				JSON.stringify(existingEntry) + '\n',
+				'utf-8',
+			);
 
 			// Unknown action - not 'promote', 'archive', or 'flag_contradiction'
 			const recommendations: KnowledgeRecommendation[] = [
@@ -1730,7 +2064,11 @@ describe('applyCuratorKnowledgeUpdates - Adversarial Tests', () => {
 			];
 			const knowledgeConfig = {} as KnowledgeConfig;
 
-			const result = await applyCuratorKnowledgeUpdates(tempDir, recommendations, knowledgeConfig);
+			const result = await applyCuratorKnowledgeUpdates(
+				tempDir,
+				recommendations,
+				knowledgeConfig,
+			);
 
 			// Should skip (default case - entry unchanged)
 			// The recommendation passes the !== undefined check but doesn't match any known action
@@ -1757,13 +2095,21 @@ describe('applyCuratorKnowledgeUpdates - Adversarial Tests', () => {
 				confidence: 0.8,
 				status: 'established',
 				confirmed_by: [],
-				retrieval_outcomes: { applied_count: 0, succeeded_after_count: 0, failed_after_count: 0 },
+				retrieval_outcomes: {
+					applied_count: 0,
+					succeeded_after_count: 0,
+					failed_after_count: 0,
+				},
 				schema_version: 1,
 				created_at: new Date().toISOString(),
 				updated_at: new Date().toISOString(),
 				project_name: 'test-project',
 			};
-			writeFileSync(knowledgePath, JSON.stringify(existingEntry) + '\n', 'utf-8');
+			writeFileSync(
+				knowledgePath,
+				JSON.stringify(existingEntry) + '\n',
+				'utf-8',
+			);
 
 			const recommendations: KnowledgeRecommendation[] = [
 				{
@@ -1775,7 +2121,11 @@ describe('applyCuratorKnowledgeUpdates - Adversarial Tests', () => {
 			];
 			const knowledgeConfig = {} as KnowledgeConfig;
 
-			const result = await applyCuratorKnowledgeUpdates(tempDir, recommendations, knowledgeConfig);
+			const result = await applyCuratorKnowledgeUpdates(
+				tempDir,
+				recommendations,
+				knowledgeConfig,
+			);
 			expect(result).toBeDefined();
 			expect(result.skipped).toBe(1);
 		});
@@ -1801,13 +2151,21 @@ describe('applyCuratorKnowledgeUpdates - Adversarial Tests', () => {
 				confidence: NaN,
 				status: 'established',
 				confirmed_by: [],
-				retrieval_outcomes: { applied_count: 0, succeeded_after_count: 0, failed_after_count: 0 },
+				retrieval_outcomes: {
+					applied_count: 0,
+					succeeded_after_count: 0,
+					failed_after_count: 0,
+				},
 				schema_version: 1,
 				created_at: new Date().toISOString(),
 				updated_at: new Date().toISOString(),
 				project_name: 'test-project',
 			};
-			writeFileSync(knowledgePath, JSON.stringify(existingEntry) + '\n', 'utf-8');
+			writeFileSync(
+				knowledgePath,
+				JSON.stringify(existingEntry) + '\n',
+				'utf-8',
+			);
 
 			const recommendations: KnowledgeRecommendation[] = [
 				{
@@ -1820,7 +2178,11 @@ describe('applyCuratorKnowledgeUpdates - Adversarial Tests', () => {
 			const knowledgeConfig = {} as KnowledgeConfig;
 
 			// Should not throw - NaN is handled gracefully
-			const result = await applyCuratorKnowledgeUpdates(tempDir, recommendations, knowledgeConfig);
+			const result = await applyCuratorKnowledgeUpdates(
+				tempDir,
+				recommendations,
+				knowledgeConfig,
+			);
 			expect(result).toBeDefined();
 			// NaN becomes null after JSON parse, then null ?? 0 = 0
 			// So Math.min(1.0, 0 + 0.1) = 0.1, entry gets modified
@@ -1839,14 +2201,22 @@ describe('applyCuratorKnowledgeUpdates - Adversarial Tests', () => {
 				confidence: Infinity,
 				status: 'established',
 				confirmed_by: [],
-				retrieval_outcomes: { applied_count: 0, succeeded_after_count: 0, failed_after_count: 0 },
+				retrieval_outcomes: {
+					applied_count: 0,
+					succeeded_after_count: 0,
+					failed_after_count: 0,
+				},
 				schema_version: 1,
 				created_at: new Date().toISOString(),
 				updated_at: new Date().toISOString(),
 				project_name: 'test-project',
 			};
 			// JSON.stringify converts Infinity to null
-			writeFileSync(knowledgePath, JSON.stringify(existingEntry) + '\n', 'utf-8');
+			writeFileSync(
+				knowledgePath,
+				JSON.stringify(existingEntry) + '\n',
+				'utf-8',
+			);
 
 			const recommendations: KnowledgeRecommendation[] = [
 				{
@@ -1858,7 +2228,11 @@ describe('applyCuratorKnowledgeUpdates - Adversarial Tests', () => {
 			];
 			const knowledgeConfig = {} as KnowledgeConfig;
 
-			const result = await applyCuratorKnowledgeUpdates(tempDir, recommendations, knowledgeConfig);
+			const result = await applyCuratorKnowledgeUpdates(
+				tempDir,
+				recommendations,
+				knowledgeConfig,
+			);
 			expect(result).toBeDefined();
 			// JSON.stringify converts Infinity to null, so entry.confidence is null
 			// null ?? 0 = 0, so Math.min(1.0, 0 + 0.1) = 0.1
@@ -1877,13 +2251,21 @@ describe('applyCuratorKnowledgeUpdates - Adversarial Tests', () => {
 				confidence: -Infinity,
 				status: 'established',
 				confirmed_by: [],
-				retrieval_outcomes: { applied_count: 0, succeeded_after_count: 0, failed_after_count: 0 },
+				retrieval_outcomes: {
+					applied_count: 0,
+					succeeded_after_count: 0,
+					failed_after_count: 0,
+				},
 				schema_version: 1,
 				created_at: new Date().toISOString(),
 				updated_at: new Date().toISOString(),
 				project_name: 'test-project',
 			};
-			writeFileSync(knowledgePath, JSON.stringify(existingEntry) + '\n', 'utf-8');
+			writeFileSync(
+				knowledgePath,
+				JSON.stringify(existingEntry) + '\n',
+				'utf-8',
+			);
 
 			const recommendations: KnowledgeRecommendation[] = [
 				{
@@ -1895,7 +2277,11 @@ describe('applyCuratorKnowledgeUpdates - Adversarial Tests', () => {
 			];
 			const knowledgeConfig = {} as KnowledgeConfig;
 
-			const result = await applyCuratorKnowledgeUpdates(tempDir, recommendations, knowledgeConfig);
+			const result = await applyCuratorKnowledgeUpdates(
+				tempDir,
+				recommendations,
+				knowledgeConfig,
+			);
 			expect(result).toBeDefined();
 			// -Infinity in JSON becomes null, then null ?? 0 = 0
 			// Math.min(1.0, 0 + 0.1) = 0.1
@@ -1920,13 +2306,21 @@ describe('applyCuratorKnowledgeUpdates - Adversarial Tests', () => {
 				confidence: 0.8,
 				status: 'established',
 				confirmed_by: [],
-				retrieval_outcomes: { applied_count: 0, succeeded_after_count: 0, failed_after_count: 0 },
+				retrieval_outcomes: {
+					applied_count: 0,
+					succeeded_after_count: 0,
+					failed_after_count: 0,
+				},
 				schema_version: 1,
 				created_at: new Date().toISOString(),
 				updated_at: new Date().toISOString(),
 				project_name: 'test-project',
 			};
-			writeFileSync(knowledgePath, JSON.stringify(existingEntry) + '\n', 'utf-8');
+			writeFileSync(
+				knowledgePath,
+				JSON.stringify(existingEntry) + '\n',
+				'utf-8',
+			);
 
 			const recommendations: KnowledgeRecommendation[] = [
 				{
@@ -1939,7 +2333,11 @@ describe('applyCuratorKnowledgeUpdates - Adversarial Tests', () => {
 			const knowledgeConfig = {} as KnowledgeConfig;
 
 			// Should not throw - tags ?? [] handles null
-			const result = await applyCuratorKnowledgeUpdates(tempDir, recommendations, knowledgeConfig);
+			const result = await applyCuratorKnowledgeUpdates(
+				tempDir,
+				recommendations,
+				knowledgeConfig,
+			);
 			expect(result).toBeDefined();
 			expect(result.applied).toBe(1);
 
@@ -1972,14 +2370,22 @@ describe('applyCuratorKnowledgeUpdates - Adversarial Tests', () => {
 					confidence: 0.8,
 					status: 'established',
 					confirmed_by: [],
-					retrieval_outcomes: { applied_count: 0, succeeded_after_count: 0, failed_after_count: 0 },
+					retrieval_outcomes: {
+						applied_count: 0,
+						succeeded_after_count: 0,
+						failed_after_count: 0,
+					},
 					schema_version: 1,
 					created_at: new Date().toISOString(),
 					updated_at: new Date().toISOString(),
 					project_name: 'test-project',
 				});
 			}
-			writeFileSync(knowledgePath, entries.map(e => JSON.stringify(e)).join('\n'), 'utf-8');
+			writeFileSync(
+				knowledgePath,
+				entries.map((e) => JSON.stringify(e)).join('\n'),
+				'utf-8',
+			);
 
 			const recommendations: KnowledgeRecommendation[] = [
 				{
@@ -1996,11 +2402,15 @@ describe('applyCuratorKnowledgeUpdates - Adversarial Tests', () => {
 			let totalApplied = 0;
 			let totalSkipped = 0;
 			for (let i = 0; i < 5; i++) {
-				const result = await applyCuratorKnowledgeUpdates(tempDir, recommendations, knowledgeConfig);
+				const result = await applyCuratorKnowledgeUpdates(
+					tempDir,
+					recommendations,
+					knowledgeConfig,
+				);
 				totalApplied += result.applied;
 				totalSkipped += result.skipped;
 			}
-			
+
 			// All should complete successfully
 			expect(totalApplied + totalSkipped).toBeGreaterThan(0);
 		});
@@ -2019,14 +2429,22 @@ describe('applyCuratorKnowledgeUpdates - Adversarial Tests', () => {
 					confidence: 0.8,
 					status: 'established',
 					confirmed_by: [],
-					retrieval_outcomes: { applied_count: 0, succeeded_after_count: 0, failed_after_count: 0 },
+					retrieval_outcomes: {
+						applied_count: 0,
+						succeeded_after_count: 0,
+						failed_after_count: 0,
+					},
 					schema_version: 1,
 					created_at: new Date().toISOString(),
 					updated_at: new Date().toISOString(),
 					project_name: 'test-project',
 				});
 			}
-			writeFileSync(knowledgePath, entries.map(e => JSON.stringify(e)).join('\n'), 'utf-8');
+			writeFileSync(
+				knowledgePath,
+				entries.map((e) => JSON.stringify(e)).join('\n'),
+				'utf-8',
+			);
 
 			const knowledgeConfig = {} as KnowledgeConfig;
 
@@ -2042,11 +2460,15 @@ describe('applyCuratorKnowledgeUpdates - Adversarial Tests', () => {
 						reason: 'Test',
 					},
 				];
-				const result = await applyCuratorKnowledgeUpdates(tempDir, recommendations, knowledgeConfig);
+				const result = await applyCuratorKnowledgeUpdates(
+					tempDir,
+					recommendations,
+					knowledgeConfig,
+				);
 				totalApplied += result.applied;
 				totalSkipped += result.skipped;
 			}
-			
+
 			// All 10 entries should be applied
 			expect(totalApplied).toBe(10);
 			expect(totalSkipped).toBe(0);
@@ -2081,7 +2503,11 @@ describe('applyCuratorKnowledgeUpdates - Adversarial Tests', () => {
 			];
 			const knowledgeConfig = {} as KnowledgeConfig;
 
-			const result = await applyCuratorKnowledgeUpdates(tempDir, recommendations, knowledgeConfig);
+			const result = await applyCuratorKnowledgeUpdates(
+				tempDir,
+				recommendations,
+				knowledgeConfig,
+			);
 
 			// No entries exist, so all recommendations should be skipped
 			expect(result.applied).toBe(0);
@@ -2097,7 +2523,11 @@ describe('applyCuratorKnowledgeUpdates - Adversarial Tests', () => {
 			const recommendations: KnowledgeRecommendation[] = [];
 			const knowledgeConfig = {} as KnowledgeConfig;
 
-			const result = await applyCuratorKnowledgeUpdates(tempDir, recommendations, knowledgeConfig);
+			const result = await applyCuratorKnowledgeUpdates(
+				tempDir,
+				recommendations,
+				knowledgeConfig,
+			);
 
 			// Early return for empty recommendations
 			expect(result.applied).toBe(0);
@@ -2106,7 +2536,7 @@ describe('applyCuratorKnowledgeUpdates - Adversarial Tests', () => {
 
 		it('should handle directory that does not exist at all', async () => {
 			const nonExistentDir = join(tmpdir(), `non-existent-${Date.now()}`);
-			
+
 			const recommendations: KnowledgeRecommendation[] = [
 				{
 					action: 'promote',
@@ -2117,7 +2547,11 @@ describe('applyCuratorKnowledgeUpdates - Adversarial Tests', () => {
 			];
 			const knowledgeConfig = {} as KnowledgeConfig;
 
-			const result = await applyCuratorKnowledgeUpdates(nonExistentDir, recommendations, knowledgeConfig);
+			const result = await applyCuratorKnowledgeUpdates(
+				nonExistentDir,
+				recommendations,
+				knowledgeConfig,
+			);
 
 			// readKnowledge returns [] for non-existent path
 			expect(result.applied).toBe(0);

@@ -3,13 +3,13 @@
  * Tests cover the full registry with all 11 profiles across all tiers
  */
 
-import { describe, it, expect } from 'vitest';
+import { describe, expect, it } from 'vitest';
 import { LANGUAGE_REGISTRY } from '../../../src/lang/profiles';
 
 describe('LanguageRegistry - Registry Completeness', () => {
 	it('getAll() returns exactly 11 profiles', () => {
 		const allProfiles = LANGUAGE_REGISTRY.getAll();
-		expect(allProfiles).toHaveLength(11);
+		expect(allProfiles).toHaveLength(12);
 	});
 
 	it('getTier(1) returns exactly 4 profiles', () => {
@@ -24,7 +24,7 @@ describe('LanguageRegistry - Registry Completeness', () => {
 
 	it('getTier(3) returns exactly 2 profiles', () => {
 		const tier3Profiles = LANGUAGE_REGISTRY.getTier(3);
-		expect(tier3Profiles).toHaveLength(2);
+		expect(tier3Profiles).toHaveLength(3);
 	});
 
 	it('sum of all tiers equals 11 profiles', () => {
@@ -33,7 +33,7 @@ describe('LanguageRegistry - Registry Completeness', () => {
 		const tier3Profiles = LANGUAGE_REGISTRY.getTier(3);
 		const total =
 			tier1Profiles.length + tier2Profiles.length + tier3Profiles.length;
-		expect(total).toBe(11);
+		expect(total).toBe(12);
 	});
 });
 
@@ -151,6 +151,8 @@ describe('LanguageRegistry - No Extension Collision', () => {
 			'.rb',
 			'.rake',
 			'.gemspec',
+			'.php',
+			'.phtml',
 		]);
 
 		expect(extensionMap.size).toBe(expectedExtensions.size);
@@ -174,9 +176,7 @@ describe('LanguageRegistry - All Profiles Have Non-Empty Prompts', () => {
 
 	it('every profile has at least 3 coderConstraints', () => {
 		for (const profile of allProfiles) {
-			expect(profile.prompts.coderConstraints.length).toBeGreaterThanOrEqual(
-				3,
-			);
+			expect(profile.prompts.coderConstraints.length).toBeGreaterThanOrEqual(3);
 		}
 	});
 
@@ -250,12 +250,7 @@ describe('LanguageRegistry - SAST Configuration', () => {
 		});
 	});
 
-	const semgrepSupportProfiles = [
-		'kotlin',
-		'swift',
-		'dart',
-		'ruby',
-	];
+	const semgrepSupportProfiles = ['kotlin', 'swift', 'dart', 'ruby'];
 
 	const validSemgrepSupport = ['ga', 'beta', 'experimental', 'none'];
 

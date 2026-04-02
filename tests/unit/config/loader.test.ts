@@ -1,8 +1,14 @@
-import { describe, it, expect, beforeEach, afterEach } from 'bun:test';
-import { deepMerge, loadPluginConfig, loadAgentPrompt, MAX_MERGE_DEPTH, MAX_CONFIG_FILE_BYTES } from '../../../src/config/loader';
+import { afterEach, beforeEach, describe, expect, it } from 'bun:test';
 import * as fs from 'node:fs';
 import * as os from 'node:os';
 import * as path from 'node:path';
+import {
+	deepMerge,
+	loadAgentPrompt,
+	loadPluginConfig,
+	MAX_CONFIG_FILE_BYTES,
+	MAX_MERGE_DEPTH,
+} from '../../../src/config/loader';
 
 describe('config/loader', () => {
 	describe('deepMerge', () => {
@@ -25,7 +31,11 @@ describe('config/loader', () => {
 
 		it('should merge flat objects with override winning', () => {
 			const base: Record<string, unknown> = { a: 1, b: 'base', c: true };
-			const override: Record<string, unknown> = { b: 'override', c: false, d: 'new' };
+			const override: Record<string, unknown> = {
+				b: 'override',
+				c: false,
+				d: 'new',
+			};
 			const result = deepMerge(base, override);
 
 			expect(result).toEqual({
@@ -115,7 +125,9 @@ describe('config/loader', () => {
 				return obj;
 			}
 			const deep = createDeeplyNested(12);
-			expect(() => deepMerge(deep, deep)).toThrow('deepMerge exceeded maximum depth');
+			expect(() => deepMerge(deep, deep)).toThrow(
+				'deepMerge exceeded maximum depth',
+			);
 		});
 
 		it('should handle objects at exactly MAX_MERGE_DEPTH', () => {
@@ -198,40 +210,44 @@ describe('config/loader', () => {
 			// Create user config in the isolated temp directory
 			const userConfigDir = path.join(tempDir, 'opencode');
 			const userConfigFile = path.join(userConfigDir, 'opencode-swarm.json');
-			
+
 			fs.mkdirSync(userConfigDir, { recursive: true });
 			fs.writeFileSync(userConfigFile, JSON.stringify({ max_iterations: 7 }));
 
 			// Create a separate project directory with no config
-			const projectDir = fs.mkdtempSync(path.join(os.tmpdir(), 'project-test-'));
-			
+			const projectDir = fs.mkdtempSync(
+				path.join(os.tmpdir(), 'project-test-'),
+			);
+
 			const result = loadPluginConfig(projectDir);
-			
+
 			// Verify user config is loaded
 			expect(result.max_iterations).toBe(7); // From user config
 			expect(result.qa_retry_limit).toBe(3); // Default value
 			expect(result.inject_phase_reminders).toBe(true); // Default value
-			
+
 			// Clean up project directory
 			fs.rmSync(projectDir, { recursive: true, force: true });
 		});
 
 		it('loads project config', () => {
 			// Create a project directory with config
-			const projectDir = fs.mkdtempSync(path.join(os.tmpdir(), 'project-test-'));
+			const projectDir = fs.mkdtempSync(
+				path.join(os.tmpdir(), 'project-test-'),
+			);
 			const configDir = path.join(projectDir, '.opencode');
 			const configFile = path.join(configDir, 'opencode-swarm.json');
-			
+
 			fs.mkdirSync(configDir, { recursive: true });
 			fs.writeFileSync(configFile, JSON.stringify({ qa_retry_limit: 8 }));
 
 			const result = loadPluginConfig(projectDir);
-			
+
 			// Verify project config is loaded
 			expect(result.max_iterations).toBe(5); // Default value
 			expect(result.qa_retry_limit).toBe(8); // From project config
 			expect(result.inject_phase_reminders).toBe(true); // Default value
-			
+
 			// Clean up project directory
 			fs.rmSync(projectDir, { recursive: true, force: true });
 		});
@@ -240,25 +256,27 @@ describe('config/loader', () => {
 			// Create user config
 			const userConfigDir = path.join(tempDir, 'opencode');
 			const userConfigFile = path.join(userConfigDir, 'opencode-swarm.json');
-			
+
 			fs.mkdirSync(userConfigDir, { recursive: true });
 			fs.writeFileSync(userConfigFile, JSON.stringify({ max_iterations: 7 }));
 
 			// Create project config
-			const projectDir = fs.mkdtempSync(path.join(os.tmpdir(), 'project-test-'));
+			const projectDir = fs.mkdtempSync(
+				path.join(os.tmpdir(), 'project-test-'),
+			);
 			const configDir = path.join(projectDir, '.opencode');
 			const configFile = path.join(configDir, 'opencode-swarm.json');
-			
+
 			fs.mkdirSync(configDir, { recursive: true });
 			fs.writeFileSync(configFile, JSON.stringify({ max_iterations: 9 }));
 
 			const result = loadPluginConfig(projectDir);
-			
+
 			// Verify project config overrides user config
 			expect(result.max_iterations).toBe(9); // Project config overrides user config
 			expect(result.qa_retry_limit).toBe(3); // Default value (not in project config)
 			expect(result.inject_phase_reminders).toBe(true); // Default value
-			
+
 			// Clean up project directory
 			fs.rmSync(projectDir, { recursive: true, force: true });
 		});
@@ -267,32 +285,40 @@ describe('config/loader', () => {
 			// Create user config with agents
 			const userConfigDir = path.join(tempDir, 'opencode');
 			const userConfigFile = path.join(userConfigDir, 'opencode-swarm.json');
-			
+
 			fs.mkdirSync(userConfigDir, { recursive: true });
-			fs.writeFileSync(userConfigFile, JSON.stringify({
-				agents: {
-					coder: { model: "model-a" }
-				}
-			}));
+			fs.writeFileSync(
+				userConfigFile,
+				JSON.stringify({
+					agents: {
+						coder: { model: 'model-a' },
+					},
+				}),
+			);
 
 			// Create project config with different agents
-			const projectDir = fs.mkdtempSync(path.join(os.tmpdir(), 'project-test-'));
+			const projectDir = fs.mkdtempSync(
+				path.join(os.tmpdir(), 'project-test-'),
+			);
 			const configDir = path.join(projectDir, '.opencode');
 			const configFile = path.join(configDir, 'opencode-swarm.json');
-			
+
 			fs.mkdirSync(configDir, { recursive: true });
-			fs.writeFileSync(configFile, JSON.stringify({
-				agents: {
-					explorer: { model: "model-b" }
-				}
-			}));
+			fs.writeFileSync(
+				configFile,
+				JSON.stringify({
+					agents: {
+						explorer: { model: 'model-b' },
+					},
+				}),
+			);
 
 			const result = loadPluginConfig(projectDir);
-			
+
 			// Verify both agent configs are present (deep merge)
-			expect(result.agents?.coder?.model).toBe("model-a"); // From user config
-			expect(result.agents?.explorer?.model).toBe("model-b"); // From project config
-			
+			expect(result.agents?.coder?.model).toBe('model-a'); // From user config
+			expect(result.agents?.explorer?.model).toBe('model-b'); // From project config
+
 			// Clean up project directory
 			fs.rmSync(projectDir, { recursive: true, force: true });
 		});
@@ -301,25 +327,27 @@ describe('config/loader', () => {
 			// Create user config
 			const userConfigDir = path.join(tempDir, 'opencode');
 			const userConfigFile = path.join(userConfigDir, 'opencode-swarm.json');
-			
+
 			fs.mkdirSync(userConfigDir, { recursive: true });
 			fs.writeFileSync(userConfigFile, JSON.stringify({ max_iterations: 7 }));
 
 			// Create project config with invalid JSON
-			const projectDir = fs.mkdtempSync(path.join(os.tmpdir(), 'project-test-'));
+			const projectDir = fs.mkdtempSync(
+				path.join(os.tmpdir(), 'project-test-'),
+			);
 			const configDir = path.join(projectDir, '.opencode');
 			const configFile = path.join(configDir, 'opencode-swarm.json');
-			
+
 			fs.mkdirSync(configDir, { recursive: true });
 			fs.writeFileSync(configFile, '{ invalid }');
 
 			// Should not crash, return user config or defaults
 			const result = loadPluginConfig(projectDir);
-			
+
 			expect(result.max_iterations).toBe(7); // From user config
 			expect(result.qa_retry_limit).toBe(3); // Default value
 			expect(result.inject_phase_reminders).toBe(true); // Default value
-			
+
 			// Clean up project directory
 			fs.rmSync(projectDir, { recursive: true, force: true });
 		});
@@ -329,31 +357,36 @@ describe('config/loader', () => {
 		});
 
 		it('returns defaults when config file is too large', () => {
-			const projectDir = fs.mkdtempSync(path.join(os.tmpdir(), 'project-test-'));
+			const projectDir = fs.mkdtempSync(
+				path.join(os.tmpdir(), 'project-test-'),
+			);
 			const configDir = path.join(projectDir, '.opencode');
 			const configFile = path.join(configDir, 'opencode-swarm.json');
 			fs.mkdirSync(configDir, { recursive: true });
 			// Write a file larger than 100KB
-			const largeContent = JSON.stringify({ max_iterations: 3 }) + ' '.repeat(110_000);
+			const largeContent =
+				JSON.stringify({ max_iterations: 3 }) + ' '.repeat(110_000);
 			fs.writeFileSync(configFile, largeContent);
-			
+
 			const result = loadPluginConfig(projectDir);
 			// Should return defaults since the oversized file is ignored
 			expect(result.max_iterations).toBe(5); // default
-			
+
 			fs.rmSync(projectDir, { recursive: true, force: true });
 		});
 
 		it('loads config when file is under size limit', () => {
-			const projectDir = fs.mkdtempSync(path.join(os.tmpdir(), 'project-test-'));
+			const projectDir = fs.mkdtempSync(
+				path.join(os.tmpdir(), 'project-test-'),
+			);
 			const configDir = path.join(projectDir, '.opencode');
 			const configFile = path.join(configDir, 'opencode-swarm.json');
 			fs.mkdirSync(configDir, { recursive: true });
 			fs.writeFileSync(configFile, JSON.stringify({ max_iterations: 4 }));
-			
+
 			const result = loadPluginConfig(projectDir);
 			expect(result.max_iterations).toBe(4);
-			
+
 			fs.rmSync(projectDir, { recursive: true, force: true });
 		});
 
@@ -361,25 +394,27 @@ describe('config/loader', () => {
 			// Create user config
 			const userConfigDir = path.join(tempDir, 'opencode');
 			const userConfigFile = path.join(userConfigDir, 'opencode-swarm.json');
-			
+
 			fs.mkdirSync(userConfigDir, { recursive: true });
 			fs.writeFileSync(userConfigFile, JSON.stringify({ max_iterations: 7 }));
 
 			// Create project config with invalid schema (max_iterations too high)
-			const projectDir = fs.mkdtempSync(path.join(os.tmpdir(), 'project-test-'));
+			const projectDir = fs.mkdtempSync(
+				path.join(os.tmpdir(), 'project-test-'),
+			);
 			const configDir = path.join(projectDir, '.opencode');
 			const configFile = path.join(configDir, 'opencode-swarm.json');
-			
+
 			fs.mkdirSync(configDir, { recursive: true });
 			fs.writeFileSync(configFile, JSON.stringify({ max_iterations: 999 }));
 
 			// Should not crash, return user config or defaults
 			const result = loadPluginConfig(projectDir);
-			
+
 			expect(result.max_iterations).toBe(7); // From user config, invalid project config ignored
 			expect(result.qa_retry_limit).toBe(3); // Default value
 			expect(result.inject_phase_reminders).toBe(true); // Default value
-			
+
 			// Clean up project directory
 			fs.rmSync(projectDir, { recursive: true, force: true });
 		});
@@ -390,18 +425,26 @@ describe('config/loader', () => {
 			const userConfigDir = path.join(tempDir, 'opencode');
 			const userConfigFile = path.join(userConfigDir, 'opencode-swarm.json');
 			fs.mkdirSync(userConfigDir, { recursive: true });
-			fs.writeFileSync(userConfigFile, JSON.stringify({
-				guardrails: { enabled: false }
-			}));
+			fs.writeFileSync(
+				userConfigFile,
+				JSON.stringify({
+					guardrails: { enabled: false },
+				}),
+			);
 
 			// Project config has guardrails.max_tool_calls: 500
-			const projectDir = fs.mkdtempSync(path.join(os.tmpdir(), 'project-test-'));
+			const projectDir = fs.mkdtempSync(
+				path.join(os.tmpdir(), 'project-test-'),
+			);
 			const configDir = path.join(projectDir, '.opencode');
 			const configFile = path.join(configDir, 'opencode-swarm.json');
 			fs.mkdirSync(configDir, { recursive: true });
-			fs.writeFileSync(configFile, JSON.stringify({
-				guardrails: { max_tool_calls: 500 }
-			}));
+			fs.writeFileSync(
+				configFile,
+				JSON.stringify({
+					guardrails: { max_tool_calls: 500 },
+				}),
+			);
 
 			const result = loadPluginConfig(projectDir);
 
@@ -416,17 +459,25 @@ describe('config/loader', () => {
 			const userConfigDir = path.join(tempDir, 'opencode');
 			const userConfigFile = path.join(userConfigDir, 'opencode-swarm.json');
 			fs.mkdirSync(userConfigDir, { recursive: true });
-			fs.writeFileSync(userConfigFile, JSON.stringify({
-				context_budget: { enabled: true, warn_threshold: 0.5 }
-			}));
+			fs.writeFileSync(
+				userConfigFile,
+				JSON.stringify({
+					context_budget: { enabled: true, warn_threshold: 0.5 },
+				}),
+			);
 
-			const projectDir = fs.mkdtempSync(path.join(os.tmpdir(), 'project-test-'));
+			const projectDir = fs.mkdtempSync(
+				path.join(os.tmpdir(), 'project-test-'),
+			);
 			const configDir = path.join(projectDir, '.opencode');
 			const configFile = path.join(configDir, 'opencode-swarm.json');
 			fs.mkdirSync(configDir, { recursive: true });
-			fs.writeFileSync(configFile, JSON.stringify({
-				context_budget: { critical_threshold: 0.8 }
-			}));
+			fs.writeFileSync(
+				configFile,
+				JSON.stringify({
+					context_budget: { critical_threshold: 0.8 },
+				}),
+			);
 
 			const result = loadPluginConfig(projectDir);
 
@@ -442,17 +493,25 @@ describe('config/loader', () => {
 			const userConfigDir = path.join(tempDir, 'opencode');
 			const userConfigFile = path.join(userConfigDir, 'opencode-swarm.json');
 			fs.mkdirSync(userConfigDir, { recursive: true });
-			fs.writeFileSync(userConfigFile, JSON.stringify({
-				hooks: { system_enhancer: false }
-			}));
+			fs.writeFileSync(
+				userConfigFile,
+				JSON.stringify({
+					hooks: { system_enhancer: false },
+				}),
+			);
 
-			const projectDir = fs.mkdtempSync(path.join(os.tmpdir(), 'project-test-'));
+			const projectDir = fs.mkdtempSync(
+				path.join(os.tmpdir(), 'project-test-'),
+			);
 			const configDir = path.join(projectDir, '.opencode');
 			const configFile = path.join(configDir, 'opencode-swarm.json');
 			fs.mkdirSync(configDir, { recursive: true });
-			fs.writeFileSync(configFile, JSON.stringify({
-				hooks: { delegation_tracker: true }
-			}));
+			fs.writeFileSync(
+				configFile,
+				JSON.stringify({
+					hooks: { delegation_tracker: true },
+				}),
+			);
 
 			const result = loadPluginConfig(projectDir);
 
@@ -467,7 +526,9 @@ describe('config/loader', () => {
 			// Security test: _loadedFromFile is internal loader state and must not be
 			// deserialized from user input. A config file containing "_loadedFromFile": true
 			// should produce a config with NO _loadedFromFile property (Zod strips unknown fields).
-			const projectDir = fs.mkdtempSync(path.join(os.tmpdir(), 'project-test-'));
+			const projectDir = fs.mkdtempSync(
+				path.join(os.tmpdir(), 'project-test-'),
+			);
 			const configDir = path.join(projectDir, '.opencode');
 			const configFile = path.join(configDir, 'opencode-swarm.json');
 
@@ -477,7 +538,7 @@ describe('config/loader', () => {
 			const result = loadPluginConfig(projectDir);
 
 			// _loadedFromFile must NOT be present in the returned PluginConfig
-			expect(Object.prototype.hasOwnProperty.call(result, '_loadedFromFile')).toBe(false);
+			expect(Object.hasOwn(result, '_loadedFromFile')).toBe(false);
 
 			fs.rmSync(projectDir, { recursive: true, force: true });
 		});
@@ -490,10 +551,15 @@ describe('config/loader', () => {
 				const userConfigFile = path.join(userConfigDir, 'opencode-swarm.json');
 				fs.mkdirSync(userConfigDir, { recursive: true });
 				// max_iterations: 999 exceeds schema max of 10
-				fs.writeFileSync(userConfigFile, JSON.stringify({ max_iterations: 999 }));
+				fs.writeFileSync(
+					userConfigFile,
+					JSON.stringify({ max_iterations: 999 }),
+				);
 
 				// Create project config that also has invalid values (to trigger merge failure)
-				const projectDir = fs.mkdtempSync(path.join(os.tmpdir(), 'project-test-'));
+				const projectDir = fs.mkdtempSync(
+					path.join(os.tmpdir(), 'project-test-'),
+				);
 				const configDir = path.join(projectDir, '.opencode');
 				const configFile = path.join(configDir, 'opencode-swarm.json');
 				fs.mkdirSync(configDir, { recursive: true });
@@ -509,12 +575,18 @@ describe('config/loader', () => {
 			});
 
 			it('should enable guardrails when config file is too large', () => {
-				const projectDir = fs.mkdtempSync(path.join(os.tmpdir(), 'project-test-'));
+				const projectDir = fs.mkdtempSync(
+					path.join(os.tmpdir(), 'project-test-'),
+				);
 				const configDir = path.join(projectDir, '.opencode');
 				const configFile = path.join(configDir, 'opencode-swarm.json');
 				fs.mkdirSync(configDir, { recursive: true });
 				// Write a file larger than 100KB
-				const largeContent = JSON.stringify({ guardrails: { enabled: false }, max_iterations: 3 }) + ' '.repeat(110_000);
+				const largeContent =
+					JSON.stringify({
+						guardrails: { enabled: false },
+						max_iterations: 3,
+					}) + ' '.repeat(110_000);
 				fs.writeFileSync(configFile, largeContent);
 
 				const result = loadPluginConfig(projectDir);
@@ -527,7 +599,9 @@ describe('config/loader', () => {
 			});
 
 			it('should enable guardrails when config file contains non-object root', () => {
-				const projectDir = fs.mkdtempSync(path.join(os.tmpdir(), 'project-test-'));
+				const projectDir = fs.mkdtempSync(
+					path.join(os.tmpdir(), 'project-test-'),
+				);
 				const configDir = path.join(projectDir, '.opencode');
 				const configFile = path.join(configDir, 'opencode-swarm.json');
 				fs.mkdirSync(configDir, { recursive: true });
@@ -543,7 +617,9 @@ describe('config/loader', () => {
 			});
 
 			it('should enable guardrails when config file is invalid JSON', () => {
-				const projectDir = fs.mkdtempSync(path.join(os.tmpdir(), 'project-test-'));
+				const projectDir = fs.mkdtempSync(
+					path.join(os.tmpdir(), 'project-test-'),
+				);
 				const configDir = path.join(projectDir, '.opencode');
 				const configFile = path.join(configDir, 'opencode-swarm.json');
 				fs.mkdirSync(configDir, { recursive: true });
@@ -564,12 +640,17 @@ describe('config/loader', () => {
 				const userConfigFile = path.join(userConfigDir, 'opencode-swarm.json');
 				fs.mkdirSync(userConfigDir, { recursive: true });
 				// Explicitly disable guardrails in valid config
-				fs.writeFileSync(userConfigFile, JSON.stringify({
-					guardrails: { enabled: false }
-				}));
+				fs.writeFileSync(
+					userConfigFile,
+					JSON.stringify({
+						guardrails: { enabled: false },
+					}),
+				);
 
-				const projectDir = fs.mkdtempSync(path.join(os.tmpdir(), 'project-test-'));
-				
+				const projectDir = fs.mkdtempSync(
+					path.join(os.tmpdir(), 'project-test-'),
+				);
+
 				const result = loadPluginConfig(projectDir);
 
 				// Valid config with explicit false should still be honored
@@ -587,11 +668,18 @@ describe('config/loader', () => {
 		});
 
 		it('should handle all standard agent names without error', () => {
-			const agents = ['architect', 'coder', 'explorer', 'security-reviewer', 'test_engineer', 'critic'];
-			const results = agents.map(agent => loadAgentPrompt(agent));
+			const agents = [
+				'architect',
+				'coder',
+				'explorer',
+				'security-reviewer',
+				'test_engineer',
+				'critic',
+			];
+			const results = agents.map((agent) => loadAgentPrompt(agent));
 
 			// All should return valid objects without errors
-			results.forEach(result => {
+			results.forEach((result) => {
 				expect(typeof result).toBe('object');
 			});
 		});

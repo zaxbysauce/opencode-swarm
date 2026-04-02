@@ -1,15 +1,15 @@
-import { describe, test, expect, beforeEach, afterEach } from 'bun:test';
+import { afterEach, beforeEach, describe, expect, test } from 'bun:test';
 import * as fs from 'node:fs';
-import * as path from 'node:path';
 import * as os from 'node:os';
+import * as path from 'node:path';
 
 import {
-	initTelemetry,
-	emit,
 	addTelemetryListener,
-	telemetry,
+	emit,
+	initTelemetry,
 	resetTelemetryForTesting,
-	TelemetryEvent,
+	type TelemetryEvent,
+	telemetry,
 } from '../../../src/telemetry';
 
 /**
@@ -132,7 +132,9 @@ describe('telemetry system integration', () => {
 
 			telemetry.budgetUpdated('session-critical', 100, 'mega_coder');
 
-			const ourData = receivedData.find((d) => d.sessionId === 'session-critical');
+			const ourData = receivedData.find(
+				(d) => d.sessionId === 'session-critical',
+			);
 			expect(ourData).toBeDefined();
 			expect(ourData!.budgetPct).toBe(100);
 		});
@@ -239,7 +241,9 @@ describe('telemetry system integration', () => {
 
 			telemetry.phaseChanged('session-phase-2-3', 2, 3);
 
-			const ourData = receivedData.find((d) => d.sessionId === 'session-phase-2-3');
+			const ourData = receivedData.find(
+				(d) => d.sessionId === 'session-phase-2-3',
+			);
 			expect(ourData).toBeDefined();
 			expect(ourData!.oldPhase).toBe(2);
 			expect(ourData!.newPhase).toBe(3);
@@ -253,7 +257,9 @@ describe('telemetry system integration', () => {
 
 			telemetry.phaseChanged('session-phase-reset', 1, 0);
 
-			const ourData = receivedData.find((d) => d.sessionId === 'session-phase-reset');
+			const ourData = receivedData.find(
+				(d) => d.sessionId === 'session-phase-reset',
+			);
 			expect(ourData).toBeDefined();
 			expect(ourData!.oldPhase).toBe(1);
 			expect(ourData!.newPhase).toBe(0);
@@ -464,7 +470,10 @@ describe('telemetry system integration', () => {
 		test('listener receives events in correct order', () => {
 			initTelemetry(tempDir);
 
-			const receivedEvents: Array<{ event: TelemetryEvent; data: Record<string, unknown> }> = [];
+			const receivedEvents: Array<{
+				event: TelemetryEvent;
+				data: Record<string, unknown>;
+			}> = [];
 			addTelemetryListener((event, data) => {
 				receivedEvents.push({ event, data });
 			});
@@ -475,7 +484,9 @@ describe('telemetry system integration', () => {
 			telemetry.heartbeat('order-session');
 
 			// Find our events
-			const ourEvents = receivedEvents.filter((e) => e.data.sessionId === 'order-session');
+			const ourEvents = receivedEvents.filter(
+				(e) => e.data.sessionId === 'order-session',
+			);
 
 			expect(ourEvents[0].event).toBe('session_started');
 			expect(ourEvents[1].event).toBe('phase_changed');
@@ -489,7 +500,10 @@ describe('telemetry system integration', () => {
 
 			// We reset in beforeEach, so no init yet
 			expect(() => {
-				emit('session_started', { sessionId: 'pre-init-test', agentName: 'agent' });
+				emit('session_started', {
+					sessionId: 'pre-init-test',
+					agentName: 'agent',
+				});
 			}).not.toThrow();
 		});
 	});

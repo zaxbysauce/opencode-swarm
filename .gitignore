@@ -47,3 +47,6 @@ output_*.js
 /SWARM_PLAN.md
 /SWARM_PLAN.json
 
+# npm lockfile — project uses bun.lock
+package-lock.json
+

@@ -1,10 +1,10 @@
-import { describe, test, expect, beforeEach, afterEach } from 'bun:test';
-import * as path from 'node:path';
-import * as os from 'node:os';
+import { afterEach, beforeEach, describe, expect, test } from 'bun:test';
 import { mkdirSync, rmSync } from 'node:fs';
+import * as os from 'node:os';
+import * as path from 'node:path';
 import { handleArchiveCommand } from '../../../src/commands/archive';
-import { saveEvidence } from '../../../src/evidence/manager';
 import type { Evidence } from '../../../src/config/evidence-schema';
+import { saveEvidence } from '../../../src/evidence/manager';
 
 describe('handleArchiveCommand', () => {
 	let tempDir: string;
@@ -96,7 +96,11 @@ describe('handleArchiveCommand', () => {
 		for (let i = 1; i <= 15; i++) {
 			const taskId = `${i}.1`;
 			taskIds.push(taskId);
-			await saveEvidence(tempDir, taskId, createNoteEvidence(taskId, `Note for ${taskId}`));
+			await saveEvidence(
+				tempDir,
+				taskId,
+				createNoteEvidence(taskId, `Note for ${taskId}`),
+			);
 		}
 
 		// Make them with varying ages (all recent, so max_bundles will trigger)
@@ -136,7 +140,11 @@ describe('handleArchiveCommand', () => {
 		for (let i = 1; i <= 15; i++) {
 			const taskId = `${i}.1`;
 			taskIds.push(taskId);
-			await saveEvidence(tempDir, taskId, createNoteEvidence(taskId, `Note for ${taskId}`));
+			await saveEvidence(
+				tempDir,
+				taskId,
+				createNoteEvidence(taskId, `Note for ${taskId}`),
+			);
 		}
 
 		// Make some old, some new

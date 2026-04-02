@@ -1,36 +1,39 @@
-import { describe, it, expect, beforeEach, afterEach } from 'bun:test';
-import {
-	sanitizeTaskId,
-	saveEvidence,
-	loadEvidence,
-	listEvidenceTaskIds,
-	deleteEvidence,
-	isValidEvidenceType,
-	isSyntaxEvidence,
-	isPlaceholderEvidence,
-	isSastEvidence,
-	isSbomEvidence,
-	isBuildEvidence,
-	isQualityBudgetEvidence,
-	VALID_EVIDENCE_TYPES,
-} from '../../../src/evidence/manager';
+import { afterEach, beforeEach, describe, expect, it } from 'bun:test';
 import { mkdirSync, rmSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import type {
+	BuildEvidence,
 	Evidence,
-	SyntaxEvidence,
 	PlaceholderEvidence,
+	QualityBudgetEvidence,
 	SastEvidence,
 	SbomEvidence,
-	BuildEvidence,
-	QualityBudgetEvidence,
+	SyntaxEvidence,
 } from '../../../src/config/evidence-schema';
+import {
+	deleteEvidence,
+	isBuildEvidence,
+	isPlaceholderEvidence,
+	isQualityBudgetEvidence,
+	isSastEvidence,
+	isSbomEvidence,
+	isSyntaxEvidence,
+	isValidEvidenceType,
+	listEvidenceTaskIds,
+	loadEvidence,
+	sanitizeTaskId,
+	saveEvidence,
+	VALID_EVIDENCE_TYPES,
+} from '../../../src/evidence/manager';
 
 let tempDir: string;
 
 beforeEach(() => {
-	tempDir = join(tmpdir(), `evidence-test-${Date.now()}-${Math.random().toString(36).slice(2)}`);
+	tempDir = join(
+		tmpdir(),
+		`evidence-test-${Date.now()}-${Math.random().toString(36).slice(2)}`,
+	);
 	mkdirSync(join(tempDir, '.swarm'), { recursive: true });
 });
 
@@ -66,12 +69,15 @@ describe('sanitizeTaskId', () => {
 		expect(sanitizeTaskId('retro-100')).toBe('retro-100');
 	});
 
-	it("invalid retrospective IDs throw: 'retro', 'retro-abc', 'Retro-1', 'retro-1/2' (FR-003, FR-004)", () => {
-		// Invalid formats should still be rejected
-		expect(() => sanitizeTaskId('retro')).toThrow('Invalid task ID: must match pattern');
-		expect(() => sanitizeTaskId('retro-abc')).toThrow('Invalid task ID: must match pattern');
-		expect(() => sanitizeTaskId('Retro-1')).toThrow('Invalid task ID: must match pattern');
-		expect(() => sanitizeTaskId('retro-1/2')).toThrow('Invalid task ID: must match pattern');
+	it("retrospective-like IDs: 'retro', 'retro-abc', 'Retro-1' are accepted via GENERAL_TASK_ID_REGEX (FR-003, FR-004)", () => {
+		// These are now accepted by the general alphanumeric allowlist
+		expect(sanitizeTaskId('retro')).toBe('retro');
+		expect(sanitizeTaskId('retro-abc')).toBe('retro-abc');
+		expect(sanitizeTaskId('Retro-1')).toBe('Retro-1');
+	});
+
+	it("'retro-1/2' throws because slash is not allowed", () => {
+		expect(() => sanitizeTaskId('retro-1/2')).toThrow('Invalid task ID');
 	});
 
 	it("internal automated-tool IDs: 'sast_scan', 'quality_budget', 'syntax_check', 'placeholder_scan', 'sbom_generate', 'build' all return the ID", () => {
@@ -84,16 +90,16 @@ describe('sanitizeTaskId', () => {
 		expect(sanitizeTaskId('build')).toBe('build');
 	});
 
-	it("invalid internal tool IDs throw: 'sast', 'scan', 'quality', 'syntax', 'placeholder', 'sbom', 'build_extra'", () => {
-		// Partial matches should still be rejected - must match exact pattern
-		expect(() => sanitizeTaskId('sast')).toThrow('Invalid task ID: must match pattern');
-		expect(() => sanitizeTaskId('scan')).toThrow('Invalid task ID: must match pattern');
-		expect(() => sanitizeTaskId('quality')).toThrow('Invalid task ID: must match pattern');
-		expect(() => sanitizeTaskId('syntax')).toThrow('Invalid task ID: must match pattern');
-		expect(() => sanitizeTaskId('placeholder')).toThrow('Invalid task ID: must match pattern');
-		expect(() => sanitizeTaskId('sbom')).toThrow('Invalid task ID: must match pattern');
-		expect(() => sanitizeTaskId('build_extra')).toThrow('Invalid task ID: must match pattern');
-		expect(() => sanitizeTaskId('sast-scan')).toThrow('Invalid task ID: must match pattern');
+	it("alphanumeric tool-like IDs 'sast', 'scan', 'quality', 'syntax', 'placeholder', 'sbom', 'build_extra', 'sast-scan' are now accepted via GENERAL_TASK_ID_REGEX", () => {
+		// These are now accepted by the general alphanumeric allowlist
+		expect(sanitizeTaskId('sast')).toBe('sast');
+		expect(sanitizeTaskId('scan')).toBe('scan');
+		expect(sanitizeTaskId('quality')).toBe('quality');
+		expect(sanitizeTaskId('syntax')).toBe('syntax');
+		expect(sanitizeTaskId('placeholder')).toBe('placeholder');
+		expect(sanitizeTaskId('sbom')).toBe('sbom');
+		expect(sanitizeTaskId('build_extra')).toBe('build_extra');
+		expect(sanitizeTaskId('sast-scan')).toBe('sast-scan');
 	});
 
 	it('empty string throws', () => {
@@ -101,36 +107,46 @@ describe('sanitizeTaskId', () => {
 	});
 
 	it("null byte ('task\\0id') throws", () => {
-		expect(() => sanitizeTaskId('task\0id')).toThrow('Invalid task ID: contains null bytes');
+		expect(() => sanitizeTaskId('task\0id')).toThrow(
+			'Invalid task ID: contains null bytes',
+		);
 	});
 
 	it("control character ('task\\tid' — tab char) throws", () => {
-		expect(() => sanitizeTaskId('task\tid')).toThrow('Invalid task ID: contains control characters');
+		expect(() => sanitizeTaskId('task\tid')).toThrow(
+			'Invalid task ID: contains control characters',
+		);
 	});
 
 	it("path traversal '../secret' throws", () => {
-		expect(() => sanitizeTaskId('../secret')).toThrow('Invalid task ID: path traversal detected');
+		expect(() => sanitizeTaskId('../secret')).toThrow(
+			'Invalid task ID: path traversal detected',
+		);
 	});
 
 	it("path traversal '..\\\\secret' throws", () => {
-		expect(() => sanitizeTaskId('..\\secret')).toThrow('Invalid task ID: path traversal detected');
+		expect(() => sanitizeTaskId('..\\secret')).toThrow(
+			'Invalid task ID: path traversal detected',
+		);
 	});
 
 	it("double dot 'task..id' throws", () => {
-		expect(() => sanitizeTaskId('task..id')).toThrow('Invalid task ID: path traversal detected');
+		expect(() => sanitizeTaskId('task..id')).toThrow(
+			'Invalid task ID: path traversal detected',
+		);
 	});
 
 	it("invalid chars 'task/id' throws", () => {
-		expect(() => sanitizeTaskId('task/id')).toThrow('Invalid task ID: must match pattern');
+		expect(() => sanitizeTaskId('task/id')).toThrow('Invalid task ID');
 	});
 
 	it("spaces 'task id' throws", () => {
-		expect(() => sanitizeTaskId('task id')).toThrow('Invalid task ID: must match pattern');
+		expect(() => sanitizeTaskId('task id')).toThrow('Invalid task ID');
 	});
 
 	it("leading dot '.hidden' throws", () => {
-		// Leading dot is not valid for the canonical numeric regex ^\d+\.\d+(\.\d+)*$
-		expect(() => sanitizeTaskId('.hidden')).toThrow('Invalid task ID: must match pattern');
+		// Leading dot is not valid (must start with alphanumeric)
+		expect(() => sanitizeTaskId('.hidden')).toThrow('Invalid task ID');
 	});
 });
 
@@ -175,7 +191,9 @@ describe('saveEvidence + loadEvidence', () => {
 
 	it('save with invalid task ID throws', async () => {
 		const evidence = makeEvidence();
-		await expect(saveEvidence(tempDir, '../evil', evidence)).rejects.toThrow('Invalid task ID');
+		await expect(saveEvidence(tempDir, '../evil', evidence)).rejects.toThrow(
+			'Invalid task ID',
+		);
 	});
 
 	it('save validates path via validateSwarmPath (implicitly tested via save)', async () => {
@@ -192,11 +210,16 @@ describe('saveEvidence + loadEvidence', () => {
 			summary: 'x'.repeat(600000), // 600KB string, will exceed 500KB limit
 		});
 
-		await expect(saveEvidence(tempDir, '1.1', evidence)).rejects.toThrow('exceeds maximum');
+		await expect(saveEvidence(tempDir, '1.1', evidence)).rejects.toThrow(
+			'exceeds maximum',
+		);
 	});
 
 	it('save and load retrospective evidence with ID retro-1 (FR-001, FR-002)', async () => {
-		const evidence = makeEvidence({ task_id: 'retro-1', summary: 'Phase 1 retrospective' });
+		const evidence = makeEvidence({
+			task_id: 'retro-1',
+			summary: 'Phase 1 retrospective',
+		});
 		const bundle = await saveEvidence(tempDir, 'retro-1', evidence);
 
 		expect(bundle.task_id).toBe('retro-1');
@@ -211,17 +234,29 @@ describe('saveEvidence + loadEvidence', () => {
 		expect(loaded.bundle.entries[0].summary).toBe('Phase 1 retrospective');
 	});
 
-	it('save with invalid retrospective ID throws (FR-003, FR-004)', async () => {
+	it('save with retro-abc and retro IDs now succeeds (GENERAL_TASK_ID_REGEX accepts them)', async () => {
 		const evidence = makeEvidence();
-		await expect(saveEvidence(tempDir, 'retro-abc', evidence)).rejects.toThrow('Invalid task ID');
-		await expect(saveEvidence(tempDir, 'retro', evidence)).rejects.toThrow('Invalid task ID');
+		const bundle1 = await saveEvidence(tempDir, 'retro-abc', evidence);
+		expect(bundle1.task_id).toBe('retro-abc');
+		const bundle2 = await saveEvidence(tempDir, 'retro', evidence);
+		expect(bundle2.task_id).toBe('retro');
 	});
 
 	it('save and load internal automated-tool evidence: sast_scan, quality_budget, syntax_check, placeholder_scan, sbom_generate, build', async () => {
-		const toolIds = ['sast_scan', 'quality_budget', 'syntax_check', 'placeholder_scan', 'sbom_generate', 'build'] as const;
+		const toolIds = [
+			'sast_scan',
+			'quality_budget',
+			'syntax_check',
+			'placeholder_scan',
+			'sbom_generate',
+			'build',
+		] as const;
 
 		for (const toolId of toolIds) {
-			const evidence = makeEvidence({ task_id: toolId, summary: `${toolId} scan result` });
+			const evidence = makeEvidence({
+				task_id: toolId,
+				summary: `${toolId} scan result`,
+			});
 			const bundle = await saveEvidence(tempDir, toolId, evidence);
 
 			expect(bundle.task_id).toBe(toolId);
@@ -237,11 +272,14 @@ describe('saveEvidence + loadEvidence', () => {
 		}
 	});
 
-	it('save with invalid internal tool ID throws', async () => {
+	it('save with alphanumeric IDs sast, scan, sast-scan now succeeds (GENERAL_TASK_ID_REGEX accepts them)', async () => {
 		const evidence = makeEvidence();
-		await expect(saveEvidence(tempDir, 'sast', evidence)).rejects.toThrow('Invalid task ID');
-		await expect(saveEvidence(tempDir, 'scan', evidence)).rejects.toThrow('Invalid task ID');
-		await expect(saveEvidence(tempDir, 'sast-scan', evidence)).rejects.toThrow('Invalid task ID');
+		const bundle1 = await saveEvidence(tempDir, 'sast', evidence);
+		expect(bundle1.task_id).toBe('sast');
+		const bundle2 = await saveEvidence(tempDir, 'scan', evidence);
+		expect(bundle2.task_id).toBe('scan');
+		const bundle3 = await saveEvidence(tempDir, 'sast-scan', evidence);
+		expect(bundle3.task_id).toBe('sast-scan');
 	});
 });
 
@@ -299,9 +337,17 @@ describe('listEvidenceTaskIds', () => {
 	it('includes internal automated-tool IDs in listing', async () => {
 		// Save evidence for numeric IDs and internal tool IDs
 		await saveEvidence(tempDir, '2.1', makeEvidence({ task_id: '2.1' }));
-		await saveEvidence(tempDir, 'sast_scan', makeEvidence({ task_id: 'sast_scan' }));
+		await saveEvidence(
+			tempDir,
+			'sast_scan',
+			makeEvidence({ task_id: 'sast_scan' }),
+		);
 		await saveEvidence(tempDir, '1.1', makeEvidence({ task_id: '1.1' }));
-		await saveEvidence(tempDir, 'quality_budget', makeEvidence({ task_id: 'quality_budget' }));
+		await saveEvidence(
+			tempDir,
+			'quality_budget',
+			makeEvidence({ task_id: 'quality_budget' }),
+		);
 
 		const ids = await listEvidenceTaskIds(tempDir);
 		// Should include both numeric and internal tool IDs
@@ -345,7 +391,9 @@ describe('deleteEvidence', () => {
 	});
 
 	it('invalid task ID throws', async () => {
-		await expect(deleteEvidence(tempDir, '../evil')).rejects.toThrow('Invalid task ID');
+		await expect(deleteEvidence(tempDir, '../evil')).rejects.toThrow(
+			'Invalid task ID',
+		);
 	});
 });
 
@@ -372,8 +420,8 @@ describe('isValidEvidenceType', () => {
 		expect(isValidEvidenceType('REVIEW')).toBe(false); // case sensitive
 	});
 
-	it('VALID_EVIDENCE_TYPES constant has 12 types', () => {
-		expect(VALID_EVIDENCE_TYPES.length).toBe(12);
+	it('VALID_EVIDENCE_TYPES constant has 13 types', () => {
+		expect(VALID_EVIDENCE_TYPES.length).toBe(13);
 	});
 });
 

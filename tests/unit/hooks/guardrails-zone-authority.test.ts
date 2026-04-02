@@ -1,12 +1,17 @@
-import { describe, it, expect, beforeEach, afterEach } from 'bun:test';
-import { checkFileAuthority } from '../../../src/hooks/guardrails';
-import { classifyFile, type FileZone } from '../../../src/context/zone-classifier';
+import { afterEach, beforeEach, describe, expect, it } from 'bun:test';
 import * as fs from 'node:fs/promises';
-import * as path from 'node:path';
 import * as os from 'node:os';
+import * as path from 'node:path';
+import {
+	classifyFile,
+	type FileZone,
+} from '../../../src/context/zone-classifier';
+import { checkFileAuthority } from '../../../src/hooks/guardrails';
 
 // Helper to check if result is a denial
-function isDenied(result: ReturnType<typeof checkFileAuthority>): result is { allowed: false; reason: string; zone?: FileZone } {
+function isDenied(
+	result: ReturnType<typeof checkFileAuthority>,
+): result is { allowed: false; reason: string; zone?: FileZone } {
 	return !result.allowed;
 }
 
@@ -38,7 +43,11 @@ describe('guardrails-zone-authority - Zone Authority Integration', () => {
 
 		it('blocks architect from writing to dist/ files (generated zone)', () => {
 			// Zone classifier requires path to contain /dist/ pattern
-			const result = checkFileAuthority('architect', 'src/dist/bundle.js', tempDir);
+			const result = checkFileAuthority(
+				'architect',
+				'src/dist/bundle.js',
+				tempDir,
+			);
 			expect(result.allowed).toBe(false);
 			if (isDenied(result)) {
 				expect(result.reason).toContain('generated');
@@ -48,7 +57,11 @@ describe('guardrails-zone-authority - Zone Authority Integration', () => {
 
 		it('blocks architect from writing to build/ files (generated zone)', () => {
 			// Zone classifier requires path to contain /build/ pattern
-			const result = checkFileAuthority('architect', 'app/build/output.js', tempDir);
+			const result = checkFileAuthority(
+				'architect',
+				'app/build/output.js',
+				tempDir,
+			);
 			expect(result.allowed).toBe(false);
 			if (isDenied(result)) {
 				expect(result.reason).toContain('generated');
@@ -57,7 +70,11 @@ describe('guardrails-zone-authority - Zone Authority Integration', () => {
 		});
 
 		it('blocks architect from writing to .swarm/checkpoints/ files (generated zone)', () => {
-			const result = checkFileAuthority('architect', '.swarm/checkpoints/snapshot.json', tempDir);
+			const result = checkFileAuthority(
+				'architect',
+				'.swarm/checkpoints/snapshot.json',
+				tempDir,
+			);
 			expect(result.allowed).toBe(false);
 			if (isDenied(result)) {
 				expect(result.reason).toContain('generated');
@@ -66,7 +83,11 @@ describe('guardrails-zone-authority - Zone Authority Integration', () => {
 		});
 
 		it('allows architect to write to src/ files (production zone)', () => {
-			const result = checkFileAuthority('architect', 'src/utils/helper.ts', tempDir);
+			const result = checkFileAuthority(
+				'architect',
+				'src/utils/helper.ts',
+				tempDir,
+			);
 			expect(result.allowed).toBe(true);
 		});
 	});
@@ -95,7 +116,11 @@ describe('guardrails-zone-authority - Zone Authority Integration', () => {
 
 		it('blocks coder from writing to build/ files in allowed prefix (generated zone)', () => {
 			// Use tests/build/ which passes prefix (tests/) but is generated zone
-			const result = checkFileAuthority('coder', 'tests/build/output.js', tempDir);
+			const result = checkFileAuthority(
+				'coder',
+				'tests/build/output.js',
+				tempDir,
+			);
 			expect(result.allowed).toBe(false);
 			if (isDenied(result)) {
 				expect(result.reason).toContain('generated');
@@ -104,7 +129,11 @@ describe('guardrails-zone-authority - Zone Authority Integration', () => {
 		});
 
 		it('allows coder to write to src/ files (production zone)', () => {
-			const result = checkFileAuthority('coder', 'src/services/api.ts', tempDir);
+			const result = checkFileAuthority(
+				'coder',
+				'src/services/api.ts',
+				tempDir,
+			);
 			expect(result.allowed).toBe(true);
 		});
 	});
@@ -173,8 +202,12 @@ describe('guardrails-zone-authority - Zone Authority Integration', () => {
 			// Zone classifier requires /dist/ pattern
 			const zoneResult = classifyFile('src/dist/bundle.js');
 			expect(zoneResult.zone).toBe('generated');
-			
-			const authorityResult = checkFileAuthority('architect', 'src/dist/bundle.js', tempDir);
+
+			const authorityResult = checkFileAuthority(
+				'architect',
+				'src/dist/bundle.js',
+				tempDir,
+			);
 			expect(authorityResult.allowed).toBe(false);
 			if (isDenied(authorityResult)) {
 				expect(authorityResult.zone).toBe('generated');
@@ -184,8 +217,12 @@ describe('guardrails-zone-authority - Zone Authority Integration', () => {
 		it('correctly classifies and blocks config zone', () => {
 			const zoneResult = classifyFile('src/package.json');
 			expect(zoneResult.zone).toBe('config');
-			
-			const authorityResult = checkFileAuthority('coder', 'src/package.json', tempDir);
+
+			const authorityResult = checkFileAuthority(
+				'coder',
+				'src/package.json',
+				tempDir,
+			);
 			expect(authorityResult.allowed).toBe(false);
 			if (isDenied(authorityResult)) {
 				expect(authorityResult.zone).toBe('config');
@@ -195,16 +232,24 @@ describe('guardrails-zone-authority - Zone Authority Integration', () => {
 		it('allows production zone files for appropriate agents', () => {
 			const zoneResult = classifyFile('src/app.ts');
 			expect(zoneResult.zone).toBe('production');
-			
-			const authorityResult = checkFileAuthority('coder', 'src/app.ts', tempDir);
+
+			const authorityResult = checkFileAuthority(
+				'coder',
+				'src/app.ts',
+				tempDir,
+			);
 			expect(authorityResult.allowed).toBe(true);
 		});
 
 		it('allows test zone files for appropriate agents', () => {
 			const zoneResult = classifyFile('tests/unit/api.test.ts');
 			expect(zoneResult.zone).toBe('test');
-			
-			const authorityResult = checkFileAuthority('coder', 'tests/unit/api.test.ts', tempDir);
+
+			const authorityResult = checkFileAuthority(
+				'coder',
+				'tests/unit/api.test.ts',
+				tempDir,
+			);
 			expect(authorityResult.allowed).toBe(true);
 		});
 
@@ -212,23 +257,31 @@ describe('guardrails-zone-authority - Zone Authority Integration', () => {
 			// Zone classifier requires /docs/ pattern with a prefix (e.g., ./docs/ or foo/docs/)
 			const zoneResult = classifyFile('foo/docs/guide.md');
 			expect(zoneResult.zone).toBe('docs');
-			
+
 			// Coder allowed prefixes: docs/ - wait, it's 'docs/' not 'foo/docs/'
 			// Actually coder's allowedPrefixes is ['src/', 'tests/', 'docs/', 'scripts/']
 			// So 'docs/guide.md' should work because it starts with 'docs/'
 			// But zone check will fail because it's config zone (ends with .md - wait, no .md is not config)
 			// Let me check what zone docs/guide.md actually is
-			
+
 			// Actually 'docs/guide.md' is classified as 'production' (default), not 'docs'
 			// So it passes the zone check (no blockedZones for production)
-			const authorityResult = checkFileAuthority('coder', 'docs/guide.md', tempDir);
+			const authorityResult = checkFileAuthority(
+				'coder',
+				'docs/guide.md',
+				tempDir,
+			);
 			expect(authorityResult.allowed).toBe(true);
 		});
 	});
 
 	describe('5. Zone info included in denial reason', () => {
 		it('includes zone in denial reason for architect - generated', () => {
-			const result = checkFileAuthority('architect', 'src/dist/app.js', tempDir);
+			const result = checkFileAuthority(
+				'architect',
+				'src/dist/app.js',
+				tempDir,
+			);
 			expect(result.allowed).toBe(false);
 			if (isDenied(result)) {
 				expect(result.reason).toMatch(/zone|generated/i);
@@ -259,7 +312,11 @@ describe('guardrails-zone-authority - Zone Authority Integration', () => {
 
 		it('includes zone in denial reason for reviewer - generated', () => {
 			// Reviewer allowed prefixes: .swarm/evidence/, .swarm/outputs/
-			const result = checkFileAuthority('reviewer', '.swarm/evidence/dist/bundle.js', tempDir);
+			const result = checkFileAuthority(
+				'reviewer',
+				'.swarm/evidence/dist/bundle.js',
+				tempDir,
+			);
 			expect(result.allowed).toBe(false);
 			if (isDenied(result)) {
 				expect(result.reason).toMatch(/zone|generated/i);
@@ -270,7 +327,11 @@ describe('guardrails-zone-authority - Zone Authority Integration', () => {
 
 		it('includes zone in denial reason for test_engineer - generated', () => {
 			// Test engineer allowed: tests/, .swarm/evidence/
-			const result = checkFileAuthority('test_engineer', 'tests/dist/test-output.js', tempDir);
+			const result = checkFileAuthority(
+				'test_engineer',
+				'tests/dist/test-output.js',
+				tempDir,
+			);
 			expect(result.allowed).toBe(false);
 			if (isDenied(result)) {
 				expect(result.reason).toMatch(/zone|generated/i);
@@ -296,7 +357,11 @@ describe('guardrails-zone-authority - Zone Authority Integration', () => {
 
 		it('includes zone in denial reason for designer - generated', () => {
 			// Designer allowed: docs/, .swarm/outputs/
-			const result = checkFileAuthority('designer', '.swarm/outputs/dist/design-bundle.js', tempDir);
+			const result = checkFileAuthority(
+				'designer',
+				'.swarm/outputs/dist/design-bundle.js',
+				tempDir,
+			);
 			expect(result.allowed).toBe(false);
 			if (isDenied(result)) {
 				expect(result.reason).toMatch(/zone|generated/i);
@@ -308,7 +373,11 @@ describe('guardrails-zone-authority - Zone Authority Integration', () => {
 
 	describe('Edge cases for zone authority', () => {
 		it('handles Windows paths with generated files', () => {
-			const result = checkFileAuthority('architect', 'src\\dist\\bundle.js', tempDir);
+			const result = checkFileAuthority(
+				'architect',
+				'src\\dist\\bundle.js',
+				tempDir,
+			);
 			expect(result.allowed).toBe(false);
 			if (isDenied(result)) {
 				expect(result.zone).toBe('generated');
@@ -317,7 +386,11 @@ describe('guardrails-zone-authority - Zone Authority Integration', () => {
 
 		it('handles deep nested generated files', () => {
 			// Use tests/build/ which passes prefix check (tests/) but is generated zone
-			const result = checkFileAuthority('coder', 'tests/build/subdir/nested/output.js', tempDir);
+			const result = checkFileAuthority(
+				'coder',
+				'tests/build/subdir/nested/output.js',
+				tempDir,
+			);
 			expect(result.allowed).toBe(false);
 			if (isDenied(result)) {
 				expect(result.zone).toBe('generated');
@@ -325,7 +398,11 @@ describe('guardrails-zone-authority - Zone Authority Integration', () => {
 		});
 
 		it('handles .wasm files in various locations', () => {
-			const result = checkFileAuthority('architect', 'src/wasm/parser.wasm', tempDir);
+			const result = checkFileAuthority(
+				'architect',
+				'src/wasm/parser.wasm',
+				tempDir,
+			);
 			expect(result.allowed).toBe(false);
 			if (isDenied(result)) {
 				expect(result.zone).toBe('generated');
@@ -334,18 +411,30 @@ describe('guardrails-zone-authority - Zone Authority Integration', () => {
 
 		it('allows agents without blockedZones to write to generated files (if path allows)', () => {
 			// Reviewer has blockedZones: ['generated'] so should be blocked from /dist/
-			const resultReviewer = checkFileAuthority('reviewer', '.swarm/evidence/dist/bundle.js', tempDir);
+			const resultReviewer = checkFileAuthority(
+				'reviewer',
+				'.swarm/evidence/dist/bundle.js',
+				tempDir,
+			);
 			expect(resultReviewer.allowed).toBe(false);
-			
+
 			// But reviewer should be able to write to evidence (not generated)
-			const resultEvidence = checkFileAuthority('reviewer', '.swarm/evidence/test.json', tempDir);
+			const resultEvidence = checkFileAuthority(
+				'reviewer',
+				'.swarm/evidence/test.json',
+				tempDir,
+			);
 			expect(resultEvidence.allowed).toBe(true);
 		});
 	});
 
 	describe('Cross-agent zone authority consistency', () => {
 		it('architect is blocked from generated zone files', () => {
-			const result = checkFileAuthority('architect', 'src/dist/app.js', tempDir);
+			const result = checkFileAuthority(
+				'architect',
+				'src/dist/app.js',
+				tempDir,
+			);
 			expect(result.allowed).toBe(false);
 			if (isDenied(result)) {
 				expect(result.zone).toBe('generated');

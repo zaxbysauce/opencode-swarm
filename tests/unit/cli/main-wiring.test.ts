@@ -1,15 +1,19 @@
-import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 
 // Mock console methods BEFORE importing
 const mockConsoleLog = vi.spyOn(console, 'log').mockImplementation(() => {});
-const mockConsoleError = vi.spyOn(console, 'error').mockImplementation(() => {});
+const mockConsoleError = vi
+	.spyOn(console, 'error')
+	.mockImplementation(() => {});
 
 // Mock process.argv to prevent default 'install' command
 const originalArgv = process.argv;
 process.argv = ['node', 'cli.js', '--help'];
 
 // Mock process.exit to prevent CLI from exiting
-const mockProcessExit = vi.spyOn(process, 'exit').mockImplementation(() => undefined as never);
+const mockProcessExit = vi
+	.spyOn(process, 'exit')
+	.mockImplementation(() => undefined as never);
 
 // Now import after mocks are set up - this will execute main() once
 import { run } from '../../../src/cli/index.js';

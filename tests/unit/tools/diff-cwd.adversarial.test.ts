@@ -1,13 +1,15 @@
-import { describe, it, expect, beforeEach, vi } from 'bun:test';
-import { diff } from '../../../src/tools/diff';
+import { beforeEach, describe, expect, it, vi } from 'bun:test';
 import { execFileSync } from 'node:child_process';
 import type { ToolContext } from '@opencode-ai/plugin';
+import { diff } from '../../../src/tools/diff';
 
 // Mock execFileSync
 const mockExecFileSync = vi.fn((cmd: string, args: string[], opts: any) => {
 	// Validate cwd - reject null bytes (mimics Node.js behavior)
-	if (opts.cwd && opts.cwd.includes('\u0000')) {
-		throw new Error("The property 'options.cwd' must be a string or Uint8Array without null bytes.");
+	if (opts.cwd?.includes('\u0000')) {
+		throw new Error(
+			"The property 'options.cwd' must be a string or Uint8Array without null bytes.",
+		);
 	}
 	// Return valid git diff output
 	return '0\t0\tfile.ts\n';
@@ -353,7 +355,9 @@ describe('diff tool - adversarial security tests', () => {
 	describe('path array attacks', () => {
 		it('should handle very large array of paths', async () => {
 			// Create 1000 paths
-			const manyPaths = Array(1000).fill(null).map((_, i) => `file${i}.ts`);
+			const manyPaths = Array(1000)
+				.fill(null)
+				.map((_, i) => `file${i}.ts`);
 			const result = await diff.execute(
 				{ paths: manyPaths },
 				getMockContext(validDirectory),
@@ -416,20 +420,14 @@ describe('diff tool - adversarial security tests', () => {
 		});
 
 		it('should attempt git with absolute path traversal', async () => {
-			const result = await diff.execute(
-				{},
-				getMockContext('/etc/passwd'),
-			);
+			const result = await diff.execute({}, getMockContext('/etc/passwd'));
 			const parsed = JSON.parse(result);
 			// Should pass to git (which will fail in real scenario)
 			expect(parsed).toBeDefined();
 		});
 
 		it('should reject directory with null byte (Node.js level)', async () => {
-			const result = await diff.execute(
-				{},
-				getMockContext('/valid\u0000dir'),
-			);
+			const result = await diff.execute({}, getMockContext('/valid\u0000dir'));
 			const parsed = JSON.parse(result);
 			// Node.js rejects null bytes in cwd before git is even called
 			// Error comes from execFileSync itself
@@ -438,38 +436,26 @@ describe('diff tool - adversarial security tests', () => {
 
 		it.skip('should reject undefined directory', async () => {
 			// createSwarmTool wrapper falls back to process.cwd() when directory is undefined
-			const result = await diff.execute(
-				{},
-				{ directory: undefined } as any,
-			);
+			const result = await diff.execute({}, { directory: undefined } as any);
 			const parsed = JSON.parse(result);
 			expect(parsed.error).toContain('not provided');
 		});
 
 		it.skip('should reject null directory', async () => {
 			// createSwarmTool wrapper falls back to process.cwd() when directory is null
-			const result = await diff.execute(
-				{},
-				{ directory: null } as any,
-			);
+			const result = await diff.execute({}, { directory: null } as any);
 			const parsed = JSON.parse(result);
 			expect(parsed.error).toContain('not provided');
 		});
 
 		it('should reject whitespace-only directory', async () => {
-			const result = await diff.execute(
-				{},
-				getMockContext('   '),
-			);
+			const result = await diff.execute({}, getMockContext('   '));
 			const parsed = JSON.parse(result);
 			expect(parsed.error).toContain('not provided');
 		});
 
 		it('should reject empty string directory', async () => {
-			const result = await diff.execute(
-				{},
-				getMockContext(''),
-			);
+			const result = await diff.execute({}, getMockContext(''));
 			const parsed = JSON.parse(result);
 			expect(parsed.error).toContain('not provided');
 		});
@@ -479,10 +465,7 @@ describe('diff tool - adversarial security tests', () => {
 		it('should handle deeply nested path without crashing', async () => {
 			// Create a very deep path (1000 levels)
 			const deepPath = '/'.repeat(1000) + 'project';
-			const result = await diff.execute(
-				{},
-				getMockContext(deepPath),
-			);
+			const result = await diff.execute({}, getMockContext(deepPath));
 			const parsed = JSON.parse(result);
 			// Should handle gracefully (mock returns success)
 			expect(parsed).toBeDefined();
@@ -507,12 +490,7 @@ describe('diff tool - adversarial security tests', () => {
 		it('should reject multiple malicious paths', async () => {
 			const result = await diff.execute(
 				{
-					paths: [
-						'-rf',
-						'file; rm -rf /',
-						'../secret',
-						'file.txt\u0000',
-					],
+					paths: ['-rf', 'file; rm -rf /', '../secret', 'file.txt\u0000'],
 				},
 				getMockContext(validDirectory),
 			);

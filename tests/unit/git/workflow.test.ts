@@ -1,4 +1,4 @@
-import { describe, expect, it, jest, beforeEach } from 'bun:test';
+import { beforeEach, describe, expect, it, jest } from 'bun:test';
 import { runPRWorkflow } from '../../../src/git/index.js';
 
 // Mock the git functions
@@ -15,7 +15,12 @@ jest.mock('../../../src/git/pr.js', () => ({
 
 // Import after mock setup
 import { isGitRepo } from '../../../src/git/branch.js';
-import { isGhAvailable, isAuthenticated, createPullRequest, commitAndPush } from '../../../src/git/pr.js';
+import {
+	commitAndPush,
+	createPullRequest,
+	isAuthenticated,
+	isGhAvailable,
+} from '../../../src/git/pr.js';
 
 describe('Task 7.3: Git workflow integration', () => {
 	const mockCwd = '/test/cwd';
@@ -112,7 +117,9 @@ describe('Task 7.3: Git workflow integration', () => {
 			(isGitRepo as ReturnType<typeof jest.fn>).mockReturnValue(true);
 			(isGhAvailable as ReturnType<typeof jest.fn>).mockReturnValue(true);
 			(isAuthenticated as ReturnType<typeof jest.fn>).mockReturnValue(true);
-			(commitAndPush as ReturnType<typeof jest.fn>).mockResolvedValue(undefined);
+			(commitAndPush as ReturnType<typeof jest.fn>).mockResolvedValue(
+				undefined,
+			);
 			(createPullRequest as ReturnType<typeof jest.fn>).mockResolvedValue({
 				url: 'https://github.com/test/repo/pull/42',
 				number: 42,
@@ -132,7 +139,9 @@ describe('Task 7.3: Git workflow integration', () => {
 			(isGitRepo as ReturnType<typeof jest.fn>).mockReturnValue(true);
 			(isGhAvailable as ReturnType<typeof jest.fn>).mockReturnValue(true);
 			(isAuthenticated as ReturnType<typeof jest.fn>).mockReturnValue(true);
-			(commitAndPush as ReturnType<typeof jest.fn>).mockResolvedValue(undefined);
+			(commitAndPush as ReturnType<typeof jest.fn>).mockResolvedValue(
+				undefined,
+			);
 			(createPullRequest as ReturnType<typeof jest.fn>).mockRejectedValue(
 				new Error('PR creation failed'),
 			);

@@ -6,16 +6,16 @@
  * These tests document vulnerabilities where runtime enforcement is expected but not guaranteed.
  */
 
-import { describe, it, expect } from 'vitest';
+import { describe, expect, it } from 'vitest';
 import type {
-	KnowledgeEntryBase,
-	SwarmKnowledgeEntry,
 	HiveKnowledgeEntry,
-	PhaseConfirmationRecord,
-	ProjectConfirmationRecord,
 	KnowledgeCategory,
+	KnowledgeEntryBase,
 	MessageInfo,
 	MessagePart,
+	PhaseConfirmationRecord,
+	ProjectConfirmationRecord,
+	SwarmKnowledgeEntry,
 } from '../../../src/hooks/knowledge-types';
 
 describe('ADVERSARIAL: knowledge-types.ts Security Tests', () => {

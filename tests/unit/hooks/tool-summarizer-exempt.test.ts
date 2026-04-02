@@ -1,9 +1,12 @@
-import { describe, it, expect, beforeEach, afterEach } from 'bun:test';
-import { createToolSummarizerHook, resetSummaryIdCounter } from '../../../src/hooks/tool-summarizer';
-import type { SummaryConfig } from '../../../src/config/schema';
+import { afterEach, beforeEach, describe, expect, it } from 'bun:test';
 import { mkdirSync, rmSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
+import type { SummaryConfig } from '../../../src/config/schema';
+import {
+	createToolSummarizerHook,
+	resetSummaryIdCounter,
+} from '../../../src/hooks/tool-summarizer';
 
 describe('tool-summarizer exempt_tools feature', () => {
 	let tempDir: string;
@@ -22,11 +25,11 @@ describe('tool-summarizer exempt_tools feature', () => {
 	function defaultConfig(overrides?: Partial<SummaryConfig>): SummaryConfig {
 		return {
 			enabled: true,
-			threshold_bytes: 1024,  // low threshold so large outputs get summarized
+			threshold_bytes: 1024, // low threshold so large outputs get summarized
 			max_summary_chars: 1000,
 			max_stored_bytes: 10485760,
 			retention_days: 7,
-			exempt_tools: ['retrieve_summary', 'task', 'read'],  // explicit default
+			exempt_tools: ['retrieve_summary', 'task', 'read'], // explicit default
 			...overrides,
 		};
 	}
@@ -98,7 +101,7 @@ describe('tool-summarizer exempt_tools feature', () => {
 	describe('Custom exempt_tools', () => {
 		it('custom tool is exempt when in exempt_tools list', async () => {
 			const config = defaultConfig({
-				exempt_tools: ['my_custom_tool']
+				exempt_tools: ['my_custom_tool'],
 			});
 			hook = createToolSummarizerHook(config, tempDir);
 
@@ -115,7 +118,7 @@ describe('tool-summarizer exempt_tools feature', () => {
 
 		it('retrieve_summary is NOT exempt when not in custom list', async () => {
 			const config = defaultConfig({
-				exempt_tools: ['my_custom_tool']
+				exempt_tools: ['my_custom_tool'],
 			});
 			hook = createToolSummarizerHook(config, tempDir);
 
@@ -134,7 +137,7 @@ describe('tool-summarizer exempt_tools feature', () => {
 	describe('Empty exempt list', () => {
 		it('no tools are exempt when exempt_tools is empty', async () => {
 			const config = defaultConfig({
-				exempt_tools: []
+				exempt_tools: [],
 			});
 			hook = createToolSummarizerHook(config, tempDir);
 
@@ -203,7 +206,7 @@ describe('tool-summarizer exempt_tools feature', () => {
 
 		it('verify output.output is unchanged for custom exempt tool', async () => {
 			const config = defaultConfig({
-				exempt_tools: ['custom_exempt_tool']
+				exempt_tools: ['custom_exempt_tool'],
 			});
 			hook = createToolSummarizerHook(config, tempDir);
 

@@ -1,10 +1,13 @@
-import { describe, test, expect, beforeEach, afterEach, mock } from 'bun:test';
+import { afterEach, beforeEach, describe, expect, mock, test } from 'bun:test';
 import * as fs from 'node:fs';
-import * as path from 'node:path';
 import * as os from 'node:os';
-
-import { resetSwarmState, ensureAgentSession, recordPhaseAgentDispatch } from '../../../src/state';
+import * as path from 'node:path';
 import type { DriftReport } from '../../../src/hooks/curator-types';
+import {
+	ensureAgentSession,
+	recordPhaseAgentDispatch,
+	resetSwarmState,
+} from '../../../src/state';
 
 // Mock curator functions BEFORE importing the module under test
 const mockRunCuratorPhase = mock(async () => ({
@@ -268,7 +271,10 @@ describe('Task 2.4: Tighten missing-spec enforcement in phase-complete', () => {
 			const specPath = path.join(tempDir, '.swarm', 'spec.md');
 			expect(fs.existsSync(specPath)).toBe(false);
 
-			const result = await phase_complete.execute({ phase: 1, sessionID: 'sess1' });
+			const result = await phase_complete.execute({
+				phase: 1,
+				sessionID: 'sess1',
+			});
 			const parsed = JSON.parse(result);
 
 			// Phase should succeed (advisory-only mode)
@@ -312,7 +318,10 @@ describe('Task 2.4: Tighten missing-spec enforcement in phase-complete', () => {
 				JSON.stringify(planJson, null, 2),
 			);
 
-			const result = await phase_complete.execute({ phase: 1, sessionID: 'sess1' });
+			const result = await phase_complete.execute({
+				phase: 1,
+				sessionID: 'sess1',
+			});
 			const parsed = JSON.parse(result);
 
 			expect(parsed.success).toBe(true);
@@ -366,7 +375,10 @@ describe('Task 2.4: Tighten missing-spec enforcement in phase-complete', () => {
 				JSON.stringify(planJson, null, 2),
 			);
 
-			const result = await phase_complete.execute({ phase: 1, sessionID: 'sess1' });
+			const result = await phase_complete.execute({
+				phase: 1,
+				sessionID: 'sess1',
+			});
 			const parsed = JSON.parse(result);
 
 			// Phase should succeed
@@ -391,7 +403,10 @@ describe('Task 2.4: Tighten missing-spec enforcement in phase-complete', () => {
 				fs.unlinkSync(planPath);
 			}
 
-			const result = await phase_complete.execute({ phase: 1, sessionID: 'sess1' });
+			const result = await phase_complete.execute({
+				phase: 1,
+				sessionID: 'sess1',
+			});
 			const parsed = JSON.parse(result);
 
 			// Phase should succeed (advisory-only mode)
@@ -435,7 +450,10 @@ describe('Task 2.4: Tighten missing-spec enforcement in phase-complete', () => {
 				JSON.stringify(planJson, null, 2),
 			);
 
-			const result = await phase_complete.execute({ phase: 1, sessionID: 'sess1' });
+			const result = await phase_complete.execute({
+				phase: 1,
+				sessionID: 'sess1',
+			});
 			const parsed = JSON.parse(result);
 
 			// Completion-verify blocks when phase is not found in plan.json
@@ -464,16 +482,17 @@ describe('Task 2.4: Tighten missing-spec enforcement in phase-complete', () => {
 			);
 			expect(fs.existsSync(driftPath)).toBe(false);
 
-			const result = await phase_complete.execute({ phase: 1, sessionID: 'sess1' });
+			const result = await phase_complete.execute({
+				phase: 1,
+				sessionID: 'sess1',
+			});
 			const parsed = JSON.parse(result);
 
 			// Should be blocked
 			expect(parsed.success).toBe(false);
 			expect(parsed.status).toBe('blocked');
 			expect(parsed.reason).toBe('DRIFT_VERIFICATION_MISSING');
-			expect(parsed.message).toContain(
-				'.swarm/evidence/1/drift-verifier.json',
-			);
+			expect(parsed.message).toContain('.swarm/evidence/1/drift-verifier.json');
 		});
 
 		test('BLOCKED even when plan.json has all tasks completed and spec.md exists', async () => {
@@ -517,7 +536,10 @@ describe('Task 2.4: Tighten missing-spec enforcement in phase-complete', () => {
 				JSON.stringify(planJson, null, 2),
 			);
 
-			const result = await phase_complete.execute({ phase: 1, sessionID: 'sess1' });
+			const result = await phase_complete.execute({
+				phase: 1,
+				sessionID: 'sess1',
+			});
 			const parsed = JSON.parse(result);
 
 			// Should still be blocked because spec.md exists and drift evidence is missing
@@ -549,7 +571,10 @@ describe('Task 2.4: Tighten missing-spec enforcement in phase-complete', () => {
 				JSON.stringify(planJson, null, 2),
 			);
 
-			const result = await phase_complete.execute({ phase: 1, sessionID: 'sess1' });
+			const result = await phase_complete.execute({
+				phase: 1,
+				sessionID: 'sess1',
+			});
 			const parsed = JSON.parse(result);
 
 			// Phase should succeed
@@ -571,7 +596,10 @@ describe('Task 2.4: Tighten missing-spec enforcement in phase-complete', () => {
 				'{ invalid json } garbage',
 			);
 
-			const result = await phase_complete.execute({ phase: 1, sessionID: 'sess1' });
+			const result = await phase_complete.execute({
+				phase: 1,
+				sessionID: 'sess1',
+			});
 			const parsed = JSON.parse(result);
 
 			// Phase should succeed (advisory-only mode)

@@ -1,4 +1,4 @@
-import { describe, test, expect, mock, beforeEach, afterEach } from 'bun:test';
+import { afterEach, beforeEach, describe, expect, mock, test } from 'bun:test';
 
 // Mock only execFileSync while preserving every other export (#330).
 const mockExecFileSync = mock(() => '');
@@ -24,7 +24,9 @@ describe('diff tool', () => {
 	describe('parse numstat output correctly', () => {
 		test('parses valid numstat format with multiple files', async () => {
 			// Mock numstat output
-			mockExecFileSync.mockReturnValueOnce('10\t5\tsrc/foo.ts\n3\t1\tsrc/bar.ts');
+			mockExecFileSync.mockReturnValueOnce(
+				'10\t5\tsrc/foo.ts\n3\t1\tsrc/bar.ts',
+			);
 			// Mock diff output (empty)
 			mockExecFileSync.mockReturnValueOnce('');
 
@@ -32,8 +34,16 @@ describe('diff tool', () => {
 			const parsed = JSON.parse(result);
 
 			expect(parsed.files).toHaveLength(2);
-			expect(parsed.files[0]).toEqual({ path: 'src/foo.ts', additions: 10, deletions: 5 });
-			expect(parsed.files[1]).toEqual({ path: 'src/bar.ts', additions: 3, deletions: 1 });
+			expect(parsed.files[0]).toEqual({
+				path: 'src/foo.ts',
+				additions: 10,
+				deletions: 5,
+			});
+			expect(parsed.files[1]).toEqual({
+				path: 'src/bar.ts',
+				additions: 3,
+				deletions: 1,
+			});
 			expect(parsed.contractChanges).toEqual([]);
 			expect(parsed.hasContractChanges).toBe(false);
 		});
@@ -120,7 +130,9 @@ index 1234567..abcdefg 100644
 	describe('handle binary files in numstat', () => {
 		test('parses binary files with dash values', async () => {
 			// Mock numstat with binary file (shown as -\t-)
-			mockExecFileSync.mockReturnValueOnce('-\t-\tbinary.png\n5\t2\tsrc/code.ts');
+			mockExecFileSync.mockReturnValueOnce(
+				'-\t-\tbinary.png\n5\t2\tsrc/code.ts',
+			);
 			// Mock diff output
 			mockExecFileSync.mockReturnValueOnce('');
 
@@ -129,8 +141,16 @@ index 1234567..abcdefg 100644
 
 			expect(parsed.files).toHaveLength(2);
 			// Binary file should have 0 additions and 0 deletions (parseInt('-') || 0)
-			expect(parsed.files[0]).toEqual({ path: 'binary.png', additions: 0, deletions: 0 });
-			expect(parsed.files[1]).toEqual({ path: 'src/code.ts', additions: 5, deletions: 2 });
+			expect(parsed.files[0]).toEqual({
+				path: 'binary.png',
+				additions: 0,
+				deletions: 0,
+			});
+			expect(parsed.files[1]).toEqual({
+				path: 'src/code.ts',
+				additions: 5,
+				deletions: 2,
+			});
 		});
 	});
 
@@ -286,15 +306,21 @@ index 1234567..abcdefg 100644
 
 		test('accepts valid refs with special git characters', async () => {
 			// These should pass validation (valid git ref chars)
-			const validRefs = ['v1.0.0', 'feature/my-branch', 'foo~3', 'bar^2', 'main@{yesterday}'];
-			
+			const validRefs = [
+				'v1.0.0',
+				'feature/my-branch',
+				'foo~3',
+				'bar^2',
+				'main@{yesterday}',
+			];
+
 			for (const ref of validRefs) {
 				mockExecFileSync.mockReturnValue('');
 				mockExecFileSync.mockReturnValue('');
-				
+
 				const result = await diff.execute({ base: ref });
 				const parsed = JSON.parse(result);
-				
+
 				// Should NOT have error - valid git ref chars
 				expect(parsed.error).toBeUndefined();
 			}
@@ -303,20 +329,20 @@ index 1234567..abcdefg 100644
 		test('accepts refs with @{} (git stash syntax)', async () => {
 			mockExecFileSync.mockReturnValue('');
 			mockExecFileSync.mockReturnValue('');
-			
+
 			const result = await diff.execute({ base: 'HEAD@{0}' });
 			const parsed = JSON.parse(result);
-			
+
 			expect(parsed.error).toBeUndefined();
 		});
 
 		test('accepts commit hashes (40 char hex)', async () => {
 			mockExecFileSync.mockReturnValue('');
 			mockExecFileSync.mockReturnValue('');
-			
+
 			const result = await diff.execute({ base: 'a' * 40 });
 			const parsed = JSON.parse(result);
-			
+
 			expect(parsed.error).toBeUndefined();
 		});
 	});
@@ -529,7 +555,9 @@ index 1234567..abcdefg 100644
 
 		test('handles large number of paths', async () => {
 			// Create 100 paths
-			const paths = Array(100).fill(null).map((_, i) => `src/file${i}.ts`);
+			const paths = Array(100)
+				.fill(null)
+				.map((_, i) => `src/file${i}.ts`);
 			mockExecFileSync.mockReturnValue('');
 			mockExecFileSync.mockReturnValue('');
 
@@ -542,7 +570,9 @@ index 1234567..abcdefg 100644
 
 		test('handles path array with very long combined length', async () => {
 			// Create paths that together exceed typical buffer limits
-			const paths = Array(10).fill(null).map((_, i) => 'a'.repeat(100));
+			const paths = Array(10)
+				.fill(null)
+				.map((_, i) => 'a'.repeat(100));
 			mockExecFileSync.mockReturnValue('');
 			mockExecFileSync.mockReturnValue('');
 

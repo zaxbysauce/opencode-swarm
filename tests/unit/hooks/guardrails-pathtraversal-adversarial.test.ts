@@ -11,20 +11,20 @@
  * 4. Batch detection evasion
  */
 
-import { describe, it, expect, beforeEach, afterEach } from 'bun:test';
+import { afterEach, beforeEach, describe, expect, it } from 'bun:test';
 import * as fs from 'node:fs';
 import * as os from 'node:os';
 import * as path from 'node:path';
-import {
-	resetSwarmState,
-	swarmState,
-	startAgentSession,
-	beginInvocation,
-	getAgentSession,
-	ensureAgentSession,
-} from '../../../src/state';
-import { createGuardrailsHooks } from '../../../src/hooks/guardrails';
 import { GuardrailsConfigSchema } from '../../../src/config/schema';
+import { createGuardrailsHooks } from '../../../src/hooks/guardrails';
+import {
+	beginInvocation,
+	ensureAgentSession,
+	getAgentSession,
+	resetSwarmState,
+	startAgentSession,
+	swarmState,
+} from '../../../src/state';
 
 // Helper to generate very long strings
 function generateLongString(char: string, length: number): string {
@@ -326,13 +326,17 @@ describe('v6.12 Guardrails — ADVERSARIAL PATH TRAVERSAL SECURITY TESTS', () =>
 
 			// Should not throw and should not pollute Object.prototype
 			await hooks.toolBefore(
-				{ tool: 'bash', sessionID: 'proto-pollute-test', callID: maliciousCallID },
+				{
+					tool: 'bash',
+					sessionID: 'proto-pollute-test',
+					callID: maliciousCallID,
+				},
 				{ args: { command: 'echo test' } },
 			);
 
 			// Verify Object.prototype is not polluted
 			// eslint-disable-next-line no-prototype-builtins
-			expect({}.hasOwnProperty('polluted')).toBe(false);
+			expect(Object.hasOwn({}, 'polluted')).toBe(false);
 		});
 
 		it('should handle callID with constructor without prototype pollution', async () => {
@@ -348,7 +352,11 @@ describe('v6.12 Guardrails — ADVERSARIAL PATH TRAVERSAL SECURITY TESTS', () =>
 			const maliciousCallID = 'constructor';
 
 			await hooks.toolBefore(
-				{ tool: 'bash', sessionID: 'constructor-test', callID: maliciousCallID },
+				{
+					tool: 'bash',
+					sessionID: 'constructor-test',
+					callID: maliciousCallID,
+				},
 				{ args: { command: 'echo test' } },
 			);
 
@@ -451,7 +459,7 @@ describe('v6.12 Guardrails — ADVERSARIAL PATH TRAVERSAL SECURITY TESTS', () =>
 
 			// Verify Object.prototype is not polluted
 			// eslint-disable-next-line no-prototype-builtins
-			expect({}.hasOwnProperty('__proto__')).toBe(false);
+			expect(Object.hasOwn({}, '__proto__')).toBe(false);
 		});
 	});
 
@@ -496,7 +504,11 @@ describe('v6.12 Guardrails — ADVERSARIAL PATH TRAVERSAL SECURITY TESTS', () =>
 
 			// Should not throw - tool name is just a string, not executed
 			await hooks.toolBefore(
-				{ tool: maliciousTool, sessionID: 'shell-inject-tool-test', callID: 'c1' },
+				{
+					tool: maliciousTool,
+					sessionID: 'shell-inject-tool-test',
+					callID: 'c1',
+				},
 				{ args: {} },
 			);
 
@@ -802,7 +814,16 @@ describe('v6.12 Guardrails — ADVERSARIAL PATH TRAVERSAL SECURITY TESTS', () =>
 			beginInvocation('control-char-test', 'architect');
 
 			// Various control characters
-			const controlChars = ['\x01', '\x02', '\x03', '\x04', '\x05', '\x06', '\x07', '\x08'];
+			const controlChars = [
+				'\x01',
+				'\x02',
+				'\x03',
+				'\x04',
+				'\x05',
+				'\x06',
+				'\x07',
+				'\x08',
+			];
 			const maliciousPath = `src${controlChars.join('')}/test.ts`;
 
 			await hooks.toolBefore(

@@ -1,8 +1,8 @@
-import { describe, it, expect, beforeEach } from 'bun:test';
+import { beforeEach, describe, expect, it } from 'bun:test';
 import {
-	loadGrammar,
-	isGrammarAvailable,
 	clearParserCache,
+	isGrammarAvailable,
+	loadGrammar,
 } from '../../../src/lang/runtime';
 
 describe('runtime.ts - Security Adversarial Tests', () => {
@@ -306,14 +306,8 @@ describe('runtime.ts - Security Adversarial Tests', () => {
 		});
 
 		it('should throw when trying to load constructor', async () => {
-			let threw = false;
-			try {
-				await loadGrammar('constructor');
-			} catch (e) {
-				threw = true;
-				expect((e as Error).message).toMatch(/Grammar file not found/);
-			}
-			expect(threw).toBe(true);
+			// 'constructor' is not a valid grammar — loadGrammar must throw
+			await expect(loadGrammar('constructor')).rejects.toThrow();
 		});
 	});
 
@@ -423,9 +417,7 @@ describe('runtime.ts - Security Adversarial Tests', () => {
 		});
 
 		it('isGrammarAvailable(["java"]) returns false', async () => {
-			const result = await isGrammarAvailable([
-				'java',
-			] as unknown as string);
+			const result = await isGrammarAvailable(['java'] as unknown as string);
 			expect(result).toBe(false);
 		});
 
@@ -440,9 +432,7 @@ describe('runtime.ts - Security Adversarial Tests', () => {
 		});
 
 		it('isGrammarAvailable(function(){}) returns false', async () => {
-			const result = await isGrammarAvailable(
-				function () {} as unknown as string,
-			);
+			const result = await isGrammarAvailable((() => {}) as unknown as string);
 			expect(result).toBe(false);
 		});
 

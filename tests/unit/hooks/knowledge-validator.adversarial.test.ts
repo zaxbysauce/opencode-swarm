@@ -3,12 +3,12 @@
  * Focus: Attack vectors, bypass attempts, and edge case handling.
  */
 
-import { describe, it, expect } from 'vitest';
+import { describe, expect, it } from 'vitest';
 import {
-	validateLesson,
 	DANGEROUS_COMMAND_PATTERNS,
-	SECURITY_DEGRADING_PATTERNS,
 	INJECTION_PATTERNS,
+	SECURITY_DEGRADING_PATTERNS,
+	validateLesson,
 } from '../../../src/hooks/knowledge-validator.js';
 
 describe('knowledge-validator (adversarial)', () => {
@@ -62,7 +62,7 @@ describe('knowledge-validator (adversarial)', () => {
 					category: 'testing',
 					scope: 'global',
 					confidence: NaN,
-				}
+				},
 			);
 			expect(result.valid).toBe(false);
 			expect(result.layer).toBe(1);
@@ -77,7 +77,7 @@ describe('knowledge-validator (adversarial)', () => {
 					category: 'testing',
 					scope: 'global',
 					confidence: Infinity,
-				}
+				},
 			);
 			expect(result.valid).toBe(false);
 			expect(result.layer).toBe(1);
@@ -115,7 +115,7 @@ describe('knowledge-validator (adversarial)', () => {
 					category: 'testing',
 					scope: 'global',
 					confidence: 0.9,
-				}
+				},
 			);
 			// Should not throw and should process with empty array
 			expect(result.valid).toBe(true);
@@ -358,7 +358,7 @@ describe('knowledge-validator (adversarial)', () => {
 					category: 'testing',
 					scope: 'stack:../etc/passwd',
 					confidence: 0.9,
-				}
+				},
 			);
 			expect(result.valid).toBe(false);
 			expect(result.layer).toBe(1);
@@ -373,7 +373,7 @@ describe('knowledge-validator (adversarial)', () => {
 					category: 'testing',
 					scope: 'stack:; rm -rf /',
 					confidence: 0.9,
-				}
+				},
 			);
 			expect(result.valid).toBe(false);
 			expect(result.layer).toBe(1);
@@ -389,7 +389,7 @@ describe('knowledge-validator (adversarial)', () => {
 					category: 'testing',
 					scope: `stack:${longScopeName}`,
 					confidence: 0.9,
-				}
+				},
 			);
 			expect(result.valid).toBe(false);
 			expect(result.layer).toBe(1);
@@ -404,7 +404,7 @@ describe('knowledge-validator (adversarial)', () => {
 					category: 'testing',
 					scope: 'stack:valid-scope',
 					confidence: 0.9,
-				}
+				},
 			);
 			expect(result.valid).toBe(true);
 		});
@@ -417,7 +417,7 @@ describe('knowledge-validator (adversarial)', () => {
 					category: 'testing',
 					scope: 'stack:ValidScope_123',
 					confidence: 0.9,
-				}
+				},
 			);
 			expect(result.valid).toBe(true);
 		});

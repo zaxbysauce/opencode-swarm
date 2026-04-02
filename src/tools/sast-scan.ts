@@ -247,6 +247,16 @@ export async function sastScan(
 			? filePath
 			: path.resolve(directory, filePath);
 
+		// Security: reject paths that escape the working directory via traversal
+		const resolvedDirectory = path.resolve(directory);
+		if (
+			!resolvedPath.startsWith(resolvedDirectory + path.sep) &&
+			resolvedPath !== resolvedDirectory
+		) {
+			_filesSkipped++;
+			continue;
+		}
+
 		// Skip non-existent files
 		if (!fs.existsSync(resolvedPath)) {
 			_filesSkipped++;

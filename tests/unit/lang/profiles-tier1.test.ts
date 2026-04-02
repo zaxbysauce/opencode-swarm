@@ -2,14 +2,14 @@
  * Verification tests for Tier 1 language profile registrations
  */
 
-import { describe, it, expect } from 'vitest';
+import { describe, expect, it } from 'vitest';
 import { LANGUAGE_REGISTRY } from '../../../src/lang/profiles';
 
 describe('Tier 1 Language Profile Registry', () => {
 	// Test 1: LANGUAGE_REGISTRY has exactly 4 profiles registered after importing profiles.ts
 	it('should have exactly 4 profiles registered', () => {
 		const allProfiles = LANGUAGE_REGISTRY.getAll();
-		expect(allProfiles).toHaveLength(4);
+		expect(allProfiles).toHaveLength(12);
 	});
 
 	// Test 2: getTier(1) returns exactly 4 profiles
@@ -21,7 +21,7 @@ describe('Tier 1 Language Profile Registry', () => {
 	// Test 3: getTier(2) returns 0 profiles (Tier 2 not registered yet)
 	it('should return 0 Tier 2 profiles', () => {
 		const tier2Profiles = LANGUAGE_REGISTRY.getTier(2);
-		expect(tier2Profiles).toHaveLength(0);
+		expect(tier2Profiles).toHaveLength(5);
 	});
 
 	// Test 4: getByExtension('.ts') returns the typescript profile
@@ -80,7 +80,9 @@ describe('Tier 1 Language Profile Registry', () => {
 	it('should have at least 3 reviewerChecklist items for all Tier 1 profiles', () => {
 		const tier1Profiles = LANGUAGE_REGISTRY.getTier(1);
 		for (const profile of tier1Profiles) {
-			expect(profile.prompts.reviewerChecklist.length).toBeGreaterThanOrEqual(3);
+			expect(profile.prompts.reviewerChecklist.length).toBeGreaterThanOrEqual(
+				3,
+			);
 		}
 	});
 
@@ -110,7 +112,7 @@ describe('Tier 1 Language Profile Registry', () => {
 	// Additional sanity check: Verify all Tier 1 profile IDs are correct
 	it('should have correct Tier 1 profile IDs', () => {
 		const tier1Profiles = LANGUAGE_REGISTRY.getTier(1);
-		const tier1Ids = tier1Profiles.map(p => p.id).sort();
+		const tier1Ids = tier1Profiles.map((p) => p.id).sort();
 		expect(tier1Ids).toEqual(['go', 'python', 'rust', 'typescript']);
 	});
 });

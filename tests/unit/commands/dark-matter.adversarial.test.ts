@@ -1,6 +1,9 @@
-import { describe, it, expect, vi, beforeEach } from 'vitest';
+import { beforeEach, describe, expect, it, vi } from 'vitest';
 import { handleDarkMatterCommand } from '../../../src/commands/dark-matter.js';
-import type { DarkMatterOptions, CoChangeEntry } from '../../../src/tools/co-change-analyzer.js';
+import type {
+	CoChangeEntry,
+	DarkMatterOptions,
+} from '../../../src/tools/co-change-analyzer.js';
 
 const mockDetectDarkMatter = vi.fn();
 const mockFormatDarkMatterOutput = vi.fn();
@@ -17,7 +20,9 @@ vi.mock('../../../src/tools/co-change-analyzer.js', () => ({
 
 vi.mock('../../../src/hooks/knowledge-store.js', () => ({
 	resolveSwarmKnowledgePath: mockResolveSwarmKnowledgePath,
-	resolveSwarmRejectedPath: vi.fn(() => '/test/dir/.swarm/knowledge-rejected.jsonl'),
+	resolveSwarmRejectedPath: vi.fn(
+		() => '/test/dir/.swarm/knowledge-rejected.jsonl',
+	),
 	resolveHiveKnowledgePath: vi.fn(() => '/hive/shared-learnings.jsonl'),
 	resolveHiveRejectedPath: vi.fn(() => '/hive/shared-learnings-rejected.jsonl'),
 	readKnowledge: vi.fn(async () => []),
@@ -44,7 +49,9 @@ describe('handleDarkMatterCommand (adversarial)', () => {
 
 	describe('1. Empty string args', () => {
 		it('should not crash with empty string arg', async () => {
-			await expect(handleDarkMatterCommand('/dir', [''])).resolves.toBeDefined();
+			await expect(
+				handleDarkMatterCommand('/dir', ['']),
+			).resolves.toBeDefined();
 
 			// verify detectDarkMatter called with empty options
 			expect(mockDetectDarkMatter).toHaveBeenCalledWith('/dir', {});
@@ -54,7 +61,9 @@ describe('handleDarkMatterCommand (adversarial)', () => {
 	describe('2. Large arg array', () => {
 		it('should not hang or crash with 1000 args', async () => {
 			const largeArgs = new Array(1000).fill('--threshold');
-			await expect(handleDarkMatterCommand('/dir', largeArgs)).resolves.toBeDefined();
+			await expect(
+				handleDarkMatterCommand('/dir', largeArgs),
+			).resolves.toBeDefined();
 		});
 	});
 
@@ -171,9 +180,9 @@ describe('handleDarkMatterCommand (adversarial)', () => {
 		it('should propagate error from detectDarkMatter', async () => {
 			mockDetectDarkMatter.mockRejectedValue(new Error('git not found'));
 
-			await expect(
-				handleDarkMatterCommand('/dir', []),
-			).rejects.toThrow('git not found');
+			await expect(handleDarkMatterCommand('/dir', [])).rejects.toThrow(
+				'git not found',
+			);
 		});
 	});
 
@@ -193,9 +202,7 @@ describe('handleDarkMatterCommand (adversarial)', () => {
 		it('should forward long directory path without truncation', async () => {
 			const longDir = '/'.repeat(1000) + 'directory';
 
-			await expect(
-				handleDarkMatterCommand(longDir, []),
-			).resolves.toBeDefined();
+			await expect(handleDarkMatterCommand(longDir, [])).resolves.toBeDefined();
 
 			expect(mockDetectDarkMatter).toHaveBeenCalledWith(longDir, {});
 		});
@@ -241,7 +248,12 @@ describe('handleDarkMatterCommand (adversarial)', () => {
 
 		it('should handle multiple valid flags', async () => {
 			await expect(
-				handleDarkMatterCommand('/dir', ['--threshold', '0.7', '--min-commits', '10']),
+				handleDarkMatterCommand('/dir', [
+					'--threshold',
+					'0.7',
+					'--min-commits',
+					'10',
+				]),
 			).resolves.toBeDefined();
 
 			expect(mockDetectDarkMatter).toHaveBeenCalledWith('/dir', {
@@ -290,9 +302,9 @@ describe('handleDarkMatterCommand (adversarial)', () => {
 				throw new Error('Format error');
 			});
 
-			await expect(
-				handleDarkMatterCommand('/dir', []),
-			).rejects.toThrow('Format error');
+			await expect(handleDarkMatterCommand('/dir', [])).rejects.toThrow(
+				'Format error',
+			);
 		});
 	});
 });
@@ -306,7 +318,9 @@ describe('Knowledge persistence adversarial tests', () => {
 		);
 		mockDarkMatterToKnowledgeEntries.mockReturnValue([]);
 		mockAppendKnowledge.mockResolvedValue(undefined);
-		mockResolveSwarmKnowledgePath.mockReturnValue('/dir/.swarm/knowledge.jsonl');
+		mockResolveSwarmKnowledgePath.mockReturnValue(
+			'/dir/.swarm/knowledge.jsonl',
+		);
 		mockConsoleWarn.mockClear();
 	});
 
@@ -325,13 +339,16 @@ describe('Knowledge persistence adversarial tests', () => {
 					commitsB: 60,
 				},
 			];
-			const mockOutput = '## Dark Matter: Hidden Couplings\n\n1 hidden coupling found.';
+			const mockOutput =
+				'## Dark Matter: Hidden Couplings\n\n1 hidden coupling found.';
 			const mockEntries = [{ id: 'entry1' }] as unknown[];
 
 			mockDetectDarkMatter.mockResolvedValue(mockPairs);
 			mockFormatDarkMatterOutput.mockReturnValue(mockOutput);
 			mockDarkMatterToKnowledgeEntries.mockReturnValue(mockEntries);
-			mockAppendKnowledge.mockRejectedValue(new Error('Write failed: permission denied'));
+			mockAppendKnowledge.mockRejectedValue(
+				new Error('Write failed: permission denied'),
+			);
 
 			const result = await handleDarkMatterCommand('/dir', []);
 
@@ -359,7 +376,8 @@ describe('Knowledge persistence adversarial tests', () => {
 					commitsB: 60,
 				},
 			];
-			const mockOutput = '## Dark Matter: Hidden Couplings\n\n1 hidden coupling found.';
+			const mockOutput =
+				'## Dark Matter: Hidden Couplings\n\n1 hidden coupling found.';
 
 			mockDetectDarkMatter.mockResolvedValue(mockPairs);
 			mockFormatDarkMatterOutput.mockReturnValue(mockOutput);
@@ -394,7 +412,8 @@ describe('Knowledge persistence adversarial tests', () => {
 					commitsB: 60,
 				},
 			];
-			const mockOutput = '## Dark Matter: Hidden Couplings\n\n1 hidden coupling found.';
+			const mockOutput =
+				'## Dark Matter: Hidden Couplings\n\n1 hidden coupling found.';
 			const mockEntries = [{ id: 'entry1' }] as unknown[];
 			const resolvedKnowledgePath = 'C:\\evil\\.swarm\\knowledge.jsonl';
 
@@ -410,7 +429,10 @@ describe('Knowledge persistence adversarial tests', () => {
 			// resolveSwarmKnowledgePath is called with the original malicious directory
 			expect(mockResolveSwarmKnowledgePath).toHaveBeenCalledWith(maliciousDir);
 			// appendKnowledge receives the resolved knowledge path
-			expect(mockAppendKnowledge).toHaveBeenCalledWith(resolvedKnowledgePath, mockEntries[0]);
+			expect(mockAppendKnowledge).toHaveBeenCalledWith(
+				resolvedKnowledgePath,
+				mockEntries[0],
+			);
 		});
 	});
 
@@ -440,7 +462,8 @@ describe('Knowledge persistence adversarial tests', () => {
 					commitsB: 55,
 				},
 			];
-			const mockOutput = '## Dark Matter: Hidden Couplings\n\n2 hidden couplings found.';
+			const mockOutput =
+				'## Dark Matter: Hidden Couplings\n\n2 hidden couplings found.';
 			const mockEntries = [
 				{ id: 'entry1', category: 'architecture', tags: ['dark-matter'] },
 				{ id: 'entry2', category: 'architecture', tags: ['dark-matter'] },
@@ -488,7 +511,8 @@ describe('Knowledge persistence adversarial tests', () => {
 					commitsB: 60,
 				},
 			];
-			const mockOutput = '## Dark Matter: Hidden Couplings\n\n1 hidden coupling found.';
+			const mockOutput =
+				'## Dark Matter: Hidden Couplings\n\n1 hidden coupling found.';
 
 			mockDetectDarkMatter.mockResolvedValue(mockPairs);
 			mockFormatDarkMatterOutput.mockReturnValue(mockOutput);
@@ -519,7 +543,8 @@ describe('Knowledge persistence adversarial tests', () => {
 					commitsB: 60,
 				},
 			];
-			const mockOutput = '## Dark Matter: Hidden Couplings\n\n1 hidden coupling found.';
+			const mockOutput =
+				'## Dark Matter: Hidden Couplings\n\n1 hidden coupling found.';
 
 			mockDetectDarkMatter.mockResolvedValue(mockPairs);
 			mockFormatDarkMatterOutput.mockReturnValue(mockOutput);
@@ -550,10 +575,14 @@ describe('Knowledge persistence adversarial tests', () => {
 					commitsB: 60,
 				},
 			];
-			const mockOutput = '## Dark Matter: Hidden Couplings\n\n1 hidden coupling found.';
+			const mockOutput =
+				'## Dark Matter: Hidden Couplings\n\n1 hidden coupling found.';
 			const mockEntries = Array(1000)
 				.fill(null)
-				.map((_, i) => ({ id: `entry${i}`, category: 'architecture' })) as unknown[];
+				.map((_, i) => ({
+					id: `entry${i}`,
+					category: 'architecture',
+				})) as unknown[];
 
 			mockDetectDarkMatter.mockResolvedValue(mockPairs);
 			mockFormatDarkMatterOutput.mockReturnValue(mockOutput);
@@ -562,7 +591,9 @@ describe('Knowledge persistence adversarial tests', () => {
 			const result = await handleDarkMatterCommand('/dir', []);
 
 			expect(mockAppendKnowledge).toHaveBeenCalledTimes(1000);
-			expect(result).toContain('[1000 dark matter finding(s) saved to .swarm/knowledge.jsonl]');
+			expect(result).toContain(
+				'[1000 dark matter finding(s) saved to .swarm/knowledge.jsonl]',
+			);
 		});
 	});
 });

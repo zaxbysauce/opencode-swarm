@@ -6,20 +6,20 @@
  * we use compile-time assertions rather than runtime tests.
  */
 
-import { describe, it, expect } from 'vitest';
+import { describe, expect, it } from 'vitest';
 import type {
-	KnowledgeCategory,
-	PhaseConfirmationRecord,
-	ProjectConfirmationRecord,
-	RetrievalOutcome,
-	KnowledgeEntryBase,
-	SwarmKnowledgeEntry,
 	HiveKnowledgeEntry,
-	RejectedLesson,
+	KnowledgeCategory,
 	KnowledgeConfig,
+	KnowledgeEntryBase,
 	MessageInfo,
 	MessagePart,
 	MessageWithParts,
+	PhaseConfirmationRecord,
+	ProjectConfirmationRecord,
+	RejectedLesson,
+	RetrievalOutcome,
+	SwarmKnowledgeEntry,
 } from '../../src/hooks/knowledge-types';
 
 describe('KnowledgeCategory union type', () => {
@@ -160,7 +160,8 @@ describe('SwarmKnowledgeEntry interface', () => {
 		const entry: SwarmKnowledgeEntry = {
 			id: '550e8400-e29b-41d4-a716-446655440000',
 			tier: 'swarm',
-			lesson: 'This is a valid lesson text that meets the 15-280 character requirement.',
+			lesson:
+				'This is a valid lesson text that meets the 15-280 character requirement.',
 			category: 'process',
 			tags: ['tag1', 'tag2'],
 			scope: 'global',
@@ -196,7 +197,8 @@ describe('SwarmKnowledgeEntry interface', () => {
 		const entry: SwarmKnowledgeEntry = {
 			id: '550e8400-e29b-41d4-a716-446655440000',
 			tier: 'swarm',
-			lesson: 'This is a valid lesson text that meets the 15-280 character requirement.',
+			lesson:
+				'This is a valid lesson text that meets the 15-280 character requirement.',
 			category: 'process',
 			tags: ['tag1', 'tag2'],
 			scope: 'global',
@@ -238,7 +240,8 @@ describe('HiveKnowledgeEntry interface', () => {
 		const entry: HiveKnowledgeEntry = {
 			id: '660e8400-e29b-41d4-a716-446655440001',
 			tier: 'hive',
-			lesson: 'This is a valid lesson text that meets the 15-280 character requirement.',
+			lesson:
+				'This is a valid lesson text that meets the 15-280 character requirement.',
 			category: 'architecture',
 			tags: ['tag1', 'tag2', 'tag3'],
 			scope: 'stack:react',
@@ -275,7 +278,8 @@ describe('HiveKnowledgeEntry interface', () => {
 		const entry: HiveKnowledgeEntry = {
 			id: '660e8400-e29b-41d4-a716-446655440001',
 			tier: 'hive',
-			lesson: 'This is a valid lesson text that meets the 15-280 character requirement.',
+			lesson:
+				'This is a valid lesson text that meets the 15-280 character requirement.',
 			category: 'architecture',
 			tags: ['tag1', 'tag2', 'tag3'],
 			scope: 'stack:react',
@@ -353,13 +357,22 @@ describe('KnowledgeConfig interface', () => {
 		};
 
 		// @ts-expect-error - missing enabled
-		const invalid1: KnowledgeConfig = { ...baseConfig, enabled: undefined as any };
+		const invalid1: KnowledgeConfig = {
+			...baseConfig,
+			enabled: undefined as any,
+		};
 
 		// @ts-expect-error - missing swarm_max_entries
-		const invalid2: KnowledgeConfig = { ...baseConfig, swarm_max_entries: undefined as any };
+		const invalid2: KnowledgeConfig = {
+			...baseConfig,
+			swarm_max_entries: undefined as any,
+		};
 
 		// @ts-expect-error - missing schema_version
-		const invalid3: KnowledgeConfig = { ...baseConfig, schema_version: undefined as any };
+		const invalid3: KnowledgeConfig = {
+			...baseConfig,
+			schema_version: undefined as any,
+		};
 
 		expect([invalid1, invalid2, invalid3]).toBeDefined();
 	});

@@ -1,11 +1,13 @@
-import { describe, test, expect, beforeEach, afterEach } from 'bun:test';
+import { afterEach, beforeEach, describe, expect, test } from 'bun:test';
 import * as fs from 'node:fs';
-import * as path from 'node:path';
 import * as os from 'node:os';
-
-import { executeWriteRetro, type WriteRetroArgs } from '../../../src/tools/write-retro';
+import * as path from 'node:path';
+import type { RetrospectiveEvidence } from '../../../src/config/evidence-schema';
 import { loadEvidence } from '../../../src/evidence/manager';
-import { type RetrospectiveEvidence } from '../../../src/config/evidence-schema';
+import {
+	executeWriteRetro,
+	type WriteRetroArgs,
+} from '../../../src/tools/write-retro';
 
 /**
  * Helper function to create valid WriteRetroArgs
@@ -54,7 +56,11 @@ function createEvidenceBundle(
 /**
  * Creates a reviewer failure entry with proper schema structure
  */
-function makeReviewEntry(taskId: string, summary: string, issues: { severity: 'error' | 'warning' | 'info'; message: string }[]): Record<string, unknown> {
+function makeReviewEntry(
+	taskId: string,
+	summary: string,
+	issues: { severity: 'error' | 'warning' | 'info'; message: string }[],
+): Record<string, unknown> {
 	return {
 		task_id: taskId,
 		type: 'review',
@@ -63,7 +69,7 @@ function makeReviewEntry(taskId: string, summary: string, issues: { severity: 'e
 		verdict: 'fail',
 		summary,
 		risk: 'high' as const,
-		issues: issues.map(i => ({ severity: i.severity, message: i.message })),
+		issues: issues.map((i) => ({ severity: i.severity, message: i.message })),
 		metadata: {},
 	};
 }
@@ -157,7 +163,7 @@ describe('write-retro error taxonomy classification', () => {
 	describe('case 2: reviewer rejection mentioning interface/type/signature/contract', () => {
 		test("'interface_mismatch' in taxonomy when summary contains 'signature'", async () => {
 			createEvidenceBundle(tempDir, '1.1', [
-				makeReviewEntry('1.1', 'Method signature mismatch', [])
+				makeReviewEntry('1.1', 'Method signature mismatch', []),
 			]);
 
 			const args = makeArgs({ phase: 1 });
@@ -177,8 +183,11 @@ describe('write-retro error taxonomy classification', () => {
 		test("'interface_mismatch' in taxonomy when issues[].message contains 'interface'", async () => {
 			createEvidenceBundle(tempDir, '1.1', [
 				makeReviewEntry('1.1', 'Review failed', [
-					{ severity: 'error', message: 'Interface contract violation detected' }
-				])
+					{
+						severity: 'error',
+						message: 'Interface contract violation detected',
+					},
+				]),
 			]);
 
 			const args = makeArgs({ phase: 1 });
@@ -198,8 +207,8 @@ describe('write-retro error taxonomy classification', () => {
 		test("'interface_mismatch' in taxonomy when issues[].message contains 'type'", async () => {
 			createEvidenceBundle(tempDir, '1.1', [
 				makeReviewEntry('1.1', 'Review failed', [
-					{ severity: 'error', message: 'Type mismatch in return value' }
-				])
+					{ severity: 'error', message: 'Type mismatch in return value' },
+				]),
 			]);
 
 			const args = makeArgs({ phase: 1 });
@@ -219,8 +228,8 @@ describe('write-retro error taxonomy classification', () => {
 		test("'interface_mismatch' in taxonomy when issues[].message contains 'contract'", async () => {
 			createEvidenceBundle(tempDir, '1.1', [
 				makeReviewEntry('1.1', 'Review failed', [
-					{ severity: 'error', message: 'Contract not fulfilled' }
-				])
+					{ severity: 'error', message: 'Contract not fulfilled' },
+				]),
 			]);
 
 			const args = makeArgs({ phase: 1 });
@@ -240,8 +249,8 @@ describe('write-retro error taxonomy classification', () => {
 		test('regex matching is case-insensitive', async () => {
 			createEvidenceBundle(tempDir, '1.1', [
 				makeReviewEntry('1.1', 'INTERFACE ERROR', [
-					{ severity: 'error', message: 'SIGNATURE MISMATCH' }
-				])
+					{ severity: 'error', message: 'SIGNATURE MISMATCH' },
+				]),
 			]);
 
 			const args = makeArgs({ phase: 1 });
@@ -263,8 +272,8 @@ describe('write-retro error taxonomy classification', () => {
 		test("'logic_error' in taxonomy", async () => {
 			createEvidenceBundle(tempDir, '1.1', [
 				makeReviewEntry('1.1', 'Logic error in calculation', [
-					{ severity: 'error', message: 'Wrong result produced' }
-				])
+					{ severity: 'error', message: 'Wrong result produced' },
+				]),
 			]);
 
 			const args = makeArgs({ phase: 1 });
@@ -285,9 +294,7 @@ describe('write-retro error taxonomy classification', () => {
 
 	describe('case 4: test failure', () => {
 		test("'logic_error' in taxonomy", async () => {
-			createEvidenceBundle(tempDir, '1.1', [
-				makeTestEntry('1.1')
-			]);
+			createEvidenceBundle(tempDir, '1.1', [makeTestEntry('1.1')]);
 
 			const args = makeArgs({ phase: 1 });
 			const result = await executeWriteRetro(args, tempDir);
@@ -306,9 +313,7 @@ describe('write-retro error taxonomy classification', () => {
 
 	describe('case 5: scope_guard failure', () => {
 		test("'scope_creep' in taxonomy", async () => {
-			createEvidenceBundle(tempDir, '1.1', [
-				makeScopeGuardEntry('1.1')
-			]);
+			createEvidenceBundle(tempDir, '1.1', [makeScopeGuardEntry('1.1')]);
 
 			const args = makeArgs({ phase: 1 });
 			const result = await executeWriteRetro(args, tempDir);
@@ -327,9 +332,7 @@ describe('write-retro error taxonomy classification', () => {
 
 	describe('case 6: loop_detector failure', () => {
 		test("'gate_evasion' in taxonomy", async () => {
-			createEvidenceBundle(tempDir, '1.1', [
-				makeLoopDetectorEntry('1.1')
-			]);
+			createEvidenceBundle(tempDir, '1.1', [makeLoopDetectorEntry('1.1')]);
 
 			const args = makeArgs({ phase: 1 });
 			const result = await executeWriteRetro(args, tempDir);
@@ -351,15 +354,11 @@ describe('write-retro error taxonomy classification', () => {
 			// Create multiple evidence files with different failure types
 			createEvidenceBundle(tempDir, '1.1', [
 				makeReviewEntry('1.1', 'Some logic error', [
-					{ severity: 'error', message: 'Wrong result' }
-				])
+					{ severity: 'error', message: 'Wrong result' },
+				]),
 			]);
-			createEvidenceBundle(tempDir, '1.2', [
-				makeTestEntry('1.2')
-			]);
-			createEvidenceBundle(tempDir, '1.3', [
-				makeScopeGuardEntry('1.3')
-			]);
+			createEvidenceBundle(tempDir, '1.2', [makeTestEntry('1.2')]);
+			createEvidenceBundle(tempDir, '1.3', [makeScopeGuardEntry('1.3')]);
 
 			const args = makeArgs({ phase: 1 });
 			const result = await executeWriteRetro(args, tempDir);
@@ -376,7 +375,9 @@ describe('write-retro error taxonomy classification', () => {
 			expect(entry.error_taxonomy).toContain('logic_error');
 			expect(entry.error_taxonomy).toContain('scope_creep');
 			// Deduplication check
-			const logicErrorCount = entry.error_taxonomy.filter(t => t === 'logic_error').length;
+			const logicErrorCount = entry.error_taxonomy.filter(
+				(t) => t === 'logic_error',
+			).length;
 			expect(logicErrorCount).toBe(1);
 			// Total should be 2 (logic_error + scope_creep)
 			expect(entry.error_taxonomy).toHaveLength(2);
@@ -393,8 +394,12 @@ describe('write-retro error taxonomy classification', () => {
 				created_at: new Date().toISOString(),
 				updated_at: new Date().toISOString(),
 				entries: [
-					makeReviewEntry('1.1', 'First review failed', [{ severity: 'error', message: 'Error 1' }]),
-					makeReviewEntry('1.1', 'Second review failed', [{ severity: 'error', message: 'Error 2' }]),
+					makeReviewEntry('1.1', 'First review failed', [
+						{ severity: 'error', message: 'Error 1' },
+					]),
+					makeReviewEntry('1.1', 'Second review failed', [
+						{ severity: 'error', message: 'Error 2' },
+					]),
 				],
 			};
 
@@ -415,7 +420,9 @@ describe('write-retro error taxonomy classification', () => {
 
 			const entry = loaded.bundle.entries[0] as RetrospectiveEvidence;
 			// Should still only have logic_error once due to deduplication
-			const logicErrorCount = entry.error_taxonomy.filter(t => t === 'logic_error').length;
+			const logicErrorCount = entry.error_taxonomy.filter(
+				(t) => t === 'logic_error',
+			).length;
 			expect(logicErrorCount).toBe(1);
 		});
 	});
@@ -448,16 +455,11 @@ describe('write-retro error taxonomy classification', () => {
 
 		test('partial evidence - some files valid, some corrupt', async () => {
 			// Create valid evidence for 1.1
-			createEvidenceBundle(tempDir, '1.1', [
-				makeTestEntry('1.1')
-			]);
+			createEvidenceBundle(tempDir, '1.1', [makeTestEntry('1.1')]);
 			// Create corrupt evidence for 1.2
 			const evidenceDir = path.join(tempDir, '.swarm', 'evidence', '1.2');
 			fs.mkdirSync(evidenceDir, { recursive: true });
-			fs.writeFileSync(
-				path.join(evidenceDir, 'evidence.json'),
-				'{ corrupt }',
-			);
+			fs.writeFileSync(path.join(evidenceDir, 'evidence.json'), '{ corrupt }');
 
 			const args = makeArgs({ phase: 1 });
 			const result = await executeWriteRetro(args, tempDir);
@@ -477,9 +479,7 @@ describe('write-retro error taxonomy classification', () => {
 
 	describe('case 9: phase with task N.5 (boundary)', () => {
 		test('task 5 evidence is included in taxonomy', async () => {
-			createEvidenceBundle(tempDir, '3.5', [
-				makeScopeGuardEntry('3.5')
-			]);
+			createEvidenceBundle(tempDir, '3.5', [makeScopeGuardEntry('3.5')]);
 
 			const args = makeArgs({ phase: 3 });
 			const result = await executeWriteRetro(args, tempDir);
@@ -498,9 +498,7 @@ describe('write-retro error taxonomy classification', () => {
 		test('all tasks for phase are checked dynamically (including task 6)', async () => {
 			// Evidence discovery now uses listEvidenceTaskIds which finds ALL task IDs
 			// matching the phase prefix, not just a hardcoded 1-5 range
-			createEvidenceBundle(tempDir, '3.6', [
-				makeScopeGuardEntry('3.6')
-			]);
+			createEvidenceBundle(tempDir, '3.6', [makeScopeGuardEntry('3.6')]);
 
 			const args = makeArgs({ phase: 3 });
 			const result = await executeWriteRetro(args, tempDir);
@@ -522,8 +520,8 @@ describe('write-retro error taxonomy classification', () => {
 		test('saveEvidence called with interface_mismatch taxonomy', async () => {
 			createEvidenceBundle(tempDir, '1.1', [
 				makeReviewEntry('1.1', 'Interface mismatch', [
-					{ severity: 'error', message: 'Signature does not match' }
-				])
+					{ severity: 'error', message: 'Signature does not match' },
+				]),
 			]);
 
 			const args = makeArgs({ phase: 1 });
@@ -543,14 +541,12 @@ describe('write-retro error taxonomy classification', () => {
 
 		test('multiple taxonomy types saved correctly', async () => {
 			createEvidenceBundle(tempDir, '1.1', [
-				makeReviewEntry('1.1', 'Logic error', [{ severity: 'error', message: 'Wrong calculation' }])
+				makeReviewEntry('1.1', 'Logic error', [
+					{ severity: 'error', message: 'Wrong calculation' },
+				]),
 			]);
-			createEvidenceBundle(tempDir, '1.2', [
-				makeScopeGuardEntry('1.2')
-			]);
-			createEvidenceBundle(tempDir, '1.3', [
-				makeLoopDetectorEntry('1.3')
-			]);
+			createEvidenceBundle(tempDir, '1.2', [makeScopeGuardEntry('1.2')]);
+			createEvidenceBundle(tempDir, '1.3', [makeLoopDetectorEntry('1.3')]);
 
 			const args = makeArgs({ phase: 1 });
 			const result = await executeWriteRetro(args, tempDir);
@@ -584,7 +580,7 @@ describe('write-retro error taxonomy classification', () => {
 					{
 						...makeReviewEntry('1.1', 'Review passed', []),
 						verdict: 'pass',
-					}
+					},
 				],
 			};
 
@@ -620,7 +616,7 @@ describe('write-retro error taxonomy classification', () => {
 					{
 						...makeTestEntry('1.1'),
 						verdict: 'pass',
-					}
+					},
 				],
 			};
 
@@ -648,8 +644,8 @@ describe('write-retro error taxonomy classification', () => {
 		test('interface keyword in summary triggers interface_mismatch', async () => {
 			createEvidenceBundle(tempDir, '1.1', [
 				makeReviewEntry('1.1', 'Interface design flaw', [
-					{ severity: 'error', message: 'Some other issue' }
-				])
+					{ severity: 'error', message: 'Some other issue' },
+				]),
 			]);
 
 			const args = makeArgs({ phase: 1 });
@@ -672,8 +668,8 @@ describe('write-retro error taxonomy classification', () => {
 			// Create evidence that would not match any classification
 			createEvidenceBundle(tempDir, '1.1', [
 				makeReviewEntry('1.1', 'Something went wrong', [
-					{ severity: 'error', message: 'General error' }
-				])
+					{ severity: 'error', message: 'General error' },
+				]),
 			]);
 
 			const args = makeArgs({ phase: 1 });

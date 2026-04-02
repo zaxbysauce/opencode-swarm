@@ -1,11 +1,10 @@
-import { describe, it, expect, beforeEach, afterEach } from 'bun:test';
-import { createSystemEnhancerHook } from '../../../src/hooks/system-enhancer';
-import type { PluginConfig } from '../../../src/config';
-import { swarmState, resetSwarmState } from '../../../src/state';
-import { mkdtemp, writeFile, mkdir } from 'node:fs/promises';
-import { rm } from 'node:fs/promises';
+import { afterEach, beforeEach, describe, expect, it } from 'bun:test';
+import { mkdir, mkdtemp, rm, writeFile } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
+import type { PluginConfig } from '../../../src/config';
+import { createSystemEnhancerHook } from '../../../src/hooks/system-enhancer';
+import { resetSwarmState, swarmState } from '../../../src/state';
 
 describe('System Enhancer Hook - Context Budget Wiring', () => {
 	let tempDir: string;
@@ -65,7 +64,7 @@ describe('System Enhancer Hook - Context Budget Wiring', () => {
 			// - The context budget check is placed AFTER all tryInject() calls
 			// - It runs at line 807-832, after all the injection paths (lines 414-777)
 			// - This confirms it's the LAST thing that runs before return
-			// 
+			//
 			// Code structure:
 			//   - Lines 414-777: All injection logic (phase, plan cursor, handoff, decisions, etc.)
 			//   - Lines 779-832: Context budget check (getContextBudgetReport + formatBudgetWarning)
@@ -179,7 +178,9 @@ describe('System Enhancer Hook - Context Budget Wiring', () => {
 			await transformHook(input, output);
 
 			// When budget is disabled, there's no budget warning - this simulates "ok" status
-			const budgetWarning = output.system.find((s: string) => s.includes('[CONTEXT BUDGET:'));
+			const budgetWarning = output.system.find((s: string) =>
+				s.includes('[CONTEXT BUDGET:'),
+			);
 			expect(budgetWarning).toBeUndefined();
 		});
 
@@ -222,7 +223,7 @@ describe('System Enhancer Hook - Context Budget Wiring', () => {
 			const output = { system: ['Initial system prompt'] };
 			await transformHook(input, output);
 
-			// When budget is disabled, no warning appears. 
+			// When budget is disabled, no warning appears.
 			// The code logic confirms [FOR: architect] would be prepended.
 			// This test passes to confirm the wiring is in place.
 		});
@@ -267,7 +268,9 @@ describe('System Enhancer Hook - Context Budget Wiring', () => {
 			await transformHook1(input1, output1);
 
 			// Coder should not get architect-only content (retrospective, etc.)
-			const hasRetro = output1.system.some((s: string) => s.includes('## Previous Phase Retrospective'));
+			const hasRetro = output1.system.some((s: string) =>
+				s.includes('## Previous Phase Retrospective'),
+			);
 			expect(hasRetro).toBe(false);
 
 			// Test with architect - should see architect-specific blocks

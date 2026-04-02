@@ -8,10 +8,10 @@
  * - Args/options are passed through correctly
  */
 
-import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
-import { tmpdir } from 'node:os';
 import * as fs from 'node:fs';
+import { tmpdir } from 'node:os';
 import * as path from 'node:path';
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 
 // ===== MOCK TRACKERS =====
 
@@ -19,7 +19,8 @@ import * as path from 'node:path';
 const sastScanCalls: Array<{ input: unknown; directory: string }> = [];
 
 // Track calls to detectDarkMatter
-const detectDarkMatterCalls: Array<{ directory: string; options: unknown }> = [];
+const detectDarkMatterCalls: Array<{ directory: string; options: unknown }> =
+	[];
 
 // ===== MOCK saveEvidence =====
 vi.mock('../../../src/evidence/manager', () => ({
@@ -62,7 +63,9 @@ vi.mock('../../../src/tools/sast-scan', () => ({
 }));
 
 // ===== MOCK co-change-analyzer module =====
-const originalCoChangeModule = await import('../../../src/tools/co-change-analyzer');
+const originalCoChangeModule = await import(
+	'../../../src/tools/co-change-analyzer'
+);
 
 const mockDetectDarkMatter = async (directory: string, options?: unknown) => {
 	// Track the call
@@ -88,10 +91,10 @@ vi.mock('../../../src/sast/semgrep', () => ({
 	resetSemgrepCache: vi.fn(),
 }));
 
+import { co_change_analyzer } from '../../../src/tools/co-change-analyzer';
 // ===== IMPORT TOOLS AFTER MOCKS =====
 // Re-import to get the mocked versions
 import { sast_scan } from '../../../src/tools/sast-scan';
-import { co_change_analyzer } from '../../../src/tools/co-change-analyzer';
 
 describe('sast_scan tool directory injection verification', () => {
 	beforeEach(() => {
@@ -109,10 +112,9 @@ describe('sast_scan tool directory injection verification', () => {
 				severity_threshold: 'medium' as const,
 			};
 
-			const result = await sast_scan.execute(
-				args,
-				{ directory: testDirectory } as unknown as any,
-			);
+			const result = await sast_scan.execute(args, {
+				directory: testDirectory,
+			} as unknown as any);
 
 			expect(sastScanCalls).toHaveLength(1);
 			expect(sastScanCalls[0].directory).toBe(testDirectory);
@@ -133,10 +135,9 @@ describe('sast_scan tool directory injection verification', () => {
 				severity_threshold: 'critical' as const,
 			};
 
-			await sast_scan.execute(
-				args,
-				{ directory: testDirectory } as unknown as any,
-			);
+			await sast_scan.execute(args, {
+				directory: testDirectory,
+			} as unknown as any);
 
 			expect(sastScanCalls).toHaveLength(1);
 			const inputArg = sastScanCalls[0].input as { severity_threshold: string };
@@ -151,10 +152,9 @@ describe('sast_scan tool directory injection verification', () => {
 				severity_threshold: 'high' as const,
 			};
 
-			await sast_scan.execute(
-				args,
-				{ directory: testDirectory } as unknown as any,
-			);
+			await sast_scan.execute(args, {
+				directory: testDirectory,
+			} as unknown as any);
 
 			expect(sastScanCalls).toHaveLength(1);
 			const inputArg = sastScanCalls[0].input as { changed_files: string[] };
@@ -225,10 +225,9 @@ describe('sast_scan tool directory injection verification', () => {
 				changed_files: ['src/test.js'],
 			};
 
-			await sast_scan.execute(
-				args,
-				{ directory: testDirectory } as unknown as any,
-			);
+			await sast_scan.execute(args, {
+				directory: testDirectory,
+			} as unknown as any);
 
 			expect(sastScanCalls).toHaveLength(1);
 			const inputArg = sastScanCalls[0].input as { severity_threshold: string };
@@ -241,10 +240,9 @@ describe('sast_scan tool directory injection verification', () => {
 				directory: testDirectory,
 			};
 
-			await sast_scan.execute(
-				args,
-				{ directory: testDirectory } as unknown as any,
-			);
+			await sast_scan.execute(args, {
+				directory: testDirectory,
+			} as unknown as any);
 
 			expect(sastScanCalls).toHaveLength(1);
 			const inputArg = sastScanCalls[0].input as { changed_files: string[] };
@@ -270,10 +268,9 @@ describe('co_change_analyzer tool directory injection verification', () => {
 				max_commits: 600,
 			};
 
-			const result = await co_change_analyzer.execute(
-				args,
-				{ directory: testDirectory } as unknown as any,
-			);
+			const result = await co_change_analyzer.execute(args, {
+				directory: testDirectory,
+			} as unknown as any);
 
 			expect(detectDarkMatterCalls).toHaveLength(1);
 			expect(detectDarkMatterCalls[0].directory).toBe(testDirectory);
@@ -294,13 +291,15 @@ describe('co_change_analyzer tool directory injection verification', () => {
 				min_commits: 50,
 			};
 
-			await co_change_analyzer.execute(
-				args,
-				{ directory: testDirectory } as unknown as any,
-			);
+			await co_change_analyzer.execute(args, {
+				directory: testDirectory,
+			} as unknown as any);
 
 			expect(detectDarkMatterCalls).toHaveLength(1);
-			const optionsArg = detectDarkMatterCalls[0].options as Record<string, unknown>;
+			const optionsArg = detectDarkMatterCalls[0].options as Record<
+				string,
+				unknown
+			>;
 			expect(optionsArg.minCommits).toBe(50);
 			expect(optionsArg.minCoChanges).toBeUndefined();
 			expect(optionsArg.npmiThreshold).toBeUndefined();
@@ -313,13 +312,15 @@ describe('co_change_analyzer tool directory injection verification', () => {
 				min_co_changes: 10,
 			};
 
-			await co_change_analyzer.execute(
-				args,
-				{ directory: testDirectory } as unknown as any,
-			);
+			await co_change_analyzer.execute(args, {
+				directory: testDirectory,
+			} as unknown as any);
 
 			expect(detectDarkMatterCalls).toHaveLength(1);
-			const optionsArg = detectDarkMatterCalls[0].options as Record<string, unknown>;
+			const optionsArg = detectDarkMatterCalls[0].options as Record<
+				string,
+				unknown
+			>;
 			expect(optionsArg.minCoChanges).toBe(10);
 		});
 
@@ -329,13 +330,15 @@ describe('co_change_analyzer tool directory injection verification', () => {
 				threshold: 0.85,
 			};
 
-			await co_change_analyzer.execute(
-				args,
-				{ directory: testDirectory } as unknown as any,
-			);
+			await co_change_analyzer.execute(args, {
+				directory: testDirectory,
+			} as unknown as any);
 
 			expect(detectDarkMatterCalls).toHaveLength(1);
-			const optionsArg = detectDarkMatterCalls[0].options as Record<string, unknown>;
+			const optionsArg = detectDarkMatterCalls[0].options as Record<
+				string,
+				unknown
+			>;
 			expect(optionsArg.npmiThreshold).toBe(0.85);
 		});
 
@@ -345,13 +348,15 @@ describe('co_change_analyzer tool directory injection verification', () => {
 				max_commits: 1000,
 			};
 
-			await co_change_analyzer.execute(
-				args,
-				{ directory: testDirectory } as unknown as any,
-			);
+			await co_change_analyzer.execute(args, {
+				directory: testDirectory,
+			} as unknown as any);
 
 			expect(detectDarkMatterCalls).toHaveLength(1);
-			const optionsArg = detectDarkMatterCalls[0].options as Record<string, unknown>;
+			const optionsArg = detectDarkMatterCalls[0].options as Record<
+				string,
+				unknown
+			>;
 			expect(optionsArg.maxCommitsToAnalyze).toBe(1000);
 		});
 	});
@@ -379,7 +384,10 @@ describe('co_change_analyzer tool directory injection verification', () => {
 			await co_change_analyzer.execute(args, undefined as unknown as any);
 
 			expect(detectDarkMatterCalls).toHaveLength(1);
-			const optionsArg = detectDarkMatterCalls[0].options as Record<string, unknown>;
+			const optionsArg = detectDarkMatterCalls[0].options as Record<
+				string,
+				unknown
+			>;
 			expect(optionsArg.minCommits).toBe(25);
 			expect(optionsArg.npmiThreshold).toBe(0.6);
 		});
@@ -403,13 +411,15 @@ describe('co_change_analyzer tool directory injection verification', () => {
 			const testDirectory = '/test/project';
 			const args = {};
 
-			await co_change_analyzer.execute(
-				args,
-				{ directory: testDirectory } as unknown as any,
-			);
+			await co_change_analyzer.execute(args, {
+				directory: testDirectory,
+			} as unknown as any);
 
 			expect(detectDarkMatterCalls).toHaveLength(1);
-			const optionsArg = detectDarkMatterCalls[0].options as Record<string, unknown>;
+			const optionsArg = detectDarkMatterCalls[0].options as Record<
+				string,
+				unknown
+			>;
 			// All options should be undefined (will use internal defaults)
 			expect(optionsArg.minCommits).toBeUndefined();
 			expect(optionsArg.minCoChanges).toBeUndefined();
@@ -423,10 +433,9 @@ describe('co_change_analyzer tool directory injection verification', () => {
 			const expectedCwd = process.cwd();
 
 			// First call with explicit directory
-			await co_change_analyzer.execute(
-				{ min_commits: 20 },
-				{ directory: '/dir1' } as unknown as any,
-			);
+			await co_change_analyzer.execute({ min_commits: 20 }, {
+				directory: '/dir1',
+			} as unknown as any);
 
 			// Second call with no context (fallback)
 			await co_change_analyzer.execute(
@@ -435,10 +444,9 @@ describe('co_change_analyzer tool directory injection verification', () => {
 			);
 
 			// Third call with different directory
-			await co_change_analyzer.execute(
-				{ min_commits: 40 },
-				{ directory: '/dir3' } as unknown as any,
-			);
+			await co_change_analyzer.execute({ min_commits: 40 }, {
+				directory: '/dir3',
+			} as unknown as any);
 
 			expect(detectDarkMatterCalls).toHaveLength(3);
 			expect(detectDarkMatterCalls[0].directory).toBe('/dir1');

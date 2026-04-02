@@ -1,5 +1,8 @@
-import { describe, it, expect } from 'bun:test';
-import { RetrospectiveEvidenceSchema, EvidenceSchema } from '../../../src/config/evidence-schema';
+import { describe, expect, it } from 'bun:test';
+import {
+	EvidenceSchema,
+	RetrospectiveEvidenceSchema,
+} from '../../../src/config/evidence-schema';
 
 describe('RetrospectiveEvidenceSchema', () => {
 	it('valid retrospective evidence parses correctly', () => {

@@ -1,17 +1,17 @@
-import { describe, test, expect, beforeEach, afterEach, vi } from 'bun:test';
+import { afterEach, beforeEach, describe, expect, test, vi } from 'bun:test';
 import * as fs from 'node:fs';
-import * as path from 'node:path';
 import * as os from 'node:os';
+import * as path from 'node:path';
 
 // Import the module under test
 import {
-	truncateOutput,
-	getCommandKind,
-	runBuildCheck,
 	build_check,
+	DEFAULT_TIMEOUT_MS,
+	getCommandKind,
 	MAX_OUTPUT_BYTES,
 	MAX_OUTPUT_LINES,
-	DEFAULT_TIMEOUT_MS,
+	runBuildCheck,
+	truncateOutput,
 } from '../../../src/tools/build-check';
 
 describe('build-check.ts - Constants and Types', () => {
@@ -520,7 +520,7 @@ describe('build-check.ts - Edge Cases', () => {
 			JSON.stringify({
 				name: 'test-project',
 				scripts: {
-					build: 'node -e "console.log(\"x\".repeat(50000))"',
+					build: 'node -e "console.log("x".repeat(50000))"',
 				},
 			}),
 		);

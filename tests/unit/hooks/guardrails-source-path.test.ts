@@ -1,4 +1,4 @@
-import { describe, it, expect } from 'bun:test';
+import { describe, expect, it } from 'bun:test';
 
 /**
  * Duplicated function for testing purposes.
@@ -77,7 +77,9 @@ describe('isSourceCodePath', () => {
 
 	// Test 11: Test files are considered source code
 	it('should return true for test files', () => {
-		expect(isSourceCodePath('tests/unit/tools/cross-platform.test.ts')).toBe(true);
+		expect(isSourceCodePath('tests/unit/tools/cross-platform.test.ts')).toBe(
+			true,
+		);
 	});
 
 	// Test 12: Windows-style path with backslashes

@@ -4,13 +4,12 @@
  * - Secretscan gate opt-out hint injection (secretscan.enabled = false)
  * Tests BOTH legacy path (scoring disabled) and scoring path (scoring enabled)
  */
-import { describe, it, expect, beforeEach, afterEach } from 'bun:test';
-import { createSystemEnhancerHook } from '../../../src/hooks/system-enhancer';
-import { resetSwarmState } from '../../../src/state';
-import { mkdtemp, writeFile, mkdir } from 'node:fs/promises';
-import { rm } from 'node:fs/promises';
+import { afterEach, beforeEach, describe, expect, it } from 'bun:test';
+import { mkdir, mkdtemp, rm, writeFile } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
+import { createSystemEnhancerHook } from '../../../src/hooks/system-enhancer';
+import { resetSwarmState } from '../../../src/state';
 
 describe('v6.2 System Enhancer Hint Injection (lint + secretscan)', () => {
 	let tempDir: string;
@@ -45,7 +44,9 @@ describe('v6.2 System Enhancer Hint Injection (lint + secretscan)', () => {
 	/**
 	 * Helper to invoke the transform hook and return the output
 	 */
-	async function invokeHook(config: Parameters<typeof createSystemEnhancerHook>[0]): Promise<string[]> {
+	async function invokeHook(
+		config: Parameters<typeof createSystemEnhancerHook>[0],
+	): Promise<string[]> {
 		const hooks = createSystemEnhancerHook(config, tempDir);
 		const transform = hooks['experimental.chat.system.transform'] as (
 			input: { sessionID?: string },

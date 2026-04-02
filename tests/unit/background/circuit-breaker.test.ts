@@ -1,8 +1,8 @@
-import { describe, test, expect, beforeEach } from 'bun:test';
+import { beforeEach, describe, expect, test } from 'bun:test';
 import {
 	CircuitBreaker,
-	type CircuitBreakerState,
 	type CircuitBreakerConfig,
+	type CircuitBreakerState,
 } from '../../../src/background/circuit-breaker';
 
 describe('CircuitBreaker', () => {
@@ -112,9 +112,9 @@ describe('CircuitBreaker', () => {
 			expect(cb.getState()).toBe('open');
 
 			// Should fail fast
-			await expect(
-				cb.execute(async () => 'should not run'),
-			).rejects.toThrow("Circuit breaker 'test' is open");
+			await expect(cb.execute(async () => 'should not run')).rejects.toThrow(
+				"Circuit breaker 'test' is open",
+			);
 		});
 
 		test('should transition from open to half-open after timeout', async () => {

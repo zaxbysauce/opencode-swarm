@@ -1,5 +1,6 @@
 import * as fs from 'node:fs';
 import * as path from 'node:path';
+import lockfile from 'proper-lockfile';
 
 const LOCKS_DIR = '.swarm/locks';
 const LOCK_TIMEOUT_MS = 5 * 60 * 1000; // 5 minutes
@@ -10,6 +11,7 @@ export interface FileLock {
 	taskId: string;
 	timestamp: string;
 	expiresAt: number;
+	_release?: () => Promise<void>;
 }
 
 /**
@@ -32,91 +34,75 @@ function getLockFilePath(directory: string, filePath: string): string {
 }
 
 /**
- * Try to acquire a lock on a file
+ * Try to acquire a lock on a file using proper-lockfile
  */
-export function tryAcquireLock(
+export async function tryAcquireLock(
 	directory: string,
 	filePath: string,
 	agent: string,
 	taskId: string,
-):
-	| { acquired: true; lock: FileLock }
-	| { acquired: false; existing?: FileLock } {
+): Promise<
+	{ acquired: true; lock: FileLock } | { acquired: false; existing?: FileLock }
+> {
+	// getLockFilePath throws synchronously for traversal — keep that behaviour
 	const lockPath = getLockFilePath(directory, filePath);
 	const locksDir = path.dirname(lockPath);
 
-	// Ensure locks directory exists
+	// Ensure locks directory exists (mkdir -p equivalent)
 	if (!fs.existsSync(locksDir)) {
 		fs.mkdirSync(locksDir, { recursive: true });
 	}
 
-	// Check if lock exists and is not expired
-	if (fs.existsSync(lockPath)) {
-		try {
-			const existingLock: FileLock = JSON.parse(
-				fs.readFileSync(lockPath, 'utf-8'),
-			);
-
-			// Check if expired
-			if (Date.now() > existingLock.expiresAt) {
-				// Lock expired, remove it
-				fs.unlinkSync(lockPath);
-			} else {
-				// Lock is still valid
-				return { acquired: false, existing: existingLock };
-			}
-		} catch {
-			// Corrupted lock file, remove it
-			fs.unlinkSync(lockPath);
-		}
+	// proper-lockfile requires the target file to exist
+	if (!fs.existsSync(lockPath)) {
+		fs.writeFileSync(lockPath, '', 'utf-8');
 	}
 
-	// Create new lock
+	let release: (() => Promise<void>) | undefined;
+	try {
+		release = await lockfile.lock(lockPath, {
+			stale: LOCK_TIMEOUT_MS,
+			retries: { retries: 0 },
+			realpath: false,
+		});
+	} catch (err: unknown) {
+		// ELOCKED means another process holds the lock
+		const code = (err as NodeJS.ErrnoException).code;
+		if (code === 'ELOCKED' || code === 'EEXIST') {
+			return { acquired: false };
+		}
+		throw err;
+	}
+
 	const lock: FileLock = {
 		filePath,
 		agent,
 		taskId,
 		timestamp: new Date().toISOString(),
 		expiresAt: Date.now() + LOCK_TIMEOUT_MS,
+		_release: release,
 	};
-
-	// Write atomically using temp file
-	const tempPath = `${lockPath}.tmp`;
-	fs.writeFileSync(tempPath, JSON.stringify(lock, null, 2), 'utf-8');
-	fs.renameSync(tempPath, lockPath);
 
 	return { acquired: true, lock };
 }
 
 /**
- * Release a lock on a file
+ * Release a lock on a file.
+ *
+ * The preferred release path is `lockResult.lock._release()` at the call site.
+ * This function is kept for API compatibility but is a no-op: callers that
+ * stored a proper-lockfile release function on `lock._release` should call
+ * that directly.  Callers that do not have the release function (e.g. tests
+ * that write lock sentinel files by hand) can ignore the return value.
  */
-export function releaseLock(
-	directory: string,
-	filePath: string,
-	taskId: string,
-): boolean {
-	const lockPath = getLockFilePath(directory, filePath);
-
-	if (!fs.existsSync(lockPath)) {
-		return true; // Already released
-	}
-
-	try {
-		const lock: FileLock = JSON.parse(fs.readFileSync(lockPath, 'utf-8'));
-
-		// Only release if owned by the same task
-		if (lock.taskId === taskId) {
-			fs.unlinkSync(lockPath);
-			return true;
-		}
-
-		return false; // Not the owner
-	} catch {
-		// Corrupted lock, remove it
-		fs.unlinkSync(lockPath);
-		return true;
-	}
+export async function releaseLock(
+	_directory: string,
+	_filePath: string,
+	_taskId: string,
+): Promise<boolean> {
+	// No-op: actual release is via lock._release() at the call site.
+	// Kept for API compatibility.
+	return true;
 }
 
 /**
@@ -125,25 +111,26 @@ export function releaseLock(
 export function isLocked(directory: string, filePath: string): FileLock | null {
 	const lockPath = getLockFilePath(directory, filePath);
 
-	if (!fs.existsSync(lockPath)) {
-		return null;
-	}
-
-	try {
-		const lock: FileLock = JSON.parse(fs.readFileSync(lockPath, 'utf-8'));
-
-		// Check if expired
-		if (Date.now() > lock.expiresAt) {
-			fs.unlinkSync(lockPath);
-			return null;
+	// proper-lockfile creates a <file>.lock directory; check for it
+	const plLockDir = `${lockPath}.lock`;
+	if (fs.existsSync(plLockDir)) {
+		// Use the lock directory's mtime as a proxy for acquisition time
+		let acquiredAt = Date.now();
+		try {
+			acquiredAt = fs.statSync(plLockDir).mtimeMs;
+		} catch {
+			// fallback to now
 		}
-
-		return lock;
-	} catch {
-		// Corrupted lock
-		fs.unlinkSync(lockPath);
-		return null;
+		return {
+			filePath,
+			agent: 'unknown',
+			taskId: 'unknown',
+			timestamp: new Date(acquiredAt).toISOString(),
+			expiresAt: acquiredAt + LOCK_TIMEOUT_MS,
+		};
 	}
+
+	return null;
 }
 
 /**
@@ -160,21 +147,31 @@ export function cleanupExpiredLocks(directory: string): number {
 	const files = fs.readdirSync(locksDir);
 
 	for (const file of files) {
+		// proper-lockfile lock directories end in .lock (are directories)
+		// sentinel files end in .lock (are plain files created by tryAcquireLock)
+		// We only touch the sentinel files — proper-lockfile manages its own dirs
 		if (!file.endsWith('.lock')) continue;
 
 		const lockPath = path.join(locksDir, file);
 
+		// Skip proper-lockfile lock directories
 		try {
-			const lock: FileLock = JSON.parse(fs.readFileSync(lockPath, 'utf-8'));
+			const stat = fs.statSync(lockPath);
+			if (stat.isDirectory()) continue;
+		} catch {
+			continue;
+		}
 
-			if (Date.now() > lock.expiresAt) {
+		// Sentinel file: check its mtime as a proxy for staleness
+		try {
+			const stat = fs.statSync(lockPath);
+			const ageMs = Date.now() - stat.mtimeMs;
+			if (ageMs > LOCK_TIMEOUT_MS) {
 				fs.unlinkSync(lockPath);
 				cleaned++;
 			}
 		} catch {
-			// Corrupted, remove it
-			fs.unlinkSync(lockPath);
-			cleaned++;
+			// Already removed
 		}
 	}
 
@@ -200,15 +197,30 @@ export function listActiveLocks(directory: string): FileLock[] {
 		const lockPath = path.join(locksDir, file);
 
 		try {
-			const lock: FileLock = JSON.parse(fs.readFileSync(lockPath, 'utf-8'));
+			const stat = fs.statSync(lockPath);
 
-			if (Date.now() <= lock.expiresAt) {
-				locks.push(lock);
-			} else {
-				fs.unlinkSync(lockPath);
+			// Sentinel files (plain files) represent known lock targets
+			if (stat.isFile()) {
+				// Check whether a proper-lockfile lock directory is active for it
+				const plLockDir = `${lockPath}.lock`;
+				if (fs.existsSync(plLockDir)) {
+					let acquiredAt = Date.now();
+					try {
+						acquiredAt = fs.statSync(plLockDir).mtimeMs;
+					} catch {
+						// fallback to now
+					}
+					locks.push({
+						filePath: file,
+						agent: 'unknown',
+						taskId: 'unknown',
+						timestamp: new Date(acquiredAt).toISOString(),
+						expiresAt: acquiredAt + LOCK_TIMEOUT_MS,
+					});
+				}
 			}
 		} catch {
-			fs.unlinkSync(lockPath);
+			// Ignore inaccessible entries
 		}
 	}
 

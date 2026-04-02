@@ -1,7 +1,7 @@
-import { describe, it, expect, afterEach, beforeEach } from 'bun:test';
-import { createDelegationGateHook } from '../../../src/hooks/delegation-gate';
-import { resetSwarmState, ensureAgentSession } from '../../../src/state';
+import { afterEach, beforeEach, describe, expect, it } from 'bun:test';
 import type { PluginConfig } from '../../../src/config';
+import { createDelegationGateHook } from '../../../src/hooks/delegation-gate';
+import { ensureAgentSession, resetSwarmState } from '../../../src/state';
 
 function makeConfig(overrides?: Record<string, unknown>): PluginConfig {
 	return {
@@ -21,12 +21,22 @@ function makeConfig(overrides?: Record<string, unknown>): PluginConfig {
 	} as PluginConfig;
 }
 
-function makeMessages(text: string, agent?: string, sessionID: string | undefined | null = 'test-session') {
+function makeMessages(
+	text: string,
+	agent?: string,
+	sessionID: string | undefined | null = 'test-session',
+) {
 	return {
-		messages: [{
-			info: { role: 'user' as const, agent, sessionID: sessionID ?? undefined },
-			parts: [{ type: 'text', text }],
-		}],
+		messages: [
+			{
+				info: {
+					role: 'user' as const,
+					agent,
+					sessionID: sessionID ?? undefined,
+				},
+				parts: [{ type: 'text', text }],
+			},
+		],
 	};
 }
 
@@ -44,7 +54,10 @@ describe('delegation-gate: declaredCoderScope extraction (Task 5.3)', () => {
 			const config = makeConfig();
 			const hook = createDelegationGateHook(config);
 
-			const messages = makeMessages('mega_coder\nTASK: 1.1\nFILE: src/foo.ts\nINPUT: do stuff', 'architect');
+			const messages = makeMessages(
+				'mega_coder\nTASK: 1.1\nFILE: src/foo.ts\nINPUT: do stuff',
+				'architect',
+			);
 			await hook.messagesTransform({}, messages);
 
 			const session = ensureAgentSession('test-session');
@@ -55,7 +68,10 @@ describe('delegation-gate: declaredCoderScope extraction (Task 5.3)', () => {
 			const config = makeConfig();
 			const hook = createDelegationGateHook(config);
 
-			const messages = makeMessages('mega_coder\nTASK: 1.1\nINPUT: do stuff', 'architect');
+			const messages = makeMessages(
+				'mega_coder\nTASK: 1.1\nINPUT: do stuff',
+				'architect',
+			);
 			await hook.messagesTransform({}, messages);
 
 			const session = ensureAgentSession('test-session');
@@ -73,7 +89,11 @@ describe('delegation-gate: declaredCoderScope extraction (Task 5.3)', () => {
 			await hook.messagesTransform({}, messages);
 
 			const session = ensureAgentSession('test-session');
-			expect(session.declaredCoderScope).toEqual(['src/auth.ts', 'src/login.ts', 'src/session.ts']);
+			expect(session.declaredCoderScope).toEqual([
+				'src/auth.ts',
+				'src/login.ts',
+				'src/session.ts',
+			]);
 		});
 
 		it('should deduplicate duplicate FILE: directives', async () => {
@@ -140,7 +160,10 @@ describe('delegation-gate: declaredCoderScope extraction (Task 5.3)', () => {
 			const config = makeConfig();
 			const hook = createDelegationGateHook(config);
 
-			const messages = makeMessages('mega_coder\nFILE: src/foo.ts\nINPUT: do stuff', 'architect');
+			const messages = makeMessages(
+				'mega_coder\nFILE: src/foo.ts\nINPUT: do stuff',
+				'architect',
+			);
 			await hook.messagesTransform({}, messages);
 
 			const session = ensureAgentSession('test-session');
@@ -153,7 +176,10 @@ describe('delegation-gate: declaredCoderScope extraction (Task 5.3)', () => {
 			const hook = createDelegationGateHook(config);
 
 			// No TASK: line at all - this is a coder delegation pattern but missing task ID
-			const messages = makeMessages('coder\nFILE: src/foo.ts\nINPUT: do stuff', 'architect');
+			const messages = makeMessages(
+				'coder\nFILE: src/foo.ts\nINPUT: do stuff',
+				'architect',
+			);
 			await hook.messagesTransform({}, messages);
 
 			const session = ensureAgentSession('test-session');
@@ -214,7 +240,10 @@ describe('delegation-gate: declaredCoderScope extraction (Task 5.3)', () => {
 			const config = makeConfig();
 			const hook = createDelegationGateHook(config);
 
-			const messages = makeMessages('mega_coder\nTASK: Task Alpha\nFILE: src/alpha.ts', 'architect');
+			const messages = makeMessages(
+				'mega_coder\nTASK: Task Alpha\nFILE: src/alpha.ts',
+				'architect',
+			);
 			await hook.messagesTransform({}, messages);
 
 			const session = ensureAgentSession('test-session');
@@ -227,7 +256,10 @@ describe('delegation-gate: declaredCoderScope extraction (Task 5.3)', () => {
 			const hook = createDelegationGateHook(config);
 
 			// Coder agent (not architect)
-			const messages = makeMessages('mega_coder\nTASK: 1.1\nFILE: src/foo.ts', 'mega_coder');
+			const messages = makeMessages(
+				'mega_coder\nTASK: 1.1\nFILE: src/foo.ts',
+				'mega_coder',
+			);
 			await hook.messagesTransform({}, messages);
 
 			const session = ensureAgentSession('test-session');
@@ -258,7 +290,10 @@ describe('delegation-gate: declaredCoderScope extraction (Task 5.3)', () => {
 			const config = makeConfig();
 			const hook = createDelegationGateHook(config);
 
-			const messages = makeMessages('local_coder\nTASK: 1.1\nFILE: src/local.ts', 'architect');
+			const messages = makeMessages(
+				'local_coder\nTASK: 1.1\nFILE: src/local.ts',
+				'architect',
+			);
 			await hook.messagesTransform({}, messages);
 
 			const session = ensureAgentSession('test-session');
@@ -269,7 +304,10 @@ describe('delegation-gate: declaredCoderScope extraction (Task 5.3)', () => {
 			const config = makeConfig();
 			const hook = createDelegationGateHook(config);
 
-			const messages = makeMessages('paid_coder\nTASK: 1.1\nFILE: src/paid.ts', 'architect');
+			const messages = makeMessages(
+				'paid_coder\nTASK: 1.1\nFILE: src/paid.ts',
+				'architect',
+			);
 			await hook.messagesTransform({}, messages);
 
 			const session = ensureAgentSession('test-session');
@@ -280,7 +318,10 @@ describe('delegation-gate: declaredCoderScope extraction (Task 5.3)', () => {
 			const config = makeConfig();
 			const hook = createDelegationGateHook(config);
 
-			const messages = makeMessages('coder\nTASK: 1.1\nFILE: src/simple.ts', 'architect');
+			const messages = makeMessages(
+				'coder\nTASK: 1.1\nFILE: src/simple.ts',
+				'architect',
+			);
 			await hook.messagesTransform({}, messages);
 
 			const session = ensureAgentSession('test-session');
@@ -291,7 +332,10 @@ describe('delegation-gate: declaredCoderScope extraction (Task 5.3)', () => {
 			const config = makeConfig();
 			const hook = createDelegationGateHook(config);
 
-			const messages = makeMessages('mega_coder\nTASK: 1.2.3\nFILE: src/nested.ts', 'architect');
+			const messages = makeMessages(
+				'mega_coder\nTASK: 1.2.3\nFILE: src/nested.ts',
+				'architect',
+			);
 			await hook.messagesTransform({}, messages);
 
 			const session = ensureAgentSession('test-session');

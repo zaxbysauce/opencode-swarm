@@ -1,11 +1,29 @@
-import { describe, it, expect, beforeEach, afterEach } from 'bun:test';
+import { afterEach, beforeEach, describe, expect, it } from 'bun:test';
 import * as fs from 'node:fs';
-import * as path from 'node:path';
 import * as os from 'node:os';
-import { readCuratorSummary, writeCuratorSummary, filterPhaseEvents, checkPhaseCompliance, runCuratorInit, runCuratorPhase, applyCuratorKnowledgeUpdates } from '../../../src/hooks/curator.js';
-import { getGlobalEventBus, resetGlobalEventBus } from '../../../src/background/event-bus.js';
-import type { CuratorSummary, CuratorConfig, KnowledgeRecommendation } from '../../../src/hooks/curator-types';
-import type { KnowledgeConfig, SwarmKnowledgeEntry } from '../../../src/hooks/knowledge-types';
+import * as path from 'node:path';
+import {
+	getGlobalEventBus,
+	resetGlobalEventBus,
+} from '../../../src/background/event-bus.js';
+import {
+	applyCuratorKnowledgeUpdates,
+	checkPhaseCompliance,
+	filterPhaseEvents,
+	readCuratorSummary,
+	runCuratorInit,
+	runCuratorPhase,
+	writeCuratorSummary,
+} from '../../../src/hooks/curator.js';
+import type {
+	CuratorConfig,
+	CuratorSummary,
+	KnowledgeRecommendation,
+} from '../../../src/hooks/curator-types';
+import type {
+	KnowledgeConfig,
+	SwarmKnowledgeEntry,
+} from '../../../src/hooks/knowledge-types';
 
 describe('curator', () => {
 	let tempDir: string;
@@ -211,7 +229,9 @@ describe('curator', () => {
 			// We need to test validateSwarmPath directly for path traversal in filename
 			// since writeCuratorSummary always uses 'curator-summary.json'
 			const { validateSwarmPath } = await import('../../../src/hooks/utils');
-			expect(() => validateSwarmPath(tempDir, '../escape/curator.json')).toThrow();
+			expect(() =>
+				validateSwarmPath(tempDir, '../escape/curator.json'),
+			).toThrow();
 		});
 	});
 
@@ -281,7 +301,12 @@ invalid json here
 				{ type: 'phase_complete', index: 2 },
 				{ type: 'retrospective.written', index: 3 },
 			];
-			const result = checkPhaseCompliance(phaseEvents, ['coder', 'reviewer'], ['coder', 'reviewer'], 1);
+			const result = checkPhaseCompliance(
+				phaseEvents,
+				['coder', 'reviewer'],
+				['coder', 'reviewer'],
+				1,
+			);
 			expect(result).toHaveLength(0);
 		});
 
@@ -300,41 +325,71 @@ invalid json here
 
 			it('returns workflow_deviation for multiple missing required agents', () => {
 				const phaseEvents: object[] = [];
-				const result = checkPhaseCompliance(phaseEvents, ['reviewer'], ['coder', 'reviewer', 'designer'], 2);
+				const result = checkPhaseCompliance(
+					phaseEvents,
+					['reviewer'],
+					['coder', 'reviewer', 'designer'],
+					2,
+				);
 				expect(result).toHaveLength(2);
-				const types = result.map(r => r.type);
+				const types = result.map((r) => r.type);
 				expect(types).toContain('workflow_deviation');
-				expect(types.filter(t => t === 'workflow_deviation')).toHaveLength(2);
+				expect(types.filter((t) => t === 'workflow_deviation')).toHaveLength(2);
 			});
 
 			it('normalizes agent names and strips prefixes', () => {
 				const phaseEvents: object[] = [];
 				// mega_coder should match required 'coder'
-				const result = checkPhaseCompliance(phaseEvents, ['mega_coder'], ['coder'], 1);
+				const result = checkPhaseCompliance(
+					phaseEvents,
+					['mega_coder'],
+					['coder'],
+					1,
+				);
 				expect(result).toHaveLength(0);
 			});
 
 			it('strips paid_ prefix', () => {
 				const phaseEvents: object[] = [];
-				const result = checkPhaseCompliance(phaseEvents, ['paid_coder'], ['coder'], 1);
+				const result = checkPhaseCompliance(
+					phaseEvents,
+					['paid_coder'],
+					['coder'],
+					1,
+				);
 				expect(result).toHaveLength(0);
 			});
 
 			it('strips local_ prefix', () => {
 				const phaseEvents: object[] = [];
-				const result = checkPhaseCompliance(phaseEvents, ['local_reviewer'], ['reviewer'], 1);
+				const result = checkPhaseCompliance(
+					phaseEvents,
+					['local_reviewer'],
+					['reviewer'],
+					1,
+				);
 				expect(result).toHaveLength(0);
 			});
 
 			it('strips lowtier_ prefix', () => {
 				const phaseEvents: object[] = [];
-				const result = checkPhaseCompliance(phaseEvents, ['lowtier_coder'], ['coder'], 1);
+				const result = checkPhaseCompliance(
+					phaseEvents,
+					['lowtier_coder'],
+					['coder'],
+					1,
+				);
 				expect(result).toHaveLength(0);
 			});
 
 			it('strips modelrelay_ prefix', () => {
 				const phaseEvents: object[] = [];
-				const result = checkPhaseCompliance(phaseEvents, ['modelrelay_designer'], ['designer'], 1);
+				const result = checkPhaseCompliance(
+					phaseEvents,
+					['modelrelay_designer'],
+					['designer'],
+					1,
+				);
 				expect(result).toHaveLength(0);
 			});
 		});
@@ -406,9 +461,7 @@ invalid json here
 
 		describe('Check 3: missing_retro - phase_complete without retrospective', () => {
 			it('returns missing_retro when phase_complete exists but no retrospective', () => {
-				const phaseEvents = [
-					{ type: 'phase_complete', index: 0 },
-				];
+				const phaseEvents = [{ type: 'phase_complete', index: 0 }];
 				const result = checkPhaseCompliance(phaseEvents, [], [], 1);
 				expect(result).toHaveLength(1);
 				expect(result[0]).toMatchObject({
@@ -458,9 +511,7 @@ invalid json here
 
 		describe('Check 4: missing_sme - domains.detected without SME delegation', () => {
 			it('returns missing_sme info when domains detected but no SME delegation', () => {
-				const phaseEvents = [
-					{ type: 'domains.detected', index: 0 },
-				];
+				const phaseEvents = [{ type: 'domains.detected', index: 0 }];
 				const result = checkPhaseCompliance(phaseEvents, [], [], 1);
 				expect(result).toHaveLength(1);
 				expect(result[0]).toMatchObject({
@@ -527,10 +578,15 @@ invalid json here
 				{ type: 'domains.detected', index: 1 },
 			];
 			// Missing reviewer, missing retro (phase_complete but no retro), missing SME
-			const result = checkPhaseCompliance(phaseEvents, [], ['coder', 'designer'], 1);
+			const result = checkPhaseCompliance(
+				phaseEvents,
+				[],
+				['coder', 'designer'],
+				1,
+			);
 			// workflow_deviation for designer (1), missing_reviewer (1), missing_sme (1) = 3
 			expect(result.length).toBeGreaterThanOrEqual(3);
-			const types = result.map(r => r.type);
+			const types = result.map((r) => r.type);
 			expect(types).toContain('workflow_deviation');
 			expect(types).toContain('missing_reviewer');
 			expect(types).toContain('missing_sme');
@@ -720,7 +776,10 @@ invalid json here
 				.map((e) => JSON.stringify(e))
 				.join('\n');
 
-			fs.writeFileSync(path.join(swarmDir, 'knowledge.jsonl'), knowledgeContent);
+			fs.writeFileSync(
+				path.join(swarmDir, 'knowledge.jsonl'),
+				knowledgeContent,
+			);
 
 			const result = await runCuratorInit(tempDir, testConfig);
 
@@ -739,14 +798,32 @@ invalid json here
 			fs.mkdirSync(swarmDir, { recursive: true });
 
 			const knowledgeContent = [
-				{ id: 'entry-1', lesson: 'Use tabs for indentation', confidence: 0.9, tags: ['coding-style'] },
-				{ id: 'entry-2', lesson: 'Never use tabs, spaces only', confidence: 0.8, tags: ['contradiction', 'coding-style'] },
-				{ id: 'entry-3', lesson: 'Comment your code', confidence: 0.9, tags: [] },
+				{
+					id: 'entry-1',
+					lesson: 'Use tabs for indentation',
+					confidence: 0.9,
+					tags: ['coding-style'],
+				},
+				{
+					id: 'entry-2',
+					lesson: 'Never use tabs, spaces only',
+					confidence: 0.8,
+					tags: ['contradiction', 'coding-style'],
+				},
+				{
+					id: 'entry-3',
+					lesson: 'Comment your code',
+					confidence: 0.9,
+					tags: [],
+				},
 			]
 				.map((e) => JSON.stringify(e))
 				.join('\n');
 
-			fs.writeFileSync(path.join(swarmDir, 'knowledge.jsonl'), knowledgeContent);
+			fs.writeFileSync(
+				path.join(swarmDir, 'knowledge.jsonl'),
+				knowledgeContent,
+			);
 
 			const result = await runCuratorInit(tempDir, testConfig);
 
@@ -759,7 +836,10 @@ invalid json here
 			const swarmDir = path.join(tempDir, '.swarm');
 			fs.mkdirSync(swarmDir, { recursive: true });
 			// Write corrupt JSONL content
-			fs.writeFileSync(path.join(swarmDir, 'knowledge.jsonl'), 'not valid json{');
+			fs.writeFileSync(
+				path.join(swarmDir, 'knowledge.jsonl'),
+				'not valid json{',
+			);
 
 			const result = await runCuratorInit(tempDir, testConfig);
 
@@ -856,7 +936,13 @@ invalid json here
 		});
 
 		it('writes curator summary to .swarm/curator-summary.json', async () => {
-			await runCuratorPhase(tempDir, 1, ['reviewer', 'test_engineer'], testConfig, {});
+			await runCuratorPhase(
+				tempDir,
+				1,
+				['reviewer', 'test_engineer'],
+				testConfig,
+				{},
+			);
 
 			const summaryPath = path.join(tempDir, '.swarm', 'curator-summary.json');
 			expect(fs.existsSync(summaryPath)).toBe(true);
@@ -885,7 +971,13 @@ invalid json here
 				}),
 			);
 
-			await runCuratorPhase(tempDir, 2, ['reviewer', 'test_engineer'], testConfig, {});
+			await runCuratorPhase(
+				tempDir,
+				2,
+				['reviewer', 'test_engineer'],
+				testConfig,
+				{},
+			);
 
 			const summaryPath = path.join(swarmDir, 'curator-summary.json');
 			const content = JSON.parse(fs.readFileSync(summaryPath, 'utf-8'));
@@ -918,7 +1010,13 @@ invalid json here
 				eventPayloads.push(e.payload);
 			});
 
-			await runCuratorPhase(tempDir, 1, ['reviewer', 'test_engineer'], testConfig, {});
+			await runCuratorPhase(
+				tempDir,
+				1,
+				['reviewer', 'test_engineer'],
+				testConfig,
+				{},
+			);
 
 			expect(eventPayloads).toHaveLength(1);
 			expect(eventPayloads[0]).toMatchObject({
@@ -993,8 +1091,18 @@ invalid json here
 						name: 'Phase 1',
 						status: 'in_progress',
 						tasks: [
-							{ id: '1.1', phase: 1, status: 'completed', description: 'Task A' },
-							{ id: '1.2', phase: 1, status: 'completed', description: 'Task B' },
+							{
+								id: '1.1',
+								phase: 1,
+								status: 'completed',
+								description: 'Task A',
+							},
+							{
+								id: '1.2',
+								phase: 1,
+								status: 'completed',
+								description: 'Task B',
+							},
 							{ id: '1.3', phase: 1, status: 'pending', description: 'Task C' },
 						],
 					},
@@ -1003,14 +1111,25 @@ invalid json here
 						name: 'Phase 2',
 						status: 'pending',
 						tasks: [
-							{ id: '2.1', phase: 2, status: 'completed', description: 'Task D' },
+							{
+								id: '2.1',
+								phase: 2,
+								status: 'completed',
+								description: 'Task D',
+							},
 						],
 					},
 				],
 			};
 			fs.writeFileSync(path.join(swarmDir, 'plan.json'), JSON.stringify(plan));
 
-			const result = await runCuratorPhase(tempDir, 1, ['reviewer', 'test_engineer'], testConfig, {});
+			const result = await runCuratorPhase(
+				tempDir,
+				1,
+				['reviewer', 'test_engineer'],
+				testConfig,
+				{},
+			);
 
 			// Phase 1 has 2 completed tasks out of 3 total
 			expect(result.digest.tasks_completed).toBe(2);
@@ -1032,18 +1151,40 @@ invalid json here
 						name: 'Phase 1',
 						status: 'in_progress',
 						tasks: [
-							{ id: '1.1', phase: 1, status: 'completed', description: 'Task A' },
-							{ id: '1.2', phase: 1, status: 'completed', description: 'Task B' },
+							{
+								id: '1.1',
+								phase: 1,
+								status: 'completed',
+								description: 'Task A',
+							},
+							{
+								id: '1.2',
+								phase: 1,
+								status: 'completed',
+								description: 'Task B',
+							},
 						],
 					},
 				],
 			};
 			fs.writeFileSync(path.join(swarmDir, 'plan.json'), JSON.stringify(plan));
 
-			const first = await runCuratorPhase(tempDir, 1, ['reviewer'], testConfig, {});
+			const first = await runCuratorPhase(
+				tempDir,
+				1,
+				['reviewer'],
+				testConfig,
+				{},
+			);
 			expect(first.summary_updated).toBe(true);
 
-			const second = await runCuratorPhase(tempDir, 1, ['reviewer'], testConfig, {});
+			const second = await runCuratorPhase(
+				tempDir,
+				1,
+				['reviewer'],
+				testConfig,
+				{},
+			);
 			expect(second.summary_updated).toBe(false);
 			expect(second.digest.tasks_completed).toBe(2);
 			expect(second.knowledge_recommendations).toEqual([]);
@@ -1072,7 +1213,12 @@ invalid json here
 						name: 'Phase 1',
 						status: 'completed',
 						tasks: [
-							{ id: '1.1', phase: 1, status: 'completed', description: 'Task A' },
+							{
+								id: '1.1',
+								phase: 1,
+								status: 'completed',
+								description: 'Task A',
+							},
 						],
 					},
 					{
@@ -1080,17 +1226,34 @@ invalid json here
 						name: 'Phase 2',
 						status: 'in_progress',
 						tasks: [
-							{ id: '2.1', phase: 2, status: 'completed', description: 'Task B' },
+							{
+								id: '2.1',
+								phase: 2,
+								status: 'completed',
+								description: 'Task B',
+							},
 						],
 					},
 				],
 			};
 			fs.writeFileSync(path.join(swarmDir, 'plan.json'), JSON.stringify(plan));
 
-			const phase1 = await runCuratorPhase(tempDir, 1, ['reviewer'], testConfig, {});
+			const phase1 = await runCuratorPhase(
+				tempDir,
+				1,
+				['reviewer'],
+				testConfig,
+				{},
+			);
 			expect(phase1.summary_updated).toBe(true);
 
-			const phase2 = await runCuratorPhase(tempDir, 2, ['reviewer'], testConfig, {});
+			const phase2 = await runCuratorPhase(
+				tempDir,
+				2,
+				['reviewer'],
+				testConfig,
+				{},
+			);
 			expect(phase2.summary_updated).toBe(true);
 		});
 
@@ -1147,15 +1310,15 @@ invalid json here
 			schema_version: 1,
 		};
 
-		function createKnowledgeFile(dir: string, entries: SwarmKnowledgeEntry[]): void {
+		function createKnowledgeFile(
+			dir: string,
+			entries: SwarmKnowledgeEntry[],
+		): void {
 			const swarmDir = path.join(dir, '.swarm');
 			fs.mkdirSync(swarmDir, { recursive: true });
 			// Write as JSONL (one JSON object per line)
 			const jsonlContent = entries.map((e) => JSON.stringify(e)).join('\n');
-			fs.writeFileSync(
-				path.join(swarmDir, 'knowledge.jsonl'),
-				jsonlContent,
-			);
+			fs.writeFileSync(path.join(swarmDir, 'knowledge.jsonl'), jsonlContent);
 		}
 
 		function readKnowledgeJsonl(dir: string): SwarmKnowledgeEntry[] {
@@ -1176,12 +1339,13 @@ invalid json here
 			const swarmDir = path.join(tempDir, '.swarm');
 			fs.mkdirSync(swarmDir, { recursive: true });
 			// Write empty JSONL
-			fs.writeFileSync(
-				path.join(swarmDir, 'knowledge.jsonl'),
-				'',
-			);
+			fs.writeFileSync(path.join(swarmDir, 'knowledge.jsonl'), '');
 
-			const result = await applyCuratorKnowledgeUpdates(tempDir, [], defaultKnowledgeConfig);
+			const result = await applyCuratorKnowledgeUpdates(
+				tempDir,
+				[],
+				defaultKnowledgeConfig,
+			);
 
 			expect(result).toEqual({ applied: 0, skipped: 0 });
 		});
@@ -1198,7 +1362,11 @@ invalid json here
 					confidence: 0.5,
 					status: 'candidate',
 					confirmed_by: [],
-					retrieval_outcomes: { applied_count: 0, succeeded_after_count: 0, failed_after_count: 0 },
+					retrieval_outcomes: {
+						applied_count: 0,
+						succeeded_after_count: 0,
+						failed_after_count: 0,
+					},
 					schema_version: 1,
 					created_at: '2026-01-01T00:00:00Z',
 					updated_at: '2026-01-01T00:00:00Z',
@@ -1209,10 +1377,19 @@ invalid json here
 			createKnowledgeFile(tempDir, entries);
 
 			const recommendations: KnowledgeRecommendation[] = [
-				{ action: 'promote', entry_id: 'E1', lesson: 'Test', reason: 'Good lesson' },
+				{
+					action: 'promote',
+					entry_id: 'E1',
+					lesson: 'Test',
+					reason: 'Good lesson',
+				},
 			];
 
-			const result = await applyCuratorKnowledgeUpdates(tempDir, recommendations, defaultKnowledgeConfig);
+			const result = await applyCuratorKnowledgeUpdates(
+				tempDir,
+				recommendations,
+				defaultKnowledgeConfig,
+			);
 
 			expect(result.applied).toBe(1);
 			expect(result.skipped).toBe(0);
@@ -1236,7 +1413,11 @@ invalid json here
 					confidence: 0.5,
 					status: 'candidate',
 					confirmed_by: [],
-					retrieval_outcomes: { applied_count: 0, succeeded_after_count: 0, failed_after_count: 0 },
+					retrieval_outcomes: {
+						applied_count: 0,
+						succeeded_after_count: 0,
+						failed_after_count: 0,
+					},
 					schema_version: 1,
 					created_at: '2026-01-01T00:00:00Z',
 					updated_at: '2026-01-01T00:00:00Z',
@@ -1247,10 +1428,19 @@ invalid json here
 			createKnowledgeFile(tempDir, entries);
 
 			const recommendations: KnowledgeRecommendation[] = [
-				{ action: 'archive', entry_id: 'E1', lesson: 'Test', reason: 'Outdated' },
+				{
+					action: 'archive',
+					entry_id: 'E1',
+					lesson: 'Test',
+					reason: 'Outdated',
+				},
 			];
 
-			const result = await applyCuratorKnowledgeUpdates(tempDir, recommendations, defaultKnowledgeConfig);
+			const result = await applyCuratorKnowledgeUpdates(
+				tempDir,
+				recommendations,
+				defaultKnowledgeConfig,
+			);
 
 			expect(result.applied).toBe(1);
 			expect(result.skipped).toBe(0);
@@ -1273,7 +1463,11 @@ invalid json here
 					confidence: 0.5,
 					status: 'candidate',
 					confirmed_by: [],
-					retrieval_outcomes: { applied_count: 0, succeeded_after_count: 0, failed_after_count: 0 },
+					retrieval_outcomes: {
+						applied_count: 0,
+						succeeded_after_count: 0,
+						failed_after_count: 0,
+					},
 					schema_version: 1,
 					created_at: '2026-01-01T00:00:00Z',
 					updated_at: '2026-01-01T00:00:00Z',
@@ -1284,17 +1478,28 @@ invalid json here
 			createKnowledgeFile(tempDir, entries);
 
 			const recommendations: KnowledgeRecommendation[] = [
-				{ action: 'flag_contradiction', entry_id: 'E1', lesson: 'Test', reason: 'Spaces are better than tabs for alignment' },
+				{
+					action: 'flag_contradiction',
+					entry_id: 'E1',
+					lesson: 'Test',
+					reason: 'Spaces are better than tabs for alignment',
+				},
 			];
 
-			const result = await applyCuratorKnowledgeUpdates(tempDir, recommendations, defaultKnowledgeConfig);
+			const result = await applyCuratorKnowledgeUpdates(
+				tempDir,
+				recommendations,
+				defaultKnowledgeConfig,
+			);
 
 			expect(result.applied).toBe(1);
 			expect(result.skipped).toBe(0);
 
 			// Verify the tag was added (reason truncated to 50 chars)
 			const updatedContent = readKnowledgeJsonl(tempDir);
-			expect(updatedContent[0].tags).toContain('contradiction:Spaces are better than tabs for alignment');
+			expect(updatedContent[0].tags).toContain(
+				'contradiction:Spaces are better than tabs for alignment',
+			);
 		});
 
 		it('skips unknown entry_id: applied=0, skipped=1', async () => {
@@ -1309,7 +1514,11 @@ invalid json here
 					confidence: 0.5,
 					status: 'candidate',
 					confirmed_by: [],
-					retrieval_outcomes: { applied_count: 0, succeeded_after_count: 0, failed_after_count: 0 },
+					retrieval_outcomes: {
+						applied_count: 0,
+						succeeded_after_count: 0,
+						failed_after_count: 0,
+					},
 					schema_version: 1,
 					created_at: '2026-01-01T00:00:00Z',
 					updated_at: '2026-01-01T00:00:00Z',
@@ -1320,10 +1529,19 @@ invalid json here
 			createKnowledgeFile(tempDir, entries);
 
 			const recommendations: KnowledgeRecommendation[] = [
-				{ action: 'promote', entry_id: 'UNKNOWN_ID', lesson: 'Test', reason: 'Unknown entry' },
+				{
+					action: 'promote',
+					entry_id: 'UNKNOWN_ID',
+					lesson: 'Test',
+					reason: 'Unknown entry',
+				},
 			];
 
-			const result = await applyCuratorKnowledgeUpdates(tempDir, recommendations, defaultKnowledgeConfig);
+			const result = await applyCuratorKnowledgeUpdates(
+				tempDir,
+				recommendations,
+				defaultKnowledgeConfig,
+			);
 
 			expect(result.applied).toBe(0);
 			expect(result.skipped).toBe(1);
@@ -1341,7 +1559,11 @@ invalid json here
 					confidence: 0.5,
 					status: 'candidate',
 					confirmed_by: [],
-					retrieval_outcomes: { applied_count: 0, succeeded_after_count: 0, failed_after_count: 0 },
+					retrieval_outcomes: {
+						applied_count: 0,
+						succeeded_after_count: 0,
+						failed_after_count: 0,
+					},
 					schema_version: 1,
 					created_at: '2026-01-01T00:00:00Z',
 					updated_at: '2026-01-01T00:00:00Z',
@@ -1358,7 +1580,11 @@ invalid json here
 					confidence: 0.6,
 					status: 'candidate',
 					confirmed_by: [],
-					retrieval_outcomes: { applied_count: 0, succeeded_after_count: 0, failed_after_count: 0 },
+					retrieval_outcomes: {
+						applied_count: 0,
+						succeeded_after_count: 0,
+						failed_after_count: 0,
+					},
 					schema_version: 1,
 					created_at: '2026-01-01T00:00:00Z',
 					updated_at: '2026-01-01T00:00:00Z',
@@ -1371,11 +1597,25 @@ invalid json here
 			const recommendations: KnowledgeRecommendation[] = [
 				{ action: 'promote', entry_id: 'E1', lesson: 'Test', reason: 'Good' },
 				{ action: 'archive', entry_id: 'E2', lesson: 'Test', reason: 'Old' },
-				{ action: 'promote', entry_id: 'UNKNOWN_1', lesson: 'Test', reason: 'Unknown' },
-				{ action: 'flag_contradiction', entry_id: 'UNKNOWN_2', lesson: 'Test', reason: 'Conflict' },
+				{
+					action: 'promote',
+					entry_id: 'UNKNOWN_1',
+					lesson: 'Test',
+					reason: 'Unknown',
+				},
+				{
+					action: 'flag_contradiction',
+					entry_id: 'UNKNOWN_2',
+					lesson: 'Test',
+					reason: 'Conflict',
+				},
 			];
 
-			const result = await applyCuratorKnowledgeUpdates(tempDir, recommendations, defaultKnowledgeConfig);
+			const result = await applyCuratorKnowledgeUpdates(
+				tempDir,
+				recommendations,
+				defaultKnowledgeConfig,
+			);
 
 			expect(result.applied + result.skipped).toBe(recommendations.length);
 			expect(result.applied).toBe(2);
@@ -1396,7 +1636,11 @@ invalid json here
 					confidence: undefined,
 					status: 'candidate',
 					confirmed_by: [],
-					retrieval_outcomes: { applied_count: 0, succeeded_after_count: 0, failed_after_count: 0 },
+					retrieval_outcomes: {
+						applied_count: 0,
+						succeeded_after_count: 0,
+						failed_after_count: 0,
+					},
 					schema_version: 1,
 					created_at: '2026-01-01T00:00:00Z',
 					updated_at: '2026-01-01T00:00:00Z',
@@ -1418,7 +1662,11 @@ invalid json here
 				{ action: 'promote', entry_id: 'E1', lesson: 'Test', reason: 'Good' },
 			];
 
-			const result = await applyCuratorKnowledgeUpdates(tempDir, recommendations, defaultKnowledgeConfig);
+			const result = await applyCuratorKnowledgeUpdates(
+				tempDir,
+				recommendations,
+				defaultKnowledgeConfig,
+			);
 
 			expect(result.applied).toBe(1);
 			expect(result.skipped).toBe(0);
@@ -1426,7 +1674,7 @@ invalid json here
 			// Verify confidence was bumped from 0 to 0.1 (not NaN)
 			const updatedContent = readKnowledgeJsonl(tempDir);
 			expect(updatedContent[0].confidence).toBe(0.1);
-			expect(isNaN(updatedContent[0].confidence as number)).toBe(false);
+			expect(Number.isNaN(updatedContent[0].confidence as number)).toBe(false);
 		});
 
 		it('handles null entry.tags (does not crash)', async () => {
@@ -1442,7 +1690,11 @@ invalid json here
 				confidence: 0.5,
 				status: 'candidate',
 				confirmed_by: [],
-				retrieval_outcomes: { applied_count: 0, succeeded_after_count: 0, failed_after_count: 0 },
+				retrieval_outcomes: {
+					applied_count: 0,
+					succeeded_after_count: 0,
+					failed_after_count: 0,
+				},
 				schema_version: 1,
 				created_at: '2026-01-01T00:00:00Z',
 				updated_at: '2026-01-01T00:00:00Z',
@@ -1455,17 +1707,28 @@ invalid json here
 			);
 
 			const recommendations: KnowledgeRecommendation[] = [
-				{ action: 'flag_contradiction', entry_id: 'E1', lesson: 'Test', reason: 'Contradiction found' },
+				{
+					action: 'flag_contradiction',
+					entry_id: 'E1',
+					lesson: 'Test',
+					reason: 'Contradiction found',
+				},
 			];
 
-			const result = await applyCuratorKnowledgeUpdates(tempDir, recommendations, defaultKnowledgeConfig);
+			const result = await applyCuratorKnowledgeUpdates(
+				tempDir,
+				recommendations,
+				defaultKnowledgeConfig,
+			);
 
 			expect(result.applied).toBe(1);
 			expect(result.skipped).toBe(0);
 
 			// Verify tags were added (as empty array was coalesced to [])
 			const updatedContent = readKnowledgeJsonl(tempDir);
-			expect(updatedContent[0].tags).toContain('contradiction:Contradiction found');
+			expect(updatedContent[0].tags).toContain(
+				'contradiction:Contradiction found',
+			);
 		});
 
 		it('duplicate recommendations for same entry: first applied, second NOT counted as skipped (both target same entry_id)', async () => {
@@ -1480,7 +1743,11 @@ invalid json here
 					confidence: 0.5,
 					status: 'candidate',
 					confirmed_by: [],
-					retrieval_outcomes: { applied_count: 0, succeeded_after_count: 0, failed_after_count: 0 },
+					retrieval_outcomes: {
+						applied_count: 0,
+						succeeded_after_count: 0,
+						failed_after_count: 0,
+					},
 					schema_version: 1,
 					created_at: '2026-01-01T00:00:00Z',
 					updated_at: '2026-01-01T00:00:00Z',
@@ -1491,11 +1758,25 @@ invalid json here
 			createKnowledgeFile(tempDir, entries);
 
 			const recommendations: KnowledgeRecommendation[] = [
-				{ action: 'promote', entry_id: 'E1', lesson: 'Test', reason: 'First rec' },
-				{ action: 'promote', entry_id: 'E1', lesson: 'Test', reason: 'Duplicate rec' },
+				{
+					action: 'promote',
+					entry_id: 'E1',
+					lesson: 'Test',
+					reason: 'First rec',
+				},
+				{
+					action: 'promote',
+					entry_id: 'E1',
+					lesson: 'Test',
+					reason: 'Duplicate rec',
+				},
 			];
 
-			const result = await applyCuratorKnowledgeUpdates(tempDir, recommendations, defaultKnowledgeConfig);
+			const result = await applyCuratorKnowledgeUpdates(
+				tempDir,
+				recommendations,
+				defaultKnowledgeConfig,
+			);
 
 			// The function tracks applied entry_ids, not individual recommendations
 			// Since both recs target the same entry_id, only 1 is "applied" (the entry was modified)
@@ -1518,7 +1799,11 @@ invalid json here
 					confidence: 0.5,
 					status: 'candidate',
 					confirmed_by: [],
-					retrieval_outcomes: { applied_count: 0, succeeded_after_count: 0, failed_after_count: 0 },
+					retrieval_outcomes: {
+						applied_count: 0,
+						succeeded_after_count: 0,
+						failed_after_count: 0,
+					},
 					schema_version: 1,
 					created_at: '2026-01-01T00:00:00Z',
 					updated_at: '2026-01-01T00:00:00Z',
@@ -1538,10 +1823,19 @@ invalid json here
 
 			// Try to apply recommendations for unknown entries (no modifications)
 			const recommendations: KnowledgeRecommendation[] = [
-				{ action: 'promote', entry_id: 'UNKNOWN_ID', lesson: 'Test', reason: 'Unknown' },
+				{
+					action: 'promote',
+					entry_id: 'UNKNOWN_ID',
+					lesson: 'Test',
+					reason: 'Unknown',
+				},
 			];
 
-			const result = await applyCuratorKnowledgeUpdates(tempDir, recommendations, defaultKnowledgeConfig);
+			const result = await applyCuratorKnowledgeUpdates(
+				tempDir,
+				recommendations,
+				defaultKnowledgeConfig,
+			);
 
 			// All should be skipped, no modifications
 			expect(result.applied).toBe(0);

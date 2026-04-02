@@ -8,14 +8,14 @@
  * 4. Disabled/no-op behavior: Worker doesn't sync when not running
  */
 
-import { describe, it, expect, beforeEach, afterEach } from 'bun:test';
-import { mkdtempSync, rmSync, mkdirSync } from 'node:fs';
+import { afterEach, beforeEach, describe, expect, it } from 'bun:test';
+import { mkdirSync, mkdtempSync, rmSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import * as path from 'node:path';
 
 import { PlanSyncWorker } from '../../src/background/plan-sync-worker';
+import { type Plan, PlanSchema } from '../../src/config/plan-schema';
 import { savePlan } from '../../src/plan/manager';
-import { Plan, PlanSchema } from '../../src/config/plan-schema';
 
 describe('PlanSyncWorker Integration', () => {
 	let tempDir: string;
@@ -181,7 +181,7 @@ describe('PlanSyncWorker Integration', () => {
 		// STRENGTHENED: Verify consolidation - fewer syncs than changes made
 		expect(syncResults.length).toBeGreaterThan(0);
 		expect(syncResults.length).toBeLessThan(5); // Must be less than number of changes
-		
+
 		// Verify final sync succeeded (consolidated to latest state)
 		expect(syncResults[syncResults.length - 1]?.success).toBe(true);
 	});
@@ -400,12 +400,12 @@ describe('PlanSyncWorker Integration', () => {
 		// With 150ms debounce and changes at ~50ms, ~100ms, ~150ms - should sync once around 200ms
 		// Allow up to 2 syncs (initial + debounced) but verify consolidation happened
 		expect(syncTimes.length).toBeGreaterThan(0);
-		
+
 		// Verify the sync happened within expected debounce window (not immediately after each change)
 		// First sync should be after the debounce period from first change
 		const firstSyncTime = syncTimes[0];
 		expect(firstSyncTime).toBeGreaterThan(100); // Not immediate - debounced
-		
+
 		// If multiple syncs occurred, they should be spaced by at least debounce interval
 		for (let i = 1; i < syncTimes.length; i++) {
 			const gap = syncTimes[i] - syncTimes[i - 1];

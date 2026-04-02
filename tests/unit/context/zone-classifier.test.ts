@@ -1,9 +1,9 @@
-import { describe, test, expect } from 'bun:test';
+import { describe, expect, test } from 'bun:test';
 import {
 	classifyFile,
 	classifyFiles,
-	getZonePolicy,
 	type FileZone,
+	getZonePolicy,
 	type ZoneClassification,
 	type ZonePolicy,
 } from '../../../src/context/zone-classifier';

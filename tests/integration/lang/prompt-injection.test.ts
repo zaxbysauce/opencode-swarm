@@ -5,7 +5,7 @@
  * helpers from src/hooks/system-enhancer.ts using real profile data (not mocks).
  */
 
-import { describe, it, expect } from 'vitest';
+import { describe, expect, it } from 'vitest';
 import { getProfileForFile } from '../../../src/lang/detector';
 import { LANGUAGE_REGISTRY } from '../../../src/lang/profiles';
 
@@ -86,57 +86,83 @@ function buildReviewerChecklistIntegration(
 describe('Language-specific prompt injection - Integration tests', () => {
 	describe('Coder constraints (real profiles)', () => {
 		it('Python file path: returns Python constraints with correct header', () => {
-			const result = buildCoderConstraintsIntegration('Update src/tools/lint.py');
+			const result = buildCoderConstraintsIntegration(
+				'Update src/tools/lint.py',
+			);
 			expect(result).not.toBeNull();
 			expect(result).toContain('[LANGUAGE-SPECIFIC CONSTRAINTS — Python]');
-			expect(result).toContain('Use type annotations on all function signatures (PEP 484)');
+			expect(result).toContain(
+				'Use type annotations on all function signatures (PEP 484)',
+			);
 		});
 
 		it('Rust file path: returns Rust constraints with correct header', () => {
 			const result = buildCoderConstraintsIntegration('Update src/main.rs');
 			expect(result).not.toBeNull();
 			expect(result).toContain('[LANGUAGE-SPECIFIC CONSTRAINTS — Rust]');
-			expect(result).toContain('Prefer owned types over references where ownership is clear');
+			expect(result).toContain(
+				'Prefer owned types over references where ownership is clear',
+			);
 		});
 
 		it('Go file path: returns Go constraints with correct header', () => {
 			const result = buildCoderConstraintsIntegration('Update src/cmd/main.go');
 			expect(result).not.toBeNull();
 			expect(result).toContain('[LANGUAGE-SPECIFIC CONSTRAINTS — Go]');
-			expect(result).toContain('Always check and return errors; never discard error return values');
+			expect(result).toContain(
+				'Always check and return errors; never discard error return values',
+			);
 		});
 
 		it('TypeScript file path: returns TypeScript constraints with correct header', () => {
-			const result = buildCoderConstraintsIntegration('Update src/tools/lint.ts');
+			const result = buildCoderConstraintsIntegration(
+				'Update src/tools/lint.ts',
+			);
 			expect(result).not.toBeNull();
-			expect(result).toContain('[LANGUAGE-SPECIFIC CONSTRAINTS — TypeScript / JavaScript]');
-			expect(result).toContain('Use strict TypeScript; no implicit any or type assertions without justification');
+			expect(result).toContain(
+				'[LANGUAGE-SPECIFIC CONSTRAINTS — TypeScript / JavaScript]',
+			);
+			expect(result).toContain(
+				'Use strict TypeScript; no implicit any or type assertions without justification',
+			);
 		});
 
 		it('Kotlin file path: returns Kotlin constraints with correct header', () => {
 			const result = buildCoderConstraintsIntegration('Update src/main.kt');
 			expect(result).not.toBeNull();
 			expect(result).toContain('[LANGUAGE-SPECIFIC CONSTRAINTS — Kotlin]');
-			expect(result).toContain('Prefer val over var; use data classes for value objects');
+			expect(result).toContain(
+				'Prefer val over var; use data classes for value objects',
+			);
 		});
 
 		it('Unknown extension (.xyz): returns null when no profile matches', () => {
-			const result = buildCoderConstraintsIntegration('Update src/tools/file.xyz');
+			const result = buildCoderConstraintsIntegration(
+				'Update src/tools/file.xyz',
+			);
 			expect(result).toBeNull();
 		});
 
 		it('Non-src path: returns null when regex does not match (no src/ prefix)', () => {
-			const result = buildCoderConstraintsIntegration('Update tests/unit/hooks/test.ts');
+			const result = buildCoderConstraintsIntegration(
+				'Update tests/unit/hooks/test.ts',
+			);
 			expect(result).toBeNull();
 		});
 
 		it('Multi-language task: merges Rust and Go constraints, uses first language (Rust) in header', () => {
-			const result = buildCoderConstraintsIntegration('Update src/main.rs and src/utils/helper.go');
+			const result = buildCoderConstraintsIntegration(
+				'Update src/main.rs and src/utils/helper.go',
+			);
 			expect(result).not.toBeNull();
 			expect(result).toContain('[LANGUAGE-SPECIFIC CONSTRAINTS — Rust]');
 			// Should include constraints from both profiles
-			expect(result).toContain('Prefer owned types over references where ownership is clear'); // Rust
-			expect(result).toContain('Always check and return errors; never discard error return values'); // Go
+			expect(result).toContain(
+				'Prefer owned types over references where ownership is clear',
+			); // Rust
+			expect(result).toContain(
+				'Always check and return errors; never discard error return values',
+			); // Go
 		});
 
 		it('Null task text: returns null', () => {
@@ -150,31 +176,47 @@ describe('Language-specific prompt injection - Integration tests', () => {
 		});
 
 		it('No file paths in task text: returns null', () => {
-			const result = buildCoderConstraintsIntegration('Please refactor the codebase');
+			const result = buildCoderConstraintsIntegration(
+				'Please refactor the codebase',
+			);
 			expect(result).toBeNull();
 		});
 	});
 
 	describe('Reviewer checklist (real profiles)', () => {
 		it('TypeScript reviewer: returns TypeScript checklist with correct header and format', () => {
-			const result = buildReviewerChecklistIntegration('Update src/hooks/system-enhancer.ts');
+			const result = buildReviewerChecklistIntegration(
+				'Update src/hooks/system-enhancer.ts',
+			);
 			expect(result).not.toBeNull();
-			expect(result).toContain('[LANGUAGE-SPECIFIC REVIEW CHECKLIST — TypeScript / JavaScript]');
-			expect(result).toContain('- [ ] Verify no implicit any or unsafe type casts');
+			expect(result).toContain(
+				'[LANGUAGE-SPECIFIC REVIEW CHECKLIST — TypeScript / JavaScript]',
+			);
+			expect(result).toContain(
+				'- [ ] Verify no implicit any or unsafe type casts',
+			);
 		});
 
 		it('Python reviewer: returns Python checklist with correct header and format', () => {
-			const result = buildReviewerChecklistIntegration('Update src/tools/analysis.py');
+			const result = buildReviewerChecklistIntegration(
+				'Update src/tools/analysis.py',
+			);
 			expect(result).not.toBeNull();
 			expect(result).toContain('[LANGUAGE-SPECIFIC REVIEW CHECKLIST — Python]');
-			expect(result).toContain('- [ ] Verify type annotations are present on all public functions');
+			expect(result).toContain(
+				'- [ ] Verify type annotations are present on all public functions',
+			);
 		});
 
 		it('Ruby reviewer: returns Ruby checklist with correct header and format', () => {
-			const result = buildReviewerChecklistIntegration('Update src/scripts/deploy.rb');
+			const result = buildReviewerChecklistIntegration(
+				'Update src/scripts/deploy.rb',
+			);
 			expect(result).not.toBeNull();
 			expect(result).toContain('[LANGUAGE-SPECIFIC REVIEW CHECKLIST — Ruby]');
-			expect(result).toContain('- [ ] Verify frozen_string_literal comment is present in new files');
+			expect(result).toContain(
+				'- [ ] Verify frozen_string_literal comment is present in new files',
+			);
 		});
 
 		it('Architect agent: helper returns non-null (gating done by caller, not helper)', () => {
@@ -185,28 +227,46 @@ describe('Language-specific prompt injection - Integration tests', () => {
 		});
 
 		it('C# reviewer: returns C# checklist with correct header and format', () => {
-			const result = buildReviewerChecklistIntegration('Update src/services/data.cs');
+			const result = buildReviewerChecklistIntegration(
+				'Update src/services/data.cs',
+			);
 			expect(result).not.toBeNull();
-			expect(result).toContain('[LANGUAGE-SPECIFIC REVIEW CHECKLIST — C# / .NET]');
-			expect(result).toContain('- [ ] Verify no .Result or .Wait() calls that could cause deadlocks');
+			expect(result).toContain(
+				'[LANGUAGE-SPECIFIC REVIEW CHECKLIST — C# / .NET]',
+			);
+			expect(result).toContain(
+				'- [ ] Verify no .Result or .Wait() calls that could cause deadlocks',
+			);
 		});
 
 		it('Java reviewer: returns Java checklist with correct header and format', () => {
-			const result = buildReviewerChecklistIntegration('Update src/main/java/App.java');
+			const result = buildReviewerChecklistIntegration(
+				'Update src/main/java/App.java',
+			);
 			expect(result).not.toBeNull();
 			expect(result).toContain('[LANGUAGE-SPECIFIC REVIEW CHECKLIST — Java]');
-			expect(result).toContain('- [ ] Check for unclosed resources — verify try-with-resources or explicit close()');
+			expect(result).toContain(
+				'- [ ] Check for unclosed resources — verify try-with-resources or explicit close()',
+			);
 		});
 
 		it('Dart reviewer: returns Dart checklist with correct header and format', () => {
-			const result = buildReviewerChecklistIntegration('Update src/lib/main.dart');
+			const result = buildReviewerChecklistIntegration(
+				'Update src/lib/main.dart',
+			);
 			expect(result).not.toBeNull();
-			expect(result).toContain('[LANGUAGE-SPECIFIC REVIEW CHECKLIST — Dart / Flutter]');
-			expect(result).toContain('- [ ] Verify null safety annotations are correct (no unnecessary ?)');
+			expect(result).toContain(
+				'[LANGUAGE-SPECIFIC REVIEW CHECKLIST — Dart / Flutter]',
+			);
+			expect(result).toContain(
+				'- [ ] Verify null safety annotations are correct (no unnecessary ?)',
+			);
 		});
 
 		it('Unknown extension (.xyz) reviewer: returns null when no profile matches', () => {
-			const result = buildReviewerChecklistIntegration('Update src/tools/file.xyz');
+			const result = buildReviewerChecklistIntegration(
+				'Update src/tools/file.xyz',
+			);
 			expect(result).toBeNull();
 		});
 
@@ -232,7 +292,8 @@ describe('Language-specific prompt injection - Integration tests', () => {
 		});
 
 		it('Language injection does not interfere with adversarial detection payload', () => {
-			const coderResult = buildCoderConstraintsIntegration('Update src/main.ts');
+			const coderResult =
+				buildCoderConstraintsIntegration('Update src/main.ts');
 
 			expect(coderResult).not.toBeNull();
 			expect(coderResult).toContain('[LANGUAGE-SPECIFIC CONSTRAINTS');
@@ -243,26 +304,36 @@ describe('Language-specific prompt injection - Integration tests', () => {
 		});
 
 		it('Multi-language reviewer task: merges checklists from both profiles', () => {
-			const result = buildReviewerChecklistIntegration('Update src/main.rs and src/utils/helper.go');
+			const result = buildReviewerChecklistIntegration(
+				'Update src/main.rs and src/utils/helper.go',
+			);
 			expect(result).not.toBeNull();
 			expect(result).toContain('[LANGUAGE-SPECIFIC REVIEW CHECKLIST — Rust]');
 			// Should include checklist items from both profiles
-			expect(result).toContain('- [ ] Verify no unwrap() or expect() calls in library/production paths'); // Rust
-			expect(result).toContain('- [ ] Verify all error return values are checked (no _ = err pattern)'); // Go
+			expect(result).toContain(
+				'- [ ] Verify no unwrap() or expect() calls in library/production paths',
+			); // Rust
+			expect(result).toContain(
+				'- [ ] Verify all error return values are checked (no _ = err pattern)',
+			); // Go
 		});
 
 		it('Swift coder: returns Swift constraints with correct header', () => {
 			const result = buildCoderConstraintsIntegration('Update src/main.swift');
 			expect(result).not.toBeNull();
 			expect(result).toContain('[LANGUAGE-SPECIFIC CONSTRAINTS — Swift]');
-			expect(result).toContain('Prefer value types (structs, enums) over classes');
+			expect(result).toContain(
+				'Prefer value types (structs, enums) over classes',
+			);
 		});
 
 		it('C++ coder: returns C++ constraints with correct header', () => {
 			const result = buildCoderConstraintsIntegration('Update src/main.cpp');
 			expect(result).not.toBeNull();
 			expect(result).toContain('[LANGUAGE-SPECIFIC CONSTRAINTS — C / C++]');
-			expect(result).toContain('Prefer RAII and smart pointers (unique_ptr, shared_ptr) over raw pointers');
+			expect(result).toContain(
+				'Prefer RAII and smart pointers (unique_ptr, shared_ptr) over raw pointers',
+			);
 		});
 	});
 
@@ -271,7 +342,9 @@ describe('Language-specific prompt injection - Integration tests', () => {
 			const profiles = LANGUAGE_REGISTRY.getAll();
 			for (const profile of profiles) {
 				expect(profile.prompts.coderConstraints.length).toBeGreaterThan(0);
-				expect(profile.prompts.coderConstraints.every((c) => typeof c === 'string')).toBe(true);
+				expect(
+					profile.prompts.coderConstraints.every((c) => typeof c === 'string'),
+				).toBe(true);
 			}
 		});
 
@@ -279,7 +352,9 @@ describe('Language-specific prompt injection - Integration tests', () => {
 			const profiles = LANGUAGE_REGISTRY.getAll();
 			for (const profile of profiles) {
 				expect(profile.prompts.reviewerChecklist.length).toBeGreaterThan(0);
-				expect(profile.prompts.reviewerChecklist.every((c) => typeof c === 'string')).toBe(true);
+				expect(
+					profile.prompts.reviewerChecklist.every((c) => typeof c === 'string'),
+				).toBe(true);
 			}
 		});
 

@@ -1,10 +1,10 @@
 import {
+	type CriticRole,
 	createCriticAgent,
 	createCriticDriftVerifierAgent,
+	PHASE_DRIFT_VERIFIER_PROMPT,
 	PLAN_CRITIC_PROMPT,
 	SOUNDING_BOARD_PROMPT,
-	PHASE_DRIFT_VERIFIER_PROMPT,
-	CriticRole,
 } from '../../../src/agents/critic';
 
 // NOTE: createCriticDriftAgent is expected to NOT exist (dead code removed)
@@ -17,12 +17,22 @@ describe('critic.ts prompt overhaul', () => {
 	// ============================================================
 	describe('createCriticAgent prompt selection by role', () => {
 		test('role=plan_critic (explicit) -> prompt is PLAN_CRITIC_PROMPT', () => {
-			const agent = createCriticAgent(TEST_MODEL, undefined, undefined, 'plan_critic');
+			const agent = createCriticAgent(
+				TEST_MODEL,
+				undefined,
+				undefined,
+				'plan_critic',
+			);
 			expect(agent.config.prompt).toBe(PLAN_CRITIC_PROMPT);
 		});
 
 		test('role=sounding_board -> prompt is SOUNDING_BOARD_PROMPT', () => {
-			const agent = createCriticAgent(TEST_MODEL, undefined, undefined, 'sounding_board');
+			const agent = createCriticAgent(
+				TEST_MODEL,
+				undefined,
+				undefined,
+				'sounding_board',
+			);
 			expect(agent.config.prompt).toBe(SOUNDING_BOARD_PROMPT);
 		});
 
@@ -47,12 +57,22 @@ describe('critic.ts prompt overhaul', () => {
 	// ============================================================
 	describe('createCriticAgent name selection by role', () => {
 		test('plan_critic -> name "critic"', () => {
-			const agent = createCriticAgent(TEST_MODEL, undefined, undefined, 'plan_critic');
+			const agent = createCriticAgent(
+				TEST_MODEL,
+				undefined,
+				undefined,
+				'plan_critic',
+			);
 			expect(agent.name).toBe('critic');
 		});
 
 		test('sounding_board -> name "critic_sounding_board"', () => {
-			const agent = createCriticAgent(TEST_MODEL, undefined, undefined, 'sounding_board');
+			const agent = createCriticAgent(
+				TEST_MODEL,
+				undefined,
+				undefined,
+				'sounding_board',
+			);
 			expect(agent.name).toBe('critic_sounding_board');
 		});
 
@@ -95,16 +115,30 @@ describe('critic.ts prompt overhaul', () => {
 	describe('createCriticAgent customAppendPrompt with role selection', () => {
 		test('customAppendPrompt appends to PLAN_CRITIC_PROMPT when role=plan_critic', () => {
 			const appendPrompt = 'Appended content';
-			const agent = createCriticAgent(TEST_MODEL, undefined, appendPrompt, 'plan_critic');
+			const agent = createCriticAgent(
+				TEST_MODEL,
+				undefined,
+				appendPrompt,
+				'plan_critic',
+			);
 
-			expect(agent.config.prompt).toBe(`${PLAN_CRITIC_PROMPT}\n\n${appendPrompt}`);
+			expect(agent.config.prompt).toBe(
+				`${PLAN_CRITIC_PROMPT}\n\n${appendPrompt}`,
+			);
 		});
 
 		test('customAppendPrompt appends to SOUNDING_BOARD_PROMPT when role=sounding_board', () => {
 			const appendPrompt = 'Appended content';
-			const agent = createCriticAgent(TEST_MODEL, undefined, appendPrompt, 'sounding_board');
+			const agent = createCriticAgent(
+				TEST_MODEL,
+				undefined,
+				appendPrompt,
+				'sounding_board',
+			);
 
-			expect(agent.config.prompt).toBe(`${SOUNDING_BOARD_PROMPT}\n\n${appendPrompt}`);
+			expect(agent.config.prompt).toBe(
+				`${SOUNDING_BOARD_PROMPT}\n\n${appendPrompt}`,
+			);
 		});
 
 		test('customAppendPrompt appends to PHASE_DRIFT_VERIFIER_PROMPT when role=phase_drift_verifier', () => {
@@ -116,7 +150,9 @@ describe('critic.ts prompt overhaul', () => {
 				'phase_drift_verifier',
 			);
 
-			expect(agent.config.prompt).toBe(`${PHASE_DRIFT_VERIFIER_PROMPT}\n\n${appendPrompt}`);
+			expect(agent.config.prompt).toBe(
+				`${PHASE_DRIFT_VERIFIER_PROMPT}\n\n${appendPrompt}`,
+			);
 		});
 
 		test('customAppendPrompt is ignored when customPrompt is provided', () => {
@@ -124,7 +160,9 @@ describe('critic.ts prompt overhaul', () => {
 			const appendPrompt = 'Appended content';
 			const agent = createCriticAgent(TEST_MODEL, customPrompt, appendPrompt);
 
-			expect(agent.config.prompt).toBe(`${customPrompt}\n\n${appendPrompt}`);
+			// customPrompt is a complete replacement — append is ignored
+			expect(agent.config.prompt).toBe(customPrompt);
+			expect(agent.config.prompt).not.toContain(appendPrompt);
 		});
 	});
 
@@ -187,7 +225,9 @@ describe('critic.ts prompt overhaul', () => {
 			// If createCriticDriftAgent still existed, TypeScript compilation would include it
 			// We verify it doesn't exist by checking that importing it throws
 			// @ts-expect-error - intentionally testing that this export does not exist
-			expect(() => import('../../src/agents/critic')).not.toHaveProperty('createCriticDriftAgent');
+			expect(() => import('../../src/agents/critic')).not.toHaveProperty(
+				'createCriticDriftAgent',
+			);
 		});
 	});
 
@@ -208,7 +248,9 @@ describe('critic.ts prompt overhaul', () => {
 		test('appends customAppendPrompt to PHASE_DRIFT_VERIFIER_PROMPT', () => {
 			const appendPrompt = 'Custom drift context';
 			const agent = createCriticDriftVerifierAgent(TEST_MODEL, appendPrompt);
-			expect(agent.config.prompt).toBe(`${PHASE_DRIFT_VERIFIER_PROMPT}\n\n${appendPrompt}`);
+			expect(agent.config.prompt).toBe(
+				`${PHASE_DRIFT_VERIFIER_PROMPT}\n\n${appendPrompt}`,
+			);
 		});
 
 		test('uses the provided model', () => {
@@ -236,7 +278,10 @@ describe('critic.ts prompt overhaul', () => {
 
 		test('no customAppendPrompt uses base prompt only', () => {
 			const agent = createCriticDriftVerifierAgent(TEST_MODEL);
-			expect(agent.config.prompt).not.toContain('\n\n');
+			// Should use the base PHASE_DRIFT_VERIFIER_PROMPT
+			expect(agent.config.prompt).toContain('PHASE VERIFICATION');
+			// Should NOT contain any appended custom content
+			expect(agent.config.prompt).not.toContain('CUSTOM APPENDED');
 		});
 	});
 
@@ -245,7 +290,12 @@ describe('critic.ts prompt overhaul', () => {
 	// ============================================================
 	describe('tools configuration verification', () => {
 		test('plan_critic role has tools with write:false, edit:false, patch:false', () => {
-			const agent = createCriticAgent(TEST_MODEL, undefined, undefined, 'plan_critic');
+			const agent = createCriticAgent(
+				TEST_MODEL,
+				undefined,
+				undefined,
+				'plan_critic',
+			);
 
 			expect(agent.config.tools.write).toBe(false);
 			expect(agent.config.tools.edit).toBe(false);
@@ -253,7 +303,12 @@ describe('critic.ts prompt overhaul', () => {
 		});
 
 		test('sounding_board role has tools with write:false, edit:false, patch:false', () => {
-			const agent = createCriticAgent(TEST_MODEL, undefined, undefined, 'sounding_board');
+			const agent = createCriticAgent(
+				TEST_MODEL,
+				undefined,
+				undefined,
+				'sounding_board',
+			);
 
 			expect(agent.config.tools.write).toBe(false);
 			expect(agent.config.tools.edit).toBe(false);
@@ -279,7 +334,11 @@ describe('critic.ts prompt overhaul', () => {
 	// ============================================================
 	describe('CriticRole type export verification', () => {
 		test('CriticRole is exported and contains all three roles', () => {
-			const roles: CriticRole[] = ['plan_critic', 'sounding_board', 'phase_drift_verifier'];
+			const roles: CriticRole[] = [
+				'plan_critic',
+				'sounding_board',
+				'phase_drift_verifier',
+			];
 
 			expect(roles).toHaveLength(3);
 			expect(roles).toContain('plan_critic');
@@ -314,14 +373,24 @@ describe('critic.ts prompt overhaul', () => {
 	// ============================================================
 	describe('agent description verification', () => {
 		test('plan_critic has appropriate description', () => {
-			const agent = createCriticAgent(TEST_MODEL, undefined, undefined, 'plan_critic');
+			const agent = createCriticAgent(
+				TEST_MODEL,
+				undefined,
+				undefined,
+				'plan_critic',
+			);
 
 			expect(agent.description).toContain('Plan critic');
 			expect(agent.description).toContain('feasibility');
 		});
 
 		test('sounding_board has appropriate description', () => {
-			const agent = createCriticAgent(TEST_MODEL, undefined, undefined, 'sounding_board');
+			const agent = createCriticAgent(
+				TEST_MODEL,
+				undefined,
+				undefined,
+				'sounding_board',
+			);
 
 			expect(agent.description).toContain('Sounding board');
 			expect(agent.description).toContain('pushback');

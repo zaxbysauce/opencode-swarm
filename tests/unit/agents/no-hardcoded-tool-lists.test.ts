@@ -8,7 +8,7 @@
  * rather than manual tool list maintenance.
  */
 
-import { describe, it, expect } from 'bun:test';
+import { describe, expect, it } from 'bun:test';
 import { readdirSync, readFileSync } from 'fs';
 import { join } from 'path';
 import { AGENT_TOOL_MAP } from '../../../src/config/constants.js';
@@ -34,7 +34,11 @@ const EXEMPT_PATTERNS = [
 /** Returns true if the line is a comment (// or block comment continuation) */
 function isCommentLine(line: string): boolean {
 	const trimmed = line.trim();
-	return trimmed.startsWith('//') || trimmed.startsWith('*') || trimmed.startsWith('/*');
+	return (
+		trimmed.startsWith('//') ||
+		trimmed.startsWith('*') ||
+		trimmed.startsWith('/*')
+	);
 }
 
 /** Count how many distinct tool names appear in a line as comma-separated tokens */

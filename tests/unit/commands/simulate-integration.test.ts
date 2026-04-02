@@ -1,7 +1,13 @@
-import { describe, it, expect, beforeEach } from 'bun:test';
+import { beforeEach, describe, expect, it } from 'bun:test';
 import type { AgentDefinition } from '../../../src/agents';
-import { createSwarmCommandHandler, handleSimulateCommand as indexSimulateExport } from '../../../src/commands/index';
-import { VALID_COMMANDS, COMMAND_REGISTRY } from '../../../src/commands/registry';
+import {
+	createSwarmCommandHandler,
+	handleSimulateCommand as indexSimulateExport,
+} from '../../../src/commands/index';
+import {
+	COMMAND_REGISTRY,
+	VALID_COMMANDS,
+} from '../../../src/commands/registry';
 import { handleSimulateCommand } from '../../../src/commands/simulate';
 
 describe('/swarm simulate command registration integration', () => {
@@ -55,7 +61,9 @@ describe('/swarm simulate command registration integration', () => {
 			// simulate is registered in COMMAND_REGISTRY with a description.
 			expect(COMMAND_REGISTRY['simulate']).toBeDefined();
 			expect(typeof COMMAND_REGISTRY['simulate'].description).toBe('string');
-			expect(COMMAND_REGISTRY['simulate'].description.length).toBeGreaterThan(0);
+			expect(COMMAND_REGISTRY['simulate'].description.length).toBeGreaterThan(
+				0,
+			);
 		});
 	});
 

@@ -2,7 +2,7 @@
  * Handles creation and retrieval of project identity files.
  */
 
-import { execSync } from 'node:child_process';
+import * as child_process from 'node:child_process';
 import { createHash } from 'node:crypto';
 import { existsSync } from 'node:fs';
 import { mkdir, readFile, rename, writeFile } from 'node:fs/promises';
@@ -49,11 +49,13 @@ function _deriveProjectHash(directory: string): string {
 
 	try {
 		// Try to get git remote URL
-		const remoteUrl = execSync('git remote get-url origin', {
-			cwd: directory,
-			encoding: 'utf-8',
-			stdio: ['pipe', 'pipe', 'ignore'],
-		}).trim();
+		const remoteUrl = child_process
+			.execSync('git remote get-url origin', {
+				cwd: directory,
+				encoding: 'utf-8',
+				stdio: ['pipe', 'pipe', 'ignore'],
+			})
+			.trim();
 		hashInput = remoteUrl.length > 0 ? remoteUrl : absolutePath;
 	} catch {
 		// No git remote, fall back to absolute path
@@ -109,11 +111,13 @@ async function getSwarmVersion(directory?: string): Promise<string> {
  */
 function getGitRemoteUrl(directory: string): string | undefined {
 	try {
-		const remoteUrl = execSync('git remote get-url origin', {
-			cwd: directory,
-			encoding: 'utf-8',
-			stdio: ['pipe', 'pipe', 'ignore'],
-		}).trim();
+		const remoteUrl = child_process
+			.execSync('git remote get-url origin', {
+				cwd: directory,
+				encoding: 'utf-8',
+				stdio: ['pipe', 'pipe', 'ignore'],
+			})
+			.trim();
 		return remoteUrl;
 	} catch {
 		return undefined;

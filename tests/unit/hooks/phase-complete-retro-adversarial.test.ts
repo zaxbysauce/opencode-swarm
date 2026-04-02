@@ -1,9 +1,9 @@
-import { describe, test, expect, beforeEach, afterEach } from 'bun:test';
+import { afterEach, beforeEach, describe, expect, test } from 'bun:test';
 import * as fs from 'node:fs';
-import * as path from 'node:path';
 import * as os from 'node:os';
+import * as path from 'node:path';
 
-import { resetSwarmState, ensureAgentSession } from '../../../src/state';
+import { ensureAgentSession, resetSwarmState } from '../../../src/state';
 import { createIsolatedTestEnv } from '../../helpers/isolated-test-env';
 
 // Import the tool after setting up environment
@@ -40,10 +40,7 @@ describe('phase_complete retrospective gate - ADVERSARIAL ATTACKS', () => {
 	});
 
 	// Helper function to write a retro bundle with custom entries
-	function writeRetroBundleWithEntries(
-		taskId: string,
-		entries: any[],
-	): void {
+	function writeRetroBundleWithEntries(taskId: string, entries: any[]): void {
 		const retroDir = path.join(tempDir, '.swarm', 'evidence', taskId);
 		fs.mkdirSync(retroDir, { recursive: true });
 
@@ -154,7 +151,10 @@ describe('phase_complete retrospective gate - ADVERSARIAL ATTACKS', () => {
 			// Infinity is not < 1, so argument validation passes
 			// But retro gate should block since retro-Infinity won't exist
 			expect(parsed.success).toBe(false);
-			expect(parsed.status === 'blocked' || parsed.message === 'Invalid phase number').toBe(true);
+			expect(
+				parsed.status === 'blocked' ||
+					parsed.message === 'Invalid phase number',
+			).toBe(true);
 		});
 
 		test('phase = -1 should be rejected at argument validation', async () => {

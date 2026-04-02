@@ -1,20 +1,16 @@
-import {
-	describe,
-	it,
-	expect,
-	beforeEach,
-	afterEach,
-	vi,
-} from 'vitest';
 import { mkdirSync, rmSync } from 'node:fs';
-import { join } from 'node:path';
 import { tmpdir } from 'node:os';
-import {
-	getTaskEvidenceData,
-	getEvidenceListData,
-} from '../../../src/services/evidence-service';
-import type { EvidenceBundle, Evidence } from '../../../src/config/evidence-schema';
+import { join } from 'node:path';
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
+import type {
+	Evidence,
+	EvidenceBundle,
+} from '../../../src/config/evidence-schema';
 import type { LoadEvidenceResult } from '../../../src/evidence/manager';
+import {
+	getEvidenceListData,
+	getTaskEvidenceData,
+} from '../../../src/services/evidence-service';
 
 // Mock the evidence manager
 vi.mock('../../../src/evidence/manager', () => ({
@@ -22,7 +18,10 @@ vi.mock('../../../src/evidence/manager', () => ({
 	listEvidenceTaskIds: vi.fn(),
 }));
 
-import { loadEvidence, listEvidenceTaskIds } from '../../../src/evidence/manager';
+import {
+	listEvidenceTaskIds,
+	loadEvidence,
+} from '../../../src/evidence/manager';
 
 // Local mock variables (vi.mocked() is not available in Bun/Vitest)
 const mockLoadEvidence = loadEvidence as ReturnType<typeof vi.fn>;
@@ -43,9 +42,7 @@ function createMockEvidenceBundle(
 	};
 }
 
-function createMockEvidence(
-	overrides: Partial<Evidence> = {},
-): Evidence {
+function createMockEvidence(overrides: Partial<Evidence> = {}): Evidence {
 	return {
 		task_id: 'test-task',
 		type: 'review',
@@ -249,9 +246,7 @@ describe('getTaskEvidenceData with discriminated union loadEvidence', () => {
 				verdict: 'fail',
 				tests_passed: 10,
 				tests_failed: 3,
-				failures: [
-					{ name: 'testAuth', message: 'Expected 200 got 401' },
-				],
+				failures: [{ name: 'testAuth', message: 'Expected 200 got 401' }],
 			});
 
 			const mockBundle = createMockEvidenceBundle({
@@ -316,10 +311,7 @@ describe('getEvidenceListData with discriminated union loadEvidence', () => {
 					status: 'found',
 					bundle: createMockEvidenceBundle({
 						task_id: '1.1',
-						entries: [
-							createMockEvidence(),
-							createMockEvidence(),
-						],
+						entries: [createMockEvidence(), createMockEvidence()],
 						updated_at: '2024-01-15T10:00:00.000Z',
 					}),
 				} as LoadEvidenceResult)
@@ -327,9 +319,7 @@ describe('getEvidenceListData with discriminated union loadEvidence', () => {
 					status: 'found',
 					bundle: createMockEvidenceBundle({
 						task_id: '1.2',
-						entries: [
-							createMockEvidence(),
-						],
+						entries: [createMockEvidence()],
 						updated_at: '2024-01-16T12:30:00.000Z',
 					}),
 				} as LoadEvidenceResult)
@@ -400,10 +390,7 @@ describe('getEvidenceListData with discriminated union loadEvidence', () => {
 
 	describe('when loadEvidence returns "invalid_schema" status', () => {
 		it('should fallback to entryCount: 0 and lastUpdated: "unknown"', async () => {
-			mockListEvidenceTaskIds.mockResolvedValue([
-				'valid-task',
-				'invalid-task',
-			]);
+			mockListEvidenceTaskIds.mockResolvedValue(['valid-task', 'invalid-task']);
 
 			mockLoadEvidence
 				.mockResolvedValueOnce({
@@ -438,11 +425,7 @@ describe('getEvidenceListData with discriminated union loadEvidence', () => {
 
 	describe('mixed status scenarios', () => {
 		it('should handle mix of found, not_found, and invalid_schema', async () => {
-			mockListEvidenceTaskIds.mockResolvedValue([
-				'task-1',
-				'task-2',
-				'task-3',
-			]);
+			mockListEvidenceTaskIds.mockResolvedValue(['task-1', 'task-2', 'task-3']);
 
 			mockLoadEvidence
 				.mockResolvedValueOnce({
