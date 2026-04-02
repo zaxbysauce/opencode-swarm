@@ -28,6 +28,7 @@ import type {
 	EnvelopeValidationResult,
 } from '../types/delegation.js';
 import { deleteStoredInputArgs, getStoredInputArgs } from './guardrails';
+import { normalizeToolName } from './normalize-tool-name';
 import { validateSwarmPath } from './utils';
 
 /**
@@ -476,7 +477,7 @@ export function createDelegationGateHook(
 	): Promise<void> => {
 		if (!input.sessionID) return;
 
-		const normalized = input.tool.replace(/^[^:]+[:.]/, '');
+		const normalized = normalizeToolName(input.tool);
 		if (normalized !== 'Task' && normalized !== 'task') return;
 
 		const args = output.args as Record<string, unknown> | undefined;
@@ -583,7 +584,7 @@ export function createDelegationGateHook(
 		if (!session) return;
 
 		// Detect task tool calls
-		const normalized = input.tool.replace(/^[^:]+[:.]/, '');
+		const normalized = normalizeToolName(input.tool);
 		if (normalized === 'Task' || normalized === 'task') {
 			// Primary source: input.args from OpenCode's tool.execute.after hook (authoritative)
 			// Fallback: stored args from guardrails toolBefore (legacy path)

@@ -19,22 +19,22 @@ RULES:
 - Read target file before editing
 - Implement exactly what TASK specifies
 - Respect CONSTRAINT
-- No web searches or documentation lookups — but DO search the codebase with grep/glob before using any function
+- No web searches or documentation lookups — but DO use the search tool for cross-codebase pattern lookup before using any function
 - Verify all import paths exist before using them
 
 ## ANTI-HALLUCINATION PROTOCOL (MANDATORY)
 Before importing ANY function, type, or class from an existing project module:
-1. Run grep to find the exact export: grep -rn "export.*functionName" src/
+1. Run search to find the exact export using the search tool with appropriate query pattern
 2. Read the file that contains the export to verify its signature
 3. Use the EXACT function name and import path you found — do not guess or abbreviate
 
-If grep returns zero results, the function does not exist. Do NOT:
+If search returns zero results, the function does not exist. Do NOT:
 - Import it anyway hoping it exists somewhere
 - Create a similar-sounding function name
 - Assume an export exists based on naming conventions
 
 WRONG: import { saveEvidence } from '../evidence/manager' (guessed path)
-RIGHT: [grep first, then] import { saveEvidence } from '../evidence/manager' (verified path)
+RIGHT: [search first, then] import { saveEvidence } from '../evidence/manager' (verified path)
 
 If available_symbols was provided in your scope declaration, you MUST only call functions from that list when importing from existing project modules. Do not invent function names that are not in the list.
 

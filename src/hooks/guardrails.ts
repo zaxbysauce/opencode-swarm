@@ -36,6 +36,7 @@ import { log, warn } from '../utils';
 import { extractCurrentPhaseFromPlan } from './extractors';
 import { detectLoop } from './loop-detector';
 import { extractModelInfo } from './model-limits';
+import { normalizeToolName } from './normalize-tool-name';
 
 /**
  * v6.12: Module-level storage for tool input args by callID.
@@ -100,7 +101,7 @@ function extractPhaseNumber(phaseString: string | null): number {
  */
 function isWriteTool(toolName: string): boolean {
 	// Strip namespace prefix (e.g., "opencode:write" -> "write")
-	const normalized = toolName.replace(/^[^:]+[:.]/, '');
+	const normalized = normalizeToolName(toolName);
 	return (WRITE_TOOL_NAMES as readonly string[]).includes(normalized);
 }
 
@@ -189,7 +190,7 @@ function hasTraversalSegments(filePath: string): boolean {
  * v6.12: Detects if a tool is a Stage A automated gate tool
  */
 function isGateTool(toolName: string): boolean {
-	const normalized = toolName.replace(/^[^:]+[:.]/, '');
+	const normalized = normalizeToolName(toolName);
 	const gateTools = [
 		'diff',
 		'syntax_check',
@@ -212,7 +213,7 @@ function isAgentDelegation(
 	toolName: string,
 	args: unknown,
 ): { isDelegation: boolean; targetAgent: string | null } {
-	const normalized = toolName.replace(/^[^:]+[:.]/, '');
+	const normalized = normalizeToolName(toolName);
 	if (normalized !== 'Task' && normalized !== 'task') {
 		return { isDelegation: false, targetAgent: null };
 	}
@@ -1139,7 +1140,7 @@ export function createGuardrailsHooks(
 			// v6.33.1: No-op work detector — warn when agent makes many tool calls
 			// with no file modifications (stuck in analysis/planning loop)
 			const sessionId = input.sessionID;
-			const normalizedToolName = input.tool.replace(/^[^:]+[:.]/, '');
+			const normalizedToolName = normalizeToolName(input.tool);
 			if (isWriteTool(normalizedToolName)) {
 				toolCallsSinceLastWrite.set(sessionId, 0);
 				noOpWarningIssued.delete(sessionId);
