@@ -24,6 +24,7 @@
  * 3. Tools execute successfully with provided contexts
  */
 
+import * as os from 'node:os';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 
 // ===== MOCK HELPER FUNCTIONS =====
@@ -389,7 +390,9 @@ describe('Batch tool migration: createSwarmTool integration verification', () =>
 		it('executes successfully with provided directory context', async () => {
 			const result = await extract_code_blocks.execute(
 				{ content: '```js\ntest code\n```' },
-				{ directory: '/test/file-extractor' } as unknown as any,
+				// Use os.tmpdir() so the test works in CI environments where
+				// /test does not exist and cannot be created.
+				{ directory: os.tmpdir() } as unknown as any,
 			);
 
 			// file-extractor actually writes files, so check for success message

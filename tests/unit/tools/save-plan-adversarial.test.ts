@@ -841,7 +841,10 @@ describe('save-plan adversarial tests', () => {
 						tasks: [{ id: '1.1', description: 'Valid description' }],
 					},
 				],
-				working_directory: '/home/user/projects/myworkspace',
+				// Use tempDir (an actual existing directory) so the plan can be
+				// written in CI environments where /home/user/projects/myworkspace
+				// does not exist.
+				working_directory: tempDir,
 			};
 			const result = await executeSavePlan(args);
 			// Valid workspace path should succeed
