@@ -43,7 +43,21 @@ describe('LANGUAGE_WASM_MAP - Kotlin, Swift, Dart entries', () => {
 		test('should include existing languages as well', () => {
 			const supported = getSupportedLanguages();
 			// Verify key pre-existing languages are still present
-			for (const lang of ['javascript', 'typescript', 'python', 'go', 'rust', 'cpp', 'c', 'csharp', 'css', 'bash', 'ruby', 'php', 'java']) {
+			for (const lang of [
+				'javascript',
+				'typescript',
+				'python',
+				'go',
+				'rust',
+				'cpp',
+				'c',
+				'csharp',
+				'css',
+				'bash',
+				'ruby',
+				'php',
+				'java',
+			]) {
 				expect(supported).toContain(lang);
 			}
 		});

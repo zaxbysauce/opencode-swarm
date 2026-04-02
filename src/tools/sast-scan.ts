@@ -249,7 +249,10 @@ export async function sastScan(
 
 		// Security: reject paths that escape the working directory via traversal
 		const resolvedDirectory = path.resolve(directory);
-		if (!resolvedPath.startsWith(resolvedDirectory + path.sep) && resolvedPath !== resolvedDirectory) {
+		if (
+			!resolvedPath.startsWith(resolvedDirectory + path.sep) &&
+			resolvedPath !== resolvedDirectory
+		) {
 			_filesSkipped++;
 			continue;
 		}

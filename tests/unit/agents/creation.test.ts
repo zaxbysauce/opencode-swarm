@@ -458,7 +458,9 @@ describe('Agent Creation Functions', () => {
 					// Some agents start with ## PRESSURE IMMUNITY before ## IDENTITY
 					// The behavioral invariant is that ## IDENTITY is present
 					const startsWithIdentity = prompt.startsWith('## IDENTITY');
-					const startsWithPressureImmunity = prompt.startsWith('## PRESSURE IMMUNITY');
+					const startsWithPressureImmunity = prompt.startsWith(
+						'## PRESSURE IMMUNITY',
+					);
 					expect(startsWithIdentity || startsWithPressureImmunity).toBe(true);
 					// IDENTITY section must still be present
 					expect(prompt).toContain('## IDENTITY');

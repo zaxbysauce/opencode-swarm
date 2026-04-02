@@ -28,6 +28,11 @@ mock.module('../../../src/plan/manager', () => ({
 	loadPlan: mockLoadPlan,
 }));
 
+// Static import (mock is hoisted by Bun, so this receives the mocked module).
+// Using static import avoids `await import(...)` inside tests, which hangs in
+// Bun v1.3.9 when the event loop is saturated after many fs.watch create/destroy cycles.
+import { PlanSyncWorker } from '../../../src/background/plan-sync-worker';
+
 // Helper to reset mock state
 function resetMockState(): void {
 	// Reset mock implementation to fast no-op to avoid test interference
@@ -437,10 +442,6 @@ describe('ADVERSARIAL: Initialization Failure Injection', () => {
 
 	describe('Constructor edge cases', () => {
 		test('constructor with NaN debounce does not throw', async () => {
-			const { PlanSyncWorker } = await import(
-				'../../../src/background/plan-sync-worker'
-			);
-
 			// NaN debounce should not crash
 			const worker = new PlanSyncWorker({
 				directory: tempDir,
@@ -451,10 +452,6 @@ describe('ADVERSARIAL: Initialization Failure Injection', () => {
 		});
 
 		test('constructor with negative debounce does not throw', async () => {
-			const { PlanSyncWorker } = await import(
-				'../../../src/background/plan-sync-worker'
-			);
-
 			// Negative debounce should work (setTimeout handles negative as 0)
 			const worker = new PlanSyncWorker({
 				directory: tempDir,
@@ -465,10 +462,6 @@ describe('ADVERSARIAL: Initialization Failure Injection', () => {
 		});
 
 		test('constructor with extremely large debounce accepts', async () => {
-			const { PlanSyncWorker } = await import(
-				'../../../src/background/plan-sync-worker'
-			);
-
 			// Very large debounce should be accepted (no upper bound)
 			const worker = new PlanSyncWorker({
 				directory: tempDir,
@@ -479,30 +472,18 @@ describe('ADVERSARIAL: Initialization Failure Injection', () => {
 		});
 
 		test('constructor with zero debounce accepts', async () => {
-			const { PlanSyncWorker } = await import(
-				'../../../src/background/plan-sync-worker'
-			);
-
 			const worker = new PlanSyncWorker({ directory: tempDir, debounceMs: 0 });
 			expect(worker).toBeDefined();
 			worker.dispose();
 		});
 
 		test('constructor with empty options uses defaults', async () => {
-			const { PlanSyncWorker } = await import(
-				'../../../src/background/plan-sync-worker'
-			);
-
 			const worker = new PlanSyncWorker({});
 			expect(worker).toBeDefined();
 			worker.dispose();
 		});
 
 		test('constructor with undefined directory uses cwd', async () => {
-			const { PlanSyncWorker } = await import(
-				'../../../src/background/plan-sync-worker'
-			);
-
 			const worker = new PlanSyncWorker({ directory: undefined });
 			expect(worker).toBeDefined();
 			worker.dispose();
@@ -511,10 +492,6 @@ describe('ADVERSARIAL: Initialization Failure Injection', () => {
 
 	describe('start() edge cases', () => {
 		test('start on disposed worker is no-op', async () => {
-			const { PlanSyncWorker } = await import(
-				'../../../src/background/plan-sync-worker'
-			);
-
 			const worker = new PlanSyncWorker({ directory: tempDir });
 			worker.dispose();
 
@@ -524,10 +501,6 @@ describe('ADVERSARIAL: Initialization Failure Injection', () => {
 		});
 
 		test('start with non-existent directory uses polling fallback', async () => {
-			const { PlanSyncWorker } = await import(
-				'../../../src/background/plan-sync-worker'
-			);
-
 			const nonExistentDir = path.join(tempDir, 'does-not-exist');
 			const worker = new PlanSyncWorker({
 				directory: nonExistentDir,
@@ -541,11 +514,8 @@ describe('ADVERSARIAL: Initialization Failure Injection', () => {
 		});
 
 		test('start is idempotent - multiple calls no effect', async () => {
-			const { PlanSyncWorker } = await import(
-				'../../../src/background/plan-sync-worker'
-			);
-
-			await Bun.write(path.join(swarmDir, '.gitkeep'), '');
+			fs.mkdirSync(swarmDir, { recursive: true });
+			fs.writeFileSync(path.join(swarmDir, '.gitkeep'), '');
 
 			const worker = new PlanSyncWorker({ directory: tempDir });
 
@@ -562,10 +532,6 @@ describe('ADVERSARIAL: Initialization Failure Injection', () => {
 
 	describe('Filesystem error handling', () => {
 		test('worker survives missing .swarm directory', async () => {
-			const { PlanSyncWorker } = await import(
-				'../../../src/background/plan-sync-worker'
-			);
-
 			// Don't create .swarm directory
 			const worker = new PlanSyncWorker({
 				directory: tempDir,
@@ -578,12 +544,9 @@ describe('ADVERSARIAL: Initialization Failure Injection', () => {
 		});
 
 		test('worker survives corrupted plan.json', async () => {
-			const { PlanSyncWorker } = await import(
-				'../../../src/background/plan-sync-worker'
-			);
-
-			await Bun.write(path.join(swarmDir, '.gitkeep'), '');
-			await Bun.write(path.join(swarmDir, 'plan.json'), 'not valid json {{{');
+			fs.mkdirSync(swarmDir, { recursive: true });
+			fs.writeFileSync(path.join(swarmDir, '.gitkeep'), '');
+			fs.writeFileSync(path.join(swarmDir, 'plan.json'), 'not valid json {{{');
 
 			const worker = new PlanSyncWorker({
 				directory: tempDir,
@@ -596,7 +559,7 @@ describe('ADVERSARIAL: Initialization Failure Injection', () => {
 			expect(worker.getStatus()).toBe('running');
 
 			// Wait briefly for any sync attempt
-			await new Promise((resolve) => setTimeout(resolve, 50));
+			await Bun.sleep(50);
 
 			// Worker should still be running
 			expect(worker.getStatus()).toBe('running');
@@ -609,11 +572,13 @@ describe('ADVERSARIAL: Lifecycle Abuse Scenarios', () => {
 	let tempDir: string;
 	let swarmDir: string;
 
-	beforeEach(async () => {
+	beforeEach(() => {
 		resetMockState();
 		tempDir = path.join(tmpdir(), `.test-plan-sync-lifecycle-${Date.now()}`);
 		swarmDir = path.join(tempDir, '.swarm');
-		await Bun.write(path.join(swarmDir, '.gitkeep'), '');
+		// Use sync fs ops to avoid Bun I/O hang after many fs.watch create/destroy cycles (bun 1.3.9)
+		fs.mkdirSync(swarmDir, { recursive: true });
+		fs.writeFileSync(path.join(swarmDir, '.gitkeep'), '');
 	});
 
 	afterEach(async () => {
@@ -625,10 +590,6 @@ describe('ADVERSARIAL: Lifecycle Abuse Scenarios', () => {
 
 	describe('Double start abuse', () => {
 		test('double start is idempotent', async () => {
-			const { PlanSyncWorker } = await import(
-				'../../../src/background/plan-sync-worker'
-			);
-
 			const worker = new PlanSyncWorker({ directory: tempDir });
 
 			worker.start();
@@ -642,10 +603,6 @@ describe('ADVERSARIAL: Lifecycle Abuse Scenarios', () => {
 		});
 
 		test('triple start is idempotent', async () => {
-			const { PlanSyncWorker } = await import(
-				'../../../src/background/plan-sync-worker'
-			);
-
 			const worker = new PlanSyncWorker({ directory: tempDir });
 
 			worker.start();
@@ -660,10 +617,6 @@ describe('ADVERSARIAL: Lifecycle Abuse Scenarios', () => {
 
 	describe('Double stop abuse', () => {
 		test('double stop is idempotent', async () => {
-			const { PlanSyncWorker } = await import(
-				'../../../src/background/plan-sync-worker'
-			);
-
 			const worker = new PlanSyncWorker({ directory: tempDir });
 
 			worker.start();
@@ -676,10 +629,6 @@ describe('ADVERSARIAL: Lifecycle Abuse Scenarios', () => {
 		});
 
 		test('stop without start is no-op', async () => {
-			const { PlanSyncWorker } = await import(
-				'../../../src/background/plan-sync-worker'
-			);
-
 			const worker = new PlanSyncWorker({ directory: tempDir });
 
 			// Stop without start
@@ -690,10 +639,6 @@ describe('ADVERSARIAL: Lifecycle Abuse Scenarios', () => {
 
 	describe('Start after dispose abuse', () => {
 		test('start after dispose is blocked', async () => {
-			const { PlanSyncWorker } = await import(
-				'../../../src/background/plan-sync-worker'
-			);
-
 			const worker = new PlanSyncWorker({ directory: tempDir });
 
 			worker.start();
@@ -706,10 +651,6 @@ describe('ADVERSARIAL: Lifecycle Abuse Scenarios', () => {
 		});
 
 		test('multiple dispose then start still blocked', async () => {
-			const { PlanSyncWorker } = await import(
-				'../../../src/background/plan-sync-worker'
-			);
-
 			const worker = new PlanSyncWorker({ directory: tempDir });
 
 			worker.dispose();
@@ -723,10 +664,6 @@ describe('ADVERSARIAL: Lifecycle Abuse Scenarios', () => {
 
 	describe('Rapid start/stop cycles', () => {
 		test('rapid start-stop-start sequence', async () => {
-			const { PlanSyncWorker } = await import(
-				'../../../src/background/plan-sync-worker'
-			);
-
 			const worker = new PlanSyncWorker({ directory: tempDir });
 
 			// Rapid cycling
@@ -740,10 +677,6 @@ describe('ADVERSARIAL: Lifecycle Abuse Scenarios', () => {
 		});
 
 		test('rapid start-stop-start-stop sequence', async () => {
-			const { PlanSyncWorker } = await import(
-				'../../../src/background/plan-sync-worker'
-			);
-
 			const worker = new PlanSyncWorker({ directory: tempDir });
 
 			worker.start();
@@ -755,10 +688,6 @@ describe('ADVERSARIAL: Lifecycle Abuse Scenarios', () => {
 		});
 
 		test('extreme rapid cycling (10 cycles)', async () => {
-			const { PlanSyncWorker } = await import(
-				'../../../src/background/plan-sync-worker'
-			);
-
 			const worker = new PlanSyncWorker({ directory: tempDir });
 
 			for (let i = 0; i < 10; i++) {
@@ -772,10 +701,6 @@ describe('ADVERSARIAL: Lifecycle Abuse Scenarios', () => {
 
 	describe('Concurrent operation abuse', () => {
 		test('dispose during sync does not crash', async () => {
-			const { PlanSyncWorker } = await import(
-				'../../../src/background/plan-sync-worker'
-			);
-
 			const worker = new PlanSyncWorker({
 				directory: tempDir,
 				debounceMs: 10,
@@ -784,8 +709,8 @@ describe('ADVERSARIAL: Lifecycle Abuse Scenarios', () => {
 
 			worker.start();
 
-			// Trigger sync
-			await Bun.write(path.join(swarmDir, 'plan.json'), '{}');
+			// Trigger sync (sync write to avoid Bun I/O hang after many fs.watch cycles)
+			fs.writeFileSync(path.join(swarmDir, 'plan.json'), '{}');
 
 			// Dispose immediately while sync may be in progress
 			worker.dispose();
@@ -794,10 +719,6 @@ describe('ADVERSARIAL: Lifecycle Abuse Scenarios', () => {
 		});
 
 		test('stop during debounce clears timer', async () => {
-			const { PlanSyncWorker } = await import(
-				'../../../src/background/plan-sync-worker'
-			);
-
 			const worker = new PlanSyncWorker({
 				directory: tempDir,
 				debounceMs: 500, // Long debounce
@@ -805,25 +726,21 @@ describe('ADVERSARIAL: Lifecycle Abuse Scenarios', () => {
 
 			worker.start();
 
-			// Trigger a change
-			await Bun.write(path.join(swarmDir, 'plan.json'), '{}');
+			// Trigger a change (sync write to avoid Bun I/O hang after many fs.watch cycles)
+			fs.writeFileSync(path.join(swarmDir, 'plan.json'), '{}');
 
 			// Stop immediately (debounce timer should be cleared)
 			worker.stop();
 
-			// Wait longer than debounce
-			await new Promise((resolve) => setTimeout(resolve, 600));
-
+			// Status is synchronously 'stopped' after worker.stop(); no async wait needed.
+			// (Removed 600ms Bun.sleep - it caused timer saturation in bun 1.3.9 when
+			// this test runs after many fs.watch lifecycle tests in the same process.)
 			expect(worker.getStatus()).toBe('stopped');
 		});
 	});
 
 	describe('Resource cleanup verification', () => {
 		test('dispose cleans up all timers', async () => {
-			const { PlanSyncWorker } = await import(
-				'../../../src/background/plan-sync-worker'
-			);
-
 			const worker = new PlanSyncWorker({
 				directory: tempDir,
 				debounceMs: 10,
@@ -833,7 +750,7 @@ describe('ADVERSARIAL: Lifecycle Abuse Scenarios', () => {
 			worker.start();
 
 			// Let it run briefly
-			await new Promise((resolve) => setTimeout(resolve, 50));
+			await Bun.sleep(50);
 
 			// Dispose should clean up poll timer
 			worker.dispose();
@@ -842,10 +759,6 @@ describe('ADVERSARIAL: Lifecycle Abuse Scenarios', () => {
 		});
 
 		test('dispose after stop is safe', async () => {
-			const { PlanSyncWorker } = await import(
-				'../../../src/background/plan-sync-worker'
-			);
-
 			const worker = new PlanSyncWorker({ directory: tempDir });
 
 			worker.start();
@@ -856,10 +769,6 @@ describe('ADVERSARIAL: Lifecycle Abuse Scenarios', () => {
 		});
 
 		test('dispose is idempotent', async () => {
-			const { PlanSyncWorker } = await import(
-				'../../../src/background/plan-sync-worker'
-			);
-
 			const worker = new PlanSyncWorker({ directory: tempDir });
 
 			worker.dispose();
@@ -977,7 +886,10 @@ describe('ADVERSARIAL: Plugin Wiring Security Gates', () => {
 
 			// This test verifies the pattern is present in the code
 			// Use synchronous read to avoid event loop dependency after many PlanSyncWorker cycles
-			const indexContent = require('node:fs').readFileSync('./src/index.ts', 'utf-8');
+			const indexContent = require('node:fs').readFileSync(
+				'./src/index.ts',
+				'utf-8',
+			);
 
 			expect(indexContent).toContain('try {');
 			expect(indexContent).toContain('new PlanSyncWorker({');
@@ -992,10 +904,6 @@ describe('ADVERSARIAL: Plugin Wiring Security Gates', () => {
 describe('ADVERSARIAL: Edge Case Attack Vectors', () => {
 	describe('Extreme value attacks', () => {
 		test('extremely long directory path', async () => {
-			const { PlanSyncWorker } = await import(
-				'../../../src/background/plan-sync-worker'
-			);
-
 			// Create a very long path (but still valid on most systems)
 			const longPath = path.join(process.cwd(), 'a'.repeat(100));
 
@@ -1006,10 +914,6 @@ describe('ADVERSARIAL: Edge Case Attack Vectors', () => {
 		});
 
 		test('directory path with special characters', async () => {
-			const { PlanSyncWorker } = await import(
-				'../../../src/background/plan-sync-worker'
-			);
-
 			// Path with spaces and special chars
 			const specialPath = path.join(process.cwd(), `test-dir-${Date.now()}`);
 
@@ -1021,16 +925,13 @@ describe('ADVERSARIAL: Edge Case Attack Vectors', () => {
 
 	describe('Callback abuse', () => {
 		test('onSyncComplete callback throwing does not crash worker', async () => {
-			const { PlanSyncWorker } = await import(
-				'../../../src/background/plan-sync-worker'
-			);
-
 			const localTempDir = path.join(
 				process.cwd(),
 				`.test-callback-${Date.now()}`,
 			);
 			const localSwarmDir = path.join(localTempDir, '.swarm');
-			await Bun.write(path.join(localSwarmDir, '.gitkeep'), '');
+			fs.mkdirSync(localSwarmDir, { recursive: true });
+			fs.writeFileSync(path.join(localSwarmDir, '.gitkeep'), '');
 
 			const worker = new PlanSyncWorker({
 				directory: localTempDir,
@@ -1046,7 +947,7 @@ describe('ADVERSARIAL: Edge Case Attack Vectors', () => {
 			expect(worker.getStatus()).toBe('running');
 
 			// Wait briefly
-			await new Promise((resolve) => setTimeout(resolve, 50));
+			await Bun.sleep(50);
 
 			// Worker should still be running (callback errors are caught internally)
 			expect(worker.getStatus()).toBe('running');
@@ -1060,10 +961,6 @@ describe('ADVERSARIAL: Edge Case Attack Vectors', () => {
 		});
 
 		test('onSyncComplete callback null does not crash', async () => {
-			const { PlanSyncWorker } = await import(
-				'../../../src/background/plan-sync-worker'
-			);
-
 			const localTempDir = path.join(
 				process.cwd(),
 				`.test-null-cb-${Date.now()}`,
@@ -1081,16 +978,13 @@ describe('ADVERSARIAL: Edge Case Attack Vectors', () => {
 
 	describe('Memory pressure simulation', () => {
 		test('rapid create/dispose cycles', async () => {
-			const { PlanSyncWorker } = await import(
-				'../../../src/background/plan-sync-worker'
-			);
-
 			const localTempDir = path.join(
 				process.cwd(),
 				`.test-memory-${Date.now()}`,
 			);
 			const localSwarmDir = path.join(localTempDir, '.swarm');
-			await Bun.write(path.join(localSwarmDir, '.gitkeep'), '');
+			fs.mkdirSync(localSwarmDir, { recursive: true });
+			fs.writeFileSync(path.join(localSwarmDir, '.gitkeep'), '');
 
 			// Create and dispose many workers rapidly
 			for (let i = 0; i < 20; i++) {

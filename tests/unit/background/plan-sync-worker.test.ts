@@ -33,10 +33,7 @@ describe('PlanSyncWorker', () => {
 	// Helper to create temp directory structure
 	// Uses synchronous fs operations to avoid event loop dependency
 	// (Bun.write hangs after rapid fs.watch create/destroy cycles in bun 1.3.9)
-	function setupTempDir(
-		withSwarm = true,
-		withPlanJson = false,
-	): void {
+	function setupTempDir(withSwarm = true, withPlanJson = false): void {
 		tempDir = path.join(
 			tmpdir(),
 			`.test-plan-sync-${Date.now()}-${Math.random().toString(36).slice(2)}`,
@@ -127,7 +124,11 @@ describe('PlanSyncWorker', () => {
 	describe('lifecycle: start and stop', () => {
 		test('should transition from stopped to running on start', async () => {
 			setupTempDir(true, true);
-			worker = new PlanSyncWorker({ directory: tempDir, pollIntervalMs: 100, syncTimeoutMs: 500 });
+			worker = new PlanSyncWorker({
+				directory: tempDir,
+				pollIntervalMs: 100,
+				syncTimeoutMs: 500,
+			});
 
 			expect(worker.getStatus()).toBe('stopped');
 			expect(worker.isRunning()).toBe(false);
@@ -140,7 +141,11 @@ describe('PlanSyncWorker', () => {
 
 		test('should transition from running to stopped on stop', async () => {
 			setupTempDir(true, true);
-			worker = new PlanSyncWorker({ directory: tempDir, pollIntervalMs: 100, syncTimeoutMs: 500 });
+			worker = new PlanSyncWorker({
+				directory: tempDir,
+				pollIntervalMs: 100,
+				syncTimeoutMs: 500,
+			});
 
 			worker.start();
 			expect(worker.getStatus()).toBe('running');
@@ -153,7 +158,11 @@ describe('PlanSyncWorker', () => {
 
 		test('should be idempotent - multiple starts have no effect', async () => {
 			setupTempDir(true, true);
-			worker = new PlanSyncWorker({ directory: tempDir, pollIntervalMs: 100, syncTimeoutMs: 500 });
+			worker = new PlanSyncWorker({
+				directory: tempDir,
+				pollIntervalMs: 100,
+				syncTimeoutMs: 500,
+			});
 
 			worker.start();
 			worker.start();
@@ -164,7 +173,11 @@ describe('PlanSyncWorker', () => {
 
 		test('should be idempotent - multiple stops have no effect', async () => {
 			setupTempDir(true, true);
-			worker = new PlanSyncWorker({ directory: tempDir, pollIntervalMs: 100, syncTimeoutMs: 500 });
+			worker = new PlanSyncWorker({
+				directory: tempDir,
+				pollIntervalMs: 100,
+				syncTimeoutMs: 500,
+			});
 
 			worker.start();
 			worker.stop();
@@ -176,7 +189,11 @@ describe('PlanSyncWorker', () => {
 
 		test('should allow restart after stop', async () => {
 			setupTempDir(true, true);
-			worker = new PlanSyncWorker({ directory: tempDir, pollIntervalMs: 100, syncTimeoutMs: 500 });
+			worker = new PlanSyncWorker({
+				directory: tempDir,
+				pollIntervalMs: 100,
+				syncTimeoutMs: 500,
+			});
 
 			worker.start();
 			expect(worker.getStatus()).toBe('running');

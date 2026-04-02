@@ -177,7 +177,9 @@ describe('checkGrammarWasmFiles', () => {
 
 		expect(check).toBeDefined();
 		expect(check.status).toBe('✅');
-		expect(check.detail).toBe('Core runtime + all 19 grammar WASM files present');
+		expect(check.detail).toBe(
+			'Core runtime + all 19 grammar WASM files present',
+		);
 	});
 
 	it('should fail when some grammar WASM files are missing', async () => {

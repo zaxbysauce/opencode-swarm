@@ -56,7 +56,9 @@ describe('Task 6.2: Conditional adversarial-step changes', () => {
 		expect(prompt).not.toContain('(conditional: security-sensitive only)');
 
 		// Checklist should show unconditional PASS/FAIL
-		expect(prompt).toContain('test_engineer-adversarial: PASS / FAIL — value: ___');
+		expect(prompt).toContain(
+			'test_engineer-adversarial: PASS / FAIL — value: ___',
+		);
 	});
 
 	// Default behavior: no config provided should default to enabled=true, scope='all'

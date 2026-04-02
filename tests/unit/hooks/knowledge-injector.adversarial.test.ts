@@ -33,7 +33,10 @@ import type {
 // Declare mock functions before mock.module() calls
 const mockReadMergedKnowledge = mock(async () => [] as RankedEntry[]);
 const mockReadRejectedLessons = mock(async () => []);
-const mockLoadPlan = mock(async () => ({ current_phase: 1, title: 'Test Project' }));
+const mockLoadPlan = mock(async () => ({
+	current_phase: 1,
+	title: 'Test Project',
+}));
 const mockExtractCurrentPhaseFromPlan = mock(() => 'Phase 1: Setup');
 const mockStripKnownSwarmPrefix = mock((name: string) => {
 	const prefixes = ['mega_', 'local_', 'paid_'];
@@ -64,7 +67,9 @@ mock.module('../../../src/services/run-memory.js', () => ({
 }));
 
 // Dynamic import after mock.module() so Bun intercepts before the source loads.
-const { createKnowledgeInjectorHook } = await import('../../../src/hooks/knowledge-injector.js');
+const { createKnowledgeInjectorHook } = await import(
+	'../../../src/hooks/knowledge-injector.js'
+);
 
 // ============================================================================
 // Helper Factories

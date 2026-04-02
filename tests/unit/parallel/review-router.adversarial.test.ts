@@ -58,7 +58,11 @@ describe('Security: Review-Router - ReDoS in Regex', () => {
 
 		for (const file of maliciousFiles) {
 			try {
-				fs.writeFileSync(path.join(testDir, file), 'function test() {}', 'utf-8');
+				fs.writeFileSync(
+					path.join(testDir, file),
+					'function test() {}',
+					'utf-8',
+				);
 			} catch {
 				// Skip files that can't be created (e.g. ENAMETOOLONG on some OS)
 			}

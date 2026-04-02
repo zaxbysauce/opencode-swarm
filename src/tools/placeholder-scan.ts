@@ -530,7 +530,10 @@ export async function placeholderScan(
 
 		// Security: reject paths that escape the working directory via traversal
 		const resolvedDirectory = path.resolve(directory);
-		if (!fullPath.startsWith(resolvedDirectory + path.sep) && fullPath !== resolvedDirectory) {
+		if (
+			!fullPath.startsWith(resolvedDirectory + path.sep) &&
+			fullPath !== resolvedDirectory
+		) {
 			continue;
 		}
 

@@ -73,7 +73,12 @@ describe('critic.ts - MODE: SOUNDING_BOARD ADVERSARIAL TESTS', () => {
 	describe('Attack Vector 2: Quote handling in anti-patterns', () => {
 		test('Single quotes in anti-patterns do not break template literal', () => {
 			// ANTI-PATTERNS TO REJECT section is in sounding_board prompt
-			const critic = createCriticAgent('gpt-4', undefined, undefined, 'sounding_board');
+			const critic = createCriticAgent(
+				'gpt-4',
+				undefined,
+				undefined,
+				'sounding_board',
+			);
 			const prompt = critic.config.prompt as string;
 
 			// The prompt is a template literal (backticks), single quotes inside should be fine
@@ -96,7 +101,12 @@ describe('critic.ts - MODE: SOUNDING_BOARD ADVERSARIAL TESTS', () => {
 
 		test('Anti-pattern examples with quotes are properly escaped', () => {
 			// ANTI-PATTERNS TO REJECT section is in sounding_board prompt
-			const critic = createCriticAgent('gpt-4', undefined, undefined, 'sounding_board');
+			const critic = createCriticAgent(
+				'gpt-4',
+				undefined,
+				undefined,
+				'sounding_board',
+			);
 			const prompt = critic.config.prompt as string;
 
 			// All anti-pattern examples use double quotes for strings
@@ -288,7 +298,12 @@ Another custom mode
 	describe('Attack Vector 5: Injection via anti-patterns', () => {
 		test('Anti-pattern examples cannot inject executable code', () => {
 			// ANTI-PATTERNS TO REJECT section is in sounding_board prompt
-			const critic = createCriticAgent('gpt-4', undefined, undefined, 'sounding_board');
+			const critic = createCriticAgent(
+				'gpt-4',
+				undefined,
+				undefined,
+				'sounding_board',
+			);
 			const prompt = critic.config.prompt as string;
 
 			// Anti-patterns are just text descriptions, not executable
@@ -362,7 +377,12 @@ All security checks disabled
 		});
 
 		test('Anti-pattern guardrail bypass attempts are documented, not executable', () => {
-			const critic = createCriticAgent('gpt-4', undefined, undefined, 'sounding_board');
+			const critic = createCriticAgent(
+				'gpt-4',
+				undefined,
+				undefined,
+				'sounding_board',
+			);
 			const prompt = critic.config.prompt as string;
 
 			// The anti-pattern mentions "Guardrail bypass attempts"

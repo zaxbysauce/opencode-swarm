@@ -97,14 +97,18 @@ describe('src/agents/architect.ts - SOUNDING BOARD PROTOCOL (ADVERSARIAL TESTS)'
 
 			// Check that section 6 and 6a both exist (6a may be indented, so search broadly)
 			const section6Match = architectContent.match(/6\. \*\*CRITIC GATE/);
-			const section6aMatch = architectContent.match(/6a\. \*\*SOUNDING BOARD PROTOCOL/);
+			const section6aMatch = architectContent.match(
+				/6a\. \*\*SOUNDING BOARD PROTOCOL/,
+			);
 			expect(section6Match).toBeDefined();
 			expect(section6aMatch).toBeDefined();
 		});
 
 		it('should not have another 6a section that would cause confusion', () => {
 			// Check there's only one 6a section (may be indented, so don't require ^ anchor)
-			const section6aMatches = architectContent.match(/6a\. \*\*SOUNDING BOARD PROTOCOL/g);
+			const section6aMatches = architectContent.match(
+				/6a\. \*\*SOUNDING BOARD PROTOCOL/g,
+			);
 			expect(section6aMatches).toBeDefined();
 			expect(section6aMatches?.length).toBe(1);
 		});

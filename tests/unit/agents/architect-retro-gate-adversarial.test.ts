@@ -48,7 +48,9 @@ describe('architect.ts — RETROSPECTIVE GATE Adversarial Tests', () => {
 			// We check that inline backtick markers appear correctly in the content
 			// (The RETROSPECTIVE GATE section uses inline backticks like `phase_complete`, not ```json fences)
 			const inlineBacktickPattern = /`phase_complete`/g;
-			const inlineBacktickMatches = ARCHITECT_PROMPT.match(inlineBacktickPattern);
+			const inlineBacktickMatches = ARCHITECT_PROMPT.match(
+				inlineBacktickPattern,
+			);
 
 			// If inline backticks are present, they must have been properly escaped in source
 			// Test passes if we can find inline backticks (they're correctly escaped in source)

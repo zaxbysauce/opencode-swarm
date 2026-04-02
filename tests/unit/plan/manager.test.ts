@@ -821,7 +821,9 @@ describe('savePlan', () => {
 		expect(validated.schema_version).toBe(testPlan.schema_version);
 		expect(validated.phases).toHaveLength(testPlan.phases.length);
 		expect(validated.phases[0].id).toBe(testPlan.phases[0].id);
-		expect(validated.phases[0].tasks).toHaveLength(testPlan.phases[0].tasks.length);
+		expect(validated.phases[0].tasks).toHaveLength(
+			testPlan.phases[0].tasks.length,
+		);
 	});
 
 	test('plan.md contains derived markdown (check for phase header, task lines)', async () => {
