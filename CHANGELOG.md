@@ -1,5 +1,12 @@
 # Changelog
 
+## [6.45.0](https://github.com/zaxbysauce/opencode-swarm/compare/v6.44.3...v6.45.0) (2026-04-02)
+
+
+### Features
+
+* **swarm:** add search, suggest_patch, batch_symbols tools and test drift detection ([#376](https://github.com/zaxbysauce/opencode-swarm/issues/376)) ([c611044](https://github.com/zaxbysauce/opencode-swarm/commit/c61104429b1ec37bbf3cebf597eae21ea5d25791))
+
 ## [6.44.3](https://github.com/zaxbysauce/opencode-swarm/compare/v6.44.2...v6.44.3) (2026-04-02)
 
 
