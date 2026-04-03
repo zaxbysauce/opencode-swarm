@@ -1,5 +1,12 @@
 # Changelog
 
+## [6.47.1](https://github.com/zaxbysauce/opencode-swarm/compare/v6.47.0...v6.47.1) (2026-04-03)
+
+
+### Bug Fixes
+
+* **plan:** resolve PlanSyncWorker aggressive revert and ledger identity bugs ([#388](https://github.com/zaxbysauce/opencode-swarm/issues/388)) ([d1772ef](https://github.com/zaxbysauce/opencode-swarm/commit/d1772ef21d7f24701ff7ac4ac911a1547174b63c))
+
 ## [6.47.0](https://github.com/zaxbysauce/opencode-swarm/compare/v6.46.0...v6.47.0) (2026-04-03)
 
 
