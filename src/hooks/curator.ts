@@ -37,6 +37,7 @@ import type {
 	KnowledgeConfig,
 	SwarmKnowledgeEntry,
 } from './knowledge-types.js';
+import { validateLesson } from './knowledge-validator.js';
 import { readSwarmFileAsync, validateSwarmPath } from './utils.js';
 
 /**
@@ -797,7 +798,7 @@ export async function runCuratorPhase(
 export async function applyCuratorKnowledgeUpdates(
 	directory: string,
 	recommendations: KnowledgeRecommendation[],
-	_knowledgeConfig: KnowledgeConfig,
+	knowledgeConfig: KnowledgeConfig,
 ): Promise<{ applied: number; skipped: number }> {
 	let applied = 0;
 	let skipped = 0;
@@ -878,6 +879,7 @@ export async function applyCuratorKnowledgeUpdates(
 	// Only 'promote' actions are meaningful without an existing entry_id —
 	// 'archive' and 'flag_contradiction' require a real entry to operate on.
 	// These are appended after the rewrite to avoid lock contention.
+	const existingLessons: string[] = entries.map((e) => e.lesson);
 	for (const rec of recommendations) {
 		if (rec.entry_id !== undefined) continue;
 		if (rec.action !== 'promote') {
@@ -889,6 +891,23 @@ export async function applyCuratorKnowledgeUpdates(
 		if (lesson.length < 15) {
 			skipped++;
 			continue;
+		}
+		// Exact-match dedup within this batch — separate from validateLesson (contradiction detection only)
+		if (existingLessons.includes(lesson)) {
+			skipped++;
+			continue;
+		}
+		// Validation gate: contradiction detection
+		if (knowledgeConfig.validation_enabled !== false) {
+			const validation = validateLesson(lesson, existingLessons, {
+				category: 'other',
+				scope: 'global',
+				confidence: 0.5,
+			});
+			if (!validation.valid) {
+				skipped++;
+				continue;
+			}
 		}
 		const now = new Date().toISOString();
 		const newEntry: SwarmKnowledgeEntry = {
@@ -914,6 +933,7 @@ export async function applyCuratorKnowledgeUpdates(
 		};
 		await appendKnowledge(knowledgePath, newEntry);
 		applied++;
+		existingLessons.push(lesson);
 	}
 
 	return { applied, skipped };

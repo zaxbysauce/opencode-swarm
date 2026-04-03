@@ -16064,20 +16064,22 @@ async function readLedgerEvents(directory) {
     return [];
   }
 }
-async function initLedger(directory, planId) {
+async function initLedger(directory, planId, initialPlanHash) {
   const ledgerPath = getLedgerPath(directory);
   const planJsonPath = getPlanJsonPath(directory);
   if (fs6.existsSync(ledgerPath)) {
     throw new Error("Ledger already initialized. Use appendLedgerEvent to add events.");
   }
-  let planHashAfter = "";
-  try {
-    if (fs6.existsSync(planJsonPath)) {
-      const content = fs6.readFileSync(planJsonPath, "utf8");
-      const plan = JSON.parse(content);
-      planHashAfter = computePlanHash(plan);
-    }
-  } catch {}
+  let planHashAfter = initialPlanHash ?? "";
+  if (!initialPlanHash) {
+    try {
+      if (fs6.existsSync(planJsonPath)) {
+        const content = fs6.readFileSync(planJsonPath, "utf8");
+        const plan = JSON.parse(content);
+        planHashAfter = computePlanHash(plan);
+      }
+    } catch {}
+  }
   const event = {
     seq: 1,
     timestamp: new Date().toISOString(),
@@ -16089,7 +16091,7 @@ async function initLedger(directory, planId) {
     schema_version: LEDGER_SCHEMA_VERSION
   };
   fs6.mkdirSync(path6.join(directory, ".swarm"), { recursive: true });
-  const tempPath = `${ledgerPath}.tmp`;
+  const tempPath = `${ledgerPath}.tmp.${Date.now()}.${Math.floor(Math.random() * 1e9)}`;
   const line = `${JSON.stringify(event)}
 `;
   fs6.writeFileSync(tempPath, line, "utf8");
@@ -16116,7 +16118,7 @@ async function appendLedgerEvent(directory, eventInput, options) {
     schema_version: LEDGER_SCHEMA_VERSION
   };
   fs6.mkdirSync(path6.join(directory, ".swarm"), { recursive: true });
-  const tempPath = `${ledgerPath}.tmp`;
+  const tempPath = `${ledgerPath}.tmp.${Date.now()}.${Math.floor(Math.random() * 1e9)}`;
   const line = `${JSON.stringify(event)}
 `;
   if (fs6.existsSync(ledgerPath)) {
@@ -16134,10 +16136,11 @@ async function takeSnapshotEvent(directory, plan, options) {
     plan,
     payload_hash: payloadHash
   };
+  const planId = `${plan.swarm}-${plan.title}`.replace(/[^a-zA-Z0-9-_]/g, "_");
   return appendLedgerEvent(directory, {
     event_type: "snapshot",
     source: "takeSnapshotEvent",
-    plan_id: plan.title,
+    plan_id: planId,
     payload: snapshotPayload
   }, options);
 }
@@ -16146,13 +16149,15 @@ async function replayFromLedger(directory, options) {
   if (events.length === 0) {
     return null;
   }
+  const targetPlanId = events[0].plan_id;
+  const relevantEvents = events.filter((e) => e.plan_id === targetPlanId);
   {
-    const snapshotEvents = events.filter((e) => e.event_type === "snapshot");
+    const snapshotEvents = relevantEvents.filter((e) => e.event_type === "snapshot");
     if (snapshotEvents.length > 0) {
       const latestSnapshotEvent = snapshotEvents[snapshotEvents.length - 1];
       const snapshotPayload = latestSnapshotEvent.payload;
       let plan2 = snapshotPayload.plan;
-      const eventsAfterSnapshot = events.filter((e) => e.seq > latestSnapshotEvent.seq);
+      const eventsAfterSnapshot = relevantEvents.filter((e) => e.seq > latestSnapshotEvent.seq);
       for (const event of eventsAfterSnapshot) {
         plan2 = applyEventToPlan(plan2, event);
         if (plan2 === null) {
@@ -16173,7 +16178,7 @@ async function replayFromLedger(directory, options) {
   } catch {
     return null;
   }
-  for (const event of events) {
+  for (const event of relevantEvents) {
     if (plan === null) {
       return null;
     }
@@ -16187,10 +16192,14 @@ function applyEventToPlan(plan, event) {
       return plan;
     case "task_status_changed":
       if (event.task_id && event.to_status) {
+        const parseResult = TaskStatusSchema.safeParse(event.to_status);
+        if (!parseResult.success) {
+          return plan;
+        }
         for (const phase of plan.phases) {
           const task = phase.tasks.find((t) => t.id === event.task_id);
           if (task) {
-            task.status = event.to_status;
+            task.status = parseResult.data;
             break;
           }
         }
@@ -16224,6 +16233,7 @@ function applyEventToPlan(plan, event) {
 }
 var LEDGER_SCHEMA_VERSION = "1.0.0", LEDGER_FILENAME = "plan-ledger.jsonl", PLAN_JSON_FILENAME = "plan.json", LedgerStaleWriterError;
 var init_ledger = __esm(() => {
+  init_plan_schema();
   LedgerStaleWriterError = class LedgerStaleWriterError extends Error {
     constructor(message) {
       super(message);
@@ -16233,7 +16243,7 @@ var init_ledger = __esm(() => {
 });
 
 // src/plan/manager.ts
-import { renameSync as renameSync3, unlinkSync } from "fs";
+import { existsSync as existsSync4, renameSync as renameSync3, unlinkSync } from "fs";
 import * as path7 from "path";
 async function loadPlanJsonOnly(directory) {
   const planJsonContent = await readSwarmFileAsync(directory, "plan.json");
@@ -16364,28 +16374,49 @@ async function loadPlan(directory) {
           const planHash = computePlanHash(validated);
           const ledgerHash = await getLatestLedgerHash(directory);
           if (ledgerHash !== "" && planHash !== ledgerHash) {
-            warn("[loadPlan] plan.json is stale (hash mismatch with ledger) \u2014 rebuilding from ledger. If this recurs, run /swarm reset-session to clear stale session state.");
-            try {
-              const rebuilt = await replayFromLedger(directory);
-              if (rebuilt) {
-                await rebuildPlan(directory, rebuilt);
-                warn("[loadPlan] Rebuilt plan from ledger. Checkpoint available at SWARM_PLAN.md if it exists.");
-                return rebuilt;
+            const currentPlanId = `${validated.swarm}-${validated.title}`.replace(/[^a-zA-Z0-9-_]/g, "_");
+            const ledgerEvents = await readLedgerEvents(directory);
+            const firstEvent = ledgerEvents.length > 0 ? ledgerEvents[0] : null;
+            if (firstEvent && firstEvent.plan_id !== currentPlanId) {
+              warn(`[loadPlan] Ledger identity mismatch (ledger: ${firstEvent.plan_id}, plan: ${currentPlanId}) \u2014 skipping ledger rebuild (migration detected). Use /swarm reset-session to reinitialize the ledger.`);
+            } else {
+              warn("[loadPlan] plan.json is stale (hash mismatch with ledger) \u2014 rebuilding from ledger. If this recurs, run /swarm reset-session to clear stale session state.");
+              try {
+                const rebuilt = await replayFromLedger(directory);
+                if (rebuilt) {
+                  await rebuildPlan(directory, rebuilt);
+                  warn("[loadPlan] Rebuilt plan from ledger. Checkpoint available at SWARM_PLAN.md if it exists.");
+                  return rebuilt;
+                }
+              } catch (replayError) {
+                warn(`[loadPlan] Ledger replay failed during hash-mismatch rebuild: ${replayError instanceof Error ? replayError.message : String(replayError)}. Returning stale plan.json. To recover: check SWARM_PLAN.md for a checkpoint, or run /swarm reset-session.`);
               }
-            } catch (replayError) {
-              warn(`[loadPlan] Ledger replay failed during hash-mismatch rebuild: ${replayError instanceof Error ? replayError.message : String(replayError)}. Returning stale plan.json. To recover: check SWARM_PLAN.md for a checkpoint, or run /swarm reset-session.`);
             }
           }
         }
         return validated;
       } catch (error49) {
         warn(`[loadPlan] plan.json validation failed: ${error49 instanceof Error ? error49.message : String(error49)}. Attempting rebuild from ledger. If rebuild fails, check SWARM_PLAN.md for a checkpoint.`);
+        let rawPlanId = null;
+        try {
+          const rawParsed = JSON.parse(planJsonContent);
+          if (typeof rawParsed?.swarm === "string" && typeof rawParsed?.title === "string") {
+            rawPlanId = `${rawParsed.swarm}-${rawParsed.title}`.replace(/[^a-zA-Z0-9-_]/g, "_");
+          }
+        } catch {}
         if (await ledgerExists(directory)) {
-          const rebuilt = await replayFromLedger(directory);
-          if (rebuilt) {
-            await rebuildPlan(directory, rebuilt);
-            warn("[loadPlan] Rebuilt plan from ledger after validation failure. Projection was stale.");
-            return rebuilt;
+          const ledgerEventsForCatch = await readLedgerEvents(directory);
+          const catchFirstEvent = ledgerEventsForCatch.length > 0 ? ledgerEventsForCatch[0] : null;
+          const identityMatch = rawPlanId === null || catchFirstEvent === null || catchFirstEvent.plan_id === rawPlanId;
+          if (!identityMatch) {
+            warn(`[loadPlan] Ledger identity mismatch in validation-failure path (ledger: ${catchFirstEvent?.plan_id}, plan: ${rawPlanId}) \u2014 skipping ledger rebuild (migration detected).`);
+          } else if (catchFirstEvent !== null && rawPlanId !== null) {
+            const rebuilt = await replayFromLedger(directory);
+            if (rebuilt) {
+              await rebuildPlan(directory, rebuilt);
+              warn("[loadPlan] Rebuilt plan from ledger after validation failure. Projection was stale.");
+              return rebuilt;
+            }
           }
         }
         const planMdContent2 = await readSwarmFileAsync(directory, "plan.md");
@@ -16453,9 +16484,28 @@ async function savePlan(directory, plan, options) {
     }
   }
   const currentPlan = await loadPlanJsonOnly(directory);
+  const planId = `${validated.swarm}-${validated.title}`.replace(/[^a-zA-Z0-9-_]/g, "_");
+  const planHashForInit = computePlanHash(validated);
   if (!await ledgerExists(directory)) {
-    const planId = `${validated.swarm}-${validated.title}`.replace(/[^a-zA-Z0-9-_]/g, "_");
-    await initLedger(directory, planId);
+    await initLedger(directory, planId, planHashForInit);
+  } else {
+    const existingEvents = await readLedgerEvents(directory);
+    if (existingEvents.length > 0 && existingEvents[0].plan_id !== planId) {
+      const swarmDir2 = path7.resolve(directory, ".swarm");
+      const oldLedgerPath = path7.join(swarmDir2, "plan-ledger.jsonl");
+      const archivePath = path7.join(swarmDir2, `plan-ledger.archived-${Date.now()}-${Math.floor(Math.random() * 1e9)}.jsonl`);
+      if (existsSync4(oldLedgerPath)) {
+        renameSync3(oldLedgerPath, archivePath);
+        warn(`[savePlan] Ledger identity mismatch (was "${existingEvents[0].plan_id}", now "${planId}") \u2014 archived old ledger to ${archivePath} and reinitializing.`);
+      }
+      try {
+        await initLedger(directory, planId, planHashForInit);
+      } catch (initErr) {
+        if (!(initErr instanceof Error && initErr.message.includes("already initialized"))) {
+          throw initErr;
+        }
+      }
+    }
   }
   const currentHash = computeCurrentPlanHash(directory);
   const hashAfter = computePlanHash(validated);
@@ -16548,10 +16598,24 @@ async function rebuildPlan(directory, plan) {
   const tempPlanPath = path7.join(swarmDir, `plan.json.rebuild.${Date.now()}`);
   await Bun.write(tempPlanPath, JSON.stringify(targetPlan, null, 2));
   renameSync3(tempPlanPath, planPath);
+  const contentHash = computePlanContentHash(targetPlan);
   const markdown = derivePlanMarkdown(targetPlan);
+  const markdownWithHash = `<!-- PLAN_HASH: ${contentHash} -->
+${markdown}`;
   const tempMdPath = path7.join(swarmDir, `plan.md.rebuild.${Date.now()}`);
-  await Bun.write(tempMdPath, markdown);
+  await Bun.write(tempMdPath, markdownWithHash);
   renameSync3(tempMdPath, mdPath);
+  try {
+    const markerPath = path7.join(swarmDir, ".plan-write-marker");
+    const tasksCount = targetPlan.phases.reduce((sum, phase) => sum + phase.tasks.length, 0);
+    const marker = JSON.stringify({
+      source: "plan_manager",
+      timestamp: new Date().toISOString(),
+      phases_count: targetPlan.phases.length,
+      tasks_count: tasksCount
+    });
+    await Bun.write(markerPath, marker);
+  } catch {}
   return targetPlan;
 }
 async function updateTaskStatus(directory, taskId, status) {
@@ -17152,11 +17216,11 @@ __export(exports_evidence_summary_integration, {
   createEvidenceSummaryIntegration: () => createEvidenceSummaryIntegration,
   EvidenceSummaryIntegration: () => EvidenceSummaryIntegration
 });
-import { existsSync as existsSync4, mkdirSync as mkdirSync4, writeFileSync as writeFileSync2 } from "fs";
+import { existsSync as existsSync5, mkdirSync as mkdirSync4, writeFileSync as writeFileSync2 } from "fs";
 import * as path8 from "path";
 function persistSummary(swarmDir, artifact, filename) {
   const swarmPath = path8.join(swarmDir, ".swarm");
-  if (!existsSync4(swarmPath)) {
+  if (!existsSync5(swarmPath)) {
     mkdirSync4(swarmPath, { recursive: true });
   }
   const artifactPath = path8.join(swarmPath, filename);
@@ -32374,7 +32438,7 @@ var require_proper_lockfile = __commonJS((exports, module2) => {
 });
 
 // src/hooks/knowledge-store.ts
-import { existsSync as existsSync8 } from "fs";
+import { existsSync as existsSync9 } from "fs";
 import { appendFile, mkdir, readFile as readFile2, writeFile } from "fs/promises";
 import * as os3 from "os";
 import * as path12 from "path";
@@ -32402,7 +32466,7 @@ function resolveHiveRejectedPath() {
   return path12.join(path12.dirname(hivePath), "shared-learnings-rejected.jsonl");
 }
 async function readKnowledge(filePath) {
-  if (!existsSync8(filePath))
+  if (!existsSync9(filePath))
     return [];
   const content = await readFile2(filePath, "utf-8");
   const results = [];
@@ -41885,8 +41949,8 @@ async function loadGrammar(languageId) {
   const parser = new Parser;
   const wasmFileName = getWasmFileName(normalizedId);
   const wasmPath = path56.join(getGrammarsDirAbsolute(), wasmFileName);
-  const { existsSync: existsSync33 } = await import("fs");
-  if (!existsSync33(wasmPath)) {
+  const { existsSync: existsSync34 } = await import("fs");
+  if (!existsSync34(wasmPath)) {
     throw new Error(`Grammar file not found for ${languageId}: ${wasmPath}
 Make sure to run 'bun run build' to copy grammar files to dist/lang/grammars/`);
   }
@@ -46039,8 +46103,9 @@ class PlanSyncWorker {
     try {
       log("[PlanSyncWorker] Syncing plan...");
       this.checkForUnauthorizedWrite();
-      const plan = await this.withTimeout(loadPlan(this.directory), this.syncTimeoutMs, "Sync operation timed out");
+      const plan = await this.withTimeout(loadPlanJsonOnly(this.directory), this.syncTimeoutMs, "Sync operation timed out");
       if (plan) {
+        await regeneratePlanMarkdown(this.directory, plan);
         log("[PlanSyncWorker] Sync complete", {
           title: plan.title,
           phase: plan.current_phase
@@ -46704,7 +46769,7 @@ import path17 from "path";
 
 // src/hooks/knowledge-reader.ts
 init_knowledge_store();
-import { existsSync as existsSync9 } from "fs";
+import { existsSync as existsSync10 } from "fs";
 import { mkdir as mkdir2, readFile as readFile3, writeFile as writeFile2 } from "fs/promises";
 import * as path13 from "path";
 var JACCARD_THRESHOLD = 0.6;
@@ -46757,7 +46822,7 @@ async function recordLessonsShown(directory, lessonIds, currentPhase) {
   const shownFile = path13.join(directory, ".swarm", ".knowledge-shown.json");
   try {
     let shownData = {};
-    if (existsSync9(shownFile)) {
+    if (existsSync10(shownFile)) {
       const content = await readFile3(shownFile, "utf-8");
       shownData = JSON.parse(content);
     }
@@ -46863,7 +46928,7 @@ async function readMergedKnowledge(directory, config3, context) {
 async function updateRetrievalOutcome(directory, phaseInfo, phaseSucceeded) {
   const shownFile = path13.join(directory, ".swarm", ".knowledge-shown.json");
   try {
-    if (!existsSync9(shownFile)) {
+    if (!existsSync10(shownFile)) {
       return;
     }
     const content = await readFile3(shownFile, "utf-8");
@@ -48809,7 +48874,7 @@ ${phaseDigest.summary}`,
     };
   }
 }
-async function applyCuratorKnowledgeUpdates(directory, recommendations, _knowledgeConfig) {
+async function applyCuratorKnowledgeUpdates(directory, recommendations, knowledgeConfig) {
   let applied = 0;
   let skipped = 0;
   if (recommendations.length === 0) {
@@ -48871,6 +48936,7 @@ async function applyCuratorKnowledgeUpdates(directory, recommendations, _knowled
   if (modified) {
     await rewriteKnowledge(knowledgePath, updatedEntries);
   }
+  const existingLessons = entries.map((e) => e.lesson);
   for (const rec of recommendations) {
     if (rec.entry_id !== undefined)
       continue;
@@ -48882,6 +48948,21 @@ async function applyCuratorKnowledgeUpdates(directory, recommendations, _knowled
     if (lesson.length < 15) {
       skipped++;
       continue;
+    }
+    if (existingLessons.includes(lesson)) {
+      skipped++;
+      continue;
+    }
+    if (knowledgeConfig.validation_enabled !== false) {
+      const validation = validateLesson(lesson, existingLessons, {
+        category: "other",
+        scope: "global",
+        confidence: 0.5
+      });
+      if (!validation.valid) {
+        skipped++;
+        continue;
+      }
     }
     const now = new Date().toISOString();
     const newEntry = {
@@ -48907,6 +48988,7 @@ async function applyCuratorKnowledgeUpdates(directory, recommendations, _knowled
     };
     await appendKnowledge(knowledgePath, newEntry);
     applied++;
+    existingLessons.push(lesson);
   }
   return { applied, skipped };
 }
@@ -49168,7 +49250,7 @@ init_manager();
 init_utils2();
 init_manager2();
 import * as child_process3 from "child_process";
-import { existsSync as existsSync10, readdirSync as readdirSync2, readFileSync as readFileSync7, statSync as statSync5 } from "fs";
+import { existsSync as existsSync11, readdirSync as readdirSync2, readFileSync as readFileSync7, statSync as statSync5 } from "fs";
 import path22 from "path";
 import { fileURLToPath } from "url";
 function validateTaskDag(plan) {
@@ -49402,7 +49484,7 @@ async function checkConfigBackups(directory) {
 }
 async function checkGitRepository(directory) {
   try {
-    if (!existsSync10(directory) || !statSync5(directory).isDirectory()) {
+    if (!existsSync11(directory) || !statSync5(directory).isDirectory()) {
       return {
         name: "Git Repository",
         status: "\u274C",
@@ -49467,7 +49549,7 @@ async function checkSpecStaleness(directory, plan) {
 }
 async function checkConfigParseability(directory) {
   const configPath = path22.join(directory, ".opencode/opencode-swarm.json");
-  if (!existsSync10(configPath)) {
+  if (!existsSync11(configPath)) {
     return {
       name: "Config Parseability",
       status: "\u2705",
@@ -49517,11 +49599,11 @@ async function checkGrammarWasmFiles() {
   const isSource = thisDir.replace(/\\/g, "/").endsWith("/src/services");
   const grammarDir = isSource ? path22.join(thisDir, "..", "lang", "grammars") : path22.join(thisDir, "lang", "grammars");
   const missing = [];
-  if (!existsSync10(path22.join(grammarDir, "tree-sitter.wasm"))) {
+  if (!existsSync11(path22.join(grammarDir, "tree-sitter.wasm"))) {
     missing.push("tree-sitter.wasm (core runtime)");
   }
   for (const file3 of grammarFiles) {
-    if (!existsSync10(path22.join(grammarDir, file3))) {
+    if (!existsSync11(path22.join(grammarDir, file3))) {
       missing.push(file3);
     }
   }
@@ -49540,7 +49622,7 @@ async function checkGrammarWasmFiles() {
 }
 async function checkCheckpointManifest(directory) {
   const manifestPath = path22.join(directory, ".swarm/checkpoints.json");
-  if (!existsSync10(manifestPath)) {
+  if (!existsSync11(manifestPath)) {
     return {
       name: "Checkpoint Manifest",
       status: "\u2705",
@@ -49592,7 +49674,7 @@ async function checkCheckpointManifest(directory) {
 }
 async function checkEventStreamIntegrity(directory) {
   const eventsPath = path22.join(directory, ".swarm/events.jsonl");
-  if (!existsSync10(eventsPath)) {
+  if (!existsSync11(eventsPath)) {
     return {
       name: "Event Stream",
       status: "\u2705",
@@ -49633,7 +49715,7 @@ async function checkEventStreamIntegrity(directory) {
 }
 async function checkSteeringDirectives(directory) {
   const eventsPath = path22.join(directory, ".swarm/events.jsonl");
-  if (!existsSync10(eventsPath)) {
+  if (!existsSync11(eventsPath)) {
     return {
       name: "Steering Directives",
       status: "\u2705",
@@ -49689,7 +49771,7 @@ async function checkCurator(directory) {
       };
     }
     const summaryPath = path22.join(directory, ".swarm/curator-summary.json");
-    if (!existsSync10(summaryPath)) {
+    if (!existsSync11(summaryPath)) {
       return {
         name: "Curator",
         status: "\u2705",
@@ -50588,14 +50670,14 @@ init_schema();
 // src/hooks/knowledge-migrator.ts
 init_knowledge_store();
 import { randomUUID as randomUUID3 } from "crypto";
-import { existsSync as existsSync12, readFileSync as readFileSync9 } from "fs";
+import { existsSync as existsSync13, readFileSync as readFileSync9 } from "fs";
 import { mkdir as mkdir4, readFile as readFile5, writeFile as writeFile4 } from "fs/promises";
 import * as path24 from "path";
 async function migrateContextToKnowledge(directory, config3) {
   const sentinelPath = path24.join(directory, ".swarm", ".knowledge-migrated");
   const contextPath = path24.join(directory, ".swarm", "context.md");
   const knowledgePath = resolveSwarmKnowledgePath(directory);
-  if (existsSync12(sentinelPath)) {
+  if (existsSync13(sentinelPath)) {
     return {
       migrated: false,
       entriesMigrated: 0,
@@ -50604,7 +50686,7 @@ async function migrateContextToKnowledge(directory, config3) {
       skippedReason: "sentinel-exists"
     };
   }
-  if (!existsSync12(contextPath)) {
+  if (!existsSync13(contextPath)) {
     return {
       migrated: false,
       entriesMigrated: 0,
@@ -50790,7 +50872,7 @@ function truncateLesson(text) {
 }
 function inferProjectName(directory) {
   const packageJsonPath = path24.join(directory, "package.json");
-  if (existsSync12(packageJsonPath)) {
+  if (existsSync13(packageJsonPath)) {
     try {
       const pkg = JSON.parse(readFileSync9(packageJsonPath, "utf-8"));
       if (pkg.name && typeof pkg.name === "string") {
@@ -60735,6 +60817,16 @@ var curator_analyze = createSwarmTool({
           }
         }
       }
+      if (typedArgs.recommendations) {
+        const UUID_V4 = /^[0-9a-f]{8}-[0-9a-f]{4}-4[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;
+        for (const rec of typedArgs.recommendations) {
+          if (rec.entry_id !== undefined && !UUID_V4.test(rec.entry_id)) {
+            return JSON.stringify({
+              error: `Invalid entry_id '${rec.entry_id}': must be a UUID v4 or omitted. ` + `Use undefined/omit entry_id to create a new entry.`
+            }, null, 2);
+          }
+        }
+      }
       const { config: config3 } = loadPluginConfigWithMeta(directory);
       const curatorConfig = CuratorConfigSchema.parse(config3.curator ?? {});
       const knowledgeConfig = KnowledgeConfigSchema.parse(config3.knowledge ?? {});
@@ -60775,12 +60867,7 @@ var curator_analyze = createSwarmTool({
       let applied = 0;
       let skipped = 0;
       if (typedArgs.recommendations && typedArgs.recommendations.length > 0) {
-        const UUID_V4 = /^[0-9a-f]{8}-[0-9a-f]{4}-4[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;
-        const sanitizedRecs = typedArgs.recommendations.map((rec) => ({
-          ...rec,
-          entry_id: rec.entry_id === undefined || UUID_V4.test(rec.entry_id) ? rec.entry_id : undefined
-        }));
-        const result = await applyCuratorKnowledgeUpdates(directory, sanitizedRecs, knowledgeConfig);
+        const result = await applyCuratorKnowledgeUpdates(directory, typedArgs.recommendations, knowledgeConfig);
         applied = result.applied;
         skipped = result.skipped;
       }
@@ -62591,7 +62678,7 @@ init_dist();
 init_config();
 init_knowledge_store();
 init_create_tool();
-import { existsSync as existsSync36 } from "fs";
+import { existsSync as existsSync37 } from "fs";
 var DEFAULT_LIMIT = 10;
 var MAX_LESSON_LENGTH = 200;
 var VALID_CATEGORIES3 = [
@@ -62660,14 +62747,14 @@ function validateLimit(limit) {
 }
 async function readSwarmKnowledge(directory) {
   const swarmPath = resolveSwarmKnowledgePath(directory);
-  if (!existsSync36(swarmPath)) {
+  if (!existsSync37(swarmPath)) {
     return [];
   }
   return readKnowledge(swarmPath);
 }
 async function readHiveKnowledge() {
   const hivePath = resolveHiveKnowledgePath();
-  if (!existsSync36(hivePath)) {
+  if (!existsSync37(hivePath)) {
     return [];
   }
   return readKnowledge(hivePath);

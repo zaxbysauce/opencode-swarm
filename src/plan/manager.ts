@@ -258,15 +258,13 @@ export async function loadPlan(directory: string): Promise<Plan | null> {
 					const planHash = computePlanHash(validated);
 					const ledgerHash = await getLatestLedgerHash(directory);
 					if (ledgerHash !== '' && planHash !== ledgerHash) {
-						const currentPlanId = `${validated.swarm}-${validated.title}`.replace(
-							/[^a-zA-Z0-9-_]/g,
-							'_',
-						);
+						const currentPlanId =
+							`${validated.swarm}-${validated.title}`.replace(
+								/[^a-zA-Z0-9-_]/g,
+								'_',
+							);
 						const ledgerEvents = await readLedgerEvents(directory);
-						const firstEvent =
-							ledgerEvents.length > 0
-								? ledgerEvents[0]
-								: null;
+						const firstEvent = ledgerEvents.length > 0 ? ledgerEvents[0] : null;
 						if (firstEvent && firstEvent.plan_id !== currentPlanId) {
 							// Ledger is from a different plan identity — migration detected.
 							// Use the first event (plan_created anchor) as the authoritative identity,
@@ -311,7 +309,10 @@ export async function loadPlan(directory: string): Promise<Plan | null> {
 				let rawPlanId: string | null = null;
 				try {
 					const rawParsed = JSON.parse(planJsonContent);
-					if (typeof rawParsed?.swarm === 'string' && typeof rawParsed?.title === 'string') {
+					if (
+						typeof rawParsed?.swarm === 'string' &&
+						typeof rawParsed?.title === 'string'
+					) {
 						rawPlanId = `${rawParsed.swarm}-${rawParsed.title}`.replace(
 							/[^a-zA-Z0-9-_]/g,
 							'_',
@@ -323,7 +324,8 @@ export async function loadPlan(directory: string): Promise<Plan | null> {
 				// Try replay from ledger before legacy migration
 				if (await ledgerExists(directory)) {
 					const ledgerEventsForCatch = await readLedgerEvents(directory);
-					const catchFirstEvent = ledgerEventsForCatch.length > 0 ? ledgerEventsForCatch[0] : null;
+					const catchFirstEvent =
+						ledgerEventsForCatch.length > 0 ? ledgerEventsForCatch[0] : null;
 					const identityMatch =
 						rawPlanId === null || // Can't determine identity — skip rebuild (conservative)
 						catchFirstEvent === null || // Empty ledger — no identity to compare
@@ -489,7 +491,12 @@ export async function savePlan(
 				await initLedger(directory, planId, planHashForInit);
 			} catch (initErr) {
 				// Another concurrent savePlan already initialized the new ledger — that is fine.
-				if (!(initErr instanceof Error && initErr.message.includes('already initialized'))) {
+				if (
+					!(
+						initErr instanceof Error &&
+						initErr.message.includes('already initialized')
+					)
+				) {
 					throw initErr;
 				}
 			}

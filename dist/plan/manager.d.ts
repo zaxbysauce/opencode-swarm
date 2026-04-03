@@ -6,6 +6,10 @@ import { type Plan, type TaskStatus } from '../config/plan-schema';
  */
 export declare function loadPlanJsonOnly(directory: string): Promise<Plan | null>;
 /**
+ * Regenerate plan.md from valid plan.json (auto-heal case 1).
+ */
+export declare function regeneratePlanMarkdown(directory: string, plan: Plan): Promise<void>;
+/**
  * Load and validate plan from .swarm/plan.json with auto-heal sync.
  *
  * 4-step precedence with auto-heal:
@@ -38,6 +42,14 @@ export declare function rebuildPlan(directory: string, plan?: Plan): Promise<Pla
 /**
  * Load plan → find task by ID → update status → save → return updated plan.
  * Throw if plan not found or task not found.
+ *
+ * Uses loadPlan() (not loadPlanJsonOnly) so that legitimate same-identity ledger
+ * drift is detected and healed before the status update is applied. Without this,
+ * a stale plan.json would silently overwrite ledger-ahead task state with only the
+ * one targeted status change applied on top.
+ *
+ * The migration guard in loadPlan() (plan_id identity check) prevents destructive
+ * revert after a swarm rename — so this is safe even in post-migration scenarios.
  */
 export declare function updateTaskStatus(directory: string, taskId: string, status: TaskStatus): Promise<Plan>;
 /**

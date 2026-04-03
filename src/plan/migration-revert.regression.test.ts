@@ -19,7 +19,12 @@ import {
 	replayFromLedger,
 	takeSnapshotEvent,
 } from './ledger';
-import { loadPlan, loadPlanJsonOnly, savePlan, updateTaskStatus } from './manager';
+import {
+	loadPlan,
+	loadPlanJsonOnly,
+	savePlan,
+	updateTaskStatus,
+} from './manager';
 
 let testDir: string;
 
@@ -77,7 +82,9 @@ function readPlanJson(directory: string): Plan | null {
 }
 
 beforeEach(() => {
-	testDir = fs.mkdtempSync(path.join(__dirname, 'migration-revert-regression-'));
+	testDir = fs.mkdtempSync(
+		path.join(__dirname, 'migration-revert-regression-'),
+	);
 });
 
 afterEach(() => {
@@ -256,9 +263,7 @@ describe('Fix 3: savePlan() re-initializes ledger on identity change', () => {
 
 		// Archived ledger should exist
 		const files = fs.readdirSync(swarmDir);
-		const archived = files.filter((f) =>
-			f.startsWith('plan-ledger.archived-'),
-		);
+		const archived = files.filter((f) => f.startsWith('plan-ledger.archived-'));
 		expect(archived.length).toBe(1);
 	});
 
@@ -522,7 +527,13 @@ describe('applyEventToPlan: invalid status in ledger event is rejected safely', 
 		const task11 = result!.phases[0].tasks.find((t) => t.id === '1.1');
 		expect(task11!.status).not.toBe('INVALID_STATUS_XYZ');
 		// Status should be either 'pending' (unchanged) or whatever is valid
-		const validStatuses = ['pending', 'in_progress', 'completed', 'blocked', 'closed'];
+		const validStatuses = [
+			'pending',
+			'in_progress',
+			'completed',
+			'blocked',
+			'closed',
+		];
 		expect(validStatuses).toContain(task11!.status);
 	});
 });
@@ -590,7 +601,10 @@ describe('PlanSyncWorker import verification', () => {
 		// Must NOT import loadPlan directly (would re-introduce the revert bug)
 		// Check that loadPlan is not in the import list (allow it only as a string
 		// in a comment, but not as an imported symbol)
-		const importBlock = source.match(/^import\s+\{[^}]+\}\s+from\s+['"]\.\.\/plan\/manager['"]/m)?.[0] ?? '';
+		const importBlock =
+			source.match(
+				/^import\s+\{[^}]+\}\s+from\s+['"]\.\.\/plan\/manager['"]/m,
+			)?.[0] ?? '';
 		expect(importBlock).not.toContain("'loadPlan'");
 		expect(importBlock).not.toContain('"loadPlan"');
 		// The import block should not have loadPlan as a bare identifier either
