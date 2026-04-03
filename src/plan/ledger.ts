@@ -284,6 +284,7 @@ export async function readLedgerEvents(
 export async function initLedger(
 	directory: string,
 	planId: string,
+	initialPlanHash?: string,
 ): Promise<void> {
 	const ledgerPath = getLedgerPath(directory);
 	const planJsonPath = getPlanJsonPath(directory);
@@ -295,16 +296,20 @@ export async function initLedger(
 		);
 	}
 
-	// Read current plan to get initial hash
-	let planHashAfter = '';
-	try {
-		if (fs.existsSync(planJsonPath)) {
-			const content = fs.readFileSync(planJsonPath, 'utf8');
-			const plan: Plan = JSON.parse(content);
-			planHashAfter = computePlanHash(plan);
+	// Use the provided hash if available (fresh from in-memory plan).
+	// Fall back to reading on-disk plan.json only when no hash is supplied
+	// (e.g., direct calls from tests or external tooling).
+	let planHashAfter = initialPlanHash ?? '';
+	if (!initialPlanHash) {
+		try {
+			if (fs.existsSync(planJsonPath)) {
+				const content = fs.readFileSync(planJsonPath, 'utf8');
+				const plan: Plan = JSON.parse(content);
+				planHashAfter = computePlanHash(plan);
+			}
+		} catch {
+			// If we can't read plan.json, use empty hash
 		}
-	} catch {
-		// If we can't read plan.json, use empty hash
 	}
 
 	const event: LedgerEvent = {
@@ -322,7 +327,7 @@ export async function initLedger(
 	fs.mkdirSync(path.join(directory, '.swarm'), { recursive: true });
 
 	// Write to temp file then rename for atomicity
-	const tempPath = `${ledgerPath}.tmp`;
+	const tempPath = `${ledgerPath}.tmp.${Date.now()}.${Math.floor(Math.random() * 1e9)}`;
 	const line = `${JSON.stringify(event)}\n`;
 
 	fs.writeFileSync(tempPath, line, 'utf8');
@@ -477,10 +482,18 @@ export async function replayFromLedger(
 		return null;
 	}
 
+	// Filter to the identity of the first event (the plan_created anchor).
+	// In a mixed-identity ledger — created before savePlan's archive+reinit fix —
+	// events from multiple swarm identities may coexist. Replaying all of them
+	// would corrupt task state. Filtering to the first event's plan_id is safe:
+	// the plan_created event is always the canonical identity anchor.
+	const targetPlanId = events[0].plan_id;
+	const relevantEvents = events.filter((e) => e.plan_id === targetPlanId);
+
 	// Always check for in-ledger snapshot events first
 	{
 		// Find the latest snapshot event
-		const snapshotEvents = events.filter((e) => e.event_type === 'snapshot');
+		const snapshotEvents = relevantEvents.filter((e) => e.event_type === 'snapshot');
 		if (snapshotEvents.length > 0) {
 			const latestSnapshotEvent = snapshotEvents[snapshotEvents.length - 1];
 
@@ -490,7 +503,7 @@ export async function replayFromLedger(
 			let plan: Plan | null = snapshotPayload.plan;
 
 			// Replay events after the snapshot
-			const eventsAfterSnapshot = events.filter(
+			const eventsAfterSnapshot = relevantEvents.filter(
 				(e) => e.seq > latestSnapshotEvent.seq,
 			);
 
@@ -521,7 +534,7 @@ export async function replayFromLedger(
 	}
 
 	// Apply events in sequence
-	for (const event of events) {
+	for (const event of relevantEvents) {
 		if (plan === null) {
 			// plan_reset event
 			return null;

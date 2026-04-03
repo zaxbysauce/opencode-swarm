@@ -233,7 +233,7 @@ describe('Fix 3: savePlan() re-initializes ledger on identity change', () => {
 		// Set up old ledger
 		const oldPlan = makeTestPlan({ swarm: 'old-swarm' });
 		writePlanJson(testDir, oldPlan);
-		await initLedger(testDir, 'old-swarm_Test_Plan');
+		await initLedger(testDir, 'old-swarm-Test_Plan');
 
 		const swarmDir = path.join(testDir, '.swarm');
 
@@ -319,7 +319,7 @@ describe('Fix 4: takeSnapshotEvent uses correct plan_id format', () => {
 	test('snapshot event has plan_id matching ${swarm}-${title} format', async () => {
 		const plan = makeTestPlan({ swarm: 'my-swarm', title: 'My Project' });
 		writePlanJson(testDir, plan);
-		await initLedger(testDir, 'my-swarm_My_Project');
+		await initLedger(testDir, 'my-swarm-My_Project');
 
 		await takeSnapshotEvent(testDir, plan);
 
@@ -336,7 +336,7 @@ describe('Fix 4: takeSnapshotEvent uses correct plan_id format', () => {
 	test('snapshot plan_id does NOT use title alone', async () => {
 		const plan = makeTestPlan({ swarm: 'my-swarm', title: 'My Project' });
 		writePlanJson(testDir, plan);
-		await initLedger(testDir, 'my-swarm_My_Project');
+		await initLedger(testDir, 'my-swarm-My_Project');
 
 		await takeSnapshotEvent(testDir, plan);
 
@@ -354,7 +354,7 @@ describe('Fix 4: takeSnapshotEvent uses correct plan_id format', () => {
 		const plan = makeTestPlan({ swarm: 'snap-swarm', title: 'Snap Plan' });
 		await savePlan(testDir, plan);
 
-		const planId = 'snap-swarm_Snap_Plan';
+		const planId = 'snap-swarm-Snap_Plan';
 		await takeSnapshotEvent(testDir, plan);
 
 		// Append a task status event after snapshot
@@ -378,8 +378,8 @@ describe('Fix 4: takeSnapshotEvent uses correct plan_id format', () => {
 // updateTaskStatus must not trigger the revert
 // ─────────────────────────────────────────────────────────────────────────────
 
-describe('updateTaskStatus() uses loadPlanJsonOnly (no revert risk)', () => {
-	test('updates task status without triggering ledger rebuild when ledger identity mismatches', async () => {
+describe('updateTaskStatus() respects migration guard — no revert on identity mismatch', () => {
+	test('updates task status without reverting plan when ledger identity mismatches (migration guard)', async () => {
 		// Set up: plan.json with new swarm, ledger with old swarm
 		const oldPlan = makeTestPlan({ swarm: 'old-swarm' });
 		writePlanJson(testDir, oldPlan);
@@ -390,7 +390,8 @@ describe('updateTaskStatus() uses loadPlanJsonOnly (no revert risk)', () => {
 		writePlanJson(testDir, migratedPlan);
 
 		// updateTaskStatus should update against the migrated plan, not revert
-		// It now calls loadPlanJsonOnly which does NOT check the ledger
+		// loadPlan() is used, but the migration guard prevents ledger rebuild
+		// when identities differ — so the migrated plan.json is preserved
 		const updated = await updateTaskStatus(testDir, '1.1', 'in_progress');
 
 		expect(updated.swarm).toBe('new-swarm');
@@ -400,6 +401,89 @@ describe('updateTaskStatus() uses loadPlanJsonOnly (no revert risk)', () => {
 		const onDisk = readPlanJson(testDir);
 		expect(onDisk!.swarm).toBe('new-swarm');
 		expect(onDisk!.phases[0].tasks[0].status).toBe('in_progress');
+	});
+});
+
+// ─────────────────────────────────────────────────────────────────────────────
+// updateTaskStatus: same-identity drift recovery
+// ─────────────────────────────────────────────────────────────────────────────
+
+describe('updateTaskStatus() heals same-identity ledger drift before applying update', () => {
+	test('when plan.json is stale (same identity, hash mismatch), updateTaskStatus rebuilds from ledger first', async () => {
+		// Setup: save plan, append a ledger event marking task 1.1 in_progress,
+		// then manually write back stale plan.json (both tasks still pending).
+		// updateTaskStatus on task 1.2 should use loadPlan() which detects the
+		// drift, rebuilds from ledger (task 1.1 → in_progress), then applies the
+		// status update (task 1.2 → in_progress) on top of the recovered state.
+		// We update a DIFFERENT task (1.2) so preserveCompletedStatuses does not
+		// interfere with the drift-recovered status of task 1.1.
+		const plan = makeTestPlan();
+		await savePlan(testDir, plan);
+
+		// Build the post-drift plan for hash computation
+		const driftedPlan = makeTestPlan({
+			phases: [
+				{
+					id: 1,
+					name: 'Phase 1',
+					status: 'in_progress',
+					tasks: [
+						{
+							id: '1.1',
+							phase: 1,
+							status: 'in_progress',
+							size: 'small',
+							description: 'Task 1',
+							depends: [],
+							files_touched: [],
+						},
+						{
+							id: '1.2',
+							phase: 1,
+							status: 'pending',
+							size: 'medium',
+							description: 'Task 2',
+							depends: [],
+							files_touched: [],
+						},
+					],
+				},
+			],
+		});
+		const driftedHash = computePlanHash(driftedPlan);
+		const planId = 'test-swarm-Test_Plan';
+
+		// Append a ledger event with the correct planHashAfter so getLatestLedgerHash
+		// returns a hash that differs from the stale plan.json we are about to write.
+		await appendLedgerEvent(
+			testDir,
+			{
+				plan_id: planId,
+				event_type: 'task_status_changed',
+				task_id: '1.1',
+				from_status: 'pending',
+				to_status: 'in_progress',
+				source: 'test',
+			},
+			{ planHashAfter: driftedHash },
+		);
+
+		// Write stale plan.json (both tasks still pending) — simulates drift
+		writePlanJson(testDir, plan);
+
+		// updateTaskStatus with loadPlan(): detects hash mismatch (same plan_id),
+		// rebuilds from ledger (restores 1.1 → in_progress), then applies 1.2 → in_progress.
+		const updated = await updateTaskStatus(testDir, '1.2', 'in_progress');
+
+		// task 1.1 should be in_progress (recovered from ledger, not stale pending)
+		expect(updated.phases[0].tasks[0].status).toBe('in_progress');
+		// task 1.2 should be in_progress (our update)
+		expect(updated.phases[0].tasks[1].status).toBe('in_progress');
+
+		// Verify on-disk plan reflects both — not the stale all-pending state
+		const onDisk = readPlanJson(testDir);
+		expect(onDisk!.phases[0].tasks[0].status).toBe('in_progress');
+		expect(onDisk!.phases[0].tasks[1].status).toBe('in_progress');
 	});
 });
 
@@ -457,7 +541,7 @@ describe('appendLedgerEvent: temp file is uniquely named', () => {
 
 		// Intercept temp paths by patching fs.renameSync — instead, verify that
 		// two concurrent append calls both succeed without either losing data
-		const planId = 'test-swarm_Test_Plan';
+		const planId = 'test-swarm-Test_Plan';
 		await Promise.all([
 			appendLedgerEvent(testDir, {
 				plan_id: planId,
@@ -481,10 +565,10 @@ describe('appendLedgerEvent: temp file is uniquely named', () => {
 		// but within a single Bun process they serialize on the event loop)
 		const events = await readLedgerEvents(testDir);
 		const sources = events.map((e) => e.source);
-		// At least one of the concurrent appends should have succeeded
-		expect(
-			sources.includes('concurrent-1') || sources.includes('concurrent-2'),
-		).toBe(true);
+		// Both concurrent appends must appear — unique temp paths prevent clobber.
+		// If this fails, a real concurrency write-loss bug is present.
+		expect(sources).toContain('concurrent-1');
+		expect(sources).toContain('concurrent-2');
 	});
 });
 

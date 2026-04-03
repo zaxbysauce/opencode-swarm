@@ -1,4 +1,4 @@
-import { renameSync, unlinkSync } from 'node:fs';
+import { existsSync, renameSync, unlinkSync } from 'node:fs';
 import * as path from 'node:path';
 import {
 	type Phase,
@@ -263,15 +263,17 @@ export async function loadPlan(directory: string): Promise<Plan | null> {
 							'_',
 						);
 						const ledgerEvents = await readLedgerEvents(directory);
-						const latestEvent =
+						const firstEvent =
 							ledgerEvents.length > 0
-								? ledgerEvents[ledgerEvents.length - 1]
+								? ledgerEvents[0]
 								: null;
-						if (latestEvent && latestEvent.plan_id !== currentPlanId) {
+						if (firstEvent && firstEvent.plan_id !== currentPlanId) {
 							// Ledger is from a different plan identity — migration detected.
+							// Use the first event (plan_created anchor) as the authoritative identity,
+							// consistent with savePlan's archive guard which also uses events[0].
 							// Do not rebuild; plan.json is the authoritative post-migration state.
 							warn(
-								`[loadPlan] Ledger identity mismatch (ledger: ${latestEvent.plan_id}, plan: ${currentPlanId}) — skipping ledger rebuild (migration detected). Use /swarm reset-session to reinitialize the ledger.`,
+								`[loadPlan] Ledger identity mismatch (ledger: ${firstEvent.plan_id}, plan: ${currentPlanId}) — skipping ledger rebuild (migration detected). Use /swarm reset-session to reinitialize the ledger.`,
 							);
 						} else {
 							warn(
@@ -301,15 +303,45 @@ export async function loadPlan(directory: string): Promise<Plan | null> {
 				warn(
 					`[loadPlan] plan.json validation failed: ${error instanceof Error ? error.message : String(error)}. Attempting rebuild from ledger. If rebuild fails, check SWARM_PLAN.md for a checkpoint.`,
 				);
+				// MIGRATION GUARD (catch path): Extract swarm+title from the raw JSON
+				// before schema validation even though validation failed. If we can determine
+				// the plan's identity and it doesn't match the ledger's first-event identity,
+				// skip the replay to prevent a post-migration ledger from overwriting the
+				// (schema-invalid) migrated plan.json.
+				let rawPlanId: string | null = null;
+				try {
+					const rawParsed = JSON.parse(planJsonContent);
+					if (typeof rawParsed?.swarm === 'string' && typeof rawParsed?.title === 'string') {
+						rawPlanId = `${rawParsed.swarm}-${rawParsed.title}`.replace(
+							/[^a-zA-Z0-9-_]/g,
+							'_',
+						);
+					}
+				} catch {
+					// JSON itself is malformed — rawPlanId stays null (conservative: skip ledger)
+				}
 				// Try replay from ledger before legacy migration
 				if (await ledgerExists(directory)) {
-					const rebuilt = await replayFromLedger(directory);
-					if (rebuilt) {
-						await rebuildPlan(directory, rebuilt);
+					const ledgerEventsForCatch = await readLedgerEvents(directory);
+					const catchFirstEvent = ledgerEventsForCatch.length > 0 ? ledgerEventsForCatch[0] : null;
+					const identityMatch =
+						rawPlanId === null || // Can't determine identity — skip rebuild (conservative)
+						catchFirstEvent === null || // Empty ledger — no identity to compare
+						catchFirstEvent.plan_id === rawPlanId; // Same identity — safe to rebuild
+					if (!identityMatch) {
 						warn(
-							'[loadPlan] Rebuilt plan from ledger after validation failure. Projection was stale.',
+							`[loadPlan] Ledger identity mismatch in validation-failure path (ledger: ${catchFirstEvent?.plan_id}, plan: ${rawPlanId}) — skipping ledger rebuild (migration detected).`,
 						);
-						return rebuilt;
+					} else if (catchFirstEvent !== null && rawPlanId !== null) {
+						// Identities match — attempt ledger rebuild
+						const rebuilt = await replayFromLedger(directory);
+						if (rebuilt) {
+							await rebuildPlan(directory, rebuilt);
+							warn(
+								'[loadPlan] Rebuilt plan from ledger after validation failure. Projection was stale.',
+							);
+							return rebuilt;
+						}
 					}
 				}
 				// Auto-heal case 2: plan.json invalid but plan.md exists -> migrate from plan.md
@@ -427,24 +459,40 @@ export async function savePlan(
 		/[^a-zA-Z0-9-_]/g,
 		'_',
 	);
+	// Compute hash of the incoming plan NOW so initLedger records the correct
+	// plan_hash_after. initLedger reads from disk otherwise, but plan.json is
+	// only written later in this function — so without passing the hash here,
+	// the init event would capture the OLD plan's hash.
+	const planHashForInit = computePlanHash(validated);
 	if (!(await ledgerExists(directory))) {
-		await initLedger(directory, planId);
+		await initLedger(directory, planId, planHashForInit);
 	} else {
 		const existingEvents = await readLedgerEvents(directory);
 		if (existingEvents.length > 0 && existingEvents[0].plan_id !== planId) {
 			// The ledger was created for a different plan identity.
 			// Archive the old ledger before reinitializing so it is not lost.
+			// Guard the rename: if another concurrent savePlan already moved the
+			// file, skip gracefully rather than crashing with ENOENT.
 			const swarmDir = path.resolve(directory, '.swarm');
 			const oldLedgerPath = path.join(swarmDir, 'plan-ledger.jsonl');
 			const archivePath = path.join(
 				swarmDir,
 				`plan-ledger.archived-${Date.now()}-${Math.floor(Math.random() * 1e9)}.jsonl`,
 			);
-			renameSync(oldLedgerPath, archivePath);
-			warn(
-				`[savePlan] Ledger identity mismatch (was "${existingEvents[0].plan_id}", now "${planId}") — archived old ledger to ${archivePath} and reinitializing.`,
-			);
-			await initLedger(directory, planId);
+			if (existsSync(oldLedgerPath)) {
+				renameSync(oldLedgerPath, archivePath);
+				warn(
+					`[savePlan] Ledger identity mismatch (was "${existingEvents[0].plan_id}", now "${planId}") — archived old ledger to ${archivePath} and reinitializing.`,
+				);
+			}
+			try {
+				await initLedger(directory, planId, planHashForInit);
+			} catch (initErr) {
+				// Another concurrent savePlan already initialized the new ledger — that is fine.
+				if (!(initErr instanceof Error && initErr.message.includes('already initialized'))) {
+					throw initErr;
+				}
+			}
 		}
 	}
 
@@ -629,17 +677,20 @@ export async function rebuildPlan(
  * Load plan → find task by ID → update status → save → return updated plan.
  * Throw if plan not found or task not found.
  *
- * Uses loadPlanJsonOnly() rather than loadPlan() to avoid triggering the
- * ledger hash-mismatch guard, which can overwrite plan.json with stale ledger
- * state — and if the caller then writes via savePlan(), permanently commits the
- * revert with the status update applied on top.
+ * Uses loadPlan() (not loadPlanJsonOnly) so that legitimate same-identity ledger
+ * drift is detected and healed before the status update is applied. Without this,
+ * a stale plan.json would silently overwrite ledger-ahead task state with only the
+ * one targeted status change applied on top.
+ *
+ * The migration guard in loadPlan() (plan_id identity check) prevents destructive
+ * revert after a swarm rename — so this is safe even in post-migration scenarios.
  */
 export async function updateTaskStatus(
 	directory: string,
 	taskId: string,
 	status: TaskStatus,
 ): Promise<Plan> {
-	const plan = await loadPlanJsonOnly(directory);
+	const plan = await loadPlan(directory);
 	if (plan === null) {
 		throw new Error(`Plan not found in directory: ${directory}`);
 	}
