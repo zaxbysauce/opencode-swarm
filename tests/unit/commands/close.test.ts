@@ -478,10 +478,11 @@ describe('handleCloseCommand', () => {
 
 			// New behavior: returns "Plan was already complete" with cleanup steps applied
 			expect(result).toContain('closed');
-			expect(result).toContain('Plan was already complete');
+			expect(result).toContain('terminal state');
+			expect(result).toContain('Session closed');
 			expect(result).not.toContain('No action taken');
 			expect(mockExecuteWriteRetro).not.toHaveBeenCalled();
-			// Cleanup runs even for allDone case
+			// Cleanup runs even for terminal plans
 			expect(mockArchiveEvidence).toHaveBeenCalledTimes(1);
 		});
 
@@ -504,11 +505,11 @@ describe('handleCloseCommand', () => {
 
 			const result = await handleCloseCommand(testDir, []);
 
-			// New behavior: returns "Plan was already complete" with cleanup steps applied
+			// New behavior: returns "terminal state" with cleanup steps applied
 			expect(result).toContain('closed');
-			expect(result).toContain('Plan was already complete');
+			expect(result).toContain('terminal state');
 			expect(mockExecuteWriteRetro).not.toHaveBeenCalled();
-			// Cleanup runs even for allDone case
+			// Cleanup runs even for terminal plans
 			expect(mockArchiveEvidence).toHaveBeenCalledTimes(1);
 		});
 
@@ -533,12 +534,14 @@ describe('handleCloseCommand', () => {
 			const result1 = await handleCloseCommand(testDir, []);
 			expect(result1).toContain('closed successfully');
 
-			// Second run - should succeed and return "Plan was already complete"
+			// Second run - should succeed and return "terminal state"
 			const result2 = await handleCloseCommand(testDir, []);
 
 			// Second run succeeds (idempotent)
 			expect(result2).toContain('closed');
-			expect(result2).toContain('Plan was already complete');
+			expect(result2).toContain('terminal state');
+			// Cleanup runs twice (once per run)
+			expect(mockArchiveEvidence).toHaveBeenCalledTimes(2);
 			// Retros only called once (first run had in-progress phase)
 			expect(mockExecuteWriteRetro).toHaveBeenCalledTimes(1);
 		});
@@ -555,11 +558,12 @@ describe('handleCloseCommand', () => {
 
 			const result = await handleCloseCommand(testDir, []);
 
-			// New behavior: returns "Plan was already complete" with cleanup steps applied
-			expect(result).toContain('closed');
-			expect(result).toContain('Plan was already complete');
+			// Empty phases array runs normally, not as terminal state
+			expect(result).toContain('closed successfully');
+			expect(result).not.toContain('terminal state');
+			expect(result).toContain('0 phase(s) closed');
 			expect(mockExecuteWriteRetro).not.toHaveBeenCalled();
-			// Cleanup runs even for empty phases (allDone=true case)
+			// Cleanup runs even for empty phases
 			expect(mockArchiveEvidence).toHaveBeenCalledTimes(1);
 		});
 	});
@@ -722,7 +726,7 @@ describe('handleCloseCommand', () => {
 				expect(result).toContain('Failed to read plan.json');
 			});
 
-			it('PF7: Empty phases array (plan exists) → allDone=true → returns "Plan was already complete"', async () => {
+			it('PF7: Empty phases array (plan exists, phases: []) → runs cleanup and returns closed successfully', async () => {
 				// Plan with empty phases array
 				const planData = {
 					title: 'Test Project',
@@ -735,8 +739,13 @@ describe('handleCloseCommand', () => {
 
 				const result = await handleCloseCommand(testDir, []);
 
-				// New behavior: returns "Plan was already complete" instead of "already closed"
-				expect(result).toContain('Plan was already complete');
+				// Empty phases: runs cleanup and returns normal success (not terminal state)
+				expect(result).toContain('closed successfully');
+				expect(result).not.toContain('terminal state');
+				// Cleanup runs
+				expect(mockArchiveEvidence).toHaveBeenCalledTimes(1);
+				// No phases = no retros
+				expect(mockExecuteWriteRetro).not.toHaveBeenCalled();
 			});
 		});
 
@@ -784,6 +793,31 @@ describe('handleCloseCommand', () => {
 				const contextPath = path.join(testDir, '.swarm', 'context.md');
 				const context = readFileSync(contextPath, 'utf-8');
 				expect(context).toContain('My Special Project');
+			});
+
+			it('CM4: context.md content is correct after already-terminal plan close', async () => {
+				const planData = {
+					title: 'Test Project',
+					phases: [
+						{
+							id: 1,
+							name: 'Phase 1',
+							status: 'complete',
+							tasks: [{ id: '1.1', status: 'complete' }],
+						},
+					],
+				};
+				writeFileSync(
+					path.join(testDir, '.swarm', 'plan.json'),
+					JSON.stringify(planData),
+				);
+				await handleCloseCommand(testDir, []);
+				const contextPath = path.join(testDir, '.swarm', 'context.md');
+				expect(existsSync(contextPath)).toBe(true);
+				const content = readFileSync(contextPath, 'utf-8');
+				expect(content).toContain('No active plan. Next session starts fresh.');
+				expect(content).toContain('Test Project');
+				expect(content).not.toContain('## Agent Activity');
 			});
 		});
 
@@ -1154,7 +1188,7 @@ describe('handleCloseCommand', () => {
 
 				const result = await handleCloseCommand(testDir, []);
 
-				expect(result).toContain('Plan was already complete');
+				expect(result).toContain('terminal state');
 			});
 
 			it('PF_P1_D: Plan with all phases complete → flushPendingSnapshot is still called', async () => {
@@ -1206,6 +1240,128 @@ describe('handleCloseCommand', () => {
 				// Should succeed as plan-free session
 				expect(result).toContain('closed successfully');
 				expect(result).not.toContain('Failed to read plan.json');
+			});
+		});
+
+		// =====================================================================
+		// Group: Additional GPT 5.4 coverage tests
+		// =====================================================================
+
+		describe('Additional GPT 5.4 coverage', () => {
+			it('Test A: executeWriteRetro throws → cleanup still runs, warning in result', async () => {
+				// Setup: mock executeWriteRetro to throw
+				mockExecuteWriteRetro.mockImplementationOnce(async () => {
+					throw new Error('retro write failed');
+				});
+
+				// Create a plan with one in-progress phase so the retro loop runs
+				const planData = {
+					title: 'Test Project',
+					phases: [
+						{
+							id: 1,
+							name: 'Phase 1',
+							status: 'in_progress',
+							tasks: [{ id: '1.1', status: 'complete' }],
+						},
+					],
+				};
+				writeFileSync(
+					path.join(testDir, '.swarm', 'plan.json'),
+					JSON.stringify(planData),
+				);
+
+				const result = await handleCloseCommand(testDir, []);
+
+				// Should still return "closed successfully" (not rethrow)
+				expect(result).toContain('closed successfully');
+				// Cleanup ran despite the error
+				expect(mockArchiveEvidence).toHaveBeenCalledTimes(1);
+				expect(mockFlushPendingSnapshot).toHaveBeenCalledTimes(1);
+				// Warning mentions the thrown error
+				expect(result).toContain('Warnings');
+				expect(result).toContain('retro write failed');
+			});
+
+			it('Test B: close-summary.md for already-terminal plan has correct actions (no false retro/mutation lines)', async () => {
+				// Create a plan with one complete phase (already terminal)
+				const planData = {
+					title: 'Test Project',
+					phases: [
+						{
+							id: 1,
+							name: 'Phase 1',
+							status: 'complete',
+							tasks: [{ id: '1.1', status: 'complete' }],
+						},
+					],
+				};
+				writeFileSync(
+					path.join(testDir, '.swarm', 'plan.json'),
+					JSON.stringify(planData),
+				);
+
+				await handleCloseCommand(testDir, []);
+
+				const summaryPath = path.join(testDir, '.swarm', 'close-summary.md');
+				expect(existsSync(summaryPath)).toBe(true);
+
+				const summary = readFileSync(summaryPath, 'utf-8');
+
+				// Does NOT contain "Wrote retrospectives" (retros were skipped for terminal plan)
+				expect(summary).not.toContain('Wrote retrospectives');
+				// Does NOT contain "Set non-completed phases" (mutation was skipped)
+				expect(summary).not.toContain('Set non-completed phases');
+				// DOES contain "Archived evidence bundles"
+				expect(summary).toContain('Archived evidence bundles');
+				// DOES contain "Reset context.md"
+				expect(summary).toContain('Reset context.md');
+			});
+
+			it('Test C: close-summary.md for plan-free session shows "No plan — ad-hoc session"', async () => {
+				// Run without plan.json
+				await handleCloseCommand(testDir, []);
+
+				const summaryPath = path.join(testDir, '.swarm', 'close-summary.md');
+				expect(existsSync(summaryPath)).toBe(true);
+
+				const summary = readFileSync(summaryPath, 'utf-8');
+
+				// Summary contains "No plan — ad-hoc session"
+				expect(summary).toContain('_No plan — ad-hoc session_');
+				// Does NOT contain "Set non-completed phases"
+				expect(summary).not.toContain('Set non-completed phases');
+			});
+
+			it('Test D: blocked plan → return message says "terminal state" not "already complete"', async () => {
+				// Create a plan with all phases in blocked status
+				const planData = {
+					title: 'Test Project',
+					phases: [
+						{
+							id: 1,
+							name: 'Phase 1',
+							status: 'blocked',
+							tasks: [{ id: '1.1', status: 'blocked' }],
+						},
+						{
+							id: 2,
+							name: 'Phase 2',
+							status: 'blocked',
+							tasks: [{ id: '2.1', status: 'blocked' }],
+						},
+					],
+				};
+				writeFileSync(
+					path.join(testDir, '.swarm', 'plan.json'),
+					JSON.stringify(planData),
+				);
+
+				const result = await handleCloseCommand(testDir, []);
+
+				// Contains "terminal state" (not "already complete")
+				expect(result).toContain('terminal state');
+				expect(result).not.toContain('Plan was already complete');
 			});
 		});
 	});

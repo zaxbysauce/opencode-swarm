@@ -1,4 +1,4 @@
-import { execFileSync, execSync } from 'node:child_process';
+import { execFileSync } from 'node:child_process';
 import { promises as fs } from 'node:fs';
 import path from 'node:path';
 import { KnowledgeConfigSchema } from '../config/schema';
@@ -66,13 +66,15 @@ export async function handleCloseCommand(
 	// planAlreadyDone: skip retro writing and plan mutation, but still run all cleanup steps
 	let planAlreadyDone = false;
 	if (planExists) {
-		planAlreadyDone = phases.every(
-			(p) =>
-				p.status === 'complete' ||
-				p.status === 'completed' ||
-				p.status === 'blocked' ||
-				p.status === 'closed',
-		);
+		planAlreadyDone =
+			phases.length > 0 &&
+			phases.every(
+				(p) =>
+					p.status === 'complete' ||
+					p.status === 'completed' ||
+					p.status === 'blocked' ||
+					p.status === 'closed',
+			);
 	}
 
 	const config = KnowledgeConfigSchema.parse({});
@@ -86,29 +88,38 @@ export async function handleCloseCommand(
 		for (const phase of inProgressPhases) {
 			closedPhases.push(phase.id);
 
-			const retroResult = await executeWriteRetro(
-				{
-					phase: phase.id,
-					summary: 'Phase closed via /swarm close',
-					task_count: Math.max(1, (phase.tasks ?? []).length),
-					task_complexity: 'simple',
-					total_tool_calls: 0,
-					coder_revisions: 0,
-					reviewer_rejections: 0,
-					test_failures: 0,
-					security_findings: 0,
-					integration_issues: 0,
-				},
-				directory,
-			);
-
+			let retroResult: string | undefined;
 			try {
-				const parsed = JSON.parse(retroResult);
-				if (parsed.success !== true) {
-					warnings.push(`Retrospective write failed for phase ${phase.id}`);
+				retroResult = await executeWriteRetro(
+					{
+						phase: phase.id,
+						summary: 'Phase closed via /swarm close',
+						task_count: Math.max(1, (phase.tasks ?? []).length),
+						task_complexity: 'simple',
+						total_tool_calls: 0,
+						coder_revisions: 0,
+						reviewer_rejections: 0,
+						test_failures: 0,
+						security_findings: 0,
+						integration_issues: 0,
+					},
+					directory,
+				);
+			} catch (retroError) {
+				warnings.push(
+					`Retrospective write threw for phase ${phase.id}: ${retroError instanceof Error ? retroError.message : String(retroError)}`,
+				);
+			}
+
+			if (retroResult !== undefined) {
+				try {
+					const parsed = JSON.parse(retroResult);
+					if (parsed.success !== true) {
+						warnings.push(`Retrospective write failed for phase ${phase.id}`);
+					}
+				} catch {
+					// Non-JSON response is not an error
 				}
-			} catch {
-				// Non-JSON response is not an error
 			}
 
 			for (const task of phase.tasks ?? []) {
@@ -225,7 +236,7 @@ export async function handleCloseCommand(
 
 	if (pruneBranches) {
 		try {
-			const branchOutput = execSync('git branch -vv', {
+			const branchOutput = execFileSync('git', ['branch', '-vv'], {
 				cwd: directory,
 				encoding: 'utf-8',
 				stdio: ['pipe', 'pipe', 'pipe'],
@@ -261,7 +272,10 @@ export async function handleCloseCommand(
 	const closeSummaryPath = validateSwarmPath(directory, 'close-summary.md');
 
 	const actionsPerformed = [
-		'- Wrote retrospectives for in-progress phases',
+		// Retros only ran when plan had in-progress phases and was not already done
+		...(!planAlreadyDone && inProgressPhases.length > 0
+			? ['- Wrote retrospectives for in-progress phases']
+			: []),
 		'- Archived evidence bundles',
 		'- Reset context.md for next session',
 		...(configBackupsRemoved > 0
@@ -273,7 +287,8 @@ export async function handleCloseCommand(
 				]
 			: []),
 		'- Cleared agent sessions and delegation chains',
-		...(planExists
+		// Plan mutation only ran when plan existed and was not already done
+		...(planExists && !planAlreadyDone
 			? ['- Set non-completed phases/tasks to closed status']
 			: []),
 	];
@@ -285,9 +300,11 @@ export async function handleCloseCommand(
 		`**Closed:** ${new Date().toISOString()}`,
 		'',
 		`## Phases Closed: ${closedPhases.length}`,
-		closedPhases.length > 0
-			? closedPhases.map((id) => `- Phase ${id}`).join('\n')
-			: '_No plan — ad-hoc session_',
+		!planExists
+			? '_No plan — ad-hoc session_'
+			: closedPhases.length > 0
+				? closedPhases.map((id) => `- Phase ${id}`).join('\n')
+				: '_No phases to close_',
 		'',
 		`## Tasks Closed: ${closedTasks.length}`,
 		closedTasks.length > 0
@@ -325,7 +342,7 @@ export async function handleCloseCommand(
 	const warningMsg =
 		warnings.length > 0 ? ` Warnings: ${warnings.join('; ')}.` : '';
 	if (planAlreadyDone) {
-		return `✅ Session closed. Plan was already complete — cleanup steps applied.${warningMsg}`;
+		return `✅ Session closed. Plan was already in a terminal state — cleanup steps applied.${warningMsg}`;
 	}
 	return `✅ Swarm closed successfully. ${closedPhases.length} phase(s) closed, ${closedTasks.length} incomplete task(s) marked closed.${warningMsg}`;
 }
