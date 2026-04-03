@@ -5,7 +5,9 @@ import { derivePlanMarkdown, loadPlan } from '../plan/manager';
  * Maps to: plan service (loadPlan which triggers auto-heal/sync)
  *
  * This command ensures plan.json and plan.md are in sync.
- * The loadPlan function automatically regenerates plan.md from plan.json if needed.
+ * loadPlan() is safe here: the migration-aware ledger guard in loadPlan()
+ * now prevents false reverts caused by swarm identity changes, so the
+ * full auto-heal path (including legacy plan.md migration) is correct.
  */
 export async function handleSyncPlanCommand(
 	directory: string,
@@ -17,7 +19,7 @@ export async function handleSyncPlanCommand(
 		return '## Plan Sync Report\n\nNo active swarm plan found. Nothing to sync.';
 	}
 
-	// Load plan triggers auto-heal which regenerates plan.md if stale
+	// loadPlan triggers auto-heal which regenerates plan.md if stale
 	// Now derive fresh markdown to confirm sync
 	const currentMarkdown = derivePlanMarkdown(plan);
 

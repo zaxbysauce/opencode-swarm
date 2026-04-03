@@ -8,7 +8,7 @@
 import * as crypto from 'node:crypto';
 import * as fs from 'node:fs';
 import * as path from 'node:path';
-import type { Plan, Task } from '../config/plan-schema';
+import { type Plan, type Task, TaskStatusSchema } from '../config/plan-schema';
 
 /**
  * Ledger schema version
@@ -284,6 +284,7 @@ export async function readLedgerEvents(
 export async function initLedger(
 	directory: string,
 	planId: string,
+	initialPlanHash?: string,
 ): Promise<void> {
 	const ledgerPath = getLedgerPath(directory);
 	const planJsonPath = getPlanJsonPath(directory);
@@ -295,16 +296,20 @@ export async function initLedger(
 		);
 	}
 
-	// Read current plan to get initial hash
-	let planHashAfter = '';
-	try {
-		if (fs.existsSync(planJsonPath)) {
-			const content = fs.readFileSync(planJsonPath, 'utf8');
-			const plan: Plan = JSON.parse(content);
-			planHashAfter = computePlanHash(plan);
+	// Use the provided hash if available (fresh from in-memory plan).
+	// Fall back to reading on-disk plan.json only when no hash is supplied
+	// (e.g., direct calls from tests or external tooling).
+	let planHashAfter = initialPlanHash ?? '';
+	if (!initialPlanHash) {
+		try {
+			if (fs.existsSync(planJsonPath)) {
+				const content = fs.readFileSync(planJsonPath, 'utf8');
+				const plan: Plan = JSON.parse(content);
+				planHashAfter = computePlanHash(plan);
+			}
+		} catch {
+			// If we can't read plan.json, use empty hash
 		}
-	} catch {
-		// If we can't read plan.json, use empty hash
 	}
 
 	const event: LedgerEvent = {
@@ -322,7 +327,7 @@ export async function initLedger(
 	fs.mkdirSync(path.join(directory, '.swarm'), { recursive: true });
 
 	// Write to temp file then rename for atomicity
-	const tempPath = `${ledgerPath}.tmp`;
+	const tempPath = `${ledgerPath}.tmp.${Date.now()}.${Math.floor(Math.random() * 1e9)}`;
 	const line = `${JSON.stringify(event)}\n`;
 
 	fs.writeFileSync(tempPath, line, 'utf8');
@@ -389,8 +394,10 @@ export async function appendLedgerEvent(
 	// Ensure .swarm/ directory exists
 	fs.mkdirSync(path.join(directory, '.swarm'), { recursive: true });
 
-	// Write to temp file then rename for atomicity
-	const tempPath = `${ledgerPath}.tmp`;
+	// Write to temp file then rename for atomicity.
+	// Random suffix prevents concurrent writers across processes from clobbering
+	// each other's temp file (each process writes its own uniquely-named temp).
+	const tempPath = `${ledgerPath}.tmp.${Date.now()}.${Math.floor(Math.random() * 1e9)}`;
 	const line = `${JSON.stringify(event)}\n`;
 
 	// If ledger exists, append to it via temp file
@@ -426,12 +433,16 @@ export async function takeSnapshotEvent(
 		plan,
 		payload_hash: payloadHash,
 	};
+	const planId = `${plan.swarm}-${plan.title}`.replace(
+		/[^a-zA-Z0-9-_]/g,
+		'_',
+	);
 	return appendLedgerEvent(
 		directory,
 		{
 			event_type: 'snapshot',
 			source: 'takeSnapshotEvent',
-			plan_id: plan.title,
+			plan_id: planId,
 			payload: snapshotPayload as unknown as Record<string, unknown>,
 		},
 		options,
@@ -471,10 +482,18 @@ export async function replayFromLedger(
 		return null;
 	}
 
+	// Filter to the identity of the first event (the plan_created anchor).
+	// In a mixed-identity ledger — created before savePlan's archive+reinit fix —
+	// events from multiple swarm identities may coexist. Replaying all of them
+	// would corrupt task state. Filtering to the first event's plan_id is safe:
+	// the plan_created event is always the canonical identity anchor.
+	const targetPlanId = events[0].plan_id;
+	const relevantEvents = events.filter((e) => e.plan_id === targetPlanId);
+
 	// Always check for in-ledger snapshot events first
 	{
 		// Find the latest snapshot event
-		const snapshotEvents = events.filter((e) => e.event_type === 'snapshot');
+		const snapshotEvents = relevantEvents.filter((e) => e.event_type === 'snapshot');
 		if (snapshotEvents.length > 0) {
 			const latestSnapshotEvent = snapshotEvents[snapshotEvents.length - 1];
 
@@ -484,7 +503,7 @@ export async function replayFromLedger(
 			let plan: Plan | null = snapshotPayload.plan;
 
 			// Replay events after the snapshot
-			const eventsAfterSnapshot = events.filter(
+			const eventsAfterSnapshot = relevantEvents.filter(
 				(e) => e.seq > latestSnapshotEvent.seq,
 			);
 
@@ -515,7 +534,7 @@ export async function replayFromLedger(
 	}
 
 	// Apply events in sequence
-	for (const event of events) {
+	for (const event of relevantEvents) {
 		if (plan === null) {
 			// plan_reset event
 			return null;
@@ -543,10 +562,19 @@ function applyEventToPlan(plan: Plan, event: LedgerEvent): Plan | null {
 
 		case 'task_status_changed':
 			if (event.task_id && event.to_status) {
+				// Validate to_status before applying — an invalid status from a corrupted
+				// ledger event must not be written to the plan (would break schema validation).
+				const parseResult = TaskStatusSchema.safeParse(event.to_status);
+				if (!parseResult.success) {
+					// Skip invalid status; return the plan unchanged (do NOT break — a break
+					// exits the switch and causes an implicit `undefined` return which
+					// would corrupt the replay loop in replayFromLedger).
+					return plan;
+				}
 				for (const phase of plan.phases) {
 					const task = phase.tasks.find((t) => t.id === event.task_id);
 					if (task) {
-						task.status = event.to_status as Task['status'];
+						task.status = parseResult.data;
 						break;
 					}
 				}

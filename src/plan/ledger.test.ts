@@ -936,7 +936,9 @@ describe('ledger', () => {
 			};
 			fs.writeFileSync(planJsonPath, JSON.stringify(plan), 'utf8');
 
-			await initLedger(testDir, 'test-plan');
+			// Use the correct plan_id format matching takeSnapshotEvent's computation:
+			// "${swarm}-${title}".replace(/[^a-zA-Z0-9-_]/g, '_') = 'test-swarm-Test_Plan'
+			await initLedger(testDir, 'test-swarm-Test_Plan');
 
 			// Take snapshot event
 			await takeSnapshotEvent(testDir, plan);
