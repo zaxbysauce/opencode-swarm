@@ -620,6 +620,30 @@ Swarm enforces per-agent file write authority — each agent can only write to s
 | `designer` | `docs/`, `.swarm/outputs/` | — | `generated` |
 | `critic` | `.swarm/evidence/` | — | `generated` |
 
+### Prefixed Agents
+
+Prefixed agents (e.g., `paid_coder`, `mega_reviewer`, `local_architect`) inherit defaults from their canonical base agent via `stripKnownSwarmPrefix`. The lookup order is:
+
+1. Exact match for the prefixed name (if explicitly defined in user config)
+2. Fall back to the canonical agent's defaults (e.g., `paid_coder` → `coder`)
+
+```json
+{
+  "authority": {
+    "rules": {
+      "coder": { "allowedPrefix": ["src/", "lib/"] },
+      "paid_coder": { "allowedPrefix": ["vendor/", "plugins/"] }
+    }
+  }
+}
+```
+
+In this example, `paid_coder` gets its own explicit rule, while other prefixed coders (e.g., `mega_coder`) fall back to `coder`.
+
+### Runtime Enforcement
+
+Architect direct writes are enforced at runtime via `toolBefore` hook. This tracks writes to source code paths outside `.swarm/` and protects `.swarm/plan.md` and `.swarm/plan.json` from direct modification.
+
 ### Configuration
 
 Override default rules in `.opencode/opencode-swarm.json`:
@@ -650,7 +674,7 @@ Override default rules in `.opencode/opencode-swarm.json`:
 | `readOnly` | boolean | If `true`, agent cannot write anywhere |
 | `blockedExact` | string[] | Exact file paths that are blocked |
 | `blockedPrefix` | string[] | Path prefixes that are blocked (e.g., `.swarm/`) |
-| `allowedPrefix` | string[] | Only these path prefixes are allowed. If empty/absent, all paths allowed (unless blocked) |
+| `allowedPrefix` | string[] | Only these path prefixes are allowed. Omit to remove restriction; set `[]` to deny all |
 | `blockedZones` | string[] | File zones to block: `production`, `test`, `config`, `generated`, `docs`, `build` |
 
 ### Merge Behavior
@@ -661,9 +685,9 @@ Override default rules in `.opencode/opencode-swarm.json`:
 - If a field is omitted in the user rule, the default value is preserved
 - Setting `enabled: false` ignores all custom rules and uses defaults
 
-### Adding a Custom Agent
+### Custom Agents
 
-You can define authority rules for agents not in the defaults:
+Custom agents (not in the defaults list) have no default rules and will be blocked from all writes unless explicitly configured in user config.
 
 ```json
 {
@@ -671,7 +695,7 @@ You can define authority rules for agents not in the defaults:
     "rules": {
       "my_custom_agent": {
         "allowedPrefix": ["plugins/", "extensions/"],
-        "blockedZones": ["generated", "config"]
+        "blockedZones": ["generated"]
       }
     }
   }

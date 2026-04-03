@@ -2,8 +2,23 @@ import { afterEach, beforeEach, describe, expect, it, vi } from 'bun:test';
 import * as fs from 'node:fs/promises';
 import * as os from 'node:os';
 import * as path from 'node:path';
-import type { AuthorityConfig } from '../../../src/config/schema';
-import { checkFileAuthority } from '../../../src/hooks/guardrails';
+import {
+	type AuthorityConfig,
+	type GuardrailsConfig,
+	GuardrailsConfigSchema,
+} from '../../../src/config/schema';
+import {
+	checkFileAuthority,
+	createGuardrailsHooks,
+} from '../../../src/hooks/guardrails';
+import {
+	beginInvocation,
+	ensureAgentSession,
+	getAgentSession,
+	resetSwarmState,
+	startAgentSession,
+	swarmState,
+} from '../../../src/state';
 
 // Helper to check if result is a denial
 function isDenied(
@@ -323,6 +338,39 @@ describe('guardrails-authority - File Authority Enforcement', () => {
 		});
 	});
 
+	describe('Prefixed agent inherits canonical defaults', () => {
+		it('allows paid_coder to write to src/file.ts (inherits coder allowedPrefix)', () => {
+			const result = checkFileAuthority('paid_coder', 'src/file.ts', tempDir);
+			expect(result.allowed).toBe(true);
+		});
+
+		it('allows mega_reviewer to write to .swarm/evidence/x.json (inherits reviewer allowedPrefix)', () => {
+			const result = checkFileAuthority(
+				'mega_reviewer',
+				'.swarm/evidence/x.json',
+				tempDir,
+			);
+			expect(result.allowed).toBe(true);
+		});
+
+		it('denies paid_coder writing to .swarm/plan.md (coder defaults block .swarm/)', () => {
+			const result = checkFileAuthority(
+				'paid_coder',
+				'.swarm/plan.md',
+				tempDir,
+			);
+			expect(result.allowed).toBe(false);
+			if (isDenied(result)) {
+				expect(result.reason).toContain('Path blocked');
+			}
+		});
+
+		it('allows unprefixed canonical coder to write to src/file.ts', () => {
+			const result = checkFileAuthority('coder', 'src/file.ts', tempDir);
+			expect(result.allowed).toBe(true);
+		});
+	});
+
 	describe('v6.20 warnings only (not blocking)', () => {
 		it('checkFileAuthority returns denial without throwing', () => {
 			// The function should return a result object, not throw
@@ -431,6 +479,67 @@ describe('guardrails-authority - File Authority Enforcement', () => {
 			const result = checkFileAuthority('coder', 'index.ts', tempDir);
 			// Not in allowed prefixes for coder
 			expect(result.allowed).toBe(false);
+		});
+	});
+
+	describe('Config key case normalization', () => {
+		it('config key "CODER" matches lookup for "coder"', () => {
+			const result = checkFileAuthority('coder', 'src/file.ts', tempDir, {
+				enabled: true,
+				rules: {
+					CODER: {
+						allowedPrefix: ['lib/'], // Override: CODER can only write to lib/
+					},
+				},
+			});
+			// src/ is no longer in allowedPrefix, so should be blocked
+			expect(result.allowed).toBe(false);
+			if (isDenied(result)) {
+				expect(result.reason).toContain('not in allowed list');
+			}
+		});
+
+		it('config key "Paid_Coder" matches lookup for "paid_coder"', () => {
+			const result = checkFileAuthority('paid_coder', 'src/file.ts', tempDir, {
+				enabled: true,
+				rules: {
+					Paid_Coder: {
+						allowedPrefix: ['lib/'], // Override: Paid_Coder can only write to lib/
+					},
+				},
+			});
+			// src/ is no longer in allowedPrefix, so should be blocked
+			expect(result.allowed).toBe(false);
+			if (isDenied(result)) {
+				expect(result.reason).toContain('not in allowed list');
+			}
+		});
+
+		it('exact override for "paid_coder" wins over canonical coder fallback', () => {
+			// paid_coder normally inherits from coder defaults (allows src/)
+			// But config with "paid_coder" exact key should override that
+			const result = checkFileAuthority('paid_coder', 'src/file.ts', tempDir, {
+				enabled: true,
+				rules: {
+					coder: {
+						allowedPrefix: ['lib/'],
+					},
+					paid_coder: {
+						allowedPrefix: ['src/'], // Exact match for paid_coder
+					},
+				},
+			});
+			// paid_coder exact override should allow src/
+			expect(result.allowed).toBe(true);
+		});
+
+		it('empty rules {} preserves all defaults', () => {
+			const result = checkFileAuthority('coder', 'src/file.ts', tempDir, {
+				enabled: true,
+				rules: {},
+			});
+			// Empty rules should preserve all defaults
+			expect(result.allowed).toBe(true);
 		});
 	});
 
@@ -569,6 +678,221 @@ describe('guardrails-authority - File Authority Enforcement', () => {
 			if (isDenied(result)) {
 				expect(result.reason).toContain('Path blocked');
 			}
+		});
+
+		// NOTE: allowedPrefix: [] means deny all paths; omission of allowedPrefix means no allowlist restriction
+		it('allowedPrefix: [] denies traversal attempt outside cwd', () => {
+			// Using traversal sequence to escape tempDir - path.resolve normalizes ../
+			const result = checkFileAuthority(
+				'coder',
+				'../../../etc/passwd',
+				tempDir,
+				{
+					enabled: true,
+					rules: {
+						coder: {
+							allowedPrefix: [], // Deny all - no paths are allowed
+						},
+					},
+				},
+			);
+			expect(result.allowed).toBe(false);
+			if (isDenied(result)) {
+				expect(result.reason).toContain('not in allowed list');
+			}
+		});
+	});
+
+	describe('toolBefore hook integration tests (PR 378)', () => {
+		let tempDir: string;
+		let originalCwd: string;
+		let hooksConfig: GuardrailsConfig;
+
+		beforeEach(async () => {
+			// Create a temporary directory for each test
+			tempDir = await fs.mkdtemp(
+				path.join(os.tmpdir(), 'authority-hook-test-'),
+			);
+			originalCwd = process.cwd();
+			process.chdir(tempDir);
+			resetSwarmState();
+
+			// Create .swarm directory for plan.md test
+			await fs.mkdir(path.join(tempDir, '.swarm'), { recursive: true });
+			// Create .swarm/plan.md
+			await fs.writeFile(
+				path.join(tempDir, '.swarm', 'plan.md'),
+				'# Plan\n- Task 1: test',
+			);
+			// Create generated directory for zone test
+			await fs.mkdir(path.join(tempDir, 'generated'), { recursive: true });
+
+			// Initialize guardrails config for hook tests
+			hooksConfig = GuardrailsConfigSchema.parse({ enabled: true });
+		});
+
+		afterEach(async () => {
+			process.chdir(originalCwd);
+			try {
+				await fs.rm(tempDir, { recursive: true, force: true });
+			} catch {
+				// Ignore cleanup errors
+			}
+		});
+
+		/**
+		 * Test 1: architect write to src/file.ts → allowed
+		 * DEFAULT_AGENT_AUTHORITY_RULES for architect has no allowedPrefix (no restriction),
+		 * blockedZones is ['generated'] but src/ is production zone.
+		 */
+		it('architect write to src/file.ts is allowed via toolBefore hook', async () => {
+			const sessionId = 'toolbefore-architect-src';
+			ensureAgentSession(sessionId, 'architect');
+			swarmState.activeAgent.set(sessionId, 'architect');
+			beginInvocation(sessionId, 'architect');
+
+			const hooks = createGuardrailsHooks(tempDir, hooksConfig);
+
+			// Should NOT throw - architect has no allowedPrefix restriction
+			await hooks.toolBefore(
+				{ tool: 'write', sessionID: sessionId, callID: 'call-1' },
+				{ args: { filePath: 'src/file.ts' } },
+			);
+		});
+
+		/**
+		 * Test 2: architect write to nested/dist/file.ts → BLOCKED by blockedZones
+		 * architect has blockedZones: ['generated'], and 'nested/dist/file.ts' is classified
+		 * as 'generated' zone by classifyFile() (which checks for /dist/ pattern).
+		 * NOTE: classifyFile does NOT recognize 'dist/' at path start as 'generated' zone.
+		 * It only recognizes: .wasm, /dist/, /build/, .swarm/checkpoints/
+		 */
+		it('architect write to nested/dist/file.ts is blocked by blockedZones', async () => {
+			const sessionId = 'toolbefore-architect-generated';
+			ensureAgentSession(sessionId, 'architect');
+			swarmState.activeAgent.set(sessionId, 'architect');
+			beginInvocation(sessionId, 'architect');
+
+			const hooks = createGuardrailsHooks(tempDir, hooksConfig);
+
+			// Should throw due to blockedZones=['generated'] - nested/dist/ is classified as 'generated'
+			await expect(
+				hooks.toolBefore(
+					{ tool: 'write', sessionID: sessionId, callID: 'call-2' },
+					{ args: { filePath: 'nested/dist/file.ts' } },
+				),
+			).rejects.toThrow();
+		});
+
+		/**
+		 * Test 3: architect write to .swarm/plan.md → PLAN STATE VIOLATION
+		 * handlePlanAndScopeProtection throws first before authority check.
+		 */
+		it('architect write to .swarm/plan.md throws PLAN STATE VIOLATION', async () => {
+			const sessionId = 'toolbefore-architect-plan';
+			ensureAgentSession(sessionId, 'architect');
+			swarmState.activeAgent.set(sessionId, 'architect');
+			beginInvocation(sessionId, 'architect');
+
+			const hooks = createGuardrailsHooks(tempDir, hooksConfig);
+
+			// Should throw PLAN STATE VIOLATION - handlePlanAndScopeProtection runs first
+			await expect(
+				hooks.toolBefore(
+					{ tool: 'write', sessionID: sessionId, callID: 'call-3' },
+					{ args: { filePath: '.swarm/plan.md' } },
+				),
+			).rejects.toThrow(/PLAN STATE VIOLATION/i);
+		});
+
+		/**
+		 * Test 4: reviewer write to src/file.ts via delegation → BLOCKED
+		 * When delegationActive=true and reviewer tries to write to src/ (which is
+		 * blocked by reviewer's blockedPrefix: ['src/']), handleDelegatedWriteTracking
+		 * should throw due to authority check failure at line 525.
+		 */
+		it('reviewer write to src/file.ts via delegation is blocked', async () => {
+			const sessionId = 'toolbefore-reviewer-delegation';
+			ensureAgentSession(sessionId, 'reviewer');
+			swarmState.activeAgent.set(sessionId, 'reviewer');
+			const session = getAgentSession(sessionId)!;
+			session.delegationActive = true; // Simulate delegation in progress
+			beginInvocation(sessionId, 'reviewer');
+
+			const hooks = createGuardrailsHooks(tempDir, hooksConfig);
+
+			// Should throw because reviewer has blockedPrefix: ['src/']
+			await expect(
+				hooks.toolBefore(
+					{ tool: 'write', sessionID: sessionId, callID: 'call-4' },
+					{ args: { filePath: 'src/file.ts' } },
+				),
+			).rejects.toThrow(/WRITE BLOCKED/i);
+		});
+
+		/**
+		 * Test 5: paid_coder write to src/file.ts via delegation → ALLOWED
+		 * When delegationActive=true and paid_coder (which inherits from coder)
+		 * tries to write to src/, the canonical fallback allows it because
+		 * coder's allowedPrefix includes 'src/'.
+		 */
+		it('paid_coder write to src/file.ts via delegation is allowed', async () => {
+			const sessionId = 'toolbefore-paidcoder-delegation';
+			ensureAgentSession(sessionId, 'paid_coder');
+			swarmState.activeAgent.set(sessionId, 'paid_coder');
+			const session = getAgentSession(sessionId)!;
+			session.delegationActive = true; // Simulate delegation in progress
+			beginInvocation(sessionId, 'paid_coder');
+
+			const hooks = createGuardrailsHooks(tempDir, hooksConfig);
+
+			// Should NOT throw - coder (which paid_coder inherits from) allows src/
+			await hooks.toolBefore(
+				{ tool: 'write', sessionID: sessionId, callID: 'call-5' },
+				{ args: { filePath: 'src/file.ts' } },
+			);
+		});
+
+		/**
+		 * Test 6: mixed-case config key 'PAID_CODER' in authority config → works correctly
+		 * The config key normalization (toLowerCase) should allow proper lookup.
+		 * delegationActive must be true to exercise the authority override path.
+		 */
+		it('mixed-case config key PAID_CODER works correctly', async () => {
+			const sessionId = 'toolbefore-mixedcase-config';
+			ensureAgentSession(sessionId, 'paid_coder');
+			swarmState.activeAgent.set(sessionId, 'paid_coder');
+			const session = getAgentSession(sessionId)!;
+			session.delegationActive = true; // Enable delegation to exercise authority override
+			beginInvocation(sessionId, 'paid_coder');
+
+			// Authority config with mixed-case key 'PAID_CODER'
+			const authorityConfig: AuthorityConfig = {
+				enabled: true,
+				rules: {
+					PAID_CODER: {
+						allowedPrefix: ['lib/'], // Override: PAID_CODER can only write to lib/
+						blockedPrefix: ['src/'], // Explicitly block src/ to test mixed-case key works
+					},
+				},
+			};
+
+			// Pass authorityConfig as 4th positional argument to createGuardrailsHooks
+			const hooks = createGuardrailsHooks(
+				tempDir,
+				hooksConfig,
+				undefined,
+				authorityConfig,
+			);
+
+			// paid_coder with PAID_CODER override should now be blocked from src/
+			// because the override has blockedPrefix: ['src/']
+			await expect(
+				hooks.toolBefore(
+					{ tool: 'write', sessionID: sessionId, callID: 'call-6' },
+					{ args: { filePath: 'src/file.ts' } },
+				),
+			).rejects.toThrow(/WRITE BLOCKED/i);
 		});
 	});
 });

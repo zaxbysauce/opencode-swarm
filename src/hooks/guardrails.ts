@@ -950,6 +950,29 @@ export function createGuardrailsHooks(
 			// Plan state + scope protection for architect writes
 			if (isArchitect(input.sessionID) && isWriteTool(input.tool)) {
 				handlePlanAndScopeProtection(input.sessionID, input.tool, output.args);
+
+				// Architect direct write authority check
+				const toolArgs = output.args as Record<string, unknown> | undefined;
+				const targetPath =
+					toolArgs?.filePath ??
+					toolArgs?.path ??
+					toolArgs?.file ??
+					toolArgs?.target;
+				if (typeof targetPath === 'string' && targetPath.length > 0) {
+					const agentName =
+						swarmState.activeAgent.get(input.sessionID) ?? 'architect';
+					const authorityCheck = checkFileAuthority(
+						agentName,
+						targetPath,
+						effectiveDirectory,
+						authorityConfig,
+					);
+					if (!authorityCheck.allowed) {
+						throw new Error(
+							`WRITE BLOCKED: Agent "${agentName}" is not authorised to write "${targetPath}". Reason: ${authorityCheck.reason}`,
+						);
+					}
+				}
 			}
 
 			// Resolve session — returns null if architect-exempt
@@ -1945,14 +1968,16 @@ export function checkFileAuthority(
 	authorityConfig?: AuthorityConfig,
 ): { allowed: true } | { allowed: false; reason: string; zone?: FileZone } {
 	const normalizedAgent = agentName.toLowerCase();
+	const strippedAgent = stripKnownSwarmPrefix(agentName).toLowerCase();
 
 	// Merge user-configured rules with defaults (user overrides take precedence)
 	let effectiveRules: Record<string, AgentRule> = DEFAULT_AGENT_AUTHORITY_RULES;
 	if (authorityConfig?.enabled !== false && authorityConfig?.rules) {
 		effectiveRules = { ...DEFAULT_AGENT_AUTHORITY_RULES };
 		for (const [agent, userRule] of Object.entries(authorityConfig.rules)) {
-			const existing = effectiveRules[agent] ?? {};
-			effectiveRules[agent] = {
+			const normalizedRuleKey = agent.toLowerCase();
+			const existing = effectiveRules[normalizedRuleKey] ?? {};
+			effectiveRules[normalizedRuleKey] = {
 				...existing,
 				...userRule,
 				// Arrays: user replaces entirely (not merged)
@@ -1971,7 +1996,8 @@ export function checkFileAuthority(
 	const resolved = path.resolve(dir, filePath);
 	const normalizedPath = path.relative(dir, resolved).replace(/\\/g, '/');
 
-	const rules = effectiveRules[normalizedAgent];
+	const rules =
+		effectiveRules[normalizedAgent] ?? effectiveRules[strippedAgent];
 	if (!rules) {
 		return { allowed: false, reason: `Unknown agent: ${agentName}` };
 	}
@@ -2002,10 +2028,13 @@ export function checkFileAuthority(
 		}
 	}
 
-	if (rules.allowedPrefix && rules.allowedPrefix.length > 0) {
-		const isAllowed = rules.allowedPrefix.some((prefix) =>
-			normalizedPath.startsWith(prefix),
-		);
+	if (rules.allowedPrefix != null) {
+		const isAllowed =
+			rules.allowedPrefix.length > 0
+				? rules.allowedPrefix.some((prefix) =>
+						normalizedPath.startsWith(prefix),
+					)
+				: false;
 		if (!isAllowed) {
 			return {
 				allowed: false,
