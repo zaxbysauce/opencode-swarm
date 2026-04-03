@@ -118,27 +118,56 @@ describe('loadPlan ledger-aware hash comparison guard', () => {
 
 	describe('Case 2: plan.json hash does NOT match latest ledger hash — rebuild from ledger', () => {
 		test('rebuilds from ledger when hash mismatch detected', async () => {
-			// Set up: valid plan.json + ledger with DIFFERENT hash
-			const initialPlan = makeTestPlan();
+			// Set up: valid plan.json + ledger with DIFFERENT hash.
+			// The planId must match the plan's computed identity (swarm-title format) so the
+			// migration-aware guard in loadPlan() recognises this as drift (not migration) and
+			// proceeds with the rebuild. Using 'test-plan' as planId would NOT match the
+			// plan's computed 'test-swarm-Test_Plan', triggering the migration bypass instead.
+			const initialPlan = makeTestPlan(); // swarm:'test-swarm', title:'Test Plan'
 			writePlanJson(testDir, initialPlan);
-			await initLedger(testDir, 'test-plan');
+			// Correct planId: "${swarm}-${title}".replace(/[^a-zA-Z0-9-_]/g, '_')
+			const planId = 'test-swarm-Test_Plan';
+			await initLedger(testDir, planId);
 
-			// Add a task_status_changed event to the ledger
-			await appendLedgerEvent(testDir, {
-				plan_id: 'test-plan',
-				event_type: 'task_status_changed',
-				task_id: '1.1',
-				phase_id: 1,
-				from_status: 'pending',
-				to_status: 'in_progress',
-				source: 'test',
-			});
+			// Compute the hash of the plan AFTER the task status change so that
+			// the ledger event's plan_hash_after reflects the expected post-mutation state.
+			// Without this, plan_hash_after defaults to plan_hash_before (current plan.json
+			// hash), and when we write the "stale" plan.json with the same pending status,
+			// the hashes match and loadPlan() correctly sees no mismatch.
+			const postMutationPlan: Plan = {
+				...initialPlan,
+				phases: initialPlan.phases.map((phase) => ({
+					...phase,
+					tasks: phase.tasks.map((task) =>
+						task.id === '1.1'
+							? { ...task, status: 'in_progress' as const }
+							: task,
+					),
+				})),
+			};
+			const postMutationHash = computePlanHash(postMutationPlan);
 
-			// Now modify plan.json directly to create a hash mismatch
-			// (simulating an external modification or a case where plan.json is stale)
+			// Add a task_status_changed event to the ledger with correct planHashAfter
+			await appendLedgerEvent(
+				testDir,
+				{
+					plan_id: planId,
+					event_type: 'task_status_changed',
+					task_id: '1.1',
+					phase_id: 1,
+					from_status: 'pending',
+					to_status: 'in_progress',
+					source: 'test',
+				},
+				{ planHashAfter: postMutationHash },
+			);
+
+			// Now write plan.json with task 1.1 still pending (stale = didn't apply the event).
+			// Keep same swarm/title so the migration guard sees the planId as matching.
+			// The ledger's plan_hash_after (in_progress state) ≠ plan.json hash (pending state)
+			// → hash mismatch with matching planId → should trigger rebuild.
 			const stalePlan: Plan = {
 				...initialPlan,
-				title: 'Stale Plan Title',
 				phases: initialPlan.phases.map((phase) => ({
 					...phase,
 					tasks: phase.tasks.map((task) =>
@@ -146,7 +175,6 @@ describe('loadPlan ledger-aware hash comparison guard', () => {
 							? {
 									...task,
 									status: 'pending' as const,
-									description: 'Stale description',
 								}
 							: task,
 					),
@@ -167,19 +195,37 @@ describe('loadPlan ledger-aware hash comparison guard', () => {
 		test('saves rebuilt plan back to plan.json after rebuild', async () => {
 			const initialPlan = makeTestPlan();
 			writePlanJson(testDir, initialPlan);
-			await initLedger(testDir, 'test-plan');
+			const planId = 'test-swarm-Test_Plan'; // matches plan's swarm+title
+			await initLedger(testDir, planId);
 
-			await appendLedgerEvent(testDir, {
-				plan_id: 'test-plan',
-				event_type: 'task_status_changed',
-				task_id: '1.1',
-				phase_id: 1,
-				from_status: 'pending',
-				to_status: 'completed',
-				source: 'test',
-			});
+			// Compute post-mutation hash so the ledger event's plan_hash_after reflects
+			// the completed state, making the stale plan.json (pending) detectable as drift.
+			const completedPlan: Plan = {
+				...initialPlan,
+				phases: initialPlan.phases.map((phase) => ({
+					...phase,
+					tasks: phase.tasks.map((task) =>
+						task.id === '1.1' ? { ...task, status: 'completed' as const } : task,
+					),
+				})),
+			};
+			const completedHash = computePlanHash(completedPlan);
 
-			// Make plan.json stale by modifying it directly
+			await appendLedgerEvent(
+				testDir,
+				{
+					plan_id: planId,
+					event_type: 'task_status_changed',
+					task_id: '1.1',
+					phase_id: 1,
+					from_status: 'pending',
+					to_status: 'completed',
+					source: 'test',
+				},
+				{ planHashAfter: completedHash },
+			);
+
+			// Make plan.json stale by modifying it directly (task 1.1 still pending)
 			const stalePlan: Plan = {
 				...initialPlan,
 				phases: initialPlan.phases.map((phase) => ({
@@ -189,7 +235,6 @@ describe('loadPlan ledger-aware hash comparison guard', () => {
 							? {
 									...task,
 									status: 'pending' as const,
-									description: 'Stale task',
 								}
 							: task,
 					),

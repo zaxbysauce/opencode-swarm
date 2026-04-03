@@ -8,7 +8,7 @@
 import * as crypto from 'node:crypto';
 import * as fs from 'node:fs';
 import * as path from 'node:path';
-import type { Plan, Task } from '../config/plan-schema';
+import { type Plan, type Task, TaskStatusSchema } from '../config/plan-schema';
 
 /**
  * Ledger schema version
@@ -389,8 +389,10 @@ export async function appendLedgerEvent(
 	// Ensure .swarm/ directory exists
 	fs.mkdirSync(path.join(directory, '.swarm'), { recursive: true });
 
-	// Write to temp file then rename for atomicity
-	const tempPath = `${ledgerPath}.tmp`;
+	// Write to temp file then rename for atomicity.
+	// Random suffix prevents concurrent writers across processes from clobbering
+	// each other's temp file (each process writes its own uniquely-named temp).
+	const tempPath = `${ledgerPath}.tmp.${Date.now()}.${Math.floor(Math.random() * 1e9)}`;
 	const line = `${JSON.stringify(event)}\n`;
 
 	// If ledger exists, append to it via temp file
@@ -547,10 +549,19 @@ function applyEventToPlan(plan: Plan, event: LedgerEvent): Plan | null {
 
 		case 'task_status_changed':
 			if (event.task_id && event.to_status) {
+				// Validate to_status before applying — an invalid status from a corrupted
+				// ledger event must not be written to the plan (would break schema validation).
+				const parseResult = TaskStatusSchema.safeParse(event.to_status);
+				if (!parseResult.success) {
+					// Skip invalid status; return the plan unchanged (do NOT break — a break
+					// exits the switch and causes an implicit `undefined` return which
+					// would corrupt the replay loop in replayFromLedger).
+					return plan;
+				}
 				for (const phase of plan.phases) {
 					const task = phase.tasks.find((t) => t.id === event.task_id);
 					if (task) {
-						task.status = event.to_status as Task['status'];
+						task.status = parseResult.data;
 						break;
 					}
 				}

@@ -438,7 +438,7 @@ export async function savePlan(
 			const oldLedgerPath = path.join(swarmDir, 'plan-ledger.jsonl');
 			const archivePath = path.join(
 				swarmDir,
-				`plan-ledger.archived-${Date.now()}.jsonl`,
+				`plan-ledger.archived-${Date.now()}-${Math.floor(Math.random() * 1e9)}.jsonl`,
 			);
 			renameSync(oldLedgerPath, archivePath);
 			warn(
@@ -628,13 +628,18 @@ export async function rebuildPlan(
 /**
  * Load plan → find task by ID → update status → save → return updated plan.
  * Throw if plan not found or task not found.
+ *
+ * Uses loadPlanJsonOnly() rather than loadPlan() to avoid triggering the
+ * ledger hash-mismatch guard, which can overwrite plan.json with stale ledger
+ * state — and if the caller then writes via savePlan(), permanently commits the
+ * revert with the status update applied on top.
  */
 export async function updateTaskStatus(
 	directory: string,
 	taskId: string,
 	status: TaskStatus,
 ): Promise<Plan> {
-	const plan = await loadPlan(directory);
+	const plan = await loadPlanJsonOnly(directory);
 	if (plan === null) {
 		throw new Error(`Plan not found in directory: ${directory}`);
 	}
