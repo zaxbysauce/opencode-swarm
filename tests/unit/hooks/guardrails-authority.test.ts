@@ -10,6 +10,7 @@ import {
 import {
 	checkFileAuthority,
 	createGuardrailsHooks,
+	DEFAULT_AGENT_AUTHORITY_RULES,
 } from '../../../src/hooks/guardrails';
 import {
 	beginInvocation,
@@ -667,9 +668,9 @@ describe('guardrails-authority - File Authority Enforcement', () => {
 				rules: {
 					coder: {
 						allowedPrefix: ['src/', 'lib/'],
-						// blockedPrefix not specified — should NOT inherit default ['.swarm/']
-						// because the merge logic uses userRule.blockedPrefix ?? existing.blockedPrefix
-						// and undefined means the user didn't specify it, so it falls back to default
+						// blockedPrefix not specified — DOES inherit default ['.swarm/'] from coder defaults
+						// The merge logic: userRule.blockedPrefix ?? existing.blockedPrefix
+						// undefined (user didn't specify) falls back to existing.blockedPrefix from defaults
 					},
 				},
 			});
@@ -891,6 +892,624 @@ describe('guardrails-authority - File Authority Enforcement', () => {
 				hooks.toolBefore(
 					{ tool: 'write', sessionID: sessionId, callID: 'call-6' },
 					{ args: { filePath: 'src/file.ts' } },
+				),
+			).rejects.toThrow(/WRITE BLOCKED/i);
+		});
+	});
+});
+
+describe('buildEffectiveRules pre-computation edge cases', () => {
+	let tempDir: string;
+	let originalCwd: string;
+
+	beforeEach(async () => {
+		tempDir = await fs.mkdtemp(path.join(os.tmpdir(), 'effective-rules-test-'));
+		originalCwd = process.cwd();
+		process.chdir(tempDir);
+		resetSwarmState();
+
+		// Create .swarm directory for plan.md test
+		await fs.mkdir(path.join(tempDir, '.swarm'), { recursive: true });
+		await fs.writeFile(
+			path.join(tempDir, '.swarm', 'plan.md'),
+			'# Plan\n- Task 1: test',
+		);
+	});
+
+	afterEach(async () => {
+		process.chdir(originalCwd);
+		try {
+			await fs.rm(tempDir, { recursive: true, force: true });
+		} catch {
+			// Ignore cleanup errors
+		}
+	});
+
+	// ============================================================
+	// Group A — fast path correctness (via checkFileAuthority)
+	// ============================================================
+
+	describe('Group A — fast path correctness (via checkFileAuthority)', () => {
+		it('A1: authorityConfig undefined → same result as calling with no config', () => {
+			// Both calls should produce identical results
+			const withUndefined = checkFileAuthority(
+				'coder',
+				'src/file.ts',
+				tempDir,
+				undefined,
+			);
+			const withoutArg = checkFileAuthority('coder', 'src/file.ts', tempDir);
+			expect(withUndefined.allowed).toBe(withoutArg.allowed);
+			expect(withUndefined).toEqual(withoutArg);
+		});
+
+		it('A2: authorityConfig.enabled === false with non-empty rules → user rules ignored, defaults apply', () => {
+			// Even with rules that would restrict src/, enabled: false should use defaults
+			const result = checkFileAuthority('coder', 'src/file.ts', tempDir, {
+				enabled: false,
+				rules: {
+					coder: {
+						allowedPrefix: ['lib/'], // Would block src/ if enabled
+					},
+				},
+			});
+			// Defaults allow coder to write to src/
+			expect(result.allowed).toBe(true);
+		});
+
+		it('A3: authorityConfig.rules = {} (empty object) → defaults preserved, behavior identical to no-config', () => {
+			const withEmptyRules = checkFileAuthority(
+				'coder',
+				'src/file.ts',
+				tempDir,
+				{
+					enabled: true,
+					rules: {},
+				},
+			);
+			const withoutConfig = checkFileAuthority('coder', 'src/file.ts', tempDir);
+			expect(withEmptyRules.allowed).toBe(withoutConfig.allowed);
+			expect(withEmptyRules).toEqual(withoutConfig);
+		});
+
+		it('A4: coder with empty rules {} → can still write to src/, still blocked from .swarm/', () => {
+			// Verify defaults are preserved: coder allowed in src/
+			const srcResult = checkFileAuthority('coder', 'src/file.ts', tempDir, {
+				enabled: true,
+				rules: {},
+			});
+			expect(srcResult.allowed).toBe(true);
+
+			// Verify defaults are preserved: coder blocked in .swarm/
+			const swarmResult = checkFileAuthority(
+				'coder',
+				'.swarm/plan.md',
+				tempDir,
+				{
+					enabled: true,
+					rules: {},
+				},
+			);
+			expect(swarmResult.allowed).toBe(false);
+			if (isDenied(swarmResult)) {
+				expect(swarmResult.reason).toContain('Path blocked');
+			}
+		});
+	});
+
+	// ============================================================
+	// Group B — behavioral equivalence between pre-computed path (hook) and direct call
+	// ============================================================
+
+	describe('Group B — behavioral equivalence (hook vs direct checkFileAuthority)', () => {
+		it('B1: hook path (toolBefore) and direct call produce identical ALLOWED result', async () => {
+			const sessionId = 'equiv-allowed';
+			ensureAgentSession(sessionId, 'coder');
+			swarmState.activeAgent.set(sessionId, 'coder');
+			beginInvocation(sessionId, 'coder');
+
+			// Direct call result
+			const directResult = checkFileAuthority('coder', 'src/file.ts', tempDir);
+
+			// Hook path result via toolBefore
+			const hooks = createGuardrailsHooks(
+				tempDir,
+				GuardrailsConfigSchema.parse({ enabled: true }),
+			);
+
+			// toolBefore should not throw for allowed paths
+			await hooks.toolBefore(
+				{ tool: 'write', sessionID: sessionId, callID: 'call-b1' },
+				{ args: { filePath: 'src/file.ts' } },
+			);
+
+			expect(directResult.allowed).toBe(true);
+		});
+
+		it('B2: hook path (toolBefore) and direct call produce identical DENIED result', async () => {
+			const sessionId = 'equiv-denied';
+			ensureAgentSession(sessionId, 'coder');
+			swarmState.activeAgent.set(sessionId, 'coder');
+			const session = getAgentSession(sessionId)!;
+			session.delegationActive = true; // Enable delegation to trigger authority check
+			beginInvocation(sessionId, 'coder');
+
+			// Direct call result
+			const directResult = checkFileAuthority('coder', 'README.md', tempDir);
+
+			// Hook path result via toolBefore - should throw for denied paths
+			const hooks = createGuardrailsHooks(
+				tempDir,
+				GuardrailsConfigSchema.parse({ enabled: true }),
+			);
+
+			await expect(
+				hooks.toolBefore(
+					{ tool: 'write', sessionID: sessionId, callID: 'call-b2' },
+					{ args: { filePath: 'README.md' } },
+				),
+			).rejects.toThrow(/WRITE BLOCKED/i);
+
+			expect(directResult.allowed).toBe(false);
+		});
+
+		it('B3: mixed-case key "CODER" in config → hook path matches direct call result', async () => {
+			const sessionId = 'equiv-mixedcase';
+			ensureAgentSession(sessionId, 'coder');
+			swarmState.activeAgent.set(sessionId, 'coder');
+			beginInvocation(sessionId, 'coder');
+
+			const authorityConfig: AuthorityConfig = {
+				enabled: true,
+				rules: {
+					CODER: {
+						allowedPrefix: ['custom/'], // Override: CODER can only write to custom/
+					},
+				},
+			};
+
+			// Direct call with mixed-case config
+			const directResult = checkFileAuthority(
+				'coder',
+				'custom/file.ts',
+				tempDir,
+				authorityConfig,
+			);
+
+			// Hook path with same mixed-case config
+			const hooks = createGuardrailsHooks(
+				tempDir,
+				GuardrailsConfigSchema.parse({ enabled: true }),
+				undefined,
+				authorityConfig,
+			);
+
+			// custom/ path should be allowed
+			await hooks.toolBefore(
+				{ tool: 'write', sessionID: sessionId, callID: 'call-b3' },
+				{ args: { filePath: 'custom/file.ts' } },
+			);
+
+			expect(directResult.allowed).toBe(true);
+
+			// Also verify src/ is now blocked (due to the mixed-case CODER override)
+			const directBlocked = checkFileAuthority(
+				'coder',
+				'src/file.ts',
+				tempDir,
+				authorityConfig,
+			);
+			expect(directBlocked.allowed).toBe(false);
+		});
+	});
+
+	// ============================================================
+	// Group C — map isolation (pre-computed map must not be shared or mutated)
+	// ============================================================
+
+	describe('Group C — map isolation (pre-computed map not shared/mutated between hook instances)', () => {
+		it('C1: two separate hook instances with DIFFERENT authorityConfig → each enforces its own config', async () => {
+			// Instance 1: coder can only write to lib/
+			const authorityConfig1: AuthorityConfig = {
+				enabled: true,
+				rules: {
+					coder: {
+						allowedPrefix: ['lib/'],
+					},
+				},
+			};
+
+			// Instance 2: coder can write to src/ (default override via empty rules)
+			const authorityConfig2: AuthorityConfig = {
+				enabled: true,
+				rules: {
+					coder: {
+						allowedPrefix: ['src/'],
+					},
+				},
+			};
+
+			const sessionId1 = 'isolation-diff-1';
+			const sessionId2 = 'isolation-diff-2';
+
+			ensureAgentSession(sessionId1, 'coder');
+			swarmState.activeAgent.set(sessionId1, 'coder');
+			const session1 = getAgentSession(sessionId1)!;
+			session1.delegationActive = true; // Enable delegation to trigger authority check
+			beginInvocation(sessionId1, 'coder');
+
+			ensureAgentSession(sessionId2, 'coder');
+			swarmState.activeAgent.set(sessionId2, 'coder');
+			const session2 = getAgentSession(sessionId2)!;
+			session2.delegationActive = true;
+			beginInvocation(sessionId2, 'coder');
+
+			const hooks1 = createGuardrailsHooks(
+				tempDir,
+				GuardrailsConfigSchema.parse({ enabled: true }),
+				undefined,
+				authorityConfig1,
+			);
+
+			const hooks2 = createGuardrailsHooks(
+				tempDir,
+				GuardrailsConfigSchema.parse({ enabled: true }),
+				undefined,
+				authorityConfig2,
+			);
+
+			// hooks1 (lib/ only) should block src/
+			await expect(
+				hooks1.toolBefore(
+					{ tool: 'write', sessionID: sessionId1, callID: 'call-c1-1' },
+					{ args: { filePath: 'src/file.ts' } },
+				),
+			).rejects.toThrow(/WRITE BLOCKED/i);
+
+			// hooks2 (src/ allowed) should allow src/
+			await hooks2.toolBefore(
+				{ tool: 'write', sessionID: sessionId2, callID: 'call-c1-2' },
+				{ args: { filePath: 'src/file.ts' } },
+			);
+		});
+
+		it('C2: two separate hook instances with SAME authorityConfig → both produce identical results', async () => {
+			const sharedConfig: AuthorityConfig = {
+				enabled: true,
+				rules: {
+					coder: {
+						allowedPrefix: ['lib/'],
+					},
+				},
+			};
+
+			const sessionId1 = 'isolation-same-1';
+			const sessionId2 = 'isolation-same-2';
+
+			ensureAgentSession(sessionId1, 'coder');
+			swarmState.activeAgent.set(sessionId1, 'coder');
+			const session1 = getAgentSession(sessionId1)!;
+			session1.delegationActive = true;
+			beginInvocation(sessionId1, 'coder');
+
+			ensureAgentSession(sessionId2, 'coder');
+			swarmState.activeAgent.set(sessionId2, 'coder');
+			const session2 = getAgentSession(sessionId2)!;
+			session2.delegationActive = true;
+			beginInvocation(sessionId2, 'coder');
+
+			const hooks1 = createGuardrailsHooks(
+				tempDir,
+				GuardrailsConfigSchema.parse({ enabled: true }),
+				undefined,
+				sharedConfig,
+			);
+
+			const hooks2 = createGuardrailsHooks(
+				tempDir,
+				GuardrailsConfigSchema.parse({ enabled: true }),
+				undefined,
+				sharedConfig,
+			);
+
+			// Both should block src/ (only lib/ allowed)
+			await expect(
+				hooks1.toolBefore(
+					{ tool: 'write', sessionID: sessionId1, callID: 'call-c2-1' },
+					{ args: { filePath: 'src/file.ts' } },
+				),
+			).rejects.toThrow(/WRITE BLOCKED/i);
+
+			await expect(
+				hooks2.toolBefore(
+					{ tool: 'write', sessionID: sessionId2, callID: 'call-c2-2' },
+					{ args: { filePath: 'src/file.ts' } },
+				),
+			).rejects.toThrow(/WRITE BLOCKED/i);
+
+			// Both should allow lib/
+			await hooks1.toolBefore(
+				{ tool: 'write', sessionID: sessionId1, callID: 'call-c2-3' },
+				{ args: { filePath: 'lib/file.ts' } },
+			);
+
+			await hooks2.toolBefore(
+				{ tool: 'write', sessionID: sessionId2, callID: 'call-c2-4' },
+				{ args: { filePath: 'lib/file.ts' } },
+			);
+		});
+
+		it('C3: multiple calls through same hook instance → results consistent (map not mutated between invocations)', async () => {
+			const sessionId = 'isolation-multi';
+			ensureAgentSession(sessionId, 'coder');
+			swarmState.activeAgent.set(sessionId, 'coder');
+			const session = getAgentSession(sessionId)!;
+			session.delegationActive = true; // Enable delegation to trigger authority check
+			beginInvocation(sessionId, 'coder');
+
+			const hooks = createGuardrailsHooks(
+				tempDir,
+				GuardrailsConfigSchema.parse({ enabled: true }),
+			);
+
+			// Multiple calls - should all allow src/ consistently
+			for (let i = 0; i < 5; i++) {
+				await hooks.toolBefore(
+					{ tool: 'write', sessionID: sessionId, callID: `call-c3-${i}` },
+					{ args: { filePath: 'src/file.ts' } },
+				);
+			}
+
+			// Also verify blocked paths remain blocked consistently
+			for (let i = 0; i < 3; i++) {
+				await expect(
+					hooks.toolBefore(
+						{
+							tool: 'write',
+							sessionID: sessionId,
+							callID: `call-c3-block-${i}`,
+						},
+						{ args: { filePath: 'README.md' } },
+					),
+				).rejects.toThrow(/WRITE BLOCKED/i);
+			}
+		});
+	});
+
+	// ============================================================
+	// Group D — disabled flag interaction with pre-computation
+	// ============================================================
+
+	describe('Group D — disabled flag interaction with pre-computation', () => {
+		it('D1: enabled: true with actual rules → rules are applied via hook', async () => {
+			const sessionId = 'disabled-true';
+			ensureAgentSession(sessionId, 'coder');
+			swarmState.activeAgent.set(sessionId, 'coder');
+			const session = getAgentSession(sessionId)!;
+			session.delegationActive = true; // Enable delegation to trigger authority check
+			beginInvocation(sessionId, 'coder');
+
+			const authorityConfig: AuthorityConfig = {
+				enabled: true,
+				rules: {
+					coder: {
+						allowedPrefix: ['lib/'], // Override: only lib/ allowed
+					},
+				},
+			};
+
+			const hooks = createGuardrailsHooks(
+				tempDir,
+				GuardrailsConfigSchema.parse({ enabled: true }),
+				undefined,
+				authorityConfig,
+			);
+
+			// src/ should be blocked (not in lib/ only)
+			await expect(
+				hooks.toolBefore(
+					{ tool: 'write', sessionID: sessionId, callID: 'call-d1' },
+					{ args: { filePath: 'src/file.ts' } },
+				),
+			).rejects.toThrow(/WRITE BLOCKED/i);
+		});
+
+		it('D2: enabled: false with actual rules → rules are ignored via hook (defaults apply)', async () => {
+			const sessionId = 'disabled-false';
+			ensureAgentSession(sessionId, 'coder');
+			swarmState.activeAgent.set(sessionId, 'coder');
+			const session = getAgentSession(sessionId)!;
+			session.delegationActive = true; // Enable delegation to trigger authority check
+			beginInvocation(sessionId, 'coder');
+
+			const authorityConfig: AuthorityConfig = {
+				enabled: false,
+				rules: {
+					coder: {
+						allowedPrefix: ['lib/'], // Would block src/ if enabled
+					},
+				},
+			};
+
+			const hooks = createGuardrailsHooks(
+				tempDir,
+				GuardrailsConfigSchema.parse({ enabled: true }),
+				undefined,
+				authorityConfig,
+			);
+
+			// Defaults apply: coder can write to src/ (rules are ignored due to enabled: false)
+			await hooks.toolBefore(
+				{ tool: 'write', sessionID: sessionId, callID: 'call-d2' },
+				{ args: { filePath: 'src/file.ts' } },
+			);
+		});
+
+		it('D3: enabled: false then enabled: true in separate instances → each instance is independent', async () => {
+			const sessionId1 = 'disabled-indep-1';
+			const sessionId2 = 'disabled-indep-2';
+
+			ensureAgentSession(sessionId1, 'coder');
+			swarmState.activeAgent.set(sessionId1, 'coder');
+			beginInvocation(sessionId1, 'coder');
+
+			ensureAgentSession(sessionId2, 'coder');
+			swarmState.activeAgent.set(sessionId2, 'coder');
+			const session2 = getAgentSession(sessionId2)!;
+			session2.delegationActive = true; // Enable delegation for the rejection test
+			beginInvocation(sessionId2, 'coder');
+
+			const authorityConfig1: AuthorityConfig = {
+				enabled: false,
+				rules: {
+					coder: {
+						allowedPrefix: ['lib/'],
+					},
+				},
+			};
+
+			const authorityConfig2: AuthorityConfig = {
+				enabled: true,
+				rules: {
+					coder: {
+						allowedPrefix: ['lib/'],
+					},
+				},
+			};
+
+			const hooks1 = createGuardrailsHooks(
+				tempDir,
+				GuardrailsConfigSchema.parse({ enabled: true }),
+				undefined,
+				authorityConfig1,
+			);
+
+			const hooks2 = createGuardrailsHooks(
+				tempDir,
+				GuardrailsConfigSchema.parse({ enabled: true }),
+				undefined,
+				authorityConfig2,
+			);
+
+			// hooks1: enabled: false → defaults apply → src/ allowed
+			await hooks1.toolBefore(
+				{ tool: 'write', sessionID: sessionId1, callID: 'call-d3-1' },
+				{ args: { filePath: 'src/file.ts' } },
+			);
+
+			// hooks2: enabled: true with lib/ only → src/ blocked
+			await expect(
+				hooks2.toolBefore(
+					{ tool: 'write', sessionID: sessionId2, callID: 'call-d3-2' },
+					{ args: { filePath: 'src/file.ts' } },
+				),
+			).rejects.toThrow(/WRITE BLOCKED/i);
+		});
+	});
+
+	// ============================================================
+	// Group E — custom agent via pre-computed path
+	// ============================================================
+
+	describe('Group E — custom agent via pre-computed path', () => {
+		it('E1: custom agent not in DEFAULT_AGENT_AUTHORITY_RULES, configured in authorityConfig.rules → accessible via hook', async () => {
+			const sessionId = 'custom-agent';
+			ensureAgentSession(sessionId, 'custom_coder');
+			swarmState.activeAgent.set(sessionId, 'custom_coder');
+			beginInvocation(sessionId, 'custom_coder');
+
+			const authorityConfig: AuthorityConfig = {
+				enabled: true,
+				rules: {
+					custom_coder: {
+						allowedPrefix: ['custom/'],
+					},
+				},
+			};
+
+			const hooks = createGuardrailsHooks(
+				tempDir,
+				GuardrailsConfigSchema.parse({ enabled: true }),
+				undefined,
+				authorityConfig,
+			);
+
+			// custom_coder should be allowed to write to custom/
+			await hooks.toolBefore(
+				{ tool: 'write', sessionID: sessionId, callID: 'call-e1' },
+				{ args: { filePath: 'custom/file.ts' } },
+			);
+		});
+
+		it('E2: custom agent with allowedPrefix: [] via hook → all writes denied', async () => {
+			const sessionId = 'custom-empty';
+			ensureAgentSession(sessionId, 'strict_agent');
+			swarmState.activeAgent.set(sessionId, 'strict_agent');
+			const session = getAgentSession(sessionId)!;
+			session.delegationActive = true; // Enable delegation to trigger authority check
+			beginInvocation(sessionId, 'strict_agent');
+
+			const authorityConfig: AuthorityConfig = {
+				enabled: true,
+				rules: {
+					strict_agent: {
+						allowedPrefix: [], // Deny all paths
+					},
+				},
+			};
+
+			const hooks = createGuardrailsHooks(
+				tempDir,
+				GuardrailsConfigSchema.parse({ enabled: true }),
+				undefined,
+				authorityConfig,
+			);
+
+			// Even a path that would normally be allowed should be denied
+			await expect(
+				hooks.toolBefore(
+					{ tool: 'write', sessionID: sessionId, callID: 'call-e2' },
+					{ args: { filePath: 'any/path/file.ts' } },
+				),
+			).rejects.toThrow(/WRITE BLOCKED/i);
+		});
+
+		it('E3: custom agent with no allowedPrefix in config via hook → no allowlist restriction (blockedPrefix still applies)', async () => {
+			const sessionId = 'custom-no-allowlist';
+			ensureAgentSession(sessionId, 'flexible_agent');
+			swarmState.activeAgent.set(sessionId, 'flexible_agent');
+			const session = getAgentSession(sessionId)!;
+			session.delegationActive = true; // Enable delegation to trigger authority check
+			beginInvocation(sessionId, 'flexible_agent');
+
+			// Custom agent with only blockedPrefix set, no allowedPrefix
+			const authorityConfig: AuthorityConfig = {
+				enabled: true,
+				rules: {
+					flexible_agent: {
+						blockedPrefix: ['.secret/'],
+					},
+				},
+			};
+
+			const hooks = createGuardrailsHooks(
+				tempDir,
+				GuardrailsConfigSchema.parse({ enabled: true }),
+				undefined,
+				authorityConfig,
+			);
+
+			// Should allow regular paths (no allowlist restriction)
+			await hooks.toolBefore(
+				{ tool: 'write', sessionID: sessionId, callID: 'call-e3-allowed' },
+				{ args: { filePath: 'src/file.ts' } },
+			);
+
+			// Should block .secret/ paths (blockedPrefix still applies)
+			await expect(
+				hooks.toolBefore(
+					{ tool: 'write', sessionID: sessionId, callID: 'call-e3-blocked' },
+					{ args: { filePath: '.secret/file.ts' } },
 				),
 			).rejects.toThrow(/WRITE BLOCKED/i);
 		});
