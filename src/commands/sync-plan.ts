@@ -1,24 +1,31 @@
-import { derivePlanMarkdown, loadPlan } from '../plan/manager';
+import {
+	derivePlanMarkdown,
+	loadPlanJsonOnly,
+	regeneratePlanMarkdown,
+} from '../plan/manager';
 
 /**
  * Handle /swarm sync-plan command.
- * Maps to: plan service (loadPlan which triggers auto-heal/sync)
+ * Maps to: plan service (read-only load + targeted regenerate)
  *
  * This command ensures plan.json and plan.md are in sync.
- * The loadPlan function automatically regenerates plan.md from plan.json if needed.
+ * Uses loadPlanJsonOnly + regeneratePlanMarkdown instead of loadPlan() to avoid
+ * triggering the ledger hash-mismatch guard, which can destructively overwrite
+ * plan.json with stale ledger-replayed state after a session migration.
  */
 export async function handleSyncPlanCommand(
 	directory: string,
 	_args: string[],
 ): Promise<string> {
-	const plan = await loadPlan(directory);
+	const plan = await loadPlanJsonOnly(directory);
 
 	if (!plan) {
 		return '## Plan Sync Report\n\nNo active swarm plan found. Nothing to sync.';
 	}
 
-	// Load plan triggers auto-heal which regenerates plan.md if stale
-	// Now derive fresh markdown to confirm sync
+	await regeneratePlanMarkdown(directory, plan);
+
+	// Derive fresh markdown to confirm sync
 	const currentMarkdown = derivePlanMarkdown(plan);
 
 	const lines = [

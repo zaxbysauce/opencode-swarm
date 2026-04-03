@@ -7,7 +7,7 @@
 
 import * as fs from 'node:fs';
 import * as path from 'node:path';
-import { loadPlan } from '../plan/manager';
+import { loadPlanJsonOnly, regeneratePlanMarkdown } from '../plan/manager';
 import { log } from '../utils';
 
 /** Configuration options for PlanSyncWorker */
@@ -363,23 +363,25 @@ export class PlanSyncWorker {
 		try {
 			log('[PlanSyncWorker] Syncing plan...');
 
-			// Use loadPlan which auto-heals: validates plan.json and regenerates plan.md if needed
-			// This handles:
-			// - Valid plan.json + stale plan.md -> regenerate plan.md
-			// - Invalid plan.json + valid plan.md -> migrate from plan.md
-			// - No plan.json but plan.md -> migrate
+			// Use read-only loadPlanJsonOnly + targeted regeneratePlanMarkdown instead of
+			// loadPlan() to avoid triggering the ledger hash-mismatch guard, which can
+			// destructively overwrite plan.json with stale ledger-replayed state (particularly
+			// after a session migration where the swarm ID changes). The sync worker's only
+			// job is to keep plan.md in sync with plan.json — it must never rewrite plan.json.
 
 			// Advisory: check for unauthorized writes before syncing
 			this.checkForUnauthorizedWrite();
 
 			// Wrap in timeout to prevent runaway hangs
 			const plan = await this.withTimeout(
-				loadPlan(this.directory),
+				loadPlanJsonOnly(this.directory),
 				this.syncTimeoutMs,
 				'Sync operation timed out',
 			);
 
 			if (plan) {
+				// Regenerate plan.md only — never rewrite plan.json
+				await regeneratePlanMarkdown(this.directory, plan);
 				log('[PlanSyncWorker] Sync complete', {
 					title: plan.title,
 					phase: plan.current_phase,

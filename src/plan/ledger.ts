@@ -426,12 +426,16 @@ export async function takeSnapshotEvent(
 		plan,
 		payload_hash: payloadHash,
 	};
+	const planId = `${plan.swarm}-${plan.title}`.replace(
+		/[^a-zA-Z0-9-_]/g,
+		'_',
+	);
 	return appendLedgerEvent(
 		directory,
 		{
 			event_type: 'snapshot',
 			source: 'takeSnapshotEvent',
-			plan_id: plan.title,
+			plan_id: planId,
 			payload: snapshotPayload as unknown as Record<string, unknown>,
 		},
 		options,
