@@ -334,6 +334,9 @@ export function createGuardrailsHooks(
 		};
 	}
 
+	// Pre-compute effective authority rules once — authorityConfig is immutable after plugin init
+	const precomputedAuthorityRules = buildEffectiveRules(authorityConfig);
+
 	// TypeScript narrowing: guardrailsConfig must be defined if we reach here
 	const cfg = guardrailsConfig!;
 	const requiredQaGates = cfg.qa_gates?.required_tools ?? [
@@ -524,11 +527,11 @@ export function createGuardrailsHooks(
 				if (typeof delegTargetPath === 'string' && delegTargetPath.length > 0) {
 					const agentName = swarmState.activeAgent.get(sessionID) ?? 'unknown';
 					const cwd = effectiveDirectory;
-					const authorityCheck = checkFileAuthority(
+					const authorityCheck = checkFileAuthorityWithRules(
 						agentName,
 						delegTargetPath,
 						cwd,
-						authorityConfig,
+						precomputedAuthorityRules,
 					);
 					if (!authorityCheck.allowed) {
 						throw new Error(
@@ -961,11 +964,11 @@ export function createGuardrailsHooks(
 				if (typeof targetPath === 'string' && targetPath.length > 0) {
 					const agentName =
 						swarmState.activeAgent.get(input.sessionID) ?? 'architect';
-					const authorityCheck = checkFileAuthority(
+					const authorityCheck = checkFileAuthorityWithRules(
 						agentName,
 						targetPath,
 						effectiveDirectory,
-						authorityConfig,
+						precomputedAuthorityRules,
 					);
 					if (!authorityCheck.allowed) {
 						throw new Error(
@@ -1959,35 +1962,48 @@ export const DEFAULT_AGENT_AUTHORITY_RULES: Record<string, AgentRule> = {
 };
 
 /**
- * Checks whether the given agent is authorised to write to the given file path.
+ * Builds the effective rules map by merging user-configured rules with defaults.
+ * User overrides take precedence for each field.
  */
-export function checkFileAuthority(
+function buildEffectiveRules(
+	authorityConfig?: AuthorityConfig,
+): Record<string, AgentRule> {
+	if (authorityConfig?.enabled === false || !authorityConfig?.rules) {
+		return DEFAULT_AGENT_AUTHORITY_RULES;
+	}
+	const entries = Object.entries(authorityConfig.rules);
+	if (entries.length === 0) {
+		return DEFAULT_AGENT_AUTHORITY_RULES; // fast path: no allocation
+	}
+	const merged: Record<string, AgentRule> = {
+		...DEFAULT_AGENT_AUTHORITY_RULES,
+	};
+	for (const [agent, userRule] of entries) {
+		const normalizedRuleKey = agent.toLowerCase();
+		const existing = merged[normalizedRuleKey] ?? {};
+		merged[normalizedRuleKey] = {
+			...existing,
+			...userRule,
+			blockedExact: userRule.blockedExact ?? existing.blockedExact,
+			blockedPrefix: userRule.blockedPrefix ?? existing.blockedPrefix,
+			allowedPrefix: userRule.allowedPrefix ?? existing.allowedPrefix,
+			blockedZones: userRule.blockedZones ?? existing.blockedZones,
+		};
+	}
+	return merged;
+}
+
+/**
+ * Checks file path authority against a pre-computed rules map.
+ */
+function checkFileAuthorityWithRules(
 	agentName: string,
 	filePath: string,
 	cwd: string,
-	authorityConfig?: AuthorityConfig,
+	effectiveRules: Record<string, AgentRule>,
 ): { allowed: true } | { allowed: false; reason: string; zone?: FileZone } {
 	const normalizedAgent = agentName.toLowerCase();
 	const strippedAgent = stripKnownSwarmPrefix(agentName).toLowerCase();
-
-	// Merge user-configured rules with defaults (user overrides take precedence)
-	let effectiveRules: Record<string, AgentRule> = DEFAULT_AGENT_AUTHORITY_RULES;
-	if (authorityConfig?.enabled !== false && authorityConfig?.rules) {
-		effectiveRules = { ...DEFAULT_AGENT_AUTHORITY_RULES };
-		for (const [agent, userRule] of Object.entries(authorityConfig.rules)) {
-			const normalizedRuleKey = agent.toLowerCase();
-			const existing = effectiveRules[normalizedRuleKey] ?? {};
-			effectiveRules[normalizedRuleKey] = {
-				...existing,
-				...userRule,
-				// Arrays: user replaces entirely (not merged)
-				blockedExact: userRule.blockedExact ?? existing.blockedExact,
-				blockedPrefix: userRule.blockedPrefix ?? existing.blockedPrefix,
-				allowedPrefix: userRule.allowedPrefix ?? existing.allowedPrefix,
-				blockedZones: userRule.blockedZones ?? existing.blockedZones,
-			};
-		}
-	}
 
 	// Resolve absolute-or-relative to absolute, then convert to relative for prefix matching.
 	// This ensures absolute paths like "C:/Users/.../src/file.ts" or "/home/.../src/file.ts"
@@ -2056,4 +2072,21 @@ export function checkFileAuthority(
 	}
 
 	return { allowed: true };
+}
+
+/**
+ * Checks whether the given agent is authorised to write to the given file path.
+ */
+export function checkFileAuthority(
+	agentName: string,
+	filePath: string,
+	cwd: string,
+	authorityConfig?: AuthorityConfig,
+): { allowed: true } | { allowed: false; reason: string; zone?: FileZone } {
+	return checkFileAuthorityWithRules(
+		agentName,
+		filePath,
+		cwd,
+		buildEffectiveRules(authorityConfig),
+	);
 }

@@ -682,12 +682,20 @@ Override default rules in `.opencode/opencode-swarm.json`:
 - User rules **override** hardcoded defaults for the specified agent
 - Scalar fields (`readOnly`) — user value replaces default
 - Array fields (`blockedPrefix`, `allowedPrefix`, etc.) — user array **replaces** entirely (not merged)
-- If a field is omitted in the user rule, the default value is preserved
-- Setting `enabled: false` ignores all custom rules and uses defaults
+- If a field is omitted in the user rule for a **known agent** (one with hardcoded defaults), the default value for that field is preserved
+- If a field is omitted in the user rule for a **custom agent** (not in the defaults list), that field is `undefined` — there are no defaults to inherit
+- `allowedPrefix: []` explicitly denies all writes; omitting `allowedPrefix` entirely means no allowlist restriction is applied (all paths are evaluated against blocklist rules only)
+- Setting `enabled: false` ignores all custom rules and uses hardcoded defaults
 
 ### Custom Agents
 
-Custom agents (not in the defaults list) have no default rules and will be blocked from all writes unless explicitly configured in user config.
+Custom agents (not in the defaults list) start with no rules. Their write authority depends entirely on what you configure:
+
+- **Not in config at all** — agent is denied with `Unknown agent` (no rule exists; this is not the same as "blocked from all writes")
+- **In config without `allowedPrefix`** — no allowlist restriction applies; only any `blockedPrefix`, `blockedZones`, or `readOnly` rules you explicitly set will enforce limits
+- **In config with `allowedPrefix: []`** — all writes are denied
+
+To safely restrict a custom agent, always set `allowedPrefix` explicitly:
 
 ```json
 {
