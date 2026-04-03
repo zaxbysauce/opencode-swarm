@@ -476,10 +476,13 @@ describe('handleCloseCommand', () => {
 
 			const result = await handleCloseCommand(testDir, []);
 
-			expect(result).toContain('Swarm already closed');
-			expect(result).toContain('1 phases complete');
-			expect(result).toContain('1 phases blocked');
+			// New behavior: returns "Plan was already complete" with cleanup steps applied
+			expect(result).toContain('closed');
+			expect(result).toContain('Plan was already complete');
+			expect(result).not.toContain('No action taken');
 			expect(mockExecuteWriteRetro).not.toHaveBeenCalled();
+			// Cleanup runs even for allDone case
+			expect(mockArchiveEvidence).toHaveBeenCalledTimes(1);
 		});
 
 		it('should return already closed message when all phases are complete', async () => {
@@ -501,8 +504,12 @@ describe('handleCloseCommand', () => {
 
 			const result = await handleCloseCommand(testDir, []);
 
-			expect(result).toContain('Swarm already closed');
+			// New behavior: returns "Plan was already complete" with cleanup steps applied
+			expect(result).toContain('closed');
+			expect(result).toContain('Plan was already complete');
 			expect(mockExecuteWriteRetro).not.toHaveBeenCalled();
+			// Cleanup runs even for allDone case
+			expect(mockArchiveEvidence).toHaveBeenCalledTimes(1);
 		});
 
 		it('should be safe to run twice - second run returns already closed', async () => {
@@ -523,14 +530,17 @@ describe('handleCloseCommand', () => {
 			);
 
 			// First run
-			await handleCloseCommand(testDir, []);
+			const result1 = await handleCloseCommand(testDir, []);
+			expect(result1).toContain('closed successfully');
 
-			// Second run
-			const result = await handleCloseCommand(testDir, []);
+			// Second run - should succeed and return "Plan was already complete"
+			const result2 = await handleCloseCommand(testDir, []);
 
-			expect(result).toContain('Swarm already closed');
-			// Should not call executeWriteRetro again since all phases are now blocked/complete
-			expect(mockExecuteWriteRetro).toHaveBeenCalledTimes(1); // Only first run
+			// Second run succeeds (idempotent)
+			expect(result2).toContain('closed');
+			expect(result2).toContain('Plan was already complete');
+			// Retros only called once (first run had in-progress phase)
+			expect(mockExecuteWriteRetro).toHaveBeenCalledTimes(1);
 		});
 
 		it('should handle plan.json with no phases', async () => {
@@ -545,8 +555,12 @@ describe('handleCloseCommand', () => {
 
 			const result = await handleCloseCommand(testDir, []);
 
-			expect(result).toContain('Swarm already closed');
+			// New behavior: returns "Plan was already complete" with cleanup steps applied
+			expect(result).toContain('closed');
+			expect(result).toContain('Plan was already complete');
 			expect(mockExecuteWriteRetro).not.toHaveBeenCalled();
+			// Cleanup runs even for empty phases (allDone=true case)
+			expect(mockArchiveEvidence).toHaveBeenCalledTimes(1);
 		});
 	});
 
@@ -708,7 +722,7 @@ describe('handleCloseCommand', () => {
 				expect(result).toContain('Failed to read plan.json');
 			});
 
-			it('PF7: Empty phases array (plan exists) → allDone=true → returns "already closed"', async () => {
+			it('PF7: Empty phases array (plan exists) → allDone=true → returns "Plan was already complete"', async () => {
 				// Plan with empty phases array
 				const planData = {
 					title: 'Test Project',
@@ -721,8 +735,8 @@ describe('handleCloseCommand', () => {
 
 				const result = await handleCloseCommand(testDir, []);
 
-				expect(result).toContain('already closed');
-				expect(result).toContain('0 phases complete');
+				// New behavior: returns "Plan was already complete" instead of "already closed"
+				expect(result).toContain('Plan was already complete');
 			});
 		});
 
@@ -1067,6 +1081,131 @@ describe('handleCloseCommand', () => {
 
 				expect(result).toContain('closed successfully');
 				// No branches pruned since none are gone
+			});
+		});
+
+		// =====================================================================
+		// Group: allDone path now runs cleanup (Fix P1)
+		// =====================================================================
+
+		describe('allDone path now runs cleanup (Fix P1)', () => {
+			it('PF_P1_A: Plan with all phases complete → archiveEvidence is still called (cleanup runs)', async () => {
+				const planData = {
+					title: 'Test Project',
+					phases: [
+						{
+							id: 1,
+							name: 'Phase 1',
+							status: 'complete',
+							tasks: [{ id: '1.1', status: 'complete' }],
+						},
+					],
+				};
+				writeFileSync(
+					path.join(testDir, '.swarm', 'plan.json'),
+					JSON.stringify(planData),
+				);
+
+				await handleCloseCommand(testDir, []);
+
+				// Cleanup runs even when plan is already done
+				expect(mockArchiveEvidence).toHaveBeenCalledTimes(1);
+			});
+
+			it('PF_P1_B: Plan with all phases complete → executeWriteRetro is NOT called (retros skipped)', async () => {
+				const planData = {
+					title: 'Test Project',
+					phases: [
+						{
+							id: 1,
+							name: 'Phase 1',
+							status: 'complete',
+							tasks: [{ id: '1.1', status: 'complete' }],
+						},
+					],
+				};
+				writeFileSync(
+					path.join(testDir, '.swarm', 'plan.json'),
+					JSON.stringify(planData),
+				);
+
+				await handleCloseCommand(testDir, []);
+
+				// No retros for already-complete phases
+				expect(mockExecuteWriteRetro).not.toHaveBeenCalled();
+			});
+
+			it('PF_P1_C: Plan with all phases complete → result contains "Plan was already complete"', async () => {
+				const planData = {
+					title: 'Test Project',
+					phases: [
+						{
+							id: 1,
+							name: 'Phase 1',
+							status: 'complete',
+							tasks: [{ id: '1.1', status: 'complete' }],
+						},
+					],
+				};
+				writeFileSync(
+					path.join(testDir, '.swarm', 'plan.json'),
+					JSON.stringify(planData),
+				);
+
+				const result = await handleCloseCommand(testDir, []);
+
+				expect(result).toContain('Plan was already complete');
+			});
+
+			it('PF_P1_D: Plan with all phases complete → flushPendingSnapshot is still called', async () => {
+				const planData = {
+					title: 'Test Project',
+					phases: [
+						{
+							id: 1,
+							name: 'Phase 1',
+							status: 'complete',
+							tasks: [{ id: '1.1', status: 'complete' }],
+						},
+					],
+				};
+				writeFileSync(
+					path.join(testDir, '.swarm', 'plan.json'),
+					JSON.stringify(planData),
+				);
+
+				await handleCloseCommand(testDir, []);
+
+				// State flushes even when plan is already done
+				expect(mockFlushPendingSnapshot).toHaveBeenCalledTimes(1);
+			});
+		});
+
+		// =====================================================================
+		// Group: Wrong directory detection (Fix P2)
+		// =====================================================================
+
+		describe('Wrong directory detection (Fix P2)', () => {
+			it('P2_A: missing .swarm/ directory returns error', async () => {
+				// Create a temp dir WITHOUT .swarm/ directory
+				const emptyDir = mkdtempSync(path.join(os.tmpdir(), 'close-no-swarm-'));
+				try {
+					const result = await handleCloseCommand(emptyDir, []);
+
+					expect(result).toContain('No .swarm/ directory found');
+				} finally {
+					rmSync(emptyDir, { recursive: true, force: true });
+				}
+			});
+
+			it('P2_B: .swarm/ exists but no plan.json → plan-free success (existing behavior preserved)', async () => {
+				// .swarm/ directory exists but plan.json is absent
+				// (beforeEach already creates .swarm/session, just don't create plan.json)
+				const result = await handleCloseCommand(testDir, []);
+
+				// Should succeed as plan-free session
+				expect(result).toContain('closed successfully');
+				expect(result).not.toContain('Failed to read plan.json');
 			});
 		});
 	});
