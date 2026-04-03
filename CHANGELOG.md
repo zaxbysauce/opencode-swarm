@@ -1,5 +1,13 @@
 # Changelog
 
+## [6.47.0](https://github.com/zaxbysauce/opencode-swarm/compare/v6.46.0...v6.47.0) (2026-04-03)
+
+
+### Features
+
+* **close:** align /swarm close with full session close-out workflow ([73bba56](https://github.com/zaxbysauce/opencode-swarm/commit/73bba5658626123fb9245c82726202e196a277c7))
+* **close:** align /swarm close with full session close-out workflow ([#387](https://github.com/zaxbysauce/opencode-swarm/issues/387)) ([509b9be](https://github.com/zaxbysauce/opencode-swarm/commit/509b9bebd921dac0619cf2bbea9111a928c81bde))
+
 ## [6.46.0](https://github.com/zaxbysauce/opencode-swarm/compare/v6.45.1...v6.46.0) (2026-04-03)
 
 
