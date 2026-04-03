@@ -154,11 +154,23 @@ export const curator_analyze: ReturnType<typeof createSwarmTool> =
 				let applied = 0;
 				let skipped = 0;
 
-				// Apply recommendations if provided
+				// Apply recommendations if provided.
+				// Sanitize entry_id: the LLM may supply hallucinated slugs instead of
+				// real UUID v4 values. Normalize any non-UUID token to undefined so the
+				// same promote-new path fires as in parseKnowledgeRecommendations.
 				if (typedArgs.recommendations && typedArgs.recommendations.length > 0) {
+					const UUID_V4 =
+						/^[0-9a-f]{8}-[0-9a-f]{4}-4[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;
+					const sanitizedRecs = typedArgs.recommendations.map((rec) => ({
+						...rec,
+						entry_id:
+							rec.entry_id === undefined || UUID_V4.test(rec.entry_id)
+								? rec.entry_id
+								: undefined,
+					}));
 					const result = await applyCuratorKnowledgeUpdates(
 						directory,
-						typedArgs.recommendations,
+						sanitizedRecs,
 						knowledgeConfig,
 					);
 					applied = result.applied;

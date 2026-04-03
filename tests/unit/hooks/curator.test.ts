@@ -10,6 +10,7 @@ import {
 	applyCuratorKnowledgeUpdates,
 	checkPhaseCompliance,
 	filterPhaseEvents,
+	parseKnowledgeRecommendations,
 	readCuratorSummary,
 	runCuratorInit,
 	runCuratorPhase,
@@ -1308,6 +1309,12 @@ invalid json here
 			low_utility_threshold: 0.3,
 			min_retrievals_for_utility: 3,
 			schema_version: 1,
+			same_project_weight: 1.0,
+			cross_project_weight: 0.5,
+			min_encounter_score: 0.1,
+			initial_encounter_score: 1.0,
+			encounter_increment: 0.1,
+			max_encounter_score: 10.0,
 		};
 
 		function createKnowledgeFile(
@@ -1844,6 +1851,299 @@ invalid json here
 			// Verify file was NOT rewritten by checking mtime hasn't changed
 			const newStats = fs.statSync(knowledgePath);
 			expect(newStats.mtimeMs).toBe(originalMtime);
+		});
+
+		it('creates a new SwarmKnowledgeEntry when entry_id is undefined', async () => {
+			const swarmDir = path.join(tempDir, '.swarm');
+			fs.mkdirSync(swarmDir, { recursive: true });
+			fs.writeFileSync(path.join(swarmDir, 'knowledge.jsonl'), '');
+
+			const recommendations: KnowledgeRecommendation[] = [
+				{
+					action: 'promote',
+					entry_id: undefined,
+					lesson: 'Always escape tool names inside architect prompts',
+					reason: 'Prevents template literal interpretation issues',
+				},
+			];
+
+			const result = await applyCuratorKnowledgeUpdates(
+				tempDir,
+				recommendations,
+				defaultKnowledgeConfig,
+			);
+
+			expect(result.applied).toBe(1);
+			expect(result.skipped).toBe(0);
+
+			const entries = readKnowledgeJsonl(tempDir);
+			expect(entries).toHaveLength(1);
+			expect(entries[0].lesson).toBe(
+				'Always escape tool names inside architect prompts',
+			);
+			expect(entries[0].status).toBe('candidate');
+			expect(entries[0].auto_generated).toBe(true);
+			expect(entries[0].tier).toBe('swarm');
+			expect(entries[0].confidence).toBe(0.5);
+			expect(entries[0].id).toMatch(
+				/^[0-9a-f]{8}-[0-9a-f]{4}-4[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i,
+			);
+		});
+
+		it('skips new entry creation when lesson is shorter than 15 chars', async () => {
+			const swarmDir = path.join(tempDir, '.swarm');
+			fs.mkdirSync(swarmDir, { recursive: true });
+			fs.writeFileSync(path.join(swarmDir, 'knowledge.jsonl'), '');
+
+			const recommendations: KnowledgeRecommendation[] = [
+				{
+					action: 'promote',
+					entry_id: undefined,
+					lesson: 'Too short',
+					reason: 'Below minimum',
+				},
+			];
+
+			const result = await applyCuratorKnowledgeUpdates(
+				tempDir,
+				recommendations,
+				defaultKnowledgeConfig,
+			);
+
+			expect(result.applied).toBe(0);
+			expect(result.skipped).toBe(1);
+			expect(readKnowledgeJsonl(tempDir)).toHaveLength(0);
+		});
+
+		it('lesson length boundary: exactly 14 chars is skipped, exactly 15 chars is stored', async () => {
+			const swarmDir = path.join(tempDir, '.swarm');
+			fs.mkdirSync(swarmDir, { recursive: true });
+			fs.writeFileSync(path.join(swarmDir, 'knowledge.jsonl'), '');
+
+			const lesson14 = 'A'.repeat(14); // exactly 14 — below minimum
+			const lesson15 = 'B'.repeat(15); // exactly 15 — at minimum
+
+			const recommendations: KnowledgeRecommendation[] = [
+				{
+					action: 'promote',
+					entry_id: undefined,
+					lesson: lesson14,
+					reason: 'r',
+				},
+				{
+					action: 'promote',
+					entry_id: undefined,
+					lesson: lesson15,
+					reason: 'r',
+				},
+			];
+
+			const result = await applyCuratorKnowledgeUpdates(
+				tempDir,
+				recommendations,
+				defaultKnowledgeConfig,
+			);
+
+			expect(result.applied).toBe(1);
+			expect(result.skipped).toBe(1);
+
+			const entries = readKnowledgeJsonl(tempDir);
+			expect(entries).toHaveLength(1);
+			expect(entries[0].lesson).toBe(lesson15);
+		});
+
+		it('lesson length boundary: exactly 280 chars is stored in full, 281 chars is truncated to 280', async () => {
+			const swarmDir = path.join(tempDir, '.swarm');
+			fs.mkdirSync(swarmDir, { recursive: true });
+			fs.writeFileSync(path.join(swarmDir, 'knowledge.jsonl'), '');
+
+			const lesson280 = 'C'.repeat(280);
+			const lesson281 = 'D'.repeat(281);
+
+			const recommendations: KnowledgeRecommendation[] = [
+				{
+					action: 'promote',
+					entry_id: undefined,
+					lesson: lesson280,
+					reason: 'r',
+				},
+				{
+					action: 'promote',
+					entry_id: undefined,
+					lesson: lesson281,
+					reason: 'r',
+				},
+			];
+
+			const result = await applyCuratorKnowledgeUpdates(
+				tempDir,
+				recommendations,
+				defaultKnowledgeConfig,
+			);
+
+			expect(result.applied).toBe(2);
+			expect(result.skipped).toBe(0);
+
+			const entries = readKnowledgeJsonl(tempDir);
+			expect(entries).toHaveLength(2);
+
+			const entry280 = entries.find((e) => e.lesson === lesson280);
+			expect(entry280?.lesson).toHaveLength(280);
+
+			const entry281 = entries.find((e) => e.lesson.startsWith('D'));
+			expect(entry281?.lesson).toHaveLength(280); // truncated
+			expect(entry281?.lesson).toBe('D'.repeat(280));
+		});
+
+		it('skips new entry creation for non-promote actions with undefined entry_id', async () => {
+			const swarmDir = path.join(tempDir, '.swarm');
+			fs.mkdirSync(swarmDir, { recursive: true });
+			fs.writeFileSync(path.join(swarmDir, 'knowledge.jsonl'), '');
+
+			const recommendations: KnowledgeRecommendation[] = [
+				{
+					action: 'archive',
+					entry_id: undefined,
+					lesson:
+						'Archive action with no real entry should be skipped entirely',
+					reason: 'No valid UUID — cannot archive',
+				},
+				{
+					action: 'flag_contradiction',
+					entry_id: undefined,
+					lesson:
+						'Flag contradiction with no real entry should also be skipped',
+					reason: 'No valid UUID — cannot flag',
+				},
+			];
+
+			const result = await applyCuratorKnowledgeUpdates(
+				tempDir,
+				recommendations,
+				defaultKnowledgeConfig,
+			);
+
+			expect(result.applied).toBe(0);
+			expect(result.skipped).toBe(2);
+			expect(readKnowledgeJsonl(tempDir)).toHaveLength(0);
+		});
+
+		it('mixed-batch: rewrite existing entry and create new entry in same call', async () => {
+			const existingId = '12345678-1234-4abc-89ab-123456789012';
+			const existingEntry: SwarmKnowledgeEntry = {
+				id: existingId,
+				tier: 'swarm',
+				lesson: 'Existing lesson that will be promoted',
+				category: 'other',
+				tags: [],
+				scope: 'global',
+				confidence: 0.5,
+				status: 'candidate',
+				confirmed_by: [],
+				retrieval_outcomes: {
+					applied_count: 0,
+					succeeded_after_count: 0,
+					failed_after_count: 0,
+				},
+				schema_version: 1,
+				created_at: new Date().toISOString(),
+				updated_at: new Date().toISOString(),
+				auto_generated: false,
+				project_name: 'test',
+			};
+			createKnowledgeFile(tempDir, [existingEntry]);
+
+			const recommendations: KnowledgeRecommendation[] = [
+				{
+					action: 'promote',
+					entry_id: existingId,
+					lesson: existingEntry.lesson,
+					reason: 'Promote existing entry',
+				},
+				{
+					action: 'promote',
+					entry_id: undefined,
+					lesson: 'New lesson from hallucinated slug normalized to undefined',
+					reason: 'Should create new entry',
+				},
+			];
+
+			const result = await applyCuratorKnowledgeUpdates(
+				tempDir,
+				recommendations,
+				defaultKnowledgeConfig,
+			);
+
+			expect(result.applied).toBe(2);
+			expect(result.skipped).toBe(0);
+
+			const entries = readKnowledgeJsonl(tempDir);
+			expect(entries).toHaveLength(2);
+
+			// The existing entry should be rewritten (promoted)
+			const updated = entries.find((e) => e.id === existingId);
+			expect(updated).toBeDefined();
+			expect(updated?.status).toBe('candidate'); // promote may not change status directly
+
+			// The new entry should be appended
+			const created = entries.find((e) => e.id !== existingId);
+			expect(created).toBeDefined();
+			expect(created?.lesson).toBe(
+				'New lesson from hallucinated slug normalized to undefined',
+			);
+			expect(created?.auto_generated).toBe(true);
+			expect(created?.status).toBe('candidate');
+		});
+
+		it('parseKnowledgeRecommendations: real UUID v4 is preserved as entry_id', () => {
+			const realUuid = '12345678-1234-4abc-89ab-123456789012';
+			const llmOutput = `KNOWLEDGE_UPDATES:\n- promote ${realUuid}: Lesson text here\n`;
+			const recs = parseKnowledgeRecommendations(llmOutput);
+			expect(recs).toHaveLength(1);
+			expect(recs[0].entry_id).toBe(realUuid);
+			expect(recs[0].action).toBe('promote');
+		});
+
+		it('parseKnowledgeRecommendations: "new" literal token maps to entry_id: undefined', () => {
+			const llmOutput =
+				'KNOWLEDGE_UPDATES:\n- promote new: Some lesson longer than fifteen chars\n';
+			const recs = parseKnowledgeRecommendations(llmOutput);
+			expect(recs).toHaveLength(1);
+			expect(recs[0].entry_id).toBeUndefined();
+			expect(recs[0].action).toBe('promote');
+		});
+
+		it('end-to-end: hallucinated slug from LLM creates new entry via parseKnowledgeRecommendations chain', async () => {
+			const swarmDir = path.join(tempDir, '.swarm');
+			fs.mkdirSync(swarmDir, { recursive: true });
+			fs.writeFileSync(path.join(swarmDir, 'knowledge.jsonl'), '');
+
+			// Simulate LLM output with hallucinated non-UUID entry_id (real bug trigger)
+			const llmOutput =
+				'KNOWLEDGE_UPDATES:\n- promote tool-name-normalization: Always escape tool names inside architect prompts\n';
+			const recommendations = parseKnowledgeRecommendations(llmOutput);
+
+			// UUID validation converts 'tool-name-normalization' → undefined
+			expect(recommendations).toHaveLength(1);
+			expect(recommendations[0].entry_id).toBeUndefined();
+			expect(recommendations[0].action).toBe('promote');
+
+			const result = await applyCuratorKnowledgeUpdates(
+				tempDir,
+				recommendations,
+				defaultKnowledgeConfig,
+			);
+
+			expect(result.applied).toBe(1);
+			expect(result.skipped).toBe(0);
+
+			const entries = readKnowledgeJsonl(tempDir);
+			expect(entries).toHaveLength(1);
+			expect(entries[0].lesson).toBe(
+				'Always escape tool names inside architect prompts',
+			);
+			expect(entries[0].status).toBe('candidate');
+			expect(entries[0].auto_generated).toBe(true);
 		});
 	});
 });

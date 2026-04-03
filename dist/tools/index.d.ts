@@ -1,3 +1,4 @@
+export { batch_symbols } from './batch-symbols';
 export { build_check } from './build-check';
 export { check_gate_status } from './check-gate-status';
 export { checkpoint } from './checkpoint';
@@ -29,7 +30,9 @@ export type { SavePlanArgs, SavePlanResult } from './save-plan';
 export { save_plan } from './save-plan';
 export { type SbomGenerateInput, type SbomGenerateResult, sbom_generate, } from './sbom-generate';
 export { schema_drift } from './schema-drift';
+export { search } from './search';
 export { type SecretFinding, type SecretscanResult, secretscan, } from './secretscan';
+export { suggestPatch } from './suggest-patch';
 export { symbols } from './symbols';
 export { type SyntaxCheckFileResult, type SyntaxCheckInput, type SyntaxCheckResult, syntaxCheck, } from './syntax-check';
 export { test_runner } from './test-runner';
