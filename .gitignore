@@ -50,3 +50,6 @@ output_*.js
 # npm lockfile — project uses bun.lock
 package-lock.json
 
+# Perplexity MCP log (locked by process, never commit)
+perplexity.log
+
