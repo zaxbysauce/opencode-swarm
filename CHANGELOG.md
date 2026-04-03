@@ -1,5 +1,12 @@
 # Changelog
 
+## [6.46.0](https://github.com/zaxbysauce/opencode-swarm/compare/v6.45.1...v6.46.0) (2026-04-03)
+
+
+### Features
+
+* **authority:** add configurable per-agent file write authority rules ([#378](https://github.com/zaxbysauce/opencode-swarm/issues/378)) ([070fd44](https://github.com/zaxbysauce/opencode-swarm/commit/070fd44013ad47b554de8f85ed925689784b5564))
+
 ## [6.45.1](https://github.com/zaxbysauce/opencode-swarm/compare/v6.45.0...v6.45.1) (2026-04-02)
 
 
