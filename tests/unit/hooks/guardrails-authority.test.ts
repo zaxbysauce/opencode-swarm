@@ -1515,3 +1515,584 @@ describe('buildEffectiveRules pre-computation edge cases', () => {
 		});
 	});
 });
+
+describe('patch-style write authority enforcement', () => {
+	let tempDir: string;
+	let originalCwd: string;
+	let hooksConfig: GuardrailsConfig;
+
+	beforeEach(async () => {
+		tempDir = await fs.mkdtemp(path.join(os.tmpdir(), 'patch-authority-test-'));
+		originalCwd = process.cwd();
+		process.chdir(tempDir);
+		resetSwarmState();
+
+		// Create .swarm directory for plan.md test
+		await fs.mkdir(path.join(tempDir, '.swarm'), { recursive: true });
+		await fs.writeFile(
+			path.join(tempDir, '.swarm', 'plan.md'),
+			'# Plan\n- Task 1: test',
+		);
+
+		hooksConfig = GuardrailsConfigSchema.parse({ enabled: true });
+	});
+
+	afterEach(async () => {
+		process.chdir(originalCwd);
+		try {
+			await fs.rm(tempDir, { recursive: true, force: true });
+		} catch {
+			// Ignore cleanup errors
+		}
+	});
+
+	// ============================================================
+	// Group F — apply_patch format (*** Update File)
+	// ============================================================
+
+	describe('Group F — apply_patch format (*** Update File)', () => {
+		it('F1: Subagent calling apply_patch with blocked path → WRITE BLOCKED', async () => {
+			const sessionId = 'patch-f1-delegated';
+			ensureAgentSession(sessionId, 'coder');
+			swarmState.activeAgent.set(sessionId, 'coder');
+			const session = getAgentSession(sessionId)!;
+			session.delegationActive = true;
+			beginInvocation(sessionId, 'coder');
+
+			const hooks = createGuardrailsHooks(tempDir, hooksConfig);
+
+			// apply_patch with *** Update File format targeting blocked path
+			const patchContent = `*** Update File: .swarm/plan.md
+--- a/.swarm/plan.md
++++ b/.swarm/plan.md
+@@ -1 +1 @@
+-# Plan
++# Plan updated`;
+
+			await expect(
+				hooks.toolBefore(
+					{ tool: 'apply_patch', sessionID: sessionId, callID: 'call-f1' },
+					{ args: { input: patchContent } },
+				),
+			).rejects.toThrow(/WRITE BLOCKED/i);
+		});
+
+		it('F2: Subagent calling apply_patch with allowed path → no throw', async () => {
+			const sessionId = 'patch-f2-delegated';
+			ensureAgentSession(sessionId, 'coder');
+			swarmState.activeAgent.set(sessionId, 'coder');
+			const session = getAgentSession(sessionId)!;
+			session.delegationActive = true;
+			beginInvocation(sessionId, 'coder');
+
+			const hooks = createGuardrailsHooks(tempDir, hooksConfig);
+
+			// apply_patch with *** Update File format targeting allowed path
+			const patchContent = `*** Update File: src/foo.ts
+--- a/src/foo.ts
++++ b/src/foo.ts
+@@ -1 +1 @@
++// new line`;
+
+			// Should NOT throw - src/ is in coder's allowedPrefix
+			await hooks.toolBefore(
+				{ tool: 'apply_patch', sessionID: sessionId, callID: 'call-f2' },
+				{ args: { input: patchContent } },
+			);
+		});
+
+		it('F3: Subagent (explorer) calling apply_patch with any path → WRITE BLOCKED', async () => {
+			const sessionId = 'patch-f3-delegated';
+			ensureAgentSession(sessionId, 'explorer');
+			swarmState.activeAgent.set(sessionId, 'explorer');
+			const session = getAgentSession(sessionId)!;
+			session.delegationActive = true;
+			beginInvocation(sessionId, 'explorer');
+
+			const hooks = createGuardrailsHooks(tempDir, hooksConfig);
+
+			// apply_patch with *** Update File format - explorer is read-only
+			const patchContent = `*** Update File: src/foo.ts
+--- a/src/foo.ts
++++ b/src/foo.ts
+@@ -1 +1 @@
++// new line`;
+
+			await expect(
+				hooks.toolBefore(
+					{ tool: 'apply_patch', sessionID: sessionId, callID: 'call-f3' },
+					{ args: { input: patchContent } },
+				),
+			).rejects.toThrow(/WRITE BLOCKED/i);
+		});
+
+		it('F4: apply_patch with empty payload → no throw (nothing to check)', async () => {
+			const sessionId = 'patch-f4-delegated';
+			ensureAgentSession(sessionId, 'coder');
+			swarmState.activeAgent.set(sessionId, 'coder');
+			const session = getAgentSession(sessionId)!;
+			session.delegationActive = true;
+			beginInvocation(sessionId, 'coder');
+
+			const hooks = createGuardrailsHooks(tempDir, hooksConfig);
+
+			// apply_patch with empty content - no paths to extract
+			await hooks.toolBefore(
+				{ tool: 'apply_patch', sessionID: sessionId, callID: 'call-f4' },
+				{ args: { input: '' } },
+			);
+		});
+
+		it('F5: apply_patch with /dev/null only → no throw (filtered out)', async () => {
+			const sessionId = 'patch-f5-delegated';
+			ensureAgentSession(sessionId, 'coder');
+			swarmState.activeAgent.set(sessionId, 'coder');
+			const session = getAgentSession(sessionId)!;
+			session.delegationActive = true;
+			beginInvocation(sessionId, 'coder');
+
+			const hooks = createGuardrailsHooks(tempDir, hooksConfig);
+
+			// apply_patch with only /dev/null references - should be filtered in diff format
+			// Note: *** format does NOT filter /dev/null, but diff format does
+			const patchContent = `diff --git a/src/new.ts b/src/new.ts
+new file mode 100644
+--- /dev/null
++++ b/src/new.ts
+@@ -0,0 +1 @@
++new content`;
+
+			await hooks.toolBefore(
+				{ tool: 'apply_patch', sessionID: sessionId, callID: 'call-f5' },
+				{ args: { input: patchContent } },
+			);
+		});
+	});
+
+	// ============================================================
+	// Group G — unified diff format (+++ b/path)
+	// ============================================================
+
+	describe('Group G — unified diff format (+++ b/path)', () => {
+		it('G1: Subagent (coder) calling patch with blocked path → WRITE BLOCKED', async () => {
+			const sessionId = 'patch-g1-delegated';
+			ensureAgentSession(sessionId, 'coder');
+			swarmState.activeAgent.set(sessionId, 'coder');
+			const session = getAgentSession(sessionId)!;
+			session.delegationActive = true;
+			beginInvocation(sessionId, 'coder');
+
+			const hooks = createGuardrailsHooks(tempDir, hooksConfig);
+
+			// Unified diff format targeting blocked zone
+			const patchContent = `--- a/.swarm/evidence/result.json
++++ b/.swarm/evidence/result.json
+@@ -1 +1 @@
+-{}
++{"updated": true}`;
+
+			await expect(
+				hooks.toolBefore(
+					{ tool: 'patch', sessionID: sessionId, callID: 'call-g1' },
+					{ args: { input: patchContent } },
+				),
+			).rejects.toThrow(/WRITE BLOCKED/i);
+		});
+
+		it('G2: Subagent (coder) calling patch with allowed path → no throw', async () => {
+			const sessionId = 'patch-g2-delegated';
+			ensureAgentSession(sessionId, 'coder');
+			swarmState.activeAgent.set(sessionId, 'coder');
+			const session = getAgentSession(sessionId)!;
+			session.delegationActive = true;
+			beginInvocation(sessionId, 'coder');
+
+			const hooks = createGuardrailsHooks(tempDir, hooksConfig);
+
+			// Unified diff format targeting allowed path
+			const patchContent = `--- a/src/file.ts
++++ b/src/file.ts
+@@ -1 +1 @@
++// new line`;
+
+			// Should NOT throw - src/ is in coder's allowedPrefix
+			await hooks.toolBefore(
+				{ tool: 'patch', sessionID: sessionId, callID: 'call-g2' },
+				{ args: { input: patchContent } },
+			);
+		});
+	});
+
+	// ============================================================
+	// Group H — git diff format (diff --git a/x b/y)
+	// ============================================================
+
+	describe('Group H — git diff format (diff --git a/x b/y)', () => {
+		it('H1: Subagent (coder) calling apply_patch with git diff format → allowed', async () => {
+			const sessionId = 'patch-h1-delegated';
+			ensureAgentSession(sessionId, 'coder');
+			swarmState.activeAgent.set(sessionId, 'coder');
+			const session = getAgentSession(sessionId)!;
+			session.delegationActive = true;
+			beginInvocation(sessionId, 'coder');
+
+			const hooks = createGuardrailsHooks(tempDir, hooksConfig);
+
+			// Git diff format targeting allowed path
+			const patchContent = `diff --git a/src/x.ts b/src/x.ts
+index 1234567..abcdefg 100644
+--- a/src/x.ts
++++ b/src/x.ts
+@@ -1 +1 @@
+ // original
++// added line`;
+
+			// Should NOT throw - src/x.ts is in coder's allowedPrefix
+			await hooks.toolBefore(
+				{ tool: 'apply_patch', sessionID: sessionId, callID: 'call-h1' },
+				{ args: { input: patchContent } },
+			);
+		});
+
+		it('H2: Subagent (coder) calling apply_patch with git diff targeting blocked path → WRITE BLOCKED', async () => {
+			const sessionId = 'patch-h2-delegated';
+			ensureAgentSession(sessionId, 'coder');
+			swarmState.activeAgent.set(sessionId, 'coder');
+			const session = getAgentSession(sessionId)!;
+			session.delegationActive = true;
+			beginInvocation(sessionId, 'coder');
+
+			const hooks = createGuardrailsHooks(tempDir, hooksConfig);
+
+			// Git diff format targeting blocked path
+			const patchContent = `diff --git a/.swarm/plan.md b/.swarm/plan.md
+index 1234567..abcdefg 100644
+--- a/.swarm/plan.md
++++ b/.swarm/plan.md
+@@ -1 +1 @@
+-# Plan
++# Plan updated`;
+
+			await expect(
+				hooks.toolBefore(
+					{ tool: 'apply_patch', sessionID: sessionId, callID: 'call-h2' },
+					{ args: { input: patchContent } },
+				),
+			).rejects.toThrow(/WRITE BLOCKED/i);
+		});
+	});
+
+	// ============================================================
+	// Group I — architect direct write via patch
+	// ============================================================
+
+	describe('Group I — architect direct write via patch', () => {
+		it('I1: Architect calling apply_patch with allowed path → no throw', async () => {
+			const sessionId = 'patch-i1-architect';
+			ensureAgentSession(sessionId, 'architect');
+			swarmState.activeAgent.set(sessionId, 'architect');
+			beginInvocation(sessionId, 'architect');
+
+			const hooks = createGuardrailsHooks(tempDir, hooksConfig);
+
+			// apply_patch with *** Update File format targeting src/
+			const patchContent = `*** Update File: src/file.ts
+--- a/src/file.ts
++++ b/src/file.ts
+@@ -1 +1 @@
++// new line`;
+
+			// Should NOT throw - architect has no allowedPrefix restriction for src/
+			await hooks.toolBefore(
+				{ tool: 'apply_patch', sessionID: sessionId, callID: 'call-i1' },
+				{ args: { input: patchContent } },
+			);
+		});
+
+		it('I2: Architect calling apply_patch with .swarm/plan.md → PLAN STATE VIOLATION', async () => {
+			const sessionId = 'patch-i2-architect';
+			ensureAgentSession(sessionId, 'architect');
+			swarmState.activeAgent.set(sessionId, 'architect');
+			beginInvocation(sessionId, 'architect');
+
+			const hooks = createGuardrailsHooks(tempDir, hooksConfig);
+
+			// apply_patch targeting .swarm/plan.md - handlePlanAndScopeProtection runs first
+			const patchContent = `*** Update File: .swarm/plan.md
+--- a/.swarm/plan.md
++++ b/.swarm/plan.md
+@@ -1 +1 @@
+-# Plan
++# Plan updated`;
+
+			// Should throw PLAN STATE VIOLATION - handlePlanAndScopeProtection runs before authority check
+			await expect(
+				hooks.toolBefore(
+					{ tool: 'apply_patch', sessionID: sessionId, callID: 'call-i2' },
+					{ args: { input: patchContent } },
+				),
+			).rejects.toThrow(/PLAN STATE VIOLATION/i);
+		});
+	});
+
+	// ============================================================
+	// Group J — blockedExact config override
+	// ============================================================
+
+	describe('Group J — blockedExact config override', () => {
+		it('J1: Config sets blockedExact for coder → exactly that path is blocked', async () => {
+			const sessionId = 'patch-j1-delegated';
+			ensureAgentSession(sessionId, 'coder');
+			swarmState.activeAgent.set(sessionId, 'coder');
+			const session = getAgentSession(sessionId)!;
+			session.delegationActive = true;
+			beginInvocation(sessionId, 'coder');
+
+			const authorityConfig: AuthorityConfig = {
+				enabled: true,
+				rules: {
+					coder: {
+						blockedExact: ['.swarm/context.md'],
+					},
+				},
+			};
+
+			const hooks = createGuardrailsHooks(
+				tempDir,
+				hooksConfig,
+				undefined,
+				authorityConfig,
+			);
+
+			// Write to blockedExact path via apply_patch should throw
+			const patchContent = `*** Update File: .swarm/context.md
+--- a/.swarm/context.md
++++ b/.swarm/context.md
+@@ -1 +1 @@
+-content
++updated`;
+
+			await expect(
+				hooks.toolBefore(
+					{ tool: 'apply_patch', sessionID: sessionId, callID: 'call-j1' },
+					{ args: { input: patchContent } },
+				),
+			).rejects.toThrow(/WRITE BLOCKED/i);
+		});
+
+		it('J2: Config sets blockedExact for coder → adjacent path is NOT blocked', async () => {
+			const sessionId = 'patch-j2-delegated';
+			ensureAgentSession(sessionId, 'coder');
+			swarmState.activeAgent.set(sessionId, 'coder');
+			const session = getAgentSession(sessionId)!;
+			session.delegationActive = true;
+			beginInvocation(sessionId, 'coder');
+
+			// Override blockedPrefix to allow .swarm/ so we can test blockedExact in isolation
+			const authorityConfig: AuthorityConfig = {
+				enabled: true,
+				rules: {
+					coder: {
+						blockedExact: ['.swarm/context.md'],
+						blockedPrefix: [], // Override: remove .swarm/ block to test blockedExact alone
+						allowedPrefix: ['.swarm/'], // Allow .swarm/ when blockedPrefix is cleared
+					},
+				},
+			};
+
+			const hooks = createGuardrailsHooks(
+				tempDir,
+				hooksConfig,
+				undefined,
+				authorityConfig,
+			);
+
+			// Write to adjacent path (different filename) should NOT throw blockedExact
+			const patchContent = `*** Update File: .swarm/context.md.bak
+--- a/.swarm/context.md.bak
++++ b/.swarm/context.md.bak
+@@ -1 +1 @@
+-backup
++updated`;
+
+			// Should NOT throw - .swarm/context.md.bak is NOT in blockedExact
+			// With blockedPrefix cleared and .swarm/ allowed, only blockedExact applies
+			await hooks.toolBefore(
+				{ tool: 'apply_patch', sessionID: sessionId, callID: 'call-j2' },
+				{ args: { input: patchContent } },
+			);
+		});
+
+		it('J3: No blockedExact in config → path that would match is not blocked by blockedExact', async () => {
+			// This tests that blockedExact only blocks exact matches, not prefix matches
+			const result = checkFileAuthority('coder', '.swarm/context.md', tempDir, {
+				enabled: true,
+				rules: {
+					coder: {
+						// No blockedExact specified - only default rules apply
+						// Default coder rules have blockedPrefix: ['.swarm/']
+					},
+				},
+			});
+			// Blocked by blockedPrefix ['.swarm/'], not by blockedExact
+			expect(result.allowed).toBe(false);
+			if (isDenied(result)) {
+				// Should be blocked by prefix, not by exact match
+				expect(result.reason).toContain('under .swarm/');
+			}
+		});
+	});
+});
+
+describe('patch authority hardening', () => {
+	let tempDir: string;
+	let originalCwd: string;
+	let hooksConfig: GuardrailsConfig;
+
+	beforeEach(async () => {
+		tempDir = await fs.mkdtemp(path.join(os.tmpdir(), 'patch-hardening-test-'));
+		originalCwd = process.cwd();
+		process.chdir(tempDir);
+		resetSwarmState();
+
+		// Create .swarm directory for plan.md test
+		await fs.mkdir(path.join(tempDir, '.swarm'), { recursive: true });
+		await fs.writeFile(
+			path.join(tempDir, '.swarm', 'plan.md'),
+			'# Plan\n- Task 1: test',
+		);
+
+		hooksConfig = GuardrailsConfigSchema.parse({ enabled: true });
+	});
+
+	afterEach(async () => {
+		process.chdir(originalCwd);
+		try {
+			await fs.rm(tempDir, { recursive: true, force: true });
+		} catch {
+			// Ignore cleanup errors
+		}
+	});
+
+	// ============================================================
+	// K1: 1MB fail-closed via subagent (delegationActive)
+	// ============================================================
+
+	it('K1: apply_patch with payload > 1MB via subagent (delegationActive) → throws "Patch payload exceeds 1 MB"', async () => {
+		const sessionId = 'patch-k1-delegated';
+		ensureAgentSession(sessionId, 'coder');
+		swarmState.activeAgent.set(sessionId, 'coder');
+		const session = getAgentSession(sessionId)!;
+		session.delegationActive = true;
+		beginInvocation(sessionId, 'coder');
+
+		const hooks = createGuardrailsHooks(tempDir, hooksConfig);
+
+		// Generate patch with > 1MB payload (1_000_001 chars)
+		const largeContent = 'x'.repeat(1_000_001);
+		const patchContent = `*** Update File: src/file.ts
+--- a/src/file.ts
++++ b/src/file.ts
+@@ -1 +1 @@
+-old
++${largeContent}`;
+
+		await expect(
+			hooks.toolBefore(
+				{ tool: 'apply_patch', sessionID: sessionId, callID: 'call-k1' },
+				{ args: { input: patchContent } },
+			),
+		).rejects.toThrow(/Patch payload exceeds 1 MB/i);
+	});
+
+	// ============================================================
+	// K2: 1MB fail-closed via architect direct write
+	// ============================================================
+
+	it('K2: apply_patch with payload > 1MB via architect direct write → throws "Patch payload exceeds 1 MB"', async () => {
+		const sessionId = 'patch-k2-architect';
+		ensureAgentSession(sessionId, 'architect');
+		swarmState.activeAgent.set(sessionId, 'architect');
+		beginInvocation(sessionId, 'architect');
+
+		const hooks = createGuardrailsHooks(tempDir, hooksConfig);
+
+		// Generate patch with > 1MB payload (1_000_001 chars)
+		const largeContent = 'y'.repeat(1_000_001);
+		const patchContent = `*** Update File: src/file.ts
+--- a/src/file.ts
++++ b/src/file.ts
+@@ -1 +1 @@
+-old
++${largeContent}`;
+
+		await expect(
+			hooks.toolBefore(
+				{ tool: 'apply_patch', sessionID: sessionId, callID: 'call-k2' },
+				{ args: { input: patchContent } },
+			),
+		).rejects.toThrow(/Patch payload exceeds 1 MB/i);
+	});
+
+	// ============================================================
+	// K3: Multi-file patch + filePath: filePath allowed, patch content blocked
+	// Both checks run independently → WRITE BLOCKED on patch content
+	// ============================================================
+
+	it('K3: patch tool with filePath allowed but patch content blocked → WRITE BLOCKED on patch content', async () => {
+		const sessionId = 'patch-k3-delegated';
+		ensureAgentSession(sessionId, 'coder');
+		swarmState.activeAgent.set(sessionId, 'coder');
+		const session = getAgentSession(sessionId)!;
+		session.delegationActive = true;
+		beginInvocation(sessionId, 'coder');
+
+		const hooks = createGuardrailsHooks(tempDir, hooksConfig);
+
+		// filePath is allowed (src/allowed.ts), but patch content targets blocked .swarm/plan.md
+		// Both filePath and patch content checks run independently
+		const patchContent = `*** Update File: .swarm/plan.md
+--- a/.swarm/plan.md
++++ b/.swarm/plan.md
+@@ -1 +1 @@
+-# Plan
++# Plan updated`;
+
+		await expect(
+			hooks.toolBefore(
+				{ tool: 'patch', sessionID: sessionId, callID: 'call-k3' },
+				{ args: { input: patchContent, filePath: 'src/allowed.ts' } },
+			),
+		).rejects.toThrow(/WRITE BLOCKED/i);
+	});
+
+	// ============================================================
+	// K4: Multi-file patch + filePath: both filePath and patch content allowed
+	// Both checks run independently → no throw
+	// ============================================================
+
+	it('K4: patch tool with filePath allowed and patch content also allowed → no throw', async () => {
+		const sessionId = 'patch-k4-delegated';
+		ensureAgentSession(sessionId, 'coder');
+		swarmState.activeAgent.set(sessionId, 'coder');
+		const session = getAgentSession(sessionId)!;
+		session.delegationActive = true;
+		beginInvocation(sessionId, 'coder');
+
+		const hooks = createGuardrailsHooks(tempDir, hooksConfig);
+
+		// filePath is allowed (src/allowed.ts) and patch content also targets allowed path (src/other.ts)
+		// Both independent checks should pass
+		const patchContent = `*** Update File: src/other.ts
+--- a/src/other.ts
++++ b/src/other.ts
+@@ -1 +1 @@
++// new line`;
+
+		// Should NOT throw - both filePath and patch content are allowed
+		await hooks.toolBefore(
+			{ tool: 'patch', sessionID: sessionId, callID: 'call-k4' },
+			{ args: { input: patchContent, filePath: 'src/allowed.ts' } },
+		);
+	});
+});

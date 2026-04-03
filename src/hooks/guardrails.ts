@@ -546,6 +546,26 @@ export function createGuardrailsHooks(
 					}
 				}
 			}
+			if (tool === 'apply_patch' || tool === 'patch') {
+				const agentName = swarmState.activeAgent.get(sessionID) ?? 'unknown';
+				const cwd = effectiveDirectory;
+				for (const p of extractPatchTargetPaths(tool, args)) {
+					const authorityCheck = checkFileAuthorityWithRules(
+						agentName,
+						p,
+						cwd,
+						precomputedAuthorityRules,
+					);
+					if (!authorityCheck.allowed) {
+						throw new Error(
+							`WRITE BLOCKED: Agent "${agentName}" is not authorised to write "${p}" (via patch). Reason: ${authorityCheck.reason}`,
+						);
+					}
+					if (!currentSession.modifiedFilesThisCoderTask.includes(p)) {
+						currentSession.modifiedFilesThisCoderTask.push(p);
+					}
+				}
+			}
 		} else if (isArchitect(sessionID)) {
 			const coderDelegArgs = args as Record<string, unknown> | undefined;
 			const rawSubagentType = coderDelegArgs?.subagent_type;
@@ -664,6 +684,60 @@ export function createGuardrailsHooks(
 	}
 
 	/**
+	 * Extracts target file paths from apply_patch / patch tool arguments.
+	 * Returns an empty array for any other tool or unparseable payload.
+	 */
+	function extractPatchTargetPaths(tool: string, args: unknown): string[] {
+		if (tool !== 'apply_patch' && tool !== 'patch') return [];
+		const toolArgs = args as Record<string, unknown> | undefined;
+		const patchText = (toolArgs?.input ??
+			toolArgs?.patch ??
+			(Array.isArray(toolArgs?.cmd) ? toolArgs.cmd[1] : undefined)) as
+			| string
+			| undefined;
+		if (typeof patchText !== 'string') return [];
+		if (patchText.length > 1_000_000) {
+			throw new Error(
+				'WRITE BLOCKED: Patch payload exceeds 1 MB — authority cannot be verified for all modified paths. Split into smaller patches.',
+			);
+		}
+		const paths = new Set<string>();
+		const patchPathPattern = /\*\*\*\s+(?:Update|Add|Delete)\s+File:\s*(.+)/gi;
+		const diffPathPattern = /\+\+\+\s+b\/(.+)/gm;
+		const gitDiffPathPattern = /^diff --git a\/(.+?) b\/(.+?)$/gm;
+		const minusPathPattern = /^---\s+a\/(.+)$/gm;
+		const traditionalMinusPattern = /^---\s+([^\s].+?)(?:\t.*)?$/gm;
+		const traditionalPlusPattern = /^\+\+\+\s+([^\s].+?)(?:\t.*)?$/gm;
+		for (const match of patchText.matchAll(patchPathPattern))
+			paths.add(match[1].trim());
+		for (const match of patchText.matchAll(diffPathPattern)) {
+			const p = match[1].trim();
+			if (p !== '/dev/null') paths.add(p);
+		}
+		for (const match of patchText.matchAll(gitDiffPathPattern)) {
+			const aPath = match[1].trim();
+			const bPath = match[2].trim();
+			if (aPath !== '/dev/null') paths.add(aPath);
+			if (bPath !== '/dev/null') paths.add(bPath);
+		}
+		for (const match of patchText.matchAll(minusPathPattern)) {
+			const p = match[1].trim();
+			if (p !== '/dev/null') paths.add(p);
+		}
+		for (const match of patchText.matchAll(traditionalMinusPattern)) {
+			const p = match[1].trim();
+			if (p !== '/dev/null' && !p.startsWith('a/') && !p.startsWith('b/'))
+				paths.add(p);
+		}
+		for (const match of patchText.matchAll(traditionalPlusPattern)) {
+			const p = match[1].trim();
+			if (p !== '/dev/null' && !p.startsWith('a/') && !p.startsWith('b/'))
+				paths.add(p);
+		}
+		return Array.from(paths);
+	}
+
+	/**
 	 * Protects plan state files and detects architect direct writes.
 	 * Handles both direct file writes and apply_patch/patch tool paths.
 	 */
@@ -703,88 +777,41 @@ export function createGuardrailsHooks(
 
 		// Fallback: apply_patch / patch tools send args as a single diff string
 		if (!targetPath && (tool === 'apply_patch' || tool === 'patch')) {
-			const patchText = (toolArgs?.input ??
-				toolArgs?.patch ??
-				(Array.isArray(toolArgs?.cmd) ? toolArgs.cmd[1] : undefined)) as
-				| string
-				| undefined;
-
-			if (typeof patchText === 'string' && patchText.length <= 1_000_000) {
-				const patchPathPattern =
-					/\*\*\*\s+(?:Update|Add|Delete)\s+File:\s*(.+)/gi;
-				const diffPathPattern = /\+\+\+\s+b\/(.+)/gm;
-				const paths = new Set<string>();
-
-				for (const match of patchText.matchAll(patchPathPattern)) {
-					paths.add(match[1].trim());
+			for (const p of extractPatchTargetPaths(tool, args)) {
+				const resolvedP = path.resolve(effectiveDirectory, p);
+				const planMdPath = path
+					.resolve(effectiveDirectory, '.swarm', 'plan.md')
+					.toLowerCase();
+				const planJsonPath = path
+					.resolve(effectiveDirectory, '.swarm', 'plan.json')
+					.toLowerCase();
+				if (
+					resolvedP.toLowerCase() === planMdPath ||
+					resolvedP.toLowerCase() === planJsonPath
+				) {
+					throw new Error(
+						'PLAN STATE VIOLATION: Direct writes to .swarm/plan.md and .swarm/plan.json are blocked. ' +
+							'plan.md is auto-regenerated from plan.json by PlanSyncWorker. ' +
+							'Use update_task_status() to mark tasks complete, ' +
+							'phase_complete() for phase transitions, or ' +
+							'save_plan to create/restructure plans.',
+					);
 				}
-				for (const match of patchText.matchAll(diffPathPattern)) {
-					const p = match[1].trim();
-					if (p !== '/dev/null') paths.add(p);
-				}
-				const gitDiffPathPattern = /^diff --git a\/(.+?) b\/(.+?)$/gm;
-				for (const match of patchText.matchAll(gitDiffPathPattern)) {
-					const aPath = match[1].trim();
-					const bPath = match[2].trim();
-					if (aPath !== '/dev/null') paths.add(aPath);
-					if (bPath !== '/dev/null') paths.add(bPath);
-				}
-				const minusPathPattern = /^---\s+a\/(.+)$/gm;
-				for (const match of patchText.matchAll(minusPathPattern)) {
-					const p = match[1].trim();
-					if (p !== '/dev/null') paths.add(p);
-				}
-				const traditionalMinusPattern = /^---\s+([^\s].+?)(?:\t.*)?$/gm;
-				const traditionalPlusPattern = /^\+\+\+\s+([^\s].+?)(?:\t.*)?$/gm;
-				for (const match of patchText.matchAll(traditionalMinusPattern)) {
-					const p = match[1].trim();
-					if (p !== '/dev/null' && !p.startsWith('a/') && !p.startsWith('b/')) {
-						paths.add(p);
+				if (
+					isOutsideSwarmDir(p, effectiveDirectory) &&
+					(isSourceCodePath(p) || hasTraversalSegments(p))
+				) {
+					const session = swarmState.agentSessions.get(sessionID);
+					if (session) {
+						session.architectWriteCount++;
+						warn('Architect direct code edit detected via apply_patch', {
+							tool,
+							sessionID,
+							targetPath: p,
+							writeCount: session.architectWriteCount,
+						});
 					}
-				}
-				for (const match of patchText.matchAll(traditionalPlusPattern)) {
-					const p = match[1].trim();
-					if (p !== '/dev/null' && !p.startsWith('a/') && !p.startsWith('b/')) {
-						paths.add(p);
-					}
-				}
-
-				for (const p of paths) {
-					const resolvedP = path.resolve(effectiveDirectory, p);
-					const planMdPath = path
-						.resolve(effectiveDirectory, '.swarm', 'plan.md')
-						.toLowerCase();
-					const planJsonPath = path
-						.resolve(effectiveDirectory, '.swarm', 'plan.json')
-						.toLowerCase();
-					if (
-						resolvedP.toLowerCase() === planMdPath ||
-						resolvedP.toLowerCase() === planJsonPath
-					) {
-						throw new Error(
-							'PLAN STATE VIOLATION: Direct writes to .swarm/plan.md and .swarm/plan.json are blocked. ' +
-								'plan.md is auto-regenerated from plan.json by PlanSyncWorker. ' +
-								'Use update_task_status() to mark tasks complete, ' +
-								'phase_complete() for phase transitions, or ' +
-								'save_plan to create/restructure plans.',
-						);
-					}
-					if (
-						isOutsideSwarmDir(p, effectiveDirectory) &&
-						(isSourceCodePath(p) || hasTraversalSegments(p))
-					) {
-						const session = swarmState.agentSessions.get(sessionID);
-						if (session) {
-							session.architectWriteCount++;
-							warn('Architect direct code edit detected via apply_patch', {
-								tool,
-								sessionID,
-								targetPath: p,
-								writeCount: session.architectWriteCount,
-							});
-						}
-						break;
-					}
+					break;
 				}
 			}
 		}
@@ -973,6 +1000,23 @@ export function createGuardrailsHooks(
 					if (!authorityCheck.allowed) {
 						throw new Error(
 							`WRITE BLOCKED: Agent "${agentName}" is not authorised to write "${targetPath}". Reason: ${authorityCheck.reason}`,
+						);
+					}
+				}
+			}
+			if (input.tool === 'apply_patch' || input.tool === 'patch') {
+				const agentName =
+					swarmState.activeAgent.get(input.sessionID) ?? 'architect';
+				for (const p of extractPatchTargetPaths(input.tool, output.args)) {
+					const authorityCheck = checkFileAuthorityWithRules(
+						agentName,
+						p,
+						effectiveDirectory,
+						precomputedAuthorityRules,
+					);
+					if (!authorityCheck.allowed) {
+						throw new Error(
+							`WRITE BLOCKED: Agent "${agentName}" is not authorised to write "${p}" (via patch). Reason: ${authorityCheck.reason}`,
 						);
 					}
 				}
