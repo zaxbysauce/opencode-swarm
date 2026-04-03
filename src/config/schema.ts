@@ -891,6 +891,29 @@ export const CompactionConfigSchema = z.object({
 
 export type CompactionConfig = z.infer<typeof CompactionConfigSchema>;
 
+// Agent authority rule - describes per-agent file write authority
+export const AgentAuthorityRuleSchema = z.object({
+	readOnly: z.boolean().optional(),
+	blockedExact: z.array(z.string()).optional(),
+	blockedPrefix: z.array(z.string()).optional(),
+	allowedPrefix: z.array(z.string()).optional(),
+	blockedZones: z
+		.array(
+			z.enum(['production', 'test', 'config', 'generated', 'docs', 'build']),
+		)
+		.optional(),
+});
+
+export type AgentAuthorityRule = z.infer<typeof AgentAuthorityRuleSchema>;
+
+// Authority configuration - top-level authority config
+export const AuthorityConfigSchema = z.object({
+	enabled: z.boolean().default(true),
+	rules: z.record(z.string(), AgentAuthorityRuleSchema).default({}),
+});
+
+export type AuthorityConfig = z.infer<typeof AuthorityConfigSchema>;
+
 // Main plugin configuration
 export const PluginConfigSchema = z.object({
 	// Legacy: Per-agent overrides (default swarm)
@@ -937,6 +960,9 @@ export const PluginConfigSchema = z.object({
 
 	// Tool filter configuration - controls which tools each agent is allowed to use
 	tool_filter: ToolFilterConfigSchema.optional(),
+
+	// Authority configuration - per-agent file write authority rules
+	authority: AuthorityConfigSchema.optional(),
 
 	// Plan cursor configuration - controls compressed plan summary injection
 	plan_cursor: PlanCursorConfigSchema.optional(),

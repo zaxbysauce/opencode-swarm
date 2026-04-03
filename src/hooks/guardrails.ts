@@ -16,6 +16,7 @@ import {
 	WRITE_TOOL_NAMES,
 } from '../config/constants';
 import {
+	type AuthorityConfig,
 	type GuardrailsConfig,
 	resolveGuardrailsConfig,
 	stripKnownSwarmPrefix,
@@ -274,6 +275,7 @@ export function createGuardrailsHooks(
 	directory: string,
 	directoryOrConfig?: string | GuardrailsConfig,
 	config?: GuardrailsConfig,
+	authorityConfig?: AuthorityConfig,
 ): {
 	toolBefore: (
 		input: { tool: string; sessionID: string; callID: string },
@@ -331,6 +333,9 @@ export function createGuardrailsHooks(
 			messagesTransform: async () => {},
 		};
 	}
+
+	// Pre-compute effective authority rules once — authorityConfig is immutable after plugin init
+	const precomputedAuthorityRules = buildEffectiveRules(authorityConfig);
 
 	// TypeScript narrowing: guardrailsConfig must be defined if we reach here
 	const cfg = guardrailsConfig!;
@@ -522,10 +527,11 @@ export function createGuardrailsHooks(
 				if (typeof delegTargetPath === 'string' && delegTargetPath.length > 0) {
 					const agentName = swarmState.activeAgent.get(sessionID) ?? 'unknown';
 					const cwd = effectiveDirectory;
-					const authorityCheck = checkFileAuthority(
+					const authorityCheck = checkFileAuthorityWithRules(
 						agentName,
 						delegTargetPath,
 						cwd,
+						precomputedAuthorityRules,
 					);
 					if (!authorityCheck.allowed) {
 						throw new Error(
@@ -537,6 +543,26 @@ export function createGuardrailsHooks(
 						!currentSession.modifiedFilesThisCoderTask.includes(delegTargetPath)
 					) {
 						currentSession.modifiedFilesThisCoderTask.push(delegTargetPath);
+					}
+				}
+			}
+			if (tool === 'apply_patch' || tool === 'patch') {
+				const agentName = swarmState.activeAgent.get(sessionID) ?? 'unknown';
+				const cwd = effectiveDirectory;
+				for (const p of extractPatchTargetPaths(tool, args)) {
+					const authorityCheck = checkFileAuthorityWithRules(
+						agentName,
+						p,
+						cwd,
+						precomputedAuthorityRules,
+					);
+					if (!authorityCheck.allowed) {
+						throw new Error(
+							`WRITE BLOCKED: Agent "${agentName}" is not authorised to write "${p}" (via patch). Reason: ${authorityCheck.reason}`,
+						);
+					}
+					if (!currentSession.modifiedFilesThisCoderTask.includes(p)) {
+						currentSession.modifiedFilesThisCoderTask.push(p);
 					}
 				}
 			}
@@ -658,6 +684,60 @@ export function createGuardrailsHooks(
 	}
 
 	/**
+	 * Extracts target file paths from apply_patch / patch tool arguments.
+	 * Returns an empty array for any other tool or unparseable payload.
+	 */
+	function extractPatchTargetPaths(tool: string, args: unknown): string[] {
+		if (tool !== 'apply_patch' && tool !== 'patch') return [];
+		const toolArgs = args as Record<string, unknown> | undefined;
+		const patchText = (toolArgs?.input ??
+			toolArgs?.patch ??
+			(Array.isArray(toolArgs?.cmd) ? toolArgs.cmd[1] : undefined)) as
+			| string
+			| undefined;
+		if (typeof patchText !== 'string') return [];
+		if (patchText.length > 1_000_000) {
+			throw new Error(
+				'WRITE BLOCKED: Patch payload exceeds 1 MB — authority cannot be verified for all modified paths. Split into smaller patches.',
+			);
+		}
+		const paths = new Set<string>();
+		const patchPathPattern = /\*\*\*\s+(?:Update|Add|Delete)\s+File:\s*(.+)/gi;
+		const diffPathPattern = /\+\+\+\s+b\/(.+)/gm;
+		const gitDiffPathPattern = /^diff --git a\/(.+?) b\/(.+?)$/gm;
+		const minusPathPattern = /^---\s+a\/(.+)$/gm;
+		const traditionalMinusPattern = /^---\s+([^\s].+?)(?:\t.*)?$/gm;
+		const traditionalPlusPattern = /^\+\+\+\s+([^\s].+?)(?:\t.*)?$/gm;
+		for (const match of patchText.matchAll(patchPathPattern))
+			paths.add(match[1].trim());
+		for (const match of patchText.matchAll(diffPathPattern)) {
+			const p = match[1].trim();
+			if (p !== '/dev/null') paths.add(p);
+		}
+		for (const match of patchText.matchAll(gitDiffPathPattern)) {
+			const aPath = match[1].trim();
+			const bPath = match[2].trim();
+			if (aPath !== '/dev/null') paths.add(aPath);
+			if (bPath !== '/dev/null') paths.add(bPath);
+		}
+		for (const match of patchText.matchAll(minusPathPattern)) {
+			const p = match[1].trim();
+			if (p !== '/dev/null') paths.add(p);
+		}
+		for (const match of patchText.matchAll(traditionalMinusPattern)) {
+			const p = match[1].trim();
+			if (p !== '/dev/null' && !p.startsWith('a/') && !p.startsWith('b/'))
+				paths.add(p);
+		}
+		for (const match of patchText.matchAll(traditionalPlusPattern)) {
+			const p = match[1].trim();
+			if (p !== '/dev/null' && !p.startsWith('a/') && !p.startsWith('b/'))
+				paths.add(p);
+		}
+		return Array.from(paths);
+	}
+
+	/**
 	 * Protects plan state files and detects architect direct writes.
 	 * Handles both direct file writes and apply_patch/patch tool paths.
 	 */
@@ -697,88 +777,41 @@ export function createGuardrailsHooks(
 
 		// Fallback: apply_patch / patch tools send args as a single diff string
 		if (!targetPath && (tool === 'apply_patch' || tool === 'patch')) {
-			const patchText = (toolArgs?.input ??
-				toolArgs?.patch ??
-				(Array.isArray(toolArgs?.cmd) ? toolArgs.cmd[1] : undefined)) as
-				| string
-				| undefined;
-
-			if (typeof patchText === 'string' && patchText.length <= 1_000_000) {
-				const patchPathPattern =
-					/\*\*\*\s+(?:Update|Add|Delete)\s+File:\s*(.+)/gi;
-				const diffPathPattern = /\+\+\+\s+b\/(.+)/gm;
-				const paths = new Set<string>();
-
-				for (const match of patchText.matchAll(patchPathPattern)) {
-					paths.add(match[1].trim());
+			for (const p of extractPatchTargetPaths(tool, args)) {
+				const resolvedP = path.resolve(effectiveDirectory, p);
+				const planMdPath = path
+					.resolve(effectiveDirectory, '.swarm', 'plan.md')
+					.toLowerCase();
+				const planJsonPath = path
+					.resolve(effectiveDirectory, '.swarm', 'plan.json')
+					.toLowerCase();
+				if (
+					resolvedP.toLowerCase() === planMdPath ||
+					resolvedP.toLowerCase() === planJsonPath
+				) {
+					throw new Error(
+						'PLAN STATE VIOLATION: Direct writes to .swarm/plan.md and .swarm/plan.json are blocked. ' +
+							'plan.md is auto-regenerated from plan.json by PlanSyncWorker. ' +
+							'Use update_task_status() to mark tasks complete, ' +
+							'phase_complete() for phase transitions, or ' +
+							'save_plan to create/restructure plans.',
+					);
 				}
-				for (const match of patchText.matchAll(diffPathPattern)) {
-					const p = match[1].trim();
-					if (p !== '/dev/null') paths.add(p);
-				}
-				const gitDiffPathPattern = /^diff --git a\/(.+?) b\/(.+?)$/gm;
-				for (const match of patchText.matchAll(gitDiffPathPattern)) {
-					const aPath = match[1].trim();
-					const bPath = match[2].trim();
-					if (aPath !== '/dev/null') paths.add(aPath);
-					if (bPath !== '/dev/null') paths.add(bPath);
-				}
-				const minusPathPattern = /^---\s+a\/(.+)$/gm;
-				for (const match of patchText.matchAll(minusPathPattern)) {
-					const p = match[1].trim();
-					if (p !== '/dev/null') paths.add(p);
-				}
-				const traditionalMinusPattern = /^---\s+([^\s].+?)(?:\t.*)?$/gm;
-				const traditionalPlusPattern = /^\+\+\+\s+([^\s].+?)(?:\t.*)?$/gm;
-				for (const match of patchText.matchAll(traditionalMinusPattern)) {
-					const p = match[1].trim();
-					if (p !== '/dev/null' && !p.startsWith('a/') && !p.startsWith('b/')) {
-						paths.add(p);
+				if (
+					isOutsideSwarmDir(p, effectiveDirectory) &&
+					(isSourceCodePath(p) || hasTraversalSegments(p))
+				) {
+					const session = swarmState.agentSessions.get(sessionID);
+					if (session) {
+						session.architectWriteCount++;
+						warn('Architect direct code edit detected via apply_patch', {
+							tool,
+							sessionID,
+							targetPath: p,
+							writeCount: session.architectWriteCount,
+						});
 					}
-				}
-				for (const match of patchText.matchAll(traditionalPlusPattern)) {
-					const p = match[1].trim();
-					if (p !== '/dev/null' && !p.startsWith('a/') && !p.startsWith('b/')) {
-						paths.add(p);
-					}
-				}
-
-				for (const p of paths) {
-					const resolvedP = path.resolve(effectiveDirectory, p);
-					const planMdPath = path
-						.resolve(effectiveDirectory, '.swarm', 'plan.md')
-						.toLowerCase();
-					const planJsonPath = path
-						.resolve(effectiveDirectory, '.swarm', 'plan.json')
-						.toLowerCase();
-					if (
-						resolvedP.toLowerCase() === planMdPath ||
-						resolvedP.toLowerCase() === planJsonPath
-					) {
-						throw new Error(
-							'PLAN STATE VIOLATION: Direct writes to .swarm/plan.md and .swarm/plan.json are blocked. ' +
-								'plan.md is auto-regenerated from plan.json by PlanSyncWorker. ' +
-								'Use update_task_status() to mark tasks complete, ' +
-								'phase_complete() for phase transitions, or ' +
-								'save_plan to create/restructure plans.',
-						);
-					}
-					if (
-						isOutsideSwarmDir(p, effectiveDirectory) &&
-						(isSourceCodePath(p) || hasTraversalSegments(p))
-					) {
-						const session = swarmState.agentSessions.get(sessionID);
-						if (session) {
-							session.architectWriteCount++;
-							warn('Architect direct code edit detected via apply_patch', {
-								tool,
-								sessionID,
-								targetPath: p,
-								writeCount: session.architectWriteCount,
-							});
-						}
-						break;
-					}
+					break;
 				}
 			}
 		}
@@ -947,6 +980,46 @@ export function createGuardrailsHooks(
 			// Plan state + scope protection for architect writes
 			if (isArchitect(input.sessionID) && isWriteTool(input.tool)) {
 				handlePlanAndScopeProtection(input.sessionID, input.tool, output.args);
+
+				// Architect direct write authority check
+				const toolArgs = output.args as Record<string, unknown> | undefined;
+				const targetPath =
+					toolArgs?.filePath ??
+					toolArgs?.path ??
+					toolArgs?.file ??
+					toolArgs?.target;
+				if (typeof targetPath === 'string' && targetPath.length > 0) {
+					const agentName =
+						swarmState.activeAgent.get(input.sessionID) ?? 'architect';
+					const authorityCheck = checkFileAuthorityWithRules(
+						agentName,
+						targetPath,
+						effectiveDirectory,
+						precomputedAuthorityRules,
+					);
+					if (!authorityCheck.allowed) {
+						throw new Error(
+							`WRITE BLOCKED: Agent "${agentName}" is not authorised to write "${targetPath}". Reason: ${authorityCheck.reason}`,
+						);
+					}
+				}
+			}
+			if (input.tool === 'apply_patch' || input.tool === 'patch') {
+				const agentName =
+					swarmState.activeAgent.get(input.sessionID) ?? 'architect';
+				for (const p of extractPatchTargetPaths(input.tool, output.args)) {
+					const authorityCheck = checkFileAuthorityWithRules(
+						agentName,
+						p,
+						effectiveDirectory,
+						precomputedAuthorityRules,
+					);
+					if (!authorityCheck.allowed) {
+						throw new Error(
+							`WRITE BLOCKED: Agent "${agentName}" is not authorised to write "${p}" (via patch). Reason: ${authorityCheck.reason}`,
+						);
+					}
+				}
 			}
 
 			// Resolve session — returns null if architect-exempt
@@ -1890,7 +1963,7 @@ type AgentRule = {
 	blockedZones?: FileZone[];
 };
 
-const AGENT_AUTHORITY_RULES: Record<string, AgentRule> = {
+export const DEFAULT_AGENT_AUTHORITY_RULES: Record<string, AgentRule> = {
 	architect: {
 		blockedExact: ['.swarm/plan.md', '.swarm/plan.json'],
 		blockedZones: ['generated'],
@@ -1933,14 +2006,49 @@ const AGENT_AUTHORITY_RULES: Record<string, AgentRule> = {
 };
 
 /**
- * Checks whether the given agent is authorised to write to the given file path.
+ * Builds the effective rules map by merging user-configured rules with defaults.
+ * User overrides take precedence for each field.
  */
-export function checkFileAuthority(
+function buildEffectiveRules(
+	authorityConfig?: AuthorityConfig,
+): Record<string, AgentRule> {
+	if (authorityConfig?.enabled === false || !authorityConfig?.rules) {
+		return DEFAULT_AGENT_AUTHORITY_RULES;
+	}
+	const entries = Object.entries(authorityConfig.rules);
+	if (entries.length === 0) {
+		return DEFAULT_AGENT_AUTHORITY_RULES; // fast path: no allocation
+	}
+	const merged: Record<string, AgentRule> = {
+		...DEFAULT_AGENT_AUTHORITY_RULES,
+	};
+	for (const [agent, userRule] of entries) {
+		const normalizedRuleKey = agent.toLowerCase();
+		const existing = merged[normalizedRuleKey] ?? {};
+		merged[normalizedRuleKey] = {
+			...existing,
+			...userRule,
+			blockedExact: userRule.blockedExact ?? existing.blockedExact,
+			blockedPrefix: userRule.blockedPrefix ?? existing.blockedPrefix,
+			allowedPrefix: userRule.allowedPrefix ?? existing.allowedPrefix,
+			blockedZones: userRule.blockedZones ?? existing.blockedZones,
+		};
+	}
+	return merged;
+}
+
+/**
+ * Checks file path authority against a pre-computed rules map.
+ */
+function checkFileAuthorityWithRules(
 	agentName: string,
 	filePath: string,
 	cwd: string,
+	effectiveRules: Record<string, AgentRule>,
 ): { allowed: true } | { allowed: false; reason: string; zone?: FileZone } {
 	const normalizedAgent = agentName.toLowerCase();
+	const strippedAgent = stripKnownSwarmPrefix(agentName).toLowerCase();
+
 	// Resolve absolute-or-relative to absolute, then convert to relative for prefix matching.
 	// This ensures absolute paths like "C:/Users/.../src/file.ts" or "/home/.../src/file.ts"
 	// are correctly matched against relative prefixes like "src/". (Fix for #259)
@@ -1948,7 +2056,8 @@ export function checkFileAuthority(
 	const resolved = path.resolve(dir, filePath);
 	const normalizedPath = path.relative(dir, resolved).replace(/\\/g, '/');
 
-	const rules = AGENT_AUTHORITY_RULES[normalizedAgent];
+	const rules =
+		effectiveRules[normalizedAgent] ?? effectiveRules[strippedAgent];
 	if (!rules) {
 		return { allowed: false, reason: `Unknown agent: ${agentName}` };
 	}
@@ -1979,10 +2088,13 @@ export function checkFileAuthority(
 		}
 	}
 
-	if (rules.allowedPrefix && rules.allowedPrefix.length > 0) {
-		const isAllowed = rules.allowedPrefix.some((prefix) =>
-			normalizedPath.startsWith(prefix),
-		);
+	if (rules.allowedPrefix != null) {
+		const isAllowed =
+			rules.allowedPrefix.length > 0
+				? rules.allowedPrefix.some((prefix) =>
+						normalizedPath.startsWith(prefix),
+					)
+				: false;
 		if (!isAllowed) {
 			return {
 				allowed: false,
@@ -2004,4 +2116,21 @@ export function checkFileAuthority(
 	}
 
 	return { allowed: true };
+}
+
+/**
+ * Checks whether the given agent is authorised to write to the given file path.
+ */
+export function checkFileAuthority(
+	agentName: string,
+	filePath: string,
+	cwd: string,
+	authorityConfig?: AuthorityConfig,
+): { allowed: true } | { allowed: false; reason: string; zone?: FileZone } {
+	return checkFileAuthorityWithRules(
+		agentName,
+		filePath,
+		cwd,
+		buildEffectiveRules(authorityConfig),
+	);
 }

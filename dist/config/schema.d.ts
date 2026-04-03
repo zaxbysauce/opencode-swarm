@@ -468,6 +468,39 @@ export declare const CompactionConfigSchema: z.ZodObject<{
     preserveLastNTurns: z.ZodDefault<z.ZodNumber>;
 }, z.core.$strip>;
 export type CompactionConfig = z.infer<typeof CompactionConfigSchema>;
+export declare const AgentAuthorityRuleSchema: z.ZodObject<{
+    readOnly: z.ZodOptional<z.ZodBoolean>;
+    blockedExact: z.ZodOptional<z.ZodArray<z.ZodString>>;
+    blockedPrefix: z.ZodOptional<z.ZodArray<z.ZodString>>;
+    allowedPrefix: z.ZodOptional<z.ZodArray<z.ZodString>>;
+    blockedZones: z.ZodOptional<z.ZodArray<z.ZodEnum<{
+        docs: "docs";
+        production: "production";
+        test: "test";
+        config: "config";
+        generated: "generated";
+        build: "build";
+    }>>>;
+}, z.core.$strip>;
+export type AgentAuthorityRule = z.infer<typeof AgentAuthorityRuleSchema>;
+export declare const AuthorityConfigSchema: z.ZodObject<{
+    enabled: z.ZodDefault<z.ZodBoolean>;
+    rules: z.ZodDefault<z.ZodRecord<z.ZodString, z.ZodObject<{
+        readOnly: z.ZodOptional<z.ZodBoolean>;
+        blockedExact: z.ZodOptional<z.ZodArray<z.ZodString>>;
+        blockedPrefix: z.ZodOptional<z.ZodArray<z.ZodString>>;
+        allowedPrefix: z.ZodOptional<z.ZodArray<z.ZodString>>;
+        blockedZones: z.ZodOptional<z.ZodArray<z.ZodEnum<{
+            docs: "docs";
+            production: "production";
+            test: "test";
+            config: "config";
+            generated: "generated";
+            build: "build";
+        }>>>;
+    }, z.core.$strip>>>;
+}, z.core.$strip>;
+export type AuthorityConfig = z.infer<typeof AuthorityConfigSchema>;
 export declare const PluginConfigSchema: z.ZodObject<{
     agents: z.ZodOptional<z.ZodRecord<z.ZodString, z.ZodObject<{
         model: z.ZodOptional<z.ZodString>;
@@ -626,6 +659,23 @@ export declare const PluginConfigSchema: z.ZodObject<{
     tool_filter: z.ZodOptional<z.ZodObject<{
         enabled: z.ZodDefault<z.ZodBoolean>;
         overrides: z.ZodDefault<z.ZodRecord<z.ZodString, z.ZodArray<z.ZodString>>>;
+    }, z.core.$strip>>;
+    authority: z.ZodOptional<z.ZodObject<{
+        enabled: z.ZodDefault<z.ZodBoolean>;
+        rules: z.ZodDefault<z.ZodRecord<z.ZodString, z.ZodObject<{
+            readOnly: z.ZodOptional<z.ZodBoolean>;
+            blockedExact: z.ZodOptional<z.ZodArray<z.ZodString>>;
+            blockedPrefix: z.ZodOptional<z.ZodArray<z.ZodString>>;
+            allowedPrefix: z.ZodOptional<z.ZodArray<z.ZodString>>;
+            blockedZones: z.ZodOptional<z.ZodArray<z.ZodEnum<{
+                docs: "docs";
+                production: "production";
+                test: "test";
+                config: "config";
+                generated: "generated";
+                build: "build";
+            }>>>;
+        }, z.core.$strip>>>;
     }, z.core.$strip>>;
     plan_cursor: z.ZodOptional<z.ZodObject<{
         enabled: z.ZodDefault<z.ZodBoolean>;

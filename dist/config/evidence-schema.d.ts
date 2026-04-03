@@ -8,6 +8,7 @@ export declare const EvidenceTypeSchema: z.ZodEnum<{
     quality_budget: "quality_budget";
     placeholder: "placeholder";
     test: "test";
+    build: "build";
     review: "review";
     approval: "approval";
     note: "note";
@@ -15,7 +16,6 @@ export declare const EvidenceTypeSchema: z.ZodEnum<{
     syntax: "syntax";
     sast: "sast";
     sbom: "sbom";
-    build: "build";
 }>;
 export type EvidenceType = z.infer<typeof EvidenceTypeSchema>;
 export declare const EvidenceVerdictSchema: z.ZodEnum<{
@@ -34,6 +34,7 @@ export declare const BaseEvidenceSchema: z.ZodObject<{
         quality_budget: "quality_budget";
         placeholder: "placeholder";
         test: "test";
+        build: "build";
         review: "review";
         approval: "approval";
         note: "note";
@@ -41,7 +42,6 @@ export declare const BaseEvidenceSchema: z.ZodObject<{
         syntax: "syntax";
         sast: "sast";
         sbom: "sbom";
-        build: "build";
     }>;
     timestamp: z.ZodString;
     agent: z.ZodString;

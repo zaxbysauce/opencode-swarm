@@ -15,7 +15,11 @@ export {
 	extractIncompleteTasksFromPlan,
 	extractPatterns,
 } from './extractors';
-export { createGuardrailsHooks } from './guardrails';
+export {
+	checkFileAuthority,
+	createGuardrailsHooks,
+	DEFAULT_AGENT_AUTHORITY_RULES,
+} from './guardrails';
 export {
 	classifyMessage,
 	classifyMessages,

@@ -602,6 +602,117 @@ Per-agent overrides:
 </details>
 
 <details>
+<summary><strong>File Authority (Per-Agent Write Permissions)</strong></summary>
+
+Swarm enforces per-agent file write authority — each agent can only write to specific paths. By default, these rules are hardcoded, but you can override them via config.
+
+### Default Rules
+
+| Agent | Can Write | Blocked | Zones |
+|-------|-----------|---------|-------|
+| `architect` | Everything (except plan files) | `.swarm/plan.md`, `.swarm/plan.json` | `generated` |
+| `coder` | `src/`, `tests/`, `docs/`, `scripts/` | `.swarm/` (entire directory) | `generated`, `config` |
+| `reviewer` | `.swarm/evidence/`, `.swarm/outputs/` | `src/`, `.swarm/plan.md`, `.swarm/plan.json` | `generated` |
+| `test_engineer` | `tests/`, `.swarm/evidence/` | `src/`, `.swarm/plan.md`, `.swarm/plan.json` | `generated` |
+| `explorer` | Read-only | Everything | — |
+| `sme` | Read-only | Everything | — |
+| `docs` | `docs/`, `.swarm/outputs/` | — | `generated` |
+| `designer` | `docs/`, `.swarm/outputs/` | — | `generated` |
+| `critic` | `.swarm/evidence/` | — | `generated` |
+
+### Prefixed Agents
+
+Prefixed agents (e.g., `paid_coder`, `mega_reviewer`, `local_architect`) inherit defaults from their canonical base agent via `stripKnownSwarmPrefix`. The lookup order is:
+
+1. Exact match for the prefixed name (if explicitly defined in user config)
+2. Fall back to the canonical agent's defaults (e.g., `paid_coder` → `coder`)
+
+```json
+{
+  "authority": {
+    "rules": {
+      "coder": { "allowedPrefix": ["src/", "lib/"] },
+      "paid_coder": { "allowedPrefix": ["vendor/", "plugins/"] }
+    }
+  }
+}
+```
+
+In this example, `paid_coder` gets its own explicit rule, while other prefixed coders (e.g., `mega_coder`) fall back to `coder`.
+
+### Runtime Enforcement
+
+Architect direct writes are enforced at runtime via `toolBefore` hook. This tracks writes to source code paths outside `.swarm/` and protects `.swarm/plan.md` and `.swarm/plan.json` from direct modification.
+
+### Configuration
+
+Override default rules in `.opencode/opencode-swarm.json`:
+
+```json
+{
+  "authority": {
+    "enabled": true,
+    "rules": {
+      "coder": {
+        "allowedPrefix": ["src/", "lib/", "scripts/"],
+        "blockedPrefix": [".swarm/"],
+        "blockedZones": ["generated"]
+      },
+      "explorer": {
+        "readOnly": false,
+        "allowedPrefix": ["notes/", "scratch/"]
+      }
+    }
+  }
+}
+```
+
+### Rule Fields
+
+| Field | Type | Description |
+|-------|------|-------------|
+| `readOnly` | boolean | If `true`, agent cannot write anywhere |
+| `blockedExact` | string[] | Exact file paths that are blocked |
+| `blockedPrefix` | string[] | Path prefixes that are blocked (e.g., `.swarm/`) |
+| `allowedPrefix` | string[] | Only these path prefixes are allowed. Omit to remove restriction; set `[]` to deny all |
+| `blockedZones` | string[] | File zones to block: `production`, `test`, `config`, `generated`, `docs`, `build` |
+
+### Merge Behavior
+
+- User rules **override** hardcoded defaults for the specified agent
+- Scalar fields (`readOnly`) — user value replaces default
+- Array fields (`blockedPrefix`, `allowedPrefix`, etc.) — user array **replaces** entirely (not merged)
+- If a field is omitted in the user rule for a **known agent** (one with hardcoded defaults), the default value for that field is preserved
+- If a field is omitted in the user rule for a **custom agent** (not in the defaults list), that field is `undefined` — there are no defaults to inherit
+- `allowedPrefix: []` explicitly denies all writes; omitting `allowedPrefix` entirely means no allowlist restriction is applied (all paths are evaluated against blocklist rules only)
+- Setting `enabled: false` ignores all custom rules and uses hardcoded defaults
+
+### Custom Agents
+
+Custom agents (not in the defaults list) start with no rules. Their write authority depends entirely on what you configure:
+
+- **Not in config at all** — agent is denied with `Unknown agent` (no rule exists; this is not the same as "blocked from all writes")
+- **In config without `allowedPrefix`** — no allowlist restriction applies; only any `blockedPrefix`, `blockedZones`, or `readOnly` rules you explicitly set will enforce limits
+- **In config with `allowedPrefix: []`** — all writes are denied
+
+To safely restrict a custom agent, always set `allowedPrefix` explicitly:
+
+```json
+{
+  "authority": {
+    "rules": {
+      "my_custom_agent": {
+        "allowedPrefix": ["plugins/", "extensions/"],
+        "blockedZones": ["generated"]
+      }
+    }
+  }
+}
+```
+
+</details>
+
+<details>
 <summary><strong>Context Budget Guard</strong></summary>
 
 The Context Budget Guard monitors how much context Swarm is injecting into the conversation. It helps prevent context overflow before it becomes a problem.
@@ -778,6 +889,16 @@ Config file location: `~/.config/opencode/opencode-swarm.json` (global) or `.ope
     "max_duration_minutes": 30,
     "profiles": {
       "coder": { "max_tool_calls": 500 }
+    }
+  },
+  "authority": {
+    "enabled": true,
+    "rules": {
+      "coder": {
+        "allowedPrefix": ["src/", "lib/"],
+        "blockedPrefix": [".swarm/"],
+        "blockedZones": ["generated"]
+      }
     }
   },
   "review_passes": {
