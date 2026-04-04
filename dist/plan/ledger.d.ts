@@ -4,7 +4,7 @@
  * Provides durable, immutable audit trail of plan evolution events.
  * Each event is written as a JSON line to .swarm/plan-ledger.jsonl
  */
-import type { Plan } from '../config/plan-schema';
+import { type Plan } from '../config/plan-schema';
 /**
  * Ledger schema version
  */
@@ -108,7 +108,7 @@ export declare function readLedgerEvents(directory: string): Promise<LedgerEvent
  * @param directory - The working directory
  * @param planId - Unique identifier for the plan
  */
-export declare function initLedger(directory: string, planId: string): Promise<void>;
+export declare function initLedger(directory: string, planId: string, initialPlanHash?: string): Promise<void>;
 /**
  * Append a new event to the ledger.
  * Uses atomic write: write to temp file then rename.

@@ -99,7 +99,9 @@ Phase: 1
 		expect(result!.swarm).toBe('new-swarm');
 
 		// plan.json should be rewritten from the plan.md migration, not the old ledger
-		const onDisk = JSON.parse(fs.readFileSync(path.join(swarmDir, 'plan.json'), 'utf8'));
+		const onDisk = JSON.parse(
+			fs.readFileSync(path.join(swarmDir, 'plan.json'), 'utf8'),
+		);
 		expect(onDisk.swarm).toBe('new-swarm');
 	});
 
@@ -132,7 +134,11 @@ Phase: 1
 		);
 
 		// Remove plan.md so plan.md fallback cannot mask a ledger replay failure
-		try { fs.unlinkSync(path.join(swarmDir, 'plan.md')); } catch { /* ok */ }
+		try {
+			fs.unlinkSync(path.join(swarmDir, 'plan.md'));
+		} catch {
+			/* ok */
+		}
 
 		// loadPlan: JSON parse succeeds, schema fails → catch path
 		// Identity matches → allows ledger replay → snapshot restores full plan

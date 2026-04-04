@@ -205,7 +205,9 @@ describe('loadPlan ledger-aware hash comparison guard', () => {
 				phases: initialPlan.phases.map((phase) => ({
 					...phase,
 					tasks: phase.tasks.map((task) =>
-						task.id === '1.1' ? { ...task, status: 'completed' as const } : task,
+						task.id === '1.1'
+							? { ...task, status: 'completed' as const }
+							: task,
 					),
 				})),
 			};

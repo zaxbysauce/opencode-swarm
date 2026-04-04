@@ -83,7 +83,7 @@ export declare function runCuratorPhase(directory: string, phase: number, agents
  * @param knowledgeConfig - Knowledge configuration (for path resolution)
  * @returns Counts of applied and skipped recommendations
  */
-export declare function applyCuratorKnowledgeUpdates(directory: string, recommendations: KnowledgeRecommendation[], _knowledgeConfig: KnowledgeConfig): Promise<{
+export declare function applyCuratorKnowledgeUpdates(directory: string, recommendations: KnowledgeRecommendation[], knowledgeConfig: KnowledgeConfig): Promise<{
     applied: number;
     skipped: number;
 }>;

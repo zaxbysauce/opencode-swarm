@@ -43,6 +43,20 @@ export const curator_analyze: ReturnType<typeof createSwarmTool> =
 						entry_id: tool.schema.string().optional(),
 						lesson: tool.schema.string(),
 						reason: tool.schema.string(),
+						category: tool.schema
+							.enum([
+								'process',
+								'architecture',
+								'tooling',
+								'security',
+								'testing',
+								'debugging',
+								'performance',
+								'integration',
+								'other',
+							])
+							.optional(),
+						confidence: tool.schema.number().min(0).max(1).optional(),
 					}),
 				)
 				.optional()
@@ -78,6 +92,26 @@ export const curator_analyze: ReturnType<typeof createSwarmTool> =
 							return JSON.stringify(
 								{
 									error: `Invalid recommendation action: ${rec.action}`,
+								},
+								null,
+								2,
+							);
+						}
+					}
+				}
+
+				// Validate entry_id values: undefined is allowed (new entry), a valid UUID v4 is
+				// allowed (update existing), any other non-empty string is a caller error.
+				if (typedArgs.recommendations) {
+					const UUID_V4 =
+						/^[0-9a-f]{8}-[0-9a-f]{4}-4[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;
+					for (const rec of typedArgs.recommendations) {
+						if (rec.entry_id !== undefined && !UUID_V4.test(rec.entry_id)) {
+							return JSON.stringify(
+								{
+									error:
+										`Invalid entry_id '${rec.entry_id}': must be a UUID v4 or omitted. ` +
+										`Use undefined/omit entry_id to create a new entry.`,
 								},
 								null,
 								2,
@@ -155,22 +189,12 @@ export const curator_analyze: ReturnType<typeof createSwarmTool> =
 				let skipped = 0;
 
 				// Apply recommendations if provided.
-				// Sanitize entry_id: the LLM may supply hallucinated slugs instead of
-				// real UUID v4 values. Normalize any non-UUID token to undefined so the
-				// same promote-new path fires as in parseKnowledgeRecommendations.
+				// entry_id values are pre-validated in the early-validation block above:
+				// undefined → new entry, valid UUID v4 → update existing.
 				if (typedArgs.recommendations && typedArgs.recommendations.length > 0) {
-					const UUID_V4 =
-						/^[0-9a-f]{8}-[0-9a-f]{4}-4[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;
-					const sanitizedRecs = typedArgs.recommendations.map((rec) => ({
-						...rec,
-						entry_id:
-							rec.entry_id === undefined || UUID_V4.test(rec.entry_id)
-								? rec.entry_id
-								: undefined,
-					}));
 					const result = await applyCuratorKnowledgeUpdates(
 						directory,
-						sanitizedRecs,
+						typedArgs.recommendations,
 						knowledgeConfig,
 					);
 					applied = result.applied;

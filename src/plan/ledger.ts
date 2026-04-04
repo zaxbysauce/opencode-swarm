@@ -433,10 +433,7 @@ export async function takeSnapshotEvent(
 		plan,
 		payload_hash: payloadHash,
 	};
-	const planId = `${plan.swarm}-${plan.title}`.replace(
-		/[^a-zA-Z0-9-_]/g,
-		'_',
-	);
+	const planId = `${plan.swarm}-${plan.title}`.replace(/[^a-zA-Z0-9-_]/g, '_');
 	return appendLedgerEvent(
 		directory,
 		{
@@ -493,7 +490,9 @@ export async function replayFromLedger(
 	// Always check for in-ledger snapshot events first
 	{
 		// Find the latest snapshot event
-		const snapshotEvents = relevantEvents.filter((e) => e.event_type === 'snapshot');
+		const snapshotEvents = relevantEvents.filter(
+			(e) => e.event_type === 'snapshot',
+		);
 		if (snapshotEvents.length > 0) {
 			const latestSnapshotEvent = snapshotEvents[snapshotEvents.length - 1];
 
