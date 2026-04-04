@@ -1064,12 +1064,30 @@ export function createGuardrailsHooks(
 					// Track gate failures for Task 2.5
 					const outputStr =
 						typeof output.output === 'string' ? output.output : '';
+
+					// Check if this is a skip condition (all tools ran === false)
+					let isSkipCondition = false;
+					try {
+						const result = JSON.parse(outputStr);
+						if (
+							result.lint?.ran === false &&
+							result.secretscan?.ran === false &&
+							result.sast_scan?.ran === false &&
+							result.quality_budget?.ran === false
+						) {
+							isSkipCondition = true;
+						}
+					} catch {
+						// Not JSON or parse error - not a skip condition
+					}
+
 					const hasFailure =
-						output.output === null ||
-						output.output === undefined ||
-						outputStr.includes('FAIL') ||
-						outputStr.includes('error') ||
-						outputStr.toLowerCase().includes('gates_passed: false');
+						!isSkipCondition &&
+						(output.output === null ||
+							output.output === undefined ||
+							outputStr.includes('FAIL') ||
+							outputStr.includes('error') ||
+							outputStr.toLowerCase().includes('gates_passed: false'));
 					if (hasFailure) {
 						session.lastGateFailure = {
 							tool: input.tool,

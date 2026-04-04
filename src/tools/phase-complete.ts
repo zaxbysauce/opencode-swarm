@@ -31,6 +31,7 @@ import {
 	persistReviewReceipt,
 } from '../hooks/review-receipt.js';
 import { validateSwarmPath } from '../hooks/utils';
+import { tryAcquireLock } from '../parallel/file-locks.js';
 import { writeCheckpoint } from '../plan/checkpoint';
 import {
 	ledgerExists,
@@ -1000,6 +1001,33 @@ export async function executePhaseComplete(
 		summary: safeSummary ?? null,
 	};
 
+	const lockTaskId = `phase-complete-${Date.now()}`;
+	const eventsFilePath = 'events.jsonl';
+	// Derive agent from swarmState session context, fallback to 'phase-complete' sentinel
+	let agentName = 'phase-complete';
+	for (const [, agent] of swarmState.activeAgent) {
+		agentName = agent;
+		break;
+	}
+	let lockResult: Awaited<ReturnType<typeof tryAcquireLock>> | undefined;
+	try {
+		lockResult = await tryAcquireLock(
+			dir,
+			eventsFilePath,
+			agentName,
+			lockTaskId,
+		);
+	} catch (error) {
+		warnings.push(
+			`Warning: failed to acquire lock for phase complete event: ${error instanceof Error ? error.message : String(error)}`,
+		);
+	}
+	if (!lockResult?.acquired) {
+		warnings.push(
+			`Warning: could not acquire lock for events.jsonl write — proceeding without lock`,
+		);
+	}
+	// Write happens unconditionally (with or without lock protection)
 	try {
 		const eventsPath = validateSwarmPath(dir, 'events.jsonl');
 		fs.appendFileSync(eventsPath, `${JSON.stringify(event)}\n`, 'utf-8');
@@ -1007,6 +1035,14 @@ export async function executePhaseComplete(
 		warnings.push(
 			`Warning: failed to write phase complete event: ${writeError instanceof Error ? writeError.message : String(writeError)}`,
 		);
+	} finally {
+		if (lockResult?.acquired && lockResult.lock._release) {
+			try {
+				await lockResult.lock._release();
+			} catch (releaseError) {
+				console.error('[phase-complete] Lock release failed:', releaseError);
+			}
+		}
 	}
 
 	// Reset phase state on success

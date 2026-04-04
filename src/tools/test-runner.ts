@@ -48,6 +48,13 @@ export interface TestRunnerArgs {
 }
 
 // ============ Response Types ============
+export type RegressionOutcome =
+	| 'pass' // tests ran and all passed
+	| 'skip' // no test files resolved — nothing to run
+	| 'regression' // tests ran and one or more failed
+	| 'scope_exceeded' // resolved file count exceeded MAX_SAFE_TEST_FILES
+	| 'error'; // unrecoverable tool error
+
 export interface TestTotals {
 	passed: number;
 	failed: number;
@@ -66,6 +73,7 @@ export interface TestSuccessResult {
 	coveragePercent?: number;
 	rawOutput?: string;
 	message?: string;
+	outcome?: RegressionOutcome;
 }
 
 export interface TestErrorResult {
@@ -80,6 +88,8 @@ export interface TestErrorResult {
 	error: string;
 	rawOutput?: string;
 	message?: string;
+	outcome?: RegressionOutcome;
+	attempted_scope?: 'graph';
 }
 
 export type TestResult = TestSuccessResult | TestErrorResult;
@@ -1065,6 +1075,7 @@ export async function runTests(
 			scope,
 			error: `No test command available for framework: ${framework}`,
 			message: 'Install a supported test framework to run tests',
+			outcome: 'error',
 		};
 	}
 
@@ -1077,6 +1088,7 @@ export async function runTests(
 			scope,
 			command,
 			error: 'Command exceeds maximum allowed length',
+			outcome: 'error',
 		};
 	}
 
@@ -1147,6 +1159,7 @@ export async function runTests(
 				duration_ms,
 				totals,
 				rawOutput: output,
+				outcome: 'pass',
 			};
 
 			if (coveragePercent !== undefined) {
@@ -1175,6 +1188,7 @@ export async function runTests(
 				message: isTimeout
 					? `${framework} tests timed out after ${timeout_ms}ms`
 					: `${framework} tests failed (${totals.failed}/${totals.total} failed)`,
+				outcome: isTimeout ? 'error' : 'regression',
 			};
 
 			if (coveragePercent !== undefined) {
@@ -1197,6 +1211,7 @@ export async function runTests(
 				error instanceof Error
 					? `Execution failed: ${error.message}`
 					: 'Execution failed: unknown error',
+			outcome: 'error',
 		};
 	}
 }
@@ -1347,6 +1362,7 @@ export const test_runner: ReturnType<typeof tool> = createSwarmTool({
 				framework: 'none',
 				scope: 'all',
 				error: dirResult.message,
+				outcome: 'error',
 			};
 			return JSON.stringify(errorResult, null, 2);
 		}
@@ -1360,6 +1376,7 @@ export const test_runner: ReturnType<typeof tool> = createSwarmTool({
 				framework: 'none',
 				scope: 'all',
 				error: 'Invalid working directory',
+				outcome: 'error',
 			};
 			return JSON.stringify(errorResult, null, 2);
 		}
@@ -1370,6 +1387,7 @@ export const test_runner: ReturnType<typeof tool> = createSwarmTool({
 				framework: 'none',
 				scope: 'all',
 				error: 'Invalid working directory',
+				outcome: 'error',
 			};
 			return JSON.stringify(errorResult, null, 2);
 		}
@@ -1379,6 +1397,7 @@ export const test_runner: ReturnType<typeof tool> = createSwarmTool({
 				framework: 'none',
 				scope: 'all',
 				error: 'Invalid working directory',
+				outcome: 'error',
 			};
 			return JSON.stringify(errorResult, null, 2);
 		}
@@ -1388,6 +1407,7 @@ export const test_runner: ReturnType<typeof tool> = createSwarmTool({
 				framework: 'none',
 				scope: 'all',
 				error: 'Invalid working directory',
+				outcome: 'error',
 			};
 			return JSON.stringify(errorResult, null, 2);
 		}
@@ -1400,6 +1420,7 @@ export const test_runner: ReturnType<typeof tool> = createSwarmTool({
 				error: 'Invalid arguments',
 				message:
 					'scope must be "all", "convention", or "graph"; files must be array of strings; coverage must be boolean; timeout_ms must be a positive number',
+				outcome: 'error',
 			};
 			return JSON.stringify(errorResult, null, 2);
 		}
@@ -1424,6 +1445,7 @@ export const test_runner: ReturnType<typeof tool> = createSwarmTool({
 						'scope "all" is not allowed without explicit files. Use scope "convention" or "graph" with a files array to run targeted tests.',
 					message:
 						'Running the full test suite without file targeting is blocked. Provide scope "convention" or "graph" with specific source files in the files array. Example: { scope: "convention", files: ["src/tools/test-runner.ts"] }',
+					outcome: 'error',
 				};
 				return JSON.stringify(errorResult, null, 2);
 			}
@@ -1443,6 +1465,7 @@ export const test_runner: ReturnType<typeof tool> = createSwarmTool({
 					'scope "convention" and "graph" require explicit files array - omitting files causes unsafe full-project discovery',
 				message:
 					'When using scope "convention" or "graph", you must provide a non-empty "files" array. Use scope "all" for full project test suite without specifying files.',
+				outcome: 'error',
 			};
 			return JSON.stringify(errorResult, null, 2);
 		}
@@ -1471,6 +1494,7 @@ export const test_runner: ReturnType<typeof tool> = createSwarmTool({
 					skipped: 0,
 					total: 0,
 				},
+				outcome: 'error',
 			};
 			return JSON.stringify(result, null, 2);
 		}
@@ -1505,6 +1529,7 @@ export const test_runner: ReturnType<typeof tool> = createSwarmTool({
 						'Provided files contain no source files with recognized extensions',
 					message:
 						'The files array must contain at least one source file with a recognized extension (.ts, .tsx, .js, .jsx, .py, .rs, .ps1, etc.). Non-source files like README.md or config.json are not valid for test discovery.',
+					outcome: 'error',
 				};
 				return JSON.stringify(errorResult, null, 2);
 			}
@@ -1528,6 +1553,7 @@ export const test_runner: ReturnType<typeof tool> = createSwarmTool({
 						'Provided files contain no source files with recognized extensions',
 					message:
 						'The files array must contain at least one source file with a recognized extension (.ts, .tsx, .js, .jsx, .py, .rs, .ps1, etc.). Non-source files like README.md or config.json are not valid for test discovery.',
+					outcome: 'error',
 				};
 				return JSON.stringify(errorResult, null, 2);
 			}
@@ -1548,13 +1574,18 @@ export const test_runner: ReturnType<typeof tool> = createSwarmTool({
 		// Guard: Reject when source files resolve to zero test files (prevents accidental full-suite run)
 		// Skip for scope 'all' — full-suite execution deliberately has no file filter
 		if (scope !== 'all' && testFiles.length === 0) {
+			const baseMessage =
+				'No matching test files found for the provided source files. Check that test files exist with matching naming conventions (.spec.*, .test.*, __tests__/, tests/, test/).';
 			const errorResult: TestErrorResult = {
 				success: false,
 				framework,
 				scope: effectiveScope,
 				error: 'Provided source files resolved to zero test files',
-				message:
-					'No matching test files found for the provided source files. Check that test files exist with matching naming conventions (.spec.*, .test.*, __tests__/, tests/, test/).',
+				message: graphFallbackReason
+					? `${baseMessage} (${graphFallbackReason})`
+					: baseMessage,
+				outcome: 'skip',
+				...(scope === 'graph' && { attempted_scope: 'graph' }),
 			};
 			return JSON.stringify(errorResult, null, 2);
 		}
@@ -1569,7 +1600,8 @@ export const test_runner: ReturnType<typeof tool> = createSwarmTool({
 				framework,
 				scope: effectiveScope,
 				error: `Resolved test file count (${testFiles.length}) exceeds safe maximum (${MAX_SAFE_TEST_FILES})`,
-				message: `Too many test files resolved (${testFiles.length}). Maximum allowed is ${MAX_SAFE_TEST_FILES}. Provide more specific source files to narrow down test scope. First few resolved: ${sampleFiles.join(', ')}`,
+				message: `Too many test files resolved (${testFiles.length}). Maximum allowed is ${MAX_SAFE_TEST_FILES}. Treat this as SKIP without retry. Provide more specific source files to narrow down test scope. First few resolved: ${sampleFiles.join(', ')}`,
+				outcome: 'scope_exceeded',
 			};
 			return JSON.stringify(errorResult, null, 2);
 		}

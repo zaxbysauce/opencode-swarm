@@ -39,6 +39,10 @@ export declare const COMMAND_REGISTRY: {
         readonly description: "Run config doctor checks";
         readonly subcommandOf: "config";
     };
+    readonly 'doctor tools': {
+        readonly handler: (ctx: CommandContext) => Promise<string>;
+        readonly description: "Run tool registration coherence check";
+    };
     readonly diagnose: {
         readonly handler: (ctx: CommandContext) => Promise<string>;
         readonly description: "Run health check on swarm state";

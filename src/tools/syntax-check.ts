@@ -1,12 +1,13 @@
 import * as fs from 'node:fs';
 import * as path from 'node:path';
-
+import { tool } from '@opencode-ai/plugin';
 import type { PluginConfig } from '../config';
 import type { EvidenceVerdict } from '../config/evidence-schema';
 import { saveEvidence } from '../evidence/manager';
 import { getProfileForFile } from '../lang/detector';
 import { getLanguageForExtension, getParserForFile } from '../lang/registry';
 import type { Parser } from '../lang/runtime';
+import { createSwarmTool } from './create-tool';
 
 export interface SyntaxCheckInput {
 	/** Files to check (from diff gate) */
@@ -252,3 +253,39 @@ export async function syntaxCheck(
 		summary,
 	};
 }
+
+export const syntax_check: ReturnType<typeof tool> = createSwarmTool({
+	description:
+		'Check syntax of source files using tree-sitter parsers. Supports JS/TS, Python, Go, Rust, Java, C/C++, C#, PHP, Ruby. Returns JSON with syntax errors found per file.',
+	args: {
+		changed_files: tool.schema
+			.array(
+				tool.schema.object({
+					path: tool.schema.string(),
+					additions: tool.schema.number(),
+				}),
+			)
+			.describe('Files to check (from diff gate)'),
+		mode: tool.schema
+			.enum(['changed', 'all'])
+			.optional()
+			.describe(
+				"Check mode: 'changed' = only changed files, 'all' = all files in repo",
+			),
+		languages: tool.schema
+			.array(tool.schema.string())
+			.optional()
+			.describe('Optional: restrict to specific languages'),
+	},
+	async execute(args: unknown, directory: string): Promise<string> {
+		const result = await syntaxCheck(
+			args as {
+				changed_files: Array<{ path: string; additions: number }>;
+				mode?: 'changed' | 'all';
+				languages?: string[];
+			},
+			directory,
+		);
+		return JSON.stringify(result);
+	},
+});

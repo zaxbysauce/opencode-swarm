@@ -1,3 +1,4 @@
+import { tool } from '@opencode-ai/plugin';
 import type { EvidenceVerdict } from '../config/evidence-schema';
 export interface PlaceholderScanInput {
     changed_files: string[];
@@ -24,3 +25,4 @@ export interface PlaceholderScanResult {
  * Scan files for placeholder content (TODO/FIXME comments, stub implementations, etc.)
  */
 export declare function placeholderScan(input: PlaceholderScanInput, directory: string): Promise<PlaceholderScanResult>;
+export declare const placeholder_scan: ReturnType<typeof tool>;

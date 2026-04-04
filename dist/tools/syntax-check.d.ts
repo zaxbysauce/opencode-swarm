@@ -1,3 +1,4 @@
+import { tool } from '@opencode-ai/plugin';
 import type { PluginConfig } from '../config';
 import type { EvidenceVerdict } from '../config/evidence-schema';
 export interface SyntaxCheckInput {
@@ -33,3 +34,4 @@ export interface SyntaxCheckResult {
  * Respects config.gates.syntax_check.enabled - returns skipped if disabled
  */
 export declare function syntaxCheck(input: SyntaxCheckInput, directory: string, config?: PluginConfig): Promise<SyntaxCheckResult>;
+export declare const syntax_check: ReturnType<typeof tool>;

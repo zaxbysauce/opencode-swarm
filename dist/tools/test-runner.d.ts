@@ -13,6 +13,7 @@ export interface TestRunnerArgs {
     timeout_ms?: number;
     allow_full_suite?: boolean;
 }
+export type RegressionOutcome = 'pass' | 'skip' | 'regression' | 'scope_exceeded' | 'error';
 export interface TestTotals {
     passed: number;
     failed: number;
@@ -30,6 +31,7 @@ export interface TestSuccessResult {
     coveragePercent?: number;
     rawOutput?: string;
     message?: string;
+    outcome?: RegressionOutcome;
 }
 export interface TestErrorResult {
     success: false;
@@ -43,6 +45,8 @@ export interface TestErrorResult {
     error: string;
     rawOutput?: string;
     message?: string;
+    outcome?: RegressionOutcome;
+    attempted_scope?: 'graph';
 }
 export type TestResult = TestSuccessResult | TestErrorResult;
 export declare function detectTestFramework(cwd: string): Promise<TestFramework>;

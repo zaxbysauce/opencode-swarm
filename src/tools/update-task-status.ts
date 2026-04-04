@@ -10,6 +10,7 @@ import type { TaskStatus } from '../config/plan-schema';
 import { stripKnownSwarmPrefix } from '../config/schema';
 import { readTaskEvidenceRaw } from '../gate-evidence.js';
 import { validateDiffScope } from '../hooks/diff-scope';
+import { tryAcquireLock } from '../parallel/file-locks.js';
 import { updateTaskStatus } from '../plan/manager';
 import {
 	advanceTaskState,
@@ -39,6 +40,8 @@ export interface UpdateTaskStatusResult {
 	new_status?: string;
 	current_phase?: number;
 	errors?: string[];
+	/** Present when the call failed due to lock contention. Instructs the caller to retry. */
+	recovery_guidance?: string;
 }
 
 /**
@@ -485,7 +488,10 @@ export function recoverTaskStateFromDelegations(taskId: string): void {
 /**
  * Execute the update_task_status tool.
  * Validates the task_id and status, then updates the task status in the plan.
+ * Uses file locking on plan.json to prevent concurrent writes from corrupting the plan.
+ * Only one concurrent call wins the lock; others return success: false with recovery_guidance: "retry".
  * @param args - The update task status arguments
+ * @param fallbackDir - Fallback working directory if args.working_directory is not provided
  * @returns UpdateTaskStatusResult with success status and details
  */
 export async function executeUpdateTaskStatus(
@@ -663,7 +669,41 @@ export async function executeUpdateTaskStatus(
 		}
 	}
 
-	// Step 4: Update the task status
+	// Step 4: Update the task status with file lock to prevent concurrent writes
+	const lockTaskId = `update-task-status-${args.task_id}-${Date.now()}`;
+	const planFilePath = 'plan.json';
+	// Derive agent from swarmState session context, fallback to 'update-task-status' sentinel
+	let agentName = 'update-task-status';
+	for (const [, agent] of swarmState.activeAgent) {
+		agentName = agent;
+		break; // Use first active agent found
+	}
+	let lockResult: Awaited<ReturnType<typeof tryAcquireLock>> | undefined;
+	try {
+		lockResult = await tryAcquireLock(
+			directory,
+			planFilePath,
+			agentName,
+			lockTaskId,
+		);
+	} catch (error) {
+		return {
+			success: false,
+			message: 'Failed to acquire lock for task status update',
+			errors: [error instanceof Error ? error.message : String(error)],
+		};
+	}
+	if (!lockResult.acquired) {
+		return {
+			success: false,
+			message: `Task status write blocked: plan.json is locked by ${lockResult.existing?.agent ?? 'another agent'} (task: ${lockResult.existing?.taskId ?? 'unknown'})`,
+			errors: [
+				'Concurrent plan write detected — retry after the current write completes',
+			],
+			recovery_guidance:
+				'Wait a moment and retry update_task_status. The lock will expire automatically if the holding agent fails.',
+		};
+	}
 	try {
 		const updatedPlan = await updateTaskStatus(
 			directory,
@@ -696,11 +736,24 @@ export async function executeUpdateTaskStatus(
 			current_phase: updatedPlan.current_phase,
 		};
 	} catch (error) {
+		// Lock will be released in finally block
 		return {
 			success: false,
 			message: 'Failed to update task status',
 			errors: [error instanceof Error ? error.message : String(error)],
-		};
+		} as UpdateTaskStatusResult;
+	} finally {
+		if (lockResult && lockResult.acquired && lockResult.lock._release) {
+			try {
+				await lockResult.lock._release();
+			} catch (releaseError) {
+				// Log but don't propagate - original error/context takes precedence
+				console.error(
+					'[update-task-status] Lock release failed:',
+					releaseError,
+				);
+			}
+		}
 	}
 }
 

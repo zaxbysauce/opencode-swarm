@@ -3,6 +3,53 @@ import {
 	type ConfigDoctorResult,
 	runConfigDoctor,
 } from '../services/config-doctor';
+import { runToolDoctor } from '../services/tool-doctor';
+
+/**
+ * Format tool doctor result as markdown for command output.
+ */
+function formatToolDoctorMarkdown(result: ConfigDoctorResult): string {
+	const lines = [
+		'## Tool Doctor Report',
+		'',
+		`**Tool Registry**: ${result.configSource}`,
+		'',
+		'### Summary',
+		`- **Info**: ${result.summary.info}`,
+		`- **Warnings**: ${result.summary.warn}`,
+		`- **Errors**: ${result.summary.error}`,
+		'',
+	];
+
+	if (result.findings.length === 0) {
+		lines.push('No issues found. All tools are properly registered!');
+	} else {
+		lines.push('### Findings', '');
+
+		// Group findings by severity
+		const errors = result.findings.filter((f) => f.severity === 'error');
+		const warnings = result.findings.filter((f) => f.severity === 'warn');
+		const infos = result.findings.filter((f) => f.severity === 'info');
+
+		for (const finding of [...errors, ...warnings, ...infos]) {
+			const icon =
+				finding.severity === 'error'
+					? '❌'
+					: finding.severity === 'warn'
+						? '⚠️'
+						: 'ℹ️';
+			lines.push(
+				`${icon} **${finding.severity.toUpperCase()}**: ${finding.description}`,
+			);
+			if (finding.autoFixable) {
+				lines.push(`   - 🔧 Auto-fixable`);
+			}
+			lines.push('');
+		}
+	}
+
+	return lines.join('\n');
+}
 
 /**
  * Format config doctor result as markdown for command output.
@@ -82,4 +129,16 @@ export async function handleDoctorCommand(
 	}
 
 	return formatDoctorMarkdown(result);
+}
+
+/**
+ * Handle /swarm doctor tools command.
+ * Maps to: tool doctor service (runToolDoctor)
+ */
+export async function handleDoctorToolsCommand(
+	directory: string,
+	_args: string[],
+): Promise<string> {
+	const result = runToolDoctor(directory);
+	return formatToolDoctorMarkdown(result);
 }
