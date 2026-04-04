@@ -1,5 +1,12 @@
 # Changelog
 
+## [6.48.0](https://github.com/zaxbysauce/opencode-swarm/compare/v6.47.2...v6.48.0) (2026-04-04)
+
+
+### Features
+
+* **tools:** tool audit, regression sweep fixes, concurrent write safety, and doctor expansion ([#399](https://github.com/zaxbysauce/opencode-swarm/issues/399)) ([ac90de7](https://github.com/zaxbysauce/opencode-swarm/commit/ac90de7afeb451574e462a13675d0ea990bba08f))
+
 ## [Unreleased]
 
 ### Features
