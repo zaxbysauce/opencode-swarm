@@ -1,5 +1,15 @@
 # Changelog
 
+## [Unreleased]
+
+### Features
+
+* **doctor:** add `/swarm doctor tools` subcommand with three checks: (1) tool registration coherence — every TOOL_NAMES entry has a key in the plugin's tool: {} block in src/index.ts, (2) AGENT_TOOL_MAP alignment — tools assigned to agents are registered in the plugin, (3) Class 3 binary readiness — external lint binaries (ruff, cargo, golangci-lint, mvn, gradle, dotnet, swift, swiftlint, dart, flutter, eslint) available on PATH
+* **concurrency:** add file locking for concurrent write safety
+  - `update_task_status` acquires a **hard lock** on `plan.json` before writing — lock losers return `success: false` with `recovery_guidance: "retry"` and the write is blocked
+  - `phase_complete` acquires an **advisory lock** on `events.jsonl` before appending — if the lock is unavailable, a warning is added and the write proceeds unconditionally (duplicate concurrent appends are possible but do not corrupt the append-only log)
+  - Lock implementation uses `proper-lockfile` with `retries: 0` (fail-fast)
+
 ## [6.47.2](https://github.com/zaxbysauce/opencode-swarm/compare/v6.47.1...v6.47.2) (2026-04-04)
 
 

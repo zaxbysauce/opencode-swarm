@@ -27,6 +27,7 @@ export {
 	type PlaceholderFinding,
 	type PlaceholderScanInput,
 	type PlaceholderScanResult,
+	placeholder_scan,
 	placeholderScan,
 } from './placeholder-scan';
 // v6.10
@@ -40,6 +41,7 @@ export {
 export {
 	type QualityBudgetInput,
 	type QualityBudgetResult,
+	quality_budget,
 	qualityBudget,
 } from './quality-budget';
 export { retrieve_summary } from './retrieve-summary';
@@ -64,12 +66,19 @@ export {
 	type SecretscanResult,
 	secretscan,
 } from './secretscan';
-export { suggestPatch } from './suggest-patch';
+
+import { suggestPatch } from './suggest-patch';
+
+export { suggestPatch };
+export type { SuggestPatchArgs } from './suggest-patch';
+// Alias for TOOL_NAMES compliance - suggest_patch and suggestPatch are the same tool
+export const suggest_patch: typeof suggestPatch = suggestPatch;
 export { symbols } from './symbols';
 export {
 	type SyntaxCheckFileResult,
 	type SyntaxCheckInput,
 	type SyntaxCheckResult,
+	syntax_check,
 	syntaxCheck,
 } from './syntax-check';
 export { test_runner } from './test-runner';

@@ -10,7 +10,7 @@ import { handleConfigCommand } from './config.js';
 import { handleCurateCommand } from './curate.js';
 import { handleDarkMatterCommand } from './dark-matter.js';
 import { handleDiagnoseCommand } from './diagnose.js';
-import { handleDoctorCommand } from './doctor.js';
+import { handleDoctorCommand, handleDoctorToolsCommand } from './doctor.js';
 import {
 	handleEvidenceCommand,
 	handleEvidenceSummaryCommand,
@@ -85,6 +85,10 @@ export const COMMAND_REGISTRY = {
 		handler: (ctx) => handleDoctorCommand(ctx.directory, ctx.args),
 		description: 'Run config doctor checks',
 		subcommandOf: 'config',
+	},
+	'doctor tools': {
+		handler: (ctx) => handleDoctorToolsCommand(ctx.directory, ctx.args),
+		description: 'Run tool registration coherence check',
 	},
 	diagnose: {
 		handler: (ctx) => handleDiagnoseCommand(ctx.directory, ctx.args),

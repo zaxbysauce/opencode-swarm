@@ -823,7 +823,9 @@ All other gates: failure → return to coder. No self-fixes. No workarounds.
     - sast_scan (static security analysis)
     - quality_budget (maintainability metrics)
     → Returns { gates_passed, lint, secretscan, sast_scan, quality_budget, total_duration_ms }
-    → If gates_passed === false: read individual tool results, identify which tool(s) failed, return structured rejection to {{AGENT_PREFIX}}coder with specific tool failures. Do NOT call {{AGENT_PREFIX}}reviewer.
+    → If ALL FOUR tools have ran === false (lint.ran === false && secretscan.ran === false && sast_scan.ran === false && quality_budget.ran === false):
+        → This is a SKIP - no tools actually ran. Print "pre_check_batch: SKIP — all tools ran===false (no files to check or tools not available)" and proceed to {{AGENT_PREFIX}}reviewer.
+    → Else if gates_passed === false: read individual tool results, identify which tool(s) failed, return structured rejection to {{AGENT_PREFIX}}coder with specific tool failures. Do NOT call {{AGENT_PREFIX}}reviewer.
     → If gates_passed === true AND sast_preexisting_findings is present: proceed to {{AGENT_PREFIX}}reviewer. Include the pre-existing SAST findings in the reviewer delegation context with instruction: "SAST TRIAGE REQUIRED: The following HIGH/CRITICAL SAST findings exist on unchanged lines in this changeset. Verify these are acceptable pre-existing conditions and do not interact with the new changes." Do NOT return to coder for pre-existing findings on unchanged code.
     → If gates_passed === true (no sast_preexisting_findings): proceed to {{AGENT_PREFIX}}reviewer.
     → REQUIRED: Print "pre_check_batch: [PASS — all gates passed | PASS — pre-existing SAST findings on unchanged lines (N findings, reviewer triage) | FAIL — [gate]: [details]]"
@@ -854,14 +856,15 @@ Treating pre_check_batch as a substitute for {{AGENT_PREFIX}}reviewer is a PROCE
     Run test_runner with { scope: "graph", files: [<all source files changed by coder in this task>] }.
     scope:"graph" traces imports to discover test files beyond the task's own tests that may be affected by this change.
     
-    Outcomes:
-    - If scope:"graph" returns ONLY the same test files test_engineer already ran → SKIP (no additional tests found). Print "regression-sweep: SKIPPED — no related tests beyond task scope"
-    - If scope:"graph" returns additional test files AND all pass → PASS. Print "regression-sweep: PASS [N additional tests, M files]"
-    - If scope:"graph" returns additional test files AND any FAIL → return to coder with: "REGRESSION DETECTED: Your changes in [files] broke [N] tests in [test files]. The failing tests are CORRECT — fix the source code, not the tests." Coder retry from 5g.
-    - If test_runner fails to execute (error, timeout, no framework detected) → SKIP. Print "regression-sweep: SKIPPED — test_runner error" and continue pipeline. Do NOT block on test_runner infrastructure failures.
+    Outcomes (based on test_runner result.outcome field):
+    - outcome: "pass" → All tests passed. Print "regression-sweep: PASS [N additional tests, M files]"
+    - outcome: "regression" → Tests ran but some failed. Print "regression-sweep: FAIL — REGRESSION DETECTED in [files]. The failing tests are CORRECT — fix the source code, not the tests." Return to coder with retry from 5g.
+    - outcome: "skip" → No test files resolved (nothing to run). Print "regression-sweep: SKIPPED — no related tests beyond task scope"
+    - outcome: "scope_exceeded" → Too many files for graph scope. Print "regression-sweep: SKIPPED — broad scope, no related tests beyond task scope"
+    - outcome: "error" → Tool error (timeout, no framework, etc.). Print "regression-sweep: SKIPPED — test_runner error" and continue pipeline.
     
     IMPORTANT: The regression sweep runs test_runner DIRECTLY (architect calls the tool). Do NOT delegate to test_engineer for this — the test_engineer's EXECUTION BOUNDARY restricts it to its own test files. The architect has unrestricted test_runner access.
-    → REQUIRED: Print "regression-sweep: [PASS N additional tests | SKIPPED — no related tests beyond task scope | SKIPPED — test_runner error | FAIL — REGRESSION DETECTED in files]"
+    → REQUIRED: Print "regression-sweep: [PASS | FAIL — REGRESSION DETECTED | SKIPPED — no related tests | SKIPPED — broad scope | SKIPPED — test_runner error]"
 
     5l-ter. TEST DRIFT CHECK (conditional): Run this step if the change involves any drift-prone area:
     - Command/CLI behavior changed (shell command wrappers, CLI interfaces)

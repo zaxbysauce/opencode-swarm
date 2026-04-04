@@ -664,6 +664,57 @@ Some tools are restricted to the architect and cannot be called by other agents:
 
 ---
 
+## File Locking for Concurrent Write Safety
+
+Swarm uses file locking to prevent concurrent writes from corrupting shared state files. Even though tasks execute serially, agents may still race on `plan.json` and `events.jsonl` during phase transitions or when multiple sessions interact with the same project.
+
+### Implementation
+
+- **Library**: `proper-lockfile` with `retries: 0` (fail-fast — no polling)
+- **Lock acquisition**: `tryAcquireLock(directory, filename, agentName, taskId)` before every write to a shared state file
+- **Lock release**: `_release()` called in a `finally` block to ensure cleanup even on error
+- **Tagging**: Each lock records the agent name and task context for diagnostics
+
+### Protected Files
+
+| File | Tool | Lock Behavior |
+|------|------|---------------|
+| `.swarm/plan.json` | `update_task_status` | Exclusive lock acquired before calling `updateTaskStatus()`. Lock losers return `success: false` with `recovery_guidance: "retry"`. |
+| `.swarm/events.jsonl` | `phase_complete` | Lock acquired before `appendFileSync`. If lock is unavailable, logs a warning and proceeds without lock protection (non-blocking). |
+
+### `update_task_status` Lock Semantics
+
+```
+Caller A: tryAcquireLock(plan.json) → acquired=true → write → _release()
+Caller B: tryAcquireLock(plan.json) → acquired=false → returns { success: false, recovery_guidance: "retry" }
+```
+
+Only one call wins. The loser receives:
+```json
+{
+  "success": false,
+  "message": "Task status write blocked: plan.json is locked by architect (task: update-task-status-1.1-1234567890)",
+  "errors": ["Concurrent plan write detected — retry after the current write completes"],
+  "recovery_guidance": "Wait a moment and retry update_task_status. The lock will expire automatically if the holding agent fails."
+}
+```
+
+The architect should retry after a short delay. Sequential calls (no contention) always succeed.
+
+### Why Not Just Serial Execution?
+
+Tasks execute serially, but the architect may dispatch multiple concurrent agent sessions or tool calls that race on plan/event file writes. Locking provides a second layer of protection against corruption from:
+
+1. Concurrent `update_task_status` calls from different sessions
+2. `phase_complete` concurrent appends to `events.jsonl`
+3. Race conditions during session rehydration or recovery
+
+### Lock Recovery
+
+If the lock holder crashes, the OS or lock library will eventually clean up the stale lock file. On retry, the next call will acquire the lock and proceed. Swarm does not auto-retry on lock contention — the architect receives the error and decides when to retry.
+
+---
+
 ## Failure Handling
 
 ### Task Rejection
@@ -1600,6 +1651,7 @@ Commands expose service functionality without blocking UI:
 |---------|----------|----------|
 | `/swarm preflight` | Run preflight checks on current plan | Safe - validation-only |
 | `/swarm config doctor [--fix] [--restore <id>]` | Config Doctor with optional auto-fix and restore | Moderate - auto-fix opt-in |
+| `/swarm doctor tools` | Tool registration coherence, AGENT_TOOL_MAP alignment, and Class 3 binary readiness check | Safe - validation-only |
 | `/swarm sync-plan` | Force plan.md regeneration from plan.json | Safe - read-only |
 
 All commands:

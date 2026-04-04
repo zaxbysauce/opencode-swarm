@@ -21,6 +21,8 @@ export interface UpdateTaskStatusResult {
     new_status?: string;
     current_phase?: number;
     errors?: string[];
+    /** Present when the call failed due to lock contention. Instructs the caller to retry. */
+    recovery_guidance?: string;
 }
 /**
  * Validate that the status is one of the allowed values.
@@ -72,7 +74,10 @@ export declare function recoverTaskStateFromDelegations(taskId: string): void;
 /**
  * Execute the update_task_status tool.
  * Validates the task_id and status, then updates the task status in the plan.
+ * Uses file locking on plan.json to prevent concurrent writes from corrupting the plan.
+ * Only one concurrent call wins the lock; others return success: false with recovery_guidance: "retry".
  * @param args - The update task status arguments
+ * @param fallbackDir - Fallback working directory if args.working_directory is not provided
  * @returns UpdateTaskStatusResult with success status and details
  */
 export declare function executeUpdateTaskStatus(args: UpdateTaskStatusArgs, fallbackDir?: string): Promise<UpdateTaskStatusResult>;

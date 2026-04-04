@@ -840,7 +840,7 @@ To disable entirely, set `context_budget.enabled: false` in your swarm config.
 | incremental_verify | Post-coder typecheck for TS/JS, Go, Rust, C# (v6.29.2) |
 | quality_budget | Enforces complexity, duplication, and test ratio limits |
 | pre_check_batch | Runs lint, secretscan, SAST, and quality budget in parallel (~15s vs ~60s sequential) |
-| phase_complete | Enforces phase completion, verifies required agents, requires a valid retrospective evidence bundle, logs events, and resets state |
+| phase_complete | Enforces phase completion, verifies required agents, requires a valid retrospective evidence bundle, logs events, and resets state; appends to `events.jsonl` with file locking |
 
 
 All tools run locally. No Docker, no network calls, no external APIs.
@@ -863,6 +863,61 @@ Optional enhancement: Semgrep (if on PATH).
   }
 }
 ```
+
+</details>
+
+<details>
+<summary><strong>File Locking for Concurrent Write Safety</strong></summary>
+
+Swarm uses file locking to protect shared state files from concurrent write corruption. The locking strategy differs by file: `plan.json` uses hard locking (write blocked on contention), while `events.jsonl` uses advisory locking (write proceeds with a warning on contention).
+
+### Locking Implementation
+
+- **Library**: `proper-lockfile` with `retries: 0` (fail-fast — no polling retries)
+- **Scope**: Each tool acquires an exclusive lock on the target file before writing
+- **Agents**: Lock is tagged with the current agent name and task context for diagnostics
+
+### Protected Files
+
+| File | Tool | Lock Key |
+|------|------|----------|
+| `.swarm/plan.json` | `update_task_status` | `plan.json` |
+| `.swarm/events.jsonl` | `phase_complete` | `events.jsonl` |
+
+### Lock Semantics
+
+The two protected tools use different strategies:
+
+**`update_task_status` — Hard lock on `plan.json`**
+
+When two calls contend for `plan.json`:
+1. **Exactly one call wins** — only the first to acquire the lock proceeds
+2. **Winner writes** — the lock holder writes to the file, then releases the lock
+3. **Losers receive `success: false`** — with `recovery_guidance: "retry"` and an error message identifying the lock holder
+
+```json
+{
+  "success": false,
+  "message": "Task status write blocked: plan.json is locked by architect (task: update-task-status-1.1-1234567890)",
+  "errors": ["Concurrent plan write detected — retry after the current write completes"],
+  "recovery_guidance": "Wait a moment and retry update_task_status. The lock will expire automatically if the holding agent fails."
+}
+```
+
+**What the caller should do**: Retry `update_task_status` after a short delay.
+
+**`phase_complete` — Advisory lock on `events.jsonl`**
+
+When two calls contend for `events.jsonl`:
+1. **Lock is attempted** — if acquired, write is serialized
+2. **If lock unavailable** — a warning is added to the result and the write proceeds anyway
+3. **Both callers return `success: true`** — duplicate concurrent appends are possible but `events.jsonl` is an append-only log and duplicate phase entries do not corrupt state
+
+This asymmetry is intentional: `plan.json` stores mutable structured JSON where concurrent overwrites produce malformed files; `events.jsonl` is an append-only log where a duplicate entry is a recoverable nuisance.
+
+### Lock Recovery
+
+If a lock-holding agent crashes or hangs, the lock file will eventually expire (handled by `proper-lockfile` stale-lock cleanup). On the next retry, the call will succeed. Swarm does not auto-retry on lock contention — the architect receives the error and decides when to retry.
 
 </details>
 
@@ -1066,6 +1121,7 @@ Control how tool outputs are summarized for LLM context.
 | `/swarm reset --confirm` | Clear swarm state files |
 | `/swarm preflight` | Run phase preflight checks |
 | `/swarm config doctor [--fix]` | Config validation with optional auto-fix |
+| `/swarm doctor tools` | Tool registration coherence and binary readiness check |
 | `/swarm sync-plan` | Force plan.md regeneration from plan.json |
 | `/swarm specify [description]` | Generate or import a feature specification |
 | `/swarm clarify [topic]` | Clarify and refine an existing feature specification |
@@ -1160,7 +1216,7 @@ The following tools can be assigned to agents via overrides:
 | `gitingest` | Ingest external repositories |
 | `imports` | Analyze import relationships |
 | `lint` | Run project linters |
-| `phase_complete` | Enforces phase completion, verifies required agents, logs events, resets state |
+| `phase_complete` | Enforces phase completion, verifies required agents, logs events, resets state; appends to `events.jsonl` with file locking |
 | `pkg_audit` | Security audit of dependencies |
 | `pre_check_batch` | Parallel pre-checks (lint, secrets, SAST, quality) |
 | `retrieve_summary` | Retrieve summarized tool outputs |
@@ -1168,7 +1224,7 @@ The following tools can be assigned to agents via overrides:
 | `secretscan` | Scan for secrets in code |
 | `symbols` | Extract exported symbols |
 | `test_runner` | Run project tests |
-| `update_task_status` | Mark plan tasks as pending/in_progress/completed/blocked; track phase progress |
+| `update_task_status` | Mark plan tasks as pending/in_progress/completed/blocked; track phase progress; acquires lock on `plan.json` before writing |
 | `todo_extract` | Extract TODO/FIXME comments |
 | `write_retro` | Document phase retrospectives via the phase_complete workflow; capture lessons learned |
 | `write_drift_evidence` | Write drift verification evidence after critic_drift_verifier completes |

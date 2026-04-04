@@ -1,3 +1,4 @@
+import { tool } from '@opencode-ai/plugin';
 import type { QualityBudgetConfig } from '../config/schema';
 import { saveEvidence } from '../evidence/manager';
 import {
@@ -5,6 +6,7 @@ import {
 	type QualityMetrics,
 	type QualityViolation,
 } from '../quality/metrics';
+import { createSwarmTool } from './create-tool';
 
 // ============ Types ============
 
@@ -173,3 +175,39 @@ export async function qualityBudget(
 		},
 	};
 }
+
+export const quality_budget: ReturnType<typeof tool> = createSwarmTool({
+	description:
+		'Enforce maintainability budgets for changed files. Computes quality metrics (complexity, API surface, duplication, test coverage) and compares against configured thresholds. Returns JSON with metrics, violations, and verdict.',
+	args: {
+		changed_files: tool.schema
+			.array(tool.schema.string())
+			.describe('Files to check against quality budgets'),
+		config: tool.schema
+			.object({
+				enabled: tool.schema.boolean().optional(),
+				max_complexity_delta: tool.schema.number().optional(),
+				max_public_api_delta: tool.schema.number().optional(),
+				max_duplication_ratio: tool.schema.number().optional(),
+				min_test_to_code_ratio: tool.schema.number().optional(),
+			})
+			.optional()
+			.describe('Quality budget thresholds'),
+	},
+	async execute(args: unknown, directory: string): Promise<string> {
+		const result = await qualityBudget(
+			args as {
+				changed_files: string[];
+				config?: {
+					enabled?: boolean;
+					max_complexity_delta?: number;
+					max_public_api_delta?: number;
+					max_duplication_ratio?: number;
+					min_test_to_code_ratio?: number;
+				};
+			},
+			directory,
+		);
+		return JSON.stringify(result);
+	},
+});

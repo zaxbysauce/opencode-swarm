@@ -1,10 +1,11 @@
 import * as fs from 'node:fs';
 import * as path from 'node:path';
-
+import { tool } from '@opencode-ai/plugin';
 import type { EvidenceVerdict } from '../config/evidence-schema';
 import { saveEvidence } from '../evidence/manager';
 import { getParserForFile } from '../lang/registry';
 import { escapeRegex } from '../utils';
+import { createSwarmTool } from './create-tool';
 
 // ============ Types ============
 
@@ -619,3 +620,32 @@ export async function placeholderScan(
 		},
 	};
 }
+
+export const placeholder_scan: ReturnType<typeof tool> = createSwarmTool({
+	description:
+		'Scan source files for placeholder content (TODO/FIXME comments, stub implementations, unimplemented functions). Returns JSON with findings grouped by file and rule.',
+	args: {
+		changed_files: tool.schema
+			.array(tool.schema.string())
+			.describe('Files to scan for placeholders'),
+		allow_globs: tool.schema
+			.array(tool.schema.string())
+			.optional()
+			.describe('Globs to allow (skip scanning)'),
+		deny_patterns: tool.schema
+			.array(tool.schema.string())
+			.optional()
+			.describe('Custom deny patterns to search for'),
+	},
+	async execute(args: unknown, directory: string): Promise<string> {
+		const result = await placeholderScan(
+			args as {
+				changed_files: string[];
+				allow_globs?: string[];
+				deny_patterns?: string[];
+			},
+			directory,
+		);
+		return JSON.stringify(result);
+	},
+});

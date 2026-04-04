@@ -12,6 +12,7 @@ const {
 	MAX_COMMAND_LENGTH,
 	DEFAULT_TIMEOUT_MS,
 	MAX_TIMEOUT_MS,
+	MAX_SAFE_TEST_FILES,
 	SUPPORTED_FRAMEWORKS,
 	test_runner,
 	detectTestFramework,
@@ -262,6 +263,7 @@ describe('test-runner.ts - Validation Tests (no execution)', () => {
 		expect(parsed.success).toBe(false);
 		expect(parsed.framework).toBe('none');
 		expect(parsed.error).toContain('No test framework');
+		expect(parsed.outcome).toBe('error');
 
 		process.chdir(originalCwd);
 		// Cleanup with delay
@@ -659,6 +661,7 @@ describe('test-runner.ts - Interactive Bulk-Execution Guards', () => {
 
 		// First verify execution succeeded (not blocked by safety guards)
 		expect(parsed.success).toBe(true);
+		expect(parsed.outcome).toBe('pass');
 
 		// Should NOT have an error field when successful
 		expect(parsed.error).toBeUndefined();
@@ -709,6 +712,7 @@ describe('test-runner.ts - Interactive Bulk-Execution Guards', () => {
 		expect(parsed.scope).toBe('convention');
 		expect(parsed.error).toContain('resolved to zero test files');
 		expect(parsed.message).toContain('No matching test files found');
+		expect(parsed.outcome).toBe('skip');
 
 		process.chdir(originalCwd);
 		setTimeout(() => {
@@ -757,6 +761,7 @@ describe('test-runner.ts - Interactive Bulk-Execution Guards', () => {
 		expect(parsed.scope).toBe('convention');
 		expect(parsed.error).toContain('resolved to zero test files');
 		expect(parsed.message).toContain('No matching test files found');
+		expect(parsed.outcome).toBe('skip');
 
 		process.chdir(originalCwd);
 		setTimeout(() => {
@@ -1096,6 +1101,110 @@ describe('test-runner.ts - scope:"all" gated access (allow_full_suite)', () => {
 
 			// Should NOT have allow_full_suite error - allow_full_suite only applies to scope "all"
 			expect(parsed.error).not.toContain('allow_full_suite');
+
+			process.chdir(originalCwd);
+			setTimeout(() => {
+				try {
+					fs.rmSync(tempDir, { recursive: true, force: true });
+				} catch {
+					// Ignore
+				}
+			}, 100);
+		}, 15000);
+
+		test('returns outcome "scope_exceeded" when too many test files resolved', async () => {
+			// Create a temp directory with many source files to trigger MAX_SAFE_TEST_FILES limit
+			const sourceFiles = Array.from(
+				{ length: MAX_SAFE_TEST_FILES + 1 },
+				(_, i) => `src/file${i}.spec.ts`,
+			);
+			const tempDir = fs.realpathSync(
+				fs.mkdtempSync(path.join(os.tmpdir(), 'test-runner-toomany-')),
+			);
+			const originalCwd = process.cwd();
+			process.chdir(tempDir);
+
+			// Create minimal package.json for vitest detection
+			fs.writeFileSync(
+				'package.json',
+				JSON.stringify({
+					scripts: { test: 'vitest run' },
+					devDependencies: { vitest: '^1.0.0' },
+				}),
+			);
+
+			// Create src directory and MORE than MAX_SAFE_TEST_FILES test files
+			// Convention scope discovers test files by naming convention (.spec.ts, .test.ts)
+			// so we must create actual test files, not source files
+			fs.mkdirSync('src', { recursive: true });
+			for (let i = 0; i < MAX_SAFE_TEST_FILES + 1; i++) {
+				const filePath = path.join('src', `file${i}.spec.ts`);
+				fs.writeFileSync(filePath, `export const val${i} = ${i};\n`);
+			}
+
+			// Execute with scope 'convention' - should trigger too-many-files guard
+			const result = await test_runner.execute(
+				{ scope: 'convention', files: sourceFiles },
+				{} as any,
+			);
+			const parsed = JSON.parse(result);
+
+			expect(parsed.success).toBe(false);
+			expect(parsed.outcome).toBe('scope_exceeded');
+			expect(parsed.error).toContain('exceeds safe maximum');
+			expect(parsed.message).toContain('Too many test files resolved');
+
+			process.chdir(originalCwd);
+			setTimeout(() => {
+				try {
+					fs.rmSync(tempDir, { recursive: true, force: true });
+				} catch {
+					// Ignore
+				}
+			}, 100);
+		}, 30000);
+
+		test('returns outcome "regression" when tests fail', async () => {
+			// Create a temp directory with a failing test
+			const tempDir = fs.realpathSync(
+				fs.mkdtempSync(path.join(os.tmpdir(), 'test-runner-fail-')),
+			);
+			const originalCwd = process.cwd();
+			process.chdir(tempDir);
+
+			// Create minimal package.json for vitest detection
+			fs.writeFileSync(
+				'package.json',
+				JSON.stringify({
+					scripts: { test: 'vitest run' },
+					devDependencies: { vitest: '^1.0.0' },
+				}),
+			);
+
+			// Create src directory and source file
+			fs.mkdirSync('src', { recursive: true });
+			fs.writeFileSync(
+				'src/utils.ts',
+				'export const add = (a: number, b: number) => a + b;',
+			);
+
+			// Create a FAILING test file
+			fs.writeFileSync(
+				'src/utils.test.ts',
+				'import { describe, test, expect } from "vitest"; import { add } from "./utils"; describe("add", () => { test("adds incorrectly", () => { expect(add(1, 2)).toBe(999); }); });',
+			);
+
+			// Execute with convention scope
+			const result = await test_runner.execute(
+				{ scope: 'convention', files: ['src/utils.ts'] },
+				{} as any,
+			);
+			const parsed = JSON.parse(result);
+
+			expect(parsed.success).toBe(false);
+			expect(parsed.outcome).toBe('regression');
+			expect(parsed.totals).toBeDefined();
+			expect(parsed.totals.failed).toBeGreaterThan(0);
 
 			process.chdir(originalCwd);
 			setTimeout(() => {

@@ -126,7 +126,12 @@ export function createKnowledgeInjectorHook(
 					sum + (msg.parts?.reduce((s, p) => s + (p.text?.length ?? 0), 0) ?? 0)
 				);
 			}, 0);
-			if (totalChars > 75_000) return;
+			if (totalChars > 75_000) {
+				console.warn(
+					`[knowledge-injector] Skipping knowledge injection: context too large (${totalChars} chars > 75000)`,
+				);
+				return;
+			}
 
 			// Agent check — only inject for architect/orchestrator agents
 			const systemMsg = output.messages.find((m) => m.info?.role === 'system');
