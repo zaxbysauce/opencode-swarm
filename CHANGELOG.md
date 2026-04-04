@@ -1,5 +1,12 @@
 # Changelog
 
+## [6.47.2](https://github.com/zaxbysauce/opencode-swarm/compare/v6.47.1...v6.47.2) (2026-04-04)
+
+
+### Bug Fixes
+
+* **curator:** add validation gate to new-entry loop and strict entry_id in curator_analyze ([#390](https://github.com/zaxbysauce/opencode-swarm/issues/390)) ([f636d68](https://github.com/zaxbysauce/opencode-swarm/commit/f636d68e7007350e3dd85777a2638f69e93264c8))
+
 ## [6.47.1](https://github.com/zaxbysauce/opencode-swarm/compare/v6.47.0...v6.47.1) (2026-04-03)
 
 
