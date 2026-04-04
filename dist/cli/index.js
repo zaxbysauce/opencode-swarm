@@ -36138,9 +36138,29 @@ function checkBinaryReadiness() {
   }
   return findings;
 }
-function runToolDoctor(directory) {
+function runToolDoctor(_directory, pluginRoot) {
   const findings = [];
-  const indexPath = path18.resolve(directory, "src", "index.ts");
+  const resolvedPluginRoot = pluginRoot ?? path18.resolve(import.meta.dir, "..", "..");
+  const indexPath = path18.join(resolvedPluginRoot, "src", "index.ts");
+  if (!fs9.existsSync(indexPath)) {
+    return {
+      findings: [
+        {
+          id: "plugin-src-unavailable",
+          title: "Plugin source not available",
+          description: `Tool registration check requires plugin source files. Expected: ${indexPath}. This check is available in development environments; in production npm installs, only compiled dist/ is present.`,
+          severity: "warn",
+          path: indexPath,
+          currentValue: undefined,
+          autoFixable: false
+        }
+      ],
+      summary: { info: 0, warn: 1, error: 0 },
+      hasAutoFixableIssues: false,
+      timestamp: Date.now(),
+      configSource: indexPath
+    };
+  }
   const registeredKeys = extractRegisteredToolKeys(indexPath);
   for (const toolName of TOOL_NAMES) {
     if (!registeredKeys.has(toolName)) {
@@ -36929,14 +36949,14 @@ async function handleHistoryCommand(directory, _args) {
 }
 // src/hooks/knowledge-migrator.ts
 import { randomUUID as randomUUID2 } from "crypto";
-import { existsSync as existsSync9, readFileSync as readFileSync9 } from "fs";
+import { existsSync as existsSync10, readFileSync as readFileSync9 } from "fs";
 import { mkdir as mkdir3, readFile as readFile3, writeFile as writeFile3 } from "fs/promises";
 import * as path19 from "path";
 async function migrateContextToKnowledge(directory, config3) {
   const sentinelPath = path19.join(directory, ".swarm", ".knowledge-migrated");
   const contextPath = path19.join(directory, ".swarm", "context.md");
   const knowledgePath = resolveSwarmKnowledgePath(directory);
-  if (existsSync9(sentinelPath)) {
+  if (existsSync10(sentinelPath)) {
     return {
       migrated: false,
       entriesMigrated: 0,
@@ -36945,7 +36965,7 @@ async function migrateContextToKnowledge(directory, config3) {
       skippedReason: "sentinel-exists"
     };
   }
-  if (!existsSync9(contextPath)) {
+  if (!existsSync10(contextPath)) {
     return {
       migrated: false,
       entriesMigrated: 0,
@@ -37131,7 +37151,7 @@ function truncateLesson(text) {
 }
 function inferProjectName(directory) {
   const packageJsonPath = path19.join(directory, "package.json");
-  if (existsSync9(packageJsonPath)) {
+  if (existsSync10(packageJsonPath)) {
     try {
       const pkg = JSON.parse(readFileSync9(packageJsonPath, "utf-8"));
       if (pkg.name && typeof pkg.name === "string") {

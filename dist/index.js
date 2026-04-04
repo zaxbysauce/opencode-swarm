@@ -41978,8 +41978,8 @@ async function loadGrammar(languageId) {
   const parser = new Parser;
   const wasmFileName = getWasmFileName(normalizedId);
   const wasmPath = path57.join(getGrammarsDirAbsolute(), wasmFileName);
-  const { existsSync: existsSync34 } = await import("fs");
-  if (!existsSync34(wasmPath)) {
+  const { existsSync: existsSync35 } = await import("fs");
+  if (!existsSync35(wasmPath)) {
     throw new Error(`Grammar file not found for ${languageId}: ${wasmPath}
 Make sure to run 'bun run build' to copy grammar files to dist/lang/grammars/`);
   }
@@ -50087,9 +50087,29 @@ function checkBinaryReadiness() {
   }
   return findings;
 }
-function runToolDoctor(directory) {
+function runToolDoctor(_directory, pluginRoot) {
   const findings = [];
-  const indexPath = path25.resolve(directory, "src", "index.ts");
+  const resolvedPluginRoot = pluginRoot ?? path25.resolve(import.meta.dir, "..", "..");
+  const indexPath = path25.join(resolvedPluginRoot, "src", "index.ts");
+  if (!fs15.existsSync(indexPath)) {
+    return {
+      findings: [
+        {
+          id: "plugin-src-unavailable",
+          title: "Plugin source not available",
+          description: `Tool registration check requires plugin source files. Expected: ${indexPath}. This check is available in development environments; in production npm installs, only compiled dist/ is present.`,
+          severity: "warn",
+          path: indexPath,
+          currentValue: undefined,
+          autoFixable: false
+        }
+      ],
+      summary: { info: 0, warn: 1, error: 0 },
+      hasAutoFixableIssues: false,
+      timestamp: Date.now(),
+      configSource: indexPath
+    };
+  }
   const registeredKeys = extractRegisteredToolKeys(indexPath);
   for (const toolName of TOOL_NAMES) {
     if (!registeredKeys.has(toolName)) {
@@ -50882,14 +50902,14 @@ init_schema();
 // src/hooks/knowledge-migrator.ts
 init_knowledge_store();
 import { randomUUID as randomUUID3 } from "crypto";
-import { existsSync as existsSync14, readFileSync as readFileSync11 } from "fs";
+import { existsSync as existsSync15, readFileSync as readFileSync11 } from "fs";
 import { mkdir as mkdir4, readFile as readFile5, writeFile as writeFile4 } from "fs/promises";
 import * as path26 from "path";
 async function migrateContextToKnowledge(directory, config3) {
   const sentinelPath = path26.join(directory, ".swarm", ".knowledge-migrated");
   const contextPath = path26.join(directory, ".swarm", "context.md");
   const knowledgePath = resolveSwarmKnowledgePath(directory);
-  if (existsSync14(sentinelPath)) {
+  if (existsSync15(sentinelPath)) {
     return {
       migrated: false,
       entriesMigrated: 0,
@@ -50898,7 +50918,7 @@ async function migrateContextToKnowledge(directory, config3) {
       skippedReason: "sentinel-exists"
     };
   }
-  if (!existsSync14(contextPath)) {
+  if (!existsSync15(contextPath)) {
     return {
       migrated: false,
       entriesMigrated: 0,
@@ -51084,7 +51104,7 @@ function truncateLesson(text) {
 }
 function inferProjectName(directory) {
   const packageJsonPath = path26.join(directory, "package.json");
-  if (existsSync14(packageJsonPath)) {
+  if (existsSync15(packageJsonPath)) {
     try {
       const pkg = JSON.parse(readFileSync11(packageJsonPath, "utf-8"));
       if (pkg.name && typeof pkg.name === "string") {
@@ -53050,7 +53070,7 @@ ${content.substring(endIndex + 1)}`;
 // src/hooks/compaction-customizer.ts
 init_manager2();
 import * as fs26 from "fs";
-import { join as join32 } from "path";
+import { join as join33 } from "path";
 init_utils2();
 function createCompactionCustomizerHook(config3, directory) {
   const enabled = config3.hooks?.compaction !== false;
@@ -53096,7 +53116,7 @@ function createCompactionCustomizerHook(config3, directory) {
         }
       }
       try {
-        const summariesDir = join32(directory, ".swarm", "summaries");
+        const summariesDir = join33(directory, ".swarm", "summaries");
         const files = await fs26.promises.readdir(summariesDir);
         if (files.length > 0) {
           const count = files.length;
@@ -62928,7 +62948,7 @@ init_dist();
 init_config();
 init_knowledge_store();
 init_create_tool();
-import { existsSync as existsSync37 } from "fs";
+import { existsSync as existsSync38 } from "fs";
 var DEFAULT_LIMIT = 10;
 var MAX_LESSON_LENGTH = 200;
 var VALID_CATEGORIES3 = [
@@ -62997,14 +63017,14 @@ function validateLimit(limit) {
 }
 async function readSwarmKnowledge(directory) {
   const swarmPath = resolveSwarmKnowledgePath(directory);
-  if (!existsSync37(swarmPath)) {
+  if (!existsSync38(swarmPath)) {
     return [];
   }
   return readKnowledge(swarmPath);
 }
 async function readHiveKnowledge() {
   const hivePath = resolveHiveKnowledgePath();
-  if (!existsSync37(hivePath)) {
+  if (!existsSync38(hivePath)) {
     return [];
   }
   return readKnowledge(hivePath);

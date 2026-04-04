@@ -869,7 +869,7 @@ Optional enhancement: Semgrep (if on PATH).
 <details>
 <summary><strong>File Locking for Concurrent Write Safety</strong></summary>
 
-Swarm uses file locking to prevent concurrent writes from corrupting shared state files (`plan.json`, `events.jsonl`).
+Swarm uses file locking to protect shared state files from concurrent write corruption. The locking strategy differs by file: `plan.json` uses hard locking (write blocked on contention), while `events.jsonl` uses advisory locking (write proceeds with a warning on contention).
 
 ### Locking Implementation
 
@@ -886,13 +886,14 @@ Swarm uses file locking to prevent concurrent writes from corrupting shared stat
 
 ### Lock Semantics
 
-When two calls contend for the same file:
+The two protected tools use different strategies:
 
+**`update_task_status` — Hard lock on `plan.json`**
+
+When two calls contend for `plan.json`:
 1. **Exactly one call wins** — only the first to acquire the lock proceeds
 2. **Winner writes** — the lock holder writes to the file, then releases the lock
 3. **Losers receive `success: false`** — with `recovery_guidance: "retry"` and an error message identifying the lock holder
-
-### Example: `update_task_status` Lock Contention
 
 ```json
 {
@@ -903,11 +904,20 @@ When two calls contend for the same file:
 }
 ```
 
-**What the caller should do**: Retry `update_task_status` after a short delay. The lock is automatically released when the winning write completes.
+**What the caller should do**: Retry `update_task_status` after a short delay.
+
+**`phase_complete` — Advisory lock on `events.jsonl`**
+
+When two calls contend for `events.jsonl`:
+1. **Lock is attempted** — if acquired, write is serialized
+2. **If lock unavailable** — a warning is added to the result and the write proceeds anyway
+3. **Both callers return `success: true`** — duplicate concurrent appends are possible but `events.jsonl` is an append-only log and duplicate phase entries do not corrupt state
+
+This asymmetry is intentional: `plan.json` stores mutable structured JSON where concurrent overwrites produce malformed files; `events.jsonl` is an append-only log where a duplicate entry is a recoverable nuisance.
 
 ### Lock Recovery
 
-If a lock-holding agent crashes or hangs, the lock file will eventually expire (handled by the OS or lock library cleanup). On the next retry, the call will succeed. Swarm does not auto-retry on lock contention — the architect receives the error and decides when to retry.
+If a lock-holding agent crashes or hangs, the lock file will eventually expire (handled by `proper-lockfile` stale-lock cleanup). On the next retry, the call will succeed. Swarm does not auto-retry on lock contention — the architect receives the error and decides when to retry.
 
 </details>
 

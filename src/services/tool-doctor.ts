@@ -136,11 +136,40 @@ function checkBinaryReadiness(): ConfigFinding[] {
  * Verifies that every entry in TOOL_NAMES has a corresponding key
  * in the plugin's tool: {} block in src/index.ts.
  */
-export function runToolDoctor(directory: string): ToolDoctorResult {
+export function runToolDoctor(
+	_directory: string,
+	pluginRoot?: string,
+): ToolDoctorResult {
 	const findings: ConfigFinding[] = [];
 
-	// Resolve path to src/index.ts
-	const indexPath = path.resolve(directory, 'src', 'index.ts');
+	// Resolve the plugin's own src/index.ts.
+	// import.meta.dir is the plugin's services/ directory at runtime (src/services/ in dev,
+	// dist/services/ in prod). Two levels up reaches the plugin root.
+	const resolvedPluginRoot =
+		pluginRoot ?? path.resolve(import.meta.dir, '..', '..');
+	const indexPath = path.join(resolvedPluginRoot, 'src', 'index.ts');
+
+	// If plugin source is not available (production npm install), return a single
+	// informational finding rather than falsely reporting every tool as missing.
+	if (!fs.existsSync(indexPath)) {
+		return {
+			findings: [
+				{
+					id: 'plugin-src-unavailable',
+					title: 'Plugin source not available',
+					description: `Tool registration check requires plugin source files. Expected: ${indexPath}. This check is available in development environments; in production npm installs, only compiled dist/ is present.`,
+					severity: 'warn',
+					path: indexPath,
+					currentValue: undefined,
+					autoFixable: false,
+				},
+			],
+			summary: { info: 0, warn: 1, error: 0 },
+			hasAutoFixableIssues: false,
+			timestamp: Date.now(),
+			configSource: indexPath,
+		};
+	}
 
 	// Get registered tool keys from the plugin
 	const registeredKeys = extractRegisteredToolKeys(indexPath);
