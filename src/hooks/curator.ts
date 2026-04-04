@@ -886,23 +886,25 @@ export async function applyCuratorKnowledgeUpdates(
 			skipped++;
 			continue;
 		}
-		const lesson = rec.lesson?.trim() ?? '';
+		const lesson = (rec.lesson?.trim() ?? '').slice(0, 280);
 		// Enforce minimum length per KnowledgeEntryBase spec (15–280 chars)
 		if (lesson.length < 15) {
 			skipped++;
 			continue;
 		}
 		// Exact-match dedup within this batch — separate from validateLesson (contradiction detection only)
-		if (existingLessons.includes(lesson)) {
+		if (
+			existingLessons.some((el) => el.toLowerCase() === lesson.toLowerCase())
+		) {
 			skipped++;
 			continue;
 		}
 		// Validation gate: contradiction detection
 		if (knowledgeConfig.validation_enabled !== false) {
 			const validation = validateLesson(lesson, existingLessons, {
-				category: 'other',
+				category: rec.category ?? 'other',
 				scope: 'global',
-				confidence: 0.5,
+				confidence: rec.confidence ?? 0.5,
 			});
 			if (!validation.valid) {
 				skipped++;
@@ -913,11 +915,11 @@ export async function applyCuratorKnowledgeUpdates(
 		const newEntry: SwarmKnowledgeEntry = {
 			id: randomUUID(),
 			tier: 'swarm',
-			lesson: lesson.slice(0, 280),
-			category: 'other',
+			lesson: lesson,
+			category: rec.category ?? 'other',
 			tags: [],
 			scope: 'global',
-			confidence: 0.5,
+			confidence: rec.confidence ?? 0.5,
 			status: 'candidate',
 			confirmed_by: [],
 			retrieval_outcomes: {

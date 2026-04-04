@@ -43,6 +43,20 @@ export const curator_analyze: ReturnType<typeof createSwarmTool> =
 						entry_id: tool.schema.string().optional(),
 						lesson: tool.schema.string(),
 						reason: tool.schema.string(),
+						category: tool.schema
+							.enum([
+								'process',
+								'architecture',
+								'tooling',
+								'security',
+								'testing',
+								'debugging',
+								'performance',
+								'integration',
+								'other',
+							])
+							.optional(),
+						confidence: tool.schema.number().min(0).max(1).optional(),
 					}),
 				)
 				.optional()

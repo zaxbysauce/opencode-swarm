@@ -3,6 +3,8 @@
  * No runtime logic. Types only.
  */
 
+import type { KnowledgeCategory } from './knowledge-types.js';
+
 /** Curator summary — anchored iterative format. Persisted to .swarm/curator-summary.json */
 export interface CuratorSummary {
 	schema_version: 1;
@@ -48,6 +50,8 @@ export interface KnowledgeRecommendation {
 	entry_id?: string;
 	lesson: string;
 	reason: string;
+	category?: KnowledgeCategory;
+	confidence?: number;
 }
 
 /** Drift report — produced by critic after curator phase run */

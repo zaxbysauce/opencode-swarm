@@ -48944,20 +48944,20 @@ async function applyCuratorKnowledgeUpdates(directory, recommendations, knowledg
       skipped++;
       continue;
     }
-    const lesson = rec.lesson?.trim() ?? "";
+    const lesson = (rec.lesson?.trim() ?? "").slice(0, 280);
     if (lesson.length < 15) {
       skipped++;
       continue;
     }
-    if (existingLessons.includes(lesson)) {
+    if (existingLessons.some((el) => el.toLowerCase() === lesson.toLowerCase())) {
       skipped++;
       continue;
     }
     if (knowledgeConfig.validation_enabled !== false) {
       const validation = validateLesson(lesson, existingLessons, {
-        category: "other",
+        category: rec.category ?? "other",
         scope: "global",
-        confidence: 0.5
+        confidence: rec.confidence ?? 0.5
       });
       if (!validation.valid) {
         skipped++;
@@ -48968,11 +48968,11 @@ async function applyCuratorKnowledgeUpdates(directory, recommendations, knowledg
     const newEntry = {
       id: randomUUID(),
       tier: "swarm",
-      lesson: lesson.slice(0, 280),
-      category: "other",
+      lesson,
+      category: rec.category ?? "other",
       tags: [],
       scope: "global",
-      confidence: 0.5,
+      confidence: rec.confidence ?? 0.5,
       status: "candidate",
       confirmed_by: [],
       retrieval_outcomes: {
@@ -60798,7 +60798,19 @@ var curator_analyze = createSwarmTool({
       ]),
       entry_id: tool.schema.string().optional(),
       lesson: tool.schema.string(),
-      reason: tool.schema.string()
+      reason: tool.schema.string(),
+      category: tool.schema.enum([
+        "process",
+        "architecture",
+        "tooling",
+        "security",
+        "testing",
+        "debugging",
+        "performance",
+        "integration",
+        "other"
+      ]).optional(),
+      confidence: tool.schema.number().min(0).max(1).optional()
     })).optional().describe("Knowledge recommendations to apply. If omitted, only collects digest data.")
   },
   execute: async (args2, directory, ctx) => {
