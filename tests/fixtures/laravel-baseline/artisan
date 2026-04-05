@@ -1,0 +1,14 @@
+#!/usr/bin/env php
+<?php
+
+/*
+|--------------------------------------------------------------------------
+| Laravel Artisan Script (fixture placeholder)
+|--------------------------------------------------------------------------
+| This minimal artisan file exists to signal Laravel project detection.
+| It is NOT a functional Artisan installation.
+*/
+
+define('LARAVEL_START', microtime(true));
+
+echo "Artisan fixture — not a functional Laravel installation\n";

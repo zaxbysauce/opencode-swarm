@@ -1,5 +1,32 @@
 # Changelog
 
+## [Unreleased]
+
+### Features
+
+* **laravel:** add deterministic Laravel framework detection via `src/lang/framework-detector.ts` — multi-signal logic requires 2-of-3 signals (artisan file, laravel/framework dep, config/app.php)
+* **laravel:** `getLaravelCommandOverlay()` returns `php artisan test`, Pint/PHP-CS-Fixer lint, PHPStan static analysis, and `composer audit --locked --format=json` when Laravel is detected
+* **laravel:** three new Laravel-specific SAST rules in `src/sast/rules/php.ts`: `sast/php-laravel-sql-injection` (high), `sast/php-laravel-mass-assignment` (medium), `sast/php-laravel-destructive-migration` (medium)
+* **laravel:** `.blade.php` files explicitly included in `placeholder_scan` and `todo_extract` SUPPORTED_EXTENSIONS
+* **laravel:** `test_engineer` agents now receive Laravel-specific test guidance via `buildLanguageTestConstraints()` (feature vs unit tests, Pest/PHPUnit coexistence, `.env.testing`)
+* **php:** PHP package manager (Composer) is now a first-class build ecosystem detected by the swarm (`composer.lock` detection, `php-composer` ecosystem entry in discovery)
+* **php:** `composer audit --locked --format=json` wired through the `pkg_audit` tool pipeline with structured JSON output and correct exit-code semantics (0=clean, 1=abandoned packages only, 2=security vulnerabilities)
+* **php:** PHP profile extended with complete command surface: Composer install/build, PHPUnit + Pest detection (Pest at priority 1), PHPStan/Larastan static analysis (Larastan priority 1, PHPStan priority 2), Pint/PHP-CS-Fixer lint (Pint priority 3, PHP-CS-Fixer priority 4)
+* **doctor:** add `/swarm doctor tools` subcommand with three checks: (1) tool registration coherence — every TOOL_NAMES entry has a key in the plugin's tool: {} block in src/index.ts, (2) AGENT_TOOL_MAP alignment — tools assigned to agents are registered in the plugin, (3) Class 3 binary readiness — external lint binaries (ruff, cargo, golangci-lint, mvn, gradle, dotnet, swift, swiftlint, dart, flutter, eslint) available on PATH
+* **concurrency:** add file locking for concurrent write safety
+  - `update_task_status` acquires a **hard lock** on `plan.json` before writing — lock losers return `success: false` with `recovery_guidance: "retry"` and the write is blocked
+  - `phase_complete` acquires an **advisory lock** on `events.jsonl` before appending — if the lock is unavailable, a warning is added and the write proceeds unconditionally (duplicate concurrent appends are possible but do not corrupt the append-only log)
+  - Lock implementation uses `proper-lockfile` with `retries: 0` (fail-fast)
+* **ci:** add dedicated `php-validation` job to CI pipeline (`.github/workflows/ci.yml`) — runs on every push via `shivammathur/setup-php` action with PHP 8.2 and Composer, validates PHP/Laravel command-selection behavior before smoke tests run
+* **ci:** `smoke` job in CI now depends on `php-validation` — PHP validation is a required predecessor gate blocking the smoke test run
+* **tests:** add `tests/integration/php-command-selection.test.ts` with 20 fixture-driven integration tests covering command selection for PHPUnit-only, Pest-only, and mixed Pest/PHPUnit project configurations
+* **php:** PHP profile `testConstraints` in `src/lang/profiles.ts` extended from 5 to 8 entries — added `.env.testing` coverage, `php artisan config:clear` guidance, and parallel database worker test guidance for Laravel projects
+
+### Documentation
+
+* **docs:** add [v6.46.0 release notes](docs/releases/v6.46.0.md) with PHP first-class support scope, Laravel baseline command/tool/scanner inventory, and explicit deferral list
+* **docs:** add [PHP/Laravel practical guide](docs/php-laravel.md) covering generic Composer project detection, Laravel detection and command override, Pest/PHPUnit coexistence, Composer audit output, and Blade/Eloquent SAST coverage summary
+
 ## [6.47.2](https://github.com/zaxbysauce/opencode-swarm/compare/v6.47.1...v6.47.2) (2026-04-04)
 
 
@@ -2110,3 +2137,4 @@ Optional enhancement: Semgrep (only if already installed on PATH)
 - Evidence system
 - Benchmark suite
 - CI gate
+

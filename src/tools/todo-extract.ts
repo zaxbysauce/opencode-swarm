@@ -25,6 +25,7 @@ const SUPPORTED_EXTENSIONS = new Set([
 	'.cs',
 	'.rb',
 	'.php',
+	'.blade.php',
 	'.swift',
 	'.kt',
 ]);

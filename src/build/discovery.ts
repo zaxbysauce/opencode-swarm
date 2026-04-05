@@ -121,6 +121,17 @@ const ECOSYSTEMS: EcosystemConfig[] = [
 			{ command: 'cmake -B build && cmake --build build', priority: 2 },
 		],
 	},
+	{
+		ecosystem: 'php-composer',
+		buildFiles: ['composer.json'],
+		toolchainCommands: ['composer', 'php'],
+		commands: [
+			{
+				command: 'composer install --no-interaction --prefer-dist',
+				priority: 1,
+			},
+		],
+	},
 ];
 
 /**
@@ -139,6 +150,7 @@ const PROFILE_TO_ECOSYSTEM_NAMES: Record<string, string[]> = {
 	swift: ['swift'],
 	dart: ['dart'],
 	ruby: [],
+	php: ['php-composer'],
 };
 
 // ============ Toolchain Detection Cache ============
