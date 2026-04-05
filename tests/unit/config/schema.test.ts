@@ -149,6 +149,12 @@ describe('PluginConfigSchema', () => {
 				execution_mode: 'balanced',
 				turbo_mode: false,
 				adversarial_testing: { enabled: true, scope: 'all' },
+				full_auto: {
+					enabled: false,
+					max_interactions_per_phase: 50,
+					deadlock_threshold: 3,
+					escalation_mode: 'pause',
+				},
 			});
 		}
 	});
@@ -246,6 +252,145 @@ describe('PluginConfigSchema', () => {
 			inject_phase_reminders: 'true',
 		});
 		expect(result.success).toBe(false);
+	});
+
+	// full_auto field tests
+	it('full_auto defaults to { enabled: false } when omitted', () => {
+		const result = PluginConfigSchema.safeParse({});
+		expect(result.success).toBe(true);
+		if (result.success) {
+			expect(result.data.full_auto).toEqual({
+				enabled: false,
+				max_interactions_per_phase: 50,
+				deadlock_threshold: 3,
+				escalation_mode: 'pause',
+			});
+		}
+	});
+
+	it('max_interactions_per_phase rejects values below 5', () => {
+		const result = PluginConfigSchema.safeParse({
+			full_auto: { max_interactions_per_phase: 4 },
+		});
+		expect(result.success).toBe(false);
+	});
+
+	it('max_interactions_per_phase rejects values above 200', () => {
+		const result = PluginConfigSchema.safeParse({
+			full_auto: { max_interactions_per_phase: 201 },
+		});
+		expect(result.success).toBe(false);
+	});
+
+	it('max_interactions_per_phase accepts boundary value 5', () => {
+		const result = PluginConfigSchema.safeParse({
+			full_auto: { max_interactions_per_phase: 5 },
+		});
+		expect(result.success).toBe(true);
+		if (result.success) {
+			expect(result.data.full_auto.max_interactions_per_phase).toBe(5);
+		}
+	});
+
+	it('max_interactions_per_phase accepts boundary value 200', () => {
+		const result = PluginConfigSchema.safeParse({
+			full_auto: { max_interactions_per_phase: 200 },
+		});
+		expect(result.success).toBe(true);
+		if (result.success) {
+			expect(result.data.full_auto.max_interactions_per_phase).toBe(200);
+		}
+	});
+
+	it('deadlock_threshold rejects values below 2', () => {
+		const result = PluginConfigSchema.safeParse({
+			full_auto: { deadlock_threshold: 1 },
+		});
+		expect(result.success).toBe(false);
+	});
+
+	it('deadlock_threshold rejects values above 10', () => {
+		const result = PluginConfigSchema.safeParse({
+			full_auto: { deadlock_threshold: 11 },
+		});
+		expect(result.success).toBe(false);
+	});
+
+	it('deadlock_threshold accepts boundary value 2', () => {
+		const result = PluginConfigSchema.safeParse({
+			full_auto: { deadlock_threshold: 2 },
+		});
+		expect(result.success).toBe(true);
+		if (result.success) {
+			expect(result.data.full_auto.deadlock_threshold).toBe(2);
+		}
+	});
+
+	it('deadlock_threshold accepts boundary value 10', () => {
+		const result = PluginConfigSchema.safeParse({
+			full_auto: { deadlock_threshold: 10 },
+		});
+		expect(result.success).toBe(true);
+		if (result.success) {
+			expect(result.data.full_auto.deadlock_threshold).toBe(10);
+		}
+	});
+
+	it('escalation_mode accepts "pause"', () => {
+		const result = PluginConfigSchema.safeParse({
+			full_auto: { escalation_mode: 'pause' },
+		});
+		expect(result.success).toBe(true);
+		if (result.success) {
+			expect(result.data.full_auto.escalation_mode).toBe('pause');
+		}
+	});
+
+	it('escalation_mode accepts "terminate"', () => {
+		const result = PluginConfigSchema.safeParse({
+			full_auto: { escalation_mode: 'terminate' },
+		});
+		expect(result.success).toBe(true);
+		if (result.success) {
+			expect(result.data.full_auto.escalation_mode).toBe('terminate');
+		}
+	});
+
+	it('escalation_mode rejects invalid string', () => {
+		const result = PluginConfigSchema.safeParse({
+			full_auto: { escalation_mode: 'invalid' },
+		});
+		expect(result.success).toBe(false);
+	});
+
+	it('critic_model accepts valid model string', () => {
+		const result = PluginConfigSchema.safeParse({
+			full_auto: { critic_model: 'gpt-4' },
+		});
+		expect(result.success).toBe(true);
+		if (result.success) {
+			expect(result.data.full_auto.critic_model).toBe('gpt-4');
+		}
+	});
+
+	it('enabled: true is accepted when all other fields valid', () => {
+		const result = PluginConfigSchema.safeParse({
+			full_auto: {
+				enabled: true,
+				critic_model: 'claude-3-opus',
+				max_interactions_per_phase: 100,
+				deadlock_threshold: 5,
+				escalation_mode: 'terminate',
+			},
+		});
+		expect(result.success).toBe(true);
+		if (result.success) {
+			expect(result.data.full_auto.enabled).toBe(true);
+			expect(result.data.full_auto.critic_model).toBe('claude-3-opus');
+			expect(result.data.full_auto.max_interactions_per_phase).toBe(100);
+			expect(result.data.full_auto.deadlock_threshold).toBe(5);
+			expect(result.data.full_auto.escalation_mode).toBe('terminate');
+		}
 	});
 
 	it('accepts swarms record', () => {

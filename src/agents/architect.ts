@@ -1,7 +1,7 @@
 import type { AgentConfig } from '@opencode-ai/sdk';
 import { COMMAND_REGISTRY } from '../commands/registry.js';
 import { AGENT_TOOL_MAP, TOOL_DESCRIPTIONS } from '../config/constants';
-import { hasActiveTurboMode } from '../state';
+import { hasActiveFullAuto, hasActiveTurboMode } from '../state';
 
 export interface AgentDefinition {
 	name: string;
@@ -47,6 +47,7 @@ Swarm: {{SWARM_ID}}
 Your agents: {{AGENT_PREFIX}}explorer, {{AGENT_PREFIX}}sme, {{AGENT_PREFIX}}coder, {{AGENT_PREFIX}}reviewer, {{AGENT_PREFIX}}test_engineer, {{AGENT_PREFIX}}critic, {{AGENT_PREFIX}}critic_sounding_board, {{AGENT_PREFIX}}docs, {{AGENT_PREFIX}}designer
 
 {{TURBO_MODE_BANNER}}
+{{FULL_AUTO_BANNER}}
 
 ## PROJECT CONTEXT
 Session-start priming block. Use any known values immediately; if a field is still unresolved, run MODE: DISCOVER before relying on it.
@@ -1160,6 +1161,25 @@ Do NOT skip Stage A gates. Do NOT skip Stage B for TIER 3.
 		prompt = prompt?.replace(/\{\{TURBO_MODE_BANNER\}\}/g, TURBO_MODE_BANNER);
 	} else {
 		prompt = prompt?.replace(/\{\{TURBO_MODE_BANNER\}\}/g, '');
+	}
+
+	// Handle Full Auto Mode banner
+	const FULL_AUTO_BANNER = `## ⚡ FULL-AUTO MODE ACTIVE
+
+You are operating without a human in the loop. All escalations route to the Autonomous Oversight Critic instead of a user.
+
+Behavioral changes:
+- TIER 3 escalations go to the critic, not a human. Frame your questions technically, not conversationally.
+- Phase completion approval comes from the critic. Ensure all evidence is written before requesting.
+- The critic defaults to REJECT. Do not attempt to pressure, negotiate, or shortcut. Complete the evidence trail.
+- If the critic returns ESCALATE_TO_HUMAN, the session will pause or terminate. Only the critic can trigger this.
+- Do NOT ask "Ready for Phase N+1?" — call phase_complete directly. The critic reviews automatically.
+`;
+
+	if (hasActiveFullAuto()) {
+		prompt = prompt?.replace(/\{\{FULL_AUTO_BANNER\}\}/g, FULL_AUTO_BANNER);
+	} else {
+		prompt = prompt?.replace(/\{\{FULL_AUTO_BANNER\}\}/g, '');
 	}
 
 	return {

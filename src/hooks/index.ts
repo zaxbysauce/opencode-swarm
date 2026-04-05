@@ -15,6 +15,7 @@ export {
 	extractIncompleteTasksFromPlan,
 	extractPatterns,
 } from './extractors';
+export { createFullAutoInterceptHook } from './full-auto-intercept';
 export {
 	checkFileAuthority,
 	createGuardrailsHooks,

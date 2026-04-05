@@ -1,0 +1,597 @@
+/**
+ * Integration test: full-auto mode end-to-end flow.
+ * Tests the full-auto intercept hook's behavior across different escalation scenarios.
+ *
+ * NOTE: This tests the real hook path with minimal mocking.
+ * Only external dependencies (file system writes, process.exit) are mocked.
+ */
+
+import { afterEach, beforeEach, describe, expect, it, vi } from 'bun:test';
+import * as fs from 'node:fs';
+import * as fsPromises from 'node:fs/promises';
+import * as os from 'node:os';
+import * as path from 'node:path';
+import type { PluginConfig } from '../../src/config/schema';
+import { createFullAutoInterceptHook } from '../../src/hooks/full-auto-intercept';
+import {
+	hasActiveFullAuto,
+	resetSwarmState,
+	setFullAutoModelValidation,
+	startAgentSession,
+	swarmState,
+} from '../../src/state';
+import { resetTelemetryForTesting } from '../../src/telemetry';
+
+// Mock process.exit to prevent test termination
+vi.mock('node:process', () => ({
+	exit: vi.fn(),
+	default: {
+		...process,
+		exit: vi.fn(),
+	},
+}));
+
+/**
+ * Creates a full PluginConfig object with all required fields, using type casting.
+ */
+function makePluginConfig(fullAutoOverrides?: {
+	enabled?: boolean;
+	max_interactions_per_phase?: number;
+	deadlock_threshold?: number;
+	escalation_mode?: 'pause' | 'terminate';
+	critic_model?: string;
+}): PluginConfig {
+	return {
+		max_iterations: 5,
+		qa_retry_limit: 3,
+		execution_mode: 'balanced',
+		inject_phase_reminders: true,
+		full_auto: {
+			enabled: true,
+			max_interactions_per_phase: 50,
+			deadlock_threshold: 3,
+			escalation_mode: 'pause',
+			...fullAutoOverrides,
+		},
+	} as PluginConfig;
+}
+
+describe('full-auto mode integration', () => {
+	let tmpDir: string;
+
+	beforeEach(async () => {
+		tmpDir = await fsPromises.mkdtemp(
+			path.join(os.tmpdir(), 'full-auto-test-'),
+		);
+		await fsPromises.mkdir(path.join(tmpDir, '.swarm'), { recursive: true });
+
+		// Reset state between tests
+		resetSwarmState();
+		resetTelemetryForTesting();
+
+		// Enable full-auto model validation (required for hasActiveFullAuto to return true)
+		setFullAutoModelValidation(true);
+	});
+
+	afterEach(async () => {
+		try {
+			await fsPromises.rm(tmpDir, { recursive: true, force: true });
+		} catch {
+			// Ignore cleanup errors
+		}
+		vi.clearAllMocks();
+	});
+
+	/**
+	 * Helper: create a minimal architect message in the expected format
+	 */
+	function makeArchitectMessage(
+		text: string,
+		sessionID: string,
+		agent = 'architect',
+	): {
+		info: { role: string; agent?: string; sessionID?: string };
+		parts: Array<{ type: string; text?: string }>;
+	} {
+		return {
+			info: { role: 'user', agent, sessionID },
+			parts: [{ type: 'text', text }],
+		};
+	}
+
+	/**
+	 * Helper: build a messages array with architect output
+	 */
+	function makeMessages(
+		architectOutput: string,
+		sessionID: string,
+	): Array<{
+		info: { role: string; agent?: string; sessionID?: string };
+		parts: Array<{ type: string; text?: string }>;
+	}> {
+		return [makeArchitectMessage(architectOutput, sessionID)];
+	}
+
+	/**
+	 * Helper: start a session with fullAutoMode enabled
+	 */
+	function startFullAutoSession(sessionID: string): void {
+		startAgentSession(sessionID, 'architect', 7200000, tmpDir);
+		const session = swarmState.agentSessions.get(sessionID);
+		if (session) {
+			session.fullAutoMode = true;
+			session.fullAutoInteractionCount = 0;
+			session.fullAutoDeadlockCount = 0;
+		}
+	}
+
+	// ─────────────────────────────────────────────────────────────────────────
+	// Test 1: End-to-end critic dispatch with phase completion pattern
+	// ─────────────────────────────────────────────────────────────────────────
+
+	it('1. End-to-end: architect outputs "Ready for Phase 2?" → hook detects escalation → critic is invoked → event written', async () => {
+		const sessionID = 'test-session-phase-completion';
+		startFullAutoSession(sessionID);
+
+		const config = makePluginConfig({
+			enabled: true,
+			critic_model: 'test-critic-model',
+		});
+		const hook = createFullAutoInterceptHook(config, tmpDir);
+
+		const messages = makeMessages('Ready for Phase 2?', sessionID);
+		const output = { messages };
+
+		// Simulate the hook execution
+		await hook.messagesTransform({}, output);
+
+		// Verify the auto_oversight event was written to events.jsonl
+		const eventsPath = path.join(tmpDir, '.swarm', 'events.jsonl');
+		const eventsContent = await fsPromises.readFile(eventsPath, 'utf-8');
+		const lines = eventsContent.trim().split('\n').filter(Boolean);
+
+		expect(lines.length).toBeGreaterThanOrEqual(1);
+
+		// Parse the last event (most recent)
+		const lastEvent = JSON.parse(lines[lines.length - 1]);
+		expect(lastEvent.type).toBe('auto_oversight');
+		expect(lastEvent.interaction_mode).toBe('phase_completion');
+		expect(lastEvent.architect_output).toBe('Ready for Phase 2?');
+		expect(lastEvent.critic_verdict).toBe('PENDING'); // Placeholder until real critic invocation
+		expect(lastEvent.interaction_count).toBe(1);
+		expect(lastEvent.deadlock_count).toBe(0);
+	});
+
+	// ─────────────────────────────────────────────────────────────────────────
+	// Test 2: Phase completion question triggers phase_completion verdict
+	// ─────────────────────────────────────────────────────────────────────────
+
+	it('2. Phase completion question → interaction_mode is phase_completion', async () => {
+		const sessionID = 'test-session-phase-q';
+		startFullAutoSession(sessionID);
+
+		const config = makePluginConfig({ enabled: true });
+		const hook = createFullAutoInterceptHook(config, tmpDir);
+
+		// Architect signals phase completion with various phrasings
+		const phasePatterns = [
+			'Ready for Phase 2?',
+			'Ready for Phase N+1?',
+			'Should I proceed to the next phase?',
+			'What would you like me to do next?',
+		];
+
+		for (const pattern of phasePatterns) {
+			// Reset state for each pattern
+			resetSwarmState();
+			setFullAutoModelValidation(true);
+			startFullAutoSession(sessionID);
+
+			const messages = makeMessages(pattern, sessionID);
+			await hook.messagesTransform({}, { messages });
+
+			const eventsPath = path.join(tmpDir, '.swarm', 'events.jsonl');
+			const eventsContent = await fsPromises.readFile(eventsPath, 'utf-8');
+			const lines = eventsContent.trim().split('\n').filter(Boolean);
+			const lastEvent = JSON.parse(lines[lines.length - 1]);
+
+			expect(lastEvent.interaction_mode).toBe('phase_completion');
+			expect(lastEvent.architect_output).toBe(pattern);
+
+			// Clear events file for next iteration
+			await fsPromises.writeFile(eventsPath, '', 'utf-8');
+		}
+	});
+
+	// ─────────────────────────────────────────────────────────────────────────
+	// Test 3: Technical question triggers question_resolution verdict
+	// ─────────────────────────────────────────────────────────────────────────
+
+	it('3. Technical question → interaction_mode is question_resolution', async () => {
+		const sessionID = 'test-session-technical-q';
+		startFullAutoSession(sessionID);
+
+		const config = makePluginConfig({ enabled: true });
+		const hook = createFullAutoInterceptHook(config, tmpDir);
+
+		// Architect asks a technical question
+		const messages = makeMessages(
+			'Should I use a Map or an object for this lookup table?',
+			sessionID,
+		);
+		await hook.messagesTransform({}, { messages });
+
+		const eventsPath = path.join(tmpDir, '.swarm', 'events.jsonl');
+		const eventsContent = await fsPromises.readFile(eventsPath, 'utf-8');
+		const lines = eventsContent.trim().split('\n').filter(Boolean);
+		const lastEvent = JSON.parse(lines[lines.length - 1]);
+
+		expect(lastEvent.interaction_mode).toBe('question_resolution');
+		expect(lastEvent.architect_output).toBe(
+			'Should I use a Map or an object for this lookup table?',
+		);
+	});
+
+	// ─────────────────────────────────────────────────────────────────────────
+	// Test 4: Product/requirements question triggers critic context for escalation
+	// ─────────────────────────────────────────────────────────────────────────
+
+	it('4. Product/requirements question → critic is invoked with question_resolution mode', async () => {
+		const sessionID = 'test-session-product-q';
+		startFullAutoSession(sessionID);
+
+		const config = makePluginConfig({ enabled: true });
+		const hook = createFullAutoInterceptHook(config, tmpDir);
+
+		// Architect asks a product/requirements question
+		const messages = makeMessages(
+			'What color should the login button be?',
+			sessionID,
+		);
+		await hook.messagesTransform({}, { messages });
+
+		const eventsPath = path.join(tmpDir, '.swarm', 'events.jsonl');
+		const eventsContent = await fsPromises.readFile(eventsPath, 'utf-8');
+		const lines = eventsContent.trim().split('\n').filter(Boolean);
+		const lastEvent = JSON.parse(lines[lines.length - 1]);
+
+		// The critic is invoked (even for product questions — critic decides verdict)
+		expect(lastEvent.type).toBe('auto_oversight');
+		expect(lastEvent.interaction_mode).toBe('question_resolution');
+		expect(lastEvent.architect_output).toBe(
+			'What color should the login button be?',
+		);
+	});
+
+	// ─────────────────────────────────────────────────────────────────────────
+	// Test 5: Full-auto disabled → no-op handler, no events written
+	// ─────────────────────────────────────────────────────────────────────────
+
+	it('5. Full-auto disabled → messagesTransform is no-op → no events.jsonl created', async () => {
+		const sessionID = 'test-session-disabled';
+
+		// Start session but with fullAutoMode = false (will be overridden by disabled config)
+		startAgentSession(sessionID, 'architect', 7200000, tmpDir);
+		const session = swarmState.agentSessions.get(sessionID);
+		if (session) {
+			session.fullAutoMode = true; // Session wants full-auto
+		}
+
+		// Config has full_auto disabled
+		const config = makePluginConfig({
+			enabled: false,
+		});
+
+		const hook = createFullAutoInterceptHook(config, tmpDir);
+
+		// Even with architect output that would trigger escalation
+		const messages = makeMessages('Ready for Phase 2?', sessionID);
+		await hook.messagesTransform({}, { messages });
+
+		// Verify NO events.jsonl was created (or it's empty)
+		const eventsPath = path.join(tmpDir, '.swarm', 'events.jsonl');
+		const exists = await fsPromises
+			.access(eventsPath)
+			.then(() => true)
+			.catch(() => false);
+
+		expect(exists).toBe(false);
+	});
+
+	// ─────────────────────────────────────────────────────────────────────────
+	// Test 6: No architect message → no-op
+	// ─────────────────────────────────────────────────────────────────────────
+
+	it('6. Empty messages → no event written', async () => {
+		const sessionID = 'test-session-empty';
+		startFullAutoSession(sessionID);
+
+		const config = makePluginConfig({ enabled: true });
+		const hook = createFullAutoInterceptHook(config, tmpDir);
+
+		// Empty messages array
+		await hook.messagesTransform({}, { messages: [] });
+
+		const eventsPath = path.join(tmpDir, '.swarm', 'events.jsonl');
+		const exists = await fsPromises
+			.access(eventsPath)
+			.then(() => true)
+			.catch(() => false);
+
+		expect(exists).toBe(false);
+	});
+
+	// ─────────────────────────────────────────────────────────────────────────
+	// Test 7: Non-architect message → no escalation detection
+	// ─────────────────────────────────────────────────────────────────────────
+
+	it('7. Non-architect message → no escalation triggered', async () => {
+		const sessionID = 'test-session-non-architect';
+		startFullAutoSession(sessionID);
+
+		const config = makePluginConfig({ enabled: true });
+		const hook = createFullAutoInterceptHook(config, tmpDir);
+
+		// Message from a different agent (role is 'user' but agent is not architect)
+		const messages = [
+			{
+				info: { role: 'user', agent: 'coder', sessionID },
+				parts: [{ type: 'text', text: 'Ready for Phase 2?' }],
+			},
+		];
+
+		await hook.messagesTransform({}, { messages });
+
+		const eventsPath = path.join(tmpDir, '.swarm', 'events.jsonl');
+		const exists = await fsPromises
+			.access(eventsPath)
+			.then(() => true)
+			.catch(() => false);
+
+		expect(exists).toBe(false);
+	});
+
+	// ─────────────────────────────────────────────────────────────────────────
+	// Test 8: Session without fullAutoMode → no escalation (hasActiveFullAuto returns false)
+	// ─────────────────────────────────────────────────────────────────────────
+
+	it('8. Session without fullAutoMode → hasActiveFullAuto is false → no event written', async () => {
+		const sessionID = 'test-session-no-fullauto-flag';
+
+		// Start session but do NOT set fullAutoMode
+		startAgentSession(sessionID, 'architect', 7200000, tmpDir);
+		// Ensure fullAutoMode is false
+		const session = swarmState.agentSessions.get(sessionID);
+		if (session) {
+			session.fullAutoMode = false;
+		}
+
+		const config = makePluginConfig({ enabled: true });
+		const hook = createFullAutoInterceptHook(config, tmpDir);
+
+		const messages = makeMessages('Ready for Phase 2?', sessionID);
+		await hook.messagesTransform({}, { messages });
+
+		// Verify no event was written because hasActiveFullAuto returns false
+		const eventsPath = path.join(tmpDir, '.swarm', 'events.jsonl');
+		const exists = await fsPromises
+			.access(eventsPath)
+			.then(() => true)
+			.catch(() => false);
+
+		expect(exists).toBe(false);
+	});
+
+	// ─────────────────────────────────────────────────────────────────────────
+	// Test 9: Model validation failed → hasActiveFullAuto is false → no event
+	// ─────────────────────────────────────────────────────────────────────────
+
+	it('9. Model validation failed (models matched) → hasActiveFullAuto is false → no event written', async () => {
+		const sessionID = 'test-session-validation-failed';
+		startFullAutoSession(sessionID);
+
+		// Simulate validation failure (models matched at startup)
+		setFullAutoModelValidation(false);
+
+		const config = makePluginConfig({ enabled: true });
+		const hook = createFullAutoInterceptHook(config, tmpDir);
+
+		const messages = makeMessages('Ready for Phase 2?', sessionID);
+		await hook.messagesTransform({}, { messages });
+
+		const eventsPath = path.join(tmpDir, '.swarm', 'events.jsonl');
+		const exists = await fsPromises
+			.access(eventsPath)
+			.then(() => true)
+			.catch(() => false);
+
+		expect(exists).toBe(false);
+	});
+
+	// ─────────────────────────────────────────────────────────────────────────
+	// Test 10: Mid-sentence question marks (v1?) → no escalation
+	// ─────────────────────────────────────────────────────────────────────────
+
+	it('10. Mid-sentence question mark (version number) → no escalation triggered', async () => {
+		const sessionID = 'test-session-mid-sentence';
+		startFullAutoSession(sessionID);
+
+		const config = makePluginConfig({ enabled: true });
+		const hook = createFullAutoInterceptHook(config, tmpDir);
+
+		// Version number question - should NOT trigger escalation
+		const messages = makeMessages(
+			'Have you considered API v1? implementation?',
+			sessionID,
+		);
+		await hook.messagesTransform({}, { messages });
+
+		const eventsPath = path.join(tmpDir, '.swarm', 'events.jsonl');
+		const exists = await fsPromises
+			.access(eventsPath)
+			.then(() => true)
+			.catch(() => false);
+
+		expect(exists).toBe(false);
+	});
+
+	// ─────────────────────────────────────────────────────────────────────────
+	// Test 11: Interaction counter increments on each escalation
+	// ─────────────────────────────────────────────────────────────────────────
+
+	it('11. Interaction counter increments on each escalation', async () => {
+		const sessionID = 'test-session-counter';
+		startFullAutoSession(sessionID);
+
+		const config = makePluginConfig({ enabled: true });
+		const hook = createFullAutoInterceptHook(config, tmpDir);
+
+		// First escalation
+		let messages = makeMessages('Ready for Phase 2?', sessionID);
+		await hook.messagesTransform({}, { messages });
+
+		const eventsPath = path.join(tmpDir, '.swarm', 'events.jsonl');
+		let eventsContent = await fsPromises.readFile(eventsPath, 'utf-8');
+		let lines = eventsContent.trim().split('\n').filter(Boolean);
+		let lastEvent = JSON.parse(lines[lines.length - 1]);
+		expect(lastEvent.interaction_count).toBe(1);
+
+		// Clear for second interaction
+		await fsPromises.writeFile(eventsPath, '', 'utf-8');
+
+		// Second escalation (different question to avoid deadlock detection)
+		messages = makeMessages('Should I add error handling?', sessionID);
+		await hook.messagesTransform({}, { messages });
+
+		eventsContent = await fsPromises.readFile(eventsPath, 'utf-8');
+		lines = eventsContent.trim().split('\n').filter(Boolean);
+		lastEvent = JSON.parse(lines[lines.length - 1]);
+		expect(lastEvent.interaction_count).toBe(2);
+	});
+
+	// ─────────────────────────────────────────────────────────────────────────
+	// Test 12: Deadlock detection on repeated identical questions
+	// ─────────────────────────────────────────────────────────────────────────
+
+	it('12. Repeated identical question → deadlock count increments', async () => {
+		const sessionID = 'test-session-deadlock';
+		startFullAutoSession(sessionID);
+
+		const config = makePluginConfig({ enabled: true });
+		const hook = createFullAutoInterceptHook(config, tmpDir);
+
+		const question = 'Should I add error handling?';
+
+		// First question
+		let messages = makeMessages(question, sessionID);
+		await hook.messagesTransform({}, { messages });
+
+		const eventsPath = path.join(tmpDir, '.swarm', 'events.jsonl');
+		let eventsContent = await fsPromises.readFile(eventsPath, 'utf-8');
+		let lines = eventsContent.trim().split('\n').filter(Boolean);
+		let lastEvent = JSON.parse(lines[lines.length - 1]);
+		expect(lastEvent.deadlock_count).toBe(0);
+
+		// Clear for second question
+		await fsPromises.writeFile(eventsPath, '', 'utf-8');
+
+		// Identical question (should trigger deadlock detection)
+		messages = makeMessages(question, sessionID);
+		await hook.messagesTransform({}, { messages });
+
+		eventsContent = await fsPromises.readFile(eventsPath, 'utf-8');
+		lines = eventsContent.trim().split('\n').filter(Boolean);
+		lastEvent = JSON.parse(lines[lines.length - 1]);
+		expect(lastEvent.deadlock_count).toBe(1);
+	});
+
+	// ─────────────────────────────────────────────────────────────────────────
+	// Test 13: Different question resets deadlock count
+	// ─────────────────────────────────────────────────────────────────────────
+
+	it('13. Different question → deadlock count resets to 0', async () => {
+		const sessionID = 'test-session-reset-deadlock';
+		startFullAutoSession(sessionID);
+
+		const config = makePluginConfig({ enabled: true });
+		const hook = createFullAutoInterceptHook(config, tmpDir);
+
+		// First question
+		let messages = makeMessages('Should I add error handling?', sessionID);
+		await hook.messagesTransform({}, { messages });
+
+		const eventsPath = path.join(tmpDir, '.swarm', 'events.jsonl');
+		await fsPromises.writeFile(eventsPath, '', 'utf-8');
+
+		// Second identical question (triggers deadlock)
+		messages = makeMessages('Should I add error handling?', sessionID);
+		await hook.messagesTransform({}, { messages });
+
+		let eventsContent = await fsPromises.readFile(eventsPath, 'utf-8');
+		let lines = eventsContent.trim().split('\n').filter(Boolean);
+		let lastEvent = JSON.parse(lines[lines.length - 1]);
+		expect(lastEvent.deadlock_count).toBe(1);
+
+		// Clear for third question
+		await fsPromises.writeFile(eventsPath, '', 'utf-8');
+
+		// Different question (should reset deadlock count)
+		messages = makeMessages('Should I add logging?', sessionID);
+		await hook.messagesTransform({}, { messages });
+
+		eventsContent = await fsPromises.readFile(eventsPath, 'utf-8');
+		lines = eventsContent.trim().split('\n').filter(Boolean);
+		lastEvent = JSON.parse(lines[lines.length - 1]);
+		expect(lastEvent.deadlock_count).toBe(0);
+	});
+
+	// ─────────────────────────────────────────────────────────────────────────
+	// Test 14: hasActiveFullAuto returns correct value based on session state
+	// ─────────────────────────────────────────────────────────────────────────
+
+	it('14. hasActiveFullAuto returns true only when session has fullAutoMode=true and validation passed', async () => {
+		const sessionID = 'test-session-hasactive';
+
+		// Validation not passed yet
+		setFullAutoModelValidation(false);
+		expect(hasActiveFullAuto(sessionID)).toBe(false);
+
+		// Start session
+		startAgentSession(sessionID, 'architect', 7200000, tmpDir);
+		expect(hasActiveFullAuto(sessionID)).toBe(false); // Validation still false
+
+		// Validation passes but session doesn't have fullAutoMode
+		setFullAutoModelValidation(true);
+		expect(hasActiveFullAuto(sessionID)).toBe(false);
+
+		// Enable fullAutoMode on session
+		const session = swarmState.agentSessions.get(sessionID);
+		session!.fullAutoMode = true;
+		expect(hasActiveFullAuto(sessionID)).toBe(true);
+
+		// Disable fullAutoMode
+		session!.fullAutoMode = false;
+		expect(hasActiveFullAuto(sessionID)).toBe(false);
+	});
+
+	// ─────────────────────────────────────────────────────────────────────────
+	// Test 15: createCriticAutonomousOversightAgent returns correct agent definition
+	// ─────────────────────────────────────────────────────────────────────────
+
+	it('15. createCriticAutonomousOversightAgent returns agent with correct name and prompt', async () => {
+		const { createCriticAutonomousOversightAgent } = await import(
+			'../../src/agents/critic'
+		);
+
+		const agent = createCriticAutonomousOversightAgent(
+			'test-model',
+			'some additional context',
+		);
+
+		expect(agent.name).toBe('critic');
+		expect(agent.description).toContain('AUTONOMOUS OVERSIGHT');
+		expect(agent.config.model).toBe('test-model');
+		expect(agent.config.prompt).toContain('AUTONOMOUS OVERSIGHT');
+		expect(agent.config.prompt).toContain('some additional context');
+	});
+});

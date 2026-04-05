@@ -121,9 +121,7 @@ function createMessages(
 	};
 	const userMsg: MessageWithParts = {
 		info: { role: 'user' },
-		parts: [
-			{ type: 'text', text: 'x'.repeat(Math.max(1, totalChars - 13)) },
-		],
+		parts: [{ type: 'text', text: 'x'.repeat(Math.max(1, totalChars - 13)) }],
 	};
 	return [systemMsg, userMsg];
 }

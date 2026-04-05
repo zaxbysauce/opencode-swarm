@@ -1404,8 +1404,12 @@ describe('startup-only ledger hash-mismatch rebuild', () => {
 	});
 
 	test('startup ledger check triggers independently for different workspaces', async () => {
-		const tempDirA = await mkdtemp(join(tmpdir(), 'opencode-swarm-startup-ws-a-'));
-		const tempDirB = await mkdtemp(join(tmpdir(), 'opencode-swarm-startup-ws-b-'));
+		const tempDirA = await mkdtemp(
+			join(tmpdir(), 'opencode-swarm-startup-ws-a-'),
+		);
+		const tempDirB = await mkdtemp(
+			join(tmpdir(), 'opencode-swarm-startup-ws-b-'),
+		);
 
 		try {
 			const testPlan = createTestPlan();

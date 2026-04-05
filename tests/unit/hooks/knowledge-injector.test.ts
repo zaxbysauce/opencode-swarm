@@ -882,11 +882,25 @@ describe('Compact format and confirmation indicators', () => {
 
 		const entry = makeSwarmEntry('Well confirmed lesson', 0.85);
 		entry.confirmed_by = [
-			{ project_name: 'p1', confirmed_at: new Date().toISOString(), phase_number: 1 },
-			{ project_name: 'p2', confirmed_at: new Date().toISOString(), phase_number: 2 },
-			{ project_name: 'p3', confirmed_at: new Date().toISOString(), phase_number: 3 },
+			{
+				project_name: 'p1',
+				confirmed_at: new Date().toISOString(),
+				phase_number: 1,
+			},
+			{
+				project_name: 'p2',
+				confirmed_at: new Date().toISOString(),
+				phase_number: 2,
+			},
+			{
+				project_name: 'p3',
+				confirmed_at: new Date().toISOString(),
+				phase_number: 3,
+			},
 		];
-		(readMergedKnowledge as ReturnType<typeof vi.fn>).mockResolvedValue([entry]);
+		(readMergedKnowledge as ReturnType<typeof vi.fn>).mockResolvedValue([
+			entry,
+		]);
 
 		await hook({}, output);
 
@@ -903,9 +917,15 @@ describe('Compact format and confirmation indicators', () => {
 
 		const entry = makeSwarmEntry('Once confirmed lesson', 0.85);
 		entry.confirmed_by = [
-			{ project_name: 'p1', confirmed_at: new Date().toISOString(), phase_number: 1 },
+			{
+				project_name: 'p1',
+				confirmed_at: new Date().toISOString(),
+				phase_number: 1,
+			},
 		];
-		(readMergedKnowledge as ReturnType<typeof vi.fn>).mockResolvedValue([entry]);
+		(readMergedKnowledge as ReturnType<typeof vi.fn>).mockResolvedValue([
+			entry,
+		]);
 
 		await hook({}, output);
 
@@ -927,7 +947,9 @@ describe('Compact format and confirmation indicators', () => {
 
 		const entry = makeSwarmEntry('Unconfirmed lesson', 0.85);
 		entry.confirmed_by = [];
-		(readMergedKnowledge as ReturnType<typeof vi.fn>).mockResolvedValue([entry]);
+		(readMergedKnowledge as ReturnType<typeof vi.fn>).mockResolvedValue([
+			entry,
+		]);
 
 		await hook({}, output);
 
@@ -942,12 +964,17 @@ describe('Compact format and confirmation indicators', () => {
 	});
 
 	it('Test 10e: lesson > max_lesson_display_chars truncated with …', async () => {
-		const hook = createKnowledgeInjectorHook('/proj', makeConfig({ max_lesson_display_chars: 120 }));
+		const hook = createKnowledgeInjectorHook(
+			'/proj',
+			makeConfig({ max_lesson_display_chars: 120 }),
+		);
 		const output = makeOutput('architect');
 
 		const longLesson = 'A'.repeat(280);
 		const entry = makeSwarmEntry(longLesson, 0.85);
-		(readMergedKnowledge as ReturnType<typeof vi.fn>).mockResolvedValue([entry]);
+		(readMergedKnowledge as ReturnType<typeof vi.fn>).mockResolvedValue([
+			entry,
+		]);
 
 		await hook({}, output);
 

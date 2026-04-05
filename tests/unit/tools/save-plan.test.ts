@@ -1126,8 +1126,8 @@ describe('save-plan tool verification tests', () => {
 
 			const savedPlan = JSON.parse(await fs.readFile(planJsonPath, 'utf-8'));
 			expect(savedPlan.phases[0].tasks[0].status).toBe('completed'); // 1.1 preserved
-			expect(savedPlan.phases[0].tasks[1].status).toBe('pending');   // 1.2 was pending
-			expect(savedPlan.phases[0].tasks[2].status).toBe('pending');   // 1.3 is new
+			expect(savedPlan.phases[0].tasks[1].status).toBe('pending'); // 1.2 was pending
+			expect(savedPlan.phases[0].tasks[2].status).toBe('pending'); // 1.3 is new
 		});
 
 		it('Preserves in_progress status for matching task IDs', async () => {

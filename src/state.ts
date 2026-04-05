@@ -28,6 +28,13 @@ interface RehydrationCache {
 let _rehydrationCache: RehydrationCache | null = null;
 
 /**
+ * Tracks whether full-auto mode passed startup validation (critic/architect models differ).
+ * Set by setFullAutoModelValidation() after config validation succeeds.
+ * If validation fails (models match), this remains false and hasActiveFullAuto() returns false.
+ */
+let _fullAutoModelValidationPassed = false;
+
+/**
  * Represents a single tool call entry for tracking purposes
  */
 export interface ToolCallEntry {
@@ -168,6 +175,16 @@ export interface AgentSessionState {
 	// Turbo Mode (v6.26)
 	/** Session-scoped Turbo Mode flag for controlling LLM inference speed */
 	turboMode: boolean;
+
+	// Full Auto Mode (Phase 2)
+	/** Session-scoped Full Auto flag for autonomous multi-agent oversight */
+	fullAutoMode: boolean;
+	/** Count of full-auto interactions this phase (for max_interactions_per_phase limit) */
+	fullAutoInteractionCount: number;
+	/** Count of detected deadlocks (repeated identical questions) in full-auto mode */
+	fullAutoDeadlockCount: number;
+	/** Hash of last question asked (for deadlock detection via hash comparison) */
+	fullAutoLastQuestionHash: string | null;
 
 	// Loop Detection (v6.29)
 	/** Sliding window of last 10 Task delegation hashes for loop detection */
@@ -338,6 +355,11 @@ export function startAgentSession(
 		modifiedFilesThisCoderTask: [],
 		// Turbo Mode (v6.26)
 		turboMode: false,
+		// Full Auto Mode (Phase 2)
+		fullAutoMode: false,
+		fullAutoInteractionCount: 0,
+		fullAutoDeadlockCount: 0,
+		fullAutoLastQuestionHash: null,
 		// Model Fallback (v6.33)
 		model_fallback_index: 0,
 		modelFallbackExhausted: false,
@@ -1058,4 +1080,38 @@ export function hasActiveTurboMode(sessionID?: string): boolean {
 		}
 	}
 	return false;
+}
+
+/**
+ * Check if Full Auto Mode is enabled for a specific session or ANY session.
+ * @param sessionID - Optional session ID to check. If provided, checks only that session.
+ *                    If omitted, checks all sessions (backward-compatible global behavior).
+ * @returns true only if the specified session has fullAutoMode: true AND the startup validation
+ *          confirmed critic/architect models differ. Returns false if models matched at startup.
+ */
+export function hasActiveFullAuto(sessionID?: string): boolean {
+	// Fail-safe: if model validation failed (models matched), deny activation
+	if (!_fullAutoModelValidationPassed) {
+		return false;
+	}
+
+	if (sessionID) {
+		const session = swarmState.agentSessions.get(sessionID);
+		return session?.fullAutoMode === true;
+	}
+	// Global fallback — existing behavior when no sessionID provided
+	for (const [_sessionId, session] of swarmState.agentSessions) {
+		if (session.fullAutoMode === true) {
+			return true;
+		}
+	}
+	return false;
+}
+
+/**
+ * Called at plugin startup after validating that critic/architect models differ.
+ * Enables full-auto mode to be activated for sessions.
+ */
+export function setFullAutoModelValidation(passed: boolean): void {
+	_fullAutoModelValidationPassed = passed;
 }

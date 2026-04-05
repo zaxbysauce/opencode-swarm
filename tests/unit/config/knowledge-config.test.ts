@@ -332,13 +332,25 @@ describe('KnowledgeConfigSchema', () => {
 		});
 
 		it('should accept boundary values for inject_char_budget', () => {
-			expect(KnowledgeConfigSchema.parse({ inject_char_budget: 200 }).inject_char_budget).toBe(200);
-			expect(KnowledgeConfigSchema.parse({ inject_char_budget: 10_000 }).inject_char_budget).toBe(10_000);
+			expect(
+				KnowledgeConfigSchema.parse({ inject_char_budget: 200 })
+					.inject_char_budget,
+			).toBe(200);
+			expect(
+				KnowledgeConfigSchema.parse({ inject_char_budget: 10_000 })
+					.inject_char_budget,
+			).toBe(10_000);
 		});
 
 		it('should accept boundary values for max_lesson_display_chars', () => {
-			expect(KnowledgeConfigSchema.parse({ max_lesson_display_chars: 40 }).max_lesson_display_chars).toBe(40);
-			expect(KnowledgeConfigSchema.parse({ max_lesson_display_chars: 280 }).max_lesson_display_chars).toBe(280);
+			expect(
+				KnowledgeConfigSchema.parse({ max_lesson_display_chars: 40 })
+					.max_lesson_display_chars,
+			).toBe(40);
+			expect(
+				KnowledgeConfigSchema.parse({ max_lesson_display_chars: 280 })
+					.max_lesson_display_chars,
+			).toBe(280);
 		});
 	});
 

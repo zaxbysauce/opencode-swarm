@@ -44,6 +44,15 @@
   - `phase_complete` acquires an **advisory lock** on `events.jsonl` before appending � if the lock is unavailable, a warning is added and the write proceeds unconditionally (duplicate concurrent appends are possible but do not corrupt the append-only log)
   - Lock implementation uses `proper-lockfile` with `retries: 0` (fail-fast)
 
+### Tests
+
+* **tests:** add 14 tests in `tests/unit/config/schema.test.ts` covering `full_auto` config schema validation (defaults, invalid `escalation_mode`, out-of-range `max_interactions_per_phase`, partial overrides, and snapshot)
+* **tests:** add 4 tests in `tests/unit/agents/critic.test.ts` covering `createCriticAutonomousOversightAgent` (creation, model fallbacks, autonomous mode activation)
+* **tests:** add `tests/unit/hooks/full-auto-intercept.test.ts` with 32 unit tests covering intercept detection logic for the full-auto mode hook
+* **tests:** add `tests/unit/hooks/full-auto-intercept.adversarial.test.ts` with 38 adversarial tests covering edge cases, concurrent execution, and error paths in full-auto intercept detection
+* **tests:** add `tests/integration/full-auto-mode.test.ts` with 15 integration tests covering end-to-end full-auto mode scenarios
+* **tests:** fix pre-existing snapshot test in `tests/unit/config/schema.test.ts` to include `full_auto` defaults
+
 ### Documentation
 
 * **docs:** add [v6.49.0 release notes](docs/releases/v6.49.0.md) with PHP first-class support scope, Laravel baseline command/tool/scanner inventory, and explicit deferral list

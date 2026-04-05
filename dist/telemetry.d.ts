@@ -1,4 +1,4 @@
-export type TelemetryEvent = 'session_started' | 'session_ended' | 'agent_activated' | 'delegation_begin' | 'delegation_end' | 'task_state_changed' | 'gate_passed' | 'gate_failed' | 'phase_changed' | 'budget_updated' | 'model_fallback' | 'hard_limit_hit' | 'revision_limit_hit' | 'loop_detected' | 'scope_violation' | 'qa_skip_violation' | 'heartbeat' | 'turbo_mode_changed';
+export type TelemetryEvent = 'session_started' | 'session_ended' | 'agent_activated' | 'delegation_begin' | 'delegation_end' | 'task_state_changed' | 'gate_passed' | 'gate_failed' | 'phase_changed' | 'budget_updated' | 'model_fallback' | 'hard_limit_hit' | 'revision_limit_hit' | 'loop_detected' | 'scope_violation' | 'qa_skip_violation' | 'heartbeat' | 'turbo_mode_changed' | 'auto_oversight_escalation';
 export type TelemetryListener = (event: TelemetryEvent, data: Record<string, unknown>) => void;
 /** @internal - For testing only */
 export declare function resetTelemetryForTesting(): void;
@@ -50,4 +50,5 @@ export declare const telemetry: {
     qaSkipViolation(sessionId: string, agentName: string, skipCount: number): void;
     heartbeat(sessionId: string): void;
     turboModeChanged(sessionId: string, enabled: boolean, agentName: string): void;
+    autoOversightEscalation(sessionId: string, reason: string, interactionCount: number, deadlockCount: number, phase?: number): void;
 };

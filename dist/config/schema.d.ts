@@ -842,6 +842,16 @@ export declare const PluginConfigSchema: z.ZodObject<{
         preserveLastNTurns: z.ZodDefault<z.ZodNumber>;
     }, z.core.$strip>>;
     turbo_mode: z.ZodOptional<z.ZodDefault<z.ZodBoolean>>;
+    full_auto: z.ZodDefault<z.ZodOptional<z.ZodObject<{
+        enabled: z.ZodDefault<z.ZodBoolean>;
+        critic_model: z.ZodOptional<z.ZodString>;
+        max_interactions_per_phase: z.ZodDefault<z.ZodNumber>;
+        deadlock_threshold: z.ZodDefault<z.ZodNumber>;
+        escalation_mode: z.ZodDefault<z.ZodEnum<{
+            pause: "pause";
+            terminate: "terminate";
+        }>>;
+    }, z.core.$strip>>>;
 }, z.core.$strip>;
 export type PluginConfig = z.infer<typeof PluginConfigSchema>;
 export type { AgentName, PipelineAgentName, QAAgentName, } from './constants';

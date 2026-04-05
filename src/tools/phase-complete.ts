@@ -1059,6 +1059,9 @@ export async function executePhaseComplete(
 					);
 				}
 				contributorSession.phaseAgentsDispatched = new Set();
+				contributorSession.fullAutoInteractionCount = 0;
+				contributorSession.fullAutoDeadlockCount = 0;
+				contributorSession.fullAutoLastQuestionHash = null;
 				contributorSession.lastPhaseCompleteTimestamp = now;
 				const oldPhase = contributorSession.lastPhaseCompletePhase;
 				contributorSession.lastPhaseCompletePhase = phase;

@@ -2728,14 +2728,19 @@ invalid json here
 				{
 					id: 'RW1',
 					tier: 'swarm',
-					lesson: 'Very verbose lesson about using lint before commits to avoid style drift and review cycles',
+					lesson:
+						'Very verbose lesson about using lint before commits to avoid style drift and review cycles',
 					category: 'process',
 					tags: [],
 					scope: 'global',
 					confidence: 0.7,
 					status: 'established',
 					confirmed_by: [],
-					retrieval_outcomes: { applied_count: 0, succeeded_after_count: 0, failed_after_count: 0 },
+					retrieval_outcomes: {
+						applied_count: 0,
+						succeeded_after_count: 0,
+						failed_after_count: 0,
+					},
 					schema_version: 1,
 					created_at: '2026-01-01T00:00:00Z',
 					updated_at: '2026-01-01T00:00:00Z',
@@ -2747,7 +2752,14 @@ invalid json here
 
 			const result = await applyCuratorKnowledgeUpdates(
 				tempDir,
-				[{ action: 'rewrite', entry_id: 'RW1', lesson: 'Run lint before committing', reason: 'Too verbose' }],
+				[
+					{
+						action: 'rewrite',
+						entry_id: 'RW1',
+						lesson: 'Run lint before committing',
+						reason: 'Too verbose',
+					},
+				],
 				defaultKnowledgeConfig,
 			);
 
@@ -2771,7 +2783,11 @@ invalid json here
 					confidence: 0.8,
 					status: 'established',
 					confirmed_by: [],
-					retrieval_outcomes: { applied_count: 0, succeeded_after_count: 0, failed_after_count: 0 },
+					retrieval_outcomes: {
+						applied_count: 0,
+						succeeded_after_count: 0,
+						failed_after_count: 0,
+					},
 					schema_version: 1,
 					created_at: '2026-01-01T00:00:00Z',
 					updated_at: '2026-01-01T00:00:00Z',
@@ -2783,7 +2799,14 @@ invalid json here
 
 			await applyCuratorKnowledgeUpdates(
 				tempDir,
-				[{ action: 'rewrite', entry_id: 'RW2', lesson: 'Rewritten lesson text for testing', reason: 'Tighten' }],
+				[
+					{
+						action: 'rewrite',
+						entry_id: 'RW2',
+						lesson: 'Rewritten lesson text for testing',
+						reason: 'Tighten',
+					},
+				],
 				defaultKnowledgeConfig,
 			);
 
@@ -2803,7 +2826,11 @@ invalid json here
 					confidence: 0.7,
 					status: 'established',
 					confirmed_by: [],
-					retrieval_outcomes: { applied_count: 0, succeeded_after_count: 0, failed_after_count: 0 },
+					retrieval_outcomes: {
+						applied_count: 0,
+						succeeded_after_count: 0,
+						failed_after_count: 0,
+					},
 					schema_version: 1,
 					created_at: '2026-01-01T00:00:00Z',
 					updated_at: '2026-01-01T00:00:00Z',
@@ -2815,7 +2842,14 @@ invalid json here
 
 			const result = await applyCuratorKnowledgeUpdates(
 				tempDir,
-				[{ action: 'rewrite', entry_id: 'RW3', lesson: 'Too short', reason: 'Shorten' }],
+				[
+					{
+						action: 'rewrite',
+						entry_id: 'RW3',
+						lesson: 'Too short',
+						reason: 'Shorten',
+					},
+				],
 				defaultKnowledgeConfig,
 			);
 
@@ -2830,7 +2864,14 @@ invalid json here
 
 			const result = await applyCuratorKnowledgeUpdates(
 				tempDir,
-				[{ action: 'rewrite', entry_id: undefined, lesson: 'Some new rewritten text for a lesson', reason: 'Rewrite' }],
+				[
+					{
+						action: 'rewrite',
+						entry_id: undefined,
+						lesson: 'Some new rewritten text for a lesson',
+						reason: 'Rewrite',
+					},
+				],
 				defaultKnowledgeConfig,
 			);
 
@@ -2885,7 +2926,9 @@ describe('runCuratorPhase passes KNOWLEDGE_ENTRIES to LLM', () => {
 
 		// Create temp dir with knowledge entries
 		const os = await import('node:os');
-		const tDir = fs.mkdtempSync(path.join(os.default.tmpdir(), 'curator-phase-ke-'));
+		const tDir = fs.mkdtempSync(
+			path.join(os.default.tmpdir(), 'curator-phase-ke-'),
+		);
 		const swarmDir = path.join(tDir, '.swarm');
 		fs.mkdirSync(swarmDir, { recursive: true });
 		const entry = {
@@ -2898,14 +2941,21 @@ describe('runCuratorPhase passes KNOWLEDGE_ENTRIES to LLM', () => {
 			confidence: 0.8,
 			status: 'established',
 			confirmed_by: [],
-			retrieval_outcomes: { applied_count: 0, succeeded_after_count: 0, failed_after_count: 0 },
+			retrieval_outcomes: {
+				applied_count: 0,
+				succeeded_after_count: 0,
+				failed_after_count: 0,
+			},
 			schema_version: 1,
 			created_at: '2026-01-01T00:00:00Z',
 			updated_at: '2026-01-01T00:00:00Z',
 			hive_eligible: false,
 			project_name: 'test-project',
 		};
-		fs.writeFileSync(path.join(swarmDir, 'knowledge.jsonl'), JSON.stringify(entry));
+		fs.writeFileSync(
+			path.join(swarmDir, 'knowledge.jsonl'),
+			JSON.stringify(entry),
+		);
 
 		const config = {
 			enabled: true,
@@ -2948,7 +2998,9 @@ describe('runCuratorInit passes KNOWLEDGE_ENTRIES to LLM', () => {
 		};
 
 		const os = await import('node:os');
-		const tDir = fs.mkdtempSync(path.join(os.default.tmpdir(), 'curator-init-ke-'));
+		const tDir = fs.mkdtempSync(
+			path.join(os.default.tmpdir(), 'curator-init-ke-'),
+		);
 		const swarmDir = path.join(tDir, '.swarm');
 		fs.mkdirSync(swarmDir, { recursive: true });
 		const entry = {
@@ -2961,14 +3013,21 @@ describe('runCuratorInit passes KNOWLEDGE_ENTRIES to LLM', () => {
 			confidence: 0.9,
 			status: 'established',
 			confirmed_by: [],
-			retrieval_outcomes: { applied_count: 0, succeeded_after_count: 0, failed_after_count: 0 },
+			retrieval_outcomes: {
+				applied_count: 0,
+				succeeded_after_count: 0,
+				failed_after_count: 0,
+			},
 			schema_version: 1,
 			created_at: '2026-01-01T00:00:00Z',
 			updated_at: '2026-01-01T00:00:00Z',
 			hive_eligible: false,
 			project_name: 'test-project',
 		};
-		fs.writeFileSync(path.join(swarmDir, 'knowledge.jsonl'), JSON.stringify(entry));
+		fs.writeFileSync(
+			path.join(swarmDir, 'knowledge.jsonl'),
+			JSON.stringify(entry),
+		);
 
 		const config = {
 			enabled: true,
