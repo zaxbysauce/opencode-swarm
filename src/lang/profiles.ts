@@ -59,6 +59,7 @@ export interface LanguageProfile {
 	prompts: {
 		coderConstraints: string[];
 		reviewerChecklist: string[];
+		testConstraints?: string[];
 	};
 }
 
@@ -944,37 +945,91 @@ LANGUAGE_REGISTRY.register({
 	id: 'php',
 	displayName: 'PHP',
 	tier: 3,
-	extensions: ['.php', '.phtml'],
+	extensions: ['.php', '.phtml', '.blade.php'],
 	treeSitter: { grammarId: 'php', wasmFile: 'tree-sitter-php.wasm' },
 	build: {
 		detectFiles: ['composer.json'],
-		commands: [],
-	},
-	test: {
-		detectFiles: ['phpunit.xml', 'phpunit.xml.dist'],
-		frameworks: [
+		commands: [
 			{
-				name: 'PHPUnit',
-				detect: 'phpunit.xml',
-				cmd: 'vendor/bin/phpunit',
+				name: 'Composer Install',
+				cmd: 'composer install --no-interaction --prefer-dist',
+				detectFile: 'composer.json',
 				priority: 1,
 			},
 		],
 	},
+	test: {
+		detectFiles: ['Pest.php', 'phpunit.xml', 'phpunit.xml.dist'],
+		frameworks: [
+			{
+				name: 'Pest',
+				detect: 'Pest.php',
+				cmd: 'vendor/bin/pest',
+				priority: 1,
+			},
+			{
+				name: 'PHPUnit',
+				detect: 'phpunit.xml',
+				cmd: 'vendor/bin/phpunit',
+				priority: 3,
+			},
+			{
+				name: 'PHPUnit',
+				detect: 'phpunit.xml.dist',
+				cmd: 'vendor/bin/phpunit',
+				priority: 4,
+			},
+		],
+	},
 	lint: {
-		detectFiles: ['.php-cs-fixer.php', 'phpcs.xml'],
+		detectFiles: [
+			'phpstan.neon',
+			'phpstan.neon.dist',
+			'pint.json',
+			'.php-cs-fixer.php',
+			'phpcs.xml',
+		],
 		linters: [
+			// Larastan (Laravel-aware PHPStan wrapper) — highest priority static analysis
+			// Detected by phpstan.neon containing "larastan/larastan" references.
+			// Uses the same phpstan.neon config file as PHPStan but with Laravel bindings.
+			// NOTE: Larastan detection via config file content is complex; for now detect via
+			// the larastan config convention (larastan.neon if present, else fall through to phpstan.neon check in phase 3).
+			// For this task: detect Larastan by presence of larastan.neon (uncommon) OR
+			// keep PHPStan at neon level and let Phase 3 (Laravel detection) promote Larastan.
+			// Decision: use phpstan.neon as the detect file for both, with Larastan at priority 1
+			// and PHPStan at priority 2. Both use vendor/bin/phpstan — Larastan runs through PHPStan CLI.
+			{
+				name: 'Larastan',
+				detect: 'phpstan.neon',
+				cmd: 'vendor/bin/phpstan analyse',
+				priority: 1,
+			},
+			{
+				name: 'PHPStan',
+				detect: 'phpstan.neon.dist',
+				cmd: 'vendor/bin/phpstan analyse',
+				priority: 2,
+			},
+			// Pint — Laravel-focused PHP formatter. Preferred formatter when pint.json present.
+			{
+				name: 'Pint',
+				detect: 'pint.json',
+				cmd: 'vendor/bin/pint --test',
+				priority: 3,
+			},
+			// PHP-CS-Fixer — fallback formatter for non-Laravel or non-Pint projects
 			{
 				name: 'PHP-CS-Fixer',
 				detect: '.php-cs-fixer.php',
 				cmd: 'vendor/bin/php-cs-fixer fix --dry-run --diff',
-				priority: 1,
+				priority: 4,
 			},
 		],
 	},
 	audit: {
 		detectFiles: ['composer.lock'],
-		command: 'composer audit --format=json',
+		command: 'composer audit --locked --format=json',
 		outputFormat: 'json',
 	},
 	sast: { nativeRuleSet: 'php', semgrepSupport: 'ga' },
@@ -984,12 +1039,24 @@ LANGUAGE_REGISTRY.register({
 			'Use strict types declaration: declare(strict_types=1)',
 			'Prefer type hints and return type declarations on all functions',
 			'Use dependency injection over static methods and singletons',
+			'Prefer named constructors and value objects over primitive obsession',
 		],
 		reviewerChecklist: [
 			'Verify no user input reaches SQL queries without parameterised binding',
 			'Check for XSS — all output must be escaped with htmlspecialchars()',
 			'Confirm no eval(), exec(), or shell_exec() with user-controlled input',
 			'Validate proper error handling — no bare catch blocks that swallow errors',
+			'Challenge any PHP/Laravel documentation or README claim that exceeds what is implemented and CI-verified in v6.46.0 (composer build, PHPUnit/Pest/artisan test, Pint/PHP-CS-Fixer lint, PHPStan static analysis, composer audit, Laravel detection, Blade scanning, 3 Laravel SAST rules). If a PR adds docs claiming broader support, verify it is backed by tests.',
+		],
+		testConstraints: [
+			'Prefer feature tests for HTTP, middleware, and authentication flows — use Laravel RefreshDatabase or DatabaseTransactions traits',
+			'Use unit tests for isolated business logic classes that do not require the full Laravel application container',
+			'Pest and PHPUnit coexist in many Laravel repos — php artisan test runs both; do not assume PHPUnit-only',
+			'Use .env.testing for test environment configuration; run php artisan config:clear when environment changes affect tests',
+			'For database tests, prefer RefreshDatabase over manual setUp/tearDown to avoid state leakage between tests',
+			'Run php artisan config:clear and php artisan cache:clear before running tests if environment variables changed',
+			'Use separate .env.testing file for test-specific configuration; never rely on .env for CI test runs',
+			'For parallel testing with php artisan test --parallel, ensure database connections use separate databases per worker (APP_ENV=testing + test database suffix pattern)',
 		],
 	},
 });

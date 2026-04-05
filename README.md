@@ -30,7 +30,7 @@ Most AI coding tools let one model write code and ask that same model whether th
 - 🔒 **Gated pipeline** — code never ships without reviewer + test engineer approval (bypassed in turbo mode)
 - 🔄 **Phase completion gates** — completion-verify and drift verifier gates enforced before phase completion (bypassed in turbo mode)
 - 🔁 **Resumable sessions** — all state saved to `.swarm/`; pick up any project any day
-- 🌐 **11 languages** — TypeScript, Python, Go, Rust, Java, Kotlin, C#, C/C++, Swift, Dart, Ruby
+- 🌐 **12 languages** — TypeScript, Python, Go, Rust, Java, Kotlin, C#, C/C++, Swift, Dart, Ruby, PHP
 - 🛡️ **Built-in security** — SAST, secrets scanning, dependency audit per task
 - 🆓 **Free tier** — works with OpenCode Zen's free model roster
 - ⚙️ **Fully configurable** — override any agent's model, disable agents, tune guardrails
@@ -848,7 +848,7 @@ To disable entirely, set `context_budget.enabled: false` in your swarm config.
 
 | Tool | What It Does |
 |------|-------------|
-| syntax_check | Tree-sitter validation across 11 languages |
+| syntax_check | Tree-sitter validation across 12 languages |
 | placeholder_scan | Catches TODOs, FIXMEs, stubs, placeholder text |
 | sast_scan | Offline security analysis, 63+ rules, 9 languages |
 | sbom_generate | CycloneDX dependency tracking, 8 ecosystems |
@@ -1483,7 +1483,7 @@ bun test
 
 ## Supported Languages
 
-OpenCode Swarm v6.16+ ships with language profiles for 11 languages across three quality tiers. All tools use graceful degradation — if a binary is not on PATH, the tool skips with a soft warning rather than a hard failure.
+OpenCode Swarm v6.46+ ships with language profiles for 12 languages across three quality tiers. All tools use graceful degradation — if a binary is not on PATH, the tool skips with a soft warning rather than a hard failure.
 
 | Language | Tier | Syntax | Build | Test | Lint | Audit | SAST |
 |---|:---:|:---:|:---:|:---:|:---:|:---:|:---:|
@@ -1498,6 +1498,9 @@ OpenCode Swarm v6.16+ ships with language profiles for 11 languages across three
 | Swift | 2 | ✅ | ✅ swift build | ✅ swift test | ✅ swiftlint | — | 🔶 Semgrep exp. |
 | Dart / Flutter | 3 | ✅ | ✅ dart pub | ✅ dart test | ✅ dart analyze | ✅ dart pub outdated | — |
 | Ruby | 3 | ✅ | — | ✅ RSpec / minitest | ✅ RuboCop | ✅ bundle-audit | 🔶 Semgrep exp. |
+| PHP / Laravel | 3 | ✅ | ✅ Composer install | ✅ PHPUnit / Pest / artisan test | ✅ Pint / PHP-CS-Fixer | ✅ composer audit | ✅ 10+ native rules |
+
+> **PHP + Laravel baseline**: PHP v6.46+ ships with deterministic Laravel project detection (multi-signal: `artisan` file, `laravel/framework` dependency, `config/app.php`). When detected, commands are automatically overridden to `php artisan test`, Pint formatting, and Larastan static analysis. Laravel-specific SAST rules cover SQL injection via raw queries, mass-assignment vulnerabilities, and destructive migrations without rollback. `.blade.php` files are included in all scanning pipelines.
 
 **Tier definitions:**
 - **Tier 1** — Full pipeline: all tools integrated and tested end-to-end.
