@@ -1,5 +1,12 @@
 # Changelog
 
+## [6.50.0](https://github.com/zaxbysauce/opencode-swarm/compare/v6.49.0...v6.50.0) (2026-04-05)
+
+
+### Features
+
+* knowledge system + plan sync overhaul ([#408](https://github.com/zaxbysauce/opencode-swarm/issues/408)) ([9b860bb](https://github.com/zaxbysauce/opencode-swarm/commit/9b860bb7f58e0faa219917b1e93979ba7b9be2d0))
+
 ## [6.49.0](https://github.com/zaxbysauce/opencode-swarm/compare/v6.48.0...v6.49.0) (2026-04-05)
 
 
