@@ -18,6 +18,7 @@ This index covers all documentation available for OpenCode Swarm.
 | [Configuration Reference](configuration.md) | Config file locations, minimal example, and all config keys |
 | [Pre-Swarm Planning Guide](planning.md) | How to plan tasks before running the swarm, task field reference, multi-model planning, and the built-in spec pipeline |
 | [Swarm Briefing for LLMs](swarm-briefing.md) | Pipeline steps, task format, state machine, and scope enforcement — written for an LLM acting as plan author |
+| [PHP and Laravel Practical Guide](php-laravel.md) | PHP/Composer project detection, Laravel framework detection and command override, Pest/PHPUnit coexistence, Composer audit, and Blade/Eloquent SAST coverage |
 
 ## Architecture and design
 

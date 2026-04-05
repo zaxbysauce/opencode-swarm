@@ -19,7 +19,8 @@ type Ecosystem =
 	| 'go'
 	| 'dotnet'
 	| 'ruby'
-	| 'dart';
+	| 'dart'
+	| 'composer';
 
 interface VulnerabilityFinding {
 	package: string;
@@ -55,9 +56,17 @@ interface CombinedAuditResult {
 function isValidEcosystem(value: unknown): value is Ecosystem {
 	return (
 		typeof value === 'string' &&
-		['auto', 'npm', 'pip', 'cargo', 'go', 'dotnet', 'ruby', 'dart'].includes(
-			value,
-		)
+		[
+			'auto',
+			'npm',
+			'pip',
+			'cargo',
+			'go',
+			'dotnet',
+			'ruby',
+			'dart',
+			'composer',
+		].includes(value)
 	);
 }
 
@@ -68,6 +77,23 @@ function validateArgs(args: unknown): args is { ecosystem?: Ecosystem } {
 		return false;
 	}
 	return true;
+}
+
+// ============ Composer Audit Types ============
+interface ComposerAuditAdvisory {
+	advisoryId: string;
+	packageName: string;
+	reportedAt: string;
+	title: string;
+	link: string;
+	cve: string;
+	affectedVersions: string;
+	sources: unknown[];
+}
+
+interface ComposerAuditJson {
+	advisories: Record<string, ComposerAuditAdvisory[]>;
+	abandoned: Record<string, string>;
 }
 
 // ============ File Detection ============
@@ -119,6 +145,11 @@ function detectEcosystems(directory: string): string[] {
 	// Check for pubspec.yaml -> dart
 	if (fs.existsSync(path.join(cwd, 'pubspec.yaml'))) {
 		ecosystems.push('dart');
+	}
+
+	// Check for composer.lock -> composer
+	if (fs.existsSync(path.join(cwd, 'composer.lock'))) {
+		ecosystems.push('composer');
 	}
 
 	return ecosystems;
@@ -1333,6 +1364,186 @@ async function runDartAudit(directory: string): Promise<AuditResult> {
 	}
 }
 
+// ============ Composer Audit ============
+async function runComposerAudit(directory: string): Promise<AuditResult> {
+	const command = ['composer', 'audit', '--locked', '--format=json'];
+
+	if (!isCommandAvailable('composer')) {
+		warn('[pkg-audit] composer not found, skipping Composer audit');
+		return {
+			ecosystem: 'composer',
+			command,
+			findings: [],
+			criticalCount: 0,
+			highCount: 0,
+			totalCount: 0,
+			clean: true,
+			note: 'composer not installed or not on PATH',
+		};
+	}
+
+	try {
+		const proc = Bun.spawn(command, {
+			stdout: 'pipe',
+			stderr: 'pipe',
+			cwd: directory,
+		});
+
+		const timeoutPromise = new Promise<'timeout'>((resolve) =>
+			setTimeout(() => resolve('timeout'), AUDIT_TIMEOUT_MS),
+		);
+		const result = await Promise.race([
+			Promise.all([
+				new Response(proc.stdout).text(),
+				new Response(proc.stderr).text(),
+			]).then(([stdout, stderr]) => ({ stdout, stderr })),
+			timeoutPromise,
+		]);
+
+		if (result === 'timeout') {
+			proc.kill();
+			return {
+				ecosystem: 'composer',
+				command,
+				findings: [],
+				criticalCount: 0,
+				highCount: 0,
+				totalCount: 0,
+				clean: true,
+				note: `composer audit timed out after ${AUDIT_TIMEOUT_MS / 1000}s`,
+			};
+		}
+
+		let { stdout } = result;
+		if (stdout.length > MAX_OUTPUT_BYTES) {
+			stdout = stdout.slice(0, MAX_OUTPUT_BYTES);
+		}
+
+		const exitCode = await proc.exited;
+
+		// Exit code semantics (Composer Auditor.php bitmask):
+		// STATUS_VULNERABLE = 1 (bit 0): security vulnerabilities found
+		// STATUS_ABANDONED  = 2 (bit 1): abandoned packages found
+		// Exit 3 = 1|2: both vulnerabilities and abandoned
+		// Exit 0: clean
+		const hasVulnerabilities = (exitCode & 1) !== 0;
+		const hasAbandoned = (exitCode & 2) !== 0;
+
+		// Exit 0: clean — no vulnerabilities, no abandoned packages
+		if (exitCode === 0) {
+			return {
+				ecosystem: 'composer',
+				command,
+				findings: [],
+				criticalCount: 0,
+				highCount: 0,
+				totalCount: 0,
+				clean: true,
+			};
+		}
+
+		// Vulnerabilities present (exit 1 or 3): guard against empty stdout before parsing
+		if (hasVulnerabilities && !stdout.trim()) {
+			return {
+				ecosystem: 'composer',
+				command,
+				findings: [],
+				criticalCount: 0,
+				highCount: 0,
+				totalCount: 0,
+				clean: false,
+				note: `composer audit returned exit code ${exitCode} indicating vulnerabilities but produced no output`,
+			};
+		}
+
+		// Parse JSON output for non-zero exits
+		let parsed: ComposerAuditJson;
+		try {
+			parsed = JSON.parse(stdout || '{}');
+		} catch {
+			return {
+				ecosystem: 'composer',
+				command,
+				findings: [],
+				criticalCount: 0,
+				highCount: 0,
+				totalCount: 0,
+				clean: !hasVulnerabilities,
+				note: `composer audit returned exit code ${exitCode} but output was not valid JSON`,
+			};
+		}
+
+		// Exit 2 only (abandoned packages, no security vulnerabilities): informational, not a failure
+		if (!hasVulnerabilities && hasAbandoned) {
+			const abandonedList = Object.keys(parsed.abandoned ?? {});
+			return {
+				ecosystem: 'composer',
+				command,
+				findings: [],
+				criticalCount: 0,
+				highCount: 0,
+				totalCount: 0,
+				clean: true,
+				note:
+					abandonedList.length > 0
+						? `Abandoned packages detected: ${abandonedList.join(', ')}`
+						: 'composer audit exit 2 (abandoned packages)',
+			};
+		}
+
+		// Exit 1 or 3: security vulnerabilities present — parse findings
+		const findings: VulnerabilityFinding[] = [];
+
+		for (const advisories of Object.values(parsed.advisories ?? {})) {
+			for (const advisory of advisories) {
+				const hasCve = Boolean(advisory.cve?.trim());
+				findings.push({
+					package: advisory.packageName,
+					installedVersion: 'see composer.lock',
+					patchedVersion: null,
+					severity: hasCve ? 'high' : 'moderate',
+					title: advisory.title,
+					cve: advisory.cve || null,
+					url: advisory.link || null,
+				});
+			}
+		}
+
+		const criticalCount = findings.filter(
+			(f) => f.severity === 'critical',
+		).length;
+		const highCount = findings.filter((f) => f.severity === 'high').length;
+
+		// If also abandoned (exit 3), add a note
+		const abandonedNote =
+			hasAbandoned && Object.keys(parsed.abandoned ?? {}).length > 0
+				? ` Also abandoned: ${Object.keys(parsed.abandoned!).join(', ')}`
+				: '';
+
+		return {
+			ecosystem: 'composer',
+			command,
+			findings,
+			criticalCount,
+			highCount,
+			totalCount: findings.length,
+			clean: false,
+			...(abandonedNote ? { note: abandonedNote.trim() } : {}),
+		};
+	} catch (error) {
+		return {
+			ecosystem: 'composer',
+			command,
+			findings: [],
+			criticalCount: 0,
+			highCount: 0,
+			totalCount: 0,
+			clean: true,
+			note: `composer audit error: ${error instanceof Error ? error.message : String(error)}`,
+		};
+	}
+}
+
 // ============ Combined Audit ============
 async function runAutoAudit(directory: string): Promise<CombinedAuditResult> {
 	const ecosystems = detectEcosystems(directory);
@@ -1373,6 +1584,9 @@ async function runAutoAudit(directory: string): Promise<CombinedAuditResult> {
 			case 'dart':
 				results.push(await runDartAudit(directory));
 				break;
+			case 'composer':
+				results.push(await runComposerAudit(directory));
+				break;
 		}
 	}
 
@@ -1403,10 +1617,20 @@ export const pkg_audit: ReturnType<typeof tool> = createSwarmTool({
 		'Run package manager security audit (npm, pip, cargo, go, dotnet, ruby, dart) and return structured CVE data. Use ecosystem to specify which package manager, or "auto" to detect from project files.',
 	args: {
 		ecosystem: tool.schema
-			.enum(['auto', 'npm', 'pip', 'cargo', 'go', 'dotnet', 'ruby', 'dart'])
+			.enum([
+				'auto',
+				'npm',
+				'pip',
+				'cargo',
+				'go',
+				'dotnet',
+				'ruby',
+				'dart',
+				'composer',
+			])
 			.default('auto')
 			.describe(
-				'Package ecosystem to audit: "auto" (detect from project files), "npm", "pip", "cargo", "go" (govulncheck), "dotnet" (dotnet list package), "ruby" (bundle-audit), or "dart" (dart pub outdated)',
+				'Package ecosystem to audit: "auto" (detect from project files), "npm", "pip", "cargo", "go" (govulncheck), "dotnet" (dotnet list package), "ruby" (bundle-audit), "dart" (dart pub outdated), or "composer" (Composer/PHP)',
 			),
 	},
 	async execute(args: unknown, directory: string): Promise<string> {
@@ -1414,7 +1638,7 @@ export const pkg_audit: ReturnType<typeof tool> = createSwarmTool({
 		if (!validateArgs(args)) {
 			const errorResult = {
 				error:
-					'Invalid arguments: ecosystem must be "auto", "npm", "pip", "cargo", "go", "dotnet", "ruby", or "dart"',
+					'Invalid arguments: ecosystem must be "auto", "npm", "pip", "cargo", "go", "dotnet", "ruby", "dart", or "composer"',
 			};
 			return JSON.stringify(errorResult, null, 2);
 		}
@@ -1460,6 +1684,9 @@ export const pkg_audit: ReturnType<typeof tool> = createSwarmTool({
 				break;
 			case 'dart':
 				result = await runDartAudit(directory);
+				break;
+			case 'composer':
+				result = await runComposerAudit(directory);
 				break;
 		}
 

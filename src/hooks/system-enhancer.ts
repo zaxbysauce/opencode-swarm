@@ -387,6 +387,42 @@ function buildLanguageReviewerChecklist(
 }
 
 /**
+ * Build language-specific test-engineer constraints block from task file paths.
+ * Returns null if no language profile is found or no testConstraints are defined.
+ */
+function buildLanguageTestConstraints(
+	currentTaskText: string | null,
+): string | null {
+	if (!currentTaskText) return null;
+
+	const filePaths = currentTaskText.match(/\bsrc\/\S+\.[a-zA-Z0-9]+\b/g) ?? [];
+	if (filePaths.length === 0) return null;
+
+	const allConstraints: string[] = [];
+	const seenConstraints = new Set<string>();
+	let languageLabel = '';
+
+	for (const filePath of filePaths) {
+		const profile = getProfileForFile(filePath);
+		if (!profile) continue;
+		if (!languageLabel) {
+			languageLabel = profile.displayName;
+		}
+		const testConstraints = profile.prompts.testConstraints ?? [];
+		for (const constraint of testConstraints) {
+			if (!seenConstraints.has(constraint) && allConstraints.length < 10) {
+				seenConstraints.add(constraint);
+				allConstraints.push(constraint);
+			}
+		}
+	}
+
+	if (allConstraints.length === 0) return null;
+
+	return `[LANGUAGE-SPECIFIC TEST CONSTRAINTS — ${languageLabel}]\n${allConstraints.map((c) => `- ${c}`).join('\n')}`;
+}
+
+/**
  * Creates the experimental.chat.system.transform hook for system enhancement.
  */
 export function createSystemEnhancerHook(
@@ -815,6 +851,19 @@ ${handoffContent}`;
 								buildLanguageReviewerChecklist(taskText_rev_a);
 							if (revChecklist_a) {
 								tryInject(revChecklist_a);
+							}
+						}
+
+						// v6.46: Language-specific test-engineer constraints injection
+						if (baseRole === 'test_engineer') {
+							const taskText_te_a =
+								plan && plan.migration_status !== 'migration_failed'
+									? extractCurrentTaskFromPlan(plan)
+									: null;
+							const testConstraints_a =
+								buildLanguageTestConstraints(taskText_te_a);
+							if (testConstraints_a) {
+								tryInject(testConstraints_a);
 							}
 						}
 
@@ -1454,6 +1503,29 @@ ${handoffContent}`;
 								kind: 'agent_context' as ContextCandidate['kind'],
 								text: revChecklist_b,
 								tokens: estimateTokens(revChecklist_b),
+								priority: 2,
+								metadata: { contentType: 'prose' as ContentType },
+							});
+						}
+					}
+
+					// v6.46: Language-specific test-engineer constraints injection (Path B)
+					const isTestEngineer_b =
+						activeAgent_coder_b &&
+						stripKnownSwarmPrefix(activeAgent_coder_b) === 'test_engineer';
+					if (isTestEngineer_b) {
+						const taskText_te_b =
+							plan && plan.migration_status !== 'migration_failed'
+								? extractCurrentTaskFromPlan(plan)
+								: null;
+						const testConstraints_b =
+							buildLanguageTestConstraints(taskText_te_b);
+						if (testConstraints_b) {
+							candidates.push({
+								id: `candidate-${idCounter++}`,
+								kind: 'agent_context' as ContextCandidate['kind'],
+								text: testConstraints_b,
+								tokens: estimateTokens(testConstraints_b),
 								priority: 2,
 								metadata: { contentType: 'prose' as ContentType },
 							});

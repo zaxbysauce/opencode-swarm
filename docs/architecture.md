@@ -554,6 +554,7 @@ project/
 │   │   ├── compaction-customizer.ts # Session compaction enrichment
 │   │   ├── agent-activity.ts        # Tool hooks (activity tracking + flush)
 │   │   └── delegation-tracker.ts    # Chat message hook (active agent tracking)
+│   ├── lang/             # Language profiles, framework detector (PHP, Laravel, etc.)
 │   ├── tools/             # Domain detector, file extractor, gitingest, diff, retrieve-summary
 │   ├── plan/              # Plan management
 │   │   └── manager.ts     # load/save/migrate/derive plan operations
@@ -918,7 +919,7 @@ The OpenCode Plugin API allows **one handler per hook type**. When multiple feat
 
 ## Intelligence & Audit Tools (v6.5)
 
-Five new tools extend the architect's decision-making capabilities with intelligence gathering and QA auditing:
+Five new tools extend the architect's decision-making capabilities with intelligence gathering and QA auditing, plus a framework detection layer for first-class framework-specific tooling.
 
 ### `todo_extract` — Annotation Scanner
 Extracts `TODO`, `FIXME`, and `HACK` annotations across the codebase using regex matching and file discovery (Node.js native glob for cross-platform safety).
@@ -956,11 +957,11 @@ Read-only tool to query the gate status of a specific task. Reads `.swarm/eviden
 **Safety**: Validates task ID format against three accepted patterns (canonical N.M or N.M.P numeric format, retrospective format retro-N, or internal tool IDs like sast_scan/quality_budget/syntax_check/placeholder_scan/sbom_generate/build/secretscan), enforces path containment within workspace `.swarm/evidence/` directory, reads-only (no writes)
 
 ### `pkg_audit` — Vulnerability Scanner
-Wraps `npm audit`, `pip-audit`, and `cargo audit` via Bun.spawn to identify security vulnerabilities in project dependencies.
+Wraps `npm audit`, `pip-audit`, `cargo audit`, and `composer audit` via Bun.spawn to identify security vulnerabilities in project dependencies.
 
 **Usage**: Phase 2 (discovery) or Phase 6 (phase complete) to scope security risk and feed results to reviewer
 
-**Input**: `ecosystem` (npm|pip|cargo), `days` (vulnerability age), `top_n` (limit results)  
+**Input**: `ecosystem` (npm|pip|cargo|composer), `days` (vulnerability age), `top_n` (limit results)  
 **Output**: Structured CVE data with severity, patched versions, and advisory URLs
 
 **Safety**: Validates enum args strictly, bounds-checks integers (1-365 days, 1-100 results), enforces timeout via Promise.race
@@ -1039,7 +1040,39 @@ Reads the manifest, scores docs against task context using Jaccard bigram simila
 
 **Constraints**: Max 5 per document, 15-200 characters each, markdown stripped.
 
-### Common Security Patterns
+### `framework_detector` — Laravel Framework Detection (Phase 3)
+
+Detects Laravel projects via multi-signal logic in `src/lang/framework-detector.ts`. Requires 2-of-3 signals for a positive detection:
+
+| Signal | Check |
+|--------|-------|
+| `artisan_file` | `artisan` CLI script exists at project root |
+| `laravel_dep` | `laravel/framework` present in `composer.json` |
+| `app_config` | `config/app.php` exists |
+
+**Usage**: During discovery (Phase 2) or before test command resolution, to activate Laravel-specific tooling overlays.
+
+**Output**:
+```typescript
+interface LaravelDetectionSignals {
+  hasArtisanFile: boolean;
+  hasLaravelDep: boolean;
+  hasAppConfig: boolean;
+  signals: ('artisan_file' | 'laravel_dep' | 'app_config')[];
+  detected: boolean;  // true when 2+ signals present
+}
+
+interface LaravelCommandOverlay {
+  test: string;           // "php artisan test"
+  lint: string[];         // ["vendor/bin/pint", "vendor/bin/php-cs-fixer fix"]
+  analyze: string[];       // ["vendor/bin/phpstan analyse", "vendor/bin/phpstan analyse --memory-limit=1G"]
+  audit: string;          // "composer audit --locked --format=json"
+}
+```
+
+**SAST rules active for Laravel projects**: `sast/php-laravel-sql-injection`, `sast/php-laravel-mass-assignment`, `sast/php-laravel-destructive-migration`
+
+**Common Security Patterns
 
 All five tools follow strict security practices:
 - **Path validation**: `path.resolve()` + `startsWith(workspaceRoot + path.sep)` prevents traversal bypass
@@ -1147,7 +1180,7 @@ Six new automated gates enforce code quality before human review. All gates run 
 |------|----------|-------------|
 | `syntax_check` | Tree-sitter parse validation | Return to coder for fix |
 | `placeholder_scan` | Detect TODO/FIXME/stubs | Return to coder to complete |
-| `sast_scan` | Static security analysis (63 rules) | Return to coder for fix |
+| `sast_scan` | Static security analysis (66 rules) | Return to coder for fix |
 | `sbom_generate` | CycloneDX SBOM generation | Log for audit trail |
 | `build_check` | Build/typecheck verification | Return to coder for fix |
 | `pre_check_batch` | Parallel verification (v6.10.0) | Return to coder for fix |
@@ -1182,13 +1215,14 @@ Detects patterns indicating incomplete implementation:
 
 ### sast_scan - Static Security Analysis
 
-63+ security rules across 9 languages covering:
-- SQL injection vectors
+66+ security rules across 9 languages covering:
+- SQL injection vectors (including Laravel-specific `DB::raw()` concatenation)
 - Path traversal patterns
 - Hardcoded secrets
 - Insecure crypto usage
 - XSS vulnerabilities
 - Command injection
+- Laravel-specific: mass-assignment via empty `$guarded`, destructive migrations without rollback
 
 **Offline operation**: Built-in rule engine, no external API calls
 **Optional enhancement**: Semgrep Tier B rules if available on PATH

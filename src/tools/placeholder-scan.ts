@@ -156,6 +156,7 @@ const SUPPORTED_PARSER_EXTENSIONS = new Set([
 	'.hpp',
 	'.cs',
 	'.php',
+	'.blade.php',
 	'.rb',
 ]);
 

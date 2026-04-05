@@ -111,4 +111,42 @@ export const phpRules: SastRule[] = [
 			'Use preg_replace_callback instead of preg_replace with /e modifier.',
 		pattern: /preg_replace\s*\(\s*\/[^/]*\/e/,
 	},
+	{
+		id: 'sast/php-laravel-sql-injection',
+		name: 'Laravel raw SQL with string concatenation',
+		severity: 'high',
+		languages: ['php'],
+		description:
+			'DB::raw(), whereRaw(), selectRaw(), orderByRaw(), or havingRaw() with concatenated user input creates SQL injection risk',
+		remediation:
+			'Use parameterized queries with ? bindings instead of string concatenation.',
+		pattern:
+			/(?:DB::raw|->whereRaw|->selectRaw|->orderByRaw|->havingRaw)\s*\(\s*(?:["'][^"']*["']\s*\.\s*\$|\$)/,
+	},
+	{
+		id: 'sast/php-laravel-mass-assignment',
+		name: 'Laravel mass assignment protection disabled',
+		severity: 'medium',
+		languages: ['php'],
+		description:
+			'$guarded = [] disables all mass-assignment protection, allowing any attribute to be set',
+		remediation:
+			'Use $fillable to explicitly whitelist allowed attributes, or remove $guarded = [] to keep default protection.',
+		pattern: /(?:protected|public)\s+\$guarded\s*=\s*\[\s*\]/,
+	},
+	{
+		id: 'sast/php-laravel-destructive-migration',
+		name: 'Destructive migration without down() method',
+		severity: 'medium',
+		languages: ['php'],
+		description:
+			'Destructive migration operations (drop*) without a down() method cannot be rolled back',
+		remediation:
+			'Add a down() method that reverses the migration, or use a safer alternative like soft deletes.',
+		pattern: /(?:Schema::drop(?:IfExists)?\(|->dropColumn\()/,
+		validate: (_match, context) => {
+			// Only flag if down() method is NOT present in the file
+			return !/function\s+down\s*\(/.test(context.content);
+		},
+	},
 ];
