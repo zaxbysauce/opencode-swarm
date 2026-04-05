@@ -1148,9 +1148,11 @@ Control how tool outputs are summarized for LLM context.
 | `/swarm handoff` | Generate a handoff summary for context-budget-critical sessions |
 | `/swarm simulate` | Simulate plan execution without writing code |
 | `/swarm promote` | Promote swarm-scoped knowledge to hive (global) knowledge |
-| `/swarm evidence-summary` | Generate a summary across all evidence bundles |
-| `/swarm knowledge-add [text]` | Add an entry directly to the swarm knowledge base |
-| `/swarm knowledge-remove [id]` | Remove an entry from the swarm knowledge base |
+| `/swarm evidence summary` | Generate a summary across all evidence bundles with completion ratio and blockers |
+| `/swarm knowledge` | List knowledge entries |
+| `/swarm knowledge migrate` | Migrate knowledge entries to the current format |
+| `/swarm knowledge quarantine [id]` | Move a knowledge entry to quarantine |
+| `/swarm knowledge restore [id]` | Restore a quarantined knowledge entry |
 | `/swarm turbo` | Enable turbo mode for the current session (bypasses QA gates) |
 | `/swarm checkpoint` | Save a git checkpoint for the current state |
 
