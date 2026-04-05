@@ -1421,7 +1421,15 @@ async function runComposerAudit(directory: string): Promise<AuditResult> {
 
 		const exitCode = await proc.exited;
 
-		// Exit code 0: clean — no vulnerabilities, no abandoned packages
+		// Exit code semantics (Composer Auditor.php bitmask):
+		// STATUS_VULNERABLE = 1 (bit 0): security vulnerabilities found
+		// STATUS_ABANDONED  = 2 (bit 1): abandoned packages found
+		// Exit 3 = 1|2: both vulnerabilities and abandoned
+		// Exit 0: clean
+		const hasVulnerabilities = (exitCode & 1) !== 0;
+		const hasAbandoned = (exitCode & 2) !== 0;
+
+		// Exit 0: clean — no vulnerabilities, no abandoned packages
 		if (exitCode === 0) {
 			return {
 				ecosystem: 'composer',
@@ -1434,8 +1442,8 @@ async function runComposerAudit(directory: string): Promise<AuditResult> {
 			};
 		}
 
-		// Exit code 2: security vulnerabilities — handle empty stdout before parsing
-		if (exitCode === 2 && !stdout.trim()) {
+		// Vulnerabilities present (exit 1 or 3): guard against empty stdout before parsing
+		if (hasVulnerabilities && !stdout.trim()) {
 			return {
 				ecosystem: 'composer',
 				command,
@@ -1444,11 +1452,11 @@ async function runComposerAudit(directory: string): Promise<AuditResult> {
 				highCount: 0,
 				totalCount: 0,
 				clean: false,
-				note: 'composer audit returned exit code 2 but produced no output',
+				note: `composer audit returned exit code ${exitCode} indicating vulnerabilities but produced no output`,
 			};
 		}
 
-		// Parse JSON output for exit codes 1 and 2
+		// Parse JSON output for non-zero exits
 		let parsed: ComposerAuditJson;
 		try {
 			parsed = JSON.parse(stdout || '{}');
@@ -1460,13 +1468,13 @@ async function runComposerAudit(directory: string): Promise<AuditResult> {
 				criticalCount: 0,
 				highCount: 0,
 				totalCount: 0,
-				clean: exitCode < 2,
+				clean: !hasVulnerabilities,
 				note: `composer audit returned exit code ${exitCode} but output was not valid JSON`,
 			};
 		}
 
-		// Exit code 1: abandoned packages only — not a security failure
-		if (exitCode === 1) {
+		// Exit 2 only (abandoned packages, no security vulnerabilities): informational, not a failure
+		if (!hasVulnerabilities && hasAbandoned) {
 			const abandonedList = Object.keys(parsed.abandoned ?? {});
 			return {
 				ecosystem: 'composer',
@@ -1479,11 +1487,11 @@ async function runComposerAudit(directory: string): Promise<AuditResult> {
 				note:
 					abandonedList.length > 0
 						? `Abandoned packages detected: ${abandonedList.join(', ')}`
-						: 'composer audit exit 1 (abandoned packages)',
+						: 'composer audit exit 2 (abandoned packages)',
 			};
 		}
 
-		// Exit code 2: security vulnerabilities
+		// Exit 1 or 3: security vulnerabilities present — parse findings
 		const findings: VulnerabilityFinding[] = [];
 
 		for (const advisories of Object.values(parsed.advisories ?? {})) {
@@ -1506,6 +1514,12 @@ async function runComposerAudit(directory: string): Promise<AuditResult> {
 		).length;
 		const highCount = findings.filter((f) => f.severity === 'high').length;
 
+		// If also abandoned (exit 3), add a note
+		const abandonedNote =
+			hasAbandoned && Object.keys(parsed.abandoned ?? {}).length > 0
+				? ` Also abandoned: ${Object.keys(parsed.abandoned!).join(', ')}`
+				: '';
+
 		return {
 			ecosystem: 'composer',
 			command,
@@ -1514,6 +1528,7 @@ async function runComposerAudit(directory: string): Promise<AuditResult> {
 			highCount,
 			totalCount: findings.length,
 			clean: false,
+			...(abandonedNote ? { note: abandonedNote.trim() } : {}),
 		};
 	} catch (error) {
 		return {

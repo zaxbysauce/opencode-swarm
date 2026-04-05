@@ -100,7 +100,7 @@ describe('pkg-audit composer audit adversarial', () => {
 	// ===== 1. Oversized advisory title (10,000+ chars) =====
 	describe('oversized advisory title', () => {
 		it('should not crash with 10000-character title and store it as-is', async () => {
-			mockExitCode = 2;
+			mockExitCode = 1;
 			const hugeTitle = 'X'.repeat(10_000);
 			mockStdout = JSON.stringify({
 				advisories: {
@@ -132,7 +132,7 @@ describe('pkg-audit composer audit adversarial', () => {
 		});
 
 		it('should handle 1MB title without crashing', async () => {
-			mockExitCode = 2;
+			mockExitCode = 1;
 			const massiveTitle = 'BUFFER_OVERFLOW '.repeat(50_000);
 			mockStdout = JSON.stringify({
 				advisories: {
@@ -167,7 +167,7 @@ describe('pkg-audit composer audit adversarial', () => {
 	// ===== 2. Injection in packageName =====
 	describe('packageName injection attempts', () => {
 		it('should store newline injection in packageName without executing it', async () => {
-			mockExitCode = 2;
+			mockExitCode = 1;
 			const maliciousPkg = 'vendor/pkg\n; rm -rf /';
 			mockStdout = JSON.stringify({
 				advisories: {
@@ -199,7 +199,7 @@ describe('pkg-audit composer audit adversarial', () => {
 		});
 
 		it('should store shell metacharacters in packageName safely', async () => {
-			mockExitCode = 2;
+			mockExitCode = 1;
 			const shellChars = 'pkg$(echo pwned)pkg`id`pkg';
 			mockStdout = JSON.stringify({
 				advisories: {
@@ -229,7 +229,7 @@ describe('pkg-audit composer audit adversarial', () => {
 		});
 
 		it('should store path traversal attempt in packageName', async () => {
-			mockExitCode = 2;
+			mockExitCode = 1;
 			const pathTraversal = '../../../etc/passwd';
 			mockStdout = JSON.stringify({
 				advisories: {
@@ -262,7 +262,7 @@ describe('pkg-audit composer audit adversarial', () => {
 	// ===== 3. Injection in CVE field =====
 	describe('CVE field injection attempts', () => {
 		it('should store HTML/script injection in CVE field without executing', async () => {
-			mockExitCode = 2;
+			mockExitCode = 1;
 			const maliciousCve = 'CVE-2024-<script>alert(1)</script>';
 			mockStdout = JSON.stringify({
 				advisories: {
@@ -293,7 +293,7 @@ describe('pkg-audit composer audit adversarial', () => {
 		});
 
 		it('should store template literal injection in CVE field', async () => {
-			mockExitCode = 2;
+			mockExitCode = 1;
 			const templateCve = 'CVE-2024-${process.env.SECRET}';
 			mockStdout = JSON.stringify({
 				advisories: {
@@ -323,7 +323,7 @@ describe('pkg-audit composer audit adversarial', () => {
 		});
 
 		it('should store SQL injection pattern in CVE field', async () => {
-			mockExitCode = 2;
+			mockExitCode = 1;
 			const sqlCve = "CVE-2024-99999'; DROP TABLE users;--";
 			mockStdout = JSON.stringify({
 				advisories: {
@@ -356,7 +356,7 @@ describe('pkg-audit composer audit adversarial', () => {
 	// ===== 4. Null fields in advisory =====
 	describe('null fields in advisory', () => {
 		it('should handle null packageName without crashing', async () => {
-			mockExitCode = 2;
+			mockExitCode = 1;
 			mockStdout = JSON.stringify({
 				advisories: {
 					'vendor/pkg': [
@@ -387,7 +387,7 @@ describe('pkg-audit composer audit adversarial', () => {
 		});
 
 		it('should handle null title without crashing', async () => {
-			mockExitCode = 2;
+			mockExitCode = 1;
 			mockStdout = JSON.stringify({
 				advisories: {
 					'vendor/pkg': [
@@ -416,7 +416,7 @@ describe('pkg-audit composer audit adversarial', () => {
 		});
 
 		it('should handle null CVE without crashing', async () => {
-			mockExitCode = 2;
+			mockExitCode = 1;
 			mockStdout = JSON.stringify({
 				advisories: {
 					'vendor/pkg': [
@@ -446,7 +446,7 @@ describe('pkg-audit composer audit adversarial', () => {
 		});
 
 		it('should handle null link without crashing', async () => {
-			mockExitCode = 2;
+			mockExitCode = 1;
 			mockStdout = JSON.stringify({
 				advisories: {
 					'vendor/pkg': [
@@ -475,7 +475,7 @@ describe('pkg-audit composer audit adversarial', () => {
 		});
 
 		it('should handle all-null advisory without crashing', async () => {
-			mockExitCode = 2;
+			mockExitCode = 1;
 			mockStdout = JSON.stringify({
 				advisories: {
 					'vendor/pkg': [
@@ -508,10 +508,10 @@ describe('pkg-audit composer audit adversarial', () => {
 		});
 	});
 
-	// ===== 5. Empty advisories object with exit code 2 =====
-	describe('empty advisories with exit code 2', () => {
-		it('should return clean:false with 0 findings when advisories is empty despite exit code 2', async () => {
-			mockExitCode = 2;
+	// ===== 5. Empty advisories object with exit code 1 =====
+	describe('empty advisories with exit code 1', () => {
+		it('should return clean:false with 0 findings when advisories is empty despite exit code 1', async () => {
+			mockExitCode = 1;
 			mockStdout = JSON.stringify({
 				advisories: {},
 				abandoned: {},
@@ -529,7 +529,7 @@ describe('pkg-audit composer audit adversarial', () => {
 		});
 
 		it('should return clean:false when advisories is undefined', async () => {
-			mockExitCode = 2;
+			mockExitCode = 1;
 			mockStdout = JSON.stringify({
 				advisories: undefined,
 				abandoned: {},
@@ -548,7 +548,7 @@ describe('pkg-audit composer audit adversarial', () => {
 	// ===== 6. Deeply nested / unexpected JSON structure =====
 	describe('unexpected JSON structure', () => {
 		it('should ignore unexpected top-level fields and still parse advisories', async () => {
-			mockExitCode = 2;
+			mockExitCode = 1;
 			mockStdout = JSON.stringify({
 				hacker: '<script>evil()</script>',
 				__proto__: { polluted: true },
@@ -581,7 +581,7 @@ describe('pkg-audit composer audit adversarial', () => {
 		});
 
 		it('should handle advisories as array instead of object gracefully', async () => {
-			mockExitCode = 2;
+			mockExitCode = 1;
 			mockStdout = JSON.stringify({
 				advisories: [
 					{
@@ -610,7 +610,7 @@ describe('pkg-audit composer audit adversarial', () => {
 		});
 
 		it('should handle deeply nested malicious __proto__ in advisory fields', async () => {
-			mockExitCode = 2;
+			mockExitCode = 1;
 			mockStdout = JSON.stringify({
 				advisories: {
 					'vendor/pkg': [
@@ -640,10 +640,10 @@ describe('pkg-audit composer audit adversarial', () => {
 		});
 	});
 
-	// ===== 7. Exit code 2 with empty stdout =====
-	describe('exit code 2 with empty stdout', () => {
-		it('should return clean:false with error note when exit code 2 but stdout is empty', async () => {
-			mockExitCode = 2;
+	// ===== 7. Exit code 1 with empty stdout =====
+	describe('exit code 1 with empty stdout', () => {
+		it('should return clean:false with error note when exit code 1 but stdout is empty', async () => {
+			mockExitCode = 1;
 			mockStdout = '';
 
 			const result = await pkg_audit.execute(
@@ -657,8 +657,8 @@ describe('pkg-audit composer audit adversarial', () => {
 			expect(parsed.note).toContain('produced no output');
 		});
 
-		it('should handle exit code 2 with whitespace-only stdout', async () => {
-			mockExitCode = 2;
+		it('should handle exit code 1 with whitespace-only stdout', async () => {
+			mockExitCode = 1;
 			mockStdout = '   \n\t  ';
 
 			const result = await pkg_audit.execute(
@@ -675,7 +675,7 @@ describe('pkg-audit composer audit adversarial', () => {
 	// ===== 8. Very large abandoned packages list (1000 entries) =====
 	describe('large abandoned packages list', () => {
 		it('should handle 1000 abandoned packages without crashing', async () => {
-			mockExitCode = 1;
+			mockExitCode = 2; // exit 2 = abandoned only (STATUS_ABANDONED bitmask)
 			const abandoned: Record<string, string> = {};
 			for (let i = 0; i < 1000; i++) {
 				abandoned[`vendor/abandoned-pkg-${i}`] = `vendor/replacement-pkg-${i}`;
@@ -696,7 +696,7 @@ describe('pkg-audit composer audit adversarial', () => {
 		});
 
 		it('should handle abandoned packages with injection characters', async () => {
-			mockExitCode = 1;
+			mockExitCode = 2; // exit 2 = abandoned only (STATUS_ABANDONED bitmask)
 			const abandoned: Record<string, string> = {
 				'vendor/evil-pkg\nrm -rf /': 'vendor/good-pkg',
 				'vendor/$(whoami)': 'vendor/none',
@@ -720,7 +720,7 @@ describe('pkg-audit composer audit adversarial', () => {
 	// ===== 9. Unicode/emoji in package names =====
 	describe('unicode/emoji in package names', () => {
 		it('should handle unicode package names including emoji', async () => {
-			mockExitCode = 2;
+			mockExitCode = 1;
 			mockStdout = JSON.stringify({
 				advisories: {
 					'vendor/unicode-pkg': [
@@ -750,7 +750,7 @@ describe('pkg-audit composer audit adversarial', () => {
 		});
 
 		it('should handle RTL unicode override characters', async () => {
-			mockExitCode = 2;
+			mockExitCode = 1;
 			const rtlOverride = 'vendor/\u202Epkg\u202E'; // RLO + LRI + PDF
 			mockStdout = JSON.stringify({
 				advisories: {
@@ -780,7 +780,7 @@ describe('pkg-audit composer audit adversarial', () => {
 		});
 
 		it('should handle zero-width characters in CVE', async () => {
-			mockExitCode = 2;
+			mockExitCode = 1;
 			const zwCve = 'CVE-2024-\u200B\u200C\u200D99999'; // zero-width space/zero-width joiner
 			mockStdout = JSON.stringify({
 				advisories: {
@@ -813,7 +813,7 @@ describe('pkg-audit composer audit adversarial', () => {
 	// ===== 10. Multiple advisories for same package =====
 	describe('multiple advisories for same package', () => {
 		it('should return all advisories for a package as separate findings', async () => {
-			mockExitCode = 2;
+			mockExitCode = 1;
 			mockStdout = JSON.stringify({
 				advisories: {
 					'vendor/multi-advisory-pkg': [
@@ -876,7 +876,7 @@ describe('pkg-audit composer audit adversarial', () => {
 		});
 
 		it('should handle 100 advisories for the same package without performance degradation', async () => {
-			mockExitCode = 2;
+			mockExitCode = 1;
 			const advisories: Array<{
 				advisoryId: string;
 				packageName: string;
@@ -920,7 +920,7 @@ describe('pkg-audit composer audit adversarial', () => {
 	// ===== MAX_OUTPUT_BYTES boundary =====
 	describe('MAX_OUTPUT_BYTES truncation boundary', () => {
 		it('should truncate stdout exceeding 50MB without crashing', async () => {
-			mockExitCode = 2;
+			mockExitCode = 1;
 			const largePayload = 'X'.repeat(52_428_800 + 1000); // just over 50MB
 			mockStdout = largePayload;
 
@@ -936,7 +936,7 @@ describe('pkg-audit composer audit adversarial', () => {
 		});
 
 		it('should handle exact 50MB output', async () => {
-			mockExitCode = 2;
+			mockExitCode = 1;
 			// Valid JSON that is exactly at the limit (truncated first to fit valid JSON)
 			const halfJson = JSON.stringify({
 				advisories: { 'vendor/pkg': [{ title: 'X'.repeat(52_428_800 - 200) }] },

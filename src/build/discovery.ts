@@ -124,7 +124,7 @@ const ECOSYSTEMS: EcosystemConfig[] = [
 	{
 		ecosystem: 'php-composer',
 		buildFiles: ['composer.json'],
-		toolchainCommands: ['composer', 'php'],
+		toolchainCommands: ['composer'],
 		commands: [
 			{
 				command: 'composer install --no-interaction --prefer-dist',

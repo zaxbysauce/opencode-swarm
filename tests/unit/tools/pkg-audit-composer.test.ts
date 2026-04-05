@@ -120,10 +120,10 @@ describe('pkg-audit composer audit', () => {
 		});
 	});
 
-	// ============ Exit Code 1: Abandoned Packages ============
-	describe('exit code 1 (abandoned packages)', () => {
-		it('should return clean:true with abandoned package note when exit code is 1', async () => {
-			mockExitCode = 1;
+	// ============ Exit Code 2: Abandoned Packages ============
+	describe('exit code 2 (abandoned packages)', () => {
+		it('should return clean:true with abandoned package note when exit code is 2', async () => {
+			mockExitCode = 2;
 			mockStdout = JSON.stringify({
 				advisories: {},
 				abandoned: { 'vendor/old-package': 'vendor/new-package' },
@@ -141,7 +141,7 @@ describe('pkg-audit composer audit', () => {
 		});
 
 		it('should handle multiple abandoned packages', async () => {
-			mockExitCode = 1;
+			mockExitCode = 2;
 			mockStdout = JSON.stringify({
 				advisories: {},
 				abandoned: {
@@ -162,7 +162,7 @@ describe('pkg-audit composer audit', () => {
 		});
 
 		it('should return clean:true with generic note when abandoned but no packages listed', async () => {
-			mockExitCode = 1;
+			mockExitCode = 2;
 			mockStdout = JSON.stringify({
 				advisories: {},
 				abandoned: {},
@@ -179,10 +179,10 @@ describe('pkg-audit composer audit', () => {
 		});
 	});
 
-	// ============ Exit Code 2: Security Vulnerabilities ============
-	describe('exit code 2 (security vulnerabilities)', () => {
-		it('should return clean:false with findings when exit code is 2 and CVE present', async () => {
-			mockExitCode = 2;
+	// ============ Exit Code 1: Security Vulnerabilities ============
+	describe('exit code 1 (security vulnerabilities)', () => {
+		it('should return clean:false with findings when exit code is 1 and CVE present', async () => {
+			mockExitCode = 1;
 			mockStdout = JSON.stringify({
 				advisories: {
 					'vendor/vulnerable-pkg': [
@@ -215,7 +215,7 @@ describe('pkg-audit composer audit', () => {
 		});
 
 		it('should return moderate severity when CVE is not present', async () => {
-			mockExitCode = 2;
+			mockExitCode = 1;
 			mockStdout = JSON.stringify({
 				advisories: {
 					'vendor/vulnerable-pkg': [
@@ -245,7 +245,7 @@ describe('pkg-audit composer audit', () => {
 		});
 
 		it('should parse multiple vulnerabilities correctly', async () => {
-			mockExitCode = 2;
+			mockExitCode = 1;
 			mockStdout = JSON.stringify({
 				advisories: {
 					'vendor/pkg1': [
@@ -287,7 +287,7 @@ describe('pkg-audit composer audit', () => {
 		});
 
 		it('should count high severity findings correctly', async () => {
-			mockExitCode = 2;
+			mockExitCode = 1;
 			mockStdout = JSON.stringify({
 				advisories: {
 					'vendor/pkg1': [
@@ -317,10 +317,44 @@ describe('pkg-audit composer audit', () => {
 		});
 	});
 
+	// ============ Exit Code 3: Vulnerabilities AND Abandoned ============
+	describe('exit code 3 (vulnerabilities AND abandoned)', () => {
+		it('should return clean:false with findings when exit code is 3', async () => {
+			mockExitCode = 3;
+			mockStdout = JSON.stringify({
+				advisories: {
+					'vendor/vulnerable-pkg': [
+						{
+							advisoryId: 'GHSA-test-0001',
+							packageName: 'vendor/vulnerable-pkg',
+							reportedAt: '2024-01-01T00:00:00+00:00',
+							title: 'Critical vulnerability',
+							link: 'https://github.com/advisories/GHSA-test-0001',
+							cve: 'CVE-2024-99999',
+							affectedVersions: '>=1.0.0 <2.0.0',
+							sources: [],
+						},
+					],
+				},
+				abandoned: { 'vendor/old-pkg': 'vendor/new-pkg' },
+			});
+
+			const result = await pkg_audit.execute(
+				{ ecosystem: 'composer' },
+				getMockContext(),
+			);
+			const parsed = JSON.parse(result);
+
+			expect(parsed.clean).toBe(false);
+			expect(parsed.findings.length).toBe(1);
+			expect(parsed.findings[0].cve).toBe('CVE-2024-99999');
+		});
+	});
+
 	// ============ Malformed JSON ============
 	describe('malformed JSON handling', () => {
-		it('should return clean:false with note about invalid JSON when exit code is 2', async () => {
-			mockExitCode = 2;
+		it('should return clean:false with note about invalid JSON when exit code is 1', async () => {
+			mockExitCode = 1;
 			mockStdout = 'not valid json at all';
 
 			const result = await pkg_audit.execute(
@@ -333,8 +367,8 @@ describe('pkg-audit composer audit', () => {
 			expect(parsed.note).toContain('not valid JSON');
 		});
 
-		it('should return clean:true with note about invalid JSON when exit code is 1', async () => {
-			mockExitCode = 1;
+		it('should return clean:true with note about invalid JSON when exit code is 2', async () => {
+			mockExitCode = 2;
 			mockStdout = 'not valid json';
 
 			const result = await pkg_audit.execute(
