@@ -1,4 +1,6 @@
 import { type Plan, type TaskStatus } from '../config/plan-schema';
+/** Reset the startup ledger check flag. For testing only. */
+export declare function resetStartupLedgerCheck(): void;
 /**
  * Load plan.json ONLY without auto-migration from plan.md.
  * Returns null if plan.json doesn't exist or is invalid.

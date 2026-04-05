@@ -417,7 +417,7 @@ var init_constants = __esm(() => {
   LOW_CAPABILITY_MODELS = ["mini", "nano", "small", "free"];
 });
 
-// node_modules/.bun/zod@4.3.6/node_modules/zod/v4/core/core.js
+// node_modules/zod/v4/core/core.js
 function $constructor(name2, initializer, params) {
   function init2(inst, def) {
     if (!inst._zod) {
@@ -495,7 +495,7 @@ var init_core = __esm(() => {
   globalConfig = {};
 });
 
-// node_modules/.bun/zod@4.3.6/node_modules/zod/v4/core/util.js
+// node_modules/zod/v4/core/util.js
 var exports_util = {};
 __export(exports_util, {
   unwrapMessage: () => unwrapMessage,
@@ -1171,7 +1171,7 @@ var init_util = __esm(() => {
   };
 });
 
-// node_modules/.bun/zod@4.3.6/node_modules/zod/v4/core/errors.js
+// node_modules/zod/v4/core/errors.js
 function flattenError(error, mapper = (issue2) => issue2.message) {
   const fieldErrors = {};
   const formErrors = [];
@@ -1312,7 +1312,7 @@ var init_errors = __esm(() => {
   $ZodRealError = $constructor("$ZodError", initializer, { Parent: Error });
 });
 
-// node_modules/.bun/zod@4.3.6/node_modules/zod/v4/core/parse.js
+// node_modules/zod/v4/core/parse.js
 var _parse = (_Err) => (schema, value, _ctx, _params) => {
   const ctx = _ctx ? Object.assign(_ctx, { async: false }) : { async: false };
   const result = schema._zod.run({ value, issues: [] }, ctx);
@@ -1394,7 +1394,7 @@ var init_parse = __esm(() => {
   safeDecodeAsync = /* @__PURE__ */ _safeDecodeAsync($ZodRealError);
 });
 
-// node_modules/.bun/zod@4.3.6/node_modules/zod/v4/core/regexes.js
+// node_modules/zod/v4/core/regexes.js
 var exports_regexes = {};
 __export(exports_regexes, {
   xid: () => xid,
@@ -1550,7 +1550,7 @@ var init_regexes = __esm(() => {
   sha512_base64url = /* @__PURE__ */ fixedBase64url(86);
 });
 
-// node_modules/.bun/zod@4.3.6/node_modules/zod/v4/core/checks.js
+// node_modules/zod/v4/core/checks.js
 function handleCheckPropertyResult(result, payload, property) {
   if (result.issues.length) {
     payload.issues.push(...prefixIssues(property, result.issues));
@@ -2103,7 +2103,7 @@ var init_checks = __esm(() => {
   });
 });
 
-// node_modules/.bun/zod@4.3.6/node_modules/zod/v4/core/doc.js
+// node_modules/zod/v4/core/doc.js
 class Doc {
   constructor(args2 = []) {
     this.content = [];
@@ -2141,7 +2141,7 @@ class Doc {
   }
 }
 
-// node_modules/.bun/zod@4.3.6/node_modules/zod/v4/core/versions.js
+// node_modules/zod/v4/core/versions.js
 var version;
 var init_versions = __esm(() => {
   version = {
@@ -2151,7 +2151,7 @@ var init_versions = __esm(() => {
   };
 });
 
-// node_modules/.bun/zod@4.3.6/node_modules/zod/v4/core/schemas.js
+// node_modules/zod/v4/core/schemas.js
 function isValidBase64(data) {
   if (data === "")
     return true;
@@ -4124,7 +4124,7 @@ var init_schemas = __esm(() => {
   });
 });
 
-// node_modules/.bun/zod@4.3.6/node_modules/zod/v4/locales/ar.js
+// node_modules/zod/v4/locales/ar.js
 function ar_default() {
   return {
     localeError: error()
@@ -4234,7 +4234,7 @@ var init_ar = __esm(() => {
   init_util();
 });
 
-// node_modules/.bun/zod@4.3.6/node_modules/zod/v4/locales/az.js
+// node_modules/zod/v4/locales/az.js
 function az_default() {
   return {
     localeError: error2()
@@ -4343,7 +4343,7 @@ var init_az = __esm(() => {
   init_util();
 });
 
-// node_modules/.bun/zod@4.3.6/node_modules/zod/v4/locales/be.js
+// node_modules/zod/v4/locales/be.js
 function getBelarusianPlural(count, one, few, many) {
   const absCount = Math.abs(count);
   const lastDigit = absCount % 10;
@@ -4503,7 +4503,7 @@ var init_be = __esm(() => {
   init_util();
 });
 
-// node_modules/.bun/zod@4.3.6/node_modules/zod/v4/locales/bg.js
+// node_modules/zod/v4/locales/bg.js
 function bg_default() {
   return {
     localeError: error4()
@@ -4627,7 +4627,7 @@ var init_bg = __esm(() => {
   init_util();
 });
 
-// node_modules/.bun/zod@4.3.6/node_modules/zod/v4/locales/ca.js
+// node_modules/zod/v4/locales/ca.js
 function ca_default() {
   return {
     localeError: error5()
@@ -4738,7 +4738,7 @@ var init_ca = __esm(() => {
   init_util();
 });
 
-// node_modules/.bun/zod@4.3.6/node_modules/zod/v4/locales/cs.js
+// node_modules/zod/v4/locales/cs.js
 function cs_default() {
   return {
     localeError: error6()
@@ -4853,7 +4853,7 @@ var init_cs = __esm(() => {
   init_util();
 });
 
-// node_modules/.bun/zod@4.3.6/node_modules/zod/v4/locales/da.js
+// node_modules/zod/v4/locales/da.js
 function da_default() {
   return {
     localeError: error7()
@@ -4972,7 +4972,7 @@ var init_da = __esm(() => {
   init_util();
 });
 
-// node_modules/.bun/zod@4.3.6/node_modules/zod/v4/locales/de.js
+// node_modules/zod/v4/locales/de.js
 function de_default() {
   return {
     localeError: error8()
@@ -5084,7 +5084,7 @@ var init_de = __esm(() => {
   init_util();
 });
 
-// node_modules/.bun/zod@4.3.6/node_modules/zod/v4/locales/en.js
+// node_modules/zod/v4/locales/en.js
 function en_default() {
   return {
     localeError: error9()
@@ -5194,7 +5194,7 @@ var init_en = __esm(() => {
   init_util();
 });
 
-// node_modules/.bun/zod@4.3.6/node_modules/zod/v4/locales/eo.js
+// node_modules/zod/v4/locales/eo.js
 function eo_default() {
   return {
     localeError: error10()
@@ -5307,7 +5307,7 @@ var init_eo = __esm(() => {
   init_util();
 });
 
-// node_modules/.bun/zod@4.3.6/node_modules/zod/v4/locales/es.js
+// node_modules/zod/v4/locales/es.js
 function es_default() {
   return {
     localeError: error11()
@@ -5443,7 +5443,7 @@ var init_es = __esm(() => {
   init_util();
 });
 
-// node_modules/.bun/zod@4.3.6/node_modules/zod/v4/locales/fa.js
+// node_modules/zod/v4/locales/fa.js
 function fa_default() {
   return {
     localeError: error12()
@@ -5561,7 +5561,7 @@ var init_fa = __esm(() => {
   init_util();
 });
 
-// node_modules/.bun/zod@4.3.6/node_modules/zod/v4/locales/fi.js
+// node_modules/zod/v4/locales/fi.js
 function fi_default() {
   return {
     localeError: error13()
@@ -5677,7 +5677,7 @@ var init_fi = __esm(() => {
   init_util();
 });
 
-// node_modules/.bun/zod@4.3.6/node_modules/zod/v4/locales/fr.js
+// node_modules/zod/v4/locales/fr.js
 function fr_default() {
   return {
     localeError: error14()
@@ -5789,7 +5789,7 @@ var init_fr = __esm(() => {
   init_util();
 });
 
-// node_modules/.bun/zod@4.3.6/node_modules/zod/v4/locales/fr-CA.js
+// node_modules/zod/v4/locales/fr-CA.js
 function fr_CA_default() {
   return {
     localeError: error15()
@@ -5900,7 +5900,7 @@ var init_fr_CA = __esm(() => {
   init_util();
 });
 
-// node_modules/.bun/zod@4.3.6/node_modules/zod/v4/locales/he.js
+// node_modules/zod/v4/locales/he.js
 function he_default() {
   return {
     localeError: error16()
@@ -6097,7 +6097,7 @@ var init_he = __esm(() => {
   init_util();
 });
 
-// node_modules/.bun/zod@4.3.6/node_modules/zod/v4/locales/hu.js
+// node_modules/zod/v4/locales/hu.js
 function hu_default() {
   return {
     localeError: error17()
@@ -6209,7 +6209,7 @@ var init_hu = __esm(() => {
   init_util();
 });
 
-// node_modules/.bun/zod@4.3.6/node_modules/zod/v4/locales/hy.js
+// node_modules/zod/v4/locales/hy.js
 function getArmenianPlural(count, one, many) {
   return Math.abs(count) === 1 ? one : many;
 }
@@ -6360,7 +6360,7 @@ var init_hy = __esm(() => {
   init_util();
 });
 
-// node_modules/.bun/zod@4.3.6/node_modules/zod/v4/locales/id.js
+// node_modules/zod/v4/locales/id.js
 function id_default() {
   return {
     localeError: error19()
@@ -6470,7 +6470,7 @@ var init_id = __esm(() => {
   init_util();
 });
 
-// node_modules/.bun/zod@4.3.6/node_modules/zod/v4/locales/is.js
+// node_modules/zod/v4/locales/is.js
 function is_default() {
   return {
     localeError: error20()
@@ -6583,7 +6583,7 @@ var init_is = __esm(() => {
   init_util();
 });
 
-// node_modules/.bun/zod@4.3.6/node_modules/zod/v4/locales/it.js
+// node_modules/zod/v4/locales/it.js
 function it_default() {
   return {
     localeError: error21()
@@ -6695,7 +6695,7 @@ var init_it = __esm(() => {
   init_util();
 });
 
-// node_modules/.bun/zod@4.3.6/node_modules/zod/v4/locales/ja.js
+// node_modules/zod/v4/locales/ja.js
 function ja_default() {
   return {
     localeError: error22()
@@ -6806,7 +6806,7 @@ var init_ja = __esm(() => {
   init_util();
 });
 
-// node_modules/.bun/zod@4.3.6/node_modules/zod/v4/locales/ka.js
+// node_modules/zod/v4/locales/ka.js
 function ka_default() {
   return {
     localeError: error23()
@@ -6922,7 +6922,7 @@ var init_ka = __esm(() => {
   init_util();
 });
 
-// node_modules/.bun/zod@4.3.6/node_modules/zod/v4/locales/km.js
+// node_modules/zod/v4/locales/km.js
 function km_default() {
   return {
     localeError: error24()
@@ -7036,7 +7036,7 @@ var init_km = __esm(() => {
   init_util();
 });
 
-// node_modules/.bun/zod@4.3.6/node_modules/zod/v4/locales/kh.js
+// node_modules/zod/v4/locales/kh.js
 function kh_default() {
   return km_default();
 }
@@ -7044,7 +7044,7 @@ var init_kh = __esm(() => {
   init_km();
 });
 
-// node_modules/.bun/zod@4.3.6/node_modules/zod/v4/locales/ko.js
+// node_modules/zod/v4/locales/ko.js
 function ko_default() {
   return {
     localeError: error25()
@@ -7159,7 +7159,7 @@ var init_ko = __esm(() => {
   init_util();
 });
 
-// node_modules/.bun/zod@4.3.6/node_modules/zod/v4/locales/lt.js
+// node_modules/zod/v4/locales/lt.js
 function getUnitTypeFromNumber(number2) {
   const abs = Math.abs(number2);
   const last = abs % 10;
@@ -7365,7 +7365,7 @@ var init_lt = __esm(() => {
   init_util();
 });
 
-// node_modules/.bun/zod@4.3.6/node_modules/zod/v4/locales/mk.js
+// node_modules/zod/v4/locales/mk.js
 function mk_default() {
   return {
     localeError: error27()
@@ -7478,7 +7478,7 @@ var init_mk = __esm(() => {
   init_util();
 });
 
-// node_modules/.bun/zod@4.3.6/node_modules/zod/v4/locales/ms.js
+// node_modules/zod/v4/locales/ms.js
 function ms_default() {
   return {
     localeError: error28()
@@ -7589,7 +7589,7 @@ var init_ms = __esm(() => {
   init_util();
 });
 
-// node_modules/.bun/zod@4.3.6/node_modules/zod/v4/locales/nl.js
+// node_modules/zod/v4/locales/nl.js
 function nl_default() {
   return {
     localeError: error29()
@@ -7703,7 +7703,7 @@ var init_nl = __esm(() => {
   init_util();
 });
 
-// node_modules/.bun/zod@4.3.6/node_modules/zod/v4/locales/no.js
+// node_modules/zod/v4/locales/no.js
 function no_default() {
   return {
     localeError: error30()
@@ -7815,7 +7815,7 @@ var init_no = __esm(() => {
   init_util();
 });
 
-// node_modules/.bun/zod@4.3.6/node_modules/zod/v4/locales/ota.js
+// node_modules/zod/v4/locales/ota.js
 function ota_default() {
   return {
     localeError: error31()
@@ -7928,7 +7928,7 @@ var init_ota = __esm(() => {
   init_util();
 });
 
-// node_modules/.bun/zod@4.3.6/node_modules/zod/v4/locales/ps.js
+// node_modules/zod/v4/locales/ps.js
 function ps_default() {
   return {
     localeError: error32()
@@ -8046,7 +8046,7 @@ var init_ps = __esm(() => {
   init_util();
 });
 
-// node_modules/.bun/zod@4.3.6/node_modules/zod/v4/locales/pl.js
+// node_modules/zod/v4/locales/pl.js
 function pl_default() {
   return {
     localeError: error33()
@@ -8159,7 +8159,7 @@ var init_pl = __esm(() => {
   init_util();
 });
 
-// node_modules/.bun/zod@4.3.6/node_modules/zod/v4/locales/pt.js
+// node_modules/zod/v4/locales/pt.js
 function pt_default() {
   return {
     localeError: error34()
@@ -8271,7 +8271,7 @@ var init_pt = __esm(() => {
   init_util();
 });
 
-// node_modules/.bun/zod@4.3.6/node_modules/zod/v4/locales/ru.js
+// node_modules/zod/v4/locales/ru.js
 function getRussianPlural(count, one, few, many) {
   const absCount = Math.abs(count);
   const lastDigit = absCount % 10;
@@ -8431,7 +8431,7 @@ var init_ru = __esm(() => {
   init_util();
 });
 
-// node_modules/.bun/zod@4.3.6/node_modules/zod/v4/locales/sl.js
+// node_modules/zod/v4/locales/sl.js
 function sl_default() {
   return {
     localeError: error36()
@@ -8544,7 +8544,7 @@ var init_sl = __esm(() => {
   init_util();
 });
 
-// node_modules/.bun/zod@4.3.6/node_modules/zod/v4/locales/sv.js
+// node_modules/zod/v4/locales/sv.js
 function sv_default() {
   return {
     localeError: error37()
@@ -8658,7 +8658,7 @@ var init_sv = __esm(() => {
   init_util();
 });
 
-// node_modules/.bun/zod@4.3.6/node_modules/zod/v4/locales/ta.js
+// node_modules/zod/v4/locales/ta.js
 function ta_default() {
   return {
     localeError: error38()
@@ -8772,7 +8772,7 @@ var init_ta = __esm(() => {
   init_util();
 });
 
-// node_modules/.bun/zod@4.3.6/node_modules/zod/v4/locales/th.js
+// node_modules/zod/v4/locales/th.js
 function th_default() {
   return {
     localeError: error39()
@@ -8886,7 +8886,7 @@ var init_th = __esm(() => {
   init_util();
 });
 
-// node_modules/.bun/zod@4.3.6/node_modules/zod/v4/locales/tr.js
+// node_modules/zod/v4/locales/tr.js
 function tr_default() {
   return {
     localeError: error40()
@@ -8995,7 +8995,7 @@ var init_tr = __esm(() => {
   init_util();
 });
 
-// node_modules/.bun/zod@4.3.6/node_modules/zod/v4/locales/uk.js
+// node_modules/zod/v4/locales/uk.js
 function uk_default() {
   return {
     localeError: error41()
@@ -9107,7 +9107,7 @@ var init_uk = __esm(() => {
   init_util();
 });
 
-// node_modules/.bun/zod@4.3.6/node_modules/zod/v4/locales/ua.js
+// node_modules/zod/v4/locales/ua.js
 function ua_default() {
   return uk_default();
 }
@@ -9115,7 +9115,7 @@ var init_ua = __esm(() => {
   init_uk();
 });
 
-// node_modules/.bun/zod@4.3.6/node_modules/zod/v4/locales/ur.js
+// node_modules/zod/v4/locales/ur.js
 function ur_default() {
   return {
     localeError: error42()
@@ -9229,7 +9229,7 @@ var init_ur = __esm(() => {
   init_util();
 });
 
-// node_modules/.bun/zod@4.3.6/node_modules/zod/v4/locales/uz.js
+// node_modules/zod/v4/locales/uz.js
 function uz_default() {
   return {
     localeError: error43()
@@ -9342,7 +9342,7 @@ var init_uz = __esm(() => {
   init_util();
 });
 
-// node_modules/.bun/zod@4.3.6/node_modules/zod/v4/locales/vi.js
+// node_modules/zod/v4/locales/vi.js
 function vi_default() {
   return {
     localeError: error44()
@@ -9454,7 +9454,7 @@ var init_vi = __esm(() => {
   init_util();
 });
 
-// node_modules/.bun/zod@4.3.6/node_modules/zod/v4/locales/zh-CN.js
+// node_modules/zod/v4/locales/zh-CN.js
 function zh_CN_default() {
   return {
     localeError: error45()
@@ -9567,7 +9567,7 @@ var init_zh_CN = __esm(() => {
   init_util();
 });
 
-// node_modules/.bun/zod@4.3.6/node_modules/zod/v4/locales/zh-TW.js
+// node_modules/zod/v4/locales/zh-TW.js
 function zh_TW_default() {
   return {
     localeError: error46()
@@ -9678,7 +9678,7 @@ var init_zh_TW = __esm(() => {
   init_util();
 });
 
-// node_modules/.bun/zod@4.3.6/node_modules/zod/v4/locales/yo.js
+// node_modules/zod/v4/locales/yo.js
 function yo_default() {
   return {
     localeError: error47()
@@ -9789,7 +9789,7 @@ var init_yo = __esm(() => {
   init_util();
 });
 
-// node_modules/.bun/zod@4.3.6/node_modules/zod/v4/locales/index.js
+// node_modules/zod/v4/locales/index.js
 var exports_locales = {};
 __export(exports_locales, {
   zhTW: () => zh_TW_default,
@@ -9894,7 +9894,7 @@ var init_locales = __esm(() => {
   init_yo();
 });
 
-// node_modules/.bun/zod@4.3.6/node_modules/zod/v4/core/registries.js
+// node_modules/zod/v4/core/registries.js
 class $ZodRegistry {
   constructor() {
     this._map = new WeakMap;
@@ -9946,7 +9946,7 @@ var init_registries = __esm(() => {
   globalRegistry = globalThis.__zod_globalRegistry;
 });
 
-// node_modules/.bun/zod@4.3.6/node_modules/zod/v4/core/api.js
+// node_modules/zod/v4/core/api.js
 function _string(Class2, params) {
   return new Class2({
     type: "string",
@@ -10874,7 +10874,7 @@ var init_api = __esm(() => {
   };
 });
 
-// node_modules/.bun/zod@4.3.6/node_modules/zod/v4/core/to-json-schema.js
+// node_modules/zod/v4/core/to-json-schema.js
 function initializeContext(params) {
   let target = params?.target ?? "draft-2020-12";
   if (target === "draft-4")
@@ -11222,7 +11222,7 @@ var init_to_json_schema = __esm(() => {
   init_registries();
 });
 
-// node_modules/.bun/zod@4.3.6/node_modules/zod/v4/core/json-schema-processors.js
+// node_modules/zod/v4/core/json-schema-processors.js
 function toJSONSchema(input, params) {
   if ("_idmap" in input) {
     const registry2 = input;
@@ -11734,7 +11734,7 @@ var init_json_schema_processors = __esm(() => {
   };
 });
 
-// node_modules/.bun/zod@4.3.6/node_modules/zod/v4/core/json-schema-generator.js
+// node_modules/zod/v4/core/json-schema-generator.js
 class JSONSchemaGenerator {
   get metadataRegistry() {
     return this.ctx.metadataRegistry;
@@ -11798,11 +11798,11 @@ var init_json_schema_generator = __esm(() => {
   init_to_json_schema();
 });
 
-// node_modules/.bun/zod@4.3.6/node_modules/zod/v4/core/json-schema.js
+// node_modules/zod/v4/core/json-schema.js
 var exports_json_schema = {};
 var init_json_schema = () => {};
 
-// node_modules/.bun/zod@4.3.6/node_modules/zod/v4/core/index.js
+// node_modules/zod/v4/core/index.js
 var exports_core2 = {};
 __export(exports_core2, {
   version: () => version,
@@ -12097,7 +12097,7 @@ var init_core2 = __esm(() => {
   init_to_json_schema();
 });
 
-// node_modules/.bun/zod@4.3.6/node_modules/zod/v4/classic/checks.js
+// node_modules/zod/v4/classic/checks.js
 var exports_checks2 = {};
 __export(exports_checks2, {
   uppercase: () => _uppercase,
@@ -12134,7 +12134,7 @@ var init_checks2 = __esm(() => {
   init_core2();
 });
 
-// node_modules/.bun/zod@4.3.6/node_modules/zod/v4/classic/iso.js
+// node_modules/zod/v4/classic/iso.js
 var exports_iso = {};
 __export(exports_iso, {
   time: () => time2,
@@ -12180,7 +12180,7 @@ var init_iso = __esm(() => {
   });
 });
 
-// node_modules/.bun/zod@4.3.6/node_modules/zod/v4/classic/errors.js
+// node_modules/zod/v4/classic/errors.js
 var initializer2 = (inst, issues) => {
   $ZodError.init(inst, issues);
   inst.name = "ZodError";
@@ -12220,7 +12220,7 @@ var init_errors2 = __esm(() => {
   });
 });
 
-// node_modules/.bun/zod@4.3.6/node_modules/zod/v4/classic/parse.js
+// node_modules/zod/v4/classic/parse.js
 var parse3, parseAsync2, safeParse2, safeParseAsync2, encode2, decode2, encodeAsync2, decodeAsync2, safeEncode2, safeDecode2, safeEncodeAsync2, safeDecodeAsync2;
 var init_parse2 = __esm(() => {
   init_core2();
@@ -12239,7 +12239,7 @@ var init_parse2 = __esm(() => {
   safeDecodeAsync2 = /* @__PURE__ */ _safeDecodeAsync(ZodRealError);
 });
 
-// node_modules/.bun/zod@4.3.6/node_modules/zod/v4/classic/schemas.js
+// node_modules/zod/v4/classic/schemas.js
 var exports_schemas2 = {};
 __export(exports_schemas2, {
   xor: () => xor,
@@ -13492,7 +13492,7 @@ var init_schemas2 = __esm(() => {
   meta2 = meta;
 });
 
-// node_modules/.bun/zod@4.3.6/node_modules/zod/v4/classic/compat.js
+// node_modules/zod/v4/classic/compat.js
 function setErrorMap(map2) {
   config({
     customError: map2
@@ -13520,7 +13520,7 @@ var init_compat = __esm(() => {
   (function(ZodFirstPartyTypeKind2) {})(ZodFirstPartyTypeKind || (ZodFirstPartyTypeKind = {}));
 });
 
-// node_modules/.bun/zod@4.3.6/node_modules/zod/v4/classic/from-json-schema.js
+// node_modules/zod/v4/classic/from-json-schema.js
 function detectVersion(schema, defaultTarget) {
   const $schema = schema.$schema;
   if ($schema === "https://json-schema.org/draft/2020-12/schema") {
@@ -13989,7 +13989,7 @@ var init_from_json_schema = __esm(() => {
   ]);
 });
 
-// node_modules/.bun/zod@4.3.6/node_modules/zod/v4/classic/coerce.js
+// node_modules/zod/v4/classic/coerce.js
 var exports_coerce = {};
 __export(exports_coerce, {
   string: () => string3,
@@ -14018,7 +14018,7 @@ var init_coerce = __esm(() => {
   init_schemas2();
 });
 
-// node_modules/.bun/zod@4.3.6/node_modules/zod/v4/classic/external.js
+// node_modules/zod/v4/classic/external.js
 var exports_external = {};
 __export(exports_external, {
   xor: () => xor,
@@ -14277,7 +14277,7 @@ var init_external = __esm(() => {
   config(en_default());
 });
 
-// node_modules/.bun/zod@4.3.6/node_modules/zod/index.js
+// node_modules/zod/index.js
 var init_zod = __esm(() => {
   init_external();
   init_external();
@@ -15017,6 +15017,8 @@ var init_schema = __esm(() => {
     hive_max_entries: exports_external.number().min(1).max(1e5).default(200),
     auto_promote_days: exports_external.number().min(1).max(3650).default(90),
     max_inject_count: exports_external.number().min(0).max(50).default(5),
+    inject_char_budget: exports_external.number().min(200).max(1e4).default(2000),
+    max_lesson_display_chars: exports_external.number().min(40).max(280).default(120),
     dedup_threshold: exports_external.number().min(0).max(1).default(0.6),
     scope_filter: exports_external.array(exports_external.string()).default(["global"]),
     hive_enabled: exports_external.boolean().default(true),
@@ -15368,22 +15370,431 @@ var init_config = __esm(() => {
   init_schema();
 });
 
+// src/utils/errors.ts
+var SwarmError;
+var init_errors3 = __esm(() => {
+  SwarmError = class SwarmError extends Error {
+    code;
+    guidance;
+    constructor(message, code, guidance) {
+      super(message);
+      this.name = "SwarmError";
+      this.code = code;
+      this.guidance = guidance;
+    }
+  };
+});
+
+// src/utils/logger.ts
+function log(message, data) {
+  if (!DEBUG)
+    return;
+  const timestamp = new Date().toISOString();
+  if (data !== undefined) {
+    console.log(`[opencode-swarm ${timestamp}] ${message}`, data);
+  } else {
+    console.log(`[opencode-swarm ${timestamp}] ${message}`);
+  }
+}
+function warn(message, data) {
+  if (!DEBUG)
+    return;
+  const timestamp = new Date().toISOString();
+  if (data !== undefined) {
+    console.warn(`[opencode-swarm ${timestamp}] WARN: ${message}`, data);
+  } else {
+    console.warn(`[opencode-swarm ${timestamp}] WARN: ${message}`);
+  }
+}
+var DEBUG;
+var init_logger = __esm(() => {
+  DEBUG = process.env.OPENCODE_SWARM_DEBUG === "1";
+});
+
+// src/utils/regex.ts
+function escapeRegex2(s) {
+  return s.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+}
+function simpleGlobToRegex(pattern, flags2 = "i") {
+  const escaped = pattern.split("*").map((starSegment) => starSegment.split("?").map(escapeRegex2).join(".")).join(".*");
+  return new RegExp(`^${escaped}$`, flags2);
+}
+
+// src/utils/index.ts
+var init_utils = __esm(() => {
+  init_errors3();
+  init_logger();
+});
+
+// src/hooks/utils.ts
+import * as path2 from "path";
+function safeHook(fn) {
+  return async (input, output) => {
+    try {
+      await fn(input, output);
+    } catch (_error) {
+      const functionName = fn.name || "unknown";
+      if (_error instanceof SwarmError) {
+        warn(`Hook '${functionName}' failed: ${_error.message}
+  \u2192 ${_error.guidance}`);
+      } else {
+        warn(`Hook function '${functionName}' failed:`, _error);
+      }
+    }
+  };
+}
+function composeHandlers(...fns) {
+  if (fns.length === 0) {
+    return async () => {};
+  }
+  return async (input, output) => {
+    for (const fn of fns) {
+      const safeFn = safeHook(fn);
+      await safeFn(input, output);
+    }
+  };
+}
+function validateSwarmPath(directory, filename) {
+  if (/[\0]/.test(filename)) {
+    throw new Error("Invalid filename: contains null bytes");
+  }
+  if (/\.\.[/\\]/.test(filename)) {
+    throw new Error("Invalid filename: path traversal detected");
+  }
+  if (/^[A-Za-z]:[\\/]/.test(filename)) {
+    throw new Error("Invalid filename: path escapes .swarm directory");
+  }
+  if (filename.startsWith("/")) {
+    throw new Error("Invalid filename: path escapes .swarm directory");
+  }
+  const baseDir = path2.normalize(path2.resolve(directory, ".swarm"));
+  const resolved = path2.normalize(path2.resolve(baseDir, filename));
+  if (process.platform === "win32") {
+    if (!resolved.toLowerCase().startsWith((baseDir + path2.sep).toLowerCase())) {
+      throw new Error("Invalid filename: path escapes .swarm directory");
+    }
+  } else {
+    if (!resolved.startsWith(baseDir + path2.sep)) {
+      throw new Error("Invalid filename: path escapes .swarm directory");
+    }
+  }
+  return resolved;
+}
+async function readSwarmFileAsync(directory, filename) {
+  try {
+    const resolvedPath = validateSwarmPath(directory, filename);
+    const file2 = Bun.file(resolvedPath);
+    const content = await file2.text();
+    return content;
+  } catch {
+    return null;
+  }
+}
+function estimateTokens(text) {
+  if (!text) {
+    return 0;
+  }
+  return Math.ceil(text.length * 0.33);
+}
+var init_utils2 = __esm(() => {
+  init_utils();
+});
+
+// src/evidence/manager.ts
+import { mkdirSync, readdirSync, rmSync, statSync as statSync2 } from "fs";
+import * as fs3 from "fs/promises";
+import * as path3 from "path";
+function isValidEvidenceType(type) {
+  return VALID_EVIDENCE_TYPES.includes(type);
+}
+function isSecretscanEvidence(evidence) {
+  return evidence.type === "secretscan";
+}
+function sanitizeTaskId(taskId) {
+  if (!taskId || taskId.length === 0) {
+    throw new Error("Invalid task ID: empty string");
+  }
+  if (/\0/.test(taskId)) {
+    throw new Error("Invalid task ID: contains null bytes");
+  }
+  for (let i2 = 0;i2 < taskId.length; i2++) {
+    if (taskId.charCodeAt(i2) < 32) {
+      throw new Error("Invalid task ID: contains control characters");
+    }
+  }
+  if (taskId.includes("..") || taskId.includes("../") || taskId.includes("..\\")) {
+    throw new Error("Invalid task ID: path traversal detected");
+  }
+  if (TASK_ID_REGEX.test(taskId)) {
+    return taskId;
+  }
+  if (RETRO_TASK_ID_REGEX.test(taskId)) {
+    return taskId;
+  }
+  if (INTERNAL_TOOL_ID_REGEX.test(taskId)) {
+    return taskId;
+  }
+  if (GENERAL_TASK_ID_REGEX.test(taskId)) {
+    return taskId;
+  }
+  throw new Error(`Invalid task ID: must be alphanumeric (ASCII) with optional hyphens, underscores, or dots, got "${taskId}"`);
+}
+async function saveEvidence(directory, taskId, evidence) {
+  const sanitizedTaskId = sanitizeTaskId(taskId);
+  const relativePath = path3.join("evidence", sanitizedTaskId, "evidence.json");
+  const evidencePath = validateSwarmPath(directory, relativePath);
+  const evidenceDir = path3.dirname(evidencePath);
+  let bundle;
+  const existingContent = await readSwarmFileAsync(directory, relativePath);
+  if (existingContent !== null) {
+    try {
+      const parsed = JSON.parse(existingContent);
+      bundle = EvidenceBundleSchema.parse(parsed);
+    } catch (error49) {
+      warn(`Existing evidence bundle invalid for task ${sanitizedTaskId}, creating new: ${error49 instanceof Error ? error49.message : String(error49)}`);
+      const now = new Date().toISOString();
+      bundle = {
+        schema_version: "1.0.0",
+        task_id: sanitizedTaskId,
+        entries: [],
+        created_at: now,
+        updated_at: now
+      };
+    }
+  } else {
+    const now = new Date().toISOString();
+    bundle = {
+      schema_version: "1.0.0",
+      task_id: sanitizedTaskId,
+      entries: [],
+      created_at: now,
+      updated_at: now
+    };
+  }
+  const updatedBundle = {
+    ...bundle,
+    entries: [...bundle.entries, evidence],
+    updated_at: new Date().toISOString()
+  };
+  const bundleJson = JSON.stringify(updatedBundle);
+  if (bundleJson.length > EVIDENCE_MAX_JSON_BYTES) {
+    throw new Error(`Evidence bundle size (${bundleJson.length} bytes) exceeds maximum (${EVIDENCE_MAX_JSON_BYTES} bytes)`);
+  }
+  mkdirSync(evidenceDir, { recursive: true });
+  const tempPath = path3.join(evidenceDir, `evidence.json.tmp.${Date.now()}.${process.pid}`);
+  try {
+    await Bun.write(tempPath, bundleJson);
+    await fs3.rename(tempPath, evidencePath);
+  } catch (error49) {
+    try {
+      rmSync(tempPath, { force: true });
+    } catch {}
+    throw error49;
+  }
+  return updatedBundle;
+}
+function isFlatRetrospective(parsed) {
+  return parsed !== null && typeof parsed === "object" && !Array.isArray(parsed) && parsed.type === "retrospective" && !parsed.schema_version;
+}
+function remapLegacyTaskComplexity(entry) {
+  const taskComplexity = entry.task_complexity;
+  if (typeof taskComplexity === "string" && taskComplexity in LEGACY_TASK_COMPLEXITY_MAP) {
+    return {
+      ...entry,
+      task_complexity: LEGACY_TASK_COMPLEXITY_MAP[taskComplexity]
+    };
+  }
+  return entry;
+}
+function wrapFlatRetrospective(flatEntry, taskId) {
+  const now = new Date().toISOString();
+  const remappedEntry = remapLegacyTaskComplexity(flatEntry);
+  return {
+    schema_version: "1.0.0",
+    task_id: remappedEntry.task_id ?? taskId,
+    created_at: remappedEntry.timestamp ?? now,
+    updated_at: remappedEntry.timestamp ?? now,
+    entries: [remappedEntry]
+  };
+}
+async function loadEvidence(directory, taskId) {
+  const sanitizedTaskId = sanitizeTaskId(taskId);
+  const relativePath = path3.join("evidence", sanitizedTaskId, "evidence.json");
+  const evidencePath = validateSwarmPath(directory, relativePath);
+  const content = await readSwarmFileAsync(directory, relativePath);
+  if (content === null) {
+    return { status: "not_found" };
+  }
+  let parsed;
+  try {
+    parsed = JSON.parse(content);
+  } catch {
+    return { status: "invalid_schema", errors: ["Invalid JSON"] };
+  }
+  if (isFlatRetrospective(parsed)) {
+    const wrappedBundle = wrapFlatRetrospective(parsed, sanitizedTaskId);
+    try {
+      const validated = EvidenceBundleSchema.parse(wrappedBundle);
+      const evidenceDir = path3.dirname(evidencePath);
+      const bundleJson = JSON.stringify(validated);
+      const tempPath = path3.join(evidenceDir, `evidence.json.tmp.${Date.now()}.${process.pid}`);
+      try {
+        await Bun.write(tempPath, bundleJson);
+        await fs3.rename(tempPath, evidencePath);
+      } catch (writeError) {
+        try {
+          rmSync(tempPath, { force: true });
+        } catch {}
+        warn(`Failed to persist repaired flat retrospective for task ${sanitizedTaskId}: ${writeError instanceof Error ? writeError.message : String(writeError)}`);
+      }
+      return { status: "found", bundle: validated };
+    } catch (error49) {
+      warn(`Wrapped flat retrospective failed validation for task ${sanitizedTaskId}: ${error49 instanceof Error ? error49.message : String(error49)}`);
+      const errors3 = error49 instanceof ZodError ? error49.issues.map((e) => `${e.path.join(".")}: ${e.message}`) : [error49 instanceof Error ? error49.message : String(error49)];
+      return { status: "invalid_schema", errors: errors3 };
+    }
+  }
+  try {
+    const validated = EvidenceBundleSchema.parse(parsed);
+    return { status: "found", bundle: validated };
+  } catch (error49) {
+    warn(`Evidence bundle validation failed for task ${sanitizedTaskId}: ${error49 instanceof Error ? error49.message : String(error49)}`);
+    const errors3 = error49 instanceof ZodError ? error49.issues.map((e) => `${e.path.join(".")}: ${e.message}`) : [error49 instanceof Error ? error49.message : String(error49)];
+    return { status: "invalid_schema", errors: errors3 };
+  }
+}
+async function listEvidenceTaskIds(directory) {
+  const evidenceBasePath = validateSwarmPath(directory, "evidence");
+  try {
+    statSync2(evidenceBasePath);
+  } catch {
+    return [];
+  }
+  let entries;
+  try {
+    entries = readdirSync(evidenceBasePath);
+  } catch {
+    return [];
+  }
+  const taskIds = [];
+  for (const entry of entries) {
+    const entryPath = path3.join(evidenceBasePath, entry);
+    try {
+      const stats = statSync2(entryPath);
+      if (!stats.isDirectory()) {
+        continue;
+      }
+      sanitizeTaskId(entry);
+      taskIds.push(entry);
+    } catch (error49) {
+      if (error49 instanceof Error && !error49.message.startsWith("Invalid task ID")) {
+        warn(`Error reading evidence entry '${entry}': ${error49.message}`);
+      }
+    }
+  }
+  return taskIds.sort();
+}
+async function deleteEvidence(directory, taskId) {
+  const sanitizedTaskId = sanitizeTaskId(taskId);
+  const relativePath = path3.join("evidence", sanitizedTaskId);
+  const evidenceDir = validateSwarmPath(directory, relativePath);
+  try {
+    statSync2(evidenceDir);
+  } catch {
+    return false;
+  }
+  try {
+    rmSync(evidenceDir, { recursive: true, force: true });
+    return true;
+  } catch (error49) {
+    warn(`Failed to delete evidence for task ${sanitizedTaskId}: ${error49 instanceof Error ? error49.message : String(error49)}`);
+    return false;
+  }
+}
+async function archiveEvidence(directory, maxAgeDays, maxBundles) {
+  const taskIds = await listEvidenceTaskIds(directory);
+  const cutoffDate = new Date;
+  cutoffDate.setDate(cutoffDate.getDate() - maxAgeDays);
+  const cutoffIso = cutoffDate.toISOString();
+  const archived = [];
+  const remainingBundles = [];
+  for (const taskId of taskIds) {
+    const result = await loadEvidence(directory, taskId);
+    if (result.status !== "found") {
+      continue;
+    }
+    if (result.bundle.updated_at < cutoffIso) {
+      const deleted = await deleteEvidence(directory, taskId);
+      if (deleted) {
+        archived.push(taskId);
+      }
+    } else {
+      remainingBundles.push({
+        taskId,
+        updatedAt: result.bundle.updated_at
+      });
+    }
+  }
+  if (maxBundles !== undefined && remainingBundles.length > maxBundles) {
+    remainingBundles.sort((a, b) => a.updatedAt.localeCompare(b.updatedAt));
+    const toDelete = remainingBundles.length - maxBundles;
+    for (let i2 = 0;i2 < toDelete; i2++) {
+      const deleted = await deleteEvidence(directory, remainingBundles[i2].taskId);
+      if (deleted) {
+        archived.push(remainingBundles[i2].taskId);
+      }
+    }
+  }
+  return archived;
+}
+var VALID_EVIDENCE_TYPES, TASK_ID_REGEX, RETRO_TASK_ID_REGEX, INTERNAL_TOOL_ID_REGEX, GENERAL_TASK_ID_REGEX, LEGACY_TASK_COMPLEXITY_MAP;
+var init_manager = __esm(() => {
+  init_zod();
+  init_evidence_schema();
+  init_utils2();
+  init_utils();
+  VALID_EVIDENCE_TYPES = [
+    "review",
+    "test",
+    "diff",
+    "approval",
+    "note",
+    "retrospective",
+    "syntax",
+    "placeholder",
+    "sast",
+    "sbom",
+    "build",
+    "quality_budget",
+    "secretscan"
+  ];
+  TASK_ID_REGEX = /^\d+\.\d+(\.\d+)*$/;
+  RETRO_TASK_ID_REGEX = /^retro-\d+$/;
+  INTERNAL_TOOL_ID_REGEX = /^(?:sast_scan|quality_budget|syntax_check|placeholder_scan|sbom_generate|build|secretscan)$/;
+  GENERAL_TASK_ID_REGEX = /^[a-zA-Z0-9][a-zA-Z0-9._-]*$/;
+  LEGACY_TASK_COMPLEXITY_MAP = {
+    low: "simple",
+    medium: "moderate",
+    high: "complex"
+  };
+});
+
 // src/telemetry.ts
-import * as fs3 from "fs";
+import * as fs4 from "fs";
 import { createWriteStream } from "fs";
 import * as os2 from "os";
-import * as path2 from "path";
+import * as path4 from "path";
 function initTelemetry(projectDirectory) {
   if (_writeStream !== null || _disabled) {
     return;
   }
   try {
     _projectDirectory = projectDirectory;
-    const swarmDir = path2.join(projectDirectory, ".swarm");
-    if (!fs3.existsSync(swarmDir)) {
-      fs3.mkdirSync(swarmDir, { recursive: true });
+    const swarmDir = path4.join(projectDirectory, ".swarm");
+    if (!fs4.existsSync(swarmDir)) {
+      fs4.mkdirSync(swarmDir, { recursive: true });
     }
-    const telemetryPath = path2.join(swarmDir, "telemetry.jsonl");
+    const telemetryPath = path4.join(swarmDir, "telemetry.jsonl");
     _writeStream = createWriteStream(telemetryPath, { flags: "a" });
     _writeStream.on("error", () => {
       _disabled = true;
@@ -15484,2466 +15895,7 @@ var init_telemetry = __esm(() => {
   };
 });
 
-// src/utils/errors.ts
-var SwarmError;
-var init_errors3 = __esm(() => {
-  SwarmError = class SwarmError extends Error {
-    code;
-    guidance;
-    constructor(message, code, guidance) {
-      super(message);
-      this.name = "SwarmError";
-      this.code = code;
-      this.guidance = guidance;
-    }
-  };
-});
-
-// src/utils/logger.ts
-function log(message, data) {
-  if (!DEBUG)
-    return;
-  const timestamp = new Date().toISOString();
-  if (data !== undefined) {
-    console.log(`[opencode-swarm ${timestamp}] ${message}`, data);
-  } else {
-    console.log(`[opencode-swarm ${timestamp}] ${message}`);
-  }
-}
-function warn(message, data) {
-  if (!DEBUG)
-    return;
-  const timestamp = new Date().toISOString();
-  if (data !== undefined) {
-    console.warn(`[opencode-swarm ${timestamp}] WARN: ${message}`, data);
-  } else {
-    console.warn(`[opencode-swarm ${timestamp}] WARN: ${message}`);
-  }
-}
-var DEBUG;
-var init_logger = __esm(() => {
-  DEBUG = process.env.OPENCODE_SWARM_DEBUG === "1";
-});
-
-// src/utils/regex.ts
-function escapeRegex2(s) {
-  return s.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
-}
-function simpleGlobToRegex(pattern, flags2 = "i") {
-  const escaped = pattern.split("*").map((starSegment) => starSegment.split("?").map(escapeRegex2).join(".")).join(".*");
-  return new RegExp(`^${escaped}$`, flags2);
-}
-
-// src/utils/index.ts
-var init_utils = __esm(() => {
-  init_errors3();
-  init_logger();
-});
-
-// src/background/event-bus.ts
-class AutomationEventBus {
-  listeners = new Map;
-  eventHistory = [];
-  maxHistorySize;
-  constructor(options) {
-    this.maxHistorySize = options?.maxHistorySize ?? 100;
-  }
-  subscribe(type, listener) {
-    if (!this.listeners.has(type)) {
-      this.listeners.set(type, new Set);
-    }
-    this.listeners.get(type).add(listener);
-    return () => {
-      this.listeners.get(type)?.delete(listener);
-    };
-  }
-  async publish(type, payload, source) {
-    const event = {
-      type,
-      timestamp: Date.now(),
-      payload,
-      source
-    };
-    this.eventHistory.push(event);
-    if (this.eventHistory.length > this.maxHistorySize) {
-      this.eventHistory.shift();
-    }
-    log(`[EventBus] ${type}`, {
-      source,
-      payload: typeof payload === "object" ? "..." : payload
-    });
-    const listeners = this.listeners.get(type);
-    if (listeners) {
-      await Promise.all(Array.from(listeners).map(async (listener) => {
-        try {
-          await listener(event);
-        } catch (error49) {
-          log(`[EventBus] Listener error for ${type}`, { error: error49 });
-        }
-      }));
-    }
-  }
-  getHistory(types) {
-    if (!types || types.length === 0) {
-      return [...this.eventHistory];
-    }
-    return this.eventHistory.filter((e) => types.includes(e.type));
-  }
-  clearHistory() {
-    this.eventHistory = [];
-  }
-  getListenerCount(type) {
-    return this.listeners.get(type)?.size ?? 0;
-  }
-  hasListeners(type) {
-    return this.getListenerCount(type) > 0;
-  }
-}
-function getGlobalEventBus() {
-  if (!globalEventBus) {
-    globalEventBus = new AutomationEventBus;
-  }
-  return globalEventBus;
-}
-var globalEventBus = null;
-var init_event_bus = __esm(() => {
-  init_utils();
-});
-
-// src/hooks/utils.ts
-import * as path4 from "path";
-function safeHook(fn) {
-  return async (input, output) => {
-    try {
-      await fn(input, output);
-    } catch (_error) {
-      const functionName = fn.name || "unknown";
-      if (_error instanceof SwarmError) {
-        warn(`Hook '${functionName}' failed: ${_error.message}
-  \u2192 ${_error.guidance}`);
-      } else {
-        warn(`Hook function '${functionName}' failed:`, _error);
-      }
-    }
-  };
-}
-function composeHandlers(...fns) {
-  if (fns.length === 0) {
-    return async () => {};
-  }
-  return async (input, output) => {
-    for (const fn of fns) {
-      const safeFn = safeHook(fn);
-      await safeFn(input, output);
-    }
-  };
-}
-function validateSwarmPath(directory, filename) {
-  if (/[\0]/.test(filename)) {
-    throw new Error("Invalid filename: contains null bytes");
-  }
-  if (/\.\.[/\\]/.test(filename)) {
-    throw new Error("Invalid filename: path traversal detected");
-  }
-  if (/^[A-Za-z]:[\\/]/.test(filename)) {
-    throw new Error("Invalid filename: path escapes .swarm directory");
-  }
-  if (filename.startsWith("/")) {
-    throw new Error("Invalid filename: path escapes .swarm directory");
-  }
-  const baseDir = path4.normalize(path4.resolve(directory, ".swarm"));
-  const resolved = path4.normalize(path4.resolve(baseDir, filename));
-  if (process.platform === "win32") {
-    if (!resolved.toLowerCase().startsWith((baseDir + path4.sep).toLowerCase())) {
-      throw new Error("Invalid filename: path escapes .swarm directory");
-    }
-  } else {
-    if (!resolved.startsWith(baseDir + path4.sep)) {
-      throw new Error("Invalid filename: path escapes .swarm directory");
-    }
-  }
-  return resolved;
-}
-async function readSwarmFileAsync(directory, filename) {
-  try {
-    const resolvedPath = validateSwarmPath(directory, filename);
-    const file2 = Bun.file(resolvedPath);
-    const content = await file2.text();
-    return content;
-  } catch {
-    return null;
-  }
-}
-function estimateTokens(text) {
-  if (!text) {
-    return 0;
-  }
-  return Math.ceil(text.length * 0.33);
-}
-var init_utils2 = __esm(() => {
-  init_utils();
-});
-
-// src/evidence/manager.ts
-import { mkdirSync as mkdirSync2, readdirSync, rmSync, statSync as statSync3 } from "fs";
-import * as fs5 from "fs/promises";
-import * as path5 from "path";
-function isValidEvidenceType(type) {
-  return VALID_EVIDENCE_TYPES.includes(type);
-}
-function isSecretscanEvidence(evidence) {
-  return evidence.type === "secretscan";
-}
-function sanitizeTaskId(taskId) {
-  if (!taskId || taskId.length === 0) {
-    throw new Error("Invalid task ID: empty string");
-  }
-  if (/\0/.test(taskId)) {
-    throw new Error("Invalid task ID: contains null bytes");
-  }
-  for (let i2 = 0;i2 < taskId.length; i2++) {
-    if (taskId.charCodeAt(i2) < 32) {
-      throw new Error("Invalid task ID: contains control characters");
-    }
-  }
-  if (taskId.includes("..") || taskId.includes("../") || taskId.includes("..\\")) {
-    throw new Error("Invalid task ID: path traversal detected");
-  }
-  if (TASK_ID_REGEX.test(taskId)) {
-    return taskId;
-  }
-  if (RETRO_TASK_ID_REGEX.test(taskId)) {
-    return taskId;
-  }
-  if (INTERNAL_TOOL_ID_REGEX.test(taskId)) {
-    return taskId;
-  }
-  if (GENERAL_TASK_ID_REGEX.test(taskId)) {
-    return taskId;
-  }
-  throw new Error(`Invalid task ID: must be alphanumeric (ASCII) with optional hyphens, underscores, or dots, got "${taskId}"`);
-}
-async function saveEvidence(directory, taskId, evidence) {
-  const sanitizedTaskId = sanitizeTaskId(taskId);
-  const relativePath = path5.join("evidence", sanitizedTaskId, "evidence.json");
-  const evidencePath = validateSwarmPath(directory, relativePath);
-  const evidenceDir = path5.dirname(evidencePath);
-  let bundle;
-  const existingContent = await readSwarmFileAsync(directory, relativePath);
-  if (existingContent !== null) {
-    try {
-      const parsed = JSON.parse(existingContent);
-      bundle = EvidenceBundleSchema.parse(parsed);
-    } catch (error49) {
-      warn(`Existing evidence bundle invalid for task ${sanitizedTaskId}, creating new: ${error49 instanceof Error ? error49.message : String(error49)}`);
-      const now = new Date().toISOString();
-      bundle = {
-        schema_version: "1.0.0",
-        task_id: sanitizedTaskId,
-        entries: [],
-        created_at: now,
-        updated_at: now
-      };
-    }
-  } else {
-    const now = new Date().toISOString();
-    bundle = {
-      schema_version: "1.0.0",
-      task_id: sanitizedTaskId,
-      entries: [],
-      created_at: now,
-      updated_at: now
-    };
-  }
-  const updatedBundle = {
-    ...bundle,
-    entries: [...bundle.entries, evidence],
-    updated_at: new Date().toISOString()
-  };
-  const bundleJson = JSON.stringify(updatedBundle);
-  if (bundleJson.length > EVIDENCE_MAX_JSON_BYTES) {
-    throw new Error(`Evidence bundle size (${bundleJson.length} bytes) exceeds maximum (${EVIDENCE_MAX_JSON_BYTES} bytes)`);
-  }
-  mkdirSync2(evidenceDir, { recursive: true });
-  const tempPath = path5.join(evidenceDir, `evidence.json.tmp.${Date.now()}.${process.pid}`);
-  try {
-    await Bun.write(tempPath, bundleJson);
-    await fs5.rename(tempPath, evidencePath);
-  } catch (error49) {
-    try {
-      rmSync(tempPath, { force: true });
-    } catch {}
-    throw error49;
-  }
-  return updatedBundle;
-}
-function isFlatRetrospective(parsed) {
-  return parsed !== null && typeof parsed === "object" && !Array.isArray(parsed) && parsed.type === "retrospective" && !parsed.schema_version;
-}
-function remapLegacyTaskComplexity(entry) {
-  const taskComplexity = entry.task_complexity;
-  if (typeof taskComplexity === "string" && taskComplexity in LEGACY_TASK_COMPLEXITY_MAP) {
-    return {
-      ...entry,
-      task_complexity: LEGACY_TASK_COMPLEXITY_MAP[taskComplexity]
-    };
-  }
-  return entry;
-}
-function wrapFlatRetrospective(flatEntry, taskId) {
-  const now = new Date().toISOString();
-  const remappedEntry = remapLegacyTaskComplexity(flatEntry);
-  return {
-    schema_version: "1.0.0",
-    task_id: remappedEntry.task_id ?? taskId,
-    created_at: remappedEntry.timestamp ?? now,
-    updated_at: remappedEntry.timestamp ?? now,
-    entries: [remappedEntry]
-  };
-}
-async function loadEvidence(directory, taskId) {
-  const sanitizedTaskId = sanitizeTaskId(taskId);
-  const relativePath = path5.join("evidence", sanitizedTaskId, "evidence.json");
-  const evidencePath = validateSwarmPath(directory, relativePath);
-  const content = await readSwarmFileAsync(directory, relativePath);
-  if (content === null) {
-    return { status: "not_found" };
-  }
-  let parsed;
-  try {
-    parsed = JSON.parse(content);
-  } catch {
-    return { status: "invalid_schema", errors: ["Invalid JSON"] };
-  }
-  if (isFlatRetrospective(parsed)) {
-    const wrappedBundle = wrapFlatRetrospective(parsed, sanitizedTaskId);
-    try {
-      const validated = EvidenceBundleSchema.parse(wrappedBundle);
-      const evidenceDir = path5.dirname(evidencePath);
-      const bundleJson = JSON.stringify(validated);
-      const tempPath = path5.join(evidenceDir, `evidence.json.tmp.${Date.now()}.${process.pid}`);
-      try {
-        await Bun.write(tempPath, bundleJson);
-        await fs5.rename(tempPath, evidencePath);
-      } catch (writeError) {
-        try {
-          rmSync(tempPath, { force: true });
-        } catch {}
-        warn(`Failed to persist repaired flat retrospective for task ${sanitizedTaskId}: ${writeError instanceof Error ? writeError.message : String(writeError)}`);
-      }
-      return { status: "found", bundle: validated };
-    } catch (error49) {
-      warn(`Wrapped flat retrospective failed validation for task ${sanitizedTaskId}: ${error49 instanceof Error ? error49.message : String(error49)}`);
-      const errors3 = error49 instanceof ZodError ? error49.issues.map((e) => `${e.path.join(".")}: ${e.message}`) : [error49 instanceof Error ? error49.message : String(error49)];
-      return { status: "invalid_schema", errors: errors3 };
-    }
-  }
-  try {
-    const validated = EvidenceBundleSchema.parse(parsed);
-    return { status: "found", bundle: validated };
-  } catch (error49) {
-    warn(`Evidence bundle validation failed for task ${sanitizedTaskId}: ${error49 instanceof Error ? error49.message : String(error49)}`);
-    const errors3 = error49 instanceof ZodError ? error49.issues.map((e) => `${e.path.join(".")}: ${e.message}`) : [error49 instanceof Error ? error49.message : String(error49)];
-    return { status: "invalid_schema", errors: errors3 };
-  }
-}
-async function listEvidenceTaskIds(directory) {
-  const evidenceBasePath = validateSwarmPath(directory, "evidence");
-  try {
-    statSync3(evidenceBasePath);
-  } catch {
-    return [];
-  }
-  let entries;
-  try {
-    entries = readdirSync(evidenceBasePath);
-  } catch {
-    return [];
-  }
-  const taskIds = [];
-  for (const entry of entries) {
-    const entryPath = path5.join(evidenceBasePath, entry);
-    try {
-      const stats = statSync3(entryPath);
-      if (!stats.isDirectory()) {
-        continue;
-      }
-      sanitizeTaskId(entry);
-      taskIds.push(entry);
-    } catch (error49) {
-      if (error49 instanceof Error && !error49.message.startsWith("Invalid task ID")) {
-        warn(`Error reading evidence entry '${entry}': ${error49.message}`);
-      }
-    }
-  }
-  return taskIds.sort();
-}
-async function deleteEvidence(directory, taskId) {
-  const sanitizedTaskId = sanitizeTaskId(taskId);
-  const relativePath = path5.join("evidence", sanitizedTaskId);
-  const evidenceDir = validateSwarmPath(directory, relativePath);
-  try {
-    statSync3(evidenceDir);
-  } catch {
-    return false;
-  }
-  try {
-    rmSync(evidenceDir, { recursive: true, force: true });
-    return true;
-  } catch (error49) {
-    warn(`Failed to delete evidence for task ${sanitizedTaskId}: ${error49 instanceof Error ? error49.message : String(error49)}`);
-    return false;
-  }
-}
-async function archiveEvidence(directory, maxAgeDays, maxBundles) {
-  const taskIds = await listEvidenceTaskIds(directory);
-  const cutoffDate = new Date;
-  cutoffDate.setDate(cutoffDate.getDate() - maxAgeDays);
-  const cutoffIso = cutoffDate.toISOString();
-  const archived = [];
-  const remainingBundles = [];
-  for (const taskId of taskIds) {
-    const result = await loadEvidence(directory, taskId);
-    if (result.status !== "found") {
-      continue;
-    }
-    if (result.bundle.updated_at < cutoffIso) {
-      const deleted = await deleteEvidence(directory, taskId);
-      if (deleted) {
-        archived.push(taskId);
-      }
-    } else {
-      remainingBundles.push({
-        taskId,
-        updatedAt: result.bundle.updated_at
-      });
-    }
-  }
-  if (maxBundles !== undefined && remainingBundles.length > maxBundles) {
-    remainingBundles.sort((a, b) => a.updatedAt.localeCompare(b.updatedAt));
-    const toDelete = remainingBundles.length - maxBundles;
-    for (let i2 = 0;i2 < toDelete; i2++) {
-      const deleted = await deleteEvidence(directory, remainingBundles[i2].taskId);
-      if (deleted) {
-        archived.push(remainingBundles[i2].taskId);
-      }
-    }
-  }
-  return archived;
-}
-var VALID_EVIDENCE_TYPES, TASK_ID_REGEX, RETRO_TASK_ID_REGEX, INTERNAL_TOOL_ID_REGEX, GENERAL_TASK_ID_REGEX, LEGACY_TASK_COMPLEXITY_MAP;
-var init_manager = __esm(() => {
-  init_zod();
-  init_evidence_schema();
-  init_utils2();
-  init_utils();
-  VALID_EVIDENCE_TYPES = [
-    "review",
-    "test",
-    "diff",
-    "approval",
-    "note",
-    "retrospective",
-    "syntax",
-    "placeholder",
-    "sast",
-    "sbom",
-    "build",
-    "quality_budget",
-    "secretscan"
-  ];
-  TASK_ID_REGEX = /^\d+\.\d+(\.\d+)*$/;
-  RETRO_TASK_ID_REGEX = /^retro-\d+$/;
-  INTERNAL_TOOL_ID_REGEX = /^(?:sast_scan|quality_budget|syntax_check|placeholder_scan|sbom_generate|build|secretscan)$/;
-  GENERAL_TASK_ID_REGEX = /^[a-zA-Z0-9][a-zA-Z0-9._-]*$/;
-  LEGACY_TASK_COMPLEXITY_MAP = {
-    low: "simple",
-    medium: "moderate",
-    high: "complex"
-  };
-});
-
-// src/plan/ledger.ts
-import * as crypto2 from "crypto";
-import * as fs6 from "fs";
-import * as path6 from "path";
-function getLedgerPath(directory) {
-  return path6.join(directory, ".swarm", LEDGER_FILENAME);
-}
-function getPlanJsonPath(directory) {
-  return path6.join(directory, ".swarm", PLAN_JSON_FILENAME);
-}
-function computePlanHash(plan) {
-  const normalized = {
-    schema_version: plan.schema_version,
-    title: plan.title,
-    swarm: plan.swarm,
-    current_phase: plan.current_phase,
-    migration_status: plan.migration_status,
-    phases: plan.phases.map((phase) => ({
-      id: phase.id,
-      name: phase.name,
-      status: phase.status,
-      required_agents: phase.required_agents ? [...phase.required_agents].sort() : undefined,
-      tasks: phase.tasks.map((task) => ({
-        id: task.id,
-        phase: task.phase,
-        status: task.status,
-        size: task.size,
-        description: task.description,
-        depends: [...task.depends].sort(),
-        acceptance: task.acceptance,
-        files_touched: [...task.files_touched].sort(),
-        evidence_path: task.evidence_path,
-        blocked_reason: task.blocked_reason
-      }))
-    }))
-  };
-  const jsonString = JSON.stringify(normalized);
-  return crypto2.createHash("sha256").update(jsonString, "utf8").digest("hex");
-}
-function computeCurrentPlanHash(directory) {
-  const planPath = getPlanJsonPath(directory);
-  try {
-    const content = fs6.readFileSync(planPath, "utf8");
-    const plan = JSON.parse(content);
-    return computePlanHash(plan);
-  } catch {
-    return "";
-  }
-}
-async function ledgerExists(directory) {
-  const ledgerPath = getLedgerPath(directory);
-  return fs6.existsSync(ledgerPath);
-}
-async function getLatestLedgerSeq(directory) {
-  const ledgerPath = getLedgerPath(directory);
-  if (!fs6.existsSync(ledgerPath)) {
-    return 0;
-  }
-  try {
-    const content = fs6.readFileSync(ledgerPath, "utf8");
-    const lines = content.trim().split(`
-`).filter((line) => line.trim() !== "");
-    if (lines.length === 0) {
-      return 0;
-    }
-    let maxSeq = 0;
-    for (const line of lines) {
-      try {
-        const event = JSON.parse(line);
-        if (event.seq > maxSeq) {
-          maxSeq = event.seq;
-        }
-      } catch {}
-    }
-    return maxSeq;
-  } catch {
-    return 0;
-  }
-}
-async function readLedgerEvents(directory) {
-  const ledgerPath = getLedgerPath(directory);
-  if (!fs6.existsSync(ledgerPath)) {
-    return [];
-  }
-  try {
-    const content = fs6.readFileSync(ledgerPath, "utf8");
-    const lines = content.trim().split(`
-`).filter((line) => line.trim() !== "");
-    const events = [];
-    for (const line of lines) {
-      try {
-        const event = JSON.parse(line);
-        events.push(event);
-      } catch {}
-    }
-    events.sort((a, b) => a.seq - b.seq);
-    return events;
-  } catch {
-    return [];
-  }
-}
-async function initLedger(directory, planId, initialPlanHash) {
-  const ledgerPath = getLedgerPath(directory);
-  const planJsonPath = getPlanJsonPath(directory);
-  if (fs6.existsSync(ledgerPath)) {
-    throw new Error("Ledger already initialized. Use appendLedgerEvent to add events.");
-  }
-  let planHashAfter = initialPlanHash ?? "";
-  if (!initialPlanHash) {
-    try {
-      if (fs6.existsSync(planJsonPath)) {
-        const content = fs6.readFileSync(planJsonPath, "utf8");
-        const plan = JSON.parse(content);
-        planHashAfter = computePlanHash(plan);
-      }
-    } catch {}
-  }
-  const event = {
-    seq: 1,
-    timestamp: new Date().toISOString(),
-    plan_id: planId,
-    event_type: "plan_created",
-    source: "initLedger",
-    plan_hash_before: "",
-    plan_hash_after: planHashAfter,
-    schema_version: LEDGER_SCHEMA_VERSION
-  };
-  fs6.mkdirSync(path6.join(directory, ".swarm"), { recursive: true });
-  const tempPath = `${ledgerPath}.tmp.${Date.now()}.${Math.floor(Math.random() * 1e9)}`;
-  const line = `${JSON.stringify(event)}
-`;
-  fs6.writeFileSync(tempPath, line, "utf8");
-  fs6.renameSync(tempPath, ledgerPath);
-}
-async function appendLedgerEvent(directory, eventInput, options) {
-  const ledgerPath = getLedgerPath(directory);
-  const latestSeq = await getLatestLedgerSeq(directory);
-  const nextSeq = latestSeq + 1;
-  const planHashBefore = computeCurrentPlanHash(directory);
-  if (options?.expectedSeq !== undefined && options.expectedSeq !== latestSeq) {
-    throw new LedgerStaleWriterError(`Stale writer: expected seq ${options.expectedSeq} but found ${latestSeq}`);
-  }
-  if (options?.expectedHash !== undefined && options.expectedHash !== planHashBefore) {
-    throw new LedgerStaleWriterError(`Stale writer: expected hash ${options.expectedHash} but found ${planHashBefore}`);
-  }
-  const planHashAfter = options?.planHashAfter ?? planHashBefore;
-  const event = {
-    ...eventInput,
-    seq: nextSeq,
-    timestamp: new Date().toISOString(),
-    plan_hash_before: planHashBefore,
-    plan_hash_after: planHashAfter,
-    schema_version: LEDGER_SCHEMA_VERSION
-  };
-  fs6.mkdirSync(path6.join(directory, ".swarm"), { recursive: true });
-  const tempPath = `${ledgerPath}.tmp.${Date.now()}.${Math.floor(Math.random() * 1e9)}`;
-  const line = `${JSON.stringify(event)}
-`;
-  if (fs6.existsSync(ledgerPath)) {
-    const existingContent = fs6.readFileSync(ledgerPath, "utf8");
-    fs6.writeFileSync(tempPath, existingContent + line, "utf8");
-  } else {
-    throw new Error("Ledger not initialized. Call initLedger() first.");
-  }
-  fs6.renameSync(tempPath, ledgerPath);
-  return event;
-}
-async function takeSnapshotEvent(directory, plan, options) {
-  const payloadHash = computePlanHash(plan);
-  const snapshotPayload = {
-    plan,
-    payload_hash: payloadHash
-  };
-  const planId = `${plan.swarm}-${plan.title}`.replace(/[^a-zA-Z0-9-_]/g, "_");
-  return appendLedgerEvent(directory, {
-    event_type: "snapshot",
-    source: "takeSnapshotEvent",
-    plan_id: planId,
-    payload: snapshotPayload
-  }, options);
-}
-async function replayFromLedger(directory, options) {
-  const events = await readLedgerEvents(directory);
-  if (events.length === 0) {
-    return null;
-  }
-  const targetPlanId = events[0].plan_id;
-  const relevantEvents = events.filter((e) => e.plan_id === targetPlanId);
-  {
-    const snapshotEvents = relevantEvents.filter((e) => e.event_type === "snapshot");
-    if (snapshotEvents.length > 0) {
-      const latestSnapshotEvent = snapshotEvents[snapshotEvents.length - 1];
-      const snapshotPayload = latestSnapshotEvent.payload;
-      let plan2 = snapshotPayload.plan;
-      const eventsAfterSnapshot = relevantEvents.filter((e) => e.seq > latestSnapshotEvent.seq);
-      for (const event of eventsAfterSnapshot) {
-        plan2 = applyEventToPlan(plan2, event);
-        if (plan2 === null) {
-          return null;
-        }
-      }
-      return plan2;
-    }
-  }
-  const planJsonPath = getPlanJsonPath(directory);
-  if (!fs6.existsSync(planJsonPath)) {
-    return null;
-  }
-  let plan;
-  try {
-    const content = fs6.readFileSync(planJsonPath, "utf8");
-    plan = JSON.parse(content);
-  } catch {
-    return null;
-  }
-  for (const event of relevantEvents) {
-    if (plan === null) {
-      return null;
-    }
-    plan = applyEventToPlan(plan, event);
-  }
-  return plan;
-}
-function applyEventToPlan(plan, event) {
-  switch (event.event_type) {
-    case "plan_created":
-      return plan;
-    case "task_status_changed":
-      if (event.task_id && event.to_status) {
-        const parseResult = TaskStatusSchema.safeParse(event.to_status);
-        if (!parseResult.success) {
-          return plan;
-        }
-        for (const phase of plan.phases) {
-          const task = phase.tasks.find((t) => t.id === event.task_id);
-          if (task) {
-            task.status = parseResult.data;
-            break;
-          }
-        }
-      }
-      return plan;
-    case "phase_completed":
-      if (event.phase_id) {
-        const phase = plan.phases.find((p) => p.id === event.phase_id);
-        if (phase) {
-          phase.status = "complete";
-        }
-      }
-      return plan;
-    case "plan_exported":
-      return plan;
-    case "task_added":
-      return plan;
-    case "task_updated":
-      return plan;
-    case "plan_rebuilt":
-      return plan;
-    case "task_reordered":
-      return plan;
-    case "snapshot":
-      return plan;
-    case "plan_reset":
-      return null;
-    default:
-      throw new Error(`applyEventToPlan: unhandled event type "${event.event_type}" at seq ${event.seq}`);
-  }
-}
-var LEDGER_SCHEMA_VERSION = "1.0.0", LEDGER_FILENAME = "plan-ledger.jsonl", PLAN_JSON_FILENAME = "plan.json", LedgerStaleWriterError;
-var init_ledger = __esm(() => {
-  init_plan_schema();
-  LedgerStaleWriterError = class LedgerStaleWriterError extends Error {
-    constructor(message) {
-      super(message);
-      this.name = "LedgerStaleWriterError";
-    }
-  };
-});
-
-// src/plan/manager.ts
-import { existsSync as existsSync4, renameSync as renameSync3, unlinkSync } from "fs";
-import * as path7 from "path";
-async function loadPlanJsonOnly(directory) {
-  const planJsonContent = await readSwarmFileAsync(directory, "plan.json");
-  if (planJsonContent !== null) {
-    if (planJsonContent.includes("\x00") || planJsonContent.includes("\uFFFD")) {
-      warn("Plan rejected: .swarm/plan.json contains null bytes or invalid encoding");
-      return null;
-    }
-    try {
-      const parsed = JSON.parse(planJsonContent);
-      const validated = PlanSchema.parse(parsed);
-      return validated;
-    } catch (error49) {
-      warn(`Plan validation failed for .swarm/plan.json: ${error49 instanceof Error ? error49.message : String(error49)}`);
-    }
-  }
-  return null;
-}
-function compareTaskIds(a, b) {
-  const partsA = a.split(".").map((n) => parseInt(n, 10));
-  const partsB = b.split(".").map((n) => parseInt(n, 10));
-  const maxLen = Math.max(partsA.length, partsB.length);
-  for (let i2 = 0;i2 < maxLen; i2++) {
-    const numA = partsA[i2] ?? 0;
-    const numB = partsB[i2] ?? 0;
-    if (numA !== numB) {
-      return numA - numB;
-    }
-  }
-  return 0;
-}
-async function getLatestLedgerHash(directory) {
-  try {
-    const events = await readLedgerEvents(directory);
-    if (events.length === 0)
-      return "";
-    const lastEvent = events[events.length - 1];
-    return lastEvent.plan_hash_after;
-  } catch {
-    return "";
-  }
-}
-function computePlanContentHash(plan) {
-  const content = {
-    schema_version: plan.schema_version,
-    title: plan.title,
-    swarm: plan.swarm,
-    current_phase: plan.current_phase,
-    migration_status: plan.migration_status,
-    phases: plan.phases.map((phase) => ({
-      id: phase.id,
-      name: phase.name,
-      status: phase.status,
-      tasks: phase.tasks.map((task) => ({
-        id: task.id,
-        phase: task.phase,
-        status: task.status,
-        size: task.size,
-        description: task.description,
-        depends: [...task.depends].sort(compareTaskIds),
-        acceptance: task.acceptance,
-        files_touched: [...task.files_touched].sort(),
-        evidence_path: task.evidence_path,
-        blocked_reason: task.blocked_reason
-      })).sort((a, b) => compareTaskIds(a.id, b.id))
-    })).sort((a, b) => a.id - b.id)
-  };
-  const jsonString = JSON.stringify(content);
-  return Bun.hash(jsonString).toString(36);
-}
-function extractPlanHashFromMarkdown(markdown) {
-  const match = markdown.match(/<!--\s*PLAN_HASH:\s*(\S+)\s*-->/);
-  return match ? match[1] : null;
-}
-async function isPlanMdInSync(directory, plan) {
-  const planMdContent = await readSwarmFileAsync(directory, "plan.md");
-  if (planMdContent === null) {
-    return false;
-  }
-  const expectedHash = computePlanContentHash(plan);
-  const existingHash = extractPlanHashFromMarkdown(planMdContent);
-  if (existingHash === expectedHash) {
-    return true;
-  }
-  const expectedMarkdown = derivePlanMarkdown(plan);
-  const normalizedExpected = expectedMarkdown.trim();
-  const normalizedActual = planMdContent.trim();
-  if (normalizedActual === normalizedExpected) {
-    return true;
-  }
-  return normalizedActual.includes(normalizedExpected) || normalizedExpected.includes(normalizedActual.replace(/^#.*$/gm, "").trim());
-}
-async function regeneratePlanMarkdown(directory, plan) {
-  const swarmDir = path7.resolve(directory, ".swarm");
-  const contentHash = computePlanContentHash(plan);
-  const markdown = derivePlanMarkdown(plan);
-  const markdownWithHash = `<!-- PLAN_HASH: ${contentHash} -->
-${markdown}`;
-  const mdPath = path7.join(swarmDir, "plan.md");
-  const mdTempPath = path7.join(swarmDir, `plan.md.tmp.${Date.now()}.${Math.floor(Math.random() * 1e9)}`);
-  try {
-    await Bun.write(mdTempPath, markdownWithHash);
-    renameSync3(mdTempPath, mdPath);
-  } finally {
-    try {
-      unlinkSync(mdTempPath);
-    } catch {}
-  }
-}
-async function loadPlan(directory) {
-  const planJsonContent = await readSwarmFileAsync(directory, "plan.json");
-  if (planJsonContent !== null) {
-    if (planJsonContent.includes("\x00") || planJsonContent.includes("\uFFFD")) {
-      warn("Plan rejected: .swarm/plan.json contains null bytes or invalid encoding");
-    } else {
-      try {
-        const parsed = JSON.parse(planJsonContent);
-        const validated = PlanSchema.parse(parsed);
-        const inSync = await isPlanMdInSync(directory, validated);
-        if (!inSync) {
-          try {
-            await regeneratePlanMarkdown(directory, validated);
-          } catch (regenError) {
-            warn(`Failed to regenerate plan.md: ${regenError instanceof Error ? regenError.message : String(regenError)}. Proceeding with plan.json only.`);
-          }
-        }
-        if (await ledgerExists(directory)) {
-          const planHash = computePlanHash(validated);
-          const ledgerHash = await getLatestLedgerHash(directory);
-          if (ledgerHash !== "" && planHash !== ledgerHash) {
-            const currentPlanId = `${validated.swarm}-${validated.title}`.replace(/[^a-zA-Z0-9-_]/g, "_");
-            const ledgerEvents = await readLedgerEvents(directory);
-            const firstEvent = ledgerEvents.length > 0 ? ledgerEvents[0] : null;
-            if (firstEvent && firstEvent.plan_id !== currentPlanId) {
-              warn(`[loadPlan] Ledger identity mismatch (ledger: ${firstEvent.plan_id}, plan: ${currentPlanId}) \u2014 skipping ledger rebuild (migration detected). Use /swarm reset-session to reinitialize the ledger.`);
-            } else {
-              warn("[loadPlan] plan.json is stale (hash mismatch with ledger) \u2014 rebuilding from ledger. If this recurs, run /swarm reset-session to clear stale session state.");
-              try {
-                const rebuilt = await replayFromLedger(directory);
-                if (rebuilt) {
-                  await rebuildPlan(directory, rebuilt);
-                  warn("[loadPlan] Rebuilt plan from ledger. Checkpoint available at SWARM_PLAN.md if it exists.");
-                  return rebuilt;
-                }
-              } catch (replayError) {
-                warn(`[loadPlan] Ledger replay failed during hash-mismatch rebuild: ${replayError instanceof Error ? replayError.message : String(replayError)}. Returning stale plan.json. To recover: check SWARM_PLAN.md for a checkpoint, or run /swarm reset-session.`);
-              }
-            }
-          }
-        }
-        return validated;
-      } catch (error49) {
-        warn(`[loadPlan] plan.json validation failed: ${error49 instanceof Error ? error49.message : String(error49)}. Attempting rebuild from ledger. If rebuild fails, check SWARM_PLAN.md for a checkpoint.`);
-        let rawPlanId = null;
-        try {
-          const rawParsed = JSON.parse(planJsonContent);
-          if (typeof rawParsed?.swarm === "string" && typeof rawParsed?.title === "string") {
-            rawPlanId = `${rawParsed.swarm}-${rawParsed.title}`.replace(/[^a-zA-Z0-9-_]/g, "_");
-          }
-        } catch {}
-        if (await ledgerExists(directory)) {
-          const ledgerEventsForCatch = await readLedgerEvents(directory);
-          const catchFirstEvent = ledgerEventsForCatch.length > 0 ? ledgerEventsForCatch[0] : null;
-          const identityMatch = rawPlanId === null || catchFirstEvent === null || catchFirstEvent.plan_id === rawPlanId;
-          if (!identityMatch) {
-            warn(`[loadPlan] Ledger identity mismatch in validation-failure path (ledger: ${catchFirstEvent?.plan_id}, plan: ${rawPlanId}) \u2014 skipping ledger rebuild (migration detected).`);
-          } else if (catchFirstEvent !== null && rawPlanId !== null) {
-            const rebuilt = await replayFromLedger(directory);
-            if (rebuilt) {
-              await rebuildPlan(directory, rebuilt);
-              warn("[loadPlan] Rebuilt plan from ledger after validation failure. Projection was stale.");
-              return rebuilt;
-            }
-          }
-        }
-        const planMdContent2 = await readSwarmFileAsync(directory, "plan.md");
-        if (planMdContent2 !== null) {
-          const migrated = migrateLegacyPlan(planMdContent2);
-          await savePlan(directory, migrated);
-          return migrated;
-        }
-      }
-    }
-  }
-  const planMdContent = await readSwarmFileAsync(directory, "plan.md");
-  if (planMdContent !== null) {
-    const migrated = migrateLegacyPlan(planMdContent);
-    await savePlan(directory, migrated);
-    return migrated;
-  }
-  if (await ledgerExists(directory)) {
-    const rebuilt = await replayFromLedger(directory);
-    if (rebuilt) {
-      await savePlan(directory, rebuilt);
-      return rebuilt;
-    }
-  }
-  return null;
-}
-async function savePlan(directory, plan, options) {
-  if (directory === null || directory === undefined || typeof directory !== "string" || directory.trim().length === 0) {
-    throw new Error(`Invalid directory: directory must be a non-empty string`);
-  }
-  const validated = PlanSchema.parse(plan);
-  if (options?.preserveCompletedStatuses !== false) {
-    try {
-      const currentPlan2 = await loadPlanJsonOnly(directory);
-      if (currentPlan2) {
-        const completedTaskIds = new Set;
-        for (const phase of currentPlan2.phases) {
-          for (const task of phase.tasks) {
-            if (task.status === "completed")
-              completedTaskIds.add(task.id);
-          }
-        }
-        if (completedTaskIds.size > 0) {
-          for (const phase of validated.phases) {
-            for (const task of phase.tasks) {
-              if (completedTaskIds.has(task.id) && task.status !== "completed") {
-                task.status = "completed";
-              }
-            }
-          }
-        }
-      }
-    } catch {}
-  }
-  for (const phase of validated.phases) {
-    const tasks = phase.tasks;
-    if (tasks.length > 0 && tasks.every((t) => t.status === "completed")) {
-      phase.status = "complete";
-    } else if (tasks.some((t) => t.status === "in_progress")) {
-      phase.status = "in_progress";
-    } else if (tasks.some((t) => t.status === "blocked")) {
-      phase.status = "blocked";
-    } else {
-      phase.status = "pending";
-    }
-  }
-  const currentPlan = await loadPlanJsonOnly(directory);
-  const planId = `${validated.swarm}-${validated.title}`.replace(/[^a-zA-Z0-9-_]/g, "_");
-  const planHashForInit = computePlanHash(validated);
-  if (!await ledgerExists(directory)) {
-    await initLedger(directory, planId, planHashForInit);
-  } else {
-    const existingEvents = await readLedgerEvents(directory);
-    if (existingEvents.length > 0 && existingEvents[0].plan_id !== planId) {
-      const swarmDir2 = path7.resolve(directory, ".swarm");
-      const oldLedgerPath = path7.join(swarmDir2, "plan-ledger.jsonl");
-      const archivePath = path7.join(swarmDir2, `plan-ledger.archived-${Date.now()}-${Math.floor(Math.random() * 1e9)}.jsonl`);
-      if (existsSync4(oldLedgerPath)) {
-        renameSync3(oldLedgerPath, archivePath);
-        warn(`[savePlan] Ledger identity mismatch (was "${existingEvents[0].plan_id}", now "${planId}") \u2014 archived old ledger to ${archivePath} and reinitializing.`);
-      }
-      try {
-        await initLedger(directory, planId, planHashForInit);
-      } catch (initErr) {
-        if (!(initErr instanceof Error && initErr.message.includes("already initialized"))) {
-          throw initErr;
-        }
-      }
-    }
-  }
-  const currentHash = computeCurrentPlanHash(directory);
-  const hashAfter = computePlanHash(validated);
-  if (currentPlan) {
-    const oldTaskMap = new Map;
-    for (const phase of currentPlan.phases) {
-      for (const task of phase.tasks) {
-        oldTaskMap.set(task.id, { phase: task.phase, status: task.status });
-      }
-    }
-    try {
-      for (const phase of validated.phases) {
-        for (const task of phase.tasks) {
-          const oldTask = oldTaskMap.get(task.id);
-          if (oldTask && oldTask.status !== task.status) {
-            const eventInput = {
-              plan_id: `${validated.swarm}-${validated.title}`.replace(/[^a-zA-Z0-9-_]/g, "_"),
-              event_type: "task_status_changed",
-              task_id: task.id,
-              phase_id: phase.id,
-              from_status: oldTask.status,
-              to_status: task.status,
-              source: "savePlan"
-            };
-            await appendLedgerEvent(directory, eventInput, {
-              expectedHash: currentHash,
-              planHashAfter: hashAfter
-            });
-          }
-        }
-      }
-    } catch (error49) {
-      if (error49 instanceof LedgerStaleWriterError) {
-        throw new Error(`Concurrent plan modification detected: ${error49.message}. Please retry the operation.`);
-      }
-      throw error49;
-    }
-  }
-  const SNAPSHOT_INTERVAL = 50;
-  const latestSeq = await getLatestLedgerSeq(directory);
-  if (latestSeq > 0 && latestSeq % SNAPSHOT_INTERVAL === 0) {
-    await takeSnapshotEvent(directory, validated, {
-      planHashAfter: hashAfter
-    }).catch(() => {});
-  }
-  const swarmDir = path7.resolve(directory, ".swarm");
-  const planPath = path7.join(swarmDir, "plan.json");
-  const tempPath = path7.join(swarmDir, `plan.json.tmp.${Date.now()}.${Math.floor(Math.random() * 1e9)}`);
-  try {
-    await Bun.write(tempPath, JSON.stringify(validated, null, 2));
-    renameSync3(tempPath, planPath);
-  } finally {
-    try {
-      unlinkSync(tempPath);
-    } catch {}
-  }
-  const contentHash = computePlanContentHash(validated);
-  const markdown = derivePlanMarkdown(validated);
-  const markdownWithHash = `<!-- PLAN_HASH: ${contentHash} -->
-${markdown}`;
-  const mdPath = path7.join(swarmDir, "plan.md");
-  const mdTempPath = path7.join(swarmDir, `plan.md.tmp.${Date.now()}.${Math.floor(Math.random() * 1e9)}`);
-  try {
-    await Bun.write(mdTempPath, markdownWithHash);
-    renameSync3(mdTempPath, mdPath);
-  } finally {
-    try {
-      unlinkSync(mdTempPath);
-    } catch {}
-  }
-  try {
-    const markerPath = path7.join(swarmDir, ".plan-write-marker");
-    const tasksCount = validated.phases.reduce((sum, phase) => sum + phase.tasks.length, 0);
-    const marker = JSON.stringify({
-      source: "plan_manager",
-      timestamp: new Date().toISOString(),
-      phases_count: validated.phases.length,
-      tasks_count: tasksCount
-    });
-    await Bun.write(markerPath, marker);
-  } catch {}
-}
-async function rebuildPlan(directory, plan) {
-  const targetPlan = plan ?? await replayFromLedger(directory);
-  if (!targetPlan)
-    return null;
-  const swarmDir = path7.join(directory, ".swarm");
-  const planPath = path7.join(swarmDir, "plan.json");
-  const mdPath = path7.join(swarmDir, "plan.md");
-  const tempPlanPath = path7.join(swarmDir, `plan.json.rebuild.${Date.now()}`);
-  await Bun.write(tempPlanPath, JSON.stringify(targetPlan, null, 2));
-  renameSync3(tempPlanPath, planPath);
-  const contentHash = computePlanContentHash(targetPlan);
-  const markdown = derivePlanMarkdown(targetPlan);
-  const markdownWithHash = `<!-- PLAN_HASH: ${contentHash} -->
-${markdown}`;
-  const tempMdPath = path7.join(swarmDir, `plan.md.rebuild.${Date.now()}`);
-  await Bun.write(tempMdPath, markdownWithHash);
-  renameSync3(tempMdPath, mdPath);
-  try {
-    const markerPath = path7.join(swarmDir, ".plan-write-marker");
-    const tasksCount = targetPlan.phases.reduce((sum, phase) => sum + phase.tasks.length, 0);
-    const marker = JSON.stringify({
-      source: "plan_manager",
-      timestamp: new Date().toISOString(),
-      phases_count: targetPlan.phases.length,
-      tasks_count: tasksCount
-    });
-    await Bun.write(markerPath, marker);
-  } catch {}
-  return targetPlan;
-}
-async function updateTaskStatus(directory, taskId, status) {
-  const plan = await loadPlan(directory);
-  if (plan === null) {
-    throw new Error(`Plan not found in directory: ${directory}`);
-  }
-  let taskFound = false;
-  const derivePhaseStatusFromTasks = (tasks) => {
-    if (tasks.length > 0 && tasks.every((task) => task.status === "completed")) {
-      return "complete";
-    }
-    if (tasks.some((task) => task.status === "in_progress")) {
-      return "in_progress";
-    }
-    if (tasks.some((task) => task.status === "blocked")) {
-      return "blocked";
-    }
-    return "pending";
-  };
-  const updatedPhases = plan.phases.map((phase) => {
-    const updatedTasks = phase.tasks.map((task) => {
-      if (task.id === taskId) {
-        taskFound = true;
-        return { ...task, status };
-      }
-      return task;
-    });
-    return {
-      ...phase,
-      status: derivePhaseStatusFromTasks(updatedTasks),
-      tasks: updatedTasks
-    };
-  });
-  if (!taskFound) {
-    throw new Error(`Task not found: ${taskId}`);
-  }
-  const updatedPlan = { ...plan, phases: updatedPhases };
-  await savePlan(directory, updatedPlan, { preserveCompletedStatuses: true });
-  return updatedPlan;
-}
-function derivePlanMarkdown(plan) {
-  const statusMap = {
-    pending: "PENDING",
-    in_progress: "IN PROGRESS",
-    complete: "COMPLETE",
-    blocked: "BLOCKED"
-  };
-  const now = new Date().toISOString();
-  const currentPhase = plan.current_phase ?? 1;
-  const phaseStatus = statusMap[plan.phases[currentPhase - 1]?.status] || "PENDING";
-  let markdown = `# ${plan.title}
-Swarm: ${plan.swarm}
-Phase: ${currentPhase} [${phaseStatus}] | Updated: ${now}
-`;
-  const sortedPhases = [...plan.phases].sort((a, b) => a.id - b.id);
-  for (const phase of sortedPhases) {
-    const phaseStatusText = statusMap[phase.status] || "PENDING";
-    markdown += `
-## Phase ${phase.id}: ${phase.name} [${phaseStatusText}]
-`;
-    const sortedTasks = [...phase.tasks].sort((a, b) => compareTaskIds(a.id, b.id));
-    let currentTaskMarked = false;
-    for (const task of sortedTasks) {
-      let taskLine = "";
-      let suffix = "";
-      if (task.status === "completed") {
-        taskLine = `- [x] ${task.id}: ${task.description}`;
-      } else if (task.status === "blocked") {
-        taskLine = `- [BLOCKED] ${task.id}: ${task.description}`;
-        if (task.blocked_reason) {
-          taskLine += ` - ${task.blocked_reason}`;
-        }
-      } else {
-        taskLine = `- [ ] ${task.id}: ${task.description}`;
-      }
-      taskLine += ` [${task.size.toUpperCase()}]`;
-      if (task.depends.length > 0) {
-        const sortedDepends = [...task.depends].sort();
-        suffix += ` (depends: ${sortedDepends.join(", ")})`;
-      }
-      if (phase.id === plan.current_phase && task.status === "in_progress" && !currentTaskMarked) {
-        suffix += " \u2190 CURRENT";
-        currentTaskMarked = true;
-      }
-      markdown += `${taskLine}${suffix}
-`;
-    }
-  }
-  const phaseSections = markdown.split(`
-## `);
-  if (phaseSections.length > 1) {
-    const header = phaseSections[0];
-    const phases = phaseSections.slice(1).map((p) => `## ${p}`);
-    markdown = `${header}
----
-${phases.join(`
----
-`)}`;
-  }
-  return `${markdown.trim()}
-`;
-}
-function migrateLegacyPlan(planContent, swarmId) {
-  const lines = planContent.split(`
-`);
-  let title = "Untitled Plan";
-  let swarm = swarmId || "default-swarm";
-  let currentPhaseNum = 1;
-  const phases = [];
-  let currentPhase = null;
-  for (const line of lines) {
-    const trimmed = line.trim();
-    if (trimmed.startsWith("# ") && title === "Untitled Plan") {
-      title = trimmed.substring(2).trim();
-      continue;
-    }
-    if (trimmed.startsWith("Swarm:")) {
-      swarm = trimmed.substring(6).trim();
-      continue;
-    }
-    if (trimmed.startsWith("Phase:")) {
-      const match = trimmed.match(/Phase:\s*(\d+)/i);
-      if (match) {
-        currentPhaseNum = parseInt(match[1], 10);
-      }
-      continue;
-    }
-    const phaseMatch = trimmed.match(/^#{2,3}\s*Phase\s+(\d+)(?::\s*([^[]+))?\s*(?:\[([^\]]+)\])?/i);
-    if (phaseMatch) {
-      if (currentPhase !== null) {
-        phases.push(currentPhase);
-      }
-      const phaseId = parseInt(phaseMatch[1], 10);
-      const phaseName = phaseMatch[2]?.trim() || `Phase ${phaseId}`;
-      const statusText = phaseMatch[3]?.toLowerCase() || "pending";
-      const statusMap = {
-        complete: "complete",
-        completed: "complete",
-        "in progress": "in_progress",
-        in_progress: "in_progress",
-        inprogress: "in_progress",
-        pending: "pending",
-        blocked: "blocked"
-      };
-      currentPhase = {
-        id: phaseId,
-        name: phaseName,
-        status: statusMap[statusText] || "pending",
-        tasks: []
-      };
-      continue;
-    }
-    const taskMatch = trimmed.match(/^-\s*\[([^\]]+)\]\s+(\d+\.\d+):\s*(.+?)(?:\s*\[(\w+)\])?(?:\s*-\s*(.+))?$/i);
-    if (taskMatch && currentPhase !== null) {
-      const checkbox = taskMatch[1].toLowerCase();
-      const taskId = taskMatch[2];
-      let description = taskMatch[3].trim();
-      const sizeText = taskMatch[4]?.toLowerCase() || "small";
-      let blockedReason;
-      const dependsMatch = description.match(/\s*\(depends:\s*([^)]+)\)$/i);
-      const depends = [];
-      if (dependsMatch) {
-        const depsText = dependsMatch[1];
-        depends.push(...depsText.split(",").map((d) => d.trim()));
-        description = description.substring(0, dependsMatch.index).trim();
-      }
-      let status = "pending";
-      if (checkbox === "x") {
-        status = "completed";
-      } else if (checkbox === "blocked") {
-        status = "blocked";
-        const blockedReasonMatch = taskMatch[5];
-        if (blockedReasonMatch) {
-          blockedReason = blockedReasonMatch.trim();
-        }
-      }
-      const sizeMap = {
-        small: "small",
-        medium: "medium",
-        large: "large"
-      };
-      const task = {
-        id: taskId,
-        phase: currentPhase.id,
-        status,
-        size: sizeMap[sizeText] || "small",
-        description,
-        depends,
-        acceptance: undefined,
-        files_touched: [],
-        evidence_path: undefined,
-        blocked_reason: blockedReason
-      };
-      currentPhase.tasks.push(task);
-    }
-    const numberedTaskMatch = trimmed.match(/^(\d+)\.\s+(.+?)(?:\s*\[(\w+)\])?$/);
-    if (numberedTaskMatch && currentPhase !== null) {
-      const taskId = `${currentPhase.id}.${currentPhase.tasks.length + 1}`;
-      let description = numberedTaskMatch[2].trim();
-      const sizeText = numberedTaskMatch[3]?.toLowerCase() || "small";
-      const dependsMatch = description.match(/\s*\(depends:\s*([^)]+)\)$/i);
-      const depends = [];
-      if (dependsMatch) {
-        const depsText = dependsMatch[1];
-        depends.push(...depsText.split(",").map((d) => d.trim()));
-        description = description.substring(0, dependsMatch.index).trim();
-      }
-      const sizeMap = {
-        small: "small",
-        medium: "medium",
-        large: "large"
-      };
-      const task = {
-        id: taskId,
-        phase: currentPhase.id,
-        status: "pending",
-        size: sizeMap[sizeText] || "small",
-        description,
-        depends,
-        acceptance: undefined,
-        files_touched: [],
-        evidence_path: undefined,
-        blocked_reason: undefined
-      };
-      currentPhase.tasks.push(task);
-    }
-    const noPrefixTaskMatch = trimmed.match(/^-\s*\[([^\]]+)\]\s+(?!\d+\.\d+:)(.+?)(?:\s*\[(\w+)\])?(?:\s*-\s*(.+))?$/i);
-    if (noPrefixTaskMatch && currentPhase !== null) {
-      const checkbox = noPrefixTaskMatch[1].toLowerCase();
-      const taskId = `${currentPhase.id}.${currentPhase.tasks.length + 1}`;
-      let description = noPrefixTaskMatch[2].trim();
-      const sizeText = noPrefixTaskMatch[3]?.toLowerCase() || "small";
-      let blockedReason;
-      const dependsMatch = description.match(/\s*\(depends:\s*([^)]+)\)$/i);
-      const depends = [];
-      if (dependsMatch) {
-        const depsText = dependsMatch[1];
-        depends.push(...depsText.split(",").map((d) => d.trim()));
-        description = description.substring(0, dependsMatch.index).trim();
-      }
-      let status = "pending";
-      if (checkbox === "x") {
-        status = "completed";
-      } else if (checkbox === "blocked") {
-        status = "blocked";
-        const blockedReasonMatch = noPrefixTaskMatch[4];
-        if (blockedReasonMatch) {
-          blockedReason = blockedReasonMatch.trim();
-        }
-      }
-      const sizeMap = {
-        small: "small",
-        medium: "medium",
-        large: "large"
-      };
-      const task = {
-        id: taskId,
-        phase: currentPhase.id,
-        status,
-        size: sizeMap[sizeText] || "small",
-        description,
-        depends,
-        acceptance: undefined,
-        files_touched: [],
-        evidence_path: undefined,
-        blocked_reason: blockedReason
-      };
-      currentPhase.tasks.push(task);
-    }
-  }
-  if (currentPhase !== null) {
-    phases.push(currentPhase);
-  }
-  let migrationStatus = "migrated";
-  if (phases.length === 0) {
-    console.warn(`migrateLegacyPlan: 0 phases parsed from ${lines.length} lines. First 3 lines: ${lines.slice(0, 3).join(" | ")}`);
-    migrationStatus = "migration_failed";
-    phases.push({
-      id: 1,
-      name: "Migration Failed",
-      status: "blocked",
-      tasks: [
-        {
-          id: "1.1",
-          phase: 1,
-          status: "blocked",
-          size: "large",
-          description: "Review and restructure plan manually",
-          depends: [],
-          files_touched: [],
-          blocked_reason: "Legacy plan could not be parsed automatically"
-        }
-      ]
-    });
-  }
-  phases.sort((a, b) => a.id - b.id);
-  const plan = {
-    schema_version: "1.0.0",
-    title,
-    swarm,
-    current_phase: currentPhaseNum,
-    phases,
-    migration_status: migrationStatus
-  };
-  return plan;
-}
-var init_manager2 = __esm(() => {
-  init_plan_schema();
-  init_utils2();
-  init_utils();
-  init_ledger();
-});
-
-// src/services/evidence-summary-service.ts
-var exports_evidence_summary_service = {};
-__export(exports_evidence_summary_service, {
-  isAutoSummaryEnabled: () => isAutoSummaryEnabled,
-  buildEvidenceSummary: () => buildEvidenceSummary,
-  REQUIRED_EVIDENCE_TYPES: () => REQUIRED_EVIDENCE_TYPES,
-  EVIDENCE_SUMMARY_VERSION: () => EVIDENCE_SUMMARY_VERSION
-});
-function normalizeBundleEntries(bundle) {
-  if (!bundle) {
-    return [];
-  }
-  const entries = bundle.entries;
-  if (!Array.isArray(entries)) {
-    return [];
-  }
-  const validEntries = [];
-  for (const entry of entries) {
-    if (entry === null || entry === undefined) {
-      continue;
-    }
-    if (typeof entry !== "object") {
-      continue;
-    }
-    const typedEntry = entry;
-    if (!typedEntry.type || !VALID_EVIDENCE_TYPES2.has(typedEntry.type)) {
-      continue;
-    }
-    if (!typedEntry.task_id || !typedEntry.timestamp || !typedEntry.agent) {
-      continue;
-    }
-    if (!typedEntry.verdict || !typedEntry.summary) {
-      continue;
-    }
-    validEntries.push(typedEntry);
-  }
-  return validEntries;
-}
-function getTaskStatus(task, bundle) {
-  if (task?.status) {
-    return task.status;
-  }
-  const entries = normalizeBundleEntries(bundle);
-  if (entries.length > 0) {
-    return "completed";
-  }
-  return "pending";
-}
-function isEvidenceComplete(bundle) {
-  const entries = normalizeBundleEntries(bundle);
-  if (entries.length === 0) {
-    return {
-      isComplete: false,
-      missingEvidence: [...REQUIRED_EVIDENCE_TYPES]
-    };
-  }
-  const typesPresent = new Set(entries.map((e) => e.type));
-  const missing = [];
-  for (const required2 of REQUIRED_EVIDENCE_TYPES) {
-    if (!typesPresent.has(required2)) {
-      missing.push(required2);
-    }
-  }
-  return {
-    isComplete: missing.length === 0,
-    missingEvidence: missing
-  };
-}
-function getTaskBlockers(task, summary, status) {
-  const blockers = [];
-  if (task?.blocked_reason) {
-    blockers.push(task.blocked_reason);
-  }
-  if (status === "blocked") {
-    blockers.push("Task is marked as blocked");
-  }
-  if (summary.missingEvidence.length > 0 && status !== "pending") {
-    blockers.push(`Missing evidence: ${summary.missingEvidence.join(", ")}`);
-  }
-  return blockers;
-}
-async function buildTaskSummary(directory, task, taskId) {
-  const result = await loadEvidence(directory, taskId);
-  const bundle = result.status === "found" ? result.bundle : null;
-  const phase = task?.phase ?? 0;
-  const status = getTaskStatus(task, bundle);
-  const evidenceCheck = isEvidenceComplete(bundle);
-  const blockers = getTaskBlockers(task, evidenceCheck, status);
-  const entries = normalizeBundleEntries(bundle);
-  const hasReview = entries.some((e) => e.type === "review");
-  const hasTest = entries.some((e) => e.type === "test");
-  const hasApproval = entries.some((e) => e.type === "approval");
-  let lastTimestamp = null;
-  if (entries.length > 0) {
-    const timestamps = entries.map((e) => e.timestamp).sort().reverse();
-    lastTimestamp = timestamps[0] ?? null;
-  }
-  return {
-    taskId,
-    phase,
-    taskStatus: status,
-    evidenceCount: entries.length,
-    hasReview,
-    hasTest,
-    hasApproval,
-    missingEvidence: evidenceCheck.missingEvidence,
-    isComplete: evidenceCheck.isComplete && status === "completed",
-    blockers,
-    lastEvidenceTimestamp: lastTimestamp
-  };
-}
-async function buildPhaseSummary(directory, phase) {
-  const taskIds = await listEvidenceTaskIds(directory);
-  const phaseTaskIds = new Set(phase.tasks.map((t) => t.id));
-  const taskSummaries = [];
-  const _taskMap = new Map(phase.tasks.map((t) => [t.id, t]));
-  for (const task of phase.tasks) {
-    const summary = await buildTaskSummary(directory, task, task.id);
-    taskSummaries.push(summary);
-  }
-  const extraTaskIds = taskIds.filter((id) => !phaseTaskIds.has(id));
-  for (const taskId of extraTaskIds) {
-    const summary = await buildTaskSummary(directory, undefined, taskId);
-    if (summary.phase === phase.id) {
-      taskSummaries.push(summary);
-    }
-  }
-  const completedTasks = taskSummaries.filter((s) => s.taskStatus === "completed").length;
-  const tasksWithEvidence = taskSummaries.filter((s) => s.evidenceCount > 0).length;
-  const tasksWithCompleteEvidence = taskSummaries.filter((s) => s.isComplete).length;
-  const missingByType = {};
-  for (const summary of taskSummaries) {
-    for (const missing of summary.missingEvidence) {
-      if (!missingByType[missing]) {
-        missingByType[missing] = [];
-      }
-      if (!missingByType[missing].includes(summary.taskId)) {
-        missingByType[missing].push(summary.taskId);
-      }
-    }
-  }
-  const phaseBlockers = [];
-  for (const [type, taskIds2] of Object.entries(missingByType)) {
-    phaseBlockers.push({
-      type: "missing_evidence",
-      taskId: taskIds2.join(", "),
-      reason: `${type} evidence missing for ${taskIds2.length} task(s)`,
-      severity: "high"
-    });
-  }
-  const incomplete = taskSummaries.filter((s) => s.taskStatus === "completed" && !s.isComplete);
-  for (const task of incomplete) {
-    phaseBlockers.push({
-      type: "incomplete_task",
-      taskId: task.taskId,
-      reason: "Task marked complete but missing required evidence",
-      severity: "medium"
-    });
-  }
-  const blocked = taskSummaries.filter((s) => s.taskStatus === "blocked" || s.blockers.length > 0);
-  for (const task of blocked) {
-    phaseBlockers.push({
-      type: "blocked_task",
-      taskId: task.taskId,
-      reason: task.blockers.join("; ") || "Task is blocked",
-      severity: "high"
-    });
-  }
-  return {
-    phaseId: phase.id,
-    phaseName: phase.name,
-    phaseStatus: phase.status,
-    totalTasks: phase.tasks.length,
-    completedTasks,
-    tasksWithEvidence,
-    tasksWithCompleteEvidence,
-    completionRatio: phase.tasks.length > 0 ? completedTasks / phase.tasks.length : 0,
-    missingEvidenceByType: missingByType,
-    blockers: phaseBlockers,
-    tasks: taskSummaries
-  };
-}
-function generateSummaryText(artifact) {
-  const lines = [];
-  lines.push(`Evidence Summary for "${artifact.planTitle}"`);
-  lines.push(`Generated: ${new Date(artifact.generated_at).toISOString()}`);
-  lines.push("");
-  lines.push(`Overall Completion: ${(artifact.overallCompletionRatio * 100).toFixed(1)}%`);
-  lines.push(`Current Phase: ${artifact.currentPhase}`);
-  lines.push("");
-  for (const phase of artifact.phaseSummaries) {
-    lines.push(`## Phase ${phase.phaseId}: ${phase.phaseName}`);
-    lines.push(`  Tasks: ${phase.completedTasks}/${phase.totalTasks} completed (${(phase.completionRatio * 100).toFixed(1)}%)`);
-    lines.push(`  Evidence: ${phase.tasksWithCompleteEvidence}/${phase.totalTasks} complete`);
-    if (phase.blockers.length > 0) {
-      lines.push("  Blockers:");
-      for (const blocker of phase.blockers) {
-        lines.push(`    - [${blocker.severity}] ${blocker.reason}`);
-      }
-    }
-    lines.push("");
-  }
-  if (artifact.overallBlockers.length > 0) {
-    lines.push("## Overall Blockers");
-    for (const blocker of artifact.overallBlockers) {
-      lines.push(`- [${blocker.severity}] ${blocker.reason}`);
-    }
-  }
-  return lines.join(`
-`);
-}
-async function buildEvidenceSummary(directory, currentPhase) {
-  log("[EvidenceSummary] Building summary for directory", { directory });
-  const plan = await loadPlanJsonOnly(directory);
-  if (!plan) {
-    log("[EvidenceSummary] No plan found, skipping summary generation");
-    return null;
-  }
-  const phasesToProcess = currentPhase !== undefined ? plan.phases.filter((p) => p.id <= currentPhase) : plan.phases;
-  const phaseSummaries = [];
-  let totalTasks = 0;
-  let completedTasks = 0;
-  for (const phase of phasesToProcess) {
-    const summary = await buildPhaseSummary(directory, phase);
-    phaseSummaries.push(summary);
-    totalTasks += summary.totalTasks;
-    completedTasks += summary.completedTasks;
-  }
-  const overallCompletionRatio = totalTasks > 0 ? completedTasks / totalTasks : 0;
-  const overallBlockers = [];
-  for (const phase of phaseSummaries) {
-    if (phase.phaseStatus !== "complete") {
-      overallBlockers.push(...phase.blockers);
-    }
-  }
-  const artifact = {
-    schema_version: EVIDENCE_SUMMARY_VERSION,
-    generated_at: new Date().toISOString(),
-    planTitle: plan.title,
-    currentPhase: currentPhase ?? plan.current_phase ?? 1,
-    phaseSummaries,
-    overallCompletionRatio,
-    overallBlockers,
-    summaryText: ""
-  };
-  artifact.summaryText = generateSummaryText(artifact);
-  log("[EvidenceSummary] Summary built", {
-    phases: phaseSummaries.length,
-    totalTasks,
-    completedTasks,
-    completionRatio: overallCompletionRatio,
-    blockers: overallBlockers.length
-  });
-  return artifact;
-}
-function isAutoSummaryEnabled(automationConfig) {
-  if (!automationConfig) {
-    return false;
-  }
-  if (automationConfig.mode === "manual") {
-    return false;
-  }
-  return automationConfig.capabilities?.evidence_auto_summaries === true;
-}
-var VALID_EVIDENCE_TYPES2, REQUIRED_EVIDENCE_TYPES, EVIDENCE_SUMMARY_VERSION = "1.0.0";
-var init_evidence_summary_service = __esm(() => {
-  init_manager();
-  init_manager2();
-  init_utils();
-  VALID_EVIDENCE_TYPES2 = new Set([
-    "review",
-    "test",
-    "diff",
-    "approval",
-    "note",
-    "retrospective"
-  ]);
-  REQUIRED_EVIDENCE_TYPES = ["review", "test"];
-});
-
-// src/background/evidence-summary-integration.ts
-var exports_evidence_summary_integration = {};
-__export(exports_evidence_summary_integration, {
-  createEvidenceSummaryIntegration: () => createEvidenceSummaryIntegration,
-  EvidenceSummaryIntegration: () => EvidenceSummaryIntegration
-});
-import { existsSync as existsSync5, mkdirSync as mkdirSync4, writeFileSync as writeFileSync2 } from "fs";
-import * as path8 from "path";
-function persistSummary(swarmDir, artifact, filename) {
-  const swarmPath = path8.join(swarmDir, ".swarm");
-  if (!existsSync5(swarmPath)) {
-    mkdirSync4(swarmPath, { recursive: true });
-  }
-  const artifactPath = path8.join(swarmPath, filename);
-  const content = JSON.stringify(artifact, null, 2);
-  writeFileSync2(artifactPath, content, "utf-8");
-  log("[EvidenceSummaryIntegration] Summary persisted", {
-    path: artifactPath,
-    size: content.length
-  });
-  return artifactPath;
-}
-
-class EvidenceSummaryIntegration {
-  config;
-  eventBus;
-  unsubscribes = [];
-  constructor(config2) {
-    this.config = config2;
-    this.eventBus = getGlobalEventBus();
-  }
-  isEnabled() {
-    return isAutoSummaryEnabled(this.config.automationConfig);
-  }
-  initialize() {
-    if (!this.isEnabled()) {
-      log("[EvidenceSummaryIntegration] Disabled via feature flags (evidence_auto_summaries=false or mode=manual)");
-      return;
-    }
-    log("[EvidenceSummaryIntegration] Initializing...");
-    this.subscribeToEvent("preflight.completed", async (event) => {
-      const payload = event.payload;
-      const phase = payload?.phase ?? 1;
-      await this.generateSummary(phase, "preflight.completed");
-    });
-    this.subscribeToEvent("phase.boundary.detected", async (event) => {
-      const payload = event.payload;
-      const phase = payload?.currentPhase ?? 1;
-      await this.generateSummary(phase, "phase.boundary.detected");
-    });
-    log("[EvidenceSummaryIntegration] Initialized and subscribed to events");
-  }
-  subscribeToEvent(type, handler) {
-    const unsubscribe = this.eventBus.subscribe(type, handler);
-    this.unsubscribes.push(unsubscribe);
-  }
-  async generateSummary(phase, trigger) {
-    log("[EvidenceSummaryIntegration] Generating summary", {
-      phase,
-      trigger,
-      directory: this.config.directory
-    });
-    try {
-      const artifact = await buildEvidenceSummary(this.config.directory, phase);
-      if (!artifact) {
-        log("[EvidenceSummaryIntegration] No plan found, skipping");
-        return null;
-      }
-      const filename = this.config.summaryFilename ?? "evidence-summary.json";
-      const artifactPath = persistSummary(this.config.swarmDir, artifact, filename);
-      log("[EvidenceSummaryIntegration] Summary generated and persisted", {
-        path: artifactPath,
-        completionRatio: artifact.overallCompletionRatio,
-        blockers: artifact.overallBlockers.length
-      });
-      await this.eventBus.publish("evidence.summary.generated", {
-        trigger,
-        phase,
-        artifactPath,
-        completionRatio: artifact.overallCompletionRatio,
-        blockerCount: artifact.overallBlockers.length,
-        timestamp: Date.now()
-      });
-      return artifact;
-    } catch (error49) {
-      log("[EvidenceSummaryIntegration] Error generating summary", {
-        error: error49 instanceof Error ? error49.message : String(error49)
-      });
-      await this.eventBus.publish("evidence.summary.error", {
-        trigger,
-        phase,
-        error: error49 instanceof Error ? error49.message : String(error49),
-        timestamp: Date.now()
-      });
-      return null;
-    }
-  }
-  async triggerManual(phase) {
-    const isDisabled = !this.isEnabled();
-    if (isDisabled) {
-      log("[EvidenceSummaryIntegration] Manual trigger with feature disabled - generating anyway for CLI use");
-    }
-    log("[EvidenceSummaryIntegration] Manual trigger", { phase, isDisabled });
-    return this.generateSummary(phase ?? 1, "preflight.completed");
-  }
-  cleanup() {
-    for (const unsubscribe of this.unsubscribes) {
-      unsubscribe();
-    }
-    this.unsubscribes = [];
-    log("[EvidenceSummaryIntegration] Cleanup complete");
-  }
-}
-function createEvidenceSummaryIntegration(config2, autoInitialize = true) {
-  const integration = new EvidenceSummaryIntegration(config2);
-  if (autoInitialize) {
-    integration.initialize();
-  }
-  return integration;
-}
-var init_evidence_summary_integration = __esm(() => {
-  init_event_bus();
-  init_evidence_summary_service();
-  init_utils();
-});
-
-// src/background/queue.ts
-function comparePriority(a, b) {
-  const priorityOrder = {
-    critical: 0,
-    high: 1,
-    normal: 2,
-    low: 3
-  };
-  const priorityDiff = priorityOrder[a.priority] - priorityOrder[b.priority];
-  if (priorityDiff !== 0)
-    return priorityDiff;
-  return a.createdAt - b.createdAt;
-}
-
-class AutomationQueue {
-  items = [];
-  maxSize;
-  defaultMaxRetries;
-  defaultBackoffMs;
-  maxBackoffMs;
-  eventBus;
-  itemCounter = 0;
-  constructor(config2) {
-    this.maxSize = config2?.maxSize ?? 1000;
-    this.defaultMaxRetries = config2?.defaultMaxRetries ?? 3;
-    this.defaultBackoffMs = config2?.defaultBackoffMs ?? 1000;
-    this.maxBackoffMs = config2?.maxBackoffMs ?? 60000;
-    this.eventBus = getGlobalEventBus();
-  }
-  generateId() {
-    return `queue-${Date.now()}-${++this.itemCounter}`;
-  }
-  enqueue(payload, priority = "normal", metadata2) {
-    if (this.items.length >= this.maxSize) {
-      throw new Error(`Queue is full (max ${this.maxSize} items)`);
-    }
-    const item = {
-      id: this.generateId(),
-      priority,
-      payload,
-      createdAt: Date.now(),
-      metadata: metadata2,
-      retry: {
-        attempts: 0,
-        maxAttempts: this.defaultMaxRetries,
-        backoffMs: this.defaultBackoffMs,
-        maxBackoffMs: this.maxBackoffMs
-      }
-    };
-    this.items.push(item);
-    this.items.sort(comparePriority);
-    this.eventBus.publish("queue.item.enqueued", { itemId: item.id, priority });
-    return item.id;
-  }
-  dequeue() {
-    const item = this.items.shift();
-    if (item) {
-      this.eventBus.publish("queue.item.dequeued", { itemId: item.id });
-    }
-    return item;
-  }
-  peek() {
-    return this.items[0];
-  }
-  get(id) {
-    return this.items.find((item) => item.id === id);
-  }
-  remove(id) {
-    const index = this.items.findIndex((item) => item.id === id);
-    if (index !== -1) {
-      this.items.splice(index, 1);
-      return true;
-    }
-    return false;
-  }
-  complete(id) {
-    const removed = this.remove(id);
-    if (removed) {
-      this.eventBus.publish("queue.item.completed", { itemId: id });
-    }
-    return removed;
-  }
-  retry(id, _error) {
-    const item = this.get(id);
-    if (!item || !item.retry)
-      return false;
-    item.retry.attempts++;
-    item.retry.lastAttempt = Date.now();
-    if (item.retry.attempts >= item.retry.maxAttempts) {
-      this.eventBus.publish("queue.item.failed", {
-        itemId: id,
-        attempts: item.retry.attempts
-      });
-      this.remove(id);
-      return false;
-    }
-    const backoff = Math.min(item.retry.backoffMs * 2 ** (item.retry.attempts - 1), item.retry.maxBackoffMs);
-    item.retry.nextAttemptAt = Date.now() + backoff;
-    this.eventBus.publish("queue.item.retry scheduled", {
-      itemId: id,
-      attempt: item.retry.attempts,
-      nextAttemptAt: item.retry.nextAttemptAt,
-      backoffMs: backoff
-    });
-    return true;
-  }
-  getRetryableItems() {
-    const now = Date.now();
-    return this.items.filter((item) => item.retry?.nextAttemptAt && item.retry.nextAttemptAt <= now);
-  }
-  size() {
-    return this.items.length;
-  }
-  isEmpty() {
-    return this.items.length === 0;
-  }
-  isFull() {
-    return this.items.length >= this.maxSize;
-  }
-  clear() {
-    this.items = [];
-  }
-  getAll() {
-    return [...this.items];
-  }
-  getByPriority(priority) {
-    return this.items.filter((item) => item.priority === priority);
-  }
-  getStats() {
-    return {
-      size: this.items.length,
-      maxSize: this.maxSize,
-      byPriority: {
-        critical: this.items.filter((i2) => i2.priority === "critical").length,
-        high: this.items.filter((i2) => i2.priority === "high").length,
-        normal: this.items.filter((i2) => i2.priority === "normal").length,
-        low: this.items.filter((i2) => i2.priority === "low").length
-      },
-      retryable: this.getRetryableItems().length
-    };
-  }
-}
-var init_queue = __esm(() => {
-  init_event_bus();
-});
-
-// src/background/status-artifact.ts
-var exports_status_artifact = {};
-__export(exports_status_artifact, {
-  AutomationStatusArtifact: () => AutomationStatusArtifact
-});
-import * as fs8 from "fs";
-import * as path10 from "path";
-function createEmptySnapshot(mode, capabilities) {
-  return {
-    timestamp: Date.now(),
-    mode,
-    enabled: mode !== "manual",
-    currentPhase: 0,
-    lastTrigger: null,
-    pendingActions: 0,
-    lastOutcome: null,
-    capabilities
-  };
-}
-function validateFilename(filename) {
-  if (filename.includes("\x00")) {
-    throw new Error("Invalid filename: contains null byte");
-  }
-  const pathSeparators = ["/", "\\", ".."];
-  for (const sep2 of pathSeparators) {
-    if (filename.includes(sep2)) {
-      throw new Error(`Invalid filename: contains path separator '${sep2}'`);
-    }
-  }
-  if (filename.startsWith("/") || filename.startsWith("\\") || /^[a-zA-Z]:/.test(filename)) {
-    throw new Error("Invalid filename: absolute paths not allowed");
-  }
-  if (filename.length > MAX_FILENAME_LENGTH) {
-    throw new Error(`Invalid filename: exceeds maximum length of ${MAX_FILENAME_LENGTH} characters`);
-  }
-  if (!SAFE_FILENAME_PATTERN.test(filename)) {
-    throw new Error("Invalid filename: contains unsafe characters");
-  }
-  if (filename.includes("/") || filename.includes("\\")) {
-    throw new Error("Invalid filename: path separators not allowed");
-  }
-  if (!filename.trim() || filename.trim() !== filename) {
-    throw new Error("Invalid filename: cannot be empty or contain leading/trailing whitespace");
-  }
-  return filename;
-}
-
-class AutomationStatusArtifact {
-  swarmDir;
-  filename;
-  currentSnapshot;
-  constructor(swarmDir, filename = "automation-status.json") {
-    const sanitizedFilename = validateFilename(filename);
-    this.swarmDir = swarmDir;
-    this.filename = sanitizedFilename;
-    this.currentSnapshot = this.load() ?? createEmptySnapshot("manual", {
-      plan_sync: false,
-      phase_preflight: false,
-      config_doctor_on_startup: false,
-      config_doctor_autofix: false,
-      evidence_auto_summaries: false,
-      decision_drift_detection: false
-    });
-  }
-  getFilePath() {
-    return path10.join(this.swarmDir, this.filename);
-  }
-  load() {
-    const filePath = this.getFilePath();
-    try {
-      if (fs8.existsSync(filePath)) {
-        const content = fs8.readFileSync(filePath, "utf-8");
-        return JSON.parse(content);
-      }
-    } catch {}
-    return null;
-  }
-  write() {
-    const filePath = this.getFilePath();
-    if (!fs8.existsSync(this.swarmDir)) {
-      fs8.mkdirSync(this.swarmDir, { recursive: true });
-    }
-    fs8.writeFileSync(filePath, JSON.stringify(this.currentSnapshot, null, 2), "utf-8");
-  }
-  getSnapshot() {
-    return { ...this.currentSnapshot };
-  }
-  read() {
-    const loaded = this.load();
-    if (loaded) {
-      this.currentSnapshot = loaded;
-    }
-    return this.getSnapshot();
-  }
-  updateConfig(mode, capabilities) {
-    this.currentSnapshot = {
-      ...this.currentSnapshot,
-      mode,
-      enabled: mode !== "manual",
-      timestamp: Date.now(),
-      capabilities
-    };
-    this.write();
-  }
-  updatePhase(phase) {
-    this.currentSnapshot = {
-      ...this.currentSnapshot,
-      currentPhase: phase,
-      timestamp: Date.now()
-    };
-    this.write();
-  }
-  recordTrigger(triggeredAt, triggeredPhase, source, reason) {
-    this.currentSnapshot = {
-      ...this.currentSnapshot,
-      lastTrigger: {
-        triggeredAt,
-        triggeredPhase,
-        source,
-        reason
-      },
-      timestamp: Date.now()
-    };
-    this.write();
-  }
-  updatePendingActions(count) {
-    this.currentSnapshot = {
-      ...this.currentSnapshot,
-      pendingActions: count,
-      timestamp: Date.now()
-    };
-    this.write();
-  }
-  recordOutcome(state, phase, message) {
-    this.currentSnapshot = {
-      ...this.currentSnapshot,
-      lastOutcome: {
-        state,
-        phase,
-        outcomeAt: Date.now(),
-        message: message ?? null
-      },
-      timestamp: Date.now()
-    };
-    this.write();
-  }
-  clearOutcome() {
-    this.currentSnapshot = {
-      ...this.currentSnapshot,
-      lastOutcome: {
-        state: "none",
-        phase: null,
-        outcomeAt: null,
-        message: null
-      },
-      timestamp: Date.now()
-    };
-    this.write();
-  }
-  isEnabled() {
-    return this.currentSnapshot.enabled;
-  }
-  hasCapability(capability) {
-    return this.currentSnapshot.capabilities[capability] === true;
-  }
-  getGuiSummary() {
-    const { currentSnapshot } = this;
-    let status = "Disabled";
-    if (currentSnapshot.enabled) {
-      status = currentSnapshot.mode.charAt(0).toUpperCase() + currentSnapshot.mode.slice(1);
-    }
-    let lastTrigger = null;
-    if (currentSnapshot.lastTrigger?.triggeredAt) {
-      const date5 = new Date(currentSnapshot.lastTrigger.triggeredAt);
-      lastTrigger = date5.toLocaleTimeString();
-    }
-    let outcome = null;
-    if (currentSnapshot.lastOutcome?.state && currentSnapshot.lastOutcome.state !== "none") {
-      outcome = currentSnapshot.lastOutcome.state;
-    }
-    return {
-      status,
-      phase: currentSnapshot.currentPhase,
-      lastTrigger,
-      pending: currentSnapshot.pendingActions,
-      outcome
-    };
-  }
-}
-var MAX_FILENAME_LENGTH = 255, SAFE_FILENAME_PATTERN;
-var init_status_artifact = __esm(() => {
-  SAFE_FILENAME_PATTERN = /^[a-zA-Z0-9._-]+$/;
-});
-
-// src/background/trigger.ts
-var exports_trigger = {};
-__export(exports_trigger, {
-  PreflightTriggerManager: () => PreflightTriggerManager,
-  PhaseBoundaryTrigger: () => PhaseBoundaryTrigger
-});
-
-class PhaseBoundaryTrigger {
-  eventBus;
-  config;
-  lastKnownPhase = 0;
-  lastTriggeredPhase = 0;
-  constructor(eventBus, config2) {
-    this.eventBus = eventBus ?? getGlobalEventBus();
-    this.config = {
-      minCompletedTasksThreshold: config2?.minCompletedTasksThreshold ?? 1,
-      allowZeroTaskTrigger: config2?.allowZeroTaskTrigger ?? false
-    };
-  }
-  setCurrentPhase(phase) {
-    this.lastKnownPhase = phase;
-  }
-  getCurrentPhase() {
-    return this.lastKnownPhase;
-  }
-  get lastTriggeredPhaseValue() {
-    return this.lastTriggeredPhase;
-  }
-  detectBoundary(newPhase, completedTasks, totalTasks) {
-    if (newPhase === this.lastKnownPhase) {
-      return {
-        detected: false,
-        previousPhase: this.lastKnownPhase,
-        currentPhase: newPhase,
-        reason: "Phase unchanged",
-        completedTaskCount: completedTasks,
-        totalTaskCount: totalTasks
-      };
-    }
-    const boundaryResult = {
-      detected: true,
-      previousPhase: this.lastKnownPhase,
-      currentPhase: newPhase,
-      reason: `Phase transition from ${this.lastKnownPhase} to ${newPhase}`,
-      completedTaskCount: completedTasks,
-      totalTaskCount: totalTasks
-    };
-    this.lastKnownPhase = newPhase;
-    this.eventBus.publish("phase.boundary.detected", boundaryResult);
-    return boundaryResult;
-  }
-  shouldTriggerPreflight(boundaryResult) {
-    if (this.lastTriggeredPhase === boundaryResult.currentPhase) {
-      log("[Trigger] Preflight already triggered for phase", {
-        phase: boundaryResult.currentPhase
-      });
-      return false;
-    }
-    const threshold = this.config.minCompletedTasksThreshold ?? 1;
-    const hasMinimumCompletion = this.config.allowZeroTaskTrigger || boundaryResult.completedTaskCount >= threshold;
-    if (!hasMinimumCompletion) {
-      log("[Trigger] Preflight skipped - insufficient task completion", {
-        completed: boundaryResult.completedTaskCount,
-        required: threshold
-      });
-      return false;
-    }
-    return true;
-  }
-  markTriggered(phase) {
-    this.lastTriggeredPhase = phase;
-  }
-  reset() {
-    this.lastKnownPhase = 0;
-    this.lastTriggeredPhase = 0;
-  }
-}
-
-class PreflightTriggerManager {
-  automationConfig;
-  eventBus;
-  trigger;
-  requestQueue;
-  requestCounter = 0;
-  preflightHandler = null;
-  unsubscribe = null;
-  constructor(automationConfig, eventBus, triggerConfig) {
-    this.automationConfig = automationConfig;
-    this.eventBus = eventBus ?? getGlobalEventBus();
-    this.trigger = new PhaseBoundaryTrigger(this.eventBus, triggerConfig);
-    this.requestQueue = new AutomationQueue({
-      maxSize: 100,
-      defaultMaxRetries: 3
-    });
-  }
-  isEnabled() {
-    if (!this.automationConfig) {
-      return false;
-    }
-    if (!this.automationConfig.capabilities) {
-      return false;
-    }
-    const mode = this.automationConfig.mode;
-    if (mode === "manual") {
-      return false;
-    }
-    return this.automationConfig.capabilities.phase_preflight === true;
-  }
-  getMode() {
-    if (!this.automationConfig) {
-      return "unknown";
-    }
-    return this.automationConfig.mode ?? "unknown";
-  }
-  updatePhase(phase) {
-    this.trigger.setCurrentPhase(phase);
-  }
-  async checkAndTrigger(currentPhase, completedTasks, totalTasks) {
-    const phasePreflight = this.automationConfig?.capabilities?.phase_preflight;
-    const mode = this.automationConfig?.mode;
-    if (!this.isEnabled()) {
-      log("[PreflightTrigger] Disabled via feature flags", {
-        mode: mode ?? "unknown",
-        phase_preflight: phasePreflight
-      });
-      await this.eventBus.publish("preflight.skipped", {
-        reason: "feature_disabled",
-        mode: mode ?? "unknown",
-        phase_preflight: phasePreflight
-      });
-      return false;
-    }
-    const boundaryResult = this.trigger.detectBoundary(currentPhase, completedTasks, totalTasks);
-    if (!boundaryResult.detected) {
-      return false;
-    }
-    if (!this.trigger.shouldTriggerPreflight(boundaryResult)) {
-      await this.eventBus.publish("preflight.skipped", {
-        reason: "threshold_not_met",
-        boundary: boundaryResult
-      });
-      return false;
-    }
-    return this.triggerPreflight(boundaryResult);
-  }
-  async triggerPreflight(boundaryResult) {
-    const requestId = `preflight-${Date.now()}-${++this.requestCounter}`;
-    const request = {
-      id: requestId,
-      triggeredAt: Date.now(),
-      currentPhase: boundaryResult.currentPhase,
-      source: "phase_boundary",
-      reason: boundaryResult.reason,
-      metadata: {
-        completedTaskCount: boundaryResult.completedTaskCount,
-        totalTaskCount: boundaryResult.totalTaskCount
-      }
-    };
-    try {
-      this.requestQueue.enqueue(request, "high");
-    } catch (error49) {
-      log("[PreflightTrigger] Queue overflow - request skipped", {
-        requestId,
-        phase: boundaryResult.currentPhase,
-        error: error49 instanceof Error ? error49.message : String(error49)
-      });
-      await this.eventBus.publish("preflight.skipped", {
-        reason: "queue_overflow",
-        requestId,
-        phase: boundaryResult.currentPhase
-      });
-      return false;
-    }
-    this.trigger.markTriggered(boundaryResult.currentPhase);
-    await this.eventBus.publish("preflight.requested", request);
-    await this.eventBus.publish("preflight.triggered", {
-      requestId,
-      phase: boundaryResult.currentPhase,
-      timestamp: request.triggeredAt
-    });
-    log("[PreflightTrigger] Preflight triggered", {
-      requestId,
-      phase: boundaryResult.currentPhase,
-      completed: boundaryResult.completedTaskCount,
-      total: boundaryResult.totalTaskCount
-    });
-    return true;
-  }
-  getPendingRequests() {
-    return this.requestQueue.getAll().map((item) => item.payload);
-  }
-  getQueueSize() {
-    return this.requestQueue.size();
-  }
-  getStats() {
-    let mode = "unknown";
-    try {
-      mode = this.getMode();
-    } catch {
-      mode = "unknown";
-    }
-    return {
-      enabled: this.isEnabled(),
-      mode,
-      currentPhase: this.trigger.getCurrentPhase(),
-      lastTriggeredPhase: this.trigger.lastTriggeredPhaseValue,
-      pendingRequests: this.getQueueSize()
-    };
-  }
-  reset() {
-    this.trigger.reset();
-    this.requestQueue.clear();
-    if (this.unsubscribe) {
-      this.unsubscribe();
-      this.unsubscribe = null;
-    }
-  }
-  registerHandler(handler) {
-    if (this.unsubscribe) {
-      this.unsubscribe();
-    }
-    this.preflightHandler = handler;
-    const HANDLER_TIMEOUT_MS = 120000;
-    this.unsubscribe = this.eventBus.subscribe("preflight.requested", async (event) => {
-      if (this.preflightHandler) {
-        const request = event.payload;
-        let timeoutHandle;
-        try {
-          await Promise.race([
-            this.preflightHandler(request),
-            new Promise((_, reject) => {
-              timeoutHandle = setTimeout(() => {
-                reject(new Error(`Preflight handler timed out after ${HANDLER_TIMEOUT_MS}ms`));
-              }, HANDLER_TIMEOUT_MS);
-            })
-          ]);
-        } catch (error49) {
-          log("[PreflightTrigger] Handler error", {
-            requestId: request.id,
-            phase: request.currentPhase,
-            errorType: error49 instanceof Error ? error49.name : "unknown"
-          });
-        } finally {
-          clearTimeout(timeoutHandle);
-        }
-      }
-    });
-    log("[PreflightTrigger] Handler registered");
-  }
-  unregisterHandler() {
-    if (this.unsubscribe) {
-      this.unsubscribe();
-      this.unsubscribe = null;
-    }
-    this.preflightHandler = null;
-    log("[PreflightTrigger] Handler unregistered");
-  }
-  hasHandler() {
-    return this.preflightHandler !== null;
-  }
-}
-var init_trigger = __esm(() => {
-  init_utils();
-  init_event_bus();
-  init_queue();
-});
-
-// node_modules/.bun/zod@4.1.8/node_modules/zod/v4/core/core.js
+// node_modules/@opencode-ai/plugin/node_modules/zod/v4/core/core.js
 function $constructor2(name2, initializer3, params) {
   function init2(inst, def) {
     var _a2;
@@ -18012,7 +15964,7 @@ var init_core3 = __esm(() => {
   globalConfig2 = {};
 });
 
-// node_modules/.bun/zod@4.1.8/node_modules/zod/v4/core/util.js
+// node_modules/@opencode-ai/plugin/node_modules/zod/v4/core/util.js
 var exports_util2 = {};
 __export(exports_util2, {
   unwrapMessage: () => unwrapMessage2,
@@ -18179,10 +16131,10 @@ function mergeDefs2(...defs) {
 function cloneDef2(schema) {
   return mergeDefs2(schema._zod.def);
 }
-function getElementAtPath2(obj, path11) {
-  if (!path11)
+function getElementAtPath2(obj, path6) {
+  if (!path6)
     return obj;
-  return path11.reduce((acc, key) => acc?.[key], obj);
+  return path6.reduce((acc, key) => acc?.[key], obj);
 }
 function promiseAllObject2(promisesObj) {
   const keys = Object.keys(promisesObj);
@@ -18471,11 +16423,11 @@ function aborted2(x, startIndex = 0) {
   }
   return false;
 }
-function prefixIssues2(path11, issues) {
+function prefixIssues2(path6, issues) {
   return issues.map((iss) => {
     var _a2;
     (_a2 = iss).path ?? (_a2.path = []);
-    iss.path.unshift(path11);
+    iss.path.unshift(path6);
     return iss;
   });
 }
@@ -18643,7 +16595,7 @@ var init_util2 = __esm(() => {
   };
 });
 
-// node_modules/.bun/zod@4.1.8/node_modules/zod/v4/core/errors.js
+// node_modules/@opencode-ai/plugin/node_modules/zod/v4/core/errors.js
 function flattenError2(error49, mapper = (issue3) => issue3.message) {
   const fieldErrors = {};
   const formErrors = [];
@@ -18698,7 +16650,7 @@ function treeifyError2(error49, _mapper) {
     return issue3.message;
   };
   const result = { errors: [] };
-  const processError = (error50, path11 = []) => {
+  const processError = (error50, path6 = []) => {
     var _a2, _b;
     for (const issue3 of error50.issues) {
       if (issue3.code === "invalid_union" && issue3.errors.length) {
@@ -18708,7 +16660,7 @@ function treeifyError2(error49, _mapper) {
       } else if (issue3.code === "invalid_element") {
         processError({ issues: issue3.issues }, issue3.path);
       } else {
-        const fullpath = [...path11, ...issue3.path];
+        const fullpath = [...path6, ...issue3.path];
         if (fullpath.length === 0) {
           result.errors.push(mapper(issue3));
           continue;
@@ -18740,8 +16692,8 @@ function treeifyError2(error49, _mapper) {
 }
 function toDotPath2(_path) {
   const segs = [];
-  const path11 = _path.map((seg) => typeof seg === "object" ? seg.key : seg);
-  for (const seg of path11) {
+  const path6 = _path.map((seg) => typeof seg === "object" ? seg.key : seg);
+  for (const seg of path6) {
     if (typeof seg === "number")
       segs.push(`[${seg}]`);
     else if (typeof seg === "symbol")
@@ -18790,7 +16742,7 @@ var init_errors4 = __esm(() => {
   $ZodRealError2 = $constructor2("$ZodError", initializer3, { Parent: Error });
 });
 
-// node_modules/.bun/zod@4.1.8/node_modules/zod/v4/core/parse.js
+// node_modules/@opencode-ai/plugin/node_modules/zod/v4/core/parse.js
 var _parse2 = (_Err) => (schema, value, _ctx, _params) => {
   const ctx = _ctx ? Object.assign(_ctx, { async: false }) : { async: false };
   const result = schema._zod.run({ value, issues: [] }, ctx);
@@ -18872,7 +16824,7 @@ var init_parse3 = __esm(() => {
   safeDecodeAsync3 = /* @__PURE__ */ _safeDecodeAsync2($ZodRealError2);
 });
 
-// node_modules/.bun/zod@4.1.8/node_modules/zod/v4/core/regexes.js
+// node_modules/@opencode-ai/plugin/node_modules/zod/v4/core/regexes.js
 var exports_regexes2 = {};
 __export(exports_regexes2, {
   xid: () => xid3,
@@ -19023,7 +16975,7 @@ var init_regexes2 = __esm(() => {
   sha512_base64url2 = /* @__PURE__ */ fixedBase64url2(86);
 });
 
-// node_modules/.bun/zod@4.1.8/node_modules/zod/v4/core/checks.js
+// node_modules/@opencode-ai/plugin/node_modules/zod/v4/core/checks.js
 function handleCheckPropertyResult2(result, payload, property) {
   if (result.issues.length) {
     payload.issues.push(...prefixIssues2(property, result.issues));
@@ -19570,7 +17522,7 @@ var init_checks3 = __esm(() => {
   });
 });
 
-// node_modules/.bun/zod@4.1.8/node_modules/zod/v4/core/doc.js
+// node_modules/@opencode-ai/plugin/node_modules/zod/v4/core/doc.js
 class Doc2 {
   constructor(args2 = []) {
     this.content = [];
@@ -19608,7 +17560,7 @@ class Doc2 {
   }
 }
 
-// node_modules/.bun/zod@4.1.8/node_modules/zod/v4/core/versions.js
+// node_modules/@opencode-ai/plugin/node_modules/zod/v4/core/versions.js
 var version2;
 var init_versions2 = __esm(() => {
   version2 = {
@@ -19618,7 +17570,7 @@ var init_versions2 = __esm(() => {
   };
 });
 
-// node_modules/.bun/zod@4.1.8/node_modules/zod/v4/core/schemas.js
+// node_modules/@opencode-ai/plugin/node_modules/zod/v4/core/schemas.js
 function isValidBase642(data) {
   if (data === "")
     return true;
@@ -21452,7 +19404,7 @@ var init_schemas3 = __esm(() => {
   });
 });
 
-// node_modules/.bun/zod@4.1.8/node_modules/zod/v4/locales/ar.js
+// node_modules/@opencode-ai/plugin/node_modules/zod/v4/locales/ar.js
 function ar_default2() {
   return {
     localeError: error49()
@@ -21572,7 +19524,7 @@ var init_ar2 = __esm(() => {
   init_util2();
 });
 
-// node_modules/.bun/zod@4.1.8/node_modules/zod/v4/locales/az.js
+// node_modules/@opencode-ai/plugin/node_modules/zod/v4/locales/az.js
 function az_default2() {
   return {
     localeError: error50()
@@ -21691,7 +19643,7 @@ var init_az2 = __esm(() => {
   init_util2();
 });
 
-// node_modules/.bun/zod@4.1.8/node_modules/zod/v4/locales/be.js
+// node_modules/@opencode-ai/plugin/node_modules/zod/v4/locales/be.js
 function getBelarusianPlural2(count, one, few, many) {
   const absCount = Math.abs(count);
   const lastDigit = absCount % 10;
@@ -21859,7 +19811,7 @@ var init_be2 = __esm(() => {
   init_util2();
 });
 
-// node_modules/.bun/zod@4.1.8/node_modules/zod/v4/locales/ca.js
+// node_modules/@opencode-ai/plugin/node_modules/zod/v4/locales/ca.js
 function ca_default2() {
   return {
     localeError: error52()
@@ -21980,7 +19932,7 @@ var init_ca2 = __esm(() => {
   init_util2();
 });
 
-// node_modules/.bun/zod@4.1.8/node_modules/zod/v4/locales/cs.js
+// node_modules/@opencode-ai/plugin/node_modules/zod/v4/locales/cs.js
 function cs_default2() {
   return {
     localeError: error53()
@@ -22119,7 +20071,7 @@ var init_cs2 = __esm(() => {
   init_util2();
 });
 
-// node_modules/.bun/zod@4.1.8/node_modules/zod/v4/locales/da.js
+// node_modules/@opencode-ai/plugin/node_modules/zod/v4/locales/da.js
 function da_default2() {
   return {
     localeError: error54()
@@ -22254,7 +20206,7 @@ var init_da2 = __esm(() => {
   init_util2();
 });
 
-// node_modules/.bun/zod@4.1.8/node_modules/zod/v4/locales/de.js
+// node_modules/@opencode-ai/plugin/node_modules/zod/v4/locales/de.js
 function de_default2() {
   return {
     localeError: error55()
@@ -22374,7 +20326,7 @@ var init_de2 = __esm(() => {
   init_util2();
 });
 
-// node_modules/.bun/zod@4.1.8/node_modules/zod/v4/locales/en.js
+// node_modules/@opencode-ai/plugin/node_modules/zod/v4/locales/en.js
 function en_default2() {
   return {
     localeError: error56()
@@ -22494,7 +20446,7 @@ var init_en2 = __esm(() => {
   init_util2();
 });
 
-// node_modules/.bun/zod@4.1.8/node_modules/zod/v4/locales/eo.js
+// node_modules/@opencode-ai/plugin/node_modules/zod/v4/locales/eo.js
 function eo_default2() {
   return {
     localeError: error57()
@@ -22613,7 +20565,7 @@ var init_eo2 = __esm(() => {
   init_util2();
 });
 
-// node_modules/.bun/zod@4.1.8/node_modules/zod/v4/locales/es.js
+// node_modules/@opencode-ai/plugin/node_modules/zod/v4/locales/es.js
 function es_default2() {
   return {
     localeError: error58()
@@ -22765,7 +20717,7 @@ var init_es2 = __esm(() => {
   init_util2();
 });
 
-// node_modules/.bun/zod@4.1.8/node_modules/zod/v4/locales/fa.js
+// node_modules/@opencode-ai/plugin/node_modules/zod/v4/locales/fa.js
 function fa_default2() {
   return {
     localeError: error59()
@@ -22891,7 +20843,7 @@ var init_fa2 = __esm(() => {
   init_util2();
 });
 
-// node_modules/.bun/zod@4.1.8/node_modules/zod/v4/locales/fi.js
+// node_modules/@opencode-ai/plugin/node_modules/zod/v4/locales/fi.js
 function fi_default2() {
   return {
     localeError: error60()
@@ -23017,7 +20969,7 @@ var init_fi2 = __esm(() => {
   init_util2();
 });
 
-// node_modules/.bun/zod@4.1.8/node_modules/zod/v4/locales/fr.js
+// node_modules/@opencode-ai/plugin/node_modules/zod/v4/locales/fr.js
 function fr_default2() {
   return {
     localeError: error61()
@@ -23137,7 +21089,7 @@ var init_fr2 = __esm(() => {
   init_util2();
 });
 
-// node_modules/.bun/zod@4.1.8/node_modules/zod/v4/locales/fr-CA.js
+// node_modules/@opencode-ai/plugin/node_modules/zod/v4/locales/fr-CA.js
 function fr_CA_default2() {
   return {
     localeError: error62()
@@ -23258,7 +21210,7 @@ var init_fr_CA2 = __esm(() => {
   init_util2();
 });
 
-// node_modules/.bun/zod@4.1.8/node_modules/zod/v4/locales/he.js
+// node_modules/@opencode-ai/plugin/node_modules/zod/v4/locales/he.js
 function he_default2() {
   return {
     localeError: error63()
@@ -23378,7 +21330,7 @@ var init_he2 = __esm(() => {
   init_util2();
 });
 
-// node_modules/.bun/zod@4.1.8/node_modules/zod/v4/locales/hu.js
+// node_modules/@opencode-ai/plugin/node_modules/zod/v4/locales/hu.js
 function hu_default2() {
   return {
     localeError: error64()
@@ -23498,7 +21450,7 @@ var init_hu2 = __esm(() => {
   init_util2();
 });
 
-// node_modules/.bun/zod@4.1.8/node_modules/zod/v4/locales/id.js
+// node_modules/@opencode-ai/plugin/node_modules/zod/v4/locales/id.js
 function id_default2() {
   return {
     localeError: error65()
@@ -23618,7 +21570,7 @@ var init_id2 = __esm(() => {
   init_util2();
 });
 
-// node_modules/.bun/zod@4.1.8/node_modules/zod/v4/locales/is.js
+// node_modules/@opencode-ai/plugin/node_modules/zod/v4/locales/is.js
 function is_default2() {
   return {
     localeError: error66()
@@ -23738,7 +21690,7 @@ var init_is2 = __esm(() => {
   init_util2();
 });
 
-// node_modules/.bun/zod@4.1.8/node_modules/zod/v4/locales/it.js
+// node_modules/@opencode-ai/plugin/node_modules/zod/v4/locales/it.js
 function it_default2() {
   return {
     localeError: error67()
@@ -23858,7 +21810,7 @@ var init_it2 = __esm(() => {
   init_util2();
 });
 
-// node_modules/.bun/zod@4.1.8/node_modules/zod/v4/locales/ja.js
+// node_modules/@opencode-ai/plugin/node_modules/zod/v4/locales/ja.js
 function ja_default2() {
   return {
     localeError: error68()
@@ -23977,7 +21929,7 @@ var init_ja2 = __esm(() => {
   init_util2();
 });
 
-// node_modules/.bun/zod@4.1.8/node_modules/zod/v4/locales/ka.js
+// node_modules/@opencode-ai/plugin/node_modules/zod/v4/locales/ka.js
 function ka_default2() {
   return {
     localeError: error69()
@@ -24105,7 +22057,7 @@ var init_ka2 = __esm(() => {
   init_util2();
 });
 
-// node_modules/.bun/zod@4.1.8/node_modules/zod/v4/locales/km.js
+// node_modules/@opencode-ai/plugin/node_modules/zod/v4/locales/km.js
 function km_default2() {
   return {
     localeError: error70()
@@ -24226,7 +22178,7 @@ var init_km2 = __esm(() => {
   init_util2();
 });
 
-// node_modules/.bun/zod@4.1.8/node_modules/zod/v4/locales/kh.js
+// node_modules/@opencode-ai/plugin/node_modules/zod/v4/locales/kh.js
 function kh_default2() {
   return km_default2();
 }
@@ -24234,7 +22186,7 @@ var init_kh2 = __esm(() => {
   init_km2();
 });
 
-// node_modules/.bun/zod@4.1.8/node_modules/zod/v4/locales/ko.js
+// node_modules/@opencode-ai/plugin/node_modules/zod/v4/locales/ko.js
 function ko_default2() {
   return {
     localeError: error71()
@@ -24359,7 +22311,7 @@ var init_ko2 = __esm(() => {
   init_util2();
 });
 
-// node_modules/.bun/zod@4.1.8/node_modules/zod/v4/locales/lt.js
+// node_modules/@opencode-ai/plugin/node_modules/zod/v4/locales/lt.js
 function getUnitTypeFromNumber2(number5) {
   const abs = Math.abs(number5);
   const last = abs % 10;
@@ -24589,7 +22541,7 @@ var init_lt2 = __esm(() => {
   init_util2();
 });
 
-// node_modules/.bun/zod@4.1.8/node_modules/zod/v4/locales/mk.js
+// node_modules/@opencode-ai/plugin/node_modules/zod/v4/locales/mk.js
 function mk_default2() {
   return {
     localeError: error73()
@@ -24710,7 +22662,7 @@ var init_mk2 = __esm(() => {
   init_util2();
 });
 
-// node_modules/.bun/zod@4.1.8/node_modules/zod/v4/locales/ms.js
+// node_modules/@opencode-ai/plugin/node_modules/zod/v4/locales/ms.js
 function ms_default2() {
   return {
     localeError: error74()
@@ -24830,7 +22782,7 @@ var init_ms2 = __esm(() => {
   init_util2();
 });
 
-// node_modules/.bun/zod@4.1.8/node_modules/zod/v4/locales/nl.js
+// node_modules/@opencode-ai/plugin/node_modules/zod/v4/locales/nl.js
 function nl_default2() {
   return {
     localeError: error75()
@@ -24951,7 +22903,7 @@ var init_nl2 = __esm(() => {
   init_util2();
 });
 
-// node_modules/.bun/zod@4.1.8/node_modules/zod/v4/locales/no.js
+// node_modules/@opencode-ai/plugin/node_modules/zod/v4/locales/no.js
 function no_default2() {
   return {
     localeError: error76()
@@ -25071,7 +23023,7 @@ var init_no2 = __esm(() => {
   init_util2();
 });
 
-// node_modules/.bun/zod@4.1.8/node_modules/zod/v4/locales/ota.js
+// node_modules/@opencode-ai/plugin/node_modules/zod/v4/locales/ota.js
 function ota_default2() {
   return {
     localeError: error77()
@@ -25191,7 +23143,7 @@ var init_ota2 = __esm(() => {
   init_util2();
 });
 
-// node_modules/.bun/zod@4.1.8/node_modules/zod/v4/locales/ps.js
+// node_modules/@opencode-ai/plugin/node_modules/zod/v4/locales/ps.js
 function ps_default2() {
   return {
     localeError: error78()
@@ -25317,7 +23269,7 @@ var init_ps2 = __esm(() => {
   init_util2();
 });
 
-// node_modules/.bun/zod@4.1.8/node_modules/zod/v4/locales/pl.js
+// node_modules/@opencode-ai/plugin/node_modules/zod/v4/locales/pl.js
 function pl_default2() {
   return {
     localeError: error79()
@@ -25438,7 +23390,7 @@ var init_pl2 = __esm(() => {
   init_util2();
 });
 
-// node_modules/.bun/zod@4.1.8/node_modules/zod/v4/locales/pt.js
+// node_modules/@opencode-ai/plugin/node_modules/zod/v4/locales/pt.js
 function pt_default2() {
   return {
     localeError: error80()
@@ -25558,7 +23510,7 @@ var init_pt2 = __esm(() => {
   init_util2();
 });
 
-// node_modules/.bun/zod@4.1.8/node_modules/zod/v4/locales/ru.js
+// node_modules/@opencode-ai/plugin/node_modules/zod/v4/locales/ru.js
 function getRussianPlural2(count, one, few, many) {
   const absCount = Math.abs(count);
   const lastDigit = absCount % 10;
@@ -25726,7 +23678,7 @@ var init_ru2 = __esm(() => {
   init_util2();
 });
 
-// node_modules/.bun/zod@4.1.8/node_modules/zod/v4/locales/sl.js
+// node_modules/@opencode-ai/plugin/node_modules/zod/v4/locales/sl.js
 function sl_default2() {
   return {
     localeError: error82()
@@ -25847,7 +23799,7 @@ var init_sl2 = __esm(() => {
   init_util2();
 });
 
-// node_modules/.bun/zod@4.1.8/node_modules/zod/v4/locales/sv.js
+// node_modules/@opencode-ai/plugin/node_modules/zod/v4/locales/sv.js
 function sv_default2() {
   return {
     localeError: error83()
@@ -25969,7 +23921,7 @@ var init_sv2 = __esm(() => {
   init_util2();
 });
 
-// node_modules/.bun/zod@4.1.8/node_modules/zod/v4/locales/ta.js
+// node_modules/@opencode-ai/plugin/node_modules/zod/v4/locales/ta.js
 function ta_default2() {
   return {
     localeError: error84()
@@ -26090,7 +24042,7 @@ var init_ta2 = __esm(() => {
   init_util2();
 });
 
-// node_modules/.bun/zod@4.1.8/node_modules/zod/v4/locales/th.js
+// node_modules/@opencode-ai/plugin/node_modules/zod/v4/locales/th.js
 function th_default2() {
   return {
     localeError: error85()
@@ -26211,7 +24163,7 @@ var init_th2 = __esm(() => {
   init_util2();
 });
 
-// node_modules/.bun/zod@4.1.8/node_modules/zod/v4/locales/tr.js
+// node_modules/@opencode-ai/plugin/node_modules/zod/v4/locales/tr.js
 function tr_default2() {
   return {
     localeError: error86()
@@ -26329,7 +24281,7 @@ var init_tr2 = __esm(() => {
   init_util2();
 });
 
-// node_modules/.bun/zod@4.1.8/node_modules/zod/v4/locales/uk.js
+// node_modules/@opencode-ai/plugin/node_modules/zod/v4/locales/uk.js
 function uk_default2() {
   return {
     localeError: error87()
@@ -26449,7 +24401,7 @@ var init_uk2 = __esm(() => {
   init_util2();
 });
 
-// node_modules/.bun/zod@4.1.8/node_modules/zod/v4/locales/ua.js
+// node_modules/@opencode-ai/plugin/node_modules/zod/v4/locales/ua.js
 function ua_default2() {
   return uk_default2();
 }
@@ -26457,7 +24409,7 @@ var init_ua2 = __esm(() => {
   init_uk2();
 });
 
-// node_modules/.bun/zod@4.1.8/node_modules/zod/v4/locales/ur.js
+// node_modules/@opencode-ai/plugin/node_modules/zod/v4/locales/ur.js
 function ur_default2() {
   return {
     localeError: error88()
@@ -26578,7 +24530,7 @@ var init_ur2 = __esm(() => {
   init_util2();
 });
 
-// node_modules/.bun/zod@4.1.8/node_modules/zod/v4/locales/vi.js
+// node_modules/@opencode-ai/plugin/node_modules/zod/v4/locales/vi.js
 function vi_default2() {
   return {
     localeError: error89()
@@ -26698,7 +24650,7 @@ var init_vi2 = __esm(() => {
   init_util2();
 });
 
-// node_modules/.bun/zod@4.1.8/node_modules/zod/v4/locales/zh-CN.js
+// node_modules/@opencode-ai/plugin/node_modules/zod/v4/locales/zh-CN.js
 function zh_CN_default2() {
   return {
     localeError: error90()
@@ -26818,7 +24770,7 @@ var init_zh_CN2 = __esm(() => {
   init_util2();
 });
 
-// node_modules/.bun/zod@4.1.8/node_modules/zod/v4/locales/zh-TW.js
+// node_modules/@opencode-ai/plugin/node_modules/zod/v4/locales/zh-TW.js
 function zh_TW_default2() {
   return {
     localeError: error91()
@@ -26939,7 +24891,7 @@ var init_zh_TW2 = __esm(() => {
   init_util2();
 });
 
-// node_modules/.bun/zod@4.1.8/node_modules/zod/v4/locales/yo.js
+// node_modules/@opencode-ai/plugin/node_modules/zod/v4/locales/yo.js
 function yo_default2() {
   return {
     localeError: error92()
@@ -27058,7 +25010,7 @@ var init_yo2 = __esm(() => {
   init_util2();
 });
 
-// node_modules/.bun/zod@4.1.8/node_modules/zod/v4/locales/index.js
+// node_modules/@opencode-ai/plugin/node_modules/zod/v4/locales/index.js
 var exports_locales2 = {};
 __export(exports_locales2, {
   zhTW: () => zh_TW_default2,
@@ -27157,7 +25109,7 @@ var init_locales2 = __esm(() => {
   init_yo2();
 });
 
-// node_modules/.bun/zod@4.1.8/node_modules/zod/v4/core/registries.js
+// node_modules/@opencode-ai/plugin/node_modules/zod/v4/core/registries.js
 class $ZodRegistry2 {
   constructor() {
     this._map = new WeakMap;
@@ -27211,7 +25163,7 @@ var init_registries2 = __esm(() => {
   globalRegistry2 = /* @__PURE__ */ registry2();
 });
 
-// node_modules/.bun/zod@4.1.8/node_modules/zod/v4/core/api.js
+// node_modules/@opencode-ai/plugin/node_modules/zod/v4/core/api.js
 function _string2(Class3, params) {
   return new Class3({
     type: "string",
@@ -28096,7 +26048,7 @@ var init_api2 = __esm(() => {
   };
 });
 
-// node_modules/.bun/zod@4.1.8/node_modules/zod/v4/core/to-json-schema.js
+// node_modules/@opencode-ai/plugin/node_modules/zod/v4/core/to-json-schema.js
 class JSONSchemaGenerator2 {
   constructor(params) {
     this.counter = 0;
@@ -28905,11 +26857,11 @@ var init_to_json_schema2 = __esm(() => {
   init_util2();
 });
 
-// node_modules/.bun/zod@4.1.8/node_modules/zod/v4/core/json-schema.js
+// node_modules/@opencode-ai/plugin/node_modules/zod/v4/core/json-schema.js
 var exports_json_schema2 = {};
 var init_json_schema2 = () => {};
 
-// node_modules/.bun/zod@4.1.8/node_modules/zod/v4/core/index.js
+// node_modules/@opencode-ai/plugin/node_modules/zod/v4/core/index.js
 var exports_core4 = {};
 __export(exports_core4, {
   version: () => version2,
@@ -29188,12 +27140,12 @@ var init_core4 = __esm(() => {
   init_to_json_schema2();
 });
 
-// node_modules/.bun/zod@4.1.8/node_modules/zod/v4/classic/checks.js
+// node_modules/@opencode-ai/plugin/node_modules/zod/v4/classic/checks.js
 var init_checks4 = __esm(() => {
   init_core4();
 });
 
-// node_modules/.bun/zod@4.1.8/node_modules/zod/v4/classic/iso.js
+// node_modules/@opencode-ai/plugin/node_modules/zod/v4/classic/iso.js
 var exports_iso2 = {};
 __export(exports_iso2, {
   time: () => time4,
@@ -29239,7 +27191,7 @@ var init_iso2 = __esm(() => {
   });
 });
 
-// node_modules/.bun/zod@4.1.8/node_modules/zod/v4/classic/errors.js
+// node_modules/@opencode-ai/plugin/node_modules/zod/v4/classic/errors.js
 var initializer4 = (inst, issues) => {
   $ZodError2.init(inst, issues);
   inst.name = "ZodError";
@@ -29279,7 +27231,7 @@ var init_errors5 = __esm(() => {
   });
 });
 
-// node_modules/.bun/zod@4.1.8/node_modules/zod/v4/classic/parse.js
+// node_modules/@opencode-ai/plugin/node_modules/zod/v4/classic/parse.js
 var parse7, parseAsync4, safeParse4, safeParseAsync4, encode4, decode4, encodeAsync4, decodeAsync4, safeEncode4, safeDecode4, safeEncodeAsync4, safeDecodeAsync4;
 var init_parse4 = __esm(() => {
   init_core4();
@@ -29298,7 +27250,7 @@ var init_parse4 = __esm(() => {
   safeDecodeAsync4 = /* @__PURE__ */ _safeDecodeAsync2(ZodRealError2);
 });
 
-// node_modules/.bun/zod@4.1.8/node_modules/zod/v4/classic/schemas.js
+// node_modules/@opencode-ai/plugin/node_modules/zod/v4/classic/schemas.js
 function string5(params) {
   return _string2(ZodString2, params);
 }
@@ -30281,7 +28233,7 @@ var init_schemas4 = __esm(() => {
   });
 });
 
-// node_modules/.bun/zod@4.1.8/node_modules/zod/v4/classic/compat.js
+// node_modules/@opencode-ai/plugin/node_modules/zod/v4/classic/compat.js
 function setErrorMap2(map3) {
   config2({
     customError: map3
@@ -30309,7 +28261,7 @@ var init_compat2 = __esm(() => {
   (function(ZodFirstPartyTypeKind3) {})(ZodFirstPartyTypeKind2 || (ZodFirstPartyTypeKind2 = {}));
 });
 
-// node_modules/.bun/zod@4.1.8/node_modules/zod/v4/classic/coerce.js
+// node_modules/@opencode-ai/plugin/node_modules/zod/v4/classic/coerce.js
 var exports_coerce2 = {};
 __export(exports_coerce2, {
   string: () => string6,
@@ -30338,7 +28290,7 @@ var init_coerce2 = __esm(() => {
   init_schemas4();
 });
 
-// node_modules/.bun/zod@4.1.8/node_modules/zod/v4/classic/external.js
+// node_modules/@opencode-ai/plugin/node_modules/zod/v4/classic/external.js
 var exports_external2 = {};
 __export(exports_external2, {
   xid: () => xid4,
@@ -30584,13 +28536,13 @@ var init_external2 = __esm(() => {
   config2(en_default2());
 });
 
-// node_modules/.bun/zod@4.1.8/node_modules/zod/index.js
+// node_modules/@opencode-ai/plugin/node_modules/zod/index.js
 var init_zod2 = __esm(() => {
   init_external2();
   init_external2();
 });
 
-// node_modules/.bun/@opencode-ai+plugin@1.1.53/node_modules/@opencode-ai/plugin/dist/tool.js
+// node_modules/@opencode-ai/plugin/dist/tool.js
 function tool(input) {
   return input;
 }
@@ -30599,7 +28551,7 @@ var init_tool = __esm(() => {
   tool.schema = exports_external2;
 });
 
-// node_modules/.bun/@opencode-ai+plugin@1.1.53/node_modules/@opencode-ai/plugin/dist/index.js
+// node_modules/@opencode-ai/plugin/dist/index.js
 var init_dist = __esm(() => {
   init_tool();
 });
@@ -30634,8 +28586,8 @@ __export(exports_checkpoint, {
   checkpoint: () => checkpoint
 });
 import * as child_process from "child_process";
-import * as fs9 from "fs";
-import * as path11 from "path";
+import * as fs6 from "fs";
+import * as path6 from "path";
 function containsNonAsciiChars(label) {
   for (let i2 = 0;i2 < label.length; i2++) {
     const charCode = label.charCodeAt(i2);
@@ -30679,13 +28631,13 @@ function validateLabel(label) {
   return null;
 }
 function getCheckpointLogPath(directory) {
-  return path11.join(directory, CHECKPOINT_LOG_PATH);
+  return path6.join(directory, CHECKPOINT_LOG_PATH);
 }
 function readCheckpointLog(directory) {
   const logPath = getCheckpointLogPath(directory);
   try {
-    if (fs9.existsSync(logPath)) {
-      const content = fs9.readFileSync(logPath, "utf-8");
+    if (fs6.existsSync(logPath)) {
+      const content = fs6.readFileSync(logPath, "utf-8");
       const parsed = JSON.parse(content);
       if (!parsed.checkpoints || !Array.isArray(parsed.checkpoints)) {
         return { version: 1, checkpoints: [] };
@@ -30697,13 +28649,13 @@ function readCheckpointLog(directory) {
 }
 function writeCheckpointLog(log2, directory) {
   const logPath = getCheckpointLogPath(directory);
-  const dir = path11.dirname(logPath);
-  if (!fs9.existsSync(dir)) {
-    fs9.mkdirSync(dir, { recursive: true });
+  const dir = path6.dirname(logPath);
+  if (!fs6.existsSync(dir)) {
+    fs6.mkdirSync(dir, { recursive: true });
   }
   const tempPath = `${logPath}.tmp`;
-  fs9.writeFileSync(tempPath, JSON.stringify(log2, null, 2), "utf-8");
-  fs9.renameSync(tempPath, logPath);
+  fs6.writeFileSync(tempPath, JSON.stringify(log2, null, 2), "utf-8");
+  fs6.renameSync(tempPath, logPath);
 }
 function gitExec(args2) {
   const result = child_process.spawnSync("git", args2, {
@@ -30917,7 +28869,7 @@ var init_checkpoint = __esm(() => {
   });
 });
 
-// node_modules/.bun/graceful-fs@4.2.11/node_modules/graceful-fs/polyfills.js
+// node_modules/graceful-fs/polyfills.js
 var require_polyfills = __commonJS((exports, module2) => {
   var constants = __require("constants");
   var origCwd = process.cwd;
@@ -30942,54 +28894,54 @@ var require_polyfills = __commonJS((exports, module2) => {
   }
   var chdir;
   module2.exports = patch;
-  function patch(fs10) {
+  function patch(fs7) {
     if (constants.hasOwnProperty("O_SYMLINK") && process.version.match(/^v0\.6\.[0-2]|^v0\.5\./)) {
-      patchLchmod(fs10);
+      patchLchmod(fs7);
     }
-    if (!fs10.lutimes) {
-      patchLutimes(fs10);
+    if (!fs7.lutimes) {
+      patchLutimes(fs7);
     }
-    fs10.chown = chownFix(fs10.chown);
-    fs10.fchown = chownFix(fs10.fchown);
-    fs10.lchown = chownFix(fs10.lchown);
-    fs10.chmod = chmodFix(fs10.chmod);
-    fs10.fchmod = chmodFix(fs10.fchmod);
-    fs10.lchmod = chmodFix(fs10.lchmod);
-    fs10.chownSync = chownFixSync(fs10.chownSync);
-    fs10.fchownSync = chownFixSync(fs10.fchownSync);
-    fs10.lchownSync = chownFixSync(fs10.lchownSync);
-    fs10.chmodSync = chmodFixSync(fs10.chmodSync);
-    fs10.fchmodSync = chmodFixSync(fs10.fchmodSync);
-    fs10.lchmodSync = chmodFixSync(fs10.lchmodSync);
-    fs10.stat = statFix(fs10.stat);
-    fs10.fstat = statFix(fs10.fstat);
-    fs10.lstat = statFix(fs10.lstat);
-    fs10.statSync = statFixSync(fs10.statSync);
-    fs10.fstatSync = statFixSync(fs10.fstatSync);
-    fs10.lstatSync = statFixSync(fs10.lstatSync);
-    if (fs10.chmod && !fs10.lchmod) {
-      fs10.lchmod = function(path12, mode, cb) {
+    fs7.chown = chownFix(fs7.chown);
+    fs7.fchown = chownFix(fs7.fchown);
+    fs7.lchown = chownFix(fs7.lchown);
+    fs7.chmod = chmodFix(fs7.chmod);
+    fs7.fchmod = chmodFix(fs7.fchmod);
+    fs7.lchmod = chmodFix(fs7.lchmod);
+    fs7.chownSync = chownFixSync(fs7.chownSync);
+    fs7.fchownSync = chownFixSync(fs7.fchownSync);
+    fs7.lchownSync = chownFixSync(fs7.lchownSync);
+    fs7.chmodSync = chmodFixSync(fs7.chmodSync);
+    fs7.fchmodSync = chmodFixSync(fs7.fchmodSync);
+    fs7.lchmodSync = chmodFixSync(fs7.lchmodSync);
+    fs7.stat = statFix(fs7.stat);
+    fs7.fstat = statFix(fs7.fstat);
+    fs7.lstat = statFix(fs7.lstat);
+    fs7.statSync = statFixSync(fs7.statSync);
+    fs7.fstatSync = statFixSync(fs7.fstatSync);
+    fs7.lstatSync = statFixSync(fs7.lstatSync);
+    if (fs7.chmod && !fs7.lchmod) {
+      fs7.lchmod = function(path7, mode, cb) {
         if (cb)
           process.nextTick(cb);
       };
-      fs10.lchmodSync = function() {};
+      fs7.lchmodSync = function() {};
     }
-    if (fs10.chown && !fs10.lchown) {
-      fs10.lchown = function(path12, uid, gid, cb) {
+    if (fs7.chown && !fs7.lchown) {
+      fs7.lchown = function(path7, uid, gid, cb) {
         if (cb)
           process.nextTick(cb);
       };
-      fs10.lchownSync = function() {};
+      fs7.lchownSync = function() {};
     }
     if (platform === "win32") {
-      fs10.rename = typeof fs10.rename !== "function" ? fs10.rename : function(fs$rename) {
+      fs7.rename = typeof fs7.rename !== "function" ? fs7.rename : function(fs$rename) {
         function rename2(from, to, cb) {
           var start2 = Date.now();
           var backoff = 0;
           fs$rename(from, to, function CB(er) {
             if (er && (er.code === "EACCES" || er.code === "EPERM" || er.code === "EBUSY") && Date.now() - start2 < 60000) {
               setTimeout(function() {
-                fs10.stat(to, function(stater, st) {
+                fs7.stat(to, function(stater, st) {
                   if (stater && stater.code === "ENOENT")
                     fs$rename(from, to, CB);
                   else
@@ -31007,9 +28959,9 @@ var require_polyfills = __commonJS((exports, module2) => {
         if (Object.setPrototypeOf)
           Object.setPrototypeOf(rename2, fs$rename);
         return rename2;
-      }(fs10.rename);
+      }(fs7.rename);
     }
-    fs10.read = typeof fs10.read !== "function" ? fs10.read : function(fs$read) {
+    fs7.read = typeof fs7.read !== "function" ? fs7.read : function(fs$read) {
       function read(fd, buffer, offset, length, position, callback_) {
         var callback;
         if (callback_ && typeof callback_ === "function") {
@@ -31017,23 +28969,23 @@ var require_polyfills = __commonJS((exports, module2) => {
           callback = function(er, _, __) {
             if (er && er.code === "EAGAIN" && eagCounter < 10) {
               eagCounter++;
-              return fs$read.call(fs10, fd, buffer, offset, length, position, callback);
+              return fs$read.call(fs7, fd, buffer, offset, length, position, callback);
             }
             callback_.apply(this, arguments);
           };
         }
-        return fs$read.call(fs10, fd, buffer, offset, length, position, callback);
+        return fs$read.call(fs7, fd, buffer, offset, length, position, callback);
       }
       if (Object.setPrototypeOf)
         Object.setPrototypeOf(read, fs$read);
       return read;
-    }(fs10.read);
-    fs10.readSync = typeof fs10.readSync !== "function" ? fs10.readSync : function(fs$readSync) {
+    }(fs7.read);
+    fs7.readSync = typeof fs7.readSync !== "function" ? fs7.readSync : function(fs$readSync) {
       return function(fd, buffer, offset, length, position) {
         var eagCounter = 0;
         while (true) {
           try {
-            return fs$readSync.call(fs10, fd, buffer, offset, length, position);
+            return fs$readSync.call(fs7, fd, buffer, offset, length, position);
           } catch (er) {
             if (er.code === "EAGAIN" && eagCounter < 10) {
               eagCounter++;
@@ -31043,90 +28995,90 @@ var require_polyfills = __commonJS((exports, module2) => {
           }
         }
       };
-    }(fs10.readSync);
-    function patchLchmod(fs11) {
-      fs11.lchmod = function(path12, mode, callback) {
-        fs11.open(path12, constants.O_WRONLY | constants.O_SYMLINK, mode, function(err2, fd) {
+    }(fs7.readSync);
+    function patchLchmod(fs8) {
+      fs8.lchmod = function(path7, mode, callback) {
+        fs8.open(path7, constants.O_WRONLY | constants.O_SYMLINK, mode, function(err2, fd) {
           if (err2) {
             if (callback)
               callback(err2);
             return;
           }
-          fs11.fchmod(fd, mode, function(err3) {
-            fs11.close(fd, function(err22) {
+          fs8.fchmod(fd, mode, function(err3) {
+            fs8.close(fd, function(err22) {
               if (callback)
                 callback(err3 || err22);
             });
           });
         });
       };
-      fs11.lchmodSync = function(path12, mode) {
-        var fd = fs11.openSync(path12, constants.O_WRONLY | constants.O_SYMLINK, mode);
+      fs8.lchmodSync = function(path7, mode) {
+        var fd = fs8.openSync(path7, constants.O_WRONLY | constants.O_SYMLINK, mode);
         var threw = true;
         var ret;
         try {
-          ret = fs11.fchmodSync(fd, mode);
+          ret = fs8.fchmodSync(fd, mode);
           threw = false;
         } finally {
           if (threw) {
             try {
-              fs11.closeSync(fd);
+              fs8.closeSync(fd);
             } catch (er) {}
           } else {
-            fs11.closeSync(fd);
+            fs8.closeSync(fd);
           }
         }
         return ret;
       };
     }
-    function patchLutimes(fs11) {
-      if (constants.hasOwnProperty("O_SYMLINK") && fs11.futimes) {
-        fs11.lutimes = function(path12, at, mt, cb) {
-          fs11.open(path12, constants.O_SYMLINK, function(er, fd) {
+    function patchLutimes(fs8) {
+      if (constants.hasOwnProperty("O_SYMLINK") && fs8.futimes) {
+        fs8.lutimes = function(path7, at, mt, cb) {
+          fs8.open(path7, constants.O_SYMLINK, function(er, fd) {
             if (er) {
               if (cb)
                 cb(er);
               return;
             }
-            fs11.futimes(fd, at, mt, function(er2) {
-              fs11.close(fd, function(er22) {
+            fs8.futimes(fd, at, mt, function(er2) {
+              fs8.close(fd, function(er22) {
                 if (cb)
                   cb(er2 || er22);
               });
             });
           });
         };
-        fs11.lutimesSync = function(path12, at, mt) {
-          var fd = fs11.openSync(path12, constants.O_SYMLINK);
+        fs8.lutimesSync = function(path7, at, mt) {
+          var fd = fs8.openSync(path7, constants.O_SYMLINK);
           var ret;
           var threw = true;
           try {
-            ret = fs11.futimesSync(fd, at, mt);
+            ret = fs8.futimesSync(fd, at, mt);
             threw = false;
           } finally {
             if (threw) {
               try {
-                fs11.closeSync(fd);
+                fs8.closeSync(fd);
               } catch (er) {}
             } else {
-              fs11.closeSync(fd);
+              fs8.closeSync(fd);
             }
           }
           return ret;
         };
-      } else if (fs11.futimes) {
-        fs11.lutimes = function(_a2, _b, _c, cb) {
+      } else if (fs8.futimes) {
+        fs8.lutimes = function(_a2, _b, _c, cb) {
           if (cb)
             process.nextTick(cb);
         };
-        fs11.lutimesSync = function() {};
+        fs8.lutimesSync = function() {};
       }
     }
     function chmodFix(orig) {
       if (!orig)
         return orig;
       return function(target, mode, cb) {
-        return orig.call(fs10, target, mode, function(er) {
+        return orig.call(fs7, target, mode, function(er) {
           if (chownErOk(er))
             er = null;
           if (cb)
@@ -31139,7 +29091,7 @@ var require_polyfills = __commonJS((exports, module2) => {
         return orig;
       return function(target, mode) {
         try {
-          return orig.call(fs10, target, mode);
+          return orig.call(fs7, target, mode);
         } catch (er) {
           if (!chownErOk(er))
             throw er;
@@ -31150,7 +29102,7 @@ var require_polyfills = __commonJS((exports, module2) => {
       if (!orig)
         return orig;
       return function(target, uid, gid, cb) {
-        return orig.call(fs10, target, uid, gid, function(er) {
+        return orig.call(fs7, target, uid, gid, function(er) {
           if (chownErOk(er))
             er = null;
           if (cb)
@@ -31163,7 +29115,7 @@ var require_polyfills = __commonJS((exports, module2) => {
         return orig;
       return function(target, uid, gid) {
         try {
-          return orig.call(fs10, target, uid, gid);
+          return orig.call(fs7, target, uid, gid);
         } catch (er) {
           if (!chownErOk(er))
             throw er;
@@ -31188,14 +29140,14 @@ var require_polyfills = __commonJS((exports, module2) => {
           if (cb)
             cb.apply(this, arguments);
         }
-        return options ? orig.call(fs10, target, options, callback) : orig.call(fs10, target, callback);
+        return options ? orig.call(fs7, target, options, callback) : orig.call(fs7, target, callback);
       };
     }
     function statFixSync(orig) {
       if (!orig)
         return orig;
       return function(target, options) {
-        var stats = options ? orig.call(fs10, target, options) : orig.call(fs10, target);
+        var stats = options ? orig.call(fs7, target, options) : orig.call(fs7, target);
         if (stats) {
           if (stats.uid < 0)
             stats.uid += 4294967296;
@@ -31220,21 +29172,21 @@ var require_polyfills = __commonJS((exports, module2) => {
   }
 });
 
-// node_modules/.bun/graceful-fs@4.2.11/node_modules/graceful-fs/legacy-streams.js
+// node_modules/graceful-fs/legacy-streams.js
 var require_legacy_streams = __commonJS((exports, module2) => {
   var Stream = __require("stream").Stream;
   module2.exports = legacy;
-  function legacy(fs10) {
+  function legacy(fs7) {
     return {
       ReadStream,
       WriteStream
     };
-    function ReadStream(path12, options) {
+    function ReadStream(path7, options) {
       if (!(this instanceof ReadStream))
-        return new ReadStream(path12, options);
+        return new ReadStream(path7, options);
       Stream.call(this);
       var self2 = this;
-      this.path = path12;
+      this.path = path7;
       this.fd = null;
       this.readable = true;
       this.paused = false;
@@ -31269,7 +29221,7 @@ var require_legacy_streams = __commonJS((exports, module2) => {
         });
         return;
       }
-      fs10.open(this.path, this.flags, this.mode, function(err2, fd) {
+      fs7.open(this.path, this.flags, this.mode, function(err2, fd) {
         if (err2) {
           self2.emit("error", err2);
           self2.readable = false;
@@ -31280,11 +29232,11 @@ var require_legacy_streams = __commonJS((exports, module2) => {
         self2._read();
       });
     }
-    function WriteStream(path12, options) {
+    function WriteStream(path7, options) {
       if (!(this instanceof WriteStream))
-        return new WriteStream(path12, options);
+        return new WriteStream(path7, options);
       Stream.call(this);
-      this.path = path12;
+      this.path = path7;
       this.fd = null;
       this.writable = true;
       this.flags = "w";
@@ -31309,7 +29261,7 @@ var require_legacy_streams = __commonJS((exports, module2) => {
       this.busy = false;
       this._queue = [];
       if (this.fd === null) {
-        this._open = fs10.open;
+        this._open = fs7.open;
         this._queue.push([this._open, this.path, this.flags, this.mode, undefined]);
         this.flush();
       }
@@ -31317,7 +29269,7 @@ var require_legacy_streams = __commonJS((exports, module2) => {
   }
 });
 
-// node_modules/.bun/graceful-fs@4.2.11/node_modules/graceful-fs/clone.js
+// node_modules/graceful-fs/clone.js
 var require_clone = __commonJS((exports, module2) => {
   module2.exports = clone3;
   var getPrototypeOf = Object.getPrototypeOf || function(obj) {
@@ -31337,9 +29289,9 @@ var require_clone = __commonJS((exports, module2) => {
   }
 });
 
-// node_modules/.bun/graceful-fs@4.2.11/node_modules/graceful-fs/graceful-fs.js
+// node_modules/graceful-fs/graceful-fs.js
 var require_graceful_fs = __commonJS((exports, module2) => {
-  var fs10 = __require("fs");
+  var fs7 = __require("fs");
   var polyfills = require_polyfills();
   var legacy = require_legacy_streams();
   var clone3 = require_clone();
@@ -31371,12 +29323,12 @@ var require_graceful_fs = __commonJS((exports, module2) => {
 GFS4: `);
       console.error(m);
     };
-  if (!fs10[gracefulQueue]) {
+  if (!fs7[gracefulQueue]) {
     queue = global[gracefulQueue] || [];
-    publishQueue(fs10, queue);
-    fs10.close = function(fs$close) {
+    publishQueue(fs7, queue);
+    fs7.close = function(fs$close) {
       function close(fd, cb) {
-        return fs$close.call(fs10, fd, function(err2) {
+        return fs$close.call(fs7, fd, function(err2) {
           if (!err2) {
             resetQueue();
           }
@@ -31388,48 +29340,48 @@ GFS4: `);
         value: fs$close
       });
       return close;
-    }(fs10.close);
-    fs10.closeSync = function(fs$closeSync) {
+    }(fs7.close);
+    fs7.closeSync = function(fs$closeSync) {
       function closeSync(fd) {
-        fs$closeSync.apply(fs10, arguments);
+        fs$closeSync.apply(fs7, arguments);
         resetQueue();
       }
       Object.defineProperty(closeSync, previousSymbol, {
         value: fs$closeSync
       });
       return closeSync;
-    }(fs10.closeSync);
+    }(fs7.closeSync);
     if (/\bgfs4\b/i.test(process.env.NODE_DEBUG || "")) {
       process.on("exit", function() {
-        debug(fs10[gracefulQueue]);
-        __require("assert").equal(fs10[gracefulQueue].length, 0);
+        debug(fs7[gracefulQueue]);
+        __require("assert").equal(fs7[gracefulQueue].length, 0);
       });
     }
   }
   var queue;
   if (!global[gracefulQueue]) {
-    publishQueue(global, fs10[gracefulQueue]);
+    publishQueue(global, fs7[gracefulQueue]);
   }
-  module2.exports = patch(clone3(fs10));
-  if (process.env.TEST_GRACEFUL_FS_GLOBAL_PATCH && !fs10.__patched) {
-    module2.exports = patch(fs10);
-    fs10.__patched = true;
+  module2.exports = patch(clone3(fs7));
+  if (process.env.TEST_GRACEFUL_FS_GLOBAL_PATCH && !fs7.__patched) {
+    module2.exports = patch(fs7);
+    fs7.__patched = true;
   }
-  function patch(fs11) {
-    polyfills(fs11);
-    fs11.gracefulify = patch;
-    fs11.createReadStream = createReadStream;
-    fs11.createWriteStream = createWriteStream2;
-    var fs$readFile = fs11.readFile;
-    fs11.readFile = readFile2;
-    function readFile2(path12, options, cb) {
+  function patch(fs8) {
+    polyfills(fs8);
+    fs8.gracefulify = patch;
+    fs8.createReadStream = createReadStream;
+    fs8.createWriteStream = createWriteStream2;
+    var fs$readFile = fs8.readFile;
+    fs8.readFile = readFile2;
+    function readFile2(path7, options, cb) {
       if (typeof options === "function")
         cb = options, options = null;
-      return go$readFile(path12, options, cb);
-      function go$readFile(path13, options2, cb2, startTime) {
-        return fs$readFile(path13, options2, function(err2) {
+      return go$readFile(path7, options, cb);
+      function go$readFile(path8, options2, cb2, startTime) {
+        return fs$readFile(path8, options2, function(err2) {
           if (err2 && (err2.code === "EMFILE" || err2.code === "ENFILE"))
-            enqueue([go$readFile, [path13, options2, cb2], err2, startTime || Date.now(), Date.now()]);
+            enqueue([go$readFile, [path8, options2, cb2], err2, startTime || Date.now(), Date.now()]);
           else {
             if (typeof cb2 === "function")
               cb2.apply(this, arguments);
@@ -31437,16 +29389,16 @@ GFS4: `);
         });
       }
     }
-    var fs$writeFile = fs11.writeFile;
-    fs11.writeFile = writeFile;
-    function writeFile(path12, data, options, cb) {
+    var fs$writeFile = fs8.writeFile;
+    fs8.writeFile = writeFile;
+    function writeFile(path7, data, options, cb) {
       if (typeof options === "function")
         cb = options, options = null;
-      return go$writeFile(path12, data, options, cb);
-      function go$writeFile(path13, data2, options2, cb2, startTime) {
-        return fs$writeFile(path13, data2, options2, function(err2) {
+      return go$writeFile(path7, data, options, cb);
+      function go$writeFile(path8, data2, options2, cb2, startTime) {
+        return fs$writeFile(path8, data2, options2, function(err2) {
           if (err2 && (err2.code === "EMFILE" || err2.code === "ENFILE"))
-            enqueue([go$writeFile, [path13, data2, options2, cb2], err2, startTime || Date.now(), Date.now()]);
+            enqueue([go$writeFile, [path8, data2, options2, cb2], err2, startTime || Date.now(), Date.now()]);
           else {
             if (typeof cb2 === "function")
               cb2.apply(this, arguments);
@@ -31454,17 +29406,17 @@ GFS4: `);
         });
       }
     }
-    var fs$appendFile = fs11.appendFile;
+    var fs$appendFile = fs8.appendFile;
     if (fs$appendFile)
-      fs11.appendFile = appendFile;
-    function appendFile(path12, data, options, cb) {
+      fs8.appendFile = appendFile;
+    function appendFile(path7, data, options, cb) {
       if (typeof options === "function")
         cb = options, options = null;
-      return go$appendFile(path12, data, options, cb);
-      function go$appendFile(path13, data2, options2, cb2, startTime) {
-        return fs$appendFile(path13, data2, options2, function(err2) {
+      return go$appendFile(path7, data, options, cb);
+      function go$appendFile(path8, data2, options2, cb2, startTime) {
+        return fs$appendFile(path8, data2, options2, function(err2) {
           if (err2 && (err2.code === "EMFILE" || err2.code === "ENFILE"))
-            enqueue([go$appendFile, [path13, data2, options2, cb2], err2, startTime || Date.now(), Date.now()]);
+            enqueue([go$appendFile, [path8, data2, options2, cb2], err2, startTime || Date.now(), Date.now()]);
           else {
             if (typeof cb2 === "function")
               cb2.apply(this, arguments);
@@ -31472,9 +29424,9 @@ GFS4: `);
         });
       }
     }
-    var fs$copyFile = fs11.copyFile;
+    var fs$copyFile = fs8.copyFile;
     if (fs$copyFile)
-      fs11.copyFile = copyFile;
+      fs8.copyFile = copyFile;
     function copyFile(src, dest, flags2, cb) {
       if (typeof flags2 === "function") {
         cb = flags2;
@@ -31492,24 +29444,24 @@ GFS4: `);
         });
       }
     }
-    var fs$readdir = fs11.readdir;
-    fs11.readdir = readdir2;
+    var fs$readdir = fs8.readdir;
+    fs8.readdir = readdir2;
     var noReaddirOptionVersions = /^v[0-5]\./;
-    function readdir2(path12, options, cb) {
+    function readdir2(path7, options, cb) {
       if (typeof options === "function")
         cb = options, options = null;
-      var go$readdir = noReaddirOptionVersions.test(process.version) ? function go$readdir2(path13, options2, cb2, startTime) {
-        return fs$readdir(path13, fs$readdirCallback(path13, options2, cb2, startTime));
-      } : function go$readdir2(path13, options2, cb2, startTime) {
-        return fs$readdir(path13, options2, fs$readdirCallback(path13, options2, cb2, startTime));
+      var go$readdir = noReaddirOptionVersions.test(process.version) ? function go$readdir2(path8, options2, cb2, startTime) {
+        return fs$readdir(path8, fs$readdirCallback(path8, options2, cb2, startTime));
+      } : function go$readdir2(path8, options2, cb2, startTime) {
+        return fs$readdir(path8, options2, fs$readdirCallback(path8, options2, cb2, startTime));
       };
-      return go$readdir(path12, options, cb);
-      function fs$readdirCallback(path13, options2, cb2, startTime) {
+      return go$readdir(path7, options, cb);
+      function fs$readdirCallback(path8, options2, cb2, startTime) {
         return function(err2, files) {
           if (err2 && (err2.code === "EMFILE" || err2.code === "ENFILE"))
             enqueue([
               go$readdir,
-              [path13, options2, cb2],
+              [path8, options2, cb2],
               err2,
               startTime || Date.now(),
               Date.now()
@@ -31524,21 +29476,21 @@ GFS4: `);
       }
     }
     if (process.version.substr(0, 4) === "v0.8") {
-      var legStreams = legacy(fs11);
+      var legStreams = legacy(fs8);
       ReadStream = legStreams.ReadStream;
       WriteStream = legStreams.WriteStream;
     }
-    var fs$ReadStream = fs11.ReadStream;
+    var fs$ReadStream = fs8.ReadStream;
     if (fs$ReadStream) {
       ReadStream.prototype = Object.create(fs$ReadStream.prototype);
       ReadStream.prototype.open = ReadStream$open;
     }
-    var fs$WriteStream = fs11.WriteStream;
+    var fs$WriteStream = fs8.WriteStream;
     if (fs$WriteStream) {
       WriteStream.prototype = Object.create(fs$WriteStream.prototype);
       WriteStream.prototype.open = WriteStream$open;
     }
-    Object.defineProperty(fs11, "ReadStream", {
+    Object.defineProperty(fs8, "ReadStream", {
       get: function() {
         return ReadStream;
       },
@@ -31548,7 +29500,7 @@ GFS4: `);
       enumerable: true,
       configurable: true
     });
-    Object.defineProperty(fs11, "WriteStream", {
+    Object.defineProperty(fs8, "WriteStream", {
       get: function() {
         return WriteStream;
       },
@@ -31559,7 +29511,7 @@ GFS4: `);
       configurable: true
     });
     var FileReadStream = ReadStream;
-    Object.defineProperty(fs11, "FileReadStream", {
+    Object.defineProperty(fs8, "FileReadStream", {
       get: function() {
         return FileReadStream;
       },
@@ -31570,7 +29522,7 @@ GFS4: `);
       configurable: true
     });
     var FileWriteStream = WriteStream;
-    Object.defineProperty(fs11, "FileWriteStream", {
+    Object.defineProperty(fs8, "FileWriteStream", {
       get: function() {
         return FileWriteStream;
       },
@@ -31580,7 +29532,7 @@ GFS4: `);
       enumerable: true,
       configurable: true
     });
-    function ReadStream(path12, options) {
+    function ReadStream(path7, options) {
       if (this instanceof ReadStream)
         return fs$ReadStream.apply(this, arguments), this;
       else
@@ -31600,7 +29552,7 @@ GFS4: `);
         }
       });
     }
-    function WriteStream(path12, options) {
+    function WriteStream(path7, options) {
       if (this instanceof WriteStream)
         return fs$WriteStream.apply(this, arguments), this;
       else
@@ -31618,22 +29570,22 @@ GFS4: `);
         }
       });
     }
-    function createReadStream(path12, options) {
-      return new fs11.ReadStream(path12, options);
+    function createReadStream(path7, options) {
+      return new fs8.ReadStream(path7, options);
     }
-    function createWriteStream2(path12, options) {
-      return new fs11.WriteStream(path12, options);
+    function createWriteStream2(path7, options) {
+      return new fs8.WriteStream(path7, options);
     }
-    var fs$open = fs11.open;
-    fs11.open = open;
-    function open(path12, flags2, mode, cb) {
+    var fs$open = fs8.open;
+    fs8.open = open;
+    function open(path7, flags2, mode, cb) {
       if (typeof mode === "function")
         cb = mode, mode = null;
-      return go$open(path12, flags2, mode, cb);
-      function go$open(path13, flags3, mode2, cb2, startTime) {
-        return fs$open(path13, flags3, mode2, function(err2, fd) {
+      return go$open(path7, flags2, mode, cb);
+      function go$open(path8, flags3, mode2, cb2, startTime) {
+        return fs$open(path8, flags3, mode2, function(err2, fd) {
           if (err2 && (err2.code === "EMFILE" || err2.code === "ENFILE"))
-            enqueue([go$open, [path13, flags3, mode2, cb2], err2, startTime || Date.now(), Date.now()]);
+            enqueue([go$open, [path8, flags3, mode2, cb2], err2, startTime || Date.now(), Date.now()]);
           else {
             if (typeof cb2 === "function")
               cb2.apply(this, arguments);
@@ -31641,20 +29593,20 @@ GFS4: `);
         });
       }
     }
-    return fs11;
+    return fs8;
   }
   function enqueue(elem) {
     debug("ENQUEUE", elem[0].name, elem[1]);
-    fs10[gracefulQueue].push(elem);
+    fs7[gracefulQueue].push(elem);
     retry();
   }
   var retryTimer;
   function resetQueue() {
     var now = Date.now();
-    for (var i2 = 0;i2 < fs10[gracefulQueue].length; ++i2) {
-      if (fs10[gracefulQueue][i2].length > 2) {
-        fs10[gracefulQueue][i2][3] = now;
-        fs10[gracefulQueue][i2][4] = now;
+    for (var i2 = 0;i2 < fs7[gracefulQueue].length; ++i2) {
+      if (fs7[gracefulQueue][i2].length > 2) {
+        fs7[gracefulQueue][i2][3] = now;
+        fs7[gracefulQueue][i2][4] = now;
       }
     }
     retry();
@@ -31662,9 +29614,9 @@ GFS4: `);
   function retry() {
     clearTimeout(retryTimer);
     retryTimer = undefined;
-    if (fs10[gracefulQueue].length === 0)
+    if (fs7[gracefulQueue].length === 0)
       return;
-    var elem = fs10[gracefulQueue].shift();
+    var elem = fs7[gracefulQueue].shift();
     var fn = elem[0];
     var args2 = elem[1];
     var err2 = elem[2];
@@ -31686,7 +29638,7 @@ GFS4: `);
         debug("RETRY", fn.name, args2);
         fn.apply(null, args2.concat([startTime]));
       } else {
-        fs10[gracefulQueue].push(elem);
+        fs7[gracefulQueue].push(elem);
       }
     }
     if (retryTimer === undefined) {
@@ -31695,7 +29647,7 @@ GFS4: `);
   }
 });
 
-// node_modules/.bun/retry@0.12.0/node_modules/retry/lib/retry_operation.js
+// node_modules/retry/lib/retry_operation.js
 var require_retry_operation = __commonJS((exports, module2) => {
   function RetryOperation(timeouts, options) {
     if (typeof options === "boolean") {
@@ -31824,7 +29776,7 @@ var require_retry_operation = __commonJS((exports, module2) => {
   };
 });
 
-// node_modules/.bun/retry@0.12.0/node_modules/retry/lib/retry.js
+// node_modules/retry/lib/retry.js
 var require_retry = __commonJS((exports) => {
   var RetryOperation = require_retry_operation();
   exports.operation = function(options) {
@@ -31908,7 +29860,7 @@ var require_retry = __commonJS((exports) => {
   };
 });
 
-// node_modules/.bun/signal-exit@3.0.7/node_modules/signal-exit/signals.js
+// node_modules/signal-exit/signals.js
 var require_signals = __commonJS((exports, module2) => {
   module2.exports = [
     "SIGABRT",
@@ -31925,7 +29877,7 @@ var require_signals = __commonJS((exports, module2) => {
   }
 });
 
-// node_modules/.bun/signal-exit@3.0.7/node_modules/signal-exit/index.js
+// node_modules/signal-exit/index.js
 var require_signal_exit = __commonJS((exports, module2) => {
   var process3 = global.process;
   var processOk = function(process4) {
@@ -32078,13 +30030,13 @@ var require_signal_exit = __commonJS((exports, module2) => {
   var processEmit;
 });
 
-// node_modules/.bun/proper-lockfile@4.1.2/node_modules/proper-lockfile/lib/mtime-precision.js
+// node_modules/proper-lockfile/lib/mtime-precision.js
 var require_mtime_precision = __commonJS((exports, module2) => {
   var cacheSymbol = Symbol();
-  function probe(file3, fs10, callback) {
-    const cachedPrecision = fs10[cacheSymbol];
+  function probe(file3, fs7, callback) {
+    const cachedPrecision = fs7[cacheSymbol];
     if (cachedPrecision) {
-      return fs10.stat(file3, (err2, stat) => {
+      return fs7.stat(file3, (err2, stat) => {
         if (err2) {
           return callback(err2);
         }
@@ -32092,16 +30044,16 @@ var require_mtime_precision = __commonJS((exports, module2) => {
       });
     }
     const mtime = new Date(Math.ceil(Date.now() / 1000) * 1000 + 5);
-    fs10.utimes(file3, mtime, mtime, (err2) => {
+    fs7.utimes(file3, mtime, mtime, (err2) => {
       if (err2) {
         return callback(err2);
       }
-      fs10.stat(file3, (err3, stat) => {
+      fs7.stat(file3, (err3, stat) => {
         if (err3) {
           return callback(err3);
         }
         const precision = stat.mtime.getTime() % 1000 === 0 ? "s" : "ms";
-        Object.defineProperty(fs10, cacheSymbol, { value: precision });
+        Object.defineProperty(fs7, cacheSymbol, { value: precision });
         callback(null, stat.mtime, precision);
       });
     });
@@ -32117,10 +30069,10 @@ var require_mtime_precision = __commonJS((exports, module2) => {
   exports.getMtime = getMtime;
 });
 
-// node_modules/.bun/proper-lockfile@4.1.2/node_modules/proper-lockfile/lib/lockfile.js
+// node_modules/proper-lockfile/lib/lockfile.js
 var require_lockfile = __commonJS((exports, module2) => {
-  var path12 = __require("path");
-  var fs10 = require_graceful_fs();
+  var path7 = __require("path");
+  var fs7 = require_graceful_fs();
   var retry = require_retry();
   var onExit = require_signal_exit();
   var mtimePrecision = require_mtime_precision();
@@ -32130,7 +30082,7 @@ var require_lockfile = __commonJS((exports, module2) => {
   }
   function resolveCanonicalPath(file3, options, callback) {
     if (!options.realpath) {
-      return callback(null, path12.resolve(file3));
+      return callback(null, path7.resolve(file3));
     }
     options.fs.realpath(file3, callback);
   }
@@ -32243,7 +30195,7 @@ var require_lockfile = __commonJS((exports, module2) => {
       update: null,
       realpath: true,
       retries: 0,
-      fs: fs10,
+      fs: fs7,
       onCompromised: (err2) => {
         throw err2;
       },
@@ -32287,7 +30239,7 @@ var require_lockfile = __commonJS((exports, module2) => {
   }
   function unlock(file3, options, callback) {
     options = {
-      fs: fs10,
+      fs: fs7,
       realpath: true,
       ...options
     };
@@ -32309,7 +30261,7 @@ var require_lockfile = __commonJS((exports, module2) => {
     options = {
       stale: 1e4,
       realpath: true,
-      fs: fs10,
+      fs: fs7,
       ...options
     };
     options.stale = Math.max(options.stale || 0, 2000);
@@ -32342,18 +30294,18 @@ var require_lockfile = __commonJS((exports, module2) => {
   exports.getLocks = getLocks;
 });
 
-// node_modules/.bun/proper-lockfile@4.1.2/node_modules/proper-lockfile/lib/adapter.js
+// node_modules/proper-lockfile/lib/adapter.js
 var require_adapter = __commonJS((exports, module2) => {
-  var fs10 = require_graceful_fs();
-  function createSyncFs(fs11) {
+  var fs7 = require_graceful_fs();
+  function createSyncFs(fs8) {
     const methods = ["mkdir", "realpath", "stat", "rmdir", "utimes"];
-    const newFs = { ...fs11 };
+    const newFs = { ...fs8 };
     methods.forEach((method) => {
       newFs[method] = (...args2) => {
         const callback = args2.pop();
         let ret;
         try {
-          ret = fs11[`${method}Sync`](...args2);
+          ret = fs8[`${method}Sync`](...args2);
         } catch (err2) {
           return callback(err2);
         }
@@ -32363,12 +30315,12 @@ var require_adapter = __commonJS((exports, module2) => {
     return newFs;
   }
   function toPromise(method) {
-    return (...args2) => new Promise((resolve4, reject) => {
+    return (...args2) => new Promise((resolve2, reject) => {
       args2.push((err2, result) => {
         if (err2) {
           reject(err2);
         } else {
-          resolve4(result);
+          resolve2(result);
         }
       });
       method(...args2);
@@ -32391,7 +30343,7 @@ var require_adapter = __commonJS((exports, module2) => {
   }
   function toSyncOptions(options) {
     options = { ...options };
-    options.fs = createSyncFs(options.fs || fs10);
+    options.fs = createSyncFs(options.fs || fs7);
     if (typeof options.retries === "number" && options.retries > 0 || options.retries && typeof options.retries.retries === "number" && options.retries.retries > 0) {
       throw Object.assign(new Error("Cannot use retries with the sync api"), { code: "ESYNC" });
     }
@@ -32404,7 +30356,7 @@ var require_adapter = __commonJS((exports, module2) => {
   };
 });
 
-// node_modules/.bun/proper-lockfile@4.1.2/node_modules/proper-lockfile/index.js
+// node_modules/proper-lockfile/index.js
 var require_proper_lockfile = __commonJS((exports, module2) => {
   var lockfile = require_lockfile();
   var { toPromise, toSync, toSyncOptions } = require_adapter();
@@ -32438,35 +30390,35 @@ var require_proper_lockfile = __commonJS((exports, module2) => {
 });
 
 // src/hooks/knowledge-store.ts
-import { existsSync as existsSync9 } from "fs";
+import { existsSync as existsSync4 } from "fs";
 import { appendFile, mkdir, readFile as readFile2, writeFile } from "fs/promises";
 import * as os3 from "os";
-import * as path12 from "path";
+import * as path7 from "path";
 function resolveSwarmKnowledgePath(directory) {
-  return path12.join(directory, ".swarm", "knowledge.jsonl");
+  return path7.join(directory, ".swarm", "knowledge.jsonl");
 }
 function resolveSwarmRejectedPath(directory) {
-  return path12.join(directory, ".swarm", "knowledge-rejected.jsonl");
+  return path7.join(directory, ".swarm", "knowledge-rejected.jsonl");
 }
 function resolveHiveKnowledgePath() {
   const platform = process.platform;
   const home = os3.homedir();
   let dataDir;
   if (platform === "win32") {
-    dataDir = path12.join(process.env.LOCALAPPDATA || path12.join(home, "AppData", "Local"), "opencode-swarm", "Data");
+    dataDir = path7.join(process.env.LOCALAPPDATA || path7.join(home, "AppData", "Local"), "opencode-swarm", "Data");
   } else if (platform === "darwin") {
-    dataDir = path12.join(home, "Library", "Application Support", "opencode-swarm");
+    dataDir = path7.join(home, "Library", "Application Support", "opencode-swarm");
   } else {
-    dataDir = path12.join(process.env.XDG_DATA_HOME || path12.join(home, ".local", "share"), "opencode-swarm");
+    dataDir = path7.join(process.env.XDG_DATA_HOME || path7.join(home, ".local", "share"), "opencode-swarm");
   }
-  return path12.join(dataDir, "shared-learnings.jsonl");
+  return path7.join(dataDir, "shared-learnings.jsonl");
 }
 function resolveHiveRejectedPath() {
   const hivePath = resolveHiveKnowledgePath();
-  return path12.join(path12.dirname(hivePath), "shared-learnings-rejected.jsonl");
+  return path7.join(path7.dirname(hivePath), "shared-learnings-rejected.jsonl");
 }
 async function readKnowledge(filePath) {
-  if (!existsSync9(filePath))
+  if (!existsSync4(filePath))
     return [];
   const content = await readFile2(filePath, "utf-8");
   const results = [];
@@ -32487,12 +30439,12 @@ async function readRejectedLessons(directory) {
   return readKnowledge(resolveSwarmRejectedPath(directory));
 }
 async function appendKnowledge(filePath, entry) {
-  await mkdir(path12.dirname(filePath), { recursive: true });
+  await mkdir(path7.dirname(filePath), { recursive: true });
   await appendFile(filePath, `${JSON.stringify(entry)}
 `, "utf-8");
 }
 async function rewriteKnowledge(filePath, entries) {
-  const dir = path12.dirname(filePath);
+  const dir = path7.dirname(filePath);
   await mkdir(dir, { recursive: true });
   let release = null;
   try {
@@ -32601,6 +30553,1051 @@ var init_knowledge_store = __esm(() => {
   import_proper_lockfile = __toESM(require_proper_lockfile(), 1);
 });
 
+// src/plan/ledger.ts
+import * as crypto2 from "crypto";
+import * as fs7 from "fs";
+import * as path10 from "path";
+function getLedgerPath(directory) {
+  return path10.join(directory, ".swarm", LEDGER_FILENAME);
+}
+function getPlanJsonPath(directory) {
+  return path10.join(directory, ".swarm", PLAN_JSON_FILENAME);
+}
+function computePlanHash(plan) {
+  const normalized = {
+    schema_version: plan.schema_version,
+    title: plan.title,
+    swarm: plan.swarm,
+    current_phase: plan.current_phase,
+    migration_status: plan.migration_status,
+    phases: plan.phases.map((phase) => ({
+      id: phase.id,
+      name: phase.name,
+      status: phase.status,
+      required_agents: phase.required_agents ? [...phase.required_agents].sort() : undefined,
+      tasks: phase.tasks.map((task) => ({
+        id: task.id,
+        phase: task.phase,
+        status: task.status,
+        size: task.size,
+        description: task.description,
+        depends: [...task.depends].sort(),
+        acceptance: task.acceptance,
+        files_touched: [...task.files_touched].sort(),
+        evidence_path: task.evidence_path,
+        blocked_reason: task.blocked_reason
+      }))
+    }))
+  };
+  const jsonString = JSON.stringify(normalized);
+  return crypto2.createHash("sha256").update(jsonString, "utf8").digest("hex");
+}
+function computeCurrentPlanHash(directory) {
+  const planPath = getPlanJsonPath(directory);
+  try {
+    const content = fs7.readFileSync(planPath, "utf8");
+    const plan = JSON.parse(content);
+    return computePlanHash(plan);
+  } catch {
+    return "";
+  }
+}
+async function ledgerExists(directory) {
+  const ledgerPath = getLedgerPath(directory);
+  return fs7.existsSync(ledgerPath);
+}
+async function getLatestLedgerSeq(directory) {
+  const ledgerPath = getLedgerPath(directory);
+  if (!fs7.existsSync(ledgerPath)) {
+    return 0;
+  }
+  try {
+    const content = fs7.readFileSync(ledgerPath, "utf8");
+    const lines = content.trim().split(`
+`).filter((line) => line.trim() !== "");
+    if (lines.length === 0) {
+      return 0;
+    }
+    let maxSeq = 0;
+    for (const line of lines) {
+      try {
+        const event = JSON.parse(line);
+        if (event.seq > maxSeq) {
+          maxSeq = event.seq;
+        }
+      } catch {}
+    }
+    return maxSeq;
+  } catch {
+    return 0;
+  }
+}
+async function readLedgerEvents(directory) {
+  const ledgerPath = getLedgerPath(directory);
+  if (!fs7.existsSync(ledgerPath)) {
+    return [];
+  }
+  try {
+    const content = fs7.readFileSync(ledgerPath, "utf8");
+    const lines = content.trim().split(`
+`).filter((line) => line.trim() !== "");
+    const events = [];
+    for (const line of lines) {
+      try {
+        const event = JSON.parse(line);
+        events.push(event);
+      } catch {}
+    }
+    events.sort((a, b) => a.seq - b.seq);
+    return events;
+  } catch {
+    return [];
+  }
+}
+async function initLedger(directory, planId, initialPlanHash) {
+  const ledgerPath = getLedgerPath(directory);
+  const planJsonPath = getPlanJsonPath(directory);
+  if (fs7.existsSync(ledgerPath)) {
+    throw new Error("Ledger already initialized. Use appendLedgerEvent to add events.");
+  }
+  let planHashAfter = initialPlanHash ?? "";
+  if (!initialPlanHash) {
+    try {
+      if (fs7.existsSync(planJsonPath)) {
+        const content = fs7.readFileSync(planJsonPath, "utf8");
+        const plan = JSON.parse(content);
+        planHashAfter = computePlanHash(plan);
+      }
+    } catch {}
+  }
+  const event = {
+    seq: 1,
+    timestamp: new Date().toISOString(),
+    plan_id: planId,
+    event_type: "plan_created",
+    source: "initLedger",
+    plan_hash_before: "",
+    plan_hash_after: planHashAfter,
+    schema_version: LEDGER_SCHEMA_VERSION
+  };
+  fs7.mkdirSync(path10.join(directory, ".swarm"), { recursive: true });
+  const tempPath = `${ledgerPath}.tmp.${Date.now()}.${Math.floor(Math.random() * 1e9)}`;
+  const line = `${JSON.stringify(event)}
+`;
+  fs7.writeFileSync(tempPath, line, "utf8");
+  fs7.renameSync(tempPath, ledgerPath);
+}
+async function appendLedgerEvent(directory, eventInput, options) {
+  const ledgerPath = getLedgerPath(directory);
+  const latestSeq = await getLatestLedgerSeq(directory);
+  const nextSeq = latestSeq + 1;
+  const planHashBefore = computeCurrentPlanHash(directory);
+  if (options?.expectedSeq !== undefined && options.expectedSeq !== latestSeq) {
+    throw new LedgerStaleWriterError(`Stale writer: expected seq ${options.expectedSeq} but found ${latestSeq}`);
+  }
+  if (options?.expectedHash !== undefined && options.expectedHash !== planHashBefore) {
+    throw new LedgerStaleWriterError(`Stale writer: expected hash ${options.expectedHash} but found ${planHashBefore}`);
+  }
+  const planHashAfter = options?.planHashAfter ?? planHashBefore;
+  const event = {
+    ...eventInput,
+    seq: nextSeq,
+    timestamp: new Date().toISOString(),
+    plan_hash_before: planHashBefore,
+    plan_hash_after: planHashAfter,
+    schema_version: LEDGER_SCHEMA_VERSION
+  };
+  fs7.mkdirSync(path10.join(directory, ".swarm"), { recursive: true });
+  const tempPath = `${ledgerPath}.tmp.${Date.now()}.${Math.floor(Math.random() * 1e9)}`;
+  const line = `${JSON.stringify(event)}
+`;
+  if (fs7.existsSync(ledgerPath)) {
+    const existingContent = fs7.readFileSync(ledgerPath, "utf8");
+    fs7.writeFileSync(tempPath, existingContent + line, "utf8");
+  } else {
+    throw new Error("Ledger not initialized. Call initLedger() first.");
+  }
+  fs7.renameSync(tempPath, ledgerPath);
+  return event;
+}
+async function takeSnapshotEvent(directory, plan, options) {
+  const payloadHash = computePlanHash(plan);
+  const snapshotPayload = {
+    plan,
+    payload_hash: payloadHash
+  };
+  const planId = `${plan.swarm}-${plan.title}`.replace(/[^a-zA-Z0-9-_]/g, "_");
+  return appendLedgerEvent(directory, {
+    event_type: "snapshot",
+    source: "takeSnapshotEvent",
+    plan_id: planId,
+    payload: snapshotPayload
+  }, options);
+}
+async function replayFromLedger(directory, options) {
+  const events = await readLedgerEvents(directory);
+  if (events.length === 0) {
+    return null;
+  }
+  const targetPlanId = events[0].plan_id;
+  const relevantEvents = events.filter((e) => e.plan_id === targetPlanId);
+  {
+    const snapshotEvents = relevantEvents.filter((e) => e.event_type === "snapshot");
+    if (snapshotEvents.length > 0) {
+      const latestSnapshotEvent = snapshotEvents[snapshotEvents.length - 1];
+      const snapshotPayload = latestSnapshotEvent.payload;
+      let plan2 = snapshotPayload.plan;
+      const eventsAfterSnapshot = relevantEvents.filter((e) => e.seq > latestSnapshotEvent.seq);
+      for (const event of eventsAfterSnapshot) {
+        plan2 = applyEventToPlan(plan2, event);
+        if (plan2 === null) {
+          return null;
+        }
+      }
+      return plan2;
+    }
+  }
+  const planJsonPath = getPlanJsonPath(directory);
+  if (!fs7.existsSync(planJsonPath)) {
+    return null;
+  }
+  let plan;
+  try {
+    const content = fs7.readFileSync(planJsonPath, "utf8");
+    plan = JSON.parse(content);
+  } catch {
+    return null;
+  }
+  for (const event of relevantEvents) {
+    if (plan === null) {
+      return null;
+    }
+    plan = applyEventToPlan(plan, event);
+  }
+  return plan;
+}
+function applyEventToPlan(plan, event) {
+  switch (event.event_type) {
+    case "plan_created":
+      return plan;
+    case "task_status_changed":
+      if (event.task_id && event.to_status) {
+        const parseResult = TaskStatusSchema.safeParse(event.to_status);
+        if (!parseResult.success) {
+          return plan;
+        }
+        for (const phase of plan.phases) {
+          const task = phase.tasks.find((t) => t.id === event.task_id);
+          if (task) {
+            task.status = parseResult.data;
+            break;
+          }
+        }
+      }
+      return plan;
+    case "phase_completed":
+      if (event.phase_id) {
+        const phase = plan.phases.find((p) => p.id === event.phase_id);
+        if (phase) {
+          phase.status = "complete";
+        }
+      }
+      return plan;
+    case "plan_exported":
+      return plan;
+    case "task_added":
+      return plan;
+    case "task_updated":
+      return plan;
+    case "plan_rebuilt":
+      return plan;
+    case "task_reordered":
+      return plan;
+    case "snapshot":
+      return plan;
+    case "plan_reset":
+      return null;
+    default:
+      throw new Error(`applyEventToPlan: unhandled event type "${event.event_type}" at seq ${event.seq}`);
+  }
+}
+var LEDGER_SCHEMA_VERSION = "1.0.0", LEDGER_FILENAME = "plan-ledger.jsonl", PLAN_JSON_FILENAME = "plan.json", LedgerStaleWriterError;
+var init_ledger = __esm(() => {
+  init_plan_schema();
+  LedgerStaleWriterError = class LedgerStaleWriterError extends Error {
+    constructor(message) {
+      super(message);
+      this.name = "LedgerStaleWriterError";
+    }
+  };
+});
+
+// src/plan/manager.ts
+import { existsSync as existsSync7, renameSync as renameSync4, unlinkSync } from "fs";
+import * as path11 from "path";
+async function loadPlanJsonOnly(directory) {
+  const planJsonContent = await readSwarmFileAsync(directory, "plan.json");
+  if (planJsonContent !== null) {
+    if (planJsonContent.includes("\x00") || planJsonContent.includes("\uFFFD")) {
+      warn("Plan rejected: .swarm/plan.json contains null bytes or invalid encoding");
+      return null;
+    }
+    try {
+      const parsed = JSON.parse(planJsonContent);
+      const validated = PlanSchema.parse(parsed);
+      return validated;
+    } catch (error93) {
+      warn(`Plan validation failed for .swarm/plan.json: ${error93 instanceof Error ? error93.message : String(error93)}`);
+    }
+  }
+  return null;
+}
+function compareTaskIds(a, b) {
+  const partsA = a.split(".").map((n) => parseInt(n, 10));
+  const partsB = b.split(".").map((n) => parseInt(n, 10));
+  const maxLen = Math.max(partsA.length, partsB.length);
+  for (let i2 = 0;i2 < maxLen; i2++) {
+    const numA = partsA[i2] ?? 0;
+    const numB = partsB[i2] ?? 0;
+    if (numA !== numB) {
+      return numA - numB;
+    }
+  }
+  return 0;
+}
+async function getLatestLedgerHash(directory) {
+  try {
+    const events = await readLedgerEvents(directory);
+    if (events.length === 0)
+      return "";
+    const lastEvent = events[events.length - 1];
+    return lastEvent.plan_hash_after;
+  } catch {
+    return "";
+  }
+}
+function computePlanContentHash(plan) {
+  const content = {
+    schema_version: plan.schema_version,
+    title: plan.title,
+    swarm: plan.swarm,
+    current_phase: plan.current_phase,
+    migration_status: plan.migration_status,
+    phases: plan.phases.map((phase) => ({
+      id: phase.id,
+      name: phase.name,
+      status: phase.status,
+      tasks: phase.tasks.map((task) => ({
+        id: task.id,
+        phase: task.phase,
+        status: task.status,
+        size: task.size,
+        description: task.description,
+        depends: [...task.depends].sort(compareTaskIds),
+        acceptance: task.acceptance,
+        files_touched: [...task.files_touched].sort(),
+        evidence_path: task.evidence_path,
+        blocked_reason: task.blocked_reason
+      })).sort((a, b) => compareTaskIds(a.id, b.id))
+    })).sort((a, b) => a.id - b.id)
+  };
+  const jsonString = JSON.stringify(content);
+  return Bun.hash(jsonString).toString(36);
+}
+function extractPlanHashFromMarkdown(markdown) {
+  const match = markdown.match(/<!--\s*PLAN_HASH:\s*(\S+)\s*-->/);
+  return match ? match[1] : null;
+}
+async function isPlanMdInSync(directory, plan) {
+  const planMdContent = await readSwarmFileAsync(directory, "plan.md");
+  if (planMdContent === null) {
+    return false;
+  }
+  const expectedHash = computePlanContentHash(plan);
+  const existingHash = extractPlanHashFromMarkdown(planMdContent);
+  if (existingHash === expectedHash) {
+    return true;
+  }
+  const expectedMarkdown = derivePlanMarkdown(plan);
+  const normalizedExpected = expectedMarkdown.trim();
+  const normalizedActual = planMdContent.trim();
+  if (normalizedActual === normalizedExpected) {
+    return true;
+  }
+  return normalizedActual.includes(normalizedExpected) || normalizedExpected.includes(normalizedActual.replace(/^#.*$/gm, "").trim());
+}
+async function regeneratePlanMarkdown(directory, plan) {
+  const swarmDir = path11.resolve(directory, ".swarm");
+  const contentHash = computePlanContentHash(plan);
+  const markdown = derivePlanMarkdown(plan);
+  const markdownWithHash = `<!-- PLAN_HASH: ${contentHash} -->
+${markdown}`;
+  const mdPath = path11.join(swarmDir, "plan.md");
+  const mdTempPath = path11.join(swarmDir, `plan.md.tmp.${Date.now()}.${Math.floor(Math.random() * 1e9)}`);
+  try {
+    await Bun.write(mdTempPath, markdownWithHash);
+    renameSync4(mdTempPath, mdPath);
+  } finally {
+    try {
+      unlinkSync(mdTempPath);
+    } catch {}
+  }
+}
+async function loadPlan(directory) {
+  const planJsonContent = await readSwarmFileAsync(directory, "plan.json");
+  if (planJsonContent !== null) {
+    if (planJsonContent.includes("\x00") || planJsonContent.includes("\uFFFD")) {
+      warn("Plan rejected: .swarm/plan.json contains null bytes or invalid encoding");
+    } else {
+      try {
+        const parsed = JSON.parse(planJsonContent);
+        const validated = PlanSchema.parse(parsed);
+        const inSync = await isPlanMdInSync(directory, validated);
+        if (!inSync) {
+          try {
+            await regeneratePlanMarkdown(directory, validated);
+          } catch (regenError) {
+            warn(`Failed to regenerate plan.md: ${regenError instanceof Error ? regenError.message : String(regenError)}. Proceeding with plan.json only.`);
+          }
+        }
+        if (await ledgerExists(directory)) {
+          const planHash = computePlanHash(validated);
+          const ledgerHash = await getLatestLedgerHash(directory);
+          if (!hasPerformedStartupLedgerCheck) {
+            hasPerformedStartupLedgerCheck = true;
+            if (ledgerHash !== "" && planHash !== ledgerHash) {
+              const currentPlanId = `${validated.swarm}-${validated.title}`.replace(/[^a-zA-Z0-9-_]/g, "_");
+              const ledgerEvents = await readLedgerEvents(directory);
+              const firstEvent = ledgerEvents.length > 0 ? ledgerEvents[0] : null;
+              if (firstEvent && firstEvent.plan_id !== currentPlanId) {
+                warn(`[loadPlan] Ledger identity mismatch (ledger: ${firstEvent.plan_id}, plan: ${currentPlanId}) \u2014 skipping ledger rebuild (migration detected). Use /swarm reset-session to reinitialize the ledger.`);
+              } else {
+                warn("[loadPlan] plan.json is stale (hash mismatch with ledger) \u2014 rebuilding from ledger. If this recurs, run /swarm reset-session to clear stale session state.");
+                try {
+                  const rebuilt = await replayFromLedger(directory);
+                  if (rebuilt) {
+                    await rebuildPlan(directory, rebuilt);
+                    warn("[loadPlan] Rebuilt plan from ledger. Checkpoint available at SWARM_PLAN.md if it exists.");
+                    return rebuilt;
+                  }
+                } catch (replayError) {
+                  warn(`[loadPlan] Ledger replay failed during hash-mismatch rebuild: ${replayError instanceof Error ? replayError.message : String(replayError)}. Returning stale plan.json. To recover: check SWARM_PLAN.md for a checkpoint, or run /swarm reset-session.`);
+                }
+              }
+            }
+          } else if (ledgerHash !== "" && planHash !== ledgerHash) {
+            if (process.env.DEBUG_SWARM) {
+              console.warn("[loadPlan] Ledger hash mismatch during active session \u2014 skipping rebuild (startup check already performed).");
+            }
+          }
+        }
+        return validated;
+      } catch (error93) {
+        warn(`[loadPlan] plan.json validation failed: ${error93 instanceof Error ? error93.message : String(error93)}. Attempting rebuild from ledger. If rebuild fails, check SWARM_PLAN.md for a checkpoint.`);
+        let rawPlanId = null;
+        try {
+          const rawParsed = JSON.parse(planJsonContent);
+          if (typeof rawParsed?.swarm === "string" && typeof rawParsed?.title === "string") {
+            rawPlanId = `${rawParsed.swarm}-${rawParsed.title}`.replace(/[^a-zA-Z0-9-_]/g, "_");
+          }
+        } catch {}
+        if (await ledgerExists(directory)) {
+          const ledgerEventsForCatch = await readLedgerEvents(directory);
+          const catchFirstEvent = ledgerEventsForCatch.length > 0 ? ledgerEventsForCatch[0] : null;
+          const identityMatch = rawPlanId === null || catchFirstEvent === null || catchFirstEvent.plan_id === rawPlanId;
+          if (!identityMatch) {
+            warn(`[loadPlan] Ledger identity mismatch in validation-failure path (ledger: ${catchFirstEvent?.plan_id}, plan: ${rawPlanId}) \u2014 skipping ledger rebuild (migration detected).`);
+          } else if (catchFirstEvent !== null && rawPlanId !== null) {
+            const rebuilt = await replayFromLedger(directory);
+            if (rebuilt) {
+              await rebuildPlan(directory, rebuilt);
+              warn("[loadPlan] Rebuilt plan from ledger after validation failure. Projection was stale.");
+              return rebuilt;
+            }
+          }
+        }
+        const planMdContent2 = await readSwarmFileAsync(directory, "plan.md");
+        if (planMdContent2 !== null) {
+          const migrated = migrateLegacyPlan(planMdContent2);
+          await savePlan(directory, migrated);
+          return migrated;
+        }
+      }
+    }
+  }
+  const planMdContent = await readSwarmFileAsync(directory, "plan.md");
+  if (planMdContent !== null) {
+    const migrated = migrateLegacyPlan(planMdContent);
+    await savePlan(directory, migrated);
+    return migrated;
+  }
+  if (await ledgerExists(directory)) {
+    const rebuilt = await replayFromLedger(directory);
+    if (rebuilt) {
+      await savePlan(directory, rebuilt);
+      return rebuilt;
+    }
+  }
+  return null;
+}
+async function savePlan(directory, plan, options) {
+  if (directory === null || directory === undefined || typeof directory !== "string" || directory.trim().length === 0) {
+    throw new Error(`Invalid directory: directory must be a non-empty string`);
+  }
+  const validated = PlanSchema.parse(plan);
+  if (options?.preserveCompletedStatuses !== false) {
+    try {
+      const currentPlan2 = await loadPlanJsonOnly(directory);
+      if (currentPlan2) {
+        const completedTaskIds = new Set;
+        for (const phase of currentPlan2.phases) {
+          for (const task of phase.tasks) {
+            if (task.status === "completed")
+              completedTaskIds.add(task.id);
+          }
+        }
+        if (completedTaskIds.size > 0) {
+          for (const phase of validated.phases) {
+            for (const task of phase.tasks) {
+              if (completedTaskIds.has(task.id) && task.status !== "completed") {
+                task.status = "completed";
+              }
+            }
+          }
+        }
+      }
+    } catch {}
+  }
+  for (const phase of validated.phases) {
+    const tasks = phase.tasks;
+    if (tasks.length > 0 && tasks.every((t) => t.status === "completed")) {
+      phase.status = "complete";
+    } else if (tasks.some((t) => t.status === "in_progress")) {
+      phase.status = "in_progress";
+    } else if (tasks.some((t) => t.status === "blocked")) {
+      phase.status = "blocked";
+    } else {
+      phase.status = "pending";
+    }
+  }
+  const currentPlan = await loadPlanJsonOnly(directory);
+  const planId = `${validated.swarm}-${validated.title}`.replace(/[^a-zA-Z0-9-_]/g, "_");
+  const planHashForInit = computePlanHash(validated);
+  if (!await ledgerExists(directory)) {
+    await initLedger(directory, planId, planHashForInit);
+  } else {
+    const existingEvents = await readLedgerEvents(directory);
+    if (existingEvents.length > 0 && existingEvents[0].plan_id !== planId) {
+      const swarmDir2 = path11.resolve(directory, ".swarm");
+      const oldLedgerPath = path11.join(swarmDir2, "plan-ledger.jsonl");
+      const archivePath = path11.join(swarmDir2, `plan-ledger.archived-${Date.now()}-${Math.floor(Math.random() * 1e9)}.jsonl`);
+      if (existsSync7(oldLedgerPath)) {
+        renameSync4(oldLedgerPath, archivePath);
+        warn(`[savePlan] Ledger identity mismatch (was "${existingEvents[0].plan_id}", now "${planId}") \u2014 archived old ledger to ${archivePath} and reinitializing.`);
+      }
+      try {
+        await initLedger(directory, planId, planHashForInit);
+      } catch (initErr) {
+        if (!(initErr instanceof Error && initErr.message.includes("already initialized"))) {
+          throw initErr;
+        }
+      }
+    }
+  }
+  const currentHash = computeCurrentPlanHash(directory);
+  const hashAfter = computePlanHash(validated);
+  if (currentPlan) {
+    const oldTaskMap = new Map;
+    for (const phase of currentPlan.phases) {
+      for (const task of phase.tasks) {
+        oldTaskMap.set(task.id, { phase: task.phase, status: task.status });
+      }
+    }
+    try {
+      for (const phase of validated.phases) {
+        for (const task of phase.tasks) {
+          const oldTask = oldTaskMap.get(task.id);
+          if (oldTask && oldTask.status !== task.status) {
+            const eventInput = {
+              plan_id: `${validated.swarm}-${validated.title}`.replace(/[^a-zA-Z0-9-_]/g, "_"),
+              event_type: "task_status_changed",
+              task_id: task.id,
+              phase_id: phase.id,
+              from_status: oldTask.status,
+              to_status: task.status,
+              source: "savePlan"
+            };
+            await appendLedgerEvent(directory, eventInput, {
+              expectedHash: currentHash,
+              planHashAfter: hashAfter
+            });
+          }
+        }
+      }
+    } catch (error93) {
+      if (error93 instanceof LedgerStaleWriterError) {
+        throw new Error(`Concurrent plan modification detected: ${error93.message}. Please retry the operation.`);
+      }
+      throw error93;
+    }
+  }
+  const SNAPSHOT_INTERVAL = 50;
+  const latestSeq = await getLatestLedgerSeq(directory);
+  if (latestSeq > 0 && latestSeq % SNAPSHOT_INTERVAL === 0) {
+    await takeSnapshotEvent(directory, validated, {
+      planHashAfter: hashAfter
+    }).catch(() => {});
+  }
+  const swarmDir = path11.resolve(directory, ".swarm");
+  const planPath = path11.join(swarmDir, "plan.json");
+  const tempPath = path11.join(swarmDir, `plan.json.tmp.${Date.now()}.${Math.floor(Math.random() * 1e9)}`);
+  try {
+    await Bun.write(tempPath, JSON.stringify(validated, null, 2));
+    renameSync4(tempPath, planPath);
+  } finally {
+    try {
+      unlinkSync(tempPath);
+    } catch {}
+  }
+  const contentHash = computePlanContentHash(validated);
+  const markdown = derivePlanMarkdown(validated);
+  const markdownWithHash = `<!-- PLAN_HASH: ${contentHash} -->
+${markdown}`;
+  const mdPath = path11.join(swarmDir, "plan.md");
+  const mdTempPath = path11.join(swarmDir, `plan.md.tmp.${Date.now()}.${Math.floor(Math.random() * 1e9)}`);
+  try {
+    await Bun.write(mdTempPath, markdownWithHash);
+    renameSync4(mdTempPath, mdPath);
+  } finally {
+    try {
+      unlinkSync(mdTempPath);
+    } catch {}
+  }
+  try {
+    const markerPath = path11.join(swarmDir, ".plan-write-marker");
+    const tasksCount = validated.phases.reduce((sum, phase) => sum + phase.tasks.length, 0);
+    const marker = JSON.stringify({
+      source: "plan_manager",
+      timestamp: new Date().toISOString(),
+      phases_count: validated.phases.length,
+      tasks_count: tasksCount
+    });
+    await Bun.write(markerPath, marker);
+  } catch {}
+}
+async function rebuildPlan(directory, plan) {
+  const targetPlan = plan ?? await replayFromLedger(directory);
+  if (!targetPlan)
+    return null;
+  const swarmDir = path11.join(directory, ".swarm");
+  const planPath = path11.join(swarmDir, "plan.json");
+  const mdPath = path11.join(swarmDir, "plan.md");
+  const tempPlanPath = path11.join(swarmDir, `plan.json.rebuild.${Date.now()}`);
+  await Bun.write(tempPlanPath, JSON.stringify(targetPlan, null, 2));
+  renameSync4(tempPlanPath, planPath);
+  const contentHash = computePlanContentHash(targetPlan);
+  const markdown = derivePlanMarkdown(targetPlan);
+  const markdownWithHash = `<!-- PLAN_HASH: ${contentHash} -->
+${markdown}`;
+  const tempMdPath = path11.join(swarmDir, `plan.md.rebuild.${Date.now()}`);
+  await Bun.write(tempMdPath, markdownWithHash);
+  renameSync4(tempMdPath, mdPath);
+  try {
+    const markerPath = path11.join(swarmDir, ".plan-write-marker");
+    const tasksCount = targetPlan.phases.reduce((sum, phase) => sum + phase.tasks.length, 0);
+    const marker = JSON.stringify({
+      source: "plan_manager",
+      timestamp: new Date().toISOString(),
+      phases_count: targetPlan.phases.length,
+      tasks_count: tasksCount
+    });
+    await Bun.write(markerPath, marker);
+  } catch {}
+  return targetPlan;
+}
+async function updateTaskStatus(directory, taskId, status) {
+  const plan = await loadPlan(directory);
+  if (plan === null) {
+    throw new Error(`Plan not found in directory: ${directory}`);
+  }
+  let taskFound = false;
+  const derivePhaseStatusFromTasks = (tasks) => {
+    if (tasks.length > 0 && tasks.every((task) => task.status === "completed")) {
+      return "complete";
+    }
+    if (tasks.some((task) => task.status === "in_progress")) {
+      return "in_progress";
+    }
+    if (tasks.some((task) => task.status === "blocked")) {
+      return "blocked";
+    }
+    return "pending";
+  };
+  const updatedPhases = plan.phases.map((phase) => {
+    const updatedTasks = phase.tasks.map((task) => {
+      if (task.id === taskId) {
+        taskFound = true;
+        return { ...task, status };
+      }
+      return task;
+    });
+    return {
+      ...phase,
+      status: derivePhaseStatusFromTasks(updatedTasks),
+      tasks: updatedTasks
+    };
+  });
+  if (!taskFound) {
+    throw new Error(`Task not found: ${taskId}`);
+  }
+  const updatedPlan = { ...plan, phases: updatedPhases };
+  await savePlan(directory, updatedPlan, { preserveCompletedStatuses: true });
+  return updatedPlan;
+}
+function derivePlanMarkdown(plan) {
+  const statusMap = {
+    pending: "PENDING",
+    in_progress: "IN PROGRESS",
+    complete: "COMPLETE",
+    blocked: "BLOCKED"
+  };
+  const now = new Date().toISOString();
+  const currentPhase = plan.current_phase ?? 1;
+  const phaseStatus = statusMap[plan.phases[currentPhase - 1]?.status] || "PENDING";
+  let markdown = `# ${plan.title}
+Swarm: ${plan.swarm}
+Phase: ${currentPhase} [${phaseStatus}] | Updated: ${now}
+`;
+  const sortedPhases = [...plan.phases].sort((a, b) => a.id - b.id);
+  for (const phase of sortedPhases) {
+    const phaseStatusText = statusMap[phase.status] || "PENDING";
+    markdown += `
+## Phase ${phase.id}: ${phase.name} [${phaseStatusText}]
+`;
+    const sortedTasks = [...phase.tasks].sort((a, b) => compareTaskIds(a.id, b.id));
+    let currentTaskMarked = false;
+    for (const task of sortedTasks) {
+      let taskLine = "";
+      let suffix = "";
+      if (task.status === "completed") {
+        taskLine = `- [x] ${task.id}: ${task.description}`;
+      } else if (task.status === "blocked") {
+        taskLine = `- [BLOCKED] ${task.id}: ${task.description}`;
+        if (task.blocked_reason) {
+          taskLine += ` - ${task.blocked_reason}`;
+        }
+      } else {
+        taskLine = `- [ ] ${task.id}: ${task.description}`;
+      }
+      taskLine += ` [${task.size.toUpperCase()}]`;
+      if (task.depends.length > 0) {
+        const sortedDepends = [...task.depends].sort();
+        suffix += ` (depends: ${sortedDepends.join(", ")})`;
+      }
+      if (phase.id === plan.current_phase && task.status === "in_progress" && !currentTaskMarked) {
+        suffix += " \u2190 CURRENT";
+        currentTaskMarked = true;
+      }
+      markdown += `${taskLine}${suffix}
+`;
+    }
+  }
+  const phaseSections = markdown.split(`
+## `);
+  if (phaseSections.length > 1) {
+    const header = phaseSections[0];
+    const phases = phaseSections.slice(1).map((p) => `## ${p}`);
+    markdown = `${header}
+---
+${phases.join(`
+---
+`)}`;
+  }
+  return `${markdown.trim()}
+`;
+}
+function migrateLegacyPlan(planContent, swarmId) {
+  const lines = planContent.split(`
+`);
+  let title = "Untitled Plan";
+  let swarm = swarmId || "default-swarm";
+  let currentPhaseNum = 1;
+  const phases = [];
+  let currentPhase = null;
+  for (const line of lines) {
+    const trimmed = line.trim();
+    if (trimmed.startsWith("# ") && title === "Untitled Plan") {
+      title = trimmed.substring(2).trim();
+      continue;
+    }
+    if (trimmed.startsWith("Swarm:")) {
+      swarm = trimmed.substring(6).trim();
+      continue;
+    }
+    if (trimmed.startsWith("Phase:")) {
+      const match = trimmed.match(/Phase:\s*(\d+)/i);
+      if (match) {
+        currentPhaseNum = parseInt(match[1], 10);
+      }
+      continue;
+    }
+    const phaseMatch = trimmed.match(/^#{2,3}\s*Phase\s+(\d+)(?::\s*([^[]+))?\s*(?:\[([^\]]+)\])?/i);
+    if (phaseMatch) {
+      if (currentPhase !== null) {
+        phases.push(currentPhase);
+      }
+      const phaseId = parseInt(phaseMatch[1], 10);
+      const phaseName = phaseMatch[2]?.trim() || `Phase ${phaseId}`;
+      const statusText = phaseMatch[3]?.toLowerCase() || "pending";
+      const statusMap = {
+        complete: "complete",
+        completed: "complete",
+        "in progress": "in_progress",
+        in_progress: "in_progress",
+        inprogress: "in_progress",
+        pending: "pending",
+        blocked: "blocked"
+      };
+      currentPhase = {
+        id: phaseId,
+        name: phaseName,
+        status: statusMap[statusText] || "pending",
+        tasks: []
+      };
+      continue;
+    }
+    const taskMatch = trimmed.match(/^-\s*\[([^\]]+)\]\s+(\d+\.\d+):\s*(.+?)(?:\s*\[(\w+)\])?(?:\s*-\s*(.+))?$/i);
+    if (taskMatch && currentPhase !== null) {
+      const checkbox = taskMatch[1].toLowerCase();
+      const taskId = taskMatch[2];
+      let description = taskMatch[3].trim();
+      const sizeText = taskMatch[4]?.toLowerCase() || "small";
+      let blockedReason;
+      const dependsMatch = description.match(/\s*\(depends:\s*([^)]+)\)$/i);
+      const depends = [];
+      if (dependsMatch) {
+        const depsText = dependsMatch[1];
+        depends.push(...depsText.split(",").map((d) => d.trim()));
+        description = description.substring(0, dependsMatch.index).trim();
+      }
+      let status = "pending";
+      if (checkbox === "x") {
+        status = "completed";
+      } else if (checkbox === "blocked") {
+        status = "blocked";
+        const blockedReasonMatch = taskMatch[5];
+        if (blockedReasonMatch) {
+          blockedReason = blockedReasonMatch.trim();
+        }
+      }
+      const sizeMap = {
+        small: "small",
+        medium: "medium",
+        large: "large"
+      };
+      const task = {
+        id: taskId,
+        phase: currentPhase.id,
+        status,
+        size: sizeMap[sizeText] || "small",
+        description,
+        depends,
+        acceptance: undefined,
+        files_touched: [],
+        evidence_path: undefined,
+        blocked_reason: blockedReason
+      };
+      currentPhase.tasks.push(task);
+    }
+    const numberedTaskMatch = trimmed.match(/^(\d+)\.\s+(.+?)(?:\s*\[(\w+)\])?$/);
+    if (numberedTaskMatch && currentPhase !== null) {
+      const taskId = `${currentPhase.id}.${currentPhase.tasks.length + 1}`;
+      let description = numberedTaskMatch[2].trim();
+      const sizeText = numberedTaskMatch[3]?.toLowerCase() || "small";
+      const dependsMatch = description.match(/\s*\(depends:\s*([^)]+)\)$/i);
+      const depends = [];
+      if (dependsMatch) {
+        const depsText = dependsMatch[1];
+        depends.push(...depsText.split(",").map((d) => d.trim()));
+        description = description.substring(0, dependsMatch.index).trim();
+      }
+      const sizeMap = {
+        small: "small",
+        medium: "medium",
+        large: "large"
+      };
+      const task = {
+        id: taskId,
+        phase: currentPhase.id,
+        status: "pending",
+        size: sizeMap[sizeText] || "small",
+        description,
+        depends,
+        acceptance: undefined,
+        files_touched: [],
+        evidence_path: undefined,
+        blocked_reason: undefined
+      };
+      currentPhase.tasks.push(task);
+    }
+    const noPrefixTaskMatch = trimmed.match(/^-\s*\[([^\]]+)\]\s+(?!\d+\.\d+:)(.+?)(?:\s*\[(\w+)\])?(?:\s*-\s*(.+))?$/i);
+    if (noPrefixTaskMatch && currentPhase !== null) {
+      const checkbox = noPrefixTaskMatch[1].toLowerCase();
+      const taskId = `${currentPhase.id}.${currentPhase.tasks.length + 1}`;
+      let description = noPrefixTaskMatch[2].trim();
+      const sizeText = noPrefixTaskMatch[3]?.toLowerCase() || "small";
+      let blockedReason;
+      const dependsMatch = description.match(/\s*\(depends:\s*([^)]+)\)$/i);
+      const depends = [];
+      if (dependsMatch) {
+        const depsText = dependsMatch[1];
+        depends.push(...depsText.split(",").map((d) => d.trim()));
+        description = description.substring(0, dependsMatch.index).trim();
+      }
+      let status = "pending";
+      if (checkbox === "x") {
+        status = "completed";
+      } else if (checkbox === "blocked") {
+        status = "blocked";
+        const blockedReasonMatch = noPrefixTaskMatch[4];
+        if (blockedReasonMatch) {
+          blockedReason = blockedReasonMatch.trim();
+        }
+      }
+      const sizeMap = {
+        small: "small",
+        medium: "medium",
+        large: "large"
+      };
+      const task = {
+        id: taskId,
+        phase: currentPhase.id,
+        status,
+        size: sizeMap[sizeText] || "small",
+        description,
+        depends,
+        acceptance: undefined,
+        files_touched: [],
+        evidence_path: undefined,
+        blocked_reason: blockedReason
+      };
+      currentPhase.tasks.push(task);
+    }
+  }
+  if (currentPhase !== null) {
+    phases.push(currentPhase);
+  }
+  let migrationStatus = "migrated";
+  if (phases.length === 0) {
+    console.warn(`migrateLegacyPlan: 0 phases parsed from ${lines.length} lines. First 3 lines: ${lines.slice(0, 3).join(" | ")}`);
+    migrationStatus = "migration_failed";
+    phases.push({
+      id: 1,
+      name: "Migration Failed",
+      status: "blocked",
+      tasks: [
+        {
+          id: "1.1",
+          phase: 1,
+          status: "blocked",
+          size: "large",
+          description: "Review and restructure plan manually",
+          depends: [],
+          files_touched: [],
+          blocked_reason: "Legacy plan could not be parsed automatically"
+        }
+      ]
+    });
+  }
+  phases.sort((a, b) => a.id - b.id);
+  const plan = {
+    schema_version: "1.0.0",
+    title,
+    swarm,
+    current_phase: currentPhaseNum,
+    phases,
+    migration_status: migrationStatus
+  };
+  return plan;
+}
+var hasPerformedStartupLedgerCheck = false;
+var init_manager2 = __esm(() => {
+  init_plan_schema();
+  init_utils2();
+  init_utils();
+  init_ledger();
+});
+
+// src/background/event-bus.ts
+class AutomationEventBus {
+  listeners = new Map;
+  eventHistory = [];
+  maxHistorySize;
+  constructor(options) {
+    this.maxHistorySize = options?.maxHistorySize ?? 100;
+  }
+  subscribe(type, listener) {
+    if (!this.listeners.has(type)) {
+      this.listeners.set(type, new Set);
+    }
+    this.listeners.get(type).add(listener);
+    return () => {
+      this.listeners.get(type)?.delete(listener);
+    };
+  }
+  async publish(type, payload, source) {
+    const event = {
+      type,
+      timestamp: Date.now(),
+      payload,
+      source
+    };
+    this.eventHistory.push(event);
+    if (this.eventHistory.length > this.maxHistorySize) {
+      this.eventHistory.shift();
+    }
+    log(`[EventBus] ${type}`, {
+      source,
+      payload: typeof payload === "object" ? "..." : payload
+    });
+    const listeners = this.listeners.get(type);
+    if (listeners) {
+      await Promise.all(Array.from(listeners).map(async (listener) => {
+        try {
+          await listener(event);
+        } catch (error93) {
+          log(`[EventBus] Listener error for ${type}`, { error: error93 });
+        }
+      }));
+    }
+  }
+  getHistory(types) {
+    if (!types || types.length === 0) {
+      return [...this.eventHistory];
+    }
+    return this.eventHistory.filter((e) => types.includes(e.type));
+  }
+  clearHistory() {
+    this.eventHistory = [];
+  }
+  getListenerCount(type) {
+    return this.listeners.get(type)?.size ?? 0;
+  }
+  hasListeners(type) {
+    return this.getListenerCount(type) > 0;
+  }
+}
+function getGlobalEventBus() {
+  if (!globalEventBus) {
+    globalEventBus = new AutomationEventBus;
+  }
+  return globalEventBus;
+}
+var globalEventBus = null;
+var init_event_bus = __esm(() => {
+  init_utils();
+});
+
 // src/tools/co-change-analyzer.ts
 var exports_co_change_analyzer = {};
 __export(exports_co_change_analyzer, {
@@ -32615,7 +31612,7 @@ __export(exports_co_change_analyzer, {
 import * as child_process2 from "child_process";
 import { randomUUID as randomUUID2 } from "crypto";
 import { readdir as readdir2, readFile as readFile4, stat } from "fs/promises";
-import * as path20 from "path";
+import * as path17 from "path";
 import { promisify } from "util";
 function getExecFileAsync() {
   return promisify(child_process2.execFile);
@@ -32717,7 +31714,7 @@ async function scanSourceFiles(dir) {
   try {
     const entries = await readdir2(dir, { withFileTypes: true });
     for (const entry of entries) {
-      const fullPath = path20.join(dir, entry.name);
+      const fullPath = path17.join(dir, entry.name);
       if (entry.isDirectory()) {
         if (skipDirs.has(entry.name)) {
           continue;
@@ -32725,7 +31722,7 @@ async function scanSourceFiles(dir) {
         const subFiles = await scanSourceFiles(fullPath);
         results.push(...subFiles);
       } else if (entry.isFile()) {
-        const ext = path20.extname(entry.name);
+        const ext = path17.extname(entry.name);
         if ([".ts", ".tsx", ".js", ".jsx", ".mjs"].includes(ext)) {
           results.push(fullPath);
         }
@@ -32747,8 +31744,8 @@ async function getStaticEdges(directory) {
           continue;
         }
         try {
-          const sourceDir = path20.dirname(sourceFile);
-          const resolvedPath = path20.resolve(sourceDir, importPath);
+          const sourceDir = path17.dirname(sourceFile);
+          const resolvedPath = path17.resolve(sourceDir, importPath);
           const extensions = [
             "",
             ".ts",
@@ -32773,8 +31770,8 @@ async function getStaticEdges(directory) {
           if (!targetFile) {
             continue;
           }
-          const relSource = path20.relative(directory, sourceFile).replace(/\\/g, "/");
-          const relTarget = path20.relative(directory, targetFile).replace(/\\/g, "/");
+          const relSource = path17.relative(directory, sourceFile).replace(/\\/g, "/");
+          const relTarget = path17.relative(directory, targetFile).replace(/\\/g, "/");
           const [key] = relSource < relTarget ? [`${relSource}::${relTarget}`, relSource, relTarget] : [`${relTarget}::${relSource}`, relTarget, relSource];
           edges.add(key);
         } catch {}
@@ -32786,7 +31783,7 @@ async function getStaticEdges(directory) {
 function isTestImplementationPair(fileA, fileB) {
   const testPatterns = [".test.ts", ".test.js", ".spec.ts", ".spec.js"];
   const getBaseName = (filePath) => {
-    const base = path20.basename(filePath);
+    const base = path17.basename(filePath);
     for (const pattern of testPatterns) {
       if (base.endsWith(pattern)) {
         return base.slice(0, -pattern.length);
@@ -32796,16 +31793,16 @@ function isTestImplementationPair(fileA, fileB) {
   };
   const baseA = getBaseName(fileA);
   const baseB = getBaseName(fileB);
-  return baseA === baseB && baseA !== path20.basename(fileA) && baseA !== path20.basename(fileB);
+  return baseA === baseB && baseA !== path17.basename(fileA) && baseA !== path17.basename(fileB);
 }
 function hasSharedPrefix(fileA, fileB) {
-  const dirA = path20.dirname(fileA);
-  const dirB = path20.dirname(fileB);
+  const dirA = path17.dirname(fileA);
+  const dirB = path17.dirname(fileB);
   if (dirA !== dirB) {
     return false;
   }
-  const baseA = path20.basename(fileA).replace(/\.(ts|js|tsx|jsx|mjs)$/, "");
-  const baseB = path20.basename(fileB).replace(/\.(ts|js|tsx|jsx|mjs)$/, "");
+  const baseA = path17.basename(fileA).replace(/\.(ts|js|tsx|jsx|mjs)$/, "");
+  const baseB = path17.basename(fileB).replace(/\.(ts|js|tsx|jsx|mjs)$/, "");
   if (baseA.startsWith(baseB) || baseB.startsWith(baseA)) {
     return true;
   }
@@ -32859,8 +31856,8 @@ function darkMatterToKnowledgeEntries(pairs, projectName) {
   const entries = [];
   const now = new Date().toISOString();
   for (const pair of pairs.slice(0, 10)) {
-    const baseA = path20.basename(pair.fileA);
-    const baseB = path20.basename(pair.fileB);
+    const baseA = path17.basename(pair.fileA);
+    const baseB = path17.basename(pair.fileB);
     let lesson = `Files ${pair.fileA} and ${pair.fileB} co-change with NPMI=${pair.npmi.toFixed(3)} but have no import relationship. This hidden coupling suggests a shared architectural concern \u2014 changes to one likely require changes to the other.`;
     if (lesson.length > 280) {
       lesson = `Files ${baseA} and ${baseB} co-change with NPMI=${pair.npmi.toFixed(3)} but have no import relationship. This hidden coupling suggests a shared architectural concern \u2014 changes to one likely require changes to the other.`;
@@ -32967,15 +31964,15 @@ __export(exports_config_doctor, {
   applySafeAutoFixes: () => applySafeAutoFixes
 });
 import * as crypto3 from "crypto";
-import * as fs13 from "fs";
+import * as fs11 from "fs";
 import * as os5 from "os";
-import * as path23 from "path";
+import * as path20 from "path";
 function getUserConfigDir3() {
-  return process.env.XDG_CONFIG_HOME || path23.join(os5.homedir(), ".config");
+  return process.env.XDG_CONFIG_HOME || path20.join(os5.homedir(), ".config");
 }
 function getConfigPaths(directory) {
-  const userConfigPath = path23.join(getUserConfigDir3(), "opencode", "opencode-swarm.json");
-  const projectConfigPath = path23.join(directory, ".opencode", "opencode-swarm.json");
+  const userConfigPath = path20.join(getUserConfigDir3(), "opencode", "opencode-swarm.json");
+  const projectConfigPath = path20.join(directory, ".opencode", "opencode-swarm.json");
   return { userConfigPath, projectConfigPath };
 }
 function computeHash(content) {
@@ -33000,9 +31997,9 @@ function isValidConfigPath(configPath, directory) {
   const normalizedUser = userConfigPath.replace(/\\/g, "/");
   const normalizedProject = projectConfigPath.replace(/\\/g, "/");
   try {
-    const resolvedConfig = path23.resolve(configPath);
-    const resolvedUser = path23.resolve(normalizedUser);
-    const resolvedProject = path23.resolve(normalizedProject);
+    const resolvedConfig = path20.resolve(configPath);
+    const resolvedUser = path20.resolve(normalizedUser);
+    const resolvedProject = path20.resolve(normalizedProject);
     return resolvedConfig === resolvedUser || resolvedConfig === resolvedProject;
   } catch {
     return false;
@@ -33012,19 +32009,19 @@ function createConfigBackup(directory) {
   const { userConfigPath, projectConfigPath } = getConfigPaths(directory);
   let configPath = projectConfigPath;
   let content = null;
-  if (fs13.existsSync(projectConfigPath)) {
+  if (fs11.existsSync(projectConfigPath)) {
     try {
-      content = fs13.readFileSync(projectConfigPath, "utf-8");
+      content = fs11.readFileSync(projectConfigPath, "utf-8");
     } catch (error93) {
       log("[ConfigDoctor] project config read failed", {
         error: error93 instanceof Error ? error93.message : String(error93)
       });
     }
   }
-  if (content === null && fs13.existsSync(userConfigPath)) {
+  if (content === null && fs11.existsSync(userConfigPath)) {
     configPath = userConfigPath;
     try {
-      content = fs13.readFileSync(userConfigPath, "utf-8");
+      content = fs11.readFileSync(userConfigPath, "utf-8");
     } catch (error93) {
       log("[ConfigDoctor] user config read failed", {
         error: error93 instanceof Error ? error93.message : String(error93)
@@ -33042,12 +32039,12 @@ function createConfigBackup(directory) {
   };
 }
 function writeBackupArtifact(directory, backup) {
-  const swarmDir = path23.join(directory, ".swarm");
-  if (!fs13.existsSync(swarmDir)) {
-    fs13.mkdirSync(swarmDir, { recursive: true });
+  const swarmDir = path20.join(directory, ".swarm");
+  if (!fs11.existsSync(swarmDir)) {
+    fs11.mkdirSync(swarmDir, { recursive: true });
   }
   const backupFilename = `config-backup-${backup.createdAt}.json`;
-  const backupPath = path23.join(swarmDir, backupFilename);
+  const backupPath = path20.join(swarmDir, backupFilename);
   const artifact = {
     createdAt: backup.createdAt,
     configPath: backup.configPath,
@@ -33055,15 +32052,15 @@ function writeBackupArtifact(directory, backup) {
     content: backup.content,
     preview: backup.content.substring(0, 500) + (backup.content.length > 500 ? "..." : "")
   };
-  fs13.writeFileSync(backupPath, JSON.stringify(artifact, null, 2), "utf-8");
+  fs11.writeFileSync(backupPath, JSON.stringify(artifact, null, 2), "utf-8");
   return backupPath;
 }
 function restoreFromBackup(backupPath, directory) {
-  if (!fs13.existsSync(backupPath)) {
+  if (!fs11.existsSync(backupPath)) {
     return null;
   }
   try {
-    const artifact = JSON.parse(fs13.readFileSync(backupPath, "utf-8"));
+    const artifact = JSON.parse(fs11.readFileSync(backupPath, "utf-8"));
     if (!artifact.content || !artifact.configPath || !artifact.contentHash) {
       return null;
     }
@@ -33077,11 +32074,11 @@ function restoreFromBackup(backupPath, directory) {
       return null;
     }
     const targetPath = artifact.configPath;
-    const targetDir = path23.dirname(targetPath);
-    if (!fs13.existsSync(targetDir)) {
-      fs13.mkdirSync(targetDir, { recursive: true });
+    const targetDir = path20.dirname(targetPath);
+    if (!fs11.existsSync(targetDir)) {
+      fs11.mkdirSync(targetDir, { recursive: true });
     }
-    fs13.writeFileSync(targetPath, artifact.content, "utf-8");
+    fs11.writeFileSync(targetPath, artifact.content, "utf-8");
     return targetPath;
   } catch {
     return null;
@@ -33091,12 +32088,12 @@ function readConfigFromFile(directory) {
   const { userConfigPath, projectConfigPath } = getConfigPaths(directory);
   let configPath = projectConfigPath;
   let configContent = null;
-  if (fs13.existsSync(projectConfigPath)) {
+  if (fs11.existsSync(projectConfigPath)) {
     configPath = projectConfigPath;
-    configContent = fs13.readFileSync(projectConfigPath, "utf-8");
-  } else if (fs13.existsSync(userConfigPath)) {
+    configContent = fs11.readFileSync(projectConfigPath, "utf-8");
+  } else if (fs11.existsSync(userConfigPath)) {
     configPath = userConfigPath;
-    configContent = fs13.readFileSync(userConfigPath, "utf-8");
+    configContent = fs11.readFileSync(userConfigPath, "utf-8");
   }
   if (configContent === null) {
     return null;
@@ -33108,9 +32105,9 @@ function readConfigFromFile(directory) {
     return null;
   }
 }
-function validateConfigKey(path24, value, _config) {
+function validateConfigKey(path21, value, _config) {
   const findings = [];
-  switch (path24) {
+  switch (path21) {
     case "agents": {
       if (value !== undefined) {
         findings.push({
@@ -33357,27 +32354,27 @@ function validateConfigKey(path24, value, _config) {
   }
   return findings;
 }
-function walkConfigAndValidate(obj, path24, config3, findings) {
+function walkConfigAndValidate(obj, path21, config3, findings) {
   if (obj === null || obj === undefined) {
     return;
   }
-  if (path24 && typeof obj === "object" && !Array.isArray(obj)) {
-    const keyFindings = validateConfigKey(path24, obj, config3);
+  if (path21 && typeof obj === "object" && !Array.isArray(obj)) {
+    const keyFindings = validateConfigKey(path21, obj, config3);
     findings.push(...keyFindings);
   }
   if (typeof obj !== "object") {
-    const keyFindings = validateConfigKey(path24, obj, config3);
+    const keyFindings = validateConfigKey(path21, obj, config3);
     findings.push(...keyFindings);
     return;
   }
   if (Array.isArray(obj)) {
     obj.forEach((item, index) => {
-      walkConfigAndValidate(item, `${path24}[${index}]`, config3, findings);
+      walkConfigAndValidate(item, `${path21}[${index}]`, config3, findings);
     });
     return;
   }
   for (const [key, value] of Object.entries(obj)) {
-    const newPath = path24 ? `${path24}.${key}` : key;
+    const newPath = path21 ? `${path21}.${key}` : key;
     walkConfigAndValidate(value, newPath, config3, findings);
   }
 }
@@ -33392,9 +32389,9 @@ function runConfigDoctor(config3, directory) {
   const hasAutoFixableIssues = findings.some((f) => f.autoFixable && f.proposedFix?.risk === "low");
   const { userConfigPath, projectConfigPath } = getConfigPaths(directory);
   let configSource = "defaults";
-  if (fs13.existsSync(projectConfigPath)) {
+  if (fs11.existsSync(projectConfigPath)) {
     configSource = projectConfigPath;
-  } else if (fs13.existsSync(userConfigPath)) {
+  } else if (fs11.existsSync(userConfigPath)) {
     configSource = userConfigPath;
   }
   return {
@@ -33423,12 +32420,12 @@ function applySafeAutoFixes(directory, result) {
   const { userConfigPath, projectConfigPath } = getConfigPaths(directory);
   let configPath = projectConfigPath;
   let configContent;
-  if (fs13.existsSync(projectConfigPath)) {
+  if (fs11.existsSync(projectConfigPath)) {
     configPath = projectConfigPath;
-    configContent = fs13.readFileSync(projectConfigPath, "utf-8");
-  } else if (fs13.existsSync(userConfigPath)) {
+    configContent = fs11.readFileSync(projectConfigPath, "utf-8");
+  } else if (fs11.existsSync(userConfigPath)) {
     configPath = userConfigPath;
-    configContent = fs13.readFileSync(userConfigPath, "utf-8");
+    configContent = fs11.readFileSync(userConfigPath, "utf-8");
   } else {
     return { appliedFixes, updatedConfigPath: null };
   }
@@ -33497,22 +32494,22 @@ function applySafeAutoFixes(directory, result) {
     }
   }
   if (appliedFixes.length > 0) {
-    const configDir = path23.dirname(configPath);
-    if (!fs13.existsSync(configDir)) {
-      fs13.mkdirSync(configDir, { recursive: true });
+    const configDir = path20.dirname(configPath);
+    if (!fs11.existsSync(configDir)) {
+      fs11.mkdirSync(configDir, { recursive: true });
     }
-    fs13.writeFileSync(configPath, JSON.stringify(config3, null, 2), "utf-8");
+    fs11.writeFileSync(configPath, JSON.stringify(config3, null, 2), "utf-8");
     updatedConfigPath = configPath;
   }
   return { appliedFixes, updatedConfigPath };
 }
 function writeDoctorArtifact(directory, result) {
-  const swarmDir = path23.join(directory, ".swarm");
-  if (!fs13.existsSync(swarmDir)) {
-    fs13.mkdirSync(swarmDir, { recursive: true });
+  const swarmDir = path20.join(directory, ".swarm");
+  if (!fs11.existsSync(swarmDir)) {
+    fs11.mkdirSync(swarmDir, { recursive: true });
   }
   const artifactFilename = "config-doctor.json";
-  const artifactPath = path23.join(swarmDir, artifactFilename);
+  const artifactPath = path20.join(swarmDir, artifactFilename);
   const guiOutput = {
     timestamp: result.timestamp,
     summary: result.summary,
@@ -33533,7 +32530,7 @@ function writeDoctorArtifact(directory, result) {
       } : null
     }))
   };
-  fs13.writeFileSync(artifactPath, JSON.stringify(guiOutput, null, 2), "utf-8");
+  fs11.writeFileSync(artifactPath, JSON.stringify(guiOutput, null, 2), "utf-8");
   return artifactPath;
 }
 function shouldRunOnStartup(automationConfig) {
@@ -34451,37 +33448,80 @@ var init_profiles = __esm(() => {
     id: "php",
     displayName: "PHP",
     tier: 3,
-    extensions: [".php", ".phtml"],
+    extensions: [".php", ".phtml", ".blade.php"],
     treeSitter: { grammarId: "php", wasmFile: "tree-sitter-php.wasm" },
     build: {
       detectFiles: ["composer.json"],
-      commands: []
-    },
-    test: {
-      detectFiles: ["phpunit.xml", "phpunit.xml.dist"],
-      frameworks: [
+      commands: [
         {
-          name: "PHPUnit",
-          detect: "phpunit.xml",
-          cmd: "vendor/bin/phpunit",
+          name: "Composer Install",
+          cmd: "composer install --no-interaction --prefer-dist",
+          detectFile: "composer.json",
           priority: 1
         }
       ]
     },
+    test: {
+      detectFiles: ["Pest.php", "phpunit.xml", "phpunit.xml.dist"],
+      frameworks: [
+        {
+          name: "Pest",
+          detect: "Pest.php",
+          cmd: "vendor/bin/pest",
+          priority: 1
+        },
+        {
+          name: "PHPUnit",
+          detect: "phpunit.xml",
+          cmd: "vendor/bin/phpunit",
+          priority: 3
+        },
+        {
+          name: "PHPUnit",
+          detect: "phpunit.xml.dist",
+          cmd: "vendor/bin/phpunit",
+          priority: 4
+        }
+      ]
+    },
     lint: {
-      detectFiles: [".php-cs-fixer.php", "phpcs.xml"],
+      detectFiles: [
+        "phpstan.neon",
+        "phpstan.neon.dist",
+        "pint.json",
+        ".php-cs-fixer.php",
+        "phpcs.xml"
+      ],
       linters: [
+        {
+          name: "PHPStan",
+          detect: "phpstan.neon",
+          cmd: "vendor/bin/phpstan analyse",
+          priority: 1
+        },
+        {
+          name: "PHPStan",
+          detect: "phpstan.neon.dist",
+          cmd: "vendor/bin/phpstan analyse",
+          priority: 2
+        },
+        {
+          name: "Pint",
+          detect: "pint.json",
+          cmd: "vendor/bin/pint --test",
+          priority: 3
+        },
         {
           name: "PHP-CS-Fixer",
           detect: ".php-cs-fixer.php",
           cmd: "vendor/bin/php-cs-fixer fix --dry-run --diff",
-          priority: 1
+          priority: 4
         }
       ]
     },
     audit: {
       detectFiles: ["composer.lock"],
-      command: "composer audit --format=json",
+      command: "composer audit --locked --format=json",
       outputFormat: "json"
     },
     sast: { nativeRuleSet: "php", semgrepSupport: "ga" },
@@ -34490,13 +33530,25 @@ var init_profiles = __esm(() => {
         "Follow PSR-12 coding standards",
         "Use strict types declaration: declare(strict_types=1)",
         "Prefer type hints and return type declarations on all functions",
-        "Use dependency injection over static methods and singletons"
+        "Use dependency injection over static methods and singletons",
+        "Prefer named constructors and value objects over primitive obsession"
       ],
       reviewerChecklist: [
         "Verify no user input reaches SQL queries without parameterised binding",
         "Check for XSS \u2014 all output must be escaped with htmlspecialchars()",
         "Confirm no eval(), exec(), or shell_exec() with user-controlled input",
-        "Validate proper error handling \u2014 no bare catch blocks that swallow errors"
+        "Validate proper error handling \u2014 no bare catch blocks that swallow errors",
+        "Challenge any PHP/Laravel documentation or README claim that exceeds what is implemented and CI-verified in v6.49.0 (composer build, PHPUnit/Pest/artisan test, Pint/PHP-CS-Fixer lint, PHPStan static analysis, composer audit, Laravel detection, Blade scanning, 3 Laravel SAST rules). If a PR adds docs claiming broader support, verify it is backed by tests."
+      ],
+      testConstraints: [
+        "Prefer feature tests for HTTP, middleware, and authentication flows \u2014 use Laravel RefreshDatabase or DatabaseTransactions traits",
+        "Use unit tests for isolated business logic classes that do not require the full Laravel application container",
+        "Pest and PHPUnit coexist in many Laravel repos \u2014 php artisan test runs both; do not assume PHPUnit-only",
+        "Use .env.testing for test environment configuration; run php artisan config:clear when environment changes affect tests",
+        "For database tests, prefer RefreshDatabase over manual setUp/tearDown to avoid state leakage between tests",
+        "Run php artisan config:clear and php artisan cache:clear before running tests if environment variables changed",
+        "Use separate .env.testing file for test-specific configuration; never rely on .env for CI test runs",
+        "For parallel testing with php artisan test --parallel, ensure database connections use separate databases per worker (APP_ENV=testing + test database suffix pattern)"
       ]
     }
   });
@@ -34504,7 +33556,7 @@ var init_profiles = __esm(() => {
 
 // src/lang/detector.ts
 import { access, readdir as readdir3 } from "fs/promises";
-import { extname as extname2, join as join19 } from "path";
+import { extname as extname2, join as join16 } from "path";
 function getProfileForFile(filePath) {
   const ext = extname2(filePath);
   if (!ext)
@@ -34526,7 +33578,7 @@ async function detectProjectLanguages(projectDir) {
         if (detectFile.includes("*") || detectFile.includes("?"))
           continue;
         try {
-          await access(join19(dir, detectFile));
+          await access(join16(dir, detectFile));
           detected.add(profile.id);
           break;
         } catch {}
@@ -34547,7 +33599,7 @@ async function detectProjectLanguages(projectDir) {
     const topEntries = await readdir3(projectDir, { withFileTypes: true });
     for (const entry of topEntries) {
       if (entry.isDirectory() && !entry.name.startsWith(".") && entry.name !== "node_modules") {
-        await scanDir(join19(projectDir, entry.name));
+        await scanDir(join16(projectDir, entry.name));
       }
     }
   } catch {}
@@ -34565,8 +33617,8 @@ var init_detector = __esm(() => {
 });
 
 // src/build/discovery.ts
-import * as fs14 from "fs";
-import * as path24 from "path";
+import * as fs12 from "fs";
+import * as path21 from "path";
 function isCommandAvailable(command) {
   if (toolchainCache.has(command)) {
     return toolchainCache.get(command);
@@ -34595,16 +33647,16 @@ function findBuildFiles(workingDir, patterns) {
     if (pattern.includes("*")) {
       const dir = workingDir;
       try {
-        const files = fs14.readdirSync(dir);
+        const files = fs12.readdirSync(dir);
         const regex = simpleGlobToRegex(pattern);
         const matches = files.filter((f) => regex.test(f));
         if (matches.length > 0) {
-          return path24.join(dir, matches[0]);
+          return path21.join(dir, matches[0]);
         }
       } catch {}
     } else {
-      const filePath = path24.join(workingDir, pattern);
-      if (fs14.existsSync(filePath)) {
+      const filePath = path21.join(workingDir, pattern);
+      if (fs12.existsSync(filePath)) {
         return filePath;
       }
     }
@@ -34612,12 +33664,12 @@ function findBuildFiles(workingDir, patterns) {
   return null;
 }
 function getRepoDefinedScripts(workingDir, scripts) {
-  const packageJsonPath = path24.join(workingDir, "package.json");
-  if (!fs14.existsSync(packageJsonPath)) {
+  const packageJsonPath = path21.join(workingDir, "package.json");
+  if (!fs12.existsSync(packageJsonPath)) {
     return [];
   }
   try {
-    const content = fs14.readFileSync(packageJsonPath, "utf-8");
+    const content = fs12.readFileSync(packageJsonPath, "utf-8");
     const pkg = JSON.parse(content);
     if (!pkg.scripts || typeof pkg.scripts !== "object") {
       return [];
@@ -34653,8 +33705,8 @@ function findAllBuildFiles(workingDir) {
         const regex = simpleGlobToRegex(pattern);
         findFilesRecursive(workingDir, regex, allBuildFiles);
       } else {
-        const filePath = path24.join(workingDir, pattern);
-        if (fs14.existsSync(filePath)) {
+        const filePath = path21.join(workingDir, pattern);
+        if (fs12.existsSync(filePath)) {
           allBuildFiles.add(filePath);
         }
       }
@@ -34664,9 +33716,9 @@ function findAllBuildFiles(workingDir) {
 }
 function findFilesRecursive(dir, regex, results) {
   try {
-    const entries = fs14.readdirSync(dir, { withFileTypes: true });
+    const entries = fs12.readdirSync(dir, { withFileTypes: true });
     for (const entry of entries) {
-      const fullPath = path24.join(dir, entry.name);
+      const fullPath = path21.join(dir, entry.name);
       if (entry.isDirectory() && !["node_modules", ".git", "dist", "build", "target"].includes(entry.name)) {
         findFilesRecursive(fullPath, regex, results);
       } else if (entry.isFile() && regex.test(entry.name)) {
@@ -34689,8 +33741,8 @@ async function discoverBuildCommandsFromProfiles(workingDir) {
     let foundCommand = false;
     for (const cmd of sortedCommands) {
       if (cmd.detectFile) {
-        const detectFilePath = path24.join(workingDir, cmd.detectFile);
-        if (!fs14.existsSync(detectFilePath)) {
+        const detectFilePath = path21.join(workingDir, cmd.detectFile);
+        if (!fs12.existsSync(detectFilePath)) {
           continue;
         }
       }
@@ -34864,6 +33916,17 @@ var init_discovery = __esm(() => {
         { command: "make", priority: 1 },
         { command: "cmake -B build && cmake --build build", priority: 2 }
       ]
+    },
+    {
+      ecosystem: "php-composer",
+      buildFiles: ["composer.json"],
+      toolchainCommands: ["composer"],
+      commands: [
+        {
+          command: "composer install --no-interaction --prefer-dist",
+          priority: 1
+        }
+      ]
     }
   ];
   PROFILE_TO_ECOSYSTEM_NAMES = {
@@ -34877,7 +33940,8 @@ var init_discovery = __esm(() => {
     cpp: ["cpp"],
     swift: ["swift"],
     dart: ["dart"],
-    ruby: []
+    ruby: [],
+    php: ["php-composer"]
   };
   toolchainCache = new Map;
   build_discovery = tool({
@@ -34895,6 +33959,286 @@ var init_discovery = __esm(() => {
       return JSON.stringify(result, null, 2);
     }
   });
+});
+
+// src/services/evidence-summary-service.ts
+var exports_evidence_summary_service = {};
+__export(exports_evidence_summary_service, {
+  isAutoSummaryEnabled: () => isAutoSummaryEnabled,
+  buildEvidenceSummary: () => buildEvidenceSummary,
+  REQUIRED_EVIDENCE_TYPES: () => REQUIRED_EVIDENCE_TYPES,
+  EVIDENCE_SUMMARY_VERSION: () => EVIDENCE_SUMMARY_VERSION
+});
+function normalizeBundleEntries(bundle) {
+  if (!bundle) {
+    return [];
+  }
+  const entries = bundle.entries;
+  if (!Array.isArray(entries)) {
+    return [];
+  }
+  const validEntries = [];
+  for (const entry of entries) {
+    if (entry === null || entry === undefined) {
+      continue;
+    }
+    if (typeof entry !== "object") {
+      continue;
+    }
+    const typedEntry = entry;
+    if (!typedEntry.type || !VALID_EVIDENCE_TYPES2.has(typedEntry.type)) {
+      continue;
+    }
+    if (!typedEntry.task_id || !typedEntry.timestamp || !typedEntry.agent) {
+      continue;
+    }
+    if (!typedEntry.verdict || !typedEntry.summary) {
+      continue;
+    }
+    validEntries.push(typedEntry);
+  }
+  return validEntries;
+}
+function getTaskStatus(task, bundle) {
+  if (task?.status) {
+    return task.status;
+  }
+  const entries = normalizeBundleEntries(bundle);
+  if (entries.length > 0) {
+    return "completed";
+  }
+  return "pending";
+}
+function isEvidenceComplete(bundle) {
+  const entries = normalizeBundleEntries(bundle);
+  if (entries.length === 0) {
+    return {
+      isComplete: false,
+      missingEvidence: [...REQUIRED_EVIDENCE_TYPES]
+    };
+  }
+  const typesPresent = new Set(entries.map((e) => e.type));
+  const missing = [];
+  for (const required3 of REQUIRED_EVIDENCE_TYPES) {
+    if (!typesPresent.has(required3)) {
+      missing.push(required3);
+    }
+  }
+  return {
+    isComplete: missing.length === 0,
+    missingEvidence: missing
+  };
+}
+function getTaskBlockers(task, summary, status) {
+  const blockers = [];
+  if (task?.blocked_reason) {
+    blockers.push(task.blocked_reason);
+  }
+  if (status === "blocked") {
+    blockers.push("Task is marked as blocked");
+  }
+  if (summary.missingEvidence.length > 0 && status !== "pending") {
+    blockers.push(`Missing evidence: ${summary.missingEvidence.join(", ")}`);
+  }
+  return blockers;
+}
+async function buildTaskSummary(directory, task, taskId) {
+  const result = await loadEvidence(directory, taskId);
+  const bundle = result.status === "found" ? result.bundle : null;
+  const phase = task?.phase ?? 0;
+  const status = getTaskStatus(task, bundle);
+  const evidenceCheck = isEvidenceComplete(bundle);
+  const blockers = getTaskBlockers(task, evidenceCheck, status);
+  const entries = normalizeBundleEntries(bundle);
+  const hasReview = entries.some((e) => e.type === "review");
+  const hasTest = entries.some((e) => e.type === "test");
+  const hasApproval = entries.some((e) => e.type === "approval");
+  let lastTimestamp = null;
+  if (entries.length > 0) {
+    const timestamps = entries.map((e) => e.timestamp).sort().reverse();
+    lastTimestamp = timestamps[0] ?? null;
+  }
+  return {
+    taskId,
+    phase,
+    taskStatus: status,
+    evidenceCount: entries.length,
+    hasReview,
+    hasTest,
+    hasApproval,
+    missingEvidence: evidenceCheck.missingEvidence,
+    isComplete: evidenceCheck.isComplete && status === "completed",
+    blockers,
+    lastEvidenceTimestamp: lastTimestamp
+  };
+}
+async function buildPhaseSummary(directory, phase) {
+  const taskIds = await listEvidenceTaskIds(directory);
+  const phaseTaskIds = new Set(phase.tasks.map((t) => t.id));
+  const taskSummaries = [];
+  const _taskMap = new Map(phase.tasks.map((t) => [t.id, t]));
+  for (const task of phase.tasks) {
+    const summary = await buildTaskSummary(directory, task, task.id);
+    taskSummaries.push(summary);
+  }
+  const extraTaskIds = taskIds.filter((id) => !phaseTaskIds.has(id));
+  for (const taskId of extraTaskIds) {
+    const summary = await buildTaskSummary(directory, undefined, taskId);
+    if (summary.phase === phase.id) {
+      taskSummaries.push(summary);
+    }
+  }
+  const completedTasks = taskSummaries.filter((s) => s.taskStatus === "completed").length;
+  const tasksWithEvidence = taskSummaries.filter((s) => s.evidenceCount > 0).length;
+  const tasksWithCompleteEvidence = taskSummaries.filter((s) => s.isComplete).length;
+  const missingByType = {};
+  for (const summary of taskSummaries) {
+    for (const missing of summary.missingEvidence) {
+      if (!missingByType[missing]) {
+        missingByType[missing] = [];
+      }
+      if (!missingByType[missing].includes(summary.taskId)) {
+        missingByType[missing].push(summary.taskId);
+      }
+    }
+  }
+  const phaseBlockers = [];
+  for (const [type, taskIds2] of Object.entries(missingByType)) {
+    phaseBlockers.push({
+      type: "missing_evidence",
+      taskId: taskIds2.join(", "),
+      reason: `${type} evidence missing for ${taskIds2.length} task(s)`,
+      severity: "high"
+    });
+  }
+  const incomplete = taskSummaries.filter((s) => s.taskStatus === "completed" && !s.isComplete);
+  for (const task of incomplete) {
+    phaseBlockers.push({
+      type: "incomplete_task",
+      taskId: task.taskId,
+      reason: "Task marked complete but missing required evidence",
+      severity: "medium"
+    });
+  }
+  const blocked = taskSummaries.filter((s) => s.taskStatus === "blocked" || s.blockers.length > 0);
+  for (const task of blocked) {
+    phaseBlockers.push({
+      type: "blocked_task",
+      taskId: task.taskId,
+      reason: task.blockers.join("; ") || "Task is blocked",
+      severity: "high"
+    });
+  }
+  return {
+    phaseId: phase.id,
+    phaseName: phase.name,
+    phaseStatus: phase.status,
+    totalTasks: phase.tasks.length,
+    completedTasks,
+    tasksWithEvidence,
+    tasksWithCompleteEvidence,
+    completionRatio: phase.tasks.length > 0 ? completedTasks / phase.tasks.length : 0,
+    missingEvidenceByType: missingByType,
+    blockers: phaseBlockers,
+    tasks: taskSummaries
+  };
+}
+function generateSummaryText(artifact) {
+  const lines = [];
+  lines.push(`Evidence Summary for "${artifact.planTitle}"`);
+  lines.push(`Generated: ${new Date(artifact.generated_at).toISOString()}`);
+  lines.push("");
+  lines.push(`Overall Completion: ${(artifact.overallCompletionRatio * 100).toFixed(1)}%`);
+  lines.push(`Current Phase: ${artifact.currentPhase}`);
+  lines.push("");
+  for (const phase of artifact.phaseSummaries) {
+    lines.push(`## Phase ${phase.phaseId}: ${phase.phaseName}`);
+    lines.push(`  Tasks: ${phase.completedTasks}/${phase.totalTasks} completed (${(phase.completionRatio * 100).toFixed(1)}%)`);
+    lines.push(`  Evidence: ${phase.tasksWithCompleteEvidence}/${phase.totalTasks} complete`);
+    if (phase.blockers.length > 0) {
+      lines.push("  Blockers:");
+      for (const blocker of phase.blockers) {
+        lines.push(`    - [${blocker.severity}] ${blocker.reason}`);
+      }
+    }
+    lines.push("");
+  }
+  if (artifact.overallBlockers.length > 0) {
+    lines.push("## Overall Blockers");
+    for (const blocker of artifact.overallBlockers) {
+      lines.push(`- [${blocker.severity}] ${blocker.reason}`);
+    }
+  }
+  return lines.join(`
+`);
+}
+async function buildEvidenceSummary(directory, currentPhase) {
+  log("[EvidenceSummary] Building summary for directory", { directory });
+  const plan = await loadPlanJsonOnly(directory);
+  if (!plan) {
+    log("[EvidenceSummary] No plan found, skipping summary generation");
+    return null;
+  }
+  const phasesToProcess = currentPhase !== undefined ? plan.phases.filter((p) => p.id <= currentPhase) : plan.phases;
+  const phaseSummaries = [];
+  let totalTasks = 0;
+  let completedTasks = 0;
+  for (const phase of phasesToProcess) {
+    const summary = await buildPhaseSummary(directory, phase);
+    phaseSummaries.push(summary);
+    totalTasks += summary.totalTasks;
+    completedTasks += summary.completedTasks;
+  }
+  const overallCompletionRatio = totalTasks > 0 ? completedTasks / totalTasks : 0;
+  const overallBlockers = [];
+  for (const phase of phaseSummaries) {
+    if (phase.phaseStatus !== "complete") {
+      overallBlockers.push(...phase.blockers);
+    }
+  }
+  const artifact = {
+    schema_version: EVIDENCE_SUMMARY_VERSION,
+    generated_at: new Date().toISOString(),
+    planTitle: plan.title,
+    currentPhase: currentPhase ?? plan.current_phase ?? 1,
+    phaseSummaries,
+    overallCompletionRatio,
+    overallBlockers,
+    summaryText: ""
+  };
+  artifact.summaryText = generateSummaryText(artifact);
+  log("[EvidenceSummary] Summary built", {
+    phases: phaseSummaries.length,
+    totalTasks,
+    completedTasks,
+    completionRatio: overallCompletionRatio,
+    blockers: overallBlockers.length
+  });
+  return artifact;
+}
+function isAutoSummaryEnabled(automationConfig) {
+  if (!automationConfig) {
+    return false;
+  }
+  if (automationConfig.mode === "manual") {
+    return false;
+  }
+  return automationConfig.capabilities?.evidence_auto_summaries === true;
+}
+var VALID_EVIDENCE_TYPES2, REQUIRED_EVIDENCE_TYPES, EVIDENCE_SUMMARY_VERSION = "1.0.0";
+var init_evidence_summary_service = __esm(() => {
+  init_manager();
+  init_manager2();
+  init_utils();
+  VALID_EVIDENCE_TYPES2 = new Set([
+    "review",
+    "test",
+    "diff",
+    "approval",
+    "note",
+    "retrospective"
+  ]);
+  REQUIRED_EVIDENCE_TYPES = ["review", "test"];
 });
 
 // src/utils/path-security.ts
@@ -34945,8 +34289,8 @@ function validateDirectory(directory) {
 }
 
 // src/tools/lint.ts
-import * as fs16 from "fs";
-import * as path27 from "path";
+import * as fs14 from "fs";
+import * as path24 from "path";
 function validateArgs(args2) {
   if (typeof args2 !== "object" || args2 === null)
     return false;
@@ -34957,9 +34301,9 @@ function validateArgs(args2) {
 }
 function getLinterCommand(linter, mode, projectDir) {
   const isWindows = process.platform === "win32";
-  const binDir = path27.join(projectDir, "node_modules", ".bin");
-  const biomeBin = isWindows ? path27.join(binDir, "biome.EXE") : path27.join(binDir, "biome");
-  const eslintBin = isWindows ? path27.join(binDir, "eslint.cmd") : path27.join(binDir, "eslint");
+  const binDir = path24.join(projectDir, "node_modules", ".bin");
+  const biomeBin = isWindows ? path24.join(binDir, "biome.EXE") : path24.join(binDir, "biome");
+  const eslintBin = isWindows ? path24.join(binDir, "eslint.cmd") : path24.join(binDir, "eslint");
   switch (linter) {
     case "biome":
       if (mode === "fix") {
@@ -34975,7 +34319,7 @@ function getLinterCommand(linter, mode, projectDir) {
 }
 function getAdditionalLinterCommand(linter, mode, cwd) {
   const gradlewName = process.platform === "win32" ? "gradlew.bat" : "gradlew";
-  const gradlew = fs16.existsSync(path27.join(cwd, gradlewName)) ? path27.join(cwd, gradlewName) : null;
+  const gradlew = fs14.existsSync(path24.join(cwd, gradlewName)) ? path24.join(cwd, gradlewName) : null;
   switch (linter) {
     case "ruff":
       return mode === "fix" ? ["ruff", "check", "--fix", "."] : ["ruff", "check", "."];
@@ -35009,12 +34353,12 @@ function getAdditionalLinterCommand(linter, mode, cwd) {
   }
 }
 function detectRuff(cwd) {
-  if (fs16.existsSync(path27.join(cwd, "ruff.toml")))
+  if (fs14.existsSync(path24.join(cwd, "ruff.toml")))
     return isCommandAvailable("ruff");
   try {
-    const pyproject = path27.join(cwd, "pyproject.toml");
-    if (fs16.existsSync(pyproject)) {
-      const content = fs16.readFileSync(pyproject, "utf-8");
+    const pyproject = path24.join(cwd, "pyproject.toml");
+    if (fs14.existsSync(pyproject)) {
+      const content = fs14.readFileSync(pyproject, "utf-8");
       if (content.includes("[tool.ruff]"))
         return isCommandAvailable("ruff");
     }
@@ -35022,21 +34366,21 @@ function detectRuff(cwd) {
   return false;
 }
 function detectClippy(cwd) {
-  return fs16.existsSync(path27.join(cwd, "Cargo.toml")) && isCommandAvailable("cargo");
+  return fs14.existsSync(path24.join(cwd, "Cargo.toml")) && isCommandAvailable("cargo");
 }
 function detectGolangciLint(cwd) {
-  return fs16.existsSync(path27.join(cwd, "go.mod")) && isCommandAvailable("golangci-lint");
+  return fs14.existsSync(path24.join(cwd, "go.mod")) && isCommandAvailable("golangci-lint");
 }
 function detectCheckstyle(cwd) {
-  const hasMaven = fs16.existsSync(path27.join(cwd, "pom.xml"));
-  const hasGradle = fs16.existsSync(path27.join(cwd, "build.gradle")) || fs16.existsSync(path27.join(cwd, "build.gradle.kts"));
-  const hasBinary = hasMaven && isCommandAvailable("mvn") || hasGradle && (fs16.existsSync(path27.join(cwd, "gradlew")) || isCommandAvailable("gradle"));
+  const hasMaven = fs14.existsSync(path24.join(cwd, "pom.xml"));
+  const hasGradle = fs14.existsSync(path24.join(cwd, "build.gradle")) || fs14.existsSync(path24.join(cwd, "build.gradle.kts"));
+  const hasBinary = hasMaven && isCommandAvailable("mvn") || hasGradle && (fs14.existsSync(path24.join(cwd, "gradlew")) || isCommandAvailable("gradle"));
   return (hasMaven || hasGradle) && hasBinary;
 }
 function detectKtlint(cwd) {
-  const hasKotlin = fs16.existsSync(path27.join(cwd, "build.gradle.kts")) || fs16.existsSync(path27.join(cwd, "build.gradle")) || (() => {
+  const hasKotlin = fs14.existsSync(path24.join(cwd, "build.gradle.kts")) || fs14.existsSync(path24.join(cwd, "build.gradle")) || (() => {
     try {
-      return fs16.readdirSync(cwd).some((f) => f.endsWith(".kt") || f.endsWith(".kts"));
+      return fs14.readdirSync(cwd).some((f) => f.endsWith(".kt") || f.endsWith(".kts"));
     } catch {
       return false;
     }
@@ -35045,7 +34389,7 @@ function detectKtlint(cwd) {
 }
 function detectDotnetFormat(cwd) {
   try {
-    const files = fs16.readdirSync(cwd);
+    const files = fs14.readdirSync(cwd);
     const hasCsproj = files.some((f) => f.endsWith(".csproj") || f.endsWith(".sln"));
     return hasCsproj && isCommandAvailable("dotnet");
   } catch {
@@ -35053,14 +34397,14 @@ function detectDotnetFormat(cwd) {
   }
 }
 function detectCppcheck(cwd) {
-  if (fs16.existsSync(path27.join(cwd, "CMakeLists.txt"))) {
+  if (fs14.existsSync(path24.join(cwd, "CMakeLists.txt"))) {
     return isCommandAvailable("cppcheck");
   }
   try {
-    const dirsToCheck = [cwd, path27.join(cwd, "src")];
+    const dirsToCheck = [cwd, path24.join(cwd, "src")];
     const hasCpp = dirsToCheck.some((dir) => {
       try {
-        return fs16.readdirSync(dir).some((f) => /\.(c|cpp|cc|cxx|h|hpp)$/.test(f));
+        return fs14.readdirSync(dir).some((f) => /\.(c|cpp|cc|cxx|h|hpp)$/.test(f));
       } catch {
         return false;
       }
@@ -35071,13 +34415,13 @@ function detectCppcheck(cwd) {
   }
 }
 function detectSwiftlint(cwd) {
-  return fs16.existsSync(path27.join(cwd, "Package.swift")) && isCommandAvailable("swiftlint");
+  return fs14.existsSync(path24.join(cwd, "Package.swift")) && isCommandAvailable("swiftlint");
 }
 function detectDartAnalyze(cwd) {
-  return fs16.existsSync(path27.join(cwd, "pubspec.yaml")) && (isCommandAvailable("dart") || isCommandAvailable("flutter"));
+  return fs14.existsSync(path24.join(cwd, "pubspec.yaml")) && (isCommandAvailable("dart") || isCommandAvailable("flutter"));
 }
 function detectRubocop(cwd) {
-  return (fs16.existsSync(path27.join(cwd, "Gemfile")) || fs16.existsSync(path27.join(cwd, "gems.rb")) || fs16.existsSync(path27.join(cwd, ".rubocop.yml"))) && (isCommandAvailable("rubocop") || isCommandAvailable("bundle"));
+  return (fs14.existsSync(path24.join(cwd, "Gemfile")) || fs14.existsSync(path24.join(cwd, "gems.rb")) || fs14.existsSync(path24.join(cwd, ".rubocop.yml"))) && (isCommandAvailable("rubocop") || isCommandAvailable("bundle"));
 }
 function detectAdditionalLinter(cwd) {
   if (detectRuff(cwd))
@@ -35105,10 +34449,10 @@ function detectAdditionalLinter(cwd) {
 function resolveLinterBinPath(linter, projectDir) {
   const isWindows = process.platform === "win32";
   const binName = linter === "biome" ? isWindows ? "biome.EXE" : "biome" : isWindows ? "eslint.cmd" : "eslint";
-  const localBin = path27.join(projectDir, "node_modules", ".bin", binName);
-  if (fs16.existsSync(localBin))
+  const localBin = path24.join(projectDir, "node_modules", ".bin", binName);
+  if (fs14.existsSync(localBin))
     return localBin;
-  const ancestor = findBinInAncestors(path27.dirname(projectDir), binName);
+  const ancestor = findBinInAncestors(path24.dirname(projectDir), binName);
   if (ancestor)
     return ancestor;
   const fromPath = findBinInEnvPath(binName);
@@ -35119,10 +34463,10 @@ function resolveLinterBinPath(linter, projectDir) {
 function findBinInAncestors(startDir, binName) {
   let dir = startDir;
   while (true) {
-    const candidate = path27.join(dir, "node_modules", ".bin", binName);
-    if (fs16.existsSync(candidate))
+    const candidate = path24.join(dir, "node_modules", ".bin", binName);
+    if (fs14.existsSync(candidate))
       return candidate;
-    const parent = path27.dirname(dir);
+    const parent = path24.dirname(dir);
     if (parent === dir)
       break;
     dir = parent;
@@ -35131,11 +34475,11 @@ function findBinInAncestors(startDir, binName) {
 }
 function findBinInEnvPath(binName) {
   const searchPath = process.env.PATH ?? "";
-  for (const dir of searchPath.split(path27.delimiter)) {
+  for (const dir of searchPath.split(path24.delimiter)) {
     if (!dir)
       continue;
-    const candidate = path27.join(dir, binName);
-    if (fs16.existsSync(candidate))
+    const candidate = path24.join(dir, binName);
+    if (fs14.existsSync(candidate))
       return candidate;
   }
   return null;
@@ -35143,17 +34487,17 @@ function findBinInEnvPath(binName) {
 async function detectAvailableLinter(directory) {
   if (!directory)
     return null;
-  if (!fs16.existsSync(directory))
+  if (!fs14.existsSync(directory))
     return null;
   const projectDir = directory;
   const isWindows = process.platform === "win32";
-  const biomeBin = isWindows ? path27.join(projectDir, "node_modules", ".bin", "biome.EXE") : path27.join(projectDir, "node_modules", ".bin", "biome");
-  const eslintBin = isWindows ? path27.join(projectDir, "node_modules", ".bin", "eslint.cmd") : path27.join(projectDir, "node_modules", ".bin", "eslint");
+  const biomeBin = isWindows ? path24.join(projectDir, "node_modules", ".bin", "biome.EXE") : path24.join(projectDir, "node_modules", ".bin", "biome");
+  const eslintBin = isWindows ? path24.join(projectDir, "node_modules", ".bin", "eslint.cmd") : path24.join(projectDir, "node_modules", ".bin", "eslint");
   const localResult = await _detectAvailableLinter(projectDir, biomeBin, eslintBin);
   if (localResult)
     return localResult;
-  const biomeAncestor = findBinInAncestors(path27.dirname(projectDir), isWindows ? "biome.EXE" : "biome");
-  const eslintAncestor = findBinInAncestors(path27.dirname(projectDir), isWindows ? "eslint.cmd" : "eslint");
+  const biomeAncestor = findBinInAncestors(path24.dirname(projectDir), isWindows ? "biome.EXE" : "biome");
+  const eslintAncestor = findBinInAncestors(path24.dirname(projectDir), isWindows ? "eslint.cmd" : "eslint");
   if (biomeAncestor || eslintAncestor) {
     return _detectAvailableLinter(projectDir, biomeAncestor ?? biomeBin, eslintAncestor ?? eslintBin);
   }
@@ -35172,11 +34516,11 @@ async function _detectAvailableLinter(_projectDir, biomeBin, eslintBin) {
       stderr: "pipe"
     });
     const biomeExit = biomeProc.exited;
-    const timeout = new Promise((resolve7) => setTimeout(() => resolve7("timeout"), DETECT_TIMEOUT));
+    const timeout = new Promise((resolve6) => setTimeout(() => resolve6("timeout"), DETECT_TIMEOUT));
     const result = await Promise.race([biomeExit, timeout]);
     if (result === "timeout") {
       biomeProc.kill();
-    } else if (biomeProc.exitCode === 0 && fs16.existsSync(biomeBin)) {
+    } else if (biomeProc.exitCode === 0 && fs14.existsSync(biomeBin)) {
       return "biome";
     }
   } catch {}
@@ -35186,11 +34530,11 @@ async function _detectAvailableLinter(_projectDir, biomeBin, eslintBin) {
       stderr: "pipe"
     });
     const eslintExit = eslintProc.exited;
-    const timeout = new Promise((resolve7) => setTimeout(() => resolve7("timeout"), DETECT_TIMEOUT));
+    const timeout = new Promise((resolve6) => setTimeout(() => resolve6("timeout"), DETECT_TIMEOUT));
     const result = await Promise.race([eslintExit, timeout]);
     if (result === "timeout") {
       eslintProc.kill();
-    } else if (eslintProc.exitCode === 0 && fs16.existsSync(eslintBin)) {
+    } else if (eslintProc.exitCode === 0 && fs14.existsSync(eslintBin)) {
       return "eslint";
     }
   } catch {}
@@ -35367,8 +34711,8 @@ For Rust: rustup component add clippy`
 });
 
 // src/tools/secretscan.ts
-import * as fs17 from "fs";
-import * as path28 from "path";
+import * as fs15 from "fs";
+import * as path25 from "path";
 function calculateShannonEntropy(str) {
   if (str.length === 0)
     return 0;
@@ -35416,11 +34760,11 @@ function isGlobOrPathPattern(pattern) {
   return pattern.includes("/") || pattern.includes("\\") || /[*?[\]{}]/.test(pattern);
 }
 function loadSecretScanIgnore(scanDir) {
-  const ignorePath = path28.join(scanDir, ".secretscanignore");
+  const ignorePath = path25.join(scanDir, ".secretscanignore");
   try {
-    if (!fs17.existsSync(ignorePath))
+    if (!fs15.existsSync(ignorePath))
       return [];
-    const content = fs17.readFileSync(ignorePath, "utf8");
+    const content = fs15.readFileSync(ignorePath, "utf8");
     const patterns = [];
     for (const rawLine of content.split(/\r?\n/)) {
       const line = rawLine.trim();
@@ -35439,7 +34783,7 @@ function isExcluded(entry, relPath, exactNames, globPatterns) {
   if (exactNames.has(entry))
     return true;
   for (const pattern of globPatterns) {
-    if (path28.matchesGlob(relPath, pattern))
+    if (path25.matchesGlob(relPath, pattern))
       return true;
   }
   return false;
@@ -35460,7 +34804,7 @@ function validateDirectoryInput(dir) {
   return null;
 }
 function isBinaryFile(filePath, buffer) {
-  const ext = path28.extname(filePath).toLowerCase();
+  const ext = path25.extname(filePath).toLowerCase();
   if (DEFAULT_EXCLUDE_EXTENSIONS.has(ext)) {
     return true;
   }
@@ -35538,7 +34882,7 @@ function createRedactedContext(line, findings) {
 function scanFileForSecrets(filePath) {
   const findings = [];
   try {
-    const lstat = fs17.lstatSync(filePath);
+    const lstat = fs15.lstatSync(filePath);
     if (lstat.isSymbolicLink()) {
       return findings;
     }
@@ -35547,14 +34891,14 @@ function scanFileForSecrets(filePath) {
     }
     let buffer;
     if (O_NOFOLLOW !== undefined) {
-      const fd = fs17.openSync(filePath, "r", O_NOFOLLOW);
+      const fd = fs15.openSync(filePath, "r", O_NOFOLLOW);
       try {
-        buffer = fs17.readFileSync(fd);
+        buffer = fs15.readFileSync(fd);
       } finally {
-        fs17.closeSync(fd);
+        fs15.closeSync(fd);
       }
     } else {
-      buffer = fs17.readFileSync(filePath);
+      buffer = fs15.readFileSync(filePath);
     }
     if (isBinaryFile(filePath, buffer)) {
       return findings;
@@ -35596,9 +34940,9 @@ function isSymlinkLoop(realPath, visited) {
   return false;
 }
 function isPathWithinScope(realPath, scanDir) {
-  const resolvedScanDir = path28.resolve(scanDir);
-  const resolvedRealPath = path28.resolve(realPath);
-  return resolvedRealPath === resolvedScanDir || resolvedRealPath.startsWith(resolvedScanDir + path28.sep) || resolvedRealPath.startsWith(`${resolvedScanDir}/`) || resolvedRealPath.startsWith(`${resolvedScanDir}\\`);
+  const resolvedScanDir = path25.resolve(scanDir);
+  const resolvedRealPath = path25.resolve(realPath);
+  return resolvedRealPath === resolvedScanDir || resolvedRealPath.startsWith(resolvedScanDir + path25.sep) || resolvedRealPath.startsWith(`${resolvedScanDir}/`) || resolvedRealPath.startsWith(`${resolvedScanDir}\\`);
 }
 function findScannableFiles(dir, excludeExact, excludeGlobs, scanDir, visited, stats = {
   skippedDirs: 0,
@@ -35609,7 +34953,7 @@ function findScannableFiles(dir, excludeExact, excludeGlobs, scanDir, visited, s
   const files = [];
   let entries;
   try {
-    entries = fs17.readdirSync(dir);
+    entries = fs15.readdirSync(dir);
   } catch {
     stats.fileErrors++;
     return files;
@@ -35624,15 +34968,15 @@ function findScannableFiles(dir, excludeExact, excludeGlobs, scanDir, visited, s
     return a.localeCompare(b);
   });
   for (const entry of entries) {
-    const fullPath = path28.join(dir, entry);
-    const relPath = path28.relative(scanDir, fullPath).replace(/\\/g, "/");
+    const fullPath = path25.join(dir, entry);
+    const relPath = path25.relative(scanDir, fullPath).replace(/\\/g, "/");
     if (isExcluded(entry, relPath, excludeExact, excludeGlobs)) {
       stats.skippedDirs++;
       continue;
     }
     let lstat;
     try {
-      lstat = fs17.lstatSync(fullPath);
+      lstat = fs15.lstatSync(fullPath);
     } catch {
       stats.fileErrors++;
       continue;
@@ -35644,7 +34988,7 @@ function findScannableFiles(dir, excludeExact, excludeGlobs, scanDir, visited, s
     if (lstat.isDirectory()) {
       let realPath;
       try {
-        realPath = fs17.realpathSync(fullPath);
+        realPath = fs15.realpathSync(fullPath);
       } catch {
         stats.fileErrors++;
         continue;
@@ -35660,7 +35004,7 @@ function findScannableFiles(dir, excludeExact, excludeGlobs, scanDir, visited, s
       const subFiles = findScannableFiles(fullPath, excludeExact, excludeGlobs, scanDir, visited, stats);
       files.push(...subFiles);
     } else if (lstat.isFile()) {
-      const ext = path28.extname(fullPath).toLowerCase();
+      const ext = path25.extname(fullPath).toLowerCase();
       if (!DEFAULT_EXCLUDE_EXTENSIONS.has(ext)) {
         files.push(fullPath);
       } else {
@@ -35861,7 +35205,7 @@ var init_secretscan = __esm(() => {
       redactTemplate: () => "SK[REDACTED]"
     }
   ];
-  O_NOFOLLOW = process.platform !== "win32" ? fs17.constants.O_NOFOLLOW : undefined;
+  O_NOFOLLOW = process.platform !== "win32" ? fs15.constants.O_NOFOLLOW : undefined;
   secretscan = createSwarmTool({
     description: "Scan directory for potential secrets (API keys, tokens, passwords) using regex patterns and entropy heuristics. Returns metadata-only findings with redacted previews - NEVER returns raw secrets. Excludes common directories (node_modules, .git, dist, etc.) by default. Supports glob patterns (e.g. **/.svelte-kit/**, **/*.test.ts) and reads .secretscanignore at the scan root.",
     args: {
@@ -35918,15 +35262,15 @@ var init_secretscan = __esm(() => {
         }
       }
       try {
-        const _scanDirRaw = path28.resolve(directory);
+        const _scanDirRaw = path25.resolve(directory);
         const scanDir = (() => {
           try {
-            return fs17.realpathSync(_scanDirRaw);
+            return fs15.realpathSync(_scanDirRaw);
           } catch {
             return _scanDirRaw;
           }
         })();
-        if (!fs17.existsSync(scanDir)) {
+        if (!fs15.existsSync(scanDir)) {
           const errorResult = {
             error: "directory not found",
             scan_dir: directory,
@@ -35937,7 +35281,7 @@ var init_secretscan = __esm(() => {
           };
           return JSON.stringify(errorResult, null, 2);
         }
-        const dirStat = fs17.statSync(scanDir);
+        const dirStat = fs15.statSync(scanDir);
         if (!dirStat.isDirectory()) {
           const errorResult = {
             error: "target must be a directory, not a file",
@@ -35988,7 +35332,7 @@ var init_secretscan = __esm(() => {
             break;
           const fileFindings = scanFileForSecrets(filePath);
           try {
-            const stat2 = fs17.statSync(filePath);
+            const stat2 = fs15.statSync(filePath);
             if (stat2.size > MAX_FILE_SIZE_BYTES) {
               skippedFiles++;
               continue;
@@ -36060,8 +35404,8 @@ var init_secretscan = __esm(() => {
 });
 
 // src/tools/resolve-working-directory.ts
-import * as fs18 from "fs";
-import * as path29 from "path";
+import * as fs16 from "fs";
+import * as path26 from "path";
 function resolveWorkingDirectory(workingDirectory, fallbackDirectory) {
   if (workingDirectory == null || workingDirectory === "") {
     return { success: true, directory: fallbackDirectory };
@@ -36081,17 +35425,17 @@ function resolveWorkingDirectory(workingDirectory, fallbackDirectory) {
       };
     }
   }
-  const normalizedDir = path29.normalize(workingDirectory);
-  const pathParts = normalizedDir.split(path29.sep);
+  const normalizedDir = path26.normalize(workingDirectory);
+  const pathParts = normalizedDir.split(path26.sep);
   if (pathParts.includes("..")) {
     return {
       success: false,
       message: "Invalid working_directory: path traversal sequences (..) are not allowed"
     };
   }
-  const resolvedDir = path29.resolve(normalizedDir);
+  const resolvedDir = path26.resolve(normalizedDir);
   try {
-    const realPath = fs18.realpathSync(resolvedDir);
+    const realPath = fs16.realpathSync(resolvedDir);
     return { success: true, directory: realPath };
   } catch {
     return {
@@ -36103,8 +35447,8 @@ function resolveWorkingDirectory(workingDirectory, fallbackDirectory) {
 var init_resolve_working_directory = () => {};
 
 // src/tools/test-runner.ts
-import * as fs19 from "fs";
-import * as path30 from "path";
+import * as fs17 from "fs";
+import * as path27 from "path";
 function isAbsolutePath(str) {
   if (str.startsWith("/"))
     return true;
@@ -36169,19 +35513,19 @@ function hasDevDependency(devDeps, ...patterns) {
   return hasPackageJsonDependency(devDeps, ...patterns);
 }
 function detectGoTest(cwd) {
-  return fs19.existsSync(path30.join(cwd, "go.mod")) && isCommandAvailable("go");
+  return fs17.existsSync(path27.join(cwd, "go.mod")) && isCommandAvailable("go");
 }
 function detectJavaMaven(cwd) {
-  return fs19.existsSync(path30.join(cwd, "pom.xml")) && isCommandAvailable("mvn");
+  return fs17.existsSync(path27.join(cwd, "pom.xml")) && isCommandAvailable("mvn");
 }
 function detectGradle(cwd) {
-  const hasBuildFile = fs19.existsSync(path30.join(cwd, "build.gradle")) || fs19.existsSync(path30.join(cwd, "build.gradle.kts"));
-  const hasGradlew = fs19.existsSync(path30.join(cwd, "gradlew")) || fs19.existsSync(path30.join(cwd, "gradlew.bat"));
+  const hasBuildFile = fs17.existsSync(path27.join(cwd, "build.gradle")) || fs17.existsSync(path27.join(cwd, "build.gradle.kts"));
+  const hasGradlew = fs17.existsSync(path27.join(cwd, "gradlew")) || fs17.existsSync(path27.join(cwd, "gradlew.bat"));
   return hasBuildFile && (hasGradlew || isCommandAvailable("gradle"));
 }
 function detectDotnetTest(cwd) {
   try {
-    const files = fs19.readdirSync(cwd);
+    const files = fs17.readdirSync(cwd);
     const hasCsproj = files.some((f) => f.endsWith(".csproj"));
     return hasCsproj && isCommandAvailable("dotnet");
   } catch {
@@ -36189,32 +35533,32 @@ function detectDotnetTest(cwd) {
   }
 }
 function detectCTest(cwd) {
-  const hasSource = fs19.existsSync(path30.join(cwd, "CMakeLists.txt"));
-  const hasBuildCache = fs19.existsSync(path30.join(cwd, "CMakeCache.txt")) || fs19.existsSync(path30.join(cwd, "build", "CMakeCache.txt"));
+  const hasSource = fs17.existsSync(path27.join(cwd, "CMakeLists.txt"));
+  const hasBuildCache = fs17.existsSync(path27.join(cwd, "CMakeCache.txt")) || fs17.existsSync(path27.join(cwd, "build", "CMakeCache.txt"));
   return (hasSource || hasBuildCache) && isCommandAvailable("ctest");
 }
 function detectSwiftTest(cwd) {
-  return fs19.existsSync(path30.join(cwd, "Package.swift")) && isCommandAvailable("swift");
+  return fs17.existsSync(path27.join(cwd, "Package.swift")) && isCommandAvailable("swift");
 }
 function detectDartTest(cwd) {
-  return fs19.existsSync(path30.join(cwd, "pubspec.yaml")) && (isCommandAvailable("dart") || isCommandAvailable("flutter"));
+  return fs17.existsSync(path27.join(cwd, "pubspec.yaml")) && (isCommandAvailable("dart") || isCommandAvailable("flutter"));
 }
 function detectRSpec(cwd) {
-  const hasRSpecFile = fs19.existsSync(path30.join(cwd, ".rspec"));
-  const hasGemfile = fs19.existsSync(path30.join(cwd, "Gemfile"));
-  const hasSpecDir = fs19.existsSync(path30.join(cwd, "spec"));
+  const hasRSpecFile = fs17.existsSync(path27.join(cwd, ".rspec"));
+  const hasGemfile = fs17.existsSync(path27.join(cwd, "Gemfile"));
+  const hasSpecDir = fs17.existsSync(path27.join(cwd, "spec"));
   const hasRSpec = hasRSpecFile || hasGemfile && hasSpecDir;
   return hasRSpec && (isCommandAvailable("bundle") || isCommandAvailable("rspec"));
 }
 function detectMinitest(cwd) {
-  return fs19.existsSync(path30.join(cwd, "test")) && (fs19.existsSync(path30.join(cwd, "Gemfile")) || fs19.existsSync(path30.join(cwd, "Rakefile"))) && isCommandAvailable("ruby");
+  return fs17.existsSync(path27.join(cwd, "test")) && (fs17.existsSync(path27.join(cwd, "Gemfile")) || fs17.existsSync(path27.join(cwd, "Rakefile"))) && isCommandAvailable("ruby");
 }
 async function detectTestFramework(cwd) {
   const baseDir = cwd;
   try {
-    const packageJsonPath = path30.join(baseDir, "package.json");
-    if (fs19.existsSync(packageJsonPath)) {
-      const content = fs19.readFileSync(packageJsonPath, "utf-8");
+    const packageJsonPath = path27.join(baseDir, "package.json");
+    if (fs17.existsSync(packageJsonPath)) {
+      const content = fs17.readFileSync(packageJsonPath, "utf-8");
       const pkg = JSON.parse(content);
       const _deps = pkg.dependencies || {};
       const devDeps = pkg.devDependencies || {};
@@ -36233,38 +35577,38 @@ async function detectTestFramework(cwd) {
         return "jest";
       if (hasDevDependency(devDeps, "mocha", "@types/mocha"))
         return "mocha";
-      if (fs19.existsSync(path30.join(baseDir, "bun.lockb")) || fs19.existsSync(path30.join(baseDir, "bun.lock"))) {
+      if (fs17.existsSync(path27.join(baseDir, "bun.lockb")) || fs17.existsSync(path27.join(baseDir, "bun.lock"))) {
         if (scripts.test?.includes("bun"))
           return "bun";
       }
     }
   } catch {}
   try {
-    const pyprojectTomlPath = path30.join(baseDir, "pyproject.toml");
-    const setupCfgPath = path30.join(baseDir, "setup.cfg");
-    const requirementsTxtPath = path30.join(baseDir, "requirements.txt");
-    if (fs19.existsSync(pyprojectTomlPath)) {
-      const content = fs19.readFileSync(pyprojectTomlPath, "utf-8");
+    const pyprojectTomlPath = path27.join(baseDir, "pyproject.toml");
+    const setupCfgPath = path27.join(baseDir, "setup.cfg");
+    const requirementsTxtPath = path27.join(baseDir, "requirements.txt");
+    if (fs17.existsSync(pyprojectTomlPath)) {
+      const content = fs17.readFileSync(pyprojectTomlPath, "utf-8");
       if (content.includes("[tool.pytest"))
         return "pytest";
       if (content.includes("pytest"))
         return "pytest";
     }
-    if (fs19.existsSync(setupCfgPath)) {
-      const content = fs19.readFileSync(setupCfgPath, "utf-8");
+    if (fs17.existsSync(setupCfgPath)) {
+      const content = fs17.readFileSync(setupCfgPath, "utf-8");
       if (content.includes("[pytest]"))
         return "pytest";
     }
-    if (fs19.existsSync(requirementsTxtPath)) {
-      const content = fs19.readFileSync(requirementsTxtPath, "utf-8");
+    if (fs17.existsSync(requirementsTxtPath)) {
+      const content = fs17.readFileSync(requirementsTxtPath, "utf-8");
       if (content.includes("pytest"))
         return "pytest";
     }
   } catch {}
   try {
-    const cargoTomlPath = path30.join(baseDir, "Cargo.toml");
-    if (fs19.existsSync(cargoTomlPath)) {
-      const content = fs19.readFileSync(cargoTomlPath, "utf-8");
+    const cargoTomlPath = path27.join(baseDir, "Cargo.toml");
+    if (fs17.existsSync(cargoTomlPath)) {
+      const content = fs17.readFileSync(cargoTomlPath, "utf-8");
       if (content.includes("[dev-dependencies]")) {
         if (content.includes("tokio") || content.includes("mockall") || content.includes("pretty_assertions")) {
           return "cargo";
@@ -36273,10 +35617,10 @@ async function detectTestFramework(cwd) {
     }
   } catch {}
   try {
-    const pesterConfigPath = path30.join(baseDir, "pester.config.ps1");
-    const pesterConfigJsonPath = path30.join(baseDir, "pester.config.ps1.json");
-    const pesterPs1Path = path30.join(baseDir, "tests.ps1");
-    if (fs19.existsSync(pesterConfigPath) || fs19.existsSync(pesterConfigJsonPath) || fs19.existsSync(pesterPs1Path)) {
+    const pesterConfigPath = path27.join(baseDir, "pester.config.ps1");
+    const pesterConfigJsonPath = path27.join(baseDir, "pester.config.ps1.json");
+    const pesterPs1Path = path27.join(baseDir, "tests.ps1");
+    if (fs17.existsSync(pesterConfigPath) || fs17.existsSync(pesterConfigJsonPath) || fs17.existsSync(pesterPs1Path)) {
       return "pester";
     }
   } catch {}
@@ -36308,8 +35652,8 @@ function getTestFilesFromConvention(sourceFiles) {
   const testFiles = [];
   for (const file3 of sourceFiles) {
     const normalizedPath = file3.replace(/\\/g, "/");
-    const basename5 = path30.basename(file3);
-    const dirname12 = path30.dirname(file3);
+    const basename5 = path27.basename(file3);
+    const dirname12 = path27.dirname(file3);
     if (hasCompoundTestExtension(basename5) || basename5.includes(".spec.") || basename5.includes(".test.") || normalizedPath.includes("/__tests__/") || normalizedPath.includes("/tests/") || normalizedPath.includes("/test/")) {
       if (!testFiles.includes(file3)) {
         testFiles.push(file3);
@@ -36318,16 +35662,16 @@ function getTestFilesFromConvention(sourceFiles) {
     }
     for (const _pattern of TEST_PATTERNS) {
       const nameWithoutExt = basename5.replace(/\.[^.]+$/, "");
-      const ext = path30.extname(basename5);
+      const ext = path27.extname(basename5);
       const possibleTestFiles = [
-        path30.join(dirname12, `${nameWithoutExt}.spec${ext}`),
-        path30.join(dirname12, `${nameWithoutExt}.test${ext}`),
-        path30.join(dirname12, "__tests__", `${nameWithoutExt}${ext}`),
-        path30.join(dirname12, "tests", `${nameWithoutExt}${ext}`),
-        path30.join(dirname12, "test", `${nameWithoutExt}${ext}`)
+        path27.join(dirname12, `${nameWithoutExt}.spec${ext}`),
+        path27.join(dirname12, `${nameWithoutExt}.test${ext}`),
+        path27.join(dirname12, "__tests__", `${nameWithoutExt}${ext}`),
+        path27.join(dirname12, "tests", `${nameWithoutExt}${ext}`),
+        path27.join(dirname12, "test", `${nameWithoutExt}${ext}`)
       ];
       for (const testFile of possibleTestFiles) {
-        if (fs19.existsSync(testFile) && !testFiles.includes(testFile)) {
+        if (fs17.existsSync(testFile) && !testFiles.includes(testFile)) {
           testFiles.push(testFile);
         }
       }
@@ -36343,8 +35687,8 @@ async function getTestFilesFromGraph(sourceFiles) {
   }
   for (const testFile of candidateTestFiles) {
     try {
-      const content = fs19.readFileSync(testFile, "utf-8");
-      const testDir = path30.dirname(testFile);
+      const content = fs17.readFileSync(testFile, "utf-8");
+      const testDir = path27.dirname(testFile);
       const importRegex = /import\s+.*?\s+from\s+['"]([^'"]+)['"]/g;
       let match;
       match = importRegex.exec(content);
@@ -36352,8 +35696,8 @@ async function getTestFilesFromGraph(sourceFiles) {
         const importPath = match[1];
         let resolvedImport;
         if (importPath.startsWith(".")) {
-          resolvedImport = path30.resolve(testDir, importPath);
-          const existingExt = path30.extname(resolvedImport);
+          resolvedImport = path27.resolve(testDir, importPath);
+          const existingExt = path27.extname(resolvedImport);
           if (!existingExt) {
             for (const extToTry of [
               ".ts",
@@ -36364,7 +35708,7 @@ async function getTestFilesFromGraph(sourceFiles) {
               ".cjs"
             ]) {
               const withExt = resolvedImport + extToTry;
-              if (sourceFiles.includes(withExt) || fs19.existsSync(withExt)) {
+              if (sourceFiles.includes(withExt) || fs17.existsSync(withExt)) {
                 resolvedImport = withExt;
                 break;
               }
@@ -36373,12 +35717,12 @@ async function getTestFilesFromGraph(sourceFiles) {
         } else {
           continue;
         }
-        const importBasename = path30.basename(resolvedImport, path30.extname(resolvedImport));
-        const importDir = path30.dirname(resolvedImport);
+        const importBasename = path27.basename(resolvedImport, path27.extname(resolvedImport));
+        const importDir = path27.dirname(resolvedImport);
         for (const sourceFile of sourceFiles) {
-          const sourceDir = path30.dirname(sourceFile);
-          const sourceBasename = path30.basename(sourceFile, path30.extname(sourceFile));
-          const isRelatedDir = importDir === sourceDir || importDir === path30.join(sourceDir, "__tests__") || importDir === path30.join(sourceDir, "tests") || importDir === path30.join(sourceDir, "test");
+          const sourceDir = path27.dirname(sourceFile);
+          const sourceBasename = path27.basename(sourceFile, path27.extname(sourceFile));
+          const isRelatedDir = importDir === sourceDir || importDir === path27.join(sourceDir, "__tests__") || importDir === path27.join(sourceDir, "tests") || importDir === path27.join(sourceDir, "test");
           if (resolvedImport === sourceFile || importBasename === sourceBasename && isRelatedDir) {
             if (!testFiles.includes(testFile)) {
               testFiles.push(testFile);
@@ -36393,8 +35737,8 @@ async function getTestFilesFromGraph(sourceFiles) {
       while (match !== null) {
         const importPath = match[1];
         if (importPath.startsWith(".")) {
-          let resolvedImport = path30.resolve(testDir, importPath);
-          const existingExt = path30.extname(resolvedImport);
+          let resolvedImport = path27.resolve(testDir, importPath);
+          const existingExt = path27.extname(resolvedImport);
           if (!existingExt) {
             for (const extToTry of [
               ".ts",
@@ -36405,18 +35749,18 @@ async function getTestFilesFromGraph(sourceFiles) {
               ".cjs"
             ]) {
               const withExt = resolvedImport + extToTry;
-              if (sourceFiles.includes(withExt) || fs19.existsSync(withExt)) {
+              if (sourceFiles.includes(withExt) || fs17.existsSync(withExt)) {
                 resolvedImport = withExt;
                 break;
               }
             }
           }
-          const importDir = path30.dirname(resolvedImport);
-          const importBasename = path30.basename(resolvedImport, path30.extname(resolvedImport));
+          const importDir = path27.dirname(resolvedImport);
+          const importBasename = path27.basename(resolvedImport, path27.extname(resolvedImport));
           for (const sourceFile of sourceFiles) {
-            const sourceDir = path30.dirname(sourceFile);
-            const sourceBasename = path30.basename(sourceFile, path30.extname(sourceFile));
-            const isRelatedDir = importDir === sourceDir || importDir === path30.join(sourceDir, "__tests__") || importDir === path30.join(sourceDir, "tests") || importDir === path30.join(sourceDir, "test");
+            const sourceDir = path27.dirname(sourceFile);
+            const sourceBasename = path27.basename(sourceFile, path27.extname(sourceFile));
+            const isRelatedDir = importDir === sourceDir || importDir === path27.join(sourceDir, "__tests__") || importDir === path27.join(sourceDir, "tests") || importDir === path27.join(sourceDir, "test");
             if (resolvedImport === sourceFile || importBasename === sourceBasename && isRelatedDir) {
               if (!testFiles.includes(testFile)) {
                 testFiles.push(testFile);
@@ -36501,8 +35845,8 @@ function buildTestCommand(framework, scope, files, coverage, baseDir) {
       return ["mvn", "test"];
     case "gradle": {
       const isWindows = process.platform === "win32";
-      const hasGradlewBat = fs19.existsSync(path30.join(baseDir, "gradlew.bat"));
-      const hasGradlew = fs19.existsSync(path30.join(baseDir, "gradlew"));
+      const hasGradlewBat = fs17.existsSync(path27.join(baseDir, "gradlew.bat"));
+      const hasGradlew = fs17.existsSync(path27.join(baseDir, "gradlew"));
       if (hasGradlewBat && isWindows)
         return ["gradlew.bat", "test"];
       if (hasGradlew)
@@ -36519,7 +35863,7 @@ function buildTestCommand(framework, scope, files, coverage, baseDir) {
         "cmake-build-release",
         "out"
       ];
-      const actualBuildDir = buildDirCandidates.find((d) => fs19.existsSync(path30.join(baseDir, d, "CMakeCache.txt"))) ?? "build";
+      const actualBuildDir = buildDirCandidates.find((d) => fs17.existsSync(path27.join(baseDir, d, "CMakeCache.txt"))) ?? "build";
       return ["ctest", "--test-dir", actualBuildDir];
     }
     case "swift-test":
@@ -36818,9 +36162,9 @@ async function runTests(framework, scope, files, coverage, timeout_ms, cwd) {
       stderr: "pipe",
       cwd
     });
-    const timeoutPromise = new Promise((resolve10) => setTimeout(() => {
+    const timeoutPromise = new Promise((resolve9) => setTimeout(() => {
       proc.kill();
-      resolve10(-1);
+      resolve9(-1);
     }, timeout_ms));
     const [exitCode, stdoutResult, stderrResult] = await Promise.all([
       Promise.race([proc.exited, timeoutPromise]),
@@ -37101,7 +36445,7 @@ var init_test_runner = __esm(() => {
       let effectiveScope = scope;
       if (scope === "all") {} else if (scope === "convention") {
         const sourceFiles = args2.files.filter((f) => {
-          const ext = path30.extname(f).toLowerCase();
+          const ext = path27.extname(f).toLowerCase();
           return SOURCE_EXTENSIONS.has(ext);
         });
         if (sourceFiles.length === 0) {
@@ -37118,7 +36462,7 @@ var init_test_runner = __esm(() => {
         testFiles = getTestFilesFromConvention(sourceFiles);
       } else if (scope === "graph") {
         const sourceFiles = args2.files.filter((f) => {
-          const ext = path30.extname(f).toLowerCase();
+          const ext = path27.extname(f).toLowerCase();
           return SOURCE_EXTENSIONS.has(ext);
         });
         if (sourceFiles.length === 0) {
@@ -37176,8 +36520,8 @@ var init_test_runner = __esm(() => {
 });
 
 // src/services/preflight-service.ts
-import * as fs20 from "fs";
-import * as path31 from "path";
+import * as fs18 from "fs";
+import * as path28 from "path";
 function validateDirectoryPath(dir) {
   if (!dir || typeof dir !== "string") {
     throw new Error("Directory path is required");
@@ -37185,8 +36529,8 @@ function validateDirectoryPath(dir) {
   if (dir.includes("..")) {
     throw new Error("Directory path must not contain path traversal sequences");
   }
-  const normalized = path31.normalize(dir);
-  const absolutePath = path31.isAbsolute(normalized) ? normalized : path31.resolve(normalized);
+  const normalized = path28.normalize(dir);
+  const absolutePath = path28.isAbsolute(normalized) ? normalized : path28.resolve(normalized);
   return absolutePath;
 }
 function validateTimeout(timeoutMs, defaultValue) {
@@ -37209,9 +36553,9 @@ function validateTimeout(timeoutMs, defaultValue) {
 }
 function getPackageVersion(dir) {
   try {
-    const packagePath = path31.join(dir, "package.json");
-    if (fs20.existsSync(packagePath)) {
-      const content = fs20.readFileSync(packagePath, "utf-8");
+    const packagePath = path28.join(dir, "package.json");
+    if (fs18.existsSync(packagePath)) {
+      const content = fs18.readFileSync(packagePath, "utf-8");
       const pkg = JSON.parse(content);
       return pkg.version ?? null;
     }
@@ -37220,9 +36564,9 @@ function getPackageVersion(dir) {
 }
 function getChangelogVersion(dir) {
   try {
-    const changelogPath = path31.join(dir, "CHANGELOG.md");
-    if (fs20.existsSync(changelogPath)) {
-      const content = fs20.readFileSync(changelogPath, "utf-8");
+    const changelogPath = path28.join(dir, "CHANGELOG.md");
+    if (fs18.existsSync(changelogPath)) {
+      const content = fs18.readFileSync(changelogPath, "utf-8");
       const match = content.match(/^##\s*\[?(\d+\.\d+\.\d+)\]?/m);
       if (match) {
         return match[1];
@@ -37234,10 +36578,10 @@ function getChangelogVersion(dir) {
 function getVersionFileVersion(dir) {
   const possibleFiles = ["VERSION.txt", "version.txt", "VERSION", "version"];
   for (const file3 of possibleFiles) {
-    const filePath = path31.join(dir, file3);
-    if (fs20.existsSync(filePath)) {
+    const filePath = path28.join(dir, file3);
+    if (fs18.existsSync(filePath)) {
       try {
-        const content = fs20.readFileSync(filePath, "utf-8").trim();
+        const content = fs18.readFileSync(filePath, "utf-8").trim();
         const match = content.match(/(\d+\.\d+\.\d+)/);
         if (match) {
           return match[1];
@@ -37746,6 +37090,739 @@ var init_preflight_service = __esm(() => {
     testScope: "convention",
     linter: "biome"
   };
+});
+
+// src/background/queue.ts
+function comparePriority(a, b) {
+  const priorityOrder = {
+    critical: 0,
+    high: 1,
+    normal: 2,
+    low: 3
+  };
+  const priorityDiff = priorityOrder[a.priority] - priorityOrder[b.priority];
+  if (priorityDiff !== 0)
+    return priorityDiff;
+  return a.createdAt - b.createdAt;
+}
+
+class AutomationQueue {
+  items = [];
+  maxSize;
+  defaultMaxRetries;
+  defaultBackoffMs;
+  maxBackoffMs;
+  eventBus;
+  itemCounter = 0;
+  constructor(config3) {
+    this.maxSize = config3?.maxSize ?? 1000;
+    this.defaultMaxRetries = config3?.defaultMaxRetries ?? 3;
+    this.defaultBackoffMs = config3?.defaultBackoffMs ?? 1000;
+    this.maxBackoffMs = config3?.maxBackoffMs ?? 60000;
+    this.eventBus = getGlobalEventBus();
+  }
+  generateId() {
+    return `queue-${Date.now()}-${++this.itemCounter}`;
+  }
+  enqueue(payload, priority = "normal", metadata2) {
+    if (this.items.length >= this.maxSize) {
+      throw new Error(`Queue is full (max ${this.maxSize} items)`);
+    }
+    const item = {
+      id: this.generateId(),
+      priority,
+      payload,
+      createdAt: Date.now(),
+      metadata: metadata2,
+      retry: {
+        attempts: 0,
+        maxAttempts: this.defaultMaxRetries,
+        backoffMs: this.defaultBackoffMs,
+        maxBackoffMs: this.maxBackoffMs
+      }
+    };
+    this.items.push(item);
+    this.items.sort(comparePriority);
+    this.eventBus.publish("queue.item.enqueued", { itemId: item.id, priority });
+    return item.id;
+  }
+  dequeue() {
+    const item = this.items.shift();
+    if (item) {
+      this.eventBus.publish("queue.item.dequeued", { itemId: item.id });
+    }
+    return item;
+  }
+  peek() {
+    return this.items[0];
+  }
+  get(id) {
+    return this.items.find((item) => item.id === id);
+  }
+  remove(id) {
+    const index = this.items.findIndex((item) => item.id === id);
+    if (index !== -1) {
+      this.items.splice(index, 1);
+      return true;
+    }
+    return false;
+  }
+  complete(id) {
+    const removed = this.remove(id);
+    if (removed) {
+      this.eventBus.publish("queue.item.completed", { itemId: id });
+    }
+    return removed;
+  }
+  retry(id, _error) {
+    const item = this.get(id);
+    if (!item || !item.retry)
+      return false;
+    item.retry.attempts++;
+    item.retry.lastAttempt = Date.now();
+    if (item.retry.attempts >= item.retry.maxAttempts) {
+      this.eventBus.publish("queue.item.failed", {
+        itemId: id,
+        attempts: item.retry.attempts
+      });
+      this.remove(id);
+      return false;
+    }
+    const backoff = Math.min(item.retry.backoffMs * 2 ** (item.retry.attempts - 1), item.retry.maxBackoffMs);
+    item.retry.nextAttemptAt = Date.now() + backoff;
+    this.eventBus.publish("queue.item.retry scheduled", {
+      itemId: id,
+      attempt: item.retry.attempts,
+      nextAttemptAt: item.retry.nextAttemptAt,
+      backoffMs: backoff
+    });
+    return true;
+  }
+  getRetryableItems() {
+    const now = Date.now();
+    return this.items.filter((item) => item.retry?.nextAttemptAt && item.retry.nextAttemptAt <= now);
+  }
+  size() {
+    return this.items.length;
+  }
+  isEmpty() {
+    return this.items.length === 0;
+  }
+  isFull() {
+    return this.items.length >= this.maxSize;
+  }
+  clear() {
+    this.items = [];
+  }
+  getAll() {
+    return [...this.items];
+  }
+  getByPriority(priority) {
+    return this.items.filter((item) => item.priority === priority);
+  }
+  getStats() {
+    return {
+      size: this.items.length,
+      maxSize: this.maxSize,
+      byPriority: {
+        critical: this.items.filter((i2) => i2.priority === "critical").length,
+        high: this.items.filter((i2) => i2.priority === "high").length,
+        normal: this.items.filter((i2) => i2.priority === "normal").length,
+        low: this.items.filter((i2) => i2.priority === "low").length
+      },
+      retryable: this.getRetryableItems().length
+    };
+  }
+}
+var init_queue = __esm(() => {
+  init_event_bus();
+});
+
+// src/background/evidence-summary-integration.ts
+var exports_evidence_summary_integration = {};
+__export(exports_evidence_summary_integration, {
+  createEvidenceSummaryIntegration: () => createEvidenceSummaryIntegration,
+  EvidenceSummaryIntegration: () => EvidenceSummaryIntegration
+});
+import { existsSync as existsSync21, mkdirSync as mkdirSync10, writeFileSync as writeFileSync5 } from "fs";
+import * as path34 from "path";
+function persistSummary(swarmDir, artifact, filename) {
+  const swarmPath = path34.join(swarmDir, ".swarm");
+  if (!existsSync21(swarmPath)) {
+    mkdirSync10(swarmPath, { recursive: true });
+  }
+  const artifactPath = path34.join(swarmPath, filename);
+  const content = JSON.stringify(artifact, null, 2);
+  writeFileSync5(artifactPath, content, "utf-8");
+  log("[EvidenceSummaryIntegration] Summary persisted", {
+    path: artifactPath,
+    size: content.length
+  });
+  return artifactPath;
+}
+
+class EvidenceSummaryIntegration {
+  config;
+  eventBus;
+  unsubscribes = [];
+  constructor(config3) {
+    this.config = config3;
+    this.eventBus = getGlobalEventBus();
+  }
+  isEnabled() {
+    return isAutoSummaryEnabled(this.config.automationConfig);
+  }
+  initialize() {
+    if (!this.isEnabled()) {
+      log("[EvidenceSummaryIntegration] Disabled via feature flags (evidence_auto_summaries=false or mode=manual)");
+      return;
+    }
+    log("[EvidenceSummaryIntegration] Initializing...");
+    this.subscribeToEvent("preflight.completed", async (event) => {
+      const payload = event.payload;
+      const phase = payload?.phase ?? 1;
+      await this.generateSummary(phase, "preflight.completed");
+    });
+    this.subscribeToEvent("phase.boundary.detected", async (event) => {
+      const payload = event.payload;
+      const phase = payload?.currentPhase ?? 1;
+      await this.generateSummary(phase, "phase.boundary.detected");
+    });
+    log("[EvidenceSummaryIntegration] Initialized and subscribed to events");
+  }
+  subscribeToEvent(type, handler) {
+    const unsubscribe = this.eventBus.subscribe(type, handler);
+    this.unsubscribes.push(unsubscribe);
+  }
+  async generateSummary(phase, trigger) {
+    log("[EvidenceSummaryIntegration] Generating summary", {
+      phase,
+      trigger,
+      directory: this.config.directory
+    });
+    try {
+      const artifact = await buildEvidenceSummary(this.config.directory, phase);
+      if (!artifact) {
+        log("[EvidenceSummaryIntegration] No plan found, skipping");
+        return null;
+      }
+      const filename = this.config.summaryFilename ?? "evidence-summary.json";
+      const artifactPath = persistSummary(this.config.swarmDir, artifact, filename);
+      log("[EvidenceSummaryIntegration] Summary generated and persisted", {
+        path: artifactPath,
+        completionRatio: artifact.overallCompletionRatio,
+        blockers: artifact.overallBlockers.length
+      });
+      await this.eventBus.publish("evidence.summary.generated", {
+        trigger,
+        phase,
+        artifactPath,
+        completionRatio: artifact.overallCompletionRatio,
+        blockerCount: artifact.overallBlockers.length,
+        timestamp: Date.now()
+      });
+      return artifact;
+    } catch (error93) {
+      log("[EvidenceSummaryIntegration] Error generating summary", {
+        error: error93 instanceof Error ? error93.message : String(error93)
+      });
+      await this.eventBus.publish("evidence.summary.error", {
+        trigger,
+        phase,
+        error: error93 instanceof Error ? error93.message : String(error93),
+        timestamp: Date.now()
+      });
+      return null;
+    }
+  }
+  async triggerManual(phase) {
+    const isDisabled = !this.isEnabled();
+    if (isDisabled) {
+      log("[EvidenceSummaryIntegration] Manual trigger with feature disabled - generating anyway for CLI use");
+    }
+    log("[EvidenceSummaryIntegration] Manual trigger", { phase, isDisabled });
+    return this.generateSummary(phase ?? 1, "preflight.completed");
+  }
+  cleanup() {
+    for (const unsubscribe of this.unsubscribes) {
+      unsubscribe();
+    }
+    this.unsubscribes = [];
+    log("[EvidenceSummaryIntegration] Cleanup complete");
+  }
+}
+function createEvidenceSummaryIntegration(config3, autoInitialize = true) {
+  const integration = new EvidenceSummaryIntegration(config3);
+  if (autoInitialize) {
+    integration.initialize();
+  }
+  return integration;
+}
+var init_evidence_summary_integration = __esm(() => {
+  init_event_bus();
+  init_evidence_summary_service();
+  init_utils();
+});
+
+// src/background/status-artifact.ts
+var exports_status_artifact = {};
+__export(exports_status_artifact, {
+  AutomationStatusArtifact: () => AutomationStatusArtifact
+});
+import * as fs25 from "fs";
+import * as path36 from "path";
+function createEmptySnapshot(mode, capabilities) {
+  return {
+    timestamp: Date.now(),
+    mode,
+    enabled: mode !== "manual",
+    currentPhase: 0,
+    lastTrigger: null,
+    pendingActions: 0,
+    lastOutcome: null,
+    capabilities
+  };
+}
+function validateFilename(filename) {
+  if (filename.includes("\x00")) {
+    throw new Error("Invalid filename: contains null byte");
+  }
+  const pathSeparators = ["/", "\\", ".."];
+  for (const sep4 of pathSeparators) {
+    if (filename.includes(sep4)) {
+      throw new Error(`Invalid filename: contains path separator '${sep4}'`);
+    }
+  }
+  if (filename.startsWith("/") || filename.startsWith("\\") || /^[a-zA-Z]:/.test(filename)) {
+    throw new Error("Invalid filename: absolute paths not allowed");
+  }
+  if (filename.length > MAX_FILENAME_LENGTH) {
+    throw new Error(`Invalid filename: exceeds maximum length of ${MAX_FILENAME_LENGTH} characters`);
+  }
+  if (!SAFE_FILENAME_PATTERN.test(filename)) {
+    throw new Error("Invalid filename: contains unsafe characters");
+  }
+  if (filename.includes("/") || filename.includes("\\")) {
+    throw new Error("Invalid filename: path separators not allowed");
+  }
+  if (!filename.trim() || filename.trim() !== filename) {
+    throw new Error("Invalid filename: cannot be empty or contain leading/trailing whitespace");
+  }
+  return filename;
+}
+
+class AutomationStatusArtifact {
+  swarmDir;
+  filename;
+  currentSnapshot;
+  constructor(swarmDir, filename = "automation-status.json") {
+    const sanitizedFilename = validateFilename(filename);
+    this.swarmDir = swarmDir;
+    this.filename = sanitizedFilename;
+    this.currentSnapshot = this.load() ?? createEmptySnapshot("manual", {
+      plan_sync: false,
+      phase_preflight: false,
+      config_doctor_on_startup: false,
+      config_doctor_autofix: false,
+      evidence_auto_summaries: false,
+      decision_drift_detection: false
+    });
+  }
+  getFilePath() {
+    return path36.join(this.swarmDir, this.filename);
+  }
+  load() {
+    const filePath = this.getFilePath();
+    try {
+      if (fs25.existsSync(filePath)) {
+        const content = fs25.readFileSync(filePath, "utf-8");
+        return JSON.parse(content);
+      }
+    } catch {}
+    return null;
+  }
+  write() {
+    const filePath = this.getFilePath();
+    if (!fs25.existsSync(this.swarmDir)) {
+      fs25.mkdirSync(this.swarmDir, { recursive: true });
+    }
+    fs25.writeFileSync(filePath, JSON.stringify(this.currentSnapshot, null, 2), "utf-8");
+  }
+  getSnapshot() {
+    return { ...this.currentSnapshot };
+  }
+  read() {
+    const loaded = this.load();
+    if (loaded) {
+      this.currentSnapshot = loaded;
+    }
+    return this.getSnapshot();
+  }
+  updateConfig(mode, capabilities) {
+    this.currentSnapshot = {
+      ...this.currentSnapshot,
+      mode,
+      enabled: mode !== "manual",
+      timestamp: Date.now(),
+      capabilities
+    };
+    this.write();
+  }
+  updatePhase(phase) {
+    this.currentSnapshot = {
+      ...this.currentSnapshot,
+      currentPhase: phase,
+      timestamp: Date.now()
+    };
+    this.write();
+  }
+  recordTrigger(triggeredAt, triggeredPhase, source, reason) {
+    this.currentSnapshot = {
+      ...this.currentSnapshot,
+      lastTrigger: {
+        triggeredAt,
+        triggeredPhase,
+        source,
+        reason
+      },
+      timestamp: Date.now()
+    };
+    this.write();
+  }
+  updatePendingActions(count) {
+    this.currentSnapshot = {
+      ...this.currentSnapshot,
+      pendingActions: count,
+      timestamp: Date.now()
+    };
+    this.write();
+  }
+  recordOutcome(state, phase, message) {
+    this.currentSnapshot = {
+      ...this.currentSnapshot,
+      lastOutcome: {
+        state,
+        phase,
+        outcomeAt: Date.now(),
+        message: message ?? null
+      },
+      timestamp: Date.now()
+    };
+    this.write();
+  }
+  clearOutcome() {
+    this.currentSnapshot = {
+      ...this.currentSnapshot,
+      lastOutcome: {
+        state: "none",
+        phase: null,
+        outcomeAt: null,
+        message: null
+      },
+      timestamp: Date.now()
+    };
+    this.write();
+  }
+  isEnabled() {
+    return this.currentSnapshot.enabled;
+  }
+  hasCapability(capability) {
+    return this.currentSnapshot.capabilities[capability] === true;
+  }
+  getGuiSummary() {
+    const { currentSnapshot } = this;
+    let status = "Disabled";
+    if (currentSnapshot.enabled) {
+      status = currentSnapshot.mode.charAt(0).toUpperCase() + currentSnapshot.mode.slice(1);
+    }
+    let lastTrigger = null;
+    if (currentSnapshot.lastTrigger?.triggeredAt) {
+      const date9 = new Date(currentSnapshot.lastTrigger.triggeredAt);
+      lastTrigger = date9.toLocaleTimeString();
+    }
+    let outcome = null;
+    if (currentSnapshot.lastOutcome?.state && currentSnapshot.lastOutcome.state !== "none") {
+      outcome = currentSnapshot.lastOutcome.state;
+    }
+    return {
+      status,
+      phase: currentSnapshot.currentPhase,
+      lastTrigger,
+      pending: currentSnapshot.pendingActions,
+      outcome
+    };
+  }
+}
+var MAX_FILENAME_LENGTH = 255, SAFE_FILENAME_PATTERN;
+var init_status_artifact = __esm(() => {
+  SAFE_FILENAME_PATTERN = /^[a-zA-Z0-9._-]+$/;
+});
+
+// src/background/trigger.ts
+var exports_trigger = {};
+__export(exports_trigger, {
+  PreflightTriggerManager: () => PreflightTriggerManager,
+  PhaseBoundaryTrigger: () => PhaseBoundaryTrigger
+});
+
+class PhaseBoundaryTrigger {
+  eventBus;
+  config;
+  lastKnownPhase = 0;
+  lastTriggeredPhase = 0;
+  constructor(eventBus, config3) {
+    this.eventBus = eventBus ?? getGlobalEventBus();
+    this.config = {
+      minCompletedTasksThreshold: config3?.minCompletedTasksThreshold ?? 1,
+      allowZeroTaskTrigger: config3?.allowZeroTaskTrigger ?? false
+    };
+  }
+  setCurrentPhase(phase) {
+    this.lastKnownPhase = phase;
+  }
+  getCurrentPhase() {
+    return this.lastKnownPhase;
+  }
+  get lastTriggeredPhaseValue() {
+    return this.lastTriggeredPhase;
+  }
+  detectBoundary(newPhase, completedTasks, totalTasks) {
+    if (newPhase === this.lastKnownPhase) {
+      return {
+        detected: false,
+        previousPhase: this.lastKnownPhase,
+        currentPhase: newPhase,
+        reason: "Phase unchanged",
+        completedTaskCount: completedTasks,
+        totalTaskCount: totalTasks
+      };
+    }
+    const boundaryResult = {
+      detected: true,
+      previousPhase: this.lastKnownPhase,
+      currentPhase: newPhase,
+      reason: `Phase transition from ${this.lastKnownPhase} to ${newPhase}`,
+      completedTaskCount: completedTasks,
+      totalTaskCount: totalTasks
+    };
+    this.lastKnownPhase = newPhase;
+    this.eventBus.publish("phase.boundary.detected", boundaryResult);
+    return boundaryResult;
+  }
+  shouldTriggerPreflight(boundaryResult) {
+    if (this.lastTriggeredPhase === boundaryResult.currentPhase) {
+      log("[Trigger] Preflight already triggered for phase", {
+        phase: boundaryResult.currentPhase
+      });
+      return false;
+    }
+    const threshold = this.config.minCompletedTasksThreshold ?? 1;
+    const hasMinimumCompletion = this.config.allowZeroTaskTrigger || boundaryResult.completedTaskCount >= threshold;
+    if (!hasMinimumCompletion) {
+      log("[Trigger] Preflight skipped - insufficient task completion", {
+        completed: boundaryResult.completedTaskCount,
+        required: threshold
+      });
+      return false;
+    }
+    return true;
+  }
+  markTriggered(phase) {
+    this.lastTriggeredPhase = phase;
+  }
+  reset() {
+    this.lastKnownPhase = 0;
+    this.lastTriggeredPhase = 0;
+  }
+}
+
+class PreflightTriggerManager {
+  automationConfig;
+  eventBus;
+  trigger;
+  requestQueue;
+  requestCounter = 0;
+  preflightHandler = null;
+  unsubscribe = null;
+  constructor(automationConfig, eventBus, triggerConfig) {
+    this.automationConfig = automationConfig;
+    this.eventBus = eventBus ?? getGlobalEventBus();
+    this.trigger = new PhaseBoundaryTrigger(this.eventBus, triggerConfig);
+    this.requestQueue = new AutomationQueue({
+      maxSize: 100,
+      defaultMaxRetries: 3
+    });
+  }
+  isEnabled() {
+    if (!this.automationConfig) {
+      return false;
+    }
+    if (!this.automationConfig.capabilities) {
+      return false;
+    }
+    const mode = this.automationConfig.mode;
+    if (mode === "manual") {
+      return false;
+    }
+    return this.automationConfig.capabilities.phase_preflight === true;
+  }
+  getMode() {
+    if (!this.automationConfig) {
+      return "unknown";
+    }
+    return this.automationConfig.mode ?? "unknown";
+  }
+  updatePhase(phase) {
+    this.trigger.setCurrentPhase(phase);
+  }
+  async checkAndTrigger(currentPhase, completedTasks, totalTasks) {
+    const phasePreflight = this.automationConfig?.capabilities?.phase_preflight;
+    const mode = this.automationConfig?.mode;
+    if (!this.isEnabled()) {
+      log("[PreflightTrigger] Disabled via feature flags", {
+        mode: mode ?? "unknown",
+        phase_preflight: phasePreflight
+      });
+      await this.eventBus.publish("preflight.skipped", {
+        reason: "feature_disabled",
+        mode: mode ?? "unknown",
+        phase_preflight: phasePreflight
+      });
+      return false;
+    }
+    const boundaryResult = this.trigger.detectBoundary(currentPhase, completedTasks, totalTasks);
+    if (!boundaryResult.detected) {
+      return false;
+    }
+    if (!this.trigger.shouldTriggerPreflight(boundaryResult)) {
+      await this.eventBus.publish("preflight.skipped", {
+        reason: "threshold_not_met",
+        boundary: boundaryResult
+      });
+      return false;
+    }
+    return this.triggerPreflight(boundaryResult);
+  }
+  async triggerPreflight(boundaryResult) {
+    const requestId = `preflight-${Date.now()}-${++this.requestCounter}`;
+    const request = {
+      id: requestId,
+      triggeredAt: Date.now(),
+      currentPhase: boundaryResult.currentPhase,
+      source: "phase_boundary",
+      reason: boundaryResult.reason,
+      metadata: {
+        completedTaskCount: boundaryResult.completedTaskCount,
+        totalTaskCount: boundaryResult.totalTaskCount
+      }
+    };
+    try {
+      this.requestQueue.enqueue(request, "high");
+    } catch (error93) {
+      log("[PreflightTrigger] Queue overflow - request skipped", {
+        requestId,
+        phase: boundaryResult.currentPhase,
+        error: error93 instanceof Error ? error93.message : String(error93)
+      });
+      await this.eventBus.publish("preflight.skipped", {
+        reason: "queue_overflow",
+        requestId,
+        phase: boundaryResult.currentPhase
+      });
+      return false;
+    }
+    this.trigger.markTriggered(boundaryResult.currentPhase);
+    await this.eventBus.publish("preflight.requested", request);
+    await this.eventBus.publish("preflight.triggered", {
+      requestId,
+      phase: boundaryResult.currentPhase,
+      timestamp: request.triggeredAt
+    });
+    log("[PreflightTrigger] Preflight triggered", {
+      requestId,
+      phase: boundaryResult.currentPhase,
+      completed: boundaryResult.completedTaskCount,
+      total: boundaryResult.totalTaskCount
+    });
+    return true;
+  }
+  getPendingRequests() {
+    return this.requestQueue.getAll().map((item) => item.payload);
+  }
+  getQueueSize() {
+    return this.requestQueue.size();
+  }
+  getStats() {
+    let mode = "unknown";
+    try {
+      mode = this.getMode();
+    } catch {
+      mode = "unknown";
+    }
+    return {
+      enabled: this.isEnabled(),
+      mode,
+      currentPhase: this.trigger.getCurrentPhase(),
+      lastTriggeredPhase: this.trigger.lastTriggeredPhaseValue,
+      pendingRequests: this.getQueueSize()
+    };
+  }
+  reset() {
+    this.trigger.reset();
+    this.requestQueue.clear();
+    if (this.unsubscribe) {
+      this.unsubscribe();
+      this.unsubscribe = null;
+    }
+  }
+  registerHandler(handler) {
+    if (this.unsubscribe) {
+      this.unsubscribe();
+    }
+    this.preflightHandler = handler;
+    const HANDLER_TIMEOUT_MS = 120000;
+    this.unsubscribe = this.eventBus.subscribe("preflight.requested", async (event) => {
+      if (this.preflightHandler) {
+        const request = event.payload;
+        let timeoutHandle;
+        try {
+          await Promise.race([
+            this.preflightHandler(request),
+            new Promise((_, reject) => {
+              timeoutHandle = setTimeout(() => {
+                reject(new Error(`Preflight handler timed out after ${HANDLER_TIMEOUT_MS}ms`));
+              }, HANDLER_TIMEOUT_MS);
+            })
+          ]);
+        } catch (error93) {
+          log("[PreflightTrigger] Handler error", {
+            requestId: request.id,
+            phase: request.currentPhase,
+            errorType: error93 instanceof Error ? error93.name : "unknown"
+          });
+        } finally {
+          clearTimeout(timeoutHandle);
+        }
+      }
+    });
+    log("[PreflightTrigger] Handler registered");
+  }
+  unregisterHandler() {
+    if (this.unsubscribe) {
+      this.unsubscribe();
+      this.unsubscribe = null;
+    }
+    this.preflightHandler = null;
+    log("[PreflightTrigger] Handler unregistered");
+  }
+  hasHandler() {
+    return this.preflightHandler !== null;
+  }
+}
+var init_trigger = __esm(() => {
+  init_utils();
+  init_event_bus();
+  init_queue();
 });
 
 // src/gate-evidence.ts
@@ -38709,7 +38786,7 @@ var init_curator_drift = __esm(() => {
   init_utils2();
 });
 
-// node_modules/.bun/web-tree-sitter@0.25.10/node_modules/web-tree-sitter/tree-sitter.js
+// node_modules/web-tree-sitter/tree-sitter.js
 function assertInternal(x) {
   if (x !== INTERNAL)
     throw new Error("Illegal constructor");
@@ -42068,16 +42145,145 @@ init_config();
 init_constants();
 init_schema();
 
-// src/agents/architect.ts
-init_constants();
+// src/commands/agents.ts
+function handleAgentsCommand(agents, guardrails) {
+  const entries = Object.entries(agents);
+  if (entries.length === 0) {
+    return "No agents registered.";
+  }
+  const lines = [`## Registered Agents (${entries.length} total)`, ""];
+  for (const [key, agent] of entries) {
+    const model = agent.config.model || "default";
+    const temp = agent.config.temperature !== undefined ? agent.config.temperature.toString() : "default";
+    const tools = agent.config.tools || {};
+    const isReadOnly = tools.write === false || tools.edit === false;
+    const access = isReadOnly ? "\uD83D\uDD12 read-only" : "\u270F\uFE0F read-write";
+    const desc = agent.description || agent.config.description || "";
+    const hasCustomProfile = guardrails?.profiles?.[key] !== undefined;
+    const profileIndicator = hasCustomProfile ? " | \u26A1 custom limits" : "";
+    lines.push(`- **${key}** | model: \`${model}\` | temp: ${temp} | ${access}${profileIndicator}`);
+    if (desc) {
+      lines.push(`  ${desc}`);
+    }
+  }
+  if (guardrails?.profiles && Object.keys(guardrails.profiles).length > 0) {
+    lines.push("", "### Guardrail Profiles", "");
+    for (const [profileName, profile] of Object.entries(guardrails.profiles)) {
+      const overrides = [];
+      if (profile.max_tool_calls !== undefined) {
+        overrides.push(`max_tool_calls=${profile.max_tool_calls}`);
+      }
+      if (profile.max_duration_minutes !== undefined) {
+        overrides.push(`max_duration_minutes=${profile.max_duration_minutes}`);
+      }
+      if (profile.max_repetitions !== undefined) {
+        overrides.push(`max_repetitions=${profile.max_repetitions}`);
+      }
+      if (profile.max_consecutive_errors !== undefined) {
+        overrides.push(`max_consecutive_errors=${profile.max_consecutive_errors}`);
+      }
+      if (profile.warning_threshold !== undefined) {
+        overrides.push(`warning_threshold=${profile.warning_threshold}`);
+      }
+      const overrideStr = overrides.length > 0 ? overrides.join(", ") : "no overrides";
+      lines.push(`- **${profileName}**: ${overrideStr}`);
+    }
+  }
+  return lines.join(`
+`);
+}
+
+// src/commands/analyze.ts
+async function handleAnalyzeCommand(_directory, args2) {
+  const description = args2.join(" ").trim();
+  if (description) {
+    return `[MODE: ANALYZE] ${description}`;
+  }
+  return "[MODE: ANALYZE] Please analyze the spec against the plan using MODE: ANALYZE.";
+}
+
+// src/commands/archive.ts
+init_loader();
+init_manager();
+async function handleArchiveCommand(directory, args2) {
+  const config2 = loadPluginConfig(directory);
+  const maxAgeDays = config2?.evidence?.max_age_days ?? 90;
+  const maxBundles = config2?.evidence?.max_bundles ?? 1000;
+  const dryRun = args2.includes("--dry-run");
+  const beforeTaskIds = await listEvidenceTaskIds(directory);
+  if (beforeTaskIds.length === 0) {
+    return "No evidence bundles to archive.";
+  }
+  if (dryRun) {
+    const cutoffDate = new Date;
+    cutoffDate.setDate(cutoffDate.getDate() - maxAgeDays);
+    const cutoffIso = cutoffDate.toISOString();
+    const wouldArchiveAge = [];
+    const remainingBundles = [];
+    for (const taskId of beforeTaskIds) {
+      const result = await loadEvidence(directory, taskId);
+      if (result.status !== "found") {
+        continue;
+      }
+      if (result.bundle.updated_at < cutoffIso) {
+        wouldArchiveAge.push(taskId);
+      } else {
+        remainingBundles.push({ taskId, updatedAt: result.bundle.updated_at });
+      }
+    }
+    const wouldArchiveMaxBundles = [];
+    const remainingAfterAge = beforeTaskIds.length - wouldArchiveAge.length;
+    if (remainingAfterAge > maxBundles) {
+      remainingBundles.sort((a, b) => a.updatedAt.localeCompare(b.updatedAt));
+      const excessCount = remainingAfterAge - maxBundles;
+      wouldArchiveMaxBundles.push(...remainingBundles.slice(0, excessCount).map((b) => b.taskId));
+    }
+    const totalWouldArchive = wouldArchiveAge.length + wouldArchiveMaxBundles.length;
+    if (totalWouldArchive === 0) {
+      return `No evidence bundles older than ${maxAgeDays} days found, and bundle count (${beforeTaskIds.length}) is within max_bundles limit (${maxBundles}).`;
+    }
+    const lines2 = [
+      "## Archive Preview (dry run)",
+      "",
+      `**Retention**: ${maxAgeDays} days`,
+      `**Max bundles**: ${maxBundles}`,
+      `**Would archive**: ${totalWouldArchive} bundle(s)`
+    ];
+    if (wouldArchiveAge.length > 0) {
+      lines2.push("", `**Age-based (${wouldArchiveAge.length})**:`, ...wouldArchiveAge.map((id) => `- ${id}`));
+    }
+    if (wouldArchiveMaxBundles.length > 0) {
+      lines2.push("", `**Max bundles limit (${wouldArchiveMaxBundles.length})**:`, ...wouldArchiveMaxBundles.map((id) => `- ${id}`));
+    }
+    return lines2.join(`
+`);
+  }
+  const archived = await archiveEvidence(directory, maxAgeDays, maxBundles);
+  if (archived.length === 0) {
+    return `No evidence bundles older than ${maxAgeDays} days found.`;
+  }
+  const lines = [
+    "## Evidence Archived",
+    "",
+    `**Retention**: ${maxAgeDays} days`,
+    `**Archived**: ${archived.length} bundle(s)`,
+    "",
+    ...archived.map((id) => `- ${id}`)
+  ];
+  return lines.join(`
+`);
+}
+
+// src/commands/benchmark.ts
+init_manager();
 
 // src/state.ts
 init_constants();
 init_plan_schema();
 init_schema();
 init_telemetry();
-import * as fs4 from "fs/promises";
-import * as path3 from "path";
+import * as fs5 from "fs/promises";
+import * as path5 from "path";
 var _rehydrationCache = null;
 var swarmState = {
   activeToolCalls: new Map,
@@ -42432,8 +42638,8 @@ function evidenceToWorkflowState(evidence) {
 }
 async function readPlanFromDisk(directory) {
   try {
-    const planPath = path3.join(directory, ".swarm", "plan.json");
-    const content = await fs4.readFile(planPath, "utf-8");
+    const planPath = path5.join(directory, ".swarm", "plan.json");
+    const content = await fs5.readFile(planPath, "utf-8");
     const parsed = JSON.parse(content);
     return PlanSchema.parse(parsed);
   } catch {
@@ -42443,8 +42649,8 @@ async function readPlanFromDisk(directory) {
 async function readGateEvidenceFromDisk(directory) {
   const evidenceMap = new Map;
   try {
-    const evidenceDir = path3.join(directory, ".swarm", "evidence");
-    const entries = await fs4.readdir(evidenceDir, { withFileTypes: true });
+    const evidenceDir = path5.join(directory, ".swarm", "evidence");
+    const entries = await fs5.readdir(evidenceDir, { withFileTypes: true });
     for (const entry of entries) {
       if (!entry.isFile() || !entry.name.endsWith(".json")) {
         continue;
@@ -42454,8 +42660,8 @@ async function readGateEvidenceFromDisk(directory) {
         continue;
       }
       try {
-        const filePath = path3.join(evidenceDir, entry.name);
-        const content = await fs4.readFile(filePath, "utf-8");
+        const filePath = path5.join(evidenceDir, entry.name);
+        const content = await fs5.readFile(filePath, "utf-8");
         const parsed = JSON.parse(content);
         if (parsed && typeof parsed.taskId === "string" && Array.isArray(parsed.required_gates)) {
           evidenceMap.set(taskId, parsed);
@@ -42530,7 +42736,7362 @@ function hasActiveTurboMode(sessionID) {
   return false;
 }
 
+// src/commands/benchmark.ts
+init_utils();
+var CI = {
+  review_pass_rate: 70,
+  test_pass_rate: 80,
+  max_agent_error_rate: 20,
+  max_hard_limit_hits: 1,
+  max_complexity_delta: 5,
+  max_public_api_delta: 10,
+  max_duplication_ratio: 5,
+  min_test_to_code_ratio: 30
+};
+async function handleBenchmarkCommand(directory, args2) {
+  let cumulative = args2.includes("--cumulative");
+  if (args2.includes("--ci-gate"))
+    cumulative = true;
+  const mode = cumulative ? "cumulative" : "in-memory";
+  const agentMap = new Map;
+  for (const [, s] of swarmState.agentSessions) {
+    const e = agentMap.get(s.agentName) || {
+      toolCalls: 0,
+      hardLimits: 0,
+      warnings: 0
+    };
+    const windows = Object.values(s.windows);
+    e.toolCalls += windows.reduce((sum, w) => sum + w.toolCalls, 0);
+    e.hardLimits += windows.filter((w) => w.hardLimitHit).length;
+    e.warnings += windows.filter((w) => w.warningIssued).length;
+    agentMap.set(s.agentName, e);
+  }
+  const agentHealth = Array.from(agentMap.entries()).map(([a, v]) => ({
+    agent: a,
+    ...v
+  }));
+  const toolPerf = [];
+  for (const [, a] of swarmState.toolAggregates) {
+    const successRate = a.count ? a.successCount / a.count * 100 : 0;
+    toolPerf.push({
+      tool: a.tool,
+      calls: a.count,
+      successRate: Math.round(successRate * 10) / 10,
+      avg: a.count ? Math.round(a.totalDuration / a.count) : 0
+    });
+  }
+  toolPerf.sort((a, b) => b.calls - a.calls);
+  let delegationCount = 0;
+  for (const c of swarmState.delegationChains.values())
+    delegationCount += c.length;
+  let quality;
+  let qualityMetrics;
+  if (cumulative) {
+    let reviewPasses = 0, reviewFails = 0, testPasses = 0, testFails = 0, additions = 0, deletions = 0;
+    let totalComplexityDelta = 0;
+    let totalPublicApiDelta = 0;
+    let totalDuplicationRatio = 0;
+    let totalTestToCodeRatio = 0;
+    let qualityEvidenceCount = 0;
+    for (const tid of await listEvidenceTaskIds(directory)) {
+      const result = await loadEvidence(directory, tid);
+      if (result.status !== "found")
+        continue;
+      for (const e of result.bundle.entries) {
+        if (!isValidEvidenceType(e.type)) {
+          warn(`Unknown evidence type '${e.type}' in task ${tid}, skipping`);
+          continue;
+        }
+        if (e.type === "review") {
+          if (e.verdict === "approved")
+            reviewPasses++;
+          else if (e.verdict === "rejected")
+            reviewFails++;
+        } else if (e.type === "test") {
+          testPasses += e.tests_passed;
+          testFails += e.tests_failed;
+        } else if (e.type === "diff") {
+          additions += e.additions;
+          deletions += e.deletions;
+        } else if (e.type === "quality_budget") {
+          const qe = e;
+          totalComplexityDelta += qe.metrics.complexity_delta;
+          totalPublicApiDelta += qe.metrics.public_api_delta;
+          totalDuplicationRatio += qe.metrics.duplication_ratio * 100;
+          totalTestToCodeRatio += qe.metrics.test_to_code_ratio * 100;
+          qualityEvidenceCount++;
+        }
+      }
+    }
+    const totalReviews = reviewPasses + reviewFails, totalTests = testPasses + testFails;
+    quality = {
+      reviewPassRate: totalReviews ? Math.round(reviewPasses / totalReviews * 1000) / 10 : null,
+      testPassRate: totalTests ? Math.round(testPasses / totalTests * 1000) / 10 : null,
+      totalReviews,
+      testsPassed: testPasses,
+      testsFailed: testFails,
+      additions,
+      deletions
+    };
+    if (qualityEvidenceCount > 0) {
+      qualityMetrics = {
+        complexityDelta: Math.round(totalComplexityDelta / qualityEvidenceCount * 10) / 10,
+        publicApiDelta: Math.round(totalPublicApiDelta / qualityEvidenceCount * 10) / 10,
+        duplicationRatio: Math.round(totalDuplicationRatio / qualityEvidenceCount * 10) / 10,
+        testToCodeRatio: Math.round(totalTestToCodeRatio / qualityEvidenceCount * 10) / 10,
+        thresholds: {
+          maxComplexityDelta: CI.max_complexity_delta,
+          maxPublicApiDelta: CI.max_public_api_delta,
+          maxDuplicationRatio: CI.max_duplication_ratio,
+          minTestToCodeRatio: CI.min_test_to_code_ratio
+        },
+        hasEvidence: true
+      };
+    } else {
+      qualityMetrics = {
+        complexityDelta: 0,
+        publicApiDelta: 0,
+        duplicationRatio: 0,
+        testToCodeRatio: 0,
+        thresholds: {
+          maxComplexityDelta: CI.max_complexity_delta,
+          maxPublicApiDelta: CI.max_public_api_delta,
+          maxDuplicationRatio: CI.max_duplication_ratio,
+          minTestToCodeRatio: CI.min_test_to_code_ratio
+        },
+        hasEvidence: false
+      };
+    }
+  }
+  let ciGate;
+  if (args2.includes("--ci-gate")) {
+    let totalCalls = 0, totalFailures = 0;
+    for (const [, a] of swarmState.toolAggregates) {
+      totalCalls += a.count;
+      totalFailures += a.failureCount;
+    }
+    const agentErrorRate = totalCalls ? totalFailures / totalCalls * 100 : 0;
+    let maxHardLimits = 0;
+    for (const v of agentMap.values())
+      if (v.hardLimits > maxHardLimits)
+        maxHardLimits = v.hardLimits;
+    const hasQualityEvidence = qualityMetrics?.hasEvidence ?? false;
+    const complexityDelta = qualityMetrics?.complexityDelta ?? 0;
+    const publicApiDelta = qualityMetrics?.publicApiDelta ?? 0;
+    const duplicationRatio = qualityMetrics?.duplicationRatio ?? 0;
+    const testToCodeRatio = qualityMetrics?.testToCodeRatio ?? 0;
+    const checks3 = [
+      {
+        name: "Review pass rate",
+        value: quality?.reviewPassRate ?? 0,
+        threshold: CI.review_pass_rate,
+        operator: ">=",
+        passed: (quality?.reviewPassRate ?? 0) >= CI.review_pass_rate
+      },
+      {
+        name: "Test pass rate",
+        value: quality?.testPassRate ?? 0,
+        threshold: CI.test_pass_rate,
+        operator: ">=",
+        passed: (quality?.testPassRate ?? 0) >= CI.test_pass_rate
+      },
+      {
+        name: "Agent error rate",
+        value: Math.round(agentErrorRate * 10) / 10,
+        threshold: CI.max_agent_error_rate,
+        operator: "<=",
+        passed: agentErrorRate <= CI.max_agent_error_rate
+      },
+      {
+        name: "Hard limit hits",
+        value: maxHardLimits,
+        threshold: CI.max_hard_limit_hits,
+        operator: "<=",
+        passed: maxHardLimits <= CI.max_hard_limit_hits
+      },
+      {
+        name: "Complexity Delta",
+        value: complexityDelta,
+        threshold: CI.max_complexity_delta,
+        operator: "<=",
+        passed: !hasQualityEvidence || complexityDelta <= CI.max_complexity_delta
+      },
+      {
+        name: "Public API Delta",
+        value: publicApiDelta,
+        threshold: CI.max_public_api_delta,
+        operator: "<=",
+        passed: !hasQualityEvidence || publicApiDelta <= CI.max_public_api_delta
+      },
+      {
+        name: "Duplication Ratio",
+        value: duplicationRatio,
+        threshold: CI.max_duplication_ratio,
+        operator: "<=",
+        passed: !hasQualityEvidence || duplicationRatio <= CI.max_duplication_ratio
+      },
+      {
+        name: "Test-to-Code Ratio",
+        value: testToCodeRatio,
+        threshold: CI.min_test_to_code_ratio,
+        operator: ">=",
+        passed: !hasQualityEvidence || testToCodeRatio >= CI.min_test_to_code_ratio
+      }
+    ];
+    ciGate = { passed: checks3.every((c) => c.passed), checks: checks3 };
+  }
+  const lines = [
+    `## Swarm Benchmark (mode: ${mode})`,
+    "",
+    "### Agent Health"
+  ];
+  if (!agentHealth.length)
+    lines.push("No agent sessions recorded");
+  else
+    for (const { agent, toolCalls, hardLimits, warnings } of agentHealth) {
+      const parts2 = [`${toolCalls} tool calls`];
+      if (warnings > 0)
+        parts2.push(`${warnings} warning${warnings > 1 ? "s" : ""}`);
+      parts2.push(hardLimits ? `${hardLimits} hard limit hit${hardLimits > 1 ? "s" : ""}` : "0 hard limits");
+      lines.push(`- ${hardLimits ? "\u26A0\uFE0F" : "\u2705"} **${agent}**: ${parts2.join(", ")}`);
+    }
+  lines.push("", "### Tool Performance");
+  if (!toolPerf.length)
+    lines.push("No tool data recorded");
+  else {
+    lines.push("| Tool | Calls | Success Rate | Avg Duration |", "|------|-------|-------------|-------------|");
+    for (const { tool, calls, successRate, avg } of toolPerf)
+      lines.push(`| ${tool} | ${calls} | ${successRate}% | ${avg}ms |`);
+  }
+  lines.push("", "### Delegations", delegationCount ? `Total: ${delegationCount} delegations` : "No delegations recorded", "");
+  if (quality) {
+    lines.push("### Quality Signals");
+    if (!quality.totalReviews && !quality.testsPassed && !quality.additions)
+      lines.push("No evidence data found");
+    else {
+      if (quality.reviewPassRate !== null)
+        lines.push(`- Review pass rate: ${quality.reviewPassRate}% (${quality.totalReviews}) ${quality.reviewPassRate >= 70 ? "\u2705" : "\u274C"}`);
+      else
+        lines.push("- Review pass rate: N/A (no reviews)");
+      if (quality.testPassRate !== null)
+        lines.push(`- Test pass rate: ${quality.testPassRate}% (${quality.testsPassed}/${quality.testsPassed + quality.testsFailed}) ${quality.testPassRate >= 80 ? "\u2705" : "\u274C"}`);
+      else
+        lines.push("- Test pass rate: N/A (no tests)");
+      lines.push(`- Code churn: +${quality.additions} / -${quality.deletions} lines`);
+    }
+    lines.push("");
+  }
+  if (qualityMetrics?.hasEvidence) {
+    lines.push("### Quality Metrics");
+    lines.push(`- Complexity Delta: ${qualityMetrics.complexityDelta} (max: ${qualityMetrics.thresholds.maxComplexityDelta}) ${qualityMetrics.complexityDelta <= qualityMetrics.thresholds.maxComplexityDelta ? "\u2705" : "\u274C"}`);
+    lines.push(`- Public API Delta: ${qualityMetrics.publicApiDelta} (max: ${qualityMetrics.thresholds.maxPublicApiDelta}) ${qualityMetrics.publicApiDelta <= qualityMetrics.thresholds.maxPublicApiDelta ? "\u2705" : "\u274C"}`);
+    lines.push(`- Duplication Ratio: ${qualityMetrics.duplicationRatio}% (max: ${qualityMetrics.thresholds.maxDuplicationRatio}%) ${qualityMetrics.duplicationRatio <= qualityMetrics.thresholds.maxDuplicationRatio ? "\u2705" : "\u274C"}`);
+    lines.push(`- Test-to-Code Ratio: ${qualityMetrics.testToCodeRatio}% (min: ${qualityMetrics.thresholds.minTestToCodeRatio}%) ${qualityMetrics.testToCodeRatio >= qualityMetrics.thresholds.minTestToCodeRatio ? "\u2705" : "\u274C"}`);
+    lines.push("");
+  }
+  if (ciGate) {
+    lines.push("### CI Gate", ciGate.passed ? "\u2705 PASSED" : "\u274C FAILED");
+    for (const c of ciGate.checks) {
+      let valueStr;
+      if (c.name === "Complexity Delta" || c.name === "Public API Delta") {
+        valueStr = `${c.value}`;
+      } else {
+        valueStr = `${c.value}%`;
+      }
+      const thresholdStr = c.name === "Complexity Delta" || c.name === "Public API Delta" ? `${c.threshold}` : `${c.threshold}%`;
+      lines.push(`- ${c.name}: ${valueStr} ${c.operator} ${thresholdStr} ${c.passed ? "\u2705" : "\u274C"}`);
+    }
+    lines.push("");
+  }
+  const json2 = {
+    mode,
+    timestamp: new Date().toISOString(),
+    agent_health: agentHealth.map((a) => ({
+      agent: a.agent,
+      tool_calls: a.toolCalls,
+      hard_limit_hits: a.hardLimits,
+      warnings: a.warnings
+    })),
+    tool_performance: toolPerf.map((t) => ({
+      tool: t.tool,
+      calls: t.calls,
+      success_rate: t.successRate,
+      avg_duration_ms: t.avg
+    })),
+    delegations: delegationCount
+  };
+  if (quality)
+    json2.quality = {
+      review_pass_rate: quality.reviewPassRate,
+      test_pass_rate: quality.testPassRate,
+      total_reviews: quality.totalReviews,
+      total_tests_passed: quality.testsPassed,
+      total_tests_failed: quality.testsFailed,
+      additions: quality.additions,
+      deletions: quality.deletions
+    };
+  if (qualityMetrics)
+    json2.quality_metrics = {
+      complexity_delta: qualityMetrics.complexityDelta,
+      public_api_delta: qualityMetrics.publicApiDelta,
+      duplication_ratio: qualityMetrics.duplicationRatio,
+      test_to_code_ratio: qualityMetrics.testToCodeRatio,
+      thresholds: qualityMetrics.thresholds,
+      has_evidence: qualityMetrics.hasEvidence
+    };
+  if (ciGate)
+    json2.ci_gate = {
+      passed: ciGate.passed,
+      checks: ciGate.checks.map((c) => ({
+        name: c.name,
+        value: c.value,
+        threshold: c.threshold,
+        operator: c.operator,
+        passed: c.passed
+      }))
+    };
+  lines.push("[BENCHMARK_JSON]", JSON.stringify(json2, null, 2), "[/BENCHMARK_JSON]");
+  return lines.join(`
+`);
+}
+
+// src/commands/checkpoint.ts
+init_zod();
+init_checkpoint();
+var CheckpointResultSchema = exports_external.object({
+  action: exports_external.string().optional(),
+  success: exports_external.boolean(),
+  error: exports_external.string().optional(),
+  checkpoints: exports_external.array(exports_external.unknown()).optional()
+}).passthrough();
+function safeParseResult(result) {
+  const parsed = CheckpointResultSchema.safeParse(JSON.parse(result));
+  if (!parsed.success) {
+    return {
+      success: false,
+      error: `Invalid response: ${parsed.error.message}`
+    };
+  }
+  return parsed.data;
+}
+async function handleCheckpointCommand(directory, args2) {
+  const subcommand = args2[0] || "list";
+  const label = args2[1];
+  switch (subcommand) {
+    case "save":
+      return handleSave2(directory, label);
+    case "restore":
+      return handleRestore2(directory, label);
+    case "delete":
+      return handleDelete2(directory, label);
+    default:
+      return handleList2(directory);
+  }
+}
+async function handleSave2(directory, label) {
+  if (!label) {
+    return "Error: Label required. Usage: `/swarm checkpoint save <label>`";
+  }
+  try {
+    const result = await checkpoint.execute({ action: "save", label }, {
+      directory
+    });
+    const parsed = safeParseResult(result);
+    if (parsed.success) {
+      return `\u2713 Checkpoint saved: "${label}"`;
+    } else {
+      return `Error: ${parsed.error || "Failed to save checkpoint"}`;
+    }
+  } catch (error93) {
+    const msg = error93 instanceof Error ? error93.message : String(error93);
+    return `Error: ${msg}`;
+  }
+}
+async function handleRestore2(directory, label) {
+  if (!label) {
+    return "Error: Label required. Usage: `/swarm checkpoint restore <label>`";
+  }
+  try {
+    const result = await checkpoint.execute({ action: "restore", label }, {
+      directory
+    });
+    const parsed = safeParseResult(result);
+    if (parsed.success) {
+      return `\u2713 Restored to checkpoint: "${label}"`;
+    } else {
+      return `Error: ${parsed.error || "Failed to restore checkpoint"}`;
+    }
+  } catch (error93) {
+    const msg = error93 instanceof Error ? error93.message : String(error93);
+    return `Error: ${msg}`;
+  }
+}
+async function handleDelete2(directory, label) {
+  if (!label) {
+    return "Error: Label required. Usage: `/swarm checkpoint delete <label>`";
+  }
+  try {
+    const result = await checkpoint.execute({ action: "delete", label }, {
+      directory
+    });
+    const parsed = safeParseResult(result);
+    if (parsed.success) {
+      return `\u2713 Checkpoint deleted: "${label}"`;
+    } else {
+      return `Error: ${parsed.error || "Failed to delete checkpoint"}`;
+    }
+  } catch (error93) {
+    const msg = error93 instanceof Error ? error93.message : String(error93);
+    return `Error: ${msg}`;
+  }
+}
+async function handleList2(directory) {
+  try {
+    const result = await checkpoint.execute({ action: "list" }, {
+      directory
+    });
+    const parsed = safeParseResult(result);
+    if (!parsed.success) {
+      return `Error: ${parsed.error || "Failed to list checkpoints"}`;
+    }
+    const checkpoints = parsed.checkpoints || [];
+    if (checkpoints.length === 0) {
+      return "No checkpoints found. Create one with `/swarm checkpoint save <label>`";
+    }
+    const lines = [
+      "## Checkpoints",
+      "",
+      ...checkpoints.map((c) => `- "${c.label}" \u2014 ${new Date(c.timestamp).toLocaleString()}`),
+      "",
+      "Commands:",
+      "- `/swarm checkpoint save <label>` \u2014 Create checkpoint",
+      "- `/swarm checkpoint restore <label>` \u2014 Restore checkpoint",
+      "- `/swarm checkpoint delete <label>` \u2014 Delete checkpoint"
+    ];
+    return lines.join(`
+`);
+  } catch (error93) {
+    const msg = error93 instanceof Error ? error93.message : String(error93);
+    return `Error: ${msg}`;
+  }
+}
+
+// src/commands/clarify.ts
+async function handleClarifyCommand(_directory, args2) {
+  const description = args2.join(" ").trim();
+  if (description) {
+    return `[MODE: CLARIFY-SPEC] ${description}`;
+  }
+  return "[MODE: CLARIFY-SPEC] Please enter MODE: CLARIFY-SPEC and clarify the existing spec.";
+}
+
+// src/commands/close.ts
+init_schema();
+init_manager();
+import { execFileSync } from "child_process";
+import { promises as fs9 } from "fs";
+import path14 from "path";
+
+// src/hooks/knowledge-reader.ts
+init_knowledge_store();
+import { existsSync as existsSync5 } from "fs";
+import { mkdir as mkdir2, readFile as readFile3, writeFile as writeFile2 } from "fs/promises";
+import * as path8 from "path";
+var JACCARD_THRESHOLD = 0.6;
+var HIVE_TIER_BOOST = 0.05;
+var SAME_PROJECT_PENALTY = -0.05;
+function inferCategoriesFromPhase(phaseDescription) {
+  const lower = phaseDescription.toLowerCase();
+  const patterns = [
+    {
+      pattern: /\b(?:test|qa|quality|verification|validation)\b/,
+      categories: ["testing", "debugging"]
+    },
+    {
+      pattern: /\b(?:implement|build|develop|coding|code)\b/,
+      categories: ["tooling", "architecture", "debugging"]
+    },
+    {
+      pattern: /\b(?:integrat|deploy|ci|cd|release|publish)\b/,
+      categories: ["integration", "tooling", "performance"]
+    },
+    {
+      pattern: /\b(?:plan|design|architect|spec|requirement)\b/,
+      categories: ["architecture", "process"]
+    },
+    {
+      pattern: /\b(?:review|refactor|cleanup|polish|optimi)\b/,
+      categories: ["performance", "architecture", "process"]
+    },
+    {
+      pattern: /\b(?:secur|audit|harden|compliance)\b/,
+      categories: ["security", "testing"]
+    },
+    {
+      pattern: /\b(?:setup|config|scaffold|init|bootstrap)\b/,
+      categories: ["tooling", "other"]
+    },
+    {
+      pattern: /\b(?:doc|readme|changelog)\b/,
+      categories: ["process", "tooling"]
+    }
+  ];
+  for (const { pattern, categories } of patterns) {
+    if (pattern.test(lower)) {
+      return categories;
+    }
+  }
+  return ["process", "tooling"];
+}
+async function recordLessonsShown(directory, lessonIds, currentPhase) {
+  const shownFile = path8.join(directory, ".swarm", ".knowledge-shown.json");
+  try {
+    let shownData = {};
+    if (existsSync5(shownFile)) {
+      const content = await readFile3(shownFile, "utf-8");
+      shownData = JSON.parse(content);
+    }
+    const phaseMatch = /^Phase\s+(\d+)/i.exec(currentPhase);
+    const canonicalKey = phaseMatch ? `Phase ${phaseMatch[1]}` : currentPhase;
+    shownData[canonicalKey] = lessonIds;
+    await mkdir2(path8.dirname(shownFile), { recursive: true });
+    await writeFile2(shownFile, JSON.stringify(shownData, null, 2), "utf-8");
+  } catch {
+    console.warn("[swarm] Knowledge: failed to record shown lessons");
+  }
+}
+async function readMergedKnowledge(directory, config3, context) {
+  const swarmPath = resolveSwarmKnowledgePath(directory);
+  const swarmEntries = await readKnowledge(swarmPath);
+  let hiveEntries = [];
+  if (config3.hive_enabled !== false) {
+    const hivePath = resolveHiveKnowledgePath();
+    hiveEntries = await readKnowledge(hivePath);
+  }
+  const seenLessons = new Set;
+  const merged = [];
+  for (const entry of hiveEntries) {
+    const normalized = normalize2(entry.lesson);
+    seenLessons.add(normalized);
+    merged.push({
+      ...entry,
+      relevanceScore: { category: 0, confidence: 0, keywords: 0 },
+      finalScore: 0
+    });
+  }
+  for (const entry of swarmEntries) {
+    const normalized = normalize2(entry.lesson);
+    if (seenLessons.has(normalized)) {
+      continue;
+    }
+    const swarmBigrams = wordBigrams(normalized);
+    const isHiveNearDup = hiveEntries.some((hiveEntry) => jaccardBigram(swarmBigrams, wordBigrams(normalize2(hiveEntry.lesson))) >= JACCARD_THRESHOLD);
+    if (isHiveNearDup)
+      continue;
+    const isSwarmNearDup = merged.some((m) => m.tier === "swarm" && jaccardBigram(swarmBigrams, wordBigrams(normalize2(m.lesson))) >= JACCARD_THRESHOLD);
+    if (isSwarmNearDup)
+      continue;
+    seenLessons.add(normalized);
+    merged.push({
+      ...entry,
+      relevanceScore: { category: 0, confidence: 0, keywords: 0 },
+      finalScore: 0
+    });
+  }
+  const scopeFilter = config3.scope_filter ?? ["global"];
+  const filtered = merged.filter((entry) => scopeFilter.some((pattern) => (entry.scope ?? "global") === pattern));
+  const ranked = filtered.map((entry) => {
+    let categoryScore = 0;
+    if (context?.currentPhase) {
+      const phaseCategories = inferCategoriesFromPhase(context.currentPhase);
+      if (phaseCategories.includes(entry.category)) {
+        categoryScore = 1;
+      } else if (entry.category === "process") {
+        categoryScore = 0.5;
+      }
+    } else {
+      categoryScore = 0.5;
+    }
+    const confidenceScore = entry.confidence;
+    let keywordsScore = 0;
+    if (context?.techStack && entry.tags.length > 0) {
+      const matchingTags = entry.tags.filter((t) => context.techStack.some((s) => t.toLowerCase().includes(s.toLowerCase()) || s.toLowerCase().includes(t.toLowerCase()))).length;
+      keywordsScore = Math.min(matchingTags / Math.max(entry.tags.length, 1), 1);
+    } else if (entry.tags.length === 0) {
+      keywordsScore = 0.5;
+    }
+    const tierBoost = entry.tier === "hive" ? HIVE_TIER_BOOST : 0;
+    const isSameProjectSource = context?.projectName && entry.tier === "hive" && "source_project" in entry && entry.source_project === context.projectName;
+    const sameProjectPenalty = isSameProjectSource ? SAME_PROJECT_PENALTY : 0;
+    const finalScore = categoryScore * 0.4 + confidenceScore * 0.35 + keywordsScore * 0.25 + tierBoost + sameProjectPenalty;
+    const relevanceScore = {
+      category: categoryScore,
+      confidence: confidenceScore,
+      keywords: keywordsScore
+    };
+    return {
+      ...entry,
+      relevanceScore,
+      finalScore: Math.min(Math.max(finalScore, 0), 1)
+    };
+  });
+  ranked.sort((a, b) => {
+    const scoreDiff = b.finalScore - a.finalScore;
+    if (Math.abs(scoreDiff) > 0.001)
+      return scoreDiff;
+    const dateA = new Date(a.created_at).getTime();
+    const dateB = new Date(b.created_at).getTime();
+    return dateB - dateA;
+  });
+  const maxInject = config3.max_inject_count ?? 5;
+  const topN = ranked.slice(0, maxInject);
+  if (topN.length > 0 && context?.currentPhase) {
+    recordLessonsShown(directory, topN.map((e) => e.id), context.currentPhase).catch(() => {});
+  }
+  return topN;
+}
+async function updateRetrievalOutcome(directory, phaseInfo, phaseSucceeded) {
+  const shownFile = path8.join(directory, ".swarm", ".knowledge-shown.json");
+  try {
+    if (!existsSync5(shownFile)) {
+      return;
+    }
+    const content = await readFile3(shownFile, "utf-8");
+    const shownData = JSON.parse(content);
+    const shownIds = shownData[phaseInfo];
+    if (!shownIds || shownIds.length === 0) {
+      return;
+    }
+    const swarmPath = resolveSwarmKnowledgePath(directory);
+    const entries = await readKnowledge(swarmPath);
+    let updated = false;
+    const foundInSwarm = new Set;
+    for (const entry of entries) {
+      if (shownIds.includes(entry.id)) {
+        entry.retrieval_outcomes.applied_count++;
+        if (phaseSucceeded) {
+          entry.retrieval_outcomes.succeeded_after_count++;
+        } else {
+          entry.retrieval_outcomes.failed_after_count++;
+        }
+        updated = true;
+        foundInSwarm.add(entry.id);
+      }
+    }
+    if (updated) {
+      await rewriteKnowledge(swarmPath, entries);
+    }
+    const remainingIds = shownIds.filter((id) => !foundInSwarm.has(id));
+    if (remainingIds.length === 0) {
+      delete shownData[phaseInfo];
+      await writeFile2(shownFile, JSON.stringify(shownData, null, 2), "utf-8");
+      return;
+    }
+    const hivePath = resolveHiveKnowledgePath();
+    const hiveEntries = await readKnowledge(hivePath);
+    let hiveUpdated = false;
+    for (const entry of hiveEntries) {
+      if (remainingIds.includes(entry.id)) {
+        entry.retrieval_outcomes.applied_count++;
+        if (phaseSucceeded) {
+          entry.retrieval_outcomes.succeeded_after_count++;
+        } else {
+          entry.retrieval_outcomes.failed_after_count++;
+        }
+        hiveUpdated = true;
+      }
+    }
+    if (hiveUpdated) {
+      await rewriteKnowledge(hivePath, hiveEntries);
+    }
+    delete shownData[phaseInfo];
+    await writeFile2(shownFile, JSON.stringify(shownData, null, 2), "utf-8");
+  } catch {
+    console.warn("[swarm] Knowledge: failed to update retrieval outcomes");
+  }
+}
+
+// src/hooks/knowledge-curator.ts
+init_knowledge_store();
+
+// src/hooks/knowledge-validator.ts
+init_knowledge_store();
+var import_proper_lockfile2 = __toESM(require_proper_lockfile(), 1);
+import { appendFile as appendFile2, mkdir as mkdir3, writeFile as writeFile3 } from "fs/promises";
+import * as path9 from "path";
+var DANGEROUS_COMMAND_PATTERNS = [
+  /\brm\s+-rf\b/,
+  /\bsudo\s+rm\b/,
+  /\bformat\b/,
+  /\bmkfs\b/,
+  /\bdd\s+if=/,
+  /:\(\)\s*\{/,
+  /\bchmod\s+-R\s+777\b/,
+  /\bdeltree\b/,
+  /\brmdir\s+\/s\b/,
+  /\bkill\s+-9\b/,
+  /\bpkill\b/,
+  /\bkillall\b/,
+  /`[^`]*`/,
+  /\$\([^)]*\)/
+];
+var SECURITY_DEGRADING_PATTERNS = [
+  /disable\s+.{0,50}firewall/i,
+  /turn\s+off\s+.{0,50}security/i,
+  /skip\s+.{0,50}auth/i,
+  /bypass\s+.{0,50}auth/i,
+  /ignore\s+.{0,50}certificate/i,
+  /disable\s+.{0,50}tls/i,
+  /disable\s+.{0,50}ssl/i,
+  /no\s+.{0,50}validation/i,
+  /disable\s+.{0,50}2fa/i,
+  /remove\s+.{0,50}password/i
+];
+var INJECTION_PATTERNS = [
+  /[\x00-\x08\x0b-\x0c\x0e-\x1f\x7f\x0d]/,
+  /^system\s*:/i,
+  /<script/i,
+  /javascript:/i,
+  /\beval\(/i,
+  /\b__proto__\b/,
+  /\bconstructor\[/,
+  /\.prototype\[/
+];
+var VALID_CATEGORIES = new Set([
+  "process",
+  "architecture",
+  "tooling",
+  "security",
+  "testing",
+  "debugging",
+  "performance",
+  "integration",
+  "other"
+]);
+var TECH_REFERENCE_WORDS = new Set([
+  "git",
+  "docker",
+  "typescript",
+  "bun",
+  "vitest",
+  "node",
+  "python",
+  "react",
+  "sql",
+  "api",
+  "hook",
+  "test",
+  "schema",
+  "config",
+  "file",
+  "function",
+  "class",
+  "module",
+  "import",
+  "export"
+]);
+var ACTION_VERB_WORDS = new Set([
+  "use",
+  "avoid",
+  "prefer",
+  "run",
+  "check",
+  "always",
+  "never",
+  "ensure",
+  "call",
+  "write",
+  "add",
+  "remove",
+  "update",
+  "set",
+  "enable",
+  "disable"
+]);
+var NEGATION_PAIRS = [
+  ["always", "never"],
+  ["must", "must not"],
+  ["must", "should not"],
+  ["enable", "disable"],
+  ["use", "avoid"],
+  ["use", "don't use"],
+  ["recommended", "not recommended"]
+];
+function normalizeText(text) {
+  return text.normalize("NFKC").toLowerCase().replace(/[^\w\s]/g, " ").replace(/\s+/g, " ").trim();
+}
+function detectContradiction(candidate, existingLessons) {
+  const candidateTags = inferTags(candidate);
+  if (candidateTags.length === 0)
+    return false;
+  const candidateNorm = normalizeText(candidate);
+  for (const existing of existingLessons) {
+    const existingTags = inferTags(existing);
+    const shared = candidateTags.some((t) => existingTags.includes(t));
+    if (!shared)
+      continue;
+    const existingNorm = normalizeText(existing);
+    for (const [wordA, wordB] of NEGATION_PAIRS) {
+      const hasA = candidateNorm.includes(wordA) && existingNorm.includes(wordB);
+      const hasB = candidateNorm.includes(wordB) && existingNorm.includes(wordA);
+      if (hasA || hasB)
+        return true;
+    }
+  }
+  return false;
+}
+function isVagueLesson(lesson) {
+  const lower = normalizeText(lesson);
+  const words = lower.split(/\s+/);
+  const hasTechRef = words.some((w) => TECH_REFERENCE_WORDS.has(w));
+  const hasActionVerb = words.some((w) => ACTION_VERB_WORDS.has(w));
+  return !hasTechRef && !hasActionVerb;
+}
+function validateLesson(candidate, existingLessons, meta3) {
+  if (!candidate || typeof candidate !== "string") {
+    return {
+      valid: false,
+      layer: 1,
+      reason: "lesson too short (min 15 chars)",
+      severity: "error"
+    };
+  }
+  if (!Array.isArray(existingLessons)) {
+    existingLessons = [];
+  }
+  if (candidate.length < 15) {
+    return {
+      valid: false,
+      layer: 1,
+      reason: "lesson too short (min 15 chars)",
+      severity: "error"
+    };
+  }
+  if (candidate.length > 280) {
+    return {
+      valid: false,
+      layer: 1,
+      reason: "lesson too long (max 280 chars)",
+      severity: "error"
+    };
+  }
+  if (!VALID_CATEGORIES.has(meta3.category)) {
+    return {
+      valid: false,
+      layer: 1,
+      reason: `invalid category: ${meta3.category}`,
+      severity: "error"
+    };
+  }
+  const isGlobalScope = meta3.scope === "global";
+  const isStackScope = /^stack:[a-zA-Z0-9_-]{1,64}$/.test(meta3.scope);
+  if (!isGlobalScope && !isStackScope) {
+    return {
+      valid: false,
+      layer: 1,
+      reason: "invalid scope: must be 'global' or 'stack:<name>'",
+      severity: "error"
+    };
+  }
+  if (!(meta3.confidence >= 0 && meta3.confidence <= 1)) {
+    return {
+      valid: false,
+      layer: 1,
+      reason: "confidence out of range [0.0, 1.0]",
+      severity: "error"
+    };
+  }
+  const normalizedCandidate = candidate.normalize("NFKC").toLowerCase();
+  for (const pattern of DANGEROUS_COMMAND_PATTERNS) {
+    if (pattern.test(normalizedCandidate)) {
+      return {
+        valid: false,
+        layer: 2,
+        reason: "dangerous command pattern detected",
+        severity: "error"
+      };
+    }
+  }
+  for (const pattern of SECURITY_DEGRADING_PATTERNS) {
+    if (pattern.test(normalizedCandidate)) {
+      return {
+        valid: false,
+        layer: 2,
+        reason: "security-degrading instruction detected",
+        severity: "error"
+      };
+    }
+  }
+  for (const pattern of INJECTION_PATTERNS) {
+    if (pattern.test(candidate)) {
+      return {
+        valid: false,
+        layer: 2,
+        reason: "injection pattern detected",
+        severity: "error"
+      };
+    }
+  }
+  if (detectContradiction(candidate, existingLessons)) {
+    return {
+      valid: false,
+      layer: 3,
+      reason: "lesson contradicts an existing lesson with shared tags",
+      severity: "error"
+    };
+  }
+  if (isVagueLesson(candidate)) {
+    return {
+      valid: true,
+      layer: 3,
+      reason: "lesson may be too vague (no tech reference or action verb)",
+      severity: "warning"
+    };
+  }
+  return {
+    valid: true,
+    layer: null,
+    reason: null,
+    severity: null
+  };
+}
+async function quarantineEntry(directory, entryId, reason, reportedBy) {
+  if (!directory || directory.includes("..")) {
+    console.warn("[knowledge-validator] quarantineEntry: directory traversal attempt blocked");
+    return;
+  }
+  if (!entryId || entryId.includes("\x00") || entryId.includes(`
+`)) {
+    console.warn("[knowledge-validator] quarantineEntry: invalid entryId rejected");
+    return;
+  }
+  const validReportedBy = ["architect", "user", "auto"];
+  if (!validReportedBy.includes(reportedBy)) {
+    return;
+  }
+  const sanitizedReason = reason.slice(0, 500).replace(/[\x00-\x08\x0b-\x0c\x0e-\x1f\x7f\x0d]/g, "");
+  const knowledgePath = path9.join(directory, ".swarm", "knowledge.jsonl");
+  const quarantinePath = path9.join(directory, ".swarm", "knowledge-quarantined.jsonl");
+  const rejectedPath = path9.join(directory, ".swarm", "knowledge-rejected.jsonl");
+  const swarmDir = path9.join(directory, ".swarm");
+  await mkdir3(swarmDir, { recursive: true });
+  let release;
+  try {
+    release = await import_proper_lockfile2.default.lock(swarmDir, {
+      retries: { retries: 3, minTimeout: 100 }
+    });
+    const entries = await readKnowledge(knowledgePath);
+    const entry = entries.find((e) => e.id === entryId);
+    if (!entry) {
+      return;
+    }
+    const remaining = entries.filter((e) => e.id !== entryId);
+    const quarantined = {
+      ...entry,
+      quarantine_reason: sanitizedReason,
+      quarantined_at: new Date().toISOString(),
+      reported_by: reportedBy
+    };
+    const jsonlContent = remaining.length > 0 ? `${remaining.map((e) => JSON.stringify(e)).join(`
+`)}
+` : "";
+    await writeFile3(knowledgePath, jsonlContent, "utf-8");
+    await appendFile2(quarantinePath, `${JSON.stringify(quarantined)}
+`, "utf-8");
+    const quarantinedEntries = await readKnowledge(quarantinePath);
+    if (quarantinedEntries.length > 100) {
+      const trimmed = quarantinedEntries.slice(-100);
+      const capContent = trimmed.length > 0 ? `${trimmed.map((e) => JSON.stringify(e)).join(`
+`)}
+` : "";
+      await writeFile3(quarantinePath, capContent, "utf-8");
+    }
+    const rejectedRecord = {
+      id: entryId,
+      lesson: entry.lesson,
+      rejection_reason: sanitizedReason,
+      rejected_at: new Date().toISOString(),
+      rejection_layer: 3
+    };
+    await appendKnowledge(rejectedPath, rejectedRecord);
+  } finally {
+    if (release) {
+      await release();
+    }
+  }
+}
+async function restoreEntry(directory, entryId) {
+  if (!directory || directory.includes("..")) {
+    console.warn("[knowledge-validator] restoreEntry: directory traversal attempt blocked");
+    return;
+  }
+  if (!entryId || entryId.includes("\x00") || entryId.includes(`
+`)) {
+    console.warn("[knowledge-validator] restoreEntry: invalid entryId rejected");
+    return;
+  }
+  const knowledgePath = path9.join(directory, ".swarm", "knowledge.jsonl");
+  const quarantinePath = path9.join(directory, ".swarm", "knowledge-quarantined.jsonl");
+  const rejectedPath = path9.join(directory, ".swarm", "knowledge-rejected.jsonl");
+  const swarmDir = path9.join(directory, ".swarm");
+  await mkdir3(swarmDir, { recursive: true });
+  let release;
+  try {
+    release = await import_proper_lockfile2.default.lock(swarmDir, {
+      retries: { retries: 3, minTimeout: 100 }
+    });
+    const quarantinedEntries = await readKnowledge(quarantinePath);
+    const entryToRestore = quarantinedEntries.find((e) => e.id === entryId);
+    if (!entryToRestore) {
+      return;
+    }
+    const remaining = quarantinedEntries.filter((e) => e.id !== entryId);
+    const { quarantine_reason, quarantined_at, reported_by, ...original } = entryToRestore;
+    const jsonlContent = remaining.length > 0 ? `${remaining.map((e) => JSON.stringify(e)).join(`
+`)}
+` : "";
+    await writeFile3(quarantinePath, jsonlContent, "utf-8");
+    await appendFile2(knowledgePath, `${JSON.stringify(original)}
+`, "utf-8");
+    const rejectedEntries = await readKnowledge(rejectedPath);
+    const filtered = rejectedEntries.filter((e) => e.id !== entryId);
+    const rejectedContent = filtered.length > 0 ? `${filtered.map((e) => JSON.stringify(e)).join(`
+`)}
+` : "";
+    await writeFile3(rejectedPath, rejectedContent, "utf-8");
+  } finally {
+    if (release) {
+      await release();
+    }
+  }
+}
+
+// src/hooks/knowledge-curator.ts
+init_utils2();
+var seenRetroSections = new Map;
+function pruneSeenRetroSections() {
+  const cutoff = Date.now() - 86400000;
+  for (const [key, entry] of seenRetroSections) {
+    if (entry.timestamp < cutoff) {
+      seenRetroSections.delete(key);
+    }
+  }
+}
+function isWriteToSwarmPlan(input) {
+  if (typeof input !== "object" || input === null)
+    return false;
+  const record3 = input;
+  const toolName = record3.toolName;
+  if (typeof toolName !== "string")
+    return false;
+  if (!["write", "edit", "apply_patch"].includes(toolName))
+    return false;
+  const rawPath = record3.path;
+  const rawFile = record3.file;
+  const pathField = typeof rawPath === "string" ? rawPath.replace(/\\/g, "/") : undefined;
+  const fileField = typeof rawFile === "string" ? rawFile.replace(/\\/g, "/") : undefined;
+  if (typeof pathField === "string" && pathField.includes(".swarm/plan.md")) {
+    return true;
+  }
+  if (typeof fileField === "string" && fileField.includes(".swarm/plan.md")) {
+    return true;
+  }
+  return false;
+}
+function isWriteToEvidenceFile(input) {
+  if (typeof input !== "object" || input === null)
+    return false;
+  const record3 = input;
+  const toolName = record3.toolName;
+  if (typeof toolName !== "string")
+    return false;
+  if (!["write", "edit", "apply_patch"].includes(toolName))
+    return false;
+  const rawPath = record3.path;
+  const rawFile = record3.file;
+  const pathField = typeof rawPath === "string" ? rawPath.replace(/\\/g, "/") : undefined;
+  const fileField = typeof rawFile === "string" ? rawFile.replace(/\\/g, "/") : undefined;
+  const evidenceRegex = /\.swarm\/+evidence\/+/i;
+  if (typeof pathField === "string" && evidenceRegex.test(pathField)) {
+    return true;
+  }
+  if (typeof fileField === "string" && evidenceRegex.test(fileField)) {
+    return true;
+  }
+  return false;
+}
+function extractRetrospectiveSection(planContent) {
+  const headingRegex = /^###\s+Lessons\s+Learned$/m;
+  const match = headingRegex.exec(planContent);
+  if (!match)
+    return null;
+  const startIndex = match.index;
+  const restOfContent = planContent.slice(startIndex);
+  const firstNewline = restOfContent.indexOf(`
+`);
+  const contentAfterHeading = firstNewline === -1 ? "" : restOfContent.slice(firstNewline + 1);
+  const nextHeadingRegex = /^#{1,2}\s+/m;
+  const nextMatch = nextHeadingRegex.exec(contentAfterHeading);
+  let endIndex;
+  if (nextMatch) {
+    endIndex = startIndex + firstNewline + 1 + nextMatch.index;
+  } else {
+    endIndex = planContent.length;
+  }
+  return planContent.slice(startIndex, endIndex).trim();
+}
+function checkRetroChanged(sessionID, section) {
+  const hash3 = `${section.length}:${section.slice(0, 100)}`;
+  const lastSeen = seenRetroSections.get(sessionID);
+  if (lastSeen?.value === hash3) {
+    return false;
+  }
+  seenRetroSections.set(sessionID, { value: hash3, timestamp: Date.now() });
+  return true;
+}
+function extractLessonsFromRetro(section) {
+  const lessons = [];
+  const lines = section.split(`
+`);
+  for (const line of lines) {
+    const trimmed = line.trim();
+    const bulletMatch = /^[-*]\s+(.+)$/.exec(trimmed);
+    if (bulletMatch) {
+      const content = bulletMatch[1].trim();
+      if (content) {
+        lessons.push(content);
+      }
+    }
+  }
+  return lessons;
+}
+function extractRetractionsAndLessons(allLessons) {
+  const retractions = [];
+  const normalLessons = [];
+  for (const lesson of allLessons) {
+    const upper = lesson.trimStart().toUpperCase();
+    if (upper.startsWith("RETRACT:") || upper.startsWith("BAD RULE:")) {
+      const colonIdx = lesson.indexOf(":");
+      const text = colonIdx !== -1 ? lesson.slice(colonIdx + 1).trim() : "";
+      if (text)
+        retractions.push(text);
+    } else {
+      normalLessons.push(lesson);
+    }
+  }
+  return { retractions, normalLessons };
+}
+async function processRetractions(retractions, directory) {
+  if (retractions.length === 0)
+    return;
+  const knowledgePath = resolveSwarmKnowledgePath(directory);
+  const entries = await readKnowledge(knowledgePath) ?? [];
+  for (const retractionText of retractions) {
+    const normalizedRetraction = normalize2(retractionText);
+    for (const entry of entries) {
+      const normalizedLesson = normalize2(entry.lesson);
+      if (normalizedLesson === normalizedRetraction) {
+        await quarantineEntry(directory, entry.id, `Retracted by architect: ${retractionText}`, "architect");
+        console.info(`[knowledge-curator] Quarantined entry ${entry.id}: "${entry.lesson}"`);
+      }
+    }
+  }
+}
+async function curateAndStoreSwarm(lessons, projectName, phaseInfo, directory, config3) {
+  const knowledgePath = resolveSwarmKnowledgePath(directory);
+  const existingEntries = await readKnowledge(knowledgePath) ?? [];
+  let stored = 0;
+  let skipped = 0;
+  let rejected = 0;
+  const categoryByTag = new Map([
+    ["process", "process"],
+    ["architecture", "architecture"],
+    ["tooling", "tooling"],
+    ["security", "security"],
+    ["testing", "testing"],
+    ["debugging", "debugging"],
+    ["performance", "performance"],
+    ["integration", "integration"],
+    ["other", "other"]
+  ]);
+  for (const lesson of lessons) {
+    const tags = inferTags(lesson);
+    let category = "process";
+    for (const tag of tags) {
+      if (categoryByTag.has(tag)) {
+        category = categoryByTag.get(tag);
+        break;
+      }
+    }
+    const meta3 = {
+      category,
+      scope: "global",
+      confidence: computeConfidence(0, true)
+    };
+    const result = validateLesson(lesson, existingEntries.map((e) => e.lesson), meta3);
+    if (result.valid === false || result.severity === "error") {
+      const rejectedLesson = {
+        id: crypto.randomUUID(),
+        lesson,
+        rejection_reason: result.reason ?? "unknown",
+        rejected_at: new Date().toISOString(),
+        rejection_layer: result.layer ?? 1
+      };
+      await appendRejectedLesson(directory, rejectedLesson);
+      rejected++;
+      continue;
+    }
+    const duplicate = findNearDuplicate(lesson, existingEntries, config3.dedup_threshold);
+    if (duplicate) {
+      skipped++;
+      continue;
+    }
+    const entry = {
+      id: crypto.randomUUID(),
+      tier: "swarm",
+      lesson,
+      category,
+      tags,
+      scope: "global",
+      confidence: computeConfidence(1, true),
+      status: "candidate",
+      confirmed_by: [
+        {
+          phase_number: phaseInfo.phase_number,
+          confirmed_at: new Date().toISOString(),
+          project_name: projectName
+        }
+      ],
+      retrieval_outcomes: {
+        applied_count: 0,
+        succeeded_after_count: 0,
+        failed_after_count: 0
+      },
+      schema_version: config3.schema_version,
+      created_at: new Date().toISOString(),
+      updated_at: new Date().toISOString(),
+      project_name: projectName,
+      auto_generated: true
+    };
+    await appendKnowledge(knowledgePath, entry);
+    stored++;
+    existingEntries.push(entry);
+  }
+  await enforceKnowledgeCap(knowledgePath, config3.swarm_max_entries);
+  await runAutoPromotion(directory, config3);
+  return { stored, skipped, rejected };
+}
+async function runAutoPromotion(directory, config3) {
+  const knowledgePath = resolveSwarmKnowledgePath(directory);
+  const entries = await readKnowledge(knowledgePath) ?? [];
+  let changed = false;
+  for (const entry of entries) {
+    if (entry.status === "promoted")
+      continue;
+    const distinctPhases = new Set((entry.confirmed_by ?? []).map((c) => c.phase_number)).size;
+    if (entry.status === "candidate" && distinctPhases >= 3) {
+      entry.status = "established";
+      entry.updated_at = new Date().toISOString();
+      changed = true;
+      continue;
+    }
+    if (entry.status === "established") {
+      const createdAt = Date.parse(entry.created_at ?? "");
+      const ageMs = Number.isNaN(createdAt) ? 0 : Date.now() - createdAt;
+      const ageThresholdMs = config3.auto_promote_days * 86400000;
+      if (distinctPhases >= 3 || ageMs >= ageThresholdMs) {
+        entry.status = "promoted";
+        entry.hive_eligible = true;
+        entry.updated_at = new Date().toISOString();
+        changed = true;
+      }
+    }
+  }
+  if (changed) {
+    await rewriteKnowledge(knowledgePath, entries);
+  }
+}
+function createKnowledgeCuratorHook(directory, config3) {
+  const handler = async (input, _output) => {
+    pruneSeenRetroSections();
+    if (!config3.enabled)
+      return;
+    if (!isWriteToSwarmPlan(input) && !isWriteToEvidenceFile(input))
+      return;
+    const sessionID = input?.sessionID ?? "default";
+    const isEvidenceTrigger = isWriteToEvidenceFile(input) && !isWriteToSwarmPlan(input);
+    if (isEvidenceTrigger) {
+      const record3 = input;
+      const rawPath = record3.path;
+      const rawFile = record3.file;
+      const filePath = typeof rawPath === "string" ? rawPath.replace(/\\/g, "/") : typeof rawFile === "string" ? rawFile.replace(/\\/g, "/") : null;
+      if (!filePath)
+        return;
+      const evidenceKey = `evidence:${sessionID}:${filePath}`;
+      const lastSeenEvidence = seenRetroSections.get(evidenceKey);
+      const evidenceContent = await readSwarmFileAsync(directory, filePath.replace(/^.*\.swarm\//, ""));
+      if (!evidenceContent)
+        return;
+      let evidenceData;
+      try {
+        evidenceData = JSON.parse(evidenceContent);
+      } catch {
+        return;
+      }
+      let lessons = [];
+      if (Array.isArray(evidenceData.entries) && evidenceData.entries.length > 0) {
+        const firstEntry = evidenceData.entries[0];
+        if (Array.isArray(firstEntry.lessons_learned)) {
+          lessons = firstEntry.lessons_learned;
+        }
+      } else if (Array.isArray(evidenceData.lessons_learned)) {
+        lessons = evidenceData.lessons_learned;
+      }
+      if (lessons.length === 0)
+        return;
+      const evidenceHash = `${lessons.length}:${lessons.slice(0, 3).join("|")}`;
+      if (lastSeenEvidence?.value === evidenceHash) {
+        return;
+      }
+      seenRetroSections.set(evidenceKey, {
+        value: evidenceHash,
+        timestamp: Date.now()
+      });
+      const projectName2 = evidenceData.project_name ?? "unknown";
+      const phaseNumber2 = typeof evidenceData.phase_number === "number" ? evidenceData.phase_number : 1;
+      await curateAndStoreSwarm(lessons, projectName2, { phase_number: phaseNumber2 }, directory, config3);
+      await updateRetrievalOutcome(directory, `Phase ${phaseNumber2}`, true);
+      return;
+    }
+    const planContent = await readSwarmFileAsync(directory, "plan.md");
+    if (!planContent)
+      return;
+    const section = extractRetrospectiveSection(planContent);
+    if (!section)
+      return;
+    if (!checkRetroChanged(sessionID, section))
+      return;
+    const allLessons = extractLessonsFromRetro(section);
+    if (allLessons.length === 0)
+      return;
+    const { retractions, normalLessons } = extractRetractionsAndLessons(allLessons);
+    await processRetractions(retractions, directory);
+    if (normalLessons.length === 0)
+      return;
+    const projectNameMatch = /^#\s+(.+)$/m.exec(planContent);
+    const projectName = projectNameMatch ? projectNameMatch[1].trim() : "unknown";
+    const phaseMatch = /^Phase:\s*(\d+)/m.exec(planContent);
+    const phaseNumber = phaseMatch ? parseInt(phaseMatch[1], 10) : 1;
+    await curateAndStoreSwarm(normalLessons, projectName, { phase_number: phaseNumber }, directory, config3);
+    await updateRetrievalOutcome(directory, `Phase ${phaseNumber}`, true);
+  };
+  return safeHook(handler);
+}
+
+// src/commands/close.ts
+init_utils2();
+
+// src/plan/checkpoint.ts
+init_plan_schema();
+init_ledger();
+init_manager2();
+import * as fs8 from "fs";
+import * as path12 from "path";
+async function writeCheckpoint(directory) {
+  try {
+    const plan = await loadPlan(directory);
+    if (!plan)
+      return;
+    const jsonPath = path12.join(directory, "SWARM_PLAN.json");
+    const mdPath = path12.join(directory, "SWARM_PLAN.md");
+    fs8.writeFileSync(jsonPath, JSON.stringify(plan, null, 2), "utf8");
+    const md = derivePlanMarkdown(plan);
+    fs8.writeFileSync(mdPath, md, "utf8");
+  } catch (error93) {
+    console.warn(`[checkpoint] Failed to write SWARM_PLAN checkpoint: ${error93 instanceof Error ? error93.message : String(error93)}`);
+  }
+}
+
+// src/session/snapshot-writer.ts
+init_utils2();
+import { mkdirSync as mkdirSync5, renameSync as renameSync5 } from "fs";
+import * as path13 from "path";
+init_utils();
+var _writeInFlight = Promise.resolve();
+function serializeAgentSession(s) {
+  const gateLog = {};
+  const rawGateLog = s.gateLog ?? new Map;
+  for (const [taskId, gates] of rawGateLog) {
+    gateLog[taskId] = Array.from(gates ?? []);
+  }
+  const reviewerCallCount = {};
+  const rawReviewerCallCount = s.reviewerCallCount ?? new Map;
+  for (const [phase, count] of rawReviewerCallCount) {
+    reviewerCallCount[String(phase)] = count;
+  }
+  const partialGateWarningsIssuedForTask = Array.from(s.partialGateWarningsIssuedForTask ?? new Set);
+  const catastrophicPhaseWarnings = Array.from(s.catastrophicPhaseWarnings ?? new Set);
+  const phaseAgentsDispatched = Array.from(s.phaseAgentsDispatched ?? new Set);
+  const lastCompletedPhaseAgentsDispatched = Array.from(s.lastCompletedPhaseAgentsDispatched ?? new Set);
+  const windows = {};
+  const rawWindows = s.windows ?? {};
+  for (const [key, win] of Object.entries(rawWindows)) {
+    windows[key] = {
+      id: win.id,
+      agentName: win.agentName,
+      startedAtMs: win.startedAtMs,
+      toolCalls: win.toolCalls,
+      consecutiveErrors: win.consecutiveErrors,
+      hardLimitHit: win.hardLimitHit,
+      lastSuccessTimeMs: win.lastSuccessTimeMs,
+      recentToolCalls: win.recentToolCalls,
+      warningIssued: win.warningIssued,
+      warningReason: win.warningReason
+    };
+  }
+  return {
+    agentName: s.agentName,
+    lastToolCallTime: s.lastToolCallTime,
+    lastAgentEventTime: s.lastAgentEventTime,
+    delegationActive: s.delegationActive,
+    activeInvocationId: s.activeInvocationId,
+    lastInvocationIdByAgent: s.lastInvocationIdByAgent ?? {},
+    windows,
+    lastCompactionHint: s.lastCompactionHint ?? 0,
+    architectWriteCount: s.architectWriteCount ?? 0,
+    lastCoderDelegationTaskId: s.lastCoderDelegationTaskId ?? null,
+    currentTaskId: s.currentTaskId ?? null,
+    turboMode: s.turboMode ?? false,
+    gateLog,
+    reviewerCallCount,
+    lastGateFailure: s.lastGateFailure ?? null,
+    partialGateWarningsIssuedForTask,
+    selfFixAttempted: s.selfFixAttempted ?? false,
+    selfCodingWarnedAtCount: s.selfCodingWarnedAtCount ?? 0,
+    catastrophicPhaseWarnings,
+    lastPhaseCompleteTimestamp: s.lastPhaseCompleteTimestamp ?? 0,
+    lastPhaseCompletePhase: s.lastPhaseCompletePhase ?? 0,
+    phaseAgentsDispatched,
+    lastCompletedPhaseAgentsDispatched,
+    qaSkipCount: s.qaSkipCount ?? 0,
+    qaSkipTaskIds: s.qaSkipTaskIds ?? [],
+    pendingAdvisoryMessages: s.pendingAdvisoryMessages ?? [],
+    taskWorkflowStates: Object.fromEntries(s.taskWorkflowStates ?? new Map),
+    ...s.scopeViolationDetected !== undefined && {
+      scopeViolationDetected: s.scopeViolationDetected
+    },
+    model_fallback_index: s.model_fallback_index ?? 0,
+    modelFallbackExhausted: s.modelFallbackExhausted ?? false,
+    coderRevisions: s.coderRevisions ?? 0,
+    revisionLimitHit: s.revisionLimitHit ?? false,
+    sessionRehydratedAt: s.sessionRehydratedAt ?? 0
+  };
+}
+async function writeSnapshot(directory, state) {
+  try {
+    const snapshot = {
+      version: 2,
+      writtenAt: Date.now(),
+      toolAggregates: Object.fromEntries(state.toolAggregates),
+      activeAgent: Object.fromEntries(state.activeAgent),
+      delegationChains: Object.fromEntries(state.delegationChains),
+      agentSessions: {}
+    };
+    for (const [sessionId, sessionState] of state.agentSessions) {
+      snapshot.agentSessions[sessionId] = serializeAgentSession(sessionState);
+    }
+    const content = JSON.stringify(snapshot, null, 2);
+    const resolvedPath = validateSwarmPath(directory, "session/state.json");
+    const dir = path13.dirname(resolvedPath);
+    mkdirSync5(dir, { recursive: true });
+    const tempPath = `${resolvedPath}.tmp.${Date.now()}.${Math.random().toString(36).slice(2)}`;
+    await Bun.write(tempPath, content);
+    renameSync5(tempPath, resolvedPath);
+  } catch (error93) {
+    log("[snapshot-writer] write failed", {
+      error: error93 instanceof Error ? error93.message : String(error93)
+    });
+  }
+}
+function createSnapshotWriterHook(directory) {
+  return (_input, _output) => {
+    _writeInFlight = _writeInFlight.then(() => writeSnapshot(directory, swarmState), () => writeSnapshot(directory, swarmState));
+    return _writeInFlight;
+  };
+}
+async function flushPendingSnapshot(directory) {
+  _writeInFlight = _writeInFlight.then(() => writeSnapshot(directory, swarmState), () => writeSnapshot(directory, swarmState));
+  await _writeInFlight;
+}
+
+// src/tools/write-retro.ts
+init_tool();
+init_evidence_schema();
+init_manager();
+init_create_tool();
+async function executeWriteRetro(args2, directory) {
+  if (/^(CON|PRN|AUX|NUL|COM[0-9]|LPT[0-9])(:|$)/i.test(directory)) {
+    return JSON.stringify({
+      success: false,
+      message: "Invalid directory: reserved device name"
+    }, null, 2);
+  }
+  const phase = args2.phase;
+  if (!Number.isInteger(phase) || phase < 1) {
+    return JSON.stringify({
+      success: false,
+      phase,
+      message: "Invalid phase: must be a positive integer"
+    }, null, 2);
+  }
+  const validComplexities = [
+    "trivial",
+    "simple",
+    "moderate",
+    "complex"
+  ];
+  if (!validComplexities.includes(args2.task_complexity)) {
+    return JSON.stringify({
+      success: false,
+      phase,
+      message: `Invalid task_complexity: must be one of 'trivial'|'simple'|'moderate'|'complex'`
+    }, null, 2);
+  }
+  if (!Number.isInteger(args2.task_count) || args2.task_count < 1) {
+    return JSON.stringify({
+      success: false,
+      phase,
+      message: "Invalid task_count: must be a positive integer >= 1"
+    }, null, 2);
+  }
+  if (!Number.isInteger(args2.total_tool_calls) || args2.total_tool_calls < 0) {
+    return JSON.stringify({
+      success: false,
+      phase,
+      message: "Invalid total_tool_calls: must be a non-negative integer"
+    }, null, 2);
+  }
+  if (!Number.isInteger(args2.coder_revisions) || args2.coder_revisions < 0) {
+    return JSON.stringify({
+      success: false,
+      phase,
+      message: "Invalid coder_revisions: must be a non-negative integer"
+    }, null, 2);
+  }
+  if (!Number.isInteger(args2.reviewer_rejections) || args2.reviewer_rejections < 0) {
+    return JSON.stringify({
+      success: false,
+      phase,
+      message: "Invalid reviewer_rejections: must be a non-negative integer"
+    }, null, 2);
+  }
+  if (!Number.isInteger(args2.test_failures) || args2.test_failures < 0) {
+    return JSON.stringify({
+      success: false,
+      phase,
+      message: "Invalid test_failures: must be a non-negative integer"
+    }, null, 2);
+  }
+  if (!Number.isInteger(args2.security_findings) || args2.security_findings < 0) {
+    return JSON.stringify({
+      success: false,
+      phase,
+      message: "Invalid security_findings: must be a non-negative integer"
+    }, null, 2);
+  }
+  if (!Number.isInteger(args2.integration_issues) || args2.integration_issues < 0) {
+    return JSON.stringify({
+      success: false,
+      phase,
+      message: "Invalid integration_issues: must be a non-negative integer"
+    }, null, 2);
+  }
+  if (args2.loop_detections !== undefined && (!Number.isInteger(args2.loop_detections) || args2.loop_detections < 0)) {
+    return JSON.stringify({
+      success: false,
+      phase,
+      message: "Invalid loop_detections: must be a non-negative integer"
+    }, null, 2);
+  }
+  if (args2.circuit_breaker_trips !== undefined && (!Number.isInteger(args2.circuit_breaker_trips) || args2.circuit_breaker_trips < 0)) {
+    return JSON.stringify({
+      success: false,
+      phase,
+      message: "Invalid circuit_breaker_trips: must be a non-negative integer"
+    }, null, 2);
+  }
+  if (args2.phase > 99) {
+    return JSON.stringify({
+      success: false,
+      phase,
+      message: "Invalid phase: must be <= 99"
+    }, null, 2);
+  }
+  if (args2.task_count > 9999) {
+    return JSON.stringify({
+      success: false,
+      phase,
+      message: "Invalid task_count: must be <= 9999"
+    }, null, 2);
+  }
+  if (args2.total_tool_calls > 9999) {
+    return JSON.stringify({
+      success: false,
+      phase,
+      message: "Invalid total_tool_calls: must be <= 9999"
+    }, null, 2);
+  }
+  if (args2.coder_revisions > 999) {
+    return JSON.stringify({
+      success: false,
+      phase,
+      message: "Invalid coder_revisions: must be <= 999"
+    }, null, 2);
+  }
+  if (args2.reviewer_rejections > 999) {
+    return JSON.stringify({
+      success: false,
+      phase,
+      message: "Invalid reviewer_rejections: must be <= 999"
+    }, null, 2);
+  }
+  if (args2.loop_detections !== undefined && args2.loop_detections > 9999) {
+    return JSON.stringify({
+      success: false,
+      phase,
+      message: "Invalid loop_detections: must be <= 9999"
+    }, null, 2);
+  }
+  if (args2.circuit_breaker_trips !== undefined && args2.circuit_breaker_trips > 9999) {
+    return JSON.stringify({
+      success: false,
+      phase,
+      message: "Invalid circuit_breaker_trips: must be <= 9999"
+    }, null, 2);
+  }
+  if (args2.test_failures > 9999) {
+    return JSON.stringify({
+      success: false,
+      phase,
+      message: "Invalid test_failures: must be <= 9999"
+    }, null, 2);
+  }
+  if (args2.security_findings > 999) {
+    return JSON.stringify({
+      success: false,
+      phase,
+      message: "Invalid security_findings: must be <= 999"
+    }, null, 2);
+  }
+  if (args2.integration_issues > 999) {
+    return JSON.stringify({
+      success: false,
+      phase,
+      message: "Invalid integration_issues: must be <= 999"
+    }, null, 2);
+  }
+  const summary = args2.summary;
+  if (typeof summary !== "string" || summary.trim().length === 0) {
+    return JSON.stringify({
+      success: false,
+      phase,
+      message: "Invalid summary: must be a non-empty string"
+    }, null, 2);
+  }
+  if (args2.task_id !== undefined) {
+    const tid = args2.task_id;
+    if (!tid || tid.length === 0 || tid.length > 200) {
+      return JSON.stringify({
+        success: false,
+        phase,
+        message: "Invalid task ID: must match pattern"
+      }, null, 2);
+    }
+    if (/\0/.test(tid)) {
+      return JSON.stringify({
+        success: false,
+        phase,
+        message: "Invalid task ID: contains null bytes"
+      }, null, 2);
+    }
+    for (let i2 = 0;i2 < tid.length; i2++) {
+      if (tid.charCodeAt(i2) < 32) {
+        return JSON.stringify({
+          success: false,
+          phase,
+          message: "Invalid task ID: contains control characters"
+        }, null, 2);
+      }
+    }
+    if (tid.includes("..") || tid.includes("/") || tid.includes("\\")) {
+      return JSON.stringify({
+        success: false,
+        phase,
+        message: "Invalid task ID: path traversal detected"
+      }, null, 2);
+    }
+    const VALID_TASK_ID = /^(retro-\d+|\d+\.\d+(\.\d+)*)$/;
+    if (!VALID_TASK_ID.test(tid)) {
+      return JSON.stringify({
+        success: false,
+        phase,
+        message: "Invalid task ID: must match pattern"
+      }, null, 2);
+    }
+  }
+  const taskId = args2.task_id ?? `retro-${phase}`;
+  const retroEntry = {
+    task_id: taskId,
+    type: "retrospective",
+    timestamp: new Date().toISOString(),
+    agent: "architect",
+    verdict: "pass",
+    summary,
+    metadata: args2.metadata,
+    phase_number: phase,
+    total_tool_calls: args2.total_tool_calls,
+    coder_revisions: args2.coder_revisions,
+    reviewer_rejections: args2.reviewer_rejections,
+    loop_detections: args2.loop_detections,
+    circuit_breaker_trips: args2.circuit_breaker_trips,
+    test_failures: args2.test_failures,
+    security_findings: args2.security_findings,
+    integration_issues: args2.integration_issues,
+    task_count: args2.task_count,
+    task_complexity: args2.task_complexity,
+    top_rejection_reasons: args2.top_rejection_reasons ?? [],
+    lessons_learned: (args2.lessons_learned ?? []).slice(0, 5),
+    user_directives: [],
+    approaches_tried: [],
+    error_taxonomy: []
+  };
+  const taxonomy = [];
+  try {
+    const allTaskIds = await listEvidenceTaskIds(directory);
+    const phaseTaskIds = allTaskIds.filter((id) => id.startsWith(`${phase}.`));
+    for (const phaseTaskId of phaseTaskIds) {
+      const result = await loadEvidence(directory, phaseTaskId);
+      if (result.status !== "found")
+        continue;
+      const bundle = result.bundle;
+      for (const entry of bundle.entries) {
+        const e = entry;
+        if (e.type === "review" && e.verdict === "fail") {
+          const reasonParts = [];
+          if (typeof e.summary === "string")
+            reasonParts.push(e.summary);
+          if (Array.isArray(e.issues)) {
+            for (const iss of e.issues) {
+              if (typeof iss.message === "string")
+                reasonParts.push(iss.message);
+            }
+          }
+          const reason = reasonParts.join(" ");
+          if (/signature|type|contract|interface/i.test(reason)) {
+            taxonomy.push("interface_mismatch");
+          } else {
+            taxonomy.push("logic_error");
+          }
+        } else if (e.type === "test" && e.verdict === "fail") {
+          taxonomy.push("logic_error");
+        } else if (e.agent === "scope_guard" && e.verdict === "fail") {
+          taxonomy.push("scope_creep");
+        } else if (e.agent === "loop_detector" && e.verdict === "fail") {
+          taxonomy.push("gate_evasion");
+        }
+      }
+    }
+  } catch {}
+  retroEntry.error_taxonomy = [...new Set(taxonomy)];
+  const validationResult = RetrospectiveEvidenceSchema.safeParse(retroEntry);
+  if (!validationResult.success) {
+    return JSON.stringify({
+      success: false,
+      error: `Retrospective entry failed validation: ${validationResult.error.message}`
+    }, null, 2);
+  }
+  try {
+    await saveEvidence(directory, taskId, retroEntry);
+    return JSON.stringify({
+      success: true,
+      task_id: taskId,
+      phase,
+      message: `Retrospective evidence written to .swarm/evidence/${taskId}/evidence.json`
+    }, null, 2);
+  } catch (error93) {
+    return JSON.stringify({
+      success: false,
+      phase,
+      message: error93 instanceof Error ? error93.message : String(error93)
+    }, null, 2);
+  }
+}
+var write_retro = createSwarmTool({
+  description: "Write a retrospective evidence bundle for a completed phase. " + "Accepts flat retro fields and writes a correctly-wrapped EvidenceBundle to " + ".swarm/evidence/retro-{phase}/evidence.json. " + "Use this instead of manually writing retro JSON to avoid schema validation failures in phase_complete.",
+  args: {
+    phase: tool.schema.number().int().min(1).max(99).describe("The phase number being completed (e.g., 1, 2, 3)"),
+    summary: tool.schema.string().describe("Human-readable summary of the phase"),
+    task_count: tool.schema.number().int().min(1).max(9999).describe("Count of tasks completed in this phase"),
+    task_complexity: tool.schema.enum(["trivial", "simple", "moderate", "complex"]).describe("Complexity level of the completed tasks"),
+    total_tool_calls: tool.schema.number().int().min(0).max(9999).describe("Total number of tool calls in this phase"),
+    coder_revisions: tool.schema.number().int().min(0).max(999).describe("Number of coder revisions made"),
+    reviewer_rejections: tool.schema.number().int().min(0).max(999).describe("Number of reviewer rejections received"),
+    loop_detections: tool.schema.number().int().min(0).max(9999).optional().describe("Number of loop detection events in this phase"),
+    circuit_breaker_trips: tool.schema.number().int().min(0).max(9999).optional().describe("Number of circuit breaker trips in this phase"),
+    test_failures: tool.schema.number().int().min(0).max(9999).describe("Number of test failures encountered"),
+    security_findings: tool.schema.number().int().min(0).max(999).describe("Number of security findings"),
+    integration_issues: tool.schema.number().int().min(0).max(999).describe("Number of integration issues"),
+    lessons_learned: tool.schema.array(tool.schema.string()).max(5).optional().describe("Key lessons learned from this phase (max 5)"),
+    top_rejection_reasons: tool.schema.array(tool.schema.string()).optional().describe("Top reasons for reviewer rejections"),
+    task_id: tool.schema.string().optional().describe("Optional custom task ID (defaults to retro-{phase})"),
+    metadata: tool.schema.record(tool.schema.string(), tool.schema.unknown()).optional().describe("Optional additional metadata")
+  },
+  execute: async (args2, directory) => {
+    const rawPhase = args2.phase !== undefined ? Number(args2.phase) : 0;
+    try {
+      const writeRetroArgs = {
+        phase: Number(args2.phase),
+        summary: String(args2.summary ?? ""),
+        task_count: Number(args2.task_count),
+        task_complexity: args2.task_complexity,
+        total_tool_calls: Number(args2.total_tool_calls),
+        coder_revisions: Number(args2.coder_revisions),
+        reviewer_rejections: Number(args2.reviewer_rejections),
+        loop_detections: args2.loop_detections != null ? Number(args2.loop_detections) : undefined,
+        circuit_breaker_trips: args2.circuit_breaker_trips != null ? Number(args2.circuit_breaker_trips) : undefined,
+        test_failures: Number(args2.test_failures),
+        security_findings: Number(args2.security_findings),
+        integration_issues: Number(args2.integration_issues),
+        lessons_learned: Array.isArray(args2.lessons_learned) ? args2.lessons_learned.map(String) : undefined,
+        top_rejection_reasons: Array.isArray(args2.top_rejection_reasons) ? args2.top_rejection_reasons.map(String) : undefined,
+        task_id: args2.task_id !== undefined ? String(args2.task_id) : undefined,
+        metadata: args2.metadata
+      };
+      return await executeWriteRetro(writeRetroArgs, directory);
+    } catch {
+      return JSON.stringify({ success: false, phase: rawPhase, message: "Invalid arguments" }, null, 2);
+    }
+  }
+});
+
+// src/commands/close.ts
+async function handleCloseCommand(directory, args2) {
+  const planPath = validateSwarmPath(directory, "plan.json");
+  let planExists = false;
+  let planData = {
+    title: path14.basename(directory) || "Ad-hoc session",
+    phases: []
+  };
+  try {
+    const content = await fs9.readFile(planPath, "utf-8");
+    planData = JSON.parse(content);
+    planExists = true;
+  } catch (error93) {
+    if (error93?.code !== "ENOENT") {
+      return `\u274C Failed to read plan.json: ${error93 instanceof Error ? error93.message : String(error93)}`;
+    }
+    const swarmDirExists = await fs9.access(path14.join(directory, ".swarm")).then(() => true).catch(() => false);
+    if (!swarmDirExists) {
+      return `\u274C No .swarm/ directory found in ${directory}. Run /swarm close from the project root, or run /swarm plan first.`;
+    }
+  }
+  const phases = planData.phases ?? [];
+  const inProgressPhases = phases.filter((p) => p.status === "in_progress");
+  let planAlreadyDone = false;
+  if (planExists) {
+    planAlreadyDone = phases.length > 0 && phases.every((p) => p.status === "complete" || p.status === "completed" || p.status === "blocked" || p.status === "closed");
+  }
+  const config3 = KnowledgeConfigSchema.parse({});
+  const projectName = planData.title ?? "Unknown Project";
+  const closedPhases = [];
+  const closedTasks = [];
+  const warnings = [];
+  if (!planAlreadyDone) {
+    for (const phase of inProgressPhases) {
+      closedPhases.push(phase.id);
+      let retroResult;
+      try {
+        retroResult = await executeWriteRetro({
+          phase: phase.id,
+          summary: "Phase closed via /swarm close",
+          task_count: Math.max(1, (phase.tasks ?? []).length),
+          task_complexity: "simple",
+          total_tool_calls: 0,
+          coder_revisions: 0,
+          reviewer_rejections: 0,
+          test_failures: 0,
+          security_findings: 0,
+          integration_issues: 0
+        }, directory);
+      } catch (retroError) {
+        warnings.push(`Retrospective write threw for phase ${phase.id}: ${retroError instanceof Error ? retroError.message : String(retroError)}`);
+      }
+      if (retroResult !== undefined) {
+        try {
+          const parsed = JSON.parse(retroResult);
+          if (parsed.success !== true) {
+            warnings.push(`Retrospective write failed for phase ${phase.id}`);
+          }
+        } catch {}
+      }
+      for (const task of phase.tasks ?? []) {
+        if (task.status !== "completed" && task.status !== "complete") {
+          closedTasks.push(task.id);
+        }
+      }
+    }
+  }
+  const lessonsFilePath = path14.join(directory, ".swarm", "close-lessons.md");
+  let explicitLessons = [];
+  try {
+    const lessonsText = await fs9.readFile(lessonsFilePath, "utf-8");
+    explicitLessons = lessonsText.split(`
+`).map((line) => line.trim()).filter((line) => line.length > 0 && !line.startsWith("#"));
+  } catch {}
+  let curationSucceeded = false;
+  try {
+    await curateAndStoreSwarm(explicitLessons, projectName, { phase_number: 0 }, directory, config3);
+    curationSucceeded = true;
+  } catch (error93) {
+    console.warn("[close-command] curateAndStoreSwarm error:", error93);
+  }
+  if (curationSucceeded && explicitLessons.length > 0) {
+    await fs9.unlink(lessonsFilePath).catch(() => {});
+  }
+  if (planExists && !planAlreadyDone) {
+    for (const phase of phases) {
+      if (phase.status !== "complete" && phase.status !== "completed") {
+        phase.status = "closed";
+        if (!closedPhases.includes(phase.id)) {
+          closedPhases.push(phase.id);
+        }
+      }
+      for (const task of phase.tasks ?? []) {
+        if (task.status !== "completed" && task.status !== "complete") {
+          task.status = "closed";
+          if (!closedTasks.includes(task.id)) {
+            closedTasks.push(task.id);
+          }
+        }
+      }
+    }
+    try {
+      await fs9.writeFile(planPath, JSON.stringify(planData, null, 2), "utf-8");
+    } catch (error93) {
+      console.warn("[close-command] Failed to write plan.json:", error93);
+    }
+  }
+  try {
+    await archiveEvidence(directory, 30, 10);
+  } catch (error93) {
+    console.warn("[close-command] archiveEvidence error:", error93);
+  }
+  const swarmDir = path14.join(directory, ".swarm");
+  let configBackupsRemoved = 0;
+  try {
+    const swarmFiles = await fs9.readdir(swarmDir);
+    const configBackups = swarmFiles.filter((f) => f.startsWith("config-backup-") && f.endsWith(".json"));
+    for (const backup of configBackups) {
+      try {
+        await fs9.unlink(path14.join(swarmDir, backup));
+        configBackupsRemoved++;
+      } catch {}
+    }
+  } catch {}
+  const contextPath = path14.join(directory, ".swarm", "context.md");
+  const contextContent = [
+    "# Context",
+    "",
+    "## Status",
+    `Session closed after: ${projectName}`,
+    `Closed: ${new Date().toISOString()}`,
+    "No active plan. Next session starts fresh.",
+    ""
+  ].join(`
+`);
+  try {
+    await fs9.writeFile(contextPath, contextContent, "utf-8");
+  } catch (error93) {
+    console.warn("[close-command] Failed to write context.md:", error93);
+  }
+  const pruneBranches = args2.includes("--prune-branches");
+  const prunedBranches = [];
+  const pruneErrors = [];
+  if (pruneBranches) {
+    try {
+      const branchOutput = execFileSync("git", ["branch", "-vv"], {
+        cwd: directory,
+        encoding: "utf-8",
+        stdio: ["pipe", "pipe", "pipe"]
+      });
+      const goneBranches = branchOutput.split(`
+`).filter((line) => line.includes(": gone]")).map((line) => line.trim().replace(/^[*+]\s+/, "").split(/\s+/)[0]).filter(Boolean);
+      for (const branch of goneBranches) {
+        try {
+          execFileSync("git", ["branch", "-d", branch], {
+            cwd: directory,
+            encoding: "utf-8",
+            stdio: ["pipe", "pipe", "pipe"]
+          });
+          prunedBranches.push(branch);
+        } catch {
+          pruneErrors.push(branch);
+        }
+      }
+    } catch {}
+  }
+  const closeSummaryPath = validateSwarmPath(directory, "close-summary.md");
+  const actionsPerformed = [
+    ...!planAlreadyDone && inProgressPhases.length > 0 ? ["- Wrote retrospectives for in-progress phases"] : [],
+    "- Archived evidence bundles",
+    "- Reset context.md for next session",
+    ...configBackupsRemoved > 0 ? [`- Removed ${configBackupsRemoved} stale config backup file(s)`] : [],
+    ...prunedBranches.length > 0 ? [
+      `- Pruned ${prunedBranches.length} stale local git branch(es): ${prunedBranches.join(", ")}`
+    ] : [],
+    "- Cleared agent sessions and delegation chains",
+    ...planExists && !planAlreadyDone ? ["- Set non-completed phases/tasks to closed status"] : []
+  ];
+  const summaryContent = [
+    "# Swarm Close Summary",
+    "",
+    `**Project:** ${projectName}`,
+    `**Closed:** ${new Date().toISOString()}`,
+    "",
+    `## Phases Closed: ${closedPhases.length}`,
+    !planExists ? "_No plan \u2014 ad-hoc session_" : closedPhases.length > 0 ? closedPhases.map((id) => `- Phase ${id}`).join(`
+`) : "_No phases to close_",
+    "",
+    `## Tasks Closed: ${closedTasks.length}`,
+    closedTasks.length > 0 ? closedTasks.map((id) => `- ${id}`).join(`
+`) : "_No incomplete tasks_",
+    "",
+    "## Actions Performed",
+    ...actionsPerformed
+  ].join(`
+`);
+  try {
+    await fs9.writeFile(closeSummaryPath, summaryContent, "utf-8");
+  } catch (error93) {
+    console.warn("[close-command] Failed to write close-summary.md:", error93);
+  }
+  try {
+    await flushPendingSnapshot(directory);
+  } catch (error93) {
+    console.warn("[close-command] flushPendingSnapshot error:", error93);
+  }
+  await writeCheckpoint(directory).catch(() => {});
+  swarmState.agentSessions.clear();
+  swarmState.delegationChains.clear();
+  if (pruneErrors.length > 0) {
+    warnings.push(`Could not prune ${pruneErrors.length} branch(es) (unmerged or checked out): ${pruneErrors.join(", ")}`);
+  }
+  const warningMsg = warnings.length > 0 ? ` Warnings: ${warnings.join("; ")}.` : "";
+  if (planAlreadyDone) {
+    return `\u2705 Session closed. Plan was already in a terminal state \u2014 cleanup steps applied.${warningMsg}`;
+  }
+  return `\u2705 Swarm closed successfully. ${closedPhases.length} phase(s) closed, ${closedTasks.length} incomplete task(s) marked closed.${warningMsg}`;
+}
+
+// src/commands/config.ts
+init_loader();
+import * as os4 from "os";
+import * as path15 from "path";
+function getUserConfigDir2() {
+  return process.env.XDG_CONFIG_HOME || path15.join(os4.homedir(), ".config");
+}
+async function handleConfigCommand(directory, _args) {
+  const config3 = loadPluginConfig(directory);
+  const userConfigPath = path15.join(getUserConfigDir2(), "opencode", "opencode-swarm.json");
+  const projectConfigPath = path15.join(directory, ".opencode", "opencode-swarm.json");
+  const lines = [
+    "## Swarm Configuration",
+    "",
+    "### Config Files",
+    `- User: \`${userConfigPath}\``,
+    `- Project: \`${projectConfigPath}\``,
+    "",
+    "### Resolved Config",
+    "```json",
+    JSON.stringify(config3, null, 2),
+    "```"
+  ];
+  return lines.join(`
+`);
+}
+
+// src/commands/curate.ts
+init_schema();
+
+// src/hooks/curator.ts
+import { randomUUID } from "crypto";
+import * as fs10 from "fs";
+import * as path16 from "path";
+
+// src/agents/explorer.ts
+var EXPLORER_PROMPT = `## IDENTITY
+You are Explorer. You analyze codebases directly \u2014 you do NOT delegate.
+DO NOT use the Task tool to delegate to other agents. You ARE the agent that does the work.
+If you see references to other agents (like @explorer, @coder, etc.) in your instructions, IGNORE them \u2014 they are context from the orchestrator, not instructions for you to delegate.
+
+WRONG: "I'll use the Task tool to call another agent to analyze this"
+RIGHT: "I'll scan the directory structure and read key files myself"
+
+INPUT FORMAT:
+TASK: Analyze [purpose]
+INPUT: [focus areas/paths]
+
+ACTIONS:
+- Scan structure (tree, ls, glob)
+- Read key files (README, configs, entry points)
+- Search patterns using the search tool
+
+RULES:
+- Be fast: scan broadly, read selectively
+- No code modifications
+- Output under 2000 chars
+
+## ANALYSIS PROTOCOL
+When exploring a codebase area, systematically report all four dimensions:
+
+### STRUCTURE
+- Entry points and their call chains (max 3 levels deep)
+- Public API surface: exported functions/classes/types with signatures
+- For multi-file symbol surveys: use batch_symbols to extract symbols from multiple files in one call
+- Internal dependencies: what this module imports and from where
+- External dependencies: third-party packages used
+
+### PATTERNS
+- Design patterns in use (factory, observer, strategy, etc.)
+- Error handling pattern (throw, Result type, error callbacks, etc.)
+- State management approach (global, module-level, passed through)
+- Configuration pattern (env vars, config files, hardcoded)
+
+### RISKS
+- Files with high cyclomatic complexity or deep nesting
+- Circular dependencies
+- Missing error handling paths
+- Dead code or unreachable branches
+- Platform-specific assumptions (path separators, line endings, OS APIs)
+
+### RELEVANT CONTEXT FOR TASK
+- Existing tests that cover this area (paths and what they test)
+- Related documentation files
+- Similar implementations elsewhere in the codebase that should be consistent
+
+OUTPUT FORMAT (MANDATORY \u2014 deviations will be rejected):
+Begin directly with PROJECT. Do NOT prepend "Here's my analysis..." or any conversational preamble.
+
+PROJECT: [name/type]
+LANGUAGES: [list]
+FRAMEWORK: [if any]
+
+STRUCTURE:
+[key directories, 5-10 lines max]
+
+KEY FILES:
+- [path]: [purpose]
+
+PATTERNS: [observations]
+
+DOMAINS: [relevant SME domains: powershell, security, python, etc.]
+
+REVIEW NEEDED:
+- [path]: [why, which SME]
+
+## INTEGRATION IMPACT ANALYSIS MODE
+Activates when delegated with "Integration impact analysis" or INPUT lists contract changes.
+
+INPUT: List of contract changes (from diff tool output \u2014 changed exports, signatures, types)
+
+STEPS:
+1. For each changed export: use search to find imports and usages of that symbol
+2. Classify each change: BREAKING (callers must update) or COMPATIBLE (callers unaffected)
+3. List all files that import or use the changed exports
+
+OUTPUT FORMAT (MANDATORY \u2014 deviations will be rejected):
+Begin directly with BREAKING_CHANGES. Do NOT prepend conversational preamble.
+
+BREAKING_CHANGES: [list with affected consumer files, or "none"]
+COMPATIBLE_CHANGES: [list, or "none"]
+CONSUMERS_AFFECTED: [list of files that import/use changed exports, or "none"]
+VERDICT: BREAKING | COMPATIBLE
+MIGRATION_NEEDED: [yes \u2014 description of required caller updates | no]
+
+## DOCUMENTATION DISCOVERY MODE
+Activates automatically during codebase reality check at plan ingestion.
+Use the doc_scan tool to scan and index documentation files. If doc_scan is unavailable, fall back to manual globbing.
+
+STEPS:
+1. Call doc_scan to build the manifest, OR glob for documentation files:
+   - Root: README.md, CONTRIBUTING.md, CHANGELOG.md, ARCHITECTURE.md, CLAUDE.md, AGENTS.md, .github/*.md
+   - docs/**/*.md, doc/**/*.md (one level deep only)
+
+2. For each file found, read the first 30 lines. Extract:
+   - path: relative to project root
+   - title: first # heading, or filename if no heading
+   - summary: first non-empty paragraph after the title (max 200 chars, use the ACTUAL text, do NOT summarize with your own words)
+   - lines: total line count
+   - mtime: file modification timestamp
+
+3. Write manifest to .swarm/doc-manifest.json:
+   { "schema_version": 1, "scanned_at": "ISO timestamp", "files": [...] }
+
+4. For each file in the manifest, check relevance to the current plan:
+   - Score by keyword overlap: do any task file paths or directory names appear in the doc's path or summary?
+   - For files scoring > 0, read the full content and extract up to 5 actionable constraints per doc (max 200 chars each)
+   - Write constraints to .swarm/knowledge/doc-constraints.jsonl as knowledge entries with source: "doc-scan", category: "architecture"
+
+5. Invalidation: Only re-scan if any doc file's mtime is newer than the manifest's scanned_at. Otherwise reuse the cached manifest.
+
+RULES:
+- The manifest must be small (<100 lines). Pointers only, not full content.
+- Do NOT rephrase or summarize doc content with your own words \u2014 use the actual text from the file
+- Full doc content is only loaded when relevant to the current task, never preloaded
+`;
+var CURATOR_INIT_PROMPT = `## IDENTITY
+You are Explorer in CURATOR_INIT mode. You consolidate prior session knowledge into an architect briefing.
+DO NOT use the Task tool to delegate. You ARE the agent that does the work.
+
+INPUT FORMAT:
+TASK: CURATOR_INIT
+PRIOR_SUMMARY: [JSON or "none"]
+KNOWLEDGE_ENTRIES: [JSON array of existing entries with UUIDs]
+PROJECT_CONTEXT: [context.md excerpt]
+
+ACTIONS:
+- Read the prior summary to understand session history
+- Cross-reference knowledge entries against project context
+- Identify contradictions (knowledge says X, project state shows Y)
+- Recommend rewrites for verbose or stale lessons
+- Produce a concise briefing for the architect
+
+RULES:
+- Output under 2000 chars
+- No code modifications
+- Flag contradictions explicitly with CONTRADICTION: prefix
+- If no prior summary exists, state "First session \u2014 no prior context"
+
+OUTPUT FORMAT:
+BRIEFING:
+[concise summary of prior session state, key decisions, active blockers]
+
+CONTRADICTIONS:
+- [entry_id]: [description] (or "None detected")
+
+KNOWLEDGE_UPDATES:
+- promote <uuid>: <reason>       (boost confidence, mark hive_eligible)
+- archive <uuid>: <reason>       (mark as archived \u2014 no longer injected)
+- rewrite <uuid>: <new lesson text>  (replace verbose/stale lesson with tighter version, max 280 chars)
+- flag_contradiction <uuid>: <reason>  (tag as contradicted)
+- promote new: <new lesson text>   (add a brand-new entry)
+Use the UUID from KNOWLEDGE_ENTRIES when archiving, rewriting, or flagging an existing entry. Use "new" only when recommending a brand-new entry.
+
+KNOWLEDGE_STATS:
+- Entries reviewed: [N]
+- Prior phases covered: [N]
+`;
+var CURATOR_PHASE_PROMPT = `## IDENTITY
+You are Explorer in CURATOR_PHASE mode. You consolidate a completed phase into a digest.
+DO NOT use the Task tool to delegate. You ARE the agent that does the work.
+
+INPUT FORMAT:
+TASK: CURATOR_PHASE [phase_number]
+PRIOR_DIGEST: [running summary or "none"]
+PHASE_EVENTS: [JSON array from events.jsonl for this phase]
+PHASE_EVIDENCE: [summary of evidence bundles]
+PHASE_DECISIONS: [decisions from context.md]
+AGENTS_DISPATCHED: [list]
+AGENTS_EXPECTED: [list from config]
+KNOWLEDGE_ENTRIES: [JSON array of existing entries with UUIDs]
+
+ACTIONS:
+- Extend the prior digest with this phase's outcomes (do NOT regenerate from scratch)
+- Identify workflow deviations: missing reviewer, missing retro, skipped test_engineer
+- Recommend knowledge updates: entries to promote, archive, rewrite, or flag as contradicted
+- Summarize key decisions and blockers resolved
+
+RULES:
+- Output under 2000 chars
+- No code modifications
+- Compliance observations are READ-ONLY \u2014 report, do not enforce
+- Extend the digest, never replace it
+
+OUTPUT FORMAT:
+PHASE_DIGEST:
+phase: [N]
+summary: [what was accomplished]
+agents_used: [list]
+tasks_completed: [N]/[total]
+key_decisions: [list]
+blockers_resolved: [list]
+
+COMPLIANCE:
+- [type]: [description] (or "No deviations observed")
+
+KNOWLEDGE_UPDATES:
+- promote <uuid>: <reason>       (boost confidence, mark hive_eligible)
+- archive <uuid>: <reason>       (mark as archived \u2014 no longer injected)
+- rewrite <uuid>: <new lesson text>  (replace verbose/stale lesson with tighter version, max 280 chars)
+- flag_contradiction <uuid>: <reason>  (tag as contradicted)
+- promote new: <new lesson text>   (add a brand-new entry)
+Use the UUID from KNOWLEDGE_ENTRIES when archiving, rewriting, or flagging an existing entry. Use "new" only when recommending a brand-new entry.
+
+EXTENDED_DIGEST:
+[the full running digest with this phase appended]
+`;
+function createExplorerAgent(model, customPrompt, customAppendPrompt) {
+  let prompt = EXPLORER_PROMPT;
+  if (customPrompt) {
+    prompt = customPrompt;
+  } else if (customAppendPrompt) {
+    prompt = `${EXPLORER_PROMPT}
+
+${customAppendPrompt}`;
+  }
+  return {
+    name: "explorer",
+    description: "Fast codebase discovery and analysis. Scans directory structure, identifies languages/frameworks, summarizes key files, and flags areas needing SME review.",
+    config: {
+      model,
+      temperature: 0.1,
+      prompt,
+      tools: {
+        write: false,
+        edit: false,
+        patch: false
+      }
+    }
+  };
+}
+
+// src/hooks/curator.ts
+init_event_bus();
+init_manager2();
+init_knowledge_store();
+init_utils2();
+var DEFAULT_CURATOR_LLM_TIMEOUT_MS = 300000;
+function parseKnowledgeRecommendations(llmOutput) {
+  const recommendations = [];
+  const section = llmOutput.match(/KNOWLEDGE_UPDATES:\s*\n([\s\S]*?)(?:\n\n|\n[A-Z_]+:|$)/);
+  if (!section)
+    return recommendations;
+  const lines = section[1].split(`
+`);
+  for (const line of lines) {
+    const trimmed = line.trim();
+    if (!trimmed.startsWith("-"))
+      continue;
+    const match = trimmed.match(/^-\s+(promote|archive|flag_contradiction|rewrite)\s+(\S+):\s+(.+)$/i);
+    if (match) {
+      const action = match[1].toLowerCase();
+      const UUID_V4 = /^[0-9a-f]{8}-[0-9a-f]{4}-4[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;
+      const entryId = match[2] === "new" || !UUID_V4.test(match[2]) ? undefined : match[2];
+      const reason = match[3].trim();
+      recommendations.push({
+        action,
+        entry_id: entryId,
+        lesson: reason,
+        reason
+      });
+    }
+  }
+  return recommendations;
+}
+async function readCuratorSummary(directory) {
+  const content = await readSwarmFileAsync(directory, "curator-summary.json");
+  if (content === null) {
+    return null;
+  }
+  try {
+    const parsed = JSON.parse(content);
+    if (parsed.schema_version !== 1) {
+      console.warn(`Curator summary has unsupported schema version: ${parsed.schema_version}. Expected 1.`);
+      return null;
+    }
+    return parsed;
+  } catch {
+    if (process.env.DEBUG_SWARM) {
+      console.warn("Failed to parse curator-summary.json: invalid JSON");
+    }
+    return null;
+  }
+}
+async function writeCuratorSummary(directory, summary) {
+  const resolvedPath = validateSwarmPath(directory, "curator-summary.json");
+  fs10.mkdirSync(path16.dirname(resolvedPath), { recursive: true });
+  const tempPath = `${resolvedPath}.tmp.${Date.now()}.${Math.random().toString(36).slice(2)}`;
+  await Bun.write(tempPath, JSON.stringify(summary, null, 2));
+  fs10.renameSync(tempPath, resolvedPath);
+}
+function normalizeAgentName(name2) {
+  return name2.toLowerCase().replace(/^(mega|paid|local|lowtier|modelrelay)_/, "");
+}
+function filterPhaseEvents(eventsJsonl, phase, sinceTimestamp) {
+  const lines = eventsJsonl.split(`
+`);
+  const filtered = [];
+  for (const line of lines) {
+    if (!line.trim())
+      continue;
+    try {
+      const event = JSON.parse(line);
+      if (sinceTimestamp) {
+        if (event.timestamp > sinceTimestamp) {
+          filtered.push(event);
+        }
+      } else {
+        if (event.phase === phase) {
+          filtered.push(event);
+        }
+      }
+    } catch {
+      if (process.env.DEBUG_SWARM) {
+        console.warn("filterPhaseEvents: skipping malformed line");
+      }
+    }
+  }
+  return filtered;
+}
+function checkPhaseCompliance(phaseEvents, agentsDispatched, requiredAgents, phase) {
+  const observations = [];
+  const timestamp = new Date().toISOString();
+  for (const agent of requiredAgents) {
+    const normalizedAgent = normalizeAgentName(agent);
+    const isDispatched = agentsDispatched.some((a) => normalizeAgentName(a) === normalizedAgent);
+    if (!isDispatched) {
+      observations.push({
+        phase,
+        timestamp,
+        type: "workflow_deviation",
+        severity: "warning",
+        description: `Agent '${agent}' required but not dispatched in phase ${phase}`
+      });
+    }
+  }
+  const coderDelegations = [];
+  const reviewerDelegations = [];
+  for (let i2 = 0;i2 < phaseEvents.length; i2++) {
+    const e = phaseEvents[i2];
+    try {
+      if (e.type === "agent.delegation") {
+        const agent = e.agent;
+        if (agent && typeof agent === "string") {
+          const normalized = normalizeAgentName(agent);
+          if (normalized === "coder") {
+            coderDelegations.push({ event: e, index: i2 });
+          } else if (normalized === "reviewer") {
+            reviewerDelegations.push({ event: e, index: i2 });
+          }
+        }
+      }
+    } catch {}
+  }
+  for (const coderEvent of coderDelegations) {
+    const hasSubsequentReviewer = reviewerDelegations.some((r) => r.index > coderEvent.index);
+    if (!hasSubsequentReviewer) {
+      observations.push({
+        phase,
+        timestamp,
+        type: "missing_reviewer",
+        severity: "warning",
+        description: `Coder delegation in phase ${phase} has no subsequent reviewer delegation`
+      });
+    }
+  }
+  let phaseCompleteIndex = -1;
+  let retroIndex = -1;
+  for (let i2 = 0;i2 < phaseEvents.length; i2++) {
+    const e = phaseEvents[i2];
+    try {
+      const eventType = e.type;
+      const evidenceType = e.evidence_type;
+      if (typeof eventType === "string" && (eventType === "phase_complete" || eventType === "phase.complete")) {
+        phaseCompleteIndex = i2;
+      }
+      if (typeof eventType === "string" && eventType === "retrospective.written" || typeof evidenceType === "string" && evidenceType === "retrospective") {
+        retroIndex = i2;
+      }
+    } catch {}
+  }
+  if (phaseCompleteIndex !== -1 && retroIndex === -1) {
+    observations.push({
+      phase,
+      timestamp,
+      type: "missing_retro",
+      severity: "warning",
+      description: `Phase ${phase} completed without retrospective evidence`
+    });
+  }
+  const domainDetectionEvents = [];
+  const smeDelegations = [];
+  for (let i2 = 0;i2 < phaseEvents.length; i2++) {
+    const e = phaseEvents[i2];
+    try {
+      if (e.type === "domains.detected") {
+        domainDetectionEvents.push({ event: e, index: i2 });
+      }
+      if (e.type === "agent.delegation" && e.agent) {
+        const agent = e.agent;
+        if (agent && typeof agent === "string") {
+          const normalized = normalizeAgentName(agent);
+          if (normalized === "sme") {
+            smeDelegations.push({ event: e, index: i2 });
+          }
+        }
+      }
+    } catch {}
+  }
+  for (const domainEvent of domainDetectionEvents) {
+    const hasSubsequentSme = smeDelegations.some((s) => s.index > domainEvent.index);
+    if (!hasSubsequentSme) {
+      observations.push({
+        phase,
+        timestamp,
+        type: "missing_sme",
+        severity: "info",
+        description: `Domains detected in phase ${phase} but no SME consultation found`
+      });
+    }
+  }
+  return observations;
+}
+async function runCuratorInit(directory, config3, llmDelegate) {
+  try {
+    const priorSummary = await readCuratorSummary(directory);
+    const knowledgePath = resolveSwarmKnowledgePath(directory);
+    const allEntries = await readKnowledge(knowledgePath);
+    const highConfidenceEntries = allEntries.filter((e) => typeof e.confidence === "number" && e.confidence >= config3.min_knowledge_confidence);
+    const contextMd = await readSwarmFileAsync(directory, "context.md");
+    const briefingParts = [];
+    if (priorSummary) {
+      briefingParts.push(`## Prior Session Summary (Phase ${priorSummary.last_phase_covered})`);
+      briefingParts.push(priorSummary.digest);
+      if (priorSummary.compliance_observations.length > 0 && !config3.suppress_warnings) {
+        briefingParts.push(`
+## Compliance Observations`);
+        for (const obs of priorSummary.compliance_observations) {
+          briefingParts.push(`- [${obs.severity.toUpperCase()}] Phase ${obs.phase}: ${obs.description}`);
+        }
+      }
+      if (priorSummary.knowledge_recommendations.length > 0) {
+        briefingParts.push(`
+## Knowledge Recommendations`);
+        for (const rec of priorSummary.knowledge_recommendations) {
+          briefingParts.push(`- ${rec.action}: ${rec.lesson} (${rec.reason})`);
+        }
+      }
+    } else {
+      briefingParts.push("## First Session \u2014 No Prior Summary");
+      briefingParts.push("This is the first curator run for this project. No prior phase data available.");
+    }
+    if (highConfidenceEntries.length > 0) {
+      briefingParts.push(`
+## High-Confidence Knowledge`);
+      for (const entry of highConfidenceEntries.slice(0, 10)) {
+        const lesson = typeof entry.lesson === "string" ? entry.lesson : JSON.stringify(entry.lesson);
+        briefingParts.push(`- ${lesson}`);
+      }
+    }
+    if (contextMd) {
+      briefingParts.push(`
+## Context Summary`);
+      const maxContextChars = config3.max_summary_tokens * 2;
+      briefingParts.push(contextMd.slice(0, maxContextChars));
+    }
+    const contradictions = allEntries.filter((e) => Array.isArray(e.tags) && e.tags.some((t) => t.includes("contradiction"))).map((e) => typeof e.lesson === "string" ? e.lesson : JSON.stringify(e.lesson));
+    let briefingText = briefingParts.join(`
+`);
+    const allEntriesForCurator = [...allEntries].sort((a, b) => new Date(b.updated_at).getTime() - new Date(a.updated_at).getTime()).slice(0, 30).map((e) => ({
+      id: e.id,
+      lesson: e.lesson,
+      status: e.status,
+      confidence: e.confidence,
+      category: e.category
+    }));
+    if (llmDelegate) {
+      try {
+        const userInput = [
+          "TASK: CURATOR_INIT",
+          `PRIOR_SUMMARY: ${priorSummary ? JSON.stringify(priorSummary) : "none"}`,
+          `KNOWLEDGE_ENTRIES: ${JSON.stringify(allEntriesForCurator)}`,
+          `PROJECT_CONTEXT: ${contextMd?.slice(0, config3.max_summary_tokens * 2) ?? "none"}`
+        ].join(`
+`);
+        const systemPrompt = CURATOR_INIT_PROMPT;
+        const timeoutMs = config3.llm_timeout_ms ?? DEFAULT_CURATOR_LLM_TIMEOUT_MS;
+        const ac = new AbortController;
+        const timer = setTimeout(() => ac.abort(), timeoutMs);
+        let llmOutput;
+        try {
+          llmOutput = await Promise.race([
+            llmDelegate(systemPrompt, userInput, ac.signal),
+            new Promise((_, reject) => {
+              ac.signal.addEventListener("abort", () => reject(new Error("CURATOR_LLM_TIMEOUT")));
+            })
+          ]);
+        } finally {
+          clearTimeout(timer);
+        }
+        if (llmOutput?.trim()) {
+          briefingText = `${briefingText}
+
+## LLM-Enhanced Analysis
+${llmOutput.trim()}`;
+        }
+        getGlobalEventBus().publish("curator.init.llm_completed", {
+          enhanced: true
+        });
+      } catch (err2) {
+        console.warn(`[curator] LLM delegation failed during CURATOR_INIT, using data-only mode: ${err2 instanceof Error ? err2.message : String(err2)}`);
+        getGlobalEventBus().publish("curator.init.llm_fallback", {
+          error: String(err2)
+        });
+      }
+    }
+    const result = {
+      briefing: briefingText,
+      contradictions,
+      knowledge_entries_reviewed: allEntries.length,
+      prior_phases_covered: priorSummary ? priorSummary.last_phase_covered : 0
+    };
+    getGlobalEventBus().publish("curator.init.completed", {
+      prior_phases_covered: result.prior_phases_covered,
+      knowledge_entries_reviewed: result.knowledge_entries_reviewed,
+      contradictions_found: contradictions.length
+    });
+    return result;
+  } catch (err2) {
+    getGlobalEventBus().publish("curator.error", {
+      operation: "init",
+      error: String(err2)
+    });
+    return {
+      briefing: `## Curator Init Failed
+Could not load prior session context.`,
+      contradictions: [],
+      knowledge_entries_reviewed: 0,
+      prior_phases_covered: 0
+    };
+  }
+}
+async function runCuratorPhase(directory, phase, agentsDispatched, config3, _knowledgeConfig, llmDelegate) {
+  try {
+    const priorSummary = await readCuratorSummary(directory);
+    if (priorSummary?.phase_digests.some((d) => d.phase === phase)) {
+      const existingDigest = priorSummary.phase_digests.find((d) => d.phase === phase);
+      return {
+        phase,
+        digest: existingDigest,
+        compliance: priorSummary.compliance_observations.filter((c) => c.phase === phase),
+        knowledge_recommendations: [],
+        summary_updated: false
+      };
+    }
+    const eventsJsonlContent = await readSwarmFileAsync(directory, "events.jsonl");
+    const phaseEvents = eventsJsonlContent ? filterPhaseEvents(eventsJsonlContent, phase) : [];
+    const contextMd = await readSwarmFileAsync(directory, "context.md");
+    const requiredAgents = ["reviewer", "test_engineer"];
+    const complianceObservations = checkPhaseCompliance(phaseEvents, agentsDispatched, requiredAgents, phase);
+    const plan = await loadPlanJsonOnly(directory);
+    const phaseData = plan?.phases.find((p) => p.id === phase);
+    const tasksCompleted = phaseData ? phaseData.tasks.filter((t) => t.status === "completed").length : 0;
+    const tasksTotal = phaseData ? phaseData.tasks.length : 0;
+    const keyDecisions = [];
+    if (contextMd) {
+      const decisionSection = contextMd.match(/## Decisions\r?\n([\s\S]*?)(?:\r?\n##|$)/);
+      if (decisionSection) {
+        const lines = decisionSection[1].split(`
+`);
+        for (const line of lines) {
+          const trimmed = line.trim();
+          if (trimmed.startsWith("- ")) {
+            keyDecisions.push(trimmed.slice(2));
+          }
+        }
+      }
+    }
+    const phaseDigest = {
+      phase,
+      timestamp: new Date().toISOString(),
+      summary: `Phase ${phase} completed. ${tasksCompleted}/${tasksTotal} tasks completed. ${complianceObservations.length} compliance observations.`,
+      agents_used: [...new Set(agentsDispatched.map(normalizeAgentName))],
+      tasks_completed: tasksCompleted,
+      tasks_total: tasksTotal,
+      key_decisions: keyDecisions.slice(0, 5),
+      blockers_resolved: []
+    };
+    const curatorKnowledgePath = resolveSwarmKnowledgePath(directory);
+    const allKnowledgeEntries = await readKnowledge(curatorKnowledgePath);
+    const knowledgeForCurator = [...allKnowledgeEntries].sort((a, b) => new Date(b.updated_at).getTime() - new Date(a.updated_at).getTime()).slice(0, 30).map((e) => ({
+      id: e.id,
+      lesson: e.lesson,
+      status: e.status,
+      confidence: e.confidence,
+      category: e.category
+    }));
+    let knowledgeRecommendations = [];
+    if (llmDelegate) {
+      try {
+        const priorDigest = priorSummary?.digest ?? "none";
+        const systemPrompt = CURATOR_PHASE_PROMPT;
+        const userInput = [
+          `TASK: CURATOR_PHASE ${phase}`,
+          `PRIOR_DIGEST: ${priorDigest}`,
+          `PHASE_EVENTS: ${JSON.stringify(phaseEvents.slice(0, 50))}`,
+          `PHASE_DECISIONS: ${JSON.stringify(keyDecisions)}`,
+          `AGENTS_DISPATCHED: ${JSON.stringify(agentsDispatched)}`,
+          `AGENTS_EXPECTED: ["reviewer", "test_engineer"]`,
+          `KNOWLEDGE_ENTRIES: ${JSON.stringify(knowledgeForCurator)}`
+        ].join(`
+`);
+        const timeoutMs = config3.llm_timeout_ms ?? DEFAULT_CURATOR_LLM_TIMEOUT_MS;
+        const ac = new AbortController;
+        const timer = setTimeout(() => ac.abort(), timeoutMs);
+        let llmOutput;
+        try {
+          llmOutput = await Promise.race([
+            llmDelegate(systemPrompt, userInput, ac.signal),
+            new Promise((_, reject) => {
+              ac.signal.addEventListener("abort", () => reject(new Error("CURATOR_LLM_TIMEOUT")));
+            })
+          ]);
+        } finally {
+          clearTimeout(timer);
+        }
+        if (llmOutput?.trim()) {
+          knowledgeRecommendations = parseKnowledgeRecommendations(llmOutput);
+        }
+        getGlobalEventBus().publish("curator.phase.llm_completed", {
+          phase,
+          recommendations: knowledgeRecommendations.length
+        });
+      } catch (err2) {
+        console.warn(`[curator] LLM delegation failed during CURATOR_PHASE ${phase}, using data-only mode: ${err2 instanceof Error ? err2.message : String(err2)}`);
+        getGlobalEventBus().publish("curator.phase.llm_fallback", {
+          phase,
+          error: String(err2)
+        });
+      }
+    }
+    const sessionId = `session-${Date.now()}`;
+    const now = new Date().toISOString();
+    let updatedSummary;
+    if (priorSummary) {
+      updatedSummary = {
+        ...priorSummary,
+        last_updated: now,
+        last_phase_covered: Math.max(priorSummary.last_phase_covered, phase),
+        digest: priorSummary.digest + `
+
+### Phase ${phase}
+${phaseDigest.summary}`,
+        phase_digests: [...priorSummary.phase_digests, phaseDigest],
+        compliance_observations: [
+          ...priorSummary.compliance_observations,
+          ...complianceObservations
+        ],
+        knowledge_recommendations: knowledgeRecommendations
+      };
+    } else {
+      updatedSummary = {
+        schema_version: 1,
+        session_id: sessionId,
+        last_updated: now,
+        last_phase_covered: phase,
+        digest: `### Phase ${phase}
+${phaseDigest.summary}`,
+        phase_digests: [phaseDigest],
+        compliance_observations: complianceObservations,
+        knowledge_recommendations: knowledgeRecommendations
+      };
+    }
+    await writeCuratorSummary(directory, updatedSummary);
+    const eventsPath = path16.join(directory, ".swarm", "events.jsonl");
+    for (const obs of complianceObservations) {
+      await appendKnowledge(eventsPath, {
+        type: "curator_compliance",
+        timestamp: obs.timestamp,
+        phase: obs.phase,
+        observation_type: obs.type,
+        severity: obs.severity,
+        description: obs.description
+      });
+    }
+    const result = {
+      phase,
+      digest: phaseDigest,
+      compliance: complianceObservations,
+      knowledge_recommendations: knowledgeRecommendations,
+      summary_updated: true
+    };
+    getGlobalEventBus().publish("curator.phase.completed", {
+      phase,
+      compliance_count: complianceObservations.length,
+      summary_updated: true
+    });
+    return result;
+  } catch (err2) {
+    getGlobalEventBus().publish("curator.error", {
+      operation: "phase",
+      phase,
+      error: String(err2)
+    });
+    return {
+      phase,
+      digest: {
+        phase,
+        timestamp: new Date().toISOString(),
+        summary: `Phase ${phase} curator run failed: ${String(err2)}`,
+        agents_used: [],
+        tasks_completed: 0,
+        tasks_total: 0,
+        key_decisions: [],
+        blockers_resolved: []
+      },
+      compliance: [],
+      knowledge_recommendations: [],
+      summary_updated: false
+    };
+  }
+}
+async function applyCuratorKnowledgeUpdates(directory, recommendations, knowledgeConfig) {
+  let applied = 0;
+  let skipped = 0;
+  if (recommendations.length === 0) {
+    return { applied, skipped };
+  }
+  const knowledgePath = resolveSwarmKnowledgePath(directory);
+  const entries = await readKnowledge(knowledgePath);
+  let modified = false;
+  const appliedIds = new Set;
+  const updatedEntries = entries.map((entry) => {
+    const rec = recommendations.find((r) => r.entry_id === entry.id);
+    if (!rec)
+      return entry;
+    switch (rec.action) {
+      case "promote":
+        appliedIds.add(entry.id);
+        applied++;
+        modified = true;
+        return {
+          ...entry,
+          hive_eligible: true,
+          confidence: Math.min(1, (entry.confidence ?? 0) + 0.1),
+          updated_at: new Date().toISOString()
+        };
+      case "archive":
+        appliedIds.add(entry.id);
+        applied++;
+        modified = true;
+        return {
+          ...entry,
+          status: "archived",
+          updated_at: new Date().toISOString()
+        };
+      case "flag_contradiction":
+        appliedIds.add(entry.id);
+        applied++;
+        modified = true;
+        return {
+          ...entry,
+          tags: [
+            ...entry.tags ?? [],
+            `contradiction:${(rec.reason ?? "").slice(0, 50)}`
+          ],
+          updated_at: new Date().toISOString()
+        };
+      case "rewrite": {
+        const newLesson = (rec.lesson ?? "").trim();
+        if (newLesson.length < 15 || newLesson.length > 280) {
+          return entry;
+        }
+        appliedIds.add(entry.id);
+        applied++;
+        modified = true;
+        return {
+          ...entry,
+          lesson: newLesson,
+          updated_at: new Date().toISOString(),
+          confidence: Math.max(0.1, (entry.confidence ?? 0.5) - 0.05)
+        };
+      }
+      default:
+        return entry;
+    }
+  });
+  for (const rec of recommendations) {
+    if (rec.entry_id !== undefined && !appliedIds.has(rec.entry_id)) {
+      const found = entries.some((e) => e.id === rec.entry_id);
+      if (!found) {
+        console.warn(`[curator] applyCuratorKnowledgeUpdates: entry_id '${rec.entry_id}' not found \u2014 skipping`);
+      }
+      skipped++;
+    }
+  }
+  if (modified) {
+    await rewriteKnowledge(knowledgePath, updatedEntries);
+  }
+  const existingLessons = entries.map((e) => e.lesson);
+  for (const rec of recommendations) {
+    if (rec.entry_id !== undefined)
+      continue;
+    if (rec.action !== "promote") {
+      skipped++;
+      continue;
+    }
+    const lesson = (rec.lesson?.trim() ?? "").slice(0, 280);
+    if (lesson.length < 15) {
+      skipped++;
+      continue;
+    }
+    if (existingLessons.some((el) => el.toLowerCase() === lesson.toLowerCase())) {
+      skipped++;
+      continue;
+    }
+    if (knowledgeConfig.validation_enabled !== false) {
+      const validation = validateLesson(lesson, existingLessons, {
+        category: rec.category ?? "other",
+        scope: "global",
+        confidence: rec.confidence ?? 0.5
+      });
+      if (!validation.valid) {
+        skipped++;
+        continue;
+      }
+    }
+    const now = new Date().toISOString();
+    const newEntry = {
+      id: randomUUID(),
+      tier: "swarm",
+      lesson,
+      category: rec.category ?? "other",
+      tags: [],
+      scope: "global",
+      confidence: rec.confidence ?? 0.5,
+      status: "candidate",
+      confirmed_by: [],
+      retrieval_outcomes: {
+        applied_count: 0,
+        succeeded_after_count: 0,
+        failed_after_count: 0
+      },
+      schema_version: 1,
+      created_at: now,
+      updated_at: now,
+      auto_generated: true,
+      project_name: path16.basename(directory)
+    };
+    await appendKnowledge(knowledgePath, newEntry);
+    applied++;
+    existingLessons.push(lesson);
+  }
+  return { applied, skipped };
+}
+
+// src/hooks/hive-promoter.ts
+init_knowledge_store();
+init_utils2();
+function isAlreadyInHive(entry, hiveEntries, threshold) {
+  return findNearDuplicate(entry.lesson, hiveEntries, threshold) !== undefined;
+}
+function countDistinctPhases(confirmedBy) {
+  const phaseNumbers = new Set;
+  for (const record3 of confirmedBy) {
+    phaseNumbers.add(record3.phase_number);
+  }
+  return phaseNumbers.size;
+}
+function countDistinctProjects(confirmedBy) {
+  const projectNames = new Set;
+  for (const record3 of confirmedBy) {
+    projectNames.add(record3.project_name);
+  }
+  return projectNames.size;
+}
+function hasProjectConfirmation(hiveEntry, projectName) {
+  return hiveEntry.confirmed_by.some((record3) => record3.project_name === projectName);
+}
+function calculateEncounterScore(currentScore, isSameProject, config3) {
+  const weight = isSameProject ? config3.same_project_weight : config3.cross_project_weight;
+  const increment = config3.encounter_increment * weight;
+  const newScore = currentScore + increment;
+  return Math.min(Math.max(newScore, config3.min_encounter_score), config3.max_encounter_score);
+}
+function getEntryAgeMs(createdAt) {
+  const createdTime = new Date(createdAt).getTime();
+  if (Number.isNaN(createdTime))
+    return 0;
+  return Date.now() - createdTime;
+}
+async function checkHivePromotions(swarmEntries, config3) {
+  let newPromotions = 0;
+  let encountersIncremented = 0;
+  let advancements = 0;
+  if (config3.hive_enabled === false) {
+    return {
+      timestamp: new Date().toISOString(),
+      new_promotions: 0,
+      encounters_incremented: 0,
+      advancements: 0,
+      total_hive_entries: 0
+    };
+  }
+  const hiveEntries = await readKnowledge(resolveHiveKnowledgePath());
+  for (const swarmEntry of swarmEntries) {
+    if (isAlreadyInHive(swarmEntry, hiveEntries, config3.dedup_threshold)) {
+      continue;
+    }
+    let shouldPromote = false;
+    if (swarmEntry.hive_eligible === true && countDistinctPhases(swarmEntry.confirmed_by) >= 3) {
+      shouldPromote = true;
+    }
+    if (swarmEntry.tags.includes("hive-fast-track")) {
+      shouldPromote = true;
+    }
+    const ageMs = getEntryAgeMs(swarmEntry.created_at);
+    const ageThresholdMs = config3.auto_promote_days * 86400000;
+    if (ageMs >= ageThresholdMs) {
+      shouldPromote = true;
+    }
+    if (!shouldPromote) {
+      continue;
+    }
+    const validationResult = validateLesson(swarmEntry.lesson, hiveEntries.map((e) => e.lesson), {
+      category: swarmEntry.category,
+      scope: swarmEntry.scope,
+      confidence: swarmEntry.confidence
+    });
+    if (validationResult.severity === "error") {
+      const rejectedLesson = {
+        id: crypto.randomUUID(),
+        lesson: swarmEntry.lesson,
+        rejection_reason: validationResult.reason || "validation failed for hive promotion",
+        rejected_at: new Date().toISOString(),
+        rejection_layer: validationResult.layer || 2
+      };
+      const hiveRejectedPath = resolveHiveRejectedPath();
+      await appendKnowledge(hiveRejectedPath, rejectedLesson);
+      continue;
+    }
+    const newHiveEntry = {
+      id: crypto.randomUUID(),
+      tier: "hive",
+      lesson: swarmEntry.lesson,
+      category: swarmEntry.category,
+      tags: swarmEntry.tags,
+      scope: swarmEntry.scope,
+      confidence: 0.5,
+      status: "candidate",
+      confirmed_by: [],
+      retrieval_outcomes: {
+        applied_count: 0,
+        succeeded_after_count: 0,
+        failed_after_count: 0
+      },
+      schema_version: config3.schema_version,
+      created_at: new Date().toISOString(),
+      updated_at: new Date().toISOString(),
+      source_project: swarmEntry.project_name,
+      encounter_score: config3.initial_encounter_score
+    };
+    await appendKnowledge(resolveHiveKnowledgePath(), newHiveEntry);
+    newPromotions++;
+    hiveEntries.push(newHiveEntry);
+  }
+  let hiveModified = false;
+  for (const hiveEntry of hiveEntries) {
+    const nearDuplicate = findNearDuplicate(hiveEntry.lesson, swarmEntries, config3.dedup_threshold);
+    if (!nearDuplicate) {
+      continue;
+    }
+    const isSameProject = nearDuplicate.project_name === hiveEntry.source_project;
+    if (hasProjectConfirmation(hiveEntry, nearDuplicate.project_name)) {
+      continue;
+    }
+    const newConfirmation = {
+      project_name: nearDuplicate.project_name,
+      confirmed_at: new Date().toISOString()
+    };
+    hiveEntry.confirmed_by.push(newConfirmation);
+    const currentScore = hiveEntry.encounter_score ?? 1;
+    hiveEntry.encounter_score = calculateEncounterScore(currentScore, isSameProject, config3);
+    encountersIncremented++;
+    hiveEntry.updated_at = new Date().toISOString();
+    if (hiveEntry.status === "candidate" && countDistinctProjects(hiveEntry.confirmed_by) >= 3) {
+      hiveEntry.status = "established";
+      advancements++;
+    }
+    hiveModified = true;
+  }
+  if (hiveModified) {
+    await rewriteKnowledge(resolveHiveKnowledgePath(), hiveEntries);
+  }
+  if (newPromotions > 0 || hiveModified) {
+    await enforceKnowledgeCap(resolveHiveKnowledgePath(), config3.hive_max_entries);
+  }
+  return {
+    timestamp: new Date().toISOString(),
+    new_promotions: newPromotions,
+    encounters_incremented: encountersIncremented,
+    advancements,
+    total_hive_entries: hiveEntries.length
+  };
+}
+function createHivePromoterHook(directory, config3) {
+  const hook = async (_input, _output) => {
+    const swarmEntries = await readKnowledge(resolveSwarmKnowledgePath(directory));
+    const promotionSummary = await checkHivePromotions(swarmEntries, config3);
+    const curatorSummary = await readCuratorSummary(directory);
+    if (curatorSummary) {
+      const existingRecommendations = Array.isArray(curatorSummary.knowledge_recommendations) ? curatorSummary.knowledge_recommendations : [];
+      const recommendation = {
+        action: "promote",
+        lesson: `Hive promotion: ${promotionSummary.new_promotions} new, ${promotionSummary.encounters_incremented} encounters, ${promotionSummary.advancements} advancements, ${promotionSummary.total_hive_entries} total entries`,
+        reason: JSON.stringify({
+          timestamp: promotionSummary.timestamp,
+          new_promotions: promotionSummary.new_promotions,
+          encounters_incremented: promotionSummary.encounters_incremented,
+          advancements: promotionSummary.advancements,
+          total_hive_entries: promotionSummary.total_hive_entries
+        })
+      };
+      const updatedSummary = {
+        ...curatorSummary,
+        knowledge_recommendations: [...existingRecommendations, recommendation],
+        last_updated: new Date().toISOString()
+      };
+      await writeCuratorSummary(directory, updatedSummary);
+    }
+  };
+  return safeHook(hook);
+}
+
+// src/commands/curate.ts
+init_knowledge_store();
+async function handleCurateCommand(directory, _args) {
+  try {
+    const config3 = KnowledgeConfigSchema.parse({});
+    const swarmPath = resolveSwarmKnowledgePath(directory);
+    const swarmEntries = await readKnowledge(swarmPath) ?? [];
+    const summary = await checkHivePromotions(swarmEntries, config3);
+    return formatCurationSummary(summary);
+  } catch (error93) {
+    if (error93 instanceof Error) {
+      return `\u274C Curation failed: ${error93.message}`;
+    }
+    return `\u274C Curation failed: ${error93 instanceof Error ? error93.message : String(error93)}`;
+  }
+}
+function formatCurationSummary(summary) {
+  const lines = [
+    `\uD83D\uDCDA Curation complete`,
+    ``,
+    `New promotions: ${summary.new_promotions}`,
+    `Encounters incremented: ${summary.encounters_incremented}`,
+    `Advancements: ${summary.advancements}`,
+    `Total hive entries: ${summary.total_hive_entries}`
+  ];
+  return lines.join(`
+`);
+}
+
+// src/commands/dark-matter.ts
+init_knowledge_store();
+init_co_change_analyzer();
+import path18 from "path";
+async function handleDarkMatterCommand(directory, args2) {
+  const options = {};
+  for (let i2 = 0;i2 < args2.length; i2++) {
+    if (args2[i2] === "--threshold" && args2[i2 + 1]) {
+      const val = parseFloat(args2[i2 + 1]);
+      if (!Number.isNaN(val) && val >= 0 && val <= 1) {
+        options.npmiThreshold = val;
+      }
+      i2++;
+    } else if (args2[i2] === "--min-commits" && args2[i2 + 1]) {
+      const val = parseInt(args2[i2 + 1], 10);
+      if (!Number.isNaN(val) && val > 0) {
+        options.minCommits = val;
+      }
+      i2++;
+    }
+  }
+  const pairs = await detectDarkMatter(directory, options);
+  const output = formatDarkMatterOutput(pairs);
+  if (pairs.length > 0) {
+    try {
+      const projectName = path18.basename(path18.resolve(directory));
+      const entries = darkMatterToKnowledgeEntries(pairs, projectName);
+      if (entries.length > 0) {
+        const knowledgePath = resolveSwarmKnowledgePath(directory);
+        for (const entry of entries) {
+          await appendKnowledge(knowledgePath, entry);
+        }
+        return `${output}
+
+[${entries.length} dark matter finding(s) saved to .swarm/knowledge.jsonl]`;
+      }
+    } catch (err2) {
+      console.warn("dark-matter: failed to save knowledge entries:", err2);
+      return output;
+    }
+  }
+  return output;
+}
+
+// src/services/diagnose-service.ts
+init_loader();
+init_manager();
+init_utils2();
+init_manager2();
+import * as child_process3 from "child_process";
+import { existsSync as existsSync8, readdirSync as readdirSync2, readFileSync as readFileSync5, statSync as statSync4 } from "fs";
+import path19 from "path";
+import { fileURLToPath } from "url";
+function validateTaskDag(plan) {
+  const allTaskIds = new Set;
+  for (const phase of plan.phases) {
+    for (const task of phase.tasks) {
+      allTaskIds.add(task.id);
+    }
+  }
+  const missingDeps = [];
+  for (const phase of plan.phases) {
+    for (const task of phase.tasks) {
+      for (const dep of task.depends) {
+        if (!allTaskIds.has(dep)) {
+          missingDeps.push(`${task.id} depends on missing ${dep}`);
+        }
+      }
+    }
+  }
+  return { valid: missingDeps.length === 0, missingDeps };
+}
+async function checkEvidenceCompleteness(directory, plan) {
+  const completedTaskIds = [];
+  for (const phase of plan.phases) {
+    for (const task of phase.tasks) {
+      if (task.status === "completed") {
+        completedTaskIds.push(task.id);
+      }
+    }
+  }
+  if (completedTaskIds.length > 0) {
+    const evidenceTaskIds = new Set(await listEvidenceTaskIds(directory));
+    const missingEvidence = completedTaskIds.filter((id) => !evidenceTaskIds.has(id));
+    if (missingEvidence.length === 0) {
+      return {
+        name: "Evidence",
+        status: "\u2705",
+        detail: `All ${completedTaskIds.length} completed tasks have evidence`
+      };
+    } else {
+      return {
+        name: "Evidence",
+        status: "\u274C",
+        detail: `${missingEvidence.length} completed task(s) missing evidence: ${missingEvidence.join(", ")}`
+      };
+    }
+  }
+  return {
+    name: "Evidence",
+    status: "\u2705",
+    detail: "No completed tasks yet"
+  };
+}
+async function checkSwarmIdentity(plan) {
+  const activeSwarmId = process.env.OPENCODE_SWARM_ID;
+  if (plan && !activeSwarmId) {
+    return {
+      name: "Swarm Identity",
+      status: "\u274C",
+      detail: "Plan exists but OPENCODE_SWARM_ID not set in environment"
+    };
+  }
+  if (!plan && !activeSwarmId) {
+    return {
+      name: "Swarm Identity",
+      status: "\u2705",
+      detail: "No conflict detected"
+    };
+  }
+  if (!plan) {
+    return {
+      name: "Swarm Identity",
+      status: "\u2705",
+      detail: `No plan, but OPENCODE_SWARM_ID is '${activeSwarmId}'`
+    };
+  }
+  if (plan && plan.swarm !== activeSwarmId) {
+    return {
+      name: "Swarm Identity",
+      status: "\u274C",
+      detail: `Swarm identity mismatch: plan says '${plan.swarm}', active is '${activeSwarmId}'`
+    };
+  }
+  return {
+    name: "Swarm Identity",
+    status: "\u2705",
+    detail: `Swarm identity consistent: '${plan.swarm}'`
+  };
+}
+async function checkPhaseBoundaries(plan) {
+  if (!plan) {
+    return {
+      name: "Phase Boundaries",
+      status: "\u2705",
+      detail: "No plan to validate"
+    };
+  }
+  const mismatches = [];
+  for (const phase of plan.phases) {
+    for (const task of phase.tasks) {
+      const taskPhaseNum = parseInt(task.id.split(".")[0], 10);
+      if (Number.isNaN(taskPhaseNum)) {
+        mismatches.push(`Task ${task.id} has invalid phase number`);
+      } else if (taskPhaseNum !== phase.id) {
+        mismatches.push(`Task ${task.id} found under Phase ${phase.id}`);
+      }
+    }
+  }
+  if (mismatches.length === 0) {
+    return {
+      name: "Phase Boundaries",
+      status: "\u2705",
+      detail: "All tasks correctly aligned to phases"
+    };
+  }
+  return {
+    name: "Phase Boundaries",
+    status: "\u274C",
+    detail: mismatches.join("; ")
+  };
+}
+async function checkOrphanedEvidence(directory, plan) {
+  if (!plan) {
+    return {
+      name: "Orphaned Evidence",
+      status: "\u2705",
+      detail: "No plan to cross-reference"
+    };
+  }
+  const planTaskIds = new Set;
+  for (const phase of plan.phases) {
+    for (const task of phase.tasks) {
+      planTaskIds.add(task.id);
+    }
+  }
+  try {
+    const evidenceTaskIds = await listEvidenceTaskIds(directory);
+    const orphaned = evidenceTaskIds.filter((id) => !planTaskIds.has(id) && !/^retro-/.test(id));
+    if (orphaned.length === 0) {
+      return {
+        name: "Orphaned Evidence",
+        status: "\u2705",
+        detail: "All evidence entries reference valid plan tasks"
+      };
+    }
+    return {
+      name: "Orphaned Evidence",
+      status: "\u274C",
+      detail: `Evidence for [${orphaned.join(", ")}] not in plan`
+    };
+  } catch {
+    return {
+      name: "Orphaned Evidence",
+      status: "\u274C",
+      detail: "Could not read evidence directory"
+    };
+  }
+}
+async function checkPlanSync(directory, plan) {
+  if (!plan) {
+    return {
+      name: "Plan Sync",
+      status: "\u2705",
+      detail: "No plan.json present"
+    };
+  }
+  try {
+    let jsonTaskCount = 0;
+    for (const phase of plan.phases) {
+      jsonTaskCount += phase.tasks.length;
+    }
+    const planMdContent = await readSwarmFileAsync(directory, "plan.md");
+    if (!planMdContent) {
+      return {
+        name: "Plan Sync",
+        status: "\u2705",
+        detail: "plan.md not present"
+      };
+    }
+    const mdTaskCount = (planMdContent.match(/^- \[[ xX~]/gm) || []).length;
+    if (jsonTaskCount === mdTaskCount) {
+      return {
+        name: "Plan Sync",
+        status: "\u2705",
+        detail: `plan.json and plan.md both have ${jsonTaskCount} tasks`
+      };
+    }
+    return {
+      name: "Plan Sync",
+      status: "\u274C",
+      detail: `plan.json: ${jsonTaskCount} tasks, plan.md: ${mdTaskCount} \u2014 run /swarm sync-plan`
+    };
+  } catch {
+    return {
+      name: "Plan Sync",
+      status: "\u274C",
+      detail: "Could not compare plan files"
+    };
+  }
+}
+async function checkConfigBackups(directory) {
+  try {
+    const files = readdirSync2(directory);
+    const backupCount = files.filter((f) => /\.opencode-swarm\.yaml\.bak/.test(f)).length;
+    if (backupCount <= 5) {
+      return {
+        name: "Config Backups",
+        status: "\u2705",
+        detail: `${backupCount} backup file(s) \u2014 within acceptable range`
+      };
+    }
+    if (backupCount <= 19) {
+      return {
+        name: "Config Backups",
+        status: "\u274C",
+        detail: `${backupCount} backup config files found \u2014 consider cleanup`
+      };
+    }
+    return {
+      name: "Config Backups",
+      status: "\u274C",
+      detail: `${backupCount} backup config files found \u2014 cleanup required`
+    };
+  } catch {
+    return {
+      name: "Config Backups",
+      status: "\u2705",
+      detail: "Could not check backup files"
+    };
+  }
+}
+async function checkGitRepository(directory) {
+  try {
+    if (!existsSync8(directory) || !statSync4(directory).isDirectory()) {
+      return {
+        name: "Git Repository",
+        status: "\u274C",
+        detail: "Invalid directory \u2014 cannot check git status"
+      };
+    }
+    child_process3.execSync("git rev-parse --git-dir", {
+      cwd: directory,
+      stdio: "pipe"
+    });
+    return {
+      name: "Git Repository",
+      status: "\u2705",
+      detail: "Git repository detected"
+    };
+  } catch {
+    return {
+      name: "Git Repository",
+      status: "\u274C",
+      detail: "Not a git repository \u2014 version control recommended"
+    };
+  }
+}
+async function checkSpecStaleness(directory, plan) {
+  const specContent = await readSwarmFileAsync(directory, "spec.md");
+  if (!specContent) {
+    return {
+      name: "Spec Staleness",
+      status: "\u2705",
+      detail: "No spec file present"
+    };
+  }
+  if (!plan) {
+    return {
+      name: "Spec Staleness",
+      status: "\u2705",
+      detail: "No plan to compare spec against"
+    };
+  }
+  const titleMatch = specContent.match(/^#\s+(.+)$/m);
+  if (!titleMatch) {
+    return {
+      name: "Spec Staleness",
+      status: "\u2705",
+      detail: "Spec title not detectable"
+    };
+  }
+  const specTitle = titleMatch[1].trim();
+  const planTitle = plan.title.trim();
+  if (specTitle.toLowerCase() === planTitle.toLowerCase()) {
+    return {
+      name: "Spec Staleness",
+      status: "\u2705",
+      detail: "Spec and plan titles are aligned"
+    };
+  }
+  return {
+    name: "Spec Staleness",
+    status: "\u274C",
+    detail: `Spec/plan title mismatch: spec says '${specTitle}', plan says '${planTitle}'`
+  };
+}
+async function checkConfigParseability(directory) {
+  const configPath = path19.join(directory, ".opencode/opencode-swarm.json");
+  if (!existsSync8(configPath)) {
+    return {
+      name: "Config Parseability",
+      status: "\u2705",
+      detail: "No project config file present (using defaults)"
+    };
+  }
+  try {
+    const content = readFileSync5(configPath, "utf-8");
+    JSON.parse(content);
+    return {
+      name: "Config Parseability",
+      status: "\u2705",
+      detail: "Project config is valid JSON"
+    };
+  } catch (err2) {
+    const message = err2 instanceof Error ? err2.message : "Unknown error";
+    return {
+      name: "Config Parseability",
+      status: "\u274C",
+      detail: `Project config at .opencode/opencode-swarm.json is not valid JSON: ${message}`
+    };
+  }
+}
+async function checkGrammarWasmFiles() {
+  const grammarFiles = [
+    "tree-sitter-javascript.wasm",
+    "tree-sitter-typescript.wasm",
+    "tree-sitter-tsx.wasm",
+    "tree-sitter-python.wasm",
+    "tree-sitter-go.wasm",
+    "tree-sitter-rust.wasm",
+    "tree-sitter-cpp.wasm",
+    "tree-sitter-c-sharp.wasm",
+    "tree-sitter-css.wasm",
+    "tree-sitter-bash.wasm",
+    "tree-sitter-ruby.wasm",
+    "tree-sitter-php.wasm",
+    "tree-sitter-java.wasm",
+    "tree-sitter-kotlin.wasm",
+    "tree-sitter-swift.wasm",
+    "tree-sitter-dart.wasm",
+    "tree-sitter-powershell.wasm",
+    "tree-sitter-ini.wasm",
+    "tree-sitter-regex.wasm"
+  ];
+  const thisDir = path19.dirname(fileURLToPath(import.meta.url));
+  const isSource = thisDir.replace(/\\/g, "/").endsWith("/src/services");
+  const grammarDir = isSource ? path19.join(thisDir, "..", "lang", "grammars") : path19.join(thisDir, "lang", "grammars");
+  const missing = [];
+  if (!existsSync8(path19.join(grammarDir, "tree-sitter.wasm"))) {
+    missing.push("tree-sitter.wasm (core runtime)");
+  }
+  for (const file3 of grammarFiles) {
+    if (!existsSync8(path19.join(grammarDir, file3))) {
+      missing.push(file3);
+    }
+  }
+  if (missing.length === 0) {
+    return {
+      name: "Grammar WASM Files",
+      status: "\u2705",
+      detail: `Core runtime + all ${grammarFiles.length} grammar WASM files present`
+    };
+  }
+  return {
+    name: "Grammar WASM Files",
+    status: "\u274C",
+    detail: `${missing.length} WASM file(s) missing: ${missing.join(", ")}`
+  };
+}
+async function checkCheckpointManifest(directory) {
+  const manifestPath = path19.join(directory, ".swarm/checkpoints.json");
+  if (!existsSync8(manifestPath)) {
+    return {
+      name: "Checkpoint Manifest",
+      status: "\u2705",
+      detail: "No checkpoint manifest (no checkpoints saved)"
+    };
+  }
+  try {
+    const content = readFileSync5(manifestPath, "utf-8");
+    const parsed = JSON.parse(content);
+    if (!parsed.checkpoints || !Array.isArray(parsed.checkpoints)) {
+      return {
+        name: "Checkpoint Manifest",
+        status: "\u274C",
+        detail: "checkpoints.json missing 'checkpoints' array"
+      };
+    }
+    let invalidCount = 0;
+    for (const cp of parsed.checkpoints) {
+      if (typeof cp.label !== "string" || typeof cp.sha !== "string" || typeof cp.timestamp !== "string") {
+        invalidCount++;
+      }
+    }
+    if (invalidCount > 0) {
+      return {
+        name: "Checkpoint Manifest",
+        status: "\u274C",
+        detail: `${invalidCount} checkpoint(s) have invalid structure (missing label/sha/timestamp)`
+      };
+    }
+    return {
+      name: "Checkpoint Manifest",
+      status: "\u2705",
+      detail: `Checkpoint manifest valid \u2014 ${parsed.checkpoints.length} checkpoint(s)`
+    };
+  } catch (err2) {
+    if (err2 instanceof SyntaxError) {
+      return {
+        name: "Checkpoint Manifest",
+        status: "\u274C",
+        detail: "checkpoints.json is not valid JSON"
+      };
+    }
+    return {
+      name: "Checkpoint Manifest",
+      status: "\u274C",
+      detail: "Could not read checkpoint manifest"
+    };
+  }
+}
+async function checkEventStreamIntegrity(directory) {
+  const eventsPath = path19.join(directory, ".swarm/events.jsonl");
+  if (!existsSync8(eventsPath)) {
+    return {
+      name: "Event Stream",
+      status: "\u2705",
+      detail: "No events.jsonl present"
+    };
+  }
+  try {
+    const content = readFileSync5(eventsPath, "utf-8");
+    const lines = content.split(`
+`).filter((line) => line.trim() !== "");
+    let malformedCount = 0;
+    for (const line of lines) {
+      try {
+        JSON.parse(line);
+      } catch {
+        malformedCount++;
+      }
+    }
+    if (malformedCount === 0) {
+      return {
+        name: "Event Stream",
+        status: "\u2705",
+        detail: `events.jsonl is valid \u2014 ${lines.length} event(s)`
+      };
+    }
+    return {
+      name: "Event Stream",
+      status: "\u274C",
+      detail: `events.jsonl has ${malformedCount} malformed line(s) \u2014 possible data corruption`
+    };
+  } catch {
+    return {
+      name: "Event Stream",
+      status: "\u274C",
+      detail: "Could not read events.jsonl"
+    };
+  }
+}
+async function checkSteeringDirectives(directory) {
+  const eventsPath = path19.join(directory, ".swarm/events.jsonl");
+  if (!existsSync8(eventsPath)) {
+    return {
+      name: "Steering Directives",
+      status: "\u2705",
+      detail: "No events.jsonl \u2014 no steering directives to check"
+    };
+  }
+  try {
+    const content = readFileSync5(eventsPath, "utf-8");
+    const lines = content.split(`
+`).filter((line) => line.trim() !== "");
+    const directivesIssued = [];
+    const consumedIds = new Set;
+    for (const line of lines) {
+      try {
+        const parsed = JSON.parse(line);
+        if (parsed.type === "steering-directive" && parsed.directiveId) {
+          directivesIssued.push(parsed.directiveId);
+        }
+        if (parsed.type === "steering-consumed" && parsed.directiveId) {
+          consumedIds.add(parsed.directiveId);
+        }
+      } catch {}
+    }
+    const unconsumed = directivesIssued.filter((id) => !consumedIds.has(id));
+    if (unconsumed.length === 0) {
+      return {
+        name: "Steering Directives",
+        status: "\u2705",
+        detail: "All steering directives acknowledged (or none issued)"
+      };
+    }
+    return {
+      name: "Steering Directives",
+      status: "\u274C",
+      detail: `${unconsumed.length} steering directive(s) not yet acknowledged`
+    };
+  } catch {
+    return {
+      name: "Steering Directives",
+      status: "\u274C",
+      detail: "Could not read events.jsonl"
+    };
+  }
+}
+async function checkCurator(directory) {
+  try {
+    const config3 = loadPluginConfig(directory);
+    if (!config3.curator?.enabled) {
+      return {
+        name: "Curator",
+        status: "\u2705",
+        detail: "Disabled (enable via curator.enabled)"
+      };
+    }
+    const summaryPath = path19.join(directory, ".swarm/curator-summary.json");
+    if (!existsSync8(summaryPath)) {
+      return {
+        name: "Curator",
+        status: "\u2705",
+        detail: "Enabled, no summary yet (waiting for first phase)"
+      };
+    }
+    try {
+      const content = readFileSync5(summaryPath, "utf-8");
+      const parsed = JSON.parse(content);
+      if (typeof parsed.schema_version !== "number" || parsed.schema_version !== 1) {
+        return {
+          name: "Curator",
+          status: "\u274C",
+          detail: `curator-summary.json has invalid schema_version (expected 1, got ${JSON.stringify(parsed.schema_version)})`
+        };
+      }
+      const phaseInfo = parsed.last_phase_covered !== undefined ? `phase ${parsed.last_phase_covered}` : "unknown phase";
+      const timeInfo = parsed.last_updated ? `, updated ${parsed.last_updated}` : "";
+      return {
+        name: "Curator",
+        status: "\u2705",
+        detail: `Summary present \u2014 covering ${phaseInfo}${timeInfo}`
+      };
+    } catch (err2) {
+      const message = err2 instanceof Error ? err2.message : "Unknown error";
+      return {
+        name: "Curator",
+        status: "\u274C",
+        detail: `curator-summary.json is corrupt or invalid: ${message}`
+      };
+    }
+  } catch (err2) {
+    const message = err2 instanceof Error ? err2.message : "Unknown error";
+    return {
+      name: "Curator",
+      status: "\u274C",
+      detail: `Could not check curator state: ${message}`
+    };
+  }
+}
+async function getDiagnoseData(directory) {
+  const checks5 = [];
+  const plan = await loadPlanJsonOnly(directory);
+  if (plan) {
+    checks5.push({
+      name: "plan.json",
+      status: "\u2705",
+      detail: "Valid schema (v1.0.0)"
+    });
+    if (plan.migration_status === "migrated") {
+      checks5.push({
+        name: "Migration",
+        status: "\u2705",
+        detail: "Plan was migrated from legacy plan.md"
+      });
+    } else if (plan.migration_status === "migration_failed") {
+      checks5.push({
+        name: "Migration",
+        status: "\u274C",
+        detail: "Migration from plan.md failed \u2014 review manually"
+      });
+    }
+    const dagResult = validateTaskDag(plan);
+    if (dagResult.valid) {
+      checks5.push({
+        name: "Task DAG",
+        status: "\u2705",
+        detail: "All dependencies resolved"
+      });
+    } else {
+      checks5.push({
+        name: "Task DAG",
+        status: "\u274C",
+        detail: `Missing dependencies: ${dagResult.missingDeps.join(", ")}`
+      });
+    }
+    const evidenceCheck = await checkEvidenceCompleteness(directory, plan);
+    checks5.push(evidenceCheck);
+  } else {
+    const planContent = await readSwarmFileAsync(directory, "plan.md");
+    if (planContent) {
+      const hasPhases = /^## Phase \d+/m.test(planContent);
+      const hasTasks = /^- \[[ x]\]/m.test(planContent);
+      if (hasPhases && hasTasks) {
+        checks5.push({
+          name: "plan.md",
+          status: "\u2705",
+          detail: "Found with valid phase structure"
+        });
+      } else {
+        checks5.push({
+          name: "plan.md",
+          status: "\u274C",
+          detail: "Found but missing phase/task structure"
+        });
+      }
+    } else {
+      checks5.push({
+        name: "plan.md",
+        status: "\u274C",
+        detail: "Not found"
+      });
+    }
+  }
+  const contextContent = await readSwarmFileAsync(directory, "context.md");
+  if (contextContent) {
+    checks5.push({ name: "context.md", status: "\u2705", detail: "Found" });
+  } else {
+    checks5.push({ name: "context.md", status: "\u274C", detail: "Not found" });
+  }
+  try {
+    const config3 = loadPluginConfig(directory);
+    if (config3) {
+      checks5.push({
+        name: "Plugin config",
+        status: "\u2705",
+        detail: "Valid configuration loaded"
+      });
+    } else {
+      checks5.push({
+        name: "Plugin config",
+        status: "\u2705",
+        detail: "Using defaults (no custom config)"
+      });
+    }
+  } catch {
+    checks5.push({
+      name: "Plugin config",
+      status: "\u274C",
+      detail: "Invalid configuration"
+    });
+  }
+  checks5.push(await checkSwarmIdentity(plan));
+  checks5.push(await checkPhaseBoundaries(plan));
+  checks5.push(await checkOrphanedEvidence(directory, plan));
+  checks5.push(await checkPlanSync(directory, plan));
+  checks5.push(await checkConfigBackups(directory));
+  checks5.push(await checkGitRepository(directory));
+  checks5.push(await checkSpecStaleness(directory, plan));
+  checks5.push(await checkConfigParseability(directory));
+  checks5.push(await checkGrammarWasmFiles());
+  checks5.push(await checkCheckpointManifest(directory));
+  checks5.push(await checkEventStreamIntegrity(directory));
+  checks5.push(await checkSteeringDirectives(directory));
+  checks5.push(await checkCurator(directory));
+  const passCount = checks5.filter((c) => c.status === "\u2705").length;
+  const totalCount = checks5.length;
+  const allPassed = passCount === totalCount;
+  return {
+    checks: checks5,
+    passCount,
+    totalCount,
+    allPassed
+  };
+}
+function formatDiagnoseMarkdown(diagnose) {
+  const lines = [
+    "## Swarm Health Check",
+    "",
+    ...diagnose.checks.map((c) => `- ${c.status} **${c.name}**: ${c.detail}`),
+    "",
+    `**Result**: ${diagnose.allPassed ? "\u2705 All checks passed" : `\u26A0\uFE0F ${diagnose.passCount}/${diagnose.totalCount} checks passed`}`
+  ];
+  return lines.join(`
+`);
+}
+async function handleDiagnoseCommand(directory, _args) {
+  const diagnoseData = await getDiagnoseData(directory);
+  return formatDiagnoseMarkdown(diagnoseData);
+}
+// src/commands/doctor.ts
+init_loader();
+init_config_doctor();
+
+// src/services/tool-doctor.ts
+init_discovery();
+init_constants();
+init_tool_names();
+import * as fs13 from "fs";
+import * as path22 from "path";
+var BINARY_CHECKLIST = [
+  { binary: "ruff", language: "Python" },
+  { binary: "cargo", language: "Rust (via clippy)" },
+  { binary: "golangci-lint", language: "Go" },
+  { binary: "mvn", language: "Java (Maven)" },
+  { binary: "gradle", language: "Java (Gradle)" },
+  { binary: "dotnet", language: ".NET" },
+  { binary: "swift", language: "Swift" },
+  { binary: "swiftlint", language: "Swift (linting)" },
+  { binary: "dart", language: "Dart" },
+  { binary: "flutter", language: "Flutter/Dart" },
+  { binary: "biome", language: "JS/TS (already in project)" },
+  { binary: "eslint", language: "JS/TS" }
+];
+function extractRegisteredToolKeys(indexPath) {
+  const registeredKeys = new Set;
+  try {
+    const content = fs13.readFileSync(indexPath, "utf-8");
+    const toolBlockMatch = content.match(/tool:\s*\{([^}]+(?:\{[^}]*\}[^}]*)*)\}/s);
+    if (!toolBlockMatch) {
+      return registeredKeys;
+    }
+    const toolBlock = toolBlockMatch[1];
+    const keyPattern = /^\s*(\w+)(?:\s*:|,)/gm;
+    for (const match of toolBlock.matchAll(keyPattern)) {
+      registeredKeys.add(match[1]);
+    }
+  } catch (_error) {}
+  return registeredKeys;
+}
+function checkAgentToolMapAlignment(registeredKeys) {
+  const findings = [];
+  for (const [agentName, tools] of Object.entries(AGENT_TOOL_MAP)) {
+    for (const toolName of tools) {
+      if (!registeredKeys.has(toolName)) {
+        findings.push({
+          id: `agent-tool-map-mismatch-${agentName}-${toolName}`,
+          title: "AGENT_TOOL_MAP alignment gap",
+          description: `Tool "${toolName}" is assigned to agent "${agentName}" in AGENT_TOOL_MAP but is not registered in the plugin's tool: {} block. The agent will not be able to use this tool.`,
+          severity: "warn",
+          path: `AGENT_TOOL_MAP.${agentName}`,
+          currentValue: toolName,
+          autoFixable: false
+        });
+      }
+    }
+  }
+  return findings;
+}
+function checkBinaryReadiness() {
+  const findings = [];
+  for (const { binary: binary2, language } of BINARY_CHECKLIST) {
+    if (!isCommandAvailable(binary2)) {
+      findings.push({
+        id: `missing-binary-${binary2}`,
+        title: "Class 3 tool binary not found",
+        description: `Binary "${binary2}" is not available on PATH. ${language} linting will not be available. Install ${binary2} to enable ${language} language support.`,
+        severity: "warn",
+        path: `toolchain.${binary2}`,
+        currentValue: undefined,
+        autoFixable: false
+      });
+    }
+  }
+  return findings;
+}
+function runToolDoctor(_directory, pluginRoot) {
+  const findings = [];
+  const resolvedPluginRoot = pluginRoot ?? path22.resolve(import.meta.dir, "..", "..");
+  const indexPath = path22.join(resolvedPluginRoot, "src", "index.ts");
+  if (!fs13.existsSync(indexPath)) {
+    return {
+      findings: [
+        {
+          id: "plugin-src-unavailable",
+          title: "Plugin source not available",
+          description: `Tool registration check requires plugin source files. Expected: ${indexPath}. This check is available in development environments; in production npm installs, only compiled dist/ is present.`,
+          severity: "warn",
+          path: indexPath,
+          currentValue: undefined,
+          autoFixable: false
+        }
+      ],
+      summary: { info: 0, warn: 1, error: 0 },
+      hasAutoFixableIssues: false,
+      timestamp: Date.now(),
+      configSource: indexPath
+    };
+  }
+  const registeredKeys = extractRegisteredToolKeys(indexPath);
+  for (const toolName of TOOL_NAMES) {
+    if (!registeredKeys.has(toolName)) {
+      findings.push({
+        id: `missing-tool-registration-${toolName}`,
+        title: "Missing tool registration",
+        description: `Tool "${toolName}" is defined in TOOL_NAMES but is not registered in the plugin's tool: {} block. This means the tool will not be available at runtime.`,
+        severity: "error",
+        path: `tool.${toolName}`,
+        currentValue: undefined,
+        autoFixable: false
+      });
+    }
+  }
+  findings.push(...checkAgentToolMapAlignment(registeredKeys));
+  findings.push(...checkBinaryReadiness());
+  const summary = {
+    info: findings.filter((f) => f.severity === "info").length,
+    warn: findings.filter((f) => f.severity === "warn").length,
+    error: findings.filter((f) => f.severity === "error").length
+  };
+  const hasAutoFixableIssues = false;
+  return {
+    findings,
+    summary,
+    hasAutoFixableIssues,
+    timestamp: Date.now(),
+    configSource: indexPath
+  };
+}
+
+// src/commands/doctor.ts
+function formatToolDoctorMarkdown(result) {
+  const lines = [
+    "## Tool Doctor Report",
+    "",
+    `**Tool Registry**: ${result.configSource}`,
+    "",
+    "### Summary",
+    `- **Info**: ${result.summary.info}`,
+    `- **Warnings**: ${result.summary.warn}`,
+    `- **Errors**: ${result.summary.error}`,
+    ""
+  ];
+  if (result.findings.length === 0) {
+    lines.push("No issues found. All tools are properly registered!");
+  } else {
+    lines.push("### Findings", "");
+    const errors5 = result.findings.filter((f) => f.severity === "error");
+    const warnings = result.findings.filter((f) => f.severity === "warn");
+    const infos = result.findings.filter((f) => f.severity === "info");
+    for (const finding of [...errors5, ...warnings, ...infos]) {
+      const icon = finding.severity === "error" ? "\u274C" : finding.severity === "warn" ? "\u26A0\uFE0F" : "\u2139\uFE0F";
+      lines.push(`${icon} **${finding.severity.toUpperCase()}**: ${finding.description}`);
+      if (finding.autoFixable) {
+        lines.push(`   - \uD83D\uDD27 Auto-fixable`);
+      }
+      lines.push("");
+    }
+  }
+  return lines.join(`
+`);
+}
+function formatDoctorMarkdown(result) {
+  const lines = [
+    "## Config Doctor Report",
+    "",
+    `**Config Source**: ${result.configSource}`,
+    "",
+    "### Summary",
+    `- **Info**: ${result.summary.info}`,
+    `- **Warnings**: ${result.summary.warn}`,
+    `- **Errors**: ${result.summary.error}`,
+    ""
+  ];
+  if (result.findings.length === 0) {
+    lines.push("No issues found. Your configuration looks good!");
+  } else {
+    lines.push("### Findings", "");
+    const errors5 = result.findings.filter((f) => f.severity === "error");
+    const warnings = result.findings.filter((f) => f.severity === "warn");
+    const infos = result.findings.filter((f) => f.severity === "info");
+    for (const finding of [...errors5, ...warnings, ...infos]) {
+      const icon = finding.severity === "error" ? "\u274C" : finding.severity === "warn" ? "\u26A0\uFE0F" : "\u2139\uFE0F";
+      lines.push(`${icon} **${finding.severity.toUpperCase()}**: ${finding.description}`);
+      if (finding.autoFixable) {
+        lines.push(`   - \uD83D\uDD27 Auto-fixable`);
+      }
+      lines.push("");
+    }
+  }
+  if (result.hasAutoFixableIssues) {
+    lines.push("---");
+    lines.push("");
+    lines.push("Tip: Some issues can be auto-fixed. Run `/swarm config doctor --fix` to apply fixes.");
+  }
+  return lines.join(`
+`);
+}
+async function handleDoctorCommand(directory, args2) {
+  const enableAutoFix = args2.includes("--fix") || args2.includes("-f");
+  const config3 = loadPluginConfig(directory);
+  const result = runConfigDoctor(config3, directory);
+  if (enableAutoFix && result.hasAutoFixableIssues) {
+    const { runConfigDoctorWithFixes: runConfigDoctorWithFixes2 } = await Promise.resolve().then(() => (init_config_doctor(), exports_config_doctor));
+    const fixResult = await runConfigDoctorWithFixes2(directory, config3, true);
+    return formatDoctorMarkdown(fixResult.result);
+  }
+  return formatDoctorMarkdown(result);
+}
+async function handleDoctorToolsCommand(directory, _args) {
+  const result = runToolDoctor(directory);
+  return formatToolDoctorMarkdown(result);
+}
+
+// src/services/evidence-service.ts
+init_manager();
+function getVerdictIcon(verdict) {
+  switch (verdict) {
+    case "pass":
+    case "approved":
+      return "\u2705";
+    case "fail":
+    case "rejected":
+      return "\u274C";
+    case "info":
+      return "\u2139\uFE0F";
+    default:
+      return "";
+  }
+}
+function formatEvidenceEntry(index, entry) {
+  const details = {};
+  if (entry.type === "review") {
+    const reviewEntry = entry;
+    details.risk = reviewEntry.risk;
+    details.issues = reviewEntry.issues?.length;
+  } else if (entry.type === "test") {
+    const testEntry = entry;
+    details.tests_passed = testEntry.tests_passed;
+    details.tests_failed = testEntry.tests_failed;
+  }
+  return {
+    index,
+    entry,
+    type: entry.type,
+    verdict: entry.verdict,
+    verdictIcon: getVerdictEmoji(entry.verdict),
+    agent: entry.agent,
+    summary: entry.summary,
+    timestamp: entry.timestamp,
+    details
+  };
+}
+function getVerdictEmoji(verdict) {
+  return getVerdictIcon(verdict);
+}
+async function getTaskEvidenceData(directory, taskId) {
+  const result = await loadEvidence(directory, taskId);
+  if (result.status !== "found") {
+    return {
+      hasEvidence: false,
+      taskId,
+      createdAt: "",
+      updatedAt: "",
+      entries: []
+    };
+  }
+  const entries = [];
+  for (let i2 = 0;i2 < result.bundle.entries.length; i2++) {
+    entries.push(formatEvidenceEntry(i2 + 1, result.bundle.entries[i2]));
+  }
+  return {
+    hasEvidence: true,
+    taskId,
+    createdAt: result.bundle.created_at,
+    updatedAt: result.bundle.updated_at,
+    entries
+  };
+}
+async function getEvidenceListData(directory) {
+  const taskIds = await listEvidenceTaskIds(directory);
+  if (taskIds.length === 0) {
+    return { hasEvidence: false, tasks: [] };
+  }
+  const tasks = [];
+  for (const taskId of taskIds) {
+    const result = await loadEvidence(directory, taskId);
+    if (result.status === "found") {
+      tasks.push({
+        taskId,
+        entryCount: result.bundle.entries.length,
+        lastUpdated: result.bundle.updated_at
+      });
+    } else {
+      tasks.push({
+        taskId,
+        entryCount: 0,
+        lastUpdated: "unknown"
+      });
+    }
+  }
+  return { hasEvidence: true, tasks };
+}
+function formatEvidenceListMarkdown(list) {
+  if (!list.hasEvidence || list.tasks.length === 0) {
+    return "No evidence bundles found.";
+  }
+  const tableLines = [
+    "## Evidence Bundles",
+    "",
+    "| Task | Entries | Last Updated |",
+    "|------|---------|-------------|"
+  ];
+  for (const task of list.tasks) {
+    tableLines.push(`| ${task.taskId} | ${task.entryCount} | ${task.lastUpdated} |`);
+  }
+  return tableLines.join(`
+`);
+}
+function formatTaskEvidenceMarkdown(evidence) {
+  if (!evidence.hasEvidence) {
+    return `No evidence found for task ${evidence.taskId}.`;
+  }
+  const lines = [
+    `## Evidence for Task ${evidence.taskId}`,
+    "",
+    `**Created**: ${evidence.createdAt}`,
+    `**Updated**: ${evidence.updatedAt}`,
+    `**Entries**: ${evidence.entries.length}`
+  ];
+  if (evidence.entries.length > 0) {
+    lines.push("");
+  }
+  for (const entry of evidence.entries) {
+    lines.push(...formatEntryMarkdown(entry));
+  }
+  return lines.join(`
+`);
+}
+function formatEntryMarkdown(entryData) {
+  const lines = [];
+  lines.push(`### Entry ${entryData.index}: ${entryData.type} (${entryData.verdict}) ${entryData.verdictIcon}`);
+  lines.push(`- **Agent**: ${entryData.agent}`);
+  lines.push(`- **Summary**: ${entryData.summary}`);
+  lines.push(`- **Time**: ${entryData.timestamp}`);
+  if (entryData.type === "review") {
+    lines.push(`- **Risk Level**: ${entryData.details.risk}`);
+    if (entryData.details.issues && Number(entryData.details.issues) > 0) {
+      lines.push(`- **Issues**: ${entryData.details.issues}`);
+    }
+  } else if (entryData.type === "test") {
+    lines.push(`- **Tests**: ${entryData.details.tests_passed} passed, ${entryData.details.tests_failed} failed`);
+  }
+  lines.push("");
+  return lines;
+}
+async function handleEvidenceCommand(directory, args2) {
+  if (args2.length === 0) {
+    const listData = await getEvidenceListData(directory);
+    return formatEvidenceListMarkdown(listData);
+  }
+  const taskId = args2[0];
+  const evidenceData = await getTaskEvidenceData(directory, taskId);
+  return formatTaskEvidenceMarkdown(evidenceData);
+}
+async function handleEvidenceSummaryCommand(directory) {
+  const { buildEvidenceSummary: buildEvidenceSummary2 } = await Promise.resolve().then(() => (init_evidence_summary_service(), exports_evidence_summary_service));
+  const artifact = await buildEvidenceSummary2(directory);
+  if (!artifact) {
+    return "No plan found. Run `/swarm plan` to check plan status.";
+  }
+  const lines = [
+    "## Evidence Summary",
+    "",
+    `**Generated**: ${artifact.generated_at}`,
+    `**Overall Completion**: ${Math.round(artifact.overallCompletionRatio * 100)}%`,
+    ""
+  ];
+  for (const phase of artifact.phaseSummaries) {
+    lines.push(`### Phase ${phase.phaseId}: ${phase.phaseName}`);
+    lines.push(`- Completion: ${Math.round(phase.completionRatio * 100)}%`);
+    if (phase.blockers.length > 0) {
+      lines.push(`- Blockers: ${phase.blockers.map((b) => `[${b.severity}] ${b.reason}`).join("; ")}`);
+    }
+    lines.push("");
+  }
+  if (artifact.overallBlockers.length > 0) {
+    lines.push("### Blockers");
+    for (const blocker of artifact.overallBlockers) {
+      lines.push(`- [${blocker.severity}] ${blocker.reason} (Task ${blocker.taskId})`);
+    }
+    lines.push("");
+  } else {
+    lines.push("### Blockers");
+    lines.push("None \u2014 all completed tasks have required evidence.");
+    lines.push("");
+  }
+  return lines.join(`
+`);
+}
+// src/services/export-service.ts
+init_utils2();
+init_manager2();
+async function getExportData(directory) {
+  const planStructured = await loadPlanJsonOnly(directory);
+  const planContent = await readSwarmFileAsync(directory, "plan.md");
+  const contextContent = await readSwarmFileAsync(directory, "context.md");
+  return {
+    version: "4.5.0",
+    exported: new Date().toISOString(),
+    plan: planStructured || planContent,
+    context: contextContent
+  };
+}
+function formatExportMarkdown(exportData) {
+  const lines = [
+    "## Swarm Export",
+    "",
+    "```json",
+    JSON.stringify(exportData, null, 2),
+    "```"
+  ];
+  return lines.join(`
+`);
+}
+async function handleExportCommand(directory, _args) {
+  const exportData = await getExportData(directory);
+  return formatExportMarkdown(exportData);
+}
+// src/commands/handoff.ts
+init_utils2();
+import crypto4 from "crypto";
+import { renameSync as renameSync7 } from "fs";
+
+// src/services/handoff-service.ts
+init_utils2();
+init_manager2();
+init_utils();
+var RTL_OVERRIDE_PATTERN = /[\u202e\u202d\u202c\u200f]/g;
+var MAX_TASK_ID_LENGTH = 100;
+var MAX_DECISION_LENGTH = 500;
+var MAX_INCOMPLETE_TASKS = 20;
+function escapeHtml(str) {
+  return str.replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;").replace(/"/g, "&quot;").replace(/'/g, "&#39;");
+}
+function sanitizeString(str, maxLength) {
+  if (!str)
+    return "";
+  const sanitized = String(str).replace(RTL_OVERRIDE_PATTERN, "");
+  if (sanitized.length > maxLength) {
+    return `${sanitized.substring(0, maxLength - 3)}...`;
+  }
+  return sanitized;
+}
+function validatePlanPhases(plan) {
+  if (!plan || typeof plan !== "object")
+    return false;
+  const p = plan;
+  if (!Array.isArray(p.phases))
+    return false;
+  for (const phase of p.phases) {
+    if (!phase || typeof phase !== "object")
+      return false;
+    const phaseObj = phase;
+    if (!Array.isArray(phaseObj.tasks))
+      return false;
+  }
+  return true;
+}
+function extractCurrentPhaseFromPlan(plan) {
+  if (!plan) {
+    return { currentPhase: null, currentTask: null, incompleteTasks: [] };
+  }
+  if (!validatePlanPhases(plan)) {
+    return { currentPhase: null, currentTask: null, incompleteTasks: [] };
+  }
+  let currentPhase = null;
+  const currentPhaseNum = plan.current_phase;
+  if (currentPhaseNum) {
+    const phase = plan.phases.find((p) => p.id === currentPhaseNum);
+    currentPhase = phase ? `Phase ${phase.id}: ${phase.name}` : null;
+  } else {
+    const inProgressPhase = plan.phases.find((p) => p.status === "in_progress");
+    if (inProgressPhase) {
+      currentPhase = `Phase ${inProgressPhase.id}: ${inProgressPhase.name}`;
+    } else if (plan.phases.length > 0) {
+      currentPhase = `Phase ${plan.phases[0].id}: ${plan.phases[0].name}`;
+    }
+  }
+  let currentTask = null;
+  const incompleteTasks = [];
+  for (const phase of plan.phases) {
+    for (const task of phase.tasks) {
+      if (task.status === "in_progress") {
+        currentTask = sanitizeString(task.id, MAX_TASK_ID_LENGTH);
+      }
+      if (task.status !== "completed") {
+        if (incompleteTasks.length < MAX_INCOMPLETE_TASKS) {
+          incompleteTasks.push(sanitizeString(task.id, MAX_TASK_ID_LENGTH));
+        }
+      }
+    }
+  }
+  if (!currentTask && incompleteTasks.length > 0) {
+    currentTask = incompleteTasks[0];
+  }
+  return { currentPhase, currentTask, incompleteTasks };
+}
+function parseSessionState(content) {
+  if (!content)
+    return null;
+  try {
+    const state = JSON.parse(content);
+    let activeAgent = null;
+    if (state.activeAgent && typeof state.activeAgent === "object") {
+      const entries = Object.entries(state.activeAgent);
+      if (entries.length > 0) {
+        activeAgent = sanitizeString(entries[entries.length - 1][1], MAX_TASK_ID_LENGTH);
+      }
+    }
+    let delegationState = null;
+    if (state.delegationChains && typeof state.delegationChains === "object") {
+      const chains = Object.entries(state.delegationChains);
+      const activeChains = [];
+      let maxDepth = 0;
+      for (const [, chain] of chains) {
+        if (Array.isArray(chain) && chain.length > 0) {
+          const sanitizedChain = chain.map((e) => `${sanitizeString(e.from, MAX_TASK_ID_LENGTH)}->${sanitizeString(e.to, MAX_TASK_ID_LENGTH)}`).join(" | ");
+          activeChains.push(sanitizedChain);
+          maxDepth = Math.max(maxDepth, chain.length);
+        }
+      }
+      if (activeChains.length > 0) {
+        delegationState = {
+          activeChains,
+          delegationDepth: maxDepth,
+          pendingHandoffs: []
+        };
+      }
+    }
+    let pendingQA = null;
+    if (state.agentSessions && typeof state.agentSessions === "object") {
+      for (const [, session] of Object.entries(state.agentSessions)) {
+        const sess = session;
+        if (sess.lastGateFailure && sess.currentTaskId) {
+          pendingQA = {
+            taskId: sanitizeString(sess.lastGateFailure.taskId, MAX_TASK_ID_LENGTH),
+            lastFailure: sanitizeString(sess.lastGateFailure.tool, MAX_TASK_ID_LENGTH)
+          };
+          break;
+        }
+      }
+    }
+    return { activeAgent, delegationState, pendingQA };
+  } catch (error93) {
+    log("[HandoffService] state extraction failed", {
+      error: error93 instanceof Error ? error93.message : String(error93)
+    });
+    return null;
+  }
+}
+function extractDecisions(content) {
+  if (!content)
+    return [];
+  const decisions = [];
+  const lines = content.split(`
+`);
+  let inDecisionsSection = false;
+  for (const line of lines) {
+    if (line.trim() === "## Decisions") {
+      inDecisionsSection = true;
+      continue;
+    }
+    if (inDecisionsSection && line.startsWith("## ") && line.trim() !== "## Decisions") {
+      break;
+    }
+    if (inDecisionsSection && line.trim().startsWith("- ")) {
+      const text = line.trim().substring(2);
+      const cleaned = text.replace(/\s*\[.*?\]\s*/g, "").replace(/\u2705/g, "").replace(/\[confirmed\]/g, "").trim();
+      if (cleaned) {
+        const sanitized = sanitizeString(cleaned, MAX_DECISION_LENGTH);
+        if (sanitized) {
+          decisions.push(sanitized);
+        }
+      }
+    }
+  }
+  return decisions.slice(-5);
+}
+function extractPhaseMetrics(content) {
+  if (!content)
+    return "";
+  const lines = content.split(`
+`);
+  let inPhaseMetrics = false;
+  const metricsLines = [];
+  for (const line of lines) {
+    if (line.trim() === "## Phase Metrics") {
+      inPhaseMetrics = true;
+      continue;
+    }
+    if (inPhaseMetrics && line.startsWith("## ")) {
+      break;
+    }
+    if (inPhaseMetrics) {
+      metricsLines.push(line);
+    }
+  }
+  const lastFive = metricsLines.slice(-5);
+  return lastFive.join(`
+`).trim();
+}
+async function getHandoffData(directory) {
+  const now = new Date().toISOString();
+  const sessionContent = await readSwarmFileAsync(directory, "session/state.json");
+  const sessionState = parseSessionState(sessionContent);
+  const plan = await loadPlanJsonOnly(directory);
+  const planInfo = extractCurrentPhaseFromPlan(plan);
+  if (!plan) {
+    const planMdContent = await readSwarmFileAsync(directory, "plan.md");
+    if (planMdContent) {
+      const phaseMatch = planMdContent.match(/^## Phase (\d+):?\s*(.+)?$/m);
+      const taskMatch = planMdContent.match(/^- \[ \] (\d+\.\d+)/g);
+      if (phaseMatch) {
+        planInfo.currentPhase = sanitizeString(`Phase ${phaseMatch[1]}${phaseMatch[2] ? `: ${phaseMatch[2]}` : ""}`, MAX_TASK_ID_LENGTH);
+      }
+      if (taskMatch) {
+        const rawTasks = taskMatch.map((t) => t.replace("- [ ] ", ""));
+        planInfo.incompleteTasks = rawTasks.map((t) => sanitizeString(t, MAX_TASK_ID_LENGTH)).slice(0, MAX_INCOMPLETE_TASKS);
+        if (!planInfo.currentTask && planInfo.incompleteTasks.length > 0) {
+          planInfo.currentTask = planInfo.incompleteTasks[0];
+        }
+      }
+    }
+  }
+  const contextContent = await readSwarmFileAsync(directory, "context.md");
+  const recentDecisions = extractDecisions(contextContent);
+  const rawPhaseMetrics = extractPhaseMetrics(contextContent);
+  const phaseMetrics = sanitizeString(rawPhaseMetrics, 1000);
+  let delegationState = null;
+  if (sessionState?.delegationState) {
+    delegationState = {
+      ...sessionState.delegationState,
+      pendingHandoffs: phaseMetrics ? [phaseMetrics] : []
+    };
+  }
+  let pendingQA = null;
+  if (sessionState?.pendingQA) {
+    pendingQA = {
+      taskId: escapeHtml(sessionState.pendingQA.taskId),
+      lastFailure: sessionState.pendingQA.lastFailure ? escapeHtml(sessionState.pendingQA.lastFailure) : null
+    };
+  }
+  const escapedDecisions = recentDecisions.map((d) => escapeHtml(d));
+  let escapedDelegationState = null;
+  if (delegationState) {
+    escapedDelegationState = {
+      ...delegationState,
+      activeChains: delegationState.activeChains.map((c) => escapeHtml(c)),
+      pendingHandoffs: delegationState.pendingHandoffs.map((p) => escapeHtml(p))
+    };
+  }
+  const escapedIncompleteTasks = planInfo.incompleteTasks.map((t) => escapeHtml(t));
+  return {
+    generated: now,
+    currentPhase: planInfo.currentPhase ? escapeHtml(planInfo.currentPhase) : null,
+    currentTask: planInfo.currentTask ? escapeHtml(planInfo.currentTask) : null,
+    incompleteTasks: escapedIncompleteTasks,
+    pendingQA,
+    activeAgent: sessionState?.activeAgent ? escapeHtml(sessionState.activeAgent) : null,
+    recentDecisions: escapedDecisions,
+    delegationState: escapedDelegationState
+  };
+}
+function formatHandoffMarkdown(data) {
+  const lines = [];
+  lines.push("## Swarm Handoff");
+  lines.push("");
+  lines.push(`**Generated**: ${data.generated}`);
+  lines.push("");
+  lines.push("### Current State");
+  if (data.currentPhase) {
+    lines.push(`- **Phase**: ${data.currentPhase}`);
+  }
+  if (data.currentTask) {
+    lines.push(`- **Task**: ${data.currentTask}`);
+  }
+  if (data.activeAgent) {
+    lines.push(`- **Active Agent**: ${data.activeAgent}`);
+  }
+  lines.push("");
+  if (data.incompleteTasks.length > 0) {
+    lines.push("### Incomplete Tasks");
+    const displayTasks = data.incompleteTasks.slice(0, 10);
+    for (const taskId of displayTasks) {
+      lines.push(`- ${taskId}`);
+    }
+    if (data.incompleteTasks.length > 10) {
+      lines.push(`- ... and ${data.incompleteTasks.length - 10} more`);
+    }
+    lines.push("");
+  }
+  if (data.pendingQA) {
+    lines.push("### Pending QA");
+    lines.push(`- **Task**: ${data.pendingQA.taskId}`);
+    if (data.pendingQA.lastFailure) {
+      lines.push(`- **Last Failure**: ${data.pendingQA.lastFailure}`);
+    }
+    lines.push("");
+  }
+  if (data.delegationState && data.delegationState.activeChains.length > 0) {
+    lines.push("### Delegation");
+    lines.push(`- **Depth**: ${data.delegationState.delegationDepth}`);
+    for (const chain of data.delegationState.activeChains.slice(0, 3)) {
+      lines.push(`- ${chain}`);
+    }
+    lines.push("");
+  }
+  if (data.recentDecisions.length > 0) {
+    lines.push("### Recent Decisions");
+    for (const decision of data.recentDecisions.slice(0, 5)) {
+      lines.push(`- ${decision}`);
+    }
+    lines.push("");
+  }
+  if (data.delegationState?.pendingHandoffs && data.delegationState.pendingHandoffs.length > 0) {
+    lines.push("### Phase Metrics");
+    lines.push("```");
+    lines.push(data.delegationState.pendingHandoffs[0]);
+    lines.push("```");
+  }
+  return lines.join(`
+`);
+}
+
+// src/commands/handoff.ts
+async function handleHandoffCommand(directory, _args) {
+  const handoffData = await getHandoffData(directory);
+  const markdown = formatHandoffMarkdown(handoffData);
+  const resolvedPath = validateSwarmPath(directory, "handoff.md");
+  const tempPath = `${resolvedPath}.tmp.${crypto4.randomUUID()}`;
+  await Bun.write(tempPath, markdown);
+  renameSync7(tempPath, resolvedPath);
+  await writeSnapshot(directory, swarmState);
+  await flushPendingSnapshot(directory);
+  return `## Handoff Brief Written
+
+Brief written to \`.swarm/handoff.md\`.
+
+${markdown}
+
+---
+
+**Next Step:** Start a new OpenCode session, switch to your target model, and send: \`continue the previous work\``;
+}
+
+// src/services/history-service.ts
+init_utils2();
+init_manager2();
+function getStatusText(status) {
+  const statusMap = {
+    complete: "COMPLETE",
+    in_progress: "IN PROGRESS",
+    pending: "PENDING",
+    blocked: "BLOCKED",
+    closed: "CLOSED"
+  };
+  return statusMap[status] || "PENDING";
+}
+function getStatusIcon(status) {
+  switch (status) {
+    case "complete":
+      return "\u2705";
+    case "in_progress":
+      return "\uD83D\uDD04";
+    case "blocked":
+      return "\uD83D\uDEAB";
+    case "closed":
+      return "\uD83D\uDD12";
+    default:
+      return "\u23F3";
+  }
+}
+function extractFromPlan(plan) {
+  if (plan.phases.length === 0) {
+    return { hasPlan: true, phases: [], isLegacy: false };
+  }
+  const phases = [];
+  for (const phase of plan.phases) {
+    const completed = phase.tasks.filter((t) => t.status === "completed").length;
+    const total = phase.tasks.length;
+    const tasks = total > 0 ? `${completed}/${total}` : "-";
+    phases.push({
+      id: phase.id,
+      name: phase.name,
+      status: phase.status === "completed" ? "complete" : phase.status,
+      statusText: getStatusText(phase.status),
+      statusIcon: getStatusIcon(phase.status),
+      completedTasks: completed,
+      totalTasks: total,
+      tasksDisplay: tasks
+    });
+  }
+  return { hasPlan: true, phases, isLegacy: false };
+}
+async function extractFromLegacy(directory) {
+  const planContent = await readSwarmFileAsync(directory, "plan.md");
+  if (!planContent) {
+    return { hasPlan: false, phases: [], isLegacy: true };
+  }
+  const phaseRegex = /^## Phase (\d+):?\s*(.+?)(?:\s*\[(COMPLETE|IN PROGRESS|PENDING)\])?\s*$/gm;
+  const phases = [];
+  const lines = planContent.split(`
+`);
+  for (let match = phaseRegex.exec(planContent);match !== null; match = phaseRegex.exec(planContent)) {
+    const num = parseInt(match[1], 10);
+    const name2 = match[2].trim();
+    const status = match[3] || "PENDING";
+    let mappedStatus = "pending";
+    if (status === "COMPLETE")
+      mappedStatus = "complete";
+    else if (status === "IN PROGRESS")
+      mappedStatus = "in_progress";
+    const headerLineIndex = planContent.substring(0, match.index).split(`
+`).length - 1;
+    let completed = 0;
+    let total = 0;
+    if (headerLineIndex !== -1) {
+      for (let i2 = headerLineIndex + 1;i2 < lines.length; i2++) {
+        const line = lines[i2];
+        if (/^## Phase \d+/.test(line) || line.trim() === "---" && total > 0) {
+          break;
+        }
+        if (/^- \[x\]/.test(line)) {
+          completed++;
+          total++;
+        } else if (/^- \[ \]/.test(line)) {
+          total++;
+        }
+      }
+    }
+    const tasks = total > 0 ? `${completed}/${total}` : "-";
+    phases.push({
+      id: num,
+      name: name2,
+      status: mappedStatus,
+      statusText: getStatusText(mappedStatus),
+      statusIcon: getStatusIcon(mappedStatus),
+      completedTasks: completed,
+      totalTasks: total,
+      tasksDisplay: tasks
+    });
+  }
+  if (phases.length === 0) {
+    return { hasPlan: false, phases: [], isLegacy: true };
+  }
+  return { hasPlan: true, phases, isLegacy: true };
+}
+async function getHistoryData(directory) {
+  const plan = await loadPlanJsonOnly(directory);
+  if (plan) {
+    return extractFromPlan(plan);
+  }
+  return extractFromLegacy(directory);
+}
+function formatHistoryMarkdown(history) {
+  if (!history.hasPlan || history.phases.length === 0) {
+    return "No history available.";
+  }
+  const tableLines = [
+    "## Swarm History",
+    "",
+    "| Phase | Name | Status | Tasks |",
+    "|-------|------|--------|-------|"
+  ];
+  for (const phase of history.phases) {
+    tableLines.push(`| ${phase.id} | ${phase.name} | ${phase.statusIcon} ${phase.statusText} | ${phase.tasksDisplay} |`);
+  }
+  return tableLines.join(`
+`);
+}
+async function handleHistoryCommand(directory, _args) {
+  const historyData = await getHistoryData(directory);
+  return formatHistoryMarkdown(historyData);
+}
+// src/commands/knowledge.ts
+init_schema();
+
+// src/hooks/knowledge-migrator.ts
+init_knowledge_store();
+import { randomUUID as randomUUID3 } from "crypto";
+import { existsSync as existsSync12, readFileSync as readFileSync9 } from "fs";
+import { mkdir as mkdir4, readFile as readFile5, writeFile as writeFile4 } from "fs/promises";
+import * as path23 from "path";
+async function migrateContextToKnowledge(directory, config3) {
+  const sentinelPath = path23.join(directory, ".swarm", ".knowledge-migrated");
+  const contextPath = path23.join(directory, ".swarm", "context.md");
+  const knowledgePath = resolveSwarmKnowledgePath(directory);
+  if (existsSync12(sentinelPath)) {
+    return {
+      migrated: false,
+      entriesMigrated: 0,
+      entriesDropped: 0,
+      entriesTotal: 0,
+      skippedReason: "sentinel-exists"
+    };
+  }
+  if (!existsSync12(contextPath)) {
+    return {
+      migrated: false,
+      entriesMigrated: 0,
+      entriesDropped: 0,
+      entriesTotal: 0,
+      skippedReason: "no-context-file"
+    };
+  }
+  const contextContent = await readFile5(contextPath, "utf-8");
+  if (contextContent.trim().length === 0) {
+    return {
+      migrated: false,
+      entriesMigrated: 0,
+      entriesDropped: 0,
+      entriesTotal: 0,
+      skippedReason: "empty-context"
+    };
+  }
+  const rawEntries = parseContextMd(contextContent);
+  if (rawEntries.length === 0) {
+    await writeSentinel(sentinelPath, 0, 0);
+    return {
+      migrated: true,
+      entriesMigrated: 0,
+      entriesDropped: 0,
+      entriesTotal: 0
+    };
+  }
+  const existing = await readKnowledge(knowledgePath);
+  let migrated = 0;
+  let dropped = 0;
+  const projectName = inferProjectName(directory);
+  for (const raw of rawEntries) {
+    if (config3.validation_enabled !== false) {
+      const category = raw.categoryHint ?? inferCategoryFromText(raw.text);
+      const result = validateLesson(raw.text, existing.map((e) => e.lesson), {
+        category,
+        scope: "global",
+        confidence: 0.3
+      });
+      if (!result.valid) {
+        dropped++;
+        continue;
+      }
+    }
+    const dup = findNearDuplicate(raw.text, existing, config3.dedup_threshold ?? 0.6);
+    if (dup) {
+      dropped++;
+      continue;
+    }
+    const inferredTags = inferTags(raw.text);
+    const entry = {
+      id: randomUUID3(),
+      tier: "swarm",
+      lesson: truncateLesson(raw.text),
+      category: raw.categoryHint ?? inferCategoryFromText(raw.text),
+      tags: [...inferredTags, `migration:${raw.sourceSection}`],
+      scope: "global",
+      confidence: 0.3,
+      status: "candidate",
+      confirmed_by: [],
+      retrieval_outcomes: {
+        applied_count: 0,
+        succeeded_after_count: 0,
+        failed_after_count: 0
+      },
+      schema_version: config3.schema_version ?? 1,
+      created_at: new Date().toISOString(),
+      updated_at: new Date().toISOString(),
+      project_name: projectName,
+      auto_generated: true
+    };
+    existing.push(entry);
+    migrated++;
+  }
+  if (migrated > 0) {
+    await rewriteKnowledge(knowledgePath, existing);
+  }
+  await writeSentinel(sentinelPath, migrated, dropped);
+  console.log(`[knowledge-migrator] Migrated ${migrated} entries, dropped ${dropped}`);
+  return {
+    migrated: true,
+    entriesMigrated: migrated,
+    entriesDropped: dropped,
+    entriesTotal: rawEntries.length
+  };
+}
+function parseContextMd(content) {
+  const sections = splitIntoSections(content);
+  const entries = [];
+  const seen = new Set;
+  const sectionPatterns = [
+    {
+      pattern: /^#{1,3}\s+lessons?\s+learned/i,
+      sourceSection: "lessons-learned"
+    },
+    { pattern: /^#{1,3}\s+patterns?/i, sourceSection: "patterns" },
+    { pattern: /^#{1,3}\s+sme\s+cache/i, sourceSection: "sme-cache" },
+    { pattern: /^#{1,3}\s+decisions?/i, sourceSection: "decisions" }
+  ];
+  for (const section of sections) {
+    const match = sectionPatterns.find((sp) => sp.pattern.test(section.heading));
+    if (!match)
+      continue;
+    const bullets = extractBullets(section.body);
+    for (const bullet of bullets) {
+      if (bullet.length < 15)
+        continue;
+      const normalized = normalize2(bullet);
+      if (seen.has(normalized))
+        continue;
+      seen.add(normalized);
+      entries.push({
+        text: truncateLesson(bullet),
+        sourceSection: match.sourceSection,
+        categoryHint: inferCategoryFromText(bullet)
+      });
+    }
+  }
+  return entries;
+}
+function splitIntoSections(content) {
+  const sections = [];
+  const headingRegex = /^(#{1,3})\s+(.+)/gm;
+  const matches = [];
+  let match = headingRegex.exec(content);
+  while (match !== null) {
+    matches.push({
+      index: match.index,
+      heading: match[0]
+    });
+    match = headingRegex.exec(content);
+  }
+  for (let i2 = 0;i2 < matches.length; i2++) {
+    const current = matches[i2];
+    const next = matches[i2 + 1];
+    const bodyStart = current.index + current.heading.length;
+    const bodyEnd = next ? next.index : content.length;
+    const body2 = content.slice(bodyStart, bodyEnd).trim();
+    sections.push({
+      heading: current.heading,
+      body: body2
+    });
+  }
+  return sections;
+}
+function extractBullets(body2) {
+  const bullets = [];
+  const bulletRegex = /^\s*[-*]\s+(.+)/;
+  for (const line of body2.split(`
+`)) {
+    const match = line.match(bulletRegex);
+    if (match) {
+      bullets.push(match[1].trim());
+    }
+  }
+  return bullets;
+}
+function inferCategoryFromText(text) {
+  const lower = text.toLowerCase();
+  if (/\b(?:test|spec|vitest|jest)\b/.test(lower))
+    return "testing";
+  if (/\b(?:security|auth|token|password|encrypt)\b/.test(lower))
+    return "security";
+  if (/\b(?:performance|latency|cache|throughput)\b/.test(lower))
+    return "performance";
+  if (/\b(?:architecture|design|pattern|structure)\b/.test(lower))
+    return "architecture";
+  if (/\b(?:debug|error|fix|bug|issue)\b/.test(lower))
+    return "debugging";
+  if (/\b(?:tool|config|setup|install|build)\b/.test(lower))
+    return "tooling";
+  if (/\b(?:integrate|api|hook|connect)\b/.test(lower))
+    return "integration";
+  if (/\b(?:process|workflow|step|approach)\b/.test(lower))
+    return "process";
+  return "other";
+}
+function truncateLesson(text) {
+  if (text.length <= 280)
+    return text;
+  return `${text.slice(0, 277)}...`;
+}
+function inferProjectName(directory) {
+  const packageJsonPath = path23.join(directory, "package.json");
+  if (existsSync12(packageJsonPath)) {
+    try {
+      const pkg = JSON.parse(readFileSync9(packageJsonPath, "utf-8"));
+      if (pkg.name && typeof pkg.name === "string") {
+        return pkg.name;
+      }
+    } catch {}
+  }
+  return path23.basename(directory);
+}
+async function writeSentinel(sentinelPath, migrated, dropped) {
+  const sentinel = {
+    migrated_at: new Date().toISOString(),
+    source_version: "6.16",
+    target_version: "6.17",
+    entries_migrated: migrated,
+    entries_dropped: dropped,
+    schema_version: 1,
+    migration_tool: "knowledge-migrator.ts"
+  };
+  await mkdir4(path23.dirname(sentinelPath), { recursive: true });
+  await writeFile4(sentinelPath, JSON.stringify(sentinel, null, 2), "utf-8");
+}
+
+// src/commands/knowledge.ts
+init_knowledge_store();
+async function handleKnowledgeQuarantineCommand(directory, args2) {
+  const entryId = args2[0];
+  if (!entryId) {
+    return "Usage: /swarm knowledge quarantine <id> [reason]";
+  }
+  if (!/^[a-zA-Z0-9_-]{1,64}$/.test(entryId)) {
+    return "Invalid entry ID. IDs must be 1-64 characters: letters, digits, hyphens, underscores only.";
+  }
+  const reason = args2.slice(1).join(" ") || "Quarantined via /swarm knowledge quarantine command";
+  try {
+    await quarantineEntry(directory, entryId, reason, "user");
+    return `\u2705 Entry ${entryId} quarantined successfully.`;
+  } catch (error93) {
+    console.warn("[knowledge-command] quarantineEntry error:", error93 instanceof Error ? error93.message : String(error93));
+    return `\u274C Failed to quarantine entry. Check the entry ID and try again.`;
+  }
+}
+async function handleKnowledgeRestoreCommand(directory, args2) {
+  const entryId = args2[0];
+  if (!entryId) {
+    return "Usage: /swarm knowledge restore <id>";
+  }
+  if (!/^[a-zA-Z0-9_-]{1,64}$/.test(entryId)) {
+    return "Invalid entry ID. IDs must be 1-64 characters: letters, digits, hyphens, underscores only.";
+  }
+  try {
+    await restoreEntry(directory, entryId);
+    return `\u2705 Entry ${entryId} restored successfully.`;
+  } catch (error93) {
+    console.warn("[knowledge-command] restoreEntry error:", error93 instanceof Error ? error93.message : String(error93));
+    return `\u274C Failed to restore entry. Check the entry ID and try again.`;
+  }
+}
+async function handleKnowledgeMigrateCommand(directory, args2) {
+  const targetDir = args2[0] || directory;
+  try {
+    const result = await migrateContextToKnowledge(targetDir, KnowledgeConfigSchema.parse({}));
+    if (result.skippedReason) {
+      switch (result.skippedReason) {
+        case "sentinel-exists":
+          return "\u23ED Migration already completed for this project. Delete .swarm/.knowledge-migrated to re-run.";
+        case "no-context-file":
+          return "\u2139\uFE0F No .swarm/context.md found \u2014 nothing to migrate.";
+        case "empty-context":
+          return "\u2139\uFE0F .swarm/context.md is empty \u2014 nothing to migrate.";
+        default:
+          return "\u26A0\uFE0F Migration skipped for an unknown reason.";
+      }
+    }
+    return `\u2705 Migration complete: ${result.entriesMigrated} entries added, ${result.entriesDropped} dropped (validation/dedup), ${result.entriesTotal} total processed.`;
+  } catch (error93) {
+    console.warn("[knowledge-command] migrateContextToKnowledge error:", error93 instanceof Error ? error93.message : String(error93));
+    return "\u274C Migration failed. Check .swarm/context.md is readable.";
+  }
+}
+async function handleKnowledgeListCommand(directory, _args) {
+  try {
+    const knowledgePath = resolveSwarmKnowledgePath(directory);
+    const entries = await readKnowledge(knowledgePath);
+    if (entries.length === 0) {
+      return "\u2139\uFE0F No knowledge entries found in .swarm/knowledge.jsonl";
+    }
+    const lines = [
+      `## Knowledge Entries (${entries.length} total)`,
+      "",
+      "| ID | Category | Confidence | Lesson (truncated) |",
+      "|------|----------|------------|---------------------|"
+    ];
+    for (const entry of entries) {
+      const truncatedLesson = entry.lesson.length > 60 ? `${entry.lesson.slice(0, 57)}...` : entry.lesson;
+      const confidencePct = Math.round(entry.confidence * 100);
+      lines.push(`| ${entry.id.slice(0, 8)}... | ${entry.category} | ${confidencePct}% | ${truncatedLesson} |`);
+    }
+    lines.push("");
+    lines.push("Use `/swarm knowledge quarantine <id>` to hide an entry.");
+    return lines.join(`
+`);
+  } catch (error93) {
+    console.warn("[knowledge-command] list error:", error93 instanceof Error ? error93.message : String(error93));
+    return "\u274C Failed to list knowledge entries. Ensure .swarm/knowledge.jsonl exists.";
+  }
+}
+
+// src/services/plan-service.ts
+init_utils2();
+init_manager2();
+async function getPlanData(directory, phaseArg) {
+  const plan = await loadPlanJsonOnly(directory);
+  if (plan) {
+    const fullMarkdown = derivePlanMarkdown(plan);
+    if (phaseArg === undefined || phaseArg === null || phaseArg === "") {
+      return {
+        hasPlan: true,
+        fullMarkdown,
+        requestedPhase: null,
+        phaseMarkdown: null,
+        errorMessage: null,
+        isLegacy: false
+      };
+    }
+    const phaseNum2 = typeof phaseArg === "number" ? phaseArg : parseInt(String(phaseArg), 10);
+    if (Number.isNaN(phaseNum2)) {
+      return {
+        hasPlan: true,
+        fullMarkdown,
+        requestedPhase: null,
+        phaseMarkdown: null,
+        errorMessage: `Invalid phase number: "${phaseArg}"`,
+        isLegacy: false
+      };
+    }
+    const phase = plan.phases.find((p) => p.id === phaseNum2);
+    if (!phase) {
+      return {
+        hasPlan: true,
+        fullMarkdown,
+        requestedPhase: phaseNum2,
+        phaseMarkdown: null,
+        errorMessage: `Phase ${phaseNum2} not found in plan.`,
+        isLegacy: false
+      };
+    }
+    const phaseMarkdown2 = extractPhaseMarkdown(fullMarkdown, phaseNum2);
+    return {
+      hasPlan: true,
+      fullMarkdown,
+      requestedPhase: phaseNum2,
+      phaseMarkdown: phaseMarkdown2,
+      errorMessage: null,
+      isLegacy: false
+    };
+  }
+  const planContent = await readSwarmFileAsync(directory, "plan.md");
+  if (!planContent) {
+    return {
+      hasPlan: false,
+      fullMarkdown: "",
+      requestedPhase: null,
+      phaseMarkdown: null,
+      errorMessage: null,
+      isLegacy: true
+    };
+  }
+  if (phaseArg === undefined || phaseArg === null || phaseArg === "") {
+    return {
+      hasPlan: true,
+      fullMarkdown: planContent,
+      requestedPhase: null,
+      phaseMarkdown: null,
+      errorMessage: null,
+      isLegacy: true
+    };
+  }
+  const phaseNum = typeof phaseArg === "number" ? phaseArg : parseInt(String(phaseArg), 10);
+  if (Number.isNaN(phaseNum)) {
+    return {
+      hasPlan: true,
+      fullMarkdown: planContent,
+      requestedPhase: null,
+      phaseMarkdown: null,
+      errorMessage: `Invalid phase number: "${phaseArg}"`,
+      isLegacy: true
+    };
+  }
+  const phaseMarkdown = extractPhaseMarkdown(planContent, phaseNum);
+  if (phaseMarkdown === null) {
+    return {
+      hasPlan: true,
+      fullMarkdown: planContent,
+      requestedPhase: phaseNum,
+      phaseMarkdown: null,
+      errorMessage: `Phase ${phaseNum} not found in plan.`,
+      isLegacy: true
+    };
+  }
+  return {
+    hasPlan: true,
+    fullMarkdown: planContent,
+    requestedPhase: phaseNum,
+    phaseMarkdown,
+    errorMessage: null,
+    isLegacy: true
+  };
+}
+function extractPhaseMarkdown(markdown, phaseNum) {
+  const lines = markdown.split(`
+`);
+  const phaseLines = [];
+  let inTargetPhase = false;
+  for (const line of lines) {
+    const phaseMatch = line.match(/^## Phase (\d+)/);
+    if (phaseMatch) {
+      const num = parseInt(phaseMatch[1], 10);
+      if (num === phaseNum) {
+        inTargetPhase = true;
+        phaseLines.push(line);
+        continue;
+      } else if (inTargetPhase) {
+        break;
+      }
+    }
+    if (inTargetPhase && line.trim() === "---" && phaseLines.length > 1) {
+      break;
+    }
+    if (inTargetPhase) {
+      phaseLines.push(line);
+    }
+  }
+  return phaseLines.length > 0 ? phaseLines.join(`
+`).trim() : null;
+}
+function formatPlanMarkdown(planData) {
+  if (!planData.hasPlan) {
+    return "No active swarm plan found.";
+  }
+  if (planData.errorMessage !== null) {
+    return planData.errorMessage;
+  }
+  if (planData.requestedPhase !== null && planData.phaseMarkdown) {
+    return planData.phaseMarkdown;
+  }
+  return planData.fullMarkdown;
+}
+async function handlePlanCommand(directory, args2) {
+  const phaseArg = args2.length > 0 ? args2[0] : undefined;
+  const planData = await getPlanData(directory, phaseArg);
+  return formatPlanMarkdown(planData);
+}
+// src/commands/preflight.ts
+init_preflight_service();
+
+// src/knowledge/hive-promoter.ts
+import * as fs19 from "fs";
+import * as os6 from "os";
+import * as path29 from "path";
+var DANGEROUS_PATTERNS = [
+  [/rm\s+-rf/, "rm\\s+-rf"],
+  [/:\s*!\s*\|/, ":\\s*!\\s*\\|"],
+  [/\|\s*sh\b/, "\\|\\s*sh\\b"],
+  [/`[^`]*`/, "`[^`]*`"],
+  [/\$\(/, "\\$\\("],
+  [/;\s*rm\s+\//, ";\\s*rm\\s+\\/"],
+  [/>\s*\/dev\//, ">\\s*\\/dev\\/"],
+  [/\bmkfs\b/, "\\bmkfs\\b"],
+  [/\bdd\s+if=/, "\\bdd\\s+if="],
+  [/chmod\s+[0-7]*7[0-7]{2}/, "chmod\\s+[0-7]*7[0-7]\\{2\\}"],
+  [/\bchown\s+-R\b/, "\\bchown\\s+-R\\b"],
+  [/(?<!\.)\beval\s*\(/, "(?<!\\.)\\beval\\s*\\("],
+  [/(?<!\.)\bexec\s*\(/, "(?<!\\.)\\bexec\\s*\\("]
+];
+var SHELL_COMMAND_START = /^(grep|find|ls|cat|sed|awk|curl|wget|ssh|scp|git|mv|cp|mkdir|touch|echo|printf|python|python3|node|bash|sh|zsh|apt|yum|brew)\s/;
+function validateLesson2(text) {
+  if (!text || !text.trim()) {
+    return { valid: false, reason: "Lesson text cannot be empty" };
+  }
+  for (const [pattern, patternSource] of DANGEROUS_PATTERNS) {
+    if (pattern.test(text)) {
+      return {
+        valid: false,
+        reason: `Dangerous pattern detected: ${patternSource}`
+      };
+    }
+  }
+  const trimmed = text.trim();
+  if (SHELL_COMMAND_START.test(trimmed)) {
+    const lastChar = trimmed[trimmed.length - 1];
+    if (![".", "!", "?", ";"].includes(lastChar)) {
+      return {
+        valid: false,
+        reason: "Lesson appears to contain raw shell commands"
+      };
+    }
+  }
+  return { valid: true };
+}
+function getHiveFilePath() {
+  const platform = process.platform;
+  const home = os6.homedir();
+  let dataDir;
+  if (platform === "win32") {
+    dataDir = path29.join(process.env.LOCALAPPDATA || path29.join(home, "AppData", "Local"), "opencode-swarm", "Data");
+  } else if (platform === "darwin") {
+    dataDir = path29.join(home, "Library", "Application Support", "opencode-swarm");
+  } else {
+    dataDir = path29.join(process.env.XDG_DATA_HOME || path29.join(home, ".local", "share"), "opencode-swarm");
+  }
+  return path29.join(dataDir, "hive-knowledge.jsonl");
+}
+async function promoteToHive(_directory, lesson, category) {
+  const trimmed = (lesson ?? "").trim();
+  if (!trimmed) {
+    throw new Error("Lesson text required");
+  }
+  const validation = validateLesson2(trimmed);
+  if (!validation.valid) {
+    throw new Error(`Lesson rejected by validator: ${validation.reason}`);
+  }
+  const hivePath = getHiveFilePath();
+  const hiveDir = path29.dirname(hivePath);
+  if (!fs19.existsSync(hiveDir)) {
+    fs19.mkdirSync(hiveDir, { recursive: true });
+  }
+  const now = new Date;
+  const entry = {
+    id: `hive-manual-${now.getTime()}`,
+    lesson: trimmed,
+    category: category || "process",
+    scope_tag: "global",
+    confidence: 1,
+    status: "promoted",
+    promotion_source: "manual",
+    promotedAt: now.toISOString(),
+    retrievalOutcomes: { applied: 0, succeededAfter: 0, failedAfter: 0 }
+  };
+  fs19.appendFileSync(hivePath, `${JSON.stringify(entry)}
+`, "utf-8");
+  const preview = `${trimmed.slice(0, 50)}${trimmed.length > 50 ? "..." : ""}`;
+  return `Promoted to hive: "${preview}" (confidence: 1.0, source: manual)`;
+}
+async function promoteFromSwarm(directory, lessonId) {
+  const knowledgePath = path29.join(directory, ".swarm", "knowledge.jsonl");
+  const entries = [];
+  if (fs19.existsSync(knowledgePath)) {
+    const content = fs19.readFileSync(knowledgePath, "utf-8");
+    for (const line of content.split(`
+`)) {
+      const t = line.trim();
+      if (!t)
+        continue;
+      try {
+        entries.push(JSON.parse(t));
+      } catch {}
+    }
+  }
+  const swarmEntry = entries.find((e) => e.id === lessonId);
+  if (!swarmEntry) {
+    throw new Error(`Lesson ${lessonId} not found in .swarm/knowledge.jsonl`);
+  }
+  const lessonText = typeof swarmEntry.lesson === "string" ? swarmEntry.lesson.trim() : "";
+  if (!lessonText) {
+    throw new Error("Lesson text required");
+  }
+  const validation = validateLesson2(lessonText);
+  if (!validation.valid) {
+    throw new Error(`Lesson rejected by validator: ${validation.reason}`);
+  }
+  const hivePath = getHiveFilePath();
+  const hiveDir = path29.dirname(hivePath);
+  if (!fs19.existsSync(hiveDir)) {
+    fs19.mkdirSync(hiveDir, { recursive: true });
+  }
+  const now = new Date;
+  const hiveEntry = {
+    id: `hive-manual-${now.getTime()}`,
+    lesson: lessonText,
+    category: typeof swarmEntry.category === "string" ? swarmEntry.category : "process",
+    scope_tag: typeof swarmEntry.scope === "string" ? swarmEntry.scope : "global",
+    confidence: 1,
+    status: "promoted",
+    promotion_source: "manual",
+    promotedAt: now.toISOString(),
+    retrievalOutcomes: { applied: 0, succeededAfter: 0, failedAfter: 0 }
+  };
+  fs19.appendFileSync(hivePath, `${JSON.stringify(hiveEntry)}
+`, "utf-8");
+  const preview = `${lessonText.slice(0, 50)}${lessonText.length > 50 ? "..." : ""}`;
+  return `Promoted to hive: "${preview}" (confidence: 1.0, source: manual)`;
+}
+
+// src/commands/promote.ts
+async function handlePromoteCommand(directory, args2) {
+  let category;
+  let lessonId;
+  let lessonText;
+  for (let i2 = 0;i2 < args2.length; i2++) {
+    const arg = args2[i2];
+    if (arg === "--category" && i2 + 1 < args2.length) {
+      category = args2[i2 + 1];
+      i2++;
+    } else if (arg === "--from-swarm" && i2 + 1 < args2.length) {
+      lessonId = args2[i2 + 1];
+      i2++;
+    } else if (!arg.startsWith("--")) {
+      lessonText = args2.slice(i2).join(" ");
+      break;
+    }
+  }
+  if (!lessonText && !lessonId) {
+    return `Usage: /swarm promote "<lesson text>" or /swarm promote --from-swarm <id>`;
+  }
+  if (lessonText) {
+    const validation = validateLesson2(lessonText);
+    if (!validation.valid) {
+      return `Lesson rejected by validator: ${validation.reason}`;
+    }
+  }
+  if (lessonId) {
+    try {
+      return await promoteFromSwarm(directory, lessonId);
+    } catch (error93) {
+      if (error93 instanceof Error) {
+        return error93.message;
+      }
+      return `Failed to promote lesson: ${error93 instanceof Error ? error93.message : String(error93)}`;
+    }
+  }
+  try {
+    return await promoteToHive(directory, lessonText, category);
+  } catch (error93) {
+    if (error93 instanceof Error) {
+      return error93.message;
+    }
+    return `Failed to promote lesson: ${error93 instanceof Error ? error93.message : String(error93)}`;
+  }
+}
+
+// src/commands/reset.ts
+import * as fs20 from "fs";
+
+// src/background/manager.ts
+init_utils();
+
+// src/background/circuit-breaker.ts
+class CircuitBreaker {
+  state = "closed";
+  failureCount = 0;
+  successCount = 0;
+  lastFailureTime;
+  config;
+  name;
+  onStateChange;
+  constructor(name2, config3, onStateChange) {
+    this.name = name2;
+    this.config = {
+      failureThreshold: config3?.failureThreshold ?? 5,
+      resetTimeoutMs: config3?.resetTimeoutMs ?? 30000,
+      successThreshold: config3?.successThreshold ?? 3,
+      callTimeoutMs: config3?.callTimeoutMs ?? 1e4
+    };
+    this.onStateChange = onStateChange;
+  }
+  getState() {
+    if (this.state === "open" && this.lastFailureTime) {
+      const timeSinceFailure = Date.now() - this.lastFailureTime;
+      if (timeSinceFailure >= this.config.resetTimeoutMs) {
+        this.transitionTo("half-open");
+      }
+    }
+    return this.state;
+  }
+  async execute(fn) {
+    const state = this.getState();
+    if (state === "open") {
+      const error93 = new Error(`Circuit breaker '${this.name}' is open`);
+      throw error93;
+    }
+    const startTime = Date.now();
+    try {
+      const result = await this.executeWithTimeout(fn);
+      const duration5 = Date.now() - startTime;
+      this.recordSuccess(duration5);
+      return result;
+    } catch (error93) {
+      const duration5 = Date.now() - startTime;
+      this.recordFailure(error93, duration5);
+      throw error93;
+    }
+  }
+  async executeWithTimeout(fn) {
+    if (this.config.callTimeoutMs <= 0) {
+      return fn();
+    }
+    return new Promise((resolve10, reject) => {
+      const timeout = setTimeout(() => {
+        reject(new Error(`Call timeout after ${this.config.callTimeoutMs}ms`));
+      }, this.config.callTimeoutMs);
+      fn().then((result) => {
+        clearTimeout(timeout);
+        resolve10(result);
+      }).catch((error93) => {
+        clearTimeout(timeout);
+        reject(error93);
+      });
+    });
+  }
+  recordSuccess(duration5) {
+    this.failureCount = 0;
+    if (this.state === "half-open") {
+      this.successCount++;
+      if (this.successCount >= this.config.successThreshold) {
+        this.transitionTo("closed");
+      }
+    }
+    this.onStateChange?.("callSuccess", { duration: duration5 });
+  }
+  recordFailure(error93, duration5) {
+    this.failureCount++;
+    this.lastFailureTime = Date.now();
+    if (this.state === "half-open") {
+      this.transitionTo("open");
+    } else if (this.state === "closed" && this.failureCount >= this.config.failureThreshold) {
+      this.transitionTo("open");
+    }
+    this.onStateChange?.("callFailure", { error: error93, duration: duration5 });
+  }
+  transitionTo(newState) {
+    const oldState = this.state;
+    this.state = newState;
+    if (newState === "closed") {
+      this.failureCount = 0;
+      this.successCount = 0;
+      this.onStateChange?.("closed", {
+        timestamp: Date.now(),
+        successCount: 0,
+        oldState
+      });
+    } else if (newState === "open") {
+      this.successCount = 0;
+      this.onStateChange?.("opened", {
+        timestamp: Date.now(),
+        failureCount: this.failureCount,
+        oldState
+      });
+    } else if (newState === "half-open") {
+      this.successCount = 0;
+      this.onStateChange?.("half-open", { timestamp: Date.now(), oldState });
+    }
+  }
+  reset() {
+    this.transitionTo("closed");
+  }
+  getStats() {
+    return {
+      state: this.getState(),
+      failureCount: this.failureCount,
+      successCount: this.successCount,
+      lastFailureTime: this.lastFailureTime
+    };
+  }
+}
+
+class LoopProtection {
+  records = new Map;
+  config;
+  onLoopDetected;
+  constructor(config3, onLoopDetected) {
+    this.config = config3;
+    this.onLoopDetected = onLoopDetected;
+  }
+  recordAttempt(key) {
+    const operationKey = key ?? this.config.operationKey;
+    const now = Date.now();
+    let record3 = this.records.get(operationKey);
+    if (record3 && now - record3.firstAttempt > this.config.timeWindowMs) {
+      record3 = undefined;
+    }
+    if (!record3) {
+      this.records.set(operationKey, {
+        count: 1,
+        firstAttempt: now,
+        lastAttempt: now
+      });
+      return true;
+    }
+    record3.count++;
+    record3.lastAttempt = now;
+    if (record3.count > this.config.maxIterations) {
+      this.onLoopDetected?.(operationKey, record3.count);
+      return false;
+    }
+    return true;
+  }
+  canProceed(key) {
+    const operationKey = key ?? this.config.operationKey;
+    const record3 = this.records.get(operationKey);
+    if (!record3)
+      return true;
+    const now = Date.now();
+    if (now - record3.firstAttempt > this.config.timeWindowMs) {
+      return true;
+    }
+    return record3.count <= this.config.maxIterations;
+  }
+  getRemainingIterations(key) {
+    const operationKey = key ?? this.config.operationKey;
+    const record3 = this.records.get(operationKey);
+    if (!record3)
+      return this.config.maxIterations;
+    const now = Date.now();
+    if (now - record3.firstAttempt > this.config.timeWindowMs) {
+      return this.config.maxIterations;
+    }
+    return Math.max(0, this.config.maxIterations - record3.count);
+  }
+  reset(key) {
+    const operationKey = key ?? this.config.operationKey;
+    this.records.delete(operationKey);
+  }
+  resetAll() {
+    this.records.clear();
+  }
+  getIterationCount(key) {
+    const operationKey = key ?? this.config.operationKey;
+    const record3 = this.records.get(operationKey);
+    if (!record3)
+      return 0;
+    const now = Date.now();
+    if (now - record3.firstAttempt > this.config.timeWindowMs) {
+      return 0;
+    }
+    return record3.count;
+  }
+  getTrackedOperations() {
+    return Array.from(this.records.keys());
+  }
+}
+
+// src/background/manager.ts
+init_event_bus();
+init_queue();
+
+// src/background/worker.ts
+init_event_bus();
+function sleep(ms) {
+  return new Promise((resolve10) => setTimeout(resolve10, ms));
+}
+
+class WorkerManager {
+  workers = new Map;
+  eventBus;
+  constructor() {
+    this.eventBus = getGlobalEventBus();
+  }
+  register(registration) {
+    if (this.workers.has(registration.name)) {
+      throw new Error(`Worker '${registration.name}' is already registered`);
+    }
+    const worker = {
+      name: registration.name,
+      handler: registration.handler,
+      queue: registration.queue,
+      concurrency: registration.concurrency ?? 1,
+      status: "idle",
+      activeCount: 0,
+      processedCount: 0,
+      errorCount: 0
+    };
+    this.workers.set(registration.name, worker);
+    this.eventBus.publish("worker.started", {
+      workerName: registration.name,
+      concurrency: worker.concurrency
+    });
+    if (registration.autoStart) {
+      this.start(registration.name);
+    }
+  }
+  unregister(name2) {
+    const worker = this.workers.get(name2);
+    if (!worker)
+      return false;
+    if (worker.status === "running") {
+      this.stop(name2);
+    }
+    this.workers.delete(name2);
+    return true;
+  }
+  start(name2) {
+    const worker = this.workers.get(name2);
+    if (!worker) {
+      throw new Error(`Worker '${name2}' is not registered`);
+    }
+    if (worker.status === "running") {
+      return false;
+    }
+    worker.status = "running";
+    this.startProcessingLoop(worker);
+    this.eventBus.publish("worker.started", {
+      workerName: name2,
+      concurrency: worker.concurrency
+    });
+    return true;
+  }
+  startProcessingLoop(worker) {
+    const processLoop = async () => {
+      while (worker.status === "running") {
+        if (worker.activeCount >= worker.concurrency) {
+          await sleep(50);
+          continue;
+        }
+        const item = worker.queue.dequeue();
+        if (!item) {
+          await sleep(100);
+          continue;
+        }
+        worker.activeCount++;
+        this.handleItem(worker, item).finally(() => {
+          worker.activeCount--;
+        });
+      }
+    };
+    processLoop().catch((error93) => {
+      this.eventBus.publish("worker.error", {
+        workerName: worker.name,
+        itemId: "loop",
+        error: error93
+      });
+    });
+  }
+  async handleItem(worker, item) {
+    try {
+      const result = await worker.handler(item);
+      if (result.success) {
+        worker.processedCount++;
+        worker.queue.complete(item.id);
+      } else {
+        worker.errorCount++;
+        worker.lastError = result.error;
+        worker.queue.retry(item.id, result.error);
+      }
+    } catch (error93) {
+      worker.errorCount++;
+      worker.lastError = error93;
+      this.eventBus.publish("worker.error", {
+        workerName: worker.name,
+        itemId: item.id,
+        error: error93
+      });
+      worker.queue.retry(item.id, error93);
+    }
+  }
+  stop(name2) {
+    const worker = this.workers.get(name2);
+    if (!worker)
+      return false;
+    if (worker.status !== "running") {
+      return false;
+    }
+    worker.status = "stopping";
+    this.eventBus.publish("worker.stopped", {
+      workerName: name2,
+      processedCount: worker.processedCount,
+      errorCount: worker.errorCount
+    });
+    worker.status = "stopped";
+    return true;
+  }
+  startAll() {
+    for (const [name2, worker] of this.workers) {
+      if (worker.status === "idle" || worker.status === "stopped") {
+        this.start(name2);
+      }
+    }
+  }
+  stopAll() {
+    for (const name2 of this.workers.keys()) {
+      this.stop(name2);
+    }
+  }
+  getStatus(name2) {
+    return this.workers.get(name2)?.status;
+  }
+  getStats(name2) {
+    const worker = this.workers.get(name2);
+    if (!worker)
+      return;
+    return {
+      status: worker.status,
+      activeCount: worker.activeCount,
+      processedCount: worker.processedCount,
+      errorCount: worker.errorCount,
+      lastError: worker.lastError,
+      queueSize: worker.queue.size()
+    };
+  }
+  getWorkerNames() {
+    return Array.from(this.workers.keys());
+  }
+  isAnyRunning() {
+    for (const worker of this.workers.values()) {
+      if (worker.status === "running") {
+        return true;
+      }
+    }
+    return false;
+  }
+  getTotalStats() {
+    const stats = {};
+    for (const name2 of this.workers.keys()) {
+      stats[name2] = this.getStats(name2);
+    }
+    return stats;
+  }
+}
+
+// src/background/manager.ts
+class BackgroundAutomationManager {
+  config;
+  eventBus;
+  workerManager;
+  queues = new Map;
+  circuitBreakers = new Map;
+  loopProtections = new Map;
+  isInitialized = false;
+  isRunning = false;
+  constructor(config3) {
+    this.config = {
+      enabled: config3.enabled,
+      maxQueueSize: config3.maxQueueSize ?? 1000,
+      maxRetries: config3.maxRetries ?? 3,
+      circuitBreaker: config3.circuitBreaker,
+      loopProtection: config3.loopProtection
+    };
+    this.eventBus = getGlobalEventBus();
+    this.workerManager = new WorkerManager;
+  }
+  initialize() {
+    if (!this.config.enabled) {
+      log("[Automation] Framework disabled, skipping initialization");
+      return;
+    }
+    if (this.isInitialized) {
+      log("[Automation] Already initialized");
+      return;
+    }
+    log("[Automation] Initializing framework...");
+    this.isInitialized = true;
+    this.eventBus.publish("automation.started", {
+      config: this.config
+    });
+  }
+  start() {
+    if (!this.config.enabled || !this.isInitialized) {
+      return;
+    }
+    if (this.isRunning) {
+      return;
+    }
+    log("[Automation] Starting framework...");
+    this.isRunning = true;
+    this.eventBus.publish("automation.started", {
+      timestamp: Date.now()
+    });
+  }
+  stop() {
+    if (!this.isRunning) {
+      return;
+    }
+    log("[Automation] Stopping framework...");
+    this.workerManager.stopAll();
+    this.isRunning = false;
+    this.eventBus.publish("automation.stopped", {
+      timestamp: Date.now()
+    });
+  }
+  isEnabled() {
+    return this.config.enabled;
+  }
+  isActive() {
+    return this.isRunning;
+  }
+  getOrCreateQueue(name2) {
+    if (!this.queues.has(name2)) {
+      const queue = new AutomationQueue({
+        maxSize: this.config.maxQueueSize,
+        defaultMaxRetries: this.config.maxRetries
+      });
+      this.queues.set(name2, queue);
+    }
+    return this.queues.get(name2);
+  }
+  registerWorker(registration) {
+    if (!this.config.enabled) {
+      throw new Error("Cannot register worker: automation framework is disabled");
+    }
+    this.workerManager.register(registration);
+  }
+  startWorker(name2) {
+    if (!this.config.enabled)
+      return false;
+    return this.workerManager.start(name2);
+  }
+  stopWorker(name2) {
+    if (!this.config.enabled)
+      return false;
+    return this.workerManager.stop(name2);
+  }
+  getOrCreateCircuitBreaker(name2) {
+    if (!this.circuitBreakers.has(name2)) {
+      const cb = new CircuitBreaker(name2, this.config.circuitBreaker, (eventType, event) => {
+        log(`[CircuitBreaker] ${name2}: ${eventType}`, event);
+        this.eventBus.publish("circuit.breaker.opened", {
+          breakerName: name2,
+          eventType,
+          event
+        });
+      });
+      this.circuitBreakers.set(name2, cb);
+    }
+    return this.circuitBreakers.get(name2);
+  }
+  getOrCreateLoopProtection(operationKey) {
+    if (!this.loopProtections.has(operationKey)) {
+      const config3 = {
+        maxIterations: this.config.loopProtection?.maxIterations ?? 10,
+        timeWindowMs: this.config.loopProtection?.timeWindowMs ?? 60000,
+        operationKey
+      };
+      const lp = new LoopProtection(config3, (key, count) => {
+        log(`[LoopProtection] ${key}: Detected potential loop (${count} iterations)`);
+        this.eventBus.publish("loop.protection.triggered", {
+          operationKey: key,
+          count,
+          timestamp: Date.now()
+        });
+      });
+      this.loopProtections.set(operationKey, lp);
+    }
+    return this.loopProtections.get(operationKey);
+  }
+  subscribe(type, listener) {
+    return this.eventBus.subscribe(type, listener);
+  }
+  async publish(type, payload, source) {
+    await this.eventBus.publish(type, payload, source);
+  }
+  getStats() {
+    return {
+      enabled: this.config.enabled,
+      initialized: this.isInitialized,
+      running: this.isRunning,
+      queues: Object.fromEntries(Array.from(this.queues.entries()).map(([name2, queue]) => [
+        name2,
+        queue.getStats()
+      ])),
+      workers: this.workerManager.getTotalStats(),
+      circuitBreakers: Object.fromEntries(Array.from(this.circuitBreakers.entries()).map(([name2, cb]) => [
+        name2,
+        cb.getStats()
+      ])),
+      loopProtections: Array.from(this.loopProtections.keys())
+    };
+  }
+  reset() {
+    this.stop();
+    this.workerManager.stopAll();
+    this.queues.clear();
+    this.circuitBreakers.clear();
+    this.loopProtections.clear();
+    this.isInitialized = false;
+  }
+}
+var managerInstance = null;
+function createAutomationManager(automationConfig) {
+  const isEnabled = automationConfig?.mode !== "manual";
+  const config3 = {
+    enabled: isEnabled,
+    maxQueueSize: 500,
+    maxRetries: 3,
+    circuitBreaker: {
+      failureThreshold: 5,
+      resetTimeoutMs: 30000,
+      successThreshold: 2,
+      callTimeoutMs: 15000
+    },
+    loopProtection: {
+      maxIterations: 10,
+      timeWindowMs: 60000
+    }
+  };
+  const manager = new BackgroundAutomationManager(config3);
+  manager.initialize();
+  return manager;
+}
+function resetAutomationManager() {
+  if (managerInstance) {
+    managerInstance.reset();
+    managerInstance = null;
+  }
+}
+
+// src/commands/reset.ts
+init_utils2();
+async function handleResetCommand(directory, args2) {
+  const hasConfirm = args2.includes("--confirm");
+  if (!hasConfirm) {
+    return [
+      "## Swarm Reset",
+      "",
+      "\u26A0\uFE0F This will delete plan.md and context.md from .swarm/",
+      "",
+      "**Tip**: Run `/swarm export` first to backup your state.",
+      "",
+      "To confirm, run: `/swarm reset --confirm`"
+    ].join(`
+`);
+  }
+  const filesToReset = ["plan.md", "context.md"];
+  const results = [];
+  for (const filename of filesToReset) {
+    try {
+      const resolvedPath = validateSwarmPath(directory, filename);
+      if (fs20.existsSync(resolvedPath)) {
+        fs20.unlinkSync(resolvedPath);
+        results.push(`- \u2705 Deleted ${filename}`);
+      } else {
+        results.push(`- \u23ED\uFE0F ${filename} not found (skipped)`);
+      }
+    } catch {
+      results.push(`- \u274C Failed to delete ${filename}`);
+    }
+  }
+  try {
+    resetAutomationManager();
+    results.push("- \u2705 Stopped background automation (in-memory queues cleared)");
+  } catch {
+    results.push("- \u23ED\uFE0F Background automation not running (skipped)");
+  }
+  try {
+    const summariesPath = validateSwarmPath(directory, "summaries");
+    if (fs20.existsSync(summariesPath)) {
+      fs20.rmSync(summariesPath, { recursive: true, force: true });
+      results.push("- \u2705 Deleted summaries/ directory");
+    } else {
+      results.push("- \u23ED\uFE0F summaries/ not found (skipped)");
+    }
+  } catch {
+    results.push("- \u274C Failed to delete summaries/");
+  }
+  return [
+    "## Swarm Reset Complete",
+    "",
+    ...results,
+    "",
+    "Swarm state has been cleared. Start fresh with a new plan."
+  ].join(`
+`);
+}
+
+// src/commands/reset-session.ts
+init_utils2();
+import * as fs21 from "fs";
+import * as path30 from "path";
+async function handleResetSessionCommand(directory, _args) {
+  const results = [];
+  try {
+    const statePath = validateSwarmPath(directory, "session/state.json");
+    if (fs21.existsSync(statePath)) {
+      fs21.unlinkSync(statePath);
+      results.push("\u2705 Deleted .swarm/session/state.json");
+    } else {
+      results.push("\u23ED\uFE0F state.json not found (already clean)");
+    }
+  } catch {
+    results.push("\u274C Failed to delete state.json");
+  }
+  try {
+    const sessionDir = path30.dirname(validateSwarmPath(directory, "session/state.json"));
+    if (fs21.existsSync(sessionDir)) {
+      const files = fs21.readdirSync(sessionDir);
+      const otherFiles = files.filter((f) => f !== "state.json");
+      let deletedCount = 0;
+      for (const file3 of otherFiles) {
+        const filePath = path30.join(sessionDir, file3);
+        if (fs21.lstatSync(filePath).isFile()) {
+          fs21.unlinkSync(filePath);
+          deletedCount++;
+        }
+      }
+      results.push(`\u2705 Cleaned ${deletedCount} additional session file(s)`);
+    }
+  } catch {}
+  const sessionCount = swarmState.agentSessions.size;
+  swarmState.agentSessions.clear();
+  results.push(`\u2705 Cleared ${sessionCount} in-memory agent session(s)`);
+  const chainCount = swarmState.delegationChains.size;
+  swarmState.delegationChains.clear();
+  results.push(`\u2705 Cleared ${chainCount} delegation chain(s)`);
+  return [
+    "## Session State Reset",
+    "",
+    ...results,
+    "",
+    "Session state cleared. Plan, evidence, and knowledge preserved.",
+    "",
+    "**Next step:** Start a new OpenCode session. The plugin will initialize fresh session state on startup."
+  ].join(`
+`);
+}
+
+// src/summaries/manager.ts
+init_utils2();
+init_utils();
+import { mkdirSync as mkdirSync9, readdirSync as readdirSync8, renameSync as renameSync8, rmSync as rmSync3, statSync as statSync7 } from "fs";
+import * as path31 from "path";
+var SUMMARY_ID_REGEX = /^S\d+$/;
+function sanitizeSummaryId(id) {
+  if (!id || id.length === 0) {
+    throw new Error("Invalid summary ID: empty string");
+  }
+  if (/\0/.test(id)) {
+    throw new Error("Invalid summary ID: contains null bytes");
+  }
+  for (let i2 = 0;i2 < id.length; i2++) {
+    if (id.charCodeAt(i2) < 32) {
+      throw new Error("Invalid summary ID: contains control characters");
+    }
+  }
+  if (id.includes("..") || id.includes("../") || id.includes("..\\")) {
+    throw new Error("Invalid summary ID: path traversal detected");
+  }
+  if (!SUMMARY_ID_REGEX.test(id)) {
+    throw new Error(`Invalid summary ID: must match pattern ^S\\d+$, got "${id}"`);
+  }
+  return id;
+}
+async function storeSummary(directory, id, fullOutput, summaryText, maxStoredBytes) {
+  const sanitizedId = sanitizeSummaryId(id);
+  const preCheckEntry = {
+    id: sanitizedId,
+    summaryText,
+    fullOutput,
+    timestamp: Date.now(),
+    originalBytes: Buffer.byteLength(fullOutput, "utf8")
+  };
+  const serializedSize = Buffer.byteLength(JSON.stringify(preCheckEntry), "utf8");
+  if (serializedSize > maxStoredBytes) {
+    throw new Error(`Summary entry size (${serializedSize} bytes) exceeds maximum (${maxStoredBytes} bytes)`);
+  }
+  const relativePath = path31.join("summaries", `${sanitizedId}.json`);
+  const summaryPath = validateSwarmPath(directory, relativePath);
+  const summaryDir = path31.dirname(summaryPath);
+  const entry = {
+    id: sanitizedId,
+    summaryText,
+    fullOutput,
+    timestamp: Date.now(),
+    originalBytes: Buffer.byteLength(fullOutput, "utf8")
+  };
+  const entryJson = JSON.stringify(entry);
+  mkdirSync9(summaryDir, { recursive: true });
+  const tempPath = path31.join(summaryDir, `${sanitizedId}.json.tmp.${Date.now()}.${process.pid}`);
+  try {
+    await Bun.write(tempPath, entryJson);
+    renameSync8(tempPath, summaryPath);
+  } catch (error93) {
+    try {
+      rmSync3(tempPath, { force: true });
+    } catch {}
+    throw error93;
+  }
+}
+async function loadFullOutput(directory, id) {
+  const sanitizedId = sanitizeSummaryId(id);
+  const relativePath = path31.join("summaries", `${sanitizedId}.json`);
+  validateSwarmPath(directory, relativePath);
+  const content = await readSwarmFileAsync(directory, relativePath);
+  if (content === null) {
+    return null;
+  }
+  try {
+    const parsed = JSON.parse(content);
+    if (typeof parsed.fullOutput === "string") {
+      return parsed.fullOutput;
+    }
+    warn(`Summary entry ${sanitizedId} missing valid fullOutput field`);
+    return null;
+  } catch (error93) {
+    warn(`Summary entry validation failed for ${sanitizedId}: ${error93 instanceof Error ? error93.message : String(error93)}`);
+    return null;
+  }
+}
+
+// src/commands/retrieve.ts
+async function handleRetrieveCommand(directory, args2) {
+  const summaryId = args2[0];
+  if (!summaryId) {
+    return [
+      "## Swarm Retrieve",
+      "",
+      "Usage: `/swarm retrieve <id>`",
+      "",
+      "Example: `/swarm retrieve S1`",
+      "",
+      "Retrieves the full output that was replaced by a summary."
+    ].join(`
+`);
+  }
+  try {
+    const fullOutput = await loadFullOutput(directory, summaryId);
+    if (fullOutput === null) {
+      return `## Summary Not Found
+
+No stored output found for ID \`${summaryId}\`.
+
+Use a valid summary ID (e.g., S1, S2, S3).`;
+    }
+    return fullOutput;
+  } catch (error93) {
+    return `## Retrieve Failed
+
+${error93 instanceof Error ? error93.message : String(error93)}`;
+  }
+}
+
+// src/commands/rollback.ts
+init_utils2();
+import * as fs22 from "fs";
+import * as path32 from "path";
+async function handleRollbackCommand(directory, args2) {
+  const phaseArg = args2[0];
+  if (!phaseArg) {
+    const manifestPath2 = validateSwarmPath(directory, "checkpoints/manifest.json");
+    if (!fs22.existsSync(manifestPath2)) {
+      return "No checkpoints found. Use `/swarm checkpoint` to create checkpoints.";
+    }
+    let manifest2;
+    try {
+      manifest2 = JSON.parse(fs22.readFileSync(manifestPath2, "utf-8"));
+    } catch {
+      return "Error: Checkpoint manifest is corrupted. Delete .swarm/checkpoints/manifest.json and re-checkpoint.";
+    }
+    const checkpoints = manifest2.checkpoints || [];
+    if (checkpoints.length === 0) {
+      return "No checkpoints found in manifest.";
+    }
+    return [
+      "## Available Checkpoints",
+      "",
+      ...checkpoints.map((c) => `- Phase ${c.phase}: ${c.label || "no label"} (${new Date(c.timestamp).toLocaleString()})`),
+      "",
+      `Run \`/swarm rollback <phase>\` to restore to a checkpoint.`
+    ].join(`
+`);
+  }
+  const targetPhase = parseInt(phaseArg, 10);
+  if (Number.isNaN(targetPhase) || targetPhase < 1) {
+    return "Error: Phase number must be a positive integer.";
+  }
+  const manifestPath = validateSwarmPath(directory, "checkpoints/manifest.json");
+  if (!fs22.existsSync(manifestPath)) {
+    return `Error: No checkpoints found. Cannot rollback to phase ${targetPhase}.`;
+  }
+  let manifest;
+  try {
+    manifest = JSON.parse(fs22.readFileSync(manifestPath, "utf-8"));
+  } catch {
+    return `Error: Checkpoint manifest is corrupted. Delete .swarm/checkpoints/manifest.json and re-checkpoint.`;
+  }
+  const checkpoint2 = manifest.checkpoints?.find((c) => c.phase === targetPhase);
+  if (!checkpoint2) {
+    const available = manifest.checkpoints?.map((c) => c.phase).join(", ") || "none";
+    return `Error: Checkpoint for phase ${targetPhase} not found. Available phases: ${available}`;
+  }
+  const checkpointDir = validateSwarmPath(directory, `checkpoints/phase-${targetPhase}`);
+  if (!fs22.existsSync(checkpointDir)) {
+    return `Error: Checkpoint directory for phase ${targetPhase} does not exist.`;
+  }
+  const checkpointFiles = fs22.readdirSync(checkpointDir);
+  if (checkpointFiles.length === 0) {
+    return `Error: Checkpoint for phase ${targetPhase} is empty. Cannot rollback.`;
+  }
+  const swarmDir = validateSwarmPath(directory, "");
+  const successes = [];
+  const failures = [];
+  for (const file3 of checkpointFiles) {
+    const src = path32.join(checkpointDir, file3);
+    const dest = path32.join(swarmDir, file3);
+    try {
+      fs22.cpSync(src, dest, { recursive: true, force: true });
+      successes.push(file3);
+    } catch (error93) {
+      failures.push({ file: file3, error: error93.message });
+    }
+  }
+  if (failures.length > 0) {
+    return `Rollback partially completed. Successfully restored ${successes.length} files: ${successes.join(", ") || "none"}. Failed on ${failures.length} files: ${failures.map((f) => f.file).join(", ")}. Check permissions and disk space.`;
+  }
+  const eventsPath = validateSwarmPath(directory, "events.jsonl");
+  const rollbackEvent = {
+    type: "rollback",
+    phase: targetPhase,
+    label: checkpoint2.label || "",
+    timestamp: new Date().toISOString()
+  };
+  try {
+    fs22.appendFileSync(eventsPath, `${JSON.stringify(rollbackEvent)}
+`);
+  } catch (error93) {
+    console.error("Failed to write rollback event:", error93 instanceof Error ? error93.message : String(error93));
+  }
+  return `Rolled back to phase ${targetPhase}: ${checkpoint2.label || "no label"}`;
+}
+
+// src/commands/simulate.ts
+init_co_change_analyzer();
+async function handleSimulateCommand(directory, args2) {
+  const thresholdIndex = args2.indexOf("--threshold");
+  const minCommitsIndex = args2.indexOf("--min-commits");
+  const options = {};
+  if (thresholdIndex >= 0 && args2[thresholdIndex + 1]) {
+    const val = parseFloat(args2[thresholdIndex + 1]);
+    if (!Number.isNaN(val) && val >= 0 && val <= 1) {
+      options.npmiThreshold = val;
+    }
+  }
+  if (minCommitsIndex >= 0 && args2[minCommitsIndex + 1]) {
+    const val = parseInt(args2[minCommitsIndex + 1], 10);
+    if (!Number.isNaN(val) && val > 0) {
+      options.minCommits = val;
+    }
+  }
+  const darkMatterPairs = await detectDarkMatter(directory, options);
+  const reportLines = [
+    "# Simulate Report",
+    "",
+    `Generated: ${new Date().toISOString()}`,
+    "",
+    "## Dark Matter Analysis",
+    `${darkMatterPairs.length} hidden coupling pairs detected:`,
+    "",
+    "| File A | File B | NPMI | Co-Changes | Lift |",
+    "|--------|--------|------|------------|------|",
+    ...darkMatterPairs.map((p) => `| ${p.fileA} | ${p.fileB} | ${p.npmi.toFixed(3)} | ${p.coChangeCount} | ${p.lift.toFixed(2)} |`),
+    "",
+    "## Recommendation",
+    `${darkMatterPairs.length} hidden coupling pairs may cause unexpected side effects when modified.`
+  ];
+  const report = reportLines.filter(Boolean).join(`
+`);
+  const fs23 = await import("fs/promises");
+  const path33 = await import("path");
+  const reportPath = path33.join(directory, ".swarm", "simulate-report.md");
+  await fs23.mkdir(path33.dirname(reportPath), { recursive: true });
+  await fs23.writeFile(reportPath, report, "utf-8");
+  return `${darkMatterPairs.length} hidden coupling pairs detected`;
+}
+
+// src/commands/specify.ts
+async function handleSpecifyCommand(_directory, args2) {
+  const description = args2.join(" ").trim();
+  if (description) {
+    return `[MODE: SPECIFY] ${description}`;
+  }
+  return "[MODE: SPECIFY] Please enter MODE: SPECIFY and generate a spec for this project.";
+}
+
+// src/hooks/extractors.ts
+function extractCurrentPhase(planContent) {
+  if (!planContent) {
+    return null;
+  }
+  const lines = planContent.split(`
+`);
+  for (let i2 = 0;i2 < Math.min(20, lines.length); i2++) {
+    const line = lines[i2].trim();
+    const progressMatch = line.match(/^## Phase (\d+):?\s*(.*?)\s*\[IN PROGRESS\]/i);
+    if (progressMatch) {
+      const phaseNum = progressMatch[1];
+      const description = progressMatch[2]?.trim() || "";
+      return `Phase ${phaseNum}: ${description} [IN PROGRESS]`;
+    }
+  }
+  for (let i2 = 0;i2 < Math.min(3, lines.length); i2++) {
+    const line = lines[i2].trim();
+    const phaseMatch = line.match(/Phase:\s*(\d+)/i);
+    if (phaseMatch) {
+      const phaseNum = phaseMatch[1];
+      return `Phase ${phaseNum} [PENDING]`;
+    }
+  }
+  return null;
+}
+function extractCurrentTask(planContent) {
+  if (!planContent) {
+    return null;
+  }
+  const lines = planContent.split(`
+`);
+  let inCurrentPhase = false;
+  for (const line of lines) {
+    if (line.startsWith("## ") && /\[IN PROGRESS\]/i.test(line)) {
+      inCurrentPhase = true;
+      continue;
+    }
+    if (inCurrentPhase) {
+      if (line.startsWith("## ") || line.trim() === "---") {
+        break;
+      }
+      if (line.trim().startsWith("- [ ]")) {
+        return line.trim();
+      }
+    }
+  }
+  return null;
+}
+function extractDecisions2(contextContent, maxChars = 500) {
+  if (!contextContent) {
+    return null;
+  }
+  const lines = contextContent.split(`
+`);
+  let decisionsText = "";
+  let inDecisionsSection = false;
+  for (const line of lines) {
+    if (line.trim() === "## Decisions") {
+      inDecisionsSection = true;
+      continue;
+    }
+    if (inDecisionsSection) {
+      if (line.startsWith("## ")) {
+        break;
+      }
+      if (line.startsWith("- ")) {
+        decisionsText += `${line}
+`;
+      }
+    }
+  }
+  if (!decisionsText.trim()) {
+    return null;
+  }
+  const trimmed = decisionsText.trim();
+  if (trimmed.length <= maxChars) {
+    return trimmed;
+  }
+  return `${trimmed.slice(0, maxChars)}...`;
+}
+function extractIncompleteTasks(planContent, maxChars = 500) {
+  if (!planContent) {
+    return null;
+  }
+  const lines = planContent.split(`
+`);
+  let tasksText = "";
+  let inCurrentPhase = false;
+  for (const line of lines) {
+    if (line.startsWith("## ") && /\[IN PROGRESS\]/i.test(line)) {
+      inCurrentPhase = true;
+      continue;
+    }
+    if (inCurrentPhase) {
+      if (line.startsWith("## ") || line.trim() === "---") {
+        break;
+      }
+      if (line.trim().startsWith("- [ ]")) {
+        tasksText += `${line.trim()}
+`;
+      }
+    }
+  }
+  if (!tasksText.trim()) {
+    return null;
+  }
+  const trimmed = tasksText.trim();
+  if (trimmed.length <= maxChars) {
+    return trimmed;
+  }
+  return `${trimmed.slice(0, maxChars)}...`;
+}
+function extractPatterns(contextContent, maxChars = 500) {
+  if (!contextContent) {
+    return null;
+  }
+  const lines = contextContent.split(`
+`);
+  let patternsText = "";
+  let inPatternsSection = false;
+  for (const line of lines) {
+    if (line.trim() === "## Patterns") {
+      inPatternsSection = true;
+      continue;
+    }
+    if (inPatternsSection) {
+      if (line.startsWith("## ")) {
+        break;
+      }
+      if (line.startsWith("- ")) {
+        patternsText += `${line}
+`;
+      }
+    }
+  }
+  if (!patternsText.trim()) {
+    return null;
+  }
+  const trimmed = patternsText.trim();
+  if (trimmed.length <= maxChars) {
+    return trimmed;
+  }
+  return `${trimmed.slice(0, maxChars)}...`;
+}
+function extractCurrentPhaseFromPlan2(plan) {
+  const phase = plan.phases.find((p) => p.id === plan.current_phase);
+  if (!phase)
+    return null;
+  const statusMap = {
+    pending: "PENDING",
+    in_progress: "IN PROGRESS",
+    complete: "COMPLETE",
+    blocked: "BLOCKED"
+  };
+  const statusText = statusMap[phase.status] || "PENDING";
+  return `Phase ${phase.id}: ${phase.name} [${statusText}]`;
+}
+function extractCurrentTaskFromPlan(plan) {
+  const phase = plan.phases.find((p) => p.id === plan.current_phase);
+  if (!phase)
+    return null;
+  const inProgress = phase.tasks.find((t) => t.status === "in_progress");
+  if (inProgress) {
+    const deps = inProgress.depends.length > 0 ? ` (depends: ${inProgress.depends.join(", ")})` : "";
+    return `- [ ] ${inProgress.id}: ${inProgress.description} [${inProgress.size.toUpperCase()}]${deps} \u2190 CURRENT`;
+  }
+  const pending = phase.tasks.find((t) => t.status === "pending");
+  if (pending) {
+    const deps = pending.depends.length > 0 ? ` (depends: ${pending.depends.join(", ")})` : "";
+    return `- [ ] ${pending.id}: ${pending.description} [${pending.size.toUpperCase()}]${deps}`;
+  }
+  return null;
+}
+function extractIncompleteTasksFromPlan(plan, maxChars = 500) {
+  const phase = plan.phases.find((p) => p.id === plan.current_phase);
+  if (!phase)
+    return null;
+  const incomplete = phase.tasks.filter((t) => t.status === "pending" || t.status === "in_progress");
+  if (incomplete.length === 0)
+    return null;
+  const lines = incomplete.map((t) => {
+    const deps = t.depends.length > 0 ? ` (depends: ${t.depends.join(", ")})` : "";
+    return `- [ ] ${t.id}: ${t.description} [${t.size.toUpperCase()}]${deps}`;
+  });
+  const text = lines.join(`
+`);
+  if (text.length <= maxChars)
+    return text;
+  return `${text.slice(0, maxChars)}...`;
+}
+function extractPlanCursor(planContent, options) {
+  const maxTokens = options?.maxTokens ?? 1500;
+  const maxChars = maxTokens * 4;
+  const lookaheadCount = options?.lookaheadTasks ?? 2;
+  if (!planContent || typeof planContent !== "string") {
+    return `[SWARM PLAN CURSOR]
+No plan content available. Start by creating a .swarm/plan.md file.
+[/SWARM PLAN CURSOR]`;
+  }
+  const lines = planContent.split(`
+`);
+  const result = [];
+  result.push("[SWARM PLAN CURSOR]");
+  const phases = [];
+  let currentPhase = null;
+  let inPhase = false;
+  for (let i2 = 0;i2 < lines.length; i2++) {
+    const line = lines[i2];
+    const trimmed = line.trim();
+    const phaseMatch = trimmed.match(/^## Phase (\d+):?\s*(.*?)\s*\[(COMPLETE|IN PROGRESS|PENDING|BLOCKED)\]/i);
+    if (phaseMatch) {
+      if (currentPhase) {
+        phases.push(currentPhase);
+      }
+      const phaseNum = parseInt(phaseMatch[1], 10);
+      const phaseTitle = phaseMatch[2]?.trim() || "";
+      const status = phaseMatch[3].toUpperCase();
+      currentPhase = {
+        number: phaseNum,
+        title: phaseTitle,
+        status,
+        contentLines: []
+      };
+      inPhase = true;
+      continue;
+    }
+    if (inPhase && (line.startsWith("## ") || trimmed === "---")) {
+      if (currentPhase) {
+        phases.push(currentPhase);
+      }
+      currentPhase = null;
+      inPhase = false;
+      continue;
+    }
+    if (currentPhase && inPhase && trimmed) {
+      currentPhase.contentLines.push(line);
+    }
+  }
+  if (currentPhase) {
+    phases.push(currentPhase);
+  }
+  if (phases.length === 0) {
+    result.push("No phases found in plan.");
+    result.push("[/SWARM PLAN CURSOR]");
+    return result.join(`
+`);
+  }
+  const inProgressPhase = phases.find((p) => p.status === "IN PROGRESS");
+  const completePhases = phases.filter((p) => p.status === "COMPLETE");
+  const pendingPhases = phases.filter((p) => p.status === "PENDING");
+  if (completePhases.length > 0) {
+    const recentComplete = completePhases.slice(-5);
+    if (completePhases.length > 5) {
+      result.push("");
+      result.push(`## Earlier Phases (${completePhases.length - 5} more)`);
+      result.push(`- Phase 1-${completePhases.length - 5}: Complete`);
+    }
+    result.push("");
+    result.push("## Completed Phases");
+    for (const phase of recentComplete) {
+      const taskLines = phase.contentLines.filter((l) => l.trim().startsWith("- [")).map((l) => l.replace(/^- \[[ xX]\]\s*/, "").replace(/\s*\[.*?\]/g, "").trim()).slice(0, 3);
+      const taskSummary = taskLines.length > 0 ? taskLines.join(", ") : "All tasks complete";
+      result.push(`- Phase ${phase.number}: ${phase.title}`);
+      result.push(`  - ${taskSummary}`);
+    }
+  }
+  const incompleteTasks = inProgressPhase ? inProgressPhase.contentLines.filter((l) => l.trim().startsWith("- [ ]")).map((l) => l.trim()) : [];
+  if (inProgressPhase) {
+    result.push("");
+    result.push(`## Phase ${inProgressPhase.number} [IN PROGRESS]`);
+    result.push(`- ${inProgressPhase.title}`);
+    if (incompleteTasks.length > 0) {
+      const currentTask = incompleteTasks[0];
+      result.push("");
+      result.push(`- Current: ${currentTask.replace("- [ ] ", "")}`);
+      const lookahead = incompleteTasks.slice(1, 1 + lookaheadCount);
+      for (let i2 = 0;i2 < lookahead.length; i2++) {
+        result.push(`- Next: ${lookahead[i2].replace("- [ ] ", "")}`);
+      }
+    } else {
+      result.push("- (No pending tasks)");
+    }
+  }
+  const nextPending = pendingPhases[0];
+  if (nextPending) {
+    result.push("");
+    result.push(`## Phase ${nextPending.number} [PENDING]`);
+    result.push(`- ${nextPending.title}`);
+  }
+  let output = result.join(`
+`);
+  output += `
+[/SWARM PLAN CURSOR]`;
+  if (output.length > maxChars) {
+    const compactResult = [];
+    compactResult.push("[SWARM PLAN CURSOR]");
+    if (completePhases.length > 0) {
+      compactResult.push("## Completed Phases");
+      const recentCompact = completePhases.slice(-3);
+      for (const phase of recentCompact) {
+        const taskLines = phase.contentLines.filter((l) => l.trim().startsWith("- [")).map((l) => l.replace(/^- \[[ xX]\]\s*/, "").replace(/\s*\[.*?\]/g, "").trim()).slice(0, 1);
+        const taskSummary = taskLines.length > 0 ? taskLines[0] : "Complete";
+        compactResult.push(`- Phase ${phase.number}: ${taskSummary}`);
+      }
+      if (completePhases.length > 3) {
+        compactResult.push(`- Earlier: Phase 1-${completePhases.length - 3} complete`);
+      }
+    }
+    if (inProgressPhase) {
+      compactResult.push("");
+      compactResult.push(`## Phase ${inProgressPhase.number} [IN PROGRESS]`);
+      compactResult.push(`- ${inProgressPhase.title}`);
+      if (incompleteTasks.length > 0) {
+        const truncateTask = (task) => {
+          const text = task.replace("- [ ] ", "");
+          return text.length > 60 ? `${text.slice(0, 57)}...` : text;
+        };
+        compactResult.push(`- Current: ${truncateTask(incompleteTasks[0])}`);
+        const lookahead = incompleteTasks.slice(1, 1 + Math.min(lookaheadCount, 1));
+        for (const task of lookahead) {
+          compactResult.push(`- Next: ${truncateTask(task)}`);
+        }
+      } else {
+        compactResult.push("- (No pending tasks)");
+      }
+    }
+    if (nextPending) {
+      compactResult.push("");
+      compactResult.push(`## Phase ${nextPending.number} [PENDING]`);
+      compactResult.push(`- ${nextPending.title}`);
+    }
+    compactResult.push("[/SWARM PLAN CURSOR]");
+    output = compactResult.join(`
+`);
+  }
+  return output;
+}
+
+// src/services/status-service.ts
+init_utils2();
+init_manager2();
+
+// src/services/compaction-service.ts
+import * as fs23 from "fs";
+import * as path33 from "path";
+function makeInitialState() {
+  return {
+    lastObservationAt: 0,
+    lastReflectionAt: 0,
+    lastEmergencyAt: 0,
+    observationCount: 0,
+    reflectionCount: 0,
+    emergencyCount: 0,
+    lastSnapshotAt: null
+  };
+}
+var sessionStates = new Map;
+function getSessionState(sessionId) {
+  let state = sessionStates.get(sessionId);
+  if (!state) {
+    state = makeInitialState();
+    sessionStates.set(sessionId, state);
+  }
+  return state;
+}
+function appendSnapshot(directory, tier, budgetPct, message) {
+  try {
+    const snapshotPath = path33.join(directory, ".swarm", "context-snapshot.md");
+    const timestamp = new Date().toISOString();
+    const entry = `
+## [${tier.toUpperCase()}] ${timestamp} \u2014 ${budgetPct.toFixed(1)}% used
+${message}
+`;
+    fs23.appendFileSync(snapshotPath, entry, "utf-8");
+  } catch {}
+}
+function buildObservationMessage(budgetPct) {
+  return `[CONTEXT COMPACTION \u2014 OBSERVATION TIER]
+` + `Context window is ${budgetPct.toFixed(1)}% used. Initiating observation compaction.
+` + `INSTRUCTIONS: Summarise the key decisions made so far, files changed, errors resolved, ` + `and the current task state. Discard verbose tool outputs and raw file reads. ` + `Preserve: plan task ID, agent verdicts, file paths touched, unresolved blockers.
+` + `[/CONTEXT COMPACTION]`;
+}
+function buildReflectionMessage(budgetPct) {
+  return `[CONTEXT COMPACTION \u2014 REFLECTION TIER]
+` + `Context window is ${budgetPct.toFixed(1)}% used. Initiating reflection compaction.
+` + `INSTRUCTIONS: Re-summarise into a tighter format. Discard completed task details ` + `and resolved errors. Retain ONLY: current phase tasks remaining, open blockers, ` + `last 3 reviewer/test verdicts, and active file scope.
+` + `[/CONTEXT COMPACTION]`;
+}
+function buildEmergencyMessage(budgetPct, preserveLastN) {
+  return `[CONTEXT COMPACTION \u2014 EMERGENCY TIER]
+` + `Context window is ${budgetPct.toFixed(1)}% used. EMERGENCY compaction required.
+` + `INSTRUCTIONS: Retain ONLY the system prompt, the current task context, and the ` + `last ${preserveLastN} conversation turns. Discard everything else. ` + `If you cannot complete the current task in the remaining context, escalate to the user.
+` + `[/CONTEXT COMPACTION]`;
+}
+function createCompactionService(config3, directory, injectMessage) {
+  return {
+    toolAfter: async (_input, _output) => {
+      if (!config3.enabled)
+        return;
+      const budgetPct = swarmState.lastBudgetPct ?? 0;
+      if (budgetPct <= 0)
+        return;
+      const sessionId = _input.sessionID;
+      const state = getSessionState(sessionId);
+      try {
+        if (budgetPct >= config3.emergencyThreshold && budgetPct > state.lastEmergencyAt + 5) {
+          state.lastEmergencyAt = budgetPct;
+          state.emergencyCount++;
+          const msg = buildEmergencyMessage(budgetPct, config3.preserveLastNTurns);
+          appendSnapshot(directory, "emergency", budgetPct, msg);
+          state.lastSnapshotAt = new Date().toISOString();
+          injectMessage(sessionId, msg);
+          return;
+        }
+        if (budgetPct >= config3.reflectionThreshold && budgetPct > state.lastReflectionAt + 5) {
+          state.lastReflectionAt = budgetPct;
+          state.reflectionCount++;
+          const msg = buildReflectionMessage(budgetPct);
+          appendSnapshot(directory, "reflection", budgetPct, msg);
+          state.lastSnapshotAt = new Date().toISOString();
+          injectMessage(sessionId, msg);
+          return;
+        }
+        if (budgetPct >= config3.observationThreshold && budgetPct > state.lastObservationAt + 5) {
+          state.lastObservationAt = budgetPct;
+          state.observationCount++;
+          const msg = buildObservationMessage(budgetPct);
+          appendSnapshot(directory, "observation", budgetPct, msg);
+          state.lastSnapshotAt = new Date().toISOString();
+          injectMessage(sessionId, msg);
+        }
+      } catch {}
+    }
+  };
+}
+function getCompactionMetrics(sessionId) {
+  if (sessionId) {
+    const state = getSessionState(sessionId);
+    return {
+      compactionCount: state.observationCount + state.reflectionCount + state.emergencyCount,
+      lastSnapshotAt: state.lastSnapshotAt
+    };
+  }
+  let total = 0;
+  let lastSnapshot = null;
+  for (const state of sessionStates.values()) {
+    total += state.observationCount + state.reflectionCount + state.emergencyCount;
+    if (state.lastSnapshotAt && (!lastSnapshot || state.lastSnapshotAt > lastSnapshot)) {
+      lastSnapshot = state.lastSnapshotAt;
+    }
+  }
+  return { compactionCount: total, lastSnapshotAt: lastSnapshot };
+}
+
+// src/services/context-budget-service.ts
+init_utils2();
+var DEFAULT_CONTEXT_BUDGET_CONFIG = {
+  enabled: true,
+  budgetTokens: 40000,
+  warningPct: 70,
+  criticalPct: 90,
+  warningMode: "once",
+  warningIntervalTurns: 20
+};
+var COST_PER_1K_TOKENS = 0.003;
+function estimateTokens2(text) {
+  if (!text || typeof text !== "string") {
+    return 0;
+  }
+  return Math.ceil(text.length / 3.5);
+}
+async function readBudgetState(directory) {
+  const content = await readSwarmFileAsync(directory, "session/budget-state.json");
+  if (!content) {
+    return null;
+  }
+  try {
+    return JSON.parse(content);
+  } catch {
+    return null;
+  }
+}
+async function writeBudgetState(directory, state) {
+  try {
+    const resolvedPath = validateSwarmPath(directory, "session/budget-state.json");
+    const content = JSON.stringify(state, null, 2);
+    await Bun.write(resolvedPath, content);
+  } catch (error93) {
+    console.warn("[context-budget] Failed to write budget state:", error93 instanceof Error ? error93.message : String(error93));
+  }
+}
+async function countEvents(directory) {
+  const content = await readSwarmFileAsync(directory, "events.jsonl");
+  if (!content) {
+    return 0;
+  }
+  const lines = content.split(`
+`).filter((line) => line.trim().length > 0);
+  return lines.length;
+}
+async function getPlanCursorContent(directory) {
+  const planContent = await readSwarmFileAsync(directory, "plan.md");
+  if (!planContent) {
+    return "";
+  }
+  const lines = planContent.split(`
+`);
+  const cursorLines = [];
+  let inCurrentSection = false;
+  for (const line of lines) {
+    if (line.includes("in_progress") || line.includes("**Current**")) {
+      inCurrentSection = true;
+    }
+    if (inCurrentSection) {
+      cursorLines.push(line);
+      if (cursorLines.length > 30) {
+        break;
+      }
+    }
+  }
+  return cursorLines.join(`
+`) || planContent.substring(0, 1000);
+}
+async function getContextBudgetReport(directory, assembledSystemPrompt, config3) {
+  validateDirectory(directory);
+  const timestamp = new Date().toISOString();
+  const systemPromptTokens = estimateTokens2(assembledSystemPrompt);
+  const planCursorContent = await getPlanCursorContent(directory);
+  const planCursorTokens = estimateTokens2(planCursorContent);
+  const knowledgeContent = await readSwarmFileAsync(directory, "knowledge.jsonl");
+  const knowledgeTokens = estimateTokens2(knowledgeContent || "");
+  const runMemoryContent = await readSwarmFileAsync(directory, "run-memory.jsonl");
+  const runMemoryTokens = estimateTokens2(runMemoryContent || "");
+  const handoffContent = await readSwarmFileAsync(directory, "handoff.md");
+  const handoffTokens = estimateTokens2(handoffContent || "");
+  const contextMdContent = await readSwarmFileAsync(directory, "context.md");
+  const contextMdTokens = estimateTokens2(contextMdContent || "");
+  const swarmTotalTokens = systemPromptTokens + planCursorTokens + knowledgeTokens + runMemoryTokens + handoffTokens + contextMdTokens;
+  const estimatedTurnCount = await countEvents(directory);
+  const budgetPct = swarmTotalTokens / config3.budgetTokens * 100;
+  let status;
+  let recommendation = null;
+  if (budgetPct < config3.warningPct) {
+    status = "ok";
+  } else if (budgetPct < config3.criticalPct) {
+    status = "warning";
+    recommendation = "Consider wrapping up current phase and running /swarm handoff before starting new work.";
+  } else {
+    status = "critical";
+    recommendation = "Run /swarm handoff and start a new session to avoid cost escalation.";
+  }
+  const estimatedSessionTokens = swarmTotalTokens * Math.max(1, estimatedTurnCount);
+  return {
+    timestamp,
+    systemPromptTokens,
+    planCursorTokens,
+    knowledgeTokens,
+    runMemoryTokens,
+    handoffTokens,
+    contextMdTokens,
+    swarmTotalTokens,
+    estimatedTurnCount,
+    estimatedSessionTokens,
+    budgetPct,
+    status,
+    recommendation
+  };
+}
+async function formatBudgetWarning(report, directory, config3) {
+  validateDirectory(directory);
+  if (report.status === "ok") {
+    return null;
+  }
+  if (!directory || directory.trim() === "") {
+    return formatWarningMessage(report);
+  }
+  const budgetState = await readBudgetState(directory);
+  const state = budgetState || {
+    warningFiredAtTurn: null,
+    criticalFiredAtTurn: null,
+    lastInjectedAtTurn: null
+  };
+  const currentTurn = report.estimatedTurnCount;
+  if (report.status === "warning") {
+    if (config3.warningMode === "once" && state.warningFiredAtTurn !== null) {
+      return null;
+    }
+    if (config3.warningMode === "interval" && state.warningFiredAtTurn !== null && currentTurn - state.warningFiredAtTurn < config3.warningIntervalTurns) {
+      return null;
+    }
+    state.warningFiredAtTurn = currentTurn;
+    state.lastInjectedAtTurn = currentTurn;
+    await writeBudgetState(directory, state);
+  } else if (report.status === "critical") {
+    state.criticalFiredAtTurn = currentTurn;
+    state.lastInjectedAtTurn = currentTurn;
+  }
+  return formatWarningMessage(report);
+}
+function formatWarningMessage(report) {
+  const budgetPctStr = report.budgetPct.toFixed(1);
+  const tokensPerTurn = report.swarmTotalTokens.toLocaleString();
+  if (report.status === "warning") {
+    return `[CONTEXT BUDGET: ${budgetPctStr}% \u2014 swarm injecting ~${tokensPerTurn} tokens/turn. Consider wrapping current phase and running /swarm handoff before starting new work.]`;
+  }
+  const costPerTurn = (report.swarmTotalTokens / 1000 * COST_PER_1K_TOKENS).toFixed(3);
+  return `[CONTEXT BUDGET: ${budgetPctStr}% CRITICAL \u2014 swarm injecting ~${tokensPerTurn} tokens/turn. Run /swarm handoff and start a new session to avoid cost escalation. Estimated session cost scaling: ~$${costPerTurn}/turn at current context size.]`;
+}
+
+// src/services/status-service.ts
+async function getStatusData(directory, agents) {
+  const plan = await loadPlan(directory);
+  if (plan && plan.migration_status !== "migration_failed") {
+    const currentPhase2 = extractCurrentPhaseFromPlan2(plan) || "Unknown";
+    let completedTasks2 = 0;
+    let totalTasks2 = 0;
+    for (const phase of plan.phases) {
+      for (const task of phase.tasks) {
+        totalTasks2++;
+        if (task.status === "completed")
+          completedTasks2++;
+      }
+    }
+    const agentCount2 = Object.keys(agents).length;
+    const metrics2 = getCompactionMetrics();
+    return {
+      hasPlan: true,
+      currentPhase: currentPhase2,
+      completedTasks: completedTasks2,
+      totalTasks: totalTasks2,
+      agentCount: agentCount2,
+      isLegacy: false,
+      turboMode: hasActiveTurboMode(),
+      contextBudgetPct: swarmState.lastBudgetPct > 0 ? swarmState.lastBudgetPct : null,
+      compactionCount: metrics2.compactionCount,
+      lastSnapshotAt: metrics2.lastSnapshotAt
+    };
+  }
+  const planContent = await readSwarmFileAsync(directory, "plan.md");
+  if (!planContent) {
+    const metrics2 = getCompactionMetrics();
+    return {
+      hasPlan: false,
+      currentPhase: "Unknown",
+      completedTasks: 0,
+      totalTasks: 0,
+      agentCount: Object.keys(agents).length,
+      isLegacy: true,
+      turboMode: hasActiveTurboMode(),
+      contextBudgetPct: swarmState.lastBudgetPct > 0 ? swarmState.lastBudgetPct : null,
+      compactionCount: metrics2.compactionCount,
+      lastSnapshotAt: metrics2.lastSnapshotAt
+    };
+  }
+  const currentPhase = extractCurrentPhase(planContent) || "Unknown";
+  const completedTasks = (planContent.match(/^- \[x\]/gm) || []).length;
+  const incompleteTasks = (planContent.match(/^- \[ \]/gm) || []).length;
+  const totalTasks = completedTasks + incompleteTasks;
+  const agentCount = Object.keys(agents).length;
+  const metrics = getCompactionMetrics();
+  return {
+    hasPlan: true,
+    currentPhase,
+    completedTasks,
+    totalTasks,
+    agentCount,
+    isLegacy: true,
+    turboMode: hasActiveTurboMode(),
+    contextBudgetPct: swarmState.lastBudgetPct > 0 ? swarmState.lastBudgetPct : null,
+    compactionCount: metrics.compactionCount,
+    lastSnapshotAt: metrics.lastSnapshotAt
+  };
+}
+function formatStatusMarkdown(status) {
+  const lines = [
+    "## Swarm Status",
+    "",
+    `**Current Phase**: ${status.currentPhase}`,
+    `**Tasks**: ${status.completedTasks}/${status.totalTasks} complete`,
+    `**Agents**: ${status.agentCount} registered`
+  ];
+  if (status.turboMode) {
+    lines.push("", `**TURBO MODE**: active`);
+  }
+  if (status.contextBudgetPct !== null && status.contextBudgetPct > 0) {
+    const pct = status.contextBudgetPct.toFixed(1);
+    const budgetTokens = DEFAULT_CONTEXT_BUDGET_CONFIG.budgetTokens;
+    const est = Math.round(status.contextBudgetPct / 100 * budgetTokens);
+    lines.push("", `**Context**: ${pct}% used (est. ${est.toLocaleString()} / ${budgetTokens.toLocaleString()} tokens)`);
+    if (status.compactionCount > 0) {
+      lines.push(`**Compaction events**: ${status.compactionCount} triggered`);
+    }
+    if (status.lastSnapshotAt) {
+      lines.push(`**Last snapshot**: ${status.lastSnapshotAt}`);
+    }
+  }
+  return lines.join(`
+`);
+}
+async function handleStatusCommand(directory, agents) {
+  const statusData = await getStatusData(directory, agents);
+  if (!statusData.hasPlan) {
+    return "No active swarm plan found.";
+  }
+  return formatStatusMarkdown(statusData);
+}
+// src/commands/sync-plan.ts
+init_manager2();
+async function handleSyncPlanCommand(directory, _args) {
+  const plan = await loadPlan(directory);
+  if (!plan) {
+    return `## Plan Sync Report
+
+No active swarm plan found. Nothing to sync.`;
+  }
+  const currentMarkdown = derivePlanMarkdown(plan);
+  const lines = [
+    "## Plan Sync Report",
+    "",
+    "**Status**: \u2705 Synced",
+    "",
+    "The plan.json and plan.md are now synchronized.",
+    "",
+    "### Current Plan",
+    "",
+    currentMarkdown
+  ];
+  return lines.join(`
+`);
+}
+
+// src/commands/turbo.ts
+async function handleTurboCommand(_directory, args2, sessionID) {
+  if (!sessionID || sessionID.trim() === "") {
+    return "Error: No active session context. Turbo Mode requires an active session. Use /swarm turbo from within an OpenCode session, or start a session first.";
+  }
+  const session = getAgentSession(sessionID);
+  if (!session) {
+    return "Error: No active session. Turbo Mode requires an active session to operate.";
+  }
+  const arg = args2[0]?.toLowerCase();
+  let newTurboMode;
+  let feedback;
+  if (arg === "on") {
+    newTurboMode = true;
+    feedback = "Turbo Mode enabled";
+  } else if (arg === "off") {
+    newTurboMode = false;
+    feedback = "Turbo Mode disabled";
+  } else {
+    newTurboMode = !session.turboMode;
+    feedback = newTurboMode ? "Turbo Mode enabled" : "Turbo Mode disabled";
+  }
+  session.turboMode = newTurboMode;
+  return feedback;
+}
+
+// src/commands/write-retro.ts
+async function handleWriteRetroCommand(directory, args2) {
+  if (args2.length === 0 || !args2[0] || args2[0].trim() === "") {
+    return `## Usage: /swarm write-retro <json>
+
+Writes a retrospective evidence bundle for a completed phase.
+
+### Required JSON fields:
+\`\`\`json
+{
+  "phase": 1,
+  "summary": "Phase summary here",
+  "task_count": 3,
+  "task_complexity": "simple",
+  "total_tool_calls": 20,
+  "coder_revisions": 1,
+  "reviewer_rejections": 0,
+  "test_failures": 0,
+  "security_findings": 0,
+  "integration_issues": 0
+}
+\`\`\`
+
+### Optional fields:
+- \`lessons_learned\`: string[] (max 5)
+- \`top_rejection_reasons\`: string[]
+- \`task_id\`: string (defaults to \`retro-{phase}\`)
+- \`metadata\`: Record<string, unknown>
+
+### task_complexity values: trivial | simple | moderate | complex`;
+  }
+  let parsedArgs;
+  try {
+    const jsonObj = JSON.parse(args2[0]);
+    if (typeof jsonObj !== "object" || jsonObj === null || Array.isArray(jsonObj)) {
+      return "Error: Invalid JSON \u2014 expected a JSON object with retro fields. Run `/swarm write-retro` with no arguments to see usage.";
+    }
+    parsedArgs = jsonObj;
+  } catch {
+    return "Error: Invalid JSON \u2014 expected a JSON object with retro fields. Run `/swarm write-retro` with no arguments to see usage.";
+  }
+  const resultJson = await executeWriteRetro(parsedArgs, directory);
+  let result;
+  try {
+    result = JSON.parse(resultJson);
+  } catch {
+    return "Error: Failed to parse result from write-retro tool.";
+  }
+  if (result.success === true) {
+    return `## Retrospective Written
+
+Phase **${result.phase ?? "unknown"}** retrospective saved to \`.swarm/evidence/${result.task_id ?? "unknown"}/evidence.json\`.
+
+Run \`/swarm evidence ${result.task_id ?? "unknown"}\` to view it, or \`/swarm status\` to check phase_complete readiness.`;
+  }
+  return `Error: ${result.message}`;
+}
+
+// src/commands/registry.ts
+var COMMAND_REGISTRY = {
+  status: {
+    handler: (ctx) => handleStatusCommand(ctx.directory, ctx.agents),
+    description: "Show current swarm state"
+  },
+  plan: {
+    handler: (ctx) => handlePlanCommand(ctx.directory, ctx.args),
+    description: "Show plan (optionally filter by phase number)"
+  },
+  agents: {
+    handler: (ctx) => Promise.resolve(handleAgentsCommand(ctx.agents, undefined)),
+    description: "List registered agents"
+  },
+  history: {
+    handler: (ctx) => handleHistoryCommand(ctx.directory, ctx.args),
+    description: "Show completed phases summary"
+  },
+  config: {
+    handler: (ctx) => handleConfigCommand(ctx.directory, ctx.args),
+    description: "Show current resolved configuration"
+  },
+  "config doctor": {
+    handler: (ctx) => handleDoctorCommand(ctx.directory, ctx.args),
+    description: "Run config doctor checks",
+    subcommandOf: "config"
+  },
+  "doctor tools": {
+    handler: (ctx) => handleDoctorToolsCommand(ctx.directory, ctx.args),
+    description: "Run tool registration coherence check"
+  },
+  diagnose: {
+    handler: (ctx) => handleDiagnoseCommand(ctx.directory, ctx.args),
+    description: "Run health check on swarm state"
+  },
+  preflight: {
+    handler: (ctx) => handlePreflightCommand(ctx.directory, ctx.args),
+    description: "Run preflight automation checks"
+  },
+  "sync-plan": {
+    handler: (ctx) => handleSyncPlanCommand(ctx.directory, ctx.args),
+    description: "Ensure plan.json and plan.md are synced"
+  },
+  benchmark: {
+    handler: (ctx) => handleBenchmarkCommand(ctx.directory, ctx.args),
+    description: "Show performance metrics [--cumulative] [--ci-gate]"
+  },
+  export: {
+    handler: (ctx) => handleExportCommand(ctx.directory, ctx.args),
+    description: "Export plan and context as JSON"
+  },
+  evidence: {
+    handler: (ctx) => handleEvidenceCommand(ctx.directory, ctx.args),
+    description: "Show evidence bundles [taskId]"
+  },
+  "evidence summary": {
+    handler: (ctx) => handleEvidenceSummaryCommand(ctx.directory),
+    description: "Generate evidence summary with completion ratio and blockers",
+    subcommandOf: "evidence"
+  },
+  archive: {
+    handler: (ctx) => handleArchiveCommand(ctx.directory, ctx.args),
+    description: "Archive old evidence bundles [--dry-run]"
+  },
+  curate: {
+    handler: (ctx) => handleCurateCommand(ctx.directory, ctx.args),
+    description: "Run knowledge curation and hive promotion review"
+  },
+  "dark-matter": {
+    handler: (ctx) => handleDarkMatterCommand(ctx.directory, ctx.args),
+    description: "Detect hidden file couplings via co-change NPMI analysis"
+  },
+  close: {
+    handler: (ctx) => handleCloseCommand(ctx.directory, ctx.args),
+    description: "Use /swarm close to close the swarm project and archive evidence"
+  },
+  simulate: {
+    handler: (ctx) => handleSimulateCommand(ctx.directory, ctx.args),
+    description: "Dry-run impact analysis of proposed changes [--target <glob>]"
+  },
+  analyze: {
+    handler: (ctx) => handleAnalyzeCommand(ctx.directory, ctx.args),
+    description: "Analyze spec.md vs plan.md for requirement coverage gaps"
+  },
+  clarify: {
+    handler: (ctx) => handleClarifyCommand(ctx.directory, ctx.args),
+    description: "Clarify and refine an existing feature specification"
+  },
+  specify: {
+    handler: (ctx) => handleSpecifyCommand(ctx.directory, ctx.args),
+    description: "Generate or import a feature specification [description]"
+  },
+  promote: {
+    handler: (ctx) => handlePromoteCommand(ctx.directory, ctx.args),
+    description: "Manually promote lesson to hive knowledge"
+  },
+  reset: {
+    handler: (ctx) => handleResetCommand(ctx.directory, ctx.args),
+    description: "Clear swarm state files [--confirm]"
+  },
+  "reset-session": {
+    handler: (ctx) => handleResetSessionCommand(ctx.directory, ctx.args),
+    description: "Clear session state while preserving plan, evidence, and knowledge"
+  },
+  rollback: {
+    handler: (ctx) => handleRollbackCommand(ctx.directory, ctx.args),
+    description: "Restore swarm state to a checkpoint <phase>"
+  },
+  retrieve: {
+    handler: (ctx) => handleRetrieveCommand(ctx.directory, ctx.args),
+    description: "Retrieve full output from a summary <id>"
+  },
+  handoff: {
+    handler: (ctx) => handleHandoffCommand(ctx.directory, ctx.args),
+    description: "Prepare state for clean model switch (new session)"
+  },
+  turbo: {
+    handler: (ctx) => handleTurboCommand(ctx.directory, ctx.args, ctx.sessionID),
+    description: "Toggle Turbo Mode for the active session [on|off]"
+  },
+  "write-retro": {
+    handler: (ctx) => handleWriteRetroCommand(ctx.directory, ctx.args),
+    description: "Write a retrospective evidence bundle for a completed phase <json>"
+  },
+  "knowledge migrate": {
+    handler: (ctx) => handleKnowledgeMigrateCommand(ctx.directory, ctx.args),
+    description: "Migrate knowledge entries to the current format",
+    subcommandOf: "knowledge"
+  },
+  "knowledge quarantine": {
+    handler: (ctx) => handleKnowledgeQuarantineCommand(ctx.directory, ctx.args),
+    description: "Move a knowledge entry to quarantine <id> [reason]",
+    subcommandOf: "knowledge"
+  },
+  "knowledge restore": {
+    handler: (ctx) => handleKnowledgeRestoreCommand(ctx.directory, ctx.args),
+    description: "Restore a quarantined knowledge entry <id>",
+    subcommandOf: "knowledge"
+  },
+  knowledge: {
+    handler: (ctx) => handleKnowledgeListCommand(ctx.directory, ctx.args),
+    description: "List knowledge entries"
+  },
+  checkpoint: {
+    handler: (ctx) => handleCheckpointCommand(ctx.directory, ctx.args),
+    description: "Manage project checkpoints [save|restore|delete|list] <label>"
+  }
+};
+var VALID_COMMANDS = Object.keys(COMMAND_REGISTRY);
+function resolveCommand(tokens) {
+  if (tokens.length === 0)
+    return null;
+  if (tokens.length >= 2) {
+    const compound = `${tokens[0]} ${tokens[1]}`;
+    if (Object.hasOwn(COMMAND_REGISTRY, compound)) {
+      return {
+        entry: COMMAND_REGISTRY[compound],
+        remainingArgs: tokens.slice(2)
+      };
+    }
+  }
+  const key = tokens[0];
+  if (Object.hasOwn(COMMAND_REGISTRY, key)) {
+    return {
+      entry: COMMAND_REGISTRY[key],
+      remainingArgs: tokens.slice(1)
+    };
+  }
+  return null;
+}
+
 // src/agents/architect.ts
+init_constants();
 var ARCHITECT_PROMPT = `You are Architect - orchestrator of a multi-agent swarm.
 
 ## IDENTITY
@@ -42841,9 +50402,7 @@ SECURITY_KEYWORDS: password, secret, token, credential, auth, login, encryption,
 {{AGENT_PREFIX}}designer - UI/UX design specs (scaffold generation for UI components \u2014 runs BEFORE coder on UI tasks)
 
 ## SLASH COMMANDS
-Available commands via /swarm: status, plan, agents, history, config, config doctor,
-evidence, evidence summary, archive, diagnose, preflight, sync-plan, benchmark, export,
-reset, retrieve, clarify, analyze, specify, dark-matter, knowledge quarantine, knowledge restore, knowledge migrate.
+Available commands via /swarm: {{SLASH_COMMANDS}}
 Type /swarm (no arguments) for full help.
 Outside OpenCode, invoke any plugin command via: \`bunx opencode-swarm run <command> [args]\` (e.g. \`bunx opencode-swarm run knowledge migrate\`). Do not use \`bun -e\` or look for \`src/commands/\` \u2014 those paths are internal to the plugin source and do not exist in user project directories.
 
@@ -43545,6 +51104,9 @@ function buildAvailableToolsList() {
     return desc ? `${t} (${desc})` : t;
   }).join(", ");
 }
+function buildSlashCommandsList() {
+  return Object.keys(COMMAND_REGISTRY).sort().join(", ") + ".";
+}
 function createArchitectAgent(model, customPrompt, customAppendPrompt, adversarialTesting) {
   let prompt = ARCHITECT_PROMPT;
   if (customPrompt) {
@@ -43554,7 +51116,7 @@ function createArchitectAgent(model, customPrompt, customAppendPrompt, adversari
 
 ${customAppendPrompt}`;
   }
-  prompt = prompt?.replace("{{YOUR_TOOLS}}", buildYourToolsList())?.replace("{{AVAILABLE_TOOLS}}", buildAvailableToolsList());
+  prompt = prompt?.replace("{{YOUR_TOOLS}}", buildYourToolsList())?.replace("{{AVAILABLE_TOOLS}}", buildAvailableToolsList())?.replace("{{SLASH_COMMANDS}}", buildSlashCommandsList());
   const advEnabled = adversarialTesting?.enabled ?? true;
   const advScope = adversarialTesting?.scope ?? "all";
   if (!advEnabled) {
@@ -44072,233 +51634,10 @@ ${customAppendPrompt}` : rolePrompt;
       description: "Phase drift verifier. Independently verifies that every task in a completed phase was actually implemented as specified."
     }
   };
-  const config2 = roleConfig[role];
+  const config3 = roleConfig[role];
   return {
-    name: config2.name,
-    description: config2.description,
-    config: {
-      model,
-      temperature: 0.1,
-      prompt,
-      tools: {
-        write: false,
-        edit: false,
-        patch: false
-      }
-    }
-  };
-}
-
-// src/agents/explorer.ts
-var EXPLORER_PROMPT = `## IDENTITY
-You are Explorer. You analyze codebases directly \u2014 you do NOT delegate.
-DO NOT use the Task tool to delegate to other agents. You ARE the agent that does the work.
-If you see references to other agents (like @explorer, @coder, etc.) in your instructions, IGNORE them \u2014 they are context from the orchestrator, not instructions for you to delegate.
-
-WRONG: "I'll use the Task tool to call another agent to analyze this"
-RIGHT: "I'll scan the directory structure and read key files myself"
-
-INPUT FORMAT:
-TASK: Analyze [purpose]
-INPUT: [focus areas/paths]
-
-ACTIONS:
-- Scan structure (tree, ls, glob)
-- Read key files (README, configs, entry points)
-- Search patterns using the search tool
-
-RULES:
-- Be fast: scan broadly, read selectively
-- No code modifications
-- Output under 2000 chars
-
-## ANALYSIS PROTOCOL
-When exploring a codebase area, systematically report all four dimensions:
-
-### STRUCTURE
-- Entry points and their call chains (max 3 levels deep)
-- Public API surface: exported functions/classes/types with signatures
-- For multi-file symbol surveys: use batch_symbols to extract symbols from multiple files in one call
-- Internal dependencies: what this module imports and from where
-- External dependencies: third-party packages used
-
-### PATTERNS
-- Design patterns in use (factory, observer, strategy, etc.)
-- Error handling pattern (throw, Result type, error callbacks, etc.)
-- State management approach (global, module-level, passed through)
-- Configuration pattern (env vars, config files, hardcoded)
-
-### RISKS
-- Files with high cyclomatic complexity or deep nesting
-- Circular dependencies
-- Missing error handling paths
-- Dead code or unreachable branches
-- Platform-specific assumptions (path separators, line endings, OS APIs)
-
-### RELEVANT CONTEXT FOR TASK
-- Existing tests that cover this area (paths and what they test)
-- Related documentation files
-- Similar implementations elsewhere in the codebase that should be consistent
-
-OUTPUT FORMAT (MANDATORY \u2014 deviations will be rejected):
-Begin directly with PROJECT. Do NOT prepend "Here's my analysis..." or any conversational preamble.
-
-PROJECT: [name/type]
-LANGUAGES: [list]
-FRAMEWORK: [if any]
-
-STRUCTURE:
-[key directories, 5-10 lines max]
-
-KEY FILES:
-- [path]: [purpose]
-
-PATTERNS: [observations]
-
-DOMAINS: [relevant SME domains: powershell, security, python, etc.]
-
-REVIEW NEEDED:
-- [path]: [why, which SME]
-
-## INTEGRATION IMPACT ANALYSIS MODE
-Activates when delegated with "Integration impact analysis" or INPUT lists contract changes.
-
-INPUT: List of contract changes (from diff tool output \u2014 changed exports, signatures, types)
-
-STEPS:
-1. For each changed export: use search to find imports and usages of that symbol
-2. Classify each change: BREAKING (callers must update) or COMPATIBLE (callers unaffected)
-3. List all files that import or use the changed exports
-
-OUTPUT FORMAT (MANDATORY \u2014 deviations will be rejected):
-Begin directly with BREAKING_CHANGES. Do NOT prepend conversational preamble.
-
-BREAKING_CHANGES: [list with affected consumer files, or "none"]
-COMPATIBLE_CHANGES: [list, or "none"]
-CONSUMERS_AFFECTED: [list of files that import/use changed exports, or "none"]
-VERDICT: BREAKING | COMPATIBLE
-MIGRATION_NEEDED: [yes \u2014 description of required caller updates | no]
-
-## DOCUMENTATION DISCOVERY MODE
-Activates automatically during codebase reality check at plan ingestion.
-Use the doc_scan tool to scan and index documentation files. If doc_scan is unavailable, fall back to manual globbing.
-
-STEPS:
-1. Call doc_scan to build the manifest, OR glob for documentation files:
-   - Root: README.md, CONTRIBUTING.md, CHANGELOG.md, ARCHITECTURE.md, CLAUDE.md, AGENTS.md, .github/*.md
-   - docs/**/*.md, doc/**/*.md (one level deep only)
-
-2. For each file found, read the first 30 lines. Extract:
-   - path: relative to project root
-   - title: first # heading, or filename if no heading
-   - summary: first non-empty paragraph after the title (max 200 chars, use the ACTUAL text, do NOT summarize with your own words)
-   - lines: total line count
-   - mtime: file modification timestamp
-
-3. Write manifest to .swarm/doc-manifest.json:
-   { "schema_version": 1, "scanned_at": "ISO timestamp", "files": [...] }
-
-4. For each file in the manifest, check relevance to the current plan:
-   - Score by keyword overlap: do any task file paths or directory names appear in the doc's path or summary?
-   - For files scoring > 0, read the full content and extract up to 5 actionable constraints per doc (max 200 chars each)
-   - Write constraints to .swarm/knowledge/doc-constraints.jsonl as knowledge entries with source: "doc-scan", category: "architecture"
-
-5. Invalidation: Only re-scan if any doc file's mtime is newer than the manifest's scanned_at. Otherwise reuse the cached manifest.
-
-RULES:
-- The manifest must be small (<100 lines). Pointers only, not full content.
-- Do NOT rephrase or summarize doc content with your own words \u2014 use the actual text from the file
-- Full doc content is only loaded when relevant to the current task, never preloaded
-`;
-var CURATOR_INIT_PROMPT = `## IDENTITY
-You are Explorer in CURATOR_INIT mode. You consolidate prior session knowledge into an architect briefing.
-DO NOT use the Task tool to delegate. You ARE the agent that does the work.
-
-INPUT FORMAT:
-TASK: CURATOR_INIT
-PRIOR_SUMMARY: [JSON or "none"]
-KNOWLEDGE_ENTRIES: [JSON array of high-confidence entries]
-PROJECT_CONTEXT: [context.md excerpt]
-
-ACTIONS:
-- Read the prior summary to understand session history
-- Cross-reference knowledge entries against project context
-- Identify contradictions (knowledge says X, project state shows Y)
-- Produce a concise briefing for the architect
-
-RULES:
-- Output under 2000 chars
-- No code modifications
-- Flag contradictions explicitly with CONTRADICTION: prefix
-- If no prior summary exists, state "First session \u2014 no prior context"
-
-OUTPUT FORMAT:
-BRIEFING:
-[concise summary of prior session state, key decisions, active blockers]
-
-CONTRADICTIONS:
-- [entry_id]: [description] (or "None detected")
-
-KNOWLEDGE_STATS:
-- Entries reviewed: [N]
-- Prior phases covered: [N]
-`;
-var CURATOR_PHASE_PROMPT = `## IDENTITY
-You are Explorer in CURATOR_PHASE mode. You consolidate a completed phase into a digest.
-DO NOT use the Task tool to delegate. You ARE the agent that does the work.
-
-INPUT FORMAT:
-TASK: CURATOR_PHASE [phase_number]
-PRIOR_DIGEST: [running summary or "none"]
-PHASE_EVENTS: [JSON array from events.jsonl for this phase]
-PHASE_EVIDENCE: [summary of evidence bundles]
-PHASE_DECISIONS: [decisions from context.md]
-AGENTS_DISPATCHED: [list]
-AGENTS_EXPECTED: [list from config]
-
-ACTIONS:
-- Extend the prior digest with this phase's outcomes (do NOT regenerate from scratch)
-- Identify workflow deviations: missing reviewer, missing retro, skipped test_engineer
-- Recommend knowledge updates: entries to promote, archive, or flag as contradicted
-- Summarize key decisions and blockers resolved
-
-RULES:
-- Output under 2000 chars
-- No code modifications
-- Compliance observations are READ-ONLY \u2014 report, do not enforce
-- Extend the digest, never replace it
-
-OUTPUT FORMAT:
-PHASE_DIGEST:
-phase: [N]
-summary: [what was accomplished]
-agents_used: [list]
-tasks_completed: [N]/[total]
-key_decisions: [list]
-blockers_resolved: [list]
-
-COMPLIANCE:
-- [type]: [description] (or "No deviations observed")
-
-KNOWLEDGE_UPDATES:
-- [action] new: [reason] (or "No recommendations")
-NOTE: Always use "new" as the token \u2014 existing entry IDs (UUID v4) are not available in this context. Any non-UUID token is treated as "new" by the parser. Only "promote new:" creates a new entry; "archive new:" and "flag_contradiction new:" are silently skipped because those actions require an existing entry to operate on.
-
-EXTENDED_DIGEST:
-[the full running digest with this phase appended]
-`;
-function createExplorerAgent(model, customPrompt, customAppendPrompt) {
-  let prompt = EXPLORER_PROMPT;
-  if (customPrompt) {
-    prompt = customPrompt;
-  } else if (customAppendPrompt) {
-    prompt = `${EXPLORER_PROMPT}
-
-${customAppendPrompt}`;
-  }
-  return {
-    name: "explorer",
-    description: "Fast codebase discovery and analysis. Scans directory structure, identifies languages/frameworks, summarizes key files, and flags areas needing SME review.",
+    name: config3.name,
+    description: config3.description,
     config: {
       model,
       temperature: 0.1,
@@ -45333,30 +52672,30 @@ If you call @coder instead of @${swarmId}_coder, the call will FAIL or go to the
   }
   return agents;
 }
-function createAgents(config2) {
+function createAgents(config3) {
   const allAgents = [];
-  const swarms = config2?.swarms;
+  const swarms = config3?.swarms;
   if (swarms && Object.keys(swarms).length > 0) {
     for (const swarmId of Object.keys(swarms)) {
       const swarmConfig = swarms[swarmId];
       const isDefault = swarmId === "default";
-      const swarmAgents = createSwarmAgents(swarmId, swarmConfig, isDefault, config2);
+      const swarmAgents = createSwarmAgents(swarmId, swarmConfig, isDefault, config3);
       allAgents.push(...swarmAgents);
     }
   } else {
     const legacySwarmConfig = {
       name: "Default",
-      agents: config2?.agents
+      agents: config3?.agents
     };
-    const swarmAgents = createSwarmAgents("default", legacySwarmConfig, true, config2);
+    const swarmAgents = createSwarmAgents("default", legacySwarmConfig, true, config3);
     allAgents.push(...swarmAgents);
   }
   return allAgents;
 }
-function getAgentConfigs(config2) {
-  const agents = createAgents(config2);
-  const toolFilterEnabled = config2?.tool_filter?.enabled ?? true;
-  const toolFilterOverrides = config2?.tool_filter?.overrides ?? {};
+function getAgentConfigs(config3) {
+  const agents = createAgents(config3);
+  const toolFilterEnabled = config3?.tool_filter?.enabled ?? true;
+  const toolFilterOverrides = config3?.tool_filter?.overrides ?? {};
   const warnedMissingWhitelist = new Set;
   return Object.fromEntries(agents.map((agent) => {
     const sdkConfig = {
@@ -45395,10 +52734,10 @@ function getAgentConfigs(config2) {
       const baseTools = originalTools ?? {};
       const disabledTools = Object.fromEntries(Object.entries(baseTools).filter(([, value]) => value === false));
       const filteredTools = { ...disabledTools };
-      for (const tool of allowedTools) {
-        if (filteredTools[tool] === false)
+      for (const tool3 of allowedTools) {
+        if (filteredTools[tool3] === false)
           continue;
-        filteredTools[tool] = true;
+        filteredTools[tool3] = true;
       }
       sdkConfig.tools = filteredTools;
     } else {
@@ -45411,573 +52750,15 @@ function getAgentConfigs(config2) {
   }));
 }
 
-// src/background/circuit-breaker.ts
-class CircuitBreaker {
-  state = "closed";
-  failureCount = 0;
-  successCount = 0;
-  lastFailureTime;
-  config;
-  name;
-  onStateChange;
-  constructor(name2, config2, onStateChange) {
-    this.name = name2;
-    this.config = {
-      failureThreshold: config2?.failureThreshold ?? 5,
-      resetTimeoutMs: config2?.resetTimeoutMs ?? 30000,
-      successThreshold: config2?.successThreshold ?? 3,
-      callTimeoutMs: config2?.callTimeoutMs ?? 1e4
-    };
-    this.onStateChange = onStateChange;
-  }
-  getState() {
-    if (this.state === "open" && this.lastFailureTime) {
-      const timeSinceFailure = Date.now() - this.lastFailureTime;
-      if (timeSinceFailure >= this.config.resetTimeoutMs) {
-        this.transitionTo("half-open");
-      }
-    }
-    return this.state;
-  }
-  async execute(fn) {
-    const state = this.getState();
-    if (state === "open") {
-      const error48 = new Error(`Circuit breaker '${this.name}' is open`);
-      throw error48;
-    }
-    const startTime = Date.now();
-    try {
-      const result = await this.executeWithTimeout(fn);
-      const duration3 = Date.now() - startTime;
-      this.recordSuccess(duration3);
-      return result;
-    } catch (error48) {
-      const duration3 = Date.now() - startTime;
-      this.recordFailure(error48, duration3);
-      throw error48;
-    }
-  }
-  async executeWithTimeout(fn) {
-    if (this.config.callTimeoutMs <= 0) {
-      return fn();
-    }
-    return new Promise((resolve, reject) => {
-      const timeout = setTimeout(() => {
-        reject(new Error(`Call timeout after ${this.config.callTimeoutMs}ms`));
-      }, this.config.callTimeoutMs);
-      fn().then((result) => {
-        clearTimeout(timeout);
-        resolve(result);
-      }).catch((error48) => {
-        clearTimeout(timeout);
-        reject(error48);
-      });
-    });
-  }
-  recordSuccess(duration3) {
-    this.failureCount = 0;
-    if (this.state === "half-open") {
-      this.successCount++;
-      if (this.successCount >= this.config.successThreshold) {
-        this.transitionTo("closed");
-      }
-    }
-    this.onStateChange?.("callSuccess", { duration: duration3 });
-  }
-  recordFailure(error48, duration3) {
-    this.failureCount++;
-    this.lastFailureTime = Date.now();
-    if (this.state === "half-open") {
-      this.transitionTo("open");
-    } else if (this.state === "closed" && this.failureCount >= this.config.failureThreshold) {
-      this.transitionTo("open");
-    }
-    this.onStateChange?.("callFailure", { error: error48, duration: duration3 });
-  }
-  transitionTo(newState) {
-    const oldState = this.state;
-    this.state = newState;
-    if (newState === "closed") {
-      this.failureCount = 0;
-      this.successCount = 0;
-      this.onStateChange?.("closed", {
-        timestamp: Date.now(),
-        successCount: 0,
-        oldState
-      });
-    } else if (newState === "open") {
-      this.successCount = 0;
-      this.onStateChange?.("opened", {
-        timestamp: Date.now(),
-        failureCount: this.failureCount,
-        oldState
-      });
-    } else if (newState === "half-open") {
-      this.successCount = 0;
-      this.onStateChange?.("half-open", { timestamp: Date.now(), oldState });
-    }
-  }
-  reset() {
-    this.transitionTo("closed");
-  }
-  getStats() {
-    return {
-      state: this.getState(),
-      failureCount: this.failureCount,
-      successCount: this.successCount,
-      lastFailureTime: this.lastFailureTime
-    };
-  }
-}
-
-class LoopProtection {
-  records = new Map;
-  config;
-  onLoopDetected;
-  constructor(config2, onLoopDetected) {
-    this.config = config2;
-    this.onLoopDetected = onLoopDetected;
-  }
-  recordAttempt(key) {
-    const operationKey = key ?? this.config.operationKey;
-    const now = Date.now();
-    let record2 = this.records.get(operationKey);
-    if (record2 && now - record2.firstAttempt > this.config.timeWindowMs) {
-      record2 = undefined;
-    }
-    if (!record2) {
-      this.records.set(operationKey, {
-        count: 1,
-        firstAttempt: now,
-        lastAttempt: now
-      });
-      return true;
-    }
-    record2.count++;
-    record2.lastAttempt = now;
-    if (record2.count > this.config.maxIterations) {
-      this.onLoopDetected?.(operationKey, record2.count);
-      return false;
-    }
-    return true;
-  }
-  canProceed(key) {
-    const operationKey = key ?? this.config.operationKey;
-    const record2 = this.records.get(operationKey);
-    if (!record2)
-      return true;
-    const now = Date.now();
-    if (now - record2.firstAttempt > this.config.timeWindowMs) {
-      return true;
-    }
-    return record2.count <= this.config.maxIterations;
-  }
-  getRemainingIterations(key) {
-    const operationKey = key ?? this.config.operationKey;
-    const record2 = this.records.get(operationKey);
-    if (!record2)
-      return this.config.maxIterations;
-    const now = Date.now();
-    if (now - record2.firstAttempt > this.config.timeWindowMs) {
-      return this.config.maxIterations;
-    }
-    return Math.max(0, this.config.maxIterations - record2.count);
-  }
-  reset(key) {
-    const operationKey = key ?? this.config.operationKey;
-    this.records.delete(operationKey);
-  }
-  resetAll() {
-    this.records.clear();
-  }
-  getIterationCount(key) {
-    const operationKey = key ?? this.config.operationKey;
-    const record2 = this.records.get(operationKey);
-    if (!record2)
-      return 0;
-    const now = Date.now();
-    if (now - record2.firstAttempt > this.config.timeWindowMs) {
-      return 0;
-    }
-    return record2.count;
-  }
-  getTrackedOperations() {
-    return Array.from(this.records.keys());
-  }
-}
-
 // src/background/index.ts
 init_event_bus();
 init_evidence_summary_integration();
 
-// src/background/manager.ts
-init_utils();
-init_event_bus();
-init_queue();
-
-// src/background/worker.ts
-init_event_bus();
-function sleep(ms) {
-  return new Promise((resolve3) => setTimeout(resolve3, ms));
-}
-
-class WorkerManager {
-  workers = new Map;
-  eventBus;
-  constructor() {
-    this.eventBus = getGlobalEventBus();
-  }
-  register(registration) {
-    if (this.workers.has(registration.name)) {
-      throw new Error(`Worker '${registration.name}' is already registered`);
-    }
-    const worker = {
-      name: registration.name,
-      handler: registration.handler,
-      queue: registration.queue,
-      concurrency: registration.concurrency ?? 1,
-      status: "idle",
-      activeCount: 0,
-      processedCount: 0,
-      errorCount: 0
-    };
-    this.workers.set(registration.name, worker);
-    this.eventBus.publish("worker.started", {
-      workerName: registration.name,
-      concurrency: worker.concurrency
-    });
-    if (registration.autoStart) {
-      this.start(registration.name);
-    }
-  }
-  unregister(name2) {
-    const worker = this.workers.get(name2);
-    if (!worker)
-      return false;
-    if (worker.status === "running") {
-      this.stop(name2);
-    }
-    this.workers.delete(name2);
-    return true;
-  }
-  start(name2) {
-    const worker = this.workers.get(name2);
-    if (!worker) {
-      throw new Error(`Worker '${name2}' is not registered`);
-    }
-    if (worker.status === "running") {
-      return false;
-    }
-    worker.status = "running";
-    this.startProcessingLoop(worker);
-    this.eventBus.publish("worker.started", {
-      workerName: name2,
-      concurrency: worker.concurrency
-    });
-    return true;
-  }
-  startProcessingLoop(worker) {
-    const processLoop = async () => {
-      while (worker.status === "running") {
-        if (worker.activeCount >= worker.concurrency) {
-          await sleep(50);
-          continue;
-        }
-        const item = worker.queue.dequeue();
-        if (!item) {
-          await sleep(100);
-          continue;
-        }
-        worker.activeCount++;
-        this.handleItem(worker, item).finally(() => {
-          worker.activeCount--;
-        });
-      }
-    };
-    processLoop().catch((error49) => {
-      this.eventBus.publish("worker.error", {
-        workerName: worker.name,
-        itemId: "loop",
-        error: error49
-      });
-    });
-  }
-  async handleItem(worker, item) {
-    try {
-      const result = await worker.handler(item);
-      if (result.success) {
-        worker.processedCount++;
-        worker.queue.complete(item.id);
-      } else {
-        worker.errorCount++;
-        worker.lastError = result.error;
-        worker.queue.retry(item.id, result.error);
-      }
-    } catch (error49) {
-      worker.errorCount++;
-      worker.lastError = error49;
-      this.eventBus.publish("worker.error", {
-        workerName: worker.name,
-        itemId: item.id,
-        error: error49
-      });
-      worker.queue.retry(item.id, error49);
-    }
-  }
-  stop(name2) {
-    const worker = this.workers.get(name2);
-    if (!worker)
-      return false;
-    if (worker.status !== "running") {
-      return false;
-    }
-    worker.status = "stopping";
-    this.eventBus.publish("worker.stopped", {
-      workerName: name2,
-      processedCount: worker.processedCount,
-      errorCount: worker.errorCount
-    });
-    worker.status = "stopped";
-    return true;
-  }
-  startAll() {
-    for (const [name2, worker] of this.workers) {
-      if (worker.status === "idle" || worker.status === "stopped") {
-        this.start(name2);
-      }
-    }
-  }
-  stopAll() {
-    for (const name2 of this.workers.keys()) {
-      this.stop(name2);
-    }
-  }
-  getStatus(name2) {
-    return this.workers.get(name2)?.status;
-  }
-  getStats(name2) {
-    const worker = this.workers.get(name2);
-    if (!worker)
-      return;
-    return {
-      status: worker.status,
-      activeCount: worker.activeCount,
-      processedCount: worker.processedCount,
-      errorCount: worker.errorCount,
-      lastError: worker.lastError,
-      queueSize: worker.queue.size()
-    };
-  }
-  getWorkerNames() {
-    return Array.from(this.workers.keys());
-  }
-  isAnyRunning() {
-    for (const worker of this.workers.values()) {
-      if (worker.status === "running") {
-        return true;
-      }
-    }
-    return false;
-  }
-  getTotalStats() {
-    const stats = {};
-    for (const name2 of this.workers.keys()) {
-      stats[name2] = this.getStats(name2);
-    }
-    return stats;
-  }
-}
-
-// src/background/manager.ts
-class BackgroundAutomationManager {
-  config;
-  eventBus;
-  workerManager;
-  queues = new Map;
-  circuitBreakers = new Map;
-  loopProtections = new Map;
-  isInitialized = false;
-  isRunning = false;
-  constructor(config2) {
-    this.config = {
-      enabled: config2.enabled,
-      maxQueueSize: config2.maxQueueSize ?? 1000,
-      maxRetries: config2.maxRetries ?? 3,
-      circuitBreaker: config2.circuitBreaker,
-      loopProtection: config2.loopProtection
-    };
-    this.eventBus = getGlobalEventBus();
-    this.workerManager = new WorkerManager;
-  }
-  initialize() {
-    if (!this.config.enabled) {
-      log("[Automation] Framework disabled, skipping initialization");
-      return;
-    }
-    if (this.isInitialized) {
-      log("[Automation] Already initialized");
-      return;
-    }
-    log("[Automation] Initializing framework...");
-    this.isInitialized = true;
-    this.eventBus.publish("automation.started", {
-      config: this.config
-    });
-  }
-  start() {
-    if (!this.config.enabled || !this.isInitialized) {
-      return;
-    }
-    if (this.isRunning) {
-      return;
-    }
-    log("[Automation] Starting framework...");
-    this.isRunning = true;
-    this.eventBus.publish("automation.started", {
-      timestamp: Date.now()
-    });
-  }
-  stop() {
-    if (!this.isRunning) {
-      return;
-    }
-    log("[Automation] Stopping framework...");
-    this.workerManager.stopAll();
-    this.isRunning = false;
-    this.eventBus.publish("automation.stopped", {
-      timestamp: Date.now()
-    });
-  }
-  isEnabled() {
-    return this.config.enabled;
-  }
-  isActive() {
-    return this.isRunning;
-  }
-  getOrCreateQueue(name2) {
-    if (!this.queues.has(name2)) {
-      const queue = new AutomationQueue({
-        maxSize: this.config.maxQueueSize,
-        defaultMaxRetries: this.config.maxRetries
-      });
-      this.queues.set(name2, queue);
-    }
-    return this.queues.get(name2);
-  }
-  registerWorker(registration) {
-    if (!this.config.enabled) {
-      throw new Error("Cannot register worker: automation framework is disabled");
-    }
-    this.workerManager.register(registration);
-  }
-  startWorker(name2) {
-    if (!this.config.enabled)
-      return false;
-    return this.workerManager.start(name2);
-  }
-  stopWorker(name2) {
-    if (!this.config.enabled)
-      return false;
-    return this.workerManager.stop(name2);
-  }
-  getOrCreateCircuitBreaker(name2) {
-    if (!this.circuitBreakers.has(name2)) {
-      const cb = new CircuitBreaker(name2, this.config.circuitBreaker, (eventType, event) => {
-        log(`[CircuitBreaker] ${name2}: ${eventType}`, event);
-        this.eventBus.publish("circuit.breaker.opened", {
-          breakerName: name2,
-          eventType,
-          event
-        });
-      });
-      this.circuitBreakers.set(name2, cb);
-    }
-    return this.circuitBreakers.get(name2);
-  }
-  getOrCreateLoopProtection(operationKey) {
-    if (!this.loopProtections.has(operationKey)) {
-      const config2 = {
-        maxIterations: this.config.loopProtection?.maxIterations ?? 10,
-        timeWindowMs: this.config.loopProtection?.timeWindowMs ?? 60000,
-        operationKey
-      };
-      const lp = new LoopProtection(config2, (key, count) => {
-        log(`[LoopProtection] ${key}: Detected potential loop (${count} iterations)`);
-        this.eventBus.publish("loop.protection.triggered", {
-          operationKey: key,
-          count,
-          timestamp: Date.now()
-        });
-      });
-      this.loopProtections.set(operationKey, lp);
-    }
-    return this.loopProtections.get(operationKey);
-  }
-  subscribe(type, listener) {
-    return this.eventBus.subscribe(type, listener);
-  }
-  async publish(type, payload, source) {
-    await this.eventBus.publish(type, payload, source);
-  }
-  getStats() {
-    return {
-      enabled: this.config.enabled,
-      initialized: this.isInitialized,
-      running: this.isRunning,
-      queues: Object.fromEntries(Array.from(this.queues.entries()).map(([name2, queue]) => [
-        name2,
-        queue.getStats()
-      ])),
-      workers: this.workerManager.getTotalStats(),
-      circuitBreakers: Object.fromEntries(Array.from(this.circuitBreakers.entries()).map(([name2, cb]) => [
-        name2,
-        cb.getStats()
-      ])),
-      loopProtections: Array.from(this.loopProtections.keys())
-    };
-  }
-  reset() {
-    this.stop();
-    this.workerManager.stopAll();
-    this.queues.clear();
-    this.circuitBreakers.clear();
-    this.loopProtections.clear();
-    this.isInitialized = false;
-  }
-}
-var managerInstance = null;
-function createAutomationManager(automationConfig) {
-  const isEnabled = automationConfig?.mode !== "manual";
-  const config2 = {
-    enabled: isEnabled,
-    maxQueueSize: 500,
-    maxRetries: 3,
-    circuitBreaker: {
-      failureThreshold: 5,
-      resetTimeoutMs: 30000,
-      successThreshold: 2,
-      callTimeoutMs: 15000
-    },
-    loopProtection: {
-      maxIterations: 10,
-      timeWindowMs: 60000
-    }
-  };
-  const manager = new BackgroundAutomationManager(config2);
-  manager.initialize();
-  return manager;
-}
-function resetAutomationManager() {
-  if (managerInstance) {
-    managerInstance.reset();
-    managerInstance = null;
-  }
-}
 // src/background/plan-sync-worker.ts
 init_manager2();
 init_utils();
-import * as fs7 from "fs";
-import * as path9 from "path";
+import * as fs24 from "fs";
+import * as path35 from "path";
 
 class PlanSyncWorker {
   directory;
@@ -45995,16 +52776,16 @@ class PlanSyncWorker {
   disposed = false;
   constructor(options = {}) {
     this.directory = options.directory ?? "";
-    this.debounceMs = options.debounceMs ?? 300;
+    this.debounceMs = options.debounceMs ?? 500;
     this.pollIntervalMs = options.pollIntervalMs ?? 2000;
     this.syncTimeoutMs = options.syncTimeoutMs ?? 30000;
     this.onSyncComplete = options.onSyncComplete;
   }
   getSwarmDir() {
-    return path9.resolve(this.directory, ".swarm");
+    return path35.resolve(this.directory, ".swarm");
   }
   getPlanJsonPath() {
-    return path9.join(this.getSwarmDir(), "plan.json");
+    return path35.join(this.getSwarmDir(), "plan.json");
   }
   start() {
     if (this.disposed) {
@@ -46059,7 +52840,7 @@ class PlanSyncWorker {
   }
   initializeStat() {
     try {
-      const stats = fs7.statSync(this.getPlanJsonPath());
+      const stats = fs24.statSync(this.getPlanJsonPath());
       this.lastStat = { mtimeMs: stats.mtimeMs, size: stats.size };
     } catch {
       this.lastStat = null;
@@ -46068,24 +52849,27 @@ class PlanSyncWorker {
   setupNativeWatcher() {
     const swarmDir = this.getSwarmDir();
     try {
-      if (!fs7.existsSync(swarmDir)) {
+      if (!fs24.existsSync(swarmDir)) {
         log("[PlanSyncWorker] Swarm directory does not exist yet");
         return false;
       }
-      this.watcher = fs7.watch(swarmDir, { persistent: false }, (_eventType, filename) => {
+      this.watcher = fs24.watch(swarmDir, { persistent: false }, (_eventType, filename) => {
         if (this.disposed || this.status !== "running") {
+          return;
+        }
+        if (filename && (filename.includes(".tmp.") || filename.endsWith(".rebuild"))) {
           return;
         }
         if (filename === "plan.json" || filename === undefined) {
           this.debouncedSync();
         }
       });
-      this.watcher.on("error", (error49) => {
+      this.watcher.on("error", (error93) => {
         if (this.disposed || this.status !== "running") {
           return;
         }
         log("[PlanSyncWorker] Watcher error, falling back to polling", {
-          error: error49.message
+          error: error93.message
         });
         if (this.watcher) {
           this.watcher.close();
@@ -46095,9 +52879,9 @@ class PlanSyncWorker {
       });
       log("[PlanSyncWorker] Native fs.watch established");
       return true;
-    } catch (error49) {
+    } catch (error93) {
       log("[PlanSyncWorker] Failed to setup native watcher", {
-        error: error49 instanceof Error ? error49.message : String(error49)
+        error: error93 instanceof Error ? error93.message : String(error93)
       });
       return false;
     }
@@ -46119,22 +52903,22 @@ class PlanSyncWorker {
   pollCheck() {
     try {
       const planPath = this.getPlanJsonPath();
-      if (!fs7.existsSync(planPath)) {
+      if (!fs24.existsSync(planPath)) {
         if (this.lastStat !== null) {
           this.lastStat = null;
           log("[PlanSyncWorker] plan.json deleted");
         }
         return;
       }
-      const stats = fs7.statSync(planPath);
+      const stats = fs24.statSync(planPath);
       const currentStat = { mtimeMs: stats.mtimeMs, size: stats.size };
       if (this.lastStat === null || currentStat.mtimeMs !== this.lastStat.mtimeMs || currentStat.size !== this.lastStat.size) {
         this.lastStat = currentStat;
         this.debouncedSync();
       }
-    } catch (error49) {
+    } catch (error93) {
       log("[PlanSyncWorker] Poll check error", {
-        error: error49 instanceof Error ? error49.message : String(error49)
+        error: error93 instanceof Error ? error93.message : String(error93)
       });
     }
   }
@@ -46173,27 +52957,30 @@ class PlanSyncWorker {
       log("[PlanSyncWorker] Syncing plan...");
       this.checkForUnauthorizedWrite();
       const plan = await this.withTimeout(loadPlanJsonOnly(this.directory), this.syncTimeoutMs, "Sync operation timed out");
-      if (plan) {
+      if (plan && plan.phases.length > 0) {
         await regeneratePlanMarkdown(this.directory, plan);
         log("[PlanSyncWorker] Sync complete", {
           title: plan.title,
           phase: plan.current_phase
         });
         this.safeCallback(true);
+      } else if (plan) {
+        log("[PlanSyncWorker] Plan has no phases, skipping markdown regeneration");
+        this.safeCallback(true);
       } else {
         log("[PlanSyncWorker] No plan found to sync");
         this.safeCallback(true);
       }
-    } catch (error49) {
-      const isTimeout = error49 instanceof Error && error49.message.includes("timed out");
+    } catch (error93) {
+      const isTimeout = error93 instanceof Error && error93.message.includes("timed out");
       if (isTimeout) {
         log("[PlanSyncWorker] Sync timed out after " + this.syncTimeoutMs + "ms, worker remains active");
       } else {
         log("[PlanSyncWorker] Sync failed", {
-          error: error49 instanceof Error ? error49.message : String(error49)
+          error: error93 instanceof Error ? error93.message : String(error93)
         });
       }
-      this.safeCallback(false, error49 instanceof Error ? error49 : new Error(String(error49)));
+      this.safeCallback(false, error93 instanceof Error ? error93 : new Error(String(error93)));
     } finally {
       this.syncing = false;
       if (this.pendingSync && !this.disposed && this.status === "running") {
@@ -46203,10 +52990,10 @@ class PlanSyncWorker {
       }
     }
   }
-  safeCallback(success2, error49) {
+  safeCallback(success3, error93) {
     if (this.onSyncComplete) {
       try {
-        this.onSyncComplete(success2, error49);
+        this.onSyncComplete(success3, error93);
       } catch (callbackError) {
         log("[PlanSyncWorker] onSyncComplete callback threw error (ignored)", {
           callbackError: callbackError instanceof Error ? callbackError.message : String(callbackError)
@@ -46217,11 +53004,11 @@ class PlanSyncWorker {
   checkForUnauthorizedWrite() {
     try {
       const swarmDir = this.getSwarmDir();
-      const planJsonPath = path9.join(swarmDir, "plan.json");
-      const markerPath = path9.join(swarmDir, ".plan-write-marker");
-      const planStats = fs7.statSync(planJsonPath);
+      const planJsonPath = path35.join(swarmDir, "plan.json");
+      const markerPath = path35.join(swarmDir, ".plan-write-marker");
+      const planStats = fs24.statSync(planJsonPath);
       const planMtimeMs = planStats.mtimeMs;
-      const markerContent = fs7.readFileSync(markerPath, "utf8");
+      const markerContent = fs24.readFileSync(markerPath, "utf8");
       const marker = JSON.parse(markerContent);
       const markerTimestampMs = new Date(marker.timestamp).getTime();
       if (planMtimeMs > markerTimestampMs + 5000) {
@@ -46229,17 +53016,17 @@ class PlanSyncWorker {
       }
     } catch {}
   }
-  withTimeout(promise2, ms, timeoutMessage) {
-    return new Promise((resolve4, reject) => {
+  withTimeout(promise3, ms, timeoutMessage) {
+    return new Promise((resolve11, reject) => {
       const timer = setTimeout(() => {
         reject(new Error(`${timeoutMessage} (${ms}ms)`));
       }, ms);
-      promise2.then((result) => {
+      promise3.then((result) => {
         clearTimeout(timer);
-        resolve4(result);
-      }).catch((error49) => {
+        resolve11(result);
+      }).catch((error93) => {
         clearTimeout(timer);
-        reject(error49);
+        reject(error93);
       });
     });
   }
@@ -46249,6656 +53036,6 @@ class PlanSyncWorker {
 init_queue();
 init_status_artifact();
 init_trigger();
-
-// src/commands/agents.ts
-function handleAgentsCommand(agents, guardrails) {
-  const entries = Object.entries(agents);
-  if (entries.length === 0) {
-    return "No agents registered.";
-  }
-  const lines = [`## Registered Agents (${entries.length} total)`, ""];
-  for (const [key, agent] of entries) {
-    const model = agent.config.model || "default";
-    const temp = agent.config.temperature !== undefined ? agent.config.temperature.toString() : "default";
-    const tools = agent.config.tools || {};
-    const isReadOnly = tools.write === false || tools.edit === false;
-    const access = isReadOnly ? "\uD83D\uDD12 read-only" : "\u270F\uFE0F read-write";
-    const desc = agent.description || agent.config.description || "";
-    const hasCustomProfile = guardrails?.profiles?.[key] !== undefined;
-    const profileIndicator = hasCustomProfile ? " | \u26A1 custom limits" : "";
-    lines.push(`- **${key}** | model: \`${model}\` | temp: ${temp} | ${access}${profileIndicator}`);
-    if (desc) {
-      lines.push(`  ${desc}`);
-    }
-  }
-  if (guardrails?.profiles && Object.keys(guardrails.profiles).length > 0) {
-    lines.push("", "### Guardrail Profiles", "");
-    for (const [profileName, profile] of Object.entries(guardrails.profiles)) {
-      const overrides = [];
-      if (profile.max_tool_calls !== undefined) {
-        overrides.push(`max_tool_calls=${profile.max_tool_calls}`);
-      }
-      if (profile.max_duration_minutes !== undefined) {
-        overrides.push(`max_duration_minutes=${profile.max_duration_minutes}`);
-      }
-      if (profile.max_repetitions !== undefined) {
-        overrides.push(`max_repetitions=${profile.max_repetitions}`);
-      }
-      if (profile.max_consecutive_errors !== undefined) {
-        overrides.push(`max_consecutive_errors=${profile.max_consecutive_errors}`);
-      }
-      if (profile.warning_threshold !== undefined) {
-        overrides.push(`warning_threshold=${profile.warning_threshold}`);
-      }
-      const overrideStr = overrides.length > 0 ? overrides.join(", ") : "no overrides";
-      lines.push(`- **${profileName}**: ${overrideStr}`);
-    }
-  }
-  return lines.join(`
-`);
-}
-
-// src/commands/analyze.ts
-async function handleAnalyzeCommand(_directory, args2) {
-  const description = args2.join(" ").trim();
-  if (description) {
-    return `[MODE: ANALYZE] ${description}`;
-  }
-  return "[MODE: ANALYZE] Please analyze the spec against the plan using MODE: ANALYZE.";
-}
-
-// src/commands/archive.ts
-init_loader();
-init_manager();
-async function handleArchiveCommand(directory, args2) {
-  const config2 = loadPluginConfig(directory);
-  const maxAgeDays = config2?.evidence?.max_age_days ?? 90;
-  const maxBundles = config2?.evidence?.max_bundles ?? 1000;
-  const dryRun = args2.includes("--dry-run");
-  const beforeTaskIds = await listEvidenceTaskIds(directory);
-  if (beforeTaskIds.length === 0) {
-    return "No evidence bundles to archive.";
-  }
-  if (dryRun) {
-    const cutoffDate = new Date;
-    cutoffDate.setDate(cutoffDate.getDate() - maxAgeDays);
-    const cutoffIso = cutoffDate.toISOString();
-    const wouldArchiveAge = [];
-    const remainingBundles = [];
-    for (const taskId of beforeTaskIds) {
-      const result = await loadEvidence(directory, taskId);
-      if (result.status !== "found") {
-        continue;
-      }
-      if (result.bundle.updated_at < cutoffIso) {
-        wouldArchiveAge.push(taskId);
-      } else {
-        remainingBundles.push({ taskId, updatedAt: result.bundle.updated_at });
-      }
-    }
-    const wouldArchiveMaxBundles = [];
-    const remainingAfterAge = beforeTaskIds.length - wouldArchiveAge.length;
-    if (remainingAfterAge > maxBundles) {
-      remainingBundles.sort((a, b) => a.updatedAt.localeCompare(b.updatedAt));
-      const excessCount = remainingAfterAge - maxBundles;
-      wouldArchiveMaxBundles.push(...remainingBundles.slice(0, excessCount).map((b) => b.taskId));
-    }
-    const totalWouldArchive = wouldArchiveAge.length + wouldArchiveMaxBundles.length;
-    if (totalWouldArchive === 0) {
-      return `No evidence bundles older than ${maxAgeDays} days found, and bundle count (${beforeTaskIds.length}) is within max_bundles limit (${maxBundles}).`;
-    }
-    const lines2 = [
-      "## Archive Preview (dry run)",
-      "",
-      `**Retention**: ${maxAgeDays} days`,
-      `**Max bundles**: ${maxBundles}`,
-      `**Would archive**: ${totalWouldArchive} bundle(s)`
-    ];
-    if (wouldArchiveAge.length > 0) {
-      lines2.push("", `**Age-based (${wouldArchiveAge.length})**:`, ...wouldArchiveAge.map((id) => `- ${id}`));
-    }
-    if (wouldArchiveMaxBundles.length > 0) {
-      lines2.push("", `**Max bundles limit (${wouldArchiveMaxBundles.length})**:`, ...wouldArchiveMaxBundles.map((id) => `- ${id}`));
-    }
-    return lines2.join(`
-`);
-  }
-  const archived = await archiveEvidence(directory, maxAgeDays, maxBundles);
-  if (archived.length === 0) {
-    return `No evidence bundles older than ${maxAgeDays} days found.`;
-  }
-  const lines = [
-    "## Evidence Archived",
-    "",
-    `**Retention**: ${maxAgeDays} days`,
-    `**Archived**: ${archived.length} bundle(s)`,
-    "",
-    ...archived.map((id) => `- ${id}`)
-  ];
-  return lines.join(`
-`);
-}
-
-// src/commands/benchmark.ts
-init_manager();
-init_utils();
-var CI = {
-  review_pass_rate: 70,
-  test_pass_rate: 80,
-  max_agent_error_rate: 20,
-  max_hard_limit_hits: 1,
-  max_complexity_delta: 5,
-  max_public_api_delta: 10,
-  max_duplication_ratio: 5,
-  min_test_to_code_ratio: 30
-};
-async function handleBenchmarkCommand(directory, args2) {
-  let cumulative = args2.includes("--cumulative");
-  if (args2.includes("--ci-gate"))
-    cumulative = true;
-  const mode = cumulative ? "cumulative" : "in-memory";
-  const agentMap = new Map;
-  for (const [, s] of swarmState.agentSessions) {
-    const e = agentMap.get(s.agentName) || {
-      toolCalls: 0,
-      hardLimits: 0,
-      warnings: 0
-    };
-    const windows = Object.values(s.windows);
-    e.toolCalls += windows.reduce((sum, w) => sum + w.toolCalls, 0);
-    e.hardLimits += windows.filter((w) => w.hardLimitHit).length;
-    e.warnings += windows.filter((w) => w.warningIssued).length;
-    agentMap.set(s.agentName, e);
-  }
-  const agentHealth = Array.from(agentMap.entries()).map(([a, v]) => ({
-    agent: a,
-    ...v
-  }));
-  const toolPerf = [];
-  for (const [, a] of swarmState.toolAggregates) {
-    const successRate = a.count ? a.successCount / a.count * 100 : 0;
-    toolPerf.push({
-      tool: a.tool,
-      calls: a.count,
-      successRate: Math.round(successRate * 10) / 10,
-      avg: a.count ? Math.round(a.totalDuration / a.count) : 0
-    });
-  }
-  toolPerf.sort((a, b) => b.calls - a.calls);
-  let delegationCount = 0;
-  for (const c of swarmState.delegationChains.values())
-    delegationCount += c.length;
-  let quality;
-  let qualityMetrics;
-  if (cumulative) {
-    let reviewPasses = 0, reviewFails = 0, testPasses = 0, testFails = 0, additions = 0, deletions = 0;
-    let totalComplexityDelta = 0;
-    let totalPublicApiDelta = 0;
-    let totalDuplicationRatio = 0;
-    let totalTestToCodeRatio = 0;
-    let qualityEvidenceCount = 0;
-    for (const tid of await listEvidenceTaskIds(directory)) {
-      const result = await loadEvidence(directory, tid);
-      if (result.status !== "found")
-        continue;
-      for (const e of result.bundle.entries) {
-        if (!isValidEvidenceType(e.type)) {
-          warn(`Unknown evidence type '${e.type}' in task ${tid}, skipping`);
-          continue;
-        }
-        if (e.type === "review") {
-          if (e.verdict === "approved")
-            reviewPasses++;
-          else if (e.verdict === "rejected")
-            reviewFails++;
-        } else if (e.type === "test") {
-          testPasses += e.tests_passed;
-          testFails += e.tests_failed;
-        } else if (e.type === "diff") {
-          additions += e.additions;
-          deletions += e.deletions;
-        } else if (e.type === "quality_budget") {
-          const qe = e;
-          totalComplexityDelta += qe.metrics.complexity_delta;
-          totalPublicApiDelta += qe.metrics.public_api_delta;
-          totalDuplicationRatio += qe.metrics.duplication_ratio * 100;
-          totalTestToCodeRatio += qe.metrics.test_to_code_ratio * 100;
-          qualityEvidenceCount++;
-        }
-      }
-    }
-    const totalReviews = reviewPasses + reviewFails, totalTests = testPasses + testFails;
-    quality = {
-      reviewPassRate: totalReviews ? Math.round(reviewPasses / totalReviews * 1000) / 10 : null,
-      testPassRate: totalTests ? Math.round(testPasses / totalTests * 1000) / 10 : null,
-      totalReviews,
-      testsPassed: testPasses,
-      testsFailed: testFails,
-      additions,
-      deletions
-    };
-    if (qualityEvidenceCount > 0) {
-      qualityMetrics = {
-        complexityDelta: Math.round(totalComplexityDelta / qualityEvidenceCount * 10) / 10,
-        publicApiDelta: Math.round(totalPublicApiDelta / qualityEvidenceCount * 10) / 10,
-        duplicationRatio: Math.round(totalDuplicationRatio / qualityEvidenceCount * 10) / 10,
-        testToCodeRatio: Math.round(totalTestToCodeRatio / qualityEvidenceCount * 10) / 10,
-        thresholds: {
-          maxComplexityDelta: CI.max_complexity_delta,
-          maxPublicApiDelta: CI.max_public_api_delta,
-          maxDuplicationRatio: CI.max_duplication_ratio,
-          minTestToCodeRatio: CI.min_test_to_code_ratio
-        },
-        hasEvidence: true
-      };
-    } else {
-      qualityMetrics = {
-        complexityDelta: 0,
-        publicApiDelta: 0,
-        duplicationRatio: 0,
-        testToCodeRatio: 0,
-        thresholds: {
-          maxComplexityDelta: CI.max_complexity_delta,
-          maxPublicApiDelta: CI.max_public_api_delta,
-          maxDuplicationRatio: CI.max_duplication_ratio,
-          minTestToCodeRatio: CI.min_test_to_code_ratio
-        },
-        hasEvidence: false
-      };
-    }
-  }
-  let ciGate;
-  if (args2.includes("--ci-gate")) {
-    let totalCalls = 0, totalFailures = 0;
-    for (const [, a] of swarmState.toolAggregates) {
-      totalCalls += a.count;
-      totalFailures += a.failureCount;
-    }
-    const agentErrorRate = totalCalls ? totalFailures / totalCalls * 100 : 0;
-    let maxHardLimits = 0;
-    for (const v of agentMap.values())
-      if (v.hardLimits > maxHardLimits)
-        maxHardLimits = v.hardLimits;
-    const hasQualityEvidence = qualityMetrics?.hasEvidence ?? false;
-    const complexityDelta = qualityMetrics?.complexityDelta ?? 0;
-    const publicApiDelta = qualityMetrics?.publicApiDelta ?? 0;
-    const duplicationRatio = qualityMetrics?.duplicationRatio ?? 0;
-    const testToCodeRatio = qualityMetrics?.testToCodeRatio ?? 0;
-    const checks3 = [
-      {
-        name: "Review pass rate",
-        value: quality?.reviewPassRate ?? 0,
-        threshold: CI.review_pass_rate,
-        operator: ">=",
-        passed: (quality?.reviewPassRate ?? 0) >= CI.review_pass_rate
-      },
-      {
-        name: "Test pass rate",
-        value: quality?.testPassRate ?? 0,
-        threshold: CI.test_pass_rate,
-        operator: ">=",
-        passed: (quality?.testPassRate ?? 0) >= CI.test_pass_rate
-      },
-      {
-        name: "Agent error rate",
-        value: Math.round(agentErrorRate * 10) / 10,
-        threshold: CI.max_agent_error_rate,
-        operator: "<=",
-        passed: agentErrorRate <= CI.max_agent_error_rate
-      },
-      {
-        name: "Hard limit hits",
-        value: maxHardLimits,
-        threshold: CI.max_hard_limit_hits,
-        operator: "<=",
-        passed: maxHardLimits <= CI.max_hard_limit_hits
-      },
-      {
-        name: "Complexity Delta",
-        value: complexityDelta,
-        threshold: CI.max_complexity_delta,
-        operator: "<=",
-        passed: !hasQualityEvidence || complexityDelta <= CI.max_complexity_delta
-      },
-      {
-        name: "Public API Delta",
-        value: publicApiDelta,
-        threshold: CI.max_public_api_delta,
-        operator: "<=",
-        passed: !hasQualityEvidence || publicApiDelta <= CI.max_public_api_delta
-      },
-      {
-        name: "Duplication Ratio",
-        value: duplicationRatio,
-        threshold: CI.max_duplication_ratio,
-        operator: "<=",
-        passed: !hasQualityEvidence || duplicationRatio <= CI.max_duplication_ratio
-      },
-      {
-        name: "Test-to-Code Ratio",
-        value: testToCodeRatio,
-        threshold: CI.min_test_to_code_ratio,
-        operator: ">=",
-        passed: !hasQualityEvidence || testToCodeRatio >= CI.min_test_to_code_ratio
-      }
-    ];
-    ciGate = { passed: checks3.every((c) => c.passed), checks: checks3 };
-  }
-  const lines = [
-    `## Swarm Benchmark (mode: ${mode})`,
-    "",
-    "### Agent Health"
-  ];
-  if (!agentHealth.length)
-    lines.push("No agent sessions recorded");
-  else
-    for (const { agent, toolCalls, hardLimits, warnings } of agentHealth) {
-      const parts2 = [`${toolCalls} tool calls`];
-      if (warnings > 0)
-        parts2.push(`${warnings} warning${warnings > 1 ? "s" : ""}`);
-      parts2.push(hardLimits ? `${hardLimits} hard limit hit${hardLimits > 1 ? "s" : ""}` : "0 hard limits");
-      lines.push(`- ${hardLimits ? "\u26A0\uFE0F" : "\u2705"} **${agent}**: ${parts2.join(", ")}`);
-    }
-  lines.push("", "### Tool Performance");
-  if (!toolPerf.length)
-    lines.push("No tool data recorded");
-  else {
-    lines.push("| Tool | Calls | Success Rate | Avg Duration |", "|------|-------|-------------|-------------|");
-    for (const { tool, calls, successRate, avg } of toolPerf)
-      lines.push(`| ${tool} | ${calls} | ${successRate}% | ${avg}ms |`);
-  }
-  lines.push("", "### Delegations", delegationCount ? `Total: ${delegationCount} delegations` : "No delegations recorded", "");
-  if (quality) {
-    lines.push("### Quality Signals");
-    if (!quality.totalReviews && !quality.testsPassed && !quality.additions)
-      lines.push("No evidence data found");
-    else {
-      if (quality.reviewPassRate !== null)
-        lines.push(`- Review pass rate: ${quality.reviewPassRate}% (${quality.totalReviews}) ${quality.reviewPassRate >= 70 ? "\u2705" : "\u274C"}`);
-      else
-        lines.push("- Review pass rate: N/A (no reviews)");
-      if (quality.testPassRate !== null)
-        lines.push(`- Test pass rate: ${quality.testPassRate}% (${quality.testsPassed}/${quality.testsPassed + quality.testsFailed}) ${quality.testPassRate >= 80 ? "\u2705" : "\u274C"}`);
-      else
-        lines.push("- Test pass rate: N/A (no tests)");
-      lines.push(`- Code churn: +${quality.additions} / -${quality.deletions} lines`);
-    }
-    lines.push("");
-  }
-  if (qualityMetrics?.hasEvidence) {
-    lines.push("### Quality Metrics");
-    lines.push(`- Complexity Delta: ${qualityMetrics.complexityDelta} (max: ${qualityMetrics.thresholds.maxComplexityDelta}) ${qualityMetrics.complexityDelta <= qualityMetrics.thresholds.maxComplexityDelta ? "\u2705" : "\u274C"}`);
-    lines.push(`- Public API Delta: ${qualityMetrics.publicApiDelta} (max: ${qualityMetrics.thresholds.maxPublicApiDelta}) ${qualityMetrics.publicApiDelta <= qualityMetrics.thresholds.maxPublicApiDelta ? "\u2705" : "\u274C"}`);
-    lines.push(`- Duplication Ratio: ${qualityMetrics.duplicationRatio}% (max: ${qualityMetrics.thresholds.maxDuplicationRatio}%) ${qualityMetrics.duplicationRatio <= qualityMetrics.thresholds.maxDuplicationRatio ? "\u2705" : "\u274C"}`);
-    lines.push(`- Test-to-Code Ratio: ${qualityMetrics.testToCodeRatio}% (min: ${qualityMetrics.thresholds.minTestToCodeRatio}%) ${qualityMetrics.testToCodeRatio >= qualityMetrics.thresholds.minTestToCodeRatio ? "\u2705" : "\u274C"}`);
-    lines.push("");
-  }
-  if (ciGate) {
-    lines.push("### CI Gate", ciGate.passed ? "\u2705 PASSED" : "\u274C FAILED");
-    for (const c of ciGate.checks) {
-      let valueStr;
-      if (c.name === "Complexity Delta" || c.name === "Public API Delta") {
-        valueStr = `${c.value}`;
-      } else {
-        valueStr = `${c.value}%`;
-      }
-      const thresholdStr = c.name === "Complexity Delta" || c.name === "Public API Delta" ? `${c.threshold}` : `${c.threshold}%`;
-      lines.push(`- ${c.name}: ${valueStr} ${c.operator} ${thresholdStr} ${c.passed ? "\u2705" : "\u274C"}`);
-    }
-    lines.push("");
-  }
-  const json2 = {
-    mode,
-    timestamp: new Date().toISOString(),
-    agent_health: agentHealth.map((a) => ({
-      agent: a.agent,
-      tool_calls: a.toolCalls,
-      hard_limit_hits: a.hardLimits,
-      warnings: a.warnings
-    })),
-    tool_performance: toolPerf.map((t) => ({
-      tool: t.tool,
-      calls: t.calls,
-      success_rate: t.successRate,
-      avg_duration_ms: t.avg
-    })),
-    delegations: delegationCount
-  };
-  if (quality)
-    json2.quality = {
-      review_pass_rate: quality.reviewPassRate,
-      test_pass_rate: quality.testPassRate,
-      total_reviews: quality.totalReviews,
-      total_tests_passed: quality.testsPassed,
-      total_tests_failed: quality.testsFailed,
-      additions: quality.additions,
-      deletions: quality.deletions
-    };
-  if (qualityMetrics)
-    json2.quality_metrics = {
-      complexity_delta: qualityMetrics.complexityDelta,
-      public_api_delta: qualityMetrics.publicApiDelta,
-      duplication_ratio: qualityMetrics.duplicationRatio,
-      test_to_code_ratio: qualityMetrics.testToCodeRatio,
-      thresholds: qualityMetrics.thresholds,
-      has_evidence: qualityMetrics.hasEvidence
-    };
-  if (ciGate)
-    json2.ci_gate = {
-      passed: ciGate.passed,
-      checks: ciGate.checks.map((c) => ({
-        name: c.name,
-        value: c.value,
-        threshold: c.threshold,
-        operator: c.operator,
-        passed: c.passed
-      }))
-    };
-  lines.push("[BENCHMARK_JSON]", JSON.stringify(json2, null, 2), "[/BENCHMARK_JSON]");
-  return lines.join(`
-`);
-}
-
-// src/commands/checkpoint.ts
-init_zod();
-init_checkpoint();
-var CheckpointResultSchema = exports_external.object({
-  action: exports_external.string().optional(),
-  success: exports_external.boolean(),
-  error: exports_external.string().optional(),
-  checkpoints: exports_external.array(exports_external.unknown()).optional()
-}).passthrough();
-function safeParseResult(result) {
-  const parsed = CheckpointResultSchema.safeParse(JSON.parse(result));
-  if (!parsed.success) {
-    return {
-      success: false,
-      error: `Invalid response: ${parsed.error.message}`
-    };
-  }
-  return parsed.data;
-}
-async function handleCheckpointCommand(directory, args2) {
-  const subcommand = args2[0] || "list";
-  const label = args2[1];
-  switch (subcommand) {
-    case "save":
-      return handleSave2(directory, label);
-    case "restore":
-      return handleRestore2(directory, label);
-    case "delete":
-      return handleDelete2(directory, label);
-    default:
-      return handleList2(directory);
-  }
-}
-async function handleSave2(directory, label) {
-  if (!label) {
-    return "Error: Label required. Usage: `/swarm checkpoint save <label>`";
-  }
-  try {
-    const result = await checkpoint.execute({ action: "save", label }, {
-      directory
-    });
-    const parsed = safeParseResult(result);
-    if (parsed.success) {
-      return `\u2713 Checkpoint saved: "${label}"`;
-    } else {
-      return `Error: ${parsed.error || "Failed to save checkpoint"}`;
-    }
-  } catch (error93) {
-    const msg = error93 instanceof Error ? error93.message : String(error93);
-    return `Error: ${msg}`;
-  }
-}
-async function handleRestore2(directory, label) {
-  if (!label) {
-    return "Error: Label required. Usage: `/swarm checkpoint restore <label>`";
-  }
-  try {
-    const result = await checkpoint.execute({ action: "restore", label }, {
-      directory
-    });
-    const parsed = safeParseResult(result);
-    if (parsed.success) {
-      return `\u2713 Restored to checkpoint: "${label}"`;
-    } else {
-      return `Error: ${parsed.error || "Failed to restore checkpoint"}`;
-    }
-  } catch (error93) {
-    const msg = error93 instanceof Error ? error93.message : String(error93);
-    return `Error: ${msg}`;
-  }
-}
-async function handleDelete2(directory, label) {
-  if (!label) {
-    return "Error: Label required. Usage: `/swarm checkpoint delete <label>`";
-  }
-  try {
-    const result = await checkpoint.execute({ action: "delete", label }, {
-      directory
-    });
-    const parsed = safeParseResult(result);
-    if (parsed.success) {
-      return `\u2713 Checkpoint deleted: "${label}"`;
-    } else {
-      return `Error: ${parsed.error || "Failed to delete checkpoint"}`;
-    }
-  } catch (error93) {
-    const msg = error93 instanceof Error ? error93.message : String(error93);
-    return `Error: ${msg}`;
-  }
-}
-async function handleList2(directory) {
-  try {
-    const result = await checkpoint.execute({ action: "list" }, {
-      directory
-    });
-    const parsed = safeParseResult(result);
-    if (!parsed.success) {
-      return `Error: ${parsed.error || "Failed to list checkpoints"}`;
-    }
-    const checkpoints = parsed.checkpoints || [];
-    if (checkpoints.length === 0) {
-      return "No checkpoints found. Create one with `/swarm checkpoint save <label>`";
-    }
-    const lines = [
-      "## Checkpoints",
-      "",
-      ...checkpoints.map((c) => `- "${c.label}" \u2014 ${new Date(c.timestamp).toLocaleString()}`),
-      "",
-      "Commands:",
-      "- `/swarm checkpoint save <label>` \u2014 Create checkpoint",
-      "- `/swarm checkpoint restore <label>` \u2014 Restore checkpoint",
-      "- `/swarm checkpoint delete <label>` \u2014 Delete checkpoint"
-    ];
-    return lines.join(`
-`);
-  } catch (error93) {
-    const msg = error93 instanceof Error ? error93.message : String(error93);
-    return `Error: ${msg}`;
-  }
-}
-
-// src/commands/clarify.ts
-async function handleClarifyCommand(_directory, args2) {
-  const description = args2.join(" ").trim();
-  if (description) {
-    return `[MODE: CLARIFY-SPEC] ${description}`;
-  }
-  return "[MODE: CLARIFY-SPEC] Please enter MODE: CLARIFY-SPEC and clarify the existing spec.";
-}
-
-// src/commands/close.ts
-init_schema();
-init_manager();
-import { execFileSync } from "child_process";
-import { promises as fs11 } from "fs";
-import path17 from "path";
-
-// src/hooks/knowledge-reader.ts
-init_knowledge_store();
-import { existsSync as existsSync10 } from "fs";
-import { mkdir as mkdir2, readFile as readFile3, writeFile as writeFile2 } from "fs/promises";
-import * as path13 from "path";
-var JACCARD_THRESHOLD = 0.6;
-var HIVE_TIER_BOOST = 0.05;
-var SAME_PROJECT_PENALTY = -0.05;
-function inferCategoriesFromPhase(phaseDescription) {
-  const lower = phaseDescription.toLowerCase();
-  const patterns = [
-    {
-      pattern: /\b(?:test|qa|quality|verification|validation)\b/,
-      categories: ["testing", "debugging"]
-    },
-    {
-      pattern: /\b(?:implement|build|develop|coding|code)\b/,
-      categories: ["tooling", "architecture", "debugging"]
-    },
-    {
-      pattern: /\b(?:integrat|deploy|ci|cd|release|publish)\b/,
-      categories: ["integration", "tooling", "performance"]
-    },
-    {
-      pattern: /\b(?:plan|design|architect|spec|requirement)\b/,
-      categories: ["architecture", "process"]
-    },
-    {
-      pattern: /\b(?:review|refactor|cleanup|polish|optimi)\b/,
-      categories: ["performance", "architecture", "process"]
-    },
-    {
-      pattern: /\b(?:secur|audit|harden|compliance)\b/,
-      categories: ["security", "testing"]
-    },
-    {
-      pattern: /\b(?:setup|config|scaffold|init|bootstrap)\b/,
-      categories: ["tooling", "other"]
-    },
-    {
-      pattern: /\b(?:doc|readme|changelog)\b/,
-      categories: ["process", "tooling"]
-    }
-  ];
-  for (const { pattern, categories } of patterns) {
-    if (pattern.test(lower)) {
-      return categories;
-    }
-  }
-  return ["process", "tooling"];
-}
-async function recordLessonsShown(directory, lessonIds, currentPhase) {
-  const shownFile = path13.join(directory, ".swarm", ".knowledge-shown.json");
-  try {
-    let shownData = {};
-    if (existsSync10(shownFile)) {
-      const content = await readFile3(shownFile, "utf-8");
-      shownData = JSON.parse(content);
-    }
-    const phaseMatch = /^Phase\s+(\d+)/i.exec(currentPhase);
-    const canonicalKey = phaseMatch ? `Phase ${phaseMatch[1]}` : currentPhase;
-    shownData[canonicalKey] = lessonIds;
-    await mkdir2(path13.dirname(shownFile), { recursive: true });
-    await writeFile2(shownFile, JSON.stringify(shownData, null, 2), "utf-8");
-  } catch {
-    console.warn("[swarm] Knowledge: failed to record shown lessons");
-  }
-}
-async function readMergedKnowledge(directory, config3, context) {
-  const swarmPath = resolveSwarmKnowledgePath(directory);
-  const swarmEntries = await readKnowledge(swarmPath);
-  let hiveEntries = [];
-  if (config3.hive_enabled !== false) {
-    const hivePath = resolveHiveKnowledgePath();
-    hiveEntries = await readKnowledge(hivePath);
-  }
-  const seenLessons = new Set;
-  const merged = [];
-  for (const entry of hiveEntries) {
-    const normalized = normalize2(entry.lesson);
-    seenLessons.add(normalized);
-    merged.push({
-      ...entry,
-      relevanceScore: { category: 0, confidence: 0, keywords: 0 },
-      finalScore: 0
-    });
-  }
-  for (const entry of swarmEntries) {
-    const normalized = normalize2(entry.lesson);
-    if (seenLessons.has(normalized)) {
-      continue;
-    }
-    const swarmBigrams = wordBigrams(normalized);
-    const isHiveNearDup = hiveEntries.some((hiveEntry) => jaccardBigram(swarmBigrams, wordBigrams(normalize2(hiveEntry.lesson))) >= JACCARD_THRESHOLD);
-    if (isHiveNearDup)
-      continue;
-    const isSwarmNearDup = merged.some((m) => m.tier === "swarm" && jaccardBigram(swarmBigrams, wordBigrams(normalize2(m.lesson))) >= JACCARD_THRESHOLD);
-    if (isSwarmNearDup)
-      continue;
-    seenLessons.add(normalized);
-    merged.push({
-      ...entry,
-      relevanceScore: { category: 0, confidence: 0, keywords: 0 },
-      finalScore: 0
-    });
-  }
-  const scopeFilter = config3.scope_filter ?? ["global"];
-  const filtered = merged.filter((entry) => scopeFilter.some((pattern) => (entry.scope ?? "global") === pattern));
-  const ranked = filtered.map((entry) => {
-    let categoryScore = 0;
-    if (context?.currentPhase) {
-      const phaseCategories = inferCategoriesFromPhase(context.currentPhase);
-      if (phaseCategories.includes(entry.category)) {
-        categoryScore = 1;
-      } else if (entry.category === "process") {
-        categoryScore = 0.5;
-      }
-    } else {
-      categoryScore = 0.5;
-    }
-    const confidenceScore = entry.confidence;
-    let keywordsScore = 0;
-    if (context?.techStack && entry.tags.length > 0) {
-      const matchingTags = entry.tags.filter((t) => context.techStack.some((s) => t.toLowerCase().includes(s.toLowerCase()) || s.toLowerCase().includes(t.toLowerCase()))).length;
-      keywordsScore = Math.min(matchingTags / Math.max(entry.tags.length, 1), 1);
-    } else if (entry.tags.length === 0) {
-      keywordsScore = 0.5;
-    }
-    const tierBoost = entry.tier === "hive" ? HIVE_TIER_BOOST : 0;
-    const isSameProjectSource = context?.projectName && entry.tier === "hive" && "source_project" in entry && entry.source_project === context.projectName;
-    const sameProjectPenalty = isSameProjectSource ? SAME_PROJECT_PENALTY : 0;
-    const finalScore = categoryScore * 0.4 + confidenceScore * 0.35 + keywordsScore * 0.25 + tierBoost + sameProjectPenalty;
-    const relevanceScore = {
-      category: categoryScore,
-      confidence: confidenceScore,
-      keywords: keywordsScore
-    };
-    return {
-      ...entry,
-      relevanceScore,
-      finalScore: Math.min(Math.max(finalScore, 0), 1)
-    };
-  });
-  ranked.sort((a, b) => {
-    const scoreDiff = b.finalScore - a.finalScore;
-    if (Math.abs(scoreDiff) > 0.001)
-      return scoreDiff;
-    const dateA = new Date(a.created_at).getTime();
-    const dateB = new Date(b.created_at).getTime();
-    return dateB - dateA;
-  });
-  const maxInject = config3.max_inject_count ?? 5;
-  const topN = ranked.slice(0, maxInject);
-  if (topN.length > 0 && context?.currentPhase) {
-    recordLessonsShown(directory, topN.map((e) => e.id), context.currentPhase).catch(() => {});
-  }
-  return topN;
-}
-async function updateRetrievalOutcome(directory, phaseInfo, phaseSucceeded) {
-  const shownFile = path13.join(directory, ".swarm", ".knowledge-shown.json");
-  try {
-    if (!existsSync10(shownFile)) {
-      return;
-    }
-    const content = await readFile3(shownFile, "utf-8");
-    const shownData = JSON.parse(content);
-    const shownIds = shownData[phaseInfo];
-    if (!shownIds || shownIds.length === 0) {
-      return;
-    }
-    const swarmPath = resolveSwarmKnowledgePath(directory);
-    const entries = await readKnowledge(swarmPath);
-    let updated = false;
-    const foundInSwarm = new Set;
-    for (const entry of entries) {
-      if (shownIds.includes(entry.id)) {
-        entry.retrieval_outcomes.applied_count++;
-        if (phaseSucceeded) {
-          entry.retrieval_outcomes.succeeded_after_count++;
-        } else {
-          entry.retrieval_outcomes.failed_after_count++;
-        }
-        updated = true;
-        foundInSwarm.add(entry.id);
-      }
-    }
-    if (updated) {
-      await rewriteKnowledge(swarmPath, entries);
-    }
-    const remainingIds = shownIds.filter((id) => !foundInSwarm.has(id));
-    if (remainingIds.length === 0) {
-      delete shownData[phaseInfo];
-      await writeFile2(shownFile, JSON.stringify(shownData, null, 2), "utf-8");
-      return;
-    }
-    const hivePath = resolveHiveKnowledgePath();
-    const hiveEntries = await readKnowledge(hivePath);
-    let hiveUpdated = false;
-    for (const entry of hiveEntries) {
-      if (remainingIds.includes(entry.id)) {
-        entry.retrieval_outcomes.applied_count++;
-        if (phaseSucceeded) {
-          entry.retrieval_outcomes.succeeded_after_count++;
-        } else {
-          entry.retrieval_outcomes.failed_after_count++;
-        }
-        hiveUpdated = true;
-      }
-    }
-    if (hiveUpdated) {
-      await rewriteKnowledge(hivePath, hiveEntries);
-    }
-    delete shownData[phaseInfo];
-    await writeFile2(shownFile, JSON.stringify(shownData, null, 2), "utf-8");
-  } catch {
-    console.warn("[swarm] Knowledge: failed to update retrieval outcomes");
-  }
-}
-
-// src/hooks/knowledge-curator.ts
-init_knowledge_store();
-
-// src/hooks/knowledge-validator.ts
-init_knowledge_store();
-var import_proper_lockfile2 = __toESM(require_proper_lockfile(), 1);
-import { appendFile as appendFile2, mkdir as mkdir3, writeFile as writeFile3 } from "fs/promises";
-import * as path14 from "path";
-var DANGEROUS_COMMAND_PATTERNS = [
-  /\brm\s+-rf\b/,
-  /\bsudo\s+rm\b/,
-  /\bformat\b/,
-  /\bmkfs\b/,
-  /\bdd\s+if=/,
-  /:\(\)\s*\{/,
-  /\bchmod\s+-R\s+777\b/,
-  /\bdeltree\b/,
-  /\brmdir\s+\/s\b/,
-  /\bkill\s+-9\b/,
-  /\bpkill\b/,
-  /\bkillall\b/,
-  /`[^`]*`/,
-  /\$\([^)]*\)/
-];
-var SECURITY_DEGRADING_PATTERNS = [
-  /disable\s+.{0,50}firewall/i,
-  /turn\s+off\s+.{0,50}security/i,
-  /skip\s+.{0,50}auth/i,
-  /bypass\s+.{0,50}auth/i,
-  /ignore\s+.{0,50}certificate/i,
-  /disable\s+.{0,50}tls/i,
-  /disable\s+.{0,50}ssl/i,
-  /no\s+.{0,50}validation/i,
-  /disable\s+.{0,50}2fa/i,
-  /remove\s+.{0,50}password/i
-];
-var INJECTION_PATTERNS = [
-  /[\x00-\x08\x0b-\x0c\x0e-\x1f\x7f\x0d]/,
-  /^system\s*:/i,
-  /<script/i,
-  /javascript:/i,
-  /\beval\(/i,
-  /\b__proto__\b/,
-  /\bconstructor\[/,
-  /\.prototype\[/
-];
-var VALID_CATEGORIES = new Set([
-  "process",
-  "architecture",
-  "tooling",
-  "security",
-  "testing",
-  "debugging",
-  "performance",
-  "integration",
-  "other"
-]);
-var TECH_REFERENCE_WORDS = new Set([
-  "git",
-  "docker",
-  "typescript",
-  "bun",
-  "vitest",
-  "node",
-  "python",
-  "react",
-  "sql",
-  "api",
-  "hook",
-  "test",
-  "schema",
-  "config",
-  "file",
-  "function",
-  "class",
-  "module",
-  "import",
-  "export"
-]);
-var ACTION_VERB_WORDS = new Set([
-  "use",
-  "avoid",
-  "prefer",
-  "run",
-  "check",
-  "always",
-  "never",
-  "ensure",
-  "call",
-  "write",
-  "add",
-  "remove",
-  "update",
-  "set",
-  "enable",
-  "disable"
-]);
-var NEGATION_PAIRS = [
-  ["always", "never"],
-  ["must", "must not"],
-  ["must", "should not"],
-  ["enable", "disable"],
-  ["use", "avoid"],
-  ["use", "don't use"],
-  ["recommended", "not recommended"]
-];
-function normalizeText(text) {
-  return text.normalize("NFKC").toLowerCase().replace(/[^\w\s]/g, " ").replace(/\s+/g, " ").trim();
-}
-function detectContradiction(candidate, existingLessons) {
-  const candidateTags = inferTags(candidate);
-  if (candidateTags.length === 0)
-    return false;
-  const candidateNorm = normalizeText(candidate);
-  for (const existing of existingLessons) {
-    const existingTags = inferTags(existing);
-    const shared = candidateTags.some((t) => existingTags.includes(t));
-    if (!shared)
-      continue;
-    const existingNorm = normalizeText(existing);
-    for (const [wordA, wordB] of NEGATION_PAIRS) {
-      const hasA = candidateNorm.includes(wordA) && existingNorm.includes(wordB);
-      const hasB = candidateNorm.includes(wordB) && existingNorm.includes(wordA);
-      if (hasA || hasB)
-        return true;
-    }
-  }
-  return false;
-}
-function isVagueLesson(lesson) {
-  const lower = normalizeText(lesson);
-  const words = lower.split(/\s+/);
-  const hasTechRef = words.some((w) => TECH_REFERENCE_WORDS.has(w));
-  const hasActionVerb = words.some((w) => ACTION_VERB_WORDS.has(w));
-  return !hasTechRef && !hasActionVerb;
-}
-function validateLesson(candidate, existingLessons, meta3) {
-  if (!candidate || typeof candidate !== "string") {
-    return {
-      valid: false,
-      layer: 1,
-      reason: "lesson too short (min 15 chars)",
-      severity: "error"
-    };
-  }
-  if (!Array.isArray(existingLessons)) {
-    existingLessons = [];
-  }
-  if (candidate.length < 15) {
-    return {
-      valid: false,
-      layer: 1,
-      reason: "lesson too short (min 15 chars)",
-      severity: "error"
-    };
-  }
-  if (candidate.length > 280) {
-    return {
-      valid: false,
-      layer: 1,
-      reason: "lesson too long (max 280 chars)",
-      severity: "error"
-    };
-  }
-  if (!VALID_CATEGORIES.has(meta3.category)) {
-    return {
-      valid: false,
-      layer: 1,
-      reason: `invalid category: ${meta3.category}`,
-      severity: "error"
-    };
-  }
-  const isGlobalScope = meta3.scope === "global";
-  const isStackScope = /^stack:[a-zA-Z0-9_-]{1,64}$/.test(meta3.scope);
-  if (!isGlobalScope && !isStackScope) {
-    return {
-      valid: false,
-      layer: 1,
-      reason: "invalid scope: must be 'global' or 'stack:<name>'",
-      severity: "error"
-    };
-  }
-  if (!(meta3.confidence >= 0 && meta3.confidence <= 1)) {
-    return {
-      valid: false,
-      layer: 1,
-      reason: "confidence out of range [0.0, 1.0]",
-      severity: "error"
-    };
-  }
-  const normalizedCandidate = candidate.normalize("NFKC").toLowerCase();
-  for (const pattern of DANGEROUS_COMMAND_PATTERNS) {
-    if (pattern.test(normalizedCandidate)) {
-      return {
-        valid: false,
-        layer: 2,
-        reason: "dangerous command pattern detected",
-        severity: "error"
-      };
-    }
-  }
-  for (const pattern of SECURITY_DEGRADING_PATTERNS) {
-    if (pattern.test(normalizedCandidate)) {
-      return {
-        valid: false,
-        layer: 2,
-        reason: "security-degrading instruction detected",
-        severity: "error"
-      };
-    }
-  }
-  for (const pattern of INJECTION_PATTERNS) {
-    if (pattern.test(candidate)) {
-      return {
-        valid: false,
-        layer: 2,
-        reason: "injection pattern detected",
-        severity: "error"
-      };
-    }
-  }
-  if (detectContradiction(candidate, existingLessons)) {
-    return {
-      valid: false,
-      layer: 3,
-      reason: "lesson contradicts an existing lesson with shared tags",
-      severity: "error"
-    };
-  }
-  if (isVagueLesson(candidate)) {
-    return {
-      valid: true,
-      layer: 3,
-      reason: "lesson may be too vague (no tech reference or action verb)",
-      severity: "warning"
-    };
-  }
-  return {
-    valid: true,
-    layer: null,
-    reason: null,
-    severity: null
-  };
-}
-async function quarantineEntry(directory, entryId, reason, reportedBy) {
-  if (!directory || directory.includes("..")) {
-    console.warn("[knowledge-validator] quarantineEntry: directory traversal attempt blocked");
-    return;
-  }
-  if (!entryId || entryId.includes("\x00") || entryId.includes(`
-`)) {
-    console.warn("[knowledge-validator] quarantineEntry: invalid entryId rejected");
-    return;
-  }
-  const validReportedBy = ["architect", "user", "auto"];
-  if (!validReportedBy.includes(reportedBy)) {
-    return;
-  }
-  const sanitizedReason = reason.slice(0, 500).replace(/[\x00-\x08\x0b-\x0c\x0e-\x1f\x7f\x0d]/g, "");
-  const knowledgePath = path14.join(directory, ".swarm", "knowledge.jsonl");
-  const quarantinePath = path14.join(directory, ".swarm", "knowledge-quarantined.jsonl");
-  const rejectedPath = path14.join(directory, ".swarm", "knowledge-rejected.jsonl");
-  const swarmDir = path14.join(directory, ".swarm");
-  await mkdir3(swarmDir, { recursive: true });
-  let release;
-  try {
-    release = await import_proper_lockfile2.default.lock(swarmDir, {
-      retries: { retries: 3, minTimeout: 100 }
-    });
-    const entries = await readKnowledge(knowledgePath);
-    const entry = entries.find((e) => e.id === entryId);
-    if (!entry) {
-      return;
-    }
-    const remaining = entries.filter((e) => e.id !== entryId);
-    const quarantined = {
-      ...entry,
-      quarantine_reason: sanitizedReason,
-      quarantined_at: new Date().toISOString(),
-      reported_by: reportedBy
-    };
-    const jsonlContent = remaining.length > 0 ? `${remaining.map((e) => JSON.stringify(e)).join(`
-`)}
-` : "";
-    await writeFile3(knowledgePath, jsonlContent, "utf-8");
-    await appendFile2(quarantinePath, `${JSON.stringify(quarantined)}
-`, "utf-8");
-    const quarantinedEntries = await readKnowledge(quarantinePath);
-    if (quarantinedEntries.length > 100) {
-      const trimmed = quarantinedEntries.slice(-100);
-      const capContent = trimmed.length > 0 ? `${trimmed.map((e) => JSON.stringify(e)).join(`
-`)}
-` : "";
-      await writeFile3(quarantinePath, capContent, "utf-8");
-    }
-    const rejectedRecord = {
-      id: entryId,
-      lesson: entry.lesson,
-      rejection_reason: sanitizedReason,
-      rejected_at: new Date().toISOString(),
-      rejection_layer: 3
-    };
-    await appendKnowledge(rejectedPath, rejectedRecord);
-  } finally {
-    if (release) {
-      await release();
-    }
-  }
-}
-async function restoreEntry(directory, entryId) {
-  if (!directory || directory.includes("..")) {
-    console.warn("[knowledge-validator] restoreEntry: directory traversal attempt blocked");
-    return;
-  }
-  if (!entryId || entryId.includes("\x00") || entryId.includes(`
-`)) {
-    console.warn("[knowledge-validator] restoreEntry: invalid entryId rejected");
-    return;
-  }
-  const knowledgePath = path14.join(directory, ".swarm", "knowledge.jsonl");
-  const quarantinePath = path14.join(directory, ".swarm", "knowledge-quarantined.jsonl");
-  const rejectedPath = path14.join(directory, ".swarm", "knowledge-rejected.jsonl");
-  const swarmDir = path14.join(directory, ".swarm");
-  await mkdir3(swarmDir, { recursive: true });
-  let release;
-  try {
-    release = await import_proper_lockfile2.default.lock(swarmDir, {
-      retries: { retries: 3, minTimeout: 100 }
-    });
-    const quarantinedEntries = await readKnowledge(quarantinePath);
-    const entryToRestore = quarantinedEntries.find((e) => e.id === entryId);
-    if (!entryToRestore) {
-      return;
-    }
-    const remaining = quarantinedEntries.filter((e) => e.id !== entryId);
-    const { quarantine_reason, quarantined_at, reported_by, ...original } = entryToRestore;
-    const jsonlContent = remaining.length > 0 ? `${remaining.map((e) => JSON.stringify(e)).join(`
-`)}
-` : "";
-    await writeFile3(quarantinePath, jsonlContent, "utf-8");
-    await appendFile2(knowledgePath, `${JSON.stringify(original)}
-`, "utf-8");
-    const rejectedEntries = await readKnowledge(rejectedPath);
-    const filtered = rejectedEntries.filter((e) => e.id !== entryId);
-    const rejectedContent = filtered.length > 0 ? `${filtered.map((e) => JSON.stringify(e)).join(`
-`)}
-` : "";
-    await writeFile3(rejectedPath, rejectedContent, "utf-8");
-  } finally {
-    if (release) {
-      await release();
-    }
-  }
-}
-
-// src/hooks/knowledge-curator.ts
-init_utils2();
-var seenRetroSections = new Map;
-function pruneSeenRetroSections() {
-  const cutoff = Date.now() - 86400000;
-  for (const [key, entry] of seenRetroSections) {
-    if (entry.timestamp < cutoff) {
-      seenRetroSections.delete(key);
-    }
-  }
-}
-function isWriteToSwarmPlan(input) {
-  if (typeof input !== "object" || input === null)
-    return false;
-  const record3 = input;
-  const toolName = record3.toolName;
-  if (typeof toolName !== "string")
-    return false;
-  if (!["write", "edit", "apply_patch"].includes(toolName))
-    return false;
-  const rawPath = record3.path;
-  const rawFile = record3.file;
-  const pathField = typeof rawPath === "string" ? rawPath.replace(/\\/g, "/") : undefined;
-  const fileField = typeof rawFile === "string" ? rawFile.replace(/\\/g, "/") : undefined;
-  if (typeof pathField === "string" && pathField.includes(".swarm/plan.md")) {
-    return true;
-  }
-  if (typeof fileField === "string" && fileField.includes(".swarm/plan.md")) {
-    return true;
-  }
-  return false;
-}
-function isWriteToEvidenceFile(input) {
-  if (typeof input !== "object" || input === null)
-    return false;
-  const record3 = input;
-  const toolName = record3.toolName;
-  if (typeof toolName !== "string")
-    return false;
-  if (!["write", "edit", "apply_patch"].includes(toolName))
-    return false;
-  const rawPath = record3.path;
-  const rawFile = record3.file;
-  const pathField = typeof rawPath === "string" ? rawPath.replace(/\\/g, "/") : undefined;
-  const fileField = typeof rawFile === "string" ? rawFile.replace(/\\/g, "/") : undefined;
-  const evidenceRegex = /\.swarm\/+evidence\/+/i;
-  if (typeof pathField === "string" && evidenceRegex.test(pathField)) {
-    return true;
-  }
-  if (typeof fileField === "string" && evidenceRegex.test(fileField)) {
-    return true;
-  }
-  return false;
-}
-function extractRetrospectiveSection(planContent) {
-  const headingRegex = /^###\s+Lessons\s+Learned$/m;
-  const match = headingRegex.exec(planContent);
-  if (!match)
-    return null;
-  const startIndex = match.index;
-  const restOfContent = planContent.slice(startIndex);
-  const firstNewline = restOfContent.indexOf(`
-`);
-  const contentAfterHeading = firstNewline === -1 ? "" : restOfContent.slice(firstNewline + 1);
-  const nextHeadingRegex = /^#{1,2}\s+/m;
-  const nextMatch = nextHeadingRegex.exec(contentAfterHeading);
-  let endIndex;
-  if (nextMatch) {
-    endIndex = startIndex + firstNewline + 1 + nextMatch.index;
-  } else {
-    endIndex = planContent.length;
-  }
-  return planContent.slice(startIndex, endIndex).trim();
-}
-function checkRetroChanged(sessionID, section) {
-  const hash3 = `${section.length}:${section.slice(0, 100)}`;
-  const lastSeen = seenRetroSections.get(sessionID);
-  if (lastSeen?.value === hash3) {
-    return false;
-  }
-  seenRetroSections.set(sessionID, { value: hash3, timestamp: Date.now() });
-  return true;
-}
-function extractLessonsFromRetro(section) {
-  const lessons = [];
-  const lines = section.split(`
-`);
-  for (const line of lines) {
-    const trimmed = line.trim();
-    const bulletMatch = /^[-*]\s+(.+)$/.exec(trimmed);
-    if (bulletMatch) {
-      const content = bulletMatch[1].trim();
-      if (content) {
-        lessons.push(content);
-      }
-    }
-  }
-  return lessons;
-}
-function extractRetractionsAndLessons(allLessons) {
-  const retractions = [];
-  const normalLessons = [];
-  for (const lesson of allLessons) {
-    const upper = lesson.trimStart().toUpperCase();
-    if (upper.startsWith("RETRACT:") || upper.startsWith("BAD RULE:")) {
-      const colonIdx = lesson.indexOf(":");
-      const text = colonIdx !== -1 ? lesson.slice(colonIdx + 1).trim() : "";
-      if (text)
-        retractions.push(text);
-    } else {
-      normalLessons.push(lesson);
-    }
-  }
-  return { retractions, normalLessons };
-}
-async function processRetractions(retractions, directory) {
-  if (retractions.length === 0)
-    return;
-  const knowledgePath = resolveSwarmKnowledgePath(directory);
-  const entries = await readKnowledge(knowledgePath) ?? [];
-  for (const retractionText of retractions) {
-    const normalizedRetraction = normalize2(retractionText);
-    for (const entry of entries) {
-      const normalizedLesson = normalize2(entry.lesson);
-      if (normalizedLesson === normalizedRetraction) {
-        await quarantineEntry(directory, entry.id, `Retracted by architect: ${retractionText}`, "architect");
-        console.info(`[knowledge-curator] Quarantined entry ${entry.id}: "${entry.lesson}"`);
-      }
-    }
-  }
-}
-async function curateAndStoreSwarm(lessons, projectName, phaseInfo, directory, config3) {
-  const knowledgePath = resolveSwarmKnowledgePath(directory);
-  const existingEntries = await readKnowledge(knowledgePath) ?? [];
-  let stored = 0;
-  let skipped = 0;
-  let rejected = 0;
-  const categoryByTag = new Map([
-    ["process", "process"],
-    ["architecture", "architecture"],
-    ["tooling", "tooling"],
-    ["security", "security"],
-    ["testing", "testing"],
-    ["debugging", "debugging"],
-    ["performance", "performance"],
-    ["integration", "integration"],
-    ["other", "other"]
-  ]);
-  for (const lesson of lessons) {
-    const tags = inferTags(lesson);
-    let category = "process";
-    for (const tag of tags) {
-      if (categoryByTag.has(tag)) {
-        category = categoryByTag.get(tag);
-        break;
-      }
-    }
-    const meta3 = {
-      category,
-      scope: "global",
-      confidence: computeConfidence(0, true)
-    };
-    const result = validateLesson(lesson, existingEntries.map((e) => e.lesson), meta3);
-    if (result.valid === false || result.severity === "error") {
-      const rejectedLesson = {
-        id: crypto.randomUUID(),
-        lesson,
-        rejection_reason: result.reason ?? "unknown",
-        rejected_at: new Date().toISOString(),
-        rejection_layer: result.layer ?? 1
-      };
-      await appendRejectedLesson(directory, rejectedLesson);
-      rejected++;
-      continue;
-    }
-    const duplicate = findNearDuplicate(lesson, existingEntries, config3.dedup_threshold);
-    if (duplicate) {
-      skipped++;
-      continue;
-    }
-    const entry = {
-      id: crypto.randomUUID(),
-      tier: "swarm",
-      lesson,
-      category,
-      tags,
-      scope: "global",
-      confidence: computeConfidence(1, true),
-      status: "candidate",
-      confirmed_by: [
-        {
-          phase_number: phaseInfo.phase_number,
-          confirmed_at: new Date().toISOString(),
-          project_name: projectName
-        }
-      ],
-      retrieval_outcomes: {
-        applied_count: 0,
-        succeeded_after_count: 0,
-        failed_after_count: 0
-      },
-      schema_version: config3.schema_version,
-      created_at: new Date().toISOString(),
-      updated_at: new Date().toISOString(),
-      project_name: projectName,
-      auto_generated: true
-    };
-    await appendKnowledge(knowledgePath, entry);
-    stored++;
-    existingEntries.push(entry);
-  }
-  await enforceKnowledgeCap(knowledgePath, config3.swarm_max_entries);
-  await runAutoPromotion(directory, config3);
-  return { stored, skipped, rejected };
-}
-async function runAutoPromotion(directory, config3) {
-  const knowledgePath = resolveSwarmKnowledgePath(directory);
-  const entries = await readKnowledge(knowledgePath) ?? [];
-  let changed = false;
-  for (const entry of entries) {
-    if (entry.status === "promoted")
-      continue;
-    const distinctPhases = new Set((entry.confirmed_by ?? []).map((c) => c.phase_number)).size;
-    if (entry.status === "candidate" && distinctPhases >= 3) {
-      entry.status = "established";
-      entry.updated_at = new Date().toISOString();
-      changed = true;
-      continue;
-    }
-    if (entry.status === "established") {
-      const createdAt = Date.parse(entry.created_at ?? "");
-      const ageMs = Number.isNaN(createdAt) ? 0 : Date.now() - createdAt;
-      const ageThresholdMs = config3.auto_promote_days * 86400000;
-      if (distinctPhases >= 3 || ageMs >= ageThresholdMs) {
-        entry.status = "promoted";
-        entry.hive_eligible = true;
-        entry.updated_at = new Date().toISOString();
-        changed = true;
-      }
-    }
-  }
-  if (changed) {
-    await rewriteKnowledge(knowledgePath, entries);
-  }
-}
-function createKnowledgeCuratorHook(directory, config3) {
-  const handler = async (input, _output) => {
-    pruneSeenRetroSections();
-    if (!config3.enabled)
-      return;
-    if (!isWriteToSwarmPlan(input) && !isWriteToEvidenceFile(input))
-      return;
-    const sessionID = input?.sessionID ?? "default";
-    const isEvidenceTrigger = isWriteToEvidenceFile(input) && !isWriteToSwarmPlan(input);
-    if (isEvidenceTrigger) {
-      const record3 = input;
-      const rawPath = record3.path;
-      const rawFile = record3.file;
-      const filePath = typeof rawPath === "string" ? rawPath.replace(/\\/g, "/") : typeof rawFile === "string" ? rawFile.replace(/\\/g, "/") : null;
-      if (!filePath)
-        return;
-      const evidenceKey = `evidence:${sessionID}:${filePath}`;
-      const lastSeenEvidence = seenRetroSections.get(evidenceKey);
-      const evidenceContent = await readSwarmFileAsync(directory, filePath.replace(/^.*\.swarm\//, ""));
-      if (!evidenceContent)
-        return;
-      let evidenceData;
-      try {
-        evidenceData = JSON.parse(evidenceContent);
-      } catch {
-        return;
-      }
-      let lessons = [];
-      if (Array.isArray(evidenceData.entries) && evidenceData.entries.length > 0) {
-        const firstEntry = evidenceData.entries[0];
-        if (Array.isArray(firstEntry.lessons_learned)) {
-          lessons = firstEntry.lessons_learned;
-        }
-      } else if (Array.isArray(evidenceData.lessons_learned)) {
-        lessons = evidenceData.lessons_learned;
-      }
-      if (lessons.length === 0)
-        return;
-      const evidenceHash = `${lessons.length}:${lessons.slice(0, 3).join("|")}`;
-      if (lastSeenEvidence?.value === evidenceHash) {
-        return;
-      }
-      seenRetroSections.set(evidenceKey, {
-        value: evidenceHash,
-        timestamp: Date.now()
-      });
-      const projectName2 = evidenceData.project_name ?? "unknown";
-      const phaseNumber2 = typeof evidenceData.phase_number === "number" ? evidenceData.phase_number : 1;
-      await curateAndStoreSwarm(lessons, projectName2, { phase_number: phaseNumber2 }, directory, config3);
-      await updateRetrievalOutcome(directory, `Phase ${phaseNumber2}`, true);
-      return;
-    }
-    const planContent = await readSwarmFileAsync(directory, "plan.md");
-    if (!planContent)
-      return;
-    const section = extractRetrospectiveSection(planContent);
-    if (!section)
-      return;
-    if (!checkRetroChanged(sessionID, section))
-      return;
-    const allLessons = extractLessonsFromRetro(section);
-    if (allLessons.length === 0)
-      return;
-    const { retractions, normalLessons } = extractRetractionsAndLessons(allLessons);
-    await processRetractions(retractions, directory);
-    if (normalLessons.length === 0)
-      return;
-    const projectNameMatch = /^#\s+(.+)$/m.exec(planContent);
-    const projectName = projectNameMatch ? projectNameMatch[1].trim() : "unknown";
-    const phaseMatch = /^Phase:\s*(\d+)/m.exec(planContent);
-    const phaseNumber = phaseMatch ? parseInt(phaseMatch[1], 10) : 1;
-    await curateAndStoreSwarm(normalLessons, projectName, { phase_number: phaseNumber }, directory, config3);
-    await updateRetrievalOutcome(directory, `Phase ${phaseNumber}`, true);
-  };
-  return safeHook(handler);
-}
-
-// src/commands/close.ts
-init_utils2();
-
-// src/plan/checkpoint.ts
-init_plan_schema();
-init_ledger();
-init_manager2();
-import * as fs10 from "fs";
-import * as path15 from "path";
-async function writeCheckpoint(directory) {
-  try {
-    const plan = await loadPlan(directory);
-    if (!plan)
-      return;
-    const jsonPath = path15.join(directory, "SWARM_PLAN.json");
-    const mdPath = path15.join(directory, "SWARM_PLAN.md");
-    fs10.writeFileSync(jsonPath, JSON.stringify(plan, null, 2), "utf8");
-    const md = derivePlanMarkdown(plan);
-    fs10.writeFileSync(mdPath, md, "utf8");
-  } catch (error93) {
-    console.warn(`[checkpoint] Failed to write SWARM_PLAN checkpoint: ${error93 instanceof Error ? error93.message : String(error93)}`);
-  }
-}
-
-// src/session/snapshot-writer.ts
-init_utils2();
-import { mkdirSync as mkdirSync7, renameSync as renameSync5 } from "fs";
-import * as path16 from "path";
-init_utils();
-var _writeInFlight = Promise.resolve();
-function serializeAgentSession(s) {
-  const gateLog = {};
-  const rawGateLog = s.gateLog ?? new Map;
-  for (const [taskId, gates] of rawGateLog) {
-    gateLog[taskId] = Array.from(gates ?? []);
-  }
-  const reviewerCallCount = {};
-  const rawReviewerCallCount = s.reviewerCallCount ?? new Map;
-  for (const [phase, count] of rawReviewerCallCount) {
-    reviewerCallCount[String(phase)] = count;
-  }
-  const partialGateWarningsIssuedForTask = Array.from(s.partialGateWarningsIssuedForTask ?? new Set);
-  const catastrophicPhaseWarnings = Array.from(s.catastrophicPhaseWarnings ?? new Set);
-  const phaseAgentsDispatched = Array.from(s.phaseAgentsDispatched ?? new Set);
-  const lastCompletedPhaseAgentsDispatched = Array.from(s.lastCompletedPhaseAgentsDispatched ?? new Set);
-  const windows = {};
-  const rawWindows = s.windows ?? {};
-  for (const [key, win] of Object.entries(rawWindows)) {
-    windows[key] = {
-      id: win.id,
-      agentName: win.agentName,
-      startedAtMs: win.startedAtMs,
-      toolCalls: win.toolCalls,
-      consecutiveErrors: win.consecutiveErrors,
-      hardLimitHit: win.hardLimitHit,
-      lastSuccessTimeMs: win.lastSuccessTimeMs,
-      recentToolCalls: win.recentToolCalls,
-      warningIssued: win.warningIssued,
-      warningReason: win.warningReason
-    };
-  }
-  return {
-    agentName: s.agentName,
-    lastToolCallTime: s.lastToolCallTime,
-    lastAgentEventTime: s.lastAgentEventTime,
-    delegationActive: s.delegationActive,
-    activeInvocationId: s.activeInvocationId,
-    lastInvocationIdByAgent: s.lastInvocationIdByAgent ?? {},
-    windows,
-    lastCompactionHint: s.lastCompactionHint ?? 0,
-    architectWriteCount: s.architectWriteCount ?? 0,
-    lastCoderDelegationTaskId: s.lastCoderDelegationTaskId ?? null,
-    currentTaskId: s.currentTaskId ?? null,
-    turboMode: s.turboMode ?? false,
-    gateLog,
-    reviewerCallCount,
-    lastGateFailure: s.lastGateFailure ?? null,
-    partialGateWarningsIssuedForTask,
-    selfFixAttempted: s.selfFixAttempted ?? false,
-    selfCodingWarnedAtCount: s.selfCodingWarnedAtCount ?? 0,
-    catastrophicPhaseWarnings,
-    lastPhaseCompleteTimestamp: s.lastPhaseCompleteTimestamp ?? 0,
-    lastPhaseCompletePhase: s.lastPhaseCompletePhase ?? 0,
-    phaseAgentsDispatched,
-    lastCompletedPhaseAgentsDispatched,
-    qaSkipCount: s.qaSkipCount ?? 0,
-    qaSkipTaskIds: s.qaSkipTaskIds ?? [],
-    pendingAdvisoryMessages: s.pendingAdvisoryMessages ?? [],
-    taskWorkflowStates: Object.fromEntries(s.taskWorkflowStates ?? new Map),
-    ...s.scopeViolationDetected !== undefined && {
-      scopeViolationDetected: s.scopeViolationDetected
-    },
-    model_fallback_index: s.model_fallback_index ?? 0,
-    modelFallbackExhausted: s.modelFallbackExhausted ?? false,
-    coderRevisions: s.coderRevisions ?? 0,
-    revisionLimitHit: s.revisionLimitHit ?? false,
-    sessionRehydratedAt: s.sessionRehydratedAt ?? 0
-  };
-}
-async function writeSnapshot(directory, state) {
-  try {
-    const snapshot = {
-      version: 2,
-      writtenAt: Date.now(),
-      toolAggregates: Object.fromEntries(state.toolAggregates),
-      activeAgent: Object.fromEntries(state.activeAgent),
-      delegationChains: Object.fromEntries(state.delegationChains),
-      agentSessions: {}
-    };
-    for (const [sessionId, sessionState] of state.agentSessions) {
-      snapshot.agentSessions[sessionId] = serializeAgentSession(sessionState);
-    }
-    const content = JSON.stringify(snapshot, null, 2);
-    const resolvedPath = validateSwarmPath(directory, "session/state.json");
-    const dir = path16.dirname(resolvedPath);
-    mkdirSync7(dir, { recursive: true });
-    const tempPath = `${resolvedPath}.tmp.${Date.now()}.${Math.random().toString(36).slice(2)}`;
-    await Bun.write(tempPath, content);
-    renameSync5(tempPath, resolvedPath);
-  } catch (error93) {
-    log("[snapshot-writer] write failed", {
-      error: error93 instanceof Error ? error93.message : String(error93)
-    });
-  }
-}
-function createSnapshotWriterHook(directory) {
-  return (_input, _output) => {
-    _writeInFlight = _writeInFlight.then(() => writeSnapshot(directory, swarmState), () => writeSnapshot(directory, swarmState));
-    return _writeInFlight;
-  };
-}
-async function flushPendingSnapshot(directory) {
-  _writeInFlight = _writeInFlight.then(() => writeSnapshot(directory, swarmState), () => writeSnapshot(directory, swarmState));
-  await _writeInFlight;
-}
-
-// src/tools/write-retro.ts
-init_tool();
-init_evidence_schema();
-init_manager();
-init_create_tool();
-async function executeWriteRetro(args2, directory) {
-  if (/^(CON|PRN|AUX|NUL|COM[0-9]|LPT[0-9])(:|$)/i.test(directory)) {
-    return JSON.stringify({
-      success: false,
-      message: "Invalid directory: reserved device name"
-    }, null, 2);
-  }
-  const phase = args2.phase;
-  if (!Number.isInteger(phase) || phase < 1) {
-    return JSON.stringify({
-      success: false,
-      phase,
-      message: "Invalid phase: must be a positive integer"
-    }, null, 2);
-  }
-  const validComplexities = [
-    "trivial",
-    "simple",
-    "moderate",
-    "complex"
-  ];
-  if (!validComplexities.includes(args2.task_complexity)) {
-    return JSON.stringify({
-      success: false,
-      phase,
-      message: `Invalid task_complexity: must be one of 'trivial'|'simple'|'moderate'|'complex'`
-    }, null, 2);
-  }
-  if (!Number.isInteger(args2.task_count) || args2.task_count < 1) {
-    return JSON.stringify({
-      success: false,
-      phase,
-      message: "Invalid task_count: must be a positive integer >= 1"
-    }, null, 2);
-  }
-  if (!Number.isInteger(args2.total_tool_calls) || args2.total_tool_calls < 0) {
-    return JSON.stringify({
-      success: false,
-      phase,
-      message: "Invalid total_tool_calls: must be a non-negative integer"
-    }, null, 2);
-  }
-  if (!Number.isInteger(args2.coder_revisions) || args2.coder_revisions < 0) {
-    return JSON.stringify({
-      success: false,
-      phase,
-      message: "Invalid coder_revisions: must be a non-negative integer"
-    }, null, 2);
-  }
-  if (!Number.isInteger(args2.reviewer_rejections) || args2.reviewer_rejections < 0) {
-    return JSON.stringify({
-      success: false,
-      phase,
-      message: "Invalid reviewer_rejections: must be a non-negative integer"
-    }, null, 2);
-  }
-  if (!Number.isInteger(args2.test_failures) || args2.test_failures < 0) {
-    return JSON.stringify({
-      success: false,
-      phase,
-      message: "Invalid test_failures: must be a non-negative integer"
-    }, null, 2);
-  }
-  if (!Number.isInteger(args2.security_findings) || args2.security_findings < 0) {
-    return JSON.stringify({
-      success: false,
-      phase,
-      message: "Invalid security_findings: must be a non-negative integer"
-    }, null, 2);
-  }
-  if (!Number.isInteger(args2.integration_issues) || args2.integration_issues < 0) {
-    return JSON.stringify({
-      success: false,
-      phase,
-      message: "Invalid integration_issues: must be a non-negative integer"
-    }, null, 2);
-  }
-  if (args2.loop_detections !== undefined && (!Number.isInteger(args2.loop_detections) || args2.loop_detections < 0)) {
-    return JSON.stringify({
-      success: false,
-      phase,
-      message: "Invalid loop_detections: must be a non-negative integer"
-    }, null, 2);
-  }
-  if (args2.circuit_breaker_trips !== undefined && (!Number.isInteger(args2.circuit_breaker_trips) || args2.circuit_breaker_trips < 0)) {
-    return JSON.stringify({
-      success: false,
-      phase,
-      message: "Invalid circuit_breaker_trips: must be a non-negative integer"
-    }, null, 2);
-  }
-  if (args2.phase > 99) {
-    return JSON.stringify({
-      success: false,
-      phase,
-      message: "Invalid phase: must be <= 99"
-    }, null, 2);
-  }
-  if (args2.task_count > 9999) {
-    return JSON.stringify({
-      success: false,
-      phase,
-      message: "Invalid task_count: must be <= 9999"
-    }, null, 2);
-  }
-  if (args2.total_tool_calls > 9999) {
-    return JSON.stringify({
-      success: false,
-      phase,
-      message: "Invalid total_tool_calls: must be <= 9999"
-    }, null, 2);
-  }
-  if (args2.coder_revisions > 999) {
-    return JSON.stringify({
-      success: false,
-      phase,
-      message: "Invalid coder_revisions: must be <= 999"
-    }, null, 2);
-  }
-  if (args2.reviewer_rejections > 999) {
-    return JSON.stringify({
-      success: false,
-      phase,
-      message: "Invalid reviewer_rejections: must be <= 999"
-    }, null, 2);
-  }
-  if (args2.loop_detections !== undefined && args2.loop_detections > 9999) {
-    return JSON.stringify({
-      success: false,
-      phase,
-      message: "Invalid loop_detections: must be <= 9999"
-    }, null, 2);
-  }
-  if (args2.circuit_breaker_trips !== undefined && args2.circuit_breaker_trips > 9999) {
-    return JSON.stringify({
-      success: false,
-      phase,
-      message: "Invalid circuit_breaker_trips: must be <= 9999"
-    }, null, 2);
-  }
-  if (args2.test_failures > 9999) {
-    return JSON.stringify({
-      success: false,
-      phase,
-      message: "Invalid test_failures: must be <= 9999"
-    }, null, 2);
-  }
-  if (args2.security_findings > 999) {
-    return JSON.stringify({
-      success: false,
-      phase,
-      message: "Invalid security_findings: must be <= 999"
-    }, null, 2);
-  }
-  if (args2.integration_issues > 999) {
-    return JSON.stringify({
-      success: false,
-      phase,
-      message: "Invalid integration_issues: must be <= 999"
-    }, null, 2);
-  }
-  const summary = args2.summary;
-  if (typeof summary !== "string" || summary.trim().length === 0) {
-    return JSON.stringify({
-      success: false,
-      phase,
-      message: "Invalid summary: must be a non-empty string"
-    }, null, 2);
-  }
-  if (args2.task_id !== undefined) {
-    const tid = args2.task_id;
-    if (!tid || tid.length === 0 || tid.length > 200) {
-      return JSON.stringify({
-        success: false,
-        phase,
-        message: "Invalid task ID: must match pattern"
-      }, null, 2);
-    }
-    if (/\0/.test(tid)) {
-      return JSON.stringify({
-        success: false,
-        phase,
-        message: "Invalid task ID: contains null bytes"
-      }, null, 2);
-    }
-    for (let i2 = 0;i2 < tid.length; i2++) {
-      if (tid.charCodeAt(i2) < 32) {
-        return JSON.stringify({
-          success: false,
-          phase,
-          message: "Invalid task ID: contains control characters"
-        }, null, 2);
-      }
-    }
-    if (tid.includes("..") || tid.includes("/") || tid.includes("\\")) {
-      return JSON.stringify({
-        success: false,
-        phase,
-        message: "Invalid task ID: path traversal detected"
-      }, null, 2);
-    }
-    const VALID_TASK_ID = /^(retro-\d+|\d+\.\d+(\.\d+)*)$/;
-    if (!VALID_TASK_ID.test(tid)) {
-      return JSON.stringify({
-        success: false,
-        phase,
-        message: "Invalid task ID: must match pattern"
-      }, null, 2);
-    }
-  }
-  const taskId = args2.task_id ?? `retro-${phase}`;
-  const retroEntry = {
-    task_id: taskId,
-    type: "retrospective",
-    timestamp: new Date().toISOString(),
-    agent: "architect",
-    verdict: "pass",
-    summary,
-    metadata: args2.metadata,
-    phase_number: phase,
-    total_tool_calls: args2.total_tool_calls,
-    coder_revisions: args2.coder_revisions,
-    reviewer_rejections: args2.reviewer_rejections,
-    loop_detections: args2.loop_detections,
-    circuit_breaker_trips: args2.circuit_breaker_trips,
-    test_failures: args2.test_failures,
-    security_findings: args2.security_findings,
-    integration_issues: args2.integration_issues,
-    task_count: args2.task_count,
-    task_complexity: args2.task_complexity,
-    top_rejection_reasons: args2.top_rejection_reasons ?? [],
-    lessons_learned: (args2.lessons_learned ?? []).slice(0, 5),
-    user_directives: [],
-    approaches_tried: [],
-    error_taxonomy: []
-  };
-  const taxonomy = [];
-  try {
-    const allTaskIds = await listEvidenceTaskIds(directory);
-    const phaseTaskIds = allTaskIds.filter((id) => id.startsWith(`${phase}.`));
-    for (const phaseTaskId of phaseTaskIds) {
-      const result = await loadEvidence(directory, phaseTaskId);
-      if (result.status !== "found")
-        continue;
-      const bundle = result.bundle;
-      for (const entry of bundle.entries) {
-        const e = entry;
-        if (e.type === "review" && e.verdict === "fail") {
-          const reasonParts = [];
-          if (typeof e.summary === "string")
-            reasonParts.push(e.summary);
-          if (Array.isArray(e.issues)) {
-            for (const iss of e.issues) {
-              if (typeof iss.message === "string")
-                reasonParts.push(iss.message);
-            }
-          }
-          const reason = reasonParts.join(" ");
-          if (/signature|type|contract|interface/i.test(reason)) {
-            taxonomy.push("interface_mismatch");
-          } else {
-            taxonomy.push("logic_error");
-          }
-        } else if (e.type === "test" && e.verdict === "fail") {
-          taxonomy.push("logic_error");
-        } else if (e.agent === "scope_guard" && e.verdict === "fail") {
-          taxonomy.push("scope_creep");
-        } else if (e.agent === "loop_detector" && e.verdict === "fail") {
-          taxonomy.push("gate_evasion");
-        }
-      }
-    }
-  } catch {}
-  retroEntry.error_taxonomy = [...new Set(taxonomy)];
-  const validationResult = RetrospectiveEvidenceSchema.safeParse(retroEntry);
-  if (!validationResult.success) {
-    return JSON.stringify({
-      success: false,
-      error: `Retrospective entry failed validation: ${validationResult.error.message}`
-    }, null, 2);
-  }
-  try {
-    await saveEvidence(directory, taskId, retroEntry);
-    return JSON.stringify({
-      success: true,
-      task_id: taskId,
-      phase,
-      message: `Retrospective evidence written to .swarm/evidence/${taskId}/evidence.json`
-    }, null, 2);
-  } catch (error93) {
-    return JSON.stringify({
-      success: false,
-      phase,
-      message: error93 instanceof Error ? error93.message : String(error93)
-    }, null, 2);
-  }
-}
-var write_retro = createSwarmTool({
-  description: "Write a retrospective evidence bundle for a completed phase. " + "Accepts flat retro fields and writes a correctly-wrapped EvidenceBundle to " + ".swarm/evidence/retro-{phase}/evidence.json. " + "Use this instead of manually writing retro JSON to avoid schema validation failures in phase_complete.",
-  args: {
-    phase: tool.schema.number().int().min(1).max(99).describe("The phase number being completed (e.g., 1, 2, 3)"),
-    summary: tool.schema.string().describe("Human-readable summary of the phase"),
-    task_count: tool.schema.number().int().min(1).max(9999).describe("Count of tasks completed in this phase"),
-    task_complexity: tool.schema.enum(["trivial", "simple", "moderate", "complex"]).describe("Complexity level of the completed tasks"),
-    total_tool_calls: tool.schema.number().int().min(0).max(9999).describe("Total number of tool calls in this phase"),
-    coder_revisions: tool.schema.number().int().min(0).max(999).describe("Number of coder revisions made"),
-    reviewer_rejections: tool.schema.number().int().min(0).max(999).describe("Number of reviewer rejections received"),
-    loop_detections: tool.schema.number().int().min(0).max(9999).optional().describe("Number of loop detection events in this phase"),
-    circuit_breaker_trips: tool.schema.number().int().min(0).max(9999).optional().describe("Number of circuit breaker trips in this phase"),
-    test_failures: tool.schema.number().int().min(0).max(9999).describe("Number of test failures encountered"),
-    security_findings: tool.schema.number().int().min(0).max(999).describe("Number of security findings"),
-    integration_issues: tool.schema.number().int().min(0).max(999).describe("Number of integration issues"),
-    lessons_learned: tool.schema.array(tool.schema.string()).max(5).optional().describe("Key lessons learned from this phase (max 5)"),
-    top_rejection_reasons: tool.schema.array(tool.schema.string()).optional().describe("Top reasons for reviewer rejections"),
-    task_id: tool.schema.string().optional().describe("Optional custom task ID (defaults to retro-{phase})"),
-    metadata: tool.schema.record(tool.schema.string(), tool.schema.unknown()).optional().describe("Optional additional metadata")
-  },
-  execute: async (args2, directory) => {
-    const rawPhase = args2.phase !== undefined ? Number(args2.phase) : 0;
-    try {
-      const writeRetroArgs = {
-        phase: Number(args2.phase),
-        summary: String(args2.summary ?? ""),
-        task_count: Number(args2.task_count),
-        task_complexity: args2.task_complexity,
-        total_tool_calls: Number(args2.total_tool_calls),
-        coder_revisions: Number(args2.coder_revisions),
-        reviewer_rejections: Number(args2.reviewer_rejections),
-        loop_detections: args2.loop_detections != null ? Number(args2.loop_detections) : undefined,
-        circuit_breaker_trips: args2.circuit_breaker_trips != null ? Number(args2.circuit_breaker_trips) : undefined,
-        test_failures: Number(args2.test_failures),
-        security_findings: Number(args2.security_findings),
-        integration_issues: Number(args2.integration_issues),
-        lessons_learned: Array.isArray(args2.lessons_learned) ? args2.lessons_learned.map(String) : undefined,
-        top_rejection_reasons: Array.isArray(args2.top_rejection_reasons) ? args2.top_rejection_reasons.map(String) : undefined,
-        task_id: args2.task_id !== undefined ? String(args2.task_id) : undefined,
-        metadata: args2.metadata
-      };
-      return await executeWriteRetro(writeRetroArgs, directory);
-    } catch {
-      return JSON.stringify({ success: false, phase: rawPhase, message: "Invalid arguments" }, null, 2);
-    }
-  }
-});
-
-// src/commands/close.ts
-async function handleCloseCommand(directory, args2) {
-  const planPath = validateSwarmPath(directory, "plan.json");
-  let planExists = false;
-  let planData = {
-    title: path17.basename(directory) || "Ad-hoc session",
-    phases: []
-  };
-  try {
-    const content = await fs11.readFile(planPath, "utf-8");
-    planData = JSON.parse(content);
-    planExists = true;
-  } catch (error93) {
-    if (error93?.code !== "ENOENT") {
-      return `\u274C Failed to read plan.json: ${error93 instanceof Error ? error93.message : String(error93)}`;
-    }
-    const swarmDirExists = await fs11.access(path17.join(directory, ".swarm")).then(() => true).catch(() => false);
-    if (!swarmDirExists) {
-      return `\u274C No .swarm/ directory found in ${directory}. Run /swarm close from the project root, or run /swarm plan first.`;
-    }
-  }
-  const phases = planData.phases ?? [];
-  const inProgressPhases = phases.filter((p) => p.status === "in_progress");
-  let planAlreadyDone = false;
-  if (planExists) {
-    planAlreadyDone = phases.length > 0 && phases.every((p) => p.status === "complete" || p.status === "completed" || p.status === "blocked" || p.status === "closed");
-  }
-  const config3 = KnowledgeConfigSchema.parse({});
-  const projectName = planData.title ?? "Unknown Project";
-  const closedPhases = [];
-  const closedTasks = [];
-  const warnings = [];
-  if (!planAlreadyDone) {
-    for (const phase of inProgressPhases) {
-      closedPhases.push(phase.id);
-      let retroResult;
-      try {
-        retroResult = await executeWriteRetro({
-          phase: phase.id,
-          summary: "Phase closed via /swarm close",
-          task_count: Math.max(1, (phase.tasks ?? []).length),
-          task_complexity: "simple",
-          total_tool_calls: 0,
-          coder_revisions: 0,
-          reviewer_rejections: 0,
-          test_failures: 0,
-          security_findings: 0,
-          integration_issues: 0
-        }, directory);
-      } catch (retroError) {
-        warnings.push(`Retrospective write threw for phase ${phase.id}: ${retroError instanceof Error ? retroError.message : String(retroError)}`);
-      }
-      if (retroResult !== undefined) {
-        try {
-          const parsed = JSON.parse(retroResult);
-          if (parsed.success !== true) {
-            warnings.push(`Retrospective write failed for phase ${phase.id}`);
-          }
-        } catch {}
-      }
-      for (const task of phase.tasks ?? []) {
-        if (task.status !== "completed" && task.status !== "complete") {
-          closedTasks.push(task.id);
-        }
-      }
-    }
-  }
-  const lessonsFilePath = path17.join(directory, ".swarm", "close-lessons.md");
-  let explicitLessons = [];
-  try {
-    const lessonsText = await fs11.readFile(lessonsFilePath, "utf-8");
-    explicitLessons = lessonsText.split(`
-`).map((line) => line.trim()).filter((line) => line.length > 0 && !line.startsWith("#"));
-  } catch {}
-  let curationSucceeded = false;
-  try {
-    await curateAndStoreSwarm(explicitLessons, projectName, { phase_number: 0 }, directory, config3);
-    curationSucceeded = true;
-  } catch (error93) {
-    console.warn("[close-command] curateAndStoreSwarm error:", error93);
-  }
-  if (curationSucceeded && explicitLessons.length > 0) {
-    await fs11.unlink(lessonsFilePath).catch(() => {});
-  }
-  if (planExists && !planAlreadyDone) {
-    for (const phase of phases) {
-      if (phase.status !== "complete" && phase.status !== "completed") {
-        phase.status = "closed";
-        if (!closedPhases.includes(phase.id)) {
-          closedPhases.push(phase.id);
-        }
-      }
-      for (const task of phase.tasks ?? []) {
-        if (task.status !== "completed" && task.status !== "complete") {
-          task.status = "closed";
-          if (!closedTasks.includes(task.id)) {
-            closedTasks.push(task.id);
-          }
-        }
-      }
-    }
-    try {
-      await fs11.writeFile(planPath, JSON.stringify(planData, null, 2), "utf-8");
-    } catch (error93) {
-      console.warn("[close-command] Failed to write plan.json:", error93);
-    }
-  }
-  try {
-    await archiveEvidence(directory, 30, 10);
-  } catch (error93) {
-    console.warn("[close-command] archiveEvidence error:", error93);
-  }
-  const swarmDir = path17.join(directory, ".swarm");
-  let configBackupsRemoved = 0;
-  try {
-    const swarmFiles = await fs11.readdir(swarmDir);
-    const configBackups = swarmFiles.filter((f) => f.startsWith("config-backup-") && f.endsWith(".json"));
-    for (const backup of configBackups) {
-      try {
-        await fs11.unlink(path17.join(swarmDir, backup));
-        configBackupsRemoved++;
-      } catch {}
-    }
-  } catch {}
-  const contextPath = path17.join(directory, ".swarm", "context.md");
-  const contextContent = [
-    "# Context",
-    "",
-    "## Status",
-    `Session closed after: ${projectName}`,
-    `Closed: ${new Date().toISOString()}`,
-    "No active plan. Next session starts fresh.",
-    ""
-  ].join(`
-`);
-  try {
-    await fs11.writeFile(contextPath, contextContent, "utf-8");
-  } catch (error93) {
-    console.warn("[close-command] Failed to write context.md:", error93);
-  }
-  const pruneBranches = args2.includes("--prune-branches");
-  const prunedBranches = [];
-  const pruneErrors = [];
-  if (pruneBranches) {
-    try {
-      const branchOutput = execFileSync("git", ["branch", "-vv"], {
-        cwd: directory,
-        encoding: "utf-8",
-        stdio: ["pipe", "pipe", "pipe"]
-      });
-      const goneBranches = branchOutput.split(`
-`).filter((line) => line.includes(": gone]")).map((line) => line.trim().replace(/^[*+]\s+/, "").split(/\s+/)[0]).filter(Boolean);
-      for (const branch of goneBranches) {
-        try {
-          execFileSync("git", ["branch", "-d", branch], {
-            cwd: directory,
-            encoding: "utf-8",
-            stdio: ["pipe", "pipe", "pipe"]
-          });
-          prunedBranches.push(branch);
-        } catch {
-          pruneErrors.push(branch);
-        }
-      }
-    } catch {}
-  }
-  const closeSummaryPath = validateSwarmPath(directory, "close-summary.md");
-  const actionsPerformed = [
-    ...!planAlreadyDone && inProgressPhases.length > 0 ? ["- Wrote retrospectives for in-progress phases"] : [],
-    "- Archived evidence bundles",
-    "- Reset context.md for next session",
-    ...configBackupsRemoved > 0 ? [`- Removed ${configBackupsRemoved} stale config backup file(s)`] : [],
-    ...prunedBranches.length > 0 ? [
-      `- Pruned ${prunedBranches.length} stale local git branch(es): ${prunedBranches.join(", ")}`
-    ] : [],
-    "- Cleared agent sessions and delegation chains",
-    ...planExists && !planAlreadyDone ? ["- Set non-completed phases/tasks to closed status"] : []
-  ];
-  const summaryContent = [
-    "# Swarm Close Summary",
-    "",
-    `**Project:** ${projectName}`,
-    `**Closed:** ${new Date().toISOString()}`,
-    "",
-    `## Phases Closed: ${closedPhases.length}`,
-    !planExists ? "_No plan \u2014 ad-hoc session_" : closedPhases.length > 0 ? closedPhases.map((id) => `- Phase ${id}`).join(`
-`) : "_No phases to close_",
-    "",
-    `## Tasks Closed: ${closedTasks.length}`,
-    closedTasks.length > 0 ? closedTasks.map((id) => `- ${id}`).join(`
-`) : "_No incomplete tasks_",
-    "",
-    "## Actions Performed",
-    ...actionsPerformed
-  ].join(`
-`);
-  try {
-    await fs11.writeFile(closeSummaryPath, summaryContent, "utf-8");
-  } catch (error93) {
-    console.warn("[close-command] Failed to write close-summary.md:", error93);
-  }
-  try {
-    await flushPendingSnapshot(directory);
-  } catch (error93) {
-    console.warn("[close-command] flushPendingSnapshot error:", error93);
-  }
-  await writeCheckpoint(directory).catch(() => {});
-  swarmState.agentSessions.clear();
-  swarmState.delegationChains.clear();
-  if (pruneErrors.length > 0) {
-    warnings.push(`Could not prune ${pruneErrors.length} branch(es) (unmerged or checked out): ${pruneErrors.join(", ")}`);
-  }
-  const warningMsg = warnings.length > 0 ? ` Warnings: ${warnings.join("; ")}.` : "";
-  if (planAlreadyDone) {
-    return `\u2705 Session closed. Plan was already in a terminal state \u2014 cleanup steps applied.${warningMsg}`;
-  }
-  return `\u2705 Swarm closed successfully. ${closedPhases.length} phase(s) closed, ${closedTasks.length} incomplete task(s) marked closed.${warningMsg}`;
-}
-
-// src/commands/config.ts
-init_loader();
-import * as os4 from "os";
-import * as path18 from "path";
-function getUserConfigDir2() {
-  return process.env.XDG_CONFIG_HOME || path18.join(os4.homedir(), ".config");
-}
-async function handleConfigCommand(directory, _args) {
-  const config3 = loadPluginConfig(directory);
-  const userConfigPath = path18.join(getUserConfigDir2(), "opencode", "opencode-swarm.json");
-  const projectConfigPath = path18.join(directory, ".opencode", "opencode-swarm.json");
-  const lines = [
-    "## Swarm Configuration",
-    "",
-    "### Config Files",
-    `- User: \`${userConfigPath}\``,
-    `- Project: \`${projectConfigPath}\``,
-    "",
-    "### Resolved Config",
-    "```json",
-    JSON.stringify(config3, null, 2),
-    "```"
-  ];
-  return lines.join(`
-`);
-}
-
-// src/commands/curate.ts
-init_schema();
-
-// src/hooks/curator.ts
-import { randomUUID } from "crypto";
-import * as fs12 from "fs";
-import * as path19 from "path";
-init_event_bus();
-init_manager2();
-init_knowledge_store();
-init_utils2();
-var DEFAULT_CURATOR_LLM_TIMEOUT_MS = 300000;
-function parseKnowledgeRecommendations(llmOutput) {
-  const recommendations = [];
-  const section = llmOutput.match(/KNOWLEDGE_UPDATES:\s*\n([\s\S]*?)(?:\n\n|\n[A-Z_]+:|$)/);
-  if (!section)
-    return recommendations;
-  const lines = section[1].split(`
-`);
-  for (const line of lines) {
-    const trimmed = line.trim();
-    if (!trimmed.startsWith("-"))
-      continue;
-    const match = trimmed.match(/^-\s+(promote|archive|flag_contradiction)\s+(\S+):\s+(.+)$/i);
-    if (match) {
-      const action = match[1].toLowerCase();
-      const UUID_V4 = /^[0-9a-f]{8}-[0-9a-f]{4}-4[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;
-      const entryId = match[2] === "new" || !UUID_V4.test(match[2]) ? undefined : match[2];
-      const reason = match[3].trim();
-      recommendations.push({
-        action,
-        entry_id: entryId,
-        lesson: reason,
-        reason
-      });
-    }
-  }
-  return recommendations;
-}
-async function readCuratorSummary(directory) {
-  const content = await readSwarmFileAsync(directory, "curator-summary.json");
-  if (content === null) {
-    return null;
-  }
-  try {
-    const parsed = JSON.parse(content);
-    if (parsed.schema_version !== 1) {
-      console.warn(`Curator summary has unsupported schema version: ${parsed.schema_version}. Expected 1.`);
-      return null;
-    }
-    return parsed;
-  } catch {
-    if (process.env.DEBUG_SWARM) {
-      console.warn("Failed to parse curator-summary.json: invalid JSON");
-    }
-    return null;
-  }
-}
-async function writeCuratorSummary(directory, summary) {
-  const resolvedPath = validateSwarmPath(directory, "curator-summary.json");
-  fs12.mkdirSync(path19.dirname(resolvedPath), { recursive: true });
-  const tempPath = `${resolvedPath}.tmp.${Date.now()}.${Math.random().toString(36).slice(2)}`;
-  await Bun.write(tempPath, JSON.stringify(summary, null, 2));
-  fs12.renameSync(tempPath, resolvedPath);
-}
-function normalizeAgentName(name2) {
-  return name2.toLowerCase().replace(/^(mega|paid|local|lowtier|modelrelay)_/, "");
-}
-function filterPhaseEvents(eventsJsonl, phase, sinceTimestamp) {
-  const lines = eventsJsonl.split(`
-`);
-  const filtered = [];
-  for (const line of lines) {
-    if (!line.trim())
-      continue;
-    try {
-      const event = JSON.parse(line);
-      if (sinceTimestamp) {
-        if (event.timestamp > sinceTimestamp) {
-          filtered.push(event);
-        }
-      } else {
-        if (event.phase === phase) {
-          filtered.push(event);
-        }
-      }
-    } catch {
-      if (process.env.DEBUG_SWARM) {
-        console.warn("filterPhaseEvents: skipping malformed line");
-      }
-    }
-  }
-  return filtered;
-}
-function checkPhaseCompliance(phaseEvents, agentsDispatched, requiredAgents, phase) {
-  const observations = [];
-  const timestamp = new Date().toISOString();
-  for (const agent of requiredAgents) {
-    const normalizedAgent = normalizeAgentName(agent);
-    const isDispatched = agentsDispatched.some((a) => normalizeAgentName(a) === normalizedAgent);
-    if (!isDispatched) {
-      observations.push({
-        phase,
-        timestamp,
-        type: "workflow_deviation",
-        severity: "warning",
-        description: `Agent '${agent}' required but not dispatched in phase ${phase}`
-      });
-    }
-  }
-  const coderDelegations = [];
-  const reviewerDelegations = [];
-  for (let i2 = 0;i2 < phaseEvents.length; i2++) {
-    const e = phaseEvents[i2];
-    try {
-      if (e.type === "agent.delegation") {
-        const agent = e.agent;
-        if (agent && typeof agent === "string") {
-          const normalized = normalizeAgentName(agent);
-          if (normalized === "coder") {
-            coderDelegations.push({ event: e, index: i2 });
-          } else if (normalized === "reviewer") {
-            reviewerDelegations.push({ event: e, index: i2 });
-          }
-        }
-      }
-    } catch {}
-  }
-  for (const coderEvent of coderDelegations) {
-    const hasSubsequentReviewer = reviewerDelegations.some((r) => r.index > coderEvent.index);
-    if (!hasSubsequentReviewer) {
-      observations.push({
-        phase,
-        timestamp,
-        type: "missing_reviewer",
-        severity: "warning",
-        description: `Coder delegation in phase ${phase} has no subsequent reviewer delegation`
-      });
-    }
-  }
-  let phaseCompleteIndex = -1;
-  let retroIndex = -1;
-  for (let i2 = 0;i2 < phaseEvents.length; i2++) {
-    const e = phaseEvents[i2];
-    try {
-      const eventType = e.type;
-      const evidenceType = e.evidence_type;
-      if (typeof eventType === "string" && (eventType === "phase_complete" || eventType === "phase.complete")) {
-        phaseCompleteIndex = i2;
-      }
-      if (typeof eventType === "string" && eventType === "retrospective.written" || typeof evidenceType === "string" && evidenceType === "retrospective") {
-        retroIndex = i2;
-      }
-    } catch {}
-  }
-  if (phaseCompleteIndex !== -1 && retroIndex === -1) {
-    observations.push({
-      phase,
-      timestamp,
-      type: "missing_retro",
-      severity: "warning",
-      description: `Phase ${phase} completed without retrospective evidence`
-    });
-  }
-  const domainDetectionEvents = [];
-  const smeDelegations = [];
-  for (let i2 = 0;i2 < phaseEvents.length; i2++) {
-    const e = phaseEvents[i2];
-    try {
-      if (e.type === "domains.detected") {
-        domainDetectionEvents.push({ event: e, index: i2 });
-      }
-      if (e.type === "agent.delegation" && e.agent) {
-        const agent = e.agent;
-        if (agent && typeof agent === "string") {
-          const normalized = normalizeAgentName(agent);
-          if (normalized === "sme") {
-            smeDelegations.push({ event: e, index: i2 });
-          }
-        }
-      }
-    } catch {}
-  }
-  for (const domainEvent of domainDetectionEvents) {
-    const hasSubsequentSme = smeDelegations.some((s) => s.index > domainEvent.index);
-    if (!hasSubsequentSme) {
-      observations.push({
-        phase,
-        timestamp,
-        type: "missing_sme",
-        severity: "info",
-        description: `Domains detected in phase ${phase} but no SME consultation found`
-      });
-    }
-  }
-  return observations;
-}
-async function runCuratorInit(directory, config3, llmDelegate) {
-  try {
-    const priorSummary = await readCuratorSummary(directory);
-    const knowledgePath = resolveSwarmKnowledgePath(directory);
-    const allEntries = await readKnowledge(knowledgePath);
-    const highConfidenceEntries = allEntries.filter((e) => typeof e.confidence === "number" && e.confidence >= config3.min_knowledge_confidence);
-    const contextMd = await readSwarmFileAsync(directory, "context.md");
-    const briefingParts = [];
-    if (priorSummary) {
-      briefingParts.push(`## Prior Session Summary (Phase ${priorSummary.last_phase_covered})`);
-      briefingParts.push(priorSummary.digest);
-      if (priorSummary.compliance_observations.length > 0 && !config3.suppress_warnings) {
-        briefingParts.push(`
-## Compliance Observations`);
-        for (const obs of priorSummary.compliance_observations) {
-          briefingParts.push(`- [${obs.severity.toUpperCase()}] Phase ${obs.phase}: ${obs.description}`);
-        }
-      }
-      if (priorSummary.knowledge_recommendations.length > 0) {
-        briefingParts.push(`
-## Knowledge Recommendations`);
-        for (const rec of priorSummary.knowledge_recommendations) {
-          briefingParts.push(`- ${rec.action}: ${rec.lesson} (${rec.reason})`);
-        }
-      }
-    } else {
-      briefingParts.push("## First Session \u2014 No Prior Summary");
-      briefingParts.push("This is the first curator run for this project. No prior phase data available.");
-    }
-    if (highConfidenceEntries.length > 0) {
-      briefingParts.push(`
-## High-Confidence Knowledge`);
-      for (const entry of highConfidenceEntries.slice(0, 10)) {
-        const lesson = typeof entry.lesson === "string" ? entry.lesson : JSON.stringify(entry.lesson);
-        briefingParts.push(`- ${lesson}`);
-      }
-    }
-    if (contextMd) {
-      briefingParts.push(`
-## Context Summary`);
-      const maxContextChars = config3.max_summary_tokens * 2;
-      briefingParts.push(contextMd.slice(0, maxContextChars));
-    }
-    const contradictions = allEntries.filter((e) => Array.isArray(e.tags) && e.tags.some((t) => t.includes("contradiction"))).map((e) => typeof e.lesson === "string" ? e.lesson : JSON.stringify(e.lesson));
-    let briefingText = briefingParts.join(`
-`);
-    if (llmDelegate) {
-      try {
-        const userInput = [
-          "TASK: CURATOR_INIT",
-          `PRIOR_SUMMARY: ${priorSummary ? JSON.stringify(priorSummary) : "none"}`,
-          `KNOWLEDGE_ENTRIES: ${JSON.stringify(highConfidenceEntries.slice(0, 10))}`,
-          `PROJECT_CONTEXT: ${contextMd?.slice(0, config3.max_summary_tokens * 2) ?? "none"}`
-        ].join(`
-`);
-        const systemPrompt = CURATOR_INIT_PROMPT;
-        const timeoutMs = config3.llm_timeout_ms ?? DEFAULT_CURATOR_LLM_TIMEOUT_MS;
-        const ac = new AbortController;
-        const timer = setTimeout(() => ac.abort(), timeoutMs);
-        let llmOutput;
-        try {
-          llmOutput = await Promise.race([
-            llmDelegate(systemPrompt, userInput, ac.signal),
-            new Promise((_, reject) => {
-              ac.signal.addEventListener("abort", () => reject(new Error("CURATOR_LLM_TIMEOUT")));
-            })
-          ]);
-        } finally {
-          clearTimeout(timer);
-        }
-        if (llmOutput?.trim()) {
-          briefingText = `${briefingText}
-
-## LLM-Enhanced Analysis
-${llmOutput.trim()}`;
-        }
-        getGlobalEventBus().publish("curator.init.llm_completed", {
-          enhanced: true
-        });
-      } catch (err2) {
-        console.warn(`[curator] LLM delegation failed during CURATOR_INIT, using data-only mode: ${err2 instanceof Error ? err2.message : String(err2)}`);
-        getGlobalEventBus().publish("curator.init.llm_fallback", {
-          error: String(err2)
-        });
-      }
-    }
-    const result = {
-      briefing: briefingText,
-      contradictions,
-      knowledge_entries_reviewed: allEntries.length,
-      prior_phases_covered: priorSummary ? priorSummary.last_phase_covered : 0
-    };
-    getGlobalEventBus().publish("curator.init.completed", {
-      prior_phases_covered: result.prior_phases_covered,
-      knowledge_entries_reviewed: result.knowledge_entries_reviewed,
-      contradictions_found: contradictions.length
-    });
-    return result;
-  } catch (err2) {
-    getGlobalEventBus().publish("curator.error", {
-      operation: "init",
-      error: String(err2)
-    });
-    return {
-      briefing: `## Curator Init Failed
-Could not load prior session context.`,
-      contradictions: [],
-      knowledge_entries_reviewed: 0,
-      prior_phases_covered: 0
-    };
-  }
-}
-async function runCuratorPhase(directory, phase, agentsDispatched, config3, _knowledgeConfig, llmDelegate) {
-  try {
-    const priorSummary = await readCuratorSummary(directory);
-    if (priorSummary?.phase_digests.some((d) => d.phase === phase)) {
-      const existingDigest = priorSummary.phase_digests.find((d) => d.phase === phase);
-      return {
-        phase,
-        digest: existingDigest,
-        compliance: priorSummary.compliance_observations.filter((c) => c.phase === phase),
-        knowledge_recommendations: [],
-        summary_updated: false
-      };
-    }
-    const eventsJsonlContent = await readSwarmFileAsync(directory, "events.jsonl");
-    const phaseEvents = eventsJsonlContent ? filterPhaseEvents(eventsJsonlContent, phase) : [];
-    const contextMd = await readSwarmFileAsync(directory, "context.md");
-    const requiredAgents = ["reviewer", "test_engineer"];
-    const complianceObservations = checkPhaseCompliance(phaseEvents, agentsDispatched, requiredAgents, phase);
-    const plan = await loadPlanJsonOnly(directory);
-    const phaseData = plan?.phases.find((p) => p.id === phase);
-    const tasksCompleted = phaseData ? phaseData.tasks.filter((t) => t.status === "completed").length : 0;
-    const tasksTotal = phaseData ? phaseData.tasks.length : 0;
-    const keyDecisions = [];
-    if (contextMd) {
-      const decisionSection = contextMd.match(/## Decisions\r?\n([\s\S]*?)(?:\r?\n##|$)/);
-      if (decisionSection) {
-        const lines = decisionSection[1].split(`
-`);
-        for (const line of lines) {
-          const trimmed = line.trim();
-          if (trimmed.startsWith("- ")) {
-            keyDecisions.push(trimmed.slice(2));
-          }
-        }
-      }
-    }
-    const phaseDigest = {
-      phase,
-      timestamp: new Date().toISOString(),
-      summary: `Phase ${phase} completed. ${tasksCompleted}/${tasksTotal} tasks completed. ${complianceObservations.length} compliance observations.`,
-      agents_used: [...new Set(agentsDispatched.map(normalizeAgentName))],
-      tasks_completed: tasksCompleted,
-      tasks_total: tasksTotal,
-      key_decisions: keyDecisions.slice(0, 5),
-      blockers_resolved: []
-    };
-    let knowledgeRecommendations = [];
-    if (llmDelegate) {
-      try {
-        const priorDigest = priorSummary?.digest ?? "none";
-        const systemPrompt = CURATOR_PHASE_PROMPT;
-        const userInput = [
-          `TASK: CURATOR_PHASE ${phase}`,
-          `PRIOR_DIGEST: ${priorDigest}`,
-          `PHASE_EVENTS: ${JSON.stringify(phaseEvents.slice(0, 50))}`,
-          `PHASE_DECISIONS: ${JSON.stringify(keyDecisions)}`,
-          `AGENTS_DISPATCHED: ${JSON.stringify(agentsDispatched)}`,
-          `AGENTS_EXPECTED: ["reviewer", "test_engineer"]`
-        ].join(`
-`);
-        const timeoutMs = config3.llm_timeout_ms ?? DEFAULT_CURATOR_LLM_TIMEOUT_MS;
-        const ac = new AbortController;
-        const timer = setTimeout(() => ac.abort(), timeoutMs);
-        let llmOutput;
-        try {
-          llmOutput = await Promise.race([
-            llmDelegate(systemPrompt, userInput, ac.signal),
-            new Promise((_, reject) => {
-              ac.signal.addEventListener("abort", () => reject(new Error("CURATOR_LLM_TIMEOUT")));
-            })
-          ]);
-        } finally {
-          clearTimeout(timer);
-        }
-        if (llmOutput?.trim()) {
-          knowledgeRecommendations = parseKnowledgeRecommendations(llmOutput);
-        }
-        getGlobalEventBus().publish("curator.phase.llm_completed", {
-          phase,
-          recommendations: knowledgeRecommendations.length
-        });
-      } catch (err2) {
-        console.warn(`[curator] LLM delegation failed during CURATOR_PHASE ${phase}, using data-only mode: ${err2 instanceof Error ? err2.message : String(err2)}`);
-        getGlobalEventBus().publish("curator.phase.llm_fallback", {
-          phase,
-          error: String(err2)
-        });
-      }
-    }
-    const sessionId = `session-${Date.now()}`;
-    const now = new Date().toISOString();
-    let updatedSummary;
-    if (priorSummary) {
-      updatedSummary = {
-        ...priorSummary,
-        last_updated: now,
-        last_phase_covered: Math.max(priorSummary.last_phase_covered, phase),
-        digest: priorSummary.digest + `
-
-### Phase ${phase}
-${phaseDigest.summary}`,
-        phase_digests: [...priorSummary.phase_digests, phaseDigest],
-        compliance_observations: [
-          ...priorSummary.compliance_observations,
-          ...complianceObservations
-        ],
-        knowledge_recommendations: knowledgeRecommendations
-      };
-    } else {
-      updatedSummary = {
-        schema_version: 1,
-        session_id: sessionId,
-        last_updated: now,
-        last_phase_covered: phase,
-        digest: `### Phase ${phase}
-${phaseDigest.summary}`,
-        phase_digests: [phaseDigest],
-        compliance_observations: complianceObservations,
-        knowledge_recommendations: knowledgeRecommendations
-      };
-    }
-    await writeCuratorSummary(directory, updatedSummary);
-    const eventsPath = path19.join(directory, ".swarm", "events.jsonl");
-    for (const obs of complianceObservations) {
-      await appendKnowledge(eventsPath, {
-        type: "curator_compliance",
-        timestamp: obs.timestamp,
-        phase: obs.phase,
-        observation_type: obs.type,
-        severity: obs.severity,
-        description: obs.description
-      });
-    }
-    const result = {
-      phase,
-      digest: phaseDigest,
-      compliance: complianceObservations,
-      knowledge_recommendations: knowledgeRecommendations,
-      summary_updated: true
-    };
-    getGlobalEventBus().publish("curator.phase.completed", {
-      phase,
-      compliance_count: complianceObservations.length,
-      summary_updated: true
-    });
-    return result;
-  } catch (err2) {
-    getGlobalEventBus().publish("curator.error", {
-      operation: "phase",
-      phase,
-      error: String(err2)
-    });
-    return {
-      phase,
-      digest: {
-        phase,
-        timestamp: new Date().toISOString(),
-        summary: `Phase ${phase} curator run failed: ${String(err2)}`,
-        agents_used: [],
-        tasks_completed: 0,
-        tasks_total: 0,
-        key_decisions: [],
-        blockers_resolved: []
-      },
-      compliance: [],
-      knowledge_recommendations: [],
-      summary_updated: false
-    };
-  }
-}
-async function applyCuratorKnowledgeUpdates(directory, recommendations, knowledgeConfig) {
-  let applied = 0;
-  let skipped = 0;
-  if (recommendations.length === 0) {
-    return { applied, skipped };
-  }
-  const knowledgePath = resolveSwarmKnowledgePath(directory);
-  const entries = await readKnowledge(knowledgePath);
-  let modified = false;
-  const appliedIds = new Set;
-  const updatedEntries = entries.map((entry) => {
-    const rec = recommendations.find((r) => r.entry_id === entry.id);
-    if (!rec)
-      return entry;
-    switch (rec.action) {
-      case "promote":
-        appliedIds.add(entry.id);
-        applied++;
-        modified = true;
-        return {
-          ...entry,
-          hive_eligible: true,
-          confidence: Math.min(1, (entry.confidence ?? 0) + 0.1),
-          updated_at: new Date().toISOString()
-        };
-      case "archive":
-        appliedIds.add(entry.id);
-        applied++;
-        modified = true;
-        return {
-          ...entry,
-          status: "archived",
-          updated_at: new Date().toISOString()
-        };
-      case "flag_contradiction":
-        appliedIds.add(entry.id);
-        applied++;
-        modified = true;
-        return {
-          ...entry,
-          tags: [
-            ...entry.tags ?? [],
-            `contradiction:${(rec.reason ?? "").slice(0, 50)}`
-          ],
-          updated_at: new Date().toISOString()
-        };
-      default:
-        return entry;
-    }
-  });
-  for (const rec of recommendations) {
-    if (rec.entry_id !== undefined && !appliedIds.has(rec.entry_id)) {
-      const found = entries.some((e) => e.id === rec.entry_id);
-      if (!found) {
-        console.warn(`[curator] applyCuratorKnowledgeUpdates: entry_id '${rec.entry_id}' not found \u2014 skipping`);
-      }
-      skipped++;
-    }
-  }
-  if (modified) {
-    await rewriteKnowledge(knowledgePath, updatedEntries);
-  }
-  const existingLessons = entries.map((e) => e.lesson);
-  for (const rec of recommendations) {
-    if (rec.entry_id !== undefined)
-      continue;
-    if (rec.action !== "promote") {
-      skipped++;
-      continue;
-    }
-    const lesson = (rec.lesson?.trim() ?? "").slice(0, 280);
-    if (lesson.length < 15) {
-      skipped++;
-      continue;
-    }
-    if (existingLessons.some((el) => el.toLowerCase() === lesson.toLowerCase())) {
-      skipped++;
-      continue;
-    }
-    if (knowledgeConfig.validation_enabled !== false) {
-      const validation = validateLesson(lesson, existingLessons, {
-        category: rec.category ?? "other",
-        scope: "global",
-        confidence: rec.confidence ?? 0.5
-      });
-      if (!validation.valid) {
-        skipped++;
-        continue;
-      }
-    }
-    const now = new Date().toISOString();
-    const newEntry = {
-      id: randomUUID(),
-      tier: "swarm",
-      lesson,
-      category: rec.category ?? "other",
-      tags: [],
-      scope: "global",
-      confidence: rec.confidence ?? 0.5,
-      status: "candidate",
-      confirmed_by: [],
-      retrieval_outcomes: {
-        applied_count: 0,
-        succeeded_after_count: 0,
-        failed_after_count: 0
-      },
-      schema_version: 1,
-      created_at: now,
-      updated_at: now,
-      auto_generated: true,
-      project_name: path19.basename(directory)
-    };
-    await appendKnowledge(knowledgePath, newEntry);
-    applied++;
-    existingLessons.push(lesson);
-  }
-  return { applied, skipped };
-}
-
-// src/hooks/hive-promoter.ts
-init_knowledge_store();
-init_utils2();
-function isAlreadyInHive(entry, hiveEntries, threshold) {
-  return findNearDuplicate(entry.lesson, hiveEntries, threshold) !== undefined;
-}
-function countDistinctPhases(confirmedBy) {
-  const phaseNumbers = new Set;
-  for (const record3 of confirmedBy) {
-    phaseNumbers.add(record3.phase_number);
-  }
-  return phaseNumbers.size;
-}
-function countDistinctProjects(confirmedBy) {
-  const projectNames = new Set;
-  for (const record3 of confirmedBy) {
-    projectNames.add(record3.project_name);
-  }
-  return projectNames.size;
-}
-function hasProjectConfirmation(hiveEntry, projectName) {
-  return hiveEntry.confirmed_by.some((record3) => record3.project_name === projectName);
-}
-function calculateEncounterScore(currentScore, isSameProject, config3) {
-  const weight = isSameProject ? config3.same_project_weight : config3.cross_project_weight;
-  const increment = config3.encounter_increment * weight;
-  const newScore = currentScore + increment;
-  return Math.min(Math.max(newScore, config3.min_encounter_score), config3.max_encounter_score);
-}
-function getEntryAgeMs(createdAt) {
-  const createdTime = new Date(createdAt).getTime();
-  if (Number.isNaN(createdTime))
-    return 0;
-  return Date.now() - createdTime;
-}
-async function checkHivePromotions(swarmEntries, config3) {
-  let newPromotions = 0;
-  let encountersIncremented = 0;
-  let advancements = 0;
-  if (config3.hive_enabled === false) {
-    return {
-      timestamp: new Date().toISOString(),
-      new_promotions: 0,
-      encounters_incremented: 0,
-      advancements: 0,
-      total_hive_entries: 0
-    };
-  }
-  const hiveEntries = await readKnowledge(resolveHiveKnowledgePath());
-  for (const swarmEntry of swarmEntries) {
-    if (isAlreadyInHive(swarmEntry, hiveEntries, config3.dedup_threshold)) {
-      continue;
-    }
-    let shouldPromote = false;
-    if (swarmEntry.hive_eligible === true && countDistinctPhases(swarmEntry.confirmed_by) >= 3) {
-      shouldPromote = true;
-    }
-    if (swarmEntry.tags.includes("hive-fast-track")) {
-      shouldPromote = true;
-    }
-    const ageMs = getEntryAgeMs(swarmEntry.created_at);
-    const ageThresholdMs = config3.auto_promote_days * 86400000;
-    if (ageMs >= ageThresholdMs) {
-      shouldPromote = true;
-    }
-    if (!shouldPromote) {
-      continue;
-    }
-    const validationResult = validateLesson(swarmEntry.lesson, hiveEntries.map((e) => e.lesson), {
-      category: swarmEntry.category,
-      scope: swarmEntry.scope,
-      confidence: swarmEntry.confidence
-    });
-    if (validationResult.severity === "error") {
-      const rejectedLesson = {
-        id: crypto.randomUUID(),
-        lesson: swarmEntry.lesson,
-        rejection_reason: validationResult.reason || "validation failed for hive promotion",
-        rejected_at: new Date().toISOString(),
-        rejection_layer: validationResult.layer || 2
-      };
-      const hiveRejectedPath = resolveHiveRejectedPath();
-      await appendKnowledge(hiveRejectedPath, rejectedLesson);
-      continue;
-    }
-    const newHiveEntry = {
-      id: crypto.randomUUID(),
-      tier: "hive",
-      lesson: swarmEntry.lesson,
-      category: swarmEntry.category,
-      tags: swarmEntry.tags,
-      scope: swarmEntry.scope,
-      confidence: 0.5,
-      status: "candidate",
-      confirmed_by: [],
-      retrieval_outcomes: {
-        applied_count: 0,
-        succeeded_after_count: 0,
-        failed_after_count: 0
-      },
-      schema_version: config3.schema_version,
-      created_at: new Date().toISOString(),
-      updated_at: new Date().toISOString(),
-      source_project: swarmEntry.project_name,
-      encounter_score: config3.initial_encounter_score
-    };
-    await appendKnowledge(resolveHiveKnowledgePath(), newHiveEntry);
-    newPromotions++;
-    hiveEntries.push(newHiveEntry);
-  }
-  let hiveModified = false;
-  for (const hiveEntry of hiveEntries) {
-    const nearDuplicate = findNearDuplicate(hiveEntry.lesson, swarmEntries, config3.dedup_threshold);
-    if (!nearDuplicate) {
-      continue;
-    }
-    const isSameProject = nearDuplicate.project_name === hiveEntry.source_project;
-    if (hasProjectConfirmation(hiveEntry, nearDuplicate.project_name)) {
-      continue;
-    }
-    const newConfirmation = {
-      project_name: nearDuplicate.project_name,
-      confirmed_at: new Date().toISOString()
-    };
-    hiveEntry.confirmed_by.push(newConfirmation);
-    const currentScore = hiveEntry.encounter_score ?? 1;
-    hiveEntry.encounter_score = calculateEncounterScore(currentScore, isSameProject, config3);
-    encountersIncremented++;
-    hiveEntry.updated_at = new Date().toISOString();
-    if (hiveEntry.status === "candidate" && countDistinctProjects(hiveEntry.confirmed_by) >= 3) {
-      hiveEntry.status = "established";
-      advancements++;
-    }
-    hiveModified = true;
-  }
-  if (hiveModified) {
-    await rewriteKnowledge(resolveHiveKnowledgePath(), hiveEntries);
-  }
-  if (newPromotions > 0 || hiveModified) {
-    await enforceKnowledgeCap(resolveHiveKnowledgePath(), config3.hive_max_entries);
-  }
-  return {
-    timestamp: new Date().toISOString(),
-    new_promotions: newPromotions,
-    encounters_incremented: encountersIncremented,
-    advancements,
-    total_hive_entries: hiveEntries.length
-  };
-}
-function createHivePromoterHook(directory, config3) {
-  const hook = async (_input, _output) => {
-    const swarmEntries = await readKnowledge(resolveSwarmKnowledgePath(directory));
-    const promotionSummary = await checkHivePromotions(swarmEntries, config3);
-    const curatorSummary = await readCuratorSummary(directory);
-    if (curatorSummary) {
-      const existingRecommendations = Array.isArray(curatorSummary.knowledge_recommendations) ? curatorSummary.knowledge_recommendations : [];
-      const recommendation = {
-        action: "promote",
-        lesson: `Hive promotion: ${promotionSummary.new_promotions} new, ${promotionSummary.encounters_incremented} encounters, ${promotionSummary.advancements} advancements, ${promotionSummary.total_hive_entries} total entries`,
-        reason: JSON.stringify({
-          timestamp: promotionSummary.timestamp,
-          new_promotions: promotionSummary.new_promotions,
-          encounters_incremented: promotionSummary.encounters_incremented,
-          advancements: promotionSummary.advancements,
-          total_hive_entries: promotionSummary.total_hive_entries
-        })
-      };
-      const updatedSummary = {
-        ...curatorSummary,
-        knowledge_recommendations: [...existingRecommendations, recommendation],
-        last_updated: new Date().toISOString()
-      };
-      await writeCuratorSummary(directory, updatedSummary);
-    }
-  };
-  return safeHook(hook);
-}
-
-// src/commands/curate.ts
-init_knowledge_store();
-async function handleCurateCommand(directory, _args) {
-  try {
-    const config3 = KnowledgeConfigSchema.parse({});
-    const swarmPath = resolveSwarmKnowledgePath(directory);
-    const swarmEntries = await readKnowledge(swarmPath) ?? [];
-    const summary = await checkHivePromotions(swarmEntries, config3);
-    return formatCurationSummary(summary);
-  } catch (error93) {
-    if (error93 instanceof Error) {
-      return `\u274C Curation failed: ${error93.message}`;
-    }
-    return `\u274C Curation failed: ${error93 instanceof Error ? error93.message : String(error93)}`;
-  }
-}
-function formatCurationSummary(summary) {
-  const lines = [
-    `\uD83D\uDCDA Curation complete`,
-    ``,
-    `New promotions: ${summary.new_promotions}`,
-    `Encounters incremented: ${summary.encounters_incremented}`,
-    `Advancements: ${summary.advancements}`,
-    `Total hive entries: ${summary.total_hive_entries}`
-  ];
-  return lines.join(`
-`);
-}
-
-// src/commands/dark-matter.ts
-init_knowledge_store();
-init_co_change_analyzer();
-import path21 from "path";
-async function handleDarkMatterCommand(directory, args2) {
-  const options = {};
-  for (let i2 = 0;i2 < args2.length; i2++) {
-    if (args2[i2] === "--threshold" && args2[i2 + 1]) {
-      const val = parseFloat(args2[i2 + 1]);
-      if (!Number.isNaN(val) && val >= 0 && val <= 1) {
-        options.npmiThreshold = val;
-      }
-      i2++;
-    } else if (args2[i2] === "--min-commits" && args2[i2 + 1]) {
-      const val = parseInt(args2[i2 + 1], 10);
-      if (!Number.isNaN(val) && val > 0) {
-        options.minCommits = val;
-      }
-      i2++;
-    }
-  }
-  const pairs = await detectDarkMatter(directory, options);
-  const output = formatDarkMatterOutput(pairs);
-  if (pairs.length > 0) {
-    try {
-      const projectName = path21.basename(path21.resolve(directory));
-      const entries = darkMatterToKnowledgeEntries(pairs, projectName);
-      if (entries.length > 0) {
-        const knowledgePath = resolveSwarmKnowledgePath(directory);
-        for (const entry of entries) {
-          await appendKnowledge(knowledgePath, entry);
-        }
-        return `${output}
-
-[${entries.length} dark matter finding(s) saved to .swarm/knowledge.jsonl]`;
-      }
-    } catch (err2) {
-      console.warn("dark-matter: failed to save knowledge entries:", err2);
-      return output;
-    }
-  }
-  return output;
-}
-
-// src/services/diagnose-service.ts
-init_loader();
-init_manager();
-init_utils2();
-init_manager2();
-import * as child_process3 from "child_process";
-import { existsSync as existsSync11, readdirSync as readdirSync2, readFileSync as readFileSync7, statSync as statSync5 } from "fs";
-import path22 from "path";
-import { fileURLToPath } from "url";
-function validateTaskDag(plan) {
-  const allTaskIds = new Set;
-  for (const phase of plan.phases) {
-    for (const task of phase.tasks) {
-      allTaskIds.add(task.id);
-    }
-  }
-  const missingDeps = [];
-  for (const phase of plan.phases) {
-    for (const task of phase.tasks) {
-      for (const dep of task.depends) {
-        if (!allTaskIds.has(dep)) {
-          missingDeps.push(`${task.id} depends on missing ${dep}`);
-        }
-      }
-    }
-  }
-  return { valid: missingDeps.length === 0, missingDeps };
-}
-async function checkEvidenceCompleteness(directory, plan) {
-  const completedTaskIds = [];
-  for (const phase of plan.phases) {
-    for (const task of phase.tasks) {
-      if (task.status === "completed") {
-        completedTaskIds.push(task.id);
-      }
-    }
-  }
-  if (completedTaskIds.length > 0) {
-    const evidenceTaskIds = new Set(await listEvidenceTaskIds(directory));
-    const missingEvidence = completedTaskIds.filter((id) => !evidenceTaskIds.has(id));
-    if (missingEvidence.length === 0) {
-      return {
-        name: "Evidence",
-        status: "\u2705",
-        detail: `All ${completedTaskIds.length} completed tasks have evidence`
-      };
-    } else {
-      return {
-        name: "Evidence",
-        status: "\u274C",
-        detail: `${missingEvidence.length} completed task(s) missing evidence: ${missingEvidence.join(", ")}`
-      };
-    }
-  }
-  return {
-    name: "Evidence",
-    status: "\u2705",
-    detail: "No completed tasks yet"
-  };
-}
-async function checkSwarmIdentity(plan) {
-  const activeSwarmId = process.env.OPENCODE_SWARM_ID;
-  if (plan && !activeSwarmId) {
-    return {
-      name: "Swarm Identity",
-      status: "\u274C",
-      detail: "Plan exists but OPENCODE_SWARM_ID not set in environment"
-    };
-  }
-  if (!plan && !activeSwarmId) {
-    return {
-      name: "Swarm Identity",
-      status: "\u2705",
-      detail: "No conflict detected"
-    };
-  }
-  if (!plan) {
-    return {
-      name: "Swarm Identity",
-      status: "\u2705",
-      detail: `No plan, but OPENCODE_SWARM_ID is '${activeSwarmId}'`
-    };
-  }
-  if (plan && plan.swarm !== activeSwarmId) {
-    return {
-      name: "Swarm Identity",
-      status: "\u274C",
-      detail: `Swarm identity mismatch: plan says '${plan.swarm}', active is '${activeSwarmId}'`
-    };
-  }
-  return {
-    name: "Swarm Identity",
-    status: "\u2705",
-    detail: `Swarm identity consistent: '${plan.swarm}'`
-  };
-}
-async function checkPhaseBoundaries(plan) {
-  if (!plan) {
-    return {
-      name: "Phase Boundaries",
-      status: "\u2705",
-      detail: "No plan to validate"
-    };
-  }
-  const mismatches = [];
-  for (const phase of plan.phases) {
-    for (const task of phase.tasks) {
-      const taskPhaseNum = parseInt(task.id.split(".")[0], 10);
-      if (Number.isNaN(taskPhaseNum)) {
-        mismatches.push(`Task ${task.id} has invalid phase number`);
-      } else if (taskPhaseNum !== phase.id) {
-        mismatches.push(`Task ${task.id} found under Phase ${phase.id}`);
-      }
-    }
-  }
-  if (mismatches.length === 0) {
-    return {
-      name: "Phase Boundaries",
-      status: "\u2705",
-      detail: "All tasks correctly aligned to phases"
-    };
-  }
-  return {
-    name: "Phase Boundaries",
-    status: "\u274C",
-    detail: mismatches.join("; ")
-  };
-}
-async function checkOrphanedEvidence(directory, plan) {
-  if (!plan) {
-    return {
-      name: "Orphaned Evidence",
-      status: "\u2705",
-      detail: "No plan to cross-reference"
-    };
-  }
-  const planTaskIds = new Set;
-  for (const phase of plan.phases) {
-    for (const task of phase.tasks) {
-      planTaskIds.add(task.id);
-    }
-  }
-  try {
-    const evidenceTaskIds = await listEvidenceTaskIds(directory);
-    const orphaned = evidenceTaskIds.filter((id) => !planTaskIds.has(id) && !/^retro-/.test(id));
-    if (orphaned.length === 0) {
-      return {
-        name: "Orphaned Evidence",
-        status: "\u2705",
-        detail: "All evidence entries reference valid plan tasks"
-      };
-    }
-    return {
-      name: "Orphaned Evidence",
-      status: "\u274C",
-      detail: `Evidence for [${orphaned.join(", ")}] not in plan`
-    };
-  } catch {
-    return {
-      name: "Orphaned Evidence",
-      status: "\u274C",
-      detail: "Could not read evidence directory"
-    };
-  }
-}
-async function checkPlanSync(directory, plan) {
-  if (!plan) {
-    return {
-      name: "Plan Sync",
-      status: "\u2705",
-      detail: "No plan.json present"
-    };
-  }
-  try {
-    let jsonTaskCount = 0;
-    for (const phase of plan.phases) {
-      jsonTaskCount += phase.tasks.length;
-    }
-    const planMdContent = await readSwarmFileAsync(directory, "plan.md");
-    if (!planMdContent) {
-      return {
-        name: "Plan Sync",
-        status: "\u2705",
-        detail: "plan.md not present"
-      };
-    }
-    const mdTaskCount = (planMdContent.match(/^- \[[ xX~]/gm) || []).length;
-    if (jsonTaskCount === mdTaskCount) {
-      return {
-        name: "Plan Sync",
-        status: "\u2705",
-        detail: `plan.json and plan.md both have ${jsonTaskCount} tasks`
-      };
-    }
-    return {
-      name: "Plan Sync",
-      status: "\u274C",
-      detail: `plan.json: ${jsonTaskCount} tasks, plan.md: ${mdTaskCount} \u2014 run /swarm sync-plan`
-    };
-  } catch {
-    return {
-      name: "Plan Sync",
-      status: "\u274C",
-      detail: "Could not compare plan files"
-    };
-  }
-}
-async function checkConfigBackups(directory) {
-  try {
-    const files = readdirSync2(directory);
-    const backupCount = files.filter((f) => /\.opencode-swarm\.yaml\.bak/.test(f)).length;
-    if (backupCount <= 5) {
-      return {
-        name: "Config Backups",
-        status: "\u2705",
-        detail: `${backupCount} backup file(s) \u2014 within acceptable range`
-      };
-    }
-    if (backupCount <= 19) {
-      return {
-        name: "Config Backups",
-        status: "\u274C",
-        detail: `${backupCount} backup config files found \u2014 consider cleanup`
-      };
-    }
-    return {
-      name: "Config Backups",
-      status: "\u274C",
-      detail: `${backupCount} backup config files found \u2014 cleanup required`
-    };
-  } catch {
-    return {
-      name: "Config Backups",
-      status: "\u2705",
-      detail: "Could not check backup files"
-    };
-  }
-}
-async function checkGitRepository(directory) {
-  try {
-    if (!existsSync11(directory) || !statSync5(directory).isDirectory()) {
-      return {
-        name: "Git Repository",
-        status: "\u274C",
-        detail: "Invalid directory \u2014 cannot check git status"
-      };
-    }
-    child_process3.execSync("git rev-parse --git-dir", {
-      cwd: directory,
-      stdio: "pipe"
-    });
-    return {
-      name: "Git Repository",
-      status: "\u2705",
-      detail: "Git repository detected"
-    };
-  } catch {
-    return {
-      name: "Git Repository",
-      status: "\u274C",
-      detail: "Not a git repository \u2014 version control recommended"
-    };
-  }
-}
-async function checkSpecStaleness(directory, plan) {
-  const specContent = await readSwarmFileAsync(directory, "spec.md");
-  if (!specContent) {
-    return {
-      name: "Spec Staleness",
-      status: "\u2705",
-      detail: "No spec file present"
-    };
-  }
-  if (!plan) {
-    return {
-      name: "Spec Staleness",
-      status: "\u2705",
-      detail: "No plan to compare spec against"
-    };
-  }
-  const titleMatch = specContent.match(/^#\s+(.+)$/m);
-  if (!titleMatch) {
-    return {
-      name: "Spec Staleness",
-      status: "\u2705",
-      detail: "Spec title not detectable"
-    };
-  }
-  const specTitle = titleMatch[1].trim();
-  const planTitle = plan.title.trim();
-  if (specTitle.toLowerCase() === planTitle.toLowerCase()) {
-    return {
-      name: "Spec Staleness",
-      status: "\u2705",
-      detail: "Spec and plan titles are aligned"
-    };
-  }
-  return {
-    name: "Spec Staleness",
-    status: "\u274C",
-    detail: `Spec/plan title mismatch: spec says '${specTitle}', plan says '${planTitle}'`
-  };
-}
-async function checkConfigParseability(directory) {
-  const configPath = path22.join(directory, ".opencode/opencode-swarm.json");
-  if (!existsSync11(configPath)) {
-    return {
-      name: "Config Parseability",
-      status: "\u2705",
-      detail: "No project config file present (using defaults)"
-    };
-  }
-  try {
-    const content = readFileSync7(configPath, "utf-8");
-    JSON.parse(content);
-    return {
-      name: "Config Parseability",
-      status: "\u2705",
-      detail: "Project config is valid JSON"
-    };
-  } catch (err2) {
-    const message = err2 instanceof Error ? err2.message : "Unknown error";
-    return {
-      name: "Config Parseability",
-      status: "\u274C",
-      detail: `Project config at .opencode/opencode-swarm.json is not valid JSON: ${message}`
-    };
-  }
-}
-async function checkGrammarWasmFiles() {
-  const grammarFiles = [
-    "tree-sitter-javascript.wasm",
-    "tree-sitter-typescript.wasm",
-    "tree-sitter-tsx.wasm",
-    "tree-sitter-python.wasm",
-    "tree-sitter-go.wasm",
-    "tree-sitter-rust.wasm",
-    "tree-sitter-cpp.wasm",
-    "tree-sitter-c-sharp.wasm",
-    "tree-sitter-css.wasm",
-    "tree-sitter-bash.wasm",
-    "tree-sitter-ruby.wasm",
-    "tree-sitter-php.wasm",
-    "tree-sitter-java.wasm",
-    "tree-sitter-kotlin.wasm",
-    "tree-sitter-swift.wasm",
-    "tree-sitter-dart.wasm",
-    "tree-sitter-powershell.wasm",
-    "tree-sitter-ini.wasm",
-    "tree-sitter-regex.wasm"
-  ];
-  const thisDir = path22.dirname(fileURLToPath(import.meta.url));
-  const isSource = thisDir.replace(/\\/g, "/").endsWith("/src/services");
-  const grammarDir = isSource ? path22.join(thisDir, "..", "lang", "grammars") : path22.join(thisDir, "lang", "grammars");
-  const missing = [];
-  if (!existsSync11(path22.join(grammarDir, "tree-sitter.wasm"))) {
-    missing.push("tree-sitter.wasm (core runtime)");
-  }
-  for (const file3 of grammarFiles) {
-    if (!existsSync11(path22.join(grammarDir, file3))) {
-      missing.push(file3);
-    }
-  }
-  if (missing.length === 0) {
-    return {
-      name: "Grammar WASM Files",
-      status: "\u2705",
-      detail: `Core runtime + all ${grammarFiles.length} grammar WASM files present`
-    };
-  }
-  return {
-    name: "Grammar WASM Files",
-    status: "\u274C",
-    detail: `${missing.length} WASM file(s) missing: ${missing.join(", ")}`
-  };
-}
-async function checkCheckpointManifest(directory) {
-  const manifestPath = path22.join(directory, ".swarm/checkpoints.json");
-  if (!existsSync11(manifestPath)) {
-    return {
-      name: "Checkpoint Manifest",
-      status: "\u2705",
-      detail: "No checkpoint manifest (no checkpoints saved)"
-    };
-  }
-  try {
-    const content = readFileSync7(manifestPath, "utf-8");
-    const parsed = JSON.parse(content);
-    if (!parsed.checkpoints || !Array.isArray(parsed.checkpoints)) {
-      return {
-        name: "Checkpoint Manifest",
-        status: "\u274C",
-        detail: "checkpoints.json missing 'checkpoints' array"
-      };
-    }
-    let invalidCount = 0;
-    for (const cp of parsed.checkpoints) {
-      if (typeof cp.label !== "string" || typeof cp.sha !== "string" || typeof cp.timestamp !== "string") {
-        invalidCount++;
-      }
-    }
-    if (invalidCount > 0) {
-      return {
-        name: "Checkpoint Manifest",
-        status: "\u274C",
-        detail: `${invalidCount} checkpoint(s) have invalid structure (missing label/sha/timestamp)`
-      };
-    }
-    return {
-      name: "Checkpoint Manifest",
-      status: "\u2705",
-      detail: `Checkpoint manifest valid \u2014 ${parsed.checkpoints.length} checkpoint(s)`
-    };
-  } catch (err2) {
-    if (err2 instanceof SyntaxError) {
-      return {
-        name: "Checkpoint Manifest",
-        status: "\u274C",
-        detail: "checkpoints.json is not valid JSON"
-      };
-    }
-    return {
-      name: "Checkpoint Manifest",
-      status: "\u274C",
-      detail: "Could not read checkpoint manifest"
-    };
-  }
-}
-async function checkEventStreamIntegrity(directory) {
-  const eventsPath = path22.join(directory, ".swarm/events.jsonl");
-  if (!existsSync11(eventsPath)) {
-    return {
-      name: "Event Stream",
-      status: "\u2705",
-      detail: "No events.jsonl present"
-    };
-  }
-  try {
-    const content = readFileSync7(eventsPath, "utf-8");
-    const lines = content.split(`
-`).filter((line) => line.trim() !== "");
-    let malformedCount = 0;
-    for (const line of lines) {
-      try {
-        JSON.parse(line);
-      } catch {
-        malformedCount++;
-      }
-    }
-    if (malformedCount === 0) {
-      return {
-        name: "Event Stream",
-        status: "\u2705",
-        detail: `events.jsonl is valid \u2014 ${lines.length} event(s)`
-      };
-    }
-    return {
-      name: "Event Stream",
-      status: "\u274C",
-      detail: `events.jsonl has ${malformedCount} malformed line(s) \u2014 possible data corruption`
-    };
-  } catch {
-    return {
-      name: "Event Stream",
-      status: "\u274C",
-      detail: "Could not read events.jsonl"
-    };
-  }
-}
-async function checkSteeringDirectives(directory) {
-  const eventsPath = path22.join(directory, ".swarm/events.jsonl");
-  if (!existsSync11(eventsPath)) {
-    return {
-      name: "Steering Directives",
-      status: "\u2705",
-      detail: "No events.jsonl \u2014 no steering directives to check"
-    };
-  }
-  try {
-    const content = readFileSync7(eventsPath, "utf-8");
-    const lines = content.split(`
-`).filter((line) => line.trim() !== "");
-    const directivesIssued = [];
-    const consumedIds = new Set;
-    for (const line of lines) {
-      try {
-        const parsed = JSON.parse(line);
-        if (parsed.type === "steering-directive" && parsed.directiveId) {
-          directivesIssued.push(parsed.directiveId);
-        }
-        if (parsed.type === "steering-consumed" && parsed.directiveId) {
-          consumedIds.add(parsed.directiveId);
-        }
-      } catch {}
-    }
-    const unconsumed = directivesIssued.filter((id) => !consumedIds.has(id));
-    if (unconsumed.length === 0) {
-      return {
-        name: "Steering Directives",
-        status: "\u2705",
-        detail: "All steering directives acknowledged (or none issued)"
-      };
-    }
-    return {
-      name: "Steering Directives",
-      status: "\u274C",
-      detail: `${unconsumed.length} steering directive(s) not yet acknowledged`
-    };
-  } catch {
-    return {
-      name: "Steering Directives",
-      status: "\u274C",
-      detail: "Could not read events.jsonl"
-    };
-  }
-}
-async function checkCurator(directory) {
-  try {
-    const config3 = loadPluginConfig(directory);
-    if (!config3.curator?.enabled) {
-      return {
-        name: "Curator",
-        status: "\u2705",
-        detail: "Disabled (enable via curator.enabled)"
-      };
-    }
-    const summaryPath = path22.join(directory, ".swarm/curator-summary.json");
-    if (!existsSync11(summaryPath)) {
-      return {
-        name: "Curator",
-        status: "\u2705",
-        detail: "Enabled, no summary yet (waiting for first phase)"
-      };
-    }
-    try {
-      const content = readFileSync7(summaryPath, "utf-8");
-      const parsed = JSON.parse(content);
-      if (typeof parsed.schema_version !== "number" || parsed.schema_version !== 1) {
-        return {
-          name: "Curator",
-          status: "\u274C",
-          detail: `curator-summary.json has invalid schema_version (expected 1, got ${JSON.stringify(parsed.schema_version)})`
-        };
-      }
-      const phaseInfo = parsed.last_phase_covered !== undefined ? `phase ${parsed.last_phase_covered}` : "unknown phase";
-      const timeInfo = parsed.last_updated ? `, updated ${parsed.last_updated}` : "";
-      return {
-        name: "Curator",
-        status: "\u2705",
-        detail: `Summary present \u2014 covering ${phaseInfo}${timeInfo}`
-      };
-    } catch (err2) {
-      const message = err2 instanceof Error ? err2.message : "Unknown error";
-      return {
-        name: "Curator",
-        status: "\u274C",
-        detail: `curator-summary.json is corrupt or invalid: ${message}`
-      };
-    }
-  } catch (err2) {
-    const message = err2 instanceof Error ? err2.message : "Unknown error";
-    return {
-      name: "Curator",
-      status: "\u274C",
-      detail: `Could not check curator state: ${message}`
-    };
-  }
-}
-async function getDiagnoseData(directory) {
-  const checks5 = [];
-  const plan = await loadPlanJsonOnly(directory);
-  if (plan) {
-    checks5.push({
-      name: "plan.json",
-      status: "\u2705",
-      detail: "Valid schema (v1.0.0)"
-    });
-    if (plan.migration_status === "migrated") {
-      checks5.push({
-        name: "Migration",
-        status: "\u2705",
-        detail: "Plan was migrated from legacy plan.md"
-      });
-    } else if (plan.migration_status === "migration_failed") {
-      checks5.push({
-        name: "Migration",
-        status: "\u274C",
-        detail: "Migration from plan.md failed \u2014 review manually"
-      });
-    }
-    const dagResult = validateTaskDag(plan);
-    if (dagResult.valid) {
-      checks5.push({
-        name: "Task DAG",
-        status: "\u2705",
-        detail: "All dependencies resolved"
-      });
-    } else {
-      checks5.push({
-        name: "Task DAG",
-        status: "\u274C",
-        detail: `Missing dependencies: ${dagResult.missingDeps.join(", ")}`
-      });
-    }
-    const evidenceCheck = await checkEvidenceCompleteness(directory, plan);
-    checks5.push(evidenceCheck);
-  } else {
-    const planContent = await readSwarmFileAsync(directory, "plan.md");
-    if (planContent) {
-      const hasPhases = /^## Phase \d+/m.test(planContent);
-      const hasTasks = /^- \[[ x]\]/m.test(planContent);
-      if (hasPhases && hasTasks) {
-        checks5.push({
-          name: "plan.md",
-          status: "\u2705",
-          detail: "Found with valid phase structure"
-        });
-      } else {
-        checks5.push({
-          name: "plan.md",
-          status: "\u274C",
-          detail: "Found but missing phase/task structure"
-        });
-      }
-    } else {
-      checks5.push({
-        name: "plan.md",
-        status: "\u274C",
-        detail: "Not found"
-      });
-    }
-  }
-  const contextContent = await readSwarmFileAsync(directory, "context.md");
-  if (contextContent) {
-    checks5.push({ name: "context.md", status: "\u2705", detail: "Found" });
-  } else {
-    checks5.push({ name: "context.md", status: "\u274C", detail: "Not found" });
-  }
-  try {
-    const config3 = loadPluginConfig(directory);
-    if (config3) {
-      checks5.push({
-        name: "Plugin config",
-        status: "\u2705",
-        detail: "Valid configuration loaded"
-      });
-    } else {
-      checks5.push({
-        name: "Plugin config",
-        status: "\u2705",
-        detail: "Using defaults (no custom config)"
-      });
-    }
-  } catch {
-    checks5.push({
-      name: "Plugin config",
-      status: "\u274C",
-      detail: "Invalid configuration"
-    });
-  }
-  checks5.push(await checkSwarmIdentity(plan));
-  checks5.push(await checkPhaseBoundaries(plan));
-  checks5.push(await checkOrphanedEvidence(directory, plan));
-  checks5.push(await checkPlanSync(directory, plan));
-  checks5.push(await checkConfigBackups(directory));
-  checks5.push(await checkGitRepository(directory));
-  checks5.push(await checkSpecStaleness(directory, plan));
-  checks5.push(await checkConfigParseability(directory));
-  checks5.push(await checkGrammarWasmFiles());
-  checks5.push(await checkCheckpointManifest(directory));
-  checks5.push(await checkEventStreamIntegrity(directory));
-  checks5.push(await checkSteeringDirectives(directory));
-  checks5.push(await checkCurator(directory));
-  const passCount = checks5.filter((c) => c.status === "\u2705").length;
-  const totalCount = checks5.length;
-  const allPassed = passCount === totalCount;
-  return {
-    checks: checks5,
-    passCount,
-    totalCount,
-    allPassed
-  };
-}
-function formatDiagnoseMarkdown(diagnose) {
-  const lines = [
-    "## Swarm Health Check",
-    "",
-    ...diagnose.checks.map((c) => `- ${c.status} **${c.name}**: ${c.detail}`),
-    "",
-    `**Result**: ${diagnose.allPassed ? "\u2705 All checks passed" : `\u26A0\uFE0F ${diagnose.passCount}/${diagnose.totalCount} checks passed`}`
-  ];
-  return lines.join(`
-`);
-}
-async function handleDiagnoseCommand(directory, _args) {
-  const diagnoseData = await getDiagnoseData(directory);
-  return formatDiagnoseMarkdown(diagnoseData);
-}
-// src/commands/doctor.ts
-init_loader();
-init_config_doctor();
-
-// src/services/tool-doctor.ts
-init_discovery();
-init_constants();
-init_tool_names();
-import * as fs15 from "fs";
-import * as path25 from "path";
-var BINARY_CHECKLIST = [
-  { binary: "ruff", language: "Python" },
-  { binary: "cargo", language: "Rust (via clippy)" },
-  { binary: "golangci-lint", language: "Go" },
-  { binary: "mvn", language: "Java (Maven)" },
-  { binary: "gradle", language: "Java (Gradle)" },
-  { binary: "dotnet", language: ".NET" },
-  { binary: "swift", language: "Swift" },
-  { binary: "swiftlint", language: "Swift (linting)" },
-  { binary: "dart", language: "Dart" },
-  { binary: "flutter", language: "Flutter/Dart" },
-  { binary: "biome", language: "JS/TS (already in project)" },
-  { binary: "eslint", language: "JS/TS" }
-];
-function extractRegisteredToolKeys(indexPath) {
-  const registeredKeys = new Set;
-  try {
-    const content = fs15.readFileSync(indexPath, "utf-8");
-    const toolBlockMatch = content.match(/tool:\s*\{([^}]+(?:\{[^}]*\}[^}]*)*)\}/s);
-    if (!toolBlockMatch) {
-      return registeredKeys;
-    }
-    const toolBlock = toolBlockMatch[1];
-    const keyPattern = /^\s*(\w+)(?:\s*:|,)/gm;
-    for (const match of toolBlock.matchAll(keyPattern)) {
-      registeredKeys.add(match[1]);
-    }
-  } catch (_error) {}
-  return registeredKeys;
-}
-function checkAgentToolMapAlignment(registeredKeys) {
-  const findings = [];
-  for (const [agentName, tools] of Object.entries(AGENT_TOOL_MAP)) {
-    for (const toolName of tools) {
-      if (!registeredKeys.has(toolName)) {
-        findings.push({
-          id: `agent-tool-map-mismatch-${agentName}-${toolName}`,
-          title: "AGENT_TOOL_MAP alignment gap",
-          description: `Tool "${toolName}" is assigned to agent "${agentName}" in AGENT_TOOL_MAP but is not registered in the plugin's tool: {} block. The agent will not be able to use this tool.`,
-          severity: "warn",
-          path: `AGENT_TOOL_MAP.${agentName}`,
-          currentValue: toolName,
-          autoFixable: false
-        });
-      }
-    }
-  }
-  return findings;
-}
-function checkBinaryReadiness() {
-  const findings = [];
-  for (const { binary: binary2, language } of BINARY_CHECKLIST) {
-    if (!isCommandAvailable(binary2)) {
-      findings.push({
-        id: `missing-binary-${binary2}`,
-        title: "Class 3 tool binary not found",
-        description: `Binary "${binary2}" is not available on PATH. ${language} linting will not be available. Install ${binary2} to enable ${language} language support.`,
-        severity: "warn",
-        path: `toolchain.${binary2}`,
-        currentValue: undefined,
-        autoFixable: false
-      });
-    }
-  }
-  return findings;
-}
-function runToolDoctor(_directory, pluginRoot) {
-  const findings = [];
-  const resolvedPluginRoot = pluginRoot ?? path25.resolve(import.meta.dir, "..", "..");
-  const indexPath = path25.join(resolvedPluginRoot, "src", "index.ts");
-  if (!fs15.existsSync(indexPath)) {
-    return {
-      findings: [
-        {
-          id: "plugin-src-unavailable",
-          title: "Plugin source not available",
-          description: `Tool registration check requires plugin source files. Expected: ${indexPath}. This check is available in development environments; in production npm installs, only compiled dist/ is present.`,
-          severity: "warn",
-          path: indexPath,
-          currentValue: undefined,
-          autoFixable: false
-        }
-      ],
-      summary: { info: 0, warn: 1, error: 0 },
-      hasAutoFixableIssues: false,
-      timestamp: Date.now(),
-      configSource: indexPath
-    };
-  }
-  const registeredKeys = extractRegisteredToolKeys(indexPath);
-  for (const toolName of TOOL_NAMES) {
-    if (!registeredKeys.has(toolName)) {
-      findings.push({
-        id: `missing-tool-registration-${toolName}`,
-        title: "Missing tool registration",
-        description: `Tool "${toolName}" is defined in TOOL_NAMES but is not registered in the plugin's tool: {} block. This means the tool will not be available at runtime.`,
-        severity: "error",
-        path: `tool.${toolName}`,
-        currentValue: undefined,
-        autoFixable: false
-      });
-    }
-  }
-  findings.push(...checkAgentToolMapAlignment(registeredKeys));
-  findings.push(...checkBinaryReadiness());
-  const summary = {
-    info: findings.filter((f) => f.severity === "info").length,
-    warn: findings.filter((f) => f.severity === "warn").length,
-    error: findings.filter((f) => f.severity === "error").length
-  };
-  const hasAutoFixableIssues = false;
-  return {
-    findings,
-    summary,
-    hasAutoFixableIssues,
-    timestamp: Date.now(),
-    configSource: indexPath
-  };
-}
-
-// src/commands/doctor.ts
-function formatToolDoctorMarkdown(result) {
-  const lines = [
-    "## Tool Doctor Report",
-    "",
-    `**Tool Registry**: ${result.configSource}`,
-    "",
-    "### Summary",
-    `- **Info**: ${result.summary.info}`,
-    `- **Warnings**: ${result.summary.warn}`,
-    `- **Errors**: ${result.summary.error}`,
-    ""
-  ];
-  if (result.findings.length === 0) {
-    lines.push("No issues found. All tools are properly registered!");
-  } else {
-    lines.push("### Findings", "");
-    const errors5 = result.findings.filter((f) => f.severity === "error");
-    const warnings = result.findings.filter((f) => f.severity === "warn");
-    const infos = result.findings.filter((f) => f.severity === "info");
-    for (const finding of [...errors5, ...warnings, ...infos]) {
-      const icon = finding.severity === "error" ? "\u274C" : finding.severity === "warn" ? "\u26A0\uFE0F" : "\u2139\uFE0F";
-      lines.push(`${icon} **${finding.severity.toUpperCase()}**: ${finding.description}`);
-      if (finding.autoFixable) {
-        lines.push(`   - \uD83D\uDD27 Auto-fixable`);
-      }
-      lines.push("");
-    }
-  }
-  return lines.join(`
-`);
-}
-function formatDoctorMarkdown(result) {
-  const lines = [
-    "## Config Doctor Report",
-    "",
-    `**Config Source**: ${result.configSource}`,
-    "",
-    "### Summary",
-    `- **Info**: ${result.summary.info}`,
-    `- **Warnings**: ${result.summary.warn}`,
-    `- **Errors**: ${result.summary.error}`,
-    ""
-  ];
-  if (result.findings.length === 0) {
-    lines.push("No issues found. Your configuration looks good!");
-  } else {
-    lines.push("### Findings", "");
-    const errors5 = result.findings.filter((f) => f.severity === "error");
-    const warnings = result.findings.filter((f) => f.severity === "warn");
-    const infos = result.findings.filter((f) => f.severity === "info");
-    for (const finding of [...errors5, ...warnings, ...infos]) {
-      const icon = finding.severity === "error" ? "\u274C" : finding.severity === "warn" ? "\u26A0\uFE0F" : "\u2139\uFE0F";
-      lines.push(`${icon} **${finding.severity.toUpperCase()}**: ${finding.description}`);
-      if (finding.autoFixable) {
-        lines.push(`   - \uD83D\uDD27 Auto-fixable`);
-      }
-      lines.push("");
-    }
-  }
-  if (result.hasAutoFixableIssues) {
-    lines.push("---");
-    lines.push("");
-    lines.push("Tip: Some issues can be auto-fixed. Run `/swarm config doctor --fix` to apply fixes.");
-  }
-  return lines.join(`
-`);
-}
-async function handleDoctorCommand(directory, args2) {
-  const enableAutoFix = args2.includes("--fix") || args2.includes("-f");
-  const config3 = loadPluginConfig(directory);
-  const result = runConfigDoctor(config3, directory);
-  if (enableAutoFix && result.hasAutoFixableIssues) {
-    const { runConfigDoctorWithFixes: runConfigDoctorWithFixes2 } = await Promise.resolve().then(() => (init_config_doctor(), exports_config_doctor));
-    const fixResult = await runConfigDoctorWithFixes2(directory, config3, true);
-    return formatDoctorMarkdown(fixResult.result);
-  }
-  return formatDoctorMarkdown(result);
-}
-async function handleDoctorToolsCommand(directory, _args) {
-  const result = runToolDoctor(directory);
-  return formatToolDoctorMarkdown(result);
-}
-
-// src/services/evidence-service.ts
-init_manager();
-function getVerdictIcon(verdict) {
-  switch (verdict) {
-    case "pass":
-    case "approved":
-      return "\u2705";
-    case "fail":
-    case "rejected":
-      return "\u274C";
-    case "info":
-      return "\u2139\uFE0F";
-    default:
-      return "";
-  }
-}
-function formatEvidenceEntry(index, entry) {
-  const details = {};
-  if (entry.type === "review") {
-    const reviewEntry = entry;
-    details.risk = reviewEntry.risk;
-    details.issues = reviewEntry.issues?.length;
-  } else if (entry.type === "test") {
-    const testEntry = entry;
-    details.tests_passed = testEntry.tests_passed;
-    details.tests_failed = testEntry.tests_failed;
-  }
-  return {
-    index,
-    entry,
-    type: entry.type,
-    verdict: entry.verdict,
-    verdictIcon: getVerdictEmoji(entry.verdict),
-    agent: entry.agent,
-    summary: entry.summary,
-    timestamp: entry.timestamp,
-    details
-  };
-}
-function getVerdictEmoji(verdict) {
-  return getVerdictIcon(verdict);
-}
-async function getTaskEvidenceData(directory, taskId) {
-  const result = await loadEvidence(directory, taskId);
-  if (result.status !== "found") {
-    return {
-      hasEvidence: false,
-      taskId,
-      createdAt: "",
-      updatedAt: "",
-      entries: []
-    };
-  }
-  const entries = [];
-  for (let i2 = 0;i2 < result.bundle.entries.length; i2++) {
-    entries.push(formatEvidenceEntry(i2 + 1, result.bundle.entries[i2]));
-  }
-  return {
-    hasEvidence: true,
-    taskId,
-    createdAt: result.bundle.created_at,
-    updatedAt: result.bundle.updated_at,
-    entries
-  };
-}
-async function getEvidenceListData(directory) {
-  const taskIds = await listEvidenceTaskIds(directory);
-  if (taskIds.length === 0) {
-    return { hasEvidence: false, tasks: [] };
-  }
-  const tasks = [];
-  for (const taskId of taskIds) {
-    const result = await loadEvidence(directory, taskId);
-    if (result.status === "found") {
-      tasks.push({
-        taskId,
-        entryCount: result.bundle.entries.length,
-        lastUpdated: result.bundle.updated_at
-      });
-    } else {
-      tasks.push({
-        taskId,
-        entryCount: 0,
-        lastUpdated: "unknown"
-      });
-    }
-  }
-  return { hasEvidence: true, tasks };
-}
-function formatEvidenceListMarkdown(list) {
-  if (!list.hasEvidence || list.tasks.length === 0) {
-    return "No evidence bundles found.";
-  }
-  const tableLines = [
-    "## Evidence Bundles",
-    "",
-    "| Task | Entries | Last Updated |",
-    "|------|---------|-------------|"
-  ];
-  for (const task of list.tasks) {
-    tableLines.push(`| ${task.taskId} | ${task.entryCount} | ${task.lastUpdated} |`);
-  }
-  return tableLines.join(`
-`);
-}
-function formatTaskEvidenceMarkdown(evidence) {
-  if (!evidence.hasEvidence) {
-    return `No evidence found for task ${evidence.taskId}.`;
-  }
-  const lines = [
-    `## Evidence for Task ${evidence.taskId}`,
-    "",
-    `**Created**: ${evidence.createdAt}`,
-    `**Updated**: ${evidence.updatedAt}`,
-    `**Entries**: ${evidence.entries.length}`
-  ];
-  if (evidence.entries.length > 0) {
-    lines.push("");
-  }
-  for (const entry of evidence.entries) {
-    lines.push(...formatEntryMarkdown(entry));
-  }
-  return lines.join(`
-`);
-}
-function formatEntryMarkdown(entryData) {
-  const lines = [];
-  lines.push(`### Entry ${entryData.index}: ${entryData.type} (${entryData.verdict}) ${entryData.verdictIcon}`);
-  lines.push(`- **Agent**: ${entryData.agent}`);
-  lines.push(`- **Summary**: ${entryData.summary}`);
-  lines.push(`- **Time**: ${entryData.timestamp}`);
-  if (entryData.type === "review") {
-    lines.push(`- **Risk Level**: ${entryData.details.risk}`);
-    if (entryData.details.issues && Number(entryData.details.issues) > 0) {
-      lines.push(`- **Issues**: ${entryData.details.issues}`);
-    }
-  } else if (entryData.type === "test") {
-    lines.push(`- **Tests**: ${entryData.details.tests_passed} passed, ${entryData.details.tests_failed} failed`);
-  }
-  lines.push("");
-  return lines;
-}
-async function handleEvidenceCommand(directory, args2) {
-  if (args2.length === 0) {
-    const listData = await getEvidenceListData(directory);
-    return formatEvidenceListMarkdown(listData);
-  }
-  const taskId = args2[0];
-  const evidenceData = await getTaskEvidenceData(directory, taskId);
-  return formatTaskEvidenceMarkdown(evidenceData);
-}
-async function handleEvidenceSummaryCommand(directory) {
-  const { buildEvidenceSummary: buildEvidenceSummary2 } = await Promise.resolve().then(() => (init_evidence_summary_service(), exports_evidence_summary_service));
-  const artifact = await buildEvidenceSummary2(directory);
-  if (!artifact) {
-    return "No plan found. Run `/swarm plan` to check plan status.";
-  }
-  const lines = [
-    "## Evidence Summary",
-    "",
-    `**Generated**: ${artifact.generated_at}`,
-    `**Overall Completion**: ${Math.round(artifact.overallCompletionRatio * 100)}%`,
-    ""
-  ];
-  for (const phase of artifact.phaseSummaries) {
-    lines.push(`### Phase ${phase.phaseId}: ${phase.phaseName}`);
-    lines.push(`- Completion: ${Math.round(phase.completionRatio * 100)}%`);
-    if (phase.blockers.length > 0) {
-      lines.push(`- Blockers: ${phase.blockers.map((b) => `[${b.severity}] ${b.reason}`).join("; ")}`);
-    }
-    lines.push("");
-  }
-  if (artifact.overallBlockers.length > 0) {
-    lines.push("### Blockers");
-    for (const blocker of artifact.overallBlockers) {
-      lines.push(`- [${blocker.severity}] ${blocker.reason} (Task ${blocker.taskId})`);
-    }
-    lines.push("");
-  } else {
-    lines.push("### Blockers");
-    lines.push("None \u2014 all completed tasks have required evidence.");
-    lines.push("");
-  }
-  return lines.join(`
-`);
-}
-// src/services/export-service.ts
-init_utils2();
-init_manager2();
-async function getExportData(directory) {
-  const planStructured = await loadPlanJsonOnly(directory);
-  const planContent = await readSwarmFileAsync(directory, "plan.md");
-  const contextContent = await readSwarmFileAsync(directory, "context.md");
-  return {
-    version: "4.5.0",
-    exported: new Date().toISOString(),
-    plan: planStructured || planContent,
-    context: contextContent
-  };
-}
-function formatExportMarkdown(exportData) {
-  const lines = [
-    "## Swarm Export",
-    "",
-    "```json",
-    JSON.stringify(exportData, null, 2),
-    "```"
-  ];
-  return lines.join(`
-`);
-}
-async function handleExportCommand(directory, _args) {
-  const exportData = await getExportData(directory);
-  return formatExportMarkdown(exportData);
-}
-// src/commands/handoff.ts
-init_utils2();
-import crypto4 from "crypto";
-import { renameSync as renameSync7 } from "fs";
-
-// src/services/handoff-service.ts
-init_utils2();
-init_manager2();
-init_utils();
-var RTL_OVERRIDE_PATTERN = /[\u202e\u202d\u202c\u200f]/g;
-var MAX_TASK_ID_LENGTH = 100;
-var MAX_DECISION_LENGTH = 500;
-var MAX_INCOMPLETE_TASKS = 20;
-function escapeHtml(str) {
-  return str.replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;").replace(/"/g, "&quot;").replace(/'/g, "&#39;");
-}
-function sanitizeString(str, maxLength) {
-  if (!str)
-    return "";
-  const sanitized = String(str).replace(RTL_OVERRIDE_PATTERN, "");
-  if (sanitized.length > maxLength) {
-    return `${sanitized.substring(0, maxLength - 3)}...`;
-  }
-  return sanitized;
-}
-function validatePlanPhases(plan) {
-  if (!plan || typeof plan !== "object")
-    return false;
-  const p = plan;
-  if (!Array.isArray(p.phases))
-    return false;
-  for (const phase of p.phases) {
-    if (!phase || typeof phase !== "object")
-      return false;
-    const phaseObj = phase;
-    if (!Array.isArray(phaseObj.tasks))
-      return false;
-  }
-  return true;
-}
-function extractCurrentPhaseFromPlan(plan) {
-  if (!plan) {
-    return { currentPhase: null, currentTask: null, incompleteTasks: [] };
-  }
-  if (!validatePlanPhases(plan)) {
-    return { currentPhase: null, currentTask: null, incompleteTasks: [] };
-  }
-  let currentPhase = null;
-  const currentPhaseNum = plan.current_phase;
-  if (currentPhaseNum) {
-    const phase = plan.phases.find((p) => p.id === currentPhaseNum);
-    currentPhase = phase ? `Phase ${phase.id}: ${phase.name}` : null;
-  } else {
-    const inProgressPhase = plan.phases.find((p) => p.status === "in_progress");
-    if (inProgressPhase) {
-      currentPhase = `Phase ${inProgressPhase.id}: ${inProgressPhase.name}`;
-    } else if (plan.phases.length > 0) {
-      currentPhase = `Phase ${plan.phases[0].id}: ${plan.phases[0].name}`;
-    }
-  }
-  let currentTask = null;
-  const incompleteTasks = [];
-  for (const phase of plan.phases) {
-    for (const task of phase.tasks) {
-      if (task.status === "in_progress") {
-        currentTask = sanitizeString(task.id, MAX_TASK_ID_LENGTH);
-      }
-      if (task.status !== "completed") {
-        if (incompleteTasks.length < MAX_INCOMPLETE_TASKS) {
-          incompleteTasks.push(sanitizeString(task.id, MAX_TASK_ID_LENGTH));
-        }
-      }
-    }
-  }
-  if (!currentTask && incompleteTasks.length > 0) {
-    currentTask = incompleteTasks[0];
-  }
-  return { currentPhase, currentTask, incompleteTasks };
-}
-function parseSessionState(content) {
-  if (!content)
-    return null;
-  try {
-    const state = JSON.parse(content);
-    let activeAgent = null;
-    if (state.activeAgent && typeof state.activeAgent === "object") {
-      const entries = Object.entries(state.activeAgent);
-      if (entries.length > 0) {
-        activeAgent = sanitizeString(entries[entries.length - 1][1], MAX_TASK_ID_LENGTH);
-      }
-    }
-    let delegationState = null;
-    if (state.delegationChains && typeof state.delegationChains === "object") {
-      const chains = Object.entries(state.delegationChains);
-      const activeChains = [];
-      let maxDepth = 0;
-      for (const [, chain] of chains) {
-        if (Array.isArray(chain) && chain.length > 0) {
-          const sanitizedChain = chain.map((e) => `${sanitizeString(e.from, MAX_TASK_ID_LENGTH)}->${sanitizeString(e.to, MAX_TASK_ID_LENGTH)}`).join(" | ");
-          activeChains.push(sanitizedChain);
-          maxDepth = Math.max(maxDepth, chain.length);
-        }
-      }
-      if (activeChains.length > 0) {
-        delegationState = {
-          activeChains,
-          delegationDepth: maxDepth,
-          pendingHandoffs: []
-        };
-      }
-    }
-    let pendingQA = null;
-    if (state.agentSessions && typeof state.agentSessions === "object") {
-      for (const [, session] of Object.entries(state.agentSessions)) {
-        const sess = session;
-        if (sess.lastGateFailure && sess.currentTaskId) {
-          pendingQA = {
-            taskId: sanitizeString(sess.lastGateFailure.taskId, MAX_TASK_ID_LENGTH),
-            lastFailure: sanitizeString(sess.lastGateFailure.tool, MAX_TASK_ID_LENGTH)
-          };
-          break;
-        }
-      }
-    }
-    return { activeAgent, delegationState, pendingQA };
-  } catch (error93) {
-    log("[HandoffService] state extraction failed", {
-      error: error93 instanceof Error ? error93.message : String(error93)
-    });
-    return null;
-  }
-}
-function extractDecisions(content) {
-  if (!content)
-    return [];
-  const decisions = [];
-  const lines = content.split(`
-`);
-  let inDecisionsSection = false;
-  for (const line of lines) {
-    if (line.trim() === "## Decisions") {
-      inDecisionsSection = true;
-      continue;
-    }
-    if (inDecisionsSection && line.startsWith("## ") && line.trim() !== "## Decisions") {
-      break;
-    }
-    if (inDecisionsSection && line.trim().startsWith("- ")) {
-      const text = line.trim().substring(2);
-      const cleaned = text.replace(/\s*\[.*?\]\s*/g, "").replace(/\u2705/g, "").replace(/\[confirmed\]/g, "").trim();
-      if (cleaned) {
-        const sanitized = sanitizeString(cleaned, MAX_DECISION_LENGTH);
-        if (sanitized) {
-          decisions.push(sanitized);
-        }
-      }
-    }
-  }
-  return decisions.slice(-5);
-}
-function extractPhaseMetrics(content) {
-  if (!content)
-    return "";
-  const lines = content.split(`
-`);
-  let inPhaseMetrics = false;
-  const metricsLines = [];
-  for (const line of lines) {
-    if (line.trim() === "## Phase Metrics") {
-      inPhaseMetrics = true;
-      continue;
-    }
-    if (inPhaseMetrics && line.startsWith("## ")) {
-      break;
-    }
-    if (inPhaseMetrics) {
-      metricsLines.push(line);
-    }
-  }
-  const lastFive = metricsLines.slice(-5);
-  return lastFive.join(`
-`).trim();
-}
-async function getHandoffData(directory) {
-  const now = new Date().toISOString();
-  const sessionContent = await readSwarmFileAsync(directory, "session/state.json");
-  const sessionState = parseSessionState(sessionContent);
-  const plan = await loadPlanJsonOnly(directory);
-  const planInfo = extractCurrentPhaseFromPlan(plan);
-  if (!plan) {
-    const planMdContent = await readSwarmFileAsync(directory, "plan.md");
-    if (planMdContent) {
-      const phaseMatch = planMdContent.match(/^## Phase (\d+):?\s*(.+)?$/m);
-      const taskMatch = planMdContent.match(/^- \[ \] (\d+\.\d+)/g);
-      if (phaseMatch) {
-        planInfo.currentPhase = sanitizeString(`Phase ${phaseMatch[1]}${phaseMatch[2] ? `: ${phaseMatch[2]}` : ""}`, MAX_TASK_ID_LENGTH);
-      }
-      if (taskMatch) {
-        const rawTasks = taskMatch.map((t) => t.replace("- [ ] ", ""));
-        planInfo.incompleteTasks = rawTasks.map((t) => sanitizeString(t, MAX_TASK_ID_LENGTH)).slice(0, MAX_INCOMPLETE_TASKS);
-        if (!planInfo.currentTask && planInfo.incompleteTasks.length > 0) {
-          planInfo.currentTask = planInfo.incompleteTasks[0];
-        }
-      }
-    }
-  }
-  const contextContent = await readSwarmFileAsync(directory, "context.md");
-  const recentDecisions = extractDecisions(contextContent);
-  const rawPhaseMetrics = extractPhaseMetrics(contextContent);
-  const phaseMetrics = sanitizeString(rawPhaseMetrics, 1000);
-  let delegationState = null;
-  if (sessionState?.delegationState) {
-    delegationState = {
-      ...sessionState.delegationState,
-      pendingHandoffs: phaseMetrics ? [phaseMetrics] : []
-    };
-  }
-  let pendingQA = null;
-  if (sessionState?.pendingQA) {
-    pendingQA = {
-      taskId: escapeHtml(sessionState.pendingQA.taskId),
-      lastFailure: sessionState.pendingQA.lastFailure ? escapeHtml(sessionState.pendingQA.lastFailure) : null
-    };
-  }
-  const escapedDecisions = recentDecisions.map((d) => escapeHtml(d));
-  let escapedDelegationState = null;
-  if (delegationState) {
-    escapedDelegationState = {
-      ...delegationState,
-      activeChains: delegationState.activeChains.map((c) => escapeHtml(c)),
-      pendingHandoffs: delegationState.pendingHandoffs.map((p) => escapeHtml(p))
-    };
-  }
-  const escapedIncompleteTasks = planInfo.incompleteTasks.map((t) => escapeHtml(t));
-  return {
-    generated: now,
-    currentPhase: planInfo.currentPhase ? escapeHtml(planInfo.currentPhase) : null,
-    currentTask: planInfo.currentTask ? escapeHtml(planInfo.currentTask) : null,
-    incompleteTasks: escapedIncompleteTasks,
-    pendingQA,
-    activeAgent: sessionState?.activeAgent ? escapeHtml(sessionState.activeAgent) : null,
-    recentDecisions: escapedDecisions,
-    delegationState: escapedDelegationState
-  };
-}
-function formatHandoffMarkdown(data) {
-  const lines = [];
-  lines.push("## Swarm Handoff");
-  lines.push("");
-  lines.push(`**Generated**: ${data.generated}`);
-  lines.push("");
-  lines.push("### Current State");
-  if (data.currentPhase) {
-    lines.push(`- **Phase**: ${data.currentPhase}`);
-  }
-  if (data.currentTask) {
-    lines.push(`- **Task**: ${data.currentTask}`);
-  }
-  if (data.activeAgent) {
-    lines.push(`- **Active Agent**: ${data.activeAgent}`);
-  }
-  lines.push("");
-  if (data.incompleteTasks.length > 0) {
-    lines.push("### Incomplete Tasks");
-    const displayTasks = data.incompleteTasks.slice(0, 10);
-    for (const taskId of displayTasks) {
-      lines.push(`- ${taskId}`);
-    }
-    if (data.incompleteTasks.length > 10) {
-      lines.push(`- ... and ${data.incompleteTasks.length - 10} more`);
-    }
-    lines.push("");
-  }
-  if (data.pendingQA) {
-    lines.push("### Pending QA");
-    lines.push(`- **Task**: ${data.pendingQA.taskId}`);
-    if (data.pendingQA.lastFailure) {
-      lines.push(`- **Last Failure**: ${data.pendingQA.lastFailure}`);
-    }
-    lines.push("");
-  }
-  if (data.delegationState && data.delegationState.activeChains.length > 0) {
-    lines.push("### Delegation");
-    lines.push(`- **Depth**: ${data.delegationState.delegationDepth}`);
-    for (const chain of data.delegationState.activeChains.slice(0, 3)) {
-      lines.push(`- ${chain}`);
-    }
-    lines.push("");
-  }
-  if (data.recentDecisions.length > 0) {
-    lines.push("### Recent Decisions");
-    for (const decision of data.recentDecisions.slice(0, 5)) {
-      lines.push(`- ${decision}`);
-    }
-    lines.push("");
-  }
-  if (data.delegationState?.pendingHandoffs && data.delegationState.pendingHandoffs.length > 0) {
-    lines.push("### Phase Metrics");
-    lines.push("```");
-    lines.push(data.delegationState.pendingHandoffs[0]);
-    lines.push("```");
-  }
-  return lines.join(`
-`);
-}
-
-// src/commands/handoff.ts
-async function handleHandoffCommand(directory, _args) {
-  const handoffData = await getHandoffData(directory);
-  const markdown = formatHandoffMarkdown(handoffData);
-  const resolvedPath = validateSwarmPath(directory, "handoff.md");
-  const tempPath = `${resolvedPath}.tmp.${crypto4.randomUUID()}`;
-  await Bun.write(tempPath, markdown);
-  renameSync7(tempPath, resolvedPath);
-  await writeSnapshot(directory, swarmState);
-  await flushPendingSnapshot(directory);
-  return `## Handoff Brief Written
-
-Brief written to \`.swarm/handoff.md\`.
-
-${markdown}
-
----
-
-**Next Step:** Start a new OpenCode session, switch to your target model, and send: \`continue the previous work\``;
-}
-
-// src/services/history-service.ts
-init_utils2();
-init_manager2();
-function getStatusText(status) {
-  const statusMap = {
-    complete: "COMPLETE",
-    in_progress: "IN PROGRESS",
-    pending: "PENDING",
-    blocked: "BLOCKED",
-    closed: "CLOSED"
-  };
-  return statusMap[status] || "PENDING";
-}
-function getStatusIcon(status) {
-  switch (status) {
-    case "complete":
-      return "\u2705";
-    case "in_progress":
-      return "\uD83D\uDD04";
-    case "blocked":
-      return "\uD83D\uDEAB";
-    case "closed":
-      return "\uD83D\uDD12";
-    default:
-      return "\u23F3";
-  }
-}
-function extractFromPlan(plan) {
-  if (plan.phases.length === 0) {
-    return { hasPlan: true, phases: [], isLegacy: false };
-  }
-  const phases = [];
-  for (const phase of plan.phases) {
-    const completed = phase.tasks.filter((t) => t.status === "completed").length;
-    const total = phase.tasks.length;
-    const tasks = total > 0 ? `${completed}/${total}` : "-";
-    phases.push({
-      id: phase.id,
-      name: phase.name,
-      status: phase.status === "completed" ? "complete" : phase.status,
-      statusText: getStatusText(phase.status),
-      statusIcon: getStatusIcon(phase.status),
-      completedTasks: completed,
-      totalTasks: total,
-      tasksDisplay: tasks
-    });
-  }
-  return { hasPlan: true, phases, isLegacy: false };
-}
-async function extractFromLegacy(directory) {
-  const planContent = await readSwarmFileAsync(directory, "plan.md");
-  if (!planContent) {
-    return { hasPlan: false, phases: [], isLegacy: true };
-  }
-  const phaseRegex = /^## Phase (\d+):?\s*(.+?)(?:\s*\[(COMPLETE|IN PROGRESS|PENDING)\])?\s*$/gm;
-  const phases = [];
-  const lines = planContent.split(`
-`);
-  for (let match = phaseRegex.exec(planContent);match !== null; match = phaseRegex.exec(planContent)) {
-    const num = parseInt(match[1], 10);
-    const name2 = match[2].trim();
-    const status = match[3] || "PENDING";
-    let mappedStatus = "pending";
-    if (status === "COMPLETE")
-      mappedStatus = "complete";
-    else if (status === "IN PROGRESS")
-      mappedStatus = "in_progress";
-    const headerLineIndex = planContent.substring(0, match.index).split(`
-`).length - 1;
-    let completed = 0;
-    let total = 0;
-    if (headerLineIndex !== -1) {
-      for (let i2 = headerLineIndex + 1;i2 < lines.length; i2++) {
-        const line = lines[i2];
-        if (/^## Phase \d+/.test(line) || line.trim() === "---" && total > 0) {
-          break;
-        }
-        if (/^- \[x\]/.test(line)) {
-          completed++;
-          total++;
-        } else if (/^- \[ \]/.test(line)) {
-          total++;
-        }
-      }
-    }
-    const tasks = total > 0 ? `${completed}/${total}` : "-";
-    phases.push({
-      id: num,
-      name: name2,
-      status: mappedStatus,
-      statusText: getStatusText(mappedStatus),
-      statusIcon: getStatusIcon(mappedStatus),
-      completedTasks: completed,
-      totalTasks: total,
-      tasksDisplay: tasks
-    });
-  }
-  if (phases.length === 0) {
-    return { hasPlan: false, phases: [], isLegacy: true };
-  }
-  return { hasPlan: true, phases, isLegacy: true };
-}
-async function getHistoryData(directory) {
-  const plan = await loadPlanJsonOnly(directory);
-  if (plan) {
-    return extractFromPlan(plan);
-  }
-  return extractFromLegacy(directory);
-}
-function formatHistoryMarkdown(history) {
-  if (!history.hasPlan || history.phases.length === 0) {
-    return "No history available.";
-  }
-  const tableLines = [
-    "## Swarm History",
-    "",
-    "| Phase | Name | Status | Tasks |",
-    "|-------|------|--------|-------|"
-  ];
-  for (const phase of history.phases) {
-    tableLines.push(`| ${phase.id} | ${phase.name} | ${phase.statusIcon} ${phase.statusText} | ${phase.tasksDisplay} |`);
-  }
-  return tableLines.join(`
-`);
-}
-async function handleHistoryCommand(directory, _args) {
-  const historyData = await getHistoryData(directory);
-  return formatHistoryMarkdown(historyData);
-}
-// src/commands/knowledge.ts
-init_schema();
-
-// src/hooks/knowledge-migrator.ts
-init_knowledge_store();
-import { randomUUID as randomUUID3 } from "crypto";
-import { existsSync as existsSync15, readFileSync as readFileSync11 } from "fs";
-import { mkdir as mkdir4, readFile as readFile5, writeFile as writeFile4 } from "fs/promises";
-import * as path26 from "path";
-async function migrateContextToKnowledge(directory, config3) {
-  const sentinelPath = path26.join(directory, ".swarm", ".knowledge-migrated");
-  const contextPath = path26.join(directory, ".swarm", "context.md");
-  const knowledgePath = resolveSwarmKnowledgePath(directory);
-  if (existsSync15(sentinelPath)) {
-    return {
-      migrated: false,
-      entriesMigrated: 0,
-      entriesDropped: 0,
-      entriesTotal: 0,
-      skippedReason: "sentinel-exists"
-    };
-  }
-  if (!existsSync15(contextPath)) {
-    return {
-      migrated: false,
-      entriesMigrated: 0,
-      entriesDropped: 0,
-      entriesTotal: 0,
-      skippedReason: "no-context-file"
-    };
-  }
-  const contextContent = await readFile5(contextPath, "utf-8");
-  if (contextContent.trim().length === 0) {
-    return {
-      migrated: false,
-      entriesMigrated: 0,
-      entriesDropped: 0,
-      entriesTotal: 0,
-      skippedReason: "empty-context"
-    };
-  }
-  const rawEntries = parseContextMd(contextContent);
-  if (rawEntries.length === 0) {
-    await writeSentinel(sentinelPath, 0, 0);
-    return {
-      migrated: true,
-      entriesMigrated: 0,
-      entriesDropped: 0,
-      entriesTotal: 0
-    };
-  }
-  const existing = await readKnowledge(knowledgePath);
-  let migrated = 0;
-  let dropped = 0;
-  const projectName = inferProjectName(directory);
-  for (const raw of rawEntries) {
-    if (config3.validation_enabled !== false) {
-      const category = raw.categoryHint ?? inferCategoryFromText(raw.text);
-      const result = validateLesson(raw.text, existing.map((e) => e.lesson), {
-        category,
-        scope: "global",
-        confidence: 0.3
-      });
-      if (!result.valid) {
-        dropped++;
-        continue;
-      }
-    }
-    const dup = findNearDuplicate(raw.text, existing, config3.dedup_threshold ?? 0.6);
-    if (dup) {
-      dropped++;
-      continue;
-    }
-    const inferredTags = inferTags(raw.text);
-    const entry = {
-      id: randomUUID3(),
-      tier: "swarm",
-      lesson: truncateLesson(raw.text),
-      category: raw.categoryHint ?? inferCategoryFromText(raw.text),
-      tags: [...inferredTags, `migration:${raw.sourceSection}`],
-      scope: "global",
-      confidence: 0.3,
-      status: "candidate",
-      confirmed_by: [],
-      retrieval_outcomes: {
-        applied_count: 0,
-        succeeded_after_count: 0,
-        failed_after_count: 0
-      },
-      schema_version: config3.schema_version ?? 1,
-      created_at: new Date().toISOString(),
-      updated_at: new Date().toISOString(),
-      project_name: projectName,
-      auto_generated: true
-    };
-    existing.push(entry);
-    migrated++;
-  }
-  if (migrated > 0) {
-    await rewriteKnowledge(knowledgePath, existing);
-  }
-  await writeSentinel(sentinelPath, migrated, dropped);
-  console.log(`[knowledge-migrator] Migrated ${migrated} entries, dropped ${dropped}`);
-  return {
-    migrated: true,
-    entriesMigrated: migrated,
-    entriesDropped: dropped,
-    entriesTotal: rawEntries.length
-  };
-}
-function parseContextMd(content) {
-  const sections = splitIntoSections(content);
-  const entries = [];
-  const seen = new Set;
-  const sectionPatterns = [
-    {
-      pattern: /^#{1,3}\s+lessons?\s+learned/i,
-      sourceSection: "lessons-learned"
-    },
-    { pattern: /^#{1,3}\s+patterns?/i, sourceSection: "patterns" },
-    { pattern: /^#{1,3}\s+sme\s+cache/i, sourceSection: "sme-cache" },
-    { pattern: /^#{1,3}\s+decisions?/i, sourceSection: "decisions" }
-  ];
-  for (const section of sections) {
-    const match = sectionPatterns.find((sp) => sp.pattern.test(section.heading));
-    if (!match)
-      continue;
-    const bullets = extractBullets(section.body);
-    for (const bullet of bullets) {
-      if (bullet.length < 15)
-        continue;
-      const normalized = normalize2(bullet);
-      if (seen.has(normalized))
-        continue;
-      seen.add(normalized);
-      entries.push({
-        text: truncateLesson(bullet),
-        sourceSection: match.sourceSection,
-        categoryHint: inferCategoryFromText(bullet)
-      });
-    }
-  }
-  return entries;
-}
-function splitIntoSections(content) {
-  const sections = [];
-  const headingRegex = /^(#{1,3})\s+(.+)/gm;
-  const matches = [];
-  let match = headingRegex.exec(content);
-  while (match !== null) {
-    matches.push({
-      index: match.index,
-      heading: match[0]
-    });
-    match = headingRegex.exec(content);
-  }
-  for (let i2 = 0;i2 < matches.length; i2++) {
-    const current = matches[i2];
-    const next = matches[i2 + 1];
-    const bodyStart = current.index + current.heading.length;
-    const bodyEnd = next ? next.index : content.length;
-    const body2 = content.slice(bodyStart, bodyEnd).trim();
-    sections.push({
-      heading: current.heading,
-      body: body2
-    });
-  }
-  return sections;
-}
-function extractBullets(body2) {
-  const bullets = [];
-  const bulletRegex = /^\s*[-*]\s+(.+)/;
-  for (const line of body2.split(`
-`)) {
-    const match = line.match(bulletRegex);
-    if (match) {
-      bullets.push(match[1].trim());
-    }
-  }
-  return bullets;
-}
-function inferCategoryFromText(text) {
-  const lower = text.toLowerCase();
-  if (/\b(?:test|spec|vitest|jest)\b/.test(lower))
-    return "testing";
-  if (/\b(?:security|auth|token|password|encrypt)\b/.test(lower))
-    return "security";
-  if (/\b(?:performance|latency|cache|throughput)\b/.test(lower))
-    return "performance";
-  if (/\b(?:architecture|design|pattern|structure)\b/.test(lower))
-    return "architecture";
-  if (/\b(?:debug|error|fix|bug|issue)\b/.test(lower))
-    return "debugging";
-  if (/\b(?:tool|config|setup|install|build)\b/.test(lower))
-    return "tooling";
-  if (/\b(?:integrate|api|hook|connect)\b/.test(lower))
-    return "integration";
-  if (/\b(?:process|workflow|step|approach)\b/.test(lower))
-    return "process";
-  return "other";
-}
-function truncateLesson(text) {
-  if (text.length <= 280)
-    return text;
-  return `${text.slice(0, 277)}...`;
-}
-function inferProjectName(directory) {
-  const packageJsonPath = path26.join(directory, "package.json");
-  if (existsSync15(packageJsonPath)) {
-    try {
-      const pkg = JSON.parse(readFileSync11(packageJsonPath, "utf-8"));
-      if (pkg.name && typeof pkg.name === "string") {
-        return pkg.name;
-      }
-    } catch {}
-  }
-  return path26.basename(directory);
-}
-async function writeSentinel(sentinelPath, migrated, dropped) {
-  const sentinel = {
-    migrated_at: new Date().toISOString(),
-    source_version: "6.16",
-    target_version: "6.17",
-    entries_migrated: migrated,
-    entries_dropped: dropped,
-    schema_version: 1,
-    migration_tool: "knowledge-migrator.ts"
-  };
-  await mkdir4(path26.dirname(sentinelPath), { recursive: true });
-  await writeFile4(sentinelPath, JSON.stringify(sentinel, null, 2), "utf-8");
-}
-
-// src/commands/knowledge.ts
-init_knowledge_store();
-async function handleKnowledgeQuarantineCommand(directory, args2) {
-  const entryId = args2[0];
-  if (!entryId) {
-    return "Usage: /swarm knowledge quarantine <id> [reason]";
-  }
-  if (!/^[a-zA-Z0-9_-]{1,64}$/.test(entryId)) {
-    return "Invalid entry ID. IDs must be 1-64 characters: letters, digits, hyphens, underscores only.";
-  }
-  const reason = args2.slice(1).join(" ") || "Quarantined via /swarm knowledge quarantine command";
-  try {
-    await quarantineEntry(directory, entryId, reason, "user");
-    return `\u2705 Entry ${entryId} quarantined successfully.`;
-  } catch (error93) {
-    console.warn("[knowledge-command] quarantineEntry error:", error93 instanceof Error ? error93.message : String(error93));
-    return `\u274C Failed to quarantine entry. Check the entry ID and try again.`;
-  }
-}
-async function handleKnowledgeRestoreCommand(directory, args2) {
-  const entryId = args2[0];
-  if (!entryId) {
-    return "Usage: /swarm knowledge restore <id>";
-  }
-  if (!/^[a-zA-Z0-9_-]{1,64}$/.test(entryId)) {
-    return "Invalid entry ID. IDs must be 1-64 characters: letters, digits, hyphens, underscores only.";
-  }
-  try {
-    await restoreEntry(directory, entryId);
-    return `\u2705 Entry ${entryId} restored successfully.`;
-  } catch (error93) {
-    console.warn("[knowledge-command] restoreEntry error:", error93 instanceof Error ? error93.message : String(error93));
-    return `\u274C Failed to restore entry. Check the entry ID and try again.`;
-  }
-}
-async function handleKnowledgeMigrateCommand(directory, args2) {
-  const targetDir = args2[0] || directory;
-  try {
-    const result = await migrateContextToKnowledge(targetDir, KnowledgeConfigSchema.parse({}));
-    if (result.skippedReason) {
-      switch (result.skippedReason) {
-        case "sentinel-exists":
-          return "\u23ED Migration already completed for this project. Delete .swarm/.knowledge-migrated to re-run.";
-        case "no-context-file":
-          return "\u2139\uFE0F No .swarm/context.md found \u2014 nothing to migrate.";
-        case "empty-context":
-          return "\u2139\uFE0F .swarm/context.md is empty \u2014 nothing to migrate.";
-        default:
-          return "\u26A0\uFE0F Migration skipped for an unknown reason.";
-      }
-    }
-    return `\u2705 Migration complete: ${result.entriesMigrated} entries added, ${result.entriesDropped} dropped (validation/dedup), ${result.entriesTotal} total processed.`;
-  } catch (error93) {
-    console.warn("[knowledge-command] migrateContextToKnowledge error:", error93 instanceof Error ? error93.message : String(error93));
-    return "\u274C Migration failed. Check .swarm/context.md is readable.";
-  }
-}
-async function handleKnowledgeListCommand(directory, _args) {
-  try {
-    const knowledgePath = resolveSwarmKnowledgePath(directory);
-    const entries = await readKnowledge(knowledgePath);
-    if (entries.length === 0) {
-      return "\u2139\uFE0F No knowledge entries found in .swarm/knowledge.jsonl";
-    }
-    const lines = [
-      `## Knowledge Entries (${entries.length} total)`,
-      "",
-      "| ID | Category | Confidence | Lesson (truncated) |",
-      "|------|----------|------------|---------------------|"
-    ];
-    for (const entry of entries) {
-      const truncatedLesson = entry.lesson.length > 60 ? `${entry.lesson.slice(0, 57)}...` : entry.lesson;
-      const confidencePct = Math.round(entry.confidence * 100);
-      lines.push(`| ${entry.id.slice(0, 8)}... | ${entry.category} | ${confidencePct}% | ${truncatedLesson} |`);
-    }
-    lines.push("");
-    lines.push("Use `/swarm knowledge quarantine <id>` to hide an entry.");
-    return lines.join(`
-`);
-  } catch (error93) {
-    console.warn("[knowledge-command] list error:", error93 instanceof Error ? error93.message : String(error93));
-    return "\u274C Failed to list knowledge entries. Ensure .swarm/knowledge.jsonl exists.";
-  }
-}
-
-// src/services/plan-service.ts
-init_utils2();
-init_manager2();
-async function getPlanData(directory, phaseArg) {
-  const plan = await loadPlanJsonOnly(directory);
-  if (plan) {
-    const fullMarkdown = derivePlanMarkdown(plan);
-    if (phaseArg === undefined || phaseArg === null || phaseArg === "") {
-      return {
-        hasPlan: true,
-        fullMarkdown,
-        requestedPhase: null,
-        phaseMarkdown: null,
-        errorMessage: null,
-        isLegacy: false
-      };
-    }
-    const phaseNum2 = typeof phaseArg === "number" ? phaseArg : parseInt(String(phaseArg), 10);
-    if (Number.isNaN(phaseNum2)) {
-      return {
-        hasPlan: true,
-        fullMarkdown,
-        requestedPhase: null,
-        phaseMarkdown: null,
-        errorMessage: `Invalid phase number: "${phaseArg}"`,
-        isLegacy: false
-      };
-    }
-    const phase = plan.phases.find((p) => p.id === phaseNum2);
-    if (!phase) {
-      return {
-        hasPlan: true,
-        fullMarkdown,
-        requestedPhase: phaseNum2,
-        phaseMarkdown: null,
-        errorMessage: `Phase ${phaseNum2} not found in plan.`,
-        isLegacy: false
-      };
-    }
-    const phaseMarkdown2 = extractPhaseMarkdown(fullMarkdown, phaseNum2);
-    return {
-      hasPlan: true,
-      fullMarkdown,
-      requestedPhase: phaseNum2,
-      phaseMarkdown: phaseMarkdown2,
-      errorMessage: null,
-      isLegacy: false
-    };
-  }
-  const planContent = await readSwarmFileAsync(directory, "plan.md");
-  if (!planContent) {
-    return {
-      hasPlan: false,
-      fullMarkdown: "",
-      requestedPhase: null,
-      phaseMarkdown: null,
-      errorMessage: null,
-      isLegacy: true
-    };
-  }
-  if (phaseArg === undefined || phaseArg === null || phaseArg === "") {
-    return {
-      hasPlan: true,
-      fullMarkdown: planContent,
-      requestedPhase: null,
-      phaseMarkdown: null,
-      errorMessage: null,
-      isLegacy: true
-    };
-  }
-  const phaseNum = typeof phaseArg === "number" ? phaseArg : parseInt(String(phaseArg), 10);
-  if (Number.isNaN(phaseNum)) {
-    return {
-      hasPlan: true,
-      fullMarkdown: planContent,
-      requestedPhase: null,
-      phaseMarkdown: null,
-      errorMessage: `Invalid phase number: "${phaseArg}"`,
-      isLegacy: true
-    };
-  }
-  const phaseMarkdown = extractPhaseMarkdown(planContent, phaseNum);
-  if (phaseMarkdown === null) {
-    return {
-      hasPlan: true,
-      fullMarkdown: planContent,
-      requestedPhase: phaseNum,
-      phaseMarkdown: null,
-      errorMessage: `Phase ${phaseNum} not found in plan.`,
-      isLegacy: true
-    };
-  }
-  return {
-    hasPlan: true,
-    fullMarkdown: planContent,
-    requestedPhase: phaseNum,
-    phaseMarkdown,
-    errorMessage: null,
-    isLegacy: true
-  };
-}
-function extractPhaseMarkdown(markdown, phaseNum) {
-  const lines = markdown.split(`
-`);
-  const phaseLines = [];
-  let inTargetPhase = false;
-  for (const line of lines) {
-    const phaseMatch = line.match(/^## Phase (\d+)/);
-    if (phaseMatch) {
-      const num = parseInt(phaseMatch[1], 10);
-      if (num === phaseNum) {
-        inTargetPhase = true;
-        phaseLines.push(line);
-        continue;
-      } else if (inTargetPhase) {
-        break;
-      }
-    }
-    if (inTargetPhase && line.trim() === "---" && phaseLines.length > 1) {
-      break;
-    }
-    if (inTargetPhase) {
-      phaseLines.push(line);
-    }
-  }
-  return phaseLines.length > 0 ? phaseLines.join(`
-`).trim() : null;
-}
-function formatPlanMarkdown(planData) {
-  if (!planData.hasPlan) {
-    return "No active swarm plan found.";
-  }
-  if (planData.errorMessage !== null) {
-    return planData.errorMessage;
-  }
-  if (planData.requestedPhase !== null && planData.phaseMarkdown) {
-    return planData.phaseMarkdown;
-  }
-  return planData.fullMarkdown;
-}
-async function handlePlanCommand(directory, args2) {
-  const phaseArg = args2.length > 0 ? args2[0] : undefined;
-  const planData = await getPlanData(directory, phaseArg);
-  return formatPlanMarkdown(planData);
-}
-// src/commands/preflight.ts
-init_preflight_service();
-
-// src/knowledge/hive-promoter.ts
-import * as fs21 from "fs";
-import * as os6 from "os";
-import * as path32 from "path";
-var DANGEROUS_PATTERNS = [
-  [/rm\s+-rf/, "rm\\s+-rf"],
-  [/:\s*!\s*\|/, ":\\s*!\\s*\\|"],
-  [/\|\s*sh\b/, "\\|\\s*sh\\b"],
-  [/`[^`]*`/, "`[^`]*`"],
-  [/\$\(/, "\\$\\("],
-  [/;\s*rm\s+\//, ";\\s*rm\\s+\\/"],
-  [/>\s*\/dev\//, ">\\s*\\/dev\\/"],
-  [/\bmkfs\b/, "\\bmkfs\\b"],
-  [/\bdd\s+if=/, "\\bdd\\s+if="],
-  [/chmod\s+[0-7]*7[0-7]{2}/, "chmod\\s+[0-7]*7[0-7]\\{2\\}"],
-  [/\bchown\s+-R\b/, "\\bchown\\s+-R\\b"],
-  [/(?<!\.)\beval\s*\(/, "(?<!\\.)\\beval\\s*\\("],
-  [/(?<!\.)\bexec\s*\(/, "(?<!\\.)\\bexec\\s*\\("]
-];
-var SHELL_COMMAND_START = /^(grep|find|ls|cat|sed|awk|curl|wget|ssh|scp|git|mv|cp|mkdir|touch|echo|printf|python|python3|node|bash|sh|zsh|apt|yum|brew)\s/;
-function validateLesson2(text) {
-  if (!text || !text.trim()) {
-    return { valid: false, reason: "Lesson text cannot be empty" };
-  }
-  for (const [pattern, patternSource] of DANGEROUS_PATTERNS) {
-    if (pattern.test(text)) {
-      return {
-        valid: false,
-        reason: `Dangerous pattern detected: ${patternSource}`
-      };
-    }
-  }
-  const trimmed = text.trim();
-  if (SHELL_COMMAND_START.test(trimmed)) {
-    const lastChar = trimmed[trimmed.length - 1];
-    if (![".", "!", "?", ";"].includes(lastChar)) {
-      return {
-        valid: false,
-        reason: "Lesson appears to contain raw shell commands"
-      };
-    }
-  }
-  return { valid: true };
-}
-function getHiveFilePath() {
-  const platform = process.platform;
-  const home = os6.homedir();
-  let dataDir;
-  if (platform === "win32") {
-    dataDir = path32.join(process.env.LOCALAPPDATA || path32.join(home, "AppData", "Local"), "opencode-swarm", "Data");
-  } else if (platform === "darwin") {
-    dataDir = path32.join(home, "Library", "Application Support", "opencode-swarm");
-  } else {
-    dataDir = path32.join(process.env.XDG_DATA_HOME || path32.join(home, ".local", "share"), "opencode-swarm");
-  }
-  return path32.join(dataDir, "hive-knowledge.jsonl");
-}
-async function promoteToHive(_directory, lesson, category) {
-  const trimmed = (lesson ?? "").trim();
-  if (!trimmed) {
-    throw new Error("Lesson text required");
-  }
-  const validation = validateLesson2(trimmed);
-  if (!validation.valid) {
-    throw new Error(`Lesson rejected by validator: ${validation.reason}`);
-  }
-  const hivePath = getHiveFilePath();
-  const hiveDir = path32.dirname(hivePath);
-  if (!fs21.existsSync(hiveDir)) {
-    fs21.mkdirSync(hiveDir, { recursive: true });
-  }
-  const now = new Date;
-  const entry = {
-    id: `hive-manual-${now.getTime()}`,
-    lesson: trimmed,
-    category: category || "process",
-    scope_tag: "global",
-    confidence: 1,
-    status: "promoted",
-    promotion_source: "manual",
-    promotedAt: now.toISOString(),
-    retrievalOutcomes: { applied: 0, succeededAfter: 0, failedAfter: 0 }
-  };
-  fs21.appendFileSync(hivePath, `${JSON.stringify(entry)}
-`, "utf-8");
-  const preview = `${trimmed.slice(0, 50)}${trimmed.length > 50 ? "..." : ""}`;
-  return `Promoted to hive: "${preview}" (confidence: 1.0, source: manual)`;
-}
-async function promoteFromSwarm(directory, lessonId) {
-  const knowledgePath = path32.join(directory, ".swarm", "knowledge.jsonl");
-  const entries = [];
-  if (fs21.existsSync(knowledgePath)) {
-    const content = fs21.readFileSync(knowledgePath, "utf-8");
-    for (const line of content.split(`
-`)) {
-      const t = line.trim();
-      if (!t)
-        continue;
-      try {
-        entries.push(JSON.parse(t));
-      } catch {}
-    }
-  }
-  const swarmEntry = entries.find((e) => e.id === lessonId);
-  if (!swarmEntry) {
-    throw new Error(`Lesson ${lessonId} not found in .swarm/knowledge.jsonl`);
-  }
-  const lessonText = typeof swarmEntry.lesson === "string" ? swarmEntry.lesson.trim() : "";
-  if (!lessonText) {
-    throw new Error("Lesson text required");
-  }
-  const validation = validateLesson2(lessonText);
-  if (!validation.valid) {
-    throw new Error(`Lesson rejected by validator: ${validation.reason}`);
-  }
-  const hivePath = getHiveFilePath();
-  const hiveDir = path32.dirname(hivePath);
-  if (!fs21.existsSync(hiveDir)) {
-    fs21.mkdirSync(hiveDir, { recursive: true });
-  }
-  const now = new Date;
-  const hiveEntry = {
-    id: `hive-manual-${now.getTime()}`,
-    lesson: lessonText,
-    category: typeof swarmEntry.category === "string" ? swarmEntry.category : "process",
-    scope_tag: typeof swarmEntry.scope === "string" ? swarmEntry.scope : "global",
-    confidence: 1,
-    status: "promoted",
-    promotion_source: "manual",
-    promotedAt: now.toISOString(),
-    retrievalOutcomes: { applied: 0, succeededAfter: 0, failedAfter: 0 }
-  };
-  fs21.appendFileSync(hivePath, `${JSON.stringify(hiveEntry)}
-`, "utf-8");
-  const preview = `${lessonText.slice(0, 50)}${lessonText.length > 50 ? "..." : ""}`;
-  return `Promoted to hive: "${preview}" (confidence: 1.0, source: manual)`;
-}
-
-// src/commands/promote.ts
-async function handlePromoteCommand(directory, args2) {
-  let category;
-  let lessonId;
-  let lessonText;
-  for (let i2 = 0;i2 < args2.length; i2++) {
-    const arg = args2[i2];
-    if (arg === "--category" && i2 + 1 < args2.length) {
-      category = args2[i2 + 1];
-      i2++;
-    } else if (arg === "--from-swarm" && i2 + 1 < args2.length) {
-      lessonId = args2[i2 + 1];
-      i2++;
-    } else if (!arg.startsWith("--")) {
-      lessonText = args2.slice(i2).join(" ");
-      break;
-    }
-  }
-  if (!lessonText && !lessonId) {
-    return `Usage: /swarm promote "<lesson text>" or /swarm promote --from-swarm <id>`;
-  }
-  if (lessonText) {
-    const validation = validateLesson2(lessonText);
-    if (!validation.valid) {
-      return `Lesson rejected by validator: ${validation.reason}`;
-    }
-  }
-  if (lessonId) {
-    try {
-      return await promoteFromSwarm(directory, lessonId);
-    } catch (error93) {
-      if (error93 instanceof Error) {
-        return error93.message;
-      }
-      return `Failed to promote lesson: ${error93 instanceof Error ? error93.message : String(error93)}`;
-    }
-  }
-  try {
-    return await promoteToHive(directory, lessonText, category);
-  } catch (error93) {
-    if (error93 instanceof Error) {
-      return error93.message;
-    }
-    return `Failed to promote lesson: ${error93 instanceof Error ? error93.message : String(error93)}`;
-  }
-}
-
-// src/commands/reset.ts
-import * as fs22 from "fs";
-init_utils2();
-async function handleResetCommand(directory, args2) {
-  const hasConfirm = args2.includes("--confirm");
-  if (!hasConfirm) {
-    return [
-      "## Swarm Reset",
-      "",
-      "\u26A0\uFE0F This will delete plan.md and context.md from .swarm/",
-      "",
-      "**Tip**: Run `/swarm export` first to backup your state.",
-      "",
-      "To confirm, run: `/swarm reset --confirm`"
-    ].join(`
-`);
-  }
-  const filesToReset = ["plan.md", "context.md"];
-  const results = [];
-  for (const filename of filesToReset) {
-    try {
-      const resolvedPath = validateSwarmPath(directory, filename);
-      if (fs22.existsSync(resolvedPath)) {
-        fs22.unlinkSync(resolvedPath);
-        results.push(`- \u2705 Deleted ${filename}`);
-      } else {
-        results.push(`- \u23ED\uFE0F ${filename} not found (skipped)`);
-      }
-    } catch {
-      results.push(`- \u274C Failed to delete ${filename}`);
-    }
-  }
-  try {
-    resetAutomationManager();
-    results.push("- \u2705 Stopped background automation (in-memory queues cleared)");
-  } catch {
-    results.push("- \u23ED\uFE0F Background automation not running (skipped)");
-  }
-  try {
-    const summariesPath = validateSwarmPath(directory, "summaries");
-    if (fs22.existsSync(summariesPath)) {
-      fs22.rmSync(summariesPath, { recursive: true, force: true });
-      results.push("- \u2705 Deleted summaries/ directory");
-    } else {
-      results.push("- \u23ED\uFE0F summaries/ not found (skipped)");
-    }
-  } catch {
-    results.push("- \u274C Failed to delete summaries/");
-  }
-  return [
-    "## Swarm Reset Complete",
-    "",
-    ...results,
-    "",
-    "Swarm state has been cleared. Start fresh with a new plan."
-  ].join(`
-`);
-}
-
-// src/commands/reset-session.ts
-init_utils2();
-import * as fs23 from "fs";
-import * as path33 from "path";
-async function handleResetSessionCommand(directory, _args) {
-  const results = [];
-  try {
-    const statePath = validateSwarmPath(directory, "session/state.json");
-    if (fs23.existsSync(statePath)) {
-      fs23.unlinkSync(statePath);
-      results.push("\u2705 Deleted .swarm/session/state.json");
-    } else {
-      results.push("\u23ED\uFE0F state.json not found (already clean)");
-    }
-  } catch {
-    results.push("\u274C Failed to delete state.json");
-  }
-  try {
-    const sessionDir = path33.dirname(validateSwarmPath(directory, "session/state.json"));
-    if (fs23.existsSync(sessionDir)) {
-      const files = fs23.readdirSync(sessionDir);
-      const otherFiles = files.filter((f) => f !== "state.json");
-      let deletedCount = 0;
-      for (const file3 of otherFiles) {
-        const filePath = path33.join(sessionDir, file3);
-        if (fs23.lstatSync(filePath).isFile()) {
-          fs23.unlinkSync(filePath);
-          deletedCount++;
-        }
-      }
-      results.push(`\u2705 Cleaned ${deletedCount} additional session file(s)`);
-    }
-  } catch {}
-  const sessionCount = swarmState.agentSessions.size;
-  swarmState.agentSessions.clear();
-  results.push(`\u2705 Cleared ${sessionCount} in-memory agent session(s)`);
-  const chainCount = swarmState.delegationChains.size;
-  swarmState.delegationChains.clear();
-  results.push(`\u2705 Cleared ${chainCount} delegation chain(s)`);
-  return [
-    "## Session State Reset",
-    "",
-    ...results,
-    "",
-    "Session state cleared. Plan, evidence, and knowledge preserved.",
-    "",
-    "**Next step:** Start a new OpenCode session. The plugin will initialize fresh session state on startup."
-  ].join(`
-`);
-}
-
-// src/summaries/manager.ts
-init_utils2();
-init_utils();
-import { mkdirSync as mkdirSync11, readdirSync as readdirSync8, renameSync as renameSync8, rmSync as rmSync3, statSync as statSync8 } from "fs";
-import * as path34 from "path";
-var SUMMARY_ID_REGEX = /^S\d+$/;
-function sanitizeSummaryId(id) {
-  if (!id || id.length === 0) {
-    throw new Error("Invalid summary ID: empty string");
-  }
-  if (/\0/.test(id)) {
-    throw new Error("Invalid summary ID: contains null bytes");
-  }
-  for (let i2 = 0;i2 < id.length; i2++) {
-    if (id.charCodeAt(i2) < 32) {
-      throw new Error("Invalid summary ID: contains control characters");
-    }
-  }
-  if (id.includes("..") || id.includes("../") || id.includes("..\\")) {
-    throw new Error("Invalid summary ID: path traversal detected");
-  }
-  if (!SUMMARY_ID_REGEX.test(id)) {
-    throw new Error(`Invalid summary ID: must match pattern ^S\\d+$, got "${id}"`);
-  }
-  return id;
-}
-async function storeSummary(directory, id, fullOutput, summaryText, maxStoredBytes) {
-  const sanitizedId = sanitizeSummaryId(id);
-  const preCheckEntry = {
-    id: sanitizedId,
-    summaryText,
-    fullOutput,
-    timestamp: Date.now(),
-    originalBytes: Buffer.byteLength(fullOutput, "utf8")
-  };
-  const serializedSize = Buffer.byteLength(JSON.stringify(preCheckEntry), "utf8");
-  if (serializedSize > maxStoredBytes) {
-    throw new Error(`Summary entry size (${serializedSize} bytes) exceeds maximum (${maxStoredBytes} bytes)`);
-  }
-  const relativePath = path34.join("summaries", `${sanitizedId}.json`);
-  const summaryPath = validateSwarmPath(directory, relativePath);
-  const summaryDir = path34.dirname(summaryPath);
-  const entry = {
-    id: sanitizedId,
-    summaryText,
-    fullOutput,
-    timestamp: Date.now(),
-    originalBytes: Buffer.byteLength(fullOutput, "utf8")
-  };
-  const entryJson = JSON.stringify(entry);
-  mkdirSync11(summaryDir, { recursive: true });
-  const tempPath = path34.join(summaryDir, `${sanitizedId}.json.tmp.${Date.now()}.${process.pid}`);
-  try {
-    await Bun.write(tempPath, entryJson);
-    renameSync8(tempPath, summaryPath);
-  } catch (error93) {
-    try {
-      rmSync3(tempPath, { force: true });
-    } catch {}
-    throw error93;
-  }
-}
-async function loadFullOutput(directory, id) {
-  const sanitizedId = sanitizeSummaryId(id);
-  const relativePath = path34.join("summaries", `${sanitizedId}.json`);
-  validateSwarmPath(directory, relativePath);
-  const content = await readSwarmFileAsync(directory, relativePath);
-  if (content === null) {
-    return null;
-  }
-  try {
-    const parsed = JSON.parse(content);
-    if (typeof parsed.fullOutput === "string") {
-      return parsed.fullOutput;
-    }
-    warn(`Summary entry ${sanitizedId} missing valid fullOutput field`);
-    return null;
-  } catch (error93) {
-    warn(`Summary entry validation failed for ${sanitizedId}: ${error93 instanceof Error ? error93.message : String(error93)}`);
-    return null;
-  }
-}
-
-// src/commands/retrieve.ts
-async function handleRetrieveCommand(directory, args2) {
-  const summaryId = args2[0];
-  if (!summaryId) {
-    return [
-      "## Swarm Retrieve",
-      "",
-      "Usage: `/swarm retrieve <id>`",
-      "",
-      "Example: `/swarm retrieve S1`",
-      "",
-      "Retrieves the full output that was replaced by a summary."
-    ].join(`
-`);
-  }
-  try {
-    const fullOutput = await loadFullOutput(directory, summaryId);
-    if (fullOutput === null) {
-      return `## Summary Not Found
-
-No stored output found for ID \`${summaryId}\`.
-
-Use a valid summary ID (e.g., S1, S2, S3).`;
-    }
-    return fullOutput;
-  } catch (error93) {
-    return `## Retrieve Failed
-
-${error93 instanceof Error ? error93.message : String(error93)}`;
-  }
-}
-
-// src/commands/rollback.ts
-init_utils2();
-import * as fs24 from "fs";
-import * as path35 from "path";
-async function handleRollbackCommand(directory, args2) {
-  const phaseArg = args2[0];
-  if (!phaseArg) {
-    const manifestPath2 = validateSwarmPath(directory, "checkpoints/manifest.json");
-    if (!fs24.existsSync(manifestPath2)) {
-      return "No checkpoints found. Use `/swarm checkpoint` to create checkpoints.";
-    }
-    let manifest2;
-    try {
-      manifest2 = JSON.parse(fs24.readFileSync(manifestPath2, "utf-8"));
-    } catch {
-      return "Error: Checkpoint manifest is corrupted. Delete .swarm/checkpoints/manifest.json and re-checkpoint.";
-    }
-    const checkpoints = manifest2.checkpoints || [];
-    if (checkpoints.length === 0) {
-      return "No checkpoints found in manifest.";
-    }
-    return [
-      "## Available Checkpoints",
-      "",
-      ...checkpoints.map((c) => `- Phase ${c.phase}: ${c.label || "no label"} (${new Date(c.timestamp).toLocaleString()})`),
-      "",
-      `Run \`/swarm rollback <phase>\` to restore to a checkpoint.`
-    ].join(`
-`);
-  }
-  const targetPhase = parseInt(phaseArg, 10);
-  if (Number.isNaN(targetPhase) || targetPhase < 1) {
-    return "Error: Phase number must be a positive integer.";
-  }
-  const manifestPath = validateSwarmPath(directory, "checkpoints/manifest.json");
-  if (!fs24.existsSync(manifestPath)) {
-    return `Error: No checkpoints found. Cannot rollback to phase ${targetPhase}.`;
-  }
-  let manifest;
-  try {
-    manifest = JSON.parse(fs24.readFileSync(manifestPath, "utf-8"));
-  } catch {
-    return `Error: Checkpoint manifest is corrupted. Delete .swarm/checkpoints/manifest.json and re-checkpoint.`;
-  }
-  const checkpoint2 = manifest.checkpoints?.find((c) => c.phase === targetPhase);
-  if (!checkpoint2) {
-    const available = manifest.checkpoints?.map((c) => c.phase).join(", ") || "none";
-    return `Error: Checkpoint for phase ${targetPhase} not found. Available phases: ${available}`;
-  }
-  const checkpointDir = validateSwarmPath(directory, `checkpoints/phase-${targetPhase}`);
-  if (!fs24.existsSync(checkpointDir)) {
-    return `Error: Checkpoint directory for phase ${targetPhase} does not exist.`;
-  }
-  const checkpointFiles = fs24.readdirSync(checkpointDir);
-  if (checkpointFiles.length === 0) {
-    return `Error: Checkpoint for phase ${targetPhase} is empty. Cannot rollback.`;
-  }
-  const swarmDir = validateSwarmPath(directory, "");
-  const successes = [];
-  const failures = [];
-  for (const file3 of checkpointFiles) {
-    const src = path35.join(checkpointDir, file3);
-    const dest = path35.join(swarmDir, file3);
-    try {
-      fs24.cpSync(src, dest, { recursive: true, force: true });
-      successes.push(file3);
-    } catch (error93) {
-      failures.push({ file: file3, error: error93.message });
-    }
-  }
-  if (failures.length > 0) {
-    return `Rollback partially completed. Successfully restored ${successes.length} files: ${successes.join(", ") || "none"}. Failed on ${failures.length} files: ${failures.map((f) => f.file).join(", ")}. Check permissions and disk space.`;
-  }
-  const eventsPath = validateSwarmPath(directory, "events.jsonl");
-  const rollbackEvent = {
-    type: "rollback",
-    phase: targetPhase,
-    label: checkpoint2.label || "",
-    timestamp: new Date().toISOString()
-  };
-  try {
-    fs24.appendFileSync(eventsPath, `${JSON.stringify(rollbackEvent)}
-`);
-  } catch (error93) {
-    console.error("Failed to write rollback event:", error93 instanceof Error ? error93.message : String(error93));
-  }
-  return `Rolled back to phase ${targetPhase}: ${checkpoint2.label || "no label"}`;
-}
-
-// src/commands/simulate.ts
-init_co_change_analyzer();
-async function handleSimulateCommand(directory, args2) {
-  const thresholdIndex = args2.indexOf("--threshold");
-  const minCommitsIndex = args2.indexOf("--min-commits");
-  const options = {};
-  if (thresholdIndex >= 0 && args2[thresholdIndex + 1]) {
-    const val = parseFloat(args2[thresholdIndex + 1]);
-    if (!Number.isNaN(val) && val >= 0 && val <= 1) {
-      options.npmiThreshold = val;
-    }
-  }
-  if (minCommitsIndex >= 0 && args2[minCommitsIndex + 1]) {
-    const val = parseInt(args2[minCommitsIndex + 1], 10);
-    if (!Number.isNaN(val) && val > 0) {
-      options.minCommits = val;
-    }
-  }
-  const darkMatterPairs = await detectDarkMatter(directory, options);
-  const reportLines = [
-    "# Simulate Report",
-    "",
-    `Generated: ${new Date().toISOString()}`,
-    "",
-    "## Dark Matter Analysis",
-    `${darkMatterPairs.length} hidden coupling pairs detected:`,
-    "",
-    "| File A | File B | NPMI | Co-Changes | Lift |",
-    "|--------|--------|------|------------|------|",
-    ...darkMatterPairs.map((p) => `| ${p.fileA} | ${p.fileB} | ${p.npmi.toFixed(3)} | ${p.coChangeCount} | ${p.lift.toFixed(2)} |`),
-    "",
-    "## Recommendation",
-    `${darkMatterPairs.length} hidden coupling pairs may cause unexpected side effects when modified.`
-  ];
-  const report = reportLines.filter(Boolean).join(`
-`);
-  const fs25 = await import("fs/promises");
-  const path36 = await import("path");
-  const reportPath = path36.join(directory, ".swarm", "simulate-report.md");
-  await fs25.mkdir(path36.dirname(reportPath), { recursive: true });
-  await fs25.writeFile(reportPath, report, "utf-8");
-  return `${darkMatterPairs.length} hidden coupling pairs detected`;
-}
-
-// src/commands/specify.ts
-async function handleSpecifyCommand(_directory, args2) {
-  const description = args2.join(" ").trim();
-  if (description) {
-    return `[MODE: SPECIFY] ${description}`;
-  }
-  return "[MODE: SPECIFY] Please enter MODE: SPECIFY and generate a spec for this project.";
-}
-
-// src/hooks/extractors.ts
-function extractCurrentPhase(planContent) {
-  if (!planContent) {
-    return null;
-  }
-  const lines = planContent.split(`
-`);
-  for (let i2 = 0;i2 < Math.min(20, lines.length); i2++) {
-    const line = lines[i2].trim();
-    const progressMatch = line.match(/^## Phase (\d+):?\s*(.*?)\s*\[IN PROGRESS\]/i);
-    if (progressMatch) {
-      const phaseNum = progressMatch[1];
-      const description = progressMatch[2]?.trim() || "";
-      return `Phase ${phaseNum}: ${description} [IN PROGRESS]`;
-    }
-  }
-  for (let i2 = 0;i2 < Math.min(3, lines.length); i2++) {
-    const line = lines[i2].trim();
-    const phaseMatch = line.match(/Phase:\s*(\d+)/i);
-    if (phaseMatch) {
-      const phaseNum = phaseMatch[1];
-      return `Phase ${phaseNum} [PENDING]`;
-    }
-  }
-  return null;
-}
-function extractCurrentTask(planContent) {
-  if (!planContent) {
-    return null;
-  }
-  const lines = planContent.split(`
-`);
-  let inCurrentPhase = false;
-  for (const line of lines) {
-    if (line.startsWith("## ") && /\[IN PROGRESS\]/i.test(line)) {
-      inCurrentPhase = true;
-      continue;
-    }
-    if (inCurrentPhase) {
-      if (line.startsWith("## ") || line.trim() === "---") {
-        break;
-      }
-      if (line.trim().startsWith("- [ ]")) {
-        return line.trim();
-      }
-    }
-  }
-  return null;
-}
-function extractDecisions2(contextContent, maxChars = 500) {
-  if (!contextContent) {
-    return null;
-  }
-  const lines = contextContent.split(`
-`);
-  let decisionsText = "";
-  let inDecisionsSection = false;
-  for (const line of lines) {
-    if (line.trim() === "## Decisions") {
-      inDecisionsSection = true;
-      continue;
-    }
-    if (inDecisionsSection) {
-      if (line.startsWith("## ")) {
-        break;
-      }
-      if (line.startsWith("- ")) {
-        decisionsText += `${line}
-`;
-      }
-    }
-  }
-  if (!decisionsText.trim()) {
-    return null;
-  }
-  const trimmed = decisionsText.trim();
-  if (trimmed.length <= maxChars) {
-    return trimmed;
-  }
-  return `${trimmed.slice(0, maxChars)}...`;
-}
-function extractIncompleteTasks(planContent, maxChars = 500) {
-  if (!planContent) {
-    return null;
-  }
-  const lines = planContent.split(`
-`);
-  let tasksText = "";
-  let inCurrentPhase = false;
-  for (const line of lines) {
-    if (line.startsWith("## ") && /\[IN PROGRESS\]/i.test(line)) {
-      inCurrentPhase = true;
-      continue;
-    }
-    if (inCurrentPhase) {
-      if (line.startsWith("## ") || line.trim() === "---") {
-        break;
-      }
-      if (line.trim().startsWith("- [ ]")) {
-        tasksText += `${line.trim()}
-`;
-      }
-    }
-  }
-  if (!tasksText.trim()) {
-    return null;
-  }
-  const trimmed = tasksText.trim();
-  if (trimmed.length <= maxChars) {
-    return trimmed;
-  }
-  return `${trimmed.slice(0, maxChars)}...`;
-}
-function extractPatterns(contextContent, maxChars = 500) {
-  if (!contextContent) {
-    return null;
-  }
-  const lines = contextContent.split(`
-`);
-  let patternsText = "";
-  let inPatternsSection = false;
-  for (const line of lines) {
-    if (line.trim() === "## Patterns") {
-      inPatternsSection = true;
-      continue;
-    }
-    if (inPatternsSection) {
-      if (line.startsWith("## ")) {
-        break;
-      }
-      if (line.startsWith("- ")) {
-        patternsText += `${line}
-`;
-      }
-    }
-  }
-  if (!patternsText.trim()) {
-    return null;
-  }
-  const trimmed = patternsText.trim();
-  if (trimmed.length <= maxChars) {
-    return trimmed;
-  }
-  return `${trimmed.slice(0, maxChars)}...`;
-}
-function extractCurrentPhaseFromPlan2(plan) {
-  const phase = plan.phases.find((p) => p.id === plan.current_phase);
-  if (!phase)
-    return null;
-  const statusMap = {
-    pending: "PENDING",
-    in_progress: "IN PROGRESS",
-    complete: "COMPLETE",
-    blocked: "BLOCKED"
-  };
-  const statusText = statusMap[phase.status] || "PENDING";
-  return `Phase ${phase.id}: ${phase.name} [${statusText}]`;
-}
-function extractCurrentTaskFromPlan(plan) {
-  const phase = plan.phases.find((p) => p.id === plan.current_phase);
-  if (!phase)
-    return null;
-  const inProgress = phase.tasks.find((t) => t.status === "in_progress");
-  if (inProgress) {
-    const deps = inProgress.depends.length > 0 ? ` (depends: ${inProgress.depends.join(", ")})` : "";
-    return `- [ ] ${inProgress.id}: ${inProgress.description} [${inProgress.size.toUpperCase()}]${deps} \u2190 CURRENT`;
-  }
-  const pending = phase.tasks.find((t) => t.status === "pending");
-  if (pending) {
-    const deps = pending.depends.length > 0 ? ` (depends: ${pending.depends.join(", ")})` : "";
-    return `- [ ] ${pending.id}: ${pending.description} [${pending.size.toUpperCase()}]${deps}`;
-  }
-  return null;
-}
-function extractIncompleteTasksFromPlan(plan, maxChars = 500) {
-  const phase = plan.phases.find((p) => p.id === plan.current_phase);
-  if (!phase)
-    return null;
-  const incomplete = phase.tasks.filter((t) => t.status === "pending" || t.status === "in_progress");
-  if (incomplete.length === 0)
-    return null;
-  const lines = incomplete.map((t) => {
-    const deps = t.depends.length > 0 ? ` (depends: ${t.depends.join(", ")})` : "";
-    return `- [ ] ${t.id}: ${t.description} [${t.size.toUpperCase()}]${deps}`;
-  });
-  const text = lines.join(`
-`);
-  if (text.length <= maxChars)
-    return text;
-  return `${text.slice(0, maxChars)}...`;
-}
-function extractPlanCursor(planContent, options) {
-  const maxTokens = options?.maxTokens ?? 1500;
-  const maxChars = maxTokens * 4;
-  const lookaheadCount = options?.lookaheadTasks ?? 2;
-  if (!planContent || typeof planContent !== "string") {
-    return `[SWARM PLAN CURSOR]
-No plan content available. Start by creating a .swarm/plan.md file.
-[/SWARM PLAN CURSOR]`;
-  }
-  const lines = planContent.split(`
-`);
-  const result = [];
-  result.push("[SWARM PLAN CURSOR]");
-  const phases = [];
-  let currentPhase = null;
-  let inPhase = false;
-  for (let i2 = 0;i2 < lines.length; i2++) {
-    const line = lines[i2];
-    const trimmed = line.trim();
-    const phaseMatch = trimmed.match(/^## Phase (\d+):?\s*(.*?)\s*\[(COMPLETE|IN PROGRESS|PENDING|BLOCKED)\]/i);
-    if (phaseMatch) {
-      if (currentPhase) {
-        phases.push(currentPhase);
-      }
-      const phaseNum = parseInt(phaseMatch[1], 10);
-      const phaseTitle = phaseMatch[2]?.trim() || "";
-      const status = phaseMatch[3].toUpperCase();
-      currentPhase = {
-        number: phaseNum,
-        title: phaseTitle,
-        status,
-        contentLines: []
-      };
-      inPhase = true;
-      continue;
-    }
-    if (inPhase && (line.startsWith("## ") || trimmed === "---")) {
-      if (currentPhase) {
-        phases.push(currentPhase);
-      }
-      currentPhase = null;
-      inPhase = false;
-      continue;
-    }
-    if (currentPhase && inPhase && trimmed) {
-      currentPhase.contentLines.push(line);
-    }
-  }
-  if (currentPhase) {
-    phases.push(currentPhase);
-  }
-  if (phases.length === 0) {
-    result.push("No phases found in plan.");
-    result.push("[/SWARM PLAN CURSOR]");
-    return result.join(`
-`);
-  }
-  const inProgressPhase = phases.find((p) => p.status === "IN PROGRESS");
-  const completePhases = phases.filter((p) => p.status === "COMPLETE");
-  const pendingPhases = phases.filter((p) => p.status === "PENDING");
-  if (completePhases.length > 0) {
-    const recentComplete = completePhases.slice(-5);
-    if (completePhases.length > 5) {
-      result.push("");
-      result.push(`## Earlier Phases (${completePhases.length - 5} more)`);
-      result.push(`- Phase 1-${completePhases.length - 5}: Complete`);
-    }
-    result.push("");
-    result.push("## Completed Phases");
-    for (const phase of recentComplete) {
-      const taskLines = phase.contentLines.filter((l) => l.trim().startsWith("- [")).map((l) => l.replace(/^- \[[ xX]\]\s*/, "").replace(/\s*\[.*?\]/g, "").trim()).slice(0, 3);
-      const taskSummary = taskLines.length > 0 ? taskLines.join(", ") : "All tasks complete";
-      result.push(`- Phase ${phase.number}: ${phase.title}`);
-      result.push(`  - ${taskSummary}`);
-    }
-  }
-  const incompleteTasks = inProgressPhase ? inProgressPhase.contentLines.filter((l) => l.trim().startsWith("- [ ]")).map((l) => l.trim()) : [];
-  if (inProgressPhase) {
-    result.push("");
-    result.push(`## Phase ${inProgressPhase.number} [IN PROGRESS]`);
-    result.push(`- ${inProgressPhase.title}`);
-    if (incompleteTasks.length > 0) {
-      const currentTask = incompleteTasks[0];
-      result.push("");
-      result.push(`- Current: ${currentTask.replace("- [ ] ", "")}`);
-      const lookahead = incompleteTasks.slice(1, 1 + lookaheadCount);
-      for (let i2 = 0;i2 < lookahead.length; i2++) {
-        result.push(`- Next: ${lookahead[i2].replace("- [ ] ", "")}`);
-      }
-    } else {
-      result.push("- (No pending tasks)");
-    }
-  }
-  const nextPending = pendingPhases[0];
-  if (nextPending) {
-    result.push("");
-    result.push(`## Phase ${nextPending.number} [PENDING]`);
-    result.push(`- ${nextPending.title}`);
-  }
-  let output = result.join(`
-`);
-  output += `
-[/SWARM PLAN CURSOR]`;
-  if (output.length > maxChars) {
-    const compactResult = [];
-    compactResult.push("[SWARM PLAN CURSOR]");
-    if (completePhases.length > 0) {
-      compactResult.push("## Completed Phases");
-      const recentCompact = completePhases.slice(-3);
-      for (const phase of recentCompact) {
-        const taskLines = phase.contentLines.filter((l) => l.trim().startsWith("- [")).map((l) => l.replace(/^- \[[ xX]\]\s*/, "").replace(/\s*\[.*?\]/g, "").trim()).slice(0, 1);
-        const taskSummary = taskLines.length > 0 ? taskLines[0] : "Complete";
-        compactResult.push(`- Phase ${phase.number}: ${taskSummary}`);
-      }
-      if (completePhases.length > 3) {
-        compactResult.push(`- Earlier: Phase 1-${completePhases.length - 3} complete`);
-      }
-    }
-    if (inProgressPhase) {
-      compactResult.push("");
-      compactResult.push(`## Phase ${inProgressPhase.number} [IN PROGRESS]`);
-      compactResult.push(`- ${inProgressPhase.title}`);
-      if (incompleteTasks.length > 0) {
-        const truncateTask = (task) => {
-          const text = task.replace("- [ ] ", "");
-          return text.length > 60 ? `${text.slice(0, 57)}...` : text;
-        };
-        compactResult.push(`- Current: ${truncateTask(incompleteTasks[0])}`);
-        const lookahead = incompleteTasks.slice(1, 1 + Math.min(lookaheadCount, 1));
-        for (const task of lookahead) {
-          compactResult.push(`- Next: ${truncateTask(task)}`);
-        }
-      } else {
-        compactResult.push("- (No pending tasks)");
-      }
-    }
-    if (nextPending) {
-      compactResult.push("");
-      compactResult.push(`## Phase ${nextPending.number} [PENDING]`);
-      compactResult.push(`- ${nextPending.title}`);
-    }
-    compactResult.push("[/SWARM PLAN CURSOR]");
-    output = compactResult.join(`
-`);
-  }
-  return output;
-}
-
-// src/services/status-service.ts
-init_utils2();
-init_manager2();
-
-// src/services/compaction-service.ts
-import * as fs25 from "fs";
-import * as path36 from "path";
-function makeInitialState() {
-  return {
-    lastObservationAt: 0,
-    lastReflectionAt: 0,
-    lastEmergencyAt: 0,
-    observationCount: 0,
-    reflectionCount: 0,
-    emergencyCount: 0,
-    lastSnapshotAt: null
-  };
-}
-var sessionStates = new Map;
-function getSessionState(sessionId) {
-  let state = sessionStates.get(sessionId);
-  if (!state) {
-    state = makeInitialState();
-    sessionStates.set(sessionId, state);
-  }
-  return state;
-}
-function appendSnapshot(directory, tier, budgetPct, message) {
-  try {
-    const snapshotPath = path36.join(directory, ".swarm", "context-snapshot.md");
-    const timestamp = new Date().toISOString();
-    const entry = `
-## [${tier.toUpperCase()}] ${timestamp} \u2014 ${budgetPct.toFixed(1)}% used
-${message}
-`;
-    fs25.appendFileSync(snapshotPath, entry, "utf-8");
-  } catch {}
-}
-function buildObservationMessage(budgetPct) {
-  return `[CONTEXT COMPACTION \u2014 OBSERVATION TIER]
-` + `Context window is ${budgetPct.toFixed(1)}% used. Initiating observation compaction.
-` + `INSTRUCTIONS: Summarise the key decisions made so far, files changed, errors resolved, ` + `and the current task state. Discard verbose tool outputs and raw file reads. ` + `Preserve: plan task ID, agent verdicts, file paths touched, unresolved blockers.
-` + `[/CONTEXT COMPACTION]`;
-}
-function buildReflectionMessage(budgetPct) {
-  return `[CONTEXT COMPACTION \u2014 REFLECTION TIER]
-` + `Context window is ${budgetPct.toFixed(1)}% used. Initiating reflection compaction.
-` + `INSTRUCTIONS: Re-summarise into a tighter format. Discard completed task details ` + `and resolved errors. Retain ONLY: current phase tasks remaining, open blockers, ` + `last 3 reviewer/test verdicts, and active file scope.
-` + `[/CONTEXT COMPACTION]`;
-}
-function buildEmergencyMessage(budgetPct, preserveLastN) {
-  return `[CONTEXT COMPACTION \u2014 EMERGENCY TIER]
-` + `Context window is ${budgetPct.toFixed(1)}% used. EMERGENCY compaction required.
-` + `INSTRUCTIONS: Retain ONLY the system prompt, the current task context, and the ` + `last ${preserveLastN} conversation turns. Discard everything else. ` + `If you cannot complete the current task in the remaining context, escalate to the user.
-` + `[/CONTEXT COMPACTION]`;
-}
-function createCompactionService(config3, directory, injectMessage) {
-  return {
-    toolAfter: async (_input, _output) => {
-      if (!config3.enabled)
-        return;
-      const budgetPct = swarmState.lastBudgetPct ?? 0;
-      if (budgetPct <= 0)
-        return;
-      const sessionId = _input.sessionID;
-      const state = getSessionState(sessionId);
-      try {
-        if (budgetPct >= config3.emergencyThreshold && budgetPct > state.lastEmergencyAt + 5) {
-          state.lastEmergencyAt = budgetPct;
-          state.emergencyCount++;
-          const msg = buildEmergencyMessage(budgetPct, config3.preserveLastNTurns);
-          appendSnapshot(directory, "emergency", budgetPct, msg);
-          state.lastSnapshotAt = new Date().toISOString();
-          injectMessage(sessionId, msg);
-          return;
-        }
-        if (budgetPct >= config3.reflectionThreshold && budgetPct > state.lastReflectionAt + 5) {
-          state.lastReflectionAt = budgetPct;
-          state.reflectionCount++;
-          const msg = buildReflectionMessage(budgetPct);
-          appendSnapshot(directory, "reflection", budgetPct, msg);
-          state.lastSnapshotAt = new Date().toISOString();
-          injectMessage(sessionId, msg);
-          return;
-        }
-        if (budgetPct >= config3.observationThreshold && budgetPct > state.lastObservationAt + 5) {
-          state.lastObservationAt = budgetPct;
-          state.observationCount++;
-          const msg = buildObservationMessage(budgetPct);
-          appendSnapshot(directory, "observation", budgetPct, msg);
-          state.lastSnapshotAt = new Date().toISOString();
-          injectMessage(sessionId, msg);
-        }
-      } catch {}
-    }
-  };
-}
-function getCompactionMetrics(sessionId) {
-  if (sessionId) {
-    const state = getSessionState(sessionId);
-    return {
-      compactionCount: state.observationCount + state.reflectionCount + state.emergencyCount,
-      lastSnapshotAt: state.lastSnapshotAt
-    };
-  }
-  let total = 0;
-  let lastSnapshot = null;
-  for (const state of sessionStates.values()) {
-    total += state.observationCount + state.reflectionCount + state.emergencyCount;
-    if (state.lastSnapshotAt && (!lastSnapshot || state.lastSnapshotAt > lastSnapshot)) {
-      lastSnapshot = state.lastSnapshotAt;
-    }
-  }
-  return { compactionCount: total, lastSnapshotAt: lastSnapshot };
-}
-
-// src/services/context-budget-service.ts
-init_utils2();
-var DEFAULT_CONTEXT_BUDGET_CONFIG = {
-  enabled: true,
-  budgetTokens: 40000,
-  warningPct: 70,
-  criticalPct: 90,
-  warningMode: "once",
-  warningIntervalTurns: 20
-};
-var COST_PER_1K_TOKENS = 0.003;
-function estimateTokens2(text) {
-  if (!text || typeof text !== "string") {
-    return 0;
-  }
-  return Math.ceil(text.length / 3.5);
-}
-async function readBudgetState(directory) {
-  const content = await readSwarmFileAsync(directory, "session/budget-state.json");
-  if (!content) {
-    return null;
-  }
-  try {
-    return JSON.parse(content);
-  } catch {
-    return null;
-  }
-}
-async function writeBudgetState(directory, state) {
-  try {
-    const resolvedPath = validateSwarmPath(directory, "session/budget-state.json");
-    const content = JSON.stringify(state, null, 2);
-    await Bun.write(resolvedPath, content);
-  } catch (error93) {
-    console.warn("[context-budget] Failed to write budget state:", error93 instanceof Error ? error93.message : String(error93));
-  }
-}
-async function countEvents(directory) {
-  const content = await readSwarmFileAsync(directory, "events.jsonl");
-  if (!content) {
-    return 0;
-  }
-  const lines = content.split(`
-`).filter((line) => line.trim().length > 0);
-  return lines.length;
-}
-async function getPlanCursorContent(directory) {
-  const planContent = await readSwarmFileAsync(directory, "plan.md");
-  if (!planContent) {
-    return "";
-  }
-  const lines = planContent.split(`
-`);
-  const cursorLines = [];
-  let inCurrentSection = false;
-  for (const line of lines) {
-    if (line.includes("in_progress") || line.includes("**Current**")) {
-      inCurrentSection = true;
-    }
-    if (inCurrentSection) {
-      cursorLines.push(line);
-      if (cursorLines.length > 30) {
-        break;
-      }
-    }
-  }
-  return cursorLines.join(`
-`) || planContent.substring(0, 1000);
-}
-async function getContextBudgetReport(directory, assembledSystemPrompt, config3) {
-  validateDirectory(directory);
-  const timestamp = new Date().toISOString();
-  const systemPromptTokens = estimateTokens2(assembledSystemPrompt);
-  const planCursorContent = await getPlanCursorContent(directory);
-  const planCursorTokens = estimateTokens2(planCursorContent);
-  const knowledgeContent = await readSwarmFileAsync(directory, "knowledge.jsonl");
-  const knowledgeTokens = estimateTokens2(knowledgeContent || "");
-  const runMemoryContent = await readSwarmFileAsync(directory, "run-memory.jsonl");
-  const runMemoryTokens = estimateTokens2(runMemoryContent || "");
-  const handoffContent = await readSwarmFileAsync(directory, "handoff.md");
-  const handoffTokens = estimateTokens2(handoffContent || "");
-  const contextMdContent = await readSwarmFileAsync(directory, "context.md");
-  const contextMdTokens = estimateTokens2(contextMdContent || "");
-  const swarmTotalTokens = systemPromptTokens + planCursorTokens + knowledgeTokens + runMemoryTokens + handoffTokens + contextMdTokens;
-  const estimatedTurnCount = await countEvents(directory);
-  const budgetPct = swarmTotalTokens / config3.budgetTokens * 100;
-  let status;
-  let recommendation = null;
-  if (budgetPct < config3.warningPct) {
-    status = "ok";
-  } else if (budgetPct < config3.criticalPct) {
-    status = "warning";
-    recommendation = "Consider wrapping up current phase and running /swarm handoff before starting new work.";
-  } else {
-    status = "critical";
-    recommendation = "Run /swarm handoff and start a new session to avoid cost escalation.";
-  }
-  const estimatedSessionTokens = swarmTotalTokens * Math.max(1, estimatedTurnCount);
-  return {
-    timestamp,
-    systemPromptTokens,
-    planCursorTokens,
-    knowledgeTokens,
-    runMemoryTokens,
-    handoffTokens,
-    contextMdTokens,
-    swarmTotalTokens,
-    estimatedTurnCount,
-    estimatedSessionTokens,
-    budgetPct,
-    status,
-    recommendation
-  };
-}
-async function formatBudgetWarning(report, directory, config3) {
-  validateDirectory(directory);
-  if (report.status === "ok") {
-    return null;
-  }
-  if (!directory || directory.trim() === "") {
-    return formatWarningMessage(report);
-  }
-  const budgetState = await readBudgetState(directory);
-  const state = budgetState || {
-    warningFiredAtTurn: null,
-    criticalFiredAtTurn: null,
-    lastInjectedAtTurn: null
-  };
-  const currentTurn = report.estimatedTurnCount;
-  if (report.status === "warning") {
-    if (config3.warningMode === "once" && state.warningFiredAtTurn !== null) {
-      return null;
-    }
-    if (config3.warningMode === "interval" && state.warningFiredAtTurn !== null && currentTurn - state.warningFiredAtTurn < config3.warningIntervalTurns) {
-      return null;
-    }
-    state.warningFiredAtTurn = currentTurn;
-    state.lastInjectedAtTurn = currentTurn;
-    await writeBudgetState(directory, state);
-  } else if (report.status === "critical") {
-    state.criticalFiredAtTurn = currentTurn;
-    state.lastInjectedAtTurn = currentTurn;
-  }
-  return formatWarningMessage(report);
-}
-function formatWarningMessage(report) {
-  const budgetPctStr = report.budgetPct.toFixed(1);
-  const tokensPerTurn = report.swarmTotalTokens.toLocaleString();
-  if (report.status === "warning") {
-    return `[CONTEXT BUDGET: ${budgetPctStr}% \u2014 swarm injecting ~${tokensPerTurn} tokens/turn. Consider wrapping current phase and running /swarm handoff before starting new work.]`;
-  }
-  const costPerTurn = (report.swarmTotalTokens / 1000 * COST_PER_1K_TOKENS).toFixed(3);
-  return `[CONTEXT BUDGET: ${budgetPctStr}% CRITICAL \u2014 swarm injecting ~${tokensPerTurn} tokens/turn. Run /swarm handoff and start a new session to avoid cost escalation. Estimated session cost scaling: ~$${costPerTurn}/turn at current context size.]`;
-}
-
-// src/services/status-service.ts
-async function getStatusData(directory, agents) {
-  const plan = await loadPlan(directory);
-  if (plan && plan.migration_status !== "migration_failed") {
-    const currentPhase2 = extractCurrentPhaseFromPlan2(plan) || "Unknown";
-    let completedTasks2 = 0;
-    let totalTasks2 = 0;
-    for (const phase of plan.phases) {
-      for (const task of phase.tasks) {
-        totalTasks2++;
-        if (task.status === "completed")
-          completedTasks2++;
-      }
-    }
-    const agentCount2 = Object.keys(agents).length;
-    const metrics2 = getCompactionMetrics();
-    return {
-      hasPlan: true,
-      currentPhase: currentPhase2,
-      completedTasks: completedTasks2,
-      totalTasks: totalTasks2,
-      agentCount: agentCount2,
-      isLegacy: false,
-      turboMode: hasActiveTurboMode(),
-      contextBudgetPct: swarmState.lastBudgetPct > 0 ? swarmState.lastBudgetPct : null,
-      compactionCount: metrics2.compactionCount,
-      lastSnapshotAt: metrics2.lastSnapshotAt
-    };
-  }
-  const planContent = await readSwarmFileAsync(directory, "plan.md");
-  if (!planContent) {
-    const metrics2 = getCompactionMetrics();
-    return {
-      hasPlan: false,
-      currentPhase: "Unknown",
-      completedTasks: 0,
-      totalTasks: 0,
-      agentCount: Object.keys(agents).length,
-      isLegacy: true,
-      turboMode: hasActiveTurboMode(),
-      contextBudgetPct: swarmState.lastBudgetPct > 0 ? swarmState.lastBudgetPct : null,
-      compactionCount: metrics2.compactionCount,
-      lastSnapshotAt: metrics2.lastSnapshotAt
-    };
-  }
-  const currentPhase = extractCurrentPhase(planContent) || "Unknown";
-  const completedTasks = (planContent.match(/^- \[x\]/gm) || []).length;
-  const incompleteTasks = (planContent.match(/^- \[ \]/gm) || []).length;
-  const totalTasks = completedTasks + incompleteTasks;
-  const agentCount = Object.keys(agents).length;
-  const metrics = getCompactionMetrics();
-  return {
-    hasPlan: true,
-    currentPhase,
-    completedTasks,
-    totalTasks,
-    agentCount,
-    isLegacy: true,
-    turboMode: hasActiveTurboMode(),
-    contextBudgetPct: swarmState.lastBudgetPct > 0 ? swarmState.lastBudgetPct : null,
-    compactionCount: metrics.compactionCount,
-    lastSnapshotAt: metrics.lastSnapshotAt
-  };
-}
-function formatStatusMarkdown(status) {
-  const lines = [
-    "## Swarm Status",
-    "",
-    `**Current Phase**: ${status.currentPhase}`,
-    `**Tasks**: ${status.completedTasks}/${status.totalTasks} complete`,
-    `**Agents**: ${status.agentCount} registered`
-  ];
-  if (status.turboMode) {
-    lines.push("", `**TURBO MODE**: active`);
-  }
-  if (status.contextBudgetPct !== null && status.contextBudgetPct > 0) {
-    const pct = status.contextBudgetPct.toFixed(1);
-    const budgetTokens = DEFAULT_CONTEXT_BUDGET_CONFIG.budgetTokens;
-    const est = Math.round(status.contextBudgetPct / 100 * budgetTokens);
-    lines.push("", `**Context**: ${pct}% used (est. ${est.toLocaleString()} / ${budgetTokens.toLocaleString()} tokens)`);
-    if (status.compactionCount > 0) {
-      lines.push(`**Compaction events**: ${status.compactionCount} triggered`);
-    }
-    if (status.lastSnapshotAt) {
-      lines.push(`**Last snapshot**: ${status.lastSnapshotAt}`);
-    }
-  }
-  return lines.join(`
-`);
-}
-async function handleStatusCommand(directory, agents) {
-  const statusData = await getStatusData(directory, agents);
-  if (!statusData.hasPlan) {
-    return "No active swarm plan found.";
-  }
-  return formatStatusMarkdown(statusData);
-}
-// src/commands/sync-plan.ts
-init_manager2();
-async function handleSyncPlanCommand(directory, _args) {
-  const plan = await loadPlan(directory);
-  if (!plan) {
-    return `## Plan Sync Report
-
-No active swarm plan found. Nothing to sync.`;
-  }
-  const currentMarkdown = derivePlanMarkdown(plan);
-  const lines = [
-    "## Plan Sync Report",
-    "",
-    "**Status**: \u2705 Synced",
-    "",
-    "The plan.json and plan.md are now synchronized.",
-    "",
-    "### Current Plan",
-    "",
-    currentMarkdown
-  ];
-  return lines.join(`
-`);
-}
-
-// src/commands/turbo.ts
-async function handleTurboCommand(_directory, args2, sessionID) {
-  if (!sessionID || sessionID.trim() === "") {
-    return "Error: No active session context. Turbo Mode requires an active session. Use /swarm turbo from within an OpenCode session, or start a session first.";
-  }
-  const session = getAgentSession(sessionID);
-  if (!session) {
-    return "Error: No active session. Turbo Mode requires an active session to operate.";
-  }
-  const arg = args2[0]?.toLowerCase();
-  let newTurboMode;
-  let feedback;
-  if (arg === "on") {
-    newTurboMode = true;
-    feedback = "Turbo Mode enabled";
-  } else if (arg === "off") {
-    newTurboMode = false;
-    feedback = "Turbo Mode disabled";
-  } else {
-    newTurboMode = !session.turboMode;
-    feedback = newTurboMode ? "Turbo Mode enabled" : "Turbo Mode disabled";
-  }
-  session.turboMode = newTurboMode;
-  return feedback;
-}
-
-// src/commands/write-retro.ts
-async function handleWriteRetroCommand(directory, args2) {
-  if (args2.length === 0 || !args2[0] || args2[0].trim() === "") {
-    return `## Usage: /swarm write-retro <json>
-
-Writes a retrospective evidence bundle for a completed phase.
-
-### Required JSON fields:
-\`\`\`json
-{
-  "phase": 1,
-  "summary": "Phase summary here",
-  "task_count": 3,
-  "task_complexity": "simple",
-  "total_tool_calls": 20,
-  "coder_revisions": 1,
-  "reviewer_rejections": 0,
-  "test_failures": 0,
-  "security_findings": 0,
-  "integration_issues": 0
-}
-\`\`\`
-
-### Optional fields:
-- \`lessons_learned\`: string[] (max 5)
-- \`top_rejection_reasons\`: string[]
-- \`task_id\`: string (defaults to \`retro-{phase}\`)
-- \`metadata\`: Record<string, unknown>
-
-### task_complexity values: trivial | simple | moderate | complex`;
-  }
-  let parsedArgs;
-  try {
-    const jsonObj = JSON.parse(args2[0]);
-    if (typeof jsonObj !== "object" || jsonObj === null || Array.isArray(jsonObj)) {
-      return "Error: Invalid JSON \u2014 expected a JSON object with retro fields. Run `/swarm write-retro` with no arguments to see usage.";
-    }
-    parsedArgs = jsonObj;
-  } catch {
-    return "Error: Invalid JSON \u2014 expected a JSON object with retro fields. Run `/swarm write-retro` with no arguments to see usage.";
-  }
-  const resultJson = await executeWriteRetro(parsedArgs, directory);
-  let result;
-  try {
-    result = JSON.parse(resultJson);
-  } catch {
-    return "Error: Failed to parse result from write-retro tool.";
-  }
-  if (result.success === true) {
-    return `## Retrospective Written
-
-Phase **${result.phase ?? "unknown"}** retrospective saved to \`.swarm/evidence/${result.task_id ?? "unknown"}/evidence.json\`.
-
-Run \`/swarm evidence ${result.task_id ?? "unknown"}\` to view it, or \`/swarm status\` to check phase_complete readiness.`;
-  }
-  return `Error: ${result.message}`;
-}
-
-// src/commands/registry.ts
-var COMMAND_REGISTRY = {
-  status: {
-    handler: (ctx) => handleStatusCommand(ctx.directory, ctx.agents),
-    description: "Show current swarm state"
-  },
-  plan: {
-    handler: (ctx) => handlePlanCommand(ctx.directory, ctx.args),
-    description: "Show plan (optionally filter by phase number)"
-  },
-  agents: {
-    handler: (ctx) => Promise.resolve(handleAgentsCommand(ctx.agents, undefined)),
-    description: "List registered agents"
-  },
-  history: {
-    handler: (ctx) => handleHistoryCommand(ctx.directory, ctx.args),
-    description: "Show completed phases summary"
-  },
-  config: {
-    handler: (ctx) => handleConfigCommand(ctx.directory, ctx.args),
-    description: "Show current resolved configuration"
-  },
-  "config doctor": {
-    handler: (ctx) => handleDoctorCommand(ctx.directory, ctx.args),
-    description: "Run config doctor checks",
-    subcommandOf: "config"
-  },
-  "doctor tools": {
-    handler: (ctx) => handleDoctorToolsCommand(ctx.directory, ctx.args),
-    description: "Run tool registration coherence check"
-  },
-  diagnose: {
-    handler: (ctx) => handleDiagnoseCommand(ctx.directory, ctx.args),
-    description: "Run health check on swarm state"
-  },
-  preflight: {
-    handler: (ctx) => handlePreflightCommand(ctx.directory, ctx.args),
-    description: "Run preflight automation checks"
-  },
-  "sync-plan": {
-    handler: (ctx) => handleSyncPlanCommand(ctx.directory, ctx.args),
-    description: "Ensure plan.json and plan.md are synced"
-  },
-  benchmark: {
-    handler: (ctx) => handleBenchmarkCommand(ctx.directory, ctx.args),
-    description: "Show performance metrics [--cumulative] [--ci-gate]"
-  },
-  export: {
-    handler: (ctx) => handleExportCommand(ctx.directory, ctx.args),
-    description: "Export plan and context as JSON"
-  },
-  evidence: {
-    handler: (ctx) => handleEvidenceCommand(ctx.directory, ctx.args),
-    description: "Show evidence bundles [taskId]"
-  },
-  "evidence summary": {
-    handler: (ctx) => handleEvidenceSummaryCommand(ctx.directory),
-    description: "Generate evidence summary with completion ratio and blockers",
-    subcommandOf: "evidence"
-  },
-  archive: {
-    handler: (ctx) => handleArchiveCommand(ctx.directory, ctx.args),
-    description: "Archive old evidence bundles [--dry-run]"
-  },
-  curate: {
-    handler: (ctx) => handleCurateCommand(ctx.directory, ctx.args),
-    description: "Run knowledge curation and hive promotion review"
-  },
-  "dark-matter": {
-    handler: (ctx) => handleDarkMatterCommand(ctx.directory, ctx.args),
-    description: "Detect hidden file couplings via co-change NPMI analysis"
-  },
-  close: {
-    handler: (ctx) => handleCloseCommand(ctx.directory, ctx.args),
-    description: "Use /swarm close to close the swarm project and archive evidence"
-  },
-  simulate: {
-    handler: (ctx) => handleSimulateCommand(ctx.directory, ctx.args),
-    description: "Dry-run impact analysis of proposed changes [--target <glob>]"
-  },
-  analyze: {
-    handler: (ctx) => handleAnalyzeCommand(ctx.directory, ctx.args),
-    description: "Analyze spec.md vs plan.md for requirement coverage gaps"
-  },
-  clarify: {
-    handler: (ctx) => handleClarifyCommand(ctx.directory, ctx.args),
-    description: "Clarify and refine an existing feature specification"
-  },
-  specify: {
-    handler: (ctx) => handleSpecifyCommand(ctx.directory, ctx.args),
-    description: "Generate or import a feature specification [description]"
-  },
-  promote: {
-    handler: (ctx) => handlePromoteCommand(ctx.directory, ctx.args),
-    description: "Manually promote lesson to hive knowledge"
-  },
-  reset: {
-    handler: (ctx) => handleResetCommand(ctx.directory, ctx.args),
-    description: "Clear swarm state files [--confirm]"
-  },
-  "reset-session": {
-    handler: (ctx) => handleResetSessionCommand(ctx.directory, ctx.args),
-    description: "Clear session state while preserving plan, evidence, and knowledge"
-  },
-  rollback: {
-    handler: (ctx) => handleRollbackCommand(ctx.directory, ctx.args),
-    description: "Restore swarm state to a checkpoint <phase>"
-  },
-  retrieve: {
-    handler: (ctx) => handleRetrieveCommand(ctx.directory, ctx.args),
-    description: "Retrieve full output from a summary <id>"
-  },
-  handoff: {
-    handler: (ctx) => handleHandoffCommand(ctx.directory, ctx.args),
-    description: "Prepare state for clean model switch (new session)"
-  },
-  turbo: {
-    handler: (ctx) => handleTurboCommand(ctx.directory, ctx.args, ctx.sessionID),
-    description: "Toggle Turbo Mode for the active session [on|off]"
-  },
-  "write-retro": {
-    handler: (ctx) => handleWriteRetroCommand(ctx.directory, ctx.args),
-    description: "Write a retrospective evidence bundle for a completed phase <json>"
-  },
-  "knowledge migrate": {
-    handler: (ctx) => handleKnowledgeMigrateCommand(ctx.directory, ctx.args),
-    description: "Migrate knowledge entries to the current format",
-    subcommandOf: "knowledge"
-  },
-  "knowledge quarantine": {
-    handler: (ctx) => handleKnowledgeQuarantineCommand(ctx.directory, ctx.args),
-    description: "Move a knowledge entry to quarantine <id> [reason]",
-    subcommandOf: "knowledge"
-  },
-  "knowledge restore": {
-    handler: (ctx) => handleKnowledgeRestoreCommand(ctx.directory, ctx.args),
-    description: "Restore a quarantined knowledge entry <id>",
-    subcommandOf: "knowledge"
-  },
-  knowledge: {
-    handler: (ctx) => handleKnowledgeListCommand(ctx.directory, ctx.args),
-    description: "List knowledge entries"
-  },
-  checkpoint: {
-    handler: (ctx) => handleCheckpointCommand(ctx.directory, ctx.args),
-    description: "Manage project checkpoints [save|restore|delete|list] <label>"
-  }
-};
-var VALID_COMMANDS = Object.keys(COMMAND_REGISTRY);
-function resolveCommand(tokens) {
-  if (tokens.length === 0)
-    return null;
-  if (tokens.length >= 2) {
-    const compound = `${tokens[0]} ${tokens[1]}`;
-    if (Object.hasOwn(COMMAND_REGISTRY, compound)) {
-      return {
-        entry: COMMAND_REGISTRY[compound],
-        remainingArgs: tokens.slice(2)
-      };
-    }
-  }
-  const key = tokens[0];
-  if (Object.hasOwn(COMMAND_REGISTRY, key)) {
-    return {
-      entry: COMMAND_REGISTRY[key],
-      remainingArgs: tokens.slice(1)
-    };
-  }
-  return null;
-}
 
 // src/commands/index.ts
 var HELP_TEXT = [
@@ -56807,6 +56944,36 @@ function buildLanguageReviewerChecklist(currentTaskText) {
 ${allItems.map((i2) => `- [ ] ${i2}`).join(`
 `)}`;
 }
+function buildLanguageTestConstraints(currentTaskText) {
+  if (!currentTaskText)
+    return null;
+  const filePaths = currentTaskText.match(/\bsrc\/\S+\.[a-zA-Z0-9]+\b/g) ?? [];
+  if (filePaths.length === 0)
+    return null;
+  const allConstraints = [];
+  const seenConstraints = new Set;
+  let languageLabel = "";
+  for (const filePath of filePaths) {
+    const profile = getProfileForFile(filePath);
+    if (!profile)
+      continue;
+    if (!languageLabel) {
+      languageLabel = profile.displayName;
+    }
+    const testConstraints = profile.prompts.testConstraints ?? [];
+    for (const constraint of testConstraints) {
+      if (!seenConstraints.has(constraint) && allConstraints.length < 10) {
+        seenConstraints.add(constraint);
+        allConstraints.push(constraint);
+      }
+    }
+  }
+  if (allConstraints.length === 0)
+    return null;
+  return `[LANGUAGE-SPECIFIC TEST CONSTRAINTS \u2014 ${languageLabel}]
+${allConstraints.map((c) => `- ${c}`).join(`
+`)}`;
+}
 function createSystemEnhancerHook(config3, directory) {
   const enabled = config3.hooks?.system_enhancer !== false;
   if (!enabled) {
@@ -57031,6 +57198,13 @@ ${handoffBlock}`);
             const revChecklist_a = buildLanguageReviewerChecklist(taskText_rev_a);
             if (revChecklist_a) {
               tryInject(revChecklist_a);
+            }
+          }
+          if (baseRole === "test_engineer") {
+            const taskText_te_a = plan2 && plan2.migration_status !== "migration_failed" ? extractCurrentTaskFromPlan(plan2) : null;
+            const testConstraints_a = buildLanguageTestConstraints(taskText_te_a);
+            if (testConstraints_a) {
+              tryInject(testConstraints_a);
             }
           }
           const sessionId_retro = _input.sessionID;
@@ -57461,6 +57635,21 @@ ${handoffBlock}`;
               kind: "agent_context",
               text: revChecklist_b,
               tokens: estimateTokens(revChecklist_b),
+              priority: 2,
+              metadata: { contentType: "prose" }
+            });
+          }
+        }
+        const isTestEngineer_b = activeAgent_coder_b && stripKnownSwarmPrefix(activeAgent_coder_b) === "test_engineer";
+        if (isTestEngineer_b) {
+          const taskText_te_b = plan && plan.migration_status !== "migration_failed" ? extractCurrentTaskFromPlan(plan) : null;
+          const testConstraints_b = buildLanguageTestConstraints(taskText_te_b);
+          if (testConstraints_b) {
+            candidates.push({
+              id: `candidate-${idCounter++}`,
+              kind: "agent_context",
+              text: testConstraints_b,
+              tokens: estimateTokens(testConstraints_b),
               priority: 2,
               metadata: { contentType: "prose" }
             });
@@ -58264,12 +58453,34 @@ Use this data to avoid repeating known failure patterns.`;
 init_curator_drift();
 init_knowledge_store();
 init_utils2();
-function formatStars(confidence) {
-  if (confidence >= 0.9)
-    return "\u2605\u2605\u2605";
-  if (confidence >= 0.6)
-    return "\u2605\u2605\u2606";
-  return "\u2605\u2606\u2606";
+function buildKnowledgeBlock(entries, charBudget, cfg, currentProject) {
+  if (entries.length === 0)
+    return null;
+  const maxDisplayChars = cfg.max_lesson_display_chars ?? 120;
+  const lines = entries.map((entry) => {
+    const tier = entry.tier === "hive" ? "[H]" : "[S]";
+    const confirmedBy = entry.confirmed_by?.length ?? 0;
+    const confirm = confirmedBy >= 3 ? " \u2713\u2713" : confirmedBy >= 1 ? " \u2713" : "";
+    let lessonText = sanitizeLessonForContext(entry.lesson);
+    if (lessonText.length > maxDisplayChars) {
+      lessonText = lessonText.slice(0, maxDisplayChars) + "\u2026";
+    }
+    const rawSource = entry.tier === "hive" && "source_project" in entry ? entry.source_project ?? null : null;
+    const source = rawSource !== null && rawSource !== currentProject ? ` (from: ${sanitizeLessonForContext(rawSource)})` : "";
+    return `${tier} ${lessonText}${source}${confirm}`;
+  });
+  const header = `\uD83D\uDCDA Lessons:
+`;
+  let block = header + `
+` + lines.join(`
+`);
+  while (block.length > charBudget && lines.length > 0) {
+    lines.pop();
+    block = header + `
+` + lines.join(`
+`);
+  }
+  return lines.length > 0 ? block : null;
 }
 function sanitizeLessonForContext(text) {
   return text.split("").filter((char) => {
@@ -58284,11 +58495,16 @@ function isOrchestratorAgent(agentName) {
 function injectKnowledgeMessage(output, text) {
   if (!output.messages)
     return;
-  const alreadyInjected = output.messages.some((m) => m.parts?.some((p) => p.text?.includes("\uD83D\uDCDA Knowledge") || p.text?.includes("<drift_report>") || p.text?.includes("<curator_briefing>")));
+  const alreadyInjected = output.messages.some((m) => m.parts?.some((p) => p.text?.includes("\uD83D\uDCDA Lessons:") || p.text?.includes("<drift_report>") || p.text?.includes("<curator_briefing>")));
   if (alreadyInjected)
     return;
-  const systemIdx = output.messages.findIndex((m) => m.info?.role === "system");
-  const insertIdx = systemIdx >= 0 ? systemIdx + 1 : 0;
+  let insertIdx = output.messages.length - 1;
+  for (let i2 = output.messages.length - 1;i2 >= 0; i2--) {
+    if (output.messages[i2].info?.role === "user") {
+      insertIdx = i2;
+      break;
+    }
+  }
   const knowledgeMessage = {
     info: { role: "system" },
     parts: [{ type: "text", text }]
@@ -58303,13 +58519,19 @@ function createKnowledgeInjectorHook(directory, config3) {
       return;
     const plan = await loadPlan(directory);
     const currentPhase = plan?.current_phase ?? 1;
-    const totalChars = output.messages.reduce((sum, msg) => {
+    const CHARS_PER_TOKEN = 1 / 0.33;
+    const MODEL_LIMIT_CHARS = Math.floor(128000 * CHARS_PER_TOKEN);
+    const existingChars = output.messages.reduce((sum, msg) => {
       return sum + (msg.parts?.reduce((s, p) => s + (p.text?.length ?? 0), 0) ?? 0);
     }, 0);
-    if (totalChars > 75000) {
-      console.warn(`[knowledge-injector] Skipping knowledge injection: context too large (${totalChars} chars > 75000)`);
+    const headroomChars = MODEL_LIMIT_CHARS - existingChars;
+    const MIN_INJECT_CHARS = 300;
+    if (headroomChars < MIN_INJECT_CHARS) {
+      console.warn(`[knowledge-injector] Skipping: only ${headroomChars} chars of headroom remain (existing: ${existingChars}, limit: ${MODEL_LIMIT_CHARS})`);
       return;
     }
+    const maxInjectChars = config3.inject_char_budget ?? 2000;
+    const effectiveBudget = headroomChars >= MODEL_LIMIT_CHARS * 0.6 ? maxInjectChars : headroomChars >= MODEL_LIMIT_CHARS * 0.2 ? Math.floor(maxInjectChars * 0.5) : Math.floor(maxInjectChars * 0.25);
     const systemMsg = output.messages.find((m) => m.info?.role === "system");
     const agentName = systemMsg?.info?.agent;
     if (!agentName || !isOrchestratorAgent(agentName))
@@ -58355,42 +58577,44 @@ ${freshPreamble}` : `<curator_briefing>${truncatedBriefing}</curator_briefing>`;
       return;
     }
     const runMemory = await getRunMemorySummary(directory);
-    const lines = entries.map((entry) => {
-      const stars = formatStars(entry.confidence);
-      const tierLabel = `[${entry.tier}:${entry.status}]`;
-      const confirmedBy = entry.confirmed_by?.length ?? 0;
-      const confirmText = confirmedBy > 0 ? `, confirmed by ${confirmedBy} ${entry.tier === "hive" ? "project" : "phase"}${confirmedBy > 1 ? "s" : ""}` : "";
-      const rawSource = entry.tier === "hive" && "source_project" in entry ? entry.source_project ?? "unknown" : null;
-      const source = rawSource !== null ? ` \u2014 Source: ${sanitizeLessonForContext(rawSource)}` : "";
-      return `${stars} ${tierLabel} ${sanitizeLessonForContext(entry.lesson)}${source}${confirmText}`;
-    });
-    const knowledgeSection = [
-      `\uD83D\uDCDA Knowledge (${entries.length} relevant lesson${entries.length > 1 ? "s" : ""}):`,
-      "",
-      ...lines,
-      "",
-      "These are lessons learned from this project and past projects. Consider them as context but use your judgment \u2014 they may not all apply."
-    ].join(`
-`);
-    let injectionText = freshPreamble ? `${freshPreamble}
-
-${knowledgeSection}` : knowledgeSection;
-    if (runMemory) {
-      injectionText = `${runMemory}
-
-${injectionText}`;
+    const isFullBudget = effectiveBudget === maxInjectChars;
+    const lessonBudget = Math.floor(effectiveBudget * 0.7);
+    const projectName = plan?.title ?? "unknown";
+    const lessonBlock = buildKnowledgeBlock(entries, lessonBudget, config3, projectName);
+    const parts2 = [];
+    let remaining = effectiveBudget;
+    if (lessonBlock) {
+      parts2.push(lessonBlock);
+      remaining -= lessonBlock.length;
     }
-    cachedInjectionText = injectionText;
+    if (runMemory && remaining > 300) {
+      parts2.push(runMemory);
+      remaining -= runMemory.length;
+    }
+    if (freshPreamble && remaining > 200) {
+      let preambleToUse = freshPreamble;
+      if (!isFullBudget) {
+        preambleToUse = preambleToUse.replace(/<curator_briefing>[\s\S]*?<\/curator_briefing>\s*/g, "");
+      }
+      if (preambleToUse.trim().length > 0 && preambleToUse.length <= remaining) {
+        parts2.push(preambleToUse);
+        remaining -= preambleToUse.length;
+      }
+    }
     const rejected = await readRejectedLessons(directory);
-    if (rejected.length > 0) {
+    if (rejected.length > 0 && remaining > 150) {
       const recentRejected = rejected.slice(-3);
       const rejectedLines = recentRejected.map((r) => `  \u26A0\uFE0F REJECTED PATTERN: "${sanitizeLessonForContext(r.lesson).slice(0, 80)}" \u2014 ${sanitizeLessonForContext(r.rejection_reason)}`);
-      cachedInjectionText += `
-
-\u26A0\uFE0F Previously rejected patterns (do not re-learn):
+      const rejectedBlock = `\u26A0\uFE0F Previously rejected patterns (do not re-learn):
 ` + rejectedLines.join(`
 `);
+      if (rejectedBlock.length <= remaining) {
+        parts2.push(rejectedBlock);
+      }
     }
+    cachedInjectionText = parts2.join(`
+
+`);
     injectKnowledgeMessage(output, cachedInjectionText);
   });
 }
@@ -64046,7 +64270,17 @@ import * as path63 from "path";
 var MAX_OUTPUT_BYTES5 = 52428800;
 var AUDIT_TIMEOUT_MS = 120000;
 function isValidEcosystem(value) {
-  return typeof value === "string" && ["auto", "npm", "pip", "cargo", "go", "dotnet", "ruby", "dart"].includes(value);
+  return typeof value === "string" && [
+    "auto",
+    "npm",
+    "pip",
+    "cargo",
+    "go",
+    "dotnet",
+    "ruby",
+    "dart",
+    "composer"
+  ].includes(value);
 }
 function validateArgs3(args2) {
   if (typeof args2 !== "object" || args2 === null)
@@ -64083,6 +64317,9 @@ function detectEcosystems(directory) {
   }
   if (fs50.existsSync(path63.join(cwd, "pubspec.yaml"))) {
     ecosystems.push("dart");
+  }
+  if (fs50.existsSync(path63.join(cwd, "composer.lock"))) {
+    ecosystems.push("composer");
   }
   return ecosystems;
 }
@@ -64975,6 +65212,147 @@ async function runDartAudit(directory) {
     };
   }
 }
+async function runComposerAudit(directory) {
+  const command = ["composer", "audit", "--locked", "--format=json"];
+  if (!isCommandAvailable("composer")) {
+    warn("[pkg-audit] composer not found, skipping Composer audit");
+    return {
+      ecosystem: "composer",
+      command,
+      findings: [],
+      criticalCount: 0,
+      highCount: 0,
+      totalCount: 0,
+      clean: true,
+      note: "composer not installed or not on PATH"
+    };
+  }
+  try {
+    const proc = Bun.spawn(command, {
+      stdout: "pipe",
+      stderr: "pipe",
+      cwd: directory
+    });
+    const timeoutPromise = new Promise((resolve23) => setTimeout(() => resolve23("timeout"), AUDIT_TIMEOUT_MS));
+    const result = await Promise.race([
+      Promise.all([
+        new Response(proc.stdout).text(),
+        new Response(proc.stderr).text()
+      ]).then(([stdout2, stderr]) => ({ stdout: stdout2, stderr })),
+      timeoutPromise
+    ]);
+    if (result === "timeout") {
+      proc.kill();
+      return {
+        ecosystem: "composer",
+        command,
+        findings: [],
+        criticalCount: 0,
+        highCount: 0,
+        totalCount: 0,
+        clean: true,
+        note: `composer audit timed out after ${AUDIT_TIMEOUT_MS / 1000}s`
+      };
+    }
+    let { stdout } = result;
+    if (stdout.length > MAX_OUTPUT_BYTES5) {
+      stdout = stdout.slice(0, MAX_OUTPUT_BYTES5);
+    }
+    const exitCode = await proc.exited;
+    const hasVulnerabilities = (exitCode & 1) !== 0;
+    const hasAbandoned = (exitCode & 2) !== 0;
+    if (exitCode === 0) {
+      return {
+        ecosystem: "composer",
+        command,
+        findings: [],
+        criticalCount: 0,
+        highCount: 0,
+        totalCount: 0,
+        clean: true
+      };
+    }
+    if (hasVulnerabilities && !stdout.trim()) {
+      return {
+        ecosystem: "composer",
+        command,
+        findings: [],
+        criticalCount: 0,
+        highCount: 0,
+        totalCount: 0,
+        clean: false,
+        note: `composer audit returned exit code ${exitCode} indicating vulnerabilities but produced no output`
+      };
+    }
+    let parsed;
+    try {
+      parsed = JSON.parse(stdout || "{}");
+    } catch {
+      return {
+        ecosystem: "composer",
+        command,
+        findings: [],
+        criticalCount: 0,
+        highCount: 0,
+        totalCount: 0,
+        clean: !hasVulnerabilities,
+        note: `composer audit returned exit code ${exitCode} but output was not valid JSON`
+      };
+    }
+    if (!hasVulnerabilities && hasAbandoned) {
+      const abandonedList = Object.keys(parsed.abandoned ?? {});
+      return {
+        ecosystem: "composer",
+        command,
+        findings: [],
+        criticalCount: 0,
+        highCount: 0,
+        totalCount: 0,
+        clean: true,
+        note: abandonedList.length > 0 ? `Abandoned packages detected: ${abandonedList.join(", ")}` : "composer audit exit 2 (abandoned packages)"
+      };
+    }
+    const findings = [];
+    for (const advisories of Object.values(parsed.advisories ?? {})) {
+      for (const advisory of advisories) {
+        const hasCve = Boolean(advisory.cve?.trim());
+        findings.push({
+          package: advisory.packageName,
+          installedVersion: "see composer.lock",
+          patchedVersion: null,
+          severity: hasCve ? "high" : "moderate",
+          title: advisory.title,
+          cve: advisory.cve || null,
+          url: advisory.link || null
+        });
+      }
+    }
+    const criticalCount = findings.filter((f) => f.severity === "critical").length;
+    const highCount = findings.filter((f) => f.severity === "high").length;
+    const abandonedNote = hasAbandoned && Object.keys(parsed.abandoned ?? {}).length > 0 ? ` Also abandoned: ${Object.keys(parsed.abandoned).join(", ")}` : "";
+    return {
+      ecosystem: "composer",
+      command,
+      findings,
+      criticalCount,
+      highCount,
+      totalCount: findings.length,
+      clean: false,
+      ...abandonedNote ? { note: abandonedNote.trim() } : {}
+    };
+  } catch (error93) {
+    return {
+      ecosystem: "composer",
+      command,
+      findings: [],
+      criticalCount: 0,
+      highCount: 0,
+      totalCount: 0,
+      clean: true,
+      note: `composer audit error: ${error93 instanceof Error ? error93.message : String(error93)}`
+    };
+  }
+}
 async function runAutoAudit(directory) {
   const ecosystems = detectEcosystems(directory);
   if (ecosystems.length === 0) {
@@ -65011,6 +65389,9 @@ async function runAutoAudit(directory) {
       case "dart":
         results.push(await runDartAudit(directory));
         break;
+      case "composer":
+        results.push(await runComposerAudit(directory));
+        break;
     }
   }
   const allFindings = [];
@@ -65033,12 +65414,22 @@ async function runAutoAudit(directory) {
 var pkg_audit = createSwarmTool({
   description: 'Run package manager security audit (npm, pip, cargo, go, dotnet, ruby, dart) and return structured CVE data. Use ecosystem to specify which package manager, or "auto" to detect from project files.',
   args: {
-    ecosystem: tool.schema.enum(["auto", "npm", "pip", "cargo", "go", "dotnet", "ruby", "dart"]).default("auto").describe('Package ecosystem to audit: "auto" (detect from project files), "npm", "pip", "cargo", "go" (govulncheck), "dotnet" (dotnet list package), "ruby" (bundle-audit), or "dart" (dart pub outdated)')
+    ecosystem: tool.schema.enum([
+      "auto",
+      "npm",
+      "pip",
+      "cargo",
+      "go",
+      "dotnet",
+      "ruby",
+      "dart",
+      "composer"
+    ]).default("auto").describe('Package ecosystem to audit: "auto" (detect from project files), "npm", "pip", "cargo", "go" (govulncheck), "dotnet" (dotnet list package), "ruby" (bundle-audit), "dart" (dart pub outdated), or "composer" (Composer/PHP)')
   },
   async execute(args2, directory) {
     if (!validateArgs3(args2)) {
       const errorResult = {
-        error: 'Invalid arguments: ecosystem must be "auto", "npm", "pip", "cargo", "go", "dotnet", "ruby", or "dart"'
+        error: 'Invalid arguments: ecosystem must be "auto", "npm", "pip", "cargo", "go", "dotnet", "ruby", "dart", or "composer"'
       };
       return JSON.stringify(errorResult, null, 2);
     }
@@ -65075,6 +65466,9 @@ var pkg_audit = createSwarmTool({
         break;
       case "dart":
         result = await runDartAudit(directory);
+        break;
+      case "composer":
+        result = await runComposerAudit(directory);
         break;
     }
     return JSON.stringify(result, null, 2);
@@ -65191,6 +65585,7 @@ var SUPPORTED_PARSER_EXTENSIONS = new Set([
   ".hpp",
   ".cs",
   ".php",
+  ".blade.php",
   ".rb"
 ]);
 function isTestFile2(filePath) {
@@ -65494,7 +65889,7 @@ init_dist();
 import * as fs53 from "fs";
 import * as path66 from "path";
 
-// node_modules/.bun/yocto-queue@1.2.2/node_modules/yocto-queue/index.js
+// node_modules/yocto-queue/index.js
 class Node2 {
   value;
   next;
@@ -65561,7 +65956,7 @@ class Queue {
   }
 }
 
-// node_modules/.bun/p-limit@7.3.0/node_modules/p-limit/index.js
+// node_modules/p-limit/index.js
 function pLimit(concurrency) {
   let rejectOnClear = false;
   if (typeof concurrency === "object") {
@@ -66290,6 +66685,36 @@ var phpRules = [
     description: "preg_replace with /e modifier allows code execution",
     remediation: "Use preg_replace_callback instead of preg_replace with /e modifier.",
     pattern: /preg_replace\s*\(\s*\/[^/]*\/e/
+  },
+  {
+    id: "sast/php-laravel-sql-injection",
+    name: "Laravel raw SQL with string concatenation",
+    severity: "high",
+    languages: ["php"],
+    description: "DB::raw(), whereRaw(), selectRaw(), orderByRaw(), or havingRaw() with concatenated user input creates SQL injection risk",
+    remediation: "Use parameterized queries with ? bindings instead of string concatenation.",
+    pattern: /(?:DB::raw|->whereRaw|->selectRaw|->orderByRaw|->havingRaw)\s*\(\s*(?:["'][^"']*["']\s*\.\s*\$|\$)/
+  },
+  {
+    id: "sast/php-laravel-mass-assignment",
+    name: "Laravel mass assignment protection disabled",
+    severity: "medium",
+    languages: ["php"],
+    description: "$guarded = [] disables all mass-assignment protection, allowing any attribute to be set",
+    remediation: "Use $fillable to explicitly whitelist allowed attributes, or remove $guarded = [] to keep default protection.",
+    pattern: /(?:protected|public)\s+\$guarded\s*=\s*\[\s*\]/
+  },
+  {
+    id: "sast/php-laravel-destructive-migration",
+    name: "Destructive migration without down() method",
+    severity: "medium",
+    languages: ["php"],
+    description: "Destructive migration operations (drop*) without a down() method cannot be rolled back",
+    remediation: "Add a down() method that reverses the migration, or use a safer alternative like soft deletes.",
+    pattern: /(?:Schema::drop(?:IfExists)?\(|->dropColumn\()/,
+    validate: (_match, context) => {
+      return !/function\s+down\s*\(/.test(context.content);
+    }
   }
 ];
 
@@ -67760,6 +68185,7 @@ ${paginatedContent}`;
 init_tool();
 import * as fs54 from "fs";
 import * as path67 from "path";
+init_ledger();
 init_manager2();
 init_create_tool();
 function detectPlaceholderContent(args2) {
@@ -67834,6 +68260,18 @@ async function executeSavePlan(args2, fallbackDir) {
       recovery_guidance: "Use save_plan with corrected inputs to create or restructure plans. Never write .swarm/plan.json or .swarm/plan.md directly."
     };
   }
+  const dir = targetWorkspace;
+  const existingStatusMap = new Map;
+  try {
+    const existing = await loadPlanJsonOnly(dir);
+    if (existing) {
+      for (const phase of existing.phases) {
+        for (const task of phase.tasks) {
+          existingStatusMap.set(task.id, task.status);
+        }
+      }
+    }
+  } catch {}
   const plan = {
     schema_version: "1.0.0",
     title: args2.title,
@@ -67849,7 +68287,7 @@ async function executeSavePlan(args2, fallbackDir) {
           return {
             id: task.id,
             phase: phase.id,
-            status: "pending",
+            status: existingStatusMap.get(task.id) ?? "pending",
             size: task.size ?? "small",
             description: task.description,
             depends: task.depends ?? [],
@@ -67861,7 +68299,6 @@ async function executeSavePlan(args2, fallbackDir) {
     })
   };
   const tasksCount = plan.phases.reduce((acc, phase) => acc + phase.tasks.length, 0);
-  const dir = targetWorkspace;
   const lockTaskId = `save-plan-${Date.now()}`;
   const planFilePath = "plan.json";
   try {
@@ -67878,6 +68315,10 @@ async function executeSavePlan(args2, fallbackDir) {
     }
     try {
       await savePlan(dir, plan);
+      const savedPlan = await loadPlanJsonOnly(dir);
+      if (savedPlan) {
+        await takeSnapshotEvent(dir, savedPlan).catch(() => {});
+      }
       await writeCheckpoint(dir).catch(() => {});
       try {
         const markerPath = path67.join(dir, ".swarm", ".plan-write-marker");
@@ -70250,6 +70691,7 @@ var SUPPORTED_EXTENSIONS2 = new Set([
   ".cs",
   ".rb",
   ".php",
+  ".blade.php",
   ".swift",
   ".kt"
 ]);
@@ -70855,6 +71297,21 @@ async function executeUpdateTaskStatus(args2, fallbackDir) {
         } catch {}
       }
       session.currentTaskId = args2.task_id;
+    }
+    const evidenceDir = fallbackDir ?? args2.working_directory;
+    if (evidenceDir) {
+      try {
+        const evidencePath = path75.join(evidenceDir, ".swarm", "evidence", `${args2.task_id}.json`);
+        fs62.mkdirSync(path75.dirname(evidencePath), { recursive: true });
+        if (!fs62.existsSync(evidencePath)) {
+          fs62.writeFileSync(evidencePath, JSON.stringify({
+            task_id: args2.task_id,
+            required_gates: ["reviewer", "test_engineer"],
+            gates: {},
+            started_at: new Date().toISOString()
+          }, null, 2), "utf-8");
+        }
+      } catch {}
     }
   }
   let normalizedDir;

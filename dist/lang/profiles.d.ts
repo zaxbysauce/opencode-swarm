@@ -55,6 +55,7 @@ export interface LanguageProfile {
     prompts: {
         coderConstraints: string[];
         reviewerChecklist: string[];
+        testConstraints?: string[];
     };
 }
 export declare class LanguageRegistry {
