@@ -2176,3 +2176,206 @@ describe('checkReviewerGate — evidence directory fallback removed (v6.35.1 Cod
 		expect(result.reason).toBe('');
 	});
 });
+
+describe('Durable evidence seed on in_progress transition', () => {
+	let tempDir: string;
+	let originalCwd: string;
+
+	beforeEach(() => {
+		tempDir = fs.realpathSync(
+			fs.mkdtempSync(path.join(os.tmpdir(), 'evidence-seed-test-')),
+		);
+		originalCwd = process.cwd();
+		process.chdir(tempDir);
+
+		fs.mkdirSync(path.join(tempDir, '.swarm'), { recursive: true });
+		const plan = {
+			schema_version: '1.0.0',
+			title: 'Test Plan',
+			swarm: 'test-swarm',
+			current_phase: 1,
+			migration_status: 'migrated',
+			phases: [
+				{
+					id: 1,
+					name: 'Phase 1',
+					status: 'in_progress',
+					tasks: [
+						{
+							id: '1.1',
+							phase: 1,
+							status: 'pending',
+							size: 'small',
+							description: 'Test task 1',
+							depends: [],
+							files_touched: [],
+						},
+						{
+							id: '1.2',
+							phase: 1,
+							status: 'pending',
+							size: 'small',
+							description: 'Test task 2',
+							depends: [],
+							files_touched: [],
+						},
+					],
+				},
+			],
+		};
+		fs.writeFileSync(
+			path.join(tempDir, '.swarm', 'plan.json'),
+			JSON.stringify(plan, null, 2),
+		);
+	});
+
+	afterEach(() => {
+		process.chdir(originalCwd);
+		fs.rmSync(tempDir, { recursive: true, force: true });
+	});
+
+	test('creates evidence seed file when transitioning to in_progress', async () => {
+		const result = await executeUpdateTaskStatus(
+			{ task_id: '1.1', status: 'in_progress' },
+			tempDir,
+		);
+
+		expect(result.success).toBe(true);
+
+		const evidencePath = path.join(tempDir, '.swarm', 'evidence', '1.1.json');
+		expect(fs.existsSync(evidencePath)).toBe(true);
+
+		const evidence = JSON.parse(fs.readFileSync(evidencePath, 'utf-8'));
+		expect(evidence.task_id).toBe('1.1');
+		expect(evidence.required_gates).toEqual(['reviewer', 'test_engineer']);
+		expect(evidence.gates).toEqual({});
+		expect(evidence.started_at).toBeDefined();
+	});
+
+	test('does not overwrite existing evidence file', async () => {
+		// Pre-create an evidence file with a gate already satisfied
+		fs.mkdirSync(path.join(tempDir, '.swarm', 'evidence'), { recursive: true });
+		const existingEvidence = {
+			task_id: '1.1',
+			required_gates: ['reviewer', 'test_engineer'],
+			gates: {
+				reviewer: {
+					sessionId: 'session-1',
+					timestamp: '2025-01-01T00:00:00.000Z',
+					agent: 'reviewer',
+				},
+			},
+			started_at: '2025-01-01T00:00:00.000Z',
+		};
+		fs.writeFileSync(
+			path.join(tempDir, '.swarm', 'evidence', '1.1.json'),
+			JSON.stringify(existingEvidence, null, 2),
+		);
+
+		const result = await executeUpdateTaskStatus(
+			{ task_id: '1.1', status: 'in_progress' },
+			tempDir,
+		);
+
+		expect(result.success).toBe(true);
+
+		// Verify the existing evidence was NOT overwritten
+		const evidence = JSON.parse(
+			fs.readFileSync(
+				path.join(tempDir, '.swarm', 'evidence', '1.1.json'),
+				'utf-8',
+			),
+		);
+		expect(evidence.gates.reviewer).toBeDefined();
+		expect(evidence.gates.reviewer.sessionId).toBe('session-1');
+	});
+
+	test('does not create evidence seed for non-in_progress transitions', async () => {
+		const result = await executeUpdateTaskStatus(
+			{ task_id: '1.2', status: 'blocked' },
+			tempDir,
+		);
+
+		expect(result.success).toBe(true);
+
+		const evidencePath = path.join(tempDir, '.swarm', 'evidence', '1.2.json');
+		expect(fs.existsSync(evidencePath)).toBe(false);
+	});
+
+	test('creates evidence directory if it does not exist', async () => {
+		// Ensure evidence directory does NOT exist
+		const evidenceDir = path.join(tempDir, '.swarm', 'evidence');
+		expect(fs.existsSync(evidenceDir)).toBe(false);
+
+		const result = await executeUpdateTaskStatus(
+			{ task_id: '1.1', status: 'in_progress' },
+			tempDir,
+		);
+
+		expect(result.success).toBe(true);
+		expect(fs.existsSync(evidenceDir)).toBe(true);
+		expect(fs.existsSync(path.join(evidenceDir, '1.1.json'))).toBe(true);
+	});
+
+	test('does not write evidence seed when working_directory validation fails', async () => {
+		// Use a path-traversal working_directory that should fail validation
+		const invalidDir = path.join(tempDir, '..', '..', 'etc', 'passwd');
+
+		const result = await executeUpdateTaskStatus({
+			task_id: '1.1',
+			status: 'in_progress',
+			working_directory: invalidDir,
+		});
+
+		expect(result.success).toBe(false);
+
+		// No evidence file should exist in the temp directory
+		const evidencePath = path.join(tempDir, '.swarm', 'evidence', '1.1.json');
+		expect(fs.existsSync(evidencePath)).toBe(false);
+
+		// Also verify no evidence directory was created under tempDir
+		const evidenceDir = path.join(tempDir, '.swarm', 'evidence');
+		if (fs.existsSync(evidenceDir)) {
+			const files = fs.readdirSync(evidenceDir);
+			expect(files).toHaveLength(0);
+		}
+	});
+
+	test('does not write evidence to fallback directory when working_directory is provided but invalid', async () => {
+		// Create a second temp directory to act as the fallback (simulating process.cwd())
+		const fallbackDir = fs.realpathSync(
+			fs.mkdtempSync(path.join(os.tmpdir(), 'evidence-fallback-test-')),
+		);
+		fs.mkdirSync(path.join(fallbackDir, '.swarm'), { recursive: true });
+
+		try {
+			const invalidDir = path.join(tempDir, '..', '..', 'etc', 'passwd');
+
+			const result = await executeUpdateTaskStatus(
+				{
+					task_id: '1.1',
+					status: 'in_progress',
+					working_directory: invalidDir,
+				},
+				fallbackDir,
+			);
+
+			expect(result.success).toBe(false);
+
+			// No evidence file should be created in the fallback directory
+			const fallbackEvidencePath = path.join(
+				fallbackDir,
+				'.swarm',
+				'evidence',
+				'1.1.json',
+			);
+			expect(fs.existsSync(fallbackEvidencePath)).toBe(false);
+
+			// No evidence directory should have been created in fallback
+			const fallbackEvidenceDir = path.join(fallbackDir, '.swarm', 'evidence');
+			expect(fs.existsSync(fallbackEvidenceDir)).toBe(false);
+		} finally {
+			fs.rmSync(fallbackDir, { recursive: true, force: true });
+		}
+	});
+});

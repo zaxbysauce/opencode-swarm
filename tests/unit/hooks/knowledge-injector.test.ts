@@ -205,7 +205,7 @@ describe('First-call injection', () => {
 		expect(readMergedKnowledge).toHaveBeenCalled();
 		expect(output.messages.length).toBe(3); // system + knowledge injection + user
 		const hasKnowledgeInjection = output.messages.some((m) =>
-			m.parts?.some((p) => p.text?.includes('📚 Knowledge')),
+			m.parts?.some((p) => p.text?.includes('📚 Lessons:')),
 		);
 		expect(hasKnowledgeInjection).toBe(true);
 	});
@@ -248,7 +248,7 @@ describe('Cache re-inject', () => {
 		// readMergedKnowledge was called on first call; second call should use cache
 		expect(readMergedKnowledge).toHaveBeenCalledTimes(1);
 		const hasKnowledgeInjection = output.messages.some((m) =>
-			m.parts?.some((p) => p.text?.includes('📚 Knowledge')),
+			m.parts?.some((p) => p.text?.includes('📚 Lessons:')),
 		);
 		expect(hasKnowledgeInjection).toBe(true);
 	});
@@ -292,11 +292,11 @@ describe('Second-call fetch and injection', () => {
 
 		expect(readMergedKnowledge).toHaveBeenCalled();
 		const hasKnowledgeInjection = output.messages.some((m) =>
-			m.parts?.some((p) => p.text?.includes('📚 Knowledge')),
+			m.parts?.some((p) => p.text?.includes('📚 Lessons:')),
 		);
 		expect(hasKnowledgeInjection).toBe(true);
 		const knowledgeMsg = output.messages.find((m) =>
-			m.parts?.some((p) => p.text?.includes('📚 Knowledge')),
+			m.parts?.some((p) => p.text?.includes('📚 Lessons:')),
 		);
 		expect(knowledgeMsg?.parts[0].text).toContain(
 			'Use dependency injection for testability',
@@ -346,7 +346,7 @@ describe('Cache re-inject', () => {
 
 		expect(readMergedKnowledge).not.toHaveBeenCalled();
 		const knowledgeMsg = output.messages.find((m) =>
-			m.parts?.some((p) => p.text?.includes('📚 Knowledge')),
+			m.parts?.some((p) => p.text?.includes('📚 Lessons:')),
 		);
 		expect(knowledgeMsg?.parts[0].text).toContain(
 			'Cached lesson for re-inject',
@@ -389,7 +389,7 @@ describe('Phase change', () => {
 
 		// Verify phase 1 content injected
 		const knowledgeMsg = output.messages.find((m) =>
-			m.parts?.some((p) => p.text?.includes('📚 Knowledge')),
+			m.parts?.some((p) => p.text?.includes('📚 Lessons:')),
 		);
 		expect(knowledgeMsg?.parts[0].text).toContain('Phase 1 lesson');
 
@@ -430,7 +430,7 @@ describe('Phase change', () => {
 
 		// Check content
 		const knowledgeMessages = output2.messages.filter((m) =>
-			m.parts?.some((p) => p.text?.includes('📚 Knowledge')),
+			m.parts?.some((p) => p.text?.includes('📚 Lessons:')),
 		);
 		expect(knowledgeMessages.length).toBe(1);
 		expect(knowledgeMessages[0].parts[0].text).toContain('Phase 2 lesson');
@@ -467,7 +467,7 @@ describe('Non-orchestrator agents skipped', () => {
 		await hook({}, output);
 
 		const hasKnowledgeInjection = output.messages.some((m) =>
-			m.parts?.some((p) => p.text?.includes('📚 Knowledge')),
+			m.parts?.some((p) => p.text?.includes('📚 Lessons:')),
 		);
 		expect(hasKnowledgeInjection).toBe(false);
 	});
@@ -480,7 +480,7 @@ describe('Non-orchestrator agents skipped', () => {
 		await hook({}, output);
 
 		const hasKnowledgeInjection = output.messages.some((m) =>
-			m.parts?.some((p) => p.text?.includes('📚 Knowledge')),
+			m.parts?.some((p) => p.text?.includes('📚 Lessons:')),
 		);
 		expect(hasKnowledgeInjection).toBe(false);
 	});
@@ -493,7 +493,7 @@ describe('Non-orchestrator agents skipped', () => {
 		await hook({}, output);
 
 		const hasKnowledgeInjection = output.messages.some((m) =>
-			m.parts?.some((p) => p.text?.includes('📚 Knowledge')),
+			m.parts?.some((p) => p.text?.includes('📚 Lessons:')),
 		);
 		expect(hasKnowledgeInjection).toBe(false);
 	});
@@ -506,7 +506,7 @@ describe('Non-orchestrator agents skipped', () => {
 		await hook({}, output);
 
 		const hasKnowledgeInjection = output.messages.some((m) =>
-			m.parts?.some((p) => p.text?.includes('📚 Knowledge')),
+			m.parts?.some((p) => p.text?.includes('📚 Lessons:')),
 		);
 		expect(hasKnowledgeInjection).toBe(false);
 	});
@@ -519,7 +519,7 @@ describe('Non-orchestrator agents skipped', () => {
 		await hook({}, output);
 
 		const hasKnowledgeInjection = output.messages.some((m) =>
-			m.parts?.some((p) => p.text?.includes('📚 Knowledge')),
+			m.parts?.some((p) => p.text?.includes('📚 Lessons:')),
 		);
 		expect(hasKnowledgeInjection).toBe(false);
 	});
@@ -545,20 +545,44 @@ describe('Context budget exhaustion', () => {
 		);
 	});
 
-	it('Test 7: when total message chars > 75,000, no injection', async () => {
+	it('Test 7: when headroom < 300 chars, no injection', async () => {
 		const hook = createKnowledgeInjectorHook('/proj', makeConfig());
-		// Create output with > 75000 chars
-		const output = makeOutput('architect', 80000);
+		// MODEL_LIMIT_CHARS ≈ 387,878. Need existingChars > 387,878 - 300 = ~387,578
+		const skipThreshold = Math.floor(128_000 / 0.33) - 200; // leaves ~200 chars headroom (<300)
+		const output = makeOutput('architect', skipThreshold);
 
-		// First call - init
-		await hook({}, output);
-		// Second call - should skip due to budget
 		await hook({}, output);
 
 		const hasKnowledgeInjection = output.messages.some((m) =>
-			m.parts?.some((p) => p.text?.includes('📚 Knowledge')),
+			m.parts?.some((p) => p.text?.includes('📚 Lessons:')),
 		);
 		expect(hasKnowledgeInjection).toBe(false);
+	});
+
+	it('Test 7b: at 181k chars (old skip threshold), injection proceeds in moderate regime', async () => {
+		const hook = createKnowledgeInjectorHook('/proj', makeConfig());
+		const output = makeOutput('architect', 181_000);
+
+		await hook({}, output);
+
+		// 181k chars leaves ~206k headroom — should inject (was skipped before this fix)
+		const hasKnowledgeInjection = output.messages.some((m) =>
+			m.parts?.some((p) => p.text?.includes('📚 Lessons:')),
+		);
+		expect(hasKnowledgeInjection).toBe(true);
+	});
+
+	it('Test 7c: at 370k chars, injection proceeds in low regime', async () => {
+		const hook = createKnowledgeInjectorHook('/proj', makeConfig());
+		const output = makeOutput('architect', 370_000);
+
+		await hook({}, output);
+
+		// 370k chars leaves ~17k headroom — should still inject in low regime
+		const hasKnowledgeInjection = output.messages.some((m) =>
+			m.parts?.some((p) => p.text?.includes('📚 Lessons:')),
+		);
+		expect(hasKnowledgeInjection).toBe(true);
 	});
 });
 
@@ -590,7 +614,7 @@ describe('Empty knowledge', () => {
 		await hook({}, output);
 
 		const hasKnowledgeInjection = output.messages.some((m) =>
-			m.parts?.some((p) => p.text?.includes('📚 Knowledge')),
+			m.parts?.some((p) => p.text?.includes('📚 Lessons:')),
 		);
 		expect(hasKnowledgeInjection).toBe(false);
 		expect(output.messages.length).toBe(2); // Only original messages
@@ -634,11 +658,12 @@ describe('Tier labels', () => {
 		await hook({}, output);
 
 		const knowledgeMsg = output.messages.find((m) =>
-			m.parts?.some((p) => p.text?.includes('📚 Knowledge')),
+			m.parts?.some((p) => p.text?.includes('📚 Lessons:')),
 		);
 		const text = knowledgeMsg?.parts[0].text ?? '';
-		expect(text).toContain('[swarm:established]');
-		expect(text).toContain('[hive:established]');
+		// Compact format: [S] for swarm, [H] for hive
+		expect(text).toContain('[S]');
+		expect(text).toContain('[H]');
 		expect(text).toContain('Swarm lesson');
 		expect(text).toContain('Hive lesson');
 	});
@@ -676,16 +701,16 @@ describe('Explicit [tier:status] prefixes', () => {
 		await hook({}, output);
 
 		const knowledgeMsg = output.messages.find((m) =>
-			m.parts?.some((p) => p.text?.includes('📚 Knowledge')),
+			m.parts?.some((p) => p.text?.includes('📚 Lessons:')),
 		);
 		const text = knowledgeMsg?.parts[0].text ?? '';
-		// Verify explicit tier:status prefix format (lowercase)
-		expect(text).toContain('[swarm:established]');
+		// Compact format: [S] for swarm
+		expect(text).toContain('[S]');
 		// Verify lesson content is preserved
 		expect(text).toContain('Always validate function inputs');
 	});
 
-	it('Test 9b: hive entry with established status shows [hive:established] prefix', async () => {
+	it('Test 9b: hive entry with established status shows [H] prefix', async () => {
 		const hook = createKnowledgeInjectorHook('/proj', makeConfig());
 		const output = makeOutput('architect');
 
@@ -701,11 +726,11 @@ describe('Explicit [tier:status] prefixes', () => {
 		await hook({}, output);
 
 		const knowledgeMsg = output.messages.find((m) =>
-			m.parts?.some((p) => p.text?.includes('📚 Knowledge')),
+			m.parts?.some((p) => p.text?.includes('📚 Lessons:')),
 		);
 		const text = knowledgeMsg?.parts[0].text ?? '';
-		// Verify explicit tier:status prefix format (lowercase)
-		expect(text).toContain('[hive:established]');
+		// Compact format: [H] for hive
+		expect(text).toContain('[H]');
 		// Verify lesson content is preserved
 		expect(text).toContain('Use dependency injection for testability');
 	});
@@ -729,11 +754,11 @@ describe('Explicit [tier:status] prefixes', () => {
 		await hook({}, output);
 
 		const knowledgeMsg = output.messages.find((m) =>
-			m.parts?.some((p) => p.text?.includes('📚 Knowledge')),
+			m.parts?.some((p) => p.text?.includes('📚 Lessons:')),
 		);
 		const text = knowledgeMsg?.parts[0].text ?? '';
-		// Verify explicit tier:status prefix with experimental status
-		expect(text).toContain('[swarm:experimental]');
+		// Compact format: [S] for swarm (status no longer shown)
+		expect(text).toContain('[S]');
 		// Verify lesson content is preserved
 		expect(text).toContain('New experimental pattern');
 	});
@@ -769,14 +794,12 @@ describe('Explicit [tier:status] prefixes', () => {
 		await hook({}, output);
 
 		const knowledgeMsg = output.messages.find((m) =>
-			m.parts?.some((p) => p.text?.includes('📚 Knowledge')),
+			m.parts?.some((p) => p.text?.includes('📚 Lessons:')),
 		);
 		const text = knowledgeMsg?.parts[0].text ?? '';
-		// Verify each entry has correct explicit tier:status prefix
-		expect(text).toContain('[swarm:established]');
-		expect(text).toContain('[swarm:experimental]');
-		expect(text).toContain('[hive:established]');
-		expect(text).toContain('[hive:experimental]');
+		// Compact format: [S] for swarm, [H] for hive (status no longer shown)
+		expect(text).toContain('[S]');
+		expect(text).toContain('[H]');
 		// Verify all lesson content is preserved
 		expect(text).toContain('Swarm established lesson');
 		expect(text).toContain('Swarm experimental lesson');
@@ -798,7 +821,7 @@ describe('Explicit [tier:status] prefixes', () => {
 		await hook({}, output);
 
 		const knowledgeMsg = output.messages.find((m) =>
-			m.parts?.some((p) => p.text?.includes('📚 Knowledge')),
+			m.parts?.some((p) => p.text?.includes('📚 Lessons:')),
 		);
 		const text = knowledgeMsg?.parts[0].text ?? '';
 		// Find the line containing the lesson
@@ -807,12 +830,12 @@ describe('Explicit [tier:status] prefixes', () => {
 			line.includes('Test lesson content'),
 		);
 		expect(lessonLine).toBeDefined();
-		// Verify the tier:status prefix appears before the lesson text on same line
+		// Verify the tier prefix appears before the lesson text on same line
 		const prefixEndIndex = lessonLine!.indexOf(']');
 		const lessonStartIndex = lessonLine!.indexOf('Test lesson content');
 		expect(prefixEndIndex).toBeLessThan(lessonStartIndex);
-		// Verify format: stars + space + [tier:status] + space + lesson
-		expect(lessonLine).toMatch(/^.+ \[swarm:established\] Test lesson content/);
+		// Verify compact format: [S] + space + lesson (no stars, no status)
+		expect(lessonLine).toMatch(/^\[S\] Test lesson content/);
 	});
 });
 
@@ -820,7 +843,7 @@ describe('Explicit [tier:status] prefixes', () => {
 // Test Suite: Star ratings
 // ============================================================================
 
-describe('Star ratings', () => {
+describe('Compact format and confirmation indicators', () => {
 	beforeEach(() => {
 		vi.clearAllMocks();
 		(loadPlan as ReturnType<typeof vi.fn>).mockResolvedValue({
@@ -834,7 +857,7 @@ describe('Star ratings', () => {
 		);
 	});
 
-	it('Test 10: confidence 0.95 renders as ★★★', async () => {
+	it('Test 10: no star ratings in compact format', async () => {
 		const hook = createKnowledgeInjectorHook('/proj', makeConfig());
 		const output = makeOutput('architect');
 
@@ -846,43 +869,98 @@ describe('Star ratings', () => {
 		await hook({}, output);
 
 		const knowledgeMsg = output.messages.find((m) =>
-			m.parts?.some((p) => p.text?.includes('📚 Knowledge')),
+			m.parts?.some((p) => p.text?.includes('📚 Lessons:')),
 		);
-		expect(knowledgeMsg?.parts[0].text).toContain('★★★');
+		const text = knowledgeMsg?.parts[0].text ?? '';
+		expect(text).not.toContain('★');
+		expect(text).toContain('[S]');
 	});
 
-	it('Test 10: confidence 0.75 renders as ★★☆', async () => {
+	it('Test 10b: confirmed_by.length >= 3 shows ✓✓', async () => {
 		const hook = createKnowledgeInjectorHook('/proj', makeConfig());
 		const output = makeOutput('architect');
 
-		const entries = [makeSwarmEntry('Medium confidence lesson', 0.75)];
-		(readMergedKnowledge as ReturnType<typeof vi.fn>).mockResolvedValue(
-			entries,
-		);
+		const entry = makeSwarmEntry('Well confirmed lesson', 0.85);
+		entry.confirmed_by = [
+			{ project_name: 'p1', confirmed_at: new Date().toISOString(), phase_number: 1 },
+			{ project_name: 'p2', confirmed_at: new Date().toISOString(), phase_number: 2 },
+			{ project_name: 'p3', confirmed_at: new Date().toISOString(), phase_number: 3 },
+		];
+		(readMergedKnowledge as ReturnType<typeof vi.fn>).mockResolvedValue([entry]);
 
 		await hook({}, output);
 
 		const knowledgeMsg = output.messages.find((m) =>
-			m.parts?.some((p) => p.text?.includes('📚 Knowledge')),
+			m.parts?.some((p) => p.text?.includes('📚 Lessons:')),
 		);
-		expect(knowledgeMsg?.parts[0].text).toContain('★★☆');
+		const text = knowledgeMsg?.parts[0].text ?? '';
+		expect(text).toContain('\u2713\u2713');
 	});
 
-	it('Test 10: confidence 0.45 renders as ★☆☆', async () => {
+	it('Test 10c: confirmed_by.length = 1 shows single ✓', async () => {
 		const hook = createKnowledgeInjectorHook('/proj', makeConfig());
 		const output = makeOutput('architect');
 
-		const entries = [makeSwarmEntry('Low confidence lesson', 0.45)];
-		(readMergedKnowledge as ReturnType<typeof vi.fn>).mockResolvedValue(
-			entries,
-		);
+		const entry = makeSwarmEntry('Once confirmed lesson', 0.85);
+		entry.confirmed_by = [
+			{ project_name: 'p1', confirmed_at: new Date().toISOString(), phase_number: 1 },
+		];
+		(readMergedKnowledge as ReturnType<typeof vi.fn>).mockResolvedValue([entry]);
 
 		await hook({}, output);
 
 		const knowledgeMsg = output.messages.find((m) =>
-			m.parts?.some((p) => p.text?.includes('📚 Knowledge')),
+			m.parts?.some((p) => p.text?.includes('📚 Lessons:')),
 		);
-		expect(knowledgeMsg?.parts[0].text).toContain('★☆☆');
+		const text = knowledgeMsg?.parts[0].text ?? '';
+		const lines = text.split('\n');
+		const lessonLine = lines.find((l) => l.includes('Once confirmed lesson'));
+		expect(lessonLine).toBeDefined();
+		// Single check but not double check
+		expect(lessonLine).toContain('\u2713');
+		expect(lessonLine).not.toContain('\u2713\u2713');
+	});
+
+	it('Test 10d: confirmed_by.length = 0 shows no confirmation indicator', async () => {
+		const hook = createKnowledgeInjectorHook('/proj', makeConfig());
+		const output = makeOutput('architect');
+
+		const entry = makeSwarmEntry('Unconfirmed lesson', 0.85);
+		entry.confirmed_by = [];
+		(readMergedKnowledge as ReturnType<typeof vi.fn>).mockResolvedValue([entry]);
+
+		await hook({}, output);
+
+		const knowledgeMsg = output.messages.find((m) =>
+			m.parts?.some((p) => p.text?.includes('📚 Lessons:')),
+		);
+		const text = knowledgeMsg?.parts[0].text ?? '';
+		const lines = text.split('\n');
+		const lessonLine = lines.find((l) => l.includes('Unconfirmed lesson'));
+		expect(lessonLine).toBeDefined();
+		expect(lessonLine).not.toContain('\u2713');
+	});
+
+	it('Test 10e: lesson > max_lesson_display_chars truncated with …', async () => {
+		const hook = createKnowledgeInjectorHook('/proj', makeConfig({ max_lesson_display_chars: 120 }));
+		const output = makeOutput('architect');
+
+		const longLesson = 'A'.repeat(280);
+		const entry = makeSwarmEntry(longLesson, 0.85);
+		(readMergedKnowledge as ReturnType<typeof vi.fn>).mockResolvedValue([entry]);
+
+		await hook({}, output);
+
+		const knowledgeMsg = output.messages.find((m) =>
+			m.parts?.some((p) => p.text?.includes('📚 Lessons:')),
+		);
+		const text = knowledgeMsg?.parts[0].text ?? '';
+		const lines = text.split('\n');
+		const lessonLine = lines.find((l) => l.includes('[S]'));
+		expect(lessonLine).toBeDefined();
+		// Should be truncated — original 280 chars should not appear in full
+		expect(lessonLine!.length).toBeLessThan(200);
+		expect(lessonLine).toContain('\u2026'); // ellipsis
 	});
 });
 
@@ -940,7 +1018,7 @@ describe('Rejected pattern warnings', () => {
 		await hook({}, output);
 
 		const knowledgeMsg = output.messages.find((m) =>
-			m.parts?.some((p) => p.text?.includes('📚 Knowledge')),
+			m.parts?.some((p) => p.text?.includes('📚 Lessons:')),
 		);
 		const text = knowledgeMsg?.parts[0].text ?? '';
 		expect(text).toContain('⚠️ REJECTED PATTERN:');
@@ -995,7 +1073,7 @@ describe('Rejected pattern warnings', () => {
 		await hook({}, output);
 
 		const knowledgeMsg = output.messages.find((m) =>
-			m.parts?.some((p) => p.text?.includes('📚 Knowledge')),
+			m.parts?.some((p) => p.text?.includes('📚 Lessons:')),
 		);
 		const text = knowledgeMsg?.parts[0].text ?? '';
 		// Should contain last 3 (indices 2, 3, 4)
@@ -1026,7 +1104,7 @@ describe('Idempotency', () => {
 		);
 	});
 
-	it('Test 12: calling hook twice on same output with 📚 Knowledge already in messages causes no duplicate injection', async () => {
+	it('Test 12: calling hook twice on same output with 📚 Lessons: already in messages causes no duplicate injection', async () => {
 		const hook = createKnowledgeInjectorHook('/proj', makeConfig());
 		const output = makeOutput('architect');
 
@@ -1037,7 +1115,7 @@ describe('Idempotency', () => {
 
 		// Count knowledge messages after first injection
 		const firstInjectionCount = output.messages.filter((m) =>
-			m.parts?.some((p) => p.text?.includes('📚 Knowledge')),
+			m.parts?.some((p) => p.text?.includes('📚 Lessons:')),
 		).length;
 		expect(firstInjectionCount).toBe(1);
 
@@ -1045,7 +1123,7 @@ describe('Idempotency', () => {
 		await hook({}, output);
 
 		const secondInjectionCount = output.messages.filter((m) =>
-			m.parts?.some((p) => p.text?.includes('📚 Knowledge')),
+			m.parts?.some((p) => p.text?.includes('📚 Lessons:')),
 		).length;
 		expect(secondInjectionCount).toBe(1); // Still only one
 	});
@@ -1075,7 +1153,7 @@ describe('No plan', () => {
 		await hook({}, output);
 
 		const hasKnowledgeInjection = output.messages.some((m) =>
-			m.parts?.some((p) => p.text?.includes('📚 Knowledge')),
+			m.parts?.some((p) => p.text?.includes('📚 Lessons:')),
 		);
 		expect(hasKnowledgeInjection).toBe(true);
 	});
@@ -1119,7 +1197,7 @@ describe('Unknown agent (undefined agentName)', () => {
 		await hook({}, output);
 
 		const hasKnowledgeInjection = output.messages.some((m) =>
-			m.parts?.some((p) => p.text?.includes('📚 Knowledge')),
+			m.parts?.some((p) => p.text?.includes('📚 Lessons:')),
 		);
 		expect(hasKnowledgeInjection).toBe(false);
 	});
@@ -1161,7 +1239,7 @@ describe('Prompt injection sanitization', () => {
 		await hook({}, output);
 
 		const knowledgeMsg = output.messages.find((m) =>
-			m.parts?.some((p) => p.text?.includes('📚 Knowledge')),
+			m.parts?.some((p) => p.text?.includes('📚 Lessons:')),
 		);
 		const text = knowledgeMsg?.parts[0].text ?? '';
 
@@ -1193,7 +1271,7 @@ describe('Prompt injection sanitization', () => {
 		await hook({}, output);
 
 		const knowledgeMsg = output.messages.find((m) =>
-			m.parts?.some((p) => p.text?.includes('📚 Knowledge')),
+			m.parts?.some((p) => p.text?.includes('📚 Lessons:')),
 		);
 		const text = knowledgeMsg?.parts[0].text ?? '';
 
@@ -1248,18 +1326,18 @@ describe('Run memory wiring', () => {
 
 		// Find the knowledge message
 		const knowledgeMsg = output.messages.find((m) =>
-			m.parts?.some((p) => p.text?.includes('📚 Knowledge')),
+			m.parts?.some((p) => p.text?.includes('📚 Lessons:')),
 		);
 		expect(knowledgeMsg).toBeDefined();
 
 		const text = knowledgeMsg!.parts[0].text ?? '';
-		// Run memory should come BEFORE the knowledge section
+		// Run memory is included in the injection block (after lessons in priority order)
 		expect(text).toContain('## RUN MEMORY');
 		expect(text).toContain('Use null checks');
-		// The run memory should appear before the knowledge section
+		// Lessons block comes first (highest priority), then run memory
 		const runMemoryIndex = text.indexOf('## RUN MEMORY');
-		const knowledgeIndex = text.indexOf('📚 Knowledge');
-		expect(runMemoryIndex).toBeLessThan(knowledgeIndex);
+		const knowledgeIndex = text.indexOf('📚 Lessons:');
+		expect(runMemoryIndex).toBeGreaterThan(knowledgeIndex);
 	});
 
 	it('Knowledge entries unchanged when run memory is null', async () => {
@@ -1285,7 +1363,7 @@ describe('Run memory wiring', () => {
 
 		// Find the knowledge message
 		const knowledgeMsg = output.messages.find((m) =>
-			m.parts?.some((p) => p.text?.includes('📚 Knowledge')),
+			m.parts?.some((p) => p.text?.includes('📚 Lessons:')),
 		);
 		expect(knowledgeMsg).toBeDefined();
 
@@ -1295,7 +1373,7 @@ describe('Run memory wiring', () => {
 		// Should NOT contain run memory section
 		expect(text).not.toContain('## RUN MEMORY');
 		// The knowledge section should start with the 📚 emoji
-		expect(text).toMatch(/^.*📚 Knowledge/);
+		expect(text).toMatch(/^.*📚 Lessons:/);
 	});
 
 	it('[FOR: architect, coder] tag present in output when run memory is available', async () => {
@@ -1320,7 +1398,7 @@ describe('Run memory wiring', () => {
 
 		// Find the knowledge message
 		const knowledgeMsg = output.messages.find((m) =>
-			m.parts?.some((p) => p.text?.includes('📚 Knowledge')),
+			m.parts?.some((p) => p.text?.includes('📚 Lessons:')),
 		);
 		expect(knowledgeMsg).toBeDefined();
 
@@ -1458,19 +1536,19 @@ describe('Task 5.3: Drift injection when cachedInjectionText is null (no knowled
 
 		// Find the knowledge message
 		const knowledgeMsg = output.messages.find((m) =>
-			m.parts?.some((p) => p.text?.includes('📚 Knowledge')),
+			m.parts?.some((p) => p.text?.includes('📚 Lessons:')),
 		);
 		expect(knowledgeMsg).toBeDefined();
 
 		const text = knowledgeMsg!.parts[0].text ?? '';
 
-		// Drift should appear BEFORE the knowledge section
+		// Drift appears AFTER the knowledge section in new priority order (lessons > run memory > drift)
 		const driftIndex = text.indexOf('<drift_report>');
-		const knowledgeIndex = text.indexOf('📚 Knowledge');
+		const knowledgeIndex = text.indexOf('📚 Lessons:');
 
 		expect(driftIndex).toBeGreaterThanOrEqual(0);
-		expect(knowledgeIndex).toBeGreaterThan(0);
-		expect(driftIndex).toBeLessThan(knowledgeIndex);
+		expect(knowledgeIndex).toBeGreaterThanOrEqual(0);
+		expect(driftIndex).toBeGreaterThan(knowledgeIndex);
 
 		// Knowledge content should still be present
 		expect(text).toContain('Knowledge lesson about testing');
@@ -1592,7 +1670,7 @@ describe('Drift-only injection idempotency', () => {
 
 	it('calling hook twice with drift-only content injects only once', async () => {
 		// Codex Bug 2 fix verification: Drift-only injection is idempotent.
-		// The idempotency guard checks for <drift_report> in addition to 📚 Knowledge.
+		// The idempotency guard checks for <drift_report> in addition to 📚 Lessons:.
 		// On the third call, injectKnowledgeMessage checks for <drift_report> in existing messages,
 		// finds it, and skips injection.
 

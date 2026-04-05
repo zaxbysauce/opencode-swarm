@@ -6,10 +6,11 @@
 import * as fs from 'node:fs';
 import * as path from 'node:path';
 import { type ToolDefinition, tool } from '@opencode-ai/plugin/tool';
-import type { Phase, Plan, Task } from '../config/plan-schema';
+import type { Phase, Plan, Task, TaskStatus } from '../config/plan-schema';
 import { tryAcquireLock } from '../parallel/file-locks.js';
 import { writeCheckpoint } from '../plan/checkpoint';
-import { savePlan } from '../plan/manager';
+import { takeSnapshotEvent } from '../plan/ledger';
+import { loadPlanJsonOnly, savePlan } from '../plan/manager';
 import { swarmState } from '../state';
 import { createSwarmTool } from './create-tool';
 
@@ -195,6 +196,24 @@ export async function executeSavePlan(
 		};
 	}
 
+	// Step 2.5: Read current plan for status preservation (merge mode)
+	// This ensures all task statuses are preserved across plan revisions,
+	// not just tasks that happen to share the same ID with the incoming plan.
+	const dir = targetWorkspace as string;
+	const existingStatusMap: Map<string, TaskStatus> = new Map();
+	try {
+		const existing = await loadPlanJsonOnly(dir);
+		if (existing) {
+			for (const phase of existing.phases) {
+				for (const task of phase.tasks) {
+					existingStatusMap.set(task.id, task.status);
+				}
+			}
+		}
+	} catch {
+		// First plan write or unreadable — proceed with all-pending
+	}
+
 	// Step 3: Build the Plan object from args
 	const plan: Plan = {
 		schema_version: '1.0.0',
@@ -211,7 +230,7 @@ export async function executeSavePlan(
 					return {
 						id: task.id,
 						phase: phase.id,
-						status: 'pending',
+						status: existingStatusMap.get(task.id) ?? 'pending',
 						size: task.size ?? 'small',
 						description: task.description,
 						depends: task.depends ?? [],
@@ -230,8 +249,6 @@ export async function executeSavePlan(
 	);
 
 	// Step 4: Save the plan using validated target workspace
-	// Note: targetWorkspace is guaranteed to be defined here due to Step 2 validation
-	const dir = targetWorkspace as string;
 	const lockTaskId = `save-plan-${Date.now()}`;
 	const planFilePath = 'plan.json';
 	try {
@@ -255,6 +272,12 @@ export async function executeSavePlan(
 		}
 		try {
 			await savePlan(dir, plan);
+			// Take an explicit snapshot after every save_plan call.
+			// This ensures replayFromLedger always has a complete plan baseline to work from.
+			const savedPlan = await loadPlanJsonOnly(dir);
+			if (savedPlan) {
+				await takeSnapshotEvent(dir, savedPlan).catch(() => {});
+			}
 			// Write root-level checkpoint artifact (non-blocking)
 			await writeCheckpoint(dir).catch(() => {});
 			// Advisory: write marker file for unauthorized-write detection

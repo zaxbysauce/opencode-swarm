@@ -619,6 +619,51 @@ export async function executeUpdateTaskStatus(
 		directory = fallbackDir;
 	}
 
+	// Write minimal gate-tracking evidence to persist across session restarts.
+	// Placed AFTER directory validation so we only write under the validated workspace.
+	if (args.status === 'in_progress') {
+		try {
+			const evidencePath = path.join(
+				directory,
+				'.swarm',
+				'evidence',
+				`${args.task_id}.json`,
+			);
+			fs.mkdirSync(path.dirname(evidencePath), { recursive: true });
+			// Atomic create: use wx flag to fail if file already exists (no TOCTOU race)
+			const fd = fs.openSync(evidencePath, 'wx');
+			let writeOk = false;
+			try {
+				fs.writeSync(
+					fd,
+					JSON.stringify(
+						{
+							task_id: args.task_id,
+							required_gates: ['reviewer', 'test_engineer'],
+							gates: {},
+							started_at: new Date().toISOString(),
+						},
+						null,
+						2,
+					),
+				);
+				writeOk = true;
+			} finally {
+				fs.closeSync(fd);
+				// Remove partial/empty file on write failure to avoid a permanently broken gate file
+				if (!writeOk) {
+					try {
+						fs.unlinkSync(evidencePath);
+					} catch {
+						/* best-effort cleanup */
+					}
+				}
+			}
+		} catch {
+			/* Advisory only — EEXIST (file already exists) or other errors never block status update */
+		}
+	}
+
 	// State machine check: task must have reached tests_run or complete state
 	// Uses the validated directory for plan.json fallback resolution
 	if (args.status === 'completed') {

@@ -18,10 +18,14 @@ import {
 
 // Mock the loadPlan function from plan/manager
 const mockLoadPlan = mock(async () => null);
+const mockLoadPlanJsonOnly = mock(async () => null);
+const mockRegeneratePlanMarkdown = mock(async () => {});
 
 // Mock the plan/manager module
 mock.module('../../../src/plan/manager', () => ({
 	loadPlan: mockLoadPlan,
+	loadPlanJsonOnly: mockLoadPlanJsonOnly,
+	regeneratePlanMarkdown: mockRegeneratePlanMarkdown,
 }));
 
 describe('PlanSyncWorker', () => {
@@ -78,6 +82,10 @@ describe('PlanSyncWorker', () => {
 		// into subsequent tests and causing timeouts.
 		mockLoadPlan.mockImplementation(async () => null);
 		mockLoadPlan.mockClear();
+		mockLoadPlanJsonOnly.mockImplementation(async () => null);
+		mockLoadPlanJsonOnly.mockClear();
+		mockRegeneratePlanMarkdown.mockImplementation(async () => {});
+		mockRegeneratePlanMarkdown.mockClear();
 	});
 
 	afterEach(async () => {
@@ -2066,5 +2074,101 @@ describe('PlanSyncWorker', () => {
 
 			expect(syncCount).toBe(syncCountAfterDispose);
 		});
+	});
+
+	describe('Task 3.5 fixes', () => {
+		test('default debounce is 500ms', () => {
+			worker = new PlanSyncWorker();
+			// Access private field to verify the default
+			expect(worker['debounceMs']).toBe(500);
+		});
+
+		test('empty phases plan skips markdown regeneration', async () => {
+			setupTempDir(true, true);
+
+			const emptyPhasesPlan = {
+				schema_version: '1.0.0',
+				title: 'Empty Plan',
+				swarm: 'test-swarm',
+				current_phase: 0,
+				phases: [],
+				migration_status: 'none',
+			};
+
+			mockLoadPlanJsonOnly.mockImplementation(async () => emptyPhasesPlan);
+
+			const syncComplete = new Promise<boolean>((resolve) => {
+				worker = new PlanSyncWorker({
+					directory: tempDir,
+					debounceMs: 10,
+					pollIntervalMs: 50,
+					syncTimeoutMs: 2000,
+					onSyncComplete: (success) => resolve(success),
+				});
+			});
+
+			worker!.start();
+
+			// Trigger a change so the poll detects it and fires a sync
+			fs.writeFileSync(
+				planJsonPath,
+				JSON.stringify({ ...emptyPhasesPlan, title: 'Changed' }),
+			);
+
+			const success = await syncComplete;
+			expect(success).toBe(true);
+			expect(mockLoadPlanJsonOnly.mock.calls.length).toBeGreaterThanOrEqual(1);
+			expect(mockRegeneratePlanMarkdown).not.toHaveBeenCalled();
+		});
+
+		test('plan with phases triggers markdown regeneration', async () => {
+			setupTempDir(true, true);
+
+			const planWithPhases = {
+				schema_version: '1.0.0',
+				title: 'Real Plan',
+				swarm: 'test-swarm',
+				current_phase: 1,
+				phases: [
+					{
+						id: 1,
+						title: 'Phase 1',
+						description: 'First phase',
+						status: 'in_progress',
+						tasks: [],
+					},
+				],
+				migration_status: 'none',
+			};
+
+			mockLoadPlanJsonOnly.mockImplementation(async () => planWithPhases);
+
+			const syncComplete = new Promise<boolean>((resolve) => {
+				worker = new PlanSyncWorker({
+					directory: tempDir,
+					debounceMs: 10,
+					pollIntervalMs: 50,
+					syncTimeoutMs: 2000,
+					onSyncComplete: (success) => resolve(success),
+				});
+			});
+
+			worker!.start();
+
+			// Trigger a change so the poll detects it and fires a sync
+			fs.writeFileSync(
+				planJsonPath,
+				JSON.stringify({ ...planWithPhases, title: 'Changed' }),
+			);
+
+			const success = await syncComplete;
+			expect(success).toBe(true);
+			expect(mockLoadPlanJsonOnly.mock.calls.length).toBeGreaterThanOrEqual(1);
+			expect(mockRegeneratePlanMarkdown).toHaveBeenCalled();
+		});
+
+		// Note: Temp file filtering (change #2) is tested in the adversarial test file
+		// since it requires intercepting the fs.watch callback directly, which is
+		// internal to setupNativeWatcher.
 	});
 });

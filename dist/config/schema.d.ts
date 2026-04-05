@@ -415,6 +415,8 @@ export declare const KnowledgeConfigSchema: z.ZodObject<{
     hive_max_entries: z.ZodDefault<z.ZodNumber>;
     auto_promote_days: z.ZodDefault<z.ZodNumber>;
     max_inject_count: z.ZodDefault<z.ZodNumber>;
+    inject_char_budget: z.ZodDefault<z.ZodNumber>;
+    max_lesson_display_chars: z.ZodDefault<z.ZodNumber>;
     dedup_threshold: z.ZodDefault<z.ZodNumber>;
     scope_filter: z.ZodDefault<z.ZodArray<z.ZodString>>;
     hive_enabled: z.ZodDefault<z.ZodBoolean>;
@@ -778,6 +780,8 @@ export declare const PluginConfigSchema: z.ZodObject<{
         hive_max_entries: z.ZodDefault<z.ZodNumber>;
         auto_promote_days: z.ZodDefault<z.ZodNumber>;
         max_inject_count: z.ZodDefault<z.ZodNumber>;
+        inject_char_budget: z.ZodDefault<z.ZodNumber>;
+        max_lesson_display_chars: z.ZodDefault<z.ZodNumber>;
         dedup_threshold: z.ZodDefault<z.ZodNumber>;
         scope_filter: z.ZodDefault<z.ZodArray<z.ZodString>>;
         hive_enabled: z.ZodDefault<z.ZodBoolean>;

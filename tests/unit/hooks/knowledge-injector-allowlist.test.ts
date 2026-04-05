@@ -138,7 +138,7 @@ function hasKnowledgeInjection(output: {
 	return output.messages.some((m) =>
 		m.parts?.some(
 			(p) =>
-				p.text?.includes('📚 Knowledge') ||
+				p.text?.includes('📚 Lessons:') ||
 				p.text?.includes('<drift_report>') ||
 				p.text?.includes('<curator_briefing>'),
 		),

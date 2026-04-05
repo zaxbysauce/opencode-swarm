@@ -8,7 +8,7 @@
 export interface PlanSyncWorkerOptions {
     /** Directory containing .swarm folder (defaults to cwd) */
     directory?: string;
-    /** Debounce delay in ms (default: 300ms) */
+    /** Debounce delay in ms (default: 500ms) */
     debounceMs?: number;
     /** Polling interval in ms when fs.watch fails (default: 2000ms) */
     pollIntervalMs?: number;

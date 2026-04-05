@@ -75,7 +75,7 @@ export function parseKnowledgeRecommendations(
 
 		// Match "- promote entry_123: reason text" or "- archive entry_456: reason text"
 		const match = trimmed.match(
-			/^-\s+(promote|archive|flag_contradiction)\s+(\S+):\s+(.+)$/i,
+			/^-\s+(promote|archive|flag_contradiction|rewrite)\s+(\S+):\s+(.+)$/i,
 		);
 		if (match) {
 			const action =
@@ -462,12 +462,27 @@ export async function runCuratorInit(
 		let briefingText = briefingParts.join('\n');
 
 		// 6. LLM delegation: enhance briefing with CURATOR_INIT agent analysis
+		// Pass all entries (capped at 30) with IDs for curator review
+		const allEntriesForCurator = [...allEntries]
+			.sort(
+				(a, b) =>
+					new Date(b.updated_at).getTime() - new Date(a.updated_at).getTime(),
+			)
+			.slice(0, 30)
+			.map((e) => ({
+				id: e.id,
+				lesson: e.lesson,
+				status: e.status,
+				confidence: e.confidence,
+				category: e.category,
+			}));
+
 		if (llmDelegate) {
 			try {
 				const userInput = [
 					'TASK: CURATOR_INIT',
 					`PRIOR_SUMMARY: ${priorSummary ? JSON.stringify(priorSummary) : 'none'}`,
-					`KNOWLEDGE_ENTRIES: ${JSON.stringify(highConfidenceEntries.slice(0, 10))}`,
+					`KNOWLEDGE_ENTRIES: ${JSON.stringify(allEntriesForCurator)}`,
 					`PROJECT_CONTEXT: ${contextMd?.slice(0, config.max_summary_tokens * 2) ?? 'none'}`,
 				].join('\n');
 
@@ -644,6 +659,24 @@ export async function runCuratorPhase(
 
 		// 6. LLM delegation: delegate to explorer agent in CURATOR_PHASE mode
 		// for knowledge recommendations and enhanced phase analysis
+		// Read current knowledge entries for curator review (capped to avoid context bloat)
+		const curatorKnowledgePath = resolveSwarmKnowledgePath(directory);
+		const allKnowledgeEntries =
+			await readKnowledge<SwarmKnowledgeEntry>(curatorKnowledgePath);
+		const knowledgeForCurator = [...allKnowledgeEntries]
+			.sort(
+				(a, b) =>
+					new Date(b.updated_at).getTime() - new Date(a.updated_at).getTime(),
+			)
+			.slice(0, 30)
+			.map((e) => ({
+				id: e.id,
+				lesson: e.lesson,
+				status: e.status,
+				confidence: e.confidence,
+				category: e.category,
+			}));
+
 		let knowledgeRecommendations: KnowledgeRecommendation[] = [];
 		if (llmDelegate) {
 			try {
@@ -656,6 +689,7 @@ export async function runCuratorPhase(
 					`PHASE_DECISIONS: ${JSON.stringify(keyDecisions)}`,
 					`AGENTS_DISPATCHED: ${JSON.stringify(agentsDispatched)}`,
 					`AGENTS_EXPECTED: ["reviewer", "test_engineer"]`,
+					`KNOWLEDGE_ENTRIES: ${JSON.stringify(knowledgeForCurator)}`,
 				].join('\n');
 
 				const timeoutMs =
@@ -851,6 +885,25 @@ export async function applyCuratorKnowledgeUpdates(
 					],
 					updated_at: new Date().toISOString(),
 				};
+			case 'rewrite': {
+				// Replace lesson text in-place. Preserve all metadata.
+				// Enforce the 15–280 char bounds before applying.
+				const newLesson = (rec.lesson ?? '').trim();
+				if (newLesson.length < 15 || newLesson.length > 280) {
+					// Malformed rewrite — treat as skipped, return unmodified entry
+					return entry;
+				}
+				appliedIds.add(entry.id);
+				applied++;
+				modified = true;
+				return {
+					...entry,
+					lesson: newLesson,
+					updated_at: new Date().toISOString(),
+					// Slightly reduce confidence on rewrite (lesson changed — needs re-validation)
+					confidence: Math.max(0.1, (entry.confidence ?? 0.5) - 0.05),
+				};
+			}
 			default:
 				return entry;
 		}
