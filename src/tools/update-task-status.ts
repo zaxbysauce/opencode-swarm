@@ -540,15 +540,28 @@ export async function executeUpdateTaskStatus(
 		const evidenceDir = fallbackDir ?? args.working_directory;
 		if (evidenceDir) {
 			try {
-				const evidencePath = path.join(evidenceDir, '.swarm', 'evidence', `${args.task_id}.json`);
+				const evidencePath = path.join(
+					evidenceDir,
+					'.swarm',
+					'evidence',
+					`${args.task_id}.json`,
+				);
 				fs.mkdirSync(path.dirname(evidencePath), { recursive: true });
 				if (!fs.existsSync(evidencePath)) {
-					fs.writeFileSync(evidencePath, JSON.stringify({
-						task_id: args.task_id,
-						required_gates: ['reviewer', 'test_engineer'],
-						gates: {},
-						started_at: new Date().toISOString(),
-					}, null, 2), 'utf-8');
+					fs.writeFileSync(
+						evidencePath,
+						JSON.stringify(
+							{
+								task_id: args.task_id,
+								required_gates: ['reviewer', 'test_engineer'],
+								gates: {},
+								started_at: new Date().toISOString(),
+							},
+							null,
+							2,
+						),
+						'utf-8',
+					);
 				}
 			} catch {
 				/* Advisory only — never block status update */

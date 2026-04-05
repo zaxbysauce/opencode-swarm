@@ -207,7 +207,10 @@ export class PlanSyncWorker {
 					}
 
 					// Filter out temp file events from atomic writes and rebuilds
-					if (filename && (filename.includes('.tmp.') || filename.endsWith('.rebuild'))) {
+					if (
+						filename &&
+						(filename.includes('.tmp.') || filename.endsWith('.rebuild'))
+					) {
 						return;
 					}
 
@@ -394,7 +397,9 @@ export class PlanSyncWorker {
 				this.safeCallback(true);
 			} else if (plan) {
 				// Plan exists but has no phases — skip markdown regeneration to avoid writing empty/broken plan.md
-				log('[PlanSyncWorker] Plan has no phases, skipping markdown regeneration');
+				log(
+					'[PlanSyncWorker] Plan has no phases, skipping markdown regeneration',
+				);
 				this.safeCallback(true);
 			} else {
 				// No plan exists - this is fine, just means nothing to sync

@@ -7,8 +7,8 @@ import { afterEach, beforeEach, describe, expect, it } from 'bun:test';
 import * as fs from 'node:fs/promises';
 import * as os from 'node:os';
 import * as path from 'node:path';
-import { executeUpdateTaskStatus } from '../../src/tools/update-task-status';
 import { executeSavePlan, type SavePlanArgs } from '../../src/tools/save-plan';
+import { executeUpdateTaskStatus } from '../../src/tools/update-task-status';
 
 describe('save_plan + update_task_status round-trip integration', () => {
 	let tmpDir: string;
@@ -37,15 +37,17 @@ describe('save_plan + update_task_status round-trip integration', () => {
 					name: 'Phase 1',
 					tasks: [
 						{ id: '1.1', description: 'Setup database' },
-						{ id: '1.2', description: 'Create API endpoints', depends: ['1.1'] },
+						{
+							id: '1.2',
+							description: 'Create API endpoints',
+							depends: ['1.1'],
+						},
 					],
 				},
 				{
 					id: 2,
 					name: 'Phase 2',
-					tasks: [
-						{ id: '2.1', description: 'Add auth' },
-					],
+					tasks: [{ id: '2.1', description: 'Add auth' }],
 				},
 			],
 			working_directory: tmpDir,
@@ -78,16 +80,18 @@ describe('save_plan + update_task_status round-trip integration', () => {
 					name: 'Phase 1 Revised',
 					tasks: [
 						{ id: '1.1', description: 'Setup database (PostgreSQL)' },
-						{ id: '1.2', description: 'Create REST API endpoints', depends: ['1.1'] },
+						{
+							id: '1.2',
+							description: 'Create REST API endpoints',
+							depends: ['1.1'],
+						},
 						{ id: '1.3', description: 'Add migration scripts' },
 					],
 				},
 				{
 					id: 2,
 					name: 'Phase 2',
-					tasks: [
-						{ id: '2.1', description: 'Add OAuth2 auth' },
-					],
+					tasks: [{ id: '2.1', description: 'Add OAuth2 auth' }],
 				},
 			],
 			working_directory: tmpDir,
@@ -101,7 +105,9 @@ describe('save_plan + update_task_status round-trip integration', () => {
 
 		// Task 1.1 was completed — should be preserved by merge-mode
 		expect(savedPlan.phases[0].tasks[0].status).toBe('completed');
-		expect(savedPlan.phases[0].tasks[0].description).toBe('Setup database (PostgreSQL)');
+		expect(savedPlan.phases[0].tasks[0].description).toBe(
+			'Setup database (PostgreSQL)',
+		);
 
 		// Task 1.2 was never updated — should still be pending
 		expect(savedPlan.phases[0].tasks[1].status).toBe('pending');
@@ -128,10 +134,19 @@ describe('save_plan + update_task_status round-trip integration', () => {
 		};
 
 		await executeSavePlan(plan);
-		await executeUpdateTaskStatus({ task_id: '1.1', status: 'in_progress' }, tmpDir);
+		await executeUpdateTaskStatus(
+			{ task_id: '1.1', status: 'in_progress' },
+			tmpDir,
+		);
 
-		const planJsonExists = await fs.access(path.join(tmpDir, '.swarm', 'plan.json')).then(() => true).catch(() => false);
-		const planMdExists = await fs.access(path.join(tmpDir, '.swarm', 'plan.md')).then(() => true).catch(() => false);
+		const planJsonExists = await fs
+			.access(path.join(tmpDir, '.swarm', 'plan.json'))
+			.then(() => true)
+			.catch(() => false);
+		const planMdExists = await fs
+			.access(path.join(tmpDir, '.swarm', 'plan.md'))
+			.then(() => true)
+			.catch(() => false);
 
 		expect(planJsonExists).toBe(true);
 		expect(planMdExists).toBe(true);
@@ -152,13 +167,24 @@ describe('save_plan + update_task_status round-trip integration', () => {
 		};
 
 		await executeSavePlan(plan);
-		await executeUpdateTaskStatus({ task_id: '1.1', status: 'in_progress' }, tmpDir);
+		await executeUpdateTaskStatus(
+			{ task_id: '1.1', status: 'in_progress' },
+			tmpDir,
+		);
 
 		// Verify evidence seed was created
-		const evidenceExists = await fs.access(path.join(tmpDir, '.swarm', 'evidence', '1.1.json')).then(() => true).catch(() => false);
+		const evidenceExists = await fs
+			.access(path.join(tmpDir, '.swarm', 'evidence', '1.1.json'))
+			.then(() => true)
+			.catch(() => false);
 		expect(evidenceExists).toBe(true);
 
-		const evidence = JSON.parse(await fs.readFile(path.join(tmpDir, '.swarm', 'evidence', '1.1.json'), 'utf-8'));
+		const evidence = JSON.parse(
+			await fs.readFile(
+				path.join(tmpDir, '.swarm', 'evidence', '1.1.json'),
+				'utf-8',
+			),
+		);
 		expect(evidence.task_id).toBe('1.1');
 		expect(evidence.required_gates).toEqual(['reviewer', 'test_engineer']);
 	});

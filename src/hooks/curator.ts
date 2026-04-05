@@ -464,9 +464,18 @@ export async function runCuratorInit(
 		// 6. LLM delegation: enhance briefing with CURATOR_INIT agent analysis
 		// Pass all entries (capped at 30) with IDs for curator review
 		const allEntriesForCurator = [...allEntries]
-			.sort((a, b) => new Date(b.updated_at).getTime() - new Date(a.updated_at).getTime())
+			.sort(
+				(a, b) =>
+					new Date(b.updated_at).getTime() - new Date(a.updated_at).getTime(),
+			)
 			.slice(0, 30)
-			.map(e => ({ id: e.id, lesson: e.lesson, status: e.status, confidence: e.confidence, category: e.category }));
+			.map((e) => ({
+				id: e.id,
+				lesson: e.lesson,
+				status: e.status,
+				confidence: e.confidence,
+				category: e.category,
+			}));
 
 		if (llmDelegate) {
 			try {
@@ -652,11 +661,21 @@ export async function runCuratorPhase(
 		// for knowledge recommendations and enhanced phase analysis
 		// Read current knowledge entries for curator review (capped to avoid context bloat)
 		const curatorKnowledgePath = resolveSwarmKnowledgePath(directory);
-		const allKnowledgeEntries = await readKnowledge<SwarmKnowledgeEntry>(curatorKnowledgePath);
+		const allKnowledgeEntries =
+			await readKnowledge<SwarmKnowledgeEntry>(curatorKnowledgePath);
 		const knowledgeForCurator = [...allKnowledgeEntries]
-			.sort((a, b) => new Date(b.updated_at).getTime() - new Date(a.updated_at).getTime())
+			.sort(
+				(a, b) =>
+					new Date(b.updated_at).getTime() - new Date(a.updated_at).getTime(),
+			)
 			.slice(0, 30)
-			.map(e => ({ id: e.id, lesson: e.lesson, status: e.status, confidence: e.confidence, category: e.category }));
+			.map((e) => ({
+				id: e.id,
+				lesson: e.lesson,
+				status: e.status,
+				confidence: e.confidence,
+				category: e.category,
+			}));
 
 		let knowledgeRecommendations: KnowledgeRecommendation[] = [];
 		if (llmDelegate) {
@@ -871,8 +890,8 @@ export async function applyCuratorKnowledgeUpdates(
 				// Enforce the 15–280 char bounds before applying.
 				const newLesson = (rec.lesson ?? '').trim();
 				if (newLesson.length < 15 || newLesson.length > 280) {
-					// Malformed rewrite — treat as skipped
-					break;
+					// Malformed rewrite — treat as skipped, return unmodified entry
+					return entry;
 				}
 				appliedIds.add(entry.id);
 				applied++;

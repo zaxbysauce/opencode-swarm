@@ -200,7 +200,7 @@ export async function executeSavePlan(
 	// This ensures all task statuses are preserved across plan revisions,
 	// not just tasks that happen to share the same ID with the incoming plan.
 	const dir = targetWorkspace as string;
-	let existingStatusMap: Map<string, TaskStatus> = new Map();
+	const existingStatusMap: Map<string, TaskStatus> = new Map();
 	try {
 		const existing = await loadPlanJsonOnly(dir);
 		if (existing) {

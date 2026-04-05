@@ -2281,7 +2281,10 @@ describe('Durable evidence seed on in_progress transition', () => {
 
 		// Verify the existing evidence was NOT overwritten
 		const evidence = JSON.parse(
-			fs.readFileSync(path.join(tempDir, '.swarm', 'evidence', '1.1.json'), 'utf-8'),
+			fs.readFileSync(
+				path.join(tempDir, '.swarm', 'evidence', '1.1.json'),
+				'utf-8',
+			),
 		);
 		expect(evidence.gates.reviewer).toBeDefined();
 		expect(evidence.gates.reviewer.sessionId).toBe('session-1');

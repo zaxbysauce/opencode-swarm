@@ -48,7 +48,8 @@ function buildKnowledgeBlock(
 	const lines: string[] = entries.map((entry) => {
 		const tier = entry.tier === 'hive' ? '[H]' : '[S]';
 		const confirmedBy = entry.confirmed_by?.length ?? 0;
-		const confirm = confirmedBy >= 3 ? ' \u2713\u2713' : confirmedBy >= 1 ? ' \u2713' : '';
+		const confirm =
+			confirmedBy >= 3 ? ' \u2713\u2713' : confirmedBy >= 1 ? ' \u2713' : '';
 
 		let lessonText = sanitizeLessonForContext(entry.lesson);
 		if (lessonText.length > maxDisplayChars) {
@@ -197,11 +198,11 @@ export function createKnowledgeInjectorHook(
 			// Three-regime injection budget (maps to BACM high/moderate/low budget regimes)
 			const maxInjectChars = config.inject_char_budget ?? 2_000;
 			const effectiveBudget =
-				headroomChars >= MODEL_LIMIT_CHARS * 0.60
-					? maxInjectChars                          // high: >60% remaining — full budget
-					: headroomChars >= MODEL_LIMIT_CHARS * 0.20
-						? Math.floor(maxInjectChars * 0.5)     // moderate: 20–60% — half budget
-						: Math.floor(maxInjectChars * 0.25);   // low: 5–20% — quarter budget
+				headroomChars >= MODEL_LIMIT_CHARS * 0.6
+					? maxInjectChars // high: >60% remaining — full budget
+					: headroomChars >= MODEL_LIMIT_CHARS * 0.2
+						? Math.floor(maxInjectChars * 0.5) // moderate: 20–60% — half budget
+						: Math.floor(maxInjectChars * 0.25); // low: 5–20% — quarter budget
 
 			// Agent check — only inject for architect/orchestrator agents
 			const systemMsg = output.messages.find((m) => m.info?.role === 'system');
@@ -287,7 +288,12 @@ export function createKnowledgeInjectorHook(
 
 			const lessonBudget = Math.floor(effectiveBudget * 0.7);
 			const projectName = plan?.title ?? 'unknown';
-			const lessonBlock = buildKnowledgeBlock(entries, lessonBudget, config, projectName);
+			const lessonBlock = buildKnowledgeBlock(
+				entries,
+				lessonBudget,
+				config,
+				projectName,
+			);
 
 			const parts: string[] = [];
 			let remaining = effectiveBudget;
@@ -309,9 +315,15 @@ export function createKnowledgeInjectorHook(
 				// At moderate/low budgets, strip curator briefing from freshPreamble
 				let preambleToUse = freshPreamble;
 				if (!isFullBudget) {
-					preambleToUse = preambleToUse.replace(/<curator_briefing>[\s\S]*?<\/curator_briefing>\s*/g, '');
+					preambleToUse = preambleToUse.replace(
+						/<curator_briefing>[\s\S]*?<\/curator_briefing>\s*/g,
+						'',
+					);
 				}
-				if (preambleToUse.trim().length > 0 && preambleToUse.length <= remaining) {
+				if (
+					preambleToUse.trim().length > 0 &&
+					preambleToUse.length <= remaining
+				) {
 					parts.push(preambleToUse);
 					remaining -= preambleToUse.length;
 				}
