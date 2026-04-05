@@ -31,6 +31,29 @@ vi.mock('node:process', () => ({
 	},
 }));
 
+// Mock opencodeClient for integration tests
+const mockSessionId = 'mock-critic-session';
+const mockClient = {
+	session: {
+		create: vi.fn().mockResolvedValue({ data: { id: mockSessionId } }),
+		delete: vi.fn().mockResolvedValue({ data: { success: true } }),
+		prompt: vi.fn().mockResolvedValue({
+			data: {
+				parts: [
+					{
+						type: 'text',
+						text: `VERDICT: APPROVED
+REASONING: All Phase 1 tasks verified complete. Config schema adds full_auto correctly. hasActiveFullAuto() implemented. Model validation at startup correct.
+EVIDENCE_CHECKED: src/config/schema.ts, src/state.ts, src/index.ts
+ANTI_PATTERNS_DETECTED: none
+ESCALATION_NEEDED: NO`,
+					},
+				],
+			},
+		}),
+	},
+};
+
 /**
  * Creates a full PluginConfig object with all required fields, using type casting.
  */
@@ -129,7 +152,7 @@ describe('full-auto mode integration', () => {
 	// Test 1: End-to-end critic dispatch with phase completion pattern
 	// ─────────────────────────────────────────────────────────────────────────
 
-	it('1. End-to-end: architect outputs "Ready for Phase 2?" → hook detects escalation → critic is invoked → event written', async () => {
+	it('1. End-to-end: architect outputs "Ready for Phase 2?" → hook detects escalation → mock critic returns APPROVED → event written', async () => {
 		const sessionID = 'test-session-phase-completion';
 		startFullAutoSession(sessionID);
 
@@ -142,8 +165,15 @@ describe('full-auto mode integration', () => {
 		const messages = makeMessages('Ready for Phase 2?', sessionID);
 		const output = { messages };
 
+		// Make the mock client available
+		const originalOpencodeClient = swarmState.opencodeClient;
+		(swarmState as any).opencodeClient = mockClient;
+
 		// Simulate the hook execution
 		await hook.messagesTransform({}, output);
+
+		// Restore original client
+		(swarmState as any).opencodeClient = originalOpencodeClient;
 
 		// Verify the auto_oversight event was written to events.jsonl
 		const eventsPath = path.join(tmpDir, '.swarm', 'events.jsonl');
@@ -157,7 +187,10 @@ describe('full-auto mode integration', () => {
 		expect(lastEvent.type).toBe('auto_oversight');
 		expect(lastEvent.interaction_mode).toBe('phase_completion');
 		expect(lastEvent.architect_output).toBe('Ready for Phase 2?');
-		expect(lastEvent.critic_verdict).toBe('PENDING'); // Placeholder until real critic invocation
+		expect(lastEvent.critic_verdict).toBe('APPROVED');
+		expect(lastEvent.critic_reasoning).toContain(
+			'Phase 1 tasks verified complete',
+		);
 		expect(lastEvent.interaction_count).toBe(1);
 		expect(lastEvent.deadlock_count).toBe(0);
 	});
@@ -255,7 +288,7 @@ describe('full-auto mode integration', () => {
 		const lines = eventsContent.trim().split('\n').filter(Boolean);
 		const lastEvent = JSON.parse(lines[lines.length - 1]);
 
-		// The critic is invoked (even for product questions — critic decides verdict)
+		// The critic is invoked and returns a verdict (mocked in tests without real LLM)
 		expect(lastEvent.type).toBe('auto_oversight');
 		expect(lastEvent.interaction_mode).toBe('question_resolution');
 		expect(lastEvent.architect_output).toBe(

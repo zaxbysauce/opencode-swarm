@@ -13,7 +13,7 @@ import * as fs from 'node:fs';
 import { createCriticAutonomousOversightAgent } from '../agents/critic';
 import type { PluginConfig } from '../config';
 import { tryAcquireLock } from '../parallel/file-locks.js';
-import { hasActiveFullAuto } from '../state';
+import { hasActiveFullAuto, swarmState } from '../state.js';
 import { telemetry } from '../telemetry';
 import { validateSwarmPath } from './utils';
 
@@ -125,6 +125,133 @@ interface AutoOversightEvent {
 }
 
 /**
+ * Result from critic dispatch — used to inject verdict into message stream.
+ */
+interface CriticDispatchResult {
+	verdict: string;
+	reasoning: string;
+	evidenceChecked: string[];
+	antiPatternsDetected: string[];
+	escalationNeeded: boolean;
+	rawResponse: string;
+}
+
+/**
+ * Parses the critic's structured text response into a CriticDispatchResult.
+ * The critic response format is:
+ *   VERDICT: APPROVED | NEEDS_REVISION | ...
+ *   REASONING: [text with possible multi-line content]
+ *   EVIDENCE_CHECKED: [list]
+ *   ANTI_PATTERNS_DETECTED: [list or "none"]
+ *   ESCALATION_NEEDED: YES | NO
+ */
+export function parseCriticResponse(rawResponse: string): CriticDispatchResult {
+	const result: CriticDispatchResult = {
+		verdict: 'NEEDS_REVISION',
+		reasoning: '',
+		evidenceChecked: [],
+		antiPatternsDetected: [],
+		escalationNeeded: false,
+		rawResponse,
+	};
+
+	const lines = rawResponse.split('\n');
+	let currentKey = '';
+	let currentValue = '';
+
+	const commitField = (
+		res: CriticDispatchResult,
+		key: string,
+		value: string,
+	): void => {
+		switch (key) {
+			case 'VERDICT': {
+				const validVerdicts = [
+					'APPROVED',
+					'NEEDS_REVISION',
+					'REJECTED',
+					'BLOCKED',
+					'ANSWER',
+					'ESCALATE_TO_HUMAN',
+					'REPHRASE',
+				];
+				const normalized = value.trim().toUpperCase().replace(/[`*]/g, '');
+				if (validVerdicts.includes(normalized)) {
+					res.verdict = normalized;
+				} else {
+					console.warn(
+						`[full-auto-intercept] Unknown verdict '${value}' — defaulting to NEEDS_REVISION`,
+					);
+					res.verdict = 'NEEDS_REVISION';
+				}
+				break;
+			}
+			case 'REASONING':
+				res.reasoning = value.trim();
+				break;
+			case 'EVIDENCE_CHECKED':
+				if (value && value !== 'none' && value !== '"none"') {
+					res.evidenceChecked = value
+						.split(',')
+						.map((s) => s.trim())
+						.filter(Boolean);
+				}
+				break;
+			case 'ANTI_PATTERNS_DETECTED':
+				if (value && value !== 'none' && value !== '"none"') {
+					res.antiPatternsDetected = value
+						.split(',')
+						.map((s) => s.trim())
+						.filter(Boolean);
+				}
+				break;
+			case 'ESCALATION_NEEDED':
+				res.escalationNeeded = value.trim().toUpperCase() === 'YES';
+				break;
+		}
+	};
+
+	for (const line of lines) {
+		const colonIndex = line.indexOf(':');
+		if (colonIndex !== -1) {
+			const key = line.slice(0, colonIndex).trim().toUpperCase();
+			// Check if this looks like a field header (next KEY: line)
+			if (
+				[
+					'VERDICT',
+					'REASONING',
+					'EVIDENCE_CHECKED',
+					'ANTI_PATTERNS_DETECTED',
+					'ESCALATION_NEEDED',
+				].includes(key)
+			) {
+				// Save previous field
+				if (currentKey) {
+					commitField(result, currentKey, currentValue);
+				}
+				currentKey = key;
+				currentValue = line.slice(colonIndex + 1).trim();
+			} else {
+				// Continuation of previous field (no valid key prefix)
+				currentValue += `\n${line}`;
+			}
+		} else {
+			// Continuation line (no colon) — append to current value
+			if (line.trim()) {
+				currentValue += `\n${line}`;
+			}
+		}
+	}
+
+	// Commit last field
+	if (currentKey) {
+		commitField(result, currentKey, currentValue);
+	}
+
+	return result;
+}
+
+/**
  * Maps escalation type to interaction mode.
  */
 function escalationTypeToInteractionMode(
@@ -205,17 +332,93 @@ async function writeAutoOversightEvent(
 }
 
 /**
+ * Injects the critic's verdict as an assistant message after the architect's message.
+ * This makes the verdict visible in the chat without modifying the architect's output.
+ *
+ * Verdict handling:
+ * - ANSWER: injects critic's reasoning as the assistant's answer
+ * - ESCALATE_TO_HUMAN: triggers escalation (handled separately)
+ * - APPROVED / NEEDS_REVISION / REJECTED / BLOCKED / REPHRASE: injects verdict message
+ */
+export function injectVerdictIntoMessages(
+	messages: MessageWithParts[],
+	architectIndex: number,
+	criticResult: CriticDispatchResult,
+	_escalationType: 'phase_completion' | 'question',
+): void {
+	// Handle ESCALATE_TO_HUMAN — trigger escalation but still inject the verdict
+	if (
+		criticResult.escalationNeeded ||
+		criticResult.verdict === 'ESCALATE_TO_HUMAN'
+	) {
+		const verdictMessage: MessageWithParts = {
+			info: {
+				role: 'assistant',
+				agent: 'critic',
+			},
+			parts: [
+				{
+					type: 'text',
+					text: `[FULL-AUTO OVERSIGHT — ESCALATE_TO_HUMAN]\n\nCritic reasoning: ${criticResult.reasoning}\n\nThis question requires human judgment. The swarm has been paused for human review.`,
+				},
+			],
+		};
+		messages.splice(architectIndex + 1, 0, verdictMessage);
+		return;
+	}
+
+	// Handle ANSWER verdict — inject critic's answer
+	if (criticResult.verdict === 'ANSWER') {
+		const verdictMessage: MessageWithParts = {
+			info: {
+				role: 'assistant',
+				agent: 'critic',
+			},
+			parts: [
+				{
+					type: 'text',
+					text: `[FULL-AUTO OVERSIGHT — ANSWER]\n\n${criticResult.reasoning}`,
+				},
+			],
+		};
+		messages.splice(architectIndex + 1, 0, verdictMessage);
+		return;
+	}
+
+	// Handle APPROVED / NEEDS_REVISION / REJECTED / BLOCKED / REPHRASE
+	const verdictEmoji =
+		criticResult.verdict === 'APPROVED'
+			? '✅'
+			: criticResult.verdict === 'NEEDS_REVISION'
+				? '🔄'
+				: criticResult.verdict === 'REJECTED'
+					? '❌'
+					: criticResult.verdict === 'BLOCKED'
+						? '🚫'
+						: '💬';
+
+	const verdictMessage: MessageWithParts = {
+		info: {
+			role: 'assistant',
+			agent: 'critic',
+		},
+		parts: [
+			{
+				type: 'text',
+				text: `[FULL-AUTO OVERSIGHT] ${verdictEmoji} **${criticResult.verdict}**\n\nCritic reasoning: ${criticResult.reasoning}`,
+			},
+		],
+	};
+	messages.splice(architectIndex + 1, 0, verdictMessage);
+}
+
+/**
  * Handles critic dispatch and writes the auto_oversight event after the critic responds.
  *
  * This function encapsulates the critic invocation and event writing flow.
  * The critic response is awaited before writing the event to events.jsonl.
- *
- * NOTE: The actual LLM invocation of the critic is stubbed here — the function
- * logs the critic creation and immediately writes a placeholder event. When full
- * critic invocation is integrated, replace the placeholder response with the
- * actual critic output.
  */
-async function dispatchCriticAndWriteEvent(
+export async function dispatchCriticAndWriteEvent(
 	directory: string,
 	architectOutput: string,
 	criticContext: string,
@@ -223,8 +426,35 @@ async function dispatchCriticAndWriteEvent(
 	escalationType: 'phase_completion' | 'question',
 	interactionCount: number,
 	deadlockCount: number,
-): Promise<void> {
-	// Create the oversight agent (for logging/traceability)
+): Promise<CriticDispatchResult> {
+	const client = swarmState.opencodeClient;
+
+	// If no client (e.g., in tests), fall back to PENDING
+	if (!client) {
+		console.warn(
+			'[full-auto-intercept] No opencodeClient — critic dispatch skipped (fallback to PENDING)',
+		);
+		const result: CriticDispatchResult = {
+			verdict: 'PENDING',
+			reasoning: 'No opencodeClient available — critic dispatch not possible',
+			evidenceChecked: [],
+			antiPatternsDetected: [],
+			escalationNeeded: false,
+			rawResponse: '',
+		};
+		await writeAutoOversightEvent(
+			directory,
+			architectOutput,
+			result.verdict,
+			result.reasoning,
+			result.evidenceChecked,
+			interactionCount,
+			deadlockCount,
+			escalationType,
+		);
+		return result;
+	}
+
 	const oversightAgent = createCriticAutonomousOversightAgent(
 		criticModel,
 		criticContext,
@@ -233,25 +463,112 @@ async function dispatchCriticAndWriteEvent(
 		`[full-auto-intercept] Dispatching critic: ${oversightAgent.name} using model ${criticModel}`,
 	);
 
-	// TODO(Task-X): Replace this placeholder with actual critic LLM invocation.
-	// When the critic is actually invoked, capture its response (verdict, reasoning, evidence)
-	// and pass those to writeAutoOversightEvent instead of the placeholder values below.
-	const criticVerdict = 'PENDING';
-	const criticReasoning =
-		'Critic invocation not yet implemented — placeholder event';
-	const evidenceChecked: string[] = [];
+	let ephemeralSessionId: string | undefined;
 
-	// Write the auto_oversight event AFTER the critic responds
-	await writeAutoOversightEvent(
-		directory,
-		architectOutput,
-		criticVerdict,
-		criticReasoning,
-		evidenceChecked,
-		interactionCount,
-		deadlockCount,
-		escalationType,
-	);
+	// Best-effort cleanup — never throws
+	const cleanup = () => {
+		if (ephemeralSessionId) {
+			const id = ephemeralSessionId;
+			ephemeralSessionId = undefined;
+			client.session.delete({ path: { id } }).catch(() => {});
+		}
+	};
+
+	let criticResponse = '';
+	try {
+		// 1. Create ephemeral session scoped to project directory
+		const createResult = await client.session.create({
+			query: { directory },
+		});
+		if (!createResult.data) {
+			throw new Error(
+				`Failed to create critic session: ${JSON.stringify(createResult.error)}`,
+			);
+		}
+		ephemeralSessionId = createResult.data.id;
+		console.log(
+			`[full-auto-intercept] Created ephemeral session: ${ephemeralSessionId}`,
+		);
+
+		// 2. Prompt using the 'critic' agent (read-only tools)
+		const promptResult = await client.session.prompt({
+			path: { id: ephemeralSessionId },
+			body: {
+				agent: 'critic',
+				tools: { write: false, edit: false, patch: false },
+				parts: [{ type: 'text', text: criticContext }],
+			},
+		});
+
+		if (!promptResult.data) {
+			throw new Error(
+				`Critic LLM prompt failed: ${JSON.stringify(promptResult.error)}`,
+			);
+		}
+
+		// 3. Extract text parts from response
+		const textParts = promptResult.data.parts.filter(
+			(p): p is typeof p & { text: string } => p.type === 'text',
+		);
+		criticResponse = textParts.map((p) => p.text).join('\n');
+		console.log(
+			`[full-auto-intercept] Critic response received (${criticResponse.length} chars)`,
+		);
+
+		// 3b. Handle empty response
+		if (!criticResponse.trim()) {
+			console.warn(
+				'[full-auto-intercept] Critic returned empty response — using fallback verdict',
+			);
+			criticResponse =
+				'VERDICT: NEEDS_REVISION\nREASONING: Critic returned empty response\nEVIDENCE_CHECKED: none\nANTI_PATTERNS_DETECTED: empty_response\nESCALATION_NEEDED: NO';
+		}
+	} finally {
+		cleanup();
+	}
+
+	// 4. Parse the critic response
+	let parsed: CriticDispatchResult;
+	try {
+		parsed = parseCriticResponse(criticResponse);
+		console.log(
+			`[full-auto-intercept] Critic verdict: ${parsed.verdict} | escalation: ${parsed.escalationNeeded}`,
+		);
+	} catch (parseError) {
+		console.error(
+			`[full-auto-intercept] Failed to parse critic response: ${parseError instanceof Error ? parseError.message : String(parseError)}`,
+		);
+		parsed = {
+			verdict: 'NEEDS_REVISION',
+			reasoning:
+				'Critic response parsing failed — defaulting to NEEDS_REVISION',
+			evidenceChecked: [],
+			antiPatternsDetected: [],
+			escalationNeeded: false,
+			rawResponse: criticResponse,
+		};
+	}
+
+	// 5. Write the auto_oversight event AFTER the critic responds
+	try {
+		await writeAutoOversightEvent(
+			directory,
+			architectOutput,
+			parsed.verdict,
+			parsed.reasoning,
+			parsed.evidenceChecked,
+			interactionCount,
+			deadlockCount,
+			escalationType,
+		);
+	} catch (writeError) {
+		console.error(
+			`[full-auto-intercept] Failed to write auto_oversight event: ${writeError instanceof Error ? writeError.message : String(writeError)}`,
+		);
+		// Don't rethrow — event write failure shouldn't crash the hook
+	}
+
+	return parsed;
 }
 
 /**
@@ -430,14 +747,7 @@ export function createFullAutoInterceptHook(
 		);
 
 		// Dispatch the critic and write event after response
-		// NOTE: The actual invocation of the critic agent and injection of its response
-		// into the message stream would require coordination with the agent execution system.
-		// This hook currently logs the detection and creates the agent definition.
-		// Full integration with the agent execution loop is a separate implementation.
-		//
-		// The oversightAgent.name == 'critic' can be used by the execution layer
-		// to route to the appropriate agent handler.
-		await dispatchCriticAndWriteEvent(
+		const criticResult = await dispatchCriticAndWriteEvent(
 			directory,
 			architectText,
 			criticContext,
@@ -445,6 +755,14 @@ export function createFullAutoInterceptHook(
 			escalationType,
 			session?.fullAutoInteractionCount ?? 0,
 			session?.fullAutoDeadlockCount ?? 0,
+		);
+
+		// Inject verdict into message stream
+		injectVerdictIntoMessages(
+			messages,
+			lastArchitectMessageIndex,
+			criticResult,
+			escalationType,
 		);
 	};
 
