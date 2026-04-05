@@ -23,14 +23,14 @@ import {
 	takeSnapshotEvent,
 } from './ledger';
 
-// Track whether the startup ledger integrity check has already been performed.
-// The hash-mismatch rebuild is ONLY appropriate at session start — triggering it
-// on every loadPlan() call causes destructive overwrites during active sessions.
-let hasPerformedStartupLedgerCheck = false;
+// Track which workspaces have already had their startup ledger integrity check.
+// Keyed by resolved workspace directory so each workspace gets exactly one check
+// per process lifetime, even when a long-lived process touches multiple repos.
+const startupLedgerCheckedWorkspaces = new Set<string>();
 
 /** Reset the startup ledger check flag. For testing only. */
 export function resetStartupLedgerCheck(): void {
-	hasPerformedStartupLedgerCheck = false;
+	startupLedgerCheckedWorkspaces.clear();
 }
 
 /**
@@ -262,53 +262,57 @@ export async function loadPlan(directory: string): Promise<Plan | null> {
 				// the projection is stale — rebuild from ledger before returning.
 				// SCOPED TO STARTUP ONLY: Hash mismatches during active sessions are expected
 				// due to concurrent writes (save_plan + update_task_status). Only rebuild on
-				// first loadPlan() call per process lifetime.
+				// first loadPlan() call per workspace per process lifetime.
 				if (await ledgerExists(directory)) {
 					const planHash = computePlanHash(validated);
 					const ledgerHash = await getLatestLedgerHash(directory);
-					if (!hasPerformedStartupLedgerCheck) {
-						hasPerformedStartupLedgerCheck = true;
+					const resolvedWorkspace = path.resolve(directory);
+					if (!startupLedgerCheckedWorkspaces.has(resolvedWorkspace)) {
+						startupLedgerCheckedWorkspaces.add(resolvedWorkspace);
 						if (ledgerHash !== '' && planHash !== ledgerHash) {
-						const currentPlanId =
-							`${validated.swarm}-${validated.title}`.replace(
-								/[^a-zA-Z0-9-_]/g,
-								'_',
-							);
-						const ledgerEvents = await readLedgerEvents(directory);
-						const firstEvent = ledgerEvents.length > 0 ? ledgerEvents[0] : null;
-						if (firstEvent && firstEvent.plan_id !== currentPlanId) {
-							// Ledger is from a different plan identity — migration detected.
-							// Use the first event (plan_created anchor) as the authoritative identity,
-							// consistent with savePlan's archive guard which also uses events[0].
-							// Do not rebuild; plan.json is the authoritative post-migration state.
-							warn(
-								`[loadPlan] Ledger identity mismatch (ledger: ${firstEvent.plan_id}, plan: ${currentPlanId}) — skipping ledger rebuild (migration detected). Use /swarm reset-session to reinitialize the ledger.`,
-							);
-						} else {
-							warn(
-								'[loadPlan] plan.json is stale (hash mismatch with ledger) — rebuilding from ledger. If this recurs, run /swarm reset-session to clear stale session state.',
-							);
-							try {
-								const rebuilt = await replayFromLedger(directory);
-								if (rebuilt) {
-									await rebuildPlan(directory, rebuilt);
-									warn(
-										'[loadPlan] Rebuilt plan from ledger. Checkpoint available at SWARM_PLAN.md if it exists.',
-									);
-									return rebuilt;
-								}
-							} catch (replayError) {
-								warn(
-									`[loadPlan] Ledger replay failed during hash-mismatch rebuild: ${replayError instanceof Error ? replayError.message : String(replayError)}. Returning stale plan.json. To recover: check SWARM_PLAN.md for a checkpoint, or run /swarm reset-session.`,
+							const currentPlanId =
+								`${validated.swarm}-${validated.title}`.replace(
+									/[^a-zA-Z0-9-_]/g,
+									'_',
 								);
+							const ledgerEvents = await readLedgerEvents(directory);
+							const firstEvent =
+								ledgerEvents.length > 0 ? ledgerEvents[0] : null;
+							if (firstEvent && firstEvent.plan_id !== currentPlanId) {
+								// Ledger is from a different plan identity — migration detected.
+								// Use the first event (plan_created anchor) as the authoritative identity,
+								// consistent with savePlan's archive guard which also uses events[0].
+								// Do not rebuild; plan.json is the authoritative post-migration state.
+								warn(
+									`[loadPlan] Ledger identity mismatch (ledger: ${firstEvent.plan_id}, plan: ${currentPlanId}) — skipping ledger rebuild (migration detected). Use /swarm reset-session to reinitialize the ledger.`,
+								);
+							} else {
+								warn(
+									'[loadPlan] plan.json is stale (hash mismatch with ledger) — rebuilding from ledger. If this recurs, run /swarm reset-session to clear stale session state.',
+								);
+								try {
+									const rebuilt = await replayFromLedger(directory);
+									if (rebuilt) {
+										await rebuildPlan(directory, rebuilt);
+										warn(
+											'[loadPlan] Rebuilt plan from ledger. Checkpoint available at SWARM_PLAN.md if it exists.',
+										);
+										return rebuilt;
+									}
+								} catch (replayError) {
+									warn(
+										`[loadPlan] Ledger replay failed during hash-mismatch rebuild: ${replayError instanceof Error ? replayError.message : String(replayError)}. Returning stale plan.json. To recover: check SWARM_PLAN.md for a checkpoint, or run /swarm reset-session.`,
+									);
+								}
+								// Fall through and return the validated plan.json
 							}
-							// Fall through and return the validated plan.json
 						}
-					}
 					} else if (ledgerHash !== '' && planHash !== ledgerHash) {
 						// During active session: hash mismatch is expected due to concurrent writes.
 						if (process.env.DEBUG_SWARM) {
-							console.warn('[loadPlan] Ledger hash mismatch during active session — skipping rebuild (startup check already performed).');
+							console.warn(
+								`[loadPlan] Ledger hash mismatch during active session for ${resolvedWorkspace} — skipping rebuild (startup check already performed).`,
+							);
 						}
 					}
 				}

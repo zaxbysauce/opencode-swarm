@@ -1402,4 +1402,37 @@ describe('startup-only ledger hash-mismatch rebuild', () => {
 		expect(plan2).not.toBeNull();
 		expect(plan2!.title).toBe(testPlan.title);
 	});
+
+	test('startup ledger check triggers independently for different workspaces', async () => {
+		const tempDirA = await mkdtemp(join(tmpdir(), 'opencode-swarm-startup-ws-a-'));
+		const tempDirB = await mkdtemp(join(tmpdir(), 'opencode-swarm-startup-ws-b-'));
+
+		try {
+			const testPlan = createTestPlan();
+			await writePlanJson(tempDirA, testPlan);
+			await writePlanJson(tempDirB, testPlan);
+
+			// Start clean
+			resetStartupLedgerCheck();
+
+			// First call for workspace A — triggers startup check for A
+			const planA1 = await loadPlan(tempDirA);
+			expect(planA1).not.toBeNull();
+
+			// First call for workspace B — triggers startup check for B (independent of A)
+			const planB1 = await loadPlan(tempDirB);
+			expect(planB1).not.toBeNull();
+
+			// Second call for workspace A — should NOT re-trigger startup check
+			const planA2 = await loadPlan(tempDirA);
+			expect(planA2).not.toBeNull();
+		} finally {
+			if (existsSync(tempDirA)) {
+				await rm(tempDirA, { recursive: true, force: true });
+			}
+			if (existsSync(tempDirB)) {
+				await rm(tempDirB, { recursive: true, force: true });
+			}
+		}
+	});
 });

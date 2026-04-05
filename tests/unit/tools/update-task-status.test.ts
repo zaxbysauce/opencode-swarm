@@ -2316,4 +2316,66 @@ describe('Durable evidence seed on in_progress transition', () => {
 		expect(fs.existsSync(evidenceDir)).toBe(true);
 		expect(fs.existsSync(path.join(evidenceDir, '1.1.json'))).toBe(true);
 	});
+
+	test('does not write evidence seed when working_directory validation fails', async () => {
+		// Use a path-traversal working_directory that should fail validation
+		const invalidDir = path.join(tempDir, '..', '..', 'etc', 'passwd');
+
+		const result = await executeUpdateTaskStatus({
+			task_id: '1.1',
+			status: 'in_progress',
+			working_directory: invalidDir,
+		});
+
+		expect(result.success).toBe(false);
+
+		// No evidence file should exist in the temp directory
+		const evidencePath = path.join(tempDir, '.swarm', 'evidence', '1.1.json');
+		expect(fs.existsSync(evidencePath)).toBe(false);
+
+		// Also verify no evidence directory was created under tempDir
+		const evidenceDir = path.join(tempDir, '.swarm', 'evidence');
+		if (fs.existsSync(evidenceDir)) {
+			const files = fs.readdirSync(evidenceDir);
+			expect(files).toHaveLength(0);
+		}
+	});
+
+	test('does not write evidence to fallback directory when working_directory is provided but invalid', async () => {
+		// Create a second temp directory to act as the fallback (simulating process.cwd())
+		const fallbackDir = fs.realpathSync(
+			fs.mkdtempSync(path.join(os.tmpdir(), 'evidence-fallback-test-')),
+		);
+		fs.mkdirSync(path.join(fallbackDir, '.swarm'), { recursive: true });
+
+		try {
+			const invalidDir = path.join(tempDir, '..', '..', 'etc', 'passwd');
+
+			const result = await executeUpdateTaskStatus(
+				{
+					task_id: '1.1',
+					status: 'in_progress',
+					working_directory: invalidDir,
+				},
+				fallbackDir,
+			);
+
+			expect(result.success).toBe(false);
+
+			// No evidence file should be created in the fallback directory
+			const fallbackEvidencePath = path.join(
+				fallbackDir,
+				'.swarm',
+				'evidence',
+				'1.1.json',
+			);
+			expect(fs.existsSync(fallbackEvidencePath)).toBe(false);
+
+			// No evidence directory should have been created in fallback
+			const fallbackEvidenceDir = path.join(fallbackDir, '.swarm', 'evidence');
+			expect(fs.existsSync(fallbackEvidenceDir)).toBe(false);
+		} finally {
+			fs.rmSync(fallbackDir, { recursive: true, force: true });
+		}
+	});
 });

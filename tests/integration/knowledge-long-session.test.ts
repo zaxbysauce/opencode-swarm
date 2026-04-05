@@ -1,84 +1,375 @@
 /**
  * Integration test: knowledge injection through long session simulation.
- * Verifies the three-regime budget system works end-to-end.
+ * Exercises the REAL hook path via createKnowledgeInjectorHook.
+ *
+ * Note: The hook internally calls getRunMemorySummary() which uses
+ * validateDirectory() that rejects absolute paths. To work around this,
+ * we create temp directories as relative paths under the project root.
  */
 
-import { describe, expect, it } from 'bun:test';
+import { afterEach, beforeEach, describe, expect, it } from 'bun:test';
+import * as fs from 'node:fs';
+import * as path from 'node:path';
+import { createKnowledgeInjectorHook } from '../../src/hooks/knowledge-injector.js';
+import type {
+	KnowledgeConfig,
+	MessageWithParts,
+} from '../../src/hooks/knowledge-types.js';
+
+// ---------------------------------------------------------------------------
+// Constants (mirror the values in knowledge-injector.ts)
+// ---------------------------------------------------------------------------
+const CHARS_PER_TOKEN = 1 / 0.33;
+const MODEL_LIMIT_CHARS = Math.floor(128_000 * CHARS_PER_TOKEN); // ~387,878
+
+// ---------------------------------------------------------------------------
+// Fixtures
+// ---------------------------------------------------------------------------
+
+const PLAN_JSON = JSON.stringify({
+	schema_version: '1.0.0',
+	swarm: 'test-swarm',
+	title: 'Test Plan',
+	current_phase: 1,
+	phases: [{ id: 1, name: 'Phase 1', status: 'in_progress', tasks: [] }],
+});
+
+function makeKnowledgeEntry(id: string, lesson: string) {
+	return JSON.stringify({
+		id,
+		tier: 'swarm',
+		lesson,
+		category: 'process',
+		tags: ['test'],
+		scope: 'global',
+		confidence: 0.8,
+		status: 'established',
+		confirmed_by: [
+			{
+				phase_number: 1,
+				confirmed_at: '2024-01-01T00:00:00.000Z',
+				project_name: 'test',
+			},
+		],
+		retrieval_outcomes: {
+			applied_count: 1,
+			succeeded_after_count: 1,
+			failed_after_count: 0,
+		},
+		schema_version: 1,
+		created_at: '2024-01-01T00:00:00.000Z',
+		updated_at: '2024-01-01T00:00:00.000Z',
+		project_name: 'test',
+	});
+}
+
+const KNOWLEDGE_JSONL = [
+	makeKnowledgeEntry('aaaa-1111', 'Always run tests before merging'),
+	makeKnowledgeEntry('bbbb-2222', 'Use structured logging for debugging'),
+	makeKnowledgeEntry('cccc-3333', 'Pin dependency versions in CI'),
+].join('\n');
+
+const config: KnowledgeConfig = {
+	enabled: true,
+	swarm_max_entries: 100,
+	hive_max_entries: 200,
+	auto_promote_days: 90,
+	max_inject_count: 5,
+	inject_char_budget: 2000,
+	dedup_threshold: 0.6,
+	scope_filter: ['global'],
+	hive_enabled: false, // disable hive reads so we don't need a hive file
+	rejected_max_entries: 20,
+	validation_enabled: true,
+	evergreen_confidence: 0.9,
+	evergreen_utility: 0.8,
+	low_utility_threshold: 0.3,
+	min_retrievals_for_utility: 3,
+	schema_version: 1,
+	same_project_weight: 1.0,
+	cross_project_weight: 0.5,
+	min_encounter_score: 0.1,
+	initial_encounter_score: 1.0,
+	encounter_increment: 0.1,
+	max_encounter_score: 10.0,
+};
+
+// ---------------------------------------------------------------------------
+// Helpers
+// ---------------------------------------------------------------------------
+
+/**
+ * Creates a relative temp directory under the project root (tmp/).
+ * We must use a relative path because getRunMemorySummary's
+ * validateDirectory() rejects absolute paths.
+ */
+function createRelativeTempDir(): string {
+	const baseDir = 'tmp';
+	if (!fs.existsSync(baseDir)) {
+		fs.mkdirSync(baseDir, { recursive: true });
+	}
+	return fs.mkdtempSync(path.join(baseDir, 'ki-test-'));
+}
+
+function createMessages(
+	totalChars: number,
+	agentName = 'architect',
+): MessageWithParts[] {
+	const systemMsg: MessageWithParts = {
+		info: { role: 'system', agent: agentName },
+		parts: [{ type: 'text', text: 'System prompt' }],
+	};
+	const userMsg: MessageWithParts = {
+		info: { role: 'user' },
+		parts: [
+			{ type: 'text', text: 'x'.repeat(Math.max(1, totalChars - 13)) },
+		],
+	};
+	return [systemMsg, userMsg];
+}
+
+function findInjectedMessage(
+	messages: MessageWithParts[],
+): MessageWithParts | undefined {
+	return messages.find((m) =>
+		m.parts?.some((p) => p.text?.includes('\u{1F4DA} Lessons:')),
+	);
+}
+
+// ---------------------------------------------------------------------------
+// Tests
+// ---------------------------------------------------------------------------
 
 describe('Knowledge injection long session integration', () => {
-	// These are conceptual integration tests verifying the budget thresholds.
-	// The actual injection functions are tested in unit tests; these verify
-	// the regime boundaries produce the expected budget values.
+	let tempDir: string;
 
-	const CHARS_PER_TOKEN = 1 / 0.33;
-	const MODEL_LIMIT_CHARS = Math.floor(128_000 * CHARS_PER_TOKEN); // ~387,878
-	const MIN_INJECT_CHARS = 300;
-
-	function computeEffectiveBudget(existingChars: number, maxInjectChars = 2000): number | null {
-		const headroomChars = MODEL_LIMIT_CHARS - existingChars;
-		if (headroomChars < MIN_INJECT_CHARS) return null; // skip
-
-		if (headroomChars >= MODEL_LIMIT_CHARS * 0.60) {
-			return maxInjectChars; // high regime
-		} else if (headroomChars >= MODEL_LIMIT_CHARS * 0.20) {
-			return Math.floor(maxInjectChars * 0.5); // moderate regime
-		} else {
-			return Math.floor(maxInjectChars * 0.25); // low regime
-		}
-	}
-
-	it('injects at full budget (2000 chars) when context is small (20k chars)', () => {
-		const budget = computeEffectiveBudget(20_000);
-		expect(budget).toBe(2000);
+	beforeEach(() => {
+		tempDir = createRelativeTempDir();
+		const swarmDir = path.join(tempDir, '.swarm');
+		fs.mkdirSync(swarmDir, { recursive: true });
+		fs.writeFileSync(path.join(swarmDir, 'plan.json'), PLAN_JSON);
+		fs.writeFileSync(path.join(swarmDir, 'knowledge.jsonl'), KNOWLEDGE_JSONL);
 	});
 
-	it('injects at moderate budget (1000 chars) at 181k chars (previously skipped)', () => {
-		const budget = computeEffectiveBudget(181_000);
-		expect(budget).toBe(1000);
+	afterEach(() => {
+		fs.rmSync(tempDir, { recursive: true, force: true });
 	});
 
-	it('injects at low budget (500 chars) at 370k chars', () => {
-		const budget = computeEffectiveBudget(370_000);
-		expect(budget).toBe(500);
+	// -----------------------------------------------------------------------
+	// (a) Regime selection -- injection happens at various context sizes
+	// -----------------------------------------------------------------------
+
+	it('injects at full budget when context is small (20k chars)', async () => {
+		const hook = createKnowledgeInjectorHook(tempDir, config);
+		const messages = createMessages(20_000);
+		const output = { messages };
+
+		await hook({} as Record<string, never>, output);
+
+		// A system message should have been injected (messages grew)
+		expect(output.messages.length).toBeGreaterThan(2);
+
+		// Find injected message
+		const injected = findInjectedMessage(output.messages);
+		expect(injected).toBeDefined();
 	});
 
-	it('still injects at low regime at 97% capacity (~376k chars)', () => {
-		const almostFull = Math.floor(MODEL_LIMIT_CHARS * 0.97);
-		const budget = computeEffectiveBudget(almostFull);
-		// At 97% used, 3% headroom (~11k chars) > 300 min, so still injects at low regime
-		expect(budget).toBe(500);
+	it('injects at moderate regime (~181k chars used, 20-60% headroom)', async () => {
+		const hook = createKnowledgeInjectorHook(tempDir, config);
+		const messages = createMessages(181_000);
+		const output = { messages };
+
+		await hook({} as Record<string, never>, output);
+
+		// Should still inject (moderate regime, half budget)
+		const injected = findInjectedMessage(output.messages);
+		expect(injected).toBeDefined();
 	});
 
-	it('skips injection when headroom < 300 chars', () => {
-		const budget = computeEffectiveBudget(MODEL_LIMIT_CHARS - 200);
-		expect(budget).toBeNull();
+	it('injects at low regime (~370k chars used, 5-20% headroom)', async () => {
+		const hook = createKnowledgeInjectorHook(tempDir, config);
+		const messages = createMessages(370_000);
+		const output = { messages };
+
+		await hook({} as Record<string, never>, output);
+
+		// Should still inject at low regime (quarter budget)
+		const injected = findInjectedMessage(output.messages);
+		expect(injected).toBeDefined();
 	});
 
-	it('high regime boundary is at 40% used (60% remaining)', () => {
-		// Just inside high regime
-		const justInsideHigh = Math.floor(MODEL_LIMIT_CHARS * 0.39);
-		expect(computeEffectiveBudget(justInsideHigh)).toBe(2000);
+	// -----------------------------------------------------------------------
+	// (b) Injection placement -- just before last user message
+	// -----------------------------------------------------------------------
 
-		// Just outside high regime
-		const justOutsideHigh = Math.floor(MODEL_LIMIT_CHARS * 0.41);
-		expect(computeEffectiveBudget(justOutsideHigh)).toBe(1000);
+	it('places injected message just before the last user message', async () => {
+		const hook = createKnowledgeInjectorHook(tempDir, config);
+		const messages: MessageWithParts[] = [
+			{
+				info: { role: 'system', agent: 'architect' },
+				parts: [{ type: 'text', text: 'System prompt' }],
+			},
+			{
+				info: { role: 'user' },
+				parts: [{ type: 'text', text: 'First user message' }],
+			},
+			{
+				info: { role: 'assistant' },
+				parts: [{ type: 'text', text: 'Assistant reply' }],
+			},
+			{
+				info: { role: 'user' },
+				parts: [{ type: 'text', text: 'Second user message' }],
+			},
+		];
+		const output = { messages };
+
+		await hook({} as Record<string, never>, output);
+
+		// Find the index of the injected knowledge message
+		const injectedIdx = output.messages.findIndex((m) =>
+			m.parts?.some((p) => p.text?.includes('\u{1F4DA} Lessons:')),
+		);
+		expect(injectedIdx).toBeGreaterThanOrEqual(0);
+
+		// The message right after the injected one should be the last user message
+		const nextMsg = output.messages[injectedIdx + 1];
+		expect(nextMsg.info.role).toBe('user');
+		expect(nextMsg.parts[0].text).toBe('Second user message');
 	});
 
-	it('moderate regime boundary is at 80% used (20% remaining)', () => {
-		// Just inside moderate regime
-		const justInsideModerate = Math.floor(MODEL_LIMIT_CHARS * 0.79);
-		expect(computeEffectiveBudget(justInsideModerate)).toBe(1000);
+	// -----------------------------------------------------------------------
+	// (c) Architect-only filtering
+	// -----------------------------------------------------------------------
 
-		// Just outside moderate regime
-		const justOutsideModerate = Math.floor(MODEL_LIMIT_CHARS * 0.81);
-		expect(computeEffectiveBudget(justOutsideModerate)).toBe(500);
+	it('does NOT inject for non-architect agents', async () => {
+		const hook = createKnowledgeInjectorHook(tempDir, config);
+		const messages = createMessages(20_000, 'developer');
+		const originalLength = messages.length;
+		const output = { messages };
+
+		await hook({} as Record<string, never>, output);
+
+		// No injection should have happened
+		expect(output.messages.length).toBe(originalLength);
+		const injected = findInjectedMessage(output.messages);
+		expect(injected).toBeUndefined();
 	});
 
-	it('respects custom inject_char_budget', () => {
-		const budget = computeEffectiveBudget(20_000, 4000);
-		expect(budget).toBe(4000);
+	it('does NOT inject for "reviewer" agent', async () => {
+		const hook = createKnowledgeInjectorHook(tempDir, config);
+		const messages = createMessages(20_000, 'reviewer');
+		const output = { messages };
 
-		const moderateBudget = computeEffectiveBudget(181_000, 4000);
-		expect(moderateBudget).toBe(2000);
+		await hook({} as Record<string, never>, output);
+
+		const injected = findInjectedMessage(output.messages);
+		expect(injected).toBeUndefined();
+	});
+
+	it('does NOT inject when agent name is missing', async () => {
+		const hook = createKnowledgeInjectorHook(tempDir, config);
+		const messages: MessageWithParts[] = [
+			{
+				info: { role: 'system' },
+				parts: [{ type: 'text', text: 'System prompt' }],
+			},
+			{
+				info: { role: 'user' },
+				parts: [{ type: 'text', text: 'Hello' }],
+			},
+		];
+		const output = { messages };
+
+		await hook({} as Record<string, never>, output);
+
+		const injected = findInjectedMessage(output.messages);
+		expect(injected).toBeUndefined();
+	});
+
+	// -----------------------------------------------------------------------
+	// (d) Knowledge content -- injected text includes lesson content
+	// -----------------------------------------------------------------------
+
+	it('injected text contains lesson content from knowledge.jsonl', async () => {
+		const hook = createKnowledgeInjectorHook(tempDir, config);
+		const messages = createMessages(20_000);
+		const output = { messages };
+
+		await hook({} as Record<string, never>, output);
+
+		const injected = findInjectedMessage(output.messages);
+		expect(injected).toBeDefined();
+
+		const injectedText = injected!.parts.map((p) => p.text ?? '').join('');
+
+		// Verify lesson text is present
+		expect(injectedText).toContain('Always run tests before merging');
+		expect(injectedText).toContain('Use structured logging for debugging');
+		expect(injectedText).toContain('Pin dependency versions in CI');
+	});
+
+	it('injected text includes tier markers', async () => {
+		const hook = createKnowledgeInjectorHook(tempDir, config);
+		const messages = createMessages(20_000);
+		const output = { messages };
+
+		await hook({} as Record<string, never>, output);
+
+		const injected = findInjectedMessage(output.messages);
+		expect(injected).toBeDefined();
+
+		const injectedText = injected!.parts.map((p) => p.text ?? '').join('');
+
+		// All entries are swarm tier, so [S] markers expected
+		expect(injectedText).toContain('[S]');
+	});
+
+	// -----------------------------------------------------------------------
+	// (e) Skip at near-capacity -- headroom < 300 chars
+	// -----------------------------------------------------------------------
+
+	it('skips injection when headroom is less than 300 chars', async () => {
+		const hook = createKnowledgeInjectorHook(tempDir, config);
+		// Set total chars so headroom is < 300
+		const targetChars = MODEL_LIMIT_CHARS - 200;
+		const messages = createMessages(targetChars);
+		const originalLength = messages.length;
+		const output = { messages };
+
+		await hook({} as Record<string, never>, output);
+
+		// No injection should have happened
+		expect(output.messages.length).toBe(originalLength);
+		const injected = findInjectedMessage(output.messages);
+		expect(injected).toBeUndefined();
+	});
+
+	it('skips injection when exactly at model limit', async () => {
+		const hook = createKnowledgeInjectorHook(tempDir, config);
+		const messages = createMessages(MODEL_LIMIT_CHARS);
+		const originalLength = messages.length;
+		const output = { messages };
+
+		await hook({} as Record<string, never>, output);
+
+		expect(output.messages.length).toBe(originalLength);
+	});
+
+	// -----------------------------------------------------------------------
+	// Idempotency -- re-injection is blocked within the same call
+	// -----------------------------------------------------------------------
+
+	it('does not double-inject on repeated hook calls (idempotency)', async () => {
+		const hook = createKnowledgeInjectorHook(tempDir, config);
+		const messages = createMessages(20_000);
+		const output = { messages };
+
+		await hook({} as Record<string, never>, output);
+		const countAfterFirst = output.messages.length;
+
+		// Call again on the same output -- should not inject again
+		await hook({} as Record<string, never>, output);
+		expect(output.messages.length).toBe(countAfterFirst);
 	});
 });

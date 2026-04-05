@@ -30963,8 +30963,9 @@ async function loadPlan(directory) {
         if (await ledgerExists(directory)) {
           const planHash = computePlanHash(validated);
           const ledgerHash = await getLatestLedgerHash(directory);
-          if (!hasPerformedStartupLedgerCheck) {
-            hasPerformedStartupLedgerCheck = true;
+          const resolvedWorkspace = path11.resolve(directory);
+          if (!startupLedgerCheckedWorkspaces.has(resolvedWorkspace)) {
+            startupLedgerCheckedWorkspaces.add(resolvedWorkspace);
             if (ledgerHash !== "" && planHash !== ledgerHash) {
               const currentPlanId = `${validated.swarm}-${validated.title}`.replace(/[^a-zA-Z0-9-_]/g, "_");
               const ledgerEvents = await readLedgerEvents(directory);
@@ -30987,7 +30988,7 @@ async function loadPlan(directory) {
             }
           } else if (ledgerHash !== "" && planHash !== ledgerHash) {
             if (process.env.DEBUG_SWARM) {
-              console.warn("[loadPlan] Ledger hash mismatch during active session \u2014 skipping rebuild (startup check already performed).");
+              console.warn(`[loadPlan] Ledger hash mismatch during active session for ${resolvedWorkspace} \u2014 skipping rebuild (startup check already performed).`);
             }
           }
         }
@@ -31520,12 +31521,13 @@ function migrateLegacyPlan(planContent, swarmId) {
   };
   return plan;
 }
-var hasPerformedStartupLedgerCheck = false;
+var startupLedgerCheckedWorkspaces;
 var init_manager2 = __esm(() => {
   init_plan_schema();
   init_utils2();
   init_utils();
   init_ledger();
+  startupLedgerCheckedWorkspaces = new Set;
 });
 
 // src/background/event-bus.ts
@@ -71298,21 +71300,6 @@ async function executeUpdateTaskStatus(args2, fallbackDir) {
       }
       session.currentTaskId = args2.task_id;
     }
-    const evidenceDir = fallbackDir ?? args2.working_directory;
-    if (evidenceDir) {
-      try {
-        const evidencePath = path75.join(evidenceDir, ".swarm", "evidence", `${args2.task_id}.json`);
-        fs62.mkdirSync(path75.dirname(evidencePath), { recursive: true });
-        if (!fs62.existsSync(evidencePath)) {
-          fs62.writeFileSync(evidencePath, JSON.stringify({
-            task_id: args2.task_id,
-            required_gates: ["reviewer", "test_engineer"],
-            gates: {},
-            started_at: new Date().toISOString()
-          }, null, 2), "utf-8");
-        }
-      } catch {}
-    }
   }
   let normalizedDir;
   let directory;
@@ -71375,6 +71362,23 @@ async function executeUpdateTaskStatus(args2, fallbackDir) {
       };
     }
     directory = fallbackDir;
+  }
+  if (args2.status === "in_progress") {
+    try {
+      const evidencePath = path75.join(directory, ".swarm", "evidence", `${args2.task_id}.json`);
+      fs62.mkdirSync(path75.dirname(evidencePath), { recursive: true });
+      const fd = fs62.openSync(evidencePath, "wx");
+      try {
+        fs62.writeSync(fd, JSON.stringify({
+          task_id: args2.task_id,
+          required_gates: ["reviewer", "test_engineer"],
+          gates: {},
+          started_at: new Date().toISOString()
+        }, null, 2));
+      } finally {
+        fs62.closeSync(fd);
+      }
+    } catch {}
   }
   if (args2.status === "completed") {
     recoverTaskStateFromDelegations(args2.task_id);

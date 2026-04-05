@@ -16535,8 +16535,9 @@ async function loadPlan(directory) {
         if (await ledgerExists(directory)) {
           const planHash = computePlanHash(validated);
           const ledgerHash = await getLatestLedgerHash(directory);
-          if (!hasPerformedStartupLedgerCheck) {
-            hasPerformedStartupLedgerCheck = true;
+          const resolvedWorkspace = path8.resolve(directory);
+          if (!startupLedgerCheckedWorkspaces.has(resolvedWorkspace)) {
+            startupLedgerCheckedWorkspaces.add(resolvedWorkspace);
             if (ledgerHash !== "" && planHash !== ledgerHash) {
               const currentPlanId = `${validated.swarm}-${validated.title}`.replace(/[^a-zA-Z0-9-_]/g, "_");
               const ledgerEvents = await readLedgerEvents(directory);
@@ -16559,7 +16560,7 @@ async function loadPlan(directory) {
             }
           } else if (ledgerHash !== "" && planHash !== ledgerHash) {
             if (process.env.DEBUG_SWARM) {
-              console.warn("[loadPlan] Ledger hash mismatch during active session \u2014 skipping rebuild (startup check already performed).");
+              console.warn(`[loadPlan] Ledger hash mismatch during active session for ${resolvedWorkspace} \u2014 skipping rebuild (startup check already performed).`);
             }
           }
         }
@@ -17053,12 +17054,13 @@ function migrateLegacyPlan(planContent, swarmId) {
   };
   return plan;
 }
-var hasPerformedStartupLedgerCheck = false;
+var startupLedgerCheckedWorkspaces;
 var init_manager2 = __esm(() => {
   init_plan_schema();
   init_utils2();
   init_utils();
   init_ledger();
+  startupLedgerCheckedWorkspaces = new Set;
 });
 
 // src/services/config-doctor.ts
