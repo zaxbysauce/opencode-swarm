@@ -1,6 +1,6 @@
 # PHP and Laravel Support
 
-opencode-swarm v6.46+ ships with PHP as a first-class language (Tier 3) and Laravel baseline detection. This guide covers how the swarm handles PHP projects.
+opencode-swarm v6.49+ ships with PHP as a first-class language (Tier 3) and Laravel baseline detection. This guide covers how the swarm handles PHP projects.
 
 ## Generic PHP (Composer) project
 
@@ -125,4 +125,4 @@ When the `test_engineer` agent works on Laravel projects, it receives these cons
 
 ## Issue #308
 
-This release closes [GitHub Issue #308](https://github.com/anthropics/opencode-swarm/issues/308) — PHP/Laravel Support? — with verified, CI-tested first-class PHP support and a meaningful Laravel baseline.
+This release closes [GitHub Issue #308](https://github.com/zaxbysauce/opencode-swarm/issues/308) — PHP/Laravel Support? — with verified, CI-tested first-class PHP support and a meaningful Laravel baseline.

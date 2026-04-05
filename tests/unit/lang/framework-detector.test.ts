@@ -164,6 +164,28 @@ describe('Laravel Framework Detection', () => {
 			expect(signals.hasLaravelFrameworkDep).toBe(false);
 			expect(detectLaravelProject(tempDir)).toBe(false);
 		});
+
+		it('artisan directory (not a file) does not satisfy artisan signal when combined with laravel dep', () => {
+			// Drift: protects checkArtisanFile() isFile guard.
+			// If checkArtisanFile changes to use existsSync only, this test fails correctly.
+			tempDir = fs.mkdtempSync(path.join(os.tmpdir(), 'laravel-detect-'));
+			// Create a DIRECTORY named 'artisan' — not a file
+			fs.mkdirSync(path.join(tempDir, 'artisan'));
+			fs.writeFileSync(
+				path.join(tempDir, 'composer.json'),
+				JSON.stringify({
+					name: 'test/temp',
+					require: { 'laravel/framework': '^11.0' },
+				}),
+			);
+			// artisan directory + laravel/framework dep = 1 valid signal (dep) + 1 invalid (dir)
+			// Should NOT detect as Laravel (requires ≥2 valid signals)
+			expect(detectLaravelProject(tempDir)).toBe(false);
+			// Also verify the artisan signal itself is false
+			const signals = getLaravelSignals(tempDir);
+			expect(signals.hasArtisanFile).toBe(false);
+			expect(signals.hasLaravelFrameworkDep).toBe(true);
+		});
 	});
 });
 
@@ -179,7 +201,7 @@ describe('getLaravelCommandOverlay', () => {
 	});
 
 	// Drift: protects getLaravelCommandOverlay() returning php artisan test.
-	// If Laravel test command changes, update this test, CI docs, and docs/releases/v6.46.0.md.
+	// If Laravel test command changes, update this test, CI docs, and docs/releases/v6.49.0.md.
 	it('returns Laravel command overlay for laravel-baseline fixture', () => {
 		const overlay = getLaravelCommandOverlay(
 			path.join(FIXTURES, 'laravel-baseline'),

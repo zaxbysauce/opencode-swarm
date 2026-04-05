@@ -153,7 +153,7 @@ describe('LanguageRegistry - No Extension Collision', () => {
 			'.gemspec',
 			'.php',
 			'.phtml',
-			'.blade.php', // Added in v6.46.0 Phase 3.3 — Blade template support
+			'.blade.php', // Added in v6.49.0 Phase 3.3 — Blade template support
 		]);
 
 		expect(extensionMap.size).toBe(expectedExtensions.size);

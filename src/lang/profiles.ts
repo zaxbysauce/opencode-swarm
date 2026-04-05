@@ -990,17 +990,9 @@ LANGUAGE_REGISTRY.register({
 			'phpcs.xml',
 		],
 		linters: [
-			// Larastan (Laravel-aware PHPStan wrapper) — highest priority static analysis
-			// Detected by phpstan.neon containing "larastan/larastan" references.
-			// Uses the same phpstan.neon config file as PHPStan but with Laravel bindings.
-			// NOTE: Larastan detection via config file content is complex; for now detect via
-			// the larastan config convention (larastan.neon if present, else fall through to phpstan.neon check in phase 3).
-			// For this task: detect Larastan by presence of larastan.neon (uncommon) OR
-			// keep PHPStan at neon level and let Phase 3 (Laravel detection) promote Larastan.
-			// Decision: use phpstan.neon as the detect file for both, with Larastan at priority 1
-			// and PHPStan at priority 2. Both use vendor/bin/phpstan — Larastan runs through PHPStan CLI.
+			// PHPStan — highest priority static analysis via phpstan.neon config
 			{
-				name: 'Larastan',
+				name: 'PHPStan',
 				detect: 'phpstan.neon',
 				cmd: 'vendor/bin/phpstan analyse',
 				priority: 1,
@@ -1046,7 +1038,7 @@ LANGUAGE_REGISTRY.register({
 			'Check for XSS — all output must be escaped with htmlspecialchars()',
 			'Confirm no eval(), exec(), or shell_exec() with user-controlled input',
 			'Validate proper error handling — no bare catch blocks that swallow errors',
-			'Challenge any PHP/Laravel documentation or README claim that exceeds what is implemented and CI-verified in v6.46.0 (composer build, PHPUnit/Pest/artisan test, Pint/PHP-CS-Fixer lint, PHPStan static analysis, composer audit, Laravel detection, Blade scanning, 3 Laravel SAST rules). If a PR adds docs claiming broader support, verify it is backed by tests.',
+			'Challenge any PHP/Laravel documentation or README claim that exceeds what is implemented and CI-verified in v6.49.0 (composer build, PHPUnit/Pest/artisan test, Pint/PHP-CS-Fixer lint, PHPStan static analysis, composer audit, Laravel detection, Blade scanning, 3 Laravel SAST rules). If a PR adds docs claiming broader support, verify it is backed by tests.',
 		],
 		testConstraints: [
 			'Prefer feature tests for HTTP, middleware, and authentication flows — use Laravel RefreshDatabase or DatabaseTransactions traits',
