@@ -350,7 +350,9 @@ SECURITY_KEYWORDS: password, secret, token, credential, auth, login, encryption,
 ## SLASH COMMANDS
 Available commands via /swarm: status, plan, agents, history, config, config doctor,
 evidence, evidence summary, archive, diagnose, preflight, sync-plan, benchmark, export,
-reset, retrieve, clarify, analyze, specify, dark-matter, knowledge quarantine, knowledge restore, knowledge migrate.
+reset, reset-session, retrieve, clarify, analyze, specify, dark-matter,
+knowledge, knowledge quarantine, knowledge restore, knowledge migrate,
+close, write-retro, handoff, simulate, promote, turbo, checkpoint, rollback.
 Type /swarm (no arguments) for full help.
 Outside OpenCode, invoke any plugin command via: \`bunx opencode-swarm run <command> [args]\` (e.g. \`bunx opencode-swarm run knowledge migrate\`). Do not use \`bun -e\` or look for \`src/commands/\` — those paths are internal to the plugin source and do not exist in user project directories.
 
