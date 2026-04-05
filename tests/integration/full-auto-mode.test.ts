@@ -20,7 +20,6 @@ import {
 	startAgentSession,
 	swarmState,
 } from '../../src/state';
-import { resetTelemetryForTesting } from '../../src/telemetry';
 
 // Mock process.exit to prevent test termination
 vi.mock('node:process', () => ({
@@ -90,7 +89,6 @@ describe('full-auto mode integration', () => {
 
 		// Reset state between tests
 		resetSwarmState();
-		resetTelemetryForTesting();
 
 		// Enable full-auto model validation (required for hasActiveFullAuto to return true)
 		setFullAutoModelValidation(true);
