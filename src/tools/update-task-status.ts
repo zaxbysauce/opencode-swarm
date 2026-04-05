@@ -533,6 +533,27 @@ export async function executeUpdateTaskStatus(
 			// Synchronize active task identity for durable gate recording
 			session.currentTaskId = args.task_id;
 		}
+
+		// Write minimal gate-tracking evidence to persist across session restarts.
+		// The full evidence with reviewer/test_engineer gates is written by the toolAfter hook,
+		// but this ensures the task appears in the evidence system even if toolAfter doesn't fire.
+		const evidenceDir = fallbackDir ?? args.working_directory;
+		if (evidenceDir) {
+			try {
+				const evidencePath = path.join(evidenceDir, '.swarm', 'evidence', `${args.task_id}.json`);
+				fs.mkdirSync(path.dirname(evidencePath), { recursive: true });
+				if (!fs.existsSync(evidencePath)) {
+					fs.writeFileSync(evidencePath, JSON.stringify({
+						task_id: args.task_id,
+						required_gates: ['reviewer', 'test_engineer'],
+						gates: {},
+						started_at: new Date().toISOString(),
+					}, null, 2), 'utf-8');
+				}
+			} catch {
+				/* Advisory only — never block status update */
+			}
+		}
 	}
 
 	// Step 3: Validate working_directory if provided (must be before reviewer gate check)

@@ -83,6 +83,10 @@ export interface KnowledgeConfig {
 	auto_promote_days: number;
 	/** Maximum knowledge entries to inject per architect message. Default: 5 */
 	max_inject_count: number;
+	/** Maximum total chars for the entire injection block. Default: 2000 */
+	inject_char_budget?: number;
+	/** Maximum display chars per lesson at injection time. Default: 120 */
+	max_lesson_display_chars?: number;
 	/** Jaccard bigram similarity threshold for deduplication. Default: 0.6 */
 	dedup_threshold: number;
 	/** Scope filters to apply when reading knowledge. Default: ['global'] */

@@ -196,7 +196,7 @@ describe('Adversarial: Malformed drift report structure', () => {
 
 		// Knowledge should still be injected
 		const knowledgeMsg = output.messages.find((m) =>
-			m.parts?.some((p) => p.text?.includes('📚 Knowledge')),
+			m.parts?.some((p) => p.text?.includes('📚 Lessons:')),
 		);
 		expect(knowledgeMsg).toBeDefined();
 		expect(knowledgeMsg?.parts?.[0]?.text).toContain('Test lesson');
@@ -271,14 +271,14 @@ describe('Adversarial: Oversized drift text', () => {
 		}
 		expect(errorThrown).toBe(false);
 
-		// Knowledge should still be injected with the massive drift text prepended
+		// Knowledge should still be injected with the massive drift text included
 		const knowledgeMsg = output.messages.find((m) =>
-			m.parts?.some((p) => p.text?.includes('📚 Knowledge')),
+			m.parts?.some((p) => p.text?.includes('📚 Lessons:')),
 		);
 		expect(knowledgeMsg).toBeDefined();
 		const text = knowledgeMsg!.parts[0]?.text ?? '';
-		// The massive string should be prepended (at the start)
-		expect(text.startsWith(massiveString)).toBe(true);
+		// Lessons appear first, drift text may be included after (or trimmed by budget)
+		expect(text).toContain('📚 Lessons:');
 		expect(text).toContain('Test lesson');
 	});
 });
@@ -352,7 +352,7 @@ describe('Adversarial: Array with null entry', () => {
 
 		// Knowledge should still be injected (drift was skipped due to error)
 		const knowledgeMsg = output.messages.find((m) =>
-			m.parts?.some((p) => p.text?.includes('📚 Knowledge')),
+			m.parts?.some((p) => p.text?.includes('📚 Lessons:')),
 		);
 		expect(knowledgeMsg).toBeDefined();
 		expect(knowledgeMsg?.parts[0].text).toContain('Test lesson');
@@ -430,7 +430,7 @@ describe('Adversarial: buildDriftInjectionText throws synchronously', () => {
 
 		// Knowledge should still be injected (drift skipped due to error)
 		const knowledgeMsg = output.messages.find((m) =>
-			m.parts?.some((p) => p.text?.includes('📚 Knowledge')),
+			m.parts?.some((p) => p.text?.includes('📚 Lessons:')),
 		);
 		expect(knowledgeMsg).toBeDefined();
 		expect(knowledgeMsg?.parts[0].text).toContain('Test lesson');
@@ -498,7 +498,7 @@ describe('Adversarial: Wrong type returned (empty string instead of array)', () 
 
 		// Knowledge should be injected
 		const knowledgeMsg = output.messages.find((m) =>
-			m.parts?.some((p) => p.text?.includes('📚 Knowledge')),
+			m.parts?.some((p) => p.text?.includes('📚 Lessons:')),
 		);
 		expect(knowledgeMsg).toBeDefined();
 		expect(knowledgeMsg?.parts[0].text).toContain('Test lesson');
@@ -583,12 +583,12 @@ describe('Adversarial: cachedInjectionText is empty string', () => {
 
 		// Knowledge should be injected with drift prepended
 		const knowledgeMsg = output.messages.find((m) =>
-			m.parts?.some((p) => p.text?.includes('📚 Knowledge')),
+			m.parts?.some((p) => p.text?.includes('📚 Lessons:')),
 		);
 		expect(knowledgeMsg).toBeDefined();
 		const text = knowledgeMsg!.parts[0]?.text ?? '';
-		// Drift should be at the start
-		expect(text.startsWith('<drift_report>')).toBe(true);
+		// In new priority order, lessons come first, then drift
+		expect(text).toContain('📚 Lessons:');
 		expect(text).toContain('Test lesson');
 	});
 
@@ -603,7 +603,7 @@ describe('Adversarial: cachedInjectionText is empty string', () => {
 });
 
 // ============================================================================
-// Adversarial Test Suite 7: Context budget stressed (>75,000 chars)
+// Adversarial Test Suite 7: Context budget stressed (headroom < 300 chars)
 // ============================================================================
 
 describe('Adversarial: Context budget stressed', () => {
@@ -631,9 +631,10 @@ describe('Adversarial: Context budget stressed', () => {
 		]);
 	});
 
-	it('Test 7: Hook called when context budget is stressed (totalChars > 75,000) → early return before drift injection, no crash', async () => {
-		// Create output with very large context (> 75,000 chars)
-		const largeSystemPrompt = 'x'.repeat(80000); // 80,000 chars - over the 75,000 threshold
+	it('Test 7: Hook called when headroom < 300 chars → early return before drift injection, no crash', async () => {
+		// MODEL_LIMIT_CHARS ≈ 387,878. Need existingChars > 387,878 - 300 to trigger skip
+		const skipThreshold = Math.floor(128_000 / 0.33) - 200; // ~387,678 chars leaves ~200 headroom
+		const largeSystemPrompt = 'x'.repeat(skipThreshold);
 		const output = {
 			messages: [
 				{
@@ -668,28 +669,25 @@ describe('Adversarial: Context budget stressed', () => {
 		}
 		expect(errorThrown).toBe(false);
 
-		// readPriorDriftReports should NOT be called because early return happens at line 135
+		// readPriorDriftReports should NOT be called because early return happens before drift
 		expect(readPriorDriftReports).not.toHaveBeenCalled();
 
-		// No knowledge message should be injected (early return due to budget)
+		// No knowledge message should be injected (early return due to headroom)
 		const hasKnowledgeInjection = output.messages.some((m) =>
-			m.parts?.some((p) => p.text?.includes('📚 Knowledge')),
+			m.parts?.some((p) => p.text?.includes('\ud83d\udcda Lessons:')),
 		);
 		expect(hasKnowledgeInjection).toBe(false);
 	});
 
-	it('Test 7b: Exactly at boundary (75,000 chars) → still injects (not greater than)', async () => {
-		// Create output with exactly 75,000 chars in system prompt only
-		// The condition is `totalChars > 75_000`, so 75,000 exactly should pass
-		// But we need to ensure the total is exactly 75,000 (no extra from user message)
-		const boundarySystemPrompt = 'x'.repeat(75000);
+	it('Test 7b: At 181k chars (old skip threshold) → still injects with new headroom check', async () => {
+		// 181k chars was the old skip threshold. Now it should inject (moderate regime).
+		const boundarySystemPrompt = 'x'.repeat(181_000);
 		const output = {
 			messages: [
 				{
 					info: { role: 'system', agent: 'architect' },
 					parts: [{ type: 'text', text: boundarySystemPrompt }],
 				},
-				// Empty user message to keep total at 75,000
 				{ info: { role: 'user' }, parts: [{ type: 'text', text: '' }] },
 			],
 		};
@@ -724,9 +722,9 @@ describe('Adversarial: Context budget stressed', () => {
 		}
 		expect(errorThrown).toBe(false);
 
-		// Knowledge SHOULD be injected (75,000 is NOT > 75,000)
+		// Knowledge SHOULD be injected (181k leaves ~206k headroom — well within limits)
 		const knowledgeMsg = output.messages.find((m) =>
-			m.parts?.some((p) => p.text?.includes('📚 Knowledge')),
+			m.parts?.some((p) => p.text?.includes('\ud83d\udcda Lessons:')),
 		);
 		expect(knowledgeMsg).toBeDefined();
 	});
@@ -791,7 +789,7 @@ describe('Adversarial: Additional edge cases', () => {
 
 		// Knowledge should still be injected
 		const knowledgeMsg = output.messages.find((m) =>
-			m.parts?.some((p) => p.text?.includes('📚 Knowledge')),
+			m.parts?.some((p) => p.text?.includes('📚 Lessons:')),
 		);
 		expect(knowledgeMsg).toBeDefined();
 	});
@@ -843,7 +841,7 @@ describe('Adversarial: Additional edge cases', () => {
 
 		// Knowledge should be injected but WITHOUT drift (undefined is falsy)
 		const knowledgeMsg = output.messages.find((m) =>
-			m.parts?.some((p) => p.text?.includes('📚 Knowledge')),
+			m.parts?.some((p) => p.text?.includes('📚 Lessons:')),
 		);
 		expect(knowledgeMsg).toBeDefined();
 		expect(knowledgeMsg?.parts[0].text).toContain('Test lesson');
@@ -890,7 +888,7 @@ describe('Adversarial: Additional edge cases', () => {
 
 		// Knowledge should be injected
 		const knowledgeMsg = output.messages.find((m) =>
-			m.parts?.some((p) => p.text?.includes('📚 Knowledge')),
+			m.parts?.some((p) => p.text?.includes('📚 Lessons:')),
 		);
 		expect(knowledgeMsg).toBeDefined();
 	});

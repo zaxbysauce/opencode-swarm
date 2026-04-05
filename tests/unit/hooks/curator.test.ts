@@ -2718,5 +2718,275 @@ invalid json here
 			expect(entries[0].auto_generated).toBe(true);
 			expect(entries[0].tier).toBe('swarm');
 		});
+
+		// ========================================================================
+		// Rewrite action tests (v6.50)
+		// ========================================================================
+
+		it('rewrite action mutates lesson text in store', async () => {
+			const entries: SwarmKnowledgeEntry[] = [
+				{
+					id: 'RW1',
+					tier: 'swarm',
+					lesson: 'Very verbose lesson about using lint before commits to avoid style drift and review cycles',
+					category: 'process',
+					tags: [],
+					scope: 'global',
+					confidence: 0.7,
+					status: 'established',
+					confirmed_by: [],
+					retrieval_outcomes: { applied_count: 0, succeeded_after_count: 0, failed_after_count: 0 },
+					schema_version: 1,
+					created_at: '2026-01-01T00:00:00Z',
+					updated_at: '2026-01-01T00:00:00Z',
+					hive_eligible: false,
+					project_name: 'test-project',
+				},
+			];
+			createKnowledgeFile(tempDir, entries);
+
+			const result = await applyCuratorKnowledgeUpdates(
+				tempDir,
+				[{ action: 'rewrite', entry_id: 'RW1', lesson: 'Run lint before committing', reason: 'Too verbose' }],
+				defaultKnowledgeConfig,
+			);
+
+			expect(result.applied).toBe(1);
+			expect(result.skipped).toBe(0);
+
+			const updated = readKnowledgeJsonl(tempDir);
+			expect(updated[0].lesson).toBe('Run lint before committing');
+			expect(updated[0].updated_at).not.toBe('2026-01-01T00:00:00Z');
+		});
+
+		it('rewrite reduces confidence by 0.05', async () => {
+			const entries: SwarmKnowledgeEntry[] = [
+				{
+					id: 'RW2',
+					tier: 'swarm',
+					lesson: 'Original lesson text for testing confidence',
+					category: 'process',
+					tags: [],
+					scope: 'global',
+					confidence: 0.8,
+					status: 'established',
+					confirmed_by: [],
+					retrieval_outcomes: { applied_count: 0, succeeded_after_count: 0, failed_after_count: 0 },
+					schema_version: 1,
+					created_at: '2026-01-01T00:00:00Z',
+					updated_at: '2026-01-01T00:00:00Z',
+					hive_eligible: false,
+					project_name: 'test-project',
+				},
+			];
+			createKnowledgeFile(tempDir, entries);
+
+			await applyCuratorKnowledgeUpdates(
+				tempDir,
+				[{ action: 'rewrite', entry_id: 'RW2', lesson: 'Rewritten lesson text for testing', reason: 'Tighten' }],
+				defaultKnowledgeConfig,
+			);
+
+			const updated = readKnowledgeJsonl(tempDir);
+			expect(updated[0].confidence).toBeCloseTo(0.75, 2);
+		});
+
+		it('rewrite with too-short lesson is skipped', async () => {
+			const entries: SwarmKnowledgeEntry[] = [
+				{
+					id: 'RW3',
+					tier: 'swarm',
+					lesson: 'Original lesson that should not change',
+					category: 'process',
+					tags: [],
+					scope: 'global',
+					confidence: 0.7,
+					status: 'established',
+					confirmed_by: [],
+					retrieval_outcomes: { applied_count: 0, succeeded_after_count: 0, failed_after_count: 0 },
+					schema_version: 1,
+					created_at: '2026-01-01T00:00:00Z',
+					updated_at: '2026-01-01T00:00:00Z',
+					hive_eligible: false,
+					project_name: 'test-project',
+				},
+			];
+			createKnowledgeFile(tempDir, entries);
+
+			const result = await applyCuratorKnowledgeUpdates(
+				tempDir,
+				[{ action: 'rewrite', entry_id: 'RW3', lesson: 'Too short', reason: 'Shorten' }],
+				defaultKnowledgeConfig,
+			);
+
+			// Lesson is < 15 chars, so rewrite is skipped
+			expect(result.applied).toBe(0);
+			const updated = readKnowledgeJsonl(tempDir);
+			expect(updated[0].lesson).toBe('Original lesson that should not change');
+		});
+
+		it('rewrite with no entry_id is skipped', async () => {
+			createKnowledgeFile(tempDir, []);
+
+			const result = await applyCuratorKnowledgeUpdates(
+				tempDir,
+				[{ action: 'rewrite', entry_id: undefined, lesson: 'Some new rewritten text for a lesson', reason: 'Rewrite' }],
+				defaultKnowledgeConfig,
+			);
+
+			// rewrite without entry_id has no target — skipped
+			expect(result.skipped).toBe(1);
+		});
+	});
+});
+
+// ============================================================================
+// parseKnowledgeRecommendations: rewrite action parsing
+// ============================================================================
+
+describe('parseKnowledgeRecommendations rewrite', () => {
+	it('parses rewrite action with UUID entry_id', () => {
+		const output = `KNOWLEDGE_UPDATES:
+- rewrite 550e8400-e29b-41d4-a716-446655440000: Tighter lesson text for this entry
+
+EXTENDED_DIGEST:
+done`;
+		const recs = parseKnowledgeRecommendations(output);
+		expect(recs).toHaveLength(1);
+		expect(recs[0].action).toBe('rewrite');
+		expect(recs[0].entry_id).toBe('550e8400-e29b-41d4-a716-446655440000');
+		expect(recs[0].lesson).toBe('Tighter lesson text for this entry');
+	});
+
+	it('rewrite with "new" token sets entry_id to undefined', () => {
+		const output = `KNOWLEDGE_UPDATES:
+- rewrite new: Some lesson text here
+
+EXTENDED_DIGEST:
+done`;
+		const recs = parseKnowledgeRecommendations(output);
+		expect(recs).toHaveLength(1);
+		expect(recs[0].action).toBe('rewrite');
+		expect(recs[0].entry_id).toBeUndefined();
+	});
+});
+
+// ============================================================================
+// runCuratorPhase: KNOWLEDGE_ENTRIES in LLM input
+// ============================================================================
+
+describe('runCuratorPhase passes KNOWLEDGE_ENTRIES to LLM', () => {
+	it('llmDelegate receives KNOWLEDGE_ENTRIES in user input', async () => {
+		let capturedUserInput = '';
+		const mockLlmDelegate = async (_system: string, user: string) => {
+			capturedUserInput = user;
+			return 'PHASE_DIGEST:\nphase: 1\nsummary: done\n\nKNOWLEDGE_UPDATES:\n- promote new: Good lesson\n\nEXTENDED_DIGEST:\nDone';
+		};
+
+		// Create temp dir with knowledge entries
+		const os = await import('node:os');
+		const tDir = fs.mkdtempSync(path.join(os.default.tmpdir(), 'curator-phase-ke-'));
+		const swarmDir = path.join(tDir, '.swarm');
+		fs.mkdirSync(swarmDir, { recursive: true });
+		const entry = {
+			id: '550e8400-e29b-41d4-a716-446655440000',
+			tier: 'swarm',
+			lesson: 'Test lesson',
+			category: 'process',
+			tags: [],
+			scope: 'global',
+			confidence: 0.8,
+			status: 'established',
+			confirmed_by: [],
+			retrieval_outcomes: { applied_count: 0, succeeded_after_count: 0, failed_after_count: 0 },
+			schema_version: 1,
+			created_at: '2026-01-01T00:00:00Z',
+			updated_at: '2026-01-01T00:00:00Z',
+			hive_eligible: false,
+			project_name: 'test-project',
+		};
+		fs.writeFileSync(path.join(swarmDir, 'knowledge.jsonl'), JSON.stringify(entry));
+
+		const config = {
+			enabled: true,
+			max_summary_tokens: 500,
+			suppress_warnings: false,
+			llm_timeout_ms: 5000,
+			min_knowledge_confidence: 0.5,
+		};
+
+		try {
+			await runCuratorPhase(
+				tDir,
+				1,
+				['architect', 'reviewer'],
+				config,
+				{},
+				mockLlmDelegate,
+			);
+		} catch {
+			// May fail on missing files, but we captured the input
+		}
+
+		expect(capturedUserInput).toContain('KNOWLEDGE_ENTRIES:');
+		expect(capturedUserInput).toContain('550e8400-e29b-41d4-a716-446655440000');
+
+		fs.rmSync(tDir, { recursive: true, force: true });
+	});
+});
+
+// ============================================================================
+// runCuratorInit: KNOWLEDGE_ENTRIES in LLM input
+// ============================================================================
+
+describe('runCuratorInit passes KNOWLEDGE_ENTRIES to LLM', () => {
+	it('llmDelegate receives KNOWLEDGE_ENTRIES with UUIDs in user input', async () => {
+		let capturedUserInput = '';
+		const mockLlmDelegate = async (_system: string, user: string) => {
+			capturedUserInput = user;
+			return 'BRIEFING:\nFirst session\n\nCONTRADICTIONS:\nNone\n\nKNOWLEDGE_STATS:\n- Entries reviewed: 1';
+		};
+
+		const os = await import('node:os');
+		const tDir = fs.mkdtempSync(path.join(os.default.tmpdir(), 'curator-init-ke-'));
+		const swarmDir = path.join(tDir, '.swarm');
+		fs.mkdirSync(swarmDir, { recursive: true });
+		const entry = {
+			id: 'a0eebc99-9c0b-4ef8-bb6d-6bb9bd380a11',
+			tier: 'swarm',
+			lesson: 'Init test lesson',
+			category: 'process',
+			tags: [],
+			scope: 'global',
+			confidence: 0.9,
+			status: 'established',
+			confirmed_by: [],
+			retrieval_outcomes: { applied_count: 0, succeeded_after_count: 0, failed_after_count: 0 },
+			schema_version: 1,
+			created_at: '2026-01-01T00:00:00Z',
+			updated_at: '2026-01-01T00:00:00Z',
+			hive_eligible: false,
+			project_name: 'test-project',
+		};
+		fs.writeFileSync(path.join(swarmDir, 'knowledge.jsonl'), JSON.stringify(entry));
+
+		const config = {
+			enabled: true,
+			max_summary_tokens: 500,
+			suppress_warnings: false,
+			llm_timeout_ms: 5000,
+			min_knowledge_confidence: 0.5,
+		};
+
+		try {
+			await runCuratorInit(tDir, config, mockLlmDelegate);
+		} catch {
+			// May fail on missing files, but we captured the input
+		}
+
+		expect(capturedUserInput).toContain('KNOWLEDGE_ENTRIES:');
+		expect(capturedUserInput).toContain('a0eebc99-9c0b-4ef8-bb6d-6bb9bd380a11');
+
+		fs.rmSync(tDir, { recursive: true, force: true });
 	});
 });

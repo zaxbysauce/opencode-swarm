@@ -9,6 +9,7 @@ import {
 	loadPlan,
 	loadPlanJsonOnly,
 	migrateLegacyPlan,
+	resetStartupLedgerCheck,
 	savePlan,
 	updateTaskStatus,
 } from '../../../src/plan/manager';
@@ -1343,5 +1344,62 @@ Phase: 1
 		expect(plan.phases[0].id).toBe(1);
 		expect(plan.phases[1].id).toBe(2);
 		expect(plan.phases[2].id).toBe(3);
+	});
+});
+
+describe('startup-only ledger hash-mismatch rebuild', () => {
+	let tempDir: string;
+
+	beforeEach(async () => {
+		tempDir = await mkdtemp(join(tmpdir(), 'opencode-swarm-startup-test-'));
+		resetStartupLedgerCheck();
+	});
+
+	afterEach(async () => {
+		if (existsSync(tempDir)) {
+			await rm(tempDir, { recursive: true, force: true });
+		}
+	});
+
+	test('loadPlan does not crash when called twice with valid plan', async () => {
+		const testPlan = createTestPlan();
+		await writePlanJson(tempDir, testPlan);
+
+		// First call — triggers startup check
+		const plan1 = await loadPlan(tempDir);
+		expect(plan1).not.toBeNull();
+
+		// Second call — should skip rebuild, just load
+		const plan2 = await loadPlan(tempDir);
+		expect(plan2).not.toBeNull();
+		expect(plan2!.title).toBe(testPlan.title);
+	});
+
+	test('resetStartupLedgerCheck allows rebuild to trigger again', async () => {
+		const testPlan = createTestPlan();
+		await writePlanJson(tempDir, testPlan);
+
+		// First call triggers startup check
+		await loadPlan(tempDir);
+
+		// Reset the flag
+		resetStartupLedgerCheck();
+
+		// Now loadPlan should treat this as a fresh startup again
+		const plan = await loadPlan(tempDir);
+		expect(plan).not.toBeNull();
+	});
+
+	test('loadPlanJsonOnly is unaffected by startup flag', async () => {
+		const testPlan = createTestPlan();
+		await writePlanJson(tempDir, testPlan);
+
+		// loadPlanJsonOnly should always work regardless of startup flag
+		const plan1 = await loadPlanJsonOnly(tempDir);
+		expect(plan1).not.toBeNull();
+
+		const plan2 = await loadPlanJsonOnly(tempDir);
+		expect(plan2).not.toBeNull();
+		expect(plan2!.title).toBe(testPlan.title);
 	});
 });

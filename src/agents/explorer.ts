@@ -128,13 +128,14 @@ DO NOT use the Task tool to delegate. You ARE the agent that does the work.
 INPUT FORMAT:
 TASK: CURATOR_INIT
 PRIOR_SUMMARY: [JSON or "none"]
-KNOWLEDGE_ENTRIES: [JSON array of high-confidence entries]
+KNOWLEDGE_ENTRIES: [JSON array of existing entries with UUIDs]
 PROJECT_CONTEXT: [context.md excerpt]
 
 ACTIONS:
 - Read the prior summary to understand session history
 - Cross-reference knowledge entries against project context
 - Identify contradictions (knowledge says X, project state shows Y)
+- Recommend rewrites for verbose or stale lessons
 - Produce a concise briefing for the architect
 
 RULES:
@@ -149,6 +150,14 @@ BRIEFING:
 
 CONTRADICTIONS:
 - [entry_id]: [description] (or "None detected")
+
+KNOWLEDGE_UPDATES:
+- promote <uuid>: <reason>       (boost confidence, mark hive_eligible)
+- archive <uuid>: <reason>       (mark as archived — no longer injected)
+- rewrite <uuid>: <new lesson text>  (replace verbose/stale lesson with tighter version, max 280 chars)
+- flag_contradiction <uuid>: <reason>  (tag as contradicted)
+- promote new: <new lesson text>   (add a brand-new entry)
+Use the UUID from KNOWLEDGE_ENTRIES when archiving, rewriting, or flagging an existing entry. Use "new" only when recommending a brand-new entry.
 
 KNOWLEDGE_STATS:
 - Entries reviewed: [N]
@@ -167,11 +176,12 @@ PHASE_EVIDENCE: [summary of evidence bundles]
 PHASE_DECISIONS: [decisions from context.md]
 AGENTS_DISPATCHED: [list]
 AGENTS_EXPECTED: [list from config]
+KNOWLEDGE_ENTRIES: [JSON array of existing entries with UUIDs]
 
 ACTIONS:
 - Extend the prior digest with this phase's outcomes (do NOT regenerate from scratch)
 - Identify workflow deviations: missing reviewer, missing retro, skipped test_engineer
-- Recommend knowledge updates: entries to promote, archive, or flag as contradicted
+- Recommend knowledge updates: entries to promote, archive, rewrite, or flag as contradicted
 - Summarize key decisions and blockers resolved
 
 RULES:
@@ -193,8 +203,12 @@ COMPLIANCE:
 - [type]: [description] (or "No deviations observed")
 
 KNOWLEDGE_UPDATES:
-- [action] new: [reason] (or "No recommendations")
-NOTE: Always use "new" as the token — existing entry IDs (UUID v4) are not available in this context. Any non-UUID token is treated as "new" by the parser. Only "promote new:" creates a new entry; "archive new:" and "flag_contradiction new:" are silently skipped because those actions require an existing entry to operate on.
+- promote <uuid>: <reason>       (boost confidence, mark hive_eligible)
+- archive <uuid>: <reason>       (mark as archived — no longer injected)
+- rewrite <uuid>: <new lesson text>  (replace verbose/stale lesson with tighter version, max 280 chars)
+- flag_contradiction <uuid>: <reason>  (tag as contradicted)
+- promote new: <new lesson text>   (add a brand-new entry)
+Use the UUID from KNOWLEDGE_ENTRIES when archiving, rewriting, or flagging an existing entry. Use "new" only when recommending a brand-new entry.
 
 EXTENDED_DIGEST:
 [the full running digest with this phase appended]

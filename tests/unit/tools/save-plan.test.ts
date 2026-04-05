@@ -1076,4 +1076,205 @@ describe('save-plan tool verification tests', () => {
 			expect(result.recovery_guidance).toBeDefined();
 		});
 	});
+
+	// Group 8: Merge-mode status preservation
+	describe('Group 8: Merge-mode status preservation', () => {
+		it('Preserves completed status for matching task IDs across plan revisions', async () => {
+			// First: save a plan, then manually set a task to completed
+			const args1: SavePlanArgs = {
+				title: 'Merge Test Project',
+				swarm_id: 'mega',
+				phases: [
+					{
+						id: 1,
+						name: 'Phase 1',
+						tasks: [
+							{ id: '1.1', description: 'Task A' },
+							{ id: '1.2', description: 'Task B' },
+						],
+					},
+				],
+				working_directory: tmpDir,
+			};
+			await executeSavePlan(args1);
+
+			// Manually set task 1.1 to completed
+			const planJsonPath = path.join(tmpDir, '.swarm', 'plan.json');
+			const planData = JSON.parse(await fs.readFile(planJsonPath, 'utf-8'));
+			planData.phases[0].tasks[0].status = 'completed';
+			await fs.writeFile(planJsonPath, JSON.stringify(planData, null, 2));
+
+			// Now save a revised plan with the same task IDs
+			const args2: SavePlanArgs = {
+				title: 'Merge Test Project v2',
+				swarm_id: 'mega',
+				phases: [
+					{
+						id: 1,
+						name: 'Phase 1 Revised',
+						tasks: [
+							{ id: '1.1', description: 'Task A revised' },
+							{ id: '1.2', description: 'Task B revised' },
+							{ id: '1.3', description: 'New Task C' },
+						],
+					},
+				],
+				working_directory: tmpDir,
+			};
+			const result = await executeSavePlan(args2);
+			expect(result.success).toBe(true);
+
+			const savedPlan = JSON.parse(await fs.readFile(planJsonPath, 'utf-8'));
+			expect(savedPlan.phases[0].tasks[0].status).toBe('completed'); // 1.1 preserved
+			expect(savedPlan.phases[0].tasks[1].status).toBe('pending');   // 1.2 was pending
+			expect(savedPlan.phases[0].tasks[2].status).toBe('pending');   // 1.3 is new
+		});
+
+		it('Preserves in_progress status for matching task IDs', async () => {
+			const args1: SavePlanArgs = {
+				title: 'In-Progress Merge Test',
+				swarm_id: 'mega',
+				phases: [
+					{
+						id: 1,
+						name: 'Phase 1',
+						tasks: [{ id: '1.1', description: 'Task A' }],
+					},
+				],
+				working_directory: tmpDir,
+			};
+			await executeSavePlan(args1);
+
+			const planJsonPath = path.join(tmpDir, '.swarm', 'plan.json');
+			const planData = JSON.parse(await fs.readFile(planJsonPath, 'utf-8'));
+			planData.phases[0].tasks[0].status = 'in_progress';
+			await fs.writeFile(planJsonPath, JSON.stringify(planData, null, 2));
+
+			const args2: SavePlanArgs = {
+				title: 'In-Progress Merge Test v2',
+				swarm_id: 'mega',
+				phases: [
+					{
+						id: 1,
+						name: 'Phase 1',
+						tasks: [{ id: '1.1', description: 'Task A updated' }],
+					},
+				],
+				working_directory: tmpDir,
+			};
+			const result = await executeSavePlan(args2);
+			expect(result.success).toBe(true);
+
+			const savedPlan = JSON.parse(await fs.readFile(planJsonPath, 'utf-8'));
+			expect(savedPlan.phases[0].tasks[0].status).toBe('in_progress');
+		});
+
+		it('New tasks default to pending when no matching ID in existing plan', async () => {
+			const args1: SavePlanArgs = {
+				title: 'New Tasks Merge Test',
+				swarm_id: 'mega',
+				phases: [
+					{
+						id: 1,
+						name: 'Phase 1',
+						tasks: [{ id: '1.1', description: 'Task A' }],
+					},
+				],
+				working_directory: tmpDir,
+			};
+			await executeSavePlan(args1);
+
+			const planJsonPath = path.join(tmpDir, '.swarm', 'plan.json');
+			const planData = JSON.parse(await fs.readFile(planJsonPath, 'utf-8'));
+			planData.phases[0].tasks[0].status = 'completed';
+			await fs.writeFile(planJsonPath, JSON.stringify(planData, null, 2));
+
+			// Save with entirely new task IDs
+			const args2: SavePlanArgs = {
+				title: 'New Tasks Merge Test v2',
+				swarm_id: 'mega',
+				phases: [
+					{
+						id: 1,
+						name: 'Phase 1',
+						tasks: [
+							{ id: '2.1', description: 'Entirely new task' },
+							{ id: '2.2', description: 'Another new task' },
+						],
+					},
+				],
+				working_directory: tmpDir,
+			};
+			const result = await executeSavePlan(args2);
+			expect(result.success).toBe(true);
+
+			const savedPlan = JSON.parse(await fs.readFile(planJsonPath, 'utf-8'));
+			expect(savedPlan.phases[0].tasks[0].status).toBe('pending');
+			expect(savedPlan.phases[0].tasks[1].status).toBe('pending');
+		});
+
+		it('First save with no existing plan sets all tasks to pending', async () => {
+			const args: SavePlanArgs = {
+				title: 'First Save Test',
+				swarm_id: 'mega',
+				phases: [
+					{
+						id: 1,
+						name: 'Phase 1',
+						tasks: [
+							{ id: '1.1', description: 'Task A' },
+							{ id: '1.2', description: 'Task B' },
+						],
+					},
+				],
+				working_directory: tmpDir,
+			};
+			const result = await executeSavePlan(args);
+			expect(result.success).toBe(true);
+
+			const planJsonPath = path.join(tmpDir, '.swarm', 'plan.json');
+			const savedPlan = JSON.parse(await fs.readFile(planJsonPath, 'utf-8'));
+			expect(savedPlan.phases[0].tasks[0].status).toBe('pending');
+			expect(savedPlan.phases[0].tasks[1].status).toBe('pending');
+		});
+
+		it('Preserves blocked status for matching task IDs', async () => {
+			const args1: SavePlanArgs = {
+				title: 'Blocked Merge Test',
+				swarm_id: 'mega',
+				phases: [
+					{
+						id: 1,
+						name: 'Phase 1',
+						tasks: [{ id: '1.1', description: 'Task A' }],
+					},
+				],
+				working_directory: tmpDir,
+			};
+			await executeSavePlan(args1);
+
+			const planJsonPath = path.join(tmpDir, '.swarm', 'plan.json');
+			const planData = JSON.parse(await fs.readFile(planJsonPath, 'utf-8'));
+			planData.phases[0].tasks[0].status = 'blocked';
+			await fs.writeFile(planJsonPath, JSON.stringify(planData, null, 2));
+
+			const args2: SavePlanArgs = {
+				title: 'Blocked Merge Test v2',
+				swarm_id: 'mega',
+				phases: [
+					{
+						id: 1,
+						name: 'Phase 1',
+						tasks: [{ id: '1.1', description: 'Task A updated' }],
+					},
+				],
+				working_directory: tmpDir,
+			};
+			const result = await executeSavePlan(args2);
+			expect(result.success).toBe(true);
+
+			const savedPlan = JSON.parse(await fs.readFile(planJsonPath, 'utf-8'));
+			expect(savedPlan.phases[0].tasks[0].status).toBe('blocked');
+		});
+	});
 });

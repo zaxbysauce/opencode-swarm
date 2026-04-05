@@ -23,6 +23,16 @@ import {
 	takeSnapshotEvent,
 } from './ledger';
 
+// Track whether the startup ledger integrity check has already been performed.
+// The hash-mismatch rebuild is ONLY appropriate at session start — triggering it
+// on every loadPlan() call causes destructive overwrites during active sessions.
+let hasPerformedStartupLedgerCheck = false;
+
+/** Reset the startup ledger check flag. For testing only. */
+export function resetStartupLedgerCheck(): void {
+	hasPerformedStartupLedgerCheck = false;
+}
+
 /**
  * Load plan.json ONLY without auto-migration from plan.md.
  * Returns null if plan.json doesn't exist or is invalid.
@@ -250,14 +260,15 @@ export async function loadPlan(directory: string): Promise<Plan | null> {
 				// Task 3.1: Ledger-aware rehydration guard
 				// If ledger exists and plan.json hash doesn't match latest ledger hash,
 				// the projection is stale — rebuild from ledger before returning.
-				// MIGRATION GUARD: Skip destructive rebuild when the ledger's plan_id
-				// differs from the current plan's identity (e.g., swarm ID changed after
-				// session migration). Rebuilding in that case would overwrite the migrated
-				// plan.json with stale pre-migration ledger state.
+				// SCOPED TO STARTUP ONLY: Hash mismatches during active sessions are expected
+				// due to concurrent writes (save_plan + update_task_status). Only rebuild on
+				// first loadPlan() call per process lifetime.
 				if (await ledgerExists(directory)) {
 					const planHash = computePlanHash(validated);
 					const ledgerHash = await getLatestLedgerHash(directory);
-					if (ledgerHash !== '' && planHash !== ledgerHash) {
+					if (!hasPerformedStartupLedgerCheck) {
+						hasPerformedStartupLedgerCheck = true;
+						if (ledgerHash !== '' && planHash !== ledgerHash) {
 						const currentPlanId =
 							`${validated.swarm}-${validated.title}`.replace(
 								/[^a-zA-Z0-9-_]/g,
@@ -292,6 +303,12 @@ export async function loadPlan(directory: string): Promise<Plan | null> {
 								);
 							}
 							// Fall through and return the validated plan.json
+						}
+					}
+					} else if (ledgerHash !== '' && planHash !== ledgerHash) {
+						// During active session: hash mismatch is expected due to concurrent writes.
+						if (process.env.DEBUG_SWARM) {
+							console.warn('[loadPlan] Ledger hash mismatch during active session — skipping rebuild (startup check already performed).');
 						}
 					}
 				}

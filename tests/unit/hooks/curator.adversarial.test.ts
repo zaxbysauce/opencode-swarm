@@ -2558,4 +2558,102 @@ describe('applyCuratorKnowledgeUpdates - Adversarial Tests', () => {
 			expect(result.skipped).toBe(1);
 		});
 	});
+
+	// ==================================================================
+	// Adversarial: rewrite action boundary tests (v6.50)
+	// ==================================================================
+
+	describe('Adversarial: rewrite action', () => {
+		let rewriteDir: string;
+		const rewriteKnowledgeConfig: KnowledgeConfig = {
+			enabled: true,
+			swarm_max_entries: 100,
+			hive_max_entries: 200,
+			auto_promote_days: 90,
+			max_inject_count: 5,
+			dedup_threshold: 0.6,
+			scope_filter: ['global'],
+			hive_enabled: true,
+			rejected_max_entries: 20,
+			validation_enabled: true,
+			evergreen_confidence: 0.9,
+			evergreen_utility: 0.8,
+			low_utility_threshold: 0.3,
+			min_retrievals_for_utility: 3,
+			schema_version: 1,
+			same_project_weight: 1.0,
+			cross_project_weight: 0.5,
+			min_encounter_score: 0.1,
+			initial_encounter_score: 1.0,
+			encounter_increment: 0.1,
+			max_encounter_score: 10.0,
+		};
+
+		beforeEach(() => {
+			rewriteDir = join(tmpdir(), `curator-rewrite-adv-${Date.now()}-${Math.random().toString(36).slice(2)}`);
+			mkdirSync(join(rewriteDir, '.swarm'), { recursive: true });
+		});
+
+		afterEach(() => {
+			rmSync(rewriteDir, { recursive: true, force: true });
+		});
+
+		it('rewrite with lesson.length = 281 is rejected', async () => {
+			const entry = {
+				id: 'RW-ADV-1',
+				tier: 'swarm',
+				lesson: 'Original lesson text that should not change',
+				category: 'process',
+				tags: [],
+				scope: 'global',
+				confidence: 0.7,
+				status: 'established',
+				confirmed_by: [],
+				retrieval_outcomes: { applied_count: 0, succeeded_after_count: 0, failed_after_count: 0 },
+				schema_version: 1,
+				created_at: '2026-01-01T00:00:00Z',
+				updated_at: '2026-01-01T00:00:00Z',
+				hive_eligible: false,
+				project_name: 'test-project',
+			};
+			writeFileSync(join(rewriteDir, '.swarm', 'knowledge.jsonl'), JSON.stringify(entry));
+
+			const result = await applyCuratorKnowledgeUpdates(
+				rewriteDir,
+				[{ action: 'rewrite', entry_id: 'RW-ADV-1', lesson: 'A'.repeat(281), reason: 'Too long' }],
+				rewriteKnowledgeConfig,
+			);
+
+			expect(result.applied).toBe(0);
+		});
+
+		it('rewrite with lesson.length = 280 is accepted', async () => {
+			const entry = {
+				id: 'RW-ADV-2',
+				tier: 'swarm',
+				lesson: 'Original lesson text for testing boundary',
+				category: 'process',
+				tags: [],
+				scope: 'global',
+				confidence: 0.7,
+				status: 'established',
+				confirmed_by: [],
+				retrieval_outcomes: { applied_count: 0, succeeded_after_count: 0, failed_after_count: 0 },
+				schema_version: 1,
+				created_at: '2026-01-01T00:00:00Z',
+				updated_at: '2026-01-01T00:00:00Z',
+				hive_eligible: false,
+				project_name: 'test-project',
+			};
+			writeFileSync(join(rewriteDir, '.swarm', 'knowledge.jsonl'), JSON.stringify(entry));
+
+			const result = await applyCuratorKnowledgeUpdates(
+				rewriteDir,
+				[{ action: 'rewrite', entry_id: 'RW-ADV-2', lesson: 'A'.repeat(280), reason: 'Boundary' }],
+				rewriteKnowledgeConfig,
+			);
+
+			expect(result.applied).toBe(1);
+		});
+	});
 });

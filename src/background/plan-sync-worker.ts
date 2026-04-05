@@ -14,7 +14,7 @@ import { log } from '../utils';
 export interface PlanSyncWorkerOptions {
 	/** Directory containing .swarm folder (defaults to cwd) */
 	directory?: string;
-	/** Debounce delay in ms (default: 300ms) */
+	/** Debounce delay in ms (default: 500ms) */
 	debounceMs?: number;
 	/** Polling interval in ms when fs.watch fails (default: 2000ms) */
 	pollIntervalMs?: number;
@@ -60,7 +60,7 @@ export class PlanSyncWorker {
 
 	constructor(options: PlanSyncWorkerOptions = {}) {
 		this.directory = options.directory ?? '';
-		this.debounceMs = options.debounceMs ?? 300;
+		this.debounceMs = options.debounceMs ?? 500;
 		this.pollIntervalMs = options.pollIntervalMs ?? 2000;
 		this.syncTimeoutMs = options.syncTimeoutMs ?? 30000;
 		this.onSyncComplete = options.onSyncComplete;
@@ -203,6 +203,11 @@ export class PlanSyncWorker {
 				(_eventType, filename) => {
 					// Ignore callbacks after stop/dispose
 					if (this.disposed || this.status !== 'running') {
+						return;
+					}
+
+					// Filter out temp file events from atomic writes and rebuilds
+					if (filename && (filename.includes('.tmp.') || filename.endsWith('.rebuild'))) {
 						return;
 					}
 
@@ -379,13 +384,17 @@ export class PlanSyncWorker {
 				'Sync operation timed out',
 			);
 
-			if (plan) {
+			if (plan && plan.phases.length > 0) {
 				// Regenerate plan.md only — never rewrite plan.json
 				await regeneratePlanMarkdown(this.directory, plan);
 				log('[PlanSyncWorker] Sync complete', {
 					title: plan.title,
 					phase: plan.current_phase,
 				});
+				this.safeCallback(true);
+			} else if (plan) {
+				// Plan exists but has no phases — skip markdown regeneration to avoid writing empty/broken plan.md
+				log('[PlanSyncWorker] Plan has no phases, skipping markdown regeneration');
 				this.safeCallback(true);
 			} else {
 				// No plan exists - this is fine, just means nothing to sync

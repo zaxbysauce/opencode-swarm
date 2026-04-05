@@ -1,4 +1,5 @@
 import type { AgentConfig } from '@opencode-ai/sdk';
+import { COMMAND_REGISTRY } from '../commands/registry.js';
 import { AGENT_TOOL_MAP, TOOL_DESCRIPTIONS } from '../config/constants';
 import { hasActiveTurboMode } from '../state';
 
@@ -348,9 +349,7 @@ SECURITY_KEYWORDS: password, secret, token, credential, auth, login, encryption,
 {{AGENT_PREFIX}}designer - UI/UX design specs (scaffold generation for UI components — runs BEFORE coder on UI tasks)
 
 ## SLASH COMMANDS
-Available commands via /swarm: status, plan, agents, history, config, config doctor,
-evidence, evidence summary, archive, diagnose, preflight, sync-plan, benchmark, export,
-reset, retrieve, clarify, analyze, specify, dark-matter, knowledge quarantine, knowledge restore, knowledge migrate.
+Available commands via /swarm: {{SLASH_COMMANDS}}
 Type /swarm (no arguments) for full help.
 Outside OpenCode, invoke any plugin command via: \`bunx opencode-swarm run <command> [args]\` (e.g. \`bunx opencode-swarm run knowledge migrate\`). Do not use \`bun -e\` or look for \`src/commands/\` — those paths are internal to the plugin source and do not exist in user project directories.
 
@@ -1070,6 +1069,15 @@ function buildAvailableToolsList(): string {
 		.join(', ');
 }
 
+/**
+ * Generate the SLASH COMMANDS line from COMMAND_REGISTRY.
+ * Single source of truth — no hand-maintained list that can drift from the registry.
+ * Output format matches what the architect prompt previously hand-listed.
+ */
+function buildSlashCommandsList(): string {
+	return Object.keys(COMMAND_REGISTRY).sort().join(', ') + '.';
+}
+
 export function createArchitectAgent(
 	model: string,
 	customPrompt?: string,
@@ -1087,7 +1095,8 @@ export function createArchitectAgent(
 	// Resolve capability placeholders from AGENT_TOOL_MAP (single source of truth)
 	prompt = prompt
 		?.replace('{{YOUR_TOOLS}}', buildYourToolsList())
-		?.replace('{{AVAILABLE_TOOLS}}', buildAvailableToolsList());
+		?.replace('{{AVAILABLE_TOOLS}}', buildAvailableToolsList())
+		?.replace('{{SLASH_COMMANDS}}', buildSlashCommandsList());
 
 	// Handle adversarial testing conditional based on config
 	const advEnabled = adversarialTesting?.enabled ?? true; // Default: true (preserve current behavior)

@@ -210,7 +210,7 @@ describe('Adversarial: Oversized lesson injection', () => {
 		await hook({}, output); // Second call - inject
 
 		const knowledgeMsg = output.messages.find((m) =>
-			m.parts?.some((p) => p.text?.includes('📚 Knowledge')),
+			m.parts?.some((p) => p.text?.includes('📚 Lessons:')),
 		);
 		const injectedText = knowledgeMsg?.parts[0].text ?? '';
 
@@ -252,7 +252,7 @@ describe('Adversarial: Triple-backtick injection', () => {
 		await hook({}, output);
 
 		const knowledgeMsg = output.messages.find((m) =>
-			m.parts?.some((p) => p.text?.includes('📚 Knowledge')),
+			m.parts?.some((p) => p.text?.includes('📚 Lessons:')),
 		);
 		const text = knowledgeMsg?.parts[0].text ?? '';
 
@@ -293,7 +293,7 @@ describe('Adversarial: system: prefix injection at line start', () => {
 		await hook({}, output);
 
 		const knowledgeMsg = output.messages.find((m) =>
-			m.parts?.some((p) => p.text?.includes('📚 Knowledge')),
+			m.parts?.some((p) => p.text?.includes('📚 Lessons:')),
 		);
 		const text = knowledgeMsg?.parts[0].text ?? '';
 
@@ -334,7 +334,7 @@ describe('Adversarial: system: in middle of lesson', () => {
 		await hook({}, output);
 
 		const knowledgeMsg = output.messages.find((m) =>
-			m.parts?.some((p) => p.text?.includes('📚 Knowledge')),
+			m.parts?.some((p) => p.text?.includes('📚 Lessons:')),
 		);
 		const text = knowledgeMsg?.parts[0].text ?? '';
 
@@ -375,7 +375,7 @@ describe('Adversarial: BiDi override chars', () => {
 		await hook({}, output);
 
 		const knowledgeMsg = output.messages.find((m) =>
-			m.parts?.some((p) => p.text?.includes('📚 Knowledge')),
+			m.parts?.some((p) => p.text?.includes('📚 Lessons:')),
 		);
 		const text = knowledgeMsg?.parts[0].text ?? '';
 
@@ -416,7 +416,7 @@ describe('Adversarial: Zero-width spaces', () => {
 		await hook({}, output);
 
 		const knowledgeMsg = output.messages.find((m) =>
-			m.parts?.some((p) => p.text?.includes('📚 Knowledge')),
+			m.parts?.some((p) => p.text?.includes('📚 Lessons:')),
 		);
 		const text = knowledgeMsg?.parts[0].text ?? '';
 
@@ -579,7 +579,7 @@ describe('Adversarial: Message with no info field', () => {
 		// Should have no injection
 		const hasKnowledgeInjection = output.messages.some((m) =>
 			(m as MessageWithParts).parts?.some((p) =>
-				p.text?.includes('📚 Knowledge'),
+				p.text?.includes('📚 Lessons:'),
 			),
 		);
 		expect(hasKnowledgeInjection).toBe(false);
@@ -626,7 +626,7 @@ describe('Adversarial: Rejection reason injection', () => {
 		await hook({}, output);
 
 		const knowledgeMsg = output.messages.find((m) =>
-			m.parts?.some((p) => p.text?.includes('📚 Knowledge')),
+			m.parts?.some((p) => p.text?.includes('📚 Lessons:')),
 		);
 		const text = knowledgeMsg?.parts[0].text ?? '';
 
@@ -704,7 +704,7 @@ describe('Adversarial: More than 3 rejected lessons', () => {
 		await hook({}, output);
 
 		const knowledgeMsg = output.messages.find((m) =>
-			m.parts?.some((p) => p.text?.includes('📚 Knowledge')),
+			m.parts?.some((p) => p.text?.includes('📚 Lessons:')),
 		);
 		const text = knowledgeMsg?.parts[0].text ?? '';
 
@@ -749,7 +749,7 @@ describe('Adversarial: Phase changes multiple times', () => {
 		await hook({}, output); // Inject phase 1
 
 		let knowledgeMsg = output.messages.find((m) =>
-			m.parts?.some((p) => p.text?.includes('📚 Knowledge')),
+			m.parts?.some((p) => p.text?.includes('📚 Lessons:')),
 		);
 		expect(knowledgeMsg?.parts[0].text).toContain('Phase 1 lesson');
 
@@ -768,7 +768,7 @@ describe('Adversarial: Phase changes multiple times', () => {
 		await hook({}, output); // Inject phase 2
 
 		knowledgeMsg = output.messages.find((m) =>
-			m.parts?.some((p) => p.text?.includes('📚 Knowledge')),
+			m.parts?.some((p) => p.text?.includes('📚 Lessons:')),
 		);
 		expect(knowledgeMsg?.parts[0].text).toContain('Phase 2 lesson');
 		expect(knowledgeMsg?.parts[0].text).not.toContain('Phase 1 lesson');
@@ -788,7 +788,7 @@ describe('Adversarial: Phase changes multiple times', () => {
 		await hook({}, output); // Inject phase 3
 
 		knowledgeMsg = output.messages.find((m) =>
-			m.parts?.some((p) => p.text?.includes('📚 Knowledge')),
+			m.parts?.some((p) => p.text?.includes('📚 Lessons:')),
 		);
 		expect(knowledgeMsg?.parts[0].text).toContain('Phase 3 lesson');
 		expect(knowledgeMsg?.parts[0].text).not.toContain('Phase 1 lesson');
@@ -829,7 +829,7 @@ describe('Adversarial: Knowledge entries with no confirmed_by', () => {
 		await hook({}, output);
 
 		const knowledgeMsg = output.messages.find((m) =>
-			m.parts?.some((p) => p.text?.includes('📚 Knowledge')),
+			m.parts?.some((p) => p.text?.includes('📚 Lessons:')),
 		);
 		const text = knowledgeMsg?.parts[0].text ?? '';
 
@@ -858,7 +858,7 @@ describe('Adversarial: Hive entry with undefined source_project', () => {
 		mockExtractCurrentPhaseFromPlan.mockReturnValue('Phase 1: Setup');
 	});
 
-	it('Test 14: hive entry has source_project: undefined → falls back to "unknown"', async () => {
+	it('Test 14: hive entry has source_project: undefined → no source displayed in compact format', async () => {
 		const hook = createKnowledgeInjectorHook('/proj', makeConfig());
 		const output = makeOutput('architect');
 
@@ -874,12 +874,12 @@ describe('Adversarial: Hive entry with undefined source_project', () => {
 		await hook({}, output);
 
 		const knowledgeMsg = output.messages.find((m) =>
-			m.parts?.some((p) => p.text?.includes('📚 Knowledge')),
+			m.parts?.some((p) => p.text?.includes('📚 Lessons:')),
 		);
 		const text = knowledgeMsg?.parts[0].text ?? '';
 
-		// Should fall back to 'unknown'
-		expect(text).toContain('Source: unknown');
+		// In compact format, undefined source_project means no source label shown
+		expect(text).not.toContain('(from:');
 		expect(text).toContain('Hive lesson without source');
 	});
 });
@@ -913,7 +913,7 @@ describe('Adversarial: Prefixed agent names', () => {
 		await hook({}, output); // Should skip
 
 		const hasKnowledgeInjection = output.messages.some((m) =>
-			m.parts?.some((p) => p.text?.includes('📚 Knowledge')),
+			m.parts?.some((p) => p.text?.includes('📚 Lessons:')),
 		);
 		expect(hasKnowledgeInjection).toBe(false);
 	});
@@ -926,7 +926,7 @@ describe('Adversarial: Prefixed agent names', () => {
 		await hook({}, output); // Should inject
 
 		const hasKnowledgeInjection = output.messages.some((m) =>
-			m.parts?.some((p) => p.text?.includes('📚 Knowledge')),
+			m.parts?.some((p) => p.text?.includes('📚 Lessons:')),
 		);
 		expect(hasKnowledgeInjection).toBe(true);
 	});

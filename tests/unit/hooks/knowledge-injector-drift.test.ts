@@ -203,7 +203,7 @@ describe('Drift injection: reports exist and cachedInjectionText populated', () 
 
 		// Find the knowledge message
 		const knowledgeMsg = output.messages.find((m) =>
-			m.parts?.some((p) => p.text?.includes('📚 Knowledge')),
+			m.parts?.some((p) => p.text?.includes('📚 Lessons:')),
 		);
 		expect(knowledgeMsg).toBeDefined();
 
@@ -272,7 +272,7 @@ describe('Drift injection: no drift reports', () => {
 
 		// Find the knowledge message
 		const knowledgeMsg = output.messages.find((m) =>
-			m.parts?.some((p) => p.text?.includes('📚 Knowledge')),
+			m.parts?.some((p) => p.text?.includes('📚 Lessons:')),
 		);
 		expect(knowledgeMsg).toBeDefined();
 
@@ -345,7 +345,7 @@ describe('Drift injection: empty drift text', () => {
 
 		// Find the knowledge message
 		const knowledgeMsg = output.messages.find((m) =>
-			m.parts?.some((p) => p.text?.includes('📚 Knowledge')),
+			m.parts?.some((p) => p.text?.includes('📚 Lessons:')),
 		);
 		expect(knowledgeMsg).toBeDefined();
 
@@ -415,7 +415,7 @@ describe('Drift injection: error swallowing', () => {
 
 		// Find the knowledge message - should still be injected despite error
 		const knowledgeMsg = output.messages.find((m) =>
-			m.parts?.some((p) => p.text?.includes('📚 Knowledge')),
+			m.parts?.some((p) => p.text?.includes('📚 Lessons:')),
 		);
 		expect(knowledgeMsg).toBeDefined();
 
@@ -474,7 +474,7 @@ describe('Drift injection: error swallowing', () => {
 
 		// Find the knowledge message - should still be injected despite error
 		const knowledgeMsg = output.messages.find((m) =>
-			m.parts?.some((p) => p.text?.includes('📚 Knowledge')),
+			m.parts?.some((p) => p.text?.includes('📚 Lessons:')),
 		);
 		expect(knowledgeMsg).toBeDefined();
 
@@ -573,7 +573,7 @@ describe('Drift injection: multiple reports use last one', () => {
 
 		// Find the knowledge message
 		const knowledgeMsg = output.messages.find((m) =>
-			m.parts?.some((p) => p.text?.includes('📚 Knowledge')),
+			m.parts?.some((p) => p.text?.includes('📚 Lessons:')),
 		);
 		expect(knowledgeMsg).toBeDefined();
 
@@ -643,7 +643,7 @@ describe.skip('Drift injection: no drift when no knowledge entries', () => {
 
 		// No knowledge message should be injected
 		const hasKnowledgeInjection = output.messages.some((m) =>
-			m.parts?.some((p) => p.text?.includes('📚 Knowledge')),
+			m.parts?.some((p) => p.text?.includes('📚 Lessons:')),
 		);
 		expect(hasKnowledgeInjection).toBe(false);
 	});
@@ -669,7 +669,7 @@ describe('Drift injection: drift text format', () => {
 		(getRunMemorySummary as ReturnType<typeof vi.fn>).mockResolvedValue(null);
 	});
 
-	it('Drift text appears at the START of the injection text (prepended)', async () => {
+	it('Drift text appears in the injection text (after lessons in priority order)', async () => {
 		// First call must return empty reports so it doesn't inject drift-only text (which would
 		// trigger the idempotency guard and block the second call's knowledge injection).
 		(readPriorDriftReports as ReturnType<typeof vi.fn>)
@@ -718,18 +718,18 @@ describe('Drift injection: drift text format', () => {
 		await hook({}, output);
 
 		const knowledgeMsg = output.messages.find((m) =>
-			m.parts?.some((p) => p.text?.includes('📚 Knowledge')),
+			m.parts?.some((p) => p.text?.includes('📚 Lessons:')),
 		);
 		expect(knowledgeMsg).toBeDefined();
 
 		const text = knowledgeMsg!.parts[0].text ?? '';
 
-		// Drift should appear BEFORE the knowledge section
+		// Drift appears AFTER lessons in new priority order (lessons > run memory > drift)
 		const driftIndex = text.indexOf('<drift_report>');
-		const knowledgeIndex = text.indexOf('📚 Knowledge');
+		const knowledgeIndex = text.indexOf('📚 Lessons:');
 
 		expect(driftIndex).toBeGreaterThanOrEqual(0);
-		expect(knowledgeIndex).toBeGreaterThan(0);
-		expect(driftIndex).toBeLessThan(knowledgeIndex);
+		expect(knowledgeIndex).toBeGreaterThanOrEqual(0);
+		expect(driftIndex).toBeGreaterThan(knowledgeIndex);
 	});
 });

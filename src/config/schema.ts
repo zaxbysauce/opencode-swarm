@@ -792,6 +792,10 @@ export const KnowledgeConfigSchema = z.object({
 	auto_promote_days: z.number().min(1).max(3650).default(90),
 	/** Maximum number of knowledge entries to inject into context per phase */
 	max_inject_count: z.number().min(0).max(50).default(5),
+	/** Maximum total chars for the entire injection block (preamble + lessons + run memory + rejected warnings). Default: 2000 */
+	inject_char_budget: z.number().min(200).max(10_000).default(2_000),
+	/** Maximum display chars per lesson at injection time — truncation only, stored lesson is never modified. Default: 120 */
+	max_lesson_display_chars: z.number().min(40).max(280).default(120),
 	/** Jaccard bigram threshold for near-duplicate detection (0-1) */
 	dedup_threshold: z.number().min(0).max(1).default(0.6),
 	/** Scope tags to include when filtering lessons for injection */

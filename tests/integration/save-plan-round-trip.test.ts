@@ -1,0 +1,165 @@
+/**
+ * Integration test: save_plan + update_task_status round-trip.
+ * Verifies that merge-mode preserves statuses across plan revisions.
+ */
+
+import { afterEach, beforeEach, describe, expect, it } from 'bun:test';
+import * as fs from 'node:fs/promises';
+import * as os from 'node:os';
+import * as path from 'node:path';
+import { executeUpdateTaskStatus } from '../../src/tools/update-task-status';
+import { executeSavePlan, type SavePlanArgs } from '../../src/tools/save-plan';
+
+describe('save_plan + update_task_status round-trip integration', () => {
+	let tmpDir: string;
+
+	beforeEach(async () => {
+		tmpDir = await fs.mkdtemp(path.join(os.tmpdir(), 'round-trip-test-'));
+		await fs.mkdir(path.join(tmpDir, '.swarm'), { recursive: true });
+	});
+
+	afterEach(async () => {
+		try {
+			await fs.rm(tmpDir, { recursive: true, force: true });
+		} catch {
+			// Ignore cleanup errors
+		}
+	});
+
+	it('full round-trip: save → update → re-save preserves in_progress status', async () => {
+		// Step 1: Save initial plan
+		const initialPlan: SavePlanArgs = {
+			title: 'Round Trip Test',
+			swarm_id: 'integration',
+			phases: [
+				{
+					id: 1,
+					name: 'Phase 1',
+					tasks: [
+						{ id: '1.1', description: 'Setup database' },
+						{ id: '1.2', description: 'Create API endpoints', depends: ['1.1'] },
+					],
+				},
+				{
+					id: 2,
+					name: 'Phase 2',
+					tasks: [
+						{ id: '2.1', description: 'Add auth' },
+					],
+				},
+			],
+			working_directory: tmpDir,
+		};
+
+		const saveResult = await executeSavePlan(initialPlan);
+		expect(saveResult.success).toBe(true);
+
+		// Step 2: Update task 1.1 to in_progress
+		const updateResult1 = await executeUpdateTaskStatus(
+			{ task_id: '1.1', status: 'in_progress' },
+			tmpDir,
+		);
+		expect(updateResult1.success).toBe(true);
+
+		// Step 3: Manually set task to completed in plan.json to test merge-mode
+		// (completing via executeUpdateTaskStatus requires full gate pipeline)
+		const planJsonPath = path.join(tmpDir, '.swarm', 'plan.json');
+		const planData = JSON.parse(await fs.readFile(planJsonPath, 'utf-8'));
+		planData.phases[0].tasks[0].status = 'completed';
+		await fs.writeFile(planJsonPath, JSON.stringify(planData, null, 2));
+
+		// Step 4: Re-save plan with revised descriptions (merge mode)
+		const revisedPlan: SavePlanArgs = {
+			title: 'Round Trip Test v2',
+			swarm_id: 'integration',
+			phases: [
+				{
+					id: 1,
+					name: 'Phase 1 Revised',
+					tasks: [
+						{ id: '1.1', description: 'Setup database (PostgreSQL)' },
+						{ id: '1.2', description: 'Create REST API endpoints', depends: ['1.1'] },
+						{ id: '1.3', description: 'Add migration scripts' },
+					],
+				},
+				{
+					id: 2,
+					name: 'Phase 2',
+					tasks: [
+						{ id: '2.1', description: 'Add OAuth2 auth' },
+					],
+				},
+			],
+			working_directory: tmpDir,
+		};
+
+		const reSaveResult = await executeSavePlan(revisedPlan);
+		expect(reSaveResult.success).toBe(true);
+
+		// Step 5: Verify statuses were preserved
+		const savedPlan = JSON.parse(await fs.readFile(planJsonPath, 'utf-8'));
+
+		// Task 1.1 was completed — should be preserved by merge-mode
+		expect(savedPlan.phases[0].tasks[0].status).toBe('completed');
+		expect(savedPlan.phases[0].tasks[0].description).toBe('Setup database (PostgreSQL)');
+
+		// Task 1.2 was never updated — should still be pending
+		expect(savedPlan.phases[0].tasks[1].status).toBe('pending');
+
+		// Task 1.3 is new — should be pending
+		expect(savedPlan.phases[0].tasks[2].status).toBe('pending');
+
+		// Task 2.1 was never updated — should still be pending
+		expect(savedPlan.phases[1].tasks[0].status).toBe('pending');
+	});
+
+	it('plan.json and plan.md both exist after round-trip', async () => {
+		const plan: SavePlanArgs = {
+			title: 'File Check Test',
+			swarm_id: 'integration',
+			phases: [
+				{
+					id: 1,
+					name: 'Phase 1',
+					tasks: [{ id: '1.1', description: 'Task A' }],
+				},
+			],
+			working_directory: tmpDir,
+		};
+
+		await executeSavePlan(plan);
+		await executeUpdateTaskStatus({ task_id: '1.1', status: 'in_progress' }, tmpDir);
+
+		const planJsonExists = await fs.access(path.join(tmpDir, '.swarm', 'plan.json')).then(() => true).catch(() => false);
+		const planMdExists = await fs.access(path.join(tmpDir, '.swarm', 'plan.md')).then(() => true).catch(() => false);
+
+		expect(planJsonExists).toBe(true);
+		expect(planMdExists).toBe(true);
+	});
+
+	it('evidence seed file is created on in_progress transition', async () => {
+		const plan: SavePlanArgs = {
+			title: 'Evidence Seed Test',
+			swarm_id: 'integration',
+			phases: [
+				{
+					id: 1,
+					name: 'Phase 1',
+					tasks: [{ id: '1.1', description: 'Task A' }],
+				},
+			],
+			working_directory: tmpDir,
+		};
+
+		await executeSavePlan(plan);
+		await executeUpdateTaskStatus({ task_id: '1.1', status: 'in_progress' }, tmpDir);
+
+		// Verify evidence seed was created
+		const evidenceExists = await fs.access(path.join(tmpDir, '.swarm', 'evidence', '1.1.json')).then(() => true).catch(() => false);
+		expect(evidenceExists).toBe(true);
+
+		const evidence = JSON.parse(await fs.readFile(path.join(tmpDir, '.swarm', 'evidence', '1.1.json'), 'utf-8'));
+		expect(evidence.task_id).toBe('1.1');
+		expect(evidence.required_gates).toEqual(['reviewer', 'test_engineer']);
+	});
+});

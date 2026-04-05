@@ -46,7 +46,7 @@ export interface ComplianceObservation {
 }
 
 export interface KnowledgeRecommendation {
-	action: 'promote' | 'archive' | 'flag_contradiction';
+	action: 'promote' | 'archive' | 'flag_contradiction' | 'rewrite';
 	entry_id?: string;
 	lesson: string;
 	reason: string;
