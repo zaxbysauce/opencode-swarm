@@ -30,7 +30,7 @@ export interface LaravelCommandOverlay {
 	testCommand: string;
 	/** Lint/format command. Pint if detected, PHP-CS-Fixer otherwise, null if neither. */
 	lintCommand: string | null;
-	/** Static analysis command. Larastan/PHPStan if detected, null otherwise. */
+	/** Static analysis command. PHPStan if phpstan config is present, null otherwise. */
 	staticAnalysisCommand: string | null;
 	/** Dependency audit command (always composer audit --locked --format=json for Laravel). */
 	auditCommand: string;
@@ -81,7 +81,13 @@ export function getLaravelSignals(directory: string): LaravelDetectionSignals {
  * typically present in any other PHP framework.
  */
 function checkArtisanFile(directory: string): boolean {
-	return fs.existsSync(path.join(directory, 'artisan'));
+	const artisanPath = path.join(directory, 'artisan');
+	if (!fs.existsSync(artisanPath)) return false;
+	try {
+		return fs.statSync(artisanPath).isFile();
+	} catch {
+		return false;
+	}
 }
 
 /**
@@ -141,7 +147,7 @@ export function getLaravelCommandOverlay(
 		lintCommand = 'vendor/bin/php-cs-fixer fix --dry-run --diff';
 	}
 
-	// Static analysis: detect PHPStan/Larastan via config file
+	// Static analysis: detect PHPStan via config file presence
 	let staticAnalysisCommand: string | null = null;
 	if (
 		fs.existsSync(path.join(directory, 'phpstan.neon')) ||

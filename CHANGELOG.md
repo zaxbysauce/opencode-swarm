@@ -11,7 +11,7 @@
 * **laravel:** `test_engineer` agents now receive Laravel-specific test guidance via `buildLanguageTestConstraints()` (feature vs unit tests, Pest/PHPUnit coexistence, `.env.testing`)
 * **php:** PHP package manager (Composer) is now a first-class build ecosystem detected by the swarm (`composer.lock` detection, `php-composer` ecosystem entry in discovery)
 * **php:** `composer audit --locked --format=json` wired through the `pkg_audit` tool pipeline with structured JSON output and correct exit-code semantics (0=clean, 1=abandoned packages only, 2=security vulnerabilities)
-* **php:** PHP profile extended with complete command surface: Composer install/build, PHPUnit + Pest detection (Pest at priority 1), PHPStan/Larastan static analysis (Larastan priority 1, PHPStan priority 2), Pint/PHP-CS-Fixer lint (Pint priority 3, PHP-CS-Fixer priority 4)
+* **php:** PHP profile extended with complete command surface: Composer install/build, PHPUnit + Pest detection (Pest at priority 1), PHPStan static analysis (phpstan.neon priority 1, phpstan.neon.dist priority 2), Pint/PHP-CS-Fixer lint (Pint priority 3, PHP-CS-Fixer priority 4)
 * **doctor:** add `/swarm doctor tools` subcommand with three checks: (1) tool registration coherence — every TOOL_NAMES entry has a key in the plugin's tool: {} block in src/index.ts, (2) AGENT_TOOL_MAP alignment — tools assigned to agents are registered in the plugin, (3) Class 3 binary readiness — external lint binaries (ruff, cargo, golangci-lint, mvn, gradle, dotnet, swift, swiftlint, dart, flutter, eslint) available on PATH
 * **concurrency:** add file locking for concurrent write safety
   - `update_task_status` acquires a **hard lock** on `plan.json` before writing — lock losers return `success: false` with `recovery_guidance: "retry"` and the write is blocked
@@ -24,7 +24,7 @@
 
 ### Documentation
 
-* **docs:** add [v6.46.0 release notes](docs/releases/v6.46.0.md) with PHP first-class support scope, Laravel baseline command/tool/scanner inventory, and explicit deferral list
+* **docs:** add [v6.49.0 release notes](docs/releases/v6.49.0.md) with PHP first-class support scope, Laravel baseline command/tool/scanner inventory, and explicit deferral list
 * **docs:** add [PHP/Laravel practical guide](docs/php-laravel.md) covering generic Composer project detection, Laravel detection and command override, Pest/PHPUnit coexistence, Composer audit output, and Blade/Eloquent SAST coverage summary
 
 ## [6.47.2](https://github.com/zaxbysauce/opencode-swarm/compare/v6.47.1...v6.47.2) (2026-04-04)

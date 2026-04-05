@@ -1384,7 +1384,7 @@ OpenCode Swarm v6.46+ ships with language profiles for 12 languages across three
 | Ruby | 3 | ✅ | — | ✅ RSpec / minitest | ✅ RuboCop | ✅ bundle-audit | 🔶 Semgrep exp. |
 | PHP / Laravel | 3 | ✅ | ✅ Composer install | ✅ PHPUnit / Pest / artisan test | ✅ Pint / PHP-CS-Fixer | ✅ composer audit | ✅ 10+ native rules |
 
-> **PHP + Laravel baseline**: PHP v6.46+ ships with deterministic Laravel project detection (multi-signal: `artisan` file, `laravel/framework` dependency, `config/app.php`). When detected, commands are automatically overridden to `php artisan test`, Pint formatting, and Larastan static analysis. Laravel-specific SAST rules cover SQL injection via raw queries, mass-assignment vulnerabilities, and destructive migrations without rollback. `.blade.php` files are included in all scanning pipelines.
+> **PHP + Laravel baseline**: PHP v6.49+ ships with deterministic Laravel project detection (multi-signal: `artisan` file, `laravel/framework` dependency, `config/app.php`). When detected, commands are automatically overridden to `php artisan test`, Pint formatting, and PHPStan static analysis. Laravel-specific SAST rules cover SQL injection via raw queries, mass-assignment vulnerabilities, and destructive migrations without rollback. `.blade.php` files are included in all scanning pipelines.
 
 **Tier definitions:**
 - **Tier 1** — Full pipeline: all tools integrated and tested end-to-end.

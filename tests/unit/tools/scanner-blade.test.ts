@@ -6,7 +6,9 @@
  * AND via explicit .blade.php extension entry added in task 3.3.
  */
 
-import { describe, expect, it } from 'bun:test';
+import { afterEach, beforeEach, describe, expect, it } from 'bun:test';
+import * as fs from 'node:fs';
+import * as os from 'node:os';
 import * as path from 'node:path';
 
 describe('Blade file scanner inclusion', () => {
@@ -69,5 +71,57 @@ describe('Blade file scanner inclusion', () => {
 			const php = LANGUAGE_REGISTRY.getById('php');
 			expect(php!.sast.nativeRuleSet).toBe('php');
 		});
+	});
+});
+
+describe('todo-extract behavioral test on .blade.php content', () => {
+	let tmpDir: string;
+	let originalCwd: string;
+
+	beforeEach(() => {
+		originalCwd = process.cwd();
+		tmpDir = fs.mkdtempSync(path.join(os.tmpdir(), 'blade-scanner-'));
+		process.chdir(tmpDir);
+	});
+
+	afterEach(() => {
+		process.chdir(originalCwd);
+		if (tmpDir && fs.existsSync(tmpDir)) {
+			fs.rmSync(tmpDir, { recursive: true, force: true });
+		}
+	});
+
+	it('todo_extract finds TODO and FIXME in a .blade.php file', async () => {
+		const bladeContent = [
+			'<!DOCTYPE html>',
+			'<html>',
+			'<body>',
+			'{{-- TODO: replace with real component --}}',
+			'@if($user)',
+			'    <p>{{ $user->name }}</p>',
+			'@endif',
+			'{{-- FIXME: sanitize output before rendering --}}',
+			'</body>',
+			'</html>',
+		].join('\n');
+
+		const bladeFile = path.join(tmpDir, 'welcome.blade.php');
+		fs.writeFileSync(bladeFile, bladeContent);
+
+		const { todo_extract } = await import('../../../src/tools/todo-extract');
+
+		const raw = await todo_extract.execute(
+			{ paths: bladeFile, tags: 'TODO,FIXME' } as Parameters<
+				typeof todo_extract.execute
+			>[0],
+			{} as Parameters<typeof todo_extract.execute>[1],
+		);
+		const result = JSON.parse(raw as string);
+
+		expect(result.total).toBeGreaterThanOrEqual(2);
+
+		const tags = (result.entries as Array<{ tag: string }>).map((e) => e.tag);
+		expect(tags).toContain('TODO');
+		expect(tags).toContain('FIXME');
 	});
 });
