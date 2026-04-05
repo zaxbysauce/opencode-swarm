@@ -69,15 +69,25 @@ All project state lives in `.swarm/`:
 
 ```text
 .swarm/
-├── plan.md              # Project roadmap with phases and tasks
-├── plan.json            # Structured plan data
-├── context.md           # Technical decisions and SME guidance
-├── events.jsonl         # Event stream for diagnostics
-├── evidence/            # Review/test evidence bundles per task
-├── telemetry.jsonl      # Session observability events (JSONL)
-├── curator-summary.json # Curator system state (if enabled)
-└── drift-report-phase-N.json  # Plan-vs-reality drift reports
+├── plan.md                        # Projected plan (generated from ledger)
+├── plan.json                      # Projected plan data (generated from ledger)
+├── plan-ledger.jsonl              # Durable append-only ledger — authoritative source of truth (v6.44)
+├── SWARM_PLAN.md                  # Export checkpoint artifact written on save_plan / phase_complete / close
+├── SWARM_PLAN.json                # Export checkpoint artifact (importable via importCheckpoint)
+├── context.md                     # Technical decisions and SME guidance
+├── spec.md                        # Feature specification (written by /swarm specify)
+├── close-summary.md               # Written by /swarm close with project summary
+├── close-lessons.md               # Optional: explicit session lessons for /swarm close to curate
+├── doc-manifest.json              # Documentation index built by doc_scan tool
+├── events.jsonl                   # Event stream for diagnostics
+├── evidence/                      # Review/test evidence bundles per task
+├── telemetry.jsonl                # Session observability events (JSONL)
+├── curator-summary.json           # Curator system state
+├── curator-briefing.md            # Curator init briefing injected at session start
+└── drift-report-phase-N.json      # Plan-vs-reality drift reports (Curator)
 ```
+
+> **Plan durability (v6.44):** `plan-ledger.jsonl` is the authoritative source of truth for plan state. `plan.json` and `plan.md` are projections derived from the ledger — if they are missing or stale, `loadPlan()` auto-rebuilds them from the ledger. `SWARM_PLAN.md` / `SWARM_PLAN.json` are export-only checkpoint artifacts written automatically — use `SWARM_PLAN.json` to restore if both `plan.json` and the ledger are lost.
 
 Swarm is resumable by design. If `.swarm/` already exists, the architect goes straight into **RESUME** → **EXECUTE** instead of repeating discovery.
 
@@ -312,6 +322,7 @@ When a task requires multiple coder attempts (e.g., reviewer rejections), Swarm 
 | `/swarm diagnose` | Health check for swarm state, including config parsing, grammar files, checkpoint manifest, events stream integrity, and steering directive staleness |
 | `/swarm evidence 2.1` | Show review/test results for a specific task |
 | `/swarm history` | What's been completed so far |
+| `/swarm close [--prune-branches]` | Idempotent session close-out: writes retrospectives, curates lessons (reads `.swarm/close-lessons.md` if present), archives evidence, resets `context.md`, cleans config-backup files, optionally prunes merged branches |
 | `/swarm reset --confirm` | Start over (clears all swarm state) |
 
 ---
@@ -336,9 +347,9 @@ Agent roles (see [Agent Categories](#agent-categories) for classification refere
 | `architect` | Coordinates the workflow, writes plans, enforces gates | Always |
 | `explorer` | Scans the codebase and gathers context | Before planning, after phase wrap |
 | `sme` | Provides domain guidance | During planning / consultation |
-| `critic` | Reviews the plan before execution | Before coding starts |
-| `critic_sounding_board` | Pre-escalation pushback before user contact | When architect hits impasse |
-| `critic_drift_verifier` | Phase completion verifier (implementation matches plan) | Before phase_complete |
+| `critic` | Reviews the plan before execution and blocks coding until approved | Before coding starts (CRITIC-GATE mode) |
+| `critic_sounding_board` | Pre-escalation pushback — the architect consults this before contacting the user; returns UNNECESSARY / REPHRASE / APPROVED / RESOLVE | When architect hits an impasse |
+| `critic_drift_verifier` | **Phase-close drift detector**: verifies that the completed implementation still matches the original plan spec. Returns APPROVED or NEEDS_REVISION. When NEEDS_REVISION is returned, the phase is **blocked** — the architect must address deviations before calling `phase_complete`. After receiving the verdict, the architect calls `write_drift_evidence` to record the gate result. Bypassed in turbo mode. | Before `phase_complete` (PHASE-WRAP mode) |
 | `coder` | Implements one task at a time | During execution |
 | `reviewer` | Reviews correctness and security | After each task |
 | `test_engineer` | Writes and runs tests | After each task |
@@ -405,6 +416,9 @@ MODE: EXECUTE (per task)
 ├── 5j. @test_engineer (verification tests + coverage ≥70%)
 ├── 5k. @test_engineer (adversarial tests)
 ├── 5l. architect regression sweep (scope:"graph" to find cross-task test regressions)
+├── 5l-ter. test drift detection (conditional — fires when changes involve command behaviour,
+│         parsing/routing logic, user-visible output, public contracts, assertion-heavy areas,
+│         or helper lifecycle changes; validates tests still align with current behaviour)
 ├── 5m. ⛔ Pre-commit checklist (all 4 items required, no override)
 └── 5n. Task marked complete, evidence written
 ```
@@ -419,12 +433,12 @@ The architect moves through these modes automatically:
 |---|---|
 | `RESUME` | Existing `.swarm/` state was found, so Swarm continues where it left off |
 | `CLARIFY` | Swarm asks for missing information it cannot infer |
-| `DISCOVER` | Explorer scans the codebase |
+| `DISCOVER` | Explorer scans the codebase; co-change dark matter analysis runs automatically to detect hidden file couplings (v6.41) |
 | `CONSULT` | SME agents provide domain guidance |
 | `PLAN` | Architect writes or updates the phased plan (includes CODEBASE REALITY CHECK on brownfield projects) |
 | `CRITIC-GATE` | Critic reviews the plan before execution |
 | `EXECUTE` | Tasks are implemented one at a time through the QA pipeline |
-| `PHASE-WRAP` | A phase closes out, docs are updated, retrospective is written, and phase completion gates are enforced |
+| `PHASE-WRAP` | A phase closes out, including: explorer rescan, docs update, `context.md` update, `write_retro`, evidence check, `sbom_generate`, **`@critic_drift_verifier` delegation** (drift check — blocking gate), `write_drift_evidence` call with verdict, mandatory gate evidence verification (`completion-verify.json` + `drift-verifier.json` both required), then `phase_complete` |
 
 > **CODEBASE REALITY CHECK (v6.29.2):** Before any planning, the Architect dispatches Explorer to verify the current state of every referenced item. Produces a CODEBASE REALITY REPORT with statuses: NOT STARTED, PARTIALLY DONE, ALREADY COMPLETE, or ASSUMPTION INCORRECT. This prevents planning against stale assumptions. Skipped for greenfield projects with no existing codebase references.
 
@@ -491,6 +505,8 @@ Every completed task writes structured evidence to `.swarm/evidence/`:
 | diff | Files changed, additions/deletions |
 | retrospective | Phase metrics, lessons learned, error taxonomy classification (injected into next phase) |
 | secretscan | Secret scan results: findings count, files scanned, skipped files (v6.33) |
+| completion-verify | Deterministic gate: verifies plan task identifiers exist in source files (written automatically by `completion-verify` tool; required before `phase_complete`) |
+| drift-verifier | Phase-close drift gate: `critic_drift_verifier` verdict (APPROVED/NEEDS_REVISION) and summary (written by architect via `write_drift_evidence`; required before `phase_complete`) |
 
 ### telemetry.jsonl: Session Observability
 
@@ -1119,6 +1135,7 @@ Control how tool outputs are summarized for LLM context.
 | `/swarm benchmark` | Performance benchmarks |
 | `/swarm retrieve [id]` | Retrieve auto-summarized tool outputs (supports offset/limit pagination) |
 | `/swarm reset --confirm` | Clear swarm state files |
+| `/swarm reset-session` | Clear session state files in `.swarm/session/` (preserves plan and context) |
 | `/swarm preflight` | Run phase preflight checks |
 | `/swarm config doctor [--fix]` | Config validation with optional auto-fix |
 | `/swarm doctor tools` | Tool registration coherence and binary readiness check |
@@ -1126,6 +1143,16 @@ Control how tool outputs are summarized for LLM context.
 | `/swarm specify [description]` | Generate or import a feature specification |
 | `/swarm clarify [topic]` | Clarify and refine an existing feature specification |
 | `/swarm analyze` | Analyze spec.md vs plan.md for requirement coverage gaps |
+| `/swarm close [--prune-branches]` | Idempotent session close-out: retrospectives, lesson curation, evidence archive, context.md reset, config-backup cleanup, optional branch pruning |
+| `/swarm write-retro` | Write a phase retrospective manually |
+| `/swarm handoff` | Generate a handoff summary for context-budget-critical sessions |
+| `/swarm simulate` | Simulate plan execution without writing code |
+| `/swarm promote` | Promote swarm-scoped knowledge to hive (global) knowledge |
+| `/swarm evidence-summary` | Generate a summary across all evidence bundles |
+| `/swarm knowledge-add [text]` | Add an entry directly to the swarm knowledge base |
+| `/swarm knowledge-remove [id]` | Remove an entry from the swarm knowledge base |
+| `/swarm turbo` | Enable turbo mode for the current session (bypasses QA gates) |
+| `/swarm checkpoint` | Save a git checkpoint for the current state |
 
 </details>
 
@@ -1139,11 +1166,11 @@ Swarm limits which tools each agent can access based on their role. This prevent
 
 | Agent | Tools | Count | Rationale |
 |-------|-------|:---:|-----------|
-| **architect** | All 23 tools | 23 | Orchestrator needs full visibility |
-| **reviewer** | diff, imports, lint, pkg_audit, pre_check_batch, secretscan, symbols, complexity_hotspots, retrieve_summary, extract_code_blocks, test_runner | 11 | Security-focused QA |
-| **coder** | diff, imports, lint, symbols, extract_code_blocks, retrieve_summary | 6 | Write-focused, minimal read tools |
-| **test_engineer** | test_runner, diff, symbols, extract_code_blocks, retrieve_summary, imports, complexity_hotspots, pkg_audit | 8 | Testing and verification |
-| **explorer** | complexity_hotspots, detect_domains, extract_code_blocks, gitingest, imports, retrieve_summary, schema_drift, symbols, todo_extract | 9 | Discovery and analysis |
+| **architect** | All registered tools | — | Orchestrator needs full visibility |
+| **reviewer** | diff, imports, lint, pkg_audit, pre_check_batch, secretscan, symbols, complexity_hotspots, retrieve_summary, extract_code_blocks, test_runner, suggest_patch, batch_symbols | 13 | Security-focused QA |
+| **coder** | diff, imports, lint, symbols, extract_code_blocks, retrieve_summary, search | 7 | Write-focused, minimal read tools |
+| **test_engineer** | test_runner, diff, symbols, extract_code_blocks, retrieve_summary, imports, complexity_hotspots, pkg_audit, search | 9 | Testing and verification |
+| **explorer** | complexity_hotspots, detect_domains, extract_code_blocks, gitingest, imports, retrieve_summary, schema_drift, symbols, todo_extract, search, batch_symbols | 11 | Discovery and analysis |
 | **sme** | complexity_hotspots, detect_domains, extract_code_blocks, imports, retrieve_summary, schema_drift, symbols | 7 | Domain expertise research |
 | **critic** | complexity_hotspots, detect_domains, imports, retrieve_summary, symbols | 5 | Plan review, minimal toolset |
 | **docs** | detect_domains, doc_extract, doc_scan, extract_code_blocks, gitingest, imports, retrieve_summary, schema_drift, symbols, todo_extract | 10 | Documentation synthesis and discovery |
@@ -1203,8 +1230,10 @@ The following tools can be assigned to agents via overrides:
 
 | Tool | Purpose |
 |------|---------|
+| `batch_symbols` | Extract exported symbols from multiple files in a single call; per-file error isolation; 75–98% call reduction vs sequential (v6.45); registered for architect, explorer, reviewer |
 | `checkpoint` | Save/restore git checkpoints |
 | `check_gate_status` | Read-only query of task gate status |
+| `co_change_analyzer` | Scan git history for files that co-change frequently; generates dark matter architecture knowledge entries during DISCOVER mode (v6.41); architect-only |
 | `complexity_hotspots` | Identify high-risk code areas |
 | `declare_scope` | Pre-declare the file scope for the next coder delegation (architect-only); violations trigger warnings |
 | `detect_domains` | Detect SME domains from text |
@@ -1220,14 +1249,17 @@ The following tools can be assigned to agents via overrides:
 | `pkg_audit` | Security audit of dependencies |
 | `pre_check_batch` | Parallel pre-checks (lint, secrets, SAST, quality) |
 | `retrieve_summary` | Retrieve summarized tool outputs |
+| `save_plan` | Persist plan to `.swarm/plan.json`, `plan.md`, and ledger; also writes `SWARM_PLAN.md` / `SWARM_PLAN.json` checkpoint artifacts; requires explicit `working_directory` parameter |
 | `schema_drift` | Detect OpenAPI/schema drift |
+| `search` | Workspace-scoped ripgrep-style structured text search; literal and regex modes, glob filtering, result limits (v6.45); registered for architect, coder, reviewer, explorer, test_engineer |
 | `secretscan` | Scan for secrets in code |
+| `suggest_patch` | Generate contextual diff hunks without modifying files; read-only patch suggestions for reviewer→coder handoff (v6.45); registered for reviewer and architect |
 | `symbols` | Extract exported symbols |
 | `test_runner` | Run project tests |
 | `update_task_status` | Mark plan tasks as pending/in_progress/completed/blocked; track phase progress; acquires lock on `plan.json` before writing |
 | `todo_extract` | Extract TODO/FIXME comments |
 | `write_retro` | Document phase retrospectives via the phase_complete workflow; capture lessons learned |
-| `write_drift_evidence` | Write drift verification evidence after critic_drift_verifier completes |
+| `write_drift_evidence` | Write drift verification evidence after critic_drift_verifier completes; architect calls this after receiving the verifier’s verdict — the critic does not write files directly |
 
 ---
 
@@ -1236,8 +1268,34 @@ The following tools can be assigned to agents via overrides:
 
 > For the complete version history, see [CHANGELOG.md](CHANGELOG.md) or [docs/releases/](docs/releases/).
 
-### v6.41.0 — Drift Evidence Tool
+### v6.47.0 — `/swarm close` Full Session Close-Out
 
+- **`/swarm close` expanded**: Now performs complete close-out: resets `context.md`, deletes stale `config-backup-*.json` files, supports plan-free sessions (PR reviews, investigations), and accepts `--prune-branches` to delete local branches whose remote tracking ref is `gone` (merged/deleted upstream).
+- **Lesson injection**: If `.swarm/close-lessons.md` exists when `/swarm close` runs, the architect’s explicit lessons are curated into the knowledge base before the file is deleted.
+
+### v6.45.0 — New Search, Patch, and Batch Tools
+
+- **`search` tool**: Workspace-scoped ripgrep-style structured search with literal/regex modes and glob filtering. Registered for architect, coder, reviewer, explorer, test_engineer.
+- **`suggest_patch` tool**: Reviewer-safe context-anchored patch suggestion. Generates diff hunks without writing files. Registered for reviewer and architect.
+- **`batch_symbols` tool**: Batched symbol extraction from multiple files in one call; per-file error isolation; 75–98% call reduction vs sequential single-file calls. Registered for architect, explorer, reviewer.
+- **Step 5l-ter**: Test drift detection step added to the EXECUTE pipeline. Fires conditionally when changes involve command behaviour, parsing/routing logic, user-visible output, public contracts, assertion-heavy areas, or helper lifecycle changes.
+
+### v6.44.0 — Durable Plan Ledger
+
+- **`plan-ledger.jsonl`**: Append-only JSONL ledger is now the authoritative source of truth for plan state. `plan.json` and `plan.md` are projections derived from the ledger. `loadPlan()` auto-rebuilds projections from the ledger on hash mismatch.
+- **Checkpoint artifacts**: `writeCheckpoint()` writes `SWARM_PLAN.md` and `SWARM_PLAN.json` at the project root on every `save_plan`, `phase_complete`, and `/swarm close`. Use `SWARM_PLAN.json` to restore after data loss.
+- **Auto-generated tool lists**: Architect prompt `YOUR TOOLS` and `Available Tools` sections are now generated from `AGENT_TOOL_MAP.architect` — no more hand-maintained lists that drift.
+- See [docs/plan-durability.md](docs/plan-durability.md) for migration notes.
+
+### v6.42.0 — Curator LLM Delegation Wired
+
+- **Curator now performs real LLM analysis**: Previously the LLM delegation was scaffolded but never connected — every call fell through to data-only mode. All three call sites now invoke the Explorer agent with curator-specific system prompts.
+- **`curator.enabled` now defaults to `true`**: The curator falls back gracefully to data-only mode when no SDK client is available (e.g., in unit tests). If you relied on the previous `false` default, set `"curator": { "enabled": false }` explicitly.
+
+### v6.41.0 — Dark Matter Detection + `/swarm close` + Drift Evidence Tool
+
+- **Dark matter detection pipeline**: During DISCOVER mode, automatically scans git history for files that frequently co-change. Results are stored as `architecture` knowledge entries and the architect is guided to consider co-change partners when declaring scope. Silently skips repos with fewer than 20 commits or no git history.
+- **`/swarm close` command**: New idempotent close command. Writes retrospectives for in-progress phases, curates session lessons via the knowledge pipeline, archives evidence, marks phases/tasks as `closed`, writes `.swarm/close-summary.md`, and cleans state.
 - **`write_drift_evidence` tool**: New architect tool for persisting drift verification evidence after critic_drift_verifier delegation
   - Accepts phase number, verdict (APPROVED/NEEDS_REVISION), and summary
   - Normalizes verdict automatically (APPROVED → approved, NEEDS_REVISION → rejected)
@@ -1291,7 +1349,7 @@ The following tools can be assigned to agents via overrides:
 
 This release adds the optional Curator system for phase-level intelligence and fixes session snapshot persistence for task workflow states.
 
-- **Curator system**: New optional background analysis system (`curator.enabled = false` by default). After each phase, collects events, checks compliance, and writes drift reports to `.swarm/drift-report-phase-N.json`. Three integration points: init on first phase, phase analysis after each phase, and drift injection into architect context at phase start.
+- **Curator system**: Background analysis system (`curator.enabled = false` by default in v6.22; **changed to `true` in v6.42**). After each phase, collects events, checks compliance, and writes drift reports to `.swarm/drift-report-phase-N.json`. Three integration points: init on first phase, phase analysis after each phase, and drift injection into architect context at phase start.
 - **Drift reports**: `runCriticDriftCheck` compares planned vs. actual decisions and writes structured drift reports with alignment scores (`ALIGNED` / `MINOR_DRIFT` / `MAJOR_DRIFT` / `OFF_SPEC`). Latest drift summary is prepended to the architect's knowledge context each phase.
 - **Issue #81 fix — taskWorkflowStates persistence**: Session snapshots now correctly serialize and restore the per-task state machine. Invalid state values are filtered to `idle` on deserialization. `reconcileTaskStatesFromPlan` seeds task states from `plan.json` on snapshot load (completed → `tests_run`, in-progress → `coder_delegated`).
 
@@ -1450,9 +1508,11 @@ OpenCode Swarm v6.16+ ships with language profiles for 11 languages across three
 
 ## Curator
 
-The Curator is an optional background analysis system that runs after each phase. It is **disabled by default** (`curator.enabled = false`) and never blocks execution — all Curator operations are wrapped in try/catch.
+The Curator is a background analysis system that runs after each phase. It is **enabled by default** as of v6.42 (`curator.enabled = true`) and never blocks execution — all Curator operations are wrapped in try/catch. It falls back gracefully to data-only mode when no SDK client is available.
 
-To enable, set `"curator": { "enabled": true }` in your config. When enabled, it writes `.swarm/curator-summary.json` and `.swarm/drift-report-phase-N.json` files.
+Since v6.42, the Curator performs real LLM analysis by delegating to the Explorer agent with curator-specific prompts. Before v6.42, the LLM delegation was scaffolded but never wired.
+
+To disable, set `"curator": { "enabled": false }` in your config. When enabled, it writes `.swarm/curator-summary.json`, `.swarm/curator-briefing.md`, and `.swarm/drift-report-phase-N.json` files.
 
 ### What the Curator Does
 
@@ -1470,7 +1530,7 @@ Add a `curator` block to `.opencode/opencode-swarm.json`:
 ```json
 {
   "curator": {
-    "enabled": false,
+    "enabled": true,
     "init_enabled": true,
     "phase_enabled": true,
     "max_summary_tokens": 2000,
@@ -1484,7 +1544,7 @@ Add a `curator` block to `.opencode/opencode-swarm.json`:
 
 | Field | Default | Description |
 |-------|---------|-------------|
-| `enabled` | `false` | Master switch. Set to `true` to activate the Curator pipeline. |
+| `enabled` | `true` | Master switch. Set to `false` to disable the Curator pipeline. |
 | `init_enabled` | `true` | Initialize curator summary on first phase (requires `enabled: true`). |
 | `phase_enabled` | `true` | Run phase analysis and knowledge updates after each phase. |
 | `max_summary_tokens` | `2000` | Maximum token budget for curator knowledge summaries. |
@@ -1533,6 +1593,7 @@ Run `/swarm reset --confirm`.
 - [Getting Started](docs/getting-started.md)
 - [Architecture Deep Dive](docs/architecture.md)
 - [Design Rationale](docs/design-rationale.md)
+- [Plan Durability & Ledger](docs/plan-durability.md)
 - [Installation Guide](docs/installation.md)
 - [Linux + Docker Desktop Install Guide](docs/installation-linux-docker.md)
 - [LLM Operator Installation Guide](docs/installation-llm-operator.md)
