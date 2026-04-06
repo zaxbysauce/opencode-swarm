@@ -22,6 +22,44 @@ interface MessageWithParts {
     }>;
 }
 /**
+ * Result from critic dispatch — used to inject verdict into message stream.
+ */
+interface CriticDispatchResult {
+    verdict: string;
+    reasoning: string;
+    evidenceChecked: string[];
+    antiPatternsDetected: string[];
+    escalationNeeded: boolean;
+    rawResponse: string;
+}
+/**
+ * Parses the critic's structured text response into a CriticDispatchResult.
+ * The critic response format is:
+ *   VERDICT: APPROVED | NEEDS_REVISION | ...
+ *   REASONING: [text with possible multi-line content]
+ *   EVIDENCE_CHECKED: [list]
+ *   ANTI_PATTERNS_DETECTED: [list or "none"]
+ *   ESCALATION_NEEDED: YES | NO
+ */
+export declare function parseCriticResponse(rawResponse: string): CriticDispatchResult;
+/**
+ * Injects the critic's verdict as an assistant message after the architect's message.
+ * This makes the verdict visible in the chat without modifying the architect's output.
+ *
+ * Verdict handling:
+ * - ANSWER: injects critic's reasoning as the assistant's answer
+ * - ESCALATE_TO_HUMAN: triggers escalation (handled separately)
+ * - APPROVED / NEEDS_REVISION / REJECTED / BLOCKED / REPHRASE: injects verdict message
+ */
+export declare function injectVerdictIntoMessages(messages: MessageWithParts[], architectIndex: number, criticResult: CriticDispatchResult, _escalationType: 'phase_completion' | 'question', oversightAgentName: string): void;
+/**
+ * Handles critic dispatch and writes the auto_oversight event after the critic responds.
+ *
+ * This function encapsulates the critic invocation and event writing flow.
+ * The critic response is awaited before writing the event to events.jsonl.
+ */
+export declare function dispatchCriticAndWriteEvent(directory: string, architectOutput: string, criticContext: string, criticModel: string, escalationType: 'phase_completion' | 'question', interactionCount: number, deadlockCount: number, oversightAgentName: string): Promise<CriticDispatchResult>;
+/**
  * Creates the full-auto intercept hook factory.
  *
  * This hook intercepts architect messages in full-auto mode and triggers

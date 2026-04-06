@@ -135,10 +135,37 @@ function isLowCapabilityModel(modelId) {
   const lower = modelId.toLowerCase();
   return LOW_CAPABILITY_MODELS.some((substr) => lower.includes(substr));
 }
-var QA_AGENTS, PIPELINE_AGENTS, ORCHESTRATOR_NAME = "architect", ALL_SUBAGENT_NAMES, ALL_AGENT_NAMES, AGENT_TOOL_MAP, WRITE_TOOL_NAMES, TOOL_DESCRIPTIONS, DEFAULT_MODELS, DEFAULT_SCORING_CONFIG, LOW_CAPABILITY_MODELS;
+var QA_AGENTS, PIPELINE_AGENTS, ORCHESTRATOR_NAME = "architect", ALL_SUBAGENT_NAMES, ALL_AGENT_NAMES, AGENT_TOOL_MAP, WRITE_TOOL_NAMES, TOOL_DESCRIPTIONS, DEFAULT_MODELS, DEFAULT_SCORING_CONFIG, LOW_CAPABILITY_MODELS, TURBO_MODE_BANNER = `## \uD83D\uDE80 TURBO MODE ACTIVE
+
+**Speed optimization enabled for this session.**
+
+While Turbo Mode is active:
+- **Stage A gates** (lint, imports, pre_check_batch) are still REQUIRED for ALL tasks
+- **Tier 3 tasks** (security-sensitive files matching: architect*.ts, delegation*.ts, guardrails*.ts, adversarial*.ts, sanitiz*.ts, auth*, permission*, crypto*, secret*, security) still require FULL review (Stage B)
+- **Tier 0-2 tasks** can skip Stage B (reviewer, test_engineer) to speed up execution
+- **Phase completion gates** (completion-verify and drift verification gate) are automatically bypassed \u2014 phase_complete will succeed without drift verification evidence when turbo is active. Note: turbo bypass is session-scoped; one session's turbo does not affect other sessions.
+
+Classification still determines the pipeline:
+- TIER 0 (metadata): lint + diff only \u2014 no change
+- TIER 1 (docs): Stage A + reviewer \u2014 no change
+- TIER 2 (standard code): Stage A + reviewer + test_engineer \u2014 CAN SKIP Stage B with turboMode
+- TIER 3 (critical): Stage A + 2x reviewer + 2x test_engineer \u2014 Stage B REQUIRED (no turbo bypass)
+
+Do NOT skip Stage A gates. Do NOT skip Stage B for TIER 3.
+`, FULL_AUTO_BANNER = `## \u26A1 FULL-AUTO MODE ACTIVE
+
+You are operating without a human in the loop. All escalations route to the Autonomous Oversight Critic instead of a user.
+
+Behavioral changes:
+- TIER 3 escalations go to the critic, not a human. Frame your questions technically, not conversationally.
+- Phase completion approval comes from the critic. Ensure all evidence is written before requesting.
+- The critic defaults to REJECT. Do not attempt to pressure, negotiate, or shortcut. Complete the evidence trail.
+- If the critic returns ESCALATE_TO_HUMAN, the session will pause or terminate. Only the critic can trigger this.
+- Do NOT ask "Ready for Phase N+1?" \u2014 call phase_complete directly. The critic reviews automatically.
+`;
 var init_constants = __esm(() => {
   init_tool_names();
-  QA_AGENTS = ["reviewer", "critic"];
+  QA_AGENTS = ["reviewer", "critic", "critic_oversight"];
   PIPELINE_AGENTS = ["explorer", "coder", "test_engineer"];
   ALL_SUBAGENT_NAMES = [
     "sme",
@@ -294,6 +321,14 @@ var init_constants = __esm(() => {
       "symbols",
       "knowledgeRecall"
     ],
+    critic_oversight: [
+      "complexity_hotspots",
+      "detect_domains",
+      "imports",
+      "retrieve_summary",
+      "symbols",
+      "knowledgeRecall"
+    ],
     docs: [
       "detect_domains",
       "extract_code_blocks",
@@ -384,6 +419,7 @@ var init_constants = __esm(() => {
     critic: "opencode/trinity-large-preview-free",
     critic_sounding_board: "opencode/trinity-large-preview-free",
     critic_drift_verifier: "opencode/trinity-large-preview-free",
+    critic_oversight: "opencode/trinity-large-preview-free",
     docs: "opencode/trinity-large-preview-free",
     designer: "opencode/trinity-large-preview-free",
     curator_init: "opencode/trinity-large-preview-free",
@@ -15922,7 +15958,6 @@ __export(exports_state, {
   updateAgentEventTime: () => updateAgentEventTime,
   swarmState: () => swarmState,
   startAgentSession: () => startAgentSession,
-  setFullAutoModelValidation: () => setFullAutoModelValidation,
   resetSwarmState: () => resetSwarmState,
   rehydrateSessionFromDisk: () => rehydrateSessionFromDisk,
   recordPhaseAgentDispatch: () => recordPhaseAgentDispatch,
@@ -15954,6 +15989,7 @@ function resetSwarmState() {
   swarmState.curatorInitAgentNames = [];
   swarmState.curatorPhaseAgentNames = [];
   _rehydrationCache = null;
+  swarmState.fullAutoEnabledInConfig = false;
 }
 function startAgentSession(sessionId, agentName, staleDurationMs = 7200000, directory) {
   const now = Date.now();
@@ -15998,7 +16034,7 @@ function startAgentSession(sessionId, agentName, staleDurationMs = 7200000, dire
     scopeViolationDetected: false,
     modifiedFilesThisCoderTask: [],
     turboMode: false,
-    fullAutoMode: false,
+    fullAutoMode: swarmState.fullAutoEnabledInConfig,
     fullAutoInteractionCount: 0,
     fullAutoDeadlockCount: 0,
     fullAutoLastQuestionHash: null,
@@ -16400,9 +16436,6 @@ function hasActiveTurboMode(sessionID) {
   return false;
 }
 function hasActiveFullAuto(sessionID) {
-  if (!_fullAutoModelValidationPassed) {
-    return false;
-  }
   if (sessionID) {
     const session = swarmState.agentSessions.get(sessionID);
     return session?.fullAutoMode === true;
@@ -16414,10 +16447,7 @@ function hasActiveFullAuto(sessionID) {
   }
   return false;
 }
-function setFullAutoModelValidation(passed) {
-  _fullAutoModelValidationPassed = passed;
-}
-var _rehydrationCache = null, _fullAutoModelValidationPassed = false, swarmState;
+var _rehydrationCache = null, swarmState;
 var init_state = __esm(() => {
   init_constants();
   init_plan_schema();
@@ -16434,7 +16464,8 @@ var init_state = __esm(() => {
     curatorPhaseAgentNames: [],
     lastBudgetPct: 0,
     agentSessions: new Map,
-    pendingRehydrations: new Set
+    pendingRehydrations: new Set,
+    fullAutoEnabledInConfig: false
   };
 });
 
@@ -50190,16 +50221,12 @@ function resolveCommand(tokens) {
 
 // src/agents/architect.ts
 init_constants();
-init_state();
 var ARCHITECT_PROMPT = `You are Architect - orchestrator of a multi-agent swarm.
 
 ## IDENTITY
 
 Swarm: {{SWARM_ID}}
 Your agents: {{AGENT_PREFIX}}explorer, {{AGENT_PREFIX}}sme, {{AGENT_PREFIX}}coder, {{AGENT_PREFIX}}reviewer, {{AGENT_PREFIX}}test_engineer, {{AGENT_PREFIX}}critic, {{AGENT_PREFIX}}critic_sounding_board, {{AGENT_PREFIX}}docs, {{AGENT_PREFIX}}designer
-
-{{TURBO_MODE_BANNER}}
-{{FULL_AUTO_BANNER}}
 
 ## PROJECT CONTEXT
 Session-start priming block. Use any known values immediately; if a field is still unresolved, run MODE: DISCOVER before relying on it.
@@ -51228,45 +51255,6 @@ ${customAppendPrompt}`;
     prompt = prompt?.replace(/\{\{ADVERSARIAL_TEST_STEP\}\}/g, `    5m. {{AGENT_PREFIX}}test_engineer - Adversarial tests. FAIL \u2192 coder retry from 5g. Scope: attack vectors only \u2014 malformed inputs, boundary violations, injection attempts.
     \u2192 REQUIRED: Print "testengineer-adversarial: [PASS | FAIL \u2014 details]"`)?.replace(/\{\{ADVERSARIAL_TEST_CHECKLIST\}\}/g, "  [GATE] test_engineer-adversarial: PASS / FAIL \u2014 value: ___");
   }
-  const TURBO_MODE_BANNER = `## \uD83D\uDE80 TURBO MODE ACTIVE
-
-**Speed optimization enabled for this session.**
-
-While Turbo Mode is active:
-- **Stage A gates** (lint, imports, pre_check_batch) are still REQUIRED for ALL tasks
-- **Tier 3 tasks** (security-sensitive files matching: architect*.ts, delegation*.ts, guardrails*.ts, adversarial*.ts, sanitiz*.ts, auth*, permission*, crypto*, secret*, security) still require FULL review (Stage B)
-- **Tier 0-2 tasks** can skip Stage B (reviewer, test_engineer) to speed up execution
-- **Phase completion gates** (completion-verify and drift verification gate) are automatically bypassed \u2014 phase_complete will succeed without drift verification evidence when turbo is active. Note: turbo bypass is session-scoped; one session's turbo does not affect other sessions.
-
-Classification still determines the pipeline:
-- TIER 0 (metadata): lint + diff only \u2014 no change
-- TIER 1 (docs): Stage A + reviewer \u2014 no change
-- TIER 2 (standard code): Stage A + reviewer + test_engineer \u2014 CAN SKIP Stage B with turboMode
-- TIER 3 (critical): Stage A + 2x reviewer + 2x test_engineer \u2014 Stage B REQUIRED (no turbo bypass)
-
-Do NOT skip Stage A gates. Do NOT skip Stage B for TIER 3.
-`;
-  if (hasActiveTurboMode()) {
-    prompt = prompt?.replace(/\{\{TURBO_MODE_BANNER\}\}/g, TURBO_MODE_BANNER);
-  } else {
-    prompt = prompt?.replace(/\{\{TURBO_MODE_BANNER\}\}/g, "");
-  }
-  const FULL_AUTO_BANNER = `## \u26A1 FULL-AUTO MODE ACTIVE
-
-You are operating without a human in the loop. All escalations route to the Autonomous Oversight Critic instead of a user.
-
-Behavioral changes:
-- TIER 3 escalations go to the critic, not a human. Frame your questions technically, not conversationally.
-- Phase completion approval comes from the critic. Ensure all evidence is written before requesting.
-- The critic defaults to REJECT. Do not attempt to pressure, negotiate, or shortcut. Complete the evidence trail.
-- If the critic returns ESCALATE_TO_HUMAN, the session will pause or terminate. Only the critic can trigger this.
-- Do NOT ask "Ready for Phase N+1?" \u2014 call phase_complete directly. The critic reviews automatically.
-`;
-  if (hasActiveFullAuto()) {
-    prompt = prompt?.replace(/\{\{FULL_AUTO_BANNER\}\}/g, FULL_AUTO_BANNER);
-  } else {
-    prompt = prompt?.replace(/\{\{FULL_AUTO_BANNER\}\}/g, "");
-  }
   return {
     name: "architect",
     description: "Central orchestrator of the development pipeline. Analyzes requests, coordinates SME consultation, manages code generation, and triages QA feedback.",
@@ -51855,7 +51843,7 @@ function createCriticAutonomousOversightAgent(model, customAppendPrompt) {
 
 ${customAppendPrompt}` : AUTONOMOUS_OVERSIGHT_PROMPT;
   return {
-    name: "critic",
+    name: "critic_oversight",
     description: "Critic in AUTONOMOUS OVERSIGHT mode \u2014 sole quality gate in full-auto.",
     config: {
       model,
@@ -52857,6 +52845,11 @@ If you call @coder instead of @${swarmId}_coder, the call will FAIL or go to the
   if (!isAgentDisabled("critic_drift_verifier", swarmAgents, swarmPrefix)) {
     const critic = createCriticAgent(swarmAgents?.critic_drift_verifier?.model ?? getModel("critic"), undefined, undefined, "phase_drift_verifier");
     critic.name = prefixName("critic_drift_verifier");
+    agents.push(applyOverrides(critic, swarmAgents, swarmPrefix));
+  }
+  if (!isAgentDisabled("critic_oversight", swarmAgents, swarmPrefix)) {
+    const critic = createCriticAutonomousOversightAgent(swarmAgents?.critic_oversight?.model ?? getModel("critic"));
+    critic.name = prefixName("critic_oversight");
     agents.push(applyOverrides(critic, swarmAgents, swarmPrefix));
   }
   if (!isAgentDisabled("curator_init", swarmAgents, swarmPrefix)) {
@@ -56085,6 +56078,7 @@ function createDelegationTrackerHook(config3, guardrailsEnabled = true) {
 }
 // src/hooks/full-auto-intercept.ts
 import * as fs30 from "fs";
+init_schema();
 
 // src/parallel/file-locks.ts
 var import_proper_lockfile3 = __toESM(require_proper_lockfile(), 1);
@@ -56164,6 +56158,22 @@ function hashString(str) {
 function isMidSentenceQuestion(text) {
   return MID_SENTENCE_QUESTION_PATTERNS.some((pattern) => pattern.test(text));
 }
+function resolveOversightAgentName(architectAgentName) {
+  if (!architectAgentName) {
+    return "critic_oversight";
+  }
+  const stripped = stripKnownSwarmPrefix(architectAgentName);
+  if (stripped !== "architect") {
+    return "critic_oversight";
+  }
+  const baseRole = "architect";
+  const lastIndex = architectAgentName.toLowerCase().lastIndexOf(baseRole);
+  if (lastIndex <= 0) {
+    return "critic_oversight";
+  }
+  const prefix = architectAgentName.slice(0, lastIndex);
+  return `${prefix}critic_oversight`;
+}
 function detectEscalation(text) {
   for (const pattern of ESCALATION_PATTERNS) {
     if (pattern.test(text)) {
@@ -56183,6 +56193,90 @@ function extractMessageText3(message) {
   const textParts = message.parts.filter((p) => p?.type === "text" && p.text);
   return textParts.map((p) => p.text ?? "").join(`
 `);
+}
+function parseCriticResponse(rawResponse) {
+  const result = {
+    verdict: "NEEDS_REVISION",
+    reasoning: "",
+    evidenceChecked: [],
+    antiPatternsDetected: [],
+    escalationNeeded: false,
+    rawResponse
+  };
+  const lines = rawResponse.split(`
+`);
+  let currentKey = "";
+  let currentValue = "";
+  const commitField = (res, key, value) => {
+    switch (key) {
+      case "VERDICT": {
+        const validVerdicts = [
+          "APPROVED",
+          "NEEDS_REVISION",
+          "REJECTED",
+          "BLOCKED",
+          "ANSWER",
+          "ESCALATE_TO_HUMAN",
+          "REPHRASE"
+        ];
+        const normalized = value.trim().toUpperCase().replace(/[`*]/g, "");
+        if (validVerdicts.includes(normalized)) {
+          res.verdict = normalized;
+        } else {
+          console.warn(`[full-auto-intercept] Unknown verdict '${value}' \u2014 defaulting to NEEDS_REVISION`);
+          res.verdict = "NEEDS_REVISION";
+        }
+        break;
+      }
+      case "REASONING":
+        res.reasoning = value.trim();
+        break;
+      case "EVIDENCE_CHECKED":
+        if (value && value !== "none" && value !== '"none"') {
+          res.evidenceChecked = value.split(",").map((s) => s.trim()).filter(Boolean);
+        }
+        break;
+      case "ANTI_PATTERNS_DETECTED":
+        if (value && value !== "none" && value !== '"none"') {
+          res.antiPatternsDetected = value.split(",").map((s) => s.trim()).filter(Boolean);
+        }
+        break;
+      case "ESCALATION_NEEDED":
+        res.escalationNeeded = value.trim().toUpperCase() === "YES";
+        break;
+    }
+  };
+  for (const line of lines) {
+    const colonIndex = line.indexOf(":");
+    if (colonIndex !== -1) {
+      const key = line.slice(0, colonIndex).trim().toUpperCase();
+      if ([
+        "VERDICT",
+        "REASONING",
+        "EVIDENCE_CHECKED",
+        "ANTI_PATTERNS_DETECTED",
+        "ESCALATION_NEEDED"
+      ].includes(key)) {
+        if (currentKey) {
+          commitField(result, currentKey, currentValue);
+        }
+        currentKey = key;
+        currentValue = line.slice(colonIndex + 1).trim();
+      } else {
+        currentValue += `
+${line}`;
+      }
+    } else {
+      if (line.trim()) {
+        currentValue += `
+${line}`;
+      }
+    }
+  }
+  if (currentKey) {
+    commitField(result, currentKey, currentValue);
+  }
+  return result;
 }
 function escalationTypeToInteractionMode(escalationType) {
   return escalationType === "phase_completion" ? "phase_completion" : "question_resolution";
@@ -56227,13 +56321,144 @@ async function writeAutoOversightEvent(directory, architectOutput, criticVerdict
     }
   }
 }
-async function dispatchCriticAndWriteEvent(directory, architectOutput, criticContext, criticModel, escalationType, interactionCount, deadlockCount) {
+function injectVerdictIntoMessages(messages, architectIndex, criticResult, _escalationType, oversightAgentName) {
+  if (criticResult.escalationNeeded || criticResult.verdict === "ESCALATE_TO_HUMAN") {
+    const verdictMessage2 = {
+      info: {
+        role: "assistant",
+        agent: oversightAgentName
+      },
+      parts: [
+        {
+          type: "text",
+          text: `[FULL-AUTO OVERSIGHT \u2014 ESCALATE_TO_HUMAN]
+
+Critic reasoning: ${criticResult.reasoning}
+
+This question requires human judgment. The swarm has been paused for human review.`
+        }
+      ]
+    };
+    messages.splice(architectIndex + 1, 0, verdictMessage2);
+    return;
+  }
+  if (criticResult.verdict === "ANSWER") {
+    const verdictMessage2 = {
+      info: {
+        role: "assistant",
+        agent: oversightAgentName
+      },
+      parts: [
+        {
+          type: "text",
+          text: `[FULL-AUTO OVERSIGHT \u2014 ANSWER]
+
+${criticResult.reasoning}`
+        }
+      ]
+    };
+    messages.splice(architectIndex + 1, 0, verdictMessage2);
+    return;
+  }
+  const verdictEmoji = criticResult.verdict === "APPROVED" ? "\u2705" : criticResult.verdict === "NEEDS_REVISION" ? "\uD83D\uDD04" : criticResult.verdict === "REJECTED" ? "\u274C" : criticResult.verdict === "BLOCKED" ? "\uD83D\uDEAB" : "\uD83D\uDCAC";
+  const verdictMessage = {
+    info: {
+      role: "assistant",
+      agent: oversightAgentName
+    },
+    parts: [
+      {
+        type: "text",
+        text: `[FULL-AUTO OVERSIGHT] ${verdictEmoji} **${criticResult.verdict}**
+
+Critic reasoning: ${criticResult.reasoning}`
+      }
+    ]
+  };
+  messages.splice(architectIndex + 1, 0, verdictMessage);
+}
+async function dispatchCriticAndWriteEvent(directory, architectOutput, criticContext, criticModel, escalationType, interactionCount, deadlockCount, oversightAgentName) {
+  const client = swarmState.opencodeClient;
+  if (!client) {
+    console.warn("[full-auto-intercept] No opencodeClient \u2014 critic dispatch skipped (fallback to PENDING)");
+    const result = {
+      verdict: "PENDING",
+      reasoning: "No opencodeClient available \u2014 critic dispatch not possible",
+      evidenceChecked: [],
+      antiPatternsDetected: [],
+      escalationNeeded: false,
+      rawResponse: ""
+    };
+    await writeAutoOversightEvent(directory, architectOutput, result.verdict, result.reasoning, result.evidenceChecked, interactionCount, deadlockCount, escalationType);
+    return result;
+  }
   const oversightAgent = createCriticAutonomousOversightAgent(criticModel, criticContext);
   console.log(`[full-auto-intercept] Dispatching critic: ${oversightAgent.name} using model ${criticModel}`);
-  const criticVerdict = "PENDING";
-  const criticReasoning = "Critic invocation not yet implemented \u2014 placeholder event";
-  const evidenceChecked = [];
-  await writeAutoOversightEvent(directory, architectOutput, criticVerdict, criticReasoning, evidenceChecked, interactionCount, deadlockCount, escalationType);
+  let ephemeralSessionId;
+  const cleanup = () => {
+    if (ephemeralSessionId) {
+      const id = ephemeralSessionId;
+      ephemeralSessionId = undefined;
+      client.session.delete({ path: { id } }).catch(() => {});
+    }
+  };
+  let criticResponse = "";
+  try {
+    const createResult = await client.session.create({
+      query: { directory }
+    });
+    if (!createResult.data) {
+      throw new Error(`Failed to create critic session: ${JSON.stringify(createResult.error)}`);
+    }
+    ephemeralSessionId = createResult.data.id;
+    console.log(`[full-auto-intercept] Created ephemeral session: ${ephemeralSessionId}`);
+    const promptResult = await client.session.prompt({
+      path: { id: ephemeralSessionId },
+      body: {
+        agent: oversightAgentName,
+        tools: { write: false, edit: false, patch: false },
+        parts: [{ type: "text", text: criticContext }]
+      }
+    });
+    if (!promptResult.data) {
+      throw new Error(`Critic LLM prompt failed: ${JSON.stringify(promptResult.error)}`);
+    }
+    const textParts = promptResult.data.parts.filter((p) => p.type === "text");
+    criticResponse = textParts.map((p) => p.text).join(`
+`);
+    console.log(`[full-auto-intercept] Critic response received (${criticResponse.length} chars)`);
+    if (!criticResponse.trim()) {
+      console.warn("[full-auto-intercept] Critic returned empty response \u2014 using fallback verdict");
+      criticResponse = `VERDICT: NEEDS_REVISION
+REASONING: Critic returned empty response
+EVIDENCE_CHECKED: none
+ANTI_PATTERNS_DETECTED: empty_response
+ESCALATION_NEEDED: NO`;
+    }
+  } finally {
+    cleanup();
+  }
+  let parsed;
+  try {
+    parsed = parseCriticResponse(criticResponse);
+    console.log(`[full-auto-intercept] Critic verdict: ${parsed.verdict} | escalation: ${parsed.escalationNeeded}`);
+  } catch (parseError) {
+    console.error(`[full-auto-intercept] Failed to parse critic response: ${parseError instanceof Error ? parseError.message : String(parseError)}`);
+    parsed = {
+      verdict: "NEEDS_REVISION",
+      reasoning: "Critic response parsing failed \u2014 defaulting to NEEDS_REVISION",
+      evidenceChecked: [],
+      antiPatternsDetected: [],
+      escalationNeeded: false,
+      rawResponse: criticResponse
+    };
+  }
+  try {
+    await writeAutoOversightEvent(directory, architectOutput, parsed.verdict, parsed.reasoning, parsed.evidenceChecked, interactionCount, deadlockCount, escalationType);
+  } catch (writeError) {
+    console.error(`[full-auto-intercept] Failed to write auto_oversight event: ${writeError instanceof Error ? writeError.message : String(writeError)}`);
+  }
+  return parsed;
 }
 function createFullAutoInterceptHook(config3, directory) {
   const fullAutoConfig = config3.full_auto ?? {
@@ -56259,7 +56484,7 @@ function createFullAutoInterceptHook(config3, directory) {
       const msg = messages[i2];
       if (msg?.info?.role === "user") {
         const agent = msg.info?.agent;
-        const strippedAgent = agent ? stripKnownSwarmPrefix2(agent) : undefined;
+        const strippedAgent = agent ? stripKnownSwarmPrefix(agent) : undefined;
         if (!agent || strippedAgent === "architect") {
           lastArchitectMessageIndex = i2;
           break;
@@ -56316,8 +56541,12 @@ function createFullAutoInterceptHook(config3, directory) {
     const criticContext = buildCriticContext(architectText, escalationType);
     const criticModel = fullAutoConfig.critic_model ?? "claude-sonnet-4-20250514";
     const oversightAgent = createCriticAutonomousOversightAgent(criticModel, criticContext);
-    console.log(`[full-auto-intercept] Created autonomous oversight agent: ${oversightAgent.name} using model ${criticModel}`);
-    await dispatchCriticAndWriteEvent(directory, architectText, criticContext, criticModel, escalationType, session?.fullAutoInteractionCount ?? 0, session?.fullAutoDeadlockCount ?? 0);
+    const architectAgent = architectMessage.info?.agent;
+    const resolvedOversightAgentName = resolveOversightAgentName(architectAgent);
+    const dispatchAgentName = resolvedOversightAgentName && resolvedOversightAgentName.length > 0 ? resolvedOversightAgentName : "critic_oversight";
+    console.log(`[full-auto-intercept] Created autonomous oversight agent: ${oversightAgent.name} using model ${criticModel} (dispatch as: ${dispatchAgentName})`);
+    const criticResult = await dispatchCriticAndWriteEvent(directory, architectText, criticContext, criticModel, escalationType, session?.fullAutoInteractionCount ?? 0, session?.fullAutoDeadlockCount ?? 0, dispatchAgentName);
+    injectVerdictIntoMessages(messages, lastArchitectMessageIndex, criticResult, escalationType, dispatchAgentName);
   };
   return {
     messagesTransform
@@ -56402,15 +56631,6 @@ async function handleEscalation(directory, reason, sessionID, architectOutput, i
   }
   console.warn(`[full-auto-intercept] ESCALATION (pause mode) \u2014 reason: ${reason}, session: ${sessionID}`);
   return true;
-}
-function stripKnownSwarmPrefix2(agent) {
-  const prefixes = ["local_", "mega_", "paid_", "modelrelay_", "lowtier_"];
-  for (const prefix of prefixes) {
-    if (agent.startsWith(prefix)) {
-      return agent.slice(prefix.length);
-    }
-  }
-  return agent;
 }
 // src/hooks/messages-transform.ts
 function consolidateSystemMessages(messages) {
@@ -57766,6 +57986,15 @@ ${handoffBlock}`);
           const activeAgent_retro = swarmState.activeAgent.get(sessionId_retro ?? "");
           const isArchitect2 = !activeAgent_retro || stripKnownSwarmPrefix(activeAgent_retro) === "architect";
           if (isArchitect2) {
+            const sessionIdBanner = _input.sessionID;
+            if (hasActiveTurboMode(sessionIdBanner) || hasActiveFullAuto(sessionIdBanner)) {
+              if (hasActiveTurboMode(sessionIdBanner)) {
+                tryInject(TURBO_MODE_BANNER);
+              }
+              if (hasActiveFullAuto(sessionIdBanner)) {
+                tryInject(FULL_AUTO_BANNER);
+              }
+            }
             try {
               const currentPhaseNum = plan2?.current_phase ?? 1;
               const retroText = await buildRetroInjection(directory, currentPhaseNum, plan2?.title ?? undefined);
@@ -58098,6 +58327,29 @@ ${handoffBlock}`;
         const activeAgent_retro_b = swarmState.activeAgent.get(sessionId_retro_b ?? "");
         const isArchitect_b = !activeAgent_retro_b || stripKnownSwarmPrefix(activeAgent_retro_b) === "architect";
         if (isArchitect_b) {
+          const sessionIdBanner_b = _input.sessionID;
+          if (hasActiveTurboMode(sessionIdBanner_b) || hasActiveFullAuto(sessionIdBanner_b)) {
+            if (hasActiveTurboMode(sessionIdBanner_b)) {
+              candidates.push({
+                id: `candidate-${idCounter++}`,
+                kind: "agent_context",
+                text: TURBO_MODE_BANNER,
+                tokens: estimateTokens(TURBO_MODE_BANNER),
+                priority: 1,
+                metadata: { contentType: "prose" }
+              });
+            }
+            if (hasActiveFullAuto(sessionIdBanner_b)) {
+              candidates.push({
+                id: `candidate-${idCounter++}`,
+                kind: "agent_context",
+                text: FULL_AUTO_BANNER,
+                tokens: estimateTokens(FULL_AUTO_BANNER),
+                priority: 1,
+                metadata: { contentType: "prose" }
+              });
+            }
+          }
           try {
             const currentPhaseNum_b = plan?.current_phase ?? 1;
             const retroText_b = await buildRetroInjection(directory, currentPhaseNum_b, plan?.title ?? undefined);
@@ -72156,12 +72408,10 @@ var OpenCodeSwarm = async (ctx) => {
     const criticModel = config3.full_auto.critic_model ?? config3.agents?.critic?.model ?? DEFAULT_MODELS.critic;
     const architectModel = config3.agents?.architect?.model ?? DEFAULT_MODELS.default;
     if (criticModel === architectModel) {
-      console.warn("Full-auto mode requires a different critic model than architect model. Falling back to normal mode.");
-      setFullAutoModelValidation(false);
-    } else {
-      setFullAutoModelValidation(true);
+      console.warn("[opencode-swarm] Full-auto mode warning: critic model matches architect model. Model validation is advisory-only; full-auto remains enabled. (Runtime architect model is determined by the orchestrator)");
     }
   }
+  swarmState.fullAutoEnabledInConfig = config3.full_auto?.enabled === true;
   swarmState.opencodeClient = ctx.client;
   await loadSnapshot(ctx.directory);
   initTelemetry(ctx.directory);

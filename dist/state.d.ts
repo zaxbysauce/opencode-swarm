@@ -211,6 +211,8 @@ export declare const swarmState: {
     agentSessions: Map<string, AgentSessionState>;
     /** In-flight rehydration promises — awaited by rehydrateState before clearing agentSessions */
     pendingRehydrations: Set<Promise<void>>;
+    /** Whether full-auto mode is enabled in config */
+    fullAutoEnabledInConfig: boolean;
 };
 /**
  * Reset all state to initial values - useful for testing
@@ -361,12 +363,6 @@ export declare function hasActiveTurboMode(sessionID?: string): boolean;
  * Check if Full Auto Mode is enabled for a specific session or ANY session.
  * @param sessionID - Optional session ID to check. If provided, checks only that session.
  *                    If omitted, checks all sessions (backward-compatible global behavior).
- * @returns true only if the specified session has fullAutoMode: true AND the startup validation
- *          confirmed critic/architect models differ. Returns false if models matched at startup.
+ * @returns true if the specified session has fullAutoMode: true (model validation is advisory-only).
  */
 export declare function hasActiveFullAuto(sessionID?: string): boolean;
-/**
- * Called at plugin startup after validating that critic/architect models differ.
- * Enables full-auto mode to be activated for sessions.
- */
-export declare function setFullAutoModelValidation(passed: boolean): void;

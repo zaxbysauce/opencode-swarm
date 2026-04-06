@@ -18100,7 +18100,7 @@ var TOOL_NAMES = [
 var TOOL_NAME_SET = new Set(TOOL_NAMES);
 
 // src/config/constants.ts
-var QA_AGENTS = ["reviewer", "critic"];
+var QA_AGENTS = ["reviewer", "critic", "critic_oversight"];
 var PIPELINE_AGENTS = ["explorer", "coder", "test_engineer"];
 var ORCHESTRATOR_NAME = "architect";
 var ALL_SUBAGENT_NAMES = [
@@ -18250,6 +18250,14 @@ var AGENT_TOOL_MAP = {
     "knowledgeRecall"
   ],
   critic_drift_verifier: [
+    "complexity_hotspots",
+    "detect_domains",
+    "imports",
+    "retrieve_summary",
+    "symbols",
+    "knowledgeRecall"
+  ],
+  critic_oversight: [
     "complexity_hotspots",
     "detect_domains",
     "imports",
@@ -19013,7 +19021,8 @@ var swarmState = {
   curatorPhaseAgentNames: [],
   lastBudgetPct: 0,
   agentSessions: new Map,
-  pendingRehydrations: new Set
+  pendingRehydrations: new Set,
+  fullAutoEnabledInConfig: false
 };
 function getAgentSession(sessionId) {
   return swarmState.agentSessions.get(sessionId);
