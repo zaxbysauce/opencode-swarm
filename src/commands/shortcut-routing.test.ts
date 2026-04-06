@@ -269,6 +269,46 @@ describe('swarm-* shortcut command routing', () => {
 			// sync-plan returns some output (may warn about missing files)
 			expect(typeof (output.parts[0] as { text: string }).text).toBe('string');
 		});
+
+		// Regression: swarm-config-doctor and swarm-evidence-summary extract a dash-joined
+		// subcommand ('config-doctor', 'evidence-summary') but the registry historically only had
+		// space-joined keys ('config doctor', 'evidence summary').  The fix adds dash-joined aliases
+		// so these shortcuts no longer silently fall through to the help text.
+		it('routes swarm-config-doctor shortcut (not help text)', async () => {
+			const handler = createSwarmCommandHandler(tempDir, {});
+			const output = { parts: [] as unknown[] };
+
+			await handler(
+				{ command: 'swarm-config-doctor', arguments: '', sessionID: sessionId },
+				output,
+			);
+
+			expect(output.parts).toHaveLength(1);
+			const text = (output.parts[0] as { text: string }).text;
+			// Must NOT fall through to generic help text
+			expect(text).not.toContain('## Swarm Commands');
+			// Should return a config doctor report
+			expect(text).toContain('Config Doctor');
+		});
+
+		it('routes swarm-evidence-summary shortcut (not help text)', async () => {
+			const handler = createSwarmCommandHandler(tempDir, {});
+			const output = { parts: [] as unknown[] };
+
+			await handler(
+				{
+					command: 'swarm-evidence-summary',
+					arguments: '',
+					sessionID: sessionId,
+				},
+				output,
+			);
+
+			expect(output.parts).toHaveLength(1);
+			const text = (output.parts[0] as { text: string }).text;
+			// Must NOT fall through to generic help text
+			expect(text).not.toContain('## Swarm Commands');
+		});
 	});
 
 	describe('swarm-* shortcut with unknown subcommand shows help', () => {
@@ -285,6 +325,43 @@ describe('swarm-* shortcut command routing', () => {
 			expect((output.parts[0] as { text: string }).text).toContain(
 				'## Swarm Commands',
 			);
+		});
+	});
+
+	// Regression: adding 'config-doctor' (dash) alias must not break the original
+	// space-based path '/swarm config doctor' which uses the generic swarm handler.
+	describe('Backward compatibility: space-based compound commands still work', () => {
+		it('/swarm config doctor (space path) still returns Config Doctor output', async () => {
+			const handler = createSwarmCommandHandler(tempDir, {});
+			const output = { parts: [] as unknown[] };
+
+			await handler(
+				{ command: 'swarm', arguments: 'config doctor', sessionID: sessionId },
+				output,
+			);
+
+			expect(output.parts).toHaveLength(1);
+			const text = (output.parts[0] as { text: string }).text;
+			expect(text).not.toContain('## Swarm Commands');
+			expect(text).toContain('Config Doctor');
+		});
+
+		it('/swarm evidence summary (space path) still returns evidence summary output', async () => {
+			const handler = createSwarmCommandHandler(tempDir, {});
+			const output = { parts: [] as unknown[] };
+
+			await handler(
+				{
+					command: 'swarm',
+					arguments: 'evidence summary',
+					sessionID: sessionId,
+				},
+				output,
+			);
+
+			expect(output.parts).toHaveLength(1);
+			const text = (output.parts[0] as { text: string }).text;
+			expect(text).not.toContain('## Swarm Commands');
 		});
 	});
 });
