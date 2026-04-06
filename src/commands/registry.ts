@@ -87,6 +87,13 @@ export const COMMAND_REGISTRY = {
 		description: 'Run config doctor checks',
 		subcommandOf: 'config',
 	},
+	// Alias for TUI shortcut 'swarm-config-doctor' which extracts subcommand as 'config-doctor' (dash).
+	// Without this alias the shortcut resolves to null and shows help text instead of running the command.
+	'config-doctor': {
+		handler: (ctx) => handleDoctorCommand(ctx.directory, ctx.args),
+		description: 'Run config doctor checks',
+		subcommandOf: 'config',
+	},
 	'doctor tools': {
 		handler: (ctx) => handleDoctorToolsCommand(ctx.directory, ctx.args),
 		description: 'Run tool registration coherence check',
@@ -116,6 +123,13 @@ export const COMMAND_REGISTRY = {
 		description: 'Show evidence bundles [taskId]',
 	},
 	'evidence summary': {
+		handler: (ctx) => handleEvidenceSummaryCommand(ctx.directory),
+		description: 'Generate evidence summary with completion ratio and blockers',
+		subcommandOf: 'evidence',
+	},
+	// Alias for TUI shortcut 'swarm-evidence-summary' which extracts subcommand as 'evidence-summary' (dash).
+	// Without this alias the shortcut resolves to null and shows help text instead of running the command.
+	'evidence-summary': {
 		handler: (ctx) => handleEvidenceSummaryCommand(ctx.directory),
 		description: 'Generate evidence summary with completion ratio and blockers',
 		subcommandOf: 'evidence',

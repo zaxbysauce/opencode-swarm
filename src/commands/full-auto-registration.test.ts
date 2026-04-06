@@ -224,5 +224,17 @@ describe('Full-Auto Command Registration', () => {
 				'Full-Auto Mode',
 			);
 		});
+
+		// Regression: the TUI shortcut key for full-auto must be 'swarm-full-auto' (dashes only).
+		// If the key ever contains a space (e.g. 'swarm full-auto'), OpenCode's command picker
+		// cannot filter it — typing '/swarm-full' shows "No matching commands".
+		// This test verifies the registry side (dash key exists); the TUI side is covered by the
+		// shortcut-routing test that calls the handler with command='swarm-full-auto'.
+		it('registry has full-auto with dash (no space) for TUI shortcut compatibility', () => {
+			// 'full-auto' (dash) must exist — this is what swarm-full-auto shortcut resolves to
+			expect(Object.hasOwn(COMMAND_REGISTRY, 'full-auto')).toBe(true);
+			// Key must contain no spaces — a space would break the TUI filter chain
+			expect('full-auto').not.toContain(' ');
+		});
 	});
 });

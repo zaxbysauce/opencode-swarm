@@ -39,6 +39,11 @@ export declare const COMMAND_REGISTRY: {
         readonly description: "Run config doctor checks";
         readonly subcommandOf: "config";
     };
+    readonly 'config-doctor': {
+        readonly handler: (ctx: CommandContext) => Promise<string>;
+        readonly description: "Run config doctor checks";
+        readonly subcommandOf: "config";
+    };
     readonly 'doctor tools': {
         readonly handler: (ctx: CommandContext) => Promise<string>;
         readonly description: "Run tool registration coherence check";
@@ -68,6 +73,11 @@ export declare const COMMAND_REGISTRY: {
         readonly description: "Show evidence bundles [taskId]";
     };
     readonly 'evidence summary': {
+        readonly handler: (ctx: CommandContext) => Promise<string>;
+        readonly description: "Generate evidence summary with completion ratio and blockers";
+        readonly subcommandOf: "evidence";
+    };
+    readonly 'evidence-summary': {
         readonly handler: (ctx: CommandContext) => Promise<string>;
         readonly description: "Generate evidence summary with completion ratio and blockers";
         readonly subcommandOf: "evidence";
