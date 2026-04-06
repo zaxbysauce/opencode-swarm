@@ -16,7 +16,6 @@ import { createFullAutoInterceptHook } from '../../src/hooks/full-auto-intercept
 import {
 	hasActiveFullAuto,
 	resetSwarmState,
-	setFullAutoModelValidation,
 	startAgentSession,
 	swarmState,
 } from '../../src/state';
@@ -90,8 +89,9 @@ describe('full-auto mode integration', () => {
 		// Reset state between tests
 		resetSwarmState();
 
-		// Enable full-auto model validation (required for hasActiveFullAuto to return true)
-		setFullAutoModelValidation(true);
+		// Enable full-auto model validation so hasActiveFullAuto() returns true
+		// for sessions with fullAutoMode=true (advisory-only behavior, Phase 3)
+		swarmState.fullAutoModelValidationPassed = true;
 	});
 
 	afterEach(async () => {
@@ -204,44 +204,167 @@ describe('full-auto mode integration', () => {
 	});
 
 	// ─────────────────────────────────────────────────────────────────────────
-	// Test 2: Phase completion question triggers phase_completion verdict
+	// Test 1b: Prefixed swarm mega_architect dispatches mega_critic_oversight
 	// ─────────────────────────────────────────────────────────────────────────
 
-	it('2. Phase completion question → interaction_mode is phase_completion', async () => {
-		const sessionID = 'test-session-phase-q';
+	it('1b. Prefixed swarm: mega_architect → mega_critic_oversight agent in prompt', async () => {
+		const sessionID = 'test-session-prefixed-mega';
+		startFullAutoSession(sessionID);
+
+		const config = makePluginConfig({
+			enabled: true,
+			critic_model: 'test-critic-model',
+		});
+		const hook = createFullAutoInterceptHook(config, tmpDir);
+
+		// Use mega_architect agent (prefixed swarm)
+		const messages = [
+			{
+				info: { role: 'user' as const, agent: 'mega_architect', sessionID },
+				parts: [{ type: 'text' as const, text: 'Ready for Phase 2?' }],
+			},
+		];
+		const output = { messages };
+
+		// Make the mock client available
+		const originalOpencodeClient = swarmState.opencodeClient;
+		(swarmState as any).opencodeClient = mockClient;
+
+		// Simulate the hook execution
+		await hook.messagesTransform({}, output);
+
+		// Verify critic was invoked with prefixed mega_critic_oversight agent name
+		expect(mockClient.session.prompt).toHaveBeenCalledWith(
+			expect.objectContaining({
+				body: expect.objectContaining({
+					agent: 'mega_critic_oversight',
+				}),
+			}),
+		);
+
+		// Restore original client
+		(swarmState as any).opencodeClient = originalOpencodeClient;
+
+		// Verify the auto_oversight event was written to events.jsonl
+		const eventsPath = path.join(tmpDir, '.swarm', 'events.jsonl');
+		const eventsContent = await fsPromises.readFile(eventsPath, 'utf-8');
+		const lines = eventsContent.trim().split('\n').filter(Boolean);
+
+		expect(lines.length).toBeGreaterThanOrEqual(1);
+
+		// Parse the last event (most recent)
+		const lastEvent = JSON.parse(lines[lines.length - 1]);
+		expect(lastEvent.type).toBe('auto_oversight');
+		expect(lastEvent.interaction_mode).toBe('phase_completion');
+	});
+
+	// ─────────────────────────────────────────────────────────────────────────
+	// Test 2: Phase completion question triggers phase_completion verdict
+	// (split into independent cases to avoid brittle reset/readFile loop)
+	// ─────────────────────────────────────────────────────────────────────────
+
+	it('2a. "Ready for Phase 2?" → interaction_mode is phase_completion', async () => {
+		const sessionID = 'test-session-phase-q-2a';
 		startFullAutoSession(sessionID);
 
 		const config = makePluginConfig({ enabled: true });
 		const hook = createFullAutoInterceptHook(config, tmpDir);
 
-		// Architect signals phase completion with various phrasings
-		const phasePatterns = [
-			'Ready for Phase 2?',
-			'Ready for Phase N+1?',
-			'Should I proceed to the next phase?',
-			'What would you like me to do next?',
-		];
+		const pattern = 'Ready for Phase 2?';
+		const messages = makeMessages(pattern, sessionID);
 
-		for (const pattern of phasePatterns) {
-			// Reset state for each pattern
-			resetSwarmState();
-			setFullAutoModelValidation(true);
-			startFullAutoSession(sessionID);
+		const originalOpencodeClient = swarmState.opencodeClient;
+		(swarmState as any).opencodeClient = mockClient;
 
-			const messages = makeMessages(pattern, sessionID);
-			await hook.messagesTransform({}, { messages });
+		await hook.messagesTransform({}, { messages });
 
-			const eventsPath = path.join(tmpDir, '.swarm', 'events.jsonl');
-			const eventsContent = await fsPromises.readFile(eventsPath, 'utf-8');
-			const lines = eventsContent.trim().split('\n').filter(Boolean);
-			const lastEvent = JSON.parse(lines[lines.length - 1]);
+		(swarmState as any).opencodeClient = originalOpencodeClient;
 
-			expect(lastEvent.interaction_mode).toBe('phase_completion');
-			expect(lastEvent.architect_output).toBe(pattern);
+		const eventsPath = path.join(tmpDir, '.swarm', 'events.jsonl');
+		const eventsContent = await fsPromises.readFile(eventsPath, 'utf-8');
+		const lines = eventsContent.trim().split('\n').filter(Boolean);
+		const lastEvent = JSON.parse(lines[lines.length - 1]);
 
-			// Clear events file for next iteration
-			await fsPromises.writeFile(eventsPath, '', 'utf-8');
-		}
+		expect(lastEvent.interaction_mode).toBe('phase_completion');
+		expect(lastEvent.architect_output).toBe(pattern);
+	});
+
+	it('2b. "Ready for Phase N+1?" → interaction_mode is phase_completion', async () => {
+		const sessionID = 'test-session-phase-q-2b';
+		startFullAutoSession(sessionID);
+
+		const config = makePluginConfig({ enabled: true });
+		const hook = createFullAutoInterceptHook(config, tmpDir);
+
+		const pattern = 'Ready for Phase N+1?';
+		const messages = makeMessages(pattern, sessionID);
+
+		const originalOpencodeClient = swarmState.opencodeClient;
+		(swarmState as any).opencodeClient = mockClient;
+
+		await hook.messagesTransform({}, { messages });
+
+		(swarmState as any).opencodeClient = originalOpencodeClient;
+
+		const eventsPath = path.join(tmpDir, '.swarm', 'events.jsonl');
+		const eventsContent = await fsPromises.readFile(eventsPath, 'utf-8');
+		const lines = eventsContent.trim().split('\n').filter(Boolean);
+		const lastEvent = JSON.parse(lines[lines.length - 1]);
+
+		expect(lastEvent.interaction_mode).toBe('phase_completion');
+		expect(lastEvent.architect_output).toBe(pattern);
+	});
+
+	it('2c. "Should I proceed to the next phase?" → interaction_mode is phase_completion', async () => {
+		const sessionID = 'test-session-phase-q-2c';
+		startFullAutoSession(sessionID);
+
+		const config = makePluginConfig({ enabled: true });
+		const hook = createFullAutoInterceptHook(config, tmpDir);
+
+		const pattern = 'Should I proceed to the next phase?';
+		const messages = makeMessages(pattern, sessionID);
+
+		const originalOpencodeClient = swarmState.opencodeClient;
+		(swarmState as any).opencodeClient = mockClient;
+
+		await hook.messagesTransform({}, { messages });
+
+		(swarmState as any).opencodeClient = originalOpencodeClient;
+
+		const eventsPath = path.join(tmpDir, '.swarm', 'events.jsonl');
+		const eventsContent = await fsPromises.readFile(eventsPath, 'utf-8');
+		const lines = eventsContent.trim().split('\n').filter(Boolean);
+		const lastEvent = JSON.parse(lines[lines.length - 1]);
+
+		expect(lastEvent.interaction_mode).toBe('phase_completion');
+		expect(lastEvent.architect_output).toBe(pattern);
+	});
+
+	it('2d. "What would you like me to do next?" → interaction_mode is phase_completion', async () => {
+		const sessionID = 'test-session-phase-q-2d';
+		startFullAutoSession(sessionID);
+
+		const config = makePluginConfig({ enabled: true });
+		const hook = createFullAutoInterceptHook(config, tmpDir);
+
+		const pattern = 'What would you like me to do next?';
+		const messages = makeMessages(pattern, sessionID);
+
+		const originalOpencodeClient = swarmState.opencodeClient;
+		(swarmState as any).opencodeClient = mockClient;
+
+		await hook.messagesTransform({}, { messages });
+
+		(swarmState as any).opencodeClient = originalOpencodeClient;
+
+		const eventsPath = path.join(tmpDir, '.swarm', 'events.jsonl');
+		const eventsContent = await fsPromises.readFile(eventsPath, 'utf-8');
+		const lines = eventsContent.trim().split('\n').filter(Boolean);
+		const lastEvent = JSON.parse(lines[lines.length - 1]);
+
+		expect(lastEvent.interaction_mode).toBe('phase_completion');
+		expect(lastEvent.architect_output).toBe(pattern);
 	});
 
 	// ─────────────────────────────────────────────────────────────────────────
@@ -421,32 +544,6 @@ describe('full-auto mode integration', () => {
 	});
 
 	// ─────────────────────────────────────────────────────────────────────────
-	// Test 9: Model validation failed → hasActiveFullAuto is false → no event
-	// ─────────────────────────────────────────────────────────────────────────
-
-	it('9. Model validation failed (models matched) → hasActiveFullAuto is false → no event written', async () => {
-		const sessionID = 'test-session-validation-failed';
-		startFullAutoSession(sessionID);
-
-		// Simulate validation failure (models matched at startup)
-		setFullAutoModelValidation(false);
-
-		const config = makePluginConfig({ enabled: true });
-		const hook = createFullAutoInterceptHook(config, tmpDir);
-
-		const messages = makeMessages('Ready for Phase 2?', sessionID);
-		await hook.messagesTransform({}, { messages });
-
-		const eventsPath = path.join(tmpDir, '.swarm', 'events.jsonl');
-		const exists = await fsPromises
-			.access(eventsPath)
-			.then(() => true)
-			.catch(() => false);
-
-		expect(exists).toBe(false);
-	});
-
-	// ─────────────────────────────────────────────────────────────────────────
 	// Test 10: Mid-sentence question marks (v1?) → no escalation
 	// ─────────────────────────────────────────────────────────────────────────
 
@@ -584,25 +681,17 @@ describe('full-auto mode integration', () => {
 	});
 
 	// ─────────────────────────────────────────────────────────────────────────
-	// Test 14: hasActiveFullAuto returns correct value based on session state
+	// Test 14: hasActiveFullAuto returns correct value based on session fullAutoMode
 	// ─────────────────────────────────────────────────────────────────────────
 
-	it('14. hasActiveFullAuto returns true only when session has fullAutoMode=true and validation passed', async () => {
+	it('14. hasActiveFullAuto returns true when session has fullAutoMode=true (advisory-only, no validation gate)', async () => {
 		const sessionID = 'test-session-hasactive';
 
-		// Validation not passed yet
-		setFullAutoModelValidation(false);
-		expect(hasActiveFullAuto(sessionID)).toBe(false);
-
-		// Start session
+		// Start session without fullAutoMode
 		startAgentSession(sessionID, 'architect', 7200000, tmpDir);
-		expect(hasActiveFullAuto(sessionID)).toBe(false); // Validation still false
-
-		// Validation passes but session doesn't have fullAutoMode
-		setFullAutoModelValidation(true);
 		expect(hasActiveFullAuto(sessionID)).toBe(false);
 
-		// Enable fullAutoMode on session
+		// Enable fullAutoMode on session - advisory-only: validation state is ignored
 		const session = swarmState.agentSessions.get(sessionID);
 		session!.fullAutoMode = true;
 		expect(hasActiveFullAuto(sessionID)).toBe(true);

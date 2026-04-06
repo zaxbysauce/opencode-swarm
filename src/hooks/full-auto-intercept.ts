@@ -12,6 +12,7 @@ import * as fs from 'node:fs';
 
 import { createCriticAutonomousOversightAgent } from '../agents/critic';
 import type { PluginConfig } from '../config';
+import { stripKnownSwarmPrefix } from '../config/schema.js';
 import { tryAcquireLock } from '../parallel/file-locks.js';
 import { hasActiveFullAuto, swarmState } from '../state.js';
 import { telemetry } from '../telemetry';
@@ -69,6 +70,49 @@ function hashString(str: string): string {
  */
 function isMidSentenceQuestion(text: string): boolean {
 	return MID_SENTENCE_QUESTION_PATTERNS.some((pattern) => pattern.test(text));
+}
+
+/**
+ * Resolves the oversight agent name for the current swarm.
+ *
+ * Derives the oversight agent name directly from the original architect agent string
+ * and the canonical stripped base role. Preserves original separator/prefix bytes.
+ *
+ * - undefined/empty architect agent -> 'critic_oversight'
+ * - 'architect' -> 'critic_oversight'
+ * - '<prefix><sep>architect' -> '<prefix><sep>critic_oversight'
+ * - Arbitrary/custom prefixes work: 'teamalpha_architect' -> 'teamalpha_critic_oversight'
+ */
+function resolveOversightAgentName(
+	architectAgentName: string | undefined,
+): string {
+	// Handle undefined or empty input
+	if (!architectAgentName) {
+		return 'critic_oversight';
+	}
+
+	const stripped = stripKnownSwarmPrefix(architectAgentName);
+
+	// If stripped base role is not 'architect', fall back to default
+	if (stripped !== 'architect') {
+		return 'critic_oversight';
+	}
+
+	// The base role is 'architect' — remove the trailing 'architect' (case-insensitive)
+	// from the original and append 'critic_oversight'. This preserves the original
+	// separator/prefix bytes.
+	// e.g., 'teamalpha_architect' -> 'teamalpha_critic_oversight'
+	// e.g., 'team-alpha_architect' -> 'team-alpha_critic_oversight'
+	const baseRole = 'architect';
+	const lastIndex = architectAgentName.toLowerCase().lastIndexOf(baseRole);
+	if (lastIndex <= 0) {
+		// Shouldn't happen if stripped === 'architect', but guard defensively
+		return 'critic_oversight';
+	}
+
+	// Take everything before 'architect' and append 'critic_oversight'
+	const prefix = architectAgentName.slice(0, lastIndex);
+	return `${prefix}critic_oversight`;
 }
 
 /**
@@ -345,6 +389,7 @@ export function injectVerdictIntoMessages(
 	architectIndex: number,
 	criticResult: CriticDispatchResult,
 	_escalationType: 'phase_completion' | 'question',
+	oversightAgentName: string,
 ): void {
 	// Handle ESCALATE_TO_HUMAN — trigger escalation but still inject the verdict
 	if (
@@ -354,7 +399,7 @@ export function injectVerdictIntoMessages(
 		const verdictMessage: MessageWithParts = {
 			info: {
 				role: 'assistant',
-				agent: 'critic_oversight',
+				agent: oversightAgentName,
 			},
 			parts: [
 				{
@@ -372,7 +417,7 @@ export function injectVerdictIntoMessages(
 		const verdictMessage: MessageWithParts = {
 			info: {
 				role: 'assistant',
-				agent: 'critic_oversight',
+				agent: oversightAgentName,
 			},
 			parts: [
 				{
@@ -400,7 +445,7 @@ export function injectVerdictIntoMessages(
 	const verdictMessage: MessageWithParts = {
 		info: {
 			role: 'assistant',
-			agent: 'critic_oversight',
+			agent: oversightAgentName,
 		},
 		parts: [
 			{
@@ -426,6 +471,7 @@ export async function dispatchCriticAndWriteEvent(
 	escalationType: 'phase_completion' | 'question',
 	interactionCount: number,
 	deadlockCount: number,
+	oversightAgentName: string,
 ): Promise<CriticDispatchResult> {
 	const client = swarmState.opencodeClient;
 
@@ -490,11 +536,11 @@ export async function dispatchCriticAndWriteEvent(
 			`[full-auto-intercept] Created ephemeral session: ${ephemeralSessionId}`,
 		);
 
-		// 2. Prompt using the 'critic_oversight' agent (read-only tools)
+		// 2. Prompt using the registered oversight agent (read-only tools)
 		const promptResult = await client.session.prompt({
 			path: { id: ephemeralSessionId },
 			body: {
-				agent: 'critic_oversight',
+				agent: oversightAgentName,
 				tools: { write: false, edit: false, patch: false },
 				parts: [{ type: 'text', text: criticContext }],
 			},
@@ -741,9 +787,22 @@ export function createFullAutoInterceptHook(
 			criticContext,
 		);
 
+		// Resolve the oversight agent name for the current swarm
+		const architectAgent = architectMessage.info?.agent;
+		const resolvedOversightAgentName =
+			resolveOversightAgentName(architectAgent);
+
+		// Defensive validation: ensure the resolved name is non-empty and sensible
+		// before using it for dispatch. If somehow it's empty (shouldn't happen with
+		// current logic, but guard in case), fall back to 'critic_oversight'.
+		const dispatchAgentName =
+			resolvedOversightAgentName && resolvedOversightAgentName.length > 0
+				? resolvedOversightAgentName
+				: 'critic_oversight';
+
 		// Log the oversight agent that was created (for debugging)
 		console.log(
-			`[full-auto-intercept] Created autonomous oversight agent: ${oversightAgent.name} using model ${criticModel}`,
+			`[full-auto-intercept] Created autonomous oversight agent: ${oversightAgent.name} using model ${criticModel} (dispatch as: ${dispatchAgentName})`,
 		);
 
 		// Dispatch the critic and write event after response
@@ -755,6 +814,7 @@ export function createFullAutoInterceptHook(
 			escalationType,
 			session?.fullAutoInteractionCount ?? 0,
 			session?.fullAutoDeadlockCount ?? 0,
+			dispatchAgentName,
 		);
 
 		// Inject verdict into message stream
@@ -763,6 +823,7 @@ export function createFullAutoInterceptHook(
 			lastArchitectMessageIndex,
 			criticResult,
 			escalationType,
+			dispatchAgentName,
 		);
 	};
 
@@ -929,18 +990,4 @@ async function handleEscalation(
 		`[full-auto-intercept] ESCALATION (pause mode) — reason: ${reason}, session: ${sessionID}`,
 	);
 	return true;
-}
-
-/**
- * Strips known swarm prefixes from agent names.
- */
-function stripKnownSwarmPrefix(agent: string): string {
-	// Strip common swarm prefixes if present
-	const prefixes = ['local_', 'mega_', 'paid_', 'modelrelay_', 'lowtier_'];
-	for (const prefix of prefixes) {
-		if (agent.startsWith(prefix)) {
-			return agent.slice(prefix.length);
-		}
-	}
-	return agent;
 }

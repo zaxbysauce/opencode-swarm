@@ -101,7 +101,7 @@ mock.module('../../../src/parallel/file-locks.js', () => ({
 
 mock.module('../../../src/agents/critic.js', () => ({
 	createCriticAutonomousOversightAgent: mock(() => ({
-		name: 'autonomous-oversight',
+		name: 'critic_oversight',
 	})),
 }));
 
@@ -586,6 +586,7 @@ describe('dispatchCriticAndWriteEvent fallback', () => {
 			'phase_completion',
 			0,
 			0,
+			'critic_oversight',
 		);
 
 		expect(result.verdict).toBe('PENDING');
@@ -604,6 +605,7 @@ describe('dispatchCriticAndWriteEvent fallback', () => {
 			'phase_completion',
 			5,
 			2,
+			'critic_oversight',
 		);
 
 		const eventsPath = path.join(testDir, '.swarm', 'events.jsonl');
@@ -627,6 +629,7 @@ describe('dispatchCriticAndWriteEvent fallback', () => {
 			'phase_completion',
 			0,
 			0,
+			'critic_oversight',
 		);
 
 		expect(
@@ -684,6 +687,7 @@ describe('injectVerdictIntoMessages', () => {
 				architectIndex,
 				criticResult,
 				'phase_completion',
+				'critic_oversight',
 			);
 
 			// Should have 4 messages now (3 original + 1 injected)
@@ -711,10 +715,17 @@ describe('injectVerdictIntoMessages', () => {
 				rawResponse: '',
 			};
 
-			injectVerdictIntoMessages(messages, 1, criticResult, 'question');
+			injectVerdictIntoMessages(
+				messages,
+				1,
+				criticResult,
+				'question',
+				'critic_oversight',
+			);
 
 			const injected = messages[2];
 			expect(injected.info.role).toBe('assistant');
+			expect(injected.info.agent).toBe('critic_oversight');
 			expect(injected.parts[0].text).toContain('ANSWER');
 		});
 	});
@@ -739,6 +750,7 @@ describe('injectVerdictIntoMessages', () => {
 				architectIndex,
 				criticResult,
 				'question',
+				'critic_oversight',
 			);
 
 			expect(messages.length).toBe(4);
@@ -769,11 +781,13 @@ describe('injectVerdictIntoMessages', () => {
 				architectIndex,
 				criticResult,
 				'question',
+				'critic_oversight',
 			);
 
 			expect(messages.length).toBe(4);
 
 			const injected = messages[architectIndex + 1];
+			expect(injected.info.agent).toBe('critic_oversight');
 			expect(injected.parts[0].text).toContain('ESCALATE_TO_HUMAN');
 		});
 	});
@@ -797,6 +811,7 @@ describe('injectVerdictIntoMessages', () => {
 				architectIndex,
 				criticResult,
 				'phase_completion',
+				'critic_oversight',
 			);
 
 			expect(messages.length).toBe(4);
@@ -828,6 +843,7 @@ describe('injectVerdictIntoMessages', () => {
 				architectIndex,
 				criticResult,
 				'phase_completion',
+				'critic_oversight',
 			);
 
 			// Messages after injection: [orchestrator, architect, injected, architect_response]
@@ -835,6 +851,7 @@ describe('injectVerdictIntoMessages', () => {
 			expect(messages[0].info.role).toBe('assistant'); // orchestrator unchanged
 			expect(messages[1].info.role).toBe('user'); // architect unchanged
 			expect(messages[2].info.role).toBe('assistant'); // injected verdict
+			expect(messages[2].info.agent).toBe('critic_oversight');
 			expect(messages[3].info.role).toBe('assistant'); // original architect response
 		});
 	});
@@ -858,12 +875,14 @@ describe('injectVerdictIntoMessages', () => {
 				architectIndex,
 				criticResult,
 				'phase_completion',
+				'critic_oversight',
 			);
 
 			expect(messages.length).toBe(4);
 
 			const injected = messages[architectIndex + 1];
 			expect(injected.info.role).toBe('assistant');
+			expect(injected.info.agent).toBe('critic_oversight');
 			expect(injected.parts[0].text).toContain('🔄');
 			expect(injected.parts[0].text).toContain('NEEDS_REVISION');
 			expect(injected.parts[0].text).toContain(
@@ -885,9 +904,16 @@ describe('injectVerdictIntoMessages', () => {
 				rawResponse: '',
 			};
 
-			injectVerdictIntoMessages(messages, 1, criticResult, 'question');
+			injectVerdictIntoMessages(
+				messages,
+				1,
+				criticResult,
+				'question',
+				'critic_oversight',
+			);
 
 			const injected = messages[2];
+			expect(injected.info.agent).toBe('critic_oversight');
 			expect(injected.parts[0].text).toContain('❌');
 			expect(injected.parts[0].text).toContain('REJECTED');
 		});
@@ -906,9 +932,16 @@ describe('injectVerdictIntoMessages', () => {
 				rawResponse: '',
 			};
 
-			injectVerdictIntoMessages(messages, 1, criticResult, 'question');
+			injectVerdictIntoMessages(
+				messages,
+				1,
+				criticResult,
+				'question',
+				'critic_oversight',
+			);
 
 			const injected = messages[2];
+			expect(injected.info.agent).toBe('critic_oversight');
 			expect(injected.parts[0].text).toContain('🚫');
 			expect(injected.parts[0].text).toContain('BLOCKED');
 		});
@@ -927,9 +960,16 @@ describe('injectVerdictIntoMessages', () => {
 				rawResponse: '',
 			};
 
-			injectVerdictIntoMessages(messages, 1, criticResult, 'question');
+			injectVerdictIntoMessages(
+				messages,
+				1,
+				criticResult,
+				'question',
+				'critic_oversight',
+			);
 
 			const injected = messages[2];
+			expect(injected.info.agent).toBe('critic_oversight');
 			expect(injected.parts[0].text).toContain('💬');
 			expect(injected.parts[0].text).toContain('REPHRASE');
 		});
@@ -953,11 +993,18 @@ describe('injectVerdictIntoMessages', () => {
 				rawResponse: '',
 			};
 
-			injectVerdictIntoMessages(messages, 0, criticResult, 'question');
+			injectVerdictIntoMessages(
+				messages,
+				0,
+				criticResult,
+				'question',
+				'critic_oversight',
+			);
 
 			expect(messages.length).toBe(2);
 			expect(messages[0].info.role).toBe('user'); // architect unchanged
 			expect(messages[1].info.role).toBe('assistant'); // injected
+			expect(messages[1].info.agent).toBe('critic_oversight');
 		});
 
 		it('handles very long reasoning', () => {
@@ -973,9 +1020,16 @@ describe('injectVerdictIntoMessages', () => {
 				rawResponse: '',
 			};
 
-			injectVerdictIntoMessages(messages, 1, criticResult, 'phase_completion');
+			injectVerdictIntoMessages(
+				messages,
+				1,
+				criticResult,
+				'phase_completion',
+				'critic_oversight',
+			);
 
 			const injected = messages[2];
+			expect(injected.info.agent).toBe('critic_oversight');
 			expect(injected.parts[0].text).toContain(longReasoning);
 		});
 
@@ -992,9 +1046,16 @@ describe('injectVerdictIntoMessages', () => {
 				rawResponse: '',
 			};
 
-			injectVerdictIntoMessages(messages, 1, criticResult, 'phase_completion');
+			injectVerdictIntoMessages(
+				messages,
+				1,
+				criticResult,
+				'phase_completion',
+				'critic_oversight',
+			);
 
 			const injected = messages[2];
+			expect(injected.info.agent).toBe('critic_oversight');
 			expect(injected.parts[0].text).toContain('"quotes"');
 			expect(injected.parts[0].text).toContain('`backticks`');
 			expect(injected.parts[0].text).toContain('*asterisks*');
@@ -1012,11 +1073,87 @@ describe('injectVerdictIntoMessages', () => {
 				rawResponse: '',
 			};
 
-			injectVerdictIntoMessages(messages, 1, criticResult, 'phase_completion');
+			injectVerdictIntoMessages(
+				messages,
+				1,
+				criticResult,
+				'phase_completion',
+				'critic_oversight',
+			);
 
 			const injected = messages[2];
+			expect(injected.info.agent).toBe('critic_oversight');
 			expect(injected.parts[0].text).toContain('🎉');
 			expect(injected.parts[0].text).toContain('✓');
+		});
+	});
+
+	describe('prefixed swarm oversight agent name', () => {
+		it('injects verdict with mega_critic_oversight when architect is mega_architect', () => {
+			const messages = [
+				{
+					info: { role: 'assistant' as const, agent: 'orchestrator' },
+					parts: [{ type: 'text' as const, text: 'Orchestrator message' }],
+				},
+				{
+					info: { role: 'user' as const, agent: 'mega_architect' },
+					parts: [{ type: 'text' as const, text: 'Ready for Phase 2?' }],
+				},
+			];
+			const architectIndex = 1;
+
+			const criticResult = {
+				verdict: 'APPROVED',
+				reasoning: 'Phase 2 is ready.',
+				evidenceChecked: [],
+				antiPatternsDetected: [],
+				escalationNeeded: false,
+				rawResponse: '',
+			};
+
+			injectVerdictIntoMessages(
+				messages,
+				architectIndex,
+				criticResult,
+				'phase_completion',
+				'mega_critic_oversight',
+			);
+
+			expect(messages.length).toBe(3);
+			const injected = messages[architectIndex + 1];
+			expect(injected.info.role).toBe('assistant');
+			expect(injected.info.agent).toBe('mega_critic_oversight');
+		});
+
+		it('injects verdict with teamalpha_critic_oversight when architect is teamalpha_architect', () => {
+			const messages = [
+				{
+					info: { role: 'user' as const, agent: 'teamalpha_architect' },
+					parts: [{ type: 'text' as const, text: 'Should I proceed?' }],
+				},
+			];
+			const architectIndex = 0;
+
+			const criticResult = {
+				verdict: 'ANSWER',
+				reasoning: 'Yes, proceed with the implementation.',
+				evidenceChecked: [],
+				antiPatternsDetected: [],
+				escalationNeeded: false,
+				rawResponse: '',
+			};
+
+			injectVerdictIntoMessages(
+				messages,
+				architectIndex,
+				criticResult,
+				'question',
+				'teamalpha_critic_oversight',
+			);
+
+			expect(messages.length).toBe(2);
+			const injected = messages[architectIndex + 1];
+			expect(injected.info.agent).toBe('teamalpha_critic_oversight');
 		});
 	});
 });

@@ -1088,15 +1088,9 @@ export function hasActiveTurboMode(sessionID?: string): boolean {
  * Check if Full Auto Mode is enabled for a specific session or ANY session.
  * @param sessionID - Optional session ID to check. If provided, checks only that session.
  *                    If omitted, checks all sessions (backward-compatible global behavior).
- * @returns true only if the specified session has fullAutoMode: true AND the startup validation
- *          confirmed critic/architect models differ. Returns false if models matched at startup.
+ * @returns true if the specified session has fullAutoMode: true (model validation is advisory-only).
  */
 export function hasActiveFullAuto(sessionID?: string): boolean {
-	// Fail-safe: if model validation failed (models matched), deny activation
-	if (!swarmState.fullAutoModelValidationPassed) {
-		return false;
-	}
-
 	if (sessionID) {
 		const session = swarmState.agentSessions.get(sessionID);
 		return session?.fullAutoMode === true;

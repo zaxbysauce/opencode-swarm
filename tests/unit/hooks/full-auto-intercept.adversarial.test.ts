@@ -388,36 +388,32 @@ export { foo, test };
 	// ADVERSARIAL TEST 2: Critic model matches architect model at startup
 	// ========================================================================
 	describe('ADVERSARIAL: Critic model matches architect model at startup', () => {
-		it('hasActiveFullAuto returns false when fullAutoModelValidationPassed is false', async () => {
-			// Simulate model validation failure
+		it('hasActiveFullAuto returns true when session has fullAutoMode even if model validation failed', async () => {
+			// Simulate model validation failure (advisory-only: this no longer blocks full-auto)
 			globalState.fullAutoModelValidationPassed = false;
-			mockHasActiveFullAuto.mockImplementation(() => false);
+			// Mock: session has fullAutoMode=true even though model validation failed
+			mockHasActiveFullAuto.mockImplementation(() => true);
 
 			const config = createFullAutoConfig({ enabled: true });
 			const hooks = createFullAutoInterceptHook(config, testDir);
 
-			// Even with full_auto enabled, escalation should NOT trigger
-			// because hasActiveFullAuto returns false
+			// Escalation SHOULD trigger because session has fullAutoMode=true
+			// Model validation is advisory-only, not a hard gate
 			const messages = makeMessages(
 				makeArchitectMessage('Ready for Phase 2?', 'session-1'),
 			);
 			await hooks.messagesTransform({}, { messages });
 
-			expect(wasEscalationDetected(consoleLogCalls)).toBe(false);
+			expect(wasEscalationDetected(consoleLogCalls)).toBe(true);
 		});
 
-		it('hasActiveFullAuto returns false when critic and architect models are the same', async () => {
+		it('hasActiveFullAuto returns true when session has fullAutoMode even if models match', async () => {
 			// Simulate the condition where critic model === architect model
 			// In the real code, this happens in src/index.ts startup validation
+			// Model validation is advisory-only, not a hard gate
 			globalState.fullAutoModelValidationPassed = false;
-
-			// Mock hasActiveFullAuto to check fullAutoModelValidationPassed
-			mockHasActiveFullAuto.mockImplementation(() => {
-				if (!globalState.fullAutoModelValidationPassed) {
-					return false;
-				}
-				return true;
-			});
+			// Mock: session has fullAutoMode=true even though model validation failed
+			mockHasActiveFullAuto.mockImplementation(() => true);
 
 			const config = createFullAutoConfig({
 				enabled: true,
@@ -430,8 +426,8 @@ export { foo, test };
 			);
 			await hooks.messagesTransform({}, { messages });
 
-			// Should NOT escalate because model validation failed
-			expect(wasEscalationDetected(consoleLogCalls)).toBe(false);
+			// Escalation SHOULD trigger because session has fullAutoMode=true
+			expect(wasEscalationDetected(consoleLogCalls)).toBe(true);
 		});
 
 		it('hasActiveFullAuto returns true when model validation passed', async () => {

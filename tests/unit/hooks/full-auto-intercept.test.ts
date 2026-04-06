@@ -704,6 +704,111 @@ describe('full-auto-intercept detectEscalation via messagesTransform', () => {
 
 			expect(wasEscalationDetected(consoleLogCalls)).toBe(false);
 		});
+
+		it('processes architect message with cloud_architect prefix (cloud not in old allowlist)', async () => {
+			mockHasActiveFullAuto.mockImplementation(() => true);
+
+			const config = createFullAutoConfig({ enabled: true });
+			const hooks = createFullAutoInterceptHook(config, testDir);
+
+			const messages = [
+				makeArchitectMessage(
+					'Ready for Phase 2?',
+					'session-1',
+					'cloud_architect',
+				),
+			];
+
+			await hooks.messagesTransform({}, { messages });
+
+			expect(
+				wasEscalationDetected(consoleLogCalls, 'Escalation detected'),
+			).toBe(true);
+		});
+
+		it('processes architect message with enterprise_architect prefix (enterprise not in old allowlist)', async () => {
+			mockHasActiveFullAuto.mockImplementation(() => true);
+
+			const config = createFullAutoConfig({ enabled: true });
+			const hooks = createFullAutoInterceptHook(config, testDir);
+
+			const messages = [
+				makeArchitectMessage(
+					'Ready for Phase 2?',
+					'session-1',
+					'enterprise_architect',
+				),
+			];
+
+			await hooks.messagesTransform({}, { messages });
+
+			expect(
+				wasEscalationDetected(consoleLogCalls, 'Escalation detected'),
+			).toBe(true);
+		});
+
+		it('processes architect message with synthetic_architect prefix (synthetic not in old allowlist)', async () => {
+			mockHasActiveFullAuto.mockImplementation(() => true);
+
+			const config = createFullAutoConfig({ enabled: true });
+			const hooks = createFullAutoInterceptHook(config, testDir);
+
+			const messages = [
+				makeArchitectMessage(
+					'Ready for Phase 2?',
+					'session-1',
+					'synthetic_architect',
+				),
+			];
+
+			await hooks.messagesTransform({}, { messages });
+
+			expect(
+				wasEscalationDetected(consoleLogCalls, 'Escalation detected'),
+			).toBe(true);
+		});
+
+		it('processes architect message with team-architect prefix (Strategy 2: suffix matching with hyphen separator)', async () => {
+			mockHasActiveFullAuto.mockImplementation(() => true);
+
+			const config = createFullAutoConfig({ enabled: true });
+			const hooks = createFullAutoInterceptHook(config, testDir);
+
+			const messages = [
+				makeArchitectMessage(
+					'Ready for Phase 2?',
+					'session-1',
+					'team-architect',
+				),
+			];
+
+			await hooks.messagesTransform({}, { messages });
+
+			expect(
+				wasEscalationDetected(consoleLogCalls, 'Escalation detected'),
+			).toBe(true);
+		});
+
+		it('processes architect message with xyz_architect prefix (Strategy 2: arbitrary prefix suffix matching)', async () => {
+			mockHasActiveFullAuto.mockImplementation(() => true);
+
+			const config = createFullAutoConfig({ enabled: true });
+			const hooks = createFullAutoInterceptHook(config, testDir);
+
+			const messages = [
+				makeArchitectMessage(
+					'Ready for Phase 2?',
+					'session-1',
+					'xyz_architect',
+				),
+			];
+
+			await hooks.messagesTransform({}, { messages });
+
+			expect(
+				wasEscalationDetected(consoleLogCalls, 'Escalation detected'),
+			).toBe(true);
+		});
 	});
 
 	describe('full-auto disabled behavior', () => {
