@@ -1,5 +1,12 @@
 # Changelog
 
+## [6.53.2](https://github.com/zaxbysauce/opencode-swarm/compare/v6.53.1...v6.53.2) (2026-04-06)
+
+
+### Bug Fixes
+
+* **build:** rebuild dist files to include full-auto command registration ([735add6](https://github.com/zaxbysauce/opencode-swarm/commit/735add6c452fc918710873cacf9b813023b44fd2))
+
 ## [6.53.1](https://github.com/zaxbysauce/opencode-swarm/compare/v6.53.0...v6.53.1) (2026-04-06)
 
 
