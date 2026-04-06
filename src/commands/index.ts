@@ -53,6 +53,7 @@ export { handleSimulateCommand } from './simulate';
 export { handleSpecifyCommand } from './specify';
 export { handleStatusCommand } from './status';
 export { handleSyncPlanCommand } from './sync-plan';
+export { handleFullAutoCommand } from './full-auto';
 export { handleTurboCommand } from './turbo';
 export { handleWriteRetroCommand } from './write-retro';
 
