@@ -4,9 +4,9 @@
  */
 
 import { afterEach, beforeEach, describe, expect, it } from 'bun:test';
+import { handleFullAutoCommand } from '../commands/full-auto';
 import * as commandsIndex from '../commands/index';
 import { COMMAND_REGISTRY, VALID_COMMANDS } from '../commands/registry';
-import { handleFullAutoCommand } from '../commands/full-auto';
 import { getAgentSession, swarmState } from '../state';
 
 describe('Full-Auto Command Registration', () => {
@@ -220,7 +220,9 @@ describe('Full-Auto Command Registration', () => {
 			expect(VALID_COMMANDS).toContain('full-auto');
 			expect(typeof COMMAND_REGISTRY['full-auto']).toBe('object');
 			expect(typeof COMMAND_REGISTRY['full-auto'].handler).toBe('function');
-			expect(COMMAND_REGISTRY['full-auto'].description).toContain('Full-Auto Mode');
+			expect(COMMAND_REGISTRY['full-auto'].description).toContain(
+				'Full-Auto Mode',
+			);
 		});
 	});
 });

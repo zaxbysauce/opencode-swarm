@@ -23,6 +23,7 @@ export {
 	handleEvidenceSummaryCommand,
 } from './evidence';
 export { handleExportCommand } from './export';
+export { handleFullAutoCommand } from './full-auto';
 export { handleHandoffCommand } from './handoff';
 export { handleHistoryCommand } from './history';
 export {
@@ -53,7 +54,6 @@ export { handleSimulateCommand } from './simulate';
 export { handleSpecifyCommand } from './specify';
 export { handleStatusCommand } from './status';
 export { handleSyncPlanCommand } from './sync-plan';
-export { handleFullAutoCommand } from './full-auto';
 export { handleTurboCommand } from './turbo';
 export { handleWriteRetroCommand } from './write-retro';
 

@@ -40,7 +40,9 @@ export async function handleFullAutoCommand(
 	} else {
 		// Toggle behavior when no argument provided
 		newFullAutoMode = !session.fullAutoMode;
-		feedback = newFullAutoMode ? 'Full-Auto Mode enabled' : 'Full-Auto Mode disabled';
+		feedback = newFullAutoMode
+			? 'Full-Auto Mode enabled'
+			: 'Full-Auto Mode disabled';
 	}
 
 	// Update the session state
