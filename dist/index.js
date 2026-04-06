@@ -65000,7 +65000,7 @@ async function executePhaseComplete(args2, workingDirectory, directory) {
           }
         } catch {}
       }
-    } catch (error93) {
+    } catch (_error) {
       if (await ledgerExists(dir)) {
         try {
           const rebuilt = await replayFromLedger(dir);
