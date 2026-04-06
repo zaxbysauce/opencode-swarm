@@ -415,9 +415,9 @@ describe('critic.ts prompt overhaul', () => {
 	// TEST 11: Verify createCriticAutonomousOversightAgent
 	// ============================================================
 	describe('createCriticAutonomousOversightAgent', () => {
-		test('returns agent with name "critic"', () => {
+		test('returns agent with name "critic_oversight"', () => {
 			const agent = createCriticAutonomousOversightAgent(TEST_MODEL);
-			expect(agent.name).toBe('critic');
+			expect(agent.name).toBe('critic_oversight');
 		});
 
 		test('uses AUTONOMOUS_OVERSIGHT_PROMPT by default', () => {

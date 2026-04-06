@@ -134,13 +134,14 @@ describe('full-auto mode integration', () => {
 	}
 
 	/**
-	 * Helper: start a session with fullAutoMode enabled
+	 * Helper: start a session with fullAutoMode enabled via config
 	 */
 	function startFullAutoSession(sessionID: string): void {
+		// Set config flag BEFORE startAgentSession so session picks it up automatically
+		swarmState.fullAutoEnabledInConfig = true;
 		startAgentSession(sessionID, 'architect', 7200000, tmpDir);
 		const session = swarmState.agentSessions.get(sessionID);
 		if (session) {
-			session.fullAutoMode = true;
 			session.fullAutoInteractionCount = 0;
 			session.fullAutoDeadlockCount = 0;
 		}
@@ -169,6 +170,15 @@ describe('full-auto mode integration', () => {
 
 		// Simulate the hook execution
 		await hook.messagesTransform({}, output);
+
+		// Verify critic was invoked with correct agent name
+		expect(mockClient.session.prompt).toHaveBeenCalledWith(
+			expect.objectContaining({
+				body: expect.objectContaining({
+					agent: 'critic_oversight',
+				}),
+			}),
+		);
 
 		// Restore original client
 		(swarmState as any).opencodeClient = originalOpencodeClient;
@@ -301,12 +311,9 @@ describe('full-auto mode integration', () => {
 	it('5. Full-auto disabled → messagesTransform is no-op → no events.jsonl created', async () => {
 		const sessionID = 'test-session-disabled';
 
-		// Start session but with fullAutoMode = false (will be overridden by disabled config)
+		// Enable via config BEFORE startAgentSession (session will pick it up automatically)
+		swarmState.fullAutoEnabledInConfig = true;
 		startAgentSession(sessionID, 'architect', 7200000, tmpDir);
-		const session = swarmState.agentSessions.get(sessionID);
-		if (session) {
-			session.fullAutoMode = true; // Session wants full-auto
-		}
 
 		// Config has full_auto disabled
 		const config = makePluginConfig({
@@ -619,7 +626,7 @@ describe('full-auto mode integration', () => {
 			'some additional context',
 		);
 
-		expect(agent.name).toBe('critic');
+		expect(agent.name).toBe('critic_oversight');
 		expect(agent.description).toContain('AUTONOMOUS OVERSIGHT');
 		expect(agent.config.model).toBe('test-model');
 		expect(agent.config.prompt).toContain('AUTONOMOUS OVERSIGHT');

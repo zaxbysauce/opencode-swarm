@@ -28,13 +28,6 @@ interface RehydrationCache {
 let _rehydrationCache: RehydrationCache | null = null;
 
 /**
- * Tracks whether full-auto mode passed startup validation (critic/architect models differ).
- * Set by setFullAutoModelValidation() after config validation succeeds.
- * If validation fails (models match), this remains false and hasActiveFullAuto() returns false.
- */
-let _fullAutoModelValidationPassed = false;
-
-/**
  * Represents a single tool call entry for tracking purposes
  */
 export interface ToolCallEntry {
@@ -267,6 +260,12 @@ export const swarmState = {
 
 	/** In-flight rehydration promises — awaited by rehydrateState before clearing agentSessions */
 	pendingRehydrations: new Set<Promise<void>>(),
+
+	// Full Auto Mode (Phase 4)
+	/** Whether full-auto mode is enabled in config */
+	fullAutoEnabledInConfig: false,
+	/** Whether full-auto mode passed startup validation (critic/architect models differ) */
+	fullAutoModelValidationPassed: false,
 };
 
 /**
@@ -285,6 +284,9 @@ export function resetSwarmState(): void {
 	swarmState.curatorInitAgentNames = [];
 	swarmState.curatorPhaseAgentNames = [];
 	_rehydrationCache = null;
+	// Full Auto Mode (Phase 4)
+	swarmState.fullAutoEnabledInConfig = false;
+	swarmState.fullAutoModelValidationPassed = false;
 	// Note: Session-scoped fields (architectWriteCount, gateLog, reviewerCallCount, lastGateFailure)
 	// are cleared when agentSessions entries are deleted
 }
@@ -356,7 +358,7 @@ export function startAgentSession(
 		// Turbo Mode (v6.26)
 		turboMode: false,
 		// Full Auto Mode (Phase 2)
-		fullAutoMode: false,
+		fullAutoMode: swarmState.fullAutoEnabledInConfig,
 		fullAutoInteractionCount: 0,
 		fullAutoDeadlockCount: 0,
 		fullAutoLastQuestionHash: null,
@@ -1091,7 +1093,7 @@ export function hasActiveTurboMode(sessionID?: string): boolean {
  */
 export function hasActiveFullAuto(sessionID?: string): boolean {
 	// Fail-safe: if model validation failed (models matched), deny activation
-	if (!_fullAutoModelValidationPassed) {
+	if (!swarmState.fullAutoModelValidationPassed) {
 		return false;
 	}
 
@@ -1113,5 +1115,5 @@ export function hasActiveFullAuto(sessionID?: string): boolean {
  * Enables full-auto mode to be activated for sessions.
  */
 export function setFullAutoModelValidation(passed: boolean): void {
-	_fullAutoModelValidationPassed = passed;
+	swarmState.fullAutoModelValidationPassed = passed;
 }

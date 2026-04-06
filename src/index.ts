@@ -147,13 +147,16 @@ const OpenCodeSwarm: Plugin = async (ctx) => {
 
 		if (criticModel === architectModel) {
 			console.warn(
-				'Full-auto mode requires a different critic model than architect model. Falling back to normal mode.',
+				'Full-auto mode requires a different critic model than architect model. Falling back to normal mode. (Note: This is a best-effort config check; runtime architect model is determined by the orchestrator)',
 			);
 			setFullAutoModelValidation(false);
 		} else {
 			setFullAutoModelValidation(true);
 		}
 	}
+
+	// Track whether full-auto mode is enabled in config
+	swarmState.fullAutoEnabledInConfig = config.full_auto?.enabled === true;
 
 	// Store SDK client for curator LLM delegation
 	swarmState.opencodeClient = ctx.client;

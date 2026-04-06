@@ -13,7 +13,7 @@ import { afterEach, beforeEach, describe, expect, it } from 'bun:test';
 import * as fs from 'node:fs';
 import * as os from 'node:os';
 import * as path from 'node:path';
-import { createArchitectAgent } from '../agents/architect';
+import { createSystemEnhancerHook } from '../hooks/system-enhancer';
 import {
 	formatStatusMarkdown,
 	getStatusData,
@@ -279,37 +279,182 @@ describe('Task 4: Turbo Mode Regression Tests', () => {
 	});
 
 	// ============================================
-	// TEST 4: Architect prompt includes TURBO MODE ACTIVE banner when active
+	// TEST 4: System-enhancer hook injects TURBO MODE ACTIVE banner when active
 	// ============================================
-	describe('4. Architect prompt includes TURBO MODE ACTIVE banner when active', () => {
-		it('4.1 architect prompt includes TURBO MODE ACTIVE when turboMode is true', async () => {
+	describe('4. System-enhancer hook injects TURBO MODE ACTIVE banner when active', () => {
+		it('4.1 system-enhancer hook injects TURBO MODE ACTIVE banner when turboMode is true', async () => {
 			const session = getAgentSession(testSessionId);
 			session!.turboMode = true;
 
-			const agent = await createArchitectAgent('gpt-4o');
+			const hook = createSystemEnhancerHook({} as any, tmpDir);
+			const output = { system: [] as string[], messages: [] as string[] };
+			// @ts-expect-error - testing internal hook interface
+			await hook['experimental.chat.system.transform'](
+				{ sessionID: testSessionId },
+				output,
+			);
+			const systemPrompt = output.system.join('\n');
 
-			expect(agent.config.prompt).toContain('## 🚀 TURBO MODE ACTIVE');
-			expect(agent.config.prompt).toContain('Speed optimization enabled');
+			expect(systemPrompt).toContain('## 🚀 TURBO MODE ACTIVE');
+			expect(systemPrompt).toContain('Speed optimization enabled');
 		});
 
-		it('4.2 architect prompt does NOT include TURBO MODE ACTIVE when turboMode is false', async () => {
+		it('4.2 system-enhancer hook does NOT inject TURBO MODE ACTIVE banner when turboMode is false', async () => {
 			const session = getAgentSession(testSessionId);
 			session!.turboMode = false;
 
-			const agent = await createArchitectAgent('gpt-4o');
+			const hook = createSystemEnhancerHook({} as any, tmpDir);
+			const output = { system: [] as string[], messages: [] as string[] };
+			// @ts-expect-error - testing internal hook interface
+			await hook['experimental.chat.system.transform'](
+				{ sessionID: testSessionId },
+				output,
+			);
+			const systemPrompt = output.system.join('\n');
 
-			expect(agent.config.prompt).not.toContain('## 🚀 TURBO MODE ACTIVE');
-			expect(agent.config.prompt).not.toContain('Speed optimization enabled');
+			expect(systemPrompt).not.toContain('## 🚀 TURBO MODE ACTIVE');
+			expect(systemPrompt).not.toContain('Speed optimization enabled');
 		});
 
-		it('4.3 architect prompt replaces {{TURBO_MODE_BANNER}} placeholder when turboMode is true', async () => {
+		it('4.3 system-enhancer hook shows banner if ANY session has turbo when no sessionID provided', async () => {
+			// Create a second session with turboMode: true
+			const secondSessionId = `turbo-regression-second-${Date.now()}`;
+			swarmState.agentSessions.set(secondSessionId, {
+				agentName: 'architect',
+				lastToolCallTime: Date.now(),
+				lastAgentEventTime: Date.now(),
+				delegationActive: false,
+				activeInvocationId: 0,
+				lastInvocationIdByAgent: {},
+				windows: {},
+				lastCompactionHint: 0,
+				architectWriteCount: 0,
+				lastCoderDelegationTaskId: null,
+				currentTaskId: null,
+				gateLog: new Map(),
+				reviewerCallCount: new Map(),
+				lastGateFailure: null,
+				partialGateWarningsIssuedForTask: new Set(),
+				selfFixAttempted: false,
+				selfCodingWarnedAtCount: 0,
+				catastrophicPhaseWarnings: new Set(),
+				qaSkipCount: 0,
+				qaSkipTaskIds: [],
+				taskWorkflowStates: new Map(),
+				lastGateOutcome: null,
+				declaredCoderScope: null,
+				lastScopeViolation: null,
+				modifiedFilesThisCoderTask: [],
+				lastPhaseCompleteTimestamp: 0,
+				lastPhaseCompletePhase: 0,
+				phaseAgentsDispatched: new Set(),
+				lastCompletedPhaseAgentsDispatched: new Set(),
+				turboMode: true, // turbo enabled on second session
+				fullAutoMode: false,
+				fullAutoInteractionCount: 0,
+				fullAutoDeadlockCount: 0,
+				fullAutoLastQuestionHash: null,
+				coderRevisions: 0,
+				revisionLimitHit: false,
+				model_fallback_index: 0,
+				modelFallbackExhausted: false,
+				sessionRehydratedAt: 0,
+			});
+
+			// First session has turboMode: false
+			const session = getAgentSession(testSessionId);
+			session!.turboMode = false;
+
+			// Call hook WITHOUT sessionID - should check all sessions
+			const hook = createSystemEnhancerHook({} as any, tmpDir);
+			const output = { system: [] as string[], messages: [] as string[] };
+			// @ts-expect-error - testing internal hook interface
+			await hook['experimental.chat.system.transform']({}, output);
+			const systemPrompt = output.system.join('\n');
+
+			// Banner should appear because SOME session has turboMode: true
+			expect(systemPrompt).toContain('## 🚀 TURBO MODE ACTIVE');
+
+			// Cleanup second session
+			swarmState.agentSessions.delete(secondSessionId);
+		});
+
+		it('4.4 system-enhancer hook does NOT show banner when no sessions exist', async () => {
+			// Remove all sessions
+			swarmState.agentSessions.clear();
+
+			const hook = createSystemEnhancerHook({} as any, tmpDir);
+			const output = { system: [] as string[], messages: [] as string[] };
+			// @ts-expect-error - testing internal hook interface
+			await hook['experimental.chat.system.transform']({}, output);
+			const systemPrompt = output.system.join('\n');
+
+			// No sessions, so no turbo mode
+			expect(systemPrompt).not.toContain('## 🚀 TURBO MODE ACTIVE');
+
+			// Restore the test session
+			swarmState.agentSessions.set(testSessionId, {
+				agentName: 'architect',
+				lastToolCallTime: Date.now(),
+				lastAgentEventTime: Date.now(),
+				delegationActive: false,
+				activeInvocationId: 0,
+				lastInvocationIdByAgent: {},
+				windows: {},
+				lastCompactionHint: 0,
+				architectWriteCount: 0,
+				lastCoderDelegationTaskId: null,
+				currentTaskId: null,
+				gateLog: new Map(),
+				reviewerCallCount: new Map(),
+				lastGateFailure: null,
+				partialGateWarningsIssuedForTask: new Set(),
+				selfFixAttempted: false,
+				selfCodingWarnedAtCount: 0,
+				catastrophicPhaseWarnings: new Set(),
+				qaSkipCount: 0,
+				qaSkipTaskIds: [],
+				taskWorkflowStates: new Map(),
+				lastGateOutcome: null,
+				declaredCoderScope: null,
+				lastScopeViolation: null,
+				modifiedFilesThisCoderTask: [],
+				lastPhaseCompleteTimestamp: 0,
+				lastPhaseCompletePhase: 0,
+				phaseAgentsDispatched: new Set(),
+				lastCompletedPhaseAgentsDispatched: new Set(),
+				turboMode: false,
+				fullAutoMode: false,
+				fullAutoInteractionCount: 0,
+				fullAutoDeadlockCount: 0,
+				fullAutoLastQuestionHash: null,
+				coderRevisions: 0,
+				revisionLimitHit: false,
+				model_fallback_index: 0,
+				modelFallbackExhausted: false,
+				sessionRehydratedAt: 0,
+			});
+		});
+
+		it('4.5 system-enhancer hook banner contains correct Tier/Stage instructions', async () => {
 			const session = getAgentSession(testSessionId);
 			session!.turboMode = true;
 
-			const agent = await createArchitectAgent('gpt-4o');
+			const hook = createSystemEnhancerHook({} as any, tmpDir);
+			const output = { system: [] as string[], messages: [] as string[] };
+			// @ts-expect-error - testing internal hook interface
+			await hook['experimental.chat.system.transform'](
+				{ sessionID: testSessionId },
+				output,
+			);
+			const systemPrompt = output.system.join('\n');
 
-			// Placeholder should be replaced, not present
-			expect(agent.config.prompt).not.toContain('{{TURBO_MODE_BANNER}}');
+			// Verify specific Tier/Stage instructions are present
+			expect(systemPrompt).toContain('Stage A gates');
+			expect(systemPrompt).toContain('Stage B');
+			expect(systemPrompt).toContain('TIER 3');
+			expect(systemPrompt).toContain('Tier 0-2');
+			expect(systemPrompt).toContain('Speed optimization enabled');
 		});
 	});
 

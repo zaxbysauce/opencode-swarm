@@ -485,7 +485,7 @@ export function createCriticAutonomousOversightAgent(
 		: AUTONOMOUS_OVERSIGHT_PROMPT;
 
 	return {
-		name: 'critic',
+		name: 'critic_oversight',
 		description:
 			'Critic in AUTONOMOUS OVERSIGHT mode — sole quality gate in full-auto.',
 		config: {

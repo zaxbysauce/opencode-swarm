@@ -49,7 +49,7 @@ interface SessionState {
 // Global storage that both mock and tests can access
 const globalState = globalThis as typeof globalThis & {
 	_sessionStorage?: Map<string, SessionState>;
-	_fullAutoModelValidationPassed?: boolean;
+	fullAutoModelValidationPassed?: boolean;
 };
 
 if (!globalState._sessionStorage) {
@@ -89,7 +89,7 @@ mock.module('../../../src/state.js', () => ({
 		stateRef.sessionStorage.clear();
 	},
 	setFullAutoModelValidation: (passed: boolean) => {
-		globalState._fullAutoModelValidationPassed = passed;
+		globalState.fullAutoModelValidationPassed = passed;
 	},
 }));
 
@@ -147,7 +147,7 @@ mock.module('../../../src/parallel/file-locks.js', () => ({
 
 mock.module('../../../src/agents/critic.js', () => ({
 	createCriticAutonomousOversightAgent: mock(() => ({
-		name: 'critic',
+		name: 'critic_oversight',
 	})),
 }));
 
@@ -218,7 +218,7 @@ describe('full-auto-intercept ADVERSARIAL tests', () => {
 		processExitCalls.length = 0;
 
 		// Reset model validation state
-		globalState._fullAutoModelValidationPassed = true;
+		globalState.fullAutoModelValidationPassed = true;
 
 		// Save originals
 		originalConsoleLog = console.log;
@@ -388,9 +388,9 @@ export { foo, test };
 	// ADVERSARIAL TEST 2: Critic model matches architect model at startup
 	// ========================================================================
 	describe('ADVERSARIAL: Critic model matches architect model at startup', () => {
-		it('hasActiveFullAuto returns false when _fullAutoModelValidationPassed is false', async () => {
+		it('hasActiveFullAuto returns false when fullAutoModelValidationPassed is false', async () => {
 			// Simulate model validation failure
-			globalState._fullAutoModelValidationPassed = false;
+			globalState.fullAutoModelValidationPassed = false;
 			mockHasActiveFullAuto.mockImplementation(() => false);
 
 			const config = createFullAutoConfig({ enabled: true });
@@ -409,11 +409,11 @@ export { foo, test };
 		it('hasActiveFullAuto returns false when critic and architect models are the same', async () => {
 			// Simulate the condition where critic model === architect model
 			// In the real code, this happens in src/index.ts startup validation
-			globalState._fullAutoModelValidationPassed = false;
+			globalState.fullAutoModelValidationPassed = false;
 
-			// Mock hasActiveFullAuto to check _fullAutoModelValidationPassed
+			// Mock hasActiveFullAuto to check fullAutoModelValidationPassed
 			mockHasActiveFullAuto.mockImplementation(() => {
-				if (!globalState._fullAutoModelValidationPassed) {
+				if (!globalState.fullAutoModelValidationPassed) {
 					return false;
 				}
 				return true;
@@ -436,7 +436,7 @@ export { foo, test };
 
 		it('hasActiveFullAuto returns true when model validation passed', async () => {
 			// Simulate successful model validation
-			globalState._fullAutoModelValidationPassed = true;
+			globalState.fullAutoModelValidationPassed = true;
 			mockHasActiveFullAuto.mockImplementation(() => true);
 
 			const config = createFullAutoConfig({ enabled: true });

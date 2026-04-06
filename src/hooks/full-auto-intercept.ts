@@ -354,7 +354,7 @@ export function injectVerdictIntoMessages(
 		const verdictMessage: MessageWithParts = {
 			info: {
 				role: 'assistant',
-				agent: 'critic',
+				agent: 'critic_oversight',
 			},
 			parts: [
 				{
@@ -372,7 +372,7 @@ export function injectVerdictIntoMessages(
 		const verdictMessage: MessageWithParts = {
 			info: {
 				role: 'assistant',
-				agent: 'critic',
+				agent: 'critic_oversight',
 			},
 			parts: [
 				{
@@ -400,7 +400,7 @@ export function injectVerdictIntoMessages(
 	const verdictMessage: MessageWithParts = {
 		info: {
 			role: 'assistant',
-			agent: 'critic',
+			agent: 'critic_oversight',
 		},
 		parts: [
 			{
@@ -490,11 +490,11 @@ export async function dispatchCriticAndWriteEvent(
 			`[full-auto-intercept] Created ephemeral session: ${ephemeralSessionId}`,
 		);
 
-		// 2. Prompt using the 'critic' agent (read-only tools)
+		// 2. Prompt using the 'critic_oversight' agent (read-only tools)
 		const promptResult = await client.session.prompt({
 			path: { id: ephemeralSessionId },
 			body: {
-				agent: 'critic',
+				agent: 'critic_oversight',
 				tools: { write: false, edit: false, patch: false },
 				parts: [{ type: 'text', text: criticContext }],
 			},

@@ -135,7 +135,7 @@ mock.module('../../../src/parallel/file-locks.js', () => ({
 
 mock.module('../../../src/agents/critic.js', () => ({
 	createCriticAutonomousOversightAgent: mock(() => ({
-		name: 'critic',
+		name: 'critic_oversight',
 	})),
 }));
 

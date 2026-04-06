@@ -692,7 +692,7 @@ describe('injectVerdictIntoMessages', () => {
 			// Injected message should be at architectIndex + 1
 			const injected = messages[architectIndex + 1];
 			expect(injected.info.role).toBe('assistant');
-			expect(injected.info.agent).toBe('critic');
+			expect(injected.info.agent).toBe('critic_oversight');
 			expect(injected.parts[0].text).toContain('ANSWER');
 			expect(injected.parts[0].text).toContain(
 				'The answer is yes, you should proceed to phase 2.',
@@ -745,7 +745,7 @@ describe('injectVerdictIntoMessages', () => {
 
 			const injected = messages[architectIndex + 1];
 			expect(injected.info.role).toBe('assistant');
-			expect(injected.info.agent).toBe('critic');
+			expect(injected.info.agent).toBe('critic_oversight');
 			expect(injected.parts[0].text).toContain('ESCALATE_TO_HUMAN');
 			expect(injected.parts[0].text).toContain('This requires human judgment');
 			expect(injected.parts[0].text).toContain('paused for human review');
@@ -803,7 +803,7 @@ describe('injectVerdictIntoMessages', () => {
 
 			const injected = messages[architectIndex + 1];
 			expect(injected.info.role).toBe('assistant');
-			expect(injected.info.agent).toBe('critic');
+			expect(injected.info.agent).toBe('critic_oversight');
 			expect(injected.parts[0].text).toContain('✅');
 			expect(injected.parts[0].text).toContain('APPROVED');
 			expect(injected.parts[0].text).toContain('Phase 1 tasks are complete');

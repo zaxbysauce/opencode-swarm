@@ -14,10 +14,11 @@ import { TOOL_NAMES } from '../../../src/tools/tool-names';
 
 describe('constants.ts', () => {
 	describe('QA_AGENTS', () => {
-		it('contains reviewer and critic', () => {
+		it('contains reviewer, critic, and critic_oversight (3 total)', () => {
 			expect(QA_AGENTS).toContain('reviewer');
 			expect(QA_AGENTS).toContain('critic');
-			expect(QA_AGENTS).toHaveLength(2);
+			expect(QA_AGENTS).toContain('critic_oversight');
+			expect(QA_AGENTS).toHaveLength(3);
 		});
 	});
 
@@ -29,8 +30,8 @@ describe('constants.ts', () => {
 	});
 
 	describe('ALL_SUBAGENT_NAMES', () => {
-		it('contains all 12 subagents (sme + docs + designer + critic variants + curator variants + QA + pipeline)', () => {
-			// v6.1: added docs (default enabled) and designer (opt-in); v6.34: added critic_sounding_board; v6.36.0: added critic_drift_verifier; v6.42.1: added curator_init + curator_phase
+		it('contains all 13 subagents (sme + docs + designer + critic variants + curator variants + QA + pipeline)', () => {
+			// v6.1: added docs (default enabled) and designer (opt-in); v6.34: added critic_sounding_board; v6.36.0: added critic_drift_verifier; v6.42.1: added curator_init + curator_phase; v6.x.x: added critic_oversight
 			expect(ALL_SUBAGENT_NAMES).toContain('sme');
 			expect(ALL_SUBAGENT_NAMES).toContain('docs');
 			expect(ALL_SUBAGENT_NAMES).toContain('designer');
@@ -40,23 +41,24 @@ describe('constants.ts', () => {
 			expect(ALL_SUBAGENT_NAMES).toContain('curator_phase');
 			expect(ALL_SUBAGENT_NAMES).toContain('reviewer');
 			expect(ALL_SUBAGENT_NAMES).toContain('critic');
+			expect(ALL_SUBAGENT_NAMES).toContain('critic_oversight');
 			expect(ALL_SUBAGENT_NAMES).toContain('explorer');
 			expect(ALL_SUBAGENT_NAMES).toContain('coder');
 			expect(ALL_SUBAGENT_NAMES).toContain('test_engineer');
-			expect(ALL_SUBAGENT_NAMES).toHaveLength(12);
+			expect(ALL_SUBAGENT_NAMES).toHaveLength(13);
 		});
 	});
 
 	describe('ALL_AGENT_NAMES', () => {
-		it('contains architect + all 12 subagents = 13 total', () => {
-			// v6.1: added docs and designer; v6.34: added critic_sounding_board; v6.36.0: added critic_drift_verifier; v6.42.1: added curator_init + curator_phase
+		it('contains architect + all 13 subagents = 14 total', () => {
+			// v6.1: added docs and designer; v6.34: added critic_sounding_board; v6.36.0: added critic_drift_verifier; v6.42.1: added curator_init + curator_phase; v6.x.x: added critic_oversight
 			// architect must be first — it is the orchestrator and must be listed before all subagents
 			expect(ALL_AGENT_NAMES[0]).toBe('architect');
 			// All subagents must be present
 			for (const name of ALL_SUBAGENT_NAMES) {
 				expect(ALL_AGENT_NAMES).toContain(name);
 			}
-			expect(ALL_AGENT_NAMES).toHaveLength(13);
+			expect(ALL_AGENT_NAMES).toHaveLength(14);
 		});
 	});
 
@@ -130,9 +132,9 @@ describe('constants.ts', () => {
 			}
 		});
 
-		it('has exactly 13 entries (12 subagents + default, no architect)', () => {
-			// v6.14: architect removed - inherits OpenCode UI selection instead; v6.36.0: added critic_drift_verifier; v6.42.1: added curator_init + curator_phase
-			expect(Object.keys(DEFAULT_MODELS)).toHaveLength(13);
+		it('has exactly 14 entries (13 subagents + default, no architect)', () => {
+			// v6.14: architect removed - inherits OpenCode UI selection instead; v6.36.0: added critic_drift_verifier; v6.42.1: added curator_init + curator_phase; v6.x.x: added critic_oversight
+			expect(Object.keys(DEFAULT_MODELS)).toHaveLength(14);
 		});
 	});
 
