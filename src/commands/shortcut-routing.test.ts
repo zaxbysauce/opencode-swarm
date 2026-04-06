@@ -323,4 +323,37 @@ describe('swarm-* shortcut command routing', () => {
 			);
 		});
 	});
+
+	// Regression: adding 'config-doctor' (dash) alias must not break the original
+	// space-based path '/swarm config doctor' which uses the generic swarm handler.
+	describe('Backward compatibility: space-based compound commands still work', () => {
+		it('/swarm config doctor (space path) still returns Config Doctor output', async () => {
+			const handler = createSwarmCommandHandler(tempDir, {});
+			const output = { parts: [] as unknown[] };
+
+			await handler(
+				{ command: 'swarm', arguments: 'config doctor', sessionID: sessionId },
+				output,
+			);
+
+			expect(output.parts).toHaveLength(1);
+			const text = (output.parts[0] as { text: string }).text;
+			expect(text).not.toContain('## Swarm Commands');
+			expect(text).toContain('Config Doctor');
+		});
+
+		it('/swarm evidence summary (space path) still returns evidence summary output', async () => {
+			const handler = createSwarmCommandHandler(tempDir, {});
+			const output = { parts: [] as unknown[] };
+
+			await handler(
+				{ command: 'swarm', arguments: 'evidence summary', sessionID: sessionId },
+				output,
+			);
+
+			expect(output.parts).toHaveLength(1);
+			const text = (output.parts[0] as { text: string }).text;
+			expect(text).not.toContain('## Swarm Commands');
+		});
+	});
 });
