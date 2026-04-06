@@ -8,7 +8,11 @@ import { AGENT_TOOL_MAP, DEFAULT_MODELS } from '../config/constants';
 import { stripKnownSwarmPrefix } from '../config/schema';
 import { type AgentDefinition, createArchitectAgent } from './architect';
 import { createCoderAgent } from './coder';
-import { type CriticRole, createCriticAgent } from './critic';
+import {
+	type CriticRole,
+	createCriticAgent,
+	createCriticAutonomousOversightAgent,
+} from './critic';
 import { type CuratorRole, createCuratorAgent } from './curator-agent';
 import { createDesignerAgent } from './designer';
 import { createDocsAgent } from './docs';
@@ -325,7 +329,16 @@ If you call @coder instead of @${swarmId}_coder, the call will FAIL or go to the
 		agents.push(applyOverrides(critic, swarmAgents, swarmPrefix));
 	}
 
-	// 5d. Create Curator Init agent
+	// 5d. Create Critic Autonomous Oversight
+	if (!isAgentDisabled('critic_oversight', swarmAgents, swarmPrefix)) {
+		const critic = createCriticAutonomousOversightAgent(
+			swarmAgents?.critic_oversight?.model ?? getModel('critic'),
+		);
+		critic.name = prefixName('critic_oversight');
+		agents.push(applyOverrides(critic, swarmAgents, swarmPrefix));
+	}
+
+	// 5e. Create Curator Init agent
 	if (!isAgentDisabled('curator_init', swarmAgents, swarmPrefix)) {
 		const curatorInitPrompts = getPrompts('curator_init');
 		const curatorInit = createCuratorAgent(

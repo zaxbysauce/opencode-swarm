@@ -2590,7 +2590,10 @@ describe('applyCuratorKnowledgeUpdates - Adversarial Tests', () => {
 		};
 
 		beforeEach(() => {
-			rewriteDir = join(tmpdir(), `curator-rewrite-adv-${Date.now()}-${Math.random().toString(36).slice(2)}`);
+			rewriteDir = join(
+				tmpdir(),
+				`curator-rewrite-adv-${Date.now()}-${Math.random().toString(36).slice(2)}`,
+			);
 			mkdirSync(join(rewriteDir, '.swarm'), { recursive: true });
 		});
 
@@ -2609,18 +2612,32 @@ describe('applyCuratorKnowledgeUpdates - Adversarial Tests', () => {
 				confidence: 0.7,
 				status: 'established',
 				confirmed_by: [],
-				retrieval_outcomes: { applied_count: 0, succeeded_after_count: 0, failed_after_count: 0 },
+				retrieval_outcomes: {
+					applied_count: 0,
+					succeeded_after_count: 0,
+					failed_after_count: 0,
+				},
 				schema_version: 1,
 				created_at: '2026-01-01T00:00:00Z',
 				updated_at: '2026-01-01T00:00:00Z',
 				hive_eligible: false,
 				project_name: 'test-project',
 			};
-			writeFileSync(join(rewriteDir, '.swarm', 'knowledge.jsonl'), JSON.stringify(entry));
+			writeFileSync(
+				join(rewriteDir, '.swarm', 'knowledge.jsonl'),
+				JSON.stringify(entry),
+			);
 
 			const result = await applyCuratorKnowledgeUpdates(
 				rewriteDir,
-				[{ action: 'rewrite', entry_id: 'RW-ADV-1', lesson: 'A'.repeat(281), reason: 'Too long' }],
+				[
+					{
+						action: 'rewrite',
+						entry_id: 'RW-ADV-1',
+						lesson: 'A'.repeat(281),
+						reason: 'Too long',
+					},
+				],
 				rewriteKnowledgeConfig,
 			);
 
@@ -2638,18 +2655,32 @@ describe('applyCuratorKnowledgeUpdates - Adversarial Tests', () => {
 				confidence: 0.7,
 				status: 'established',
 				confirmed_by: [],
-				retrieval_outcomes: { applied_count: 0, succeeded_after_count: 0, failed_after_count: 0 },
+				retrieval_outcomes: {
+					applied_count: 0,
+					succeeded_after_count: 0,
+					failed_after_count: 0,
+				},
 				schema_version: 1,
 				created_at: '2026-01-01T00:00:00Z',
 				updated_at: '2026-01-01T00:00:00Z',
 				hive_eligible: false,
 				project_name: 'test-project',
 			};
-			writeFileSync(join(rewriteDir, '.swarm', 'knowledge.jsonl'), JSON.stringify(entry));
+			writeFileSync(
+				join(rewriteDir, '.swarm', 'knowledge.jsonl'),
+				JSON.stringify(entry),
+			);
 
 			const result = await applyCuratorKnowledgeUpdates(
 				rewriteDir,
-				[{ action: 'rewrite', entry_id: 'RW-ADV-2', lesson: 'A'.repeat(280), reason: 'Boundary' }],
+				[
+					{
+						action: 'rewrite',
+						entry_id: 'RW-ADV-2',
+						lesson: 'A'.repeat(280),
+						reason: 'Boundary',
+					},
+				],
 				rewriteKnowledgeConfig,
 			);
 

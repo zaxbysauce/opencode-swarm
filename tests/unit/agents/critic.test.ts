@@ -1,6 +1,8 @@
 import {
+	AUTONOMOUS_OVERSIGHT_PROMPT,
 	type CriticRole,
 	createCriticAgent,
+	createCriticAutonomousOversightAgent,
 	createCriticDriftVerifierAgent,
 	PHASE_DRIFT_VERIFIER_PROMPT,
 	PLAN_CRITIC_PROMPT,
@@ -406,6 +408,39 @@ describe('critic.ts prompt overhaul', () => {
 
 			expect(agent.description).toContain('Phase drift verifier');
 			expect(agent.description).toContain('Independently verifies');
+		});
+	});
+
+	// ============================================================
+	// TEST 11: Verify createCriticAutonomousOversightAgent
+	// ============================================================
+	describe('createCriticAutonomousOversightAgent', () => {
+		test('returns agent with name "critic_oversight"', () => {
+			const agent = createCriticAutonomousOversightAgent(TEST_MODEL);
+			expect(agent.name).toBe('critic_oversight');
+		});
+
+		test('uses AUTONOMOUS_OVERSIGHT_PROMPT by default', () => {
+			const agent = createCriticAutonomousOversightAgent(TEST_MODEL);
+			expect(agent.config.prompt).toBe(AUTONOMOUS_OVERSIGHT_PROMPT);
+		});
+
+		test('has read-only tools (write:false, edit:false, patch:false)', () => {
+			const agent = createCriticAutonomousOversightAgent(TEST_MODEL);
+			expect(agent.config.tools.write).toBe(false);
+			expect(agent.config.tools.edit).toBe(false);
+			expect(agent.config.tools.patch).toBe(false);
+		});
+
+		test('appends customAppendPrompt to base prompt', () => {
+			const customAppend = 'Additional oversight instructions';
+			const agent = createCriticAutonomousOversightAgent(
+				TEST_MODEL,
+				customAppend,
+			);
+			expect(agent.config.prompt).toBe(
+				`${AUTONOMOUS_OVERSIGHT_PROMPT}\n\n${customAppend}`,
+			);
 		});
 	});
 });

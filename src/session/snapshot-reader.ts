@@ -142,6 +142,10 @@ export function deserializeAgentSession(
 		modelFallbackExhausted: s.modelFallbackExhausted ?? false,
 		coderRevisions: s.coderRevisions ?? 0,
 		revisionLimitHit: s.revisionLimitHit ?? false,
+		fullAutoMode: s.fullAutoMode ?? false,
+		fullAutoInteractionCount: s.fullAutoInteractionCount ?? 0,
+		fullAutoDeadlockCount: s.fullAutoDeadlockCount ?? 0,
+		fullAutoLastQuestionHash: s.fullAutoLastQuestionHash ?? null,
 		sessionRehydratedAt: s.sessionRehydratedAt ?? 0,
 	};
 }

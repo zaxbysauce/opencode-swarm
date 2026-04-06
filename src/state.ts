@@ -169,6 +169,16 @@ export interface AgentSessionState {
 	/** Session-scoped Turbo Mode flag for controlling LLM inference speed */
 	turboMode: boolean;
 
+	// Full Auto Mode (Phase 2)
+	/** Session-scoped Full Auto flag for autonomous multi-agent oversight */
+	fullAutoMode: boolean;
+	/** Count of full-auto interactions this phase (for max_interactions_per_phase limit) */
+	fullAutoInteractionCount: number;
+	/** Count of detected deadlocks (repeated identical questions) in full-auto mode */
+	fullAutoDeadlockCount: number;
+	/** Hash of last question asked (for deadlock detection via hash comparison) */
+	fullAutoLastQuestionHash: string | null;
+
 	// Loop Detection (v6.29)
 	/** Sliding window of last 10 Task delegation hashes for loop detection */
 	loopDetectionWindow?: Array<{ hash: string; timestamp: number }>;
@@ -250,6 +260,10 @@ export const swarmState = {
 
 	/** In-flight rehydration promises — awaited by rehydrateState before clearing agentSessions */
 	pendingRehydrations: new Set<Promise<void>>(),
+
+	// Full Auto Mode (Phase 4)
+	/** Whether full-auto mode is enabled in config */
+	fullAutoEnabledInConfig: false,
 };
 
 /**
@@ -268,6 +282,8 @@ export function resetSwarmState(): void {
 	swarmState.curatorInitAgentNames = [];
 	swarmState.curatorPhaseAgentNames = [];
 	_rehydrationCache = null;
+	// Full Auto Mode (Phase 4)
+	swarmState.fullAutoEnabledInConfig = false;
 	// Note: Session-scoped fields (architectWriteCount, gateLog, reviewerCallCount, lastGateFailure)
 	// are cleared when agentSessions entries are deleted
 }
@@ -338,6 +354,11 @@ export function startAgentSession(
 		modifiedFilesThisCoderTask: [],
 		// Turbo Mode (v6.26)
 		turboMode: false,
+		// Full Auto Mode (Phase 2)
+		fullAutoMode: swarmState.fullAutoEnabledInConfig,
+		fullAutoInteractionCount: 0,
+		fullAutoDeadlockCount: 0,
+		fullAutoLastQuestionHash: null,
 		// Model Fallback (v6.33)
 		model_fallback_index: 0,
 		modelFallbackExhausted: false,
@@ -1054,6 +1075,26 @@ export function hasActiveTurboMode(sessionID?: string): boolean {
 	// Global fallback — existing behavior when no sessionID provided
 	for (const [_sessionId, session] of swarmState.agentSessions) {
 		if (session.turboMode === true) {
+			return true;
+		}
+	}
+	return false;
+}
+
+/**
+ * Check if Full Auto Mode is enabled for a specific session or ANY session.
+ * @param sessionID - Optional session ID to check. If provided, checks only that session.
+ *                    If omitted, checks all sessions (backward-compatible global behavior).
+ * @returns true if the specified session has fullAutoMode: true (model validation is advisory-only).
+ */
+export function hasActiveFullAuto(sessionID?: string): boolean {
+	if (sessionID) {
+		const session = swarmState.agentSessions.get(sessionID);
+		return session?.fullAutoMode === true;
+	}
+	// Global fallback — existing behavior when no sessionID provided
+	for (const [_sessionId, session] of swarmState.agentSessions) {
+		if (session.fullAutoMode === true) {
 			return true;
 		}
 	}

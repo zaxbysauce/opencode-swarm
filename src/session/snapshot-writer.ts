@@ -63,6 +63,14 @@ export interface SerializedAgentSession {
 	coderRevisions: number;
 	/** Flag set when coder revisions hit the configured ceiling (v6.33) */
 	revisionLimitHit: boolean;
+	/** Session-scoped Full Auto flag for autonomous multi-agent oversight (Phase 2) */
+	fullAutoMode?: boolean;
+	/** Count of full-auto interactions this phase (Phase 2) */
+	fullAutoInteractionCount?: number;
+	/** Count of detected deadlocks in full-auto mode (Phase 2) */
+	fullAutoDeadlockCount?: number;
+	/** Hash of last question asked in full-auto mode (Phase 2) */
+	fullAutoLastQuestionHash?: string | null;
 	/** Timestamp when session was rehydrated from snapshot (0 if never rehydrated) */
 	sessionRehydratedAt?: number;
 }
@@ -189,6 +197,10 @@ export function serializeAgentSession(
 		modelFallbackExhausted: s.modelFallbackExhausted ?? false,
 		coderRevisions: s.coderRevisions ?? 0,
 		revisionLimitHit: s.revisionLimitHit ?? false,
+		fullAutoMode: s.fullAutoMode ?? false,
+		fullAutoInteractionCount: s.fullAutoInteractionCount ?? 0,
+		fullAutoDeadlockCount: s.fullAutoDeadlockCount ?? 0,
+		fullAutoLastQuestionHash: s.fullAutoLastQuestionHash ?? null,
 		sessionRehydratedAt: s.sessionRehydratedAt ?? 0,
 	};
 }

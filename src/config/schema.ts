@@ -1064,6 +1064,23 @@ export const PluginConfigSchema = z.object({
 
 	// Turbo mode — bypasses reviewer/test gates for rapid iteration (v6.40)
 	turbo_mode: z.boolean().default(false).optional(),
+
+	// Full-auto mode — autonomous multi-agent orchestration with critic oversight
+	full_auto: z
+		.object({
+			enabled: z.boolean().default(false),
+			critic_model: z.string().optional(),
+			max_interactions_per_phase: z.number().int().min(5).max(200).default(50),
+			deadlock_threshold: z.number().int().min(2).max(10).default(3),
+			escalation_mode: z.enum(['pause', 'terminate']).default('pause'),
+		})
+		.optional()
+		.default({
+			enabled: false,
+			max_interactions_per_phase: 50,
+			deadlock_threshold: 3,
+			escalation_mode: 'pause',
+		}),
 });
 
 export type PluginConfig = z.infer<typeof PluginConfigSchema>;

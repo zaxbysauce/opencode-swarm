@@ -125,6 +125,14 @@ export interface AgentSessionState {
     modelFallbackExhausted: boolean;
     /** Session-scoped Turbo Mode flag for controlling LLM inference speed */
     turboMode: boolean;
+    /** Session-scoped Full Auto flag for autonomous multi-agent oversight */
+    fullAutoMode: boolean;
+    /** Count of full-auto interactions this phase (for max_interactions_per_phase limit) */
+    fullAutoInteractionCount: number;
+    /** Count of detected deadlocks (repeated identical questions) in full-auto mode */
+    fullAutoDeadlockCount: number;
+    /** Hash of last question asked (for deadlock detection via hash comparison) */
+    fullAutoLastQuestionHash: string | null;
     /** Sliding window of last 10 Task delegation hashes for loop detection */
     loopDetectionWindow?: Array<{
         hash: string;
@@ -203,6 +211,8 @@ export declare const swarmState: {
     agentSessions: Map<string, AgentSessionState>;
     /** In-flight rehydration promises — awaited by rehydrateState before clearing agentSessions */
     pendingRehydrations: Set<Promise<void>>;
+    /** Whether full-auto mode is enabled in config */
+    fullAutoEnabledInConfig: boolean;
 };
 /**
  * Reset all state to initial values - useful for testing
@@ -349,3 +359,10 @@ export declare function rehydrateSessionFromDisk(directory: string, session: Age
  * @returns true if the specified session has turboMode: true, or if any session has turboMode: true when no sessionID provided
  */
 export declare function hasActiveTurboMode(sessionID?: string): boolean;
+/**
+ * Check if Full Auto Mode is enabled for a specific session or ANY session.
+ * @param sessionID - Optional session ID to check. If provided, checks only that session.
+ *                    If omitted, checks all sessions (backward-compatible global behavior).
+ * @returns true if the specified session has fullAutoMode: true (model validation is advisory-only).
+ */
+export declare function hasActiveFullAuto(sessionID?: string): boolean;

@@ -1,7 +1,6 @@
 import type { AgentConfig } from '@opencode-ai/sdk';
 import { COMMAND_REGISTRY } from '../commands/registry.js';
 import { AGENT_TOOL_MAP, TOOL_DESCRIPTIONS } from '../config/constants';
-import { hasActiveTurboMode } from '../state';
 
 export interface AgentDefinition {
 	name: string;
@@ -45,8 +44,6 @@ const ARCHITECT_PROMPT = `You are Architect - orchestrator of a multi-agent swar
 
 Swarm: {{SWARM_ID}}
 Your agents: {{AGENT_PREFIX}}explorer, {{AGENT_PREFIX}}sme, {{AGENT_PREFIX}}coder, {{AGENT_PREFIX}}reviewer, {{AGENT_PREFIX}}test_engineer, {{AGENT_PREFIX}}critic, {{AGENT_PREFIX}}critic_sounding_board, {{AGENT_PREFIX}}docs, {{AGENT_PREFIX}}designer
-
-{{TURBO_MODE_BANNER}}
 
 ## PROJECT CONTEXT
 Session-start priming block. Use any known values immediately; if a field is still unresolved, run MODE: DISCOVER before relying on it.
@@ -1134,32 +1131,6 @@ export function createArchitectAgent(
 				/\{\{ADVERSARIAL_TEST_CHECKLIST\}\}/g,
 				'  [GATE] test_engineer-adversarial: PASS / FAIL — value: ___',
 			);
-	}
-
-	// Handle Turbo Mode banner
-	const TURBO_MODE_BANNER = `## 🚀 TURBO MODE ACTIVE
-
-**Speed optimization enabled for this session.**
-
-While Turbo Mode is active:
-- **Stage A gates** (lint, imports, pre_check_batch) are still REQUIRED for ALL tasks
-- **Tier 3 tasks** (security-sensitive files matching: architect*.ts, delegation*.ts, guardrails*.ts, adversarial*.ts, sanitiz*.ts, auth*, permission*, crypto*, secret*, security) still require FULL review (Stage B)
-- **Tier 0-2 tasks** can skip Stage B (reviewer, test_engineer) to speed up execution
-- **Phase completion gates** (completion-verify and drift verification gate) are automatically bypassed — phase_complete will succeed without drift verification evidence when turbo is active. Note: turbo bypass is session-scoped; one session's turbo does not affect other sessions.
-
-Classification still determines the pipeline:
-- TIER 0 (metadata): lint + diff only — no change
-- TIER 1 (docs): Stage A + reviewer — no change
-- TIER 2 (standard code): Stage A + reviewer + test_engineer — CAN SKIP Stage B with turboMode
-- TIER 3 (critical): Stage A + 2x reviewer + 2x test_engineer — Stage B REQUIRED (no turbo bypass)
-
-Do NOT skip Stage A gates. Do NOT skip Stage B for TIER 3.
-`;
-
-	if (hasActiveTurboMode()) {
-		prompt = prompt?.replace(/\{\{TURBO_MODE_BANNER\}\}/g, TURBO_MODE_BANNER);
-	} else {
-		prompt = prompt?.replace(/\{\{TURBO_MODE_BANNER\}\}/g, '');
 	}
 
 	return {

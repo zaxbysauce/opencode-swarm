@@ -25,7 +25,8 @@ export type TelemetryEvent =
 	| 'scope_violation'
 	| 'qa_skip_violation'
 	| 'heartbeat'
-	| 'turbo_mode_changed';
+	| 'turbo_mode_changed'
+	| 'auto_oversight_escalation';
 
 export type TelemetryListener = (
 	event: TelemetryEvent,
@@ -309,5 +310,21 @@ export const telemetry = {
 		agentName: string,
 	): void {
 		emit('turbo_mode_changed', { sessionId, enabled, agentName });
+	},
+
+	autoOversightEscalation(
+		sessionId: string,
+		reason: string,
+		interactionCount: number,
+		deadlockCount: number,
+		phase?: number,
+	): void {
+		emit('auto_oversight_escalation', {
+			sessionId,
+			reason,
+			interactionCount,
+			deadlockCount,
+			phase,
+		});
 	},
 };

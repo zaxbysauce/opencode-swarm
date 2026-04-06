@@ -9,7 +9,11 @@
 import * as fs from 'node:fs';
 import * as path from 'node:path';
 import type { PluginConfig } from '../config';
-import { DEFAULT_SCORING_CONFIG } from '../config/constants';
+import {
+	DEFAULT_SCORING_CONFIG,
+	FULL_AUTO_BANNER,
+	TURBO_MODE_BANNER,
+} from '../config/constants';
 import type { RetrospectiveEvidence } from '../config/evidence-schema';
 import { stripKnownSwarmPrefix } from '../config/schema';
 import { listEvidenceTaskIds, loadEvidence } from '../evidence/manager';
@@ -21,7 +25,7 @@ import {
 	formatDriftForContext,
 	getContextBudgetReport,
 } from '../services';
-import { swarmState } from '../state';
+import { hasActiveFullAuto, hasActiveTurboMode, swarmState } from '../state';
 import { telemetry } from '../telemetry';
 import { warn } from '../utils';
 import {
@@ -877,6 +881,20 @@ ${handoffContent}`;
 							stripKnownSwarmPrefix(activeAgent_retro) === 'architect';
 
 						if (isArchitect) {
+							// v6.x: Turbo/Full-Auto banner injection for architect
+							const sessionIdBanner = _input.sessionID;
+							if (
+								hasActiveTurboMode(sessionIdBanner) ||
+								hasActiveFullAuto(sessionIdBanner)
+							) {
+								if (hasActiveTurboMode(sessionIdBanner)) {
+									tryInject(TURBO_MODE_BANNER);
+								}
+								if (hasActiveFullAuto(sessionIdBanner)) {
+									tryInject(FULL_AUTO_BANNER);
+								}
+							}
+
 							try {
 								const currentPhaseNum = plan?.current_phase ?? 1;
 								const retroText = await buildRetroInjection(
@@ -1365,6 +1383,34 @@ ${handoffContent}`;
 						stripKnownSwarmPrefix(activeAgent_retro_b) === 'architect';
 
 					if (isArchitect_b) {
+						// v6.x: Turbo/Full-Auto banner injection for architect (Path B)
+						const sessionIdBanner_b = _input.sessionID;
+						if (
+							hasActiveTurboMode(sessionIdBanner_b) ||
+							hasActiveFullAuto(sessionIdBanner_b)
+						) {
+							if (hasActiveTurboMode(sessionIdBanner_b)) {
+								candidates.push({
+									id: `candidate-${idCounter++}`,
+									kind: 'agent_context' as ContextCandidate['kind'],
+									text: TURBO_MODE_BANNER,
+									tokens: estimateTokens(TURBO_MODE_BANNER),
+									priority: 1,
+									metadata: { contentType: 'prose' as ContentType },
+								});
+							}
+							if (hasActiveFullAuto(sessionIdBanner_b)) {
+								candidates.push({
+									id: `candidate-${idCounter++}`,
+									kind: 'agent_context' as ContextCandidate['kind'],
+									text: FULL_AUTO_BANNER,
+									tokens: estimateTokens(FULL_AUTO_BANNER),
+									priority: 1,
+									metadata: { contentType: 'prose' as ContentType },
+								});
+							}
+						}
+
 						try {
 							const currentPhaseNum_b = plan?.current_phase ?? 1;
 							const retroText_b = await buildRetroInjection(

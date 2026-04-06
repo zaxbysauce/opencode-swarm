@@ -10,7 +10,7 @@ import {
 } from './background';
 import { createSwarmCommandHandler } from './commands';
 import { loadPluginConfigWithMeta } from './config';
-import { ORCHESTRATOR_NAME } from './config/constants';
+import { DEFAULT_MODELS, ORCHESTRATOR_NAME } from './config/constants';
 import {
 	AuthorityConfigSchema,
 	AutomationConfigSchema,
@@ -31,6 +31,7 @@ import {
 	createDelegationGateHook,
 	createDelegationSanitizerHook,
 	createDelegationTrackerHook,
+	createFullAutoInterceptHook,
 	createGuardrailsHooks,
 	createPhaseMonitorHook,
 	createPipelineTrackerHook,
@@ -125,6 +126,31 @@ const _heartbeatTimers = new Map<string, number>();
 
 const OpenCodeSwarm: Plugin = async (ctx) => {
 	const { config, loadedFromFile } = loadPluginConfigWithMeta(ctx.directory);
+
+	// Full-auto mode validation: critic model must differ from architect model
+	if (config.full_auto?.enabled === true) {
+		// Resolve critic model (full_auto.critic_model override takes precedence,
+		// then config.agents.critic.model, then DEFAULT_MODELS.critic)
+		const criticModel =
+			config.full_auto.critic_model ??
+			config.agents?.critic?.model ??
+			DEFAULT_MODELS.critic;
+
+		// Resolve architect model (config.agents.architect.model takes precedence,
+		// then DEFAULT_MODELS.default)
+		const architectModel =
+			config.agents?.architect?.model ?? DEFAULT_MODELS.default;
+
+		if (criticModel === architectModel) {
+			console.warn(
+				'[opencode-swarm] Full-auto mode warning: critic model matches architect model. Model validation is advisory-only; full-auto remains enabled. (Runtime architect model is determined by the orchestrator)',
+			);
+		}
+	}
+
+	// Track whether full-auto mode is enabled in config
+	swarmState.fullAutoEnabledInConfig = config.full_auto?.enabled === true;
+
 	// Store SDK client for curator LLM delegation
 	swarmState.opencodeClient = ctx.client;
 
@@ -208,6 +234,12 @@ const OpenCodeSwarm: Plugin = async (ctx) => {
 		undefined,
 		guardrailsConfig,
 		authorityConfig,
+	);
+
+	// Full-auto intercept: autonomous oversight when full-auto mode is active
+	const fullAutoInterceptHook = createFullAutoInterceptHook(
+		config,
+		ctx.directory,
 	);
 
 	// Watchdog: scope-guard + delegation-ledger
@@ -744,6 +776,7 @@ const OpenCodeSwarm: Plugin = async (ctx) => {
 				pipelineHook['experimental.chat.messages.transform'],
 				contextBudgetHandler,
 				guardrailsHooks.messagesTransform,
+				fullAutoInterceptHook?.messagesTransform,
 				delegationGateHooks.messagesTransform,
 				delegationSanitizerHook,
 				knowledgeInjectorHook, // v6.17 knowledge injection
