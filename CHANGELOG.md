@@ -1,5 +1,12 @@
 # Changelog
 
+## [6.53.3](https://github.com/zaxbysauce/opencode-swarm/compare/v6.53.2...v6.53.3) (2026-04-06)
+
+
+### Bug Fixes
+
+* **commands:** add config-doctor and evidence-summary shortcut aliases, fix tests and lint ([#419](https://github.com/zaxbysauce/opencode-swarm/issues/419)) ([377ed19](https://github.com/zaxbysauce/opencode-swarm/commit/377ed198850670bc87e654c89e48ffce882d552f))
+
 ## [6.53.2](https://github.com/zaxbysauce/opencode-swarm/compare/v6.53.1...v6.53.2) (2026-04-06)
 
 
