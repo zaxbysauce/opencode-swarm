@@ -1135,7 +1135,7 @@ export async function executePhaseComplete(
 					// Snapshot failure is non-blocking
 				}
 			}
-		} catch (error) {
+		} catch (_error) {
 			// loadPlan() threw — this shouldn't happen for malformed JSON (loadPlan returns null instead)
 			// Try ledger-first rebuild before direct write
 			if (await ledgerExists(dir)) {

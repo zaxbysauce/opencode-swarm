@@ -234,7 +234,9 @@ describe('Full-Auto Command Registration', () => {
 			// 'full-auto' (dash) must exist — this is what swarm-full-auto shortcut resolves to
 			expect(Object.hasOwn(COMMAND_REGISTRY, 'full-auto')).toBe(true);
 			// The actual registry key must contain no spaces — a space would break the TUI filter chain
-			const registryKey = Object.keys(COMMAND_REGISTRY).find((k) => k === 'full-auto');
+			const registryKey = Object.keys(COMMAND_REGISTRY).find(
+				(k) => k === 'full-auto',
+			);
 			expect(registryKey).toBeDefined();
 			expect(registryKey).not.toContain(' ');
 		});

@@ -296,7 +296,11 @@ describe('swarm-* shortcut command routing', () => {
 			const output = { parts: [] as unknown[] };
 
 			await handler(
-				{ command: 'swarm-evidence-summary', arguments: '', sessionID: sessionId },
+				{
+					command: 'swarm-evidence-summary',
+					arguments: '',
+					sessionID: sessionId,
+				},
 				output,
 			);
 
@@ -347,7 +351,11 @@ describe('swarm-* shortcut command routing', () => {
 			const output = { parts: [] as unknown[] };
 
 			await handler(
-				{ command: 'swarm', arguments: 'evidence summary', sessionID: sessionId },
+				{
+					command: 'swarm',
+					arguments: 'evidence summary',
+					sessionID: sessionId,
+				},
 				output,
 			);
 
