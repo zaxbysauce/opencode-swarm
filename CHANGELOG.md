@@ -1,5 +1,12 @@
 # Changelog
 
+## [6.52.0](https://github.com/zaxbysauce/opencode-swarm/compare/v6.51.0...v6.52.0) (2026-04-06)
+
+
+### Features
+
+* add /swarm full-auto per-session toggle command ([#412](https://github.com/zaxbysauce/opencode-swarm/issues/412)) ([98422a7](https://github.com/zaxbysauce/opencode-swarm/commit/98422a7b91a2535791f18eb99158bc6256895e45))
+
 ## [6.51.0](https://github.com/zaxbysauce/opencode-swarm/compare/v6.50.0...v6.51.0) (2026-04-06)
 
 
