@@ -1,5 +1,12 @@
 # Changelog
 
+## [6.53.1](https://github.com/zaxbysauce/opencode-swarm/compare/v6.53.0...v6.53.1) (2026-04-06)
+
+
+### Bug Fixes
+
+* **ci:** add timeout, bun cache, and skip tsc in publish-npm job ([9440aa1](https://github.com/zaxbysauce/opencode-swarm/commit/9440aa1f899c4cf1b99ddb28063435d6250dd03d))
+
 ## [6.53.0](https://github.com/zaxbysauce/opencode-swarm/compare/v6.52.0...v6.53.0) (2026-04-06)
 
 
