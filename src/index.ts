@@ -62,11 +62,7 @@ import { createCompactionService } from './services/compaction-service';
 import { shouldRunOnStartup } from './services/config-doctor';
 import { loadSnapshot } from './session/snapshot-reader.js';
 import { createSnapshotWriterHook } from './session/snapshot-writer.js';
-import {
-	ensureAgentSession,
-	setFullAutoModelValidation,
-	swarmState,
-} from './state';
+import { ensureAgentSession, swarmState } from './state';
 import { initTelemetry, telemetry } from './telemetry';
 import {
 	batch_symbols,
@@ -147,11 +143,8 @@ const OpenCodeSwarm: Plugin = async (ctx) => {
 
 		if (criticModel === architectModel) {
 			console.warn(
-				'Full-auto mode requires a different critic model than architect model. Falling back to normal mode. (Note: This is a best-effort config check; runtime architect model is determined by the orchestrator)',
+				'[opencode-swarm] Full-auto mode warning: critic model matches architect model. Model validation is advisory-only; full-auto remains enabled. (Runtime architect model is determined by the orchestrator)',
 			);
-			setFullAutoModelValidation(false);
-		} else {
-			setFullAutoModelValidation(true);
 		}
 	}
 

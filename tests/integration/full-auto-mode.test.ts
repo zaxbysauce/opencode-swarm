@@ -88,10 +88,6 @@ describe('full-auto mode integration', () => {
 
 		// Reset state between tests
 		resetSwarmState();
-
-		// Enable full-auto model validation so hasActiveFullAuto() returns true
-		// for sessions with fullAutoMode=true (advisory-only behavior, Phase 3)
-		swarmState.fullAutoModelValidationPassed = true;
 	});
 
 	afterEach(async () => {

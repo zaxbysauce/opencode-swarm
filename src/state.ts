@@ -264,8 +264,6 @@ export const swarmState = {
 	// Full Auto Mode (Phase 4)
 	/** Whether full-auto mode is enabled in config */
 	fullAutoEnabledInConfig: false,
-	/** Whether full-auto mode passed startup validation (critic/architect models differ) */
-	fullAutoModelValidationPassed: false,
 };
 
 /**
@@ -286,7 +284,6 @@ export function resetSwarmState(): void {
 	_rehydrationCache = null;
 	// Full Auto Mode (Phase 4)
 	swarmState.fullAutoEnabledInConfig = false;
-	swarmState.fullAutoModelValidationPassed = false;
 	// Note: Session-scoped fields (architectWriteCount, gateLog, reviewerCallCount, lastGateFailure)
 	// are cleared when agentSessions entries are deleted
 }
@@ -1102,12 +1099,4 @@ export function hasActiveFullAuto(sessionID?: string): boolean {
 		}
 	}
 	return false;
-}
-
-/**
- * Called at plugin startup after validating that critic/architect models differ.
- * Enables full-auto mode to be activated for sessions.
- */
-export function setFullAutoModelValidation(passed: boolean): void {
-	swarmState.fullAutoModelValidationPassed = passed;
 }

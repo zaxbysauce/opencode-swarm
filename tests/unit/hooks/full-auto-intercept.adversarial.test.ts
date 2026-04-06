@@ -49,7 +49,6 @@ interface SessionState {
 // Global storage that both mock and tests can access
 const globalState = globalThis as typeof globalThis & {
 	_sessionStorage?: Map<string, SessionState>;
-	fullAutoModelValidationPassed?: boolean;
 };
 
 if (!globalState._sessionStorage) {
@@ -87,9 +86,6 @@ mock.module('../../../src/state.js', () => ({
 	},
 	resetSwarmState: () => {
 		stateRef.sessionStorage.clear();
-	},
-	setFullAutoModelValidation: (passed: boolean) => {
-		globalState.fullAutoModelValidationPassed = passed;
 	},
 }));
 
@@ -216,9 +212,6 @@ describe('full-auto-intercept ADVERSARIAL tests', () => {
 		consoleErrorCalls.length = 0;
 		stateRef.sessionStorage.clear();
 		processExitCalls.length = 0;
-
-		// Reset model validation state
-		globalState.fullAutoModelValidationPassed = true;
 
 		// Save originals
 		originalConsoleLog = console.log;
@@ -390,7 +383,6 @@ export { foo, test };
 	describe('ADVERSARIAL: Critic model matches architect model at startup', () => {
 		it('hasActiveFullAuto returns true when session has fullAutoMode even if model validation failed', async () => {
 			// Simulate model validation failure (advisory-only: this no longer blocks full-auto)
-			globalState.fullAutoModelValidationPassed = false;
 			// Mock: session has fullAutoMode=true even though model validation failed
 			mockHasActiveFullAuto.mockImplementation(() => true);
 
@@ -411,7 +403,6 @@ export { foo, test };
 			// Simulate the condition where critic model === architect model
 			// In the real code, this happens in src/index.ts startup validation
 			// Model validation is advisory-only, not a hard gate
-			globalState.fullAutoModelValidationPassed = false;
 			// Mock: session has fullAutoMode=true even though model validation failed
 			mockHasActiveFullAuto.mockImplementation(() => true);
 
@@ -432,7 +423,6 @@ export { foo, test };
 
 		it('hasActiveFullAuto returns true when model validation passed', async () => {
 			// Simulate successful model validation
-			globalState.fullAutoModelValidationPassed = true;
 			mockHasActiveFullAuto.mockImplementation(() => true);
 
 			const config = createFullAutoConfig({ enabled: true });
