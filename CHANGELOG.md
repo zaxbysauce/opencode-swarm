@@ -1,5 +1,12 @@
 # Changelog
 
+## [6.51.0](https://github.com/zaxbysauce/opencode-swarm/compare/v6.50.0...v6.51.0) (2026-04-06)
+
+
+### Features
+
+* add full-auto mode for autonomous swarm operation ([#410](https://github.com/zaxbysauce/opencode-swarm/issues/410)) ([0500ece](https://github.com/zaxbysauce/opencode-swarm/commit/0500ecea4c5b12726ed522cf23fdf325937f9356))
+
 ## [6.50.0](https://github.com/zaxbysauce/opencode-swarm/compare/v6.49.0...v6.50.0) (2026-04-05)
 
 
