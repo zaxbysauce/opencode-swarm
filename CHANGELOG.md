@@ -1,5 +1,12 @@
 # Changelog
 
+## [6.53.0](https://github.com/zaxbysauce/opencode-swarm/compare/v6.52.0...v6.53.0) (2026-04-06)
+
+
+### Features
+
+* **full-auto:** add /swarm full-auto per-session toggle command and fix TUI registration ([#415](https://github.com/zaxbysauce/opencode-swarm/issues/415)) ([160fbe0](https://github.com/zaxbysauce/opencode-swarm/commit/160fbe0b2e359341423bf6636756b7e93e37ccc6))
+
 ## [6.52.0](https://github.com/zaxbysauce/opencode-swarm/compare/v6.51.0...v6.52.0) (2026-04-06)
 
 
