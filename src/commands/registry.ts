@@ -16,6 +16,7 @@ import {
 	handleEvidenceSummaryCommand,
 } from './evidence.js';
 import { handleExportCommand } from './export.js';
+import { handleFullAutoCommand } from './full-auto.js';
 import { handleHandoffCommand } from './handoff.js';
 import { handleHistoryCommand } from './history.js';
 import {
@@ -182,6 +183,11 @@ export const COMMAND_REGISTRY = {
 		handler: (ctx) =>
 			handleTurboCommand(ctx.directory, ctx.args, ctx.sessionID),
 		description: 'Toggle Turbo Mode for the active session [on|off]',
+	},
+	'full-auto': {
+		handler: (ctx) =>
+			handleFullAutoCommand(ctx.directory, ctx.args, ctx.sessionID),
+		description: 'Toggle Full-Auto Mode for the active session [on|off]',
 	},
 	'write-retro': {
 		handler: (ctx) => handleWriteRetroCommand(ctx.directory, ctx.args),

@@ -208,6 +208,39 @@ describe('swarm-* shortcut command routing', () => {
 			);
 		});
 
+		it('routes swarm-full-auto shortcut and forwards extra arguments', async () => {
+			const handler = createSwarmCommandHandler(tempDir, {});
+			const output = { parts: [] as unknown[] };
+
+			// Simulate user selecting the swarm-full-auto shortcut and typing 'on'
+			await handler(
+				{ command: 'swarm-full-auto', arguments: 'on', sessionID: sessionId },
+				output,
+			);
+
+			expect(output.parts).toHaveLength(1);
+			expect((output.parts[0] as { text: string }).text).toBe(
+				'Full-Auto Mode enabled',
+			);
+			expect(swarmState.agentSessions.get(sessionId)?.fullAutoMode).toBe(true);
+		});
+
+		it('routes swarm-full-auto shortcut with no extra arguments (toggle)', async () => {
+			const handler = createSwarmCommandHandler(tempDir, {});
+			const output = { parts: [] as unknown[] };
+
+			// fullAutoMode starts false — toggle should enable it
+			await handler(
+				{ command: 'swarm-full-auto', arguments: '', sessionID: sessionId },
+				output,
+			);
+
+			expect(output.parts).toHaveLength(1);
+			expect((output.parts[0] as { text: string }).text).toBe(
+				'Full-Auto Mode enabled',
+			);
+		});
+
 		it('routes swarm-reset shortcut (no --confirm → shows safety prompt)', async () => {
 			const handler = createSwarmCommandHandler(tempDir, {});
 			const output = { parts: [] as unknown[] };

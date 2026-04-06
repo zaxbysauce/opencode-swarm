@@ -355,7 +355,7 @@ export function startAgentSession(
 		// Turbo Mode (v6.26)
 		turboMode: false,
 		// Full Auto Mode (Phase 2)
-		fullAutoMode: swarmState.fullAutoEnabledInConfig,
+		fullAutoMode: false,
 		fullAutoInteractionCount: 0,
 		fullAutoDeadlockCount: 0,
 		fullAutoLastQuestionHash: null,

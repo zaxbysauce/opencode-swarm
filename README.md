@@ -1154,6 +1154,7 @@ Control how tool outputs are summarized for LLM context.
 | `/swarm knowledge quarantine [id]` | Move a knowledge entry to quarantine |
 | `/swarm knowledge restore [id]` | Restore a quarantined knowledge entry |
 | `/swarm turbo` | Enable turbo mode for the current session (bypasses QA gates) |
+| `/swarm full-auto` | Toggle Full-Auto Mode for the current session [on|off] |
 | `/swarm checkpoint` | Save a git checkpoint for the current state |
 
 </details>
