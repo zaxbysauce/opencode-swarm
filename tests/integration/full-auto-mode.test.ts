@@ -130,14 +130,15 @@ describe('full-auto mode integration', () => {
 	}
 
 	/**
-	 * Helper: start a session with fullAutoMode enabled via config
+	 * Helper: start a session with fullAutoMode enabled directly.
+	 * Since v6.52.0, fullAutoMode initializes to false on every new session
+	 * (config-seeding was removed). Enable it directly on the session object.
 	 */
 	function startFullAutoSession(sessionID: string): void {
-		// Set config flag BEFORE startAgentSession so session picks it up automatically
-		swarmState.fullAutoEnabledInConfig = true;
 		startAgentSession(sessionID, 'architect', 7200000, tmpDir);
 		const session = swarmState.agentSessions.get(sessionID);
 		if (session) {
+			session.fullAutoMode = true;
 			session.fullAutoInteractionCount = 0;
 			session.fullAutoDeadlockCount = 0;
 		}
@@ -430,8 +431,6 @@ describe('full-auto mode integration', () => {
 	it('5. Full-auto disabled → messagesTransform is no-op → no events.jsonl created', async () => {
 		const sessionID = 'test-session-disabled';
 
-		// Enable via config BEFORE startAgentSession (session will pick it up automatically)
-		swarmState.fullAutoEnabledInConfig = true;
 		startAgentSession(sessionID, 'architect', 7200000, tmpDir);
 
 		// Config has full_auto disabled
