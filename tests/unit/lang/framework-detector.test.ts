@@ -16,6 +16,7 @@ import {
 	detectLaravelProject,
 	getLaravelCommandOverlay,
 	getLaravelSignals,
+	isLarastanConfigured,
 } from '../../../src/lang/framework-detector';
 
 const FIXTURES = path.join(process.cwd(), 'tests', 'fixtures');
@@ -353,5 +354,196 @@ describe('getLaravelCommandOverlay', () => {
 		} finally {
 			fs.rmSync(tmpDir, { recursive: true, force: true });
 		}
+	});
+
+	// staticAnalysisTool content-based Larastan detection
+	it('staticAnalysisTool is larastan when phpstan.neon contains nunomaduro/larastan', () => {
+		const tmpDir = fs.mkdtempSync(path.join(os.tmpdir(), 'laravel-larastan-'));
+		try {
+			fs.writeFileSync(
+				path.join(tmpDir, 'artisan'),
+				'#!/usr/bin/env php\n<?php',
+			);
+			fs.writeFileSync(
+				path.join(tmpDir, 'composer.json'),
+				JSON.stringify({ require: { 'laravel/framework': '^11.0' } }),
+			);
+			fs.writeFileSync(
+				path.join(tmpDir, 'phpstan.neon'),
+				'includes:\n    - ./vendor/nunomaduro/larastan/extension.neon\n',
+			);
+			const overlay = getLaravelCommandOverlay(tmpDir);
+			expect(overlay).not.toBeNull();
+			expect(overlay!.staticAnalysisTool).toBe('larastan');
+			expect(overlay!.staticAnalysisCommand).toBe('vendor/bin/phpstan analyse');
+		} finally {
+			fs.rmSync(tmpDir, { recursive: true, force: true });
+		}
+	});
+
+	it('staticAnalysisTool is larastan when phpstan.neon contains larastan/larastan', () => {
+		const tmpDir = fs.mkdtempSync(
+			path.join(os.tmpdir(), 'laravel-larastan2-'),
+		);
+		try {
+			fs.writeFileSync(
+				path.join(tmpDir, 'artisan'),
+				'#!/usr/bin/env php\n<?php',
+			);
+			fs.writeFileSync(
+				path.join(tmpDir, 'composer.json'),
+				JSON.stringify({ require: { 'laravel/framework': '^11.0' } }),
+			);
+			fs.writeFileSync(
+				path.join(tmpDir, 'phpstan.neon'),
+				'includes:\n    - ./vendor/larastan/larastan/extension.neon\n',
+			);
+			const overlay = getLaravelCommandOverlay(tmpDir);
+			expect(overlay).not.toBeNull();
+			expect(overlay!.staticAnalysisTool).toBe('larastan');
+		} finally {
+			fs.rmSync(tmpDir, { recursive: true, force: true });
+		}
+	});
+
+	it('staticAnalysisTool is phpstan when phpstan.neon present but has no Larastan marker', () => {
+		const tmpDir = fs.mkdtempSync(path.join(os.tmpdir(), 'laravel-phpstan2-'));
+		try {
+			fs.writeFileSync(
+				path.join(tmpDir, 'artisan'),
+				'#!/usr/bin/env php\n<?php',
+			);
+			fs.writeFileSync(
+				path.join(tmpDir, 'composer.json'),
+				JSON.stringify({ require: { 'laravel/framework': '^11.0' } }),
+			);
+			fs.writeFileSync(
+				path.join(tmpDir, 'phpstan.neon'),
+				'parameters:\n  level: 5\n  paths:\n    - src\n',
+			);
+			const overlay = getLaravelCommandOverlay(tmpDir);
+			expect(overlay).not.toBeNull();
+			expect(overlay!.staticAnalysisTool).toBe('phpstan');
+			expect(overlay!.staticAnalysisCommand).toBe('vendor/bin/phpstan analyse');
+		} finally {
+			fs.rmSync(tmpDir, { recursive: true, force: true });
+		}
+	});
+
+	it('staticAnalysisTool is phpstan when only phpstan.neon.dist present (no .neon)', () => {
+		const tmpDir = fs.mkdtempSync(
+			path.join(os.tmpdir(), 'laravel-neondist2-'),
+		);
+		try {
+			fs.writeFileSync(
+				path.join(tmpDir, 'artisan'),
+				'#!/usr/bin/env php\n<?php',
+			);
+			fs.writeFileSync(
+				path.join(tmpDir, 'composer.json'),
+				JSON.stringify({ require: { 'laravel/framework': '^11.0' } }),
+			);
+			// phpstan.neon.dist with Larastan content — but isLarastanConfigured
+			// only reads phpstan.neon, so this should still be 'phpstan'
+			fs.writeFileSync(
+				path.join(tmpDir, 'phpstan.neon.dist'),
+				'includes:\n    - ./vendor/nunomaduro/larastan/extension.neon\n',
+			);
+			const overlay = getLaravelCommandOverlay(tmpDir);
+			expect(overlay).not.toBeNull();
+			expect(overlay!.staticAnalysisTool).toBe('phpstan');
+			expect(overlay!.staticAnalysisCommand).toBe('vendor/bin/phpstan analyse');
+		} finally {
+			fs.rmSync(tmpDir, { recursive: true, force: true });
+		}
+	});
+
+	it('staticAnalysisTool is null when no phpstan config present', () => {
+		const overlay = getLaravelCommandOverlay(
+			path.join(FIXTURES, 'laravel-baseline'),
+		);
+		expect(overlay).not.toBeNull();
+		expect(overlay!.staticAnalysisTool).toBeNull();
+	});
+});
+
+describe('isLarastanConfigured', () => {
+	let tempDir: string;
+
+	afterEach(() => {
+		if (tempDir && fs.existsSync(tempDir)) {
+			fs.rmSync(tempDir, { recursive: true, force: true });
+		}
+	});
+
+	it('returns false when phpstan.neon does not exist', () => {
+		tempDir = fs.mkdtempSync(path.join(os.tmpdir(), 'larastan-check-'));
+		expect(isLarastanConfigured(tempDir)).toBe(false);
+	});
+
+	it('returns true for phpstan.neon with nunomaduro/larastan include', () => {
+		tempDir = fs.mkdtempSync(path.join(os.tmpdir(), 'larastan-check-'));
+		fs.writeFileSync(
+			path.join(tempDir, 'phpstan.neon'),
+			'includes:\n    - ./vendor/nunomaduro/larastan/extension.neon\n',
+		);
+		expect(isLarastanConfigured(tempDir)).toBe(true);
+	});
+
+	it('returns true for phpstan.neon with larastan/larastan include', () => {
+		tempDir = fs.mkdtempSync(path.join(os.tmpdir(), 'larastan-check-'));
+		fs.writeFileSync(
+			path.join(tempDir, 'phpstan.neon'),
+			'includes:\n    - ./vendor/larastan/larastan/extension.neon\n',
+		);
+		expect(isLarastanConfigured(tempDir)).toBe(true);
+	});
+
+	it('returns false for phpstan.neon with no Larastan marker', () => {
+		tempDir = fs.mkdtempSync(path.join(os.tmpdir(), 'larastan-check-'));
+		fs.writeFileSync(
+			path.join(tempDir, 'phpstan.neon'),
+			'parameters:\n  level: 5\n  paths:\n    - src\n',
+		);
+		expect(isLarastanConfigured(tempDir)).toBe(false);
+	});
+
+	it('reads only first 4096 bytes (marker beyond limit is not detected)', () => {
+		tempDir = fs.mkdtempSync(path.join(os.tmpdir(), 'larastan-check-'));
+		// Pad with 4096 bytes of filler before adding Larastan marker
+		const filler = 'x'.repeat(4096);
+		fs.writeFileSync(
+			path.join(tempDir, 'phpstan.neon'),
+			filler + 'includes:\n    - ./vendor/nunomaduro/larastan/extension.neon\n',
+		);
+		expect(isLarastanConfigured(tempDir)).toBe(false);
+	});
+
+	it('detects marker that sits exactly within the first 4096 bytes', () => {
+		tempDir = fs.mkdtempSync(path.join(os.tmpdir(), 'larastan-check-'));
+		const marker = 'nunomaduro/larastan';
+		// Place marker so it ends exactly at byte 4096
+		const filler = 'x'.repeat(4096 - marker.length);
+		fs.writeFileSync(
+			path.join(tempDir, 'phpstan.neon'),
+			filler + marker + '\nmore content\n',
+		);
+		expect(isLarastanConfigured(tempDir)).toBe(true);
+	});
+
+	it('returns false gracefully when phpstan.neon is unreadable (empty)', () => {
+		tempDir = fs.mkdtempSync(path.join(os.tmpdir(), 'larastan-check-'));
+		fs.writeFileSync(path.join(tempDir, 'phpstan.neon'), '');
+		expect(isLarastanConfigured(tempDir)).toBe(false);
+	});
+
+	it('does not scan phpstan.neon.dist even when it contains a Larastan marker', () => {
+		tempDir = fs.mkdtempSync(path.join(os.tmpdir(), 'larastan-check-'));
+		fs.writeFileSync(
+			path.join(tempDir, 'phpstan.neon.dist'),
+			'includes:\n    - ./vendor/nunomaduro/larastan/extension.neon\n',
+		);
+		// No phpstan.neon — should return false
+		expect(isLarastanConfigured(tempDir)).toBe(false);
 	});
 });

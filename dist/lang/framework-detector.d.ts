@@ -27,6 +27,12 @@ export interface LaravelCommandOverlay {
     lintCommand: string | null;
     /** Static analysis command. PHPStan if phpstan config is present, null otherwise. */
     staticAnalysisCommand: string | null;
+    /**
+     * Identified static analysis tool. 'larastan' if phpstan.neon contains a
+     * Larastan extension reference, 'phpstan' if a phpstan config is present
+     * without Larastan markers, null if no phpstan config is present.
+     */
+    staticAnalysisTool: 'larastan' | 'phpstan' | null;
     /** Dependency audit command (always composer audit --locked --format=json for Laravel). */
     auditCommand: string;
     /** Whether --parallel flag is supported (Pest parallel testing via artisan). */
@@ -55,6 +61,18 @@ export declare function detectLaravelProject(directory: string): boolean;
  */
 export declare function getLaravelSignals(directory: string): LaravelDetectionSignals;
 /**
+ * Determine whether a project is configured to use Larastan (the Laravel
+ * extension for PHPStan) rather than vanilla PHPStan.
+ *
+ * Detection is content-based: the first 4096 bytes of `phpstan.neon` are
+ * read and scanned for a reference to either of the two known Larastan
+ * package names (`nunomaduro/larastan` or `larastan/larastan`).
+ *
+ * @param directory - Absolute path to the project root
+ * @returns true if phpstan.neon contains a Larastan extension reference
+ */
+export declare function isLarastanConfigured(directory: string): boolean;
+/**
  * Get the Laravel command overlay for a project directory.
  * Returns null if the directory is not a Laravel project.
  *
@@ -65,6 +83,8 @@ export declare function getLaravelSignals(directory: string): LaravelDetectionSi
  *   null otherwise
  * - staticAnalysisCommand: 'vendor/bin/phpstan analyse' if phpstan.neon or phpstan.neon.dist present,
  *   null otherwise
+ * - staticAnalysisTool: 'larastan' if phpstan.neon contains a Larastan extension reference,
+ *   'phpstan' if a phpstan config is present without Larastan markers, null otherwise
  * - auditCommand: always 'composer audit --locked --format=json'
  * - supportsParallel: true (php artisan test --parallel is supported)
  *
