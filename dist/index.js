@@ -453,7 +453,7 @@ var init_constants = __esm(() => {
   LOW_CAPABILITY_MODELS = ["mini", "nano", "small", "free"];
 });
 
-// node_modules/.bun/zod@4.3.6/node_modules/zod/v4/core/core.js
+// node_modules/zod/v4/core/core.js
 function $constructor(name2, initializer, params) {
   function init2(inst, def) {
     if (!inst._zod) {
@@ -531,7 +531,7 @@ var init_core = __esm(() => {
   globalConfig = {};
 });
 
-// node_modules/.bun/zod@4.3.6/node_modules/zod/v4/core/util.js
+// node_modules/zod/v4/core/util.js
 var exports_util = {};
 __export(exports_util, {
   unwrapMessage: () => unwrapMessage,
@@ -1207,7 +1207,7 @@ var init_util = __esm(() => {
   };
 });
 
-// node_modules/.bun/zod@4.3.6/node_modules/zod/v4/core/errors.js
+// node_modules/zod/v4/core/errors.js
 function flattenError(error, mapper = (issue2) => issue2.message) {
   const fieldErrors = {};
   const formErrors = [];
@@ -1348,7 +1348,7 @@ var init_errors = __esm(() => {
   $ZodRealError = $constructor("$ZodError", initializer, { Parent: Error });
 });
 
-// node_modules/.bun/zod@4.3.6/node_modules/zod/v4/core/parse.js
+// node_modules/zod/v4/core/parse.js
 var _parse = (_Err) => (schema, value, _ctx, _params) => {
   const ctx = _ctx ? Object.assign(_ctx, { async: false }) : { async: false };
   const result = schema._zod.run({ value, issues: [] }, ctx);
@@ -1430,7 +1430,7 @@ var init_parse = __esm(() => {
   safeDecodeAsync = /* @__PURE__ */ _safeDecodeAsync($ZodRealError);
 });
 
-// node_modules/.bun/zod@4.3.6/node_modules/zod/v4/core/regexes.js
+// node_modules/zod/v4/core/regexes.js
 var exports_regexes = {};
 __export(exports_regexes, {
   xid: () => xid,
@@ -1586,7 +1586,7 @@ var init_regexes = __esm(() => {
   sha512_base64url = /* @__PURE__ */ fixedBase64url(86);
 });
 
-// node_modules/.bun/zod@4.3.6/node_modules/zod/v4/core/checks.js
+// node_modules/zod/v4/core/checks.js
 function handleCheckPropertyResult(result, payload, property) {
   if (result.issues.length) {
     payload.issues.push(...prefixIssues(property, result.issues));
@@ -2139,7 +2139,7 @@ var init_checks = __esm(() => {
   });
 });
 
-// node_modules/.bun/zod@4.3.6/node_modules/zod/v4/core/doc.js
+// node_modules/zod/v4/core/doc.js
 class Doc {
   constructor(args2 = []) {
     this.content = [];
@@ -2177,7 +2177,7 @@ class Doc {
   }
 }
 
-// node_modules/.bun/zod@4.3.6/node_modules/zod/v4/core/versions.js
+// node_modules/zod/v4/core/versions.js
 var version;
 var init_versions = __esm(() => {
   version = {
@@ -2187,7 +2187,7 @@ var init_versions = __esm(() => {
   };
 });
 
-// node_modules/.bun/zod@4.3.6/node_modules/zod/v4/core/schemas.js
+// node_modules/zod/v4/core/schemas.js
 function isValidBase64(data) {
   if (data === "")
     return true;
@@ -4160,7 +4160,7 @@ var init_schemas = __esm(() => {
   });
 });
 
-// node_modules/.bun/zod@4.3.6/node_modules/zod/v4/locales/ar.js
+// node_modules/zod/v4/locales/ar.js
 function ar_default() {
   return {
     localeError: error()
@@ -4270,7 +4270,7 @@ var init_ar = __esm(() => {
   init_util();
 });
 
-// node_modules/.bun/zod@4.3.6/node_modules/zod/v4/locales/az.js
+// node_modules/zod/v4/locales/az.js
 function az_default() {
   return {
     localeError: error2()
@@ -4379,7 +4379,7 @@ var init_az = __esm(() => {
   init_util();
 });
 
-// node_modules/.bun/zod@4.3.6/node_modules/zod/v4/locales/be.js
+// node_modules/zod/v4/locales/be.js
 function getBelarusianPlural(count, one, few, many) {
   const absCount = Math.abs(count);
   const lastDigit = absCount % 10;
@@ -4539,7 +4539,7 @@ var init_be = __esm(() => {
   init_util();
 });
 
-// node_modules/.bun/zod@4.3.6/node_modules/zod/v4/locales/bg.js
+// node_modules/zod/v4/locales/bg.js
 function bg_default() {
   return {
     localeError: error4()
@@ -4663,7 +4663,7 @@ var init_bg = __esm(() => {
   init_util();
 });
 
-// node_modules/.bun/zod@4.3.6/node_modules/zod/v4/locales/ca.js
+// node_modules/zod/v4/locales/ca.js
 function ca_default() {
   return {
     localeError: error5()
@@ -4774,7 +4774,7 @@ var init_ca = __esm(() => {
   init_util();
 });
 
-// node_modules/.bun/zod@4.3.6/node_modules/zod/v4/locales/cs.js
+// node_modules/zod/v4/locales/cs.js
 function cs_default() {
   return {
     localeError: error6()
@@ -4889,7 +4889,7 @@ var init_cs = __esm(() => {
   init_util();
 });
 
-// node_modules/.bun/zod@4.3.6/node_modules/zod/v4/locales/da.js
+// node_modules/zod/v4/locales/da.js
 function da_default() {
   return {
     localeError: error7()
@@ -5008,7 +5008,7 @@ var init_da = __esm(() => {
   init_util();
 });
 
-// node_modules/.bun/zod@4.3.6/node_modules/zod/v4/locales/de.js
+// node_modules/zod/v4/locales/de.js
 function de_default() {
   return {
     localeError: error8()
@@ -5120,7 +5120,7 @@ var init_de = __esm(() => {
   init_util();
 });
 
-// node_modules/.bun/zod@4.3.6/node_modules/zod/v4/locales/en.js
+// node_modules/zod/v4/locales/en.js
 function en_default() {
   return {
     localeError: error9()
@@ -5230,7 +5230,7 @@ var init_en = __esm(() => {
   init_util();
 });
 
-// node_modules/.bun/zod@4.3.6/node_modules/zod/v4/locales/eo.js
+// node_modules/zod/v4/locales/eo.js
 function eo_default() {
   return {
     localeError: error10()
@@ -5343,7 +5343,7 @@ var init_eo = __esm(() => {
   init_util();
 });
 
-// node_modules/.bun/zod@4.3.6/node_modules/zod/v4/locales/es.js
+// node_modules/zod/v4/locales/es.js
 function es_default() {
   return {
     localeError: error11()
@@ -5479,7 +5479,7 @@ var init_es = __esm(() => {
   init_util();
 });
 
-// node_modules/.bun/zod@4.3.6/node_modules/zod/v4/locales/fa.js
+// node_modules/zod/v4/locales/fa.js
 function fa_default() {
   return {
     localeError: error12()
@@ -5597,7 +5597,7 @@ var init_fa = __esm(() => {
   init_util();
 });
 
-// node_modules/.bun/zod@4.3.6/node_modules/zod/v4/locales/fi.js
+// node_modules/zod/v4/locales/fi.js
 function fi_default() {
   return {
     localeError: error13()
@@ -5713,7 +5713,7 @@ var init_fi = __esm(() => {
   init_util();
 });
 
-// node_modules/.bun/zod@4.3.6/node_modules/zod/v4/locales/fr.js
+// node_modules/zod/v4/locales/fr.js
 function fr_default() {
   return {
     localeError: error14()
@@ -5825,7 +5825,7 @@ var init_fr = __esm(() => {
   init_util();
 });
 
-// node_modules/.bun/zod@4.3.6/node_modules/zod/v4/locales/fr-CA.js
+// node_modules/zod/v4/locales/fr-CA.js
 function fr_CA_default() {
   return {
     localeError: error15()
@@ -5936,7 +5936,7 @@ var init_fr_CA = __esm(() => {
   init_util();
 });
 
-// node_modules/.bun/zod@4.3.6/node_modules/zod/v4/locales/he.js
+// node_modules/zod/v4/locales/he.js
 function he_default() {
   return {
     localeError: error16()
@@ -6133,7 +6133,7 @@ var init_he = __esm(() => {
   init_util();
 });
 
-// node_modules/.bun/zod@4.3.6/node_modules/zod/v4/locales/hu.js
+// node_modules/zod/v4/locales/hu.js
 function hu_default() {
   return {
     localeError: error17()
@@ -6245,7 +6245,7 @@ var init_hu = __esm(() => {
   init_util();
 });
 
-// node_modules/.bun/zod@4.3.6/node_modules/zod/v4/locales/hy.js
+// node_modules/zod/v4/locales/hy.js
 function getArmenianPlural(count, one, many) {
   return Math.abs(count) === 1 ? one : many;
 }
@@ -6396,7 +6396,7 @@ var init_hy = __esm(() => {
   init_util();
 });
 
-// node_modules/.bun/zod@4.3.6/node_modules/zod/v4/locales/id.js
+// node_modules/zod/v4/locales/id.js
 function id_default() {
   return {
     localeError: error19()
@@ -6506,7 +6506,7 @@ var init_id = __esm(() => {
   init_util();
 });
 
-// node_modules/.bun/zod@4.3.6/node_modules/zod/v4/locales/is.js
+// node_modules/zod/v4/locales/is.js
 function is_default() {
   return {
     localeError: error20()
@@ -6619,7 +6619,7 @@ var init_is = __esm(() => {
   init_util();
 });
 
-// node_modules/.bun/zod@4.3.6/node_modules/zod/v4/locales/it.js
+// node_modules/zod/v4/locales/it.js
 function it_default() {
   return {
     localeError: error21()
@@ -6731,7 +6731,7 @@ var init_it = __esm(() => {
   init_util();
 });
 
-// node_modules/.bun/zod@4.3.6/node_modules/zod/v4/locales/ja.js
+// node_modules/zod/v4/locales/ja.js
 function ja_default() {
   return {
     localeError: error22()
@@ -6842,7 +6842,7 @@ var init_ja = __esm(() => {
   init_util();
 });
 
-// node_modules/.bun/zod@4.3.6/node_modules/zod/v4/locales/ka.js
+// node_modules/zod/v4/locales/ka.js
 function ka_default() {
   return {
     localeError: error23()
@@ -6958,7 +6958,7 @@ var init_ka = __esm(() => {
   init_util();
 });
 
-// node_modules/.bun/zod@4.3.6/node_modules/zod/v4/locales/km.js
+// node_modules/zod/v4/locales/km.js
 function km_default() {
   return {
     localeError: error24()
@@ -7072,7 +7072,7 @@ var init_km = __esm(() => {
   init_util();
 });
 
-// node_modules/.bun/zod@4.3.6/node_modules/zod/v4/locales/kh.js
+// node_modules/zod/v4/locales/kh.js
 function kh_default() {
   return km_default();
 }
@@ -7080,7 +7080,7 @@ var init_kh = __esm(() => {
   init_km();
 });
 
-// node_modules/.bun/zod@4.3.6/node_modules/zod/v4/locales/ko.js
+// node_modules/zod/v4/locales/ko.js
 function ko_default() {
   return {
     localeError: error25()
@@ -7195,7 +7195,7 @@ var init_ko = __esm(() => {
   init_util();
 });
 
-// node_modules/.bun/zod@4.3.6/node_modules/zod/v4/locales/lt.js
+// node_modules/zod/v4/locales/lt.js
 function getUnitTypeFromNumber(number2) {
   const abs = Math.abs(number2);
   const last = abs % 10;
@@ -7401,7 +7401,7 @@ var init_lt = __esm(() => {
   init_util();
 });
 
-// node_modules/.bun/zod@4.3.6/node_modules/zod/v4/locales/mk.js
+// node_modules/zod/v4/locales/mk.js
 function mk_default() {
   return {
     localeError: error27()
@@ -7514,7 +7514,7 @@ var init_mk = __esm(() => {
   init_util();
 });
 
-// node_modules/.bun/zod@4.3.6/node_modules/zod/v4/locales/ms.js
+// node_modules/zod/v4/locales/ms.js
 function ms_default() {
   return {
     localeError: error28()
@@ -7625,7 +7625,7 @@ var init_ms = __esm(() => {
   init_util();
 });
 
-// node_modules/.bun/zod@4.3.6/node_modules/zod/v4/locales/nl.js
+// node_modules/zod/v4/locales/nl.js
 function nl_default() {
   return {
     localeError: error29()
@@ -7739,7 +7739,7 @@ var init_nl = __esm(() => {
   init_util();
 });
 
-// node_modules/.bun/zod@4.3.6/node_modules/zod/v4/locales/no.js
+// node_modules/zod/v4/locales/no.js
 function no_default() {
   return {
     localeError: error30()
@@ -7851,7 +7851,7 @@ var init_no = __esm(() => {
   init_util();
 });
 
-// node_modules/.bun/zod@4.3.6/node_modules/zod/v4/locales/ota.js
+// node_modules/zod/v4/locales/ota.js
 function ota_default() {
   return {
     localeError: error31()
@@ -7964,7 +7964,7 @@ var init_ota = __esm(() => {
   init_util();
 });
 
-// node_modules/.bun/zod@4.3.6/node_modules/zod/v4/locales/ps.js
+// node_modules/zod/v4/locales/ps.js
 function ps_default() {
   return {
     localeError: error32()
@@ -8082,7 +8082,7 @@ var init_ps = __esm(() => {
   init_util();
 });
 
-// node_modules/.bun/zod@4.3.6/node_modules/zod/v4/locales/pl.js
+// node_modules/zod/v4/locales/pl.js
 function pl_default() {
   return {
     localeError: error33()
@@ -8195,7 +8195,7 @@ var init_pl = __esm(() => {
   init_util();
 });
 
-// node_modules/.bun/zod@4.3.6/node_modules/zod/v4/locales/pt.js
+// node_modules/zod/v4/locales/pt.js
 function pt_default() {
   return {
     localeError: error34()
@@ -8307,7 +8307,7 @@ var init_pt = __esm(() => {
   init_util();
 });
 
-// node_modules/.bun/zod@4.3.6/node_modules/zod/v4/locales/ru.js
+// node_modules/zod/v4/locales/ru.js
 function getRussianPlural(count, one, few, many) {
   const absCount = Math.abs(count);
   const lastDigit = absCount % 10;
@@ -8467,7 +8467,7 @@ var init_ru = __esm(() => {
   init_util();
 });
 
-// node_modules/.bun/zod@4.3.6/node_modules/zod/v4/locales/sl.js
+// node_modules/zod/v4/locales/sl.js
 function sl_default() {
   return {
     localeError: error36()
@@ -8580,7 +8580,7 @@ var init_sl = __esm(() => {
   init_util();
 });
 
-// node_modules/.bun/zod@4.3.6/node_modules/zod/v4/locales/sv.js
+// node_modules/zod/v4/locales/sv.js
 function sv_default() {
   return {
     localeError: error37()
@@ -8694,7 +8694,7 @@ var init_sv = __esm(() => {
   init_util();
 });
 
-// node_modules/.bun/zod@4.3.6/node_modules/zod/v4/locales/ta.js
+// node_modules/zod/v4/locales/ta.js
 function ta_default() {
   return {
     localeError: error38()
@@ -8808,7 +8808,7 @@ var init_ta = __esm(() => {
   init_util();
 });
 
-// node_modules/.bun/zod@4.3.6/node_modules/zod/v4/locales/th.js
+// node_modules/zod/v4/locales/th.js
 function th_default() {
   return {
     localeError: error39()
@@ -8922,7 +8922,7 @@ var init_th = __esm(() => {
   init_util();
 });
 
-// node_modules/.bun/zod@4.3.6/node_modules/zod/v4/locales/tr.js
+// node_modules/zod/v4/locales/tr.js
 function tr_default() {
   return {
     localeError: error40()
@@ -9031,7 +9031,7 @@ var init_tr = __esm(() => {
   init_util();
 });
 
-// node_modules/.bun/zod@4.3.6/node_modules/zod/v4/locales/uk.js
+// node_modules/zod/v4/locales/uk.js
 function uk_default() {
   return {
     localeError: error41()
@@ -9143,7 +9143,7 @@ var init_uk = __esm(() => {
   init_util();
 });
 
-// node_modules/.bun/zod@4.3.6/node_modules/zod/v4/locales/ua.js
+// node_modules/zod/v4/locales/ua.js
 function ua_default() {
   return uk_default();
 }
@@ -9151,7 +9151,7 @@ var init_ua = __esm(() => {
   init_uk();
 });
 
-// node_modules/.bun/zod@4.3.6/node_modules/zod/v4/locales/ur.js
+// node_modules/zod/v4/locales/ur.js
 function ur_default() {
   return {
     localeError: error42()
@@ -9265,7 +9265,7 @@ var init_ur = __esm(() => {
   init_util();
 });
 
-// node_modules/.bun/zod@4.3.6/node_modules/zod/v4/locales/uz.js
+// node_modules/zod/v4/locales/uz.js
 function uz_default() {
   return {
     localeError: error43()
@@ -9378,7 +9378,7 @@ var init_uz = __esm(() => {
   init_util();
 });
 
-// node_modules/.bun/zod@4.3.6/node_modules/zod/v4/locales/vi.js
+// node_modules/zod/v4/locales/vi.js
 function vi_default() {
   return {
     localeError: error44()
@@ -9490,7 +9490,7 @@ var init_vi = __esm(() => {
   init_util();
 });
 
-// node_modules/.bun/zod@4.3.6/node_modules/zod/v4/locales/zh-CN.js
+// node_modules/zod/v4/locales/zh-CN.js
 function zh_CN_default() {
   return {
     localeError: error45()
@@ -9603,7 +9603,7 @@ var init_zh_CN = __esm(() => {
   init_util();
 });
 
-// node_modules/.bun/zod@4.3.6/node_modules/zod/v4/locales/zh-TW.js
+// node_modules/zod/v4/locales/zh-TW.js
 function zh_TW_default() {
   return {
     localeError: error46()
@@ -9714,7 +9714,7 @@ var init_zh_TW = __esm(() => {
   init_util();
 });
 
-// node_modules/.bun/zod@4.3.6/node_modules/zod/v4/locales/yo.js
+// node_modules/zod/v4/locales/yo.js
 function yo_default() {
   return {
     localeError: error47()
@@ -9825,7 +9825,7 @@ var init_yo = __esm(() => {
   init_util();
 });
 
-// node_modules/.bun/zod@4.3.6/node_modules/zod/v4/locales/index.js
+// node_modules/zod/v4/locales/index.js
 var exports_locales = {};
 __export(exports_locales, {
   zhTW: () => zh_TW_default,
@@ -9930,7 +9930,7 @@ var init_locales = __esm(() => {
   init_yo();
 });
 
-// node_modules/.bun/zod@4.3.6/node_modules/zod/v4/core/registries.js
+// node_modules/zod/v4/core/registries.js
 class $ZodRegistry {
   constructor() {
     this._map = new WeakMap;
@@ -9982,7 +9982,7 @@ var init_registries = __esm(() => {
   globalRegistry = globalThis.__zod_globalRegistry;
 });
 
-// node_modules/.bun/zod@4.3.6/node_modules/zod/v4/core/api.js
+// node_modules/zod/v4/core/api.js
 function _string(Class2, params) {
   return new Class2({
     type: "string",
@@ -10910,7 +10910,7 @@ var init_api = __esm(() => {
   };
 });
 
-// node_modules/.bun/zod@4.3.6/node_modules/zod/v4/core/to-json-schema.js
+// node_modules/zod/v4/core/to-json-schema.js
 function initializeContext(params) {
   let target = params?.target ?? "draft-2020-12";
   if (target === "draft-4")
@@ -11258,7 +11258,7 @@ var init_to_json_schema = __esm(() => {
   init_registries();
 });
 
-// node_modules/.bun/zod@4.3.6/node_modules/zod/v4/core/json-schema-processors.js
+// node_modules/zod/v4/core/json-schema-processors.js
 function toJSONSchema(input, params) {
   if ("_idmap" in input) {
     const registry2 = input;
@@ -11770,7 +11770,7 @@ var init_json_schema_processors = __esm(() => {
   };
 });
 
-// node_modules/.bun/zod@4.3.6/node_modules/zod/v4/core/json-schema-generator.js
+// node_modules/zod/v4/core/json-schema-generator.js
 class JSONSchemaGenerator {
   get metadataRegistry() {
     return this.ctx.metadataRegistry;
@@ -11834,11 +11834,11 @@ var init_json_schema_generator = __esm(() => {
   init_to_json_schema();
 });
 
-// node_modules/.bun/zod@4.3.6/node_modules/zod/v4/core/json-schema.js
+// node_modules/zod/v4/core/json-schema.js
 var exports_json_schema = {};
 var init_json_schema = () => {};
 
-// node_modules/.bun/zod@4.3.6/node_modules/zod/v4/core/index.js
+// node_modules/zod/v4/core/index.js
 var exports_core2 = {};
 __export(exports_core2, {
   version: () => version,
@@ -12133,7 +12133,7 @@ var init_core2 = __esm(() => {
   init_to_json_schema();
 });
 
-// node_modules/.bun/zod@4.3.6/node_modules/zod/v4/classic/checks.js
+// node_modules/zod/v4/classic/checks.js
 var exports_checks2 = {};
 __export(exports_checks2, {
   uppercase: () => _uppercase,
@@ -12170,7 +12170,7 @@ var init_checks2 = __esm(() => {
   init_core2();
 });
 
-// node_modules/.bun/zod@4.3.6/node_modules/zod/v4/classic/iso.js
+// node_modules/zod/v4/classic/iso.js
 var exports_iso = {};
 __export(exports_iso, {
   time: () => time2,
@@ -12216,7 +12216,7 @@ var init_iso = __esm(() => {
   });
 });
 
-// node_modules/.bun/zod@4.3.6/node_modules/zod/v4/classic/errors.js
+// node_modules/zod/v4/classic/errors.js
 var initializer2 = (inst, issues) => {
   $ZodError.init(inst, issues);
   inst.name = "ZodError";
@@ -12256,7 +12256,7 @@ var init_errors2 = __esm(() => {
   });
 });
 
-// node_modules/.bun/zod@4.3.6/node_modules/zod/v4/classic/parse.js
+// node_modules/zod/v4/classic/parse.js
 var parse3, parseAsync2, safeParse2, safeParseAsync2, encode2, decode2, encodeAsync2, decodeAsync2, safeEncode2, safeDecode2, safeEncodeAsync2, safeDecodeAsync2;
 var init_parse2 = __esm(() => {
   init_core2();
@@ -12275,7 +12275,7 @@ var init_parse2 = __esm(() => {
   safeDecodeAsync2 = /* @__PURE__ */ _safeDecodeAsync(ZodRealError);
 });
 
-// node_modules/.bun/zod@4.3.6/node_modules/zod/v4/classic/schemas.js
+// node_modules/zod/v4/classic/schemas.js
 var exports_schemas2 = {};
 __export(exports_schemas2, {
   xor: () => xor,
@@ -13528,7 +13528,7 @@ var init_schemas2 = __esm(() => {
   meta2 = meta;
 });
 
-// node_modules/.bun/zod@4.3.6/node_modules/zod/v4/classic/compat.js
+// node_modules/zod/v4/classic/compat.js
 function setErrorMap(map2) {
   config({
     customError: map2
@@ -13556,7 +13556,7 @@ var init_compat = __esm(() => {
   (function(ZodFirstPartyTypeKind2) {})(ZodFirstPartyTypeKind || (ZodFirstPartyTypeKind = {}));
 });
 
-// node_modules/.bun/zod@4.3.6/node_modules/zod/v4/classic/from-json-schema.js
+// node_modules/zod/v4/classic/from-json-schema.js
 function detectVersion(schema, defaultTarget) {
   const $schema = schema.$schema;
   if ($schema === "https://json-schema.org/draft/2020-12/schema") {
@@ -14025,7 +14025,7 @@ var init_from_json_schema = __esm(() => {
   ]);
 });
 
-// node_modules/.bun/zod@4.3.6/node_modules/zod/v4/classic/coerce.js
+// node_modules/zod/v4/classic/coerce.js
 var exports_coerce = {};
 __export(exports_coerce, {
   string: () => string3,
@@ -14054,7 +14054,7 @@ var init_coerce = __esm(() => {
   init_schemas2();
 });
 
-// node_modules/.bun/zod@4.3.6/node_modules/zod/v4/classic/external.js
+// node_modules/zod/v4/classic/external.js
 var exports_external = {};
 __export(exports_external, {
   xor: () => xor,
@@ -14313,7 +14313,7 @@ var init_external = __esm(() => {
   config(en_default());
 });
 
-// node_modules/.bun/zod@4.3.6/node_modules/zod/index.js
+// node_modules/zod/index.js
 var init_zod = __esm(() => {
   init_external();
   init_external();
@@ -16469,7 +16469,7 @@ var init_state = __esm(() => {
   };
 });
 
-// node_modules/.bun/zod@4.1.8/node_modules/zod/v4/core/core.js
+// node_modules/@opencode-ai/plugin/node_modules/zod/v4/core/core.js
 function $constructor2(name2, initializer3, params) {
   function init2(inst, def) {
     var _a2;
@@ -16538,7 +16538,7 @@ var init_core3 = __esm(() => {
   globalConfig2 = {};
 });
 
-// node_modules/.bun/zod@4.1.8/node_modules/zod/v4/core/util.js
+// node_modules/@opencode-ai/plugin/node_modules/zod/v4/core/util.js
 var exports_util2 = {};
 __export(exports_util2, {
   unwrapMessage: () => unwrapMessage2,
@@ -17169,7 +17169,7 @@ var init_util2 = __esm(() => {
   };
 });
 
-// node_modules/.bun/zod@4.1.8/node_modules/zod/v4/core/errors.js
+// node_modules/@opencode-ai/plugin/node_modules/zod/v4/core/errors.js
 function flattenError2(error49, mapper = (issue3) => issue3.message) {
   const fieldErrors = {};
   const formErrors = [];
@@ -17316,7 +17316,7 @@ var init_errors4 = __esm(() => {
   $ZodRealError2 = $constructor2("$ZodError", initializer3, { Parent: Error });
 });
 
-// node_modules/.bun/zod@4.1.8/node_modules/zod/v4/core/parse.js
+// node_modules/@opencode-ai/plugin/node_modules/zod/v4/core/parse.js
 var _parse2 = (_Err) => (schema, value, _ctx, _params) => {
   const ctx = _ctx ? Object.assign(_ctx, { async: false }) : { async: false };
   const result = schema._zod.run({ value, issues: [] }, ctx);
@@ -17398,7 +17398,7 @@ var init_parse3 = __esm(() => {
   safeDecodeAsync3 = /* @__PURE__ */ _safeDecodeAsync2($ZodRealError2);
 });
 
-// node_modules/.bun/zod@4.1.8/node_modules/zod/v4/core/regexes.js
+// node_modules/@opencode-ai/plugin/node_modules/zod/v4/core/regexes.js
 var exports_regexes2 = {};
 __export(exports_regexes2, {
   xid: () => xid3,
@@ -17549,7 +17549,7 @@ var init_regexes2 = __esm(() => {
   sha512_base64url2 = /* @__PURE__ */ fixedBase64url2(86);
 });
 
-// node_modules/.bun/zod@4.1.8/node_modules/zod/v4/core/checks.js
+// node_modules/@opencode-ai/plugin/node_modules/zod/v4/core/checks.js
 function handleCheckPropertyResult2(result, payload, property) {
   if (result.issues.length) {
     payload.issues.push(...prefixIssues2(property, result.issues));
@@ -18096,7 +18096,7 @@ var init_checks3 = __esm(() => {
   });
 });
 
-// node_modules/.bun/zod@4.1.8/node_modules/zod/v4/core/doc.js
+// node_modules/@opencode-ai/plugin/node_modules/zod/v4/core/doc.js
 class Doc2 {
   constructor(args2 = []) {
     this.content = [];
@@ -18134,7 +18134,7 @@ class Doc2 {
   }
 }
 
-// node_modules/.bun/zod@4.1.8/node_modules/zod/v4/core/versions.js
+// node_modules/@opencode-ai/plugin/node_modules/zod/v4/core/versions.js
 var version2;
 var init_versions2 = __esm(() => {
   version2 = {
@@ -18144,7 +18144,7 @@ var init_versions2 = __esm(() => {
   };
 });
 
-// node_modules/.bun/zod@4.1.8/node_modules/zod/v4/core/schemas.js
+// node_modules/@opencode-ai/plugin/node_modules/zod/v4/core/schemas.js
 function isValidBase642(data) {
   if (data === "")
     return true;
@@ -19978,7 +19978,7 @@ var init_schemas3 = __esm(() => {
   });
 });
 
-// node_modules/.bun/zod@4.1.8/node_modules/zod/v4/locales/ar.js
+// node_modules/@opencode-ai/plugin/node_modules/zod/v4/locales/ar.js
 function ar_default2() {
   return {
     localeError: error49()
@@ -20098,7 +20098,7 @@ var init_ar2 = __esm(() => {
   init_util2();
 });
 
-// node_modules/.bun/zod@4.1.8/node_modules/zod/v4/locales/az.js
+// node_modules/@opencode-ai/plugin/node_modules/zod/v4/locales/az.js
 function az_default2() {
   return {
     localeError: error50()
@@ -20217,7 +20217,7 @@ var init_az2 = __esm(() => {
   init_util2();
 });
 
-// node_modules/.bun/zod@4.1.8/node_modules/zod/v4/locales/be.js
+// node_modules/@opencode-ai/plugin/node_modules/zod/v4/locales/be.js
 function getBelarusianPlural2(count, one, few, many) {
   const absCount = Math.abs(count);
   const lastDigit = absCount % 10;
@@ -20385,7 +20385,7 @@ var init_be2 = __esm(() => {
   init_util2();
 });
 
-// node_modules/.bun/zod@4.1.8/node_modules/zod/v4/locales/ca.js
+// node_modules/@opencode-ai/plugin/node_modules/zod/v4/locales/ca.js
 function ca_default2() {
   return {
     localeError: error52()
@@ -20506,7 +20506,7 @@ var init_ca2 = __esm(() => {
   init_util2();
 });
 
-// node_modules/.bun/zod@4.1.8/node_modules/zod/v4/locales/cs.js
+// node_modules/@opencode-ai/plugin/node_modules/zod/v4/locales/cs.js
 function cs_default2() {
   return {
     localeError: error53()
@@ -20645,7 +20645,7 @@ var init_cs2 = __esm(() => {
   init_util2();
 });
 
-// node_modules/.bun/zod@4.1.8/node_modules/zod/v4/locales/da.js
+// node_modules/@opencode-ai/plugin/node_modules/zod/v4/locales/da.js
 function da_default2() {
   return {
     localeError: error54()
@@ -20780,7 +20780,7 @@ var init_da2 = __esm(() => {
   init_util2();
 });
 
-// node_modules/.bun/zod@4.1.8/node_modules/zod/v4/locales/de.js
+// node_modules/@opencode-ai/plugin/node_modules/zod/v4/locales/de.js
 function de_default2() {
   return {
     localeError: error55()
@@ -20900,7 +20900,7 @@ var init_de2 = __esm(() => {
   init_util2();
 });
 
-// node_modules/.bun/zod@4.1.8/node_modules/zod/v4/locales/en.js
+// node_modules/@opencode-ai/plugin/node_modules/zod/v4/locales/en.js
 function en_default2() {
   return {
     localeError: error56()
@@ -21020,7 +21020,7 @@ var init_en2 = __esm(() => {
   init_util2();
 });
 
-// node_modules/.bun/zod@4.1.8/node_modules/zod/v4/locales/eo.js
+// node_modules/@opencode-ai/plugin/node_modules/zod/v4/locales/eo.js
 function eo_default2() {
   return {
     localeError: error57()
@@ -21139,7 +21139,7 @@ var init_eo2 = __esm(() => {
   init_util2();
 });
 
-// node_modules/.bun/zod@4.1.8/node_modules/zod/v4/locales/es.js
+// node_modules/@opencode-ai/plugin/node_modules/zod/v4/locales/es.js
 function es_default2() {
   return {
     localeError: error58()
@@ -21291,7 +21291,7 @@ var init_es2 = __esm(() => {
   init_util2();
 });
 
-// node_modules/.bun/zod@4.1.8/node_modules/zod/v4/locales/fa.js
+// node_modules/@opencode-ai/plugin/node_modules/zod/v4/locales/fa.js
 function fa_default2() {
   return {
     localeError: error59()
@@ -21417,7 +21417,7 @@ var init_fa2 = __esm(() => {
   init_util2();
 });
 
-// node_modules/.bun/zod@4.1.8/node_modules/zod/v4/locales/fi.js
+// node_modules/@opencode-ai/plugin/node_modules/zod/v4/locales/fi.js
 function fi_default2() {
   return {
     localeError: error60()
@@ -21543,7 +21543,7 @@ var init_fi2 = __esm(() => {
   init_util2();
 });
 
-// node_modules/.bun/zod@4.1.8/node_modules/zod/v4/locales/fr.js
+// node_modules/@opencode-ai/plugin/node_modules/zod/v4/locales/fr.js
 function fr_default2() {
   return {
     localeError: error61()
@@ -21663,7 +21663,7 @@ var init_fr2 = __esm(() => {
   init_util2();
 });
 
-// node_modules/.bun/zod@4.1.8/node_modules/zod/v4/locales/fr-CA.js
+// node_modules/@opencode-ai/plugin/node_modules/zod/v4/locales/fr-CA.js
 function fr_CA_default2() {
   return {
     localeError: error62()
@@ -21784,7 +21784,7 @@ var init_fr_CA2 = __esm(() => {
   init_util2();
 });
 
-// node_modules/.bun/zod@4.1.8/node_modules/zod/v4/locales/he.js
+// node_modules/@opencode-ai/plugin/node_modules/zod/v4/locales/he.js
 function he_default2() {
   return {
     localeError: error63()
@@ -21904,7 +21904,7 @@ var init_he2 = __esm(() => {
   init_util2();
 });
 
-// node_modules/.bun/zod@4.1.8/node_modules/zod/v4/locales/hu.js
+// node_modules/@opencode-ai/plugin/node_modules/zod/v4/locales/hu.js
 function hu_default2() {
   return {
     localeError: error64()
@@ -22024,7 +22024,7 @@ var init_hu2 = __esm(() => {
   init_util2();
 });
 
-// node_modules/.bun/zod@4.1.8/node_modules/zod/v4/locales/id.js
+// node_modules/@opencode-ai/plugin/node_modules/zod/v4/locales/id.js
 function id_default2() {
   return {
     localeError: error65()
@@ -22144,7 +22144,7 @@ var init_id2 = __esm(() => {
   init_util2();
 });
 
-// node_modules/.bun/zod@4.1.8/node_modules/zod/v4/locales/is.js
+// node_modules/@opencode-ai/plugin/node_modules/zod/v4/locales/is.js
 function is_default2() {
   return {
     localeError: error66()
@@ -22264,7 +22264,7 @@ var init_is2 = __esm(() => {
   init_util2();
 });
 
-// node_modules/.bun/zod@4.1.8/node_modules/zod/v4/locales/it.js
+// node_modules/@opencode-ai/plugin/node_modules/zod/v4/locales/it.js
 function it_default2() {
   return {
     localeError: error67()
@@ -22384,7 +22384,7 @@ var init_it2 = __esm(() => {
   init_util2();
 });
 
-// node_modules/.bun/zod@4.1.8/node_modules/zod/v4/locales/ja.js
+// node_modules/@opencode-ai/plugin/node_modules/zod/v4/locales/ja.js
 function ja_default2() {
   return {
     localeError: error68()
@@ -22503,7 +22503,7 @@ var init_ja2 = __esm(() => {
   init_util2();
 });
 
-// node_modules/.bun/zod@4.1.8/node_modules/zod/v4/locales/ka.js
+// node_modules/@opencode-ai/plugin/node_modules/zod/v4/locales/ka.js
 function ka_default2() {
   return {
     localeError: error69()
@@ -22631,7 +22631,7 @@ var init_ka2 = __esm(() => {
   init_util2();
 });
 
-// node_modules/.bun/zod@4.1.8/node_modules/zod/v4/locales/km.js
+// node_modules/@opencode-ai/plugin/node_modules/zod/v4/locales/km.js
 function km_default2() {
   return {
     localeError: error70()
@@ -22752,7 +22752,7 @@ var init_km2 = __esm(() => {
   init_util2();
 });
 
-// node_modules/.bun/zod@4.1.8/node_modules/zod/v4/locales/kh.js
+// node_modules/@opencode-ai/plugin/node_modules/zod/v4/locales/kh.js
 function kh_default2() {
   return km_default2();
 }
@@ -22760,7 +22760,7 @@ var init_kh2 = __esm(() => {
   init_km2();
 });
 
-// node_modules/.bun/zod@4.1.8/node_modules/zod/v4/locales/ko.js
+// node_modules/@opencode-ai/plugin/node_modules/zod/v4/locales/ko.js
 function ko_default2() {
   return {
     localeError: error71()
@@ -22885,7 +22885,7 @@ var init_ko2 = __esm(() => {
   init_util2();
 });
 
-// node_modules/.bun/zod@4.1.8/node_modules/zod/v4/locales/lt.js
+// node_modules/@opencode-ai/plugin/node_modules/zod/v4/locales/lt.js
 function getUnitTypeFromNumber2(number5) {
   const abs = Math.abs(number5);
   const last = abs % 10;
@@ -23115,7 +23115,7 @@ var init_lt2 = __esm(() => {
   init_util2();
 });
 
-// node_modules/.bun/zod@4.1.8/node_modules/zod/v4/locales/mk.js
+// node_modules/@opencode-ai/plugin/node_modules/zod/v4/locales/mk.js
 function mk_default2() {
   return {
     localeError: error73()
@@ -23236,7 +23236,7 @@ var init_mk2 = __esm(() => {
   init_util2();
 });
 
-// node_modules/.bun/zod@4.1.8/node_modules/zod/v4/locales/ms.js
+// node_modules/@opencode-ai/plugin/node_modules/zod/v4/locales/ms.js
 function ms_default2() {
   return {
     localeError: error74()
@@ -23356,7 +23356,7 @@ var init_ms2 = __esm(() => {
   init_util2();
 });
 
-// node_modules/.bun/zod@4.1.8/node_modules/zod/v4/locales/nl.js
+// node_modules/@opencode-ai/plugin/node_modules/zod/v4/locales/nl.js
 function nl_default2() {
   return {
     localeError: error75()
@@ -23477,7 +23477,7 @@ var init_nl2 = __esm(() => {
   init_util2();
 });
 
-// node_modules/.bun/zod@4.1.8/node_modules/zod/v4/locales/no.js
+// node_modules/@opencode-ai/plugin/node_modules/zod/v4/locales/no.js
 function no_default2() {
   return {
     localeError: error76()
@@ -23597,7 +23597,7 @@ var init_no2 = __esm(() => {
   init_util2();
 });
 
-// node_modules/.bun/zod@4.1.8/node_modules/zod/v4/locales/ota.js
+// node_modules/@opencode-ai/plugin/node_modules/zod/v4/locales/ota.js
 function ota_default2() {
   return {
     localeError: error77()
@@ -23717,7 +23717,7 @@ var init_ota2 = __esm(() => {
   init_util2();
 });
 
-// node_modules/.bun/zod@4.1.8/node_modules/zod/v4/locales/ps.js
+// node_modules/@opencode-ai/plugin/node_modules/zod/v4/locales/ps.js
 function ps_default2() {
   return {
     localeError: error78()
@@ -23843,7 +23843,7 @@ var init_ps2 = __esm(() => {
   init_util2();
 });
 
-// node_modules/.bun/zod@4.1.8/node_modules/zod/v4/locales/pl.js
+// node_modules/@opencode-ai/plugin/node_modules/zod/v4/locales/pl.js
 function pl_default2() {
   return {
     localeError: error79()
@@ -23964,7 +23964,7 @@ var init_pl2 = __esm(() => {
   init_util2();
 });
 
-// node_modules/.bun/zod@4.1.8/node_modules/zod/v4/locales/pt.js
+// node_modules/@opencode-ai/plugin/node_modules/zod/v4/locales/pt.js
 function pt_default2() {
   return {
     localeError: error80()
@@ -24084,7 +24084,7 @@ var init_pt2 = __esm(() => {
   init_util2();
 });
 
-// node_modules/.bun/zod@4.1.8/node_modules/zod/v4/locales/ru.js
+// node_modules/@opencode-ai/plugin/node_modules/zod/v4/locales/ru.js
 function getRussianPlural2(count, one, few, many) {
   const absCount = Math.abs(count);
   const lastDigit = absCount % 10;
@@ -24252,7 +24252,7 @@ var init_ru2 = __esm(() => {
   init_util2();
 });
 
-// node_modules/.bun/zod@4.1.8/node_modules/zod/v4/locales/sl.js
+// node_modules/@opencode-ai/plugin/node_modules/zod/v4/locales/sl.js
 function sl_default2() {
   return {
     localeError: error82()
@@ -24373,7 +24373,7 @@ var init_sl2 = __esm(() => {
   init_util2();
 });
 
-// node_modules/.bun/zod@4.1.8/node_modules/zod/v4/locales/sv.js
+// node_modules/@opencode-ai/plugin/node_modules/zod/v4/locales/sv.js
 function sv_default2() {
   return {
     localeError: error83()
@@ -24495,7 +24495,7 @@ var init_sv2 = __esm(() => {
   init_util2();
 });
 
-// node_modules/.bun/zod@4.1.8/node_modules/zod/v4/locales/ta.js
+// node_modules/@opencode-ai/plugin/node_modules/zod/v4/locales/ta.js
 function ta_default2() {
   return {
     localeError: error84()
@@ -24616,7 +24616,7 @@ var init_ta2 = __esm(() => {
   init_util2();
 });
 
-// node_modules/.bun/zod@4.1.8/node_modules/zod/v4/locales/th.js
+// node_modules/@opencode-ai/plugin/node_modules/zod/v4/locales/th.js
 function th_default2() {
   return {
     localeError: error85()
@@ -24737,7 +24737,7 @@ var init_th2 = __esm(() => {
   init_util2();
 });
 
-// node_modules/.bun/zod@4.1.8/node_modules/zod/v4/locales/tr.js
+// node_modules/@opencode-ai/plugin/node_modules/zod/v4/locales/tr.js
 function tr_default2() {
   return {
     localeError: error86()
@@ -24855,7 +24855,7 @@ var init_tr2 = __esm(() => {
   init_util2();
 });
 
-// node_modules/.bun/zod@4.1.8/node_modules/zod/v4/locales/uk.js
+// node_modules/@opencode-ai/plugin/node_modules/zod/v4/locales/uk.js
 function uk_default2() {
   return {
     localeError: error87()
@@ -24975,7 +24975,7 @@ var init_uk2 = __esm(() => {
   init_util2();
 });
 
-// node_modules/.bun/zod@4.1.8/node_modules/zod/v4/locales/ua.js
+// node_modules/@opencode-ai/plugin/node_modules/zod/v4/locales/ua.js
 function ua_default2() {
   return uk_default2();
 }
@@ -24983,7 +24983,7 @@ var init_ua2 = __esm(() => {
   init_uk2();
 });
 
-// node_modules/.bun/zod@4.1.8/node_modules/zod/v4/locales/ur.js
+// node_modules/@opencode-ai/plugin/node_modules/zod/v4/locales/ur.js
 function ur_default2() {
   return {
     localeError: error88()
@@ -25104,7 +25104,7 @@ var init_ur2 = __esm(() => {
   init_util2();
 });
 
-// node_modules/.bun/zod@4.1.8/node_modules/zod/v4/locales/vi.js
+// node_modules/@opencode-ai/plugin/node_modules/zod/v4/locales/vi.js
 function vi_default2() {
   return {
     localeError: error89()
@@ -25224,7 +25224,7 @@ var init_vi2 = __esm(() => {
   init_util2();
 });
 
-// node_modules/.bun/zod@4.1.8/node_modules/zod/v4/locales/zh-CN.js
+// node_modules/@opencode-ai/plugin/node_modules/zod/v4/locales/zh-CN.js
 function zh_CN_default2() {
   return {
     localeError: error90()
@@ -25344,7 +25344,7 @@ var init_zh_CN2 = __esm(() => {
   init_util2();
 });
 
-// node_modules/.bun/zod@4.1.8/node_modules/zod/v4/locales/zh-TW.js
+// node_modules/@opencode-ai/plugin/node_modules/zod/v4/locales/zh-TW.js
 function zh_TW_default2() {
   return {
     localeError: error91()
@@ -25465,7 +25465,7 @@ var init_zh_TW2 = __esm(() => {
   init_util2();
 });
 
-// node_modules/.bun/zod@4.1.8/node_modules/zod/v4/locales/yo.js
+// node_modules/@opencode-ai/plugin/node_modules/zod/v4/locales/yo.js
 function yo_default2() {
   return {
     localeError: error92()
@@ -25584,7 +25584,7 @@ var init_yo2 = __esm(() => {
   init_util2();
 });
 
-// node_modules/.bun/zod@4.1.8/node_modules/zod/v4/locales/index.js
+// node_modules/@opencode-ai/plugin/node_modules/zod/v4/locales/index.js
 var exports_locales2 = {};
 __export(exports_locales2, {
   zhTW: () => zh_TW_default2,
@@ -25683,7 +25683,7 @@ var init_locales2 = __esm(() => {
   init_yo2();
 });
 
-// node_modules/.bun/zod@4.1.8/node_modules/zod/v4/core/registries.js
+// node_modules/@opencode-ai/plugin/node_modules/zod/v4/core/registries.js
 class $ZodRegistry2 {
   constructor() {
     this._map = new WeakMap;
@@ -25737,7 +25737,7 @@ var init_registries2 = __esm(() => {
   globalRegistry2 = /* @__PURE__ */ registry2();
 });
 
-// node_modules/.bun/zod@4.1.8/node_modules/zod/v4/core/api.js
+// node_modules/@opencode-ai/plugin/node_modules/zod/v4/core/api.js
 function _string2(Class3, params) {
   return new Class3({
     type: "string",
@@ -26622,7 +26622,7 @@ var init_api2 = __esm(() => {
   };
 });
 
-// node_modules/.bun/zod@4.1.8/node_modules/zod/v4/core/to-json-schema.js
+// node_modules/@opencode-ai/plugin/node_modules/zod/v4/core/to-json-schema.js
 class JSONSchemaGenerator2 {
   constructor(params) {
     this.counter = 0;
@@ -27431,11 +27431,11 @@ var init_to_json_schema2 = __esm(() => {
   init_util2();
 });
 
-// node_modules/.bun/zod@4.1.8/node_modules/zod/v4/core/json-schema.js
+// node_modules/@opencode-ai/plugin/node_modules/zod/v4/core/json-schema.js
 var exports_json_schema2 = {};
 var init_json_schema2 = () => {};
 
-// node_modules/.bun/zod@4.1.8/node_modules/zod/v4/core/index.js
+// node_modules/@opencode-ai/plugin/node_modules/zod/v4/core/index.js
 var exports_core4 = {};
 __export(exports_core4, {
   version: () => version2,
@@ -27714,12 +27714,12 @@ var init_core4 = __esm(() => {
   init_to_json_schema2();
 });
 
-// node_modules/.bun/zod@4.1.8/node_modules/zod/v4/classic/checks.js
+// node_modules/@opencode-ai/plugin/node_modules/zod/v4/classic/checks.js
 var init_checks4 = __esm(() => {
   init_core4();
 });
 
-// node_modules/.bun/zod@4.1.8/node_modules/zod/v4/classic/iso.js
+// node_modules/@opencode-ai/plugin/node_modules/zod/v4/classic/iso.js
 var exports_iso2 = {};
 __export(exports_iso2, {
   time: () => time4,
@@ -27765,7 +27765,7 @@ var init_iso2 = __esm(() => {
   });
 });
 
-// node_modules/.bun/zod@4.1.8/node_modules/zod/v4/classic/errors.js
+// node_modules/@opencode-ai/plugin/node_modules/zod/v4/classic/errors.js
 var initializer4 = (inst, issues) => {
   $ZodError2.init(inst, issues);
   inst.name = "ZodError";
@@ -27805,7 +27805,7 @@ var init_errors5 = __esm(() => {
   });
 });
 
-// node_modules/.bun/zod@4.1.8/node_modules/zod/v4/classic/parse.js
+// node_modules/@opencode-ai/plugin/node_modules/zod/v4/classic/parse.js
 var parse7, parseAsync4, safeParse4, safeParseAsync4, encode4, decode4, encodeAsync4, decodeAsync4, safeEncode4, safeDecode4, safeEncodeAsync4, safeDecodeAsync4;
 var init_parse4 = __esm(() => {
   init_core4();
@@ -27824,7 +27824,7 @@ var init_parse4 = __esm(() => {
   safeDecodeAsync4 = /* @__PURE__ */ _safeDecodeAsync2(ZodRealError2);
 });
 
-// node_modules/.bun/zod@4.1.8/node_modules/zod/v4/classic/schemas.js
+// node_modules/@opencode-ai/plugin/node_modules/zod/v4/classic/schemas.js
 function string5(params) {
   return _string2(ZodString2, params);
 }
@@ -28807,7 +28807,7 @@ var init_schemas4 = __esm(() => {
   });
 });
 
-// node_modules/.bun/zod@4.1.8/node_modules/zod/v4/classic/compat.js
+// node_modules/@opencode-ai/plugin/node_modules/zod/v4/classic/compat.js
 function setErrorMap2(map3) {
   config2({
     customError: map3
@@ -28835,7 +28835,7 @@ var init_compat2 = __esm(() => {
   (function(ZodFirstPartyTypeKind3) {})(ZodFirstPartyTypeKind2 || (ZodFirstPartyTypeKind2 = {}));
 });
 
-// node_modules/.bun/zod@4.1.8/node_modules/zod/v4/classic/coerce.js
+// node_modules/@opencode-ai/plugin/node_modules/zod/v4/classic/coerce.js
 var exports_coerce2 = {};
 __export(exports_coerce2, {
   string: () => string6,
@@ -28864,7 +28864,7 @@ var init_coerce2 = __esm(() => {
   init_schemas4();
 });
 
-// node_modules/.bun/zod@4.1.8/node_modules/zod/v4/classic/external.js
+// node_modules/@opencode-ai/plugin/node_modules/zod/v4/classic/external.js
 var exports_external2 = {};
 __export(exports_external2, {
   xid: () => xid4,
@@ -29110,13 +29110,13 @@ var init_external2 = __esm(() => {
   config2(en_default2());
 });
 
-// node_modules/.bun/zod@4.1.8/node_modules/zod/index.js
+// node_modules/@opencode-ai/plugin/node_modules/zod/index.js
 var init_zod2 = __esm(() => {
   init_external2();
   init_external2();
 });
 
-// node_modules/.bun/@opencode-ai+plugin@1.1.53/node_modules/@opencode-ai/plugin/dist/tool.js
+// node_modules/@opencode-ai/plugin/dist/tool.js
 function tool(input) {
   return input;
 }
@@ -29125,7 +29125,7 @@ var init_tool = __esm(() => {
   tool.schema = exports_external2;
 });
 
-// node_modules/.bun/@opencode-ai+plugin@1.1.53/node_modules/@opencode-ai/plugin/dist/index.js
+// node_modules/@opencode-ai/plugin/dist/index.js
 var init_dist = __esm(() => {
   init_tool();
 });
@@ -29443,7 +29443,7 @@ var init_checkpoint = __esm(() => {
   });
 });
 
-// node_modules/.bun/graceful-fs@4.2.11/node_modules/graceful-fs/polyfills.js
+// node_modules/graceful-fs/polyfills.js
 var require_polyfills = __commonJS((exports, module2) => {
   var constants = __require("constants");
   var origCwd = process.cwd;
@@ -29746,7 +29746,7 @@ var require_polyfills = __commonJS((exports, module2) => {
   }
 });
 
-// node_modules/.bun/graceful-fs@4.2.11/node_modules/graceful-fs/legacy-streams.js
+// node_modules/graceful-fs/legacy-streams.js
 var require_legacy_streams = __commonJS((exports, module2) => {
   var Stream = __require("stream").Stream;
   module2.exports = legacy;
@@ -29843,7 +29843,7 @@ var require_legacy_streams = __commonJS((exports, module2) => {
   }
 });
 
-// node_modules/.bun/graceful-fs@4.2.11/node_modules/graceful-fs/clone.js
+// node_modules/graceful-fs/clone.js
 var require_clone = __commonJS((exports, module2) => {
   module2.exports = clone3;
   var getPrototypeOf = Object.getPrototypeOf || function(obj) {
@@ -29863,7 +29863,7 @@ var require_clone = __commonJS((exports, module2) => {
   }
 });
 
-// node_modules/.bun/graceful-fs@4.2.11/node_modules/graceful-fs/graceful-fs.js
+// node_modules/graceful-fs/graceful-fs.js
 var require_graceful_fs = __commonJS((exports, module2) => {
   var fs7 = __require("fs");
   var polyfills = require_polyfills();
@@ -30221,7 +30221,7 @@ GFS4: `);
   }
 });
 
-// node_modules/.bun/retry@0.12.0/node_modules/retry/lib/retry_operation.js
+// node_modules/retry/lib/retry_operation.js
 var require_retry_operation = __commonJS((exports, module2) => {
   function RetryOperation(timeouts, options) {
     if (typeof options === "boolean") {
@@ -30350,7 +30350,7 @@ var require_retry_operation = __commonJS((exports, module2) => {
   };
 });
 
-// node_modules/.bun/retry@0.12.0/node_modules/retry/lib/retry.js
+// node_modules/retry/lib/retry.js
 var require_retry = __commonJS((exports) => {
   var RetryOperation = require_retry_operation();
   exports.operation = function(options) {
@@ -30434,7 +30434,7 @@ var require_retry = __commonJS((exports) => {
   };
 });
 
-// node_modules/.bun/signal-exit@3.0.7/node_modules/signal-exit/signals.js
+// node_modules/signal-exit/signals.js
 var require_signals = __commonJS((exports, module2) => {
   module2.exports = [
     "SIGABRT",
@@ -30451,7 +30451,7 @@ var require_signals = __commonJS((exports, module2) => {
   }
 });
 
-// node_modules/.bun/signal-exit@3.0.7/node_modules/signal-exit/index.js
+// node_modules/signal-exit/index.js
 var require_signal_exit = __commonJS((exports, module2) => {
   var process3 = global.process;
   var processOk = function(process4) {
@@ -30604,7 +30604,7 @@ var require_signal_exit = __commonJS((exports, module2) => {
   var processEmit;
 });
 
-// node_modules/.bun/proper-lockfile@4.1.2/node_modules/proper-lockfile/lib/mtime-precision.js
+// node_modules/proper-lockfile/lib/mtime-precision.js
 var require_mtime_precision = __commonJS((exports, module2) => {
   var cacheSymbol = Symbol();
   function probe(file3, fs7, callback) {
@@ -30643,7 +30643,7 @@ var require_mtime_precision = __commonJS((exports, module2) => {
   exports.getMtime = getMtime;
 });
 
-// node_modules/.bun/proper-lockfile@4.1.2/node_modules/proper-lockfile/lib/lockfile.js
+// node_modules/proper-lockfile/lib/lockfile.js
 var require_lockfile = __commonJS((exports, module2) => {
   var path7 = __require("path");
   var fs7 = require_graceful_fs();
@@ -30868,7 +30868,7 @@ var require_lockfile = __commonJS((exports, module2) => {
   exports.getLocks = getLocks;
 });
 
-// node_modules/.bun/proper-lockfile@4.1.2/node_modules/proper-lockfile/lib/adapter.js
+// node_modules/proper-lockfile/lib/adapter.js
 var require_adapter = __commonJS((exports, module2) => {
   var fs7 = require_graceful_fs();
   function createSyncFs(fs8) {
@@ -30930,7 +30930,7 @@ var require_adapter = __commonJS((exports, module2) => {
   };
 });
 
-// node_modules/.bun/proper-lockfile@4.1.2/node_modules/proper-lockfile/index.js
+// node_modules/proper-lockfile/index.js
 var require_proper_lockfile = __commonJS((exports, module2) => {
   var lockfile = require_lockfile();
   var { toPromise, toSync, toSyncOptions } = require_adapter();
@@ -31672,7 +31672,7 @@ async function savePlan(directory, plan, options) {
           renameSync4(oldLedgerPath, oldLedgerBackupPath);
           backupExists = true;
         } catch (renameErr) {
-          warn(`[savePlan] Could not move old ledger aside before reinit (rename failed: ${renameErr instanceof Error ? renameErr.message : String(renameErr)}). Skipping ledger reinitialization.`);
+          throw new Error(`[savePlan] Cannot reinitialize ledger: could not move old ledger aside (rename failed: ${renameErr instanceof Error ? renameErr.message : String(renameErr)}). The existing ledger has plan_id="${existingEvents[0].plan_id}" which does not match the current plan="${planId}". To proceed, close any programs that may have the ledger file open, or run /swarm reset-session to clear the ledger.`);
         }
       }
       let initSucceeded = false;
@@ -31681,7 +31681,8 @@ async function savePlan(directory, plan, options) {
           await initLedger(directory, planId, planHashForInit);
           initSucceeded = true;
         } catch (initErr) {
-          if (initErr instanceof Error && initErr.message.includes("already initialized")) {
+          const errorMessage = String(initErr);
+          if (errorMessage.includes("already initialized")) {
             try {
               if (existsSync7(oldLedgerBackupPath))
                 unlinkSync(oldLedgerBackupPath);
@@ -31707,7 +31708,7 @@ async function savePlan(directory, plan, options) {
           renameSync4(oldLedgerBackupPath, archivePath);
           warn(`[savePlan] Ledger identity mismatch (was "${existingEvents[0].plan_id}", now "${planId}") \u2014 archived old ledger to ${archivePath} and reinitializing.`);
         } catch (renameErr) {
-          warn(`[savePlan] Could not archive old ledger (rename failed: ${renameErr instanceof Error ? renameErr.message : String(renameErr)}). Old ledger may still exist at ${oldLedgerPath}.`);
+          warn(`[savePlan] Could not archive old ledger (rename failed: ${renameErr instanceof Error ? renameErr.message : String(renameErr)}). Old ledger may still exist at ${oldLedgerBackupPath}.`);
           try {
             if (existsSync7(oldLedgerBackupPath))
               unlinkSync(oldLedgerBackupPath);
@@ -32227,13 +32228,13 @@ __export(exports_co_change_analyzer, {
   co_change_analyzer: () => co_change_analyzer,
   buildCoChangeMatrix: () => buildCoChangeMatrix
 });
-import * as child_process2 from "child_process";
+import * as child_process3 from "child_process";
 import { randomUUID as randomUUID2 } from "crypto";
 import { readdir as readdir2, readFile as readFile4, stat } from "fs/promises";
 import * as path17 from "path";
 import { promisify } from "util";
 function getExecFileAsync() {
-  return promisify(child_process2.execFile);
+  return promisify(child_process3.execFile);
 }
 async function parseGitLog(directory, maxCommits) {
   const commitMap = new Map;
@@ -39404,7 +39405,7 @@ var init_curator_drift = __esm(() => {
   init_utils2();
 });
 
-// node_modules/.bun/web-tree-sitter@0.25.10/node_modules/web-tree-sitter/tree-sitter.js
+// node_modules/web-tree-sitter/tree-sitter.js
 function assertInternal(x) {
   if (x !== INTERNAL)
     throw new Error("Illegal constructor");
@@ -43350,6 +43351,52 @@ import { execFileSync } from "child_process";
 import { promises as fs9 } from "fs";
 import path14 from "path";
 
+// src/git/branch.ts
+init_logger();
+import * as child_process2 from "child_process";
+var GIT_TIMEOUT_MS2 = 30000;
+function gitExec2(args2, cwd) {
+  const result = child_process2.spawnSync("git", args2, {
+    cwd,
+    encoding: "utf-8",
+    timeout: GIT_TIMEOUT_MS2,
+    stdio: ["pipe", "pipe", "pipe"]
+  });
+  if (result.status !== 0) {
+    throw new Error(result.stderr || `git exited with ${result.status}`);
+  }
+  return result.stdout;
+}
+function isGitRepo2(cwd) {
+  try {
+    gitExec2(["rev-parse", "--git-dir"], cwd);
+    return true;
+  } catch {
+    return false;
+  }
+}
+function getCurrentBranch(cwd) {
+  const output = gitExec2(["rev-parse", "--abbrev-ref", "HEAD"], cwd);
+  return output.trim();
+}
+function getDefaultBaseBranch(cwd) {
+  try {
+    gitExec2(["rev-parse", "--verify", "origin/main"], cwd);
+    return "origin/main";
+  } catch {
+    try {
+      gitExec2(["rev-parse", "--verify", "origin/master"], cwd);
+      return "origin/master";
+    } catch {
+      return "origin/main";
+    }
+  }
+}
+function hasUncommittedChanges(cwd) {
+  const status = gitExec2(["status", "--porcelain"], cwd);
+  return status.trim().length > 0;
+}
+
 // src/hooks/knowledge-reader.ts
 init_knowledge_store();
 import { existsSync as existsSync5 } from "fs";
@@ -44741,8 +44788,28 @@ var write_retro = createSwarmTool({
 });
 
 // src/commands/close.ts
+var ARCHIVE_ARTIFACTS = [
+  "plan.json",
+  "plan.md",
+  "context.md",
+  "events.jsonl",
+  "handoff.md",
+  "handoff-prompt.md",
+  "handoff-consumed.md",
+  "escalation-report.md",
+  "close-lessons.md"
+];
+var ACTIVE_STATE_TO_CLEAN = [
+  "plan.md",
+  "events.jsonl",
+  "handoff.md",
+  "handoff-prompt.md",
+  "handoff-consumed.md",
+  "escalation-report.md"
+];
 async function handleCloseCommand(directory, args2) {
   const planPath = validateSwarmPath(directory, "plan.json");
+  const swarmDir = path14.join(directory, ".swarm");
   let planExists = false;
   let planData = {
     title: path14.basename(directory) || "Ad-hoc session",
@@ -44756,13 +44823,14 @@ async function handleCloseCommand(directory, args2) {
     if (error93?.code !== "ENOENT") {
       return `\u274C Failed to read plan.json: ${error93 instanceof Error ? error93.message : String(error93)}`;
     }
-    const swarmDirExists = await fs9.access(path14.join(directory, ".swarm")).then(() => true).catch(() => false);
+    const swarmDirExists = await fs9.access(swarmDir).then(() => true).catch(() => false);
     if (!swarmDirExists) {
       return `\u274C No .swarm/ directory found in ${directory}. Run /swarm close from the project root, or run /swarm plan first.`;
     }
   }
   const phases = planData.phases ?? [];
   const inProgressPhases = phases.filter((p) => p.status === "in_progress");
+  const isForced = args2.includes("--force");
   let planAlreadyDone = false;
   if (planExists) {
     planAlreadyDone = phases.length > 0 && phases.every((p) => p.status === "complete" || p.status === "completed" || p.status === "blocked" || p.status === "closed");
@@ -44779,7 +44847,7 @@ async function handleCloseCommand(directory, args2) {
       try {
         retroResult = await executeWriteRetro({
           phase: phase.id,
-          summary: "Phase closed via /swarm close",
+          summary: isForced ? `Phase force-closed via /swarm close --force` : `Phase closed via /swarm close`,
           task_count: Math.max(1, (phase.tasks ?? []).length),
           task_complexity: "simple",
           total_tool_calls: 0,
@@ -44807,7 +44875,7 @@ async function handleCloseCommand(directory, args2) {
       }
     }
   }
-  const lessonsFilePath = path14.join(directory, ".swarm", "close-lessons.md");
+  const lessonsFilePath = path14.join(swarmDir, "close-lessons.md");
   let explicitLessons = [];
   try {
     const lessonsText = await fs9.readFile(lessonsFilePath, "utf-8");
@@ -44847,13 +44915,75 @@ async function handleCloseCommand(directory, args2) {
       console.warn("[close-command] Failed to write plan.json:", error93);
     }
   }
+  const timestamp = new Date().toISOString().replace(/[:.]/g, "-");
+  const archiveDir = path14.join(swarmDir, "archive", `swarm-${timestamp}`);
+  let archiveResult = "";
+  let archivedFileCount = 0;
+  try {
+    await fs9.mkdir(archiveDir, { recursive: true });
+    for (const artifact of ARCHIVE_ARTIFACTS) {
+      const srcPath = path14.join(swarmDir, artifact);
+      const destPath = path14.join(archiveDir, artifact);
+      try {
+        await fs9.copyFile(srcPath, destPath);
+        archivedFileCount++;
+      } catch {}
+    }
+    const evidenceDir = path14.join(swarmDir, "evidence");
+    const archiveEvidenceDir = path14.join(archiveDir, "evidence");
+    try {
+      const evidenceEntries = await fs9.readdir(evidenceDir);
+      if (evidenceEntries.length > 0) {
+        await fs9.mkdir(archiveEvidenceDir, { recursive: true });
+        for (const entry of evidenceEntries) {
+          const srcEntry = path14.join(evidenceDir, entry);
+          const destEntry = path14.join(archiveEvidenceDir, entry);
+          try {
+            const stat = await fs9.stat(srcEntry);
+            if (stat.isDirectory()) {
+              await fs9.mkdir(destEntry, { recursive: true });
+              const subEntries = await fs9.readdir(srcEntry);
+              for (const sub of subEntries) {
+                await fs9.copyFile(path14.join(srcEntry, sub), path14.join(destEntry, sub)).catch(() => {});
+              }
+            } else {
+              await fs9.copyFile(srcEntry, destEntry);
+            }
+            archivedFileCount++;
+          } catch {}
+        }
+      }
+    } catch {}
+    const sessionStatePath = path14.join(swarmDir, "session", "state.json");
+    try {
+      const archiveSessionDir = path14.join(archiveDir, "session");
+      await fs9.mkdir(archiveSessionDir, { recursive: true });
+      await fs9.copyFile(sessionStatePath, path14.join(archiveSessionDir, "state.json"));
+      archivedFileCount++;
+    } catch {}
+    archiveResult = `Archived ${archivedFileCount} artifact(s) to .swarm/archive/swarm-${timestamp}/`;
+  } catch (archiveError) {
+    warnings.push(`Archive creation failed: ${archiveError instanceof Error ? archiveError.message : String(archiveError)}`);
+    archiveResult = "Archive creation failed (see warnings)";
+  }
   try {
     await archiveEvidence(directory, 30, 10);
   } catch (error93) {
     console.warn("[close-command] archiveEvidence error:", error93);
   }
-  const swarmDir = path14.join(directory, ".swarm");
   let configBackupsRemoved = 0;
+  const cleanedFiles = [];
+  if (archivedFileCount > 0) {
+    for (const artifact of ACTIVE_STATE_TO_CLEAN) {
+      const filePath = path14.join(swarmDir, artifact);
+      try {
+        await fs9.unlink(filePath);
+        cleanedFiles.push(artifact);
+      } catch {}
+    }
+  } else {
+    warnings.push("Skipped active-state cleanup because no artifacts were archived. Files preserved to prevent data loss.");
+  }
   try {
     const swarmFiles = await fs9.readdir(swarmDir);
     const configBackups = swarmFiles.filter((f) => f.startsWith("config-backup-") && f.endsWith(".json"));
@@ -44864,13 +44994,14 @@ async function handleCloseCommand(directory, args2) {
       } catch {}
     }
   } catch {}
-  const contextPath = path14.join(directory, ".swarm", "context.md");
+  const contextPath = path14.join(swarmDir, "context.md");
   const contextContent = [
     "# Context",
     "",
     "## Status",
     `Session closed after: ${projectName}`,
     `Closed: ${new Date().toISOString()}`,
+    `Finalization: ${isForced ? "forced" : planAlreadyDone ? "plan-already-done" : "normal"}`,
     "No active plan. Next session starts fresh.",
     ""
   ].join(`
@@ -44883,46 +45014,112 @@ async function handleCloseCommand(directory, args2) {
   const pruneBranches = args2.includes("--prune-branches");
   const prunedBranches = [];
   const pruneErrors = [];
-  if (pruneBranches) {
+  let gitAlignResult = "";
+  const isGit = isGitRepo2(directory);
+  if (isGit) {
     try {
-      const branchOutput = execFileSync("git", ["branch", "-vv"], {
-        cwd: directory,
-        encoding: "utf-8",
-        stdio: ["pipe", "pipe", "pipe"]
-      });
-      const goneBranches = branchOutput.split(`
-`).filter((line) => line.includes(": gone]")).map((line) => line.trim().replace(/^[*+]\s+/, "").split(/\s+/)[0]).filter(Boolean);
-      for (const branch of goneBranches) {
-        try {
-          execFileSync("git", ["branch", "-d", branch], {
-            cwd: directory,
-            encoding: "utf-8",
-            stdio: ["pipe", "pipe", "pipe"]
-          });
-          prunedBranches.push(branch);
-        } catch {
-          pruneErrors.push(branch);
+      const currentBranch = getCurrentBranch(directory);
+      if (currentBranch === "HEAD") {
+        gitAlignResult = "Skipped git alignment: detached HEAD state";
+        warnings.push("Repo is in detached HEAD state. Checkout a branch before starting a new swarm.");
+      } else if (hasUncommittedChanges(directory)) {
+        gitAlignResult = "Skipped git alignment: uncommitted changes in worktree";
+        warnings.push("Uncommitted changes detected. Commit or stash before aligning to main.");
+      } else {
+        const baseBranch = getDefaultBaseBranch(directory);
+        const localBase = baseBranch.replace(/^origin\//, "");
+        if (currentBranch === localBase) {
+          try {
+            execFileSync("git", ["fetch", "origin", localBase], {
+              cwd: directory,
+              encoding: "utf-8",
+              timeout: 30000,
+              stdio: ["pipe", "pipe", "pipe"]
+            });
+            const mergeBase = execFileSync("git", ["merge-base", "HEAD", baseBranch], {
+              cwd: directory,
+              encoding: "utf-8",
+              timeout: 1e4,
+              stdio: ["pipe", "pipe", "pipe"]
+            }).trim();
+            const headSha = execFileSync("git", ["rev-parse", "HEAD"], {
+              cwd: directory,
+              encoding: "utf-8",
+              timeout: 1e4,
+              stdio: ["pipe", "pipe", "pipe"]
+            }).trim();
+            if (mergeBase === headSha) {
+              execFileSync("git", ["merge", "--ff-only", baseBranch], {
+                cwd: directory,
+                encoding: "utf-8",
+                timeout: 30000,
+                stdio: ["pipe", "pipe", "pipe"]
+              });
+              gitAlignResult = `Aligned to ${baseBranch} (fast-forward)`;
+            } else {
+              gitAlignResult = `On ${localBase} but cannot fast-forward to ${baseBranch} (diverged)`;
+              warnings.push(`Local ${localBase} has diverged from ${baseBranch}. Manual merge/rebase needed.`);
+            }
+          } catch (fetchErr) {
+            gitAlignResult = `Fetch from origin/${localBase} failed \u2014 remote may be unavailable`;
+            warnings.push(`Git fetch failed: ${fetchErr instanceof Error ? fetchErr.message : String(fetchErr)}`);
+          }
+        } else {
+          gitAlignResult = `On branch ${currentBranch}. Switch to ${localBase} manually when ready for a new swarm.`;
         }
       }
-    } catch {}
+    } catch (gitError) {
+      gitAlignResult = `Git alignment error: ${gitError instanceof Error ? gitError.message : String(gitError)}`;
+    }
+    if (pruneBranches) {
+      try {
+        const branchOutput = execFileSync("git", ["branch", "-vv"], {
+          cwd: directory,
+          encoding: "utf-8",
+          stdio: ["pipe", "pipe", "pipe"]
+        });
+        const goneBranches = branchOutput.split(`
+`).filter((line) => line.includes(": gone]")).map((line) => line.trim().replace(/^[*+]\s+/, "").split(/\s+/)[0]).filter(Boolean);
+        for (const branch of goneBranches) {
+          try {
+            execFileSync("git", ["branch", "-d", branch], {
+              cwd: directory,
+              encoding: "utf-8",
+              stdio: ["pipe", "pipe", "pipe"]
+            });
+            prunedBranches.push(branch);
+          } catch {
+            pruneErrors.push(branch);
+          }
+        }
+      } catch {}
+    }
+  } else {
+    gitAlignResult = "Not a git repository \u2014 skipped git alignment";
   }
   const closeSummaryPath = validateSwarmPath(directory, "close-summary.md");
+  const finalizationType = isForced ? "Forced closure" : planAlreadyDone ? "Plan already terminal \u2014 cleanup only" : "Normal finalization";
   const actionsPerformed = [
     ...!planAlreadyDone && inProgressPhases.length > 0 ? ["- Wrote retrospectives for in-progress phases"] : [],
-    "- Archived evidence bundles",
+    `- ${archiveResult}`,
+    ...cleanedFiles.length > 0 ? [
+      `- Cleaned ${cleanedFiles.length} active-state file(s): ${cleanedFiles.join(", ")}`
+    ] : [],
     "- Reset context.md for next session",
     ...configBackupsRemoved > 0 ? [`- Removed ${configBackupsRemoved} stale config backup file(s)`] : [],
     ...prunedBranches.length > 0 ? [
       `- Pruned ${prunedBranches.length} stale local git branch(es): ${prunedBranches.join(", ")}`
     ] : [],
     "- Cleared agent sessions and delegation chains",
-    ...planExists && !planAlreadyDone ? ["- Set non-completed phases/tasks to closed status"] : []
+    ...planExists && !planAlreadyDone ? ["- Set non-completed phases/tasks to closed status"] : [],
+    ...gitAlignResult ? [`- Git: ${gitAlignResult}`] : []
   ];
   const summaryContent = [
     "# Swarm Close Summary",
     "",
     `**Project:** ${projectName}`,
     `**Closed:** ${new Date().toISOString()}`,
+    `**Finalization:** ${finalizationType}`,
     "",
     `## Phases Closed: ${closedPhases.length}`,
     !planExists ? "_No plan \u2014 ad-hoc session_" : closedPhases.length > 0 ? closedPhases.map((id) => `- Phase ${id}`).join(`
@@ -44933,7 +45130,9 @@ async function handleCloseCommand(directory, args2) {
 `) : "_No incomplete tasks_",
     "",
     "## Actions Performed",
-    ...actionsPerformed
+    ...actionsPerformed,
+    "",
+    ...warnings.length > 0 ? ["## Warnings", ...warnings.map((w) => `- ${w}`), ""] : []
   ].join(`
 `);
   try {
@@ -44952,11 +45151,21 @@ async function handleCloseCommand(directory, args2) {
   if (pruneErrors.length > 0) {
     warnings.push(`Could not prune ${pruneErrors.length} branch(es) (unmerged or checked out): ${pruneErrors.join(", ")}`);
   }
-  const warningMsg = warnings.length > 0 ? ` Warnings: ${warnings.join("; ")}.` : "";
+  const warningMsg = warnings.length > 0 ? `
+
+**Warnings:**
+${warnings.map((w) => `- ${w}`).join(`
+`)}` : "";
   if (planAlreadyDone) {
-    return `\u2705 Session closed. Plan was already in a terminal state \u2014 cleanup steps applied.${warningMsg}`;
+    return `\u2705 Session finalized. Plan was already in a terminal state \u2014 cleanup and archive applied.
+
+**Archive:** ${archiveResult}
+**Git:** ${gitAlignResult}${warningMsg}`;
   }
-  return `\u2705 Swarm closed successfully. ${closedPhases.length} phase(s) closed, ${closedTasks.length} incomplete task(s) marked closed.${warningMsg}`;
+  return `\u2705 Swarm finalized. ${closedPhases.length} phase(s) closed, ${closedTasks.length} incomplete task(s) marked closed.
+
+**Archive:** ${archiveResult}
+**Git:** ${gitAlignResult}${warningMsg}`;
 }
 
 // src/commands/config.ts
@@ -46111,7 +46320,7 @@ init_loader();
 init_manager();
 init_utils2();
 init_manager2();
-import * as child_process3 from "child_process";
+import * as child_process4 from "child_process";
 import { existsSync as existsSync8, readdirSync as readdirSync2, readFileSync as readFileSync5, statSync as statSync4 } from "fs";
 import path19 from "path";
 import { fileURLToPath } from "url";
@@ -46353,7 +46562,7 @@ async function checkGitRepository(directory) {
         detail: "Invalid directory \u2014 cannot check git status"
       };
     }
-    child_process3.execSync("git rev-parse --git-dir", {
+    child_process4.execSync("git rev-parse --git-dir", {
       cwd: directory,
       stdio: "pipe"
     });
@@ -47237,7 +47446,7 @@ async function handleExportCommand(directory, _args) {
 init_state();
 async function handleFullAutoCommand(_directory, args2, sessionID) {
   if (!sessionID || sessionID.trim() === "") {
-    return "Error: No active session context. Full-Auto Mode requires an active session. Use /swarm full-auto from within an OpenCode session, or start a session first.";
+    return "Error: No active session context. Full-Auto Mode requires an active session. Use /swarm-full-auto from within an OpenCode session, or start a session first.";
   }
   const session = getAgentSession(sessionID);
   if (!session) {
@@ -47245,16 +47454,15 @@ async function handleFullAutoCommand(_directory, args2, sessionID) {
   }
   const arg = args2[0]?.toLowerCase();
   let newFullAutoMode;
-  let feedback;
   if (arg === "on") {
     newFullAutoMode = true;
-    feedback = "Full-Auto Mode enabled";
   } else if (arg === "off") {
     newFullAutoMode = false;
-    feedback = "Full-Auto Mode disabled";
   } else {
     newFullAutoMode = !session.fullAutoMode;
-    feedback = newFullAutoMode ? "Full-Auto Mode enabled" : "Full-Auto Mode disabled";
+  }
+  if (newFullAutoMode && !swarmState.fullAutoEnabledInConfig) {
+    return "Error: Full-Auto Mode cannot be enabled because full_auto.enabled is not set to true in the swarm plugin config. The autonomous oversight hook is inactive without config-level enablement. Set full_auto.enabled = true in your opencode-swarm config and restart.";
   }
   session.fullAutoMode = newFullAutoMode;
   if (!newFullAutoMode) {
@@ -47262,7 +47470,7 @@ async function handleFullAutoCommand(_directory, args2, sessionID) {
     session.fullAutoDeadlockCount = 0;
     session.fullAutoLastQuestionHash = null;
   }
-  return feedback;
+  return newFullAutoMode ? "Full-Auto Mode enabled" : "Full-Auto Mode disabled";
 }
 
 // src/commands/handoff.ts
@@ -47570,6 +47778,64 @@ function formatHandoffMarkdown(data) {
   return lines.join(`
 `);
 }
+function formatContinuationPrompt(data) {
+  const lines = [];
+  lines.push("## Resume Swarm");
+  lines.push("");
+  if (data.currentPhase) {
+    lines.push(`**Phase**: ${data.currentPhase}`);
+  }
+  if (data.currentTask) {
+    lines.push(`**Current Task**: ${data.currentTask}`);
+  }
+  let nextTask;
+  if (data.incompleteTasks.length > 0) {
+    nextTask = data.incompleteTasks.find((t) => t !== data.currentTask);
+    if (nextTask) {
+      lines.push(`**Next Task**: ${nextTask}`);
+    }
+  }
+  if (data.pendingQA) {
+    lines.push("");
+    lines.push(`**Pending QA Blocker**: ${data.pendingQA.taskId}`);
+    if (data.pendingQA.lastFailure) {
+      lines.push(`  - Last failure: ${data.pendingQA.lastFailure}`);
+    }
+  }
+  if (data.recentDecisions.length > 0) {
+    const last3 = data.recentDecisions.slice(-3);
+    lines.push("");
+    lines.push("**Recent Decisions (do not revisit)**:");
+    for (const decision of last3) {
+      lines.push(`- ${decision}`);
+    }
+  }
+  if (data.incompleteTasks.length > 2) {
+    const remaining = data.incompleteTasks.filter((t) => t !== data.currentTask && t !== nextTask);
+    if (remaining.length > 0) {
+      lines.push("");
+      lines.push(`**Remaining Tasks**: ${remaining.slice(0, 8).join(", ")}${remaining.length > 8 ? ` (+${remaining.length - 8} more)` : ""}`);
+    }
+  }
+  lines.push("");
+  lines.push("**To resume**:");
+  lines.push("1. Read `.swarm/handoff.md` for full context");
+  lines.push("2. Use `knowledge_recall` to recall relevant lessons before starting");
+  if (data.pendingQA) {
+    lines.push(`3. Resolve QA blocker on task ${data.pendingQA.taskId} before continuing`);
+  } else if (data.currentTask) {
+    lines.push(`3. Continue work on task ${data.currentTask}`);
+  } else if (nextTask) {
+    lines.push(`3. Begin work on task ${nextTask}`);
+  } else {
+    lines.push("3. Review the plan and pick up the next incomplete task");
+  }
+  lines.push("4. Do not re-implement completed tasks or revisit settled decisions");
+  return `\`\`\`markdown
+${lines.join(`
+`)}
+\`\`\``;
+}
 
 // src/commands/handoff.ts
 init_state();
@@ -47580,17 +47846,27 @@ async function handleHandoffCommand(directory, _args) {
   const tempPath = `${resolvedPath}.tmp.${crypto4.randomUUID()}`;
   await Bun.write(tempPath, markdown);
   renameSync7(tempPath, resolvedPath);
+  const continuationPrompt = formatContinuationPrompt(handoffData);
+  const promptPath = validateSwarmPath(directory, "handoff-prompt.md");
+  const promptTempPath = `${promptPath}.tmp.${crypto4.randomUUID()}`;
+  await Bun.write(promptTempPath, continuationPrompt);
+  renameSync7(promptTempPath, promptPath);
   await writeSnapshot(directory, swarmState);
   await flushPendingSnapshot(directory);
   return `## Handoff Brief Written
 
 Brief written to \`.swarm/handoff.md\`.
+Continuation prompt written to \`.swarm/handoff-prompt.md\`.
 
 ${markdown}
 
 ---
 
-**Next Step:** Start a new OpenCode session, switch to your target model, and send: \`continue the previous work\``;
+## Continuation Prompt
+
+Copy and paste the block below into your next session to resume cleanly:
+
+${continuationPrompt}`;
 }
 
 // src/services/history-service.ts
@@ -56221,12 +56497,23 @@ init_state();
 init_telemetry();
 init_utils2();
 var END_OF_SENTENCE_QUESTION_PATTERN = /\?\s*$/;
-var ESCALATION_PATTERNS = [
-  /Ready for Phase (?:\d+|\[?N\+1\]?)\?/i,
+var PHASE_COMPLETION_PATTERNS = [
+  /Ready for Phase (?:\d+|\[?N\+1\]?)\??/i,
+  /phase.{0,20}(?:complete|finish|done|wrap)/i,
+  /move(?:d?)?\s+(?:on\s+)?to\s+(?:the\s+)?(?:next\s+)?phase/i
+];
+var QUESTION_ESCALATION_PATTERNS = [
   /escalat/i,
   /What would you like/i,
   /Should I proceed/i,
-  /Do you want/i
+  /Do you want/i,
+  /Shall I/i,
+  /Would you like/i,
+  /Can I proceed/i,
+  /May I proceed/i,
+  /Awaiting (?:your |)(?:approval|confirmation|input|decision|direction)/i,
+  /Please (?:confirm|approve|advise|let me know)/i,
+  /How (?:would you like|should I)/i
 ];
 var MID_SENTENCE_QUESTION_PATTERNS = [
   /\b(v\d+\?)/i,
@@ -56263,9 +56550,14 @@ function resolveOversightAgentName(architectAgentName) {
   return `${prefix}critic_oversight`;
 }
 function detectEscalation(text) {
-  for (const pattern of ESCALATION_PATTERNS) {
+  for (const pattern of PHASE_COMPLETION_PATTERNS) {
     if (pattern.test(text)) {
       return "phase_completion";
+    }
+  }
+  for (const pattern of QUESTION_ESCALATION_PATTERNS) {
+    if (pattern.test(text)) {
+      return "question";
     }
   }
   if (END_OF_SENTENCE_QUESTION_PATTERN.test(text)) {
@@ -56409,7 +56701,7 @@ async function writeAutoOversightEvent(directory, architectOutput, criticVerdict
     }
   }
 }
-function injectVerdictIntoMessages(messages, architectIndex, criticResult, _escalationType, oversightAgentName) {
+function injectVerdictIntoMessages(messages, architectIndex, criticResult, escalationType, oversightAgentName) {
   if (criticResult.escalationNeeded || criticResult.verdict === "ESCALATE_TO_HUMAN") {
     const verdictMessage2 = {
       info: {
@@ -56446,6 +56738,19 @@ ${criticResult.reasoning}`
       ]
     };
     messages.splice(architectIndex + 1, 0, verdictMessage2);
+    const continuationMessage = {
+      info: {
+        role: "user",
+        agent: oversightAgentName
+      },
+      parts: [
+        {
+          type: "text",
+          text: "[FULL-AUTO CONTINUATION] The critic has answered your question. Incorporate the answer above and continue executing the current plan. Do not ask follow-up questions about this answer \u2014 proceed with implementation."
+        }
+      ]
+    };
+    messages.splice(architectIndex + 2, 0, continuationMessage);
     return;
   }
   const verdictEmoji = criticResult.verdict === "APPROVED" ? "\u2705" : criticResult.verdict === "NEEDS_REVISION" ? "\uD83D\uDD04" : criticResult.verdict === "REJECTED" ? "\u274C" : criticResult.verdict === "BLOCKED" ? "\uD83D\uDEAB" : "\uD83D\uDCAC";
@@ -56464,6 +56769,35 @@ Critic reasoning: ${criticResult.reasoning}`
     ]
   };
   messages.splice(architectIndex + 1, 0, verdictMessage);
+  if (criticResult.verdict === "APPROVED" && escalationType === "phase_completion") {
+    const continuationMessage = {
+      info: {
+        role: "user",
+        agent: oversightAgentName
+      },
+      parts: [
+        {
+          type: "text",
+          text: "[FULL-AUTO CONTINUATION] Phase approved by autonomous oversight. Call `phase_complete` now to finalize this phase, then proceed to the next phase in the plan. Do not wait for further human input."
+        }
+      ]
+    };
+    messages.splice(architectIndex + 2, 0, continuationMessage);
+  } else if (criticResult.verdict === "APPROVED") {
+    const continuationMessage = {
+      info: {
+        role: "user",
+        agent: oversightAgentName
+      },
+      parts: [
+        {
+          type: "text",
+          text: "[FULL-AUTO CONTINUATION] Approved by autonomous oversight. Continue executing the current task and plan. Do not wait for further human input."
+        }
+      ]
+    };
+    messages.splice(architectIndex + 2, 0, continuationMessage);
+  }
 }
 async function dispatchCriticAndWriteEvent(directory, architectOutput, criticContext, criticModel, escalationType, interactionCount, deadlockCount, oversightAgentName) {
   const client = swarmState.opencodeClient;
@@ -57949,6 +58283,10 @@ function createSystemEnhancerHook(config3, directory) {
                   fs35.unlinkSync(consumedPath);
                 }
                 fs35.renameSync(handoffPath, consumedPath);
+                try {
+                  const promptPath = validateSwarmPath(directory, "handoff-prompt.md");
+                  fs35.unlinkSync(promptPath);
+                } catch {}
                 const handoffBlock = `## HANDOFF \u2014 Resuming from model switch
 The previous model's session ended. Here is your starting context:
 
@@ -59062,14 +59400,14 @@ import * as fs36 from "fs";
 import * as path47 from "path";
 
 // src/hooks/spawn-helper.ts
-import * as child_process4 from "child_process";
+import * as child_process5 from "child_process";
 var WIN32_CMD_BINARIES = new Set(["npm", "npx", "pnpm", "yarn"]);
 function spawnAsync(command, cwd, timeoutMs) {
   return new Promise((resolve15) => {
     try {
       const [rawCmd, ...args2] = command;
       const cmd = process.platform === "win32" && WIN32_CMD_BINARIES.has(rawCmd) && !rawCmd.includes(".") ? `${rawCmd}.cmd` : rawCmd;
-      const proc = child_process4.spawn(cmd, args2, {
+      const proc = child_process5.spawn(cmd, args2, {
         cwd,
         stdio: ["ignore", "pipe", "pipe"]
       });
@@ -62478,7 +62816,7 @@ var declare_scope = createSwarmTool({
 });
 // src/tools/diff.ts
 init_dist();
-import * as child_process5 from "child_process";
+import * as child_process6 from "child_process";
 
 // src/diff/ast-diff.ts
 init_tree_sitter();
@@ -62846,13 +63184,13 @@ var diff = createSwarmTool({
         numstatArgs.push("--", ...typedArgs.paths);
         fullDiffArgs.push("--", ...typedArgs.paths);
       }
-      const numstatOutput = child_process5.execFileSync("git", numstatArgs, {
+      const numstatOutput = child_process6.execFileSync("git", numstatArgs, {
         encoding: "utf-8",
         timeout: DIFF_TIMEOUT_MS,
         maxBuffer: MAX_BUFFER_BYTES,
         cwd: directory
       });
-      const fullDiffOutput = child_process5.execFileSync("git", fullDiffArgs, {
+      const fullDiffOutput = child_process6.execFileSync("git", fullDiffArgs, {
         encoding: "utf-8",
         timeout: DIFF_TIMEOUT_MS,
         maxBuffer: MAX_BUFFER_BYTES,
@@ -62901,23 +63239,23 @@ var diff = createSwarmTool({
           let oldContent;
           let newContent;
           if (base === "staged") {
-            oldContent = child_process5.execFileSync("git", ["show", `HEAD:${file3.path}`], {
+            oldContent = child_process6.execFileSync("git", ["show", `HEAD:${file3.path}`], {
               encoding: "utf-8",
               timeout: 5000,
               cwd: directory
             });
-            newContent = child_process5.execFileSync("git", ["show", `:${file3.path}`], {
+            newContent = child_process6.execFileSync("git", ["show", `:${file3.path}`], {
               encoding: "utf-8",
               timeout: 5000,
               cwd: directory
             });
           } else if (base === "unstaged") {
-            oldContent = child_process5.execFileSync("git", ["show", `:${file3.path}`], {
+            oldContent = child_process6.execFileSync("git", ["show", `:${file3.path}`], {
               encoding: "utf-8",
               timeout: 5000,
               cwd: directory
             });
-            newContent = child_process5.execFileSync("git", ["show", `HEAD:${file3.path}`], {
+            newContent = child_process6.execFileSync("git", ["show", `HEAD:${file3.path}`], {
               encoding: "utf-8",
               timeout: 5000,
               cwd: directory
@@ -62926,12 +63264,12 @@ var diff = createSwarmTool({
             const pathModule = await import("path");
             newContent = fsModule.readFileSync(pathModule.join(directory, file3.path), "utf-8");
           } else {
-            oldContent = child_process5.execFileSync("git", ["show", `${base}:${file3.path}`], {
+            oldContent = child_process6.execFileSync("git", ["show", `${base}:${file3.path}`], {
               encoding: "utf-8",
               timeout: 5000,
               cwd: directory
             });
-            newContent = child_process5.execFileSync("git", ["show", `HEAD:${file3.path}`], {
+            newContent = child_process6.execFileSync("git", ["show", `HEAD:${file3.path}`], {
               encoding: "utf-8",
               timeout: 5000,
               cwd: directory
@@ -66749,7 +67087,7 @@ init_dist();
 import * as fs54 from "fs";
 import * as path66 from "path";
 
-// node_modules/.bun/yocto-queue@1.2.2/node_modules/yocto-queue/index.js
+// node_modules/yocto-queue/index.js
 class Node2 {
   value;
   next;
@@ -66816,7 +67154,7 @@ class Queue {
   }
 }
 
-// node_modules/.bun/p-limit@7.3.0/node_modules/p-limit/index.js
+// node_modules/p-limit/index.js
 function pLimit(concurrency) {
   let rejectOnClear = false;
   if (typeof concurrency === "object") {
@@ -67755,7 +68093,7 @@ function executeRulesSync(filePath, content, language) {
 }
 
 // src/sast/semgrep.ts
-import * as child_process6 from "child_process";
+import * as child_process7 from "child_process";
 var semgrepAvailableCache = null;
 var DEFAULT_RULES_DIR = ".swarm/semgrep-rules";
 var DEFAULT_TIMEOUT_MS3 = 30000;
@@ -67764,7 +68102,7 @@ function isSemgrepAvailable() {
     return semgrepAvailableCache;
   }
   try {
-    child_process6.execFileSync("semgrep", ["--version"], {
+    child_process7.execFileSync("semgrep", ["--version"], {
       encoding: "utf-8",
       stdio: "pipe"
     });
@@ -67823,7 +68161,7 @@ function mapSemgrepSeverity(severity) {
 }
 async function executeWithTimeout(command, args2, options) {
   return new Promise((resolve24) => {
-    const child = child_process6.spawn(command, args2, {
+    const child = child_process7.spawn(command, args2, {
       shell: false,
       cwd: options.cwd
     });
@@ -72864,8 +73202,8 @@ var OpenCodeSwarm = async (ctx) => {
           description: "Use /swarm turbo to enable turbo mode for faster execution"
         },
         "swarm-full-auto": {
-          template: "/swarm full-auto $ARGUMENTS",
-          description: "Use /swarm full-auto to toggle Full-Auto Mode for the active session [on|off]"
+          template: "/swarm-full-auto $ARGUMENTS",
+          description: "Toggle Full-Auto Mode for the active session [on|off]"
         },
         "swarm-write-retro": {
           template: "/swarm write-retro $ARGUMENTS",
