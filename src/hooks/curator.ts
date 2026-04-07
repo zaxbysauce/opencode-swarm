@@ -837,9 +837,20 @@ export async function applyCuratorKnowledgeUpdates(
 	let applied = 0;
 	let skipped = 0;
 
-	if (recommendations.length === 0) {
+	// Guard: treat null/undefined recommendations as empty
+	if (!recommendations || recommendations.length === 0) {
 		return { applied, skipped };
 	}
+
+	// Guard: return no-op when knowledgeConfig is null or undefined
+	if (knowledgeConfig == null) {
+		return { applied: 0, skipped: 0 };
+	}
+
+	// Filter out null/undefined recommendation items before processing
+	const validRecommendations = recommendations.filter(
+		(rec): rec is KnowledgeRecommendation => rec != null,
+	);
 
 	const knowledgePath = resolveSwarmKnowledgePath(directory);
 	const entries = await readKnowledge<SwarmKnowledgeEntry>(knowledgePath);
@@ -848,7 +859,7 @@ export async function applyCuratorKnowledgeUpdates(
 	const appliedIds = new Set<string>();
 	const updatedEntries = entries.map((entry) => {
 		// Find matching recommendation by entry_id
-		const rec = recommendations.find((r) => r.entry_id === entry.id);
+		const rec = validRecommendations.find((r) => r.entry_id === entry.id);
 		if (!rec) return entry;
 
 		// Apply mutation
@@ -910,7 +921,7 @@ export async function applyCuratorKnowledgeUpdates(
 	});
 
 	// Count skipped: recommendations that were not applied
-	for (const rec of recommendations) {
+	for (const rec of validRecommendations) {
 		if (rec.entry_id !== undefined && !appliedIds.has(rec.entry_id)) {
 			const found = entries.some((e) => e.id === rec.entry_id);
 			if (!found) {
@@ -933,7 +944,7 @@ export async function applyCuratorKnowledgeUpdates(
 	// 'archive' and 'flag_contradiction' require a real entry to operate on.
 	// These are appended after the rewrite to avoid lock contention.
 	const existingLessons: string[] = entries.map((e) => e.lesson);
-	for (const rec of recommendations) {
+	for (const rec of validRecommendations) {
 		if (rec.entry_id !== undefined) continue;
 		if (rec.action !== 'promote') {
 			skipped++;
