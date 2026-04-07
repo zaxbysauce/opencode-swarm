@@ -252,7 +252,7 @@ const INTER_AGENT_MANIPULATION_PATTERNS = [
 const REJECTION_SPIRAL_PATTERNS = [
 	/\b(?:rejected|failed\s+review|needs\s+revision)\b.*\b(?:again|third\s+time|4th\s+time|5th\s+time|for\s+the\s+\d+(?:st|nd|rd|th)\s+time)\b/i,
 	/\b(?:same\s+feedback|same\s+issues?)\b.*\b(?:again|repeated|multiple\s+times?)\b/i,
-	/\b(?:cycle|loop)\b.*\b(?:reviewer|rejection|feedback)\b/i,
+	/\b(?:stuck|trapped|endless|repeating)\b.*\b(?:loop|cycle)\b/i,
 ];
 
 /**

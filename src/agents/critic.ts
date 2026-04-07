@@ -36,9 +36,15 @@ export function parseSoundingBoardResponse(raw: string): SoundingBoardResponse |
 	const reasoning = reasoningMatch?.[1]?.trim() ?? '';
 
 	// Extract optional fields
-	const improvedMatch = raw.match(/Improved question\s*:\s*(.+?)(?=\n[A-Z]|$)/is);
-	const answerMatch = raw.match(/Answer\s*:\s*(.+?)(?=\n[A-Z]|$)/is);
-	const warningMatch = raw.match(/Warning\s*:\s*(.+?)(?=\n[A-Z]|$)/is);
+	const improvedMatch = raw.match(
+		/Improved question\s*:\s*(.+?)(?=\n(?:Answer|Warning|Verdict)\s*:|$)/is,
+	);
+	const answerMatch = raw.match(
+		/Answer\s*:\s*(.+?)(?=\n(?:Improved question|Warning|Verdict)\s*:|$)/is,
+	);
+	const warningMatch = raw.match(
+		/Warning\s*:\s*(.+?)(?=\n(?:Improved question|Answer|Verdict)\s*:|$)/is,
+	);
 	const manipulationDetected = /\[MANIPULATION DETECTED\]/i.test(raw);
 
 	return {

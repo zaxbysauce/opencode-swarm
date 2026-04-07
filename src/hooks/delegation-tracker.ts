@@ -17,7 +17,7 @@ import {
 	updateAgentEventTime,
 } from '../state';
 
-export type { DelegationReason } from '../state.js';
+export type { DelegationReason } from '../state';
 
 /**
  * Creates the chat.message hook for delegation tracking.
