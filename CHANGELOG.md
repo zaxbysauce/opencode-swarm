@@ -1,5 +1,12 @@
 # Changelog
 
+## [6.53.4](https://github.com/zaxbysauce/opencode-swarm/compare/v6.53.3...v6.53.4) (2026-04-07)
+
+
+### Bug Fixes
+
+* **plan:** preserve ledger during identity change ([#421](https://github.com/zaxbysauce/opencode-swarm/issues/421)) ([d4a3a75](https://github.com/zaxbysauce/opencode-swarm/commit/d4a3a75c752d2589d1cfc783417a68d2644e7d2d))
+
 ## [6.53.3](https://github.com/zaxbysauce/opencode-swarm/compare/v6.53.2...v6.53.3) (2026-04-06)
 
 
