@@ -2313,16 +2313,13 @@ invalid json here
 				expect(readKnowledgeJsonl(tempDir)).toHaveLength(0);
 			});
 
-			test.failing('AV-2: zero-width space injection between rm and -rf — Unicode normalization bypass', async () => {
+			it('AV-2: zero-width space injection between rm and -rf — Unicode normalization bypass', async () => {
 				createEmptyKnowledgeFile(tempDir);
 
-				// BUG (tracked: issue #394): zero-width space bypasses DANGEROUS_COMMAND_PATTERNS.
-				// NFKC normalization does NOT remove \u200b, and \u200b is not in the
-				// INJECTION_PATTERNS control-char range [\x00-\x08\x0b-\x0c\x0e-\x1f\x7f].
-				// This test asserts the desired secure outcome (applied=0) and is marked
-				// test.failing() until knowledge-validator.ts is patched to strip invisible
-				// Unicode format characters (U+200B-U+200F, U+202A-U+202E, etc.) before
-				// running DANGEROUS_COMMAND_PATTERNS.
+				// SECURITY FIX VALIDATION: Issue #394 - Unicode format character bypass
+				// The validation now strips invisible Unicode format characters (U+200B, etc.)
+				// before DANGEROUS_COMMAND_PATTERNS matching and blocks them via INJECTION_PATTERNS.
+				// This test validates that zero-width space injection attacks are properly blocked.
 				const recommendations: KnowledgeRecommendation[] = [
 					{
 						action: 'promote',

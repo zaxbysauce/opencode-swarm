@@ -8,7 +8,13 @@
  *   - Calls formatContinuationPrompt with the handoff data
  */
 import { afterEach, beforeEach, describe, expect, it, mock } from 'bun:test';
-import { existsSync, mkdirSync, mkdtempSync, readFileSync, rmSync } from 'node:fs';
+import {
+	existsSync,
+	mkdirSync,
+	mkdtempSync,
+	readFileSync,
+	rmSync,
+} from 'node:fs';
 import os from 'node:os';
 import path from 'node:path';
 
@@ -32,7 +38,9 @@ const MOCK_CONTINUATION_PROMPT =
 // ── Mocks (must precede the dynamic import) ──────────────────────────
 
 const mockGetHandoffData = mock(async () => MOCK_HANDOFF_DATA);
-const mockFormatHandoffMarkdown = mock((_data: unknown) => MOCK_HANDOFF_MARKDOWN);
+const mockFormatHandoffMarkdown = mock(
+	(_data: unknown) => MOCK_HANDOFF_MARKDOWN,
+);
 const mockFormatContinuationPrompt = mock(
 	(_data: unknown) => MOCK_CONTINUATION_PROMPT,
 );
