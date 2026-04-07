@@ -321,15 +321,22 @@ export async function handleCloseCommand(
 	let configBackupsRemoved = 0;
 	const cleanedFiles: string[] = [];
 
-	// Remove active-state files so future swarms don't mistake them for live work
-	for (const artifact of ACTIVE_STATE_TO_CLEAN) {
-		const filePath = path.join(swarmDir, artifact);
-		try {
-			await fs.unlink(filePath);
-			cleanedFiles.push(artifact);
-		} catch {
-			// File may not exist
+	// Only remove active-state files if archive succeeded. If archive failed,
+	// deleting these files would cause data loss with no backup.
+	if (archivedFileCount > 0) {
+		for (const artifact of ACTIVE_STATE_TO_CLEAN) {
+			const filePath = path.join(swarmDir, artifact);
+			try {
+				await fs.unlink(filePath);
+				cleanedFiles.push(artifact);
+			} catch {
+				// File may not exist
+			}
 		}
+	} else {
+		warnings.push(
+			'Skipped active-state cleanup because no artifacts were archived. Files preserved to prevent data loss.',
+		);
 	}
 
 	// Remove stale config-backup-*.json files

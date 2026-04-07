@@ -12,13 +12,18 @@ If arguments are provided, enable swarm mode first and then execute that task us
 
 Argument handling:
 - If no arguments are provided: only enable swarm mode.
-- If arguments are provided: enable swarm mode, then treat `$ARGUMENTS` as the task to execute immediately.
+- If the first word of `$ARGUMENTS` is a **known plugin subcommand** (see list below): do NOT treat it as a swarm task. Instead, tell the user to run it as a slash command directly (e.g., `/swarm close`, `/swarm handoff`). These are OpenCode plugin commands handled by the swarm plugin's command system, not tasks for the swarm workflow. Do NOT try to interpret or execute them yourself.
+- Otherwise: enable swarm mode, then treat `$ARGUMENTS` as the task to execute immediately.
+
+Known plugin subcommands (do NOT interpret these as tasks):
+`status`, `plan`, `agents`, `history`, `config`, `evidence`, `handoff`, `archive`, `diagnose`, `preflight`, `sync-plan`, `benchmark`, `export`, `reset`, `rollback`, `retrieve`, `clarify`, `analyze`, `specify`, `dark-matter`, `knowledge`, `curate`, `turbo`, `full-auto`, `write-retro`, `reset-session`, `simulate`, `promote`, `checkpoint`, `close`
 
 Examples:
-- `/swarm`
-- `/swarm implement OAuth login without breaking existing session handling`
-- `/swarm fix the failing auth refresh tests and verify the session flow`
-- `/swarm refactor this parser safely and check for regressions`
+- `/swarm` — enable swarm mode only
+- `/swarm implement OAuth login without breaking existing session handling` — enable swarm mode, then execute the task
+- `/swarm fix the failing auth refresh tests and verify the session flow` — enable swarm mode, then execute the task
+- `/swarm close` — this is a plugin subcommand; tell the user it will be handled by the plugin command system
+- `/swarm handoff` — this is a plugin subcommand; tell the user it will be handled by the plugin command system
 
 ## Goal
 Turn Claude Code into a swarm-like orchestrator while preserving Claude Code speed advantages.
