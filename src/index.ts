@@ -706,8 +706,7 @@ const OpenCodeSwarm: Plugin = async (ctx) => {
 				},
 				'swarm-full-auto': {
 					template: '/swarm-full-auto $ARGUMENTS',
-					description:
-						'Toggle Full-Auto Mode for the active session [on|off]',
+					description: 'Toggle Full-Auto Mode for the active session [on|off]',
 				},
 				'swarm-write-retro': {
 					template: '/swarm write-retro $ARGUMENTS',

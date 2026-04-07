@@ -627,7 +627,9 @@ export function formatContinuationPrompt(data: HandoffData): string {
 	} else {
 		lines.push('3. Review the plan and pick up the next incomplete task');
 	}
-	lines.push('4. Do not re-implement completed tasks or revisit settled decisions');
+	lines.push(
+		'4. Do not re-implement completed tasks or revisit settled decisions',
+	);
 
 	return `\`\`\`markdown\n${lines.join('\n')}\n\`\`\``;
 }

@@ -86,11 +86,7 @@ describe('handleFullAutoCommand — config guard', () => {
 
 		it('returns config error when toggling from off (no arg)', async () => {
 			getSession().fullAutoMode = false;
-			const result = await handleFullAutoCommand(
-				'/project',
-				[],
-				testSessionId,
-			);
+			const result = await handleFullAutoCommand('/project', [], testSessionId);
 			expect(result).toContain(CONFIG_ERROR_FRAGMENT);
 			expect(getSession().fullAutoMode).toBe(false);
 		});
@@ -113,11 +109,7 @@ describe('handleFullAutoCommand — config guard', () => {
 
 		it('enables via toggle from off (no arg)', async () => {
 			getSession().fullAutoMode = false;
-			const result = await handleFullAutoCommand(
-				'/project',
-				[],
-				testSessionId,
-			);
+			const result = await handleFullAutoCommand('/project', [], testSessionId);
 			expect(result).toBe('Full-Auto Mode enabled');
 			expect(getSession().fullAutoMode).toBe(true);
 		});

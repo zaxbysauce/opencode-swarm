@@ -269,10 +269,7 @@ export async function handleCloseCommand(
 							const subEntries = await fs.readdir(srcEntry);
 							for (const sub of subEntries) {
 								await fs
-									.copyFile(
-										path.join(srcEntry, sub),
-										path.join(destEntry, sub),
-									)
+									.copyFile(path.join(srcEntry, sub), path.join(destEntry, sub))
 									.catch(() => {});
 							}
 						} else {
@@ -516,7 +513,9 @@ export async function handleCloseCommand(
 			: []),
 		`- ${archiveResult}`,
 		...(cleanedFiles.length > 0
-			? [`- Cleaned ${cleanedFiles.length} active-state file(s): ${cleanedFiles.join(', ')}`]
+			? [
+					`- Cleaned ${cleanedFiles.length} active-state file(s): ${cleanedFiles.join(', ')}`,
+				]
 			: []),
 		'- Reset context.md for next session',
 		...(configBackupsRemoved > 0

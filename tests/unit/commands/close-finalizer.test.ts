@@ -12,8 +12,8 @@ import {
 	existsSync,
 	mkdirSync,
 	mkdtempSync,
-	readFileSync,
 	readdirSync,
+	readFileSync,
 	rmSync,
 	writeFileSync,
 } from 'node:fs';
@@ -22,14 +22,13 @@ import path from 'node:path';
 
 // ── Mocks (must precede the dynamic import) ──────────────────────────
 
-const mockExecuteWriteRetro = mock(
-	async (_args: unknown, _directory: string) =>
-		JSON.stringify({
-			success: true,
-			phase: 1,
-			task_id: 'retro-1',
-			message: 'Done',
-		}),
+const mockExecuteWriteRetro = mock(async (_args: unknown, _directory: string) =>
+	JSON.stringify({
+		success: true,
+		phase: 1,
+		task_id: 'retro-1',
+		message: 'Done',
+	}),
 );
 
 const mockCurateAndStoreSwarm = mock(async () => {});
@@ -223,10 +222,7 @@ describe('handleCloseCommand — finalizer stages', () => {
 
 		it('future swarms start from clean state — no stale plan.json or events.jsonl', async () => {
 			writePlan();
-			writeFileSync(
-				path.join(swarmDir(), 'events.jsonl'),
-				'{"event":"old"}\n',
-			);
+			writeFileSync(path.join(swarmDir(), 'events.jsonl'), '{"event":"old"}\n');
 
 			await handleCloseCommand(testDir, []);
 

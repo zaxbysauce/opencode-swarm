@@ -54,7 +54,5 @@ export async function handleFullAutoCommand(
 		session.fullAutoLastQuestionHash = null;
 	}
 
-	return newFullAutoMode
-		? 'Full-Auto Mode enabled'
-		: 'Full-Auto Mode disabled';
+	return newFullAutoMode ? 'Full-Auto Mode enabled' : 'Full-Auto Mode disabled';
 }

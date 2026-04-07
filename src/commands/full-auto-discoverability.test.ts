@@ -7,8 +7,8 @@
  */
 
 import { afterEach, beforeEach, describe, expect, it } from 'bun:test';
-import { COMMAND_REGISTRY, VALID_COMMANDS } from '../commands/registry';
 import { handleFullAutoCommand } from '../commands/full-auto';
+import { COMMAND_REGISTRY, VALID_COMMANDS } from '../commands/registry';
 import { swarmState } from '../state';
 
 describe('Full-Auto discoverability', () => {
@@ -79,14 +79,12 @@ describe('Full-Auto discoverability', () => {
 		// We cannot easily import that object here, but we can verify the registry
 		// key uses the dashed form which is what the TUI shortcut resolves to.
 		it('registry key "full-auto" uses dashes not spaces', () => {
-			const key = Object.keys(COMMAND_REGISTRY).find((k) =>
-				k.includes('full') && k.includes('auto'),
+			const key = Object.keys(COMMAND_REGISTRY).find(
+				(k) => k.includes('full') && k.includes('auto'),
 			);
 			expect(key).toBe('full-auto');
 			// Ensure there is no space-separated variant like "full auto"
-			expect(
-				Object.hasOwn(COMMAND_REGISTRY, 'full auto'),
-			).toBe(false);
+			expect(Object.hasOwn(COMMAND_REGISTRY, 'full auto')).toBe(false);
 		});
 	});
 
