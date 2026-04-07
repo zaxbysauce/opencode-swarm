@@ -13,6 +13,8 @@ describe('handleFullAutoCommand', () => {
 
 	beforeEach(() => {
 		testSessionId = `full-auto-test-${Date.now()}`;
+		// Enable config-level full-auto so command activation succeeds
+		swarmState.fullAutoEnabledInConfig = true;
 		swarmState.agentSessions.set(testSessionId, {
 			agentName: 'architect',
 			lastToolCallTime: Date.now(),

@@ -642,6 +642,17 @@ export function createSystemEnhancerHook(
 									// Rename BEFORE injection - only inject if rename succeeds
 									fs.renameSync(handoffPath, consumedPath);
 
+									// Clean up supplementary handoff-prompt.md artifact if present
+									try {
+										const promptPath = validateSwarmPath(
+											directory,
+											'handoff-prompt.md',
+										);
+										fs.unlinkSync(promptPath);
+									} catch {
+										// handoff-prompt.md may not exist — non-blocking
+									}
+
 									// Only inject if rename succeeded
 									const handoffBlock = `## HANDOFF — Resuming from model switch
 The previous model's session ended. Here is your starting context:

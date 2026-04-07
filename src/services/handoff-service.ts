@@ -551,10 +551,14 @@ export function formatHandoffMarkdown(data: HandoffData): string {
 
 /**
  * Format handoff data as a continuation prompt for new agent sessions.
- * Returns a terse markdown code block with essential context.
+ * Returns a terse markdown code block with essential context and explicit
+ * resumption instructions. Designed to be copy-pasted into a new session.
  */
 export function formatContinuationPrompt(data: HandoffData): string {
 	const lines: string[] = [];
+
+	lines.push('## Resume Swarm');
+	lines.push('');
 
 	// Current state
 	if (data.currentPhase) {
@@ -565,35 +569,66 @@ export function formatContinuationPrompt(data: HandoffData): string {
 	}
 
 	// Next task: first incomplete task that isn't the current task
+	let nextTask: string | undefined;
 	if (data.incompleteTasks.length > 0) {
-		const nextTask = data.incompleteTasks.find((t) => t !== data.currentTask);
+		nextTask = data.incompleteTasks.find((t) => t !== data.currentTask);
 		if (nextTask) {
 			lines.push(`**Next Task**: ${nextTask}`);
 		}
 	}
 
-	// Pending QA
+	// Pending QA blockers
 	if (data.pendingQA) {
-		lines.push(`**Pending QA**: ${data.pendingQA.taskId}`);
+		lines.push('');
+		lines.push(`**Pending QA Blocker**: ${data.pendingQA.taskId}`);
 		if (data.pendingQA.lastFailure) {
 			lines.push(`  - Last failure: ${data.pendingQA.lastFailure}`);
 		}
 	}
 
-	// Recent decisions (last 3)
+	// Recent decisions (last 3) — do not revisit these
 	if (data.recentDecisions.length > 0) {
 		const last3 = data.recentDecisions.slice(-3);
-		lines.push('**Recent Decisions**:');
+		lines.push('');
+		lines.push('**Recent Decisions (do not revisit)**:');
 		for (const decision of last3) {
 			lines.push(`- ${decision}`);
 		}
 	}
 
-	// Reminders (always shown)
-	lines.push('**Reminders**:');
-	lines.push('- Read `.swarm/handoff.md` for full context');
+	// Remaining incomplete tasks (beyond current and next)
+	if (data.incompleteTasks.length > 2) {
+		const remaining = data.incompleteTasks.filter(
+			(t) => t !== data.currentTask && t !== nextTask,
+		);
+		if (remaining.length > 0) {
+			lines.push('');
+			lines.push(
+				`**Remaining Tasks**: ${remaining.slice(0, 8).join(', ')}${remaining.length > 8 ? ` (+${remaining.length - 8} more)` : ''}`,
+			);
+		}
+	}
+
+	// Explicit instructions
+	lines.push('');
+	lines.push('**To resume**:');
+	lines.push('1. Read `.swarm/handoff.md` for full context');
 	lines.push(
-		'- Use `knowledge_recall` to recall relevant lessons before starting',
+		'2. Use `knowledge_recall` to recall relevant lessons before starting',
+	);
+	if (data.pendingQA) {
+		lines.push(
+			`3. Resolve QA blocker on task ${data.pendingQA.taskId} before continuing`,
+		);
+	} else if (data.currentTask) {
+		lines.push(`3. Continue work on task ${data.currentTask}`);
+	} else if (nextTask) {
+		lines.push(`3. Begin work on task ${nextTask}`);
+	} else {
+		lines.push('3. Review the plan and pick up the next incomplete task');
+	}
+	lines.push(
+		'4. Do not re-implement completed tasks or revisit settled decisions',
 	);
 
 	return `\`\`\`markdown\n${lines.join('\n')}\n\`\`\``;

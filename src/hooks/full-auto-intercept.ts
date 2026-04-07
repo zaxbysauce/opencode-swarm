@@ -22,13 +22,27 @@ import { validateSwarmPath } from './utils';
 // Matches "?" at end of text or followed by whitespace/newline
 const END_OF_SENTENCE_QUESTION_PATTERN = /\?\s*$/;
 
-// Patterns that indicate architect is waiting for user input / escalation
-const ESCALATION_PATTERNS = [
-	/Ready for Phase (?:\d+|\[?N\+1\]?)\?/i,
+// Patterns that indicate phase completion (architect wants to finish a phase)
+const PHASE_COMPLETION_PATTERNS = [
+	/Ready for Phase (?:\d+|\[?N\+1\]?)\??/i,
+	/phase.{0,20}(?:complete|finish|done|wrap)/i,
+	/move(?:d?)?\s+(?:on\s+)?to\s+(?:the\s+)?(?:next\s+)?phase/i,
+];
+
+// Patterns that indicate the architect is asking a question / awaiting direction
+// These are NOT phase completion — they are question-type escalations
+const QUESTION_ESCALATION_PATTERNS = [
 	/escalat/i,
 	/What would you like/i,
 	/Should I proceed/i,
 	/Do you want/i,
+	/Shall I/i,
+	/Would you like/i,
+	/Can I proceed/i,
+	/May I proceed/i,
+	/Awaiting (?:your |)(?:approval|confirmation|input|decision|direction)/i,
+	/Please (?:confirm|approve|advise|let me know)/i,
+	/How (?:would you like|should I)/i,
 ];
 
 // Patterns that indicate mid-sentence question marks (code, version numbers, etc.)
@@ -122,14 +136,21 @@ function resolveOversightAgentName(
 function detectEscalation(
 	text: string,
 ): 'phase_completion' | 'question' | null {
-	// Check for phase completion pattern first
-	for (const pattern of ESCALATION_PATTERNS) {
+	// Check for phase completion patterns first (highest priority)
+	for (const pattern of PHASE_COMPLETION_PATTERNS) {
 		if (pattern.test(text)) {
 			return 'phase_completion';
 		}
 	}
 
-	// Check for end-of-sentence question
+	// Check for question-type escalation patterns (architect asking for direction)
+	for (const pattern of QUESTION_ESCALATION_PATTERNS) {
+		if (pattern.test(text)) {
+			return 'question';
+		}
+	}
+
+	// Check for end-of-sentence question mark
 	if (END_OF_SENTENCE_QUESTION_PATTERN.test(text)) {
 		// Make sure it's not a mid-sentence question
 		if (!isMidSentenceQuestion(text)) {
@@ -388,7 +409,7 @@ export function injectVerdictIntoMessages(
 	messages: MessageWithParts[],
 	architectIndex: number,
 	criticResult: CriticDispatchResult,
-	_escalationType: 'phase_completion' | 'question',
+	escalationType: 'phase_completion' | 'question',
 	oversightAgentName: string,
 ): void {
 	// Handle ESCALATE_TO_HUMAN — trigger escalation but still inject the verdict
@@ -412,7 +433,7 @@ export function injectVerdictIntoMessages(
 		return;
 	}
 
-	// Handle ANSWER verdict — inject critic's answer
+	// Handle ANSWER verdict — inject critic's answer with continuation instruction
 	if (criticResult.verdict === 'ANSWER') {
 		const verdictMessage: MessageWithParts = {
 			info: {
@@ -427,6 +448,21 @@ export function injectVerdictIntoMessages(
 			],
 		};
 		messages.splice(architectIndex + 1, 0, verdictMessage);
+
+		// Inject continuation instruction so the architect proceeds without stalling
+		const continuationMessage: MessageWithParts = {
+			info: {
+				role: 'user',
+				agent: oversightAgentName,
+			},
+			parts: [
+				{
+					type: 'text',
+					text: '[FULL-AUTO CONTINUATION] The critic has answered your question. Incorporate the answer above and continue executing the current plan. Do not ask follow-up questions about this answer — proceed with implementation.',
+				},
+			],
+		};
+		messages.splice(architectIndex + 2, 0, continuationMessage);
 		return;
 	}
 
@@ -455,6 +491,40 @@ export function injectVerdictIntoMessages(
 		],
 	};
 	messages.splice(architectIndex + 1, 0, verdictMessage);
+
+	// For APPROVED and phase_completion: inject continuation to advance to next phase
+	if (
+		criticResult.verdict === 'APPROVED' &&
+		escalationType === 'phase_completion'
+	) {
+		const continuationMessage: MessageWithParts = {
+			info: {
+				role: 'user',
+				agent: oversightAgentName,
+			},
+			parts: [
+				{
+					type: 'text',
+					text: '[FULL-AUTO CONTINUATION] Phase approved by autonomous oversight. Call `phase_complete` now to finalize this phase, then proceed to the next phase in the plan. Do not wait for further human input.',
+				},
+			],
+		};
+		messages.splice(architectIndex + 2, 0, continuationMessage);
+	} else if (criticResult.verdict === 'APPROVED') {
+		const continuationMessage: MessageWithParts = {
+			info: {
+				role: 'user',
+				agent: oversightAgentName,
+			},
+			parts: [
+				{
+					type: 'text',
+					text: '[FULL-AUTO CONTINUATION] Approved by autonomous oversight. Continue executing the current task and plan. Do not wait for further human input.',
+				},
+			],
+		};
+		messages.splice(architectIndex + 2, 0, continuationMessage);
+	}
 }
 
 /**

@@ -63,21 +63,21 @@ describe('handleFullAutoCommand - Empty SessionID Handling', () => {
 		it('returns CLI context error when sessionID is empty string', async () => {
 			const result = await handleFullAutoCommand('/project', [], '');
 			expect(result).toBe(
-				'Error: No active session context. Full-Auto Mode requires an active session. Use /swarm full-auto from within an OpenCode session, or start a session first.',
+				'Error: No active session context. Full-Auto Mode requires an active session. Use /swarm-full-auto from within an OpenCode session, or start a session first.',
 			);
 		});
 
 		it('returns CLI context error when sessionID is whitespace only', async () => {
 			const result = await handleFullAutoCommand('/project', [], '   ');
 			expect(result).toBe(
-				'Error: No active session context. Full-Auto Mode requires an active session. Use /swarm full-auto from within an OpenCode session, or start a session first.',
+				'Error: No active session context. Full-Auto Mode requires an active session. Use /swarm-full-auto from within an OpenCode session, or start a session first.',
 			);
 		});
 
 		it('returns CLI context error when sessionID is tab and space mixed', async () => {
 			const result = await handleFullAutoCommand('/project', [], '\t \n');
 			expect(result).toBe(
-				'Error: No active session context. Full-Auto Mode requires an active session. Use /swarm full-auto from within an OpenCode session, or start a session first.',
+				'Error: No active session context. Full-Auto Mode requires an active session. Use /swarm-full-auto from within an OpenCode session, or start a session first.',
 			);
 		});
 
@@ -107,14 +107,14 @@ describe('handleFullAutoCommand - Empty SessionID Handling', () => {
 		it('handles full-auto command with empty sessionID and "on" argument', async () => {
 			const result = await handleFullAutoCommand('/project', ['on'], '');
 			expect(result).toBe(
-				'Error: No active session context. Full-Auto Mode requires an active session. Use /swarm full-auto from within an OpenCode session, or start a session first.',
+				'Error: No active session context. Full-Auto Mode requires an active session. Use /swarm-full-auto from within an OpenCode session, or start a session first.',
 			);
 		});
 
 		it('handles full-auto command with empty sessionID and "off" argument', async () => {
 			const result = await handleFullAutoCommand('/project', ['off'], '');
 			expect(result).toBe(
-				'Error: No active session context. Full-Auto Mode requires an active session. Use /swarm full-auto from within an OpenCode session, or start a session first.',
+				'Error: No active session context. Full-Auto Mode requires an active session. Use /swarm-full-auto from within an OpenCode session, or start a session first.',
 			);
 		});
 	});

@@ -26,12 +26,12 @@ describe('formatContinuationPrompt', () => {
 			expect(result).toContain('**Phase**: Phase 1: Implementation');
 			expect(result).toContain('**Current Task**: 1.2');
 			expect(result).toContain('**Next Task**: 1.3');
-			expect(result).toContain('**Pending QA**: 1.1');
+			expect(result).toContain('**Pending QA Blocker**: 1.1');
 			expect(result).toContain('  - Last failure: lint-check');
-			expect(result).toContain('**Recent Decisions**:');
+			expect(result).toContain('**Recent Decisions (do not revisit)**:');
 			expect(result).toContain('- Use bun:test for unit tests');
 			expect(result).toContain('- Skip spec.md for atomic fixes');
-			expect(result).toContain('**Reminders**:');
+			expect(result).toContain('**To resume**:');
 			expect(result).toContain('Read `.swarm/handoff.md` for full context');
 			expect(result).toContain(
 				'Use `knowledge_recall` to recall relevant lessons before starting',
@@ -57,9 +57,9 @@ describe('formatContinuationPrompt', () => {
 			expect(result).not.toContain('**Phase**:');
 			expect(result).not.toContain('**Current Task**:');
 			expect(result).not.toContain('**Next Task**:');
-			expect(result).not.toContain('**Pending QA**:');
-			expect(result).not.toContain('**Recent Decisions**:');
-			expect(result).toContain('**Reminders**:');
+			expect(result).not.toContain('**Pending QA Blocker**:');
+			expect(result).not.toContain('**Recent Decisions (do not revisit)**:');
+			expect(result).toContain('**To resume**:');
 			expect(result).toContain('Read `.swarm/handoff.md` for full context');
 			expect(result).toContain(
 				'Use `knowledge_recall` to recall relevant lessons before starting',
@@ -102,7 +102,7 @@ describe('formatContinuationPrompt', () => {
 
 			const result = formatContinuationPrompt(data);
 
-			expect(result).not.toContain('**Pending QA**:');
+			expect(result).not.toContain('**Pending QA Blocker**:');
 			expect(result).not.toContain('Last failure:');
 		});
 	});
@@ -122,7 +122,7 @@ describe('formatContinuationPrompt', () => {
 
 			const result = formatContinuationPrompt(data);
 
-			expect(result).not.toContain('**Recent Decisions**:');
+			expect(result).not.toContain('**Recent Decisions (do not revisit)**:');
 		});
 	});
 
@@ -221,9 +221,9 @@ describe('formatContinuationPrompt', () => {
 			expect(withoutFence).toContain('**Phase**: Phase 1: Test');
 			expect(withoutFence).toContain('**Current Task**: 1.1');
 			expect(withoutFence).toContain('**Next Task**: 1.2');
-			expect(withoutFence).toContain('**Pending QA**: 1.0');
-			expect(withoutFence).toContain('**Recent Decisions**:');
-			expect(withoutFence).toContain('**Reminders**:');
+			expect(withoutFence).toContain('**Pending QA Blocker**: 1.0');
+			expect(withoutFence).toContain('**Recent Decisions (do not revisit)**:');
+			expect(withoutFence).toContain('**To resume**:');
 		});
 	});
 

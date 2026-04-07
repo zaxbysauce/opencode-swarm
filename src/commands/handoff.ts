@@ -6,6 +6,7 @@ import crypto from 'node:crypto';
 import { renameSync } from 'node:fs';
 import { validateSwarmPath } from '../hooks/utils';
 import {
+	formatContinuationPrompt,
 	formatHandoffMarkdown,
 	getHandoffData,
 } from '../services/handoff-service';
@@ -31,20 +32,34 @@ export async function handleHandoffCommand(
 	await Bun.write(tempPath, markdown);
 	renameSync(tempPath, resolvedPath);
 
+	// Build continuation prompt from structured data
+	const continuationPrompt = formatContinuationPrompt(handoffData);
+
+	// Write continuation prompt as a dedicated artifact
+	const promptPath = validateSwarmPath(directory, 'handoff-prompt.md');
+	const promptTempPath = `${promptPath}.tmp.${crypto.randomUUID()}`;
+	await Bun.write(promptTempPath, continuationPrompt);
+	renameSync(promptTempPath, promptPath);
+
 	// Trigger snapshot write
 	await writeSnapshot(directory, swarmState);
 
 	// v6.33.1: Also flush any debounced pending snapshot
 	await flushPendingSnapshot(directory);
 
-	// Return markdown response
+	// Return markdown response with copyable continuation block
 	return `## Handoff Brief Written
 
 Brief written to \`.swarm/handoff.md\`.
+Continuation prompt written to \`.swarm/handoff-prompt.md\`.
 
 ${markdown}
 
 ---
 
-**Next Step:** Start a new OpenCode session, switch to your target model, and send: \`continue the previous work\``;
+## Continuation Prompt
+
+Copy and paste the block below into your next session to resume cleanly:
+
+${continuationPrompt}`;
 }

@@ -22,6 +22,8 @@ describe('Full-Auto Mode Regression Tests', () => {
 
 	beforeEach(() => {
 		testSessionId = `full-auto-regression-${Date.now()}`;
+		// Enable config-level full-auto so command activation succeeds
+		swarmState.fullAutoEnabledInConfig = true;
 		swarmState.agentSessions.set(testSessionId, {
 			agentName: 'architect',
 			lastToolCallTime: Date.now(),

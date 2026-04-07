@@ -303,6 +303,16 @@ export async function rehydrateState(snapshot: SnapshotData): Promise<void> {
 					field.resetValue;
 			}
 
+			// ── Full-auto config reconciliation ──────────────────────────
+			// A snapshot may have fullAutoMode: true from a previous session
+			// where full-auto was enabled in config. If the current config
+			// has full_auto.enabled=false, we must clear the flag to prevent
+			// a false-enabled state where the session thinks full-auto is on
+			// but the intercept hook is disabled.
+			if (session.fullAutoMode && !swarmState.fullAutoEnabledInConfig) {
+				session.fullAutoMode = false;
+			}
+
 			swarmState.agentSessions.set(sessionId, session);
 		}
 	}
