@@ -1,0 +1,103 @@
+/**
+ * Curator types — phase context consolidation and drift detection.
+ * No runtime logic. Types only.
+ */
+import type { KnowledgeCategory } from './knowledge-types.js';
+/** Curator summary — anchored iterative format. Persisted to .swarm/curator-summary.json */
+export interface CuratorSummary {
+    schema_version: 1;
+    session_id: string;
+    last_updated: string;
+    last_phase_covered: number;
+    /** Running digest — extended each phase, never regenerated */
+    digest: string;
+    /** Phase-level digests for lookup */
+    phase_digests: PhaseDigestEntry[];
+    /** Accumulated compliance observations */
+    compliance_observations: ComplianceObservation[];
+    /** Knowledge update recommendations from the last curator run */
+    knowledge_recommendations: KnowledgeRecommendation[];
+}
+export interface PhaseDigestEntry {
+    phase: number;
+    timestamp: string;
+    summary: string;
+    agents_used: string[];
+    tasks_completed: number;
+    tasks_total: number;
+    key_decisions: string[];
+    blockers_resolved: string[];
+}
+export interface ComplianceObservation {
+    phase: number;
+    timestamp: string;
+    type: 'missing_reviewer' | 'missing_retro' | 'missing_sme' | 'skipped_test' | 'workflow_deviation';
+    description: string;
+    severity: 'info' | 'warning';
+}
+export interface KnowledgeRecommendation {
+    action: 'promote' | 'archive' | 'flag_contradiction' | 'rewrite';
+    entry_id?: string;
+    lesson: string;
+    reason: string;
+    category?: KnowledgeCategory;
+    confidence?: number;
+}
+/** Drift report — produced by critic after curator phase run */
+export interface DriftReport {
+    schema_version: 1;
+    phase: number;
+    timestamp: string;
+    /** Overall alignment verdict */
+    alignment: 'ALIGNED' | 'MINOR_DRIFT' | 'MAJOR_DRIFT' | 'OFF_SPEC';
+    /** Severity score 0.0-1.0 (0 = perfectly aligned, 1 = completely off-spec) */
+    drift_score: number;
+    /** First deviation point if drift detected */
+    first_deviation: {
+        phase: number;
+        task: string;
+        description: string;
+    } | null;
+    /** Compounding effects across phases */
+    compounding_effects: string[];
+    /** Recommended course corrections */
+    corrections: string[];
+    /** Spec requirements checked */
+    requirements_checked: number;
+    /** Spec requirements satisfied */
+    requirements_satisfied: number;
+    /** Scope additions not in original plan */
+    scope_additions: string[];
+    /** Truncated summary for architect context injection */
+    injection_summary: string;
+}
+export interface CuratorConfig {
+    enabled: boolean;
+    init_enabled: boolean;
+    phase_enabled: boolean;
+    max_summary_tokens: number;
+    min_knowledge_confidence: number;
+    compliance_report: boolean;
+    suppress_warnings: boolean;
+    drift_inject_max_chars: number;
+    llm_timeout_ms?: number;
+}
+export interface CuratorInitResult {
+    briefing: string;
+    contradictions: string[];
+    knowledge_entries_reviewed: number;
+    prior_phases_covered: number;
+}
+export interface CuratorPhaseResult {
+    phase: number;
+    digest: PhaseDigestEntry;
+    compliance: ComplianceObservation[];
+    knowledge_recommendations: KnowledgeRecommendation[];
+    summary_updated: boolean;
+}
+export interface CriticDriftResult {
+    phase: number;
+    report: DriftReport;
+    report_path: string;
+    injection_text: string;
+}
