@@ -44919,6 +44919,7 @@ async function handleCloseCommand(directory, args2) {
   const archiveDir = path14.join(swarmDir, "archive", `swarm-${timestamp}`);
   let archiveResult = "";
   let archivedFileCount = 0;
+  const archivedActiveStateFiles = new Set;
   try {
     await fs9.mkdir(archiveDir, { recursive: true });
     for (const artifact of ARCHIVE_ARTIFACTS) {
@@ -44927,6 +44928,9 @@ async function handleCloseCommand(directory, args2) {
       try {
         await fs9.copyFile(srcPath, destPath);
         archivedFileCount++;
+        if (ACTIVE_STATE_TO_CLEAN.includes(artifact)) {
+          archivedActiveStateFiles.add(artifact);
+        }
       } catch {}
     }
     const evidenceDir = path14.join(swarmDir, "evidence");
@@ -44973,8 +44977,12 @@ async function handleCloseCommand(directory, args2) {
   }
   let configBackupsRemoved = 0;
   const cleanedFiles = [];
-  if (archivedFileCount > 0) {
+  if (archivedActiveStateFiles.size > 0) {
     for (const artifact of ACTIVE_STATE_TO_CLEAN) {
+      if (!archivedActiveStateFiles.has(artifact)) {
+        warnings.push(`Preserved ${artifact} because it was not successfully archived.`);
+        continue;
+      }
       const filePath = path14.join(swarmDir, artifact);
       try {
         await fs9.unlink(filePath);
@@ -44982,7 +44990,7 @@ async function handleCloseCommand(directory, args2) {
       } catch {}
     }
   } else {
-    warnings.push("Skipped active-state cleanup because no artifacts were archived. Files preserved to prevent data loss.");
+    warnings.push("Skipped active-state cleanup because no active-state files were archived. Files preserved to prevent data loss.");
   }
   try {
     const swarmFiles = await fs9.readdir(swarmDir);
@@ -60414,6 +60422,9 @@ async function rehydrateState(snapshot) {
       }
       for (const field of TRANSIENT_SESSION_FIELDS) {
         session[field.name] = field.resetValue;
+      }
+      if (session.fullAutoMode && !swarmState.fullAutoEnabledInConfig) {
+        session.fullAutoMode = false;
       }
       swarmState.agentSessions.set(sessionId, session);
     }

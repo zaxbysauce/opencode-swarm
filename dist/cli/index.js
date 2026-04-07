@@ -33458,6 +33458,7 @@ async function handleCloseCommand(directory, args) {
   const archiveDir = path11.join(swarmDir, "archive", `swarm-${timestamp}`);
   let archiveResult = "";
   let archivedFileCount = 0;
+  const archivedActiveStateFiles = new Set;
   try {
     await fs6.mkdir(archiveDir, { recursive: true });
     for (const artifact of ARCHIVE_ARTIFACTS) {
@@ -33466,6 +33467,9 @@ async function handleCloseCommand(directory, args) {
       try {
         await fs6.copyFile(srcPath, destPath);
         archivedFileCount++;
+        if (ACTIVE_STATE_TO_CLEAN.includes(artifact)) {
+          archivedActiveStateFiles.add(artifact);
+        }
       } catch {}
     }
     const evidenceDir = path11.join(swarmDir, "evidence");
@@ -33512,8 +33516,12 @@ async function handleCloseCommand(directory, args) {
   }
   let configBackupsRemoved = 0;
   const cleanedFiles = [];
-  if (archivedFileCount > 0) {
+  if (archivedActiveStateFiles.size > 0) {
     for (const artifact of ACTIVE_STATE_TO_CLEAN) {
+      if (!archivedActiveStateFiles.has(artifact)) {
+        warnings.push(`Preserved ${artifact} because it was not successfully archived.`);
+        continue;
+      }
       const filePath = path11.join(swarmDir, artifact);
       try {
         await fs6.unlink(filePath);
@@ -33521,7 +33529,7 @@ async function handleCloseCommand(directory, args) {
       } catch {}
     }
   } else {
-    warnings.push("Skipped active-state cleanup because no artifacts were archived. Files preserved to prevent data loss.");
+    warnings.push("Skipped active-state cleanup because no active-state files were archived. Files preserved to prevent data loss.");
   }
   try {
     const swarmFiles = await fs6.readdir(swarmDir);

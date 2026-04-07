@@ -931,6 +931,100 @@ describe('rehydrateState', () => {
 		expect(swarmState.delegationChains.size).toBe(0);
 		expect(swarmState.agentSessions.size).toBe(0);
 	});
+
+	it('clears fullAutoMode on restored sessions when fullAutoEnabledInConfig is false', async () => {
+		// Simulate: config says full-auto is disabled, but snapshot has a
+		// session with fullAutoMode: true from a previous run where it was enabled.
+		swarmState.fullAutoEnabledInConfig = false;
+
+		const snapshot: SnapshotData = {
+			version: 1,
+			writtenAt: Date.now(),
+			toolAggregates: {},
+			activeAgent: {},
+			delegationChains: {},
+			agentSessions: {
+				'session-fa': {
+					agentName: 'architect',
+					lastToolCallTime: Date.now(),
+					lastAgentEventTime: Date.now(),
+					delegationActive: false,
+					activeInvocationId: 1,
+					lastInvocationIdByAgent: {},
+					windows: {},
+					lastCompactionHint: 0,
+					architectWriteCount: 0,
+					lastCoderDelegationTaskId: null,
+					currentTaskId: null,
+					gateLog: {},
+					reviewerCallCount: {},
+					lastGateFailure: null,
+					partialGateWarningsIssuedForTask: [],
+					selfFixAttempted: false,
+					catastrophicPhaseWarnings: [],
+					lastPhaseCompleteTimestamp: 0,
+					lastPhaseCompletePhase: 0,
+					phaseAgentsDispatched: [],
+					qaSkipCount: 0,
+					qaSkipTaskIds: [],
+					fullAutoMode: true, // snapshot says ON
+				},
+			},
+		};
+
+		await rehydrateState(snapshot);
+
+		const restored = swarmState.agentSessions.get('session-fa');
+		expect(restored).toBeDefined();
+		// fullAutoMode must be cleared because config says full-auto is disabled
+		expect(restored!.fullAutoMode).toBe(false);
+	});
+
+	it('preserves fullAutoMode on restored sessions when fullAutoEnabledInConfig is true', async () => {
+		swarmState.fullAutoEnabledInConfig = true;
+
+		const snapshot: SnapshotData = {
+			version: 1,
+			writtenAt: Date.now(),
+			toolAggregates: {},
+			activeAgent: {},
+			delegationChains: {},
+			agentSessions: {
+				'session-fa': {
+					agentName: 'architect',
+					lastToolCallTime: Date.now(),
+					lastAgentEventTime: Date.now(),
+					delegationActive: false,
+					activeInvocationId: 1,
+					lastInvocationIdByAgent: {},
+					windows: {},
+					lastCompactionHint: 0,
+					architectWriteCount: 0,
+					lastCoderDelegationTaskId: null,
+					currentTaskId: null,
+					gateLog: {},
+					reviewerCallCount: {},
+					lastGateFailure: null,
+					partialGateWarningsIssuedForTask: [],
+					selfFixAttempted: false,
+					catastrophicPhaseWarnings: [],
+					lastPhaseCompleteTimestamp: 0,
+					lastPhaseCompletePhase: 0,
+					phaseAgentsDispatched: [],
+					qaSkipCount: 0,
+					qaSkipTaskIds: [],
+					fullAutoMode: true,
+				},
+			},
+		};
+
+		await rehydrateState(snapshot);
+
+		const restored = swarmState.agentSessions.get('session-fa');
+		expect(restored).toBeDefined();
+		// fullAutoMode preserved because config allows it
+		expect(restored!.fullAutoMode).toBe(true);
+	});
 });
 
 describe('loadSnapshot', () => {

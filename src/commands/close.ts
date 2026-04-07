@@ -236,6 +236,9 @@ export async function handleCloseCommand(
 	const archiveDir = path.join(swarmDir, 'archive', `swarm-${timestamp}`);
 	let archiveResult = '';
 	let archivedFileCount = 0;
+	/** Track which active-state files were successfully backed up to the archive.
+	 *  Only these files are safe to delete in the clean stage. */
+	const archivedActiveStateFiles = new Set<string>();
 
 	try {
 		await fs.mkdir(archiveDir, { recursive: true });
@@ -247,6 +250,9 @@ export async function handleCloseCommand(
 			try {
 				await fs.copyFile(srcPath, destPath);
 				archivedFileCount++;
+				if (ACTIVE_STATE_TO_CLEAN.includes(artifact)) {
+					archivedActiveStateFiles.add(artifact);
+				}
 			} catch {
 				// File may not exist — skip silently
 			}
@@ -318,10 +324,18 @@ export async function handleCloseCommand(
 	let configBackupsRemoved = 0;
 	const cleanedFiles: string[] = [];
 
-	// Only remove active-state files if archive succeeded. If archive failed,
-	// deleting these files would cause data loss with no backup.
-	if (archivedFileCount > 0) {
+	// Only delete active-state files that were successfully copied to the archive.
+	// This prevents data loss when a partial archive succeeds for some files but
+	// fails for others — only the backed-up files are safe to remove.
+	if (archivedActiveStateFiles.size > 0) {
 		for (const artifact of ACTIVE_STATE_TO_CLEAN) {
+			if (!archivedActiveStateFiles.has(artifact)) {
+				// This file was NOT successfully archived — do not delete it
+				warnings.push(
+					`Preserved ${artifact} because it was not successfully archived.`,
+				);
+				continue;
+			}
 			const filePath = path.join(swarmDir, artifact);
 			try {
 				await fs.unlink(filePath);
@@ -332,7 +346,7 @@ export async function handleCloseCommand(
 		}
 	} else {
 		warnings.push(
-			'Skipped active-state cleanup because no artifacts were archived. Files preserved to prevent data loss.',
+			'Skipped active-state cleanup because no active-state files were archived. Files preserved to prevent data loss.',
 		);
 	}
 
