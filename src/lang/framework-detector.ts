@@ -32,6 +32,12 @@ export interface LaravelCommandOverlay {
 	lintCommand: string | null;
 	/** Static analysis command. PHPStan if phpstan config is present, null otherwise. */
 	staticAnalysisCommand: string | null;
+	/**
+	 * Identified static analysis tool. 'larastan' if phpstan.neon contains a
+	 * Larastan extension reference, 'phpstan' if a phpstan config is present
+	 * without Larastan markers, null if no phpstan config is present.
+	 */
+	staticAnalysisTool: 'larastan' | 'phpstan' | null;
 	/** Dependency audit command (always composer audit --locked --format=json for Laravel). */
 	auditCommand: string;
 	/** Whether --parallel flag is supported (Pest parallel testing via artisan). */
@@ -116,6 +122,42 @@ function checkConfigApp(directory: string): boolean {
 }
 
 /**
+ * Determine whether a project is configured to use Larastan (the Laravel
+ * extension for PHPStan) rather than vanilla PHPStan.
+ *
+ * Detection is content-based: the first 4096 bytes of `phpstan.neon` are
+ * read and scanned for a reference to either of the two known Larastan
+ * package names (`nunomaduro/larastan` or `larastan/larastan`).
+ *
+ * Only `phpstan.neon` is checked — `phpstan.neon.dist` is a distribution
+ * baseline that projects override locally, so it is not scanned for the
+ * Larastan marker.
+ *
+ * @param directory - Absolute path to the project root
+ * @returns true if phpstan.neon contains a Larastan extension reference
+ */
+export function isLarastanConfigured(directory: string): boolean {
+	const neonPath = path.join(directory, 'phpstan.neon');
+	if (!fs.existsSync(neonPath)) return false;
+	try {
+		const fd = fs.openSync(neonPath, 'r');
+		try {
+			const buf = Buffer.alloc(4096);
+			const bytesRead = fs.readSync(fd, buf, 0, 4096, 0);
+			const content = buf.subarray(0, bytesRead).toString('utf-8');
+			return (
+				content.includes('nunomaduro/larastan') ||
+				content.includes('larastan/larastan')
+			);
+		} finally {
+			fs.closeSync(fd);
+		}
+	} catch {
+		return false;
+	}
+}
+
+/**
  * Get the Laravel command overlay for a project directory.
  * Returns null if the directory is not a Laravel project.
  *
@@ -126,6 +168,8 @@ function checkConfigApp(directory: string): boolean {
  *   null otherwise
  * - staticAnalysisCommand: 'vendor/bin/phpstan analyse' if phpstan.neon or phpstan.neon.dist present,
  *   null otherwise
+ * - staticAnalysisTool: 'larastan' if phpstan.neon contains a Larastan extension reference,
+ *   'phpstan' if a phpstan config is present without Larastan markers, null otherwise
  * - auditCommand: always 'composer audit --locked --format=json'
  * - supportsParallel: true (php artisan test --parallel is supported)
  *
@@ -147,19 +191,24 @@ export function getLaravelCommandOverlay(
 		lintCommand = 'vendor/bin/php-cs-fixer fix --dry-run --diff';
 	}
 
-	// Static analysis: detect PHPStan via config file presence
+	// Static analysis: detect PHPStan via config file presence;
+	// content-based Larastan detection via phpstan.neon includes block
 	let staticAnalysisCommand: string | null = null;
-	if (
-		fs.existsSync(path.join(directory, 'phpstan.neon')) ||
-		fs.existsSync(path.join(directory, 'phpstan.neon.dist'))
-	) {
+	let staticAnalysisTool: 'larastan' | 'phpstan' | null = null;
+	const hasPhpstanNeon = fs.existsSync(path.join(directory, 'phpstan.neon'));
+	const hasPhpstanNeonDist = fs.existsSync(
+		path.join(directory, 'phpstan.neon.dist'),
+	);
+	if (hasPhpstanNeon || hasPhpstanNeonDist) {
 		staticAnalysisCommand = 'vendor/bin/phpstan analyse';
+		staticAnalysisTool = isLarastanConfigured(directory) ? 'larastan' : 'phpstan';
 	}
 
 	return {
 		testCommand: 'php artisan test',
 		lintCommand,
 		staticAnalysisCommand,
+		staticAnalysisTool,
 		auditCommand: 'composer audit --locked --format=json',
 		supportsParallel: true,
 	};
