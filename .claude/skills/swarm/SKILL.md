@@ -12,8 +12,12 @@ If arguments are provided, enable swarm mode first and then execute that task us
 
 Argument handling:
 - If no arguments are provided: only enable swarm mode.
-- If `$ARGUMENTS` looks like a **plugin subcommand** rather than a task description: do NOT treat it as a swarm task. Single-word arguments (e.g., `close`, `handoff`, `status`, `plan`, `full-auto`) and hyphenated single-word arguments (e.g., `sync-plan`, `reset-session`, `write-retro`) are plugin subcommands managed by the opencode-swarm plugin's command system. Tell the user to run them as `/swarm <subcommand>` directly — the plugin will handle routing. Do NOT try to interpret or execute them yourself.
-- Otherwise (multi-word natural-language arguments): enable swarm mode, then treat `$ARGUMENTS` as the task to execute immediately.
+- If the first word of `$ARGUMENTS` is a **known plugin subcommand** (see list below): do NOT treat it as a swarm task. Instead, tell the user to run it as a slash command directly (e.g., `/swarm close`, `/swarm handoff`). These are OpenCode plugin commands handled by the swarm plugin's command system, not tasks for the swarm workflow. Do NOT try to interpret or execute them yourself.
+- Otherwise: enable swarm mode, then treat `$ARGUMENTS` as the task to execute immediately.
+
+Known plugin subcommands (do NOT interpret these as tasks):
+<!-- Keep in sync with COMMAND_REGISTRY in src/commands/registry.ts -->
+`status`, `plan`, `agents`, `history`, `config`, `evidence`, `handoff`, `archive`, `diagnose`, `preflight`, `sync-plan`, `benchmark`, `export`, `reset`, `rollback`, `retrieve`, `clarify`, `analyze`, `specify`, `dark-matter`, `knowledge`, `curate`, `turbo`, `full-auto`, `write-retro`, `reset-session`, `simulate`, `promote`, `checkpoint`, `close`
 
 Examples:
 - `/swarm` — enable swarm mode only
