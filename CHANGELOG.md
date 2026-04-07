@@ -1,5 +1,12 @@
 # Changelog
 
+## [6.53.6](https://github.com/zaxbysauce/opencode-swarm/compare/v6.53.5...v6.53.6) (2026-04-07)
+
+
+### Bug Fixes
+
+* **curator:** guard null knowledge config ([#425](https://github.com/zaxbysauce/opencode-swarm/issues/425)) ([1abb0bf](https://github.com/zaxbysauce/opencode-swarm/commit/1abb0bf3ba3466420664bc2cf00d8b326c63dbdc))
+
 ## [6.53.5](https://github.com/zaxbysauce/opencode-swarm/compare/v6.53.4...v6.53.5) (2026-04-07)
 
 
