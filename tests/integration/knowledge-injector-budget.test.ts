@@ -261,7 +261,7 @@ describe('Knowledge injector budget regression', () => {
 	});
 
 	// -----------------------------------------------------------------------
-	// Low regime: 5–20% headroom → quarter budget
+	// Low regime: <20% headroom → quarter budget
 	// -----------------------------------------------------------------------
 
 	it('injects at low regime for 370k chars (headroom ~4.6% of model limit)', async () => {
