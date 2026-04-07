@@ -1,5 +1,12 @@
 # Changelog
 
+## [6.54.0](https://github.com/zaxbysauce/opencode-swarm/compare/v6.53.7...v6.54.0) (2026-04-07)
+
+
+### Features
+
+* **php:** content-based Larastan detection in getLaravelCommandOverlay ([#431](https://github.com/zaxbysauce/opencode-swarm/issues/431)) ([10f6b9b](https://github.com/zaxbysauce/opencode-swarm/commit/10f6b9b251229b42c89740032fdbc52e3bb7e312))
+
 ## [6.53.7](https://github.com/zaxbysauce/opencode-swarm/compare/v6.53.6...v6.53.7) (2026-04-07)
 
 
