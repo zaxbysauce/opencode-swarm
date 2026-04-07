@@ -1,4 +1,4 @@
-import { existsSync, renameSync, unlinkSync } from 'node:fs';
+import { copyFileSync, existsSync, renameSync, unlinkSync } from 'node:fs';
 import * as path from 'node:path';
 import {
 	type Phase,
@@ -493,32 +493,112 @@ export async function savePlan(
 		const existingEvents = await readLedgerEvents(directory);
 		if (existingEvents.length > 0 && existingEvents[0].plan_id !== planId) {
 			// The ledger was created for a different plan identity.
-			// Archive the old ledger before reinitializing so it is not lost.
-			// Guard the rename: if another concurrent savePlan already moved the
-			// file, skip gracefully rather than crashing with ENOENT.
+			// Reinitialize so events and hashes are keyed to the new plan identity.
+			//
+			// Recovery-safe ordering (Issue 392):
+			// 1. Move the old ledger file aside (rename to backup) BEFORE calling initLedger.
+			//    This allows the real initLedger to create a fresh ledger (it refuses to run
+			//    if the ledger file already exists at the path).
+			// 2. Attempt initLedger — if it fails with "already initialized" (concurrent),
+			//    discard the backup since the new ledger is already in place.
+			// 3. If it fails with any OTHER error, restore the original ledger from backup.
+			// 4. Only archive the backup AFTER initLedger succeeds.
 			const swarmDir = path.resolve(directory, '.swarm');
 			const oldLedgerPath = path.join(swarmDir, 'plan-ledger.jsonl');
-			const archivePath = path.join(
+			const oldLedgerBackupPath = path.join(
 				swarmDir,
-				`plan-ledger.archived-${Date.now()}-${Math.floor(Math.random() * 1e9)}.jsonl`,
+				`plan-ledger.backup-${Date.now()}-${Math.floor(Math.random() * 1e9)}.jsonl`,
 			);
+			let backupExists = false;
+
+			// Move the old ledger file aside BEFORE initLedger runs.
+			// This ensures initLedger sees no existing ledger and can create a fresh one.
 			if (existsSync(oldLedgerPath)) {
-				renameSync(oldLedgerPath, archivePath);
-				warn(
-					`[savePlan] Ledger identity mismatch (was "${existingEvents[0].plan_id}", now "${planId}") — archived old ledger to ${archivePath} and reinitializing.`,
-				);
+				try {
+					renameSync(oldLedgerPath, oldLedgerBackupPath);
+					backupExists = true;
+				} catch (renameErr) {
+					// Cross-platform rename failure (e.g., file locked on Windows).
+					// If we can't move the file aside, we cannot safely reinitialize,
+					// and continuing would append mixed-identity events into the mismatched ledger.
+					throw new Error(
+						`[savePlan] Cannot reinitialize ledger: could not move old ledger aside (rename failed: ${renameErr instanceof Error ? renameErr.message : String(renameErr)}). The existing ledger has plan_id="${existingEvents[0].plan_id}" which does not match the current plan="${planId}". To proceed, close any programs that may have the ledger file open, or run /swarm reset-session to clear the ledger.`,
+					);
+				}
 			}
-			try {
-				await initLedger(directory, planId, planHashForInit);
-			} catch (initErr) {
-				// Another concurrent savePlan already initialized the new ledger — that is fine.
-				if (
-					!(
-						initErr instanceof Error &&
-						initErr.message.includes('already initialized')
-					)
-				) {
-					throw initErr;
+
+			let initSucceeded = false;
+
+			if (backupExists) {
+				try {
+					await initLedger(directory, planId, planHashForInit);
+					initSucceeded = true;
+				} catch (initErr) {
+					// Another concurrent savePlan already initialized the new ledger — that is fine.
+					// Any OTHER error: restore the original ledger and do NOT archive.
+					// Use String() to handle non-Error throws (strings, objects with no .message).
+					const errorMessage = String(initErr);
+					if (errorMessage.includes('already initialized')) {
+						// Concurrent initialization — new ledger is already in place.
+						// Discard the backup since we don't need it (new ledger is already there).
+						try {
+							if (existsSync(oldLedgerBackupPath))
+								unlinkSync(oldLedgerBackupPath);
+						} catch {
+							/* best effort */
+						}
+					} else {
+						// Unexpected error — restore the original ledger so workspace stays usable
+						if (existsSync(oldLedgerBackupPath)) {
+							try {
+								renameSync(oldLedgerBackupPath, oldLedgerPath);
+							} catch {
+								// Restore failed — try copy as fallback
+								copyFileSync(oldLedgerBackupPath, oldLedgerPath);
+								try {
+									unlinkSync(oldLedgerBackupPath);
+								} catch {
+									/* best effort */
+								}
+							}
+						}
+						throw initErr;
+					}
+				}
+			}
+
+			// Archive the backup only after initLedger succeeded.
+			if (initSucceeded && backupExists) {
+				const archivePath = path.join(
+					swarmDir,
+					`plan-ledger.archived-${Date.now()}-${Math.floor(Math.random() * 1e9)}.jsonl`,
+				);
+				try {
+					renameSync(oldLedgerBackupPath, archivePath);
+					warn(
+						`[savePlan] Ledger identity mismatch (was "${existingEvents[0].plan_id}", now "${planId}") — archived old ledger to ${archivePath} and reinitializing.`,
+					);
+				} catch (renameErr) {
+					// Cross-platform rename failure (e.g., file locked on Windows).
+					// The new ledger is already initialized and usable — warn but don't throw.
+					warn(
+						`[savePlan] Could not archive old ledger (rename failed: ${renameErr instanceof Error ? renameErr.message : String(renameErr)}). Old ledger may still exist at ${oldLedgerBackupPath}.`,
+					);
+					// Clean up backup since archive failed
+					try {
+						if (existsSync(oldLedgerBackupPath))
+							unlinkSync(oldLedgerBackupPath);
+					} catch {
+						/* best effort */
+					}
+				}
+			} else if (!initSucceeded && backupExists) {
+				// init didn't succeed and we have a backup — clean it up
+				// (error case already handled above: restored or discarded)
+				try {
+					if (existsSync(oldLedgerBackupPath)) unlinkSync(oldLedgerBackupPath);
+				} catch {
+					/* best effort */
 				}
 			}
 		}
