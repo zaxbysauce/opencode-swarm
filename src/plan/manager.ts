@@ -519,11 +519,11 @@ export async function savePlan(
 					backupExists = true;
 				} catch (renameErr) {
 					// Cross-platform rename failure (e.g., file locked on Windows).
-					// If we can't move the file aside, we cannot safely reinitialize.
-					warn(
-						`[savePlan] Could not move old ledger aside before reinit (rename failed: ${renameErr instanceof Error ? renameErr.message : String(renameErr)}). Skipping ledger reinitialization.`,
+					// If we can't move the file aside, we cannot safely reinitialize,
+					// and continuing would append mixed-identity events into the mismatched ledger.
+					throw new Error(
+						`[savePlan] Cannot reinitialize ledger: could not move old ledger aside (rename failed: ${renameErr instanceof Error ? renameErr.message : String(renameErr)}). The existing ledger has plan_id="${existingEvents[0].plan_id}" which does not match the current plan="${planId}". To proceed, close any programs that may have the ledger file open, or run /swarm reset-session to clear the ledger.`,
 					);
-					// Fall through to normal save without reinitializing the ledger
 				}
 			}
 
@@ -536,10 +536,9 @@ export async function savePlan(
 				} catch (initErr) {
 					// Another concurrent savePlan already initialized the new ledger — that is fine.
 					// Any OTHER error: restore the original ledger and do NOT archive.
-					if (
-						initErr instanceof Error &&
-						initErr.message.includes('already initialized')
-					) {
+					// Use String() to handle non-Error throws (strings, objects with no .message).
+					const errorMessage = String(initErr);
+					if (errorMessage.includes('already initialized')) {
 						// Concurrent initialization — new ledger is already in place.
 						// Discard the backup since we don't need it (new ledger is already there).
 						try {
@@ -583,7 +582,7 @@ export async function savePlan(
 					// Cross-platform rename failure (e.g., file locked on Windows).
 					// The new ledger is already initialized and usable — warn but don't throw.
 					warn(
-						`[savePlan] Could not archive old ledger (rename failed: ${renameErr instanceof Error ? renameErr.message : String(renameErr)}). Old ledger may still exist at ${oldLedgerPath}.`,
+						`[savePlan] Could not archive old ledger (rename failed: ${renameErr instanceof Error ? renameErr.message : String(renameErr)}). Old ledger may still exist at ${oldLedgerBackupPath}.`,
 					);
 					// Clean up backup since archive failed
 					try {

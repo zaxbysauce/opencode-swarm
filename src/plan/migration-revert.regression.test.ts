@@ -355,7 +355,7 @@ describe('Fix 3: savePlan() re-initializes ledger on identity change', () => {
 
 	test('when initLedger throws "already initialized", new ledger is active and no backup remains (concurrent race)', async () => {
 		// This test simulates the scenario where a concurrent savePlan call
-		// moves the old ledger aside (to backup) then calls initLedger, but another
+		// moves the old ledger to backup then calls initLedger, but another
 		// concurrent savePlan already initialized the new ledger first.
 		//
 		// Real behavior (from Issue 392 fix):
@@ -363,6 +363,10 @@ describe('Fix 3: savePlan() re-initializes ledger on identity change', () => {
 		// 2. initLedger runs — concurrent call writes new ledger THEN throws "already initialized".
 		// 3. savePlan catches the error, sees "already initialized", and discards the backup.
 		// 4. Active ledger ends up with new plan_id; no archive or backup remains.
+		//
+		// Deterministic implementation: mock initLedger to first write the new ledger
+		// (using the real implementation) then throw the "already initialized" Error,
+		// simulating a concurrent writer that already created the ledger first.
 
 		// Arrange: Create workspace with old ledger
 		const oldPlan = makeTestPlan({ swarm: 'old-swarm' });
@@ -378,37 +382,24 @@ describe('Fix 3: savePlan() re-initializes ledger on identity change', () => {
 		expect(fs.existsSync(ledgerPath)).toBe(true);
 		expect(readLedgerPlanId(testDir)).toBe('old-swarm-Test_Plan');
 
-		// Spy on initLedger: delay the first call long enough for the second savePlan
-		// to win the race and create the new ledger first. The second call will find
-		// no ledger (because the first call moved it to backup) and create a fresh one.
-		// When the first call's delayed initLedger runs, it will find the new ledger
-		// already exists and throw "already initialized".
-		let initLedgerCallCount = 0;
-		const originalInitLedger = ledger.initLedger;
+		// Capture original before spying so we can call the real implementation
+		const origInitLedger = ledger.initLedger;
 		vi.spyOn(ledger, 'initLedger').mockImplementation(
 			async (dir: string, planId: string) => {
-				initLedgerCallCount++;
-				if (initLedgerCallCount === 1) {
-					// First call (from the first savePlan): delay to let second savePlan win
-					await new Promise((resolve) => setTimeout(resolve, 50));
-				}
-				return originalInitLedger(dir, planId);
+				// Write the new ledger first (real implementation creates the file)
+				await origInitLedger(dir, planId);
+				// Then simulate a concurrent call that already created it
+				throw new Error(
+					'Ledger already initialized. Use appendLedgerEvent to add events.',
+				);
 			},
 		);
 
-		// Act: Start two concurrent savePlan calls against the same workspace
+		// Act: single savePlan call — the mock simulates a concurrent race
 		const newPlan = makeTestPlan({ swarm: 'new-swarm' });
+		await savePlan(testDir, newPlan);
 
-		const [resultA, resultB] = await Promise.allSettled([
-			savePlan(testDir, newPlan),
-			savePlan(testDir, newPlan),
-		]);
-
-		// Assert: both calls settle successfully
-		expect(resultA.status).toBe('fulfilled');
-		expect(resultB.status).toBe('fulfilled');
-
-		// The active ledger now has the new plan_id (second call initialized it first)
+		// Assert: active ledger has the new plan_id
 		expect(fs.existsSync(ledgerPath)).toBe(true);
 		const ledgerContentAfter = fs.readFileSync(ledgerPath, 'utf-8');
 		expect(ledgerContentAfter).toContain(newPlanId);
@@ -417,6 +408,112 @@ describe('Fix 3: savePlan() re-initializes ledger on identity change', () => {
 		expect(getBackupFiles(swarmDir)).toHaveLength(0);
 
 		// No archive file should exist either (backup was discarded, not archived)
+		expect(getArchiveFiles(swarmDir)).toHaveLength(0);
+	});
+
+	test('when initLedger writes ledger then throws plain-string "already initialized", savePlan recovers and new ledger is active', async () => {
+		// Simulates a concurrent writer where initLedger successfully writes the new
+		// ledger first, but the call still throws the plain string
+		// 'Ledger already initialized...' (non-Error throw).
+		//
+		// savePlan must treat this string throw the same way it treats an Error with
+		// "already initialized" — it must not propagate, must return normally, and
+		// must leave the new ledger intact with no backup/archive files.
+		//
+		// Deterministic implementation: mock initLedger to first write the new ledger
+		// (using the real implementation) then throw the plain string.
+
+		// Arrange: Create workspace with old ledger
+		const oldPlan = makeTestPlan({ swarm: 'old-swarm' });
+		writePlanJson(testDir, oldPlan);
+		await initLedger(testDir, 'old-swarm-Test_Plan');
+
+		const swarmDir = path.resolve(testDir, '.swarm');
+		const ledgerPath = path.join(swarmDir, 'plan-ledger.jsonl');
+		const newPlanId = 'new-swarm-Test_Plan';
+
+		// Verify old ledger exists
+		expect(fs.existsSync(ledgerPath)).toBe(true);
+		expect(readLedgerPlanId(testDir)).toBe('old-swarm-Test_Plan');
+
+		// Capture original before spying so we can call the real implementation
+		const origInitLedger = ledger.initLedger;
+		vi.spyOn(ledger, 'initLedger').mockImplementation(
+			async (dir: string, planId: string) => {
+				// Write the new ledger just as the real initLedger would
+				await origInitLedger(dir, planId);
+				// Then throw the plain string (non-Error) that some implementations use
+				throw 'Ledger already initialized...';
+			},
+		);
+
+		// Act
+		const newPlan = makeTestPlan({ swarm: 'new-swarm' });
+		await savePlan(testDir, newPlan);
+
+		// Active ledger contains the new plan_id
+		expect(fs.existsSync(ledgerPath)).toBe(true);
+		const ledgerContent = fs.readFileSync(ledgerPath, 'utf-8');
+		expect(ledgerContent).toContain(newPlanId);
+
+		// No backup files remain
+		expect(getBackupFiles(swarmDir)).toHaveLength(0);
+
+		// No archive files remain
+		expect(getArchiveFiles(swarmDir)).toHaveLength(0);
+	});
+
+	test('when initLedger throws a non-"already initialized" error (e.g. EACCES), savePlan propagates and original ledger is intact', async () => {
+		// Arrange: Create workspace with old ledger
+		const oldPlan = makeTestPlan({ swarm: 'old-swarm' });
+		writePlanJson(testDir, oldPlan);
+		await initLedger(testDir, 'old-swarm-Test_Plan');
+
+		const swarmDir = path.resolve(testDir, '.swarm');
+		const ledgerPath = path.join(swarmDir, 'plan-ledger.jsonl');
+
+		// Verify old ledger exists
+		expect(fs.existsSync(ledgerPath)).toBe(true);
+		expect(fs.readFileSync(ledgerPath, 'utf-8')).toContain(
+			'old-swarm-Test_Plan',
+		);
+
+		// Spy on initLedger: throw a permission-denied error (non-"already initialized")
+		vi.spyOn(ledger, 'initLedger').mockImplementation(async () => {
+			throw Object.assign(new Error('EACCES: permission denied'), {
+				code: 'EACCES',
+			});
+		});
+
+		// Act: savePlan attempts to re-initialize ledger with new identity
+		// but initLedger fails with a real (non-concurrent) error.
+		const newPlan = makeTestPlan({ swarm: 'new-swarm' });
+		let thrownError: unknown;
+		try {
+			await savePlan(testDir, newPlan);
+		} catch (err) {
+			thrownError = err;
+		}
+
+		// Assert: the error was propagated
+		expect(thrownError).not.toBeUndefined();
+		const errMsg = String(thrownError);
+		expect(errMsg).toContain('EACCES');
+
+		// Original ledger content is still present (not moved or deleted)
+		expect(fs.existsSync(ledgerPath)).toBe(true);
+		const contentAfter = fs.readFileSync(ledgerPath, 'utf-8');
+		expect(contentAfter).toContain('old-swarm-Test_Plan');
+		// plan.json was NOT updated — it still reflects the old swarm identity
+		const onDisk = readPlanJson(testDir);
+		expect(onDisk!.swarm).toBe('old-swarm');
+
+		// No backup files should remain (backup is only discarded after
+		// "already initialized" is confirmed — a real error means backup stays)
+		expect(getBackupFiles(swarmDir)).toHaveLength(0);
+
+		// No archive files should exist (archiving only happens after
+		// successful re-initialization, which never completed)
 		expect(getArchiveFiles(swarmDir)).toHaveLength(0);
 	});
 });
@@ -724,5 +821,69 @@ describe('PlanSyncWorker import verification', () => {
 		);
 		const source = fs.readFileSync(workerPath, 'utf8');
 		expect(source).toContain('regeneratePlanMarkdown');
+	});
+});
+
+// ─────────────────────────────────────────────────────────────────────────────
+// Archive rename failure after successful initLedger — backup must be cleaned up
+// ─────────────────────────────────────────────────────────────────────────────
+
+describe('Fix: archive rename failure after initLedger succeeds cleans up backup', () => {
+	test('when archive rename fails after initLedger succeeds, savePlan completes and no backup or archive remains', async () => {
+		// Arrange: create workspace with old ledger
+		const oldPlan = makeTestPlan({ swarm: 'old-swarm' });
+		writePlanJson(testDir, oldPlan);
+		await initLedger(testDir, 'old-swarm-Test_Plan');
+
+		const swarmDir = path.resolve(testDir, '.swarm');
+		const ledgerPath = path.join(swarmDir, 'plan-ledger.jsonl');
+
+		// Verify old ledger exists
+		expect(fs.existsSync(ledgerPath)).toBe(true);
+		expect(readLedgerPlanId(testDir)).toBe('old-swarm-Test_Plan');
+
+		// Capture original before spying so we can forward non-archive renames to it
+		const origRenameSync = fs.renameSync;
+		// Act: make archive rename fail by spying on renameSync.
+		// Only fail when the source contains "backup-" (backup→archive rename).
+		// Allow all other renames (old ledger→backup, plan.json, plan.md) to succeed.
+		const renameSpy = vi
+			.spyOn(fs, 'renameSync')
+			.mockImplementation(
+				(
+					oldPath: Parameters<typeof fs.renameSync>[0],
+					newPath: Parameters<typeof fs.renameSync>[1],
+				) => {
+					const oldStr = String(oldPath);
+					const newStr = String(newPath);
+					if (
+						oldStr.includes('plan-ledger.backup-') &&
+						newStr.includes('plan-ledger.archived-')
+					) {
+						throw new Error(
+							'simulated archive rename failure (disk full on Windows)',
+						);
+					}
+					// All other renames proceed normally via original implementation
+					origRenameSync(oldPath, newPath);
+				},
+			);
+
+		const newPlan = makeTestPlan({ swarm: 'new-swarm' });
+		await savePlan(testDir, newPlan);
+
+		renameSpy.mockRestore();
+
+		// Assert: active ledger has the new plan_id
+		expect(fs.existsSync(ledgerPath)).toBe(true);
+		const events = await readLedgerEvents(testDir);
+		expect(events.length).toBeGreaterThan(0);
+		expect(events[0].plan_id).toBe('new-swarm-Test_Plan');
+
+		// Assert: no backup file remains (cleaned up best-effort in catch block)
+		expect(getBackupFiles(swarmDir)).toHaveLength(0);
+
+		// Assert: no archive file was created (rename failed)
+		expect(getArchiveFiles(swarmDir)).toHaveLength(0);
 	});
 });
