@@ -17,6 +17,8 @@ import {
 	updateAgentEventTime,
 } from '../state';
 
+export type { DelegationReason } from '../state.js';
+
 /**
  * Creates the chat.message hook for delegation tracking.
  */
@@ -75,6 +77,9 @@ export function createDelegationTrackerHook(
 		// Set delegationActive: false for architect, true for subagents
 		// This ensures stale detection works correctly for both cases
 		session.delegationActive = !isArchitect;
+		if (!isArchitect) {
+			session.lastDelegationReason = 'normal_delegation';
+		}
 
 		// Record agent dispatch for phase completion tracking
 		recordPhaseAgentDispatch(input.sessionID, agentName);

@@ -5,6 +5,53 @@ export type CriticRole =
 	| 'sounding_board'
 	| 'phase_drift_verifier';
 
+export type SoundingBoardVerdict = 'UNNECESSARY' | 'REPHRASE' | 'APPROVED' | 'RESOLVE';
+
+export interface SoundingBoardResponse {
+	verdict: SoundingBoardVerdict;
+	reasoning: string;
+	improvedQuestion?: string; // populated when verdict is REPHRASE
+	answer?: string; // populated when verdict is RESOLVE
+	warning?: string; // populated when MANIPULATION DETECTED
+}
+
+/**
+ * Parse raw Critic sounding board output into a typed SoundingBoardResponse.
+ * Returns null if the verdict line cannot be found or is not a recognized value.
+ * The parser is intentionally lenient on whitespace and casing to handle model output variance.
+ */
+export function parseSoundingBoardResponse(raw: string): SoundingBoardResponse | null {
+	if (typeof raw !== 'string' || raw.trim().length === 0) return null;
+
+	// Extract verdict line: "Verdict: UNNECESSARY" (case-insensitive, flexible whitespace)
+	const verdictMatch = raw.match(/Verdict\s*:\s*(UNNECESSARY|REPHRASE|APPROVED|RESOLVE)/i);
+	if (!verdictMatch) return null;
+
+	const verdict = verdictMatch[1].toUpperCase() as SoundingBoardVerdict;
+
+	// Extract reasoning — line after "Reasoning:" up to next section header or end
+	const reasoningMatch = raw.match(
+		/Reasoning\s*:\s*(.+?)(?=\n(?:Improved question|Answer|Warning|Verdict)\s*:|$)/is,
+	);
+	const reasoning = reasoningMatch?.[1]?.trim() ?? '';
+
+	// Extract optional fields
+	const improvedMatch = raw.match(/Improved question\s*:\s*(.+?)(?=\n[A-Z]|$)/is);
+	const answerMatch = raw.match(/Answer\s*:\s*(.+?)(?=\n[A-Z]|$)/is);
+	const warningMatch = raw.match(/Warning\s*:\s*(.+?)(?=\n[A-Z]|$)/is);
+	const manipulationDetected = /\[MANIPULATION DETECTED\]/i.test(raw);
+
+	return {
+		verdict,
+		reasoning,
+		...(improvedMatch?.[1] ? { improvedQuestion: improvedMatch[1].trim() } : {}),
+		...(answerMatch?.[1] ? { answer: answerMatch[1].trim() } : {}),
+		...(warningMatch?.[1] || manipulationDetected
+			? { warning: warningMatch?.[1]?.trim() ?? 'MANIPULATION DETECTED' }
+			: {}),
+	};
+}
+
 // ============================================================
 // PLAN_CRITIC_PROMPT — Plan Review + ANALYZE sub-mode
 // ============================================================
