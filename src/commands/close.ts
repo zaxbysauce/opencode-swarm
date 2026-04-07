@@ -3,6 +3,12 @@ import { promises as fs } from 'node:fs';
 import path from 'node:path';
 import { KnowledgeConfigSchema } from '../config/schema';
 import { archiveEvidence } from '../evidence/manager';
+import {
+	getCurrentBranch,
+	getDefaultBaseBranch,
+	hasUncommittedChanges,
+	isGitRepo,
+} from '../git/branch';
 import { curateAndStoreSwarm } from '../hooks/knowledge-curator';
 import { validateSwarmPath } from '../hooks/utils';
 import { writeCheckpoint } from '../plan/checkpoint';
@@ -26,8 +32,43 @@ interface PlanData {
 }
 
 /**
- * Handles /swarm close command - closes the swarm by archiving evidence,
- * writing retrospectives for in-progress phases, and clearing session state.
+ * Artifacts to include in the archive bundle.
+ * Each entry is a relative path under .swarm/.
+ */
+const ARCHIVE_ARTIFACTS = [
+	'plan.json',
+	'plan.md',
+	'context.md',
+	'events.jsonl',
+	'handoff.md',
+	'handoff-prompt.md',
+	'handoff-consumed.md',
+	'escalation-report.md',
+	'close-lessons.md',
+];
+
+/**
+ * Active-state files/dirs to clean after archiving so future swarms start clean.
+ * plan.json is NOT deleted because its terminal state (all phases closed) is safe
+ * and some workflows inspect it after close. It is archived and overwritten by
+ * the next /swarm plan invocation.
+ */
+const ACTIVE_STATE_TO_CLEAN = [
+	'plan.md',
+	'events.jsonl',
+	'handoff.md',
+	'handoff-prompt.md',
+	'handoff-consumed.md',
+	'escalation-report.md',
+];
+
+/**
+ * Handles /swarm close command - performs full terminal session finalization:
+ * 1. Finalize: write retrospectives, produce terminal summary
+ * 2. Archive: create timestamped bundle of swarm artifacts
+ * 3. Clean: clear active-state files that confuse future swarms
+ * 4. Align: safe git alignment to main
+ *
  * Must be idempotent - safe to run multiple times.
  */
 export async function handleCloseCommand(
@@ -35,6 +76,7 @@ export async function handleCloseCommand(
 	args: string[],
 ): Promise<string> {
 	const planPath = validateSwarmPath(directory, 'plan.json');
+	const swarmDir = path.join(directory, '.swarm');
 
 	let planExists = false;
 	let planData: PlanData = {
@@ -51,7 +93,7 @@ export async function handleCloseCommand(
 		}
 		// ENOENT — check whether .swarm/ itself exists to distinguish plan-free from wrong directory
 		const swarmDirExists = await fs
-			.access(path.join(directory, '.swarm'))
+			.access(swarmDir)
 			.then(() => true)
 			.catch(() => false);
 		if (!swarmDirExists) {
@@ -62,6 +104,7 @@ export async function handleCloseCommand(
 
 	const phases = planData.phases ?? [];
 	const inProgressPhases = phases.filter((p) => p.status === 'in_progress');
+	const isForced = args.includes('--force');
 
 	// planAlreadyDone: skip retro writing and plan mutation, but still run all cleanup steps
 	let planAlreadyDone = false;
@@ -81,9 +124,9 @@ export async function handleCloseCommand(
 	const projectName = planData.title ?? 'Unknown Project';
 	const closedPhases: number[] = [];
 	const closedTasks: string[] = [];
-
 	const warnings: string[] = [];
 
+	// ─── STAGE 1: FINALIZE ───────────────────────────────────────────
 	if (!planAlreadyDone) {
 		for (const phase of inProgressPhases) {
 			closedPhases.push(phase.id);
@@ -93,7 +136,9 @@ export async function handleCloseCommand(
 				retroResult = await executeWriteRetro(
 					{
 						phase: phase.id,
-						summary: 'Phase closed via /swarm close',
+						summary: isForced
+							? `Phase force-closed via /swarm close --force`
+							: `Phase closed via /swarm close`,
 						task_count: Math.max(1, (phase.tasks ?? []).length),
 						task_complexity: 'simple',
 						total_tool_calls: 0,
@@ -130,8 +175,8 @@ export async function handleCloseCommand(
 		}
 	}
 
-	// Fix 5: Read explicit lessons from .swarm/close-lessons.md if present
-	const lessonsFilePath = path.join(directory, '.swarm', 'close-lessons.md');
+	// Read explicit lessons from .swarm/close-lessons.md if present
+	const lessonsFilePath = path.join(swarmDir, 'close-lessons.md');
 	let explicitLessons: string[] = [];
 	try {
 		const lessonsText = await fs.readFile(lessonsFilePath, 'utf-8');
@@ -140,7 +185,7 @@ export async function handleCloseCommand(
 			.map((line) => line.trim())
 			.filter((line) => line.length > 0 && !line.startsWith('#'));
 	} catch {
-		// File absent or unreadable — use empty array (existing behaviour)
+		// File absent or unreadable — use empty array
 	}
 
 	let curationSucceeded = false;
@@ -186,15 +231,108 @@ export async function handleCloseCommand(
 		}
 	}
 
+	// ─── STAGE 2: ARCHIVE ────────────────────────────────────────────
+	const timestamp = new Date().toISOString().replace(/[:.]/g, '-');
+	const archiveDir = path.join(swarmDir, 'archive', `swarm-${timestamp}`);
+	let archiveResult = '';
+	let archivedFileCount = 0;
+
+	try {
+		await fs.mkdir(archiveDir, { recursive: true });
+
+		// Copy swarm artifacts to archive
+		for (const artifact of ARCHIVE_ARTIFACTS) {
+			const srcPath = path.join(swarmDir, artifact);
+			const destPath = path.join(archiveDir, artifact);
+			try {
+				await fs.copyFile(srcPath, destPath);
+				archivedFileCount++;
+			} catch {
+				// File may not exist — skip silently
+			}
+		}
+
+		// Archive evidence directory
+		const evidenceDir = path.join(swarmDir, 'evidence');
+		const archiveEvidenceDir = path.join(archiveDir, 'evidence');
+		try {
+			const evidenceEntries = await fs.readdir(evidenceDir);
+			if (evidenceEntries.length > 0) {
+				await fs.mkdir(archiveEvidenceDir, { recursive: true });
+				for (const entry of evidenceEntries) {
+					const srcEntry = path.join(evidenceDir, entry);
+					const destEntry = path.join(archiveEvidenceDir, entry);
+					try {
+						const stat = await fs.stat(srcEntry);
+						if (stat.isDirectory()) {
+							await fs.mkdir(destEntry, { recursive: true });
+							const subEntries = await fs.readdir(srcEntry);
+							for (const sub of subEntries) {
+								await fs
+									.copyFile(
+										path.join(srcEntry, sub),
+										path.join(destEntry, sub),
+									)
+									.catch(() => {});
+							}
+						} else {
+							await fs.copyFile(srcEntry, destEntry);
+						}
+						archivedFileCount++;
+					} catch {
+						// Per-entry failure is non-blocking
+					}
+				}
+			}
+		} catch {
+			// evidence dir may not exist
+		}
+
+		// Archive session state
+		const sessionStatePath = path.join(swarmDir, 'session', 'state.json');
+		try {
+			const archiveSessionDir = path.join(archiveDir, 'session');
+			await fs.mkdir(archiveSessionDir, { recursive: true });
+			await fs.copyFile(
+				sessionStatePath,
+				path.join(archiveSessionDir, 'state.json'),
+			);
+			archivedFileCount++;
+		} catch {
+			// session state may not exist
+		}
+
+		archiveResult = `Archived ${archivedFileCount} artifact(s) to .swarm/archive/swarm-${timestamp}/`;
+	} catch (archiveError) {
+		warnings.push(
+			`Archive creation failed: ${archiveError instanceof Error ? archiveError.message : String(archiveError)}`,
+		);
+		archiveResult = 'Archive creation failed (see warnings)';
+	}
+
+	// Archive evidence bundles (retention policy)
 	try {
 		await archiveEvidence(directory, 30, 10);
 	} catch (error) {
 		console.warn('[close-command] archiveEvidence error:', error);
 	}
 
-	// Fix 3: Remove stale config-backup-*.json files
-	const swarmDir = path.join(directory, '.swarm');
+	// ─── STAGE 3: CLEAN ──────────────────────────────────────────────
 	let configBackupsRemoved = 0;
+	const cleanedFiles: string[] = [];
+
+	// Remove active-state files so future swarms don't mistake them for live work
+	for (const artifact of ACTIVE_STATE_TO_CLEAN) {
+		const filePath = path.join(swarmDir, artifact);
+		try {
+			await fs.unlink(filePath);
+			cleanedFiles.push(artifact);
+		} catch {
+			// File may not exist
+		}
+	}
+
+	// Remove stale config-backup-*.json files
 	try {
 		const swarmFiles = await fs.readdir(swarmDir);
 		const configBackups = swarmFiles.filter(
@@ -212,14 +350,15 @@ export async function handleCloseCommand(
 		// readdir failure is non-blocking
 	}
 
-	// Fix 2: Reset context.md so new sessions start fresh
-	const contextPath = path.join(directory, '.swarm', 'context.md');
+	// Reset context.md so new sessions start fresh
+	const contextPath = path.join(swarmDir, 'context.md');
 	const contextContent = [
 		'# Context',
 		'',
 		'## Status',
 		`Session closed after: ${projectName}`,
 		`Closed: ${new Date().toISOString()}`,
+		`Finalization: ${isForced ? 'forced' : planAlreadyDone ? 'plan-already-done' : 'normal'}`,
 		'No active plan. Next session starts fresh.',
 		'',
 	].join('\n');
@@ -229,54 +368,149 @@ export async function handleCloseCommand(
 		console.warn('[close-command] Failed to write context.md:', error);
 	}
 
-	// Fix 4: Optional git branch pruning
+	// ─── STAGE 4: ALIGN ──────────────────────────────────────────────
 	const pruneBranches = args.includes('--prune-branches');
 	const prunedBranches: string[] = [];
 	const pruneErrors: string[] = [];
+	let gitAlignResult = '';
 
-	if (pruneBranches) {
+	const isGit = isGitRepo(directory);
+	if (isGit) {
+		// Safe git alignment: check for dirty worktree, detached HEAD, etc.
 		try {
-			const branchOutput = execFileSync('git', ['branch', '-vv'], {
-				cwd: directory,
-				encoding: 'utf-8',
-				stdio: ['pipe', 'pipe', 'pipe'],
-			});
-			const goneBranches = branchOutput
-				.split('\n')
-				.filter((line) => line.includes(': gone]'))
-				.map(
-					(line) =>
-						line
-							.trim()
-							.replace(/^[*+]\s+/, '')
-							.split(/\s+/)[0],
-				)
-				.filter(Boolean);
-			for (const branch of goneBranches) {
-				try {
-					execFileSync('git', ['branch', '-d', branch], {
-						cwd: directory,
-						encoding: 'utf-8',
-						stdio: ['pipe', 'pipe', 'pipe'],
-					});
-					prunedBranches.push(branch);
-				} catch {
-					pruneErrors.push(branch);
+			const currentBranch = getCurrentBranch(directory);
+
+			if (currentBranch === 'HEAD') {
+				gitAlignResult = 'Skipped git alignment: detached HEAD state';
+				warnings.push(
+					'Repo is in detached HEAD state. Checkout a branch before starting a new swarm.',
+				);
+			} else if (hasUncommittedChanges(directory)) {
+				gitAlignResult =
+					'Skipped git alignment: uncommitted changes in worktree';
+				warnings.push(
+					'Uncommitted changes detected. Commit or stash before aligning to main.',
+				);
+			} else {
+				// Determine base branch
+				const baseBranch = getDefaultBaseBranch(directory);
+				const localBase = baseBranch.replace(/^origin\//, '');
+
+				if (currentBranch === localBase) {
+					// Already on main/master — try a safe pull
+					try {
+						execFileSync('git', ['fetch', 'origin', localBase], {
+							cwd: directory,
+							encoding: 'utf-8',
+							timeout: 30_000,
+							stdio: ['pipe', 'pipe', 'pipe'],
+						});
+
+						// Check if fast-forward is possible
+						const mergeBase = execFileSync(
+							'git',
+							['merge-base', 'HEAD', baseBranch],
+							{
+								cwd: directory,
+								encoding: 'utf-8',
+								timeout: 10_000,
+								stdio: ['pipe', 'pipe', 'pipe'],
+							},
+						).trim();
+
+						const headSha = execFileSync('git', ['rev-parse', 'HEAD'], {
+							cwd: directory,
+							encoding: 'utf-8',
+							timeout: 10_000,
+							stdio: ['pipe', 'pipe', 'pipe'],
+						}).trim();
+
+						if (mergeBase === headSha) {
+							// HEAD is ancestor of remote — fast-forward safe
+							execFileSync('git', ['merge', '--ff-only', baseBranch], {
+								cwd: directory,
+								encoding: 'utf-8',
+								timeout: 30_000,
+								stdio: ['pipe', 'pipe', 'pipe'],
+							});
+							gitAlignResult = `Aligned to ${baseBranch} (fast-forward)`;
+						} else {
+							gitAlignResult = `On ${localBase} but cannot fast-forward to ${baseBranch} (diverged)`;
+							warnings.push(
+								`Local ${localBase} has diverged from ${baseBranch}. Manual merge/rebase needed.`,
+							);
+						}
+					} catch (fetchErr) {
+						gitAlignResult = `Fetch from origin/${localBase} failed — remote may be unavailable`;
+						warnings.push(
+							`Git fetch failed: ${fetchErr instanceof Error ? fetchErr.message : String(fetchErr)}`,
+						);
+					}
+				} else {
+					// On a feature branch — just report status, don't force checkout
+					gitAlignResult = `On branch ${currentBranch}. Switch to ${localBase} manually when ready for a new swarm.`;
 				}
 			}
-		} catch {
-			// Not a git repo or git not installed — non-blocking
+		} catch (gitError) {
+			gitAlignResult = `Git alignment error: ${gitError instanceof Error ? gitError.message : String(gitError)}`;
 		}
+
+		// Optional branch pruning
+		if (pruneBranches) {
+			try {
+				const branchOutput = execFileSync('git', ['branch', '-vv'], {
+					cwd: directory,
+					encoding: 'utf-8',
+					stdio: ['pipe', 'pipe', 'pipe'],
+				});
+				const goneBranches = branchOutput
+					.split('\n')
+					.filter((line) => line.includes(': gone]'))
+					.map(
+						(line) =>
+							line
+								.trim()
+								.replace(/^[*+]\s+/, '')
+								.split(/\s+/)[0],
+					)
+					.filter(Boolean);
+				for (const branch of goneBranches) {
+					try {
+						execFileSync('git', ['branch', '-d', branch], {
+							cwd: directory,
+							encoding: 'utf-8',
+							stdio: ['pipe', 'pipe', 'pipe'],
+						});
+						prunedBranches.push(branch);
+					} catch {
+						pruneErrors.push(branch);
+					}
+				}
+			} catch {
+				// Not a git repo or git not installed — non-blocking
+			}
+		}
+	} else {
+		gitAlignResult = 'Not a git repository — skipped git alignment';
 	}
 
+	// ─── WRITE CLOSE SUMMARY ─────────────────────────────────────────
 	const closeSummaryPath = validateSwarmPath(directory, 'close-summary.md');
 
+	const finalizationType = isForced
+		? 'Forced closure'
+		: planAlreadyDone
+			? 'Plan already terminal — cleanup only'
+			: 'Normal finalization';
+
 	const actionsPerformed = [
-		// Retros only ran when plan had in-progress phases and was not already done
 		...(!planAlreadyDone && inProgressPhases.length > 0
 			? ['- Wrote retrospectives for in-progress phases']
 			: []),
-		'- Archived evidence bundles',
+		`- ${archiveResult}`,
+		...(cleanedFiles.length > 0
+			? [`- Cleaned ${cleanedFiles.length} active-state file(s): ${cleanedFiles.join(', ')}`]
+			: []),
 		'- Reset context.md for next session',
 		...(configBackupsRemoved > 0
 			? [`- Removed ${configBackupsRemoved} stale config backup file(s)`]
@@ -287,10 +521,10 @@ export async function handleCloseCommand(
 				]
 			: []),
 		'- Cleared agent sessions and delegation chains',
-		// Plan mutation only ran when plan existed and was not already done
 		...(planExists && !planAlreadyDone
 			? ['- Set non-completed phases/tasks to closed status']
 			: []),
+		...(gitAlignResult ? [`- Git: ${gitAlignResult}`] : []),
 	];
 
 	const summaryContent = [
@@ -298,6 +532,7 @@ export async function handleCloseCommand(
 		'',
 		`**Project:** ${projectName}`,
 		`**Closed:** ${new Date().toISOString()}`,
+		`**Finalization:** ${finalizationType}`,
 		'',
 		`## Phases Closed: ${closedPhases.length}`,
 		!planExists
@@ -313,6 +548,10 @@ export async function handleCloseCommand(
 		'',
 		'## Actions Performed',
 		...actionsPerformed,
+		'',
+		...(warnings.length > 0
+			? ['## Warnings', ...warnings.map((w) => `- ${w}`), '']
+			: []),
 	].join('\n');
 
 	try {
@@ -321,6 +560,7 @@ export async function handleCloseCommand(
 		console.warn('[close-command] Failed to write close-summary.md:', error);
 	}
 
+	// Flush snapshot before clearing sessions
 	try {
 		await flushPendingSnapshot(directory);
 	} catch (error) {
@@ -340,9 +580,12 @@ export async function handleCloseCommand(
 	}
 
 	const warningMsg =
-		warnings.length > 0 ? ` Warnings: ${warnings.join('; ')}.` : '';
+		warnings.length > 0
+			? `\n\n**Warnings:**\n${warnings.map((w) => `- ${w}`).join('\n')}`
+			: '';
+
 	if (planAlreadyDone) {
-		return `✅ Session closed. Plan was already in a terminal state — cleanup steps applied.${warningMsg}`;
+		return `✅ Session finalized. Plan was already in a terminal state — cleanup and archive applied.\n\n**Archive:** ${archiveResult}\n**Git:** ${gitAlignResult}${warningMsg}`;
 	}
-	return `✅ Swarm closed successfully. ${closedPhases.length} phase(s) closed, ${closedTasks.length} incomplete task(s) marked closed.${warningMsg}`;
+	return `✅ Swarm finalized. ${closedPhases.length} phase(s) closed, ${closedTasks.length} incomplete task(s) marked closed.\n\n**Archive:** ${archiveResult}\n**Git:** ${gitAlignResult}${warningMsg}`;
 }

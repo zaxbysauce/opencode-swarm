@@ -705,9 +705,9 @@ const OpenCodeSwarm: Plugin = async (ctx) => {
 						'Use /swarm turbo to enable turbo mode for faster execution',
 				},
 				'swarm-full-auto': {
-					template: '/swarm full-auto $ARGUMENTS',
+					template: '/swarm-full-auto $ARGUMENTS',
 					description:
-						'Use /swarm full-auto to toggle Full-Auto Mode for the active session [on|off]',
+						'Toggle Full-Auto Mode for the active session [on|off]',
 				},
 				'swarm-write-retro': {
 					template: '/swarm write-retro $ARGUMENTS',

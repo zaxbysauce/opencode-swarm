@@ -246,7 +246,7 @@ describe('handleCloseCommand', () => {
 
 			const result = await handleCloseCommand(testDir, []);
 
-			expect(result).toContain('closed successfully');
+			expect(result).toContain('finalized');
 			const updatedPlan = JSON.parse(
 				readFileSync(path.join(testDir, '.swarm', 'plan.json'), 'utf-8'),
 			);
@@ -390,7 +390,7 @@ describe('handleCloseCommand', () => {
 			expect(summary).toContain(
 				'- Wrote retrospectives for in-progress phases',
 			);
-			expect(summary).toContain('- Archived evidence bundles');
+			expect(summary).toContain('Archived');
 			expect(summary).toContain(
 				'- Cleared agent sessions and delegation chains',
 			);
@@ -477,9 +477,8 @@ describe('handleCloseCommand', () => {
 			const result = await handleCloseCommand(testDir, []);
 
 			// New behavior: returns "Plan was already complete" with cleanup steps applied
-			expect(result).toContain('closed');
+			expect(result).toContain('Session finalized');
 			expect(result).toContain('terminal state');
-			expect(result).toContain('Session closed');
 			expect(result).not.toContain('No action taken');
 			expect(mockExecuteWriteRetro).not.toHaveBeenCalled();
 			// Cleanup runs even for terminal plans
@@ -506,7 +505,7 @@ describe('handleCloseCommand', () => {
 			const result = await handleCloseCommand(testDir, []);
 
 			// New behavior: returns "terminal state" with cleanup steps applied
-			expect(result).toContain('closed');
+			expect(result).toContain('Session finalized');
 			expect(result).toContain('terminal state');
 			expect(mockExecuteWriteRetro).not.toHaveBeenCalled();
 			// Cleanup runs even for terminal plans
@@ -532,13 +531,13 @@ describe('handleCloseCommand', () => {
 
 			// First run
 			const result1 = await handleCloseCommand(testDir, []);
-			expect(result1).toContain('closed successfully');
+			expect(result1).toContain('finalized');
 
 			// Second run - should succeed and return "terminal state"
 			const result2 = await handleCloseCommand(testDir, []);
 
 			// Second run succeeds (idempotent)
-			expect(result2).toContain('closed');
+			expect(result2).toContain('Session finalized');
 			expect(result2).toContain('terminal state');
 			// Cleanup runs twice (once per run)
 			expect(mockArchiveEvidence).toHaveBeenCalledTimes(2);
@@ -559,7 +558,7 @@ describe('handleCloseCommand', () => {
 			const result = await handleCloseCommand(testDir, []);
 
 			// Empty phases array runs normally, not as terminal state
-			expect(result).toContain('closed successfully');
+			expect(result).toContain('finalized');
 			expect(result).not.toContain('terminal state');
 			expect(result).toContain('0 phase(s) closed');
 			expect(mockExecuteWriteRetro).not.toHaveBeenCalled();
@@ -575,7 +574,7 @@ describe('handleCloseCommand', () => {
 			const result = await handleCloseCommand(testDir, []);
 
 			// Should succeed, not error
-			expect(result).toContain('closed successfully');
+			expect(result).toContain('finalized');
 			expect(result).not.toContain('Failed to read plan.json');
 			// curateAndStoreSwarm should still have been called
 			expect(mockCurateAndStoreSwarm).toHaveBeenCalledTimes(1);
@@ -606,7 +605,7 @@ describe('handleCloseCommand', () => {
 
 			const result = await handleCloseCommand(testDir, []);
 
-			expect(result).toContain('closed successfully');
+			expect(result).toContain('finalized');
 			expect(result).toContain('Warnings');
 			expect(result).toContain('Retrospective write failed for phase 1');
 		});
@@ -635,7 +634,7 @@ describe('handleCloseCommand', () => {
 			const result = await handleCloseCommand(testDir, []);
 
 			// Non-JSON response is not treated as an error
-			expect(result).toContain('closed successfully');
+			expect(result).toContain('finalized');
 		});
 	});
 
@@ -663,7 +662,7 @@ describe('handleCloseCommand', () => {
 
 			const result = await handleCloseCommand(testDir, []);
 
-			expect(result).toContain('✅ Swarm closed successfully');
+			expect(result).toContain('✅ Swarm finalized');
 			expect(result).toContain('1 phase(s) closed');
 			expect(result).toContain('2 incomplete task(s) marked closed');
 		});
@@ -678,11 +677,11 @@ describe('handleCloseCommand', () => {
 		// =====================================================================
 
 		describe('Plan-free session (Fix 1)', () => {
-			it('PF1: No plan.json → succeeds, returns "closed successfully"', async () => {
+			it('PF1: No plan.json → succeeds, returns "finalized"', async () => {
 				// No plan.json — plan-free session
 				const result = await handleCloseCommand(testDir, []);
 
-				expect(result).toContain('closed successfully');
+				expect(result).toContain('finalized');
 			});
 
 			it('PF2: No plan.json → retros NOT called (no in-progress phases)', async () => {
@@ -726,7 +725,7 @@ describe('handleCloseCommand', () => {
 				expect(result).toContain('Failed to read plan.json');
 			});
 
-			it('PF7: Empty phases array (plan exists, phases: []) → runs cleanup and returns closed successfully', async () => {
+			it('PF7: Empty phases array (plan exists, phases: []) → runs cleanup and returns finalized', async () => {
 				// Plan with empty phases array
 				const planData = {
 					title: 'Test Project',
@@ -740,7 +739,7 @@ describe('handleCloseCommand', () => {
 				const result = await handleCloseCommand(testDir, []);
 
 				// Empty phases: runs cleanup and returns normal success (not terminal state)
-				expect(result).toContain('closed successfully');
+				expect(result).toContain('finalized');
 				expect(result).not.toContain('terminal state');
 				// Cleanup runs
 				expect(mockArchiveEvidence).toHaveBeenCalledTimes(1);
@@ -909,7 +908,7 @@ describe('handleCloseCommand', () => {
 
 				const result = await handleCloseCommand(testDir, []);
 
-				expect(result).toContain('closed successfully');
+				expect(result).toContain('finalized');
 			});
 		});
 
@@ -1055,7 +1054,7 @@ describe('handleCloseCommand', () => {
 				const result = await handleCloseCommand(testDir, []);
 
 				// Command should still succeed despite curation failure (non-blocking)
-				expect(result).toContain('closed successfully');
+				expect(result).toContain('finalized');
 				// Lessons file should still exist because curation threw before deletion
 				expect(
 					existsSync(path.join(testDir, '.swarm', 'close-lessons.md')),
@@ -1072,7 +1071,7 @@ describe('handleCloseCommand', () => {
 				// No git repo, no --prune-branches flag
 				const result = await handleCloseCommand(testDir, []);
 
-				expect(result).toContain('closed successfully');
+				expect(result).toContain('finalized');
 			});
 
 			it('BP2: --prune-branches passed in non-git dir → succeeds (non-blocking failure)', async () => {
@@ -1080,7 +1079,7 @@ describe('handleCloseCommand', () => {
 				const result = await handleCloseCommand(testDir, ['--prune-branches']);
 
 				// Should still succeed (non-blocking failure)
-				expect(result).toContain('closed successfully');
+				expect(result).toContain('finalized');
 			});
 
 			it('BP3: --prune-branches passed in real git repo → succeeds with no gone branches to prune', async () => {
@@ -1113,7 +1112,7 @@ describe('handleCloseCommand', () => {
 
 				const result = await handleCloseCommand(testDir, ['--prune-branches']);
 
-				expect(result).toContain('closed successfully');
+				expect(result).toContain('finalized');
 				// No branches pruned since none are gone
 			});
 		});
@@ -1238,7 +1237,7 @@ describe('handleCloseCommand', () => {
 				const result = await handleCloseCommand(testDir, []);
 
 				// Should succeed as plan-free session
-				expect(result).toContain('closed successfully');
+				expect(result).toContain('finalized');
 				expect(result).not.toContain('Failed to read plan.json');
 			});
 		});
@@ -1273,8 +1272,8 @@ describe('handleCloseCommand', () => {
 
 				const result = await handleCloseCommand(testDir, []);
 
-				// Should still return "closed successfully" (not rethrow)
-				expect(result).toContain('closed successfully');
+				// Should still return "finalized" (not rethrow)
+				expect(result).toContain('finalized');
 				// Cleanup ran despite the error
 				expect(mockArchiveEvidence).toHaveBeenCalledTimes(1);
 				expect(mockFlushPendingSnapshot).toHaveBeenCalledTimes(1);
@@ -1312,8 +1311,8 @@ describe('handleCloseCommand', () => {
 				expect(summary).not.toContain('Wrote retrospectives');
 				// Does NOT contain "Set non-completed phases" (mutation was skipped)
 				expect(summary).not.toContain('Set non-completed phases');
-				// DOES contain "Archived evidence bundles"
-				expect(summary).toContain('Archived evidence bundles');
+				// DOES contain archive result
+				expect(summary).toContain('Archived');
 				// DOES contain "Reset context.md"
 				expect(summary).toContain('Reset context.md');
 			});

@@ -73,8 +73,8 @@ describe('handleHandoffCommand', () => {
 		expect(result).toContain('## Handoff Brief Written');
 		expect(result).toContain('.swarm/handoff.md');
 		expect(result).toContain('## Swarm Handoff');
-		expect(result).toContain('**Next Step:**');
-		expect(result).toContain('continue the previous work');
+		expect(result).toContain('## Continuation Prompt');
+		expect(result).toContain('```markdown');
 	});
 
 	test('handles missing .swarm directory gracefully', async () => {
@@ -104,9 +104,8 @@ describe('handleHandoffCommand', () => {
 
 		// Check response structure
 		expect(result).toStartWith('## Handoff Brief Written');
-		expect(result).toContain('**Next Step:**');
-		expect(result).toContain('Start a new OpenCode session');
-		expect(result).toContain('switch to your target model');
+		expect(result).toContain('## Continuation Prompt');
+		expect(result).toContain('Copy and paste the block below');
 	});
 
 	test('handles write failures gracefully with non-existent directory', async () => {

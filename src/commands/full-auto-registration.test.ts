@@ -71,6 +71,8 @@ describe('Full-Auto Command Registration', () => {
 
 		beforeEach(() => {
 			testSessionId = `full-auto-reg-test-${Date.now()}`;
+			// Enable config-level full-auto so command activation succeeds
+			swarmState.fullAutoEnabledInConfig = true;
 			swarmState.agentSessions.set(testSessionId, {
 				agentName: 'architect',
 				lastToolCallTime: Date.now(),
