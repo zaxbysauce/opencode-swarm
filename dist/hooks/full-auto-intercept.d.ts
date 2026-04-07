@@ -51,7 +51,7 @@ export declare function parseCriticResponse(rawResponse: string): CriticDispatch
  * - ESCALATE_TO_HUMAN: triggers escalation (handled separately)
  * - APPROVED / NEEDS_REVISION / REJECTED / BLOCKED / REPHRASE: injects verdict message
  */
-export declare function injectVerdictIntoMessages(messages: MessageWithParts[], architectIndex: number, criticResult: CriticDispatchResult, _escalationType: 'phase_completion' | 'question', oversightAgentName: string): void;
+export declare function injectVerdictIntoMessages(messages: MessageWithParts[], architectIndex: number, criticResult: CriticDispatchResult, escalationType: 'phase_completion' | 'question', oversightAgentName: string): void;
 /**
  * Handles critic dispatch and writes the auto_oversight event after the critic responds.
  *

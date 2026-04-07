@@ -1,5 +1,19 @@
 # Changelog
 
+## [6.53.5](https://github.com/zaxbysauce/opencode-swarm/compare/v6.53.4...v6.53.5) (2026-04-07)
+
+
+### Bug Fixes
+
+* resolve four verified defects in swarm plugin commands ([#423](https://github.com/zaxbysauce/opencode-swarm/issues/423)) ([5cb73f1](https://github.com/zaxbysauce/opencode-swarm/commit/5cb73f18fab5b0506b210414b2abd7b68dc4b1a2))
+
+## [6.53.4](https://github.com/zaxbysauce/opencode-swarm/compare/v6.53.3...v6.53.4) (2026-04-07)
+
+
+### Bug Fixes
+
+* **plan:** preserve ledger during identity change ([#421](https://github.com/zaxbysauce/opencode-swarm/issues/421)) ([d4a3a75](https://github.com/zaxbysauce/opencode-swarm/commit/d4a3a75c752d2589d1cfc783417a68d2644e7d2d))
+
 ## [6.53.3](https://github.com/zaxbysauce/opencode-swarm/compare/v6.53.2...v6.53.3) (2026-04-06)
 
 

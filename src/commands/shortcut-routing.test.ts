@@ -79,6 +79,8 @@ describe('swarm-* shortcut command routing', () => {
 	beforeEach(() => {
 		tempDir = makeTempDir();
 		sessionId = `shortcut-test-${Date.now()}`;
+		// Enable config-level full-auto so full-auto command activation succeeds
+		swarmState.fullAutoEnabledInConfig = true;
 		makeSession(sessionId);
 	});
 

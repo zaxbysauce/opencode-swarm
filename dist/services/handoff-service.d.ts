@@ -61,6 +61,7 @@ export declare function getHandoffData(directory: string): Promise<HandoffData>;
 export declare function formatHandoffMarkdown(data: HandoffData): string;
 /**
  * Format handoff data as a continuation prompt for new agent sessions.
- * Returns a terse markdown code block with essential context.
+ * Returns a terse markdown code block with essential context and explicit
+ * resumption instructions. Designed to be copy-pasted into a new session.
  */
 export declare function formatContinuationPrompt(data: HandoffData): string;

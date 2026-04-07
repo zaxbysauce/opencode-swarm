@@ -31672,7 +31672,7 @@ async function savePlan(directory, plan, options) {
           renameSync4(oldLedgerPath, oldLedgerBackupPath);
           backupExists = true;
         } catch (renameErr) {
-          warn(`[savePlan] Could not move old ledger aside before reinit (rename failed: ${renameErr instanceof Error ? renameErr.message : String(renameErr)}). Skipping ledger reinitialization.`);
+          throw new Error(`[savePlan] Cannot reinitialize ledger: could not move old ledger aside (rename failed: ${renameErr instanceof Error ? renameErr.message : String(renameErr)}). The existing ledger has plan_id="${existingEvents[0].plan_id}" which does not match the current plan="${planId}". To proceed, close any programs that may have the ledger file open, or run /swarm reset-session to clear the ledger.`);
         }
       }
       let initSucceeded = false;
@@ -31681,7 +31681,8 @@ async function savePlan(directory, plan, options) {
           await initLedger(directory, planId, planHashForInit);
           initSucceeded = true;
         } catch (initErr) {
-          if (initErr instanceof Error && initErr.message.includes("already initialized")) {
+          const errorMessage = String(initErr);
+          if (errorMessage.includes("already initialized")) {
             try {
               if (existsSync7(oldLedgerBackupPath))
                 unlinkSync(oldLedgerBackupPath);
@@ -31707,7 +31708,7 @@ async function savePlan(directory, plan, options) {
           renameSync4(oldLedgerBackupPath, archivePath);
           warn(`[savePlan] Ledger identity mismatch (was "${existingEvents[0].plan_id}", now "${planId}") \u2014 archived old ledger to ${archivePath} and reinitializing.`);
         } catch (renameErr) {
-          warn(`[savePlan] Could not archive old ledger (rename failed: ${renameErr instanceof Error ? renameErr.message : String(renameErr)}). Old ledger may still exist at ${oldLedgerPath}.`);
+          warn(`[savePlan] Could not archive old ledger (rename failed: ${renameErr instanceof Error ? renameErr.message : String(renameErr)}). Old ledger may still exist at ${oldLedgerBackupPath}.`);
           try {
             if (existsSync7(oldLedgerBackupPath))
               unlinkSync(oldLedgerBackupPath);
@@ -32227,13 +32228,13 @@ __export(exports_co_change_analyzer, {
   co_change_analyzer: () => co_change_analyzer,
   buildCoChangeMatrix: () => buildCoChangeMatrix
 });
-import * as child_process2 from "child_process";
+import * as child_process3 from "child_process";
 import { randomUUID as randomUUID2 } from "crypto";
 import { readdir as readdir2, readFile as readFile4, stat } from "fs/promises";
 import * as path17 from "path";
 import { promisify } from "util";
 function getExecFileAsync() {
-  return promisify(child_process2.execFile);
+  return promisify(child_process3.execFile);
 }
 async function parseGitLog(directory, maxCommits) {
   const commitMap = new Map;
@@ -43350,6 +43351,52 @@ import { execFileSync } from "child_process";
 import { promises as fs9 } from "fs";
 import path14 from "path";
 
+// src/git/branch.ts
+init_logger();
+import * as child_process2 from "child_process";
+var GIT_TIMEOUT_MS2 = 30000;
+function gitExec2(args2, cwd) {
+  const result = child_process2.spawnSync("git", args2, {
+    cwd,
+    encoding: "utf-8",
+    timeout: GIT_TIMEOUT_MS2,
+    stdio: ["pipe", "pipe", "pipe"]
+  });
+  if (result.status !== 0) {
+    throw new Error(result.stderr || `git exited with ${result.status}`);
+  }
+  return result.stdout;
+}
+function isGitRepo2(cwd) {
+  try {
+    gitExec2(["rev-parse", "--git-dir"], cwd);
+    return true;
+  } catch {
+    return false;
+  }
+}
+function getCurrentBranch(cwd) {
+  const output = gitExec2(["rev-parse", "--abbrev-ref", "HEAD"], cwd);
+  return output.trim();
+}
+function getDefaultBaseBranch(cwd) {
+  try {
+    gitExec2(["rev-parse", "--verify", "origin/main"], cwd);
+    return "origin/main";
+  } catch {
+    try {
+      gitExec2(["rev-parse", "--verify", "origin/master"], cwd);
+      return "origin/master";
+    } catch {
+      return "origin/main";
+    }
+  }
+}
+function hasUncommittedChanges(cwd) {
+  const status = gitExec2(["status", "--porcelain"], cwd);
+  return status.trim().length > 0;
+}
+
 // src/hooks/knowledge-reader.ts
 init_knowledge_store();
 import { existsSync as existsSync5 } from "fs";
@@ -44741,8 +44788,28 @@ var write_retro = createSwarmTool({
 });
 
 // src/commands/close.ts
+var ARCHIVE_ARTIFACTS = [
+  "plan.json",
+  "plan.md",
+  "context.md",
+  "events.jsonl",
+  "handoff.md",
+  "handoff-prompt.md",
+  "handoff-consumed.md",
+  "escalation-report.md",
+  "close-lessons.md"
+];
+var ACTIVE_STATE_TO_CLEAN = [
+  "plan.md",
+  "events.jsonl",
+  "handoff.md",
+  "handoff-prompt.md",
+  "handoff-consumed.md",
+  "escalation-report.md"
+];
 async function handleCloseCommand(directory, args2) {
   const planPath = validateSwarmPath(directory, "plan.json");
+  const swarmDir = path14.join(directory, ".swarm");
   let planExists = false;
   let planData = {
     title: path14.basename(directory) || "Ad-hoc session",
@@ -44756,13 +44823,14 @@ async function handleCloseCommand(directory, args2) {
     if (error93?.code !== "ENOENT") {
       return `\u274C Failed to read plan.json: ${error93 instanceof Error ? error93.message : String(error93)}`;
     }
-    const swarmDirExists = await fs9.access(path14.join(directory, ".swarm")).then(() => true).catch(() => false);
+    const swarmDirExists = await fs9.access(swarmDir).then(() => true).catch(() => false);
     if (!swarmDirExists) {
       return `\u274C No .swarm/ directory found in ${directory}. Run /swarm close from the project root, or run /swarm plan first.`;
     }
   }
   const phases = planData.phases ?? [];
   const inProgressPhases = phases.filter((p) => p.status === "in_progress");
+  const isForced = args2.includes("--force");
   let planAlreadyDone = false;
   if (planExists) {
     planAlreadyDone = phases.length > 0 && phases.every((p) => p.status === "complete" || p.status === "completed" || p.status === "blocked" || p.status === "closed");
@@ -44779,7 +44847,7 @@ async function handleCloseCommand(directory, args2) {
       try {
         retroResult = await executeWriteRetro({
           phase: phase.id,
-          summary: "Phase closed via /swarm close",
+          summary: isForced ? `Phase force-closed via /swarm close --force` : `Phase closed via /swarm close`,
           task_count: Math.max(1, (phase.tasks ?? []).length),
           task_complexity: "simple",
           total_tool_calls: 0,
@@ -44807,7 +44875,7 @@ async function handleCloseCommand(directory, args2) {
       }
     }
   }
-  const lessonsFilePath = path14.join(directory, ".swarm", "close-lessons.md");
+  const lessonsFilePath = path14.join(swarmDir, "close-lessons.md");
   let explicitLessons = [];
   try {
     const lessonsText = await fs9.readFile(lessonsFilePath, "utf-8");
@@ -44847,13 +44915,83 @@ async function handleCloseCommand(directory, args2) {
       console.warn("[close-command] Failed to write plan.json:", error93);
     }
   }
+  const timestamp = new Date().toISOString().replace(/[:.]/g, "-");
+  const archiveDir = path14.join(swarmDir, "archive", `swarm-${timestamp}`);
+  let archiveResult = "";
+  let archivedFileCount = 0;
+  const archivedActiveStateFiles = new Set;
+  try {
+    await fs9.mkdir(archiveDir, { recursive: true });
+    for (const artifact of ARCHIVE_ARTIFACTS) {
+      const srcPath = path14.join(swarmDir, artifact);
+      const destPath = path14.join(archiveDir, artifact);
+      try {
+        await fs9.copyFile(srcPath, destPath);
+        archivedFileCount++;
+        if (ACTIVE_STATE_TO_CLEAN.includes(artifact)) {
+          archivedActiveStateFiles.add(artifact);
+        }
+      } catch {}
+    }
+    const evidenceDir = path14.join(swarmDir, "evidence");
+    const archiveEvidenceDir = path14.join(archiveDir, "evidence");
+    try {
+      const evidenceEntries = await fs9.readdir(evidenceDir);
+      if (evidenceEntries.length > 0) {
+        await fs9.mkdir(archiveEvidenceDir, { recursive: true });
+        for (const entry of evidenceEntries) {
+          const srcEntry = path14.join(evidenceDir, entry);
+          const destEntry = path14.join(archiveEvidenceDir, entry);
+          try {
+            const stat = await fs9.stat(srcEntry);
+            if (stat.isDirectory()) {
+              await fs9.mkdir(destEntry, { recursive: true });
+              const subEntries = await fs9.readdir(srcEntry);
+              for (const sub of subEntries) {
+                await fs9.copyFile(path14.join(srcEntry, sub), path14.join(destEntry, sub)).catch(() => {});
+              }
+            } else {
+              await fs9.copyFile(srcEntry, destEntry);
+            }
+            archivedFileCount++;
+          } catch {}
+        }
+      }
+    } catch {}
+    const sessionStatePath = path14.join(swarmDir, "session", "state.json");
+    try {
+      const archiveSessionDir = path14.join(archiveDir, "session");
+      await fs9.mkdir(archiveSessionDir, { recursive: true });
+      await fs9.copyFile(sessionStatePath, path14.join(archiveSessionDir, "state.json"));
+      archivedFileCount++;
+    } catch {}
+    archiveResult = `Archived ${archivedFileCount} artifact(s) to .swarm/archive/swarm-${timestamp}/`;
+  } catch (archiveError) {
+    warnings.push(`Archive creation failed: ${archiveError instanceof Error ? archiveError.message : String(archiveError)}`);
+    archiveResult = "Archive creation failed (see warnings)";
+  }
   try {
     await archiveEvidence(directory, 30, 10);
   } catch (error93) {
     console.warn("[close-command] archiveEvidence error:", error93);
   }
-  const swarmDir = path14.join(directory, ".swarm");
   let configBackupsRemoved = 0;
+  const cleanedFiles = [];
+  if (archivedActiveStateFiles.size > 0) {
+    for (const artifact of ACTIVE_STATE_TO_CLEAN) {
+      if (!archivedActiveStateFiles.has(artifact)) {
+        warnings.push(`Preserved ${artifact} because it was not successfully archived.`);
+        continue;
+      }
+      const filePath = path14.join(swarmDir, artifact);
+      try {
+        await fs9.unlink(filePath);
+        cleanedFiles.push(artifact);
+      } catch {}
+    }
+  } else {
+    warnings.push("Skipped active-state cleanup because no active-state files were archived. Files preserved to prevent data loss.");
+  }
   try {
     const swarmFiles = await fs9.readdir(swarmDir);
     const configBackups = swarmFiles.filter((f) => f.startsWith("config-backup-") && f.endsWith(".json"));
@@ -44864,13 +45002,14 @@ async function handleCloseCommand(directory, args2) {
       } catch {}
     }
   } catch {}
-  const contextPath = path14.join(directory, ".swarm", "context.md");
+  const contextPath = path14.join(swarmDir, "context.md");
   const contextContent = [
     "# Context",
     "",
     "## Status",
     `Session closed after: ${projectName}`,
     `Closed: ${new Date().toISOString()}`,
+    `Finalization: ${isForced ? "forced" : planAlreadyDone ? "plan-already-done" : "normal"}`,
     "No active plan. Next session starts fresh.",
     ""
   ].join(`
@@ -44883,46 +45022,112 @@ async function handleCloseCommand(directory, args2) {
   const pruneBranches = args2.includes("--prune-branches");
   const prunedBranches = [];
   const pruneErrors = [];
-  if (pruneBranches) {
+  let gitAlignResult = "";
+  const isGit = isGitRepo2(directory);
+  if (isGit) {
     try {
-      const branchOutput = execFileSync("git", ["branch", "-vv"], {
-        cwd: directory,
-        encoding: "utf-8",
-        stdio: ["pipe", "pipe", "pipe"]
-      });
-      const goneBranches = branchOutput.split(`
-`).filter((line) => line.includes(": gone]")).map((line) => line.trim().replace(/^[*+]\s+/, "").split(/\s+/)[0]).filter(Boolean);
-      for (const branch of goneBranches) {
-        try {
-          execFileSync("git", ["branch", "-d", branch], {
-            cwd: directory,
-            encoding: "utf-8",
-            stdio: ["pipe", "pipe", "pipe"]
-          });
-          prunedBranches.push(branch);
-        } catch {
-          pruneErrors.push(branch);
+      const currentBranch = getCurrentBranch(directory);
+      if (currentBranch === "HEAD") {
+        gitAlignResult = "Skipped git alignment: detached HEAD state";
+        warnings.push("Repo is in detached HEAD state. Checkout a branch before starting a new swarm.");
+      } else if (hasUncommittedChanges(directory)) {
+        gitAlignResult = "Skipped git alignment: uncommitted changes in worktree";
+        warnings.push("Uncommitted changes detected. Commit or stash before aligning to main.");
+      } else {
+        const baseBranch = getDefaultBaseBranch(directory);
+        const localBase = baseBranch.replace(/^origin\//, "");
+        if (currentBranch === localBase) {
+          try {
+            execFileSync("git", ["fetch", "origin", localBase], {
+              cwd: directory,
+              encoding: "utf-8",
+              timeout: 30000,
+              stdio: ["pipe", "pipe", "pipe"]
+            });
+            const mergeBase = execFileSync("git", ["merge-base", "HEAD", baseBranch], {
+              cwd: directory,
+              encoding: "utf-8",
+              timeout: 1e4,
+              stdio: ["pipe", "pipe", "pipe"]
+            }).trim();
+            const headSha = execFileSync("git", ["rev-parse", "HEAD"], {
+              cwd: directory,
+              encoding: "utf-8",
+              timeout: 1e4,
+              stdio: ["pipe", "pipe", "pipe"]
+            }).trim();
+            if (mergeBase === headSha) {
+              execFileSync("git", ["merge", "--ff-only", baseBranch], {
+                cwd: directory,
+                encoding: "utf-8",
+                timeout: 30000,
+                stdio: ["pipe", "pipe", "pipe"]
+              });
+              gitAlignResult = `Aligned to ${baseBranch} (fast-forward)`;
+            } else {
+              gitAlignResult = `On ${localBase} but cannot fast-forward to ${baseBranch} (diverged)`;
+              warnings.push(`Local ${localBase} has diverged from ${baseBranch}. Manual merge/rebase needed.`);
+            }
+          } catch (fetchErr) {
+            gitAlignResult = `Fetch from origin/${localBase} failed \u2014 remote may be unavailable`;
+            warnings.push(`Git fetch failed: ${fetchErr instanceof Error ? fetchErr.message : String(fetchErr)}`);
+          }
+        } else {
+          gitAlignResult = `On branch ${currentBranch}. Switch to ${localBase} manually when ready for a new swarm.`;
         }
       }
-    } catch {}
+    } catch (gitError) {
+      gitAlignResult = `Git alignment error: ${gitError instanceof Error ? gitError.message : String(gitError)}`;
+    }
+    if (pruneBranches) {
+      try {
+        const branchOutput = execFileSync("git", ["branch", "-vv"], {
+          cwd: directory,
+          encoding: "utf-8",
+          stdio: ["pipe", "pipe", "pipe"]
+        });
+        const goneBranches = branchOutput.split(`
+`).filter((line) => line.includes(": gone]")).map((line) => line.trim().replace(/^[*+]\s+/, "").split(/\s+/)[0]).filter(Boolean);
+        for (const branch of goneBranches) {
+          try {
+            execFileSync("git", ["branch", "-d", branch], {
+              cwd: directory,
+              encoding: "utf-8",
+              stdio: ["pipe", "pipe", "pipe"]
+            });
+            prunedBranches.push(branch);
+          } catch {
+            pruneErrors.push(branch);
+          }
+        }
+      } catch {}
+    }
+  } else {
+    gitAlignResult = "Not a git repository \u2014 skipped git alignment";
   }
   const closeSummaryPath = validateSwarmPath(directory, "close-summary.md");
+  const finalizationType = isForced ? "Forced closure" : planAlreadyDone ? "Plan already terminal \u2014 cleanup only" : "Normal finalization";
   const actionsPerformed = [
     ...!planAlreadyDone && inProgressPhases.length > 0 ? ["- Wrote retrospectives for in-progress phases"] : [],
-    "- Archived evidence bundles",
+    `- ${archiveResult}`,
+    ...cleanedFiles.length > 0 ? [
+      `- Cleaned ${cleanedFiles.length} active-state file(s): ${cleanedFiles.join(", ")}`
+    ] : [],
     "- Reset context.md for next session",
     ...configBackupsRemoved > 0 ? [`- Removed ${configBackupsRemoved} stale config backup file(s)`] : [],
     ...prunedBranches.length > 0 ? [
       `- Pruned ${prunedBranches.length} stale local git branch(es): ${prunedBranches.join(", ")}`
     ] : [],
     "- Cleared agent sessions and delegation chains",
-    ...planExists && !planAlreadyDone ? ["- Set non-completed phases/tasks to closed status"] : []
+    ...planExists && !planAlreadyDone ? ["- Set non-completed phases/tasks to closed status"] : [],
+    ...gitAlignResult ? [`- Git: ${gitAlignResult}`] : []
   ];
   const summaryContent = [
     "# Swarm Close Summary",
     "",
     `**Project:** ${projectName}`,
     `**Closed:** ${new Date().toISOString()}`,
+    `**Finalization:** ${finalizationType}`,
     "",
     `## Phases Closed: ${closedPhases.length}`,
     !planExists ? "_No plan \u2014 ad-hoc session_" : closedPhases.length > 0 ? closedPhases.map((id) => `- Phase ${id}`).join(`
@@ -44933,7 +45138,9 @@ async function handleCloseCommand(directory, args2) {
 `) : "_No incomplete tasks_",
     "",
     "## Actions Performed",
-    ...actionsPerformed
+    ...actionsPerformed,
+    "",
+    ...warnings.length > 0 ? ["## Warnings", ...warnings.map((w) => `- ${w}`), ""] : []
   ].join(`
 `);
   try {
@@ -44952,11 +45159,21 @@ async function handleCloseCommand(directory, args2) {
   if (pruneErrors.length > 0) {
     warnings.push(`Could not prune ${pruneErrors.length} branch(es) (unmerged or checked out): ${pruneErrors.join(", ")}`);
   }
-  const warningMsg = warnings.length > 0 ? ` Warnings: ${warnings.join("; ")}.` : "";
+  const warningMsg = warnings.length > 0 ? `
+
+**Warnings:**
+${warnings.map((w) => `- ${w}`).join(`
+`)}` : "";
   if (planAlreadyDone) {
-    return `\u2705 Session closed. Plan was already in a terminal state \u2014 cleanup steps applied.${warningMsg}`;
+    return `\u2705 Session finalized. Plan was already in a terminal state \u2014 cleanup and archive applied.
+
+**Archive:** ${archiveResult}
+**Git:** ${gitAlignResult}${warningMsg}`;
   }
-  return `\u2705 Swarm closed successfully. ${closedPhases.length} phase(s) closed, ${closedTasks.length} incomplete task(s) marked closed.${warningMsg}`;
+  return `\u2705 Swarm finalized. ${closedPhases.length} phase(s) closed, ${closedTasks.length} incomplete task(s) marked closed.
+
+**Archive:** ${archiveResult}
+**Git:** ${gitAlignResult}${warningMsg}`;
 }
 
 // src/commands/config.ts
@@ -45724,15 +45941,19 @@ ${phaseDigest.summary}`,
 async function applyCuratorKnowledgeUpdates(directory, recommendations, knowledgeConfig) {
   let applied = 0;
   let skipped = 0;
-  if (recommendations.length === 0) {
+  if (!recommendations || recommendations.length === 0) {
     return { applied, skipped };
   }
+  if (knowledgeConfig == null) {
+    return { applied: 0, skipped: 0 };
+  }
+  const validRecommendations = recommendations.filter((rec) => rec != null);
   const knowledgePath = resolveSwarmKnowledgePath(directory);
   const entries = await readKnowledge(knowledgePath);
   let modified = false;
   const appliedIds = new Set;
   const updatedEntries = entries.map((entry) => {
-    const rec = recommendations.find((r) => r.entry_id === entry.id);
+    const rec = validRecommendations.find((r) => r.entry_id === entry.id);
     if (!rec)
       return entry;
     switch (rec.action) {
@@ -45786,7 +46007,7 @@ async function applyCuratorKnowledgeUpdates(directory, recommendations, knowledg
         return entry;
     }
   });
-  for (const rec of recommendations) {
+  for (const rec of validRecommendations) {
     if (rec.entry_id !== undefined && !appliedIds.has(rec.entry_id)) {
       const found = entries.some((e) => e.id === rec.entry_id);
       if (!found) {
@@ -45799,7 +46020,7 @@ async function applyCuratorKnowledgeUpdates(directory, recommendations, knowledg
     await rewriteKnowledge(knowledgePath, updatedEntries);
   }
   const existingLessons = entries.map((e) => e.lesson);
-  for (const rec of recommendations) {
+  for (const rec of validRecommendations) {
     if (rec.entry_id !== undefined)
       continue;
     if (rec.action !== "promote") {
@@ -46111,7 +46332,7 @@ init_loader();
 init_manager();
 init_utils2();
 init_manager2();
-import * as child_process3 from "child_process";
+import * as child_process4 from "child_process";
 import { existsSync as existsSync8, readdirSync as readdirSync2, readFileSync as readFileSync5, statSync as statSync4 } from "fs";
 import path19 from "path";
 import { fileURLToPath } from "url";
@@ -46353,7 +46574,7 @@ async function checkGitRepository(directory) {
         detail: "Invalid directory \u2014 cannot check git status"
       };
     }
-    child_process3.execSync("git rev-parse --git-dir", {
+    child_process4.execSync("git rev-parse --git-dir", {
       cwd: directory,
       stdio: "pipe"
     });
@@ -47237,7 +47458,7 @@ async function handleExportCommand(directory, _args) {
 init_state();
 async function handleFullAutoCommand(_directory, args2, sessionID) {
   if (!sessionID || sessionID.trim() === "") {
-    return "Error: No active session context. Full-Auto Mode requires an active session. Use /swarm full-auto from within an OpenCode session, or start a session first.";
+    return "Error: No active session context. Full-Auto Mode requires an active session. Use /swarm-full-auto from within an OpenCode session, or start a session first.";
   }
   const session = getAgentSession(sessionID);
   if (!session) {
@@ -47245,16 +47466,15 @@ async function handleFullAutoCommand(_directory, args2, sessionID) {
   }
   const arg = args2[0]?.toLowerCase();
   let newFullAutoMode;
-  let feedback;
   if (arg === "on") {
     newFullAutoMode = true;
-    feedback = "Full-Auto Mode enabled";
   } else if (arg === "off") {
     newFullAutoMode = false;
-    feedback = "Full-Auto Mode disabled";
   } else {
     newFullAutoMode = !session.fullAutoMode;
-    feedback = newFullAutoMode ? "Full-Auto Mode enabled" : "Full-Auto Mode disabled";
+  }
+  if (newFullAutoMode && !swarmState.fullAutoEnabledInConfig) {
+    return "Error: Full-Auto Mode cannot be enabled because full_auto.enabled is not set to true in the swarm plugin config. The autonomous oversight hook is inactive without config-level enablement. Set full_auto.enabled = true in your opencode-swarm config and restart.";
   }
   session.fullAutoMode = newFullAutoMode;
   if (!newFullAutoMode) {
@@ -47262,7 +47482,7 @@ async function handleFullAutoCommand(_directory, args2, sessionID) {
     session.fullAutoDeadlockCount = 0;
     session.fullAutoLastQuestionHash = null;
   }
-  return feedback;
+  return newFullAutoMode ? "Full-Auto Mode enabled" : "Full-Auto Mode disabled";
 }
 
 // src/commands/handoff.ts
@@ -47570,6 +47790,64 @@ function formatHandoffMarkdown(data) {
   return lines.join(`
 `);
 }
+function formatContinuationPrompt(data) {
+  const lines = [];
+  lines.push("## Resume Swarm");
+  lines.push("");
+  if (data.currentPhase) {
+    lines.push(`**Phase**: ${data.currentPhase}`);
+  }
+  if (data.currentTask) {
+    lines.push(`**Current Task**: ${data.currentTask}`);
+  }
+  let nextTask;
+  if (data.incompleteTasks.length > 0) {
+    nextTask = data.incompleteTasks.find((t) => t !== data.currentTask);
+    if (nextTask) {
+      lines.push(`**Next Task**: ${nextTask}`);
+    }
+  }
+  if (data.pendingQA) {
+    lines.push("");
+    lines.push(`**Pending QA Blocker**: ${data.pendingQA.taskId}`);
+    if (data.pendingQA.lastFailure) {
+      lines.push(`  - Last failure: ${data.pendingQA.lastFailure}`);
+    }
+  }
+  if (data.recentDecisions.length > 0) {
+    const last3 = data.recentDecisions.slice(-3);
+    lines.push("");
+    lines.push("**Recent Decisions (do not revisit)**:");
+    for (const decision of last3) {
+      lines.push(`- ${decision}`);
+    }
+  }
+  if (data.incompleteTasks.length > 2) {
+    const remaining = data.incompleteTasks.filter((t) => t !== data.currentTask && t !== nextTask);
+    if (remaining.length > 0) {
+      lines.push("");
+      lines.push(`**Remaining Tasks**: ${remaining.slice(0, 8).join(", ")}${remaining.length > 8 ? ` (+${remaining.length - 8} more)` : ""}`);
+    }
+  }
+  lines.push("");
+  lines.push("**To resume**:");
+  lines.push("1. Read `.swarm/handoff.md` for full context");
+  lines.push("2. Use `knowledge_recall` to recall relevant lessons before starting");
+  if (data.pendingQA) {
+    lines.push(`3. Resolve QA blocker on task ${data.pendingQA.taskId} before continuing`);
+  } else if (data.currentTask) {
+    lines.push(`3. Continue work on task ${data.currentTask}`);
+  } else if (nextTask) {
+    lines.push(`3. Begin work on task ${nextTask}`);
+  } else {
+    lines.push("3. Review the plan and pick up the next incomplete task");
+  }
+  lines.push("4. Do not re-implement completed tasks or revisit settled decisions");
+  return `\`\`\`markdown
+${lines.join(`
+`)}
+\`\`\``;
+}
 
 // src/commands/handoff.ts
 init_state();
@@ -47580,17 +47858,27 @@ async function handleHandoffCommand(directory, _args) {
   const tempPath = `${resolvedPath}.tmp.${crypto4.randomUUID()}`;
   await Bun.write(tempPath, markdown);
   renameSync7(tempPath, resolvedPath);
+  const continuationPrompt = formatContinuationPrompt(handoffData);
+  const promptPath = validateSwarmPath(directory, "handoff-prompt.md");
+  const promptTempPath = `${promptPath}.tmp.${crypto4.randomUUID()}`;
+  await Bun.write(promptTempPath, continuationPrompt);
+  renameSync7(promptTempPath, promptPath);
   await writeSnapshot(directory, swarmState);
   await flushPendingSnapshot(directory);
   return `## Handoff Brief Written
 
 Brief written to \`.swarm/handoff.md\`.
+Continuation prompt written to \`.swarm/handoff-prompt.md\`.
 
 ${markdown}
 
 ---
 
-**Next Step:** Start a new OpenCode session, switch to your target model, and send: \`continue the previous work\``;
+## Continuation Prompt
+
+Copy and paste the block below into your next session to resume cleanly:
+
+${continuationPrompt}`;
 }
 
 // src/services/history-service.ts
@@ -56221,12 +56509,23 @@ init_state();
 init_telemetry();
 init_utils2();
 var END_OF_SENTENCE_QUESTION_PATTERN = /\?\s*$/;
-var ESCALATION_PATTERNS = [
-  /Ready for Phase (?:\d+|\[?N\+1\]?)\?/i,
+var PHASE_COMPLETION_PATTERNS = [
+  /Ready for Phase (?:\d+|\[?N\+1\]?)\??/i,
+  /phase.{0,20}(?:complete|finish|done|wrap)/i,
+  /move(?:d?)?\s+(?:on\s+)?to\s+(?:the\s+)?(?:next\s+)?phase/i
+];
+var QUESTION_ESCALATION_PATTERNS = [
   /escalat/i,
   /What would you like/i,
   /Should I proceed/i,
-  /Do you want/i
+  /Do you want/i,
+  /Shall I/i,
+  /Would you like/i,
+  /Can I proceed/i,
+  /May I proceed/i,
+  /Awaiting (?:your |)(?:approval|confirmation|input|decision|direction)/i,
+  /Please (?:confirm|approve|advise|let me know)/i,
+  /How (?:would you like|should I)/i
 ];
 var MID_SENTENCE_QUESTION_PATTERNS = [
   /\b(v\d+\?)/i,
@@ -56263,9 +56562,14 @@ function resolveOversightAgentName(architectAgentName) {
   return `${prefix}critic_oversight`;
 }
 function detectEscalation(text) {
-  for (const pattern of ESCALATION_PATTERNS) {
+  for (const pattern of PHASE_COMPLETION_PATTERNS) {
     if (pattern.test(text)) {
       return "phase_completion";
+    }
+  }
+  for (const pattern of QUESTION_ESCALATION_PATTERNS) {
+    if (pattern.test(text)) {
+      return "question";
     }
   }
   if (END_OF_SENTENCE_QUESTION_PATTERN.test(text)) {
@@ -56409,7 +56713,7 @@ async function writeAutoOversightEvent(directory, architectOutput, criticVerdict
     }
   }
 }
-function injectVerdictIntoMessages(messages, architectIndex, criticResult, _escalationType, oversightAgentName) {
+function injectVerdictIntoMessages(messages, architectIndex, criticResult, escalationType, oversightAgentName) {
   if (criticResult.escalationNeeded || criticResult.verdict === "ESCALATE_TO_HUMAN") {
     const verdictMessage2 = {
       info: {
@@ -56446,6 +56750,19 @@ ${criticResult.reasoning}`
       ]
     };
     messages.splice(architectIndex + 1, 0, verdictMessage2);
+    const continuationMessage = {
+      info: {
+        role: "user",
+        agent: oversightAgentName
+      },
+      parts: [
+        {
+          type: "text",
+          text: "[FULL-AUTO CONTINUATION] The critic has answered your question. Incorporate the answer above and continue executing the current plan. Do not ask follow-up questions about this answer \u2014 proceed with implementation."
+        }
+      ]
+    };
+    messages.splice(architectIndex + 2, 0, continuationMessage);
     return;
   }
   const verdictEmoji = criticResult.verdict === "APPROVED" ? "\u2705" : criticResult.verdict === "NEEDS_REVISION" ? "\uD83D\uDD04" : criticResult.verdict === "REJECTED" ? "\u274C" : criticResult.verdict === "BLOCKED" ? "\uD83D\uDEAB" : "\uD83D\uDCAC";
@@ -56464,6 +56781,35 @@ Critic reasoning: ${criticResult.reasoning}`
     ]
   };
   messages.splice(architectIndex + 1, 0, verdictMessage);
+  if (criticResult.verdict === "APPROVED" && escalationType === "phase_completion") {
+    const continuationMessage = {
+      info: {
+        role: "user",
+        agent: oversightAgentName
+      },
+      parts: [
+        {
+          type: "text",
+          text: "[FULL-AUTO CONTINUATION] Phase approved by autonomous oversight. Call `phase_complete` now to finalize this phase, then proceed to the next phase in the plan. Do not wait for further human input."
+        }
+      ]
+    };
+    messages.splice(architectIndex + 2, 0, continuationMessage);
+  } else if (criticResult.verdict === "APPROVED") {
+    const continuationMessage = {
+      info: {
+        role: "user",
+        agent: oversightAgentName
+      },
+      parts: [
+        {
+          type: "text",
+          text: "[FULL-AUTO CONTINUATION] Approved by autonomous oversight. Continue executing the current task and plan. Do not wait for further human input."
+        }
+      ]
+    };
+    messages.splice(architectIndex + 2, 0, continuationMessage);
+  }
 }
 async function dispatchCriticAndWriteEvent(directory, architectOutput, criticContext, criticModel, escalationType, interactionCount, deadlockCount, oversightAgentName) {
   const client = swarmState.opencodeClient;
@@ -57949,6 +58295,10 @@ function createSystemEnhancerHook(config3, directory) {
                   fs35.unlinkSync(consumedPath);
                 }
                 fs35.renameSync(handoffPath, consumedPath);
+                try {
+                  const promptPath = validateSwarmPath(directory, "handoff-prompt.md");
+                  fs35.unlinkSync(promptPath);
+                } catch {}
                 const handoffBlock = `## HANDOFF \u2014 Resuming from model switch
 The previous model's session ended. Here is your starting context:
 
@@ -59062,14 +59412,14 @@ import * as fs36 from "fs";
 import * as path47 from "path";
 
 // src/hooks/spawn-helper.ts
-import * as child_process4 from "child_process";
+import * as child_process5 from "child_process";
 var WIN32_CMD_BINARIES = new Set(["npm", "npx", "pnpm", "yarn"]);
 function spawnAsync(command, cwd, timeoutMs) {
   return new Promise((resolve15) => {
     try {
       const [rawCmd, ...args2] = command;
       const cmd = process.platform === "win32" && WIN32_CMD_BINARIES.has(rawCmd) && !rawCmd.includes(".") ? `${rawCmd}.cmd` : rawCmd;
-      const proc = child_process4.spawn(cmd, args2, {
+      const proc = child_process5.spawn(cmd, args2, {
         cwd,
         stdio: ["ignore", "pipe", "pipe"]
       });
@@ -60076,6 +60426,9 @@ async function rehydrateState(snapshot) {
       }
       for (const field of TRANSIENT_SESSION_FIELDS) {
         session[field.name] = field.resetValue;
+      }
+      if (session.fullAutoMode && !swarmState.fullAutoEnabledInConfig) {
+        session.fullAutoMode = false;
       }
       swarmState.agentSessions.set(sessionId, session);
     }
@@ -62478,7 +62831,7 @@ var declare_scope = createSwarmTool({
 });
 // src/tools/diff.ts
 init_dist();
-import * as child_process5 from "child_process";
+import * as child_process6 from "child_process";
 
 // src/diff/ast-diff.ts
 init_tree_sitter();
@@ -62846,13 +63199,13 @@ var diff = createSwarmTool({
         numstatArgs.push("--", ...typedArgs.paths);
         fullDiffArgs.push("--", ...typedArgs.paths);
       }
-      const numstatOutput = child_process5.execFileSync("git", numstatArgs, {
+      const numstatOutput = child_process6.execFileSync("git", numstatArgs, {
         encoding: "utf-8",
         timeout: DIFF_TIMEOUT_MS,
         maxBuffer: MAX_BUFFER_BYTES,
         cwd: directory
       });
-      const fullDiffOutput = child_process5.execFileSync("git", fullDiffArgs, {
+      const fullDiffOutput = child_process6.execFileSync("git", fullDiffArgs, {
         encoding: "utf-8",
         timeout: DIFF_TIMEOUT_MS,
         maxBuffer: MAX_BUFFER_BYTES,
@@ -62901,23 +63254,23 @@ var diff = createSwarmTool({
           let oldContent;
           let newContent;
           if (base === "staged") {
-            oldContent = child_process5.execFileSync("git", ["show", `HEAD:${file3.path}`], {
+            oldContent = child_process6.execFileSync("git", ["show", `HEAD:${file3.path}`], {
               encoding: "utf-8",
               timeout: 5000,
               cwd: directory
             });
-            newContent = child_process5.execFileSync("git", ["show", `:${file3.path}`], {
+            newContent = child_process6.execFileSync("git", ["show", `:${file3.path}`], {
               encoding: "utf-8",
               timeout: 5000,
               cwd: directory
             });
           } else if (base === "unstaged") {
-            oldContent = child_process5.execFileSync("git", ["show", `:${file3.path}`], {
+            oldContent = child_process6.execFileSync("git", ["show", `:${file3.path}`], {
               encoding: "utf-8",
               timeout: 5000,
               cwd: directory
             });
-            newContent = child_process5.execFileSync("git", ["show", `HEAD:${file3.path}`], {
+            newContent = child_process6.execFileSync("git", ["show", `HEAD:${file3.path}`], {
               encoding: "utf-8",
               timeout: 5000,
               cwd: directory
@@ -62926,12 +63279,12 @@ var diff = createSwarmTool({
             const pathModule = await import("path");
             newContent = fsModule.readFileSync(pathModule.join(directory, file3.path), "utf-8");
           } else {
-            oldContent = child_process5.execFileSync("git", ["show", `${base}:${file3.path}`], {
+            oldContent = child_process6.execFileSync("git", ["show", `${base}:${file3.path}`], {
               encoding: "utf-8",
               timeout: 5000,
               cwd: directory
             });
-            newContent = child_process5.execFileSync("git", ["show", `HEAD:${file3.path}`], {
+            newContent = child_process6.execFileSync("git", ["show", `HEAD:${file3.path}`], {
               encoding: "utf-8",
               timeout: 5000,
               cwd: directory
@@ -67755,7 +68108,7 @@ function executeRulesSync(filePath, content, language) {
 }
 
 // src/sast/semgrep.ts
-import * as child_process6 from "child_process";
+import * as child_process7 from "child_process";
 var semgrepAvailableCache = null;
 var DEFAULT_RULES_DIR = ".swarm/semgrep-rules";
 var DEFAULT_TIMEOUT_MS3 = 30000;
@@ -67764,7 +68117,7 @@ function isSemgrepAvailable() {
     return semgrepAvailableCache;
   }
   try {
-    child_process6.execFileSync("semgrep", ["--version"], {
+    child_process7.execFileSync("semgrep", ["--version"], {
       encoding: "utf-8",
       stdio: "pipe"
     });
@@ -67823,7 +68176,7 @@ function mapSemgrepSeverity(severity) {
 }
 async function executeWithTimeout(command, args2, options) {
   return new Promise((resolve24) => {
-    const child = child_process6.spawn(command, args2, {
+    const child = child_process7.spawn(command, args2, {
       shell: false,
       cwd: options.cwd
     });
@@ -72864,8 +73217,8 @@ var OpenCodeSwarm = async (ctx) => {
           description: "Use /swarm turbo to enable turbo mode for faster execution"
         },
         "swarm-full-auto": {
-          template: "/swarm full-auto $ARGUMENTS",
-          description: "Use /swarm full-auto to toggle Full-Auto Mode for the active session [on|off]"
+          template: "/swarm-full-auto $ARGUMENTS",
+          description: "Toggle Full-Auto Mode for the active session [on|off]"
         },
         "swarm-write-retro": {
           template: "/swarm write-retro $ARGUMENTS",
