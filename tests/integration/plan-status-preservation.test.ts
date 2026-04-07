@@ -27,7 +27,10 @@ import { executeUpdateTaskStatus } from '../../src/tools/update-task-status';
 // ---------------------------------------------------------------------------
 
 async function readPlanJson(tmpDir: string) {
-	const raw = await fs.readFile(path.join(tmpDir, '.swarm', 'plan.json'), 'utf-8');
+	const raw = await fs.readFile(
+		path.join(tmpDir, '.swarm', 'plan.json'),
+		'utf-8',
+	);
 	return JSON.parse(raw) as {
 		phases: Array<{
 			tasks: Array<{ id: string; status: string; description: string }>;
@@ -35,7 +38,10 @@ async function readPlanJson(tmpDir: string) {
 	};
 }
 
-async function forceCompleteTask(tmpDir: string, taskId: string): Promise<void> {
+async function forceCompleteTask(
+	tmpDir: string,
+	taskId: string,
+): Promise<void> {
 	// Bypass the gate pipeline for test purposes by mutating plan.json directly.
 	// This simulates the completed state that would result from a full gate cycle.
 	const planPath = path.join(tmpDir, '.swarm', 'plan.json');
@@ -135,8 +141,8 @@ describe('Plan status preservation: merge-mode save_plan regression', () => {
 
 		const afterSave2 = await readPlanJson(tmpDir);
 		expect(afterSave2.phases[0].tasks[0].status).toBe('completed'); // preserved ✓
-		expect(afterSave2.phases[0].tasks[1].status).toBe('pending');   // unchanged
-		expect(afterSave2.phases[1].tasks[0].status).toBe('pending');   // unchanged
+		expect(afterSave2.phases[0].tasks[1].status).toBe('pending'); // unchanged
+		expect(afterSave2.phases[1].tasks[0].status).toBe('pending'); // unchanged
 
 		// Step 5: save_plan with restructured plan — same task 1.1, new task 1.3 added
 		const restructuredPlan: SavePlanArgs = {
@@ -148,7 +154,11 @@ describe('Plan status preservation: merge-mode save_plan regression', () => {
 					name: 'Phase 1 Revised',
 					tasks: [
 						{ id: '1.1', description: 'Setup database (revised)' },
-						{ id: '1.2', description: 'Create API endpoints', depends: ['1.1'] },
+						{
+							id: '1.2',
+							description: 'Create API endpoints',
+							depends: ['1.1'],
+						},
 						{ id: '1.3', description: 'Add migration scripts' }, // new task
 					],
 				},
@@ -166,9 +176,9 @@ describe('Plan status preservation: merge-mode save_plan regression', () => {
 
 		const afterSave3 = await readPlanJson(tmpDir);
 		expect(afterSave3.phases[0].tasks[0].status).toBe('completed'); // 1.1 still completed ✓
-		expect(afterSave3.phases[0].tasks[1].status).toBe('pending');   // 1.2 unchanged
-		expect(afterSave3.phases[0].tasks[2].status).toBe('pending');   // 1.3 new → pending ✓
-		expect(afterSave3.phases[1].tasks[0].status).toBe('pending');   // 2.1 unchanged
+		expect(afterSave3.phases[0].tasks[1].status).toBe('pending'); // 1.2 unchanged
+		expect(afterSave3.phases[0].tasks[2].status).toBe('pending'); // 1.3 new → pending ✓
+		expect(afterSave3.phases[1].tasks[0].status).toBe('pending'); // 2.1 unchanged
 	});
 
 	// -----------------------------------------------------------------------
@@ -180,7 +190,9 @@ describe('Plan status preservation: merge-mode save_plan regression', () => {
 		expect(result.success).toBe(true);
 
 		const plan = await readPlanJson(tmpDir);
-		const allPending = plan.phases.flatMap((p) => p.tasks).every((t) => t.status === 'pending');
+		const allPending = plan.phases
+			.flatMap((p) => p.tasks)
+			.every((t) => t.status === 'pending');
 		expect(allPending).toBe(true);
 	});
 
@@ -191,7 +203,10 @@ describe('Plan status preservation: merge-mode save_plan regression', () => {
 	it('new task IDs (not in old plan) start as pending — no false status carry-over', async () => {
 		// Save initial plan with tasks 1.1 and 1.2, complete 1.1
 		await executeSavePlan(basePlan(tmpDir));
-		await executeUpdateTaskStatus({ task_id: '1.1', status: 'in_progress' }, tmpDir);
+		await executeUpdateTaskStatus(
+			{ task_id: '1.1', status: 'in_progress' },
+			tmpDir,
+		);
 		await forceCompleteTask(tmpDir, '1.1');
 
 		// Re-save with entirely different task IDs in the same phase
@@ -232,11 +247,17 @@ describe('Plan status preservation: merge-mode save_plan regression', () => {
 		await executeSavePlan(basePlan(tmpDir));
 
 		// Set task 1.1 to completed
-		await executeUpdateTaskStatus({ task_id: '1.1', status: 'in_progress' }, tmpDir);
+		await executeUpdateTaskStatus(
+			{ task_id: '1.1', status: 'in_progress' },
+			tmpDir,
+		);
 		await forceCompleteTask(tmpDir, '1.1');
 
 		// Set task 1.2 to in_progress
-		await executeUpdateTaskStatus({ task_id: '1.2', status: 'in_progress' }, tmpDir);
+		await executeUpdateTaskStatus(
+			{ task_id: '1.2', status: 'in_progress' },
+			tmpDir,
+		);
 
 		// Re-save with same IDs (descriptions changed)
 		const revisedPlan: SavePlanArgs = {
@@ -264,12 +285,14 @@ describe('Plan status preservation: merge-mode save_plan regression', () => {
 		expect(result.success).toBe(true);
 
 		const plan = await readPlanJson(tmpDir);
-		expect(plan.phases[0].tasks[0].status).toBe('completed');   // 1.1 preserved
+		expect(plan.phases[0].tasks[0].status).toBe('completed'); // 1.1 preserved
 		expect(plan.phases[0].tasks[1].status).toBe('in_progress'); // 1.2 preserved
-		expect(plan.phases[1].tasks[0].status).toBe('pending');     // 2.1 unchanged
+		expect(plan.phases[1].tasks[0].status).toBe('pending'); // 2.1 unchanged
 
 		// Descriptions must reflect the new save, not the old ones
-		expect(plan.phases[0].tasks[0].description).toBe('Setup database (updated description)');
+		expect(plan.phases[0].tasks[0].description).toBe(
+			'Setup database (updated description)',
+		);
 	});
 
 	// -----------------------------------------------------------------------
@@ -282,7 +305,10 @@ describe('Plan status preservation: merge-mode save_plan regression', () => {
 		// The ledger file must exist and contain a snapshot event
 		// Filename is plan-ledger.jsonl (not ledger.jsonl)
 		const ledgerPath = path.join(tmpDir, '.swarm', 'plan-ledger.jsonl');
-		const ledgerExists = await fs.access(ledgerPath).then(() => true).catch(() => false);
+		const ledgerExists = await fs
+			.access(ledgerPath)
+			.then(() => true)
+			.catch(() => false);
 		expect(ledgerExists).toBe(true);
 
 		const ledgerRaw = await fs.readFile(ledgerPath, 'utf-8');

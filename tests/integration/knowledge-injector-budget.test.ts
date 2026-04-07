@@ -134,7 +134,9 @@ function makeMessages(totalChars: number): MessageWithParts[] {
 	];
 }
 
-function findInjectedMessage(messages: MessageWithParts[]): MessageWithParts | undefined {
+function findInjectedMessage(
+	messages: MessageWithParts[],
+): MessageWithParts | undefined {
 	return messages.find((m) =>
 		m.parts?.some((p) => p.text?.includes('\u{1F4DA} Lessons:')),
 	);

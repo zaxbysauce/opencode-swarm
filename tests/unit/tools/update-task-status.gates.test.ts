@@ -109,7 +109,10 @@ describe('Gate restart-recovery: evidence-file durability', () => {
 
 	it('gate check blocks when seed evidence exists but only reviewer gate recorded (test_engineer missing)', async () => {
 		// Seed evidence file sets required_gates: ['reviewer', 'test_engineer'] with empty gates
-		await executeUpdateTaskStatus({ task_id: '1.1', status: 'in_progress' }, tmpDir);
+		await executeUpdateTaskStatus(
+			{ task_id: '1.1', status: 'in_progress' },
+			tmpDir,
+		);
 		// Record only reviewer — test_engineer is still absent from gates
 		await recordGateEvidence(tmpDir, '1.1', 'reviewer', 'sess-reviewer');
 		resetSwarmState();
@@ -121,7 +124,10 @@ describe('Gate restart-recovery: evidence-file durability', () => {
 	});
 
 	it('gate check blocks when seed evidence exists but only test_engineer gate recorded (reviewer missing)', async () => {
-		await executeUpdateTaskStatus({ task_id: '1.1', status: 'in_progress' }, tmpDir);
+		await executeUpdateTaskStatus(
+			{ task_id: '1.1', status: 'in_progress' },
+			tmpDir,
+		);
 		// Record only test_engineer — reviewer is still absent from gates
 		await recordGateEvidence(tmpDir, '1.1', 'test_engineer', 'sess-te');
 		resetSwarmState();
@@ -187,7 +193,13 @@ describe('Gate restart-recovery: evidence-file durability', () => {
 		const customEvidence = {
 			task_id: '1.1',
 			required_gates: ['reviewer', 'test_engineer'],
-			gates: { reviewer: { agent: 'reviewer', timestamp: '2024-01-01T00:00:00Z', sessionId: 'sess-r' } },
+			gates: {
+				reviewer: {
+					agent: 'reviewer',
+					timestamp: '2024-01-01T00:00:00Z',
+					sessionId: 'sess-r',
+				},
+			},
 			started_at: '2024-01-01T00:00:00.000Z',
 		};
 		fs.mkdirSync(path.join(tmpDir, '.swarm', 'evidence'), { recursive: true });
