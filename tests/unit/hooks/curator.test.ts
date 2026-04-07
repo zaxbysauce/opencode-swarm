@@ -1357,6 +1357,28 @@ invalid json here
 			expect(result).toEqual({ applied: 0, skipped: 0 });
 		});
 
+		it('returns { applied: 0, skipped: 0 } when knowledgeConfig is null', async () => {
+			const swarmDir = path.join(tempDir, '.swarm');
+			fs.mkdirSync(swarmDir, { recursive: true });
+			fs.writeFileSync(path.join(swarmDir, 'knowledge.jsonl'), '');
+
+			// @ts-expect-error — intentionally passing null to test runtime guard
+			const result = await applyCuratorKnowledgeUpdates(tempDir, [], null);
+
+			expect(result).toEqual({ applied: 0, skipped: 0 });
+		});
+
+		it('returns { applied: 0, skipped: 0 } when knowledgeConfig is undefined', async () => {
+			const swarmDir = path.join(tempDir, '.swarm');
+			fs.mkdirSync(swarmDir, { recursive: true });
+			fs.writeFileSync(path.join(swarmDir, 'knowledge.jsonl'), '');
+
+			// @ts-expect-error — intentionally passing undefined to test runtime guard
+			const result = await applyCuratorKnowledgeUpdates(tempDir, [], undefined);
+
+			expect(result).toEqual({ applied: 0, skipped: 0 });
+		});
+
 		it('promotes an entry: hive_eligible=true, confidence bumped by 0.1, updated_at updated', async () => {
 			const entries: SwarmKnowledgeEntry[] = [
 				{
