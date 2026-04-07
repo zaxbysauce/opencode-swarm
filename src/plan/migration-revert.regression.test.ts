@@ -6,25 +6,28 @@
  * prevent the destructive revert behavior and related edge cases.
  */
 
-import { afterEach, beforeEach, describe, expect, test } from 'bun:test';
+import {
+	afterEach,
+	beforeEach,
+	describe,
+	expect,
+	mock,
+	test,
+	vi,
+} from 'bun:test';
 import * as fs from 'node:fs';
 import * as path from 'node:path';
 import type { Plan } from '../config/plan-schema';
+import * as ledger from './ledger';
 import {
 	appendLedgerEvent,
 	computePlanHash,
 	initLedger,
-	ledgerExists,
 	readLedgerEvents,
 	replayFromLedger,
 	takeSnapshotEvent,
 } from './ledger';
-import {
-	loadPlan,
-	loadPlanJsonOnly,
-	savePlan,
-	updateTaskStatus,
-} from './manager';
+import { loadPlan, savePlan, updateTaskStatus } from './manager';
 
 let testDir: string;
 
@@ -81,6 +84,38 @@ function readPlanJson(directory: string): Plan | null {
 	return JSON.parse(fs.readFileSync(planPath, 'utf8')) as Plan;
 }
 
+function getArchiveFiles(swarmDir: string): string[] {
+	try {
+		const files = fs.readdirSync(swarmDir);
+		return files.filter((f) => f.startsWith('plan-ledger.archived-'));
+	} catch {
+		return [];
+	}
+}
+
+function getBackupFiles(swarmDir: string): string[] {
+	try {
+		const files = fs.readdirSync(swarmDir);
+		return files.filter((f) => f.startsWith('plan-ledger.backup-'));
+	} catch {
+		return [];
+	}
+}
+
+function readLedgerPlanId(dir: string): string | null {
+	const ledgerPath = path.join(dir, '.swarm', 'plan-ledger.jsonl');
+	if (!fs.existsSync(ledgerPath)) return null;
+	try {
+		const content = fs.readFileSync(ledgerPath, 'utf-8');
+		const line = content.split('\n').find((l) => l.trim());
+		if (!line) return null;
+		const event = JSON.parse(line);
+		return event.plan_id ?? null;
+	} catch {
+		return null;
+	}
+}
+
 beforeEach(() => {
 	testDir = fs.mkdtempSync(
 		path.join(__dirname, 'migration-revert-regression-'),
@@ -88,6 +123,8 @@ beforeEach(() => {
 });
 
 afterEach(() => {
+	mock.restore();
+	vi.restoreAllMocks();
 	try {
 		fs.rmSync(testDir, { recursive: true, force: true });
 	} catch {
@@ -139,44 +176,46 @@ describe('Fix 2: loadPlan() migration-aware ledger guard', () => {
 							depends: [],
 							files_touched: [],
 						},
+						{
+							id: '1.2',
+							phase: 1,
+							status: 'pending',
+							size: 'medium',
+							description: 'Task 2',
+							depends: [],
+							files_touched: [],
+						},
 					],
 				},
 			],
 		});
 		writePlanJson(testDir, migratedPlan);
 
-		// loadPlan() must detect the plan_id mismatch and NOT revert
+		// loadPlan() should detect: plan_id mismatch (old ≠ new) → do NOT rebuild
+		// from ledger; instead use plan.json as-is. The plan.json on disk must be
+		// preserved (not reverted to old-swarm content).
 		const result = await loadPlan(testDir);
-
 		expect(result).not.toBeNull();
-		// Swarm must be "new-swarm", not reverted to "old-swarm"
 		expect(result!.swarm).toBe('new-swarm');
-		// Task must have the migrated status, not the ledger-replayed status
 		expect(result!.phases[0].tasks[0].status).toBe('in_progress');
-
-		// plan.json on disk must also be the migrated version
+		// Verify plan.json on disk is still the migrated plan (not reverted)
 		const onDisk = readPlanJson(testDir);
 		expect(onDisk!.swarm).toBe('new-swarm');
-		expect(onDisk!.phases[0].tasks[0].status).toBe('in_progress');
 	});
 
-	test('DOES revert plan.json when plan_id matches but hash mismatches (legitimate drift)', async () => {
-		// Set up: plan saved correctly, then append a ledger event claiming task 1.1
-		// is 'completed', with planHashAfter matching the hash of the completed plan.
-		// Then manually write a stale plan.json that still has task 1.1 as 'pending'.
-		// loadPlan() should detect the hash mismatch (same plan_id, different hash)
-		// and rebuild from the ledger, restoring task 1.1 to 'completed'.
-
+	test('reverts plan.json when ledger plan_id matches but hash mismatches (drift recovery)', async () => {
+		// Set up plan and ledger with a task completion event
 		const plan = makeTestPlan();
+		writePlanJson(testDir, plan);
 		await savePlan(testDir, plan);
 
-		// Compute the hash of what the plan WOULD look like with task 1.1 completed
+		// Build the completed-plan hash for the ledger event
 		const completedPlan = makeTestPlan({
 			phases: [
 				{
 					id: 1,
 					name: 'Phase 1',
-					status: 'complete',
+					status: 'in_progress',
 					tasks: [
 						{
 							id: '1.1',
@@ -273,7 +312,6 @@ describe('Fix 3: savePlan() re-initializes ledger on identity change', () => {
 		await savePlan(testDir, plan);
 
 		const swarmDir = path.join(testDir, '.swarm');
-		const filesBefore = fs.readdirSync(swarmDir);
 
 		// Save again with same identity
 		const plan2 = makeTestPlan({
@@ -314,6 +352,73 @@ describe('Fix 3: savePlan() re-initializes ledger on identity change', () => {
 		// No archives should be created for same identity
 		expect(archived.length).toBe(0);
 	});
+
+	test('when initLedger throws "already initialized", new ledger is active and no backup remains (concurrent race)', async () => {
+		// This test simulates the scenario where a concurrent savePlan call
+		// moves the old ledger aside (to backup) then calls initLedger, but another
+		// concurrent savePlan already initialized the new ledger first.
+		//
+		// Real behavior (from Issue 392 fix):
+		// 1. savePlan moves the old ledger to backup BEFORE calling initLedger.
+		// 2. initLedger runs — concurrent call writes new ledger THEN throws "already initialized".
+		// 3. savePlan catches the error, sees "already initialized", and discards the backup.
+		// 4. Active ledger ends up with new plan_id; no archive or backup remains.
+
+		// Arrange: Create workspace with old ledger
+		const oldPlan = makeTestPlan({ swarm: 'old-swarm' });
+		writePlanJson(testDir, oldPlan);
+		await initLedger(testDir, 'old-swarm-Test_Plan');
+
+		// Use path.resolve for swarmDir to match savePlan's path construction
+		const swarmDir = path.resolve(testDir, '.swarm');
+		const ledgerPath = path.join(swarmDir, 'plan-ledger.jsonl');
+		const newPlanId = 'new-swarm-Test_Plan';
+
+		// Verify old ledger exists at original path
+		expect(fs.existsSync(ledgerPath)).toBe(true);
+		expect(readLedgerPlanId(testDir)).toBe('old-swarm-Test_Plan');
+
+		// Spy on initLedger: delay the first call long enough for the second savePlan
+		// to win the race and create the new ledger first. The second call will find
+		// no ledger (because the first call moved it to backup) and create a fresh one.
+		// When the first call's delayed initLedger runs, it will find the new ledger
+		// already exists and throw "already initialized".
+		let initLedgerCallCount = 0;
+		const originalInitLedger = ledger.initLedger;
+		vi.spyOn(ledger, 'initLedger').mockImplementation(
+			async (dir: string, planId: string) => {
+				initLedgerCallCount++;
+				if (initLedgerCallCount === 1) {
+					// First call (from the first savePlan): delay to let second savePlan win
+					await new Promise((resolve) => setTimeout(resolve, 50));
+				}
+				return originalInitLedger(dir, planId);
+			},
+		);
+
+		// Act: Start two concurrent savePlan calls against the same workspace
+		const newPlan = makeTestPlan({ swarm: 'new-swarm' });
+
+		const [resultA, resultB] = await Promise.allSettled([
+			savePlan(testDir, newPlan),
+			savePlan(testDir, newPlan),
+		]);
+
+		// Assert: both calls settle successfully
+		expect(resultA.status).toBe('fulfilled');
+		expect(resultB.status).toBe('fulfilled');
+
+		// The active ledger now has the new plan_id (second call initialized it first)
+		expect(fs.existsSync(ledgerPath)).toBe(true);
+		const ledgerContentAfter = fs.readFileSync(ledgerPath, 'utf-8');
+		expect(ledgerContentAfter).toContain(newPlanId);
+
+		// No backup file should remain — it was discarded when "already initialized" was detected
+		expect(getBackupFiles(swarmDir)).toHaveLength(0);
+
+		// No archive file should exist either (backup was discarded, not archived)
+		expect(getArchiveFiles(swarmDir)).toHaveLength(0);
+	});
 });
 
 // ─────────────────────────────────────────────────────────────────────────────
@@ -321,7 +426,7 @@ describe('Fix 3: savePlan() re-initializes ledger on identity change', () => {
 // ─────────────────────────────────────────────────────────────────────────────
 
 describe('Fix 4: takeSnapshotEvent uses correct plan_id format', () => {
-	test('snapshot event has plan_id matching ${swarm}-${title} format', async () => {
+	test('snapshot event has plan_id matching swarm-title format', async () => {
 		const plan = makeTestPlan({ swarm: 'my-swarm', title: 'My Project' });
 		writePlanJson(testDir, plan);
 		await initLedger(testDir, 'my-swarm-My_Project');
@@ -518,7 +623,7 @@ describe('applyEventToPlan: invalid status in ledger event is rejected safely', 
 			plan_hash_after: 'fake',
 			schema_version: '1.0.0',
 		});
-		fs.writeFileSync(ledgerPath, currentContent + corruptEvent + '\n', 'utf8');
+		fs.writeFileSync(ledgerPath, `${currentContent}${corruptEvent}\n`, 'utf8');
 
 		// replayFromLedger should not throw and should not apply the invalid status
 		const result = await replayFromLedger(testDir);
@@ -546,9 +651,6 @@ describe('appendLedgerEvent: temp file is uniquely named', () => {
 	test('concurrent append calls use different temp file names', async () => {
 		const plan = makeTestPlan();
 		await savePlan(testDir, plan);
-
-		const swarmDir = path.join(testDir, '.swarm');
-		const ledgerPath = path.join(swarmDir, 'plan-ledger.jsonl');
 
 		// Intercept temp paths by patching fs.renameSync — instead, verify that
 		// two concurrent append calls both succeed without either losing data
