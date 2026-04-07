@@ -1083,7 +1083,7 @@ describe('handleCloseCommand', () => {
 			});
 
 			it('BP3: --prune-branches passed in real git repo → succeeds with no gone branches to prune', async () => {
-				// Create a real git repo
+				// Create a real git repo (disable signing to avoid environment-specific failures)
 				const { execSync } = await import('node:child_process');
 				execSync('git init', { cwd: testDir, stdio: 'pipe' });
 				execSync('git config user.email "test@test.com"', {
@@ -1091,6 +1091,10 @@ describe('handleCloseCommand', () => {
 					stdio: 'pipe',
 				});
 				execSync('git config user.name "Test"', {
+					cwd: testDir,
+					stdio: 'pipe',
+				});
+				execSync('git config commit.gpgsign false', {
 					cwd: testDir,
 					stdio: 'pipe',
 				});
