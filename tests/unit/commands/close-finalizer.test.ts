@@ -273,82 +273,81 @@ describe('handleCloseCommand — finalizer stages', () => {
 			expect(result).toContain('finalized');
 		});
 
-		it('partial archive: only deletes files that were successfully archived', async () => {
-			// Create two active-state files: events.jsonl and handoff.md
+		it('partial archive failure: file that fails to copy is preserved, file that succeeds is deleted', async () => {
+			// Genuine partial-failure test: make handoff.md a DIRECTORY instead
+			// of a file. fs.copyFile will throw EISDIR when trying to copy a
+			// directory, so handoff.md will NOT be in archivedActiveStateFiles.
+			// Meanwhile events.jsonl is a normal file and WILL be archived.
+			// The clean stage must delete events.jsonl but preserve handoff.md.
+			writePlan();
 			writeFileSync(
 				path.join(swarmDir(), 'events.jsonl'),
 				'{"event":"important"}\n',
 			);
+			// Create handoff.md as a directory — copyFile will fail on this
+			mkdirSync(path.join(swarmDir(), 'handoff.md'), { recursive: true });
+			// Put a file inside so it's not empty (proves it's preserved)
 			writeFileSync(
-				path.join(swarmDir(), 'handoff.md'),
-				'# Handoff data\nCritical info.',
+				path.join(swarmDir(), 'handoff.md', 'data.txt'),
+				'critical data',
 			);
-			// Also create plan.json so archive has something to copy
-			writePlan();
-
-			// Pre-create the archive directory, then make the archive copy
-			// succeed for plan.json and events.jsonl but fail for handoff.md
-			// by making the source path unreadable after archiving events.jsonl.
-			// Since we can't easily intercept individual copyFile calls, we
-			// test this by verifying that a file NOT in ARCHIVE_ARTIFACTS but
-			// present in ACTIVE_STATE_TO_CLEAN is preserved.
 
 			const result = await handleCloseCommand(testDir, []);
 
-			// events.jsonl was in ARCHIVE_ARTIFACTS, so it should be archived + deleted
+			// events.jsonl was successfully archived → should be deleted
 			expect(existsSync(path.join(swarmDir(), 'events.jsonl'))).toBe(false);
-			// handoff.md was in ARCHIVE_ARTIFACTS, so it should be archived + deleted
-			expect(existsSync(path.join(swarmDir(), 'handoff.md'))).toBe(false);
-			// Both should be in the archive
-			const archiveBase = path.join(swarmDir(), 'archive');
-			const archiveDirs = readdirSync(archiveBase).filter((e) =>
-				e.startsWith('swarm-'),
-			);
-			const latestArchive = path.join(archiveBase, archiveDirs[0]);
-			expect(existsSync(path.join(latestArchive, 'events.jsonl'))).toBe(true);
-			expect(existsSync(path.join(latestArchive, 'handoff.md'))).toBe(true);
+			// handoff.md failed to archive (EISDIR) → must be PRESERVED
+			expect(existsSync(path.join(swarmDir(), 'handoff.md'))).toBe(true);
+			// The data inside must still be intact
+			expect(
+				readFileSync(path.join(swarmDir(), 'handoff.md', 'data.txt'), 'utf-8'),
+			).toBe('critical data');
+			// Result should contain a warning about the preserved file
+			expect(result).toContain('Preserved handoff.md');
 			expect(result).toContain('Archived');
 		});
 
-		it('preserves active-state files when only non-active-state artifacts were archived', async () => {
-			// Create an active-state file (events.jsonl) and a non-active-state
-			// artifact (context.md). If only context.md gets archived (simulated
-			// by not having events.jsonl in the source for archiving),
-			// events.jsonl must NOT be deleted.
-
-			// Only create context.md (which is in ARCHIVE_ARTIFACTS but NOT in
-			// ACTIVE_STATE_TO_CLEAN) — this means archivedFileCount > 0 but
-			// archivedActiveStateFiles is empty
+		it('preserves ALL active-state files when only non-active-state artifacts are archived', async () => {
+			// Create context.md (in ARCHIVE_ARTIFACTS but NOT in ACTIVE_STATE_TO_CLEAN)
+			// and make ALL active-state files fail to archive by creating them
+			// as directories. This means archivedFileCount > 0 (context.md succeeds)
+			// but archivedActiveStateFiles is empty → no active-state files deleted.
 			writeFileSync(
 				path.join(swarmDir(), 'context.md'),
-				'# Context\nSome context.',
+				'# Context\nImportant context.',
 			);
-			// Create an active-state file that was NOT archived
-			// (it's not in .swarm/ source for ARCHIVE_ARTIFACTS match)
-			// Actually, events.jsonl IS in ARCHIVE_ARTIFACTS. So to test the
-			// case where an active-state file fails to archive, we need a
-			// scenario where the file exists but copyFile fails for it.
-			// Instead, test the inverse: files NOT present in source won't
-			// be in archivedActiveStateFiles, so they won't be deleted.
-
-			// Create handoff.md as an active-state file
-			writeFileSync(path.join(swarmDir(), 'handoff.md'), '# Important handoff');
+			// Create events.jsonl as a directory so copyFile fails
+			mkdirSync(path.join(swarmDir(), 'events.jsonl'), { recursive: true });
+			writeFileSync(
+				path.join(swarmDir(), 'events.jsonl', 'data.txt'),
+				'event data',
+			);
+			// Create escalation-report.md as a directory so copyFile fails
+			mkdirSync(path.join(swarmDir(), 'escalation-report.md'), {
+				recursive: true,
+			});
 
 			const result = await handleCloseCommand(testDir, []);
 
-			// context.md was archived successfully (archivedFileCount > 0)
-			// handoff.md was also archived (it's in ARCHIVE_ARTIFACTS)
-			// Both should be handled correctly
+			// context.md was archived (archivedFileCount > 0)
 			expect(result).toContain('Archived');
-
-			// Verify the archive contains the files
-			const archiveBase = path.join(swarmDir(), 'archive');
-			const archiveDirs = readdirSync(archiveBase).filter((e) =>
-				e.startsWith('swarm-'),
+			// But no active-state files were archived → archivedActiveStateFiles empty
+			// So events.jsonl directory must still exist
+			expect(existsSync(path.join(swarmDir(), 'events.jsonl'))).toBe(true);
+			expect(
+				readFileSync(
+					path.join(swarmDir(), 'events.jsonl', 'data.txt'),
+					'utf-8',
+				),
+			).toBe('event data');
+			// escalation-report.md directory must still exist
+			expect(existsSync(path.join(swarmDir(), 'escalation-report.md'))).toBe(
+				true,
 			);
-			const latestArchive = path.join(archiveBase, archiveDirs[0]);
-			expect(existsSync(path.join(latestArchive, 'context.md'))).toBe(true);
-			expect(existsSync(path.join(latestArchive, 'handoff.md'))).toBe(true);
+			// archivedActiveStateFiles is empty → uses the bulk skip warning
+			expect(result).toContain(
+				'Skipped active-state cleanup because no active-state files were archived',
+			);
 		});
 
 		it('only files in archivedActiveStateFiles set are deleted during cleanup', async () => {
