@@ -8,6 +8,7 @@ import type { KnowledgeCategory } from '../../../src/hooks/knowledge-types.js';
 import {
 	DANGEROUS_COMMAND_PATTERNS,
 	INJECTION_PATTERNS,
+	INVISIBLE_FORMAT_CHARS,
 	SECURITY_DEGRADING_PATTERNS,
 	validateLesson,
 } from '../../../src/hooks/knowledge-validator.js';
@@ -434,6 +435,138 @@ describe('knowledge-validator', () => {
 				reason: null,
 				severity: null,
 			});
+		});
+	});
+
+	// =========================================================================
+	// INVISIBLE_FORMAT_CHARS Constant Verification
+	// =========================================================================
+
+	describe('INVISIBLE_FORMAT_CHARS', () => {
+		it('is exported and defined', () => {
+			expect(INVISIBLE_FORMAT_CHARS).toBeDefined();
+			expect(INVISIBLE_FORMAT_CHARS).toBeInstanceOf(RegExp);
+		});
+
+		it('matches U+200B (Zero Width Space)', () => {
+			const input = 'word\u200Bword';
+			const matches = input.match(INVISIBLE_FORMAT_CHARS);
+			expect(matches).not.toBeNull();
+			expect(matches!.length).toBe(1);
+			expect(matches![0]).toBe('\u200B');
+		});
+
+		it('matches U+00AD (Soft Hyphen)', () => {
+			const input = 'word\u00ADword';
+			const matches = input.match(INVISIBLE_FORMAT_CHARS);
+			expect(matches).not.toBeNull();
+			expect(matches!.length).toBe(1);
+			expect(matches![0]).toBe('\u00AD');
+		});
+
+		it('matches U+FEFF (Byte Order Mark)', () => {
+			const input = '\uFEFFword';
+			const matches = input.match(INVISIBLE_FORMAT_CHARS);
+			expect(matches).not.toBeNull();
+			expect(matches!.length).toBe(1);
+			expect(matches![0]).toBe('\uFEFF');
+		});
+
+		it('matches U+202A (Left-to-Right Embedding)', () => {
+			const input = 'word\u202Aword';
+			const matches = input.match(INVISIBLE_FORMAT_CHARS);
+			expect(matches).not.toBeNull();
+			expect(matches!.length).toBe(1);
+			expect(matches![0]).toBe('\u202A');
+		});
+
+		it('matches multiple invisible characters in a single string', () => {
+			const input = '\u200B\u00AD\uFEFF\u202A';
+			const matches = input.match(INVISIBLE_FORMAT_CHARS);
+			expect(matches).not.toBeNull();
+			expect(matches!.length).toBe(4);
+		});
+
+		it('does NOT match normal Latin letters (a, b, z)', () => {
+			const input = 'abcz';
+			const matches = input.match(INVISIBLE_FORMAT_CHARS);
+			expect(matches).toBeNull();
+		});
+
+		it('does NOT match numbers (1, 2, 3)', () => {
+			const input = '123';
+			const matches = input.match(INVISIBLE_FORMAT_CHARS);
+			expect(matches).toBeNull();
+		});
+
+		it('does NOT match regular space character', () => {
+			const input = 'word word';
+			const matches = input.match(INVISIBLE_FORMAT_CHARS);
+			expect(matches).toBeNull();
+		});
+
+		it('does NOT match common punctuation (. , ! ?)', () => {
+			const input = 'word.,!?';
+			const matches = input.match(INVISIBLE_FORMAT_CHARS);
+			expect(matches).toBeNull();
+		});
+
+		it('does NOT match whitespace characters (tab, newline)', () => {
+			const input = 'word\tword\nword';
+			const matches = input.match(INVISIBLE_FORMAT_CHARS);
+			expect(matches).toBeNull();
+		});
+
+		it('does NOT match Unicode letters (é, ñ, ü)', () => {
+			const input = 'café naïve über';
+			const matches = input.match(INVISIBLE_FORMAT_CHARS);
+			expect(matches).toBeNull();
+		});
+
+		it('has global flag (matches all occurrences)', () => {
+			const input = '\u200Bword\u200Bword\u200B';
+			const matches = input.match(INVISIBLE_FORMAT_CHARS);
+			expect(matches).not.toBeNull();
+			expect(matches!.length).toBe(3);
+		});
+
+		it('matches U+2066 (Left-to-Right Isolate)', () => {
+			const input = 'word\u2066word';
+			const matches = input.match(INVISIBLE_FORMAT_CHARS);
+			expect(matches).not.toBeNull();
+			expect(matches!.length).toBe(1);
+			expect(matches![0]).toBe('\u2066');
+		});
+
+		it('matches U+2067 (Right-to-Left Isolate)', () => {
+			const input = 'word\u2067word';
+			const matches = input.match(INVISIBLE_FORMAT_CHARS);
+			expect(matches).not.toBeNull();
+			expect(matches!.length).toBe(1);
+			expect(matches![0]).toBe('\u2067');
+		});
+
+		it('matches U+2068 (First Strong Isolate)', () => {
+			const input = 'word\u2068word';
+			const matches = input.match(INVISIBLE_FORMAT_CHARS);
+			expect(matches).not.toBeNull();
+			expect(matches!.length).toBe(1);
+			expect(matches![0]).toBe('\u2068');
+		});
+
+		it('matches U+2069 (Pop Directional Isolate)', () => {
+			const input = 'word\u2069word';
+			const matches = input.match(INVISIBLE_FORMAT_CHARS);
+			expect(matches).not.toBeNull();
+			expect(matches!.length).toBe(1);
+			expect(matches![0]).toBe('\u2069');
+		});
+
+		it('matches all BiDi isolate characters together', () => {
+			const input = '\u2066\u2067\u2068\u2069';
+			const matches = input.match(INVISIBLE_FORMAT_CHARS);
+			expect(matches).not.toBeNull();
+			expect(matches!.length).toBe(4);
 		});
 	});
 });

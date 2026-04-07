@@ -59,9 +59,13 @@ export const SECURITY_DEGRADING_PATTERNS: RegExp[] = [
 	/remove\s+.{0,50}password/i,
 ];
 
+export const INVISIBLE_FORMAT_CHARS =
+	/[\u00AD\u200B-\u200F\u202A-\u202E\u2060-\u2064\u2066-\u2069\uFEFF]/g;
+
 export const INJECTION_PATTERNS: RegExp[] = [
 	// biome-ignore lint/suspicious/noControlCharactersInRegex: intentional — pattern detects injected control characters
 	/[\x00-\x08\x0b-\x0c\x0e-\x1f\x7f\x0d]/,
+	/[\u00AD\u200B-\u200F\u202A-\u202E\u2060-\u2064\u2066-\u2069\uFEFF]/, // invisible format chars
 	/^system\s*:/i,
 	/<script/i,
 	/javascript:/i,
@@ -274,7 +278,11 @@ export function validateLesson(
 
 	// Layer 2 — Content Safety Checks
 	// Normalize text before content safety checks to prevent Unicode homoglyph bypass
-	const normalizedCandidate = candidate.normalize('NFKC').toLowerCase();
+	const normalizedCandidate = candidate
+		.normalize('NFKC')
+		.replace(INVISIBLE_FORMAT_CHARS, ' ')
+		.replace(/\s+/g, ' ')
+		.toLowerCase();
 
 	for (const pattern of DANGEROUS_COMMAND_PATTERNS) {
 		if (pattern.test(normalizedCandidate)) {
