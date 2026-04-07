@@ -1,5 +1,12 @@
 # Changelog
 
+## [6.53.7](https://github.com/zaxbysauce/opencode-swarm/compare/v6.53.6...v6.53.7) (2026-04-07)
+
+
+### Bug Fixes
+
+* **security:** strip invisible unicode format chars before dangerous command pattern matching ([#429](https://github.com/zaxbysauce/opencode-swarm/issues/429)) ([70cb47c](https://github.com/zaxbysauce/opencode-swarm/commit/70cb47c7ca0e7682a74de216fa1f3da2aec00fdf))
+
 ## [6.53.6](https://github.com/zaxbysauce/opencode-swarm/compare/v6.53.5...v6.53.6) (2026-04-07)
 
 
