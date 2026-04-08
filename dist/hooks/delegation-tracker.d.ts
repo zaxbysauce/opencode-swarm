@@ -5,6 +5,7 @@
  * Updates the active agent map and optionally logs delegation chain entries.
  */
 import type { PluginConfig } from '../config/schema';
+export type { DelegationReason } from '../state';
 /**
  * Creates the chat.message hook for delegation tracking.
  */

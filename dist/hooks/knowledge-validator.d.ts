@@ -8,6 +8,7 @@ export interface ValidationResult {
 }
 export declare const DANGEROUS_COMMAND_PATTERNS: RegExp[];
 export declare const SECURITY_DEGRADING_PATTERNS: RegExp[];
+export declare const INVISIBLE_FORMAT_CHARS: RegExp;
 export declare const INJECTION_PATTERNS: RegExp[];
 export declare function validateLesson(candidate: string, existingLessons: string[], meta: {
     category: KnowledgeCategory;

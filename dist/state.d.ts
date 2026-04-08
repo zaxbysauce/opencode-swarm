@@ -35,6 +35,11 @@ export interface DelegationEntry {
     timestamp: number;
 }
 /**
+ * Reason a non-architect agent was activated during delegation tracking.
+ * Used by delegation-tracker.ts to record why a delegation occurred.
+ */
+export type DelegationReason = 'normal_delegation' | 'review_rejected' | 'critic_consultation' | 'retry_circuit_breaker' | 'conflict_escalation' | 'stale_recovery';
+/**
  * Per-task workflow state for gate progression tracking.
  * Transitions must be forward-only: idle → coder_delegated → pre_check_passed → reviewer_run → tests_run → complete
  */
@@ -53,6 +58,8 @@ export interface AgentSessionState {
     lastAgentEventTime: number;
     /** Whether active delegation is in progress for this session */
     delegationActive: boolean;
+    /** Reason the most recent non-architect agent was activated */
+    lastDelegationReason?: DelegationReason;
     /** Current active invocation ID for this agent */
     activeInvocationId: number;
     /** Last invocation ID by agent name (e.g., { "coder": 3, "reviewer": 1 }) */

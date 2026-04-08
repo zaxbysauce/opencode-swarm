@@ -18,7 +18,7 @@ export declare function formatAdversarialWarning(agentA: string, agentB: string,
  * Uses string/regex matching to detect sophisticated adversarial behaviors.
  */
 export interface AdversarialPatternMatch {
-    pattern: 'PRECEDENT_MANIPULATION' | 'SELF_REVIEW' | 'CONTENT_EXEMPTION' | 'GATE_DELEGATION_BYPASS' | 'VELOCITY_RATIONALIZATION' | 'INTER_AGENT_MANIPULATION' | 'GATE_MISCLASSIFICATION';
+    pattern: 'PRECEDENT_MANIPULATION' | 'SELF_REVIEW' | 'CONTENT_EXEMPTION' | 'GATE_DELEGATION_BYPASS' | 'VELOCITY_RATIONALIZATION' | 'INTER_AGENT_MANIPULATION' | 'GATE_MISCLASSIFICATION' | 'REJECTION_SPIRAL';
     severity: 'HIGHEST' | 'HIGH' | 'MEDIUM' | 'LOW';
     matchedText: string;
     confidence: 'HIGH' | 'MEDIUM' | 'LOW';

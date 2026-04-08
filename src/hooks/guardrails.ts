@@ -33,6 +33,7 @@ import {
 } from '../state';
 import { telemetry } from '../telemetry.js';
 import { log, warn } from '../utils';
+import { resolveAgentConflict } from './conflict-resolution';
 import { extractCurrentPhaseFromPlan } from './extractors';
 import { detectLoop } from './loop-detector';
 import { extractModelInfo } from './model-limits';
@@ -1173,6 +1174,36 @@ export function createGuardrailsHooks(
 					// v6.33: Bounded coder revisions — increment and check ceiling
 					if (!session.revisionLimitHit) {
 						session.coderRevisions++;
+						// Issue #414: Wire conflict resolution on reviewer→coder rejection cycles.
+						// Guard: coderRevisions > 1 (re-delegation occurred) AND qaSkipCount === 0
+						// (reviewer was properly invoked between coder completions — not a QA skip).
+						// qaSkipCount is reset to 0 by the QA gate when BOTH reviewer AND test_engineer
+						// have run since the last coder (see delegation-gate.ts: hasReviewer && hasTestEngineer).
+						// It is incremented when coder is re-delegated without a gate agent in between.
+						if (session.coderRevisions > 1 && session.qaSkipCount === 0) {
+							let conflictPhase = 1;
+							try {
+								const plan = await loadPlan(effectiveDirectory);
+								if (plan) {
+									conflictPhase = extractPhaseNumber(
+										extractCurrentPhaseFromPlan(plan),
+									);
+								}
+							} catch {
+								// Non-fatal: default to phase 1
+							}
+							resolveAgentConflict({
+								sessionID: input.sessionID,
+								phase: conflictPhase,
+								taskId: session.currentTaskId ?? undefined,
+								sourceAgent: 'reviewer',
+								targetAgent: 'coder',
+								conflictType: 'feedback_rejection',
+								rejectionCount: session.coderRevisions - 1,
+								summary: `Coder revision ${session.coderRevisions} for task ${session.currentTaskId ?? 'unknown'}`,
+							});
+							session.lastDelegationReason = 'review_rejected';
+						}
 						const maxRevisions = cfg.max_coder_revisions ?? 5;
 						if (session.coderRevisions >= maxRevisions) {
 							session.revisionLimitHit = true;

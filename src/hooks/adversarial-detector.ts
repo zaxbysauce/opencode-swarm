@@ -84,7 +84,8 @@ export interface AdversarialPatternMatch {
 		| 'GATE_DELEGATION_BYPASS'
 		| 'VELOCITY_RATIONALIZATION'
 		| 'INTER_AGENT_MANIPULATION'
-		| 'GATE_MISCLASSIFICATION';
+		| 'GATE_MISCLASSIFICATION'
+		| 'REJECTION_SPIRAL';
 	severity: 'HIGHEST' | 'HIGH' | 'MEDIUM' | 'LOW';
 	matchedText: string;
 	confidence: 'HIGH' | 'MEDIUM' | 'LOW';
@@ -243,6 +244,18 @@ const INTER_AGENT_MANIPULATION_PATTERNS = [
 ];
 
 /**
+ * Pattern: REJECTION_SPIRAL
+ * Trigger: Agent references a repeated reject/resubmit cycle, indicating the pipeline
+ *   is stuck in a feedback loop rather than converging on a fix.
+ * Severity: HIGH — repeated rejection without convergence is a pipeline stall.
+ */
+const REJECTION_SPIRAL_PATTERNS = [
+	/\b(?:rejected|failed\s+review|needs\s+revision)\b.*\b(?:again|third\s+time|4th\s+time|5th\s+time|for\s+the\s+\d+(?:st|nd|rd|th)\s+time)\b/i,
+	/\b(?:same\s+feedback|same\s+issues?)\b.*\b(?:again|repeated|multiple\s+times?)\b/i,
+	/\b(?:stuck|trapped|endless|repeating)\b.*\b(?:loop|cycle)\b/i,
+];
+
+/**
  * Detect adversarial patterns in agent output text.
  * Returns array of matches or empty array if no patterns detected.
  */
@@ -340,6 +353,19 @@ export function detectAdversarialPatterns(
 		if (match) {
 			matches.push({
 				pattern: 'INTER_AGENT_MANIPULATION',
+				severity: 'HIGH',
+				matchedText: match[0],
+				confidence: 'HIGH',
+			});
+		}
+	}
+
+	// Check REJECTION_SPIRAL
+	for (const pattern of REJECTION_SPIRAL_PATTERNS) {
+		const match = text.match(pattern);
+		if (match) {
+			matches.push({
+				pattern: 'REJECTION_SPIRAL',
 				severity: 'HIGH',
 				matchedText: match[0],
 				confidence: 'HIGH',
