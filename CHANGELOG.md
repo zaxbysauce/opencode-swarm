@@ -1,5 +1,12 @@
 # Changelog
 
+## [6.58.0](https://github.com/zaxbysauce/opencode-swarm/compare/v6.57.0...v6.58.0) (2026-04-08)
+
+
+### Features
+
+* **architect:** add structured spec format with RFC 2119 keywords and requirement coverage tracking ([#440](https://github.com/zaxbysauce/opencode-swarm/issues/440)) ([8f821a6](https://github.com/zaxbysauce/opencode-swarm/commit/8f821a6e9546a0be677456107a9b9a46ae49e688))
+
 ## [6.57.0](https://github.com/zaxbysauce/opencode-swarm/compare/v6.56.0...v6.57.0) (2026-04-08)
 
 
