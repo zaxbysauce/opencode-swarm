@@ -1174,16 +1174,26 @@ export function createGuardrailsHooks(
 					// v6.33: Bounded coder revisions — increment and check ceiling
 					if (!session.revisionLimitHit) {
 						session.coderRevisions++;
-						// Issue #414: Wire conflict resolution on reviewer→coder rejection cycles
-						// coderRevisions > 1 means coder was re-delegated after a prior reviewer cycle
-						if (session.coderRevisions > 1) {
-							const phase =
-								session.reviewerCallCount.size > 0
-									? Math.max(...session.reviewerCallCount.keys())
-									: 1;
+						// Issue #414: Wire conflict resolution on reviewer→coder rejection cycles.
+						// Guard: coderRevisions > 1 (re-delegation occurred) AND qaSkipCount === 0
+						// (reviewer was properly invoked between coder completions — not a QA skip).
+						// qaSkipCount is reset to 0 by the QA gate when reviewer/test_engineer fires,
+						// and incremented when coder is re-delegated without a gate agent in between.
+						if (session.coderRevisions > 1 && session.qaSkipCount === 0) {
+							let conflictPhase = 1;
+							try {
+								const plan = await loadPlan(effectiveDirectory);
+								if (plan) {
+									conflictPhase = extractPhaseNumber(
+										extractCurrentPhaseFromPlan(plan),
+									);
+								}
+							} catch {
+								// Non-fatal: default to phase 1
+							}
 							resolveAgentConflict({
 								sessionID: input.sessionID,
-								phase,
+								phase: conflictPhase,
 								taskId: session.currentTaskId ?? undefined,
 								sourceAgent: 'reviewer',
 								targetAgent: 'coder',

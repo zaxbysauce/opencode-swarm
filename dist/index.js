@@ -55277,11 +55277,17 @@ function createGuardrailsHooks(directory, directoryOrConfig, config3, authorityC
           session.currentTaskId = session.lastCoderDelegationTaskId;
           if (!session.revisionLimitHit) {
             session.coderRevisions++;
-            if (session.coderRevisions > 1) {
-              const phase = session.reviewerCallCount.size > 0 ? Math.max(...session.reviewerCallCount.keys()) : 1;
+            if (session.coderRevisions > 1 && session.qaSkipCount === 0) {
+              let conflictPhase = 1;
+              try {
+                const plan = await loadPlan(effectiveDirectory);
+                if (plan) {
+                  conflictPhase = extractPhaseNumber(extractCurrentPhaseFromPlan2(plan));
+                }
+              } catch {}
               resolveAgentConflict({
                 sessionID: input.sessionID,
-                phase,
+                phase: conflictPhase,
                 taskId: session.currentTaskId ?? undefined,
                 sourceAgent: "reviewer",
                 targetAgent: "coder",
@@ -73562,8 +73568,8 @@ var OpenCodeSwarm = async (ctx) => {
           if (baseAgentName === "critic_sounding_board") {
             const rawResponse = typeof output.output === "string" ? output.output : "";
             const parsed = parseSoundingBoardResponse(rawResponse);
+            taskSession.pendingAdvisoryMessages ??= [];
             if (parsed) {
-              taskSession.pendingAdvisoryMessages ??= [];
               let verdictMsg = `[SOUNDING_BOARD] Verdict: ${parsed.verdict}. ${parsed.reasoning}`;
               if (parsed.improvedQuestion)
                 verdictMsg += ` Rephrase to: ${parsed.improvedQuestion}`;
@@ -73573,6 +73579,8 @@ var OpenCodeSwarm = async (ctx) => {
                 verdictMsg += ` WARNING: ${parsed.warning}`;
               taskSession.pendingAdvisoryMessages.push(verdictMsg);
               taskSession.lastDelegationReason = "critic_consultation";
+            } else {
+              taskSession.pendingAdvisoryMessages.push(`[SOUNDING_BOARD] WARNING: Could not parse a structured verdict from critic_sounding_board response (${rawResponse.length} chars). Treat as APPROVED and proceed, but review the raw response for manual guidance.`);
             }
           }
         }
