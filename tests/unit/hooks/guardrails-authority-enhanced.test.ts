@@ -9,19 +9,16 @@
  * - Default agent authority rules
  */
 
-import { describe, test, expect, beforeEach, afterEach } from 'bun:test';
+import { afterEach, beforeEach, describe, expect, test } from 'bun:test';
+import * as fs from 'node:fs/promises';
+import * as os from 'node:os';
 import * as path from 'node:path';
-import * as fsSync from 'node:fs';
-
+import { classifyFile } from '../../../src/context/zone-classifier';
 import {
+	type AuthorityConfig,
 	checkFileAuthority,
 	DEFAULT_AGENT_AUTHORITY_RULES,
-	type AuthorityConfig,
 } from '../../../src/hooks/guardrails';
-import {
-	classifyFile,
-	type FileZone,
-} from '../../../src/context/zone-classifier';
 
 const TEST_CWD = '/test/project';
 
@@ -403,7 +400,7 @@ describe('checkFileAuthorityWithRules - DENY-first evaluation', () => {
 	});
 
 	describe('Priority: allowedExact over blockedGlobs', () => {
-		test('blockedGlobs blocks before allowedExact check', () => {
+		test('allowedExact rescues a path that matches blockedGlobs', () => {
 			const authorityConfig: AuthorityConfig = {
 				enabled: true,
 				rules: {
@@ -421,13 +418,75 @@ describe('checkFileAuthorityWithRules - DENY-first evaluation', () => {
 				TEST_CWD,
 				authorityConfig,
 			);
-			// blockedGlobs blocks first, allowedExact is not checked for blocked paths
-			// error.log matches **/*.log glob pattern
+			// allowedExact overrides blockedGlobs — error.log is explicitly allowed
+			expect(result.allowed).toBe(true);
+		});
+
+		test('blockedGlobs blocks when no allowedExact matches', () => {
+			const authorityConfig: AuthorityConfig = {
+				enabled: true,
+				rules: {
+					test_agent: {
+						blockedGlobs: ['**/*.log'],
+						allowedExact: ['other.log'],
+					},
+				},
+			};
+
+			const result = checkFileAuthority(
+				'test_agent',
+				'error.log',
+				TEST_CWD,
+				authorityConfig,
+			);
+			// error.log matches blockedGlobs but not allowedExact → blocked
 			expect(result.allowed).toBe(false);
 			expect(result.reason).toContain('blocked (glob');
 		});
 
-		test('allowedExact works when not matched by blockedGlobs', () => {
+		test('allowedGlobs rescues a path that matches blockedGlobs', () => {
+			const authorityConfig: AuthorityConfig = {
+				enabled: true,
+				rules: {
+					test_agent: {
+						blockedGlobs: ['src/**'],
+						allowedGlobs: ['src/special/**'],
+					},
+				},
+			};
+
+			const result = checkFileAuthority(
+				'test_agent',
+				'src/special/file.ts',
+				TEST_CWD,
+				authorityConfig,
+			);
+			// allowedGlobs rescues src/special/** from the broader src/** block
+			expect(result.allowed).toBe(true);
+		});
+
+		test('blockedExact is absolute and not rescued by allowedExact', () => {
+			const authorityConfig: AuthorityConfig = {
+				enabled: true,
+				rules: {
+					test_agent: {
+						blockedExact: ['secret.txt'],
+						allowedExact: ['secret.txt'],
+					},
+				},
+			};
+
+			const result = checkFileAuthority(
+				'test_agent',
+				'secret.txt',
+				TEST_CWD,
+				authorityConfig,
+			);
+			// blockedExact always wins — it is the absolute deny
+			expect(result.allowed).toBe(false);
+		});
+
+		test('allowedExact works when path does not match blockedGlobs at all', () => {
 			const authorityConfig: AuthorityConfig = {
 				enabled: true,
 				rules: {
@@ -445,7 +504,7 @@ describe('checkFileAuthorityWithRules - DENY-first evaluation', () => {
 				authorityConfig,
 			);
 			// error.log does NOT match logs/*.log (not in logs/ directory)
-			// so allowedExact allows it
+			// allowedExact also matches — allowed
 			expect(result.allowed).toBe(true);
 		});
 	});
@@ -688,5 +747,113 @@ describe('Classification integration', () => {
 	test('classifyFile identifies config files', () => {
 		const result = classifyFile('tsconfig.json');
 		expect(result.zone).toBe('config');
+	});
+});
+
+describe('Symlink resolution via normalizePathWithCache', () => {
+	let tempDir: string;
+	let outsideDir: string;
+
+	beforeEach(async () => {
+		tempDir = await fs.mkdtemp(path.join(os.tmpdir(), 'guardrails-symlink-'));
+		outsideDir = await fs.mkdtemp(
+			path.join(os.tmpdir(), 'guardrails-outside-'),
+		);
+	});
+
+	afterEach(async () => {
+		await fs.rm(tempDir, { recursive: true, force: true });
+		await fs.rm(outsideDir, { recursive: true, force: true });
+	});
+
+	test('symlink inside project resolves and passes prefix rules', async () => {
+		// Set up: real file + symlink to it, both inside src/
+		await fs.mkdir(path.join(tempDir, 'src'), { recursive: true });
+		await fs.writeFile(path.join(tempDir, 'src', 'real-file.ts'), 'export {};');
+		await fs.symlink(
+			path.join(tempDir, 'src', 'real-file.ts'),
+			path.join(tempDir, 'src', 'link.ts'),
+		);
+
+		const authorityConfig: AuthorityConfig = {
+			enabled: true,
+			rules: {
+				test_agent: {
+					allowedPrefix: ['src/'],
+				},
+			},
+		};
+
+		const result = checkFileAuthority(
+			'test_agent',
+			'src/link.ts',
+			tempDir,
+			authorityConfig,
+		);
+		// Symlink resolves to src/real-file.ts — still inside src/ — allowed
+		expect(result.allowed).toBe(true);
+	});
+
+	test('symlink pointing outside project is blocked by prefix rules', async () => {
+		// Set up: real file outside project, symlink inside src/ pointing to it
+		await fs.mkdir(path.join(tempDir, 'src'), { recursive: true });
+		await fs.writeFile(
+			path.join(outsideDir, 'secret.ts'),
+			'export const secret = "outside";',
+		);
+		await fs.symlink(
+			path.join(outsideDir, 'secret.ts'),
+			path.join(tempDir, 'src', 'traversal.ts'),
+		);
+
+		const authorityConfig: AuthorityConfig = {
+			enabled: true,
+			rules: {
+				test_agent: {
+					allowedPrefix: ['src/'],
+				},
+			},
+		};
+
+		const result = checkFileAuthority(
+			'test_agent',
+			'src/traversal.ts',
+			tempDir,
+			authorityConfig,
+		);
+		// Symlink resolves to outside the project — relative path no longer starts with src/ — blocked
+		expect(result.allowed).toBe(false);
+		expect(result.reason).toContain('not in allowed list');
+	});
+
+	test('normalizePathWithCache produces consistent results across repeated calls', async () => {
+		await fs.mkdir(path.join(tempDir, 'src'), { recursive: true });
+		await fs.writeFile(path.join(tempDir, 'src', 'file.ts'), 'export {};');
+
+		const authorityConfig: AuthorityConfig = {
+			enabled: true,
+			rules: {
+				test_agent: {
+					allowedPrefix: ['src/'],
+				},
+			},
+		};
+
+		// Call the same path twice — second call should use cached result
+		const result1 = checkFileAuthority(
+			'test_agent',
+			'src/file.ts',
+			tempDir,
+			authorityConfig,
+		);
+		const result2 = checkFileAuthority(
+			'test_agent',
+			'src/file.ts',
+			tempDir,
+			authorityConfig,
+		);
+
+		expect(result1.allowed).toBe(result2.allowed);
+		expect(result1.allowed).toBe(true);
 	});
 });

@@ -688,12 +688,12 @@ Override default rules in `.opencode/opencode-swarm.json`:
 | Field | Type | Description |
 |-------|------|-------------|
 | `readOnly` | boolean | If `true`, agent cannot write anywhere |
-| `blockedExact` | string[] | Exact file paths that are blocked |
-| `allowedExact` | string[] | Exact file paths that are allowed (overrides prefix/glob restrictions) |
+| `blockedExact` | string[] | Exact file paths that are **absolutely** blocked — cannot be rescued by `allowedExact` or any other rule |
+| `allowedExact` | string[] | Exact file paths that are allowed; rescues paths matched by `blockedGlobs`, `blockedPrefix`, or zone rules (but NOT `blockedExact`) |
 | `blockedPrefix` | string[] | Path prefixes that are blocked (e.g., `.swarm/`) |
 | `allowedPrefix` | string[] | Only these path prefixes are allowed. Omit to remove restriction; set `[]` to deny all |
-| `blockedGlobs` | string[] | Glob patterns that are blocked (uses picomatch: `**`, `*`, `?`) |
-| `allowedGlobs` | string[] | Glob patterns that are allowed (uses picomatch: `**`, `*`, `?`) |
+| `blockedGlobs` | string[] | Glob patterns that are blocked (uses picomatch: `**`, `*`, `?`). Paths matching this can still be rescued by `allowedExact` or `allowedGlobs` |
+| `allowedGlobs` | string[] | Glob patterns that are allowed (uses picomatch: `**`, `*`, `?`); rescues paths matched by `blockedGlobs`, `blockedPrefix`, or zone rules |
 | `blockedZones` | string[] | File zones to block: `production`, `test`, `config`, `generated`, `docs`, `build` |
 
 ### Merge Behavior
@@ -760,14 +760,19 @@ Use glob patterns for complex path matching:
 - Uses [picomatch](https://github.com/micromatch/picomatch) for cross-platform compatibility
 
 **Evaluation Order:**
-1. `readOnly` check (if true, deny all writes)
-2. `blockedExact` (exact path matches, highest priority)
-3. `blockedGlobs` (glob pattern matches)
-4. `allowedExact` (exact path matches, overrides prefix/glob restrictions)
-5. `allowedGlobs` (glob pattern matches)
-6. `allowedPrefix` (prefix matches)
-7. `blockedPrefix` (prefix matches)
-8. `blockedZones` (zone classification)
+1. `readOnly` check — if true, deny all writes immediately
+2. `blockedExact` — absolute deny; matching paths are blocked with no rescue
+3. `blockedGlobs` — records a pending deny (does **not** immediately return; steps 4–5 may rescue)
+4. `allowedExact` — if a path matches, allow immediately (rescues from step 3 and subsequent rules)
+5. `allowedGlobs` — if a path matches, allow immediately (rescues from step 3 and subsequent rules)
+6. Apply deferred deny from step 3 if no rescue at steps 4–5
+7. `allowedPrefix` — if configured and path does not match any prefix, deny
+8. `blockedPrefix` — if path matches a blocked prefix, deny
+9. `blockedZones` — if path is classified into a blocked zone, deny
+
+> **Key behavior:** `blockedExact` is an absolute veto — `allowedExact` cannot override it. `blockedGlobs`, by contrast, uses a deferred-deny model: a match at step 3 is overridden if `allowedExact` or `allowedGlobs` match at steps 4–5. This lets you express "block all logs except this one critical file" with `blockedGlobs: ["**/*.log"]` + `allowedExact: ["error.log"]`.
+
+**Path normalization and case sensitivity:** Paths are resolved via `realpathSync` before matching, which resolves symlinks and prevents path-traversal escapes. On case-insensitive filesystems (Windows, macOS), all comparisons are case-insensitive to match the underlying filesystem behavior.
 
 </details>
 
