@@ -68,9 +68,9 @@ export const AGENT_TOOL_MAP: Record<AgentName, ToolName[]> = {
 		'doc_scan',
 		'doc_extract',
 		'curator_analyze',
-		'knowledgeAdd',
-		'knowledgeRecall',
-		'knowledgeRemove',
+		'knowledge_add',
+		'knowledge_recall',
+		'knowledge_remove',
 		'co_change_analyzer',
 		'suggest_patch',
 	],
@@ -87,7 +87,7 @@ export const AGENT_TOOL_MAP: Record<AgentName, ToolName[]> = {
 		'symbols',
 		'todo_extract',
 		'doc_scan',
-		'knowledgeRecall',
+		'knowledge_recall',
 	],
 	coder: [
 		'diff',
@@ -99,8 +99,8 @@ export const AGENT_TOOL_MAP: Record<AgentName, ToolName[]> = {
 		'search',
 		'build_check',
 		'syntax_check',
-		'knowledgeAdd',
-		'knowledgeRecall',
+		'knowledge_add',
+		'knowledge_recall',
 	],
 	test_engineer: [
 		'test_runner',
@@ -123,7 +123,7 @@ export const AGENT_TOOL_MAP: Record<AgentName, ToolName[]> = {
 		'retrieve_summary',
 		'schema_drift',
 		'symbols',
-		'knowledgeRecall',
+		'knowledge_recall',
 	],
 	reviewer: [
 		'diff',
@@ -139,7 +139,7 @@ export const AGENT_TOOL_MAP: Record<AgentName, ToolName[]> = {
 		'test_runner',
 		'sast_scan',
 		'placeholder_scan',
-		'knowledgeRecall',
+		'knowledge_recall',
 		'search',
 		'batch_symbols',
 		'suggest_patch',
@@ -150,7 +150,7 @@ export const AGENT_TOOL_MAP: Record<AgentName, ToolName[]> = {
 		'imports',
 		'retrieve_summary',
 		'symbols',
-		'knowledgeRecall',
+		'knowledge_recall',
 	],
 	critic_sounding_board: [
 		'complexity_hotspots',
@@ -158,7 +158,7 @@ export const AGENT_TOOL_MAP: Record<AgentName, ToolName[]> = {
 		'imports',
 		'retrieve_summary',
 		'symbols',
-		'knowledgeRecall',
+		'knowledge_recall',
 	],
 	critic_drift_verifier: [
 		'complexity_hotspots',
@@ -166,7 +166,7 @@ export const AGENT_TOOL_MAP: Record<AgentName, ToolName[]> = {
 		'imports',
 		'retrieve_summary',
 		'symbols',
-		'knowledgeRecall',
+		'knowledge_recall',
 	],
 	critic_oversight: [
 		'complexity_hotspots',
@@ -174,7 +174,7 @@ export const AGENT_TOOL_MAP: Record<AgentName, ToolName[]> = {
 		'imports',
 		'retrieve_summary',
 		'symbols',
-		'knowledgeRecall',
+		'knowledge_recall',
 	],
 	docs: [
 		'detect_domains',
@@ -185,17 +185,17 @@ export const AGENT_TOOL_MAP: Record<AgentName, ToolName[]> = {
 		'schema_drift',
 		'symbols',
 		'todo_extract',
-		'knowledgeRecall',
+		'knowledge_recall',
 	],
 	designer: [
 		'extract_code_blocks',
 		'retrieve_summary',
 		'symbols',
-		'knowledgeRecall',
+		'knowledge_recall',
 	],
 	// Curator agents are read-only analysis roles — knowledge recall only
-	curator_init: ['knowledgeRecall'],
-	curator_phase: ['knowledgeRecall'],
+	curator_init: ['knowledge_recall'],
+	curator_phase: ['knowledge_recall'],
 };
 
 /**
@@ -255,9 +255,9 @@ export const TOOL_DESCRIPTIONS: Partial<Record<ToolName, string>> = {
 	doc_extract: 'extract actionable constraints from project documentation',
 	curator_analyze:
 		'run curator phase analysis and optionally apply knowledge recommendations',
-	knowledgeAdd: 'store a new lesson in the knowledge base',
-	knowledgeRecall: 'search the knowledge base for relevant past decisions',
-	knowledgeRemove: 'delete an outdated knowledge entry by ID',
+	knowledge_add: 'store a new lesson in the knowledge base',
+	knowledge_recall: 'search the knowledge base for relevant past decisions',
+	knowledge_remove: 'delete an outdated knowledge entry by ID',
 	knowledge_query: 'query swarm or hive knowledge with optional filters',
 	co_change_analyzer: 'detect hidden couplings by analyzing git history',
 	check_gate_status: 'check the gate status of a specific task',

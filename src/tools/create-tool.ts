@@ -3,6 +3,10 @@ import { type ToolContext, tool } from '@opencode-ai/plugin';
 /**
  * Options for creating a swarm tool.
  * The args type is inferred from what you pass to the tool() call.
+ *
+ * Note: The session-level EnvironmentProfile is available to any tool that has
+ * a sessionID via `getSessionEnvironment(ctx?.sessionID)` from '../state.js'.
+ * ToolContext is defined externally in @opencode-ai/plugin and is not modified here.
  */
 export interface SwarmToolOptions<Args extends Record<string, unknown>> {
 	description: string;
@@ -12,6 +16,30 @@ export interface SwarmToolOptions<Args extends Record<string, unknown>> {
 		directory: string,
 		ctx?: ToolContext,
 	) => Promise<string>;
+}
+
+type ToolFailureClass =
+	| 'not_registered'
+	| 'not_whitelisted'
+	| 'binary_missing'
+	| 'execution_error';
+
+function classifyToolError(error: unknown): ToolFailureClass {
+	const msg = (
+		error instanceof Error ? error.message : String(error)
+	).toLowerCase();
+	if (msg.includes('not registered') || msg.includes('unknown tool'))
+		return 'not_registered';
+	if (msg.includes('not whitelisted') || msg.includes('not allowed'))
+		return 'not_whitelisted';
+	if (
+		msg.includes('enoent') ||
+		msg.includes('command not found') ||
+		msg.includes('binary not found') ||
+		msg.includes('no such file or directory')
+	)
+		return 'binary_missing';
+	return 'execution_error';
 }
 
 /**
@@ -40,6 +68,7 @@ export function createSwarmTool<Args extends Record<string, unknown>>(
 				return JSON.stringify(
 					{
 						success: false,
+						failure_class: classifyToolError(error),
 						message: 'Tool execution failed',
 						errors: [message],
 					},

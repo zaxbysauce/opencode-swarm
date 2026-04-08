@@ -10,16 +10,16 @@
  * should have been resolved at runtime (SWARM_ID, AGENT_PREFIX, QA_RETRY_LIMIT).
  *
  * Covers:
- * 1. knowledgeAdd appears in both prompt YOUR TOOLS and AGENT_TOOL_MAP['architect']
- * 2. knowledgeRecall appears in both
- * 3. knowledgeRemove appears in both
+ * 1. knowledge_add appears in both prompt YOUR TOOLS and AGENT_TOOL_MAP['architect']
+ * 2. knowledge_recall appears in both
+ * 3. knowledge_remove appears in both
  * 4. curator_analyze appears in both
  * 5. SWARM_ID placeholder is resolved when createArchitectAgent is called with agentPrefix=''
  * 6. AGENT_PREFIX placeholder is resolved
  * 7. QA_RETRY_LIMIT placeholder is resolved
  */
 
-import { describe, expect, it } from 'vitest';
+import { describe, expect, it } from 'bun:test';
 import { createArchitectAgent } from '../../../src/agents/architect.js';
 import { AGENT_TOOL_MAP } from '../../../src/config/constants.js';
 
@@ -42,32 +42,32 @@ const ARCHITECT_PROMPT = architectAgent.config.prompt ?? '';
 describe('Architect prompt ↔ AGENT_TOOL_MAP alignment: knowledge tools', () => {
 	const architectTools = AGENT_TOOL_MAP['architect'] ?? [];
 
-	it('knowledgeAdd is in AGENT_TOOL_MAP["architect"]', () => {
-		expect(architectTools).toContain('knowledgeAdd');
+	it('knowledge_add is in AGENT_TOOL_MAP["architect"]', () => {
+		expect(architectTools).toContain('knowledge_add');
 	});
 
-	it('knowledgeRecall is in AGENT_TOOL_MAP["architect"]', () => {
-		expect(architectTools).toContain('knowledgeRecall');
+	it('knowledge_recall is in AGENT_TOOL_MAP["architect"]', () => {
+		expect(architectTools).toContain('knowledge_recall');
 	});
 
-	it('knowledgeRemove is in AGENT_TOOL_MAP["architect"]', () => {
-		expect(architectTools).toContain('knowledgeRemove');
+	it('knowledge_remove is in AGENT_TOOL_MAP["architect"]', () => {
+		expect(architectTools).toContain('knowledge_remove');
 	});
 
 	it('curator_analyze is in AGENT_TOOL_MAP["architect"]', () => {
 		expect(architectTools).toContain('curator_analyze');
 	});
 
-	it('knowledgeAdd appears in the ARCHITECT_PROMPT YOUR TOOLS list', () => {
-		expect(ARCHITECT_PROMPT).toContain('knowledgeAdd');
+	it('knowledge_add appears in the ARCHITECT_PROMPT YOUR TOOLS list', () => {
+		expect(ARCHITECT_PROMPT).toContain('knowledge_add');
 	});
 
-	it('knowledgeRecall appears in the ARCHITECT_PROMPT YOUR TOOLS list', () => {
-		expect(ARCHITECT_PROMPT).toContain('knowledgeRecall');
+	it('knowledge_recall appears in the ARCHITECT_PROMPT YOUR TOOLS list', () => {
+		expect(ARCHITECT_PROMPT).toContain('knowledge_recall');
 	});
 
-	it('knowledgeRemove appears in the ARCHITECT_PROMPT YOUR TOOLS list', () => {
-		expect(ARCHITECT_PROMPT).toContain('knowledgeRemove');
+	it('knowledge_remove appears in the ARCHITECT_PROMPT YOUR TOOLS list', () => {
+		expect(ARCHITECT_PROMPT).toContain('knowledge_remove');
 	});
 
 	it('curator_analyze appears in the ARCHITECT_PROMPT YOUR TOOLS list', () => {

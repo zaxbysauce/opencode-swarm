@@ -26,7 +26,7 @@ interface KnowledgeRecallResult {
 	total: number;
 }
 
-export const knowledgeRecall: ReturnType<typeof createSwarmTool> =
+export const knowledge_recall: ReturnType<typeof createSwarmTool> =
 	createSwarmTool({
 		description:
 			'Search the knowledge base for relevant past decisions, patterns, and lessons learned. Returns ranked results by semantic similarity.',

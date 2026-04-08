@@ -1,3 +1,5 @@
+import { mkdir, writeFile } from 'node:fs/promises';
+import * as path from 'node:path';
 import type { AgentConfig as SDKAgentConfig } from '@opencode-ai/sdk';
 import {
 	loadAgentPrompt,
@@ -452,6 +454,8 @@ export function createAgents(config?: PluginConfig): AgentDefinition[] {
  */
 export function getAgentConfigs(
 	config?: PluginConfig,
+	directory?: string,
+	sessionId?: string,
 ): Record<string, SDKAgentConfig> {
 	const agents = createAgents(config);
 
@@ -462,7 +466,10 @@ export function getAgentConfigs(
 	// Track warning for missing whitelist entries (warn once per unique base name)
 	const warnedMissingWhitelist = new Set<string>();
 
-	return Object.fromEntries(
+	// Accumulate per-agent tool snapshot for evidence writing
+	const agentToolSnapshot: Record<string, string[]> = {};
+
+	const result = Object.fromEntries(
 		agents.map((agent) => {
 			const sdkConfig: SDKAgentConfig = {
 				...agent.config,
@@ -490,6 +497,9 @@ export function getAgentConfigs(
 			// If tool filtering is globally disabled, use original tools unchanged
 			if (!toolFilterEnabled) {
 				sdkConfig.tools = agent.config.tools ?? {};
+				agentToolSnapshot[agent.name] = Object.keys(
+					sdkConfig.tools ?? {},
+				).filter((k) => sdkConfig.tools![k] !== false);
 				return [agent.name, sdkConfig];
 			}
 
@@ -542,9 +552,34 @@ export function getAgentConfigs(
 				};
 			}
 
+			agentToolSnapshot[agent.name] = Object.keys(sdkConfig.tools ?? {}).filter(
+				(k) => sdkConfig.tools![k] !== false,
+			);
+
 			return [agent.name, sdkConfig];
 		}),
 	);
+
+	// Write agent tool snapshot non-blocking
+	if (directory) {
+		const sid = sessionId ?? `init-${Date.now()}`;
+		const evidenceDir = path.join(directory, '.swarm', 'evidence');
+		const filename = `agent-tools-${sid}.json`;
+		const snapshotData = JSON.stringify(
+			{
+				sessionId: sid,
+				generatedAt: new Date().toISOString(),
+				agents: agentToolSnapshot,
+			},
+			null,
+			2,
+		);
+		void mkdir(evidenceDir, { recursive: true })
+			.then(() => writeFile(path.join(evidenceDir, filename), snapshotData))
+			.catch(() => {});
+	}
+
+	return result;
 }
 
 // Re-export agent types

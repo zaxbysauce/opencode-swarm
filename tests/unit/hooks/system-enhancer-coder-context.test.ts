@@ -15,7 +15,7 @@ import {
 const mockExecute = mock(() => Promise.resolve('{"results":[],"total":0}'));
 
 mock.module('../../../src/tools/knowledge-recall', () => ({
-	knowledgeRecall: {
+	knowledge_recall: {
 		execute: mockExecute,
 	},
 }));
@@ -41,6 +41,9 @@ describe('Coder Context Pack (system-enhancer.ts lines 690-799)', () => {
 			agent_awareness_max_chars: 300,
 			delegation_gate: false,
 			delegation_max_chars: 1000,
+		},
+		context_budget: {
+			enabled: false,
 		},
 	};
 
@@ -454,5 +457,49 @@ describe('Coder Context Pack (system-enhancer.ts lines 690-799)', () => {
 			s.includes('## CONTEXT FROM KNOWLEDGE BASE'),
 		);
 		expect(hasKnowledgeBlock).toBe(false); // Empty knowledge recall
+	});
+
+	// ============================================================================
+	// Environment prompt injection for coder
+	// ============================================================================
+	test('coder receives environment profile prompt injection', async () => {
+		mockExecute.mockImplementationOnce(() =>
+			Promise.resolve(JSON.stringify({ results: [], total: 0 })),
+		);
+
+		const system = await invokeAsCoder(
+			'session-env-coder',
+			'task-env',
+			'src/utils/paths.ts',
+		);
+
+		// Environment prompt should be injected for coder agents
+		const hasEnvPrompt = system.some(
+			(s) =>
+				s.includes('ENVIRONMENT') ||
+				s.includes('Command Policy') ||
+				s.includes('posix-native') ||
+				s.includes('powershell-native'),
+		);
+		expect(hasEnvPrompt).toBe(true);
+	});
+
+	// ============================================================================
+	// Non-coder role should NOT receive environment profile injection
+	// ============================================================================
+	test('architect does NOT receive environment profile injection', async () => {
+		swarmState.activeAgent.set('session-env-arch', 'paid_architect');
+		startAgentSession('session-env-arch', 'paid_architect');
+
+		const input = { sessionID: 'session-env-arch' };
+		const output = { system: ['Initial system prompt'] };
+
+		await transformHook(input, output);
+
+		// Environment prompt should NOT be injected for architect agents
+		const hasEnvPrompt = output.system.some(
+			(s) => s.includes('posix-native') || s.includes('powershell-native'),
+		);
+		expect(hasEnvPrompt).toBe(false);
 	});
 });

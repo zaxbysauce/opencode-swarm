@@ -13,6 +13,10 @@ import type { OpencodeClient } from '@opencode-ai/sdk';
 import { ORCHESTRATOR_NAME } from './config/constants';
 import { type Plan, PlanSchema, type TaskStatus } from './config/plan-schema';
 import { stripKnownSwarmPrefix } from './config/schema';
+import {
+	detectEnvironmentProfile,
+	type EnvironmentProfile,
+} from './environment/profile.js';
 import type { TaskEvidence } from './gate-evidence';
 import { telemetry } from './telemetry.js';
 
@@ -278,6 +282,9 @@ export const swarmState = {
 	// Full Auto Mode (Phase 4)
 	/** Whether full-auto mode is enabled in config */
 	fullAutoEnabledInConfig: false,
+
+	/** Per-session environment profiles — keyed by sessionID */
+	environmentProfiles: new Map<string, EnvironmentProfile>(),
 };
 
 /**
@@ -298,6 +305,7 @@ export function resetSwarmState(): void {
 	_rehydrationCache = null;
 	// Full Auto Mode (Phase 4)
 	swarmState.fullAutoEnabledInConfig = false;
+	swarmState.environmentProfiles.clear();
 	// Note: Session-scoped fields (architectWriteCount, gateLog, reviewerCallCount, lastGateFailure)
 	// are cleared when agentSessions entries are deleted
 }
@@ -1113,4 +1121,43 @@ export function hasActiveFullAuto(sessionID?: string): boolean {
 		}
 	}
 	return false;
+}
+
+// ============================================================================
+// Environment Profile Helpers
+// ============================================================================
+
+export function setSessionEnvironment(
+	sessionId: string,
+	profile: EnvironmentProfile,
+): void {
+	swarmState.environmentProfiles.set(sessionId, profile);
+}
+
+export function getSessionEnvironment(
+	sessionId: string,
+): EnvironmentProfile | undefined {
+	return swarmState.environmentProfiles.get(sessionId);
+}
+
+export function ensureSessionEnvironment(
+	sessionId: string,
+): EnvironmentProfile {
+	const existing = swarmState.environmentProfiles.get(sessionId);
+	if (existing) return existing;
+	const profile = detectEnvironmentProfile();
+	swarmState.environmentProfiles.set(sessionId, profile);
+	void import('./telemetry.js')
+		.then(({ telemetry }) => {
+			telemetry.environmentDetected(
+				sessionId,
+				profile.hostOS,
+				profile.shellFamily,
+				profile.executionMode,
+			);
+		})
+		.catch(() => {
+			// telemetry emission failure must not block environment detection
+		});
+	return profile;
 }

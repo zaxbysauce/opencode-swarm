@@ -382,9 +382,7 @@ describe('getLaravelCommandOverlay', () => {
 	});
 
 	it('staticAnalysisTool is larastan when phpstan.neon contains larastan/larastan', () => {
-		const tmpDir = fs.mkdtempSync(
-			path.join(os.tmpdir(), 'laravel-larastan2-'),
-		);
+		const tmpDir = fs.mkdtempSync(path.join(os.tmpdir(), 'laravel-larastan2-'));
 		try {
 			fs.writeFileSync(
 				path.join(tmpDir, 'artisan'),
@@ -431,9 +429,7 @@ describe('getLaravelCommandOverlay', () => {
 	});
 
 	it('staticAnalysisTool is phpstan when only phpstan.neon.dist present (no .neon)', () => {
-		const tmpDir = fs.mkdtempSync(
-			path.join(os.tmpdir(), 'laravel-neondist2-'),
-		);
+		const tmpDir = fs.mkdtempSync(path.join(os.tmpdir(), 'laravel-neondist2-'));
 		try {
 			fs.writeFileSync(
 				path.join(tmpDir, 'artisan'),

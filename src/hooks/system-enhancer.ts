@@ -1053,6 +1053,56 @@ ${handoffContent}`;
 							}
 						}
 
+						// Pre-flight binary advisory (runs once, non-fatal) — architect-only
+						try {
+							const activeAgent_binary = swarmState.activeAgent.get(
+								_input.sessionID ?? '',
+							);
+							const isArchitect_binary =
+								!activeAgent_binary ||
+								stripKnownSwarmPrefix(activeAgent_binary) === 'architect';
+							if (isArchitect_binary) {
+								const { getBinaryReadinessAdvisory } = await import(
+									'../services/tool-doctor.js'
+								);
+								const advisory = getBinaryReadinessAdvisory();
+								if (advisory) {
+									tryInject(advisory);
+								}
+							}
+						} catch {
+							// Non-blocking — binary check failure must not prevent system enhancement
+						}
+
+						// Environment profile injection for coder and test_engineer
+						try {
+							const activeAgent_env = swarmState.activeAgent.get(
+								_input.sessionID ?? '',
+							);
+							const agentBase_env = stripKnownSwarmPrefix(
+								activeAgent_env ?? '',
+							).toLowerCase();
+							if (
+								agentBase_env === 'coder' ||
+								agentBase_env === 'test_engineer'
+							) {
+								const { ensureSessionEnvironment } = await import(
+									'../state.js'
+								);
+								const { renderEnvironmentPrompt } = await import(
+									'../environment/prompt-renderer.js'
+								);
+								const envSessionId = _input.sessionID ?? 'unknown';
+								const profile = ensureSessionEnvironment(envSessionId);
+								const audience =
+									agentBase_env === 'coder' ? 'coder' : 'testengineer';
+								const envPrompt = renderEnvironmentPrompt(profile, audience);
+								tryInject(envPrompt);
+							}
+						} catch {
+							// Non-blocking — environment injection failure must not break the hook
+						}
+
 						return;
 					}
 
@@ -1622,6 +1672,71 @@ ${handoffContent}`;
 								// Silently skip if drift analysis fails
 							}
 						}
+					}
+
+					// Pre-flight binary advisory (architect-only) — mirrors Path A
+					try {
+						const activeAgent_binary_b = swarmState.activeAgent.get(
+							_input.sessionID ?? '',
+						);
+						const isArchitect_binary_b =
+							!activeAgent_binary_b ||
+							stripKnownSwarmPrefix(activeAgent_binary_b) === 'architect';
+						if (isArchitect_binary_b) {
+							const { getBinaryReadinessAdvisory } = await import(
+								'../services/tool-doctor.js'
+							);
+							const advisory_b = getBinaryReadinessAdvisory();
+							if (advisory_b) {
+								candidates.push({
+									id: `candidate-${idCounter++}`,
+									kind: 'agent_context' as ContextCandidate['kind'],
+									text: advisory_b,
+									tokens: estimateTokens(advisory_b),
+									priority: 3,
+									metadata: { contentType: 'prose' as ContentType },
+								});
+							}
+						}
+					} catch {
+						// Non-blocking — binary check failure must not prevent system enhancement
+					}
+
+					// Environment profile injection (coder/test_engineer) — mirrors Path A
+					try {
+						const activeAgent_env_b = swarmState.activeAgent.get(
+							_input.sessionID ?? '',
+						);
+						const agentBase_env_b = stripKnownSwarmPrefix(
+							activeAgent_env_b ?? '',
+						).toLowerCase();
+						if (
+							agentBase_env_b === 'coder' ||
+							agentBase_env_b === 'test_engineer'
+						) {
+							const { ensureSessionEnvironment } = await import('../state.js');
+							const { renderEnvironmentPrompt } = await import(
+								'../environment/prompt-renderer.js'
+							);
+							const envSessionId_b = _input.sessionID ?? 'unknown';
+							const profile_b = ensureSessionEnvironment(envSessionId_b);
+							const audience_b =
+								agentBase_env_b === 'coder' ? 'coder' : 'testengineer';
+							const envPrompt_b = renderEnvironmentPrompt(
+								profile_b,
+								audience_b as 'coder' | 'testengineer',
+							);
+							candidates.push({
+								id: `candidate-${idCounter++}`,
+								kind: 'agent_context' as ContextCandidate['kind'],
+								text: envPrompt_b,
+								tokens: estimateTokens(envPrompt_b),
+								priority: 2,
+								metadata: { contentType: 'prose' as ContentType },
+							});
+						}
+					} catch {
+						// Non-blocking — environment injection failure must not break the hook
 					}
 
 					// Rank candidates
