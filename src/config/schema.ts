@@ -900,6 +900,7 @@ export type CompactionConfig = z.infer<typeof CompactionConfigSchema>;
 export const AgentAuthorityRuleSchema = z.object({
 	readOnly: z.boolean().optional(),
 	blockedExact: z.array(z.string()).optional(),
+	allowedExact: z.array(z.string()).optional(),
 	blockedPrefix: z.array(z.string()).optional(),
 	allowedPrefix: z.array(z.string()).optional(),
 	blockedZones: z
@@ -907,6 +908,8 @@ export const AgentAuthorityRuleSchema = z.object({
 			z.enum(['production', 'test', 'config', 'generated', 'docs', 'build']),
 		)
 		.optional(),
+	blockedGlobs: z.array(z.string()).optional(),
+	allowedGlobs: z.array(z.string()).optional(),
 });
 
 export type AgentAuthorityRule = z.infer<typeof AgentAuthorityRuleSchema>;
