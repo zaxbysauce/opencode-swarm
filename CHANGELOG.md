@@ -1,5 +1,12 @@
 # Changelog
 
+## [6.56.0](https://github.com/zaxbysauce/opencode-swarm/compare/v6.55.0...v6.56.0) (2026-04-08)
+
+
+### Features
+
+* **reliability:** implement [#401](https://github.com/zaxbysauce/opencode-swarm/issues/401) reliability backlog + [#398](https://github.com/zaxbysauce/opencode-swarm/issues/398) environment profiling ([#435](https://github.com/zaxbysauce/opencode-swarm/issues/435)) ([2dc8bf2](https://github.com/zaxbysauce/opencode-swarm/commit/2dc8bf2ead9f73ccd98927294e2e28eaf8c1faf2))
+
 ## [6.55.0](https://github.com/zaxbysauce/opencode-swarm/compare/v6.54.0...v6.55.0) (2026-04-08)
 
 
