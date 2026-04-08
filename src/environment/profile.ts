@@ -11,12 +11,11 @@ export type ShellFamily =
 	| 'zsh'
 	| 'sh'
 	| 'unknown';
-export type ExecutionMode = 'native' | 'docker' | 'wsl' | 'remote' | 'unknown';
+export type ExecutionMode = 'native' | 'docker' | 'wsl' | 'unknown';
 export type OperatingMode =
 	| 'linux'
 	| 'macos-native'
 	| 'windows-native'
-	| 'windows-docker'
 	| 'unknown';
 
 export interface EnvironmentProfile {
@@ -28,7 +27,7 @@ export interface EnvironmentProfile {
 	isWindowsDocker: boolean;
 	isWSL: boolean;
 	pathStyle: 'windows' | 'posix';
-	shellCommandPreference: 'powershell-native' | 'posix-native' | 'tool-first';
+	shellCommandPreference: 'powershell-native' | 'posix-native';
 	evidence: {
 		processPlatform: string;
 		comspec?: string;
@@ -101,10 +100,7 @@ function deriveOperatingMode(
 ): OperatingMode {
 	if (hostOS === 'linux') return 'linux';
 	if (hostOS === 'macos') return 'macos-native';
-	if (hostOS === 'windows') {
-		if (executionMode === 'docker') return 'windows-docker';
-		return 'windows-native';
-	}
+	if (hostOS === 'windows') return 'windows-native';
 	return 'unknown';
 }
 
@@ -153,7 +149,7 @@ export function detectEnvironmentProfile(): EnvironmentProfile {
 	const operatingMode = deriveOperatingMode(hostOS, executionMode);
 
 	const isWindowsNative = hostOS === 'windows' && executionMode === 'native';
-	const isWindowsDocker = hostOS === 'windows' && executionMode === 'docker';
+	const isWindowsDocker = false; // Windows Docker detection is not yet supported
 	const isWSL = executionMode === 'wsl';
 	const pathStyle: 'windows' | 'posix' =
 		hostOS === 'windows' && !isWindowsDocker ? 'windows' : 'posix';

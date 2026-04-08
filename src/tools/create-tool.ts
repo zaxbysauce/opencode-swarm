@@ -30,17 +30,13 @@ function classifyToolError(error: unknown): ToolFailureClass {
 	).toLowerCase();
 	if (msg.includes('not registered') || msg.includes('unknown tool'))
 		return 'not_registered';
-	if (
-		msg.includes('not whitelisted') ||
-		msg.includes('not allowed') ||
-		msg.includes('permission')
-	)
+	if (msg.includes('not whitelisted') || msg.includes('not allowed'))
 		return 'not_whitelisted';
 	if (
 		msg.includes('enoent') ||
-		msg.includes('not found') ||
 		msg.includes('command not found') ||
-		msg.includes('binary')
+		msg.includes('binary not found') ||
+		msg.includes('no such file or directory')
 	)
 		return 'binary_missing';
 	return 'execution_error';

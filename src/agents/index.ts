@@ -562,7 +562,7 @@ export function getAgentConfigs(
 
 	// Write agent tool snapshot non-blocking
 	if (directory) {
-		const sid = sessionId ?? 'unknown';
+		const sid = sessionId ?? `init-${Date.now()}`;
 		const evidenceDir = path.join(directory, '.swarm', 'evidence');
 		const filename = `agent-tools-${sid}.json`;
 		const snapshotData = JSON.stringify(

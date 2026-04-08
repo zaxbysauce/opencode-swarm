@@ -186,7 +186,7 @@ export function createKnowledgeInjectorHook(
 				);
 			}, 0);
 			const headroomChars = MODEL_LIMIT_CHARS - existingChars;
-			const MIN_INJECT_CHARS = 300;
+			const MIN_INJECT_CHARS = config.context_budget_threshold ?? 300;
 
 			if (headroomChars < MIN_INJECT_CHARS) {
 				console.warn(

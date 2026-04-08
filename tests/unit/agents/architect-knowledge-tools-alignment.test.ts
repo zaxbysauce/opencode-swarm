@@ -19,7 +19,7 @@
  * 7. QA_RETRY_LIMIT placeholder is resolved
  */
 
-import { describe, expect, it } from 'vitest';
+import { describe, expect, it } from 'bun:test';
 import { createArchitectAgent } from '../../../src/agents/architect.js';
 import { AGENT_TOOL_MAP } from '../../../src/config/constants.js';
 
