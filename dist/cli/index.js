@@ -14605,6 +14605,9 @@ var init_plan_schema = __esm(() => {
   });
 });
 
+// src/telemetry.ts
+var init_telemetry = () => {};
+
 // node_modules/graceful-fs/polyfills.js
 var require_polyfills = __commonJS((exports, module) => {
   var constants = __require("constants");
@@ -18132,9 +18135,9 @@ var TOOL_NAMES = [
   "doc_scan",
   "doc_extract",
   "curator_analyze",
-  "knowledgeAdd",
-  "knowledgeRecall",
-  "knowledgeRemove",
+  "knowledge_add",
+  "knowledge_recall",
+  "knowledge_remove",
   "co_change_analyzer",
   "search",
   "batch_symbols",
@@ -18200,9 +18203,9 @@ var AGENT_TOOL_MAP = {
     "doc_scan",
     "doc_extract",
     "curator_analyze",
-    "knowledgeAdd",
-    "knowledgeRecall",
-    "knowledgeRemove",
+    "knowledge_add",
+    "knowledge_recall",
+    "knowledge_remove",
     "co_change_analyzer",
     "suggest_patch"
   ],
@@ -18219,7 +18222,7 @@ var AGENT_TOOL_MAP = {
     "symbols",
     "todo_extract",
     "doc_scan",
-    "knowledgeRecall"
+    "knowledge_recall"
   ],
   coder: [
     "diff",
@@ -18231,8 +18234,8 @@ var AGENT_TOOL_MAP = {
     "search",
     "build_check",
     "syntax_check",
-    "knowledgeAdd",
-    "knowledgeRecall"
+    "knowledge_add",
+    "knowledge_recall"
   ],
   test_engineer: [
     "test_runner",
@@ -18255,7 +18258,7 @@ var AGENT_TOOL_MAP = {
     "retrieve_summary",
     "schema_drift",
     "symbols",
-    "knowledgeRecall"
+    "knowledge_recall"
   ],
   reviewer: [
     "diff",
@@ -18271,7 +18274,7 @@ var AGENT_TOOL_MAP = {
     "test_runner",
     "sast_scan",
     "placeholder_scan",
-    "knowledgeRecall",
+    "knowledge_recall",
     "search",
     "batch_symbols",
     "suggest_patch"
@@ -18282,7 +18285,7 @@ var AGENT_TOOL_MAP = {
     "imports",
     "retrieve_summary",
     "symbols",
-    "knowledgeRecall"
+    "knowledge_recall"
   ],
   critic_sounding_board: [
     "complexity_hotspots",
@@ -18290,7 +18293,7 @@ var AGENT_TOOL_MAP = {
     "imports",
     "retrieve_summary",
     "symbols",
-    "knowledgeRecall"
+    "knowledge_recall"
   ],
   critic_drift_verifier: [
     "complexity_hotspots",
@@ -18298,7 +18301,7 @@ var AGENT_TOOL_MAP = {
     "imports",
     "retrieve_summary",
     "symbols",
-    "knowledgeRecall"
+    "knowledge_recall"
   ],
   critic_oversight: [
     "complexity_hotspots",
@@ -18306,7 +18309,7 @@ var AGENT_TOOL_MAP = {
     "imports",
     "retrieve_summary",
     "symbols",
-    "knowledgeRecall"
+    "knowledge_recall"
   ],
   docs: [
     "detect_domains",
@@ -18317,16 +18320,16 @@ var AGENT_TOOL_MAP = {
     "schema_drift",
     "symbols",
     "todo_extract",
-    "knowledgeRecall"
+    "knowledge_recall"
   ],
   designer: [
     "extract_code_blocks",
     "retrieve_summary",
     "symbols",
-    "knowledgeRecall"
+    "knowledge_recall"
   ],
-  curator_init: ["knowledgeRecall"],
-  curator_phase: ["knowledgeRecall"]
+  curator_init: ["knowledge_recall"],
+  curator_phase: ["knowledge_recall"]
 };
 for (const [agentName, tools] of Object.entries(AGENT_TOOL_MAP)) {
   const invalidTools = tools.filter((tool) => !TOOL_NAME_SET.has(tool));
@@ -18745,6 +18748,7 @@ var KnowledgeConfigSchema = exports_external.object({
   auto_promote_days: exports_external.number().min(1).max(3650).default(90),
   max_inject_count: exports_external.number().min(0).max(50).default(5),
   inject_char_budget: exports_external.number().min(200).max(1e4).default(2000),
+  context_budget_threshold: exports_external.number().int().positive().optional(),
   max_lesson_display_chars: exports_external.number().min(40).max(280).default(120),
   dedup_threshold: exports_external.number().min(0).max(1).default(0.6),
   scope_filter: exports_external.array(exports_external.string()).default(["global"]),
@@ -19053,6 +19057,7 @@ init_manager();
 
 // src/state.ts
 init_plan_schema();
+init_telemetry();
 var swarmState = {
   activeToolCalls: new Map,
   toolAggregates: new Map,
@@ -19065,7 +19070,8 @@ var swarmState = {
   lastBudgetPct: 0,
   agentSessions: new Map,
   pendingRehydrations: new Set,
-  fullAutoEnabledInConfig: false
+  fullAutoEnabledInConfig: false,
+  environmentProfiles: new Map
 };
 function getAgentSession(sessionId) {
   return swarmState.agentSessions.get(sessionId);
@@ -31735,6 +31741,16 @@ tool.schema = exports_external2;
 init_evidence_schema();
 init_plan_schema();
 // src/tools/create-tool.ts
+function classifyToolError(error93) {
+  const msg = (error93 instanceof Error ? error93.message : String(error93)).toLowerCase();
+  if (msg.includes("not registered") || msg.includes("unknown tool"))
+    return "not_registered";
+  if (msg.includes("not whitelisted") || msg.includes("not allowed") || msg.includes("permission"))
+    return "not_whitelisted";
+  if (msg.includes("enoent") || msg.includes("not found") || msg.includes("command not found") || msg.includes("binary"))
+    return "binary_missing";
+  return "execution_error";
+}
 function createSwarmTool(opts) {
   return tool({
     description: opts.description,
@@ -31747,6 +31763,7 @@ function createSwarmTool(opts) {
         const message = error93 instanceof Error ? error93.message : String(error93);
         return JSON.stringify({
           success: false,
+          failure_class: classifyToolError(error93),
           message: "Tool execution failed",
           errors: [message]
         }, null, 2);
@@ -35046,6 +35063,30 @@ async function getDiagnoseData(directory) {
   checks5.push(await checkEventStreamIntegrity(directory));
   checks5.push(await checkSteeringDirectives(directory));
   checks5.push(await checkCurator(directory));
+  try {
+    const evidenceDir = path15.join(directory, ".swarm", "evidence");
+    const snapshotFiles = existsSync6(evidenceDir) ? readdirSync2(evidenceDir).filter((f) => f.startsWith("agent-tools-") && f.endsWith(".json")) : [];
+    if (snapshotFiles.length > 0) {
+      const latest = snapshotFiles.sort().pop();
+      checks5.push({
+        name: "Agent Tool Snapshots",
+        status: "\u2705",
+        detail: `${snapshotFiles.length} snapshot(s) found \u2014 latest: ${latest}`
+      });
+    } else {
+      checks5.push({
+        name: "Agent Tool Snapshots",
+        status: "\u2705",
+        detail: "No snapshots yet (snapshots written on next session start)"
+      });
+    }
+  } catch {
+    checks5.push({
+      name: "Agent Tool Snapshots",
+      status: "\u2705",
+      detail: "No snapshots yet (snapshots written on next session start)"
+    });
+  }
   const passCount = checks5.filter((c) => c.status === "\u2705").length;
   const totalCount = checks5.length;
   const allPassed = passCount === totalCount;

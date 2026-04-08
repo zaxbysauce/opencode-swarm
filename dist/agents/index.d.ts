@@ -33,7 +33,7 @@ export declare function createAgents(config?: PluginConfig): AgentDefinition[];
 /**
  * Get agent configurations formatted for the OpenCode SDK.
  */
-export declare function getAgentConfigs(config?: PluginConfig): Record<string, SDKAgentConfig>;
+export declare function getAgentConfigs(config?: PluginConfig, directory?: string, sessionId?: string): Record<string, SDKAgentConfig>;
 export { createArchitectAgent } from './architect';
 export { createCoderAgent } from './coder';
 export { createCriticAgent } from './critic';

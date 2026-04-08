@@ -67,6 +67,8 @@ export interface KnowledgeConfig {
     max_inject_count: number;
     /** Maximum total chars for the entire injection block. Default: 2000 */
     inject_char_budget?: number;
+    /** Maximum chars to allow the knowledge injector to read from context before skipping. Default: 75_000 */
+    context_budget_threshold?: number;
     /** Maximum display chars per lesson at injection time. Default: 120 */
     max_lesson_display_chars?: number;
     /** Jaccard bigram similarity threshold for deduplication. Default: 0.6 */

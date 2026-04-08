@@ -1,2 +1,2 @@
 import { createSwarmTool } from './create-tool.js';
-export declare const knowledgeRemove: ReturnType<typeof createSwarmTool>;
+export declare const knowledge_remove: ReturnType<typeof createSwarmTool>;

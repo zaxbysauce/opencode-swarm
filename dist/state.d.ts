@@ -7,6 +7,7 @@
  * and delegation chains.
  */
 import type { OpencodeClient } from '@opencode-ai/sdk';
+import { type EnvironmentProfile } from './environment/profile.js';
 /**
  * Represents a single tool call entry for tracking purposes
  */
@@ -220,6 +221,8 @@ export declare const swarmState: {
     pendingRehydrations: Set<Promise<void>>;
     /** Whether full-auto mode is enabled in config */
     fullAutoEnabledInConfig: boolean;
+    /** Per-session environment profiles — keyed by sessionID */
+    environmentProfiles: Map<string, EnvironmentProfile>;
 };
 /**
  * Reset all state to initial values - useful for testing
@@ -373,3 +376,6 @@ export declare function hasActiveTurboMode(sessionID?: string): boolean;
  * @returns true if the specified session has fullAutoMode: true (model validation is advisory-only).
  */
 export declare function hasActiveFullAuto(sessionID?: string): boolean;
+export declare function setSessionEnvironment(sessionId: string, profile: EnvironmentProfile): void;
+export declare function getSessionEnvironment(sessionId: string): EnvironmentProfile | undefined;
+export declare function ensureSessionEnvironment(sessionId: string): EnvironmentProfile;
