@@ -1,5 +1,12 @@
 # Changelog
 
+## [6.57.0](https://github.com/zaxbysauce/opencode-swarm/compare/v6.56.0...v6.57.0) (2026-04-08)
+
+
+### Features
+
+* **authority:** add glob pattern support and enhanced file authority rules ([#437](https://github.com/zaxbysauce/opencode-swarm/issues/437)) ([312d64a](https://github.com/zaxbysauce/opencode-swarm/commit/312d64a26610ad75d2da82f39a1b6c0f5edd6803))
+
 ## [6.56.0](https://github.com/zaxbysauce/opencode-swarm/compare/v6.55.0...v6.56.0) (2026-04-08)
 
 
