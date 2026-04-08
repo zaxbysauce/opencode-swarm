@@ -46,8 +46,8 @@ export function renderEnvironmentPrompt(
 		profile.isWindowsNative
 			? '- Native Windows + PowerShell: Assume PowerShell semantics for paths and env vars. Prefer Pester for PowerShell modules where appropriate.'
 			: profile.isWindowsDocker
-			? '- Windows + Docker: Host paths are Windows-style; in-container operations use POSIX semantics.'
-			: '- Linux/macOS: Use POSIX semantics for all shell-related reasoning.',
+				? '- Windows + Docker: Host paths are Windows-style; in-container operations use POSIX semantics.'
+				: '- Linux/macOS: Use POSIX semantics for all shell-related reasoning.',
 		'- In all modes: prefer the swarm test runner over ad hoc shell commands.',
 		'- When tests are skipped due to environment issues, explicitly mention the environment profile assumptions in your verdict.',
 	].join('\n');

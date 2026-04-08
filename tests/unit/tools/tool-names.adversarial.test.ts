@@ -158,6 +158,9 @@ describe('tool-names registry integrity - adversarial', () => {
 				'knowledge_remove',
 				'write_drift_evidence',
 				'co_change_analyzer',
+				'search',
+				'batch_symbols',
+				'suggest_patch',
 			];
 
 			expect(TOOL_NAMES.length).toBe(expectedTools.length);
@@ -208,6 +211,9 @@ describe('tool-names registry integrity - adversarial', () => {
 				'knowledge_remove',
 				'write_drift_evidence',
 				'co_change_analyzer',
+				'search',
+				'batch_symbols',
+				'suggest_patch',
 			]);
 
 			const extraTools = TOOL_NAMES.filter(
@@ -221,7 +227,7 @@ describe('tool-names registry integrity - adversarial', () => {
 		test('should handle maximum array length', () => {
 			// Verify array has expected count
 			expect(TOOL_NAMES.length).toBeGreaterThan(0);
-			expect(TOOL_NAMES.length).toBe(39); // Explicit expected count
+			expect(TOOL_NAMES.length).toBe(42); // Explicit expected count
 		});
 
 		test('should have non-empty registry', () => {

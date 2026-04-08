@@ -4,9 +4,20 @@
  */
 
 export type HostOS = 'windows' | 'linux' | 'macos' | 'unknown';
-export type ShellFamily = 'powershell' | 'cmd' | 'bash' | 'zsh' | 'sh' | 'unknown';
+export type ShellFamily =
+	| 'powershell'
+	| 'cmd'
+	| 'bash'
+	| 'zsh'
+	| 'sh'
+	| 'unknown';
 export type ExecutionMode = 'native' | 'docker' | 'wsl' | 'remote' | 'unknown';
-export type OperatingMode = 'linux' | 'macos-native' | 'windows-native' | 'windows-docker' | 'unknown';
+export type OperatingMode =
+	| 'linux'
+	| 'macos-native'
+	| 'windows-native'
+	| 'windows-docker'
+	| 'unknown';
 
 export interface EnvironmentProfile {
 	hostOS: HostOS;
@@ -46,10 +57,14 @@ export interface CommandPolicy {
 
 function detectHostOS(): HostOS {
 	switch (process.platform) {
-		case 'win32': return 'windows';
-		case 'darwin': return 'macos';
-		case 'linux': return 'linux';
-		default: return 'unknown';
+		case 'win32':
+			return 'windows';
+		case 'darwin':
+			return 'macos';
+		case 'linux':
+			return 'linux';
+		default:
+			return 'unknown';
 	}
 }
 
@@ -70,7 +85,11 @@ function detectExecutionMode(hostOS: HostOS): ExecutionMode {
 	if (wslDistro) return 'wsl';
 	if (hostOS === 'linux') {
 		// Check for container markers
-		const containerEnvs = ['DOCKER_CONTAINER', 'KUBERNETES_SERVICE_HOST', 'CONTAINER'];
+		const containerEnvs = [
+			'DOCKER_CONTAINER',
+			'KUBERNETES_SERVICE_HOST',
+			'CONTAINER',
+		];
 		if (containerEnvs.some((k) => process.env[k])) return 'docker';
 	}
 	return 'native';
@@ -108,7 +127,8 @@ function buildCommandPolicy(profile: EnvironmentProfile): CommandPolicy {
 	}
 	// Linux, macOS, Docker, WSL — POSIX defaults
 	return {
-		preferredShell: profile.shellFamily === 'unknown' ? 'bash' : profile.shellFamily,
+		preferredShell:
+			profile.shellFamily === 'unknown' ? 'bash' : profile.shellFamily,
 		avoidPosixExamples: false,
 		preferNodeApis: true,
 		preferToolingOverShell: true,
@@ -135,7 +155,8 @@ export function detectEnvironmentProfile(): EnvironmentProfile {
 	const isWindowsNative = hostOS === 'windows' && executionMode === 'native';
 	const isWindowsDocker = hostOS === 'windows' && executionMode === 'docker';
 	const isWSL = executionMode === 'wsl';
-	const pathStyle: 'windows' | 'posix' = hostOS === 'windows' && !isWindowsDocker ? 'windows' : 'posix';
+	const pathStyle: 'windows' | 'posix' =
+		hostOS === 'windows' && !isWindowsDocker ? 'windows' : 'posix';
 	const shellCommandPreference: EnvironmentProfile['shellCommandPreference'] =
 		isWindowsNative ? 'powershell-native' : 'posix-native';
 
@@ -156,8 +177,11 @@ export function detectEnvironmentProfile(): EnvironmentProfile {
 			termProgram: process.env['TERM_PROGRAM'],
 			shell: process.env['SHELL'],
 			wslDistroName: process.env['WSL_DISTRO_NAME'],
-			containerMarkers: ['DOCKER_CONTAINER', 'KUBERNETES_SERVICE_HOST', 'CONTAINER']
-				.filter((k) => !!process.env[k]),
+			containerMarkers: [
+				'DOCKER_CONTAINER',
+				'KUBERNETES_SERVICE_HOST',
+				'CONTAINER',
+			].filter((k) => !!process.env[k]),
 		},
 	};
 }
@@ -165,6 +189,8 @@ export function detectEnvironmentProfile(): EnvironmentProfile {
 /**
  * Derive a CommandPolicy from a detected EnvironmentProfile.
  */
-export function deriveCommandPolicy(profile: EnvironmentProfile): CommandPolicy {
+export function deriveCommandPolicy(
+	profile: EnvironmentProfile,
+): CommandPolicy {
 	return buildCommandPolicy(profile);
 }

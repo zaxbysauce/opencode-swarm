@@ -201,7 +201,9 @@ export function getLaravelCommandOverlay(
 	);
 	if (hasPhpstanNeon || hasPhpstanNeonDist) {
 		staticAnalysisCommand = 'vendor/bin/phpstan analyse';
-		staticAnalysisTool = isLarastanConfigured(directory) ? 'larastan' : 'phpstan';
+		staticAnalysisTool = isLarastanConfigured(directory)
+			? 'larastan'
+			: 'phpstan';
 	}
 
 	return {

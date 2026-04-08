@@ -335,6 +335,11 @@ export const telemetry = {
 		shellFamily: string,
 		executionMode: string,
 	): void {
-		emit('environment_detected', { sessionId, hostOS, shellFamily, executionMode });
+		emit('environment_detected', {
+			sessionId,
+			hostOS,
+			shellFamily,
+			executionMode,
+		});
 	},
 };

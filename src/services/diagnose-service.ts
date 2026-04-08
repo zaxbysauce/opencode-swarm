@@ -915,7 +915,9 @@ export async function getDiagnoseData(
 	try {
 		const evidenceDir = path.join(directory, '.swarm', 'evidence');
 		const snapshotFiles = existsSync(evidenceDir)
-			? readdirSync(evidenceDir).filter((f) => f.startsWith('agent-tools-') && f.endsWith('.json'))
+			? readdirSync(evidenceDir).filter(
+					(f) => f.startsWith('agent-tools-') && f.endsWith('.json'),
+				)
 			: [];
 		if (snapshotFiles.length > 0) {
 			const latest = snapshotFiles.sort().pop()!;

@@ -25,10 +25,24 @@ type ToolFailureClass =
 	| 'execution_error';
 
 function classifyToolError(error: unknown): ToolFailureClass {
-	const msg = (error instanceof Error ? error.message : String(error)).toLowerCase();
-	if (msg.includes('not registered') || msg.includes('unknown tool')) return 'not_registered';
-	if (msg.includes('not whitelisted') || msg.includes('not allowed') || msg.includes('permission')) return 'not_whitelisted';
-	if (msg.includes('enoent') || msg.includes('not found') || msg.includes('command not found') || msg.includes('binary')) return 'binary_missing';
+	const msg = (
+		error instanceof Error ? error.message : String(error)
+	).toLowerCase();
+	if (msg.includes('not registered') || msg.includes('unknown tool'))
+		return 'not_registered';
+	if (
+		msg.includes('not whitelisted') ||
+		msg.includes('not allowed') ||
+		msg.includes('permission')
+	)
+		return 'not_whitelisted';
+	if (
+		msg.includes('enoent') ||
+		msg.includes('not found') ||
+		msg.includes('command not found') ||
+		msg.includes('binary')
+	)
+		return 'binary_missing';
 	return 'execution_error';
 }
 

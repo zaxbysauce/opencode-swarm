@@ -497,7 +497,9 @@ export function getAgentConfigs(
 			// If tool filtering is globally disabled, use original tools unchanged
 			if (!toolFilterEnabled) {
 				sdkConfig.tools = agent.config.tools ?? {};
-				agentToolSnapshot[agent.name] = Object.keys(sdkConfig.tools ?? {}).filter(k => sdkConfig.tools![k] !== false);
+				agentToolSnapshot[agent.name] = Object.keys(
+					sdkConfig.tools ?? {},
+				).filter((k) => sdkConfig.tools![k] !== false);
 				return [agent.name, sdkConfig];
 			}
 
@@ -550,7 +552,9 @@ export function getAgentConfigs(
 				};
 			}
 
-			agentToolSnapshot[agent.name] = Object.keys(sdkConfig.tools ?? {}).filter(k => sdkConfig.tools![k] !== false);
+			agentToolSnapshot[agent.name] = Object.keys(sdkConfig.tools ?? {}).filter(
+				(k) => sdkConfig.tools![k] !== false,
+			);
 
 			return [agent.name, sdkConfig];
 		}),

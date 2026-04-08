@@ -145,7 +145,8 @@ export function getBinaryReadinessAdvisory(): string | null {
 	const findings = checkBinaryReadiness();
 	if (findings.length === 0) return null;
 	const lines = findings.map(
-		(f) => `- MISSING BINARY: ${f.currentValue ?? f.path?.split('.')[1] ?? 'unknown'} — ${f.description}`
+		(f) =>
+			`- MISSING BINARY: ${f.currentValue ?? f.path?.split('.')[1] ?? 'unknown'} — ${f.description}`,
 	);
 	return [
 		'[PRE-FLIGHT ADVISORY] The following Class 3 tool binaries were not found on PATH at session start.',
