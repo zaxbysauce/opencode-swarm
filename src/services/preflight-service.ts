@@ -14,7 +14,10 @@
 
 import * as fs from 'node:fs';
 import * as path from 'node:path';
-import { listEvidenceTaskIds } from '../evidence/manager';
+import {
+	checkRequirementCoverage,
+	listEvidenceTaskIds,
+} from '../evidence/manager';
 import { loadPlan } from '../plan/manager';
 import { runLint } from '../tools/lint';
 import { runSecretscan, type SecretscanResult } from '../tools/secretscan';
@@ -27,7 +30,8 @@ export type PreflightCheckType =
 	| 'tests'
 	| 'secrets'
 	| 'evidence'
-	| 'version';
+	| 'version'
+	| 'req_coverage';
 
 /** Individual check status */
 export interface PreflightCheckResult {
@@ -614,6 +618,59 @@ async function runEvidenceCheck(dir: string): Promise<PreflightCheckResult> {
 }
 
 /**
+ * Run requirement coverage check
+ */
+async function runRequirementCoverageCheck(
+	dir: string,
+	currentPhase: number,
+): Promise<PreflightCheckResult> {
+	const startTime = Date.now();
+
+	try {
+		const specPath = path.join(dir, '.swarm', 'spec.md');
+
+		// Check if spec.md exists
+		if (!fs.existsSync(specPath)) {
+			return {
+				type: 'req_coverage',
+				status: 'skip',
+				message: 'No spec found, requirement coverage not required',
+				details: {},
+				durationMs: Date.now() - startTime,
+			};
+		}
+
+		// Check if coverage file exists for current phase
+		const coverage = await checkRequirementCoverage(currentPhase, dir);
+
+		if (coverage.exists) {
+			return {
+				type: 'req_coverage',
+				status: 'pass',
+				message: 'Requirement coverage report found',
+				details: { path: coverage.path },
+				durationMs: Date.now() - startTime,
+			};
+		}
+
+		return {
+			type: 'req_coverage',
+			status: 'fail',
+			message: 'Requirement coverage report missing but spec exists',
+			details: { expectedPath: coverage.path },
+			durationMs: Date.now() - startTime,
+		};
+	} catch (error) {
+		return {
+			type: 'req_coverage',
+			status: 'error',
+			message: `Requirement coverage check failed: ${error instanceof Error ? error.message : String(error)}`,
+			durationMs: Date.now() - startTime,
+		};
+	}
+}
+
+/**
  * Run all preflight checks
  */
 export async function runPreflight(
@@ -763,6 +820,17 @@ export async function runPreflight(
 			message: 'Evidence check skipped by configuration',
 		});
 	}
+
+	// Run requirement coverage check
+	log('[Preflight] Running requirement coverage check...');
+	const reqCoverageResult = await runRequirementCoverageCheck(
+		validatedDir,
+		phase,
+	);
+	checks.push(reqCoverageResult);
+	log(
+		`[Preflight] Requirement coverage check: ${reqCoverageResult.status} ${reqCoverageResult.message}`,
+	);
 
 	// Run version check (unless skipped)
 	if (!cfg.skipVersion) {

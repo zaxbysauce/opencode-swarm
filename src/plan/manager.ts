@@ -1,14 +1,18 @@
 import { copyFileSync, existsSync, renameSync, unlinkSync } from 'node:fs';
+import * as fsPromises from 'node:fs/promises';
 import * as path from 'node:path';
 import {
 	type Phase,
 	type Plan,
 	PlanSchema,
+	type RuntimePlan,
 	type Task,
 	type TaskStatus,
 } from '../config/plan-schema';
 import { readSwarmFileAsync } from '../hooks/utils';
+import type { SpecStaleDetectedEvent } from '../types/events';
 import { warn } from '../utils';
+import { isSpecStale } from '../utils/spec-hash';
 import {
 	appendLedgerEvent,
 	computeCurrentPlanHash,
@@ -229,7 +233,7 @@ export async function regeneratePlanMarkdown(
  * 3. .swarm/plan.md exists only -> migrate from plan.md, save both files, return Plan
  * 4. Neither exists -> return null
  */
-export async function loadPlan(directory: string): Promise<Plan | null> {
+export async function loadPlan(directory: string): Promise<RuntimePlan | null> {
 	// Step 1: Try to load and validate plan.json
 	const planJsonContent = await readSwarmFileAsync(directory, 'plan.json');
 	if (planJsonContent !== null) {
@@ -314,6 +318,68 @@ export async function loadPlan(directory: string): Promise<Plan | null> {
 								`[loadPlan] Ledger hash mismatch during active session for ${resolvedWorkspace} — skipping rebuild (startup check already performed).`,
 							);
 						}
+					}
+				}
+				// Step 3: SPEC STALENESS CHECK
+				// Only check staleness if plan has a specHash (pre-feature plans are exempt)
+				if (validated.specHash) {
+					const staleResult = await isSpecStale(directory, validated);
+					if (staleResult.stale) {
+						// Cast to RuntimePlan to attach runtime staleness flags
+						const runtimePlan = validated as RuntimePlan;
+						runtimePlan._specStale = true;
+						runtimePlan._specStaleReason = staleResult.reason;
+
+						// Write spec-staleness.json
+						try {
+							const specStalenessPath = path.join(
+								directory,
+								'.swarm',
+								'spec-staleness.json',
+							);
+							await fsPromises.writeFile(
+								specStalenessPath,
+								JSON.stringify(
+									{
+										type: 'spec_stale_detected',
+										timestamp: new Date().toISOString(),
+										phase: validated.current_phase ?? 1,
+										specHash_plan: validated.specHash,
+										specHash_current: staleResult.currentHash ?? null,
+										reason: staleResult.reason,
+										planTitle: validated.title,
+									},
+									null,
+									2,
+								),
+								'utf-8',
+							);
+						} catch {
+							// Non-fatal: spec-staleness.json write failure does not block plan loading
+						}
+
+						// Emit spec_stale_detected to events.jsonl
+						try {
+							const eventsPath = path.join(directory, '.swarm', 'events.jsonl');
+							const event: SpecStaleDetectedEvent = {
+								type: 'spec_stale_detected',
+								timestamp: new Date().toISOString(),
+								phase: validated.current_phase ?? 1,
+								specHash_plan: validated.specHash,
+								specHash_current: staleResult.currentHash ?? null,
+								reason: staleResult.reason ?? 'unknown',
+								planTitle: validated.title,
+							};
+							await fsPromises.appendFile(
+								eventsPath,
+								`${JSON.stringify(event)}\n`,
+								'utf-8',
+							);
+						} catch {
+							// Non-fatal: event write failure does not block plan loading
+						}
+
+						return runtimePlan;
 					}
 				}
 				return validated;

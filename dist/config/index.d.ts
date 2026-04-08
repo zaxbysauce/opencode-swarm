@@ -7,3 +7,5 @@ export type { MigrationStatus, Phase, PhaseStatus, Plan, Task, TaskSize, TaskSta
 export { MigrationStatusSchema, PhaseSchema, PhaseStatusSchema, PlanSchema, TaskSchema, TaskSizeSchema, TaskStatusSchema, } from './plan-schema';
 export type { AgentOverrideConfig, AutomationCapabilities, AutomationConfig, AutomationMode, PhaseCompleteConfig, PipelineConfig, PluginConfig, SwarmConfig, } from './schema';
 export { AgentOverrideConfigSchema, AutomationCapabilitiesSchema, AutomationConfigSchema, AutomationModeSchema, PhaseCompleteConfigSchema, PipelineConfigSchema, PluginConfigSchema, SwarmConfigSchema, } from './schema';
+export type { DeltaSpec, Obligation, SpecDelta, SpecRequirement, SpecScenario, SpecSection, SwarmSpec, } from './spec-schema';
+export { DeltaSpecSchema, ObligationSchema, SpecDeltaSchema, SpecRequirementSchema, SpecScenarioSchema, SpecSectionSchema, SwarmSpecSchema, validateSpecContent, } from './spec-schema';

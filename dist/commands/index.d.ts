@@ -1,4 +1,5 @@
 import type { AgentDefinition } from '../agents/index.js';
+export { handleAcknowledgeSpecDriftCommand } from './acknowledge-spec-drift';
 export { handleAgentsCommand } from './agents';
 export { handleAnalyzeCommand } from './analyze';
 export { handleArchiveCommand } from './archive';

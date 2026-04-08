@@ -1,4 +1,4 @@
-import { type Plan, type TaskStatus } from '../config/plan-schema';
+import { type Plan, type RuntimePlan, type TaskStatus } from '../config/plan-schema';
 /** Reset the startup ledger check flag. For testing only. */
 export declare function resetStartupLedgerCheck(): void;
 /**
@@ -24,7 +24,7 @@ export declare function regeneratePlanMarkdown(directory: string, plan: Plan): P
  * 3. .swarm/plan.md exists only -> migrate from plan.md, save both files, return Plan
  * 4. Neither exists -> return null
  */
-export declare function loadPlan(directory: string): Promise<Plan | null>;
+export declare function loadPlan(directory: string): Promise<RuntimePlan | null>;
 /**
  * Validate against PlanSchema (throw on invalid), write to .swarm/plan.json via atomic temp+rename pattern,
  * then derive and write .swarm/plan.md

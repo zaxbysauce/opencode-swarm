@@ -24,6 +24,7 @@ export { pkg_audit } from './pkg-audit';
 export { type PlaceholderFinding, type PlaceholderScanInput, type PlaceholderScanResult, placeholder_scan, placeholderScan, } from './placeholder-scan';
 export { type PreCheckBatchInput, type PreCheckBatchResult, pre_check_batch, runPreCheckBatch, type ToolResult, } from './pre-check-batch';
 export { type QualityBudgetInput, type QualityBudgetResult, quality_budget, qualityBudget, } from './quality-budget';
+export { req_coverage } from './req-coverage';
 export { retrieve_summary } from './retrieve-summary';
 export { type SastScanFinding, type SastScanInput, type SastScanResult, sast_scan, sastScan, } from './sast-scan';
 export type { SavePlanArgs, SavePlanResult } from './save-plan';
@@ -41,5 +42,6 @@ export { type SyntaxCheckFileResult, type SyntaxCheckInput, type SyntaxCheckResu
 export { test_runner } from './test-runner';
 export { todo_extract } from './todo-extract';
 export { executeUpdateTaskStatus, type UpdateTaskStatusArgs, type UpdateTaskStatusResult, update_task_status, } from './update-task-status';
+export { validate_spec } from './validate-spec';
 export { write_drift_evidence } from './write-drift-evidence';
 export { executeWriteRetro, write_retro } from './write-retro';

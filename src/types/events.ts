@@ -94,6 +94,24 @@ export interface AuthorityHandoffResolvedEvent {
 		| 'manual_reset';
 }
 
+export interface SpecStaleDetectedEvent {
+	type: 'spec_stale_detected';
+	timestamp: string;
+	phase: number;
+	specHash_plan: string;
+	specHash_current: string | null;
+	reason: string;
+	planTitle: string;
+}
+
+export interface SpecDriftAcknowledgedEvent {
+	type: 'spec_drift_acknowledged';
+	timestamp: string;
+	phase: number;
+	planTitle: string;
+	acknowledgedBy: string;
+}
+
 // Union type for all v6.19 events
 export type V619Event =
 	| SoundingBoardConsultedEvent
@@ -102,4 +120,6 @@ export type V619Event =
 	| CoderSelfAuditEvent
 	| CoderRetryCircuitBreakerEvent
 	| AgentConflictDetectedEvent
-	| AuthorityHandoffResolvedEvent;
+	| AuthorityHandoffResolvedEvent
+	| SpecStaleDetectedEvent
+	| SpecDriftAcknowledgedEvent;

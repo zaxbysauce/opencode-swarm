@@ -14,6 +14,10 @@ export type CommandEntry = {
     subcommandOf?: string;
 };
 export declare const COMMAND_REGISTRY: {
+    readonly 'acknowledge-spec-drift': {
+        readonly handler: (ctx: CommandContext) => Promise<string>;
+        readonly description: "Acknowledge that the spec has drifted from the plan and suppress further warnings";
+    };
     readonly status: {
         readonly handler: (ctx: CommandContext) => Promise<string>;
         readonly description: "Show current swarm state";

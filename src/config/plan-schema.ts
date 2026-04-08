@@ -87,8 +87,19 @@ export const PlanSchema = z.object({
 	current_phase: z.number().int().min(1).optional(),
 	phases: z.array(PhaseSchema).min(1),
 	migration_status: MigrationStatusSchema.optional(), // only set when migrated from legacy
+	specMtime: z.string().optional(), // ISO 8601 timestamp of when .swarm/spec.md was last modified
+	specHash: z.string().optional(), // SHA-256 hex of .swarm/spec.md content
 });
 export type Plan = z.infer<typeof PlanSchema>;
+
+/**
+ * Runtime plan with spec staleness tracking.
+ * Extends Plan with runtime-only fields that are not persisted.
+ */
+export type RuntimePlan = Plan & {
+	_specStale?: boolean;
+	_specStaleReason?: string;
+};
 
 /**
  * Find the first phase that is in progress.

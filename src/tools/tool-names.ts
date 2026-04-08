@@ -33,6 +33,7 @@ export type ToolName =
 	| 'phase_complete'
 	| 'save_plan'
 	| 'update_task_status'
+	| 'validate_spec'
 	| 'write_retro'
 	| 'write_drift_evidence'
 	| 'declare_scope'
@@ -46,7 +47,8 @@ export type ToolName =
 	| 'co_change_analyzer'
 	| 'search'
 	| 'batch_symbols'
-	| 'suggest_patch';
+	| 'suggest_patch'
+	| 'req_coverage';
 
 /** Readonly array of all tool names */
 export const TOOL_NAMES: readonly ToolName[] = [
@@ -78,6 +80,7 @@ export const TOOL_NAMES: readonly ToolName[] = [
 	'phase_complete',
 	'save_plan',
 	'update_task_status',
+	'validate_spec',
 	'write_retro',
 	'write_drift_evidence',
 	'declare_scope',
@@ -92,6 +95,7 @@ export const TOOL_NAMES: readonly ToolName[] = [
 	'search',
 	'batch_symbols',
 	'suggest_patch',
+	'req_coverage',
 ] as const;
 
 /** Set for O(1) tool name validation */

@@ -12,7 +12,7 @@
  * Callable by background flow (from preflight.requested events).
  */
 /** Preflight check types */
-export type PreflightCheckType = 'lint' | 'tests' | 'secrets' | 'evidence' | 'version';
+export type PreflightCheckType = 'lint' | 'tests' | 'secrets' | 'evidence' | 'version' | 'req_coverage';
 /** Individual check status */
 export interface PreflightCheckResult {
     type: PreflightCheckType;

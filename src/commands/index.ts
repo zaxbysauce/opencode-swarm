@@ -5,6 +5,7 @@ import {
 	VALID_COMMANDS,
 } from './registry.js';
 
+export { handleAcknowledgeSpecDriftCommand } from './acknowledge-spec-drift';
 // Re-export individual handlers
 export { handleAgentsCommand } from './agents';
 export { handleAnalyzeCommand } from './analyze';

@@ -44,6 +44,7 @@ export {
 	quality_budget,
 	qualityBudget,
 } from './quality-budget';
+export { req_coverage } from './req-coverage';
 export { retrieve_summary } from './retrieve-summary';
 export {
 	type SastScanFinding,
@@ -89,5 +90,6 @@ export {
 	type UpdateTaskStatusResult,
 	update_task_status,
 } from './update-task-status';
+export { validate_spec } from './validate-spec';
 export { write_drift_evidence } from './write-drift-evidence';
 export { executeWriteRetro, write_retro } from './write-retro';

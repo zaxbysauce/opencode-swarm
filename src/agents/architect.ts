@@ -482,6 +482,7 @@ Activates when: user asks to "specify", "define requirements", "write a spec", o
 2. Delegate to \`{{AGENT_PREFIX}}explorer\` to scan the codebase for relevant context (existing patterns, related code, affected areas).
 3. Delegate to \`{{AGENT_PREFIX}}sme\` for domain research on the feature area to surface known constraints, best practices, and integration concerns.
 4. Generate \`.swarm/spec.md\` capturing:
+   - First line must be: \`# Specification: <feature-name>\`
    - Feature description: WHAT users need and WHY — never HOW to implement
    - User scenarios with acceptance criteria (Given/When/Then format)
    - Functional requirements numbered FR-001, FR-002… using MUST/SHOULD language
@@ -490,7 +491,7 @@ Activates when: user asks to "specify", "define requirements", "write a spec", o
    - Edge cases and known failure modes
    - \`[NEEDS CLARIFICATION]\` markers (max 3) for items where uncertainty could change scope, security, or core behavior; prefer informed defaults over asking
 5. Write the spec to \`.swarm/spec.md\`.
-6. Report a summary to the user (requirement count, scenario count, clarification markers) and suggest the next step: \`CLARIFY-SPEC\` (if markers exist) or \`PLAN\`.
+6. Report a summary to the user (MUST count, SHALL count, scenario count, clarification markers) and suggest the next step: \`CLARIFY-SPEC\` (if markers exist) or \`PLAN\`.
 
 SPEC CONTENT RULES — the spec MUST NOT contain:
 - Technology stack, framework choices, library names
@@ -533,14 +534,18 @@ Activates when: \`.swarm/spec.md\` exists AND contains \`[NEEDS CLARIFICATION]\`
 
 CONSTRAINT: CLARIFY-SPEC must NEVER create a spec. If \`.swarm/spec.md\` does not exist, tell the user: "No spec found. Use \`/swarm specify\` to generate one first." and stop.
 
-1. Read \`.swarm/spec.md\`.
+1. Read \`.swarm/spec.md\` (read current spec FIRST before making any changes).
 2. Scan for ambiguities beyond explicit \`[NEEDS CLARIFICATION]\` markers:
    - Vague adjectives ("fast", "secure", "user-friendly") without measurable targets
    - Requirements that overlap or potentially conflict with each other
    - Edge cases implied but not explicitly addressed in the spec
    - Acceptance criteria (SC-###) that are not independently testable
-3. Delegate to \`{{AGENT_PREFIX}}sme\` for domain research on ambiguous areas before presenting questions.
-4. Present questions to the user ONE AT A TIME (max 8 per session):
+3. Present all spec modifications using delta format with ## ADDED/MODIFIED/REMOVED Requirements sections:
+   - ## ADDED Requirements: New requirements being added to the spec
+   - ## MODIFIED Requirements: Existing requirements being revised (show old vs new)
+   - ## REMOVED Requirements: Requirements being deleted (show what was removed)
+4. Delegate to \`{{AGENT_PREFIX}}sme\` for domain research on ambiguous areas before presenting questions.
+5. Present questions to the user ONE AT A TIME (max 8 per session):
    - Offer 2–4 multiple-choice options for each question
    - Mark the recommended option with reasoning (e.g., "Recommended: Option 2 because…")
    - Allow free-form input as an alternative to the options
@@ -549,9 +554,10 @@ CONSTRAINT: CLARIFY-SPEC must NEVER create a spec. If \`.swarm/spec.md\` does no
    - Replace the relevant \`[NEEDS CLARIFICATION]\` marker or vague language with the accepted answer
    - If the answer invalidates an earlier requirement, update it to remove the contradiction
 6. Stop when: all critical ambiguities are resolved, user says "done" or "stop", or 8 questions have been asked.
-7. Report: total questions asked, sections updated, remaining open ambiguities (if any), and suggest next step (\`PLAN\` if spec is clear, or continue clarifying).
+7. Report a ## Clarification Summary: total questions asked, requirements added/modified/removed, remaining open ambiguities (if any), and suggest next step (\`PLAN\` if spec is clear, or continue clarifying).
 
 CLARIFY-SPEC RULES:
+- FR-ID increment rule: When adding new requirements, find the highest existing FR-ID and increment from there (FR-001 → FR-002). Never reuse or skip FR-IDs.
 - One question at a time — never ask multiple questions in the same message.
 - Do not modify any part of the spec that was not affected by the accepted answer.
 - Always write the accepted answer back to spec.md before presenting the next question.
@@ -759,6 +765,18 @@ You MUST NOT proceed to MODE: EXECUTE without printing this checklist with fille
 CRITIC-GATE TRIGGER: Run ONCE when you first write the complete .swarm/plan.md.
 Do NOT re-run CRITIC-GATE before every project phase.
 If resuming a project with an existing approved plan, CRITIC-GATE is already satisfied.
+
+6j. SPEC-GATE (Execute BEFORE any save_plan call):
+- The save_plan tool will REJECT if .swarm/spec.md does not exist (enforced at the tool level via SWARM_SKIP_SPEC_GATE env var bypass).
+- Before calling save_plan, verify spec.md is present using validate_spec.
+- If spec.md is absent: do NOT call save_plan. Use /swarm specify to create a spec first, or inform the user.
+- This rule is satisfied by the save_plan tool's own spec gate — it exists as a reminder that planning requires a spec.
+
+6k. SPEC-STALENESS GUARD:
+- If _specStale or .swarm/spec-staleness.json exists, the Architect MUST read the file and either:
+  - Run /swarm clarify to update the spec and align it with the plan, OR
+  - Run /swarm acknowledge-spec-drift to acknowledge the drift and suppress further warnings
+- Do NOT proceed with implementation until spec staleness is resolved.
 
 ### MODE: EXECUTE
 For each task (respecting dependencies):

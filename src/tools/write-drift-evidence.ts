@@ -20,6 +20,8 @@ export interface WriteDriftEvidenceArgs {
 	verdict: 'APPROVED' | 'NEEDS_REVISION';
 	/** Human-readable summary of the drift verification */
 	summary: string;
+	/** Requirement coverage report from req_coverage tool */
+	requirementCoverage?: string;
 }
 
 /**

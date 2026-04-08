@@ -83,3 +83,22 @@ export {
 	PluginConfigSchema,
 	SwarmConfigSchema,
 } from './schema';
+export type {
+	DeltaSpec,
+	Obligation,
+	SpecDelta,
+	SpecRequirement,
+	SpecScenario,
+	SpecSection,
+	SwarmSpec,
+} from './spec-schema';
+export {
+	DeltaSpecSchema,
+	ObligationSchema,
+	SpecDeltaSchema,
+	SpecRequirementSchema,
+	SpecScenarioSchema,
+	SpecSectionSchema,
+	SwarmSpecSchema,
+	validateSpecContent,
+} from './spec-schema';

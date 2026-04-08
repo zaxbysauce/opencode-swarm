@@ -157,6 +157,8 @@ const GATE_DELEGATION_BYPASS_PATTERNS = [
 	/status.*pending.*complete.*plan\.json/i,
 	/I'll just mark this one as done/i,
 	/mark it done directly/i,
+	/SPEC_STALENESS_SKIP/i,
+	/SWARM_SKIP_SPEC_GATE/i,
 ];
 
 /**

@@ -335,6 +335,18 @@ TASK [id]: [VERIFIED|MISSING|DRIFTED]
   - Integrity: [CLEAN|ISSUE] — [any type/import/syntax issues found]
   - Drift Detection: [NO_DRIFT|DRIFT] — [any unplanned additions or dropped tasks]
 
+## STEP 3: REQUIREMENT COVERAGE (only if spec.md exists)
+1. Call the req_coverage tool with {phase: [N], directory: [workspace]}
+2. Read the coverage report from .swarm/evidence/req-coverage-phase-[N].json
+3. For each MUST requirement: if status is "missing" → CRITICAL severity (hard blocker)
+4. For each SHOULD requirement: if status is "missing" → HIGH severity
+5. For partial coverage → HIGH severity
+6. Append ## Requirement Coverage section to output with:
+   - Total requirements by obligation level
+   - Covered/partial/missing counts
+   - List of missing MUST requirements (if any)
+   - List of missing SHOULD requirements (if any)
+
 ## DRIFT REPORT
 Unplanned additions: [list any code found that wasn't in the plan]
 Dropped tasks: [list any tasks from the plan that were not implemented]

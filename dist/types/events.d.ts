@@ -72,4 +72,20 @@ export interface AuthorityHandoffResolvedEvent {
     newAgent: string;
     reason: 'task_complete' | 'stale_delegation' | 'conflict_escalation' | 'manual_reset';
 }
-export type V619Event = SoundingBoardConsultedEvent | ArchitectLoopDetectedEvent | PrecedentManipulationDetectedEvent | CoderSelfAuditEvent | CoderRetryCircuitBreakerEvent | AgentConflictDetectedEvent | AuthorityHandoffResolvedEvent;
+export interface SpecStaleDetectedEvent {
+    type: 'spec_stale_detected';
+    timestamp: string;
+    phase: number;
+    specHash_plan: string;
+    specHash_current: string | null;
+    reason: string;
+    planTitle: string;
+}
+export interface SpecDriftAcknowledgedEvent {
+    type: 'spec_drift_acknowledged';
+    timestamp: string;
+    phase: number;
+    planTitle: string;
+    acknowledgedBy: string;
+}
+export type V619Event = SoundingBoardConsultedEvent | ArchitectLoopDetectedEvent | PrecedentManipulationDetectedEvent | CoderSelfAuditEvent | CoderRetryCircuitBreakerEvent | AgentConflictDetectedEvent | AuthorityHandoffResolvedEvent | SpecStaleDetectedEvent | SpecDriftAcknowledgedEvent;
