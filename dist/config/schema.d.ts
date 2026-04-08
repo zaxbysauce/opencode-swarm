@@ -474,6 +474,7 @@ export type CompactionConfig = z.infer<typeof CompactionConfigSchema>;
 export declare const AgentAuthorityRuleSchema: z.ZodObject<{
     readOnly: z.ZodOptional<z.ZodBoolean>;
     blockedExact: z.ZodOptional<z.ZodArray<z.ZodString>>;
+    allowedExact: z.ZodOptional<z.ZodArray<z.ZodString>>;
     blockedPrefix: z.ZodOptional<z.ZodArray<z.ZodString>>;
     allowedPrefix: z.ZodOptional<z.ZodArray<z.ZodString>>;
     blockedZones: z.ZodOptional<z.ZodArray<z.ZodEnum<{
@@ -484,6 +485,8 @@ export declare const AgentAuthorityRuleSchema: z.ZodObject<{
         generated: "generated";
         build: "build";
     }>>>;
+    blockedGlobs: z.ZodOptional<z.ZodArray<z.ZodString>>;
+    allowedGlobs: z.ZodOptional<z.ZodArray<z.ZodString>>;
 }, z.core.$strip>;
 export type AgentAuthorityRule = z.infer<typeof AgentAuthorityRuleSchema>;
 export declare const AuthorityConfigSchema: z.ZodObject<{
@@ -491,6 +494,7 @@ export declare const AuthorityConfigSchema: z.ZodObject<{
     rules: z.ZodDefault<z.ZodRecord<z.ZodString, z.ZodObject<{
         readOnly: z.ZodOptional<z.ZodBoolean>;
         blockedExact: z.ZodOptional<z.ZodArray<z.ZodString>>;
+        allowedExact: z.ZodOptional<z.ZodArray<z.ZodString>>;
         blockedPrefix: z.ZodOptional<z.ZodArray<z.ZodString>>;
         allowedPrefix: z.ZodOptional<z.ZodArray<z.ZodString>>;
         blockedZones: z.ZodOptional<z.ZodArray<z.ZodEnum<{
@@ -501,6 +505,8 @@ export declare const AuthorityConfigSchema: z.ZodObject<{
             generated: "generated";
             build: "build";
         }>>>;
+        blockedGlobs: z.ZodOptional<z.ZodArray<z.ZodString>>;
+        allowedGlobs: z.ZodOptional<z.ZodArray<z.ZodString>>;
     }, z.core.$strip>>>;
 }, z.core.$strip>;
 export type AuthorityConfig = z.infer<typeof AuthorityConfigSchema>;
@@ -668,6 +674,7 @@ export declare const PluginConfigSchema: z.ZodObject<{
         rules: z.ZodDefault<z.ZodRecord<z.ZodString, z.ZodObject<{
             readOnly: z.ZodOptional<z.ZodBoolean>;
             blockedExact: z.ZodOptional<z.ZodArray<z.ZodString>>;
+            allowedExact: z.ZodOptional<z.ZodArray<z.ZodString>>;
             blockedPrefix: z.ZodOptional<z.ZodArray<z.ZodString>>;
             allowedPrefix: z.ZodOptional<z.ZodArray<z.ZodString>>;
             blockedZones: z.ZodOptional<z.ZodArray<z.ZodEnum<{
@@ -678,6 +685,8 @@ export declare const PluginConfigSchema: z.ZodObject<{
                 generated: "generated";
                 build: "build";
             }>>>;
+            blockedGlobs: z.ZodOptional<z.ZodArray<z.ZodString>>;
+            allowedGlobs: z.ZodOptional<z.ZodArray<z.ZodString>>;
         }, z.core.$strip>>>;
     }, z.core.$strip>>;
     plan_cursor: z.ZodOptional<z.ZodObject<{

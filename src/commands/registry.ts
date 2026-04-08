@@ -1,4 +1,5 @@
 import type { AgentDefinition } from '../agents/index.js';
+import { handleAcknowledgeSpecDriftCommand } from './acknowledge-spec-drift.js';
 import { handleAgentsCommand } from './agents.js';
 import { handleAnalyzeCommand } from './analyze.js';
 import { handleArchiveCommand } from './archive.js';
@@ -60,6 +61,12 @@ export type CommandEntry = {
 // Adding a command here automatically makes it available in both
 // the in-session hook AND the standalone CLI run() entry point.
 export const COMMAND_REGISTRY = {
+	'acknowledge-spec-drift': {
+		handler: (ctx) =>
+			handleAcknowledgeSpecDriftCommand(ctx.directory, ctx.args),
+		description:
+			'Acknowledge that the spec has drifted from the plan and suppress further warnings',
+	},
 	status: {
 		handler: (ctx) => handleStatusCommand(ctx.directory, ctx.agents),
 		description: 'Show current swarm state',

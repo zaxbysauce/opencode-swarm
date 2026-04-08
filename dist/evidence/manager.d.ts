@@ -72,6 +72,14 @@ export declare function listEvidenceTaskIds(directory: string): Promise<string[]
  */
 export declare function deleteEvidence(directory: string, taskId: string): Promise<boolean>;
 /**
+ * Check if a requirement coverage file exists for a given phase.
+ * Looks for .swarm/evidence/req-coverage-phase-{N}.json
+ */
+export declare function checkRequirementCoverage(phase: number, directory: string): Promise<{
+    exists: boolean;
+    path: string;
+}>;
+/**
  * Archive old evidence bundles based on retention policy.
  * Removes evidence older than maxAgeDays.
  * If maxBundles is provided, enforces a maximum bundle count by deleting oldest first.

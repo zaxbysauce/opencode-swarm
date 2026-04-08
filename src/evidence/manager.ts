@@ -531,6 +531,28 @@ export async function deleteEvidence(
 }
 
 /**
+ * Check if a requirement coverage file exists for a given phase.
+ * Looks for .swarm/evidence/req-coverage-phase-{N}.json
+ */
+export async function checkRequirementCoverage(
+	phase: number,
+	directory: string,
+): Promise<{ exists: boolean; path: string }> {
+	const relativePath = path.join(
+		'evidence',
+		`req-coverage-phase-${phase}.json`,
+	);
+	const absolutePath = path.resolve(directory, '.swarm', relativePath);
+
+	try {
+		await fs.access(absolutePath);
+		return { exists: true, path: absolutePath };
+	} catch {
+		return { exists: false, path: absolutePath };
+	}
+}
+
+/**
  * Archive old evidence bundles based on retention policy.
  * Removes evidence older than maxAgeDays.
  * If maxBundles is provided, enforces a maximum bundle count by deleting oldest first.

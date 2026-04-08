@@ -3,6 +3,7 @@
  * Allows the Architect agent to save structured plans to .swarm/plan.json and .swarm/plan.md.
  */
 
+import * as crypto from 'node:crypto';
 import * as fs from 'node:fs';
 import * as path from 'node:path';
 import { type ToolDefinition, tool } from '@opencode-ai/plugin/tool';
@@ -196,6 +197,28 @@ export async function executeSavePlan(
 		};
 	}
 
+	// Step 2.x: SPEC GATE - verify .swarm/spec.md exists and capture its hash/mtime
+	let specMtime: string | undefined;
+	let specHash: string | undefined;
+	if (process.env.SWARM_SKIP_SPEC_GATE !== '1') {
+		const specPath = path.join(targetWorkspace as string, '.swarm', 'spec.md');
+		try {
+			const stat = await fs.promises.stat(specPath);
+			specMtime = stat.mtime.toISOString();
+			const content = await fs.promises.readFile(specPath, 'utf8');
+			specHash = crypto.createHash('sha256').update(content).digest('hex');
+		} catch {
+			return {
+				success: false,
+				message:
+					'SPEC_REQUIRED: .swarm/spec.md must exist before saving a plan. Run /swarm specify first.',
+				errors: ['Missing .swarm/spec.md in workspace'],
+				recovery_guidance:
+					'Create or restore .swarm/spec.md before saving a plan. Never write .swarm/plan.json or .swarm/plan.md directly.',
+			};
+		}
+	}
+
 	// Step 2.5: Read current plan for status preservation (merge mode)
 	// This ensures all task statuses are preserved across plan revisions,
 	// not just tasks that happen to share the same ID with the incoming plan.
@@ -221,6 +244,8 @@ export async function executeSavePlan(
 		swarm: args.swarm_id,
 		migration_status: 'native',
 		current_phase: args.phases[0]?.id,
+		specMtime,
+		specHash,
 		phases: args.phases.map((phase): Phase => {
 			return {
 				id: phase.id,

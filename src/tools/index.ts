@@ -44,6 +44,7 @@ export {
 	quality_budget,
 	qualityBudget,
 } from './quality-budget';
+export { req_coverage } from './req-coverage';
 export { retrieve_summary } from './retrieve-summary';
 export {
 	type SastScanFinding,
@@ -73,6 +74,7 @@ export { suggestPatch };
 export type { SuggestPatchArgs } from './suggest-patch';
 // Alias for TOOL_NAMES compliance - suggest_patch and suggestPatch are the same tool
 export const suggest_patch: typeof suggestPatch = suggestPatch;
+export { lint_spec } from './lint-spec';
 export { symbols } from './symbols';
 export {
 	type SyntaxCheckFileResult,

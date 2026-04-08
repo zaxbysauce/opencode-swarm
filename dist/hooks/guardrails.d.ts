@@ -106,9 +106,12 @@ export declare function validateAndRecordAttestation(dir: string, findingId: str
 type AgentRule = {
     readOnly?: boolean;
     blockedExact?: string[];
+    allowedExact?: string[];
     blockedPrefix?: string[];
     allowedPrefix?: string[];
     blockedZones?: FileZone[];
+    blockedGlobs?: string[];
+    allowedGlobs?: string[];
 };
 export declare const DEFAULT_AGENT_AUTHORITY_RULES: Record<string, AgentRule>;
 /**

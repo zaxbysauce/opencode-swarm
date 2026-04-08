@@ -9,14 +9,14 @@ import { AGENT_TOOL_MAP } from './constants';
 describe('AGENT_TOOL_MAP.architect whitelist verification', () => {
 	// Store expected tool counts for each role (excluding architect which we're testing)
 	const OTHER_ROLE_EXPECTED_TOOLS: Record<string, number> = {
-		explorer: 9,
-		coder: 6,
-		test_engineer: 8,
-		sme: 7,
-		reviewer: 11,
-		critic: 5,
-		docs: 8,
-		designer: 3,
+		explorer: 13,
+		coder: 11,
+		test_engineer: 11,
+		sme: 8,
+		reviewer: 17,
+		critic: 7,
+		docs: 9,
+		designer: 4,
 	};
 
 	describe('check_gate_status in architect whitelist', () => {
@@ -33,10 +33,10 @@ describe('AGENT_TOOL_MAP.architect whitelist verification', () => {
 			expect(hasValidToolName).toBe(true);
 		});
 
-		it('architect should have expected total tool count (23 tools including check_gate_status)', () => {
+		it('architect should have expected total tool count (43 tools including lint_spec)', () => {
 			const architectTools = AGENT_TOOL_MAP.architect;
-			// Expected: 23 tools (original 22 + check_gate_status)
-			expect(architectTools.length).toBe(23);
+			// Expected: 43 tools
+			expect(architectTools.length).toBe(43);
 		});
 	});
 
@@ -60,6 +60,7 @@ describe('AGENT_TOOL_MAP.architect whitelist verification', () => {
 		const expectedArchitectTools: ToolName[] = [
 			'checkpoint',
 			'check_gate_status',
+			'completion_verify',
 			'complexity_hotspots',
 			'detect_domains',
 			'evidence_check',
@@ -71,16 +72,35 @@ describe('AGENT_TOOL_MAP.architect whitelist verification', () => {
 			'diff',
 			'pkg_audit',
 			'pre_check_batch',
+			'quality_budget',
 			'retrieve_summary',
 			'save_plan',
+			'search',
+			'batch_symbols',
 			'schema_drift',
 			'secretscan',
 			'symbols',
 			'test_runner',
 			'todo_extract',
 			'update_task_status',
+			'lint_spec',
 			'write_retro',
+			'write_drift_evidence',
 			'declare_scope',
+			'sast_scan',
+			'sbom_generate',
+			'build_check',
+			'syntax_check',
+			'placeholder_scan',
+			'phase_complete',
+			'doc_scan',
+			'doc_extract',
+			'curator_analyze',
+			'knowledge_add',
+			'knowledge_recall',
+			'knowledge_remove',
+			'co_change_analyzer',
+			'suggest_patch',
 		];
 
 		it('architect should have exact expected tools', () => {

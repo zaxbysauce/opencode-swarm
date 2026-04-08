@@ -144,8 +144,18 @@ export declare const PlanSchema: z.ZodObject<{
         migrated: "migrated";
         migration_failed: "migration_failed";
     }>>;
+    specMtime: z.ZodOptional<z.ZodString>;
+    specHash: z.ZodOptional<z.ZodString>;
 }, z.core.$strip>;
 export type Plan = z.infer<typeof PlanSchema>;
+/**
+ * Runtime plan with spec staleness tracking.
+ * Extends Plan with runtime-only fields that are not persisted.
+ */
+export type RuntimePlan = Plan & {
+    _specStale?: boolean;
+    _specStaleReason?: string;
+};
 /**
  * Find the first phase that is in progress.
  * @param phases - Array of phases

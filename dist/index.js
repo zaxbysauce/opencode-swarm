@@ -78,6 +78,7 @@ var init_tool_names = __esm(() => {
     "phase_complete",
     "save_plan",
     "update_task_status",
+    "lint_spec",
     "write_retro",
     "write_drift_evidence",
     "declare_scope",
@@ -91,7 +92,8 @@ var init_tool_names = __esm(() => {
     "co_change_analyzer",
     "search",
     "batch_symbols",
-    "suggest_patch"
+    "suggest_patch",
+    "req_coverage"
   ];
   TOOL_NAME_SET = new Set(TOOL_NAMES);
 });
@@ -209,6 +211,7 @@ var init_constants = __esm(() => {
       "test_runner",
       "todo_extract",
       "update_task_status",
+      "lint_spec",
       "write_retro",
       "write_drift_evidence",
       "declare_scope",
@@ -303,7 +306,8 @@ var init_constants = __esm(() => {
       "imports",
       "retrieve_summary",
       "symbols",
-      "knowledge_recall"
+      "knowledge_recall",
+      "req_coverage"
     ],
     critic_sounding_board: [
       "complexity_hotspots",
@@ -319,7 +323,8 @@ var init_constants = __esm(() => {
       "imports",
       "retrieve_summary",
       "symbols",
-      "knowledge_recall"
+      "knowledge_recall",
+      "req_coverage"
     ],
     critic_oversight: [
       "complexity_hotspots",
@@ -453,7 +458,7 @@ var init_constants = __esm(() => {
   LOW_CAPABILITY_MODELS = ["mini", "nano", "small", "free"];
 });
 
-// node_modules/zod/v4/core/core.js
+// node_modules/.bun/zod@4.3.6/node_modules/zod/v4/core/core.js
 function $constructor(name2, initializer, params) {
   function init2(inst, def) {
     if (!inst._zod) {
@@ -531,7 +536,7 @@ var init_core = __esm(() => {
   globalConfig = {};
 });
 
-// node_modules/zod/v4/core/util.js
+// node_modules/.bun/zod@4.3.6/node_modules/zod/v4/core/util.js
 var exports_util = {};
 __export(exports_util, {
   unwrapMessage: () => unwrapMessage,
@@ -1207,7 +1212,7 @@ var init_util = __esm(() => {
   };
 });
 
-// node_modules/zod/v4/core/errors.js
+// node_modules/.bun/zod@4.3.6/node_modules/zod/v4/core/errors.js
 function flattenError(error, mapper = (issue2) => issue2.message) {
   const fieldErrors = {};
   const formErrors = [];
@@ -1348,7 +1353,7 @@ var init_errors = __esm(() => {
   $ZodRealError = $constructor("$ZodError", initializer, { Parent: Error });
 });
 
-// node_modules/zod/v4/core/parse.js
+// node_modules/.bun/zod@4.3.6/node_modules/zod/v4/core/parse.js
 var _parse = (_Err) => (schema, value, _ctx, _params) => {
   const ctx = _ctx ? Object.assign(_ctx, { async: false }) : { async: false };
   const result = schema._zod.run({ value, issues: [] }, ctx);
@@ -1430,7 +1435,7 @@ var init_parse = __esm(() => {
   safeDecodeAsync = /* @__PURE__ */ _safeDecodeAsync($ZodRealError);
 });
 
-// node_modules/zod/v4/core/regexes.js
+// node_modules/.bun/zod@4.3.6/node_modules/zod/v4/core/regexes.js
 var exports_regexes = {};
 __export(exports_regexes, {
   xid: () => xid,
@@ -1586,7 +1591,7 @@ var init_regexes = __esm(() => {
   sha512_base64url = /* @__PURE__ */ fixedBase64url(86);
 });
 
-// node_modules/zod/v4/core/checks.js
+// node_modules/.bun/zod@4.3.6/node_modules/zod/v4/core/checks.js
 function handleCheckPropertyResult(result, payload, property) {
   if (result.issues.length) {
     payload.issues.push(...prefixIssues(property, result.issues));
@@ -2139,7 +2144,7 @@ var init_checks = __esm(() => {
   });
 });
 
-// node_modules/zod/v4/core/doc.js
+// node_modules/.bun/zod@4.3.6/node_modules/zod/v4/core/doc.js
 class Doc {
   constructor(args2 = []) {
     this.content = [];
@@ -2177,7 +2182,7 @@ class Doc {
   }
 }
 
-// node_modules/zod/v4/core/versions.js
+// node_modules/.bun/zod@4.3.6/node_modules/zod/v4/core/versions.js
 var version;
 var init_versions = __esm(() => {
   version = {
@@ -2187,7 +2192,7 @@ var init_versions = __esm(() => {
   };
 });
 
-// node_modules/zod/v4/core/schemas.js
+// node_modules/.bun/zod@4.3.6/node_modules/zod/v4/core/schemas.js
 function isValidBase64(data) {
   if (data === "")
     return true;
@@ -4160,7 +4165,7 @@ var init_schemas = __esm(() => {
   });
 });
 
-// node_modules/zod/v4/locales/ar.js
+// node_modules/.bun/zod@4.3.6/node_modules/zod/v4/locales/ar.js
 function ar_default() {
   return {
     localeError: error()
@@ -4270,7 +4275,7 @@ var init_ar = __esm(() => {
   init_util();
 });
 
-// node_modules/zod/v4/locales/az.js
+// node_modules/.bun/zod@4.3.6/node_modules/zod/v4/locales/az.js
 function az_default() {
   return {
     localeError: error2()
@@ -4379,7 +4384,7 @@ var init_az = __esm(() => {
   init_util();
 });
 
-// node_modules/zod/v4/locales/be.js
+// node_modules/.bun/zod@4.3.6/node_modules/zod/v4/locales/be.js
 function getBelarusianPlural(count, one, few, many) {
   const absCount = Math.abs(count);
   const lastDigit = absCount % 10;
@@ -4539,7 +4544,7 @@ var init_be = __esm(() => {
   init_util();
 });
 
-// node_modules/zod/v4/locales/bg.js
+// node_modules/.bun/zod@4.3.6/node_modules/zod/v4/locales/bg.js
 function bg_default() {
   return {
     localeError: error4()
@@ -4663,7 +4668,7 @@ var init_bg = __esm(() => {
   init_util();
 });
 
-// node_modules/zod/v4/locales/ca.js
+// node_modules/.bun/zod@4.3.6/node_modules/zod/v4/locales/ca.js
 function ca_default() {
   return {
     localeError: error5()
@@ -4774,7 +4779,7 @@ var init_ca = __esm(() => {
   init_util();
 });
 
-// node_modules/zod/v4/locales/cs.js
+// node_modules/.bun/zod@4.3.6/node_modules/zod/v4/locales/cs.js
 function cs_default() {
   return {
     localeError: error6()
@@ -4889,7 +4894,7 @@ var init_cs = __esm(() => {
   init_util();
 });
 
-// node_modules/zod/v4/locales/da.js
+// node_modules/.bun/zod@4.3.6/node_modules/zod/v4/locales/da.js
 function da_default() {
   return {
     localeError: error7()
@@ -5008,7 +5013,7 @@ var init_da = __esm(() => {
   init_util();
 });
 
-// node_modules/zod/v4/locales/de.js
+// node_modules/.bun/zod@4.3.6/node_modules/zod/v4/locales/de.js
 function de_default() {
   return {
     localeError: error8()
@@ -5120,7 +5125,7 @@ var init_de = __esm(() => {
   init_util();
 });
 
-// node_modules/zod/v4/locales/en.js
+// node_modules/.bun/zod@4.3.6/node_modules/zod/v4/locales/en.js
 function en_default() {
   return {
     localeError: error9()
@@ -5230,7 +5235,7 @@ var init_en = __esm(() => {
   init_util();
 });
 
-// node_modules/zod/v4/locales/eo.js
+// node_modules/.bun/zod@4.3.6/node_modules/zod/v4/locales/eo.js
 function eo_default() {
   return {
     localeError: error10()
@@ -5343,7 +5348,7 @@ var init_eo = __esm(() => {
   init_util();
 });
 
-// node_modules/zod/v4/locales/es.js
+// node_modules/.bun/zod@4.3.6/node_modules/zod/v4/locales/es.js
 function es_default() {
   return {
     localeError: error11()
@@ -5479,7 +5484,7 @@ var init_es = __esm(() => {
   init_util();
 });
 
-// node_modules/zod/v4/locales/fa.js
+// node_modules/.bun/zod@4.3.6/node_modules/zod/v4/locales/fa.js
 function fa_default() {
   return {
     localeError: error12()
@@ -5597,7 +5602,7 @@ var init_fa = __esm(() => {
   init_util();
 });
 
-// node_modules/zod/v4/locales/fi.js
+// node_modules/.bun/zod@4.3.6/node_modules/zod/v4/locales/fi.js
 function fi_default() {
   return {
     localeError: error13()
@@ -5713,7 +5718,7 @@ var init_fi = __esm(() => {
   init_util();
 });
 
-// node_modules/zod/v4/locales/fr.js
+// node_modules/.bun/zod@4.3.6/node_modules/zod/v4/locales/fr.js
 function fr_default() {
   return {
     localeError: error14()
@@ -5825,7 +5830,7 @@ var init_fr = __esm(() => {
   init_util();
 });
 
-// node_modules/zod/v4/locales/fr-CA.js
+// node_modules/.bun/zod@4.3.6/node_modules/zod/v4/locales/fr-CA.js
 function fr_CA_default() {
   return {
     localeError: error15()
@@ -5936,7 +5941,7 @@ var init_fr_CA = __esm(() => {
   init_util();
 });
 
-// node_modules/zod/v4/locales/he.js
+// node_modules/.bun/zod@4.3.6/node_modules/zod/v4/locales/he.js
 function he_default() {
   return {
     localeError: error16()
@@ -6133,7 +6138,7 @@ var init_he = __esm(() => {
   init_util();
 });
 
-// node_modules/zod/v4/locales/hu.js
+// node_modules/.bun/zod@4.3.6/node_modules/zod/v4/locales/hu.js
 function hu_default() {
   return {
     localeError: error17()
@@ -6245,7 +6250,7 @@ var init_hu = __esm(() => {
   init_util();
 });
 
-// node_modules/zod/v4/locales/hy.js
+// node_modules/.bun/zod@4.3.6/node_modules/zod/v4/locales/hy.js
 function getArmenianPlural(count, one, many) {
   return Math.abs(count) === 1 ? one : many;
 }
@@ -6396,7 +6401,7 @@ var init_hy = __esm(() => {
   init_util();
 });
 
-// node_modules/zod/v4/locales/id.js
+// node_modules/.bun/zod@4.3.6/node_modules/zod/v4/locales/id.js
 function id_default() {
   return {
     localeError: error19()
@@ -6506,7 +6511,7 @@ var init_id = __esm(() => {
   init_util();
 });
 
-// node_modules/zod/v4/locales/is.js
+// node_modules/.bun/zod@4.3.6/node_modules/zod/v4/locales/is.js
 function is_default() {
   return {
     localeError: error20()
@@ -6619,7 +6624,7 @@ var init_is = __esm(() => {
   init_util();
 });
 
-// node_modules/zod/v4/locales/it.js
+// node_modules/.bun/zod@4.3.6/node_modules/zod/v4/locales/it.js
 function it_default() {
   return {
     localeError: error21()
@@ -6731,7 +6736,7 @@ var init_it = __esm(() => {
   init_util();
 });
 
-// node_modules/zod/v4/locales/ja.js
+// node_modules/.bun/zod@4.3.6/node_modules/zod/v4/locales/ja.js
 function ja_default() {
   return {
     localeError: error22()
@@ -6842,7 +6847,7 @@ var init_ja = __esm(() => {
   init_util();
 });
 
-// node_modules/zod/v4/locales/ka.js
+// node_modules/.bun/zod@4.3.6/node_modules/zod/v4/locales/ka.js
 function ka_default() {
   return {
     localeError: error23()
@@ -6958,7 +6963,7 @@ var init_ka = __esm(() => {
   init_util();
 });
 
-// node_modules/zod/v4/locales/km.js
+// node_modules/.bun/zod@4.3.6/node_modules/zod/v4/locales/km.js
 function km_default() {
   return {
     localeError: error24()
@@ -7072,7 +7077,7 @@ var init_km = __esm(() => {
   init_util();
 });
 
-// node_modules/zod/v4/locales/kh.js
+// node_modules/.bun/zod@4.3.6/node_modules/zod/v4/locales/kh.js
 function kh_default() {
   return km_default();
 }
@@ -7080,7 +7085,7 @@ var init_kh = __esm(() => {
   init_km();
 });
 
-// node_modules/zod/v4/locales/ko.js
+// node_modules/.bun/zod@4.3.6/node_modules/zod/v4/locales/ko.js
 function ko_default() {
   return {
     localeError: error25()
@@ -7195,7 +7200,7 @@ var init_ko = __esm(() => {
   init_util();
 });
 
-// node_modules/zod/v4/locales/lt.js
+// node_modules/.bun/zod@4.3.6/node_modules/zod/v4/locales/lt.js
 function getUnitTypeFromNumber(number2) {
   const abs = Math.abs(number2);
   const last = abs % 10;
@@ -7401,7 +7406,7 @@ var init_lt = __esm(() => {
   init_util();
 });
 
-// node_modules/zod/v4/locales/mk.js
+// node_modules/.bun/zod@4.3.6/node_modules/zod/v4/locales/mk.js
 function mk_default() {
   return {
     localeError: error27()
@@ -7514,7 +7519,7 @@ var init_mk = __esm(() => {
   init_util();
 });
 
-// node_modules/zod/v4/locales/ms.js
+// node_modules/.bun/zod@4.3.6/node_modules/zod/v4/locales/ms.js
 function ms_default() {
   return {
     localeError: error28()
@@ -7625,7 +7630,7 @@ var init_ms = __esm(() => {
   init_util();
 });
 
-// node_modules/zod/v4/locales/nl.js
+// node_modules/.bun/zod@4.3.6/node_modules/zod/v4/locales/nl.js
 function nl_default() {
   return {
     localeError: error29()
@@ -7739,7 +7744,7 @@ var init_nl = __esm(() => {
   init_util();
 });
 
-// node_modules/zod/v4/locales/no.js
+// node_modules/.bun/zod@4.3.6/node_modules/zod/v4/locales/no.js
 function no_default() {
   return {
     localeError: error30()
@@ -7851,7 +7856,7 @@ var init_no = __esm(() => {
   init_util();
 });
 
-// node_modules/zod/v4/locales/ota.js
+// node_modules/.bun/zod@4.3.6/node_modules/zod/v4/locales/ota.js
 function ota_default() {
   return {
     localeError: error31()
@@ -7964,7 +7969,7 @@ var init_ota = __esm(() => {
   init_util();
 });
 
-// node_modules/zod/v4/locales/ps.js
+// node_modules/.bun/zod@4.3.6/node_modules/zod/v4/locales/ps.js
 function ps_default() {
   return {
     localeError: error32()
@@ -8082,7 +8087,7 @@ var init_ps = __esm(() => {
   init_util();
 });
 
-// node_modules/zod/v4/locales/pl.js
+// node_modules/.bun/zod@4.3.6/node_modules/zod/v4/locales/pl.js
 function pl_default() {
   return {
     localeError: error33()
@@ -8195,7 +8200,7 @@ var init_pl = __esm(() => {
   init_util();
 });
 
-// node_modules/zod/v4/locales/pt.js
+// node_modules/.bun/zod@4.3.6/node_modules/zod/v4/locales/pt.js
 function pt_default() {
   return {
     localeError: error34()
@@ -8307,7 +8312,7 @@ var init_pt = __esm(() => {
   init_util();
 });
 
-// node_modules/zod/v4/locales/ru.js
+// node_modules/.bun/zod@4.3.6/node_modules/zod/v4/locales/ru.js
 function getRussianPlural(count, one, few, many) {
   const absCount = Math.abs(count);
   const lastDigit = absCount % 10;
@@ -8467,7 +8472,7 @@ var init_ru = __esm(() => {
   init_util();
 });
 
-// node_modules/zod/v4/locales/sl.js
+// node_modules/.bun/zod@4.3.6/node_modules/zod/v4/locales/sl.js
 function sl_default() {
   return {
     localeError: error36()
@@ -8580,7 +8585,7 @@ var init_sl = __esm(() => {
   init_util();
 });
 
-// node_modules/zod/v4/locales/sv.js
+// node_modules/.bun/zod@4.3.6/node_modules/zod/v4/locales/sv.js
 function sv_default() {
   return {
     localeError: error37()
@@ -8694,7 +8699,7 @@ var init_sv = __esm(() => {
   init_util();
 });
 
-// node_modules/zod/v4/locales/ta.js
+// node_modules/.bun/zod@4.3.6/node_modules/zod/v4/locales/ta.js
 function ta_default() {
   return {
     localeError: error38()
@@ -8808,7 +8813,7 @@ var init_ta = __esm(() => {
   init_util();
 });
 
-// node_modules/zod/v4/locales/th.js
+// node_modules/.bun/zod@4.3.6/node_modules/zod/v4/locales/th.js
 function th_default() {
   return {
     localeError: error39()
@@ -8922,7 +8927,7 @@ var init_th = __esm(() => {
   init_util();
 });
 
-// node_modules/zod/v4/locales/tr.js
+// node_modules/.bun/zod@4.3.6/node_modules/zod/v4/locales/tr.js
 function tr_default() {
   return {
     localeError: error40()
@@ -9031,7 +9036,7 @@ var init_tr = __esm(() => {
   init_util();
 });
 
-// node_modules/zod/v4/locales/uk.js
+// node_modules/.bun/zod@4.3.6/node_modules/zod/v4/locales/uk.js
 function uk_default() {
   return {
     localeError: error41()
@@ -9143,7 +9148,7 @@ var init_uk = __esm(() => {
   init_util();
 });
 
-// node_modules/zod/v4/locales/ua.js
+// node_modules/.bun/zod@4.3.6/node_modules/zod/v4/locales/ua.js
 function ua_default() {
   return uk_default();
 }
@@ -9151,7 +9156,7 @@ var init_ua = __esm(() => {
   init_uk();
 });
 
-// node_modules/zod/v4/locales/ur.js
+// node_modules/.bun/zod@4.3.6/node_modules/zod/v4/locales/ur.js
 function ur_default() {
   return {
     localeError: error42()
@@ -9265,7 +9270,7 @@ var init_ur = __esm(() => {
   init_util();
 });
 
-// node_modules/zod/v4/locales/uz.js
+// node_modules/.bun/zod@4.3.6/node_modules/zod/v4/locales/uz.js
 function uz_default() {
   return {
     localeError: error43()
@@ -9378,7 +9383,7 @@ var init_uz = __esm(() => {
   init_util();
 });
 
-// node_modules/zod/v4/locales/vi.js
+// node_modules/.bun/zod@4.3.6/node_modules/zod/v4/locales/vi.js
 function vi_default() {
   return {
     localeError: error44()
@@ -9490,7 +9495,7 @@ var init_vi = __esm(() => {
   init_util();
 });
 
-// node_modules/zod/v4/locales/zh-CN.js
+// node_modules/.bun/zod@4.3.6/node_modules/zod/v4/locales/zh-CN.js
 function zh_CN_default() {
   return {
     localeError: error45()
@@ -9603,7 +9608,7 @@ var init_zh_CN = __esm(() => {
   init_util();
 });
 
-// node_modules/zod/v4/locales/zh-TW.js
+// node_modules/.bun/zod@4.3.6/node_modules/zod/v4/locales/zh-TW.js
 function zh_TW_default() {
   return {
     localeError: error46()
@@ -9714,7 +9719,7 @@ var init_zh_TW = __esm(() => {
   init_util();
 });
 
-// node_modules/zod/v4/locales/yo.js
+// node_modules/.bun/zod@4.3.6/node_modules/zod/v4/locales/yo.js
 function yo_default() {
   return {
     localeError: error47()
@@ -9825,7 +9830,7 @@ var init_yo = __esm(() => {
   init_util();
 });
 
-// node_modules/zod/v4/locales/index.js
+// node_modules/.bun/zod@4.3.6/node_modules/zod/v4/locales/index.js
 var exports_locales = {};
 __export(exports_locales, {
   zhTW: () => zh_TW_default,
@@ -9930,7 +9935,7 @@ var init_locales = __esm(() => {
   init_yo();
 });
 
-// node_modules/zod/v4/core/registries.js
+// node_modules/.bun/zod@4.3.6/node_modules/zod/v4/core/registries.js
 class $ZodRegistry {
   constructor() {
     this._map = new WeakMap;
@@ -9982,7 +9987,7 @@ var init_registries = __esm(() => {
   globalRegistry = globalThis.__zod_globalRegistry;
 });
 
-// node_modules/zod/v4/core/api.js
+// node_modules/.bun/zod@4.3.6/node_modules/zod/v4/core/api.js
 function _string(Class2, params) {
   return new Class2({
     type: "string",
@@ -10910,7 +10915,7 @@ var init_api = __esm(() => {
   };
 });
 
-// node_modules/zod/v4/core/to-json-schema.js
+// node_modules/.bun/zod@4.3.6/node_modules/zod/v4/core/to-json-schema.js
 function initializeContext(params) {
   let target = params?.target ?? "draft-2020-12";
   if (target === "draft-4")
@@ -11258,7 +11263,7 @@ var init_to_json_schema = __esm(() => {
   init_registries();
 });
 
-// node_modules/zod/v4/core/json-schema-processors.js
+// node_modules/.bun/zod@4.3.6/node_modules/zod/v4/core/json-schema-processors.js
 function toJSONSchema(input, params) {
   if ("_idmap" in input) {
     const registry2 = input;
@@ -11770,7 +11775,7 @@ var init_json_schema_processors = __esm(() => {
   };
 });
 
-// node_modules/zod/v4/core/json-schema-generator.js
+// node_modules/.bun/zod@4.3.6/node_modules/zod/v4/core/json-schema-generator.js
 class JSONSchemaGenerator {
   get metadataRegistry() {
     return this.ctx.metadataRegistry;
@@ -11834,11 +11839,11 @@ var init_json_schema_generator = __esm(() => {
   init_to_json_schema();
 });
 
-// node_modules/zod/v4/core/json-schema.js
+// node_modules/.bun/zod@4.3.6/node_modules/zod/v4/core/json-schema.js
 var exports_json_schema = {};
 var init_json_schema = () => {};
 
-// node_modules/zod/v4/core/index.js
+// node_modules/.bun/zod@4.3.6/node_modules/zod/v4/core/index.js
 var exports_core2 = {};
 __export(exports_core2, {
   version: () => version,
@@ -12133,7 +12138,7 @@ var init_core2 = __esm(() => {
   init_to_json_schema();
 });
 
-// node_modules/zod/v4/classic/checks.js
+// node_modules/.bun/zod@4.3.6/node_modules/zod/v4/classic/checks.js
 var exports_checks2 = {};
 __export(exports_checks2, {
   uppercase: () => _uppercase,
@@ -12170,7 +12175,7 @@ var init_checks2 = __esm(() => {
   init_core2();
 });
 
-// node_modules/zod/v4/classic/iso.js
+// node_modules/.bun/zod@4.3.6/node_modules/zod/v4/classic/iso.js
 var exports_iso = {};
 __export(exports_iso, {
   time: () => time2,
@@ -12216,7 +12221,7 @@ var init_iso = __esm(() => {
   });
 });
 
-// node_modules/zod/v4/classic/errors.js
+// node_modules/.bun/zod@4.3.6/node_modules/zod/v4/classic/errors.js
 var initializer2 = (inst, issues) => {
   $ZodError.init(inst, issues);
   inst.name = "ZodError";
@@ -12256,7 +12261,7 @@ var init_errors2 = __esm(() => {
   });
 });
 
-// node_modules/zod/v4/classic/parse.js
+// node_modules/.bun/zod@4.3.6/node_modules/zod/v4/classic/parse.js
 var parse3, parseAsync2, safeParse2, safeParseAsync2, encode2, decode2, encodeAsync2, decodeAsync2, safeEncode2, safeDecode2, safeEncodeAsync2, safeDecodeAsync2;
 var init_parse2 = __esm(() => {
   init_core2();
@@ -12275,7 +12280,7 @@ var init_parse2 = __esm(() => {
   safeDecodeAsync2 = /* @__PURE__ */ _safeDecodeAsync(ZodRealError);
 });
 
-// node_modules/zod/v4/classic/schemas.js
+// node_modules/.bun/zod@4.3.6/node_modules/zod/v4/classic/schemas.js
 var exports_schemas2 = {};
 __export(exports_schemas2, {
   xor: () => xor,
@@ -13528,7 +13533,7 @@ var init_schemas2 = __esm(() => {
   meta2 = meta;
 });
 
-// node_modules/zod/v4/classic/compat.js
+// node_modules/.bun/zod@4.3.6/node_modules/zod/v4/classic/compat.js
 function setErrorMap(map2) {
   config({
     customError: map2
@@ -13556,7 +13561,7 @@ var init_compat = __esm(() => {
   (function(ZodFirstPartyTypeKind2) {})(ZodFirstPartyTypeKind || (ZodFirstPartyTypeKind = {}));
 });
 
-// node_modules/zod/v4/classic/from-json-schema.js
+// node_modules/.bun/zod@4.3.6/node_modules/zod/v4/classic/from-json-schema.js
 function detectVersion(schema, defaultTarget) {
   const $schema = schema.$schema;
   if ($schema === "https://json-schema.org/draft/2020-12/schema") {
@@ -14025,7 +14030,7 @@ var init_from_json_schema = __esm(() => {
   ]);
 });
 
-// node_modules/zod/v4/classic/coerce.js
+// node_modules/.bun/zod@4.3.6/node_modules/zod/v4/classic/coerce.js
 var exports_coerce = {};
 __export(exports_coerce, {
   string: () => string3,
@@ -14054,7 +14059,7 @@ var init_coerce = __esm(() => {
   init_schemas2();
 });
 
-// node_modules/zod/v4/classic/external.js
+// node_modules/.bun/zod@4.3.6/node_modules/zod/v4/classic/external.js
 var exports_external = {};
 __export(exports_external, {
   xor: () => xor,
@@ -14313,7 +14318,7 @@ var init_external = __esm(() => {
   config(en_default());
 });
 
-// node_modules/zod/index.js
+// node_modules/.bun/zod@4.3.6/node_modules/zod/index.js
 var init_zod = __esm(() => {
   init_external();
   init_external();
@@ -15107,9 +15112,12 @@ var init_schema = __esm(() => {
   AgentAuthorityRuleSchema = exports_external.object({
     readOnly: exports_external.boolean().optional(),
     blockedExact: exports_external.array(exports_external.string()).optional(),
+    allowedExact: exports_external.array(exports_external.string()).optional(),
     blockedPrefix: exports_external.array(exports_external.string()).optional(),
     allowedPrefix: exports_external.array(exports_external.string()).optional(),
-    blockedZones: exports_external.array(exports_external.enum(["production", "test", "config", "generated", "docs", "build"])).optional()
+    blockedZones: exports_external.array(exports_external.enum(["production", "test", "config", "generated", "docs", "build"])).optional(),
+    blockedGlobs: exports_external.array(exports_external.string()).optional(),
+    allowedGlobs: exports_external.array(exports_external.string()).optional()
   });
   AuthorityConfigSchema = exports_external.object({
     enabled: exports_external.boolean().default(true),
@@ -15364,13 +15372,107 @@ var init_plan_schema = __esm(() => {
     swarm: exports_external.string().min(1),
     current_phase: exports_external.number().int().min(1).optional(),
     phases: exports_external.array(PhaseSchema).min(1),
-    migration_status: MigrationStatusSchema.optional()
+    migration_status: MigrationStatusSchema.optional(),
+    specMtime: exports_external.string().optional(),
+    specHash: exports_external.string().optional()
   });
+});
+
+// src/config/spec-schema.ts
+function stripCodeBlocks(content) {
+  return content.replace(FENCED_BLOCK_PATTERN, "").replace(INLINE_CODE_PATTERN, "");
+}
+function getLineNumber(content, position) {
+  const prefix = content.substring(0, position);
+  return (prefix.match(/\n/g) || []).length + 1;
+}
+function validateSpecContent(content) {
+  const issues = [];
+  if (!content || content.trim().length === 0) {
+    return { valid: false, issues: [{ line: 1, message: "Content is empty" }] };
+  }
+  const strippedContent = stripCodeBlocks(content);
+  const frMatches = strippedContent.match(FR_ID_PATTERN);
+  if (!frMatches || frMatches.length === 0) {
+    issues.push({
+      line: 1,
+      message: "No FR-### requirement IDs found in spec content"
+    });
+  }
+  const obligationMatches = strippedContent.match(OBLIGATION_PATTERN);
+  if (!obligationMatches || obligationMatches.length === 0) {
+    issues.push({
+      line: 1,
+      message: "No obligation keywords (MUST, SHALL, SHOULD, MAY) found in spec content"
+    });
+  }
+  const sectionMatches = strippedContent.match(SECTION_HEADER_PATTERN);
+  if (!sectionMatches || sectionMatches.length === 0) {
+    issues.push({
+      line: 1,
+      message: "No section headers (## Section Name) found in spec content"
+    });
+  }
+  const idMatches = strippedContent.matchAll(/\bFR-(\d{3})\b/g);
+  for (const idMatch of idMatches) {
+    const num = parseInt(idMatch[1], 10);
+    if (num === 0) {
+      const pos = idMatch.index;
+      issues.push({
+        line: getLineNumber(strippedContent, pos),
+        message: `Invalid FR-ID "${idMatch[0]}" \u2014 number must be 001-999`
+      });
+    }
+  }
+  return {
+    valid: issues.length === 0,
+    issues
+  };
+}
+var ObligationSchema, SpecRequirementSchema, SpecScenarioSchema, SpecSectionSchema, SwarmSpecSchema, SpecDeltaSchema, DeltaSpecSchema, FENCED_BLOCK_PATTERN, INLINE_CODE_PATTERN, FR_ID_PATTERN, OBLIGATION_PATTERN, SECTION_HEADER_PATTERN;
+var init_spec_schema = __esm(() => {
+  init_zod();
+  ObligationSchema = exports_external.enum(["MUST", "SHALL", "SHOULD", "MAY"]);
+  SpecRequirementSchema = exports_external.object({
+    id: exports_external.string().regex(/^FR-(?!000)\d{3}$/, "Requirement ID must match FR-### pattern (e.g., FR-001)"),
+    obligation: ObligationSchema,
+    text: exports_external.string().min(1)
+  });
+  SpecScenarioSchema = exports_external.object({
+    name: exports_external.string().min(1),
+    given: exports_external.array(exports_external.string()).optional().default([]),
+    when: exports_external.array(exports_external.string()).min(1, 'Scenario must have at least one "when" clause'),
+    thenClauses: exports_external.array(exports_external.string()).min(1, 'Scenario must have at least one "then" clause')
+  });
+  SpecSectionSchema = exports_external.object({
+    name: exports_external.string().min(1),
+    requirements: exports_external.array(SpecRequirementSchema).default([])
+  });
+  SwarmSpecSchema = exports_external.object({
+    title: exports_external.string().min(1),
+    purpose: exports_external.string().min(1),
+    sections: exports_external.array(SpecSectionSchema).min(1, "Spec must have at least one section")
+  });
+  SpecDeltaSchema = exports_external.object({
+    added: exports_external.array(SpecRequirementSchema).default([]),
+    modified: exports_external.array(SpecRequirementSchema).default([]),
+    removed: exports_external.array(SpecRequirementSchema).default([])
+  });
+  DeltaSpecSchema = exports_external.union([
+    SwarmSpecSchema,
+    SpecDeltaSchema
+  ]);
+  FENCED_BLOCK_PATTERN = /```[\s\S]*?```/g;
+  INLINE_CODE_PATTERN = /`[^`]*`/g;
+  FR_ID_PATTERN = /\bFR-\d{3}\b/g;
+  OBLIGATION_PATTERN = /\b(MUST|SHALL|SHOULD|MAY)\b/g;
+  SECTION_HEADER_PATTERN = /^##\s+.+$/gm;
 });
 
 // src/config/index.ts
 var exports_config = {};
 __export(exports_config, {
+  validateSpecContent: () => validateSpecContent,
   loadPluginConfigWithMeta: () => loadPluginConfigWithMeta,
   loadPluginConfig: () => loadPluginConfig,
   loadAgentPrompt: () => loadAgentPrompt,
@@ -15380,7 +15482,12 @@ __export(exports_config, {
   TaskStatusSchema: () => TaskStatusSchema,
   TaskSizeSchema: () => TaskSizeSchema,
   TaskSchema: () => TaskSchema,
+  SwarmSpecSchema: () => SwarmSpecSchema,
   SwarmConfigSchema: () => SwarmConfigSchema,
+  SpecSectionSchema: () => SpecSectionSchema,
+  SpecScenarioSchema: () => SpecScenarioSchema,
+  SpecRequirementSchema: () => SpecRequirementSchema,
+  SpecDeltaSchema: () => SpecDeltaSchema,
   ReviewEvidenceSchema: () => ReviewEvidenceSchema,
   QA_AGENTS: () => QA_AGENTS,
   PluginConfigSchema: () => PluginConfigSchema,
@@ -15390,6 +15497,7 @@ __export(exports_config, {
   PhaseSchema: () => PhaseSchema,
   PhaseCompleteConfigSchema: () => PhaseCompleteConfigSchema,
   PIPELINE_AGENTS: () => PIPELINE_AGENTS,
+  ObligationSchema: () => ObligationSchema,
   ORCHESTRATOR_NAME: () => ORCHESTRATOR_NAME,
   NoteEvidenceSchema: () => NoteEvidenceSchema,
   MigrationStatusSchema: () => MigrationStatusSchema,
@@ -15401,6 +15509,7 @@ __export(exports_config, {
   EVIDENCE_MAX_PATCH_BYTES: () => EVIDENCE_MAX_PATCH_BYTES,
   EVIDENCE_MAX_JSON_BYTES: () => EVIDENCE_MAX_JSON_BYTES,
   DiffEvidenceSchema: () => DiffEvidenceSchema,
+  DeltaSpecSchema: () => DeltaSpecSchema,
   DEFAULT_MODELS: () => DEFAULT_MODELS,
   BaseEvidenceSchema: () => BaseEvidenceSchema,
   AutomationModeSchema: () => AutomationModeSchema,
@@ -15417,6 +15526,7 @@ var init_config = __esm(() => {
   init_loader();
   init_plan_schema();
   init_schema();
+  init_spec_schema();
 });
 
 // src/utils/errors.ts
@@ -15549,10 +15659,1106 @@ var init_utils2 = __esm(() => {
   init_utils();
 });
 
-// src/evidence/manager.ts
-import { mkdirSync, readdirSync, rmSync, statSync as statSync2 } from "fs";
-import * as fs3 from "fs/promises";
+// src/utils/spec-hash.ts
+import { createHash } from "crypto";
+import { readFile } from "fs/promises";
+import { join as join2 } from "path";
+async function computeSpecHash(directory) {
+  const specPath = join2(directory, ".swarm", "spec.md");
+  let hash2 = null;
+  try {
+    const content = await readFile(specPath, "utf-8");
+    hash2 = createHash("sha256").update(content, "utf-8").digest("hex");
+  } catch (error49) {
+    if (error49.code !== "ENOENT") {
+      throw error49;
+    }
+  }
+  return hash2;
+}
+async function isSpecStale(directory, plan) {
+  const currentHash = await computeSpecHash(directory);
+  if (!plan.specHash) {
+    return { stale: false };
+  }
+  if (currentHash === null) {
+    return {
+      stale: true,
+      reason: "spec.md has been deleted",
+      currentHash: null
+    };
+  }
+  if (currentHash !== plan.specHash) {
+    return {
+      stale: true,
+      reason: "spec.md has been modified since plan was saved",
+      currentHash
+    };
+  }
+  return { stale: false };
+}
+var init_spec_hash = () => {};
+
+// src/plan/ledger.ts
+import * as crypto2 from "crypto";
+import * as fs3 from "fs";
 import * as path3 from "path";
+function getLedgerPath(directory) {
+  return path3.join(directory, ".swarm", LEDGER_FILENAME);
+}
+function getPlanJsonPath(directory) {
+  return path3.join(directory, ".swarm", PLAN_JSON_FILENAME);
+}
+function computePlanHash(plan) {
+  const normalized = {
+    schema_version: plan.schema_version,
+    title: plan.title,
+    swarm: plan.swarm,
+    current_phase: plan.current_phase,
+    migration_status: plan.migration_status,
+    phases: plan.phases.map((phase) => ({
+      id: phase.id,
+      name: phase.name,
+      status: phase.status,
+      required_agents: phase.required_agents ? [...phase.required_agents].sort() : undefined,
+      tasks: phase.tasks.map((task) => ({
+        id: task.id,
+        phase: task.phase,
+        status: task.status,
+        size: task.size,
+        description: task.description,
+        depends: [...task.depends].sort(),
+        acceptance: task.acceptance,
+        files_touched: [...task.files_touched].sort(),
+        evidence_path: task.evidence_path,
+        blocked_reason: task.blocked_reason
+      }))
+    }))
+  };
+  const jsonString = JSON.stringify(normalized);
+  return crypto2.createHash("sha256").update(jsonString, "utf8").digest("hex");
+}
+function computeCurrentPlanHash(directory) {
+  const planPath = getPlanJsonPath(directory);
+  try {
+    const content = fs3.readFileSync(planPath, "utf8");
+    const plan = JSON.parse(content);
+    return computePlanHash(plan);
+  } catch {
+    return "";
+  }
+}
+async function ledgerExists(directory) {
+  const ledgerPath = getLedgerPath(directory);
+  return fs3.existsSync(ledgerPath);
+}
+async function getLatestLedgerSeq(directory) {
+  const ledgerPath = getLedgerPath(directory);
+  if (!fs3.existsSync(ledgerPath)) {
+    return 0;
+  }
+  try {
+    const content = fs3.readFileSync(ledgerPath, "utf8");
+    const lines = content.trim().split(`
+`).filter((line) => line.trim() !== "");
+    if (lines.length === 0) {
+      return 0;
+    }
+    let maxSeq = 0;
+    for (const line of lines) {
+      try {
+        const event = JSON.parse(line);
+        if (event.seq > maxSeq) {
+          maxSeq = event.seq;
+        }
+      } catch {}
+    }
+    return maxSeq;
+  } catch {
+    return 0;
+  }
+}
+async function readLedgerEvents(directory) {
+  const ledgerPath = getLedgerPath(directory);
+  if (!fs3.existsSync(ledgerPath)) {
+    return [];
+  }
+  try {
+    const content = fs3.readFileSync(ledgerPath, "utf8");
+    const lines = content.trim().split(`
+`).filter((line) => line.trim() !== "");
+    const events = [];
+    for (const line of lines) {
+      try {
+        const event = JSON.parse(line);
+        events.push(event);
+      } catch {}
+    }
+    events.sort((a, b) => a.seq - b.seq);
+    return events;
+  } catch {
+    return [];
+  }
+}
+async function initLedger(directory, planId, initialPlanHash) {
+  const ledgerPath = getLedgerPath(directory);
+  const planJsonPath = getPlanJsonPath(directory);
+  if (fs3.existsSync(ledgerPath)) {
+    throw new Error("Ledger already initialized. Use appendLedgerEvent to add events.");
+  }
+  let planHashAfter = initialPlanHash ?? "";
+  if (!initialPlanHash) {
+    try {
+      if (fs3.existsSync(planJsonPath)) {
+        const content = fs3.readFileSync(planJsonPath, "utf8");
+        const plan = JSON.parse(content);
+        planHashAfter = computePlanHash(plan);
+      }
+    } catch {}
+  }
+  const event = {
+    seq: 1,
+    timestamp: new Date().toISOString(),
+    plan_id: planId,
+    event_type: "plan_created",
+    source: "initLedger",
+    plan_hash_before: "",
+    plan_hash_after: planHashAfter,
+    schema_version: LEDGER_SCHEMA_VERSION
+  };
+  fs3.mkdirSync(path3.join(directory, ".swarm"), { recursive: true });
+  const tempPath = `${ledgerPath}.tmp.${Date.now()}.${Math.floor(Math.random() * 1e9)}`;
+  const line = `${JSON.stringify(event)}
+`;
+  fs3.writeFileSync(tempPath, line, "utf8");
+  fs3.renameSync(tempPath, ledgerPath);
+}
+async function appendLedgerEvent(directory, eventInput, options) {
+  const ledgerPath = getLedgerPath(directory);
+  const latestSeq = await getLatestLedgerSeq(directory);
+  const nextSeq = latestSeq + 1;
+  const planHashBefore = computeCurrentPlanHash(directory);
+  if (options?.expectedSeq !== undefined && options.expectedSeq !== latestSeq) {
+    throw new LedgerStaleWriterError(`Stale writer: expected seq ${options.expectedSeq} but found ${latestSeq}`);
+  }
+  if (options?.expectedHash !== undefined && options.expectedHash !== planHashBefore) {
+    throw new LedgerStaleWriterError(`Stale writer: expected hash ${options.expectedHash} but found ${planHashBefore}`);
+  }
+  const planHashAfter = options?.planHashAfter ?? planHashBefore;
+  const event = {
+    ...eventInput,
+    seq: nextSeq,
+    timestamp: new Date().toISOString(),
+    plan_hash_before: planHashBefore,
+    plan_hash_after: planHashAfter,
+    schema_version: LEDGER_SCHEMA_VERSION
+  };
+  fs3.mkdirSync(path3.join(directory, ".swarm"), { recursive: true });
+  const tempPath = `${ledgerPath}.tmp.${Date.now()}.${Math.floor(Math.random() * 1e9)}`;
+  const line = `${JSON.stringify(event)}
+`;
+  if (fs3.existsSync(ledgerPath)) {
+    const existingContent = fs3.readFileSync(ledgerPath, "utf8");
+    fs3.writeFileSync(tempPath, existingContent + line, "utf8");
+  } else {
+    throw new Error("Ledger not initialized. Call initLedger() first.");
+  }
+  fs3.renameSync(tempPath, ledgerPath);
+  return event;
+}
+async function takeSnapshotEvent(directory, plan, options) {
+  const payloadHash = computePlanHash(plan);
+  const snapshotPayload = {
+    plan,
+    payload_hash: payloadHash
+  };
+  const planId = `${plan.swarm}-${plan.title}`.replace(/[^a-zA-Z0-9-_]/g, "_");
+  return appendLedgerEvent(directory, {
+    event_type: "snapshot",
+    source: "takeSnapshotEvent",
+    plan_id: planId,
+    payload: snapshotPayload
+  }, options);
+}
+async function replayFromLedger(directory, options) {
+  const events = await readLedgerEvents(directory);
+  if (events.length === 0) {
+    return null;
+  }
+  const targetPlanId = events[0].plan_id;
+  const relevantEvents = events.filter((e) => e.plan_id === targetPlanId);
+  {
+    const snapshotEvents = relevantEvents.filter((e) => e.event_type === "snapshot");
+    if (snapshotEvents.length > 0) {
+      const latestSnapshotEvent = snapshotEvents[snapshotEvents.length - 1];
+      const snapshotPayload = latestSnapshotEvent.payload;
+      let plan2 = snapshotPayload.plan;
+      const eventsAfterSnapshot = relevantEvents.filter((e) => e.seq > latestSnapshotEvent.seq);
+      for (const event of eventsAfterSnapshot) {
+        plan2 = applyEventToPlan(plan2, event);
+        if (plan2 === null) {
+          return null;
+        }
+      }
+      return plan2;
+    }
+  }
+  const planJsonPath = getPlanJsonPath(directory);
+  if (!fs3.existsSync(planJsonPath)) {
+    return null;
+  }
+  let plan;
+  try {
+    const content = fs3.readFileSync(planJsonPath, "utf8");
+    plan = JSON.parse(content);
+  } catch {
+    return null;
+  }
+  for (const event of relevantEvents) {
+    if (plan === null) {
+      return null;
+    }
+    plan = applyEventToPlan(plan, event);
+  }
+  return plan;
+}
+function applyEventToPlan(plan, event) {
+  switch (event.event_type) {
+    case "plan_created":
+      return plan;
+    case "task_status_changed":
+      if (event.task_id && event.to_status) {
+        const parseResult = TaskStatusSchema.safeParse(event.to_status);
+        if (!parseResult.success) {
+          return plan;
+        }
+        for (const phase of plan.phases) {
+          const task = phase.tasks.find((t) => t.id === event.task_id);
+          if (task) {
+            task.status = parseResult.data;
+            break;
+          }
+        }
+      }
+      return plan;
+    case "phase_completed":
+      if (event.phase_id) {
+        const phase = plan.phases.find((p) => p.id === event.phase_id);
+        if (phase) {
+          phase.status = "complete";
+        }
+      }
+      return plan;
+    case "plan_exported":
+      return plan;
+    case "task_added":
+      return plan;
+    case "task_updated":
+      return plan;
+    case "plan_rebuilt":
+      return plan;
+    case "task_reordered":
+      return plan;
+    case "snapshot":
+      return plan;
+    case "plan_reset":
+      return null;
+    default:
+      throw new Error(`applyEventToPlan: unhandled event type "${event.event_type}" at seq ${event.seq}`);
+  }
+}
+var LEDGER_SCHEMA_VERSION = "1.0.0", LEDGER_FILENAME = "plan-ledger.jsonl", PLAN_JSON_FILENAME = "plan.json", LedgerStaleWriterError;
+var init_ledger = __esm(() => {
+  init_plan_schema();
+  LedgerStaleWriterError = class LedgerStaleWriterError extends Error {
+    constructor(message) {
+      super(message);
+      this.name = "LedgerStaleWriterError";
+    }
+  };
+});
+
+// src/plan/manager.ts
+import { copyFileSync, existsSync as existsSync3, renameSync as renameSync2, unlinkSync } from "fs";
+import * as fsPromises from "fs/promises";
+import * as path4 from "path";
+async function loadPlanJsonOnly(directory) {
+  const planJsonContent = await readSwarmFileAsync(directory, "plan.json");
+  if (planJsonContent !== null) {
+    if (planJsonContent.includes("\x00") || planJsonContent.includes("\uFFFD")) {
+      warn("Plan rejected: .swarm/plan.json contains null bytes or invalid encoding");
+      return null;
+    }
+    try {
+      const parsed = JSON.parse(planJsonContent);
+      const validated = PlanSchema.parse(parsed);
+      return validated;
+    } catch (error49) {
+      warn(`Plan validation failed for .swarm/plan.json: ${error49 instanceof Error ? error49.message : String(error49)}`);
+    }
+  }
+  return null;
+}
+function compareTaskIds(a, b) {
+  const partsA = a.split(".").map((n) => parseInt(n, 10));
+  const partsB = b.split(".").map((n) => parseInt(n, 10));
+  const maxLen = Math.max(partsA.length, partsB.length);
+  for (let i2 = 0;i2 < maxLen; i2++) {
+    const numA = partsA[i2] ?? 0;
+    const numB = partsB[i2] ?? 0;
+    if (numA !== numB) {
+      return numA - numB;
+    }
+  }
+  return 0;
+}
+async function getLatestLedgerHash(directory) {
+  try {
+    const events = await readLedgerEvents(directory);
+    if (events.length === 0)
+      return "";
+    const lastEvent = events[events.length - 1];
+    return lastEvent.plan_hash_after;
+  } catch {
+    return "";
+  }
+}
+function computePlanContentHash(plan) {
+  const content = {
+    schema_version: plan.schema_version,
+    title: plan.title,
+    swarm: plan.swarm,
+    current_phase: plan.current_phase,
+    migration_status: plan.migration_status,
+    phases: plan.phases.map((phase) => ({
+      id: phase.id,
+      name: phase.name,
+      status: phase.status,
+      tasks: phase.tasks.map((task) => ({
+        id: task.id,
+        phase: task.phase,
+        status: task.status,
+        size: task.size,
+        description: task.description,
+        depends: [...task.depends].sort(compareTaskIds),
+        acceptance: task.acceptance,
+        files_touched: [...task.files_touched].sort(),
+        evidence_path: task.evidence_path,
+        blocked_reason: task.blocked_reason
+      })).sort((a, b) => compareTaskIds(a.id, b.id))
+    })).sort((a, b) => a.id - b.id)
+  };
+  const jsonString = JSON.stringify(content);
+  return Bun.hash(jsonString).toString(36);
+}
+function extractPlanHashFromMarkdown(markdown) {
+  const match = markdown.match(/<!--\s*PLAN_HASH:\s*(\S+)\s*-->/);
+  return match ? match[1] : null;
+}
+async function isPlanMdInSync(directory, plan) {
+  const planMdContent = await readSwarmFileAsync(directory, "plan.md");
+  if (planMdContent === null) {
+    return false;
+  }
+  const expectedHash = computePlanContentHash(plan);
+  const existingHash = extractPlanHashFromMarkdown(planMdContent);
+  if (existingHash === expectedHash) {
+    return true;
+  }
+  const expectedMarkdown = derivePlanMarkdown(plan);
+  const normalizedExpected = expectedMarkdown.trim();
+  const normalizedActual = planMdContent.trim();
+  if (normalizedActual === normalizedExpected) {
+    return true;
+  }
+  return normalizedActual.includes(normalizedExpected) || normalizedExpected.includes(normalizedActual.replace(/^#.*$/gm, "").trim());
+}
+async function regeneratePlanMarkdown(directory, plan) {
+  const swarmDir = path4.resolve(directory, ".swarm");
+  const contentHash = computePlanContentHash(plan);
+  const markdown = derivePlanMarkdown(plan);
+  const markdownWithHash = `<!-- PLAN_HASH: ${contentHash} -->
+${markdown}`;
+  const mdPath = path4.join(swarmDir, "plan.md");
+  const mdTempPath = path4.join(swarmDir, `plan.md.tmp.${Date.now()}.${Math.floor(Math.random() * 1e9)}`);
+  try {
+    await Bun.write(mdTempPath, markdownWithHash);
+    renameSync2(mdTempPath, mdPath);
+  } finally {
+    try {
+      unlinkSync(mdTempPath);
+    } catch {}
+  }
+}
+async function loadPlan(directory) {
+  const planJsonContent = await readSwarmFileAsync(directory, "plan.json");
+  if (planJsonContent !== null) {
+    if (planJsonContent.includes("\x00") || planJsonContent.includes("\uFFFD")) {
+      warn("Plan rejected: .swarm/plan.json contains null bytes or invalid encoding");
+    } else {
+      try {
+        const parsed = JSON.parse(planJsonContent);
+        const validated = PlanSchema.parse(parsed);
+        const inSync = await isPlanMdInSync(directory, validated);
+        if (!inSync) {
+          try {
+            await regeneratePlanMarkdown(directory, validated);
+          } catch (regenError) {
+            warn(`Failed to regenerate plan.md: ${regenError instanceof Error ? regenError.message : String(regenError)}. Proceeding with plan.json only.`);
+          }
+        }
+        if (await ledgerExists(directory)) {
+          const planHash = computePlanHash(validated);
+          const ledgerHash = await getLatestLedgerHash(directory);
+          const resolvedWorkspace = path4.resolve(directory);
+          if (!startupLedgerCheckedWorkspaces.has(resolvedWorkspace)) {
+            startupLedgerCheckedWorkspaces.add(resolvedWorkspace);
+            if (ledgerHash !== "" && planHash !== ledgerHash) {
+              const currentPlanId = `${validated.swarm}-${validated.title}`.replace(/[^a-zA-Z0-9-_]/g, "_");
+              const ledgerEvents = await readLedgerEvents(directory);
+              const firstEvent = ledgerEvents.length > 0 ? ledgerEvents[0] : null;
+              if (firstEvent && firstEvent.plan_id !== currentPlanId) {
+                warn(`[loadPlan] Ledger identity mismatch (ledger: ${firstEvent.plan_id}, plan: ${currentPlanId}) \u2014 skipping ledger rebuild (migration detected). Use /swarm reset-session to reinitialize the ledger.`);
+              } else {
+                warn("[loadPlan] plan.json is stale (hash mismatch with ledger) \u2014 rebuilding from ledger. If this recurs, run /swarm reset-session to clear stale session state.");
+                try {
+                  const rebuilt = await replayFromLedger(directory);
+                  if (rebuilt) {
+                    await rebuildPlan(directory, rebuilt);
+                    warn("[loadPlan] Rebuilt plan from ledger. Checkpoint available at SWARM_PLAN.md if it exists.");
+                    return rebuilt;
+                  }
+                } catch (replayError) {
+                  warn(`[loadPlan] Ledger replay failed during hash-mismatch rebuild: ${replayError instanceof Error ? replayError.message : String(replayError)}. Returning stale plan.json. To recover: check SWARM_PLAN.md for a checkpoint, or run /swarm reset-session.`);
+                }
+              }
+            }
+          } else if (ledgerHash !== "" && planHash !== ledgerHash) {
+            if (process.env.DEBUG_SWARM) {
+              console.warn(`[loadPlan] Ledger hash mismatch during active session for ${resolvedWorkspace} \u2014 skipping rebuild (startup check already performed).`);
+            }
+          }
+        }
+        if (validated.specHash) {
+          const staleResult = await isSpecStale(directory, validated);
+          if (staleResult.stale) {
+            const runtimePlan = validated;
+            runtimePlan._specStale = true;
+            runtimePlan._specStaleReason = staleResult.reason;
+            try {
+              const specStalenessPath = path4.join(directory, ".swarm", "spec-staleness.json");
+              await fsPromises.writeFile(specStalenessPath, JSON.stringify({
+                type: "spec_stale_detected",
+                timestamp: new Date().toISOString(),
+                phase: validated.current_phase ?? 1,
+                specHash_plan: validated.specHash,
+                specHash_current: staleResult.currentHash ?? null,
+                reason: staleResult.reason,
+                planTitle: validated.title
+              }, null, 2), "utf-8");
+            } catch {}
+            try {
+              const eventsPath = path4.join(directory, ".swarm", "events.jsonl");
+              const event = {
+                type: "spec_stale_detected",
+                timestamp: new Date().toISOString(),
+                phase: validated.current_phase ?? 1,
+                specHash_plan: validated.specHash,
+                specHash_current: staleResult.currentHash ?? null,
+                reason: staleResult.reason ?? "unknown",
+                planTitle: validated.title
+              };
+              await fsPromises.appendFile(eventsPath, `${JSON.stringify(event)}
+`, "utf-8");
+            } catch {}
+          }
+        }
+        return validated;
+      } catch (error49) {
+        warn(`[loadPlan] plan.json validation failed: ${error49 instanceof Error ? error49.message : String(error49)}. Attempting rebuild from ledger. If rebuild fails, check SWARM_PLAN.md for a checkpoint.`);
+        let rawPlanId = null;
+        try {
+          const rawParsed = JSON.parse(planJsonContent);
+          if (typeof rawParsed?.swarm === "string" && typeof rawParsed?.title === "string") {
+            rawPlanId = `${rawParsed.swarm}-${rawParsed.title}`.replace(/[^a-zA-Z0-9-_]/g, "_");
+          }
+        } catch {}
+        if (await ledgerExists(directory)) {
+          const ledgerEventsForCatch = await readLedgerEvents(directory);
+          const catchFirstEvent = ledgerEventsForCatch.length > 0 ? ledgerEventsForCatch[0] : null;
+          const identityMatch = rawPlanId === null || catchFirstEvent === null || catchFirstEvent.plan_id === rawPlanId;
+          if (!identityMatch) {
+            warn(`[loadPlan] Ledger identity mismatch in validation-failure path (ledger: ${catchFirstEvent?.plan_id}, plan: ${rawPlanId}) \u2014 skipping ledger rebuild (migration detected).`);
+          } else if (catchFirstEvent !== null && rawPlanId !== null) {
+            const rebuilt = await replayFromLedger(directory);
+            if (rebuilt) {
+              await rebuildPlan(directory, rebuilt);
+              warn("[loadPlan] Rebuilt plan from ledger after validation failure. Projection was stale.");
+              return rebuilt;
+            }
+          }
+        }
+        const planMdContent2 = await readSwarmFileAsync(directory, "plan.md");
+        if (planMdContent2 !== null) {
+          const migrated = migrateLegacyPlan(planMdContent2);
+          await savePlan(directory, migrated);
+          return migrated;
+        }
+      }
+    }
+  }
+  const planMdContent = await readSwarmFileAsync(directory, "plan.md");
+  if (planMdContent !== null) {
+    const migrated = migrateLegacyPlan(planMdContent);
+    await savePlan(directory, migrated);
+    return migrated;
+  }
+  if (await ledgerExists(directory)) {
+    const rebuilt = await replayFromLedger(directory);
+    if (rebuilt) {
+      await savePlan(directory, rebuilt);
+      return rebuilt;
+    }
+  }
+  return null;
+}
+async function savePlan(directory, plan, options) {
+  if (directory === null || directory === undefined || typeof directory !== "string" || directory.trim().length === 0) {
+    throw new Error(`Invalid directory: directory must be a non-empty string`);
+  }
+  const validated = PlanSchema.parse(plan);
+  if (options?.preserveCompletedStatuses !== false) {
+    try {
+      const currentPlan2 = await loadPlanJsonOnly(directory);
+      if (currentPlan2) {
+        const completedTaskIds = new Set;
+        for (const phase of currentPlan2.phases) {
+          for (const task of phase.tasks) {
+            if (task.status === "completed")
+              completedTaskIds.add(task.id);
+          }
+        }
+        if (completedTaskIds.size > 0) {
+          for (const phase of validated.phases) {
+            for (const task of phase.tasks) {
+              if (completedTaskIds.has(task.id) && task.status !== "completed") {
+                task.status = "completed";
+              }
+            }
+          }
+        }
+      }
+    } catch {}
+  }
+  for (const phase of validated.phases) {
+    const tasks = phase.tasks;
+    if (tasks.length > 0 && tasks.every((t) => t.status === "completed")) {
+      phase.status = "complete";
+    } else if (tasks.some((t) => t.status === "in_progress")) {
+      phase.status = "in_progress";
+    } else if (tasks.some((t) => t.status === "blocked")) {
+      phase.status = "blocked";
+    } else {
+      phase.status = "pending";
+    }
+  }
+  const currentPlan = await loadPlanJsonOnly(directory);
+  const planId = `${validated.swarm}-${validated.title}`.replace(/[^a-zA-Z0-9-_]/g, "_");
+  const planHashForInit = computePlanHash(validated);
+  if (!await ledgerExists(directory)) {
+    await initLedger(directory, planId, planHashForInit);
+  } else {
+    const existingEvents = await readLedgerEvents(directory);
+    if (existingEvents.length > 0 && existingEvents[0].plan_id !== planId) {
+      const swarmDir2 = path4.resolve(directory, ".swarm");
+      const oldLedgerPath = path4.join(swarmDir2, "plan-ledger.jsonl");
+      const oldLedgerBackupPath = path4.join(swarmDir2, `plan-ledger.backup-${Date.now()}-${Math.floor(Math.random() * 1e9)}.jsonl`);
+      let backupExists = false;
+      if (existsSync3(oldLedgerPath)) {
+        try {
+          renameSync2(oldLedgerPath, oldLedgerBackupPath);
+          backupExists = true;
+        } catch (renameErr) {
+          throw new Error(`[savePlan] Cannot reinitialize ledger: could not move old ledger aside (rename failed: ${renameErr instanceof Error ? renameErr.message : String(renameErr)}). The existing ledger has plan_id="${existingEvents[0].plan_id}" which does not match the current plan="${planId}". To proceed, close any programs that may have the ledger file open, or run /swarm reset-session to clear the ledger.`);
+        }
+      }
+      let initSucceeded = false;
+      if (backupExists) {
+        try {
+          await initLedger(directory, planId, planHashForInit);
+          initSucceeded = true;
+        } catch (initErr) {
+          const errorMessage = String(initErr);
+          if (errorMessage.includes("already initialized")) {
+            try {
+              if (existsSync3(oldLedgerBackupPath))
+                unlinkSync(oldLedgerBackupPath);
+            } catch {}
+          } else {
+            if (existsSync3(oldLedgerBackupPath)) {
+              try {
+                renameSync2(oldLedgerBackupPath, oldLedgerPath);
+              } catch {
+                copyFileSync(oldLedgerBackupPath, oldLedgerPath);
+                try {
+                  unlinkSync(oldLedgerBackupPath);
+                } catch {}
+              }
+            }
+            throw initErr;
+          }
+        }
+      }
+      if (initSucceeded && backupExists) {
+        const archivePath = path4.join(swarmDir2, `plan-ledger.archived-${Date.now()}-${Math.floor(Math.random() * 1e9)}.jsonl`);
+        try {
+          renameSync2(oldLedgerBackupPath, archivePath);
+          warn(`[savePlan] Ledger identity mismatch (was "${existingEvents[0].plan_id}", now "${planId}") \u2014 archived old ledger to ${archivePath} and reinitializing.`);
+        } catch (renameErr) {
+          warn(`[savePlan] Could not archive old ledger (rename failed: ${renameErr instanceof Error ? renameErr.message : String(renameErr)}). Old ledger may still exist at ${oldLedgerBackupPath}.`);
+          try {
+            if (existsSync3(oldLedgerBackupPath))
+              unlinkSync(oldLedgerBackupPath);
+          } catch {}
+        }
+      } else if (!initSucceeded && backupExists) {
+        try {
+          if (existsSync3(oldLedgerBackupPath))
+            unlinkSync(oldLedgerBackupPath);
+        } catch {}
+      }
+    }
+  }
+  const currentHash = computeCurrentPlanHash(directory);
+  const hashAfter = computePlanHash(validated);
+  if (currentPlan) {
+    const oldTaskMap = new Map;
+    for (const phase of currentPlan.phases) {
+      for (const task of phase.tasks) {
+        oldTaskMap.set(task.id, { phase: task.phase, status: task.status });
+      }
+    }
+    try {
+      for (const phase of validated.phases) {
+        for (const task of phase.tasks) {
+          const oldTask = oldTaskMap.get(task.id);
+          if (oldTask && oldTask.status !== task.status) {
+            const eventInput = {
+              plan_id: `${validated.swarm}-${validated.title}`.replace(/[^a-zA-Z0-9-_]/g, "_"),
+              event_type: "task_status_changed",
+              task_id: task.id,
+              phase_id: phase.id,
+              from_status: oldTask.status,
+              to_status: task.status,
+              source: "savePlan"
+            };
+            await appendLedgerEvent(directory, eventInput, {
+              expectedHash: currentHash,
+              planHashAfter: hashAfter
+            });
+          }
+        }
+      }
+    } catch (error49) {
+      if (error49 instanceof LedgerStaleWriterError) {
+        throw new Error(`Concurrent plan modification detected: ${error49.message}. Please retry the operation.`);
+      }
+      throw error49;
+    }
+  }
+  const SNAPSHOT_INTERVAL = 50;
+  const latestSeq = await getLatestLedgerSeq(directory);
+  if (latestSeq > 0 && latestSeq % SNAPSHOT_INTERVAL === 0) {
+    await takeSnapshotEvent(directory, validated, {
+      planHashAfter: hashAfter
+    }).catch(() => {});
+  }
+  const swarmDir = path4.resolve(directory, ".swarm");
+  const planPath = path4.join(swarmDir, "plan.json");
+  const tempPath = path4.join(swarmDir, `plan.json.tmp.${Date.now()}.${Math.floor(Math.random() * 1e9)}`);
+  try {
+    await Bun.write(tempPath, JSON.stringify(validated, null, 2));
+    renameSync2(tempPath, planPath);
+  } finally {
+    try {
+      unlinkSync(tempPath);
+    } catch {}
+  }
+  const contentHash = computePlanContentHash(validated);
+  const markdown = derivePlanMarkdown(validated);
+  const markdownWithHash = `<!-- PLAN_HASH: ${contentHash} -->
+${markdown}`;
+  const mdPath = path4.join(swarmDir, "plan.md");
+  const mdTempPath = path4.join(swarmDir, `plan.md.tmp.${Date.now()}.${Math.floor(Math.random() * 1e9)}`);
+  try {
+    await Bun.write(mdTempPath, markdownWithHash);
+    renameSync2(mdTempPath, mdPath);
+  } finally {
+    try {
+      unlinkSync(mdTempPath);
+    } catch {}
+  }
+  try {
+    const markerPath = path4.join(swarmDir, ".plan-write-marker");
+    const tasksCount = validated.phases.reduce((sum, phase) => sum + phase.tasks.length, 0);
+    const marker = JSON.stringify({
+      source: "plan_manager",
+      timestamp: new Date().toISOString(),
+      phases_count: validated.phases.length,
+      tasks_count: tasksCount
+    });
+    await Bun.write(markerPath, marker);
+  } catch {}
+}
+async function rebuildPlan(directory, plan) {
+  const targetPlan = plan ?? await replayFromLedger(directory);
+  if (!targetPlan)
+    return null;
+  const swarmDir = path4.join(directory, ".swarm");
+  const planPath = path4.join(swarmDir, "plan.json");
+  const mdPath = path4.join(swarmDir, "plan.md");
+  const tempPlanPath = path4.join(swarmDir, `plan.json.rebuild.${Date.now()}`);
+  await Bun.write(tempPlanPath, JSON.stringify(targetPlan, null, 2));
+  renameSync2(tempPlanPath, planPath);
+  const contentHash = computePlanContentHash(targetPlan);
+  const markdown = derivePlanMarkdown(targetPlan);
+  const markdownWithHash = `<!-- PLAN_HASH: ${contentHash} -->
+${markdown}`;
+  const tempMdPath = path4.join(swarmDir, `plan.md.rebuild.${Date.now()}`);
+  await Bun.write(tempMdPath, markdownWithHash);
+  renameSync2(tempMdPath, mdPath);
+  try {
+    const markerPath = path4.join(swarmDir, ".plan-write-marker");
+    const tasksCount = targetPlan.phases.reduce((sum, phase) => sum + phase.tasks.length, 0);
+    const marker = JSON.stringify({
+      source: "plan_manager",
+      timestamp: new Date().toISOString(),
+      phases_count: targetPlan.phases.length,
+      tasks_count: tasksCount
+    });
+    await Bun.write(markerPath, marker);
+  } catch {}
+  return targetPlan;
+}
+async function updateTaskStatus(directory, taskId, status) {
+  const plan = await loadPlan(directory);
+  if (plan === null) {
+    throw new Error(`Plan not found in directory: ${directory}`);
+  }
+  let taskFound = false;
+  const derivePhaseStatusFromTasks = (tasks) => {
+    if (tasks.length > 0 && tasks.every((task) => task.status === "completed")) {
+      return "complete";
+    }
+    if (tasks.some((task) => task.status === "in_progress")) {
+      return "in_progress";
+    }
+    if (tasks.some((task) => task.status === "blocked")) {
+      return "blocked";
+    }
+    return "pending";
+  };
+  const updatedPhases = plan.phases.map((phase) => {
+    const updatedTasks = phase.tasks.map((task) => {
+      if (task.id === taskId) {
+        taskFound = true;
+        return { ...task, status };
+      }
+      return task;
+    });
+    return {
+      ...phase,
+      status: derivePhaseStatusFromTasks(updatedTasks),
+      tasks: updatedTasks
+    };
+  });
+  if (!taskFound) {
+    throw new Error(`Task not found: ${taskId}`);
+  }
+  const updatedPlan = { ...plan, phases: updatedPhases };
+  await savePlan(directory, updatedPlan, { preserveCompletedStatuses: true });
+  return updatedPlan;
+}
+function derivePlanMarkdown(plan) {
+  const statusMap = {
+    pending: "PENDING",
+    in_progress: "IN PROGRESS",
+    complete: "COMPLETE",
+    blocked: "BLOCKED"
+  };
+  const now = new Date().toISOString();
+  const currentPhase = plan.current_phase ?? 1;
+  const phaseStatus = statusMap[plan.phases[currentPhase - 1]?.status] || "PENDING";
+  let markdown = `# ${plan.title}
+Swarm: ${plan.swarm}
+Phase: ${currentPhase} [${phaseStatus}] | Updated: ${now}
+`;
+  const sortedPhases = [...plan.phases].sort((a, b) => a.id - b.id);
+  for (const phase of sortedPhases) {
+    const phaseStatusText = statusMap[phase.status] || "PENDING";
+    markdown += `
+## Phase ${phase.id}: ${phase.name} [${phaseStatusText}]
+`;
+    const sortedTasks = [...phase.tasks].sort((a, b) => compareTaskIds(a.id, b.id));
+    let currentTaskMarked = false;
+    for (const task of sortedTasks) {
+      let taskLine = "";
+      let suffix = "";
+      if (task.status === "completed") {
+        taskLine = `- [x] ${task.id}: ${task.description}`;
+      } else if (task.status === "blocked") {
+        taskLine = `- [BLOCKED] ${task.id}: ${task.description}`;
+        if (task.blocked_reason) {
+          taskLine += ` - ${task.blocked_reason}`;
+        }
+      } else {
+        taskLine = `- [ ] ${task.id}: ${task.description}`;
+      }
+      taskLine += ` [${task.size.toUpperCase()}]`;
+      if (task.depends.length > 0) {
+        const sortedDepends = [...task.depends].sort();
+        suffix += ` (depends: ${sortedDepends.join(", ")})`;
+      }
+      if (phase.id === plan.current_phase && task.status === "in_progress" && !currentTaskMarked) {
+        suffix += " \u2190 CURRENT";
+        currentTaskMarked = true;
+      }
+      markdown += `${taskLine}${suffix}
+`;
+    }
+  }
+  const phaseSections = markdown.split(`
+## `);
+  if (phaseSections.length > 1) {
+    const header = phaseSections[0];
+    const phases = phaseSections.slice(1).map((p) => `## ${p}`);
+    markdown = `${header}
+---
+${phases.join(`
+---
+`)}`;
+  }
+  return `${markdown.trim()}
+`;
+}
+function migrateLegacyPlan(planContent, swarmId) {
+  const lines = planContent.split(`
+`);
+  let title = "Untitled Plan";
+  let swarm = swarmId || "default-swarm";
+  let currentPhaseNum = 1;
+  const phases = [];
+  let currentPhase = null;
+  for (const line of lines) {
+    const trimmed = line.trim();
+    if (trimmed.startsWith("# ") && title === "Untitled Plan") {
+      title = trimmed.substring(2).trim();
+      continue;
+    }
+    if (trimmed.startsWith("Swarm:")) {
+      swarm = trimmed.substring(6).trim();
+      continue;
+    }
+    if (trimmed.startsWith("Phase:")) {
+      const match = trimmed.match(/Phase:\s*(\d+)/i);
+      if (match) {
+        currentPhaseNum = parseInt(match[1], 10);
+      }
+      continue;
+    }
+    const phaseMatch = trimmed.match(/^#{2,3}\s*Phase\s+(\d+)(?::\s*([^[]+))?\s*(?:\[([^\]]+)\])?/i);
+    if (phaseMatch) {
+      if (currentPhase !== null) {
+        phases.push(currentPhase);
+      }
+      const phaseId = parseInt(phaseMatch[1], 10);
+      const phaseName = phaseMatch[2]?.trim() || `Phase ${phaseId}`;
+      const statusText = phaseMatch[3]?.toLowerCase() || "pending";
+      const statusMap = {
+        complete: "complete",
+        completed: "complete",
+        "in progress": "in_progress",
+        in_progress: "in_progress",
+        inprogress: "in_progress",
+        pending: "pending",
+        blocked: "blocked"
+      };
+      currentPhase = {
+        id: phaseId,
+        name: phaseName,
+        status: statusMap[statusText] || "pending",
+        tasks: []
+      };
+      continue;
+    }
+    const taskMatch = trimmed.match(/^-\s*\[([^\]]+)\]\s+(\d+\.\d+):\s*(.+?)(?:\s*\[(\w+)\])?(?:\s*-\s*(.+))?$/i);
+    if (taskMatch && currentPhase !== null) {
+      const checkbox = taskMatch[1].toLowerCase();
+      const taskId = taskMatch[2];
+      let description = taskMatch[3].trim();
+      const sizeText = taskMatch[4]?.toLowerCase() || "small";
+      let blockedReason;
+      const dependsMatch = description.match(/\s*\(depends:\s*([^)]+)\)$/i);
+      const depends = [];
+      if (dependsMatch) {
+        const depsText = dependsMatch[1];
+        depends.push(...depsText.split(",").map((d) => d.trim()));
+        description = description.substring(0, dependsMatch.index).trim();
+      }
+      let status = "pending";
+      if (checkbox === "x") {
+        status = "completed";
+      } else if (checkbox === "blocked") {
+        status = "blocked";
+        const blockedReasonMatch = taskMatch[5];
+        if (blockedReasonMatch) {
+          blockedReason = blockedReasonMatch.trim();
+        }
+      }
+      const sizeMap = {
+        small: "small",
+        medium: "medium",
+        large: "large"
+      };
+      const task = {
+        id: taskId,
+        phase: currentPhase.id,
+        status,
+        size: sizeMap[sizeText] || "small",
+        description,
+        depends,
+        acceptance: undefined,
+        files_touched: [],
+        evidence_path: undefined,
+        blocked_reason: blockedReason
+      };
+      currentPhase.tasks.push(task);
+    }
+    const numberedTaskMatch = trimmed.match(/^(\d+)\.\s+(.+?)(?:\s*\[(\w+)\])?$/);
+    if (numberedTaskMatch && currentPhase !== null) {
+      const taskId = `${currentPhase.id}.${currentPhase.tasks.length + 1}`;
+      let description = numberedTaskMatch[2].trim();
+      const sizeText = numberedTaskMatch[3]?.toLowerCase() || "small";
+      const dependsMatch = description.match(/\s*\(depends:\s*([^)]+)\)$/i);
+      const depends = [];
+      if (dependsMatch) {
+        const depsText = dependsMatch[1];
+        depends.push(...depsText.split(",").map((d) => d.trim()));
+        description = description.substring(0, dependsMatch.index).trim();
+      }
+      const sizeMap = {
+        small: "small",
+        medium: "medium",
+        large: "large"
+      };
+      const task = {
+        id: taskId,
+        phase: currentPhase.id,
+        status: "pending",
+        size: sizeMap[sizeText] || "small",
+        description,
+        depends,
+        acceptance: undefined,
+        files_touched: [],
+        evidence_path: undefined,
+        blocked_reason: undefined
+      };
+      currentPhase.tasks.push(task);
+    }
+    const noPrefixTaskMatch = trimmed.match(/^-\s*\[([^\]]+)\]\s+(?!\d+\.\d+:)(.+?)(?:\s*\[(\w+)\])?(?:\s*-\s*(.+))?$/i);
+    if (noPrefixTaskMatch && currentPhase !== null) {
+      const checkbox = noPrefixTaskMatch[1].toLowerCase();
+      const taskId = `${currentPhase.id}.${currentPhase.tasks.length + 1}`;
+      let description = noPrefixTaskMatch[2].trim();
+      const sizeText = noPrefixTaskMatch[3]?.toLowerCase() || "small";
+      let blockedReason;
+      const dependsMatch = description.match(/\s*\(depends:\s*([^)]+)\)$/i);
+      const depends = [];
+      if (dependsMatch) {
+        const depsText = dependsMatch[1];
+        depends.push(...depsText.split(",").map((d) => d.trim()));
+        description = description.substring(0, dependsMatch.index).trim();
+      }
+      let status = "pending";
+      if (checkbox === "x") {
+        status = "completed";
+      } else if (checkbox === "blocked") {
+        status = "blocked";
+        const blockedReasonMatch = noPrefixTaskMatch[4];
+        if (blockedReasonMatch) {
+          blockedReason = blockedReasonMatch.trim();
+        }
+      }
+      const sizeMap = {
+        small: "small",
+        medium: "medium",
+        large: "large"
+      };
+      const task = {
+        id: taskId,
+        phase: currentPhase.id,
+        status,
+        size: sizeMap[sizeText] || "small",
+        description,
+        depends,
+        acceptance: undefined,
+        files_touched: [],
+        evidence_path: undefined,
+        blocked_reason: blockedReason
+      };
+      currentPhase.tasks.push(task);
+    }
+  }
+  if (currentPhase !== null) {
+    phases.push(currentPhase);
+  }
+  let migrationStatus = "migrated";
+  if (phases.length === 0) {
+    console.warn(`migrateLegacyPlan: 0 phases parsed from ${lines.length} lines. First 3 lines: ${lines.slice(0, 3).join(" | ")}`);
+    migrationStatus = "migration_failed";
+    phases.push({
+      id: 1,
+      name: "Migration Failed",
+      status: "blocked",
+      tasks: [
+        {
+          id: "1.1",
+          phase: 1,
+          status: "blocked",
+          size: "large",
+          description: "Review and restructure plan manually",
+          depends: [],
+          files_touched: [],
+          blocked_reason: "Legacy plan could not be parsed automatically"
+        }
+      ]
+    });
+  }
+  phases.sort((a, b) => a.id - b.id);
+  const plan = {
+    schema_version: "1.0.0",
+    title,
+    swarm,
+    current_phase: currentPhaseNum,
+    phases,
+    migration_status: migrationStatus
+  };
+  return plan;
+}
+var startupLedgerCheckedWorkspaces;
+var init_manager = __esm(() => {
+  init_plan_schema();
+  init_utils2();
+  init_utils();
+  init_spec_hash();
+  init_ledger();
+  startupLedgerCheckedWorkspaces = new Set;
+});
+
+// src/evidence/manager.ts
+import { mkdirSync as mkdirSync2, readdirSync, rmSync, statSync as statSync2 } from "fs";
+import * as fs4 from "fs/promises";
+import * as path5 from "path";
 function isValidEvidenceType(type) {
   return VALID_EVIDENCE_TYPES.includes(type);
 }
@@ -15590,9 +16796,9 @@ function sanitizeTaskId(taskId) {
 }
 async function saveEvidence(directory, taskId, evidence) {
   const sanitizedTaskId = sanitizeTaskId(taskId);
-  const relativePath = path3.join("evidence", sanitizedTaskId, "evidence.json");
+  const relativePath = path5.join("evidence", sanitizedTaskId, "evidence.json");
   const evidencePath = validateSwarmPath(directory, relativePath);
-  const evidenceDir = path3.dirname(evidencePath);
+  const evidenceDir = path5.dirname(evidencePath);
   let bundle;
   const existingContent = await readSwarmFileAsync(directory, relativePath);
   if (existingContent !== null) {
@@ -15629,11 +16835,11 @@ async function saveEvidence(directory, taskId, evidence) {
   if (bundleJson.length > EVIDENCE_MAX_JSON_BYTES) {
     throw new Error(`Evidence bundle size (${bundleJson.length} bytes) exceeds maximum (${EVIDENCE_MAX_JSON_BYTES} bytes)`);
   }
-  mkdirSync(evidenceDir, { recursive: true });
-  const tempPath = path3.join(evidenceDir, `evidence.json.tmp.${Date.now()}.${process.pid}`);
+  mkdirSync2(evidenceDir, { recursive: true });
+  const tempPath = path5.join(evidenceDir, `evidence.json.tmp.${Date.now()}.${process.pid}`);
   try {
     await Bun.write(tempPath, bundleJson);
-    await fs3.rename(tempPath, evidencePath);
+    await fs4.rename(tempPath, evidencePath);
   } catch (error49) {
     try {
       rmSync(tempPath, { force: true });
@@ -15668,7 +16874,7 @@ function wrapFlatRetrospective(flatEntry, taskId) {
 }
 async function loadEvidence(directory, taskId) {
   const sanitizedTaskId = sanitizeTaskId(taskId);
-  const relativePath = path3.join("evidence", sanitizedTaskId, "evidence.json");
+  const relativePath = path5.join("evidence", sanitizedTaskId, "evidence.json");
   const evidencePath = validateSwarmPath(directory, relativePath);
   const content = await readSwarmFileAsync(directory, relativePath);
   if (content === null) {
@@ -15684,12 +16890,12 @@ async function loadEvidence(directory, taskId) {
     const wrappedBundle = wrapFlatRetrospective(parsed, sanitizedTaskId);
     try {
       const validated = EvidenceBundleSchema.parse(wrappedBundle);
-      const evidenceDir = path3.dirname(evidencePath);
+      const evidenceDir = path5.dirname(evidencePath);
       const bundleJson = JSON.stringify(validated);
-      const tempPath = path3.join(evidenceDir, `evidence.json.tmp.${Date.now()}.${process.pid}`);
+      const tempPath = path5.join(evidenceDir, `evidence.json.tmp.${Date.now()}.${process.pid}`);
       try {
         await Bun.write(tempPath, bundleJson);
-        await fs3.rename(tempPath, evidencePath);
+        await fs4.rename(tempPath, evidencePath);
       } catch (writeError) {
         try {
           rmSync(tempPath, { force: true });
@@ -15727,7 +16933,7 @@ async function listEvidenceTaskIds(directory) {
   }
   const taskIds = [];
   for (const entry of entries) {
-    const entryPath = path3.join(evidenceBasePath, entry);
+    const entryPath = path5.join(evidenceBasePath, entry);
     try {
       const stats = statSync2(entryPath);
       if (!stats.isDirectory()) {
@@ -15745,7 +16951,7 @@ async function listEvidenceTaskIds(directory) {
 }
 async function deleteEvidence(directory, taskId) {
   const sanitizedTaskId = sanitizeTaskId(taskId);
-  const relativePath = path3.join("evidence", sanitizedTaskId);
+  const relativePath = path5.join("evidence", sanitizedTaskId);
   const evidenceDir = validateSwarmPath(directory, relativePath);
   try {
     statSync2(evidenceDir);
@@ -15758,6 +16964,16 @@ async function deleteEvidence(directory, taskId) {
   } catch (error49) {
     warn(`Failed to delete evidence for task ${sanitizedTaskId}: ${error49 instanceof Error ? error49.message : String(error49)}`);
     return false;
+  }
+}
+async function checkRequirementCoverage(phase, directory) {
+  const relativePath = path5.join("evidence", `req-coverage-phase-${phase}.json`);
+  const absolutePath = path5.resolve(directory, ".swarm", relativePath);
+  try {
+    await fs4.access(absolutePath);
+    return { exists: true, path: absolutePath };
+  } catch {
+    return { exists: false, path: absolutePath };
   }
 }
 async function archiveEvidence(directory, maxAgeDays, maxBundles) {
@@ -15797,7 +17013,7 @@ async function archiveEvidence(directory, maxAgeDays, maxBundles) {
   return archived;
 }
 var VALID_EVIDENCE_TYPES, TASK_ID_REGEX, RETRO_TASK_ID_REGEX, INTERNAL_TOOL_ID_REGEX, GENERAL_TASK_ID_REGEX, LEGACY_TASK_COMPLEXITY_MAP;
-var init_manager = __esm(() => {
+var init_manager2 = __esm(() => {
   init_zod();
   init_evidence_schema();
   init_utils2();
@@ -15962,10 +17178,10 @@ __export(exports_telemetry, {
   emit: () => emit,
   addTelemetryListener: () => addTelemetryListener
 });
-import * as fs4 from "fs";
+import * as fs5 from "fs";
 import { createWriteStream } from "fs";
 import * as os2 from "os";
-import * as path4 from "path";
+import * as path6 from "path";
 function resetTelemetryForTesting() {
   _disabled = false;
   _projectDirectory = null;
@@ -15981,11 +17197,11 @@ function initTelemetry(projectDirectory) {
   }
   try {
     _projectDirectory = projectDirectory;
-    const swarmDir = path4.join(projectDirectory, ".swarm");
-    if (!fs4.existsSync(swarmDir)) {
-      fs4.mkdirSync(swarmDir, { recursive: true });
+    const swarmDir = path6.join(projectDirectory, ".swarm");
+    if (!fs5.existsSync(swarmDir)) {
+      fs5.mkdirSync(swarmDir, { recursive: true });
     }
-    const telemetryPath = path4.join(swarmDir, "telemetry.jsonl");
+    const telemetryPath = path6.join(swarmDir, "telemetry.jsonl");
     _writeStream = createWriteStream(telemetryPath, { flags: "a" });
     _writeStream.on("error", () => {
       _disabled = true;
@@ -16027,16 +17243,16 @@ function rotateTelemetryIfNeeded(maxBytes = 10 * 1024 * 1024) {
     if (_projectDirectory === null) {
       return;
     }
-    const telemetryPath = path4.join(_projectDirectory, ".swarm", "telemetry.jsonl");
-    if (!fs4.existsSync(telemetryPath)) {
+    const telemetryPath = path6.join(_projectDirectory, ".swarm", "telemetry.jsonl");
+    if (!fs5.existsSync(telemetryPath)) {
       return;
     }
-    const stats = fs4.statSync(telemetryPath);
+    const stats = fs5.statSync(telemetryPath);
     if (stats.size < maxBytes) {
       return;
     }
-    const rotatedPath = path4.join(_projectDirectory, ".swarm", "telemetry.jsonl.1");
-    fs4.renameSync(telemetryPath, rotatedPath);
+    const rotatedPath = path6.join(_projectDirectory, ".swarm", "telemetry.jsonl.1");
+    fs5.renameSync(telemetryPath, rotatedPath);
     if (_writeStream !== null) {
       _writeStream.end();
       _writeStream = createWriteStream(telemetryPath, { flags: "a" });
@@ -16156,8 +17372,8 @@ __export(exports_state, {
   applyRehydrationCache: () => applyRehydrationCache,
   advanceTaskState: () => advanceTaskState
 });
-import * as fs5 from "fs/promises";
-import * as path5 from "path";
+import * as fs6 from "fs/promises";
+import * as path7 from "path";
 function resetSwarmState() {
   swarmState.activeToolCalls.clear();
   swarmState.toolAggregates.clear();
@@ -16521,8 +17737,8 @@ function evidenceToWorkflowState(evidence) {
 }
 async function readPlanFromDisk(directory) {
   try {
-    const planPath = path5.join(directory, ".swarm", "plan.json");
-    const content = await fs5.readFile(planPath, "utf-8");
+    const planPath = path7.join(directory, ".swarm", "plan.json");
+    const content = await fs6.readFile(planPath, "utf-8");
     const parsed = JSON.parse(content);
     return PlanSchema.parse(parsed);
   } catch {
@@ -16532,8 +17748,8 @@ async function readPlanFromDisk(directory) {
 async function readGateEvidenceFromDisk(directory) {
   const evidenceMap = new Map;
   try {
-    const evidenceDir = path5.join(directory, ".swarm", "evidence");
-    const entries = await fs5.readdir(evidenceDir, { withFileTypes: true });
+    const evidenceDir = path7.join(directory, ".swarm", "evidence");
+    const entries = await fs6.readdir(evidenceDir, { withFileTypes: true });
     for (const entry of entries) {
       if (!entry.isFile() || !entry.name.endsWith(".json")) {
         continue;
@@ -16543,8 +17759,8 @@ async function readGateEvidenceFromDisk(directory) {
         continue;
       }
       try {
-        const filePath = path5.join(evidenceDir, entry.name);
-        const content = await fs5.readFile(filePath, "utf-8");
+        const filePath = path7.join(evidenceDir, entry.name);
+        const content = await fs6.readFile(filePath, "utf-8");
         const parsed = JSON.parse(content);
         if (parsed && typeof parsed.taskId === "string" && Array.isArray(parsed.required_gates)) {
           evidenceMap.set(taskId, parsed);
@@ -16670,7 +17886,7 @@ var init_state = __esm(() => {
   };
 });
 
-// node_modules/@opencode-ai/plugin/node_modules/zod/v4/core/core.js
+// node_modules/.bun/@opencode-ai+plugin@1.1.53/node_modules/@opencode-ai/plugin/node_modules/zod/v4/core/core.js
 function $constructor2(name2, initializer3, params) {
   function init2(inst, def) {
     var _a2;
@@ -16739,7 +17955,7 @@ var init_core3 = __esm(() => {
   globalConfig2 = {};
 });
 
-// node_modules/@opencode-ai/plugin/node_modules/zod/v4/core/util.js
+// node_modules/.bun/@opencode-ai+plugin@1.1.53/node_modules/@opencode-ai/plugin/node_modules/zod/v4/core/util.js
 var exports_util2 = {};
 __export(exports_util2, {
   unwrapMessage: () => unwrapMessage2,
@@ -16906,10 +18122,10 @@ function mergeDefs2(...defs) {
 function cloneDef2(schema) {
   return mergeDefs2(schema._zod.def);
 }
-function getElementAtPath2(obj, path6) {
-  if (!path6)
+function getElementAtPath2(obj, path8) {
+  if (!path8)
     return obj;
-  return path6.reduce((acc, key) => acc?.[key], obj);
+  return path8.reduce((acc, key) => acc?.[key], obj);
 }
 function promiseAllObject2(promisesObj) {
   const keys = Object.keys(promisesObj);
@@ -17198,11 +18414,11 @@ function aborted2(x, startIndex = 0) {
   }
   return false;
 }
-function prefixIssues2(path6, issues) {
+function prefixIssues2(path8, issues) {
   return issues.map((iss) => {
     var _a2;
     (_a2 = iss).path ?? (_a2.path = []);
-    iss.path.unshift(path6);
+    iss.path.unshift(path8);
     return iss;
   });
 }
@@ -17370,7 +18586,7 @@ var init_util2 = __esm(() => {
   };
 });
 
-// node_modules/@opencode-ai/plugin/node_modules/zod/v4/core/errors.js
+// node_modules/.bun/@opencode-ai+plugin@1.1.53/node_modules/@opencode-ai/plugin/node_modules/zod/v4/core/errors.js
 function flattenError2(error49, mapper = (issue3) => issue3.message) {
   const fieldErrors = {};
   const formErrors = [];
@@ -17425,7 +18641,7 @@ function treeifyError2(error49, _mapper) {
     return issue3.message;
   };
   const result = { errors: [] };
-  const processError = (error50, path6 = []) => {
+  const processError = (error50, path8 = []) => {
     var _a2, _b;
     for (const issue3 of error50.issues) {
       if (issue3.code === "invalid_union" && issue3.errors.length) {
@@ -17435,7 +18651,7 @@ function treeifyError2(error49, _mapper) {
       } else if (issue3.code === "invalid_element") {
         processError({ issues: issue3.issues }, issue3.path);
       } else {
-        const fullpath = [...path6, ...issue3.path];
+        const fullpath = [...path8, ...issue3.path];
         if (fullpath.length === 0) {
           result.errors.push(mapper(issue3));
           continue;
@@ -17467,8 +18683,8 @@ function treeifyError2(error49, _mapper) {
 }
 function toDotPath2(_path) {
   const segs = [];
-  const path6 = _path.map((seg) => typeof seg === "object" ? seg.key : seg);
-  for (const seg of path6) {
+  const path8 = _path.map((seg) => typeof seg === "object" ? seg.key : seg);
+  for (const seg of path8) {
     if (typeof seg === "number")
       segs.push(`[${seg}]`);
     else if (typeof seg === "symbol")
@@ -17517,7 +18733,7 @@ var init_errors4 = __esm(() => {
   $ZodRealError2 = $constructor2("$ZodError", initializer3, { Parent: Error });
 });
 
-// node_modules/@opencode-ai/plugin/node_modules/zod/v4/core/parse.js
+// node_modules/.bun/@opencode-ai+plugin@1.1.53/node_modules/@opencode-ai/plugin/node_modules/zod/v4/core/parse.js
 var _parse2 = (_Err) => (schema, value, _ctx, _params) => {
   const ctx = _ctx ? Object.assign(_ctx, { async: false }) : { async: false };
   const result = schema._zod.run({ value, issues: [] }, ctx);
@@ -17599,7 +18815,7 @@ var init_parse3 = __esm(() => {
   safeDecodeAsync3 = /* @__PURE__ */ _safeDecodeAsync2($ZodRealError2);
 });
 
-// node_modules/@opencode-ai/plugin/node_modules/zod/v4/core/regexes.js
+// node_modules/.bun/@opencode-ai+plugin@1.1.53/node_modules/@opencode-ai/plugin/node_modules/zod/v4/core/regexes.js
 var exports_regexes2 = {};
 __export(exports_regexes2, {
   xid: () => xid3,
@@ -17750,7 +18966,7 @@ var init_regexes2 = __esm(() => {
   sha512_base64url2 = /* @__PURE__ */ fixedBase64url2(86);
 });
 
-// node_modules/@opencode-ai/plugin/node_modules/zod/v4/core/checks.js
+// node_modules/.bun/@opencode-ai+plugin@1.1.53/node_modules/@opencode-ai/plugin/node_modules/zod/v4/core/checks.js
 function handleCheckPropertyResult2(result, payload, property) {
   if (result.issues.length) {
     payload.issues.push(...prefixIssues2(property, result.issues));
@@ -18297,7 +19513,7 @@ var init_checks3 = __esm(() => {
   });
 });
 
-// node_modules/@opencode-ai/plugin/node_modules/zod/v4/core/doc.js
+// node_modules/.bun/@opencode-ai+plugin@1.1.53/node_modules/@opencode-ai/plugin/node_modules/zod/v4/core/doc.js
 class Doc2 {
   constructor(args2 = []) {
     this.content = [];
@@ -18335,7 +19551,7 @@ class Doc2 {
   }
 }
 
-// node_modules/@opencode-ai/plugin/node_modules/zod/v4/core/versions.js
+// node_modules/.bun/@opencode-ai+plugin@1.1.53/node_modules/@opencode-ai/plugin/node_modules/zod/v4/core/versions.js
 var version2;
 var init_versions2 = __esm(() => {
   version2 = {
@@ -18345,7 +19561,7 @@ var init_versions2 = __esm(() => {
   };
 });
 
-// node_modules/@opencode-ai/plugin/node_modules/zod/v4/core/schemas.js
+// node_modules/.bun/@opencode-ai+plugin@1.1.53/node_modules/@opencode-ai/plugin/node_modules/zod/v4/core/schemas.js
 function isValidBase642(data) {
   if (data === "")
     return true;
@@ -20179,7 +21395,7 @@ var init_schemas3 = __esm(() => {
   });
 });
 
-// node_modules/@opencode-ai/plugin/node_modules/zod/v4/locales/ar.js
+// node_modules/.bun/@opencode-ai+plugin@1.1.53/node_modules/@opencode-ai/plugin/node_modules/zod/v4/locales/ar.js
 function ar_default2() {
   return {
     localeError: error49()
@@ -20299,7 +21515,7 @@ var init_ar2 = __esm(() => {
   init_util2();
 });
 
-// node_modules/@opencode-ai/plugin/node_modules/zod/v4/locales/az.js
+// node_modules/.bun/@opencode-ai+plugin@1.1.53/node_modules/@opencode-ai/plugin/node_modules/zod/v4/locales/az.js
 function az_default2() {
   return {
     localeError: error50()
@@ -20418,7 +21634,7 @@ var init_az2 = __esm(() => {
   init_util2();
 });
 
-// node_modules/@opencode-ai/plugin/node_modules/zod/v4/locales/be.js
+// node_modules/.bun/@opencode-ai+plugin@1.1.53/node_modules/@opencode-ai/plugin/node_modules/zod/v4/locales/be.js
 function getBelarusianPlural2(count, one, few, many) {
   const absCount = Math.abs(count);
   const lastDigit = absCount % 10;
@@ -20586,7 +21802,7 @@ var init_be2 = __esm(() => {
   init_util2();
 });
 
-// node_modules/@opencode-ai/plugin/node_modules/zod/v4/locales/ca.js
+// node_modules/.bun/@opencode-ai+plugin@1.1.53/node_modules/@opencode-ai/plugin/node_modules/zod/v4/locales/ca.js
 function ca_default2() {
   return {
     localeError: error52()
@@ -20707,7 +21923,7 @@ var init_ca2 = __esm(() => {
   init_util2();
 });
 
-// node_modules/@opencode-ai/plugin/node_modules/zod/v4/locales/cs.js
+// node_modules/.bun/@opencode-ai+plugin@1.1.53/node_modules/@opencode-ai/plugin/node_modules/zod/v4/locales/cs.js
 function cs_default2() {
   return {
     localeError: error53()
@@ -20846,7 +22062,7 @@ var init_cs2 = __esm(() => {
   init_util2();
 });
 
-// node_modules/@opencode-ai/plugin/node_modules/zod/v4/locales/da.js
+// node_modules/.bun/@opencode-ai+plugin@1.1.53/node_modules/@opencode-ai/plugin/node_modules/zod/v4/locales/da.js
 function da_default2() {
   return {
     localeError: error54()
@@ -20981,7 +22197,7 @@ var init_da2 = __esm(() => {
   init_util2();
 });
 
-// node_modules/@opencode-ai/plugin/node_modules/zod/v4/locales/de.js
+// node_modules/.bun/@opencode-ai+plugin@1.1.53/node_modules/@opencode-ai/plugin/node_modules/zod/v4/locales/de.js
 function de_default2() {
   return {
     localeError: error55()
@@ -21101,7 +22317,7 @@ var init_de2 = __esm(() => {
   init_util2();
 });
 
-// node_modules/@opencode-ai/plugin/node_modules/zod/v4/locales/en.js
+// node_modules/.bun/@opencode-ai+plugin@1.1.53/node_modules/@opencode-ai/plugin/node_modules/zod/v4/locales/en.js
 function en_default2() {
   return {
     localeError: error56()
@@ -21221,7 +22437,7 @@ var init_en2 = __esm(() => {
   init_util2();
 });
 
-// node_modules/@opencode-ai/plugin/node_modules/zod/v4/locales/eo.js
+// node_modules/.bun/@opencode-ai+plugin@1.1.53/node_modules/@opencode-ai/plugin/node_modules/zod/v4/locales/eo.js
 function eo_default2() {
   return {
     localeError: error57()
@@ -21340,7 +22556,7 @@ var init_eo2 = __esm(() => {
   init_util2();
 });
 
-// node_modules/@opencode-ai/plugin/node_modules/zod/v4/locales/es.js
+// node_modules/.bun/@opencode-ai+plugin@1.1.53/node_modules/@opencode-ai/plugin/node_modules/zod/v4/locales/es.js
 function es_default2() {
   return {
     localeError: error58()
@@ -21492,7 +22708,7 @@ var init_es2 = __esm(() => {
   init_util2();
 });
 
-// node_modules/@opencode-ai/plugin/node_modules/zod/v4/locales/fa.js
+// node_modules/.bun/@opencode-ai+plugin@1.1.53/node_modules/@opencode-ai/plugin/node_modules/zod/v4/locales/fa.js
 function fa_default2() {
   return {
     localeError: error59()
@@ -21618,7 +22834,7 @@ var init_fa2 = __esm(() => {
   init_util2();
 });
 
-// node_modules/@opencode-ai/plugin/node_modules/zod/v4/locales/fi.js
+// node_modules/.bun/@opencode-ai+plugin@1.1.53/node_modules/@opencode-ai/plugin/node_modules/zod/v4/locales/fi.js
 function fi_default2() {
   return {
     localeError: error60()
@@ -21744,7 +22960,7 @@ var init_fi2 = __esm(() => {
   init_util2();
 });
 
-// node_modules/@opencode-ai/plugin/node_modules/zod/v4/locales/fr.js
+// node_modules/.bun/@opencode-ai+plugin@1.1.53/node_modules/@opencode-ai/plugin/node_modules/zod/v4/locales/fr.js
 function fr_default2() {
   return {
     localeError: error61()
@@ -21864,7 +23080,7 @@ var init_fr2 = __esm(() => {
   init_util2();
 });
 
-// node_modules/@opencode-ai/plugin/node_modules/zod/v4/locales/fr-CA.js
+// node_modules/.bun/@opencode-ai+plugin@1.1.53/node_modules/@opencode-ai/plugin/node_modules/zod/v4/locales/fr-CA.js
 function fr_CA_default2() {
   return {
     localeError: error62()
@@ -21985,7 +23201,7 @@ var init_fr_CA2 = __esm(() => {
   init_util2();
 });
 
-// node_modules/@opencode-ai/plugin/node_modules/zod/v4/locales/he.js
+// node_modules/.bun/@opencode-ai+plugin@1.1.53/node_modules/@opencode-ai/plugin/node_modules/zod/v4/locales/he.js
 function he_default2() {
   return {
     localeError: error63()
@@ -22105,7 +23321,7 @@ var init_he2 = __esm(() => {
   init_util2();
 });
 
-// node_modules/@opencode-ai/plugin/node_modules/zod/v4/locales/hu.js
+// node_modules/.bun/@opencode-ai+plugin@1.1.53/node_modules/@opencode-ai/plugin/node_modules/zod/v4/locales/hu.js
 function hu_default2() {
   return {
     localeError: error64()
@@ -22225,7 +23441,7 @@ var init_hu2 = __esm(() => {
   init_util2();
 });
 
-// node_modules/@opencode-ai/plugin/node_modules/zod/v4/locales/id.js
+// node_modules/.bun/@opencode-ai+plugin@1.1.53/node_modules/@opencode-ai/plugin/node_modules/zod/v4/locales/id.js
 function id_default2() {
   return {
     localeError: error65()
@@ -22345,7 +23561,7 @@ var init_id2 = __esm(() => {
   init_util2();
 });
 
-// node_modules/@opencode-ai/plugin/node_modules/zod/v4/locales/is.js
+// node_modules/.bun/@opencode-ai+plugin@1.1.53/node_modules/@opencode-ai/plugin/node_modules/zod/v4/locales/is.js
 function is_default2() {
   return {
     localeError: error66()
@@ -22465,7 +23681,7 @@ var init_is2 = __esm(() => {
   init_util2();
 });
 
-// node_modules/@opencode-ai/plugin/node_modules/zod/v4/locales/it.js
+// node_modules/.bun/@opencode-ai+plugin@1.1.53/node_modules/@opencode-ai/plugin/node_modules/zod/v4/locales/it.js
 function it_default2() {
   return {
     localeError: error67()
@@ -22585,7 +23801,7 @@ var init_it2 = __esm(() => {
   init_util2();
 });
 
-// node_modules/@opencode-ai/plugin/node_modules/zod/v4/locales/ja.js
+// node_modules/.bun/@opencode-ai+plugin@1.1.53/node_modules/@opencode-ai/plugin/node_modules/zod/v4/locales/ja.js
 function ja_default2() {
   return {
     localeError: error68()
@@ -22704,7 +23920,7 @@ var init_ja2 = __esm(() => {
   init_util2();
 });
 
-// node_modules/@opencode-ai/plugin/node_modules/zod/v4/locales/ka.js
+// node_modules/.bun/@opencode-ai+plugin@1.1.53/node_modules/@opencode-ai/plugin/node_modules/zod/v4/locales/ka.js
 function ka_default2() {
   return {
     localeError: error69()
@@ -22832,7 +24048,7 @@ var init_ka2 = __esm(() => {
   init_util2();
 });
 
-// node_modules/@opencode-ai/plugin/node_modules/zod/v4/locales/km.js
+// node_modules/.bun/@opencode-ai+plugin@1.1.53/node_modules/@opencode-ai/plugin/node_modules/zod/v4/locales/km.js
 function km_default2() {
   return {
     localeError: error70()
@@ -22953,7 +24169,7 @@ var init_km2 = __esm(() => {
   init_util2();
 });
 
-// node_modules/@opencode-ai/plugin/node_modules/zod/v4/locales/kh.js
+// node_modules/.bun/@opencode-ai+plugin@1.1.53/node_modules/@opencode-ai/plugin/node_modules/zod/v4/locales/kh.js
 function kh_default2() {
   return km_default2();
 }
@@ -22961,7 +24177,7 @@ var init_kh2 = __esm(() => {
   init_km2();
 });
 
-// node_modules/@opencode-ai/plugin/node_modules/zod/v4/locales/ko.js
+// node_modules/.bun/@opencode-ai+plugin@1.1.53/node_modules/@opencode-ai/plugin/node_modules/zod/v4/locales/ko.js
 function ko_default2() {
   return {
     localeError: error71()
@@ -23086,7 +24302,7 @@ var init_ko2 = __esm(() => {
   init_util2();
 });
 
-// node_modules/@opencode-ai/plugin/node_modules/zod/v4/locales/lt.js
+// node_modules/.bun/@opencode-ai+plugin@1.1.53/node_modules/@opencode-ai/plugin/node_modules/zod/v4/locales/lt.js
 function getUnitTypeFromNumber2(number5) {
   const abs = Math.abs(number5);
   const last = abs % 10;
@@ -23316,7 +24532,7 @@ var init_lt2 = __esm(() => {
   init_util2();
 });
 
-// node_modules/@opencode-ai/plugin/node_modules/zod/v4/locales/mk.js
+// node_modules/.bun/@opencode-ai+plugin@1.1.53/node_modules/@opencode-ai/plugin/node_modules/zod/v4/locales/mk.js
 function mk_default2() {
   return {
     localeError: error73()
@@ -23437,7 +24653,7 @@ var init_mk2 = __esm(() => {
   init_util2();
 });
 
-// node_modules/@opencode-ai/plugin/node_modules/zod/v4/locales/ms.js
+// node_modules/.bun/@opencode-ai+plugin@1.1.53/node_modules/@opencode-ai/plugin/node_modules/zod/v4/locales/ms.js
 function ms_default2() {
   return {
     localeError: error74()
@@ -23557,7 +24773,7 @@ var init_ms2 = __esm(() => {
   init_util2();
 });
 
-// node_modules/@opencode-ai/plugin/node_modules/zod/v4/locales/nl.js
+// node_modules/.bun/@opencode-ai+plugin@1.1.53/node_modules/@opencode-ai/plugin/node_modules/zod/v4/locales/nl.js
 function nl_default2() {
   return {
     localeError: error75()
@@ -23678,7 +24894,7 @@ var init_nl2 = __esm(() => {
   init_util2();
 });
 
-// node_modules/@opencode-ai/plugin/node_modules/zod/v4/locales/no.js
+// node_modules/.bun/@opencode-ai+plugin@1.1.53/node_modules/@opencode-ai/plugin/node_modules/zod/v4/locales/no.js
 function no_default2() {
   return {
     localeError: error76()
@@ -23798,7 +25014,7 @@ var init_no2 = __esm(() => {
   init_util2();
 });
 
-// node_modules/@opencode-ai/plugin/node_modules/zod/v4/locales/ota.js
+// node_modules/.bun/@opencode-ai+plugin@1.1.53/node_modules/@opencode-ai/plugin/node_modules/zod/v4/locales/ota.js
 function ota_default2() {
   return {
     localeError: error77()
@@ -23918,7 +25134,7 @@ var init_ota2 = __esm(() => {
   init_util2();
 });
 
-// node_modules/@opencode-ai/plugin/node_modules/zod/v4/locales/ps.js
+// node_modules/.bun/@opencode-ai+plugin@1.1.53/node_modules/@opencode-ai/plugin/node_modules/zod/v4/locales/ps.js
 function ps_default2() {
   return {
     localeError: error78()
@@ -24044,7 +25260,7 @@ var init_ps2 = __esm(() => {
   init_util2();
 });
 
-// node_modules/@opencode-ai/plugin/node_modules/zod/v4/locales/pl.js
+// node_modules/.bun/@opencode-ai+plugin@1.1.53/node_modules/@opencode-ai/plugin/node_modules/zod/v4/locales/pl.js
 function pl_default2() {
   return {
     localeError: error79()
@@ -24165,7 +25381,7 @@ var init_pl2 = __esm(() => {
   init_util2();
 });
 
-// node_modules/@opencode-ai/plugin/node_modules/zod/v4/locales/pt.js
+// node_modules/.bun/@opencode-ai+plugin@1.1.53/node_modules/@opencode-ai/plugin/node_modules/zod/v4/locales/pt.js
 function pt_default2() {
   return {
     localeError: error80()
@@ -24285,7 +25501,7 @@ var init_pt2 = __esm(() => {
   init_util2();
 });
 
-// node_modules/@opencode-ai/plugin/node_modules/zod/v4/locales/ru.js
+// node_modules/.bun/@opencode-ai+plugin@1.1.53/node_modules/@opencode-ai/plugin/node_modules/zod/v4/locales/ru.js
 function getRussianPlural2(count, one, few, many) {
   const absCount = Math.abs(count);
   const lastDigit = absCount % 10;
@@ -24453,7 +25669,7 @@ var init_ru2 = __esm(() => {
   init_util2();
 });
 
-// node_modules/@opencode-ai/plugin/node_modules/zod/v4/locales/sl.js
+// node_modules/.bun/@opencode-ai+plugin@1.1.53/node_modules/@opencode-ai/plugin/node_modules/zod/v4/locales/sl.js
 function sl_default2() {
   return {
     localeError: error82()
@@ -24574,7 +25790,7 @@ var init_sl2 = __esm(() => {
   init_util2();
 });
 
-// node_modules/@opencode-ai/plugin/node_modules/zod/v4/locales/sv.js
+// node_modules/.bun/@opencode-ai+plugin@1.1.53/node_modules/@opencode-ai/plugin/node_modules/zod/v4/locales/sv.js
 function sv_default2() {
   return {
     localeError: error83()
@@ -24696,7 +25912,7 @@ var init_sv2 = __esm(() => {
   init_util2();
 });
 
-// node_modules/@opencode-ai/plugin/node_modules/zod/v4/locales/ta.js
+// node_modules/.bun/@opencode-ai+plugin@1.1.53/node_modules/@opencode-ai/plugin/node_modules/zod/v4/locales/ta.js
 function ta_default2() {
   return {
     localeError: error84()
@@ -24817,7 +26033,7 @@ var init_ta2 = __esm(() => {
   init_util2();
 });
 
-// node_modules/@opencode-ai/plugin/node_modules/zod/v4/locales/th.js
+// node_modules/.bun/@opencode-ai+plugin@1.1.53/node_modules/@opencode-ai/plugin/node_modules/zod/v4/locales/th.js
 function th_default2() {
   return {
     localeError: error85()
@@ -24938,7 +26154,7 @@ var init_th2 = __esm(() => {
   init_util2();
 });
 
-// node_modules/@opencode-ai/plugin/node_modules/zod/v4/locales/tr.js
+// node_modules/.bun/@opencode-ai+plugin@1.1.53/node_modules/@opencode-ai/plugin/node_modules/zod/v4/locales/tr.js
 function tr_default2() {
   return {
     localeError: error86()
@@ -25056,7 +26272,7 @@ var init_tr2 = __esm(() => {
   init_util2();
 });
 
-// node_modules/@opencode-ai/plugin/node_modules/zod/v4/locales/uk.js
+// node_modules/.bun/@opencode-ai+plugin@1.1.53/node_modules/@opencode-ai/plugin/node_modules/zod/v4/locales/uk.js
 function uk_default2() {
   return {
     localeError: error87()
@@ -25176,7 +26392,7 @@ var init_uk2 = __esm(() => {
   init_util2();
 });
 
-// node_modules/@opencode-ai/plugin/node_modules/zod/v4/locales/ua.js
+// node_modules/.bun/@opencode-ai+plugin@1.1.53/node_modules/@opencode-ai/plugin/node_modules/zod/v4/locales/ua.js
 function ua_default2() {
   return uk_default2();
 }
@@ -25184,7 +26400,7 @@ var init_ua2 = __esm(() => {
   init_uk2();
 });
 
-// node_modules/@opencode-ai/plugin/node_modules/zod/v4/locales/ur.js
+// node_modules/.bun/@opencode-ai+plugin@1.1.53/node_modules/@opencode-ai/plugin/node_modules/zod/v4/locales/ur.js
 function ur_default2() {
   return {
     localeError: error88()
@@ -25305,7 +26521,7 @@ var init_ur2 = __esm(() => {
   init_util2();
 });
 
-// node_modules/@opencode-ai/plugin/node_modules/zod/v4/locales/vi.js
+// node_modules/.bun/@opencode-ai+plugin@1.1.53/node_modules/@opencode-ai/plugin/node_modules/zod/v4/locales/vi.js
 function vi_default2() {
   return {
     localeError: error89()
@@ -25425,7 +26641,7 @@ var init_vi2 = __esm(() => {
   init_util2();
 });
 
-// node_modules/@opencode-ai/plugin/node_modules/zod/v4/locales/zh-CN.js
+// node_modules/.bun/@opencode-ai+plugin@1.1.53/node_modules/@opencode-ai/plugin/node_modules/zod/v4/locales/zh-CN.js
 function zh_CN_default2() {
   return {
     localeError: error90()
@@ -25545,7 +26761,7 @@ var init_zh_CN2 = __esm(() => {
   init_util2();
 });
 
-// node_modules/@opencode-ai/plugin/node_modules/zod/v4/locales/zh-TW.js
+// node_modules/.bun/@opencode-ai+plugin@1.1.53/node_modules/@opencode-ai/plugin/node_modules/zod/v4/locales/zh-TW.js
 function zh_TW_default2() {
   return {
     localeError: error91()
@@ -25666,7 +26882,7 @@ var init_zh_TW2 = __esm(() => {
   init_util2();
 });
 
-// node_modules/@opencode-ai/plugin/node_modules/zod/v4/locales/yo.js
+// node_modules/.bun/@opencode-ai+plugin@1.1.53/node_modules/@opencode-ai/plugin/node_modules/zod/v4/locales/yo.js
 function yo_default2() {
   return {
     localeError: error92()
@@ -25785,7 +27001,7 @@ var init_yo2 = __esm(() => {
   init_util2();
 });
 
-// node_modules/@opencode-ai/plugin/node_modules/zod/v4/locales/index.js
+// node_modules/.bun/@opencode-ai+plugin@1.1.53/node_modules/@opencode-ai/plugin/node_modules/zod/v4/locales/index.js
 var exports_locales2 = {};
 __export(exports_locales2, {
   zhTW: () => zh_TW_default2,
@@ -25884,7 +27100,7 @@ var init_locales2 = __esm(() => {
   init_yo2();
 });
 
-// node_modules/@opencode-ai/plugin/node_modules/zod/v4/core/registries.js
+// node_modules/.bun/@opencode-ai+plugin@1.1.53/node_modules/@opencode-ai/plugin/node_modules/zod/v4/core/registries.js
 class $ZodRegistry2 {
   constructor() {
     this._map = new WeakMap;
@@ -25938,7 +27154,7 @@ var init_registries2 = __esm(() => {
   globalRegistry2 = /* @__PURE__ */ registry2();
 });
 
-// node_modules/@opencode-ai/plugin/node_modules/zod/v4/core/api.js
+// node_modules/.bun/@opencode-ai+plugin@1.1.53/node_modules/@opencode-ai/plugin/node_modules/zod/v4/core/api.js
 function _string2(Class3, params) {
   return new Class3({
     type: "string",
@@ -26823,7 +28039,7 @@ var init_api2 = __esm(() => {
   };
 });
 
-// node_modules/@opencode-ai/plugin/node_modules/zod/v4/core/to-json-schema.js
+// node_modules/.bun/@opencode-ai+plugin@1.1.53/node_modules/@opencode-ai/plugin/node_modules/zod/v4/core/to-json-schema.js
 class JSONSchemaGenerator2 {
   constructor(params) {
     this.counter = 0;
@@ -27632,11 +28848,11 @@ var init_to_json_schema2 = __esm(() => {
   init_util2();
 });
 
-// node_modules/@opencode-ai/plugin/node_modules/zod/v4/core/json-schema.js
+// node_modules/.bun/@opencode-ai+plugin@1.1.53/node_modules/@opencode-ai/plugin/node_modules/zod/v4/core/json-schema.js
 var exports_json_schema2 = {};
 var init_json_schema2 = () => {};
 
-// node_modules/@opencode-ai/plugin/node_modules/zod/v4/core/index.js
+// node_modules/.bun/@opencode-ai+plugin@1.1.53/node_modules/@opencode-ai/plugin/node_modules/zod/v4/core/index.js
 var exports_core4 = {};
 __export(exports_core4, {
   version: () => version2,
@@ -27915,12 +29131,12 @@ var init_core4 = __esm(() => {
   init_to_json_schema2();
 });
 
-// node_modules/@opencode-ai/plugin/node_modules/zod/v4/classic/checks.js
+// node_modules/.bun/@opencode-ai+plugin@1.1.53/node_modules/@opencode-ai/plugin/node_modules/zod/v4/classic/checks.js
 var init_checks4 = __esm(() => {
   init_core4();
 });
 
-// node_modules/@opencode-ai/plugin/node_modules/zod/v4/classic/iso.js
+// node_modules/.bun/@opencode-ai+plugin@1.1.53/node_modules/@opencode-ai/plugin/node_modules/zod/v4/classic/iso.js
 var exports_iso2 = {};
 __export(exports_iso2, {
   time: () => time4,
@@ -27966,7 +29182,7 @@ var init_iso2 = __esm(() => {
   });
 });
 
-// node_modules/@opencode-ai/plugin/node_modules/zod/v4/classic/errors.js
+// node_modules/.bun/@opencode-ai+plugin@1.1.53/node_modules/@opencode-ai/plugin/node_modules/zod/v4/classic/errors.js
 var initializer4 = (inst, issues) => {
   $ZodError2.init(inst, issues);
   inst.name = "ZodError";
@@ -28006,7 +29222,7 @@ var init_errors5 = __esm(() => {
   });
 });
 
-// node_modules/@opencode-ai/plugin/node_modules/zod/v4/classic/parse.js
+// node_modules/.bun/@opencode-ai+plugin@1.1.53/node_modules/@opencode-ai/plugin/node_modules/zod/v4/classic/parse.js
 var parse7, parseAsync4, safeParse4, safeParseAsync4, encode4, decode4, encodeAsync4, decodeAsync4, safeEncode4, safeDecode4, safeEncodeAsync4, safeDecodeAsync4;
 var init_parse4 = __esm(() => {
   init_core4();
@@ -28025,7 +29241,7 @@ var init_parse4 = __esm(() => {
   safeDecodeAsync4 = /* @__PURE__ */ _safeDecodeAsync2(ZodRealError2);
 });
 
-// node_modules/@opencode-ai/plugin/node_modules/zod/v4/classic/schemas.js
+// node_modules/.bun/@opencode-ai+plugin@1.1.53/node_modules/@opencode-ai/plugin/node_modules/zod/v4/classic/schemas.js
 function string5(params) {
   return _string2(ZodString2, params);
 }
@@ -29008,7 +30224,7 @@ var init_schemas4 = __esm(() => {
   });
 });
 
-// node_modules/@opencode-ai/plugin/node_modules/zod/v4/classic/compat.js
+// node_modules/.bun/@opencode-ai+plugin@1.1.53/node_modules/@opencode-ai/plugin/node_modules/zod/v4/classic/compat.js
 function setErrorMap2(map3) {
   config2({
     customError: map3
@@ -29036,7 +30252,7 @@ var init_compat2 = __esm(() => {
   (function(ZodFirstPartyTypeKind3) {})(ZodFirstPartyTypeKind2 || (ZodFirstPartyTypeKind2 = {}));
 });
 
-// node_modules/@opencode-ai/plugin/node_modules/zod/v4/classic/coerce.js
+// node_modules/.bun/@opencode-ai+plugin@1.1.53/node_modules/@opencode-ai/plugin/node_modules/zod/v4/classic/coerce.js
 var exports_coerce2 = {};
 __export(exports_coerce2, {
   string: () => string6,
@@ -29065,7 +30281,7 @@ var init_coerce2 = __esm(() => {
   init_schemas4();
 });
 
-// node_modules/@opencode-ai/plugin/node_modules/zod/v4/classic/external.js
+// node_modules/.bun/@opencode-ai+plugin@1.1.53/node_modules/@opencode-ai/plugin/node_modules/zod/v4/classic/external.js
 var exports_external2 = {};
 __export(exports_external2, {
   xid: () => xid4,
@@ -29311,13 +30527,13 @@ var init_external2 = __esm(() => {
   config2(en_default2());
 });
 
-// node_modules/@opencode-ai/plugin/node_modules/zod/index.js
+// node_modules/.bun/@opencode-ai+plugin@1.1.53/node_modules/@opencode-ai/plugin/node_modules/zod/index.js
 var init_zod2 = __esm(() => {
   init_external2();
   init_external2();
 });
 
-// node_modules/@opencode-ai/plugin/dist/tool.js
+// node_modules/.bun/@opencode-ai+plugin@1.1.53/node_modules/@opencode-ai/plugin/dist/tool.js
 function tool(input) {
   return input;
 }
@@ -29326,7 +30542,7 @@ var init_tool = __esm(() => {
   tool.schema = exports_external2;
 });
 
-// node_modules/@opencode-ai/plugin/dist/index.js
+// node_modules/.bun/@opencode-ai+plugin@1.1.53/node_modules/@opencode-ai/plugin/dist/index.js
 var init_dist = __esm(() => {
   init_tool();
 });
@@ -29372,8 +30588,8 @@ __export(exports_checkpoint, {
   checkpoint: () => checkpoint
 });
 import * as child_process from "child_process";
-import * as fs6 from "fs";
-import * as path6 from "path";
+import * as fs7 from "fs";
+import * as path8 from "path";
 function containsNonAsciiChars(label) {
   for (let i2 = 0;i2 < label.length; i2++) {
     const charCode = label.charCodeAt(i2);
@@ -29417,13 +30633,13 @@ function validateLabel(label) {
   return null;
 }
 function getCheckpointLogPath(directory) {
-  return path6.join(directory, CHECKPOINT_LOG_PATH);
+  return path8.join(directory, CHECKPOINT_LOG_PATH);
 }
 function readCheckpointLog(directory) {
   const logPath = getCheckpointLogPath(directory);
   try {
-    if (fs6.existsSync(logPath)) {
-      const content = fs6.readFileSync(logPath, "utf-8");
+    if (fs7.existsSync(logPath)) {
+      const content = fs7.readFileSync(logPath, "utf-8");
       const parsed = JSON.parse(content);
       if (!parsed.checkpoints || !Array.isArray(parsed.checkpoints)) {
         return { version: 1, checkpoints: [] };
@@ -29435,13 +30651,13 @@ function readCheckpointLog(directory) {
 }
 function writeCheckpointLog(log2, directory) {
   const logPath = getCheckpointLogPath(directory);
-  const dir = path6.dirname(logPath);
-  if (!fs6.existsSync(dir)) {
-    fs6.mkdirSync(dir, { recursive: true });
+  const dir = path8.dirname(logPath);
+  if (!fs7.existsSync(dir)) {
+    fs7.mkdirSync(dir, { recursive: true });
   }
   const tempPath = `${logPath}.tmp`;
-  fs6.writeFileSync(tempPath, JSON.stringify(log2, null, 2), "utf-8");
-  fs6.renameSync(tempPath, logPath);
+  fs7.writeFileSync(tempPath, JSON.stringify(log2, null, 2), "utf-8");
+  fs7.renameSync(tempPath, logPath);
 }
 function gitExec(args2) {
   const result = child_process.spawnSync("git", args2, {
@@ -29655,7 +30871,7 @@ var init_checkpoint = __esm(() => {
   });
 });
 
-// node_modules/graceful-fs/polyfills.js
+// node_modules/.bun/graceful-fs@4.2.11/node_modules/graceful-fs/polyfills.js
 var require_polyfills = __commonJS((exports, module2) => {
   var constants = __require("constants");
   var origCwd = process.cwd;
@@ -29680,54 +30896,54 @@ var require_polyfills = __commonJS((exports, module2) => {
   }
   var chdir;
   module2.exports = patch;
-  function patch(fs7) {
+  function patch(fs8) {
     if (constants.hasOwnProperty("O_SYMLINK") && process.version.match(/^v0\.6\.[0-2]|^v0\.5\./)) {
-      patchLchmod(fs7);
+      patchLchmod(fs8);
     }
-    if (!fs7.lutimes) {
-      patchLutimes(fs7);
+    if (!fs8.lutimes) {
+      patchLutimes(fs8);
     }
-    fs7.chown = chownFix(fs7.chown);
-    fs7.fchown = chownFix(fs7.fchown);
-    fs7.lchown = chownFix(fs7.lchown);
-    fs7.chmod = chmodFix(fs7.chmod);
-    fs7.fchmod = chmodFix(fs7.fchmod);
-    fs7.lchmod = chmodFix(fs7.lchmod);
-    fs7.chownSync = chownFixSync(fs7.chownSync);
-    fs7.fchownSync = chownFixSync(fs7.fchownSync);
-    fs7.lchownSync = chownFixSync(fs7.lchownSync);
-    fs7.chmodSync = chmodFixSync(fs7.chmodSync);
-    fs7.fchmodSync = chmodFixSync(fs7.fchmodSync);
-    fs7.lchmodSync = chmodFixSync(fs7.lchmodSync);
-    fs7.stat = statFix(fs7.stat);
-    fs7.fstat = statFix(fs7.fstat);
-    fs7.lstat = statFix(fs7.lstat);
-    fs7.statSync = statFixSync(fs7.statSync);
-    fs7.fstatSync = statFixSync(fs7.fstatSync);
-    fs7.lstatSync = statFixSync(fs7.lstatSync);
-    if (fs7.chmod && !fs7.lchmod) {
-      fs7.lchmod = function(path7, mode, cb) {
+    fs8.chown = chownFix(fs8.chown);
+    fs8.fchown = chownFix(fs8.fchown);
+    fs8.lchown = chownFix(fs8.lchown);
+    fs8.chmod = chmodFix(fs8.chmod);
+    fs8.fchmod = chmodFix(fs8.fchmod);
+    fs8.lchmod = chmodFix(fs8.lchmod);
+    fs8.chownSync = chownFixSync(fs8.chownSync);
+    fs8.fchownSync = chownFixSync(fs8.fchownSync);
+    fs8.lchownSync = chownFixSync(fs8.lchownSync);
+    fs8.chmodSync = chmodFixSync(fs8.chmodSync);
+    fs8.fchmodSync = chmodFixSync(fs8.fchmodSync);
+    fs8.lchmodSync = chmodFixSync(fs8.lchmodSync);
+    fs8.stat = statFix(fs8.stat);
+    fs8.fstat = statFix(fs8.fstat);
+    fs8.lstat = statFix(fs8.lstat);
+    fs8.statSync = statFixSync(fs8.statSync);
+    fs8.fstatSync = statFixSync(fs8.fstatSync);
+    fs8.lstatSync = statFixSync(fs8.lstatSync);
+    if (fs8.chmod && !fs8.lchmod) {
+      fs8.lchmod = function(path9, mode, cb) {
         if (cb)
           process.nextTick(cb);
       };
-      fs7.lchmodSync = function() {};
+      fs8.lchmodSync = function() {};
     }
-    if (fs7.chown && !fs7.lchown) {
-      fs7.lchown = function(path7, uid, gid, cb) {
+    if (fs8.chown && !fs8.lchown) {
+      fs8.lchown = function(path9, uid, gid, cb) {
         if (cb)
           process.nextTick(cb);
       };
-      fs7.lchownSync = function() {};
+      fs8.lchownSync = function() {};
     }
     if (platform === "win32") {
-      fs7.rename = typeof fs7.rename !== "function" ? fs7.rename : function(fs$rename) {
+      fs8.rename = typeof fs8.rename !== "function" ? fs8.rename : function(fs$rename) {
         function rename2(from, to, cb) {
           var start2 = Date.now();
           var backoff = 0;
           fs$rename(from, to, function CB(er) {
             if (er && (er.code === "EACCES" || er.code === "EPERM" || er.code === "EBUSY") && Date.now() - start2 < 60000) {
               setTimeout(function() {
-                fs7.stat(to, function(stater, st) {
+                fs8.stat(to, function(stater, st) {
                   if (stater && stater.code === "ENOENT")
                     fs$rename(from, to, CB);
                   else
@@ -29745,9 +30961,9 @@ var require_polyfills = __commonJS((exports, module2) => {
         if (Object.setPrototypeOf)
           Object.setPrototypeOf(rename2, fs$rename);
         return rename2;
-      }(fs7.rename);
+      }(fs8.rename);
     }
-    fs7.read = typeof fs7.read !== "function" ? fs7.read : function(fs$read) {
+    fs8.read = typeof fs8.read !== "function" ? fs8.read : function(fs$read) {
       function read(fd, buffer, offset, length, position, callback_) {
         var callback;
         if (callback_ && typeof callback_ === "function") {
@@ -29755,23 +30971,23 @@ var require_polyfills = __commonJS((exports, module2) => {
           callback = function(er, _, __) {
             if (er && er.code === "EAGAIN" && eagCounter < 10) {
               eagCounter++;
-              return fs$read.call(fs7, fd, buffer, offset, length, position, callback);
+              return fs$read.call(fs8, fd, buffer, offset, length, position, callback);
             }
             callback_.apply(this, arguments);
           };
         }
-        return fs$read.call(fs7, fd, buffer, offset, length, position, callback);
+        return fs$read.call(fs8, fd, buffer, offset, length, position, callback);
       }
       if (Object.setPrototypeOf)
         Object.setPrototypeOf(read, fs$read);
       return read;
-    }(fs7.read);
-    fs7.readSync = typeof fs7.readSync !== "function" ? fs7.readSync : function(fs$readSync) {
+    }(fs8.read);
+    fs8.readSync = typeof fs8.readSync !== "function" ? fs8.readSync : function(fs$readSync) {
       return function(fd, buffer, offset, length, position) {
         var eagCounter = 0;
         while (true) {
           try {
-            return fs$readSync.call(fs7, fd, buffer, offset, length, position);
+            return fs$readSync.call(fs8, fd, buffer, offset, length, position);
           } catch (er) {
             if (er.code === "EAGAIN" && eagCounter < 10) {
               eagCounter++;
@@ -29781,90 +30997,90 @@ var require_polyfills = __commonJS((exports, module2) => {
           }
         }
       };
-    }(fs7.readSync);
-    function patchLchmod(fs8) {
-      fs8.lchmod = function(path7, mode, callback) {
-        fs8.open(path7, constants.O_WRONLY | constants.O_SYMLINK, mode, function(err2, fd) {
+    }(fs8.readSync);
+    function patchLchmod(fs9) {
+      fs9.lchmod = function(path9, mode, callback) {
+        fs9.open(path9, constants.O_WRONLY | constants.O_SYMLINK, mode, function(err2, fd) {
           if (err2) {
             if (callback)
               callback(err2);
             return;
           }
-          fs8.fchmod(fd, mode, function(err3) {
-            fs8.close(fd, function(err22) {
+          fs9.fchmod(fd, mode, function(err3) {
+            fs9.close(fd, function(err22) {
               if (callback)
                 callback(err3 || err22);
             });
           });
         });
       };
-      fs8.lchmodSync = function(path7, mode) {
-        var fd = fs8.openSync(path7, constants.O_WRONLY | constants.O_SYMLINK, mode);
+      fs9.lchmodSync = function(path9, mode) {
+        var fd = fs9.openSync(path9, constants.O_WRONLY | constants.O_SYMLINK, mode);
         var threw = true;
         var ret;
         try {
-          ret = fs8.fchmodSync(fd, mode);
+          ret = fs9.fchmodSync(fd, mode);
           threw = false;
         } finally {
           if (threw) {
             try {
-              fs8.closeSync(fd);
+              fs9.closeSync(fd);
             } catch (er) {}
           } else {
-            fs8.closeSync(fd);
+            fs9.closeSync(fd);
           }
         }
         return ret;
       };
     }
-    function patchLutimes(fs8) {
-      if (constants.hasOwnProperty("O_SYMLINK") && fs8.futimes) {
-        fs8.lutimes = function(path7, at, mt, cb) {
-          fs8.open(path7, constants.O_SYMLINK, function(er, fd) {
+    function patchLutimes(fs9) {
+      if (constants.hasOwnProperty("O_SYMLINK") && fs9.futimes) {
+        fs9.lutimes = function(path9, at, mt, cb) {
+          fs9.open(path9, constants.O_SYMLINK, function(er, fd) {
             if (er) {
               if (cb)
                 cb(er);
               return;
             }
-            fs8.futimes(fd, at, mt, function(er2) {
-              fs8.close(fd, function(er22) {
+            fs9.futimes(fd, at, mt, function(er2) {
+              fs9.close(fd, function(er22) {
                 if (cb)
                   cb(er2 || er22);
               });
             });
           });
         };
-        fs8.lutimesSync = function(path7, at, mt) {
-          var fd = fs8.openSync(path7, constants.O_SYMLINK);
+        fs9.lutimesSync = function(path9, at, mt) {
+          var fd = fs9.openSync(path9, constants.O_SYMLINK);
           var ret;
           var threw = true;
           try {
-            ret = fs8.futimesSync(fd, at, mt);
+            ret = fs9.futimesSync(fd, at, mt);
             threw = false;
           } finally {
             if (threw) {
               try {
-                fs8.closeSync(fd);
+                fs9.closeSync(fd);
               } catch (er) {}
             } else {
-              fs8.closeSync(fd);
+              fs9.closeSync(fd);
             }
           }
           return ret;
         };
-      } else if (fs8.futimes) {
-        fs8.lutimes = function(_a2, _b, _c, cb) {
+      } else if (fs9.futimes) {
+        fs9.lutimes = function(_a2, _b, _c, cb) {
           if (cb)
             process.nextTick(cb);
         };
-        fs8.lutimesSync = function() {};
+        fs9.lutimesSync = function() {};
       }
     }
     function chmodFix(orig) {
       if (!orig)
         return orig;
       return function(target, mode, cb) {
-        return orig.call(fs7, target, mode, function(er) {
+        return orig.call(fs8, target, mode, function(er) {
           if (chownErOk(er))
             er = null;
           if (cb)
@@ -29877,7 +31093,7 @@ var require_polyfills = __commonJS((exports, module2) => {
         return orig;
       return function(target, mode) {
         try {
-          return orig.call(fs7, target, mode);
+          return orig.call(fs8, target, mode);
         } catch (er) {
           if (!chownErOk(er))
             throw er;
@@ -29888,7 +31104,7 @@ var require_polyfills = __commonJS((exports, module2) => {
       if (!orig)
         return orig;
       return function(target, uid, gid, cb) {
-        return orig.call(fs7, target, uid, gid, function(er) {
+        return orig.call(fs8, target, uid, gid, function(er) {
           if (chownErOk(er))
             er = null;
           if (cb)
@@ -29901,7 +31117,7 @@ var require_polyfills = __commonJS((exports, module2) => {
         return orig;
       return function(target, uid, gid) {
         try {
-          return orig.call(fs7, target, uid, gid);
+          return orig.call(fs8, target, uid, gid);
         } catch (er) {
           if (!chownErOk(er))
             throw er;
@@ -29926,14 +31142,14 @@ var require_polyfills = __commonJS((exports, module2) => {
           if (cb)
             cb.apply(this, arguments);
         }
-        return options ? orig.call(fs7, target, options, callback) : orig.call(fs7, target, callback);
+        return options ? orig.call(fs8, target, options, callback) : orig.call(fs8, target, callback);
       };
     }
     function statFixSync(orig) {
       if (!orig)
         return orig;
       return function(target, options) {
-        var stats = options ? orig.call(fs7, target, options) : orig.call(fs7, target);
+        var stats = options ? orig.call(fs8, target, options) : orig.call(fs8, target);
         if (stats) {
           if (stats.uid < 0)
             stats.uid += 4294967296;
@@ -29958,21 +31174,21 @@ var require_polyfills = __commonJS((exports, module2) => {
   }
 });
 
-// node_modules/graceful-fs/legacy-streams.js
+// node_modules/.bun/graceful-fs@4.2.11/node_modules/graceful-fs/legacy-streams.js
 var require_legacy_streams = __commonJS((exports, module2) => {
   var Stream = __require("stream").Stream;
   module2.exports = legacy;
-  function legacy(fs7) {
+  function legacy(fs8) {
     return {
       ReadStream,
       WriteStream
     };
-    function ReadStream(path7, options) {
+    function ReadStream(path9, options) {
       if (!(this instanceof ReadStream))
-        return new ReadStream(path7, options);
+        return new ReadStream(path9, options);
       Stream.call(this);
       var self2 = this;
-      this.path = path7;
+      this.path = path9;
       this.fd = null;
       this.readable = true;
       this.paused = false;
@@ -30007,7 +31223,7 @@ var require_legacy_streams = __commonJS((exports, module2) => {
         });
         return;
       }
-      fs7.open(this.path, this.flags, this.mode, function(err2, fd) {
+      fs8.open(this.path, this.flags, this.mode, function(err2, fd) {
         if (err2) {
           self2.emit("error", err2);
           self2.readable = false;
@@ -30018,11 +31234,11 @@ var require_legacy_streams = __commonJS((exports, module2) => {
         self2._read();
       });
     }
-    function WriteStream(path7, options) {
+    function WriteStream(path9, options) {
       if (!(this instanceof WriteStream))
-        return new WriteStream(path7, options);
+        return new WriteStream(path9, options);
       Stream.call(this);
-      this.path = path7;
+      this.path = path9;
       this.fd = null;
       this.writable = true;
       this.flags = "w";
@@ -30047,7 +31263,7 @@ var require_legacy_streams = __commonJS((exports, module2) => {
       this.busy = false;
       this._queue = [];
       if (this.fd === null) {
-        this._open = fs7.open;
+        this._open = fs8.open;
         this._queue.push([this._open, this.path, this.flags, this.mode, undefined]);
         this.flush();
       }
@@ -30055,7 +31271,7 @@ var require_legacy_streams = __commonJS((exports, module2) => {
   }
 });
 
-// node_modules/graceful-fs/clone.js
+// node_modules/.bun/graceful-fs@4.2.11/node_modules/graceful-fs/clone.js
 var require_clone = __commonJS((exports, module2) => {
   module2.exports = clone3;
   var getPrototypeOf = Object.getPrototypeOf || function(obj) {
@@ -30075,9 +31291,9 @@ var require_clone = __commonJS((exports, module2) => {
   }
 });
 
-// node_modules/graceful-fs/graceful-fs.js
+// node_modules/.bun/graceful-fs@4.2.11/node_modules/graceful-fs/graceful-fs.js
 var require_graceful_fs = __commonJS((exports, module2) => {
-  var fs7 = __require("fs");
+  var fs8 = __require("fs");
   var polyfills = require_polyfills();
   var legacy = require_legacy_streams();
   var clone3 = require_clone();
@@ -30109,12 +31325,12 @@ var require_graceful_fs = __commonJS((exports, module2) => {
 GFS4: `);
       console.error(m);
     };
-  if (!fs7[gracefulQueue]) {
+  if (!fs8[gracefulQueue]) {
     queue = global[gracefulQueue] || [];
-    publishQueue(fs7, queue);
-    fs7.close = function(fs$close) {
+    publishQueue(fs8, queue);
+    fs8.close = function(fs$close) {
       function close(fd, cb) {
-        return fs$close.call(fs7, fd, function(err2) {
+        return fs$close.call(fs8, fd, function(err2) {
           if (!err2) {
             resetQueue();
           }
@@ -30126,48 +31342,48 @@ GFS4: `);
         value: fs$close
       });
       return close;
-    }(fs7.close);
-    fs7.closeSync = function(fs$closeSync) {
+    }(fs8.close);
+    fs8.closeSync = function(fs$closeSync) {
       function closeSync(fd) {
-        fs$closeSync.apply(fs7, arguments);
+        fs$closeSync.apply(fs8, arguments);
         resetQueue();
       }
       Object.defineProperty(closeSync, previousSymbol, {
         value: fs$closeSync
       });
       return closeSync;
-    }(fs7.closeSync);
+    }(fs8.closeSync);
     if (/\bgfs4\b/i.test(process.env.NODE_DEBUG || "")) {
       process.on("exit", function() {
-        debug(fs7[gracefulQueue]);
-        __require("assert").equal(fs7[gracefulQueue].length, 0);
+        debug(fs8[gracefulQueue]);
+        __require("assert").equal(fs8[gracefulQueue].length, 0);
       });
     }
   }
   var queue;
   if (!global[gracefulQueue]) {
-    publishQueue(global, fs7[gracefulQueue]);
+    publishQueue(global, fs8[gracefulQueue]);
   }
-  module2.exports = patch(clone3(fs7));
-  if (process.env.TEST_GRACEFUL_FS_GLOBAL_PATCH && !fs7.__patched) {
-    module2.exports = patch(fs7);
-    fs7.__patched = true;
+  module2.exports = patch(clone3(fs8));
+  if (process.env.TEST_GRACEFUL_FS_GLOBAL_PATCH && !fs8.__patched) {
+    module2.exports = patch(fs8);
+    fs8.__patched = true;
   }
-  function patch(fs8) {
-    polyfills(fs8);
-    fs8.gracefulify = patch;
-    fs8.createReadStream = createReadStream;
-    fs8.createWriteStream = createWriteStream2;
-    var fs$readFile = fs8.readFile;
-    fs8.readFile = readFile2;
-    function readFile2(path7, options, cb) {
+  function patch(fs9) {
+    polyfills(fs9);
+    fs9.gracefulify = patch;
+    fs9.createReadStream = createReadStream;
+    fs9.createWriteStream = createWriteStream2;
+    var fs$readFile = fs9.readFile;
+    fs9.readFile = readFile3;
+    function readFile3(path9, options, cb) {
       if (typeof options === "function")
         cb = options, options = null;
-      return go$readFile(path7, options, cb);
-      function go$readFile(path8, options2, cb2, startTime) {
-        return fs$readFile(path8, options2, function(err2) {
+      return go$readFile(path9, options, cb);
+      function go$readFile(path10, options2, cb2, startTime) {
+        return fs$readFile(path10, options2, function(err2) {
           if (err2 && (err2.code === "EMFILE" || err2.code === "ENFILE"))
-            enqueue([go$readFile, [path8, options2, cb2], err2, startTime || Date.now(), Date.now()]);
+            enqueue([go$readFile, [path10, options2, cb2], err2, startTime || Date.now(), Date.now()]);
           else {
             if (typeof cb2 === "function")
               cb2.apply(this, arguments);
@@ -30175,16 +31391,16 @@ GFS4: `);
         });
       }
     }
-    var fs$writeFile = fs8.writeFile;
-    fs8.writeFile = writeFile;
-    function writeFile(path7, data, options, cb) {
+    var fs$writeFile = fs9.writeFile;
+    fs9.writeFile = writeFile2;
+    function writeFile2(path9, data, options, cb) {
       if (typeof options === "function")
         cb = options, options = null;
-      return go$writeFile(path7, data, options, cb);
-      function go$writeFile(path8, data2, options2, cb2, startTime) {
-        return fs$writeFile(path8, data2, options2, function(err2) {
+      return go$writeFile(path9, data, options, cb);
+      function go$writeFile(path10, data2, options2, cb2, startTime) {
+        return fs$writeFile(path10, data2, options2, function(err2) {
           if (err2 && (err2.code === "EMFILE" || err2.code === "ENFILE"))
-            enqueue([go$writeFile, [path8, data2, options2, cb2], err2, startTime || Date.now(), Date.now()]);
+            enqueue([go$writeFile, [path10, data2, options2, cb2], err2, startTime || Date.now(), Date.now()]);
           else {
             if (typeof cb2 === "function")
               cb2.apply(this, arguments);
@@ -30192,17 +31408,17 @@ GFS4: `);
         });
       }
     }
-    var fs$appendFile = fs8.appendFile;
+    var fs$appendFile = fs9.appendFile;
     if (fs$appendFile)
-      fs8.appendFile = appendFile;
-    function appendFile(path7, data, options, cb) {
+      fs9.appendFile = appendFile2;
+    function appendFile2(path9, data, options, cb) {
       if (typeof options === "function")
         cb = options, options = null;
-      return go$appendFile(path7, data, options, cb);
-      function go$appendFile(path8, data2, options2, cb2, startTime) {
-        return fs$appendFile(path8, data2, options2, function(err2) {
+      return go$appendFile(path9, data, options, cb);
+      function go$appendFile(path10, data2, options2, cb2, startTime) {
+        return fs$appendFile(path10, data2, options2, function(err2) {
           if (err2 && (err2.code === "EMFILE" || err2.code === "ENFILE"))
-            enqueue([go$appendFile, [path8, data2, options2, cb2], err2, startTime || Date.now(), Date.now()]);
+            enqueue([go$appendFile, [path10, data2, options2, cb2], err2, startTime || Date.now(), Date.now()]);
           else {
             if (typeof cb2 === "function")
               cb2.apply(this, arguments);
@@ -30210,9 +31426,9 @@ GFS4: `);
         });
       }
     }
-    var fs$copyFile = fs8.copyFile;
+    var fs$copyFile = fs9.copyFile;
     if (fs$copyFile)
-      fs8.copyFile = copyFile;
+      fs9.copyFile = copyFile;
     function copyFile(src, dest, flags2, cb) {
       if (typeof flags2 === "function") {
         cb = flags2;
@@ -30230,24 +31446,24 @@ GFS4: `);
         });
       }
     }
-    var fs$readdir = fs8.readdir;
-    fs8.readdir = readdir2;
+    var fs$readdir = fs9.readdir;
+    fs9.readdir = readdir2;
     var noReaddirOptionVersions = /^v[0-5]\./;
-    function readdir2(path7, options, cb) {
+    function readdir2(path9, options, cb) {
       if (typeof options === "function")
         cb = options, options = null;
-      var go$readdir = noReaddirOptionVersions.test(process.version) ? function go$readdir2(path8, options2, cb2, startTime) {
-        return fs$readdir(path8, fs$readdirCallback(path8, options2, cb2, startTime));
-      } : function go$readdir2(path8, options2, cb2, startTime) {
-        return fs$readdir(path8, options2, fs$readdirCallback(path8, options2, cb2, startTime));
+      var go$readdir = noReaddirOptionVersions.test(process.version) ? function go$readdir2(path10, options2, cb2, startTime) {
+        return fs$readdir(path10, fs$readdirCallback(path10, options2, cb2, startTime));
+      } : function go$readdir2(path10, options2, cb2, startTime) {
+        return fs$readdir(path10, options2, fs$readdirCallback(path10, options2, cb2, startTime));
       };
-      return go$readdir(path7, options, cb);
-      function fs$readdirCallback(path8, options2, cb2, startTime) {
+      return go$readdir(path9, options, cb);
+      function fs$readdirCallback(path10, options2, cb2, startTime) {
         return function(err2, files) {
           if (err2 && (err2.code === "EMFILE" || err2.code === "ENFILE"))
             enqueue([
               go$readdir,
-              [path8, options2, cb2],
+              [path10, options2, cb2],
               err2,
               startTime || Date.now(),
               Date.now()
@@ -30262,21 +31478,21 @@ GFS4: `);
       }
     }
     if (process.version.substr(0, 4) === "v0.8") {
-      var legStreams = legacy(fs8);
+      var legStreams = legacy(fs9);
       ReadStream = legStreams.ReadStream;
       WriteStream = legStreams.WriteStream;
     }
-    var fs$ReadStream = fs8.ReadStream;
+    var fs$ReadStream = fs9.ReadStream;
     if (fs$ReadStream) {
       ReadStream.prototype = Object.create(fs$ReadStream.prototype);
       ReadStream.prototype.open = ReadStream$open;
     }
-    var fs$WriteStream = fs8.WriteStream;
+    var fs$WriteStream = fs9.WriteStream;
     if (fs$WriteStream) {
       WriteStream.prototype = Object.create(fs$WriteStream.prototype);
       WriteStream.prototype.open = WriteStream$open;
     }
-    Object.defineProperty(fs8, "ReadStream", {
+    Object.defineProperty(fs9, "ReadStream", {
       get: function() {
         return ReadStream;
       },
@@ -30286,7 +31502,7 @@ GFS4: `);
       enumerable: true,
       configurable: true
     });
-    Object.defineProperty(fs8, "WriteStream", {
+    Object.defineProperty(fs9, "WriteStream", {
       get: function() {
         return WriteStream;
       },
@@ -30297,7 +31513,7 @@ GFS4: `);
       configurable: true
     });
     var FileReadStream = ReadStream;
-    Object.defineProperty(fs8, "FileReadStream", {
+    Object.defineProperty(fs9, "FileReadStream", {
       get: function() {
         return FileReadStream;
       },
@@ -30308,7 +31524,7 @@ GFS4: `);
       configurable: true
     });
     var FileWriteStream = WriteStream;
-    Object.defineProperty(fs8, "FileWriteStream", {
+    Object.defineProperty(fs9, "FileWriteStream", {
       get: function() {
         return FileWriteStream;
       },
@@ -30318,7 +31534,7 @@ GFS4: `);
       enumerable: true,
       configurable: true
     });
-    function ReadStream(path7, options) {
+    function ReadStream(path9, options) {
       if (this instanceof ReadStream)
         return fs$ReadStream.apply(this, arguments), this;
       else
@@ -30338,7 +31554,7 @@ GFS4: `);
         }
       });
     }
-    function WriteStream(path7, options) {
+    function WriteStream(path9, options) {
       if (this instanceof WriteStream)
         return fs$WriteStream.apply(this, arguments), this;
       else
@@ -30356,22 +31572,22 @@ GFS4: `);
         }
       });
     }
-    function createReadStream(path7, options) {
-      return new fs8.ReadStream(path7, options);
+    function createReadStream(path9, options) {
+      return new fs9.ReadStream(path9, options);
     }
-    function createWriteStream2(path7, options) {
-      return new fs8.WriteStream(path7, options);
+    function createWriteStream2(path9, options) {
+      return new fs9.WriteStream(path9, options);
     }
-    var fs$open = fs8.open;
-    fs8.open = open;
-    function open(path7, flags2, mode, cb) {
+    var fs$open = fs9.open;
+    fs9.open = open;
+    function open(path9, flags2, mode, cb) {
       if (typeof mode === "function")
         cb = mode, mode = null;
-      return go$open(path7, flags2, mode, cb);
-      function go$open(path8, flags3, mode2, cb2, startTime) {
-        return fs$open(path8, flags3, mode2, function(err2, fd) {
+      return go$open(path9, flags2, mode, cb);
+      function go$open(path10, flags3, mode2, cb2, startTime) {
+        return fs$open(path10, flags3, mode2, function(err2, fd) {
           if (err2 && (err2.code === "EMFILE" || err2.code === "ENFILE"))
-            enqueue([go$open, [path8, flags3, mode2, cb2], err2, startTime || Date.now(), Date.now()]);
+            enqueue([go$open, [path10, flags3, mode2, cb2], err2, startTime || Date.now(), Date.now()]);
           else {
             if (typeof cb2 === "function")
               cb2.apply(this, arguments);
@@ -30379,20 +31595,20 @@ GFS4: `);
         });
       }
     }
-    return fs8;
+    return fs9;
   }
   function enqueue(elem) {
     debug("ENQUEUE", elem[0].name, elem[1]);
-    fs7[gracefulQueue].push(elem);
+    fs8[gracefulQueue].push(elem);
     retry();
   }
   var retryTimer;
   function resetQueue() {
     var now = Date.now();
-    for (var i2 = 0;i2 < fs7[gracefulQueue].length; ++i2) {
-      if (fs7[gracefulQueue][i2].length > 2) {
-        fs7[gracefulQueue][i2][3] = now;
-        fs7[gracefulQueue][i2][4] = now;
+    for (var i2 = 0;i2 < fs8[gracefulQueue].length; ++i2) {
+      if (fs8[gracefulQueue][i2].length > 2) {
+        fs8[gracefulQueue][i2][3] = now;
+        fs8[gracefulQueue][i2][4] = now;
       }
     }
     retry();
@@ -30400,9 +31616,9 @@ GFS4: `);
   function retry() {
     clearTimeout(retryTimer);
     retryTimer = undefined;
-    if (fs7[gracefulQueue].length === 0)
+    if (fs8[gracefulQueue].length === 0)
       return;
-    var elem = fs7[gracefulQueue].shift();
+    var elem = fs8[gracefulQueue].shift();
     var fn = elem[0];
     var args2 = elem[1];
     var err2 = elem[2];
@@ -30424,7 +31640,7 @@ GFS4: `);
         debug("RETRY", fn.name, args2);
         fn.apply(null, args2.concat([startTime]));
       } else {
-        fs7[gracefulQueue].push(elem);
+        fs8[gracefulQueue].push(elem);
       }
     }
     if (retryTimer === undefined) {
@@ -30433,7 +31649,7 @@ GFS4: `);
   }
 });
 
-// node_modules/retry/lib/retry_operation.js
+// node_modules/.bun/retry@0.12.0/node_modules/retry/lib/retry_operation.js
 var require_retry_operation = __commonJS((exports, module2) => {
   function RetryOperation(timeouts, options) {
     if (typeof options === "boolean") {
@@ -30562,7 +31778,7 @@ var require_retry_operation = __commonJS((exports, module2) => {
   };
 });
 
-// node_modules/retry/lib/retry.js
+// node_modules/.bun/retry@0.12.0/node_modules/retry/lib/retry.js
 var require_retry = __commonJS((exports) => {
   var RetryOperation = require_retry_operation();
   exports.operation = function(options) {
@@ -30646,7 +31862,7 @@ var require_retry = __commonJS((exports) => {
   };
 });
 
-// node_modules/signal-exit/signals.js
+// node_modules/.bun/signal-exit@3.0.7/node_modules/signal-exit/signals.js
 var require_signals = __commonJS((exports, module2) => {
   module2.exports = [
     "SIGABRT",
@@ -30663,7 +31879,7 @@ var require_signals = __commonJS((exports, module2) => {
   }
 });
 
-// node_modules/signal-exit/index.js
+// node_modules/.bun/signal-exit@3.0.7/node_modules/signal-exit/index.js
 var require_signal_exit = __commonJS((exports, module2) => {
   var process3 = global.process;
   var processOk = function(process4) {
@@ -30816,13 +32032,13 @@ var require_signal_exit = __commonJS((exports, module2) => {
   var processEmit;
 });
 
-// node_modules/proper-lockfile/lib/mtime-precision.js
+// node_modules/.bun/proper-lockfile@4.1.2/node_modules/proper-lockfile/lib/mtime-precision.js
 var require_mtime_precision = __commonJS((exports, module2) => {
   var cacheSymbol = Symbol();
-  function probe(file3, fs7, callback) {
-    const cachedPrecision = fs7[cacheSymbol];
+  function probe(file3, fs8, callback) {
+    const cachedPrecision = fs8[cacheSymbol];
     if (cachedPrecision) {
-      return fs7.stat(file3, (err2, stat) => {
+      return fs8.stat(file3, (err2, stat) => {
         if (err2) {
           return callback(err2);
         }
@@ -30830,16 +32046,16 @@ var require_mtime_precision = __commonJS((exports, module2) => {
       });
     }
     const mtime = new Date(Math.ceil(Date.now() / 1000) * 1000 + 5);
-    fs7.utimes(file3, mtime, mtime, (err2) => {
+    fs8.utimes(file3, mtime, mtime, (err2) => {
       if (err2) {
         return callback(err2);
       }
-      fs7.stat(file3, (err3, stat) => {
+      fs8.stat(file3, (err3, stat) => {
         if (err3) {
           return callback(err3);
         }
         const precision = stat.mtime.getTime() % 1000 === 0 ? "s" : "ms";
-        Object.defineProperty(fs7, cacheSymbol, { value: precision });
+        Object.defineProperty(fs8, cacheSymbol, { value: precision });
         callback(null, stat.mtime, precision);
       });
     });
@@ -30855,10 +32071,10 @@ var require_mtime_precision = __commonJS((exports, module2) => {
   exports.getMtime = getMtime;
 });
 
-// node_modules/proper-lockfile/lib/lockfile.js
+// node_modules/.bun/proper-lockfile@4.1.2/node_modules/proper-lockfile/lib/lockfile.js
 var require_lockfile = __commonJS((exports, module2) => {
-  var path7 = __require("path");
-  var fs7 = require_graceful_fs();
+  var path9 = __require("path");
+  var fs8 = require_graceful_fs();
   var retry = require_retry();
   var onExit = require_signal_exit();
   var mtimePrecision = require_mtime_precision();
@@ -30868,7 +32084,7 @@ var require_lockfile = __commonJS((exports, module2) => {
   }
   function resolveCanonicalPath(file3, options, callback) {
     if (!options.realpath) {
-      return callback(null, path7.resolve(file3));
+      return callback(null, path9.resolve(file3));
     }
     options.fs.realpath(file3, callback);
   }
@@ -30981,7 +32197,7 @@ var require_lockfile = __commonJS((exports, module2) => {
       update: null,
       realpath: true,
       retries: 0,
-      fs: fs7,
+      fs: fs8,
       onCompromised: (err2) => {
         throw err2;
       },
@@ -31025,7 +32241,7 @@ var require_lockfile = __commonJS((exports, module2) => {
   }
   function unlock(file3, options, callback) {
     options = {
-      fs: fs7,
+      fs: fs8,
       realpath: true,
       ...options
     };
@@ -31047,7 +32263,7 @@ var require_lockfile = __commonJS((exports, module2) => {
     options = {
       stale: 1e4,
       realpath: true,
-      fs: fs7,
+      fs: fs8,
       ...options
     };
     options.stale = Math.max(options.stale || 0, 2000);
@@ -31080,18 +32296,18 @@ var require_lockfile = __commonJS((exports, module2) => {
   exports.getLocks = getLocks;
 });
 
-// node_modules/proper-lockfile/lib/adapter.js
+// node_modules/.bun/proper-lockfile@4.1.2/node_modules/proper-lockfile/lib/adapter.js
 var require_adapter = __commonJS((exports, module2) => {
-  var fs7 = require_graceful_fs();
-  function createSyncFs(fs8) {
+  var fs8 = require_graceful_fs();
+  function createSyncFs(fs9) {
     const methods = ["mkdir", "realpath", "stat", "rmdir", "utimes"];
-    const newFs = { ...fs8 };
+    const newFs = { ...fs9 };
     methods.forEach((method) => {
       newFs[method] = (...args2) => {
         const callback = args2.pop();
         let ret;
         try {
-          ret = fs8[`${method}Sync`](...args2);
+          ret = fs9[`${method}Sync`](...args2);
         } catch (err2) {
           return callback(err2);
         }
@@ -31101,12 +32317,12 @@ var require_adapter = __commonJS((exports, module2) => {
     return newFs;
   }
   function toPromise(method) {
-    return (...args2) => new Promise((resolve2, reject) => {
+    return (...args2) => new Promise((resolve4, reject) => {
       args2.push((err2, result) => {
         if (err2) {
           reject(err2);
         } else {
-          resolve2(result);
+          resolve4(result);
         }
       });
       method(...args2);
@@ -31129,7 +32345,7 @@ var require_adapter = __commonJS((exports, module2) => {
   }
   function toSyncOptions(options) {
     options = { ...options };
-    options.fs = createSyncFs(options.fs || fs7);
+    options.fs = createSyncFs(options.fs || fs8);
     if (typeof options.retries === "number" && options.retries > 0 || options.retries && typeof options.retries.retries === "number" && options.retries.retries > 0) {
       throw Object.assign(new Error("Cannot use retries with the sync api"), { code: "ESYNC" });
     }
@@ -31142,7 +32358,7 @@ var require_adapter = __commonJS((exports, module2) => {
   };
 });
 
-// node_modules/proper-lockfile/index.js
+// node_modules/.bun/proper-lockfile@4.1.2/node_modules/proper-lockfile/index.js
 var require_proper_lockfile = __commonJS((exports, module2) => {
   var lockfile = require_lockfile();
   var { toPromise, toSync, toSyncOptions } = require_adapter();
@@ -31176,37 +32392,37 @@ var require_proper_lockfile = __commonJS((exports, module2) => {
 });
 
 // src/hooks/knowledge-store.ts
-import { existsSync as existsSync4 } from "fs";
-import { appendFile, mkdir, readFile as readFile2, writeFile } from "fs/promises";
+import { existsSync as existsSync6 } from "fs";
+import { appendFile as appendFile2, mkdir, readFile as readFile3, writeFile as writeFile2 } from "fs/promises";
 import * as os3 from "os";
-import * as path7 from "path";
+import * as path9 from "path";
 function resolveSwarmKnowledgePath(directory) {
-  return path7.join(directory, ".swarm", "knowledge.jsonl");
+  return path9.join(directory, ".swarm", "knowledge.jsonl");
 }
 function resolveSwarmRejectedPath(directory) {
-  return path7.join(directory, ".swarm", "knowledge-rejected.jsonl");
+  return path9.join(directory, ".swarm", "knowledge-rejected.jsonl");
 }
 function resolveHiveKnowledgePath() {
   const platform = process.platform;
   const home = os3.homedir();
   let dataDir;
   if (platform === "win32") {
-    dataDir = path7.join(process.env.LOCALAPPDATA || path7.join(home, "AppData", "Local"), "opencode-swarm", "Data");
+    dataDir = path9.join(process.env.LOCALAPPDATA || path9.join(home, "AppData", "Local"), "opencode-swarm", "Data");
   } else if (platform === "darwin") {
-    dataDir = path7.join(home, "Library", "Application Support", "opencode-swarm");
+    dataDir = path9.join(home, "Library", "Application Support", "opencode-swarm");
   } else {
-    dataDir = path7.join(process.env.XDG_DATA_HOME || path7.join(home, ".local", "share"), "opencode-swarm");
+    dataDir = path9.join(process.env.XDG_DATA_HOME || path9.join(home, ".local", "share"), "opencode-swarm");
   }
-  return path7.join(dataDir, "shared-learnings.jsonl");
+  return path9.join(dataDir, "shared-learnings.jsonl");
 }
 function resolveHiveRejectedPath() {
   const hivePath = resolveHiveKnowledgePath();
-  return path7.join(path7.dirname(hivePath), "shared-learnings-rejected.jsonl");
+  return path9.join(path9.dirname(hivePath), "shared-learnings-rejected.jsonl");
 }
 async function readKnowledge(filePath) {
-  if (!existsSync4(filePath))
+  if (!existsSync6(filePath))
     return [];
-  const content = await readFile2(filePath, "utf-8");
+  const content = await readFile3(filePath, "utf-8");
   const results = [];
   for (const line of content.split(`
 `)) {
@@ -31225,12 +32441,12 @@ async function readRejectedLessons(directory) {
   return readKnowledge(resolveSwarmRejectedPath(directory));
 }
 async function appendKnowledge(filePath, entry) {
-  await mkdir(path7.dirname(filePath), { recursive: true });
-  await appendFile(filePath, `${JSON.stringify(entry)}
+  await mkdir(path9.dirname(filePath), { recursive: true });
+  await appendFile2(filePath, `${JSON.stringify(entry)}
 `, "utf-8");
 }
 async function rewriteKnowledge(filePath, entries) {
-  const dir = path7.dirname(filePath);
+  const dir = path9.dirname(filePath);
   await mkdir(dir, { recursive: true });
   let release = null;
   try {
@@ -31240,7 +32456,7 @@ async function rewriteKnowledge(filePath, entries) {
     const content = entries.map((e) => JSON.stringify(e)).join(`
 `) + (entries.length > 0 ? `
 ` : "");
-    await writeFile(filePath, content, "utf-8");
+    await writeFile2(filePath, content, "utf-8");
   } finally {
     if (release) {
       try {
@@ -31339,1026 +32555,6 @@ var init_knowledge_store = __esm(() => {
   import_proper_lockfile = __toESM(require_proper_lockfile(), 1);
 });
 
-// src/plan/ledger.ts
-import * as crypto2 from "crypto";
-import * as fs7 from "fs";
-import * as path10 from "path";
-function getLedgerPath(directory) {
-  return path10.join(directory, ".swarm", LEDGER_FILENAME);
-}
-function getPlanJsonPath(directory) {
-  return path10.join(directory, ".swarm", PLAN_JSON_FILENAME);
-}
-function computePlanHash(plan) {
-  const normalized = {
-    schema_version: plan.schema_version,
-    title: plan.title,
-    swarm: plan.swarm,
-    current_phase: plan.current_phase,
-    migration_status: plan.migration_status,
-    phases: plan.phases.map((phase) => ({
-      id: phase.id,
-      name: phase.name,
-      status: phase.status,
-      required_agents: phase.required_agents ? [...phase.required_agents].sort() : undefined,
-      tasks: phase.tasks.map((task) => ({
-        id: task.id,
-        phase: task.phase,
-        status: task.status,
-        size: task.size,
-        description: task.description,
-        depends: [...task.depends].sort(),
-        acceptance: task.acceptance,
-        files_touched: [...task.files_touched].sort(),
-        evidence_path: task.evidence_path,
-        blocked_reason: task.blocked_reason
-      }))
-    }))
-  };
-  const jsonString = JSON.stringify(normalized);
-  return crypto2.createHash("sha256").update(jsonString, "utf8").digest("hex");
-}
-function computeCurrentPlanHash(directory) {
-  const planPath = getPlanJsonPath(directory);
-  try {
-    const content = fs7.readFileSync(planPath, "utf8");
-    const plan = JSON.parse(content);
-    return computePlanHash(plan);
-  } catch {
-    return "";
-  }
-}
-async function ledgerExists(directory) {
-  const ledgerPath = getLedgerPath(directory);
-  return fs7.existsSync(ledgerPath);
-}
-async function getLatestLedgerSeq(directory) {
-  const ledgerPath = getLedgerPath(directory);
-  if (!fs7.existsSync(ledgerPath)) {
-    return 0;
-  }
-  try {
-    const content = fs7.readFileSync(ledgerPath, "utf8");
-    const lines = content.trim().split(`
-`).filter((line) => line.trim() !== "");
-    if (lines.length === 0) {
-      return 0;
-    }
-    let maxSeq = 0;
-    for (const line of lines) {
-      try {
-        const event = JSON.parse(line);
-        if (event.seq > maxSeq) {
-          maxSeq = event.seq;
-        }
-      } catch {}
-    }
-    return maxSeq;
-  } catch {
-    return 0;
-  }
-}
-async function readLedgerEvents(directory) {
-  const ledgerPath = getLedgerPath(directory);
-  if (!fs7.existsSync(ledgerPath)) {
-    return [];
-  }
-  try {
-    const content = fs7.readFileSync(ledgerPath, "utf8");
-    const lines = content.trim().split(`
-`).filter((line) => line.trim() !== "");
-    const events = [];
-    for (const line of lines) {
-      try {
-        const event = JSON.parse(line);
-        events.push(event);
-      } catch {}
-    }
-    events.sort((a, b) => a.seq - b.seq);
-    return events;
-  } catch {
-    return [];
-  }
-}
-async function initLedger(directory, planId, initialPlanHash) {
-  const ledgerPath = getLedgerPath(directory);
-  const planJsonPath = getPlanJsonPath(directory);
-  if (fs7.existsSync(ledgerPath)) {
-    throw new Error("Ledger already initialized. Use appendLedgerEvent to add events.");
-  }
-  let planHashAfter = initialPlanHash ?? "";
-  if (!initialPlanHash) {
-    try {
-      if (fs7.existsSync(planJsonPath)) {
-        const content = fs7.readFileSync(planJsonPath, "utf8");
-        const plan = JSON.parse(content);
-        planHashAfter = computePlanHash(plan);
-      }
-    } catch {}
-  }
-  const event = {
-    seq: 1,
-    timestamp: new Date().toISOString(),
-    plan_id: planId,
-    event_type: "plan_created",
-    source: "initLedger",
-    plan_hash_before: "",
-    plan_hash_after: planHashAfter,
-    schema_version: LEDGER_SCHEMA_VERSION
-  };
-  fs7.mkdirSync(path10.join(directory, ".swarm"), { recursive: true });
-  const tempPath = `${ledgerPath}.tmp.${Date.now()}.${Math.floor(Math.random() * 1e9)}`;
-  const line = `${JSON.stringify(event)}
-`;
-  fs7.writeFileSync(tempPath, line, "utf8");
-  fs7.renameSync(tempPath, ledgerPath);
-}
-async function appendLedgerEvent(directory, eventInput, options) {
-  const ledgerPath = getLedgerPath(directory);
-  const latestSeq = await getLatestLedgerSeq(directory);
-  const nextSeq = latestSeq + 1;
-  const planHashBefore = computeCurrentPlanHash(directory);
-  if (options?.expectedSeq !== undefined && options.expectedSeq !== latestSeq) {
-    throw new LedgerStaleWriterError(`Stale writer: expected seq ${options.expectedSeq} but found ${latestSeq}`);
-  }
-  if (options?.expectedHash !== undefined && options.expectedHash !== planHashBefore) {
-    throw new LedgerStaleWriterError(`Stale writer: expected hash ${options.expectedHash} but found ${planHashBefore}`);
-  }
-  const planHashAfter = options?.planHashAfter ?? planHashBefore;
-  const event = {
-    ...eventInput,
-    seq: nextSeq,
-    timestamp: new Date().toISOString(),
-    plan_hash_before: planHashBefore,
-    plan_hash_after: planHashAfter,
-    schema_version: LEDGER_SCHEMA_VERSION
-  };
-  fs7.mkdirSync(path10.join(directory, ".swarm"), { recursive: true });
-  const tempPath = `${ledgerPath}.tmp.${Date.now()}.${Math.floor(Math.random() * 1e9)}`;
-  const line = `${JSON.stringify(event)}
-`;
-  if (fs7.existsSync(ledgerPath)) {
-    const existingContent = fs7.readFileSync(ledgerPath, "utf8");
-    fs7.writeFileSync(tempPath, existingContent + line, "utf8");
-  } else {
-    throw new Error("Ledger not initialized. Call initLedger() first.");
-  }
-  fs7.renameSync(tempPath, ledgerPath);
-  return event;
-}
-async function takeSnapshotEvent(directory, plan, options) {
-  const payloadHash = computePlanHash(plan);
-  const snapshotPayload = {
-    plan,
-    payload_hash: payloadHash
-  };
-  const planId = `${plan.swarm}-${plan.title}`.replace(/[^a-zA-Z0-9-_]/g, "_");
-  return appendLedgerEvent(directory, {
-    event_type: "snapshot",
-    source: "takeSnapshotEvent",
-    plan_id: planId,
-    payload: snapshotPayload
-  }, options);
-}
-async function replayFromLedger(directory, options) {
-  const events = await readLedgerEvents(directory);
-  if (events.length === 0) {
-    return null;
-  }
-  const targetPlanId = events[0].plan_id;
-  const relevantEvents = events.filter((e) => e.plan_id === targetPlanId);
-  {
-    const snapshotEvents = relevantEvents.filter((e) => e.event_type === "snapshot");
-    if (snapshotEvents.length > 0) {
-      const latestSnapshotEvent = snapshotEvents[snapshotEvents.length - 1];
-      const snapshotPayload = latestSnapshotEvent.payload;
-      let plan2 = snapshotPayload.plan;
-      const eventsAfterSnapshot = relevantEvents.filter((e) => e.seq > latestSnapshotEvent.seq);
-      for (const event of eventsAfterSnapshot) {
-        plan2 = applyEventToPlan(plan2, event);
-        if (plan2 === null) {
-          return null;
-        }
-      }
-      return plan2;
-    }
-  }
-  const planJsonPath = getPlanJsonPath(directory);
-  if (!fs7.existsSync(planJsonPath)) {
-    return null;
-  }
-  let plan;
-  try {
-    const content = fs7.readFileSync(planJsonPath, "utf8");
-    plan = JSON.parse(content);
-  } catch {
-    return null;
-  }
-  for (const event of relevantEvents) {
-    if (plan === null) {
-      return null;
-    }
-    plan = applyEventToPlan(plan, event);
-  }
-  return plan;
-}
-function applyEventToPlan(plan, event) {
-  switch (event.event_type) {
-    case "plan_created":
-      return plan;
-    case "task_status_changed":
-      if (event.task_id && event.to_status) {
-        const parseResult = TaskStatusSchema.safeParse(event.to_status);
-        if (!parseResult.success) {
-          return plan;
-        }
-        for (const phase of plan.phases) {
-          const task = phase.tasks.find((t) => t.id === event.task_id);
-          if (task) {
-            task.status = parseResult.data;
-            break;
-          }
-        }
-      }
-      return plan;
-    case "phase_completed":
-      if (event.phase_id) {
-        const phase = plan.phases.find((p) => p.id === event.phase_id);
-        if (phase) {
-          phase.status = "complete";
-        }
-      }
-      return plan;
-    case "plan_exported":
-      return plan;
-    case "task_added":
-      return plan;
-    case "task_updated":
-      return plan;
-    case "plan_rebuilt":
-      return plan;
-    case "task_reordered":
-      return plan;
-    case "snapshot":
-      return plan;
-    case "plan_reset":
-      return null;
-    default:
-      throw new Error(`applyEventToPlan: unhandled event type "${event.event_type}" at seq ${event.seq}`);
-  }
-}
-var LEDGER_SCHEMA_VERSION = "1.0.0", LEDGER_FILENAME = "plan-ledger.jsonl", PLAN_JSON_FILENAME = "plan.json", LedgerStaleWriterError;
-var init_ledger = __esm(() => {
-  init_plan_schema();
-  LedgerStaleWriterError = class LedgerStaleWriterError extends Error {
-    constructor(message) {
-      super(message);
-      this.name = "LedgerStaleWriterError";
-    }
-  };
-});
-
-// src/plan/manager.ts
-import { copyFileSync, existsSync as existsSync7, renameSync as renameSync4, unlinkSync } from "fs";
-import * as path11 from "path";
-async function loadPlanJsonOnly(directory) {
-  const planJsonContent = await readSwarmFileAsync(directory, "plan.json");
-  if (planJsonContent !== null) {
-    if (planJsonContent.includes("\x00") || planJsonContent.includes("\uFFFD")) {
-      warn("Plan rejected: .swarm/plan.json contains null bytes or invalid encoding");
-      return null;
-    }
-    try {
-      const parsed = JSON.parse(planJsonContent);
-      const validated = PlanSchema.parse(parsed);
-      return validated;
-    } catch (error93) {
-      warn(`Plan validation failed for .swarm/plan.json: ${error93 instanceof Error ? error93.message : String(error93)}`);
-    }
-  }
-  return null;
-}
-function compareTaskIds(a, b) {
-  const partsA = a.split(".").map((n) => parseInt(n, 10));
-  const partsB = b.split(".").map((n) => parseInt(n, 10));
-  const maxLen = Math.max(partsA.length, partsB.length);
-  for (let i2 = 0;i2 < maxLen; i2++) {
-    const numA = partsA[i2] ?? 0;
-    const numB = partsB[i2] ?? 0;
-    if (numA !== numB) {
-      return numA - numB;
-    }
-  }
-  return 0;
-}
-async function getLatestLedgerHash(directory) {
-  try {
-    const events = await readLedgerEvents(directory);
-    if (events.length === 0)
-      return "";
-    const lastEvent = events[events.length - 1];
-    return lastEvent.plan_hash_after;
-  } catch {
-    return "";
-  }
-}
-function computePlanContentHash(plan) {
-  const content = {
-    schema_version: plan.schema_version,
-    title: plan.title,
-    swarm: plan.swarm,
-    current_phase: plan.current_phase,
-    migration_status: plan.migration_status,
-    phases: plan.phases.map((phase) => ({
-      id: phase.id,
-      name: phase.name,
-      status: phase.status,
-      tasks: phase.tasks.map((task) => ({
-        id: task.id,
-        phase: task.phase,
-        status: task.status,
-        size: task.size,
-        description: task.description,
-        depends: [...task.depends].sort(compareTaskIds),
-        acceptance: task.acceptance,
-        files_touched: [...task.files_touched].sort(),
-        evidence_path: task.evidence_path,
-        blocked_reason: task.blocked_reason
-      })).sort((a, b) => compareTaskIds(a.id, b.id))
-    })).sort((a, b) => a.id - b.id)
-  };
-  const jsonString = JSON.stringify(content);
-  return Bun.hash(jsonString).toString(36);
-}
-function extractPlanHashFromMarkdown(markdown) {
-  const match = markdown.match(/<!--\s*PLAN_HASH:\s*(\S+)\s*-->/);
-  return match ? match[1] : null;
-}
-async function isPlanMdInSync(directory, plan) {
-  const planMdContent = await readSwarmFileAsync(directory, "plan.md");
-  if (planMdContent === null) {
-    return false;
-  }
-  const expectedHash = computePlanContentHash(plan);
-  const existingHash = extractPlanHashFromMarkdown(planMdContent);
-  if (existingHash === expectedHash) {
-    return true;
-  }
-  const expectedMarkdown = derivePlanMarkdown(plan);
-  const normalizedExpected = expectedMarkdown.trim();
-  const normalizedActual = planMdContent.trim();
-  if (normalizedActual === normalizedExpected) {
-    return true;
-  }
-  return normalizedActual.includes(normalizedExpected) || normalizedExpected.includes(normalizedActual.replace(/^#.*$/gm, "").trim());
-}
-async function regeneratePlanMarkdown(directory, plan) {
-  const swarmDir = path11.resolve(directory, ".swarm");
-  const contentHash = computePlanContentHash(plan);
-  const markdown = derivePlanMarkdown(plan);
-  const markdownWithHash = `<!-- PLAN_HASH: ${contentHash} -->
-${markdown}`;
-  const mdPath = path11.join(swarmDir, "plan.md");
-  const mdTempPath = path11.join(swarmDir, `plan.md.tmp.${Date.now()}.${Math.floor(Math.random() * 1e9)}`);
-  try {
-    await Bun.write(mdTempPath, markdownWithHash);
-    renameSync4(mdTempPath, mdPath);
-  } finally {
-    try {
-      unlinkSync(mdTempPath);
-    } catch {}
-  }
-}
-async function loadPlan(directory) {
-  const planJsonContent = await readSwarmFileAsync(directory, "plan.json");
-  if (planJsonContent !== null) {
-    if (planJsonContent.includes("\x00") || planJsonContent.includes("\uFFFD")) {
-      warn("Plan rejected: .swarm/plan.json contains null bytes or invalid encoding");
-    } else {
-      try {
-        const parsed = JSON.parse(planJsonContent);
-        const validated = PlanSchema.parse(parsed);
-        const inSync = await isPlanMdInSync(directory, validated);
-        if (!inSync) {
-          try {
-            await regeneratePlanMarkdown(directory, validated);
-          } catch (regenError) {
-            warn(`Failed to regenerate plan.md: ${regenError instanceof Error ? regenError.message : String(regenError)}. Proceeding with plan.json only.`);
-          }
-        }
-        if (await ledgerExists(directory)) {
-          const planHash = computePlanHash(validated);
-          const ledgerHash = await getLatestLedgerHash(directory);
-          const resolvedWorkspace = path11.resolve(directory);
-          if (!startupLedgerCheckedWorkspaces.has(resolvedWorkspace)) {
-            startupLedgerCheckedWorkspaces.add(resolvedWorkspace);
-            if (ledgerHash !== "" && planHash !== ledgerHash) {
-              const currentPlanId = `${validated.swarm}-${validated.title}`.replace(/[^a-zA-Z0-9-_]/g, "_");
-              const ledgerEvents = await readLedgerEvents(directory);
-              const firstEvent = ledgerEvents.length > 0 ? ledgerEvents[0] : null;
-              if (firstEvent && firstEvent.plan_id !== currentPlanId) {
-                warn(`[loadPlan] Ledger identity mismatch (ledger: ${firstEvent.plan_id}, plan: ${currentPlanId}) \u2014 skipping ledger rebuild (migration detected). Use /swarm reset-session to reinitialize the ledger.`);
-              } else {
-                warn("[loadPlan] plan.json is stale (hash mismatch with ledger) \u2014 rebuilding from ledger. If this recurs, run /swarm reset-session to clear stale session state.");
-                try {
-                  const rebuilt = await replayFromLedger(directory);
-                  if (rebuilt) {
-                    await rebuildPlan(directory, rebuilt);
-                    warn("[loadPlan] Rebuilt plan from ledger. Checkpoint available at SWARM_PLAN.md if it exists.");
-                    return rebuilt;
-                  }
-                } catch (replayError) {
-                  warn(`[loadPlan] Ledger replay failed during hash-mismatch rebuild: ${replayError instanceof Error ? replayError.message : String(replayError)}. Returning stale plan.json. To recover: check SWARM_PLAN.md for a checkpoint, or run /swarm reset-session.`);
-                }
-              }
-            }
-          } else if (ledgerHash !== "" && planHash !== ledgerHash) {
-            if (process.env.DEBUG_SWARM) {
-              console.warn(`[loadPlan] Ledger hash mismatch during active session for ${resolvedWorkspace} \u2014 skipping rebuild (startup check already performed).`);
-            }
-          }
-        }
-        return validated;
-      } catch (error93) {
-        warn(`[loadPlan] plan.json validation failed: ${error93 instanceof Error ? error93.message : String(error93)}. Attempting rebuild from ledger. If rebuild fails, check SWARM_PLAN.md for a checkpoint.`);
-        let rawPlanId = null;
-        try {
-          const rawParsed = JSON.parse(planJsonContent);
-          if (typeof rawParsed?.swarm === "string" && typeof rawParsed?.title === "string") {
-            rawPlanId = `${rawParsed.swarm}-${rawParsed.title}`.replace(/[^a-zA-Z0-9-_]/g, "_");
-          }
-        } catch {}
-        if (await ledgerExists(directory)) {
-          const ledgerEventsForCatch = await readLedgerEvents(directory);
-          const catchFirstEvent = ledgerEventsForCatch.length > 0 ? ledgerEventsForCatch[0] : null;
-          const identityMatch = rawPlanId === null || catchFirstEvent === null || catchFirstEvent.plan_id === rawPlanId;
-          if (!identityMatch) {
-            warn(`[loadPlan] Ledger identity mismatch in validation-failure path (ledger: ${catchFirstEvent?.plan_id}, plan: ${rawPlanId}) \u2014 skipping ledger rebuild (migration detected).`);
-          } else if (catchFirstEvent !== null && rawPlanId !== null) {
-            const rebuilt = await replayFromLedger(directory);
-            if (rebuilt) {
-              await rebuildPlan(directory, rebuilt);
-              warn("[loadPlan] Rebuilt plan from ledger after validation failure. Projection was stale.");
-              return rebuilt;
-            }
-          }
-        }
-        const planMdContent2 = await readSwarmFileAsync(directory, "plan.md");
-        if (planMdContent2 !== null) {
-          const migrated = migrateLegacyPlan(planMdContent2);
-          await savePlan(directory, migrated);
-          return migrated;
-        }
-      }
-    }
-  }
-  const planMdContent = await readSwarmFileAsync(directory, "plan.md");
-  if (planMdContent !== null) {
-    const migrated = migrateLegacyPlan(planMdContent);
-    await savePlan(directory, migrated);
-    return migrated;
-  }
-  if (await ledgerExists(directory)) {
-    const rebuilt = await replayFromLedger(directory);
-    if (rebuilt) {
-      await savePlan(directory, rebuilt);
-      return rebuilt;
-    }
-  }
-  return null;
-}
-async function savePlan(directory, plan, options) {
-  if (directory === null || directory === undefined || typeof directory !== "string" || directory.trim().length === 0) {
-    throw new Error(`Invalid directory: directory must be a non-empty string`);
-  }
-  const validated = PlanSchema.parse(plan);
-  if (options?.preserveCompletedStatuses !== false) {
-    try {
-      const currentPlan2 = await loadPlanJsonOnly(directory);
-      if (currentPlan2) {
-        const completedTaskIds = new Set;
-        for (const phase of currentPlan2.phases) {
-          for (const task of phase.tasks) {
-            if (task.status === "completed")
-              completedTaskIds.add(task.id);
-          }
-        }
-        if (completedTaskIds.size > 0) {
-          for (const phase of validated.phases) {
-            for (const task of phase.tasks) {
-              if (completedTaskIds.has(task.id) && task.status !== "completed") {
-                task.status = "completed";
-              }
-            }
-          }
-        }
-      }
-    } catch {}
-  }
-  for (const phase of validated.phases) {
-    const tasks = phase.tasks;
-    if (tasks.length > 0 && tasks.every((t) => t.status === "completed")) {
-      phase.status = "complete";
-    } else if (tasks.some((t) => t.status === "in_progress")) {
-      phase.status = "in_progress";
-    } else if (tasks.some((t) => t.status === "blocked")) {
-      phase.status = "blocked";
-    } else {
-      phase.status = "pending";
-    }
-  }
-  const currentPlan = await loadPlanJsonOnly(directory);
-  const planId = `${validated.swarm}-${validated.title}`.replace(/[^a-zA-Z0-9-_]/g, "_");
-  const planHashForInit = computePlanHash(validated);
-  if (!await ledgerExists(directory)) {
-    await initLedger(directory, planId, planHashForInit);
-  } else {
-    const existingEvents = await readLedgerEvents(directory);
-    if (existingEvents.length > 0 && existingEvents[0].plan_id !== planId) {
-      const swarmDir2 = path11.resolve(directory, ".swarm");
-      const oldLedgerPath = path11.join(swarmDir2, "plan-ledger.jsonl");
-      const oldLedgerBackupPath = path11.join(swarmDir2, `plan-ledger.backup-${Date.now()}-${Math.floor(Math.random() * 1e9)}.jsonl`);
-      let backupExists = false;
-      if (existsSync7(oldLedgerPath)) {
-        try {
-          renameSync4(oldLedgerPath, oldLedgerBackupPath);
-          backupExists = true;
-        } catch (renameErr) {
-          throw new Error(`[savePlan] Cannot reinitialize ledger: could not move old ledger aside (rename failed: ${renameErr instanceof Error ? renameErr.message : String(renameErr)}). The existing ledger has plan_id="${existingEvents[0].plan_id}" which does not match the current plan="${planId}". To proceed, close any programs that may have the ledger file open, or run /swarm reset-session to clear the ledger.`);
-        }
-      }
-      let initSucceeded = false;
-      if (backupExists) {
-        try {
-          await initLedger(directory, planId, planHashForInit);
-          initSucceeded = true;
-        } catch (initErr) {
-          const errorMessage = String(initErr);
-          if (errorMessage.includes("already initialized")) {
-            try {
-              if (existsSync7(oldLedgerBackupPath))
-                unlinkSync(oldLedgerBackupPath);
-            } catch {}
-          } else {
-            if (existsSync7(oldLedgerBackupPath)) {
-              try {
-                renameSync4(oldLedgerBackupPath, oldLedgerPath);
-              } catch {
-                copyFileSync(oldLedgerBackupPath, oldLedgerPath);
-                try {
-                  unlinkSync(oldLedgerBackupPath);
-                } catch {}
-              }
-            }
-            throw initErr;
-          }
-        }
-      }
-      if (initSucceeded && backupExists) {
-        const archivePath = path11.join(swarmDir2, `plan-ledger.archived-${Date.now()}-${Math.floor(Math.random() * 1e9)}.jsonl`);
-        try {
-          renameSync4(oldLedgerBackupPath, archivePath);
-          warn(`[savePlan] Ledger identity mismatch (was "${existingEvents[0].plan_id}", now "${planId}") \u2014 archived old ledger to ${archivePath} and reinitializing.`);
-        } catch (renameErr) {
-          warn(`[savePlan] Could not archive old ledger (rename failed: ${renameErr instanceof Error ? renameErr.message : String(renameErr)}). Old ledger may still exist at ${oldLedgerBackupPath}.`);
-          try {
-            if (existsSync7(oldLedgerBackupPath))
-              unlinkSync(oldLedgerBackupPath);
-          } catch {}
-        }
-      } else if (!initSucceeded && backupExists) {
-        try {
-          if (existsSync7(oldLedgerBackupPath))
-            unlinkSync(oldLedgerBackupPath);
-        } catch {}
-      }
-    }
-  }
-  const currentHash = computeCurrentPlanHash(directory);
-  const hashAfter = computePlanHash(validated);
-  if (currentPlan) {
-    const oldTaskMap = new Map;
-    for (const phase of currentPlan.phases) {
-      for (const task of phase.tasks) {
-        oldTaskMap.set(task.id, { phase: task.phase, status: task.status });
-      }
-    }
-    try {
-      for (const phase of validated.phases) {
-        for (const task of phase.tasks) {
-          const oldTask = oldTaskMap.get(task.id);
-          if (oldTask && oldTask.status !== task.status) {
-            const eventInput = {
-              plan_id: `${validated.swarm}-${validated.title}`.replace(/[^a-zA-Z0-9-_]/g, "_"),
-              event_type: "task_status_changed",
-              task_id: task.id,
-              phase_id: phase.id,
-              from_status: oldTask.status,
-              to_status: task.status,
-              source: "savePlan"
-            };
-            await appendLedgerEvent(directory, eventInput, {
-              expectedHash: currentHash,
-              planHashAfter: hashAfter
-            });
-          }
-        }
-      }
-    } catch (error93) {
-      if (error93 instanceof LedgerStaleWriterError) {
-        throw new Error(`Concurrent plan modification detected: ${error93.message}. Please retry the operation.`);
-      }
-      throw error93;
-    }
-  }
-  const SNAPSHOT_INTERVAL = 50;
-  const latestSeq = await getLatestLedgerSeq(directory);
-  if (latestSeq > 0 && latestSeq % SNAPSHOT_INTERVAL === 0) {
-    await takeSnapshotEvent(directory, validated, {
-      planHashAfter: hashAfter
-    }).catch(() => {});
-  }
-  const swarmDir = path11.resolve(directory, ".swarm");
-  const planPath = path11.join(swarmDir, "plan.json");
-  const tempPath = path11.join(swarmDir, `plan.json.tmp.${Date.now()}.${Math.floor(Math.random() * 1e9)}`);
-  try {
-    await Bun.write(tempPath, JSON.stringify(validated, null, 2));
-    renameSync4(tempPath, planPath);
-  } finally {
-    try {
-      unlinkSync(tempPath);
-    } catch {}
-  }
-  const contentHash = computePlanContentHash(validated);
-  const markdown = derivePlanMarkdown(validated);
-  const markdownWithHash = `<!-- PLAN_HASH: ${contentHash} -->
-${markdown}`;
-  const mdPath = path11.join(swarmDir, "plan.md");
-  const mdTempPath = path11.join(swarmDir, `plan.md.tmp.${Date.now()}.${Math.floor(Math.random() * 1e9)}`);
-  try {
-    await Bun.write(mdTempPath, markdownWithHash);
-    renameSync4(mdTempPath, mdPath);
-  } finally {
-    try {
-      unlinkSync(mdTempPath);
-    } catch {}
-  }
-  try {
-    const markerPath = path11.join(swarmDir, ".plan-write-marker");
-    const tasksCount = validated.phases.reduce((sum, phase) => sum + phase.tasks.length, 0);
-    const marker = JSON.stringify({
-      source: "plan_manager",
-      timestamp: new Date().toISOString(),
-      phases_count: validated.phases.length,
-      tasks_count: tasksCount
-    });
-    await Bun.write(markerPath, marker);
-  } catch {}
-}
-async function rebuildPlan(directory, plan) {
-  const targetPlan = plan ?? await replayFromLedger(directory);
-  if (!targetPlan)
-    return null;
-  const swarmDir = path11.join(directory, ".swarm");
-  const planPath = path11.join(swarmDir, "plan.json");
-  const mdPath = path11.join(swarmDir, "plan.md");
-  const tempPlanPath = path11.join(swarmDir, `plan.json.rebuild.${Date.now()}`);
-  await Bun.write(tempPlanPath, JSON.stringify(targetPlan, null, 2));
-  renameSync4(tempPlanPath, planPath);
-  const contentHash = computePlanContentHash(targetPlan);
-  const markdown = derivePlanMarkdown(targetPlan);
-  const markdownWithHash = `<!-- PLAN_HASH: ${contentHash} -->
-${markdown}`;
-  const tempMdPath = path11.join(swarmDir, `plan.md.rebuild.${Date.now()}`);
-  await Bun.write(tempMdPath, markdownWithHash);
-  renameSync4(tempMdPath, mdPath);
-  try {
-    const markerPath = path11.join(swarmDir, ".plan-write-marker");
-    const tasksCount = targetPlan.phases.reduce((sum, phase) => sum + phase.tasks.length, 0);
-    const marker = JSON.stringify({
-      source: "plan_manager",
-      timestamp: new Date().toISOString(),
-      phases_count: targetPlan.phases.length,
-      tasks_count: tasksCount
-    });
-    await Bun.write(markerPath, marker);
-  } catch {}
-  return targetPlan;
-}
-async function updateTaskStatus(directory, taskId, status) {
-  const plan = await loadPlan(directory);
-  if (plan === null) {
-    throw new Error(`Plan not found in directory: ${directory}`);
-  }
-  let taskFound = false;
-  const derivePhaseStatusFromTasks = (tasks) => {
-    if (tasks.length > 0 && tasks.every((task) => task.status === "completed")) {
-      return "complete";
-    }
-    if (tasks.some((task) => task.status === "in_progress")) {
-      return "in_progress";
-    }
-    if (tasks.some((task) => task.status === "blocked")) {
-      return "blocked";
-    }
-    return "pending";
-  };
-  const updatedPhases = plan.phases.map((phase) => {
-    const updatedTasks = phase.tasks.map((task) => {
-      if (task.id === taskId) {
-        taskFound = true;
-        return { ...task, status };
-      }
-      return task;
-    });
-    return {
-      ...phase,
-      status: derivePhaseStatusFromTasks(updatedTasks),
-      tasks: updatedTasks
-    };
-  });
-  if (!taskFound) {
-    throw new Error(`Task not found: ${taskId}`);
-  }
-  const updatedPlan = { ...plan, phases: updatedPhases };
-  await savePlan(directory, updatedPlan, { preserveCompletedStatuses: true });
-  return updatedPlan;
-}
-function derivePlanMarkdown(plan) {
-  const statusMap = {
-    pending: "PENDING",
-    in_progress: "IN PROGRESS",
-    complete: "COMPLETE",
-    blocked: "BLOCKED"
-  };
-  const now = new Date().toISOString();
-  const currentPhase = plan.current_phase ?? 1;
-  const phaseStatus = statusMap[plan.phases[currentPhase - 1]?.status] || "PENDING";
-  let markdown = `# ${plan.title}
-Swarm: ${plan.swarm}
-Phase: ${currentPhase} [${phaseStatus}] | Updated: ${now}
-`;
-  const sortedPhases = [...plan.phases].sort((a, b) => a.id - b.id);
-  for (const phase of sortedPhases) {
-    const phaseStatusText = statusMap[phase.status] || "PENDING";
-    markdown += `
-## Phase ${phase.id}: ${phase.name} [${phaseStatusText}]
-`;
-    const sortedTasks = [...phase.tasks].sort((a, b) => compareTaskIds(a.id, b.id));
-    let currentTaskMarked = false;
-    for (const task of sortedTasks) {
-      let taskLine = "";
-      let suffix = "";
-      if (task.status === "completed") {
-        taskLine = `- [x] ${task.id}: ${task.description}`;
-      } else if (task.status === "blocked") {
-        taskLine = `- [BLOCKED] ${task.id}: ${task.description}`;
-        if (task.blocked_reason) {
-          taskLine += ` - ${task.blocked_reason}`;
-        }
-      } else {
-        taskLine = `- [ ] ${task.id}: ${task.description}`;
-      }
-      taskLine += ` [${task.size.toUpperCase()}]`;
-      if (task.depends.length > 0) {
-        const sortedDepends = [...task.depends].sort();
-        suffix += ` (depends: ${sortedDepends.join(", ")})`;
-      }
-      if (phase.id === plan.current_phase && task.status === "in_progress" && !currentTaskMarked) {
-        suffix += " \u2190 CURRENT";
-        currentTaskMarked = true;
-      }
-      markdown += `${taskLine}${suffix}
-`;
-    }
-  }
-  const phaseSections = markdown.split(`
-## `);
-  if (phaseSections.length > 1) {
-    const header = phaseSections[0];
-    const phases = phaseSections.slice(1).map((p) => `## ${p}`);
-    markdown = `${header}
----
-${phases.join(`
----
-`)}`;
-  }
-  return `${markdown.trim()}
-`;
-}
-function migrateLegacyPlan(planContent, swarmId) {
-  const lines = planContent.split(`
-`);
-  let title = "Untitled Plan";
-  let swarm = swarmId || "default-swarm";
-  let currentPhaseNum = 1;
-  const phases = [];
-  let currentPhase = null;
-  for (const line of lines) {
-    const trimmed = line.trim();
-    if (trimmed.startsWith("# ") && title === "Untitled Plan") {
-      title = trimmed.substring(2).trim();
-      continue;
-    }
-    if (trimmed.startsWith("Swarm:")) {
-      swarm = trimmed.substring(6).trim();
-      continue;
-    }
-    if (trimmed.startsWith("Phase:")) {
-      const match = trimmed.match(/Phase:\s*(\d+)/i);
-      if (match) {
-        currentPhaseNum = parseInt(match[1], 10);
-      }
-      continue;
-    }
-    const phaseMatch = trimmed.match(/^#{2,3}\s*Phase\s+(\d+)(?::\s*([^[]+))?\s*(?:\[([^\]]+)\])?/i);
-    if (phaseMatch) {
-      if (currentPhase !== null) {
-        phases.push(currentPhase);
-      }
-      const phaseId = parseInt(phaseMatch[1], 10);
-      const phaseName = phaseMatch[2]?.trim() || `Phase ${phaseId}`;
-      const statusText = phaseMatch[3]?.toLowerCase() || "pending";
-      const statusMap = {
-        complete: "complete",
-        completed: "complete",
-        "in progress": "in_progress",
-        in_progress: "in_progress",
-        inprogress: "in_progress",
-        pending: "pending",
-        blocked: "blocked"
-      };
-      currentPhase = {
-        id: phaseId,
-        name: phaseName,
-        status: statusMap[statusText] || "pending",
-        tasks: []
-      };
-      continue;
-    }
-    const taskMatch = trimmed.match(/^-\s*\[([^\]]+)\]\s+(\d+\.\d+):\s*(.+?)(?:\s*\[(\w+)\])?(?:\s*-\s*(.+))?$/i);
-    if (taskMatch && currentPhase !== null) {
-      const checkbox = taskMatch[1].toLowerCase();
-      const taskId = taskMatch[2];
-      let description = taskMatch[3].trim();
-      const sizeText = taskMatch[4]?.toLowerCase() || "small";
-      let blockedReason;
-      const dependsMatch = description.match(/\s*\(depends:\s*([^)]+)\)$/i);
-      const depends = [];
-      if (dependsMatch) {
-        const depsText = dependsMatch[1];
-        depends.push(...depsText.split(",").map((d) => d.trim()));
-        description = description.substring(0, dependsMatch.index).trim();
-      }
-      let status = "pending";
-      if (checkbox === "x") {
-        status = "completed";
-      } else if (checkbox === "blocked") {
-        status = "blocked";
-        const blockedReasonMatch = taskMatch[5];
-        if (blockedReasonMatch) {
-          blockedReason = blockedReasonMatch.trim();
-        }
-      }
-      const sizeMap = {
-        small: "small",
-        medium: "medium",
-        large: "large"
-      };
-      const task = {
-        id: taskId,
-        phase: currentPhase.id,
-        status,
-        size: sizeMap[sizeText] || "small",
-        description,
-        depends,
-        acceptance: undefined,
-        files_touched: [],
-        evidence_path: undefined,
-        blocked_reason: blockedReason
-      };
-      currentPhase.tasks.push(task);
-    }
-    const numberedTaskMatch = trimmed.match(/^(\d+)\.\s+(.+?)(?:\s*\[(\w+)\])?$/);
-    if (numberedTaskMatch && currentPhase !== null) {
-      const taskId = `${currentPhase.id}.${currentPhase.tasks.length + 1}`;
-      let description = numberedTaskMatch[2].trim();
-      const sizeText = numberedTaskMatch[3]?.toLowerCase() || "small";
-      const dependsMatch = description.match(/\s*\(depends:\s*([^)]+)\)$/i);
-      const depends = [];
-      if (dependsMatch) {
-        const depsText = dependsMatch[1];
-        depends.push(...depsText.split(",").map((d) => d.trim()));
-        description = description.substring(0, dependsMatch.index).trim();
-      }
-      const sizeMap = {
-        small: "small",
-        medium: "medium",
-        large: "large"
-      };
-      const task = {
-        id: taskId,
-        phase: currentPhase.id,
-        status: "pending",
-        size: sizeMap[sizeText] || "small",
-        description,
-        depends,
-        acceptance: undefined,
-        files_touched: [],
-        evidence_path: undefined,
-        blocked_reason: undefined
-      };
-      currentPhase.tasks.push(task);
-    }
-    const noPrefixTaskMatch = trimmed.match(/^-\s*\[([^\]]+)\]\s+(?!\d+\.\d+:)(.+?)(?:\s*\[(\w+)\])?(?:\s*-\s*(.+))?$/i);
-    if (noPrefixTaskMatch && currentPhase !== null) {
-      const checkbox = noPrefixTaskMatch[1].toLowerCase();
-      const taskId = `${currentPhase.id}.${currentPhase.tasks.length + 1}`;
-      let description = noPrefixTaskMatch[2].trim();
-      const sizeText = noPrefixTaskMatch[3]?.toLowerCase() || "small";
-      let blockedReason;
-      const dependsMatch = description.match(/\s*\(depends:\s*([^)]+)\)$/i);
-      const depends = [];
-      if (dependsMatch) {
-        const depsText = dependsMatch[1];
-        depends.push(...depsText.split(",").map((d) => d.trim()));
-        description = description.substring(0, dependsMatch.index).trim();
-      }
-      let status = "pending";
-      if (checkbox === "x") {
-        status = "completed";
-      } else if (checkbox === "blocked") {
-        status = "blocked";
-        const blockedReasonMatch = noPrefixTaskMatch[4];
-        if (blockedReasonMatch) {
-          blockedReason = blockedReasonMatch.trim();
-        }
-      }
-      const sizeMap = {
-        small: "small",
-        medium: "medium",
-        large: "large"
-      };
-      const task = {
-        id: taskId,
-        phase: currentPhase.id,
-        status,
-        size: sizeMap[sizeText] || "small",
-        description,
-        depends,
-        acceptance: undefined,
-        files_touched: [],
-        evidence_path: undefined,
-        blocked_reason: blockedReason
-      };
-      currentPhase.tasks.push(task);
-    }
-  }
-  if (currentPhase !== null) {
-    phases.push(currentPhase);
-  }
-  let migrationStatus = "migrated";
-  if (phases.length === 0) {
-    console.warn(`migrateLegacyPlan: 0 phases parsed from ${lines.length} lines. First 3 lines: ${lines.slice(0, 3).join(" | ")}`);
-    migrationStatus = "migration_failed";
-    phases.push({
-      id: 1,
-      name: "Migration Failed",
-      status: "blocked",
-      tasks: [
-        {
-          id: "1.1",
-          phase: 1,
-          status: "blocked",
-          size: "large",
-          description: "Review and restructure plan manually",
-          depends: [],
-          files_touched: [],
-          blocked_reason: "Legacy plan could not be parsed automatically"
-        }
-      ]
-    });
-  }
-  phases.sort((a, b) => a.id - b.id);
-  const plan = {
-    schema_version: "1.0.0",
-    title,
-    swarm,
-    current_phase: currentPhaseNum,
-    phases,
-    migration_status: migrationStatus
-  };
-  return plan;
-}
-var startupLedgerCheckedWorkspaces;
-var init_manager2 = __esm(() => {
-  init_plan_schema();
-  init_utils2();
-  init_utils();
-  init_ledger();
-  startupLedgerCheckedWorkspaces = new Set;
-});
-
 // src/background/event-bus.ts
 class AutomationEventBus {
   listeners = new Map;
@@ -32442,7 +32638,7 @@ __export(exports_co_change_analyzer, {
 });
 import * as child_process3 from "child_process";
 import { randomUUID as randomUUID2 } from "crypto";
-import { readdir as readdir2, readFile as readFile4, stat } from "fs/promises";
+import { readdir as readdir2, readFile as readFile5, stat } from "fs/promises";
 import * as path17 from "path";
 import { promisify } from "util";
 function getExecFileAsync() {
@@ -32567,7 +32763,7 @@ async function getStaticEdges(directory) {
   const sourceFiles = await scanSourceFiles(directory);
   for (const sourceFile of sourceFiles) {
     try {
-      const content = await readFile4(sourceFile, "utf-8");
+      const content = await readFile5(sourceFile, "utf-8");
       const importRegex = /(?:import|require)\s*(?:\(?\s*['"`]|.*?from\s+['"`])([^'"`]+)['"`]/g;
       for (let match = importRegex.exec(content);match !== null; match = importRegex.exec(content)) {
         const importPath = match[1].trim();
@@ -34386,8 +34582,8 @@ var init_profiles = __esm(() => {
 });
 
 // src/lang/detector.ts
-import { access, readdir as readdir3 } from "fs/promises";
-import { extname as extname2, join as join16 } from "path";
+import { access as access2, readdir as readdir3 } from "fs/promises";
+import { extname as extname2, join as join17 } from "path";
 function getProfileForFile(filePath) {
   const ext = extname2(filePath);
   if (!ext)
@@ -34409,7 +34605,7 @@ async function detectProjectLanguages(projectDir) {
         if (detectFile.includes("*") || detectFile.includes("?"))
           continue;
         try {
-          await access(join16(dir, detectFile));
+          await access2(join17(dir, detectFile));
           detected.add(profile.id);
           break;
         } catch {}
@@ -34430,7 +34626,7 @@ async function detectProjectLanguages(projectDir) {
     const topEntries = await readdir3(projectDir, { withFileTypes: true });
     for (const entry of topEntries) {
       if (entry.isDirectory() && !entry.name.startsWith(".") && entry.name !== "node_modules") {
-        await scanDir(join16(projectDir, entry.name));
+        await scanDir(join17(projectDir, entry.name));
       }
     }
   } catch {}
@@ -35204,8 +35400,8 @@ function isAutoSummaryEnabled(automationConfig) {
 }
 var VALID_EVIDENCE_TYPES2, REQUIRED_EVIDENCE_TYPES, EVIDENCE_SUMMARY_VERSION = "1.0.0";
 var init_evidence_summary_service = __esm(() => {
-  init_manager();
   init_manager2();
+  init_manager();
   init_utils();
   VALID_EVIDENCE_TYPES2 = new Set([
     "review",
@@ -35493,7 +35689,7 @@ async function _detectAvailableLinter(_projectDir, biomeBin, eslintBin) {
       stderr: "pipe"
     });
     const biomeExit = biomeProc.exited;
-    const timeout = new Promise((resolve6) => setTimeout(() => resolve6("timeout"), DETECT_TIMEOUT));
+    const timeout = new Promise((resolve7) => setTimeout(() => resolve7("timeout"), DETECT_TIMEOUT));
     const result = await Promise.race([biomeExit, timeout]);
     if (result === "timeout") {
       biomeProc.kill();
@@ -35507,7 +35703,7 @@ async function _detectAvailableLinter(_projectDir, biomeBin, eslintBin) {
       stderr: "pipe"
     });
     const eslintExit = eslintProc.exited;
-    const timeout = new Promise((resolve6) => setTimeout(() => resolve6("timeout"), DETECT_TIMEOUT));
+    const timeout = new Promise((resolve7) => setTimeout(() => resolve7("timeout"), DETECT_TIMEOUT));
     const result = await Promise.race([eslintExit, timeout]);
     if (result === "timeout") {
       eslintProc.kill();
@@ -37139,9 +37335,9 @@ async function runTests(framework, scope, files, coverage, timeout_ms, cwd) {
       stderr: "pipe",
       cwd
     });
-    const timeoutPromise = new Promise((resolve9) => setTimeout(() => {
+    const timeoutPromise = new Promise((resolve10) => setTimeout(() => {
       proc.kill();
-      resolve9(-1);
+      resolve10(-1);
     }, timeout_ms));
     const [exitCode, stdoutResult, stderrResult] = await Promise.all([
       Promise.race([proc.exited, timeoutPromise]),
@@ -37879,6 +38075,45 @@ async function runEvidenceCheck(dir) {
     };
   }
 }
+async function runRequirementCoverageCheck(dir, currentPhase) {
+  const startTime = Date.now();
+  try {
+    const specPath = path28.join(dir, ".swarm", "spec.md");
+    if (!fs18.existsSync(specPath)) {
+      return {
+        type: "req_coverage",
+        status: "skip",
+        message: "No spec found, requirement coverage not required",
+        details: {},
+        durationMs: Date.now() - startTime
+      };
+    }
+    const coverage = await checkRequirementCoverage(currentPhase, dir);
+    if (coverage.exists) {
+      return {
+        type: "req_coverage",
+        status: "pass",
+        message: "Requirement coverage report found",
+        details: { path: coverage.path },
+        durationMs: Date.now() - startTime
+      };
+    }
+    return {
+      type: "req_coverage",
+      status: "fail",
+      message: "Requirement coverage report missing but spec exists",
+      details: { expectedPath: coverage.path },
+      durationMs: Date.now() - startTime
+    };
+  } catch (error93) {
+    return {
+      type: "req_coverage",
+      status: "error",
+      message: `Requirement coverage check failed: ${error93 instanceof Error ? error93.message : String(error93)}`,
+      durationMs: Date.now() - startTime
+    };
+  }
+}
 async function runPreflight(dir, phase, config3) {
   const startTime = Date.now();
   const reportId = `preflight-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`;
@@ -37984,6 +38219,10 @@ async function runPreflight(dir, phase, config3) {
       message: "Evidence check skipped by configuration"
     });
   }
+  log("[Preflight] Running requirement coverage check...");
+  const reqCoverageResult = await runRequirementCoverageCheck(validatedDir, phase);
+  checks5.push(reqCoverageResult);
+  log(`[Preflight] Requirement coverage check: ${reqCoverageResult.status} ${reqCoverageResult.message}`);
   if (!cfg.skipVersion) {
     log("[Preflight] Running version check...");
     const versionResult = await runVersionCheck(validatedDir, cfg.checkTimeoutMs);
@@ -38047,13 +38286,15 @@ function formatPreflightMarkdown(report) {
 `);
 }
 async function handlePreflightCommand(directory, _args) {
-  const report = await runPreflight(directory, 0);
+  const plan = await loadPlan(directory);
+  const phase = plan?.current_phase ?? 1;
+  const report = await runPreflight(directory, phase);
   return formatPreflightMarkdown(report);
 }
 var MIN_CHECK_TIMEOUT_MS = 5000, MAX_CHECK_TIMEOUT_MS = 300000, DEFAULT_CONFIG;
 var init_preflight_service = __esm(() => {
-  init_manager();
   init_manager2();
+  init_manager();
   init_lint();
   init_secretscan();
   init_test_runner();
@@ -38802,6 +39043,1685 @@ var init_trigger = __esm(() => {
   init_queue();
 });
 
+// node_modules/picomatch/lib/constants.js
+var require_constants = __commonJS((exports, module2) => {
+  var WIN_SLASH = "\\\\/";
+  var WIN_NO_SLASH = `[^${WIN_SLASH}]`;
+  var DEFAULT_MAX_EXTGLOB_RECURSION = 0;
+  var DOT_LITERAL = "\\.";
+  var PLUS_LITERAL = "\\+";
+  var QMARK_LITERAL = "\\?";
+  var SLASH_LITERAL = "\\/";
+  var ONE_CHAR = "(?=.)";
+  var QMARK = "[^/]";
+  var END_ANCHOR = `(?:${SLASH_LITERAL}|$)`;
+  var START_ANCHOR = `(?:^|${SLASH_LITERAL})`;
+  var DOTS_SLASH = `${DOT_LITERAL}{1,2}${END_ANCHOR}`;
+  var NO_DOT = `(?!${DOT_LITERAL})`;
+  var NO_DOTS = `(?!${START_ANCHOR}${DOTS_SLASH})`;
+  var NO_DOT_SLASH = `(?!${DOT_LITERAL}{0,1}${END_ANCHOR})`;
+  var NO_DOTS_SLASH = `(?!${DOTS_SLASH})`;
+  var QMARK_NO_DOT = `[^.${SLASH_LITERAL}]`;
+  var STAR = `${QMARK}*?`;
+  var SEP = "/";
+  var POSIX_CHARS = {
+    DOT_LITERAL,
+    PLUS_LITERAL,
+    QMARK_LITERAL,
+    SLASH_LITERAL,
+    ONE_CHAR,
+    QMARK,
+    END_ANCHOR,
+    DOTS_SLASH,
+    NO_DOT,
+    NO_DOTS,
+    NO_DOT_SLASH,
+    NO_DOTS_SLASH,
+    QMARK_NO_DOT,
+    STAR,
+    START_ANCHOR,
+    SEP
+  };
+  var WINDOWS_CHARS = {
+    ...POSIX_CHARS,
+    SLASH_LITERAL: `[${WIN_SLASH}]`,
+    QMARK: WIN_NO_SLASH,
+    STAR: `${WIN_NO_SLASH}*?`,
+    DOTS_SLASH: `${DOT_LITERAL}{1,2}(?:[${WIN_SLASH}]|$)`,
+    NO_DOT: `(?!${DOT_LITERAL})`,
+    NO_DOTS: `(?!(?:^|[${WIN_SLASH}])${DOT_LITERAL}{1,2}(?:[${WIN_SLASH}]|$))`,
+    NO_DOT_SLASH: `(?!${DOT_LITERAL}{0,1}(?:[${WIN_SLASH}]|$))`,
+    NO_DOTS_SLASH: `(?!${DOT_LITERAL}{1,2}(?:[${WIN_SLASH}]|$))`,
+    QMARK_NO_DOT: `[^.${WIN_SLASH}]`,
+    START_ANCHOR: `(?:^|[${WIN_SLASH}])`,
+    END_ANCHOR: `(?:[${WIN_SLASH}]|$)`,
+    SEP: "\\"
+  };
+  var POSIX_REGEX_SOURCE = {
+    __proto__: null,
+    alnum: "a-zA-Z0-9",
+    alpha: "a-zA-Z",
+    ascii: "\\x00-\\x7F",
+    blank: " \\t",
+    cntrl: "\\x00-\\x1F\\x7F",
+    digit: "0-9",
+    graph: "\\x21-\\x7E",
+    lower: "a-z",
+    print: "\\x20-\\x7E ",
+    punct: "\\-!\"#$%&'()\\*+,./:;<=>?@[\\]^_`{|}~",
+    space: " \\t\\r\\n\\v\\f",
+    upper: "A-Z",
+    word: "A-Za-z0-9_",
+    xdigit: "A-Fa-f0-9"
+  };
+  module2.exports = {
+    DEFAULT_MAX_EXTGLOB_RECURSION,
+    MAX_LENGTH: 1024 * 64,
+    POSIX_REGEX_SOURCE,
+    REGEX_BACKSLASH: /\\(?![*+?^${}(|)[\]])/g,
+    REGEX_NON_SPECIAL_CHARS: /^[^@![\].,$*+?^{}()|\\/]+/,
+    REGEX_SPECIAL_CHARS: /[-*+?.^${}(|)[\]]/,
+    REGEX_SPECIAL_CHARS_BACKREF: /(\\?)((\W)(\3*))/g,
+    REGEX_SPECIAL_CHARS_GLOBAL: /([-*+?.^${}(|)[\]])/g,
+    REGEX_REMOVE_BACKSLASH: /(?:\[.*?[^\\]\]|\\(?=.))/g,
+    REPLACEMENTS: {
+      __proto__: null,
+      "***": "*",
+      "**/**": "**",
+      "**/**/**": "**"
+    },
+    CHAR_0: 48,
+    CHAR_9: 57,
+    CHAR_UPPERCASE_A: 65,
+    CHAR_LOWERCASE_A: 97,
+    CHAR_UPPERCASE_Z: 90,
+    CHAR_LOWERCASE_Z: 122,
+    CHAR_LEFT_PARENTHESES: 40,
+    CHAR_RIGHT_PARENTHESES: 41,
+    CHAR_ASTERISK: 42,
+    CHAR_AMPERSAND: 38,
+    CHAR_AT: 64,
+    CHAR_BACKWARD_SLASH: 92,
+    CHAR_CARRIAGE_RETURN: 13,
+    CHAR_CIRCUMFLEX_ACCENT: 94,
+    CHAR_COLON: 58,
+    CHAR_COMMA: 44,
+    CHAR_DOT: 46,
+    CHAR_DOUBLE_QUOTE: 34,
+    CHAR_EQUAL: 61,
+    CHAR_EXCLAMATION_MARK: 33,
+    CHAR_FORM_FEED: 12,
+    CHAR_FORWARD_SLASH: 47,
+    CHAR_GRAVE_ACCENT: 96,
+    CHAR_HASH: 35,
+    CHAR_HYPHEN_MINUS: 45,
+    CHAR_LEFT_ANGLE_BRACKET: 60,
+    CHAR_LEFT_CURLY_BRACE: 123,
+    CHAR_LEFT_SQUARE_BRACKET: 91,
+    CHAR_LINE_FEED: 10,
+    CHAR_NO_BREAK_SPACE: 160,
+    CHAR_PERCENT: 37,
+    CHAR_PLUS: 43,
+    CHAR_QUESTION_MARK: 63,
+    CHAR_RIGHT_ANGLE_BRACKET: 62,
+    CHAR_RIGHT_CURLY_BRACE: 125,
+    CHAR_RIGHT_SQUARE_BRACKET: 93,
+    CHAR_SEMICOLON: 59,
+    CHAR_SINGLE_QUOTE: 39,
+    CHAR_SPACE: 32,
+    CHAR_TAB: 9,
+    CHAR_UNDERSCORE: 95,
+    CHAR_VERTICAL_LINE: 124,
+    CHAR_ZERO_WIDTH_NOBREAK_SPACE: 65279,
+    extglobChars(chars) {
+      return {
+        "!": { type: "negate", open: "(?:(?!(?:", close: `))${chars.STAR})` },
+        "?": { type: "qmark", open: "(?:", close: ")?" },
+        "+": { type: "plus", open: "(?:", close: ")+" },
+        "*": { type: "star", open: "(?:", close: ")*" },
+        "@": { type: "at", open: "(?:", close: ")" }
+      };
+    },
+    globChars(win32) {
+      return win32 === true ? WINDOWS_CHARS : POSIX_CHARS;
+    }
+  };
+});
+
+// node_modules/picomatch/lib/utils.js
+var require_utils = __commonJS((exports) => {
+  var {
+    REGEX_BACKSLASH,
+    REGEX_REMOVE_BACKSLASH,
+    REGEX_SPECIAL_CHARS,
+    REGEX_SPECIAL_CHARS_GLOBAL
+  } = require_constants();
+  exports.isObject = (val) => val !== null && typeof val === "object" && !Array.isArray(val);
+  exports.hasRegexChars = (str) => REGEX_SPECIAL_CHARS.test(str);
+  exports.isRegexChar = (str) => str.length === 1 && exports.hasRegexChars(str);
+  exports.escapeRegex = (str) => str.replace(REGEX_SPECIAL_CHARS_GLOBAL, "\\$1");
+  exports.toPosixSlashes = (str) => str.replace(REGEX_BACKSLASH, "/");
+  exports.isWindows = () => {
+    if (typeof navigator !== "undefined" && navigator.platform) {
+      const platform = navigator.platform.toLowerCase();
+      return platform === "win32" || platform === "windows";
+    }
+    if (typeof process !== "undefined" && process.platform) {
+      return process.platform === "win32";
+    }
+    return false;
+  };
+  exports.removeBackslashes = (str) => {
+    return str.replace(REGEX_REMOVE_BACKSLASH, (match) => {
+      return match === "\\" ? "" : match;
+    });
+  };
+  exports.escapeLast = (input, char, lastIdx) => {
+    const idx = input.lastIndexOf(char, lastIdx);
+    if (idx === -1)
+      return input;
+    if (input[idx - 1] === "\\")
+      return exports.escapeLast(input, char, idx - 1);
+    return `${input.slice(0, idx)}\\${input.slice(idx)}`;
+  };
+  exports.removePrefix = (input, state = {}) => {
+    let output = input;
+    if (output.startsWith("./")) {
+      output = output.slice(2);
+      state.prefix = "./";
+    }
+    return output;
+  };
+  exports.wrapOutput = (input, state = {}, options = {}) => {
+    const prepend = options.contains ? "" : "^";
+    const append = options.contains ? "" : "$";
+    let output = `${prepend}(?:${input})${append}`;
+    if (state.negated === true) {
+      output = `(?:^(?!${output}).*$)`;
+    }
+    return output;
+  };
+  exports.basename = (path38, { windows } = {}) => {
+    const segs = path38.split(windows ? /[\\/]/ : "/");
+    const last = segs[segs.length - 1];
+    if (last === "") {
+      return segs[segs.length - 2];
+    }
+    return last;
+  };
+});
+
+// node_modules/picomatch/lib/scan.js
+var require_scan = __commonJS((exports, module2) => {
+  var utils = require_utils();
+  var {
+    CHAR_ASTERISK,
+    CHAR_AT,
+    CHAR_BACKWARD_SLASH,
+    CHAR_COMMA,
+    CHAR_DOT,
+    CHAR_EXCLAMATION_MARK,
+    CHAR_FORWARD_SLASH,
+    CHAR_LEFT_CURLY_BRACE,
+    CHAR_LEFT_PARENTHESES,
+    CHAR_LEFT_SQUARE_BRACKET,
+    CHAR_PLUS,
+    CHAR_QUESTION_MARK,
+    CHAR_RIGHT_CURLY_BRACE,
+    CHAR_RIGHT_PARENTHESES,
+    CHAR_RIGHT_SQUARE_BRACKET
+  } = require_constants();
+  var isPathSeparator = (code) => {
+    return code === CHAR_FORWARD_SLASH || code === CHAR_BACKWARD_SLASH;
+  };
+  var depth = (token) => {
+    if (token.isPrefix !== true) {
+      token.depth = token.isGlobstar ? Infinity : 1;
+    }
+  };
+  var scan = (input, options) => {
+    const opts = options || {};
+    const length = input.length - 1;
+    const scanToEnd = opts.parts === true || opts.scanToEnd === true;
+    const slashes = [];
+    const tokens = [];
+    const parts2 = [];
+    let str = input;
+    let index = -1;
+    let start2 = 0;
+    let lastIndex = 0;
+    let isBrace = false;
+    let isBracket = false;
+    let isGlob = false;
+    let isExtglob = false;
+    let isGlobstar = false;
+    let braceEscaped = false;
+    let backslashes = false;
+    let negated = false;
+    let negatedExtglob = false;
+    let finished = false;
+    let braces = 0;
+    let prev;
+    let code;
+    let token = { value: "", depth: 0, isGlob: false };
+    const eos = () => index >= length;
+    const peek = () => str.charCodeAt(index + 1);
+    const advance = () => {
+      prev = code;
+      return str.charCodeAt(++index);
+    };
+    while (index < length) {
+      code = advance();
+      let next;
+      if (code === CHAR_BACKWARD_SLASH) {
+        backslashes = token.backslashes = true;
+        code = advance();
+        if (code === CHAR_LEFT_CURLY_BRACE) {
+          braceEscaped = true;
+        }
+        continue;
+      }
+      if (braceEscaped === true || code === CHAR_LEFT_CURLY_BRACE) {
+        braces++;
+        while (eos() !== true && (code = advance())) {
+          if (code === CHAR_BACKWARD_SLASH) {
+            backslashes = token.backslashes = true;
+            advance();
+            continue;
+          }
+          if (code === CHAR_LEFT_CURLY_BRACE) {
+            braces++;
+            continue;
+          }
+          if (braceEscaped !== true && code === CHAR_DOT && (code = advance()) === CHAR_DOT) {
+            isBrace = token.isBrace = true;
+            isGlob = token.isGlob = true;
+            finished = true;
+            if (scanToEnd === true) {
+              continue;
+            }
+            break;
+          }
+          if (braceEscaped !== true && code === CHAR_COMMA) {
+            isBrace = token.isBrace = true;
+            isGlob = token.isGlob = true;
+            finished = true;
+            if (scanToEnd === true) {
+              continue;
+            }
+            break;
+          }
+          if (code === CHAR_RIGHT_CURLY_BRACE) {
+            braces--;
+            if (braces === 0) {
+              braceEscaped = false;
+              isBrace = token.isBrace = true;
+              finished = true;
+              break;
+            }
+          }
+        }
+        if (scanToEnd === true) {
+          continue;
+        }
+        break;
+      }
+      if (code === CHAR_FORWARD_SLASH) {
+        slashes.push(index);
+        tokens.push(token);
+        token = { value: "", depth: 0, isGlob: false };
+        if (finished === true)
+          continue;
+        if (prev === CHAR_DOT && index === start2 + 1) {
+          start2 += 2;
+          continue;
+        }
+        lastIndex = index + 1;
+        continue;
+      }
+      if (opts.noext !== true) {
+        const isExtglobChar = code === CHAR_PLUS || code === CHAR_AT || code === CHAR_ASTERISK || code === CHAR_QUESTION_MARK || code === CHAR_EXCLAMATION_MARK;
+        if (isExtglobChar === true && peek() === CHAR_LEFT_PARENTHESES) {
+          isGlob = token.isGlob = true;
+          isExtglob = token.isExtglob = true;
+          finished = true;
+          if (code === CHAR_EXCLAMATION_MARK && index === start2) {
+            negatedExtglob = true;
+          }
+          if (scanToEnd === true) {
+            while (eos() !== true && (code = advance())) {
+              if (code === CHAR_BACKWARD_SLASH) {
+                backslashes = token.backslashes = true;
+                code = advance();
+                continue;
+              }
+              if (code === CHAR_RIGHT_PARENTHESES) {
+                isGlob = token.isGlob = true;
+                finished = true;
+                break;
+              }
+            }
+            continue;
+          }
+          break;
+        }
+      }
+      if (code === CHAR_ASTERISK) {
+        if (prev === CHAR_ASTERISK)
+          isGlobstar = token.isGlobstar = true;
+        isGlob = token.isGlob = true;
+        finished = true;
+        if (scanToEnd === true) {
+          continue;
+        }
+        break;
+      }
+      if (code === CHAR_QUESTION_MARK) {
+        isGlob = token.isGlob = true;
+        finished = true;
+        if (scanToEnd === true) {
+          continue;
+        }
+        break;
+      }
+      if (code === CHAR_LEFT_SQUARE_BRACKET) {
+        while (eos() !== true && (next = advance())) {
+          if (next === CHAR_BACKWARD_SLASH) {
+            backslashes = token.backslashes = true;
+            advance();
+            continue;
+          }
+          if (next === CHAR_RIGHT_SQUARE_BRACKET) {
+            isBracket = token.isBracket = true;
+            isGlob = token.isGlob = true;
+            finished = true;
+            break;
+          }
+        }
+        if (scanToEnd === true) {
+          continue;
+        }
+        break;
+      }
+      if (opts.nonegate !== true && code === CHAR_EXCLAMATION_MARK && index === start2) {
+        negated = token.negated = true;
+        start2++;
+        continue;
+      }
+      if (opts.noparen !== true && code === CHAR_LEFT_PARENTHESES) {
+        isGlob = token.isGlob = true;
+        if (scanToEnd === true) {
+          while (eos() !== true && (code = advance())) {
+            if (code === CHAR_LEFT_PARENTHESES) {
+              backslashes = token.backslashes = true;
+              code = advance();
+              continue;
+            }
+            if (code === CHAR_RIGHT_PARENTHESES) {
+              finished = true;
+              break;
+            }
+          }
+          continue;
+        }
+        break;
+      }
+      if (isGlob === true) {
+        finished = true;
+        if (scanToEnd === true) {
+          continue;
+        }
+        break;
+      }
+    }
+    if (opts.noext === true) {
+      isExtglob = false;
+      isGlob = false;
+    }
+    let base = str;
+    let prefix = "";
+    let glob = "";
+    if (start2 > 0) {
+      prefix = str.slice(0, start2);
+      str = str.slice(start2);
+      lastIndex -= start2;
+    }
+    if (base && isGlob === true && lastIndex > 0) {
+      base = str.slice(0, lastIndex);
+      glob = str.slice(lastIndex);
+    } else if (isGlob === true) {
+      base = "";
+      glob = str;
+    } else {
+      base = str;
+    }
+    if (base && base !== "" && base !== "/" && base !== str) {
+      if (isPathSeparator(base.charCodeAt(base.length - 1))) {
+        base = base.slice(0, -1);
+      }
+    }
+    if (opts.unescape === true) {
+      if (glob)
+        glob = utils.removeBackslashes(glob);
+      if (base && backslashes === true) {
+        base = utils.removeBackslashes(base);
+      }
+    }
+    const state = {
+      prefix,
+      input,
+      start: start2,
+      base,
+      glob,
+      isBrace,
+      isBracket,
+      isGlob,
+      isExtglob,
+      isGlobstar,
+      negated,
+      negatedExtglob
+    };
+    if (opts.tokens === true) {
+      state.maxDepth = 0;
+      if (!isPathSeparator(code)) {
+        tokens.push(token);
+      }
+      state.tokens = tokens;
+    }
+    if (opts.parts === true || opts.tokens === true) {
+      let prevIndex;
+      for (let idx = 0;idx < slashes.length; idx++) {
+        const n = prevIndex ? prevIndex + 1 : start2;
+        const i2 = slashes[idx];
+        const value = input.slice(n, i2);
+        if (opts.tokens) {
+          if (idx === 0 && start2 !== 0) {
+            tokens[idx].isPrefix = true;
+            tokens[idx].value = prefix;
+          } else {
+            tokens[idx].value = value;
+          }
+          depth(tokens[idx]);
+          state.maxDepth += tokens[idx].depth;
+        }
+        if (idx !== 0 || value !== "") {
+          parts2.push(value);
+        }
+        prevIndex = i2;
+      }
+      if (prevIndex && prevIndex + 1 < input.length) {
+        const value = input.slice(prevIndex + 1);
+        parts2.push(value);
+        if (opts.tokens) {
+          tokens[tokens.length - 1].value = value;
+          depth(tokens[tokens.length - 1]);
+          state.maxDepth += tokens[tokens.length - 1].depth;
+        }
+      }
+      state.slashes = slashes;
+      state.parts = parts2;
+    }
+    return state;
+  };
+  module2.exports = scan;
+});
+
+// node_modules/picomatch/lib/parse.js
+var require_parse = __commonJS((exports, module2) => {
+  var constants2 = require_constants();
+  var utils = require_utils();
+  var {
+    MAX_LENGTH,
+    POSIX_REGEX_SOURCE,
+    REGEX_NON_SPECIAL_CHARS,
+    REGEX_SPECIAL_CHARS_BACKREF,
+    REPLACEMENTS
+  } = constants2;
+  var expandRange = (args2, options) => {
+    if (typeof options.expandRange === "function") {
+      return options.expandRange(...args2, options);
+    }
+    args2.sort();
+    const value = `[${args2.join("-")}]`;
+    try {
+      new RegExp(value);
+    } catch (ex) {
+      return args2.map((v) => utils.escapeRegex(v)).join("..");
+    }
+    return value;
+  };
+  var syntaxError = (type, char) => {
+    return `Missing ${type}: "${char}" - use "\\\\${char}" to match literal characters`;
+  };
+  var splitTopLevel = (input) => {
+    const parts2 = [];
+    let bracket = 0;
+    let paren = 0;
+    let quote = 0;
+    let value = "";
+    let escaped = false;
+    for (const ch of input) {
+      if (escaped === true) {
+        value += ch;
+        escaped = false;
+        continue;
+      }
+      if (ch === "\\") {
+        value += ch;
+        escaped = true;
+        continue;
+      }
+      if (ch === '"') {
+        quote = quote === 1 ? 0 : 1;
+        value += ch;
+        continue;
+      }
+      if (quote === 0) {
+        if (ch === "[") {
+          bracket++;
+        } else if (ch === "]" && bracket > 0) {
+          bracket--;
+        } else if (bracket === 0) {
+          if (ch === "(") {
+            paren++;
+          } else if (ch === ")" && paren > 0) {
+            paren--;
+          } else if (ch === "|" && paren === 0) {
+            parts2.push(value);
+            value = "";
+            continue;
+          }
+        }
+      }
+      value += ch;
+    }
+    parts2.push(value);
+    return parts2;
+  };
+  var isPlainBranch = (branch) => {
+    let escaped = false;
+    for (const ch of branch) {
+      if (escaped === true) {
+        escaped = false;
+        continue;
+      }
+      if (ch === "\\") {
+        escaped = true;
+        continue;
+      }
+      if (/[?*+@!()[\]{}]/.test(ch)) {
+        return false;
+      }
+    }
+    return true;
+  };
+  var normalizeSimpleBranch = (branch) => {
+    let value = branch.trim();
+    let changed = true;
+    while (changed === true) {
+      changed = false;
+      if (/^@\([^\\()[\]{}|]+\)$/.test(value)) {
+        value = value.slice(2, -1);
+        changed = true;
+      }
+    }
+    if (!isPlainBranch(value)) {
+      return;
+    }
+    return value.replace(/\\(.)/g, "$1");
+  };
+  var hasRepeatedCharPrefixOverlap = (branches) => {
+    const values = branches.map(normalizeSimpleBranch).filter(Boolean);
+    for (let i2 = 0;i2 < values.length; i2++) {
+      for (let j = i2 + 1;j < values.length; j++) {
+        const a = values[i2];
+        const b = values[j];
+        const char = a[0];
+        if (!char || a !== char.repeat(a.length) || b !== char.repeat(b.length)) {
+          continue;
+        }
+        if (a === b || a.startsWith(b) || b.startsWith(a)) {
+          return true;
+        }
+      }
+    }
+    return false;
+  };
+  var parseRepeatedExtglob = (pattern, requireEnd = true) => {
+    if (pattern[0] !== "+" && pattern[0] !== "*" || pattern[1] !== "(") {
+      return;
+    }
+    let bracket = 0;
+    let paren = 0;
+    let quote = 0;
+    let escaped = false;
+    for (let i2 = 1;i2 < pattern.length; i2++) {
+      const ch = pattern[i2];
+      if (escaped === true) {
+        escaped = false;
+        continue;
+      }
+      if (ch === "\\") {
+        escaped = true;
+        continue;
+      }
+      if (ch === '"') {
+        quote = quote === 1 ? 0 : 1;
+        continue;
+      }
+      if (quote === 1) {
+        continue;
+      }
+      if (ch === "[") {
+        bracket++;
+        continue;
+      }
+      if (ch === "]" && bracket > 0) {
+        bracket--;
+        continue;
+      }
+      if (bracket > 0) {
+        continue;
+      }
+      if (ch === "(") {
+        paren++;
+        continue;
+      }
+      if (ch === ")") {
+        paren--;
+        if (paren === 0) {
+          if (requireEnd === true && i2 !== pattern.length - 1) {
+            return;
+          }
+          return {
+            type: pattern[0],
+            body: pattern.slice(2, i2),
+            end: i2
+          };
+        }
+      }
+    }
+  };
+  var getStarExtglobSequenceOutput = (pattern) => {
+    let index = 0;
+    const chars = [];
+    while (index < pattern.length) {
+      const match = parseRepeatedExtglob(pattern.slice(index), false);
+      if (!match || match.type !== "*") {
+        return;
+      }
+      const branches = splitTopLevel(match.body).map((branch2) => branch2.trim());
+      if (branches.length !== 1) {
+        return;
+      }
+      const branch = normalizeSimpleBranch(branches[0]);
+      if (!branch || branch.length !== 1) {
+        return;
+      }
+      chars.push(branch);
+      index += match.end + 1;
+    }
+    if (chars.length < 1) {
+      return;
+    }
+    const source = chars.length === 1 ? utils.escapeRegex(chars[0]) : `[${chars.map((ch) => utils.escapeRegex(ch)).join("")}]`;
+    return `${source}*`;
+  };
+  var repeatedExtglobRecursion = (pattern) => {
+    let depth = 0;
+    let value = pattern.trim();
+    let match = parseRepeatedExtglob(value);
+    while (match) {
+      depth++;
+      value = match.body.trim();
+      match = parseRepeatedExtglob(value);
+    }
+    return depth;
+  };
+  var analyzeRepeatedExtglob = (body2, options) => {
+    if (options.maxExtglobRecursion === false) {
+      return { risky: false };
+    }
+    const max = typeof options.maxExtglobRecursion === "number" ? options.maxExtglobRecursion : constants2.DEFAULT_MAX_EXTGLOB_RECURSION;
+    const branches = splitTopLevel(body2).map((branch) => branch.trim());
+    if (branches.length > 1) {
+      if (branches.some((branch) => branch === "") || branches.some((branch) => /^[*?]+$/.test(branch)) || hasRepeatedCharPrefixOverlap(branches)) {
+        return { risky: true };
+      }
+    }
+    for (const branch of branches) {
+      const safeOutput = getStarExtglobSequenceOutput(branch);
+      if (safeOutput) {
+        return { risky: true, safeOutput };
+      }
+      if (repeatedExtglobRecursion(branch) > max) {
+        return { risky: true };
+      }
+    }
+    return { risky: false };
+  };
+  var parse9 = (input, options) => {
+    if (typeof input !== "string") {
+      throw new TypeError("Expected a string");
+    }
+    input = REPLACEMENTS[input] || input;
+    const opts = { ...options };
+    const max = typeof opts.maxLength === "number" ? Math.min(MAX_LENGTH, opts.maxLength) : MAX_LENGTH;
+    let len = input.length;
+    if (len > max) {
+      throw new SyntaxError(`Input length: ${len}, exceeds maximum allowed length: ${max}`);
+    }
+    const bos = { type: "bos", value: "", output: opts.prepend || "" };
+    const tokens = [bos];
+    const capture = opts.capture ? "" : "?:";
+    const PLATFORM_CHARS = constants2.globChars(opts.windows);
+    const EXTGLOB_CHARS = constants2.extglobChars(PLATFORM_CHARS);
+    const {
+      DOT_LITERAL,
+      PLUS_LITERAL,
+      SLASH_LITERAL,
+      ONE_CHAR,
+      DOTS_SLASH,
+      NO_DOT,
+      NO_DOT_SLASH,
+      NO_DOTS_SLASH,
+      QMARK,
+      QMARK_NO_DOT,
+      STAR,
+      START_ANCHOR
+    } = PLATFORM_CHARS;
+    const globstar = (opts2) => {
+      return `(${capture}(?:(?!${START_ANCHOR}${opts2.dot ? DOTS_SLASH : DOT_LITERAL}).)*?)`;
+    };
+    const nodot = opts.dot ? "" : NO_DOT;
+    const qmarkNoDot = opts.dot ? QMARK : QMARK_NO_DOT;
+    let star = opts.bash === true ? globstar(opts) : STAR;
+    if (opts.capture) {
+      star = `(${star})`;
+    }
+    if (typeof opts.noext === "boolean") {
+      opts.noextglob = opts.noext;
+    }
+    const state = {
+      input,
+      index: -1,
+      start: 0,
+      dot: opts.dot === true,
+      consumed: "",
+      output: "",
+      prefix: "",
+      backtrack: false,
+      negated: false,
+      brackets: 0,
+      braces: 0,
+      parens: 0,
+      quotes: 0,
+      globstar: false,
+      tokens
+    };
+    input = utils.removePrefix(input, state);
+    len = input.length;
+    const extglobs = [];
+    const braces = [];
+    const stack = [];
+    let prev = bos;
+    let value;
+    const eos = () => state.index === len - 1;
+    const peek = state.peek = (n = 1) => input[state.index + n];
+    const advance = state.advance = () => input[++state.index] || "";
+    const remaining = () => input.slice(state.index + 1);
+    const consume = (value2 = "", num = 0) => {
+      state.consumed += value2;
+      state.index += num;
+    };
+    const append = (token) => {
+      state.output += token.output != null ? token.output : token.value;
+      consume(token.value);
+    };
+    const negate = () => {
+      let count = 1;
+      while (peek() === "!" && (peek(2) !== "(" || peek(3) === "?")) {
+        advance();
+        state.start++;
+        count++;
+      }
+      if (count % 2 === 0) {
+        return false;
+      }
+      state.negated = true;
+      state.start++;
+      return true;
+    };
+    const increment = (type) => {
+      state[type]++;
+      stack.push(type);
+    };
+    const decrement = (type) => {
+      state[type]--;
+      stack.pop();
+    };
+    const push = (tok) => {
+      if (prev.type === "globstar") {
+        const isBrace = state.braces > 0 && (tok.type === "comma" || tok.type === "brace");
+        const isExtglob = tok.extglob === true || extglobs.length && (tok.type === "pipe" || tok.type === "paren");
+        if (tok.type !== "slash" && tok.type !== "paren" && !isBrace && !isExtglob) {
+          state.output = state.output.slice(0, -prev.output.length);
+          prev.type = "star";
+          prev.value = "*";
+          prev.output = star;
+          state.output += prev.output;
+        }
+      }
+      if (extglobs.length && tok.type !== "paren") {
+        extglobs[extglobs.length - 1].inner += tok.value;
+      }
+      if (tok.value || tok.output)
+        append(tok);
+      if (prev && prev.type === "text" && tok.type === "text") {
+        prev.output = (prev.output || prev.value) + tok.value;
+        prev.value += tok.value;
+        return;
+      }
+      tok.prev = prev;
+      tokens.push(tok);
+      prev = tok;
+    };
+    const extglobOpen = (type, value2) => {
+      const token = { ...EXTGLOB_CHARS[value2], conditions: 1, inner: "" };
+      token.prev = prev;
+      token.parens = state.parens;
+      token.output = state.output;
+      token.startIndex = state.index;
+      token.tokensIndex = tokens.length;
+      const output = (opts.capture ? "(" : "") + token.open;
+      increment("parens");
+      push({ type, value: value2, output: state.output ? "" : ONE_CHAR });
+      push({ type: "paren", extglob: true, value: advance(), output });
+      extglobs.push(token);
+    };
+    const extglobClose = (token) => {
+      const literal3 = input.slice(token.startIndex, state.index + 1);
+      const body2 = input.slice(token.startIndex + 2, state.index);
+      const analysis = analyzeRepeatedExtglob(body2, opts);
+      if ((token.type === "plus" || token.type === "star") && analysis.risky) {
+        const safeOutput = analysis.safeOutput ? (token.output ? "" : ONE_CHAR) + (opts.capture ? `(${analysis.safeOutput})` : analysis.safeOutput) : undefined;
+        const open = tokens[token.tokensIndex];
+        open.type = "text";
+        open.value = literal3;
+        open.output = safeOutput || utils.escapeRegex(literal3);
+        for (let i2 = token.tokensIndex + 1;i2 < tokens.length; i2++) {
+          tokens[i2].value = "";
+          tokens[i2].output = "";
+          delete tokens[i2].suffix;
+        }
+        state.output = token.output + open.output;
+        state.backtrack = true;
+        push({ type: "paren", extglob: true, value, output: "" });
+        decrement("parens");
+        return;
+      }
+      let output = token.close + (opts.capture ? ")" : "");
+      let rest;
+      if (token.type === "negate") {
+        let extglobStar = star;
+        if (token.inner && token.inner.length > 1 && token.inner.includes("/")) {
+          extglobStar = globstar(opts);
+        }
+        if (extglobStar !== star || eos() || /^\)+$/.test(remaining())) {
+          output = token.close = `)$))${extglobStar}`;
+        }
+        if (token.inner.includes("*") && (rest = remaining()) && /^\.[^\\/.]+$/.test(rest)) {
+          const expression = parse9(rest, { ...options, fastpaths: false }).output;
+          output = token.close = `)${expression})${extglobStar})`;
+        }
+        if (token.prev.type === "bos") {
+          state.negatedExtglob = true;
+        }
+      }
+      push({ type: "paren", extglob: true, value, output });
+      decrement("parens");
+    };
+    if (opts.fastpaths !== false && !/(^[*!]|[/()[\]{}"])/.test(input)) {
+      let backslashes = false;
+      let output = input.replace(REGEX_SPECIAL_CHARS_BACKREF, (m, esc3, chars, first, rest, index) => {
+        if (first === "\\") {
+          backslashes = true;
+          return m;
+        }
+        if (first === "?") {
+          if (esc3) {
+            return esc3 + first + (rest ? QMARK.repeat(rest.length) : "");
+          }
+          if (index === 0) {
+            return qmarkNoDot + (rest ? QMARK.repeat(rest.length) : "");
+          }
+          return QMARK.repeat(chars.length);
+        }
+        if (first === ".") {
+          return DOT_LITERAL.repeat(chars.length);
+        }
+        if (first === "*") {
+          if (esc3) {
+            return esc3 + first + (rest ? star : "");
+          }
+          return star;
+        }
+        return esc3 ? m : `\\${m}`;
+      });
+      if (backslashes === true) {
+        if (opts.unescape === true) {
+          output = output.replace(/\\/g, "");
+        } else {
+          output = output.replace(/\\+/g, (m) => {
+            return m.length % 2 === 0 ? "\\\\" : m ? "\\" : "";
+          });
+        }
+      }
+      if (output === input && opts.contains === true) {
+        state.output = input;
+        return state;
+      }
+      state.output = utils.wrapOutput(output, state, options);
+      return state;
+    }
+    while (!eos()) {
+      value = advance();
+      if (value === "\x00") {
+        continue;
+      }
+      if (value === "\\") {
+        const next = peek();
+        if (next === "/" && opts.bash !== true) {
+          continue;
+        }
+        if (next === "." || next === ";") {
+          continue;
+        }
+        if (!next) {
+          value += "\\";
+          push({ type: "text", value });
+          continue;
+        }
+        const match = /^\\+/.exec(remaining());
+        let slashes = 0;
+        if (match && match[0].length > 2) {
+          slashes = match[0].length;
+          state.index += slashes;
+          if (slashes % 2 !== 0) {
+            value += "\\";
+          }
+        }
+        if (opts.unescape === true) {
+          value = advance();
+        } else {
+          value += advance();
+        }
+        if (state.brackets === 0) {
+          push({ type: "text", value });
+          continue;
+        }
+      }
+      if (state.brackets > 0 && (value !== "]" || prev.value === "[" || prev.value === "[^")) {
+        if (opts.posix !== false && value === ":") {
+          const inner = prev.value.slice(1);
+          if (inner.includes("[")) {
+            prev.posix = true;
+            if (inner.includes(":")) {
+              const idx = prev.value.lastIndexOf("[");
+              const pre = prev.value.slice(0, idx);
+              const rest2 = prev.value.slice(idx + 2);
+              const posix = POSIX_REGEX_SOURCE[rest2];
+              if (posix) {
+                prev.value = pre + posix;
+                state.backtrack = true;
+                advance();
+                if (!bos.output && tokens.indexOf(prev) === 1) {
+                  bos.output = ONE_CHAR;
+                }
+                continue;
+              }
+            }
+          }
+        }
+        if (value === "[" && peek() !== ":" || value === "-" && peek() === "]") {
+          value = `\\${value}`;
+        }
+        if (value === "]" && (prev.value === "[" || prev.value === "[^")) {
+          value = `\\${value}`;
+        }
+        if (opts.posix === true && value === "!" && prev.value === "[") {
+          value = "^";
+        }
+        prev.value += value;
+        append({ value });
+        continue;
+      }
+      if (state.quotes === 1 && value !== '"') {
+        value = utils.escapeRegex(value);
+        prev.value += value;
+        append({ value });
+        continue;
+      }
+      if (value === '"') {
+        state.quotes = state.quotes === 1 ? 0 : 1;
+        if (opts.keepQuotes === true) {
+          push({ type: "text", value });
+        }
+        continue;
+      }
+      if (value === "(") {
+        increment("parens");
+        push({ type: "paren", value });
+        continue;
+      }
+      if (value === ")") {
+        if (state.parens === 0 && opts.strictBrackets === true) {
+          throw new SyntaxError(syntaxError("opening", "("));
+        }
+        const extglob = extglobs[extglobs.length - 1];
+        if (extglob && state.parens === extglob.parens + 1) {
+          extglobClose(extglobs.pop());
+          continue;
+        }
+        push({ type: "paren", value, output: state.parens ? ")" : "\\)" });
+        decrement("parens");
+        continue;
+      }
+      if (value === "[") {
+        if (opts.nobracket === true || !remaining().includes("]")) {
+          if (opts.nobracket !== true && opts.strictBrackets === true) {
+            throw new SyntaxError(syntaxError("closing", "]"));
+          }
+          value = `\\${value}`;
+        } else {
+          increment("brackets");
+        }
+        push({ type: "bracket", value });
+        continue;
+      }
+      if (value === "]") {
+        if (opts.nobracket === true || prev && prev.type === "bracket" && prev.value.length === 1) {
+          push({ type: "text", value, output: `\\${value}` });
+          continue;
+        }
+        if (state.brackets === 0) {
+          if (opts.strictBrackets === true) {
+            throw new SyntaxError(syntaxError("opening", "["));
+          }
+          push({ type: "text", value, output: `\\${value}` });
+          continue;
+        }
+        decrement("brackets");
+        const prevValue = prev.value.slice(1);
+        if (prev.posix !== true && prevValue[0] === "^" && !prevValue.includes("/")) {
+          value = `/${value}`;
+        }
+        prev.value += value;
+        append({ value });
+        if (opts.literalBrackets === false || utils.hasRegexChars(prevValue)) {
+          continue;
+        }
+        const escaped = utils.escapeRegex(prev.value);
+        state.output = state.output.slice(0, -prev.value.length);
+        if (opts.literalBrackets === true) {
+          state.output += escaped;
+          prev.value = escaped;
+          continue;
+        }
+        prev.value = `(${capture}${escaped}|${prev.value})`;
+        state.output += prev.value;
+        continue;
+      }
+      if (value === "{" && opts.nobrace !== true) {
+        increment("braces");
+        const open = {
+          type: "brace",
+          value,
+          output: "(",
+          outputIndex: state.output.length,
+          tokensIndex: state.tokens.length
+        };
+        braces.push(open);
+        push(open);
+        continue;
+      }
+      if (value === "}") {
+        const brace = braces[braces.length - 1];
+        if (opts.nobrace === true || !brace) {
+          push({ type: "text", value, output: value });
+          continue;
+        }
+        let output = ")";
+        if (brace.dots === true) {
+          const arr = tokens.slice();
+          const range = [];
+          for (let i2 = arr.length - 1;i2 >= 0; i2--) {
+            tokens.pop();
+            if (arr[i2].type === "brace") {
+              break;
+            }
+            if (arr[i2].type !== "dots") {
+              range.unshift(arr[i2].value);
+            }
+          }
+          output = expandRange(range, opts);
+          state.backtrack = true;
+        }
+        if (brace.comma !== true && brace.dots !== true) {
+          const out2 = state.output.slice(0, brace.outputIndex);
+          const toks = state.tokens.slice(brace.tokensIndex);
+          brace.value = brace.output = "\\{";
+          value = output = "\\}";
+          state.output = out2;
+          for (const t of toks) {
+            state.output += t.output || t.value;
+          }
+        }
+        push({ type: "brace", value, output });
+        decrement("braces");
+        braces.pop();
+        continue;
+      }
+      if (value === "|") {
+        if (extglobs.length > 0) {
+          extglobs[extglobs.length - 1].conditions++;
+        }
+        push({ type: "text", value });
+        continue;
+      }
+      if (value === ",") {
+        let output = value;
+        const brace = braces[braces.length - 1];
+        if (brace && stack[stack.length - 1] === "braces") {
+          brace.comma = true;
+          output = "|";
+        }
+        push({ type: "comma", value, output });
+        continue;
+      }
+      if (value === "/") {
+        if (prev.type === "dot" && state.index === state.start + 1) {
+          state.start = state.index + 1;
+          state.consumed = "";
+          state.output = "";
+          tokens.pop();
+          prev = bos;
+          continue;
+        }
+        push({ type: "slash", value, output: SLASH_LITERAL });
+        continue;
+      }
+      if (value === ".") {
+        if (state.braces > 0 && prev.type === "dot") {
+          if (prev.value === ".")
+            prev.output = DOT_LITERAL;
+          const brace = braces[braces.length - 1];
+          prev.type = "dots";
+          prev.output += value;
+          prev.value += value;
+          brace.dots = true;
+          continue;
+        }
+        if (state.braces + state.parens === 0 && prev.type !== "bos" && prev.type !== "slash") {
+          push({ type: "text", value, output: DOT_LITERAL });
+          continue;
+        }
+        push({ type: "dot", value, output: DOT_LITERAL });
+        continue;
+      }
+      if (value === "?") {
+        const isGroup = prev && prev.value === "(";
+        if (!isGroup && opts.noextglob !== true && peek() === "(" && peek(2) !== "?") {
+          extglobOpen("qmark", value);
+          continue;
+        }
+        if (prev && prev.type === "paren") {
+          const next = peek();
+          let output = value;
+          if (prev.value === "(" && !/[!=<:]/.test(next) || next === "<" && !/<([!=]|\w+>)/.test(remaining())) {
+            output = `\\${value}`;
+          }
+          push({ type: "text", value, output });
+          continue;
+        }
+        if (opts.dot !== true && (prev.type === "slash" || prev.type === "bos")) {
+          push({ type: "qmark", value, output: QMARK_NO_DOT });
+          continue;
+        }
+        push({ type: "qmark", value, output: QMARK });
+        continue;
+      }
+      if (value === "!") {
+        if (opts.noextglob !== true && peek() === "(") {
+          if (peek(2) !== "?" || !/[!=<:]/.test(peek(3))) {
+            extglobOpen("negate", value);
+            continue;
+          }
+        }
+        if (opts.nonegate !== true && state.index === 0) {
+          negate();
+          continue;
+        }
+      }
+      if (value === "+") {
+        if (opts.noextglob !== true && peek() === "(" && peek(2) !== "?") {
+          extglobOpen("plus", value);
+          continue;
+        }
+        if (prev && prev.value === "(" || opts.regex === false) {
+          push({ type: "plus", value, output: PLUS_LITERAL });
+          continue;
+        }
+        if (prev && (prev.type === "bracket" || prev.type === "paren" || prev.type === "brace") || state.parens > 0) {
+          push({ type: "plus", value });
+          continue;
+        }
+        push({ type: "plus", value: PLUS_LITERAL });
+        continue;
+      }
+      if (value === "@") {
+        if (opts.noextglob !== true && peek() === "(" && peek(2) !== "?") {
+          push({ type: "at", extglob: true, value, output: "" });
+          continue;
+        }
+        push({ type: "text", value });
+        continue;
+      }
+      if (value !== "*") {
+        if (value === "$" || value === "^") {
+          value = `\\${value}`;
+        }
+        const match = REGEX_NON_SPECIAL_CHARS.exec(remaining());
+        if (match) {
+          value += match[0];
+          state.index += match[0].length;
+        }
+        push({ type: "text", value });
+        continue;
+      }
+      if (prev && (prev.type === "globstar" || prev.star === true)) {
+        prev.type = "star";
+        prev.star = true;
+        prev.value += value;
+        prev.output = star;
+        state.backtrack = true;
+        state.globstar = true;
+        consume(value);
+        continue;
+      }
+      let rest = remaining();
+      if (opts.noextglob !== true && /^\([^?]/.test(rest)) {
+        extglobOpen("star", value);
+        continue;
+      }
+      if (prev.type === "star") {
+        if (opts.noglobstar === true) {
+          consume(value);
+          continue;
+        }
+        const prior = prev.prev;
+        const before = prior.prev;
+        const isStart = prior.type === "slash" || prior.type === "bos";
+        const afterStar = before && (before.type === "star" || before.type === "globstar");
+        if (opts.bash === true && (!isStart || rest[0] && rest[0] !== "/")) {
+          push({ type: "star", value, output: "" });
+          continue;
+        }
+        const isBrace = state.braces > 0 && (prior.type === "comma" || prior.type === "brace");
+        const isExtglob = extglobs.length && (prior.type === "pipe" || prior.type === "paren");
+        if (!isStart && prior.type !== "paren" && !isBrace && !isExtglob) {
+          push({ type: "star", value, output: "" });
+          continue;
+        }
+        while (rest.slice(0, 3) === "/**") {
+          const after = input[state.index + 4];
+          if (after && after !== "/") {
+            break;
+          }
+          rest = rest.slice(3);
+          consume("/**", 3);
+        }
+        if (prior.type === "bos" && eos()) {
+          prev.type = "globstar";
+          prev.value += value;
+          prev.output = globstar(opts);
+          state.output = prev.output;
+          state.globstar = true;
+          consume(value);
+          continue;
+        }
+        if (prior.type === "slash" && prior.prev.type !== "bos" && !afterStar && eos()) {
+          state.output = state.output.slice(0, -(prior.output + prev.output).length);
+          prior.output = `(?:${prior.output}`;
+          prev.type = "globstar";
+          prev.output = globstar(opts) + (opts.strictSlashes ? ")" : "|$)");
+          prev.value += value;
+          state.globstar = true;
+          state.output += prior.output + prev.output;
+          consume(value);
+          continue;
+        }
+        if (prior.type === "slash" && prior.prev.type !== "bos" && rest[0] === "/") {
+          const end = rest[1] !== undefined ? "|$" : "";
+          state.output = state.output.slice(0, -(prior.output + prev.output).length);
+          prior.output = `(?:${prior.output}`;
+          prev.type = "globstar";
+          prev.output = `${globstar(opts)}${SLASH_LITERAL}|${SLASH_LITERAL}${end})`;
+          prev.value += value;
+          state.output += prior.output + prev.output;
+          state.globstar = true;
+          consume(value + advance());
+          push({ type: "slash", value: "/", output: "" });
+          continue;
+        }
+        if (prior.type === "bos" && rest[0] === "/") {
+          prev.type = "globstar";
+          prev.value += value;
+          prev.output = `(?:^|${SLASH_LITERAL}|${globstar(opts)}${SLASH_LITERAL})`;
+          state.output = prev.output;
+          state.globstar = true;
+          consume(value + advance());
+          push({ type: "slash", value: "/", output: "" });
+          continue;
+        }
+        state.output = state.output.slice(0, -prev.output.length);
+        prev.type = "globstar";
+        prev.output = globstar(opts);
+        prev.value += value;
+        state.output += prev.output;
+        state.globstar = true;
+        consume(value);
+        continue;
+      }
+      const token = { type: "star", value, output: star };
+      if (opts.bash === true) {
+        token.output = ".*?";
+        if (prev.type === "bos" || prev.type === "slash") {
+          token.output = nodot + token.output;
+        }
+        push(token);
+        continue;
+      }
+      if (prev && (prev.type === "bracket" || prev.type === "paren") && opts.regex === true) {
+        token.output = value;
+        push(token);
+        continue;
+      }
+      if (state.index === state.start || prev.type === "slash" || prev.type === "dot") {
+        if (prev.type === "dot") {
+          state.output += NO_DOT_SLASH;
+          prev.output += NO_DOT_SLASH;
+        } else if (opts.dot === true) {
+          state.output += NO_DOTS_SLASH;
+          prev.output += NO_DOTS_SLASH;
+        } else {
+          state.output += nodot;
+          prev.output += nodot;
+        }
+        if (peek() !== "*") {
+          state.output += ONE_CHAR;
+          prev.output += ONE_CHAR;
+        }
+      }
+      push(token);
+    }
+    while (state.brackets > 0) {
+      if (opts.strictBrackets === true)
+        throw new SyntaxError(syntaxError("closing", "]"));
+      state.output = utils.escapeLast(state.output, "[");
+      decrement("brackets");
+    }
+    while (state.parens > 0) {
+      if (opts.strictBrackets === true)
+        throw new SyntaxError(syntaxError("closing", ")"));
+      state.output = utils.escapeLast(state.output, "(");
+      decrement("parens");
+    }
+    while (state.braces > 0) {
+      if (opts.strictBrackets === true)
+        throw new SyntaxError(syntaxError("closing", "}"));
+      state.output = utils.escapeLast(state.output, "{");
+      decrement("braces");
+    }
+    if (opts.strictSlashes !== true && (prev.type === "star" || prev.type === "bracket")) {
+      push({ type: "maybe_slash", value: "", output: `${SLASH_LITERAL}?` });
+    }
+    if (state.backtrack === true) {
+      state.output = "";
+      for (const token of state.tokens) {
+        state.output += token.output != null ? token.output : token.value;
+        if (token.suffix) {
+          state.output += token.suffix;
+        }
+      }
+    }
+    return state;
+  };
+  parse9.fastpaths = (input, options) => {
+    const opts = { ...options };
+    const max = typeof opts.maxLength === "number" ? Math.min(MAX_LENGTH, opts.maxLength) : MAX_LENGTH;
+    const len = input.length;
+    if (len > max) {
+      throw new SyntaxError(`Input length: ${len}, exceeds maximum allowed length: ${max}`);
+    }
+    input = REPLACEMENTS[input] || input;
+    const {
+      DOT_LITERAL,
+      SLASH_LITERAL,
+      ONE_CHAR,
+      DOTS_SLASH,
+      NO_DOT,
+      NO_DOTS,
+      NO_DOTS_SLASH,
+      STAR,
+      START_ANCHOR
+    } = constants2.globChars(opts.windows);
+    const nodot = opts.dot ? NO_DOTS : NO_DOT;
+    const slashDot = opts.dot ? NO_DOTS_SLASH : NO_DOT;
+    const capture = opts.capture ? "" : "?:";
+    const state = { negated: false, prefix: "" };
+    let star = opts.bash === true ? ".*?" : STAR;
+    if (opts.capture) {
+      star = `(${star})`;
+    }
+    const globstar = (opts2) => {
+      if (opts2.noglobstar === true)
+        return star;
+      return `(${capture}(?:(?!${START_ANCHOR}${opts2.dot ? DOTS_SLASH : DOT_LITERAL}).)*?)`;
+    };
+    const create = (str) => {
+      switch (str) {
+        case "*":
+          return `${nodot}${ONE_CHAR}${star}`;
+        case ".*":
+          return `${DOT_LITERAL}${ONE_CHAR}${star}`;
+        case "*.*":
+          return `${nodot}${star}${DOT_LITERAL}${ONE_CHAR}${star}`;
+        case "*/*":
+          return `${nodot}${star}${SLASH_LITERAL}${ONE_CHAR}${slashDot}${star}`;
+        case "**":
+          return nodot + globstar(opts);
+        case "**/*":
+          return `(?:${nodot}${globstar(opts)}${SLASH_LITERAL})?${slashDot}${ONE_CHAR}${star}`;
+        case "**/*.*":
+          return `(?:${nodot}${globstar(opts)}${SLASH_LITERAL})?${slashDot}${star}${DOT_LITERAL}${ONE_CHAR}${star}`;
+        case "**/.*":
+          return `(?:${nodot}${globstar(opts)}${SLASH_LITERAL})?${DOT_LITERAL}${ONE_CHAR}${star}`;
+        default: {
+          const match = /^(.*?)\.(\w+)$/.exec(str);
+          if (!match)
+            return;
+          const source2 = create(match[1]);
+          if (!source2)
+            return;
+          return source2 + DOT_LITERAL + match[2];
+        }
+      }
+    };
+    const output = utils.removePrefix(input, state);
+    let source = create(output);
+    if (source && opts.strictSlashes !== true) {
+      source += `${SLASH_LITERAL}?`;
+    }
+    return source;
+  };
+  module2.exports = parse9;
+});
+
+// node_modules/picomatch/lib/picomatch.js
+var require_picomatch = __commonJS((exports, module2) => {
+  var scan = require_scan();
+  var parse9 = require_parse();
+  var utils = require_utils();
+  var constants2 = require_constants();
+  var isObject3 = (val) => val && typeof val === "object" && !Array.isArray(val);
+  var picomatch = (glob, options, returnState = false) => {
+    if (Array.isArray(glob)) {
+      const fns = glob.map((input) => picomatch(input, options, returnState));
+      const arrayMatcher = (str) => {
+        for (const isMatch of fns) {
+          const state2 = isMatch(str);
+          if (state2)
+            return state2;
+        }
+        return false;
+      };
+      return arrayMatcher;
+    }
+    const isState = isObject3(glob) && glob.tokens && glob.input;
+    if (glob === "" || typeof glob !== "string" && !isState) {
+      throw new TypeError("Expected pattern to be a non-empty string");
+    }
+    const opts = options || {};
+    const posix = opts.windows;
+    const regex = isState ? picomatch.compileRe(glob, options) : picomatch.makeRe(glob, options, false, true);
+    const state = regex.state;
+    delete regex.state;
+    let isIgnored = () => false;
+    if (opts.ignore) {
+      const ignoreOpts = { ...options, ignore: null, onMatch: null, onResult: null };
+      isIgnored = picomatch(opts.ignore, ignoreOpts, returnState);
+    }
+    const matcher = (input, returnObject = false) => {
+      const { isMatch, match, output } = picomatch.test(input, regex, options, { glob, posix });
+      const result = { glob, state, regex, posix, input, output, match, isMatch };
+      if (typeof opts.onResult === "function") {
+        opts.onResult(result);
+      }
+      if (isMatch === false) {
+        result.isMatch = false;
+        return returnObject ? result : false;
+      }
+      if (isIgnored(input)) {
+        if (typeof opts.onIgnore === "function") {
+          opts.onIgnore(result);
+        }
+        result.isMatch = false;
+        return returnObject ? result : false;
+      }
+      if (typeof opts.onMatch === "function") {
+        opts.onMatch(result);
+      }
+      return returnObject ? result : true;
+    };
+    if (returnState) {
+      matcher.state = state;
+    }
+    return matcher;
+  };
+  picomatch.test = (input, regex, options, { glob, posix } = {}) => {
+    if (typeof input !== "string") {
+      throw new TypeError("Expected input to be a string");
+    }
+    if (input === "") {
+      return { isMatch: false, output: "" };
+    }
+    const opts = options || {};
+    const format = opts.format || (posix ? utils.toPosixSlashes : null);
+    let match = input === glob;
+    let output = match && format ? format(input) : input;
+    if (match === false) {
+      output = format ? format(input) : input;
+      match = output === glob;
+    }
+    if (match === false || opts.capture === true) {
+      if (opts.matchBase === true || opts.basename === true) {
+        match = picomatch.matchBase(input, regex, options, posix);
+      } else {
+        match = regex.exec(output);
+      }
+    }
+    return { isMatch: Boolean(match), match, output };
+  };
+  picomatch.matchBase = (input, glob, options) => {
+    const regex = glob instanceof RegExp ? glob : picomatch.makeRe(glob, options);
+    return regex.test(utils.basename(input));
+  };
+  picomatch.isMatch = (str, patterns, options) => picomatch(patterns, options)(str);
+  picomatch.parse = (pattern, options) => {
+    if (Array.isArray(pattern))
+      return pattern.map((p) => picomatch.parse(p, options));
+    return parse9(pattern, { ...options, fastpaths: false });
+  };
+  picomatch.scan = (input, options) => scan(input, options);
+  picomatch.compileRe = (state, options, returnOutput = false, returnState = false) => {
+    if (returnOutput === true) {
+      return state.output;
+    }
+    const opts = options || {};
+    const prepend = opts.contains ? "" : "^";
+    const append = opts.contains ? "" : "$";
+    let source = `${prepend}(?:${state.output})${append}`;
+    if (state && state.negated === true) {
+      source = `^(?!${source}).*$`;
+    }
+    const regex = picomatch.toRegex(source, options);
+    if (returnState === true) {
+      regex.state = state;
+    }
+    return regex;
+  };
+  picomatch.makeRe = (input, options = {}, returnOutput = false, returnState = false) => {
+    if (!input || typeof input !== "string") {
+      throw new TypeError("Expected a non-empty string");
+    }
+    let parsed = { negated: false, fastpaths: true };
+    if (options.fastpaths !== false && (input[0] === "." || input[0] === "*")) {
+      parsed.output = parse9.fastpaths(input, options);
+    }
+    if (!parsed.output) {
+      parsed = parse9(input, options);
+    }
+    return picomatch.compileRe(parsed, options, returnOutput, returnState);
+  };
+  picomatch.toRegex = (source, options) => {
+    try {
+      const opts = options || {};
+      return new RegExp(source, opts.flags || (opts.nocase ? "i" : ""));
+    } catch (err2) {
+      if (options && options.debug === true)
+        throw err2;
+      return /$^/;
+    }
+  };
+  picomatch.constants = constants2;
+  module2.exports = picomatch;
+});
+
+// node_modules/picomatch/index.js
+var require_picomatch2 = __commonJS((exports, module2) => {
+  var pico = require_picomatch();
+  var utils = require_utils();
+  function picomatch(glob, options, returnState = false) {
+    if (options && (options.windows === null || options.windows === undefined)) {
+      options = { ...options, windows: utils.isWindows() };
+    }
+    return pico(glob, options, returnState);
+  }
+  Object.assign(picomatch, pico);
+  module2.exports = picomatch;
+});
+
 // src/gate-evidence.ts
 var exports_gate_evidence = {};
 __export(exports_gate_evidence, {
@@ -39215,7 +41135,7 @@ __export(exports_doc_scan, {
 });
 import * as crypto6 from "crypto";
 import * as fs34 from "fs";
-import { mkdir as mkdir7, readFile as readFile6, writeFile as writeFile6 } from "fs/promises";
+import { mkdir as mkdir7, readFile as readFile7, writeFile as writeFile7 } from "fs/promises";
 import * as path46 from "path";
 function normalizeSeparators(filePath) {
   return filePath.replace(/\\/g, "/");
@@ -39289,7 +41209,7 @@ async function scanDocIndex(directory) {
   ];
   const allPatterns = [...defaultPatterns, ...extraPatterns];
   try {
-    const manifestContent = await readFile6(manifestPath, "utf-8");
+    const manifestContent = await readFile7(manifestPath, "utf-8");
     const existingManifest = JSON.parse(manifestContent);
     if (existingManifest.schema_version === 1 && existingManifest.files) {
       let cacheValid = true;
@@ -39388,7 +41308,7 @@ async function scanDocIndex(directory) {
   };
   try {
     await mkdir7(path46.dirname(manifestPath), { recursive: true });
-    await writeFile6(manifestPath, JSON.stringify(manifest, null, 2), "utf-8");
+    await writeFile7(manifestPath, JSON.stringify(manifest, null, 2), "utf-8");
   } catch {}
   return { manifest, cached: false };
 }
@@ -39429,7 +41349,7 @@ async function extractDocConstraints(directory, taskFiles, taskDescription) {
   const manifestPath = path46.join(directory, ".swarm", "doc-manifest.json");
   let manifest;
   try {
-    const content = await readFile6(manifestPath, "utf-8");
+    const content = await readFile7(manifestPath, "utf-8");
     manifest = JSON.parse(content);
   } catch {
     const result = await scanDocIndex(directory);
@@ -39452,7 +41372,7 @@ async function extractDocConstraints(directory, taskFiles, taskDescription) {
     }
     let fullContent;
     try {
-      fullContent = await readFile6(path46.join(directory, docFile.path), "utf-8");
+      fullContent = await readFile7(path46.join(directory, docFile.path), "utf-8");
     } catch {
       skippedCount++;
       continue;
@@ -39806,7 +41726,7 @@ var init_curator_drift = __esm(() => {
   init_utils2();
 });
 
-// node_modules/web-tree-sitter/tree-sitter.js
+// node_modules/.bun/web-tree-sitter@0.25.10/node_modules/web-tree-sitter/tree-sitter.js
 function assertInternal(x) {
   if (x !== INTERNAL)
     throw new Error("Illegal constructor");
@@ -41245,8 +43165,8 @@ ${JSON.stringify(symbolNames, null, 2)}`);
       var moduleRtn;
       var Module = moduleArg;
       var readyPromiseResolve, readyPromiseReject;
-      var readyPromise = new Promise((resolve21, reject) => {
-        readyPromiseResolve = resolve21;
+      var readyPromise = new Promise((resolve22, reject) => {
+        readyPromiseResolve = resolve22;
         readyPromiseReject = reject;
       });
       var ENVIRONMENT_IS_WEB = typeof window == "object";
@@ -41326,13 +43246,13 @@ ${JSON.stringify(symbolNames, null, 2)}`);
           }
           readAsync = /* @__PURE__ */ __name(async (url3) => {
             if (isFileURI(url3)) {
-              return new Promise((resolve21, reject) => {
+              return new Promise((resolve22, reject) => {
                 var xhr = new XMLHttpRequest;
                 xhr.open("GET", url3, true);
                 xhr.responseType = "arraybuffer";
                 xhr.onload = () => {
                   if (xhr.status == 200 || xhr.status == 0 && xhr.response) {
-                    resolve21(xhr.response);
+                    resolve22(xhr.response);
                     return;
                   }
                   reject(xhr.status);
@@ -41552,10 +43472,10 @@ ${JSON.stringify(symbolNames, null, 2)}`);
         __name(receiveInstantiationResult, "receiveInstantiationResult");
         var info2 = getWasmImports();
         if (Module["instantiateWasm"]) {
-          return new Promise((resolve21, reject) => {
+          return new Promise((resolve22, reject) => {
             Module["instantiateWasm"](info2, (mod, inst) => {
               receiveInstance(mod, inst);
-              resolve21(mod.exports);
+              resolve22(mod.exports);
             });
           });
         }
@@ -43158,14 +45078,89 @@ var init_runtime = __esm(() => {
 });
 
 // src/index.ts
-import * as path78 from "path";
+import * as path80 from "path";
 
 // src/agents/index.ts
 init_config();
 init_constants();
 init_schema();
-import { mkdir as mkdir5, writeFile as writeFile5 } from "fs/promises";
+import { mkdir as mkdir5, writeFile as writeFile6 } from "fs/promises";
 import * as path34 from "path";
+
+// src/commands/acknowledge-spec-drift.ts
+init_utils2();
+init_manager();
+init_spec_hash();
+import { promises as fsPromises2 } from "fs";
+async function handleAcknowledgeSpecDriftCommand(directory, _args) {
+  const specStalenessPath = validateSwarmPath(directory, "spec-staleness.json");
+  let stalenessContent;
+  try {
+    stalenessContent = await fsPromises2.readFile(specStalenessPath, "utf-8");
+  } catch (error49) {
+    if (error49?.code === "ENOENT") {
+      return "No spec drift detected.";
+    }
+    throw error49;
+  }
+  let stalenessData;
+  try {
+    stalenessData = JSON.parse(stalenessContent);
+  } catch {
+    await fsPromises2.unlink(specStalenessPath).catch(() => {});
+    return "Spec staleness file was corrupted. It has been removed.";
+  }
+  const { planTitle, phase } = stalenessData;
+  await fsPromises2.unlink(specStalenessPath);
+  let currentHash = null;
+  let planUpdateSkipped = false;
+  try {
+    const plan = await loadPlanJsonOnly(directory);
+    if (plan?.specHash) {
+      currentHash = await computeSpecHash(directory);
+      plan.specHash = currentHash ?? undefined;
+      await savePlan(directory, plan);
+    }
+  } catch (planError) {
+    console.error("[acknowledge-spec-drift] Failed to update plan specHash:", planError instanceof Error ? planError.message : String(planError));
+    planUpdateSkipped = true;
+  }
+  const eventsPath = validateSwarmPath(directory, "events.jsonl");
+  const acknowledgmentEvent = {
+    type: "spec_drift_acknowledged",
+    timestamp: new Date().toISOString(),
+    phase,
+    planTitle,
+    acknowledgedBy: "architect",
+    previousHash: stalenessData.specHash_plan,
+    newHash: currentHash
+  };
+  let eventWriteFailed = false;
+  try {
+    await fsPromises2.appendFile(eventsPath, `${JSON.stringify(acknowledgmentEvent)}
+`, "utf-8");
+  } catch (appendError) {
+    console.error("[acknowledge-spec-drift] Failed to write acknowledgment event:", appendError instanceof Error ? appendError.message : String(appendError));
+    eventWriteFailed = true;
+  }
+  const warnings = [];
+  if (planUpdateSkipped) {
+    warnings.push("Plan specHash update was skipped due to an error.");
+  }
+  if (eventWriteFailed) {
+    warnings.push("Event logging failed \u2014 audit trail may be incomplete.");
+  }
+  const baseMessage = `Spec drift acknowledged for plan "${planTitle}" (phase ${phase}).`;
+  const warningMessage = warnings.length > 0 ? `
+
+\u26A0\uFE0F  Warnings:
+${warnings.map((w) => `  - ${w}`).join(`
+`)}` : "";
+  const cautionMessage = `
+
+\u26A0\uFE0F  Caution: Spec drift was acknowledged \u2014 verify that the implementation still matches the spec before proceeding.`;
+  return baseMessage + warningMessage + cautionMessage;
+}
 
 // src/commands/agents.ts
 function handleAgentsCommand(agents, guardrails) {
@@ -43226,7 +45221,7 @@ async function handleAnalyzeCommand(_directory, args2) {
 
 // src/commands/archive.ts
 init_loader();
-init_manager();
+init_manager2();
 async function handleArchiveCommand(directory, args2) {
   const config2 = loadPluginConfig(directory);
   const maxAgeDays = config2?.evidence?.max_age_days ?? 90;
@@ -43297,7 +45292,7 @@ async function handleArchiveCommand(directory, args2) {
 }
 
 // src/commands/benchmark.ts
-init_manager();
+init_manager2();
 init_state();
 init_utils();
 var CI = {
@@ -43749,7 +45744,7 @@ async function handleClarifyCommand(_directory, args2) {
 
 // src/commands/close.ts
 init_schema();
-init_manager();
+init_manager2();
 import { execFileSync } from "child_process";
 import { promises as fs9 } from "fs";
 import path14 from "path";
@@ -43802,9 +45797,9 @@ function hasUncommittedChanges(cwd) {
 
 // src/hooks/knowledge-reader.ts
 init_knowledge_store();
-import { existsSync as existsSync5 } from "fs";
-import { mkdir as mkdir2, readFile as readFile3, writeFile as writeFile2 } from "fs/promises";
-import * as path8 from "path";
+import { existsSync as existsSync7 } from "fs";
+import { mkdir as mkdir2, readFile as readFile4, writeFile as writeFile3 } from "fs/promises";
+import * as path10 from "path";
 var JACCARD_THRESHOLD = 0.6;
 var HIVE_TIER_BOOST = 0.05;
 var SAME_PROJECT_PENALTY = -0.05;
@@ -43852,18 +45847,18 @@ function inferCategoriesFromPhase(phaseDescription) {
   return ["process", "tooling"];
 }
 async function recordLessonsShown(directory, lessonIds, currentPhase) {
-  const shownFile = path8.join(directory, ".swarm", ".knowledge-shown.json");
+  const shownFile = path10.join(directory, ".swarm", ".knowledge-shown.json");
   try {
     let shownData = {};
-    if (existsSync5(shownFile)) {
-      const content = await readFile3(shownFile, "utf-8");
+    if (existsSync7(shownFile)) {
+      const content = await readFile4(shownFile, "utf-8");
       shownData = JSON.parse(content);
     }
     const phaseMatch = /^Phase\s+(\d+)/i.exec(currentPhase);
     const canonicalKey = phaseMatch ? `Phase ${phaseMatch[1]}` : currentPhase;
     shownData[canonicalKey] = lessonIds;
-    await mkdir2(path8.dirname(shownFile), { recursive: true });
-    await writeFile2(shownFile, JSON.stringify(shownData, null, 2), "utf-8");
+    await mkdir2(path10.dirname(shownFile), { recursive: true });
+    await writeFile3(shownFile, JSON.stringify(shownData, null, 2), "utf-8");
   } catch {
     console.warn("[swarm] Knowledge: failed to record shown lessons");
   }
@@ -43959,12 +45954,12 @@ async function readMergedKnowledge(directory, config3, context) {
   return topN;
 }
 async function updateRetrievalOutcome(directory, phaseInfo, phaseSucceeded) {
-  const shownFile = path8.join(directory, ".swarm", ".knowledge-shown.json");
+  const shownFile = path10.join(directory, ".swarm", ".knowledge-shown.json");
   try {
-    if (!existsSync5(shownFile)) {
+    if (!existsSync7(shownFile)) {
       return;
     }
-    const content = await readFile3(shownFile, "utf-8");
+    const content = await readFile4(shownFile, "utf-8");
     const shownData = JSON.parse(content);
     const shownIds = shownData[phaseInfo];
     if (!shownIds || shownIds.length === 0) {
@@ -43992,7 +45987,7 @@ async function updateRetrievalOutcome(directory, phaseInfo, phaseSucceeded) {
     const remainingIds = shownIds.filter((id) => !foundInSwarm.has(id));
     if (remainingIds.length === 0) {
       delete shownData[phaseInfo];
-      await writeFile2(shownFile, JSON.stringify(shownData, null, 2), "utf-8");
+      await writeFile3(shownFile, JSON.stringify(shownData, null, 2), "utf-8");
       return;
     }
     const hivePath = resolveHiveKnowledgePath();
@@ -44013,7 +46008,7 @@ async function updateRetrievalOutcome(directory, phaseInfo, phaseSucceeded) {
       await rewriteKnowledge(hivePath, hiveEntries);
     }
     delete shownData[phaseInfo];
-    await writeFile2(shownFile, JSON.stringify(shownData, null, 2), "utf-8");
+    await writeFile3(shownFile, JSON.stringify(shownData, null, 2), "utf-8");
   } catch {
     console.warn("[swarm] Knowledge: failed to update retrieval outcomes");
   }
@@ -44025,8 +46020,8 @@ init_knowledge_store();
 // src/hooks/knowledge-validator.ts
 init_knowledge_store();
 var import_proper_lockfile2 = __toESM(require_proper_lockfile(), 1);
-import { appendFile as appendFile2, mkdir as mkdir3, writeFile as writeFile3 } from "fs/promises";
-import * as path9 from "path";
+import { appendFile as appendFile3, mkdir as mkdir3, writeFile as writeFile4 } from "fs/promises";
+import * as path11 from "path";
 var DANGEROUS_COMMAND_PATTERNS = [
   /\brm\s+-rf\b/,
   /\bsudo\s+rm\b/,
@@ -44280,10 +46275,10 @@ async function quarantineEntry(directory, entryId, reason, reportedBy) {
     return;
   }
   const sanitizedReason = reason.slice(0, 500).replace(/[\x00-\x08\x0b-\x0c\x0e-\x1f\x7f\x0d]/g, "");
-  const knowledgePath = path9.join(directory, ".swarm", "knowledge.jsonl");
-  const quarantinePath = path9.join(directory, ".swarm", "knowledge-quarantined.jsonl");
-  const rejectedPath = path9.join(directory, ".swarm", "knowledge-rejected.jsonl");
-  const swarmDir = path9.join(directory, ".swarm");
+  const knowledgePath = path11.join(directory, ".swarm", "knowledge.jsonl");
+  const quarantinePath = path11.join(directory, ".swarm", "knowledge-quarantined.jsonl");
+  const rejectedPath = path11.join(directory, ".swarm", "knowledge-rejected.jsonl");
+  const swarmDir = path11.join(directory, ".swarm");
   await mkdir3(swarmDir, { recursive: true });
   let release;
   try {
@@ -44305,8 +46300,8 @@ async function quarantineEntry(directory, entryId, reason, reportedBy) {
     const jsonlContent = remaining.length > 0 ? `${remaining.map((e) => JSON.stringify(e)).join(`
 `)}
 ` : "";
-    await writeFile3(knowledgePath, jsonlContent, "utf-8");
-    await appendFile2(quarantinePath, `${JSON.stringify(quarantined)}
+    await writeFile4(knowledgePath, jsonlContent, "utf-8");
+    await appendFile3(quarantinePath, `${JSON.stringify(quarantined)}
 `, "utf-8");
     const quarantinedEntries = await readKnowledge(quarantinePath);
     if (quarantinedEntries.length > 100) {
@@ -44314,7 +46309,7 @@ async function quarantineEntry(directory, entryId, reason, reportedBy) {
       const capContent = trimmed.length > 0 ? `${trimmed.map((e) => JSON.stringify(e)).join(`
 `)}
 ` : "";
-      await writeFile3(quarantinePath, capContent, "utf-8");
+      await writeFile4(quarantinePath, capContent, "utf-8");
     }
     const rejectedRecord = {
       id: entryId,
@@ -44340,10 +46335,10 @@ async function restoreEntry(directory, entryId) {
     console.warn("[knowledge-validator] restoreEntry: invalid entryId rejected");
     return;
   }
-  const knowledgePath = path9.join(directory, ".swarm", "knowledge.jsonl");
-  const quarantinePath = path9.join(directory, ".swarm", "knowledge-quarantined.jsonl");
-  const rejectedPath = path9.join(directory, ".swarm", "knowledge-rejected.jsonl");
-  const swarmDir = path9.join(directory, ".swarm");
+  const knowledgePath = path11.join(directory, ".swarm", "knowledge.jsonl");
+  const quarantinePath = path11.join(directory, ".swarm", "knowledge-quarantined.jsonl");
+  const rejectedPath = path11.join(directory, ".swarm", "knowledge-rejected.jsonl");
+  const swarmDir = path11.join(directory, ".swarm");
   await mkdir3(swarmDir, { recursive: true });
   let release;
   try {
@@ -44360,15 +46355,15 @@ async function restoreEntry(directory, entryId) {
     const jsonlContent = remaining.length > 0 ? `${remaining.map((e) => JSON.stringify(e)).join(`
 `)}
 ` : "";
-    await writeFile3(quarantinePath, jsonlContent, "utf-8");
-    await appendFile2(knowledgePath, `${JSON.stringify(original)}
+    await writeFile4(quarantinePath, jsonlContent, "utf-8");
+    await appendFile3(knowledgePath, `${JSON.stringify(original)}
 `, "utf-8");
     const rejectedEntries = await readKnowledge(rejectedPath);
     const filtered = rejectedEntries.filter((e) => e.id !== entryId);
     const rejectedContent = filtered.length > 0 ? `${filtered.map((e) => JSON.stringify(e)).join(`
 `)}
 ` : "";
-    await writeFile3(rejectedPath, rejectedContent, "utf-8");
+    await writeFile4(rejectedPath, rejectedContent, "utf-8");
   } finally {
     if (release) {
       await release();
@@ -44704,7 +46699,7 @@ init_utils2();
 // src/plan/checkpoint.ts
 init_plan_schema();
 init_ledger();
-init_manager2();
+init_manager();
 import * as fs8 from "fs";
 import * as path12 from "path";
 async function writeCheckpoint(directory) {
@@ -44845,7 +46840,7 @@ init_state();
 // src/tools/write-retro.ts
 init_tool();
 init_evidence_schema();
-init_manager();
+init_manager2();
 init_create_tool();
 async function executeWriteRetro(args2, directory) {
   if (/^(CON|PRN|AUX|NUL|COM[0-9]|LPT[0-9])(:|$)/i.test(directory)) {
@@ -45855,7 +47850,7 @@ ${customAppendPrompt}`;
 
 // src/hooks/curator.ts
 init_event_bus();
-init_manager2();
+init_manager();
 init_knowledge_store();
 init_utils2();
 var DEFAULT_CURATOR_LLM_TIMEOUT_MS = 300000;
@@ -46734,9 +48729,9 @@ async function handleDarkMatterCommand(directory, args2) {
 
 // src/services/diagnose-service.ts
 init_loader();
-init_manager();
-init_utils2();
 init_manager2();
+init_utils2();
+init_manager();
 import * as child_process4 from "child_process";
 import { existsSync as existsSync8, readdirSync as readdirSync2, readFileSync as readFileSync5, statSync as statSync4 } from "fs";
 import path19 from "path";
@@ -47542,7 +49537,7 @@ async function handleDoctorToolsCommand(directory, _args) {
 }
 
 // src/services/evidence-service.ts
-init_manager();
+init_manager2();
 function getVerdictIcon(verdict) {
   switch (verdict) {
     case "pass":
@@ -47729,7 +49724,7 @@ async function handleEvidenceSummaryCommand(directory) {
 }
 // src/services/export-service.ts
 init_utils2();
-init_manager2();
+init_manager();
 async function getExportData(directory) {
   const planStructured = await loadPlanJsonOnly(directory);
   const planContent = await readSwarmFileAsync(directory, "plan.md");
@@ -47794,7 +49789,7 @@ import { renameSync as renameSync7 } from "fs";
 
 // src/services/handoff-service.ts
 init_utils2();
-init_manager2();
+init_manager();
 init_utils();
 var RTL_OVERRIDE_PATTERN = /[\u202e\u202d\u202c\u200f]/g;
 var MAX_TASK_ID_LENGTH = 100;
@@ -48185,7 +50180,7 @@ ${continuationPrompt}`;
 
 // src/services/history-service.ts
 init_utils2();
-init_manager2();
+init_manager();
 function getStatusText(status) {
   const statusMap = {
     complete: "COMPLETE",
@@ -48319,7 +50314,7 @@ init_schema();
 init_knowledge_store();
 import { randomUUID as randomUUID3 } from "crypto";
 import { existsSync as existsSync12, readFileSync as readFileSync9 } from "fs";
-import { mkdir as mkdir4, readFile as readFile5, writeFile as writeFile4 } from "fs/promises";
+import { mkdir as mkdir4, readFile as readFile6, writeFile as writeFile5 } from "fs/promises";
 import * as path23 from "path";
 async function migrateContextToKnowledge(directory, config3) {
   const sentinelPath = path23.join(directory, ".swarm", ".knowledge-migrated");
@@ -48343,7 +50338,7 @@ async function migrateContextToKnowledge(directory, config3) {
       skippedReason: "no-context-file"
     };
   }
-  const contextContent = await readFile5(contextPath, "utf-8");
+  const contextContent = await readFile6(contextPath, "utf-8");
   if (contextContent.trim().length === 0) {
     return {
       migrated: false,
@@ -48541,7 +50536,7 @@ async function writeSentinel(sentinelPath, migrated, dropped) {
     migration_tool: "knowledge-migrator.ts"
   };
   await mkdir4(path23.dirname(sentinelPath), { recursive: true });
-  await writeFile4(sentinelPath, JSON.stringify(sentinel, null, 2), "utf-8");
+  await writeFile5(sentinelPath, JSON.stringify(sentinel, null, 2), "utf-8");
 }
 
 // src/commands/knowledge.ts
@@ -48631,7 +50626,7 @@ async function handleKnowledgeListCommand(directory, _args) {
 
 // src/services/plan-service.ts
 init_utils2();
-init_manager2();
+init_manager();
 async function getPlanData(directory, phaseArg) {
   const plan = await loadPlanJsonOnly(directory);
   if (plan) {
@@ -49018,13 +51013,13 @@ class CircuitBreaker {
     if (this.config.callTimeoutMs <= 0) {
       return fn();
     }
-    return new Promise((resolve10, reject) => {
+    return new Promise((resolve11, reject) => {
       const timeout = setTimeout(() => {
         reject(new Error(`Call timeout after ${this.config.callTimeoutMs}ms`));
       }, this.config.callTimeoutMs);
       fn().then((result) => {
         clearTimeout(timeout);
-        resolve10(result);
+        resolve11(result);
       }).catch((error93) => {
         clearTimeout(timeout);
         reject(error93);
@@ -49170,7 +51165,7 @@ init_queue();
 // src/background/worker.ts
 init_event_bus();
 function sleep(ms) {
-  return new Promise((resolve10) => setTimeout(resolve10, ms));
+  return new Promise((resolve11) => setTimeout(resolve11, ms));
 }
 
 class WorkerManager {
@@ -50234,7 +52229,7 @@ No plan content available. Start by creating a .swarm/plan.md file.
 
 // src/services/status-service.ts
 init_utils2();
-init_manager2();
+init_manager();
 init_state();
 
 // src/services/compaction-service.ts
@@ -50603,7 +52598,7 @@ async function handleStatusCommand(directory, agents) {
   return formatStatusMarkdown(statusData);
 }
 // src/commands/sync-plan.ts
-init_manager2();
+init_manager();
 async function handleSyncPlanCommand(directory, _args) {
   const plan = await loadPlan(directory);
   if (!plan) {
@@ -50714,6 +52709,10 @@ Run \`/swarm evidence ${result.task_id ?? "unknown"}\` to view it, or \`/swarm s
 
 // src/commands/registry.ts
 var COMMAND_REGISTRY = {
+  "acknowledge-spec-drift": {
+    handler: (ctx) => handleAcknowledgeSpecDriftCommand(ctx.directory, ctx.args),
+    description: "Acknowledge that the spec has drifted from the plan and suppress further warnings"
+  },
   status: {
     handler: (ctx) => handleStatusCommand(ctx.directory, ctx.agents),
     description: "Show current swarm state"
@@ -51343,6 +53342,7 @@ Activates when: user asks to "specify", "define requirements", "write a spec", o
 2. Delegate to \`{{AGENT_PREFIX}}explorer\` to scan the codebase for relevant context (existing patterns, related code, affected areas).
 3. Delegate to \`{{AGENT_PREFIX}}sme\` for domain research on the feature area to surface known constraints, best practices, and integration concerns.
 4. Generate \`.swarm/spec.md\` capturing:
+   - First line must be: \`# Specification: <feature-name>\`
    - Feature description: WHAT users need and WHY \u2014 never HOW to implement
    - User scenarios with acceptance criteria (Given/When/Then format)
    - Functional requirements numbered FR-001, FR-002\u2026 using MUST/SHOULD language
@@ -51351,7 +53351,7 @@ Activates when: user asks to "specify", "define requirements", "write a spec", o
    - Edge cases and known failure modes
    - \`[NEEDS CLARIFICATION]\` markers (max 3) for items where uncertainty could change scope, security, or core behavior; prefer informed defaults over asking
 5. Write the spec to \`.swarm/spec.md\`.
-6. Report a summary to the user (requirement count, scenario count, clarification markers) and suggest the next step: \`CLARIFY-SPEC\` (if markers exist) or \`PLAN\`.
+6. Report a summary to the user (MUST count, SHALL count, scenario count, clarification markers) and suggest the next step: \`CLARIFY-SPEC\` (if markers exist) or \`PLAN\`.
 
 SPEC CONTENT RULES \u2014 the spec MUST NOT contain:
 - Technology stack, framework choices, library names
@@ -51394,14 +53394,18 @@ Activates when: \`.swarm/spec.md\` exists AND contains \`[NEEDS CLARIFICATION]\`
 
 CONSTRAINT: CLARIFY-SPEC must NEVER create a spec. If \`.swarm/spec.md\` does not exist, tell the user: "No spec found. Use \`/swarm specify\` to generate one first." and stop.
 
-1. Read \`.swarm/spec.md\`.
+1. Read \`.swarm/spec.md\` (read current spec FIRST before making any changes).
 2. Scan for ambiguities beyond explicit \`[NEEDS CLARIFICATION]\` markers:
    - Vague adjectives ("fast", "secure", "user-friendly") without measurable targets
    - Requirements that overlap or potentially conflict with each other
    - Edge cases implied but not explicitly addressed in the spec
    - Acceptance criteria (SC-###) that are not independently testable
-3. Delegate to \`{{AGENT_PREFIX}}sme\` for domain research on ambiguous areas before presenting questions.
-4. Present questions to the user ONE AT A TIME (max 8 per session):
+3. Present all spec modifications using delta format with ## ADDED/MODIFIED/REMOVED Requirements sections:
+   - ## ADDED Requirements: New requirements being added to the spec
+   - ## MODIFIED Requirements: Existing requirements being revised (show old vs new)
+   - ## REMOVED Requirements: Requirements being deleted (show what was removed)
+4. Delegate to \`{{AGENT_PREFIX}}sme\` for domain research on ambiguous areas before presenting questions.
+5. Present questions to the user ONE AT A TIME (max 8 per session):
    - Offer 2\u20134 multiple-choice options for each question
    - Mark the recommended option with reasoning (e.g., "Recommended: Option 2 because\u2026")
    - Allow free-form input as an alternative to the options
@@ -51410,9 +53414,10 @@ CONSTRAINT: CLARIFY-SPEC must NEVER create a spec. If \`.swarm/spec.md\` does no
    - Replace the relevant \`[NEEDS CLARIFICATION]\` marker or vague language with the accepted answer
    - If the answer invalidates an earlier requirement, update it to remove the contradiction
 6. Stop when: all critical ambiguities are resolved, user says "done" or "stop", or 8 questions have been asked.
-7. Report: total questions asked, sections updated, remaining open ambiguities (if any), and suggest next step (\`PLAN\` if spec is clear, or continue clarifying).
+7. Report a ## Clarification Summary: total questions asked, requirements added/modified/removed, remaining open ambiguities (if any), and suggest next step (\`PLAN\` if spec is clear, or continue clarifying).
 
 CLARIFY-SPEC RULES:
+- FR-ID increment rule: When adding new requirements, find the highest existing FR-ID and increment from there (FR-001 \u2192 FR-002). Never reuse or skip FR-IDs.
 - One question at a time \u2014 never ask multiple questions in the same message.
 - Do not modify any part of the spec that was not affected by the accepted answer.
 - Always write the accepted answer back to spec.md before presenting the next question.
@@ -51620,6 +53625,18 @@ You MUST NOT proceed to MODE: EXECUTE without printing this checklist with fille
 CRITIC-GATE TRIGGER: Run ONCE when you first write the complete .swarm/plan.md.
 Do NOT re-run CRITIC-GATE before every project phase.
 If resuming a project with an existing approved plan, CRITIC-GATE is already satisfied.
+
+6j. SPEC-GATE (Execute BEFORE any save_plan call):
+- The save_plan tool will REJECT if .swarm/spec.md does not exist (enforced at the tool level via SWARM_SKIP_SPEC_GATE env var bypass).
+- Before calling save_plan, verify spec.md is present using lint_spec.
+- If spec.md is absent: do NOT call save_plan. Use /swarm specify to create a spec first, or inform the user.
+- This rule is satisfied by the save_plan tool's own spec gate \u2014 it exists as a reminder that planning requires a spec.
+
+6k. SPEC-STALENESS GUARD:
+- If _specStale or .swarm/spec-staleness.json exists, the Architect MUST read the file and either:
+  - Run /swarm clarify to update the spec and align it with the plan, OR
+  - Run /swarm acknowledge-spec-drift to acknowledge the drift and suppress further warnings
+- Do NOT proceed with implementation until spec staleness is resolved.
 
 ### MODE: EXECUTE
 For each task (respecting dependencies):
@@ -52235,7 +54252,6 @@ STEPS:
 2. Read \`.swarm/plan.md\`. Extract all tasks with their IDs and descriptions.
 3. Map requirements to tasks:
    - For each FR-###: find the task(s) whose description mentions or addresses it (semantic match, not exact phrase).
-   - Partial coverage counts: a task that partially addresses a requirement is counted as covering it.
    - Build a two-column coverage table: FR-### \u2192 [task IDs that cover it].
 4. Flag GAPS \u2014 requirements with no covering task:
    - FR-### with MUST language and no covering task: CRITICAL severity.
@@ -52262,7 +54278,6 @@ SUMMARY: [1-2 sentence overall assessment]
 ANALYZE RULES:
 - READ-ONLY: do not create, modify, or delete any file during analysis.
 - Report only \u2014 no plan edits, no spec edits.
-- Partial coverage counts as coverage (do not penalize partially addressed requirements).
 - Report the highest-severity findings first within each section.
 - If both spec.md and plan.md are present but empty, report CLEAN with a note that both files are empty.
 `;
@@ -52393,6 +54408,17 @@ TASK [id]: [VERIFIED|MISSING|DRIFTED]
   - Spec Alignment: [ALIGNED|DRIFTED] \u2014 [how implementation matches or diverges]
   - Integrity: [CLEAN|ISSUE] \u2014 [any type/import/syntax issues found]
   - Drift Detection: [NO_DRIFT|DRIFT] \u2014 [any unplanned additions or dropped tasks]
+
+## STEP 3: REQUIREMENT COVERAGE (only if spec.md exists)
+1. Call the req_coverage tool with {phase: [N], directory: [workspace]}
+2. Read the coverage report from .swarm/evidence/req-coverage-phase-[N].json
+3. For each MUST requirement: if status is "missing" \u2192 CRITICAL severity (hard blocker)
+4. For each SHOULD requirement: if status is "missing" \u2192 HIGH severity
+5. Append ## Requirement Coverage section to output with:
+   - Total requirements by obligation level
+   - Covered/missing counts
+   - List of missing MUST requirements (if any)
+   - List of missing SHOULD requirements (if any)
 
 ## DRIFT REPORT
 Unplanned additions: [list any code found that wasn't in the plan]
@@ -53671,7 +55697,7 @@ function getAgentConfigs(config3, directory, sessionId) {
       generatedAt: new Date().toISOString(),
       agents: agentToolSnapshot
     }, null, 2);
-    mkdir5(evidenceDir, { recursive: true }).then(() => writeFile5(path34.join(evidenceDir, filename), snapshotData)).catch(() => {});
+    mkdir5(evidenceDir, { recursive: true }).then(() => writeFile6(path34.join(evidenceDir, filename), snapshotData)).catch(() => {});
   }
   return result;
 }
@@ -53681,7 +55707,7 @@ init_event_bus();
 init_evidence_summary_integration();
 
 // src/background/plan-sync-worker.ts
-init_manager2();
+init_manager();
 init_utils();
 import * as fs24 from "fs";
 import * as path36 from "path";
@@ -53943,13 +55969,13 @@ class PlanSyncWorker {
     } catch {}
   }
   withTimeout(promise3, ms, timeoutMessage) {
-    return new Promise((resolve11, reject) => {
+    return new Promise((resolve12, reject) => {
       const timer = setTimeout(() => {
         reject(new Error(`${timeoutMessage} (${ms}ms)`));
       }, ms);
       promise3.then((result) => {
         clearTimeout(timer);
-        resolve11(result);
+        resolve12(result);
       }).catch((error93) => {
         clearTimeout(timer);
         reject(error93);
@@ -54132,9 +56158,9 @@ ${content.substring(endIndex + 1)}`;
 `;
 }
 // src/hooks/compaction-customizer.ts
-init_manager2();
+init_manager();
 import * as fs26 from "fs";
-import { join as join34 } from "path";
+import { join as join35 } from "path";
 init_utils2();
 function createCompactionCustomizerHook(config3, directory) {
   const enabled = config3.hooks?.compaction !== false;
@@ -54180,7 +56206,7 @@ function createCompactionCustomizerHook(config3, directory) {
         }
       }
       try {
-        const summariesDir = join34(directory, ".swarm", "summaries");
+        const summariesDir = join35(directory, ".swarm", "summaries");
         const files = await fs26.promises.readdir(summariesDir);
         if (files.length > 0) {
           const count = files.length;
@@ -54829,7 +56855,283 @@ init_state();
 init_telemetry();
 
 // src/hooks/guardrails.ts
+import * as fsSync from "fs";
+var import_picomatch = __toESM(require_picomatch2(), 1);
 import * as path38 from "path";
+
+// node_modules/quick-lru/index.js
+class QuickLRU extends Map {
+  #size = 0;
+  #cache = new Map;
+  #oldCache = new Map;
+  #maxSize;
+  #maxAge;
+  #onEviction;
+  constructor(options = {}) {
+    super();
+    if (!(options.maxSize && options.maxSize > 0)) {
+      throw new TypeError("`maxSize` must be a number greater than 0");
+    }
+    if (typeof options.maxAge === "number" && options.maxAge === 0) {
+      throw new TypeError("`maxAge` must be a number greater than 0");
+    }
+    this.#maxSize = options.maxSize;
+    this.#maxAge = options.maxAge || Number.POSITIVE_INFINITY;
+    this.#onEviction = options.onEviction;
+  }
+  get __oldCache() {
+    return this.#oldCache;
+  }
+  #emitEvictions(cache) {
+    if (typeof this.#onEviction !== "function") {
+      return;
+    }
+    for (const [key, item] of cache) {
+      this.#onEviction(key, item.value);
+    }
+  }
+  #deleteIfExpired(key, item) {
+    if (typeof item.expiry === "number" && item.expiry <= Date.now()) {
+      if (typeof this.#onEviction === "function") {
+        this.#onEviction(key, item.value);
+      }
+      return this.delete(key);
+    }
+    return false;
+  }
+  #getOrDeleteIfExpired(key, item) {
+    const deleted = this.#deleteIfExpired(key, item);
+    if (deleted === false) {
+      return item.value;
+    }
+  }
+  #getItemValue(key, item) {
+    return item.expiry ? this.#getOrDeleteIfExpired(key, item) : item.value;
+  }
+  #peek(key, cache) {
+    const item = cache.get(key);
+    return this.#getItemValue(key, item);
+  }
+  #set(key, value) {
+    this.#cache.set(key, value);
+    this.#size++;
+    if (this.#size >= this.#maxSize) {
+      this.#size = 0;
+      this.#emitEvictions(this.#oldCache);
+      this.#oldCache = this.#cache;
+      this.#cache = new Map;
+    }
+  }
+  #moveToRecent(key, item) {
+    this.#oldCache.delete(key);
+    this.#set(key, item);
+  }
+  *#entriesAscending() {
+    for (const item of this.#oldCache) {
+      const [key, value] = item;
+      if (!this.#cache.has(key)) {
+        const deleted = this.#deleteIfExpired(key, value);
+        if (deleted === false) {
+          yield item;
+        }
+      }
+    }
+    for (const item of this.#cache) {
+      const [key, value] = item;
+      const deleted = this.#deleteIfExpired(key, value);
+      if (deleted === false) {
+        yield item;
+      }
+    }
+  }
+  get(key) {
+    if (this.#cache.has(key)) {
+      const item = this.#cache.get(key);
+      return this.#getItemValue(key, item);
+    }
+    if (this.#oldCache.has(key)) {
+      const item = this.#oldCache.get(key);
+      if (this.#deleteIfExpired(key, item) === false) {
+        this.#moveToRecent(key, item);
+        return item.value;
+      }
+    }
+  }
+  set(key, value, { maxAge = this.#maxAge } = {}) {
+    const expiry = typeof maxAge === "number" && maxAge !== Number.POSITIVE_INFINITY ? Date.now() + maxAge : undefined;
+    if (this.#cache.has(key)) {
+      this.#cache.set(key, {
+        value,
+        expiry
+      });
+    } else {
+      this.#set(key, { value, expiry });
+    }
+    return this;
+  }
+  has(key) {
+    if (this.#cache.has(key)) {
+      return !this.#deleteIfExpired(key, this.#cache.get(key));
+    }
+    if (this.#oldCache.has(key)) {
+      return !this.#deleteIfExpired(key, this.#oldCache.get(key));
+    }
+    return false;
+  }
+  peek(key) {
+    if (this.#cache.has(key)) {
+      return this.#peek(key, this.#cache);
+    }
+    if (this.#oldCache.has(key)) {
+      return this.#peek(key, this.#oldCache);
+    }
+  }
+  expiresIn(key) {
+    const item = this.#cache.get(key) ?? this.#oldCache.get(key);
+    if (item) {
+      return item.expiry ? item.expiry - Date.now() : Number.POSITIVE_INFINITY;
+    }
+  }
+  delete(key) {
+    const deleted = this.#cache.delete(key);
+    if (deleted) {
+      this.#size--;
+    }
+    return this.#oldCache.delete(key) || deleted;
+  }
+  clear() {
+    this.#cache.clear();
+    this.#oldCache.clear();
+    this.#size = 0;
+  }
+  resize(newSize) {
+    if (!(newSize && newSize > 0)) {
+      throw new TypeError("`maxSize` must be a number greater than 0");
+    }
+    const items = [...this.#entriesAscending()];
+    const removeCount = items.length - newSize;
+    if (removeCount < 0) {
+      this.#cache = new Map(items);
+      this.#oldCache = new Map;
+      this.#size = items.length;
+    } else {
+      if (removeCount > 0) {
+        this.#emitEvictions(items.slice(0, removeCount));
+      }
+      this.#oldCache = new Map(items.slice(removeCount));
+      this.#cache = new Map;
+      this.#size = 0;
+    }
+    this.#maxSize = newSize;
+  }
+  evict(count = 1) {
+    const requested = Number(count);
+    if (!requested || requested <= 0) {
+      return;
+    }
+    const items = [...this.#entriesAscending()];
+    const evictCount = Math.trunc(Math.min(requested, Math.max(items.length - 1, 0)));
+    if (evictCount <= 0) {
+      return;
+    }
+    this.#emitEvictions(items.slice(0, evictCount));
+    this.#oldCache = new Map(items.slice(evictCount));
+    this.#cache = new Map;
+    this.#size = 0;
+  }
+  *keys() {
+    for (const [key] of this) {
+      yield key;
+    }
+  }
+  *values() {
+    for (const [, value] of this) {
+      yield value;
+    }
+  }
+  *[Symbol.iterator]() {
+    for (const item of this.#cache) {
+      const [key, value] = item;
+      const deleted = this.#deleteIfExpired(key, value);
+      if (deleted === false) {
+        yield [key, value.value];
+      }
+    }
+    for (const item of this.#oldCache) {
+      const [key, value] = item;
+      if (!this.#cache.has(key)) {
+        const deleted = this.#deleteIfExpired(key, value);
+        if (deleted === false) {
+          yield [key, value.value];
+        }
+      }
+    }
+  }
+  *entriesDescending() {
+    let items = [...this.#cache];
+    for (let i2 = items.length - 1;i2 >= 0; --i2) {
+      const item = items[i2];
+      const [key, value] = item;
+      const deleted = this.#deleteIfExpired(key, value);
+      if (deleted === false) {
+        yield [key, value.value];
+      }
+    }
+    items = [...this.#oldCache];
+    for (let i2 = items.length - 1;i2 >= 0; --i2) {
+      const item = items[i2];
+      const [key, value] = item;
+      if (!this.#cache.has(key)) {
+        const deleted = this.#deleteIfExpired(key, value);
+        if (deleted === false) {
+          yield [key, value.value];
+        }
+      }
+    }
+  }
+  *entriesAscending() {
+    for (const [key, value] of this.#entriesAscending()) {
+      yield [key, value.value];
+    }
+  }
+  get size() {
+    if (!this.#size) {
+      return this.#oldCache.size;
+    }
+    let oldCacheSize = 0;
+    for (const key of this.#oldCache.keys()) {
+      if (!this.#cache.has(key)) {
+        oldCacheSize++;
+      }
+    }
+    return Math.min(this.#size + oldCacheSize, this.#maxSize);
+  }
+  get maxSize() {
+    return this.#maxSize;
+  }
+  get maxAge() {
+    return this.#maxAge;
+  }
+  entries() {
+    return this.entriesAscending();
+  }
+  forEach(callbackFunction, thisArgument = this) {
+    for (const [key, value] of this.entriesAscending()) {
+      callbackFunction.call(thisArgument, value, key, this);
+    }
+  }
+  get [Symbol.toStringTag]() {
+    return "QuickLRU";
+  }
+  toString() {
+    return `QuickLRU(${this.size}/${this.maxSize})`;
+  }
+  [Symbol.for("nodejs.util.inspect.custom")]() {
+    return this.toString();
+  }
+}
+
+// src/hooks/guardrails.ts
 init_constants();
 init_schema();
 
@@ -54893,7 +57195,7 @@ function classifyFile(filePath) {
 }
 
 // src/hooks/guardrails.ts
-init_manager2();
+init_manager();
 init_state();
 init_telemetry();
 init_utils();
@@ -56025,6 +58327,41 @@ function hashArgs(args2) {
     return 0;
   }
 }
+var pathNormalizationCache = new QuickLRU({
+  maxSize: 500
+});
+var globMatcherCache = new QuickLRU({
+  maxSize: 200
+});
+function normalizePathWithCache(filePath, cwd) {
+  const cacheKey = `${cwd}:${filePath}`;
+  const cached3 = pathNormalizationCache.get(cacheKey);
+  if (cached3 !== undefined) {
+    return cached3;
+  }
+  try {
+    const absolutePath = path38.isAbsolute(filePath) ? filePath : path38.resolve(cwd, filePath);
+    const normalized = fsSync.realpathSync(absolutePath);
+    pathNormalizationCache.set(cacheKey, normalized);
+    return normalized;
+  } catch {
+    const fallback = path38.isAbsolute(filePath) ? filePath : path38.resolve(cwd, filePath);
+    pathNormalizationCache.set(cacheKey, fallback);
+    return fallback;
+  }
+}
+function getGlobMatcher(pattern) {
+  const cached3 = globMatcherCache.get(pattern);
+  if (cached3 !== undefined) {
+    return cached3;
+  }
+  const matcher = import_picomatch.default(pattern, {
+    dot: true,
+    nocase: process.platform === "win32"
+  });
+  globMatcherCache.set(pattern, matcher);
+  return matcher;
+}
 var DEFAULT_AGENT_AUTHORITY_RULES = {
   architect: {
     blockedExact: [".swarm/plan.md", ".swarm/plan.json"],
@@ -56083,10 +58420,14 @@ function buildEffectiveRules(authorityConfig) {
     merged[normalizedRuleKey] = {
       ...existing,
       ...userRule,
+      readOnly: userRule.readOnly ?? existing.readOnly,
       blockedExact: userRule.blockedExact ?? existing.blockedExact,
+      allowedExact: userRule.allowedExact ?? existing.allowedExact,
       blockedPrefix: userRule.blockedPrefix ?? existing.blockedPrefix,
       allowedPrefix: userRule.allowedPrefix ?? existing.allowedPrefix,
-      blockedZones: userRule.blockedZones ?? existing.blockedZones
+      blockedZones: userRule.blockedZones ?? existing.blockedZones,
+      blockedGlobs: userRule.blockedGlobs ?? existing.blockedGlobs,
+      allowedGlobs: userRule.allowedGlobs ?? existing.allowedGlobs
     };
   }
   return merged;
@@ -56095,8 +58436,15 @@ function checkFileAuthorityWithRules(agentName, filePath, cwd, effectiveRules) {
   const normalizedAgent = agentName.toLowerCase();
   const strippedAgent = stripKnownSwarmPrefix(agentName).toLowerCase();
   const dir = cwd || process.cwd();
-  const resolved = path38.resolve(dir, filePath);
-  const normalizedPath = path38.relative(dir, resolved).replace(/\\/g, "/");
+  let normalizedPath;
+  try {
+    const normalizedWithSymlinks = normalizePathWithCache(filePath, cwd);
+    const resolved = path38.resolve(dir, normalizedWithSymlinks);
+    normalizedPath = path38.relative(dir, resolved).replace(/\\/g, "/");
+  } catch {
+    const resolved = path38.resolve(dir, filePath);
+    normalizedPath = path38.relative(dir, resolved).replace(/\\/g, "/");
+  }
   const rules = effectiveRules[normalizedAgent] ?? effectiveRules[strippedAgent];
   if (!rules) {
     return { allowed: false, reason: `Unknown agent: ${agentName}` };
@@ -56110,11 +58458,54 @@ function checkFileAuthorityWithRules(agentName, filePath, cwd, effectiveRules) {
   if (rules.blockedExact) {
     for (const blocked of rules.blockedExact) {
       if (normalizedPath === blocked) {
-        return { allowed: false, reason: `Path blocked: ${normalizedPath}` };
+        return {
+          allowed: false,
+          reason: `Path blocked (exact): ${normalizedPath}`
+        };
       }
     }
   }
-  if (rules.blockedPrefix) {
+  if (rules.blockedGlobs && rules.blockedGlobs.length > 0) {
+    for (const glob of rules.blockedGlobs) {
+      const matcher = getGlobMatcher(glob);
+      if (matcher(normalizedPath)) {
+        return {
+          allowed: false,
+          reason: `Path blocked (glob ${glob}): ${normalizedPath}`
+        };
+      }
+    }
+  }
+  if (rules.allowedExact && rules.allowedExact.length > 0) {
+    const isExplicitlyAllowed = rules.allowedExact.some((allowed) => normalizedPath === allowed);
+    if (isExplicitlyAllowed) {
+      return { allowed: true };
+    }
+  }
+  if (rules.allowedGlobs && rules.allowedGlobs.length > 0) {
+    const isGlobAllowed = rules.allowedGlobs.some((glob) => {
+      const matcher = getGlobMatcher(glob);
+      return matcher(normalizedPath);
+    });
+    if (isGlobAllowed) {
+      return { allowed: true };
+    }
+  }
+  if (rules.allowedPrefix != null && rules.allowedPrefix.length > 0) {
+    const isAllowed = rules.allowedPrefix.some((prefix) => normalizedPath.startsWith(prefix));
+    if (!isAllowed) {
+      return {
+        allowed: false,
+        reason: `Path ${normalizedPath} not in allowed list for ${normalizedAgent}`
+      };
+    }
+  } else if (rules.allowedPrefix != null && rules.allowedPrefix.length === 0) {
+    return {
+      allowed: false,
+      reason: `Path ${normalizedPath} not in allowed list for ${normalizedAgent}`
+    };
+  }
+  if (rules.blockedPrefix && rules.blockedPrefix.length > 0) {
     for (const prefix of rules.blockedPrefix) {
       if (normalizedPath.startsWith(prefix)) {
         return {
@@ -56122,15 +58513,6 @@ function checkFileAuthorityWithRules(agentName, filePath, cwd, effectiveRules) {
           reason: `Path blocked: ${normalizedPath} is under ${prefix}`
         };
       }
-    }
-  }
-  if (rules.allowedPrefix != null) {
-    const isAllowed = rules.allowedPrefix.length > 0 ? rules.allowedPrefix.some((prefix) => normalizedPath.startsWith(prefix)) : false;
-    if (!isAllowed) {
-      return {
-        allowed: false,
-        reason: `Path ${normalizedPath} not in allowed list for ${normalizedAgent}`
-      };
     }
   }
   if (rules.blockedZones && rules.blockedZones.length > 0) {
@@ -57526,7 +59908,7 @@ function consolidateSystemMessages(messages) {
 }
 // src/hooks/phase-monitor.ts
 init_schema();
-init_manager2();
+init_manager();
 import * as path43 from "path";
 init_utils2();
 function createPhaseMonitorHook(directory, preflightManager, curatorRunner, delegateFactory) {
@@ -57549,9 +59931,9 @@ function createPhaseMonitorHook(directory, preflightManager, curatorRunner, dele
           const initResult = await runner(directory, curatorConfig, llmDelegate);
           if (initResult.briefing) {
             const briefingPath = path43.join(directory, ".swarm", "curator-briefing.md");
-            const { mkdir: mkdir6, writeFile: writeFile6 } = await import("fs/promises");
+            const { mkdir: mkdir6, writeFile: writeFile7 } = await import("fs/promises");
             await mkdir6(path43.dirname(briefingPath), { recursive: true });
-            await writeFile6(briefingPath, initResult.briefing, "utf-8");
+            await writeFile7(briefingPath, initResult.briefing, "utf-8");
             const { buildApprovedReceipt: buildApprovedReceipt2, persistReviewReceipt: persistReviewReceipt2 } = await Promise.resolve().then(() => (init_review_receipt(), exports_review_receipt));
             const initReceipt = buildApprovedReceipt2({
               agent: "curator",
@@ -57588,7 +59970,7 @@ function createPhaseMonitorHook(directory, preflightManager, curatorRunner, dele
   return safeHook(handler);
 }
 // src/hooks/pipeline-tracker.ts
-init_manager2();
+init_manager();
 init_utils2();
 function parsePhaseNumber(phaseString) {
   if (!phaseString)
@@ -57680,15 +60062,15 @@ init_review_receipt();
 // src/hooks/system-enhancer.ts
 init_constants();
 init_schema();
-init_manager();
-init_detector();
 init_manager2();
+init_detector();
+init_manager();
 import * as fs35 from "fs";
 import * as path47 from "path";
 
 // src/services/decision-drift-analyzer.ts
 init_utils2();
-init_manager2();
+init_manager();
 init_utils();
 import * as fs32 from "fs";
 import * as path44 from "path";
@@ -58045,7 +60427,9 @@ var GATE_DELEGATION_BYPASS_PATTERNS = [
   /\[ \].*to \[x\].*in plan\.md/i,
   /status.*pending.*complete.*plan\.json/i,
   /I'll just mark this one as done/i,
-  /mark it done directly/i
+  /mark it done directly/i,
+  /SPEC_STALENESS_SKIP/i,
+  /SWARM_SKIP_SPEC_GATE/i
 ];
 var GATE_MISCLASSIFICATION_PATTERNS = [
   /(?:src\/|source\/|source\s+code|source\s+file).*tier\s*[01]/i,
@@ -59886,7 +62270,7 @@ import * as path48 from "path";
 import * as child_process5 from "child_process";
 var WIN32_CMD_BINARIES = new Set(["npm", "npx", "pnpm", "yarn"]);
 function spawnAsync(command, cwd, timeoutMs) {
-  return new Promise((resolve15) => {
+  return new Promise((resolve16) => {
     try {
       const [rawCmd, ...args2] = command;
       const cmd = process.platform === "win32" && WIN32_CMD_BINARIES.has(rawCmd) && !rawCmd.includes(".") ? `${rawCmd}.cmd` : rawCmd;
@@ -59933,24 +62317,24 @@ function spawnAsync(command, cwd, timeoutMs) {
         try {
           proc.kill();
         } catch {}
-        resolve15(null);
+        resolve16(null);
       }, timeoutMs);
       proc.on("close", (code) => {
         if (done)
           return;
         done = true;
         clearTimeout(timer);
-        resolve15({ exitCode: code ?? 1, stdout, stderr });
+        resolve16({ exitCode: code ?? 1, stdout, stderr });
       });
       proc.on("error", () => {
         if (done)
           return;
         done = true;
         clearTimeout(timer);
-        resolve15(null);
+        resolve16(null);
       });
     } catch {
-      resolve15(null);
+      resolve16(null);
     }
   });
 }
@@ -60075,7 +62459,7 @@ ${errorSummary}`);
 
 // src/hooks/knowledge-injector.ts
 init_schema();
-init_manager2();
+init_manager();
 
 // src/services/run-memory.ts
 init_utils2();
@@ -61439,7 +63823,7 @@ var batch_symbols = createSwarmTool({
 // src/tools/build-check.ts
 init_dist();
 init_discovery();
-init_manager();
+init_manager2();
 init_create_tool();
 var DEFAULT_TIMEOUT_MS2 = 300000;
 var MAX_OUTPUT_BYTES4 = 10 * 1024;
@@ -61612,7 +63996,7 @@ var build_check = createSwarmTool({
 });
 // src/tools/check-gate-status.ts
 init_dist();
-init_manager();
+init_manager2();
 init_create_tool();
 init_resolve_working_directory();
 import * as fs42 from "fs";
@@ -64326,7 +66710,7 @@ init_create_tool();
 var GITINGEST_TIMEOUT_MS = 1e4;
 var GITINGEST_MAX_RESPONSE_BYTES = 5242880;
 var GITINGEST_MAX_RETRIES = 2;
-var delay = (ms) => new Promise((resolve22) => setTimeout(resolve22, ms));
+var delay = (ms) => new Promise((resolve23) => setTimeout(resolve23, ms));
 async function fetchGitingest(args2) {
   for (let attempt = 0;attempt <= GITINGEST_MAX_RETRIES; attempt++) {
     try {
@@ -64770,7 +67154,7 @@ init_dist();
 init_config();
 init_knowledge_store();
 import { randomUUID as randomUUID6 } from "crypto";
-init_manager2();
+init_manager();
 init_create_tool();
 var VALID_CATEGORIES2 = [
   "process",
@@ -65290,13 +67674,13 @@ init_lint();
 init_dist();
 init_config();
 init_schema();
-init_manager();
+init_manager2();
 import * as fs50 from "fs";
 import * as path63 from "path";
 init_review_receipt();
 init_utils2();
 init_ledger();
-init_manager2();
+init_manager();
 init_state();
 init_telemetry();
 init_create_tool();
@@ -66015,7 +68399,7 @@ async function runNpmAudit(directory) {
       stderr: "pipe",
       cwd: directory
     });
-    const timeoutPromise = new Promise((resolve23) => setTimeout(() => resolve23("timeout"), AUDIT_TIMEOUT_MS));
+    const timeoutPromise = new Promise((resolve24) => setTimeout(() => resolve24("timeout"), AUDIT_TIMEOUT_MS));
     const result = await Promise.race([
       Promise.all([
         new Response(proc.stdout).text(),
@@ -66138,7 +68522,7 @@ async function runPipAudit(directory) {
       stderr: "pipe",
       cwd: directory
     });
-    const timeoutPromise = new Promise((resolve23) => setTimeout(() => resolve23("timeout"), AUDIT_TIMEOUT_MS));
+    const timeoutPromise = new Promise((resolve24) => setTimeout(() => resolve24("timeout"), AUDIT_TIMEOUT_MS));
     const result = await Promise.race([
       Promise.all([
         new Response(proc.stdout).text(),
@@ -66269,7 +68653,7 @@ async function runCargoAudit(directory) {
       stderr: "pipe",
       cwd: directory
     });
-    const timeoutPromise = new Promise((resolve23) => setTimeout(() => resolve23("timeout"), AUDIT_TIMEOUT_MS));
+    const timeoutPromise = new Promise((resolve24) => setTimeout(() => resolve24("timeout"), AUDIT_TIMEOUT_MS));
     const result = await Promise.race([
       Promise.all([
         new Response(proc.stdout).text(),
@@ -66396,7 +68780,7 @@ async function runGoAudit(directory) {
       stderr: "pipe",
       cwd: directory
     });
-    const timeoutPromise = new Promise((resolve23) => setTimeout(() => resolve23("timeout"), AUDIT_TIMEOUT_MS));
+    const timeoutPromise = new Promise((resolve24) => setTimeout(() => resolve24("timeout"), AUDIT_TIMEOUT_MS));
     const result = await Promise.race([
       Promise.all([
         new Response(proc.stdout).text(),
@@ -66532,7 +68916,7 @@ async function runDotnetAudit(directory) {
       stderr: "pipe",
       cwd: directory
     });
-    const timeoutPromise = new Promise((resolve23) => setTimeout(() => resolve23("timeout"), AUDIT_TIMEOUT_MS));
+    const timeoutPromise = new Promise((resolve24) => setTimeout(() => resolve24("timeout"), AUDIT_TIMEOUT_MS));
     const result = await Promise.race([
       Promise.all([
         new Response(proc.stdout).text(),
@@ -66651,7 +69035,7 @@ async function runBundleAudit(directory) {
       stderr: "pipe",
       cwd: directory
     });
-    const timeoutPromise = new Promise((resolve23) => setTimeout(() => resolve23("timeout"), AUDIT_TIMEOUT_MS));
+    const timeoutPromise = new Promise((resolve24) => setTimeout(() => resolve24("timeout"), AUDIT_TIMEOUT_MS));
     const result = await Promise.race([
       Promise.all([
         new Response(proc.stdout).text(),
@@ -66799,7 +69183,7 @@ async function runDartAudit(directory) {
       stderr: "pipe",
       cwd: directory
     });
-    const timeoutPromise = new Promise((resolve23) => setTimeout(() => resolve23("timeout"), AUDIT_TIMEOUT_MS));
+    const timeoutPromise = new Promise((resolve24) => setTimeout(() => resolve24("timeout"), AUDIT_TIMEOUT_MS));
     const result = await Promise.race([
       Promise.all([
         new Response(proc.stdout).text(),
@@ -66917,7 +69301,7 @@ async function runComposerAudit(directory) {
       stderr: "pipe",
       cwd: directory
     });
-    const timeoutPromise = new Promise((resolve23) => setTimeout(() => resolve23("timeout"), AUDIT_TIMEOUT_MS));
+    const timeoutPromise = new Promise((resolve24) => setTimeout(() => resolve24("timeout"), AUDIT_TIMEOUT_MS));
     const result = await Promise.race([
       Promise.all([
         new Response(proc.stdout).text(),
@@ -67160,7 +69544,7 @@ var pkg_audit = createSwarmTool({
 });
 // src/tools/placeholder-scan.ts
 init_dist();
-init_manager();
+init_manager2();
 import * as fs52 from "fs";
 import * as path65 from "path";
 init_utils();
@@ -67573,7 +69957,7 @@ init_dist();
 import * as fs54 from "fs";
 import * as path67 from "path";
 
-// node_modules/yocto-queue/index.js
+// node_modules/.bun/yocto-queue@1.2.2/node_modules/yocto-queue/index.js
 class Node2 {
   value;
   next;
@@ -67640,7 +70024,7 @@ class Queue {
   }
 }
 
-// node_modules/p-limit/index.js
+// node_modules/.bun/p-limit@7.3.0/node_modules/p-limit/index.js
 function pLimit(concurrency) {
   let rejectOnClear = false;
   if (typeof concurrency === "object") {
@@ -67662,26 +70046,26 @@ function pLimit(concurrency) {
     activeCount--;
     resumeNext();
   };
-  const run2 = async (function_, resolve24, arguments_2) => {
+  const run2 = async (function_, resolve25, arguments_2) => {
     const result = (async () => function_(...arguments_2))();
-    resolve24(result);
+    resolve25(result);
     try {
       await result;
     } catch {}
     next();
   };
-  const enqueue = (function_, resolve24, reject, arguments_2) => {
+  const enqueue = (function_, resolve25, reject, arguments_2) => {
     const queueItem = { reject };
     new Promise((internalResolve) => {
       queueItem.run = internalResolve;
       queue.enqueue(queueItem);
-    }).then(run2.bind(undefined, function_, resolve24, arguments_2));
+    }).then(run2.bind(undefined, function_, resolve25, arguments_2));
     if (activeCount < concurrency) {
       resumeNext();
     }
   };
-  const generator = (function_, ...arguments_2) => new Promise((resolve24, reject) => {
-    enqueue(function_, resolve24, reject, arguments_2);
+  const generator = (function_, ...arguments_2) => new Promise((resolve25, reject) => {
+    enqueue(function_, resolve25, reject, arguments_2);
   });
   Object.defineProperties(generator, {
     activeCount: {
@@ -67730,14 +70114,14 @@ function validateConcurrency(concurrency) {
 }
 
 // src/tools/pre-check-batch.ts
-init_manager();
+init_manager2();
 init_utils();
 init_create_tool();
 init_lint();
 
 // src/tools/quality-budget.ts
 init_dist();
-init_manager();
+init_manager2();
 init_create_tool();
 function validateInput(input) {
   if (!input || typeof input !== "object") {
@@ -67862,7 +70246,7 @@ var quality_budget = createSwarmTool({
 
 // src/tools/sast-scan.ts
 init_dist();
-init_manager();
+init_manager2();
 init_detector();
 import * as fs53 from "fs";
 import * as path66 from "path";
@@ -68646,7 +71030,7 @@ function mapSemgrepSeverity(severity) {
   }
 }
 async function executeWithTimeout(command, args2, options) {
-  return new Promise((resolve24) => {
+  return new Promise((resolve25) => {
     const child = child_process7.spawn(command, args2, {
       shell: false,
       cwd: options.cwd
@@ -68655,7 +71039,7 @@ async function executeWithTimeout(command, args2, options) {
     let stderr = "";
     const timeout = setTimeout(() => {
       child.kill("SIGTERM");
-      resolve24({
+      resolve25({
         stdout,
         stderr: "Process timed out",
         exitCode: 124
@@ -68669,7 +71053,7 @@ async function executeWithTimeout(command, args2, options) {
     });
     child.on("close", (code) => {
       clearTimeout(timeout);
-      resolve24({
+      resolve25({
         stdout,
         stderr,
         exitCode: code ?? 0
@@ -68677,7 +71061,7 @@ async function executeWithTimeout(command, args2, options) {
     });
     child.on("error", (err2) => {
       clearTimeout(timeout);
-      resolve24({
+      resolve25({
         stdout,
         stderr: err2.message,
         exitCode: 1
@@ -69797,6 +72181,346 @@ var pre_check_batch = createSwarmTool({
     }
   }
 });
+// src/tools/req-coverage.ts
+init_dist();
+init_create_tool();
+import * as fs55 from "fs";
+import * as path68 from "path";
+var SPEC_FILE = ".swarm/spec.md";
+var EVIDENCE_DIR3 = ".swarm/evidence";
+var OBLIGATION_KEYWORDS = ["MUST", "SHOULD", "SHALL"];
+var MAX_FILE_SIZE_BYTES8 = 1024 * 1024;
+function extractRequirements(specContent) {
+  const requirements = [];
+  const lines = specContent.split(`
+`);
+  const frLineRegex = /^\s*[-*]?\s*(FR-\d{3})\s*[:.\-)]\s*(.+)/gi;
+  const frInlineRegex = /\b(FR-\d{3})\b[^.!?]*?(MUST|SHOULD|SHALL)[^.!?]*[.!?]?/gi;
+  for (const line of lines) {
+    const lineMatchResults = [...line.matchAll(frLineRegex)];
+    if (lineMatchResults.length > 0) {
+      const lineMatch = lineMatchResults[0];
+      const id = lineMatch[1].toUpperCase();
+      const restOfLine = lineMatch[2];
+      const extracted = extractObligationAndText(id, restOfLine);
+      if (extracted) {
+        requirements.push(extracted);
+      }
+      continue;
+    }
+    for (const inlineMatch of line.matchAll(frInlineRegex)) {
+      const id = inlineMatch[1].toUpperCase();
+      const matchedText = inlineMatch[0];
+      if (!requirements.some((r) => r.id === id)) {
+        const extracted = extractObligationAndText(id, matchedText);
+        if (extracted) {
+          requirements.push(extracted);
+        }
+      }
+    }
+  }
+  return requirements;
+}
+function extractObligationAndText(id, lineText) {
+  let obligation = null;
+  let text = lineText.trim();
+  for (const keyword of OBLIGATION_KEYWORDS) {
+    const regex = new RegExp(`\\b${keyword}\\b`, "i");
+    if (regex.test(text)) {
+      obligation = keyword;
+      break;
+    }
+  }
+  if (obligation) {
+    const obligationRegex = new RegExp(`\\b${obligation}\\b`, "i");
+    text = text.replace(obligationRegex, "").replace(/\s+/g, " ").trim();
+  }
+  text = text.replace(/^[:\-.)\s]+/, "").trim();
+  if (!text) {
+    return null;
+  }
+  return { id, obligation, text };
+}
+var PHASE_TASK_ID_REGEX = /^\d+\.\d+(\.\d+)*$/;
+function readTouchedFiles(evidenceDir, phase, cwd) {
+  const touchedFiles = new Set;
+  if (!fs55.existsSync(evidenceDir) || !fs55.statSync(evidenceDir).isDirectory()) {
+    return [];
+  }
+  let entries;
+  try {
+    entries = fs55.readdirSync(evidenceDir);
+  } catch {
+    return [];
+  }
+  for (const entry of entries) {
+    const entryPath = path68.join(evidenceDir, entry);
+    try {
+      const stat2 = fs55.statSync(entryPath);
+      if (!stat2.isDirectory()) {
+        continue;
+      }
+    } catch {
+      continue;
+    }
+    if (!PHASE_TASK_ID_REGEX.test(entry)) {
+      continue;
+    }
+    const entryPhase = entry.split(".")[0];
+    if (entryPhase !== String(phase)) {
+      continue;
+    }
+    const evidenceFilePath = path68.join(entryPath, "evidence.json");
+    try {
+      const resolvedPath = path68.resolve(evidenceFilePath);
+      const evidenceDirResolved = path68.resolve(evidenceDir);
+      if (!resolvedPath.startsWith(evidenceDirResolved + path68.sep)) {
+        continue;
+      }
+      const stat2 = fs55.lstatSync(evidenceFilePath);
+      if (!stat2.isFile()) {
+        continue;
+      }
+      if (stat2.size > MAX_FILE_SIZE_BYTES8) {
+        continue;
+      }
+    } catch {
+      continue;
+    }
+    let content;
+    try {
+      content = fs55.readFileSync(evidenceFilePath, "utf-8");
+    } catch {
+      continue;
+    }
+    let parsed;
+    try {
+      parsed = JSON.parse(content);
+    } catch {
+      continue;
+    }
+    if (parsed && typeof parsed === "object") {
+      const obj = parsed;
+      if (Array.isArray(obj.entries)) {
+        for (const entryItem of obj.entries) {
+          if (entryItem && typeof entryItem === "object" && entryItem.type === "diff") {
+            const diffEntry = entryItem;
+            if (Array.isArray(diffEntry.files_changed)) {
+              for (const file3 of diffEntry.files_changed) {
+                if (typeof file3 === "string") {
+                  touchedFiles.add(path68.resolve(cwd, file3));
+                }
+              }
+            }
+          }
+        }
+      }
+    }
+  }
+  return Array.from(touchedFiles);
+}
+function searchFileForKeywords(filePath, keywords, cwd) {
+  try {
+    const resolvedPath = path68.resolve(filePath);
+    const cwdResolved = path68.resolve(cwd);
+    if (!resolvedPath.startsWith(cwdResolved)) {
+      return false;
+    }
+    const content = fs55.readFileSync(resolvedPath, "utf-8");
+    for (const keyword of keywords) {
+      const regex = new RegExp(`\\b${keyword}\\b`, "i");
+      if (regex.test(content)) {
+        return true;
+      }
+    }
+    return false;
+  } catch {
+    return false;
+  }
+}
+function analyzeRequirementCoverage(requirement, touchedFiles, cwd) {
+  const keywords = [];
+  const stopWords = new Set([
+    "the",
+    "a",
+    "an",
+    "and",
+    "or",
+    "but",
+    "in",
+    "on",
+    "at",
+    "to",
+    "for",
+    "of",
+    "with",
+    "by",
+    "from",
+    "as",
+    "is",
+    "was",
+    "are",
+    "be",
+    "been",
+    "being",
+    "have",
+    "has",
+    "had",
+    "do",
+    "does",
+    "did",
+    "will",
+    "would",
+    "could",
+    "should",
+    "may",
+    "might",
+    "must",
+    "shall",
+    "can",
+    "need",
+    "that",
+    "this",
+    "these",
+    "those",
+    "it",
+    "its",
+    "they",
+    "them"
+  ]);
+  const wordRegex = /\b[a-zA-Z]{4,}\b/g;
+  const words = requirement.text.match(wordRegex) || [];
+  for (const word of words) {
+    const lower = word.toLowerCase();
+    if (!stopWords.has(lower)) {
+      keywords.push(word);
+    }
+  }
+  let foundCount = 0;
+  const searchedFiles = [];
+  for (const file3 of touchedFiles) {
+    if (!file3.match(/\.(ts|js|tsx|jsx|py|go|rs|java|c|cpp|h|cs|rb|php)$/i)) {
+      continue;
+    }
+    searchedFiles.push(file3);
+    if (searchFileForKeywords(file3, keywords, cwd)) {
+      foundCount++;
+    }
+  }
+  let status;
+  if (foundCount >= 1) {
+    status = "covered";
+  } else {
+    status = "missing";
+  }
+  if (searchedFiles.length === 0) {
+    status = "missing";
+  }
+  return {
+    id: requirement.id,
+    obligation: requirement.obligation,
+    text: requirement.text,
+    status,
+    filesSearched: searchedFiles
+  };
+}
+var req_coverage = createSwarmTool({
+  description: "Analyze requirement coverage for FR requirements against touched files. " + "Reads .swarm/spec.md for FR-### requirements and checks coverage against " + "files touched during a phase via evidence files. Produces coverage report.",
+  args: {
+    phase: tool.schema.number().int().min(1).describe("The phase number to analyze coverage for"),
+    directory: tool.schema.string().optional().describe("Working directory (defaults to plugin context directory)")
+  },
+  async execute(args2, directory) {
+    let phase;
+    let inputDirectory;
+    try {
+      if (args2 && typeof args2 === "object") {
+        const obj = args2;
+        phase = typeof obj.phase === "number" ? obj.phase : typeof obj.phase === "string" ? Number(obj.phase) : NaN;
+        inputDirectory = typeof obj.directory === "string" ? obj.directory : undefined;
+      } else {
+        phase = NaN;
+      }
+    } catch {
+      phase = NaN;
+    }
+    if (Number.isNaN(phase) || phase < 1 || !Number.isFinite(phase)) {
+      return JSON.stringify({
+        success: false,
+        phase: 0,
+        totalRequirements: 0,
+        coveredCount: 0,
+        missingCount: 0,
+        requirements: [],
+        error: "Invalid phase number"
+      }, null, 2);
+    }
+    const cwd = inputDirectory || directory;
+    const specPath = path68.join(cwd, SPEC_FILE);
+    let specContent;
+    try {
+      specContent = fs55.readFileSync(specPath, "utf-8");
+    } catch (readError) {
+      return JSON.stringify({
+        success: false,
+        phase,
+        totalRequirements: 0,
+        coveredCount: 0,
+        missingCount: 0,
+        requirements: [],
+        error: `Failed to read spec.md: ${readError instanceof Error ? readError.message : String(readError)}`
+      }, null, 2);
+    }
+    const requirements = extractRequirements(specContent);
+    if (requirements.length === 0) {
+      return JSON.stringify({
+        success: true,
+        phase,
+        totalRequirements: 0,
+        coveredCount: 0,
+        missingCount: 0,
+        requirements: [],
+        message: "No FR requirements found in spec.md"
+      }, null, 2);
+    }
+    const evidenceDir = path68.join(cwd, EVIDENCE_DIR3);
+    const touchedFiles = readTouchedFiles(evidenceDir, phase, cwd);
+    const analyzedRequirements = [];
+    let coveredCount = 0;
+    let missingCount = 0;
+    for (const req of requirements) {
+      const analysis = analyzeRequirementCoverage(req, touchedFiles, cwd);
+      analyzedRequirements.push(analysis);
+      switch (analysis.status) {
+        case "covered":
+          coveredCount++;
+          break;
+        case "missing":
+          missingCount++;
+          break;
+      }
+    }
+    const result = {
+      success: true,
+      phase,
+      totalRequirements: requirements.length,
+      coveredCount,
+      missingCount,
+      requirements: analyzedRequirements
+    };
+    const reportFilename = `req-coverage-phase-${phase}.json`;
+    const reportPath = path68.join(evidenceDir, reportFilename);
+    try {
+      if (!fs55.existsSync(evidenceDir)) {
+        fs55.mkdirSync(evidenceDir, { recursive: true });
+      }
+      fs55.writeFileSync(reportPath, JSON.stringify(result, null, 2), "utf-8");
+    } catch (writeError) {
+      console.warn(`Failed to write coverage report: ${writeError instanceof Error ? writeError.message : String(writeError)}`);
+    }
+    return JSON.stringify(result, null, 2);
+  }
+});
 // src/tools/retrieve-summary.ts
 init_dist();
 init_create_tool();
@@ -69867,10 +72591,11 @@ ${paginatedContent}`;
 });
 // src/tools/save-plan.ts
 init_tool();
-import * as fs55 from "fs";
-import * as path68 from "path";
+import * as crypto7 from "crypto";
+import * as fs56 from "fs";
+import * as path69 from "path";
 init_ledger();
-init_manager2();
+init_manager();
 init_state();
 init_create_tool();
 function detectPlaceholderContent(args2) {
@@ -69945,6 +72670,24 @@ async function executeSavePlan(args2, fallbackDir) {
       recovery_guidance: "Use save_plan with corrected inputs to create or restructure plans. Never write .swarm/plan.json or .swarm/plan.md directly."
     };
   }
+  let specMtime;
+  let specHash;
+  if (process.env.SWARM_SKIP_SPEC_GATE !== "1") {
+    const specPath = path69.join(targetWorkspace, ".swarm", "spec.md");
+    try {
+      const stat2 = await fs56.promises.stat(specPath);
+      specMtime = stat2.mtime.toISOString();
+      const content = await fs56.promises.readFile(specPath, "utf8");
+      specHash = crypto7.createHash("sha256").update(content).digest("hex");
+    } catch {
+      return {
+        success: false,
+        message: "SPEC_REQUIRED: .swarm/spec.md must exist before saving a plan. Run /swarm specify first.",
+        errors: ["Missing .swarm/spec.md in workspace"],
+        recovery_guidance: "Create or restore .swarm/spec.md before saving a plan. Never write .swarm/plan.json or .swarm/plan.md directly."
+      };
+    }
+  }
   const dir = targetWorkspace;
   const existingStatusMap = new Map;
   try {
@@ -69963,6 +72706,8 @@ async function executeSavePlan(args2, fallbackDir) {
     swarm: args2.swarm_id,
     migration_status: "native",
     current_phase: args2.phases[0]?.id,
+    specMtime,
+    specHash,
     phases: args2.phases.map((phase) => {
       return {
         id: phase.id,
@@ -70006,14 +72751,14 @@ async function executeSavePlan(args2, fallbackDir) {
       }
       await writeCheckpoint(dir).catch(() => {});
       try {
-        const markerPath = path68.join(dir, ".swarm", ".plan-write-marker");
+        const markerPath = path69.join(dir, ".swarm", ".plan-write-marker");
         const marker = JSON.stringify({
           source: "save_plan",
           timestamp: new Date().toISOString(),
           phases_count: plan.phases.length,
           tasks_count: tasksCount
         });
-        await fs55.promises.writeFile(markerPath, marker, "utf8");
+        await fs56.promises.writeFile(markerPath, marker, "utf8");
       } catch {}
       const warnings = [];
       let criticReviewFound = false;
@@ -70029,7 +72774,7 @@ async function executeSavePlan(args2, fallbackDir) {
       return {
         success: true,
         message: "Plan saved successfully",
-        plan_path: path68.join(dir, ".swarm", "plan.json"),
+        plan_path: path69.join(dir, ".swarm", "plan.json"),
         phases_count: plan.phases.length,
         tasks_count: tasksCount,
         ...warnings.length > 0 ? { warnings } : {}
@@ -70072,9 +72817,9 @@ var save_plan = createSwarmTool({
 });
 // src/tools/sbom-generate.ts
 init_dist();
-init_manager();
-import * as fs56 from "fs";
-import * as path69 from "path";
+init_manager2();
+import * as fs57 from "fs";
+import * as path70 from "path";
 
 // src/sbom/detectors/index.ts
 init_utils();
@@ -70922,9 +73667,9 @@ function findManifestFiles(rootDir) {
   const patterns = [...new Set(allDetectors.flatMap((d) => d.patterns))];
   function searchDir(dir) {
     try {
-      const entries = fs56.readdirSync(dir, { withFileTypes: true });
+      const entries = fs57.readdirSync(dir, { withFileTypes: true });
       for (const entry of entries) {
-        const fullPath = path69.join(dir, entry.name);
+        const fullPath = path70.join(dir, entry.name);
         if (entry.name.startsWith(".") || entry.name === "node_modules" || entry.name === "dist" || entry.name === "build" || entry.name === "target") {
           continue;
         }
@@ -70933,7 +73678,7 @@ function findManifestFiles(rootDir) {
         } else if (entry.isFile()) {
           for (const pattern of patterns) {
             if (simpleGlobToRegex(pattern).test(entry.name)) {
-              manifestFiles.push(path69.relative(rootDir, fullPath));
+              manifestFiles.push(path70.relative(rootDir, fullPath));
               break;
             }
           }
@@ -70949,13 +73694,13 @@ function findManifestFilesInDirs(directories, workingDir) {
   const patterns = [...new Set(allDetectors.flatMap((d) => d.patterns))];
   for (const dir of directories) {
     try {
-      const entries = fs56.readdirSync(dir, { withFileTypes: true });
+      const entries = fs57.readdirSync(dir, { withFileTypes: true });
       for (const entry of entries) {
-        const fullPath = path69.join(dir, entry.name);
+        const fullPath = path70.join(dir, entry.name);
         if (entry.isFile()) {
           for (const pattern of patterns) {
             if (simpleGlobToRegex(pattern).test(entry.name)) {
-              found.push(path69.relative(workingDir, fullPath));
+              found.push(path70.relative(workingDir, fullPath));
               break;
             }
           }
@@ -70968,11 +73713,11 @@ function findManifestFilesInDirs(directories, workingDir) {
 function getDirectoriesFromChangedFiles(changedFiles, workingDir) {
   const dirs = new Set;
   for (const file3 of changedFiles) {
-    let currentDir = path69.dirname(file3);
+    let currentDir = path70.dirname(file3);
     while (true) {
-      if (currentDir && currentDir !== "." && currentDir !== path69.sep) {
-        dirs.add(path69.join(workingDir, currentDir));
-        const parent = path69.dirname(currentDir);
+      if (currentDir && currentDir !== "." && currentDir !== path70.sep) {
+        dirs.add(path70.join(workingDir, currentDir));
+        const parent = path70.dirname(currentDir);
         if (parent === currentDir)
           break;
         currentDir = parent;
@@ -70986,7 +73731,7 @@ function getDirectoriesFromChangedFiles(changedFiles, workingDir) {
 }
 function ensureOutputDir(outputDir) {
   try {
-    fs56.mkdirSync(outputDir, { recursive: true });
+    fs57.mkdirSync(outputDir, { recursive: true });
   } catch (error93) {
     if (!error93 || error93.code !== "EEXIST") {
       throw error93;
@@ -71056,7 +73801,7 @@ var sbom_generate = createSwarmTool({
     const changedFiles = obj.changed_files;
     const relativeOutputDir = obj.output_dir || DEFAULT_OUTPUT_DIR;
     const workingDir = directory;
-    const outputDir = path69.isAbsolute(relativeOutputDir) ? relativeOutputDir : path69.join(workingDir, relativeOutputDir);
+    const outputDir = path70.isAbsolute(relativeOutputDir) ? relativeOutputDir : path70.join(workingDir, relativeOutputDir);
     let manifestFiles = [];
     if (scope === "all") {
       manifestFiles = findManifestFiles(workingDir);
@@ -71079,11 +73824,11 @@ var sbom_generate = createSwarmTool({
     const processedFiles = [];
     for (const manifestFile of manifestFiles) {
       try {
-        const fullPath = path69.isAbsolute(manifestFile) ? manifestFile : path69.join(workingDir, manifestFile);
-        if (!fs56.existsSync(fullPath)) {
+        const fullPath = path70.isAbsolute(manifestFile) ? manifestFile : path70.join(workingDir, manifestFile);
+        if (!fs57.existsSync(fullPath)) {
           continue;
         }
-        const content = fs56.readFileSync(fullPath, "utf-8");
+        const content = fs57.readFileSync(fullPath, "utf-8");
         const components = detectComponents(manifestFile, content);
         processedFiles.push(manifestFile);
         if (components.length > 0) {
@@ -71096,8 +73841,8 @@ var sbom_generate = createSwarmTool({
     const bom = generateCycloneDX(allComponents);
     const bomJson = serializeCycloneDX(bom);
     const filename = generateSbomFilename();
-    const outputPath = path69.join(outputDir, filename);
-    fs56.writeFileSync(outputPath, bomJson, "utf-8");
+    const outputPath = path70.join(outputDir, filename);
+    fs57.writeFileSync(outputPath, bomJson, "utf-8");
     const verdict = processedFiles.length > 0 ? "pass" : "pass";
     try {
       const timestamp = new Date().toISOString();
@@ -71139,8 +73884,8 @@ var sbom_generate = createSwarmTool({
 // src/tools/schema-drift.ts
 init_dist();
 init_create_tool();
-import * as fs57 from "fs";
-import * as path70 from "path";
+import * as fs58 from "fs";
+import * as path71 from "path";
 var SPEC_CANDIDATES = [
   "openapi.json",
   "openapi.yaml",
@@ -71172,28 +73917,28 @@ function normalizePath2(p) {
 }
 function discoverSpecFile(cwd, specFileArg) {
   if (specFileArg) {
-    const resolvedPath = path70.resolve(cwd, specFileArg);
-    const normalizedCwd = cwd.endsWith(path70.sep) ? cwd : cwd + path70.sep;
+    const resolvedPath = path71.resolve(cwd, specFileArg);
+    const normalizedCwd = cwd.endsWith(path71.sep) ? cwd : cwd + path71.sep;
     if (!resolvedPath.startsWith(normalizedCwd) && resolvedPath !== cwd) {
       throw new Error("Invalid spec_file: path traversal detected");
     }
-    const ext = path70.extname(resolvedPath).toLowerCase();
+    const ext = path71.extname(resolvedPath).toLowerCase();
     if (!ALLOWED_EXTENSIONS.includes(ext)) {
       throw new Error(`Invalid spec_file: must end in .json, .yaml, or .yml, got ${ext}`);
     }
-    const stats = fs57.statSync(resolvedPath);
+    const stats = fs58.statSync(resolvedPath);
     if (stats.size > MAX_SPEC_SIZE) {
       throw new Error(`Invalid spec_file: file exceeds ${MAX_SPEC_SIZE / 1024 / 1024}MB limit`);
     }
-    if (!fs57.existsSync(resolvedPath)) {
+    if (!fs58.existsSync(resolvedPath)) {
       throw new Error(`Spec file not found: ${resolvedPath}`);
     }
     return resolvedPath;
   }
   for (const candidate of SPEC_CANDIDATES) {
-    const candidatePath = path70.resolve(cwd, candidate);
-    if (fs57.existsSync(candidatePath)) {
-      const stats = fs57.statSync(candidatePath);
+    const candidatePath = path71.resolve(cwd, candidate);
+    if (fs58.existsSync(candidatePath)) {
+      const stats = fs58.statSync(candidatePath);
       if (stats.size <= MAX_SPEC_SIZE) {
         return candidatePath;
       }
@@ -71202,8 +73947,8 @@ function discoverSpecFile(cwd, specFileArg) {
   return null;
 }
 function parseSpec(specFile) {
-  const content = fs57.readFileSync(specFile, "utf-8");
-  const ext = path70.extname(specFile).toLowerCase();
+  const content = fs58.readFileSync(specFile, "utf-8");
+  const ext = path71.extname(specFile).toLowerCase();
   if (ext === ".json") {
     return parseJsonSpec(content);
   }
@@ -71274,12 +74019,12 @@ function extractRoutes(cwd) {
   function walkDir(dir) {
     let entries;
     try {
-      entries = fs57.readdirSync(dir, { withFileTypes: true });
+      entries = fs58.readdirSync(dir, { withFileTypes: true });
     } catch {
       return;
     }
     for (const entry of entries) {
-      const fullPath = path70.join(dir, entry.name);
+      const fullPath = path71.join(dir, entry.name);
       if (entry.isSymbolicLink()) {
         continue;
       }
@@ -71289,7 +74034,7 @@ function extractRoutes(cwd) {
         }
         walkDir(fullPath);
       } else if (entry.isFile()) {
-        const ext = path70.extname(entry.name).toLowerCase();
+        const ext = path71.extname(entry.name).toLowerCase();
         const baseName = entry.name.toLowerCase();
         if (![".ts", ".js", ".mjs"].includes(ext)) {
           continue;
@@ -71307,7 +74052,7 @@ function extractRoutes(cwd) {
 }
 function extractRoutesFromFile(filePath) {
   const routes = [];
-  const content = fs57.readFileSync(filePath, "utf-8");
+  const content = fs58.readFileSync(filePath, "utf-8");
   const lines = content.split(/\r?\n/);
   const expressRegex = /(?:app|router|server|express)\.(get|post|put|patch|delete|options|head)\s*\(\s*['"`]([^'"`]+)['"`]/g;
   const flaskRegex = /@(?:app|blueprint|bp)\.route\s*\(\s*['"]([^'"]+)['"]/g;
@@ -71454,12 +74199,12 @@ var schema_drift = createSwarmTool({
 // src/tools/search.ts
 init_tool();
 init_create_tool();
-import * as fs58 from "fs";
-import * as path71 from "path";
+import * as fs59 from "fs";
+import * as path72 from "path";
 var DEFAULT_MAX_RESULTS = 100;
 var DEFAULT_MAX_LINES = 200;
 var REGEX_TIMEOUT_MS = 5000;
-var MAX_FILE_SIZE_BYTES8 = 1024 * 1024;
+var MAX_FILE_SIZE_BYTES9 = 1024 * 1024;
 var HARD_CAP_RESULTS = 1e4;
 var HARD_CAP_LINES = 1e4;
 function globMatch(pattern, filePath) {
@@ -71491,11 +74236,11 @@ function containsWindowsAttacks3(str) {
 }
 function isPathInWorkspace3(filePath, workspace) {
   try {
-    const resolvedPath = path71.resolve(workspace, filePath);
-    const realWorkspace = fs58.realpathSync(workspace);
-    const realResolvedPath = fs58.realpathSync(resolvedPath);
-    const relativePath = path71.relative(realWorkspace, realResolvedPath);
-    if (relativePath.startsWith("..") || path71.isAbsolute(relativePath)) {
+    const resolvedPath = path72.resolve(workspace, filePath);
+    const realWorkspace = fs59.realpathSync(workspace);
+    const realResolvedPath = fs59.realpathSync(resolvedPath);
+    const relativePath = path72.relative(realWorkspace, realResolvedPath);
+    if (relativePath.startsWith("..") || path72.isAbsolute(relativePath)) {
       return false;
     }
     return true;
@@ -71508,12 +74253,12 @@ function validatePathForRead2(filePath, workspace) {
 }
 function findRgInEnvPath() {
   const searchPath = process.env.PATH ?? "";
-  for (const dir of searchPath.split(path71.delimiter)) {
+  for (const dir of searchPath.split(path72.delimiter)) {
     if (!dir)
       continue;
     const isWindows = process.platform === "win32";
-    const candidate = path71.join(dir, isWindows ? "rg.exe" : "rg");
-    if (fs58.existsSync(candidate))
+    const candidate = path72.join(dir, isWindows ? "rg.exe" : "rg");
+    if (fs59.existsSync(candidate))
       return candidate;
   }
   return null;
@@ -71567,7 +74312,7 @@ async function ripgrepSearch(opts) {
       stderr: "pipe",
       cwd: opts.workspace
     });
-    const timeout = new Promise((resolve28) => setTimeout(() => resolve28("timeout"), REGEX_TIMEOUT_MS));
+    const timeout = new Promise((resolve30) => setTimeout(() => resolve30("timeout"), REGEX_TIMEOUT_MS));
     const exitPromise = proc.exited;
     const result = await Promise.race([exitPromise, timeout]);
     if (result === "timeout") {
@@ -71640,10 +74385,10 @@ function collectFiles(dir, workspace, includeGlobs, excludeGlobs) {
     return files;
   }
   try {
-    const entries = fs58.readdirSync(dir, { withFileTypes: true });
+    const entries = fs59.readdirSync(dir, { withFileTypes: true });
     for (const entry of entries) {
-      const fullPath = path71.join(dir, entry.name);
-      const relativePath = path71.relative(workspace, fullPath);
+      const fullPath = path72.join(dir, entry.name);
+      const relativePath = path72.relative(workspace, fullPath);
       if (!validatePathForRead2(fullPath, workspace)) {
         continue;
       }
@@ -71684,14 +74429,14 @@ async function fallbackSearch(opts) {
   const matches = [];
   let total = 0;
   for (const file3 of files) {
-    const fullPath = path71.join(opts.workspace, file3);
+    const fullPath = path72.join(opts.workspace, file3);
     if (!validatePathForRead2(fullPath, opts.workspace)) {
       continue;
     }
     let stats;
     try {
-      stats = fs58.statSync(fullPath);
-      if (stats.size > MAX_FILE_SIZE_BYTES8) {
+      stats = fs59.statSync(fullPath);
+      if (stats.size > MAX_FILE_SIZE_BYTES9) {
         continue;
       }
     } catch {
@@ -71699,7 +74444,7 @@ async function fallbackSearch(opts) {
     }
     let content;
     try {
-      content = fs58.readFileSync(fullPath, "utf-8");
+      content = fs59.readFileSync(fullPath, "utf-8");
     } catch {
       continue;
     }
@@ -71811,7 +74556,7 @@ var search = createSwarmTool({
         message: "Exclude pattern contains invalid Windows-specific sequence"
       }, null, 2);
     }
-    if (!fs58.existsSync(directory)) {
+    if (!fs59.existsSync(directory)) {
       return JSON.stringify({
         error: true,
         type: "unknown",
@@ -71854,8 +74599,8 @@ init_secretscan();
 // src/tools/suggest-patch.ts
 init_tool();
 init_create_tool();
-import * as fs59 from "fs";
-import * as path72 from "path";
+import * as fs60 from "fs";
+import * as path73 from "path";
 var WINDOWS_RESERVED_NAMES4 = /^(con|prn|aux|nul|com[1-9]|lpt[1-9])(\.|:|$)/i;
 function containsWindowsAttacks4(str) {
   if (/:[^\\/]/.test(str))
@@ -71869,14 +74614,14 @@ function containsWindowsAttacks4(str) {
 }
 function isPathInWorkspace4(filePath, workspace) {
   try {
-    const resolvedPath = path72.resolve(workspace, filePath);
-    if (!fs59.existsSync(resolvedPath)) {
+    const resolvedPath = path73.resolve(workspace, filePath);
+    if (!fs60.existsSync(resolvedPath)) {
       return true;
     }
-    const realWorkspace = fs59.realpathSync(workspace);
-    const realResolvedPath = fs59.realpathSync(resolvedPath);
-    const relativePath = path72.relative(realWorkspace, realResolvedPath);
-    if (relativePath.startsWith("..") || path72.isAbsolute(relativePath)) {
+    const realWorkspace = fs60.realpathSync(workspace);
+    const realResolvedPath = fs60.realpathSync(resolvedPath);
+    const relativePath = path73.relative(realWorkspace, realResolvedPath);
+    if (relativePath.startsWith("..") || path73.isAbsolute(relativePath)) {
       return false;
     }
     return true;
@@ -72048,7 +74793,7 @@ var suggestPatch = createSwarmTool({
         message: "changes cannot be empty"
       }, null, 2);
     }
-    if (!fs59.existsSync(directory)) {
+    if (!fs60.existsSync(directory)) {
       return JSON.stringify({
         success: false,
         error: true,
@@ -72084,8 +74829,8 @@ var suggestPatch = createSwarmTool({
         });
         continue;
       }
-      const fullPath = path72.resolve(directory, change.file);
-      if (!fs59.existsSync(fullPath)) {
+      const fullPath = path73.resolve(directory, change.file);
+      if (!fs60.existsSync(fullPath)) {
         errors5.push({
           success: false,
           error: true,
@@ -72099,7 +74844,7 @@ var suggestPatch = createSwarmTool({
       }
       let content;
       try {
-        content = fs59.readFileSync(fullPath, "utf-8");
+        content = fs60.readFileSync(fullPath, "utf-8");
       } catch (err2) {
         errors5.push({
           success: false,
@@ -72175,12 +74920,138 @@ var suggestPatch = createSwarmTool({
     }, null, 2);
   }
 });
+
+// src/tools/lint-spec.ts
+init_spec_schema();
+init_create_tool();
+import * as fs61 from "fs";
+import * as path74 from "path";
+var SPEC_FILE_NAME = "spec.md";
+var SWARM_DIR = ".swarm";
+var OBLIGATION_KEYWORDS2 = ["MUST", "SHALL", "SHOULD", "MAY"];
+var FR_ID_PATTERN2 = /\bFR-(?!000)\d{3}\b/;
+var OBLIGATION_PATTERN2 = /\b(MUST|SHALL|SHOULD|MAY)\b/g;
+var SCENARIO_PATTERN = /^##\s+Scenario\s*:/gm;
+var GIVEN_WHEN_THEN_PATTERN = /\b(Given|When|Then|And|But)[:\s]/gi;
+function countRequirementsByObligation(content) {
+  const counts = {
+    MUST: 0,
+    SHALL: 0,
+    SHOULD: 0,
+    MAY: 0
+  };
+  const strippedContent = content.replace(/```[\s\S]*?```/g, "").replace(/`[^`]*`/g, "");
+  const lines = strippedContent.split(`
+`);
+  for (const line of lines) {
+    const frMatches = line.match(FR_ID_PATTERN2);
+    if (!frMatches)
+      continue;
+    const matches = line.matchAll(OBLIGATION_PATTERN2);
+    for (const match of matches) {
+      const keyword = match[1];
+      if (OBLIGATION_KEYWORDS2.includes(keyword)) {
+        counts[keyword]++;
+      }
+    }
+  }
+  return counts;
+}
+function countScenarios(content) {
+  let scenarioCount = 0;
+  const scenarioMatches = content.match(SCENARIO_PATTERN);
+  if (scenarioMatches) {
+    scenarioCount += scenarioMatches.length;
+  }
+  const givenWhenThenMatches = content.match(GIVEN_WHEN_THEN_PATTERN);
+  if (givenWhenThenMatches && givenWhenThenMatches.length > 0) {
+    if (scenarioCount === 0) {
+      const whenCount = (content.match(/\bWhen\s+/gi) || []).length;
+      scenarioCount = whenCount;
+    }
+  }
+  return scenarioCount;
+}
+var lint_spec = createSwarmTool({
+  description: "Reads .swarm/spec.md, lints markdown spec for FR-IDs, obligations, and structure, and returns requirement counts by obligation level, scenario count, and any errors or warnings found.",
+  args: {},
+  async execute(_args, directory) {
+    const errors5 = [];
+    const warnings = [];
+    const specPath = path74.join(directory, SWARM_DIR, SPEC_FILE_NAME);
+    if (!fs61.existsSync(specPath)) {
+      const result2 = {
+        valid: false,
+        specMtime: null,
+        requirementCount: {
+          MUST: 0,
+          SHALL: 0,
+          SHOULD: 0,
+          MAY: 0,
+          total: 0
+        },
+        scenarioCount: 0,
+        errors: ["spec.md not found"],
+        warnings: []
+      };
+      return JSON.stringify(result2, null, 2);
+    }
+    let specMtime = null;
+    try {
+      const stats = fs61.statSync(specPath);
+      specMtime = stats.mtime.toISOString();
+    } catch {}
+    let content;
+    try {
+      content = fs61.readFileSync(specPath, "utf-8");
+    } catch (e) {
+      const result2 = {
+        valid: false,
+        specMtime,
+        requirementCount: {
+          MUST: 0,
+          SHALL: 0,
+          SHOULD: 0,
+          MAY: 0,
+          total: 0
+        },
+        scenarioCount: 0,
+        errors: [
+          `Failed to read spec.md: ${e instanceof Error ? e.message : String(e)}`
+        ],
+        warnings: []
+      };
+      return JSON.stringify(result2, null, 2);
+    }
+    const contentValidation = validateSpecContent(content);
+    if (!contentValidation.valid) {
+      for (const issue3 of contentValidation.issues) {
+        errors5.push(`Line ${issue3.line}: ${issue3.message}`);
+      }
+    }
+    const obligationCounts = countRequirementsByObligation(content);
+    const totalRequirements = Object.values(obligationCounts).reduce((sum, count) => sum + count, 0);
+    const scenarioCount = countScenarios(content);
+    const result = {
+      valid: errors5.length === 0,
+      specMtime,
+      requirementCount: {
+        ...obligationCounts,
+        total: totalRequirements
+      },
+      scenarioCount,
+      errors: errors5,
+      warnings
+    };
+    return JSON.stringify(result, null, 2);
+  }
+});
 // src/tools/syntax-check.ts
 init_dist();
-init_manager();
+init_manager2();
 init_detector();
-import * as fs60 from "fs";
-import * as path73 from "path";
+import * as fs62 from "fs";
+import * as path75 from "path";
 init_create_tool();
 var MAX_FILE_SIZE2 = 5 * 1024 * 1024;
 var BINARY_CHECK_BYTES = 8192;
@@ -72233,7 +75104,7 @@ async function syntaxCheck(input, directory, config3) {
   if (languages?.length) {
     const lowerLangs = languages.map((l) => l.toLowerCase());
     filesToCheck = filesToCheck.filter((file3) => {
-      const ext = path73.extname(file3.path).toLowerCase();
+      const ext = path75.extname(file3.path).toLowerCase();
       const langDef = getLanguageForExtension(ext);
       const fileProfile = getProfileForFile(file3.path);
       const langId = fileProfile?.id || langDef?.id;
@@ -72246,7 +75117,7 @@ async function syntaxCheck(input, directory, config3) {
   let skippedCount = 0;
   for (const fileInfo of filesToCheck) {
     const { path: filePath } = fileInfo;
-    const fullPath = path73.isAbsolute(filePath) ? filePath : path73.join(directory, filePath);
+    const fullPath = path75.isAbsolute(filePath) ? filePath : path75.join(directory, filePath);
     const result = {
       path: filePath,
       language: "",
@@ -72276,7 +75147,7 @@ async function syntaxCheck(input, directory, config3) {
       }
       let content;
       try {
-        content = fs60.readFileSync(fullPath, "utf8");
+        content = fs62.readFileSync(fullPath, "utf8");
       } catch {
         result.skipped_reason = "file_read_error";
         skippedCount++;
@@ -72295,7 +75166,7 @@ async function syntaxCheck(input, directory, config3) {
         results.push(result);
         continue;
       }
-      const ext = path73.extname(filePath).toLowerCase();
+      const ext = path75.extname(filePath).toLowerCase();
       const langDef = getLanguageForExtension(ext);
       result.language = profile?.id || langDef?.id || "unknown";
       const errors5 = extractSyntaxErrors(parser, content);
@@ -72356,10 +75227,10 @@ init_test_runner();
 init_dist();
 init_utils();
 init_create_tool();
-import * as fs61 from "fs";
-import * as path74 from "path";
+import * as fs63 from "fs";
+import * as path76 from "path";
 var MAX_TEXT_LENGTH = 200;
-var MAX_FILE_SIZE_BYTES9 = 1024 * 1024;
+var MAX_FILE_SIZE_BYTES10 = 1024 * 1024;
 var SUPPORTED_EXTENSIONS2 = new Set([
   ".ts",
   ".tsx",
@@ -72423,9 +75294,9 @@ function validatePathsInput(paths, cwd) {
     return { error: "paths contains path traversal", resolvedPath: null };
   }
   try {
-    const resolvedPath = path74.resolve(paths);
-    const normalizedCwd = path74.resolve(cwd);
-    const normalizedResolved = path74.resolve(resolvedPath);
+    const resolvedPath = path76.resolve(paths);
+    const normalizedCwd = path76.resolve(cwd);
+    const normalizedResolved = path76.resolve(resolvedPath);
     if (!normalizedResolved.startsWith(normalizedCwd)) {
       return {
         error: "paths must be within the current working directory",
@@ -72441,13 +75312,13 @@ function validatePathsInput(paths, cwd) {
   }
 }
 function isSupportedExtension(filePath) {
-  const ext = path74.extname(filePath).toLowerCase();
+  const ext = path76.extname(filePath).toLowerCase();
   return SUPPORTED_EXTENSIONS2.has(ext);
 }
 function findSourceFiles2(dir, files = []) {
   let entries;
   try {
-    entries = fs61.readdirSync(dir);
+    entries = fs63.readdirSync(dir);
   } catch {
     return files;
   }
@@ -72456,10 +75327,10 @@ function findSourceFiles2(dir, files = []) {
     if (SKIP_DIRECTORIES4.has(entry)) {
       continue;
     }
-    const fullPath = path74.join(dir, entry);
+    const fullPath = path76.join(dir, entry);
     let stat2;
     try {
-      stat2 = fs61.statSync(fullPath);
+      stat2 = fs63.statSync(fullPath);
     } catch {
       continue;
     }
@@ -72552,7 +75423,7 @@ var todo_extract = createSwarmTool({
       return JSON.stringify(errorResult, null, 2);
     }
     const scanPath = resolvedPath;
-    if (!fs61.existsSync(scanPath)) {
+    if (!fs63.existsSync(scanPath)) {
       const errorResult = {
         error: `path not found: ${pathsInput}`,
         total: 0,
@@ -72562,13 +75433,13 @@ var todo_extract = createSwarmTool({
       return JSON.stringify(errorResult, null, 2);
     }
     const filesToScan = [];
-    const stat2 = fs61.statSync(scanPath);
+    const stat2 = fs63.statSync(scanPath);
     if (stat2.isFile()) {
       if (isSupportedExtension(scanPath)) {
         filesToScan.push(scanPath);
       } else {
         const errorResult = {
-          error: `unsupported file extension: ${path74.extname(scanPath)}`,
+          error: `unsupported file extension: ${path76.extname(scanPath)}`,
           total: 0,
           byPriority: { high: 0, medium: 0, low: 0 },
           entries: []
@@ -72581,11 +75452,11 @@ var todo_extract = createSwarmTool({
     const allEntries = [];
     for (const filePath of filesToScan) {
       try {
-        const fileStat = fs61.statSync(filePath);
-        if (fileStat.size > MAX_FILE_SIZE_BYTES9) {
+        const fileStat = fs63.statSync(filePath);
+        if (fileStat.size > MAX_FILE_SIZE_BYTES10) {
           continue;
         }
-        const content = fs61.readFileSync(filePath, "utf-8");
+        const content = fs63.readFileSync(filePath, "utf-8");
         const entries = parseTodoComments(content, filePath, tagsSet);
         allEntries.push(...entries);
       } catch {}
@@ -72614,18 +75485,18 @@ var todo_extract = createSwarmTool({
 init_tool();
 init_schema();
 init_gate_evidence();
-import * as fs63 from "fs";
-import * as path76 from "path";
+import * as fs65 from "fs";
+import * as path78 from "path";
 
 // src/hooks/diff-scope.ts
-import * as fs62 from "fs";
-import * as path75 from "path";
+import * as fs64 from "fs";
+import * as path77 from "path";
 function getDeclaredScope(taskId, directory) {
   try {
-    const planPath = path75.join(directory, ".swarm", "plan.json");
-    if (!fs62.existsSync(planPath))
+    const planPath = path77.join(directory, ".swarm", "plan.json");
+    if (!fs64.existsSync(planPath))
       return null;
-    const raw = fs62.readFileSync(planPath, "utf-8");
+    const raw = fs64.readFileSync(planPath, "utf-8");
     const plan = JSON.parse(raw);
     for (const phase of plan.phases ?? []) {
       for (const task of phase.tasks ?? []) {
@@ -72702,7 +75573,7 @@ async function validateDiffScope(taskId, directory) {
 }
 
 // src/tools/update-task-status.ts
-init_manager2();
+init_manager();
 init_state();
 init_telemetry();
 init_create_tool();
@@ -72739,7 +75610,7 @@ var TIER_3_PATTERNS = [
 ];
 function matchesTier3Pattern(files) {
   for (const file3 of files) {
-    const fileName = path76.basename(file3);
+    const fileName = path78.basename(file3);
     for (const pattern of TIER_3_PATTERNS) {
       if (pattern.test(fileName)) {
         return true;
@@ -72753,8 +75624,8 @@ function checkReviewerGate(taskId, workingDirectory) {
     if (hasActiveTurboMode()) {
       const resolvedDir2 = workingDirectory;
       try {
-        const planPath = path76.join(resolvedDir2, ".swarm", "plan.json");
-        const planRaw = fs63.readFileSync(planPath, "utf-8");
+        const planPath = path78.join(resolvedDir2, ".swarm", "plan.json");
+        const planRaw = fs65.readFileSync(planPath, "utf-8");
         const plan = JSON.parse(planRaw);
         for (const planPhase of plan.phases ?? []) {
           for (const task of planPhase.tasks ?? []) {
@@ -72820,8 +75691,8 @@ function checkReviewerGate(taskId, workingDirectory) {
     }
     try {
       const resolvedDir2 = workingDirectory;
-      const planPath = path76.join(resolvedDir2, ".swarm", "plan.json");
-      const planRaw = fs63.readFileSync(planPath, "utf-8");
+      const planPath = path78.join(resolvedDir2, ".swarm", "plan.json");
+      const planRaw = fs65.readFileSync(planPath, "utf-8");
       const plan = JSON.parse(planRaw);
       for (const planPhase of plan.phases ?? []) {
         for (const task of planPhase.tasks ?? []) {
@@ -73003,8 +75874,8 @@ async function executeUpdateTaskStatus(args2, fallbackDir) {
         };
       }
     }
-    normalizedDir = path76.normalize(args2.working_directory);
-    const pathParts = normalizedDir.split(path76.sep);
+    normalizedDir = path78.normalize(args2.working_directory);
+    const pathParts = normalizedDir.split(path78.sep);
     if (pathParts.includes("..")) {
       return {
         success: false,
@@ -73014,11 +75885,11 @@ async function executeUpdateTaskStatus(args2, fallbackDir) {
         ]
       };
     }
-    const resolvedDir = path76.resolve(normalizedDir);
+    const resolvedDir = path78.resolve(normalizedDir);
     try {
-      const realPath = fs63.realpathSync(resolvedDir);
-      const planPath = path76.join(realPath, ".swarm", "plan.json");
-      if (!fs63.existsSync(planPath)) {
+      const realPath = fs65.realpathSync(resolvedDir);
+      const planPath = path78.join(realPath, ".swarm", "plan.json");
+      if (!fs65.existsSync(planPath)) {
         return {
           success: false,
           message: `Invalid working_directory: plan not found in "${realPath}"`,
@@ -73049,12 +75920,12 @@ async function executeUpdateTaskStatus(args2, fallbackDir) {
   }
   if (args2.status === "in_progress") {
     try {
-      const evidencePath = path76.join(directory, ".swarm", "evidence", `${args2.task_id}.json`);
-      fs63.mkdirSync(path76.dirname(evidencePath), { recursive: true });
-      const fd = fs63.openSync(evidencePath, "wx");
+      const evidencePath = path78.join(directory, ".swarm", "evidence", `${args2.task_id}.json`);
+      fs65.mkdirSync(path78.dirname(evidencePath), { recursive: true });
+      const fd = fs65.openSync(evidencePath, "wx");
       let writeOk = false;
       try {
-        fs63.writeSync(fd, JSON.stringify({
+        fs65.writeSync(fd, JSON.stringify({
           task_id: args2.task_id,
           required_gates: ["reviewer", "test_engineer"],
           gates: {},
@@ -73062,10 +75933,10 @@ async function executeUpdateTaskStatus(args2, fallbackDir) {
         }, null, 2));
         writeOk = true;
       } finally {
-        fs63.closeSync(fd);
+        fs65.closeSync(fd);
         if (!writeOk) {
           try {
-            fs63.unlinkSync(evidencePath);
+            fs65.unlinkSync(evidencePath);
           } catch {}
         }
       }
@@ -73075,8 +75946,8 @@ async function executeUpdateTaskStatus(args2, fallbackDir) {
     recoverTaskStateFromDelegations(args2.task_id);
     let phaseRequiresReviewer = true;
     try {
-      const planPath = path76.join(directory, ".swarm", "plan.json");
-      const planRaw = fs63.readFileSync(planPath, "utf-8");
+      const planPath = path78.join(directory, ".swarm", "plan.json");
+      const planRaw = fs65.readFileSync(planPath, "utf-8");
       const plan = JSON.parse(planRaw);
       const taskPhase = plan.phases.find((p) => p.tasks.some((t) => t.id === args2.task_id));
       if (taskPhase?.required_agents && !taskPhase.required_agents.includes("reviewer")) {
@@ -73174,8 +76045,8 @@ var update_task_status = createSwarmTool({
 init_tool();
 init_utils2();
 init_create_tool();
-import fs64 from "fs";
-import path77 from "path";
+import fs66 from "fs";
+import path79 from "path";
 function normalizeVerdict(verdict) {
   switch (verdict) {
     case "APPROVED":
@@ -73216,13 +76087,14 @@ async function executeWriteDriftEvidence(args2, directory) {
     type: "drift-verification",
     verdict: normalizedVerdict,
     summary: summary.trim(),
-    timestamp: new Date().toISOString()
+    timestamp: new Date().toISOString(),
+    requirementCoverage: args2.requirementCoverage
   };
   const evidenceContent = {
     entries: [evidenceEntry]
   };
   const filename = "drift-verifier.json";
-  const relativePath = path77.join("evidence", String(phase), filename);
+  const relativePath = path79.join("evidence", String(phase), filename);
   let validatedPath;
   try {
     validatedPath = validateSwarmPath(directory, relativePath);
@@ -73233,12 +76105,12 @@ async function executeWriteDriftEvidence(args2, directory) {
       message: error93 instanceof Error ? error93.message : "Failed to validate path"
     }, null, 2);
   }
-  const evidenceDir = path77.dirname(validatedPath);
+  const evidenceDir = path79.dirname(validatedPath);
   try {
-    await fs64.promises.mkdir(evidenceDir, { recursive: true });
-    const tempPath = path77.join(evidenceDir, `.${filename}.tmp`);
-    await fs64.promises.writeFile(tempPath, JSON.stringify(evidenceContent, null, 2), "utf-8");
-    await fs64.promises.rename(tempPath, validatedPath);
+    await fs66.promises.mkdir(evidenceDir, { recursive: true });
+    const tempPath = path79.join(evidenceDir, `.${filename}.tmp`);
+    await fs66.promises.writeFile(tempPath, JSON.stringify(evidenceContent, null, 2), "utf-8");
+    await fs66.promises.rename(tempPath, validatedPath);
     return JSON.stringify({
       success: true,
       phase,
@@ -73258,7 +76130,8 @@ var write_drift_evidence = createSwarmTool({
   args: {
     phase: tool.schema.number().int().min(1).describe("The phase number for the drift verification (e.g., 1, 2, 3)"),
     verdict: tool.schema.enum(["APPROVED", "NEEDS_REVISION"]).describe("Verdict of the drift verification: 'APPROVED' or 'NEEDS_REVISION'"),
-    summary: tool.schema.string().describe("Human-readable summary of the drift verification")
+    summary: tool.schema.string().describe("Human-readable summary of the drift verification"),
+    requirementCoverage: tool.schema.string().optional().describe("Requirement coverage report from req_coverage tool (JSON string)")
   },
   execute: async (args2, directory) => {
     const rawPhase = args2.phase !== undefined ? Number(args2.phase) : 0;
@@ -73266,7 +76139,8 @@ var write_drift_evidence = createSwarmTool({
       const writeDriftEvidenceArgs = {
         phase: Number(args2.phase),
         verdict: String(args2.verdict),
-        summary: String(args2.summary ?? "")
+        summary: String(args2.summary ?? ""),
+        requirementCoverage: args2.requirementCoverage !== undefined ? String(args2.requirementCoverage) : undefined
       };
       return await executeWriteDriftEvidence(writeDriftEvidenceArgs, directory);
     } catch (error93) {
@@ -73439,7 +76313,7 @@ var OpenCodeSwarm = async (ctx) => {
     const { PreflightTriggerManager: PTM } = await Promise.resolve().then(() => (init_trigger(), exports_trigger));
     preflightTriggerManager = new PTM(automationConfig);
     const { AutomationStatusArtifact: ASA } = await Promise.resolve().then(() => (init_status_artifact(), exports_status_artifact));
-    const swarmDir = path78.resolve(ctx.directory, ".swarm");
+    const swarmDir = path80.resolve(ctx.directory, ".swarm");
     statusArtifact = new ASA(swarmDir);
     statusArtifact.updateConfig(automationConfig.mode, automationConfig.capabilities);
     if (automationConfig.capabilities?.evidence_auto_summaries === true) {
