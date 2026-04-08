@@ -1,7 +1,7 @@
 import { afterEach, beforeEach, describe, expect, test } from 'bun:test';
-import { mkdir, readFile, rm, unlink, writeFile } from 'fs/promises';
-import { tmpdir } from 'os';
-import { join } from 'path';
+import { mkdir, readFile, rm, unlink, writeFile } from 'node:fs/promises';
+import { tmpdir } from 'node:os';
+import { join } from 'node:path';
 import { handleAcknowledgeSpecDriftCommand } from '../commands/acknowledge-spec-drift';
 
 describe('handleAcknowledgeSpecDriftCommand', () => {
@@ -130,7 +130,7 @@ describe('handleAcknowledgeSpecDriftCommand', () => {
 				type: 'some_existing_event',
 				timestamp: '2024-01-01T00:00:00.000Z',
 			};
-			await writeFile(eventsPath, JSON.stringify(existingEvent) + '\n');
+			await writeFile(eventsPath, `${JSON.stringify(existingEvent)}\n`);
 
 			const validPayload = {
 				planTitle: 'Append Test',

@@ -1,8 +1,7 @@
-import { afterEach, beforeEach, describe, expect, mock, test } from 'bun:test';
-import * as fs from 'node:fs';
+import { afterEach, beforeEach, describe, expect, test } from 'bun:test';
+import { mkdir, rm, writeFile } from 'node:fs/promises';
+import { tmpdir } from 'node:os';
 import * as path from 'node:path';
-import { mkdir, rm, writeFile } from 'fs/promises';
-import { tmpdir } from 'os';
 import {
 	analyzeRequirementCoverage,
 	extractObligationAndText,
@@ -261,13 +260,9 @@ describe('readTouchedFiles', () => {
 
 		expect(files).toHaveLength(2);
 		// Files are resolved to absolute paths - check they contain the relative path
-		expect(files.some((f) => f.includes('src' + path.sep + 'index.ts'))).toBe(
-			true,
-		);
+		expect(files.some((f) => f.includes(`src${path.sep}index.ts`))).toBe(true);
 		expect(
-			files.some((f) =>
-				f.includes('src' + path.sep + 'utils' + path.sep + 'helper.ts'),
-			),
+			files.some((f) => f.includes(`src${path.sep}utils${path.sep}helper.ts`)),
 		).toBe(true);
 	});
 
@@ -487,7 +482,7 @@ describe('searchFileForKeywords', () => {
 		await writeFile(filePath, 'sensitive data');
 
 		// Use a different cwd
-		const differentCwd = path.join(tmpdir(), 'different-cwd-' + Date.now());
+		const differentCwd = path.join(tmpdir(), `different-cwd-${Date.now()}`);
 		await mkdir(differentCwd, { recursive: true });
 
 		const result = searchFileForKeywords(filePath, ['sensitive'], differentCwd);
@@ -677,7 +672,7 @@ describe('analyzeRequirementCoverage', () => {
 		await writeFile(insideFile, 'export function auth() { }');
 
 		// Create file outside (different directory)
-		const outsideDir = path.join(tmpdir(), 'outside-' + Date.now());
+		const outsideDir = path.join(tmpdir(), `outside-${Date.now()}`);
 		await mkdir(outsideDir, { recursive: true });
 		const outsideFile = path.join(outsideDir, 'outside.ts');
 		await writeFile(outsideFile, 'export function auth() { }');

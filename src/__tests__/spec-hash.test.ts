@@ -1,7 +1,7 @@
 import { afterEach, beforeEach, describe, expect, mock, test } from 'bun:test';
-import { mkdir, rm, writeFile } from 'fs/promises';
-import { tmpdir } from 'os';
-import { join } from 'path';
+import { mkdir, rm, writeFile } from 'node:fs/promises';
+import { tmpdir } from 'node:os';
+import { join } from 'node:path';
 import type { Plan } from '../config/plan-schema';
 import { computeSpecHash, isSpecStale } from '../utils/spec-hash';
 
@@ -149,7 +149,7 @@ describe('computeSpecHash error handling', () => {
 	test('re-throws on unexpected errors (non-ENOENT)', async () => {
 		// We need to mock fs/promises.readFile to throw a non-ENOENT error
 		// Since the source uses named import, we use mock.module
-		const originalReadFile = (await import('fs/promises')).readFile;
+		const _originalReadFile = (await import('node:fs/promises')).readFile;
 		const mockReadFile = mock(() => {
 			const error = new Error('Random error') as NodeJS.ErrnoException;
 			error.code = 'EACCES'; // Not ENOENT
