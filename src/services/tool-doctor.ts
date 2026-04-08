@@ -136,6 +136,24 @@ function checkBinaryReadiness(): ConfigFinding[] {
  * Verifies that every entry in TOOL_NAMES has a corresponding key
  * in the plugin's tool: {} block in src/index.ts.
  */
+/**
+ * Returns a structured advisory string for any missing Class 3 binaries.
+ * Intended for injection into the architect's first system prompt.
+ * Returns null if all binaries are available.
+ */
+export function getBinaryReadinessAdvisory(): string | null {
+	const findings = checkBinaryReadiness();
+	if (findings.length === 0) return null;
+	const lines = findings.map(
+		(f) => `- MISSING BINARY: ${f.currentValue ?? f.path?.split('.')[1] ?? 'unknown'} — ${f.description}`
+	);
+	return [
+		'[PRE-FLIGHT ADVISORY] The following Class 3 tool binaries were not found on PATH at session start.',
+		'These tools will soft-skip at invocation. Plan tasks accordingly.',
+		...lines,
+	].join('\n');
+}
+
 export function runToolDoctor(
 	_directory: string,
 	pluginRoot?: string,

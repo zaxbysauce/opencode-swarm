@@ -911,6 +911,34 @@ export async function getDiagnoseData(
 	// Check: Curator
 	checks.push(await checkCurator(directory));
 
+	// Check: Agent Tool Snapshots
+	try {
+		const evidenceDir = path.join(directory, '.swarm', 'evidence');
+		const snapshotFiles = existsSync(evidenceDir)
+			? readdirSync(evidenceDir).filter((f) => f.startsWith('agent-tools-') && f.endsWith('.json'))
+			: [];
+		if (snapshotFiles.length > 0) {
+			const latest = snapshotFiles.sort().pop()!;
+			checks.push({
+				name: 'Agent Tool Snapshots',
+				status: '✅',
+				detail: `${snapshotFiles.length} snapshot(s) found — latest: ${latest}`,
+			});
+		} else {
+			checks.push({
+				name: 'Agent Tool Snapshots',
+				status: '✅',
+				detail: 'No snapshots yet (snapshots written on next session start)',
+			});
+		}
+	} catch {
+		checks.push({
+			name: 'Agent Tool Snapshots',
+			status: '✅',
+			detail: 'No snapshots yet (snapshots written on next session start)',
+		});
+	}
+
 	const passCount = checks.filter((c) => c.status === '✅').length;
 	const totalCount = checks.length;
 	const allPassed = passCount === totalCount;

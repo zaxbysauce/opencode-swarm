@@ -15,7 +15,7 @@ import {
 const mockExecute = mock(() => Promise.resolve('{"results":[],"total":0}'));
 
 mock.module('../../../src/tools/knowledge-recall', () => ({
-	knowledgeRecall: {
+	knowledge_recall: {
 		execute: mockExecute,
 	},
 }));

@@ -84,9 +84,9 @@ import {
 	gitingest,
 	imports,
 	knowledge_query,
-	knowledgeAdd,
-	knowledgeRecall,
-	knowledgeRemove,
+	knowledge_add,
+	knowledge_recall,
+	knowledge_remove,
 	lint,
 	phase_complete,
 	pkg_audit,
@@ -158,7 +158,7 @@ const OpenCodeSwarm: Plugin = async (ctx) => {
 	// v6.18 Session persistence — restore state from previous session (non-blocking)
 	await loadSnapshot(ctx.directory);
 	initTelemetry(ctx.directory);
-	const agents = getAgentConfigs(config);
+	const agents = getAgentConfigs(config, ctx.directory);
 	const agentDefinitions = createAgents(config);
 
 	// Collect all registered curator agent names across all swarms.
@@ -538,9 +538,9 @@ const OpenCodeSwarm: Plugin = async (ctx) => {
 			completion_verify,
 			complexity_hotspots,
 			curator_analyze,
-			knowledgeAdd,
-			knowledgeRecall,
-			knowledgeRemove,
+			knowledge_add,
+			knowledge_recall,
+			knowledge_remove,
 			co_change_analyzer,
 			detect_domains,
 			doc_extract,

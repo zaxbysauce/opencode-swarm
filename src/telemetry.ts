@@ -26,7 +26,8 @@ export type TelemetryEvent =
 	| 'qa_skip_violation'
 	| 'heartbeat'
 	| 'turbo_mode_changed'
-	| 'auto_oversight_escalation';
+	| 'auto_oversight_escalation'
+	| 'environment_detected';
 
 export type TelemetryListener = (
 	event: TelemetryEvent,
@@ -326,5 +327,14 @@ export const telemetry = {
 			deadlockCount,
 			phase,
 		});
+	},
+
+	environmentDetected(
+		sessionId: string,
+		hostOS: string,
+		shellFamily: string,
+		executionMode: string,
+	): void {
+		emit('environment_detected', { sessionId, hostOS, shellFamily, executionMode });
 	},
 };

@@ -1053,6 +1053,40 @@ ${handoffContent}`;
 							}
 						}
 
+						// Pre-flight binary advisory (runs once, non-fatal) — architect-only
+						try {
+							const activeAgent_binary = swarmState.activeAgent.get(_input.sessionID ?? '');
+							const isArchitect_binary =
+								!activeAgent_binary ||
+								stripKnownSwarmPrefix(activeAgent_binary) === 'architect';
+							if (isArchitect_binary) {
+								const { getBinaryReadinessAdvisory } = await import('../services/tool-doctor.js');
+								const advisory = getBinaryReadinessAdvisory();
+								if (advisory) {
+									tryInject(advisory);
+								}
+							}
+						} catch {
+							// Non-blocking — binary check failure must not prevent system enhancement
+						}
+
+						// Environment profile injection for coder and test_engineer
+						try {
+							const activeAgent_env = swarmState.activeAgent.get(_input.sessionID ?? '');
+							const agentBase_env = stripKnownSwarmPrefix(activeAgent_env ?? '').toLowerCase();
+							if (agentBase_env === 'coder' || agentBase_env === 'testengineer' || agentBase_env === 'test_engineer') {
+								const { ensureSessionEnvironment } = await import('../state.js');
+								const { renderEnvironmentPrompt } = await import('../environment/prompt-renderer.js');
+								const envSessionId = _input.sessionID ?? 'unknown';
+								const profile = ensureSessionEnvironment(envSessionId);
+								const audience = agentBase_env === 'coder' ? 'coder' : 'testengineer';
+								const envPrompt = renderEnvironmentPrompt(profile, audience);
+								tryInject(envPrompt);
+							}
+						} catch {
+							// Non-blocking — environment injection failure must not break the hook
+						}
+
 						return;
 					}
 

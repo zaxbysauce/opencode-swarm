@@ -7,7 +7,7 @@ import {
 import type { SwarmKnowledgeEntry } from '../hooks/knowledge-types.js';
 import { createSwarmTool } from './create-tool.js';
 
-export const knowledgeRemove: ReturnType<typeof createSwarmTool> =
+export const knowledge_remove: ReturnType<typeof createSwarmTool> =
 	createSwarmTool({
 		description:
 			'Delete an outdated knowledge entry by ID. Double-deletion is idempotent — removing a non-existent entry returns a clear message without error.',

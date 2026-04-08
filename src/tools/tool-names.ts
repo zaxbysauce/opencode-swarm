@@ -40,9 +40,9 @@ export type ToolName =
 	| 'doc_scan'
 	| 'doc_extract'
 	| 'curator_analyze'
-	| 'knowledgeAdd'
-	| 'knowledgeRecall'
-	| 'knowledgeRemove'
+	| 'knowledge_add'
+	| 'knowledge_recall'
+	| 'knowledge_remove'
 	| 'co_change_analyzer'
 	| 'search'
 	| 'batch_symbols'
@@ -85,9 +85,9 @@ export const TOOL_NAMES: readonly ToolName[] = [
 	'doc_scan',
 	'doc_extract',
 	'curator_analyze',
-	'knowledgeAdd',
-	'knowledgeRecall',
-	'knowledgeRemove',
+	'knowledge_add',
+	'knowledge_recall',
+	'knowledge_remove',
 	'co_change_analyzer',
 	'search',
 	'batch_symbols',
@@ -96,3 +96,11 @@ export const TOOL_NAMES: readonly ToolName[] = [
 
 /** Set for O(1) tool name validation */
 export const TOOL_NAME_SET: ReadonlySet<ToolName> = new Set(TOOL_NAMES);
+
+// Enforce snake_case on all TOOL_NAMES entries at compile time.
+// This will produce a type error if any entry contains an uppercase letter
+// that isn't at the start of a word boundary for snake_case.
+type AssertSnakeCase<T extends string> =
+	T extends `${string}${Uppercase<string>}${string}` ? never : T;
+type _ToolNamesSnakeCaseCheck = AssertSnakeCase<ToolName>;
+// If this type resolves to `never`, a tool name contains camelCase.

@@ -25,7 +25,7 @@ const VALID_CATEGORIES: KnowledgeCategory[] = [
 	'other',
 ];
 
-export const knowledgeAdd: ReturnType<typeof createSwarmTool> = createSwarmTool(
+export const knowledge_add: ReturnType<typeof createSwarmTool> = createSwarmTool(
 	{
 		description:
 			'Store a new lesson in the knowledge base for future reference. The lesson will be available for retrieval via knowledge_recall.',
