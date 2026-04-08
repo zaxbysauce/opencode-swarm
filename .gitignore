@@ -54,3 +54,8 @@ package-lock.json
 # Perplexity MCP log (locked by process, never commit)
 perplexity.log
 
+
+# Test artifacts from Windows-path unit tests
+C:\\/
+C:\\projects\\myworkspace/
+\\\\server\\share/
