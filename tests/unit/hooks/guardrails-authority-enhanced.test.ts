@@ -486,25 +486,30 @@ describe('checkFileAuthorityWithRules - DENY-first evaluation', () => {
 			expect(result.allowed).toBe(false);
 		});
 
-		test('allowedExact works when path does not match blockedGlobs at all', () => {
+		test('allowedExact rescues from blockedGlobs even when allowedPrefix would also block', () => {
+			// Three-way interaction: blockedGlobs + allowedExact + allowedPrefix all in play.
+			// Without the deferred-deny fix, blockedGlobs would return early and
+			// allowedExact would never be evaluated.
 			const authorityConfig: AuthorityConfig = {
 				enabled: true,
 				rules: {
 					test_agent: {
-						blockedGlobs: ['logs/*.log'],
-						allowedExact: ['error.log'],
+						allowedPrefix: ['docs/'],
+						blockedGlobs: ['**/*.log'],
+						allowedExact: ['docs/important.log'],
 					},
 				},
 			};
 
 			const result = checkFileAuthority(
 				'test_agent',
-				'error.log',
+				'docs/important.log',
 				TEST_CWD,
 				authorityConfig,
 			);
-			// error.log does NOT match logs/*.log (not in logs/ directory)
-			// allowedExact also matches — allowed
+			// docs/important.log matches **/*.log → globBlockedReason set (deferred).
+			// allowedExact matches docs/important.log → rescues before deferred deny fires.
+			// Result: allowed (deferred-deny fix is required for this to pass).
 			expect(result.allowed).toBe(true);
 		});
 	});
@@ -855,5 +860,39 @@ describe('Symlink resolution via normalizePathWithCache', () => {
 
 		expect(result1.allowed).toBe(result2.allowed);
 		expect(result1.allowed).toBe(true);
+	});
+
+	test('dangling symlink (target does not exist) is not resolved — known limitation', async () => {
+		// Known limitation: realpathSync throws when the symlink target does not exist.
+		// The fallback returns the symlink's own path (unresolved), so the symlink's
+		// apparent location in src/ passes the allowedPrefix: ['src/'] check.
+		// This means a dangling symlink inside an allowed directory is NOT blocked
+		// by symlink resolution alone — use blockedExact or blockedGlobs to deny
+		// specific dangling-symlink paths explicitly.
+		await fs.mkdir(path.join(tempDir, 'src'), { recursive: true });
+		await fs.symlink(
+			path.join(outsideDir, 'nonexistent-target.ts'), // target does not exist
+			path.join(tempDir, 'src', 'dangling.ts'),
+		);
+
+		const authorityConfig: AuthorityConfig = {
+			enabled: true,
+			rules: {
+				test_agent: {
+					allowedPrefix: ['src/'],
+				},
+			},
+		};
+
+		const result = checkFileAuthority(
+			'test_agent',
+			'src/dangling.ts',
+			tempDir,
+			authorityConfig,
+		);
+		// realpathSync throws (nonexistent target) → fallback uses symlink's own path
+		// → normalized to src/dangling.ts → passes allowedPrefix: ['src/']
+		// This documents the known limitation: dangling symlinks are not caught.
+		expect(result.allowed).toBe(true);
 	});
 });

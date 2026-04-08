@@ -2029,6 +2029,13 @@ const globMatcherCache = new QuickLRU<string, (path: string) => boolean>({
  * @param filePath The file path to normalize (absolute or relative)
  * @param cwd Working directory for relative paths
  * @returns Normalized absolute path or original on error
+ *
+ * Known limitation: symlink resolution only works for existing files/symlinks.
+ * If a symlink's target does not exist, realpathSync throws and the fallback
+ * returns the symlink's own path (unresolved). A dangling symlink inside an
+ * allowedPrefix directory will therefore pass prefix-based checks even if its
+ * intended target is outside the project. Use blockedExact or blockedGlobs to
+ * explicitly deny known dangling-symlink paths.
  */
 function normalizePathWithCache(filePath: string, cwd: string): string {
 	// Generate cache key: cwd + filePath combination
@@ -2054,7 +2061,8 @@ function normalizePathWithCache(filePath: string, cwd: string): string {
 
 		return normalized;
 	} catch {
-		// If realpath fails (e.g., file doesn't exist), fall back to path.resolve
+		// If realpath fails (e.g., file doesn't exist or is a dangling symlink),
+		// fall back to path.resolve without symlink resolution.
 		const fallback = path.isAbsolute(filePath)
 			? filePath
 			: path.resolve(cwd, filePath);
@@ -2210,21 +2218,22 @@ function buildEffectiveRules(
 /**
  * Checks file path authority against a pre-computed rules map.
  *
- * Evaluation order (highest precedence first):
+ * Evaluation steps (in execution order — matches the Step N comments in the function body):
  * 1. readOnly      — absolute deny for all writes
  * 2. blockedExact  — absolute deny; cannot be overridden by any allow rule
- * 3. allowedExact  — explicit allow; overrides blockedGlobs, prefix, and zone rules
- * 4. allowedGlobs  — explicit allow; overrides blockedGlobs, prefix, and zone rules
- * 5. blockedGlobs  — deny (can be rescued by allowedExact / allowedGlobs above)
+ * 3. blockedGlobs  — records a pending deny (deferred); does NOT return yet
+ * 4. allowedExact  — explicit allow; rescues from step 3 and all subsequent rules
+ * 5. allowedGlobs  — explicit allow; rescues from step 3 and all subsequent rules
+ *    [deferred deny from step 3 fires here if no rescue at steps 4–5]
  * 6. allowedPrefix — prefix whitelist
  * 7. blockedPrefix — prefix blacklist
  * 8. blockedZones  — zone-based deny
  *
  * Key invariants:
  * - blockedExact is the only absolute deny; no allow rule can override it.
- * - allowedExact/allowedGlobs override blockedGlobs and all prefix/zone rules.
- * - blockedGlobs overrides prefix/zone rules but not allowedExact/allowedGlobs.
- * - For an absolute glob block use blockedExact instead.
+ * - allowedExact/allowedGlobs rescue from blockedGlobs and all prefix/zone rules.
+ * - blockedGlobs is a deferred deny — it can be rescued by allowedExact/allowedGlobs.
+ * - For an absolute glob block with no rescue, use blockedExact instead.
  */
 function checkFileAuthorityWithRules(
 	agentName: string,
