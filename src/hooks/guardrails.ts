@@ -1177,8 +1177,9 @@ export function createGuardrailsHooks(
 						// Issue #414: Wire conflict resolution on reviewer→coder rejection cycles.
 						// Guard: coderRevisions > 1 (re-delegation occurred) AND qaSkipCount === 0
 						// (reviewer was properly invoked between coder completions — not a QA skip).
-						// qaSkipCount is reset to 0 by the QA gate when reviewer/test_engineer fires,
-						// and incremented when coder is re-delegated without a gate agent in between.
+						// qaSkipCount is reset to 0 by the QA gate when BOTH reviewer AND test_engineer
+						// have run since the last coder (see delegation-gate.ts: hasReviewer && hasTestEngineer).
+						// It is incremented when coder is re-delegated without a gate agent in between.
 						if (session.coderRevisions > 1 && session.qaSkipCount === 0) {
 							let conflictPhase = 1;
 							try {

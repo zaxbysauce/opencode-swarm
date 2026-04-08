@@ -40,7 +40,7 @@ export function resolveAgentConflict(input: ResolveAgentConflictInput): void {
 		session.pendingAdvisoryMessages.push(
 			`CONFLICT DETECTED: ${input.sourceAgent} disagrees with ${input.targetAgent} on task ${
 				input.taskId ?? 'unknown'
-			}. Attempt self-resolution using .swarmplan.md, .swarmspec.md, and .swarmcontext.md before escalation.`,
+			}. Attempt self-resolution using .swarm/plan.md, .swarm/spec.md, and .swarm/context.md before escalation.`,
 		);
 	}
 
