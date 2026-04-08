@@ -33,6 +33,7 @@ import {
 } from '../state';
 import { telemetry } from '../telemetry.js';
 import { log, warn } from '../utils';
+import { resolveAgentConflict } from './conflict-resolution';
 import { extractCurrentPhaseFromPlan } from './extractors';
 import { detectLoop } from './loop-detector';
 import { extractModelInfo } from './model-limits';
@@ -1173,6 +1174,25 @@ export function createGuardrailsHooks(
 					// v6.33: Bounded coder revisions — increment and check ceiling
 					if (!session.revisionLimitHit) {
 						session.coderRevisions++;
+						// Issue #414: Wire conflict resolution on reviewer→coder rejection cycles
+						// coderRevisions > 1 means coder was re-delegated after a prior reviewer cycle
+						if (session.coderRevisions > 1) {
+							const phase =
+								session.reviewerCallCount.size > 0
+									? Math.max(...session.reviewerCallCount.keys())
+									: 1;
+							resolveAgentConflict({
+								sessionID: input.sessionID,
+								phase,
+								taskId: session.currentTaskId ?? undefined,
+								sourceAgent: 'reviewer',
+								targetAgent: 'coder',
+								conflictType: 'feedback_rejection',
+								rejectionCount: session.coderRevisions - 1,
+								summary: `Coder revision ${session.coderRevisions} for task ${session.currentTaskId ?? 'unknown'}`,
+							});
+							session.lastDelegationReason = 'review_rejected';
+						}
 						const maxRevisions = cfg.max_coder_revisions ?? 5;
 						if (session.coderRevisions >= maxRevisions) {
 							session.revisionLimitHit = true;

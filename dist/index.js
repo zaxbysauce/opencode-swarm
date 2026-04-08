@@ -51817,6 +51817,27 @@ ${customAppendPrompt}`;
 }
 
 // src/agents/critic.ts
+function parseSoundingBoardResponse(raw) {
+  if (typeof raw !== "string" || raw.trim().length === 0)
+    return null;
+  const verdictMatch = raw.match(/Verdict\s*:\s*(UNNECESSARY|REPHRASE|APPROVED|RESOLVE)/i);
+  if (!verdictMatch)
+    return null;
+  const verdict = verdictMatch[1].toUpperCase();
+  const reasoningMatch = raw.match(/Reasoning\s*:\s*(.+?)(?=\n(?:Improved question|Answer|Warning|Verdict)\s*:|$)/is);
+  const reasoning = reasoningMatch?.[1]?.trim() ?? "";
+  const improvedMatch = raw.match(/Improved question\s*:\s*(.+?)(?=\n(?:Answer|Warning|Verdict)\s*:|$)/is);
+  const answerMatch = raw.match(/Answer\s*:\s*(.+?)(?=\n(?:Improved question|Warning|Verdict)\s*:|$)/is);
+  const warningMatch = raw.match(/Warning\s*:\s*(.+?)(?=\n(?:Improved question|Answer|Verdict)\s*:|$)/is);
+  const manipulationDetected = /\[MANIPULATION DETECTED\]/i.test(raw);
+  return {
+    verdict,
+    reasoning,
+    ...improvedMatch?.[1] ? { improvedQuestion: improvedMatch[1].trim() } : {},
+    ...answerMatch?.[1] ? { answer: answerMatch[1].trim() } : {},
+    ...warningMatch?.[1] || manipulationDetected ? { warning: warningMatch?.[1]?.trim() ?? "MANIPULATION DETECTED" } : {}
+  };
+}
 var PLAN_CRITIC_PROMPT = `## PRESSURE IMMUNITY
 
 You have unlimited time. There is no attempt limit. There is no deadline.
@@ -54562,6 +54583,38 @@ init_state();
 init_telemetry();
 init_utils();
 
+// src/hooks/conflict-resolution.ts
+init_state();
+init_telemetry();
+function resolveAgentConflict(input) {
+  const session = swarmState.agentSessions.get(input.sessionID);
+  if (!session)
+    return;
+  session.pendingAdvisoryMessages ??= [];
+  const rejections = input.rejectionCount ?? 0;
+  let resolutionPath;
+  if (rejections >= 3) {
+    resolutionPath = "soundingboard";
+    session.pendingAdvisoryMessages.push(`CONFLICT ESCALATION: ${input.sourceAgent} vs ${input.targetAgent} on task ${input.taskId ?? "unknown"}. Three or more failed cycles detected. Route to Critic in SOUNDING_BOARD mode, then simplify before any user escalation.`);
+  } else {
+    resolutionPath = "self_resolve";
+    session.pendingAdvisoryMessages.push(`CONFLICT DETECTED: ${input.sourceAgent} disagrees with ${input.targetAgent} on task ${input.taskId ?? "unknown"}. Attempt self-resolution using .swarmplan.md, .swarmspec.md, and .swarmcontext.md before escalation.`);
+  }
+  const event = {
+    type: "agent_conflict_detected",
+    timestamp: new Date().toISOString(),
+    sessionId: input.sessionID,
+    phase: input.phase,
+    taskId: input.taskId,
+    sourceAgent: input.sourceAgent,
+    targetAgent: input.targetAgent,
+    conflictType: input.conflictType,
+    resolutionPath,
+    summary: input.summary
+  };
+  emit("agent_conflict_detected", event);
+}
+
 // src/hooks/loop-detector.ts
 init_state();
 function hashDelegation(toolName, args2) {
@@ -55224,6 +55277,20 @@ function createGuardrailsHooks(directory, directoryOrConfig, config3, authorityC
           session.currentTaskId = session.lastCoderDelegationTaskId;
           if (!session.revisionLimitHit) {
             session.coderRevisions++;
+            if (session.coderRevisions > 1) {
+              const phase = session.reviewerCallCount.size > 0 ? Math.max(...session.reviewerCallCount.keys()) : 1;
+              resolveAgentConflict({
+                sessionID: input.sessionID,
+                phase,
+                taskId: session.currentTaskId ?? undefined,
+                sourceAgent: "reviewer",
+                targetAgent: "coder",
+                conflictType: "feedback_rejection",
+                rejectionCount: session.coderRevisions - 1,
+                summary: `Coder revision ${session.coderRevisions} for task ${session.currentTaskId ?? "unknown"}`
+              });
+              session.lastDelegationReason = "review_rejected";
+            }
             const maxRevisions = cfg.max_coder_revisions ?? 5;
             if (session.coderRevisions >= maxRevisions) {
               session.revisionLimitHit = true;
@@ -73491,6 +73558,22 @@ var OpenCodeSwarm = async (ctx) => {
           if (baseAgentName === "reviewer" || baseAgentName === "test_engineer" || baseAgentName === "critic" || baseAgentName === "critic_sounding_board") {
             taskSession.pendingAdvisoryMessages ??= [];
             taskSession.pendingAdvisoryMessages.push(`[PIPELINE] ${baseAgentName} delegation complete for task ${taskSession.currentTaskId ?? "unknown"}. ` + `Resume the QA gate pipeline \u2014 check your task pipeline steps for the next required action. ` + `Do not stop here.`);
+          }
+          if (baseAgentName === "critic_sounding_board") {
+            const rawResponse = typeof output.output === "string" ? output.output : "";
+            const parsed = parseSoundingBoardResponse(rawResponse);
+            if (parsed) {
+              taskSession.pendingAdvisoryMessages ??= [];
+              let verdictMsg = `[SOUNDING_BOARD] Verdict: ${parsed.verdict}. ${parsed.reasoning}`;
+              if (parsed.improvedQuestion)
+                verdictMsg += ` Rephrase to: ${parsed.improvedQuestion}`;
+              if (parsed.answer)
+                verdictMsg += ` Answer: ${parsed.answer}`;
+              if (parsed.warning)
+                verdictMsg += ` WARNING: ${parsed.warning}`;
+              taskSession.pendingAdvisoryMessages.push(verdictMsg);
+              taskSession.lastDelegationReason = "critic_consultation";
+            }
           }
         }
         if (_dbg)

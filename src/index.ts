@@ -1,6 +1,7 @@
 import * as path from 'node:path';
 import type { Plugin } from '@opencode-ai/plugin';
 import { createAgents, getAgentConfigs } from './agents';
+import { parseSoundingBoardResponse } from './agents/critic.js';
 import {
 	type AutomationStatusArtifact,
 	type BackgroundAutomationManager,
@@ -1126,6 +1127,22 @@ const OpenCodeSwarm: Plugin = async (ctx) => {
 								`Resume the QA gate pipeline — check your task pipeline steps for the next required action. ` +
 								`Do not stop here.`,
 						);
+					}
+					// Issue #414: Wire Target B — parse sounding-board response and inject verdict advisory
+					if (baseAgentName === 'critic_sounding_board') {
+						const rawResponse =
+							typeof output.output === 'string' ? output.output : '';
+						const parsed = parseSoundingBoardResponse(rawResponse);
+						if (parsed) {
+							taskSession.pendingAdvisoryMessages ??= [];
+							let verdictMsg = `[SOUNDING_BOARD] Verdict: ${parsed.verdict}. ${parsed.reasoning}`;
+							if (parsed.improvedQuestion)
+								verdictMsg += ` Rephrase to: ${parsed.improvedQuestion}`;
+							if (parsed.answer) verdictMsg += ` Answer: ${parsed.answer}`;
+							if (parsed.warning) verdictMsg += ` WARNING: ${parsed.warning}`;
+							taskSession.pendingAdvisoryMessages.push(verdictMsg);
+							taskSession.lastDelegationReason = 'critic_consultation';
+						}
 					}
 				}
 				if (_dbg)
