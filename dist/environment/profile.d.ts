@@ -4,8 +4,8 @@
  */
 export type HostOS = 'windows' | 'linux' | 'macos' | 'unknown';
 export type ShellFamily = 'powershell' | 'cmd' | 'bash' | 'zsh' | 'sh' | 'unknown';
-export type ExecutionMode = 'native' | 'docker' | 'wsl' | 'remote' | 'unknown';
-export type OperatingMode = 'linux' | 'macos-native' | 'windows-native' | 'windows-docker' | 'unknown';
+export type ExecutionMode = 'native' | 'docker' | 'wsl' | 'unknown';
+export type OperatingMode = 'linux' | 'macos-native' | 'windows-native' | 'unknown';
 export interface EnvironmentProfile {
     hostOS: HostOS;
     shellFamily: ShellFamily;
@@ -15,7 +15,7 @@ export interface EnvironmentProfile {
     isWindowsDocker: boolean;
     isWSL: boolean;
     pathStyle: 'windows' | 'posix';
-    shellCommandPreference: 'powershell-native' | 'posix-native' | 'tool-first';
+    shellCommandPreference: 'powershell-native' | 'posix-native';
     evidence: {
         processPlatform: string;
         comspec?: string;

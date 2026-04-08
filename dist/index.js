@@ -15877,11 +15877,8 @@ function deriveOperatingMode(hostOS, executionMode) {
     return "linux";
   if (hostOS === "macos")
     return "macos-native";
-  if (hostOS === "windows") {
-    if (executionMode === "docker")
-      return "windows-docker";
+  if (hostOS === "windows")
     return "windows-native";
-  }
   return "unknown";
 }
 function buildCommandPolicy(profile) {
@@ -15922,7 +15919,7 @@ function detectEnvironmentProfile() {
   const executionMode = detectExecutionMode(hostOS);
   const operatingMode = deriveOperatingMode(hostOS, executionMode);
   const isWindowsNative = hostOS === "windows" && executionMode === "native";
-  const isWindowsDocker = hostOS === "windows" && executionMode === "docker";
+  const isWindowsDocker = false;
   const isWSL = executionMode === "wsl";
   const pathStyle = hostOS === "windows" && !isWindowsDocker ? "windows" : "posix";
   const shellCommandPreference = isWindowsNative ? "powershell-native" : "posix-native";
@@ -29339,9 +29336,9 @@ function classifyToolError(error93) {
   const msg = (error93 instanceof Error ? error93.message : String(error93)).toLowerCase();
   if (msg.includes("not registered") || msg.includes("unknown tool"))
     return "not_registered";
-  if (msg.includes("not whitelisted") || msg.includes("not allowed") || msg.includes("permission"))
+  if (msg.includes("not whitelisted") || msg.includes("not allowed"))
     return "not_whitelisted";
-  if (msg.includes("enoent") || msg.includes("not found") || msg.includes("command not found") || msg.includes("binary"))
+  if (msg.includes("enoent") || msg.includes("command not found") || msg.includes("binary not found") || msg.includes("no such file or directory"))
     return "binary_missing";
   return "execution_error";
 }
@@ -53666,7 +53663,7 @@ function getAgentConfigs(config3, directory, sessionId) {
     return [agent.name, sdkConfig];
   }));
   if (directory) {
-    const sid = sessionId ?? "unknown";
+    const sid = sessionId ?? `init-${Date.now()}`;
     const evidenceDir = path34.join(directory, ".swarm", "evidence");
     const filename = `agent-tools-${sid}.json`;
     const snapshotData = JSON.stringify({
@@ -58949,7 +58946,7 @@ ${budgetWarning}`);
           try {
             const activeAgent_env = swarmState.activeAgent.get(_input.sessionID ?? "");
             const agentBase_env = stripKnownSwarmPrefix(activeAgent_env ?? "").toLowerCase();
-            if (agentBase_env === "coder" || agentBase_env === "testengineer" || agentBase_env === "test_engineer") {
+            if (agentBase_env === "coder" || agentBase_env === "test_engineer") {
               const { ensureSessionEnvironment: ensureSessionEnvironment2 } = await Promise.resolve().then(() => (init_state(), exports_state));
               const { renderEnvironmentPrompt: renderEnvironmentPrompt2 } = await Promise.resolve().then(() => (init_prompt_renderer(), exports_prompt_renderer));
               const envSessionId = _input.sessionID ?? "unknown";
@@ -59359,6 +59356,44 @@ ${handoffBlock}`;
             } catch {}
           }
         }
+        try {
+          const activeAgent_binary_b = swarmState.activeAgent.get(_input.sessionID ?? "");
+          const isArchitect_binary_b = !activeAgent_binary_b || stripKnownSwarmPrefix(activeAgent_binary_b) === "architect";
+          if (isArchitect_binary_b) {
+            const { getBinaryReadinessAdvisory: getBinaryReadinessAdvisory2 } = await Promise.resolve().then(() => (init_tool_doctor(), exports_tool_doctor));
+            const advisory_b = getBinaryReadinessAdvisory2();
+            if (advisory_b) {
+              candidates.push({
+                id: `candidate-${idCounter++}`,
+                kind: "agent_context",
+                text: advisory_b,
+                tokens: estimateTokens(advisory_b),
+                priority: 3,
+                metadata: { contentType: "prose" }
+              });
+            }
+          }
+        } catch {}
+        try {
+          const activeAgent_env_b = swarmState.activeAgent.get(_input.sessionID ?? "");
+          const agentBase_env_b = stripKnownSwarmPrefix(activeAgent_env_b ?? "").toLowerCase();
+          if (agentBase_env_b === "coder" || agentBase_env_b === "test_engineer") {
+            const { ensureSessionEnvironment: ensureSessionEnvironment2 } = await Promise.resolve().then(() => (init_state(), exports_state));
+            const { renderEnvironmentPrompt: renderEnvironmentPrompt2 } = await Promise.resolve().then(() => (init_prompt_renderer(), exports_prompt_renderer));
+            const envSessionId_b = _input.sessionID ?? "unknown";
+            const profile_b = ensureSessionEnvironment2(envSessionId_b);
+            const audience_b = agentBase_env_b === "coder" ? "coder" : "testengineer";
+            const envPrompt_b = renderEnvironmentPrompt2(profile_b, audience_b);
+            candidates.push({
+              id: `candidate-${idCounter++}`,
+              kind: "agent_context",
+              text: envPrompt_b,
+              tokens: estimateTokens(envPrompt_b),
+              priority: 2,
+              metadata: { contentType: "prose" }
+            });
+          }
+        } catch {}
         const ranked = rankCandidates(candidates, effectiveConfig);
         for (const candidate of ranked) {
           if (injectedTokens + candidate.tokens > maxInjectionTokens) {
@@ -60207,7 +60242,7 @@ function createKnowledgeInjectorHook(directory, config3) {
       return sum + (msg.parts?.reduce((s, p) => s + (p.text?.length ?? 0), 0) ?? 0);
     }, 0);
     const headroomChars = MODEL_LIMIT_CHARS - existingChars;
-    const MIN_INJECT_CHARS = 300;
+    const MIN_INJECT_CHARS = config3.context_budget_threshold ?? 300;
     if (headroomChars < MIN_INJECT_CHARS) {
       console.warn(`[knowledge-injector] Skipping: only ${headroomChars} chars of headroom remain (existing: ${existingChars}, limit: ${MODEL_LIMIT_CHARS})`);
       return;
