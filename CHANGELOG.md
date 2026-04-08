@@ -1,5 +1,12 @@
 # Changelog
 
+## [6.55.0](https://github.com/zaxbysauce/opencode-swarm/compare/v6.54.0...v6.55.0) (2026-04-08)
+
+
+### Features
+
+* **conflict-resolution:** add conflict resolution mechanisms (Issue [#414](https://github.com/zaxbysauce/opencode-swarm/issues/414)) ([#433](https://github.com/zaxbysauce/opencode-swarm/issues/433)) ([c5759bd](https://github.com/zaxbysauce/opencode-swarm/commit/c5759bdb399f6a7f902fa30b40debac8c469fa38))
+
 ## [6.54.0](https://github.com/zaxbysauce/opencode-swarm/compare/v6.53.7...v6.54.0) (2026-04-07)
 
 
