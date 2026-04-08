@@ -68,6 +68,10 @@ export declare function getLaravelSignals(directory: string): LaravelDetectionSi
  * read and scanned for a reference to either of the two known Larastan
  * package names (`nunomaduro/larastan` or `larastan/larastan`).
  *
+ * Only `phpstan.neon` is checked — `phpstan.neon.dist` is a distribution
+ * baseline that projects override locally, so it is not scanned for the
+ * Larastan marker.
+ *
  * @param directory - Absolute path to the project root
  * @returns true if phpstan.neon contains a Larastan extension reference
  */

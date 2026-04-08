@@ -52,4 +52,24 @@ export interface CoderRetryCircuitBreakerEvent {
     phase: number;
     action: 'sounding_board_consultation' | 'simplification' | 'user_escalation';
 }
-export type V619Event = SoundingBoardConsultedEvent | ArchitectLoopDetectedEvent | PrecedentManipulationDetectedEvent | CoderSelfAuditEvent | CoderRetryCircuitBreakerEvent;
+export interface AgentConflictDetectedEvent {
+    type: 'agent_conflict_detected';
+    timestamp: string;
+    sessionId: string;
+    phase: number;
+    taskId?: string;
+    sourceAgent: 'architect' | 'coder' | 'reviewer' | 'critic' | 'test_engineer';
+    targetAgent: 'architect' | 'coder' | 'reviewer' | 'critic' | 'test_engineer';
+    conflictType: 'feedback_rejection' | 'authority_collision' | 'retry_spiral' | 'scope_disagreement' | 'quality_gate_dispute';
+    resolutionPath: 'self_resolve' | 'soundingboard' | 'simplification' | 'sme_consult' | 'user_escalation';
+    summary: string;
+}
+export interface AuthorityHandoffResolvedEvent {
+    type: 'authority_handoff_resolved';
+    timestamp: string;
+    sessionId: string;
+    previousAgent: string;
+    newAgent: string;
+    reason: 'task_complete' | 'stale_delegation' | 'conflict_escalation' | 'manual_reset';
+}
+export type V619Event = SoundingBoardConsultedEvent | ArchitectLoopDetectedEvent | PrecedentManipulationDetectedEvent | CoderSelfAuditEvent | CoderRetryCircuitBreakerEvent | AgentConflictDetectedEvent | AuthorityHandoffResolvedEvent;
