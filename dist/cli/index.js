@@ -14025,6 +14025,1119 @@ var init_zod = __esm(() => {
   init_external();
 });
 
+// src/config/plan-schema.ts
+var TaskStatusSchema, TaskSizeSchema, PhaseStatusSchema, MigrationStatusSchema, TaskSchema, PhaseSchema, PlanSchema;
+var init_plan_schema = __esm(() => {
+  init_zod();
+  TaskStatusSchema = exports_external.enum([
+    "pending",
+    "in_progress",
+    "completed",
+    "blocked",
+    "closed"
+  ]);
+  TaskSizeSchema = exports_external.enum(["small", "medium", "large"]);
+  PhaseStatusSchema = exports_external.enum([
+    "pending",
+    "in_progress",
+    "complete",
+    "completed",
+    "blocked",
+    "closed"
+  ]);
+  MigrationStatusSchema = exports_external.enum([
+    "native",
+    "migrated",
+    "migration_failed"
+  ]);
+  TaskSchema = exports_external.object({
+    id: exports_external.string(),
+    phase: exports_external.number().int().min(1),
+    status: TaskStatusSchema.default("pending"),
+    size: TaskSizeSchema.default("small"),
+    description: exports_external.string().min(1),
+    depends: exports_external.array(exports_external.string()).default([]),
+    acceptance: exports_external.string().optional(),
+    files_touched: exports_external.array(exports_external.string()).default([]),
+    evidence_path: exports_external.string().optional(),
+    blocked_reason: exports_external.string().optional()
+  });
+  PhaseSchema = exports_external.object({
+    id: exports_external.number().int().min(1),
+    name: exports_external.string().min(1),
+    status: PhaseStatusSchema.default("pending"),
+    tasks: exports_external.array(TaskSchema).default([]),
+    required_agents: exports_external.array(exports_external.string()).optional()
+  });
+  PlanSchema = exports_external.object({
+    schema_version: exports_external.literal("1.0.0"),
+    title: exports_external.string().min(1),
+    swarm: exports_external.string().min(1),
+    current_phase: exports_external.number().int().min(1).optional(),
+    phases: exports_external.array(PhaseSchema).min(1),
+    migration_status: MigrationStatusSchema.optional(),
+    specMtime: exports_external.string().optional(),
+    specHash: exports_external.string().optional()
+  });
+});
+
+// src/utils/spec-hash.ts
+import { createHash } from "crypto";
+import { readFile } from "fs/promises";
+import { join } from "path";
+async function computeSpecHash(directory) {
+  const specPath = join(directory, ".swarm", "spec.md");
+  let hash2 = null;
+  try {
+    const content = await readFile(specPath, "utf-8");
+    hash2 = createHash("sha256").update(content, "utf-8").digest("hex");
+  } catch (error49) {
+    if (error49.code !== "ENOENT") {
+      throw error49;
+    }
+  }
+  return hash2;
+}
+async function isSpecStale(directory, plan) {
+  const currentHash = await computeSpecHash(directory);
+  if (!plan.specHash) {
+    return { stale: false };
+  }
+  if (currentHash === null) {
+    return {
+      stale: true,
+      reason: "spec.md has been deleted",
+      currentHash: null
+    };
+  }
+  if (currentHash !== plan.specHash) {
+    return {
+      stale: true,
+      reason: "spec.md has been modified since plan was saved",
+      currentHash
+    };
+  }
+  return { stale: false };
+}
+var init_spec_hash = () => {};
+
+// src/plan/ledger.ts
+import * as crypto2 from "crypto";
+import * as fs from "fs";
+import * as path2 from "path";
+function getLedgerPath(directory) {
+  return path2.join(directory, ".swarm", LEDGER_FILENAME);
+}
+function getPlanJsonPath(directory) {
+  return path2.join(directory, ".swarm", PLAN_JSON_FILENAME);
+}
+function computePlanHash(plan) {
+  const normalized = {
+    schema_version: plan.schema_version,
+    title: plan.title,
+    swarm: plan.swarm,
+    current_phase: plan.current_phase,
+    migration_status: plan.migration_status,
+    phases: plan.phases.map((phase) => ({
+      id: phase.id,
+      name: phase.name,
+      status: phase.status,
+      required_agents: phase.required_agents ? [...phase.required_agents].sort() : undefined,
+      tasks: phase.tasks.map((task) => ({
+        id: task.id,
+        phase: task.phase,
+        status: task.status,
+        size: task.size,
+        description: task.description,
+        depends: [...task.depends].sort(),
+        acceptance: task.acceptance,
+        files_touched: [...task.files_touched].sort(),
+        evidence_path: task.evidence_path,
+        blocked_reason: task.blocked_reason
+      }))
+    }))
+  };
+  const jsonString = JSON.stringify(normalized);
+  return crypto2.createHash("sha256").update(jsonString, "utf8").digest("hex");
+}
+function computeCurrentPlanHash(directory) {
+  const planPath = getPlanJsonPath(directory);
+  try {
+    const content = fs.readFileSync(planPath, "utf8");
+    const plan = JSON.parse(content);
+    return computePlanHash(plan);
+  } catch {
+    return "";
+  }
+}
+async function ledgerExists(directory) {
+  const ledgerPath = getLedgerPath(directory);
+  return fs.existsSync(ledgerPath);
+}
+async function getLatestLedgerSeq(directory) {
+  const ledgerPath = getLedgerPath(directory);
+  if (!fs.existsSync(ledgerPath)) {
+    return 0;
+  }
+  try {
+    const content = fs.readFileSync(ledgerPath, "utf8");
+    const lines = content.trim().split(`
+`).filter((line) => line.trim() !== "");
+    if (lines.length === 0) {
+      return 0;
+    }
+    let maxSeq = 0;
+    for (const line of lines) {
+      try {
+        const event = JSON.parse(line);
+        if (event.seq > maxSeq) {
+          maxSeq = event.seq;
+        }
+      } catch {}
+    }
+    return maxSeq;
+  } catch {
+    return 0;
+  }
+}
+async function readLedgerEvents(directory) {
+  const ledgerPath = getLedgerPath(directory);
+  if (!fs.existsSync(ledgerPath)) {
+    return [];
+  }
+  try {
+    const content = fs.readFileSync(ledgerPath, "utf8");
+    const lines = content.trim().split(`
+`).filter((line) => line.trim() !== "");
+    const events = [];
+    for (const line of lines) {
+      try {
+        const event = JSON.parse(line);
+        events.push(event);
+      } catch {}
+    }
+    events.sort((a, b) => a.seq - b.seq);
+    return events;
+  } catch {
+    return [];
+  }
+}
+async function initLedger(directory, planId, initialPlanHash) {
+  const ledgerPath = getLedgerPath(directory);
+  const planJsonPath = getPlanJsonPath(directory);
+  if (fs.existsSync(ledgerPath)) {
+    throw new Error("Ledger already initialized. Use appendLedgerEvent to add events.");
+  }
+  let planHashAfter = initialPlanHash ?? "";
+  if (!initialPlanHash) {
+    try {
+      if (fs.existsSync(planJsonPath)) {
+        const content = fs.readFileSync(planJsonPath, "utf8");
+        const plan = JSON.parse(content);
+        planHashAfter = computePlanHash(plan);
+      }
+    } catch {}
+  }
+  const event = {
+    seq: 1,
+    timestamp: new Date().toISOString(),
+    plan_id: planId,
+    event_type: "plan_created",
+    source: "initLedger",
+    plan_hash_before: "",
+    plan_hash_after: planHashAfter,
+    schema_version: LEDGER_SCHEMA_VERSION
+  };
+  fs.mkdirSync(path2.join(directory, ".swarm"), { recursive: true });
+  const tempPath = `${ledgerPath}.tmp.${Date.now()}.${Math.floor(Math.random() * 1e9)}`;
+  const line = `${JSON.stringify(event)}
+`;
+  fs.writeFileSync(tempPath, line, "utf8");
+  fs.renameSync(tempPath, ledgerPath);
+}
+async function appendLedgerEvent(directory, eventInput, options) {
+  const ledgerPath = getLedgerPath(directory);
+  const latestSeq = await getLatestLedgerSeq(directory);
+  const nextSeq = latestSeq + 1;
+  const planHashBefore = computeCurrentPlanHash(directory);
+  if (options?.expectedSeq !== undefined && options.expectedSeq !== latestSeq) {
+    throw new LedgerStaleWriterError(`Stale writer: expected seq ${options.expectedSeq} but found ${latestSeq}`);
+  }
+  if (options?.expectedHash !== undefined && options.expectedHash !== planHashBefore) {
+    throw new LedgerStaleWriterError(`Stale writer: expected hash ${options.expectedHash} but found ${planHashBefore}`);
+  }
+  const planHashAfter = options?.planHashAfter ?? planHashBefore;
+  const event = {
+    ...eventInput,
+    seq: nextSeq,
+    timestamp: new Date().toISOString(),
+    plan_hash_before: planHashBefore,
+    plan_hash_after: planHashAfter,
+    schema_version: LEDGER_SCHEMA_VERSION
+  };
+  fs.mkdirSync(path2.join(directory, ".swarm"), { recursive: true });
+  const tempPath = `${ledgerPath}.tmp.${Date.now()}.${Math.floor(Math.random() * 1e9)}`;
+  const line = `${JSON.stringify(event)}
+`;
+  if (fs.existsSync(ledgerPath)) {
+    const existingContent = fs.readFileSync(ledgerPath, "utf8");
+    fs.writeFileSync(tempPath, existingContent + line, "utf8");
+  } else {
+    throw new Error("Ledger not initialized. Call initLedger() first.");
+  }
+  fs.renameSync(tempPath, ledgerPath);
+  return event;
+}
+async function takeSnapshotEvent(directory, plan, options) {
+  const payloadHash = computePlanHash(plan);
+  const snapshotPayload = {
+    plan,
+    payload_hash: payloadHash
+  };
+  const planId = `${plan.swarm}-${plan.title}`.replace(/[^a-zA-Z0-9-_]/g, "_");
+  return appendLedgerEvent(directory, {
+    event_type: "snapshot",
+    source: "takeSnapshotEvent",
+    plan_id: planId,
+    payload: snapshotPayload
+  }, options);
+}
+async function replayFromLedger(directory, options) {
+  const events = await readLedgerEvents(directory);
+  if (events.length === 0) {
+    return null;
+  }
+  const targetPlanId = events[0].plan_id;
+  const relevantEvents = events.filter((e) => e.plan_id === targetPlanId);
+  {
+    const snapshotEvents = relevantEvents.filter((e) => e.event_type === "snapshot");
+    if (snapshotEvents.length > 0) {
+      const latestSnapshotEvent = snapshotEvents[snapshotEvents.length - 1];
+      const snapshotPayload = latestSnapshotEvent.payload;
+      let plan2 = snapshotPayload.plan;
+      const eventsAfterSnapshot = relevantEvents.filter((e) => e.seq > latestSnapshotEvent.seq);
+      for (const event of eventsAfterSnapshot) {
+        plan2 = applyEventToPlan(plan2, event);
+        if (plan2 === null) {
+          return null;
+        }
+      }
+      return plan2;
+    }
+  }
+  const planJsonPath = getPlanJsonPath(directory);
+  if (!fs.existsSync(planJsonPath)) {
+    return null;
+  }
+  let plan;
+  try {
+    const content = fs.readFileSync(planJsonPath, "utf8");
+    plan = JSON.parse(content);
+  } catch {
+    return null;
+  }
+  for (const event of relevantEvents) {
+    if (plan === null) {
+      return null;
+    }
+    plan = applyEventToPlan(plan, event);
+  }
+  return plan;
+}
+function applyEventToPlan(plan, event) {
+  switch (event.event_type) {
+    case "plan_created":
+      return plan;
+    case "task_status_changed":
+      if (event.task_id && event.to_status) {
+        const parseResult = TaskStatusSchema.safeParse(event.to_status);
+        if (!parseResult.success) {
+          return plan;
+        }
+        for (const phase of plan.phases) {
+          const task = phase.tasks.find((t) => t.id === event.task_id);
+          if (task) {
+            task.status = parseResult.data;
+            break;
+          }
+        }
+      }
+      return plan;
+    case "phase_completed":
+      if (event.phase_id) {
+        const phase = plan.phases.find((p) => p.id === event.phase_id);
+        if (phase) {
+          phase.status = "complete";
+        }
+      }
+      return plan;
+    case "plan_exported":
+      return plan;
+    case "task_added":
+      return plan;
+    case "task_updated":
+      return plan;
+    case "plan_rebuilt":
+      return plan;
+    case "task_reordered":
+      return plan;
+    case "snapshot":
+      return plan;
+    case "plan_reset":
+      return null;
+    default:
+      throw new Error(`applyEventToPlan: unhandled event type "${event.event_type}" at seq ${event.seq}`);
+  }
+}
+var LEDGER_SCHEMA_VERSION = "1.0.0", LEDGER_FILENAME = "plan-ledger.jsonl", PLAN_JSON_FILENAME = "plan.json", LedgerStaleWriterError;
+var init_ledger = __esm(() => {
+  init_plan_schema();
+  LedgerStaleWriterError = class LedgerStaleWriterError extends Error {
+    constructor(message) {
+      super(message);
+      this.name = "LedgerStaleWriterError";
+    }
+  };
+});
+
+// src/plan/manager.ts
+import { copyFileSync, existsSync as existsSync2, renameSync as renameSync2, unlinkSync } from "fs";
+import * as fsPromises from "fs/promises";
+import * as path3 from "path";
+async function loadPlanJsonOnly(directory) {
+  const planJsonContent = await readSwarmFileAsync(directory, "plan.json");
+  if (planJsonContent !== null) {
+    if (planJsonContent.includes("\x00") || planJsonContent.includes("\uFFFD")) {
+      warn("Plan rejected: .swarm/plan.json contains null bytes or invalid encoding");
+      return null;
+    }
+    try {
+      const parsed = JSON.parse(planJsonContent);
+      const validated = PlanSchema.parse(parsed);
+      return validated;
+    } catch (error49) {
+      warn(`Plan validation failed for .swarm/plan.json: ${error49 instanceof Error ? error49.message : String(error49)}`);
+    }
+  }
+  return null;
+}
+function compareTaskIds(a, b) {
+  const partsA = a.split(".").map((n) => parseInt(n, 10));
+  const partsB = b.split(".").map((n) => parseInt(n, 10));
+  const maxLen = Math.max(partsA.length, partsB.length);
+  for (let i = 0;i < maxLen; i++) {
+    const numA = partsA[i] ?? 0;
+    const numB = partsB[i] ?? 0;
+    if (numA !== numB) {
+      return numA - numB;
+    }
+  }
+  return 0;
+}
+async function getLatestLedgerHash(directory) {
+  try {
+    const events = await readLedgerEvents(directory);
+    if (events.length === 0)
+      return "";
+    const lastEvent = events[events.length - 1];
+    return lastEvent.plan_hash_after;
+  } catch {
+    return "";
+  }
+}
+function computePlanContentHash(plan) {
+  const content = {
+    schema_version: plan.schema_version,
+    title: plan.title,
+    swarm: plan.swarm,
+    current_phase: plan.current_phase,
+    migration_status: plan.migration_status,
+    phases: plan.phases.map((phase) => ({
+      id: phase.id,
+      name: phase.name,
+      status: phase.status,
+      tasks: phase.tasks.map((task) => ({
+        id: task.id,
+        phase: task.phase,
+        status: task.status,
+        size: task.size,
+        description: task.description,
+        depends: [...task.depends].sort(compareTaskIds),
+        acceptance: task.acceptance,
+        files_touched: [...task.files_touched].sort(),
+        evidence_path: task.evidence_path,
+        blocked_reason: task.blocked_reason
+      })).sort((a, b) => compareTaskIds(a.id, b.id))
+    })).sort((a, b) => a.id - b.id)
+  };
+  const jsonString = JSON.stringify(content);
+  return Bun.hash(jsonString).toString(36);
+}
+function extractPlanHashFromMarkdown(markdown) {
+  const match = markdown.match(/<!--\s*PLAN_HASH:\s*(\S+)\s*-->/);
+  return match ? match[1] : null;
+}
+async function isPlanMdInSync(directory, plan) {
+  const planMdContent = await readSwarmFileAsync(directory, "plan.md");
+  if (planMdContent === null) {
+    return false;
+  }
+  const expectedHash = computePlanContentHash(plan);
+  const existingHash = extractPlanHashFromMarkdown(planMdContent);
+  if (existingHash === expectedHash) {
+    return true;
+  }
+  const expectedMarkdown = derivePlanMarkdown(plan);
+  const normalizedExpected = expectedMarkdown.trim();
+  const normalizedActual = planMdContent.trim();
+  if (normalizedActual === normalizedExpected) {
+    return true;
+  }
+  return normalizedActual.includes(normalizedExpected) || normalizedExpected.includes(normalizedActual.replace(/^#.*$/gm, "").trim());
+}
+async function regeneratePlanMarkdown(directory, plan) {
+  const swarmDir = path3.resolve(directory, ".swarm");
+  const contentHash = computePlanContentHash(plan);
+  const markdown = derivePlanMarkdown(plan);
+  const markdownWithHash = `<!-- PLAN_HASH: ${contentHash} -->
+${markdown}`;
+  const mdPath = path3.join(swarmDir, "plan.md");
+  const mdTempPath = path3.join(swarmDir, `plan.md.tmp.${Date.now()}.${Math.floor(Math.random() * 1e9)}`);
+  try {
+    await Bun.write(mdTempPath, markdownWithHash);
+    renameSync2(mdTempPath, mdPath);
+  } finally {
+    try {
+      unlinkSync(mdTempPath);
+    } catch {}
+  }
+}
+async function loadPlan(directory) {
+  const planJsonContent = await readSwarmFileAsync(directory, "plan.json");
+  if (planJsonContent !== null) {
+    if (planJsonContent.includes("\x00") || planJsonContent.includes("\uFFFD")) {
+      warn("Plan rejected: .swarm/plan.json contains null bytes or invalid encoding");
+    } else {
+      try {
+        const parsed = JSON.parse(planJsonContent);
+        const validated = PlanSchema.parse(parsed);
+        const inSync = await isPlanMdInSync(directory, validated);
+        if (!inSync) {
+          try {
+            await regeneratePlanMarkdown(directory, validated);
+          } catch (regenError) {
+            warn(`Failed to regenerate plan.md: ${regenError instanceof Error ? regenError.message : String(regenError)}. Proceeding with plan.json only.`);
+          }
+        }
+        if (await ledgerExists(directory)) {
+          const planHash = computePlanHash(validated);
+          const ledgerHash = await getLatestLedgerHash(directory);
+          const resolvedWorkspace = path3.resolve(directory);
+          if (!startupLedgerCheckedWorkspaces.has(resolvedWorkspace)) {
+            startupLedgerCheckedWorkspaces.add(resolvedWorkspace);
+            if (ledgerHash !== "" && planHash !== ledgerHash) {
+              const currentPlanId = `${validated.swarm}-${validated.title}`.replace(/[^a-zA-Z0-9-_]/g, "_");
+              const ledgerEvents = await readLedgerEvents(directory);
+              const firstEvent = ledgerEvents.length > 0 ? ledgerEvents[0] : null;
+              if (firstEvent && firstEvent.plan_id !== currentPlanId) {
+                warn(`[loadPlan] Ledger identity mismatch (ledger: ${firstEvent.plan_id}, plan: ${currentPlanId}) \u2014 skipping ledger rebuild (migration detected). Use /swarm reset-session to reinitialize the ledger.`);
+              } else {
+                warn("[loadPlan] plan.json is stale (hash mismatch with ledger) \u2014 rebuilding from ledger. If this recurs, run /swarm reset-session to clear stale session state.");
+                try {
+                  const rebuilt = await replayFromLedger(directory);
+                  if (rebuilt) {
+                    await rebuildPlan(directory, rebuilt);
+                    warn("[loadPlan] Rebuilt plan from ledger. Checkpoint available at SWARM_PLAN.md if it exists.");
+                    return rebuilt;
+                  }
+                } catch (replayError) {
+                  warn(`[loadPlan] Ledger replay failed during hash-mismatch rebuild: ${replayError instanceof Error ? replayError.message : String(replayError)}. Returning stale plan.json. To recover: check SWARM_PLAN.md for a checkpoint, or run /swarm reset-session.`);
+                }
+              }
+            }
+          } else if (ledgerHash !== "" && planHash !== ledgerHash) {
+            if (process.env.DEBUG_SWARM) {
+              console.warn(`[loadPlan] Ledger hash mismatch during active session for ${resolvedWorkspace} \u2014 skipping rebuild (startup check already performed).`);
+            }
+          }
+        }
+        if (validated.specHash) {
+          const staleResult = await isSpecStale(directory, validated);
+          if (staleResult.stale) {
+            const runtimePlan = validated;
+            runtimePlan._specStale = true;
+            runtimePlan._specStaleReason = staleResult.reason;
+            try {
+              const specStalenessPath = path3.join(directory, ".swarm", "spec-staleness.json");
+              await fsPromises.writeFile(specStalenessPath, JSON.stringify({
+                type: "spec_stale_detected",
+                timestamp: new Date().toISOString(),
+                phase: validated.current_phase ?? 1,
+                specHash_plan: validated.specHash,
+                specHash_current: staleResult.currentHash ?? null,
+                reason: staleResult.reason,
+                planTitle: validated.title
+              }, null, 2), "utf-8");
+            } catch {}
+            try {
+              const eventsPath = path3.join(directory, ".swarm", "events.jsonl");
+              const event = {
+                type: "spec_stale_detected",
+                timestamp: new Date().toISOString(),
+                phase: validated.current_phase ?? 1,
+                specHash_plan: validated.specHash,
+                specHash_current: staleResult.currentHash ?? null,
+                reason: staleResult.reason ?? "unknown",
+                planTitle: validated.title
+              };
+              await fsPromises.appendFile(eventsPath, `${JSON.stringify(event)}
+`, "utf-8");
+            } catch {}
+          }
+        }
+        return validated;
+      } catch (error49) {
+        warn(`[loadPlan] plan.json validation failed: ${error49 instanceof Error ? error49.message : String(error49)}. Attempting rebuild from ledger. If rebuild fails, check SWARM_PLAN.md for a checkpoint.`);
+        let rawPlanId = null;
+        try {
+          const rawParsed = JSON.parse(planJsonContent);
+          if (typeof rawParsed?.swarm === "string" && typeof rawParsed?.title === "string") {
+            rawPlanId = `${rawParsed.swarm}-${rawParsed.title}`.replace(/[^a-zA-Z0-9-_]/g, "_");
+          }
+        } catch {}
+        if (await ledgerExists(directory)) {
+          const ledgerEventsForCatch = await readLedgerEvents(directory);
+          const catchFirstEvent = ledgerEventsForCatch.length > 0 ? ledgerEventsForCatch[0] : null;
+          const identityMatch = rawPlanId === null || catchFirstEvent === null || catchFirstEvent.plan_id === rawPlanId;
+          if (!identityMatch) {
+            warn(`[loadPlan] Ledger identity mismatch in validation-failure path (ledger: ${catchFirstEvent?.plan_id}, plan: ${rawPlanId}) \u2014 skipping ledger rebuild (migration detected).`);
+          } else if (catchFirstEvent !== null && rawPlanId !== null) {
+            const rebuilt = await replayFromLedger(directory);
+            if (rebuilt) {
+              await rebuildPlan(directory, rebuilt);
+              warn("[loadPlan] Rebuilt plan from ledger after validation failure. Projection was stale.");
+              return rebuilt;
+            }
+          }
+        }
+        const planMdContent2 = await readSwarmFileAsync(directory, "plan.md");
+        if (planMdContent2 !== null) {
+          const migrated = migrateLegacyPlan(planMdContent2);
+          await savePlan(directory, migrated);
+          return migrated;
+        }
+      }
+    }
+  }
+  const planMdContent = await readSwarmFileAsync(directory, "plan.md");
+  if (planMdContent !== null) {
+    const migrated = migrateLegacyPlan(planMdContent);
+    await savePlan(directory, migrated);
+    return migrated;
+  }
+  if (await ledgerExists(directory)) {
+    const rebuilt = await replayFromLedger(directory);
+    if (rebuilt) {
+      await savePlan(directory, rebuilt);
+      return rebuilt;
+    }
+  }
+  return null;
+}
+async function savePlan(directory, plan, options) {
+  if (directory === null || directory === undefined || typeof directory !== "string" || directory.trim().length === 0) {
+    throw new Error(`Invalid directory: directory must be a non-empty string`);
+  }
+  const validated = PlanSchema.parse(plan);
+  if (options?.preserveCompletedStatuses !== false) {
+    try {
+      const currentPlan2 = await loadPlanJsonOnly(directory);
+      if (currentPlan2) {
+        const completedTaskIds = new Set;
+        for (const phase of currentPlan2.phases) {
+          for (const task of phase.tasks) {
+            if (task.status === "completed")
+              completedTaskIds.add(task.id);
+          }
+        }
+        if (completedTaskIds.size > 0) {
+          for (const phase of validated.phases) {
+            for (const task of phase.tasks) {
+              if (completedTaskIds.has(task.id) && task.status !== "completed") {
+                task.status = "completed";
+              }
+            }
+          }
+        }
+      }
+    } catch {}
+  }
+  for (const phase of validated.phases) {
+    const tasks = phase.tasks;
+    if (tasks.length > 0 && tasks.every((t) => t.status === "completed")) {
+      phase.status = "complete";
+    } else if (tasks.some((t) => t.status === "in_progress")) {
+      phase.status = "in_progress";
+    } else if (tasks.some((t) => t.status === "blocked")) {
+      phase.status = "blocked";
+    } else {
+      phase.status = "pending";
+    }
+  }
+  const currentPlan = await loadPlanJsonOnly(directory);
+  const planId = `${validated.swarm}-${validated.title}`.replace(/[^a-zA-Z0-9-_]/g, "_");
+  const planHashForInit = computePlanHash(validated);
+  if (!await ledgerExists(directory)) {
+    await initLedger(directory, planId, planHashForInit);
+  } else {
+    const existingEvents = await readLedgerEvents(directory);
+    if (existingEvents.length > 0 && existingEvents[0].plan_id !== planId) {
+      const swarmDir2 = path3.resolve(directory, ".swarm");
+      const oldLedgerPath = path3.join(swarmDir2, "plan-ledger.jsonl");
+      const oldLedgerBackupPath = path3.join(swarmDir2, `plan-ledger.backup-${Date.now()}-${Math.floor(Math.random() * 1e9)}.jsonl`);
+      let backupExists = false;
+      if (existsSync2(oldLedgerPath)) {
+        try {
+          renameSync2(oldLedgerPath, oldLedgerBackupPath);
+          backupExists = true;
+        } catch (renameErr) {
+          throw new Error(`[savePlan] Cannot reinitialize ledger: could not move old ledger aside (rename failed: ${renameErr instanceof Error ? renameErr.message : String(renameErr)}). The existing ledger has plan_id="${existingEvents[0].plan_id}" which does not match the current plan="${planId}". To proceed, close any programs that may have the ledger file open, or run /swarm reset-session to clear the ledger.`);
+        }
+      }
+      let initSucceeded = false;
+      if (backupExists) {
+        try {
+          await initLedger(directory, planId, planHashForInit);
+          initSucceeded = true;
+        } catch (initErr) {
+          const errorMessage = String(initErr);
+          if (errorMessage.includes("already initialized")) {
+            try {
+              if (existsSync2(oldLedgerBackupPath))
+                unlinkSync(oldLedgerBackupPath);
+            } catch {}
+          } else {
+            if (existsSync2(oldLedgerBackupPath)) {
+              try {
+                renameSync2(oldLedgerBackupPath, oldLedgerPath);
+              } catch {
+                copyFileSync(oldLedgerBackupPath, oldLedgerPath);
+                try {
+                  unlinkSync(oldLedgerBackupPath);
+                } catch {}
+              }
+            }
+            throw initErr;
+          }
+        }
+      }
+      if (initSucceeded && backupExists) {
+        const archivePath = path3.join(swarmDir2, `plan-ledger.archived-${Date.now()}-${Math.floor(Math.random() * 1e9)}.jsonl`);
+        try {
+          renameSync2(oldLedgerBackupPath, archivePath);
+          warn(`[savePlan] Ledger identity mismatch (was "${existingEvents[0].plan_id}", now "${planId}") \u2014 archived old ledger to ${archivePath} and reinitializing.`);
+        } catch (renameErr) {
+          warn(`[savePlan] Could not archive old ledger (rename failed: ${renameErr instanceof Error ? renameErr.message : String(renameErr)}). Old ledger may still exist at ${oldLedgerBackupPath}.`);
+          try {
+            if (existsSync2(oldLedgerBackupPath))
+              unlinkSync(oldLedgerBackupPath);
+          } catch {}
+        }
+      } else if (!initSucceeded && backupExists) {
+        try {
+          if (existsSync2(oldLedgerBackupPath))
+            unlinkSync(oldLedgerBackupPath);
+        } catch {}
+      }
+    }
+  }
+  const currentHash = computeCurrentPlanHash(directory);
+  const hashAfter = computePlanHash(validated);
+  if (currentPlan) {
+    const oldTaskMap = new Map;
+    for (const phase of currentPlan.phases) {
+      for (const task of phase.tasks) {
+        oldTaskMap.set(task.id, { phase: task.phase, status: task.status });
+      }
+    }
+    try {
+      for (const phase of validated.phases) {
+        for (const task of phase.tasks) {
+          const oldTask = oldTaskMap.get(task.id);
+          if (oldTask && oldTask.status !== task.status) {
+            const eventInput = {
+              plan_id: `${validated.swarm}-${validated.title}`.replace(/[^a-zA-Z0-9-_]/g, "_"),
+              event_type: "task_status_changed",
+              task_id: task.id,
+              phase_id: phase.id,
+              from_status: oldTask.status,
+              to_status: task.status,
+              source: "savePlan"
+            };
+            await appendLedgerEvent(directory, eventInput, {
+              expectedHash: currentHash,
+              planHashAfter: hashAfter
+            });
+          }
+        }
+      }
+    } catch (error49) {
+      if (error49 instanceof LedgerStaleWriterError) {
+        throw new Error(`Concurrent plan modification detected: ${error49.message}. Please retry the operation.`);
+      }
+      throw error49;
+    }
+  }
+  const SNAPSHOT_INTERVAL = 50;
+  const latestSeq = await getLatestLedgerSeq(directory);
+  if (latestSeq > 0 && latestSeq % SNAPSHOT_INTERVAL === 0) {
+    await takeSnapshotEvent(directory, validated, {
+      planHashAfter: hashAfter
+    }).catch(() => {});
+  }
+  const swarmDir = path3.resolve(directory, ".swarm");
+  const planPath = path3.join(swarmDir, "plan.json");
+  const tempPath = path3.join(swarmDir, `plan.json.tmp.${Date.now()}.${Math.floor(Math.random() * 1e9)}`);
+  try {
+    await Bun.write(tempPath, JSON.stringify(validated, null, 2));
+    renameSync2(tempPath, planPath);
+  } finally {
+    try {
+      unlinkSync(tempPath);
+    } catch {}
+  }
+  const contentHash = computePlanContentHash(validated);
+  const markdown = derivePlanMarkdown(validated);
+  const markdownWithHash = `<!-- PLAN_HASH: ${contentHash} -->
+${markdown}`;
+  const mdPath = path3.join(swarmDir, "plan.md");
+  const mdTempPath = path3.join(swarmDir, `plan.md.tmp.${Date.now()}.${Math.floor(Math.random() * 1e9)}`);
+  try {
+    await Bun.write(mdTempPath, markdownWithHash);
+    renameSync2(mdTempPath, mdPath);
+  } finally {
+    try {
+      unlinkSync(mdTempPath);
+    } catch {}
+  }
+  try {
+    const markerPath = path3.join(swarmDir, ".plan-write-marker");
+    const tasksCount = validated.phases.reduce((sum, phase) => sum + phase.tasks.length, 0);
+    const marker = JSON.stringify({
+      source: "plan_manager",
+      timestamp: new Date().toISOString(),
+      phases_count: validated.phases.length,
+      tasks_count: tasksCount
+    });
+    await Bun.write(markerPath, marker);
+  } catch {}
+}
+async function rebuildPlan(directory, plan) {
+  const targetPlan = plan ?? await replayFromLedger(directory);
+  if (!targetPlan)
+    return null;
+  const swarmDir = path3.join(directory, ".swarm");
+  const planPath = path3.join(swarmDir, "plan.json");
+  const mdPath = path3.join(swarmDir, "plan.md");
+  const tempPlanPath = path3.join(swarmDir, `plan.json.rebuild.${Date.now()}`);
+  await Bun.write(tempPlanPath, JSON.stringify(targetPlan, null, 2));
+  renameSync2(tempPlanPath, planPath);
+  const contentHash = computePlanContentHash(targetPlan);
+  const markdown = derivePlanMarkdown(targetPlan);
+  const markdownWithHash = `<!-- PLAN_HASH: ${contentHash} -->
+${markdown}`;
+  const tempMdPath = path3.join(swarmDir, `plan.md.rebuild.${Date.now()}`);
+  await Bun.write(tempMdPath, markdownWithHash);
+  renameSync2(tempMdPath, mdPath);
+  try {
+    const markerPath = path3.join(swarmDir, ".plan-write-marker");
+    const tasksCount = targetPlan.phases.reduce((sum, phase) => sum + phase.tasks.length, 0);
+    const marker = JSON.stringify({
+      source: "plan_manager",
+      timestamp: new Date().toISOString(),
+      phases_count: targetPlan.phases.length,
+      tasks_count: tasksCount
+    });
+    await Bun.write(markerPath, marker);
+  } catch {}
+  return targetPlan;
+}
+function derivePlanMarkdown(plan) {
+  const statusMap = {
+    pending: "PENDING",
+    in_progress: "IN PROGRESS",
+    complete: "COMPLETE",
+    blocked: "BLOCKED"
+  };
+  const now = new Date().toISOString();
+  const currentPhase = plan.current_phase ?? 1;
+  const phaseStatus = statusMap[plan.phases[currentPhase - 1]?.status] || "PENDING";
+  let markdown = `# ${plan.title}
+Swarm: ${plan.swarm}
+Phase: ${currentPhase} [${phaseStatus}] | Updated: ${now}
+`;
+  const sortedPhases = [...plan.phases].sort((a, b) => a.id - b.id);
+  for (const phase of sortedPhases) {
+    const phaseStatusText = statusMap[phase.status] || "PENDING";
+    markdown += `
+## Phase ${phase.id}: ${phase.name} [${phaseStatusText}]
+`;
+    const sortedTasks = [...phase.tasks].sort((a, b) => compareTaskIds(a.id, b.id));
+    let currentTaskMarked = false;
+    for (const task of sortedTasks) {
+      let taskLine = "";
+      let suffix = "";
+      if (task.status === "completed") {
+        taskLine = `- [x] ${task.id}: ${task.description}`;
+      } else if (task.status === "blocked") {
+        taskLine = `- [BLOCKED] ${task.id}: ${task.description}`;
+        if (task.blocked_reason) {
+          taskLine += ` - ${task.blocked_reason}`;
+        }
+      } else {
+        taskLine = `- [ ] ${task.id}: ${task.description}`;
+      }
+      taskLine += ` [${task.size.toUpperCase()}]`;
+      if (task.depends.length > 0) {
+        const sortedDepends = [...task.depends].sort();
+        suffix += ` (depends: ${sortedDepends.join(", ")})`;
+      }
+      if (phase.id === plan.current_phase && task.status === "in_progress" && !currentTaskMarked) {
+        suffix += " \u2190 CURRENT";
+        currentTaskMarked = true;
+      }
+      markdown += `${taskLine}${suffix}
+`;
+    }
+  }
+  const phaseSections = markdown.split(`
+## `);
+  if (phaseSections.length > 1) {
+    const header = phaseSections[0];
+    const phases = phaseSections.slice(1).map((p) => `## ${p}`);
+    markdown = `${header}
+---
+${phases.join(`
+---
+`)}`;
+  }
+  return `${markdown.trim()}
+`;
+}
+function migrateLegacyPlan(planContent, swarmId) {
+  const lines = planContent.split(`
+`);
+  let title = "Untitled Plan";
+  let swarm = swarmId || "default-swarm";
+  let currentPhaseNum = 1;
+  const phases = [];
+  let currentPhase = null;
+  for (const line of lines) {
+    const trimmed = line.trim();
+    if (trimmed.startsWith("# ") && title === "Untitled Plan") {
+      title = trimmed.substring(2).trim();
+      continue;
+    }
+    if (trimmed.startsWith("Swarm:")) {
+      swarm = trimmed.substring(6).trim();
+      continue;
+    }
+    if (trimmed.startsWith("Phase:")) {
+      const match = trimmed.match(/Phase:\s*(\d+)/i);
+      if (match) {
+        currentPhaseNum = parseInt(match[1], 10);
+      }
+      continue;
+    }
+    const phaseMatch = trimmed.match(/^#{2,3}\s*Phase\s+(\d+)(?::\s*([^[]+))?\s*(?:\[([^\]]+)\])?/i);
+    if (phaseMatch) {
+      if (currentPhase !== null) {
+        phases.push(currentPhase);
+      }
+      const phaseId = parseInt(phaseMatch[1], 10);
+      const phaseName = phaseMatch[2]?.trim() || `Phase ${phaseId}`;
+      const statusText = phaseMatch[3]?.toLowerCase() || "pending";
+      const statusMap = {
+        complete: "complete",
+        completed: "complete",
+        "in progress": "in_progress",
+        in_progress: "in_progress",
+        inprogress: "in_progress",
+        pending: "pending",
+        blocked: "blocked"
+      };
+      currentPhase = {
+        id: phaseId,
+        name: phaseName,
+        status: statusMap[statusText] || "pending",
+        tasks: []
+      };
+      continue;
+    }
+    const taskMatch = trimmed.match(/^-\s*\[([^\]]+)\]\s+(\d+\.\d+):\s*(.+?)(?:\s*\[(\w+)\])?(?:\s*-\s*(.+))?$/i);
+    if (taskMatch && currentPhase !== null) {
+      const checkbox = taskMatch[1].toLowerCase();
+      const taskId = taskMatch[2];
+      let description = taskMatch[3].trim();
+      const sizeText = taskMatch[4]?.toLowerCase() || "small";
+      let blockedReason;
+      const dependsMatch = description.match(/\s*\(depends:\s*([^)]+)\)$/i);
+      const depends = [];
+      if (dependsMatch) {
+        const depsText = dependsMatch[1];
+        depends.push(...depsText.split(",").map((d) => d.trim()));
+        description = description.substring(0, dependsMatch.index).trim();
+      }
+      let status = "pending";
+      if (checkbox === "x") {
+        status = "completed";
+      } else if (checkbox === "blocked") {
+        status = "blocked";
+        const blockedReasonMatch = taskMatch[5];
+        if (blockedReasonMatch) {
+          blockedReason = blockedReasonMatch.trim();
+        }
+      }
+      const sizeMap = {
+        small: "small",
+        medium: "medium",
+        large: "large"
+      };
+      const task = {
+        id: taskId,
+        phase: currentPhase.id,
+        status,
+        size: sizeMap[sizeText] || "small",
+        description,
+        depends,
+        acceptance: undefined,
+        files_touched: [],
+        evidence_path: undefined,
+        blocked_reason: blockedReason
+      };
+      currentPhase.tasks.push(task);
+    }
+    const numberedTaskMatch = trimmed.match(/^(\d+)\.\s+(.+?)(?:\s*\[(\w+)\])?$/);
+    if (numberedTaskMatch && currentPhase !== null) {
+      const taskId = `${currentPhase.id}.${currentPhase.tasks.length + 1}`;
+      let description = numberedTaskMatch[2].trim();
+      const sizeText = numberedTaskMatch[3]?.toLowerCase() || "small";
+      const dependsMatch = description.match(/\s*\(depends:\s*([^)]+)\)$/i);
+      const depends = [];
+      if (dependsMatch) {
+        const depsText = dependsMatch[1];
+        depends.push(...depsText.split(",").map((d) => d.trim()));
+        description = description.substring(0, dependsMatch.index).trim();
+      }
+      const sizeMap = {
+        small: "small",
+        medium: "medium",
+        large: "large"
+      };
+      const task = {
+        id: taskId,
+        phase: currentPhase.id,
+        status: "pending",
+        size: sizeMap[sizeText] || "small",
+        description,
+        depends,
+        acceptance: undefined,
+        files_touched: [],
+        evidence_path: undefined,
+        blocked_reason: undefined
+      };
+      currentPhase.tasks.push(task);
+    }
+    const noPrefixTaskMatch = trimmed.match(/^-\s*\[([^\]]+)\]\s+(?!\d+\.\d+:)(.+?)(?:\s*\[(\w+)\])?(?:\s*-\s*(.+))?$/i);
+    if (noPrefixTaskMatch && currentPhase !== null) {
+      const checkbox = noPrefixTaskMatch[1].toLowerCase();
+      const taskId = `${currentPhase.id}.${currentPhase.tasks.length + 1}`;
+      let description = noPrefixTaskMatch[2].trim();
+      const sizeText = noPrefixTaskMatch[3]?.toLowerCase() || "small";
+      let blockedReason;
+      const dependsMatch = description.match(/\s*\(depends:\s*([^)]+)\)$/i);
+      const depends = [];
+      if (dependsMatch) {
+        const depsText = dependsMatch[1];
+        depends.push(...depsText.split(",").map((d) => d.trim()));
+        description = description.substring(0, dependsMatch.index).trim();
+      }
+      let status = "pending";
+      if (checkbox === "x") {
+        status = "completed";
+      } else if (checkbox === "blocked") {
+        status = "blocked";
+        const blockedReasonMatch = noPrefixTaskMatch[4];
+        if (blockedReasonMatch) {
+          blockedReason = blockedReasonMatch.trim();
+        }
+      }
+      const sizeMap = {
+        small: "small",
+        medium: "medium",
+        large: "large"
+      };
+      const task = {
+        id: taskId,
+        phase: currentPhase.id,
+        status,
+        size: sizeMap[sizeText] || "small",
+        description,
+        depends,
+        acceptance: undefined,
+        files_touched: [],
+        evidence_path: undefined,
+        blocked_reason: blockedReason
+      };
+      currentPhase.tasks.push(task);
+    }
+  }
+  if (currentPhase !== null) {
+    phases.push(currentPhase);
+  }
+  let migrationStatus = "migrated";
+  if (phases.length === 0) {
+    console.warn(`migrateLegacyPlan: 0 phases parsed from ${lines.length} lines. First 3 lines: ${lines.slice(0, 3).join(" | ")}`);
+    migrationStatus = "migration_failed";
+    phases.push({
+      id: 1,
+      name: "Migration Failed",
+      status: "blocked",
+      tasks: [
+        {
+          id: "1.1",
+          phase: 1,
+          status: "blocked",
+          size: "large",
+          description: "Review and restructure plan manually",
+          depends: [],
+          files_touched: [],
+          blocked_reason: "Legacy plan could not be parsed automatically"
+        }
+      ]
+    });
+  }
+  phases.sort((a, b) => a.id - b.id);
+  const plan = {
+    schema_version: "1.0.0",
+    title,
+    swarm,
+    current_phase: currentPhaseNum,
+    phases,
+    migration_status: migrationStatus
+  };
+  return plan;
+}
+var startupLedgerCheckedWorkspaces;
+var init_manager = __esm(() => {
+  init_plan_schema();
+  init_utils2();
+  init_utils();
+  init_spec_hash();
+  init_ledger();
+  startupLedgerCheckedWorkspaces = new Set;
+});
+
 // src/config/evidence-schema.ts
 var EVIDENCE_MAX_JSON_BYTES, EVIDENCE_MAX_PATCH_BYTES, EVIDENCE_MAX_TASK_BYTES, EvidenceTypeSchema, EvidenceVerdictSchema, BaseEvidenceSchema, ReviewEvidenceSchema, TestEvidenceSchema, DiffEvidenceSchema, ApprovalEvidenceSchema, NoteEvidenceSchema, RetrospectiveEvidenceSchema, SyntaxEvidenceSchema, PlaceholderEvidenceSchema, SastEvidenceSchema, SbomEvidenceSchema, BuildEvidenceSchema, QualityBudgetEvidenceSchema, SecretscanEvidenceSchema, EvidenceSchema, EvidenceBundleSchema;
 var init_evidence_schema = __esm(() => {
@@ -14276,9 +15389,9 @@ var init_evidence_schema = __esm(() => {
 });
 
 // src/evidence/manager.ts
-import { mkdirSync, readdirSync, rmSync, statSync as statSync2 } from "fs";
-import * as fs2 from "fs/promises";
-import * as path3 from "path";
+import { mkdirSync as mkdirSync2, readdirSync, rmSync, statSync as statSync2 } from "fs";
+import * as fs3 from "fs/promises";
+import * as path5 from "path";
 function isValidEvidenceType(type) {
   return VALID_EVIDENCE_TYPES.includes(type);
 }
@@ -14313,9 +15426,9 @@ function sanitizeTaskId(taskId) {
 }
 async function saveEvidence(directory, taskId, evidence) {
   const sanitizedTaskId = sanitizeTaskId(taskId);
-  const relativePath = path3.join("evidence", sanitizedTaskId, "evidence.json");
+  const relativePath = path5.join("evidence", sanitizedTaskId, "evidence.json");
   const evidencePath = validateSwarmPath(directory, relativePath);
-  const evidenceDir = path3.dirname(evidencePath);
+  const evidenceDir = path5.dirname(evidencePath);
   let bundle;
   const existingContent = await readSwarmFileAsync(directory, relativePath);
   if (existingContent !== null) {
@@ -14352,11 +15465,11 @@ async function saveEvidence(directory, taskId, evidence) {
   if (bundleJson.length > EVIDENCE_MAX_JSON_BYTES) {
     throw new Error(`Evidence bundle size (${bundleJson.length} bytes) exceeds maximum (${EVIDENCE_MAX_JSON_BYTES} bytes)`);
   }
-  mkdirSync(evidenceDir, { recursive: true });
-  const tempPath = path3.join(evidenceDir, `evidence.json.tmp.${Date.now()}.${process.pid}`);
+  mkdirSync2(evidenceDir, { recursive: true });
+  const tempPath = path5.join(evidenceDir, `evidence.json.tmp.${Date.now()}.${process.pid}`);
   try {
     await Bun.write(tempPath, bundleJson);
-    await fs2.rename(tempPath, evidencePath);
+    await fs3.rename(tempPath, evidencePath);
   } catch (error49) {
     try {
       rmSync(tempPath, { force: true });
@@ -14391,7 +15504,7 @@ function wrapFlatRetrospective(flatEntry, taskId) {
 }
 async function loadEvidence(directory, taskId) {
   const sanitizedTaskId = sanitizeTaskId(taskId);
-  const relativePath = path3.join("evidence", sanitizedTaskId, "evidence.json");
+  const relativePath = path5.join("evidence", sanitizedTaskId, "evidence.json");
   const evidencePath = validateSwarmPath(directory, relativePath);
   const content = await readSwarmFileAsync(directory, relativePath);
   if (content === null) {
@@ -14407,12 +15520,12 @@ async function loadEvidence(directory, taskId) {
     const wrappedBundle = wrapFlatRetrospective(parsed, sanitizedTaskId);
     try {
       const validated = EvidenceBundleSchema.parse(wrappedBundle);
-      const evidenceDir = path3.dirname(evidencePath);
+      const evidenceDir = path5.dirname(evidencePath);
       const bundleJson = JSON.stringify(validated);
-      const tempPath = path3.join(evidenceDir, `evidence.json.tmp.${Date.now()}.${process.pid}`);
+      const tempPath = path5.join(evidenceDir, `evidence.json.tmp.${Date.now()}.${process.pid}`);
       try {
         await Bun.write(tempPath, bundleJson);
-        await fs2.rename(tempPath, evidencePath);
+        await fs3.rename(tempPath, evidencePath);
       } catch (writeError) {
         try {
           rmSync(tempPath, { force: true });
@@ -14450,7 +15563,7 @@ async function listEvidenceTaskIds(directory) {
   }
   const taskIds = [];
   for (const entry of entries) {
-    const entryPath = path3.join(evidenceBasePath, entry);
+    const entryPath = path5.join(evidenceBasePath, entry);
     try {
       const stats = statSync2(entryPath);
       if (!stats.isDirectory()) {
@@ -14468,7 +15581,7 @@ async function listEvidenceTaskIds(directory) {
 }
 async function deleteEvidence(directory, taskId) {
   const sanitizedTaskId = sanitizeTaskId(taskId);
-  const relativePath = path3.join("evidence", sanitizedTaskId);
+  const relativePath = path5.join("evidence", sanitizedTaskId);
   const evidenceDir = validateSwarmPath(directory, relativePath);
   try {
     statSync2(evidenceDir);
@@ -14484,10 +15597,10 @@ async function deleteEvidence(directory, taskId) {
   }
 }
 async function checkRequirementCoverage(phase, directory) {
-  const relativePath = path3.join("evidence", `req-coverage-phase-${phase}.json`);
-  const absolutePath = path3.resolve(directory, ".swarm", relativePath);
+  const relativePath = path5.join("evidence", `req-coverage-phase-${phase}.json`);
+  const absolutePath = path5.resolve(directory, ".swarm", relativePath);
   try {
-    await fs2.access(absolutePath);
+    await fs3.access(absolutePath);
     return { exists: true, path: absolutePath };
   } catch {
     return { exists: false, path: absolutePath };
@@ -14530,7 +15643,7 @@ async function archiveEvidence(directory, maxAgeDays, maxBundles) {
   return archived;
 }
 var VALID_EVIDENCE_TYPES, TASK_ID_REGEX, RETRO_TASK_ID_REGEX, INTERNAL_TOOL_ID_REGEX, GENERAL_TASK_ID_REGEX, LEGACY_TASK_COMPLEXITY_MAP;
-var init_manager = __esm(() => {
+var init_manager2 = __esm(() => {
   init_zod();
   init_evidence_schema();
   init_utils2();
@@ -14561,62 +15674,6 @@ var init_manager = __esm(() => {
   };
 });
 
-// src/config/plan-schema.ts
-var TaskStatusSchema, TaskSizeSchema, PhaseStatusSchema, MigrationStatusSchema, TaskSchema, PhaseSchema, PlanSchema;
-var init_plan_schema = __esm(() => {
-  init_zod();
-  TaskStatusSchema = exports_external.enum([
-    "pending",
-    "in_progress",
-    "completed",
-    "blocked",
-    "closed"
-  ]);
-  TaskSizeSchema = exports_external.enum(["small", "medium", "large"]);
-  PhaseStatusSchema = exports_external.enum([
-    "pending",
-    "in_progress",
-    "complete",
-    "completed",
-    "blocked",
-    "closed"
-  ]);
-  MigrationStatusSchema = exports_external.enum([
-    "native",
-    "migrated",
-    "migration_failed"
-  ]);
-  TaskSchema = exports_external.object({
-    id: exports_external.string(),
-    phase: exports_external.number().int().min(1),
-    status: TaskStatusSchema.default("pending"),
-    size: TaskSizeSchema.default("small"),
-    description: exports_external.string().min(1),
-    depends: exports_external.array(exports_external.string()).default([]),
-    acceptance: exports_external.string().optional(),
-    files_touched: exports_external.array(exports_external.string()).default([]),
-    evidence_path: exports_external.string().optional(),
-    blocked_reason: exports_external.string().optional()
-  });
-  PhaseSchema = exports_external.object({
-    id: exports_external.number().int().min(1),
-    name: exports_external.string().min(1),
-    status: PhaseStatusSchema.default("pending"),
-    tasks: exports_external.array(TaskSchema).default([]),
-    required_agents: exports_external.array(exports_external.string()).optional()
-  });
-  PlanSchema = exports_external.object({
-    schema_version: exports_external.literal("1.0.0"),
-    title: exports_external.string().min(1),
-    swarm: exports_external.string().min(1),
-    current_phase: exports_external.number().int().min(1).optional(),
-    phases: exports_external.array(PhaseSchema).min(1),
-    migration_status: MigrationStatusSchema.optional(),
-    specMtime: exports_external.string().optional(),
-    specHash: exports_external.string().optional()
-  });
-});
-
 // src/telemetry.ts
 var init_telemetry = () => {};
 
@@ -14645,54 +15702,54 @@ var require_polyfills = __commonJS((exports, module) => {
   }
   var chdir;
   module.exports = patch;
-  function patch(fs4) {
+  function patch(fs5) {
     if (constants.hasOwnProperty("O_SYMLINK") && process.version.match(/^v0\.6\.[0-2]|^v0\.5\./)) {
-      patchLchmod(fs4);
+      patchLchmod(fs5);
     }
-    if (!fs4.lutimes) {
-      patchLutimes(fs4);
+    if (!fs5.lutimes) {
+      patchLutimes(fs5);
     }
-    fs4.chown = chownFix(fs4.chown);
-    fs4.fchown = chownFix(fs4.fchown);
-    fs4.lchown = chownFix(fs4.lchown);
-    fs4.chmod = chmodFix(fs4.chmod);
-    fs4.fchmod = chmodFix(fs4.fchmod);
-    fs4.lchmod = chmodFix(fs4.lchmod);
-    fs4.chownSync = chownFixSync(fs4.chownSync);
-    fs4.fchownSync = chownFixSync(fs4.fchownSync);
-    fs4.lchownSync = chownFixSync(fs4.lchownSync);
-    fs4.chmodSync = chmodFixSync(fs4.chmodSync);
-    fs4.fchmodSync = chmodFixSync(fs4.fchmodSync);
-    fs4.lchmodSync = chmodFixSync(fs4.lchmodSync);
-    fs4.stat = statFix(fs4.stat);
-    fs4.fstat = statFix(fs4.fstat);
-    fs4.lstat = statFix(fs4.lstat);
-    fs4.statSync = statFixSync(fs4.statSync);
-    fs4.fstatSync = statFixSync(fs4.fstatSync);
-    fs4.lstatSync = statFixSync(fs4.lstatSync);
-    if (fs4.chmod && !fs4.lchmod) {
-      fs4.lchmod = function(path5, mode, cb) {
+    fs5.chown = chownFix(fs5.chown);
+    fs5.fchown = chownFix(fs5.fchown);
+    fs5.lchown = chownFix(fs5.lchown);
+    fs5.chmod = chmodFix(fs5.chmod);
+    fs5.fchmod = chmodFix(fs5.fchmod);
+    fs5.lchmod = chmodFix(fs5.lchmod);
+    fs5.chownSync = chownFixSync(fs5.chownSync);
+    fs5.fchownSync = chownFixSync(fs5.fchownSync);
+    fs5.lchownSync = chownFixSync(fs5.lchownSync);
+    fs5.chmodSync = chmodFixSync(fs5.chmodSync);
+    fs5.fchmodSync = chmodFixSync(fs5.fchmodSync);
+    fs5.lchmodSync = chmodFixSync(fs5.lchmodSync);
+    fs5.stat = statFix(fs5.stat);
+    fs5.fstat = statFix(fs5.fstat);
+    fs5.lstat = statFix(fs5.lstat);
+    fs5.statSync = statFixSync(fs5.statSync);
+    fs5.fstatSync = statFixSync(fs5.fstatSync);
+    fs5.lstatSync = statFixSync(fs5.lstatSync);
+    if (fs5.chmod && !fs5.lchmod) {
+      fs5.lchmod = function(path7, mode, cb) {
         if (cb)
           process.nextTick(cb);
       };
-      fs4.lchmodSync = function() {};
+      fs5.lchmodSync = function() {};
     }
-    if (fs4.chown && !fs4.lchown) {
-      fs4.lchown = function(path5, uid, gid, cb) {
+    if (fs5.chown && !fs5.lchown) {
+      fs5.lchown = function(path7, uid, gid, cb) {
         if (cb)
           process.nextTick(cb);
       };
-      fs4.lchownSync = function() {};
+      fs5.lchownSync = function() {};
     }
     if (platform === "win32") {
-      fs4.rename = typeof fs4.rename !== "function" ? fs4.rename : function(fs$rename) {
+      fs5.rename = typeof fs5.rename !== "function" ? fs5.rename : function(fs$rename) {
         function rename2(from, to, cb) {
           var start = Date.now();
           var backoff = 0;
           fs$rename(from, to, function CB(er) {
             if (er && (er.code === "EACCES" || er.code === "EPERM" || er.code === "EBUSY") && Date.now() - start < 60000) {
               setTimeout(function() {
-                fs4.stat(to, function(stater, st) {
+                fs5.stat(to, function(stater, st) {
                   if (stater && stater.code === "ENOENT")
                     fs$rename(from, to, CB);
                   else
@@ -14710,9 +15767,9 @@ var require_polyfills = __commonJS((exports, module) => {
         if (Object.setPrototypeOf)
           Object.setPrototypeOf(rename2, fs$rename);
         return rename2;
-      }(fs4.rename);
+      }(fs5.rename);
     }
-    fs4.read = typeof fs4.read !== "function" ? fs4.read : function(fs$read) {
+    fs5.read = typeof fs5.read !== "function" ? fs5.read : function(fs$read) {
       function read(fd, buffer, offset, length, position, callback_) {
         var callback;
         if (callback_ && typeof callback_ === "function") {
@@ -14720,23 +15777,23 @@ var require_polyfills = __commonJS((exports, module) => {
           callback = function(er, _, __) {
             if (er && er.code === "EAGAIN" && eagCounter < 10) {
               eagCounter++;
-              return fs$read.call(fs4, fd, buffer, offset, length, position, callback);
+              return fs$read.call(fs5, fd, buffer, offset, length, position, callback);
             }
             callback_.apply(this, arguments);
           };
         }
-        return fs$read.call(fs4, fd, buffer, offset, length, position, callback);
+        return fs$read.call(fs5, fd, buffer, offset, length, position, callback);
       }
       if (Object.setPrototypeOf)
         Object.setPrototypeOf(read, fs$read);
       return read;
-    }(fs4.read);
-    fs4.readSync = typeof fs4.readSync !== "function" ? fs4.readSync : function(fs$readSync) {
+    }(fs5.read);
+    fs5.readSync = typeof fs5.readSync !== "function" ? fs5.readSync : function(fs$readSync) {
       return function(fd, buffer, offset, length, position) {
         var eagCounter = 0;
         while (true) {
           try {
-            return fs$readSync.call(fs4, fd, buffer, offset, length, position);
+            return fs$readSync.call(fs5, fd, buffer, offset, length, position);
           } catch (er) {
             if (er.code === "EAGAIN" && eagCounter < 10) {
               eagCounter++;
@@ -14746,90 +15803,90 @@ var require_polyfills = __commonJS((exports, module) => {
           }
         }
       };
-    }(fs4.readSync);
-    function patchLchmod(fs5) {
-      fs5.lchmod = function(path5, mode, callback) {
-        fs5.open(path5, constants.O_WRONLY | constants.O_SYMLINK, mode, function(err, fd) {
+    }(fs5.readSync);
+    function patchLchmod(fs6) {
+      fs6.lchmod = function(path7, mode, callback) {
+        fs6.open(path7, constants.O_WRONLY | constants.O_SYMLINK, mode, function(err, fd) {
           if (err) {
             if (callback)
               callback(err);
             return;
           }
-          fs5.fchmod(fd, mode, function(err2) {
-            fs5.close(fd, function(err22) {
+          fs6.fchmod(fd, mode, function(err2) {
+            fs6.close(fd, function(err22) {
               if (callback)
                 callback(err2 || err22);
             });
           });
         });
       };
-      fs5.lchmodSync = function(path5, mode) {
-        var fd = fs5.openSync(path5, constants.O_WRONLY | constants.O_SYMLINK, mode);
+      fs6.lchmodSync = function(path7, mode) {
+        var fd = fs6.openSync(path7, constants.O_WRONLY | constants.O_SYMLINK, mode);
         var threw = true;
         var ret;
         try {
-          ret = fs5.fchmodSync(fd, mode);
+          ret = fs6.fchmodSync(fd, mode);
           threw = false;
         } finally {
           if (threw) {
             try {
-              fs5.closeSync(fd);
+              fs6.closeSync(fd);
             } catch (er) {}
           } else {
-            fs5.closeSync(fd);
+            fs6.closeSync(fd);
           }
         }
         return ret;
       };
     }
-    function patchLutimes(fs5) {
-      if (constants.hasOwnProperty("O_SYMLINK") && fs5.futimes) {
-        fs5.lutimes = function(path5, at, mt, cb) {
-          fs5.open(path5, constants.O_SYMLINK, function(er, fd) {
+    function patchLutimes(fs6) {
+      if (constants.hasOwnProperty("O_SYMLINK") && fs6.futimes) {
+        fs6.lutimes = function(path7, at, mt, cb) {
+          fs6.open(path7, constants.O_SYMLINK, function(er, fd) {
             if (er) {
               if (cb)
                 cb(er);
               return;
             }
-            fs5.futimes(fd, at, mt, function(er2) {
-              fs5.close(fd, function(er22) {
+            fs6.futimes(fd, at, mt, function(er2) {
+              fs6.close(fd, function(er22) {
                 if (cb)
                   cb(er2 || er22);
               });
             });
           });
         };
-        fs5.lutimesSync = function(path5, at, mt) {
-          var fd = fs5.openSync(path5, constants.O_SYMLINK);
+        fs6.lutimesSync = function(path7, at, mt) {
+          var fd = fs6.openSync(path7, constants.O_SYMLINK);
           var ret;
           var threw = true;
           try {
-            ret = fs5.futimesSync(fd, at, mt);
+            ret = fs6.futimesSync(fd, at, mt);
             threw = false;
           } finally {
             if (threw) {
               try {
-                fs5.closeSync(fd);
+                fs6.closeSync(fd);
               } catch (er) {}
             } else {
-              fs5.closeSync(fd);
+              fs6.closeSync(fd);
             }
           }
           return ret;
         };
-      } else if (fs5.futimes) {
-        fs5.lutimes = function(_a2, _b, _c, cb) {
+      } else if (fs6.futimes) {
+        fs6.lutimes = function(_a2, _b, _c, cb) {
           if (cb)
             process.nextTick(cb);
         };
-        fs5.lutimesSync = function() {};
+        fs6.lutimesSync = function() {};
       }
     }
     function chmodFix(orig) {
       if (!orig)
         return orig;
       return function(target, mode, cb) {
-        return orig.call(fs4, target, mode, function(er) {
+        return orig.call(fs5, target, mode, function(er) {
           if (chownErOk(er))
             er = null;
           if (cb)
@@ -14842,7 +15899,7 @@ var require_polyfills = __commonJS((exports, module) => {
         return orig;
       return function(target, mode) {
         try {
-          return orig.call(fs4, target, mode);
+          return orig.call(fs5, target, mode);
         } catch (er) {
           if (!chownErOk(er))
             throw er;
@@ -14853,7 +15910,7 @@ var require_polyfills = __commonJS((exports, module) => {
       if (!orig)
         return orig;
       return function(target, uid, gid, cb) {
-        return orig.call(fs4, target, uid, gid, function(er) {
+        return orig.call(fs5, target, uid, gid, function(er) {
           if (chownErOk(er))
             er = null;
           if (cb)
@@ -14866,7 +15923,7 @@ var require_polyfills = __commonJS((exports, module) => {
         return orig;
       return function(target, uid, gid) {
         try {
-          return orig.call(fs4, target, uid, gid);
+          return orig.call(fs5, target, uid, gid);
         } catch (er) {
           if (!chownErOk(er))
             throw er;
@@ -14891,14 +15948,14 @@ var require_polyfills = __commonJS((exports, module) => {
           if (cb)
             cb.apply(this, arguments);
         }
-        return options ? orig.call(fs4, target, options, callback) : orig.call(fs4, target, callback);
+        return options ? orig.call(fs5, target, options, callback) : orig.call(fs5, target, callback);
       };
     }
     function statFixSync(orig) {
       if (!orig)
         return orig;
       return function(target, options) {
-        var stats = options ? orig.call(fs4, target, options) : orig.call(fs4, target);
+        var stats = options ? orig.call(fs5, target, options) : orig.call(fs5, target);
         if (stats) {
           if (stats.uid < 0)
             stats.uid += 4294967296;
@@ -14927,17 +15984,17 @@ var require_polyfills = __commonJS((exports, module) => {
 var require_legacy_streams = __commonJS((exports, module) => {
   var Stream = __require("stream").Stream;
   module.exports = legacy;
-  function legacy(fs4) {
+  function legacy(fs5) {
     return {
       ReadStream,
       WriteStream
     };
-    function ReadStream(path5, options) {
+    function ReadStream(path7, options) {
       if (!(this instanceof ReadStream))
-        return new ReadStream(path5, options);
+        return new ReadStream(path7, options);
       Stream.call(this);
       var self = this;
-      this.path = path5;
+      this.path = path7;
       this.fd = null;
       this.readable = true;
       this.paused = false;
@@ -14972,7 +16029,7 @@ var require_legacy_streams = __commonJS((exports, module) => {
         });
         return;
       }
-      fs4.open(this.path, this.flags, this.mode, function(err, fd) {
+      fs5.open(this.path, this.flags, this.mode, function(err, fd) {
         if (err) {
           self.emit("error", err);
           self.readable = false;
@@ -14983,11 +16040,11 @@ var require_legacy_streams = __commonJS((exports, module) => {
         self._read();
       });
     }
-    function WriteStream(path5, options) {
+    function WriteStream(path7, options) {
       if (!(this instanceof WriteStream))
-        return new WriteStream(path5, options);
+        return new WriteStream(path7, options);
       Stream.call(this);
-      this.path = path5;
+      this.path = path7;
       this.fd = null;
       this.writable = true;
       this.flags = "w";
@@ -15012,7 +16069,7 @@ var require_legacy_streams = __commonJS((exports, module) => {
       this.busy = false;
       this._queue = [];
       if (this.fd === null) {
-        this._open = fs4.open;
+        this._open = fs5.open;
         this._queue.push([this._open, this.path, this.flags, this.mode, undefined]);
         this.flush();
       }
@@ -15042,7 +16099,7 @@ var require_clone = __commonJS((exports, module) => {
 
 // node_modules/.bun/graceful-fs@4.2.11/node_modules/graceful-fs/graceful-fs.js
 var require_graceful_fs = __commonJS((exports, module) => {
-  var fs4 = __require("fs");
+  var fs5 = __require("fs");
   var polyfills = require_polyfills();
   var legacy = require_legacy_streams();
   var clone3 = require_clone();
@@ -15074,12 +16131,12 @@ var require_graceful_fs = __commonJS((exports, module) => {
 GFS4: `);
       console.error(m);
     };
-  if (!fs4[gracefulQueue]) {
+  if (!fs5[gracefulQueue]) {
     queue = global[gracefulQueue] || [];
-    publishQueue(fs4, queue);
-    fs4.close = function(fs$close) {
+    publishQueue(fs5, queue);
+    fs5.close = function(fs$close) {
       function close(fd, cb) {
-        return fs$close.call(fs4, fd, function(err) {
+        return fs$close.call(fs5, fd, function(err) {
           if (!err) {
             resetQueue();
           }
@@ -15091,48 +16148,48 @@ GFS4: `);
         value: fs$close
       });
       return close;
-    }(fs4.close);
-    fs4.closeSync = function(fs$closeSync) {
+    }(fs5.close);
+    fs5.closeSync = function(fs$closeSync) {
       function closeSync(fd) {
-        fs$closeSync.apply(fs4, arguments);
+        fs$closeSync.apply(fs5, arguments);
         resetQueue();
       }
       Object.defineProperty(closeSync, previousSymbol, {
         value: fs$closeSync
       });
       return closeSync;
-    }(fs4.closeSync);
+    }(fs5.closeSync);
     if (/\bgfs4\b/i.test(process.env.NODE_DEBUG || "")) {
       process.on("exit", function() {
-        debug(fs4[gracefulQueue]);
-        __require("assert").equal(fs4[gracefulQueue].length, 0);
+        debug(fs5[gracefulQueue]);
+        __require("assert").equal(fs5[gracefulQueue].length, 0);
       });
     }
   }
   var queue;
   if (!global[gracefulQueue]) {
-    publishQueue(global, fs4[gracefulQueue]);
+    publishQueue(global, fs5[gracefulQueue]);
   }
-  module.exports = patch(clone3(fs4));
-  if (process.env.TEST_GRACEFUL_FS_GLOBAL_PATCH && !fs4.__patched) {
-    module.exports = patch(fs4);
-    fs4.__patched = true;
+  module.exports = patch(clone3(fs5));
+  if (process.env.TEST_GRACEFUL_FS_GLOBAL_PATCH && !fs5.__patched) {
+    module.exports = patch(fs5);
+    fs5.__patched = true;
   }
-  function patch(fs5) {
-    polyfills(fs5);
-    fs5.gracefulify = patch;
-    fs5.createReadStream = createReadStream;
-    fs5.createWriteStream = createWriteStream;
-    var fs$readFile = fs5.readFile;
-    fs5.readFile = readFile;
-    function readFile(path5, options, cb) {
+  function patch(fs6) {
+    polyfills(fs6);
+    fs6.gracefulify = patch;
+    fs6.createReadStream = createReadStream;
+    fs6.createWriteStream = createWriteStream;
+    var fs$readFile = fs6.readFile;
+    fs6.readFile = readFile2;
+    function readFile2(path7, options, cb) {
       if (typeof options === "function")
         cb = options, options = null;
-      return go$readFile(path5, options, cb);
-      function go$readFile(path6, options2, cb2, startTime) {
-        return fs$readFile(path6, options2, function(err) {
+      return go$readFile(path7, options, cb);
+      function go$readFile(path8, options2, cb2, startTime) {
+        return fs$readFile(path8, options2, function(err) {
           if (err && (err.code === "EMFILE" || err.code === "ENFILE"))
-            enqueue([go$readFile, [path6, options2, cb2], err, startTime || Date.now(), Date.now()]);
+            enqueue([go$readFile, [path8, options2, cb2], err, startTime || Date.now(), Date.now()]);
           else {
             if (typeof cb2 === "function")
               cb2.apply(this, arguments);
@@ -15140,16 +16197,16 @@ GFS4: `);
         });
       }
     }
-    var fs$writeFile = fs5.writeFile;
-    fs5.writeFile = writeFile;
-    function writeFile(path5, data, options, cb) {
+    var fs$writeFile = fs6.writeFile;
+    fs6.writeFile = writeFile2;
+    function writeFile2(path7, data, options, cb) {
       if (typeof options === "function")
         cb = options, options = null;
-      return go$writeFile(path5, data, options, cb);
-      function go$writeFile(path6, data2, options2, cb2, startTime) {
-        return fs$writeFile(path6, data2, options2, function(err) {
+      return go$writeFile(path7, data, options, cb);
+      function go$writeFile(path8, data2, options2, cb2, startTime) {
+        return fs$writeFile(path8, data2, options2, function(err) {
           if (err && (err.code === "EMFILE" || err.code === "ENFILE"))
-            enqueue([go$writeFile, [path6, data2, options2, cb2], err, startTime || Date.now(), Date.now()]);
+            enqueue([go$writeFile, [path8, data2, options2, cb2], err, startTime || Date.now(), Date.now()]);
           else {
             if (typeof cb2 === "function")
               cb2.apply(this, arguments);
@@ -15157,17 +16214,17 @@ GFS4: `);
         });
       }
     }
-    var fs$appendFile = fs5.appendFile;
+    var fs$appendFile = fs6.appendFile;
     if (fs$appendFile)
-      fs5.appendFile = appendFile;
-    function appendFile(path5, data, options, cb) {
+      fs6.appendFile = appendFile2;
+    function appendFile2(path7, data, options, cb) {
       if (typeof options === "function")
         cb = options, options = null;
-      return go$appendFile(path5, data, options, cb);
-      function go$appendFile(path6, data2, options2, cb2, startTime) {
-        return fs$appendFile(path6, data2, options2, function(err) {
+      return go$appendFile(path7, data, options, cb);
+      function go$appendFile(path8, data2, options2, cb2, startTime) {
+        return fs$appendFile(path8, data2, options2, function(err) {
           if (err && (err.code === "EMFILE" || err.code === "ENFILE"))
-            enqueue([go$appendFile, [path6, data2, options2, cb2], err, startTime || Date.now(), Date.now()]);
+            enqueue([go$appendFile, [path8, data2, options2, cb2], err, startTime || Date.now(), Date.now()]);
           else {
             if (typeof cb2 === "function")
               cb2.apply(this, arguments);
@@ -15175,9 +16232,9 @@ GFS4: `);
         });
       }
     }
-    var fs$copyFile = fs5.copyFile;
+    var fs$copyFile = fs6.copyFile;
     if (fs$copyFile)
-      fs5.copyFile = copyFile;
+      fs6.copyFile = copyFile;
     function copyFile(src, dest, flags, cb) {
       if (typeof flags === "function") {
         cb = flags;
@@ -15195,24 +16252,24 @@ GFS4: `);
         });
       }
     }
-    var fs$readdir = fs5.readdir;
-    fs5.readdir = readdir;
+    var fs$readdir = fs6.readdir;
+    fs6.readdir = readdir;
     var noReaddirOptionVersions = /^v[0-5]\./;
-    function readdir(path5, options, cb) {
+    function readdir(path7, options, cb) {
       if (typeof options === "function")
         cb = options, options = null;
-      var go$readdir = noReaddirOptionVersions.test(process.version) ? function go$readdir2(path6, options2, cb2, startTime) {
-        return fs$readdir(path6, fs$readdirCallback(path6, options2, cb2, startTime));
-      } : function go$readdir2(path6, options2, cb2, startTime) {
-        return fs$readdir(path6, options2, fs$readdirCallback(path6, options2, cb2, startTime));
+      var go$readdir = noReaddirOptionVersions.test(process.version) ? function go$readdir2(path8, options2, cb2, startTime) {
+        return fs$readdir(path8, fs$readdirCallback(path8, options2, cb2, startTime));
+      } : function go$readdir2(path8, options2, cb2, startTime) {
+        return fs$readdir(path8, options2, fs$readdirCallback(path8, options2, cb2, startTime));
       };
-      return go$readdir(path5, options, cb);
-      function fs$readdirCallback(path6, options2, cb2, startTime) {
+      return go$readdir(path7, options, cb);
+      function fs$readdirCallback(path8, options2, cb2, startTime) {
         return function(err, files) {
           if (err && (err.code === "EMFILE" || err.code === "ENFILE"))
             enqueue([
               go$readdir,
-              [path6, options2, cb2],
+              [path8, options2, cb2],
               err,
               startTime || Date.now(),
               Date.now()
@@ -15227,21 +16284,21 @@ GFS4: `);
       }
     }
     if (process.version.substr(0, 4) === "v0.8") {
-      var legStreams = legacy(fs5);
+      var legStreams = legacy(fs6);
       ReadStream = legStreams.ReadStream;
       WriteStream = legStreams.WriteStream;
     }
-    var fs$ReadStream = fs5.ReadStream;
+    var fs$ReadStream = fs6.ReadStream;
     if (fs$ReadStream) {
       ReadStream.prototype = Object.create(fs$ReadStream.prototype);
       ReadStream.prototype.open = ReadStream$open;
     }
-    var fs$WriteStream = fs5.WriteStream;
+    var fs$WriteStream = fs6.WriteStream;
     if (fs$WriteStream) {
       WriteStream.prototype = Object.create(fs$WriteStream.prototype);
       WriteStream.prototype.open = WriteStream$open;
     }
-    Object.defineProperty(fs5, "ReadStream", {
+    Object.defineProperty(fs6, "ReadStream", {
       get: function() {
         return ReadStream;
       },
@@ -15251,7 +16308,7 @@ GFS4: `);
       enumerable: true,
       configurable: true
     });
-    Object.defineProperty(fs5, "WriteStream", {
+    Object.defineProperty(fs6, "WriteStream", {
       get: function() {
         return WriteStream;
       },
@@ -15262,7 +16319,7 @@ GFS4: `);
       configurable: true
     });
     var FileReadStream = ReadStream;
-    Object.defineProperty(fs5, "FileReadStream", {
+    Object.defineProperty(fs6, "FileReadStream", {
       get: function() {
         return FileReadStream;
       },
@@ -15273,7 +16330,7 @@ GFS4: `);
       configurable: true
     });
     var FileWriteStream = WriteStream;
-    Object.defineProperty(fs5, "FileWriteStream", {
+    Object.defineProperty(fs6, "FileWriteStream", {
       get: function() {
         return FileWriteStream;
       },
@@ -15283,7 +16340,7 @@ GFS4: `);
       enumerable: true,
       configurable: true
     });
-    function ReadStream(path5, options) {
+    function ReadStream(path7, options) {
       if (this instanceof ReadStream)
         return fs$ReadStream.apply(this, arguments), this;
       else
@@ -15303,7 +16360,7 @@ GFS4: `);
         }
       });
     }
-    function WriteStream(path5, options) {
+    function WriteStream(path7, options) {
       if (this instanceof WriteStream)
         return fs$WriteStream.apply(this, arguments), this;
       else
@@ -15321,22 +16378,22 @@ GFS4: `);
         }
       });
     }
-    function createReadStream(path5, options) {
-      return new fs5.ReadStream(path5, options);
+    function createReadStream(path7, options) {
+      return new fs6.ReadStream(path7, options);
     }
-    function createWriteStream(path5, options) {
-      return new fs5.WriteStream(path5, options);
+    function createWriteStream(path7, options) {
+      return new fs6.WriteStream(path7, options);
     }
-    var fs$open = fs5.open;
-    fs5.open = open;
-    function open(path5, flags, mode, cb) {
+    var fs$open = fs6.open;
+    fs6.open = open;
+    function open(path7, flags, mode, cb) {
       if (typeof mode === "function")
         cb = mode, mode = null;
-      return go$open(path5, flags, mode, cb);
-      function go$open(path6, flags2, mode2, cb2, startTime) {
-        return fs$open(path6, flags2, mode2, function(err, fd) {
+      return go$open(path7, flags, mode, cb);
+      function go$open(path8, flags2, mode2, cb2, startTime) {
+        return fs$open(path8, flags2, mode2, function(err, fd) {
           if (err && (err.code === "EMFILE" || err.code === "ENFILE"))
-            enqueue([go$open, [path6, flags2, mode2, cb2], err, startTime || Date.now(), Date.now()]);
+            enqueue([go$open, [path8, flags2, mode2, cb2], err, startTime || Date.now(), Date.now()]);
           else {
             if (typeof cb2 === "function")
               cb2.apply(this, arguments);
@@ -15344,20 +16401,20 @@ GFS4: `);
         });
       }
     }
-    return fs5;
+    return fs6;
   }
   function enqueue(elem) {
     debug("ENQUEUE", elem[0].name, elem[1]);
-    fs4[gracefulQueue].push(elem);
+    fs5[gracefulQueue].push(elem);
     retry();
   }
   var retryTimer;
   function resetQueue() {
     var now = Date.now();
-    for (var i = 0;i < fs4[gracefulQueue].length; ++i) {
-      if (fs4[gracefulQueue][i].length > 2) {
-        fs4[gracefulQueue][i][3] = now;
-        fs4[gracefulQueue][i][4] = now;
+    for (var i = 0;i < fs5[gracefulQueue].length; ++i) {
+      if (fs5[gracefulQueue][i].length > 2) {
+        fs5[gracefulQueue][i][3] = now;
+        fs5[gracefulQueue][i][4] = now;
       }
     }
     retry();
@@ -15365,9 +16422,9 @@ GFS4: `);
   function retry() {
     clearTimeout(retryTimer);
     retryTimer = undefined;
-    if (fs4[gracefulQueue].length === 0)
+    if (fs5[gracefulQueue].length === 0)
       return;
-    var elem = fs4[gracefulQueue].shift();
+    var elem = fs5[gracefulQueue].shift();
     var fn = elem[0];
     var args = elem[1];
     var err = elem[2];
@@ -15389,7 +16446,7 @@ GFS4: `);
         debug("RETRY", fn.name, args);
         fn.apply(null, args.concat([startTime]));
       } else {
-        fs4[gracefulQueue].push(elem);
+        fs5[gracefulQueue].push(elem);
       }
     }
     if (retryTimer === undefined) {
@@ -15784,10 +16841,10 @@ var require_signal_exit = __commonJS((exports, module) => {
 // node_modules/.bun/proper-lockfile@4.1.2/node_modules/proper-lockfile/lib/mtime-precision.js
 var require_mtime_precision = __commonJS((exports, module) => {
   var cacheSymbol = Symbol();
-  function probe(file3, fs4, callback) {
-    const cachedPrecision = fs4[cacheSymbol];
+  function probe(file3, fs5, callback) {
+    const cachedPrecision = fs5[cacheSymbol];
     if (cachedPrecision) {
-      return fs4.stat(file3, (err, stat) => {
+      return fs5.stat(file3, (err, stat) => {
         if (err) {
           return callback(err);
         }
@@ -15795,16 +16852,16 @@ var require_mtime_precision = __commonJS((exports, module) => {
       });
     }
     const mtime = new Date(Math.ceil(Date.now() / 1000) * 1000 + 5);
-    fs4.utimes(file3, mtime, mtime, (err) => {
+    fs5.utimes(file3, mtime, mtime, (err) => {
       if (err) {
         return callback(err);
       }
-      fs4.stat(file3, (err2, stat) => {
+      fs5.stat(file3, (err2, stat) => {
         if (err2) {
           return callback(err2);
         }
         const precision = stat.mtime.getTime() % 1000 === 0 ? "s" : "ms";
-        Object.defineProperty(fs4, cacheSymbol, { value: precision });
+        Object.defineProperty(fs5, cacheSymbol, { value: precision });
         callback(null, stat.mtime, precision);
       });
     });
@@ -15822,8 +16879,8 @@ var require_mtime_precision = __commonJS((exports, module) => {
 
 // node_modules/.bun/proper-lockfile@4.1.2/node_modules/proper-lockfile/lib/lockfile.js
 var require_lockfile = __commonJS((exports, module) => {
-  var path5 = __require("path");
-  var fs4 = require_graceful_fs();
+  var path7 = __require("path");
+  var fs5 = require_graceful_fs();
   var retry = require_retry();
   var onExit = require_signal_exit();
   var mtimePrecision = require_mtime_precision();
@@ -15833,7 +16890,7 @@ var require_lockfile = __commonJS((exports, module) => {
   }
   function resolveCanonicalPath(file3, options, callback) {
     if (!options.realpath) {
-      return callback(null, path5.resolve(file3));
+      return callback(null, path7.resolve(file3));
     }
     options.fs.realpath(file3, callback);
   }
@@ -15946,7 +17003,7 @@ var require_lockfile = __commonJS((exports, module) => {
       update: null,
       realpath: true,
       retries: 0,
-      fs: fs4,
+      fs: fs5,
       onCompromised: (err) => {
         throw err;
       },
@@ -15990,7 +17047,7 @@ var require_lockfile = __commonJS((exports, module) => {
   }
   function unlock(file3, options, callback) {
     options = {
-      fs: fs4,
+      fs: fs5,
       realpath: true,
       ...options
     };
@@ -16012,7 +17069,7 @@ var require_lockfile = __commonJS((exports, module) => {
     options = {
       stale: 1e4,
       realpath: true,
-      fs: fs4,
+      fs: fs5,
       ...options
     };
     options.stale = Math.max(options.stale || 0, 2000);
@@ -16047,16 +17104,16 @@ var require_lockfile = __commonJS((exports, module) => {
 
 // node_modules/.bun/proper-lockfile@4.1.2/node_modules/proper-lockfile/lib/adapter.js
 var require_adapter = __commonJS((exports, module) => {
-  var fs4 = require_graceful_fs();
-  function createSyncFs(fs5) {
+  var fs5 = require_graceful_fs();
+  function createSyncFs(fs6) {
     const methods = ["mkdir", "realpath", "stat", "rmdir", "utimes"];
-    const newFs = { ...fs5 };
+    const newFs = { ...fs6 };
     methods.forEach((method) => {
       newFs[method] = (...args) => {
         const callback = args.pop();
         let ret;
         try {
-          ret = fs5[`${method}Sync`](...args);
+          ret = fs6[`${method}Sync`](...args);
         } catch (err) {
           return callback(err);
         }
@@ -16066,12 +17123,12 @@ var require_adapter = __commonJS((exports, module) => {
     return newFs;
   }
   function toPromise(method) {
-    return (...args) => new Promise((resolve3, reject) => {
+    return (...args) => new Promise((resolve4, reject) => {
       args.push((err, result) => {
         if (err) {
           reject(err);
         } else {
-          resolve3(result);
+          resolve4(result);
         }
       });
       method(...args);
@@ -16094,7 +17151,7 @@ var require_adapter = __commonJS((exports, module) => {
   }
   function toSyncOptions(options) {
     options = { ...options };
-    options.fs = createSyncFs(options.fs || fs4);
+    options.fs = createSyncFs(options.fs || fs5);
     if (typeof options.retries === "number" && options.retries > 0 || options.retries && typeof options.retries.retries === "number" && options.retries.retries > 0) {
       throw Object.assign(new Error("Cannot use retries with the sync api"), { code: "ESYNC" });
     }
@@ -16138,1064 +17195,6 @@ var require_proper_lockfile = __commonJS((exports, module) => {
   module.exports.unlockSync = unlockSync;
   module.exports.check = check3;
   module.exports.checkSync = checkSync;
-});
-
-// src/plan/ledger.ts
-import * as crypto2 from "crypto";
-import * as fs4 from "fs";
-import * as path7 from "path";
-function getLedgerPath(directory) {
-  return path7.join(directory, ".swarm", LEDGER_FILENAME);
-}
-function getPlanJsonPath(directory) {
-  return path7.join(directory, ".swarm", PLAN_JSON_FILENAME);
-}
-function computePlanHash(plan) {
-  const normalized = {
-    schema_version: plan.schema_version,
-    title: plan.title,
-    swarm: plan.swarm,
-    current_phase: plan.current_phase,
-    migration_status: plan.migration_status,
-    phases: plan.phases.map((phase) => ({
-      id: phase.id,
-      name: phase.name,
-      status: phase.status,
-      required_agents: phase.required_agents ? [...phase.required_agents].sort() : undefined,
-      tasks: phase.tasks.map((task) => ({
-        id: task.id,
-        phase: task.phase,
-        status: task.status,
-        size: task.size,
-        description: task.description,
-        depends: [...task.depends].sort(),
-        acceptance: task.acceptance,
-        files_touched: [...task.files_touched].sort(),
-        evidence_path: task.evidence_path,
-        blocked_reason: task.blocked_reason
-      }))
-    }))
-  };
-  const jsonString = JSON.stringify(normalized);
-  return crypto2.createHash("sha256").update(jsonString, "utf8").digest("hex");
-}
-function computeCurrentPlanHash(directory) {
-  const planPath = getPlanJsonPath(directory);
-  try {
-    const content = fs4.readFileSync(planPath, "utf8");
-    const plan = JSON.parse(content);
-    return computePlanHash(plan);
-  } catch {
-    return "";
-  }
-}
-async function ledgerExists(directory) {
-  const ledgerPath = getLedgerPath(directory);
-  return fs4.existsSync(ledgerPath);
-}
-async function getLatestLedgerSeq(directory) {
-  const ledgerPath = getLedgerPath(directory);
-  if (!fs4.existsSync(ledgerPath)) {
-    return 0;
-  }
-  try {
-    const content = fs4.readFileSync(ledgerPath, "utf8");
-    const lines = content.trim().split(`
-`).filter((line) => line.trim() !== "");
-    if (lines.length === 0) {
-      return 0;
-    }
-    let maxSeq = 0;
-    for (const line of lines) {
-      try {
-        const event = JSON.parse(line);
-        if (event.seq > maxSeq) {
-          maxSeq = event.seq;
-        }
-      } catch {}
-    }
-    return maxSeq;
-  } catch {
-    return 0;
-  }
-}
-async function readLedgerEvents(directory) {
-  const ledgerPath = getLedgerPath(directory);
-  if (!fs4.existsSync(ledgerPath)) {
-    return [];
-  }
-  try {
-    const content = fs4.readFileSync(ledgerPath, "utf8");
-    const lines = content.trim().split(`
-`).filter((line) => line.trim() !== "");
-    const events = [];
-    for (const line of lines) {
-      try {
-        const event = JSON.parse(line);
-        events.push(event);
-      } catch {}
-    }
-    events.sort((a, b) => a.seq - b.seq);
-    return events;
-  } catch {
-    return [];
-  }
-}
-async function initLedger(directory, planId, initialPlanHash) {
-  const ledgerPath = getLedgerPath(directory);
-  const planJsonPath = getPlanJsonPath(directory);
-  if (fs4.existsSync(ledgerPath)) {
-    throw new Error("Ledger already initialized. Use appendLedgerEvent to add events.");
-  }
-  let planHashAfter = initialPlanHash ?? "";
-  if (!initialPlanHash) {
-    try {
-      if (fs4.existsSync(planJsonPath)) {
-        const content = fs4.readFileSync(planJsonPath, "utf8");
-        const plan = JSON.parse(content);
-        planHashAfter = computePlanHash(plan);
-      }
-    } catch {}
-  }
-  const event = {
-    seq: 1,
-    timestamp: new Date().toISOString(),
-    plan_id: planId,
-    event_type: "plan_created",
-    source: "initLedger",
-    plan_hash_before: "",
-    plan_hash_after: planHashAfter,
-    schema_version: LEDGER_SCHEMA_VERSION
-  };
-  fs4.mkdirSync(path7.join(directory, ".swarm"), { recursive: true });
-  const tempPath = `${ledgerPath}.tmp.${Date.now()}.${Math.floor(Math.random() * 1e9)}`;
-  const line = `${JSON.stringify(event)}
-`;
-  fs4.writeFileSync(tempPath, line, "utf8");
-  fs4.renameSync(tempPath, ledgerPath);
-}
-async function appendLedgerEvent(directory, eventInput, options) {
-  const ledgerPath = getLedgerPath(directory);
-  const latestSeq = await getLatestLedgerSeq(directory);
-  const nextSeq = latestSeq + 1;
-  const planHashBefore = computeCurrentPlanHash(directory);
-  if (options?.expectedSeq !== undefined && options.expectedSeq !== latestSeq) {
-    throw new LedgerStaleWriterError(`Stale writer: expected seq ${options.expectedSeq} but found ${latestSeq}`);
-  }
-  if (options?.expectedHash !== undefined && options.expectedHash !== planHashBefore) {
-    throw new LedgerStaleWriterError(`Stale writer: expected hash ${options.expectedHash} but found ${planHashBefore}`);
-  }
-  const planHashAfter = options?.planHashAfter ?? planHashBefore;
-  const event = {
-    ...eventInput,
-    seq: nextSeq,
-    timestamp: new Date().toISOString(),
-    plan_hash_before: planHashBefore,
-    plan_hash_after: planHashAfter,
-    schema_version: LEDGER_SCHEMA_VERSION
-  };
-  fs4.mkdirSync(path7.join(directory, ".swarm"), { recursive: true });
-  const tempPath = `${ledgerPath}.tmp.${Date.now()}.${Math.floor(Math.random() * 1e9)}`;
-  const line = `${JSON.stringify(event)}
-`;
-  if (fs4.existsSync(ledgerPath)) {
-    const existingContent = fs4.readFileSync(ledgerPath, "utf8");
-    fs4.writeFileSync(tempPath, existingContent + line, "utf8");
-  } else {
-    throw new Error("Ledger not initialized. Call initLedger() first.");
-  }
-  fs4.renameSync(tempPath, ledgerPath);
-  return event;
-}
-async function takeSnapshotEvent(directory, plan, options) {
-  const payloadHash = computePlanHash(plan);
-  const snapshotPayload = {
-    plan,
-    payload_hash: payloadHash
-  };
-  const planId = `${plan.swarm}-${plan.title}`.replace(/[^a-zA-Z0-9-_]/g, "_");
-  return appendLedgerEvent(directory, {
-    event_type: "snapshot",
-    source: "takeSnapshotEvent",
-    plan_id: planId,
-    payload: snapshotPayload
-  }, options);
-}
-async function replayFromLedger(directory, options) {
-  const events = await readLedgerEvents(directory);
-  if (events.length === 0) {
-    return null;
-  }
-  const targetPlanId = events[0].plan_id;
-  const relevantEvents = events.filter((e) => e.plan_id === targetPlanId);
-  {
-    const snapshotEvents = relevantEvents.filter((e) => e.event_type === "snapshot");
-    if (snapshotEvents.length > 0) {
-      const latestSnapshotEvent = snapshotEvents[snapshotEvents.length - 1];
-      const snapshotPayload = latestSnapshotEvent.payload;
-      let plan2 = snapshotPayload.plan;
-      const eventsAfterSnapshot = relevantEvents.filter((e) => e.seq > latestSnapshotEvent.seq);
-      for (const event of eventsAfterSnapshot) {
-        plan2 = applyEventToPlan(plan2, event);
-        if (plan2 === null) {
-          return null;
-        }
-      }
-      return plan2;
-    }
-  }
-  const planJsonPath = getPlanJsonPath(directory);
-  if (!fs4.existsSync(planJsonPath)) {
-    return null;
-  }
-  let plan;
-  try {
-    const content = fs4.readFileSync(planJsonPath, "utf8");
-    plan = JSON.parse(content);
-  } catch {
-    return null;
-  }
-  for (const event of relevantEvents) {
-    if (plan === null) {
-      return null;
-    }
-    plan = applyEventToPlan(plan, event);
-  }
-  return plan;
-}
-function applyEventToPlan(plan, event) {
-  switch (event.event_type) {
-    case "plan_created":
-      return plan;
-    case "task_status_changed":
-      if (event.task_id && event.to_status) {
-        const parseResult = TaskStatusSchema.safeParse(event.to_status);
-        if (!parseResult.success) {
-          return plan;
-        }
-        for (const phase of plan.phases) {
-          const task = phase.tasks.find((t) => t.id === event.task_id);
-          if (task) {
-            task.status = parseResult.data;
-            break;
-          }
-        }
-      }
-      return plan;
-    case "phase_completed":
-      if (event.phase_id) {
-        const phase = plan.phases.find((p) => p.id === event.phase_id);
-        if (phase) {
-          phase.status = "complete";
-        }
-      }
-      return plan;
-    case "plan_exported":
-      return plan;
-    case "task_added":
-      return plan;
-    case "task_updated":
-      return plan;
-    case "plan_rebuilt":
-      return plan;
-    case "task_reordered":
-      return plan;
-    case "snapshot":
-      return plan;
-    case "plan_reset":
-      return null;
-    default:
-      throw new Error(`applyEventToPlan: unhandled event type "${event.event_type}" at seq ${event.seq}`);
-  }
-}
-var LEDGER_SCHEMA_VERSION = "1.0.0", LEDGER_FILENAME = "plan-ledger.jsonl", PLAN_JSON_FILENAME = "plan.json", LedgerStaleWriterError;
-var init_ledger = __esm(() => {
-  init_plan_schema();
-  LedgerStaleWriterError = class LedgerStaleWriterError extends Error {
-    constructor(message) {
-      super(message);
-      this.name = "LedgerStaleWriterError";
-    }
-  };
-});
-
-// src/utils/spec-hash.ts
-import { createHash as createHash2 } from "crypto";
-import { readFile as readFile2 } from "fs/promises";
-import { join as join7 } from "path";
-async function computeSpecHash(directory) {
-  const specPath = join7(directory, ".swarm", "spec.md");
-  let hash3 = null;
-  try {
-    const content = await readFile2(specPath, "utf-8");
-    hash3 = createHash2("sha256").update(content, "utf-8").digest("hex");
-  } catch (error93) {
-    if (error93.code !== "ENOENT") {
-      throw error93;
-    }
-  }
-  return hash3;
-}
-async function isSpecStale(directory, plan) {
-  const currentHash = await computeSpecHash(directory);
-  if (!plan.specHash) {
-    return { stale: false };
-  }
-  if (currentHash === null) {
-    return {
-      stale: true,
-      reason: "spec.md has been deleted",
-      currentHash: null
-    };
-  }
-  if (currentHash !== plan.specHash) {
-    return {
-      stale: true,
-      reason: "spec.md has been modified since plan was saved",
-      currentHash
-    };
-  }
-  return { stale: false };
-}
-var init_spec_hash = () => {};
-
-// src/plan/manager.ts
-import { copyFileSync, existsSync as existsSync5, renameSync as renameSync3, unlinkSync } from "fs";
-import * as fsPromises2 from "fs/promises";
-import * as path8 from "path";
-async function loadPlanJsonOnly(directory) {
-  const planJsonContent = await readSwarmFileAsync(directory, "plan.json");
-  if (planJsonContent !== null) {
-    if (planJsonContent.includes("\x00") || planJsonContent.includes("\uFFFD")) {
-      warn("Plan rejected: .swarm/plan.json contains null bytes or invalid encoding");
-      return null;
-    }
-    try {
-      const parsed = JSON.parse(planJsonContent);
-      const validated = PlanSchema.parse(parsed);
-      return validated;
-    } catch (error93) {
-      warn(`Plan validation failed for .swarm/plan.json: ${error93 instanceof Error ? error93.message : String(error93)}`);
-    }
-  }
-  return null;
-}
-function compareTaskIds(a, b) {
-  const partsA = a.split(".").map((n) => parseInt(n, 10));
-  const partsB = b.split(".").map((n) => parseInt(n, 10));
-  const maxLen = Math.max(partsA.length, partsB.length);
-  for (let i = 0;i < maxLen; i++) {
-    const numA = partsA[i] ?? 0;
-    const numB = partsB[i] ?? 0;
-    if (numA !== numB) {
-      return numA - numB;
-    }
-  }
-  return 0;
-}
-async function getLatestLedgerHash(directory) {
-  try {
-    const events = await readLedgerEvents(directory);
-    if (events.length === 0)
-      return "";
-    const lastEvent = events[events.length - 1];
-    return lastEvent.plan_hash_after;
-  } catch {
-    return "";
-  }
-}
-function computePlanContentHash(plan) {
-  const content = {
-    schema_version: plan.schema_version,
-    title: plan.title,
-    swarm: plan.swarm,
-    current_phase: plan.current_phase,
-    migration_status: plan.migration_status,
-    phases: plan.phases.map((phase) => ({
-      id: phase.id,
-      name: phase.name,
-      status: phase.status,
-      tasks: phase.tasks.map((task) => ({
-        id: task.id,
-        phase: task.phase,
-        status: task.status,
-        size: task.size,
-        description: task.description,
-        depends: [...task.depends].sort(compareTaskIds),
-        acceptance: task.acceptance,
-        files_touched: [...task.files_touched].sort(),
-        evidence_path: task.evidence_path,
-        blocked_reason: task.blocked_reason
-      })).sort((a, b) => compareTaskIds(a.id, b.id))
-    })).sort((a, b) => a.id - b.id)
-  };
-  const jsonString = JSON.stringify(content);
-  return Bun.hash(jsonString).toString(36);
-}
-function extractPlanHashFromMarkdown(markdown) {
-  const match = markdown.match(/<!--\s*PLAN_HASH:\s*(\S+)\s*-->/);
-  return match ? match[1] : null;
-}
-async function isPlanMdInSync(directory, plan) {
-  const planMdContent = await readSwarmFileAsync(directory, "plan.md");
-  if (planMdContent === null) {
-    return false;
-  }
-  const expectedHash = computePlanContentHash(plan);
-  const existingHash = extractPlanHashFromMarkdown(planMdContent);
-  if (existingHash === expectedHash) {
-    return true;
-  }
-  const expectedMarkdown = derivePlanMarkdown(plan);
-  const normalizedExpected = expectedMarkdown.trim();
-  const normalizedActual = planMdContent.trim();
-  if (normalizedActual === normalizedExpected) {
-    return true;
-  }
-  return normalizedActual.includes(normalizedExpected) || normalizedExpected.includes(normalizedActual.replace(/^#.*$/gm, "").trim());
-}
-async function regeneratePlanMarkdown(directory, plan) {
-  const swarmDir = path8.resolve(directory, ".swarm");
-  const contentHash = computePlanContentHash(plan);
-  const markdown = derivePlanMarkdown(plan);
-  const markdownWithHash = `<!-- PLAN_HASH: ${contentHash} -->
-${markdown}`;
-  const mdPath = path8.join(swarmDir, "plan.md");
-  const mdTempPath = path8.join(swarmDir, `plan.md.tmp.${Date.now()}.${Math.floor(Math.random() * 1e9)}`);
-  try {
-    await Bun.write(mdTempPath, markdownWithHash);
-    renameSync3(mdTempPath, mdPath);
-  } finally {
-    try {
-      unlinkSync(mdTempPath);
-    } catch {}
-  }
-}
-async function loadPlan(directory) {
-  const planJsonContent = await readSwarmFileAsync(directory, "plan.json");
-  if (planJsonContent !== null) {
-    if (planJsonContent.includes("\x00") || planJsonContent.includes("\uFFFD")) {
-      warn("Plan rejected: .swarm/plan.json contains null bytes or invalid encoding");
-    } else {
-      try {
-        const parsed = JSON.parse(planJsonContent);
-        const validated = PlanSchema.parse(parsed);
-        const inSync = await isPlanMdInSync(directory, validated);
-        if (!inSync) {
-          try {
-            await regeneratePlanMarkdown(directory, validated);
-          } catch (regenError) {
-            warn(`Failed to regenerate plan.md: ${regenError instanceof Error ? regenError.message : String(regenError)}. Proceeding with plan.json only.`);
-          }
-        }
-        if (await ledgerExists(directory)) {
-          const planHash = computePlanHash(validated);
-          const ledgerHash = await getLatestLedgerHash(directory);
-          const resolvedWorkspace = path8.resolve(directory);
-          if (!startupLedgerCheckedWorkspaces.has(resolvedWorkspace)) {
-            startupLedgerCheckedWorkspaces.add(resolvedWorkspace);
-            if (ledgerHash !== "" && planHash !== ledgerHash) {
-              const currentPlanId = `${validated.swarm}-${validated.title}`.replace(/[^a-zA-Z0-9-_]/g, "_");
-              const ledgerEvents = await readLedgerEvents(directory);
-              const firstEvent = ledgerEvents.length > 0 ? ledgerEvents[0] : null;
-              if (firstEvent && firstEvent.plan_id !== currentPlanId) {
-                warn(`[loadPlan] Ledger identity mismatch (ledger: ${firstEvent.plan_id}, plan: ${currentPlanId}) \u2014 skipping ledger rebuild (migration detected). Use /swarm reset-session to reinitialize the ledger.`);
-              } else {
-                warn("[loadPlan] plan.json is stale (hash mismatch with ledger) \u2014 rebuilding from ledger. If this recurs, run /swarm reset-session to clear stale session state.");
-                try {
-                  const rebuilt = await replayFromLedger(directory);
-                  if (rebuilt) {
-                    await rebuildPlan(directory, rebuilt);
-                    warn("[loadPlan] Rebuilt plan from ledger. Checkpoint available at SWARM_PLAN.md if it exists.");
-                    return rebuilt;
-                  }
-                } catch (replayError) {
-                  warn(`[loadPlan] Ledger replay failed during hash-mismatch rebuild: ${replayError instanceof Error ? replayError.message : String(replayError)}. Returning stale plan.json. To recover: check SWARM_PLAN.md for a checkpoint, or run /swarm reset-session.`);
-                }
-              }
-            }
-          } else if (ledgerHash !== "" && planHash !== ledgerHash) {
-            if (process.env.DEBUG_SWARM) {
-              console.warn(`[loadPlan] Ledger hash mismatch during active session for ${resolvedWorkspace} \u2014 skipping rebuild (startup check already performed).`);
-            }
-          }
-        }
-        if (validated.specHash) {
-          const staleResult = await isSpecStale(directory, validated);
-          if (staleResult.stale) {
-            const runtimePlan = validated;
-            runtimePlan._specStale = true;
-            runtimePlan._specStaleReason = staleResult.reason;
-            try {
-              const specStalenessPath = path8.join(directory, ".swarm", "spec-staleness.json");
-              await fsPromises2.writeFile(specStalenessPath, JSON.stringify({
-                type: "spec_stale_detected",
-                timestamp: new Date().toISOString(),
-                phase: validated.current_phase ?? 1,
-                specHash_plan: validated.specHash,
-                specHash_current: staleResult.currentHash ?? null,
-                reason: staleResult.reason,
-                planTitle: validated.title
-              }, null, 2), "utf-8");
-            } catch {}
-            try {
-              const eventsPath = path8.join(directory, ".swarm", "events.jsonl");
-              const event = {
-                type: "spec_stale_detected",
-                timestamp: new Date().toISOString(),
-                phase: validated.current_phase ?? 1,
-                specHash_plan: validated.specHash,
-                specHash_current: staleResult.currentHash ?? null,
-                reason: staleResult.reason ?? "unknown",
-                planTitle: validated.title
-              };
-              await fsPromises2.appendFile(eventsPath, `${JSON.stringify(event)}
-`, "utf-8");
-            } catch {}
-            return runtimePlan;
-          }
-        }
-        return validated;
-      } catch (error93) {
-        warn(`[loadPlan] plan.json validation failed: ${error93 instanceof Error ? error93.message : String(error93)}. Attempting rebuild from ledger. If rebuild fails, check SWARM_PLAN.md for a checkpoint.`);
-        let rawPlanId = null;
-        try {
-          const rawParsed = JSON.parse(planJsonContent);
-          if (typeof rawParsed?.swarm === "string" && typeof rawParsed?.title === "string") {
-            rawPlanId = `${rawParsed.swarm}-${rawParsed.title}`.replace(/[^a-zA-Z0-9-_]/g, "_");
-          }
-        } catch {}
-        if (await ledgerExists(directory)) {
-          const ledgerEventsForCatch = await readLedgerEvents(directory);
-          const catchFirstEvent = ledgerEventsForCatch.length > 0 ? ledgerEventsForCatch[0] : null;
-          const identityMatch = rawPlanId === null || catchFirstEvent === null || catchFirstEvent.plan_id === rawPlanId;
-          if (!identityMatch) {
-            warn(`[loadPlan] Ledger identity mismatch in validation-failure path (ledger: ${catchFirstEvent?.plan_id}, plan: ${rawPlanId}) \u2014 skipping ledger rebuild (migration detected).`);
-          } else if (catchFirstEvent !== null && rawPlanId !== null) {
-            const rebuilt = await replayFromLedger(directory);
-            if (rebuilt) {
-              await rebuildPlan(directory, rebuilt);
-              warn("[loadPlan] Rebuilt plan from ledger after validation failure. Projection was stale.");
-              return rebuilt;
-            }
-          }
-        }
-        const planMdContent2 = await readSwarmFileAsync(directory, "plan.md");
-        if (planMdContent2 !== null) {
-          const migrated = migrateLegacyPlan(planMdContent2);
-          await savePlan(directory, migrated);
-          return migrated;
-        }
-      }
-    }
-  }
-  const planMdContent = await readSwarmFileAsync(directory, "plan.md");
-  if (planMdContent !== null) {
-    const migrated = migrateLegacyPlan(planMdContent);
-    await savePlan(directory, migrated);
-    return migrated;
-  }
-  if (await ledgerExists(directory)) {
-    const rebuilt = await replayFromLedger(directory);
-    if (rebuilt) {
-      await savePlan(directory, rebuilt);
-      return rebuilt;
-    }
-  }
-  return null;
-}
-async function savePlan(directory, plan, options) {
-  if (directory === null || directory === undefined || typeof directory !== "string" || directory.trim().length === 0) {
-    throw new Error(`Invalid directory: directory must be a non-empty string`);
-  }
-  const validated = PlanSchema.parse(plan);
-  if (options?.preserveCompletedStatuses !== false) {
-    try {
-      const currentPlan2 = await loadPlanJsonOnly(directory);
-      if (currentPlan2) {
-        const completedTaskIds = new Set;
-        for (const phase of currentPlan2.phases) {
-          for (const task of phase.tasks) {
-            if (task.status === "completed")
-              completedTaskIds.add(task.id);
-          }
-        }
-        if (completedTaskIds.size > 0) {
-          for (const phase of validated.phases) {
-            for (const task of phase.tasks) {
-              if (completedTaskIds.has(task.id) && task.status !== "completed") {
-                task.status = "completed";
-              }
-            }
-          }
-        }
-      }
-    } catch {}
-  }
-  for (const phase of validated.phases) {
-    const tasks = phase.tasks;
-    if (tasks.length > 0 && tasks.every((t) => t.status === "completed")) {
-      phase.status = "complete";
-    } else if (tasks.some((t) => t.status === "in_progress")) {
-      phase.status = "in_progress";
-    } else if (tasks.some((t) => t.status === "blocked")) {
-      phase.status = "blocked";
-    } else {
-      phase.status = "pending";
-    }
-  }
-  const currentPlan = await loadPlanJsonOnly(directory);
-  const planId = `${validated.swarm}-${validated.title}`.replace(/[^a-zA-Z0-9-_]/g, "_");
-  const planHashForInit = computePlanHash(validated);
-  if (!await ledgerExists(directory)) {
-    await initLedger(directory, planId, planHashForInit);
-  } else {
-    const existingEvents = await readLedgerEvents(directory);
-    if (existingEvents.length > 0 && existingEvents[0].plan_id !== planId) {
-      const swarmDir2 = path8.resolve(directory, ".swarm");
-      const oldLedgerPath = path8.join(swarmDir2, "plan-ledger.jsonl");
-      const oldLedgerBackupPath = path8.join(swarmDir2, `plan-ledger.backup-${Date.now()}-${Math.floor(Math.random() * 1e9)}.jsonl`);
-      let backupExists = false;
-      if (existsSync5(oldLedgerPath)) {
-        try {
-          renameSync3(oldLedgerPath, oldLedgerBackupPath);
-          backupExists = true;
-        } catch (renameErr) {
-          throw new Error(`[savePlan] Cannot reinitialize ledger: could not move old ledger aside (rename failed: ${renameErr instanceof Error ? renameErr.message : String(renameErr)}). The existing ledger has plan_id="${existingEvents[0].plan_id}" which does not match the current plan="${planId}". To proceed, close any programs that may have the ledger file open, or run /swarm reset-session to clear the ledger.`);
-        }
-      }
-      let initSucceeded = false;
-      if (backupExists) {
-        try {
-          await initLedger(directory, planId, planHashForInit);
-          initSucceeded = true;
-        } catch (initErr) {
-          const errorMessage = String(initErr);
-          if (errorMessage.includes("already initialized")) {
-            try {
-              if (existsSync5(oldLedgerBackupPath))
-                unlinkSync(oldLedgerBackupPath);
-            } catch {}
-          } else {
-            if (existsSync5(oldLedgerBackupPath)) {
-              try {
-                renameSync3(oldLedgerBackupPath, oldLedgerPath);
-              } catch {
-                copyFileSync(oldLedgerBackupPath, oldLedgerPath);
-                try {
-                  unlinkSync(oldLedgerBackupPath);
-                } catch {}
-              }
-            }
-            throw initErr;
-          }
-        }
-      }
-      if (initSucceeded && backupExists) {
-        const archivePath = path8.join(swarmDir2, `plan-ledger.archived-${Date.now()}-${Math.floor(Math.random() * 1e9)}.jsonl`);
-        try {
-          renameSync3(oldLedgerBackupPath, archivePath);
-          warn(`[savePlan] Ledger identity mismatch (was "${existingEvents[0].plan_id}", now "${planId}") \u2014 archived old ledger to ${archivePath} and reinitializing.`);
-        } catch (renameErr) {
-          warn(`[savePlan] Could not archive old ledger (rename failed: ${renameErr instanceof Error ? renameErr.message : String(renameErr)}). Old ledger may still exist at ${oldLedgerBackupPath}.`);
-          try {
-            if (existsSync5(oldLedgerBackupPath))
-              unlinkSync(oldLedgerBackupPath);
-          } catch {}
-        }
-      } else if (!initSucceeded && backupExists) {
-        try {
-          if (existsSync5(oldLedgerBackupPath))
-            unlinkSync(oldLedgerBackupPath);
-        } catch {}
-      }
-    }
-  }
-  const currentHash = computeCurrentPlanHash(directory);
-  const hashAfter = computePlanHash(validated);
-  if (currentPlan) {
-    const oldTaskMap = new Map;
-    for (const phase of currentPlan.phases) {
-      for (const task of phase.tasks) {
-        oldTaskMap.set(task.id, { phase: task.phase, status: task.status });
-      }
-    }
-    try {
-      for (const phase of validated.phases) {
-        for (const task of phase.tasks) {
-          const oldTask = oldTaskMap.get(task.id);
-          if (oldTask && oldTask.status !== task.status) {
-            const eventInput = {
-              plan_id: `${validated.swarm}-${validated.title}`.replace(/[^a-zA-Z0-9-_]/g, "_"),
-              event_type: "task_status_changed",
-              task_id: task.id,
-              phase_id: phase.id,
-              from_status: oldTask.status,
-              to_status: task.status,
-              source: "savePlan"
-            };
-            await appendLedgerEvent(directory, eventInput, {
-              expectedHash: currentHash,
-              planHashAfter: hashAfter
-            });
-          }
-        }
-      }
-    } catch (error93) {
-      if (error93 instanceof LedgerStaleWriterError) {
-        throw new Error(`Concurrent plan modification detected: ${error93.message}. Please retry the operation.`);
-      }
-      throw error93;
-    }
-  }
-  const SNAPSHOT_INTERVAL = 50;
-  const latestSeq = await getLatestLedgerSeq(directory);
-  if (latestSeq > 0 && latestSeq % SNAPSHOT_INTERVAL === 0) {
-    await takeSnapshotEvent(directory, validated, {
-      planHashAfter: hashAfter
-    }).catch(() => {});
-  }
-  const swarmDir = path8.resolve(directory, ".swarm");
-  const planPath = path8.join(swarmDir, "plan.json");
-  const tempPath = path8.join(swarmDir, `plan.json.tmp.${Date.now()}.${Math.floor(Math.random() * 1e9)}`);
-  try {
-    await Bun.write(tempPath, JSON.stringify(validated, null, 2));
-    renameSync3(tempPath, planPath);
-  } finally {
-    try {
-      unlinkSync(tempPath);
-    } catch {}
-  }
-  const contentHash = computePlanContentHash(validated);
-  const markdown = derivePlanMarkdown(validated);
-  const markdownWithHash = `<!-- PLAN_HASH: ${contentHash} -->
-${markdown}`;
-  const mdPath = path8.join(swarmDir, "plan.md");
-  const mdTempPath = path8.join(swarmDir, `plan.md.tmp.${Date.now()}.${Math.floor(Math.random() * 1e9)}`);
-  try {
-    await Bun.write(mdTempPath, markdownWithHash);
-    renameSync3(mdTempPath, mdPath);
-  } finally {
-    try {
-      unlinkSync(mdTempPath);
-    } catch {}
-  }
-  try {
-    const markerPath = path8.join(swarmDir, ".plan-write-marker");
-    const tasksCount = validated.phases.reduce((sum, phase) => sum + phase.tasks.length, 0);
-    const marker = JSON.stringify({
-      source: "plan_manager",
-      timestamp: new Date().toISOString(),
-      phases_count: validated.phases.length,
-      tasks_count: tasksCount
-    });
-    await Bun.write(markerPath, marker);
-  } catch {}
-}
-async function rebuildPlan(directory, plan) {
-  const targetPlan = plan ?? await replayFromLedger(directory);
-  if (!targetPlan)
-    return null;
-  const swarmDir = path8.join(directory, ".swarm");
-  const planPath = path8.join(swarmDir, "plan.json");
-  const mdPath = path8.join(swarmDir, "plan.md");
-  const tempPlanPath = path8.join(swarmDir, `plan.json.rebuild.${Date.now()}`);
-  await Bun.write(tempPlanPath, JSON.stringify(targetPlan, null, 2));
-  renameSync3(tempPlanPath, planPath);
-  const contentHash = computePlanContentHash(targetPlan);
-  const markdown = derivePlanMarkdown(targetPlan);
-  const markdownWithHash = `<!-- PLAN_HASH: ${contentHash} -->
-${markdown}`;
-  const tempMdPath = path8.join(swarmDir, `plan.md.rebuild.${Date.now()}`);
-  await Bun.write(tempMdPath, markdownWithHash);
-  renameSync3(tempMdPath, mdPath);
-  try {
-    const markerPath = path8.join(swarmDir, ".plan-write-marker");
-    const tasksCount = targetPlan.phases.reduce((sum, phase) => sum + phase.tasks.length, 0);
-    const marker = JSON.stringify({
-      source: "plan_manager",
-      timestamp: new Date().toISOString(),
-      phases_count: targetPlan.phases.length,
-      tasks_count: tasksCount
-    });
-    await Bun.write(markerPath, marker);
-  } catch {}
-  return targetPlan;
-}
-function derivePlanMarkdown(plan) {
-  const statusMap = {
-    pending: "PENDING",
-    in_progress: "IN PROGRESS",
-    complete: "COMPLETE",
-    blocked: "BLOCKED"
-  };
-  const now = new Date().toISOString();
-  const currentPhase = plan.current_phase ?? 1;
-  const phaseStatus = statusMap[plan.phases[currentPhase - 1]?.status] || "PENDING";
-  let markdown = `# ${plan.title}
-Swarm: ${plan.swarm}
-Phase: ${currentPhase} [${phaseStatus}] | Updated: ${now}
-`;
-  const sortedPhases = [...plan.phases].sort((a, b) => a.id - b.id);
-  for (const phase of sortedPhases) {
-    const phaseStatusText = statusMap[phase.status] || "PENDING";
-    markdown += `
-## Phase ${phase.id}: ${phase.name} [${phaseStatusText}]
-`;
-    const sortedTasks = [...phase.tasks].sort((a, b) => compareTaskIds(a.id, b.id));
-    let currentTaskMarked = false;
-    for (const task of sortedTasks) {
-      let taskLine = "";
-      let suffix = "";
-      if (task.status === "completed") {
-        taskLine = `- [x] ${task.id}: ${task.description}`;
-      } else if (task.status === "blocked") {
-        taskLine = `- [BLOCKED] ${task.id}: ${task.description}`;
-        if (task.blocked_reason) {
-          taskLine += ` - ${task.blocked_reason}`;
-        }
-      } else {
-        taskLine = `- [ ] ${task.id}: ${task.description}`;
-      }
-      taskLine += ` [${task.size.toUpperCase()}]`;
-      if (task.depends.length > 0) {
-        const sortedDepends = [...task.depends].sort();
-        suffix += ` (depends: ${sortedDepends.join(", ")})`;
-      }
-      if (phase.id === plan.current_phase && task.status === "in_progress" && !currentTaskMarked) {
-        suffix += " \u2190 CURRENT";
-        currentTaskMarked = true;
-      }
-      markdown += `${taskLine}${suffix}
-`;
-    }
-  }
-  const phaseSections = markdown.split(`
-## `);
-  if (phaseSections.length > 1) {
-    const header = phaseSections[0];
-    const phases = phaseSections.slice(1).map((p) => `## ${p}`);
-    markdown = `${header}
----
-${phases.join(`
----
-`)}`;
-  }
-  return `${markdown.trim()}
-`;
-}
-function migrateLegacyPlan(planContent, swarmId) {
-  const lines = planContent.split(`
-`);
-  let title = "Untitled Plan";
-  let swarm = swarmId || "default-swarm";
-  let currentPhaseNum = 1;
-  const phases = [];
-  let currentPhase = null;
-  for (const line of lines) {
-    const trimmed = line.trim();
-    if (trimmed.startsWith("# ") && title === "Untitled Plan") {
-      title = trimmed.substring(2).trim();
-      continue;
-    }
-    if (trimmed.startsWith("Swarm:")) {
-      swarm = trimmed.substring(6).trim();
-      continue;
-    }
-    if (trimmed.startsWith("Phase:")) {
-      const match = trimmed.match(/Phase:\s*(\d+)/i);
-      if (match) {
-        currentPhaseNum = parseInt(match[1], 10);
-      }
-      continue;
-    }
-    const phaseMatch = trimmed.match(/^#{2,3}\s*Phase\s+(\d+)(?::\s*([^[]+))?\s*(?:\[([^\]]+)\])?/i);
-    if (phaseMatch) {
-      if (currentPhase !== null) {
-        phases.push(currentPhase);
-      }
-      const phaseId = parseInt(phaseMatch[1], 10);
-      const phaseName = phaseMatch[2]?.trim() || `Phase ${phaseId}`;
-      const statusText = phaseMatch[3]?.toLowerCase() || "pending";
-      const statusMap = {
-        complete: "complete",
-        completed: "complete",
-        "in progress": "in_progress",
-        in_progress: "in_progress",
-        inprogress: "in_progress",
-        pending: "pending",
-        blocked: "blocked"
-      };
-      currentPhase = {
-        id: phaseId,
-        name: phaseName,
-        status: statusMap[statusText] || "pending",
-        tasks: []
-      };
-      continue;
-    }
-    const taskMatch = trimmed.match(/^-\s*\[([^\]]+)\]\s+(\d+\.\d+):\s*(.+?)(?:\s*\[(\w+)\])?(?:\s*-\s*(.+))?$/i);
-    if (taskMatch && currentPhase !== null) {
-      const checkbox = taskMatch[1].toLowerCase();
-      const taskId = taskMatch[2];
-      let description = taskMatch[3].trim();
-      const sizeText = taskMatch[4]?.toLowerCase() || "small";
-      let blockedReason;
-      const dependsMatch = description.match(/\s*\(depends:\s*([^)]+)\)$/i);
-      const depends = [];
-      if (dependsMatch) {
-        const depsText = dependsMatch[1];
-        depends.push(...depsText.split(",").map((d) => d.trim()));
-        description = description.substring(0, dependsMatch.index).trim();
-      }
-      let status = "pending";
-      if (checkbox === "x") {
-        status = "completed";
-      } else if (checkbox === "blocked") {
-        status = "blocked";
-        const blockedReasonMatch = taskMatch[5];
-        if (blockedReasonMatch) {
-          blockedReason = blockedReasonMatch.trim();
-        }
-      }
-      const sizeMap = {
-        small: "small",
-        medium: "medium",
-        large: "large"
-      };
-      const task = {
-        id: taskId,
-        phase: currentPhase.id,
-        status,
-        size: sizeMap[sizeText] || "small",
-        description,
-        depends,
-        acceptance: undefined,
-        files_touched: [],
-        evidence_path: undefined,
-        blocked_reason: blockedReason
-      };
-      currentPhase.tasks.push(task);
-    }
-    const numberedTaskMatch = trimmed.match(/^(\d+)\.\s+(.+?)(?:\s*\[(\w+)\])?$/);
-    if (numberedTaskMatch && currentPhase !== null) {
-      const taskId = `${currentPhase.id}.${currentPhase.tasks.length + 1}`;
-      let description = numberedTaskMatch[2].trim();
-      const sizeText = numberedTaskMatch[3]?.toLowerCase() || "small";
-      const dependsMatch = description.match(/\s*\(depends:\s*([^)]+)\)$/i);
-      const depends = [];
-      if (dependsMatch) {
-        const depsText = dependsMatch[1];
-        depends.push(...depsText.split(",").map((d) => d.trim()));
-        description = description.substring(0, dependsMatch.index).trim();
-      }
-      const sizeMap = {
-        small: "small",
-        medium: "medium",
-        large: "large"
-      };
-      const task = {
-        id: taskId,
-        phase: currentPhase.id,
-        status: "pending",
-        size: sizeMap[sizeText] || "small",
-        description,
-        depends,
-        acceptance: undefined,
-        files_touched: [],
-        evidence_path: undefined,
-        blocked_reason: undefined
-      };
-      currentPhase.tasks.push(task);
-    }
-    const noPrefixTaskMatch = trimmed.match(/^-\s*\[([^\]]+)\]\s+(?!\d+\.\d+:)(.+?)(?:\s*\[(\w+)\])?(?:\s*-\s*(.+))?$/i);
-    if (noPrefixTaskMatch && currentPhase !== null) {
-      const checkbox = noPrefixTaskMatch[1].toLowerCase();
-      const taskId = `${currentPhase.id}.${currentPhase.tasks.length + 1}`;
-      let description = noPrefixTaskMatch[2].trim();
-      const sizeText = noPrefixTaskMatch[3]?.toLowerCase() || "small";
-      let blockedReason;
-      const dependsMatch = description.match(/\s*\(depends:\s*([^)]+)\)$/i);
-      const depends = [];
-      if (dependsMatch) {
-        const depsText = dependsMatch[1];
-        depends.push(...depsText.split(",").map((d) => d.trim()));
-        description = description.substring(0, dependsMatch.index).trim();
-      }
-      let status = "pending";
-      if (checkbox === "x") {
-        status = "completed";
-      } else if (checkbox === "blocked") {
-        status = "blocked";
-        const blockedReasonMatch = noPrefixTaskMatch[4];
-        if (blockedReasonMatch) {
-          blockedReason = blockedReasonMatch.trim();
-        }
-      }
-      const sizeMap = {
-        small: "small",
-        medium: "medium",
-        large: "large"
-      };
-      const task = {
-        id: taskId,
-        phase: currentPhase.id,
-        status,
-        size: sizeMap[sizeText] || "small",
-        description,
-        depends,
-        acceptance: undefined,
-        files_touched: [],
-        evidence_path: undefined,
-        blocked_reason: blockedReason
-      };
-      currentPhase.tasks.push(task);
-    }
-  }
-  if (currentPhase !== null) {
-    phases.push(currentPhase);
-  }
-  let migrationStatus = "migrated";
-  if (phases.length === 0) {
-    console.warn(`migrateLegacyPlan: 0 phases parsed from ${lines.length} lines. First 3 lines: ${lines.slice(0, 3).join(" | ")}`);
-    migrationStatus = "migration_failed";
-    phases.push({
-      id: 1,
-      name: "Migration Failed",
-      status: "blocked",
-      tasks: [
-        {
-          id: "1.1",
-          phase: 1,
-          status: "blocked",
-          size: "large",
-          description: "Review and restructure plan manually",
-          depends: [],
-          files_touched: [],
-          blocked_reason: "Legacy plan could not be parsed automatically"
-        }
-      ]
-    });
-  }
-  phases.sort((a, b) => a.id - b.id);
-  const plan = {
-    schema_version: "1.0.0",
-    title,
-    swarm,
-    current_phase: currentPhaseNum,
-    phases,
-    migration_status: migrationStatus
-  };
-  return plan;
-}
-var startupLedgerCheckedWorkspaces;
-var init_manager2 = __esm(() => {
-  init_plan_schema();
-  init_utils2();
-  init_utils();
-  init_spec_hash();
-  init_ledger();
-  startupLedgerCheckedWorkspaces = new Set;
 });
 
 // src/services/config-doctor.ts
@@ -18103,8 +18102,8 @@ function isAutoSummaryEnabled(automationConfig) {
 }
 var VALID_EVIDENCE_TYPES2, REQUIRED_EVIDENCE_TYPES, EVIDENCE_SUMMARY_VERSION = "1.0.0";
 var init_evidence_summary_service = __esm(() => {
-  init_manager();
   init_manager2();
+  init_manager();
   init_utils();
   VALID_EVIDENCE_TYPES2 = new Set([
     "review",
@@ -18124,44 +18123,77 @@ import * as path29 from "path";
 
 // src/commands/acknowledge-spec-drift.ts
 init_utils2();
-import { promises as fsPromises } from "fs";
+init_manager();
+init_spec_hash();
+import { promises as fsPromises2 } from "fs";
 async function handleAcknowledgeSpecDriftCommand(directory, _args) {
   const specStalenessPath = validateSwarmPath(directory, "spec-staleness.json");
   let stalenessContent;
   try {
-    stalenessContent = await fsPromises.readFile(specStalenessPath, "utf-8");
-  } catch (error2) {
-    if (error2?.code === "ENOENT") {
+    stalenessContent = await fsPromises2.readFile(specStalenessPath, "utf-8");
+  } catch (error49) {
+    if (error49?.code === "ENOENT") {
       return "No spec drift detected.";
     }
-    throw error2;
+    throw error49;
   }
   let stalenessData;
   try {
     stalenessData = JSON.parse(stalenessContent);
   } catch {
-    await fsPromises.unlink(specStalenessPath).catch(() => {});
+    await fsPromises2.unlink(specStalenessPath).catch(() => {});
     return "Spec staleness file was corrupted. It has been removed.";
   }
   const { planTitle, phase } = stalenessData;
-  await fsPromises.unlink(specStalenessPath);
+  await fsPromises2.unlink(specStalenessPath);
+  let currentHash = null;
+  let planUpdateSkipped = false;
+  try {
+    const plan = await loadPlanJsonOnly(directory);
+    if (plan?.specHash) {
+      currentHash = await computeSpecHash(directory);
+      plan.specHash = currentHash ?? undefined;
+      await savePlan(directory, plan);
+    }
+  } catch (planError) {
+    console.error("[acknowledge-spec-drift] Failed to update plan specHash:", planError instanceof Error ? planError.message : String(planError));
+    planUpdateSkipped = true;
+  }
   const eventsPath = validateSwarmPath(directory, "events.jsonl");
   const acknowledgmentEvent = {
     type: "spec_drift_acknowledged",
     timestamp: new Date().toISOString(),
     phase,
     planTitle,
-    acknowledgedBy: "architect"
+    acknowledgedBy: "architect",
+    previousHash: stalenessData.specHash_plan,
+    newHash: currentHash
   };
+  let eventWriteFailed = false;
   try {
-    await fsPromises.appendFile(eventsPath, `${JSON.stringify(acknowledgmentEvent)}
+    await fsPromises2.appendFile(eventsPath, `${JSON.stringify(acknowledgmentEvent)}
 `, "utf-8");
   } catch (appendError) {
     console.error("[acknowledge-spec-drift] Failed to write acknowledgment event:", appendError instanceof Error ? appendError.message : String(appendError));
+    eventWriteFailed = true;
   }
-  return `Spec drift acknowledged for plan "${planTitle}" (phase ${phase}).
+  const warnings = [];
+  if (planUpdateSkipped) {
+    warnings.push("Plan specHash update was skipped due to an error.");
+  }
+  if (eventWriteFailed) {
+    warnings.push("Event logging failed \u2014 audit trail may be incomplete.");
+  }
+  const baseMessage = `Spec drift acknowledged for plan "${planTitle}" (phase ${phase}).`;
+  const warningMessage = warnings.length > 0 ? `
 
-\u26A0\uFE0F  Warning: Spec drift was acknowledged \u2014 verify that the implementation still matches the spec before proceeding.`;
+\u26A0\uFE0F  Warnings:
+${warnings.map((w) => `  - ${w}`).join(`
+`)}` : "";
+  const cautionMessage = `
+
+\u26A0\uFE0F  Caution: Spec drift was acknowledged \u2014 verify that the implementation still matches the spec before proceeding.`;
+  return baseMessage + warningMessage + cautionMessage;
 }
 
 // src/commands/agents.ts
@@ -18222,9 +18254,9 @@ async function handleAnalyzeCommand(_directory, args) {
 }
 
 // src/config/loader.ts
-import * as fs from "fs";
+import * as fs2 from "fs";
 import * as os from "os";
-import * as path2 from "path";
+import * as path4 from "path";
 
 // src/config/schema.ts
 init_zod();
@@ -18259,7 +18291,7 @@ var TOOL_NAMES = [
   "phase_complete",
   "save_plan",
   "update_task_status",
-  "validate_spec",
+  "lint_spec",
   "write_retro",
   "write_drift_evidence",
   "declare_scope",
@@ -18324,7 +18356,7 @@ var AGENT_TOOL_MAP = {
     "test_runner",
     "todo_extract",
     "update_task_status",
-    "validate_spec",
+    "lint_spec",
     "write_retro",
     "write_drift_evidence",
     "declare_scope",
@@ -18436,7 +18468,8 @@ var AGENT_TOOL_MAP = {
     "imports",
     "retrieve_summary",
     "symbols",
-    "knowledge_recall"
+    "knowledge_recall",
+    "req_coverage"
   ],
   critic_oversight: [
     "complexity_hotspots",
@@ -19013,17 +19046,17 @@ var PluginConfigSchema = exports_external.object({
 var CONFIG_FILENAME = "opencode-swarm.json";
 var MAX_CONFIG_FILE_BYTES = 102400;
 function getUserConfigDir() {
-  return process.env.XDG_CONFIG_HOME || path2.join(os.homedir(), ".config");
+  return process.env.XDG_CONFIG_HOME || path4.join(os.homedir(), ".config");
 }
 function loadRawConfigFromPath(configPath) {
   try {
-    const stats = fs.statSync(configPath);
+    const stats = fs2.statSync(configPath);
     if (stats.size > MAX_CONFIG_FILE_BYTES) {
       console.warn(`[opencode-swarm] Config file too large (max 100 KB): ${configPath}`);
       console.warn("[opencode-swarm] \u26A0\uFE0F SECURITY: Config file exceeds size limit. Falling back to safe defaults with guardrails ENABLED.");
       return { config: null, fileExisted: true, hadError: true };
     }
-    const content = fs.readFileSync(configPath, "utf-8");
+    const content = fs2.readFileSync(configPath, "utf-8");
     if (content.length > MAX_CONFIG_FILE_BYTES) {
       console.warn(`[opencode-swarm] Config file too large after read (max 100 KB): ${configPath}`);
       console.warn("[opencode-swarm] \u26A0\uFE0F SECURITY: Config file exceeds size limit. Falling back to safe defaults with guardrails ENABLED.");
@@ -19072,8 +19105,8 @@ function migratePresetsConfig(raw) {
   return raw;
 }
 function loadPluginConfig(directory) {
-  const userConfigPath = path2.join(getUserConfigDir(), "opencode", CONFIG_FILENAME);
-  const projectConfigPath = path2.join(directory, ".opencode", CONFIG_FILENAME);
+  const userConfigPath = path4.join(getUserConfigDir(), "opencode", CONFIG_FILENAME);
+  const projectConfigPath = path4.join(directory, ".opencode", CONFIG_FILENAME);
   const userResult = loadRawConfigFromPath(userConfigPath);
   const projectResult = loadRawConfigFromPath(projectConfigPath);
   const rawUserConfig = userResult.config;
@@ -19110,8 +19143,8 @@ function loadPluginConfig(directory) {
   return result.data;
 }
 function loadPluginConfigWithMeta(directory) {
-  const userConfigPath = path2.join(getUserConfigDir(), "opencode", CONFIG_FILENAME);
-  const projectConfigPath = path2.join(directory, ".opencode", CONFIG_FILENAME);
+  const userConfigPath = path4.join(getUserConfigDir(), "opencode", CONFIG_FILENAME);
+  const projectConfigPath = path4.join(directory, ".opencode", CONFIG_FILENAME);
   const userResult = loadRawConfigFromPath(userConfigPath);
   const projectResult = loadRawConfigFromPath(projectConfigPath);
   const loadedFromFile = userResult.fileExisted || projectResult.fileExisted;
@@ -19120,7 +19153,7 @@ function loadPluginConfigWithMeta(directory) {
 }
 
 // src/commands/archive.ts
-init_manager();
+init_manager2();
 async function handleArchiveCommand(directory, args) {
   const config2 = loadPluginConfig(directory);
   const maxAgeDays = config2?.evidence?.max_age_days ?? 90;
@@ -19191,7 +19224,7 @@ async function handleArchiveCommand(directory, args) {
 }
 
 // src/commands/benchmark.ts
-init_manager();
+init_manager2();
 
 // src/state.ts
 init_plan_schema();
@@ -19551,8 +19584,8 @@ init_zod();
 
 // src/tools/checkpoint.ts
 import * as child_process from "child_process";
-import * as fs3 from "fs";
-import * as path4 from "path";
+import * as fs4 from "fs";
+import * as path6 from "path";
 
 // node_modules/.bun/@opencode-ai+plugin@1.1.53/node_modules/@opencode-ai/plugin/node_modules/zod/v4/classic/external.js
 var exports_external2 = {};
@@ -20283,10 +20316,10 @@ function mergeDefs2(...defs) {
 function cloneDef2(schema) {
   return mergeDefs2(schema._zod.def);
 }
-function getElementAtPath2(obj, path4) {
-  if (!path4)
+function getElementAtPath2(obj, path6) {
+  if (!path6)
     return obj;
-  return path4.reduce((acc, key) => acc?.[key], obj);
+  return path6.reduce((acc, key) => acc?.[key], obj);
 }
 function promiseAllObject2(promisesObj) {
   const keys = Object.keys(promisesObj);
@@ -20645,11 +20678,11 @@ function aborted2(x, startIndex = 0) {
   }
   return false;
 }
-function prefixIssues2(path4, issues) {
+function prefixIssues2(path6, issues) {
   return issues.map((iss) => {
     var _a2;
     (_a2 = iss).path ?? (_a2.path = []);
-    iss.path.unshift(path4);
+    iss.path.unshift(path6);
     return iss;
   });
 }
@@ -20817,7 +20850,7 @@ function treeifyError2(error49, _mapper) {
     return issue3.message;
   };
   const result = { errors: [] };
-  const processError = (error50, path4 = []) => {
+  const processError = (error50, path6 = []) => {
     var _a2, _b;
     for (const issue3 of error50.issues) {
       if (issue3.code === "invalid_union" && issue3.errors.length) {
@@ -20827,7 +20860,7 @@ function treeifyError2(error49, _mapper) {
       } else if (issue3.code === "invalid_element") {
         processError({ issues: issue3.issues }, issue3.path);
       } else {
-        const fullpath = [...path4, ...issue3.path];
+        const fullpath = [...path6, ...issue3.path];
         if (fullpath.length === 0) {
           result.errors.push(mapper(issue3));
           continue;
@@ -20859,8 +20892,8 @@ function treeifyError2(error49, _mapper) {
 }
 function toDotPath2(_path) {
   const segs = [];
-  const path4 = _path.map((seg) => typeof seg === "object" ? seg.key : seg);
-  for (const seg of path4) {
+  const path6 = _path.map((seg) => typeof seg === "object" ? seg.key : seg);
+  for (const seg of path6) {
     if (typeof seg === "number")
       segs.push(`[${seg}]`);
     else if (typeof seg === "symbol")
@@ -31994,13 +32027,13 @@ function validateLabel(label) {
   return null;
 }
 function getCheckpointLogPath(directory) {
-  return path4.join(directory, CHECKPOINT_LOG_PATH);
+  return path6.join(directory, CHECKPOINT_LOG_PATH);
 }
 function readCheckpointLog(directory) {
   const logPath = getCheckpointLogPath(directory);
   try {
-    if (fs3.existsSync(logPath)) {
-      const content = fs3.readFileSync(logPath, "utf-8");
+    if (fs4.existsSync(logPath)) {
+      const content = fs4.readFileSync(logPath, "utf-8");
       const parsed = JSON.parse(content);
       if (!parsed.checkpoints || !Array.isArray(parsed.checkpoints)) {
         return { version: 1, checkpoints: [] };
@@ -32012,13 +32045,13 @@ function readCheckpointLog(directory) {
 }
 function writeCheckpointLog(log2, directory) {
   const logPath = getCheckpointLogPath(directory);
-  const dir = path4.dirname(logPath);
-  if (!fs3.existsSync(dir)) {
-    fs3.mkdirSync(dir, { recursive: true });
+  const dir = path6.dirname(logPath);
+  if (!fs4.existsSync(dir)) {
+    fs4.mkdirSync(dir, { recursive: true });
   }
   const tempPath = `${logPath}.tmp`;
-  fs3.writeFileSync(tempPath, JSON.stringify(log2, null, 2), "utf-8");
-  fs3.renameSync(tempPath, logPath);
+  fs4.writeFileSync(tempPath, JSON.stringify(log2, null, 2), "utf-8");
+  fs4.renameSync(tempPath, logPath);
 }
 function gitExec(args) {
   const result = child_process.spawnSync("git", args, {
@@ -32354,7 +32387,7 @@ async function handleClarifyCommand(_directory, args) {
 import { execFileSync } from "child_process";
 import { promises as fs6 } from "fs";
 import path11 from "path";
-init_manager();
+init_manager2();
 
 // src/git/branch.ts
 init_logger();
@@ -32404,37 +32437,37 @@ function hasUncommittedChanges(cwd) {
 
 // src/hooks/knowledge-store.ts
 var import_proper_lockfile = __toESM(require_proper_lockfile(), 1);
-import { existsSync as existsSync3 } from "fs";
-import { appendFile, mkdir, readFile, writeFile } from "fs/promises";
+import { existsSync as existsSync5 } from "fs";
+import { appendFile as appendFile2, mkdir, readFile as readFile2, writeFile as writeFile2 } from "fs/promises";
 import * as os2 from "os";
-import * as path5 from "path";
+import * as path7 from "path";
 function resolveSwarmKnowledgePath(directory) {
-  return path5.join(directory, ".swarm", "knowledge.jsonl");
+  return path7.join(directory, ".swarm", "knowledge.jsonl");
 }
 function resolveSwarmRejectedPath(directory) {
-  return path5.join(directory, ".swarm", "knowledge-rejected.jsonl");
+  return path7.join(directory, ".swarm", "knowledge-rejected.jsonl");
 }
 function resolveHiveKnowledgePath() {
   const platform = process.platform;
   const home = os2.homedir();
   let dataDir;
   if (platform === "win32") {
-    dataDir = path5.join(process.env.LOCALAPPDATA || path5.join(home, "AppData", "Local"), "opencode-swarm", "Data");
+    dataDir = path7.join(process.env.LOCALAPPDATA || path7.join(home, "AppData", "Local"), "opencode-swarm", "Data");
   } else if (platform === "darwin") {
-    dataDir = path5.join(home, "Library", "Application Support", "opencode-swarm");
+    dataDir = path7.join(home, "Library", "Application Support", "opencode-swarm");
   } else {
-    dataDir = path5.join(process.env.XDG_DATA_HOME || path5.join(home, ".local", "share"), "opencode-swarm");
+    dataDir = path7.join(process.env.XDG_DATA_HOME || path7.join(home, ".local", "share"), "opencode-swarm");
   }
-  return path5.join(dataDir, "shared-learnings.jsonl");
+  return path7.join(dataDir, "shared-learnings.jsonl");
 }
 function resolveHiveRejectedPath() {
   const hivePath = resolveHiveKnowledgePath();
-  return path5.join(path5.dirname(hivePath), "shared-learnings-rejected.jsonl");
+  return path7.join(path7.dirname(hivePath), "shared-learnings-rejected.jsonl");
 }
 async function readKnowledge(filePath) {
-  if (!existsSync3(filePath))
+  if (!existsSync5(filePath))
     return [];
-  const content = await readFile(filePath, "utf-8");
+  const content = await readFile2(filePath, "utf-8");
   const results = [];
   for (const line of content.split(`
 `)) {
@@ -32453,12 +32486,12 @@ async function readRejectedLessons(directory) {
   return readKnowledge(resolveSwarmRejectedPath(directory));
 }
 async function appendKnowledge(filePath, entry) {
-  await mkdir(path5.dirname(filePath), { recursive: true });
-  await appendFile(filePath, `${JSON.stringify(entry)}
+  await mkdir(path7.dirname(filePath), { recursive: true });
+  await appendFile2(filePath, `${JSON.stringify(entry)}
 `, "utf-8");
 }
 async function rewriteKnowledge(filePath, entries) {
-  const dir = path5.dirname(filePath);
+  const dir = path7.dirname(filePath);
   await mkdir(dir, { recursive: true });
   let release = null;
   try {
@@ -32468,7 +32501,7 @@ async function rewriteKnowledge(filePath, entries) {
     const content = entries.map((e) => JSON.stringify(e)).join(`
 `) + (entries.length > 0 ? `
 ` : "");
-    await writeFile(filePath, content, "utf-8");
+    await writeFile2(filePath, content, "utf-8");
   } finally {
     if (release) {
       try {
@@ -32565,8 +32598,8 @@ function inferTags(lesson) {
 
 // src/hooks/knowledge-validator.ts
 var import_proper_lockfile2 = __toESM(require_proper_lockfile(), 1);
-import { appendFile as appendFile2, mkdir as mkdir2, writeFile as writeFile2 } from "fs/promises";
-import * as path6 from "path";
+import { appendFile as appendFile3, mkdir as mkdir2, writeFile as writeFile3 } from "fs/promises";
+import * as path8 from "path";
 var DANGEROUS_COMMAND_PATTERNS = [
   /\brm\s+-rf\b/,
   /\bsudo\s+rm\b/,
@@ -32820,10 +32853,10 @@ async function quarantineEntry(directory, entryId, reason, reportedBy) {
     return;
   }
   const sanitizedReason = reason.slice(0, 500).replace(/[\x00-\x08\x0b-\x0c\x0e-\x1f\x7f\x0d]/g, "");
-  const knowledgePath = path6.join(directory, ".swarm", "knowledge.jsonl");
-  const quarantinePath = path6.join(directory, ".swarm", "knowledge-quarantined.jsonl");
-  const rejectedPath = path6.join(directory, ".swarm", "knowledge-rejected.jsonl");
-  const swarmDir = path6.join(directory, ".swarm");
+  const knowledgePath = path8.join(directory, ".swarm", "knowledge.jsonl");
+  const quarantinePath = path8.join(directory, ".swarm", "knowledge-quarantined.jsonl");
+  const rejectedPath = path8.join(directory, ".swarm", "knowledge-rejected.jsonl");
+  const swarmDir = path8.join(directory, ".swarm");
   await mkdir2(swarmDir, { recursive: true });
   let release;
   try {
@@ -32845,8 +32878,8 @@ async function quarantineEntry(directory, entryId, reason, reportedBy) {
     const jsonlContent = remaining.length > 0 ? `${remaining.map((e) => JSON.stringify(e)).join(`
 `)}
 ` : "";
-    await writeFile2(knowledgePath, jsonlContent, "utf-8");
-    await appendFile2(quarantinePath, `${JSON.stringify(quarantined)}
+    await writeFile3(knowledgePath, jsonlContent, "utf-8");
+    await appendFile3(quarantinePath, `${JSON.stringify(quarantined)}
 `, "utf-8");
     const quarantinedEntries = await readKnowledge(quarantinePath);
     if (quarantinedEntries.length > 100) {
@@ -32854,7 +32887,7 @@ async function quarantineEntry(directory, entryId, reason, reportedBy) {
       const capContent = trimmed.length > 0 ? `${trimmed.map((e) => JSON.stringify(e)).join(`
 `)}
 ` : "";
-      await writeFile2(quarantinePath, capContent, "utf-8");
+      await writeFile3(quarantinePath, capContent, "utf-8");
     }
     const rejectedRecord = {
       id: entryId,
@@ -32880,10 +32913,10 @@ async function restoreEntry(directory, entryId) {
     console.warn("[knowledge-validator] restoreEntry: invalid entryId rejected");
     return;
   }
-  const knowledgePath = path6.join(directory, ".swarm", "knowledge.jsonl");
-  const quarantinePath = path6.join(directory, ".swarm", "knowledge-quarantined.jsonl");
-  const rejectedPath = path6.join(directory, ".swarm", "knowledge-rejected.jsonl");
-  const swarmDir = path6.join(directory, ".swarm");
+  const knowledgePath = path8.join(directory, ".swarm", "knowledge.jsonl");
+  const quarantinePath = path8.join(directory, ".swarm", "knowledge-quarantined.jsonl");
+  const rejectedPath = path8.join(directory, ".swarm", "knowledge-rejected.jsonl");
+  const swarmDir = path8.join(directory, ".swarm");
   await mkdir2(swarmDir, { recursive: true });
   let release;
   try {
@@ -32900,15 +32933,15 @@ async function restoreEntry(directory, entryId) {
     const jsonlContent = remaining.length > 0 ? `${remaining.map((e) => JSON.stringify(e)).join(`
 `)}
 ` : "";
-    await writeFile2(quarantinePath, jsonlContent, "utf-8");
-    await appendFile2(knowledgePath, `${JSON.stringify(original)}
+    await writeFile3(quarantinePath, jsonlContent, "utf-8");
+    await appendFile3(knowledgePath, `${JSON.stringify(original)}
 `, "utf-8");
     const rejectedEntries = await readKnowledge(rejectedPath);
     const filtered = rejectedEntries.filter((e) => e.id !== entryId);
     const rejectedContent = filtered.length > 0 ? `${filtered.map((e) => JSON.stringify(e)).join(`
 `)}
 ` : "";
-    await writeFile2(rejectedPath, rejectedContent, "utf-8");
+    await writeFile3(rejectedPath, rejectedContent, "utf-8");
   } finally {
     if (release) {
       await release();
@@ -33040,7 +33073,7 @@ init_utils2();
 // src/plan/checkpoint.ts
 init_plan_schema();
 init_ledger();
-init_manager2();
+init_manager();
 import * as fs5 from "fs";
 import * as path9 from "path";
 async function writeCheckpoint(directory) {
@@ -33170,7 +33203,7 @@ async function flushPendingSnapshot(directory) {
 
 // src/tools/write-retro.ts
 init_evidence_schema();
-init_manager();
+init_manager2();
 async function executeWriteRetro(args, directory) {
   if (/^(CON|PRN|AUX|NUL|COM[0-9]|LPT[0-9])(:|$)/i.test(directory)) {
     return JSON.stringify({
@@ -34001,7 +34034,7 @@ function getGlobalEventBus() {
 }
 
 // src/hooks/curator.ts
-init_manager2();
+init_manager();
 init_utils2();
 
 // src/hooks/hive-promoter.ts
@@ -34567,9 +34600,9 @@ import * as child_process4 from "child_process";
 import { existsSync as existsSync6, readdirSync as readdirSync2, readFileSync as readFileSync5, statSync as statSync3 } from "fs";
 import path15 from "path";
 import { fileURLToPath } from "url";
-init_manager();
-init_utils2();
 init_manager2();
+init_utils2();
+init_manager();
 function validateTaskDag(plan) {
   const allTaskIds = new Set;
   for (const phase of plan.phases) {
@@ -36854,7 +36887,7 @@ async function handleDoctorToolsCommand(directory, _args) {
 }
 
 // src/services/evidence-service.ts
-init_manager();
+init_manager2();
 function getVerdictIcon(verdict) {
   switch (verdict) {
     case "pass":
@@ -37041,7 +37074,7 @@ async function handleEvidenceSummaryCommand(directory) {
 }
 // src/services/export-service.ts
 init_utils2();
-init_manager2();
+init_manager();
 async function getExportData(directory) {
   const planStructured = await loadPlanJsonOnly(directory);
   const planContent = await readSwarmFileAsync(directory, "plan.md");
@@ -37105,7 +37138,7 @@ import { renameSync as renameSync5 } from "fs";
 
 // src/services/handoff-service.ts
 init_utils2();
-init_manager2();
+init_manager();
 init_utils();
 var RTL_OVERRIDE_PATTERN = /[\u202e\u202d\u202c\u200f]/g;
 var MAX_TASK_ID_LENGTH = 100;
@@ -37495,7 +37528,7 @@ ${continuationPrompt}`;
 
 // src/services/history-service.ts
 init_utils2();
-init_manager2();
+init_manager();
 function getStatusText(status) {
   const statusMap = {
     complete: "COMPLETE",
@@ -37936,7 +37969,7 @@ async function handleKnowledgeListCommand(directory, _args) {
 
 // src/services/plan-service.ts
 init_utils2();
-init_manager2();
+init_manager();
 async function getPlanData(directory, phaseArg) {
   const plan = await loadPlanJsonOnly(directory);
   if (plan) {
@@ -38080,8 +38113,8 @@ async function handlePlanCommand(directory, args) {
   return formatPlanMarkdown(planData);
 }
 // src/services/preflight-service.ts
-init_manager();
 init_manager2();
+init_manager();
 import * as fs14 from "fs";
 import * as path24 from "path";
 
@@ -40936,7 +40969,9 @@ function formatPreflightMarkdown(report) {
 `);
 }
 async function handlePreflightCommand(directory, _args) {
-  const report = await runPreflight(directory, 0);
+  const plan = await loadPlan(directory);
+  const phase = plan?.current_phase ?? 1;
+  const report = await runPreflight(directory, phase);
   return formatPreflightMarkdown(report);
 }
 // src/knowledge/hive-promoter.ts
@@ -42175,7 +42210,7 @@ function extractCurrentPhaseFromPlan2(plan) {
 
 // src/services/status-service.ts
 init_utils2();
-init_manager2();
+init_manager();
 
 // src/services/compaction-service.ts
 function makeInitialState() {
@@ -42326,7 +42361,7 @@ async function handleStatusCommand(directory, agents) {
   return formatStatusMarkdown(statusData);
 }
 // src/commands/sync-plan.ts
-init_manager2();
+init_manager();
 async function handleSyncPlanCommand(directory, _args) {
   const plan = await loadPlan(directory);
   if (!plan) {

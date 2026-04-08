@@ -1,5 +1,5 @@
 /**
- * Tests for Task 1.4 - validate_spec Tool
+ * Tests for Task 1.4 - lint_spec Tool
  * Tests obligation counting, scenario counting, spec validation, and error handling
  */
 import { afterEach, beforeEach, describe, expect, test } from 'bun:test';
@@ -9,19 +9,19 @@ import * as path from 'node:path';
 import type { ToolContext } from '@opencode-ai/plugin';
 
 // Import the tool
-import { validate_spec } from '../tools/validate-spec';
+import { lint_spec } from '../tools/lint-spec';
 
 // Helper to call tool execute with proper context
 function createToolContext(directory: string): ToolContext {
 	return { directory } as unknown as ToolContext;
 }
 
-describe('validate_spec tool', () => {
+describe('lint_spec tool', () => {
 	let tempDir: string;
 
 	beforeEach(() => {
 		tempDir = fs.realpathSync(
-			fs.mkdtempSync(path.join(os.tmpdir(), 'validate-spec-test-')),
+			fs.mkdtempSync(path.join(os.tmpdir(), 'lint-spec-test-')),
 		);
 		// Create .swarm directory
 		fs.mkdirSync(path.join(tempDir, '.swarm'), { recursive: true });
@@ -44,10 +44,7 @@ describe('validate_spec tool', () => {
 				fs.unlinkSync(specPath);
 			}
 
-			const result = await validate_spec.execute(
-				{},
-				createToolContext(tempDir),
-			);
+			const result = await lint_spec.execute({}, createToolContext(tempDir));
 			const parsed = JSON.parse(result);
 
 			expect(parsed.valid).toBe(false);
@@ -61,10 +58,7 @@ describe('validate_spec tool', () => {
 			// Remove .swarm directory entirely
 			fs.rmSync(path.join(tempDir, '.swarm'), { recursive: true, force: true });
 
-			const result = await validate_spec.execute(
-				{},
-				createToolContext(tempDir),
-			);
+			const result = await lint_spec.execute({}, createToolContext(tempDir));
 			const parsed = JSON.parse(result);
 
 			expect(parsed.valid).toBe(false);
@@ -95,10 +89,7 @@ FR-005: MUST cleanup resources
 				'utf-8',
 			);
 
-			const result = await validate_spec.execute(
-				{},
-				createToolContext(tempDir),
-			);
+			const result = await lint_spec.execute({}, createToolContext(tempDir));
 			const parsed = JSON.parse(result);
 
 			expect(parsed.valid).toBe(true);
@@ -123,10 +114,7 @@ FR-001: SHALL provide fallback behavior
 				'utf-8',
 			);
 
-			const result = await validate_spec.execute(
-				{},
-				createToolContext(tempDir),
-			);
+			const result = await lint_spec.execute({}, createToolContext(tempDir));
 			const parsed = JSON.parse(result);
 
 			expect(parsed.valid).toBe(true);
@@ -149,10 +137,7 @@ FR-001: SHOULD optimize performance
 				'utf-8',
 			);
 
-			const result = await validate_spec.execute(
-				{},
-				createToolContext(tempDir),
-			);
+			const result = await lint_spec.execute({}, createToolContext(tempDir));
 			const parsed = JSON.parse(result);
 
 			expect(parsed.valid).toBe(true);
@@ -175,10 +160,7 @@ FR-001: MAY support compression
 				'utf-8',
 			);
 
-			const result = await validate_spec.execute(
-				{},
-				createToolContext(tempDir),
-			);
+			const result = await lint_spec.execute({}, createToolContext(tempDir));
 			const parsed = JSON.parse(result);
 
 			expect(parsed.valid).toBe(true);
@@ -209,10 +191,7 @@ FR-007: MAY log debug info
 				'utf-8',
 			);
 
-			const result = await validate_spec.execute(
-				{},
-				createToolContext(tempDir),
-			);
+			const result = await lint_spec.execute({}, createToolContext(tempDir));
 			const parsed = JSON.parse(result);
 
 			expect(parsed.valid).toBe(true);
@@ -246,10 +225,7 @@ function test() {
 				'utf-8',
 			);
 
-			const result = await validate_spec.execute(
-				{},
-				createToolContext(tempDir),
-			);
+			const result = await lint_spec.execute({}, createToolContext(tempDir));
 			const parsed = JSON.parse(result);
 
 			expect(parsed.valid).toBe(true);
@@ -274,10 +250,7 @@ FR-002: MUST also counted
 				'utf-8',
 			);
 
-			const result = await validate_spec.execute(
-				{},
-				createToolContext(tempDir),
-			);
+			const result = await lint_spec.execute({}, createToolContext(tempDir));
 			const parsed = JSON.parse(result);
 
 			expect(parsed.valid).toBe(true);
@@ -314,10 +287,7 @@ Then: User is logged out
 				'utf-8',
 			);
 
-			const result = await validate_spec.execute(
-				{},
-				createToolContext(tempDir),
-			);
+			const result = await lint_spec.execute({}, createToolContext(tempDir));
 			const parsed = JSON.parse(result);
 
 			expect(parsed.valid).toBe(true);
@@ -350,10 +320,7 @@ Then Another response is received
 				'utf-8',
 			);
 
-			const result = await validate_spec.execute(
-				{},
-				createToolContext(tempDir),
-			);
+			const result = await lint_spec.execute({}, createToolContext(tempDir));
 			const parsed = JSON.parse(result);
 
 			// With no ## Scenario headers and using "Keyword " format (space after), it counts When clauses
@@ -387,10 +354,7 @@ Then User is logged out
 				'utf-8',
 			);
 
-			const result = await validate_spec.execute(
-				{},
-				createToolContext(tempDir),
-			);
+			const result = await lint_spec.execute({}, createToolContext(tempDir));
 			const parsed = JSON.parse(result);
 
 			expect(parsed.valid).toBe(true);
@@ -413,10 +377,7 @@ This spec has no FR requirements.
 				'utf-8',
 			);
 
-			const result = await validate_spec.execute(
-				{},
-				createToolContext(tempDir),
-			);
+			const result = await lint_spec.execute({}, createToolContext(tempDir));
 			const parsed = JSON.parse(result);
 
 			expect(parsed.valid).toBe(false);
@@ -426,10 +387,10 @@ This spec has no FR requirements.
 			expect(errorText).toMatch(/FR-###|FR-ID|fr/i);
 		});
 
-		test('captures missing Purpose section error', async () => {
+		test('captures missing section headers error', async () => {
+			// Content with NO ## section headers at all should fail validation
 			const specContent = `# Test Spec
 
-## Section 1
 FR-001: MUST do something
 `;
 
@@ -439,14 +400,13 @@ FR-001: MUST do something
 				'utf-8',
 			);
 
-			const result = await validate_spec.execute(
-				{},
-				createToolContext(tempDir),
-			);
+			const result = await lint_spec.execute({}, createToolContext(tempDir));
 			const parsed = JSON.parse(result);
 
 			expect(parsed.valid).toBe(false);
-			expect(parsed.errors).toContain('Spec missing Purpose section');
+			expect(
+				parsed.errors.some((e: string) => e.includes('No section headers')),
+			).toBe(true);
 		});
 
 		test('captures missing section headers error', async () => {
@@ -469,10 +429,7 @@ FR-002: do something else
 				'utf-8',
 			);
 
-			const result = await validate_spec.execute(
-				{},
-				createToolContext(tempDir),
-			);
+			const result = await lint_spec.execute({}, createToolContext(tempDir));
 			const parsed = JSON.parse(result);
 
 			// This should be invalid because FR IDs lack obligation keywords
@@ -499,10 +456,7 @@ FR-001: MUST do something
 				'utf-8',
 			);
 
-			const result = await validate_spec.execute(
-				{},
-				createToolContext(tempDir),
-			);
+			const result = await lint_spec.execute({}, createToolContext(tempDir));
 			const parsed = JSON.parse(result);
 
 			expect(parsed.valid).toBe(true);
@@ -533,10 +487,7 @@ FR-004: MAY support SSO
 				'utf-8',
 			);
 
-			const result = await validate_spec.execute(
-				{},
-				createToolContext(tempDir),
-			);
+			const result = await lint_spec.execute({}, createToolContext(tempDir));
 			const parsed = JSON.parse(result);
 
 			expect(parsed.valid).toBe(true);

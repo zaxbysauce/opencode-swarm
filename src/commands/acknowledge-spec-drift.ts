@@ -1,6 +1,8 @@
 import { promises as fsPromises } from 'node:fs';
 import { validateSwarmPath } from '../hooks/utils';
+import { loadPlanJsonOnly, savePlan } from '../plan/manager';
 import type { SpecDriftAcknowledgedEvent } from '../types/events';
+import { computeSpecHash } from '../utils/spec-hash';
 
 interface SpecStalenessPayload {
 	planTitle: string;
@@ -45,6 +47,26 @@ export async function handleAcknowledgeSpecDriftCommand(
 	// Delete the spec-staleness.json file
 	await fsPromises.unlink(specStalenessPath);
 
+	// Update plan.specHash to current spec hash after acknowledgment
+	let currentHash: string | null = null;
+	let planUpdateSkipped = false;
+	try {
+		const plan = await loadPlanJsonOnly(directory);
+		if (plan?.specHash) {
+			currentHash = await computeSpecHash(directory);
+			// Convert null to undefined since plan.specHash is string | undefined
+			plan.specHash = currentHash ?? undefined;
+			await savePlan(directory, plan);
+		}
+	} catch (planError) {
+		// Non-fatal: spec drift was acknowledged but plan update failed
+		console.error(
+			'[acknowledge-spec-drift] Failed to update plan specHash:',
+			planError instanceof Error ? planError.message : String(planError),
+		);
+		planUpdateSkipped = true;
+	}
+
 	// Append acknowledgment event to events.jsonl
 	const eventsPath = validateSwarmPath(directory, 'events.jsonl');
 	const acknowledgmentEvent: SpecDriftAcknowledgedEvent = {
@@ -53,8 +75,11 @@ export async function handleAcknowledgeSpecDriftCommand(
 		phase,
 		planTitle,
 		acknowledgedBy: 'architect',
+		previousHash: stalenessData.specHash_plan,
+		newHash: currentHash,
 	};
 
+	let eventWriteFailed = false;
 	try {
 		await fsPromises.appendFile(
 			eventsPath,
@@ -67,7 +92,23 @@ export async function handleAcknowledgeSpecDriftCommand(
 			'[acknowledge-spec-drift] Failed to write acknowledgment event:',
 			appendError instanceof Error ? appendError.message : String(appendError),
 		);
+		eventWriteFailed = true;
 	}
 
-	return `Spec drift acknowledged for plan "${planTitle}" (phase ${phase}).\n\n⚠️  Warning: Spec drift was acknowledged — verify that the implementation still matches the spec before proceeding.`;
+	const warnings: string[] = [];
+	if (planUpdateSkipped) {
+		warnings.push('Plan specHash update was skipped due to an error.');
+	}
+	if (eventWriteFailed) {
+		warnings.push('Event logging failed — audit trail may be incomplete.');
+	}
+
+	const baseMessage = `Spec drift acknowledged for plan "${planTitle}" (phase ${phase}).`;
+	const warningMessage =
+		warnings.length > 0
+			? `\n\n⚠️  Warnings:\n${warnings.map((w) => `  - ${w}`).join('\n')}`
+			: '';
+	const cautionMessage =
+		'\n\n⚠️  Caution: Spec drift was acknowledged — verify that the implementation still matches the spec before proceeding.';
+	return baseMessage + warningMessage + cautionMessage;
 }

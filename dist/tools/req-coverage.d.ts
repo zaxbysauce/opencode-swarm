@@ -10,7 +10,7 @@ interface Requirement {
     id: string;
     obligation: ObligationLevel | null;
     text: string;
-    status: 'covered' | 'partial' | 'missing';
+    status: 'covered' | 'missing';
     filesSearched: string[];
 }
 interface RequirementMatch {
@@ -28,8 +28,10 @@ export declare function extractRequirements(specContent: string): RequirementMat
  */
 export declare function extractObligationAndText(id: string, lineText: string): RequirementMatch | null;
 /**
- * Read evidence files from .swarm/evidence/{phase}/ directory.
- * Returns list of source files that were touched.
+ * Read evidence files from .swarm/evidence/{taskId}/ directory structure.
+ * Returns list of source files that were touched during the specified phase.
+ * Evidence is stored at .swarm/evidence/<taskId>/evidence.json (e.g., 1.1, 2.3.1).
+ * Only directories with numeric task IDs matching the phase prefix are processed.
  */
 export declare function readTouchedFiles(evidenceDir: string, phase: number, cwd: string): string[];
 /**

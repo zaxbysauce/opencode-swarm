@@ -22,7 +22,7 @@ interface Requirement {
 	id: string;
 	obligation: ObligationLevel | null;
 	text: string;
-	status: 'covered' | 'partial' | 'missing';
+	status: 'covered' | 'missing';
 	filesSearched: string[];
 }
 
@@ -31,7 +31,6 @@ interface ReqCoverageResult {
 	phase: number;
 	totalRequirements: number;
 	coveredCount: number;
-	partialCount: number;
 	missingCount: number;
 	requirements: Requirement[];
 }
@@ -131,8 +130,16 @@ export function extractObligationAndText(
 
 // ============ Evidence Reading ============
 /**
- * Read evidence files from .swarm/evidence/{phase}/ directory.
- * Returns list of source files that were touched.
+ * Task ID validation pattern: strict N.M or N.M.P numeric format for phase membership.
+ * Used to filter evidence directories that belong to a specific phase.
+ */
+const PHASE_TASK_ID_REGEX = /^\d+\.\d+(\.\d+)*$/;
+
+/**
+ * Read evidence files from .swarm/evidence/{taskId}/ directory structure.
+ * Returns list of source files that were touched during the specified phase.
+ * Evidence is stored at .swarm/evidence/<taskId>/evidence.json (e.g., 1.1, 2.3.1).
+ * Only directories with numeric task IDs matching the phase prefix are processed.
  */
 export function readTouchedFiles(
 	evidenceDir: string,
@@ -140,39 +147,57 @@ export function readTouchedFiles(
 	cwd: string,
 ): string[] {
 	const touchedFiles = new Set<string>();
-	const phaseDir = path.join(evidenceDir, String(phase));
 
-	// Handle missing phase directory
-	if (!fs.existsSync(phaseDir) || !fs.statSync(phaseDir).isDirectory()) {
+	// Check if evidence directory exists
+	if (!fs.existsSync(evidenceDir) || !fs.statSync(evidenceDir).isDirectory()) {
 		return [];
 	}
 
-	let files: string[];
+	let entries: string[];
 	try {
-		files = fs.readdirSync(phaseDir);
+		entries = fs.readdirSync(evidenceDir);
 	} catch {
 		return [];
 	}
 
-	// Process only JSON evidence files
-	for (const filename of files) {
-		if (!filename.endsWith('.json')) {
+	// Process only directories that match phase prefix (e.g., "1.1" -> phase 1, "2.3.1" -> phase 2)
+	for (const entry of entries) {
+		const entryPath = path.join(evidenceDir, entry);
+
+		// Skip non-directories (evidence is stored in directories, not files)
+		try {
+			const stat = fs.statSync(entryPath);
+			if (!stat.isDirectory()) {
+				continue;
+			}
+		} catch {
 			continue;
 		}
 
-		const filePath = path.join(phaseDir, filename);
+		// Filter by phase using first number before the dot
+		// Skip non-numeric task IDs (like "sast_scan", "quality_budget", "retro-1")
+		if (!PHASE_TASK_ID_REGEX.test(entry)) {
+			continue;
+		}
 
-		// Security check: ensure file is within phase directory
+		const entryPhase = entry.split('.')[0];
+		if (entryPhase !== String(phase)) {
+			continue;
+		}
+
+		const evidenceFilePath = path.join(entryPath, 'evidence.json');
+
+		// Security check: ensure file is within evidence directory
 		try {
-			const resolvedPath = path.resolve(filePath);
-			const phaseDirResolved = path.resolve(phaseDir);
+			const resolvedPath = path.resolve(evidenceFilePath);
+			const evidenceDirResolved = path.resolve(evidenceDir);
 
-			if (!resolvedPath.startsWith(phaseDirResolved)) {
+			if (!resolvedPath.startsWith(evidenceDirResolved + path.sep)) {
 				continue;
 			}
 
 			// Check it's a file
-			const stat = fs.lstatSync(filePath);
+			const stat = fs.lstatSync(evidenceFilePath);
 			if (!stat.isFile()) {
 				continue;
 			}
@@ -188,7 +213,7 @@ export function readTouchedFiles(
 		// Read and parse JSON
 		let content: string;
 		try {
-			content = fs.readFileSync(filePath, 'utf-8');
+			content = fs.readFileSync(evidenceFilePath, 'utf-8');
 		} catch {
 			continue;
 		}
@@ -200,23 +225,25 @@ export function readTouchedFiles(
 			continue;
 		}
 
-		// Extract touched files from evidence
-		// Support various evidence formats with files/touched_files/changed_files fields
+		// Extract touched files from evidence bundle
+		// Format: { schema_version, task_id, entries: [{ type: 'diff', files_changed: [...] }] }
 		if (parsed && typeof parsed === 'object') {
 			const obj = parsed as Record<string, unknown>;
 
-			// Try different field names for touched files
-			const fileFields = ['touched_files', 'changed_files', 'files', 'sources'];
-			for (const field of fileFields) {
-				if (Array.isArray(obj[field])) {
-					for (const file of obj[field] as unknown[]) {
-						if (typeof file === 'string') {
-							touchedFiles.add(path.resolve(cwd, file));
-						} else if (file && typeof file === 'object') {
-							// Handle { path: string } format
-							const fileObj = file as Record<string, unknown>;
-							if (typeof fileObj.path === 'string') {
-								touchedFiles.add(path.resolve(cwd, fileObj.path));
+			// Look for entries array
+			if (Array.isArray(obj.entries)) {
+				for (const entryItem of obj.entries) {
+					if (
+						entryItem &&
+						typeof entryItem === 'object' &&
+						(entryItem as Record<string, unknown>).type === 'diff'
+					) {
+						const diffEntry = entryItem as Record<string, unknown>;
+						if (Array.isArray(diffEntry.files_changed)) {
+							for (const file of diffEntry.files_changed) {
+								if (typeof file === 'string') {
+									touchedFiles.add(path.resolve(cwd, file));
+								}
 							}
 						}
 					}
@@ -424,7 +451,6 @@ export const req_coverage: ReturnType<typeof tool> = createSwarmTool({
 					phase: 0,
 					totalRequirements: 0,
 					coveredCount: 0,
-					partialCount: 0,
 					missingCount: 0,
 					requirements: [],
 					error: 'Invalid phase number',
@@ -450,7 +476,6 @@ export const req_coverage: ReturnType<typeof tool> = createSwarmTool({
 					phase,
 					totalRequirements: 0,
 					coveredCount: 0,
-					partialCount: 0,
 					missingCount: 0,
 					requirements: [],
 					error: `Failed to read spec.md: ${readError instanceof Error ? readError.message : String(readError)}`,
@@ -470,7 +495,6 @@ export const req_coverage: ReturnType<typeof tool> = createSwarmTool({
 					phase,
 					totalRequirements: 0,
 					coveredCount: 0,
-					partialCount: 0,
 					missingCount: 0,
 					requirements: [],
 					message: 'No FR requirements found in spec.md',
@@ -487,7 +511,6 @@ export const req_coverage: ReturnType<typeof tool> = createSwarmTool({
 		// Analyze coverage for each requirement
 		const analyzedRequirements: Requirement[] = [];
 		let coveredCount = 0;
-		let partialCount = 0;
 		let missingCount = 0;
 
 		for (const req of requirements) {
@@ -497,9 +520,6 @@ export const req_coverage: ReturnType<typeof tool> = createSwarmTool({
 			switch (analysis.status) {
 				case 'covered':
 					coveredCount++;
-					break;
-				case 'partial':
-					partialCount++;
 					break;
 				case 'missing':
 					missingCount++;
@@ -513,7 +533,6 @@ export const req_coverage: ReturnType<typeof tool> = createSwarmTool({
 			phase,
 			totalRequirements: requirements.length,
 			coveredCount,
-			partialCount,
 			missingCount,
 			requirements: analyzedRequirements,
 		};

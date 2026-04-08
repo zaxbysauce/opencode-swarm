@@ -83,7 +83,7 @@ describe('handleAcknowledgeSpecDriftCommand', () => {
 			expect(result).toContain(
 				'Spec drift acknowledged for plan "Test Plan" (phase 3)',
 			);
-			expect(result).toContain('Warning: Spec drift was acknowledged');
+			expect(result).toContain('Caution: Spec drift was acknowledged');
 
 			// Verify spec-staleness.json was deleted
 			await expect(unlink(specStalenessPath)).rejects.toThrow();
@@ -117,7 +117,7 @@ describe('handleAcknowledgeSpecDriftCommand', () => {
 			const result = await handleAcknowledgeSpecDriftCommand(tempDir, []);
 
 			expect(result).toBe(
-				'Spec drift acknowledged for plan "My Awesome Project" (phase 7).\n\n⚠️  Warning: Spec drift was acknowledged — verify that the implementation still matches the spec before proceeding.',
+				'Spec drift acknowledged for plan "My Awesome Project" (phase 7).\n\n⚠️  Caution: Spec drift was acknowledged — verify that the implementation still matches the spec before proceeding.',
 			);
 		});
 

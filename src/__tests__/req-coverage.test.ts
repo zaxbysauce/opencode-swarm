@@ -230,7 +230,7 @@ describe('readTouchedFiles', () => {
 				'-' +
 				Math.random().toString(36).slice(2),
 		);
-		evidenceDir = path.join(tempDir, '.swarm', 'evidence', '1');
+		evidenceDir = path.join(tempDir, '.swarm', 'evidence');
 		await mkdir(evidenceDir, { recursive: true });
 	});
 
@@ -242,21 +242,33 @@ describe('readTouchedFiles', () => {
 		}
 	});
 
-	test('reads touched_files from evidence JSON', async () => {
-		const evidenceFile = path.join(evidenceDir, 'task-1.json');
+	test('reads files_changed from diff evidence in correct layout', async () => {
+		// Create evidence in .swarm/evidence/1.1/evidence.json (NOT .swarm/evidence/1/)
+		const taskEvidenceDir = path.join(evidenceDir, '1.1');
+		await mkdir(taskEvidenceDir, { recursive: true });
+		const evidenceFile = path.join(taskEvidenceDir, 'evidence.json');
 		await writeFile(
 			evidenceFile,
 			JSON.stringify({
+				schema_version: '1.0.0',
 				task_id: '1.1',
-				touched_files: ['src/index.ts', 'src/utils/helper.ts'],
+				entries: [
+					{
+						type: 'diff',
+						task_id: '1.1',
+						timestamp: '2024-01-01T00:00:00.000Z',
+						agent: 'coder',
+						verdict: 'pass',
+						summary: 'Changes',
+						files_changed: ['src/index.ts', 'src/utils/helper.ts'],
+					},
+				],
+				created_at: '2024-01-01T00:00:00.000Z',
+				updated_at: '2024-01-01T00:00:00.000Z',
 			}),
 		);
 
-		const files = readTouchedFiles(
-			path.join(tempDir, '.swarm', 'evidence'),
-			1,
-			tempDir,
-		);
+		const files = readTouchedFiles(evidenceDir, 1, tempDir);
 
 		expect(files).toHaveLength(2);
 		// Files are resolved to absolute paths - check they contain the relative path
@@ -266,119 +278,181 @@ describe('readTouchedFiles', () => {
 		).toBe(true);
 	});
 
-	test('reads changed_files from evidence JSON', async () => {
-		const evidenceFile = path.join(evidenceDir, 'task-2.json');
+	test('reads from multiple task directories for same phase', async () => {
+		// Create evidence for task 1.1
+		const task1Dir = path.join(evidenceDir, '1.1');
+		await mkdir(task1Dir, { recursive: true });
 		await writeFile(
-			evidenceFile,
+			path.join(task1Dir, 'evidence.json'),
 			JSON.stringify({
-				task_id: '2.1',
-				changed_files: ['src/app.ts'],
+				schema_version: '1.0.0',
+				task_id: '1.1',
+				entries: [
+					{
+						type: 'diff',
+						task_id: '1.1',
+						timestamp: '2024-01-01T00:00:00.000Z',
+						agent: 'coder',
+						verdict: 'pass',
+						summary: 'Changes',
+						files_changed: ['src/app.ts'],
+					},
+				],
+				created_at: '2024-01-01T00:00:00.000Z',
+				updated_at: '2024-01-01T00:00:00.000Z',
 			}),
 		);
 
-		const files = readTouchedFiles(
-			path.join(tempDir, '.swarm', 'evidence'),
-			1,
-			tempDir,
-		);
-
-		expect(files).toHaveLength(1);
-		expect(files[0]).toInclude('src');
-		expect(files[0]).toInclude('app.ts');
-	});
-
-	test('reads files field from evidence JSON', async () => {
-		const evidenceFile = path.join(evidenceDir, 'task-3.json');
+		// Create evidence for task 1.2
+		const task2Dir = path.join(evidenceDir, '1.2');
+		await mkdir(task2Dir, { recursive: true });
 		await writeFile(
-			evidenceFile,
+			path.join(task2Dir, 'evidence.json'),
 			JSON.stringify({
-				task_id: '3.1',
-				files: ['src/main.ts'],
+				schema_version: '1.0.0',
+				task_id: '1.2',
+				entries: [
+					{
+						type: 'diff',
+						task_id: '1.2',
+						timestamp: '2024-01-01T00:00:00.000Z',
+						agent: 'coder',
+						verdict: 'pass',
+						summary: 'Changes',
+						files_changed: ['src/main.ts'],
+					},
+				],
+				create_at: '2024-01-01T00:00:00.000Z',
+				updated_at: '2024-01-01T00:00:00.000Z',
 			}),
 		);
 
-		const files = readTouchedFiles(
-			path.join(tempDir, '.swarm', 'evidence'),
-			1,
-			tempDir,
-		);
+		const files = readTouchedFiles(evidenceDir, 1, tempDir);
 
-		expect(files).toHaveLength(1);
-		expect(files[0]).toInclude('main.ts');
+		expect(files).toHaveLength(2);
+		expect(files.some((f) => f.includes(`src${path.sep}app.ts`))).toBe(true);
+		expect(files.some((f) => f.includes(`src${path.sep}main.ts`))).toBe(true);
 	});
 
-	test('reads sources field from evidence JSON', async () => {
-		const evidenceFile = path.join(evidenceDir, 'task-4.json');
+	test('filters entries by type diff only', async () => {
+		const taskDir = path.join(evidenceDir, '1.1');
+		await mkdir(taskDir, { recursive: true });
 		await writeFile(
-			evidenceFile,
+			path.join(taskDir, 'evidence.json'),
 			JSON.stringify({
-				task_id: '4.1',
-				sources: ['src/service.ts'],
+				schema_version: '1.0.0',
+				task_id: '1.1',
+				entries: [
+					{
+						type: 'review',
+						task_id: '1.1',
+						timestamp: '2024-01-01T00:00:00.000Z',
+						agent: 'reviewer',
+						verdict: 'pass',
+						summary: 'Review',
+					},
+					{
+						type: 'diff',
+						task_id: '1.1',
+						timestamp: '2024-01-01T00:00:00.000Z',
+						agent: 'coder',
+						verdict: 'pass',
+						summary: 'Changes',
+						files_changed: ['src/auth.ts'],
+					},
+				],
+				created_at: '2024-01-01T00:00:00.000Z',
+				updated_at: '2024-01-01T00:00:00.000Z',
 			}),
 		);
 
-		const files = readTouchedFiles(
-			path.join(tempDir, '.swarm', 'evidence'),
-			1,
-			tempDir,
-		);
+		const files = readTouchedFiles(evidenceDir, 1, tempDir);
 
 		expect(files).toHaveLength(1);
-		expect(files[0]).toInclude('service.ts');
+		expect(files[0]).toInclude('auth.ts');
 	});
 
-	test('handles { path: string } format for files', async () => {
-		const evidenceFile = path.join(evidenceDir, 'task-5.json');
-		await writeFile(
-			evidenceFile,
-			JSON.stringify({
-				task_id: '5.1',
-				touched_files: [{ path: 'src/module.ts' }],
-			}),
-		);
-
-		const files = readTouchedFiles(
-			path.join(tempDir, '.swarm', 'evidence'),
-			1,
-			tempDir,
-		);
-
-		expect(files).toHaveLength(1);
-		expect(files[0]).toInclude('module.ts');
-	});
-
-	test('returns empty array for non-existent phase directory', () => {
-		const files = readTouchedFiles(
-			path.join(tempDir, '.swarm', 'evidence'),
-			999,
-			tempDir,
-		);
+	test('returns empty array for non-existent phase', () => {
+		const files = readTouchedFiles(evidenceDir, 999, tempDir);
 
 		expect(files).toHaveLength(0);
 	});
 
-	test('ignores non-JSON files in evidence directory', async () => {
-		const txtFile = path.join(evidenceDir, 'readme.txt');
-		await writeFile(txtFile, 'not json');
-
-		const files = readTouchedFiles(
-			path.join(tempDir, '.swarm', 'evidence'),
-			1,
-			tempDir,
+	test('skips non-numeric task IDs (internal tools)', async () => {
+		// Create directories for internal tools that should be skipped
+		const sastDir = path.join(evidenceDir, 'sast_scan');
+		await mkdir(sastDir, { recursive: true });
+		await writeFile(
+			path.join(sastDir, 'evidence.json'),
+			JSON.stringify({
+				schema_version: '1.0.0',
+				task_id: 'sast_scan',
+				entries: [
+					{
+						type: 'sast',
+						task_id: 'sast_scan',
+						timestamp: '2024-01-01T00:00:00.000Z',
+						agent: 'system',
+						verdict: 'pass',
+						summary: 'SAST scan',
+						files_changed: ['src/sast.ts'],
+					},
+				],
+				created_at: '2024-01-01T00:00:00.000Z',
+				updated_at: '2024-01-01T00:00:00.000Z',
+			}),
 		);
 
+		const files = readTouchedFiles(evidenceDir, 1, tempDir);
+
+		// Should be empty because sast_scan doesn't match phase 1
+		expect(files).toHaveLength(0);
+	});
+
+	test('skips retrospective directories', async () => {
+		const retroDir = path.join(evidenceDir, 'retro-1');
+		await mkdir(retroDir, { recursive: true });
+		await writeFile(
+			path.join(retroDir, 'evidence.json'),
+			JSON.stringify({
+				schema_version: '1.0.0',
+				task_id: 'retro-1',
+				entries: [
+					{
+						type: 'retrospective',
+						task_id: 'retro-1',
+						timestamp: '2024-01-01T00:00:00.000Z',
+						agent: 'architect',
+						verdict: 'info',
+						summary: 'Retro',
+						phase_number: 1,
+						total_tool_calls: 10,
+						coder_revisions: 1,
+						reviewer_rejections: 0,
+						test_failures: 0,
+						security_findings: 0,
+						integration_issues: 0,
+						task_count: 5,
+						task_complexity: 'moderate',
+					},
+				],
+				created_at: '2024-01-01T00:00:00.000Z',
+				updated_at: '2024-01-01T00:00:00.000Z',
+			}),
+		);
+
+		const files = readTouchedFiles(evidenceDir, 1, tempDir);
+
+		// Should be empty because retro-1 doesn't match the N.M numeric pattern
 		expect(files).toHaveLength(0);
 	});
 
 	test('skips invalid JSON files', async () => {
-		const badFile = path.join(evidenceDir, 'bad.json');
-		await writeFile(badFile, '{ invalid json }');
+		const taskDir = path.join(evidenceDir, '1.1');
+		await mkdir(taskDir, { recursive: true });
+		await writeFile(path.join(taskDir, 'evidence.json'), '{ invalid json }');
 
-		const files = readTouchedFiles(
-			path.join(tempDir, '.swarm', 'evidence'),
-			1,
-			tempDir,
-		);
+		const files = readTouchedFiles(evidenceDir, 1, tempDir);
 
 		expect(files).toHaveLength(0);
 	});
@@ -386,25 +460,80 @@ describe('readTouchedFiles', () => {
 	test('resolves relative paths from JSON relative to cwd', async () => {
 		// When file path is relative (like '../outside.txt'), it gets resolved relative to cwd
 		// On Windows, path.resolve normalizes this to an absolute path
-		const evidenceFile = path.join(evidenceDir, 'task-6.json');
+		const taskDir = path.join(evidenceDir, '1.1');
+		await mkdir(taskDir, { recursive: true });
 		await writeFile(
-			evidenceFile,
+			path.join(taskDir, 'evidence.json'),
 			JSON.stringify({
-				task_id: '6.1',
-				touched_files: ['../test-file.txt'],
+				schema_version: '1.0.0',
+				task_id: '1.1',
+				entries: [
+					{
+						type: 'diff',
+						task_id: '1.1',
+						timestamp: '2024-01-01T00:00:00.000Z',
+						agent: 'coder',
+						verdict: 'pass',
+						summary: 'Changes',
+						files_changed: ['../test-file.txt'],
+					},
+				],
+				created_at: '2024-01-01T00:00:00.000Z',
+				updated_at: '2024-01-01T00:00:00.000Z',
 			}),
 		);
 
-		const files = readTouchedFiles(
-			path.join(tempDir, '.swarm', 'evidence'),
-			1,
-			tempDir,
-		);
+		const files = readTouchedFiles(evidenceDir, 1, tempDir);
 
 		// The path is resolved relative to cwd (tempDir), which normalizes the ..
 		expect(files).toHaveLength(1);
 		// The resolved path should be an absolute path
 		expect(path.isAbsolute(files[0])).toBe(true);
+	});
+
+	test('handles nested phase task IDs (e.g., 2.3.1)', async () => {
+		// Task 2.3.1 should be in phase 2
+		const taskDir = path.join(evidenceDir, '2.3.1');
+		await mkdir(taskDir, { recursive: true });
+		await writeFile(
+			path.join(taskDir, 'evidence.json'),
+			JSON.stringify({
+				schema_version: '1.0.0',
+				task_id: '2.3.1',
+				entries: [
+					{
+						type: 'diff',
+						task_id: '2.3.1',
+						timestamp: '2024-01-01T00:00:00.000Z',
+						agent: 'coder',
+						verdict: 'pass',
+						summary: 'Changes',
+						files_changed: ['src/nested.ts'],
+					},
+				],
+				created_at: '2024-01-01T00:00:00.000Z',
+				updated_at: '2024-01-01T00:00:00.000Z',
+			}),
+		);
+
+		// Phase 2 should find it
+		const phase2Files = readTouchedFiles(evidenceDir, 2, tempDir);
+		expect(phase2Files).toHaveLength(1);
+		expect(phase2Files[0]).toInclude('nested.ts');
+
+		// Phase 1 should NOT find it
+		const phase1Files = readTouchedFiles(evidenceDir, 1, tempDir);
+		expect(phase1Files).toHaveLength(0);
+	});
+
+	test('ignores files in evidence directory (not directories)', async () => {
+		// Create a file directly in evidence directory (not in a task subdirectory)
+		const txtFile = path.join(evidenceDir, 'readme.txt');
+		await writeFile(txtFile, 'not evidence');
+
+		const files = readTouchedFiles(evidenceDir, 1, tempDir);
+
+		expect(files).toHaveLength(0);
 	});
 });
 

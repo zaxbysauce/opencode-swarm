@@ -9,19 +9,18 @@
  * - Default agent authority rules
  */
 
-import { describe, test, expect, beforeEach, afterEach } from 'bun:test';
-import * as path from 'node:path';
+import { afterEach, beforeEach, describe, expect, test } from 'bun:test';
 import * as fsSync from 'node:fs';
-
-import {
-	checkFileAuthority,
-	DEFAULT_AGENT_AUTHORITY_RULES,
-	type AuthorityConfig,
-} from '../../../src/hooks/guardrails';
+import * as path from 'node:path';
 import {
 	classifyFile,
 	type FileZone,
 } from '../../../src/context/zone-classifier';
+import {
+	type AuthorityConfig,
+	checkFileAuthority,
+	DEFAULT_AGENT_AUTHORITY_RULES,
+} from '../../../src/hooks/guardrails';
 
 const TEST_CWD = '/test/project';
 

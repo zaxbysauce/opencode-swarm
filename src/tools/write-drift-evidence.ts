@@ -104,6 +104,7 @@ export async function executeWriteDriftEvidence(
 		verdict: normalizedVerdict,
 		summary: summary.trim(),
 		timestamp: new Date().toISOString(),
+		requirementCoverage: args.requirementCoverage,
 	};
 
 	// Build the gate-contract format
@@ -192,6 +193,12 @@ export const write_drift_evidence: ToolDefinition = createSwarmTool({
 		summary: tool.schema
 			.string()
 			.describe('Human-readable summary of the drift verification'),
+		requirementCoverage: tool.schema
+			.string()
+			.optional()
+			.describe(
+				'Requirement coverage report from req_coverage tool (JSON string)',
+			),
 	},
 	execute: async (args, directory) => {
 		const rawPhase = args.phase !== undefined ? Number(args.phase) : 0;
@@ -200,6 +207,10 @@ export const write_drift_evidence: ToolDefinition = createSwarmTool({
 				phase: Number(args.phase),
 				verdict: String(args.verdict) as 'APPROVED' | 'NEEDS_REVISION',
 				summary: String(args.summary ?? ''),
+				requirementCoverage:
+					args.requirementCoverage !== undefined
+						? String(args.requirementCoverage)
+						: undefined,
 			};
 			return await executeWriteDriftEvidence(writeDriftEvidenceArgs, directory);
 		} catch (error) {

@@ -168,7 +168,6 @@ STEPS:
 2. Read \`.swarm/plan.md\`. Extract all tasks with their IDs and descriptions.
 3. Map requirements to tasks:
    - For each FR-###: find the task(s) whose description mentions or addresses it (semantic match, not exact phrase).
-   - Partial coverage counts: a task that partially addresses a requirement is counted as covering it.
    - Build a two-column coverage table: FR-### → [task IDs that cover it].
 4. Flag GAPS — requirements with no covering task:
    - FR-### with MUST language and no covering task: CRITICAL severity.
@@ -195,7 +194,6 @@ SUMMARY: [1-2 sentence overall assessment]
 ANALYZE RULES:
 - READ-ONLY: do not create, modify, or delete any file during analysis.
 - Report only — no plan edits, no spec edits.
-- Partial coverage counts as coverage (do not penalize partially addressed requirements).
 - Report the highest-severity findings first within each section.
 - If both spec.md and plan.md are present but empty, report CLEAN with a note that both files are empty.
 `;
@@ -340,10 +338,9 @@ TASK [id]: [VERIFIED|MISSING|DRIFTED]
 2. Read the coverage report from .swarm/evidence/req-coverage-phase-[N].json
 3. For each MUST requirement: if status is "missing" → CRITICAL severity (hard blocker)
 4. For each SHOULD requirement: if status is "missing" → HIGH severity
-5. For partial coverage → HIGH severity
-6. Append ## Requirement Coverage section to output with:
+5. Append ## Requirement Coverage section to output with:
    - Total requirements by obligation level
-   - Covered/partial/missing counts
+   - Covered/missing counts
    - List of missing MUST requirements (if any)
    - List of missing SHOULD requirements (if any)
 

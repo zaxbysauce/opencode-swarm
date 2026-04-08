@@ -74,6 +74,7 @@ export { suggestPatch };
 export type { SuggestPatchArgs } from './suggest-patch';
 // Alias for TOOL_NAMES compliance - suggest_patch and suggestPatch are the same tool
 export const suggest_patch: typeof suggestPatch = suggestPatch;
+export { lint_spec } from './lint-spec';
 export { symbols } from './symbols';
 export {
 	type SyntaxCheckFileResult,
@@ -90,6 +91,5 @@ export {
 	type UpdateTaskStatusResult,
 	update_task_status,
 } from './update-task-status';
-export { validate_spec } from './validate-spec';
 export { write_drift_evidence } from './write-drift-evidence';
 export { executeWriteRetro, write_retro } from './write-retro';

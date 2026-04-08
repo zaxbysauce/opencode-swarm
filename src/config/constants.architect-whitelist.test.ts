@@ -33,7 +33,7 @@ describe('AGENT_TOOL_MAP.architect whitelist verification', () => {
 			expect(hasValidToolName).toBe(true);
 		});
 
-		it('architect should have expected total tool count (43 tools including validate_spec)', () => {
+		it('architect should have expected total tool count (43 tools including lint_spec)', () => {
 			const architectTools = AGENT_TOOL_MAP.architect;
 			// Expected: 43 tools
 			expect(architectTools.length).toBe(43);
@@ -83,7 +83,7 @@ describe('AGENT_TOOL_MAP.architect whitelist verification', () => {
 			'test_runner',
 			'todo_extract',
 			'update_task_status',
-			'validate_spec',
+			'lint_spec',
 			'write_retro',
 			'write_drift_evidence',
 			'declare_scope',

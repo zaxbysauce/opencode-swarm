@@ -56,7 +56,7 @@ export const AGENT_TOOL_MAP: Record<AgentName, ToolName[]> = {
 		'test_runner',
 		'todo_extract',
 		'update_task_status',
-		'validate_spec',
+		'lint_spec',
 		'write_retro',
 		'write_drift_evidence',
 		'declare_scope',
@@ -169,6 +169,7 @@ export const AGENT_TOOL_MAP: Record<AgentName, ToolName[]> = {
 		'retrieve_summary',
 		'symbols',
 		'knowledge_recall',
+		'req_coverage',
 	],
 	critic_oversight: [
 		'complexity_hotspots',

@@ -927,6 +927,8 @@ export async function handlePreflightCommand(
 	directory: string,
 	_args: string[],
 ): Promise<string> {
-	const report = await runPreflight(directory, 0);
+	const plan = await loadPlan(directory);
+	const phase = plan?.current_phase ?? 1;
+	const report = await runPreflight(directory, phase);
 	return formatPreflightMarkdown(report);
 }

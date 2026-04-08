@@ -87,5 +87,7 @@ export interface SpecDriftAcknowledgedEvent {
     phase: number;
     planTitle: string;
     acknowledgedBy: string;
+    previousHash: string;
+    newHash: string | null;
 }
 export type V619Event = SoundingBoardConsultedEvent | ArchitectLoopDetectedEvent | PrecedentManipulationDetectedEvent | CoderSelfAuditEvent | CoderRetryCircuitBreakerEvent | AgentConflictDetectedEvent | AuthorityHandoffResolvedEvent | SpecStaleDetectedEvent | SpecDriftAcknowledgedEvent;

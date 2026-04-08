@@ -378,8 +378,6 @@ export async function loadPlan(directory: string): Promise<RuntimePlan | null> {
 						} catch {
 							// Non-fatal: event write failure does not block plan loading
 						}
-
-						return runtimePlan;
 					}
 				}
 				return validated;

@@ -33,7 +33,7 @@ export type ToolName =
 	| 'phase_complete'
 	| 'save_plan'
 	| 'update_task_status'
-	| 'validate_spec'
+	| 'lint_spec'
 	| 'write_retro'
 	| 'write_drift_evidence'
 	| 'declare_scope'
@@ -80,7 +80,7 @@ export const TOOL_NAMES: readonly ToolName[] = [
 	'phase_complete',
 	'save_plan',
 	'update_task_status',
-	'validate_spec',
+	'lint_spec',
 	'write_retro',
 	'write_drift_evidence',
 	'declare_scope',

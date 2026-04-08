@@ -110,6 +110,8 @@ export interface SpecDriftAcknowledgedEvent {
 	phase: number;
 	planTitle: string;
 	acknowledgedBy: string;
+	previousHash: string;
+	newHash: string | null;
 }
 
 // Union type for all v6.19 events
