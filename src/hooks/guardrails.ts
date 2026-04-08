@@ -7,8 +7,11 @@
  * - Layer 2 (Hard Block @ 100%): Throws error in toolBefore to block further calls, injects STOP message
  */
 
+import * as fsSync from 'node:fs';
 import * as fs from 'node:fs/promises';
 import * as path from 'node:path';
+import picomatch from 'picomatch';
+import QuickLRU from 'quick-lru';
 import { getSwarmAgents, resolveFallbackModel } from '../agents/index';
 import {
 	isLowCapabilityModel,
@@ -2004,12 +2007,93 @@ export async function validateAndRecordAttestation(
 // File Authority API
 // ============================================================
 
+/**
+ * LRU cache for path normalization (realpath).
+ * Maps original path -> resolved absolute path.
+ */
+const pathNormalizationCache = new QuickLRU<string, string>({
+	maxSize: 500,
+});
+
+/**
+ * LRU cache for compiled picomatch matchers.
+ * Maps glob pattern -> matcher function.
+ */
+const globMatcherCache = new QuickLRU<string, (path: string) => boolean>({
+	maxSize: 200,
+});
+
+/**
+ * Normalizes a file path using fs.realpathSync with caching.
+ * This resolves symlinks and normalizes the path for cross-platform consistency.
+ * @param filePath The file path to normalize (absolute or relative)
+ * @param cwd Working directory for relative paths
+ * @returns Normalized absolute path or original on error
+ */
+function normalizePathWithCache(filePath: string, cwd: string): string {
+	// Generate cache key: cwd + filePath combination
+	const cacheKey = `${cwd}:${filePath}`;
+
+	// Check cache first
+	const cached = pathNormalizationCache.get(cacheKey);
+	if (cached !== undefined) {
+		return cached;
+	}
+
+	try {
+		// Resolve to absolute path first
+		const absolutePath = path.isAbsolute(filePath)
+			? filePath
+			: path.resolve(cwd, filePath);
+
+		// Use realpathSync to resolve symlinks and normalize
+		const normalized = fsSync.realpathSync(absolutePath);
+
+		// Cache the result
+		pathNormalizationCache.set(cacheKey, normalized);
+
+		return normalized;
+	} catch {
+		// If realpath fails (e.g., file doesn't exist), fall back to path.resolve
+		const fallback = path.isAbsolute(filePath)
+			? filePath
+			: path.resolve(cwd, filePath);
+		pathNormalizationCache.set(cacheKey, fallback);
+		return fallback;
+	}
+}
+
+/**
+ * Gets or creates a cached picomatch matcher for a glob pattern.
+ * @param pattern Glob pattern to compile
+ * @returns Matcher function that returns true if path matches the pattern
+ */
+function getGlobMatcher(pattern: string): (path: string) => boolean {
+	const cached = globMatcherCache.get(pattern);
+	if (cached !== undefined) {
+		return cached;
+	}
+
+	// Compile the matcher with cross-platform options
+	const matcher = picomatch(pattern, {
+		dot: true, // Allow matching dotfiles
+		nocase: process.platform === 'win32', // Case-insensitive on Windows
+	});
+
+	globMatcherCache.set(pattern, matcher);
+
+	return matcher;
+}
+
 type AgentRule = {
 	readOnly?: boolean;
 	blockedExact?: string[];
+	allowedExact?: string[];
 	blockedPrefix?: string[];
 	allowedPrefix?: string[];
 	blockedZones?: FileZone[];
+	blockedGlobs?: string[];
+	allowedGlobs?: string[];
 };
 
 export const DEFAULT_AGENT_AUTHORITY_RULES: Record<string, AgentRule> = {
@@ -2077,10 +2161,14 @@ function buildEffectiveRules(
 		merged[normalizedRuleKey] = {
 			...existing,
 			...userRule,
+			readOnly: userRule.readOnly ?? existing.readOnly,
 			blockedExact: userRule.blockedExact ?? existing.blockedExact,
+			allowedExact: userRule.allowedExact ?? existing.allowedExact,
 			blockedPrefix: userRule.blockedPrefix ?? existing.blockedPrefix,
 			allowedPrefix: userRule.allowedPrefix ?? existing.allowedPrefix,
 			blockedZones: userRule.blockedZones ?? existing.blockedZones,
+			blockedGlobs: userRule.blockedGlobs ?? existing.blockedGlobs,
+			allowedGlobs: userRule.allowedGlobs ?? existing.allowedGlobs,
 		};
 	}
 	return merged;
@@ -2088,6 +2176,15 @@ function buildEffectiveRules(
 
 /**
  * Checks file path authority against a pre-computed rules map.
+ * Implements DENY-first evaluation order:
+ * 1. readOnly - blocks all writes
+ * 2. blockedExact - exact path matches (fast path)
+ * 3. blockedGlobs - glob pattern matches
+ * 4. allowedExact - explicit allow for exact paths
+ * 5. allowedGlobs - explicit allow for glob patterns
+ * 6. allowedPrefix - prefix-based allow
+ * 7. blockedPrefix - prefix-based blocking
+ * 8. blockedZones - zone-based blocking
  */
 function checkFileAuthorityWithRules(
 	agentName: string,
@@ -2101,9 +2198,20 @@ function checkFileAuthorityWithRules(
 	// Resolve absolute-or-relative to absolute, then convert to relative for prefix matching.
 	// This ensures absolute paths like "C:/Users/.../src/file.ts" or "/home/.../src/file.ts"
 	// are correctly matched against relative prefixes like "src/". (Fix for #259)
+	// Also normalize using realpath for symlink resolution for ALL path checks
 	const dir = cwd || process.cwd();
-	const resolved = path.resolve(dir, filePath);
-	const normalizedPath = path.relative(dir, resolved).replace(/\\/g, '/');
+
+	// Single normalization call using normalizePathWithCache for consistent security
+	// This resolves symlinks and normalizes paths the same way for ALL checks
+	let normalizedPath: string;
+	try {
+		const normalizedWithSymlinks = normalizePathWithCache(filePath, cwd);
+		const resolved = path.resolve(dir, normalizedWithSymlinks);
+		normalizedPath = path.relative(dir, resolved).replace(/\\/g, '/');
+	} catch {
+		const resolved = path.resolve(dir, filePath);
+		normalizedPath = path.relative(dir, resolved).replace(/\\/g, '/');
+	}
 
 	const rules =
 		effectiveRules[normalizedAgent] ?? effectiveRules[strippedAgent];
@@ -2111,6 +2219,7 @@ function checkFileAuthorityWithRules(
 		return { allowed: false, reason: `Unknown agent: ${agentName}` };
 	}
 
+	// Step 1: readOnly - blocks all writes
 	if (rules.readOnly) {
 		return {
 			allowed: false,
@@ -2118,15 +2227,74 @@ function checkFileAuthorityWithRules(
 		};
 	}
 
+	// Step 2: blockedExact - exact path matches (fast path)
 	if (rules.blockedExact) {
 		for (const blocked of rules.blockedExact) {
 			if (normalizedPath === blocked) {
-				return { allowed: false, reason: `Path blocked: ${normalizedPath}` };
+				return {
+					allowed: false,
+					reason: `Path blocked (exact): ${normalizedPath}`,
+				};
 			}
 		}
 	}
 
-	if (rules.blockedPrefix) {
+	// Step 3: blockedGlobs - glob pattern matches
+	if (rules.blockedGlobs && rules.blockedGlobs.length > 0) {
+		for (const glob of rules.blockedGlobs) {
+			const matcher = getGlobMatcher(glob);
+			if (matcher(normalizedPath)) {
+				return {
+					allowed: false,
+					reason: `Path blocked (glob ${glob}): ${normalizedPath}`,
+				};
+			}
+		}
+	}
+
+	// Step 4: allowedExact - explicit allow for exact paths (overrides blocked rules)
+	if (rules.allowedExact && rules.allowedExact.length > 0) {
+		const isExplicitlyAllowed = rules.allowedExact.some(
+			(allowed) => normalizedPath === allowed,
+		);
+		if (isExplicitlyAllowed) {
+			return { allowed: true };
+		}
+	}
+
+	// Step 5: allowedGlobs - explicit allow for glob patterns (overrides blocked rules)
+	if (rules.allowedGlobs && rules.allowedGlobs.length > 0) {
+		const isGlobAllowed = rules.allowedGlobs.some((glob) => {
+			const matcher = getGlobMatcher(glob);
+			return matcher(normalizedPath);
+		});
+		if (isGlobAllowed) {
+			return { allowed: true };
+		}
+	}
+
+	// Step 6: allowedPrefix - prefix-based allow (whitelist model)
+	// If configured, only paths starting with these prefixes are allowed
+	if (rules.allowedPrefix != null && rules.allowedPrefix.length > 0) {
+		const isAllowed = rules.allowedPrefix.some((prefix) =>
+			normalizedPath.startsWith(prefix),
+		);
+		if (!isAllowed) {
+			return {
+				allowed: false,
+				reason: `Path ${normalizedPath} not in allowed list for ${normalizedAgent}`,
+			};
+		}
+	} else if (rules.allowedPrefix != null && rules.allowedPrefix.length === 0) {
+		// Empty allowedPrefix means nothing is allowed by prefix
+		return {
+			allowed: false,
+			reason: `Path ${normalizedPath} not in allowed list for ${normalizedAgent}`,
+		};
+	}
+
+	// Step 7: blockedPrefix - prefix-based blocking (always runs to allow "allow dir but block subdir" pattern)
+	if (rules.blockedPrefix && rules.blockedPrefix.length > 0) {
 		for (const prefix of rules.blockedPrefix) {
 			if (normalizedPath.startsWith(prefix)) {
 				return {
@@ -2137,22 +2305,7 @@ function checkFileAuthorityWithRules(
 		}
 	}
 
-	if (rules.allowedPrefix != null) {
-		const isAllowed =
-			rules.allowedPrefix.length > 0
-				? rules.allowedPrefix.some((prefix) =>
-						normalizedPath.startsWith(prefix),
-					)
-				: false;
-		if (!isAllowed) {
-			return {
-				allowed: false,
-				reason: `Path ${normalizedPath} not in allowed list for ${normalizedAgent}`,
-			};
-		}
-	}
-
-	// Zone-based blocking: check after path rules pass
+	// Step 8: blockedZones - zone-based blocking
 	if (rules.blockedZones && rules.blockedZones.length > 0) {
 		const { zone } = classifyFile(normalizedPath);
 		if (rules.blockedZones.includes(zone)) {

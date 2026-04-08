@@ -689,8 +689,11 @@ Override default rules in `.opencode/opencode-swarm.json`:
 |-------|------|-------------|
 | `readOnly` | boolean | If `true`, agent cannot write anywhere |
 | `blockedExact` | string[] | Exact file paths that are blocked |
+| `allowedExact` | string[] | Exact file paths that are allowed (overrides prefix/glob restrictions) |
 | `blockedPrefix` | string[] | Path prefixes that are blocked (e.g., `.swarm/`) |
 | `allowedPrefix` | string[] | Only these path prefixes are allowed. Omit to remove restriction; set `[]` to deny all |
+| `blockedGlobs` | string[] | Glob patterns that are blocked (uses picomatch: `**`, `*`, `?`) |
+| `allowedGlobs` | string[] | Glob patterns that are allowed (uses picomatch: `**`, `*`, `?`) |
 | `blockedZones` | string[] | File zones to block: `production`, `test`, `config`, `generated`, `docs`, `build` |
 
 ### Merge Behavior
@@ -725,6 +728,46 @@ To safely restrict a custom agent, always set `allowedPrefix` explicitly:
   }
 }
 ```
+
+### Advanced Examples
+
+#### Glob Pattern Support
+
+Use glob patterns for complex path matching:
+
+```json
+{
+  "authority": {
+    "rules": {
+      "coder": {
+        "allowedGlobs": ["src/**/*.ts", "tests/**/*.test.ts"],
+        "blockedGlobs": ["src/**/*.generated.ts", "**/*.d.ts"],
+        "allowedExact": ["src/index.ts", "package.json"]
+      },
+      "docs_agent": {
+        "allowedGlobs": ["docs/**/*.md", "*.md"],
+        "blockedExact": [".swarm/plan.md"]
+      }
+    }
+  }
+}
+```
+
+**Glob Pattern Features:**
+- `**` — Match any number of directories: `src/**/*.ts` matches all TypeScript files in src/ and subdirectories
+- `*` — Match any characters except path separators: `*.md` matches all Markdown files in current directory
+- `?` — Match single character: `test?.js` matches `test1.js`, `testa.js`
+- Uses [picomatch](https://github.com/micromatch/picomatch) for cross-platform compatibility
+
+**Evaluation Order:**
+1. `readOnly` check (if true, deny all writes)
+2. `blockedExact` (exact path matches, highest priority)
+3. `blockedGlobs` (glob pattern matches)
+4. `allowedExact` (exact path matches, overrides prefix/glob restrictions)
+5. `allowedGlobs` (glob pattern matches)
+6. `allowedPrefix` (prefix matches)
+7. `blockedPrefix` (prefix matches)
+8. `blockedZones` (zone classification)
 
 </details>
 
