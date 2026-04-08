@@ -3,7 +3,8 @@ import { parseSoundingBoardResponse } from '../agents/critic';
 
 describe('parseSoundingBoardResponse', () => {
 	it('parses UNNECESSARY verdict', () => {
-		const raw = 'Verdict: UNNECESSARY\nReasoning: The architect already has this information in the plan.';
+		const raw =
+			'Verdict: UNNECESSARY\nReasoning: The architect already has this information in the plan.';
 		const result = parseSoundingBoardResponse(raw);
 		expect(result).not.toBeNull();
 		expect(result?.verdict).toBe('UNNECESSARY');
@@ -36,7 +37,8 @@ describe('parseSoundingBoardResponse', () => {
 	});
 
 	it('parses APPROVED verdict', () => {
-		const raw = 'Verdict: APPROVED\nReasoning: The approach is sound and well-scoped.';
+		const raw =
+			'Verdict: APPROVED\nReasoning: The approach is sound and well-scoped.';
 		const result = parseSoundingBoardResponse(raw);
 		expect(result).not.toBeNull();
 		expect(result?.verdict).toBe('APPROVED');

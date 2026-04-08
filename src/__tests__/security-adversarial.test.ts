@@ -581,7 +581,9 @@ describe('SECURITY: Bypass Attempt Vectors', () => {
 });
 
 describe('REJECTION_SPIRAL adversarial pattern detection', () => {
-	let detectAdversarialPatterns: (text: string) => Array<{ pattern: string; severity: string; confidence: string }>;
+	let detectAdversarialPatterns: (
+		text: string,
+	) => Array<{ pattern: string; severity: string; confidence: string }>;
 
 	beforeEach(async () => {
 		const mod = await import('../hooks/adversarial-detector');
@@ -589,7 +591,9 @@ describe('REJECTION_SPIRAL adversarial pattern detection', () => {
 	});
 
 	it('detects "rejected again for the 3rd time"', () => {
-		const matches = detectAdversarialPatterns('This task was rejected again for the 3rd time.');
+		const matches = detectAdversarialPatterns(
+			'This task was rejected again for the 3rd time.',
+		);
 		const spiral = matches.filter((m) => m.pattern === 'REJECTION_SPIRAL');
 		expect(spiral.length).toBeGreaterThan(0);
 		expect(spiral[0].severity).toBe('HIGH');
@@ -597,19 +601,25 @@ describe('REJECTION_SPIRAL adversarial pattern detection', () => {
 	});
 
 	it('detects "same feedback again" pattern', () => {
-		const matches = detectAdversarialPatterns('Getting the same feedback again from the reviewer.');
+		const matches = detectAdversarialPatterns(
+			'Getting the same feedback again from the reviewer.',
+		);
 		const spiral = matches.filter((m) => m.pattern === 'REJECTION_SPIRAL');
 		expect(spiral.length).toBeGreaterThan(0);
 	});
 
 	it('detects reviewer feedback loop pattern', () => {
-		const matches = detectAdversarialPatterns('We are stuck in a loop with the reviewer feedback.');
+		const matches = detectAdversarialPatterns(
+			'We are stuck in a loop with the reviewer feedback.',
+		);
 		const spiral = matches.filter((m) => m.pattern === 'REJECTION_SPIRAL');
 		expect(spiral.length).toBeGreaterThan(0);
 	});
 
 	it('does not fire on unrelated text', () => {
-		const matches = detectAdversarialPatterns('The implementation looks good and tests pass.');
+		const matches = detectAdversarialPatterns(
+			'The implementation looks good and tests pass.',
+		);
 		const spiral = matches.filter((m) => m.pattern === 'REJECTION_SPIRAL');
 		expect(spiral.length).toBe(0);
 	});

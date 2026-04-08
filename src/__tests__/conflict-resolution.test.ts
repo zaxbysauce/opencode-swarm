@@ -1,6 +1,6 @@
 import { beforeEach, describe, expect, it } from 'bun:test';
-import { ensureAgentSession, resetSwarmState } from '../state';
 import { resolveAgentConflict } from '../hooks/conflict-resolution';
+import { ensureAgentSession, resetSwarmState } from '../state';
 
 const SESSION_ID = 'test-conflict-session';
 

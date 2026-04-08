@@ -57,5 +57,8 @@ export function resolveAgentConflict(input: ResolveAgentConflictInput): void {
 		resolutionPath,
 		summary: input.summary,
 	};
-	emit('agent_conflict_detected' as Parameters<typeof emit>[0], event as unknown as Record<string, unknown>);
+	emit(
+		'agent_conflict_detected' as Parameters<typeof emit>[0],
+		event as unknown as Record<string, unknown>,
+	);
 }

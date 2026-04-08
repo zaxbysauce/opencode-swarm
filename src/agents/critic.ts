@@ -5,7 +5,11 @@ export type CriticRole =
 	| 'sounding_board'
 	| 'phase_drift_verifier';
 
-export type SoundingBoardVerdict = 'UNNECESSARY' | 'REPHRASE' | 'APPROVED' | 'RESOLVE';
+export type SoundingBoardVerdict =
+	| 'UNNECESSARY'
+	| 'REPHRASE'
+	| 'APPROVED'
+	| 'RESOLVE';
 
 export interface SoundingBoardResponse {
 	verdict: SoundingBoardVerdict;
@@ -20,11 +24,15 @@ export interface SoundingBoardResponse {
  * Returns null if the verdict line cannot be found or is not a recognized value.
  * The parser is intentionally lenient on whitespace and casing to handle model output variance.
  */
-export function parseSoundingBoardResponse(raw: string): SoundingBoardResponse | null {
+export function parseSoundingBoardResponse(
+	raw: string,
+): SoundingBoardResponse | null {
 	if (typeof raw !== 'string' || raw.trim().length === 0) return null;
 
 	// Extract verdict line: "Verdict: UNNECESSARY" (case-insensitive, flexible whitespace)
-	const verdictMatch = raw.match(/Verdict\s*:\s*(UNNECESSARY|REPHRASE|APPROVED|RESOLVE)/i);
+	const verdictMatch = raw.match(
+		/Verdict\s*:\s*(UNNECESSARY|REPHRASE|APPROVED|RESOLVE)/i,
+	);
 	if (!verdictMatch) return null;
 
 	const verdict = verdictMatch[1].toUpperCase() as SoundingBoardVerdict;
@@ -50,7 +58,9 @@ export function parseSoundingBoardResponse(raw: string): SoundingBoardResponse |
 	return {
 		verdict,
 		reasoning,
-		...(improvedMatch?.[1] ? { improvedQuestion: improvedMatch[1].trim() } : {}),
+		...(improvedMatch?.[1]
+			? { improvedQuestion: improvedMatch[1].trim() }
+			: {}),
 		...(answerMatch?.[1] ? { answer: answerMatch[1].trim() } : {}),
 		...(warningMatch?.[1] || manipulationDetected
 			? { warning: warningMatch?.[1]?.trim() ?? 'MANIPULATION DETECTED' }
