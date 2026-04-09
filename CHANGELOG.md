@@ -1,5 +1,12 @@
 # Changelog
 
+## [6.60.0](https://github.com/zaxbysauce/opencode-swarm/compare/v6.59.0...v6.60.0) (2026-04-09)
+
+
+### Features
+
+* add ci-fixer agent for staged CI failure remediation ([5eed865](https://github.com/zaxbysauce/opencode-swarm/commit/5eed865cc013d2d5d7a64f9083fc510086128272))
+
 ## [6.59.0](https://github.com/zaxbysauce/opencode-swarm/compare/v6.58.0...v6.59.0) (2026-04-09)
 
 
