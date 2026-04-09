@@ -7,12 +7,40 @@ import {
 	existsSync,
 	mkdirSync,
 	mkdtempSync,
+	readdirSync,
 	readFileSync,
 	rmSync,
 	writeFileSync,
 } from 'node:fs';
 import os from 'node:os';
 import path from 'node:path';
+
+/**
+ * After /swarm close, plan.json is moved to the timestamped archive bundle and
+ * removed from .swarm/ so the next session starts clean. Tests that used to
+ * read .swarm/plan.json directly must now read the archived copy.
+ */
+function readArchivedPlanJson(testDirectory: string): {
+	title?: string;
+	phases: Array<{
+		id: number;
+		name?: string;
+		status: string;
+		tasks: Array<{ id: string; status: string }>;
+	}>;
+} {
+	const archiveRoot = path.join(testDirectory, '.swarm', 'archive');
+	const entries = readdirSync(archiveRoot, { withFileTypes: true })
+		.filter((e) => e.isDirectory() && e.name.startsWith('swarm-'))
+		.map((e) => e.name)
+		.sort();
+	if (entries.length === 0) {
+		throw new Error(`No archive bundle found in ${archiveRoot}`);
+	}
+	const latest = entries[entries.length - 1];
+	const archivedPlanPath = path.join(archiveRoot, latest, 'plan.json');
+	return JSON.parse(readFileSync(archivedPlanPath, 'utf-8'));
+}
 
 // Mock dependencies before importing the module
 const mockExecuteWriteRetro = mock(async (_args: unknown, _directory: string) =>
@@ -254,9 +282,7 @@ describe('handleCloseCommand', () => {
 
 			await handleCloseCommand(testDir, []);
 
-			const updatedPlan = JSON.parse(
-				readFileSync(path.join(testDir, '.swarm', 'plan.json'), 'utf-8'),
-			);
+			const updatedPlan = readArchivedPlanJson(testDir);
 			expect(updatedPlan.phases[0].status).toBe('closed');
 			expect(updatedPlan.phases[0].tasks[0].status).toBe('complete');
 			expect(updatedPlan.phases[0].tasks[1].status).toBe('closed');
@@ -288,9 +314,7 @@ describe('handleCloseCommand', () => {
 			const result = await handleCloseCommand(testDir, []);
 
 			expect(result).toContain('finalized');
-			const updatedPlan = JSON.parse(
-				readFileSync(path.join(testDir, '.swarm', 'plan.json'), 'utf-8'),
-			);
+			const updatedPlan = readArchivedPlanJson(testDir);
 			expect(updatedPlan.phases[0].status).toBe('complete');
 			expect(updatedPlan.phases[1].status).toBe('closed');
 			expect(updatedPlan.phases[1].tasks[0].status).toBe('closed');
@@ -326,9 +350,7 @@ describe('handleCloseCommand', () => {
 
 			await handleCloseCommand(testDir, []);
 
-			const updatedPlan = JSON.parse(
-				readFileSync(path.join(testDir, '.swarm', 'plan.json'), 'utf-8'),
-			);
+			const updatedPlan = readArchivedPlanJson(testDir);
 			expect(updatedPlan.phases[0].status).toBe('completed');
 			expect(updatedPlan.phases[0].tasks[0].status).toBe('completed');
 			expect(updatedPlan.phases[1].status).toBe('closed');
@@ -359,9 +381,7 @@ describe('handleCloseCommand', () => {
 
 			await handleCloseCommand(testDir, []);
 
-			const updatedPlan = JSON.parse(
-				readFileSync(path.join(testDir, '.swarm', 'plan.json'), 'utf-8'),
-			);
+			const updatedPlan = readArchivedPlanJson(testDir);
 			// When closing, all non-complete phases get closed
 			// complete phases remain complete since allDone is false (due to in_progress phase)
 			expect(updatedPlan.phases[0].status).toBe('complete');
@@ -553,7 +573,7 @@ describe('handleCloseCommand', () => {
 			expect(mockArchiveEvidence).toHaveBeenCalledTimes(1);
 		});
 
-		it('should be safe to run twice - second run returns already closed', async () => {
+		it('should be safe to run twice - second run operates as plan-free close', async () => {
 			const planData = {
 				title: 'Test Project',
 				phases: [
@@ -570,20 +590,20 @@ describe('handleCloseCommand', () => {
 				JSON.stringify(planData),
 			);
 
-			// First run
+			// First run — has an in-progress phase, archives & removes plan.json
 			const result1 = await handleCloseCommand(testDir, []);
 			expect(result1).toContain('finalized');
 
-			// Second run - should succeed and return "terminal state"
+			// Second run — plan.json was archived by the first run, so this behaves
+			// as a plan-free close. The command remains idempotent/safe to re-run.
 			const result2 = await handleCloseCommand(testDir, []);
 
-			// Second run succeeds (idempotent)
-			expect(result2).toContain('Session finalized');
-			expect(result2).toContain('terminal state');
+			expect(result2).toContain('Swarm finalized');
+			expect(result2).toContain('0 phase(s) closed');
 			// Cleanup runs twice (once per run)
 			expect(mockArchiveEvidence).toHaveBeenCalledTimes(2);
-			// Retros only called once (first run had in-progress phase)
-			expect(mockExecuteWriteRetro).toHaveBeenCalledTimes(1);
+			// First run wrote 1 phase retro; second run wrote 1 session-level retro
+			expect(mockExecuteWriteRetro).toHaveBeenCalledTimes(2);
 		});
 
 		it('should handle plan.json with no phases', async () => {
@@ -725,12 +745,21 @@ describe('handleCloseCommand', () => {
 				expect(result).toContain('finalized');
 			});
 
-			it('PF2: No plan.json → retros NOT called (no in-progress phases)', async () => {
+			it('PF2: No plan.json → session-level retro IS called with retro-session task_id', async () => {
 				// No plan.json — plan-free session
 				await handleCloseCommand(testDir, []);
 
-				// No retros should be called since there are no phases
-				expect(mockExecuteWriteRetro).not.toHaveBeenCalled();
+				// Session-level retro is called exactly once for plan-free closes so
+				// the archive + knowledge curator still have something to record.
+				expect(mockExecuteWriteRetro).toHaveBeenCalledTimes(1);
+				expect(mockExecuteWriteRetro).toHaveBeenCalledWith(
+					expect.objectContaining({
+						phase: 1,
+						task_id: 'retro-session',
+						metadata: expect.objectContaining({ session_scope: 'plan_free' }),
+					}),
+					expect.any(String),
+				);
 			});
 
 			it('PF3: No plan.json → archiveEvidence IS called', async () => {
@@ -784,8 +813,132 @@ describe('handleCloseCommand', () => {
 				expect(result).not.toContain('terminal state');
 				// Cleanup runs
 				expect(mockArchiveEvidence).toHaveBeenCalledTimes(1);
-				// No phases = no retros
+				// No phases AND plan exists → no retros (session retro only runs when
+				// !planExists)
 				expect(mockExecuteWriteRetro).not.toHaveBeenCalled();
+			});
+
+			it('PF8: Plan-free --force → session retro flagged as forced', async () => {
+				await handleCloseCommand(testDir, ['--force']);
+
+				expect(mockExecuteWriteRetro).toHaveBeenCalledTimes(1);
+				const callArgs = mockExecuteWriteRetro.mock.calls[0]?.[0] as {
+					summary: string;
+					task_id: string;
+				};
+				expect(callArgs.task_id).toBe('retro-session');
+				expect(callArgs.summary).toContain('force');
+			});
+
+			it('PF9: Phased close does NOT write session retro (phase retros are enough)', async () => {
+				const planData = {
+					title: 'Test Project',
+					phases: [
+						{
+							id: 1,
+							name: 'Phase 1',
+							status: 'in_progress',
+							tasks: [{ id: '1.1', status: 'complete' }],
+						},
+					],
+				};
+				writeFileSync(
+					path.join(testDir, '.swarm', 'plan.json'),
+					JSON.stringify(planData),
+				);
+
+				await handleCloseCommand(testDir, []);
+
+				// Exactly 1 retro (the phase retro) — session retro must NOT fire
+				expect(mockExecuteWriteRetro).toHaveBeenCalledTimes(1);
+				const callArgs = mockExecuteWriteRetro.mock.calls[0]?.[0] as {
+					task_id?: string;
+				};
+				expect(callArgs.task_id).toBeUndefined();
+			});
+		});
+
+		// =====================================================================
+		// Group: plan.json archive-and-remove (Claim E)
+		// =====================================================================
+
+		describe('plan.json archive-and-remove (Claim E)', () => {
+			it('AR1: After close, plan.json no longer exists in .swarm/', async () => {
+				const planData = {
+					title: 'Test Project',
+					phases: [
+						{
+							id: 1,
+							name: 'Phase 1',
+							status: 'in_progress',
+							tasks: [{ id: '1.1', status: 'complete' }],
+						},
+					],
+				};
+				const planPath = path.join(testDir, '.swarm', 'plan.json');
+				writeFileSync(planPath, JSON.stringify(planData));
+
+				await handleCloseCommand(testDir, []);
+
+				expect(existsSync(planPath)).toBe(false);
+			});
+
+			it('AR2: After close, plan.json IS present in the archive bundle', async () => {
+				const planData = {
+					title: 'Test Project',
+					phases: [
+						{
+							id: 1,
+							name: 'Phase 1',
+							status: 'in_progress',
+							tasks: [{ id: '1.1', status: 'complete' }],
+						},
+					],
+				};
+				writeFileSync(
+					path.join(testDir, '.swarm', 'plan.json'),
+					JSON.stringify(planData),
+				);
+
+				await handleCloseCommand(testDir, []);
+
+				const archived = readArchivedPlanJson(testDir);
+				expect(archived.title).toBe('Test Project');
+				expect(archived.phases[0].status).toBe('closed');
+			});
+
+			it('AR3: Terminal-state plan is also archived and removed', async () => {
+				const planData = {
+					title: 'Test Project',
+					phases: [
+						{
+							id: 1,
+							name: 'Phase 1',
+							status: 'complete',
+							tasks: [{ id: '1.1', status: 'complete' }],
+						},
+					],
+				};
+				const planPath = path.join(testDir, '.swarm', 'plan.json');
+				writeFileSync(planPath, JSON.stringify(planData));
+
+				await handleCloseCommand(testDir, []);
+
+				// plan.json removed from active dir
+				expect(existsSync(planPath)).toBe(false);
+				// But present in archive
+				const archived = readArchivedPlanJson(testDir);
+				expect(archived.phases[0].status).toBe('complete');
+			});
+
+			it('AR4: plan-free close does NOT warn about failed plan.json archive', async () => {
+				// No plan.json written — plan-free session
+				const result = await handleCloseCommand(testDir, []);
+
+				// Because plan.json never existed, it cannot be "preserved because not
+				// archived". The preserve warning is only for files that existed but
+				// failed to copy.
+				expect(result).not.toContain('Preserved plan.json');
 			});
 		});
 

@@ -22,6 +22,7 @@ import {
 	type LedgerEventInput,
 	LedgerStaleWriterError,
 	ledgerExists,
+	loadLastApprovedPlan,
 	readLedgerEvents,
 	replayFromLedger,
 	takeSnapshotEvent,
@@ -304,6 +305,20 @@ export async function loadPlan(directory: string): Promise<RuntimePlan | null> {
 										return rebuilt;
 									}
 								} catch (replayError) {
+									// Ledger replay failed — try the critic-approved immutable
+									// snapshot as a last-resort fallback before returning stale state.
+									try {
+										const approved = await loadLastApprovedPlan(directory);
+										if (approved) {
+											await rebuildPlan(directory, approved.plan);
+											warn(
+												`[loadPlan] Ledger replay failed (${replayError instanceof Error ? replayError.message : String(replayError)}) — recovered from critic-approved snapshot seq=${approved.seq}.`,
+											);
+											return approved.plan;
+										}
+									} catch {
+										// Fall through to the stale-plan warning below
+									}
 									warn(
 										`[loadPlan] Ledger replay failed during hash-mismatch rebuild: ${replayError instanceof Error ? replayError.message : String(replayError)}. Returning stale plan.json. To recover: check SWARM_PLAN.md for a checkpoint, or run /swarm reset-session.`,
 									);
@@ -460,6 +475,26 @@ export async function loadPlan(directory: string): Promise<RuntimePlan | null> {
 		if (rebuilt) {
 			await savePlan(directory, rebuilt);
 			return rebuilt;
+		}
+
+		// Step 4b: ledger replay failed but a critic-approved immutable snapshot
+		// may still exist. This is the last-resort fallback requested by the user:
+		// "allow the architect to fall back to a plan file that cannot be changed".
+		// write_drift_evidence captures these snapshots on every APPROVED verdict,
+		// tagged source='critic_approved'.
+		try {
+			const approved = await loadLastApprovedPlan(directory);
+			if (approved) {
+				warn(
+					`[loadPlan] Ledger replay returned no plan — recovered from critic-approved snapshot seq=${approved.seq} timestamp=${approved.timestamp}.`,
+				);
+				await savePlan(directory, approved.plan);
+				return approved.plan;
+			}
+		} catch (recoveryError) {
+			warn(
+				`[loadPlan] Approved-snapshot recovery failed: ${recoveryError instanceof Error ? recoveryError.message : String(recoveryError)}`,
+			);
 		}
 	}
 	return null;

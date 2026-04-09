@@ -49,11 +49,16 @@ const ARCHIVE_ARTIFACTS = [
 
 /**
  * Active-state files/dirs to clean after archiving so future swarms start clean.
- * plan.json is NOT deleted because its terminal state (all phases closed) is safe
- * and some workflows inspect it after close. It is archived and overwritten by
- * the next /swarm plan invocation.
+ *
+ * plan.json and plan.md are both removed so the next /swarm session starts with
+ * a clean slate. The user's original ask for /swarm close was to "archive plan
+ * files so future swarms aren't confused" — leaving a terminal-state plan.json
+ * in place violates that invariant because the next session's loadPlan() would
+ * pick it up as if it were still active. The archive-first guard below ensures
+ * we only delete files we successfully copied to the archive bundle.
  */
 const ACTIVE_STATE_TO_CLEAN = [
+	'plan.json',
 	'plan.md',
 	'events.jsonl',
 	'handoff.md',
@@ -172,6 +177,49 @@ export async function handleCloseCommand(
 					closedTasks.push(task.id);
 				}
 			}
+		}
+	}
+
+	// Session-level retrospective for plan-free closes. The user's original ask
+	// included "run retrospective" — the per-phase loop above skips this case
+	// because there are no phases. We write a dedicated retro-session bundle so
+	// the archive + knowledge curator still have something to work with.
+	const wrotePhaseRetro = closedPhases.length > 0;
+	if (!wrotePhaseRetro && !planExists) {
+		try {
+			const sessionRetroResult = await executeWriteRetro(
+				{
+					phase: 1,
+					task_id: 'retro-session',
+					summary: isForced
+						? 'Plan-free session force-closed via /swarm close --force'
+						: 'Plan-free session closed via /swarm close',
+					task_count: 1,
+					task_complexity: 'simple',
+					total_tool_calls: 0,
+					coder_revisions: 0,
+					reviewer_rejections: 0,
+					test_failures: 0,
+					security_findings: 0,
+					integration_issues: 0,
+					metadata: { session_scope: 'plan_free' },
+				},
+				directory,
+			);
+			try {
+				const parsed = JSON.parse(sessionRetroResult);
+				if (parsed.success !== true) {
+					warnings.push(
+						`Session retrospective write failed: ${parsed.message ?? 'unknown'}`,
+					);
+				}
+			} catch {
+				// Non-JSON response is not an error
+			}
+		} catch (retroError) {
+			warnings.push(
+				`Session retrospective write threw: ${retroError instanceof Error ? retroError.message : String(retroError)}`,
+			);
 		}
 	}
 

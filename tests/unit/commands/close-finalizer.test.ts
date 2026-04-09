@@ -198,6 +198,7 @@ describe('handleCloseCommand — finalizer stages', () => {
 		it('removes active-state files after archiving', async () => {
 			// Create all active-state files that should be cleaned
 			const activeFilesRemoved = [
+				'plan.json',
 				'plan.md',
 				'events.jsonl',
 				'handoff.md',
@@ -205,19 +206,19 @@ describe('handleCloseCommand — finalizer stages', () => {
 				'handoff-consumed.md',
 				'escalation-report.md',
 			];
+			// Write valid plan first so writePlan sets plan.json correctly,
+			// then add the rest.
+			writePlan();
 			for (const f of activeFilesRemoved) {
+				if (f === 'plan.json') continue; // written by writePlan()
 				writeFileSync(path.join(swarmDir(), f), `content of ${f}`);
 			}
-			// plan.json is kept (terminal state is safe) — write valid plan
-			writePlan();
 
 			await handleCloseCommand(testDir, []);
 
 			for (const f of activeFilesRemoved) {
 				expect(existsSync(path.join(swarmDir(), f))).toBe(false);
 			}
-			// plan.json is preserved with terminal status
-			expect(existsSync(path.join(swarmDir(), 'plan.json'))).toBe(true);
 		});
 
 		it('future swarms start from clean state — no stale plan.json or events.jsonl', async () => {
@@ -226,8 +227,9 @@ describe('handleCloseCommand — finalizer stages', () => {
 
 			await handleCloseCommand(testDir, []);
 
-			// Active-state artifacts must be gone (plan.json is kept since terminal state is safe)
-			expect(existsSync(path.join(swarmDir(), 'plan.json'))).toBe(true);
+			// All active-state artifacts must be gone so the next /swarm session
+			// starts with a clean slate. plan.json is now archived+removed.
+			expect(existsSync(path.join(swarmDir(), 'plan.json'))).toBe(false);
 			expect(existsSync(path.join(swarmDir(), 'events.jsonl'))).toBe(false);
 
 			// .swarm/ itself must still exist (archive, context.md, etc.)
@@ -353,21 +355,30 @@ describe('handleCloseCommand — finalizer stages', () => {
 		it('only files in archivedActiveStateFiles set are deleted during cleanup', async () => {
 			// This test verifies the core safety invariant: clean stage only
 			// deletes files that were successfully copied to the archive.
-
-			// Create plan.json (archived but NOT in ACTIVE_STATE_TO_CLEAN)
-			// and events.jsonl (archived AND in ACTIVE_STATE_TO_CLEAN)
+			//
+			// With Claim E, plan.json is now also in ACTIVE_STATE_TO_CLEAN so
+			// both plan.json and events.jsonl should be archived AND deleted.
+			// The context.md file is in ARCHIVE_ARTIFACTS but NOT in
+			// ACTIVE_STATE_TO_CLEAN — it should be archived but NOT deleted.
 			writePlan();
 			writeFileSync(
 				path.join(swarmDir(), 'events.jsonl'),
 				'{"event":"test"}\n',
 			);
+			writeFileSync(
+				path.join(swarmDir(), 'context.md'),
+				'# Context\nPreserved across close.',
+			);
 
 			const result = await handleCloseCommand(testDir, []);
 
-			// plan.json must still exist (intentionally not in ACTIVE_STATE_TO_CLEAN)
-			expect(existsSync(path.join(swarmDir(), 'plan.json'))).toBe(true);
-			// events.jsonl must be deleted (it was archived AND is in ACTIVE_STATE_TO_CLEAN)
+			// plan.json was archived AND is in ACTIVE_STATE_TO_CLEAN → deleted
+			expect(existsSync(path.join(swarmDir(), 'plan.json'))).toBe(false);
+			// events.jsonl was archived AND is in ACTIVE_STATE_TO_CLEAN → deleted
 			expect(existsSync(path.join(swarmDir(), 'events.jsonl'))).toBe(false);
+			// context.md is in ARCHIVE_ARTIFACTS only — must be reset/kept, not
+			// deleted, because close.ts writes a fresh context.md afterwards.
+			expect(existsSync(path.join(swarmDir(), 'context.md'))).toBe(true);
 			expect(result).toContain('Archived');
 		});
 	});
