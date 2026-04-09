@@ -71,6 +71,13 @@ const DEFAULT_STRING_PATTERNS = [
 	{ pattern: /`[^`]*\bstub\b[^`]*`/i, rule_id: 'placeholder/text-placeholder' },
 ];
 
+// Files that are allowlisted from ALL placeholder scanning
+// These files contain legitimate patterns that would otherwise trigger false positives
+const FILE_ALLOWLIST = [
+	'src/tools/declare-scope.ts', // validateTaskIdFormat returns undefined as success indicator
+	'src/tools/placeholder-scan.ts', // self-referential rule definitions would always match
+];
+
 // Default deny patterns (code stubs)
 const DEFAULT_CODE_PATTERNS = [
 	{
@@ -282,6 +289,104 @@ function scanPlanFileForPlaceholders(
 }
 
 /**
+ * Check if a `return undefined;` is a validation pattern (not a stub).
+ * Returns true if the function has:
+ * - JSDoc `@returns` that documents undefined as valid
+ * - Error string returns in the same function (validation pattern)
+ */
+function isValidationPattern(lines: string[], currentLineIdx: number): boolean {
+	// Only applies to `return undefined;`
+	const currentLine = lines[currentLineIdx];
+	if (!/return\s+undefined\s*;/.test(currentLine)) {
+		return false;
+	}
+
+	// Search backwards for function declaration and JSDoc (limit search to 50 lines)
+	const MAX_SEARCH_LINES = 50;
+	let jsdocContent = '';
+	let foundFunction = false;
+	const functionKeywords =
+		/^(?:export\s+)?(?:async\s+)?function\s+\w+|^(?:export\s+)?(?:async\s+)?(?:\w+\s+)?\w+\s*\([^)]*\)\s*(?::\s*\w+\s*)?(?:\{|$)/;
+
+	for (
+		let i = currentLineIdx - 1;
+		i >= 0 && i >= currentLineIdx - MAX_SEARCH_LINES;
+		i--
+	) {
+		const line = lines[i].trim();
+
+		// Look for JSDoc comment content
+		if (line.startsWith('*') || line.startsWith('*/')) {
+			// Collect JSDoc lines
+			const jsdocLine = line.replace(/^\*?\s?/, '').replace(/^\*\//, '');
+			jsdocContent = jsdocLine + '\n' + jsdocContent;
+		} else if (line.includes('*/')) {
+			// End of JSDoc block
+			break;
+		} else if (functionKeywords.test(line) || line.startsWith('function ')) {
+			foundFunction = true;
+			break;
+		} else if (
+			line.length > 0 &&
+			!line.startsWith('//') &&
+			!line.startsWith('*')
+		) {
+			// Non-empty, non-comment line that's not JSDoc or function - stop searching
+			break;
+		}
+	}
+
+	// Check JSDoc for `@returns undefined` or `@returns {undefined}`
+	if (jsdocContent) {
+		const returnsPattern =
+			/@returns\s*(?:\{[^}]*\})?\s*(?:undefined|[A-Za-z_]\w*)/i;
+		if (returnsPattern.test(jsdocContent)) {
+			return true;
+		}
+	}
+
+	// Search forward in the same function for error returns
+	// (we already know this is `return undefined;`, now check if there's also error returns)
+	let braceCount = 0;
+	let inFunction = false;
+
+	// Count braces from function start to `return undefined;`
+	for (let i = currentLineIdx; i >= 0; i--) {
+		const line = lines[i];
+		for (const char of line) {
+			if (char === '{') {
+				braceCount++;
+				inFunction = true;
+			} else if (char === '}') {
+				braceCount--;
+			}
+		}
+		if (inFunction && braceCount === 0 && i < currentLineIdx) {
+			break;
+		}
+	}
+
+	// Check if this `return undefined;` coexists with error string returns
+	// Look for patterns like: return "error", return `error`, return 'error'
+	const errorReturnPattern = /return\s+["'`][[:ascii:]]*["'`]\s*;/;
+	for (
+		let i = currentLineIdx - 1;
+		i >= 0 && i >= currentLineIdx - MAX_SEARCH_LINES;
+		i--
+	) {
+		const line = lines[i].trim();
+		if (functionKeywords.test(line) || line.startsWith('function ')) {
+			break;
+		}
+		if (errorReturnPattern.test(line)) {
+			return true;
+		}
+	}
+
+	return false;
+}
+
+/**
  * Regex-based scanner for comments and strings
  * Works for any language using comment markers
  */
@@ -367,6 +472,16 @@ function scanWithRegex(
 				line.includes('expect(');
 
 			if (!isTestLike && pattern.test(line)) {
+				// For `code-stub-return` with `return undefined;`, check if it's a validation pattern
+				if (
+					rule_id === 'placeholder/code-stub-return' &&
+					/return\s+undefined\s*;/.test(line)
+				) {
+					if (isValidationPattern(lines, i)) {
+						continue;
+					}
+				}
+
 				findings.push({
 					path: filePath,
 					line: lineNumber,
@@ -546,6 +661,15 @@ export async function placeholderScan(
 
 		// Check if allowed by globs (e.g., test files)
 		if (isAllowedByGlobs(filePath, allow_globs)) {
+			continue;
+		}
+
+		// Check if file is in the internal allowlist (skips all findings for this file)
+		// Normalize to relative path for comparison with allowlist entries
+		const relativeFilePath = path
+			.relative(directory, fullPath)
+			.replace(/\\/g, '/');
+		if (FILE_ALLOWLIST.some((allowed) => relativeFilePath.endsWith(allowed))) {
 			continue;
 		}
 

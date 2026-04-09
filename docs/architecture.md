@@ -47,9 +47,93 @@ Swarm enforces discipline:
 - Maintains project memory
 
 ### Explorer: The Eyes
-- Fast codebase scanner
-- Identifies structure, languages, frameworks, key files
-- Read-only (cannot write code)
+
+Fast codebase scanner and factual mapping agent. Explorer is **strictly observational** — it reports what is observed without judgment, verdict, or directive.
+
+#### Identity Rules
+- Explorer **analyzes directly** — does NOT delegate to sub-agents
+- Output is under 2000 characters
+- Read-only: cannot write, edit, or patch code
+
+#### Analysis Protocol (Phase 2 Hardening)
+
+Explorer systematically reports across four dimensions:
+
+| Dimension | Content |
+|-----------|---------|
+| **STRUCTURE** | Entry points and call chains (≤3 levels), public API surface (exports with signatures), internal/external dependencies |
+| **PATTERNS** | Design patterns (factory, observer, strategy), error handling approach (throw/Result/error callback), state management (global/module/passed), configuration pattern (env/config/hardcoded) |
+| **COMPLEXITY INDICATORS** | Structural complexity — cyclomatic complexity, deep nesting, complex control flow, large files (>500 lines), deep inheritance/type hierarchies |
+| **RUNTIME/BEHAVIORAL CONCERNS** | Missing error handling paths, platform-specific assumptions (path separators, line endings, OS APIs) |
+
+#### Output Sections (Phase 2)
+
+| Section | When Populated | Example |
+|---------|----------------|---------|
+| `OBSERVED CHANGES` | INPUT referenced specific files | What changed in those targets |
+| `CONSUMERS_AFFECTED` | Integration impact mode | Files importing changed symbols |
+| `RELEVANT CONSTRAINTS` | Always | Architectural patterns, error handling coverage, platform assumptions, established conventions |
+| `FOLLOW-UP CANDIDATE AREAS` | Always | Observable conditions warranting later review (e.g., "function has 12 parameters — consider splitting") |
+| `DOMAINS` | Always | Relevant SME domains (typescript, nodejs, powershell, etc.) |
+
+#### Judgmental Language Removed (Phase 2)
+
+Explorer output uses **observational language only**. The following were removed:
+- `VERDICT` → replaced with `COMPATIBILITY SIGNALS` (COMPATIBLE / INCOMPATIBLE / UNCERTAIN)
+- `MIGRATION_NEEDED` → replaced with `MIGRATION_SURFACE` (observable call signatures affected)
+- `REVIEW NEEDED`, `dead`, `missing` labels → removed
+- All directive language → recast as observable conditions
+
+#### Integration Impact Analysis Mode
+
+Activates when delegated with "Integration impact analysis" or INPUT lists contract changes. Uses `diff` + `imports` tools to classify each change as BREAKING or COMPATIBLE and list all affected consumer files.
+
+#### Documentation Discovery Mode
+
+Automatically activates during codebase reality check at plan ingestion. Uses `doc_scan` to build a manifest index of project docs, then `doc_extract` to surface relevant constraints per task using Jaccard bigram similarity scoring.
+
+#### Curator Modes
+
+Explorer also operates in two curator modes for phase boundary consolidation:
+
+| Mode | Trigger | Purpose |
+|------|---------|---------|
+| `CURATOR_INIT` | Session start | Consolidates prior session knowledge into architect briefing; flags contradictions |
+| `CURATOR_PHASE` | Phase complete | Extends running digest with phase outcomes; observes workflow deviations and knowledge update candidates |
+
+Both curator modes are dispatched via the standard `MODE: EXPLORER` with the appropriate curator mode trigger (`CURATOR_INIT` or `CURATOR_PHASE`). Explorer uses `OBSERVATIONS` (not `KNOWLEDGE_UPDATES`) and reports with observational language — no directives.
+
+#### Role Boundary Hardening (Phase 3–5)
+
+Explorer's behavioral boundaries were tightened across Phases 3–5 to eliminate residual routing authority and preserve its discovery function.
+
+**Explorer's scope is strictly factual.** Explorer reports what is observed without judgment, verdict, or directive. Explorer does not route tasks, prioritize findings, or declare areas out-of-scope.
+
+**Architect owns all routing decisions.** `DOMAINS` and `FOLLOW-UP CANDIDATE AREAS` are Explorer output fields — they are informational hints for the architect to consider. Explorer does not delegate, dispatch, or determine next steps. Only the architect decides what to act on.
+
+**Reviewer must validate Explorer findings.** Explorer observations are not authoritative. Reviewer and other consumers of Explorer output must independently verify factual claims before using them in decisions or implementations.
+
+**Critic remains a pure challenge layer.** Critic does not map code, scan files, or make routing decisions. Its role is to challenge the architect's plan — not to replace the explorer.
+
+**Speed preservation is a design goal.** Explorer's efficiency is intentional. Lightweight, fast scans serve the architect better than exhaustive analysis that delays routing decisions.
+
+**Explorer output is for architect consumption, not autonomous action.** No agent other than the architect should treat Explorer output as a directive or verdict.
+
+**Test coverage.** Role boundary hardening is validated by `explorer-role-boundary.test.ts` (25 tests) and `explorer-consumer-contract.test.ts` (58 tests). All 182 explorer tests pass. The test suite enforces that Explorer output contains only observational language, that `VERDICT` and `MIGRATION_NEEDED` never appear, and that routing authority is never asserted by Explorer.
+
+**Before and after examples:**
+
+The following judgmental language was systematically removed from Explorer output and replaced with observational language only:
+
+| Removed (judgmental) | Added (observational) |
+|-----------------------|------------------------|
+| `VERDICT: INCOMPATIBLE — needs rewrite` | `COMPATIBILITY SIGNALS: INCOMPATIBLE — observable call signatures affected: 3` |
+| `VERDICT: COMPATIBLE — safe to use` | `COMPATIBILITY SIGNALS: COMPATIBLE — no observable call signature conflicts detected` |
+| `REVIEW NEEDED — dead code` | `FOLLOW-UP CANDIDATE AREAS: function has 12 parameters, 8 of which are unused in current call sites` |
+| `MIGRATION_NEEDED: X must be rewritten` | `MIGRATION_SURFACE: 5 call sites reference the affected function signature` |
+| `REVIEW NEEDED — missing labels` | `FOLLOW-UP CANDIDATE AREAS: 3 exported functions lack doc comments` |
+
+All directive language (must, should, needs, verdict, review needed, dead) was recast as observable conditions. Explorer reports facts; the architect decides what to do with them.
 
 ### Designer: The Blueprint
 - UI/UX specification agent
