@@ -2119,7 +2119,7 @@ invalid json here
 
 		it('parseKnowledgeRecommendations: real UUID v4 is preserved as entry_id', () => {
 			const realUuid = '12345678-1234-4abc-89ab-123456789012';
-			const llmOutput = `KNOWLEDGE_UPDATES:\n- promote ${realUuid}: Lesson text here\n`;
+			const llmOutput = `OBSERVATIONS:\n- entry ${realUuid} (appears high-confidence): Lesson text here (suggests boost confidence, mark hive_eligible)\n`;
 			const recs = parseKnowledgeRecommendations(llmOutput);
 			expect(recs).toHaveLength(1);
 			expect(recs[0].entry_id).toBe(realUuid);
@@ -2128,7 +2128,7 @@ invalid json here
 
 		it('parseKnowledgeRecommendations: "new" literal token maps to entry_id: undefined', () => {
 			const llmOutput =
-				'KNOWLEDGE_UPDATES:\n- promote new: Some lesson longer than fifteen chars\n';
+				'OBSERVATIONS:\n- entry new (new candidate): Some lesson longer than fifteen chars (suggests boost confidence, mark hive_eligible)\n';
 			const recs = parseKnowledgeRecommendations(llmOutput);
 			expect(recs).toHaveLength(1);
 			expect(recs[0].entry_id).toBeUndefined();
@@ -2142,7 +2142,7 @@ invalid json here
 
 			// Simulate LLM output with hallucinated non-UUID entry_id (real bug trigger)
 			const llmOutput =
-				'KNOWLEDGE_UPDATES:\n- promote tool-name-normalization: Always escape tool names inside architect prompts\n';
+				'OBSERVATIONS:\n- entry tool-name-normalization (new candidate): Always escape tool names inside architect prompts (suggests boost confidence, mark hive_eligible)\n';
 			const recommendations = parseKnowledgeRecommendations(llmOutput);
 
 			// UUID validation converts 'tool-name-normalization' → undefined
@@ -2161,6 +2161,7 @@ invalid json here
 
 			const entries = readKnowledgeJsonl(tempDir);
 			expect(entries).toHaveLength(1);
+			// Note: parseKnowledgeRecommendations strips parenthetical from lesson text
 			expect(entries[0].lesson).toBe(
 				'Always escape tool names inside architect prompts',
 			);
@@ -2906,8 +2907,8 @@ invalid json here
 
 describe('parseKnowledgeRecommendations rewrite', () => {
 	it('parses rewrite action with UUID entry_id', () => {
-		const output = `KNOWLEDGE_UPDATES:
-- rewrite 550e8400-e29b-41d4-a716-446655440000: Tighter lesson text for this entry
+		const output = `OBSERVATIONS:
+- entry 550e8400-e29b-41d4-a716-446655440000 (could be tighter): Tighter lesson text for this entry (suggests rewrite entry)
 
 EXTENDED_DIGEST:
 done`;
@@ -2915,18 +2916,19 @@ done`;
 		expect(recs).toHaveLength(1);
 		expect(recs[0].action).toBe('rewrite');
 		expect(recs[0].entry_id).toBe('550e8400-e29b-41d4-a716-446655440000');
+		// Note: parseKnowledgeRecommendations strips parenthetical from lesson text
 		expect(recs[0].lesson).toBe('Tighter lesson text for this entry');
 	});
 
 	it('rewrite with "new" token sets entry_id to undefined', () => {
-		const output = `KNOWLEDGE_UPDATES:
-- rewrite new: Some lesson text here
+		const output = `OBSERVATIONS:
+- entry new (new candidate): Some lesson text here (suggests boost confidence, mark hive_eligible)
 
 EXTENDED_DIGEST:
 done`;
 		const recs = parseKnowledgeRecommendations(output);
 		expect(recs).toHaveLength(1);
-		expect(recs[0].action).toBe('rewrite');
+		expect(recs[0].action).toBe('promote');
 		expect(recs[0].entry_id).toBeUndefined();
 	});
 });

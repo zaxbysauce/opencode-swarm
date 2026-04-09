@@ -292,7 +292,9 @@ describe('Task 5.1: Regression sweep prompt content', () => {
 			const sweepSection = prompt.slice(sweepStart, sweepStart + 1200);
 
 			// All four outcomes should be mentioned
-			expect(sweepSection).toContain('SKIP (no additional tests found)');
+			expect(sweepSection).toContain(
+				'SKIPPED — no related tests beyond task scope',
+			);
 			expect(sweepSection).toContain('PASS');
 			expect(sweepSection).toContain('REGRESSION DETECTED');
 			expect(sweepSection).toContain('SKIPPED — test_runner error');

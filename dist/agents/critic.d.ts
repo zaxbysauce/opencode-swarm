@@ -21,13 +21,13 @@ export declare const AUTONOMOUS_OVERSIGHT_PROMPT = "## AUTONOMOUS OVERSIGHT MODE
 export declare function createCriticAgent(model: string, customPrompt?: string, customAppendPrompt?: string, role?: CriticRole): AgentDefinition;
 /**
  * Creates a Critic agent configured for phase drift verification.
- * Follows the createExplorerCuratorAgent pattern: returns name 'critic' (same agent),
+ * Follows the createCuratorAgent pattern: returns name 'critic' (same agent),
  * different prompt — the drift verifier is the Critic doing a different job.
  */
 export declare function createCriticDriftVerifierAgent(model: string, customAppendPrompt?: string): AgentDefinition;
 /**
  * Creates a Critic agent configured for autonomous oversight mode.
- * Follows the createExplorerCuratorAgent pattern: returns name 'critic' (same agent),
+ * Follows the createCuratorAgent pattern: returns name 'critic' (same agent),
  * different prompt — the autonomous oversight agent is the sole quality gate in full-auto mode.
  */
 export declare function createCriticAutonomousOversightAgent(model: string, customAppendPrompt?: string): AgentDefinition;
