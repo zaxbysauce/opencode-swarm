@@ -2182,8 +2182,8 @@ function buildEffectiveRules(
  * 3. blockedGlobs - glob pattern matches
  * 4. allowedExact - explicit allow for exact paths
  * 5. allowedGlobs - explicit allow for glob patterns
- * 6. allowedPrefix - prefix-based allow
- * 7. blockedPrefix - prefix-based blocking
+ * 6. blockedPrefix - prefix-based blocking (takes priority over allowedPrefix)
+ * 7. allowedPrefix - prefix-based allow (whitelist)
  * 8. blockedZones - zone-based blocking
  */
 function checkFileAuthorityWithRules(
@@ -2273,7 +2273,20 @@ function checkFileAuthorityWithRules(
 		}
 	}
 
-	// Step 6: allowedPrefix - prefix-based allow (whitelist model)
+	// Step 6: blockedPrefix - prefix-based blocking (runs before allowedPrefix so that
+	// explicit block rules take priority over allowlist rules)
+	if (rules.blockedPrefix && rules.blockedPrefix.length > 0) {
+		for (const prefix of rules.blockedPrefix) {
+			if (normalizedPath.startsWith(prefix)) {
+				return {
+					allowed: false,
+					reason: `Path blocked: ${normalizedPath} is under ${prefix}`,
+				};
+			}
+		}
+	}
+
+	// Step 7: allowedPrefix - prefix-based allow (whitelist model)
 	// If configured, only paths starting with these prefixes are allowed
 	if (rules.allowedPrefix != null && rules.allowedPrefix.length > 0) {
 		const isAllowed = rules.allowedPrefix.some((prefix) =>
@@ -2291,18 +2304,6 @@ function checkFileAuthorityWithRules(
 			allowed: false,
 			reason: `Path ${normalizedPath} not in allowed list for ${normalizedAgent}`,
 		};
-	}
-
-	// Step 7: blockedPrefix - prefix-based blocking (always runs to allow "allow dir but block subdir" pattern)
-	if (rules.blockedPrefix && rules.blockedPrefix.length > 0) {
-		for (const prefix of rules.blockedPrefix) {
-			if (normalizedPath.startsWith(prefix)) {
-				return {
-					allowed: false,
-					reason: `Path blocked: ${normalizedPath} is under ${prefix}`,
-				};
-			}
-		}
 	}
 
 	// Step 8: blockedZones - zone-based blocking
