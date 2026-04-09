@@ -34,10 +34,16 @@ interface PlanData {
 /**
  * Artifacts to include in the archive bundle.
  * Each entry is a relative path under .swarm/.
+ *
+ * plan-ledger.jsonl is included so the archive bundle is a self-contained
+ * forensic snapshot of the session: the ledger holds the full audit trail of
+ * task state transitions and snapshot events that plan.json/plan.md don't
+ * preserve.
  */
 const ARCHIVE_ARTIFACTS = [
 	'plan.json',
 	'plan.md',
+	'plan-ledger.jsonl',
 	'context.md',
 	'events.jsonl',
 	'handoff.md',
@@ -50,16 +56,24 @@ const ARCHIVE_ARTIFACTS = [
 /**
  * Active-state files/dirs to clean after archiving so future swarms start clean.
  *
- * plan.json and plan.md are both removed so the next /swarm session starts with
- * a clean slate. The user's original ask for /swarm close was to "archive plan
- * files so future swarms aren't confused" — leaving a terminal-state plan.json
- * in place violates that invariant because the next session's loadPlan() would
- * pick it up as if it were still active. The archive-first guard below ensures
- * we only delete files we successfully copied to the archive bundle.
+ * plan.json, plan.md, and plan-ledger.jsonl are all removed so the next /swarm
+ * session starts with a clean slate. The user's original ask for /swarm close
+ * was to "archive plan files so future swarms aren't confused" — leaving a
+ * terminal-state plan.json in place violates that invariant because the next
+ * session's loadPlan() would pick it up as if it were still active.
+ *
+ * CRITICAL: the ledger must also be removed. Without this, loadPlan()'s Step 4
+ * would see no plan.json but a surviving ledger, call replayFromLedger(), and
+ * materialize the CLOSED plan back into plan.json on the next session. The
+ * ledger is a second backing store for the same "terminal-state plan" and
+ * leaving it behind re-enables the exact bug this cleanup is meant to fix.
+ * The archive-first guard below ensures we only delete files we successfully
+ * copied to the archive bundle, so the audit trail is preserved in the bundle.
  */
 const ACTIVE_STATE_TO_CLEAN = [
 	'plan.json',
 	'plan.md',
+	'plan-ledger.jsonl',
 	'events.jsonl',
 	'handoff.md',
 	'handoff-prompt.md',
@@ -404,7 +418,14 @@ export async function handleCloseCommand(
 		);
 	}
 
-	// Remove stale config-backup-*.json files
+	// Remove stale config-backup-*.json files AND ledger sibling files
+	// (plan-ledger.archived-*.jsonl and plan-ledger.backup-*.jsonl) that
+	// savePlan creates during identity-mismatch reinitialization. Without
+	// this sweep, those siblings accumulate forever in .swarm/, undermining
+	// the same "clean slate for next session" invariant that motivates the
+	// plan-ledger.jsonl removal in ACTIVE_STATE_TO_CLEAN above. The primary
+	// plan-ledger.jsonl is already archived into the bundle by stage 2, so
+	// these stale siblings are pure noise and safe to delete here.
 	try {
 		const swarmFiles = await fs.readdir(swarmDir);
 		const configBackups = swarmFiles.filter(
@@ -414,6 +435,19 @@ export async function handleCloseCommand(
 			try {
 				await fs.unlink(path.join(swarmDir, backup));
 				configBackupsRemoved++;
+			} catch {
+				// Per-file failure is non-blocking
+			}
+		}
+		const ledgerSiblings = swarmFiles.filter(
+			(f) =>
+				(f.startsWith('plan-ledger.archived-') ||
+					f.startsWith('plan-ledger.backup-')) &&
+				f.endsWith('.jsonl'),
+		);
+		for (const sibling of ledgerSiblings) {
+			try {
+				await fs.unlink(path.join(swarmDir, sibling));
 			} catch {
 				// Per-file failure is non-blocking
 			}

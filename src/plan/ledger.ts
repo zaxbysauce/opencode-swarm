@@ -960,11 +960,20 @@ export interface ApprovedSnapshotInfo {
  * suspected of drift: the Architect can fall back to the last approved plan
  * and the Critic can drift-check against it.
  *
+ * SAFETY: when `expectedPlanId` is supplied, only snapshots whose event
+ * `plan_id` matches are considered. Callers MUST pass an expected identity
+ * whenever they have one (e.g. from the ledger's first `plan_created` anchor)
+ * to prevent cross-identity contamination: a stale `critic_approved` snapshot
+ * left in a reused directory could otherwise be resurrected as the active plan.
+ *
  * @param directory - Working directory containing `.swarm/plan-ledger.jsonl`
+ * @param expectedPlanId - Optional plan identity filter. When provided, only
+ *   snapshots whose ledger event `plan_id` matches are considered.
  * @returns The most recent approved snapshot info, or null if none exists
  */
 export async function loadLastApprovedPlan(
 	directory: string,
+	expectedPlanId?: string,
 ): Promise<ApprovedSnapshotInfo | null> {
 	const events = await readLedgerEvents(directory);
 	if (events.length === 0) {
@@ -977,11 +986,33 @@ export async function loadLastApprovedPlan(
 		if (event.event_type !== 'snapshot') continue;
 		if (event.source !== 'critic_approved') continue;
 
+		// Identity filter: reject snapshots that belong to a different plan
+		// identity than the caller expects. Without this, reusing a workspace
+		// across swarms would allow a stale approved snapshot from an earlier
+		// swarm to be resurrected as the current plan.
+		if (expectedPlanId !== undefined && event.plan_id !== expectedPlanId) {
+			continue;
+		}
+
 		const payload = event.payload as unknown as
 			| (SnapshotEventPayload & { approval?: Record<string, unknown> })
 			| undefined;
 		if (!payload || typeof payload !== 'object' || !payload.plan) {
 			continue;
+		}
+
+		// Belt-and-suspenders: the embedded plan's identity must also match
+		// the event's plan_id. Guards against a snapshot whose payload was
+		// mutated on disk out-of-band from the event metadata.
+		if (expectedPlanId !== undefined) {
+			const payloadPlanId =
+				`${payload.plan.swarm}-${payload.plan.title}`.replace(
+					/[^a-zA-Z0-9-_]/g,
+					'_',
+				);
+			if (payloadPlanId !== expectedPlanId) {
+				continue;
+			}
 		}
 
 		return {

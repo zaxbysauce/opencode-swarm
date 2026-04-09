@@ -307,12 +307,41 @@ export async function loadPlan(directory: string): Promise<RuntimePlan | null> {
 								} catch (replayError) {
 									// Ledger replay failed — try the critic-approved immutable
 									// snapshot as a last-resort fallback before returning stale state.
+									//
+									// Identity guard: pass the current workspace's plan identity
+									// (derived from the still-loaded plan.json above) to prevent
+									// resurrecting a foreign approved snapshot from a reused directory.
 									try {
-										const approved = await loadLastApprovedPlan(directory);
+										const approved = await loadLastApprovedPlan(
+											directory,
+											currentPlanId,
+										);
 										if (approved) {
 											await rebuildPlan(directory, approved.plan);
+											// Heal the ledger tail so subsequent loadPlan calls don't
+											// loop back into this recovery path. The recovered plan is
+											// now the authoritative state; tag it as a fresh snapshot
+											// so replayFromLedger's walk-backward picks it up before
+											// hitting whatever event (plan_reset, corruption, ...)
+											// caused the original replay to fail.
+											try {
+												await takeSnapshotEvent(directory, approved.plan, {
+													source: 'recovery_from_approved_snapshot',
+													approvalMetadata: approved.approval,
+												});
+											} catch (healError) {
+												warn(
+													`[loadPlan] Recovery-heal snapshot append failed: ${healError instanceof Error ? healError.message : String(healError)}. Next loadPlan may re-enter recovery path.`,
+												);
+											}
+											const approvedPhase =
+												approved.approval &&
+												typeof approved.approval === 'object' &&
+												'phase' in approved.approval
+													? (approved.approval as { phase?: unknown }).phase
+													: undefined;
 											warn(
-												`[loadPlan] Ledger replay failed (${replayError instanceof Error ? replayError.message : String(replayError)}) — recovered from critic-approved snapshot seq=${approved.seq}.`,
+												`[loadPlan] Ledger replay failed (${replayError instanceof Error ? replayError.message : String(replayError)}) — recovered from critic-approved snapshot seq=${approved.seq} (approval phase=${approvedPhase ?? 'unknown'}, timestamp=${approved.timestamp}). This may roll the plan back to an earlier phase — verify before continuing.`,
 											);
 											return approved.plan;
 										}
@@ -482,13 +511,54 @@ export async function loadPlan(directory: string): Promise<RuntimePlan | null> {
 		// "allow the architect to fall back to a plan file that cannot be changed".
 		// write_drift_evidence captures these snapshots on every APPROVED verdict,
 		// tagged source='critic_approved'.
+		//
+		// Identity guard: derive the expected plan_id from the ledger's first
+		// event (the `plan_created` anchor written by initLedger) and require
+		// recovered snapshots to match. Without this, a reused workspace whose
+		// ledger contained a stale critic_approved snapshot from a PRIOR swarm
+		// would silently resurrect the wrong plan.
 		try {
-			const approved = await loadLastApprovedPlan(directory);
-			if (approved) {
+			const anchorEvents = await readLedgerEvents(directory);
+			// Empty-events guard: ledgerExists() returned true above, but
+			// readLedgerEvents() can also return [] for an unreadable/corrupt
+			// ledger (silent failure mode in src/plan/ledger.ts). In that
+			// case we have NO authoritative identity to filter by, so refuse
+			// to run the recovery path rather than passing expectedPlanId=
+			// undefined and bypassing the cross-identity guard entirely.
+			if (anchorEvents.length === 0) {
 				warn(
-					`[loadPlan] Ledger replay returned no plan — recovered from critic-approved snapshot seq=${approved.seq} timestamp=${approved.timestamp}.`,
+					'[loadPlan] Ledger present but no events readable — refusing approved-snapshot recovery (cannot verify plan identity).',
+				);
+				return null;
+			}
+			const expectedPlanId = anchorEvents[0].plan_id;
+			const approved = await loadLastApprovedPlan(directory, expectedPlanId);
+			if (approved) {
+				const approvedPhase =
+					approved.approval &&
+					typeof approved.approval === 'object' &&
+					'phase' in approved.approval
+						? (approved.approval as { phase?: unknown }).phase
+						: undefined;
+				warn(
+					`[loadPlan] Ledger replay returned no plan — recovered from critic-approved snapshot seq=${approved.seq} timestamp=${approved.timestamp} (approval phase=${approvedPhase ?? 'unknown'}). This may roll the plan back to an earlier phase — verify before continuing.`,
 				);
 				await savePlan(directory, approved.plan);
+				// Heal the ledger tail: append a fresh snapshot so the next
+				// loadPlan call doesn't re-enter this recovery path in a new
+				// process (where the startup-check cache is empty). Without this
+				// the ledger still ends with the event that made replay fail
+				// (e.g. plan_reset), and cross-process loadPlan would loop.
+				try {
+					await takeSnapshotEvent(directory, approved.plan, {
+						source: 'recovery_from_approved_snapshot',
+						approvalMetadata: approved.approval,
+					});
+				} catch (healError) {
+					warn(
+						`[loadPlan] Recovery-heal snapshot append failed: ${healError instanceof Error ? healError.message : String(healError)}. Next loadPlan may re-enter recovery path.`,
+					);
+				}
 				return approved.plan;
 			}
 		} catch (recoveryError) {

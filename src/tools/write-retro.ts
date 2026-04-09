@@ -422,7 +422,17 @@ export async function executeWriteRetro(
 				2,
 			);
 		}
-		const VALID_TASK_ID = /^(retro-\d+|\d+\.\d+(\.\d+)*)$/;
+		// Accept:
+		//   - numeric task IDs (N.M, N.M.P)
+		//   - per-phase retrospectives (retro-<digits>)
+		//   - named session retrospectives (retro-<alnum>, e.g. 'retro-session')
+		// The broader retro-<alnum> form is required by /swarm close's plan-free
+		// path, which writes a dedicated 'retro-session' bundle when there are
+		// no phases to attach a retro to. It must remain compatible with the
+		// evidence manager's GENERAL_TASK_ID_REGEX, which already accepts the
+		// same shape.
+		const VALID_TASK_ID =
+			/^(retro-[a-zA-Z0-9][a-zA-Z0-9_-]*|\d+\.\d+(\.\d+)*)$/;
 		if (!VALID_TASK_ID.test(tid)) {
 			return JSON.stringify(
 				{
