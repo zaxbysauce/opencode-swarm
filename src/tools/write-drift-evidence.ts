@@ -8,6 +8,8 @@ import fs from 'node:fs';
 import path from 'node:path';
 import { type ToolDefinition, tool } from '@opencode-ai/plugin/tool';
 import { validateSwarmPath } from '../hooks/utils';
+import { takeSnapshotEvent } from '../plan/ledger';
+import { loadPlanJsonOnly } from '../plan/manager';
 import { createSwarmTool } from './create-tool';
 
 /**
@@ -147,12 +149,54 @@ export async function executeWriteDriftEvidence(
 		);
 		await fs.promises.rename(tempPath, validatedPath);
 
+		// On APPROVED: write an immutable plan snapshot to the append-only ledger
+		// tagged source='critic_approved'. This provides a durable fallback the
+		// Architect can restore from, and a reference point the Critic can
+		// drift-check against. Snapshot errors are non-fatal — the drift evidence
+		// write has already succeeded.
+		let snapshotInfo: { seq: number; timestamp: string } | undefined;
+		let snapshotError: string | undefined;
+		if (normalizedVerdict === 'approved') {
+			try {
+				const currentPlan = await loadPlanJsonOnly(directory);
+				if (currentPlan) {
+					const snapshotEvent = await takeSnapshotEvent(
+						directory,
+						currentPlan,
+						{
+							source: 'critic_approved',
+							approvalMetadata: {
+								phase,
+								verdict: 'APPROVED',
+								summary: summary.trim(),
+								approved_at: new Date().toISOString(),
+							},
+						},
+					);
+					snapshotInfo = {
+						seq: snapshotEvent.seq,
+						timestamp: snapshotEvent.timestamp,
+					};
+				} else {
+					snapshotError = 'plan.json not available for snapshot';
+				}
+			} catch (err) {
+				snapshotError = err instanceof Error ? err.message : String(err);
+				console.warn(
+					'[write_drift_evidence] critic-approved snapshot failed:',
+					snapshotError,
+				);
+			}
+		}
+
 		return JSON.stringify(
 			{
 				success: true,
 				phase: phase,
 				verdict: normalizedVerdict,
 				message: `Drift evidence written to .swarm/evidence/${phase}/drift-verifier.json`,
+				approvedSnapshot: snapshotInfo,
+				snapshotError,
 			},
 			null,
 			2,
