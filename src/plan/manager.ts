@@ -14,7 +14,7 @@ import type { SpecStaleDetectedEvent } from '../types/events';
 import { warn } from '../utils';
 import { isSpecStale } from '../utils/spec-hash';
 import {
-	appendLedgerEvent,
+	appendLedgerEventWithRetry,
 	computeCurrentPlanHash,
 	computePlanHash,
 	getLatestLedgerSeq,
@@ -685,13 +685,19 @@ export async function savePlan(
 			}
 		}
 
-		// Find tasks that changed status
+		// Find tasks that changed status.
+		//
+		// Each change is written via appendLedgerEventWithRetry so that concurrent
+		// savePlan writers do not lose audit events to a single CAS collision. The
+		// verifyValid callback re-reads plan.json between retries and skips the
+		// event if the task has already moved past the from_status (another writer
+		// already recorded the transition). Retries refresh the concurrency token
+		// against the latest on-disk plan hash.
 		try {
 			for (const phase of validated.phases) {
 				for (const task of phase.tasks) {
 					const oldTask = oldTaskMap.get(task.id);
 					if (oldTask && oldTask.status !== task.status) {
-						// Task status changed - append ledger event
 						const eventInput: LedgerEventInput = {
 							plan_id: `${validated.swarm}-${validated.title}`.replace(
 								/[^a-zA-Z0-9-_]/g,
@@ -704,9 +710,27 @@ export async function savePlan(
 							to_status: task.status,
 							source: 'savePlan',
 						};
-						await appendLedgerEvent(directory, eventInput, {
+						const capturedFromStatus = oldTask.status;
+						const capturedTaskId = task.id;
+						await appendLedgerEventWithRetry(directory, eventInput, {
 							expectedHash: currentHash,
 							planHashAfter: hashAfter,
+							maxRetries: 3,
+							verifyValid: async () => {
+								// If another writer already persisted the transition, skip.
+								const onDisk = await loadPlanJsonOnly(directory);
+								if (!onDisk) return true; // no on-disk plan — just retry
+								for (const p of onDisk.phases) {
+									const t = p.tasks.find((x) => x.id === capturedTaskId);
+									if (t) {
+										// Still valid only if current on-disk status equals
+										// the from_status we originally observed.
+										return t.status === capturedFromStatus;
+									}
+								}
+								// Task no longer exists in plan.json — skip.
+								return false;
+							},
 						});
 					}
 				}
@@ -714,7 +738,7 @@ export async function savePlan(
 		} catch (error) {
 			if (error instanceof LedgerStaleWriterError) {
 				throw new Error(
-					`Concurrent plan modification detected: ${error.message}. Please retry the operation.`,
+					`Concurrent plan modification detected after retries: ${error.message}. Please retry the operation.`,
 				);
 			}
 			throw error;

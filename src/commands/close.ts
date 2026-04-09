@@ -13,7 +13,7 @@ import { curateAndStoreSwarm } from '../hooks/knowledge-curator';
 import { validateSwarmPath } from '../hooks/utils';
 import { writeCheckpoint } from '../plan/checkpoint';
 import { flushPendingSnapshot } from '../session/snapshot-writer';
-import { swarmState } from '../state';
+import { resetSwarmState, swarmState } from '../state';
 import { executeWriteRetro } from '../tools/write-retro';
 
 interface PlanPhase {
@@ -199,6 +199,8 @@ export async function handleCloseCommand(
 		);
 		curationSucceeded = true;
 	} catch (error) {
+		const msg = error instanceof Error ? error.message : String(error);
+		warnings.push(`Lessons curation failed: ${msg}`);
 		console.warn('[close-command] curateAndStoreSwarm error:', error);
 	}
 
@@ -227,6 +229,8 @@ export async function handleCloseCommand(
 		try {
 			await fs.writeFile(planPath, JSON.stringify(planData, null, 2), 'utf-8');
 		} catch (error) {
+			const msg = error instanceof Error ? error.message : String(error);
+			warnings.push(`Failed to persist terminal plan.json state: ${msg}`);
 			console.warn('[close-command] Failed to write plan.json:', error);
 		}
 	}
@@ -317,6 +321,8 @@ export async function handleCloseCommand(
 	try {
 		await archiveEvidence(directory, 30, 10);
 	} catch (error) {
+		const msg = error instanceof Error ? error.message : String(error);
+		warnings.push(`Evidence retention archive failed: ${msg}`);
 		console.warn('[close-command] archiveEvidence error:', error);
 	}
 
@@ -383,6 +389,8 @@ export async function handleCloseCommand(
 	try {
 		await fs.writeFile(contextPath, contextContent, 'utf-8');
 	} catch (error) {
+		const msg = error instanceof Error ? error.message : String(error);
+		warnings.push(`Failed to reset context.md: ${msg}`);
 		console.warn('[close-command] Failed to write context.md:', error);
 	}
 
@@ -577,6 +585,8 @@ export async function handleCloseCommand(
 	try {
 		await fs.writeFile(closeSummaryPath, summaryContent, 'utf-8');
 	} catch (error) {
+		const msg = error instanceof Error ? error.message : String(error);
+		warnings.push(`Failed to write close-summary.md: ${msg}`);
 		console.warn('[close-command] Failed to write close-summary.md:', error);
 	}
 
@@ -584,14 +594,34 @@ export async function handleCloseCommand(
 	try {
 		await flushPendingSnapshot(directory);
 	} catch (error) {
+		const msg = error instanceof Error ? error.message : String(error);
+		warnings.push(`flushPendingSnapshot failed: ${msg}`);
 		console.warn('[close-command] flushPendingSnapshot error:', error);
 	}
 
 	// Write root-level checkpoint artifact before clearing sessions (non-blocking)
 	await writeCheckpoint(directory).catch(() => {});
 
-	swarmState.agentSessions.clear();
-	swarmState.delegationChains.clear();
+	// Full session reset so subsequent /swarm invocations start from a clean slate.
+	// Preserve plugin-init singletons that have no re-init path within the same
+	// plugin lifetime:
+	//   - opencodeClient: set once in src/index.ts at plugin init. Clearing it
+	//     would leave downstream hooks (curator, full-auto-intercept) unable to
+	//     reach the OpenCode client until the plugin reloads.
+	//   - fullAutoEnabledInConfig: read from config at plugin init.
+	//   - curatorInitAgentNames / curatorPhaseAgentNames: populated at plugin
+	//     init from the built agent map. curator-llm-factory.ts depends on
+	//     them at every curator call; clearing them would silently break the
+	//     curator path until the plugin reloads.
+	const preservedClient = swarmState.opencodeClient;
+	const preservedFullAutoFlag = swarmState.fullAutoEnabledInConfig;
+	const preservedCuratorInitNames = swarmState.curatorInitAgentNames;
+	const preservedCuratorPhaseNames = swarmState.curatorPhaseAgentNames;
+	resetSwarmState();
+	swarmState.opencodeClient = preservedClient;
+	swarmState.fullAutoEnabledInConfig = preservedFullAutoFlag;
+	swarmState.curatorInitAgentNames = preservedCuratorInitNames;
+	swarmState.curatorPhaseAgentNames = preservedCuratorPhaseNames;
 
 	if (pruneErrors.length > 0) {
 		warnings.push(

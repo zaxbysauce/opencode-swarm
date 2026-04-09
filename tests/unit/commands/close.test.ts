@@ -46,19 +46,47 @@ mock.module('../../../src/session/snapshot-writer.js', () => ({
 	flushPendingSnapshot: mockFlushPendingSnapshot,
 }));
 
+// Shared mock for swarmState + reset counter so tests can verify the full
+// state reset path (Issue 1 C1).
+const mockSwarmState = {
+	activeToolCalls: new Map(),
+	toolAggregates: new Map(),
+	activeAgent: new Map(),
+	delegationChains: new Map(),
+	pendingEvents: 0,
+	lastBudgetPct: 0,
+	agentSessions: new Map(),
+	pendingRehydrations: new Set(),
+	opencodeClient: { sentinel: 'preserved-client' } as unknown as null,
+	fullAutoEnabledInConfig: true,
+	environmentProfiles: new Map(),
+	curatorInitAgentNames: [] as string[],
+	curatorPhaseAgentNames: [] as string[],
+};
+
+let resetSwarmStateCallCount = 0;
+function mockResetSwarmState(): void {
+	resetSwarmStateCallCount++;
+	mockSwarmState.activeToolCalls.clear();
+	mockSwarmState.toolAggregates.clear();
+	mockSwarmState.activeAgent.clear();
+	mockSwarmState.delegationChains.clear();
+	mockSwarmState.pendingEvents = 0;
+	mockSwarmState.lastBudgetPct = 0;
+	mockSwarmState.agentSessions.clear();
+	mockSwarmState.pendingRehydrations.clear();
+	// Simulate the real resetSwarmState: it would null the client and flag
+	mockSwarmState.opencodeClient = null;
+	mockSwarmState.fullAutoEnabledInConfig = false;
+	mockSwarmState.environmentProfiles.clear();
+	mockSwarmState.curatorInitAgentNames = [];
+	mockSwarmState.curatorPhaseAgentNames = [];
+}
+
 mock.module('../../../src/state.js', () => ({
-	swarmState: {
-		activeToolCalls: new Map(),
-		toolAggregates: new Map(),
-		activeAgent: new Map(),
-		delegationChains: new Map(),
-		pendingEvents: 0,
-		lastBudgetPct: 0,
-		agentSessions: new Map(),
-		pendingRehydrations: new Set(),
-	},
+	swarmState: mockSwarmState,
 	endAgentSession: () => {},
-	resetSwarmState: () => {},
+	resetSwarmState: mockResetSwarmState,
 }));
 
 // Import after mock setup
@@ -72,6 +100,19 @@ describe('handleCloseCommand', () => {
 		mockCurateAndStoreSwarm.mockClear();
 		mockArchiveEvidence.mockClear();
 		mockFlushPendingSnapshot.mockClear();
+		resetSwarmStateCallCount = 0;
+		// Re-seed the mock state for each test so reset assertions are isolated.
+		mockSwarmState.opencodeClient = {
+			sentinel: 'preserved-client',
+		} as unknown as null;
+		mockSwarmState.fullAutoEnabledInConfig = true;
+		mockSwarmState.curatorInitAgentNames = [
+			'curator_init',
+			'swarm2_curator_init',
+		];
+		mockSwarmState.curatorPhaseAgentNames = ['curator_phase'];
+		mockSwarmState.activeToolCalls.set('tool-a', { stale: true });
+		mockSwarmState.agentSessions.set('session-1', { stale: true });
 		testDir = mkdtempSync(path.join(os.tmpdir(), 'close-command-test-'));
 		mkdirSync(path.join(testDir, '.swarm', 'session'), { recursive: true });
 	});
@@ -1059,6 +1100,103 @@ describe('handleCloseCommand', () => {
 				expect(
 					existsSync(path.join(testDir, '.swarm', 'close-lessons.md')),
 				).toBe(true);
+				// Previously silent — curation failure must now surface as a warning.
+				expect(result).toContain('Warnings');
+				expect(result).toContain('Lessons curation failed');
+				expect(result).toContain('curation failed');
+			});
+		});
+
+		// =====================================================================
+		// Group: Session state reset (Issue 1 C1)
+		// =====================================================================
+
+		describe('Session state reset', () => {
+			it('invokes resetSwarmState exactly once during close', async () => {
+				writeFileSync(
+					path.join(testDir, '.swarm', 'plan.json'),
+					JSON.stringify({
+						title: 'Reset Test',
+						phases: [
+							{
+								id: 1,
+								name: 'P1',
+								status: 'in_progress',
+								tasks: [{ id: '1.1', status: 'in_progress' }],
+							},
+						],
+					}),
+				);
+
+				expect(resetSwarmStateCallCount).toBe(0);
+				await handleCloseCommand(testDir, []);
+				expect(resetSwarmStateCallCount).toBe(1);
+			});
+
+			it('clears stale per-session collections via resetSwarmState', async () => {
+				writeFileSync(
+					path.join(testDir, '.swarm', 'plan.json'),
+					JSON.stringify({
+						title: 'Reset Test',
+						phases: [
+							{
+								id: 1,
+								name: 'P1',
+								status: 'in_progress',
+								tasks: [],
+							},
+						],
+					}),
+				);
+
+				// Pre-seed state collections with stale entries from prior sessions.
+				expect(mockSwarmState.activeToolCalls.size).toBe(1);
+				expect(mockSwarmState.agentSessions.size).toBe(1);
+
+				await handleCloseCommand(testDir, []);
+
+				// Both collections must be cleared — previously only agentSessions
+				// and delegationChains were cleared, leaving activeToolCalls (and
+				// others) leaking across sessions.
+				expect(mockSwarmState.activeToolCalls.size).toBe(0);
+				expect(mockSwarmState.agentSessions.size).toBe(0);
+			});
+
+			it('preserves opencodeClient and fullAutoEnabledInConfig across reset', async () => {
+				writeFileSync(
+					path.join(testDir, '.swarm', 'plan.json'),
+					JSON.stringify({
+						title: 'Reset Test',
+						phases: [
+							{
+								id: 1,
+								name: 'P1',
+								status: 'in_progress',
+								tasks: [],
+							},
+						],
+					}),
+				);
+
+				// The mock reset nulls these fields; close.ts must save and
+				// restore them because these are plugin-init singletons with no
+				// re-init path inside a plugin lifetime.
+				await handleCloseCommand(testDir, []);
+
+				expect(mockSwarmState.opencodeClient).toEqual({
+					sentinel: 'preserved-client',
+				});
+				expect(mockSwarmState.fullAutoEnabledInConfig).toBe(true);
+				// Curator agent names are populated once at plugin init in
+				// src/index.ts and must survive session reset or curator-llm-factory
+				// silently breaks until plugin reload.
+				expect(mockSwarmState.curatorInitAgentNames).toEqual([
+					'curator_init',
+					'swarm2_curator_init',
+				]);
+				expect(mockSwarmState.curatorPhaseAgentNames).toEqual([
+					'curator_phase',
+				]);
 			});
 		});
 
