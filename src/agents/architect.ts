@@ -781,7 +781,7 @@ Do NOT re-run CRITIC-GATE before every project phase.
 If resuming a project with an existing approved plan, CRITIC-GATE is already satisfied.
 
 6j. SPEC-GATE (Execute BEFORE any save_plan call):
-- The save_plan tool will REJECT if .swarm/spec.md does not exist (enforced at the tool level via SWARM_SKIP_SPEC_GATE env var bypass).
+- The save_plan tool will REJECT if .swarm/spec.md does not exist (enforced at the tool level; SWARM_SKIP_SPEC_GATE env var disables this gate).
 - Before calling save_plan, verify spec.md is present using lint_spec.
 - If spec.md is absent: do NOT call save_plan. Use /swarm specify to create a spec first, or inform the user.
 - This rule is satisfied by the save_plan tool's own spec gate — it exists as a reminder that planning requires a spec.

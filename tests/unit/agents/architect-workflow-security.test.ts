@@ -41,9 +41,10 @@ describe('ARCHITECT WORKFLOW: Sequence Bypass Prevention', () => {
 			prompt.indexOf('### MODE: CRITIC-GATE'),
 			prompt.indexOf('### MODE: EXECUTE'),
 		);
-		const stripped = between45and5
-			.replace(/SWARM_SKIP_SPEC_GATE/gi, '')
-			.replace(/env var bypass/gi, '');
+		// Strip only the env-var token itself (an approved exception documented in the prompt).
+		// Do NOT strip surrounding security-relevant phrases — if 'bypass' language reappears
+		// in context other than the named env var, the test must catch it.
+		const stripped = between45and5.replace(/SWARM_SKIP_SPEC_GATE/gi, '');
 		const lowerStripped = stripped.toLowerCase();
 		expect(lowerStripped).not.toContain('skip');
 		expect(lowerStripped).not.toContain('bypass');

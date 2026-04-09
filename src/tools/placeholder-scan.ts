@@ -71,11 +71,18 @@ const DEFAULT_STRING_PATTERNS = [
 	{ pattern: /`[^`]*\bstub\b[^`]*`/i, rule_id: 'placeholder/text-placeholder' },
 ];
 
-// Files that are allowlisted from ALL placeholder scanning
-// These files contain legitimate patterns that would otherwise trigger false positives
-const FILE_ALLOWLIST = [
-	'src/tools/declare-scope.ts', // validateTaskIdFormat returns undefined as success indicator
-	'src/tools/placeholder-scan.ts', // self-referential rule definitions would always match
+// Per-file, per-rule suppressions for known false positives.
+// Prefer narrow rule-level suppressions over whole-file allowlisting.
+// Format: { file: relative path suffix, rules: Set of rule_ids to skip }
+const FILE_RULE_SUPPRESSIONS: Array<{ file: string; rules: Set<string> }> = [
+	{
+		// The pattern string literals in this file contain the exact words the
+		// text-placeholder rules scan for (e.g. 'placeholder', 'stub'). Suppress
+		// only text-placeholder to avoid self-referential false positives while
+		// still scanning for code stubs, throw-todos, and comments.
+		file: 'src/tools/placeholder-scan.ts',
+		rules: new Set(['placeholder/text-placeholder']),
+	},
 ];
 
 // Default deny patterns (code stubs)
@@ -336,10 +343,15 @@ function isValidationPattern(lines: string[], currentLineIdx: number): boolean {
 		}
 	}
 
-	// Check JSDoc for `@returns undefined` or `@returns {undefined}`
+	// Check JSDoc for `@returns undefined` or `@returns {undefined}` / `@returns {void}`.
+	// Restrict to undefined/void-only semantics — accepting any identifier would suppress
+	// findings for unrelated functions that happen to have a @returns tag.
 	if (jsdocContent) {
+		// Match `@returns undefined`, `@returns void`, `@returns {undefined}`, `@returns {void}`.
+		// Union the two forms — do not make the braced form optional with a trailing bare word,
+		// which would require the bare word even when braces are present.
 		const returnsPattern =
-			/@returns\s*(?:\{[^}]*\})?\s*(?:undefined|[A-Za-z_]\w*)/i;
+			/@returns\s*(?:\{(?:undefined|void)\}|(?:undefined|void)\b)/i;
 		if (returnsPattern.test(jsdocContent)) {
 			return true;
 		}
@@ -664,14 +676,10 @@ export async function placeholderScan(
 			continue;
 		}
 
-		// Check if file is in the internal allowlist (skips all findings for this file)
-		// Normalize to relative path for comparison with allowlist entries
+		// Normalize to relative path for per-file rule suppression checks below
 		const relativeFilePath = path
 			.relative(directory, fullPath)
 			.replace(/\\/g, '/');
-		if (FILE_ALLOWLIST.some((allowed) => relativeFilePath.endsWith(allowed))) {
-			continue;
-		}
 
 		// Read content first to check for test patterns
 		let content: string;
@@ -712,9 +720,18 @@ export async function placeholderScan(
 			fileFindings = scanWithRegex(content, filePath, denyPatterns);
 		}
 
+		// Apply per-file rule suppressions (narrow exemptions only — not whole-file blanket skips)
+		const suppressedRules = FILE_RULE_SUPPRESSIONS.find((s) =>
+			relativeFilePath.endsWith(s.file),
+		)?.rules;
+		const filteredFindings =
+			suppressedRules && suppressedRules.size > 0
+				? fileFindings.filter((f) => !suppressedRules.has(f.rule_id))
+				: fileFindings;
+
 		// Add findings to result
-		if (fileFindings.length > 0) {
-			findings.push(...fileFindings);
+		if (filteredFindings.length > 0) {
+			findings.push(...filteredFindings);
 			filesWithFindings.add(filePath);
 		}
 	}
