@@ -186,12 +186,12 @@ CONTRADICTIONS:
 - [entry_id]: [description] (or "None detected")
 
 OBSERVATIONS:
-- entry <uuid> appears high-confidence: [observable evidence]  (suggests boost confidence, mark hive_eligible)
-- entry <uuid> appears stale: [observable evidence]  (suggests archive — no longer injected)
-- entry <uuid> could be tighter: [what's verbose or duplicate]  (suggests rewrite with tighter version, max 280 chars)
-- entry <uuid> contradicts project state: [observable conflict]  (suggests tag as contradicted)
-- new candidate: [concise lesson text from observed patterns]  (suggests new entry)
-Use the UUID from KNOWLEDGE_ENTRIES when observing about existing entries. Use "new candidate" only when observing a potential new entry.
+- entry <uuid> (appears high-confidence): [observable evidence]
+- entry <uuid> (appears stale): [observable evidence]
+- entry <uuid> (could be tighter): [what's verbose or duplicate]
+- entry <uuid> (contradicts project state): [observable conflict]
+- entry new (new candidate): [concise lesson text from observed patterns]
+Use the UUID from KNOWLEDGE_ENTRIES for existing entries. Use "new" as the UUID for new entries.
 
 KNOWLEDGE_STATS:
 - Entries reviewed: [N]
@@ -238,12 +238,12 @@ COMPLIANCE:
 - [type] observed: [description] (or "No deviations observed")
 
 OBSERVATIONS:
-- entry <uuid> appears high-confidence: [observable evidence]  (suggests boost confidence, mark hive_eligible)
-- entry <uuid> appears stale: [observable evidence]  (suggests archive — no longer injected)
-- entry <uuid> could be tighter: [what's verbose or duplicate]  (suggests rewrite with tighter version, max 280 chars)
-- entry <uuid> contradicts project state: [observable conflict]  (suggests tag as contradicted)
-- new candidate: [concise lesson text from observed patterns]  (suggests new entry)
-Use the UUID from KNOWLEDGE_ENTRIES when observing about existing entries. Use "new candidate" only when observing a potential new entry.
+- entry <uuid> (appears high-confidence): [observable evidence]
+- entry <uuid> (appears stale): [observable evidence]
+- entry <uuid> (could be tighter): [what's verbose or duplicate]
+- entry <uuid> (contradicts project state): [observable conflict]
+- entry new (new candidate): [concise lesson text from observed patterns]
+Use the UUID from KNOWLEDGE_ENTRIES for existing entries. Use "new" as the UUID for new entries.
 
 EXTENDED_DIGEST:
 [the full running digest with this phase appended]
