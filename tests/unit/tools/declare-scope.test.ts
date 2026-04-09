@@ -209,20 +209,16 @@ describe('executeDeclareScope', () => {
 		expect(result.errors?.[0]).toContain('does not exist in plan.json');
 	});
 
-	// Test 6: Task already 'complete' in session
+	// Test 6: Task already 'complete' in plan.json
 	test('task already complete returns error', async () => {
 		const session = createWorkflowTestSession();
-		// Advance task to complete state
-		advanceTaskState(session, '1.1', 'coder_delegated');
-		advanceTaskState(session, '1.1', 'pre_check_passed');
-		advanceTaskState(session, '1.1', 'reviewer_run');
-		advanceTaskState(session, '1.1', 'tests_run');
-		advanceTaskState(session, '1.1', 'complete');
-
-		// Verify task is complete
-		expect(getTaskState(session, '1.1')).toBe('complete');
-
 		swarmState.agentSessions.set('test-session-complete', session);
+
+		// Update plan.json to mark task '1.1' as complete (authoritative source)
+		const planPath = path.join(tempDir, '.swarm', 'plan.json');
+		const plan = JSON.parse(fs.readFileSync(planPath, 'utf-8'));
+		plan.phases[0].tasks[0].status = 'completed';
+		fs.writeFileSync(planPath, JSON.stringify(plan, null, 2));
 
 		const args: DeclareScopeArgs = {
 			taskId: '1.1',

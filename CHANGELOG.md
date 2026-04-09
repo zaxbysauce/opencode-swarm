@@ -144,9 +144,17 @@
 * **tests:** add `tests/integration/php-command-selection.test.ts` with 20 fixture-driven integration tests covering command selection for PHPUnit-only, Pest-only, and mixed Pest/PHPUnit project configurations
 * **php:** PHP profile `testConstraints` in `src/lang/profiles.ts` extended from 5 to 8 entries � added `.env.testing` coverage, `php artisan config:clear` guidance, and parallel database worker test guidance for Laravel projects
 * **doctor:** add `/swarm doctor tools` subcommand with three checks: (1) tool registration coherence � every TOOL_NAMES entry has a key in the plugin's tool: {} block in src/index.ts, (2) AGENT_TOOL_MAP alignment � tools assigned to agents are registered in the plugin, (3) Class 3 binary readiness � external lint binaries (ruff, cargo, golangci-lint, mvn, gradle, dotnet, swift, swiftlint, dart, flutter, eslint) available on PATH
+* **explorer:** Phase 2 hardening — explorer is now strictly factual/observational
+  - Added `COMPLEXITY INDICATORS` (cyclomatic complexity, deep nesting, large files, inheritance/type hierarchies), `OBSERVED CHANGES` (what changed in referenced files), `CONSUMERS_AFFECTED` (integration impact), `RELEVANT CONSTRAINTS` (architectural patterns, conventions), and `FOLLOW-UP CANDIDATE AREAS` (observable conditions for later review)
+  - Renamed `RISKS` → `COMPLEXITY INDICATORS` and `RUNTIME/BEHAVIORAL CONCERNS`
+  - Removed judgmental language: `VERDICT`, `REVIEW NEEDED`, `MIGRATION_NEEDED`, `dead`, `missing` labels
+  - `VERDICT` → `COMPATIBILITY SIGNALS` (COMPATIBLE/INCOMPATIBLE/UNCERTAIN); `MIGRATION_NEEDED` → `MIGRATION_SURFACE`
+  - Curator prompts recast: `KNOWLEDGE_UPDATES` → `OBSERVATIONS`; all directive language replaced with observational language
+  - Added concrete examples to all OUTPUT FORMAT sections
+  - `createExplorerAgent` description updated to reflect broader scope (identifies areas where specialized domain knowledge may be beneficial)
 * **concurrency:** add file locking for concurrent write safety
-  - `update_task_status` acquires a **hard lock** on `plan.json` before writing � lock losers return `success: false` with `recovery_guidance: "retry"` and the write is blocked
-  - `phase_complete` acquires an **advisory lock** on `events.jsonl` before appending � if the lock is unavailable, a warning is added and the write proceeds unconditionally (duplicate concurrent appends are possible but do not corrupt the append-only log)
+  - `update_task_status` acquires a **hard lock** on `plan.json` before writing — lock losers return `success: false` with `recovery_guidance: "retry"` and the write is blocked
+  - `phase_complete` acquires an **advisory lock** on `events.jsonl` before appending — if the lock is unavailable, a warning is added and the write proceeds unconditionally (duplicate concurrent appends are possible but do not corrupt the append-only log)
   - Lock implementation uses `proper-lockfile` with `retries: 0` (fail-fast)
 
 ### Tests

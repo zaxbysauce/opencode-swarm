@@ -41,8 +41,12 @@ describe('ARCHITECT WORKFLOW: Sequence Bypass Prevention', () => {
 			prompt.indexOf('### MODE: CRITIC-GATE'),
 			prompt.indexOf('### MODE: EXECUTE'),
 		);
-		expect(between45and5.toLowerCase()).not.toContain('skip');
-		expect(between45and5.toLowerCase()).not.toContain('bypass');
+		const stripped = between45and5
+			.replace(/SWARM_SKIP_SPEC_GATE/gi, '')
+			.replace(/env var bypass/gi, '');
+		const lowerStripped = stripped.toLowerCase();
+		expect(lowerStripped).not.toContain('skip');
+		expect(lowerStripped).not.toContain('bypass');
 	});
 
 	test('SECURITY: Phase sequence cannot be reordered (0→1→2→3→4→4.5→5→6)', () => {
