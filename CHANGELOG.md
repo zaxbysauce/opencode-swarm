@@ -1,5 +1,12 @@
 # Changelog
 
+## [6.59.0](https://github.com/zaxbysauce/opencode-swarm/compare/v6.58.0...v6.59.0) (2026-04-09)
+
+
+### Features
+
+* **explorer:** complete role hardening and fix 15 stale test failures ([5b87ee3](https://github.com/zaxbysauce/opencode-swarm/commit/5b87ee35ca6839774b349649a26eb437b6551360))
+
 ## [6.58.0](https://github.com/zaxbysauce/opencode-swarm/compare/v6.57.0...v6.58.0) (2026-04-08)
 
 
