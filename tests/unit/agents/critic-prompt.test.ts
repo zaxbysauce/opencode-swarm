@@ -88,8 +88,8 @@ describe('MODE: ANALYZE — verification', () => {
 		expect(hasInfrastructureExclusion).toBe(true);
 	});
 
-	it('14. Has partial coverage guidance mentioning "COVERAGE TABLE" or "GAPS FOUND"', () => {
-		expect(prompt).toContain('COVERAGE TABLE');
+	it('14. Has partial coverage guidance mentioning "Partial coverage" or "partial"', () => {
+		expect(prompt).toContain('Partial coverage');
 	});
 });
 

@@ -515,7 +515,7 @@ export function createCriticAgent(
 
 /**
  * Creates a Critic agent configured for phase drift verification.
- * Follows the createCuratorAgent pattern: returns name 'critic' (same agent),
+ * Follows the createExplorerCuratorAgent pattern: returns name 'critic' (same agent),
  * different prompt — the drift verifier is the Critic doing a different job.
  */
 export function createCriticDriftVerifierAgent(
@@ -545,7 +545,7 @@ export function createCriticDriftVerifierAgent(
 
 /**
  * Creates a Critic agent configured for autonomous oversight mode.
- * Follows the createCuratorAgent pattern: returns name 'critic' (same agent),
+ * Follows the createExplorerCuratorAgent pattern: returns name 'critic' (same agent),
  * different prompt — the autonomous oversight agent is the sole quality gate in full-auto mode.
  */
 export function createCriticAutonomousOversightAgent(

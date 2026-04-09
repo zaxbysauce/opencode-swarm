@@ -388,7 +388,7 @@ describe('Architect Prompt v6.0 QA & Security Gates (Task 3.2)', () => {
 	describe('Integration Analysis Example', () => {
 		it('44. Integration analysis example exists', () => {
 			expect(prompt).toContain('integration analysis');
-			expect(prompt).toContain('COMPATIBLE | INCOMPATIBLE');
+			expect(prompt).toContain('BREAKING/COMPATIBLE');
 		});
 	});
 
@@ -1094,11 +1094,7 @@ describe('Architect Prompt Hardening v6.12 - ARCHITECT CODING BOUNDARIES', () =>
 				'insert',
 			];
 			for (const tool of coderTools) {
-				if (tool === 'patch' || tool === 'replace') {
-					expect(yourToolsSection).not.toMatch(new RegExp(`\\b${tool}\\b`));
-				} else {
-					expect(yourToolsSection).not.toContain(tool);
-				}
+				expect(yourToolsSection).not.toContain(tool);
 			}
 			// 'write' as a standalone tool (not as prefix like write_retro or write_drift_evidence)
 			expect(yourToolsSection).not.toMatch(/\bwrite\b(?!_)/);

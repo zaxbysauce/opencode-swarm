@@ -7,7 +7,7 @@
 import * as fs from 'node:fs';
 import * as path from 'node:path';
 import { type ToolDefinition, tool } from '@opencode-ai/plugin/tool';
-import { swarmState } from '../state';
+import { getTaskState, swarmState } from '../state';
 import { createSwarmTool } from './create-tool';
 
 /**
@@ -217,7 +217,7 @@ export async function executeDeclareScope(
 		};
 	}
 
-	let planContent: { phases?: { tasks?: { id: string; status: string }[] }[] };
+	let planContent: { phases?: { tasks?: { id: string }[] }[] };
 	try {
 		planContent = JSON.parse(fs.readFileSync(planPath, 'utf-8'));
 	} catch {
@@ -230,11 +230,9 @@ export async function executeDeclareScope(
 
 	const allTasks =
 		planContent.phases?.flatMap(
-			(p: { tasks?: { id: string; status: string }[] }) => p.tasks ?? [],
+			(p: { tasks?: { id: string }[] }) => p.tasks ?? [],
 		) ?? [];
-	const taskExists = allTasks.some(
-		(t: { id: string; status: string }) => t.id === args.taskId,
-	);
+	const taskExists = allTasks.some((t: { id: string }) => t.id === args.taskId);
 
 	if (!taskExists) {
 		return {
@@ -245,16 +243,16 @@ export async function executeDeclareScope(
 	}
 
 	// Step 6: Check that task is NOT already in 'complete' state
-	// Use plan.json as authoritative source (update_task_status only writes to plan.json, not in-memory state)
-	const taskInPlan = allTasks.find(
-		(t: { id: string; status: string }) => t.id === args.taskId,
-	);
-	if (taskInPlan && taskInPlan.status === 'completed') {
-		return {
-			success: false,
-			message: `Task ${args.taskId} is already completed`,
-			errors: [`Cannot declare scope for completed task ${args.taskId}`],
-		};
+	// Check across all sessions - if any session has this task in 'complete' state, reject
+	for (const [_sessionId, session] of swarmState.agentSessions) {
+		const taskState = getTaskState(session, args.taskId);
+		if (taskState === 'complete') {
+			return {
+				success: false,
+				message: `Task ${args.taskId} is already completed`,
+				errors: [`Cannot declare scope for completed task ${args.taskId}`],
+			};
+		}
 	}
 
 	// Step 7: Merge files and whitelist (if provided)

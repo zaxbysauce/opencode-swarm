@@ -407,8 +407,7 @@ var init_constants = __esm(() => {
     retrieve_summary: "retrieve the full content of a stored tool output summary",
     search: "Workspace-scoped ripgrep-style text search with structured JSON output. Supports literal and regex modes, glob filtering, and result limits. NOTE: This is text search, not structural AST search \u2014 use symbols and imports tools for structural queries.",
     batch_symbols: "Batched symbol extraction across multiple files. Returns per-file symbol summaries with isolated error handling.",
-    suggest_patch: "Reviewer-safe structured patch suggestion tool. Produces context-anchored patch artifacts without file modification. Returns structured diagnostics on context mismatch.",
-    lint_spec: "validate .swarm/spec.md format and required fields"
+    suggest_patch: "Reviewer-safe structured patch suggestion tool. Produces context-anchored patch artifacts without file modification. Returns structured diagnostics on context mismatch."
   };
   for (const [agentName, tools] of Object.entries(AGENT_TOOL_MAP)) {
     const invalidTools = tools.filter((tool) => !TOOL_NAME_SET.has(tool));
@@ -47651,21 +47650,17 @@ When exploring a codebase area, systematically report all four dimensions:
 - State management approach (global, module-level, passed through)
 - Configuration pattern (env vars, config files, hardcoded)
 
-### COMPLEXITY INDICATORS
-- High cyclomatic complexity, deep nesting, or complex control flow
-- Large files (>500 lines) with many exported symbols
-- Deep inheritance hierarchies or complex type hierarchies
-
-### RUNTIME/BEHAVIORAL CONCERNS
-- Missing error handling paths or single-throw patterns
+### RISKS
+- Files with high cyclomatic complexity or deep nesting
+- Circular dependencies
+- Missing error handling paths
+- Dead code or unreachable branches
 - Platform-specific assumptions (path separators, line endings, OS APIs)
 
-### RELEVANT CONSTRAINTS
-- Architectural patterns observed (layered architecture, event-driven, microservice, etc.)
-- Error handling coverage patterns observed in the codebase
-- Platform-specific assumptions observed in the codebase
-- Established conventions (naming patterns, error handling approaches, testing strategies)
-- Configuration management approaches (env vars, config files, feature flags)
+### RELEVANT CONTEXT FOR TASK
+- Existing tests that cover this area (paths and what they test)
+- Related documentation files
+- Similar implementations elsewhere in the codebase that should be consistent
 
 OUTPUT FORMAT (MANDATORY \u2014 deviations will be rejected):
 Begin directly with PROJECT. Do NOT prepend "Here's my analysis..." or any conversational preamble.
@@ -47676,41 +47671,16 @@ FRAMEWORK: [if any]
 
 STRUCTURE:
 [key directories, 5-10 lines max]
-Example:
-src/agents/     \u2014 agent factories and definitions
-src/tools/       \u2014 CLI tool implementations
-src/config/      \u2014 plan schema and constants
 
 KEY FILES:
 - [path]: [purpose]
-Example:
-src/agents/explorer.ts \u2014 explorer agent factory and all prompt definitions
-src/agents/architect.ts \u2014 architect orchestrator with all mode handlers
 
 PATTERNS: [observations]
-Example: Factory pattern for agent creation; Result type for error handling; Module-level state via closure
-
-COMPLEXITY INDICATORS:
-[structural complexity concerns: elevated cyclomatic complexity, deep nesting, large files, deep inheritance hierarchies, or similar \u2014 describe what is OBSERVED]
-Example: explorer.ts (289 lines, 12 exports); architect.ts (complex branching in mode handlers)
-
-OBSERVED CHANGES:
-[if INPUT referenced specific files/changes: what changed in those targets; otherwise "none" or "general exploration"]
-
-CONSUMERS_AFFECTED:
-[if integration impact mode: list files that import/use the changed symbols; otherwise "not applicable"]
-
-RELEVANT CONSTRAINTS:
-[architectural patterns, error handling coverage patterns, platform-specific assumptions, established conventions observed in the codebase]
-Example: Layered architecture (agents \u2192 tools \u2192 filesystem); Bun-native path handling; Error-first callbacks in hooks
 
 DOMAINS: [relevant SME domains: powershell, security, python, etc.]
-Example: typescript, nodejs, cli-tooling, powershell
 
-FOLLOW-UP CANDIDATE AREAS:
-- [path]: [observable condition, relevant domain]
-Example:
-src/tools/declare-scope.ts \u2014 function has 12 parameters, consider splitting; tool-authoring
+REVIEW NEEDED:
+- [path]: [why, which SME]
 
 ## INTEGRATION IMPACT ANALYSIS MODE
 Activates when delegated with "Integration impact analysis" or INPUT lists contract changes.
@@ -47726,15 +47696,10 @@ OUTPUT FORMAT (MANDATORY \u2014 deviations will be rejected):
 Begin directly with BREAKING_CHANGES. Do NOT prepend conversational preamble.
 
 BREAKING_CHANGES: [list with affected consumer files, or "none"]
-Example: src/agents/explorer.ts \u2014 removed createExplorerAgent export (was used by 3 files)
 COMPATIBLE_CHANGES: [list, or "none"]
-Example: src/config/constants.ts \u2014 added new optional field to Config interface
 CONSUMERS_AFFECTED: [list of files that import/use changed exports, or "none"]
-Example: src/agents/coder.ts, src/agents/reviewer.ts, src/main.ts
-COMPATIBILITY SIGNALS: [COMPATIBLE | INCOMPATIBLE | UNCERTAIN \u2014 based on observable contract changes]
-Example: INCOMPATIBLE \u2014 removeExport changes function arity from 3 to 2
-MIGRATION_SURFACE: [yes \u2014 list of observable call signatures affected | no \u2014 no observable impact detected]
-Example: yes \u2014 createExplorerAgent(model, customPrompt?, customAppendPrompt?) \u2192 createExplorerAgent(model)
+VERDICT: BREAKING | COMPATIBLE
+MIGRATION_NEEDED: [yes \u2014 description of required caller updates | no]
 
 ## DOCUMENTATION DISCOVERY MODE
 Activates automatically during codebase reality check at plan ingestion.
@@ -47780,8 +47745,8 @@ PROJECT_CONTEXT: [context.md excerpt]
 ACTIONS:
 - Read the prior summary to understand session history
 - Cross-reference knowledge entries against project context
-- Note contradictions (knowledge says X, project state shows Y)
-- Observe where lessons could be tighter or stale
+- Identify contradictions (knowledge says X, project state shows Y)
+- Recommend rewrites for verbose or stale lessons
 - Produce a concise briefing for the architect
 
 RULES:
@@ -47797,13 +47762,13 @@ BRIEFING:
 CONTRADICTIONS:
 - [entry_id]: [description] (or "None detected")
 
-OBSERVATIONS:
-- entry <uuid> appears high-confidence: [observable evidence]  (suggests boost confidence, mark hive_eligible)
-- entry <uuid> appears stale: [observable evidence]  (suggests archive \u2014 no longer injected)
-- entry <uuid> could be tighter: [what's verbose or duplicate]  (suggests rewrite with tighter version, max 280 chars)
-- entry <uuid> contradicts project state: [observable conflict]  (suggests tag as contradicted)
-- new candidate: [concise lesson text from observed patterns]  (suggests new entry)
-Use the UUID from KNOWLEDGE_ENTRIES when observing about existing entries. Use "new candidate" only when observing a potential new entry.
+KNOWLEDGE_UPDATES:
+- promote <uuid>: <reason>       (boost confidence, mark hive_eligible)
+- archive <uuid>: <reason>       (mark as archived \u2014 no longer injected)
+- rewrite <uuid>: <new lesson text>  (replace verbose/stale lesson with tighter version, max 280 chars)
+- flag_contradiction <uuid>: <reason>  (tag as contradicted)
+- promote new: <new lesson text>   (add a brand-new entry)
+Use the UUID from KNOWLEDGE_ENTRIES when archiving, rewriting, or flagging an existing entry. Use "new" only when recommending a brand-new entry.
 
 KNOWLEDGE_STATS:
 - Entries reviewed: [N]
@@ -47825,15 +47790,14 @@ KNOWLEDGE_ENTRIES: [JSON array of existing entries with UUIDs]
 
 ACTIONS:
 - Extend the prior digest with this phase's outcomes (do NOT regenerate from scratch)
-- Observe workflow deviations: missing reviewer, missing retro, skipped test_engineer
-- Report knowledge update candidates with observable evidence: entries that appear promoted, archived, rewritten, or contradicted
+- Identify workflow deviations: missing reviewer, missing retro, skipped test_engineer
+- Recommend knowledge updates: entries to promote, archive, rewrite, or flag as contradicted
 - Summarize key decisions and blockers resolved
 
 RULES:
 - Output under 2000 chars
 - No code modifications
 - Compliance observations are READ-ONLY \u2014 report, do not enforce
-- OBSERVATIONS should not contain directives \u2014 report what is observed, do not instruct the architect what to do
 - Extend the digest, never replace it
 
 OUTPUT FORMAT:
@@ -47846,15 +47810,15 @@ key_decisions: [list]
 blockers_resolved: [list]
 
 COMPLIANCE:
-- [type] observed: [description] (or "No deviations observed")
+- [type]: [description] (or "No deviations observed")
 
-OBSERVATIONS:
-- entry <uuid> appears high-confidence: [observable evidence]  (suggests boost confidence, mark hive_eligible)
-- entry <uuid> appears stale: [observable evidence]  (suggests archive \u2014 no longer injected)
-- entry <uuid> could be tighter: [what's verbose or duplicate]  (suggests rewrite with tighter version, max 280 chars)
-- entry <uuid> contradicts project state: [observable conflict]  (suggests tag as contradicted)
-- new candidate: [concise lesson text from observed patterns]  (suggests new entry)
-Use the UUID from KNOWLEDGE_ENTRIES when observing about existing entries. Use "new candidate" only when observing a potential new entry.
+KNOWLEDGE_UPDATES:
+- promote <uuid>: <reason>       (boost confidence, mark hive_eligible)
+- archive <uuid>: <reason>       (mark as archived \u2014 no longer injected)
+- rewrite <uuid>: <new lesson text>  (replace verbose/stale lesson with tighter version, max 280 chars)
+- flag_contradiction <uuid>: <reason>  (tag as contradicted)
+- promote new: <new lesson text>   (add a brand-new entry)
+Use the UUID from KNOWLEDGE_ENTRIES when archiving, rewriting, or flagging an existing entry. Use "new" only when recommending a brand-new entry.
 
 EXTENDED_DIGEST:
 [the full running digest with this phase appended]
@@ -47870,7 +47834,7 @@ ${customAppendPrompt}`;
   }
   return {
     name: "explorer",
-    description: "Fast codebase discovery and analysis. Scans directory structure, identifies languages/frameworks, summarizes key files, and identifies areas where specialized domain knowledge may be beneficial.",
+    description: "Fast codebase discovery and analysis. Scans directory structure, identifies languages/frameworks, summarizes key files, and flags areas needing SME review.",
     config: {
       model,
       temperature: 0.1,
@@ -47892,7 +47856,7 @@ init_utils2();
 var DEFAULT_CURATOR_LLM_TIMEOUT_MS = 300000;
 function parseKnowledgeRecommendations(llmOutput) {
   const recommendations = [];
-  const section = llmOutput.match(/OBSERVATIONS:\s*\n([\s\S]*?)(?:\n\n|\n[A-Z_]+:|$)/);
+  const section = llmOutput.match(/KNOWLEDGE_UPDATES:\s*\n([\s\S]*?)(?:\n\n|\n[A-Z_]+:|$)/);
   if (!section)
     return recommendations;
   const lines = section[1].split(`
@@ -47901,33 +47865,19 @@ function parseKnowledgeRecommendations(llmOutput) {
     const trimmed = line.trim();
     if (!trimmed.startsWith("-"))
       continue;
-    const match = trimmed.match(/^-\s+entry\s+(\S+)\s+\(([^)]+)\):\s+(.+)$/i);
-    if (!match)
-      continue;
-    const uuid8 = match[1];
-    const parenthetical = match[2];
-    const text = match[3].trim().replace(/\s+\([^)]+\)$/, "");
-    const UUID_V4 = /^[0-9a-f]{8}-[0-9a-f]{4}-4[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;
-    const entryId = uuid8 === "new" || !UUID_V4.test(uuid8) ? undefined : uuid8;
-    let action = "rewrite";
-    const lowerParenthetical = parenthetical.toLowerCase();
-    if (lowerParenthetical.includes("suggests boost confidence") || lowerParenthetical.includes("mark hive_eligible") || lowerParenthetical.includes("appears high-confidence")) {
-      action = "promote";
-    } else if (lowerParenthetical.includes("suggests archive") || lowerParenthetical.includes("appears stale")) {
-      action = "archive";
-    } else if (lowerParenthetical.includes("contradicts project state")) {
-      action = "flag_contradiction";
-    } else if (lowerParenthetical.includes("suggests rewrite") || lowerParenthetical.includes("could be tighter")) {
-      action = "rewrite";
-    } else if (lowerParenthetical.includes("new candidate")) {
-      action = "promote";
+    const match = trimmed.match(/^-\s+(promote|archive|flag_contradiction|rewrite)\s+(\S+):\s+(.+)$/i);
+    if (match) {
+      const action = match[1].toLowerCase();
+      const UUID_V4 = /^[0-9a-f]{8}-[0-9a-f]{4}-4[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;
+      const entryId = match[2] === "new" || !UUID_V4.test(match[2]) ? undefined : match[2];
+      const reason = match[3].trim();
+      recommendations.push({
+        action,
+        entry_id: entryId,
+        lesson: reason,
+        reason
+      });
     }
-    recommendations.push({
-      action,
-      entry_id: entryId,
-      lesson: text,
-      reason: text
-    });
   }
   return recommendations;
 }
@@ -52993,20 +52943,6 @@ You THINK. Subagents DO. You have the largest context window and strongest reaso
 - Never pass raw files - summarize relevant parts
 - Never assume subagents remember prior context
 
-## EXPLORER ROLE BOUNDARIES (Phase 2+)
-Explorer is strictly a FACTUAL MAPPER \u2014 it observes and reports. It does NOT make judgments, verdicts, routing decisions, or enforcement actions.
-
-Explorer outputs (COMPLEXITY INDICATORS, FOLLOW-UP CANDIDATE AREAS, DOMAINS, etc.) are CANDIDATE EVIDENCE. As Architect, YOU decide what to use, how to route, and what to prioritize.
-
-Explorer should NEVER be treated as:
-- A verdict authority (its signals are informational, not binding)
-- A routing oracle (SME nominations and domain hints are suggestions, not assignments)
-- A compliance enforcer (workflow observations are read-only reports)
-
-The architect makes dispatch and routing decisions. Explorer provides facts.
-
-SPEED PRESERVATION: This change improves explorer precision by narrowing its job to factual mapping \u2014 it does NOT reduce explorer usage. All existing explorer calls and workflows remain intact. The goal is better signal quality, not fewer calls.
-
 ## RULES
 
 NAMESPACE RULE: "Phase N" and "Task N.M" ALWAYS refer to the PROJECT PLAN in .swarm/plan.md.
@@ -53353,7 +53289,7 @@ OUTPUT: Test file + VERDICT: PASS/FAIL
 {{AGENT_PREFIX}}explorer
 TASK: Integration impact analysis
 INPUT: Contract changes detected: [list from diff tool]
-OUTPUT: BREAKING_CHANGES + COMPATIBLE_CHANGES + CONSUMERS_AFFECTED + COMPATIBILITY SIGNALS: [COMPATIBLE | INCOMPATIBLE | UNCERTAIN] + MIGRATION_SURFACE: [yes \u2014 list of affected call signatures | no]
+OUTPUT: BREAKING_CHANGES + COMPATIBLE_CHANGES + CONSUMERS_AFFECTED + VERDICT: BREAKING/COMPATIBLE + MIGRATION_NEEDED
 CONSTRAINT: Read-only. use search to find imports/usages of changed exports.
 
 {{AGENT_PREFIX}}docs
@@ -53743,7 +53679,7 @@ All other gates: failure \u2192 return to coder. No self-fixes. No workarounds.
 5a-bis. **DARK MATTER CO-CHANGE DETECTION**: After declaring scope but BEFORE finalizing the task file list, call knowledge_recall with query hidden-coupling primaryFile where primaryFile is the first file in the task's FILE list. Extract primaryFile from the task's FILE list (first file = primary). If results found, add those files to the task's AFFECTS scope with a BLAST RADIUS note. If no results or knowledge_recall unavailable, proceed gracefully without adding files. This is advisory \u2014 the architect may exclude files from scope if they are unrelated to the current task. only after scope is declared.
 
 5b. {{AGENT_PREFIX}}coder - Implement (if designer scaffold produced, include it as INPUT).
-5c. Run \`diff\` tool. If \`hasContractChanges\` \u2192 {{AGENT_PREFIX}}explorer integration analysis. If COMPATIBILITY SIGNALS=INCOMPATIBLE or MIGRATION_SURFACE=yes \u2192 coder retry. If COMPATIBILITY SIGNALS=COMPATIBLE and MIGRATION_SURFACE=no \u2192 proceed.
+5c. Run \`diff\` tool. If \`hasContractChanges\` \u2192 {{AGENT_PREFIX}}explorer integration analysis. If VERDICT=BREAKING or MIGRATION_NEEDED=yes \u2192 coder retry. If VERDICT=COMPATIBLE and MIGRATION_NEEDED=no \u2192 proceed.
     \u2192 REQUIRED: Print "diff: [PASS | CONTRACT CHANGE \u2014 details]"
     5d. Run \`syntax_check\` tool. SYNTACTIC ERRORS \u2192 return to coder. NO ERRORS \u2192 proceed to placeholder_scan.
     \u2192 REQUIRED: Print "syntaxcheck: [PASS | FAIL \u2014 N errors]"
@@ -53838,14 +53774,6 @@ PRE-COMMIT RULE \u2014 Before ANY commit or push:
 
   If ANY box is unchecked: DO NOT COMMIT. Return to step 5b.
   There is no override. A commit without a completed QA gate is a workflow violation.
-
-## ROLE-BOUNDARY CHANGE VALIDATION (mandatory for prompt changes)
-When a task modifies agent prompts (especially explorer, reviewer, critic, or any agent involved in the mapper/validator/challenge hierarchy), add an explicit test validation step:
-- If new prompt contract tests exist (e.g., explorer-role-boundary.test.ts, explorer-consumer-contract.test.ts): Run them via test_runner
-- If no specific tests exist for the changed prompt: Run test_runner with scope "convention" on the changed file
-- Verify the new tests pass before completing the task
-
-This step supplements (not replaces) the existing regression-sweep and test-drift checks. It exists to catch prompt contract regressions that automated gates might miss.
 
 5o. \u26D4 TASK COMPLETION GATE \u2014 You MUST print this checklist with filled values before marking \u2713 in .swarm/plan.md:
   [TOOL] diff: PASS / SKIP \u2014 value: ___
@@ -55031,14 +54959,6 @@ DO NOT:
 - Flag style issues the linter should catch (automated gates handle that)
 
 Your unique value is catching LOGIC ERRORS, EDGE CASES, and SECURITY FLAWS that automated tools cannot detect. If your review only catches things a linter would catch, you are not adding value.
-
-## EXPLORER FINDINGS \u2014 VALIDATE BEFORE REPORTING
-Explorer agent outputs (from @mega_explorer) may contain observations labeled as REVIEW NEEDED, RISKS, VERDICT, BREAKING, COMPATIBLE, or similar judgment language. Treat these as CANDIDATE OBSERVATIONS, not established facts.
-- BEFORE including any issue-like finding from explorer input in your final report: READ the relevant code yourself and verify the issue independently
-- Do NOT adopt the explorer's VERDICT, BREAKING, or COMPATIBLE labels as your own \u2014 you must reach your own conclusion
-- Explorer's RISKS section names potential concerns \u2014 you determine if they are actual issues through your own review
-- If explorer suggests "REVIEW NEEDED" for an area, treat it as a hint to look there, not as a confirmed problem
-- Your verdict must reflect YOUR verification, not the explorer's framing
 
 DO (explicitly):
 - READ the changed files yourself \u2014 do not rely on the coder's self-report
@@ -65707,13 +65627,15 @@ async function executeDeclareScope(args2, fallbackDir) {
       errors: [`Task ${args2.taskId} does not exist in plan.json`]
     };
   }
-  const taskInPlan = allTasks.find((t) => t.id === args2.taskId);
-  if (taskInPlan && taskInPlan.status === "completed") {
-    return {
-      success: false,
-      message: `Task ${args2.taskId} is already completed`,
-      errors: [`Cannot declare scope for completed task ${args2.taskId}`]
-    };
+  for (const [_sessionId, session] of swarmState.agentSessions) {
+    const taskState = getTaskState(session, args2.taskId);
+    if (taskState === "complete") {
+      return {
+        success: false,
+        message: `Task ${args2.taskId} is already completed`,
+        errors: [`Cannot declare scope for completed task ${args2.taskId}`]
+      };
+    }
   }
   const rawMergedFiles = [...args2.files, ...args2.whitelist ?? []];
   const warnings = [];
@@ -69658,10 +69580,6 @@ var DEFAULT_STRING_PATTERNS = [
   },
   { pattern: /`[^`]*\bstub\b[^`]*`/i, rule_id: "placeholder/text-placeholder" }
 ];
-var FILE_ALLOWLIST = [
-  "src/tools/declare-scope.ts",
-  "src/tools/placeholder-scan.ts"
-];
 var DEFAULT_CODE_PATTERNS = [
   {
     pattern: /throw\s+new\s+Error\s*\(\s*["'][^"']*\bTODO\b[^"']*["']\s*\)/i,
@@ -69802,64 +69720,6 @@ function scanPlanFileForPlaceholders(content, filePath) {
   }
   return findings;
 }
-function isValidationPattern(lines, currentLineIdx) {
-  const currentLine = lines[currentLineIdx];
-  if (!/return\s+undefined\s*;/.test(currentLine)) {
-    return false;
-  }
-  const MAX_SEARCH_LINES = 50;
-  let jsdocContent = "";
-  let foundFunction = false;
-  const functionKeywords = /^(?:export\s+)?(?:async\s+)?function\s+\w+|^(?:export\s+)?(?:async\s+)?(?:\w+\s+)?\w+\s*\([^)]*\)\s*(?::\s*\w+\s*)?(?:\{|$)/;
-  for (let i2 = currentLineIdx - 1;i2 >= 0 && i2 >= currentLineIdx - MAX_SEARCH_LINES; i2--) {
-    const line = lines[i2].trim();
-    if (line.startsWith("*") || line.startsWith("*/")) {
-      const jsdocLine = line.replace(/^\*?\s?/, "").replace(/^\*\//, "");
-      jsdocContent = jsdocLine + `
-` + jsdocContent;
-    } else if (line.includes("*/")) {
-      break;
-    } else if (functionKeywords.test(line) || line.startsWith("function ")) {
-      foundFunction = true;
-      break;
-    } else if (line.length > 0 && !line.startsWith("//") && !line.startsWith("*")) {
-      break;
-    }
-  }
-  if (jsdocContent) {
-    const returnsPattern = /@returns\s*(?:\{[^}]*\})?\s*(?:undefined|[A-Za-z_]\w*)/i;
-    if (returnsPattern.test(jsdocContent)) {
-      return true;
-    }
-  }
-  let braceCount = 0;
-  let inFunction = false;
-  for (let i2 = currentLineIdx;i2 >= 0; i2--) {
-    const line = lines[i2];
-    for (const char of line) {
-      if (char === "{") {
-        braceCount++;
-        inFunction = true;
-      } else if (char === "}") {
-        braceCount--;
-      }
-    }
-    if (inFunction && braceCount === 0 && i2 < currentLineIdx) {
-      break;
-    }
-  }
-  const errorReturnPattern = /return\s+["'`][[:ascii:]]*["'`]\s*;/;
-  for (let i2 = currentLineIdx - 1;i2 >= 0 && i2 >= currentLineIdx - MAX_SEARCH_LINES; i2--) {
-    const line = lines[i2].trim();
-    if (functionKeywords.test(line) || line.startsWith("function ")) {
-      break;
-    }
-    if (errorReturnPattern.test(line)) {
-      return true;
-    }
-  }
-  return false;
-}
 function scanWithRegex(content, filePath, denyPatterns) {
   const findings = [];
   const lines = content.split(`
@@ -69919,11 +69779,6 @@ function scanWithRegex(content, filePath, denyPatterns) {
     for (const { pattern, rule_id } of denyPatterns.code) {
       const isTestLike = line.includes("describe(") || line.includes("it(") || line.includes("test(") || line.includes("expect(");
       if (!isTestLike && pattern.test(line)) {
-        if (rule_id === "placeholder/code-stub-return" && /return\s+undefined\s*;/.test(line)) {
-          if (isValidationPattern(lines, i2)) {
-            continue;
-          }
-        }
         findings.push({
           path: filePath,
           line: lineNumber,
@@ -70029,10 +69884,6 @@ async function placeholderScan(input, directory) {
       continue;
     }
     if (isAllowedByGlobs(filePath, allow_globs)) {
-      continue;
-    }
-    const relativeFilePath = path65.relative(directory, fullPath).replace(/\\/g, "/");
-    if (FILE_ALLOWLIST.some((allowed) => relativeFilePath.endsWith(allowed))) {
       continue;
     }
     let content;
@@ -71605,13 +71456,13 @@ function validatePath(inputPath, baseDir, workspaceDir) {
     resolved = path67.resolve(baseDir, inputPath);
   }
   const workspaceResolved = path67.resolve(workspaceDir);
-  let relative12;
+  let relative11;
   if (isWinAbs) {
-    relative12 = path67.win32.relative(workspaceResolved, resolved);
+    relative11 = path67.win32.relative(workspaceResolved, resolved);
   } else {
-    relative12 = path67.relative(workspaceResolved, resolved);
+    relative11 = path67.relative(workspaceResolved, resolved);
   }
-  if (relative12.startsWith("..")) {
+  if (relative11.startsWith("..")) {
     return "path traversal detected";
   }
   return null;

@@ -1,5 +1,8 @@
 import { describe, expect, it } from 'bun:test';
-import { createExplorerAgent } from '../../../src/agents/explorer';
+import {
+	createExplorerAgent,
+	createExplorerCuratorAgent,
+} from '../../../src/agents/explorer';
 
 describe('explorer.ts', () => {
 	describe('EXPLORER_PROMPT content', () => {
@@ -70,6 +73,86 @@ describe('explorer.ts', () => {
 			const agent = createExplorerAgent('gpt-4', undefined, customAppend);
 			expect(agent.config.prompt).toContain('## DOCUMENTATION DISCOVERY MODE');
 			expect(agent.config.prompt).toContain(customAppend);
+		});
+	});
+
+	describe('createExplorerCuratorAgent', () => {
+		it('returns proper agent definition for CURATOR_INIT mode', () => {
+			const agent = createExplorerCuratorAgent('gpt-4', 'CURATOR_INIT');
+			expect(agent.name).toBe('explorer');
+			expect(agent.description).toContain('CURATOR_INIT');
+		});
+
+		it('returns proper agent definition for CURATOR_PHASE mode', () => {
+			const agent = createExplorerCuratorAgent('gpt-4', 'CURATOR_PHASE');
+			expect(agent.name).toBe('explorer');
+			expect(agent.description).toContain('CURATOR_PHASE');
+		});
+
+		it('uses the specified model', () => {
+			const agent = createExplorerCuratorAgent('gpt-4o', 'CURATOR_INIT');
+			expect(agent.config.model).toBe('gpt-4o');
+		});
+
+		it('has read-only tools configuration', () => {
+			const agent = createExplorerCuratorAgent('gpt-4', 'CURATOR_INIT');
+			expect(agent.config.tools?.write).toBe(false);
+			expect(agent.config.tools?.edit).toBe(false);
+			expect(agent.config.tools?.patch).toBe(false);
+		});
+
+		it('CURATOR_INIT prompt contains CURATOR_INIT identity', () => {
+			const agent = createExplorerCuratorAgent('gpt-4', 'CURATOR_INIT');
+			expect(agent.config.prompt).toContain('CURATOR_INIT');
+		});
+
+		it('CURATOR_PHASE prompt contains CURATOR_PHASE identity', () => {
+			const agent = createExplorerCuratorAgent('gpt-4', 'CURATOR_PHASE');
+			expect(agent.config.prompt).toContain('CURATOR_PHASE');
+		});
+
+		it('accepts customAppendPrompt and appends it', () => {
+			const customAppend = 'Additional curator guidance';
+			const agent = createExplorerCuratorAgent(
+				'gpt-4',
+				'CURATOR_INIT',
+				customAppend,
+			);
+			expect(agent.config.prompt).toContain(customAppend);
+		});
+	});
+
+	describe('CURATOR_INIT_PROMPT and CURATOR_PHASE_PROMPT definitions', () => {
+		it('CURATOR_INIT mode produces a prompt with IDENTITY section', () => {
+			const agent = createExplorerCuratorAgent('gpt-4', 'CURATOR_INIT');
+			expect(agent.config.prompt).toContain('## IDENTITY');
+			expect(agent.config.prompt).toContain('CURATOR_INIT mode');
+		});
+
+		it('CURATOR_PHASE mode produces a prompt with IDENTITY section', () => {
+			const agent = createExplorerCuratorAgent('gpt-4', 'CURATOR_PHASE');
+			expect(agent.config.prompt).toContain('## IDENTITY');
+			expect(agent.config.prompt).toContain('CURATOR_PHASE mode');
+		});
+
+		it('CURATOR_INIT prompt contains INPUT FORMAT for PRIOR_SUMMARY and KNOWLEDGE_ENTRIES', () => {
+			const agent = createExplorerCuratorAgent('gpt-4', 'CURATOR_INIT');
+			expect(agent.config.prompt).toContain('PRIOR_SUMMARY');
+			expect(agent.config.prompt).toContain('KNOWLEDGE_ENTRIES');
+		});
+
+		it('CURATOR_PHASE prompt contains INPUT FORMAT for PHASE_EVENTS and PHASE_EVIDENCE', () => {
+			const agent = createExplorerCuratorAgent('gpt-4', 'CURATOR_PHASE');
+			expect(agent.config.prompt).toContain('PHASE_EVENTS');
+			expect(agent.config.prompt).toContain('PHASE_EVIDENCE');
+		});
+
+		it('CURATOR prompts contain OUTPUT FORMAT sections', () => {
+			const initAgent = createExplorerCuratorAgent('gpt-4', 'CURATOR_INIT');
+			const phaseAgent = createExplorerCuratorAgent('gpt-4', 'CURATOR_PHASE');
+
+			expect(initAgent.config.prompt).toContain('OUTPUT FORMAT');
+			expect(phaseAgent.config.prompt).toContain('OUTPUT FORMAT');
 		});
 	});
 });

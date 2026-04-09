@@ -7,22 +7,6 @@
  * callback for LLM-based analysis. When provided, the prepared data context is sent
  * to the explorer agent in CURATOR_PHASE/CURATOR_INIT mode for richer analysis.
  * When the delegate is absent or fails, falls back to data-only behavior.
- *
- * ## Curator Agent Dispatch Modes
- *
- * Curator agents are dispatched in two ways:
- *
- * 1. **Factory dispatch** (standard): Created via `createCuratorAgent` from curator-agent.ts,
- *    exposed through agents/index.ts. These appear in agent lists and are part of the
- *    standard agent factory.
- *
- * 2. **Hook dispatch** (internal): curator.ts imports CURATOR_INIT_PROMPT and CURATOR_PHASE_PROMPT
- *    from explorer.ts and dispatches curator analysis directly via hook callbacks. These
- *    hook-dispatched curators do NOT go through the standard agent factory and are NOT
- *    included in agent lists (e.g., AGENTS.md, agent discovery, the agent registry).
- *
- * This dual dispatch means agent lists are incomplete — they capture factory-dispatched
- * curators but omit hook-dispatched ones. This is by design for hook-internal operations.
  */
 
 import { randomUUID } from 'node:crypto';
@@ -72,18 +56,15 @@ export type CuratorLLMDelegate = (
 const DEFAULT_CURATOR_LLM_TIMEOUT_MS = 300_000;
 
 /**
- * Parse OBSERVATIONS section from curator LLM output.
- * Expected format per line: "- entry <uuid> (<observable>): [text]"
- * Observable types: appears high-confidence, appears stale, could be tighter,
- * contradicts project state, new candidate
- * Action hints are extracted from parenthetical directives like "(suggests boost confidence, mark hive_eligible)"
+ * Parse KNOWLEDGE_UPDATES section from curator LLM output.
+ * Expected format per line: "- [action] [entry_id or "new"]: [reason]"
  */
 export function parseKnowledgeRecommendations(
 	llmOutput: string,
 ): KnowledgeRecommendation[] {
 	const recommendations: KnowledgeRecommendation[] = [];
 	const section = llmOutput.match(
-		/OBSERVATIONS:\s*\n([\s\S]*?)(?:\n\n|\n[A-Z_]+:|$)/,
+		/KNOWLEDGE_UPDATES:\s*\n([\s\S]*?)(?:\n\n|\n[A-Z_]+:|$)/,
 	);
 	if (!section) return recommendations;
 
@@ -92,55 +73,30 @@ export function parseKnowledgeRecommendations(
 		const trimmed = line.trim();
 		if (!trimmed.startsWith('-')) continue;
 
-		// Match "- entry <uuid> (observable): text" or "- entry <uuid> (observable, directive hint): text"
-		const match = trimmed.match(/^-\s+entry\s+(\S+)\s+\(([^)]+)\):\s+(.+)$/i);
-		if (!match) continue;
-
-		const uuid = match[1];
-		const parenthetical = match[2];
-		const text = match[3].trim().replace(/\s+\([^)]+\)$/, '');
-
-		// Determine entryId: only treat as real UUID if UUID v4 format
-		const UUID_V4 =
-			/^[0-9a-f]{8}-[0-9a-f]{4}-4[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;
-		const entryId = uuid === 'new' || !UUID_V4.test(uuid) ? undefined : uuid;
-
-		// Extract action hint from parenthetical content
-		// Directives include: "suggests boost confidence, mark hive_eligible" -> promote
-		// "suggests archive" -> archive, "suggests rewrite" -> rewrite,
-		// "contradicts project state" -> flag_contradiction, "new candidate" -> promote (new)
-		let action: KnowledgeRecommendation['action'] = 'rewrite';
-		const lowerParenthetical = parenthetical.toLowerCase();
-
-		if (
-			lowerParenthetical.includes('suggests boost confidence') ||
-			lowerParenthetical.includes('mark hive_eligible') ||
-			lowerParenthetical.includes('appears high-confidence')
-		) {
-			action = 'promote';
-		} else if (
-			lowerParenthetical.includes('suggests archive') ||
-			lowerParenthetical.includes('appears stale')
-		) {
-			action = 'archive';
-		} else if (lowerParenthetical.includes('contradicts project state')) {
-			action = 'flag_contradiction';
-		} else if (
-			lowerParenthetical.includes('suggests rewrite') ||
-			lowerParenthetical.includes('could be tighter')
-		) {
-			action = 'rewrite';
-		} else if (lowerParenthetical.includes('new candidate')) {
-			// "new candidate" is an observable suggesting a new entry should be created
-			action = 'promote';
+		// Match "- promote entry_123: reason text" or "- archive entry_456: reason text"
+		const match = trimmed.match(
+			/^-\s+(promote|archive|flag_contradiction|rewrite)\s+(\S+):\s+(.+)$/i,
+		);
+		if (match) {
+			const action =
+				match[1].toLowerCase() as KnowledgeRecommendation['action'];
+			// Only treat as a real entry_id if it is UUID v4 format.
+			// LLMs hallucinate human-readable slugs (e.g. 'tool-name-normalization')
+			// because they never receive actual IDs in CURATOR_PHASE context.
+			// Any non-UUID, non-"new" token is treated as "new" to prevent failed
+			// lookups in applyCuratorKnowledgeUpdates.
+			const UUID_V4 =
+				/^[0-9a-f]{8}-[0-9a-f]{4}-4[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;
+			const entryId =
+				match[2] === 'new' || !UUID_V4.test(match[2]) ? undefined : match[2];
+			const reason = match[3].trim();
+			recommendations.push({
+				action,
+				entry_id: entryId,
+				lesson: reason,
+				reason,
+			});
 		}
-
-		recommendations.push({
-			action,
-			entry_id: entryId,
-			lesson: text,
-			reason: text,
-		});
 	}
 
 	return recommendations;
