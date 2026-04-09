@@ -279,12 +279,12 @@ describe('E2: Integration impact analysis mode', () => {
 		expect(prompt).toContain('CONSUMERS_AFFECTED');
 	});
 
-	it('output includes VERDICT: BREAKING | COMPATIBLE', () => {
-		expect(prompt).toContain('VERDICT: BREAKING | COMPATIBLE');
+	it('output includes COMPATIBILITY SIGNALS field', () => {
+		expect(prompt).toContain('COMPATIBILITY SIGNALS');
 	});
 
-	it('output includes MIGRATION_NEEDED field', () => {
-		expect(prompt).toContain('MIGRATION_NEEDED');
+	it('output includes MIGRATION_SURFACE field', () => {
+		expect(prompt).toContain('MIGRATION_SURFACE');
 	});
 
 	it('output format is marked MANDATORY', () => {

@@ -7,6 +7,22 @@
  * callback for LLM-based analysis. When provided, the prepared data context is sent
  * to the explorer agent in CURATOR_PHASE/CURATOR_INIT mode for richer analysis.
  * When the delegate is absent or fails, falls back to data-only behavior.
+ *
+ * ## Curator Agent Dispatch Modes
+ *
+ * Curator agents are dispatched in two ways:
+ *
+ * 1. **Factory dispatch** (standard): Created via `createCuratorAgent` from curator-agent.ts,
+ *    exposed through agents/index.ts. These appear in agent lists and are part of the
+ *    standard agent factory.
+ *
+ * 2. **Hook dispatch** (internal): curator.ts imports CURATOR_INIT_PROMPT and CURATOR_PHASE_PROMPT
+ *    from explorer.ts and dispatches curator analysis directly via hook callbacks. These
+ *    hook-dispatched curators do NOT go through the standard agent factory and are NOT
+ *    included in agent lists (e.g., AGENTS.md, agent discovery, the agent registry).
+ *
+ * This dual dispatch means agent lists are incomplete — they capture factory-dispatched
+ * curators but omit hook-dispatched ones. This is by design for hook-internal operations.
  */
 import type { ComplianceObservation, CuratorConfig, CuratorInitResult, CuratorPhaseResult, CuratorSummary, KnowledgeRecommendation } from './curator-types.js';
 import type { KnowledgeConfig } from './knowledge-types.js';
@@ -17,8 +33,11 @@ import type { KnowledgeConfig } from './knowledge-types.js';
  */
 export type CuratorLLMDelegate = (systemPrompt: string, userInput: string, signal?: AbortSignal) => Promise<string>;
 /**
- * Parse KNOWLEDGE_UPDATES section from curator LLM output.
- * Expected format per line: "- [action] [entry_id or "new"]: [reason]"
+ * Parse OBSERVATIONS section from curator LLM output.
+ * Expected format per line: "- entry <uuid> (<observable>): [text]"
+ * Observable types: appears high-confidence, appears stale, could be tighter,
+ * contradicts project state, new candidate
+ * Action hints are extracted from parenthetical directives like "(suggests boost confidence, mark hive_eligible)"
  */
 export declare function parseKnowledgeRecommendations(llmOutput: string): KnowledgeRecommendation[];
 /**
