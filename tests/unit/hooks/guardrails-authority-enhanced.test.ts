@@ -320,11 +320,11 @@ describe('checkFileAuthorityWithRules - DENY-first evaluation', () => {
 	});
 
 	describe('Step 7: blockedPrefix', () => {
-		test('coder blockedPrefix - not in allowed list (has allowedPrefix)', () => {
+		test('coder blockedPrefix - Path blocked (has allowedPrefix)', () => {
 			const result = checkFileAuthority('coder', '.swarm/state.json', TEST_CWD);
 			// Coder has allowedPrefix configured, so .swarm is not in the allowed list
 			expect(result.allowed).toBe(false);
-			expect(result.reason).toContain('not in allowed list');
+			expect(result.reason).toContain('Path blocked');
 		});
 
 		test('reviewer blockedPrefix blocks src directory', () => {
