@@ -1,5 +1,12 @@
 # Changelog
 
+## [6.60.1](https://github.com/zaxbysauce/opencode-swarm/compare/v6.60.0...v6.60.1) (2026-04-10)
+
+
+### Bug Fixes
+
+* **guardrails:** resolve 6 non-blocking gaps from post-merge review ([#453](https://github.com/zaxbysauce/opencode-swarm/issues/453)) ([b201954](https://github.com/zaxbysauce/opencode-swarm/commit/b201954a58c93bb89dfdee252958403b3a9dcd92))
+
 ## [6.60.0](https://github.com/zaxbysauce/opencode-swarm/compare/v6.59.0...v6.60.0) (2026-04-09)
 
 
