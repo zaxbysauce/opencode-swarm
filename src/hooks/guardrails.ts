@@ -2118,6 +2118,15 @@ const globMatcherCache = new QuickLRU<string, (path: string) => boolean>({
 });
 
 /**
+ * Clears all guardrails caches.
+ * Use this for test isolation or when guardrails config reloads at runtime.
+ */
+export function clearGuardrailsCaches(): void {
+	pathNormalizationCache.clear();
+	globMatcherCache.clear();
+}
+
+/**
  * Normalizes a file path using fs.realpathSync with caching.
  * This resolves symlinks and normalizes the path for cross-platform consistency.
  * @param filePath The file path to normalize (absolute or relative)
@@ -2160,23 +2169,34 @@ function normalizePathWithCache(filePath: string, cwd: string): string {
 /**
  * Gets or creates a cached picomatch matcher for a glob pattern.
  * @param pattern Glob pattern to compile
+ * @param caseInsensitive Whether to use case-insensitive matching (default: true on Windows/macOS)
  * @returns Matcher function that returns true if path matches the pattern
  */
-function getGlobMatcher(pattern: string): (path: string) => boolean {
+function getGlobMatcher(
+	pattern: string,
+	caseInsensitive = process.platform === 'win32' ||
+		process.platform === 'darwin',
+): (path: string) => boolean {
 	const cached = globMatcherCache.get(pattern);
 	if (cached !== undefined) {
 		return cached;
 	}
 
 	// Compile the matcher with cross-platform options
-	const matcher = picomatch(pattern, {
-		dot: true, // Allow matching dotfiles
-		nocase: process.platform === 'win32', // Case-insensitive on Windows
-	});
+	try {
+		const matcher = picomatch(pattern, {
+			dot: true, // Allow matching dotfiles
+			nocase: caseInsensitive, // Case-insensitive on Windows/macOS
+		});
 
-	globMatcherCache.set(pattern, matcher);
+		globMatcherCache.set(pattern, matcher);
 
-	return matcher;
+		return matcher;
+	} catch (err) {
+		// Malformed glob pattern - log warning and return permissive matcher
+		warn(`picomatch error for pattern "${pattern}": ${err}`);
+		return () => false;
+	}
 }
 
 type AgentRule = {
@@ -2299,7 +2319,7 @@ function checkFileAuthorityWithRules(
 	// This resolves symlinks and normalizes paths the same way for ALL checks
 	let normalizedPath: string;
 	try {
-		const normalizedWithSymlinks = normalizePathWithCache(filePath, cwd);
+		const normalizedWithSymlinks = normalizePathWithCache(filePath, dir);
 		const resolved = path.resolve(dir, normalizedWithSymlinks);
 		normalizedPath = path.relative(dir, resolved).replace(/\\/g, '/');
 	} catch {
