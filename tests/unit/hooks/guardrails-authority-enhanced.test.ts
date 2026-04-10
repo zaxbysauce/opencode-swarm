@@ -9,7 +9,7 @@
  * - Default agent authority rules
  */
 
-import { afterEach, beforeEach, describe, expect, test } from 'bun:test';
+import { afterEach, beforeEach, describe, expect, spyOn, test } from 'bun:test';
 import * as fsSync from 'node:fs';
 import * as path from 'node:path';
 import {
@@ -158,6 +158,29 @@ describe('getGlobMatcher - via checkFileAuthority', () => {
 		// Both should be blocked (same glob pattern)
 		expect(result1.allowed).toBe(false);
 		expect(result2.allowed).toBe(false);
+	});
+
+	test('malformed blockedGlobs pattern does not crash and allows access', () => {
+		const authorityConfig: AuthorityConfig = {
+			enabled: true,
+			rules: {
+				test_agent: {
+					blockedGlobs: ['[invalid(glob'], // unclosed bracket — picomatch throws
+				},
+			},
+		};
+
+		const result = checkFileAuthority(
+			'test_agent',
+			'any/path.ts',
+			TEST_CWD,
+			authorityConfig,
+		);
+
+		// malformed pattern compiles to () => false → never blocks → allowed
+		expect(result.allowed).toBe(true);
+		// Note: warn() only logs when OPENCODE_SWARM_DEBUG=1 (module-level gate)
+		// The important behavior is that malformed patterns don't crash and allow access
 	});
 });
 

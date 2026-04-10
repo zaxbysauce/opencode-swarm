@@ -759,14 +759,17 @@ Use glob patterns for complex path matching:
 - `?` — Match single character: `test?.js` matches `test1.js`, `testa.js`
 - Uses [picomatch](https://github.com/micromatch/picomatch) for cross-platform compatibility
 
+**Path Normalization and Symlinks:**
+Paths are resolved via `realpathSync` before matching, which resolves symlinks and prevents path-traversal escapes. However, if a symlink's target does not exist, `realpathSync` throws and the fallback returns the symlink's own path (unresolved). A dangling symlink inside an `allowedPrefix` directory will therefore pass prefix-based checks even if its intended target is outside the project. Use `blockedExact` or `blockedGlobs` to deny known dangling-symlink paths explicitly.
+
 **Evaluation Order:**
 1. `readOnly` check (if true, deny all writes)
 2. `blockedExact` (exact path matches, highest priority)
 3. `blockedGlobs` (glob pattern matches)
 4. `allowedExact` (exact path matches, overrides prefix/glob restrictions)
 5. `allowedGlobs` (glob pattern matches)
-6. `allowedPrefix` (prefix matches)
-7. `blockedPrefix` (prefix matches)
+6. `blockedPrefix` (prefix matches)
+7. `allowedPrefix` (prefix matches)
 8. `blockedZones` (zone classification)
 
 </details>
