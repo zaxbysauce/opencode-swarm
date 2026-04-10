@@ -103,6 +103,11 @@ export declare function validateAndRecordAttestation(dir: string, findingId: str
     valid: false;
     reason: string;
 }>;
+/**
+ * Clears all guardrails caches.
+ * Use this for test isolation or when guardrails config reloads at runtime.
+ */
+export declare function clearGuardrailsCaches(): void;
 type AgentRule = {
     readOnly?: boolean;
     blockedExact?: string[];
