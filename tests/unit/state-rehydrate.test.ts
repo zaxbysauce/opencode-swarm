@@ -1,11 +1,12 @@
 import { afterEach, beforeEach, describe, expect, it } from 'bun:test';
 import * as fs from 'node:fs/promises';
+import * as os from 'node:os';
 import * as path from 'node:path';
 import type { AgentSessionState } from '../../src/state';
 import { rehydrateSessionFromDisk, resetSwarmState } from '../../src/state';
 
 describe('rehydrateSessionFromDisk', () => {
-	const testDir = '/tmp/rehydrate-test-' + Date.now();
+	const testDir = path.join(os.tmpdir(), 'rehydrate-test-' + Date.now());
 	let session: AgentSessionState;
 
 	// Helper to create valid plan.json

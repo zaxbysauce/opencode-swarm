@@ -198,26 +198,28 @@ describe('handleCloseCommand — finalizer stages', () => {
 		it('removes active-state files after archiving', async () => {
 			// Create all active-state files that should be cleaned
 			const activeFilesRemoved = [
+				'plan.json',
 				'plan.md',
+				'plan-ledger.jsonl',
 				'events.jsonl',
 				'handoff.md',
 				'handoff-prompt.md',
 				'handoff-consumed.md',
 				'escalation-report.md',
 			];
+			// Write valid plan first so writePlan sets plan.json correctly,
+			// then add the rest.
+			writePlan();
 			for (const f of activeFilesRemoved) {
+				if (f === 'plan.json') continue; // written by writePlan()
 				writeFileSync(path.join(swarmDir(), f), `content of ${f}`);
 			}
-			// plan.json is kept (terminal state is safe) — write valid plan
-			writePlan();
 
 			await handleCloseCommand(testDir, []);
 
 			for (const f of activeFilesRemoved) {
 				expect(existsSync(path.join(swarmDir(), f))).toBe(false);
 			}
-			// plan.json is preserved with terminal status
-			expect(existsSync(path.join(swarmDir(), 'plan.json'))).toBe(true);
 		});
 
 		it('future swarms start from clean state — no stale plan.json or events.jsonl', async () => {
@@ -226,8 +228,9 @@ describe('handleCloseCommand — finalizer stages', () => {
 
 			await handleCloseCommand(testDir, []);
 
-			// Active-state artifacts must be gone (plan.json is kept since terminal state is safe)
-			expect(existsSync(path.join(swarmDir(), 'plan.json'))).toBe(true);
+			// All active-state artifacts must be gone so the next /swarm session
+			// starts with a clean slate. plan.json is now archived+removed.
+			expect(existsSync(path.join(swarmDir(), 'plan.json'))).toBe(false);
 			expect(existsSync(path.join(swarmDir(), 'events.jsonl'))).toBe(false);
 
 			// .swarm/ itself must still exist (archive, context.md, etc.)
@@ -350,24 +353,112 @@ describe('handleCloseCommand — finalizer stages', () => {
 			);
 		});
 
+		it('ledger is archived AND removed — prevents next-session loadPlan from resurrecting the closed plan', async () => {
+			// Regression guard for reviewer-F1: before the fix, plan-ledger.jsonl
+			// was absent from both ARCHIVE_ARTIFACTS and ACTIVE_STATE_TO_CLEAN.
+			// Closing a session deleted plan.json but left the ledger behind, so
+			// loadPlan()'s Step 4 (no plan.json + ledgerExists → replayFromLedger)
+			// would materialise the CLOSED plan back onto disk. This test seeds
+			// a real ledger, runs close, and verifies:
+			//   1. The ledger is copied into the archive bundle (forensics)
+			//   2. The ledger is removed from .swarm/ (clean slate)
+			writePlan();
+			// Seed a realistic-looking ledger file.
+			const ledgerContent =
+				`${JSON.stringify({ seq: 1, plan_id: 'test-plan', event_type: 'plan_created', timestamp: '2026-01-01T00:00:00.000Z' })}\n` +
+				`${JSON.stringify({ seq: 2, plan_id: 'test-plan', event_type: 'snapshot', source: 'critic_approved', timestamp: '2026-01-02T00:00:00.000Z' })}\n`;
+			writeFileSync(path.join(swarmDir(), 'plan-ledger.jsonl'), ledgerContent);
+
+			const result = await handleCloseCommand(testDir, []);
+
+			// 1. Forensic preservation: ledger must be in the archive bundle.
+			const archiveRoot = path.join(swarmDir(), 'archive');
+			const archiveDirs = readdirSync(archiveRoot).filter((d) =>
+				d.startsWith('swarm-'),
+			);
+			expect(archiveDirs.length).toBeGreaterThanOrEqual(1);
+			const archivedLedgerPath = path.join(
+				archiveRoot,
+				archiveDirs[0],
+				'plan-ledger.jsonl',
+			);
+			expect(existsSync(archivedLedgerPath)).toBe(true);
+			expect(readFileSync(archivedLedgerPath, 'utf-8')).toBe(ledgerContent);
+
+			// 2. Clean-slate: ledger must be gone from .swarm/ so the next
+			//    session's loadPlan() falls through to Step 4 with no ledger
+			//    and correctly returns null instead of resurrecting the closed
+			//    plan via replayFromLedger.
+			expect(existsSync(path.join(swarmDir(), 'plan-ledger.jsonl'))).toBe(
+				false,
+			);
+			expect(existsSync(path.join(swarmDir(), 'plan.json'))).toBe(false);
+			expect(result).toContain('Archived');
+		});
+
+		it('sweeps stale plan-ledger.archived-*/backup-* siblings during cleanup', async () => {
+			// Critic gap 3a: savePlan creates plan-ledger.archived-<ts>.jsonl
+			// and plan-ledger.backup-<ts>.jsonl files during identity-mismatch
+			// reinitialization. Without a sweep at close time, they accumulate
+			// forever in .swarm/, undermining the "clean slate" invariant the
+			// primary plan-ledger.jsonl removal is meant to enforce.
+			writePlan();
+			writeFileSync(
+				path.join(swarmDir(), 'plan-ledger.archived-12345-1.jsonl'),
+				'{"event":"old"}\n',
+			);
+			writeFileSync(
+				path.join(swarmDir(), 'plan-ledger.backup-67890-2.jsonl'),
+				'{"event":"older"}\n',
+			);
+			// Also a non-matching file that must NOT be swept (negative control).
+			writeFileSync(
+				path.join(swarmDir(), 'plan-ledger.unrelated.jsonl'),
+				'preserve me',
+			);
+
+			await handleCloseCommand(testDir, []);
+
+			// Stale siblings must be gone.
+			expect(
+				existsSync(path.join(swarmDir(), 'plan-ledger.archived-12345-1.jsonl')),
+			).toBe(false);
+			expect(
+				existsSync(path.join(swarmDir(), 'plan-ledger.backup-67890-2.jsonl')),
+			).toBe(false);
+			// Non-matching file must survive (sweep is targeted, not blanket).
+			expect(
+				existsSync(path.join(swarmDir(), 'plan-ledger.unrelated.jsonl')),
+			).toBe(true);
+		});
+
 		it('only files in archivedActiveStateFiles set are deleted during cleanup', async () => {
 			// This test verifies the core safety invariant: clean stage only
 			// deletes files that were successfully copied to the archive.
-
-			// Create plan.json (archived but NOT in ACTIVE_STATE_TO_CLEAN)
-			// and events.jsonl (archived AND in ACTIVE_STATE_TO_CLEAN)
+			//
+			// With Claim E, plan.json is now also in ACTIVE_STATE_TO_CLEAN so
+			// both plan.json and events.jsonl should be archived AND deleted.
+			// The context.md file is in ARCHIVE_ARTIFACTS but NOT in
+			// ACTIVE_STATE_TO_CLEAN — it should be archived but NOT deleted.
 			writePlan();
 			writeFileSync(
 				path.join(swarmDir(), 'events.jsonl'),
 				'{"event":"test"}\n',
 			);
+			writeFileSync(
+				path.join(swarmDir(), 'context.md'),
+				'# Context\nPreserved across close.',
+			);
 
 			const result = await handleCloseCommand(testDir, []);
 
-			// plan.json must still exist (intentionally not in ACTIVE_STATE_TO_CLEAN)
-			expect(existsSync(path.join(swarmDir(), 'plan.json'))).toBe(true);
-			// events.jsonl must be deleted (it was archived AND is in ACTIVE_STATE_TO_CLEAN)
+			// plan.json was archived AND is in ACTIVE_STATE_TO_CLEAN → deleted
+			expect(existsSync(path.join(swarmDir(), 'plan.json'))).toBe(false);
+			// events.jsonl was archived AND is in ACTIVE_STATE_TO_CLEAN → deleted
 			expect(existsSync(path.join(swarmDir(), 'events.jsonl'))).toBe(false);
+			// context.md is in ARCHIVE_ARTIFACTS only — must be reset/kept, not
+			// deleted, because close.ts writes a fresh context.md afterwards.
+			expect(existsSync(path.join(swarmDir(), 'context.md'))).toBe(true);
 			expect(result).toContain('Archived');
 		});
 	});

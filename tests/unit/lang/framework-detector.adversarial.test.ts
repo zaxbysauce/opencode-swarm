@@ -120,13 +120,13 @@ describe('Laravel Framework Detection — Adversarial', () => {
 				require: { 'laravel/framework': '^11.0' },
 			}),
 		);
-		// fs.existsSync says true for directory, but this is a known limitation
+		// fs.existsSync says true for directory, but isFile() correctly returns false
 		expect(fs.existsSync(path.join(tempDir, 'artisan'))).toBe(true);
 		const signals = getLaravelSignals(tempDir);
-		// Current implementation: hasArtisanFile=true (incorrect — it's a directory)
-		// This test documents the limitation; both signals true → project detected
-		expect(signals.hasArtisanFile).toBe(true); // limitation: returns true for dir
-		expect(detectLaravelProject(tempDir)).toBe(true);
+		// Implementation correctly distinguishes files from directories via isFile()
+		// Only 1 signal (laravel/framework dep), need 2 → project NOT detected
+		expect(signals.hasArtisanFile).toBe(false); // correctly returns false for dir
+		expect(detectLaravelProject(tempDir)).toBe(false);
 	});
 
 	// -------------------------------------------------------------------------

@@ -36,6 +36,8 @@ describe('save_plan auto-checkpoint (Task 5.4)', () => {
 
 		// Create .swarm directory
 		fs.mkdirSync(path.join(tempDir, '.swarm'), { recursive: true });
+		// Create spec.md required by the spec gate
+		fs.writeFileSync(path.join(tempDir, '.swarm', 'spec.md'), '# Test Spec\n');
 	});
 
 	afterEach(() => {

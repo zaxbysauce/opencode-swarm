@@ -349,9 +349,9 @@ describe('phase_complete integration — adversarial scenarios', () => {
 			writeRetro(1);
 			writeGateEvidence(1);
 
-			// Make .swarm directory read-only
+			// Make .swarm directory read-only (0o555 = r-x, allows traversal but not writes)
 			const swarmDir = path.join(tempDir, '.swarm');
-			fs.chmodSync(swarmDir, 0o444);
+			fs.chmodSync(swarmDir, 0o555);
 
 			// Pre-check: verify chmod actually blocks writes (not always effective on some macOS CI)
 			const probePath = path.join(swarmDir, '.write-probe');

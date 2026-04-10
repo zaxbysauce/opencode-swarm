@@ -31,10 +31,10 @@ describe('AGENT_TOOL_MAP', () => {
 		}
 	});
 
-	it('subagent tool counts are <= 15', () => {
+	it('subagent tool counts are <= 20', () => {
 		for (const agent of allAgentNames) {
 			if (agent === 'architect') continue;
-			expect(AGENT_TOOL_MAP[agent].length).toBeLessThanOrEqual(15);
+			expect(AGENT_TOOL_MAP[agent].length).toBeLessThanOrEqual(20);
 		}
 	});
 

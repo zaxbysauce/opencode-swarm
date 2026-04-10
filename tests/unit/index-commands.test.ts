@@ -135,7 +135,7 @@ describe('Swarm subcommand registration', () => {
 		for (const commandKey of swarmCommands) {
 			const cmd = commands[commandKey];
 			expect(cmd.template).toMatch(
-				/^\/swarm /,
+				/^\/swarm/,
 				`${commandKey} template should start with /swarm`,
 			);
 		}

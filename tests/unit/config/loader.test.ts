@@ -203,6 +203,12 @@ describe('config/loader', () => {
 				execution_mode: 'balanced',
 				turbo_mode: false,
 				adversarial_testing: { enabled: true, scope: 'all' },
+				full_auto: {
+					enabled: false,
+					max_interactions_per_phase: 50,
+					deadlock_threshold: 3,
+					escalation_mode: 'pause',
+				},
 			});
 		});
 

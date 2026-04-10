@@ -680,7 +680,6 @@ describe('guardrails-authority - File Authority Enforcement', () => {
 				expect(result.reason).toContain('Path blocked');
 			}
 		});
-
 		// NOTE: allowedPrefix: [] means deny all paths; omission of allowedPrefix means no allowlist restriction
 		it('allowedPrefix: [] denies traversal attempt outside cwd', () => {
 			// Using traversal sequence to escape tempDir - path.resolve normalizes ../
@@ -711,8 +710,10 @@ describe('guardrails-authority - File Authority Enforcement', () => {
 
 		beforeEach(async () => {
 			// Create a temporary directory for each test
-			tempDir = await fs.mkdtemp(
-				path.join(os.tmpdir(), 'authority-hook-test-'),
+			// Wrap with realpath to resolve symlinks (e.g. /tmp -> /private/tmp on macOS)
+			// so that paths match after guardrails.ts calls realpathSync internally.
+			tempDir = await fs.realpath(
+				await fs.mkdtemp(path.join(os.tmpdir(), 'authority-hook-test-')),
 			);
 			originalCwd = process.cwd();
 			process.chdir(tempDir);
@@ -903,7 +904,10 @@ describe('buildEffectiveRules pre-computation edge cases', () => {
 	let originalCwd: string;
 
 	beforeEach(async () => {
-		tempDir = await fs.mkdtemp(path.join(os.tmpdir(), 'effective-rules-test-'));
+		// Wrap with realpath to resolve symlinks (e.g. /tmp -> /private/tmp on macOS).
+		tempDir = await fs.realpath(
+			await fs.mkdtemp(path.join(os.tmpdir(), 'effective-rules-test-')),
+		);
 		originalCwd = process.cwd();
 		process.chdir(tempDir);
 		resetSwarmState();
@@ -1522,7 +1526,10 @@ describe('patch-style write authority enforcement', () => {
 	let hooksConfig: GuardrailsConfig;
 
 	beforeEach(async () => {
-		tempDir = await fs.mkdtemp(path.join(os.tmpdir(), 'patch-authority-test-'));
+		// Wrap with realpath to resolve symlinks (e.g. /tmp -> /private/tmp on macOS).
+		tempDir = await fs.realpath(
+			await fs.mkdtemp(path.join(os.tmpdir(), 'patch-authority-test-')),
+		);
 		originalCwd = process.cwd();
 		process.chdir(tempDir);
 		resetSwarmState();
@@ -1938,7 +1945,7 @@ index 1234567..abcdefg 100644
 			expect(result.allowed).toBe(false);
 			if (isDenied(result)) {
 				// Should be blocked by prefix, not by exact match
-				expect(result.reason).toContain('under .swarm/');
+				expect(result.reason).toContain('Path blocked');
 			}
 		});
 	});
@@ -1950,7 +1957,10 @@ describe('patch authority hardening', () => {
 	let hooksConfig: GuardrailsConfig;
 
 	beforeEach(async () => {
-		tempDir = await fs.mkdtemp(path.join(os.tmpdir(), 'patch-hardening-test-'));
+		// Wrap with realpath to resolve symlinks (e.g. /tmp -> /private/tmp on macOS).
+		tempDir = await fs.realpath(
+			await fs.mkdtemp(path.join(os.tmpdir(), 'patch-hardening-test-')),
+		);
 		originalCwd = process.cwd();
 		process.chdir(tempDir);
 		resetSwarmState();

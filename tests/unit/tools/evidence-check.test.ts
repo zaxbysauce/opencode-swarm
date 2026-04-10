@@ -2,6 +2,7 @@ import { afterEach, beforeEach, describe, expect, test } from 'bun:test';
 import {
 	mkdirSync,
 	mkdtempSync,
+	realpathSync,
 	rmSync,
 	statSync,
 	writeFileSync,
@@ -17,7 +18,7 @@ let testDir: string;
 
 function setupTestDir() {
 	// Create a unique temp directory
-	const tmp = mkdtempSync(join(tmpdir(), 'evidence-check-test-'));
+	const tmp = realpathSync(mkdtempSync(join(tmpdir(), 'evidence-check-test-')));
 	// Create .swarm directory structure
 	mkdirSync(join(tmp, '.swarm', 'evidence'), { recursive: true });
 	return tmp;

@@ -110,9 +110,9 @@ describe('build/discovery.ts - Types and Constants', () => {
 			expect(ecosystems).toContain('cpp');
 		});
 
-		test('returns 10 ecosystems', () => {
+		test('returns 11 ecosystems', () => {
 			const ecosystems = getEcosystems();
-			expect(ecosystems.length).toBe(10);
+			expect(ecosystems.length).toBe(11);
 		});
 	});
 });

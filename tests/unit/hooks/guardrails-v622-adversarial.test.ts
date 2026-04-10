@@ -115,7 +115,7 @@ describe('guardrails - v6.22 Task 2.1/2.2/2.3 adversarial tests', () => {
 	describe('OBJECTIVE 2: patch path extraction', () => {
 		const ORCHESTRATOR_NAME = 'architect';
 
-		it('patchText > 1MB → paths block is silently skipped (no throw, no match)', async () => {
+		it('patchText > 1MB → rejected with WRITE BLOCKED', async () => {
 			const config = defaultConfig();
 			const hooks = createGuardrailsHooks(config);
 			const sessionId = 'test-session';
@@ -132,9 +132,10 @@ ${largeContent}`;
 			const input = makeInput(sessionId, 'apply_patch', 'call-1');
 			const output = makeOutput({ input: patchContent });
 
-			// Should NOT throw - patch is too large, paths extraction is skipped
-			// No PLAN STATE VIOLATION should be thrown because paths aren't extracted
-			await hooks.toolBefore(input, output);
+			// Should throw - patch is too large, authority cannot be verified
+			await expect(hooks.toolBefore(input, output)).rejects.toThrow(
+				/Patch payload exceeds 1 MB/i,
+			);
 		});
 
 		it('patchText = exactly 1MB → still processed', async () => {

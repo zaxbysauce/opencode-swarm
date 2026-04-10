@@ -22,8 +22,10 @@ import { saveEvidence } from '../../../src/evidence/manager.js';
 let testDir: string;
 
 beforeEach(() => {
-	testDir = require('node:fs').fs.realpathSync(
-		mkdtempSync(path.join(os.tmpdir(), 'benchmark-evidence-test-')),
+	testDir = require('node:fs').realpathSync(
+		require('node:fs').mkdtempSync(
+			path.join(os.tmpdir(), 'benchmark-evidence-test-'),
+		),
 	);
 	mkdirSync(path.join(testDir, '.swarm'), { recursive: true });
 });

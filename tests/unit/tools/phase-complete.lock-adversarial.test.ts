@@ -405,13 +405,13 @@ describe('phase_complete adversarial locking + path tests', () => {
 				},
 			});
 
-			// Make events.jsonl read-only on POSIX; on Windows this is a no-op but
-			// the test still exercises the try/catch path
-			try {
-				fs.chmodSync(eventsPath, 0o444);
-			} catch {
-				// chmod may fail on Windows — still run the test
-			}
+			// Mock appendFileSync to throw EPERM — chmod is unreliable as root in CI
+			vi.spyOn(fs, 'appendFileSync').mockImplementationOnce(() => {
+				const err = Object.assign(new Error('EPERM: operation not permitted'), {
+					code: 'EPERM',
+				});
+				throw err;
+			});
 
 			const result = await executePhaseComplete(
 				{ phase: 1, sessionID: 'test-session' },

@@ -190,8 +190,10 @@ describe('handleArchiveCommand', () => {
 
 // Helper functions
 function mkdtemp(): string {
-	return require('node:fs').fs.realpathSync(
-		mkdtempSync(path.join(os.tmpdir(), 'archive-command-test-')),
+	return require('node:fs').realpathSync(
+		require('node:fs').mkdtempSync(
+			path.join(os.tmpdir(), 'archive-command-test-'),
+		),
 	);
 }
 

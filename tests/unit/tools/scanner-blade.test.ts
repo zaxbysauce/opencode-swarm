@@ -80,7 +80,9 @@ describe('todo-extract behavioral test on .blade.php content', () => {
 
 	beforeEach(() => {
 		originalCwd = process.cwd();
-		tmpDir = fs.mkdtempSync(path.join(os.tmpdir(), 'blade-scanner-'));
+		tmpDir = fs.realpathSync(
+			fs.mkdtempSync(path.join(os.tmpdir(), 'blade-scanner-')),
+		);
 		process.chdir(tmpDir);
 	});
 

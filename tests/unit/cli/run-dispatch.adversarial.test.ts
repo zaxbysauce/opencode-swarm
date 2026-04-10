@@ -48,6 +48,7 @@ const mockHandleSimulateCommand = vi.fn();
 const mockHandleCurateCommand = vi.fn();
 const mockHandleWriteRetroCommand = vi.fn();
 const mockHandleCheckpointCommand = vi.fn();
+const mockHandleDoctorToolsCommand = vi.fn();
 
 // Mock individual command files so registry.ts picks up the mocked handlers
 vi.mock('../../../src/commands/status.js', () => ({
@@ -70,6 +71,7 @@ vi.mock('../../../src/commands/config.js', () => ({
 }));
 vi.mock('../../../src/commands/doctor.js', () => ({
 	handleDoctorCommand: mockHandleDoctorCommand,
+	handleDoctorToolsCommand: mockHandleDoctorToolsCommand,
 }));
 vi.mock('../../../src/commands/evidence.js', () => ({
 	handleEvidenceCommand: mockHandleEvidenceCommand,
