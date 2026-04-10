@@ -312,6 +312,11 @@ jobs:
         run: bun run build
       - name: Check dist/ for uncommitted drift
         run: |
+          # Normalize .bun cache paths to clean paths for cross-platform consistency
+          # Windows bun uses node_modules/.bun/PACKAGE@VERSION/node_modules/PACKAGE while
+          # Linux bun uses node_modules/PACKAGE. Normalize to Linux style.
+          find dist/ -name "*.js" -type f -exec sed -i \
+            -e 's|node_modules/\.bun/[^/]\+/node_modules/|node_modules/|g' {} +
           git diff --exit-code dist/ || {
             echo "ERROR: dist/ has uncommitted changes after build."
             echo "Run 'bun run build' locally and commit the updated dist/."
