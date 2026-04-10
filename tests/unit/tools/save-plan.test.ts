@@ -4,7 +4,7 @@
  */
 
 import { afterEach, beforeEach, describe, expect, it } from 'bun:test';
-import { mkdirSync, rmSync } from 'node:fs';
+import { mkdirSync, rmSync, writeFileSync } from 'node:fs';
 import * as fs from 'node:fs/promises';
 import * as os from 'node:os';
 import * as path from 'node:path';
@@ -26,6 +26,8 @@ describe('save-plan tool verification tests', () => {
 		tmpDir = await fs.mkdtemp(path.join(os.tmpdir(), 'save-plan-test-'));
 		// Ensure .swarm/ directory exists
 		await fs.mkdir(path.join(tmpDir, '.swarm'), { recursive: true });
+		// Create spec.md required by the spec gate
+		await fs.writeFile(path.join(tmpDir, '.swarm', 'spec.md'), '# Test Spec\n');
 	});
 
 	afterEach(async () => {
@@ -859,6 +861,9 @@ describe('save-plan tool verification tests', () => {
 			tmpDir = mkdirSync(os.tmpdir() + '/save-plan-test-' + Date.now(), {
 				recursive: true,
 			}) as string;
+			// Create .swarm/spec.md required by the spec gate
+			mkdirSync(path.join(tmpDir, '.swarm'), { recursive: true });
+			writeFileSync(path.join(tmpDir, '.swarm', 'spec.md'), '# Test Spec\n');
 		});
 
 		afterEach(() => {

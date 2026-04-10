@@ -23,6 +23,9 @@ describe('save-plan adversarial tests', () => {
 			path.join(os.tmpdir(), 'save-plan-adversarial-'),
 		);
 		tempDirs.push(tempDir);
+		// Create .swarm/ and spec.md required by the spec gate
+		await fs.mkdir(path.join(tempDir, '.swarm'), { recursive: true });
+		await fs.writeFile(path.join(tempDir, '.swarm', 'spec.md'), '# Test Spec\n');
 	});
 
 	afterEach(async () => {
@@ -819,21 +822,32 @@ describe('save-plan adversarial tests', () => {
 				// name (backslash is a valid filename character), so the write succeeds.
 				// On Windows: this would attempt to write to the real C:\projects\ path,
 				// which requires admin permissions unavailable in CI.
-				const args: SavePlanArgs = {
-					title: 'Test Plan',
-					swarm_id: 'test',
-					phases: [
-						{
-							id: 1,
-							name: 'Setup',
-							tasks: [{ id: '1.1', description: 'Valid description' }],
-						},
-					],
-					working_directory: 'C:\\projects\\myworkspace',
-				};
-				const result = await executeSavePlan(args);
-				// Valid workspace path should succeed
-				expect(result.success).toBe(true);
+				// Skip spec gate so this test focuses purely on path validation behavior.
+				const prevGate = process.env.SWARM_SKIP_SPEC_GATE;
+				process.env.SWARM_SKIP_SPEC_GATE = '1';
+				try {
+					const args: SavePlanArgs = {
+						title: 'Test Plan',
+						swarm_id: 'test',
+						phases: [
+							{
+								id: 1,
+								name: 'Setup',
+								tasks: [{ id: '1.1', description: 'Valid description' }],
+							},
+						],
+						working_directory: 'C:\\projects\\myworkspace',
+					};
+					const result = await executeSavePlan(args);
+					// Valid workspace path should succeed
+					expect(result.success).toBe(true);
+				} finally {
+					if (prevGate === undefined) {
+						delete process.env.SWARM_SKIP_SPEC_GATE;
+					} else {
+						process.env.SWARM_SKIP_SPEC_GATE = prevGate;
+					}
+				}
 			},
 		);
 

@@ -7,7 +7,7 @@
 import * as fs from 'node:fs';
 import * as path from 'node:path';
 import { type ToolDefinition, tool } from '@opencode-ai/plugin/tool';
-import { swarmState } from '../state';
+import { getTaskState, swarmState } from '../state';
 import { createSwarmTool } from './create-tool';
 
 /**
@@ -255,6 +255,18 @@ export async function executeDeclareScope(
 			message: `Task ${args.taskId} is already completed`,
 			errors: [`Cannot declare scope for completed task ${args.taskId}`],
 		};
+	}
+
+	// Also check if task is marked complete in ANY active session
+	for (const [_sessionId, session] of swarmState.agentSessions) {
+		if (!(session.taskWorkflowStates instanceof Map)) continue;
+		if (getTaskState(session, args.taskId) === 'complete') {
+			return {
+				success: false,
+				message: `Task ${args.taskId} is already completed`,
+				errors: [`Cannot declare scope for completed task ${args.taskId}`],
+			};
+		}
 	}
 
 	// Step 7: Merge files and whitelist (if provided)

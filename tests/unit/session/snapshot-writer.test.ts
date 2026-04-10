@@ -645,6 +645,10 @@ describe('writeSnapshot', () => {
 			coderRevisions: 0,
 			revisionLimitHit: false,
 			sessionRehydratedAt: 0,
+			fullAutoMode: false,
+			fullAutoInteractionCount: 0,
+			fullAutoDeadlockCount: 0,
+			fullAutoLastQuestionHash: null,
 		});
 	});
 });

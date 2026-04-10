@@ -690,10 +690,10 @@ describe('injectVerdictIntoMessages', () => {
 				'critic_oversight',
 			);
 
-			// Should have 4 messages now (3 original + 1 injected)
-			expect(messages.length).toBe(4);
+			// Should have 5 messages now (3 original + verdict + continuation)
+			expect(messages.length).toBe(5);
 
-			// Injected message should be at architectIndex + 1
+			// Injected verdict message should be at architectIndex + 1
 			const injected = messages[architectIndex + 1];
 			expect(injected.info.role).toBe('assistant');
 			expect(injected.info.agent).toBe('critic_oversight');
@@ -814,7 +814,7 @@ describe('injectVerdictIntoMessages', () => {
 				'critic_oversight',
 			);
 
-			expect(messages.length).toBe(4);
+			expect(messages.length).toBe(5);
 
 			const injected = messages[architectIndex + 1];
 			expect(injected.info.role).toBe('assistant');
@@ -846,13 +846,13 @@ describe('injectVerdictIntoMessages', () => {
 				'critic_oversight',
 			);
 
-			// Messages after injection: [orchestrator, architect, injected, architect_response]
-			expect(messages.length).toBe(originalLength + 1);
+			// Messages after injection: [orchestrator, architect, verdict, continuation, architect_response]
+			expect(messages.length).toBe(originalLength + 2);
 			expect(messages[0].info.role).toBe('assistant'); // orchestrator unchanged
 			expect(messages[1].info.role).toBe('user'); // architect unchanged
 			expect(messages[2].info.role).toBe('assistant'); // injected verdict
 			expect(messages[2].info.agent).toBe('critic_oversight');
-			expect(messages[3].info.role).toBe('assistant'); // original architect response
+			expect(messages[4].info.role).toBe('assistant'); // original architect response (shifted by 2)
 		});
 	});
 
@@ -1001,9 +1001,9 @@ describe('injectVerdictIntoMessages', () => {
 				'critic_oversight',
 			);
 
-			expect(messages.length).toBe(2);
+			expect(messages.length).toBe(3);
 			expect(messages[0].info.role).toBe('user'); // architect unchanged
-			expect(messages[1].info.role).toBe('assistant'); // injected
+			expect(messages[1].info.role).toBe('assistant'); // injected verdict
 			expect(messages[1].info.agent).toBe('critic_oversight');
 		});
 
@@ -1119,7 +1119,7 @@ describe('injectVerdictIntoMessages', () => {
 				'mega_critic_oversight',
 			);
 
-			expect(messages.length).toBe(3);
+			expect(messages.length).toBe(4);
 			const injected = messages[architectIndex + 1];
 			expect(injected.info.role).toBe('assistant');
 			expect(injected.info.agent).toBe('mega_critic_oversight');
@@ -1151,7 +1151,7 @@ describe('injectVerdictIntoMessages', () => {
 				'teamalpha_critic_oversight',
 			);
 
-			expect(messages.length).toBe(2);
+			expect(messages.length).toBe(3);
 			const injected = messages[architectIndex + 1];
 			expect(injected.info.agent).toBe('teamalpha_critic_oversight');
 		});

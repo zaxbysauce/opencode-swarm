@@ -509,6 +509,24 @@ describe('update-task-status adversarial tests', () => {
 
 	// ========== GROUP 7: Rapid Consecutive Updates ==========
 	describe('Group 7: Rapid consecutive updates to same task', () => {
+		// Pre-seed evidence with gates passed so rapid-update tests can reach 'completed'
+		// without needing to run through the full reviewer/test_engineer workflow.
+		beforeEach(async () => {
+			await fs.mkdir(path.join(tempDir, '.swarm', 'evidence'), { recursive: true });
+			await fs.writeFile(
+				path.join(tempDir, '.swarm', 'evidence', '1.1.json'),
+				JSON.stringify({
+					task_id: '1.1',
+					required_gates: ['reviewer', 'test_engineer'],
+					gates: {
+						reviewer: { passed_at: new Date().toISOString() },
+						test_engineer: { passed_at: new Date().toISOString() },
+					},
+					started_at: new Date().toISOString(),
+				}),
+			);
+		});
+
 		it('handles rapid status changes from pending to in_progress', async () => {
 			const args1: UpdateTaskStatusArgs = {
 				task_id: '1.1',
@@ -591,11 +609,14 @@ describe('update-task-status adversarial tests', () => {
 
 			const [result1, result2] = await Promise.all([update1, update2]);
 
-			// Both calls should return a result
+			// Both calls must return a defined result (no crash)
 			expect(result1).toBeDefined();
 			expect(result2).toBeDefined();
-			expect(result1.success).toBe(true);
-			expect(result2.success).toBe(true);
+
+			// With file locking, one will succeed and one may be blocked.
+			// At least one must succeed.
+			const anySuccess = result1.success || result2.success;
+			expect(anySuccess).toBe(true);
 
 			// Verify the final state is consistent in plan.json
 			const plan = JSON.parse(

@@ -16,12 +16,16 @@ import {
 	type PlanSyncWorkerOptions,
 } from '../../../src/background/plan-sync-worker';
 
-// Mock the loadPlan function from plan/manager
+// Mock the plan/manager functions
 const mockLoadPlan = mock(async () => null);
+const mockLoadPlanJsonOnly = mock(async () => null);
+const mockRegeneratePlanMarkdown = mock(async () => {});
 
 // Mock the plan/manager module
 mock.module('../../../src/plan/manager', () => ({
 	loadPlan: mockLoadPlan,
+	loadPlanJsonOnly: mockLoadPlanJsonOnly,
+	regeneratePlanMarkdown: mockRegeneratePlanMarkdown,
 }));
 
 describe('ADVERSARIAL: Task 3.6 Timeout Safeguards', () => {
@@ -74,7 +78,8 @@ describe('ADVERSARIAL: Task 3.6 Timeout Safeguards', () => {
 		// Reset mock implementation to the default fast no-op before each test.
 		// This prevents a slow mockImplementation from a previous test from leaking
 		// into subsequent tests and causing timeouts.
-		mockLoadPlan.mockImplementation(async () => null);
+		mockLoadPlanJsonOnly.mockImplementation(async () => null);
+		mockLoadPlanJsonOnly.mockClear();
 		mockLoadPlan.mockClear();
 	});
 
@@ -115,7 +120,7 @@ describe('ADVERSARIAL: Task 3.6 Timeout Safeguards', () => {
 		test('should handle Infinity syncTimeoutMs (eternal timeout)', async () => {
 			await setupTempDir(true, true);
 
-			mockLoadPlan.mockImplementation(async () => ({
+			mockLoadPlanJsonOnly.mockImplementation(async () => ({
 				schema_version: '1.0.0',
 				title: 'Test Plan',
 				swarm: 'test-swarm',
@@ -146,7 +151,7 @@ describe('ADVERSARIAL: Task 3.6 Timeout Safeguards', () => {
 		test('should handle negative syncTimeoutMs without crash', async () => {
 			await setupTempDir(true, true);
 
-			mockLoadPlan.mockImplementation(async () => ({
+			mockLoadPlanJsonOnly.mockImplementation(async () => ({
 				schema_version: '1.0.0',
 				title: 'Test Plan',
 				swarm: 'test-swarm',
@@ -180,7 +185,7 @@ describe('ADVERSARIAL: Task 3.6 Timeout Safeguards', () => {
 
 			const syncResults: Array<{ success: boolean; error?: Error }> = [];
 
-			mockLoadPlan.mockImplementation(async () => {
+			mockLoadPlanJsonOnly.mockImplementation(async () => {
 				await new Promise((resolve) => setTimeout(resolve, 50));
 				return {
 					schema_version: '1.0.0',
@@ -217,7 +222,7 @@ describe('ADVERSARIAL: Task 3.6 Timeout Safeguards', () => {
 		test('should handle extremely large syncTimeoutMs (near MAX_SAFE_INTEGER)', async () => {
 			await setupTempDir(true, true);
 
-			mockLoadPlan.mockImplementation(async () => ({
+			mockLoadPlanJsonOnly.mockImplementation(async () => ({
 				schema_version: '1.0.0',
 				title: 'Test Plan',
 				swarm: 'test-swarm',
@@ -250,7 +255,7 @@ describe('ADVERSARIAL: Task 3.6 Timeout Safeguards', () => {
 
 			const syncResults: Array<{ success: boolean; error?: Error }> = [];
 
-			mockLoadPlan.mockImplementation(async () => {
+			mockLoadPlanJsonOnly.mockImplementation(async () => {
 				await new Promise((resolve) => setTimeout(resolve, 100));
 				return {
 					schema_version: '1.0.0',
@@ -294,7 +299,7 @@ describe('ADVERSARIAL: Task 3.6 Timeout Safeguards', () => {
 			const syncResults: Array<{ success: boolean; error?: Error }> = [];
 
 			// Create a promise that NEVER resolves
-			mockLoadPlan.mockImplementation(async () => {
+			mockLoadPlanJsonOnly.mockImplementation(async () => {
 				return new Promise(() => {
 					// Intentionally never resolves - hangs forever
 				});
@@ -335,7 +340,7 @@ describe('ADVERSARIAL: Task 3.6 Timeout Safeguards', () => {
 			const syncResults: Array<{ success: boolean; error?: Error }> = [];
 			let lateResolveCallback: (() => void) | null = null;
 
-			mockLoadPlan.mockImplementation(async () => {
+			mockLoadPlanJsonOnly.mockImplementation(async () => {
 				return new Promise((resolve) => {
 					lateResolveCallback = () =>
 						resolve({
@@ -384,7 +389,7 @@ describe('ADVERSARIAL: Task 3.6 Timeout Safeguards', () => {
 			const syncResults: Array<{ success: boolean }> = [];
 			let syncCount = 0;
 
-			mockLoadPlan.mockImplementation(async () => {
+			mockLoadPlanJsonOnly.mockImplementation(async () => {
 				syncCount++;
 				// All syncs hang forever
 				return new Promise(() => {});
@@ -419,7 +424,7 @@ describe('ADVERSARIAL: Task 3.6 Timeout Safeguards', () => {
 
 			const syncResults: Array<{ success: boolean; error?: Error }> = [];
 
-			mockLoadPlan.mockImplementation(async () => {
+			mockLoadPlanJsonOnly.mockImplementation(async () => {
 				throw new Error('Synchronous throw in async function');
 			});
 
@@ -450,7 +455,7 @@ describe('ADVERSARIAL: Task 3.6 Timeout Safeguards', () => {
 		test('should handle onSyncComplete throwing error on success', async () => {
 			await setupTempDir(true, true);
 
-			mockLoadPlan.mockImplementation(async () => ({
+			mockLoadPlanJsonOnly.mockImplementation(async () => ({
 				schema_version: '1.0.0',
 				title: 'Test Plan',
 				swarm: 'test-swarm',
@@ -485,7 +490,7 @@ describe('ADVERSARIAL: Task 3.6 Timeout Safeguards', () => {
 		test('should handle onSyncComplete throwing error on timeout', async () => {
 			await setupTempDir(true, true);
 
-			mockLoadPlan.mockImplementation(async () => {
+			mockLoadPlanJsonOnly.mockImplementation(async () => {
 				return new Promise(() => {}); // Hung promise
 			});
 
@@ -515,7 +520,7 @@ describe('ADVERSARIAL: Task 3.6 Timeout Safeguards', () => {
 		test('should handle onSyncComplete throwing on sync failure', async () => {
 			await setupTempDir(true, true);
 
-			mockLoadPlan.mockImplementation(async () => {
+			mockLoadPlanJsonOnly.mockImplementation(async () => {
 				throw new Error('Sync failed intentionally');
 			});
 
@@ -543,7 +548,7 @@ describe('ADVERSARIAL: Task 3.6 Timeout Safeguards', () => {
 		test('should handle onSyncComplete that disposes worker', async () => {
 			await setupTempDir(true, true);
 
-			mockLoadPlan.mockImplementation(async () => ({
+			mockLoadPlanJsonOnly.mockImplementation(async () => ({
 				schema_version: '1.0.0',
 				title: 'Test Plan',
 				swarm: 'test-swarm',
@@ -578,7 +583,7 @@ describe('ADVERSARIAL: Task 3.6 Timeout Safeguards', () => {
 		test('should handle onSyncComplete that calls stop then start', async () => {
 			await setupTempDir(true, true);
 
-			mockLoadPlan.mockImplementation(async () => ({
+			mockLoadPlanJsonOnly.mockImplementation(async () => ({
 				schema_version: '1.0.0',
 				title: 'Test Plan',
 				swarm: 'test-swarm',
@@ -616,7 +621,7 @@ describe('ADVERSARIAL: Task 3.6 Timeout Safeguards', () => {
 			let callDepth = 0;
 			const maxDepth = { value: 0 };
 
-			mockLoadPlan.mockImplementation(async () => ({
+			mockLoadPlanJsonOnly.mockImplementation(async () => ({
 				schema_version: '1.0.0',
 				title: 'Test Plan',
 				swarm: 'test-swarm',
@@ -663,7 +668,7 @@ describe('ADVERSARIAL: Task 3.6 Timeout Safeguards', () => {
 			const syncResults: Array<{ success: boolean }> = [];
 			const timeout = 80;
 
-			mockLoadPlan.mockImplementation(async () => {
+			mockLoadPlanJsonOnly.mockImplementation(async () => {
 				return new Promise(() => {}); // Hung promise
 			});
 
@@ -699,7 +704,7 @@ describe('ADVERSARIAL: Task 3.6 Timeout Safeguards', () => {
 
 			let callbackInvoked = false;
 
-			mockLoadPlan.mockImplementation(async () => {
+			mockLoadPlanJsonOnly.mockImplementation(async () => {
 				return new Promise(() => {}); // Hung promise
 			});
 
@@ -729,7 +734,7 @@ describe('ADVERSARIAL: Task 3.6 Timeout Safeguards', () => {
 		test('should handle rapid start/stop during timeout countdown', async () => {
 			await setupTempDir(true, true);
 
-			mockLoadPlan.mockImplementation(async () => {
+			mockLoadPlanJsonOnly.mockImplementation(async () => {
 				return new Promise(() => {}); // Hung promise
 			});
 
@@ -760,7 +765,7 @@ describe('ADVERSARIAL: Task 3.6 Timeout Safeguards', () => {
 
 			const syncResults: Array<{ success: boolean }> = [];
 
-			mockLoadPlan.mockImplementation(async () => {
+			mockLoadPlanJsonOnly.mockImplementation(async () => {
 				return new Promise(() => {}); // Hung promise
 			});
 
@@ -797,7 +802,7 @@ describe('ADVERSARIAL: Task 3.6 Timeout Safeguards', () => {
 			let firstSyncStarted = false;
 			let resolveFirstSync: () => void;
 
-			mockLoadPlan.mockImplementation(async () => {
+			mockLoadPlanJsonOnly.mockImplementation(async () => {
 				firstSyncStarted = true;
 				await new Promise<void>((resolve) => {
 					resolveFirstSync = resolve;
@@ -852,7 +857,7 @@ describe('ADVERSARIAL: Task 3.6 Timeout Safeguards', () => {
 		test('should handle start() during timeout callback execution', async () => {
 			await setupTempDir(true, true);
 
-			mockLoadPlan.mockImplementation(async () => {
+			mockLoadPlanJsonOnly.mockImplementation(async () => {
 				return new Promise(() => {}); // Hung promise
 			});
 
@@ -885,7 +890,7 @@ describe('ADVERSARIAL: Task 3.6 Timeout Safeguards', () => {
 		test('should handle timeout during status transition (starting/stopping)', async () => {
 			await setupTempDir(true, true);
 
-			mockLoadPlan.mockImplementation(async () => {
+			mockLoadPlanJsonOnly.mockImplementation(async () => {
 				return new Promise(() => {}); // Hung promise
 			});
 
@@ -920,7 +925,7 @@ describe('ADVERSARIAL: Task 3.6 Timeout Safeguards', () => {
 
 			const timeoutCount = { value: 0 };
 
-			mockLoadPlan.mockImplementation(async () => {
+			mockLoadPlanJsonOnly.mockImplementation(async () => {
 				return new Promise(() => {}); // Always hang
 			});
 
@@ -963,7 +968,7 @@ describe('ADVERSARIAL: Task 3.6 Timeout Safeguards', () => {
 			let syncCount = 0;
 			let maxConcurrent = 0;
 
-			mockLoadPlan.mockImplementation(async () => {
+			mockLoadPlanJsonOnly.mockImplementation(async () => {
 				syncCount++;
 				maxConcurrent = Math.max(maxConcurrent, syncCount);
 				await new Promise((resolve) => setTimeout(resolve, 200)); // Slow sync
@@ -1005,7 +1010,7 @@ describe('ADVERSARIAL: Task 3.6 Timeout Safeguards', () => {
 
 			const events: string[] = [];
 
-			mockLoadPlan.mockImplementation(async () => {
+			mockLoadPlanJsonOnly.mockImplementation(async () => {
 				events.push('sync-start');
 				await new Promise((resolve) => setTimeout(resolve, 100));
 				events.push('sync-end');
@@ -1041,7 +1046,7 @@ describe('ADVERSARIAL: Task 3.6 Timeout Safeguards', () => {
 		test('should handle timeout value mutation after construction', async () => {
 			await setupTempDir(true, true);
 
-			mockLoadPlan.mockImplementation(async () => ({
+			mockLoadPlanJsonOnly.mockImplementation(async () => ({
 				schema_version: '1.0.0',
 				title: 'Test Plan',
 				swarm: 'test-swarm',
@@ -1075,7 +1080,7 @@ describe('ADVERSARIAL: Task 3.6 Timeout Safeguards', () => {
 		test('should handle Symbol timeout value (extreme edge case)', async () => {
 			await setupTempDir(true, true);
 
-			mockLoadPlan.mockImplementation(async () => ({
+			mockLoadPlanJsonOnly.mockImplementation(async () => ({
 				schema_version: '1.0.0',
 				title: 'Test Plan',
 				swarm: 'test-swarm',
@@ -1099,7 +1104,7 @@ describe('ADVERSARIAL: Task 3.6 Timeout Safeguards', () => {
 		test('should handle null/undefined syncTimeoutMs', async () => {
 			await setupTempDir(true, true);
 
-			mockLoadPlan.mockImplementation(async () => ({
+			mockLoadPlanJsonOnly.mockImplementation(async () => ({
 				schema_version: '1.0.0',
 				title: 'Test Plan',
 				swarm: 'test-swarm',
@@ -1137,7 +1142,7 @@ describe('ADVERSARIAL: Task 3.6 Timeout Safeguards', () => {
 			const events: string[] = [];
 
 			// Promise that races between reject (timeout) and resolve
-			mockLoadPlan.mockImplementation(async () => {
+			mockLoadPlanJsonOnly.mockImplementation(async () => {
 				return new Promise((resolve, reject) => {
 					const resolveTimer = setTimeout(() => {
 						events.push('resolve');

@@ -315,7 +315,8 @@ var init_constants = __esm(() => {
       "imports",
       "retrieve_summary",
       "symbols",
-      "knowledge_recall"
+      "knowledge_recall",
+      "req_coverage"
     ],
     critic_drift_verifier: [
       "complexity_hotspots",
@@ -459,7 +460,7 @@ var init_constants = __esm(() => {
   LOW_CAPABILITY_MODELS = ["mini", "nano", "small", "free"];
 });
 
-// node_modules/.bun/zod@4.3.6/node_modules/zod/v4/core/core.js
+// node_modules/zod/v4/core/core.js
 function $constructor(name2, initializer, params) {
   function init2(inst, def) {
     if (!inst._zod) {
@@ -537,7 +538,7 @@ var init_core = __esm(() => {
   globalConfig = {};
 });
 
-// node_modules/.bun/zod@4.3.6/node_modules/zod/v4/core/util.js
+// node_modules/zod/v4/core/util.js
 var exports_util = {};
 __export(exports_util, {
   unwrapMessage: () => unwrapMessage,
@@ -1213,7 +1214,7 @@ var init_util = __esm(() => {
   };
 });
 
-// node_modules/.bun/zod@4.3.6/node_modules/zod/v4/core/errors.js
+// node_modules/zod/v4/core/errors.js
 function flattenError(error, mapper = (issue2) => issue2.message) {
   const fieldErrors = {};
   const formErrors = [];
@@ -1354,7 +1355,7 @@ var init_errors = __esm(() => {
   $ZodRealError = $constructor("$ZodError", initializer, { Parent: Error });
 });
 
-// node_modules/.bun/zod@4.3.6/node_modules/zod/v4/core/parse.js
+// node_modules/zod/v4/core/parse.js
 var _parse = (_Err) => (schema, value, _ctx, _params) => {
   const ctx = _ctx ? Object.assign(_ctx, { async: false }) : { async: false };
   const result = schema._zod.run({ value, issues: [] }, ctx);
@@ -1436,7 +1437,7 @@ var init_parse = __esm(() => {
   safeDecodeAsync = /* @__PURE__ */ _safeDecodeAsync($ZodRealError);
 });
 
-// node_modules/.bun/zod@4.3.6/node_modules/zod/v4/core/regexes.js
+// node_modules/zod/v4/core/regexes.js
 var exports_regexes = {};
 __export(exports_regexes, {
   xid: () => xid,
@@ -1592,7 +1593,7 @@ var init_regexes = __esm(() => {
   sha512_base64url = /* @__PURE__ */ fixedBase64url(86);
 });
 
-// node_modules/.bun/zod@4.3.6/node_modules/zod/v4/core/checks.js
+// node_modules/zod/v4/core/checks.js
 function handleCheckPropertyResult(result, payload, property) {
   if (result.issues.length) {
     payload.issues.push(...prefixIssues(property, result.issues));
@@ -2145,7 +2146,7 @@ var init_checks = __esm(() => {
   });
 });
 
-// node_modules/.bun/zod@4.3.6/node_modules/zod/v4/core/doc.js
+// node_modules/zod/v4/core/doc.js
 class Doc {
   constructor(args2 = []) {
     this.content = [];
@@ -2183,7 +2184,7 @@ class Doc {
   }
 }
 
-// node_modules/.bun/zod@4.3.6/node_modules/zod/v4/core/versions.js
+// node_modules/zod/v4/core/versions.js
 var version;
 var init_versions = __esm(() => {
   version = {
@@ -2193,7 +2194,7 @@ var init_versions = __esm(() => {
   };
 });
 
-// node_modules/.bun/zod@4.3.6/node_modules/zod/v4/core/schemas.js
+// node_modules/zod/v4/core/schemas.js
 function isValidBase64(data) {
   if (data === "")
     return true;
@@ -4166,7 +4167,7 @@ var init_schemas = __esm(() => {
   });
 });
 
-// node_modules/.bun/zod@4.3.6/node_modules/zod/v4/locales/ar.js
+// node_modules/zod/v4/locales/ar.js
 function ar_default() {
   return {
     localeError: error()
@@ -4276,7 +4277,7 @@ var init_ar = __esm(() => {
   init_util();
 });
 
-// node_modules/.bun/zod@4.3.6/node_modules/zod/v4/locales/az.js
+// node_modules/zod/v4/locales/az.js
 function az_default() {
   return {
     localeError: error2()
@@ -4385,7 +4386,7 @@ var init_az = __esm(() => {
   init_util();
 });
 
-// node_modules/.bun/zod@4.3.6/node_modules/zod/v4/locales/be.js
+// node_modules/zod/v4/locales/be.js
 function getBelarusianPlural(count, one, few, many) {
   const absCount = Math.abs(count);
   const lastDigit = absCount % 10;
@@ -4545,7 +4546,7 @@ var init_be = __esm(() => {
   init_util();
 });
 
-// node_modules/.bun/zod@4.3.6/node_modules/zod/v4/locales/bg.js
+// node_modules/zod/v4/locales/bg.js
 function bg_default() {
   return {
     localeError: error4()
@@ -4669,7 +4670,7 @@ var init_bg = __esm(() => {
   init_util();
 });
 
-// node_modules/.bun/zod@4.3.6/node_modules/zod/v4/locales/ca.js
+// node_modules/zod/v4/locales/ca.js
 function ca_default() {
   return {
     localeError: error5()
@@ -4780,7 +4781,7 @@ var init_ca = __esm(() => {
   init_util();
 });
 
-// node_modules/.bun/zod@4.3.6/node_modules/zod/v4/locales/cs.js
+// node_modules/zod/v4/locales/cs.js
 function cs_default() {
   return {
     localeError: error6()
@@ -4895,7 +4896,7 @@ var init_cs = __esm(() => {
   init_util();
 });
 
-// node_modules/.bun/zod@4.3.6/node_modules/zod/v4/locales/da.js
+// node_modules/zod/v4/locales/da.js
 function da_default() {
   return {
     localeError: error7()
@@ -5014,7 +5015,7 @@ var init_da = __esm(() => {
   init_util();
 });
 
-// node_modules/.bun/zod@4.3.6/node_modules/zod/v4/locales/de.js
+// node_modules/zod/v4/locales/de.js
 function de_default() {
   return {
     localeError: error8()
@@ -5126,7 +5127,7 @@ var init_de = __esm(() => {
   init_util();
 });
 
-// node_modules/.bun/zod@4.3.6/node_modules/zod/v4/locales/en.js
+// node_modules/zod/v4/locales/en.js
 function en_default() {
   return {
     localeError: error9()
@@ -5236,7 +5237,7 @@ var init_en = __esm(() => {
   init_util();
 });
 
-// node_modules/.bun/zod@4.3.6/node_modules/zod/v4/locales/eo.js
+// node_modules/zod/v4/locales/eo.js
 function eo_default() {
   return {
     localeError: error10()
@@ -5349,7 +5350,7 @@ var init_eo = __esm(() => {
   init_util();
 });
 
-// node_modules/.bun/zod@4.3.6/node_modules/zod/v4/locales/es.js
+// node_modules/zod/v4/locales/es.js
 function es_default() {
   return {
     localeError: error11()
@@ -5485,7 +5486,7 @@ var init_es = __esm(() => {
   init_util();
 });
 
-// node_modules/.bun/zod@4.3.6/node_modules/zod/v4/locales/fa.js
+// node_modules/zod/v4/locales/fa.js
 function fa_default() {
   return {
     localeError: error12()
@@ -5603,7 +5604,7 @@ var init_fa = __esm(() => {
   init_util();
 });
 
-// node_modules/.bun/zod@4.3.6/node_modules/zod/v4/locales/fi.js
+// node_modules/zod/v4/locales/fi.js
 function fi_default() {
   return {
     localeError: error13()
@@ -5719,7 +5720,7 @@ var init_fi = __esm(() => {
   init_util();
 });
 
-// node_modules/.bun/zod@4.3.6/node_modules/zod/v4/locales/fr.js
+// node_modules/zod/v4/locales/fr.js
 function fr_default() {
   return {
     localeError: error14()
@@ -5831,7 +5832,7 @@ var init_fr = __esm(() => {
   init_util();
 });
 
-// node_modules/.bun/zod@4.3.6/node_modules/zod/v4/locales/fr-CA.js
+// node_modules/zod/v4/locales/fr-CA.js
 function fr_CA_default() {
   return {
     localeError: error15()
@@ -5942,7 +5943,7 @@ var init_fr_CA = __esm(() => {
   init_util();
 });
 
-// node_modules/.bun/zod@4.3.6/node_modules/zod/v4/locales/he.js
+// node_modules/zod/v4/locales/he.js
 function he_default() {
   return {
     localeError: error16()
@@ -6139,7 +6140,7 @@ var init_he = __esm(() => {
   init_util();
 });
 
-// node_modules/.bun/zod@4.3.6/node_modules/zod/v4/locales/hu.js
+// node_modules/zod/v4/locales/hu.js
 function hu_default() {
   return {
     localeError: error17()
@@ -6251,7 +6252,7 @@ var init_hu = __esm(() => {
   init_util();
 });
 
-// node_modules/.bun/zod@4.3.6/node_modules/zod/v4/locales/hy.js
+// node_modules/zod/v4/locales/hy.js
 function getArmenianPlural(count, one, many) {
   return Math.abs(count) === 1 ? one : many;
 }
@@ -6402,7 +6403,7 @@ var init_hy = __esm(() => {
   init_util();
 });
 
-// node_modules/.bun/zod@4.3.6/node_modules/zod/v4/locales/id.js
+// node_modules/zod/v4/locales/id.js
 function id_default() {
   return {
     localeError: error19()
@@ -6512,7 +6513,7 @@ var init_id = __esm(() => {
   init_util();
 });
 
-// node_modules/.bun/zod@4.3.6/node_modules/zod/v4/locales/is.js
+// node_modules/zod/v4/locales/is.js
 function is_default() {
   return {
     localeError: error20()
@@ -6625,7 +6626,7 @@ var init_is = __esm(() => {
   init_util();
 });
 
-// node_modules/.bun/zod@4.3.6/node_modules/zod/v4/locales/it.js
+// node_modules/zod/v4/locales/it.js
 function it_default() {
   return {
     localeError: error21()
@@ -6737,7 +6738,7 @@ var init_it = __esm(() => {
   init_util();
 });
 
-// node_modules/.bun/zod@4.3.6/node_modules/zod/v4/locales/ja.js
+// node_modules/zod/v4/locales/ja.js
 function ja_default() {
   return {
     localeError: error22()
@@ -6848,7 +6849,7 @@ var init_ja = __esm(() => {
   init_util();
 });
 
-// node_modules/.bun/zod@4.3.6/node_modules/zod/v4/locales/ka.js
+// node_modules/zod/v4/locales/ka.js
 function ka_default() {
   return {
     localeError: error23()
@@ -6964,7 +6965,7 @@ var init_ka = __esm(() => {
   init_util();
 });
 
-// node_modules/.bun/zod@4.3.6/node_modules/zod/v4/locales/km.js
+// node_modules/zod/v4/locales/km.js
 function km_default() {
   return {
     localeError: error24()
@@ -7078,7 +7079,7 @@ var init_km = __esm(() => {
   init_util();
 });
 
-// node_modules/.bun/zod@4.3.6/node_modules/zod/v4/locales/kh.js
+// node_modules/zod/v4/locales/kh.js
 function kh_default() {
   return km_default();
 }
@@ -7086,7 +7087,7 @@ var init_kh = __esm(() => {
   init_km();
 });
 
-// node_modules/.bun/zod@4.3.6/node_modules/zod/v4/locales/ko.js
+// node_modules/zod/v4/locales/ko.js
 function ko_default() {
   return {
     localeError: error25()
@@ -7201,7 +7202,7 @@ var init_ko = __esm(() => {
   init_util();
 });
 
-// node_modules/.bun/zod@4.3.6/node_modules/zod/v4/locales/lt.js
+// node_modules/zod/v4/locales/lt.js
 function getUnitTypeFromNumber(number2) {
   const abs = Math.abs(number2);
   const last = abs % 10;
@@ -7407,7 +7408,7 @@ var init_lt = __esm(() => {
   init_util();
 });
 
-// node_modules/.bun/zod@4.3.6/node_modules/zod/v4/locales/mk.js
+// node_modules/zod/v4/locales/mk.js
 function mk_default() {
   return {
     localeError: error27()
@@ -7520,7 +7521,7 @@ var init_mk = __esm(() => {
   init_util();
 });
 
-// node_modules/.bun/zod@4.3.6/node_modules/zod/v4/locales/ms.js
+// node_modules/zod/v4/locales/ms.js
 function ms_default() {
   return {
     localeError: error28()
@@ -7631,7 +7632,7 @@ var init_ms = __esm(() => {
   init_util();
 });
 
-// node_modules/.bun/zod@4.3.6/node_modules/zod/v4/locales/nl.js
+// node_modules/zod/v4/locales/nl.js
 function nl_default() {
   return {
     localeError: error29()
@@ -7745,7 +7746,7 @@ var init_nl = __esm(() => {
   init_util();
 });
 
-// node_modules/.bun/zod@4.3.6/node_modules/zod/v4/locales/no.js
+// node_modules/zod/v4/locales/no.js
 function no_default() {
   return {
     localeError: error30()
@@ -7857,7 +7858,7 @@ var init_no = __esm(() => {
   init_util();
 });
 
-// node_modules/.bun/zod@4.3.6/node_modules/zod/v4/locales/ota.js
+// node_modules/zod/v4/locales/ota.js
 function ota_default() {
   return {
     localeError: error31()
@@ -7970,7 +7971,7 @@ var init_ota = __esm(() => {
   init_util();
 });
 
-// node_modules/.bun/zod@4.3.6/node_modules/zod/v4/locales/ps.js
+// node_modules/zod/v4/locales/ps.js
 function ps_default() {
   return {
     localeError: error32()
@@ -8088,7 +8089,7 @@ var init_ps = __esm(() => {
   init_util();
 });
 
-// node_modules/.bun/zod@4.3.6/node_modules/zod/v4/locales/pl.js
+// node_modules/zod/v4/locales/pl.js
 function pl_default() {
   return {
     localeError: error33()
@@ -8201,7 +8202,7 @@ var init_pl = __esm(() => {
   init_util();
 });
 
-// node_modules/.bun/zod@4.3.6/node_modules/zod/v4/locales/pt.js
+// node_modules/zod/v4/locales/pt.js
 function pt_default() {
   return {
     localeError: error34()
@@ -8313,7 +8314,7 @@ var init_pt = __esm(() => {
   init_util();
 });
 
-// node_modules/.bun/zod@4.3.6/node_modules/zod/v4/locales/ru.js
+// node_modules/zod/v4/locales/ru.js
 function getRussianPlural(count, one, few, many) {
   const absCount = Math.abs(count);
   const lastDigit = absCount % 10;
@@ -8473,7 +8474,7 @@ var init_ru = __esm(() => {
   init_util();
 });
 
-// node_modules/.bun/zod@4.3.6/node_modules/zod/v4/locales/sl.js
+// node_modules/zod/v4/locales/sl.js
 function sl_default() {
   return {
     localeError: error36()
@@ -8586,7 +8587,7 @@ var init_sl = __esm(() => {
   init_util();
 });
 
-// node_modules/.bun/zod@4.3.6/node_modules/zod/v4/locales/sv.js
+// node_modules/zod/v4/locales/sv.js
 function sv_default() {
   return {
     localeError: error37()
@@ -8700,7 +8701,7 @@ var init_sv = __esm(() => {
   init_util();
 });
 
-// node_modules/.bun/zod@4.3.6/node_modules/zod/v4/locales/ta.js
+// node_modules/zod/v4/locales/ta.js
 function ta_default() {
   return {
     localeError: error38()
@@ -8814,7 +8815,7 @@ var init_ta = __esm(() => {
   init_util();
 });
 
-// node_modules/.bun/zod@4.3.6/node_modules/zod/v4/locales/th.js
+// node_modules/zod/v4/locales/th.js
 function th_default() {
   return {
     localeError: error39()
@@ -8928,7 +8929,7 @@ var init_th = __esm(() => {
   init_util();
 });
 
-// node_modules/.bun/zod@4.3.6/node_modules/zod/v4/locales/tr.js
+// node_modules/zod/v4/locales/tr.js
 function tr_default() {
   return {
     localeError: error40()
@@ -9037,7 +9038,7 @@ var init_tr = __esm(() => {
   init_util();
 });
 
-// node_modules/.bun/zod@4.3.6/node_modules/zod/v4/locales/uk.js
+// node_modules/zod/v4/locales/uk.js
 function uk_default() {
   return {
     localeError: error41()
@@ -9149,7 +9150,7 @@ var init_uk = __esm(() => {
   init_util();
 });
 
-// node_modules/.bun/zod@4.3.6/node_modules/zod/v4/locales/ua.js
+// node_modules/zod/v4/locales/ua.js
 function ua_default() {
   return uk_default();
 }
@@ -9157,7 +9158,7 @@ var init_ua = __esm(() => {
   init_uk();
 });
 
-// node_modules/.bun/zod@4.3.6/node_modules/zod/v4/locales/ur.js
+// node_modules/zod/v4/locales/ur.js
 function ur_default() {
   return {
     localeError: error42()
@@ -9271,7 +9272,7 @@ var init_ur = __esm(() => {
   init_util();
 });
 
-// node_modules/.bun/zod@4.3.6/node_modules/zod/v4/locales/uz.js
+// node_modules/zod/v4/locales/uz.js
 function uz_default() {
   return {
     localeError: error43()
@@ -9384,7 +9385,7 @@ var init_uz = __esm(() => {
   init_util();
 });
 
-// node_modules/.bun/zod@4.3.6/node_modules/zod/v4/locales/vi.js
+// node_modules/zod/v4/locales/vi.js
 function vi_default() {
   return {
     localeError: error44()
@@ -9496,7 +9497,7 @@ var init_vi = __esm(() => {
   init_util();
 });
 
-// node_modules/.bun/zod@4.3.6/node_modules/zod/v4/locales/zh-CN.js
+// node_modules/zod/v4/locales/zh-CN.js
 function zh_CN_default() {
   return {
     localeError: error45()
@@ -9609,7 +9610,7 @@ var init_zh_CN = __esm(() => {
   init_util();
 });
 
-// node_modules/.bun/zod@4.3.6/node_modules/zod/v4/locales/zh-TW.js
+// node_modules/zod/v4/locales/zh-TW.js
 function zh_TW_default() {
   return {
     localeError: error46()
@@ -9720,7 +9721,7 @@ var init_zh_TW = __esm(() => {
   init_util();
 });
 
-// node_modules/.bun/zod@4.3.6/node_modules/zod/v4/locales/yo.js
+// node_modules/zod/v4/locales/yo.js
 function yo_default() {
   return {
     localeError: error47()
@@ -9831,7 +9832,7 @@ var init_yo = __esm(() => {
   init_util();
 });
 
-// node_modules/.bun/zod@4.3.6/node_modules/zod/v4/locales/index.js
+// node_modules/zod/v4/locales/index.js
 var exports_locales = {};
 __export(exports_locales, {
   zhTW: () => zh_TW_default,
@@ -9936,7 +9937,7 @@ var init_locales = __esm(() => {
   init_yo();
 });
 
-// node_modules/.bun/zod@4.3.6/node_modules/zod/v4/core/registries.js
+// node_modules/zod/v4/core/registries.js
 class $ZodRegistry {
   constructor() {
     this._map = new WeakMap;
@@ -9988,7 +9989,7 @@ var init_registries = __esm(() => {
   globalRegistry = globalThis.__zod_globalRegistry;
 });
 
-// node_modules/.bun/zod@4.3.6/node_modules/zod/v4/core/api.js
+// node_modules/zod/v4/core/api.js
 function _string(Class2, params) {
   return new Class2({
     type: "string",
@@ -10916,7 +10917,7 @@ var init_api = __esm(() => {
   };
 });
 
-// node_modules/.bun/zod@4.3.6/node_modules/zod/v4/core/to-json-schema.js
+// node_modules/zod/v4/core/to-json-schema.js
 function initializeContext(params) {
   let target = params?.target ?? "draft-2020-12";
   if (target === "draft-4")
@@ -11264,7 +11265,7 @@ var init_to_json_schema = __esm(() => {
   init_registries();
 });
 
-// node_modules/.bun/zod@4.3.6/node_modules/zod/v4/core/json-schema-processors.js
+// node_modules/zod/v4/core/json-schema-processors.js
 function toJSONSchema(input, params) {
   if ("_idmap" in input) {
     const registry2 = input;
@@ -11776,7 +11777,7 @@ var init_json_schema_processors = __esm(() => {
   };
 });
 
-// node_modules/.bun/zod@4.3.6/node_modules/zod/v4/core/json-schema-generator.js
+// node_modules/zod/v4/core/json-schema-generator.js
 class JSONSchemaGenerator {
   get metadataRegistry() {
     return this.ctx.metadataRegistry;
@@ -11840,11 +11841,11 @@ var init_json_schema_generator = __esm(() => {
   init_to_json_schema();
 });
 
-// node_modules/.bun/zod@4.3.6/node_modules/zod/v4/core/json-schema.js
+// node_modules/zod/v4/core/json-schema.js
 var exports_json_schema = {};
 var init_json_schema = () => {};
 
-// node_modules/.bun/zod@4.3.6/node_modules/zod/v4/core/index.js
+// node_modules/zod/v4/core/index.js
 var exports_core2 = {};
 __export(exports_core2, {
   version: () => version,
@@ -12139,7 +12140,7 @@ var init_core2 = __esm(() => {
   init_to_json_schema();
 });
 
-// node_modules/.bun/zod@4.3.6/node_modules/zod/v4/classic/checks.js
+// node_modules/zod/v4/classic/checks.js
 var exports_checks2 = {};
 __export(exports_checks2, {
   uppercase: () => _uppercase,
@@ -12176,7 +12177,7 @@ var init_checks2 = __esm(() => {
   init_core2();
 });
 
-// node_modules/.bun/zod@4.3.6/node_modules/zod/v4/classic/iso.js
+// node_modules/zod/v4/classic/iso.js
 var exports_iso = {};
 __export(exports_iso, {
   time: () => time2,
@@ -12222,7 +12223,7 @@ var init_iso = __esm(() => {
   });
 });
 
-// node_modules/.bun/zod@4.3.6/node_modules/zod/v4/classic/errors.js
+// node_modules/zod/v4/classic/errors.js
 var initializer2 = (inst, issues) => {
   $ZodError.init(inst, issues);
   inst.name = "ZodError";
@@ -12262,7 +12263,7 @@ var init_errors2 = __esm(() => {
   });
 });
 
-// node_modules/.bun/zod@4.3.6/node_modules/zod/v4/classic/parse.js
+// node_modules/zod/v4/classic/parse.js
 var parse3, parseAsync2, safeParse2, safeParseAsync2, encode2, decode2, encodeAsync2, decodeAsync2, safeEncode2, safeDecode2, safeEncodeAsync2, safeDecodeAsync2;
 var init_parse2 = __esm(() => {
   init_core2();
@@ -12281,7 +12282,7 @@ var init_parse2 = __esm(() => {
   safeDecodeAsync2 = /* @__PURE__ */ _safeDecodeAsync(ZodRealError);
 });
 
-// node_modules/.bun/zod@4.3.6/node_modules/zod/v4/classic/schemas.js
+// node_modules/zod/v4/classic/schemas.js
 var exports_schemas2 = {};
 __export(exports_schemas2, {
   xor: () => xor,
@@ -13534,7 +13535,7 @@ var init_schemas2 = __esm(() => {
   meta2 = meta;
 });
 
-// node_modules/.bun/zod@4.3.6/node_modules/zod/v4/classic/compat.js
+// node_modules/zod/v4/classic/compat.js
 function setErrorMap(map2) {
   config({
     customError: map2
@@ -13562,7 +13563,7 @@ var init_compat = __esm(() => {
   (function(ZodFirstPartyTypeKind2) {})(ZodFirstPartyTypeKind || (ZodFirstPartyTypeKind = {}));
 });
 
-// node_modules/.bun/zod@4.3.6/node_modules/zod/v4/classic/from-json-schema.js
+// node_modules/zod/v4/classic/from-json-schema.js
 function detectVersion(schema, defaultTarget) {
   const $schema = schema.$schema;
   if ($schema === "https://json-schema.org/draft/2020-12/schema") {
@@ -14031,7 +14032,7 @@ var init_from_json_schema = __esm(() => {
   ]);
 });
 
-// node_modules/.bun/zod@4.3.6/node_modules/zod/v4/classic/coerce.js
+// node_modules/zod/v4/classic/coerce.js
 var exports_coerce = {};
 __export(exports_coerce, {
   string: () => string3,
@@ -14060,7 +14061,7 @@ var init_coerce = __esm(() => {
   init_schemas2();
 });
 
-// node_modules/.bun/zod@4.3.6/node_modules/zod/v4/classic/external.js
+// node_modules/zod/v4/classic/external.js
 var exports_external = {};
 __export(exports_external, {
   xor: () => xor,
@@ -14319,7 +14320,7 @@ var init_external = __esm(() => {
   config(en_default());
 });
 
-// node_modules/.bun/zod@4.3.6/node_modules/zod/index.js
+// node_modules/zod/index.js
 var init_zod = __esm(() => {
   init_external();
   init_external();
@@ -15008,7 +15009,8 @@ var init_schema = __esm(() => {
       ]),
       require_reviewer_test_engineer: exports_external.boolean().default(true)
     }).optional(),
-    profiles: exports_external.record(exports_external.string(), GuardrailsProfileSchema).optional()
+    profiles: exports_external.record(exports_external.string(), GuardrailsProfileSchema).optional(),
+    block_destructive_commands: exports_external.boolean().default(true)
   });
   WatchdogConfigSchema = exports_external.object({
     scope_guard: exports_external.boolean().default(true),
@@ -15867,19 +15869,50 @@ async function appendLedgerEvent(directory, eventInput, options) {
   fs3.renameSync(tempPath, ledgerPath);
   return event;
 }
+async function appendLedgerEventWithRetry(directory, eventInput, options) {
+  const maxRetries = options.maxRetries ?? 3;
+  const backoffBase = options.backoffMs ?? 10;
+  let currentExpected = options.expectedHash;
+  let attempt = 0;
+  while (true) {
+    try {
+      return await appendLedgerEvent(directory, eventInput, {
+        expectedHash: currentExpected,
+        planHashAfter: options.planHashAfter
+      });
+    } catch (error49) {
+      if (!(error49 instanceof LedgerStaleWriterError) || attempt >= maxRetries) {
+        throw error49;
+      }
+      attempt++;
+      const delayMs = backoffBase * 2 ** (attempt - 1);
+      await new Promise((resolve2) => setTimeout(resolve2, delayMs));
+      if (options.verifyValid) {
+        const stillValid = await options.verifyValid();
+        if (!stillValid) {
+          return null;
+        }
+      }
+      currentExpected = computeCurrentPlanHash(directory);
+    }
+  }
+}
 async function takeSnapshotEvent(directory, plan, options) {
   const payloadHash = computePlanHash(plan);
   const snapshotPayload = {
     plan,
     payload_hash: payloadHash
   };
+  if (options?.approvalMetadata) {
+    snapshotPayload.approval = options.approvalMetadata;
+  }
   const planId = `${plan.swarm}-${plan.title}`.replace(/[^a-zA-Z0-9-_]/g, "_");
   return appendLedgerEvent(directory, {
     event_type: "snapshot",
-    source: "takeSnapshotEvent",
+    source: options?.source ?? "takeSnapshotEvent",
     plan_id: planId,
     payload: snapshotPayload
-  }, options);
+  }, { planHashAfter: options?.planHashAfter });
 }
 async function replayFromLedger(directory, options) {
   const events = await readLedgerEvents(directory);
@@ -15967,6 +16000,40 @@ function applyEventToPlan(plan, event) {
     default:
       throw new Error(`applyEventToPlan: unhandled event type "${event.event_type}" at seq ${event.seq}`);
   }
+}
+async function loadLastApprovedPlan(directory, expectedPlanId) {
+  const events = await readLedgerEvents(directory);
+  if (events.length === 0) {
+    return null;
+  }
+  for (let i2 = events.length - 1;i2 >= 0; i2--) {
+    const event = events[i2];
+    if (event.event_type !== "snapshot")
+      continue;
+    if (event.source !== "critic_approved")
+      continue;
+    if (expectedPlanId !== undefined && event.plan_id !== expectedPlanId) {
+      continue;
+    }
+    const payload = event.payload;
+    if (!payload || typeof payload !== "object" || !payload.plan) {
+      continue;
+    }
+    if (expectedPlanId !== undefined) {
+      const payloadPlanId = `${payload.plan.swarm}-${payload.plan.title}`.replace(/[^a-zA-Z0-9-_]/g, "_");
+      if (payloadPlanId !== expectedPlanId) {
+        continue;
+      }
+    }
+    return {
+      plan: payload.plan,
+      seq: event.seq,
+      timestamp: event.timestamp,
+      approval: payload.approval,
+      payloadHash: payload.payload_hash
+    };
+  }
+  return null;
 }
 var LEDGER_SCHEMA_VERSION = "1.0.0", LEDGER_FILENAME = "plan-ledger.jsonl", PLAN_JSON_FILENAME = "plan.json", LedgerStaleWriterError;
 var init_ledger = __esm(() => {
@@ -16130,6 +16197,23 @@ async function loadPlan(directory) {
                     return rebuilt;
                   }
                 } catch (replayError) {
+                  try {
+                    const approved = await loadLastApprovedPlan(directory, currentPlanId);
+                    if (approved) {
+                      await rebuildPlan(directory, approved.plan);
+                      try {
+                        await takeSnapshotEvent(directory, approved.plan, {
+                          source: "recovery_from_approved_snapshot",
+                          approvalMetadata: approved.approval
+                        });
+                      } catch (healError) {
+                        warn(`[loadPlan] Recovery-heal snapshot append failed: ${healError instanceof Error ? healError.message : String(healError)}. Next loadPlan may re-enter recovery path.`);
+                      }
+                      const approvedPhase = approved.approval && typeof approved.approval === "object" && "phase" in approved.approval ? approved.approval.phase : undefined;
+                      warn(`[loadPlan] Ledger replay failed (${replayError instanceof Error ? replayError.message : String(replayError)}) \u2014 recovered from critic-approved snapshot seq=${approved.seq} (approval phase=${approvedPhase ?? "unknown"}, timestamp=${approved.timestamp}). This may roll the plan back to an earlier phase \u2014 verify before continuing.`);
+                      return approved.plan;
+                    }
+                  } catch {}
                   warn(`[loadPlan] Ledger replay failed during hash-mismatch rebuild: ${replayError instanceof Error ? replayError.message : String(replayError)}. Returning stale plan.json. To recover: check SWARM_PLAN.md for a checkpoint, or run /swarm reset-session.`);
                 }
               }
@@ -16219,6 +16303,31 @@ async function loadPlan(directory) {
     if (rebuilt) {
       await savePlan(directory, rebuilt);
       return rebuilt;
+    }
+    try {
+      const anchorEvents = await readLedgerEvents(directory);
+      if (anchorEvents.length === 0) {
+        warn("[loadPlan] Ledger present but no events readable \u2014 refusing approved-snapshot recovery (cannot verify plan identity).");
+        return null;
+      }
+      const expectedPlanId = anchorEvents[0].plan_id;
+      const approved = await loadLastApprovedPlan(directory, expectedPlanId);
+      if (approved) {
+        const approvedPhase = approved.approval && typeof approved.approval === "object" && "phase" in approved.approval ? approved.approval.phase : undefined;
+        warn(`[loadPlan] Ledger replay returned no plan \u2014 recovered from critic-approved snapshot seq=${approved.seq} timestamp=${approved.timestamp} (approval phase=${approvedPhase ?? "unknown"}). This may roll the plan back to an earlier phase \u2014 verify before continuing.`);
+        await savePlan(directory, approved.plan);
+        try {
+          await takeSnapshotEvent(directory, approved.plan, {
+            source: "recovery_from_approved_snapshot",
+            approvalMetadata: approved.approval
+          });
+        } catch (healError) {
+          warn(`[loadPlan] Recovery-heal snapshot append failed: ${healError instanceof Error ? healError.message : String(healError)}. Next loadPlan may re-enter recovery path.`);
+        }
+        return approved.plan;
+      }
+    } catch (recoveryError) {
+      warn(`[loadPlan] Approved-snapshot recovery failed: ${recoveryError instanceof Error ? recoveryError.message : String(recoveryError)}`);
     }
   }
   return null;
@@ -16353,16 +16462,31 @@ async function savePlan(directory, plan, options) {
               to_status: task.status,
               source: "savePlan"
             };
-            await appendLedgerEvent(directory, eventInput, {
+            const capturedFromStatus = oldTask.status;
+            const capturedTaskId = task.id;
+            await appendLedgerEventWithRetry(directory, eventInput, {
               expectedHash: currentHash,
-              planHashAfter: hashAfter
+              planHashAfter: hashAfter,
+              maxRetries: 3,
+              verifyValid: async () => {
+                const onDisk = await loadPlanJsonOnly(directory);
+                if (!onDisk)
+                  return true;
+                for (const p of onDisk.phases) {
+                  const t = p.tasks.find((x) => x.id === capturedTaskId);
+                  if (t) {
+                    return t.status === capturedFromStatus;
+                  }
+                }
+                return false;
+              }
             });
           }
         }
       }
     } catch (error49) {
       if (error49 instanceof LedgerStaleWriterError) {
-        throw new Error(`Concurrent plan modification detected: ${error49.message}. Please retry the operation.`);
+        throw new Error(`Concurrent plan modification detected after retries: ${error49.message}. Please retry the operation.`);
       }
       throw error49;
     }
@@ -17887,7 +18011,7 @@ var init_state = __esm(() => {
   };
 });
 
-// node_modules/.bun/@opencode-ai+plugin@1.1.53/node_modules/@opencode-ai/plugin/node_modules/zod/v4/core/core.js
+// node_modules/@opencode-ai/plugin/node_modules/zod/v4/core/core.js
 function $constructor2(name2, initializer3, params) {
   function init2(inst, def) {
     var _a2;
@@ -17956,7 +18080,7 @@ var init_core3 = __esm(() => {
   globalConfig2 = {};
 });
 
-// node_modules/.bun/@opencode-ai+plugin@1.1.53/node_modules/@opencode-ai/plugin/node_modules/zod/v4/core/util.js
+// node_modules/@opencode-ai/plugin/node_modules/zod/v4/core/util.js
 var exports_util2 = {};
 __export(exports_util2, {
   unwrapMessage: () => unwrapMessage2,
@@ -18587,7 +18711,7 @@ var init_util2 = __esm(() => {
   };
 });
 
-// node_modules/.bun/@opencode-ai+plugin@1.1.53/node_modules/@opencode-ai/plugin/node_modules/zod/v4/core/errors.js
+// node_modules/@opencode-ai/plugin/node_modules/zod/v4/core/errors.js
 function flattenError2(error49, mapper = (issue3) => issue3.message) {
   const fieldErrors = {};
   const formErrors = [];
@@ -18734,7 +18858,7 @@ var init_errors4 = __esm(() => {
   $ZodRealError2 = $constructor2("$ZodError", initializer3, { Parent: Error });
 });
 
-// node_modules/.bun/@opencode-ai+plugin@1.1.53/node_modules/@opencode-ai/plugin/node_modules/zod/v4/core/parse.js
+// node_modules/@opencode-ai/plugin/node_modules/zod/v4/core/parse.js
 var _parse2 = (_Err) => (schema, value, _ctx, _params) => {
   const ctx = _ctx ? Object.assign(_ctx, { async: false }) : { async: false };
   const result = schema._zod.run({ value, issues: [] }, ctx);
@@ -18816,7 +18940,7 @@ var init_parse3 = __esm(() => {
   safeDecodeAsync3 = /* @__PURE__ */ _safeDecodeAsync2($ZodRealError2);
 });
 
-// node_modules/.bun/@opencode-ai+plugin@1.1.53/node_modules/@opencode-ai/plugin/node_modules/zod/v4/core/regexes.js
+// node_modules/@opencode-ai/plugin/node_modules/zod/v4/core/regexes.js
 var exports_regexes2 = {};
 __export(exports_regexes2, {
   xid: () => xid3,
@@ -18967,7 +19091,7 @@ var init_regexes2 = __esm(() => {
   sha512_base64url2 = /* @__PURE__ */ fixedBase64url2(86);
 });
 
-// node_modules/.bun/@opencode-ai+plugin@1.1.53/node_modules/@opencode-ai/plugin/node_modules/zod/v4/core/checks.js
+// node_modules/@opencode-ai/plugin/node_modules/zod/v4/core/checks.js
 function handleCheckPropertyResult2(result, payload, property) {
   if (result.issues.length) {
     payload.issues.push(...prefixIssues2(property, result.issues));
@@ -19514,7 +19638,7 @@ var init_checks3 = __esm(() => {
   });
 });
 
-// node_modules/.bun/@opencode-ai+plugin@1.1.53/node_modules/@opencode-ai/plugin/node_modules/zod/v4/core/doc.js
+// node_modules/@opencode-ai/plugin/node_modules/zod/v4/core/doc.js
 class Doc2 {
   constructor(args2 = []) {
     this.content = [];
@@ -19552,7 +19676,7 @@ class Doc2 {
   }
 }
 
-// node_modules/.bun/@opencode-ai+plugin@1.1.53/node_modules/@opencode-ai/plugin/node_modules/zod/v4/core/versions.js
+// node_modules/@opencode-ai/plugin/node_modules/zod/v4/core/versions.js
 var version2;
 var init_versions2 = __esm(() => {
   version2 = {
@@ -19562,7 +19686,7 @@ var init_versions2 = __esm(() => {
   };
 });
 
-// node_modules/.bun/@opencode-ai+plugin@1.1.53/node_modules/@opencode-ai/plugin/node_modules/zod/v4/core/schemas.js
+// node_modules/@opencode-ai/plugin/node_modules/zod/v4/core/schemas.js
 function isValidBase642(data) {
   if (data === "")
     return true;
@@ -21396,7 +21520,7 @@ var init_schemas3 = __esm(() => {
   });
 });
 
-// node_modules/.bun/@opencode-ai+plugin@1.1.53/node_modules/@opencode-ai/plugin/node_modules/zod/v4/locales/ar.js
+// node_modules/@opencode-ai/plugin/node_modules/zod/v4/locales/ar.js
 function ar_default2() {
   return {
     localeError: error49()
@@ -21516,7 +21640,7 @@ var init_ar2 = __esm(() => {
   init_util2();
 });
 
-// node_modules/.bun/@opencode-ai+plugin@1.1.53/node_modules/@opencode-ai/plugin/node_modules/zod/v4/locales/az.js
+// node_modules/@opencode-ai/plugin/node_modules/zod/v4/locales/az.js
 function az_default2() {
   return {
     localeError: error50()
@@ -21635,7 +21759,7 @@ var init_az2 = __esm(() => {
   init_util2();
 });
 
-// node_modules/.bun/@opencode-ai+plugin@1.1.53/node_modules/@opencode-ai/plugin/node_modules/zod/v4/locales/be.js
+// node_modules/@opencode-ai/plugin/node_modules/zod/v4/locales/be.js
 function getBelarusianPlural2(count, one, few, many) {
   const absCount = Math.abs(count);
   const lastDigit = absCount % 10;
@@ -21803,7 +21927,7 @@ var init_be2 = __esm(() => {
   init_util2();
 });
 
-// node_modules/.bun/@opencode-ai+plugin@1.1.53/node_modules/@opencode-ai/plugin/node_modules/zod/v4/locales/ca.js
+// node_modules/@opencode-ai/plugin/node_modules/zod/v4/locales/ca.js
 function ca_default2() {
   return {
     localeError: error52()
@@ -21924,7 +22048,7 @@ var init_ca2 = __esm(() => {
   init_util2();
 });
 
-// node_modules/.bun/@opencode-ai+plugin@1.1.53/node_modules/@opencode-ai/plugin/node_modules/zod/v4/locales/cs.js
+// node_modules/@opencode-ai/plugin/node_modules/zod/v4/locales/cs.js
 function cs_default2() {
   return {
     localeError: error53()
@@ -22063,7 +22187,7 @@ var init_cs2 = __esm(() => {
   init_util2();
 });
 
-// node_modules/.bun/@opencode-ai+plugin@1.1.53/node_modules/@opencode-ai/plugin/node_modules/zod/v4/locales/da.js
+// node_modules/@opencode-ai/plugin/node_modules/zod/v4/locales/da.js
 function da_default2() {
   return {
     localeError: error54()
@@ -22198,7 +22322,7 @@ var init_da2 = __esm(() => {
   init_util2();
 });
 
-// node_modules/.bun/@opencode-ai+plugin@1.1.53/node_modules/@opencode-ai/plugin/node_modules/zod/v4/locales/de.js
+// node_modules/@opencode-ai/plugin/node_modules/zod/v4/locales/de.js
 function de_default2() {
   return {
     localeError: error55()
@@ -22318,7 +22442,7 @@ var init_de2 = __esm(() => {
   init_util2();
 });
 
-// node_modules/.bun/@opencode-ai+plugin@1.1.53/node_modules/@opencode-ai/plugin/node_modules/zod/v4/locales/en.js
+// node_modules/@opencode-ai/plugin/node_modules/zod/v4/locales/en.js
 function en_default2() {
   return {
     localeError: error56()
@@ -22438,7 +22562,7 @@ var init_en2 = __esm(() => {
   init_util2();
 });
 
-// node_modules/.bun/@opencode-ai+plugin@1.1.53/node_modules/@opencode-ai/plugin/node_modules/zod/v4/locales/eo.js
+// node_modules/@opencode-ai/plugin/node_modules/zod/v4/locales/eo.js
 function eo_default2() {
   return {
     localeError: error57()
@@ -22557,7 +22681,7 @@ var init_eo2 = __esm(() => {
   init_util2();
 });
 
-// node_modules/.bun/@opencode-ai+plugin@1.1.53/node_modules/@opencode-ai/plugin/node_modules/zod/v4/locales/es.js
+// node_modules/@opencode-ai/plugin/node_modules/zod/v4/locales/es.js
 function es_default2() {
   return {
     localeError: error58()
@@ -22709,7 +22833,7 @@ var init_es2 = __esm(() => {
   init_util2();
 });
 
-// node_modules/.bun/@opencode-ai+plugin@1.1.53/node_modules/@opencode-ai/plugin/node_modules/zod/v4/locales/fa.js
+// node_modules/@opencode-ai/plugin/node_modules/zod/v4/locales/fa.js
 function fa_default2() {
   return {
     localeError: error59()
@@ -22835,7 +22959,7 @@ var init_fa2 = __esm(() => {
   init_util2();
 });
 
-// node_modules/.bun/@opencode-ai+plugin@1.1.53/node_modules/@opencode-ai/plugin/node_modules/zod/v4/locales/fi.js
+// node_modules/@opencode-ai/plugin/node_modules/zod/v4/locales/fi.js
 function fi_default2() {
   return {
     localeError: error60()
@@ -22961,7 +23085,7 @@ var init_fi2 = __esm(() => {
   init_util2();
 });
 
-// node_modules/.bun/@opencode-ai+plugin@1.1.53/node_modules/@opencode-ai/plugin/node_modules/zod/v4/locales/fr.js
+// node_modules/@opencode-ai/plugin/node_modules/zod/v4/locales/fr.js
 function fr_default2() {
   return {
     localeError: error61()
@@ -23081,7 +23205,7 @@ var init_fr2 = __esm(() => {
   init_util2();
 });
 
-// node_modules/.bun/@opencode-ai+plugin@1.1.53/node_modules/@opencode-ai/plugin/node_modules/zod/v4/locales/fr-CA.js
+// node_modules/@opencode-ai/plugin/node_modules/zod/v4/locales/fr-CA.js
 function fr_CA_default2() {
   return {
     localeError: error62()
@@ -23202,7 +23326,7 @@ var init_fr_CA2 = __esm(() => {
   init_util2();
 });
 
-// node_modules/.bun/@opencode-ai+plugin@1.1.53/node_modules/@opencode-ai/plugin/node_modules/zod/v4/locales/he.js
+// node_modules/@opencode-ai/plugin/node_modules/zod/v4/locales/he.js
 function he_default2() {
   return {
     localeError: error63()
@@ -23322,7 +23446,7 @@ var init_he2 = __esm(() => {
   init_util2();
 });
 
-// node_modules/.bun/@opencode-ai+plugin@1.1.53/node_modules/@opencode-ai/plugin/node_modules/zod/v4/locales/hu.js
+// node_modules/@opencode-ai/plugin/node_modules/zod/v4/locales/hu.js
 function hu_default2() {
   return {
     localeError: error64()
@@ -23442,7 +23566,7 @@ var init_hu2 = __esm(() => {
   init_util2();
 });
 
-// node_modules/.bun/@opencode-ai+plugin@1.1.53/node_modules/@opencode-ai/plugin/node_modules/zod/v4/locales/id.js
+// node_modules/@opencode-ai/plugin/node_modules/zod/v4/locales/id.js
 function id_default2() {
   return {
     localeError: error65()
@@ -23562,7 +23686,7 @@ var init_id2 = __esm(() => {
   init_util2();
 });
 
-// node_modules/.bun/@opencode-ai+plugin@1.1.53/node_modules/@opencode-ai/plugin/node_modules/zod/v4/locales/is.js
+// node_modules/@opencode-ai/plugin/node_modules/zod/v4/locales/is.js
 function is_default2() {
   return {
     localeError: error66()
@@ -23682,7 +23806,7 @@ var init_is2 = __esm(() => {
   init_util2();
 });
 
-// node_modules/.bun/@opencode-ai+plugin@1.1.53/node_modules/@opencode-ai/plugin/node_modules/zod/v4/locales/it.js
+// node_modules/@opencode-ai/plugin/node_modules/zod/v4/locales/it.js
 function it_default2() {
   return {
     localeError: error67()
@@ -23802,7 +23926,7 @@ var init_it2 = __esm(() => {
   init_util2();
 });
 
-// node_modules/.bun/@opencode-ai+plugin@1.1.53/node_modules/@opencode-ai/plugin/node_modules/zod/v4/locales/ja.js
+// node_modules/@opencode-ai/plugin/node_modules/zod/v4/locales/ja.js
 function ja_default2() {
   return {
     localeError: error68()
@@ -23921,7 +24045,7 @@ var init_ja2 = __esm(() => {
   init_util2();
 });
 
-// node_modules/.bun/@opencode-ai+plugin@1.1.53/node_modules/@opencode-ai/plugin/node_modules/zod/v4/locales/ka.js
+// node_modules/@opencode-ai/plugin/node_modules/zod/v4/locales/ka.js
 function ka_default2() {
   return {
     localeError: error69()
@@ -24049,7 +24173,7 @@ var init_ka2 = __esm(() => {
   init_util2();
 });
 
-// node_modules/.bun/@opencode-ai+plugin@1.1.53/node_modules/@opencode-ai/plugin/node_modules/zod/v4/locales/km.js
+// node_modules/@opencode-ai/plugin/node_modules/zod/v4/locales/km.js
 function km_default2() {
   return {
     localeError: error70()
@@ -24170,7 +24294,7 @@ var init_km2 = __esm(() => {
   init_util2();
 });
 
-// node_modules/.bun/@opencode-ai+plugin@1.1.53/node_modules/@opencode-ai/plugin/node_modules/zod/v4/locales/kh.js
+// node_modules/@opencode-ai/plugin/node_modules/zod/v4/locales/kh.js
 function kh_default2() {
   return km_default2();
 }
@@ -24178,7 +24302,7 @@ var init_kh2 = __esm(() => {
   init_km2();
 });
 
-// node_modules/.bun/@opencode-ai+plugin@1.1.53/node_modules/@opencode-ai/plugin/node_modules/zod/v4/locales/ko.js
+// node_modules/@opencode-ai/plugin/node_modules/zod/v4/locales/ko.js
 function ko_default2() {
   return {
     localeError: error71()
@@ -24303,7 +24427,7 @@ var init_ko2 = __esm(() => {
   init_util2();
 });
 
-// node_modules/.bun/@opencode-ai+plugin@1.1.53/node_modules/@opencode-ai/plugin/node_modules/zod/v4/locales/lt.js
+// node_modules/@opencode-ai/plugin/node_modules/zod/v4/locales/lt.js
 function getUnitTypeFromNumber2(number5) {
   const abs = Math.abs(number5);
   const last = abs % 10;
@@ -24533,7 +24657,7 @@ var init_lt2 = __esm(() => {
   init_util2();
 });
 
-// node_modules/.bun/@opencode-ai+plugin@1.1.53/node_modules/@opencode-ai/plugin/node_modules/zod/v4/locales/mk.js
+// node_modules/@opencode-ai/plugin/node_modules/zod/v4/locales/mk.js
 function mk_default2() {
   return {
     localeError: error73()
@@ -24654,7 +24778,7 @@ var init_mk2 = __esm(() => {
   init_util2();
 });
 
-// node_modules/.bun/@opencode-ai+plugin@1.1.53/node_modules/@opencode-ai/plugin/node_modules/zod/v4/locales/ms.js
+// node_modules/@opencode-ai/plugin/node_modules/zod/v4/locales/ms.js
 function ms_default2() {
   return {
     localeError: error74()
@@ -24774,7 +24898,7 @@ var init_ms2 = __esm(() => {
   init_util2();
 });
 
-// node_modules/.bun/@opencode-ai+plugin@1.1.53/node_modules/@opencode-ai/plugin/node_modules/zod/v4/locales/nl.js
+// node_modules/@opencode-ai/plugin/node_modules/zod/v4/locales/nl.js
 function nl_default2() {
   return {
     localeError: error75()
@@ -24895,7 +25019,7 @@ var init_nl2 = __esm(() => {
   init_util2();
 });
 
-// node_modules/.bun/@opencode-ai+plugin@1.1.53/node_modules/@opencode-ai/plugin/node_modules/zod/v4/locales/no.js
+// node_modules/@opencode-ai/plugin/node_modules/zod/v4/locales/no.js
 function no_default2() {
   return {
     localeError: error76()
@@ -25015,7 +25139,7 @@ var init_no2 = __esm(() => {
   init_util2();
 });
 
-// node_modules/.bun/@opencode-ai+plugin@1.1.53/node_modules/@opencode-ai/plugin/node_modules/zod/v4/locales/ota.js
+// node_modules/@opencode-ai/plugin/node_modules/zod/v4/locales/ota.js
 function ota_default2() {
   return {
     localeError: error77()
@@ -25135,7 +25259,7 @@ var init_ota2 = __esm(() => {
   init_util2();
 });
 
-// node_modules/.bun/@opencode-ai+plugin@1.1.53/node_modules/@opencode-ai/plugin/node_modules/zod/v4/locales/ps.js
+// node_modules/@opencode-ai/plugin/node_modules/zod/v4/locales/ps.js
 function ps_default2() {
   return {
     localeError: error78()
@@ -25261,7 +25385,7 @@ var init_ps2 = __esm(() => {
   init_util2();
 });
 
-// node_modules/.bun/@opencode-ai+plugin@1.1.53/node_modules/@opencode-ai/plugin/node_modules/zod/v4/locales/pl.js
+// node_modules/@opencode-ai/plugin/node_modules/zod/v4/locales/pl.js
 function pl_default2() {
   return {
     localeError: error79()
@@ -25382,7 +25506,7 @@ var init_pl2 = __esm(() => {
   init_util2();
 });
 
-// node_modules/.bun/@opencode-ai+plugin@1.1.53/node_modules/@opencode-ai/plugin/node_modules/zod/v4/locales/pt.js
+// node_modules/@opencode-ai/plugin/node_modules/zod/v4/locales/pt.js
 function pt_default2() {
   return {
     localeError: error80()
@@ -25502,7 +25626,7 @@ var init_pt2 = __esm(() => {
   init_util2();
 });
 
-// node_modules/.bun/@opencode-ai+plugin@1.1.53/node_modules/@opencode-ai/plugin/node_modules/zod/v4/locales/ru.js
+// node_modules/@opencode-ai/plugin/node_modules/zod/v4/locales/ru.js
 function getRussianPlural2(count, one, few, many) {
   const absCount = Math.abs(count);
   const lastDigit = absCount % 10;
@@ -25670,7 +25794,7 @@ var init_ru2 = __esm(() => {
   init_util2();
 });
 
-// node_modules/.bun/@opencode-ai+plugin@1.1.53/node_modules/@opencode-ai/plugin/node_modules/zod/v4/locales/sl.js
+// node_modules/@opencode-ai/plugin/node_modules/zod/v4/locales/sl.js
 function sl_default2() {
   return {
     localeError: error82()
@@ -25791,7 +25915,7 @@ var init_sl2 = __esm(() => {
   init_util2();
 });
 
-// node_modules/.bun/@opencode-ai+plugin@1.1.53/node_modules/@opencode-ai/plugin/node_modules/zod/v4/locales/sv.js
+// node_modules/@opencode-ai/plugin/node_modules/zod/v4/locales/sv.js
 function sv_default2() {
   return {
     localeError: error83()
@@ -25913,7 +26037,7 @@ var init_sv2 = __esm(() => {
   init_util2();
 });
 
-// node_modules/.bun/@opencode-ai+plugin@1.1.53/node_modules/@opencode-ai/plugin/node_modules/zod/v4/locales/ta.js
+// node_modules/@opencode-ai/plugin/node_modules/zod/v4/locales/ta.js
 function ta_default2() {
   return {
     localeError: error84()
@@ -26034,7 +26158,7 @@ var init_ta2 = __esm(() => {
   init_util2();
 });
 
-// node_modules/.bun/@opencode-ai+plugin@1.1.53/node_modules/@opencode-ai/plugin/node_modules/zod/v4/locales/th.js
+// node_modules/@opencode-ai/plugin/node_modules/zod/v4/locales/th.js
 function th_default2() {
   return {
     localeError: error85()
@@ -26155,7 +26279,7 @@ var init_th2 = __esm(() => {
   init_util2();
 });
 
-// node_modules/.bun/@opencode-ai+plugin@1.1.53/node_modules/@opencode-ai/plugin/node_modules/zod/v4/locales/tr.js
+// node_modules/@opencode-ai/plugin/node_modules/zod/v4/locales/tr.js
 function tr_default2() {
   return {
     localeError: error86()
@@ -26273,7 +26397,7 @@ var init_tr2 = __esm(() => {
   init_util2();
 });
 
-// node_modules/.bun/@opencode-ai+plugin@1.1.53/node_modules/@opencode-ai/plugin/node_modules/zod/v4/locales/uk.js
+// node_modules/@opencode-ai/plugin/node_modules/zod/v4/locales/uk.js
 function uk_default2() {
   return {
     localeError: error87()
@@ -26393,7 +26517,7 @@ var init_uk2 = __esm(() => {
   init_util2();
 });
 
-// node_modules/.bun/@opencode-ai+plugin@1.1.53/node_modules/@opencode-ai/plugin/node_modules/zod/v4/locales/ua.js
+// node_modules/@opencode-ai/plugin/node_modules/zod/v4/locales/ua.js
 function ua_default2() {
   return uk_default2();
 }
@@ -26401,7 +26525,7 @@ var init_ua2 = __esm(() => {
   init_uk2();
 });
 
-// node_modules/.bun/@opencode-ai+plugin@1.1.53/node_modules/@opencode-ai/plugin/node_modules/zod/v4/locales/ur.js
+// node_modules/@opencode-ai/plugin/node_modules/zod/v4/locales/ur.js
 function ur_default2() {
   return {
     localeError: error88()
@@ -26522,7 +26646,7 @@ var init_ur2 = __esm(() => {
   init_util2();
 });
 
-// node_modules/.bun/@opencode-ai+plugin@1.1.53/node_modules/@opencode-ai/plugin/node_modules/zod/v4/locales/vi.js
+// node_modules/@opencode-ai/plugin/node_modules/zod/v4/locales/vi.js
 function vi_default2() {
   return {
     localeError: error89()
@@ -26642,7 +26766,7 @@ var init_vi2 = __esm(() => {
   init_util2();
 });
 
-// node_modules/.bun/@opencode-ai+plugin@1.1.53/node_modules/@opencode-ai/plugin/node_modules/zod/v4/locales/zh-CN.js
+// node_modules/@opencode-ai/plugin/node_modules/zod/v4/locales/zh-CN.js
 function zh_CN_default2() {
   return {
     localeError: error90()
@@ -26762,7 +26886,7 @@ var init_zh_CN2 = __esm(() => {
   init_util2();
 });
 
-// node_modules/.bun/@opencode-ai+plugin@1.1.53/node_modules/@opencode-ai/plugin/node_modules/zod/v4/locales/zh-TW.js
+// node_modules/@opencode-ai/plugin/node_modules/zod/v4/locales/zh-TW.js
 function zh_TW_default2() {
   return {
     localeError: error91()
@@ -26883,7 +27007,7 @@ var init_zh_TW2 = __esm(() => {
   init_util2();
 });
 
-// node_modules/.bun/@opencode-ai+plugin@1.1.53/node_modules/@opencode-ai/plugin/node_modules/zod/v4/locales/yo.js
+// node_modules/@opencode-ai/plugin/node_modules/zod/v4/locales/yo.js
 function yo_default2() {
   return {
     localeError: error92()
@@ -27002,7 +27126,7 @@ var init_yo2 = __esm(() => {
   init_util2();
 });
 
-// node_modules/.bun/@opencode-ai+plugin@1.1.53/node_modules/@opencode-ai/plugin/node_modules/zod/v4/locales/index.js
+// node_modules/@opencode-ai/plugin/node_modules/zod/v4/locales/index.js
 var exports_locales2 = {};
 __export(exports_locales2, {
   zhTW: () => zh_TW_default2,
@@ -27101,7 +27225,7 @@ var init_locales2 = __esm(() => {
   init_yo2();
 });
 
-// node_modules/.bun/@opencode-ai+plugin@1.1.53/node_modules/@opencode-ai/plugin/node_modules/zod/v4/core/registries.js
+// node_modules/@opencode-ai/plugin/node_modules/zod/v4/core/registries.js
 class $ZodRegistry2 {
   constructor() {
     this._map = new WeakMap;
@@ -27155,7 +27279,7 @@ var init_registries2 = __esm(() => {
   globalRegistry2 = /* @__PURE__ */ registry2();
 });
 
-// node_modules/.bun/@opencode-ai+plugin@1.1.53/node_modules/@opencode-ai/plugin/node_modules/zod/v4/core/api.js
+// node_modules/@opencode-ai/plugin/node_modules/zod/v4/core/api.js
 function _string2(Class3, params) {
   return new Class3({
     type: "string",
@@ -28040,7 +28164,7 @@ var init_api2 = __esm(() => {
   };
 });
 
-// node_modules/.bun/@opencode-ai+plugin@1.1.53/node_modules/@opencode-ai/plugin/node_modules/zod/v4/core/to-json-schema.js
+// node_modules/@opencode-ai/plugin/node_modules/zod/v4/core/to-json-schema.js
 class JSONSchemaGenerator2 {
   constructor(params) {
     this.counter = 0;
@@ -28849,11 +28973,11 @@ var init_to_json_schema2 = __esm(() => {
   init_util2();
 });
 
-// node_modules/.bun/@opencode-ai+plugin@1.1.53/node_modules/@opencode-ai/plugin/node_modules/zod/v4/core/json-schema.js
+// node_modules/@opencode-ai/plugin/node_modules/zod/v4/core/json-schema.js
 var exports_json_schema2 = {};
 var init_json_schema2 = () => {};
 
-// node_modules/.bun/@opencode-ai+plugin@1.1.53/node_modules/@opencode-ai/plugin/node_modules/zod/v4/core/index.js
+// node_modules/@opencode-ai/plugin/node_modules/zod/v4/core/index.js
 var exports_core4 = {};
 __export(exports_core4, {
   version: () => version2,
@@ -29132,12 +29256,12 @@ var init_core4 = __esm(() => {
   init_to_json_schema2();
 });
 
-// node_modules/.bun/@opencode-ai+plugin@1.1.53/node_modules/@opencode-ai/plugin/node_modules/zod/v4/classic/checks.js
+// node_modules/@opencode-ai/plugin/node_modules/zod/v4/classic/checks.js
 var init_checks4 = __esm(() => {
   init_core4();
 });
 
-// node_modules/.bun/@opencode-ai+plugin@1.1.53/node_modules/@opencode-ai/plugin/node_modules/zod/v4/classic/iso.js
+// node_modules/@opencode-ai/plugin/node_modules/zod/v4/classic/iso.js
 var exports_iso2 = {};
 __export(exports_iso2, {
   time: () => time4,
@@ -29183,7 +29307,7 @@ var init_iso2 = __esm(() => {
   });
 });
 
-// node_modules/.bun/@opencode-ai+plugin@1.1.53/node_modules/@opencode-ai/plugin/node_modules/zod/v4/classic/errors.js
+// node_modules/@opencode-ai/plugin/node_modules/zod/v4/classic/errors.js
 var initializer4 = (inst, issues) => {
   $ZodError2.init(inst, issues);
   inst.name = "ZodError";
@@ -29223,7 +29347,7 @@ var init_errors5 = __esm(() => {
   });
 });
 
-// node_modules/.bun/@opencode-ai+plugin@1.1.53/node_modules/@opencode-ai/plugin/node_modules/zod/v4/classic/parse.js
+// node_modules/@opencode-ai/plugin/node_modules/zod/v4/classic/parse.js
 var parse7, parseAsync4, safeParse4, safeParseAsync4, encode4, decode4, encodeAsync4, decodeAsync4, safeEncode4, safeDecode4, safeEncodeAsync4, safeDecodeAsync4;
 var init_parse4 = __esm(() => {
   init_core4();
@@ -29242,7 +29366,7 @@ var init_parse4 = __esm(() => {
   safeDecodeAsync4 = /* @__PURE__ */ _safeDecodeAsync2(ZodRealError2);
 });
 
-// node_modules/.bun/@opencode-ai+plugin@1.1.53/node_modules/@opencode-ai/plugin/node_modules/zod/v4/classic/schemas.js
+// node_modules/@opencode-ai/plugin/node_modules/zod/v4/classic/schemas.js
 function string5(params) {
   return _string2(ZodString2, params);
 }
@@ -30225,7 +30349,7 @@ var init_schemas4 = __esm(() => {
   });
 });
 
-// node_modules/.bun/@opencode-ai+plugin@1.1.53/node_modules/@opencode-ai/plugin/node_modules/zod/v4/classic/compat.js
+// node_modules/@opencode-ai/plugin/node_modules/zod/v4/classic/compat.js
 function setErrorMap2(map3) {
   config2({
     customError: map3
@@ -30253,7 +30377,7 @@ var init_compat2 = __esm(() => {
   (function(ZodFirstPartyTypeKind3) {})(ZodFirstPartyTypeKind2 || (ZodFirstPartyTypeKind2 = {}));
 });
 
-// node_modules/.bun/@opencode-ai+plugin@1.1.53/node_modules/@opencode-ai/plugin/node_modules/zod/v4/classic/coerce.js
+// node_modules/@opencode-ai/plugin/node_modules/zod/v4/classic/coerce.js
 var exports_coerce2 = {};
 __export(exports_coerce2, {
   string: () => string6,
@@ -30282,7 +30406,7 @@ var init_coerce2 = __esm(() => {
   init_schemas4();
 });
 
-// node_modules/.bun/@opencode-ai+plugin@1.1.53/node_modules/@opencode-ai/plugin/node_modules/zod/v4/classic/external.js
+// node_modules/@opencode-ai/plugin/node_modules/zod/v4/classic/external.js
 var exports_external2 = {};
 __export(exports_external2, {
   xid: () => xid4,
@@ -30528,13 +30652,13 @@ var init_external2 = __esm(() => {
   config2(en_default2());
 });
 
-// node_modules/.bun/@opencode-ai+plugin@1.1.53/node_modules/@opencode-ai/plugin/node_modules/zod/index.js
+// node_modules/@opencode-ai/plugin/node_modules/zod/index.js
 var init_zod2 = __esm(() => {
   init_external2();
   init_external2();
 });
 
-// node_modules/.bun/@opencode-ai+plugin@1.1.53/node_modules/@opencode-ai/plugin/dist/tool.js
+// node_modules/@opencode-ai/plugin/dist/tool.js
 function tool(input) {
   return input;
 }
@@ -30543,14 +30667,14 @@ var init_tool = __esm(() => {
   tool.schema = exports_external2;
 });
 
-// node_modules/.bun/@opencode-ai+plugin@1.1.53/node_modules/@opencode-ai/plugin/dist/index.js
+// node_modules/@opencode-ai/plugin/dist/index.js
 var init_dist = __esm(() => {
   init_tool();
 });
 
 // src/tools/create-tool.ts
 function classifyToolError(error93) {
-  const msg = (error93 instanceof Error ? error93.message : String(error93)).toLowerCase();
+  const msg = (error93 instanceof Error ? error93.message ?? "" : String(error93)).toLowerCase();
   if (msg.includes("not registered") || msg.includes("unknown tool"))
     return "not_registered";
   if (msg.includes("not whitelisted") || msg.includes("not allowed"))
@@ -30872,7 +30996,7 @@ var init_checkpoint = __esm(() => {
   });
 });
 
-// node_modules/.bun/graceful-fs@4.2.11/node_modules/graceful-fs/polyfills.js
+// node_modules/graceful-fs/polyfills.js
 var require_polyfills = __commonJS((exports, module2) => {
   var constants = __require("constants");
   var origCwd = process.cwd;
@@ -31175,7 +31299,7 @@ var require_polyfills = __commonJS((exports, module2) => {
   }
 });
 
-// node_modules/.bun/graceful-fs@4.2.11/node_modules/graceful-fs/legacy-streams.js
+// node_modules/graceful-fs/legacy-streams.js
 var require_legacy_streams = __commonJS((exports, module2) => {
   var Stream = __require("stream").Stream;
   module2.exports = legacy;
@@ -31272,7 +31396,7 @@ var require_legacy_streams = __commonJS((exports, module2) => {
   }
 });
 
-// node_modules/.bun/graceful-fs@4.2.11/node_modules/graceful-fs/clone.js
+// node_modules/graceful-fs/clone.js
 var require_clone = __commonJS((exports, module2) => {
   module2.exports = clone3;
   var getPrototypeOf = Object.getPrototypeOf || function(obj) {
@@ -31292,7 +31416,7 @@ var require_clone = __commonJS((exports, module2) => {
   }
 });
 
-// node_modules/.bun/graceful-fs@4.2.11/node_modules/graceful-fs/graceful-fs.js
+// node_modules/graceful-fs/graceful-fs.js
 var require_graceful_fs = __commonJS((exports, module2) => {
   var fs8 = __require("fs");
   var polyfills = require_polyfills();
@@ -31650,7 +31774,7 @@ GFS4: `);
   }
 });
 
-// node_modules/.bun/retry@0.12.0/node_modules/retry/lib/retry_operation.js
+// node_modules/retry/lib/retry_operation.js
 var require_retry_operation = __commonJS((exports, module2) => {
   function RetryOperation(timeouts, options) {
     if (typeof options === "boolean") {
@@ -31779,7 +31903,7 @@ var require_retry_operation = __commonJS((exports, module2) => {
   };
 });
 
-// node_modules/.bun/retry@0.12.0/node_modules/retry/lib/retry.js
+// node_modules/retry/lib/retry.js
 var require_retry = __commonJS((exports) => {
   var RetryOperation = require_retry_operation();
   exports.operation = function(options) {
@@ -31863,7 +31987,7 @@ var require_retry = __commonJS((exports) => {
   };
 });
 
-// node_modules/.bun/signal-exit@3.0.7/node_modules/signal-exit/signals.js
+// node_modules/signal-exit/signals.js
 var require_signals = __commonJS((exports, module2) => {
   module2.exports = [
     "SIGABRT",
@@ -31880,7 +32004,7 @@ var require_signals = __commonJS((exports, module2) => {
   }
 });
 
-// node_modules/.bun/signal-exit@3.0.7/node_modules/signal-exit/index.js
+// node_modules/signal-exit/index.js
 var require_signal_exit = __commonJS((exports, module2) => {
   var process3 = global.process;
   var processOk = function(process4) {
@@ -32033,7 +32157,7 @@ var require_signal_exit = __commonJS((exports, module2) => {
   var processEmit;
 });
 
-// node_modules/.bun/proper-lockfile@4.1.2/node_modules/proper-lockfile/lib/mtime-precision.js
+// node_modules/proper-lockfile/lib/mtime-precision.js
 var require_mtime_precision = __commonJS((exports, module2) => {
   var cacheSymbol = Symbol();
   function probe(file3, fs8, callback) {
@@ -32072,7 +32196,7 @@ var require_mtime_precision = __commonJS((exports, module2) => {
   exports.getMtime = getMtime;
 });
 
-// node_modules/.bun/proper-lockfile@4.1.2/node_modules/proper-lockfile/lib/lockfile.js
+// node_modules/proper-lockfile/lib/lockfile.js
 var require_lockfile = __commonJS((exports, module2) => {
   var path9 = __require("path");
   var fs8 = require_graceful_fs();
@@ -32297,7 +32421,7 @@ var require_lockfile = __commonJS((exports, module2) => {
   exports.getLocks = getLocks;
 });
 
-// node_modules/.bun/proper-lockfile@4.1.2/node_modules/proper-lockfile/lib/adapter.js
+// node_modules/proper-lockfile/lib/adapter.js
 var require_adapter = __commonJS((exports, module2) => {
   var fs8 = require_graceful_fs();
   function createSyncFs(fs9) {
@@ -32359,7 +32483,7 @@ var require_adapter = __commonJS((exports, module2) => {
   };
 });
 
-// node_modules/.bun/proper-lockfile@4.1.2/node_modules/proper-lockfile/index.js
+// node_modules/proper-lockfile/index.js
 var require_proper_lockfile = __commonJS((exports, module2) => {
   var lockfile = require_lockfile();
   var { toPromise, toSync, toSyncOptions } = require_adapter();
@@ -41515,6 +41639,98 @@ var init_doc_scan = __esm(() => {
   });
 });
 
+// src/tools/knowledge-recall.ts
+var exports_knowledge_recall = {};
+__export(exports_knowledge_recall, {
+  knowledge_recall: () => knowledge_recall
+});
+var knowledge_recall;
+var init_knowledge_recall = __esm(() => {
+  init_dist();
+  init_knowledge_store();
+  init_create_tool();
+  knowledge_recall = createSwarmTool({
+    description: "Search the knowledge base for relevant past decisions, patterns, and lessons learned. Returns ranked results by semantic similarity.",
+    args: {
+      query: tool.schema.string().min(3).describe("Natural language search query"),
+      top_n: tool.schema.number().int().min(1).max(20).optional().describe("Maximum results to return (default: 5)"),
+      tier: tool.schema.enum(["all", "swarm", "hive"]).optional().describe("Knowledge tier to search (default: 'all')")
+    },
+    execute: async (args2, directory) => {
+      let queryInput;
+      let topNInput;
+      let tierInput;
+      try {
+        if (args2 && typeof args2 === "object") {
+          const obj = args2;
+          queryInput = obj.query;
+          topNInput = obj.top_n;
+          tierInput = obj.tier;
+        }
+      } catch {}
+      if (typeof queryInput !== "string" || queryInput.length < 3) {
+        return JSON.stringify({
+          results: [],
+          total: 0,
+          error: "query must be a string with at least 3 characters"
+        });
+      }
+      let topN = 5;
+      if (topNInput !== undefined) {
+        if (typeof topNInput === "number" && Number.isInteger(topNInput)) {
+          topN = Math.max(1, Math.min(20, topNInput));
+        }
+      }
+      let tier = "all";
+      if (tierInput !== undefined && typeof tierInput === "string") {
+        if (tierInput === "swarm" || tierInput === "hive") {
+          tier = tierInput;
+        }
+      }
+      const swarmPath = resolveSwarmKnowledgePath(directory);
+      const hivePath = resolveHiveKnowledgePath();
+      const [swarmEntries, hiveEntries] = await Promise.all([
+        readKnowledge(swarmPath),
+        readKnowledge(hivePath)
+      ]);
+      let entries = [];
+      if (tier === "all" || tier === "swarm") {
+        entries = entries.concat(swarmEntries);
+      }
+      if (tier === "all" || tier === "hive") {
+        entries = entries.concat(hiveEntries);
+      }
+      if (entries.length === 0) {
+        const result2 = { results: [], total: 0 };
+        return JSON.stringify(result2);
+      }
+      const normalizedQuery = normalize2(queryInput);
+      const queryBigrams = wordBigrams(normalizedQuery);
+      const scoredEntries = entries.map((entry) => {
+        const entryText = `${entry.lesson} ${entry.tags.join(" ")} ${entry.category}`;
+        const entryBigrams = wordBigrams(entryText);
+        const textScore = jaccardBigram(queryBigrams, entryBigrams);
+        const boost = entry.status === "established" ? 0.1 : entry.status === "promoted" ? 0.05 : 0;
+        const finalScore = textScore + boost;
+        return {
+          id: entry.id,
+          confidence: entry.confidence,
+          category: entry.category,
+          lesson: entry.lesson,
+          score: finalScore
+        };
+      });
+      scoredEntries.sort((a, b) => b.score - a.score);
+      const topResults = scoredEntries.slice(0, topN);
+      const result = {
+        results: topResults,
+        total: topResults.length
+      };
+      return JSON.stringify(result);
+    }
+  });
+});
+
 // src/environment/prompt-renderer.ts
 var exports_prompt_renderer = {};
 __export(exports_prompt_renderer, {
@@ -41727,7 +41943,7 @@ var init_curator_drift = __esm(() => {
   init_utils2();
 });
 
-// node_modules/.bun/web-tree-sitter@0.25.10/node_modules/web-tree-sitter/tree-sitter.js
+// node_modules/web-tree-sitter/tree-sitter.js
 function assertInternal(x) {
   if (x !== INTERNAL)
     throw new Error("Illegal constructor");
@@ -45159,7 +45375,7 @@ ${warnings.map((w) => `  - ${w}`).join(`
 `)}` : "";
   const cautionMessage = `
 
-\u26A0\uFE0F  Caution: Spec drift was acknowledged \u2014 verify that the implementation still matches the spec before proceeding.`;
+\u26A0\uFE0F  Warning: Spec drift was acknowledged \u2014 verify that the implementation still matches the spec before proceeding.`;
   return baseMessage + warningMessage + cautionMessage;
 }
 
@@ -47044,7 +47260,7 @@ async function executeWriteRetro(args2, directory) {
         message: "Invalid task ID: path traversal detected"
       }, null, 2);
     }
-    const VALID_TASK_ID = /^(retro-\d+|\d+\.\d+(\.\d+)*)$/;
+    const VALID_TASK_ID = /^(retro-[a-zA-Z0-9][a-zA-Z0-9_-]*|\d+\.\d+(\.\d+)*)$/;
     if (!VALID_TASK_ID.test(tid)) {
       return JSON.stringify({
         success: false,
@@ -47192,6 +47408,7 @@ var write_retro = createSwarmTool({
 var ARCHIVE_ARTIFACTS = [
   "plan.json",
   "plan.md",
+  "plan-ledger.jsonl",
   "context.md",
   "events.jsonl",
   "handoff.md",
@@ -47201,7 +47418,9 @@ var ARCHIVE_ARTIFACTS = [
   "close-lessons.md"
 ];
 var ACTIVE_STATE_TO_CLEAN = [
+  "plan.json",
   "plan.md",
+  "plan-ledger.jsonl",
   "events.jsonl",
   "handoff.md",
   "handoff-prompt.md",
@@ -47276,6 +47495,33 @@ async function handleCloseCommand(directory, args2) {
       }
     }
   }
+  const wrotePhaseRetro = closedPhases.length > 0;
+  if (!wrotePhaseRetro && !planExists) {
+    try {
+      const sessionRetroResult = await executeWriteRetro({
+        phase: 1,
+        task_id: "retro-session",
+        summary: isForced ? "Plan-free session force-closed via /swarm close --force" : "Plan-free session closed via /swarm close",
+        task_count: 1,
+        task_complexity: "simple",
+        total_tool_calls: 0,
+        coder_revisions: 0,
+        reviewer_rejections: 0,
+        test_failures: 0,
+        security_findings: 0,
+        integration_issues: 0,
+        metadata: { session_scope: "plan_free" }
+      }, directory);
+      try {
+        const parsed = JSON.parse(sessionRetroResult);
+        if (parsed.success !== true) {
+          warnings.push(`Session retrospective write failed: ${parsed.message ?? "unknown"}`);
+        }
+      } catch {}
+    } catch (retroError) {
+      warnings.push(`Session retrospective write threw: ${retroError instanceof Error ? retroError.message : String(retroError)}`);
+    }
+  }
   const lessonsFilePath = path14.join(swarmDir, "close-lessons.md");
   let explicitLessons = [];
   try {
@@ -47288,6 +47534,8 @@ async function handleCloseCommand(directory, args2) {
     await curateAndStoreSwarm(explicitLessons, projectName, { phase_number: 0 }, directory, config3);
     curationSucceeded = true;
   } catch (error93) {
+    const msg = error93 instanceof Error ? error93.message : String(error93);
+    warnings.push(`Lessons curation failed: ${msg}`);
     console.warn("[close-command] curateAndStoreSwarm error:", error93);
   }
   if (curationSucceeded && explicitLessons.length > 0) {
@@ -47313,6 +47561,8 @@ async function handleCloseCommand(directory, args2) {
     try {
       await fs9.writeFile(planPath, JSON.stringify(planData, null, 2), "utf-8");
     } catch (error93) {
+      const msg = error93 instanceof Error ? error93.message : String(error93);
+      warnings.push(`Failed to persist terminal plan.json state: ${msg}`);
       console.warn("[close-command] Failed to write plan.json:", error93);
     }
   }
@@ -47374,6 +47624,8 @@ async function handleCloseCommand(directory, args2) {
   try {
     await archiveEvidence(directory, 30, 10);
   } catch (error93) {
+    const msg = error93 instanceof Error ? error93.message : String(error93);
+    warnings.push(`Evidence retention archive failed: ${msg}`);
     console.warn("[close-command] archiveEvidence error:", error93);
   }
   let configBackupsRemoved = 0;
@@ -47402,6 +47654,12 @@ async function handleCloseCommand(directory, args2) {
         configBackupsRemoved++;
       } catch {}
     }
+    const ledgerSiblings = swarmFiles.filter((f) => (f.startsWith("plan-ledger.archived-") || f.startsWith("plan-ledger.backup-")) && f.endsWith(".jsonl"));
+    for (const sibling of ledgerSiblings) {
+      try {
+        await fs9.unlink(path14.join(swarmDir, sibling));
+      } catch {}
+    }
   } catch {}
   const contextPath = path14.join(swarmDir, "context.md");
   const contextContent = [
@@ -47418,6 +47676,8 @@ async function handleCloseCommand(directory, args2) {
   try {
     await fs9.writeFile(contextPath, contextContent, "utf-8");
   } catch (error93) {
+    const msg = error93 instanceof Error ? error93.message : String(error93);
+    warnings.push(`Failed to reset context.md: ${msg}`);
     console.warn("[close-command] Failed to write context.md:", error93);
   }
   const pruneBranches = args2.includes("--prune-branches");
@@ -47547,16 +47807,27 @@ async function handleCloseCommand(directory, args2) {
   try {
     await fs9.writeFile(closeSummaryPath, summaryContent, "utf-8");
   } catch (error93) {
+    const msg = error93 instanceof Error ? error93.message : String(error93);
+    warnings.push(`Failed to write close-summary.md: ${msg}`);
     console.warn("[close-command] Failed to write close-summary.md:", error93);
   }
   try {
     await flushPendingSnapshot(directory);
   } catch (error93) {
+    const msg = error93 instanceof Error ? error93.message : String(error93);
+    warnings.push(`flushPendingSnapshot failed: ${msg}`);
     console.warn("[close-command] flushPendingSnapshot error:", error93);
   }
   await writeCheckpoint(directory).catch(() => {});
-  swarmState.agentSessions.clear();
-  swarmState.delegationChains.clear();
+  const preservedClient = swarmState.opencodeClient;
+  const preservedFullAutoFlag = swarmState.fullAutoEnabledInConfig;
+  const preservedCuratorInitNames = swarmState.curatorInitAgentNames;
+  const preservedCuratorPhaseNames = swarmState.curatorPhaseAgentNames;
+  resetSwarmState();
+  swarmState.opencodeClient = preservedClient;
+  swarmState.fullAutoEnabledInConfig = preservedFullAutoFlag;
+  swarmState.curatorInitAgentNames = preservedCuratorInitNames;
+  swarmState.curatorPhaseAgentNames = preservedCuratorPhaseNames;
   if (pruneErrors.length > 0) {
     warnings.push(`Could not prune ${pruneErrors.length} branch(es) (unmerged or checked out): ${pruneErrors.join(", ")}`);
   }
@@ -47892,42 +48163,73 @@ init_utils2();
 var DEFAULT_CURATOR_LLM_TIMEOUT_MS = 300000;
 function parseKnowledgeRecommendations(llmOutput) {
   const recommendations = [];
-  const section = llmOutput.match(/OBSERVATIONS:\s*\n([\s\S]*?)(?:\n\n|\n[A-Z_]+:|$)/);
-  if (!section)
-    return recommendations;
-  const lines = section[1].split(`
+  const UUID_V4 = /^[0-9a-f]{8}-[0-9a-f]{4}-4[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;
+  const obsSection = llmOutput.match(/OBSERVATIONS:\s*\n([\s\S]*?)(?:\n\n|\n[A-Z_]+:|$)/);
+  if (obsSection) {
+    const lines = obsSection[1].split(`
 `);
-  for (const line of lines) {
-    const trimmed = line.trim();
-    if (!trimmed.startsWith("-"))
-      continue;
-    const match = trimmed.match(/^-\s+entry\s+(\S+)\s+\(([^)]+)\):\s+(.+)$/i);
-    if (!match)
-      continue;
-    const uuid8 = match[1];
-    const parenthetical = match[2];
-    const text = match[3].trim().replace(/\s+\([^)]+\)$/, "");
-    const UUID_V4 = /^[0-9a-f]{8}-[0-9a-f]{4}-4[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;
-    const entryId = uuid8 === "new" || !UUID_V4.test(uuid8) ? undefined : uuid8;
-    let action = "rewrite";
-    const lowerParenthetical = parenthetical.toLowerCase();
-    if (lowerParenthetical.includes("suggests boost confidence") || lowerParenthetical.includes("mark hive_eligible") || lowerParenthetical.includes("appears high-confidence")) {
-      action = "promote";
-    } else if (lowerParenthetical.includes("suggests archive") || lowerParenthetical.includes("appears stale")) {
-      action = "archive";
-    } else if (lowerParenthetical.includes("contradicts project state")) {
-      action = "flag_contradiction";
-    } else if (lowerParenthetical.includes("suggests rewrite") || lowerParenthetical.includes("could be tighter")) {
-      action = "rewrite";
-    } else if (lowerParenthetical.includes("new candidate")) {
-      action = "promote";
+    for (const line of lines) {
+      const trimmed = line.trim();
+      if (!trimmed.startsWith("-"))
+        continue;
+      const match = trimmed.match(/^-\s+entry\s+(\S+)\s+\(([^)]+)\):\s+(.+)$/i);
+      if (!match)
+        continue;
+      const uuid8 = match[1];
+      const parenthetical = match[2];
+      const text = match[3].trim().replace(/\s+\([^)]+\)$/, "");
+      const entryId = uuid8 === "new" || !UUID_V4.test(uuid8) ? undefined : uuid8;
+      let action = "rewrite";
+      const lowerParenthetical = parenthetical.toLowerCase();
+      if (lowerParenthetical.includes("suggests boost confidence") || lowerParenthetical.includes("mark hive_eligible") || lowerParenthetical.includes("appears high-confidence")) {
+        action = "promote";
+      } else if (lowerParenthetical.includes("suggests archive") || lowerParenthetical.includes("appears stale")) {
+        action = "archive";
+      } else if (lowerParenthetical.includes("contradicts project state")) {
+        action = "flag_contradiction";
+      } else if (lowerParenthetical.includes("suggests rewrite") || lowerParenthetical.includes("could be tighter")) {
+        action = "rewrite";
+      } else if (lowerParenthetical.includes("new candidate")) {
+        action = "promote";
+      }
+      recommendations.push({
+        action,
+        entry_id: entryId,
+        lesson: text,
+        reason: text
+      });
     }
-    recommendations.push({
-      action,
-      entry_id: entryId,
-      lesson: text,
-      reason: text
-    });
+  }
+  const updatesSection = llmOutput.match(/KNOWLEDGE_UPDATES:\s*\n([\s\S]*?)(?:\n\n|\n[A-Z_]+:|$)/);
+  if (updatesSection) {
+    const validActions = new Set([
+      "promote",
+      "archive",
+      "rewrite",
+      "flag_contradiction"
+    ]);
+    const lines = updatesSection[1].split(`
+`);
+    for (const line of lines) {
+      const trimmed = line.trim();
+      if (!trimmed.startsWith("-"))
+        continue;
+      const match = trimmed.match(/^-\s+(\S+)\s+(\S+):\s+(.+)$/);
+      if (!match)
+        continue;
+      const action = match[1].toLowerCase();
+      if (!validActions.has(action))
+        continue;
+      const id = match[2];
+      const text = match[3].trim();
+      const entryId = UUID_V4.test(id) ? id : undefined;
+      recommendations.push({
+        action,
+        entry_id: entryId,
+        lesson: text,
+        reason: text
+      });
+    }
   }
   return recommendations;
 }
@@ -56039,7 +56341,7 @@ class PlanSyncWorker {
       const planJsonPath = path36.join(swarmDir, "plan.json");
       const markerPath = path36.join(swarmDir, ".plan-write-marker");
       const planStats = fs24.statSync(planJsonPath);
-      const planMtimeMs = planStats.mtimeMs;
+      const planMtimeMs = Math.floor(planStats.mtimeMs);
       const markerContent = fs24.readFileSync(markerPath, "utf8");
       const marker = JSON.parse(markerContent);
       const markerTimestampMs = new Date(marker.timestamp).getTime();
@@ -57517,6 +57819,54 @@ function createGuardrailsHooks(directory, directoryOrConfig, config3, authorityC
     "pre_check_batch"
   ];
   const requireReviewerAndTestEngineer = cfg.qa_gates?.require_reviewer_test_engineer ?? true;
+  function checkDestructiveCommand(tool3, args2) {
+    if (tool3 !== "bash" && tool3 !== "shell")
+      return;
+    if (cfg.block_destructive_commands === false)
+      return;
+    const toolArgs = args2;
+    const command = typeof toolArgs?.command === "string" ? toolArgs.command.trim() : "";
+    if (!command)
+      return;
+    if (/:\s*\(\s*\)\s*\{[^}]*\|[^}]*:/.test(command)) {
+      throw new Error(`BLOCKED: Potentially destructive shell command detected: fork bomb pattern`);
+    }
+    const rmFlagPattern = /^rm\s+(-r\s+-f|-f\s+-r|-rf|-fr)\s+(.+)$/;
+    const rmMatch = rmFlagPattern.exec(command);
+    if (rmMatch) {
+      const targetPart = rmMatch[2].trim();
+      const targets = targetPart.split(/\s+/);
+      const safeTargets = /^(node_modules|\.git)$/;
+      const allSafe = targets.every((t) => safeTargets.test(t));
+      if (!allSafe) {
+        throw new Error(`BLOCKED: Potentially destructive shell command: rm -rf on unsafe path(s): ${targetPart}`);
+      }
+    }
+    if (/^git\s+push\b.*?(--force|-f)\b/.test(command)) {
+      throw new Error(`BLOCKED: Force push detected \u2014 git push --force is not allowed`);
+    }
+    if (/^git\s+reset\s+--hard/.test(command)) {
+      throw new Error(`BLOCKED: "git reset --hard" detected \u2014 use --soft or --mixed with caution`);
+    }
+    if (/^git\s+reset\s+--mixed\s+\S+/.test(command)) {
+      throw new Error(`BLOCKED: "git reset --mixed" with a target branch/commit is not allowed`);
+    }
+    if (/^kubectl\s+delete\b/.test(command)) {
+      throw new Error(`BLOCKED: "kubectl delete" detected \u2014 destructive cluster operation`);
+    }
+    if (/^docker\s+system\s+prune\b/.test(command)) {
+      throw new Error(`BLOCKED: "docker system prune" detected \u2014 destructive container operation`);
+    }
+    if (/^\s*DROP\s+(TABLE|DATABASE|SCHEMA)\b/i.test(command)) {
+      throw new Error(`BLOCKED: SQL DROP command detected \u2014 destructive database operation`);
+    }
+    if (/^\s*TRUNCATE\s+TABLE\b/i.test(command)) {
+      throw new Error(`BLOCKED: SQL TRUNCATE command detected \u2014 destructive database operation`);
+    }
+    if (/^mkfs[./]/.test(command)) {
+      throw new Error(`BLOCKED: Disk format command (mkfs) detected \u2014 disk formatting operation`);
+    }
+  }
   async function checkGateLimits(params) {
     const { sessionID, window: window2, agentConfig, elapsedMinutes, repetitionCount } = params;
     if (agentConfig.max_tool_calls > 0 && window2.toolCalls >= agentConfig.max_tool_calls) {
@@ -57866,6 +58216,7 @@ function createGuardrailsHooks(directory, directoryOrConfig, config3, authorityC
       handleDelegatedWriteTracking(input.sessionID, input.tool, output.args);
       handleLoopDetection(input.sessionID, input.tool, output.args);
       handleTestSuiteBlocking(input.tool, output.args);
+      checkDestructiveCommand(input.tool, output.args);
       if (isArchitect(input.sessionID) && isWriteTool(input.tool)) {
         handlePlanAndScopeProtection(input.sessionID, input.tool, output.args);
         const toolArgs = output.args;
@@ -58046,18 +58397,18 @@ function createGuardrailsHooks(directory, directoryOrConfig, config3, authorityC
             const fallbackModels = swarmAgents?.[baseAgentName]?.fallback_models;
             session.modelFallbackExhausted = !fallbackModels || session.model_fallback_index > fallbackModels.length;
             const fallbackModel = resolveFallbackModel(baseAgentName, session.model_fallback_index, swarmAgents);
+            const primaryModel = swarmAgents?.[baseAgentName]?.model ?? "default";
             if (fallbackModel) {
-              const primaryModel = swarmAgents?.[baseAgentName]?.model ?? "default";
               if (swarmAgents?.[baseAgentName]) {
                 swarmAgents[baseAgentName].model = fallbackModel;
               }
-              telemetry.modelFallback(input.sessionID, session.agentName, primaryModel, fallbackModel, "transient_model_error");
               session.pendingAdvisoryMessages ??= [];
               session.pendingAdvisoryMessages.push(`MODEL FALLBACK: Applied fallback model "${fallbackModel}" (attempt ${session.model_fallback_index}). ` + `Using /swarm handoff to reset to primary model.`);
             } else {
               session.pendingAdvisoryMessages ??= [];
               session.pendingAdvisoryMessages.push(`MODEL FALLBACK: Transient model error detected (attempt ${session.model_fallback_index}). ` + `No fallback models configured for this agent. Add "fallback_models": ["model-a", "model-b"] ` + `to the agent's config in opencode-swarm.json.`);
             }
+            telemetry.modelFallback(input.sessionID, session.agentName, primaryModel, fallbackModel ?? "none", "transient_model_error");
             swarmState.pendingEvents++;
           }
         }
@@ -61269,6 +61620,47 @@ ${handoffBlock}`);
               const coderRetro = await buildCoderRetroInjection(directory, currentPhaseNum_coder);
               if (coderRetro) {
                 tryInject(coderRetro);
+              }
+            } catch {}
+          }
+          if (baseRole === "coder") {
+            const sessionId_ccp = _input.sessionID ?? "";
+            const ccpSession = swarmState.agentSessions.get(sessionId_ccp);
+            try {
+              const coderScope = ccpSession?.declaredCoderScope;
+              const primaryFile = coderScope?.[0] ?? "";
+              if (primaryFile.length > 0) {
+                const { knowledge_recall: knowledge_recall2 } = await Promise.resolve().then(() => (init_knowledge_recall(), exports_knowledge_recall));
+                const rawResult = await knowledge_recall2.execute({ query: primaryFile }, { directory });
+                if (rawResult && typeof rawResult === "string") {
+                  const parsed = JSON.parse(rawResult);
+                  if (parsed.results.length > 0) {
+                    const lines = parsed.results.map((r) => {
+                      const lesson = r.lesson.length > 200 ? `${r.lesson.slice(0, 200)}...` : r.lesson;
+                      return `- [${r.category}] ${lesson}`;
+                    });
+                    tryInject(`## CONTEXT FROM KNOWLEDGE BASE
+${lines.join(`
+`)}`);
+                  }
+                }
+              }
+            } catch {}
+            try {
+              const taskId_ccp = ccpSession?.currentTaskId;
+              if (taskId_ccp) {
+                const evidencePath = path47.join(directory, ".swarm", "evidence", `${taskId_ccp}.json`);
+                if (fs35.existsSync(evidencePath)) {
+                  const evidenceContent = fs35.readFileSync(evidencePath, "utf-8");
+                  const evidenceData = JSON.parse(evidenceContent);
+                  const rejections = (evidenceData.bundle?.entries ?? []).filter((e) => e.type === "gate" && e.gate_type === "reviewer" && e.verdict === "reject");
+                  if (rejections.length > 0) {
+                    const lines = rejections.map((r) => `- ${r.reason ?? "No reason provided"}`);
+                    tryInject(`## PRIOR REJECTIONS
+${lines.join(`
+`)}`);
+                  }
+                }
               }
             } catch {}
           }
@@ -65715,6 +66107,17 @@ async function executeDeclareScope(args2, fallbackDir) {
       errors: [`Cannot declare scope for completed task ${args2.taskId}`]
     };
   }
+  for (const [_sessionId, session] of swarmState.agentSessions) {
+    if (!(session.taskWorkflowStates instanceof Map))
+      continue;
+    if (getTaskState(session, args2.taskId) === "complete") {
+      return {
+        success: false,
+        message: `Task ${args2.taskId} is already completed`,
+        errors: [`Cannot declare scope for completed task ${args2.taskId}`]
+      };
+    }
+  }
   const rawMergedFiles = [...args2.files, ...args2.whitelist ?? []];
   const warnings = [];
   const normalizeErrors = [];
@@ -67601,90 +68004,10 @@ var knowledge_query = createSwarmTool({
 `);
   }
 });
-// src/tools/knowledge-recall.ts
-init_dist();
-init_knowledge_store();
-init_create_tool();
-var knowledge_recall = createSwarmTool({
-  description: "Search the knowledge base for relevant past decisions, patterns, and lessons learned. Returns ranked results by semantic similarity.",
-  args: {
-    query: tool.schema.string().min(3).describe("Natural language search query"),
-    top_n: tool.schema.number().int().min(1).max(20).optional().describe("Maximum results to return (default: 5)"),
-    tier: tool.schema.enum(["all", "swarm", "hive"]).optional().describe("Knowledge tier to search (default: 'all')")
-  },
-  execute: async (args2, directory) => {
-    let queryInput;
-    let topNInput;
-    let tierInput;
-    try {
-      if (args2 && typeof args2 === "object") {
-        const obj = args2;
-        queryInput = obj.query;
-        topNInput = obj.top_n;
-        tierInput = obj.tier;
-      }
-    } catch {}
-    if (typeof queryInput !== "string" || queryInput.length < 3) {
-      return JSON.stringify({
-        results: [],
-        total: 0,
-        error: "query must be a string with at least 3 characters"
-      });
-    }
-    let topN = 5;
-    if (topNInput !== undefined) {
-      if (typeof topNInput === "number" && Number.isInteger(topNInput)) {
-        topN = Math.max(1, Math.min(20, topNInput));
-      }
-    }
-    let tier = "all";
-    if (tierInput !== undefined && typeof tierInput === "string") {
-      if (tierInput === "swarm" || tierInput === "hive") {
-        tier = tierInput;
-      }
-    }
-    const swarmPath = resolveSwarmKnowledgePath(directory);
-    const hivePath = resolveHiveKnowledgePath();
-    const [swarmEntries, hiveEntries] = await Promise.all([
-      readKnowledge(swarmPath),
-      readKnowledge(hivePath)
-    ]);
-    let entries = [];
-    if (tier === "all" || tier === "swarm") {
-      entries = entries.concat(swarmEntries);
-    }
-    if (tier === "all" || tier === "hive") {
-      entries = entries.concat(hiveEntries);
-    }
-    if (entries.length === 0) {
-      const result2 = { results: [], total: 0 };
-      return JSON.stringify(result2);
-    }
-    const normalizedQuery = normalize2(queryInput);
-    const queryBigrams = wordBigrams(normalizedQuery);
-    const scoredEntries = entries.map((entry) => {
-      const entryText = `${entry.lesson} ${entry.tags.join(" ")} ${entry.category}`;
-      const entryBigrams = wordBigrams(entryText);
-      const textScore = jaccardBigram(queryBigrams, entryBigrams);
-      const boost = entry.status === "established" ? 0.1 : entry.status === "promoted" ? 0.05 : 0;
-      const finalScore = textScore + boost;
-      return {
-        id: entry.id,
-        confidence: entry.confidence,
-        category: entry.category,
-        lesson: entry.lesson,
-        score: finalScore
-      };
-    });
-    scoredEntries.sort((a, b) => b.score - a.score);
-    const topResults = scoredEntries.slice(0, topN);
-    const result = {
-      results: topResults,
-      total: topResults.length
-    };
-    return JSON.stringify(result);
-  }
-});
+
+// src/tools/index.ts
+init_knowledge_recall();
+
 // src/tools/knowledge-remove.ts
 init_dist();
 init_knowledge_store();
@@ -70106,7 +70429,7 @@ init_dist();
 import * as fs54 from "fs";
 import * as path67 from "path";
 
-// node_modules/.bun/yocto-queue@1.2.2/node_modules/yocto-queue/index.js
+// node_modules/yocto-queue/index.js
 class Node2 {
   value;
   next;
@@ -70173,7 +70496,7 @@ class Queue {
   }
 }
 
-// node_modules/.bun/p-limit@7.3.0/node_modules/p-limit/index.js
+// node_modules/p-limit/index.js
 function pLimit(concurrency) {
   let rejectOnClear = false;
   if (typeof concurrency === "object") {
@@ -76014,7 +76337,7 @@ async function executeUpdateTaskStatus(args2, fallbackDir) {
         message: "Invalid working_directory: null bytes are not allowed"
       };
     }
-    if (process.platform === "win32") {
+    {
       const devicePathPattern = /^\\\\|^(NUL|CON|AUX|COM[1-9]|LPT[1-9])(\..*)?$/i;
       if (devicePathPattern.test(args2.working_directory)) {
         return {
@@ -76193,6 +76516,8 @@ var update_task_status = createSwarmTool({
 // src/tools/write-drift-evidence.ts
 init_tool();
 init_utils2();
+init_ledger();
+init_manager();
 init_create_tool();
 import fs66 from "fs";
 import path79 from "path";
@@ -76260,11 +76585,40 @@ async function executeWriteDriftEvidence(args2, directory) {
     const tempPath = path79.join(evidenceDir, `.${filename}.tmp`);
     await fs66.promises.writeFile(tempPath, JSON.stringify(evidenceContent, null, 2), "utf-8");
     await fs66.promises.rename(tempPath, validatedPath);
+    let snapshotInfo;
+    let snapshotError;
+    if (normalizedVerdict === "approved") {
+      try {
+        const currentPlan = await loadPlanJsonOnly(directory);
+        if (currentPlan) {
+          const snapshotEvent = await takeSnapshotEvent(directory, currentPlan, {
+            source: "critic_approved",
+            approvalMetadata: {
+              phase,
+              verdict: "APPROVED",
+              summary: summary.trim(),
+              approved_at: new Date().toISOString()
+            }
+          });
+          snapshotInfo = {
+            seq: snapshotEvent.seq,
+            timestamp: snapshotEvent.timestamp
+          };
+        } else {
+          snapshotError = "plan.json not available for snapshot";
+        }
+      } catch (err2) {
+        snapshotError = err2 instanceof Error ? err2.message : String(err2);
+        console.warn("[write_drift_evidence] critic-approved snapshot failed:", snapshotError);
+      }
+    }
     return JSON.stringify({
       success: true,
       phase,
       verdict: normalizedVerdict,
-      message: `Drift evidence written to .swarm/evidence/${phase}/drift-verifier.json`
+      message: `Drift evidence written to .swarm/evidence/${phase}/drift-verifier.json`,
+      approvedSnapshot: snapshotInfo,
+      snapshotError
     }, null, 2);
   } catch (error93) {
     return JSON.stringify({
