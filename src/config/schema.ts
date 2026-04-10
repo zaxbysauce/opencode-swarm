@@ -603,6 +603,7 @@ export const GuardrailsConfigSchema = z.object({
 		})
 		.optional(),
 	profiles: z.record(z.string(), GuardrailsProfileSchema).optional(),
+	block_destructive_commands: z.boolean().default(true),
 });
 
 export type GuardrailsConfig = z.infer<typeof GuardrailsConfigSchema>;

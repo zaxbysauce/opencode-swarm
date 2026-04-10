@@ -1,5 +1,26 @@
 # Changelog
 
+## [6.60.0](https://github.com/zaxbysauce/opencode-swarm/compare/v6.59.0...v6.60.0) (2026-04-09)
+
+
+### Features
+
+* add ci-fixer agent for staged CI failure remediation ([5eed865](https://github.com/zaxbysauce/opencode-swarm/commit/5eed865cc013d2d5d7a64f9083fc510086128272))
+
+## [6.59.0](https://github.com/zaxbysauce/opencode-swarm/compare/v6.58.0...v6.59.0) (2026-04-09)
+
+
+### Features
+
+* **agents:** add state-of-the-art PR review agent ([6107ce1](https://github.com/zaxbysauce/opencode-swarm/commit/6107ce100d0493ff01a49ab80b3cd0d075f4fdf4))
+* **explorer:** complete role hardening and fix 15 stale test failures ([5b87ee3](https://github.com/zaxbysauce/opencode-swarm/commit/5b87ee35ca6839774b349649a26eb437b6551360))
+* **explorer:** complete role hardening and fix 15 stale test failures ([#447](https://github.com/zaxbysauce/opencode-swarm/issues/447)) ([1dc73a3](https://github.com/zaxbysauce/opencode-swarm/commit/1dc73a31174c5fb2fd6e0a1236ca547d0d2ecce6))
+
+
+### Bug Fixes
+
+* **close,plan:** harden Step 4b recovery and close-time ledger cleanup ([#446](https://github.com/zaxbysauce/opencode-swarm/issues/446)) ([721fe1a](https://github.com/zaxbysauce/opencode-swarm/commit/721fe1a50aa940a5f6b3c043db9e20dd21e8b673))
+
 ## [6.58.0](https://github.com/zaxbysauce/opencode-swarm/compare/v6.57.0...v6.58.0) (2026-04-08)
 
 

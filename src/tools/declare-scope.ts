@@ -257,6 +257,13 @@ export async function executeDeclareScope(
 		};
 	}
 
+	// NOTE: A previous global session check was removed here because session
+	// state is not keyed by workspace directory.  Task IDs like "1.1" are reused
+	// across plans, so checking ALL sessions caused false "already completed"
+	// failures when a different workspace had the same task ID complete.
+	// The plan.json check above (Step 6) is the authoritative, workspace-scoped
+	// source of truth for task completion status.
+
 	// Step 7: Merge files and whitelist (if provided)
 	const rawMergedFiles = [...args.files, ...(args.whitelist ?? [])];
 

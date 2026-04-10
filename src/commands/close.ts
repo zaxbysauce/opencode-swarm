@@ -13,7 +13,7 @@ import { curateAndStoreSwarm } from '../hooks/knowledge-curator';
 import { validateSwarmPath } from '../hooks/utils';
 import { writeCheckpoint } from '../plan/checkpoint';
 import { flushPendingSnapshot } from '../session/snapshot-writer';
-import { swarmState } from '../state';
+import { resetSwarmState, swarmState } from '../state';
 import { executeWriteRetro } from '../tools/write-retro';
 
 interface PlanPhase {
@@ -34,10 +34,16 @@ interface PlanData {
 /**
  * Artifacts to include in the archive bundle.
  * Each entry is a relative path under .swarm/.
+ *
+ * plan-ledger.jsonl is included so the archive bundle is a self-contained
+ * forensic snapshot of the session: the ledger holds the full audit trail of
+ * task state transitions and snapshot events that plan.json/plan.md don't
+ * preserve.
  */
 const ARCHIVE_ARTIFACTS = [
 	'plan.json',
 	'plan.md',
+	'plan-ledger.jsonl',
 	'context.md',
 	'events.jsonl',
 	'handoff.md',
@@ -49,12 +55,25 @@ const ARCHIVE_ARTIFACTS = [
 
 /**
  * Active-state files/dirs to clean after archiving so future swarms start clean.
- * plan.json is NOT deleted because its terminal state (all phases closed) is safe
- * and some workflows inspect it after close. It is archived and overwritten by
- * the next /swarm plan invocation.
+ *
+ * plan.json, plan.md, and plan-ledger.jsonl are all removed so the next /swarm
+ * session starts with a clean slate. The user's original ask for /swarm close
+ * was to "archive plan files so future swarms aren't confused" — leaving a
+ * terminal-state plan.json in place violates that invariant because the next
+ * session's loadPlan() would pick it up as if it were still active.
+ *
+ * CRITICAL: the ledger must also be removed. Without this, loadPlan()'s Step 4
+ * would see no plan.json but a surviving ledger, call replayFromLedger(), and
+ * materialize the CLOSED plan back into plan.json on the next session. The
+ * ledger is a second backing store for the same "terminal-state plan" and
+ * leaving it behind re-enables the exact bug this cleanup is meant to fix.
+ * The archive-first guard below ensures we only delete files we successfully
+ * copied to the archive bundle, so the audit trail is preserved in the bundle.
  */
 const ACTIVE_STATE_TO_CLEAN = [
+	'plan.json',
 	'plan.md',
+	'plan-ledger.jsonl',
 	'events.jsonl',
 	'handoff.md',
 	'handoff-prompt.md',
@@ -175,6 +194,49 @@ export async function handleCloseCommand(
 		}
 	}
 
+	// Session-level retrospective for plan-free closes. The user's original ask
+	// included "run retrospective" — the per-phase loop above skips this case
+	// because there are no phases. We write a dedicated retro-session bundle so
+	// the archive + knowledge curator still have something to work with.
+	const wrotePhaseRetro = closedPhases.length > 0;
+	if (!wrotePhaseRetro && !planExists) {
+		try {
+			const sessionRetroResult = await executeWriteRetro(
+				{
+					phase: 1,
+					task_id: 'retro-session',
+					summary: isForced
+						? 'Plan-free session force-closed via /swarm close --force'
+						: 'Plan-free session closed via /swarm close',
+					task_count: 1,
+					task_complexity: 'simple',
+					total_tool_calls: 0,
+					coder_revisions: 0,
+					reviewer_rejections: 0,
+					test_failures: 0,
+					security_findings: 0,
+					integration_issues: 0,
+					metadata: { session_scope: 'plan_free' },
+				},
+				directory,
+			);
+			try {
+				const parsed = JSON.parse(sessionRetroResult);
+				if (parsed.success !== true) {
+					warnings.push(
+						`Session retrospective write failed: ${parsed.message ?? 'unknown'}`,
+					);
+				}
+			} catch {
+				// Non-JSON response is not an error
+			}
+		} catch (retroError) {
+			warnings.push(
+				`Session retrospective write threw: ${retroError instanceof Error ? retroError.message : String(retroError)}`,
+			);
+		}
+	}
+
 	// Read explicit lessons from .swarm/close-lessons.md if present
 	const lessonsFilePath = path.join(swarmDir, 'close-lessons.md');
 	let explicitLessons: string[] = [];
@@ -199,6 +261,8 @@ export async function handleCloseCommand(
 		);
 		curationSucceeded = true;
 	} catch (error) {
+		const msg = error instanceof Error ? error.message : String(error);
+		warnings.push(`Lessons curation failed: ${msg}`);
 		console.warn('[close-command] curateAndStoreSwarm error:', error);
 	}
 
@@ -227,6 +291,8 @@ export async function handleCloseCommand(
 		try {
 			await fs.writeFile(planPath, JSON.stringify(planData, null, 2), 'utf-8');
 		} catch (error) {
+			const msg = error instanceof Error ? error.message : String(error);
+			warnings.push(`Failed to persist terminal plan.json state: ${msg}`);
 			console.warn('[close-command] Failed to write plan.json:', error);
 		}
 	}
@@ -317,6 +383,8 @@ export async function handleCloseCommand(
 	try {
 		await archiveEvidence(directory, 30, 10);
 	} catch (error) {
+		const msg = error instanceof Error ? error.message : String(error);
+		warnings.push(`Evidence retention archive failed: ${msg}`);
 		console.warn('[close-command] archiveEvidence error:', error);
 	}
 
@@ -350,7 +418,14 @@ export async function handleCloseCommand(
 		);
 	}
 
-	// Remove stale config-backup-*.json files
+	// Remove stale config-backup-*.json files AND ledger sibling files
+	// (plan-ledger.archived-*.jsonl and plan-ledger.backup-*.jsonl) that
+	// savePlan creates during identity-mismatch reinitialization. Without
+	// this sweep, those siblings accumulate forever in .swarm/, undermining
+	// the same "clean slate for next session" invariant that motivates the
+	// plan-ledger.jsonl removal in ACTIVE_STATE_TO_CLEAN above. The primary
+	// plan-ledger.jsonl is already archived into the bundle by stage 2, so
+	// these stale siblings are pure noise and safe to delete here.
 	try {
 		const swarmFiles = await fs.readdir(swarmDir);
 		const configBackups = swarmFiles.filter(
@@ -360,6 +435,19 @@ export async function handleCloseCommand(
 			try {
 				await fs.unlink(path.join(swarmDir, backup));
 				configBackupsRemoved++;
+			} catch {
+				// Per-file failure is non-blocking
+			}
+		}
+		const ledgerSiblings = swarmFiles.filter(
+			(f) =>
+				(f.startsWith('plan-ledger.archived-') ||
+					f.startsWith('plan-ledger.backup-')) &&
+				f.endsWith('.jsonl'),
+		);
+		for (const sibling of ledgerSiblings) {
+			try {
+				await fs.unlink(path.join(swarmDir, sibling));
 			} catch {
 				// Per-file failure is non-blocking
 			}
@@ -383,6 +471,8 @@ export async function handleCloseCommand(
 	try {
 		await fs.writeFile(contextPath, contextContent, 'utf-8');
 	} catch (error) {
+		const msg = error instanceof Error ? error.message : String(error);
+		warnings.push(`Failed to reset context.md: ${msg}`);
 		console.warn('[close-command] Failed to write context.md:', error);
 	}
 
@@ -577,6 +667,8 @@ export async function handleCloseCommand(
 	try {
 		await fs.writeFile(closeSummaryPath, summaryContent, 'utf-8');
 	} catch (error) {
+		const msg = error instanceof Error ? error.message : String(error);
+		warnings.push(`Failed to write close-summary.md: ${msg}`);
 		console.warn('[close-command] Failed to write close-summary.md:', error);
 	}
 
@@ -584,14 +676,34 @@ export async function handleCloseCommand(
 	try {
 		await flushPendingSnapshot(directory);
 	} catch (error) {
+		const msg = error instanceof Error ? error.message : String(error);
+		warnings.push(`flushPendingSnapshot failed: ${msg}`);
 		console.warn('[close-command] flushPendingSnapshot error:', error);
 	}
 
 	// Write root-level checkpoint artifact before clearing sessions (non-blocking)
 	await writeCheckpoint(directory).catch(() => {});
 
-	swarmState.agentSessions.clear();
-	swarmState.delegationChains.clear();
+	// Full session reset so subsequent /swarm invocations start from a clean slate.
+	// Preserve plugin-init singletons that have no re-init path within the same
+	// plugin lifetime:
+	//   - opencodeClient: set once in src/index.ts at plugin init. Clearing it
+	//     would leave downstream hooks (curator, full-auto-intercept) unable to
+	//     reach the OpenCode client until the plugin reloads.
+	//   - fullAutoEnabledInConfig: read from config at plugin init.
+	//   - curatorInitAgentNames / curatorPhaseAgentNames: populated at plugin
+	//     init from the built agent map. curator-llm-factory.ts depends on
+	//     them at every curator call; clearing them would silently break the
+	//     curator path until the plugin reloads.
+	const preservedClient = swarmState.opencodeClient;
+	const preservedFullAutoFlag = swarmState.fullAutoEnabledInConfig;
+	const preservedCuratorInitNames = swarmState.curatorInitAgentNames;
+	const preservedCuratorPhaseNames = swarmState.curatorPhaseAgentNames;
+	resetSwarmState();
+	swarmState.opencodeClient = preservedClient;
+	swarmState.fullAutoEnabledInConfig = preservedFullAutoFlag;
+	swarmState.curatorInitAgentNames = preservedCuratorInitNames;
+	swarmState.curatorPhaseAgentNames = preservedCuratorPhaseNames;
 
 	if (pruneErrors.length > 0) {
 		warnings.push(

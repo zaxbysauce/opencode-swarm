@@ -82,65 +82,99 @@ export function parseKnowledgeRecommendations(
 	llmOutput: string,
 ): KnowledgeRecommendation[] {
 	const recommendations: KnowledgeRecommendation[] = [];
-	const section = llmOutput.match(
+	const UUID_V4 =
+		/^[0-9a-f]{8}-[0-9a-f]{4}-4[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;
+
+	// Parse OBSERVATIONS: section (legacy format: "- entry <uuid> (parenthetical): text")
+	const obsSection = llmOutput.match(
 		/OBSERVATIONS:\s*\n([\s\S]*?)(?:\n\n|\n[A-Z_]+:|$)/,
 	);
-	if (!section) return recommendations;
+	if (obsSection) {
+		const lines = obsSection[1].split('\n');
+		for (const line of lines) {
+			const trimmed = line.trim();
+			if (!trimmed.startsWith('-')) continue;
 
-	const lines = section[1].split('\n');
-	for (const line of lines) {
-		const trimmed = line.trim();
-		if (!trimmed.startsWith('-')) continue;
+			// Match "- entry <uuid> (observable): text" or "- entry <uuid> (observable, directive hint): text"
+			const match = trimmed.match(/^-\s+entry\s+(\S+)\s+\(([^)]+)\):\s+(.+)$/i);
+			if (!match) continue;
 
-		// Match "- entry <uuid> (observable): text" or "- entry <uuid> (observable, directive hint): text"
-		const match = trimmed.match(/^-\s+entry\s+(\S+)\s+\(([^)]+)\):\s+(.+)$/i);
-		if (!match) continue;
+			const uuid = match[1];
+			const parenthetical = match[2];
+			const text = match[3].trim().replace(/\s+\([^)]+\)$/, '');
 
-		const uuid = match[1];
-		const parenthetical = match[2];
-		const text = match[3].trim().replace(/\s+\([^)]+\)$/, '');
+			// Determine entryId: only treat as real UUID if UUID v4 format
+			const entryId = uuid === 'new' || !UUID_V4.test(uuid) ? undefined : uuid;
 
-		// Determine entryId: only treat as real UUID if UUID v4 format
-		const UUID_V4 =
-			/^[0-9a-f]{8}-[0-9a-f]{4}-4[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;
-		const entryId = uuid === 'new' || !UUID_V4.test(uuid) ? undefined : uuid;
+			// Extract action hint from parenthetical content
+			let action: KnowledgeRecommendation['action'] = 'rewrite';
+			const lowerParenthetical = parenthetical.toLowerCase();
 
-		// Extract action hint from parenthetical content
-		// Directives include: "suggests boost confidence, mark hive_eligible" -> promote
-		// "suggests archive" -> archive, "suggests rewrite" -> rewrite,
-		// "contradicts project state" -> flag_contradiction, "new candidate" -> promote (new)
-		let action: KnowledgeRecommendation['action'] = 'rewrite';
-		const lowerParenthetical = parenthetical.toLowerCase();
+			if (
+				lowerParenthetical.includes('suggests boost confidence') ||
+				lowerParenthetical.includes('mark hive_eligible') ||
+				lowerParenthetical.includes('appears high-confidence')
+			) {
+				action = 'promote';
+			} else if (
+				lowerParenthetical.includes('suggests archive') ||
+				lowerParenthetical.includes('appears stale')
+			) {
+				action = 'archive';
+			} else if (lowerParenthetical.includes('contradicts project state')) {
+				action = 'flag_contradiction';
+			} else if (
+				lowerParenthetical.includes('suggests rewrite') ||
+				lowerParenthetical.includes('could be tighter')
+			) {
+				action = 'rewrite';
+			} else if (lowerParenthetical.includes('new candidate')) {
+				action = 'promote';
+			}
 
-		if (
-			lowerParenthetical.includes('suggests boost confidence') ||
-			lowerParenthetical.includes('mark hive_eligible') ||
-			lowerParenthetical.includes('appears high-confidence')
-		) {
-			action = 'promote';
-		} else if (
-			lowerParenthetical.includes('suggests archive') ||
-			lowerParenthetical.includes('appears stale')
-		) {
-			action = 'archive';
-		} else if (lowerParenthetical.includes('contradicts project state')) {
-			action = 'flag_contradiction';
-		} else if (
-			lowerParenthetical.includes('suggests rewrite') ||
-			lowerParenthetical.includes('could be tighter')
-		) {
-			action = 'rewrite';
-		} else if (lowerParenthetical.includes('new candidate')) {
-			// "new candidate" is an observable suggesting a new entry should be created
-			action = 'promote';
+			recommendations.push({
+				action,
+				entry_id: entryId,
+				lesson: text,
+				reason: text,
+			});
 		}
+	}
 
-		recommendations.push({
-			action,
-			entry_id: entryId,
-			lesson: text,
-			reason: text,
-		});
+	// Parse KNOWLEDGE_UPDATES: section (direct format: "- <action> <id>: <text>")
+	const updatesSection = llmOutput.match(
+		/KNOWLEDGE_UPDATES:\s*\n([\s\S]*?)(?:\n\n|\n[A-Z_]+:|$)/,
+	);
+	if (updatesSection) {
+		const validActions = new Set([
+			'promote',
+			'archive',
+			'rewrite',
+			'flag_contradiction',
+		]);
+		const lines = updatesSection[1].split('\n');
+		for (const line of lines) {
+			const trimmed = line.trim();
+			if (!trimmed.startsWith('-')) continue;
+
+			// Match "- <action> <id>: <text>"
+			const match = trimmed.match(/^-\s+(\S+)\s+(\S+):\s+(.+)$/);
+			if (!match) continue;
+
+			const action = match[1].toLowerCase();
+			if (!validActions.has(action)) continue;
+
+			const id = match[2];
+			const text = match[3].trim();
+			const entryId = UUID_V4.test(id) ? id : undefined;
+
+			recommendations.push({
+				action: action as KnowledgeRecommendation['action'],
+				entry_id: entryId,
+				lesson: text,
+				reason: text,
+			});
+		}
 	}
 
 	return recommendations;

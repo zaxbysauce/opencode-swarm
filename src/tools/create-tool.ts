@@ -26,7 +26,7 @@ type ToolFailureClass =
 
 function classifyToolError(error: unknown): ToolFailureClass {
 	const msg = (
-		error instanceof Error ? error.message : String(error)
+		error instanceof Error ? (error.message ?? '') : String(error)
 	).toLowerCase();
 	if (msg.includes('not registered') || msg.includes('unknown tool'))
 		return 'not_registered';

@@ -124,16 +124,66 @@ export declare function appendLedgerEvent(directory: string, eventInput: LedgerE
     planHashAfter?: string;
 }): Promise<LedgerEvent>;
 /**
+ * Append a ledger event with optimistic retry on stale-writer conflicts.
+ *
+ * When another writer advances the ledger between the caller's read and
+ * their append, `appendLedgerEvent` throws `LedgerStaleWriterError`. This
+ * helper wraps that call in a bounded retry loop, refreshing the
+ * `expectedHash` concurrency token against the current plan.json before
+ * each retry.
+ *
+ * IMPORTANT: refreshing the hash is only safe when the event input is
+ * *still semantically valid* after the intervening write. For audit
+ * events computed from an in-memory plan the caller is about to persist,
+ * it is always valid. For `task_status_changed` events, pass a
+ * `verifyValid` callback that returns false when the transition no
+ * longer applies (e.g. the task's on-disk status already matches the
+ * `to_status`, or has moved past it). When `verifyValid` returns false,
+ * the retry loop exits and the helper returns `null` to signal that the
+ * event was skipped — it is not an error.
+ *
+ * @param directory - Working directory containing `.swarm/plan-ledger.jsonl`
+ * @param eventInput - Event to append (required fields minus auto-generated)
+ * @param options - Concurrency and retry configuration:
+ *   - expectedHash: the hash of plan.json the caller observed (REQUIRED)
+ *   - planHashAfter: precomputed hash of the mutated plan
+ *   - maxRetries: max stale-writer retries (default: 3)
+ *   - backoffMs: base delay in milliseconds (default: 10; exponential)
+ *   - verifyValid: callback invoked before each retry to confirm the
+ *     event input is still meaningful. Returning false aborts and
+ *     resolves the helper to `null`.
+ * @returns The written LedgerEvent, or `null` if verifyValid aborted.
+ * @throws LedgerStaleWriterError if retries are exhausted.
+ */
+export declare function appendLedgerEventWithRetry(directory: string, eventInput: LedgerEventInput, options: {
+    expectedHash: string;
+    planHashAfter?: string;
+    maxRetries?: number;
+    backoffMs?: number;
+    verifyValid?: () => Promise<boolean> | boolean;
+}): Promise<LedgerEvent | null>;
+/**
  * Take a snapshot event and append it to the ledger.
  * The snapshot embeds the full Plan payload for ledger-only rebuild.
  *
  * @param directory - The working directory
  * @param plan - The current plan state to snapshot
- * @param options - Optional configuration
+ * @param options - Optional configuration:
+ *   - planHashAfter: precomputed hash of the mutated plan (bypasses the
+ *     on-disk plan.json read when available)
+ *   - source: attribution string stored on the ledger event. Defaults to
+ *     `'takeSnapshotEvent'`. Use `'critic_approved'` to mark a snapshot as
+ *     the immutable phase-approved checkpoint readable by
+ *     `loadLastApprovedPlan`.
+ *   - approvalMetadata: optional free-form metadata embedded into the
+ *     snapshot payload (e.g. phase number, verdict, summary) so that
+ *     downstream readers can filter without decoding prompts.
  * @returns The LedgerEvent that was written
  */
 export declare function takeSnapshotEvent(directory: string, plan: Plan, options?: {
     planHashAfter?: string;
+    source?: string;
+    approvalMetadata?: Record<string, unknown>;
 }): Promise<LedgerEvent>;
 /**
  * Options for replayFromLedger
@@ -193,4 +243,44 @@ export declare function quarantineLedgerSuffix(directory: string, badSuffix: str
  * @returns Reconstructed Plan from ledger events, or null if replay fails
  */
 export declare function replayWithIntegrity(directory: string): Promise<Plan | null>;
+/**
+ * Metadata describing an approved snapshot recovered from the ledger.
+ */
+export interface ApprovedSnapshotInfo {
+    /** The immutable plan payload captured at critic approval time */
+    plan: Plan;
+    /** The ledger sequence number of the snapshot event */
+    seq: number;
+    /** ISO 8601 timestamp of the snapshot event */
+    timestamp: string;
+    /** Arbitrary metadata the caller attached (phase, verdict, summary, ...) */
+    approval?: Record<string, unknown>;
+    /** Hash of the plan payload at snapshot time */
+    payloadHash: string;
+}
+/**
+ * Find the most recent critic-approved immutable plan snapshot in the ledger.
+ *
+ * Snapshots are tagged at write time with a distinguishing `source` string
+ * (see `takeSnapshotEvent`). The `critic_approved` marker identifies snapshots
+ * persisted by the orchestrator after a phase Critic returns APPROVED. This
+ * function scans the ledger in reverse order and returns the first matching
+ * snapshot, including its embedded plan payload and approval metadata.
+ *
+ * Intended for use as a fallback when plan.json is lost, overwritten, or
+ * suspected of drift: the Architect can fall back to the last approved plan
+ * and the Critic can drift-check against it.
+ *
+ * SAFETY: when `expectedPlanId` is supplied, only snapshots whose event
+ * `plan_id` matches are considered. Callers MUST pass an expected identity
+ * whenever they have one (e.g. from the ledger's first `plan_created` anchor)
+ * to prevent cross-identity contamination: a stale `critic_approved` snapshot
+ * left in a reused directory could otherwise be resurrected as the active plan.
+ *
+ * @param directory - Working directory containing `.swarm/plan-ledger.jsonl`
+ * @param expectedPlanId - Optional plan identity filter. When provided, only
+ *   snapshots whose ledger event `plan_id` matches are considered.
+ * @returns The most recent approved snapshot info, or null if none exists
+ */
+export declare function loadLastApprovedPlan(directory: string, expectedPlanId?: string): Promise<ApprovedSnapshotInfo | null>;
 export {};
