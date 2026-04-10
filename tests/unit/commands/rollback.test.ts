@@ -63,8 +63,8 @@ function createCheckpointDir(phase: number, files: string[] = ['plan.md']) {
 }
 
 beforeEach(() => {
-	testDir = require('node:fs').fs.realpathSync(
-		mkdtempSync(path.join(os.tmpdir(), 'rollback-test-')),
+	testDir = require('node:fs').realpathSync(
+		require('node:fs').mkdtempSync(path.join(os.tmpdir(), 'rollback-test-')),
 	);
 	mkdirSync(getSwarmDir(), { recursive: true });
 });

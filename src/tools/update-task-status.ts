@@ -548,8 +548,9 @@ export async function executeUpdateTaskStatus(
 			};
 		}
 
-		// Check for Windows device paths (e.g., \\.\C:\, \\?\GLOBALROOT\)
-		if (process.platform === 'win32') {
+		// Check for Windows device paths (e.g., \\.\C:\, \\?\GLOBALROOT\, UNC paths)
+		// Applied on all platforms for defense-in-depth (paths may originate from Windows clients)
+		{
 			const devicePathPattern =
 				/^\\\\|^(NUL|CON|AUX|COM[1-9]|LPT[1-9])(\..*)?$/i;
 			if (devicePathPattern.test(args.working_directory)) {
@@ -788,7 +789,7 @@ export async function executeUpdateTaskStatus(
 			errors: [error instanceof Error ? error.message : String(error)],
 		} as UpdateTaskStatusResult;
 	} finally {
-		if (lockResult && lockResult.acquired && lockResult.lock._release) {
+		if (lockResult?.acquired && lockResult.lock._release) {
 			try {
 				await lockResult.lock._release();
 			} catch (releaseError) {

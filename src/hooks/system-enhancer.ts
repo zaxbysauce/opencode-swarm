@@ -843,6 +843,105 @@ ${handoffContent}`;
 							}
 						}
 
+						// v6.x: Coder context pack — knowledge recall + prior rejections
+						if (baseRole === 'coder') {
+							const sessionId_ccp = _input.sessionID ?? '';
+							const ccpSession = swarmState.agentSessions.get(sessionId_ccp);
+
+							// Knowledge recall from knowledge base
+							try {
+								const coderScope = ccpSession?.declaredCoderScope;
+								const primaryFile = coderScope?.[0] ?? '';
+								if (primaryFile.length > 0) {
+									const { knowledge_recall } = await import(
+										'../tools/knowledge-recall.js'
+									);
+									const rawResult = await knowledge_recall.execute(
+										{ query: primaryFile },
+										// Pass minimal context so createSwarmTool extracts directory correctly
+										{ directory } as any,
+									);
+									if (rawResult && typeof rawResult === 'string') {
+										const parsed = JSON.parse(rawResult) as {
+											results: Array<{
+												id: string;
+												lesson: string;
+												category: string;
+												confidence: number;
+												score: number;
+											}>;
+											total: number;
+										};
+										if (parsed.results.length > 0) {
+											const lines = parsed.results.map((r) => {
+												const lesson =
+													r.lesson.length > 200
+														? `${r.lesson.slice(0, 200)}...`
+														: r.lesson;
+												return `- [${r.category}] ${lesson}`;
+											});
+											tryInject(
+												`## CONTEXT FROM KNOWLEDGE BASE\n${lines.join('\n')}`,
+											);
+										}
+									}
+								}
+							} catch {
+								// Silently skip knowledge recall failures
+							}
+
+							// Prior rejections from evidence
+							try {
+								const taskId_ccp = ccpSession?.currentTaskId;
+								if (
+									taskId_ccp &&
+									!taskId_ccp.includes('..') &&
+									!taskId_ccp.includes('/') &&
+									!taskId_ccp.includes('\\') &&
+									!taskId_ccp.includes('\0')
+								) {
+									const evidencePath = path.join(
+										directory,
+										'.swarm',
+										'evidence',
+										`${taskId_ccp}.json`,
+									);
+									if (fs.existsSync(evidencePath)) {
+										const evidenceContent = fs.readFileSync(
+											evidencePath,
+											'utf-8',
+										);
+										const evidenceData = JSON.parse(evidenceContent) as {
+											bundle?: {
+												entries?: Array<{
+													type: string;
+													gate_type?: string;
+													verdict?: string;
+													reason?: string;
+												}>;
+											};
+										};
+										const rejections = (
+											evidenceData.bundle?.entries ?? []
+										).filter(
+											(e) =>
+												e.type === 'gate' &&
+												e.gate_type === 'reviewer' &&
+												e.verdict === 'reject',
+										);
+										if (rejections.length > 0) {
+											const lines = rejections.map(
+												(r) => `- ${r.reason ?? 'No reason provided'}`,
+											);
+											tryInject(`## PRIOR REJECTIONS\n${lines.join('\n')}`);
+										}
+									}
+								}
+							} catch {
+								// Silently skip evidence read failures
+							}
+						}
+
 						// v6.16: Language-specific coder constraints injection
 						if (baseRole === 'coder') {
 							const taskText_lang_a =

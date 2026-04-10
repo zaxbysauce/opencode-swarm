@@ -20,6 +20,20 @@ const mockLoadPlanJsonOnly = vi.fn();
 vi.mock('../../../src/evidence/manager.js', () => ({
 	loadEvidence: mockLoadEvidence,
 	listEvidenceTaskIds: mockListEvidenceTaskIds,
+	checkRequirementCoverage: vi.fn(),
+	saveEvidence: vi.fn(),
+	deleteEvidence: vi.fn(),
+	archiveEvidence: vi.fn(),
+	sanitizeTaskId: vi.fn((id: string) => id),
+	isValidEvidenceType: vi.fn(() => true),
+	isSyntaxEvidence: vi.fn(() => false),
+	isPlaceholderEvidence: vi.fn(() => false),
+	isSastEvidence: vi.fn(() => false),
+	isSbomEvidence: vi.fn(() => false),
+	isBuildEvidence: vi.fn(() => false),
+	isQualityBudgetEvidence: vi.fn(() => false),
+	isSecretscanEvidence: vi.fn(() => false),
+	VALID_EVIDENCE_TYPES: [],
 }));
 
 // Mock the plan/manager module

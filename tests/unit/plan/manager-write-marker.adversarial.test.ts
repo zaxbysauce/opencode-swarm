@@ -353,11 +353,8 @@ describe('savePlan write-marker adversarial tests', () => {
 	 * If .swarm/ exists but marker file cannot be written, savePlan() still succeeds.
 	 */
 	test('5. Plan save succeeds - marker directory read-only (Unix)', async () => {
-		// Skip on Windows - chmod behavior is different
-		test.skipIf(process.platform === 'win32');
-		// Skip on root - root ignores chmod restrictions so permission-denied
-		// behavior cannot be verified (all writes succeed regardless).
-		if (process.getuid?.() === 0) {
+		// Skip on Windows/root — chmod behavior differs or is ignored
+		if (process.platform === 'win32' || process.getuid?.() === 0) {
 			return;
 		}
 
@@ -369,6 +366,23 @@ describe('savePlan write-marker adversarial tests', () => {
 
 		// Make the directory read-only (no write permission)
 		await chmod(swarmDir, 0o555);
+
+		// Probe: verify chmod actually blocks writes on this platform
+		const probePath = join(swarmDir, '.chmod-probe');
+		let chmodEffective = false;
+		try {
+			const { writeFileSync, unlinkSync } = await import('node:fs');
+			writeFileSync(probePath, 'test');
+			try {
+				unlinkSync(probePath);
+			} catch {}
+		} catch {
+			chmodEffective = true;
+		}
+		if (!chmodEffective) {
+			await chmod(swarmDir, 0o755);
+			return; // chmod doesn't work on this platform (macOS SIP/APFS)
+		}
 
 		try {
 			// When .swarm/ is entirely read-only, savePlan THROWS because
@@ -390,8 +404,10 @@ describe('savePlan write-marker adversarial tests', () => {
 	});
 
 	test('5. Plan save succeeds - pre-existing read-only marker file', async () => {
-		// Skip on Windows where this is less reliable
-		test.skipIf(process.platform === 'win32');
+		// Skip on Windows/root — chmod behavior differs or is ignored
+		if (process.platform === 'win32' || process.getuid?.() === 0) {
+			return;
+		}
 
 		const testPlan = createTestPlan();
 		const swarmDir = join(tempDir, '.swarm');
@@ -403,6 +419,19 @@ describe('savePlan write-marker adversarial tests', () => {
 		// Create marker file as read-only
 		await writeFile(markerPath, 'existing');
 		await chmod(markerPath, 0o444);
+
+		// Probe: verify chmod actually blocks writes to this file
+		let chmodEffective = false;
+		try {
+			const { writeFileSync } = await import('node:fs');
+			writeFileSync(markerPath, 'probe');
+		} catch {
+			chmodEffective = true;
+		}
+		if (!chmodEffective) {
+			await chmod(markerPath, 0o644);
+			return; // chmod doesn't work on this platform
+		}
 
 		try {
 			// savePlan should NOT throw - it should silently handle the failure

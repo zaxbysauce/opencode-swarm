@@ -12,6 +12,7 @@ import {
 	test,
 } from 'bun:test';
 import fs from 'node:fs';
+import os from 'node:os';
 import path from 'node:path';
 
 import type { Plan } from '../../../src/config/plan-schema';
@@ -66,7 +67,7 @@ describe('executeWriteDriftEvidence', () => {
 	beforeEach(async () => {
 		// Create a temp directory for each test
 		tempDir = await fs.promises.mkdtemp(
-			path.join(process.env.TEMP || '/tmp', 'drift-evidence-test-'),
+			path.join(os.tmpdir(), 'drift-evidence-test-'),
 		);
 	});
 

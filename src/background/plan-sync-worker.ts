@@ -468,7 +468,7 @@ export class PlanSyncWorker {
 			const markerPath = path.join(swarmDir, '.plan-write-marker');
 
 			const planStats = fs.statSync(planJsonPath);
-			const planMtimeMs = planStats.mtimeMs;
+			const planMtimeMs = Math.floor(planStats.mtimeMs); // use integer ms to match marker precision
 
 			const markerContent = fs.readFileSync(markerPath, 'utf8');
 			const marker = JSON.parse(markerContent);

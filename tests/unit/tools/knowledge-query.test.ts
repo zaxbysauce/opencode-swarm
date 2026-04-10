@@ -25,7 +25,9 @@ describe('knowledge-query tool verification tests', () => {
 
 	beforeEach(async () => {
 		// Create a temporary directory for each test
-		tmpDir = await fs.mkdtemp(path.join(os.tmpdir(), 'knowledge-query-test-'));
+		tmpDir = await fs.realpath(
+			await fs.mkdtemp(path.join(os.tmpdir(), 'knowledge-query-test-')),
+		);
 		// Ensure .swarm/ directory exists
 		await fs.mkdir(path.join(tmpDir, '.swarm'), { recursive: true });
 		// Save original cwd and change to tmpDir for tests (createSwarmTool falls back to cwd)

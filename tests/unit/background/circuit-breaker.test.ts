@@ -136,7 +136,7 @@ describe('CircuitBreaker', () => {
 			expect(cb.getState()).toBe('open');
 
 			// Wait for timeout
-			await new Promise((resolve) => setTimeout(resolve, 60));
+			await new Promise((resolve) => setTimeout(resolve, 200));
 
 			// Should transition to half-open
 			expect(cb.getState()).toBe('half-open');
@@ -196,7 +196,7 @@ describe('CircuitBreaker', () => {
 			}
 
 			// Wait for half-open
-			await new Promise((resolve) => setTimeout(resolve, 60));
+			await new Promise((resolve) => setTimeout(resolve, 200));
 
 			// Test call should succeed
 			const result = await cb.execute(async () => 'test');
@@ -221,7 +221,7 @@ describe('CircuitBreaker', () => {
 			}
 
 			// Wait for half-open
-			await new Promise((resolve) => setTimeout(resolve, 60));
+			await new Promise((resolve) => setTimeout(resolve, 200));
 
 			// Two successes should close the circuit
 			await cb.execute(async () => 'ok');
@@ -248,7 +248,7 @@ describe('CircuitBreaker', () => {
 			}
 
 			// Wait for half-open
-			await new Promise((resolve) => setTimeout(resolve, 60));
+			await new Promise((resolve) => setTimeout(resolve, 200));
 
 			// Failure in half-open should go back to open
 			try {

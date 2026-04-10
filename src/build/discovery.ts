@@ -449,6 +449,11 @@ export async function discoverBuildCommands(
 	for (const ecosystem of ECOSYSTEMS) {
 		// Skip if this ecosystem is already handled by profile detection
 		if (coveredEcosystems.has(ecosystem.ecosystem)) {
+			// Still surface the ecosystem in skipped so callers can detect it was found
+			skipped.push({
+				ecosystem: ecosystem.ecosystem,
+				reason: `Covered by profile detection`,
+			});
 			continue;
 		}
 

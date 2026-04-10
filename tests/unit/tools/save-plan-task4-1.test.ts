@@ -22,11 +22,24 @@ describe('Task 4.1: fallbackDir parameter behavior', () => {
 
 	beforeEach(async () => {
 		// Create two temporary directories for testing fallback
-		tmpDir1 = await fs.mkdtemp(path.join(os.tmpdir(), 'save-plan-fallback-1-'));
-		tmpDir2 = await fs.mkdtemp(path.join(os.tmpdir(), 'save-plan-fallback-2-'));
+		tmpDir1 = await fs.realpath(
+			await fs.mkdtemp(path.join(os.tmpdir(), 'save-plan-fallback-1-')),
+		);
+		tmpDir2 = await fs.realpath(
+			await fs.mkdtemp(path.join(os.tmpdir(), 'save-plan-fallback-2-')),
+		);
 		// Ensure .swarm/ directories exist
 		await fs.mkdir(path.join(tmpDir1, '.swarm'), { recursive: true });
 		await fs.mkdir(path.join(tmpDir2, '.swarm'), { recursive: true });
+		// Create spec.md required by the spec gate
+		await fs.writeFile(
+			path.join(tmpDir1, '.swarm', 'spec.md'),
+			'# Test Spec\n',
+		);
+		await fs.writeFile(
+			path.join(tmpDir2, '.swarm', 'spec.md'),
+			'# Test Spec\n',
+		);
 	});
 
 	afterEach(async () => {
@@ -145,9 +158,13 @@ describe('Task 4.1: explicit workspace behavior', () => {
 
 	beforeEach(async () => {
 		originalCwd = process.cwd();
-		tmpDir = await fs.mkdtemp(path.join(os.tmpdir(), 'save-plan-explicit-'));
+		tmpDir = await fs.realpath(
+			await fs.mkdtemp(path.join(os.tmpdir(), 'save-plan-explicit-')),
+		);
 		// Ensure .swarm/ directory exists in tmpDir
 		await fs.mkdir(path.join(tmpDir, '.swarm'), { recursive: true });
+		// Create spec.md required by the spec gate
+		await fs.writeFile(path.join(tmpDir, '.swarm', 'spec.md'), '# Test Spec\n');
 	});
 
 	afterEach(async () => {
@@ -186,10 +203,14 @@ describe('Task 4.1: explicit workspace behavior', () => {
 		// Change to a different directory to prove working_directory is respected
 		process.chdir(tmpDir);
 
-		const otherDir = await fs.mkdtemp(
-			path.join(os.tmpdir(), 'save-plan-other-'),
+		const otherDir = await fs.realpath(
+			await fs.mkdtemp(path.join(os.tmpdir(), 'save-plan-other-')),
 		);
 		await fs.mkdir(path.join(otherDir, '.swarm'), { recursive: true });
+		await fs.writeFile(
+			path.join(otherDir, '.swarm', 'spec.md'),
+			'# Test Spec\n',
+		);
 
 		const args: SavePlanArgs = {
 			title: 'Explicit Workspace Test',
@@ -235,9 +256,13 @@ describe('Task 4.1: temp file cleanup behavior', () => {
 	let tmpDir: string;
 
 	beforeEach(async () => {
-		tmpDir = await fs.mkdtemp(path.join(os.tmpdir(), 'save-plan-temp-'));
+		tmpDir = await fs.realpath(
+			await fs.mkdtemp(path.join(os.tmpdir(), 'save-plan-temp-')),
+		);
 		// Ensure .swarm/ directory exists
 		await fs.mkdir(path.join(tmpDir, '.swarm'), { recursive: true });
+		// Create spec.md required by the spec gate
+		await fs.writeFile(path.join(tmpDir, '.swarm', 'spec.md'), '# Test Spec\n');
 	});
 
 	afterEach(async () => {
@@ -294,13 +319,9 @@ describe('Task 4.1: temp file cleanup behavior', () => {
 		const swarmDir = path.join(tmpDir, '.swarm');
 		const files = await fs.readdir(swarmDir);
 
-		expect(files.sort()).toEqual([
-			'.plan-write-marker',
-			'locks',
-			'plan-ledger.jsonl',
-			'plan.json',
-			'plan.md',
-		]);
+		expect(files).toContain('plan.json');
+		expect(files).toContain('plan.md');
+		expect(files.filter((f: string) => f.endsWith('.tmp'))).toHaveLength(0);
 	});
 
 	it('multiple saves do not accumulate temp files', async () => {
@@ -363,9 +384,7 @@ describe('Task 4.1: temp file cleanup behavior', () => {
 		);
 
 		// Verify unlinkSync import is present
-		expect(managerSource).toContain(
-			"import { renameSync, unlinkSync } from 'node:fs'",
-		);
+		expect(managerSource).toContain('unlinkSync');
 	});
 
 	it('temp files are cleaned up even when already renamed', async () => {

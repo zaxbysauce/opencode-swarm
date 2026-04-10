@@ -737,6 +737,11 @@ describe('derivePlanMarkdown (deterministic ordering)', () => {
 	});
 
 	test('multiple calls with same plan produce identical markdown (idempotent)', () => {
+		// Strip the volatile "Updated:" timestamp before comparing, since two
+		// sequential calls can span a millisecond boundary on fast/Windows CI.
+		const stripTimestamp = (md: string) =>
+			md.replace(/Updated: \d{4}-\d{2}-\d{2}T[\d:.]+Z/, 'Updated: <FROZEN>');
+
 		const plan = createTestPlan({
 			title: 'Idempotent Test',
 			swarm: 'idempotent-swarm',
@@ -779,7 +784,7 @@ describe('derivePlanMarkdown (deterministic ordering)', () => {
 		const markdown1 = derivePlanMarkdown(plan);
 		const markdown2 = derivePlanMarkdown(plan);
 
-		expect(markdown1).toBe(markdown2);
+		expect(stripTimestamp(markdown1)).toBe(stripTimestamp(markdown2));
 	});
 });
 

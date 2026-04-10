@@ -618,33 +618,12 @@ describe('declare-scope adversarial tests', () => {
 
 	// ========== GROUP 9: Session state isolation ==========
 	describe('Group 9: Session state isolation', () => {
-		it('blocks declare scope when task is complete in ANY session', async () => {
-			const session = createWorkflowTestSession();
-			// Set task to complete state through proper progression
-			advanceTaskState(session, '1.1', 'coder_delegated');
-			advanceTaskState(session, '1.1', 'pre_check_passed');
-			advanceTaskState(session, '1.1', 'reviewer_run');
-			advanceTaskState(session, '1.1', 'tests_run');
-			advanceTaskState(session, '1.1', 'complete');
-
-			// Verify state was set
-			expect(getTaskState(session, '1.1')).toBe('complete');
-
-			swarmState.agentSessions.set('complete-session', session);
-
-			// Verify session is in agentSessions
-			expect(swarmState.agentSessions.size).toBeGreaterThan(0);
-
-			// Debug: verify we can iterate and find the state
-			let foundComplete = false;
-			for (const [sid, sess] of swarmState.agentSessions) {
-				const state = getTaskState(sess, '1.1');
-				if (state === 'complete') {
-					foundComplete = true;
-					break;
-				}
-			}
-			expect(foundComplete).toBe(true); // Debug assertion
+		it('blocks declare scope when task is completed in plan.json', async () => {
+			// Write plan.json with task 1.1 marked as completed
+			const planPath = path.join(tempDir, '.swarm', 'plan.json');
+			const planContent = JSON.parse(await fs.readFile(planPath, 'utf-8'));
+			planContent.phases[0].tasks[0].status = 'completed';
+			await fs.writeFile(planPath, JSON.stringify(planContent));
 
 			const args: DeclareScopeArgs = {
 				taskId: '1.1',
@@ -654,8 +633,30 @@ describe('declare-scope adversarial tests', () => {
 			const result = await executeDeclareScope(args, tempDir);
 
 			expect(result.success).toBe(false);
-			// Error message is "Cannot declare scope for completed task 1.1"
 			expect(result.errors?.some((e) => e.includes('completed'))).toBe(true);
+		});
+
+		it('does not block scope when task is complete in a different session but pending in plan.json', async () => {
+			// Session state should NOT block scope when plan.json says task is pending.
+			// This prevents cross-workspace false positives when task IDs are reused.
+			const session = createWorkflowTestSession();
+			advanceTaskState(session, '1.1', 'coder_delegated');
+			advanceTaskState(session, '1.1', 'pre_check_passed');
+			advanceTaskState(session, '1.1', 'reviewer_run');
+			advanceTaskState(session, '1.1', 'tests_run');
+			advanceTaskState(session, '1.1', 'complete');
+
+			expect(getTaskState(session, '1.1')).toBe('complete');
+			swarmState.agentSessions.set('complete-session', session);
+
+			const args: DeclareScopeArgs = {
+				taskId: '1.1',
+				files: ['src/file.ts'],
+			};
+
+			const result = await executeDeclareScope(args, tempDir);
+			// plan.json says pending, so scope should be allowed despite session state
+			expect(result.success).toBe(true);
 		});
 
 		it('allows declare scope when task is NOT complete in any session', async () => {
@@ -708,9 +709,10 @@ describe('declare-scope adversarial tests', () => {
 			expect(result.success).toBe(true);
 		});
 
-		it('blocks when one session has task complete, different session has it in progress', async () => {
+		it('allows scope when one session has task complete but plan.json says pending', async () => {
+			// Cross-workspace safety: session state from another workspace should
+			// not block declare_scope when this workspace's plan.json says pending.
 			const sessionA = createWorkflowTestSession();
-			// Set to complete through proper progression
 			advanceTaskState(sessionA, '1.1', 'coder_delegated');
 			advanceTaskState(sessionA, '1.1', 'pre_check_passed');
 			advanceTaskState(sessionA, '1.1', 'reviewer_run');
@@ -728,8 +730,8 @@ describe('declare-scope adversarial tests', () => {
 			};
 
 			const result = await executeDeclareScope(args, tempDir);
-			// Should fail because ANY session has it complete
-			expect(result.success).toBe(false);
+			// plan.json is authoritative; session state alone does not block
+			expect(result.success).toBe(true);
 		});
 	});
 

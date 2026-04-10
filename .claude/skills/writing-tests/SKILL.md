@@ -6,6 +6,7 @@ description: >
   Also apply when implementing features or fixes that require corresponding test changes.
   Enforces bun:test framework rules, mock isolation, cross-platform compatibility (Linux,
   macOS, Windows), and CI pipeline awareness. Load this skill before touching any test file.
+effort: medium
 ---
 
 # Writing Tests for opencode-swarm

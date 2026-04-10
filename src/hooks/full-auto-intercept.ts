@@ -27,6 +27,8 @@ const PHASE_COMPLETION_PATTERNS = [
 	/Ready for Phase (?:\d+|\[?N\+1\]?)\??/i,
 	/phase.{0,20}(?:complete|finish|done|wrap)/i,
 	/move(?:d?)?\s+(?:on\s+)?to\s+(?:the\s+)?(?:next\s+)?phase/i,
+	/(?:proceed|move)\s+to\s+the\s+next\s+phase/i,
+	/what would you like.{0,20}(?:next|do next)/i,
 ];
 
 // Patterns that indicate the architect is asking a question / awaiting direction

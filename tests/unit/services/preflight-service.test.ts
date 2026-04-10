@@ -559,9 +559,9 @@ describe('Preflight Service', () => {
 			expect(result).toContain('## Preflight Report');
 		});
 
-		it('should use phase 0 as default', async () => {
+		it('should use phase 1 as default', async () => {
 			const result = await handlePreflightCommand(testDir, []);
-			expect(result).toContain('**Phase**: 0');
+			expect(result).toContain('**Phase**: 1');
 		});
 
 		it('should handle invalid directory gracefully', async () => {

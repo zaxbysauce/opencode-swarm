@@ -354,6 +354,97 @@ export function createGuardrailsHooks(
 		cfg.qa_gates?.require_reviewer_test_engineer ?? true;
 
 	/**
+	 * Check if a bash/shell command is potentially destructive and should be blocked.
+	 * Only active when block_destructive_commands is not false.
+	 */
+	function checkDestructiveCommand(tool: string, args: unknown): void {
+		if (tool !== 'bash' && tool !== 'shell') return;
+		if (cfg.block_destructive_commands === false) return;
+		const toolArgs = args as Record<string, unknown> | undefined;
+		const command =
+			typeof toolArgs?.command === 'string' ? toolArgs.command.trim() : '';
+		if (!command) return;
+
+		// Fork bomb patterns
+		if (/:\s*\(\s*\)\s*\{[^}]*\|[^}]*:/.test(command)) {
+			throw new Error(
+				`BLOCKED: Potentially destructive shell command detected: fork bomb pattern`,
+			);
+		}
+
+		// rm -rf / rm -r -f with non-safe paths
+		const rmFlagPattern = /^rm\s+(-r\s+-f|-f\s+-r|-rf|-fr)\s+(.+)$/;
+		const rmMatch = rmFlagPattern.exec(command);
+		if (rmMatch) {
+			const targetPart = rmMatch[2].trim();
+			const targets = targetPart.split(/\s+/);
+			const safeTargets = /^(node_modules|\.git)$/;
+			const allSafe = targets.every((t) => safeTargets.test(t));
+			if (!allSafe) {
+				throw new Error(
+					`BLOCKED: Potentially destructive shell command: rm -rf on unsafe path(s): ${targetPart}`,
+				);
+			}
+		}
+
+		// git push --force or -f
+		if (/^git\s+push\b.*?(--force|-f)\b/.test(command)) {
+			throw new Error(
+				`BLOCKED: Force push detected — git push --force is not allowed`,
+			);
+		}
+
+		// git reset --hard
+		if (/^git\s+reset\s+--hard/.test(command)) {
+			throw new Error(
+				`BLOCKED: "git reset --hard" detected — use --soft or --mixed with caution`,
+			);
+		}
+
+		// git reset --mixed with target commit
+		if (/^git\s+reset\s+--mixed\s+\S+/.test(command)) {
+			throw new Error(
+				`BLOCKED: "git reset --mixed" with a target branch/commit is not allowed`,
+			);
+		}
+
+		// kubectl delete
+		if (/^kubectl\s+delete\b/.test(command)) {
+			throw new Error(
+				`BLOCKED: "kubectl delete" detected — destructive cluster operation`,
+			);
+		}
+
+		// docker system prune
+		if (/^docker\s+system\s+prune\b/.test(command)) {
+			throw new Error(
+				`BLOCKED: "docker system prune" detected — destructive container operation`,
+			);
+		}
+
+		// SQL DROP TABLE/DATABASE/SCHEMA
+		if (/^\s*DROP\s+(TABLE|DATABASE|SCHEMA)\b/i.test(command)) {
+			throw new Error(
+				`BLOCKED: SQL DROP command detected — destructive database operation`,
+			);
+		}
+
+		// SQL TRUNCATE TABLE
+		if (/^\s*TRUNCATE\s+TABLE\b/i.test(command)) {
+			throw new Error(
+				`BLOCKED: SQL TRUNCATE command detected — destructive database operation`,
+			);
+		}
+
+		// mkfs disk format
+		if (/^mkfs[./]/.test(command)) {
+			throw new Error(
+				`BLOCKED: Disk format command (mkfs) detected — disk formatting operation`,
+			);
+		}
+	}
+
+	/**
 	 * Checks gate limits (hard limits, idle timeout, soft warnings) for the current invocation.
 	 * Extracted from toolBefore for maintainability.
 	 */
@@ -981,6 +1072,9 @@ export function createGuardrailsHooks(
 			// Block full test suite execution without file argument
 			handleTestSuiteBlocking(input.tool, output.args);
 
+			// Block destructive shell commands (rm -rf, force push, kubectl delete, etc.)
+			checkDestructiveCommand(input.tool, output.args);
+
 			// Plan state + scope protection for architect writes
 			if (isArchitect(input.sessionID) && isWriteTool(input.tool)) {
 				handlePlanAndScopeProtection(input.sessionID, input.tool, output.args);
@@ -1327,24 +1421,15 @@ export function createGuardrailsHooks(
 							swarmAgents,
 						);
 
-						if (fallbackModel) {
-							// Resolve primary model name for telemetry before applying fallback
-							const primaryModel =
-								swarmAgents?.[baseAgentName]?.model ?? 'default';
+						// Resolve primary model name for telemetry before applying fallback
+						const primaryModel =
+							swarmAgents?.[baseAgentName]?.model ?? 'default';
 
+						if (fallbackModel) {
 							// Actually apply the fallback model to the agent config
 							if (swarmAgents?.[baseAgentName]) {
 								swarmAgents[baseAgentName].model = fallbackModel;
 							}
-
-							// Update telemetry with actual model names
-							telemetry.modelFallback(
-								input.sessionID,
-								session.agentName,
-								primaryModel,
-								fallbackModel,
-								'transient_model_error',
-							);
 
 							// Inject actionable advisory with the specific fallback model
 							session.pendingAdvisoryMessages ??= [];
@@ -1361,6 +1446,15 @@ export function createGuardrailsHooks(
 									`to the agent's config in opencode-swarm.json.`,
 							);
 						}
+
+						// Always emit telemetry when a transient model error is detected
+						telemetry.modelFallback(
+							input.sessionID,
+							session.agentName,
+							primaryModel,
+							fallbackModel ?? 'none',
+							'transient_model_error',
+						);
 
 						// Track event for telemetry
 						swarmState.pendingEvents++;
@@ -2182,8 +2276,8 @@ function buildEffectiveRules(
  * 3. blockedGlobs - glob pattern matches
  * 4. allowedExact - explicit allow for exact paths
  * 5. allowedGlobs - explicit allow for glob patterns
- * 6. allowedPrefix - prefix-based allow
- * 7. blockedPrefix - prefix-based blocking
+ * 6. blockedPrefix - prefix-based blocking (takes priority over allowedPrefix)
+ * 7. allowedPrefix - prefix-based allow (whitelist)
  * 8. blockedZones - zone-based blocking
  */
 function checkFileAuthorityWithRules(
@@ -2273,7 +2367,20 @@ function checkFileAuthorityWithRules(
 		}
 	}
 
-	// Step 6: allowedPrefix - prefix-based allow (whitelist model)
+	// Step 6: blockedPrefix - prefix-based blocking (runs before allowedPrefix so that
+	// explicit block rules take priority over allowlist rules)
+	if (rules.blockedPrefix && rules.blockedPrefix.length > 0) {
+		for (const prefix of rules.blockedPrefix) {
+			if (normalizedPath.startsWith(prefix)) {
+				return {
+					allowed: false,
+					reason: `Path blocked: ${normalizedPath} is under ${prefix}`,
+				};
+			}
+		}
+	}
+
+	// Step 7: allowedPrefix - prefix-based allow (whitelist model)
 	// If configured, only paths starting with these prefixes are allowed
 	if (rules.allowedPrefix != null && rules.allowedPrefix.length > 0) {
 		const isAllowed = rules.allowedPrefix.some((prefix) =>
@@ -2291,18 +2398,6 @@ function checkFileAuthorityWithRules(
 			allowed: false,
 			reason: `Path ${normalizedPath} not in allowed list for ${normalizedAgent}`,
 		};
-	}
-
-	// Step 7: blockedPrefix - prefix-based blocking (always runs to allow "allow dir but block subdir" pattern)
-	if (rules.blockedPrefix && rules.blockedPrefix.length > 0) {
-		for (const prefix of rules.blockedPrefix) {
-			if (normalizedPath.startsWith(prefix)) {
-				return {
-					allowed: false,
-					reason: `Path blocked: ${normalizedPath} is under ${prefix}`,
-				};
-			}
-		}
 	}
 
 	// Step 8: blockedZones - zone-based blocking

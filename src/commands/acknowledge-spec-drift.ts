@@ -109,6 +109,6 @@ export async function handleAcknowledgeSpecDriftCommand(
 			? `\n\n⚠️  Warnings:\n${warnings.map((w) => `  - ${w}`).join('\n')}`
 			: '';
 	const cautionMessage =
-		'\n\n⚠️  Caution: Spec drift was acknowledged — verify that the implementation still matches the spec before proceeding.';
+		'\n\n⚠️  Warning: Spec drift was acknowledged — verify that the implementation still matches the spec before proceeding.';
 	return baseMessage + warningMessage + cautionMessage;
 }

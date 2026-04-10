@@ -16,6 +16,10 @@ describe('save_plan + update_task_status round-trip integration', () => {
 	beforeEach(async () => {
 		tmpDir = await fs.mkdtemp(path.join(os.tmpdir(), 'round-trip-test-'));
 		await fs.mkdir(path.join(tmpDir, '.swarm'), { recursive: true });
+		await fs.writeFile(
+			path.join(tmpDir, '.swarm', 'spec.md'),
+			'# Test Spec\nIntegration test specification.',
+		);
 	});
 
 	afterEach(async () => {
