@@ -41346,7 +41346,7 @@ async function scanDocIndex(directory) {
         try {
           const fullPath = path46.join(directory, file3.path);
           const stat2 = fs34.statSync(fullPath);
-          if (stat2.mtimeMs > new Date(existingManifest.scanned_at).getTime()) {
+          if (stat2.mtimeMs > file3.mtime) {
             cacheValid = false;
             break;
           }
