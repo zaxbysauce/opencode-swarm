@@ -44,11 +44,7 @@ function checkUnsafeChars(taskId: string): string | undefined {
 			return 'Invalid task ID: contains control characters';
 		}
 	}
-	if (
-		taskId.includes('..') ||
-		taskId.includes('/') ||
-		taskId.includes('\\')
-	) {
+	if (taskId.includes('..') || taskId.includes('/') || taskId.includes('\\')) {
 		return 'Invalid task ID: path traversal detected';
 	}
 	return undefined;

@@ -8,7 +8,6 @@ import * as path from 'node:path';
 import { type ToolDefinition, tool } from '@opencode-ai/plugin/tool';
 import type { TaskStatus } from '../config/plan-schema';
 import { stripKnownSwarmPrefix } from '../config/schema';
-import { validateTaskIdFormat as _validateTaskIdFormat } from '../validation/task-id';
 import { readTaskEvidenceRaw } from '../gate-evidence.js';
 import { validateDiffScope } from '../hooks/diff-scope';
 import { tryAcquireLock } from '../parallel/file-locks.js';
@@ -20,6 +19,7 @@ import {
 	swarmState,
 } from '../state';
 import { telemetry } from '../telemetry.js';
+import { validateTaskIdFormat as _validateTaskIdFormat } from '../validation/task-id';
 import { createSwarmTool } from './create-tool';
 
 /**

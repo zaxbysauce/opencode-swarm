@@ -15922,7 +15922,7 @@ async function takeSnapshotEvent(directory, plan, options) {
     payload: snapshotPayload
   }, { planHashAfter: options?.planHashAfter });
 }
-async function replayFromLedger(directory, options) {
+async function replayFromLedger(directory, _options) {
   const events = await readLedgerEvents(directory);
   if (events.length === 0) {
     return null;
@@ -16074,7 +16074,13 @@ var init_ledger = __esm(() => {
 });
 
 // src/plan/manager.ts
-import { copyFileSync, existsSync as existsSync3, readdirSync, renameSync as renameSync2, unlinkSync } from "fs";
+import {
+  copyFileSync,
+  existsSync as existsSync3,
+  readdirSync,
+  renameSync as renameSync2,
+  unlinkSync
+} from "fs";
 import * as fsPromises from "fs/promises";
 import * as path4 from "path";
 async function loadPlanJsonOnly(directory) {
@@ -76412,7 +76418,6 @@ var todo_extract = createSwarmTool({
 // src/tools/update-task-status.ts
 init_tool();
 init_schema();
-init_task_id();
 init_gate_evidence();
 import * as fs65 from "fs";
 import * as path78 from "path";
@@ -76505,6 +76510,7 @@ async function validateDiffScope(taskId, directory) {
 init_manager();
 init_state();
 init_telemetry();
+init_task_id();
 init_create_tool();
 var VALID_STATUSES2 = [
   "pending",

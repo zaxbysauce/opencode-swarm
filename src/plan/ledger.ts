@@ -8,12 +8,7 @@
 import * as crypto from 'node:crypto';
 import * as fs from 'node:fs';
 import * as path from 'node:path';
-import {
-	type Plan,
-	PlanSchema,
-	type Task,
-	TaskStatusSchema,
-} from '../config/plan-schema';
+import { type Plan, PlanSchema, TaskStatusSchema } from '../config/plan-schema';
 
 /**
  * Ledger schema version
@@ -578,7 +573,7 @@ interface ReplayOptions {
  */
 export async function replayFromLedger(
 	directory: string,
-	options?: ReplayOptions,
+	_options?: ReplayOptions,
 ): Promise<Plan | null> {
 	const events = await readLedgerEvents(directory);
 

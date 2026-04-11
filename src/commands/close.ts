@@ -203,7 +203,10 @@ export async function handleCloseCommand(
 	{
 		let earliest = Infinity;
 		for (const [, session] of swarmState.agentSessions) {
-			if (session.lastAgentEventTime > 0 && session.lastAgentEventTime < earliest) {
+			if (
+				session.lastAgentEventTime > 0 &&
+				session.lastAgentEventTime < earliest
+			) {
 				earliest = session.lastAgentEventTime;
 			}
 		}
@@ -321,7 +324,11 @@ export async function handleCloseCommand(
 	// ─── STAGE 2: ARCHIVE ────────────────────────────────────────────
 	const timestamp = new Date().toISOString().replace(/[:.]/g, '-');
 	const suffix = Math.random().toString(36).slice(2, 8);
-	const archiveDir = path.join(swarmDir, 'archive', `swarm-${timestamp}-${suffix}`);
+	const archiveDir = path.join(
+		swarmDir,
+		'archive',
+		`swarm-${timestamp}-${suffix}`,
+	);
 	let archiveResult = '';
 	let archivedFileCount = 0;
 	/** Track which active-state files were successfully backed up to the archive.

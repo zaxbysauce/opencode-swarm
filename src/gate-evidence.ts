@@ -14,10 +14,7 @@
 import { mkdirSync, readFileSync, renameSync, unlinkSync } from 'node:fs';
 import * as path from 'node:path';
 import { telemetry } from './telemetry.js';
-import {
-	assertStrictTaskId,
-	isStrictTaskId,
-} from './validation/task-id';
+import { assertStrictTaskId, isStrictTaskId } from './validation/task-id';
 
 export interface GateEvidence {
 	sessionId: string;

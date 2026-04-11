@@ -206,7 +206,7 @@ interface ReplayOptions {
  * @param options - Optional replay options
  * @returns Reconstructed Plan from ledger events, or null if plan.json doesn't exist or ledger is empty
  */
-export declare function replayFromLedger(directory: string, options?: ReplayOptions): Promise<Plan | null>;
+export declare function replayFromLedger(directory: string, _options?: ReplayOptions): Promise<Plan | null>;
 /**
  * Result type for readLedgerEventsWithIntegrity
  */

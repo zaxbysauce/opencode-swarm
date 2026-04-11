@@ -14338,7 +14338,7 @@ async function takeSnapshotEvent(directory, plan, options) {
     payload: snapshotPayload
   }, { planHashAfter: options?.planHashAfter });
 }
-async function replayFromLedger(directory, options) {
+async function replayFromLedger(directory, _options) {
   const events = await readLedgerEvents(directory);
   if (events.length === 0) {
     return null;
@@ -14490,7 +14490,13 @@ var init_ledger = __esm(() => {
 });
 
 // src/plan/manager.ts
-import { copyFileSync, existsSync as existsSync2, readdirSync, renameSync as renameSync2, unlinkSync } from "fs";
+import {
+  copyFileSync,
+  existsSync as existsSync2,
+  readdirSync,
+  renameSync as renameSync2,
+  unlinkSync
+} from "fs";
 import * as fsPromises from "fs/promises";
 import * as path3 from "path";
 async function loadPlanJsonOnly(directory) {
