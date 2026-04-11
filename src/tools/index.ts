@@ -13,6 +13,7 @@ export { doc_extract, doc_scan } from './doc-scan';
 export { detect_domains } from './domain-detector';
 export { evidence_check } from './evidence-check';
 export { extract_code_blocks } from './file-extractor';
+export { get_approved_plan } from './get-approved-plan';
 export { fetchGitingest, type GitingestArgs, gitingest } from './gitingest';
 export { imports } from './imports';
 export { knowledge_add } from './knowledge-add';

@@ -631,6 +631,7 @@ describe('search ADVERSARIAL - Injection attacks', () => {
 		createTestFile('src/tpl.ts', 'content\n');
 
 		const result = await executeSearch(
+			// biome-ignore lint/suspicious/noTemplateCurlyInString: intentional injection test
 			{ query: '${process.env.SECRET}', mode: 'literal' },
 			tmpDir,
 		);

@@ -303,6 +303,20 @@ CRITICAL INSTRUCTIONS:
 - If any task is MISSING, return NEEDS_REVISION.
 - Do NOT rely on the Architect's implementation notes — verify independently.
 
+## BASELINE COMPARISON (mandatory before per-task review)
+
+Before reviewing individual tasks, check whether the plan itself was silently mutated since it was last approved.
+
+1. Call the \`get_approved_plan\` tool (no arguments required — it derives identity internally).
+2. Examine the response:
+   - If \`success: false\` with \`reason: "no_approved_snapshot"\`: this is likely the first phase or no prior approval exists. Note this and proceed to per-task review.
+   - If \`drift_detected: false\`: baseline integrity confirmed — the plan has not been mutated since the last critic approval. Proceed to per-task review.
+   - If \`drift_detected: true\`: the plan was mutated after critic approval. Compare \`approved_plan\` vs \`current_plan\` to identify what changed (phases added/removed, tasks modified, scope changes). Report findings in a \`## BASELINE DRIFT\` section before the per-task rubric.
+   - If \`drift_detected: "unknown"\`: current plan.json is unavailable. Flag this as a warning and proceed.
+3. If baseline drift is detected, this is a CRITICAL finding — plan mutations after approval bypass the quality gate.
+
+Use \`summary_only: true\` if the plan is large and you only need structural comparison (phase/task counts).
+
 ## PER-TASK 4-AXIS RUBRIC
 Score each task independently:
 
@@ -343,6 +357,11 @@ TASK [id]: [VERIFIED|MISSING|DRIFTED]
    - Covered/missing counts
    - List of missing MUST requirements (if any)
    - List of missing SHOULD requirements (if any)
+
+## BASELINE DRIFT (include only if get_approved_plan detected drift)
+Approved snapshot: seq=[N], timestamp=[ISO], phase=[N]
+Mutations detected: [list specific changes between approved plan and current plan — phases added/removed, tasks modified, scope changes]
+Severity: CRITICAL — plan was modified after critic approval without re-review
 
 ## DRIFT REPORT
 Unplanned additions: [list any code found that wasn't in the plan]

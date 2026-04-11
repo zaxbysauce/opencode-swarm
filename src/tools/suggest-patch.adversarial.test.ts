@@ -794,6 +794,7 @@ describe('suggest_patch ADVERSARIAL - Context injection', () => {
 						file: 'test.txt',
 						contextBefore: ['line1'],
 						contextAfter: ['line3'],
+						// biome-ignore lint/suspicious/noTemplateCurlyInString: intentional injection test
 						newContent: '${process.env.SECRET}',
 					},
 				],
