@@ -1,5 +1,12 @@
 # Changelog
 
+## [6.61.0](https://github.com/zaxbysauce/opencode-swarm/compare/v6.60.1...v6.61.0) (2026-04-11)
+
+
+### Features
+
+* **registry:** add command documentation discoverability with structured metadata ([#455](https://github.com/zaxbysauce/opencode-swarm/issues/455)) ([9c2cb2f](https://github.com/zaxbysauce/opencode-swarm/commit/9c2cb2fe7bb2b6deceb575867218e8bebeb93570))
+
 ## [6.60.1](https://github.com/zaxbysauce/opencode-swarm/compare/v6.60.0...v6.60.1) (2026-04-10)
 
 
