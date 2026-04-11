@@ -75832,7 +75832,7 @@ init_detector();
 import * as fs62 from "fs";
 import * as path75 from "path";
 init_create_tool();
-var MAX_FILE_SIZE2 = 5 * 1024 * 1024;
+var MAX_FILE_SIZE2 = 2 * 1024 * 1024;
 var BINARY_CHECK_BYTES = 8192;
 var BINARY_NULL_THRESHOLD3 = 0.1;
 function isBinaryContent(content) {
@@ -75858,12 +75858,25 @@ function extractSyntaxErrors(parser, content) {
         column: node.startPosition.column,
         message: "Syntax error"
       });
+    } else if (node.isMissing) {
+      errors5.push({
+        line: node.startPosition.row + 1,
+        column: node.startPosition.column,
+        message: `Missing '${node.type}'`
+      });
     }
     for (const child of node.children) {
       walkNode(child);
     }
   }
   walkNode(tree.rootNode);
+  if (errors5.length === 0 && tree.rootNode.hasError) {
+    errors5.push({
+      line: 1,
+      column: 0,
+      message: "Syntax error detected (tree has errors)"
+    });
+  }
   tree.delete();
   return errors5;
 }
@@ -75933,7 +75946,7 @@ async function syntaxCheck(input, directory, config3) {
         results.push(result);
         continue;
       }
-      if (content.length > MAX_FILE_SIZE2) {
+      if (content.length >= MAX_FILE_SIZE2) {
         result.skipped_reason = "file_too_large";
         skippedCount++;
         results.push(result);
