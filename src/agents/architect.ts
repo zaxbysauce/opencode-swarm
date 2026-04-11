@@ -1,5 +1,10 @@
 import type { AgentConfig } from '@opencode-ai/sdk';
-import { COMMAND_REGISTRY } from '../commands/registry.js';
+import {
+	COMMAND_REGISTRY,
+	type CommandEntry,
+	type RegisteredCommand,
+	VALID_COMMANDS,
+} from '../commands/registry.js';
 import { AGENT_TOOL_MAP, TOOL_DESCRIPTIONS } from '../config/constants';
 
 export interface AgentDefinition {
@@ -360,8 +365,8 @@ SECURITY_KEYWORDS: password, secret, token, credential, auth, login, encryption,
 {{AGENT_PREFIX}}designer - UI/UX design specs (scaffold generation for UI components — runs BEFORE coder on UI tasks)
 
 ## SLASH COMMANDS
-Available commands via /swarm: {{SLASH_COMMANDS}}
-Type /swarm (no arguments) for full help.
+{{SLASH_COMMANDS}}
+Commands above are documented with args and behavioral details. Run commands via /swarm <command> [args].
 Outside OpenCode, invoke any plugin command via: \`bunx opencode-swarm run <command> [args]\` (e.g. \`bunx opencode-swarm run knowledge migrate\`). Do not use \`bun -e\` or look for \`src/commands/\` — those paths are internal to the plugin source and do not exist in user project directories.
 
 SMEs advise only. Reviewer and critic review only. None of them write code.
@@ -1112,7 +1117,171 @@ function buildAvailableToolsList(): string {
  * Output format matches what the architect prompt previously hand-listed.
  */
 function buildSlashCommandsList(): string {
-	return Object.keys(COMMAND_REGISTRY).sort().join(', ') + '.';
+	// Commands with dashes that are aliases — skip entirely
+	const SKIP_ALIASES = new Set(['config-doctor', 'evidence-summary']);
+
+	// Commands where description only — skip details even if present
+	const READ_ONLY_OBSERVATION = new Set([
+		'status',
+		'history',
+		'agents',
+		'config',
+		'plan',
+		'benchmark',
+		'export',
+		'retrieve',
+	]);
+
+	const CATEGORY_ORDER = [
+		'Session Lifecycle',
+		'Planning',
+		'Execution Modes',
+		'Observation',
+		'Knowledge',
+		'State Management',
+		'Diagnostics',
+	] as const;
+
+	const COMMANDS_BY_CATEGORY: Record<string, string[]> = {
+		'Session Lifecycle': [
+			'close',
+			'reset',
+			'reset-session',
+			'handoff',
+			'archive',
+		],
+		Planning: [
+			'specify',
+			'clarify',
+			'analyze',
+			'plan',
+			'sync-plan',
+			'acknowledge-spec-drift',
+		],
+		'Execution Modes': ['turbo', 'full-auto'],
+		Observation: [
+			'status',
+			'history',
+			'agents',
+			'config',
+			'benchmark',
+			'export',
+			'retrieve',
+		],
+		Knowledge: [
+			'knowledge',
+			'knowledge migrate',
+			'knowledge quarantine',
+			'knowledge restore',
+			'promote',
+			'curate',
+		],
+		'State Management': ['checkpoint', 'rollback', 'write-retro'],
+		Diagnostics: [
+			'diagnose',
+			'preflight',
+			'doctor tools',
+			'config doctor',
+			'simulate',
+			'dark-matter',
+		],
+	};
+
+	const lines: string[] = [];
+
+	// Build parent -> [subcommands] map from registry
+	const subcommandMap: Record<string, string[]> = {};
+	for (const [cmdName, cmdEntry] of Object.entries(COMMAND_REGISTRY)) {
+		const entry = cmdEntry as CommandEntry;
+		if (entry.subcommandOf) {
+			if (!subcommandMap[entry.subcommandOf]) {
+				subcommandMap[entry.subcommandOf] = [];
+			}
+			subcommandMap[entry.subcommandOf].push(cmdName);
+		}
+	}
+
+	// Track compounds in VALID_COMMANDS that are shown as main entries
+	// (they should not be appended as subcommands)
+	const compoundsInValidCommands = new Set<string>();
+
+	for (const category of CATEGORY_ORDER) {
+		lines.push(`**${category}**`);
+		const commandNames = COMMANDS_BY_CATEGORY[category];
+
+		for (const name of commandNames) {
+			const entry = COMMAND_REGISTRY[
+				name as keyof typeof COMMAND_REGISTRY
+			] as CommandEntry;
+			if (!entry) continue;
+
+			// Skip aliases (e.g. config-doctor, evidence-summary)
+			if (SKIP_ALIASES.has(name)) continue;
+
+			// Skip compound subcommands (subcommandOf set) unless in VALID_COMMANDS
+			// e.g. 'evidence summary' has subcommandOf but is in VALID_COMMANDS as standalone entry
+			if (
+				entry.subcommandOf &&
+				!VALID_COMMANDS.includes(name as RegisteredCommand)
+			)
+				continue;
+
+			lines.push(`- \`/swarm ${name}\` — ${entry.description}`);
+
+			// Mark compounds in VALID_COMMANDS so we don't append them as subcommands later
+			if (
+				entry.subcommandOf &&
+				VALID_COMMANDS.includes(name as RegisteredCommand)
+			) {
+				compoundsInValidCommands.add(name);
+			}
+
+			// Read-only observation commands: show description only, skip details and args
+			if (READ_ONLY_OBSERVATION.has(name)) continue;
+
+			// Side-effect commands: include details and args
+			if (entry.details) {
+				lines.push(`  ${entry.details}`);
+			}
+			if (entry.args) {
+				lines.push(`  Args: ${entry.args}`);
+			}
+		}
+
+		// Append subcommands indented under their parent command
+		// A command is a parent if it has entries in subcommandMap
+		for (const parent of commandNames) {
+			const subs = subcommandMap[parent];
+			if (!subs) continue;
+
+			for (const subName of subs) {
+				const subEntry = COMMAND_REGISTRY[
+					subName as keyof typeof COMMAND_REGISTRY
+				] as CommandEntry;
+				if (!subEntry) continue;
+
+				// Skip if already shown as main entry or compound in VALID_COMMANDS or alias
+				if (
+					compoundsInValidCommands.has(subName) ||
+					(subEntry.subcommandOf &&
+						VALID_COMMANDS.includes(subName as RegisteredCommand)) ||
+					SKIP_ALIASES.has(subName)
+				) {
+					continue;
+				}
+
+				lines.push(`  - \`/swarm ${subName}\` — ${subEntry.description}`);
+				if (subEntry.details) {
+					lines.push(`    ${subEntry.details}`);
+				}
+				if (subEntry.args) {
+					lines.push(`    Args: ${subEntry.args}`);
+				}
+			}
+		}
+	}
+
+	return lines.join('\n');
 }
 
 export function createArchitectAgent(

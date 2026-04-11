@@ -1,6 +1,8 @@
 import type { AgentDefinition } from '../agents/index.js';
 import {
 	COMMAND_REGISTRY,
+	type CommandEntry,
+	type RegisteredCommand,
 	resolveCommand,
 	VALID_COMMANDS,
 } from './registry.js';
@@ -58,13 +60,74 @@ export { handleSyncPlanCommand } from './sync-plan';
 export { handleTurboCommand } from './turbo';
 export { handleWriteRetroCommand } from './write-retro';
 
-const HELP_TEXT = [
-	'## Swarm Commands',
-	'',
-	...VALID_COMMANDS.filter((cmd) => !cmd.includes(' ')).map(
-		(cmd) => `- \`/swarm ${cmd}\` — ${COMMAND_REGISTRY[cmd].description}`,
-	),
-].join('\n');
+export function buildHelpText(): string {
+	const lines: string[] = ['## Swarm Commands', ''];
+
+	// Track which compound commands have been shown as subcommands
+	const shownAsSubcommand = new Set<string>();
+
+	// First pass: show parent commands and their subcommands
+	for (const cmd of VALID_COMMANDS) {
+		// Skip if this is a compound command that will be shown under its parent
+		if (cmd.includes(' ')) {
+			const parent = cmd.split(' ')[0];
+			// Check if parent is in VALID_COMMANDS — if so, this compound will be shown under it
+			if (VALID_COMMANDS.includes(parent as RegisteredCommand)) {
+				shownAsSubcommand.add(cmd);
+			}
+			continue;
+		}
+
+		const entry = COMMAND_REGISTRY[
+			cmd as keyof typeof COMMAND_REGISTRY
+		] as CommandEntry;
+		lines.push(`- \`/swarm ${cmd}\` — ${entry.description}`);
+
+		if (entry.args) {
+			lines.push(`  Args: \`${entry.args}\``);
+		}
+		if (entry.details) {
+			lines.push(`  ${entry.details}`);
+		}
+
+		// Show subcommands grouped under this parent
+		const subcommands = VALID_COMMANDS.filter(
+			(sub) => sub.startsWith(`${cmd} `) && sub !== cmd,
+		);
+		for (const sub of subcommands) {
+			const subEntry = COMMAND_REGISTRY[
+				sub as keyof typeof COMMAND_REGISTRY
+			] as CommandEntry;
+			const subName = sub.slice(cmd.length + 1); // e.g. "migrate" from "knowledge migrate"
+			lines.push(`  - \`${subName}\` — ${subEntry.description}`);
+			if (subEntry.args) {
+				lines.push(`    Args: \`${subEntry.args}\``);
+			}
+			if (subEntry.details) {
+				lines.push(`    ${subEntry.details}`);
+			}
+		}
+	}
+
+	// Second pass: show compound commands that don't have a parent in VALID_COMMANDS
+	for (const cmd of VALID_COMMANDS) {
+		if (!cmd.includes(' ') || shownAsSubcommand.has(cmd)) continue;
+		const entry = COMMAND_REGISTRY[
+			cmd as keyof typeof COMMAND_REGISTRY
+		] as CommandEntry;
+		lines.push(`- \`/swarm ${cmd}\` — ${entry.description}`);
+		if (entry.args) {
+			lines.push(`  Args: \`${entry.args}\``);
+		}
+		if (entry.details) {
+			lines.push(`  ${entry.details}`);
+		}
+	}
+
+	return lines.join('\n');
+}
+
+const HELP_TEXT = buildHelpText();
 
 /**
  * Creates a command.execute.before handler for /swarm commands.

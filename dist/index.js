@@ -53067,7 +53067,8 @@ Run \`/swarm evidence ${result.task_id ?? "unknown"}\` to view it, or \`/swarm s
 var COMMAND_REGISTRY = {
   "acknowledge-spec-drift": {
     handler: (ctx) => handleAcknowledgeSpecDriftCommand(ctx.directory, ctx.args),
-    description: "Acknowledge that the spec has drifted from the plan and suppress further warnings"
+    description: "Acknowledge that the spec has drifted from the plan and suppress further warnings",
+    args: ""
   },
   status: {
     handler: (ctx) => handleStatusCommand(ctx.directory, ctx.agents),
@@ -53113,112 +53114,156 @@ var COMMAND_REGISTRY = {
   },
   "sync-plan": {
     handler: (ctx) => handleSyncPlanCommand(ctx.directory, ctx.args),
-    description: "Ensure plan.json and plan.md are synced"
+    description: "Ensure plan.json and plan.md are synced",
+    args: ""
   },
   benchmark: {
     handler: (ctx) => handleBenchmarkCommand(ctx.directory, ctx.args),
-    description: "Show performance metrics [--cumulative] [--ci-gate]"
+    description: "Show performance metrics [--cumulative] [--ci-gate]",
+    args: "--cumulative, --ci-gate"
   },
   export: {
     handler: (ctx) => handleExportCommand(ctx.directory, ctx.args),
-    description: "Export plan and context as JSON"
+    description: "Export plan and context as JSON",
+    args: "",
+    details: "Exports the current plan and context as JSON to stdout. Useful for piping to external tools or debugging swarm state."
   },
   evidence: {
     handler: (ctx) => handleEvidenceCommand(ctx.directory, ctx.args),
-    description: "Show evidence bundles [taskId]"
+    description: "Show evidence bundles [taskId]",
+    args: "<taskId>",
+    details: 'Displays review results, test verdicts, and other evidence bundles for the given task ID (e.g., "2.1").'
   },
   "evidence summary": {
     handler: (ctx) => handleEvidenceSummaryCommand(ctx.directory),
     description: "Generate evidence summary with completion ratio and blockers",
-    subcommandOf: "evidence"
+    subcommandOf: "evidence",
+    args: "",
+    details: "Generates a summary showing completion ratio across all tasks, lists blockers, and identifies missing evidence."
   },
   "evidence-summary": {
     handler: (ctx) => handleEvidenceSummaryCommand(ctx.directory),
     description: "Generate evidence summary with completion ratio and blockers",
-    subcommandOf: "evidence"
+    subcommandOf: "evidence",
+    args: "",
+    details: "Generates a summary showing completion ratio across all tasks, lists blockers, and identifies missing evidence."
   },
   archive: {
     handler: (ctx) => handleArchiveCommand(ctx.directory, ctx.args),
-    description: "Archive old evidence bundles [--dry-run]"
+    description: "Archive old evidence bundles [--dry-run]",
+    details: "Archives evidence bundles older than max_age_days (config, default 90) or beyond max_bundles cap (config, default 1000). --dry-run previews which bundles would be archived without deleting them. Applies two-tier retention: age-based first, then count-based on oldest remaining.",
+    args: "--dry-run"
   },
   curate: {
     handler: (ctx) => handleCurateCommand(ctx.directory, ctx.args),
-    description: "Run knowledge curation and hive promotion review"
+    description: "Run knowledge curation and hive promotion review",
+    args: ""
   },
   "dark-matter": {
     handler: (ctx) => handleDarkMatterCommand(ctx.directory, ctx.args),
-    description: "Detect hidden file couplings via co-change NPMI analysis"
+    description: "Detect hidden file couplings via co-change NPMI analysis",
+    args: "--threshold <number>, --min-commits <number>"
   },
   close: {
     handler: (ctx) => handleCloseCommand(ctx.directory, ctx.args),
-    description: "Use /swarm close to close the swarm project and archive evidence"
+    description: "Use /swarm close to close the swarm project and archive evidence",
+    details: "Idempotent 4-stage terminal finalization: (1) finalize writes retrospectives for in-progress phases, (2) archive creates timestamped bundle of swarm artifacts and evidence, (3) clean removes active-state files for a clean slate, (4) align performs safe git ff-only to main. Resets agent sessions and delegation chains. Reads .swarm/close-lessons.md for explicit lessons and runs curation.",
+    args: "--prune-branches"
   },
   simulate: {
     handler: (ctx) => handleSimulateCommand(ctx.directory, ctx.args),
-    description: "Dry-run impact analysis of proposed changes [--target <glob>]"
+    description: "Dry-run hidden coupling analysis with configurable thresholds",
+    args: "--threshold <number>, --min-commits <number>"
   },
   analyze: {
     handler: (ctx) => handleAnalyzeCommand(ctx.directory, ctx.args),
-    description: "Analyze spec.md vs plan.md for requirement coverage gaps"
+    description: "Analyze spec.md vs plan.md for requirement coverage gaps",
+    args: ""
   },
   clarify: {
     handler: (ctx) => handleClarifyCommand(ctx.directory, ctx.args),
-    description: "Clarify and refine an existing feature specification"
+    description: "Clarify and refine an existing feature specification",
+    args: "[description-text]"
   },
   specify: {
     handler: (ctx) => handleSpecifyCommand(ctx.directory, ctx.args),
-    description: "Generate or import a feature specification [description]"
+    description: "Generate or import a feature specification [description]",
+    args: "[description-text]"
   },
   promote: {
     handler: (ctx) => handlePromoteCommand(ctx.directory, ctx.args),
-    description: "Manually promote lesson to hive knowledge"
+    description: "Manually promote lesson to hive knowledge",
+    details: "Promotes a lesson directly to hive knowledge (--category flag sets category) or references an existing swarm lesson by ID (--from-swarm). Validates lesson text before promotion. Either direct text or --from-swarm ID is required.",
+    args: "--category <category>, --from-swarm <lesson-id>, <lesson-text>"
   },
   reset: {
     handler: (ctx) => handleResetCommand(ctx.directory, ctx.args),
-    description: "Clear swarm state files [--confirm]"
+    description: "Clear swarm state files [--confirm]",
+    details: "DELETES plan.md, context.md, and summaries/ directory from .swarm/. Stops background automation and clears in-memory queues. SAFETY: requires --confirm flag \u2014 without it, displays a warning and tips to export first.",
+    args: "--confirm (required)"
   },
   "reset-session": {
     handler: (ctx) => handleResetSessionCommand(ctx.directory, ctx.args),
-    description: "Clear session state while preserving plan, evidence, and knowledge"
+    description: "Clear session state while preserving plan, evidence, and knowledge",
+    details: "Deletes only .swarm/session/state.json and any other session files. Clears in-memory agent sessions and delegation chains. Preserves plan, evidence, and knowledge for cross-session continuity.",
+    args: ""
   },
   rollback: {
     handler: (ctx) => handleRollbackCommand(ctx.directory, ctx.args),
-    description: "Restore swarm state to a checkpoint <phase>"
+    description: "Restore swarm state to a checkpoint <phase>",
+    details: "Restores .swarm/ state by directly overwriting files from a checkpoint directory (checkpoints/phase-<N>). Writes rollback event to events.jsonl. Without phase argument, lists available checkpoints. Partial failures are reported but processing continues.",
+    args: "<phase-number>"
   },
   retrieve: {
     handler: (ctx) => handleRetrieveCommand(ctx.directory, ctx.args),
-    description: "Retrieve full output from a summary <id>"
+    description: "Retrieve full output from a summary <id>",
+    args: "<summary-id>",
+    details: "Loads the full tool output that was previously summarized (referenced by IDs like S1, S2). Use when you need the complete output instead of the truncated summary."
   },
   handoff: {
     handler: (ctx) => handleHandoffCommand(ctx.directory, ctx.args),
-    description: "Prepare state for clean model switch (new session)"
+    description: "Prepare state for clean model switch (new session)",
+    args: "",
+    details: "Generates handoff.md with full session state snapshot, including plan progress, recent decisions, and agent delegation history. Prepended to the next session prompt for seamless model switches."
   },
   turbo: {
     handler: (ctx) => handleTurboCommand(ctx.directory, ctx.args, ctx.sessionID),
-    description: "Toggle Turbo Mode for the active session [on|off]"
+    description: "Toggle Turbo Mode for the active session [on|off]",
+    args: "on, off",
+    details: 'Toggles Turbo Mode which skips non-critical QA gates for faster iteration. When enabled, the architect can proceed without waiting for all automated checks. Session-scoped \u2014 resets on new session. Use "on" or "off" to set explicitly, or toggle with no argument.'
   },
   "full-auto": {
     handler: (ctx) => handleFullAutoCommand(ctx.directory, ctx.args, ctx.sessionID),
-    description: "Toggle Full-Auto Mode for the active session [on|off]"
+    description: "Toggle Full-Auto Mode for the active session [on|off]",
+    args: "on, off",
+    details: 'Toggles Full-Auto Mode which enables autonomous execution without confirmation prompts. When enabled, the architect proceeds through implementation steps automatically. Session-scoped \u2014 resets on new session. Use "on" or "off" to set explicitly, or toggle with no argument.'
   },
   "write-retro": {
     handler: (ctx) => handleWriteRetroCommand(ctx.directory, ctx.args),
-    description: "Write a retrospective evidence bundle for a completed phase <json>"
+    description: "Write a retrospective evidence bundle for a completed phase <json>",
+    details: "Writes retrospective evidence bundle to .swarm/evidence/retro-{phase}/evidence.json. Required JSON: phase, summary, task_count, task_complexity, total_tool_calls, coder_revisions, reviewer_rejections, test_failures, security_findings, integration_issues. Optional: lessons_learned (max 5), top_rejection_reasons, task_id, metadata.",
+    args: "<json: {phase, summary, task_count, task_complexity, ...}>"
   },
   "knowledge migrate": {
     handler: (ctx) => handleKnowledgeMigrateCommand(ctx.directory, ctx.args),
     description: "Migrate knowledge entries to the current format",
-    subcommandOf: "knowledge"
+    subcommandOf: "knowledge",
+    details: "One-time migration from .swarm/context.md SME cache to .swarm/knowledge.jsonl. Skips if sentinel file .swarm/.knowledge-migrated exists, if context.md is absent, or if context.md is empty. Reports entries migrated, dropped (validation/dedup), and total processed.",
+    args: "<directory>"
   },
   "knowledge quarantine": {
     handler: (ctx) => handleKnowledgeQuarantineCommand(ctx.directory, ctx.args),
     description: "Move a knowledge entry to quarantine <id> [reason]",
-    subcommandOf: "knowledge"
+    subcommandOf: "knowledge",
+    details: 'Moves a knowledge entry to quarantine with optional reason string (defaults to "Quarantined via /swarm knowledge quarantine command"). Validates entry ID format (1-64 alphanumeric/hyphen/underscore). Quarantined entries are excluded from knowledge queries.',
+    args: "<entry-id> [reason]"
   },
   "knowledge restore": {
     handler: (ctx) => handleKnowledgeRestoreCommand(ctx.directory, ctx.args),
     description: "Restore a quarantined knowledge entry <id>",
-    subcommandOf: "knowledge"
+    subcommandOf: "knowledge",
+    details: "Restores a quarantined knowledge entry back to the active knowledge store by ID. Validates entry ID format (1-64 alphanumeric/hyphen/underscore). Entry must currently be in quarantine state.",
+    args: "<entry-id>"
   },
   knowledge: {
     handler: (ctx) => handleKnowledgeListCommand(ctx.directory, ctx.args),
@@ -53226,7 +53271,9 @@ var COMMAND_REGISTRY = {
   },
   checkpoint: {
     handler: (ctx) => handleCheckpointCommand(ctx.directory, ctx.args),
-    description: "Manage project checkpoints [save|restore|delete|list] <label>"
+    description: "Manage project checkpoints [save|restore|delete|list] <label>",
+    details: "save: creates named snapshot of current .swarm/ state. restore: soft-resets to checkpoint by overwriting current .swarm/ files. delete: removes named checkpoint. list: shows all checkpoints with timestamps. All subcommands require a label except list.",
+    args: "<save|restore|delete|list> <label>"
   }
 };
 var VALID_COMMANDS = Object.keys(COMMAND_REGISTRY);
@@ -53576,8 +53623,8 @@ SECURITY_KEYWORDS: password, secret, token, credential, auth, login, encryption,
 {{AGENT_PREFIX}}designer - UI/UX design specs (scaffold generation for UI components \u2014 runs BEFORE coder on UI tasks)
 
 ## SLASH COMMANDS
-Available commands via /swarm: {{SLASH_COMMANDS}}
-Type /swarm (no arguments) for full help.
+{{SLASH_COMMANDS}}
+Commands above are documented with args and behavioral details. Run commands via /swarm <command> [args].
 Outside OpenCode, invoke any plugin command via: \`bunx opencode-swarm run <command> [args]\` (e.g. \`bunx opencode-swarm run knowledge migrate\`). Do not use \`bun -e\` or look for \`src/commands/\` \u2014 those paths are internal to the plugin source and do not exist in user project directories.
 
 SMEs advise only. Reviewer and critic review only. None of them write code.
@@ -54305,7 +54352,129 @@ function buildAvailableToolsList() {
   }).join(", ");
 }
 function buildSlashCommandsList() {
-  return Object.keys(COMMAND_REGISTRY).sort().join(", ") + ".";
+  const SKIP_ALIASES = new Set(["config-doctor", "evidence-summary"]);
+  const READ_ONLY_OBSERVATION = new Set([
+    "status",
+    "history",
+    "agents",
+    "config",
+    "plan",
+    "benchmark",
+    "export",
+    "retrieve"
+  ]);
+  const CATEGORY_ORDER = [
+    "Session Lifecycle",
+    "Planning",
+    "Execution Modes",
+    "Observation",
+    "Knowledge",
+    "State Management",
+    "Diagnostics"
+  ];
+  const COMMANDS_BY_CATEGORY = {
+    "Session Lifecycle": [
+      "close",
+      "reset",
+      "reset-session",
+      "handoff",
+      "archive"
+    ],
+    Planning: [
+      "specify",
+      "clarify",
+      "analyze",
+      "plan",
+      "sync-plan",
+      "acknowledge-spec-drift"
+    ],
+    "Execution Modes": ["turbo", "full-auto"],
+    Observation: [
+      "status",
+      "history",
+      "agents",
+      "config",
+      "benchmark",
+      "export",
+      "retrieve"
+    ],
+    Knowledge: [
+      "knowledge",
+      "knowledge migrate",
+      "knowledge quarantine",
+      "knowledge restore",
+      "promote",
+      "curate"
+    ],
+    "State Management": ["checkpoint", "rollback", "write-retro"],
+    Diagnostics: [
+      "diagnose",
+      "preflight",
+      "doctor tools",
+      "config doctor",
+      "simulate",
+      "dark-matter"
+    ]
+  };
+  const lines = [];
+  const subcommandMap = {};
+  for (const [cmdName, cmdEntry] of Object.entries(COMMAND_REGISTRY)) {
+    const entry = cmdEntry;
+    if (entry.subcommandOf) {
+      if (!subcommandMap[entry.subcommandOf]) {
+        subcommandMap[entry.subcommandOf] = [];
+      }
+      subcommandMap[entry.subcommandOf].push(cmdName);
+    }
+  }
+  const compoundsInValidCommands = new Set;
+  for (const category of CATEGORY_ORDER) {
+    lines.push(`**${category}**`);
+    const commandNames = COMMANDS_BY_CATEGORY[category];
+    for (const name2 of commandNames) {
+      const entry = COMMAND_REGISTRY[name2];
+      if (!entry)
+        continue;
+      if (SKIP_ALIASES.has(name2))
+        continue;
+      if (entry.subcommandOf && !VALID_COMMANDS.includes(name2))
+        continue;
+      lines.push(`- \`/swarm ${name2}\` \u2014 ${entry.description}`);
+      if (entry.subcommandOf && VALID_COMMANDS.includes(name2)) {
+        compoundsInValidCommands.add(name2);
+      }
+      if (READ_ONLY_OBSERVATION.has(name2))
+        continue;
+      if (entry.details) {
+        lines.push(`  ${entry.details}`);
+      }
+      if (entry.args) {
+        lines.push(`  Args: ${entry.args}`);
+      }
+    }
+    for (const parent of commandNames) {
+      const subs = subcommandMap[parent];
+      if (!subs)
+        continue;
+      for (const subName of subs) {
+        const subEntry = COMMAND_REGISTRY[subName];
+        if (!subEntry)
+          continue;
+        if (compoundsInValidCommands.has(subName) || subEntry.subcommandOf && VALID_COMMANDS.includes(subName) || SKIP_ALIASES.has(subName)) {
+          continue;
+        }
+        lines.push(`  - \`/swarm ${subName}\` \u2014 ${subEntry.description}`);
+        if (subEntry.details) {
+          lines.push(`    ${subEntry.details}`);
+        }
+        if (subEntry.args) {
+          lines.push(`    Args: ${subEntry.args}`);
+        }
+      }
+    }
+  }
+  return lines.join(`
+`);
 }
 function createArchitectAgent(model, customPrompt, customAppendPrompt, adversarialTesting) {
   let prompt = ARCHITECT_PROMPT;
@@ -56376,12 +56545,54 @@ init_status_artifact();
 init_trigger();
 
 // src/commands/index.ts
-var HELP_TEXT = [
-  "## Swarm Commands",
-  "",
-  ...VALID_COMMANDS.filter((cmd) => !cmd.includes(" ")).map((cmd) => `- \`/swarm ${cmd}\` \u2014 ${COMMAND_REGISTRY[cmd].description}`)
-].join(`
+function buildHelpText() {
+  const lines = ["## Swarm Commands", ""];
+  const shownAsSubcommand = new Set;
+  for (const cmd of VALID_COMMANDS) {
+    if (cmd.includes(" ")) {
+      const parent = cmd.split(" ")[0];
+      if (VALID_COMMANDS.includes(parent)) {
+        shownAsSubcommand.add(cmd);
+      }
+      continue;
+    }
+    const entry = COMMAND_REGISTRY[cmd];
+    lines.push(`- \`/swarm ${cmd}\` \u2014 ${entry.description}`);
+    if (entry.args) {
+      lines.push(`  Args: \`${entry.args}\``);
+    }
+    if (entry.details) {
+      lines.push(`  ${entry.details}`);
+    }
+    const subcommands = VALID_COMMANDS.filter((sub) => sub.startsWith(`${cmd} `) && sub !== cmd);
+    for (const sub of subcommands) {
+      const subEntry = COMMAND_REGISTRY[sub];
+      const subName = sub.slice(cmd.length + 1);
+      lines.push(`  - \`${subName}\` \u2014 ${subEntry.description}`);
+      if (subEntry.args) {
+        lines.push(`    Args: \`${subEntry.args}\``);
+      }
+      if (subEntry.details) {
+        lines.push(`    ${subEntry.details}`);
+      }
+    }
+  }
+  for (const cmd of VALID_COMMANDS) {
+    if (!cmd.includes(" ") || shownAsSubcommand.has(cmd))
+      continue;
+    const entry = COMMAND_REGISTRY[cmd];
+    lines.push(`- \`/swarm ${cmd}\` \u2014 ${entry.description}`);
+    if (entry.args) {
+      lines.push(`  Args: \`${entry.args}\``);
+    }
+    if (entry.details) {
+      lines.push(`  ${entry.details}`);
+    }
+  }
+  return lines.join(`
 `);
+}
+var HELP_TEXT = buildHelpText();
 function createSwarmCommandHandler(directory, agents) {
   return async (input, output) => {
     if (input.command !== "swarm" && !input.command.startsWith("swarm-")) {
