@@ -1,5 +1,12 @@
 # Changelog
 
+## [6.63.0](https://github.com/zaxbysauce/opencode-swarm/compare/v6.62.0...v6.63.0) (2026-04-11)
+
+
+### Features
+
+* **plan:** wire crash-safe ledger, typed concurrency errors, and task-id validator consolidation ([#467](https://github.com/zaxbysauce/opencode-swarm/issues/467)) ([e9a96eb](https://github.com/zaxbysauce/opencode-swarm/commit/e9a96eb9eaf1972c9be8ed1ec30b08252502a13a))
+
 ## [6.62.0](https://github.com/zaxbysauce/opencode-swarm/compare/v6.61.0...v6.62.0) (2026-04-11)
 
 
