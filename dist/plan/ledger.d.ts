@@ -108,7 +108,7 @@ export declare function readLedgerEvents(directory: string): Promise<LedgerEvent
  * @param directory - The working directory
  * @param planId - Unique identifier for the plan
  */
-export declare function initLedger(directory: string, planId: string, initialPlanHash?: string): Promise<void>;
+export declare function initLedger(directory: string, planId: string, initialPlanHash?: string, initialPlan?: Plan): Promise<void>;
 /**
  * Append a new event to the ledger.
  * Uses atomic write: write to temp file then rename.

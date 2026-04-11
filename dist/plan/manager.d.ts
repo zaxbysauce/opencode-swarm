@@ -1,3 +1,11 @@
+/**
+ * Typed error for concurrent plan modification (#444 item 3).
+ * Thrown when savePlan exhausts CAS retries due to concurrent writers.
+ * Callers can catch this specifically to refresh and retry at the outer level.
+ */
+export declare class PlanConcurrentModificationError extends Error {
+    constructor(message: string);
+}
 import { type Plan, type RuntimePlan, type TaskStatus } from '../config/plan-schema';
 /** Reset the startup ledger check flag. For testing only. */
 export declare function resetStartupLedgerCheck(): void;

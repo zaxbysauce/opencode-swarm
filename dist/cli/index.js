@@ -14222,22 +14222,26 @@ async function readLedgerEvents(directory) {
     return [];
   }
 }
-async function initLedger(directory, planId, initialPlanHash) {
+async function initLedger(directory, planId, initialPlanHash, initialPlan) {
   const ledgerPath = getLedgerPath(directory);
   const planJsonPath = getPlanJsonPath(directory);
   if (fs.existsSync(ledgerPath)) {
     throw new Error("Ledger already initialized. Use appendLedgerEvent to add events.");
   }
   let planHashAfter = initialPlanHash ?? "";
+  let embeddedPlan = initialPlan;
   if (!initialPlanHash) {
     try {
       if (fs.existsSync(planJsonPath)) {
         const content = fs.readFileSync(planJsonPath, "utf8");
         const plan = JSON.parse(content);
         planHashAfter = computePlanHash(plan);
+        if (!embeddedPlan)
+          embeddedPlan = plan;
       }
     } catch {}
   }
+  const payload = embeddedPlan ? { plan: embeddedPlan, payload_hash: planHashAfter } : undefined;
   const event = {
     seq: 1,
     timestamp: new Date().toISOString(),
@@ -14246,7 +14250,8 @@ async function initLedger(directory, planId, initialPlanHash) {
     source: "initLedger",
     plan_hash_before: "",
     plan_hash_after: planHashAfter,
-    schema_version: LEDGER_SCHEMA_VERSION
+    schema_version: LEDGER_SCHEMA_VERSION,
+    ...payload ? { payload } : {}
   };
   fs.mkdirSync(path2.join(directory, ".swarm"), { recursive: true });
   const tempPath = `${ledgerPath}.tmp.${Date.now()}.${Math.floor(Math.random() * 1e9)}`;
@@ -14356,6 +14361,20 @@ async function replayFromLedger(directory, options) {
       return plan2;
     }
   }
+  const createdEvent = relevantEvents.find((e) => e.event_type === "plan_created");
+  if (createdEvent?.payload && typeof createdEvent.payload === "object" && "plan" in createdEvent.payload) {
+    const parseResult = PlanSchema.safeParse(createdEvent.payload.plan);
+    if (parseResult.success) {
+      let plan2 = parseResult.data;
+      const eventsAfterCreated = relevantEvents.filter((e) => e.seq > createdEvent.seq);
+      for (const event of eventsAfterCreated) {
+        if (plan2 === null)
+          return null;
+        plan2 = applyEventToPlan(plan2, event);
+      }
+      return plan2;
+    }
+  }
   const planJsonPath = getPlanJsonPath(directory);
   if (!fs.existsSync(planJsonPath)) {
     return null;
@@ -14378,6 +14397,11 @@ async function replayFromLedger(directory, options) {
 function applyEventToPlan(plan, event) {
   switch (event.event_type) {
     case "plan_created":
+      if (event.payload && typeof event.payload === "object" && "plan" in event.payload) {
+        const parsed = PlanSchema.safeParse(event.payload.plan);
+        if (parsed.success)
+          return parsed.data;
+      }
       return plan;
     case "task_status_changed":
       if (event.task_id && event.to_status) {
@@ -14466,7 +14490,7 @@ var init_ledger = __esm(() => {
 });
 
 // src/plan/manager.ts
-import { copyFileSync, existsSync as existsSync2, renameSync as renameSync2, unlinkSync } from "fs";
+import { copyFileSync, existsSync as existsSync2, readdirSync, renameSync as renameSync2, unlinkSync } from "fs";
 import * as fsPromises from "fs/promises";
 import * as path3 from "path";
 async function loadPlanJsonOnly(directory) {
@@ -14718,35 +14742,53 @@ async function loadPlan(directory) {
     return migrated;
   }
   if (await ledgerExists(directory)) {
-    const rebuilt = await replayFromLedger(directory);
-    if (rebuilt) {
-      await savePlan(directory, rebuilt);
-      return rebuilt;
+    const resolvedDir = path3.resolve(directory);
+    const existingMutex = recoveryMutexes.get(resolvedDir);
+    if (existingMutex) {
+      await existingMutex;
+      const postRecoveryPlan = await loadPlanJsonOnly(directory);
+      if (postRecoveryPlan)
+        return postRecoveryPlan;
     }
+    let resolveRecovery;
+    const mutex = new Promise((r) => {
+      resolveRecovery = r;
+    });
+    recoveryMutexes.set(resolvedDir, mutex);
     try {
-      const anchorEvents = await readLedgerEvents(directory);
-      if (anchorEvents.length === 0) {
-        warn("[loadPlan] Ledger present but no events readable \u2014 refusing approved-snapshot recovery (cannot verify plan identity).");
-        return null;
+      const rebuilt = await replayFromLedger(directory);
+      if (rebuilt) {
+        await savePlan(directory, rebuilt);
+        return rebuilt;
       }
-      const expectedPlanId = anchorEvents[0].plan_id;
-      const approved = await loadLastApprovedPlan(directory, expectedPlanId);
-      if (approved) {
-        const approvedPhase = approved.approval && typeof approved.approval === "object" && "phase" in approved.approval ? approved.approval.phase : undefined;
-        warn(`[loadPlan] Ledger replay returned no plan \u2014 recovered from critic-approved snapshot seq=${approved.seq} timestamp=${approved.timestamp} (approval phase=${approvedPhase ?? "unknown"}). This may roll the plan back to an earlier phase \u2014 verify before continuing.`);
-        await savePlan(directory, approved.plan);
-        try {
-          await takeSnapshotEvent(directory, approved.plan, {
-            source: "recovery_from_approved_snapshot",
-            approvalMetadata: approved.approval
-          });
-        } catch (healError) {
-          warn(`[loadPlan] Recovery-heal snapshot append failed: ${healError instanceof Error ? healError.message : String(healError)}. Next loadPlan may re-enter recovery path.`);
+      try {
+        const anchorEvents = await readLedgerEvents(directory);
+        if (anchorEvents.length === 0) {
+          warn("[loadPlan] Ledger present but no events readable \u2014 refusing approved-snapshot recovery (cannot verify plan identity).");
+          return null;
         }
-        return approved.plan;
+        const expectedPlanId = anchorEvents[0].plan_id;
+        const approved = await loadLastApprovedPlan(directory, expectedPlanId);
+        if (approved) {
+          const approvedPhase = approved.approval && typeof approved.approval === "object" && "phase" in approved.approval ? approved.approval.phase : undefined;
+          warn(`[loadPlan] Ledger replay returned no plan \u2014 recovered from critic-approved snapshot seq=${approved.seq} timestamp=${approved.timestamp} (approval phase=${approvedPhase ?? "unknown"}). This may roll the plan back to an earlier phase \u2014 verify before continuing.`);
+          await savePlan(directory, approved.plan);
+          try {
+            await takeSnapshotEvent(directory, approved.plan, {
+              source: "recovery_from_approved_snapshot",
+              approvalMetadata: approved.approval
+            });
+          } catch (healError) {
+            warn(`[loadPlan] Recovery-heal snapshot append failed: ${healError instanceof Error ? healError.message : String(healError)}. Next loadPlan may re-enter recovery path.`);
+          }
+          return approved.plan;
+        }
+      } catch (recoveryError) {
+        warn(`[loadPlan] Approved-snapshot recovery failed: ${recoveryError instanceof Error ? recoveryError.message : String(recoveryError)}`);
       }
-    } catch (recoveryError) {
-      warn(`[loadPlan] Approved-snapshot recovery failed: ${recoveryError instanceof Error ? recoveryError.message : String(recoveryError)}`);
+    } finally {
+      resolveRecovery();
+      recoveryMutexes.delete(resolvedDir);
     }
   }
   return null;
@@ -14795,7 +14837,7 @@ async function savePlan(directory, plan, options) {
   const planId = `${validated.swarm}-${validated.title}`.replace(/[^a-zA-Z0-9-_]/g, "_");
   const planHashForInit = computePlanHash(validated);
   if (!await ledgerExists(directory)) {
-    await initLedger(directory, planId, planHashForInit);
+    await initLedger(directory, planId, planHashForInit, validated);
   } else {
     const existingEvents = await readLedgerEvents(directory);
     if (existingEvents.length > 0 && existingEvents[0].plan_id !== planId) {
@@ -14814,7 +14856,7 @@ async function savePlan(directory, plan, options) {
       let initSucceeded = false;
       if (backupExists) {
         try {
-          await initLedger(directory, planId, planHashForInit);
+          await initLedger(directory, planId, planHashForInit, validated);
           initSucceeded = true;
         } catch (initErr) {
           const errorMessage = String(initErr);
@@ -14856,6 +14898,19 @@ async function savePlan(directory, plan, options) {
             unlinkSync(oldLedgerBackupPath);
         } catch {}
       }
+      const MAX_ARCHIVED_SIBLINGS = 5;
+      try {
+        const allFiles = readdirSync(swarmDir2);
+        const archivedSiblings = allFiles.filter((f) => f.startsWith("plan-ledger.archived-") && f.endsWith(".jsonl")).sort();
+        if (archivedSiblings.length > MAX_ARCHIVED_SIBLINGS) {
+          const toRemove = archivedSiblings.slice(0, archivedSiblings.length - MAX_ARCHIVED_SIBLINGS);
+          for (const file2 of toRemove) {
+            try {
+              unlinkSync(path3.join(swarmDir2, file2));
+            } catch {}
+          }
+        }
+      } catch {}
     }
   }
   const currentHash = computeCurrentPlanHash(directory);
@@ -14905,7 +14960,7 @@ async function savePlan(directory, plan, options) {
       }
     } catch (error49) {
       if (error49 instanceof LedgerStaleWriterError) {
-        throw new Error(`Concurrent plan modification detected after retries: ${error49.message}. Please retry the operation.`);
+        throw new PlanConcurrentModificationError(`Concurrent plan modification detected after retries: ${error49.message}. Please retry the operation.`);
       }
       throw error49;
     }
@@ -14915,7 +14970,11 @@ async function savePlan(directory, plan, options) {
   if (latestSeq > 0 && latestSeq % SNAPSHOT_INTERVAL === 0) {
     await takeSnapshotEvent(directory, validated, {
       planHashAfter: hashAfter
-    }).catch(() => {});
+    }).catch((err) => {
+      if (process.env.DEBUG_SWARM) {
+        warn(`[savePlan] Periodic snapshot write failed (non-fatal): ${err instanceof Error ? err.message : String(err)}`);
+      }
+    });
   }
   const swarmDir = path3.resolve(directory, ".swarm");
   const planPath = path3.join(swarmDir, "plan.json");
@@ -14928,19 +14987,23 @@ async function savePlan(directory, plan, options) {
       unlinkSync(tempPath);
     } catch {}
   }
-  const contentHash = computePlanContentHash(validated);
-  const markdown = derivePlanMarkdown(validated);
-  const markdownWithHash = `<!-- PLAN_HASH: ${contentHash} -->
-${markdown}`;
-  const mdPath = path3.join(swarmDir, "plan.md");
-  const mdTempPath = path3.join(swarmDir, `plan.md.tmp.${Date.now()}.${Math.floor(Math.random() * 1e9)}`);
   try {
-    await Bun.write(mdTempPath, markdownWithHash);
-    renameSync2(mdTempPath, mdPath);
-  } finally {
+    const contentHash = computePlanContentHash(validated);
+    const markdown = derivePlanMarkdown(validated);
+    const markdownWithHash = `<!-- PLAN_HASH: ${contentHash} -->
+${markdown}`;
+    const mdPath = path3.join(swarmDir, "plan.md");
+    const mdTempPath = path3.join(swarmDir, `plan.md.tmp.${Date.now()}.${Math.floor(Math.random() * 1e9)}`);
     try {
-      unlinkSync(mdTempPath);
-    } catch {}
+      await Bun.write(mdTempPath, markdownWithHash);
+      renameSync2(mdTempPath, mdPath);
+    } finally {
+      try {
+        unlinkSync(mdTempPath);
+      } catch {}
+    }
+  } catch (mdError) {
+    warn(`[savePlan] plan.md write failed (non-fatal, plan.json is authoritative): ${mdError instanceof Error ? mdError.message : String(mdError)}`);
   }
   try {
     const markerPath = path3.join(swarmDir, ".plan-write-marker");
@@ -15250,14 +15313,21 @@ function migrateLegacyPlan(planContent, swarmId) {
   };
   return plan;
 }
-var startupLedgerCheckedWorkspaces;
+var PlanConcurrentModificationError, startupLedgerCheckedWorkspaces, recoveryMutexes;
 var init_manager = __esm(() => {
   init_plan_schema();
   init_utils2();
   init_utils();
   init_spec_hash();
   init_ledger();
+  PlanConcurrentModificationError = class PlanConcurrentModificationError extends Error {
+    constructor(message) {
+      super(message);
+      this.name = "PlanConcurrentModificationError";
+    }
+  };
   startupLedgerCheckedWorkspaces = new Set;
+  recoveryMutexes = new Map;
 });
 
 // src/config/evidence-schema.ts
@@ -15510,44 +15580,51 @@ var init_evidence_schema = __esm(() => {
   });
 });
 
+// src/validation/task-id.ts
+function checkUnsafeChars(taskId) {
+  if (!taskId || taskId.length === 0) {
+    return "Invalid task ID: empty string";
+  }
+  if (/\0/.test(taskId)) {
+    return "Invalid task ID: contains null bytes";
+  }
+  for (let i = 0;i < taskId.length; i++) {
+    if (taskId.charCodeAt(i) < 32) {
+      return "Invalid task ID: contains control characters";
+    }
+  }
+  if (taskId.includes("..") || taskId.includes("/") || taskId.includes("\\")) {
+    return "Invalid task ID: path traversal detected";
+  }
+  return;
+}
+function sanitizeTaskId(taskId) {
+  const unsafeMsg = checkUnsafeChars(taskId);
+  if (unsafeMsg) {
+    throw new Error(unsafeMsg);
+  }
+  if (STRICT_TASK_ID_PATTERN.test(taskId) || RETRO_TASK_ID_REGEX.test(taskId) || INTERNAL_TOOL_ID_REGEX.test(taskId) || GENERAL_TASK_ID_REGEX.test(taskId)) {
+    return taskId;
+  }
+  throw new Error(`Invalid task ID: must be alphanumeric (ASCII) with optional hyphens, underscores, or dots, got "${taskId}"`);
+}
+var STRICT_TASK_ID_PATTERN, RETRO_TASK_ID_REGEX, INTERNAL_TOOL_ID_REGEX, GENERAL_TASK_ID_REGEX;
+var init_task_id = __esm(() => {
+  STRICT_TASK_ID_PATTERN = /^\d+\.\d+(\.\d+)*$/;
+  RETRO_TASK_ID_REGEX = /^retro-\d+$/;
+  INTERNAL_TOOL_ID_REGEX = /^(?:sast_scan|quality_budget|syntax_check|placeholder_scan|sbom_generate|build|secretscan)$/;
+  GENERAL_TASK_ID_REGEX = /^[a-zA-Z0-9][a-zA-Z0-9._-]*$/;
+});
+
 // src/evidence/manager.ts
-import { mkdirSync as mkdirSync2, readdirSync, rmSync, statSync as statSync2 } from "fs";
+import { mkdirSync as mkdirSync2, readdirSync as readdirSync2, rmSync, statSync as statSync2 } from "fs";
 import * as fs3 from "fs/promises";
 import * as path5 from "path";
 function isValidEvidenceType(type) {
   return VALID_EVIDENCE_TYPES.includes(type);
 }
-function sanitizeTaskId(taskId) {
-  if (!taskId || taskId.length === 0) {
-    throw new Error("Invalid task ID: empty string");
-  }
-  if (/\0/.test(taskId)) {
-    throw new Error("Invalid task ID: contains null bytes");
-  }
-  for (let i = 0;i < taskId.length; i++) {
-    if (taskId.charCodeAt(i) < 32) {
-      throw new Error("Invalid task ID: contains control characters");
-    }
-  }
-  if (taskId.includes("..") || taskId.includes("../") || taskId.includes("..\\")) {
-    throw new Error("Invalid task ID: path traversal detected");
-  }
-  if (TASK_ID_REGEX.test(taskId)) {
-    return taskId;
-  }
-  if (RETRO_TASK_ID_REGEX.test(taskId)) {
-    return taskId;
-  }
-  if (INTERNAL_TOOL_ID_REGEX.test(taskId)) {
-    return taskId;
-  }
-  if (GENERAL_TASK_ID_REGEX.test(taskId)) {
-    return taskId;
-  }
-  throw new Error(`Invalid task ID: must be alphanumeric (ASCII) with optional hyphens, underscores, or dots, got "${taskId}"`);
-}
 async function saveEvidence(directory, taskId, evidence) {
-  const sanitizedTaskId = sanitizeTaskId(taskId);
+  const sanitizedTaskId = sanitizeTaskId2(taskId);
   const relativePath = path5.join("evidence", sanitizedTaskId, "evidence.json");
   const evidencePath = validateSwarmPath(directory, relativePath);
   const evidenceDir = path5.dirname(evidencePath);
@@ -15578,9 +15655,14 @@ async function saveEvidence(directory, taskId, evidence) {
       updated_at: now
     };
   }
+  const MAX_BUNDLE_ENTRIES = 100;
+  let entries = [...bundle.entries, evidence];
+  if (entries.length > MAX_BUNDLE_ENTRIES) {
+    entries = entries.slice(entries.length - MAX_BUNDLE_ENTRIES);
+  }
   const updatedBundle = {
     ...bundle,
-    entries: [...bundle.entries, evidence],
+    entries,
     updated_at: new Date().toISOString()
   };
   const bundleJson = JSON.stringify(updatedBundle);
@@ -15625,7 +15707,7 @@ function wrapFlatRetrospective(flatEntry, taskId) {
   };
 }
 async function loadEvidence(directory, taskId) {
-  const sanitizedTaskId = sanitizeTaskId(taskId);
+  const sanitizedTaskId = sanitizeTaskId2(taskId);
   const relativePath = path5.join("evidence", sanitizedTaskId, "evidence.json");
   const evidencePath = validateSwarmPath(directory, relativePath);
   const content = await readSwarmFileAsync(directory, relativePath);
@@ -15679,7 +15761,7 @@ async function listEvidenceTaskIds(directory) {
   }
   let entries;
   try {
-    entries = readdirSync(evidenceBasePath);
+    entries = readdirSync2(evidenceBasePath);
   } catch {
     return [];
   }
@@ -15691,7 +15773,7 @@ async function listEvidenceTaskIds(directory) {
       if (!stats.isDirectory()) {
         continue;
       }
-      sanitizeTaskId(entry);
+      sanitizeTaskId2(entry);
       taskIds.push(entry);
     } catch (error49) {
       if (error49 instanceof Error && !error49.message.startsWith("Invalid task ID")) {
@@ -15702,7 +15784,7 @@ async function listEvidenceTaskIds(directory) {
   return taskIds.sort();
 }
 async function deleteEvidence(directory, taskId) {
-  const sanitizedTaskId = sanitizeTaskId(taskId);
+  const sanitizedTaskId = sanitizeTaskId2(taskId);
   const relativePath = path5.join("evidence", sanitizedTaskId);
   const evidenceDir = validateSwarmPath(directory, relativePath);
   try {
@@ -15764,12 +15846,13 @@ async function archiveEvidence(directory, maxAgeDays, maxBundles) {
   }
   return archived;
 }
-var VALID_EVIDENCE_TYPES, TASK_ID_REGEX, RETRO_TASK_ID_REGEX, INTERNAL_TOOL_ID_REGEX, GENERAL_TASK_ID_REGEX, LEGACY_TASK_COMPLEXITY_MAP;
+var VALID_EVIDENCE_TYPES, sanitizeTaskId2, LEGACY_TASK_COMPLEXITY_MAP;
 var init_manager2 = __esm(() => {
   init_zod();
   init_evidence_schema();
   init_utils2();
   init_utils();
+  init_task_id();
   VALID_EVIDENCE_TYPES = [
     "review",
     "test",
@@ -15785,10 +15868,7 @@ var init_manager2 = __esm(() => {
     "quality_budget",
     "secretscan"
   ];
-  TASK_ID_REGEX = /^\d+\.\d+(\.\d+)*$/;
-  RETRO_TASK_ID_REGEX = /^retro-\d+$/;
-  INTERNAL_TOOL_ID_REGEX = /^(?:sast_scan|quality_budget|syntax_check|placeholder_scan|sbom_generate|build|secretscan)$/;
-  GENERAL_TASK_ID_REGEX = /^[a-zA-Z0-9][a-zA-Z0-9._-]*$/;
+  sanitizeTaskId2 = sanitizeTaskId;
   LEGACY_TASK_COMPLEXITY_MAP = {
     low: "simple",
     medium: "moderate",
@@ -33587,11 +33667,14 @@ async function executeWriteRetro(args, directory) {
   try {
     const allTaskIds = await listEvidenceTaskIds(directory);
     const phaseTaskIds = allTaskIds.filter((id) => id.startsWith(`${phase}.`));
+    const sessionStart = args.metadata && typeof args.metadata.session_start === "string" ? args.metadata.session_start : undefined;
     for (const phaseTaskId of phaseTaskIds) {
       const result = await loadEvidence(directory, phaseTaskId);
       if (result.status !== "found")
         continue;
       const bundle = result.bundle;
+      if (sessionStart && bundle.created_at < sessionStart)
+        continue;
       for (const entry of bundle.entries) {
         const e = entry;
         if (e.type === "review" && e.verdict === "fail") {
@@ -33783,6 +33866,11 @@ async function handleCloseCommand(directory, args) {
       }
     }
   }
+  let sessionStart;
+  try {
+    const swarmStat = await fs6.stat(swarmDir);
+    sessionStart = swarmStat.birthtime.toISOString();
+  } catch {}
   const wrotePhaseRetro = closedPhases.length > 0;
   if (!wrotePhaseRetro && !planExists) {
     try {
@@ -33798,7 +33886,10 @@ async function handleCloseCommand(directory, args) {
         test_failures: 0,
         security_findings: 0,
         integration_issues: 0,
-        metadata: { session_scope: "plan_free" }
+        metadata: {
+          session_scope: "plan_free",
+          ...sessionStart ? { session_start: sessionStart } : {}
+        }
       }, directory);
       try {
         const parsed = JSON.parse(sessionRetroResult);
@@ -33855,7 +33946,8 @@ async function handleCloseCommand(directory, args) {
     }
   }
   const timestamp = new Date().toISOString().replace(/[:.]/g, "-");
-  const archiveDir = path11.join(swarmDir, "archive", `swarm-${timestamp}`);
+  const suffix = Math.random().toString(36).slice(2, 8);
+  const archiveDir = path11.join(swarmDir, "archive", `swarm-${timestamp}-${suffix}`);
   let archiveResult = "";
   let archivedFileCount = 0;
   const archivedActiveStateFiles = new Set;
@@ -34119,11 +34211,23 @@ async function handleCloseCommand(directory, args) {
   if (pruneErrors.length > 0) {
     warnings.push(`Could not prune ${pruneErrors.length} branch(es) (unmerged or checked out): ${pruneErrors.join(", ")}`);
   }
-  const warningMsg = warnings.length > 0 ? `
+  const retroWarnings = warnings.filter((w) => w.includes("Retrospective write") || w.includes("retrospective write") || w.includes("Session retrospective"));
+  const otherWarnings = warnings.filter((w) => !w.includes("Retrospective write") && !w.includes("retrospective write") && !w.includes("Session retrospective"));
+  let warningMsg = "";
+  if (retroWarnings.length > 0) {
+    warningMsg += `
+
+**\u26A0 Retrospective evidence incomplete:**
+${retroWarnings.map((w) => `- ${w}`).join(`
+`)}`;
+  }
+  if (otherWarnings.length > 0) {
+    warningMsg += `
 
 **Warnings:**
-${warnings.map((w) => `- ${w}`).join(`
-`)}` : "";
+${otherWarnings.map((w) => `- ${w}`).join(`
+`)}`;
+  }
   if (planAlreadyDone) {
     return `\u2705 Session finalized. Plan was already in a terminal state \u2014 cleanup and archive applied.
 
@@ -34795,7 +34899,7 @@ async function handleDarkMatterCommand(directory, args) {
 
 // src/services/diagnose-service.ts
 import * as child_process4 from "child_process";
-import { existsSync as existsSync6, readdirSync as readdirSync2, readFileSync as readFileSync5, statSync as statSync3 } from "fs";
+import { existsSync as existsSync6, readdirSync as readdirSync3, readFileSync as readFileSync5, statSync as statSync3 } from "fs";
 import path15 from "path";
 import { fileURLToPath } from "url";
 init_manager2();
@@ -35001,7 +35105,7 @@ async function checkPlanSync(directory, plan) {
 }
 async function checkConfigBackups(directory) {
   try {
-    const files = readdirSync2(directory);
+    const files = readdirSync3(directory);
     const backupCount = files.filter((f) => /\.opencode-swarm\.yaml\.bak/.test(f)).length;
     if (backupCount <= 5) {
       return {
@@ -35467,7 +35571,7 @@ async function getDiagnoseData(directory) {
   checks5.push(await checkCurator(directory));
   try {
     const evidenceDir = path15.join(directory, ".swarm", "evidence");
-    const snapshotFiles = existsSync6(evidenceDir) ? readdirSync2(evidenceDir).filter((f) => f.startsWith("agent-tools-") && f.endsWith(".json")) : [];
+    const snapshotFiles = existsSync6(evidenceDir) ? readdirSync3(evidenceDir).filter((f) => f.startsWith("agent-tools-") && f.endsWith(".json")) : [];
     if (snapshotFiles.length > 0) {
       const latest = snapshotFiles.sort().pop();
       checks5.push({

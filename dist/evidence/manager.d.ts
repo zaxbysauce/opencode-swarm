@@ -36,18 +36,8 @@ export declare function isQualityBudgetEvidence(evidence: Evidence): evidence is
  * Type guard for secretscan evidence
  */
 export declare function isSecretscanEvidence(evidence: Evidence): evidence is SecretscanEvidence;
-/**
- * Validate and sanitize task ID.
- * Accepts four formats:
- * 1. Canonical N.M or N.M.P numeric format (matches TASK_ID_REGEX)
- * 2. Retrospective format: retro-<number> (matches RETRO_TASK_ID_REGEX)
- * 3. Internal automated-tool format: specific tool IDs (sast_scan, quality_budget, etc.)
- * 4. General safe alphanumeric IDs: ASCII letter/digit start, body of letters/digits/dots/hyphens/underscores
- * Rejects: empty string, null bytes, control characters, path traversal (..), spaces, and any
- * character outside the ASCII alphanumeric + [._-] set.
- * @throws Error with descriptive message on failure
- */
-export declare function sanitizeTaskId(taskId: string): string;
+import { sanitizeTaskId as _sanitizeTaskId } from '../validation/task-id';
+export declare const sanitizeTaskId: typeof _sanitizeTaskId;
 /**
  * Save evidence to a task's evidence bundle.
  * Creates new bundle if doesn't exist, appends to existing.
