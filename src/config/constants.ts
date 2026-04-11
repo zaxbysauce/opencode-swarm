@@ -171,6 +171,7 @@ export const AGENT_TOOL_MAP: Record<AgentName, ToolName[]> = {
 		'symbols',
 		'knowledge_recall',
 		'req_coverage',
+		'get_approved_plan',
 	],
 	critic_oversight: [
 		'complexity_hotspots',
@@ -278,6 +279,8 @@ export const TOOL_DESCRIPTIONS: Partial<Record<ToolName, string>> = {
 	suggest_patch:
 		'Reviewer-safe structured patch suggestion tool. Produces context-anchored patch artifacts without file modification. Returns structured diagnostics on context mismatch.',
 	lint_spec: 'validate .swarm/spec.md format and required fields',
+	get_approved_plan:
+		'retrieve the last critic-approved immutable plan snapshot for baseline drift comparison',
 };
 
 // Runtime validation: ensure all tool names in AGENT_TOOL_MAP are registered
