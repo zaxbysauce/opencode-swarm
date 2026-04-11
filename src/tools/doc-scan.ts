@@ -201,7 +201,7 @@ export async function scanDocIndex(
 					const fullPath = path.join(directory, file.path);
 					const stat = fs.statSync(fullPath);
 
-					if (stat.mtimeMs > new Date(existingManifest.scanned_at).getTime()) {
+					if (stat.mtimeMs > file.mtime) {
 						cacheValid = false;
 						break;
 					}
