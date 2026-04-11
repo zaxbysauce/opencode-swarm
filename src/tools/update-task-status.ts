@@ -19,6 +19,7 @@ import {
 	swarmState,
 } from '../state';
 import { telemetry } from '../telemetry.js';
+import { validateTaskIdFormat as _validateTaskIdFormat } from '../validation/task-id';
 import { createSwarmTool } from './create-tool';
 
 /**
@@ -72,8 +73,9 @@ export function validateStatus(status: string): string | undefined {
  * @returns Error message if invalid, undefined if valid
  */
 export function validateTaskId(taskId: string): string | undefined {
-	const taskIdPattern = /^\d+\.\d+(\.\d+)*$/;
-	if (!taskIdPattern.test(taskId)) {
+	const result = _validateTaskIdFormat(taskId);
+	if (result) {
+		// Preserve original error message format expected by callers
 		return `Invalid task_id "${taskId}". Must match pattern N.M or N.M.P (e.g., "1.1", "1.2.3")`;
 	}
 	return undefined;

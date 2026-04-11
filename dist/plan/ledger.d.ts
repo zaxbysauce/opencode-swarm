@@ -108,7 +108,7 @@ export declare function readLedgerEvents(directory: string): Promise<LedgerEvent
  * @param directory - The working directory
  * @param planId - Unique identifier for the plan
  */
-export declare function initLedger(directory: string, planId: string, initialPlanHash?: string): Promise<void>;
+export declare function initLedger(directory: string, planId: string, initialPlanHash?: string, initialPlan?: Plan): Promise<void>;
 /**
  * Append a new event to the ledger.
  * Uses atomic write: write to temp file then rename.
@@ -206,7 +206,7 @@ interface ReplayOptions {
  * @param options - Optional replay options
  * @returns Reconstructed Plan from ledger events, or null if plan.json doesn't exist or ledger is empty
  */
-export declare function replayFromLedger(directory: string, options?: ReplayOptions): Promise<Plan | null>;
+export declare function replayFromLedger(directory: string, _options?: ReplayOptions): Promise<Plan | null>;
 /**
  * Result type for readLedgerEventsWithIntegrity
  */

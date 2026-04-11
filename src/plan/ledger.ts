@@ -8,7 +8,7 @@
 import * as crypto from 'node:crypto';
 import * as fs from 'node:fs';
 import * as path from 'node:path';
-import { type Plan, type Task, TaskStatusSchema } from '../config/plan-schema';
+import { type Plan, PlanSchema, TaskStatusSchema } from '../config/plan-schema';
 
 /**
  * Ledger schema version
@@ -285,6 +285,7 @@ export async function initLedger(
 	directory: string,
 	planId: string,
 	initialPlanHash?: string,
+	initialPlan?: Plan,
 ): Promise<void> {
 	const ledgerPath = getLedgerPath(directory);
 	const planJsonPath = getPlanJsonPath(directory);
@@ -300,17 +301,25 @@ export async function initLedger(
 	// Fall back to reading on-disk plan.json only when no hash is supplied
 	// (e.g., direct calls from tests or external tooling).
 	let planHashAfter = initialPlanHash ?? '';
+	let embeddedPlan: Plan | undefined = initialPlan;
 	if (!initialPlanHash) {
 		try {
 			if (fs.existsSync(planJsonPath)) {
 				const content = fs.readFileSync(planJsonPath, 'utf8');
 				const plan: Plan = JSON.parse(content);
 				planHashAfter = computePlanHash(plan);
+				if (!embeddedPlan) embeddedPlan = plan;
 			}
 		} catch {
 			// If we can't read plan.json, use empty hash
 		}
 	}
+
+	// Embed the full plan in the plan_created event payload so the ledger
+	// is self-sufficient for replay without requiring plan.json (#444 item 4).
+	const payload: Record<string, unknown> | undefined = embeddedPlan
+		? { plan: embeddedPlan, payload_hash: planHashAfter }
+		: undefined;
 
 	const event: LedgerEvent = {
 		seq: 1,
@@ -321,6 +330,7 @@ export async function initLedger(
 		plan_hash_before: '',
 		plan_hash_after: planHashAfter,
 		schema_version: LEDGER_SCHEMA_VERSION,
+		...(payload ? { payload } : {}),
 	};
 
 	// Ensure .swarm/ directory exists
@@ -563,7 +573,7 @@ interface ReplayOptions {
  */
 export async function replayFromLedger(
 	directory: string,
-	options?: ReplayOptions,
+	_options?: ReplayOptions,
 ): Promise<Plan | null> {
 	const events = await readLedgerEvents(directory);
 
@@ -611,7 +621,33 @@ export async function replayFromLedger(
 		}
 	}
 
-	// Fall back to plan.json as base state
+	// Try to bootstrap from plan_created event payload (self-sufficient ledger, #444 item 4)
+	const createdEvent = relevantEvents.find(
+		(e) => e.event_type === 'plan_created',
+	);
+	if (
+		createdEvent?.payload &&
+		typeof createdEvent.payload === 'object' &&
+		'plan' in createdEvent.payload
+	) {
+		// Validate the embedded plan to guard against corrupted/tampered ledger entries
+		const parseResult = PlanSchema.safeParse(createdEvent.payload.plan);
+		if (parseResult.success) {
+			let plan: Plan | null = parseResult.data;
+			// Apply events after the plan_created event
+			const eventsAfterCreated = relevantEvents.filter(
+				(e) => e.seq > createdEvent.seq,
+			);
+			for (const event of eventsAfterCreated) {
+				if (plan === null) return null;
+				plan = applyEventToPlan(plan, event);
+			}
+			return plan;
+		}
+		// Malformed embedded plan — fall through to plan.json-based bootstrap
+	}
+
+	// Fall back to plan.json as base state (legacy ledgers without embedded plan)
 	const planJsonPath = getPlanJsonPath(directory);
 	if (!fs.existsSync(planJsonPath)) {
 		return null;
@@ -648,8 +684,20 @@ export async function replayFromLedger(
 function applyEventToPlan(plan: Plan, event: LedgerEvent): Plan | null {
 	switch (event.event_type) {
 		case 'plan_created':
-			// plan_created event contains metadata but not full plan data
-			// The plan was already loaded from plan.json above
+			// If the plan_created event embeds a full plan payload (post-#444 fix),
+			// use it as the base state. This makes the ledger self-sufficient for
+			// replay without requiring plan.json. Legacy events without payload
+			// fall through to the existing plan.json-based bootstrap.
+			// Validate the embedded plan to guard against corrupted ledger entries.
+			if (
+				event.payload &&
+				typeof event.payload === 'object' &&
+				'plan' in event.payload
+			) {
+				const parsed = PlanSchema.safeParse(event.payload.plan);
+				if (parsed.success) return parsed.data;
+				// Malformed embedded plan — return existing plan unchanged
+			}
 			return plan;
 
 		case 'task_status_changed':

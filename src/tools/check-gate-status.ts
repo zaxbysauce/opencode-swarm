@@ -8,6 +8,7 @@ import * as fs from 'node:fs';
 import * as path from 'node:path';
 import { tool } from '@opencode-ai/plugin';
 import { isSecretscanEvidence, loadEvidence } from '../evidence/manager.js';
+import { isStrictTaskId } from '../validation/task-id';
 import { createSwarmTool } from './create-tool';
 import { resolveWorkingDirectory } from './resolve-working-directory';
 
@@ -40,18 +41,9 @@ interface GateStatusResult {
 	secretscan_verdict?: 'pass' | 'fail' | 'not_run';
 }
 
-// ============ Canonical Task ID Validation ============
-// Align with gate-evidence.ts: allows N.M or N.M.P or N.M.P.Q (any number of segments)
-// Plus security checks: no path traversal (..), no path separators (/, \), no null bytes
-const TASK_ID_PATTERN = /^\d+\.\d+(\.\d+)*$/;
-
+// Task ID validation delegated to shared module (#452 item 2)
 function isValidTaskId(taskId: string): boolean {
-	if (!taskId) return false;
-	if (taskId.includes('..')) return false;
-	if (taskId.includes('/')) return false;
-	if (taskId.includes('\\')) return false;
-	if (taskId.includes('\0')) return false;
-	return TASK_ID_PATTERN.test(taskId);
+	return isStrictTaskId(taskId);
 }
 
 // ============ Path Security ============

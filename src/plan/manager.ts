@@ -1,4 +1,23 @@
-import { copyFileSync, existsSync, renameSync, unlinkSync } from 'node:fs';
+import {
+	copyFileSync,
+	existsSync,
+	readdirSync,
+	renameSync,
+	unlinkSync,
+} from 'node:fs';
+
+/**
+ * Typed error for concurrent plan modification (#444 item 3).
+ * Thrown when savePlan exhausts CAS retries due to concurrent writers.
+ * Callers can catch this specifically to refresh and retry at the outer level.
+ */
+export class PlanConcurrentModificationError extends Error {
+	constructor(message: string) {
+		super(message);
+		this.name = 'PlanConcurrentModificationError';
+	}
+}
+
 import * as fsPromises from 'node:fs/promises';
 import * as path from 'node:path';
 import {
@@ -33,9 +52,15 @@ import {
 // per process lifetime, even when a long-lived process touches multiple repos.
 const startupLedgerCheckedWorkspaces = new Set<string>();
 
+// In-process mutex for the loadPlan recovery path (Step 4b).
+// Prevents two concurrent loadPlan calls from racing through the
+// approved-snapshot recovery and both calling savePlan (#444 item 6).
+const recoveryMutexes = new Map<string, Promise<void>>();
+
 /** Reset the startup ledger check flag. For testing only. */
 export function resetStartupLedgerCheck(): void {
 	startupLedgerCheckedWorkspaces.clear();
+	recoveryMutexes.clear();
 }
 
 /**
@@ -497,74 +522,96 @@ export async function loadPlan(directory: string): Promise<RuntimePlan | null> {
 		return migrated;
 	}
 
-	// Step 4: Neither exists
-	// Try to rebuild from ledger
+	// Step 4: Neither exists — try to rebuild from ledger.
+	// Guarded by an in-process mutex to prevent concurrent loadPlan calls from
+	// racing through recovery and both calling savePlan (#444 item 6).
 	if (await ledgerExists(directory)) {
-		const rebuilt = await replayFromLedger(directory);
-		if (rebuilt) {
-			await savePlan(directory, rebuilt);
-			return rebuilt;
+		const resolvedDir = path.resolve(directory);
+		const existingMutex = recoveryMutexes.get(resolvedDir);
+		if (existingMutex) {
+			// Another call is already recovering — wait for it, then re-check plan.json
+			await existingMutex;
+			const postRecoveryPlan = await loadPlanJsonOnly(directory);
+			if (postRecoveryPlan) return postRecoveryPlan;
 		}
 
-		// Step 4b: ledger replay failed but a critic-approved immutable snapshot
-		// may still exist. This is the last-resort fallback requested by the user:
-		// "allow the architect to fall back to a plan file that cannot be changed".
-		// write_drift_evidence captures these snapshots on every APPROVED verdict,
-		// tagged source='critic_approved'.
-		//
-		// Identity guard: derive the expected plan_id from the ledger's first
-		// event (the `plan_created` anchor written by initLedger) and require
-		// recovered snapshots to match. Without this, a reused workspace whose
-		// ledger contained a stale critic_approved snapshot from a PRIOR swarm
-		// would silently resurrect the wrong plan.
+		let resolveRecovery: () => void;
+		const mutex = new Promise<void>((r) => {
+			resolveRecovery = r;
+		});
+		recoveryMutexes.set(resolvedDir, mutex);
+
 		try {
-			const anchorEvents = await readLedgerEvents(directory);
-			// Empty-events guard: ledgerExists() returned true above, but
-			// readLedgerEvents() can also return [] for an unreadable/corrupt
-			// ledger (silent failure mode in src/plan/ledger.ts). In that
-			// case we have NO authoritative identity to filter by, so refuse
-			// to run the recovery path rather than passing expectedPlanId=
-			// undefined and bypassing the cross-identity guard entirely.
-			if (anchorEvents.length === 0) {
-				warn(
-					'[loadPlan] Ledger present but no events readable — refusing approved-snapshot recovery (cannot verify plan identity).',
-				);
-				return null;
+			const rebuilt = await replayFromLedger(directory);
+			if (rebuilt) {
+				await savePlan(directory, rebuilt);
+				return rebuilt;
 			}
-			const expectedPlanId = anchorEvents[0].plan_id;
-			const approved = await loadLastApprovedPlan(directory, expectedPlanId);
-			if (approved) {
-				const approvedPhase =
-					approved.approval &&
-					typeof approved.approval === 'object' &&
-					'phase' in approved.approval
-						? (approved.approval as { phase?: unknown }).phase
-						: undefined;
-				warn(
-					`[loadPlan] Ledger replay returned no plan — recovered from critic-approved snapshot seq=${approved.seq} timestamp=${approved.timestamp} (approval phase=${approvedPhase ?? 'unknown'}). This may roll the plan back to an earlier phase — verify before continuing.`,
-				);
-				await savePlan(directory, approved.plan);
-				// Heal the ledger tail: append a fresh snapshot so the next
-				// loadPlan call doesn't re-enter this recovery path in a new
-				// process (where the startup-check cache is empty). Without this
-				// the ledger still ends with the event that made replay fail
-				// (e.g. plan_reset), and cross-process loadPlan would loop.
-				try {
-					await takeSnapshotEvent(directory, approved.plan, {
-						source: 'recovery_from_approved_snapshot',
-						approvalMetadata: approved.approval,
-					});
-				} catch (healError) {
+
+			// Step 4b: ledger replay failed but a critic-approved immutable snapshot
+			// may still exist. This is the last-resort fallback requested by the user:
+			// "allow the architect to fall back to a plan file that cannot be changed".
+			// write_drift_evidence captures these snapshots on every APPROVED verdict,
+			// tagged source='critic_approved'.
+			//
+			// Identity guard: derive the expected plan_id from the ledger's first
+			// event (the `plan_created` anchor written by initLedger) and require
+			// recovered snapshots to match. Without this, a reused workspace whose
+			// ledger contained a stale critic_approved snapshot from a PRIOR swarm
+			// would silently resurrect the wrong plan.
+			try {
+				const anchorEvents = await readLedgerEvents(directory);
+				// Empty-events guard: ledgerExists() returned true above, but
+				// readLedgerEvents() can also return [] for an unreadable/corrupt
+				// ledger (silent failure mode in src/plan/ledger.ts). In that
+				// case we have NO authoritative identity to filter by, so refuse
+				// to run the recovery path rather than passing expectedPlanId=
+				// undefined and bypassing the cross-identity guard entirely.
+				if (anchorEvents.length === 0) {
 					warn(
-						`[loadPlan] Recovery-heal snapshot append failed: ${healError instanceof Error ? healError.message : String(healError)}. Next loadPlan may re-enter recovery path.`,
+						'[loadPlan] Ledger present but no events readable — refusing approved-snapshot recovery (cannot verify plan identity).',
 					);
+					return null;
 				}
-				return approved.plan;
+				const expectedPlanId = anchorEvents[0].plan_id;
+				const approved = await loadLastApprovedPlan(directory, expectedPlanId);
+				if (approved) {
+					const approvedPhase =
+						approved.approval &&
+						typeof approved.approval === 'object' &&
+						'phase' in approved.approval
+							? (approved.approval as { phase?: unknown }).phase
+							: undefined;
+					warn(
+						`[loadPlan] Ledger replay returned no plan — recovered from critic-approved snapshot seq=${approved.seq} timestamp=${approved.timestamp} (approval phase=${approvedPhase ?? 'unknown'}). This may roll the plan back to an earlier phase — verify before continuing.`,
+					);
+					await savePlan(directory, approved.plan);
+					// Heal the ledger tail: append a fresh snapshot so the next
+					// loadPlan call doesn't re-enter this recovery path in a new
+					// process (where the startup-check cache is empty). Without this
+					// the ledger still ends with the event that made replay fail
+					// (e.g. plan_reset), and cross-process loadPlan would loop.
+					try {
+						await takeSnapshotEvent(directory, approved.plan, {
+							source: 'recovery_from_approved_snapshot',
+							approvalMetadata: approved.approval,
+						});
+					} catch (healError) {
+						warn(
+							`[loadPlan] Recovery-heal snapshot append failed: ${healError instanceof Error ? healError.message : String(healError)}. Next loadPlan may re-enter recovery path.`,
+						);
+					}
+					return approved.plan;
+				}
+			} catch (recoveryError) {
+				warn(
+					`[loadPlan] Approved-snapshot recovery failed: ${recoveryError instanceof Error ? recoveryError.message : String(recoveryError)}`,
+				);
 			}
-		} catch (recoveryError) {
-			warn(
-				`[loadPlan] Approved-snapshot recovery failed: ${recoveryError instanceof Error ? recoveryError.message : String(recoveryError)}`,
-			);
+		} finally {
+			// Release recovery mutex
+			resolveRecovery!();
+			recoveryMutexes.delete(resolvedDir);
 		}
 	}
 	return null;
@@ -638,7 +685,12 @@ export async function savePlan(
 		}
 	}
 
-	// LEDGER-FIRST: Append task_updated events before writing projections
+	// LEDGER-FIRST: Append task_updated events before writing projections.
+	// The ledger is the source of truth; plan.json is a projection.
+	// If the process crashes between ledger append and plan.json write, the
+	// ledger has events ahead of plan.json. On next startup, the hash-mismatch
+	// detector rebuilds plan.json from ledger. The plan_created event embeds
+	// the full plan so replayFromLedger can bootstrap without plan.json (#444).
 	// Load current plan for comparison and ledger initialization
 	const currentPlan = await loadPlanJsonOnly(directory);
 
@@ -657,7 +709,7 @@ export async function savePlan(
 	// the init event would capture the OLD plan's hash.
 	const planHashForInit = computePlanHash(validated);
 	if (!(await ledgerExists(directory))) {
-		await initLedger(directory, planId, planHashForInit);
+		await initLedger(directory, planId, planHashForInit, validated);
 	} else {
 		const existingEvents = await readLedgerEvents(directory);
 		if (existingEvents.length > 0 && existingEvents[0].plan_id !== planId) {
@@ -700,7 +752,7 @@ export async function savePlan(
 
 			if (backupExists) {
 				try {
-					await initLedger(directory, planId, planHashForInit);
+					await initLedger(directory, planId, planHashForInit, validated);
 					initSucceeded = true;
 				} catch (initErr) {
 					// Another concurrent savePlan already initialized the new ledger — that is fine.
@@ -769,6 +821,34 @@ export async function savePlan(
 				} catch {
 					/* best effort */
 				}
+			}
+
+			// Sweep stale archived ledger siblings to prevent accumulation (#444 item 5).
+			// Only runs after identity-mismatch archival (not on every savePlan call).
+			const MAX_ARCHIVED_SIBLINGS = 5;
+			try {
+				const allFiles = readdirSync(swarmDir);
+				const archivedSiblings = allFiles
+					.filter(
+						(f) =>
+							f.startsWith('plan-ledger.archived-') && f.endsWith('.jsonl'),
+					)
+					.sort(); // Lexicographic sort — older timestamps come first
+				if (archivedSiblings.length > MAX_ARCHIVED_SIBLINGS) {
+					const toRemove = archivedSiblings.slice(
+						0,
+						archivedSiblings.length - MAX_ARCHIVED_SIBLINGS,
+					);
+					for (const file of toRemove) {
+						try {
+							unlinkSync(path.join(swarmDir, file));
+						} catch {
+							/* best effort */
+						}
+					}
+				}
+			} catch {
+				/* readdir failure is non-blocking */
 			}
 		}
 	}
@@ -842,7 +922,7 @@ export async function savePlan(
 			}
 		} catch (error) {
 			if (error instanceof LedgerStaleWriterError) {
-				throw new Error(
+				throw new PlanConcurrentModificationError(
 					`Concurrent plan modification detected after retries: ${error.message}. Please retry the operation.`,
 				);
 			}
@@ -856,7 +936,13 @@ export async function savePlan(
 	if (latestSeq > 0 && latestSeq % SNAPSHOT_INTERVAL === 0) {
 		await takeSnapshotEvent(directory, validated, {
 			planHashAfter: hashAfter,
-		}).catch(() => {});
+		}).catch((err) => {
+			if (process.env.DEBUG_SWARM) {
+				warn(
+					`[savePlan] Periodic snapshot write failed (non-fatal): ${err instanceof Error ? err.message : String(err)}`,
+				);
+			}
+		});
 	}
 
 	const swarmDir = path.resolve(directory, '.swarm');
@@ -878,24 +964,31 @@ export async function savePlan(
 		}
 	}
 
-	// Derive and write markdown atomically (with content hash for sync detection)
-	const contentHash = computePlanContentHash(validated);
-	const markdown = derivePlanMarkdown(validated);
-	const markdownWithHash = `<!-- PLAN_HASH: ${contentHash} -->\n${markdown}`;
-	const mdPath = path.join(swarmDir, 'plan.md');
-	const mdTempPath = path.join(
-		swarmDir,
-		`plan.md.tmp.${Date.now()}.${Math.floor(Math.random() * 1e9)}`,
-	);
+	// Derive and write markdown atomically (with content hash for sync detection).
+	// plan.md is a derived/advisory projection — failure here should not fail savePlan (#444 item 2).
 	try {
-		await Bun.write(mdTempPath, markdownWithHash);
-		renameSync(mdTempPath, mdPath);
-	} finally {
+		const contentHash = computePlanContentHash(validated);
+		const markdown = derivePlanMarkdown(validated);
+		const markdownWithHash = `<!-- PLAN_HASH: ${contentHash} -->\n${markdown}`;
+		const mdPath = path.join(swarmDir, 'plan.md');
+		const mdTempPath = path.join(
+			swarmDir,
+			`plan.md.tmp.${Date.now()}.${Math.floor(Math.random() * 1e9)}`,
+		);
 		try {
-			unlinkSync(mdTempPath);
-		} catch {
-			/* already renamed or never created */
+			await Bun.write(mdTempPath, markdownWithHash);
+			renameSync(mdTempPath, mdPath);
+		} finally {
+			try {
+				unlinkSync(mdTempPath);
+			} catch {
+				/* already renamed or never created */
+			}
 		}
+	} catch (mdError) {
+		warn(
+			`[savePlan] plan.md write failed (non-fatal, plan.json is authoritative): ${mdError instanceof Error ? mdError.message : String(mdError)}`,
+		);
 	}
 
 	// Advisory: write marker file for plan-manager write detection
@@ -991,14 +1084,6 @@ export async function updateTaskStatus(
 	taskId: string,
 	status: TaskStatus,
 ): Promise<Plan> {
-	const plan = await loadPlan(directory);
-	if (plan === null) {
-		throw new Error(`Plan not found in directory: ${directory}`);
-	}
-
-	// Find task by ID
-	let taskFound = false;
-
 	const derivePhaseStatusFromTasks = (tasks: Task[]): Phase['status'] => {
 		if (
 			tasks.length > 0 &&
@@ -1018,28 +1103,56 @@ export async function updateTaskStatus(
 		return 'pending';
 	};
 
-	const updatedPhases: Phase[] = plan.phases.map((phase) => {
-		const updatedTasks: Task[] = phase.tasks.map((task) => {
-			if (task.id === taskId) {
-				taskFound = true;
-				return { ...task, status };
-			}
-			return task;
-		});
-		return {
-			...phase,
-			status: derivePhaseStatusFromTasks(updatedTasks),
-			tasks: updatedTasks,
-		};
-	});
+	// Retry once on concurrent modification (#444 item 3).
+	// If another writer changed the plan between our load and save,
+	// refresh the plan and retry with the latest state.
+	const MAX_OUTER_RETRIES = 1;
+	for (let attempt = 0; attempt <= MAX_OUTER_RETRIES; attempt++) {
+		const plan = await loadPlan(directory);
+		if (plan === null) {
+			throw new Error(`Plan not found in directory: ${directory}`);
+		}
 
-	if (!taskFound) {
-		throw new Error(`Task not found: ${taskId}`);
+		let taskFound = false;
+		const updatedPhases: Phase[] = plan.phases.map((phase) => {
+			const updatedTasks: Task[] = phase.tasks.map((task) => {
+				if (task.id === taskId) {
+					taskFound = true;
+					return { ...task, status };
+				}
+				return task;
+			});
+			return {
+				...phase,
+				status: derivePhaseStatusFromTasks(updatedTasks),
+				tasks: updatedTasks,
+			};
+		});
+
+		if (!taskFound) {
+			throw new Error(`Task not found: ${taskId}`);
+		}
+
+		const updatedPlan: Plan = { ...plan, phases: updatedPhases };
+		try {
+			await savePlan(directory, updatedPlan, {
+				preserveCompletedStatuses: true,
+			});
+			return updatedPlan;
+		} catch (error) {
+			if (
+				error instanceof PlanConcurrentModificationError &&
+				attempt < MAX_OUTER_RETRIES
+			) {
+				// Retry with fresh plan state
+				continue;
+			}
+			throw error;
+		}
 	}
 
-	const updatedPlan: Plan = { ...plan, phases: updatedPhases };
-	await savePlan(directory, updatedPlan, { preserveCompletedStatuses: true });
-	return updatedPlan;
+	// Unreachable — loop always returns or throws
+	throw new Error('updateTaskStatus: unexpected loop exit');
 }
 
 /**
