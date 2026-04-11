@@ -174,10 +174,9 @@ describe('get_approved_plan integration: full drift detection flow', () => {
 		});
 
 		const result = JSON.parse(
-			await get_approved_plan.execute(
-				{ summary_only: true },
-				{ directory: dir } as never,
-			),
+			await get_approved_plan.execute({ summary_only: true }, {
+				directory: dir,
+			} as never),
 		);
 		expect(result.success).toBe(true);
 		expect(result.approved_plan.plan.phase_count).toBe(1);

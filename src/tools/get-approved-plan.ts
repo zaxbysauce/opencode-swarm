@@ -108,15 +108,54 @@ export async function executeGetApprovedPlan(
 ): Promise<GetApprovedPlanResult> {
 	// Step 1: Load current plan to derive plan_id for cross-identity safety
 	const currentPlan = await loadPlanJsonOnly(directory);
-	const expectedPlanId = currentPlan ? derivePlanId(currentPlan) : undefined;
 
-	// Step 2: Load the most recent critic-approved snapshot
+	// Step 2: If plan.json is unavailable, fail closed — never do an unscoped
+	// snapshot read, as it could return a foreign plan identity's snapshot in
+	// mixed-identity ledgers.
+	if (!currentPlan) {
+		// Attempt unscoped lookup ONLY to distinguish "no snapshots at all"
+		// from "snapshots exist but we can't verify identity"
+		const anySnapshot = await loadLastApprovedPlan(directory);
+		if (anySnapshot) {
+			return {
+				success: true,
+				approved_plan: undefined,
+				current_plan: null,
+				drift_detected: 'unknown',
+				current_plan_error: 'plan.json not found or invalid',
+			};
+		}
+		return {
+			success: false,
+			reason: 'no_approved_snapshot',
+		};
+	}
+
+	const expectedPlanId = derivePlanId(currentPlan);
+
+	// Step 3: Load the most recent critic-approved snapshot (identity-scoped)
 	const approved: ApprovedSnapshotInfo | null = await loadLastApprovedPlan(
 		directory,
 		expectedPlanId,
 	);
 
+	// Step 4: If scoped lookup finds nothing, check if unscoped lookup would
+	// find a snapshot — that means plan identity (swarm/title) was mutated
+	// post-approval, which is itself a form of tampering.
 	if (!approved) {
+		const unscopedSnapshot = await loadLastApprovedPlan(directory);
+		if (unscopedSnapshot) {
+			return {
+				success: true,
+				approved_plan: undefined,
+				current_plan: null,
+				drift_detected: true,
+				current_plan_error:
+					'Plan identity (swarm/title) was mutated after approval — ' +
+					`expected plan_id '${expectedPlanId}' but approved snapshot has a different identity. ` +
+					'This is a form of plan tampering.',
+			};
+		}
 		return {
 			success: false,
 			reason: 'no_approved_snapshot',
@@ -125,7 +164,7 @@ export async function executeGetApprovedPlan(
 
 	const summaryOnly = args.summary_only === true;
 
-	// Step 3: Build approved plan payload
+	// Step 5: Build approved plan payload
 	const approvedPayload: ApprovedPlanPayload = {
 		plan: summaryOnly ? summarizePlan(approved.plan) : approved.plan,
 		approval_metadata: approved.approval,
@@ -134,17 +173,7 @@ export async function executeGetApprovedPlan(
 		payload_hash: approved.payloadHash,
 	};
 
-	// Step 4: Compare against current plan if available
-	if (!currentPlan) {
-		return {
-			success: true,
-			approved_plan: approvedPayload,
-			current_plan: null,
-			drift_detected: 'unknown',
-			current_plan_error: 'plan.json not found or invalid',
-		};
-	}
-
+	// Step 6: Compare against current plan
 	const currentHash = computePlanHash(currentPlan);
 	const driftDetected = currentHash !== approved.payloadHash;
 

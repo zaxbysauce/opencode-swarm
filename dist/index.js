@@ -67444,9 +67444,35 @@ function derivePlanId(plan) {
 }
 async function executeGetApprovedPlan(args2, directory) {
   const currentPlan = await loadPlanJsonOnly(directory);
-  const expectedPlanId = currentPlan ? derivePlanId(currentPlan) : undefined;
+  if (!currentPlan) {
+    const anySnapshot = await loadLastApprovedPlan(directory);
+    if (anySnapshot) {
+      return {
+        success: true,
+        approved_plan: undefined,
+        current_plan: null,
+        drift_detected: "unknown",
+        current_plan_error: "plan.json not found or invalid"
+      };
+    }
+    return {
+      success: false,
+      reason: "no_approved_snapshot"
+    };
+  }
+  const expectedPlanId = derivePlanId(currentPlan);
   const approved = await loadLastApprovedPlan(directory, expectedPlanId);
   if (!approved) {
+    const unscopedSnapshot = await loadLastApprovedPlan(directory);
+    if (unscopedSnapshot) {
+      return {
+        success: true,
+        approved_plan: undefined,
+        current_plan: null,
+        drift_detected: true,
+        current_plan_error: "Plan identity (swarm/title) was mutated after approval \u2014 " + `expected plan_id '${expectedPlanId}' but approved snapshot has a different identity. ` + "This is a form of plan tampering."
+      };
+    }
     return {
       success: false,
       reason: "no_approved_snapshot"
@@ -67460,15 +67486,6 @@ async function executeGetApprovedPlan(args2, directory) {
     snapshot_timestamp: approved.timestamp,
     payload_hash: approved.payloadHash
   };
-  if (!currentPlan) {
-    return {
-      success: true,
-      approved_plan: approvedPayload,
-      current_plan: null,
-      drift_detected: "unknown",
-      current_plan_error: "plan.json not found or invalid"
-    };
-  }
   const currentHash = computePlanHash(currentPlan);
   const driftDetected = currentHash !== approved.payloadHash;
   const currentPayload = {

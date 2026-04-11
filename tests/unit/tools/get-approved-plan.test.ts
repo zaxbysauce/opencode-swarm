@@ -230,16 +230,14 @@ describe('get_approved_plan tool', () => {
 			// Snapshot found without identity filter
 			expect(result.drift_detected).toBe('unknown');
 			expect(result.current_plan).toBeNull();
-			expect(result.current_plan_error).toBe(
-				'plan.json not found or invalid',
-			);
+			expect(result.current_plan_error).toBe('plan.json not found or invalid');
 		} else {
 			// If no snapshot found (identity filter excluded it), that's also valid
 			expect(result.reason).toBe('no_approved_snapshot');
 		}
 	});
 
-	test('cross-identity safety: ignores snapshots from different plan identity', async () => {
+	test('cross-identity safety: detects identity mutation as tampering', async () => {
 		// Write an approved snapshot for a DIFFERENT plan
 		const foreignPlan = createTestPlan({
 			title: 'Foreign Plan',
@@ -250,12 +248,14 @@ describe('get_approved_plan tool', () => {
 			approvalMetadata: { phase: 1, verdict: 'APPROVED' },
 		});
 
-		// Current plan.json has a different identity
+		// Current plan.json has a different identity — the scoped lookup
+		// finds nothing, but unscoped finds the foreign snapshot, indicating
+		// plan identity was mutated (tampering).
 		const result = await executeGetApprovedPlan({}, dir);
 
-		// The foreign snapshot should be filtered out by plan_id mismatch
-		expect(result.success).toBe(false);
-		expect(result.reason).toBe('no_approved_snapshot');
+		expect(result.success).toBe(true);
+		expect(result.drift_detected).toBe(true);
+		expect(result.current_plan_error).toContain('mutated after approval');
 	});
 
 	test('returns the latest approved snapshot when multiple exist', async () => {
