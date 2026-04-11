@@ -1166,6 +1166,8 @@ function buildSlashCommandsList(): string {
 			'config',
 			'benchmark',
 			'export',
+			'evidence',
+			'evidence summary',
 			'retrieve',
 		],
 		Knowledge: [

@@ -54396,6 +54396,8 @@ function buildSlashCommandsList() {
       "config",
       "benchmark",
       "export",
+      "evidence",
+      "evidence summary",
       "retrieve"
     ],
     Knowledge: [
