@@ -5,6 +5,7 @@
 
 import { afterEach, beforeEach, describe, expect, it } from 'bun:test';
 import * as fs from 'node:fs';
+import { tmpdir } from 'node:os';
 import * as path from 'node:path';
 import { swarmState } from '../state';
 import {
@@ -25,7 +26,7 @@ const mockAgents = {
 
 // Helper to create a temp directory with a plan file
 function createTempPlanDir(planContent: string): string {
-	const tempDir = Bun.env.TEMP_DIR || '/tmp';
+	const tempDir = Bun.env.TEMP_DIR || tmpdir();
 	const dir = `${tempDir}/status-test-${Date.now()}`;
 	// Create the .swarm directory
 	fs.mkdirSync(path.join(dir, '.swarm'), { recursive: true });
@@ -273,7 +274,7 @@ describe('StatusService - Turbo Mode Indicator', () => {
 			}
 
 			// Create a minimal legacy plan.md (not JSON)
-			const tempDir = Bun.env.TEMP_DIR || '/tmp';
+			const tempDir = Bun.env.TEMP_DIR || tmpdir();
 			const dir = `${tempDir}/status-legacy-test-${Date.now()}`;
 			fs.mkdirSync(path.join(dir, '.swarm'), { recursive: true });
 			fs.writeFileSync(
@@ -299,7 +300,7 @@ describe('StatusService - Turbo Mode Indicator', () => {
 			}
 
 			// Create a minimal legacy plan.md
-			const tempDir = Bun.env.TEMP_DIR || '/tmp';
+			const tempDir = Bun.env.TEMP_DIR || tmpdir();
 			const dir = `${tempDir}/status-legacy-test-off-${Date.now()}`;
 			fs.mkdirSync(path.join(dir, '.swarm'), { recursive: true });
 			fs.writeFileSync(
@@ -327,7 +328,7 @@ describe('StatusService - Turbo Mode Indicator', () => {
 			}
 
 			// Create a legacy plan.md to test the full output path (the code falls back to plan.md)
-			const tempDir = Bun.env.TEMP_DIR || '/tmp';
+			const tempDir = Bun.env.TEMP_DIR || tmpdir();
 			const dir = `${tempDir}/status-e2e-test-${Date.now()}`;
 			fs.mkdirSync(path.join(dir, '.swarm'), { recursive: true });
 			fs.writeFileSync(
@@ -356,7 +357,7 @@ describe('StatusService - Turbo Mode Indicator', () => {
 			}
 
 			// Create a legacy plan.md to test the full output path
-			const tempDir = Bun.env.TEMP_DIR || '/tmp';
+			const tempDir = Bun.env.TEMP_DIR || tmpdir();
 			const dir = `${tempDir}/status-e2e-test-off-${Date.now()}`;
 			fs.mkdirSync(path.join(dir, '.swarm'), { recursive: true });
 			fs.writeFileSync(

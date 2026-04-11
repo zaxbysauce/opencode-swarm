@@ -8,6 +8,7 @@ import * as path from 'node:path';
 import { type ToolDefinition, tool } from '@opencode-ai/plugin/tool';
 import type { TaskStatus } from '../config/plan-schema';
 import { stripKnownSwarmPrefix } from '../config/schema';
+import { validateTaskIdFormat as _validateTaskIdFormat } from '../validation/task-id';
 import { readTaskEvidenceRaw } from '../gate-evidence.js';
 import { validateDiffScope } from '../hooks/diff-scope';
 import { tryAcquireLock } from '../parallel/file-locks.js';
@@ -72,8 +73,9 @@ export function validateStatus(status: string): string | undefined {
  * @returns Error message if invalid, undefined if valid
  */
 export function validateTaskId(taskId: string): string | undefined {
-	const taskIdPattern = /^\d+\.\d+(\.\d+)*$/;
-	if (!taskIdPattern.test(taskId)) {
+	const result = _validateTaskIdFormat(taskId);
+	if (result) {
+		// Preserve original error message format expected by callers
 		return `Invalid task_id "${taskId}". Must match pattern N.M or N.M.P (e.g., "1.1", "1.2.3")`;
 	}
 	return undefined;

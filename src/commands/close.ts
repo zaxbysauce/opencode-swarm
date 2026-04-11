@@ -194,6 +194,16 @@ export async function handleCloseCommand(
 		}
 	}
 
+	// Derive session start time from .swarm directory birthtime for session-scoping.
+	// This prevents taxonomy noise from residual evidence bundles of prior sessions (#444 item 9).
+	let sessionStart: string | undefined;
+	try {
+		const swarmStat = await fs.stat(swarmDir);
+		sessionStart = swarmStat.birthtime.toISOString();
+	} catch {
+		// stat failure is non-blocking — session_start will be omitted
+	}
+
 	// Session-level retrospective for plan-free closes. The user's original ask
 	// included "run retrospective" — the per-phase loop above skips this case
 	// because there are no phases. We write a dedicated retro-session bundle so
@@ -216,7 +226,10 @@ export async function handleCloseCommand(
 					test_failures: 0,
 					security_findings: 0,
 					integration_issues: 0,
-					metadata: { session_scope: 'plan_free' },
+					metadata: {
+						session_scope: 'plan_free',
+						...(sessionStart ? { session_start: sessionStart } : {}),
+					},
 				},
 				directory,
 			);
@@ -299,7 +312,8 @@ export async function handleCloseCommand(
 
 	// ─── STAGE 2: ARCHIVE ────────────────────────────────────────────
 	const timestamp = new Date().toISOString().replace(/[:.]/g, '-');
-	const archiveDir = path.join(swarmDir, 'archive', `swarm-${timestamp}`);
+	const suffix = Math.random().toString(36).slice(2, 8);
+	const archiveDir = path.join(swarmDir, 'archive', `swarm-${timestamp}-${suffix}`);
 	let archiveResult = '';
 	let archivedFileCount = 0;
 	/** Track which active-state files were successfully backed up to the archive.
@@ -711,10 +725,26 @@ export async function handleCloseCommand(
 		);
 	}
 
-	const warningMsg =
-		warnings.length > 0
-			? `\n\n**Warnings:**\n${warnings.map((w) => `- ${w}`).join('\n')}`
-			: '';
+	// Separate retro-specific warnings for prominent display
+	const retroWarnings = warnings.filter(
+		(w) =>
+			w.includes('Retrospective write') ||
+			w.includes('retrospective write') ||
+			w.includes('Session retrospective'),
+	);
+	const otherWarnings = warnings.filter(
+		(w) =>
+			!w.includes('Retrospective write') &&
+			!w.includes('retrospective write') &&
+			!w.includes('Session retrospective'),
+	);
+	let warningMsg = '';
+	if (retroWarnings.length > 0) {
+		warningMsg += `\n\n**⚠ Retrospective evidence incomplete:**\n${retroWarnings.map((w) => `- ${w}`).join('\n')}`;
+	}
+	if (otherWarnings.length > 0) {
+		warningMsg += `\n\n**Warnings:**\n${otherWarnings.map((w) => `- ${w}`).join('\n')}`;
+	}
 
 	if (planAlreadyDone) {
 		return `✅ Session finalized. Plan was already in a terminal state — cleanup and archive applied.\n\n**Archive:** ${archiveResult}\n**Git:** ${gitAlignResult}${warningMsg}`;
