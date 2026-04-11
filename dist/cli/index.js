@@ -33673,7 +33673,7 @@ async function executeWriteRetro(args, directory) {
       if (result.status !== "found")
         continue;
       const bundle = result.bundle;
-      if (sessionStart && bundle.created_at < sessionStart)
+      if (sessionStart && bundle.updated_at < sessionStart)
         continue;
       for (const entry of bundle.entries) {
         const e = entry;
@@ -33867,10 +33867,17 @@ async function handleCloseCommand(directory, args) {
     }
   }
   let sessionStart;
-  try {
-    const swarmStat = await fs6.stat(swarmDir);
-    sessionStart = swarmStat.birthtime.toISOString();
-  } catch {}
+  {
+    let earliest = Infinity;
+    for (const [, session] of swarmState.agentSessions) {
+      if (session.lastAgentEventTime > 0 && session.lastAgentEventTime < earliest) {
+        earliest = session.lastAgentEventTime;
+      }
+    }
+    if (earliest < Infinity) {
+      sessionStart = new Date(earliest).toISOString();
+    }
+  }
   const wrotePhaseRetro = closedPhases.length > 0;
   if (!wrotePhaseRetro && !planExists) {
     try {

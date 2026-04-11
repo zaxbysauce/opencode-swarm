@@ -506,8 +506,10 @@ export async function executeWriteRetro(
 			const result = await loadEvidence(directory, phaseTaskId);
 			if (result.status !== 'found') continue;
 			const bundle = result.bundle;
-			// Skip bundles created before the current session
-			if (sessionStart && bundle.created_at < sessionStart) continue;
+			// Skip bundles not updated since the current session started.
+			// Uses updated_at (refreshed on every append) rather than created_at
+			// (set once at bundle creation) so bundles with new entries are included.
+			if (sessionStart && bundle.updated_at < sessionStart) continue;
 
 			// Scan entries for rejection/failure patterns
 			for (const entry of bundle.entries) {

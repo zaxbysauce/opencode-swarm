@@ -194,14 +194,22 @@ export async function handleCloseCommand(
 		}
 	}
 
-	// Derive session start time from .swarm directory birthtime for session-scoping.
+	// Derive session start time for session-scoping.
 	// This prevents taxonomy noise from residual evidence bundles of prior sessions (#444 item 9).
+	// Use the earliest lastAgentEventTime from in-memory swarmState — this is reliable because
+	// it reflects the current process's session lifecycle and is not affected by .swarm/ directory
+	// persistence across /swarm close cycles (the directory is preserved, only files are removed).
 	let sessionStart: string | undefined;
-	try {
-		const swarmStat = await fs.stat(swarmDir);
-		sessionStart = swarmStat.birthtime.toISOString();
-	} catch {
-		// stat failure is non-blocking — session_start will be omitted
+	{
+		let earliest = Infinity;
+		for (const [, session] of swarmState.agentSessions) {
+			if (session.lastAgentEventTime > 0 && session.lastAgentEventTime < earliest) {
+				earliest = session.lastAgentEventTime;
+			}
+		}
+		if (earliest < Infinity) {
+			sessionStart = new Date(earliest).toISOString();
+		}
 	}
 
 	// Session-level retrospective for plan-free closes. The user's original ask
