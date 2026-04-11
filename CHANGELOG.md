@@ -1,5 +1,12 @@
 # Changelog
 
+## [6.62.0](https://github.com/zaxbysauce/opencode-swarm/compare/v6.61.0...v6.62.0) (2026-04-11)
+
+
+### Features
+
+* **critic:** expose loadLastApprovedPlan as get_approved_plan tool for drift comparison ([#458](https://github.com/zaxbysauce/opencode-swarm/issues/458)) ([68402ab](https://github.com/zaxbysauce/opencode-swarm/commit/68402ab1da38b556b45108f1041342fbe4fa779a))
+
 ## [6.61.0](https://github.com/zaxbysauce/opencode-swarm/compare/v6.60.1...v6.61.0) (2026-04-11)
 
 
