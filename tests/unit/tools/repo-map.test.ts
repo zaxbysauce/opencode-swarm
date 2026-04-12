@@ -1,7 +1,7 @@
+import { afterEach, beforeEach, describe, expect, it } from 'bun:test';
 import * as fs from 'node:fs';
 import * as os from 'node:os';
 import * as path from 'node:path';
-import { afterEach, beforeEach, describe, expect, it } from 'bun:test';
 import { repo_map } from '../../../src/tools/repo-map';
 
 let tmp: string;
@@ -46,9 +46,7 @@ describe('repo_map: build', () => {
 		expect(result.success).toBe(true);
 		expect(result.fileCount).toBe(2);
 		expect(result.edgeCount).toBeGreaterThanOrEqual(1);
-		expect(
-			fs.existsSync(path.join(tmp, '.swarm/repo-graph.json')),
-		).toBe(true);
+		expect(fs.existsSync(path.join(tmp, '.swarm/repo-graph.json'))).toBe(true);
 	});
 
 	it('returns a structured error envelope when build fails (no JSON throw)', async () => {

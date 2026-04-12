@@ -50,11 +50,7 @@ export function getCachedGraph(directory: string): RepoGraph | null {
 		return null;
 	}
 	const cached = cache.get(directory);
-	if (
-		cached &&
-		cached.mtimeMs === stat.mtimeMs &&
-		cached.size === stat.size
-	) {
+	if (cached && cached.mtimeMs === stat.mtimeMs && cached.size === stat.size) {
 		return cached.graph;
 	}
 	const graph = loadGraph(directory);

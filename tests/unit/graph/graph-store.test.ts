@@ -1,14 +1,14 @@
+import { afterEach, beforeEach, describe, expect, it } from 'bun:test';
 import * as fs from 'node:fs';
 import * as os from 'node:os';
 import * as path from 'node:path';
-import { afterEach, beforeEach, describe, expect, it } from 'bun:test';
+import { getImporters } from '../../../src/graph/graph-query';
 import {
 	buildAndSaveGraph,
 	loadGraph,
 	saveGraph,
 	updateGraphIncremental,
 } from '../../../src/graph/graph-store';
-import { getImporters } from '../../../src/graph/graph-query';
 
 let tmp: string;
 
@@ -46,19 +46,14 @@ describe('saveGraph', () => {
 			}),
 		).toThrow();
 
-		const orphans = fs
-			.readdirSync(swarmDir)
-			.filter((n) => n.includes('.tmp.'));
+		const orphans = fs.readdirSync(swarmDir).filter((n) => n.includes('.tmp.'));
 		expect(orphans).toEqual([]);
 	});
 });
 
 describe('updateGraphIncremental', () => {
 	it('invalidates the cached reverse-edge index after in-place mutation', async () => {
-		fs.writeFileSync(
-			path.join(tmp, 'src/util.ts'),
-			'export const u = 1;\n',
-		);
+		fs.writeFileSync(path.join(tmp, 'src/util.ts'), 'export const u = 1;\n');
 		fs.writeFileSync(
 			path.join(tmp, 'src/main.ts'),
 			"import { u } from './util';\nconsole.log(u);\n",
@@ -85,10 +80,7 @@ describe('updateGraphIncremental', () => {
 	});
 
 	it('round-trips loadGraph after save', async () => {
-		fs.writeFileSync(
-			path.join(tmp, 'src/x.ts'),
-			'export const x = 1;\n',
-		);
+		fs.writeFileSync(path.join(tmp, 'src/x.ts'), 'export const x = 1;\n');
 		const built = await buildAndSaveGraph(tmp);
 		const loaded = loadGraph(tmp);
 		expect(loaded).not.toBeNull();

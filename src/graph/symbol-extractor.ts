@@ -1,8 +1,5 @@
 import * as path from 'node:path';
-import {
-	extractPythonSymbols,
-	extractTSSymbols,
-} from '../tools/symbols';
+import { extractPythonSymbols, extractTSSymbols } from '../tools/symbols';
 import { getLanguageFromExtension } from './import-extractor';
 import type { ExportedSymbol, SymbolKind } from './types';
 
@@ -32,15 +29,11 @@ export function extractExportedSymbols(
 
 	if (language === 'typescript' || language === 'javascript') {
 		const raw = extractTSSymbols(relativeFilePath, workspaceRoot);
-		return raw
-			.filter((s) => s.exported)
-			.map(toExported);
+		return raw.filter((s) => s.exported).map(toExported);
 	}
 	if (language === 'python') {
 		const raw = extractPythonSymbols(relativeFilePath, workspaceRoot);
-		return raw
-			.filter((s) => s.exported)
-			.map(toExported);
+		return raw.filter((s) => s.exported).map(toExported);
 	}
 	return [];
 }

@@ -137,9 +137,7 @@ function tryResolvePython(
 		try {
 			const stat = fs.statSync(test);
 			if (stat.isFile()) {
-				const rel = path
-					.relative(workspaceRoot, test)
-					.replace(/\\/g, '/');
+				const rel = path.relative(workspaceRoot, test).replace(/\\/g, '/');
 				if (rel.startsWith('..')) return null; // outside workspace
 				return test;
 			}
@@ -159,8 +157,7 @@ interface ParsedImport {
 
 const TS_IMPORT_RE =
 	/(?:^|[\n;])\s*import\s+(?:type\s+)?(?:(\*\s+as\s+(\w+))|(\{[\s\S]*?\})|(\w+))?(?:\s*,\s*(?:(\*\s+as\s+\w+)|(\{[\s\S]*?\})|(\w+)))?\s*(?:from\s+)?['"`]([^'"`]+)['"`]/g;
-const TS_SIDEEFFECT_RE =
-	/(?:^|[\n;])\s*import\s+['"`]([^'"`]+)['"`]/g;
+const TS_SIDEEFFECT_RE = /(?:^|[\n;])\s*import\s+['"`]([^'"`]+)['"`]/g;
 const TS_REQUIRE_RE = /\brequire\s*\(\s*['"`]([^'"`]+)['"`]\s*\)/g;
 const TS_DYNAMIC_IMPORT_RE = /\bimport\s*\(\s*['"`]([^'"`]+)['"`]\s*\)/g;
 
@@ -183,7 +180,11 @@ function parseNamedSpecifiers(braceText: string): string[] {
 		const stripped = trimmed.replace(/^type\s+/, '');
 		const aliasMatch = stripped.match(/^(\w+)\s+as\s+(\w+)$/);
 		if (aliasMatch) {
-			names.push(aliasMatch[2]); // local binding
+			// Record the ORIGINAL exported name (aliasMatch[1]), not the local
+			// binding (aliasMatch[2]). Symbol-consumer queries match against
+			// exported names, so storing the alias would under-report usage of
+			// `import { add as sum }` when callers ask "who imports add?".
+			names.push(aliasMatch[1]);
 		} else {
 			const nameMatch = stripped.match(/^(\w+)/);
 			if (nameMatch) names.push(nameMatch[1]);
@@ -196,7 +197,14 @@ function parseTSJSImports(content: string): ParsedImport[] {
 	const out: ParsedImport[] = [];
 	const seen = new Set<string>();
 
-	const stripped = stripTSJSStringsAndComments(content);
+	const stripped = stripTSJSComments(content);
+	// String-literal content ranges (excluding the source-string of legitimate
+	// import / require / dynamic-import statements). Used to filter out false
+	// positives where the regex matches `import ... from ...` text that lives
+	// inside an unrelated string literal (codegen templates, docs, examples).
+	const stringRanges = findNonImportStringRanges(stripped);
+
+	const isInString = (pos: number): boolean => isInsideRange(pos, stringRanges);
 
 	for (
 		let m = TS_IMPORT_RE.exec(stripped);
@@ -205,6 +213,10 @@ function parseTSJSImports(content: string): ParsedImport[] {
 	) {
 		const rawModule = m[8];
 		if (!rawModule) continue;
+		// The `import` keyword sits after the leading "(?:^|[\n;])\s*". If
+		// that keyword is inside a string literal, this is a false positive.
+		const importKw = m.index + m[0].search(/\bimport\b/);
+		if (isInString(importKw)) continue;
 		const line = lineNumberFor(stripped, m.index);
 		const namespaceA = m[1];
 		const bracesA = m[3];
@@ -255,6 +267,8 @@ function parseTSJSImports(content: string): ParsedImport[] {
 		m !== null;
 		m = TS_SIDEEFFECT_RE.exec(stripped)
 	) {
+		const importKw = m.index + m[0].search(/\bimport\b/);
+		if (isInString(importKw)) continue;
 		const rawModule = m[1];
 		const line = lineNumberFor(stripped, m.index);
 		const key = `${rawModule}::${line}`;
@@ -273,6 +287,8 @@ function parseTSJSImports(content: string): ParsedImport[] {
 		m !== null;
 		m = TS_REQUIRE_RE.exec(stripped)
 	) {
+		// `\brequire\s*\(` — the `require` keyword is at m.index.
+		if (isInString(m.index)) continue;
 		const rawModule = m[1];
 		const line = lineNumberFor(stripped, m.index);
 		const key = `require:${rawModule}::${line}`;
@@ -291,6 +307,8 @@ function parseTSJSImports(content: string): ParsedImport[] {
 		m !== null;
 		m = TS_DYNAMIC_IMPORT_RE.exec(stripped)
 	) {
+		// `\bimport\s*\(` — the `import` keyword is at m.index.
+		if (isInString(m.index)) continue;
 		const rawModule = m[1];
 		const line = lineNumberFor(stripped, m.index);
 		const key = `dyn:${rawModule}::${line}`;
@@ -308,11 +326,13 @@ function parseTSJSImports(content: string): ParsedImport[] {
 }
 
 /**
- * Replace string literal contents and comment bodies with spaces of equal
- * length so regex matches stay aligned to original line numbers but no longer
- * trigger inside strings or comments.
+ * Replace comment bodies with spaces of equal length so regex matches stay
+ * aligned to original line numbers. String literal contents are preserved
+ * because the import regex needs the source-string content (the path inside
+ * `from '...'`); false-positive matches inside unrelated string literals are
+ * filtered out separately via {@link findNonImportStringRanges}.
  */
-function stripTSJSStringsAndComments(content: string): string {
+function stripTSJSComments(content: string): string {
 	let out = '';
 	let i = 0;
 	const len = content.length;
@@ -342,9 +362,7 @@ function stripTSJSStringsAndComments(content: string): string {
 			}
 			continue;
 		}
-		// string literals (preserve quote chars and length to keep regex offsets aligned;
-		// the regex captures the inside of quotes via [^'"`]+ — we must KEEP string contents
-		// so import sources still match. Therefore strings are NOT stripped, only comments.)
+		// string literals — preserve verbatim (including the quote chars)
 		if (ch === '"' || ch === "'" || ch === '`') {
 			const quote = ch;
 			out += ch;
@@ -372,8 +390,71 @@ function stripTSJSStringsAndComments(content: string): string {
 	return out;
 }
 
-const PY_FROM_IMPORT_RE =
-	/^(\s*)from\s+([.\w]+)\s+import\s+([^\n#]+)/gm;
+/**
+ * Walk comment-stripped content and return the [startInclusive, endExclusive]
+ * positions of every string-literal *content* range (the chars between the
+ * quote markers, exclusive of the quotes).
+ *
+ * Source-strings of legitimate `from '…'`, `require('…')`, and `import('…')`
+ * statements are *excluded* — they must remain visible to the import regexes.
+ *
+ * Used to suppress false-positive import matches that appear inside unrelated
+ * string literals (codegen templates, prose, examples).
+ */
+function findNonImportStringRanges(content: string): Array<[number, number]> {
+	const ranges: Array<[number, number]> = [];
+	let i = 0;
+	const len = content.length;
+	while (i < len) {
+		const ch = content[i];
+		if (ch === '"' || ch === "'" || ch === '`') {
+			const quote = ch;
+			const contentStart = i + 1;
+			i++;
+			let endExclusive = -1;
+			while (i < len) {
+				if (content[i] === '\\' && i + 1 < len) {
+					i += 2;
+					continue;
+				}
+				if (content[i] === quote) {
+					endExclusive = i;
+					i++;
+					break;
+				}
+				i++;
+			}
+			if (endExclusive === -1) continue; // unterminated; nothing to record
+			// Look back for an `import-source` context: `from `, `require(`,
+			// `import(`. If matched, this string is a real import source — skip.
+			let j = contentStart - 2; // char before the opening quote
+			while (j >= 0 && (content[j] === ' ' || content[j] === '\t')) j--;
+			const isImportSource =
+				(j >= 3 && content.slice(j - 3, j + 1) === 'from') ||
+				(j >= 0 && content[j] === '(');
+			if (!isImportSource) {
+				ranges.push([contentStart, endExclusive]);
+			}
+			continue;
+		}
+		i++;
+	}
+	return ranges;
+}
+
+/** Linear-scan range membership check (ranges are emitted in source order). */
+function isInsideRange(
+	pos: number,
+	ranges: ReadonlyArray<readonly [number, number]>,
+): boolean {
+	for (const [start, end] of ranges) {
+		if (pos < start) return false;
+		if (pos < end) return true;
+	}
+	return false;
+}
+
+const PY_FROM_IMPORT_RE = /^(\s*)from\s+([.\w]+)\s+import\s+([^\n#]+)/gm;
 const PY_IMPORT_RE = /^(\s*)import\s+([.\w][.\w,\s]*)/gm;
 
 function parsePythonImports(content: string): ParsedImport[] {
@@ -385,19 +466,22 @@ function parsePythonImports(content: string): ParsedImport[] {
 	) {
 		const rawModule = m[2];
 		const namesPart = m[3].trim();
-		const importedSymbols = namesPart === '*'
-			? []
-			: namesPart
-					.replace(/[()]/g, '')
-					.split(',')
-					.map((s) => {
-						const t = s.trim();
-						const aliasMatch = t.match(/^(\w+)\s+as\s+(\w+)$/);
-						if (aliasMatch) return aliasMatch[2];
-						const nameMatch = t.match(/^(\w+)/);
-						return nameMatch ? nameMatch[1] : '';
-					})
-					.filter(Boolean);
+		const importedSymbols =
+			namesPart === '*'
+				? []
+				: namesPart
+						.replace(/[()]/g, '')
+						.split(',')
+						.map((s) => {
+							const t = s.trim();
+							const aliasMatch = t.match(/^(\w+)\s+as\s+(\w+)$/);
+							// Record the original exported name, not the local alias —
+							// symbol-consumer queries match against exported names.
+							if (aliasMatch) return aliasMatch[1];
+							const nameMatch = t.match(/^(\w+)/);
+							return nameMatch ? nameMatch[1] : '';
+						})
+						.filter(Boolean);
 		out.push({
 			rawModule,
 			importedSymbols,

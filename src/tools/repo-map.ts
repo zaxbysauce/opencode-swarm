@@ -89,29 +89,18 @@ function validateSymbol(s: string): string | null {
 }
 
 function err(action: string, message: string): string {
-	return JSON.stringify(
-		{ success: false, action, error: message },
-		null,
-		2,
-	);
+	return JSON.stringify({ success: false, action, error: message }, null, 2);
 }
 
 function ok(action: string, payload: Record<string, unknown>): string {
-	return JSON.stringify(
-		{ success: true, action, ...payload },
-		null,
-		2,
-	);
+	return JSON.stringify({ success: true, action, ...payload }, null, 2);
 }
 
 /**
  * Resolve a workspace-relative target path. Accepts both absolute and relative
  * inputs but always returns a forward-slash, root-relative form for graph lookups.
  */
-function toRelativeGraphPath(
-	input: string,
-	workspaceRoot: string,
-): string {
+function toRelativeGraphPath(input: string, workspaceRoot: string): string {
 	const normalized = input.replace(/\\/g, '/');
 	if (path.isAbsolute(normalized)) {
 		const rel = path.relative(workspaceRoot, normalized).replace(/\\/g, '/');
@@ -120,9 +109,10 @@ function toRelativeGraphPath(
 	return normalizeGraphPath(normalized);
 }
 
-function loadOrError(directory: string, action: string):
-	| { ok: true; graph: RepoGraph }
-	| { ok: false; response: string } {
+function loadOrError(
+	directory: string,
+	action: string,
+): { ok: true; graph: RepoGraph } | { ok: false; response: string } {
 	const graph = loadGraph(directory);
 	if (!graph) {
 		return {
@@ -180,7 +170,9 @@ export const repo_map: ReturnType<typeof createSwarmTool> = createSwarmTool({
 			.min(1)
 			.max(100)
 			.optional()
-			.describe('For action="key_files": number of files to return (default 10).'),
+			.describe(
+				'For action="key_files": number of files to return (default 10).',
+			),
 		max_depth: tool.schema
 			.number()
 			.int()
@@ -244,17 +236,17 @@ export const repo_map: ReturnType<typeof createSwarmTool> = createSwarmTool({
 				exports: n.exports.length,
 				inDegree: getImporters(graph, n.path).length,
 			}));
-			return ok(action, { count: reverseCounts.length, files: reverseCounts, stale });
+			return ok(action, {
+				count: reverseCounts.length,
+				files: reverseCounts,
+				stale,
+			});
 		}
 
 		// Remaining actions need a file or files list.
 		if (action === 'blast_radius') {
 			const inputs =
-				a.files && a.files.length > 0
-					? a.files
-					: a.file
-						? [a.file]
-						: null;
+				a.files && a.files.length > 0 ? a.files : a.file ? [a.file] : null;
 			if (!inputs) {
 				return err(action, 'blast_radius requires `file` or `files`');
 			}

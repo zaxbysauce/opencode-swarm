@@ -116,13 +116,17 @@ beforeEach(() => {
 describe('getImporters / getDependencies', () => {
 	it('returns direct importers of a file', () => {
 		const g = makeGraph();
-		const importers = getImporters(g, 'util.ts').map((r) => r.file).sort();
+		const importers = getImporters(g, 'util.ts')
+			.map((r) => r.file)
+			.sort();
 		expect(importers).toEqual(['helper.ts', 'orphan.ts', 'service.ts']);
 	});
 
 	it('returns direct dependencies of a file', () => {
 		const g = makeGraph();
-		const deps = getDependencies(g, 'controller.ts').map((d) => d.file).sort();
+		const deps = getDependencies(g, 'controller.ts')
+			.map((d) => d.file)
+			.sort();
 		expect(deps).toEqual(['helper.ts', 'service.ts']);
 	});
 

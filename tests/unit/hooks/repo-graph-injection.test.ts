@@ -1,7 +1,7 @@
+import { afterEach, beforeEach, describe, expect, it } from 'bun:test';
 import * as fs from 'node:fs';
 import * as os from 'node:os';
 import * as path from 'node:path';
-import { afterEach, beforeEach, describe, expect, it } from 'bun:test';
 import { buildAndSaveGraph } from '../../../src/graph';
 import {
 	buildCoderLocalizationBlock,
@@ -40,9 +40,7 @@ describe('graph injection — silent fallback when no graph exists', () => {
 	});
 
 	it('returns null for reviewer block', () => {
-		expect(
-			buildReviewerBlastRadiusBlock(tmp, ['src/util.ts']),
-		).toBeNull();
+		expect(buildReviewerBlastRadiusBlock(tmp, ['src/util.ts'])).toBeNull();
 	});
 
 	it('returns null when getCachedGraph called pre-build', () => {
@@ -94,9 +92,7 @@ describe('graph injection — after build', () => {
 	});
 
 	it('reviewer block returns null when no changed files match the graph', () => {
-		const block = buildReviewerBlastRadiusBlock(tmp, [
-			'does/not/exist.ts',
-		]);
+		const block = buildReviewerBlastRadiusBlock(tmp, ['does/not/exist.ts']);
 		expect(block).toBeNull();
 	});
 

@@ -1,7 +1,7 @@
+import { afterAll, beforeAll, describe, expect, it } from 'bun:test';
 import * as fs from 'node:fs';
 import * as os from 'node:os';
 import * as path from 'node:path';
-import { afterAll, beforeAll, describe, expect, it } from 'bun:test';
 import {
 	buildRepoGraph,
 	findSourceFiles,
@@ -38,10 +38,7 @@ beforeAll(() => {
 		path.join(tmp, 'node_modules/dep/index.ts'),
 		'export const skip = 1;\n',
 	);
-	fs.writeFileSync(
-		path.join(tmp, '.git/config'),
-		'[core]\nbare = false\n',
-	);
+	fs.writeFileSync(path.join(tmp, '.git/config'), '[core]\nbare = false\n');
 });
 
 afterAll(() => {
@@ -54,11 +51,7 @@ describe('findSourceFiles', () => {
 		const rels = files
 			.map((f) => path.relative(tmp, f).replace(/\\/g, '/'))
 			.sort();
-		expect(rels).toEqual([
-			'src/internal/x.ts',
-			'src/main.ts',
-			'src/util.ts',
-		]);
+		expect(rels).toEqual(['src/internal/x.ts', 'src/main.ts', 'src/util.ts']);
 	});
 });
 

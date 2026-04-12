@@ -1,7 +1,7 @@
+import { afterAll, beforeAll, describe, expect, it } from 'bun:test';
 import * as fs from 'node:fs';
 import * as os from 'node:os';
 import * as path from 'node:path';
-import { afterAll, beforeAll, describe, expect, it } from 'bun:test';
 import {
 	extractImports,
 	getLanguageFromExtension,
@@ -47,10 +47,7 @@ describe('getLanguageFromExtension', () => {
 describe('extractImports — TypeScript/JavaScript', () => {
 	it('resolves a relative named import to a sibling .ts file', () => {
 		write('utils.ts', 'export const x = 1;\n');
-		const a = write(
-			'a.ts',
-			"import { x } from './utils';\nconsole.log(x);\n",
-		);
+		const a = write('a.ts', "import { x } from './utils';\nconsole.log(x);\n");
 		const edges = extractImports({ absoluteFilePath: a, workspaceRoot: tmp });
 		expect(edges).toHaveLength(1);
 		expect(edges[0].source).toBe('a.ts');
@@ -93,6 +90,59 @@ describe('extractImports — TypeScript/JavaScript', () => {
 		const edges = extractImports({ absoluteFilePath: e, workspaceRoot: tmp });
 		expect(edges).toHaveLength(1);
 		expect(edges[0].target).toBe('helper.ts');
+	});
+
+	it('records the ORIGINAL exported name for aliased imports', () => {
+		// Symbol-consumer queries match on exported names. Storing only the
+		// local alias `sum` would under-report `getSymbolConsumers(g, util, "add")`.
+		write(
+			'util.ts',
+			'export function add(a: number, b: number) { return a + b; }\n',
+		);
+		const f = write(
+			'caller.ts',
+			"import { add as sum } from './util';\nconsole.log(sum(1, 2));\n",
+		);
+		const edges = extractImports({ absoluteFilePath: f, workspaceRoot: tmp });
+		expect(edges).toHaveLength(1);
+		expect(edges[0].importedSymbols).toEqual(['add']);
+	});
+
+	it('does not match `import ... from ...` text inside string literals', () => {
+		// Templating/codegen/docs frequently contain import-like prose. The
+		// extractor must not synthesise phantom edges from those strings.
+		write('real-target.ts', 'export const r = 1;\n');
+		const g = write(
+			'codegen.ts',
+			[
+				"import { r } from './real-target';",
+				'const example = "import { fake } from \\"./does-not-exist\\";";',
+				'const tpl = `import { other } from "./also-not-real";`;',
+				'console.log(r, example, tpl);',
+			].join('\n'),
+		);
+		const edges = extractImports({ absoluteFilePath: g, workspaceRoot: tmp });
+		// Only the real import should show up.
+		expect(edges).toHaveLength(1);
+		expect(edges[0].rawModule).toBe('./real-target');
+		expect(edges[0].target).toBe('real-target.ts');
+	});
+
+	it('does not match `require(...)` / dynamic `import(...)` inside strings', () => {
+		write('real-dep.ts', 'export const d = 1;\n');
+		const h = write(
+			'host.ts',
+			[
+				"const real = require('./real-dep');",
+				'const docs = "require(\\"./fake-dep\\")";',
+				'const more = \'await import(\\"./also-fake\\")\';',
+				'console.log(real, docs, more);',
+			].join('\n'),
+		);
+		const edges = extractImports({ absoluteFilePath: h, workspaceRoot: tmp });
+		expect(edges).toHaveLength(1);
+		expect(edges[0].rawModule).toBe('./real-dep');
+		expect(edges[0].target).toBe('real-dep.ts');
 	});
 });
 

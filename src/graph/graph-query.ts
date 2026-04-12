@@ -37,7 +37,10 @@ function buildReverseIndex(graph: RepoGraph): Map<string, FileReference[]> {
 	return reverse;
 }
 
-let cachedReverseIndex: { graph: RepoGraph; index: Map<string, FileReference[]> } | null = null;
+let cachedReverseIndex: {
+	graph: RepoGraph;
+	index: Map<string, FileReference[]>;
+} | null = null;
 
 function getReverseIndex(graph: RepoGraph): Map<string, FileReference[]> {
 	if (cachedReverseIndex && cachedReverseIndex.graph === graph) {
@@ -72,7 +75,11 @@ export function getDependencies(
 	const out: FileReference[] = [];
 	for (const edge of node.imports) {
 		if (!edge.target) continue;
-		out.push({ file: edge.target, line: edge.line, importType: edge.importType });
+		out.push({
+			file: edge.target,
+			line: edge.line,
+			importType: edge.importType,
+		});
 	}
 	return out;
 }
@@ -230,9 +237,7 @@ function collectExternallyUsedSymbols(
 	target: string,
 	node: FileNode | undefined,
 ): string[] {
-	const exportedNames = new Set(
-		(node?.exports ?? []).map((s) => s.name),
-	);
+	const exportedNames = new Set((node?.exports ?? []).map((s) => s.name));
 	const used = new Set<string>();
 	for (const otherNode of Object.values(graph.files)) {
 		for (const edge of otherNode.imports) {

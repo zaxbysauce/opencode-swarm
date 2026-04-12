@@ -118,9 +118,7 @@ export async function buildRepoGraph(
 	const limit = pLimit(concurrency);
 
 	const fileNodes = await Promise.all(
-		files.map((absPath) =>
-			limit(() => processFile(absPath, workspaceRoot)),
-		),
+		files.map((absPath) => limit(() => processFile(absPath, workspaceRoot))),
 	);
 
 	const result: Record<string, FileNode> = {};
@@ -163,7 +161,9 @@ export async function processFile(
 		return null;
 	}
 
-	const relPath = path.relative(workspaceRoot, absoluteFilePath).replace(/\\/g, '/');
+	const relPath = path
+		.relative(workspaceRoot, absoluteFilePath)
+		.replace(/\\/g, '/');
 
 	const imports = extractImports({
 		absoluteFilePath,

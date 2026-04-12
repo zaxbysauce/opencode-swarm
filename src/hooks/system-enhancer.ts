@@ -33,10 +33,6 @@ import {
 	formatAdversarialWarning,
 } from './adversarial-detector';
 import {
-	buildCoderLocalizationBlock,
-	buildReviewerBlastRadiusBlock,
-} from './repo-graph-injection';
-import {
 	type ContentType,
 	type ContextCandidate,
 	rankCandidates,
@@ -57,6 +53,10 @@ import {
 	rewriteKnowledge,
 } from './knowledge-store';
 import type { SwarmKnowledgeEntry } from './knowledge-types.js';
+import {
+	buildCoderLocalizationBlock,
+	buildReviewerBlastRadiusBlock,
+} from './repo-graph-injection';
 import {
 	estimateTokens,
 	readSwarmFileAsync,
@@ -949,8 +949,7 @@ ${handoffContent}`;
 							// Silent no-op if the graph hasn't been built yet — the coder can
 							// invoke `repo_map action="build"` to enable this on demand.
 							try {
-								const coderScopePrimary =
-									ccpSession?.declaredCoderScope?.[0];
+								const coderScopePrimary = ccpSession?.declaredCoderScope?.[0];
 								if (coderScopePrimary) {
 									const localizationBlock = buildCoderLocalizationBlock(
 										directory,
@@ -996,8 +995,7 @@ ${handoffContent}`;
 								const reviewerSessionId = _input.sessionID ?? '';
 								const reviewerSession =
 									swarmState.agentSessions.get(reviewerSessionId);
-								const changed =
-									reviewerSession?.declaredCoderScope ?? [];
+								const changed = reviewerSession?.declaredCoderScope ?? [];
 								if (changed.length > 0) {
 									const blastBlock = buildReviewerBlastRadiusBlock(
 										directory,
