@@ -323,7 +323,8 @@ var init_constants = __esm(() => {
       "retrieve_summary",
       "symbols",
       "knowledge_recall",
-      "req_coverage"
+      "req_coverage",
+      "repo_map"
     ],
     critic_drift_verifier: [
       "complexity_hotspots",
@@ -333,7 +334,8 @@ var init_constants = __esm(() => {
       "symbols",
       "knowledge_recall",
       "req_coverage",
-      "get_approved_plan"
+      "get_approved_plan",
+      "repo_map"
     ],
     critic_oversight: [
       "complexity_hotspots",

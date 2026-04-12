@@ -167,6 +167,7 @@ export const AGENT_TOOL_MAP: Record<AgentName, ToolName[]> = {
 		'symbols',
 		'knowledge_recall',
 		'req_coverage',
+		'repo_map',
 	],
 	critic_drift_verifier: [
 		'complexity_hotspots',
@@ -177,6 +178,7 @@ export const AGENT_TOOL_MAP: Record<AgentName, ToolName[]> = {
 		'knowledge_recall',
 		'req_coverage',
 		'get_approved_plan',
+		'repo_map',
 	],
 	critic_oversight: [
 		'complexity_hotspots',
