@@ -1,5 +1,6 @@
 import { describe, expect, test } from 'bun:test';
 import * as fs from 'node:fs';
+import * as os from 'node:os';
 import * as path from 'node:path';
 import {
 	containsControlChars,
@@ -160,7 +161,7 @@ describe('validateSymlinkBoundary', () => {
 
 	test('works with temp directories for realistic testing', () => {
 		const tmpDir = fs.mkdtempSync(
-			path.join(fs.realpathSync('/tmp' || '/var/tmp'), 'symlink-test-'),
+			path.join(fs.realpathSync(os.tmpdir()), 'symlink-test-'),
 		);
 		const subDir = path.join(tmpDir, 'subdir');
 		fs.mkdirSync(subDir, { recursive: true });
@@ -175,10 +176,10 @@ describe('validateSymlinkBoundary', () => {
 
 	test('throws for symlink escaping boundary', () => {
 		const tmpDir = fs.mkdtempSync(
-			path.join(fs.realpathSync('/tmp' || '/var/tmp'), 'symlink-test-'),
+			path.join(fs.realpathSync(os.tmpdir()), 'symlink-test-'),
 		);
 		const linkTarget = fs.mkdtempSync(
-			path.join(fs.realpathSync('/tmp' || '/var/tmp'), 'symlink-target-'),
+			path.join(fs.realpathSync(os.tmpdir()), 'symlink-target-'),
 		);
 		const linkPath = path.join(tmpDir, 'malicious_link');
 
