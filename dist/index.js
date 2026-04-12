@@ -17313,13 +17313,13 @@ function detectHostOS() {
   }
 }
 function detectShellFamily() {
-  const psModulePath = process.env["PSModulePath"];
+  const psModulePath = process.env.PSModulePath;
   if (psModulePath)
     return "powershell";
-  const comspec = process.env["ComSpec"] ?? "";
+  const comspec = process.env.ComSpec ?? "";
   if (comspec.toLowerCase().includes("cmd.exe"))
     return "cmd";
-  const shell = process.env["SHELL"] ?? "";
+  const shell = process.env.SHELL ?? "";
   if (shell.includes("bash"))
     return "bash";
   if (shell.includes("zsh"))
@@ -17329,7 +17329,7 @@ function detectShellFamily() {
   return "unknown";
 }
 function detectExecutionMode(hostOS) {
-  const wslDistro = process.env["WSL_DISTRO_NAME"];
+  const wslDistro = process.env.WSL_DISTRO_NAME;
   if (wslDistro)
     return "wsl";
   if (hostOS === "linux") {
@@ -17343,7 +17343,7 @@ function detectExecutionMode(hostOS) {
   }
   return "native";
 }
-function deriveOperatingMode(hostOS, executionMode) {
+function deriveOperatingMode(hostOS, _executionMode) {
   if (hostOS === "linux")
     return "linux";
   if (hostOS === "macos")
@@ -17406,11 +17406,11 @@ function detectEnvironmentProfile() {
     shellCommandPreference,
     evidence: {
       processPlatform: process.platform,
-      comspec: process.env["ComSpec"],
-      psModulePath: process.env["PSModulePath"],
-      termProgram: process.env["TERM_PROGRAM"],
-      shell: process.env["SHELL"],
-      wslDistroName: process.env["WSL_DISTRO_NAME"],
+      comspec: process.env.ComSpec,
+      psModulePath: process.env.PSModulePath,
+      termProgram: process.env.TERM_PROGRAM,
+      shell: process.env.SHELL,
+      wslDistroName: process.env.WSL_DISTRO_NAME,
       containerMarkers: [
         "DOCKER_CONTAINER",
         "KUBERNETES_SERVICE_HOST",
@@ -60617,7 +60617,7 @@ function buildCriticContext(architectOutput, escalationType) {
 The architect has signaled phase completion and is awaiting oversight approval to proceed.` : `## ARCHITECT QUESTION
 
 The architect has asked a question and is awaiting an autonomous answer or escalation.`;
-  const truncatedOutput = architectOutput.length > 2000 ? architectOutput.slice(0, 2000) + `
+  const truncatedOutput = architectOutput.length > 2000 ? `${architectOutput.slice(0, 2000)}
 ... [truncated]` : architectOutput;
   return `${contextHeader}
 
@@ -61987,7 +61987,7 @@ function createRepoGraphBuilderHook(workspaceRoot, deps) {
       const absoluteFilePath = path47.isAbsolute(filePath) ? filePath : path47.resolve(workspaceRoot, filePath);
       const normalizedAbsolute = absoluteFilePath.replace(/\\/g, "/");
       const normalizedWorkspace = workspaceRoot.replace(/\\/g, "/");
-      if (!normalizedAbsolute.startsWith(normalizedWorkspace + "/") && normalizedAbsolute !== normalizedWorkspace) {
+      if (!normalizedAbsolute.startsWith(`${normalizedWorkspace}/`) && normalizedAbsolute !== normalizedWorkspace) {
         return;
       }
       try {
@@ -65788,7 +65788,7 @@ function buildKnowledgeBlock(entries, charBudget, cfg, currentProject) {
     const confirm = confirmedBy >= 3 ? " \u2713\u2713" : confirmedBy >= 1 ? " \u2713" : "";
     let lessonText = sanitizeLessonForContext(entry.lesson);
     if (lessonText.length > maxDisplayChars) {
-      lessonText = lessonText.slice(0, maxDisplayChars) + "\u2026";
+      lessonText = `${lessonText.slice(0, maxDisplayChars)}\u2026`;
     }
     const rawSource = entry.tier === "hive" && "source_project" in entry ? entry.source_project ?? null : null;
     const source = rawSource !== null && rawSource !== currentProject ? ` (from: ${sanitizeLessonForContext(rawSource)})` : "";
@@ -65796,14 +65796,14 @@ function buildKnowledgeBlock(entries, charBudget, cfg, currentProject) {
   });
   const header = `\uD83D\uDCDA Lessons:
 `;
-  let block = header + `
-` + lines.join(`
-`);
+  let block = `${header}
+${lines.join(`
+`)}`;
   while (block.length > charBudget && lines.length > 0) {
     lines.pop();
-    block = header + `
-` + lines.join(`
-`);
+    block = `${header}
+${lines.join(`
+`)}`;
   }
   return lines.length > 0 ? block : null;
 }
@@ -72619,18 +72619,18 @@ function isValidationPattern(lines, currentLineIdx) {
   }
   const MAX_SEARCH_LINES = 50;
   let jsdocContent = "";
-  let foundFunction = false;
+  let _foundFunction = false;
   const functionKeywords = /^(?:export\s+)?(?:async\s+)?function\s+\w+|^(?:export\s+)?(?:async\s+)?(?:\w+\s+)?\w+\s*\([^)]*\)\s*(?::\s*\w+\s*)?(?:\{|$)/;
   for (let i2 = currentLineIdx - 1;i2 >= 0 && i2 >= currentLineIdx - MAX_SEARCH_LINES; i2--) {
     const line = lines[i2].trim();
     if (line.startsWith("*") || line.startsWith("*/")) {
       const jsdocLine = line.replace(/^\*?\s?/, "").replace(/^\*\//, "");
-      jsdocContent = jsdocLine + `
-` + jsdocContent;
+      jsdocContent = `${jsdocLine}
+${jsdocContent}`;
     } else if (line.includes("*/")) {
       break;
     } else if (functionKeywords.test(line) || line.startsWith("function ")) {
-      foundFunction = true;
+      _foundFunction = true;
       break;
     } else if (line.length > 0 && !line.startsWith("//") && !line.startsWith("*")) {
       break;
@@ -74709,7 +74709,7 @@ function classifySastFindings(findings, changedLineRanges, directory) {
     const filePath = finding.location.file;
     const normalised = path74.relative(directory, filePath).replace(/\\/g, "/");
     const changedLines = changedLineRanges.get(normalised);
-    if (changedLines && changedLines.has(finding.location.line)) {
+    if (changedLines?.has(finding.location.line)) {
       newFindings.push(finding);
     } else {
       preexistingFindings.push(finding);
