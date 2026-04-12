@@ -304,7 +304,7 @@ function isValidationPattern(lines: string[], currentLineIdx: number): boolean {
 	// Search backwards for function declaration and JSDoc (limit search to 50 lines)
 	const MAX_SEARCH_LINES = 50;
 	let jsdocContent = '';
-	let foundFunction = false;
+	let _foundFunction = false;
 	const functionKeywords =
 		/^(?:export\s+)?(?:async\s+)?function\s+\w+|^(?:export\s+)?(?:async\s+)?(?:\w+\s+)?\w+\s*\([^)]*\)\s*(?::\s*\w+\s*)?(?:\{|$)/;
 
@@ -319,12 +319,12 @@ function isValidationPattern(lines: string[], currentLineIdx: number): boolean {
 		if (line.startsWith('*') || line.startsWith('*/')) {
 			// Collect JSDoc lines
 			const jsdocLine = line.replace(/^\*?\s?/, '').replace(/^\*\//, '');
-			jsdocContent = jsdocLine + '\n' + jsdocContent;
+			jsdocContent = `${jsdocLine}\n${jsdocContent}`;
 		} else if (line.includes('*/')) {
 			// End of JSDoc block
 			break;
 		} else if (functionKeywords.test(line) || line.startsWith('function ')) {
-			foundFunction = true;
+			_foundFunction = true;
 			break;
 		} else if (
 			line.length > 0 &&

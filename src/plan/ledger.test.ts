@@ -359,7 +359,7 @@ describe('ledger', () => {
 			fs.writeFileSync(planJsonPath, JSON.stringify(modifiedPlan), 'utf8');
 
 			// Get the original hash before modification
-			const currentHash = computeCurrentPlanHash(testDir);
+			const _currentHash = computeCurrentPlanHash(testDir);
 
 			// Try to append with the old hash (which no longer matches)
 			const oldHash = 'oldfakehash1234567890123456789012345678901234567890123';
@@ -763,7 +763,7 @@ describe('ledger', () => {
 			};
 			fs.appendFileSync(
 				ledgerPath,
-				JSON.stringify(unknownEvent) + '\n',
+				`${JSON.stringify(unknownEvent)}\n`,
 				'utf8',
 			);
 

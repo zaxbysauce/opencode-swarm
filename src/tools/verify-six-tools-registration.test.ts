@@ -55,7 +55,7 @@ describe('6 Tools Registration Verification', () => {
 
 	describe('src/index.ts imports', () => {
 		it('should import all 6 tools from ./tools in src/index.ts (static check)', async () => {
-			const fs = await import('fs');
+			const fs = await import('node:fs');
 			const srcContent = fs.readFileSync(
 				require.resolve('../../src/index.ts'),
 				'utf-8',
@@ -75,7 +75,7 @@ describe('6 Tools Registration Verification', () => {
 	describe('src/index.ts tool: {} block registration', () => {
 		// Read the source file and verify the tool block contains all 6 tools
 		it('should have all 6 tools in tool block', async () => {
-			const fs = await import('fs');
+			const fs = await import('node:fs');
 			const srcContent = fs.readFileSync(
 				require.resolve('../../src/index.ts'),
 				'utf-8',

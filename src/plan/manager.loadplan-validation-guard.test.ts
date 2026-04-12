@@ -15,7 +15,7 @@ import { afterEach, beforeEach, describe, expect, test } from 'bun:test';
 import * as fs from 'node:fs';
 import * as path from 'node:path';
 import type { Plan } from '../config/plan-schema';
-import { initLedger, readLedgerEvents, takeSnapshotEvent } from './ledger';
+import { initLedger, takeSnapshotEvent } from './ledger';
 import { loadPlan, savePlan } from './manager';
 
 let testDir: string;

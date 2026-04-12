@@ -492,7 +492,7 @@ describe('suggest-patch tool', () => {
 		});
 
 		test('workspace directory not found returns parse-error', async () => {
-			const badWorkspace = '/nonexistent/workspace/' + Date.now();
+			const badWorkspace = `/nonexistent/workspace/${Date.now()}`;
 			const result = await suggestPatch.execute({}, {
 				directory: badWorkspace,
 			} as unknown as ToolContext);

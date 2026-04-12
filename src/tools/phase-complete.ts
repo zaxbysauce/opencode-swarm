@@ -40,12 +40,7 @@ import {
 } from '../plan/ledger';
 import { loadPlan, savePlan } from '../plan/manager';
 import { flushPendingSnapshot } from '../session/snapshot-writer';
-import {
-	endAgentSession,
-	ensureAgentSession,
-	hasActiveTurboMode,
-	swarmState,
-} from '../state';
+import { ensureAgentSession, hasActiveTurboMode, swarmState } from '../state';
 import { telemetry } from '../telemetry';
 import { executeCompletionVerify } from './completion-verify';
 import { createSwarmTool } from './create-tool';

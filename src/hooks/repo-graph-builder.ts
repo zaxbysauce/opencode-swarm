@@ -126,7 +126,7 @@ export function createRepoGraphBuilderHook(
 			const normalizedAbsolute = absoluteFilePath.replace(/\\/g, '/');
 			const normalizedWorkspace = workspaceRoot.replace(/\\/g, '/');
 			if (
-				!normalizedAbsolute.startsWith(normalizedWorkspace + '/') &&
+				!normalizedAbsolute.startsWith(`${normalizedWorkspace}/`) &&
 				normalizedAbsolute !== normalizedWorkspace
 			) {
 				return;
