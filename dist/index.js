@@ -41379,7 +41379,7 @@ __export(exports_doc_scan, {
   doc_scan: () => doc_scan,
   doc_extract: () => doc_extract
 });
-import * as crypto6 from "crypto";
+import * as crypto7 from "crypto";
 import * as fs39 from "fs";
 import { mkdir as mkdir7, readFile as readFile7, writeFile as writeFile7 } from "fs/promises";
 import * as path51 from "path";
@@ -41637,7 +41637,7 @@ async function extractDocConstraints(directory, taskFiles, taskDescription) {
       const duplicate = findNearDuplicate(constraint, existingEntries, DEDUP_THRESHOLD);
       if (!duplicate) {
         const entry = {
-          id: crypto6.randomUUID(),
+          id: crypto7.randomUUID(),
           tier: "swarm",
           lesson: constraint,
           category: "architecture",
@@ -43503,8 +43503,8 @@ ${JSON.stringify(symbolNames, null, 2)}`);
       var moduleRtn;
       var Module = moduleArg;
       var readyPromiseResolve, readyPromiseReject;
-      var readyPromise = new Promise((resolve23, reject) => {
-        readyPromiseResolve = resolve23;
+      var readyPromise = new Promise((resolve24, reject) => {
+        readyPromiseResolve = resolve24;
         readyPromiseReject = reject;
       });
       var ENVIRONMENT_IS_WEB = typeof window == "object";
@@ -43584,13 +43584,13 @@ ${JSON.stringify(symbolNames, null, 2)}`);
           }
           readAsync = /* @__PURE__ */ __name(async (url3) => {
             if (isFileURI(url3)) {
-              return new Promise((resolve23, reject) => {
+              return new Promise((resolve24, reject) => {
                 var xhr = new XMLHttpRequest;
                 xhr.open("GET", url3, true);
                 xhr.responseType = "arraybuffer";
                 xhr.onload = () => {
                   if (xhr.status == 200 || xhr.status == 0 && xhr.response) {
-                    resolve23(xhr.response);
+                    resolve24(xhr.response);
                     return;
                   }
                   reject(xhr.status);
@@ -43810,10 +43810,10 @@ ${JSON.stringify(symbolNames, null, 2)}`);
         __name(receiveInstantiationResult, "receiveInstantiationResult");
         var info2 = getWasmImports();
         if (Module["instantiateWasm"]) {
-          return new Promise((resolve23, reject) => {
+          return new Promise((resolve24, reject) => {
             Module["instantiateWasm"](info2, (mod, inst) => {
               receiveInstance(mod, inst);
-              resolve23(mod.exports);
+              resolve24(mod.exports);
             });
           });
         }
@@ -61711,14 +61711,17 @@ var RESOLVE_EXTENSION_CANDIDATES = [
   ".js",
   ".jsx",
   ".mjs",
-  ".cjs",
-  "/index.ts",
-  "/index.tsx",
-  "/index.js",
-  "/index.jsx",
-  "/index.mjs"
+  ".cjs"
 ];
-var PY_EXTENSION_CANDIDATES = [".py", "/__init__.py"];
+var RESOLVE_INDEX_CANDIDATES = [
+  "index.ts",
+  "index.tsx",
+  "index.js",
+  "index.jsx",
+  "index.mjs"
+];
+var PY_EXTENSION_CANDIDATES = [".py"];
+var PY_INDEX_CANDIDATES = ["__init__.py"];
 function getLanguageFromExtension(ext) {
   const lower = ext.toLowerCase();
   if (TS_JS_EXTENSIONS.includes(lower)) {
@@ -61741,24 +61744,33 @@ function tryResolveTSJS(rawModule, sourceFileAbs) {
   }
   const sourceDir = path46.dirname(sourceFileAbs);
   const baseAbs = path46.resolve(sourceDir, rawModule);
-  for (const candidate of RESOLVE_EXTENSION_CANDIDATES) {
-    const test = baseAbs + candidate;
-    try {
-      const stat2 = fs34.statSync(test);
-      if (stat2.isFile())
-        return test;
-    } catch {}
-  }
-  const stripped = baseAbs.replace(/\.(m?[jt]sx?|c[jt]s)$/i, "");
-  if (stripped !== baseAbs) {
-    for (const candidate of RESOLVE_EXTENSION_CANDIDATES) {
-      const test = stripped + candidate;
+  const probe = (basePath) => {
+    for (const ext of RESOLVE_EXTENSION_CANDIDATES) {
+      const test = basePath + ext;
       try {
         const stat2 = fs34.statSync(test);
         if (stat2.isFile())
           return test;
       } catch {}
     }
+    for (const indexFile of RESOLVE_INDEX_CANDIDATES) {
+      const test = path46.join(basePath, indexFile);
+      try {
+        const stat2 = fs34.statSync(test);
+        if (stat2.isFile())
+          return test;
+      } catch {}
+    }
+    return null;
+  };
+  const direct = probe(baseAbs);
+  if (direct)
+    return direct;
+  const stripped = baseAbs.replace(/\.(m?[jt]sx?|c[jt]s)$/i, "");
+  if (stripped !== baseAbs) {
+    const fallback = probe(stripped);
+    if (fallback)
+      return fallback;
   }
   return null;
 }
@@ -61774,8 +61786,7 @@ function tryResolvePython(rawModule, sourceFileAbs, workspaceRoot) {
   const upDirs = "../".repeat(Math.max(0, leadingDots - 1));
   const sourceDir = path46.dirname(sourceFileAbs);
   const baseAbs = path46.resolve(sourceDir, upDirs + remainder);
-  for (const candidate of PY_EXTENSION_CANDIDATES) {
-    const test = baseAbs + candidate;
+  const accept = (test) => {
     try {
       const stat2 = fs34.statSync(test);
       if (stat2.isFile()) {
@@ -61785,6 +61796,17 @@ function tryResolvePython(rawModule, sourceFileAbs, workspaceRoot) {
         return test;
       }
     } catch {}
+    return null;
+  };
+  for (const ext of PY_EXTENSION_CANDIDATES) {
+    const hit = accept(baseAbs + ext);
+    if (hit)
+      return hit;
+  }
+  for (const indexFile of PY_INDEX_CANDIDATES) {
+    const hit = accept(path46.join(baseAbs, indexFile));
+    if (hit)
+      return hit;
   }
   return null;
 }
@@ -61792,6 +61814,16 @@ var TS_IMPORT_RE = /(?:^|[\n;])\s*import\s+(?:type\s+)?(?:(\*\s+as\s+(\w+))|(\{[
 var TS_SIDEEFFECT_RE = /(?:^|[\n;])\s*import\s+['"`]([^'"`]+)['"`]/g;
 var TS_REQUIRE_RE = /\brequire\s*\(\s*['"`]([^'"`]+)['"`]\s*\)/g;
 var TS_DYNAMIC_IMPORT_RE = /\bimport\s*\(\s*['"`]([^'"`]+)['"`]\s*\)/g;
+function isMemberAccessAt(content, keywordIndex) {
+  let i2 = keywordIndex - 1;
+  while (i2 >= 0 && (content[i2] === " " || content[i2] === "\t"))
+    i2--;
+  if (i2 < 0)
+    return false;
+  if (content[i2] !== ".")
+    return false;
+  return true;
+}
 function lineNumberFor(content, index) {
   let line = 1;
   for (let i2 = 0;i2 < index && i2 < content.length; i2++) {
@@ -61810,7 +61842,7 @@ function parseNamedSpecifiers(braceText) {
     const stripped = trimmed.replace(/^type\s+/, "");
     const aliasMatch = stripped.match(/^(\w+)\s+as\s+(\w+)$/);
     if (aliasMatch) {
-      names.push(aliasMatch[2]);
+      names.push(aliasMatch[1]);
     } else {
       const nameMatch = stripped.match(/^(\w+)/);
       if (nameMatch)
@@ -61822,12 +61854,17 @@ function parseNamedSpecifiers(braceText) {
 function parseTSJSImports(content) {
   const out2 = [];
   const seen = new Set;
-  const stripped = stripTSJSStringsAndComments(content);
+  const stripped = stripTSJSComments(content);
+  const stringRanges = findNonImportStringRanges(stripped);
+  const isInString = (pos) => isInsideRange(pos, stringRanges);
   for (let m = TS_IMPORT_RE.exec(stripped);m !== null; m = TS_IMPORT_RE.exec(stripped)) {
     const rawModule = m[8];
     if (!rawModule)
       continue;
-    const line = lineNumberFor(stripped, m.index);
+    const importKw = m.index + m[0].search(/\bimport\b/);
+    if (isInString(importKw))
+      continue;
+    const line = lineNumberFor(stripped, importKw);
     const namespaceA = m[1];
     const bracesA = m[3];
     const defaultA = m[4];
@@ -61870,8 +61907,11 @@ function parseTSJSImports(content) {
     out2.push({ rawModule, importedSymbols, importType, line });
   }
   for (let m = TS_SIDEEFFECT_RE.exec(stripped);m !== null; m = TS_SIDEEFFECT_RE.exec(stripped)) {
+    const importKw = m.index + m[0].search(/\bimport\b/);
+    if (isInString(importKw))
+      continue;
     const rawModule = m[1];
-    const line = lineNumberFor(stripped, m.index);
+    const line = lineNumberFor(stripped, importKw);
     const key = `${rawModule}::${line}`;
     if (seen.has(key))
       continue;
@@ -61884,6 +61924,10 @@ function parseTSJSImports(content) {
     });
   }
   for (let m = TS_REQUIRE_RE.exec(stripped);m !== null; m = TS_REQUIRE_RE.exec(stripped)) {
+    if (isInString(m.index))
+      continue;
+    if (isMemberAccessAt(stripped, m.index))
+      continue;
     const rawModule = m[1];
     const line = lineNumberFor(stripped, m.index);
     const key = `require:${rawModule}::${line}`;
@@ -61898,6 +61942,10 @@ function parseTSJSImports(content) {
     });
   }
   for (let m = TS_DYNAMIC_IMPORT_RE.exec(stripped);m !== null; m = TS_DYNAMIC_IMPORT_RE.exec(stripped)) {
+    if (isInString(m.index))
+      continue;
+    if (isMemberAccessAt(stripped, m.index))
+      continue;
     const rawModule = m[1];
     const line = lineNumberFor(stripped, m.index);
     const key = `dyn:${rawModule}::${line}`;
@@ -61913,7 +61961,7 @@ function parseTSJSImports(content) {
   }
   return out2;
 }
-function stripTSJSStringsAndComments(content) {
+function stripTSJSComments(content) {
   let out2 = "";
   let i2 = 0;
   const len = content.length;
@@ -61972,6 +62020,78 @@ function stripTSJSStringsAndComments(content) {
   }
   return out2;
 }
+function findNonImportStringRanges(content) {
+  const ranges = [];
+  let i2 = 0;
+  const len = content.length;
+  while (i2 < len) {
+    const ch = content[i2];
+    if (ch === '"' || ch === "'" || ch === "`") {
+      const quote = ch;
+      const contentStart = i2 + 1;
+      i2++;
+      let endExclusive = -1;
+      while (i2 < len) {
+        if (content[i2] === "\\" && i2 + 1 < len) {
+          i2 += 2;
+          continue;
+        }
+        if (content[i2] === quote) {
+          endExclusive = i2;
+          i2++;
+          break;
+        }
+        i2++;
+      }
+      if (endExclusive === -1)
+        continue;
+      let j = contentStart - 2;
+      while (j >= 0 && (content[j] === " " || content[j] === "\t"))
+        j--;
+      let isImportSource = false;
+      if (j >= 3 && content.slice(j - 3, j + 1) === "from") {
+        const before = j - 4;
+        if (before < 0 || !/[\w$]/.test(content[before])) {
+          isImportSource = true;
+        }
+      } else if (j >= 0 && content[j] === "(") {
+        let k = j - 1;
+        while (k >= 0 && (content[k] === " " || content[k] === "\t"))
+          k--;
+        const tail7 = content.slice(Math.max(0, k - 6), k + 1);
+        const tail6 = content.slice(Math.max(0, k - 5), k + 1);
+        const matchKeyword = (kw, tail) => {
+          if (!tail.endsWith(kw))
+            return false;
+          const before = k - kw.length;
+          if (before >= 0 && /[\w$]/.test(content[before]))
+            return false;
+          if (before >= 0 && content[before] === ".")
+            return false;
+          return true;
+        };
+        if (matchKeyword("require", tail7) || matchKeyword("import", tail6)) {
+          isImportSource = true;
+        }
+      }
+      if (!isImportSource) {
+        ranges.push([contentStart, endExclusive]);
+      }
+      continue;
+    }
+    i2++;
+  }
+  return ranges;
+}
+function isInsideRange(pos, ranges) {
+  for (const [start2, end] of ranges) {
+    if (pos < start2)
+      return false;
+    if (pos < end)
+      return true;
+  }
+  return false;
+}
 var PY_FROM_IMPORT_RE = /^(\s*)from\s+([.\w]+)\s+import\s+([^\n#]+)/gm;
 var PY_IMPORT_RE = /^(\s*)import\s+([.\w][.\w,\s]*)/gm;
 function parsePythonImports(content) {
@@ -61983,7 +62103,7 @@ function parsePythonImports(content) {
       const t = s.trim();
       const aliasMatch = t.match(/^(\w+)\s+as\s+(\w+)$/);
       if (aliasMatch)
-        return aliasMatch[2];
+        return aliasMatch[1];
       const nameMatch = t.match(/^(\w+)/);
       return nameMatch ? nameMatch[1] : "";
     }).filter(Boolean);
@@ -62505,6 +62625,7 @@ var DEFAULT_SKIP_DIRS = new Set([
   "target"
 ]);
 var MAX_FILE_SIZE_BYTES3 = 1024 * 1024;
+var DEFAULT_MAX_FILES = 1e4;
 var SOURCE_EXT_SET = new Set(SOURCE_EXTENSIONS2);
 function findSourceFiles(workspaceRoot, skipDirs = DEFAULT_SKIP_DIRS) {
   const out2 = [];
@@ -62544,8 +62665,9 @@ function findSourceFiles(workspaceRoot, skipDirs = DEFAULT_SKIP_DIRS) {
 async function buildRepoGraph(workspaceRoot, options = {}) {
   const skipDirs = options.skipDirs ? new Set([...DEFAULT_SKIP_DIRS, ...options.skipDirs]) : DEFAULT_SKIP_DIRS;
   let files = findSourceFiles(workspaceRoot, skipDirs);
-  if (typeof options.maxFiles === "number" && options.maxFiles > 0) {
-    files = files.slice(0, options.maxFiles);
+  const cap = typeof options.maxFiles === "number" && options.maxFiles > 0 ? options.maxFiles : DEFAULT_MAX_FILES;
+  if (files.length > cap) {
+    files = files.slice(0, cap);
   }
   const concurrency = options.concurrency ?? 16;
   const limit = pLimit(concurrency);
@@ -62600,7 +62722,7 @@ async function processFile(absoluteFilePath, workspaceRoot) {
 }
 // src/graph/graph-query.ts
 function normalizeGraphPath(p) {
-  return p.replace(/\\/g, "/").replace(/^\.\/+/, "");
+  return p.replace(/\\/g, "/").replace(/^(?:\.\/)+/, "");
 }
 function buildReverseIndex(graph) {
   const reverse = new Map;
@@ -62686,6 +62808,16 @@ function getBlastRadius(graph, filePaths, maxDepth = 3) {
   const visited = new Set(targets);
   const direct = new Set;
   const transitive = new Set;
+  if (maxDepth <= 0) {
+    return {
+      target: targets,
+      directDependents: [],
+      transitiveDependents: [],
+      depthReached: 0,
+      totalDependents: 0,
+      riskLevel: classifyRisk(0)
+    };
+  }
   let queue = targets.map((file3) => ({
     file: file3,
     depth: 0
@@ -62703,11 +62835,11 @@ function getBlastRadius(graph, filePaths, maxDepth = 3) {
           direct.add(ref.file);
         else
           transitive.add(ref.file);
+        if (depth + 1 > depthReached)
+          depthReached = depth + 1;
         if (depth + 1 >= maxDepth)
           continue;
         next.push({ file: ref.file, depth: depth + 1 });
-        if (depth + 1 > depthReached)
-          depthReached = depth + 1;
       }
     }
     queue = next;
@@ -62813,6 +62945,7 @@ function formatSummary(opts) {
 `);
 }
 // src/graph/graph-store.ts
+import * as crypto6 from "crypto";
 import * as fs37 from "fs";
 import * as path50 from "path";
 var SWARM_DIR = ".swarm";
@@ -62840,8 +62973,17 @@ function loadGraph(workspaceRoot) {
 function saveGraph(workspaceRoot, graph) {
   const file3 = getGraphPath(workspaceRoot);
   const dir = path50.dirname(file3);
+  try {
+    const stat2 = fs37.lstatSync(dir);
+    if (stat2.isSymbolicLink()) {
+      throw new Error(`refusing to write graph: ${SWARM_DIR}/ is a symbolic link`);
+    }
+  } catch (err2) {
+    if (err2.code !== "ENOENT")
+      throw err2;
+  }
   fs37.mkdirSync(dir, { recursive: true });
-  const tmp = `${file3}.tmp.${process.pid}.${Date.now()}`;
+  const tmp = `${file3}.tmp.${crypto6.randomUUID()}`;
   fs37.writeFileSync(tmp, JSON.stringify(graph), "utf-8");
   try {
     fs37.renameSync(tmp, file3);
@@ -64562,7 +64704,7 @@ import * as path53 from "path";
 import * as child_process5 from "child_process";
 var WIN32_CMD_BINARIES = new Set(["npm", "npx", "pnpm", "yarn"]);
 function spawnAsync(command, cwd, timeoutMs) {
-  return new Promise((resolve18) => {
+  return new Promise((resolve19) => {
     try {
       const [rawCmd, ...args2] = command;
       const cmd = process.platform === "win32" && WIN32_CMD_BINARIES.has(rawCmd) && !rawCmd.includes(".") ? `${rawCmd}.cmd` : rawCmd;
@@ -64609,24 +64751,24 @@ function spawnAsync(command, cwd, timeoutMs) {
         try {
           proc.kill();
         } catch {}
-        resolve18(null);
+        resolve19(null);
       }, timeoutMs);
       proc.on("close", (code) => {
         if (done)
           return;
         done = true;
         clearTimeout(timer);
-        resolve18({ exitCode: code ?? 1, stdout, stderr });
+        resolve19({ exitCode: code ?? 1, stdout, stderr });
       });
       proc.on("error", () => {
         if (done)
           return;
         done = true;
         clearTimeout(timer);
-        resolve18(null);
+        resolve19(null);
       });
     } catch {
-      resolve18(null);
+      resolve19(null);
     }
   });
 }
@@ -66299,8 +66441,8 @@ async function executeCompletionVerify(args2, directory) {
       const normalizedPath = filePath.replace(/\\/g, "/");
       const resolvedPath = path59.resolve(directory, normalizedPath);
       const projectRoot = path59.resolve(directory);
-      const relative11 = path59.relative(projectRoot, resolvedPath);
-      const withinProject = relative11 === "" || !relative11.startsWith("..") && !path59.isAbsolute(relative11);
+      const relative12 = path59.relative(projectRoot, resolvedPath);
+      const withinProject = relative12 === "" || !relative12.startsWith("..") && !path59.isAbsolute(relative12);
       if (!withinProject) {
         blockedTasks.push({
           task_id: task.id,
@@ -68742,7 +68884,7 @@ init_create_tool();
 var GITINGEST_TIMEOUT_MS = 1e4;
 var GITINGEST_MAX_RESPONSE_BYTES = 5242880;
 var GITINGEST_MAX_RETRIES = 2;
-var delay = (ms) => new Promise((resolve24) => setTimeout(resolve24, ms));
+var delay = (ms) => new Promise((resolve25) => setTimeout(resolve25, ms));
 async function fetchGitingest(args2) {
   for (let attempt = 0;attempt <= GITINGEST_MAX_RETRIES; attempt++) {
     try {
@@ -69185,7 +69327,7 @@ var imports = createSwarmTool({
 init_dist();
 init_config();
 init_knowledge_store();
-import { randomUUID as randomUUID6 } from "crypto";
+import { randomUUID as randomUUID7 } from "crypto";
 init_manager();
 init_create_tool();
 var VALID_CATEGORIES2 = [
@@ -69260,7 +69402,7 @@ var knowledge_add = createSwarmTool({
       project_name = plan?.title ?? "";
     } catch {}
     const entry = {
-      id: randomUUID6(),
+      id: randomUUID7(),
       tier: "swarm",
       lesson,
       category,
@@ -70351,7 +70493,7 @@ async function runNpmAudit(directory) {
       stderr: "pipe",
       cwd: directory
     });
-    const timeoutPromise = new Promise((resolve25) => setTimeout(() => resolve25("timeout"), AUDIT_TIMEOUT_MS));
+    const timeoutPromise = new Promise((resolve26) => setTimeout(() => resolve26("timeout"), AUDIT_TIMEOUT_MS));
     const result = await Promise.race([
       Promise.all([
         new Response(proc.stdout).text(),
@@ -70474,7 +70616,7 @@ async function runPipAudit(directory) {
       stderr: "pipe",
       cwd: directory
     });
-    const timeoutPromise = new Promise((resolve25) => setTimeout(() => resolve25("timeout"), AUDIT_TIMEOUT_MS));
+    const timeoutPromise = new Promise((resolve26) => setTimeout(() => resolve26("timeout"), AUDIT_TIMEOUT_MS));
     const result = await Promise.race([
       Promise.all([
         new Response(proc.stdout).text(),
@@ -70605,7 +70747,7 @@ async function runCargoAudit(directory) {
       stderr: "pipe",
       cwd: directory
     });
-    const timeoutPromise = new Promise((resolve25) => setTimeout(() => resolve25("timeout"), AUDIT_TIMEOUT_MS));
+    const timeoutPromise = new Promise((resolve26) => setTimeout(() => resolve26("timeout"), AUDIT_TIMEOUT_MS));
     const result = await Promise.race([
       Promise.all([
         new Response(proc.stdout).text(),
@@ -70732,7 +70874,7 @@ async function runGoAudit(directory) {
       stderr: "pipe",
       cwd: directory
     });
-    const timeoutPromise = new Promise((resolve25) => setTimeout(() => resolve25("timeout"), AUDIT_TIMEOUT_MS));
+    const timeoutPromise = new Promise((resolve26) => setTimeout(() => resolve26("timeout"), AUDIT_TIMEOUT_MS));
     const result = await Promise.race([
       Promise.all([
         new Response(proc.stdout).text(),
@@ -70868,7 +71010,7 @@ async function runDotnetAudit(directory) {
       stderr: "pipe",
       cwd: directory
     });
-    const timeoutPromise = new Promise((resolve25) => setTimeout(() => resolve25("timeout"), AUDIT_TIMEOUT_MS));
+    const timeoutPromise = new Promise((resolve26) => setTimeout(() => resolve26("timeout"), AUDIT_TIMEOUT_MS));
     const result = await Promise.race([
       Promise.all([
         new Response(proc.stdout).text(),
@@ -70987,7 +71129,7 @@ async function runBundleAudit(directory) {
       stderr: "pipe",
       cwd: directory
     });
-    const timeoutPromise = new Promise((resolve25) => setTimeout(() => resolve25("timeout"), AUDIT_TIMEOUT_MS));
+    const timeoutPromise = new Promise((resolve26) => setTimeout(() => resolve26("timeout"), AUDIT_TIMEOUT_MS));
     const result = await Promise.race([
       Promise.all([
         new Response(proc.stdout).text(),
@@ -71135,7 +71277,7 @@ async function runDartAudit(directory) {
       stderr: "pipe",
       cwd: directory
     });
-    const timeoutPromise = new Promise((resolve25) => setTimeout(() => resolve25("timeout"), AUDIT_TIMEOUT_MS));
+    const timeoutPromise = new Promise((resolve26) => setTimeout(() => resolve26("timeout"), AUDIT_TIMEOUT_MS));
     const result = await Promise.race([
       Promise.all([
         new Response(proc.stdout).text(),
@@ -71253,7 +71395,7 @@ async function runComposerAudit(directory) {
       stderr: "pipe",
       cwd: directory
     });
-    const timeoutPromise = new Promise((resolve25) => setTimeout(() => resolve25("timeout"), AUDIT_TIMEOUT_MS));
+    const timeoutPromise = new Promise((resolve26) => setTimeout(() => resolve26("timeout"), AUDIT_TIMEOUT_MS));
     const result = await Promise.race([
       Promise.all([
         new Response(proc.stdout).text(),
@@ -72895,7 +73037,7 @@ function mapSemgrepSeverity(severity) {
   }
 }
 async function executeWithTimeout(command, args2, options) {
-  return new Promise((resolve26) => {
+  return new Promise((resolve27) => {
     const child = child_process7.spawn(command, args2, {
       shell: false,
       cwd: options.cwd
@@ -72904,7 +73046,7 @@ async function executeWithTimeout(command, args2, options) {
     let stderr = "";
     const timeout = setTimeout(() => {
       child.kill("SIGTERM");
-      resolve26({
+      resolve27({
         stdout,
         stderr: "Process timed out",
         exitCode: 124
@@ -72918,7 +73060,7 @@ async function executeWithTimeout(command, args2, options) {
     });
     child.on("close", (code) => {
       clearTimeout(timeout);
-      resolve26({
+      resolve27({
         stdout,
         stderr,
         exitCode: code ?? 0
@@ -72926,7 +73068,7 @@ async function executeWithTimeout(command, args2, options) {
     });
     child.on("error", (err2) => {
       clearTimeout(timeout);
-      resolve26({
+      resolve27({
         stdout,
         stderr: err2.message,
         exitCode: 1
@@ -73321,13 +73463,13 @@ function validatePath(inputPath, baseDir, workspaceDir) {
     resolved = path71.resolve(baseDir, inputPath);
   }
   const workspaceResolved = path71.resolve(workspaceDir);
-  let relative14;
+  let relative15;
   if (isWinAbs) {
-    relative14 = path71.win32.relative(workspaceResolved, resolved);
+    relative15 = path71.win32.relative(workspaceResolved, resolved);
   } else {
-    relative14 = path71.relative(workspaceResolved, resolved);
+    relative15 = path71.relative(workspaceResolved, resolved);
   }
-  if (relative14.startsWith("..")) {
+  if (relative15.startsWith("..")) {
     return "path traversal detected";
   }
   return null;
@@ -74647,7 +74789,7 @@ ${paginatedContent}`;
 });
 // src/tools/save-plan.ts
 init_tool();
-import * as crypto7 from "crypto";
+import * as crypto8 from "crypto";
 import * as fs60 from "fs";
 import * as path74 from "path";
 init_ledger();
@@ -74734,7 +74876,7 @@ async function executeSavePlan(args2, fallbackDir) {
       const stat2 = await fs60.promises.stat(specPath);
       specMtime = stat2.mtime.toISOString();
       const content = await fs60.promises.readFile(specPath, "utf8");
-      specHash = crypto7.createHash("sha256").update(content).digest("hex");
+      specHash = crypto8.createHash("sha256").update(content).digest("hex");
     } catch {
       return {
         success: false,
@@ -76368,7 +76510,7 @@ async function ripgrepSearch(opts) {
       stderr: "pipe",
       cwd: opts.workspace
     });
-    const timeout = new Promise((resolve31) => setTimeout(() => resolve31("timeout"), REGEX_TIMEOUT_MS));
+    const timeout = new Promise((resolve32) => setTimeout(() => resolve32("timeout"), REGEX_TIMEOUT_MS));
     const exitPromise = proc.exited;
     const result = await Promise.race([exitPromise, timeout]);
     if (result === "timeout") {

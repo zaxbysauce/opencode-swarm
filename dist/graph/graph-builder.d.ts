@@ -19,6 +19,12 @@ export interface BuildOptions {
     skipDirs?: string[];
 }
 /**
+ * Hard upper bound on file count if the caller does not supply one. Protects
+ * against unbounded memory growth on extremely large monorepos. Callers can
+ * pass an explicit `maxFiles` (including a larger one) to override.
+ */
+export declare const DEFAULT_MAX_FILES = 10000;
+/**
  * Walk the workspace and return absolute paths of all supported source files.
  * Cross-platform: emits absolute paths using the host's path separator.
  */
