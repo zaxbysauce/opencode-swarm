@@ -26,6 +26,7 @@ export { type PlaceholderFinding, type PlaceholderScanInput, type PlaceholderSca
 export { type PreCheckBatchInput, type PreCheckBatchResult, pre_check_batch, runPreCheckBatch, type ToolResult, } from './pre-check-batch';
 export { type QualityBudgetInput, type QualityBudgetResult, quality_budget, qualityBudget, } from './quality-budget';
 export { repo_map } from './repo-map';
+export { buildWorkspaceGraph, type GraphEdge, type GraphNode, loadGraph, loadOrCreateGraph, type RepoGraph, resolveModuleSpecifier, saveGraph, updateGraphForFiles, } from './repo-graph';
 export { req_coverage } from './req-coverage';
 export { retrieve_summary } from './retrieve-summary';
 export { type SastScanFinding, type SastScanInput, type SastScanResult, sast_scan, sastScan, } from './sast-scan';
