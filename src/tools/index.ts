@@ -46,6 +46,17 @@ export {
 	qualityBudget,
 } from './quality-budget';
 export { repo_map } from './repo-map';
+export {
+	buildWorkspaceGraph,
+	type GraphEdge,
+	type GraphNode,
+	loadGraph,
+	loadOrCreateGraph,
+	type RepoGraph,
+	resolveModuleSpecifier,
+	saveGraph,
+	updateGraphForFiles,
+} from './repo-graph';
 export { req_coverage } from './req-coverage';
 export { retrieve_summary } from './retrieve-summary';
 export {

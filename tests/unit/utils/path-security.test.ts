@@ -1,8 +1,11 @@
 import { describe, expect, test } from 'bun:test';
+import * as fs from 'node:fs';
+import * as path from 'node:path';
 import {
 	containsControlChars,
 	containsPathTraversal,
 	validateDirectory,
+	validateSymlinkBoundary,
 } from '../../../src/utils/path-security';
 
 describe('containsPathTraversal', () => {
@@ -111,5 +114,85 @@ describe('validateDirectory', () => {
 		expect(() => validateDirectory('D:/Projects')).toThrow(
 			'Windows absolute path',
 		);
+	});
+});
+
+describe('validateSymlinkBoundary', () => {
+	test('does not throw when target is within root', () => {
+		expect(() => validateSymlinkBoundary('/foo/bar', '/foo')).not.toThrow();
+	});
+
+	test('does not throw when target equals root', () => {
+		expect(() => validateSymlinkBoundary('/foo', '/foo')).not.toThrow();
+	});
+
+	test('throws when target is outside root', () => {
+		expect(() => validateSymlinkBoundary('/etc/passwd', '/home/user')).toThrow(
+			'Symlink resolution escaped boundary',
+		);
+	});
+
+	test('handles non-existent paths gracefully', () => {
+		// realpathSync throws for non-existent paths, should fall back to normalize
+		expect(() =>
+			validateSymlinkBoundary('/non/existent/path', '/non/existent'),
+		).not.toThrow();
+	});
+
+	test('works with subdirectory of root', () => {
+		expect(() => validateSymlinkBoundary('/foo/bar/baz', '/foo')).not.toThrow();
+	});
+
+	test('works with Windows-style paths', () => {
+		// Use path.join to create platform-compatible absolute paths
+		const root = path.join('C:', 'Users', 'test');
+		const target = path.join(root, 'subdir', 'file.txt');
+		expect(() => validateSymlinkBoundary(target, root)).not.toThrow();
+	});
+
+	test('throws for Windows path outside boundary', () => {
+		const root = path.join('C:', 'Users', 'test');
+		const target = path.join('C:', 'Windows', 'System32');
+		expect(() => validateSymlinkBoundary(target, root)).toThrow(
+			'Symlink resolution escaped boundary',
+		);
+	});
+
+	test('works with temp directories for realistic testing', () => {
+		const tmpDir = fs.mkdtempSync(
+			path.join(fs.realpathSync('/tmp' || '/var/tmp'), 'symlink-test-'),
+		);
+		const subDir = path.join(tmpDir, 'subdir');
+		fs.mkdirSync(subDir, { recursive: true });
+
+		// Should not throw - subdir is within tmpDir
+		expect(() => validateSymlinkBoundary(subDir, tmpDir)).not.toThrow();
+
+		// Cleanup
+		fs.rmSync(subDir, { recursive: true });
+		fs.rmSync(tmpDir, { recursive: true });
+	});
+
+	test('throws for symlink escaping boundary', () => {
+		const tmpDir = fs.mkdtempSync(
+			path.join(fs.realpathSync('/tmp' || '/var/tmp'), 'symlink-test-'),
+		);
+		const linkTarget = fs.mkdtempSync(
+			path.join(fs.realpathSync('/tmp' || '/var/tmp'), 'symlink-target-'),
+		);
+		const linkPath = path.join(tmpDir, 'malicious_link');
+
+		// Create symlink from linkPath to linkTarget
+		fs.symlinkSync(linkTarget, linkPath);
+
+		// linkPath -> linkTarget escapes tmpDir boundary
+		expect(() => validateSymlinkBoundary(linkPath, tmpDir)).toThrow(
+			'Symlink resolution escaped boundary',
+		);
+
+		// Cleanup
+		fs.unlinkSync(linkPath);
+		fs.rmSync(linkTarget, { recursive: true });
+		fs.rmSync(tmpDir, { recursive: true });
 	});
 });
