@@ -118,6 +118,56 @@ When writing a test, know which step your file will run in. In batch steps, do n
 
 Only create an adversarial variant if it tests **distinct attack vectors** not covered by the base test. Do not duplicate base test assertions with different inputs — that's redundancy, not security coverage.
 
+### Regression tests (review-surfaced bugs)
+
+When fixing a bug surfaced by code review, swarm review, or post-merge audit, **always add a regression test** with the following shape so the test's purpose survives future cleanup:
+
+```typescript
+describe('<feature> — regression: <one-line description> (F#)', () => {
+  it('<exact behavior the bug violated>', () => {
+    // Previous code did <bad thing>: e.g. the regex `/^\.\/+/` only stripped
+    // a single leading `./`, so `././util.ts` survived as `./util.ts`.
+    expect(normalizeGraphPath('././util.ts')).toBe('util.ts');
+  });
+});
+```
+
+Rules:
+- The describe label includes the original finding ID (e.g. `F8`, `F9`, `F1.1`) so future readers can map back to the review.
+- The leading comment in the body explains the **prior buggy behavior** in concrete terms — what the code did before, not what it does now.
+- One regression test per finding. Do not pile unrelated assertions into a single regression block.
+
+Examples in-tree: `tests/unit/graph/graph-query.test.ts`, `tests/unit/graph/import-extractor.test.ts`, `tests/unit/graph/graph-store.test.ts`.
+
+## Cross-Entry Invariants (config maps)
+
+When you modify any entry of a "map of agents/tools/roles" in `src/config/constants.ts` (`AGENT_TOOL_MAP`, `DEFAULT_MODELS`, `QA_AGENTS`, `PIPELINE_AGENTS`, etc.), there are tests that assert **parity across sibling entries**, not just shape of one entry.
+
+Known parity assertions:
+
+| Test | Invariant |
+|---|---|
+| `tests/unit/config/critic-registration.test.ts:67` | `AGENT_TOOL_MAP.critic_sounding_board.length === AGENT_TOOL_MAP.critic.length` |
+| `tests/unit/config/agent-tool-map.test.ts:26` | `AGENT_TOOL_MAP.architect.length` is strictly greater than every other agent's |
+| `tests/unit/config/agent-tool-map.test.ts:34` | every subagent's tool list `<= 20` entries |
+| `tests/unit/config/constants.test.ts:48` | `ALL_SUBAGENT_NAMES.length === 13` |
+| `tests/unit/config/constants.test.ts:137` | `Object.keys(DEFAULT_MODELS).length === 14` |
+
+Workflow when adding a tool to a single agent:
+1. Add the entry.
+2. Run `bun --smol test tests/unit/config --timeout 60000` **before pushing**.
+3. If a parity test fails, decide: mirror the change to sibling agents, or update the invariant test if the design intent has actually changed.
+4. To inspect runtime shape quickly: `bun -e "import { AGENT_TOOL_MAP } from './src/config/constants.ts'; for (const [k,v] of Object.entries(AGENT_TOOL_MAP)) console.log(k, v.length);"`
+
+## Debugging CI failures
+
+When CI reports a `unit (ubuntu|macos|windows)` failure:
+
+1. **Identify the actual failing test from the job log first.** Do not assume it's a pre-existing failure based on a local repro of a different test. Open the failing job's URL and find the `<file>:<line>` in the Bun output. WebFetch can scrape this if the `gh` CLI isn't available.
+2. **Reproduce that exact file locally:** `bun --smol test tests/unit/<dir>/<file>.test.ts --timeout 30000`.
+3. **Then check if the same failure reproduces on `main`.** If yes, document as pre-existing in the PR description and continue with your branch's work; do not silently inherit the failure.
+4. **For dist-check failures:** any change under `src/` that the bundler picks up requires `bun run build` + commit of `dist/` in the same PR. The job compares committed `dist/` against a fresh build.
+
 ## Test Quality Standards
 
 ### DO
