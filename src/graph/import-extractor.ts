@@ -186,6 +186,22 @@ const TS_SIDEEFFECT_RE = /(?:^|[\n;])\s*import\s+['"`]([^'"`]+)['"`]/g;
 const TS_REQUIRE_RE = /\brequire\s*\(\s*['"`]([^'"`]+)['"`]\s*\)/g;
 const TS_DYNAMIC_IMPORT_RE = /\bimport\s*\(\s*['"`]([^'"`]+)['"`]\s*\)/g;
 
+/**
+ * Returns true when the keyword at `keywordIndex` is the member of a member
+ * expression (`obj.require(...)`, `obj?.import(...)`, etc.). The regex word
+ * boundary `\b` is satisfied by a `.` immediately before the keyword, so we
+ * have to filter member-access calls explicitly to avoid phantom edges.
+ */
+function isMemberAccessAt(content: string, keywordIndex: number): boolean {
+	let i = keywordIndex - 1;
+	// Skip horizontal whitespace between the dot and the keyword.
+	while (i >= 0 && (content[i] === ' ' || content[i] === '\t')) i--;
+	if (i < 0) return false;
+	if (content[i] !== '.') return false;
+	// Allow `?.` optional chaining as well — still member access.
+	return true;
+}
+
 function lineNumberFor(content: string, index: number): number {
 	let line = 1;
 	for (let i = 0; i < index && i < content.length; i++) {
@@ -316,8 +332,11 @@ function parseTSJSImports(content: string): ParsedImport[] {
 		m !== null;
 		m = TS_REQUIRE_RE.exec(stripped)
 	) {
-		// `\brequire\s*\(` — the `require` keyword is at m.index.
+		// `\brequire\s*\(` — the `require` keyword is at m.index. The `\b`
+		// boundary is satisfied by `.|r`, so `obj.require(...)` would also
+		// match. Reject member-expression calls explicitly.
 		if (isInString(m.index)) continue;
+		if (isMemberAccessAt(stripped, m.index)) continue;
 		const rawModule = m[1];
 		const line = lineNumberFor(stripped, m.index);
 		const key = `require:${rawModule}::${line}`;
@@ -336,8 +355,10 @@ function parseTSJSImports(content: string): ParsedImport[] {
 		m !== null;
 		m = TS_DYNAMIC_IMPORT_RE.exec(stripped)
 	) {
-		// `\bimport\s*\(` — the `import` keyword is at m.index.
+		// `\bimport\s*\(` — the `import` keyword is at m.index. Same
+		// member-expression false-positive as `require` above.
 		if (isInString(m.index)) continue;
+		if (isMemberAccessAt(stripped, m.index)) continue;
 		const rawModule = m[1];
 		const line = lineNumberFor(stripped, m.index);
 		const key = `dyn:${rawModule}::${line}`;
@@ -478,7 +499,11 @@ function findNonImportStringRanges(content: string): Array<[number, number]> {
 				const matchKeyword = (kw: string, tail: string): boolean => {
 					if (!tail.endsWith(kw)) return false;
 					const before = k - kw.length;
-					return before < 0 || !/[\w$]/.test(content[before]);
+					if (before >= 0 && /[\w$]/.test(content[before])) return false;
+					// A leading `.` (member access, e.g. `obj.require("x")`) is
+					// also a non-import call — `\b` accepts it but we don't.
+					if (before >= 0 && content[before] === '.') return false;
+					return true;
 				};
 				if (matchKeyword('require', tail7) || matchKeyword('import', tail6)) {
 					isImportSource = true;

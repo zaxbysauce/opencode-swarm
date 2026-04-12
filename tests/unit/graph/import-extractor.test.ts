@@ -180,6 +180,28 @@ describe('extractImports — regression: paren-preceded strings (F1)', () => {
 		expect(edges[0].rawModule).toBe('./real-x');
 	});
 
+	it('does not synthesise edges from member-expression require/import (F1.1)', () => {
+		// `\brequire` / `\bimport` are satisfied by a leading `.` (a non-word
+		// char), so `obj.require("./x")` and `obj.import("./x")` previously
+		// slipped through. Both the regex pass and the string-range lookback
+		// must reject member-expression calls.
+		write('real-z.ts', 'export const z = 1;\n');
+		const f = write(
+			'member.ts',
+			[
+				"import { z } from './real-z';",
+				"someHelper.require('./fake-member-require');",
+				"obj.import('./fake-member-import');",
+				"const docs = 'someHelper.require(\\'./also-fake\\')';",
+				'console.log(z);',
+			].join('\n'),
+		);
+		const edges = extractImports({ absoluteFilePath: f, workspaceRoot: tmp });
+		// Only the real `import { z } from './real-z'` survives.
+		expect(edges).toHaveLength(1);
+		expect(edges[0].rawModule).toBe('./real-z');
+	});
+
 	it('still recognises real require/import calls preceded by a (', () => {
 		// Word-boundary keyword matching must not false-negative the real cases.
 		write('real-y.ts', 'export const y = 2;\n');
