@@ -1,6 +1,7 @@
 import * as fs from 'node:fs';
 import * as path from 'node:path';
 import { buildRepoGraph, processFile } from './graph-builder';
+import { resetQueryCache } from './graph-query';
 import {
 	REPO_GRAPH_FILENAME,
 	REPO_GRAPH_SCHEMA_VERSION,
@@ -50,7 +51,18 @@ export function saveGraph(workspaceRoot: string, graph: RepoGraph): void {
 	fs.mkdirSync(dir, { recursive: true });
 	const tmp = `${file}.tmp.${process.pid}.${Date.now()}`;
 	fs.writeFileSync(tmp, JSON.stringify(graph), 'utf-8');
-	fs.renameSync(tmp, file);
+	try {
+		fs.renameSync(tmp, file);
+	} catch (renameErr) {
+		// Cross-device move (EXDEV), permissions, or destination disappeared.
+		// Best-effort cleanup so we don't leak an orphan tmpfile into .swarm/.
+		try {
+			fs.unlinkSync(tmp);
+		} catch {
+			// tmp may already be gone (e.g. partial rename) — ignore.
+		}
+		throw renameErr;
+	}
 }
 
 /**
@@ -100,6 +112,10 @@ export async function updateGraphIncremental(
 		}
 	}
 	graph.buildTimestamp = new Date().toISOString();
+	// The query layer caches a reverse-edge index keyed on graph identity;
+	// in-place mutation does not change identity, so we must explicitly
+	// invalidate to avoid serving stale importers/dependents.
+	resetQueryCache();
 	return graph;
 }
 

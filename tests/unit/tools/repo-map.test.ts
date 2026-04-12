@@ -50,6 +50,20 @@ describe('repo_map: build', () => {
 			fs.existsSync(path.join(tmp, '.swarm/repo-graph.json')),
 		).toBe(true);
 	});
+
+	it('returns a structured error envelope when build fails (no JSON throw)', async () => {
+		// Make .swarm a non-writable file so mkdirSync inside saveGraph fails.
+		fs.writeFileSync(path.join(tmp, '.swarm'), 'not a directory', 'utf-8');
+		const out = await call({ action: 'build' });
+		const r = JSON.parse(out) as {
+			success: boolean;
+			action: string;
+			error: string;
+		};
+		expect(r.success).toBe(false);
+		expect(r.action).toBe('build');
+		expect(r.error).toContain('build failed');
+	});
 });
 
 describe('repo_map: query actions without prior build', () => {
@@ -157,6 +171,28 @@ describe('repo_map: validation', () => {
 		const r = JSON.parse(out) as { success: boolean; error: string };
 		expect(r.success).toBe(false);
 		expect(r.error).toContain('path traversal');
+	});
+
+	it('rejects absolute paths (POSIX)', async () => {
+		await call({ action: 'build' });
+		const out = await call({
+			action: 'importers',
+			file: '/etc/passwd',
+		});
+		const r = JSON.parse(out) as { success: boolean; error: string };
+		expect(r.success).toBe(false);
+		expect(r.error).toContain('workspace-relative');
+	});
+
+	it('rejects Windows drive-letter absolute paths', async () => {
+		await call({ action: 'build' });
+		const out = await call({
+			action: 'importers',
+			file: 'C:\\Windows\\system32\\drivers\\etc\\hosts',
+		});
+		const r = JSON.parse(out) as { success: boolean; error: string };
+		expect(r.success).toBe(false);
+		expect(r.error).toContain('workspace-relative');
 	});
 
 	it('requires file for importers/dependencies/localization', async () => {

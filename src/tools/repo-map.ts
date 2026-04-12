@@ -70,6 +70,12 @@ function validateFile(p: string): string | null {
 	}
 	if (containsControlChars(p)) return 'file contains control characters';
 	if (containsPathTraversal(p)) return 'file contains path traversal';
+	// Reject absolute paths (POSIX `/`, Windows `\`, drive letters like `C:`).
+	// All graph paths are workspace-relative; an absolute input either escapes
+	// the workspace or trivially mismatches the graph's relative keys.
+	if (path.isAbsolute(p) || /^[a-zA-Z]:[\\/]/.test(p)) {
+		return 'file must be a workspace-relative path, not absolute';
+	}
 	return null;
 }
 
@@ -200,21 +206,26 @@ export const repo_map: ReturnType<typeof createSwarmTool> = createSwarmTool({
 
 		// ----- build -----
 		if (action === 'build') {
-			const start = Date.now();
-			const graph = await buildAndSaveGraph(directory);
-			const elapsedMs = Date.now() - start;
-			const fileCount = Object.keys(graph.files).length;
-			let edgeCount = 0;
-			for (const node of Object.values(graph.files)) {
-				edgeCount += node.imports.length;
+			try {
+				const start = Date.now();
+				const graph = await buildAndSaveGraph(directory);
+				const elapsedMs = Date.now() - start;
+				const fileCount = Object.keys(graph.files).length;
+				let edgeCount = 0;
+				for (const node of Object.values(graph.files)) {
+					edgeCount += node.imports.length;
+				}
+				return ok(action, {
+					fileCount,
+					edgeCount,
+					buildTimestamp: graph.buildTimestamp,
+					elapsedMs,
+					path: '.swarm/repo-graph.json',
+				});
+			} catch (e) {
+				const message = e instanceof Error ? e.message : String(e);
+				return err(action, `build failed: ${message}`);
 			}
-			return ok(action, {
-				fileCount,
-				edgeCount,
-				buildTimestamp: graph.buildTimestamp,
-				elapsedMs,
-				path: '.swarm/repo-graph.json',
-			});
 		}
 
 		// All other actions need a loaded graph.
