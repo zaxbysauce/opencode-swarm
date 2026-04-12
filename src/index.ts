@@ -55,6 +55,7 @@ import { createIncrementalVerifyHook } from './hooks/incremental-verify';
 import { createKnowledgeCuratorHook } from './hooks/knowledge-curator.js';
 import { createKnowledgeInjectorHook } from './hooks/knowledge-injector.js';
 import { normalizeToolName } from './hooks/normalize-tool-name';
+import { createRepoMapInjectorHook } from './hooks/repo-map-injector.js';
 import { createScopeGuardHook } from './hooks/scope-guard.js';
 import { createSelfReviewHook } from './hooks/self-review.js';
 import { createSlopDetectorHook } from './hooks/slop-detector';
@@ -299,6 +300,9 @@ const OpenCodeSwarm: Plugin = async (ctx) => {
 	const knowledgeInjectorHook = knowledgeConfig.enabled
 		? createKnowledgeInjectorHook(ctx.directory, knowledgeConfig)
 		: undefined;
+
+	// Repo-map injector hook — auto-injects localization context for architect Task delegations
+	const repoMapInjectorHook = createRepoMapInjectorHook(ctx.directory);
 
 	// v6.18 Steering acknowledgment hook — auto-acknowledges unconsumed steering directives
 	const steeringConsumedHook = createSteeringConsumedHook(ctx.directory);
@@ -786,6 +790,7 @@ const OpenCodeSwarm: Plugin = async (ctx) => {
 				fullAutoInterceptHook?.messagesTransform,
 				delegationGateHooks.messagesTransform,
 				delegationSanitizerHook,
+				repoMapInjectorHook, // repo-map localization injection
 				knowledgeInjectorHook, // v6.17 knowledge injection
 				// Final transformation: consolidate multiple system messages into one
 				(_input: unknown, output: { messages?: unknown[] }): Promise<void> => {

@@ -45,6 +45,15 @@ export {
 	quality_budget,
 	qualityBudget,
 } from './quality-budget';
+export type {
+	CallEdge,
+	ImportDef,
+	LocalizationContext,
+	RepoMap,
+	RepoMapEntry,
+	SymbolDef,
+} from './repo-map';
+export { repo_map } from './repo-map';
 export { req_coverage } from './req-coverage';
 export { retrieve_summary } from './retrieve-summary';
 export {

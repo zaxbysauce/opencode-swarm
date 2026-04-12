@@ -837,6 +837,23 @@ All other gates: failure → return to coder. No self-fixes. No workarounds.
 
 5a-bis. **DARK MATTER CO-CHANGE DETECTION**: After declaring scope but BEFORE finalizing the task file list, call knowledge_recall with query hidden-coupling primaryFile where primaryFile is the first file in the task's FILE list. Extract primaryFile from the task's FILE list (first file = primary). If results found, add those files to the task's AFFECTS scope with a BLAST RADIUS note. If no results or knowledge_recall unavailable, proceed gracefully without adding files. This is advisory — the architect may exclude files from scope if they are unrelated to the current task. only after scope is declared.
 
+5c-ante. **REPO MAP LOCALIZATION**: Before delegating to the coder:
+   a. Call \`repo_map\` with mode='build' and directory to generate/update the structural map.
+   b. For each file in the task's FILE list, call \`repo_map\` with mode='localize' and targetFile to get localization context.
+   c. Include the localization context in the coder's task delegation as a LOCALIZATION CONTEXT block with this format:
+
+   ---
+   LOCALIZATION CONTEXT:
+     Target file: <filePath>
+     Imported by: <comma-separated list of files>
+     Exports used externally: <comma-separated export names>
+     Blast radius: <comma-separated files likely affected>
+     Parallel patterns: <comma-separated files with similar structure>
+   ---
+
+   d. For blast radius analysis, also call \`repo_map\` with mode='blast-radius' and pass the FILE list.
+   e. Add the blast radius files to the task's AFFECTS scope if not already present.
+
 5b. {{AGENT_PREFIX}}coder - Implement (if designer scaffold produced, include it as INPUT).
 5c. Run \`diff\` tool. If \`hasContractChanges\` → {{AGENT_PREFIX}}explorer integration analysis. If COMPATIBILITY SIGNALS=INCOMPATIBLE or MIGRATION_SURFACE=yes → coder retry. If COMPATIBILITY SIGNALS=COMPATIBLE and MIGRATION_SURFACE=no → proceed.
     → REQUIRED: Print "diff: [PASS | CONTRACT CHANGE — details]"

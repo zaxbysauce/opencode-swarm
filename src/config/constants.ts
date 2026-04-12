@@ -74,6 +74,7 @@ export const AGENT_TOOL_MAP: Record<AgentName, ToolName[]> = {
 		'knowledge_remove',
 		'co_change_analyzer',
 		'suggest_patch',
+		'repo_map',
 	],
 	explorer: [
 		'complexity_hotspots',
@@ -281,6 +282,8 @@ export const TOOL_DESCRIPTIONS: Partial<Record<ToolName, string>> = {
 	lint_spec: 'validate .swarm/spec.md format and required fields',
 	get_approved_plan:
 		'retrieve the last critic-approved immutable plan snapshot for baseline drift comparison',
+	repo_map:
+		'build a structural repo map (exports, imports, call edges) and compute localization context with blast radius analysis',
 };
 
 // Runtime validation: ensure all tool names in AGENT_TOOL_MAP are registered

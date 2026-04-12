@@ -150,6 +150,16 @@ GATES: [pre-completed gate results (lint, SAST, secretscan, etc.), or "none" if 
 
 PROCESSING: If GATES is provided and includes passing results for lint, SAST, placeholder-scan, or secret-scan: skip the corresponding Tier 2 checks that those gates already cover. Focus Tier 2 time on checks NOT covered by automated gates.
 
+## BLAST RADIUS VERIFICATION
+
+When the task includes a blast radius list or localization context:
+1. For each file in the "blast radius" or "imported by" list, verify the coder did NOT break its imports
+2. If exported symbols were changed, confirm backward compatibility is preserved
+3. If blast radius files were NOT checked by the coder, flag this as an incomplete review
+4. Use the \`imports\` tool to verify the blast radius files still resolve correctly
+
+Available tools for blast radius verification: \`imports\`, \`symbols\`, \`batch_symbols\`.
+
 ## OUTPUT FORMAT (MANDATORY — deviations will be rejected)
 Begin directly with VERDICT. Do NOT prepend "Here's my review..." or any conversational preamble.
 

@@ -94,6 +94,7 @@ var init_tool_names = __esm(() => {
     "batch_symbols",
     "suggest_patch",
     "req_coverage",
+    "repo_map",
     "get_approved_plan"
   ];
   TOOL_NAME_SET = new Set(TOOL_NAMES);
@@ -229,7 +230,8 @@ var init_constants = __esm(() => {
       "knowledge_recall",
       "knowledge_remove",
       "co_change_analyzer",
-      "suggest_patch"
+      "suggest_patch",
+      "repo_map"
     ],
     explorer: [
       "complexity_hotspots",
@@ -412,7 +414,8 @@ var init_constants = __esm(() => {
     batch_symbols: "Batched symbol extraction across multiple files. Returns per-file symbol summaries with isolated error handling.",
     suggest_patch: "Reviewer-safe structured patch suggestion tool. Produces context-anchored patch artifacts without file modification. Returns structured diagnostics on context mismatch.",
     lint_spec: "validate .swarm/spec.md format and required fields",
-    get_approved_plan: "retrieve the last critic-approved immutable plan snapshot for baseline drift comparison"
+    get_approved_plan: "retrieve the last critic-approved immutable plan snapshot for baseline drift comparison",
+    repo_map: "build a structural repo map (exports, imports, call edges) and compute localization context with blast radius analysis"
   };
   for (const [agentName, tools] of Object.entries(AGENT_TOOL_MAP)) {
     const invalidTools = tools.filter((tool) => !TOOL_NAME_SET.has(tool));
@@ -45302,7 +45305,7 @@ var init_runtime = __esm(() => {
 });
 
 // src/index.ts
-import * as path80 from "path";
+import * as path81 from "path";
 
 // src/agents/index.ts
 init_config();
@@ -54098,6 +54101,23 @@ All other gates: failure \u2192 return to coder. No self-fixes. No workarounds.
 
 5a-bis. **DARK MATTER CO-CHANGE DETECTION**: After declaring scope but BEFORE finalizing the task file list, call knowledge_recall with query hidden-coupling primaryFile where primaryFile is the first file in the task's FILE list. Extract primaryFile from the task's FILE list (first file = primary). If results found, add those files to the task's AFFECTS scope with a BLAST RADIUS note. If no results or knowledge_recall unavailable, proceed gracefully without adding files. This is advisory \u2014 the architect may exclude files from scope if they are unrelated to the current task. only after scope is declared.
 
+5c-ante. **REPO MAP LOCALIZATION**: Before delegating to the coder:
+   a. Call \`repo_map\` with mode='build' and directory to generate/update the structural map.
+   b. For each file in the task's FILE list, call \`repo_map\` with mode='localize' and targetFile to get localization context.
+   c. Include the localization context in the coder's task delegation as a LOCALIZATION CONTEXT block with this format:
+
+   ---
+   LOCALIZATION CONTEXT:
+     Target file: <filePath>
+     Imported by: <comma-separated list of files>
+     Exports used externally: <comma-separated export names>
+     Blast radius: <comma-separated files likely affected>
+     Parallel patterns: <comma-separated files with similar structure>
+   ---
+
+   d. For blast radius analysis, also call \`repo_map\` with mode='blast-radius' and pass the FILE list.
+   e. Add the blast radius files to the task's AFFECTS scope if not already present.
+
 5b. {{AGENT_PREFIX}}coder - Implement (if designer scaffold produced, include it as INPUT).
 5c. Run \`diff\` tool. If \`hasContractChanges\` \u2192 {{AGENT_PREFIX}}explorer integration analysis. If COMPATIBILITY SIGNALS=INCOMPATIBLE or MIGRATION_SURFACE=yes \u2192 coder retry. If COMPATIBILITY SIGNALS=COMPATIBLE and MIGRATION_SURFACE=no \u2192 proceed.
     \u2192 REQUIRED: Print "diff: [PASS | CONTRACT CHANGE \u2014 details]"
@@ -54569,6 +54589,19 @@ If available_symbols was provided in your scope declaration, you MUST only call 
 - File operations: use \`fs.promises\` (async) unless synchronous is explicitly required by the task
 - Avoid shell commands in code \u2014 use Node.js APIs (\`fs\`, \`child_process\` with \`shell: false\`)
 - Consider case-sensitivity: Linux filesystems are case-sensitive; Windows and macOS are not
+
+## LOCALIZATION AWARENESS
+
+You may receive a LOCALIZATION CONTEXT block in your task delegation. If present:
+- The "Imported by" list shows files that depend on your target \u2014 do NOT break their imports
+- The "Exports used externally" list shows specific symbols other files need \u2014 preserve their signatures
+- The "Blast radius" shows files likely affected \u2014 check them after editing
+- "Parallel patterns" shows files with similar structure \u2014 mirror their patterns for consistency
+
+Before finalizing your changes:
+1. Verify no import in "Imported by" files would break
+2. Check that all "Exports used externally" signatures remain compatible
+3. If you change an exported symbol's signature, note it in your output
 
 ## TEST FRAMEWORK
 - Import from 'bun:test', NOT from 'vitest'. The APIs are identical but the import source matters.
@@ -55623,6 +55656,16 @@ CHECK: [list of dimensions to evaluate]
 GATES: [pre-completed gate results (lint, SAST, secretscan, etc.), or "none" if unavailable]
 
 PROCESSING: If GATES is provided and includes passing results for lint, SAST, placeholder-scan, or secret-scan: skip the corresponding Tier 2 checks that those gates already cover. Focus Tier 2 time on checks NOT covered by automated gates.
+
+## BLAST RADIUS VERIFICATION
+
+When the task includes a blast radius list or localization context:
+1. For each file in the "blast radius" or "imported by" list, verify the coder did NOT break its imports
+2. If exported symbols were changed, confirm backward compatibility is preserved
+3. If blast radius files were NOT checked by the coder, flag this as an incomplete review
+4. Use the \`imports\` tool to verify the blast radius files still resolve correctly
+
+Available tools for blast radius verification: \`imports\`, \`symbols\`, \`batch_symbols\`.
 
 ## OUTPUT FORMAT (MANDATORY \u2014 deviations will be rejected)
 Begin directly with VERDICT. Do NOT prepend "Here's my review..." or any conversational preamble.
@@ -60732,6 +60775,235 @@ ${originalText}`;
     })
   };
 }
+// src/hooks/repo-map-injector.ts
+init_schema();
+init_utils2();
+var INJECT_CHAR_BUDGET = 1500;
+var MIN_HEADROOM_CHARS = 500;
+var MAP_STALENESS_SECONDS = 300;
+var CHARS_PER_TOKEN = 1 / 0.33;
+var MODEL_LIMIT_CHARS = Math.floor(128000 * CHARS_PER_TOKEN);
+var CONTEXT_FULL_THRESHOLD = 0.8;
+var INJECTION_MARKER = "[REPO-MAP CONTEXT]";
+var FILE_PATH_PATTERN = /(?:^|[\s"'`(]|FILE[Ss]?[:\s])([\w./-]+\.[a-zA-Z]{1,4})/g;
+function isArchitectAgent(agentName) {
+  const stripped = stripKnownSwarmPrefix(agentName);
+  return stripped.toLowerCase() === "architect";
+}
+function parseRepoMap(raw) {
+  try {
+    const parsed = JSON.parse(raw);
+    if (!parsed || typeof parsed !== "object")
+      return null;
+    if (!parsed.files || typeof parsed.files !== "object")
+      return null;
+    if (!parsed.generatedAt || typeof parsed.generatedAt !== "string")
+      return null;
+    return parsed;
+  } catch {
+    return null;
+  }
+}
+function isFresh(generatedAt) {
+  try {
+    const generated = new Date(generatedAt).getTime();
+    if (Number.isNaN(generated))
+      return false;
+    const ageSeconds = (Date.now() - generated) / 1000;
+    return ageSeconds < MAP_STALENESS_SECONDS;
+  } catch {
+    return false;
+  }
+}
+function extractReferencedFiles(messages) {
+  const files = new Set;
+  for (const msg of messages) {
+    if (!msg.parts)
+      continue;
+    for (const part of msg.parts) {
+      if (part.type !== "text" || !part.text)
+        continue;
+      const allMatches = [...part.text.matchAll(FILE_PATH_PATTERN)];
+      for (const m of allMatches) {
+        const candidate = m[1];
+        if (candidate.startsWith("http")) {
+          continue;
+        }
+        if (!candidate.includes("/") && !candidate.includes("\\")) {
+          continue;
+        }
+        const normalised = candidate.replace(/\\/g, "/");
+        if (normalised.length < 5) {
+          continue;
+        }
+        files.add(normalised);
+      }
+    }
+  }
+  return files;
+}
+function hasPendingTaskDelegation(messages) {
+  for (let i2 = messages.length - 1;i2 >= 0; i2--) {
+    const msg = messages[i2];
+    if (msg.info?.role !== "assistant")
+      continue;
+    if (!msg.parts)
+      continue;
+    for (const part of msg.parts) {
+      if (part.type === "tool_use") {
+        const toolName = part.name;
+        if (toolName === "Task" || toolName === "task") {
+          return true;
+        }
+      }
+    }
+  }
+  return false;
+}
+function buildFileSummary(fileKey, entry, map3) {
+  let importCount = 0;
+  for (const [, other] of Object.entries(map3.files)) {
+    if (other === entry)
+      continue;
+    if (other.imports?.some((imp) => imp.source === fileKey)) {
+      importCount++;
+    }
+  }
+  const exportedNames = (entry.exports ?? []).filter((e) => e.exported).map((e) => e.name).slice(0, 3);
+  const exportsStr = exportedNames.length > 0 ? exportedNames.join(", ") : "-";
+  const directImporters = [];
+  for (const [otherKey, other] of Object.entries(map3.files)) {
+    if (other === entry)
+      continue;
+    if (other.imports?.some((imp) => imp.source === fileKey)) {
+      directImporters.push(otherKey);
+    }
+  }
+  let blastRadius = directImporters.length;
+  for (const importer of directImporters) {
+    const importerEntry = map3.files[importer];
+    if (!importerEntry)
+      continue;
+    for (const [thirdKey, third] of Object.entries(map3.files)) {
+      if (third === importerEntry || third === entry)
+        continue;
+      if (third.imports?.some((imp) => imp.source === importer) && !directImporters.includes(thirdKey)) {
+        blastRadius++;
+      }
+    }
+  }
+  return `File: ${fileKey} | Imported by: ${importCount} | Key exports: ${exportsStr} | Blast radius: ${blastRadius}`;
+}
+function buildInjectionBlock(map3, referencedFiles) {
+  if (referencedFiles.size === 0)
+    return null;
+  const lines = [];
+  for (const filePath of referencedFiles) {
+    let entry = map3.files[filePath];
+    if (!entry) {
+      const stripped = filePath.replace(/^\.\//, "");
+      entry = map3.files[stripped];
+    }
+    if (!entry) {
+      for (const [key, val] of Object.entries(map3.files)) {
+        if (key.endsWith(filePath) || filePath.endsWith(key)) {
+          entry = val;
+          break;
+        }
+      }
+    }
+    if (entry) {
+      let mapKey = filePath;
+      for (const [key, val] of Object.entries(map3.files)) {
+        if (val === entry) {
+          mapKey = key;
+          break;
+        }
+      }
+      lines.push(buildFileSummary(mapKey, entry, map3));
+    }
+  }
+  if (lines.length === 0)
+    return null;
+  let block = `${INJECTION_MARKER}
+` + `Structural localization for files in this task:
+` + lines.join(`
+`);
+  while (block.length > INJECT_CHAR_BUDGET && lines.length > 0) {
+    lines.pop();
+    block = `${INJECTION_MARKER}
+` + `Structural localization for files in this task:
+` + lines.join(`
+`);
+  }
+  return lines.length > 0 ? block : null;
+}
+function injectRepoMapMessage(output, text) {
+  if (!output.messages)
+    return;
+  const alreadyInjected = output.messages.some((m) => m.parts?.some((p) => p.text?.includes(INJECTION_MARKER)));
+  if (alreadyInjected)
+    return;
+  let insertIdx = output.messages.length - 1;
+  for (let i2 = output.messages.length - 1;i2 >= 0; i2--) {
+    if (output.messages[i2].info?.role === "user") {
+      insertIdx = i2;
+      break;
+    }
+  }
+  const repoMapMessage = {
+    info: { role: "system" },
+    parts: [{ type: "text", text }]
+  };
+  output.messages.splice(insertIdx, 0, repoMapMessage);
+}
+function createRepoMapInjectorHook(directory) {
+  let cachedRaw = null;
+  let cachedMapTime = 0;
+  return safeHook(async (_input, output) => {
+    if (!output.messages || output.messages.length === 0)
+      return;
+    const systemMsg = output.messages.find((m) => m.info?.role === "system");
+    const agentName = systemMsg?.info?.agent;
+    if (!agentName || !isArchitectAgent(agentName))
+      return;
+    if (!hasPendingTaskDelegation(output.messages))
+      return;
+    const existingChars = output.messages.reduce((sum, msg) => {
+      return sum + (msg.parts?.reduce((s, p) => s + (p.text?.length ?? 0), 0) ?? 0);
+    }, 0);
+    const usageRatio = existingChars / MODEL_LIMIT_CHARS;
+    if (usageRatio > CONTEXT_FULL_THRESHOLD) {
+      return;
+    }
+    const headroomChars = MODEL_LIMIT_CHARS - existingChars;
+    if (headroomChars < MIN_HEADROOM_CHARS) {
+      return;
+    }
+    const now = Date.now();
+    if (cachedRaw === null || now - cachedMapTime > MAP_STALENESS_SECONDS * 1000) {
+      const raw = await readSwarmFileAsync(directory, "repo-map.json");
+      if (!raw)
+        return;
+      cachedRaw = raw;
+      cachedMapTime = now;
+    }
+    const map3 = parseRepoMap(cachedRaw);
+    if (!map3) {
+      cachedRaw = null;
+      return;
+    }
+    if (!isFresh(map3.generatedAt))
+      return;
+    const referencedFiles = extractReferencedFiles(output.messages);
+    if (referencedFiles.size === 0)
+      return;
+    const block = buildInjectionBlock(map3, referencedFiles);
+    if (!block)
+      return;
+    injectRepoMapMessage(output, block);
+  });
+}
 
 // src/hooks/index.ts
 init_review_receipt();
@@ -63338,19 +63610,19 @@ function createKnowledgeInjectorHook(directory, config3) {
       return;
     const plan = await loadPlan(directory);
     const currentPhase = plan?.current_phase ?? 1;
-    const CHARS_PER_TOKEN = 1 / 0.33;
-    const MODEL_LIMIT_CHARS = Math.floor(128000 * CHARS_PER_TOKEN);
+    const CHARS_PER_TOKEN2 = 1 / 0.33;
+    const MODEL_LIMIT_CHARS2 = Math.floor(128000 * CHARS_PER_TOKEN2);
     const existingChars = output.messages.reduce((sum, msg) => {
       return sum + (msg.parts?.reduce((s, p) => s + (p.text?.length ?? 0), 0) ?? 0);
     }, 0);
-    const headroomChars = MODEL_LIMIT_CHARS - existingChars;
+    const headroomChars = MODEL_LIMIT_CHARS2 - existingChars;
     const MIN_INJECT_CHARS = config3.context_budget_threshold ?? 300;
     if (headroomChars < MIN_INJECT_CHARS) {
-      console.warn(`[knowledge-injector] Skipping: only ${headroomChars} chars of headroom remain (existing: ${existingChars}, limit: ${MODEL_LIMIT_CHARS})`);
+      console.warn(`[knowledge-injector] Skipping: only ${headroomChars} chars of headroom remain (existing: ${existingChars}, limit: ${MODEL_LIMIT_CHARS2})`);
       return;
     }
     const maxInjectChars = config3.inject_char_budget ?? 2000;
-    const effectiveBudget = headroomChars >= MODEL_LIMIT_CHARS * 0.6 ? maxInjectChars : headroomChars >= MODEL_LIMIT_CHARS * 0.2 ? Math.floor(maxInjectChars * 0.5) : Math.floor(maxInjectChars * 0.25);
+    const effectiveBudget = headroomChars >= MODEL_LIMIT_CHARS2 * 0.6 ? maxInjectChars : headroomChars >= MODEL_LIMIT_CHARS2 * 0.2 ? Math.floor(maxInjectChars * 0.5) : Math.floor(maxInjectChars * 0.25);
     const systemMsg = output.messages.find((m) => m.info?.role === "system");
     const agentName = systemMsg?.info?.agent;
     if (!agentName || !isOrchestratorAgent(agentName))
@@ -72977,15 +73249,952 @@ var pre_check_batch = createSwarmTool({
     }
   }
 });
+// src/tools/repo-map.ts
+init_dist();
+import * as fs55 from "fs";
+import * as path68 from "path";
+init_runtime();
+init_create_tool();
+var MAX_FILE_SIZE_BYTES8 = 1024 * 1024;
+var MAX_ENTRIES = 50000;
+var CACHE_STALENESS_MS = 60000;
+var WINDOWS_RESERVED_NAMES3 = /^(con|prn|aux|nul|com[1-9]|lpt[1-9])(\.|:|$)/i;
+var SKIP_DIRECTORIES4 = new Set([
+  "node_modules",
+  ".git",
+  "dist",
+  "build",
+  "out",
+  "coverage",
+  ".next",
+  ".nuxt",
+  ".cache",
+  "vendor",
+  ".svn",
+  ".hg",
+  ".swarm",
+  "__pycache__",
+  ".gradle",
+  "target",
+  ".idea",
+  ".vscode",
+  ".venv",
+  "venv"
+]);
+var SOURCE_EXTENSIONS2 = new Set([
+  ".ts",
+  ".tsx",
+  ".js",
+  ".jsx",
+  ".mjs",
+  ".cjs",
+  ".py",
+  ".go",
+  ".rs",
+  ".php",
+  ".phtml",
+  ".rb",
+  ".java",
+  ".kt",
+  ".swift",
+  ".dart",
+  ".c",
+  ".cpp",
+  ".h",
+  ".hpp",
+  ".cs",
+  ".sh",
+  ".bash"
+]);
+var cachedMap = null;
+var cachedRootDir = null;
+var cachedTimestamp = 0;
+function containsWindowsAttacks3(str) {
+  if (/:[^\\/]/.test(str))
+    return true;
+  const parts2 = str.split(/[/\\]/);
+  for (const part of parts2) {
+    if (WINDOWS_RESERVED_NAMES3.test(part))
+      return true;
+  }
+  return false;
+}
+function validateDirectory3(dir) {
+  if (!dir || dir.length === 0)
+    return "directory is required";
+  if (dir.length > 500)
+    return `directory exceeds maximum length`;
+  if (containsControlChars(dir))
+    return "directory contains control characters";
+  if (containsPathTraversal(dir))
+    return "directory contains path traversal";
+  if (containsWindowsAttacks3(dir))
+    return "directory contains invalid Windows sequence";
+  return null;
+}
+function findSourceFiles2(dir) {
+  const files = [];
+  function walk(currentDir) {
+    let entries;
+    try {
+      entries = fs55.readdirSync(currentDir);
+    } catch {
+      return;
+    }
+    entries.sort((a, b) => a.toLowerCase().localeCompare(b.toLowerCase()));
+    for (const entry of entries) {
+      if (SKIP_DIRECTORIES4.has(entry))
+        continue;
+      const fullPath = path68.join(currentDir, entry);
+      let stat2;
+      try {
+        stat2 = fs55.statSync(fullPath);
+      } catch {
+        continue;
+      }
+      if (stat2.isDirectory()) {
+        try {
+          const lstat = fs55.lstatSync(fullPath);
+          if (lstat.isSymbolicLink())
+            continue;
+        } catch {
+          continue;
+        }
+        walk(fullPath);
+      } else if (stat2.isFile() && stat2.size <= MAX_FILE_SIZE_BYTES8) {
+        const ext = path68.extname(fullPath).toLowerCase();
+        if (SOURCE_EXTENSIONS2.has(ext)) {
+          files.push(fullPath);
+        }
+      }
+    }
+  }
+  walk(dir);
+  return files;
+}
+async function extractWithAST(filePath, content, languageId) {
+  const symbols2 = [];
+  const imports2 = [];
+  const callEdges = [];
+  try {
+    const parser = await getParserForFile(filePath);
+    if (!parser) {
+      return { symbols: symbols2, imports: imports2, callEdges };
+    }
+    const tree = parser.parse(content);
+    if (!tree) {
+      return { symbols: symbols2, imports: imports2, callEdges };
+    }
+    try {
+      const root = tree.rootNode;
+      const lines = content.split(`
+`);
+      walkNode(root, lines, languageId, symbols2, imports2, callEdges);
+    } finally {
+      tree.delete();
+    }
+  } catch {}
+  return { symbols: symbols2, imports: imports2, callEdges };
+}
+function walkNode(node, lines, languageId, symbols2, imports2, callEdges) {
+  const nodeType = node.type;
+  if (nodeType === "function_declaration" || nodeType === "function_definition" || nodeType === "function_item") {
+    const nameNode = node.childForFieldName("name");
+    if (nameNode) {
+      const line = node.startPosition.row + 1;
+      const sig = lines[line - 1]?.trim().substring(0, 200) || "";
+      symbols2.push({
+        name: nameNode.text,
+        kind: "function",
+        exported: isExported(node),
+        signature: sig,
+        line
+      });
+    }
+  } else if (nodeType === "class_declaration" || nodeType === "class_definition" || nodeType === "struct_item" || nodeType === "impl_item") {
+    const nameNode = node.childForFieldName("name");
+    if (nameNode) {
+      const line = node.startPosition.row + 1;
+      symbols2.push({
+        name: nameNode.text,
+        kind: "class",
+        exported: isExported(node),
+        signature: lines[line - 1]?.trim().substring(0, 200) || "",
+        line
+      });
+    }
+  } else if (nodeType === "interface_declaration" || nodeType === "type_alias_declaration") {
+    const nameNode = node.childForFieldName("name");
+    if (nameNode) {
+      const line = node.startPosition.row + 1;
+      symbols2.push({
+        name: nameNode.text,
+        kind: nodeType === "interface_declaration" ? "interface" : "type",
+        exported: isExported(node),
+        signature: lines[line - 1]?.trim().substring(0, 200) || "",
+        line
+      });
+    }
+  } else if (nodeType === "method_definition" || nodeType === "method_declaration" || nodeType === "function_signature" || nodeType === "public_field_definition") {
+    const nameNode = node.childForFieldName("name");
+    if (nameNode) {
+      const line = node.startPosition.row + 1;
+      symbols2.push({
+        name: nameNode.text,
+        kind: "method",
+        exported: true,
+        signature: lines[line - 1]?.trim().substring(0, 200) || "",
+        line
+      });
+    }
+  } else if (nodeType === "import_statement" || nodeType === "import_declaration" || nodeType === "use_declaration" || nodeType === "require_statement" || nodeType === "import_from_statement") {
+    const imp = parseImportNode(node, lines);
+    if (imp)
+      imports2.push(imp);
+  } else if (nodeType === "call_expression") {
+    const funcNode = node.childForFieldName("function");
+    if (funcNode) {
+      const line = node.startPosition.row + 1;
+      callEdges.push({
+        from: "<anonymous>",
+        to: funcNode.text,
+        line
+      });
+    }
+  }
+  for (let i2 = 0;i2 < node.childCount; i2++) {
+    const child = node.child(i2);
+    if (child) {
+      walkNode(child, lines, languageId, symbols2, imports2, callEdges);
+    }
+  }
+}
+function isExported(node) {
+  let current = node;
+  while (current) {
+    const t = current.type;
+    if (t === "export_statement" || t === "export_default_declaration" || t === "export_clause")
+      return true;
+    current = current.parent;
+  }
+  const parent = node.parent;
+  if (parent && parent.type === "export_statement")
+    return true;
+  return false;
+}
+function parseImportNode(node, _lines) {
+  const text = node.text;
+  const line = node.startPosition.row + 1;
+  const esModuleMatch = text.match(/import\s+(?:\{([^}]*)\}|(\w+)\s*,\s*\{([^}]*)\}|(\w+)|\*\s+as\s+(\w+))\s+from\s+['"`]([^'"`]+)['"`]/);
+  if (esModuleMatch) {
+    const namedSymbols = esModuleMatch[1] || esModuleMatch[3] || "";
+    const defaultSymbol = esModuleMatch[2] || esModuleMatch[4] || "";
+    const namespaceSymbol = esModuleMatch[5] || "";
+    const source = esModuleMatch[6];
+    const symbols2 = [];
+    if (defaultSymbol)
+      symbols2.push(defaultSymbol);
+    if (namespaceSymbol)
+      symbols2.push(namespaceSymbol);
+    if (namedSymbols) {
+      for (const s of namedSymbols.split(",")) {
+        const trimmed = s.trim();
+        if (trimmed) {
+          const parts2 = trimmed.split(/\s+as\s+/i);
+          symbols2.push(parts2[0].trim());
+        }
+      }
+    }
+    return { source, symbols: symbols2, line };
+  }
+  const sideEffectMatch = text.match(/^import\s+['"`]([^'"`]+)['"`]/);
+  if (sideEffectMatch) {
+    return { source: sideEffectMatch[1], symbols: [], line };
+  }
+  const pythonFromMatch = text.match(/from\s+([^\s]+)\s+import\s+(.+)/);
+  if (pythonFromMatch) {
+    const source = pythonFromMatch[1];
+    const symbols2 = pythonFromMatch[2].split(",").map((s) => s.trim().split(/\s+as\s+/i)[0]).filter(Boolean);
+    return { source, symbols: symbols2, line };
+  }
+  const pythonImportMatch = text.match(/^import\s+([^\s]+)/);
+  if (pythonImportMatch) {
+    return {
+      source: pythonImportMatch[1],
+      symbols: [pythonImportMatch[1]],
+      line
+    };
+  }
+  const goMatch = text.match(/import\s+(?:\([^)]*\)\s*|["'`])([^"'`\s]+)/);
+  if (goMatch) {
+    return { source: goMatch[1], symbols: [], line };
+  }
+  const rustMatch = text.match(/use\s+([^;]+)/);
+  if (rustMatch) {
+    const source = rustMatch[1].trim();
+    const lastSegment = source.split("::").pop() || source;
+    return { source, symbols: [lastSegment], line };
+  }
+  const includeMatch = text.match(/#include\s+[<"]([^>"]+)[>"]/);
+  if (includeMatch) {
+    return { source: includeMatch[1], symbols: [], line };
+  }
+  const requireMatch = text.match(/require\s*\(\s*['"`]([^'"`]+)['"`]\s*\)/);
+  if (requireMatch) {
+    const symbols2 = [];
+    const assignMatch = node.parent?.text?.match(/(?:const|let|var)\s+(\w+)\s*=\s*require/);
+    if (assignMatch)
+      symbols2.push(assignMatch[1]);
+    return { source: requireMatch[1], symbols: symbols2, line };
+  }
+  return null;
+}
+function extractWithRegex(filePath, content) {
+  const ext = path68.extname(filePath).toLowerCase();
+  const lines = content.split(`
+`);
+  const symbols2 = [];
+  const imports2 = [];
+  if (ext === ".ts" || ext === ".tsx" || ext === ".js" || ext === ".jsx" || ext === ".mjs" || ext === ".cjs") {
+    extractTSRegex(lines, symbols2, imports2);
+  } else if (ext === ".py") {
+    extractPythonRegex(lines, symbols2, imports2);
+  } else {
+    extractGenericImports(lines, imports2);
+  }
+  return { symbols: symbols2, imports: imports2, callEdges: [] };
+}
+function extractTSRegex(lines, symbols2, imports2) {
+  for (let i2 = 0;i2 < lines.length; i2++) {
+    const line = lines[i2];
+    const lineNum = i2 + 1;
+    const importMatch = line.match(/import\s+(?:\{([^}]*)\}|(\w+)\s*,\s*\{([^}]*)\}|(\w+)|\*\s+as\s+(\w+))\s+from\s+['"`]([^'"`]+)['"`]/);
+    if (importMatch) {
+      const namedSymbols = importMatch[1] || importMatch[3] || "";
+      const defaultSymbol = importMatch[2] || importMatch[4] || "";
+      const namespaceSymbol = importMatch[5] || "";
+      const source = importMatch[6];
+      const symbols3 = [];
+      if (defaultSymbol)
+        symbols3.push(defaultSymbol);
+      if (namespaceSymbol)
+        symbols3.push(namespaceSymbol);
+      if (namedSymbols) {
+        for (const s of namedSymbols.split(",")) {
+          const trimmed = s.trim();
+          if (trimmed) {
+            const parts2 = trimmed.split(/\s+as\s+/i);
+            symbols3.push(parts2[0].trim());
+          }
+        }
+      }
+      imports2.push({ source, symbols: symbols3, line: lineNum });
+      continue;
+    }
+    const sideEffectMatch = line.match(/^import\s+['"`]([^'"`]+)['"`]/);
+    if (sideEffectMatch) {
+      imports2.push({ source: sideEffectMatch[1], symbols: [], line: lineNum });
+      continue;
+    }
+    const requireMatch = line.match(/(?:const|let|var)\s+(\w+)\s*=\s*require\s*\(\s*['"`]([^'"`]+)['"`]\s*\)/);
+    if (requireMatch) {
+      imports2.push({
+        source: requireMatch[2],
+        symbols: [requireMatch[1]],
+        line: lineNum
+      });
+      continue;
+    }
+    const fnMatch = line.match(/^export\s+(?:async\s+)?function\s+(\w+)\s*(?:<[^>]*>)?\s*\(([^)]*)\)/);
+    if (fnMatch) {
+      symbols2.push({
+        name: fnMatch[1],
+        kind: "function",
+        exported: true,
+        signature: `function ${fnMatch[1]}(${fnMatch[2].trim()})`,
+        line: lineNum
+      });
+      continue;
+    }
+    const classMatch = line.match(/^export\s+(?:abstract\s+)?class\s+(\w+)/);
+    if (classMatch) {
+      symbols2.push({
+        name: classMatch[1],
+        kind: "class",
+        exported: true,
+        signature: `class ${classMatch[1]}`,
+        line: lineNum
+      });
+      continue;
+    }
+    const ifaceMatch = line.match(/^export\s+interface\s+(\w+)/);
+    if (ifaceMatch) {
+      symbols2.push({
+        name: ifaceMatch[1],
+        kind: "interface",
+        exported: true,
+        signature: `interface ${ifaceMatch[1]}`,
+        line: lineNum
+      });
+      continue;
+    }
+    const typeMatch = line.match(/^export\s+type\s+(\w+)/);
+    if (typeMatch) {
+      symbols2.push({
+        name: typeMatch[1],
+        kind: "type",
+        exported: true,
+        signature: `type ${typeMatch[1]}`,
+        line: lineNum
+      });
+      continue;
+    }
+    const constMatch = line.match(/^export\s+const\s+(\w+)/);
+    if (constMatch) {
+      const restOfLine = line.substring(line.indexOf("=") + 1).trim();
+      const isArrow = restOfLine.startsWith("(") || restOfLine.startsWith("async (") || /^\w+\s*=>/.test(restOfLine);
+      symbols2.push({
+        name: constMatch[1],
+        kind: isArrow ? "function" : "constant",
+        exported: true,
+        signature: line.trim().substring(0, 200),
+        line: lineNum
+      });
+    }
+  }
+}
+function extractPythonRegex(lines, symbols2, imports2) {
+  for (let i2 = 0;i2 < lines.length; i2++) {
+    const line = lines[i2];
+    const lineNum = i2 + 1;
+    if (line.startsWith(" ") || line.startsWith("\t"))
+      continue;
+    const fromImportMatch = line.match(/from\s+([^\s]+)\s+import\s+(.+)/);
+    if (fromImportMatch) {
+      const source = fromImportMatch[1];
+      const importedSymbols = fromImportMatch[2].split(",").map((s) => s.trim().split(/\s+as\s+/i)[0]).filter(Boolean);
+      imports2.push({ source, symbols: importedSymbols, line: lineNum });
+      continue;
+    }
+    const importMatch = line.match(/^import\s+([^\s]+)/);
+    if (importMatch) {
+      imports2.push({
+        source: importMatch[1],
+        symbols: [importMatch[1]],
+        line: lineNum
+      });
+      continue;
+    }
+    const fnMatch = line.match(/^(?:async\s+)?def\s+(\w+)\s*\(([^)]*)\)/);
+    if (fnMatch) {
+      symbols2.push({
+        name: fnMatch[1],
+        kind: "function",
+        exported: !fnMatch[1].startsWith("_"),
+        signature: `def ${fnMatch[1]}(${fnMatch[2].trim()})`,
+        line: lineNum
+      });
+      continue;
+    }
+    const classMatch = line.match(/^class\s+(\w+)/);
+    if (classMatch) {
+      symbols2.push({
+        name: classMatch[1],
+        kind: "class",
+        exported: !classMatch[1].startsWith("_"),
+        signature: `class ${classMatch[1]}`,
+        line: lineNum
+      });
+    }
+  }
+}
+function extractGenericImports(lines, imports2) {
+  for (let i2 = 0;i2 < lines.length; i2++) {
+    const line = lines[i2];
+    const lineNum = i2 + 1;
+    const includeMatch = line.match(/#include\s+[<"]([^>"]+)[>"]/);
+    if (includeMatch) {
+      imports2.push({
+        source: includeMatch[1],
+        symbols: [],
+        line: lineNum
+      });
+      continue;
+    }
+    const goMatch = line.match(/import\s+"([^"]+)"/);
+    if (goMatch) {
+      imports2.push({
+        source: goMatch[1],
+        symbols: [],
+        line: lineNum
+      });
+      continue;
+    }
+    const javaMatch = line.match(/import\s+([\w.]+)/);
+    if (javaMatch) {
+      imports2.push({
+        source: javaMatch[1],
+        symbols: [],
+        line: lineNum
+      });
+      continue;
+    }
+    const rustMatch = line.match(/use\s+([^;]+)/);
+    if (rustMatch) {
+      imports2.push({
+        source: rustMatch[1].trim(),
+        symbols: [],
+        line: lineNum
+      });
+    }
+  }
+}
+function resolveImportPath(sourcePath, fromFile, rootDir) {
+  if (!sourcePath.startsWith("."))
+    return null;
+  try {
+    const fromDir = path68.dirname(fromFile);
+    const resolved = path68.resolve(fromDir, sourcePath);
+    try {
+      const stat2 = fs55.statSync(resolved);
+      if (stat2.isFile())
+        return resolved;
+    } catch {}
+    const extensions = [
+      ".ts",
+      ".tsx",
+      ".js",
+      ".jsx",
+      ".mjs",
+      ".cjs",
+      ".py",
+      ".go",
+      ".rs",
+      "/index.ts",
+      "/index.js"
+    ];
+    for (const ext of extensions) {
+      try {
+        const stat2 = fs55.statSync(resolved + ext);
+        if (stat2.isFile())
+          return resolved + ext;
+      } catch {}
+    }
+  } catch {}
+  return null;
+}
+async function buildRepoMap(directory) {
+  const resolvedDir = path68.resolve(directory);
+  if (cachedMap && cachedRootDir === resolvedDir && Date.now() - cachedTimestamp < CACHE_STALENESS_MS) {
+    return cachedMap;
+  }
+  const sourceFiles = findSourceFiles2(resolvedDir);
+  const files = {};
+  const languageCounts = {};
+  let totalSymbols = 0;
+  let totalEdges = 0;
+  const inDegreeMap = new Map;
+  const fileImportSources = new Map;
+  for (const filePath of sourceFiles) {
+    const ext = path68.extname(filePath).toLowerCase();
+    const langDef = getLanguageForExtension(ext);
+    const languageId = langDef?.id ?? "unknown";
+    let content;
+    try {
+      content = fs55.readFileSync(filePath, "utf-8");
+    } catch {
+      continue;
+    }
+    const checkSlice = content.substring(0, 8192);
+    if (checkSlice.includes("\x00"))
+      continue;
+    let extracted;
+    let grammarAvail = false;
+    if (langDef) {
+      try {
+        grammarAvail = await isGrammarAvailable(langDef.id);
+      } catch {
+        grammarAvail = false;
+      }
+    }
+    if (grammarAvail) {
+      extracted = await extractWithAST(filePath, content, languageId);
+    } else {
+      extracted = extractWithRegex(filePath, content);
+    }
+    const relPath = path68.relative(resolvedDir, filePath).replace(/\\/g, "/");
+    const resolvedImports = [];
+    for (const imp of extracted.imports) {
+      const resolved = resolveImportPath(imp.source, filePath, resolvedDir);
+      if (resolved) {
+        resolvedImports.push(resolved);
+      }
+    }
+    fileImportSources.set(filePath, resolvedImports);
+    for (const resolved of resolvedImports) {
+      inDegreeMap.set(resolved, (inDegreeMap.get(resolved) || 0) + 1);
+    }
+    languageCounts[languageId] = (languageCounts[languageId] || 0) + 1;
+    totalSymbols += extracted.symbols.length;
+    totalEdges += extracted.callEdges.length;
+    files[relPath] = {
+      filePath: relPath,
+      language: languageId,
+      exports: extracted.symbols,
+      imports: extracted.imports,
+      callEdges: extracted.callEdges,
+      importanceScore: 0
+    };
+    if (Object.keys(files).length >= MAX_ENTRIES)
+      break;
+  }
+  for (const [relPath, entry] of Object.entries(files)) {
+    const absPath = path68.join(resolvedDir, relPath);
+    entry.importanceScore = inDegreeMap.get(absPath) || 0;
+  }
+  let fileEntries = Object.entries(files);
+  if (fileEntries.length > MAX_ENTRIES) {
+    fileEntries.sort((a, b) => b[1].importanceScore - a[1].importanceScore);
+    fileEntries = fileEntries.slice(0, MAX_ENTRIES);
+  }
+  const finalFiles = {};
+  for (const [key, value] of fileEntries) {
+    finalFiles[key] = value;
+  }
+  const repoMap = {
+    version: 1,
+    generatedAt: new Date().toISOString(),
+    rootDir: resolvedDir,
+    files: finalFiles,
+    stats: {
+      totalFiles: Object.keys(finalFiles).length,
+      totalSymbols,
+      totalEdges,
+      languages: languageCounts
+    }
+  };
+  try {
+    const swarmDir = path68.join(resolvedDir, ".swarm");
+    if (!fs55.existsSync(swarmDir)) {
+      fs55.mkdirSync(swarmDir, { recursive: true });
+    }
+    fs55.writeFileSync(path68.join(swarmDir, "repo-map.json"), JSON.stringify(repoMap, null, 2), "utf-8");
+  } catch {}
+  cachedMap = repoMap;
+  cachedRootDir = resolvedDir;
+  cachedTimestamp = Date.now();
+  return repoMap;
+}
+async function getLocalizationContext(map3, targetFile, directory) {
+  const resolvedDir = path68.resolve(directory);
+  const normalizedTarget = path68.resolve(resolvedDir, targetFile).replace(/\\/g, "/");
+  const relTarget = path68.relative(resolvedDir, normalizedTarget).replace(/\\/g, "/");
+  const importedBy = [];
+  const exportsUsedExternally = [];
+  const exportNames = new Set;
+  const targetEntry = map3.files[relTarget];
+  if (targetEntry) {
+    for (const sym of targetEntry.exports) {
+      if (sym.exported)
+        exportNames.add(sym.name);
+    }
+  }
+  for (const [filePath, entry] of Object.entries(map3.files)) {
+    if (filePath === relTarget)
+      continue;
+    for (const imp of entry.imports) {
+      const resolved = resolveImportPath(imp.source, path68.join(resolvedDir, filePath), resolvedDir);
+      if (resolved) {
+        const relResolved = path68.relative(resolvedDir, resolved).replace(/\\/g, "/");
+        if (relResolved === relTarget) {
+          importedBy.push(filePath);
+          for (const sym of imp.symbols) {
+            if (exportNames.has(sym)) {
+              exportsUsedExternally.push(sym);
+            }
+          }
+        }
+      }
+    }
+  }
+  const uniqueImportedBy = [...new Set(importedBy)];
+  const uniqueExportsUsed = [...new Set(exportsUsedExternally)];
+  const blastRadius = getBlastRadius(map3, [relTarget], 2);
+  const parallelPatterns = findParallelPatterns(map3, relTarget, resolvedDir);
+  return {
+    targetFile: relTarget,
+    importedBy: uniqueImportedBy,
+    exportsUsedExternally: uniqueExportsUsed,
+    blastRadius,
+    parallelPatterns
+  };
+}
+function getBlastRadius(map3, files, maxDepth = 2) {
+  const visited = new Set;
+  const queue = [];
+  const reverseDeps = new Map;
+  for (const [filePath, entry] of Object.entries(map3.files)) {
+    for (const imp of entry.imports) {
+      const candidates = findMapKeyForImport(map3, imp.source, filePath);
+      for (const candidate of candidates) {
+        const existing = reverseDeps.get(candidate);
+        if (existing) {
+          existing.push(filePath);
+        } else {
+          reverseDeps.set(candidate, [filePath]);
+        }
+      }
+    }
+  }
+  for (const f of files) {
+    if (map3.files[f]) {
+      queue.push({ file: f, depth: 0 });
+      visited.add(f);
+    }
+  }
+  const result = [];
+  while (queue.length > 0) {
+    const { file: file3, depth } = queue.shift();
+    result.push(file3);
+    if (depth >= maxDepth)
+      continue;
+    const entry = map3.files[file3];
+    if (!entry)
+      continue;
+    for (const imp of entry.imports) {
+      const candidates = findMapKeyForImport(map3, imp.source, file3);
+      for (const candidate of candidates) {
+        if (!visited.has(candidate)) {
+          visited.add(candidate);
+          queue.push({ file: candidate, depth: depth + 1 });
+        }
+      }
+    }
+    const dependents = reverseDeps.get(file3);
+    if (dependents) {
+      for (const dep of dependents) {
+        if (!visited.has(dep)) {
+          visited.add(dep);
+          queue.push({ file: dep, depth: depth + 1 });
+        }
+      }
+    }
+  }
+  return result;
+}
+function findMapKeyForImport(map3, source, fromFile) {
+  if (!source.startsWith("."))
+    return [];
+  const keys = [];
+  const fromDir = path68.dirname(fromFile);
+  const possiblePaths = [
+    source,
+    source + ".ts",
+    source + ".tsx",
+    source + ".js",
+    source + ".jsx",
+    source + "/index.ts",
+    source + "/index.js"
+  ];
+  for (const p of possiblePaths) {
+    const resolved = path68.join(fromDir, p).replace(/\\/g, "/");
+    if (map3.files[resolved]) {
+      keys.push(resolved);
+    }
+  }
+  const sourceBasename = path68.basename(source, path68.extname(source));
+  for (const mapKey of Object.keys(map3.files)) {
+    const keyBasename = path68.basename(mapKey, path68.extname(mapKey));
+    const keyDir = path68.dirname(mapKey);
+    if (keyBasename === sourceBasename && (fromDir === keyDir || keyDir.endsWith(path68.dirname(source)))) {
+      if (!keys.includes(mapKey)) {
+        keys.push(mapKey);
+      }
+    }
+  }
+  return keys;
+}
+function findParallelPatterns(map3, targetFile, _directory) {
+  const targetEntry = map3.files[targetFile];
+  if (!targetEntry)
+    return [];
+  const targetImportSources = new Set(targetEntry.imports.map((imp) => imp.source));
+  const targetExportNames = new Set(targetEntry.exports.filter((s) => s.exported).map((s) => s.name));
+  const targetKinds = new Set(targetEntry.exports.map((s) => s.kind));
+  const parallels = [];
+  for (const [filePath, entry] of Object.entries(map3.files)) {
+    if (filePath === targetFile)
+      continue;
+    let score = 0;
+    const entryImportSources = new Set(entry.imports.map((imp) => imp.source));
+    const commonImports = [...targetImportSources].filter((s) => entryImportSources.has(s)).length;
+    const importOverlap = targetImportSources.size > 0 ? commonImports / targetImportSources.size : 0;
+    score += importOverlap;
+    const entryKinds = new Set(entry.exports.map((s) => s.kind));
+    const commonKinds = [...targetKinds].filter((k) => entryKinds.has(k)).length;
+    const kindOverlap = targetKinds.size > 0 ? commonKinds / targetKinds.size : 0;
+    score += kindOverlap;
+    if (entry.language === targetEntry.language)
+      score += 0.3;
+    if (path68.dirname(filePath) === path68.dirname(targetFile))
+      score += 0.2;
+    if (score >= 1) {
+      parallels.push({ file: filePath, score });
+    }
+  }
+  parallels.sort((a, b) => b.score - a.score);
+  return parallels.slice(0, 10).map((p) => p.file);
+}
+var repo_map = createSwarmTool({
+  description: "Build a structured map of the repository including file exports, imports, call edges, and importance scores. " + 'Supports three modes: "build" (full scan), "localize" (localization context for a file), and "blast-radius" (BFS from files through import graph). ' + "Results are cached and written to .swarm/repo-map.json.",
+  args: {
+    directory: tool.schema.string().describe("Project root directory to scan"),
+    targetFile: tool.schema.string().optional().describe('Target file for localization context (required when mode is "localize")'),
+    mode: tool.schema.string().default("build").describe('Operation mode: "build" (full scan), "localize" (file context), or "blast-radius" (dependency graph)'),
+    files: tool.schema.array(tool.schema.string()).optional().describe("List of files for blast-radius mode (relative or absolute paths)"),
+    maxDepth: tool.schema.number().optional().default(2).describe("BFS depth for blast-radius mode (default: 2)")
+  },
+  async execute(args2, directory, _ctx) {
+    let dir;
+    let targetFile;
+    let mode;
+    let files;
+    let maxDepth;
+    try {
+      if (args2 && typeof args2 === "object") {
+        const obj = args2;
+        dir = typeof obj.directory === "string" ? obj.directory : undefined;
+        targetFile = typeof obj.targetFile === "string" ? obj.targetFile : undefined;
+        mode = typeof obj.mode === "string" ? obj.mode : "build";
+        files = Array.isArray(obj.files) ? obj.files.map((f) => String(f)) : undefined;
+        maxDepth = typeof obj.maxDepth === "number" ? obj.maxDepth : undefined;
+      }
+    } catch {}
+    if (!dir) {
+      return JSON.stringify({
+        success: false,
+        error: "directory is required"
+      }, null, 2);
+    }
+    const dirError = validateDirectory3(dir);
+    if (dirError) {
+      return JSON.stringify({
+        success: false,
+        error: dirError
+      }, null, 2);
+    }
+    if (targetFile) {
+      if (containsControlChars(targetFile) || containsPathTraversal(targetFile)) {
+        return JSON.stringify({
+          success: false,
+          error: "targetFile contains invalid characters"
+        }, null, 2);
+      }
+      if (containsWindowsAttacks3(targetFile)) {
+        return JSON.stringify({
+          success: false,
+          error: "targetFile contains invalid Windows sequence"
+        }, null, 2);
+      }
+    }
+    const resolvedDir = path68.resolve(dir);
+    try {
+      const stat2 = fs55.statSync(resolvedDir);
+      if (!stat2.isDirectory()) {
+        return JSON.stringify({
+          success: false,
+          error: "path is not a directory"
+        }, null, 2);
+      }
+    } catch {
+      return JSON.stringify({
+        success: false,
+        error: "directory not found"
+      }, null, 2);
+    }
+    try {
+      const map3 = await buildRepoMap(resolvedDir);
+      switch (mode) {
+        case "localize": {
+          if (!targetFile) {
+            return JSON.stringify({
+              success: false,
+              error: "targetFile is required for localize mode"
+            }, null, 2);
+          }
+          const resolvedTarget = path68.resolve(resolvedDir, targetFile).replace(/\\/g, "/");
+          const relTarget = path68.relative(resolvedDir, resolvedTarget).replace(/\\/g, "/");
+          if (!map3.files[relTarget]) {
+            return JSON.stringify({
+              success: false,
+              error: `file not found in repo map: ${relTarget}`,
+              suggestion: 'Run mode "build" first, then retry with the exact relative path'
+            }, null, 2);
+          }
+          const context = await getLocalizationContext(map3, relTarget, resolvedDir);
+          return JSON.stringify({
+            success: true,
+            mode: "localize",
+            context
+          }, null, 2);
+        }
+        case "blast-radius": {
+          if (!files || files.length === 0) {
+            return JSON.stringify({
+              success: false,
+              error: "files array is required for blast-radius mode"
+            }, null, 2);
+          }
+          const resolvedFiles = files.map((f) => {
+            const resolved = path68.resolve(resolvedDir, f);
+            return path68.relative(resolvedDir, resolved).replace(/\\/g, "/");
+          });
+          const depth = typeof maxDepth === "number" && maxDepth > 0 ? maxDepth : 2;
+          const affected = getBlastRadius(map3, resolvedFiles, depth);
+          return JSON.stringify({
+            success: true,
+            mode: "blast-radius",
+            maxDepth: depth,
+            seedFiles: resolvedFiles,
+            affectedFiles: affected,
+            totalAffected: affected.length
+          }, null, 2);
+        }
+        case "build":
+        default: {
+          return JSON.stringify({
+            success: true,
+            mode: "build",
+            stats: map3.stats,
+            fileCount: Object.keys(map3.files).length,
+            topFiles: Object.values(map3.files).sort((a, b) => b.importanceScore - a.importanceScore).slice(0, 50).map((f) => ({
+              filePath: f.filePath,
+              language: f.language,
+              exports: f.exports.length,
+              imports: f.imports.length,
+              importanceScore: f.importanceScore
+            }))
+          }, null, 2);
+        }
+      }
+    } catch (error93) {
+      const message = error93 instanceof Error ? error93.message : "Unknown error";
+      return JSON.stringify({
+        success: false,
+        error: `repo-map failed: ${message}`
+      }, null, 2);
+    }
+  }
+});
 // src/tools/req-coverage.ts
 init_dist();
 init_create_tool();
-import * as fs55 from "fs";
-import * as path68 from "path";
+import * as fs56 from "fs";
+import * as path69 from "path";
 var SPEC_FILE = ".swarm/spec.md";
 var EVIDENCE_DIR3 = ".swarm/evidence";
 var OBLIGATION_KEYWORDS = ["MUST", "SHOULD", "SHALL"];
-var MAX_FILE_SIZE_BYTES8 = 1024 * 1024;
+var MAX_FILE_SIZE_BYTES9 = 1024 * 1024;
 function extractRequirements(specContent) {
   const requirements = [];
   const lines = specContent.split(`
@@ -73040,19 +74249,19 @@ function extractObligationAndText(id, lineText) {
 var PHASE_TASK_ID_REGEX = /^\d+\.\d+(\.\d+)*$/;
 function readTouchedFiles(evidenceDir, phase, cwd) {
   const touchedFiles = new Set;
-  if (!fs55.existsSync(evidenceDir) || !fs55.statSync(evidenceDir).isDirectory()) {
+  if (!fs56.existsSync(evidenceDir) || !fs56.statSync(evidenceDir).isDirectory()) {
     return [];
   }
   let entries;
   try {
-    entries = fs55.readdirSync(evidenceDir);
+    entries = fs56.readdirSync(evidenceDir);
   } catch {
     return [];
   }
   for (const entry of entries) {
-    const entryPath = path68.join(evidenceDir, entry);
+    const entryPath = path69.join(evidenceDir, entry);
     try {
-      const stat2 = fs55.statSync(entryPath);
+      const stat2 = fs56.statSync(entryPath);
       if (!stat2.isDirectory()) {
         continue;
       }
@@ -73066,18 +74275,18 @@ function readTouchedFiles(evidenceDir, phase, cwd) {
     if (entryPhase !== String(phase)) {
       continue;
     }
-    const evidenceFilePath = path68.join(entryPath, "evidence.json");
+    const evidenceFilePath = path69.join(entryPath, "evidence.json");
     try {
-      const resolvedPath = path68.resolve(evidenceFilePath);
-      const evidenceDirResolved = path68.resolve(evidenceDir);
-      if (!resolvedPath.startsWith(evidenceDirResolved + path68.sep)) {
+      const resolvedPath = path69.resolve(evidenceFilePath);
+      const evidenceDirResolved = path69.resolve(evidenceDir);
+      if (!resolvedPath.startsWith(evidenceDirResolved + path69.sep)) {
         continue;
       }
-      const stat2 = fs55.lstatSync(evidenceFilePath);
+      const stat2 = fs56.lstatSync(evidenceFilePath);
       if (!stat2.isFile()) {
         continue;
       }
-      if (stat2.size > MAX_FILE_SIZE_BYTES8) {
+      if (stat2.size > MAX_FILE_SIZE_BYTES9) {
         continue;
       }
     } catch {
@@ -73085,7 +74294,7 @@ function readTouchedFiles(evidenceDir, phase, cwd) {
     }
     let content;
     try {
-      content = fs55.readFileSync(evidenceFilePath, "utf-8");
+      content = fs56.readFileSync(evidenceFilePath, "utf-8");
     } catch {
       continue;
     }
@@ -73104,7 +74313,7 @@ function readTouchedFiles(evidenceDir, phase, cwd) {
             if (Array.isArray(diffEntry.files_changed)) {
               for (const file3 of diffEntry.files_changed) {
                 if (typeof file3 === "string") {
-                  touchedFiles.add(path68.resolve(cwd, file3));
+                  touchedFiles.add(path69.resolve(cwd, file3));
                 }
               }
             }
@@ -73117,12 +74326,12 @@ function readTouchedFiles(evidenceDir, phase, cwd) {
 }
 function searchFileForKeywords(filePath, keywords, cwd) {
   try {
-    const resolvedPath = path68.resolve(filePath);
-    const cwdResolved = path68.resolve(cwd);
+    const resolvedPath = path69.resolve(filePath);
+    const cwdResolved = path69.resolve(cwd);
     if (!resolvedPath.startsWith(cwdResolved)) {
       return false;
     }
-    const content = fs55.readFileSync(resolvedPath, "utf-8");
+    const content = fs56.readFileSync(resolvedPath, "utf-8");
     for (const keyword of keywords) {
       const regex = new RegExp(`\\b${keyword}\\b`, "i");
       if (regex.test(content)) {
@@ -73252,10 +74461,10 @@ var req_coverage = createSwarmTool({
       }, null, 2);
     }
     const cwd = inputDirectory || directory;
-    const specPath = path68.join(cwd, SPEC_FILE);
+    const specPath = path69.join(cwd, SPEC_FILE);
     let specContent;
     try {
-      specContent = fs55.readFileSync(specPath, "utf-8");
+      specContent = fs56.readFileSync(specPath, "utf-8");
     } catch (readError) {
       return JSON.stringify({
         success: false,
@@ -73279,7 +74488,7 @@ var req_coverage = createSwarmTool({
         message: "No FR requirements found in spec.md"
       }, null, 2);
     }
-    const evidenceDir = path68.join(cwd, EVIDENCE_DIR3);
+    const evidenceDir = path69.join(cwd, EVIDENCE_DIR3);
     const touchedFiles = readTouchedFiles(evidenceDir, phase, cwd);
     const analyzedRequirements = [];
     let coveredCount = 0;
@@ -73305,12 +74514,12 @@ var req_coverage = createSwarmTool({
       requirements: analyzedRequirements
     };
     const reportFilename = `req-coverage-phase-${phase}.json`;
-    const reportPath = path68.join(evidenceDir, reportFilename);
+    const reportPath = path69.join(evidenceDir, reportFilename);
     try {
-      if (!fs55.existsSync(evidenceDir)) {
-        fs55.mkdirSync(evidenceDir, { recursive: true });
+      if (!fs56.existsSync(evidenceDir)) {
+        fs56.mkdirSync(evidenceDir, { recursive: true });
       }
-      fs55.writeFileSync(reportPath, JSON.stringify(result, null, 2), "utf-8");
+      fs56.writeFileSync(reportPath, JSON.stringify(result, null, 2), "utf-8");
     } catch (writeError) {
       console.warn(`Failed to write coverage report: ${writeError instanceof Error ? writeError.message : String(writeError)}`);
     }
@@ -73388,8 +74597,8 @@ ${paginatedContent}`;
 // src/tools/save-plan.ts
 init_tool();
 import * as crypto7 from "crypto";
-import * as fs56 from "fs";
-import * as path69 from "path";
+import * as fs57 from "fs";
+import * as path70 from "path";
 init_ledger();
 init_manager();
 init_state();
@@ -73469,11 +74678,11 @@ async function executeSavePlan(args2, fallbackDir) {
   let specMtime;
   let specHash;
   if (process.env.SWARM_SKIP_SPEC_GATE !== "1") {
-    const specPath = path69.join(targetWorkspace, ".swarm", "spec.md");
+    const specPath = path70.join(targetWorkspace, ".swarm", "spec.md");
     try {
-      const stat2 = await fs56.promises.stat(specPath);
+      const stat2 = await fs57.promises.stat(specPath);
       specMtime = stat2.mtime.toISOString();
-      const content = await fs56.promises.readFile(specPath, "utf8");
+      const content = await fs57.promises.readFile(specPath, "utf8");
       specHash = crypto7.createHash("sha256").update(content).digest("hex");
     } catch {
       return {
@@ -73547,14 +74756,14 @@ async function executeSavePlan(args2, fallbackDir) {
       }
       await writeCheckpoint(dir).catch(() => {});
       try {
-        const markerPath = path69.join(dir, ".swarm", ".plan-write-marker");
+        const markerPath = path70.join(dir, ".swarm", ".plan-write-marker");
         const marker = JSON.stringify({
           source: "save_plan",
           timestamp: new Date().toISOString(),
           phases_count: plan.phases.length,
           tasks_count: tasksCount
         });
-        await fs56.promises.writeFile(markerPath, marker, "utf8");
+        await fs57.promises.writeFile(markerPath, marker, "utf8");
       } catch {}
       const warnings = [];
       let criticReviewFound = false;
@@ -73570,7 +74779,7 @@ async function executeSavePlan(args2, fallbackDir) {
       return {
         success: true,
         message: "Plan saved successfully",
-        plan_path: path69.join(dir, ".swarm", "plan.json"),
+        plan_path: path70.join(dir, ".swarm", "plan.json"),
         phases_count: plan.phases.length,
         tasks_count: tasksCount,
         ...warnings.length > 0 ? { warnings } : {}
@@ -73614,8 +74823,8 @@ var save_plan = createSwarmTool({
 // src/tools/sbom-generate.ts
 init_dist();
 init_manager2();
-import * as fs57 from "fs";
-import * as path70 from "path";
+import * as fs58 from "fs";
+import * as path71 from "path";
 
 // src/sbom/detectors/index.ts
 init_utils();
@@ -74463,9 +75672,9 @@ function findManifestFiles(rootDir) {
   const patterns = [...new Set(allDetectors.flatMap((d) => d.patterns))];
   function searchDir(dir) {
     try {
-      const entries = fs57.readdirSync(dir, { withFileTypes: true });
+      const entries = fs58.readdirSync(dir, { withFileTypes: true });
       for (const entry of entries) {
-        const fullPath = path70.join(dir, entry.name);
+        const fullPath = path71.join(dir, entry.name);
         if (entry.name.startsWith(".") || entry.name === "node_modules" || entry.name === "dist" || entry.name === "build" || entry.name === "target") {
           continue;
         }
@@ -74474,7 +75683,7 @@ function findManifestFiles(rootDir) {
         } else if (entry.isFile()) {
           for (const pattern of patterns) {
             if (simpleGlobToRegex(pattern).test(entry.name)) {
-              manifestFiles.push(path70.relative(rootDir, fullPath));
+              manifestFiles.push(path71.relative(rootDir, fullPath));
               break;
             }
           }
@@ -74490,13 +75699,13 @@ function findManifestFilesInDirs(directories, workingDir) {
   const patterns = [...new Set(allDetectors.flatMap((d) => d.patterns))];
   for (const dir of directories) {
     try {
-      const entries = fs57.readdirSync(dir, { withFileTypes: true });
+      const entries = fs58.readdirSync(dir, { withFileTypes: true });
       for (const entry of entries) {
-        const fullPath = path70.join(dir, entry.name);
+        const fullPath = path71.join(dir, entry.name);
         if (entry.isFile()) {
           for (const pattern of patterns) {
             if (simpleGlobToRegex(pattern).test(entry.name)) {
-              found.push(path70.relative(workingDir, fullPath));
+              found.push(path71.relative(workingDir, fullPath));
               break;
             }
           }
@@ -74509,11 +75718,11 @@ function findManifestFilesInDirs(directories, workingDir) {
 function getDirectoriesFromChangedFiles(changedFiles, workingDir) {
   const dirs = new Set;
   for (const file3 of changedFiles) {
-    let currentDir = path70.dirname(file3);
+    let currentDir = path71.dirname(file3);
     while (true) {
-      if (currentDir && currentDir !== "." && currentDir !== path70.sep) {
-        dirs.add(path70.join(workingDir, currentDir));
-        const parent = path70.dirname(currentDir);
+      if (currentDir && currentDir !== "." && currentDir !== path71.sep) {
+        dirs.add(path71.join(workingDir, currentDir));
+        const parent = path71.dirname(currentDir);
         if (parent === currentDir)
           break;
         currentDir = parent;
@@ -74527,7 +75736,7 @@ function getDirectoriesFromChangedFiles(changedFiles, workingDir) {
 }
 function ensureOutputDir(outputDir) {
   try {
-    fs57.mkdirSync(outputDir, { recursive: true });
+    fs58.mkdirSync(outputDir, { recursive: true });
   } catch (error93) {
     if (!error93 || error93.code !== "EEXIST") {
       throw error93;
@@ -74597,7 +75806,7 @@ var sbom_generate = createSwarmTool({
     const changedFiles = obj.changed_files;
     const relativeOutputDir = obj.output_dir || DEFAULT_OUTPUT_DIR;
     const workingDir = directory;
-    const outputDir = path70.isAbsolute(relativeOutputDir) ? relativeOutputDir : path70.join(workingDir, relativeOutputDir);
+    const outputDir = path71.isAbsolute(relativeOutputDir) ? relativeOutputDir : path71.join(workingDir, relativeOutputDir);
     let manifestFiles = [];
     if (scope === "all") {
       manifestFiles = findManifestFiles(workingDir);
@@ -74620,11 +75829,11 @@ var sbom_generate = createSwarmTool({
     const processedFiles = [];
     for (const manifestFile of manifestFiles) {
       try {
-        const fullPath = path70.isAbsolute(manifestFile) ? manifestFile : path70.join(workingDir, manifestFile);
-        if (!fs57.existsSync(fullPath)) {
+        const fullPath = path71.isAbsolute(manifestFile) ? manifestFile : path71.join(workingDir, manifestFile);
+        if (!fs58.existsSync(fullPath)) {
           continue;
         }
-        const content = fs57.readFileSync(fullPath, "utf-8");
+        const content = fs58.readFileSync(fullPath, "utf-8");
         const components = detectComponents(manifestFile, content);
         processedFiles.push(manifestFile);
         if (components.length > 0) {
@@ -74637,8 +75846,8 @@ var sbom_generate = createSwarmTool({
     const bom = generateCycloneDX(allComponents);
     const bomJson = serializeCycloneDX(bom);
     const filename = generateSbomFilename();
-    const outputPath = path70.join(outputDir, filename);
-    fs57.writeFileSync(outputPath, bomJson, "utf-8");
+    const outputPath = path71.join(outputDir, filename);
+    fs58.writeFileSync(outputPath, bomJson, "utf-8");
     const verdict = processedFiles.length > 0 ? "pass" : "pass";
     try {
       const timestamp = new Date().toISOString();
@@ -74680,8 +75889,8 @@ var sbom_generate = createSwarmTool({
 // src/tools/schema-drift.ts
 init_dist();
 init_create_tool();
-import * as fs58 from "fs";
-import * as path71 from "path";
+import * as fs59 from "fs";
+import * as path72 from "path";
 var SPEC_CANDIDATES = [
   "openapi.json",
   "openapi.yaml",
@@ -74713,28 +75922,28 @@ function normalizePath2(p) {
 }
 function discoverSpecFile(cwd, specFileArg) {
   if (specFileArg) {
-    const resolvedPath = path71.resolve(cwd, specFileArg);
-    const normalizedCwd = cwd.endsWith(path71.sep) ? cwd : cwd + path71.sep;
+    const resolvedPath = path72.resolve(cwd, specFileArg);
+    const normalizedCwd = cwd.endsWith(path72.sep) ? cwd : cwd + path72.sep;
     if (!resolvedPath.startsWith(normalizedCwd) && resolvedPath !== cwd) {
       throw new Error("Invalid spec_file: path traversal detected");
     }
-    const ext = path71.extname(resolvedPath).toLowerCase();
+    const ext = path72.extname(resolvedPath).toLowerCase();
     if (!ALLOWED_EXTENSIONS.includes(ext)) {
       throw new Error(`Invalid spec_file: must end in .json, .yaml, or .yml, got ${ext}`);
     }
-    const stats = fs58.statSync(resolvedPath);
+    const stats = fs59.statSync(resolvedPath);
     if (stats.size > MAX_SPEC_SIZE) {
       throw new Error(`Invalid spec_file: file exceeds ${MAX_SPEC_SIZE / 1024 / 1024}MB limit`);
     }
-    if (!fs58.existsSync(resolvedPath)) {
+    if (!fs59.existsSync(resolvedPath)) {
       throw new Error(`Spec file not found: ${resolvedPath}`);
     }
     return resolvedPath;
   }
   for (const candidate of SPEC_CANDIDATES) {
-    const candidatePath = path71.resolve(cwd, candidate);
-    if (fs58.existsSync(candidatePath)) {
-      const stats = fs58.statSync(candidatePath);
+    const candidatePath = path72.resolve(cwd, candidate);
+    if (fs59.existsSync(candidatePath)) {
+      const stats = fs59.statSync(candidatePath);
       if (stats.size <= MAX_SPEC_SIZE) {
         return candidatePath;
       }
@@ -74743,8 +75952,8 @@ function discoverSpecFile(cwd, specFileArg) {
   return null;
 }
 function parseSpec(specFile) {
-  const content = fs58.readFileSync(specFile, "utf-8");
-  const ext = path71.extname(specFile).toLowerCase();
+  const content = fs59.readFileSync(specFile, "utf-8");
+  const ext = path72.extname(specFile).toLowerCase();
   if (ext === ".json") {
     return parseJsonSpec(content);
   }
@@ -74815,12 +76024,12 @@ function extractRoutes(cwd) {
   function walkDir(dir) {
     let entries;
     try {
-      entries = fs58.readdirSync(dir, { withFileTypes: true });
+      entries = fs59.readdirSync(dir, { withFileTypes: true });
     } catch {
       return;
     }
     for (const entry of entries) {
-      const fullPath = path71.join(dir, entry.name);
+      const fullPath = path72.join(dir, entry.name);
       if (entry.isSymbolicLink()) {
         continue;
       }
@@ -74830,7 +76039,7 @@ function extractRoutes(cwd) {
         }
         walkDir(fullPath);
       } else if (entry.isFile()) {
-        const ext = path71.extname(entry.name).toLowerCase();
+        const ext = path72.extname(entry.name).toLowerCase();
         const baseName = entry.name.toLowerCase();
         if (![".ts", ".js", ".mjs"].includes(ext)) {
           continue;
@@ -74848,7 +76057,7 @@ function extractRoutes(cwd) {
 }
 function extractRoutesFromFile(filePath) {
   const routes = [];
-  const content = fs58.readFileSync(filePath, "utf-8");
+  const content = fs59.readFileSync(filePath, "utf-8");
   const lines = content.split(/\r?\n/);
   const expressRegex = /(?:app|router|server|express)\.(get|post|put|patch|delete|options|head)\s*\(\s*['"`]([^'"`]+)['"`]/g;
   const flaskRegex = /@(?:app|blueprint|bp)\.route\s*\(\s*['"]([^'"]+)['"]/g;
@@ -74995,12 +76204,12 @@ var schema_drift = createSwarmTool({
 // src/tools/search.ts
 init_tool();
 init_create_tool();
-import * as fs59 from "fs";
-import * as path72 from "path";
+import * as fs60 from "fs";
+import * as path73 from "path";
 var DEFAULT_MAX_RESULTS = 100;
 var DEFAULT_MAX_LINES = 200;
 var REGEX_TIMEOUT_MS = 5000;
-var MAX_FILE_SIZE_BYTES9 = 1024 * 1024;
+var MAX_FILE_SIZE_BYTES10 = 1024 * 1024;
 var HARD_CAP_RESULTS = 1e4;
 var HARD_CAP_LINES = 1e4;
 function globMatch(pattern, filePath) {
@@ -75019,24 +76228,24 @@ function matchesGlobs(filePath, globs) {
     return true;
   return globs.some((glob) => globMatch(glob, filePath));
 }
-var WINDOWS_RESERVED_NAMES3 = /^(con|prn|aux|nul|com[1-9]|lpt[1-9])(\.|:|$)/i;
-function containsWindowsAttacks3(str) {
+var WINDOWS_RESERVED_NAMES4 = /^(con|prn|aux|nul|com[1-9]|lpt[1-9])(\.|:|$)/i;
+function containsWindowsAttacks4(str) {
   if (/:[^\\/]/.test(str))
     return true;
   const parts2 = str.split(/[/\\]/);
   for (const part of parts2) {
-    if (WINDOWS_RESERVED_NAMES3.test(part))
+    if (WINDOWS_RESERVED_NAMES4.test(part))
       return true;
   }
   return false;
 }
 function isPathInWorkspace3(filePath, workspace) {
   try {
-    const resolvedPath = path72.resolve(workspace, filePath);
-    const realWorkspace = fs59.realpathSync(workspace);
-    const realResolvedPath = fs59.realpathSync(resolvedPath);
-    const relativePath = path72.relative(realWorkspace, realResolvedPath);
-    if (relativePath.startsWith("..") || path72.isAbsolute(relativePath)) {
+    const resolvedPath = path73.resolve(workspace, filePath);
+    const realWorkspace = fs60.realpathSync(workspace);
+    const realResolvedPath = fs60.realpathSync(resolvedPath);
+    const relativePath = path73.relative(realWorkspace, realResolvedPath);
+    if (relativePath.startsWith("..") || path73.isAbsolute(relativePath)) {
       return false;
     }
     return true;
@@ -75049,12 +76258,12 @@ function validatePathForRead2(filePath, workspace) {
 }
 function findRgInEnvPath() {
   const searchPath = process.env.PATH ?? "";
-  for (const dir of searchPath.split(path72.delimiter)) {
+  for (const dir of searchPath.split(path73.delimiter)) {
     if (!dir)
       continue;
     const isWindows = process.platform === "win32";
-    const candidate = path72.join(dir, isWindows ? "rg.exe" : "rg");
-    if (fs59.existsSync(candidate))
+    const candidate = path73.join(dir, isWindows ? "rg.exe" : "rg");
+    if (fs60.existsSync(candidate))
       return candidate;
   }
   return null;
@@ -75108,7 +76317,7 @@ async function ripgrepSearch(opts) {
       stderr: "pipe",
       cwd: opts.workspace
     });
-    const timeout = new Promise((resolve30) => setTimeout(() => resolve30("timeout"), REGEX_TIMEOUT_MS));
+    const timeout = new Promise((resolve31) => setTimeout(() => resolve31("timeout"), REGEX_TIMEOUT_MS));
     const exitPromise = proc.exited;
     const result = await Promise.race([exitPromise, timeout]);
     if (result === "timeout") {
@@ -75181,10 +76390,10 @@ function collectFiles(dir, workspace, includeGlobs, excludeGlobs) {
     return files;
   }
   try {
-    const entries = fs59.readdirSync(dir, { withFileTypes: true });
+    const entries = fs60.readdirSync(dir, { withFileTypes: true });
     for (const entry of entries) {
-      const fullPath = path72.join(dir, entry.name);
-      const relativePath = path72.relative(workspace, fullPath);
+      const fullPath = path73.join(dir, entry.name);
+      const relativePath = path73.relative(workspace, fullPath);
       if (!validatePathForRead2(fullPath, workspace)) {
         continue;
       }
@@ -75225,14 +76434,14 @@ async function fallbackSearch(opts) {
   const matches = [];
   let total = 0;
   for (const file3 of files) {
-    const fullPath = path72.join(opts.workspace, file3);
+    const fullPath = path73.join(opts.workspace, file3);
     if (!validatePathForRead2(fullPath, opts.workspace)) {
       continue;
     }
     let stats;
     try {
-      stats = fs59.statSync(fullPath);
-      if (stats.size > MAX_FILE_SIZE_BYTES9) {
+      stats = fs60.statSync(fullPath);
+      if (stats.size > MAX_FILE_SIZE_BYTES10) {
         continue;
       }
     } catch {
@@ -75240,7 +76449,7 @@ async function fallbackSearch(opts) {
     }
     let content;
     try {
-      content = fs59.readFileSync(fullPath, "utf-8");
+      content = fs60.readFileSync(fullPath, "utf-8");
     } catch {
       continue;
     }
@@ -75338,21 +76547,21 @@ var search = createSwarmTool({
         message: "Exclude pattern contains path traversal sequence"
       }, null, 2);
     }
-    if (include && containsWindowsAttacks3(include)) {
+    if (include && containsWindowsAttacks4(include)) {
       return JSON.stringify({
         error: true,
         type: "path-escape",
         message: "Include pattern contains invalid Windows-specific sequence"
       }, null, 2);
     }
-    if (exclude && containsWindowsAttacks3(exclude)) {
+    if (exclude && containsWindowsAttacks4(exclude)) {
       return JSON.stringify({
         error: true,
         type: "path-escape",
         message: "Exclude pattern contains invalid Windows-specific sequence"
       }, null, 2);
     }
-    if (!fs59.existsSync(directory)) {
+    if (!fs60.existsSync(directory)) {
       return JSON.stringify({
         error: true,
         type: "unknown",
@@ -75395,29 +76604,29 @@ init_secretscan();
 // src/tools/suggest-patch.ts
 init_tool();
 init_create_tool();
-import * as fs60 from "fs";
-import * as path73 from "path";
-var WINDOWS_RESERVED_NAMES4 = /^(con|prn|aux|nul|com[1-9]|lpt[1-9])(\.|:|$)/i;
-function containsWindowsAttacks4(str) {
+import * as fs61 from "fs";
+import * as path74 from "path";
+var WINDOWS_RESERVED_NAMES5 = /^(con|prn|aux|nul|com[1-9]|lpt[1-9])(\.|:|$)/i;
+function containsWindowsAttacks5(str) {
   if (/:[^\\/]/.test(str))
     return true;
   const parts2 = str.split(/[/\\]/);
   for (const part of parts2) {
-    if (WINDOWS_RESERVED_NAMES4.test(part))
+    if (WINDOWS_RESERVED_NAMES5.test(part))
       return true;
   }
   return false;
 }
 function isPathInWorkspace4(filePath, workspace) {
   try {
-    const resolvedPath = path73.resolve(workspace, filePath);
-    if (!fs60.existsSync(resolvedPath)) {
+    const resolvedPath = path74.resolve(workspace, filePath);
+    if (!fs61.existsSync(resolvedPath)) {
       return true;
     }
-    const realWorkspace = fs60.realpathSync(workspace);
-    const realResolvedPath = fs60.realpathSync(resolvedPath);
-    const relativePath = path73.relative(realWorkspace, realResolvedPath);
-    if (relativePath.startsWith("..") || path73.isAbsolute(relativePath)) {
+    const realWorkspace = fs61.realpathSync(workspace);
+    const realResolvedPath = fs61.realpathSync(resolvedPath);
+    const relativePath = path74.relative(realWorkspace, realResolvedPath);
+    if (relativePath.startsWith("..") || path74.isAbsolute(relativePath)) {
       return false;
     }
     return true;
@@ -75432,7 +76641,7 @@ function validateFilePath(filePath, workspace) {
     return false;
   if (containsControlChars(filePath))
     return false;
-  if (containsWindowsAttacks4(filePath))
+  if (containsWindowsAttacks5(filePath))
     return false;
   return isPathInWorkspace4(filePath, workspace);
 }
@@ -75589,7 +76798,7 @@ var suggestPatch = createSwarmTool({
         message: "changes cannot be empty"
       }, null, 2);
     }
-    if (!fs60.existsSync(directory)) {
+    if (!fs61.existsSync(directory)) {
       return JSON.stringify({
         success: false,
         error: true,
@@ -75625,8 +76834,8 @@ var suggestPatch = createSwarmTool({
         });
         continue;
       }
-      const fullPath = path73.resolve(directory, change.file);
-      if (!fs60.existsSync(fullPath)) {
+      const fullPath = path74.resolve(directory, change.file);
+      if (!fs61.existsSync(fullPath)) {
         errors5.push({
           success: false,
           error: true,
@@ -75640,7 +76849,7 @@ var suggestPatch = createSwarmTool({
       }
       let content;
       try {
-        content = fs60.readFileSync(fullPath, "utf-8");
+        content = fs61.readFileSync(fullPath, "utf-8");
       } catch (err2) {
         errors5.push({
           success: false,
@@ -75720,8 +76929,8 @@ var suggestPatch = createSwarmTool({
 // src/tools/lint-spec.ts
 init_spec_schema();
 init_create_tool();
-import * as fs61 from "fs";
-import * as path74 from "path";
+import * as fs62 from "fs";
+import * as path75 from "path";
 var SPEC_FILE_NAME = "spec.md";
 var SWARM_DIR = ".swarm";
 var OBLIGATION_KEYWORDS2 = ["MUST", "SHALL", "SHOULD", "MAY"];
@@ -75774,8 +76983,8 @@ var lint_spec = createSwarmTool({
   async execute(_args, directory) {
     const errors5 = [];
     const warnings = [];
-    const specPath = path74.join(directory, SWARM_DIR, SPEC_FILE_NAME);
-    if (!fs61.existsSync(specPath)) {
+    const specPath = path75.join(directory, SWARM_DIR, SPEC_FILE_NAME);
+    if (!fs62.existsSync(specPath)) {
       const result2 = {
         valid: false,
         specMtime: null,
@@ -75794,12 +77003,12 @@ var lint_spec = createSwarmTool({
     }
     let specMtime = null;
     try {
-      const stats = fs61.statSync(specPath);
+      const stats = fs62.statSync(specPath);
       specMtime = stats.mtime.toISOString();
     } catch {}
     let content;
     try {
-      content = fs61.readFileSync(specPath, "utf-8");
+      content = fs62.readFileSync(specPath, "utf-8");
     } catch (e) {
       const result2 = {
         valid: false,
@@ -75846,8 +77055,8 @@ var lint_spec = createSwarmTool({
 init_dist();
 init_manager2();
 init_detector();
-import * as fs62 from "fs";
-import * as path75 from "path";
+import * as fs63 from "fs";
+import * as path76 from "path";
 init_create_tool();
 var MAX_FILE_SIZE2 = 2 * 1024 * 1024;
 var BINARY_CHECK_BYTES = 8192;
@@ -75868,7 +77077,7 @@ function extractSyntaxErrors(parser, content) {
     return [];
   }
   const errors5 = [];
-  function walkNode(node) {
+  function walkNode2(node) {
     if (node.type === "ERROR") {
       errors5.push({
         line: node.startPosition.row + 1,
@@ -75883,10 +77092,10 @@ function extractSyntaxErrors(parser, content) {
       });
     }
     for (const child of node.children) {
-      walkNode(child);
+      walkNode2(child);
     }
   }
-  walkNode(tree.rootNode);
+  walkNode2(tree.rootNode);
   if (errors5.length === 0 && tree.rootNode.hasError) {
     errors5.push({
       line: 1,
@@ -75913,7 +77122,7 @@ async function syntaxCheck(input, directory, config3) {
   if (languages?.length) {
     const lowerLangs = languages.map((l) => l.toLowerCase());
     filesToCheck = filesToCheck.filter((file3) => {
-      const ext = path75.extname(file3.path).toLowerCase();
+      const ext = path76.extname(file3.path).toLowerCase();
       const langDef = getLanguageForExtension(ext);
       const fileProfile = getProfileForFile(file3.path);
       const langId = fileProfile?.id || langDef?.id;
@@ -75926,7 +77135,7 @@ async function syntaxCheck(input, directory, config3) {
   let skippedCount = 0;
   for (const fileInfo of filesToCheck) {
     const { path: filePath } = fileInfo;
-    const fullPath = path75.isAbsolute(filePath) ? filePath : path75.join(directory, filePath);
+    const fullPath = path76.isAbsolute(filePath) ? filePath : path76.join(directory, filePath);
     const result = {
       path: filePath,
       language: "",
@@ -75956,7 +77165,7 @@ async function syntaxCheck(input, directory, config3) {
       }
       let content;
       try {
-        content = fs62.readFileSync(fullPath, "utf8");
+        content = fs63.readFileSync(fullPath, "utf8");
       } catch {
         result.skipped_reason = "file_read_error";
         skippedCount++;
@@ -75975,7 +77184,7 @@ async function syntaxCheck(input, directory, config3) {
         results.push(result);
         continue;
       }
-      const ext = path75.extname(filePath).toLowerCase();
+      const ext = path76.extname(filePath).toLowerCase();
       const langDef = getLanguageForExtension(ext);
       result.language = profile?.id || langDef?.id || "unknown";
       const errors5 = extractSyntaxErrors(parser, content);
@@ -76036,10 +77245,10 @@ init_test_runner();
 init_dist();
 init_utils();
 init_create_tool();
-import * as fs63 from "fs";
-import * as path76 from "path";
+import * as fs64 from "fs";
+import * as path77 from "path";
 var MAX_TEXT_LENGTH = 200;
-var MAX_FILE_SIZE_BYTES10 = 1024 * 1024;
+var MAX_FILE_SIZE_BYTES11 = 1024 * 1024;
 var SUPPORTED_EXTENSIONS2 = new Set([
   ".ts",
   ".tsx",
@@ -76060,7 +77269,7 @@ var SUPPORTED_EXTENSIONS2 = new Set([
   ".swift",
   ".kt"
 ]);
-var SKIP_DIRECTORIES4 = new Set([
+var SKIP_DIRECTORIES5 = new Set([
   "node_modules",
   "dist",
   "build",
@@ -76103,9 +77312,9 @@ function validatePathsInput(paths, cwd) {
     return { error: "paths contains path traversal", resolvedPath: null };
   }
   try {
-    const resolvedPath = path76.resolve(paths);
-    const normalizedCwd = path76.resolve(cwd);
-    const normalizedResolved = path76.resolve(resolvedPath);
+    const resolvedPath = path77.resolve(paths);
+    const normalizedCwd = path77.resolve(cwd);
+    const normalizedResolved = path77.resolve(resolvedPath);
     if (!normalizedResolved.startsWith(normalizedCwd)) {
       return {
         error: "paths must be within the current working directory",
@@ -76121,30 +77330,30 @@ function validatePathsInput(paths, cwd) {
   }
 }
 function isSupportedExtension(filePath) {
-  const ext = path76.extname(filePath).toLowerCase();
+  const ext = path77.extname(filePath).toLowerCase();
   return SUPPORTED_EXTENSIONS2.has(ext);
 }
-function findSourceFiles2(dir, files = []) {
+function findSourceFiles3(dir, files = []) {
   let entries;
   try {
-    entries = fs63.readdirSync(dir);
+    entries = fs64.readdirSync(dir);
   } catch {
     return files;
   }
   entries.sort((a, b) => a.toLowerCase().localeCompare(b.toLowerCase()));
   for (const entry of entries) {
-    if (SKIP_DIRECTORIES4.has(entry)) {
+    if (SKIP_DIRECTORIES5.has(entry)) {
       continue;
     }
-    const fullPath = path76.join(dir, entry);
+    const fullPath = path77.join(dir, entry);
     let stat2;
     try {
-      stat2 = fs63.statSync(fullPath);
+      stat2 = fs64.statSync(fullPath);
     } catch {
       continue;
     }
     if (stat2.isDirectory()) {
-      findSourceFiles2(fullPath, files);
+      findSourceFiles3(fullPath, files);
     } else if (stat2.isFile()) {
       if (isSupportedExtension(fullPath)) {
         files.push(fullPath);
@@ -76232,7 +77441,7 @@ var todo_extract = createSwarmTool({
       return JSON.stringify(errorResult, null, 2);
     }
     const scanPath = resolvedPath;
-    if (!fs63.existsSync(scanPath)) {
+    if (!fs64.existsSync(scanPath)) {
       const errorResult = {
         error: `path not found: ${pathsInput}`,
         total: 0,
@@ -76242,13 +77451,13 @@ var todo_extract = createSwarmTool({
       return JSON.stringify(errorResult, null, 2);
     }
     const filesToScan = [];
-    const stat2 = fs63.statSync(scanPath);
+    const stat2 = fs64.statSync(scanPath);
     if (stat2.isFile()) {
       if (isSupportedExtension(scanPath)) {
         filesToScan.push(scanPath);
       } else {
         const errorResult = {
-          error: `unsupported file extension: ${path76.extname(scanPath)}`,
+          error: `unsupported file extension: ${path77.extname(scanPath)}`,
           total: 0,
           byPriority: { high: 0, medium: 0, low: 0 },
           entries: []
@@ -76256,16 +77465,16 @@ var todo_extract = createSwarmTool({
         return JSON.stringify(errorResult, null, 2);
       }
     } else {
-      findSourceFiles2(scanPath, filesToScan);
+      findSourceFiles3(scanPath, filesToScan);
     }
     const allEntries = [];
     for (const filePath of filesToScan) {
       try {
-        const fileStat = fs63.statSync(filePath);
-        if (fileStat.size > MAX_FILE_SIZE_BYTES10) {
+        const fileStat = fs64.statSync(filePath);
+        if (fileStat.size > MAX_FILE_SIZE_BYTES11) {
           continue;
         }
-        const content = fs63.readFileSync(filePath, "utf-8");
+        const content = fs64.readFileSync(filePath, "utf-8");
         const entries = parseTodoComments(content, filePath, tagsSet);
         allEntries.push(...entries);
       } catch {}
@@ -76294,18 +77503,18 @@ var todo_extract = createSwarmTool({
 init_tool();
 init_schema();
 init_gate_evidence();
-import * as fs65 from "fs";
-import * as path78 from "path";
+import * as fs66 from "fs";
+import * as path79 from "path";
 
 // src/hooks/diff-scope.ts
-import * as fs64 from "fs";
-import * as path77 from "path";
+import * as fs65 from "fs";
+import * as path78 from "path";
 function getDeclaredScope(taskId, directory) {
   try {
-    const planPath = path77.join(directory, ".swarm", "plan.json");
-    if (!fs64.existsSync(planPath))
+    const planPath = path78.join(directory, ".swarm", "plan.json");
+    if (!fs65.existsSync(planPath))
       return null;
-    const raw = fs64.readFileSync(planPath, "utf-8");
+    const raw = fs65.readFileSync(planPath, "utf-8");
     const plan = JSON.parse(raw);
     for (const phase of plan.phases ?? []) {
       for (const task of phase.tasks ?? []) {
@@ -76419,7 +77628,7 @@ var TIER_3_PATTERNS = [
 ];
 function matchesTier3Pattern(files) {
   for (const file3 of files) {
-    const fileName = path78.basename(file3);
+    const fileName = path79.basename(file3);
     for (const pattern of TIER_3_PATTERNS) {
       if (pattern.test(fileName)) {
         return true;
@@ -76433,8 +77642,8 @@ function checkReviewerGate(taskId, workingDirectory) {
     if (hasActiveTurboMode()) {
       const resolvedDir2 = workingDirectory;
       try {
-        const planPath = path78.join(resolvedDir2, ".swarm", "plan.json");
-        const planRaw = fs65.readFileSync(planPath, "utf-8");
+        const planPath = path79.join(resolvedDir2, ".swarm", "plan.json");
+        const planRaw = fs66.readFileSync(planPath, "utf-8");
         const plan = JSON.parse(planRaw);
         for (const planPhase of plan.phases ?? []) {
           for (const task of planPhase.tasks ?? []) {
@@ -76500,8 +77709,8 @@ function checkReviewerGate(taskId, workingDirectory) {
     }
     try {
       const resolvedDir2 = workingDirectory;
-      const planPath = path78.join(resolvedDir2, ".swarm", "plan.json");
-      const planRaw = fs65.readFileSync(planPath, "utf-8");
+      const planPath = path79.join(resolvedDir2, ".swarm", "plan.json");
+      const planRaw = fs66.readFileSync(planPath, "utf-8");
       const plan = JSON.parse(planRaw);
       for (const planPhase of plan.phases ?? []) {
         for (const task of planPhase.tasks ?? []) {
@@ -76683,8 +77892,8 @@ async function executeUpdateTaskStatus(args2, fallbackDir) {
         };
       }
     }
-    normalizedDir = path78.normalize(args2.working_directory);
-    const pathParts = normalizedDir.split(path78.sep);
+    normalizedDir = path79.normalize(args2.working_directory);
+    const pathParts = normalizedDir.split(path79.sep);
     if (pathParts.includes("..")) {
       return {
         success: false,
@@ -76694,11 +77903,11 @@ async function executeUpdateTaskStatus(args2, fallbackDir) {
         ]
       };
     }
-    const resolvedDir = path78.resolve(normalizedDir);
+    const resolvedDir = path79.resolve(normalizedDir);
     try {
-      const realPath = fs65.realpathSync(resolvedDir);
-      const planPath = path78.join(realPath, ".swarm", "plan.json");
-      if (!fs65.existsSync(planPath)) {
+      const realPath = fs66.realpathSync(resolvedDir);
+      const planPath = path79.join(realPath, ".swarm", "plan.json");
+      if (!fs66.existsSync(planPath)) {
         return {
           success: false,
           message: `Invalid working_directory: plan not found in "${realPath}"`,
@@ -76729,12 +77938,12 @@ async function executeUpdateTaskStatus(args2, fallbackDir) {
   }
   if (args2.status === "in_progress") {
     try {
-      const evidencePath = path78.join(directory, ".swarm", "evidence", `${args2.task_id}.json`);
-      fs65.mkdirSync(path78.dirname(evidencePath), { recursive: true });
-      const fd = fs65.openSync(evidencePath, "wx");
+      const evidencePath = path79.join(directory, ".swarm", "evidence", `${args2.task_id}.json`);
+      fs66.mkdirSync(path79.dirname(evidencePath), { recursive: true });
+      const fd = fs66.openSync(evidencePath, "wx");
       let writeOk = false;
       try {
-        fs65.writeSync(fd, JSON.stringify({
+        fs66.writeSync(fd, JSON.stringify({
           task_id: args2.task_id,
           required_gates: ["reviewer", "test_engineer"],
           gates: {},
@@ -76742,10 +77951,10 @@ async function executeUpdateTaskStatus(args2, fallbackDir) {
         }, null, 2));
         writeOk = true;
       } finally {
-        fs65.closeSync(fd);
+        fs66.closeSync(fd);
         if (!writeOk) {
           try {
-            fs65.unlinkSync(evidencePath);
+            fs66.unlinkSync(evidencePath);
           } catch {}
         }
       }
@@ -76755,8 +77964,8 @@ async function executeUpdateTaskStatus(args2, fallbackDir) {
     recoverTaskStateFromDelegations(args2.task_id);
     let phaseRequiresReviewer = true;
     try {
-      const planPath = path78.join(directory, ".swarm", "plan.json");
-      const planRaw = fs65.readFileSync(planPath, "utf-8");
+      const planPath = path79.join(directory, ".swarm", "plan.json");
+      const planRaw = fs66.readFileSync(planPath, "utf-8");
       const plan = JSON.parse(planRaw);
       const taskPhase = plan.phases.find((p) => p.tasks.some((t) => t.id === args2.task_id));
       if (taskPhase?.required_agents && !taskPhase.required_agents.includes("reviewer")) {
@@ -76856,8 +78065,8 @@ init_utils2();
 init_ledger();
 init_manager();
 init_create_tool();
-import fs66 from "fs";
-import path79 from "path";
+import fs67 from "fs";
+import path80 from "path";
 function normalizeVerdict(verdict) {
   switch (verdict) {
     case "APPROVED":
@@ -76905,7 +78114,7 @@ async function executeWriteDriftEvidence(args2, directory) {
     entries: [evidenceEntry]
   };
   const filename = "drift-verifier.json";
-  const relativePath = path79.join("evidence", String(phase), filename);
+  const relativePath = path80.join("evidence", String(phase), filename);
   let validatedPath;
   try {
     validatedPath = validateSwarmPath(directory, relativePath);
@@ -76916,12 +78125,12 @@ async function executeWriteDriftEvidence(args2, directory) {
       message: error93 instanceof Error ? error93.message : "Failed to validate path"
     }, null, 2);
   }
-  const evidenceDir = path79.dirname(validatedPath);
+  const evidenceDir = path80.dirname(validatedPath);
   try {
-    await fs66.promises.mkdir(evidenceDir, { recursive: true });
-    const tempPath = path79.join(evidenceDir, `.${filename}.tmp`);
-    await fs66.promises.writeFile(tempPath, JSON.stringify(evidenceContent, null, 2), "utf-8");
-    await fs66.promises.rename(tempPath, validatedPath);
+    await fs67.promises.mkdir(evidenceDir, { recursive: true });
+    const tempPath = path80.join(evidenceDir, `.${filename}.tmp`);
+    await fs67.promises.writeFile(tempPath, JSON.stringify(evidenceContent, null, 2), "utf-8");
+    await fs67.promises.rename(tempPath, validatedPath);
     let snapshotInfo;
     let snapshotError;
     if (normalizedVerdict === "approved") {
@@ -77101,6 +78310,7 @@ var OpenCodeSwarm = async (ctx) => {
   const knowledgeCuratorHook = knowledgeConfig.enabled ? createKnowledgeCuratorHook(ctx.directory, knowledgeConfig) : undefined;
   const hivePromoterHook = knowledgeConfig.enabled && knowledgeConfig.hive_enabled ? createHivePromoterHook(ctx.directory, knowledgeConfig) : undefined;
   const knowledgeInjectorHook = knowledgeConfig.enabled ? createKnowledgeInjectorHook(ctx.directory, knowledgeConfig) : undefined;
+  const repoMapInjectorHook = createRepoMapInjectorHook(ctx.directory);
   const steeringConsumedHook = createSteeringConsumedHook(ctx.directory);
   const coChangeSuggesterHook = createCoChangeSuggesterHook(ctx.directory);
   const darkMatterDetectorHook = createDarkMatterDetectorHook(ctx.directory);
@@ -77153,7 +78363,7 @@ var OpenCodeSwarm = async (ctx) => {
     const { PreflightTriggerManager: PTM } = await Promise.resolve().then(() => (init_trigger(), exports_trigger));
     preflightTriggerManager = new PTM(automationConfig);
     const { AutomationStatusArtifact: ASA } = await Promise.resolve().then(() => (init_status_artifact(), exports_status_artifact));
-    const swarmDir = path80.resolve(ctx.directory, ".swarm");
+    const swarmDir = path81.resolve(ctx.directory, ".swarm");
     statusArtifact = new ASA(swarmDir);
     statusArtifact.updateConfig(automationConfig.mode, automationConfig.capabilities);
     if (automationConfig.capabilities?.evidence_auto_summaries === true) {
@@ -77467,6 +78677,7 @@ var OpenCodeSwarm = async (ctx) => {
       fullAutoInterceptHook?.messagesTransform,
       delegationGateHooks.messagesTransform,
       delegationSanitizerHook,
+      repoMapInjectorHook,
       knowledgeInjectorHook,
       (_input, output) => {
         if (output.messages) {

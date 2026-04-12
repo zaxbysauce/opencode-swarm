@@ -18429,6 +18429,7 @@ var TOOL_NAMES = [
   "batch_symbols",
   "suggest_patch",
   "req_coverage",
+  "repo_map",
   "get_approved_plan"
 ];
 var TOOL_NAME_SET = new Set(TOOL_NAMES);
@@ -18496,7 +18497,8 @@ var AGENT_TOOL_MAP = {
     "knowledge_recall",
     "knowledge_remove",
     "co_change_analyzer",
-    "suggest_patch"
+    "suggest_patch",
+    "repo_map"
   ],
   explorer: [
     "complexity_hotspots",

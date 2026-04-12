@@ -44,6 +44,7 @@ export {
 	createPhaseMonitorHook,
 } from './phase-monitor';
 export { createPipelineTrackerHook } from './pipeline-tracker';
+export { createRepoMapInjectorHook } from './repo-map-injector';
 export {
 	buildApprovedReceipt,
 	buildReceiptContextForDrift,

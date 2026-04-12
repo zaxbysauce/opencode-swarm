@@ -56,6 +56,19 @@ If available_symbols was provided in your scope declaration, you MUST only call 
 - Avoid shell commands in code — use Node.js APIs (\`fs\`, \`child_process\` with \`shell: false\`)
 - Consider case-sensitivity: Linux filesystems are case-sensitive; Windows and macOS are not
 
+## LOCALIZATION AWARENESS
+
+You may receive a LOCALIZATION CONTEXT block in your task delegation. If present:
+- The "Imported by" list shows files that depend on your target — do NOT break their imports
+- The "Exports used externally" list shows specific symbols other files need — preserve their signatures
+- The "Blast radius" shows files likely affected — check them after editing
+- "Parallel patterns" shows files with similar structure — mirror their patterns for consistency
+
+Before finalizing your changes:
+1. Verify no import in "Imported by" files would break
+2. Check that all "Exports used externally" signatures remain compatible
+3. If you change an exported symbol's signature, note it in your output
+
 ## TEST FRAMEWORK
 - Import from 'bun:test', NOT from 'vitest'. The APIs are identical but the import source matters.
 - Use: import { describe, test, expect, vi, mock, beforeEach, afterEach } from 'bun:test'
