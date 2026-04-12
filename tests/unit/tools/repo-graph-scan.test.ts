@@ -436,32 +436,67 @@ export const file2 = 'f2';`,
 });
 
 describe('resolveModuleSpecifier', () => {
-	// Skip relative path tests on Windows due to path.sep mismatch
-	// resolveModuleSpecifier uses path.sep which is \ on Windows but / in test paths
-	test('relative import ./foo is resolved correctly', () => {
-		if (process.platform === 'win32') {
-			expect(true).toBe(true); // Skip indicator
-			return;
-		}
-		const result = resolveModuleSpecifier(
-			'/workspace',
-			'/workspace/index.ts',
-			'./foo',
+	let tempDir: string;
+
+	beforeEach(async () => {
+		// Create temp directory inside cwd to avoid path traversal issues
+		tempDir = await fsSync.promises.mkdtemp(
+			path.join(process.cwd(), 'test-rr-'),
 		);
-		expect(result).toBe('/workspace/foo');
 	});
 
-	test('relative import ../bar is resolved correctly', () => {
+	afterEach(async () => {
+		// Clean up temp directory
+		try {
+			await fsSync.promises.rm(tempDir, { recursive: true, force: true });
+		} catch {
+			// Ignore cleanup errors
+		}
+	});
+
+	// Skip relative path tests on Windows due to path.sep mismatch
+	// resolveModuleSpecifier uses path.sep which is \ on Windows but / in test paths
+	test('relative import ./foo resolves to foo.ts when file exists', async () => {
 		if (process.platform === 'win32') {
 			expect(true).toBe(true); // Skip indicator
 			return;
 		}
+		// Create foo.ts in the temp directory
+		await fsSync.promises.writeFile(
+			path.join(tempDir, 'foo.ts'),
+			'export const foo = 1;',
+		);
+
 		const result = resolveModuleSpecifier(
-			'/workspace',
-			'/workspace/subdir/index.ts',
+			tempDir,
+			path.join(tempDir, 'index.ts'),
+			'./foo',
+		);
+		expect(result).toBe(path.join(tempDir, 'foo.ts'));
+	});
+
+	test('relative import ../bar resolves to bar.ts when file exists', async () => {
+		if (process.platform === 'win32') {
+			expect(true).toBe(true); // Skip indicator
+			return;
+		}
+		// Create bar.ts in the temp directory and subdir/ with index.ts
+		await fsSync.promises.writeFile(
+			path.join(tempDir, 'bar.ts'),
+			'export const bar = 1;',
+		);
+		await fsSync.promises.mkdir(path.join(tempDir, 'subdir'));
+		await fsSync.promises.writeFile(
+			path.join(tempDir, 'subdir', 'index.ts'),
+			'export const subdir = 1;',
+		);
+
+		const result = resolveModuleSpecifier(
+			tempDir,
+			path.join(tempDir, 'subdir', 'index.ts'),
 			'../bar',
 		);
-		expect(result).toBe('/workspace/bar');
+		expect(result).toBe(path.join(tempDir, 'bar.ts'));
 	});
 
 	test('bare specifier returns null', () => {
