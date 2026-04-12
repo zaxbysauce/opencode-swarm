@@ -237,6 +237,17 @@ describe('getBlastRadius — regression: depthReached (F9)', () => {
 		const r = getBlastRadius(g, ['util.ts'], 2);
 		expect(r.depthReached).toBe(2);
 	});
+
+	it('returns an empty radius for maxDepth=0 (do-not-explore semantic)', () => {
+		// Adversarial verifier finding: previously the loop visited direct
+		// importers anyway and reported depthReached=1 even at maxDepth=0.
+		const g = makeGraph();
+		const r = getBlastRadius(g, ['util.ts'], 0);
+		expect(r.directDependents).toEqual([]);
+		expect(r.transitiveDependents).toEqual([]);
+		expect(r.depthReached).toBe(0);
+		expect(r.totalDependents).toBe(0);
+	});
 });
 
 describe('getLocalizationContext', () => {

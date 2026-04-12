@@ -136,6 +136,18 @@ export function getBlastRadius(
 	const visited = new Set<string>(targets);
 	const direct = new Set<string>();
 	const transitive = new Set<string>();
+	// `maxDepth <= 0` means "do not explore" — return an empty radius so we
+	// don't visit direct importers AND falsely report depthReached=1.
+	if (maxDepth <= 0) {
+		return {
+			target: targets,
+			directDependents: [],
+			transitiveDependents: [],
+			depthReached: 0,
+			totalDependents: 0,
+			riskLevel: classifyRisk(0),
+		};
+	}
 	let queue: Array<{ file: string; depth: number }> = targets.map((file) => ({
 		file,
 		depth: 0,
