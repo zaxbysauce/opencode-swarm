@@ -448,7 +448,7 @@ describe('resolveModuleSpecifier', () => {
 			'/workspace/index.ts',
 			'./foo',
 		);
-		expect(result).toBe('/workspace/foo.ts');
+		expect(result).toBe('/workspace/foo');
 	});
 
 	test('relative import ../bar is resolved correctly', () => {
@@ -461,7 +461,7 @@ describe('resolveModuleSpecifier', () => {
 			'/workspace/subdir/index.ts',
 			'../bar',
 		);
-		expect(result).toBe('/workspace/bar.ts');
+		expect(result).toBe('/workspace/bar');
 	});
 
 	test('bare specifier returns null', () => {

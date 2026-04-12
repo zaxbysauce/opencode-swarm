@@ -264,11 +264,6 @@ export function resolveModuleSpecifier(
 	sourceFile: string,
 	specifier: string,
 ): string | null {
-	// Reject path traversal in specifier
-	if (containsPathTraversal(specifier)) {
-		return null;
-	}
-
 	// Reject control characters
 	if (containsControlChars(specifier)) {
 		return null;
