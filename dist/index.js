@@ -61271,12 +61271,6 @@ function validateWorkspace(workspace) {
   if (containsPathTraversal(workspace)) {
     throw new Error("Invalid workspace: path traversal detected");
   }
-  if (workspace.startsWith("/") || workspace.startsWith("\\")) {
-    throw new Error("Invalid workspace: absolute path not allowed");
-  }
-  if (/^[A-Za-z]:[/\\]/.test(workspace)) {
-    throw new Error("Invalid workspace: Windows absolute path not allowed");
-  }
 }
 function validateGraphNode(node) {
   if (!node || typeof node !== "object") {
@@ -61368,7 +61362,7 @@ function resolveModuleSpecifier(workspaceRoot, sourceFile, specifier) {
   try {
     if (specifier.startsWith(".")) {
       const sourceDir = path46.dirname(sourceFile);
-      const resolved = path46.resolve(sourceDir, specifier);
+      let resolved = path46.resolve(sourceDir, specifier);
       let realResolved;
       try {
         realResolved = realpathSync6(resolved);
@@ -61380,6 +61374,36 @@ function resolveModuleSpecifier(workspaceRoot, sourceFile, specifier) {
         realRoot = realpathSync6(workspaceRoot);
       } catch {
         realRoot = path46.normalize(workspaceRoot);
+      }
+      if (!existsSync27(resolved)) {
+        const EXTENSIONS = [
+          ".ts",
+          ".tsx",
+          ".js",
+          ".jsx",
+          ".mjs",
+          ".cjs",
+          ".py",
+          ".json"
+        ];
+        let found = null;
+        for (const ext of EXTENSIONS) {
+          const candidate = resolved + ext;
+          if (existsSync27(candidate)) {
+            found = candidate;
+            break;
+          }
+        }
+        if (found) {
+          try {
+            realResolved = realpathSync6(found);
+          } catch {
+            realResolved = found;
+          }
+          resolved = found;
+        } else {
+          return null;
+        }
       }
       const normalizedResolved = path46.normalize(realResolved);
       const normalizedRoot = path46.normalize(realRoot);

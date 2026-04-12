@@ -57,10 +57,10 @@ export interface RepoGraph {
 }
 /**
  * Validate that a workspace directory is safe to use.
- * Workspace must be a relative path (not absolute) to prevent workspace-escaping attacks.
+ * Accepts both absolute and relative paths.
  *
- * @param workspace - The workspace directory (relative path, e.g. "my-project" or "packages/lib")
- * @throws Error if the workspace is invalid or absolute
+ * @param workspace - The workspace directory (path, absolute or relative, e.g. "/home/user/project" or "my-project")
+ * @throws Error if the workspace is invalid
  */
 export declare function validateWorkspace(workspace: string): void;
 /**
@@ -119,31 +119,31 @@ export declare function upsertNode(graph: RepoGraph, node: GraphNode): void;
 export declare function addEdge(graph: RepoGraph, edge: GraphEdge): void;
 /**
  * Get the cached graph for a workspace.
- * @param workspace - The workspace directory (relative path, not absolute)
+ * @param workspace - The workspace directory (absolute or relative path)
  * @returns The cached graph or undefined if not cached
  */
 export declare function getCachedGraph(workspace: string): RepoGraph | undefined;
 /**
  * Set the cached graph for a workspace.
- * @param workspace - The workspace directory (relative path, not absolute)
+ * @param workspace - The workspace directory (absolute or relative path)
  * @param graph - The graph to cache
  * @param mtime - Optional file mtime to track for cache invalidation
  */
 export declare function setCachedGraph(workspace: string, graph: RepoGraph, mtime?: number): void;
 /**
  * Mark a workspace's cache as dirty (modified since last save).
- * @param workspace - The workspace directory (relative path, not absolute)
+ * @param workspace - The workspace directory (absolute or relative path)
  */
 export declare function markDirty(workspace: string): void;
 /**
  * Check if a workspace's cache is dirty.
- * @param workspace - The workspace directory (relative path, not absolute)
+ * @param workspace - The workspace directory (absolute or relative path)
  * @returns True if the cache has been modified since last save
  */
 export declare function isDirty(workspace: string): boolean;
 /**
  * Clear the cache for a workspace.
- * @param workspace - The workspace directory (relative path, not absolute)
+ * @param workspace - The workspace directory (absolute or relative path)
  */
 export declare function clearCache(workspace: string): void;
 /**
@@ -151,7 +151,7 @@ export declare function clearCache(workspace: string): void;
  * Resolves symlinks via realpath before validation to prevent
  * workspace-escaping attacks via symlink manipulation.
  *
- * @param workspace - The workspace directory (relative path, not absolute)
+ * @param workspace - The workspace directory (absolute or relative path)
  * @returns Absolute path to repo-graph.json
  * @throws Error if path validation fails or resolved path escapes workspace
  */
@@ -160,7 +160,7 @@ export declare function getGraphPath(workspace: string): string;
  * Load the graph from .swarm/repo-graph.json.
  * Uses the in-memory cache if available, not dirty, and file mtime unchanged.
  *
- * @param workspace - The workspace directory (must be a relative path, not absolute)
+ * @param workspace - The workspace directory (absolute or relative path)
  * @returns The loaded graph or null if not found
  * @throws Error if file exists but is invalid/corrupted
  */
@@ -169,7 +169,7 @@ export declare function loadGraph(workspace: string): Promise<RepoGraph | null>;
  * Save the graph to .swarm/repo-graph.json atomically.
  * Uses temp file + rename pattern to prevent partial writes.
  *
- * @param workspace - The workspace directory (must be a relative path, not absolute)
+ * @param workspace - The workspace directory (absolute or relative path)
  * @param graph - The graph to save
  * @param options.createAtomic - If true, fails if file already exists (for atomic create)
  * @throws Error if validation fails, write fails, or file exists when createAtomic=true
@@ -182,14 +182,14 @@ export declare function saveGraph(workspace: string, graph: RepoGraph, options?:
  * Returns existing graph or creates a new empty one.
  * Handles concurrent creation by treating a create-fail as "graph exists".
  *
- * @param workspace - The workspace directory (must be a relative path, not absolute)
+ * @param workspace - The workspace directory (absolute or relative path)
  * @returns The existing or new graph
  */
 export declare function loadOrCreateGraph(workspace: string): Promise<RepoGraph>;
 /**
  * Save the cached graph for a workspace if it's dirty.
  *
- * @param workspace - The workspace directory (must be a relative path, not absolute)
+ * @param workspace - The workspace directory (absolute or relative path)
  * @throws Error if workspace is dirty but cache is missing (inconsistent state)
  * @throws Error if save fails
  */
@@ -200,7 +200,7 @@ export declare function saveIfDirty(workspace: string): Promise<void>;
  * The scan is deterministic: files are processed in sorted order, and edges
  * are added in a stable order based on source file and import specifier.
  *
- * @param workspaceRoot - Workspace root directory (relative path, not absolute)
+ * @param workspaceRoot - Workspace root directory (absolute or relative path)
  * @param options - Optional scan configuration
  * @param options.maxFileSizeBytes - Maximum file size to scan (default 1MB)
  * @returns Complete RepoGraph with nodes and edges

@@ -113,10 +113,10 @@ const mtimeCache = new Map<string, number>();
 
 /**
  * Validate that a workspace directory is safe to use.
- * Workspace must be a relative path (not absolute) to prevent workspace-escaping attacks.
+ * Accepts both absolute and relative paths.
  *
- * @param workspace - The workspace directory (relative path, e.g. "my-project" or "packages/lib")
- * @throws Error if the workspace is invalid or absolute
+ * @param workspace - The workspace directory (path, absolute or relative, e.g. "/home/user/project" or "my-project")
+ * @throws Error if the workspace is invalid
  */
 export function validateWorkspace(workspace: string): void {
 	if (!workspace || typeof workspace !== 'string' || workspace.trim() === '') {
@@ -127,12 +127,6 @@ export function validateWorkspace(workspace: string): void {
 	}
 	if (containsPathTraversal(workspace)) {
 		throw new Error('Invalid workspace: path traversal detected');
-	}
-	if (workspace.startsWith('/') || workspace.startsWith('\\')) {
-		throw new Error('Invalid workspace: absolute path not allowed');
-	}
-	if (/^[A-Za-z]:[/\\]/.test(workspace)) {
-		throw new Error('Invalid workspace: Windows absolute path not allowed');
 	}
 }
 
@@ -284,7 +278,7 @@ export function resolveModuleSpecifier(
 		// Resolve relative to source file
 		if (specifier.startsWith('.')) {
 			const sourceDir = path.dirname(sourceFile);
-			const resolved = path.resolve(sourceDir, specifier);
+			let resolved = path.resolve(sourceDir, specifier);
 
 			// SECURITY: Resolve symlinks to get the real path, then verify the
 			// real path is still within the workspace boundary. This prevents
@@ -307,7 +301,44 @@ export function resolveModuleSpecifier(
 				realRoot = path.normalize(workspaceRoot);
 			}
 
-			// Normalize for consistent comparison
+			// Try to resolve the extensionless path to a real file.
+			// TypeScript/JavaScript imports commonly omit extensions: import { foo } from './utils'
+			// We need to find the actual file: ./utils.ts, ./utils.js, etc.
+			if (!existsSync(resolved)) {
+				const EXTENSIONS = [
+					'.ts',
+					'.tsx',
+					'.js',
+					'.jsx',
+					'.mjs',
+					'.cjs',
+					'.py',
+					'.json',
+				];
+				let found: string | null = null;
+				for (const ext of EXTENSIONS) {
+					const candidate = resolved + ext;
+					if (existsSync(candidate)) {
+						found = candidate;
+						break;
+					}
+				}
+				if (found) {
+					// Re-resolve symlinks for the found file
+					try {
+						realResolved = realpathSync(found);
+					} catch {
+						realResolved = found;
+					}
+					// Update resolved to the found path so the return value has the extension
+					resolved = found;
+				} else {
+					// No matching file found — this import doesn't resolve to a workspace file
+					return null;
+				}
+			}
+
+			// Normalize for consistent comparison (computed AFTER extension resolution)
 			const normalizedResolved = path.normalize(realResolved);
 			const normalizedRoot = path.normalize(realRoot);
 
@@ -400,7 +431,7 @@ export function addEdge(graph: RepoGraph, edge: GraphEdge): void {
 
 /**
  * Get the cached graph for a workspace.
- * @param workspace - The workspace directory (relative path, not absolute)
+ * @param workspace - The workspace directory (absolute or relative path)
  * @returns The cached graph or undefined if not cached
  */
 export function getCachedGraph(workspace: string): RepoGraph | undefined {
@@ -409,7 +440,7 @@ export function getCachedGraph(workspace: string): RepoGraph | undefined {
 
 /**
  * Set the cached graph for a workspace.
- * @param workspace - The workspace directory (relative path, not absolute)
+ * @param workspace - The workspace directory (absolute or relative path)
  * @param graph - The graph to cache
  * @param mtime - Optional file mtime to track for cache invalidation
  */
@@ -428,7 +459,7 @@ export function setCachedGraph(
 
 /**
  * Mark a workspace's cache as dirty (modified since last save).
- * @param workspace - The workspace directory (relative path, not absolute)
+ * @param workspace - The workspace directory (absolute or relative path)
  */
 export function markDirty(workspace: string): void {
 	dirtyFlags.set(path.normalize(workspace), true);
@@ -436,7 +467,7 @@ export function markDirty(workspace: string): void {
 
 /**
  * Check if a workspace's cache is dirty.
- * @param workspace - The workspace directory (relative path, not absolute)
+ * @param workspace - The workspace directory (absolute or relative path)
  * @returns True if the cache has been modified since last save
  */
 export function isDirty(workspace: string): boolean {
@@ -445,7 +476,7 @@ export function isDirty(workspace: string): boolean {
 
 /**
  * Clear the cache for a workspace.
- * @param workspace - The workspace directory (relative path, not absolute)
+ * @param workspace - The workspace directory (absolute or relative path)
  */
 export function clearCache(workspace: string): void {
 	const normalized = path.normalize(workspace);
@@ -461,7 +492,7 @@ export function clearCache(workspace: string): void {
  * Resolves symlinks via realpath before validation to prevent
  * workspace-escaping attacks via symlink manipulation.
  *
- * @param workspace - The workspace directory (relative path, not absolute)
+ * @param workspace - The workspace directory (absolute or relative path)
  * @returns Absolute path to repo-graph.json
  * @throws Error if path validation fails or resolved path escapes workspace
  */
@@ -479,7 +510,7 @@ export function getGraphPath(workspace: string): string {
  * Load the graph from .swarm/repo-graph.json.
  * Uses the in-memory cache if available, not dirty, and file mtime unchanged.
  *
- * @param workspace - The workspace directory (must be a relative path, not absolute)
+ * @param workspace - The workspace directory (absolute or relative path)
  * @returns The loaded graph or null if not found
  * @throws Error if file exists but is invalid/corrupted
  */
@@ -637,7 +668,7 @@ export async function loadGraph(workspace: string): Promise<RepoGraph | null> {
  * Save the graph to .swarm/repo-graph.json atomically.
  * Uses temp file + rename pattern to prevent partial writes.
  *
- * @param workspace - The workspace directory (must be a relative path, not absolute)
+ * @param workspace - The workspace directory (absolute or relative path)
  * @param graph - The graph to save
  * @param options.createAtomic - If true, fails if file already exists (for atomic create)
  * @throws Error if validation fails, write fails, or file exists when createAtomic=true
@@ -794,7 +825,7 @@ export async function saveGraph(
  * Returns existing graph or creates a new empty one.
  * Handles concurrent creation by treating a create-fail as "graph exists".
  *
- * @param workspace - The workspace directory (must be a relative path, not absolute)
+ * @param workspace - The workspace directory (absolute or relative path)
  * @returns The existing or new graph
  */
 export async function loadOrCreateGraph(workspace: string): Promise<RepoGraph> {
@@ -836,7 +867,7 @@ export async function loadOrCreateGraph(workspace: string): Promise<RepoGraph> {
 /**
  * Save the cached graph for a workspace if it's dirty.
  *
- * @param workspace - The workspace directory (must be a relative path, not absolute)
+ * @param workspace - The workspace directory (absolute or relative path)
  * @throws Error if workspace is dirty but cache is missing (inconsistent state)
  * @throws Error if save fails
  */
@@ -1082,7 +1113,7 @@ function isBinaryContent(content: string): boolean {
  * The scan is deterministic: files are processed in sorted order, and edges
  * are added in a stable order based on source file and import specifier.
  *
- * @param workspaceRoot - Workspace root directory (relative path, not absolute)
+ * @param workspaceRoot - Workspace root directory (absolute or relative path)
  * @param options - Optional scan configuration
  * @param options.maxFileSizeBytes - Maximum file size to scan (default 1MB)
  * @returns Complete RepoGraph with nodes and edges

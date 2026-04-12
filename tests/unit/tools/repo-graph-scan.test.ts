@@ -522,16 +522,12 @@ describe('validateWorkspace', () => {
 		);
 	});
 
-	test('absolute Unix path throws', () => {
-		expect(() => validateWorkspace('/absolute/path')).toThrow(
-			'Invalid workspace: absolute path not allowed',
-		);
+	test('absolute Unix path accepted', () => {
+		expect(() => validateWorkspace('/absolute/path')).not.toThrow();
 	});
 
-	test('absolute Windows path throws', () => {
-		expect(() => validateWorkspace('C:\\absolute\\path')).toThrow(
-			'Invalid workspace: Windows absolute path not allowed',
-		);
+	test('absolute Windows path accepted', () => {
+		expect(() => validateWorkspace('C:\\absolute\\path')).not.toThrow();
 	});
 
 	test('path traversal throws', () => {

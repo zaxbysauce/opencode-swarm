@@ -72,22 +72,14 @@ describe('validateWorkspace', () => {
 		);
 	});
 
-	test('rejects Unix absolute paths', () => {
-		expect(() => validateWorkspace('/absolute/path')).toThrow(
-			'Invalid workspace: absolute path not allowed',
-		);
-		expect(() => validateWorkspace('\\backslash')).toThrow(
-			'Invalid workspace: absolute path not allowed',
-		);
+	test('accepts Unix absolute paths', () => {
+		expect(() => validateWorkspace('/absolute/path')).not.toThrow();
+		expect(() => validateWorkspace('\\backslash')).not.toThrow();
 	});
 
-	test('rejects Windows absolute paths', () => {
-		expect(() => validateWorkspace('C:\\Windows\\path')).toThrow(
-			'Invalid workspace: Windows absolute path not allowed',
-		);
-		expect(() => validateWorkspace('D:/other/drive')).toThrow(
-			'Invalid workspace: Windows absolute path not allowed',
-		);
+	test('accepts Windows absolute paths', () => {
+		expect(() => validateWorkspace('C:\\Windows\\path')).not.toThrow();
+		expect(() => validateWorkspace('D:/other/drive')).not.toThrow();
 	});
 
 	test('accepts valid relative paths', () => {
