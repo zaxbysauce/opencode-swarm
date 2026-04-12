@@ -45,6 +45,7 @@ export {
 	quality_budget,
 	qualityBudget,
 } from './quality-budget';
+export { repo_map } from './repo-map';
 export { req_coverage } from './req-coverage';
 export { retrieve_summary } from './retrieve-summary';
 export {

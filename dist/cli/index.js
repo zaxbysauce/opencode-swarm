@@ -18515,7 +18515,8 @@ var TOOL_NAMES = [
   "batch_symbols",
   "suggest_patch",
   "req_coverage",
-  "get_approved_plan"
+  "get_approved_plan",
+  "repo_map"
 ];
 var TOOL_NAME_SET = new Set(TOOL_NAMES);
 
@@ -18582,7 +18583,8 @@ var AGENT_TOOL_MAP = {
     "knowledge_recall",
     "knowledge_remove",
     "co_change_analyzer",
-    "suggest_patch"
+    "suggest_patch",
+    "repo_map"
   ],
   explorer: [
     "complexity_hotspots",
@@ -18597,7 +18599,8 @@ var AGENT_TOOL_MAP = {
     "symbols",
     "todo_extract",
     "doc_scan",
-    "knowledge_recall"
+    "knowledge_recall",
+    "repo_map"
   ],
   coder: [
     "diff",
@@ -18610,7 +18613,8 @@ var AGENT_TOOL_MAP = {
     "build_check",
     "syntax_check",
     "knowledge_add",
-    "knowledge_recall"
+    "knowledge_recall",
+    "repo_map"
   ],
   test_engineer: [
     "test_runner",
@@ -18652,7 +18656,8 @@ var AGENT_TOOL_MAP = {
     "knowledge_recall",
     "search",
     "batch_symbols",
-    "suggest_patch"
+    "suggest_patch",
+    "repo_map"
   ],
   critic: [
     "complexity_hotspots",
@@ -18661,7 +18666,8 @@ var AGENT_TOOL_MAP = {
     "retrieve_summary",
     "symbols",
     "knowledge_recall",
-    "req_coverage"
+    "req_coverage",
+    "repo_map"
   ],
   critic_sounding_board: [
     "complexity_hotspots",
@@ -18670,7 +18676,8 @@ var AGENT_TOOL_MAP = {
     "retrieve_summary",
     "symbols",
     "knowledge_recall",
-    "req_coverage"
+    "req_coverage",
+    "repo_map"
   ],
   critic_drift_verifier: [
     "complexity_hotspots",
@@ -18680,7 +18687,8 @@ var AGENT_TOOL_MAP = {
     "symbols",
     "knowledge_recall",
     "req_coverage",
-    "get_approved_plan"
+    "get_approved_plan",
+    "repo_map"
   ],
   critic_oversight: [
     "complexity_hotspots",

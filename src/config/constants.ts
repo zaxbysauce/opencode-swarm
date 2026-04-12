@@ -74,6 +74,7 @@ export const AGENT_TOOL_MAP: Record<AgentName, ToolName[]> = {
 		'knowledge_remove',
 		'co_change_analyzer',
 		'suggest_patch',
+		'repo_map',
 	],
 	explorer: [
 		'complexity_hotspots',
@@ -89,6 +90,7 @@ export const AGENT_TOOL_MAP: Record<AgentName, ToolName[]> = {
 		'todo_extract',
 		'doc_scan',
 		'knowledge_recall',
+		'repo_map',
 	],
 	coder: [
 		'diff',
@@ -102,6 +104,7 @@ export const AGENT_TOOL_MAP: Record<AgentName, ToolName[]> = {
 		'syntax_check',
 		'knowledge_add',
 		'knowledge_recall',
+		'repo_map',
 	],
 	test_engineer: [
 		'test_runner',
@@ -144,6 +147,7 @@ export const AGENT_TOOL_MAP: Record<AgentName, ToolName[]> = {
 		'search',
 		'batch_symbols',
 		'suggest_patch',
+		'repo_map',
 	],
 	critic: [
 		'complexity_hotspots',
@@ -153,6 +157,7 @@ export const AGENT_TOOL_MAP: Record<AgentName, ToolName[]> = {
 		'symbols',
 		'knowledge_recall',
 		'req_coverage',
+		'repo_map',
 	],
 	critic_sounding_board: [
 		'complexity_hotspots',
@@ -162,6 +167,7 @@ export const AGENT_TOOL_MAP: Record<AgentName, ToolName[]> = {
 		'symbols',
 		'knowledge_recall',
 		'req_coverage',
+		'repo_map',
 	],
 	critic_drift_verifier: [
 		'complexity_hotspots',
@@ -172,6 +178,7 @@ export const AGENT_TOOL_MAP: Record<AgentName, ToolName[]> = {
 		'knowledge_recall',
 		'req_coverage',
 		'get_approved_plan',
+		'repo_map',
 	],
 	critic_oversight: [
 		'complexity_hotspots',
@@ -281,6 +288,8 @@ export const TOOL_DESCRIPTIONS: Partial<Record<ToolName, string>> = {
 	lint_spec: 'validate .swarm/spec.md format and required fields',
 	get_approved_plan:
 		'retrieve the last critic-approved immutable plan snapshot for baseline drift comparison',
+	repo_map:
+		'query the repo code graph: importers, dependencies, blast radius, and localization context for structural awareness before refactoring',
 };
 
 // Runtime validation: ensure all tool names in AGENT_TOOL_MAP are registered

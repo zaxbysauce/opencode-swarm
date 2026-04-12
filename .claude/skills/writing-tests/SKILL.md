@@ -100,6 +100,27 @@ When writing a test, know which step your file will run in. Do not assume isolat
 
 Only create an adversarial variant if it tests **distinct attack vectors** not covered by the base test. Do not duplicate base test assertions with different inputs — that's redundancy, not security coverage.
 
+### Regression tests (review-surfaced bugs)
+
+When fixing a bug surfaced by code review, swarm review, or post-merge audit, **always add a regression test** with the following shape so the test's purpose survives future cleanup:
+
+```typescript
+describe('<feature> — regression: <one-line description> (F#)', () => {
+  it('<exact behavior the bug violated>', () => {
+    // Previous code did <bad thing>: e.g. the regex `/^\.\/+/` only stripped
+    // a single leading `./`, so `././util.ts` survived as `./util.ts`.
+    expect(normalizeGraphPath('././util.ts')).toBe('util.ts');
+  });
+});
+```
+
+Rules:
+- The describe label includes the original finding ID (e.g. `F8`, `F9`, `F1.1`) so future readers can map back to the review.
+- The leading comment in the body explains the **prior buggy behavior** in concrete terms — what the code did before, not what it does now.
+- One regression test per finding. Do not pile unrelated assertions into a single regression block.
+
+Examples in-tree: `tests/unit/graph/graph-query.test.ts` (`normalizeGraphPath — regression (F8)`, `getBlastRadius — regression: depthReached (F9)`), `tests/unit/graph/import-extractor.test.ts` (`paren-preceded strings (F1)`, `member-expression require/import (F1.1)`).
+
 ## Test Quality Standards
 
 ### DO
@@ -118,6 +139,28 @@ Only create an adversarial variant if it tests **distinct attack vectors** not c
 - **Do not hardcode version numbers.** Version bumps are automated — a test asserting `version === '6.31.3'` breaks on every release.
 - **Do not use `sleep` or `setTimeout` for synchronization.** Use explicit signals, resolved promises, or `Bun.sleep()` with tight bounds.
 - **Do not spawn `cat /dev/zero`, `yes`, or other infinite-output commands.** Use `sleep 30` for "blocking command" tests.
+
+## Cross-Entry Invariants (config maps)
+
+When you modify any entry of a "map of agents/tools/roles" in `src/config/constants.ts` (`AGENT_TOOL_MAP`, `DEFAULT_MODELS`, `QA_AGENTS`, `PIPELINE_AGENTS`, etc.), there are tests that assert **parity across sibling entries**, not just shape of one entry.
+
+Known parity assertions:
+
+| Test | Invariant |
+|---|---|
+| `tests/unit/config/critic-registration.test.ts:67` | `AGENT_TOOL_MAP.critic_sounding_board.length === AGENT_TOOL_MAP.critic.length` |
+| `tests/unit/config/agent-tool-map.test.ts:26` | `AGENT_TOOL_MAP.architect.length` is strictly greater than every other agent's |
+| `tests/unit/config/agent-tool-map.test.ts:34` | every subagent's tool list `<= 20` entries |
+| `tests/unit/config/constants.test.ts:48` | `ALL_SUBAGENT_NAMES.length === 13` |
+| `tests/unit/config/constants.test.ts:137` | `Object.keys(DEFAULT_MODELS).length === 14` |
+
+Workflow when adding a tool to a single agent:
+1. Add the entry.
+2. Run `bun --smol test tests/unit/config --timeout 60000` **before pushing**.
+3. If a parity test fails, decide: mirror the change to sibling agents (most common — see this PR's `repo_map` mirrored to `critic_sounding_board` + `critic_drift_verifier`), or update the invariant test if the design intent has actually changed.
+4. To inspect runtime shape quickly: `bun -e "import { AGENT_TOOL_MAP } from './src/config/constants.ts'; for (const [k,v] of Object.entries(AGENT_TOOL_MAP)) console.log(k, v.length);"`
+
+Do **not** push a constants change to CI without running the config test directory locally — these failures cascade through the per-OS unit jobs and waste minutes per push.
 
 ## Cross-Platform Requirements
 
@@ -231,6 +274,19 @@ The `--smol` flag reduces Bun's memory footprint. Use it when running large dire
 The `--timeout 120000` flag sets per-test timeout to 120 seconds. Individual tests should complete in under 5 seconds. If a test needs more than 10 seconds, it's doing too much — split it or mock the slow dependency.
 
 **Note:** CI runs each file in its own Bun process (`for f in dir/*.test.ts; do bun --smol test "$f"; done`). Running an entire directory at once (`bun --smol test tests/unit/tools/`) can mask cache-poisoning issues that only appear in CI. When debugging CI failures, test files individually.
+
+## Debugging CI failures
+
+When CI reports a `unit (ubuntu-latest|macos-latest|windows-latest)` failure:
+
+1. **Identify the actual failing test from the job log first.** Do not assume it's a pre-existing failure based on a local repro of a different test. Open the failing job's URL (`https://github.com/<owner>/<repo>/actions/runs/<run-id>/job/<job-id>`) and find the `<file>:<line>` in the Bun output. WebFetch can scrape this if the `gh` CLI isn't available.
+2. **Reproduce that exact file locally** with the per-file CI command:
+   ```bash
+   bun --smol test tests/unit/<dir>/<file>.test.ts --timeout 30000
+   ```
+3. **Then check if the same failure reproduces on `main`.** If yes, document as pre-existing in the PR description and continue with your branch's work; do not silently inherit the failure.
+4. **For dist-check failures:** any change under `src/` that the bundler picks up requires `bun run build` + commit of `dist/` in the same PR. The job compares committed `dist/` against a fresh build.
+5. **For matrix-OS-only failures:** check `process.platform` guards, `mkdtempSync` realpath wrapping, chmod guards, symlink capability checks, and `npx`-spawn skips (sections above).
 
 ## Before Submitting
 
