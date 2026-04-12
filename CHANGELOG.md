@@ -1,5 +1,12 @@
 # Changelog
 
+## [6.64.0](https://github.com/zaxbysauce/opencode-swarm/compare/v6.63.0...v6.64.0) (2026-04-12)
+
+
+### Features
+
+* **graph:** repo map / code graph for structural awareness ([#469](https://github.com/zaxbysauce/opencode-swarm/issues/469)) ([c17e0d5](https://github.com/zaxbysauce/opencode-swarm/commit/c17e0d515e109ab5cb4b429a2459bdcdbe617434))
+
 ## [6.63.0](https://github.com/zaxbysauce/opencode-swarm/compare/v6.62.0...v6.63.0) (2026-04-11)
 
 
