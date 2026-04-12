@@ -15,7 +15,7 @@ import type {
  */
 
 export function normalizeGraphPath(p: string): string {
-	return p.replace(/\\/g, '/').replace(/^\.\/+/, '');
+	return p.replace(/\\/g, '/').replace(/^(?:\.\/)+/, '');
 }
 
 /** Build an in-memory reverse index: target → list of importing edges. */
@@ -150,9 +150,9 @@ export function getBlastRadius(
 				visited.add(ref.file);
 				if (depth === 0) direct.add(ref.file);
 				else transitive.add(ref.file);
+				if (depth + 1 > depthReached) depthReached = depth + 1;
 				if (depth + 1 >= maxDepth) continue;
 				next.push({ file: ref.file, depth: depth + 1 });
-				if (depth + 1 > depthReached) depthReached = depth + 1;
 			}
 		}
 		queue = next;

@@ -48,6 +48,7 @@ export const SOURCE_EXTENSIONS = [
 
 const TS_JS_EXTENSIONS = ['.ts', '.tsx', '.js', '.jsx', '.mjs', '.cjs'];
 
+// Direct extension candidates (concatenated to baseAbs).
 const RESOLVE_EXTENSION_CANDIDATES = [
 	'',
 	'.ts',
@@ -56,14 +57,20 @@ const RESOLVE_EXTENSION_CANDIDATES = [
 	'.jsx',
 	'.mjs',
 	'.cjs',
-	'/index.ts',
-	'/index.tsx',
-	'/index.js',
-	'/index.jsx',
-	'/index.mjs',
 ];
 
-const PY_EXTENSION_CANDIDATES = ['.py', '/__init__.py'];
+// Index-file candidates resolved via `path.join(baseAbs, candidate)` so the
+// directory separator matches the host OS (avoids mixed `C:\dir\/index.ts`).
+const RESOLVE_INDEX_CANDIDATES = [
+	'index.ts',
+	'index.tsx',
+	'index.js',
+	'index.jsx',
+	'index.mjs',
+];
+
+const PY_EXTENSION_CANDIDATES = ['.py'];
+const PY_INDEX_CANDIDATES = ['__init__.py'];
 
 export function getLanguageFromExtension(ext: string): string | null {
 	const lower = ext.toLowerCase();
@@ -89,20 +96,9 @@ function tryResolveTSJS(
 	}
 	const sourceDir = path.dirname(sourceFileAbs);
 	const baseAbs = path.resolve(sourceDir, rawModule);
-	for (const candidate of RESOLVE_EXTENSION_CANDIDATES) {
-		const test = baseAbs + candidate;
-		try {
-			const stat = fs.statSync(test);
-			if (stat.isFile()) return test;
-		} catch {
-			// continue
-		}
-	}
-	// Strip a written .js / .ts extension and retry (common for ESM ".js" suffixes pointing at .ts)
-	const stripped = baseAbs.replace(/\.(m?[jt]sx?|c[jt]s)$/i, '');
-	if (stripped !== baseAbs) {
-		for (const candidate of RESOLVE_EXTENSION_CANDIDATES) {
-			const test = stripped + candidate;
+	const probe = (basePath: string): string | null => {
+		for (const ext of RESOLVE_EXTENSION_CANDIDATES) {
+			const test = basePath + ext;
 			try {
 				const stat = fs.statSync(test);
 				if (stat.isFile()) return test;
@@ -110,6 +106,26 @@ function tryResolveTSJS(
 				// continue
 			}
 		}
+		for (const indexFile of RESOLVE_INDEX_CANDIDATES) {
+			// Use path.join so the directory separator matches the host OS
+			// (prevents mixed `C:\dir\/index.ts` on Windows).
+			const test = path.join(basePath, indexFile);
+			try {
+				const stat = fs.statSync(test);
+				if (stat.isFile()) return test;
+			} catch {
+				// continue
+			}
+		}
+		return null;
+	};
+	const direct = probe(baseAbs);
+	if (direct) return direct;
+	// Strip a written .js / .ts extension and retry (common for ESM ".js" suffixes pointing at .ts)
+	const stripped = baseAbs.replace(/\.(m?[jt]sx?|c[jt]s)$/i, '');
+	if (stripped !== baseAbs) {
+		const fallback = probe(stripped);
+		if (fallback) return fallback;
 	}
 	return null;
 }
@@ -132,8 +148,7 @@ function tryResolvePython(
 	const upDirs = '../'.repeat(Math.max(0, leadingDots - 1));
 	const sourceDir = path.dirname(sourceFileAbs);
 	const baseAbs = path.resolve(sourceDir, upDirs + remainder);
-	for (const candidate of PY_EXTENSION_CANDIDATES) {
-		const test = baseAbs + candidate;
+	const accept = (test: string): string | null => {
 		try {
 			const stat = fs.statSync(test);
 			if (stat.isFile()) {
@@ -144,6 +159,16 @@ function tryResolvePython(
 		} catch {
 			// continue
 		}
+		return null;
+	};
+	for (const ext of PY_EXTENSION_CANDIDATES) {
+		const hit = accept(baseAbs + ext);
+		if (hit) return hit;
+	}
+	for (const indexFile of PY_INDEX_CANDIDATES) {
+		// path.join → host-correct separator on Windows.
+		const hit = accept(path.join(baseAbs, indexFile));
+		if (hit) return hit;
 	}
 	return null;
 }
@@ -213,11 +238,13 @@ function parseTSJSImports(content: string): ParsedImport[] {
 	) {
 		const rawModule = m[8];
 		if (!rawModule) continue;
-		// The `import` keyword sits after the leading "(?:^|[\n;])\s*". If
-		// that keyword is inside a string literal, this is a false positive.
+		// The `import` keyword sits after the leading "(?:^|[\n;])\s*". The
+		// `m.index` itself points at the consumed `\n`/`;`, so use the
+		// keyword position both for the in-string check AND for line numbering
+		// (otherwise non-first imports report `line - 1`).
 		const importKw = m.index + m[0].search(/\bimport\b/);
 		if (isInString(importKw)) continue;
-		const line = lineNumberFor(stripped, m.index);
+		const line = lineNumberFor(stripped, importKw);
 		const namespaceA = m[1];
 		const bracesA = m[3];
 		const defaultA = m[4];
@@ -270,7 +297,9 @@ function parseTSJSImports(content: string): ParsedImport[] {
 		const importKw = m.index + m[0].search(/\bimport\b/);
 		if (isInString(importKw)) continue;
 		const rawModule = m[1];
-		const line = lineNumberFor(stripped, m.index);
+		// Use the keyword position (not m.index) so the consumed leading
+		// `\n`/`;` doesn't shift the reported line down by 1.
+		const line = lineNumberFor(stripped, importKw);
 		const key = `${rawModule}::${line}`;
 		if (seen.has(key)) continue;
 		seen.add(key);
@@ -425,13 +454,36 @@ function findNonImportStringRanges(content: string): Array<[number, number]> {
 				i++;
 			}
 			if (endExclusive === -1) continue; // unterminated; nothing to record
-			// Look back for an `import-source` context: `from `, `require(`,
-			// `import(`. If matched, this string is a real import source — skip.
+			// Look back for an `import-source` context. Only a literal
+			// `from`, `require(` or `import(` keyword preceding the open
+			// quote (modulo whitespace) qualifies — a bare `(` alone is too
+			// permissive and would whitelist arbitrary call arguments like
+			// `someFn("require('./x')")`, which then leak phantom edges via
+			// the require/dynamic-import regexes inside the string.
 			let j = contentStart - 2; // char before the opening quote
 			while (j >= 0 && (content[j] === ' ' || content[j] === '\t')) j--;
-			const isImportSource =
-				(j >= 3 && content.slice(j - 3, j + 1) === 'from') ||
-				(j >= 0 && content[j] === '(');
+			let isImportSource = false;
+			if (j >= 3 && content.slice(j - 3, j + 1) === 'from') {
+				// Word boundary: char before `from` must be non-identifier.
+				const before = j - 4;
+				if (before < 0 || !/[\w$]/.test(content[before])) {
+					isImportSource = true;
+				}
+			} else if (j >= 0 && content[j] === '(') {
+				// Walk back across whitespace to the call-target keyword.
+				let k = j - 1;
+				while (k >= 0 && (content[k] === ' ' || content[k] === '\t')) k--;
+				const tail7 = content.slice(Math.max(0, k - 6), k + 1);
+				const tail6 = content.slice(Math.max(0, k - 5), k + 1);
+				const matchKeyword = (kw: string, tail: string): boolean => {
+					if (!tail.endsWith(kw)) return false;
+					const before = k - kw.length;
+					return before < 0 || !/[\w$]/.test(content[before]);
+				};
+				if (matchKeyword('require', tail7) || matchKeyword('import', tail6)) {
+					isImportSource = true;
+				}
+			}
 			if (!isImportSource) {
 				ranges.push([contentStart, endExclusive]);
 			}

@@ -6,6 +6,7 @@ import {
 	getKeyFiles,
 	getLocalizationContext,
 	getSymbolConsumers,
+	normalizeGraphPath,
 	resetQueryCache,
 } from '../../../src/graph/graph-query';
 import {
@@ -202,6 +203,39 @@ describe('getKeyFiles', () => {
 		const g = makeGraph();
 		const top = getKeyFiles(g, 5);
 		expect(top[0].path).toBe('util.ts'); // most-imported
+	});
+});
+
+describe('normalizeGraphPath — regression (F8)', () => {
+	it('strips ALL leading "./" segments, not just one', () => {
+		// Previous regex `/^\.\/+/` only stripped a single leading `./` plus
+		// extra slashes. Inputs like `././util.ts` would survive as `util.ts`
+		// only after multiple normalizations.
+		expect(normalizeGraphPath('./util.ts')).toBe('util.ts');
+		expect(normalizeGraphPath('././util.ts')).toBe('util.ts');
+		expect(normalizeGraphPath('./././util.ts')).toBe('util.ts');
+	});
+
+	it('still normalises Windows separators', () => {
+		expect(normalizeGraphPath('src\\util.ts')).toBe('src/util.ts');
+	});
+});
+
+describe('getBlastRadius — regression: depthReached (F9)', () => {
+	it('reports depthReached=1 when direct importers exist at maxDepth=1', () => {
+		// Previous code only updated depthReached when a NEXT layer was
+		// enqueued, so maxDepth=1 reported depthReached=0 even though direct
+		// importers (one hop) had been visited.
+		const g = makeGraph();
+		const r = getBlastRadius(g, ['util.ts'], 1);
+		expect(r.directDependents.length).toBeGreaterThan(0);
+		expect(r.depthReached).toBe(1);
+	});
+
+	it('reports depthReached=2 for a 2-hop chain at maxDepth=2', () => {
+		const g = makeGraph();
+		const r = getBlastRadius(g, ['util.ts'], 2);
+		expect(r.depthReached).toBe(2);
 	});
 });
 

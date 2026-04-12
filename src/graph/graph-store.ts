@@ -1,3 +1,4 @@
+import * as crypto from 'node:crypto';
 import * as fs from 'node:fs';
 import * as path from 'node:path';
 import { buildRepoGraph, processFile } from './graph-builder';
@@ -48,8 +49,25 @@ export function loadGraph(workspaceRoot: string): RepoGraph | null {
 export function saveGraph(workspaceRoot: string, graph: RepoGraph): void {
 	const file = getGraphPath(workspaceRoot);
 	const dir = path.dirname(file);
+	// Defense in depth: refuse to write through a symlinked .swarm directory.
+	// `mkdirSync({ recursive: true })` happily traverses symlinks, which would
+	// let an attacker who can place a symlink in the workspace redirect the
+	// graph file (and its tmpfile) to an arbitrary location.
+	try {
+		const stat = fs.lstatSync(dir);
+		if (stat.isSymbolicLink()) {
+			throw new Error(
+				`refusing to write graph: ${SWARM_DIR}/ is a symbolic link`,
+			);
+		}
+	} catch (err) {
+		if ((err as NodeJS.ErrnoException).code !== 'ENOENT') throw err;
+		// Directory does not exist yet — mkdirSync will create it freshly below.
+	}
 	fs.mkdirSync(dir, { recursive: true });
-	const tmp = `${file}.tmp.${process.pid}.${Date.now()}`;
+	// Unpredictable tmpfile name prevents a same-pid attacker from
+	// pre-creating/symlinking the tmp path.
+	const tmp = `${file}.tmp.${crypto.randomUUID()}`;
 	fs.writeFileSync(tmp, JSON.stringify(graph), 'utf-8');
 	try {
 		fs.renameSync(tmp, file);
@@ -93,7 +111,13 @@ export async function updateGraphIncremental(
 ): Promise<RepoGraph> {
 	for (const rel of changedRelativePaths) {
 		const normalized = rel.replace(/\\/g, '/');
-		const abs = path.join(workspaceRoot, normalized);
+		// Reject absolute paths and traversal that would escape the workspace.
+		// These would otherwise let a malicious caller poison the graph with
+		// nodes keyed to arbitrary on-disk files.
+		if (path.isAbsolute(normalized) || normalized.includes('\0')) continue;
+		const abs = path.resolve(workspaceRoot, normalized);
+		const relCheck = path.relative(workspaceRoot, abs).replace(/\\/g, '/');
+		if (relCheck.startsWith('..') || path.isAbsolute(relCheck)) continue;
 		let exists = false;
 		try {
 			exists = fs.statSync(abs).isFile();

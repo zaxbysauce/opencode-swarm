@@ -158,6 +158,69 @@ describe('extractImports — Python', () => {
 	});
 });
 
+describe('extractImports — regression: paren-preceded strings (F1)', () => {
+	it('does not synthesise edges from arbitrary call(arg) strings', () => {
+		// A previous fix used a too-permissive `content[j] === '('` lookback,
+		// which whitelisted ANY (-preceded string literal as an "import source"
+		// — including innocent function arguments like `console.log("./fake")`.
+		// The keyword check must require literal `require(`/`import(`/`from`.
+		write('real-x.ts', 'export const x = 1;\n');
+		const f = write(
+			'caller.ts',
+			[
+				"import { x } from './real-x';",
+				"console.log('./does-not-exist');",
+				"throw new Error('./also-not-real');",
+				"someHelper('./and-not-this-either');",
+				'console.log(x);',
+			].join('\n'),
+		);
+		const edges = extractImports({ absoluteFilePath: f, workspaceRoot: tmp });
+		expect(edges).toHaveLength(1);
+		expect(edges[0].rawModule).toBe('./real-x');
+	});
+
+	it('still recognises real require/import calls preceded by a (', () => {
+		// Word-boundary keyword matching must not false-negative the real cases.
+		write('real-y.ts', 'export const y = 2;\n');
+		const f = write(
+			'caller2.ts',
+			[
+				"const r = require('./real-y');",
+				"const d = await import('./real-y');",
+				'console.log(r, d);',
+			].join('\n'),
+		);
+		const edges = extractImports({ absoluteFilePath: f, workspaceRoot: tmp });
+		// require + dynamic import → 2 edges to real-y.ts
+		expect(edges.length).toBe(2);
+		expect(edges.every((e) => e.target === 'real-y.ts')).toBe(true);
+	});
+});
+
+describe('extractImports — regression: line numbers for non-first imports (F2)', () => {
+	it('reports the actual import line, not line - 1', () => {
+		// The TS_IMPORT_RE / TS_SIDEEFFECT_RE patterns consume a leading `\n`,
+		// so `m.index` points at the newline (the previous line). Line numbers
+		// must be computed from the keyword offset, not m.index.
+		write('a.ts', 'export const a = 1;\n');
+		write('b.ts', 'export const b = 2;\n');
+		const c = write(
+			'consumer.ts',
+			[
+				'// header comment',
+				"import { a } from './a';",
+				"import { b } from './b';",
+			].join('\n'),
+		);
+		const edges = extractImports({ absoluteFilePath: c, workspaceRoot: tmp });
+		const aEdge = edges.find((e) => e.target === 'a.ts');
+		const bEdge = edges.find((e) => e.target === 'b.ts');
+		expect(aEdge?.line).toBe(2);
+		expect(bEdge?.line).toBe(3);
+	});
+});
+
 describe('extractImports — error handling', () => {
 	it('returns [] for unsupported extensions', () => {
 		const f = write('readme.md', '# hi\n');

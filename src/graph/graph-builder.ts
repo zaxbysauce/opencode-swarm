@@ -57,6 +57,13 @@ const DEFAULT_SKIP_DIRS = new Set([
 
 const MAX_FILE_SIZE_BYTES = 1024 * 1024; // 1MB
 
+/**
+ * Hard upper bound on file count if the caller does not supply one. Protects
+ * against unbounded memory growth on extremely large monorepos. Callers can
+ * pass an explicit `maxFiles` (including a larger one) to override.
+ */
+export const DEFAULT_MAX_FILES = 10_000;
+
 const SOURCE_EXT_SET = new Set<string>(SOURCE_EXTENSIONS);
 
 /**
@@ -110,8 +117,12 @@ export async function buildRepoGraph(
 		: DEFAULT_SKIP_DIRS;
 
 	let files = findSourceFiles(workspaceRoot, skipDirs);
-	if (typeof options.maxFiles === 'number' && options.maxFiles > 0) {
-		files = files.slice(0, options.maxFiles);
+	const cap =
+		typeof options.maxFiles === 'number' && options.maxFiles > 0
+			? options.maxFiles
+			: DEFAULT_MAX_FILES;
+	if (files.length > cap) {
+		files = files.slice(0, cap);
 	}
 
 	const concurrency = options.concurrency ?? 16;
