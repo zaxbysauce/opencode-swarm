@@ -7,10 +7,19 @@
 import fs from 'node:fs';
 import path from 'node:path';
 import { type ToolDefinition, tool } from '@opencode-ai/plugin/tool';
+import { lockProfile } from '../db/qa-gate-profile.js';
 import { validateSwarmPath } from '../hooks/utils';
 import { takeSnapshotEvent } from '../plan/ledger';
 import { loadPlanJsonOnly } from '../plan/manager';
 import { createSwarmTool } from './create-tool';
+
+/**
+ * Derive plan identity string matching the ledger format.
+ * Must stay in sync with takeSnapshotEvent in ledger.ts.
+ */
+function derivePlanId(plan: { swarm: string; title: string }): string {
+	return `${plan.swarm}-${plan.title}`.replace(/[^a-zA-Z0-9-_]/g, '_');
+}
 
 /**
  * Arguments for the write_drift_evidence tool
@@ -156,6 +165,10 @@ export async function executeWriteDriftEvidence(
 		// write has already succeeded.
 		let snapshotInfo: { seq: number; timestamp: string } | undefined;
 		let snapshotError: string | undefined;
+		let qaProfileLocked:
+			| { plan_id: string; locked_at: string; locked_by_snapshot_seq: number }
+			| undefined;
+		let qaProfileLockError: string | undefined;
 		if (normalizedVerdict === 'approved') {
 			try {
 				const currentPlan = await loadPlanJsonOnly(directory);
@@ -177,6 +190,32 @@ export async function executeWriteDriftEvidence(
 						seq: snapshotEvent.seq,
 						timestamp: snapshotEvent.timestamp,
 					};
+
+					// Lock the QA gate profile to the approved snapshot. Non-fatal:
+					// snapshot + evidence write already succeeded. If no profile
+					// exists yet (approval before the architect touched gates), skip
+					// silently — the get_approved_plan drift check tolerates a null
+					// qa_profile_hash.
+					try {
+						const planId = derivePlanId(currentPlan);
+						const locked = lockProfile(directory, planId, snapshotEvent.seq);
+						qaProfileLocked = {
+							plan_id: planId,
+							locked_at: locked.locked_at ?? '',
+							locked_by_snapshot_seq: locked.locked_by_snapshot_seq ?? -1,
+						};
+					} catch (lockErr) {
+						const msg =
+							lockErr instanceof Error ? lockErr.message : String(lockErr);
+						// A missing profile is expected when gates were never configured.
+						if (!/No QA gate profile/i.test(msg)) {
+							qaProfileLockError = msg;
+							console.warn(
+								'[write_drift_evidence] QA gate profile lock failed:',
+								msg,
+							);
+						}
+					}
 				} else {
 					snapshotError = 'plan.json not available for snapshot';
 				}
@@ -197,6 +236,8 @@ export async function executeWriteDriftEvidence(
 				message: `Drift evidence written to .swarm/evidence/${phase}/drift-verifier.json`,
 				approvedSnapshot: snapshotInfo,
 				snapshotError,
+				qaProfileLocked,
+				qaProfileLockError,
 			},
 			null,
 			2,

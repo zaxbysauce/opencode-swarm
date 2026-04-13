@@ -16,6 +16,7 @@
  */
 
 import { tool } from '@opencode-ai/plugin';
+import { computeProfileHash, getProfile } from '../db/qa-gate-profile.js';
 import {
 	type ApprovedSnapshotInfo,
 	computePlanHash,
@@ -33,6 +34,10 @@ interface GetApprovedPlanResult {
 	current_plan?: CurrentPlanPayload | null;
 	drift_detected?: boolean | 'unknown';
 	current_plan_error?: string;
+	/** SHA-256 hex digest over {plan_id, gates} of the current QA gate profile,
+	 *  or null when no profile exists for this plan. Used by the critic to
+	 *  detect silent gate mutations post-approval. */
+	qa_profile_hash?: string | null;
 }
 
 interface ApprovedPlanPayload {
@@ -133,6 +138,12 @@ export async function executeGetApprovedPlan(
 
 	const expectedPlanId = derivePlanId(currentPlan);
 
+	// Compute QA gate profile hash for drift detection. Null when no profile
+	// exists yet (e.g. brand-new plan). Profile hash is independent of plan
+	// content — tracked so the critic can detect silent gate mutations.
+	const profile = getProfile(directory, expectedPlanId);
+	const qaProfileHash = profile ? computeProfileHash(profile) : null;
+
 	// Step 3: Load the most recent critic-approved snapshot (identity-scoped)
 	const approved: ApprovedSnapshotInfo | null = await loadLastApprovedPlan(
 		directory,
@@ -154,11 +165,13 @@ export async function executeGetApprovedPlan(
 					'Plan identity (swarm/title) was mutated after approval — ' +
 					`expected plan_id '${expectedPlanId}' but approved snapshot has a different identity. ` +
 					'This is a form of plan tampering.',
+				qa_profile_hash: qaProfileHash,
 			};
 		}
 		return {
 			success: false,
 			reason: 'no_approved_snapshot',
+			qa_profile_hash: qaProfileHash,
 		};
 	}
 
@@ -187,6 +200,7 @@ export async function executeGetApprovedPlan(
 		approved_plan: approvedPayload,
 		current_plan: currentPayload,
 		drift_detected: driftDetected,
+		qa_profile_hash: qaProfileHash,
 	};
 }
 

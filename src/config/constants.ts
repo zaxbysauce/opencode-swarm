@@ -77,6 +77,8 @@ export const AGENT_TOOL_MAP: Record<AgentName, ToolName[]> = {
 		'co_change_analyzer',
 		'suggest_patch',
 		'repo_map',
+		'get_qa_gate_profile',
+		'set_qa_gates',
 	],
 	explorer: [
 		'complexity_hotspots',
@@ -296,6 +298,10 @@ export const TOOL_DESCRIPTIONS: Partial<Record<ToolName, string>> = {
 		'retrieve the last critic-approved immutable plan snapshot for baseline drift comparison',
 	repo_map:
 		'query the repo code graph: importers, dependencies, blast radius, and localization context for structural awareness before refactoring',
+	get_qa_gate_profile:
+		'retrieve the QA gate profile for the current plan (gates, lock state, profile hash). Read-only.',
+	set_qa_gates:
+		'configure the QA gate profile for the current plan. Architect-only. Ratchet-tighter only — rejected once the profile is locked after critic approval.',
 };
 
 // Runtime validation: ensure all tool names in AGENT_TOOL_MAP are registered

@@ -22,6 +22,10 @@ interface GetApprovedPlanResult {
     current_plan?: CurrentPlanPayload | null;
     drift_detected?: boolean | 'unknown';
     current_plan_error?: string;
+    /** SHA-256 hex digest over {plan_id, gates} of the current QA gate profile,
+     *  or null when no profile exists for this plan. Used by the critic to
+     *  detect silent gate mutations post-approval. */
+    qa_profile_hash?: string | null;
 }
 interface ApprovedPlanPayload {
     plan: unknown;
