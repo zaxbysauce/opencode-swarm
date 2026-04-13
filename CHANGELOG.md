@@ -1,5 +1,12 @@
 # Changelog
 
+## [6.67.1](https://github.com/zaxbysauce/opencode-swarm/compare/v6.67.0...v6.67.1) (2026-04-13)
+
+
+### Bug Fixes
+
+* **plugin-council:** register council tools and harden same-class silent-failure paths ([#483](https://github.com/zaxbysauce/opencode-swarm/issues/483)) ([cf2fca7](https://github.com/zaxbysauce/opencode-swarm/commit/cf2fca75b8f1a22346ddb96d90ff4473e1f93e2c))
+
 ## [6.67.0](https://github.com/zaxbysauce/opencode-swarm/compare/v6.66.0...v6.67.0) (2026-04-13)
 
 
