@@ -41,6 +41,24 @@ Launch in parallel where scopes are disjoint:
 Explorer lanes should optimize for recall and speed.
 They should produce candidate findings with exact evidence, not final conclusions.
 
+## Council pattern (default for "council", "5-agent review", "independent review")
+When the user asks for a "council", "independent review", "N-agent review", or uses phrases like "assume all work is wrong", run the explorer lanes as a parallel **adversarial council**:
+
+1. Launch all council agents in a **single message with multiple Agent tool calls** so they run in parallel, in the background (`run_in_background: true`), using the `Explore` subagent type.
+2. Each agent is told to **assume all work is WRONG until code evidence proves otherwise** and to hunt for bugs in its lane only.
+3. Default lane set for a 5-agent council:
+   - correctness and edge cases
+   - security and trust boundaries
+   - dependency and deployment safety
+   - docs and intent-vs-actual
+   - tests and falsifiability
+   A 6th `performance and architecture` lane may be added when risk justifies it.
+4. Each agent's prompt must include: branch name, commit list (`git log origin/main..HEAD`), scope of files owned by that lane, explicit bug-hunting checklist, and a "return CONFIRMED / SUSPICIOUS / CLEAN with file:line evidence, cap N words" instruction.
+5. Agents are launched in parallel so the orchestrator must NOT duplicate their work. The main thread only collates, validates, and synthesizes.
+6. When all agents return, the main thread acts as the **independent reviewer**: re-read the flagged file:line evidence directly and classify each candidate CONFIRMED / DISPROVED / UNVERIFIED / PRE_EXISTING before reporting. DISPROVED findings must be called out — agents overclaim regularly.
+7. Apply the **critic challenge** to every remaining CONFIRMED finding: challenge severity inflation, weak evidence, missing mitigating context (e.g., "is the architect single-threaded? is this exercised?"), and non-actionable fixes.
+8. The final synthesis must distinguish: real ship blockers, low-severity real issues, pre-existing accepted caveats, disproved agent claims, and follow-up quality work. Do not copy agent severities verbatim.
+
 ## Reviewer validation
 Validate every candidate finding that is:
 - high-severity
