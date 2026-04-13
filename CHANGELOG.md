@@ -1,5 +1,12 @@
 # Changelog
 
+## [6.66.0](https://github.com/zaxbysauce/opencode-swarm/compare/v6.65.0...v6.66.0) (2026-04-13)
+
+
+### Features
+
+* **council:** add Work Complete Council verification gate (convene_council tool) ([#477](https://github.com/zaxbysauce/opencode-swarm/issues/477)) ([62faff3](https://github.com/zaxbysauce/opencode-swarm/commit/62faff3e5e8f132b3200b6275480621a64729145))
+
 ## [6.65.0](https://github.com/zaxbysauce/opencode-swarm/compare/v6.64.0...v6.65.0) (2026-04-13)
 
 
