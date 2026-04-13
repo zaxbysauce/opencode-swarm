@@ -2,7 +2,6 @@ import { afterEach, beforeEach, describe, expect, it } from 'bun:test';
 import {
 	mkdirSync,
 	mkdtempSync,
-	readFileSync,
 	realpathSync,
 	rmSync,
 	writeFileSync,
@@ -483,7 +482,7 @@ describe('search - rg-not-found fallback', () => {
 		// We can at least verify the error format is correct by checking error structure
 
 		const result = await executeSearch({ query: 'test' }, tmpDir);
-		const parsed = JSON.parse(result);
+		const _parsed = JSON.parse(result);
 
 		// If rg is not found, we should get rg-not-found error OR results from fallback
 		// Either way the response should be valid JSON
@@ -515,7 +514,7 @@ describe('search - rg-not-found fallback', () => {
 describe('search - regex timeout', () => {
 	it('handles potentially slow regex without hanging', async () => {
 		// Create a file that could cause regex backtracking
-		createTestFile('src/slow.ts', 'a'.repeat(1000) + '\n');
+		createTestFile('src/slow.ts', `${'a'.repeat(1000)}\n`);
 
 		// A regex that could cause backtracking issues
 		const slowRegex = '(a+)+b';
@@ -620,10 +619,10 @@ describe('search - file read security', () => {
 	it('respects max file size limit (1MB)', async () => {
 		// Create a file just under the limit
 		const almostMax = 'x'.repeat(1024 * 1024 - 100);
-		createTestFile('src/almost-max.ts', almostMax + '\n');
+		createTestFile('src/almost-max.ts', `${almostMax}\n`);
 
 		const result = await executeSearch({ query: 'x' }, tmpDir);
-		const parsed = JSON.parse(result);
+		const _parsed = JSON.parse(result);
 
 		// Should either skip the file or handle gracefully
 		expect(typeof result).toBe('string');

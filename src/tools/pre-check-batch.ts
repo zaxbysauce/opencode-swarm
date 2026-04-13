@@ -824,7 +824,7 @@ export function classifySastFindings(
 		const normalised = path.relative(directory, filePath).replace(/\\/g, '/');
 
 		const changedLines = changedLineRanges.get(normalised);
-		if (changedLines && changedLines.has(finding.location.line)) {
+		if (changedLines?.has(finding.location.line)) {
 			newFindings.push(finding);
 		} else {
 			preexistingFindings.push(finding);

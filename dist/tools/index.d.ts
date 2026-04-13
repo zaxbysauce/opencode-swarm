@@ -25,6 +25,7 @@ export { pkg_audit } from './pkg-audit';
 export { type PlaceholderFinding, type PlaceholderScanInput, type PlaceholderScanResult, placeholder_scan, placeholderScan, } from './placeholder-scan';
 export { type PreCheckBatchInput, type PreCheckBatchResult, pre_check_batch, runPreCheckBatch, type ToolResult, } from './pre-check-batch';
 export { type QualityBudgetInput, type QualityBudgetResult, quality_budget, qualityBudget, } from './quality-budget';
+export { buildWorkspaceGraph, type GraphEdge, type GraphNode, loadGraph, loadOrCreateGraph, type RepoGraph, resolveModuleSpecifier, saveGraph, updateGraphForFiles, } from './repo-graph';
 export { repo_map } from './repo-map';
 export { req_coverage } from './req-coverage';
 export { retrieve_summary } from './retrieve-summary';

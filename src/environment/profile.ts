@@ -68,11 +68,11 @@ function detectHostOS(): HostOS {
 }
 
 function detectShellFamily(): ShellFamily {
-	const psModulePath = process.env['PSModulePath'];
+	const psModulePath = process.env.PSModulePath;
 	if (psModulePath) return 'powershell';
-	const comspec = process.env['ComSpec'] ?? '';
+	const comspec = process.env.ComSpec ?? '';
 	if (comspec.toLowerCase().includes('cmd.exe')) return 'cmd';
-	const shell = process.env['SHELL'] ?? '';
+	const shell = process.env.SHELL ?? '';
 	if (shell.includes('bash')) return 'bash';
 	if (shell.includes('zsh')) return 'zsh';
 	if (shell.includes('/sh')) return 'sh';
@@ -80,7 +80,7 @@ function detectShellFamily(): ShellFamily {
 }
 
 function detectExecutionMode(hostOS: HostOS): ExecutionMode {
-	const wslDistro = process.env['WSL_DISTRO_NAME'];
+	const wslDistro = process.env.WSL_DISTRO_NAME;
 	if (wslDistro) return 'wsl';
 	if (hostOS === 'linux') {
 		// Check for container markers
@@ -96,7 +96,7 @@ function detectExecutionMode(hostOS: HostOS): ExecutionMode {
 
 function deriveOperatingMode(
 	hostOS: HostOS,
-	executionMode: ExecutionMode,
+	_executionMode: ExecutionMode,
 ): OperatingMode {
 	if (hostOS === 'linux') return 'linux';
 	if (hostOS === 'macos') return 'macos-native';
@@ -168,11 +168,11 @@ export function detectEnvironmentProfile(): EnvironmentProfile {
 		shellCommandPreference,
 		evidence: {
 			processPlatform: process.platform,
-			comspec: process.env['ComSpec'],
-			psModulePath: process.env['PSModulePath'],
-			termProgram: process.env['TERM_PROGRAM'],
-			shell: process.env['SHELL'],
-			wslDistroName: process.env['WSL_DISTRO_NAME'],
+			comspec: process.env.ComSpec,
+			psModulePath: process.env.PSModulePath,
+			termProgram: process.env.TERM_PROGRAM,
+			shell: process.env.SHELL,
+			wslDistroName: process.env.WSL_DISTRO_NAME,
 			containerMarkers: [
 				'DOCKER_CONTAINER',
 				'KUBERNETES_SERVICE_HOST',

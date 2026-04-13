@@ -24,3 +24,13 @@ export declare function containsControlChars(str: string): boolean;
  * @throws Error if directory is invalid
  */
 export declare function validateDirectory(directory: string): void;
+/**
+ * Validate that a resolved path stays within an allowed root directory.
+ * Resolves symlinks via realpathSync for both the target path and the root,
+ * then verifies the resolved target is within the resolved root.
+ *
+ * @param targetPath - The path to validate (absolute)
+ * @param rootPath - The root directory boundary (absolute)
+ * @throws Error if the resolved target escapes the root boundary
+ */
+export declare function validateSymlinkBoundary(targetPath: string, rootPath: string): void;

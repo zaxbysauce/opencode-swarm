@@ -1,3 +1,6 @@
+import * as fs from 'node:fs';
+import * as path from 'node:path';
+
 /**
  * Canonical path security utilities.
  * Consolidated from 6+ local implementations across the codebase.
@@ -71,5 +74,45 @@ export function validateDirectory(directory: string): void {
 	}
 	if (/^[A-Za-z]:[/\\]/.test(directory)) {
 		throw new Error('Invalid directory: Windows absolute path');
+	}
+}
+
+/**
+ * Validate that a resolved path stays within an allowed root directory.
+ * Resolves symlinks via realpathSync for both the target path and the root,
+ * then verifies the resolved target is within the resolved root.
+ *
+ * @param targetPath - The path to validate (absolute)
+ * @param rootPath - The root directory boundary (absolute)
+ * @throws Error if the resolved target escapes the root boundary
+ */
+export function validateSymlinkBoundary(
+	targetPath: string,
+	rootPath: string,
+): void {
+	let realTarget: string;
+	try {
+		realTarget = fs.realpathSync(targetPath);
+	} catch {
+		realTarget = path.normalize(targetPath);
+	}
+
+	let realRoot: string;
+	try {
+		realRoot = fs.realpathSync(rootPath);
+	} catch {
+		realRoot = path.normalize(rootPath);
+	}
+
+	const normalizedTarget = path.normalize(realTarget);
+	const normalizedRoot = path.normalize(realRoot);
+
+	if (
+		!normalizedTarget.startsWith(normalizedRoot + path.sep) &&
+		normalizedTarget !== normalizedRoot
+	) {
+		throw new Error(
+			`Symlink resolution escaped boundary: ${realTarget} is not within ${realRoot}`,
+		);
 	}
 }

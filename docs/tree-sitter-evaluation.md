@@ -1,0 +1,60 @@
+# Tree-Sitter Migration Evaluation for Repo Graph
+
+> Date: 2026-04-12 | Status: Research-only | Issue: #470
+
+## Summary
+
+Tree-sitter is the right long-term architecture for import parsing and symbol extraction in the repo graph, but the current regex-based implementation is sufficient for the MVP (TypeScript/JavaScript/Python only). Adopt tree-sitter when expanding language support beyond the current three or when import extraction accuracy becomes a blocker.
+
+## Current State
+
+| Aspect | Status |
+|--------|--------|
+| Dependencies | `web-tree-sitter@0.25.0`, `@vscode/tree-sitter-wasm@0.3.0` |
+| WASM Grammars | 18 languages available |
+| Runtime | `src/lang/runtime.ts` — parser cache, async grammar loading |
+| Current Usage | `syntax-check.ts` — syntax validation with ERROR node extraction |
+| Repo Graph | Regex-based via `imports.ts` and `symbols.ts` patterns |
+
+## Go Criteria
+
+Adopt tree-sitter when:
+
+- Repo graph needs to support 5+ languages (currently TS/JS/Python only)
+- Import extraction accuracy >95% required (regex misses dynamic imports, re-exports)
+- Need to track re-exports, dynamic imports, or type-only imports
+- Plan to add call graph (function-level dependencies) — requires AST
+- SAST rules need semantic analysis beyond pattern matching
+
+## No-Go Criteria
+
+Do NOT adopt when:
+
+- Current regex parsing meets accuracy requirements (it does for MVP)
+- Only TypeScript/JavaScript/Python support needed long-term
+- Performance-critical path can't tolerate 2-5x parse time increase
+- Memory-constrained environment (~2-5MB per language parser)
+- No testing bandwidth for regression validation
+
+## Performance Comparison
+
+| Metric | Regex | Tree-Sitter |
+|--------|-------|-------------|
+| WASM Init | N/A | ~50-100ms once (already paid by syntax-check) |
+| Grammar Load | N/A | ~20-50ms per language (cached) |
+| Parse Time (1KB) | ~1ms | ~5-10ms |
+| Parse Time (100KB) | ~10ms | ~30-50ms |
+| Accuracy | ~85% | ~99% |
+
+**Key insight:** The codebase already pays WASM init cost for syntax-check.ts. Adding tree-sitter to repo-graph reuses the same parsers from cache — no additional init overhead.
+
+## Recommended Migration Path
+
+1. **Phase 1**: Create query infrastructure in `src/lang/queries/` with import extraction patterns per language
+2. **Phase 2**: Add tree-sitter extractors alongside regex with feature flag (`USE_TREE_SITTER=true`)
+3. **Phase 3**: Run both extractors on 100+ files, compare output, fix discrepancies
+4. **Phase 4**: Gradual rollout — default to tree-sitter for new languages, keep regex as fallback
+
+## Decision
+
+**DEFERRED** — Tree-sitter migration is deferred until language expansion or accuracy requirements justify the investment. The current regex-based approach is sufficient for the MVP.
