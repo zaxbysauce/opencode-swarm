@@ -68,6 +68,7 @@ var init_tool_names = __esm(() => {
     "check_gate_status",
     "completion_verify",
     "convene_council",
+    "declare_council_criteria",
     "sbom_generate",
     "checkpoint",
     "pkg_audit",
@@ -193,6 +194,7 @@ var init_constants = __esm(() => {
       "check_gate_status",
       "completion_verify",
       "convene_council",
+      "declare_council_criteria",
       "complexity_hotspots",
       "detect_domains",
       "evidence_check",
@@ -414,7 +416,8 @@ var init_constants = __esm(() => {
     co_change_analyzer: "detect hidden couplings by analyzing git history",
     check_gate_status: "check the gate status of a specific task",
     completion_verify: "verify completed tasks have required evidence",
-    convene_council: "convene the Work Complete Council \u2014 parallel veto-aware verification gate across critic, reviewer, sme, and test_engineer verdicts",
+    convene_council: "convene the Work Complete Council \u2014 parallel veto-aware verification gate across critic, reviewer, sme, test_engineer, and explorer verdicts",
+    declare_council_criteria: "pre-declare acceptance criteria for a task before the coder starts work; criteria are read back during council evaluation",
     detect_domains: "detect which SME domains are relevant for a given text",
     extract_code_blocks: "extract code blocks from text content and save them to files",
     gitingest: "fetch a GitHub repository full content via gitingest.com",
@@ -15145,7 +15148,9 @@ var init_schema = __esm(() => {
     enabled: exports_external.boolean().default(false),
     maxRounds: exports_external.number().int().min(1).max(10).default(3),
     parallelTimeoutMs: exports_external.number().int().min(5000).max(120000).default(30000),
-    vetoPriority: exports_external.boolean().default(true)
+    vetoPriority: exports_external.boolean().default(true),
+    requireAllMembers: exports_external.boolean().default(false).describe("When true, convene_council rejects if fewer than 5 member verdicts are provided."),
+    escalateOnMaxRounds: exports_external.string().optional().describe("Optional webhook URL or handler name invoked when maxRounds is reached without APPROVE. Declared for forward compatibility; no behavior is implemented yet.")
   }).strict();
   PluginConfigSchema = exports_external.object({
     agents: exports_external.record(exports_external.string(), AgentOverrideConfigSchema).optional(),
@@ -53712,6 +53717,8 @@ NOT valid completion signals:
 
 The ONLY valid completion signal is: all required gate agents returned positive verdicts.
 
+{{COUNCIL_WORKFLOW}}
+
 Emit 'architect_loop_detected' when triggering sounding board for 3rd time on same impasse.
 
 6g. **META.SUMMARY CONVENTION** \u2014 When emitting state updates to .swarm/ files or events.jsonl, include:
@@ -54524,6 +54531,68 @@ Swarm: {{SWARM_ID}}
 \`\`\`
 
 `;
+function buildCouncilWorkflow(council) {
+  if (council?.enabled !== true)
+    return "";
+  return `## Work Complete Council (when enabled)
+
+When \`council.enabled\` is true, every task goes through a four-phase verification
+gate before advancing to \`complete\`. This supplements \u2014 does NOT replace \u2014 the
+existing precheckbatch / reviewer / test_engineer gate sequence.
+
+### Phase 0 \u2014 Pre-declare criteria (at plan time, BEFORE dispatching the coder)
+Call \`declare_council_criteria\` for each task with at least 3 concrete,
+testable acceptance criteria. Mark functional/correctness criteria
+\`mandatory: true\`; style/naming criteria \`mandatory: false\`. Criterion ids
+follow the pattern \`C1\`, \`C2\`, etc. The criteria are persisted to
+\`.swarm/council/{taskId}.json\` and read back automatically at synthesis time.
+
+### Phase 1 \u2014 Parallel dispatch (when the coder signals the task is complete)
+Dispatch all FIVE council members IN PARALLEL \u2014 do not run them sequentially.
+Each receives ONLY their role-relevant context, not the full conversation:
+- \`critic\`        \u2014 original task spec + acceptance criteria + code diff + test results
+- \`reviewer\`      \u2014 semantic diff summary + blast radius (files importing changed files) + style guide
+- \`sme\`           \u2014 task domain context + relevant knowledge base entries
+- \`test_engineer\` \u2014 changed test files + coverage delta + known mutation gaps
+- \`explorer\`      \u2014 full diff + original task intent + any prior slop findings
+                    (explorer hunts for lazy implementations, hallucinated APIs,
+                     cargo-cult patterns, spec drift, lazy abstractions)
+
+Each member must return a \`CouncilMemberVerdict\` with all fields populated:
+\`agent\`, \`verdict\` (APPROVE|CONCERNS|REJECT), \`confidence\` (0.0\u20131.0),
+\`findings[]\`, \`criteriaAssessed[]\`, \`criteriaUnmet[]\`, \`durationMs\`.
+
+### Phase 2 \u2014 Synthesize
+Call \`convene_council\` with all 5 verdicts, the task id, swarm id, and the
+current round number (1-indexed). The tool returns:
+\`overallVerdict\`, \`vetoedBy\`, \`unifiedFeedbackMd\`, \`requiredFixesCount\`,
+\`allCriteriaMet\`.
+
+### Phase 3 \u2014 Act on the result
+- **APPROVE**:  Advance task to complete via \`update_task_status\`. If
+                advisoryFindingsCount > 0, deliver \`unifiedFeedbackMd\` as a
+                single non-blocking note. Otherwise, advance silently.
+- **CONCERNS**: Send \`unifiedFeedbackMd\` to the coder as ONE coherent document.
+                Do NOT enumerate individual member verdicts. Increment
+                roundNumber on the next council call. CONCERNS does not block
+                advancement at the update_task_status level \u2014 decide per
+                severity whether to advance or retry.
+- **REJECT**:   Block advancement. Send \`unifiedFeedbackMd\` to the coder with
+                the BLOCKING flag. The coder must resolve all \`requiredFixes\`
+                before re-submitting. Maximum \`council.maxRounds\` rounds
+                (default 3). If roundNumber >= maxRounds and verdict is still
+                REJECT, surface \`unifiedFeedbackMd\` to the user and HALT \u2014
+                do NOT auto-advance.
+
+### Retry protocol
+On re-submission after REJECT or CONCERNS, the council reads the same
+pre-declared criteria and receives (a) the previous synthesis findings plus
+(b) the diff of what changed since the last round. Council members verify
+prior findings are resolved without re-reviewing unchanged code. The
+architect resolves any \`unresolvedConflicts\` in \`unifiedFeedbackMd\` BEFORE
+sending it to the coder \u2014 the coder never sees contradictory instructions
+from different members.`;
+}
 function buildYourToolsList() {
   const tools = AGENT_TOOL_MAP.architect ?? [];
   const sorted = [...tools].sort();
@@ -54664,7 +54733,7 @@ function buildSlashCommandsList() {
   return lines.join(`
 `);
 }
-function createArchitectAgent(model, customPrompt, customAppendPrompt, adversarialTesting) {
+function createArchitectAgent(model, customPrompt, customAppendPrompt, adversarialTesting, council) {
   let prompt = ARCHITECT_PROMPT;
   if (customPrompt) {
     prompt = customPrompt;
@@ -54674,6 +54743,18 @@ function createArchitectAgent(model, customPrompt, customAppendPrompt, adversari
 ${customAppendPrompt}`;
   }
   prompt = prompt?.replace("{{YOUR_TOOLS}}", buildYourToolsList())?.replace("{{AVAILABLE_TOOLS}}", buildAvailableToolsList())?.replace("{{SLASH_COMMANDS}}", buildSlashCommandsList());
+  const councilBlock = buildCouncilWorkflow(council);
+  if (councilBlock === "") {
+    prompt = prompt?.replace(`
+
+{{COUNCIL_WORKFLOW}}
+
+`, `
+
+`);
+  } else {
+    prompt = prompt?.replace("{{COUNCIL_WORKFLOW}}", councilBlock);
+  }
   const advEnabled = adversarialTesting?.enabled ?? true;
   const advScope = adversarialTesting?.scope ?? "all";
   if (!advEnabled) {
@@ -56269,7 +56350,7 @@ function createSwarmAgents(swarmId, swarmConfig, isDefault, pluginConfig) {
   const prefixName = (name2) => `${prefix}${name2}`;
   if (!isAgentDisabled("architect", swarmAgents, swarmPrefix)) {
     const architectPrompts = getPrompts("architect");
-    const architect = createArchitectAgent(getModel("architect"), architectPrompts.prompt, architectPrompts.appendPrompt, pluginConfig?.adversarial_testing);
+    const architect = createArchitectAgent(getModel("architect"), architectPrompts.prompt, architectPrompts.appendPrompt, pluginConfig?.adversarial_testing, pluginConfig?.council);
     architect.name = prefixName("architect");
     const swarmName = swarmConfig.name || swarmId;
     const swarmIdentity = isDefault ? "default" : swarmId;
@@ -68283,6 +68364,23 @@ init_dist();
 init_zod();
 init_loader();
 
+// src/council/council-advisory.ts
+function pushCouncilAdvisory(session, synthesis) {
+  const dedupKey = `council:${synthesis.taskId}:${synthesis.roundNumber}`;
+  if (synthesis.overallVerdict === "APPROVE" && synthesis.advisoryFindings.length === 0) {
+    return;
+  }
+  session.pendingAdvisoryMessages ??= [];
+  if (session.pendingAdvisoryMessages.some((m) => m.includes(dedupKey))) {
+    return;
+  }
+  const blocking = synthesis.overallVerdict === "REJECT";
+  const header = `[${dedupKey}] (priority=HIGH, blocking=${blocking})`;
+  const body2 = synthesis.unifiedFeedbackMd;
+  session.pendingAdvisoryMessages.push(`${header}
+${body2}`);
+}
+
 // src/council/council-evidence-writer.ts
 import { existsSync as existsSync36, mkdirSync as mkdirSync16, readFileSync as readFileSync35, writeFileSync as writeFileSync11 } from "fs";
 import { join as join59 } from "path";
@@ -68340,7 +68438,8 @@ var COUNCIL_DEFAULTS = {
   enabled: false,
   maxRounds: 3,
   parallelTimeoutMs: 30000,
-  vetoPriority: true
+  vetoPriority: true,
+  requireAllMembers: false
 };
 
 // src/council/council-service.ts
@@ -68458,6 +68557,16 @@ function buildUnifiedFeedback(taskId, verdict, vetoedBy, requiredFixes, advisory
 import { existsSync as existsSync37, mkdirSync as mkdirSync17, readFileSync as readFileSync36, writeFileSync as writeFileSync12 } from "fs";
 import { join as join60 } from "path";
 var COUNCIL_DIR = ".swarm/council";
+function writeCriteria(workingDir, taskId, criteria) {
+  const dir = join60(workingDir, COUNCIL_DIR);
+  mkdirSync17(dir, { recursive: true });
+  const payload = {
+    taskId,
+    criteria,
+    declaredAt: new Date().toISOString()
+  };
+  writeFileSync12(join60(dir, `${safeId(taskId)}.json`), JSON.stringify(payload, null, 2));
+}
 function readCriteria(workingDir, taskId) {
   const filePath = join60(workingDir, COUNCIL_DIR, `${safeId(taskId)}.json`);
   if (!existsSync37(filePath))
@@ -68477,6 +68586,7 @@ function safeId(id) {
 }
 
 // src/tools/convene-council.ts
+init_state();
 init_create_tool();
 init_resolve_working_directory();
 var FindingSchema = exports_external.object({
@@ -68487,7 +68597,7 @@ var FindingSchema = exports_external.object({
   evidence: exports_external.string()
 });
 var VerdictSchema = exports_external.object({
-  agent: exports_external.enum(["critic", "reviewer", "sme", "test_engineer"]),
+  agent: exports_external.enum(["critic", "reviewer", "sme", "test_engineer", "explorer"]),
   verdict: exports_external.enum(["APPROVE", "CONCERNS", "REJECT"]),
   confidence: exports_external.number().min(0).max(1),
   findings: exports_external.array(FindingSchema),
@@ -68499,11 +68609,11 @@ var ArgsSchema = exports_external.object({
   taskId: exports_external.string().min(1).regex(/^\d+\.\d+(\.\d+)*$/, 'Task ID must be in N.M or N.M.P format (e.g. "1.1")'),
   swarmId: exports_external.string().min(1),
   roundNumber: exports_external.number().int().min(1).max(10).default(1),
-  verdicts: exports_external.array(VerdictSchema).min(1).max(4),
+  verdicts: exports_external.array(VerdictSchema).min(1).max(5),
   working_directory: exports_external.string().optional()
 });
 var convene_council = createSwarmTool({
-  description: "Convene the Work Complete Council. Accepts parallel verdicts from critic, " + "reviewer, sme, and test_engineer. Returns a synthesized assessment with a " + "veto-aware overall verdict, required fixes, and a single unified feedback " + "document. Architect-only. Config-gated via council.enabled.",
+  description: "Convene the Work Complete Council. Accepts parallel verdicts from critic, " + "reviewer, sme, test_engineer, and explorer (anti-slop specialist). Returns " + "a synthesized assessment with a veto-aware overall verdict, required fixes, " + "and a single unified feedback document. Architect-only. Config-gated via " + "council.enabled.",
   args: {
     taskId: tool.schema.string().min(1).regex(/^\d+\.\d+(\.\d+)*$/, "Task ID must be in N.M or N.M.P format").describe('Task ID being evaluated, e.g. "1.1", "1.2.3"'),
     swarmId: tool.schema.string().min(1).describe('Swarm identifier, e.g. "mega"'),
@@ -68513,7 +68623,8 @@ var convene_council = createSwarmTool({
         "critic",
         "reviewer",
         "sme",
-        "test_engineer"
+        "test_engineer",
+        "explorer"
       ]),
       verdict: tool.schema.enum(["APPROVE", "CONCERNS", "REJECT"]),
       confidence: tool.schema.number().min(0).max(1),
@@ -68527,10 +68638,10 @@ var convene_council = createSwarmTool({
       criteriaAssessed: tool.schema.array(tool.schema.string()),
       criteriaUnmet: tool.schema.array(tool.schema.string()),
       durationMs: tool.schema.number()
-    })).min(1).max(4).describe("Array of CouncilMemberVerdict objects. Must include between 1 and 4 entries, one per participating member (critic, reviewer, sme, test_engineer)."),
+    })).min(1).max(5).describe("Array of CouncilMemberVerdict objects. Must include between 1 and 5 entries, one per participating member (critic, reviewer, sme, test_engineer, explorer)."),
     working_directory: tool.schema.string().optional().describe("Explicit project root directory. When provided, .swarm/council/ and .swarm/evidence/ are resolved relative to this path instead of the plugin context directory.")
   },
-  async execute(args2, directory) {
+  async execute(args2, directory, ctx) {
     const parsed = ArgsSchema.safeParse(args2);
     if (!parsed.success) {
       return JSON.stringify({
@@ -68555,10 +68666,25 @@ var convene_council = createSwarmTool({
         reason: "council feature is disabled \u2014 set council.enabled: true in .opencode/opencode-swarm.json to enable"
       }, null, 2);
     }
+    if (config3.council?.requireAllMembers && input.verdicts.length < 5) {
+      return JSON.stringify({
+        success: false,
+        reason: `council.requireAllMembers is true but only ${input.verdicts.length} of 5 member verdicts were provided`
+      }, null, 2);
+    }
     const criteria = readCriteria(workingDir, input.taskId);
     const verdicts = input.verdicts;
     const synthesis = synthesizeCouncilVerdicts(input.taskId, input.swarmId, verdicts, criteria, input.roundNumber, config3.council);
     writeCouncilEvidence(workingDir, synthesis);
+    try {
+      const sessionID = ctx?.sessionID;
+      if (sessionID) {
+        const session = getAgentSession(sessionID);
+        if (session) {
+          pushCouncilAdvisory(session, synthesis);
+        }
+      }
+    } catch {}
     return JSON.stringify({
       success: true,
       overallVerdict: synthesis.overallVerdict,
@@ -68687,6 +68813,88 @@ var curator_analyze = createSwarmTool({
         phase: typedArgs.phase
       }, null, 2);
     }
+  }
+});
+// src/tools/declare-council-criteria.ts
+init_dist();
+init_zod();
+init_loader();
+init_create_tool();
+init_resolve_working_directory();
+var CriteriaItemSchema = exports_external.object({
+  id: exports_external.string().min(1).max(20).regex(/^C\d+$/, 'Criterion id must match C\\d+ (e.g. "C1", "C12")'),
+  description: exports_external.string().min(10).max(500),
+  mandatory: exports_external.boolean()
+});
+var ArgsSchema2 = exports_external.object({
+  taskId: exports_external.string().min(1).regex(/^\d+\.\d+(\.\d+)*$/, "Task ID must be in N.M or N.M.P format"),
+  criteria: exports_external.array(CriteriaItemSchema).min(1).max(20),
+  working_directory: exports_external.string().optional()
+});
+var declare_council_criteria = createSwarmTool({
+  description: "Pre-declare acceptance criteria for a task before the coder starts work. " + "Criteria are persisted under .swarm/council/ and read back during council " + "evaluation so reviewers assess a stable, pre-committed contract. " + "Architect-only. Config-gated via council.enabled.",
+  args: {
+    taskId: tool.schema.string().min(1).regex(/^\d+\.\d+(\.\d+)*$/, "Task ID must be in N.M or N.M.P format").describe('Task ID for which criteria are declared, e.g. "1.1", "1.2.3"'),
+    criteria: tool.schema.array(tool.schema.object({
+      id: tool.schema.string().min(1).max(20).regex(/^C\d+$/, "Criterion id must match C\\d+").describe('Criterion identifier, e.g. "C1", "C12"'),
+      description: tool.schema.string().min(10).max(500).describe("Human-readable description of the criterion"),
+      mandatory: tool.schema.boolean().describe("Whether the criterion is mandatory. Mandatory criteria block APPROVE when unmet.")
+    })).min(1).max(20).describe("Array of acceptance criteria items. Must contain between 1 and 20 entries with unique ids."),
+    working_directory: tool.schema.string().optional().describe("Explicit project root directory. When provided, .swarm/council/ is resolved relative to this path instead of the plugin context directory.")
+  },
+  async execute(args2, directory) {
+    const parsed = ArgsSchema2.safeParse(args2);
+    if (!parsed.success) {
+      return JSON.stringify({
+        success: false,
+        reason: "invalid arguments",
+        errors: parsed.error.issues.map((i2) => ({
+          path: i2.path.join("."),
+          message: i2.message
+        }))
+      }, null, 2);
+    }
+    const input = parsed.data;
+    const dirResult = resolveWorkingDirectory(input.working_directory, directory);
+    if (!dirResult.success) {
+      return JSON.stringify({ success: false, reason: dirResult.message }, null, 2);
+    }
+    const workingDir = dirResult.directory;
+    const config3 = loadPluginConfig(workingDir);
+    if (!config3.council?.enabled) {
+      return JSON.stringify({
+        success: false,
+        reason: "council feature is disabled \u2014 set council.enabled: true in .opencode/opencode-swarm.json to enable"
+      }, null, 2);
+    }
+    const ids = input.criteria.map((c) => c.id);
+    const idSet = new Set(ids);
+    if (idSet.size < ids.length) {
+      const seen = new Set;
+      const duplicates = [];
+      for (const id of ids) {
+        if (seen.has(id) && !duplicates.includes(id)) {
+          duplicates.push(id);
+        }
+        seen.add(id);
+      }
+      return JSON.stringify({
+        success: false,
+        reason: "duplicate criterion ids",
+        errors: duplicates
+      }, null, 2);
+    }
+    const existing = readCriteria(workingDir, input.taskId);
+    const replaced = existing !== null;
+    writeCriteria(workingDir, input.taskId, input.criteria);
+    return JSON.stringify({
+      success: true,
+      taskId: input.taskId,
+      criteriaCount: input.criteria.length,
+      mandatoryCount: input.criteria.filter((c) => c.mandatory).length,
+      declaredAt: new Date().toISOString(),
+      replaced
+    }, null, 2);
   }
 });
 // src/tools/declare-scope.ts
@@ -78820,6 +79028,7 @@ var todo_extract = createSwarmTool({
 });
 // src/tools/update-task-status.ts
 init_tool();
+init_loader();
 init_schema();
 init_gate_evidence();
 import * as fs70 from "fs";
@@ -79166,6 +79375,41 @@ function recoverTaskStateFromDelegations(taskId) {
     }
   }
 }
+function checkCouncilGate(workingDirectory, taskId) {
+  let councilEnabled = false;
+  try {
+    const config3 = loadPluginConfig(workingDirectory);
+    councilEnabled = config3.council?.enabled === true;
+  } catch {
+    return { blocked: false, reason: "" };
+  }
+  if (!councilEnabled) {
+    return { blocked: false, reason: "" };
+  }
+  let evidence;
+  try {
+    evidence = readTaskEvidenceRaw(workingDirectory, taskId);
+  } catch {
+    return {
+      blocked: true,
+      reason: "council gate required but not yet run \u2014 architect must call convene_council before advancing this task"
+    };
+  }
+  const councilGate = evidence?.gates?.council;
+  if (!councilGate) {
+    return {
+      blocked: true,
+      reason: "council gate required but not yet run \u2014 architect must call convene_council before advancing this task"
+    };
+  }
+  if (councilGate.verdict === "REJECT") {
+    return {
+      blocked: true,
+      reason: "council gate blocked advancement \u2014 resolve requiredFixes and re-run convene_council"
+    };
+  }
+  return { blocked: false, reason: "" };
+}
 async function executeUpdateTaskStatus(args2, fallbackDir) {
   const statusError = validateStatus(args2.status);
   if (statusError) {
@@ -79301,6 +79545,14 @@ async function executeUpdateTaskStatus(args2, fallbackDir) {
           errors: [reviewerCheck.reason]
         };
       }
+    }
+    const councilCheck = checkCouncilGate(directory, args2.task_id);
+    if (councilCheck.blocked) {
+      return {
+        success: false,
+        message: councilCheck.reason,
+        errors: [councilCheck.reason]
+      };
     }
   }
   const lockTaskId = `update-task-status-${args2.task_id}-${Date.now()}`;

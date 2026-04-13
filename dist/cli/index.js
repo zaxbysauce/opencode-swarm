@@ -18489,6 +18489,7 @@ var TOOL_NAMES = [
   "check_gate_status",
   "completion_verify",
   "convene_council",
+  "declare_council_criteria",
   "sbom_generate",
   "checkpoint",
   "pkg_audit",
@@ -18546,6 +18547,7 @@ var AGENT_TOOL_MAP = {
     "check_gate_status",
     "completion_verify",
     "convene_council",
+    "declare_council_criteria",
     "complexity_hotspots",
     "detect_domains",
     "evidence_check",
@@ -19206,7 +19208,9 @@ var CouncilConfigSchema = exports_external.object({
   enabled: exports_external.boolean().default(false),
   maxRounds: exports_external.number().int().min(1).max(10).default(3),
   parallelTimeoutMs: exports_external.number().int().min(5000).max(120000).default(30000),
-  vetoPriority: exports_external.boolean().default(true)
+  vetoPriority: exports_external.boolean().default(true),
+  requireAllMembers: exports_external.boolean().default(false).describe("When true, convene_council rejects if fewer than 5 member verdicts are provided."),
+  escalateOnMaxRounds: exports_external.string().optional().describe("Optional webhook URL or handler name invoked when maxRounds is reached without APPROVE. Declared for forward compatibility; no behavior is implemented yet.")
 }).strict();
 var PluginConfigSchema = exports_external.object({
   agents: exports_external.record(exports_external.string(), AgentOverrideConfigSchema).optional(),

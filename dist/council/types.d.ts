@@ -6,8 +6,8 @@
  */
 export type CouncilVerdict = 'APPROVE' | 'CONCERNS' | 'REJECT';
 export type CouncilFindingSeverity = 'HIGH' | 'MEDIUM' | 'LOW';
-export type CouncilFindingCategory = 'logic' | 'edge_case' | 'error_handling' | 'spec_compliance' | 'security' | 'maintainability' | 'naming' | 'domain' | 'test_gap' | 'test_quality' | 'mutation_gap' | 'adversarial_gap' | 'other';
-export type CouncilAgent = 'critic' | 'reviewer' | 'sme' | 'test_engineer';
+export type CouncilFindingCategory = 'logic' | 'edge_case' | 'error_handling' | 'spec_compliance' | 'security' | 'maintainability' | 'naming' | 'domain' | 'test_gap' | 'test_quality' | 'mutation_gap' | 'adversarial_gap' | 'slop_pattern' | 'hallucinated_api' | 'lazy_abstraction' | 'cargo_cult' | 'spec_drift' | 'other';
+export type CouncilAgent = 'critic' | 'reviewer' | 'sme' | 'test_engineer' | 'explorer';
 export interface CouncilFinding {
     severity: CouncilFindingSeverity;
     category: CouncilFindingCategory;
@@ -69,5 +69,9 @@ export interface CouncilConfig {
     parallelTimeoutMs: number;
     /** Default true — any REJECT blocks */
     vetoPriority: boolean;
+    /** Default false — when true, convene_council rejects unless all 5 member verdicts are provided */
+    requireAllMembers: boolean;
+    /** Optional webhook URL or handler name invoked when maxRounds is reached without APPROVE. Declared for forward compatibility; no behavior is implemented yet. */
+    escalateOnMaxRounds?: string;
 }
 export declare const COUNCIL_DEFAULTS: CouncilConfig;

@@ -72,6 +72,25 @@ export declare function checkReviewerGateWithScope(taskId: string, workingDirect
  */
 export declare function recoverTaskStateFromDelegations(taskId: string): void;
 /**
+ * Result of the council-gate check used when transitioning to 'completed'.
+ *
+ * - When council.enabled is false, {blocked:false} is always returned (no regression).
+ * - When council.enabled is true, requires evidence.gates.council to exist and
+ *   its verdict to be APPROVE or CONCERNS. A missing gate or REJECT verdict blocks.
+ */
+export interface CouncilGateResult {
+    blocked: boolean;
+    reason: string;
+}
+/**
+ * Check the council gate for a completion transition. Pure — reads config and
+ * evidence only, no state mutation. Exported for focused unit testing.
+ *
+ * @param workingDirectory - Validated project root (contains .swarm/evidence/)
+ * @param taskId - Task ID in N.M or N.M.P format
+ */
+export declare function checkCouncilGate(workingDirectory: string, taskId: string): CouncilGateResult;
+/**
  * Execute the update_task_status tool.
  * Validates the task_id and status, then updates the task status in the plan.
  * Uses file locking on plan.json to prevent concurrent writes from corrupting the plan.

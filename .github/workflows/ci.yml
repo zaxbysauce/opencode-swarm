@@ -243,7 +243,7 @@ jobs:
         run: |
           # Per-file isolation to prevent --smol cache poisoning (#330).
           failed=0
-          for dir in tests/unit/adversarial tests/unit/agents tests/unit/background tests/unit/context tests/unit/diff tests/unit/evidence tests/unit/git tests/unit/helpers tests/unit/knowledge tests/unit/lang tests/unit/output tests/unit/parallel tests/unit/plan tests/unit/session tests/unit/skills tests/unit/types tests/unit/utils; do
+          for dir in tests/unit/adversarial tests/unit/agents tests/unit/background tests/unit/context tests/unit/council tests/unit/diff tests/unit/evidence tests/unit/git tests/unit/helpers tests/unit/knowledge tests/unit/lang tests/unit/output tests/unit/parallel tests/unit/plan tests/unit/session tests/unit/skills tests/unit/types tests/unit/utils; do
             for f in "$dir"/*.test.ts; do
               [ -f "$f" ] || continue
               if ! bun --smol test "$f" --timeout 120000; then

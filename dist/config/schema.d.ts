@@ -516,6 +516,8 @@ export declare const CouncilConfigSchema: z.ZodObject<{
     maxRounds: z.ZodDefault<z.ZodNumber>;
     parallelTimeoutMs: z.ZodDefault<z.ZodNumber>;
     vetoPriority: z.ZodDefault<z.ZodBoolean>;
+    requireAllMembers: z.ZodDefault<z.ZodBoolean>;
+    escalateOnMaxRounds: z.ZodOptional<z.ZodString>;
 }, z.core.$strict>;
 export type CouncilConfig = z.infer<typeof CouncilConfigSchema>;
 export declare const PluginConfigSchema: z.ZodObject<{
@@ -866,6 +868,8 @@ export declare const PluginConfigSchema: z.ZodObject<{
         maxRounds: z.ZodDefault<z.ZodNumber>;
         parallelTimeoutMs: z.ZodDefault<z.ZodNumber>;
         vetoPriority: z.ZodDefault<z.ZodBoolean>;
+        requireAllMembers: z.ZodDefault<z.ZodBoolean>;
+        escalateOnMaxRounds: z.ZodOptional<z.ZodString>;
     }, z.core.$strict>>;
     turbo_mode: z.ZodOptional<z.ZodDefault<z.ZodBoolean>>;
     full_auto: z.ZodDefault<z.ZodOptional<z.ZodObject<{
