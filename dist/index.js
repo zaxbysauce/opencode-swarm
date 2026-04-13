@@ -16451,7 +16451,14 @@ async function savePlan(directory, plan, options) {
   const planId = `${validated.swarm}-${validated.title}`.replace(/[^a-zA-Z0-9-_]/g, "_");
   const planHashForInit = computePlanHash(validated);
   if (!await ledgerExists(directory)) {
-    await initLedger(directory, planId, planHashForInit, validated);
+    try {
+      await initLedger(directory, planId, planHashForInit, validated);
+    } catch (initErr) {
+      const msg = initErr instanceof Error ? initErr.message : String(initErr);
+      if (!/already initialized/i.test(msg)) {
+        throw initErr;
+      }
+    }
   } else {
     const existingEvents = await readLedgerEvents(directory);
     if (existingEvents.length > 0 && existingEvents[0].plan_id !== planId) {
