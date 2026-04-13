@@ -516,6 +516,30 @@ export function getAgentConfigs(
 					AGENT_TOOL_MAP[baseAgentName as keyof typeof AGENT_TOOL_MAP];
 			}
 
+			// Feature-gate: when council is enabled, the architect's system prompt
+			// instructs the model to call `declare_council_criteria` and
+			// `convene_council`. A user-supplied tool_filter.overrides.architect
+			// that omits these tools would silently break the council workflow
+			// (same class as the original 6.66.0 bug: tools present in
+			// AGENT_TOOL_MAP but not usable). We refuse to silently override
+			// explicit user intent and refuse to silently lose the feature —
+			// throw a clear conflict error and make the user resolve it.
+			if (
+				baseAgentName === 'architect' &&
+				config?.council?.enabled === true &&
+				override !== undefined
+			) {
+				const required = ['declare_council_criteria', 'convene_council'];
+				const missing = required.filter((t) => !override.includes(t));
+				if (missing.length > 0) {
+					throw new Error(
+						`[opencode-swarm] Conflicting config: council.enabled=true but tool_filter.overrides.architect omits ${missing.join(', ')}. ` +
+							`Either set council.enabled=false, remove the architect override entirely to fall back on AGENT_TOOL_MAP, or add the missing council tools to the override. ` +
+							`Refusing to silently override your explicit tool_filter.overrides.architect.`,
+					);
+				}
+			}
+
 			// Warn once when base name lacks a whitelist entry (no override and no AGENT_TOOL_MAP)
 			if (!allowedTools && !Object.hasOwn(toolFilterOverrides, baseAgentName)) {
 				if (!warnedMissingWhitelist.has(baseAgentName)) {

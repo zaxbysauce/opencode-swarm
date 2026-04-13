@@ -37068,7 +37068,7 @@ function checkAgentToolMapAlignment(registeredKeys) {
           id: `agent-tool-map-mismatch-${agentName}-${toolName}`,
           title: "AGENT_TOOL_MAP alignment gap",
           description: `Tool "${toolName}" is assigned to agent "${agentName}" in AGENT_TOOL_MAP but is not registered in the plugin's tool: {} block. The agent will not be able to use this tool.`,
-          severity: "warn",
+          severity: "error",
           path: `AGENT_TOOL_MAP.${agentName}`,
           currentValue: toolName,
           autoFixable: false
@@ -37175,6 +37175,11 @@ function formatToolDoctorMarkdown(result) {
       if (finding.autoFixable) {
         lines.push(`   - \uD83D\uDD27 Auto-fixable`);
       }
+      lines.push("");
+    }
+    if (result.summary.error > 0) {
+      lines.push("---", "");
+      lines.push(`**BLOCKING**: ${result.summary.error} error-severity finding(s) must be resolved before release. ` + `AGENT_TOOL_MAP alignment errors mean an agent's system prompt instructs the model to call a tool that opencode has not registered \u2014 the agent's workflow will silently fail at runtime.`);
       lines.push("");
     }
   }

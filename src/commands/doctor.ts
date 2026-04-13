@@ -7,8 +7,10 @@ import { runToolDoctor } from '../services/tool-doctor';
 
 /**
  * Format tool doctor result as markdown for command output.
+ *
+ * Exported for unit testing of the BLOCKING footer enforcement path.
  */
-function formatToolDoctorMarkdown(result: ConfigDoctorResult): string {
+export function formatToolDoctorMarkdown(result: ConfigDoctorResult): string {
 	const lines = [
 		'## Tool Doctor Report',
 		'',
@@ -44,6 +46,21 @@ function formatToolDoctorMarkdown(result: ConfigDoctorResult): string {
 			if (finding.autoFixable) {
 				lines.push(`   - 🔧 Auto-fixable`);
 			}
+			lines.push('');
+		}
+
+		// Surface error-severity findings as a block-release signal. The
+		// AGENT_TOOL_MAP alignment check (the exact bug class that shipped
+		// broken in 6.66.0) now emits at 'error'; this footer makes the
+		// release-blocking intent machine-readable so CI and release tooling
+		// can gate on the presence of `BLOCKING:` without parsing severity
+		// counts individually.
+		if (result.summary.error > 0) {
+			lines.push('---', '');
+			lines.push(
+				`**BLOCKING**: ${result.summary.error} error-severity finding(s) must be resolved before release. ` +
+					`AGENT_TOOL_MAP alignment errors mean an agent's system prompt instructs the model to call a tool that opencode has not registered — the agent's workflow will silently fail at runtime.`,
+			);
 			lines.push('');
 		}
 	}

@@ -74,9 +74,14 @@ function extractRegisteredToolKeys(indexPath: string): Set<string> {
  * Check AGENT_TOOL_MAP alignment with registered tools
  *
  * Verifies that every tool listed in AGENT_TOOL_MAP is actually
- * registered in the plugin's tool: {} block. Tools assigned to agents
- * but not registered will be reported as warnings (not errors) since
- * they may be intentionally unregistered for specific deployments.
+ * registered in the plugin's tool: {} block. A missing registration
+ * means the agent's system prompt will instruct the model to call a
+ * tool that opencode never exposes to the runtime, which silently
+ * breaks the agent's workflow (this is how the council feature shipped
+ * broken in 6.66.0 — convene_council and declare_council_criteria were
+ * in AGENT_TOOL_MAP.architect but never registered). Findings are
+ * emitted at severity 'error' so `config doctor` / `/swarm preflight`
+ * treats this class of drift as fatal rather than advisory.
  */
 function checkAgentToolMapAlignment(
 	registeredKeys: Set<string>,
@@ -90,7 +95,7 @@ function checkAgentToolMapAlignment(
 					id: `agent-tool-map-mismatch-${agentName}-${toolName}`,
 					title: 'AGENT_TOOL_MAP alignment gap',
 					description: `Tool "${toolName}" is assigned to agent "${agentName}" in AGENT_TOOL_MAP but is not registered in the plugin's tool: {} block. The agent will not be able to use this tool.`,
-					severity: 'warn',
+					severity: 'error',
 					path: `AGENT_TOOL_MAP.${agentName}`,
 					currentValue: toolName,
 					autoFixable: false,

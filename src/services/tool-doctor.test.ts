@@ -123,7 +123,7 @@ describe('runToolDoctor — AGENT_TOOL_MAP alignment', () => {
 		fs.rmSync(tempDir, { recursive: true, force: true });
 	});
 
-	test('reports warn finding for tool in AGENT_TOOL_MAP but not in tool block', () => {
+	test('reports error finding for tool in AGENT_TOOL_MAP but not in tool block', () => {
 		// Create fake src/index.ts with NO tools registered
 		const srcDir = path.join(tempDir, 'src');
 		fs.mkdirSync(srcDir, { recursive: true });
@@ -133,10 +133,13 @@ describe('runToolDoctor — AGENT_TOOL_MAP alignment', () => {
 
 		const result = runToolDoctor(tempDir, tempDir);
 
-		// At least one finding should match agent-tool-map-mismatch-*
+		// Severity is 'error' — a missing registration silently breaks the
+		// corresponding agent workflow (see council 6.66.0 regression). Treating
+		// these as advisory led to the feature shipping broken; preflight should
+		// now fail fast on this class of drift.
 		const agentToolMapFindings = result.findings.filter(
 			(f) =>
-				f.id.startsWith('agent-tool-map-mismatch-') && f.severity === 'warn',
+				f.id.startsWith('agent-tool-map-mismatch-') && f.severity === 'error',
 		);
 		expect(agentToolMapFindings.length).toBeGreaterThan(0);
 	});

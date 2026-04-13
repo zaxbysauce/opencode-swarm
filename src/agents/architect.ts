@@ -1393,11 +1393,24 @@ export function createArchitectAgent(
 	// {{AVAILABLE_TOOLS}} pattern). When council is disabled/missing, collapse
 	// the surrounding blank lines as well so the rendered prompt is byte-for-byte
 	// identical to the pre-council prompt (non-regression guarantee).
+	//
+	// When a user-supplied customPrompt replaces ARCHITECT_PROMPT wholesale,
+	// the `{{COUNCIL_WORKFLOW}}` placeholder may be absent. If council is
+	// enabled, silently losing the council instructions would leave the model
+	// with tools it does not know it must call. Append the council block to
+	// the end of the prompt in that case so the workflow is still delivered.
 	const councilBlock = buildCouncilWorkflow(council);
+	const hasPlaceholder = prompt?.includes('{{COUNCIL_WORKFLOW}}') === true;
 	if (councilBlock === '') {
-		prompt = prompt?.replace('\n\n{{COUNCIL_WORKFLOW}}\n\n', '\n\n');
+		prompt = prompt?.replace(/\n\n\{\{COUNCIL_WORKFLOW\}\}\n\n/g, '\n\n');
+	} else if (hasPlaceholder) {
+		// Use /g so multiple placeholder occurrences in a composed prompt all
+		// get substituted — a single unreplaced `{{COUNCIL_WORKFLOW}}` in the
+		// rendered system prompt would leak placeholder text to the model.
+		prompt = prompt?.replace(/\{\{COUNCIL_WORKFLOW\}\}/g, councilBlock);
 	} else {
-		prompt = prompt?.replace('{{COUNCIL_WORKFLOW}}', councilBlock);
+		// Custom prompt without placeholder — append so council is still taught.
+		prompt = `${prompt ?? ''}\n\n${councilBlock}`;
 	}
 
 	// Handle adversarial testing conditional based on config
