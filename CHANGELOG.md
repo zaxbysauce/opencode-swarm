@@ -1,5 +1,12 @@
 # Changelog
 
+## [6.65.0](https://github.com/zaxbysauce/opencode-swarm/compare/v6.64.0...v6.65.0) (2026-04-13)
+
+
+### Features
+
+* **repo-graph:** add workspace dependency graph with hook wiring and hardening ([#475](https://github.com/zaxbysauce/opencode-swarm/issues/475)) ([14bfefe](https://github.com/zaxbysauce/opencode-swarm/commit/14bfefe5649d15071c203215cffc90c1ad58d29b))
+
 ## [6.64.0](https://github.com/zaxbysauce/opencode-swarm/compare/v6.63.0...v6.64.0) (2026-04-12)
 
 
