@@ -34,6 +34,7 @@ export const AGENT_TOOL_MAP: Record<AgentName, ToolName[]> = {
 		'checkpoint',
 		'check_gate_status',
 		'completion_verify',
+		'convene_council',
 		'complexity_hotspots',
 		'detect_domains',
 		'evidence_check',
@@ -274,6 +275,8 @@ export const TOOL_DESCRIPTIONS: Partial<Record<ToolName, string>> = {
 	co_change_analyzer: 'detect hidden couplings by analyzing git history',
 	check_gate_status: 'check the gate status of a specific task',
 	completion_verify: 'verify completed tasks have required evidence',
+	convene_council:
+		'convene the Work Complete Council — parallel veto-aware verification gate across critic, reviewer, sme, and test_engineer verdicts',
 	detect_domains: 'detect which SME domains are relevant for a given text',
 	extract_code_blocks:
 		'extract code blocks from text content and save them to files',

@@ -1,0 +1,222 @@
+/**
+ * Work Complete Council — pure synthesis service.
+ *
+ * Given the verdicts of council members (critic, reviewer, sme, test_engineer),
+ * compute the overall verdict, classify findings, detect conflicts, and build a
+ * single unified feedback document for the coder.
+ *
+ * No I/O — fully unit-testable with mock inputs. All file reads/writes happen in
+ * sibling modules (criteria-store, council-evidence-writer).
+ */
+
+import type {
+	CouncilAgent,
+	CouncilConfig,
+	CouncilCriteria,
+	CouncilFinding,
+	CouncilMemberVerdict,
+	CouncilSynthesis,
+	CouncilVerdict,
+} from './types';
+import { COUNCIL_DEFAULTS } from './types';
+
+export function synthesizeCouncilVerdicts(
+	taskId: string,
+	swarmId: string,
+	verdicts: CouncilMemberVerdict[],
+	criteria: CouncilCriteria | null,
+	roundNumber: number,
+	config: Partial<CouncilConfig> = {},
+): CouncilSynthesis {
+	const cfg: CouncilConfig = { ...COUNCIL_DEFAULTS, ...config };
+	const timestamp = new Date().toISOString();
+
+	// ── Veto detection ────────────────────────────────────────────────────
+	const rejectingMembers: CouncilAgent[] = verdicts
+		.filter((v) => v.verdict === 'REJECT')
+		.map((v) => v.agent);
+
+	let overallVerdict: CouncilVerdict;
+	if (cfg.vetoPriority && rejectingMembers.length > 0) {
+		overallVerdict = 'REJECT';
+	} else if (
+		verdicts.some((v) => v.verdict === 'CONCERNS') ||
+		(!cfg.vetoPriority && rejectingMembers.length > 0)
+	) {
+		// Without veto, a REJECT still warrants at least CONCERNS — never swallowed silently.
+		overallVerdict = 'CONCERNS';
+	} else {
+		overallVerdict = 'APPROVE';
+	}
+
+	// ── Conflict detection ────────────────────────────────────────────────
+	const unresolvedConflicts = detectConflicts(verdicts);
+
+	// ── Finding classification ────────────────────────────────────────────
+	const rejectingSet = new Set<CouncilAgent>(rejectingMembers);
+	const vetoFindings = verdicts
+		.filter((v) => rejectingSet.has(v.agent))
+		.flatMap((v) => v.findings);
+
+	const requiredFixes = vetoFindings.filter(
+		(f) => f.severity === 'HIGH' || f.severity === 'MEDIUM',
+	);
+
+	const advisoryFindings: CouncilFinding[] = [
+		...vetoFindings.filter((f) => f.severity === 'LOW'),
+		...verdicts
+			.filter((v) => !rejectingSet.has(v.agent))
+			.flatMap((v) => v.findings),
+	];
+
+	// ── Criteria assessment ───────────────────────────────────────────────
+	const allUnmetIds = new Set(verdicts.flatMap((v) => v.criteriaUnmet));
+	const mandatoryIds = new Set(
+		(criteria?.criteria ?? [])
+			.filter((c) => c.mandatory)
+			.map((c) => c.id),
+	);
+	const allCriteriaMet = [...mandatoryIds].every((id) => !allUnmetIds.has(id));
+
+	// ── Unified feedback markdown ─────────────────────────────────────────
+	const unifiedFeedbackMd = buildUnifiedFeedback(
+		taskId,
+		overallVerdict,
+		rejectingMembers,
+		requiredFixes,
+		advisoryFindings,
+		unresolvedConflicts,
+		roundNumber,
+		cfg.maxRounds,
+	);
+
+	return {
+		taskId,
+		swarmId,
+		timestamp,
+		overallVerdict,
+		vetoedBy: rejectingMembers.length > 0 ? rejectingMembers : null,
+		memberVerdicts: verdicts,
+		unresolvedConflicts,
+		requiredFixes,
+		advisoryFindings,
+		unifiedFeedbackMd,
+		roundNumber,
+		allCriteriaMet,
+	};
+}
+
+// ── Conflict detection ────────────────────────────────────────────────────────
+// A conflict exists when two members make findings at the same location with
+// directly contradictory directives (one says "add X", another says "remove X").
+function detectConflicts(verdicts: CouncilMemberVerdict[]): string[] {
+	const conflicts: string[] = [];
+	const locationMap = new Map<
+		string,
+		Array<{ agent: string; detail: string }>
+	>();
+
+	for (const verdict of verdicts) {
+		for (const finding of verdict.findings) {
+			const key = finding.location.toLowerCase();
+			// Skip empty locations — cannot meaningfully detect conflicts there.
+			if (!key) continue;
+			const entries = locationMap.get(key);
+			if (entries) {
+				entries.push({ agent: verdict.agent, detail: finding.detail });
+			} else {
+				locationMap.set(key, [
+					{ agent: verdict.agent, detail: finding.detail },
+				]);
+			}
+		}
+	}
+
+	for (const [location, entries] of locationMap) {
+		if (entries.length < 2) continue;
+		const addDirectives = entries.filter((e) =>
+			/\badd\b|\binclude\b|\binsert\b/i.test(e.detail),
+		);
+		const removeDirectives = entries.filter((e) =>
+			/\bremove\b|\bdelete\b|\beliminate\b/i.test(e.detail),
+		);
+		if (addDirectives.length > 0 && removeDirectives.length > 0) {
+			conflicts.push(
+				`Conflict at ${location}: ${addDirectives
+					.map((e) => `${e.agent} says "${e.detail}"`)
+					.join(', ')} vs ${removeDirectives
+					.map((e) => `${e.agent} says "${e.detail}"`)
+					.join(', ')}`,
+			);
+		}
+	}
+
+	return conflicts;
+}
+
+// ── Unified feedback builder ──────────────────────────────────────────────────
+function buildUnifiedFeedback(
+	taskId: string,
+	verdict: CouncilVerdict,
+	vetoedBy: CouncilAgent[],
+	requiredFixes: CouncilFinding[],
+	advisoryFindings: CouncilFinding[],
+	conflicts: string[],
+	roundNumber: number,
+	maxRounds: number,
+): string {
+	const lines: string[] = [
+		`## Work Complete Council — Round ${roundNumber}/${maxRounds}`,
+		`**Task:** ${taskId}  **Overall verdict:** ${verdict}`,
+		'',
+	];
+
+	if (vetoedBy.length > 0) {
+		lines.push(`> ⛔ **BLOCKED** by: ${vetoedBy.join(', ')}`);
+		lines.push('');
+	}
+
+	if (requiredFixes.length > 0) {
+		lines.push('### Required Fixes (must resolve before re-submission)');
+		for (const f of requiredFixes) {
+			lines.push(
+				`- **[${f.severity}]** \`${f.location}\` — ${f.detail}`,
+				`  _Evidence:_ ${f.evidence}`,
+			);
+		}
+		lines.push('');
+	}
+
+	if (conflicts.length > 0) {
+		lines.push('### Conflicts to Resolve');
+		lines.push(
+			'_The following reviewers gave contradictory instructions. Architect must resolve before sending to coder._',
+		);
+		for (const c of conflicts) {
+			lines.push(`- ${c}`);
+		}
+		lines.push('');
+	}
+
+	if (advisoryFindings.length > 0) {
+		lines.push('### Advisory Findings (non-blocking)');
+		for (const f of advisoryFindings) {
+			lines.push(
+				`- **[${f.severity}]** \`${f.location}\` — ${f.detail}`,
+			);
+		}
+		lines.push('');
+	}
+
+	if (verdict === 'APPROVE') {
+		lines.push(
+			'> ✅ **All council members approved.** Work may advance to `complete`.',
+		);
+	} else if (roundNumber >= maxRounds) {
+		lines.push(
+			`> ⚠️ **Max rounds (${maxRounds}) reached.** Escalate to user — do not auto-advance.`,
+		);
+	}
+
+	return lines.join('\n');
+}

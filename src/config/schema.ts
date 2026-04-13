@@ -923,6 +923,26 @@ export const AuthorityConfigSchema = z.object({
 
 export type AuthorityConfig = z.infer<typeof AuthorityConfigSchema>;
 
+// Work Complete Council configuration
+// v1 — off by default. When enabled, the architect convenes a parallel four-member
+// verification gate (critic, reviewer, sme, test_engineer) before update_task_status
+// may advance a task to complete.
+export const CouncilConfigSchema = z
+	.object({
+		enabled: z.boolean().default(false),
+		maxRounds: z.number().int().min(1).max(10).default(3),
+		parallelTimeoutMs: z
+			.number()
+			.int()
+			.min(5_000)
+			.max(120_000)
+			.default(30_000),
+		vetoPriority: z.boolean().default(true),
+	})
+	.strict();
+
+export type CouncilConfig = z.infer<typeof CouncilConfigSchema>;
+
 // Main plugin configuration
 export const PluginConfigSchema = z.object({
 	// Legacy: Per-agent overrides (default swarm)
@@ -1066,6 +1086,9 @@ export const PluginConfigSchema = z.object({
 
 	// Compaction service configuration (v6.29)
 	compaction_service: CompactionConfigSchema.optional(),
+
+	// Work Complete Council configuration — parallel four-member verification gate (off by default)
+	council: CouncilConfigSchema.optional(),
 
 	// Turbo mode — bypasses reviewer/test gates for rapid iteration (v6.40)
 	turbo_mode: z.boolean().default(false).optional(),
