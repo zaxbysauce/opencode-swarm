@@ -1,5 +1,12 @@
 # Changelog
 
+## [6.68.0](https://github.com/zaxbysauce/opencode-swarm/compare/v6.67.1...v6.68.0) (2026-04-13)
+
+
+### Features
+
+* **swarm:** add SQLite constraint store, QA gate profiles, and MODE: BRAINSTORM ([#485](https://github.com/zaxbysauce/opencode-swarm/issues/485)) ([12185c8](https://github.com/zaxbysauce/opencode-swarm/commit/12185c8e718c2e8c38a58083f31ee7c581655463))
+
 ## [6.67.1](https://github.com/zaxbysauce/opencode-swarm/compare/v6.67.0...v6.67.1) (2026-04-13)
 
 
