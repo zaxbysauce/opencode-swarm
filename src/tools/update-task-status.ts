@@ -6,6 +6,7 @@
 import * as fs from 'node:fs';
 import * as path from 'node:path';
 import { type ToolDefinition, tool } from '@opencode-ai/plugin/tool';
+import { loadPluginConfig } from '../config/loader';
 import type { TaskStatus } from '../config/plan-schema';
 import { stripKnownSwarmPrefix } from '../config/schema';
 import { readTaskEvidenceRaw } from '../gate-evidence.js';
@@ -488,6 +489,77 @@ export function recoverTaskStateFromDelegations(taskId: string): void {
 }
 
 /**
+ * Result of the council-gate check used when transitioning to 'completed'.
+ *
+ * - When council.enabled is false, {blocked:false} is always returned (no regression).
+ * - When council.enabled is true, requires evidence.gates.council to exist and
+ *   its verdict to be APPROVE or CONCERNS. A missing gate or REJECT verdict blocks.
+ */
+export interface CouncilGateResult {
+	blocked: boolean;
+	reason: string;
+}
+
+/**
+ * Check the council gate for a completion transition. Pure — reads config and
+ * evidence only, no state mutation. Exported for focused unit testing.
+ *
+ * @param workingDirectory - Validated project root (contains .swarm/evidence/)
+ * @param taskId - Task ID in N.M or N.M.P format
+ */
+export function checkCouncilGate(
+	workingDirectory: string,
+	taskId: string,
+): CouncilGateResult {
+	let councilEnabled = false;
+	try {
+		const config = loadPluginConfig(workingDirectory);
+		councilEnabled = config.council?.enabled === true;
+	} catch {
+		// Config load failure — treat council as disabled (no regression)
+		return { blocked: false, reason: '' };
+	}
+
+	if (!councilEnabled) {
+		return { blocked: false, reason: '' };
+	}
+
+	let evidence: ReturnType<typeof readTaskEvidenceRaw>;
+	try {
+		evidence = readTaskEvidenceRaw(workingDirectory, taskId);
+	} catch {
+		// Corrupt evidence — let the existing gate loop / downstream checks handle
+		return {
+			blocked: true,
+			reason:
+				'council gate required but not yet run — architect must call convene_council before advancing this task',
+		};
+	}
+
+	const councilGate = evidence?.gates?.council as
+		| { verdict?: string }
+		| undefined;
+	if (!councilGate) {
+		return {
+			blocked: true,
+			reason:
+				'council gate required but not yet run — architect must call convene_council before advancing this task',
+		};
+	}
+
+	if (councilGate.verdict === 'REJECT') {
+		return {
+			blocked: true,
+			reason:
+				'council gate blocked advancement — resolve requiredFixes and re-run convene_council',
+		};
+	}
+
+	// APPROVE or CONCERNS → allow
+	return { blocked: false, reason: '' };
+}
+
+/**
  * Execute the update_task_status tool.
  * Validates the task_id and status, then updates the task status in the plan.
  * Uses file locking on plan.json to prevent concurrent writes from corrupting the plan.
@@ -714,6 +786,18 @@ export async function executeUpdateTaskStatus(
 					errors: [reviewerCheck.reason],
 				};
 			}
+		}
+
+		// Council gate check — enforced only when council.enabled is true.
+		// Placed after reviewer gate so existing failures surface first and
+		// no council behavior activates when the feature is off (no regression).
+		const councilCheck = checkCouncilGate(directory, args.task_id);
+		if (councilCheck.blocked) {
+			return {
+				success: false,
+				message: councilCheck.reason,
+				errors: [councilCheck.reason],
+			};
 		}
 	}
 

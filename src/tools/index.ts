@@ -6,7 +6,9 @@ export { co_change_analyzer } from './co-change-analyzer';
 export { completion_verify } from './completion-verify';
 // v6.5
 export { complexity_hotspots } from './complexity-hotspots';
+export { convene_council } from './convene-council';
 export { curator_analyze } from './curator-analyze';
+export { declare_council_criteria } from './declare-council-criteria';
 export { declare_scope } from './declare-scope';
 export { type DiffErrorResult, type DiffResult, diff } from './diff';
 export { doc_extract, doc_scan } from './doc-scan';

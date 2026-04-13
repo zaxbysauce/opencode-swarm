@@ -709,7 +709,24 @@ export async function savePlan(
 	// the init event would capture the OLD plan's hash.
 	const planHashForInit = computePlanHash(validated);
 	if (!(await ledgerExists(directory))) {
-		await initLedger(directory, planId, planHashForInit, validated);
+		try {
+			await initLedger(directory, planId, planHashForInit, validated);
+		} catch (initErr) {
+			// Concurrent savePlan race: three parallel callers can pass the
+			// ledgerExists() check before any of them writes. On Linux/macOS
+			// the Bun promise scheduler usually serializes the writes; on
+			// Windows the different filesystem semantics let them collide
+			// and all but one get "Ledger already initialized". The sibling
+			// reinitialization path at the else-branch below already handles
+			// this error class — mirror that tolerance here so the primary
+			// path behaves identically cross-platform.
+			const msg = initErr instanceof Error ? initErr.message : String(initErr);
+			if (!/already initialized/i.test(msg)) {
+				throw initErr;
+			}
+			// Another concurrent savePlan beat us to initLedger — proceed as
+			// if the ledger already existed on entry.
+		}
 	} else {
 		const existingEvents = await readLedgerEvents(directory);
 		if (existingEvents.length > 0 && existingEvents[0].plan_id !== planId) {

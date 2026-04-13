@@ -343,9 +343,17 @@ describe('savePlan write-marker adversarial tests', () => {
 
 		const markerPath = join(tempDir, '.swarm', '.plan-write-marker');
 		const markerContent = await readFile(markerPath, 'utf-8');
+		const marker = JSON.parse(markerContent);
 
-		// Task IDs like "1.1" should NOT appear in marker
-		expect(markerContent).not.toContain('1.1');
+		// Task IDs like "1.1" should NOT appear in marker. Check all fields
+		// EXCEPT the timestamp, whose millisecond suffix can incidentally
+		// contain the substring "1.1" (e.g. ISO 8601 "...41.123Z" contains
+		// "1.1" at chars 1–3 of "41.123"). The timestamp is always safe —
+		// it's a machine-generated value, not user plan content.
+		for (const [key, value] of Object.entries(marker)) {
+			if (key === 'timestamp') continue;
+			expect(String(value)).not.toContain('1.1');
+		}
 	});
 
 	/**

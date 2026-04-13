@@ -14843,7 +14843,14 @@ async function savePlan(directory, plan, options) {
   const planId = `${validated.swarm}-${validated.title}`.replace(/[^a-zA-Z0-9-_]/g, "_");
   const planHashForInit = computePlanHash(validated);
   if (!await ledgerExists(directory)) {
-    await initLedger(directory, planId, planHashForInit, validated);
+    try {
+      await initLedger(directory, planId, planHashForInit, validated);
+    } catch (initErr) {
+      const msg = initErr instanceof Error ? initErr.message : String(initErr);
+      if (!/already initialized/i.test(msg)) {
+        throw initErr;
+      }
+    }
   } else {
     const existingEvents = await readLedgerEvents(directory);
     if (existingEvents.length > 0 && existingEvents[0].plan_id !== planId) {
@@ -18488,6 +18495,8 @@ var TOOL_NAMES = [
   "evidence_check",
   "check_gate_status",
   "completion_verify",
+  "convene_council",
+  "declare_council_criteria",
   "sbom_generate",
   "checkpoint",
   "pkg_audit",
@@ -18544,6 +18553,8 @@ var AGENT_TOOL_MAP = {
     "checkpoint",
     "check_gate_status",
     "completion_verify",
+    "convene_council",
+    "declare_council_criteria",
     "complexity_hotspots",
     "detect_domains",
     "evidence_check",
@@ -19200,6 +19211,14 @@ var AuthorityConfigSchema = exports_external.object({
   enabled: exports_external.boolean().default(true),
   rules: exports_external.record(exports_external.string(), AgentAuthorityRuleSchema).default({})
 });
+var CouncilConfigSchema = exports_external.object({
+  enabled: exports_external.boolean().default(false),
+  maxRounds: exports_external.number().int().min(1).max(10).default(3),
+  parallelTimeoutMs: exports_external.number().int().min(5000).max(120000).default(30000),
+  vetoPriority: exports_external.boolean().default(true),
+  requireAllMembers: exports_external.boolean().default(false).describe("When true, convene_council rejects if fewer than 5 member verdicts are provided."),
+  escalateOnMaxRounds: exports_external.string().optional().describe("Optional webhook URL or handler name invoked when maxRounds is reached without APPROVE. Declared for forward compatibility; no behavior is implemented yet.")
+}).strict();
 var PluginConfigSchema = exports_external.object({
   agents: exports_external.record(exports_external.string(), AgentOverrideConfigSchema).optional(),
   swarms: exports_external.record(exports_external.string(), SwarmConfigSchema).optional(),
@@ -19247,6 +19266,7 @@ var PluginConfigSchema = exports_external.object({
   }).optional(),
   incremental_verify: IncrementalVerifyConfigSchema.optional(),
   compaction_service: CompactionConfigSchema.optional(),
+  council: CouncilConfigSchema.optional(),
   turbo_mode: exports_external.boolean().default(false).optional(),
   full_auto: exports_external.object({
     enabled: exports_external.boolean().default(false),

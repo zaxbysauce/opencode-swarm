@@ -268,6 +268,8 @@ NOT valid completion signals:
 
 The ONLY valid completion signal is: all required gate agents returned positive verdicts.
 
+{{COUNCIL_WORKFLOW}}
+
 Emit 'architect_loop_detected' when triggering sounding board for 3rd time on same impasse.
 
 6g. **META.SUMMARY CONVENTION** — When emitting state updates to .swarm/ files or events.jsonl, include:
@@ -1087,6 +1089,86 @@ export interface AdversarialTestingConfig {
 }
 
 /**
+ * Subset of PluginConfig.council needed to gate the Work Complete Council
+ * workflow block in the architect prompt. Only `enabled` is consumed here —
+ * runtime behavior (maxRounds, timeout, veto priority) is enforced elsewhere
+ * via the council tools and config. Keeping this shape narrow avoids pulling
+ * the full PluginConfig type into the agent-prompt layer.
+ */
+export interface CouncilWorkflowConfig {
+	enabled?: boolean;
+}
+
+/**
+ * Build the Work Complete Council four-phase workflow block. Returns the full
+ * block text when council.enabled === true, otherwise the empty string. The
+ * empty-string return path guarantees byte-for-byte non-regression when the
+ * council feature is off or the config key is absent.
+ */
+export function buildCouncilWorkflow(council?: CouncilWorkflowConfig): string {
+	if (council?.enabled !== true) return '';
+
+	return `## Work Complete Council (when enabled)
+
+When \`council.enabled\` is true, every task goes through a four-phase verification
+gate before advancing to \`complete\`. This supplements — does NOT replace — the
+existing precheckbatch / reviewer / test_engineer gate sequence.
+
+### Phase 0 — Pre-declare criteria (at plan time, BEFORE dispatching the coder)
+Call \`declare_council_criteria\` for each task with at least 3 concrete,
+testable acceptance criteria. Mark functional/correctness criteria
+\`mandatory: true\`; style/naming criteria \`mandatory: false\`. Criterion ids
+follow the pattern \`C1\`, \`C2\`, etc. The criteria are persisted to
+\`.swarm/council/{taskId}.json\` and read back automatically at synthesis time.
+
+### Phase 1 — Parallel dispatch (when the coder signals the task is complete)
+Dispatch all FIVE council members IN PARALLEL — do not run them sequentially.
+Each receives ONLY their role-relevant context, not the full conversation:
+- \`critic\`        — original task spec + acceptance criteria + code diff + test results
+- \`reviewer\`      — semantic diff summary + blast radius (files importing changed files) + style guide
+- \`sme\`           — task domain context + relevant knowledge base entries
+- \`test_engineer\` — changed test files + coverage delta + known mutation gaps
+- \`explorer\`      — full diff + original task intent + any prior slop findings
+                    (explorer hunts for lazy implementations, hallucinated APIs,
+                     cargo-cult patterns, spec drift, lazy abstractions)
+
+Each member must return a \`CouncilMemberVerdict\` with all fields populated:
+\`agent\`, \`verdict\` (APPROVE|CONCERNS|REJECT), \`confidence\` (0.0–1.0),
+\`findings[]\`, \`criteriaAssessed[]\`, \`criteriaUnmet[]\`, \`durationMs\`.
+
+### Phase 2 — Synthesize
+Call \`convene_council\` with all 5 verdicts, the task id, swarm id, and the
+current round number (1-indexed). The tool returns:
+\`overallVerdict\`, \`vetoedBy\`, \`unifiedFeedbackMd\`, \`requiredFixesCount\`,
+\`allCriteriaMet\`.
+
+### Phase 3 — Act on the result
+- **APPROVE**:  Advance task to complete via \`update_task_status\`. If
+                advisoryFindingsCount > 0, deliver \`unifiedFeedbackMd\` as a
+                single non-blocking note. Otherwise, advance silently.
+- **CONCERNS**: Send \`unifiedFeedbackMd\` to the coder as ONE coherent document.
+                Do NOT enumerate individual member verdicts. Increment
+                roundNumber on the next council call. CONCERNS does not block
+                advancement at the update_task_status level — decide per
+                severity whether to advance or retry.
+- **REJECT**:   Block advancement. Send \`unifiedFeedbackMd\` to the coder with
+                the BLOCKING flag. The coder must resolve all \`requiredFixes\`
+                before re-submitting. Maximum \`council.maxRounds\` rounds
+                (default 3). If roundNumber >= maxRounds and verdict is still
+                REJECT, surface \`unifiedFeedbackMd\` to the user and HALT —
+                do NOT auto-advance.
+
+### Retry protocol
+On re-submission after REJECT or CONCERNS, the council reads the same
+pre-declared criteria and receives (a) the previous synthesis findings plus
+(b) the diff of what changed since the last round. Council members verify
+prior findings are resolved without re-reviewing unchanged code. The
+architect resolves any \`unresolvedConflicts\` in \`unifiedFeedbackMd\` BEFORE
+sending it to the coder — the coder never sees contradictory instructions
+from different members.`;
+}
+
+/**
  * Generate the YOUR TOOLS line from AGENT_TOOL_MAP.architect.
  * Format: "Task (delegation), tool1, tool2, ..." — Task is always first.
  */
@@ -1291,6 +1373,7 @@ export function createArchitectAgent(
 	customPrompt?: string,
 	customAppendPrompt?: string,
 	adversarialTesting?: AdversarialTestingConfig,
+	council?: CouncilWorkflowConfig,
 ): AgentDefinition {
 	let prompt = ARCHITECT_PROMPT;
 
@@ -1305,6 +1388,17 @@ export function createArchitectAgent(
 		?.replace('{{YOUR_TOOLS}}', buildYourToolsList())
 		?.replace('{{AVAILABLE_TOOLS}}', buildAvailableToolsList())
 		?.replace('{{SLASH_COMMANDS}}', buildSlashCommandsList());
+
+	// Option A: inline placeholder substitution (matches existing {{YOUR_TOOLS}},
+	// {{AVAILABLE_TOOLS}} pattern). When council is disabled/missing, collapse
+	// the surrounding blank lines as well so the rendered prompt is byte-for-byte
+	// identical to the pre-council prompt (non-regression guarantee).
+	const councilBlock = buildCouncilWorkflow(council);
+	if (councilBlock === '') {
+		prompt = prompt?.replace('\n\n{{COUNCIL_WORKFLOW}}\n\n', '\n\n');
+	} else {
+		prompt = prompt?.replace('{{COUNCIL_WORKFLOW}}', councilBlock);
+	}
 
 	// Handle adversarial testing conditional based on config
 	const advEnabled = adversarialTesting?.enabled ?? true; // Default: true (preserve current behavior)
