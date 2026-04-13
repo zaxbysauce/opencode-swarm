@@ -177,12 +177,18 @@ describe('convene_council — happy path with enabled config', () => {
 			expect(parsed.overallVerdict).toBe('APPROVE');
 			expect(parsed.vetoedBy).toBeNull();
 
-			// Evidence file should be written at the raw taskId path — same
-			// location check_gate_status and update-task-status read from.
+			// Evidence file should be written at the raw taskId path under
+			// gates.council — the shape check_gate_status / update-task-status
+			// actually consume.
 			const evidencePath = join(tempDir, '.swarm', 'evidence', '1.1.json');
 			const evidenceJson = JSON.parse(readFileSync(evidencePath, 'utf-8'));
-			expect(evidenceJson.council).toBeDefined();
-			expect(evidenceJson.council.verdict).toBe('APPROVE');
+			expect(evidenceJson.gates).toBeDefined();
+			expect(evidenceJson.gates.council).toBeDefined();
+			expect(evidenceJson.gates.council.verdict).toBe('APPROVE');
+			// Standard GateInfo fields must be present for downstream readers.
+			expect(evidenceJson.gates.council.sessionId).toBe('swarm-1');
+			expect(typeof evidenceJson.gates.council.timestamp).toBe('string');
+			expect(evidenceJson.gates.council.agent).toBe('architect');
 		} finally {
 			rmSync(tempDir, { recursive: true, force: true });
 		}

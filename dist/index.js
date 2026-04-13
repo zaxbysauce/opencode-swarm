@@ -68288,6 +68288,17 @@ import { existsSync as existsSync36, mkdirSync as mkdirSync16, readFileSync as r
 import { join as join59 } from "path";
 var EVIDENCE_DIR2 = ".swarm/evidence";
 var VALID_TASK_ID = /^\d+\.\d+(\.\d+)*$/;
+var COUNCIL_GATE_NAME = "council";
+var COUNCIL_AGENT_ID = "architect";
+var FORBIDDEN_KEYS = new Set(["__proto__", "constructor", "prototype"]);
+function safeAssignOwnProps(target, source) {
+  for (const key of Object.keys(source)) {
+    if (FORBIDDEN_KEYS.has(key))
+      continue;
+    target[key] = source[key];
+  }
+  return target;
+}
 function writeCouncilEvidence(workingDir, synthesis) {
   if (!VALID_TASK_ID.test(synthesis.taskId)) {
     throw new Error(`writeCouncilEvidence: invalid taskId "${synthesis.taskId}" \u2014 must match N.M or N.M.P format`);
@@ -68295,25 +68306,32 @@ function writeCouncilEvidence(workingDir, synthesis) {
   const dir = join59(workingDir, EVIDENCE_DIR2);
   mkdirSync16(dir, { recursive: true });
   const filePath = join59(dir, `${synthesis.taskId}.json`);
-  let existing = {};
+  const existingRoot = Object.create(null);
   if (existsSync36(filePath)) {
     try {
       const parsed = JSON.parse(readFileSync35(filePath, "utf-8"));
       if (parsed && typeof parsed === "object" && !Array.isArray(parsed)) {
-        existing = parsed;
+        safeAssignOwnProps(existingRoot, parsed);
       }
     } catch {}
   }
-  const updated = {
-    ...existing,
-    council: {
-      verdict: synthesis.overallVerdict,
-      vetoedBy: synthesis.vetoedBy,
-      roundNumber: synthesis.roundNumber,
-      allCriteriaMet: synthesis.allCriteriaMet,
-      timestamp: synthesis.timestamp
-    }
+  const existingGatesRaw = existingRoot.gates;
+  const mergedGates = Object.create(null);
+  if (existingGatesRaw && typeof existingGatesRaw === "object" && !Array.isArray(existingGatesRaw)) {
+    safeAssignOwnProps(mergedGates, existingGatesRaw);
+  }
+  mergedGates[COUNCIL_GATE_NAME] = {
+    sessionId: synthesis.swarmId,
+    timestamp: synthesis.timestamp,
+    agent: COUNCIL_AGENT_ID,
+    verdict: synthesis.overallVerdict,
+    vetoedBy: synthesis.vetoedBy,
+    roundNumber: synthesis.roundNumber,
+    allCriteriaMet: synthesis.allCriteriaMet
   };
+  const updated = Object.create(null);
+  safeAssignOwnProps(updated, existingRoot);
+  updated.gates = mergedGates;
   writeFileSync11(filePath, JSON.stringify(updated, null, 2));
 }
 
@@ -68346,9 +68364,10 @@ function synthesizeCouncilVerdicts(taskId, swarmId, verdicts, criteria, roundNum
     ...vetoFindings.filter((f) => f.severity === "LOW"),
     ...verdicts.filter((v) => !rejectingSet.has(v.agent)).flatMap((v) => v.findings)
   ];
+  const allAssessedIds = new Set(verdicts.flatMap((v) => v.criteriaAssessed));
   const allUnmetIds = new Set(verdicts.flatMap((v) => v.criteriaUnmet));
   const mandatoryIds = new Set((criteria?.criteria ?? []).filter((c) => c.mandatory).map((c) => c.id));
-  const allCriteriaMet = [...mandatoryIds].every((id) => !allUnmetIds.has(id));
+  const allCriteriaMet = [...mandatoryIds].every((id) => allAssessedIds.has(id) && !allUnmetIds.has(id));
   const unifiedFeedbackMd = buildUnifiedFeedback(taskId, overallVerdict, rejectingMembers, requiredFixes, advisoryFindings, unresolvedConflicts, roundNumber, cfg.maxRounds);
   return {
     taskId,

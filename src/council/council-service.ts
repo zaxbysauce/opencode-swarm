@@ -70,11 +70,18 @@ export function synthesizeCouncilVerdicts(
 	];
 
 	// ── Criteria assessment ───────────────────────────────────────────────
+	// A mandatory criterion counts as "met" only when it was actually assessed
+	// by at least one member AND no member reported it unmet. An unassessed
+	// mandatory criterion is treated as not met — otherwise a council that
+	// simply forgot to evaluate the criterion would silently auto-approve.
+	const allAssessedIds = new Set(verdicts.flatMap((v) => v.criteriaAssessed));
 	const allUnmetIds = new Set(verdicts.flatMap((v) => v.criteriaUnmet));
 	const mandatoryIds = new Set(
 		(criteria?.criteria ?? []).filter((c) => c.mandatory).map((c) => c.id),
 	);
-	const allCriteriaMet = [...mandatoryIds].every((id) => !allUnmetIds.has(id));
+	const allCriteriaMet = [...mandatoryIds].every(
+		(id) => allAssessedIds.has(id) && !allUnmetIds.has(id),
+	);
 
 	// ── Unified feedback markdown ─────────────────────────────────────────
 	const unifiedFeedbackMd = buildUnifiedFeedback(

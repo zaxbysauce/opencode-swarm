@@ -1,15 +1,18 @@
 /**
  * Work Complete Council — evidence writer.
  *
- * Stamps council synthesis result into .swarm/evidence/{taskId}.json under a
- * `council` key, so downstream evidence consumers (notably check_gate_status
- * and update-task-status) observe the council gate at the same path they
- * already read. Existing fields in the evidence file are preserved.
+ * Stamps the council synthesis result into `.swarm/evidence/{taskId}.json`
+ * under `gates.council`, matching the shape other gate writers use and the
+ * shape that `check_gate_status` and `update_task_status` consume (they read
+ * `evidence.gates[gateName]`). Council-specific fields (verdict, vetoedBy,
+ * roundNumber, allCriteriaMet) are stored alongside the standard GateInfo
+ * fields (sessionId, timestamp, agent); existing consumers only check
+ * `gates.council != null`, so the extras are compatible.
  *
- * The raw taskId is used as the filename — matching check-gate-status.ts and
- * update-task-status.ts. The canonical taskId format (/^\d+\.\d+(\.\d+)*$/)
- * contains only digits and dots, so the filename carries no path-traversal
- * risk. Defense in depth: we re-validate format here before any FS op.
+ * Existing fields in the evidence file — top-level keys AND other `gates[*]`
+ * entries — are preserved across the write. The raw taskId is used as the
+ * filename; defense-in-depth regex validation rejects malformed IDs before
+ * any filesystem op.
  */
 import type { CouncilSynthesis } from './types';
 export declare function writeCouncilEvidence(workingDir: string, synthesis: CouncilSynthesis): void;

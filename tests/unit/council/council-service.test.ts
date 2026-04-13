@@ -240,6 +240,179 @@ describe('synthesizeCouncilVerdicts — conflict detection', () => {
 });
 
 describe('synthesizeCouncilVerdicts — criteria assessment', () => {
+	test('allCriteriaMet is false when a mandatory criterion was not assessed at all', () => {
+		// An unassessed mandatory criterion must NOT count as met — otherwise a
+		// council that simply forgot to evaluate C2 would silently auto-approve.
+		const verdicts: CouncilMemberVerdict[] = [
+			{
+				agent: 'critic',
+				verdict: 'APPROVE',
+				confidence: 1,
+				findings: [],
+				criteriaAssessed: ['C1'],
+				criteriaUnmet: [],
+				durationMs: 10,
+			},
+			{
+				agent: 'reviewer',
+				verdict: 'APPROVE',
+				confidence: 1,
+				findings: [],
+				criteriaAssessed: ['C1'],
+				criteriaUnmet: [],
+				durationMs: 10,
+			},
+			{
+				agent: 'sme',
+				verdict: 'APPROVE',
+				confidence: 1,
+				findings: [],
+				criteriaAssessed: ['C1'],
+				criteriaUnmet: [],
+				durationMs: 10,
+			},
+			{
+				agent: 'test_engineer',
+				verdict: 'APPROVE',
+				confidence: 1,
+				findings: [],
+				criteriaAssessed: ['C1'],
+				criteriaUnmet: [],
+				durationMs: 10,
+			},
+		];
+		const result = synthesizeCouncilVerdicts(
+			'1.1',
+			'swarm-1',
+			verdicts,
+			{
+				taskId: '1.1',
+				criteria: [
+					{ id: 'C1', description: 'x', mandatory: true },
+					{ id: 'C2', description: 'y', mandatory: true },
+				],
+				declaredAt: new Date().toISOString(),
+			},
+			1,
+		);
+		expect(result.allCriteriaMet).toBe(false);
+	});
+
+	test('allCriteriaMet with two mandatory criteria and one unmet catches .every/.some mutation', () => {
+		// With two mandatory criteria, C1 met and C2 unmet: .every returns false
+		// (correct), .some would return true (incorrect). This test will fail if
+		// someone ever flips .every to .some.
+		const verdicts: CouncilMemberVerdict[] = [
+			{
+				agent: 'critic',
+				verdict: 'CONCERNS',
+				confidence: 1,
+				findings: [],
+				criteriaAssessed: ['C1', 'C2'],
+				criteriaUnmet: ['C2'],
+				durationMs: 10,
+			},
+			{
+				agent: 'reviewer',
+				verdict: 'APPROVE',
+				confidence: 1,
+				findings: [],
+				criteriaAssessed: ['C1', 'C2'],
+				criteriaUnmet: [],
+				durationMs: 10,
+			},
+			{
+				agent: 'sme',
+				verdict: 'APPROVE',
+				confidence: 1,
+				findings: [],
+				criteriaAssessed: ['C1', 'C2'],
+				criteriaUnmet: [],
+				durationMs: 10,
+			},
+			{
+				agent: 'test_engineer',
+				verdict: 'APPROVE',
+				confidence: 1,
+				findings: [],
+				criteriaAssessed: ['C1', 'C2'],
+				criteriaUnmet: [],
+				durationMs: 10,
+			},
+		];
+		const result = synthesizeCouncilVerdicts(
+			'1.1',
+			'swarm-1',
+			verdicts,
+			{
+				taskId: '1.1',
+				criteria: [
+					{ id: 'C1', description: 'x', mandatory: true },
+					{ id: 'C2', description: 'y', mandatory: true },
+				],
+				declaredAt: new Date().toISOString(),
+			},
+			1,
+		);
+		expect(result.allCriteriaMet).toBe(false);
+	});
+
+	test('allCriteriaMet is true when both mandatory criteria are assessed and not unmet', () => {
+		const verdicts: CouncilMemberVerdict[] = [
+			{
+				agent: 'critic',
+				verdict: 'APPROVE',
+				confidence: 1,
+				findings: [],
+				criteriaAssessed: ['C1', 'C2'],
+				criteriaUnmet: [],
+				durationMs: 10,
+			},
+			{
+				agent: 'reviewer',
+				verdict: 'APPROVE',
+				confidence: 1,
+				findings: [],
+				criteriaAssessed: ['C1', 'C2'],
+				criteriaUnmet: [],
+				durationMs: 10,
+			},
+			{
+				agent: 'sme',
+				verdict: 'APPROVE',
+				confidence: 1,
+				findings: [],
+				criteriaAssessed: ['C1', 'C2'],
+				criteriaUnmet: [],
+				durationMs: 10,
+			},
+			{
+				agent: 'test_engineer',
+				verdict: 'APPROVE',
+				confidence: 1,
+				findings: [],
+				criteriaAssessed: ['C1', 'C2'],
+				criteriaUnmet: [],
+				durationMs: 10,
+			},
+		];
+		const result = synthesizeCouncilVerdicts(
+			'1.1',
+			'swarm-1',
+			verdicts,
+			{
+				taskId: '1.1',
+				criteria: [
+					{ id: 'C1', description: 'x', mandatory: true },
+					{ id: 'C2', description: 'y', mandatory: true },
+				],
+				declaredAt: new Date().toISOString(),
+			},
+			1,
+		);
+		expect(result.allCriteriaMet).toBe(true);
+	});
+
 	test('allCriteriaMet is false when a mandatory criterion is unmet', () => {
 		const verdicts = [
 			makeVerdict('critic', 'REJECT'),

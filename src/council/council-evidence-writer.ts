@@ -1,15 +1,18 @@
 /**
  * Work Complete Council — evidence writer.
  *
- * Stamps council synthesis result into .swarm/evidence/{taskId}.json under a
- * `council` key, so downstream evidence consumers (notably check_gate_status
- * and update-task-status) observe the council gate at the same path they
- * already read. Existing fields in the evidence file are preserved.
+ * Stamps the council synthesis result into `.swarm/evidence/{taskId}.json`
+ * under `gates.council`, matching the shape other gate writers use and the
+ * shape that `check_gate_status` and `update_task_status` consume (they read
+ * `evidence.gates[gateName]`). Council-specific fields (verdict, vetoedBy,
+ * roundNumber, allCriteriaMet) are stored alongside the standard GateInfo
+ * fields (sessionId, timestamp, agent); existing consumers only check
+ * `gates.council != null`, so the extras are compatible.
  *
- * The raw taskId is used as the filename — matching check-gate-status.ts and
- * update-task-status.ts. The canonical taskId format (/^\d+\.\d+(\.\d+)*$/)
- * contains only digits and dots, so the filename carries no path-traversal
- * risk. Defense in depth: we re-validate format here before any FS op.
+ * Existing fields in the evidence file — top-level keys AND other `gates[*]`
+ * entries — are preserved across the write. The raw taskId is used as the
+ * filename; defense-in-depth regex validation rejects malformed IDs before
+ * any filesystem op.
  */
 
 import { existsSync, mkdirSync, readFileSync, writeFileSync } from 'node:fs';
@@ -18,6 +21,28 @@ import type { CouncilSynthesis } from './types';
 
 const EVIDENCE_DIR = '.swarm/evidence';
 const VALID_TASK_ID = /^\d+\.\d+(\.\d+)*$/;
+const COUNCIL_GATE_NAME = 'council';
+const COUNCIL_AGENT_ID = 'architect';
+
+/**
+ * Merge existing own properties into the target, skipping keys that would
+ * pollute the prototype chain even though object spread does not linkify them.
+ * We still filter these defensively so malicious evidence files cannot add
+ * enumerable own-properties named `__proto__` / `constructor` / `prototype`
+ * to the resulting JSON.
+ */
+const FORBIDDEN_KEYS = new Set(['__proto__', 'constructor', 'prototype']);
+
+function safeAssignOwnProps(
+	target: Record<string, unknown>,
+	source: Record<string, unknown>,
+): Record<string, unknown> {
+	for (const key of Object.keys(source)) {
+		if (FORBIDDEN_KEYS.has(key)) continue;
+		target[key] = source[key];
+	}
+	return target;
+}
 
 export function writeCouncilEvidence(
 	workingDir: string,
@@ -34,28 +59,50 @@ export function writeCouncilEvidence(
 	mkdirSync(dir, { recursive: true });
 
 	const filePath = join(dir, `${synthesis.taskId}.json`);
-	let existing: Record<string, unknown> = {};
+
+	// Read existing evidence (if any) and start from a clean prototype-free object.
+	const existingRoot: Record<string, unknown> = Object.create(null);
 	if (existsSync(filePath)) {
 		try {
 			const parsed = JSON.parse(readFileSync(filePath, 'utf-8'));
 			if (parsed && typeof parsed === 'object' && !Array.isArray(parsed)) {
-				existing = parsed as Record<string, unknown>;
+				safeAssignOwnProps(existingRoot, parsed as Record<string, unknown>);
 			}
+			// Arrays, nulls, or corrupt JSON all fall through to a fresh start.
 		} catch {
 			// Corrupted evidence file — start fresh rather than crashing.
 		}
 	}
 
-	const updated = {
-		...existing,
-		council: {
-			verdict: synthesis.overallVerdict,
-			vetoedBy: synthesis.vetoedBy,
-			roundNumber: synthesis.roundNumber,
-			allCriteriaMet: synthesis.allCriteriaMet,
-			timestamp: synthesis.timestamp,
-		},
+	// Preserve any prior gates entries alongside the council entry.
+	const existingGatesRaw = existingRoot.gates;
+	const mergedGates: Record<string, unknown> = Object.create(null);
+	if (
+		existingGatesRaw &&
+		typeof existingGatesRaw === 'object' &&
+		!Array.isArray(existingGatesRaw)
+	) {
+		safeAssignOwnProps(
+			mergedGates,
+			existingGatesRaw as Record<string, unknown>,
+		);
+	}
+
+	mergedGates[COUNCIL_GATE_NAME] = {
+		// Standard GateInfo fields so check_gate_status / update_task_status see it.
+		sessionId: synthesis.swarmId,
+		timestamp: synthesis.timestamp,
+		agent: COUNCIL_AGENT_ID,
+		// Council-specific extras — safe to carry; existing readers only check presence.
+		verdict: synthesis.overallVerdict,
+		vetoedBy: synthesis.vetoedBy,
+		roundNumber: synthesis.roundNumber,
+		allCriteriaMet: synthesis.allCriteriaMet,
 	};
+
+	const updated: Record<string, unknown> = Object.create(null);
+	safeAssignOwnProps(updated, existingRoot);
+	updated.gates = mergedGates;
 
 	writeFileSync(filePath, JSON.stringify(updated, null, 2));
 }
