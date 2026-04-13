@@ -97,7 +97,9 @@ var init_tool_names = __esm(() => {
     "suggest_patch",
     "req_coverage",
     "get_approved_plan",
-    "repo_map"
+    "repo_map",
+    "get_qa_gate_profile",
+    "set_qa_gates"
   ];
   TOOL_NAME_SET = new Set(TOOL_NAMES);
 });
@@ -235,7 +237,9 @@ var init_constants = __esm(() => {
       "knowledge_remove",
       "co_change_analyzer",
       "suggest_patch",
-      "repo_map"
+      "repo_map",
+      "get_qa_gate_profile",
+      "set_qa_gates"
     ],
     explorer: [
       "complexity_hotspots",
@@ -427,7 +431,9 @@ var init_constants = __esm(() => {
     suggest_patch: "Reviewer-safe structured patch suggestion tool. Produces context-anchored patch artifacts without file modification. Returns structured diagnostics on context mismatch.",
     lint_spec: "validate .swarm/spec.md format and required fields",
     get_approved_plan: "retrieve the last critic-approved immutable plan snapshot for baseline drift comparison",
-    repo_map: "query the repo code graph: importers, dependencies, blast radius, and localization context for structural awareness before refactoring"
+    repo_map: "query the repo code graph: importers, dependencies, blast radius, and localization context for structural awareness before refactoring",
+    get_qa_gate_profile: "retrieve the QA gate profile for the current plan: gates, lock state, and profile hash. Read-only.",
+    set_qa_gates: "configure the QA gate profile for the current plan. Architect-only. Ratchet-tighter only \u2014 rejected once the profile is locked after critic approval."
   };
   for (const [agentName, tools] of Object.entries(AGENT_TOOL_MAP)) {
     const invalidTools = tools.filter((tool) => !TOOL_NAME_SET.has(tool));
@@ -17710,6 +17716,7 @@ function startAgentSession(sessionId, agentName, staleDurationMs = 7200000, dire
     scopeViolationDetected: false,
     modifiedFilesThisCoderTask: [],
     turboMode: false,
+    qaGateSessionOverrides: {},
     fullAutoMode: false,
     fullAutoInteractionCount: 0,
     fullAutoDeadlockCount: 0,
@@ -17834,6 +17841,9 @@ function ensureAgentSession(sessionId, agentName, directory) {
     }
     if (session.turboMode === undefined) {
       session.turboMode = false;
+    }
+    if (session.qaGateSessionOverrides === undefined) {
+      session.qaGateSessionOverrides = {};
     }
     if (session.model_fallback_index === undefined) {
       session.model_fallback_index = 0;
@@ -38768,12 +38778,12 @@ __export(exports_evidence_summary_integration, {
   createEvidenceSummaryIntegration: () => createEvidenceSummaryIntegration,
   EvidenceSummaryIntegration: () => EvidenceSummaryIntegration
 });
-import { existsSync as existsSync21, mkdirSync as mkdirSync10, writeFileSync as writeFileSync5 } from "fs";
+import { existsSync as existsSync22, mkdirSync as mkdirSync11, writeFileSync as writeFileSync5 } from "fs";
 import * as path36 from "path";
 function persistSummary(swarmDir, artifact, filename) {
   const swarmPath = path36.join(swarmDir, ".swarm");
-  if (!existsSync21(swarmPath)) {
-    mkdirSync10(swarmPath, { recursive: true });
+  if (!existsSync22(swarmPath)) {
+    mkdirSync11(swarmPath, { recursive: true });
   }
   const artifactPath = path36.join(swarmPath, filename);
   const content = JSON.stringify(artifact, null, 2);
@@ -41041,7 +41051,7 @@ __export(exports_gate_evidence, {
   deriveRequiredGates: () => deriveRequiredGates,
   DEFAULT_REQUIRED_GATES: () => DEFAULT_REQUIRED_GATES
 });
-import { mkdirSync as mkdirSync12, readFileSync as readFileSync18, renameSync as renameSync10, unlinkSync as unlinkSync5 } from "fs";
+import { mkdirSync as mkdirSync13, readFileSync as readFileSync18, renameSync as renameSync10, unlinkSync as unlinkSync5 } from "fs";
 import * as path40 from "path";
 function isValidTaskId2(taskId) {
   return isStrictTaskId(taskId);
@@ -41106,7 +41116,7 @@ async function recordGateEvidence(directory, taskId, gate, sessionId, turbo) {
   assertValidTaskId(taskId);
   const evidenceDir = getEvidenceDir(directory);
   const evidencePath = getEvidencePath(directory, taskId);
-  mkdirSync12(evidenceDir, { recursive: true });
+  mkdirSync13(evidenceDir, { recursive: true });
   const existing = readExisting(evidencePath);
   const requiredGates = existing ? expandRequiredGates(existing.required_gates, gate) : deriveRequiredGates(gate);
   const updated = {
@@ -41129,7 +41139,7 @@ async function recordAgentDispatch(directory, taskId, agentType, turbo) {
   assertValidTaskId(taskId);
   const evidenceDir = getEvidenceDir(directory);
   const evidencePath = getEvidencePath(directory, taskId);
-  mkdirSync12(evidenceDir, { recursive: true });
+  mkdirSync13(evidenceDir, { recursive: true });
   const existing = readExisting(evidencePath);
   const requiredGates = existing ? expandRequiredGates(existing.required_gates, agentType) : deriveRequiredGates(agentType);
   const updated = {
@@ -43552,8 +43562,8 @@ ${JSON.stringify(symbolNames, null, 2)}`);
       var moduleRtn;
       var Module = moduleArg;
       var readyPromiseResolve, readyPromiseReject;
-      var readyPromise = new Promise((resolve26, reject) => {
-        readyPromiseResolve = resolve26;
+      var readyPromise = new Promise((resolve27, reject) => {
+        readyPromiseResolve = resolve27;
         readyPromiseReject = reject;
       });
       var ENVIRONMENT_IS_WEB = typeof window == "object";
@@ -43633,13 +43643,13 @@ ${JSON.stringify(symbolNames, null, 2)}`);
           }
           readAsync = /* @__PURE__ */ __name(async (url3) => {
             if (isFileURI(url3)) {
-              return new Promise((resolve26, reject) => {
+              return new Promise((resolve27, reject) => {
                 var xhr = new XMLHttpRequest;
                 xhr.open("GET", url3, true);
                 xhr.responseType = "arraybuffer";
                 xhr.onload = () => {
                   if (xhr.status == 200 || xhr.status == 0 && xhr.response) {
-                    resolve26(xhr.response);
+                    resolve27(xhr.response);
                     return;
                   }
                   reject(xhr.status);
@@ -43859,10 +43869,10 @@ ${JSON.stringify(symbolNames, null, 2)}`);
         __name(receiveInstantiationResult, "receiveInstantiationResult");
         var info2 = getWasmImports();
         if (Module["instantiateWasm"]) {
-          return new Promise((resolve26, reject) => {
+          return new Promise((resolve27, reject) => {
             Module["instantiateWasm"](info2, (mod, inst) => {
               receiveInstance(mod, inst);
-              resolve26(mod.exports);
+              resolve27(mod.exports);
             });
           });
         }
@@ -45382,8 +45392,8 @@ async function loadGrammar(languageId) {
   const parser = new Parser;
   const wasmFileName = getWasmFileName(normalizedId);
   const wasmPath = path66.join(getGrammarsDirAbsolute(), wasmFileName);
-  const { existsSync: existsSync39 } = await import("fs");
-  if (!existsSync39(wasmPath)) {
+  const { existsSync: existsSync40 } = await import("fs");
+  if (!existsSync40(wasmPath)) {
     throw new Error(`Grammar file not found for ${languageId}: ${wasmPath}
 Make sure to run 'bun run build' to copy grammar files to dist/lang/grammars/`);
   }
@@ -45997,6 +46007,24 @@ async function handleBenchmarkCommand(directory, args2) {
   lines.push("[BENCHMARK_JSON]", JSON.stringify(json2, null, 2), "[/BENCHMARK_JSON]");
   return lines.join(`
 `);
+}
+
+// src/commands/brainstorm.ts
+function sanitizeTopic(raw) {
+  const collapsed = raw.replace(/\s+/g, " ").trim();
+  const stripped = collapsed.replace(/\[\s*MODE\s*:[^\]]*\]/gi, "");
+  const normalized = stripped.replace(/\s+/g, " ").trim();
+  const MAX_TOPIC_LEN = 2000;
+  if (normalized.length <= MAX_TOPIC_LEN)
+    return normalized;
+  return `${normalized.slice(0, MAX_TOPIC_LEN)}\u2026`;
+}
+async function handleBrainstormCommand(_directory, args2) {
+  const description = sanitizeTopic(args2.join(" "));
+  if (description) {
+    return `[MODE: BRAINSTORM] ${description}`;
+  }
+  return "[MODE: BRAINSTORM] Please enter MODE: BRAINSTORM and begin the structured brainstorm workflow (CONTEXT SCAN \u2192 DIALOGUE \u2192 APPROACHES \u2192 DESIGN SECTIONS \u2192 SPEC WRITE + SELF-REVIEW \u2192 QA GATE SELECTION \u2192 TRANSITION).";
 }
 
 // src/commands/checkpoint.ts
@@ -51515,6 +51543,341 @@ async function handlePromoteCommand(directory, args2) {
   }
 }
 
+// src/db/qa-gate-profile.ts
+import { createHash as createHash4 } from "crypto";
+
+// src/db/project-db.ts
+import { Database } from "bun:sqlite";
+import { existsSync as existsSync18, mkdirSync as mkdirSync9 } from "fs";
+import { join as join26, resolve as resolve11 } from "path";
+var MIGRATIONS = [
+  {
+    version: 1,
+    name: "create_project_constraints",
+    sql: `CREATE TABLE project_constraints (
+			id INTEGER PRIMARY KEY AUTOINCREMENT,
+			constraint_type TEXT NOT NULL,
+			content TEXT NOT NULL,
+			created_at TEXT NOT NULL DEFAULT (datetime('now'))
+		)`
+  },
+  {
+    version: 2,
+    name: "create_qa_gate_profile",
+    sql: `CREATE TABLE qa_gate_profile (
+			id INTEGER PRIMARY KEY AUTOINCREMENT,
+			plan_id TEXT NOT NULL UNIQUE,
+			created_at TEXT NOT NULL DEFAULT (datetime('now')),
+			project_type TEXT,
+			gates TEXT NOT NULL DEFAULT '{}',
+			locked_at TEXT,
+			locked_by_snapshot_seq INTEGER
+		)`
+  },
+  {
+    version: 3,
+    name: "create_qa_gate_profile_immutability_trigger",
+    sql: `CREATE TRIGGER IF NOT EXISTS trg_qa_gate_profile_no_update_after_lock
+			BEFORE UPDATE ON qa_gate_profile
+			WHEN OLD.locked_at IS NOT NULL
+			BEGIN
+				SELECT RAISE(ABORT, 'qa_gate_profile row is locked and cannot be modified after critic approval');
+			END`
+  }
+];
+var _projectDbs = new Map;
+function runProjectMigrations(db) {
+  db.run(`CREATE TABLE IF NOT EXISTS schema_migrations (
+		version INTEGER PRIMARY KEY,
+		name TEXT NOT NULL,
+		applied_at TEXT NOT NULL DEFAULT (datetime('now'))
+	)`);
+  const row = db.query("SELECT MAX(version) as version FROM schema_migrations").get();
+  const currentVersion = row?.version ?? 0;
+  for (const migration of MIGRATIONS) {
+    if (migration.version <= currentVersion)
+      continue;
+    const apply = db.transaction(() => {
+      db.run(migration.sql);
+      db.run("INSERT INTO schema_migrations (version, name) VALUES (?, ?)", [
+        migration.version,
+        migration.name
+      ]);
+    });
+    apply();
+  }
+}
+function projectDbPath(directory) {
+  return join26(resolve11(directory), ".swarm", "swarm.db");
+}
+function projectDbExists(directory) {
+  return existsSync18(projectDbPath(directory));
+}
+function getProjectDb(directory) {
+  const key = resolve11(directory);
+  const existing = _projectDbs.get(key);
+  if (existing)
+    return existing;
+  const swarmDir = join26(key, ".swarm");
+  mkdirSync9(swarmDir, { recursive: true });
+  const db = new Database(join26(swarmDir, "swarm.db"));
+  db.run("PRAGMA journal_mode = WAL;");
+  db.run("PRAGMA synchronous = NORMAL;");
+  db.run("PRAGMA busy_timeout = 5000;");
+  db.run("PRAGMA foreign_keys = ON;");
+  runProjectMigrations(db);
+  _projectDbs.set(key, db);
+  return db;
+}
+
+// src/db/qa-gate-profile.ts
+var DEFAULT_QA_GATES = {
+  reviewer: true,
+  test_engineer: true,
+  council_mode: false,
+  sme_enabled: true,
+  critic_pre_plan: true,
+  hallucination_guard: false,
+  sast_enabled: true
+};
+function rowToProfile(row) {
+  let parsed = {};
+  try {
+    parsed = JSON.parse(row.gates);
+  } catch {
+    parsed = {};
+  }
+  const gates = { ...DEFAULT_QA_GATES, ...parsed };
+  return {
+    id: row.id,
+    plan_id: row.plan_id,
+    created_at: row.created_at,
+    project_type: row.project_type,
+    gates,
+    locked_at: row.locked_at,
+    locked_by_snapshot_seq: row.locked_by_snapshot_seq
+  };
+}
+function getProfile(directory, planId) {
+  if (!projectDbExists(directory))
+    return null;
+  const db = getProjectDb(directory);
+  const row = db.query("SELECT * FROM qa_gate_profile WHERE plan_id = ?").get(planId);
+  return row ? rowToProfile(row) : null;
+}
+function getOrCreateProfile(directory, planId, projectType) {
+  const existing = getProfile(directory, planId);
+  if (existing)
+    return existing;
+  const db = getProjectDb(directory);
+  const gatesJson = JSON.stringify(DEFAULT_QA_GATES);
+  const insert = db.transaction(() => {
+    db.run("INSERT INTO qa_gate_profile (plan_id, project_type, gates) VALUES (?, ?, ?)", [planId, projectType ?? null, gatesJson]);
+  });
+  try {
+    insert();
+  } catch (err2) {
+    const msg = err2 instanceof Error ? err2.message : String(err2);
+    if (!msg.toLowerCase().includes("unique")) {
+      throw err2;
+    }
+  }
+  const after = getProfile(directory, planId);
+  if (!after) {
+    throw new Error(`Failed to create or load QA gate profile for plan_id=${planId}`);
+  }
+  return after;
+}
+function setGates(directory, planId, gates) {
+  const current = getProfile(directory, planId);
+  if (!current) {
+    throw new Error(`No QA gate profile found for plan_id=${planId} \u2014 call getOrCreateProfile first`);
+  }
+  if (current.locked_at !== null) {
+    throw new Error("Cannot modify gates: QA gate profile is locked after critic approval");
+  }
+  const merged = { ...current.gates };
+  for (const key of Object.keys(gates)) {
+    const incoming = gates[key];
+    if (incoming === undefined)
+      continue;
+    if (incoming === false && current.gates[key] === true) {
+      throw new Error(`Cannot disable gate '${key}': sessions can only ratchet tighter`);
+    }
+    if (incoming === true) {
+      merged[key] = true;
+    }
+  }
+  const db = getProjectDb(directory);
+  db.run("UPDATE qa_gate_profile SET gates = ? WHERE plan_id = ?", [
+    JSON.stringify(merged),
+    planId
+  ]);
+  const updated = getProfile(directory, planId);
+  if (!updated) {
+    throw new Error(`Failed to re-read QA gate profile after update for plan_id=${planId}`);
+  }
+  return updated;
+}
+function lockProfile(directory, planId, snapshotSeq) {
+  const current = getProfile(directory, planId);
+  if (!current) {
+    throw new Error(`No QA gate profile found for plan_id=${planId} \u2014 cannot lock`);
+  }
+  if (current.locked_at !== null) {
+    return current;
+  }
+  const db = getProjectDb(directory);
+  db.run("UPDATE qa_gate_profile SET locked_at = datetime('now'), locked_by_snapshot_seq = ? WHERE plan_id = ?", [snapshotSeq, planId]);
+  const locked = getProfile(directory, planId);
+  if (!locked) {
+    throw new Error(`Failed to re-read locked QA gate profile for plan_id=${planId}`);
+  }
+  return locked;
+}
+function computeProfileHash(profile) {
+  const payload = JSON.stringify({
+    plan_id: profile.plan_id,
+    gates: profile.gates
+  });
+  return createHash4("sha256").update(payload).digest("hex");
+}
+function getEffectiveGates(profile, sessionOverrides) {
+  const merged = { ...profile.gates };
+  for (const key of Object.keys(sessionOverrides)) {
+    if (sessionOverrides[key] === true) {
+      merged[key] = true;
+    }
+  }
+  return merged;
+}
+
+// src/commands/qa-gates.ts
+init_manager();
+init_state();
+var ALL_GATE_NAMES = [
+  "reviewer",
+  "test_engineer",
+  "council_mode",
+  "sme_enabled",
+  "critic_pre_plan",
+  "hallucination_guard",
+  "sast_enabled"
+];
+function derivePlanId(plan) {
+  return `${plan.swarm}-${plan.title}`.replace(/[^a-zA-Z0-9-_]/g, "_");
+}
+function isGateName(name2) {
+  return ALL_GATE_NAMES.includes(name2);
+}
+function formatGates(gates) {
+  return ALL_GATE_NAMES.map((g) => `  - ${g}: ${gates[g] ? "on" : "off"}`).join(`
+`);
+}
+async function handleQaGatesCommand(directory, args2, sessionID) {
+  const plan = await loadPlanJsonOnly(directory);
+  if (!plan) {
+    return "Error: plan.json not found or invalid. Create a plan first (e.g. /swarm specify or save_plan).";
+  }
+  const planId = derivePlanId(plan);
+  const subcommand = args2[0]?.toLowerCase();
+  const gateArgs = args2.slice(1);
+  if (!subcommand || subcommand === "show" || subcommand === "status") {
+    const profile = getProfile(directory, planId);
+    const spec = profile ? profile.gates : DEFAULT_QA_GATES;
+    const session = sessionID ? getAgentSession(sessionID) : null;
+    const overrides = session?.qaGateSessionOverrides ?? {};
+    const effective = profile ? getEffectiveGates(profile, overrides) : { ...DEFAULT_QA_GATES, ...overrides };
+    const lines = [];
+    lines.push(`QA Gate Profile for plan_id=${planId}`);
+    if (!profile) {
+      lines.push("  (no profile persisted yet \u2014 showing defaults)");
+    } else {
+      lines.push(`  locked: ${profile.locked_at ? `yes @ ${profile.locked_at} (seq ${profile.locked_by_snapshot_seq ?? "?"})` : "no"}`);
+      lines.push(`  profile_hash: ${computeProfileHash(profile)}`);
+    }
+    lines.push("Spec-level gates:");
+    lines.push(formatGates(spec));
+    lines.push("Session overrides (ratchet-tighter only):");
+    if (Object.keys(overrides).length === 0) {
+      lines.push("  (none)");
+    } else {
+      for (const k of ALL_GATE_NAMES) {
+        if (overrides[k] === true)
+          lines.push(`  - ${k}: on (override)`);
+      }
+    }
+    lines.push("Effective gates:");
+    lines.push(formatGates(effective));
+    return lines.join(`
+`);
+  }
+  if (subcommand === "enable") {
+    if (gateArgs.length === 0) {
+      return "Usage: /swarm qa-gates enable <gate> [<gate> ...]";
+    }
+    const invalid = gateArgs.filter((g) => !isGateName(g));
+    if (invalid.length > 0) {
+      return `Error: unknown gate(s): ${invalid.join(", ")}. Valid gates: ${ALL_GATE_NAMES.join(", ")}`;
+    }
+    getOrCreateProfile(directory, planId);
+    const patch = {};
+    for (const g of gateArgs) {
+      if (isGateName(g))
+        patch[g] = true;
+    }
+    try {
+      const updated = setGates(directory, planId, patch);
+      return [
+        `Enabled gates persisted for plan_id=${planId}:`,
+        formatGates(updated.gates),
+        `profile_hash: ${computeProfileHash(updated)}`
+      ].join(`
+`);
+    } catch (err2) {
+      const msg = err2 instanceof Error ? err2.message : String(err2);
+      return `Error: ${msg}`;
+    }
+  }
+  if (subcommand === "override") {
+    if (!sessionID) {
+      return "Error: session overrides require an active session context.";
+    }
+    if (gateArgs.length === 0) {
+      return "Usage: /swarm qa-gates override <gate> [<gate> ...]";
+    }
+    const invalid = gateArgs.filter((g) => !isGateName(g));
+    if (invalid.length > 0) {
+      return `Error: unknown gate(s): ${invalid.join(", ")}. Valid gates: ${ALL_GATE_NAMES.join(", ")}`;
+    }
+    const session = getAgentSession(sessionID);
+    if (!session) {
+      return "Error: no active session found for override.";
+    }
+    const current = session.qaGateSessionOverrides ?? {};
+    const next = { ...current };
+    for (const g of gateArgs) {
+      if (isGateName(g))
+        next[g] = true;
+    }
+    session.qaGateSessionOverrides = next;
+    return [
+      `Session overrides updated for plan_id=${planId}:`,
+      Object.keys(next).filter((k) => next[k] === true).map((k) => `  - ${k}: on`).join(`
+`) || "  (none)"
+    ].join(`
+`);
+  }
+  return [
+    "Usage:",
+    "  /swarm qa-gates                    show current profile + effective gates",
+    "  /swarm qa-gates enable <gate>...   persist-enable gate(s) (rejected if locked)",
+    "  /swarm qa-gates override <gate>... session-only enable (ratchet-tighter)",
+    `Valid gates: ${ALL_GATE_NAMES.join(", ")}`
+  ].join(`
+`);
+}
+
 // src/commands/reset.ts
 import * as fs21 from "fs";
 
@@ -51571,13 +51934,13 @@ class CircuitBreaker {
     if (this.config.callTimeoutMs <= 0) {
       return fn();
     }
-    return new Promise((resolve11, reject) => {
+    return new Promise((resolve12, reject) => {
       const timeout = setTimeout(() => {
         reject(new Error(`Call timeout after ${this.config.callTimeoutMs}ms`));
       }, this.config.callTimeoutMs);
       fn().then((result) => {
         clearTimeout(timeout);
-        resolve11(result);
+        resolve12(result);
       }).catch((error93) => {
         clearTimeout(timeout);
         reject(error93);
@@ -51723,7 +52086,7 @@ init_queue();
 // src/background/worker.ts
 init_event_bus();
 function sleep(ms) {
-  return new Promise((resolve11) => setTimeout(resolve11, ms));
+  return new Promise((resolve12) => setTimeout(resolve12, ms));
 }
 
 class WorkerManager {
@@ -52192,7 +52555,7 @@ async function handleResetSessionCommand(directory, _args) {
 // src/summaries/manager.ts
 init_utils2();
 init_utils();
-import { mkdirSync as mkdirSync9, readdirSync as readdirSync9, renameSync as renameSync8, rmSync as rmSync3, statSync as statSync7 } from "fs";
+import { mkdirSync as mkdirSync10, readdirSync as readdirSync9, renameSync as renameSync8, rmSync as rmSync3, statSync as statSync7 } from "fs";
 import * as path32 from "path";
 var SUMMARY_ID_REGEX = /^S\d+$/;
 function sanitizeSummaryId(id) {
@@ -52239,7 +52602,7 @@ async function storeSummary(directory, id, fullOutput, summaryText, maxStoredByt
     originalBytes: Buffer.byteLength(fullOutput, "utf8")
   };
   const entryJson = JSON.stringify(entry);
-  mkdirSync9(summaryDir, { recursive: true });
+  mkdirSync10(summaryDir, { recursive: true });
   const tempPath = path32.join(summaryDir, `${sanitizedId}.json.tmp.${Date.now()}.${process.pid}`);
   try {
     await Bun.write(tempPath, entryJson);
@@ -53393,6 +53756,18 @@ var COMMAND_REGISTRY = {
     description: "Generate or import a feature specification [description]",
     args: "[description-text]"
   },
+  brainstorm: {
+    handler: (ctx) => handleBrainstormCommand(ctx.directory, ctx.args),
+    description: "Enter architect MODE: BRAINSTORM \u2014 structured seven-phase planning workflow [topic]",
+    args: "[topic-text]",
+    details: "Triggers the architect to run the brainstorm workflow: CONTEXT SCAN, single-question DIALOGUE, APPROACHES, DESIGN SECTIONS, SPEC WRITE + SELF-REVIEW, QA GATE SELECTION, TRANSITION. Use for new plans where requirements need to be drawn out before writing spec.md / plan.md."
+  },
+  "qa-gates": {
+    handler: (ctx) => handleQaGatesCommand(ctx.directory, ctx.args, ctx.sessionID),
+    description: "View or modify QA gate profile for the current plan [enable|override <gate>...]",
+    args: "[show|enable|override] <gate>...",
+    details: "show: display spec-level, session-override, and effective QA gates for the current plan. enable: persist gate(s) into the locked-once profile (architect; rejected after critic approval lock). override: session-only ratchet-tighter enable. Valid gates: reviewer, test_engineer, council_mode, sme_enabled, critic_pre_plan, hallucination_guard, sast_enabled."
+  },
   promote: {
     handler: (ctx) => handlePromoteCommand(ctx.directory, ctx.args),
     description: "Manually promote lesson to hive knowledge",
@@ -53936,7 +54311,7 @@ OUTPUT: Code scaffold for src/pages/Settings.tsx with component tree, typed prop
 ### MODE DETECTION (Priority Order)
 Evaluate the user's request and context in this exact order \u2014 the FIRST matching rule wins:
 
-0. **EXPLICIT COMMAND OVERRIDE** \u2014 User explicitly invokes \`/swarm specify\`, \`/swarm clarify\`, or uses the phrases "specify [something about spec/requirements]", "write a spec", "create a spec", "define requirements", "list requirements", "define a feature", "I have requirements" \u2192 Enter MODE: SPECIFY (or MODE: CLARIFY-SPEC if spec.md exists and user says "clarify"). This override fires BEFORE RESUME \u2014 an explicit spec command always wins, even if plan.md has incomplete tasks. Note: bare "specify" in an ambiguous context (e.g., "specify what this does") should resolve via CLARIFY (priority 4) rather than this override \u2014 use context to determine intent.
+0. **EXPLICIT COMMAND OVERRIDE** \u2014 User explicitly invokes \`/swarm specify\`, \`/swarm clarify\`, \`/swarm brainstorm\`, or uses the phrases "specify [something about spec/requirements]", "write a spec", "create a spec", "define requirements", "list requirements", "define a feature", "I have requirements", "brainstorm", "let's think through", "think this through with me", "workshop this idea" \u2192 Enter MODE: SPECIFY, MODE: CLARIFY-SPEC, or MODE: BRAINSTORM as appropriate. This override fires BEFORE RESUME \u2014 an explicit spec command always wins, even if plan.md has incomplete tasks. \`/swarm brainstorm\` and brainstorm-style phrases select MODE: BRAINSTORM. Note: bare "specify" in an ambiguous context (e.g., "specify what this does") should resolve via CLARIFY (priority 4) rather than this override \u2014 use context to determine intent.
 1. **RESUME** \u2014 \`.swarm/plan.md\` exists and contains incomplete (unchecked) tasks AND the user has NOT issued an explicit spec command (see priority 0) \u2192 Resume at current task.
 2. **SPECIFY** \u2014 No \`.swarm/spec.md\` exists AND no \`.swarm/plan.md\` exists \u2192 Enter MODE: SPECIFY.
 3. **CLARIFY-SPEC** \u2014 \`.swarm/spec.md\` exists AND contains \`[NEEDS CLARIFICATION]\` markers; OR user explicitly asks to clarify or refine the spec; OR \`/swarm clarify\` is invoked \u2192 Enter MODE: CLARIFY-SPEC.
@@ -53945,11 +54320,71 @@ Evaluate the user's request and context in this exact order \u2014 the FIRST mat
 6. All other modes (CONSULT, PLAN, CRITIC-GATE, EXECUTE, PHASE-WRAP) \u2014 Follow their respective sections below.
 
 PRIORITY RULES:
-- EXPLICIT COMMAND OVERRIDE (priority 0) wins over everything \u2014 an explicit \`/swarm specify\` or \`/swarm clarify\` command, or explicit spec-creation language ("specify", "write a spec", "create a spec", "define requirements", "define a feature") always overrides RESUME.
+- EXPLICIT COMMAND OVERRIDE (priority 0) wins over everything \u2014 an explicit \`/swarm specify\`, \`/swarm clarify\`, or \`/swarm brainstorm\` command, or explicit spec-creation / brainstorming language ("specify", "write a spec", "create a spec", "define requirements", "define a feature", "brainstorm", "think through with me") always overrides RESUME.
+- BRAINSTORM is selected via the EXPLICIT COMMAND OVERRIDE when \`/swarm brainstorm\` is invoked or the user asks to "brainstorm" / "think through" / "workshop" a problem before committing to a spec. Use BRAINSTORM when the problem is still fuzzy \u2014 it produces both spec.md and a QA gate profile. Use SPECIFY when requirements are clear enough to write directly.
 - RESUME wins over SPECIFY (priority 2) and all other modes when no explicit spec command is present \u2014 a user continuing existing work is never accidentally routed to SPECIFY.
 - SPECIFY (priority 2) fires only for new projects with no spec and no plan.
 - CLARIFY-SPEC fires between SPECIFY and CLARIFY; it only activates when no explicit spec command is present and no incomplete (unchecked) tasks exist in plan.md \u2014 RESUME takes priority if they do.
 - CLARIFY fires only when user input is genuinely needed (not as a substitute for informed defaults).
+
+### MODE: BRAINSTORM
+Activates when: user invokes \`/swarm brainstorm\`; OR uses phrases like "brainstorm", "let's think through", "think this through with me", "workshop this idea"; OR the problem is fuzzy/exploratory and the user has not yet written (or does not want to directly dictate) a spec.
+
+Use BRAINSTORM when requirements need to be drawn out through structured dialogue before committing to a spec. Use SPECIFY when the user has already articulated clear requirements.
+
+MODE: BRAINSTORM runs seven phases in strict order. Do not skip phases. Do not collapse phases. Each phase has a clear entry signal and a clear exit signal.
+
+**Phase 1: CONTEXT SCAN (architect + explorer, parallel).**
+- Delegate to \`{{AGENT_PREFIX}}explorer\` to map the relevant portion of the codebase. Scope the explorer to the area most likely affected by the topic.
+- In parallel, read any existing \`.swarm/spec.md\`, \`.swarm/plan.md\`, and \`.swarm/knowledge.jsonl\` entries that are relevant.
+- Run CODEBASE REALITY CHECK on any claims the user made in their topic statement. Surface discrepancies before moving forward.
+- Exit when you have a confident map of: (a) existing code and patterns, (b) relevant prior decisions, (c) what is actually unknown.
+
+**Phase 2: DIALOGUE (architect \u2194 user).**
+- Ask EXACTLY ONE focused question per message. Wait for the user's answer before asking the next.
+- Prioritize questions that materially change scope, risk, or architecture. Skip questions whose answers can be responsibly defaulted \u2014 use informed defaults and say so.
+- Hard cap: no more than SIX questions total in this phase. Stop sooner if uncertainty has collapsed.
+- Each question must include: (a) why it matters, (b) the default you will use if the user doesn't answer, (c) the concrete options you're weighing.
+- Exit when: remaining ambiguity can be defaulted safely, or the user explicitly says "good, move on" or equivalent.
+
+**Phase 3: APPROACHES (architect, optionally with SME).**
+- Produce 2-4 distinct candidate approaches. Each approach must have: name, one-paragraph summary, primary tradeoff it optimizes for, primary risk it accepts, rough integration surface.
+- For high-risk domains (auth, payments, data mutation, public API, schema, concurrency, security-sensitive parsing), delegate to \`{{AGENT_PREFIX}}sme\` for domain research first.
+- Present the approaches to the user and recommend one with explicit reasoning. The user can pick, modify, or reject.
+- Exit when the user has chosen (or agreed to your recommended) approach.
+
+**Phase 4: DESIGN SECTIONS (architect).**
+- Draft the structural design of the chosen approach. Include: data model / entities, major components / modules, integration points, invariants, failure modes, rollout considerations.
+- Keep design technology-aware (this is NOT the spec \u2014 BRAINSTORM design notes can reference frameworks and patterns).
+- Name the design sections explicitly so you can reference them in the spec without duplicating.
+- Exit with a design outline the user can skim in under two minutes.
+
+**Phase 5: SPEC WRITE + SELF-REVIEW (architect + reviewer).**
+- Generate \`.swarm/spec.md\` following the same SPEC CONTENT RULES that MODE: SPECIFY uses: WHAT/WHY only, no tech stack, no implementation details, FR-### / SC-### numbering, Given/When/Then scenarios, \`[NEEDS CLARIFICATION]\` markers (max 3).
+- Cross-reference design sections by name where relevant context helps (but keep HOW out of the spec).
+- Delegate to \`{{AGENT_PREFIX}}reviewer\` for an independent review of the draft spec. Reviewer must flag: requirements that encode HOW, untestable requirements, missing edge cases, silent assumptions.
+- Apply reviewer feedback. If reviewer rejects, iterate once and re-review. After two rounds, surface remaining disagreements to the user.
+- Write the final spec to \`.swarm/spec.md\`.
+- Exit when reviewer signs off (or user explicitly accepts remaining disagreements).
+
+**Phase 6: QA GATE SELECTION (architect).**
+- Read the current QA gate profile for this plan via \`get_qa_gate_profile\`. If none exists, the tool returns \`success: false, reason: 'no_profile'\` \u2014 this is expected for a new plan.
+- Based on risk tier of the work (see "High-risk work" list in the quality policy), choose which gates to enable. Default profile enables reviewer, test_engineer, sme_enabled, critic_pre_plan, and sast_enabled. Consider enabling council_mode for high-impact architecture and hallucination_guard for claim-heavy work.
+- Apply the chosen gates via \`set_qa_gates\`. The tool ratchets tighter only \u2014 it cannot disable gates that are already on. It rejects writes once the profile is locked by critic approval.
+- Briefly explain to the user which gates you selected and why.
+- Exit with a QA gate profile persisted for this plan.
+
+**Phase 7: TRANSITION.**
+- Summarize: (a) chosen approach, (b) design sections produced, (c) spec written, (d) QA gates selected, (e) remaining \`[NEEDS CLARIFICATION]\` markers.
+- Offer the user two next steps: \`PLAN\` (go to MODE: PLAN and write plan.md) or \`CLARIFY-SPEC\` (resolve remaining markers first).
+- Do NOT proceed to PLAN or CLARIFY-SPEC automatically \u2014 wait for user direction.
+
+BRAINSTORM RULES:
+- No skipping phases. Each phase's exit condition must be met before moving on.
+- One question per message in DIALOGUE \u2014 never batch.
+- Always offer an informed default for every question.
+- The spec produced in Phase 5 must still satisfy the SPEC CONTENT RULES (no tech stack, no implementation details).
+- QA gates set in Phase 6 are ratchet-tighter \u2014 you cannot undo them later in the session.
 
 ### MODE: SPECIFY
 Activates when: user asks to "specify", "define requirements", "write a spec", or "define a feature"; OR \`/swarm specify\` is invoked; OR no \`.swarm/spec.md\` exists and no \`.swarm/plan.md\` exists.
@@ -56832,13 +57267,13 @@ class PlanSyncWorker {
     } catch {}
   }
   withTimeout(promise3, ms, timeoutMessage) {
-    return new Promise((resolve12, reject) => {
+    return new Promise((resolve13, reject) => {
       const timer = setTimeout(() => {
         reject(new Error(`${timeoutMessage} (${ms}ms)`));
       }, ms);
       promise3.then((result) => {
         clearTimeout(timer);
-        resolve12(result);
+        resolve13(result);
       }).catch((error93) => {
         clearTimeout(timer);
         reject(error93);
@@ -57065,7 +57500,7 @@ ${content.substring(endIndex + 1)}`;
 // src/hooks/compaction-customizer.ts
 init_manager();
 import * as fs27 from "fs";
-import { join as join35 } from "path";
+import { join as join36 } from "path";
 init_utils2();
 function createCompactionCustomizerHook(config3, directory) {
   const enabled = config3.hooks?.compaction !== false;
@@ -57111,7 +57546,7 @@ function createCompactionCustomizerHook(config3, directory) {
         }
       }
       try {
-        const summariesDir = join35(directory, ".swarm", "summaries");
+        const summariesDir = join36(directory, ".swarm", "summaries");
         const files = await fs27.promises.readdir(summariesDir);
         if (files.length > 0) {
           const count = files.length;
@@ -61024,7 +61459,7 @@ import * as path47 from "path";
 init_utils2();
 init_path_security();
 import * as fsSync2 from "fs";
-import { constants as constants2, existsSync as existsSync27, realpathSync as realpathSync6 } from "fs";
+import { constants as constants2, existsSync as existsSync28, realpathSync as realpathSync6 } from "fs";
 import * as fsPromises3 from "fs/promises";
 import * as path46 from "path";
 
@@ -61486,7 +61921,7 @@ function resolveModuleSpecifier(workspaceRoot, sourceFile, specifier) {
       } catch {
         realRoot = path46.normalize(workspaceRoot);
       }
-      if (!existsSync27(resolved)) {
+      if (!existsSync28(resolved)) {
         const EXTENSIONS = [
           ".ts",
           ".tsx",
@@ -61500,7 +61935,7 @@ function resolveModuleSpecifier(workspaceRoot, sourceFile, specifier) {
         let found = null;
         for (const ext of EXTENSIONS) {
           const candidate = resolved + ext;
-          if (existsSync27(candidate)) {
+          if (existsSync28(candidate)) {
             found = candidate;
             break;
           }
@@ -61597,7 +62032,7 @@ async function loadGraph(workspace) {
   if (cached3 && !isDirty(normalized)) {
     try {
       const graphPath = getGraphPath(workspace);
-      if (existsSync27(graphPath)) {
+      if (existsSync28(graphPath)) {
         const stats = await fsPromises3.stat(graphPath);
         const cachedMtime = mtimeCache.get(normalized);
         if (cachedMtime !== undefined && stats.mtimeMs !== cachedMtime) {
@@ -61614,7 +62049,7 @@ async function loadGraph(workspace) {
   }
   try {
     const graphPath = getGraphPath(workspace);
-    if (!existsSync27(graphPath)) {
+    if (!existsSync28(graphPath)) {
       return null;
     }
     const stats = await fsPromises3.stat(graphPath);
@@ -61740,7 +62175,7 @@ async function saveGraph(workspace, graph, options) {
           lastError = error93 instanceof Error ? error93 : new Error(String(error93));
           if (lastError instanceof Error && "code" in lastError && lastError.code === "EEXIST" && retries < WINDOWS_RENAME_MAX_RETRIES - 1) {
             retries++;
-            await new Promise((resolve17) => setTimeout(resolve17, WINDOWS_RENAME_RETRY_DELAY_MS));
+            await new Promise((resolve18) => setTimeout(resolve18, WINDOWS_RENAME_RETRY_DELAY_MS));
             continue;
           }
           throw lastError;
@@ -61873,7 +62308,7 @@ function buildWorkspaceGraph(workspaceRoot, options) {
   const maxFileSize = options?.maxFileSizeBytes ?? 1024 * 1024;
   const maxFiles = options?.maxFiles ?? 1e4;
   const absoluteRoot = path46.resolve(workspaceRoot);
-  if (!existsSync27(absoluteRoot)) {
+  if (!existsSync28(absoluteRoot)) {
     throw new Error(`Workspace directory does not exist: ${workspaceRoot}`);
   }
   const graph = createEmptyGraph(workspaceRoot);
@@ -62027,7 +62462,7 @@ async function updateGraphForFiles(workspaceRoot, filePaths, options) {
   const updatedPaths = new Set;
   for (const rawFilePath of filePaths) {
     const normalizedPath = normalizeGraphPath(rawFilePath);
-    const fileExists = existsSync27(rawFilePath);
+    const fileExists = existsSync28(rawFilePath);
     if (fileExists) {
       graph.edges = graph.edges.filter((e) => normalizeGraphPath(e.source) !== normalizedPath);
       const result = scanFile(rawFilePath, absoluteRoot, maxFileSize);
@@ -62880,26 +63315,26 @@ function pLimit(concurrency) {
     activeCount--;
     resumeNext();
   };
-  const run2 = async (function_, resolve18, arguments_2) => {
+  const run2 = async (function_, resolve19, arguments_2) => {
     const result = (async () => function_(...arguments_2))();
-    resolve18(result);
+    resolve19(result);
     try {
       await result;
     } catch {}
     next();
   };
-  const enqueue = (function_, resolve18, reject, arguments_2) => {
+  const enqueue = (function_, resolve19, reject, arguments_2) => {
     const queueItem = { reject };
     new Promise((internalResolve) => {
       queueItem.run = internalResolve;
       queue.enqueue(queueItem);
-    }).then(run2.bind(undefined, function_, resolve18, arguments_2));
+    }).then(run2.bind(undefined, function_, resolve19, arguments_2));
     if (activeCount < concurrency) {
       resumeNext();
     }
   };
-  const generator = (function_, ...arguments_2) => new Promise((resolve18, reject) => {
-    enqueue(function_, resolve18, reject, arguments_2);
+  const generator = (function_, ...arguments_2) => new Promise((resolve19, reject) => {
+    enqueue(function_, resolve19, reject, arguments_2);
   });
   Object.defineProperties(generator, {
     activeCount: {
@@ -65628,7 +66063,7 @@ import * as path56 from "path";
 import * as child_process5 from "child_process";
 var WIN32_CMD_BINARIES = new Set(["npm", "npx", "pnpm", "yarn"]);
 function spawnAsync(command, cwd, timeoutMs) {
-  return new Promise((resolve21) => {
+  return new Promise((resolve22) => {
     try {
       const [rawCmd, ...args2] = command;
       const cmd = process.platform === "win32" && WIN32_CMD_BINARIES.has(rawCmd) && !rawCmd.includes(".") ? `${rawCmd}.cmd` : rawCmd;
@@ -65675,24 +66110,24 @@ function spawnAsync(command, cwd, timeoutMs) {
         try {
           proc.kill();
         } catch {}
-        resolve21(null);
+        resolve22(null);
       }, timeoutMs);
       proc.on("close", (code) => {
         if (done)
           return;
         done = true;
         clearTimeout(timer);
-        resolve21({ exitCode: code ?? 1, stdout, stderr });
+        resolve22({ exitCode: code ?? 1, stdout, stderr });
       });
       proc.on("error", () => {
         if (done)
           return;
         done = true;
         clearTimeout(timer);
-        resolve21(null);
+        resolve22(null);
       });
     } catch {
-      resolve21(null);
+      resolve22(null);
     }
   });
 }
@@ -68404,12 +68839,12 @@ ${body2}`);
 // src/council/council-evidence-writer.ts
 import {
   appendFileSync as appendFileSync7,
-  existsSync as existsSync36,
-  mkdirSync as mkdirSync16,
+  existsSync as existsSync37,
+  mkdirSync as mkdirSync17,
   readFileSync as readFileSync35,
   writeFileSync as writeFileSync11
 } from "fs";
-import { join as join59 } from "path";
+import { join as join60 } from "path";
 var EVIDENCE_DIR2 = ".swarm/evidence";
 var VALID_TASK_ID = /^\d+\.\d+(\.\d+)*$/;
 var COUNCIL_GATE_NAME = "council";
@@ -68443,11 +68878,11 @@ function writeCouncilEvidence(workingDir, synthesis) {
   if (!VALID_TASK_ID.test(synthesis.taskId)) {
     throw new Error(`writeCouncilEvidence: invalid taskId "${synthesis.taskId}" \u2014 must match N.M or N.M.P format`);
   }
-  const dir = join59(workingDir, EVIDENCE_DIR2);
-  mkdirSync16(dir, { recursive: true });
-  const filePath = join59(dir, `${synthesis.taskId}.json`);
+  const dir = join60(workingDir, EVIDENCE_DIR2);
+  mkdirSync17(dir, { recursive: true });
+  const filePath = join60(dir, `${synthesis.taskId}.json`);
   const existingRoot = Object.create(null);
-  if (existsSync36(filePath)) {
+  if (existsSync37(filePath)) {
     try {
       const parsed = JSON.parse(readFileSync35(filePath, "utf-8"));
       if (parsed && typeof parsed === "object" && !Array.isArray(parsed)) {
@@ -68474,15 +68909,15 @@ function writeCouncilEvidence(workingDir, synthesis) {
   updated.gates = mergedGates;
   writeFileSync11(filePath, JSON.stringify(updated, null, 2));
   try {
-    const councilDir = join59(workingDir, ".swarm", "council");
-    mkdirSync16(councilDir, { recursive: true });
+    const councilDir = join60(workingDir, ".swarm", "council");
+    mkdirSync17(councilDir, { recursive: true });
     const auditLine = JSON.stringify({
       round: synthesis.roundNumber,
       verdict: synthesis.overallVerdict,
       timestamp: synthesis.timestamp,
       vetoedBy: synthesis.vetoedBy
     });
-    appendFileSync7(join59(councilDir, `${synthesis.taskId}.rounds.jsonl`), `${auditLine}
+    appendFileSync7(join60(councilDir, `${synthesis.taskId}.rounds.jsonl`), `${auditLine}
 `);
   } catch (auditError) {
     console.warn(`writeCouncilEvidence: failed to append round-history audit log: ${auditError instanceof Error ? auditError.message : String(auditError)}`);
@@ -68611,22 +69046,22 @@ function buildUnifiedFeedback(taskId, verdict, vetoedBy, requiredFixes, advisory
 }
 
 // src/council/criteria-store.ts
-import { existsSync as existsSync37, mkdirSync as mkdirSync17, readFileSync as readFileSync36, writeFileSync as writeFileSync12 } from "fs";
-import { join as join60 } from "path";
+import { existsSync as existsSync38, mkdirSync as mkdirSync18, readFileSync as readFileSync36, writeFileSync as writeFileSync12 } from "fs";
+import { join as join61 } from "path";
 var COUNCIL_DIR = ".swarm/council";
 function writeCriteria(workingDir, taskId, criteria) {
-  const dir = join60(workingDir, COUNCIL_DIR);
-  mkdirSync17(dir, { recursive: true });
+  const dir = join61(workingDir, COUNCIL_DIR);
+  mkdirSync18(dir, { recursive: true });
   const payload = {
     taskId,
     criteria,
     declaredAt: new Date().toISOString()
   };
-  writeFileSync12(join60(dir, `${safeId(taskId)}.json`), JSON.stringify(payload, null, 2));
+  writeFileSync12(join61(dir, `${safeId(taskId)}.json`), JSON.stringify(payload, null, 2));
 }
 function readCriteria(workingDir, taskId) {
-  const filePath = join60(workingDir, COUNCIL_DIR, `${safeId(taskId)}.json`);
-  if (!existsSync37(filePath))
+  const filePath = join61(workingDir, COUNCIL_DIR, `${safeId(taskId)}.json`);
+  if (!existsSync38(filePath))
     return null;
   try {
     const parsed = JSON.parse(readFileSync36(filePath, "utf-8"));
@@ -70194,7 +70629,7 @@ function summarizePlan(plan) {
     }))
   };
 }
-function derivePlanId(plan) {
+function derivePlanId2(plan) {
   return `${plan.swarm}-${plan.title}`.replace(/[^a-zA-Z0-9-_]/g, "_");
 }
 async function executeGetApprovedPlan(args2, directory) {
@@ -70215,7 +70650,9 @@ async function executeGetApprovedPlan(args2, directory) {
       reason: "no_approved_snapshot"
     };
   }
-  const expectedPlanId = derivePlanId(currentPlan);
+  const expectedPlanId = derivePlanId2(currentPlan);
+  const profile = getProfile(directory, expectedPlanId);
+  const qaProfileHash = profile ? computeProfileHash(profile) : null;
   const approved = await loadLastApprovedPlan(directory, expectedPlanId);
   if (!approved) {
     const unscopedSnapshot = await loadLastApprovedPlan(directory);
@@ -70225,12 +70662,14 @@ async function executeGetApprovedPlan(args2, directory) {
         approved_plan: undefined,
         current_plan: null,
         drift_detected: true,
-        current_plan_error: "Plan identity (swarm/title) was mutated after approval \u2014 " + `expected plan_id '${expectedPlanId}' but approved snapshot has a different identity. ` + "This is a form of plan tampering."
+        current_plan_error: "Plan identity (swarm/title) was mutated after approval \u2014 " + `expected plan_id '${expectedPlanId}' but approved snapshot has a different identity. ` + "This is a form of plan tampering.",
+        qa_profile_hash: qaProfileHash
       };
     }
     return {
       success: false,
-      reason: "no_approved_snapshot"
+      reason: "no_approved_snapshot",
+      qa_profile_hash: qaProfileHash
     };
   }
   const summaryOnly = args2.summary_only === true;
@@ -70251,7 +70690,8 @@ async function executeGetApprovedPlan(args2, directory) {
     success: true,
     approved_plan: approvedPayload,
     current_plan: currentPayload,
-    drift_detected: driftDetected
+    drift_detected: driftDetected,
+    qa_profile_hash: qaProfileHash
   };
 }
 var get_approved_plan = createSwarmTool({
@@ -70264,13 +70704,58 @@ var get_approved_plan = createSwarmTool({
     return JSON.stringify(await executeGetApprovedPlan(typedArgs, directory), null, 2);
   }
 });
+// src/tools/get-qa-gate-profile.ts
+init_manager();
+init_create_tool();
+function derivePlanId3(plan) {
+  return `${plan.swarm}-${plan.title}`.replace(/[^a-zA-Z0-9-_]/g, "_");
+}
+async function executeGetQaGateProfile(_args, directory) {
+  const plan = await loadPlanJsonOnly(directory);
+  if (!plan) {
+    return {
+      success: false,
+      reason: "plan_json_unavailable"
+    };
+  }
+  const planId = derivePlanId3(plan);
+  const profile = getProfile(directory, planId);
+  if (!profile) {
+    return {
+      success: false,
+      reason: "no_profile",
+      plan_id: planId
+    };
+  }
+  return {
+    success: true,
+    plan_id: planId,
+    profile: {
+      plan_id: profile.plan_id,
+      project_type: profile.project_type,
+      gates: { ...profile.gates },
+      locked_at: profile.locked_at,
+      locked_by_snapshot_seq: profile.locked_by_snapshot_seq,
+      created_at: profile.created_at,
+      profile_hash: computeProfileHash(profile)
+    }
+  };
+}
+var get_qa_gate_profile = createSwarmTool({
+  description: "Retrieve the QA gate profile for the current plan. Returns the spec-level " + "gates, lock state, and a SHA-256 profile hash. Read-only \u2014 does not " + "create a profile if none exists. plan_id is derived automatically from " + "plan.json (swarm + title).",
+  args: {},
+  execute: async (args2, directory) => {
+    const typedArgs = args2 ?? {};
+    return JSON.stringify(await executeGetQaGateProfile(typedArgs, directory), null, 2);
+  }
+});
 // src/tools/gitingest.ts
 init_dist();
 init_create_tool();
 var GITINGEST_TIMEOUT_MS = 1e4;
 var GITINGEST_MAX_RESPONSE_BYTES = 5242880;
 var GITINGEST_MAX_RETRIES = 2;
-var delay = (ms) => new Promise((resolve27) => setTimeout(resolve27, ms));
+var delay = (ms) => new Promise((resolve28) => setTimeout(resolve28, ms));
 async function fetchGitingest(args2) {
   for (let attempt = 0;attempt <= GITINGEST_MAX_RETRIES; attempt++) {
     try {
@@ -70847,7 +71332,7 @@ init_dist();
 init_config();
 init_knowledge_store();
 init_create_tool();
-import { existsSync as existsSync42 } from "fs";
+import { existsSync as existsSync43 } from "fs";
 var DEFAULT_LIMIT = 10;
 var MAX_LESSON_LENGTH = 200;
 var VALID_CATEGORIES3 = [
@@ -70916,14 +71401,14 @@ function validateLimit(limit) {
 }
 async function readSwarmKnowledge(directory) {
   const swarmPath = resolveSwarmKnowledgePath(directory);
-  if (!existsSync42(swarmPath)) {
+  if (!existsSync43(swarmPath)) {
     return [];
   }
   return readKnowledge(swarmPath);
 }
 async function readHiveKnowledge() {
   const hivePath = resolveHiveKnowledgePath();
-  if (!existsSync42(hivePath)) {
+  if (!existsSync43(hivePath)) {
     return [];
   }
   return readKnowledge(hivePath);
@@ -71880,7 +72365,7 @@ async function runNpmAudit(directory) {
       stderr: "pipe",
       cwd: directory
     });
-    const timeoutPromise = new Promise((resolve28) => setTimeout(() => resolve28("timeout"), AUDIT_TIMEOUT_MS));
+    const timeoutPromise = new Promise((resolve29) => setTimeout(() => resolve29("timeout"), AUDIT_TIMEOUT_MS));
     const result = await Promise.race([
       Promise.all([
         new Response(proc.stdout).text(),
@@ -72003,7 +72488,7 @@ async function runPipAudit(directory) {
       stderr: "pipe",
       cwd: directory
     });
-    const timeoutPromise = new Promise((resolve28) => setTimeout(() => resolve28("timeout"), AUDIT_TIMEOUT_MS));
+    const timeoutPromise = new Promise((resolve29) => setTimeout(() => resolve29("timeout"), AUDIT_TIMEOUT_MS));
     const result = await Promise.race([
       Promise.all([
         new Response(proc.stdout).text(),
@@ -72134,7 +72619,7 @@ async function runCargoAudit(directory) {
       stderr: "pipe",
       cwd: directory
     });
-    const timeoutPromise = new Promise((resolve28) => setTimeout(() => resolve28("timeout"), AUDIT_TIMEOUT_MS));
+    const timeoutPromise = new Promise((resolve29) => setTimeout(() => resolve29("timeout"), AUDIT_TIMEOUT_MS));
     const result = await Promise.race([
       Promise.all([
         new Response(proc.stdout).text(),
@@ -72261,7 +72746,7 @@ async function runGoAudit(directory) {
       stderr: "pipe",
       cwd: directory
     });
-    const timeoutPromise = new Promise((resolve28) => setTimeout(() => resolve28("timeout"), AUDIT_TIMEOUT_MS));
+    const timeoutPromise = new Promise((resolve29) => setTimeout(() => resolve29("timeout"), AUDIT_TIMEOUT_MS));
     const result = await Promise.race([
       Promise.all([
         new Response(proc.stdout).text(),
@@ -72397,7 +72882,7 @@ async function runDotnetAudit(directory) {
       stderr: "pipe",
       cwd: directory
     });
-    const timeoutPromise = new Promise((resolve28) => setTimeout(() => resolve28("timeout"), AUDIT_TIMEOUT_MS));
+    const timeoutPromise = new Promise((resolve29) => setTimeout(() => resolve29("timeout"), AUDIT_TIMEOUT_MS));
     const result = await Promise.race([
       Promise.all([
         new Response(proc.stdout).text(),
@@ -72516,7 +73001,7 @@ async function runBundleAudit(directory) {
       stderr: "pipe",
       cwd: directory
     });
-    const timeoutPromise = new Promise((resolve28) => setTimeout(() => resolve28("timeout"), AUDIT_TIMEOUT_MS));
+    const timeoutPromise = new Promise((resolve29) => setTimeout(() => resolve29("timeout"), AUDIT_TIMEOUT_MS));
     const result = await Promise.race([
       Promise.all([
         new Response(proc.stdout).text(),
@@ -72664,7 +73149,7 @@ async function runDartAudit(directory) {
       stderr: "pipe",
       cwd: directory
     });
-    const timeoutPromise = new Promise((resolve28) => setTimeout(() => resolve28("timeout"), AUDIT_TIMEOUT_MS));
+    const timeoutPromise = new Promise((resolve29) => setTimeout(() => resolve29("timeout"), AUDIT_TIMEOUT_MS));
     const result = await Promise.race([
       Promise.all([
         new Response(proc.stdout).text(),
@@ -72782,7 +73267,7 @@ async function runComposerAudit(directory) {
       stderr: "pipe",
       cwd: directory
     });
-    const timeoutPromise = new Promise((resolve28) => setTimeout(() => resolve28("timeout"), AUDIT_TIMEOUT_MS));
+    const timeoutPromise = new Promise((resolve29) => setTimeout(() => resolve29("timeout"), AUDIT_TIMEOUT_MS));
     const result = await Promise.race([
       Promise.all([
         new Response(proc.stdout).text(),
@@ -74424,7 +74909,7 @@ function mapSemgrepSeverity(severity) {
   }
 }
 async function executeWithTimeout(command, args2, options) {
-  return new Promise((resolve29) => {
+  return new Promise((resolve30) => {
     const child = child_process7.spawn(command, args2, {
       shell: false,
       cwd: options.cwd
@@ -74433,7 +74918,7 @@ async function executeWithTimeout(command, args2, options) {
     let stderr = "";
     const timeout = setTimeout(() => {
       child.kill("SIGTERM");
-      resolve29({
+      resolve30({
         stdout,
         stderr: "Process timed out",
         exitCode: 124
@@ -74447,7 +74932,7 @@ async function executeWithTimeout(command, args2, options) {
     });
     child.on("close", (code) => {
       clearTimeout(timeout);
-      resolve29({
+      resolve30({
         stdout,
         stderr,
         exitCode: code ?? 0
@@ -74455,7 +74940,7 @@ async function executeWithTimeout(command, args2, options) {
     });
     child.on("error", (err2) => {
       clearTimeout(timeout);
-      resolve29({
+      resolve30({
         stdout,
         stderr: err2.message,
         exitCode: 1
@@ -77899,7 +78384,7 @@ async function ripgrepSearch(opts) {
       stderr: "pipe",
       cwd: opts.workspace
     });
-    const timeout = new Promise((resolve34) => setTimeout(() => resolve34("timeout"), REGEX_TIMEOUT_MS));
+    const timeout = new Promise((resolve35) => setTimeout(() => resolve35("timeout"), REGEX_TIMEOUT_MS));
     const exitPromise = proc.exited;
     const result = await Promise.race([exitPromise, timeout]);
     if (result === "timeout") {
@@ -78183,6 +78668,84 @@ var search = createSwarmTool({
 // src/tools/index.ts
 init_secretscan();
 
+// src/tools/set-qa-gates.ts
+init_dist();
+init_manager();
+init_create_tool();
+function derivePlanId4(plan) {
+  return `${plan.swarm}-${plan.title}`.replace(/[^a-zA-Z0-9-_]/g, "_");
+}
+async function executeSetQaGates(args2, directory) {
+  const plan = await loadPlanJsonOnly(directory);
+  if (!plan) {
+    return {
+      success: false,
+      reason: "plan_json_unavailable",
+      message: "Cannot configure QA gates: plan.json is missing or invalid. " + "Create a plan first (e.g. via /swarm specify or save_plan)."
+    };
+  }
+  const planId = derivePlanId4(plan);
+  getOrCreateProfile(directory, planId, args2.project_type);
+  const partial3 = {};
+  for (const key of [
+    "reviewer",
+    "test_engineer",
+    "council_mode",
+    "sme_enabled",
+    "critic_pre_plan",
+    "hallucination_guard",
+    "sast_enabled"
+  ]) {
+    if (args2[key] !== undefined)
+      partial3[key] = args2[key];
+  }
+  try {
+    const updated = setGates(directory, planId, partial3);
+    return {
+      success: true,
+      plan_id: planId,
+      message: `QA gates updated for plan_id=${planId}`,
+      profile: {
+        plan_id: updated.plan_id,
+        gates: { ...updated.gates },
+        locked_at: updated.locked_at,
+        locked_by_snapshot_seq: updated.locked_by_snapshot_seq,
+        profile_hash: computeProfileHash(updated)
+      }
+    };
+  } catch (err3) {
+    const msg = err3 instanceof Error ? err3.message : String(err3);
+    const lower = msg.toLowerCase();
+    let reason = "set_gates_failed";
+    if (lower.includes("locked"))
+      reason = "profile_locked";
+    else if (lower.includes("ratchet"))
+      reason = "ratchet_violation";
+    return {
+      success: false,
+      reason,
+      message: msg,
+      plan_id: planId
+    };
+  }
+}
+var set_qa_gates = createSwarmTool({
+  description: "Configure the QA gate profile for the current plan. Architect-only. " + "Ratchet-tighter: can enable additional gates but cannot disable gates " + "that are already enabled. Rejects all writes once the profile is " + "locked (after critic approval). Creates the profile with defaults if " + "none exists. plan_id is derived automatically from plan.json.",
+  args: {
+    reviewer: tool.schema.boolean().optional().describe("Enable the reviewer gate (true) \u2014 cannot be disabled."),
+    test_engineer: tool.schema.boolean().optional().describe("Enable the test_engineer gate (true) \u2014 cannot be disabled once on."),
+    council_mode: tool.schema.boolean().optional().describe("Enable council mode (multi-SME consensus on high-risk phases)."),
+    sme_enabled: tool.schema.boolean().optional().describe("Enable SME consultation."),
+    critic_pre_plan: tool.schema.boolean().optional().describe("Enable critic_pre_plan review before plan approval."),
+    hallucination_guard: tool.schema.boolean().optional().describe("Enable hallucination_guard checks on plan and implementation claims."),
+    sast_enabled: tool.schema.boolean().optional().describe("Enable SAST scanning as a required QA gate."),
+    project_type: tool.schema.string().optional().describe('Project type label (e.g. "ts", "python"). Only applied when the profile is being created for the first time.')
+  },
+  execute: async (args2, directory) => {
+    const typedArgs = args2 ?? {};
+    return JSON.stringify(await executeSetQaGates(typedArgs, directory), null, 2);
+  }
+});
 // src/tools/suggest-patch.ts
 init_tool();
 init_path_security();
@@ -79690,12 +80253,15 @@ var update_task_status = createSwarmTool({
 });
 // src/tools/write-drift-evidence.ts
 init_tool();
+import fs71 from "fs";
+import path87 from "path";
 init_utils2();
 init_ledger();
 init_manager();
 init_create_tool();
-import fs71 from "fs";
-import path87 from "path";
+function derivePlanId5(plan) {
+  return `${plan.swarm}-${plan.title}`.replace(/[^a-zA-Z0-9-_]/g, "_");
+}
 function normalizeVerdict(verdict) {
   switch (verdict) {
     case "APPROVED":
@@ -79762,6 +80328,8 @@ async function executeWriteDriftEvidence(args2, directory) {
     await fs71.promises.rename(tempPath, validatedPath);
     let snapshotInfo;
     let snapshotError;
+    let qaProfileLocked;
+    let qaProfileLockError;
     if (normalizedVerdict === "approved") {
       try {
         const currentPlan = await loadPlanJsonOnly(directory);
@@ -79779,6 +80347,21 @@ async function executeWriteDriftEvidence(args2, directory) {
             seq: snapshotEvent.seq,
             timestamp: snapshotEvent.timestamp
           };
+          try {
+            const planId = derivePlanId5(currentPlan);
+            const locked = lockProfile(directory, planId, snapshotEvent.seq);
+            qaProfileLocked = {
+              plan_id: planId,
+              locked_at: locked.locked_at ?? "",
+              locked_by_snapshot_seq: locked.locked_by_snapshot_seq ?? -1
+            };
+          } catch (lockErr) {
+            const msg = lockErr instanceof Error ? lockErr.message : String(lockErr);
+            if (!/No QA gate profile/i.test(msg)) {
+              qaProfileLockError = msg;
+              console.warn("[write_drift_evidence] QA gate profile lock failed:", msg);
+            }
+          }
         } else {
           snapshotError = "plan.json not available for snapshot";
         }
@@ -79793,7 +80376,9 @@ async function executeWriteDriftEvidence(args2, directory) {
       verdict: normalizedVerdict,
       message: `Drift evidence written to .swarm/evidence/${phase}/drift-verifier.json`,
       approvedSnapshot: snapshotInfo,
-      snapshotError
+      snapshotError,
+      qaProfileLocked,
+      qaProfileLockError
     }, null, 2);
   } catch (error93) {
     return JSON.stringify({
@@ -80111,6 +80696,8 @@ var OpenCodeSwarm = async (ctx) => {
       evidence_check,
       extract_code_blocks,
       get_approved_plan,
+      get_qa_gate_profile,
+      set_qa_gates,
       gitingest,
       imports,
       knowledge_query,
@@ -80153,7 +80740,7 @@ var OpenCodeSwarm = async (ctx) => {
         ...opencodeConfig.command || {},
         swarm: {
           template: "/swarm $ARGUMENTS",
-          description: "Swarm management commands: /swarm [status|plan|agents|history|config|evidence|handoff|archive|diagnose|preflight|sync-plan|benchmark|export|reset|rollback|retrieve|clarify|analyze|specify|dark-matter|knowledge|curate|turbo|full-auto|write-retro|reset-session|simulate|promote|checkpoint|close]"
+          description: "Swarm management commands: /swarm [status|plan|agents|history|config|evidence|handoff|archive|diagnose|preflight|sync-plan|benchmark|export|reset|rollback|retrieve|clarify|analyze|specify|brainstorm|qa-gates|dark-matter|knowledge|curate|turbo|full-auto|write-retro|reset-session|simulate|promote|checkpoint|close]"
         },
         "swarm-status": {
           template: "/swarm status",
@@ -80230,6 +80817,14 @@ var OpenCodeSwarm = async (ctx) => {
         "swarm-specify": {
           template: "/swarm specify $ARGUMENTS",
           description: "Use /swarm specify to generate or import a feature specification"
+        },
+        "swarm-brainstorm": {
+          template: "/swarm brainstorm $ARGUMENTS",
+          description: "Use /swarm brainstorm to enter the architect MODE: BRAINSTORM planning workflow"
+        },
+        "swarm-qa-gates": {
+          template: "/swarm qa-gates $ARGUMENTS",
+          description: "Use /swarm qa-gates to view or modify QA gate profile for the current plan"
         },
         "swarm-dark-matter": {
           template: "/swarm dark-matter",

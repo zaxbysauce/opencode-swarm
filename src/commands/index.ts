@@ -13,6 +13,7 @@ export { handleAgentsCommand } from './agents';
 export { handleAnalyzeCommand } from './analyze';
 export { handleArchiveCommand } from './archive';
 export { handleBenchmarkCommand } from './benchmark';
+export { handleBrainstormCommand } from './brainstorm';
 export { handleCheckpointCommand } from './checkpoint';
 export { handleClarifyCommand } from './clarify';
 export { handleCloseCommand } from './close';
@@ -38,6 +39,7 @@ export {
 export { handlePlanCommand } from './plan';
 export { handlePreflightCommand } from './preflight';
 export { handlePromoteCommand } from './promote';
+export { handleQaGatesCommand } from './qa-gates';
 export type {
 	CommandContext,
 	CommandEntry,

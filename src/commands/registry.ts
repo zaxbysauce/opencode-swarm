@@ -4,6 +4,7 @@ import { handleAgentsCommand } from './agents.js';
 import { handleAnalyzeCommand } from './analyze.js';
 import { handleArchiveCommand } from './archive.js';
 import { handleBenchmarkCommand } from './benchmark.js';
+import { handleBrainstormCommand } from './brainstorm.js';
 import { handleCheckpointCommand } from './checkpoint.js';
 import { handleClarifyCommand } from './clarify.js';
 import { handleCloseCommand } from './close.js';
@@ -29,6 +30,7 @@ import {
 import { handlePlanCommand } from './plan.js';
 import { handlePreflightCommand } from './preflight.js';
 import { handlePromoteCommand } from './promote.js';
+import { handleQaGatesCommand } from './qa-gates.js';
 import { handleResetCommand } from './reset.js';
 import { handleResetSessionCommand } from './reset-session.js';
 import { handleRetrieveCommand } from './retrieve.js';
@@ -212,6 +214,23 @@ export const COMMAND_REGISTRY = {
 		handler: (ctx) => handleSpecifyCommand(ctx.directory, ctx.args),
 		description: 'Generate or import a feature specification [description]',
 		args: '[description-text]',
+	},
+	brainstorm: {
+		handler: (ctx) => handleBrainstormCommand(ctx.directory, ctx.args),
+		description:
+			'Enter architect MODE: BRAINSTORM — structured seven-phase planning workflow [topic]',
+		args: '[topic-text]',
+		details:
+			'Triggers the architect to run the brainstorm workflow: CONTEXT SCAN, single-question DIALOGUE, APPROACHES, DESIGN SECTIONS, SPEC WRITE + SELF-REVIEW, QA GATE SELECTION, TRANSITION. Use for new plans where requirements need to be drawn out before writing spec.md / plan.md.',
+	},
+	'qa-gates': {
+		handler: (ctx) =>
+			handleQaGatesCommand(ctx.directory, ctx.args, ctx.sessionID),
+		description:
+			'View or modify QA gate profile for the current plan [enable|override <gate>...]',
+		args: '[show|enable|override] <gate>...',
+		details:
+			'show: display spec-level, session-override, and effective QA gates for the current plan. enable: persist gate(s) into the locked-once profile (architect; rejected after critic approval lock). override: session-only ratchet-tighter enable. Valid gates: reviewer, test_engineer, council_mode, sme_enabled, critic_pre_plan, hallucination_guard, sast_enabled.',
 	},
 	promote: {
 		handler: (ctx) => handlePromoteCommand(ctx.directory, ctx.args),

@@ -13,6 +13,7 @@ import type { OpencodeClient } from '@opencode-ai/sdk';
 import { ORCHESTRATOR_NAME } from './config/constants';
 import { type Plan, PlanSchema, type TaskStatus } from './config/plan-schema';
 import { stripKnownSwarmPrefix } from './config/schema';
+import type { QaGates } from './db/qa-gate-profile.js';
 import {
 	detectEnvironmentProfile,
 	type EnvironmentProfile,
@@ -186,6 +187,14 @@ export interface AgentSessionState {
 	// Turbo Mode (v6.26)
 	/** Session-scoped Turbo Mode flag for controlling LLM inference speed */
 	turboMode: boolean;
+
+	// QA Gate Profile session overrides (ratchet-tighter only)
+	/** Session-level QA gate overrides layered on top of the spec-level profile.
+	 *  Overrides can only enable gates (true); false values are ignored by
+	 *  getEffectiveGates. Cleared on session reset. Optional for backwards
+	 *  compatibility with pre-existing session state fixtures; consumers
+	 *  should read via `session.qaGateSessionOverrides ?? {}`. */
+	qaGateSessionOverrides?: Partial<QaGates>;
 
 	// Full Auto Mode (Phase 2)
 	/** Session-scoped Full Auto flag for autonomous multi-agent oversight */
@@ -376,6 +385,8 @@ export function startAgentSession(
 		modifiedFilesThisCoderTask: [],
 		// Turbo Mode (v6.26)
 		turboMode: false,
+		// QA Gate Profile session overrides
+		qaGateSessionOverrides: {},
 		// Full Auto Mode (Phase 2)
 		fullAutoMode: false,
 		fullAutoInteractionCount: 0,
@@ -563,6 +574,10 @@ export function ensureAgentSession(
 		// Turbo Mode migration safety (v6.26)
 		if (session.turboMode === undefined) {
 			session.turboMode = false;
+		}
+		// QA Gate Profile session overrides migration safety
+		if (session.qaGateSessionOverrides === undefined) {
+			session.qaGateSessionOverrides = {};
 		}
 		// Model Fallback migration safety (v6.33)
 		if (session.model_fallback_index === undefined) {

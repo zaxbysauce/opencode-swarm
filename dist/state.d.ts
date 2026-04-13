@@ -7,6 +7,7 @@
  * and delegation chains.
  */
 import type { OpencodeClient } from '@opencode-ai/sdk';
+import type { QaGates } from './db/qa-gate-profile.js';
 import { type EnvironmentProfile } from './environment/profile.js';
 /**
  * Represents a single tool call entry for tracking purposes
@@ -133,6 +134,12 @@ export interface AgentSessionState {
     modelFallbackExhausted: boolean;
     /** Session-scoped Turbo Mode flag for controlling LLM inference speed */
     turboMode: boolean;
+    /** Session-level QA gate overrides layered on top of the spec-level profile.
+     *  Overrides can only enable gates (true); false values are ignored by
+     *  getEffectiveGates. Cleared on session reset. Optional for backwards
+     *  compatibility with pre-existing session state fixtures; consumers
+     *  should read via `session.qaGateSessionOverrides ?? {}`. */
+    qaGateSessionOverrides?: Partial<QaGates>;
     /** Session-scoped Full Auto flag for autonomous multi-agent oversight */
     fullAutoMode: boolean;
     /** Count of full-auto interactions this phase (for max_interactions_per_phase limit) */

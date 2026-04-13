@@ -18525,7 +18525,9 @@ var TOOL_NAMES = [
   "suggest_patch",
   "req_coverage",
   "get_approved_plan",
-  "repo_map"
+  "repo_map",
+  "get_qa_gate_profile",
+  "set_qa_gates"
 ];
 var TOOL_NAME_SET = new Set(TOOL_NAMES);
 
@@ -18595,7 +18597,9 @@ var AGENT_TOOL_MAP = {
     "knowledge_remove",
     "co_change_analyzer",
     "suggest_patch",
-    "repo_map"
+    "repo_map",
+    "get_qa_gate_profile",
+    "set_qa_gates"
   ],
   explorer: [
     "complexity_hotspots",
@@ -19834,6 +19838,24 @@ async function handleBenchmarkCommand(directory, args) {
   lines.push("[BENCHMARK_JSON]", JSON.stringify(json2, null, 2), "[/BENCHMARK_JSON]");
   return lines.join(`
 `);
+}
+
+// src/commands/brainstorm.ts
+function sanitizeTopic(raw) {
+  const collapsed = raw.replace(/\s+/g, " ").trim();
+  const stripped = collapsed.replace(/\[\s*MODE\s*:[^\]]*\]/gi, "");
+  const normalized = stripped.replace(/\s+/g, " ").trim();
+  const MAX_TOPIC_LEN = 2000;
+  if (normalized.length <= MAX_TOPIC_LEN)
+    return normalized;
+  return `${normalized.slice(0, MAX_TOPIC_LEN)}\u2026`;
+}
+async function handleBrainstormCommand(_directory, args) {
+  const description = sanitizeTopic(args.join(" "));
+  if (description) {
+    return `[MODE: BRAINSTORM] ${description}`;
+  }
+  return "[MODE: BRAINSTORM] Please enter MODE: BRAINSTORM and begin the structured brainstorm workflow (CONTEXT SCAN \u2192 DIALOGUE \u2192 APPROACHES \u2192 DESIGN SECTIONS \u2192 SPEC WRITE + SELF-REVIEW \u2192 QA GATE SELECTION \u2192 TRANSITION).";
 }
 
 // src/commands/checkpoint.ts
@@ -41511,6 +41533,324 @@ async function handlePromoteCommand(directory, args) {
   }
 }
 
+// src/db/qa-gate-profile.ts
+import { createHash as createHash4 } from "crypto";
+
+// src/db/project-db.ts
+import { Database } from "bun:sqlite";
+import { existsSync as existsSync16, mkdirSync as mkdirSync7 } from "fs";
+import { join as join22, resolve as resolve11 } from "path";
+var MIGRATIONS = [
+  {
+    version: 1,
+    name: "create_project_constraints",
+    sql: `CREATE TABLE project_constraints (
+			id INTEGER PRIMARY KEY AUTOINCREMENT,
+			constraint_type TEXT NOT NULL,
+			content TEXT NOT NULL,
+			created_at TEXT NOT NULL DEFAULT (datetime('now'))
+		)`
+  },
+  {
+    version: 2,
+    name: "create_qa_gate_profile",
+    sql: `CREATE TABLE qa_gate_profile (
+			id INTEGER PRIMARY KEY AUTOINCREMENT,
+			plan_id TEXT NOT NULL UNIQUE,
+			created_at TEXT NOT NULL DEFAULT (datetime('now')),
+			project_type TEXT,
+			gates TEXT NOT NULL DEFAULT '{}',
+			locked_at TEXT,
+			locked_by_snapshot_seq INTEGER
+		)`
+  },
+  {
+    version: 3,
+    name: "create_qa_gate_profile_immutability_trigger",
+    sql: `CREATE TRIGGER IF NOT EXISTS trg_qa_gate_profile_no_update_after_lock
+			BEFORE UPDATE ON qa_gate_profile
+			WHEN OLD.locked_at IS NOT NULL
+			BEGIN
+				SELECT RAISE(ABORT, 'qa_gate_profile row is locked and cannot be modified after critic approval');
+			END`
+  }
+];
+var _projectDbs = new Map;
+function runProjectMigrations(db) {
+  db.run(`CREATE TABLE IF NOT EXISTS schema_migrations (
+		version INTEGER PRIMARY KEY,
+		name TEXT NOT NULL,
+		applied_at TEXT NOT NULL DEFAULT (datetime('now'))
+	)`);
+  const row = db.query("SELECT MAX(version) as version FROM schema_migrations").get();
+  const currentVersion = row?.version ?? 0;
+  for (const migration of MIGRATIONS) {
+    if (migration.version <= currentVersion)
+      continue;
+    const apply = db.transaction(() => {
+      db.run(migration.sql);
+      db.run("INSERT INTO schema_migrations (version, name) VALUES (?, ?)", [
+        migration.version,
+        migration.name
+      ]);
+    });
+    apply();
+  }
+}
+function projectDbPath(directory) {
+  return join22(resolve11(directory), ".swarm", "swarm.db");
+}
+function projectDbExists(directory) {
+  return existsSync16(projectDbPath(directory));
+}
+function getProjectDb(directory) {
+  const key = resolve11(directory);
+  const existing = _projectDbs.get(key);
+  if (existing)
+    return existing;
+  const swarmDir = join22(key, ".swarm");
+  mkdirSync7(swarmDir, { recursive: true });
+  const db = new Database(join22(swarmDir, "swarm.db"));
+  db.run("PRAGMA journal_mode = WAL;");
+  db.run("PRAGMA synchronous = NORMAL;");
+  db.run("PRAGMA busy_timeout = 5000;");
+  db.run("PRAGMA foreign_keys = ON;");
+  runProjectMigrations(db);
+  _projectDbs.set(key, db);
+  return db;
+}
+
+// src/db/qa-gate-profile.ts
+var DEFAULT_QA_GATES = {
+  reviewer: true,
+  test_engineer: true,
+  council_mode: false,
+  sme_enabled: true,
+  critic_pre_plan: true,
+  hallucination_guard: false,
+  sast_enabled: true
+};
+function rowToProfile(row) {
+  let parsed = {};
+  try {
+    parsed = JSON.parse(row.gates);
+  } catch {
+    parsed = {};
+  }
+  const gates = { ...DEFAULT_QA_GATES, ...parsed };
+  return {
+    id: row.id,
+    plan_id: row.plan_id,
+    created_at: row.created_at,
+    project_type: row.project_type,
+    gates,
+    locked_at: row.locked_at,
+    locked_by_snapshot_seq: row.locked_by_snapshot_seq
+  };
+}
+function getProfile(directory, planId) {
+  if (!projectDbExists(directory))
+    return null;
+  const db = getProjectDb(directory);
+  const row = db.query("SELECT * FROM qa_gate_profile WHERE plan_id = ?").get(planId);
+  return row ? rowToProfile(row) : null;
+}
+function getOrCreateProfile(directory, planId, projectType) {
+  const existing = getProfile(directory, planId);
+  if (existing)
+    return existing;
+  const db = getProjectDb(directory);
+  const gatesJson = JSON.stringify(DEFAULT_QA_GATES);
+  const insert = db.transaction(() => {
+    db.run("INSERT INTO qa_gate_profile (plan_id, project_type, gates) VALUES (?, ?, ?)", [planId, projectType ?? null, gatesJson]);
+  });
+  try {
+    insert();
+  } catch (err) {
+    const msg = err instanceof Error ? err.message : String(err);
+    if (!msg.toLowerCase().includes("unique")) {
+      throw err;
+    }
+  }
+  const after = getProfile(directory, planId);
+  if (!after) {
+    throw new Error(`Failed to create or load QA gate profile for plan_id=${planId}`);
+  }
+  return after;
+}
+function setGates(directory, planId, gates) {
+  const current = getProfile(directory, planId);
+  if (!current) {
+    throw new Error(`No QA gate profile found for plan_id=${planId} \u2014 call getOrCreateProfile first`);
+  }
+  if (current.locked_at !== null) {
+    throw new Error("Cannot modify gates: QA gate profile is locked after critic approval");
+  }
+  const merged = { ...current.gates };
+  for (const key of Object.keys(gates)) {
+    const incoming = gates[key];
+    if (incoming === undefined)
+      continue;
+    if (incoming === false && current.gates[key] === true) {
+      throw new Error(`Cannot disable gate '${key}': sessions can only ratchet tighter`);
+    }
+    if (incoming === true) {
+      merged[key] = true;
+    }
+  }
+  const db = getProjectDb(directory);
+  db.run("UPDATE qa_gate_profile SET gates = ? WHERE plan_id = ?", [
+    JSON.stringify(merged),
+    planId
+  ]);
+  const updated = getProfile(directory, planId);
+  if (!updated) {
+    throw new Error(`Failed to re-read QA gate profile after update for plan_id=${planId}`);
+  }
+  return updated;
+}
+function computeProfileHash(profile) {
+  const payload = JSON.stringify({
+    plan_id: profile.plan_id,
+    gates: profile.gates
+  });
+  return createHash4("sha256").update(payload).digest("hex");
+}
+function getEffectiveGates(profile, sessionOverrides) {
+  const merged = { ...profile.gates };
+  for (const key of Object.keys(sessionOverrides)) {
+    if (sessionOverrides[key] === true) {
+      merged[key] = true;
+    }
+  }
+  return merged;
+}
+
+// src/commands/qa-gates.ts
+init_manager();
+var ALL_GATE_NAMES = [
+  "reviewer",
+  "test_engineer",
+  "council_mode",
+  "sme_enabled",
+  "critic_pre_plan",
+  "hallucination_guard",
+  "sast_enabled"
+];
+function derivePlanId(plan) {
+  return `${plan.swarm}-${plan.title}`.replace(/[^a-zA-Z0-9-_]/g, "_");
+}
+function isGateName(name) {
+  return ALL_GATE_NAMES.includes(name);
+}
+function formatGates(gates) {
+  return ALL_GATE_NAMES.map((g) => `  - ${g}: ${gates[g] ? "on" : "off"}`).join(`
+`);
+}
+async function handleQaGatesCommand(directory, args, sessionID) {
+  const plan = await loadPlanJsonOnly(directory);
+  if (!plan) {
+    return "Error: plan.json not found or invalid. Create a plan first (e.g. /swarm specify or save_plan).";
+  }
+  const planId = derivePlanId(plan);
+  const subcommand = args[0]?.toLowerCase();
+  const gateArgs = args.slice(1);
+  if (!subcommand || subcommand === "show" || subcommand === "status") {
+    const profile = getProfile(directory, planId);
+    const spec = profile ? profile.gates : DEFAULT_QA_GATES;
+    const session = sessionID ? getAgentSession(sessionID) : null;
+    const overrides = session?.qaGateSessionOverrides ?? {};
+    const effective = profile ? getEffectiveGates(profile, overrides) : { ...DEFAULT_QA_GATES, ...overrides };
+    const lines = [];
+    lines.push(`QA Gate Profile for plan_id=${planId}`);
+    if (!profile) {
+      lines.push("  (no profile persisted yet \u2014 showing defaults)");
+    } else {
+      lines.push(`  locked: ${profile.locked_at ? `yes @ ${profile.locked_at} (seq ${profile.locked_by_snapshot_seq ?? "?"})` : "no"}`);
+      lines.push(`  profile_hash: ${computeProfileHash(profile)}`);
+    }
+    lines.push("Spec-level gates:");
+    lines.push(formatGates(spec));
+    lines.push("Session overrides (ratchet-tighter only):");
+    if (Object.keys(overrides).length === 0) {
+      lines.push("  (none)");
+    } else {
+      for (const k of ALL_GATE_NAMES) {
+        if (overrides[k] === true)
+          lines.push(`  - ${k}: on (override)`);
+      }
+    }
+    lines.push("Effective gates:");
+    lines.push(formatGates(effective));
+    return lines.join(`
+`);
+  }
+  if (subcommand === "enable") {
+    if (gateArgs.length === 0) {
+      return "Usage: /swarm qa-gates enable <gate> [<gate> ...]";
+    }
+    const invalid = gateArgs.filter((g) => !isGateName(g));
+    if (invalid.length > 0) {
+      return `Error: unknown gate(s): ${invalid.join(", ")}. Valid gates: ${ALL_GATE_NAMES.join(", ")}`;
+    }
+    getOrCreateProfile(directory, planId);
+    const patch = {};
+    for (const g of gateArgs) {
+      if (isGateName(g))
+        patch[g] = true;
+    }
+    try {
+      const updated = setGates(directory, planId, patch);
+      return [
+        `Enabled gates persisted for plan_id=${planId}:`,
+        formatGates(updated.gates),
+        `profile_hash: ${computeProfileHash(updated)}`
+      ].join(`
+`);
+    } catch (err) {
+      const msg = err instanceof Error ? err.message : String(err);
+      return `Error: ${msg}`;
+    }
+  }
+  if (subcommand === "override") {
+    if (!sessionID) {
+      return "Error: session overrides require an active session context.";
+    }
+    if (gateArgs.length === 0) {
+      return "Usage: /swarm qa-gates override <gate> [<gate> ...]";
+    }
+    const invalid = gateArgs.filter((g) => !isGateName(g));
+    if (invalid.length > 0) {
+      return `Error: unknown gate(s): ${invalid.join(", ")}. Valid gates: ${ALL_GATE_NAMES.join(", ")}`;
+    }
+    const session = getAgentSession(sessionID);
+    if (!session) {
+      return "Error: no active session found for override.";
+    }
+    const current = session.qaGateSessionOverrides ?? {};
+    const next = { ...current };
+    for (const g of gateArgs) {
+      if (isGateName(g))
+        next[g] = true;
+    }
+    session.qaGateSessionOverrides = next;
+    return [
+      `Session overrides updated for plan_id=${planId}:`,
+      Object.keys(next).filter((k) => next[k] === true).map((k) => `  - ${k}: on`).join(`
+`) || "  (none)"
+    ].join(`
+`);
+  }
+  return [
+    "Usage:",
+    "  /swarm qa-gates                    show current profile + effective gates",
+    "  /swarm qa-gates enable <gate>...   persist-enable gate(s) (rejected if locked)",
+    "  /swarm qa-gates override <gate>... session-only enable (ratchet-tighter)",
+    `Valid gates: ${ALL_GATE_NAMES.join(", ")}`
+  ].join(`
+`);
+}
+
 // src/commands/reset.ts
 import * as fs16 from "fs";
 
@@ -41567,13 +41907,13 @@ class CircuitBreaker {
     if (this.config.callTimeoutMs <= 0) {
       return fn();
     }
-    return new Promise((resolve11, reject) => {
+    return new Promise((resolve12, reject) => {
       const timeout = setTimeout(() => {
         reject(new Error(`Call timeout after ${this.config.callTimeoutMs}ms`));
       }, this.config.callTimeoutMs);
       fn().then((result) => {
         clearTimeout(timeout);
-        resolve11(result);
+        resolve12(result);
       }).catch((error93) => {
         clearTimeout(timeout);
         reject(error93);
@@ -41857,7 +42197,7 @@ class AutomationQueue {
 
 // src/background/worker.ts
 function sleep(ms) {
-  return new Promise((resolve11) => setTimeout(resolve11, ms));
+  return new Promise((resolve12) => setTimeout(resolve12, ms));
 }
 
 class WorkerManager {
@@ -42947,6 +43287,18 @@ var COMMAND_REGISTRY = {
     handler: (ctx) => handleSpecifyCommand(ctx.directory, ctx.args),
     description: "Generate or import a feature specification [description]",
     args: "[description-text]"
+  },
+  brainstorm: {
+    handler: (ctx) => handleBrainstormCommand(ctx.directory, ctx.args),
+    description: "Enter architect MODE: BRAINSTORM \u2014 structured seven-phase planning workflow [topic]",
+    args: "[topic-text]",
+    details: "Triggers the architect to run the brainstorm workflow: CONTEXT SCAN, single-question DIALOGUE, APPROACHES, DESIGN SECTIONS, SPEC WRITE + SELF-REVIEW, QA GATE SELECTION, TRANSITION. Use for new plans where requirements need to be drawn out before writing spec.md / plan.md."
+  },
+  "qa-gates": {
+    handler: (ctx) => handleQaGatesCommand(ctx.directory, ctx.args, ctx.sessionID),
+    description: "View or modify QA gate profile for the current plan [enable|override <gate>...]",
+    args: "[show|enable|override] <gate>...",
+    details: "show: display spec-level, session-override, and effective QA gates for the current plan. enable: persist gate(s) into the locked-once profile (architect; rejected after critic approval lock). override: session-only ratchet-tighter enable. Valid gates: reviewer, test_engineer, council_mode, sme_enabled, critic_pre_plan, hallucination_guard, sast_enabled."
   },
   promote: {
     handler: (ctx) => handlePromoteCommand(ctx.directory, ctx.args),

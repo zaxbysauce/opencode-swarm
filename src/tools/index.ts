@@ -16,6 +16,7 @@ export { detect_domains } from './domain-detector';
 export { evidence_check } from './evidence-check';
 export { extract_code_blocks } from './file-extractor';
 export { get_approved_plan } from './get-approved-plan';
+export { get_qa_gate_profile } from './get-qa-gate-profile';
 export { fetchGitingest, type GitingestArgs, gitingest } from './gitingest';
 export { imports } from './imports';
 export { knowledge_add } from './knowledge-add';
@@ -82,6 +83,7 @@ export {
 	type SecretscanResult,
 	secretscan,
 } from './secretscan';
+export { set_qa_gates } from './set-qa-gates';
 
 import { suggestPatch } from './suggest-patch';
 

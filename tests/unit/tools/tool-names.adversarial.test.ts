@@ -167,6 +167,8 @@ describe('tool-names registry integrity - adversarial', () => {
 				'repo_map',
 				'convene_council',
 				'declare_council_criteria',
+				'get_qa_gate_profile',
+				'set_qa_gates',
 			];
 
 			expect(TOOL_NAMES.length).toBe(expectedTools.length);
@@ -226,6 +228,8 @@ describe('tool-names registry integrity - adversarial', () => {
 				'repo_map',
 				'convene_council',
 				'declare_council_criteria',
+				'get_qa_gate_profile',
+				'set_qa_gates',
 			]);
 
 			const extraTools = TOOL_NAMES.filter(
@@ -239,7 +243,7 @@ describe('tool-names registry integrity - adversarial', () => {
 		test('should handle maximum array length', () => {
 			// Verify array has expected count
 			expect(TOOL_NAMES.length).toBeGreaterThan(0);
-			expect(TOOL_NAMES.length).toBe(48); // Explicit expected count
+			expect(TOOL_NAMES.length).toBe(50); // Explicit expected count
 		});
 
 		test('should have non-empty registry', () => {

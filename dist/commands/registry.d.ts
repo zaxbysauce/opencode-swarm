@@ -150,6 +150,18 @@ export declare const COMMAND_REGISTRY: {
         readonly description: "Generate or import a feature specification [description]";
         readonly args: "[description-text]";
     };
+    readonly brainstorm: {
+        readonly handler: (ctx: CommandContext) => Promise<string>;
+        readonly description: "Enter architect MODE: BRAINSTORM — structured seven-phase planning workflow [topic]";
+        readonly args: "[topic-text]";
+        readonly details: "Triggers the architect to run the brainstorm workflow: CONTEXT SCAN, single-question DIALOGUE, APPROACHES, DESIGN SECTIONS, SPEC WRITE + SELF-REVIEW, QA GATE SELECTION, TRANSITION. Use for new plans where requirements need to be drawn out before writing spec.md / plan.md.";
+    };
+    readonly 'qa-gates': {
+        readonly handler: (ctx: CommandContext) => Promise<string>;
+        readonly description: "View or modify QA gate profile for the current plan [enable|override <gate>...]";
+        readonly args: "[show|enable|override] <gate>...";
+        readonly details: "show: display spec-level, session-override, and effective QA gates for the current plan. enable: persist gate(s) into the locked-once profile (architect; rejected after critic approval lock). override: session-only ratchet-tighter enable. Valid gates: reviewer, test_engineer, council_mode, sme_enabled, critic_pre_plan, hallucination_guard, sast_enabled.";
+    };
     readonly promote: {
         readonly handler: (ctx: CommandContext) => Promise<string>;
         readonly description: "Manually promote lesson to hive knowledge";

@@ -85,6 +85,7 @@ import {
 	evidence_check,
 	extract_code_blocks,
 	get_approved_plan,
+	get_qa_gate_profile,
 	gitingest,
 	imports,
 	knowledge_add,
@@ -107,6 +108,7 @@ import {
 	schema_drift,
 	search,
 	secretscan,
+	set_qa_gates,
 	suggestPatch,
 	symbols,
 	syntax_check,
@@ -562,6 +564,8 @@ const OpenCodeSwarm: Plugin = async (ctx) => {
 			evidence_check,
 			extract_code_blocks,
 			get_approved_plan,
+			get_qa_gate_profile,
+			set_qa_gates,
 			gitingest,
 			imports,
 			knowledge_query,
@@ -613,7 +617,7 @@ const OpenCodeSwarm: Plugin = async (ctx) => {
 					// The actual command is handled by command.execute.before hook.
 					template: '/swarm $ARGUMENTS',
 					description:
-						'Swarm management commands: /swarm [status|plan|agents|history|config|evidence|handoff|archive|diagnose|preflight|sync-plan|benchmark|export|reset|rollback|retrieve|clarify|analyze|specify|dark-matter|knowledge|curate|turbo|full-auto|write-retro|reset-session|simulate|promote|checkpoint|close]',
+						'Swarm management commands: /swarm [status|plan|agents|history|config|evidence|handoff|archive|diagnose|preflight|sync-plan|benchmark|export|reset|rollback|retrieve|clarify|analyze|specify|brainstorm|qa-gates|dark-matter|knowledge|curate|turbo|full-auto|write-retro|reset-session|simulate|promote|checkpoint|close]',
 				},
 				// Individual subcommands for discoverability by weaker models (Haiku-class)
 				'swarm-status': {
@@ -703,6 +707,16 @@ const OpenCodeSwarm: Plugin = async (ctx) => {
 					template: '/swarm specify $ARGUMENTS',
 					description:
 						'Use /swarm specify to generate or import a feature specification',
+				},
+				'swarm-brainstorm': {
+					template: '/swarm brainstorm $ARGUMENTS',
+					description:
+						'Use /swarm brainstorm to enter the architect MODE: BRAINSTORM planning workflow',
+				},
+				'swarm-qa-gates': {
+					template: '/swarm qa-gates $ARGUMENTS',
+					description:
+						'Use /swarm qa-gates to view or modify QA gate profile for the current plan',
 				},
 				'swarm-dark-matter': {
 					template: '/swarm dark-matter',
