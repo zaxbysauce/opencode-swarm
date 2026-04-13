@@ -21,7 +21,7 @@ describe('Swarm subcommand registration', () => {
 		expect(typeof plugin.config).toBe('function');
 	});
 
-	it('should register 32 individual subcommands plus catch-all', async () => {
+	it('should register 34 individual subcommands plus catch-all', async () => {
 		const plugin = await OpenCodeSwarm(mockPluginInput);
 		const mockConfig: Record<string, unknown> = {};
 
@@ -34,8 +34,8 @@ describe('Swarm subcommand registration', () => {
 		expect(commands).toBeDefined();
 		const commandKeys = Object.keys(commands);
 
-		// Should have catch-all + 32 subcommands = 33 total
-		expect(commandKeys.length).toBe(33);
+		// Should have catch-all + 34 subcommands = 35 total
+		expect(commandKeys.length).toBe(35);
 
 		// Verify catch-all exists
 		expect(commands.swarm).toBeDefined();
@@ -54,11 +54,11 @@ describe('Swarm subcommand registration', () => {
 		expect(commands.swarm).toBeDefined();
 		expect(commands.swarm.template).toBe('/swarm $ARGUMENTS');
 		expect(commands.swarm.description).toBe(
-			'Swarm management commands: /swarm [status|plan|agents|history|config|evidence|handoff|archive|diagnose|preflight|sync-plan|benchmark|export|reset|rollback|retrieve|clarify|analyze|specify|dark-matter|knowledge|curate|turbo|full-auto|write-retro|reset-session|simulate|promote|checkpoint|close]',
+			'Swarm management commands: /swarm [status|plan|agents|history|config|evidence|handoff|archive|diagnose|preflight|sync-plan|benchmark|export|reset|rollback|retrieve|clarify|analyze|specify|brainstorm|qa-gates|dark-matter|knowledge|curate|turbo|full-auto|write-retro|reset-session|simulate|promote|checkpoint|close]',
 		);
 	});
 
-	it('should register all 32 individual subcommands with correct keys', async () => {
+	it('should register all 34 individual subcommands with correct keys', async () => {
 		const plugin = await OpenCodeSwarm(mockPluginInput);
 		const mockConfig: Record<string, unknown> = {};
 
@@ -88,6 +88,8 @@ describe('Swarm subcommand registration', () => {
 			'swarm-clarify',
 			'swarm-analyze',
 			'swarm-specify',
+			'swarm-brainstorm',
+			'swarm-qa-gates',
 			'swarm-dark-matter',
 			'swarm-knowledge',
 			'swarm-curate',
