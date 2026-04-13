@@ -183,7 +183,9 @@ describe('declare_council_criteria — config gate', () => {
 	});
 
 	test('council config missing entirely → disabled error', async () => {
-		// No config file at all
+		// Seed explicit disabled config so test is deterministic regardless of user-level config.
+		// Without this, loadPluginConfig may pick up a user-level config with council.enabled=true.
+		seedConfig(false);
 		const { declare_council_criteria } = await import(
 			'../../../src/tools/declare-council-criteria'
 		);

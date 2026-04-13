@@ -239,6 +239,27 @@ describe('synthesizeCouncilVerdicts — conflict detection', () => {
 	});
 });
 
+describe('synthesizeCouncilVerdicts — emptyVerdictsWarning field', () => {
+	test('empty verdicts array sets emptyVerdictsWarning to true', () => {
+		const result = synthesizeCouncilVerdicts('1.1', 's1', [], null, 1);
+		expect(result.emptyVerdictsWarning).toBe(true);
+		// Backward compatibility: APPROVE still returned on empty
+		expect(result.overallVerdict).toBe('APPROVE');
+		expect(result.vetoedBy).toBeNull();
+	});
+
+	test('non-empty verdicts array does NOT set emptyVerdictsWarning', () => {
+		const verdicts = [
+			makeVerdict('critic', 'APPROVE'),
+			makeVerdict('reviewer', 'APPROVE'),
+			makeVerdict('sme', 'APPROVE'),
+			makeVerdict('test_engineer', 'APPROVE'),
+		];
+		const result = synthesizeCouncilVerdicts('1.1', 's1', verdicts, null, 1);
+		expect(result.emptyVerdictsWarning).toBeUndefined();
+	});
+});
+
 describe('synthesizeCouncilVerdicts — criteria assessment', () => {
 	test('allCriteriaMet is false when a mandatory criterion was not assessed at all', () => {
 		// An unassessed mandatory criterion must NOT count as met — otherwise a
