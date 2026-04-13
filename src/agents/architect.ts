@@ -1402,9 +1402,12 @@ export function createArchitectAgent(
 	const councilBlock = buildCouncilWorkflow(council);
 	const hasPlaceholder = prompt?.includes('{{COUNCIL_WORKFLOW}}') === true;
 	if (councilBlock === '') {
-		prompt = prompt?.replace('\n\n{{COUNCIL_WORKFLOW}}\n\n', '\n\n');
+		prompt = prompt?.replace(/\n\n\{\{COUNCIL_WORKFLOW\}\}\n\n/g, '\n\n');
 	} else if (hasPlaceholder) {
-		prompt = prompt?.replace('{{COUNCIL_WORKFLOW}}', councilBlock);
+		// Use /g so multiple placeholder occurrences in a composed prompt all
+		// get substituted — a single unreplaced `{{COUNCIL_WORKFLOW}}` in the
+		// rendered system prompt would leak placeholder text to the model.
+		prompt = prompt?.replace(/\{\{COUNCIL_WORKFLOW\}\}/g, councilBlock);
 	} else {
 		// Custom prompt without placeholder — append so council is still taught.
 		prompt = `${prompt ?? ''}\n\n${councilBlock}`;

@@ -54758,15 +54758,11 @@ ${customAppendPrompt}`;
   const councilBlock = buildCouncilWorkflow(council);
   const hasPlaceholder = prompt?.includes("{{COUNCIL_WORKFLOW}}") === true;
   if (councilBlock === "") {
-    prompt = prompt?.replace(`
-
-{{COUNCIL_WORKFLOW}}
-
-`, `
+    prompt = prompt?.replace(/\n\n\{\{COUNCIL_WORKFLOW\}\}\n\n/g, `
 
 `);
   } else if (hasPlaceholder) {
-    prompt = prompt?.replace("{{COUNCIL_WORKFLOW}}", councilBlock);
+    prompt = prompt?.replace(/\{\{COUNCIL_WORKFLOW\}\}/g, councilBlock);
   } else {
     prompt = `${prompt ?? ""}
 

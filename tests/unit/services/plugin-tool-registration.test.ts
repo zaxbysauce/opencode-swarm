@@ -54,8 +54,11 @@ describe('plugin tool registration alignment', () => {
 		}
 		const block = src.slice(openBrace + 1, endIdx);
 		const keys = new Set<string>();
-		// Match shorthand keys (`foo,` or `foo\n`) and renamed keys (`foo: bar,`)
-		const keyRe = /(?:^|[,{\n])\s*([a-zA-Z_][a-zA-Z0-9_]*)\s*(?:[:,}\n])/g;
+		// Match shorthand keys (`foo,` or `foo\n`) and renamed keys (`foo: bar,`).
+		// Lookahead on the trailing delimiter so consecutive keys on the same line
+		// (`foo, bar,`) are all captured — a plain `[:,}\n]` consumes the comma
+		// and leaves the next key without a valid leading delimiter.
+		const keyRe = /(?:^|[,{\n])\s*([a-zA-Z_][a-zA-Z0-9_]*)(?=\s*[:,}\n])/g;
 		for (const m of block.matchAll(keyRe)) {
 			keys.add(m[1]);
 		}

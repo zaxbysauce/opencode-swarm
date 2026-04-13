@@ -110,4 +110,40 @@ describe('tool_filter override + council conflict detection', () => {
 		expect(tools?.convene_council).toBe(true);
 		expect(tools?.declare_council_criteria).toBe(true);
 	});
+
+	test('throws on empty override list when council is enabled', () => {
+		// Empty list = user explicitly removed all tools from architect, including
+		// both council tools. This is the degenerate case of the conflict and
+		// must still throw rather than silently losing council.
+		const config: PluginConfig = {
+			council: { enabled: true },
+			tool_filter: {
+				enabled: true,
+				overrides: {
+					architect: [],
+				},
+			},
+		} as PluginConfig;
+
+		expect(() => getAgentConfigs(config)).toThrow(
+			/council\.enabled=true but tool_filter\.overrides\.architect omits/,
+		);
+	});
+
+	test('throws on partial override (only one of two council tools present)', () => {
+		// Override includes convene_council but omits declare_council_criteria.
+		// Both tools are required by the council workflow — a partial override
+		// is still a silent-failure path and must throw.
+		const config: PluginConfig = {
+			council: { enabled: true },
+			tool_filter: {
+				enabled: true,
+				overrides: {
+					architect: ['read', 'write', 'task', 'convene_council'],
+				},
+			},
+		} as PluginConfig;
+
+		expect(() => getAgentConfigs(config)).toThrow(/declare_council_criteria/);
+	});
 });
