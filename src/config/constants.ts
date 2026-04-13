@@ -277,7 +277,7 @@ export const TOOL_DESCRIPTIONS: Partial<Record<ToolName, string>> = {
 	check_gate_status: 'check the gate status of a specific task',
 	completion_verify: 'verify completed tasks have required evidence',
 	convene_council:
-		'convene the Work Complete Council — parallel veto-aware verification gate across critic, reviewer, sme, and test_engineer verdicts',
+		'convene the Work Complete Council — parallel veto-aware verification gate across critic, reviewer, sme, test_engineer, and explorer verdicts',
 	declare_council_criteria:
 		'pre-declare acceptance criteria for a task before the coder starts work; criteria are read back during council evaluation',
 	detect_domains: 'detect which SME domains are relevant for a given text',

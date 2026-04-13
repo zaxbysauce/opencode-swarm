@@ -31,7 +31,7 @@ const CriteriaItemSchema = z.object({
 	mandatory: z.boolean(),
 });
 
-export const ArgsSchema = z.object({
+const ArgsSchema = z.object({
 	taskId: z
 		.string()
 		.min(1)

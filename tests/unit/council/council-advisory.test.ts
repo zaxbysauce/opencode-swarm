@@ -126,4 +126,15 @@ describe('pushCouncilAdvisory', () => {
 		expect(session.pendingAdvisoryMessages[0]).toContain('council:1.1:1');
 		expect(session.pendingAdvisoryMessages[1]).toContain('council:1.2:1');
 	});
+
+	test('pendingAdvisoryMessages undefined on input is initialized lazily', () => {
+		// The real AgentSessionState may not have pendingAdvisoryMessages
+		// populated on fresh sessions. The helper uses `??=` to initialize
+		// it, so passing a session without the field must not throw and
+		// must leave exactly one entry after a push.
+		const session = {} as { pendingAdvisoryMessages?: string[] };
+		const synth = makeSynthesis({ overallVerdict: 'REJECT' });
+		pushCouncilAdvisory(session as never, synth);
+		expect(session.pendingAdvisoryMessages).toHaveLength(1);
+	});
 });

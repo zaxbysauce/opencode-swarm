@@ -12,10 +12,12 @@
 import { tool } from '@opencode-ai/plugin';
 import { z } from 'zod';
 import { loadPluginConfig } from '../config/loader';
+import { pushCouncilAdvisory } from '../council/council-advisory';
 import { writeCouncilEvidence } from '../council/council-evidence-writer';
 import { synthesizeCouncilVerdicts } from '../council/council-service';
 import { readCriteria } from '../council/criteria-store';
 import type { CouncilMemberVerdict } from '../council/types';
+import { getAgentSession } from '../state';
 import { createSwarmTool } from './create-tool';
 import { resolveWorkingDirectory } from './resolve-working-directory';
 
@@ -116,7 +118,11 @@ export const convene_council: ReturnType<typeof tool> = createSwarmTool({
 				'Explicit project root directory. When provided, .swarm/council/ and .swarm/evidence/ are resolved relative to this path instead of the plugin context directory.',
 			),
 	},
-	async execute(args: unknown, directory: string): Promise<string> {
+	async execute(
+		args: unknown,
+		directory: string,
+		ctx?: { sessionID?: string },
+	): Promise<string> {
 		// ── Validate args with zod ─────────────────────────────────────────
 		const parsed = ArgsSchema.safeParse(args);
 		if (!parsed.success) {
@@ -189,6 +195,24 @@ export const convene_council: ReturnType<typeof tool> = createSwarmTool({
 
 		// ── Evidence write ────────────────────────────────────────────────
 		writeCouncilEvidence(workingDir, synthesis);
+
+		// ── Architect self-echo advisory ──────────────────────────────────
+		// When the tool is invoked inside an architect session, push the
+		// unified feedback into the session's pending advisory queue so the
+		// next messagesTransform surfaces it as an [ADVISORIES] block. This
+		// is best-effort: missing sessionID, session not found, or a thrown
+		// error all silently skip — the advisory is never critical-path.
+		try {
+			const sessionID = ctx?.sessionID;
+			if (sessionID) {
+				const session = getAgentSession(sessionID);
+				if (session) {
+					pushCouncilAdvisory(session, synthesis);
+				}
+			}
+		} catch {
+			// Advisory delivery is non-critical; never propagate.
+		}
 
 		return JSON.stringify(
 			{

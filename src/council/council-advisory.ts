@@ -2,37 +2,36 @@
  * Work Complete Council — advisory routing helper.
  *
  * Purpose:
- *   Routes a CouncilSynthesis document (unifiedFeedbackMd plus verdict metadata)
- *   into the architect's non-blocking advisory queue (session.pendingAdvisoryMessages).
- *   That queue is drained by the guardrails `messagesTransform` hook into a
- *   [ADVISORIES] block prepended to the architect's first SYSTEM message.
+ *   Routes a CouncilSynthesis (unifiedFeedbackMd + verdict metadata) into the
+ *   architect's non-blocking advisory queue (`session.pendingAdvisoryMessages`).
+ *   The guardrails `messagesTransform` hook drains that queue into an
+ *   [ADVISORIES] block prepended to the architect's first SYSTEM message on
+ *   the next turn.
  *
- * How the architect is expected to call it:
- *   After `convene_council` returns a synthesis, the architect (see Phase C wiring
- *   in `src/agents/architect.ts`) inspects the overall verdict. On REJECT or
- *   CONCERNS, the architect may call `pushCouncilAdvisory(session, synthesis)` to
- *   have the council's unified feedback surfaced back into its own system prompt
- *   on the next turn. On APPROVE with no advisoryFindings, the helper no-ops.
+ * Runtime call site:
+ *   `src/tools/convene-council.ts` invokes this helper after writing evidence,
+ *   guarded by `ctx?.sessionID` and `getAgentSession`. Missing session, missing
+ *   sessionID, or any thrown error silently skip — the advisory is never
+ *   critical-path. The helper is also re-exported for direct use by any future
+ *   caller that wants to push synthesis output into an advisory queue.
+ *
+ * Scope and known limitation:
+ *   The advisory queue is READ by the architect session on its next turn (self
+ *   echo). It is NOT a programmatic architect→coder delivery channel — the
+ *   architect still has to render `unifiedFeedbackMd` into the coder's
+ *   delegation payload manually, per the prompt's four-phase workflow. A
+ *   dedicated architect→coder advisory primitive is future work.
  *
  * Dedup semantics:
- *   The dedup key is `council:${taskId}:${roundNumber}`. If the queue already
- *   contains a string whose content includes that exact key, the push is a no-op.
- *   Different rounds or different tasks push distinct entries.
+ *   Dedup key is `council:${taskId}:${roundNumber}`. If the queue already
+ *   contains a string whose content includes that key, the push is a no-op.
+ *   Different rounds or tasks push distinct entries.
  *
- * Blocking vs non-blocking signal:
- *   - REJECT → the metadata header declares `blocking=true`. The advisory itself
- *     is still non-blocking at the pipeline level (pendingAdvisoryMessages is
- *     advisory by design); the flag is a semantic signal to the architect that
- *     the council vetoed the candidate and required fixes must land before
- *     re-convening.
- *   - CONCERNS → `blocking=false`. Architect should weigh fixes but is not vetoed.
- *   - APPROVE → treated as non-blocking; helper skips push when there are no
- *     advisoryFindings (nothing useful to surface in that case).
- *
- * Phase C wiring:
- *   The actual call site lives in `src/agents/architect.ts` (Phase C of the
- *   Phase 6 wiring PR). This module exports the helper only — it is NOT invoked
- *   by any tool's execute path in this phase.
+ * Blocking signal (metadata only):
+ *   - REJECT  → header declares `blocking=true`. Council vetoed the candidate.
+ *   - CONCERNS→ `blocking=false`. Architect should weigh fixes but is not vetoed.
+ *   - APPROVE → `blocking=false`. Helper skips push entirely when there are no
+ *               advisoryFindings (nothing useful to surface).
  */
 
 import type { AgentSessionState } from '../state';
