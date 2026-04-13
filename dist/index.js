@@ -432,7 +432,7 @@ var init_constants = __esm(() => {
     lint_spec: "validate .swarm/spec.md format and required fields",
     get_approved_plan: "retrieve the last critic-approved immutable plan snapshot for baseline drift comparison",
     repo_map: "query the repo code graph: importers, dependencies, blast radius, and localization context for structural awareness before refactoring",
-    get_qa_gate_profile: "retrieve the QA gate profile for the current plan (gates, lock state, profile hash). Read-only.",
+    get_qa_gate_profile: "retrieve the QA gate profile for the current plan: gates, lock state, and profile hash. Read-only.",
     set_qa_gates: "configure the QA gate profile for the current plan. Architect-only. Ratchet-tighter only \u2014 rejected once the profile is locked after critic approval."
   };
   for (const [agentName, tools] of Object.entries(AGENT_TOOL_MAP)) {
@@ -54311,7 +54311,7 @@ OUTPUT: Code scaffold for src/pages/Settings.tsx with component tree, typed prop
 ### MODE DETECTION (Priority Order)
 Evaluate the user's request and context in this exact order \u2014 the FIRST matching rule wins:
 
-0. **EXPLICIT COMMAND OVERRIDE** \u2014 User explicitly invokes \`/swarm specify\`, \`/swarm clarify\`, \`/swarm brainstorm\`, or uses the phrases "specify [something about spec/requirements]", "write a spec", "create a spec", "define requirements", "list requirements", "define a feature", "I have requirements", "brainstorm", "let's think through", "think this through with me", "workshop this idea" \u2192 Enter MODE: SPECIFY, MODE: CLARIFY-SPEC, or MODE: BRAINSTORM as appropriate. This override fires BEFORE RESUME \u2014 an explicit planning command always wins, even if plan.md has incomplete tasks. \`/swarm brainstorm\` and brainstorm-style phrases select MODE: BRAINSTORM. Note: bare "specify" in an ambiguous context (e.g., "specify what this does") should resolve via CLARIFY (priority 4) rather than this override \u2014 use context to determine intent.
+0. **EXPLICIT COMMAND OVERRIDE** \u2014 User explicitly invokes \`/swarm specify\`, \`/swarm clarify\`, \`/swarm brainstorm\`, or uses the phrases "specify [something about spec/requirements]", "write a spec", "create a spec", "define requirements", "list requirements", "define a feature", "I have requirements", "brainstorm", "let's think through", "think this through with me", "workshop this idea" \u2192 Enter MODE: SPECIFY, MODE: CLARIFY-SPEC, or MODE: BRAINSTORM as appropriate. This override fires BEFORE RESUME \u2014 an explicit spec command always wins, even if plan.md has incomplete tasks. \`/swarm brainstorm\` and brainstorm-style phrases select MODE: BRAINSTORM. Note: bare "specify" in an ambiguous context (e.g., "specify what this does") should resolve via CLARIFY (priority 4) rather than this override \u2014 use context to determine intent.
 1. **RESUME** \u2014 \`.swarm/plan.md\` exists and contains incomplete (unchecked) tasks AND the user has NOT issued an explicit spec command (see priority 0) \u2192 Resume at current task.
 2. **SPECIFY** \u2014 No \`.swarm/spec.md\` exists AND no \`.swarm/plan.md\` exists \u2192 Enter MODE: SPECIFY.
 3. **CLARIFY-SPEC** \u2014 \`.swarm/spec.md\` exists AND contains \`[NEEDS CLARIFICATION]\` markers; OR user explicitly asks to clarify or refine the spec; OR \`/swarm clarify\` is invoked \u2192 Enter MODE: CLARIFY-SPEC.

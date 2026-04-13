@@ -299,7 +299,7 @@ export const TOOL_DESCRIPTIONS: Partial<Record<ToolName, string>> = {
 	repo_map:
 		'query the repo code graph: importers, dependencies, blast radius, and localization context for structural awareness before refactoring',
 	get_qa_gate_profile:
-		'retrieve the QA gate profile for the current plan (gates, lock state, profile hash). Read-only.',
+		'retrieve the QA gate profile for the current plan: gates, lock state, and profile hash. Read-only.',
 	set_qa_gates:
 		'configure the QA gate profile for the current plan. Architect-only. Ratchet-tighter only — rejected once the profile is locked after critic approval.',
 };
