@@ -15,11 +15,21 @@
  * any filesystem op.
  */
 
-import { existsSync, mkdirSync, readFileSync, writeFileSync } from 'node:fs';
+import {
+	appendFileSync,
+	existsSync,
+	mkdirSync,
+	readFileSync,
+	writeFileSync,
+} from 'node:fs';
 import { join } from 'node:path';
 import type { CouncilSynthesis } from './types';
 
 const EVIDENCE_DIR = '.swarm/evidence';
+// Validates raw taskId for evidence file paths — must match check_gate_status and gate-evidence
+// which both use `${taskId}.json` (no sanitization). This differs intentionally from
+// criteria-store.ts which uses safeId() for .swarm/council/ filenames (dots → underscores).
+// Leading zeros (e.g., "01.1") are accepted — matches the canonical STRICT_TASK_ID_PATTERN in src/validation/task-id.ts.
 const VALID_TASK_ID = /^\d+\.\d+(\.\d+)*$/;
 const COUNCIL_GATE_NAME = 'council';
 const COUNCIL_AGENT_ID = 'architect';
@@ -39,7 +49,23 @@ function safeAssignOwnProps(
 ): Record<string, unknown> {
 	for (const key of Object.keys(source)) {
 		if (FORBIDDEN_KEYS.has(key)) continue;
-		target[key] = source[key];
+		const value = source[key];
+		if (value !== null && typeof value === 'object' && !Array.isArray(value)) {
+			const nested = Object.create(null);
+			safeAssignOwnProps(nested, value as Record<string, unknown>);
+			target[key] = nested;
+		} else if (Array.isArray(value)) {
+			target[key] = value.map((item) => {
+				if (item !== null && typeof item === 'object' && !Array.isArray(item)) {
+					const nested = Object.create(null);
+					safeAssignOwnProps(nested, item as Record<string, unknown>);
+					return nested;
+				}
+				return item;
+			});
+		} else {
+			target[key] = value;
+		}
 	}
 	return target;
 }
@@ -105,4 +131,27 @@ export function writeCouncilEvidence(
 	updated.gates = mergedGates;
 
 	writeFileSync(filePath, JSON.stringify(updated, null, 2));
+
+	// ── Round-history audit log (non-blocking) ────────────────────────────
+	// Append-only log of every council round for multi-round tasks.
+	// Failures are logged but MUST NOT affect the primary evidence write above.
+	try {
+		const councilDir = join(workingDir, '.swarm', 'council');
+		mkdirSync(councilDir, { recursive: true });
+		const auditLine = JSON.stringify({
+			round: synthesis.roundNumber,
+			verdict: synthesis.overallVerdict,
+			timestamp: synthesis.timestamp,
+			vetoedBy: synthesis.vetoedBy,
+		});
+		appendFileSync(
+			join(councilDir, `${synthesis.taskId}.rounds.jsonl`),
+			`${auditLine}\n`,
+		);
+	} catch (auditError) {
+		// Audit log failure must not break the primary evidence write.
+		console.warn(
+			`writeCouncilEvidence: failed to append round-history audit log: ${auditError instanceof Error ? auditError.message : String(auditError)}`,
+		);
+	}
 }

@@ -51,7 +51,9 @@ export function readCriteria(
 	}
 }
 
-// Sanitize taskId to safe filename (e.g. "1.1" → "1_1", "../evil" → "__evil")
+// Sanitizes taskId to a safe filename for .swarm/council/ storage (dots → underscores).
+// This differs intentionally from council-evidence-writer.ts which uses the raw taskId
+// (under VALID_TASK_ID regex guard) to match check_gate_status/gate-evidence filename conventions.
 function safeId(id: string): string {
 	return id.replace(/[^a-zA-Z0-9_-]/g, '_');
 }

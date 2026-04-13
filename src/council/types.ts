@@ -78,6 +78,8 @@ export interface CouncilSynthesis {
 	/** 1-indexed */
 	roundNumber: number;
 	allCriteriaMet: boolean;
+	/** true when called with an empty verdicts array — the APPROVE is vacuous */
+	emptyVerdictsWarning?: boolean;
 }
 
 export interface CouncilCriteriaItem {
@@ -104,7 +106,14 @@ export interface CouncilConfig {
 	vetoPriority: boolean;
 	/** Default false — when true, convene_council rejects unless all 5 member verdicts are provided */
 	requireAllMembers: boolean;
-	/** Optional webhook URL or handler name invoked when maxRounds is reached without APPROVE. Declared for forward compatibility; no behavior is implemented yet. */
+	/**
+	 * Optional webhook URL or handler name for auto-escalation when maxRounds is
+	 * reached without APPROVE. Reserved for forward compatibility — NOT yet
+	 * implemented. Currently, maxRounds exhaustion surfaces a user-facing message
+	 * via `buildUnifiedFeedbackMd` in council-service.ts (see the "Escalate to
+	 * user" block), and the architect must relay it to the user. Future wiring
+	 * options: critic_oversight agent, HTTP webhook, or configurable handler.
+	 */
 	escalateOnMaxRounds?: string;
 }
 

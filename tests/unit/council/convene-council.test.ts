@@ -53,11 +53,20 @@ describe('convene_council — registration', () => {
 
 describe('convene_council — config gate', () => {
 	test('returns disabled message when council.enabled is not set (default)', async () => {
-		const { mkdtempSync, rmSync } = await import('node:fs');
+		const { mkdtempSync, rmSync, mkdirSync, writeFileSync } = await import(
+			'node:fs'
+		);
 		const { tmpdir } = await import('node:os');
 		const { join } = await import('node:path');
 		const tempDir = mkdtempSync(join(tmpdir(), 'convene-council-test-'));
 		try {
+			// Seed explicit disabled config so test is deterministic regardless of user-level config.
+			// Without this, loadPluginConfig may pick up a user-level config with council.enabled=true.
+			mkdirSync(join(tempDir, '.opencode'), { recursive: true });
+			writeFileSync(
+				join(tempDir, '.opencode', 'opencode-swarm.json'),
+				JSON.stringify({ council: { enabled: false } }),
+			);
 			const { convene_council } = await import(
 				'../../../src/tools/convene-council'
 			);

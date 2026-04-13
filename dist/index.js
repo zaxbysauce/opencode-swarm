@@ -193,9 +193,9 @@ var init_constants = __esm(() => {
       "checkpoint",
       "check_gate_status",
       "completion_verify",
+      "complexity_hotspots",
       "convene_council",
       "declare_council_criteria",
-      "complexity_hotspots",
       "detect_domains",
       "evidence_check",
       "extract_code_blocks",
@@ -68389,7 +68389,13 @@ ${body2}`);
 }
 
 // src/council/council-evidence-writer.ts
-import { existsSync as existsSync36, mkdirSync as mkdirSync16, readFileSync as readFileSync35, writeFileSync as writeFileSync11 } from "fs";
+import {
+  appendFileSync as appendFileSync7,
+  existsSync as existsSync36,
+  mkdirSync as mkdirSync16,
+  readFileSync as readFileSync35,
+  writeFileSync as writeFileSync11
+} from "fs";
 import { join as join59 } from "path";
 var EVIDENCE_DIR2 = ".swarm/evidence";
 var VALID_TASK_ID = /^\d+\.\d+(\.\d+)*$/;
@@ -68400,7 +68406,23 @@ function safeAssignOwnProps(target, source) {
   for (const key of Object.keys(source)) {
     if (FORBIDDEN_KEYS.has(key))
       continue;
-    target[key] = source[key];
+    const value = source[key];
+    if (value !== null && typeof value === "object" && !Array.isArray(value)) {
+      const nested = Object.create(null);
+      safeAssignOwnProps(nested, value);
+      target[key] = nested;
+    } else if (Array.isArray(value)) {
+      target[key] = value.map((item) => {
+        if (item !== null && typeof item === "object" && !Array.isArray(item)) {
+          const nested = Object.create(null);
+          safeAssignOwnProps(nested, item);
+          return nested;
+        }
+        return item;
+      });
+    } else {
+      target[key] = value;
+    }
   }
   return target;
 }
@@ -68438,6 +68460,20 @@ function writeCouncilEvidence(workingDir, synthesis) {
   safeAssignOwnProps(updated, existingRoot);
   updated.gates = mergedGates;
   writeFileSync11(filePath, JSON.stringify(updated, null, 2));
+  try {
+    const councilDir = join59(workingDir, ".swarm", "council");
+    mkdirSync16(councilDir, { recursive: true });
+    const auditLine = JSON.stringify({
+      round: synthesis.roundNumber,
+      verdict: synthesis.overallVerdict,
+      timestamp: synthesis.timestamp,
+      vetoedBy: synthesis.vetoedBy
+    });
+    appendFileSync7(join59(councilDir, `${synthesis.taskId}.rounds.jsonl`), `${auditLine}
+`);
+  } catch (auditError) {
+    console.warn(`writeCouncilEvidence: failed to append round-history audit log: ${auditError instanceof Error ? auditError.message : String(auditError)}`);
+  }
 }
 
 // src/council/types.ts
@@ -68487,7 +68523,8 @@ function synthesizeCouncilVerdicts(taskId, swarmId, verdicts, criteria, roundNum
     advisoryFindings,
     unifiedFeedbackMd,
     roundNumber,
-    allCriteriaMet
+    allCriteriaMet,
+    ...verdicts.length === 0 && { emptyVerdictsWarning: true }
   };
 }
 function detectConflicts(verdicts) {

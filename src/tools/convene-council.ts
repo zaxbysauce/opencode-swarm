@@ -42,6 +42,8 @@ const VerdictSchema = z.object({
 	durationMs: z.number().nonnegative(),
 });
 
+// Task ID pattern matches the canonical STRICT_TASK_ID_PATTERN in src/validation/task-id.ts.
+// Leading zeros (e.g., "01.1") are accepted — consistent with the canonical validator.
 export const ArgsSchema = z.object({
 	taskId: z
 		.string()

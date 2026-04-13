@@ -108,6 +108,7 @@ export function synthesizeCouncilVerdicts(
 		unifiedFeedbackMd,
 		roundNumber,
 		allCriteriaMet,
+		...(verdicts.length === 0 && { emptyVerdictsWarning: true }),
 	};
 }
 
