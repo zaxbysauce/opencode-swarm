@@ -35302,7 +35302,7 @@ function checkAgentToolMapAlignment(registeredKeys) {
           id: `agent-tool-map-mismatch-${agentName}-${toolName}`,
           title: "AGENT_TOOL_MAP alignment gap",
           description: `Tool "${toolName}" is assigned to agent "${agentName}" in AGENT_TOOL_MAP but is not registered in the plugin's tool: {} block. The agent will not be able to use this tool.`,
-          severity: "warn",
+          severity: "error",
           path: `AGENT_TOOL_MAP.${agentName}`,
           currentValue: toolName,
           autoFixable: false
@@ -50033,6 +50033,11 @@ function formatToolDoctorMarkdown(result) {
       }
       lines.push("");
     }
+    if (result.summary.error > 0) {
+      lines.push("---", "");
+      lines.push(`**BLOCKING**: ${result.summary.error} error-severity finding(s) must be resolved before release. ` + `AGENT_TOOL_MAP alignment errors mean an agent's system prompt instructs the model to call a tool that opencode has not registered \u2014 the agent's workflow will silently fail at runtime.`);
+      lines.push("");
+    }
   }
   return lines.join(`
 `);
@@ -54751,6 +54756,7 @@ ${customAppendPrompt}`;
   }
   prompt = prompt?.replace("{{YOUR_TOOLS}}", buildYourToolsList())?.replace("{{AVAILABLE_TOOLS}}", buildAvailableToolsList())?.replace("{{SLASH_COMMANDS}}", buildSlashCommandsList());
   const councilBlock = buildCouncilWorkflow(council);
+  const hasPlaceholder = prompt?.includes("{{COUNCIL_WORKFLOW}}") === true;
   if (councilBlock === "") {
     prompt = prompt?.replace(`
 
@@ -54759,8 +54765,12 @@ ${customAppendPrompt}`;
 `, `
 
 `);
-  } else {
+  } else if (hasPlaceholder) {
     prompt = prompt?.replace("{{COUNCIL_WORKFLOW}}", councilBlock);
+  } else {
+    prompt = `${prompt ?? ""}
+
+${councilBlock}`;
   }
   const advEnabled = adversarialTesting?.enabled ?? true;
   const advScope = adversarialTesting?.scope ?? "all";
@@ -56511,6 +56521,13 @@ function getAgentConfigs(config3, directory, sessionId) {
       allowedTools = override;
     } else {
       allowedTools = AGENT_TOOL_MAP[baseAgentName];
+    }
+    if (baseAgentName === "architect" && config3?.council?.enabled === true && override !== undefined) {
+      const required3 = ["declare_council_criteria", "convene_council"];
+      const missing = required3.filter((t) => !override.includes(t));
+      if (missing.length > 0) {
+        throw new Error(`[opencode-swarm] Conflicting config: council.enabled=true but tool_filter.overrides.architect omits ${missing.join(", ")}. ` + `Either set council.enabled=false, remove the architect override entirely to fall back on AGENT_TOOL_MAP, or add the missing council tools to the override. ` + `Refusing to silently override your explicit tool_filter.overrides.architect.`);
+      }
     }
     if (!allowedTools && !Object.hasOwn(toolFilterOverrides, baseAgentName)) {
       if (!warnedMissingWhitelist.has(baseAgentName)) {
@@ -80085,7 +80102,9 @@ var OpenCodeSwarm = async (ctx) => {
       checkpoint,
       completion_verify,
       complexity_hotspots,
+      convene_council,
       curator_analyze,
+      declare_council_criteria,
       knowledge_add,
       knowledge_recall,
       knowledge_remove,
@@ -80100,6 +80119,7 @@ var OpenCodeSwarm = async (ctx) => {
       imports,
       knowledge_query,
       lint,
+      lint_spec,
       diff,
       pkg_audit,
       placeholder_scan,
@@ -80107,6 +80127,7 @@ var OpenCodeSwarm = async (ctx) => {
       pre_check_batch,
       quality_budget,
       repo_map,
+      req_coverage,
       retrieve_summary,
       save_plan,
       sast_scan,
