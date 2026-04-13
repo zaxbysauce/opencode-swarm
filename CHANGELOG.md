@@ -1,5 +1,12 @@
 # Changelog
 
+## [6.67.0](https://github.com/zaxbysauce/opencode-swarm/compare/v6.66.0...v6.67.0) (2026-04-13)
+
+
+### Features
+
+* **council:** harden evidence writer and add round-history audit logging ([#481](https://github.com/zaxbysauce/opencode-swarm/issues/481)) ([f65ff7a](https://github.com/zaxbysauce/opencode-swarm/commit/f65ff7a95b24ee91c10e1fb9283333a0a54fb412)), closes [#478](https://github.com/zaxbysauce/opencode-swarm/issues/478)
+
 ## [6.66.0](https://github.com/zaxbysauce/opencode-swarm/compare/v6.65.0...v6.66.0) (2026-04-13)
 
 
