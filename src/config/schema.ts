@@ -933,6 +933,18 @@ export const CouncilConfigSchema = z
 		maxRounds: z.number().int().min(1).max(10).default(3),
 		parallelTimeoutMs: z.number().int().min(5_000).max(120_000).default(30_000),
 		vetoPriority: z.boolean().default(true),
+		requireAllMembers: z
+			.boolean()
+			.default(false)
+			.describe(
+				'When true, convene_council rejects if fewer than 5 member verdicts are provided.',
+			),
+		escalateOnMaxRounds: z
+			.string()
+			.optional()
+			.describe(
+				'Optional webhook URL or handler name invoked when maxRounds is reached without APPROVE. Declared for forward compatibility; no behavior is implemented yet.',
+			),
 	})
 	.strict();
 

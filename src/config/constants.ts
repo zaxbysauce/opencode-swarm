@@ -35,6 +35,7 @@ export const AGENT_TOOL_MAP: Record<AgentName, ToolName[]> = {
 		'check_gate_status',
 		'completion_verify',
 		'convene_council',
+		'declare_council_criteria',
 		'complexity_hotspots',
 		'detect_domains',
 		'evidence_check',
@@ -277,6 +278,8 @@ export const TOOL_DESCRIPTIONS: Partial<Record<ToolName, string>> = {
 	completion_verify: 'verify completed tasks have required evidence',
 	convene_council:
 		'convene the Work Complete Council — parallel veto-aware verification gate across critic, reviewer, sme, and test_engineer verdicts',
+	declare_council_criteria:
+		'pre-declare acceptance criteria for a task before the coder starts work; criteria are read back during council evaluation',
 	detect_domains: 'detect which SME domains are relevant for a given text',
 	extract_code_blocks:
 		'extract code blocks from text content and save them to files',

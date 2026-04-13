@@ -31,7 +31,7 @@ const FindingSchema = z.object({
 });
 
 const VerdictSchema = z.object({
-	agent: z.enum(['critic', 'reviewer', 'sme', 'test_engineer']),
+	agent: z.enum(['critic', 'reviewer', 'sme', 'test_engineer', 'explorer']),
 	verdict: z.enum(['APPROVE', 'CONCERNS', 'REJECT']),
 	confidence: z.number().min(0).max(1),
 	findings: z.array(FindingSchema),
@@ -40,7 +40,7 @@ const VerdictSchema = z.object({
 	durationMs: z.number().nonnegative(),
 });
 
-const ArgsSchema = z.object({
+export const ArgsSchema = z.object({
 	taskId: z
 		.string()
 		.min(1)
@@ -50,16 +50,17 @@ const ArgsSchema = z.object({
 		),
 	swarmId: z.string().min(1),
 	roundNumber: z.number().int().min(1).max(10).default(1),
-	verdicts: z.array(VerdictSchema).min(1).max(4),
+	verdicts: z.array(VerdictSchema).min(1).max(5),
 	working_directory: z.string().optional(),
 });
 
 export const convene_council: ReturnType<typeof tool> = createSwarmTool({
 	description:
 		'Convene the Work Complete Council. Accepts parallel verdicts from critic, ' +
-		'reviewer, sme, and test_engineer. Returns a synthesized assessment with a ' +
-		'veto-aware overall verdict, required fixes, and a single unified feedback ' +
-		'document. Architect-only. Config-gated via council.enabled.',
+		'reviewer, sme, test_engineer, and explorer (anti-slop specialist). Returns ' +
+		'a synthesized assessment with a veto-aware overall verdict, required fixes, ' +
+		'and a single unified feedback document. Architect-only. Config-gated via ' +
+		'council.enabled.',
 	args: {
 		taskId: tool.schema
 			.string()
@@ -85,6 +86,7 @@ export const convene_council: ReturnType<typeof tool> = createSwarmTool({
 						'reviewer',
 						'sme',
 						'test_engineer',
+						'explorer',
 					]),
 					verdict: tool.schema.enum(['APPROVE', 'CONCERNS', 'REJECT']),
 					confidence: tool.schema.number().min(0).max(1),
@@ -103,9 +105,9 @@ export const convene_council: ReturnType<typeof tool> = createSwarmTool({
 				}),
 			)
 			.min(1)
-			.max(4)
+			.max(5)
 			.describe(
-				'Array of CouncilMemberVerdict objects. Must include between 1 and 4 entries, one per participating member (critic, reviewer, sme, test_engineer).',
+				'Array of CouncilMemberVerdict objects. Must include between 1 and 5 entries, one per participating member (critic, reviewer, sme, test_engineer, explorer).',
 			),
 		working_directory: tool.schema
 			.string()
@@ -155,6 +157,18 @@ export const convene_council: ReturnType<typeof tool> = createSwarmTool({
 					success: false,
 					reason:
 						'council feature is disabled — set council.enabled: true in .opencode/opencode-swarm.json to enable',
+				},
+				null,
+				2,
+			);
+		}
+
+		// ── requireAllMembers gate ────────────────────────────────────────
+		if (config.council?.requireAllMembers && input.verdicts.length < 5) {
+			return JSON.stringify(
+				{
+					success: false,
+					reason: `council.requireAllMembers is true but only ${input.verdicts.length} of 5 member verdicts were provided`,
 				},
 				null,
 				2,
