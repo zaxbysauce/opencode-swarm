@@ -36,6 +36,7 @@ import {
 	createGuardrailsHooks,
 	createPhaseMonitorHook,
 	createPipelineTrackerHook,
+	createRepoGraphBuilderHook,
 	createSystemEnhancerHook,
 	createToolSummarizerHook,
 	safeHook,
@@ -81,6 +82,7 @@ import {
 	doc_scan,
 	evidence_check,
 	extract_code_blocks,
+	get_approved_plan,
 	gitingest,
 	imports,
 	knowledge_add,
@@ -93,6 +95,7 @@ import {
 	placeholder_scan,
 	pre_check_batch,
 	quality_budget,
+	repo_map,
 	retrieve_summary,
 	sast_scan,
 	save_plan,
@@ -157,6 +160,11 @@ const OpenCodeSwarm: Plugin = async (ctx) => {
 
 	// v6.18 Session persistence — restore state from previous session (non-blocking)
 	await loadSnapshot(ctx.directory);
+	// Non-blocking: build repo graph in background
+	const repoGraphHook = createRepoGraphBuilderHook(ctx.directory);
+	repoGraphHook.init().catch(() => {
+		/* already logged inside init */
+	});
 	initTelemetry(ctx.directory);
 	const agents = getAgentConfigs(config, ctx.directory);
 	const agentDefinitions = createAgents(config);
@@ -547,6 +555,7 @@ const OpenCodeSwarm: Plugin = async (ctx) => {
 			doc_scan,
 			evidence_check,
 			extract_code_blocks,
+			get_approved_plan,
 			gitingest,
 			imports,
 			knowledge_query,
@@ -557,6 +566,7 @@ const OpenCodeSwarm: Plugin = async (ctx) => {
 			phase_complete,
 			pre_check_batch,
 			quality_budget,
+			repo_map,
 			retrieve_summary,
 			save_plan,
 			sast_scan,
@@ -1044,6 +1054,9 @@ const OpenCodeSwarm: Plugin = async (ctx) => {
 				if (execMode !== 'fast' && compactionServiceHook) {
 					await compactionServiceHook.toolAfter(input, output);
 				}
+
+				// Repo graph incremental update on write tools
+				await safeHook(repoGraphHook.toolAfter)(input, output);
 
 				// Tool output truncation (after summarizer to avoid double-processing)
 				const toolOutputConfig = config.tool_output;

@@ -919,7 +919,7 @@ function buildCriticContext(
 
 	const truncatedOutput =
 		architectOutput.length > 2000
-			? architectOutput.slice(0, 2000) + '\n... [truncated]'
+			? `${architectOutput.slice(0, 2000)}\n... [truncated]`
 			: architectOutput;
 
 	return `${contextHeader}

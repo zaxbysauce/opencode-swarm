@@ -102,105 +102,11 @@ export function isSecretscanEvidence(
 	return evidence.type === 'secretscan';
 }
 
-/**
- * Task ID validation pattern: strict N.M or N.M.P numeric format
- * Same pattern as gate-evidence.ts and check-gate-status.ts
- * Pattern: ^\d+\.\d+(\.\d+)*$
- * Rejects: .., ../, null bytes, control characters, empty string, non-numeric IDs
- */
-const TASK_ID_REGEX = /^\d+\.\d+(\.\d+)*$/;
+// Task ID validation is consolidated in src/validation/task-id.ts (#452 item 2).
+// Re-export sanitizeTaskId for backward compatibility with existing callers.
+import { sanitizeTaskId as _sanitizeTaskId } from '../validation/task-id';
 
-/**
- * Retrospective evidence ID pattern: retro-<number>
- * Allows existing retrospective evidence directories like retro-1, retro-2
- * Pattern: ^retro-\d+$
- */
-const RETRO_TASK_ID_REGEX = /^retro-\d+$/;
-
-/**
- * Internal automated-tool evidence ID pattern.
- * Allows only the specific internal tool IDs: sast_scan, quality_budget,
- * syntax_check, placeholder_scan, sbom_generate, build, secretscan.
- * Pattern: ^(?:sast_scan|quality_budget|syntax_check|placeholder_scan|sbom_generate|build|secretscan)$
- */
-const INTERNAL_TOOL_ID_REGEX =
-	/^(?:sast_scan|quality_budget|syntax_check|placeholder_scan|sbom_generate|build|secretscan)$/;
-
-/**
- * General safe alphanumeric task ID pattern.
- * Accepts task IDs that start with an ASCII letter or digit, followed by any
- * combination of ASCII letters, digits, hyphens, underscores, or single dots.
- * Double dots (..) are already blocked by the path-traversal check above, so
- * this pattern safely broadens the allowlist without re-introducing that risk.
- * Examples: task-1, my_task, Task123, a, phase1-step2
- * Pattern: ^[a-zA-Z0-9][a-zA-Z0-9._-]*$
- */
-const GENERAL_TASK_ID_REGEX = /^[a-zA-Z0-9][a-zA-Z0-9._-]*$/;
-
-/**
- * Validate and sanitize task ID.
- * Accepts four formats:
- * 1. Canonical N.M or N.M.P numeric format (matches TASK_ID_REGEX)
- * 2. Retrospective format: retro-<number> (matches RETRO_TASK_ID_REGEX)
- * 3. Internal automated-tool format: specific tool IDs (sast_scan, quality_budget, etc.)
- * 4. General safe alphanumeric IDs: ASCII letter/digit start, body of letters/digits/dots/hyphens/underscores
- * Rejects: empty string, null bytes, control characters, path traversal (..), spaces, and any
- * character outside the ASCII alphanumeric + [._-] set.
- * @throws Error with descriptive message on failure
- */
-export function sanitizeTaskId(taskId: string): string {
-	// Check for empty string
-	if (!taskId || taskId.length === 0) {
-		throw new Error('Invalid task ID: empty string');
-	}
-
-	// Check for null bytes
-	if (/\0/.test(taskId)) {
-		throw new Error('Invalid task ID: contains null bytes');
-	}
-
-	// Check for control characters (char codes < 32)
-	for (let i = 0; i < taskId.length; i++) {
-		if (taskId.charCodeAt(i) < 32) {
-			throw new Error('Invalid task ID: contains control characters');
-		}
-	}
-
-	// Check for path traversal patterns — must happen before pattern matching
-	// so that strings like "a..b" are blocked even though they start with a letter.
-	if (
-		taskId.includes('..') ||
-		taskId.includes('../') ||
-		taskId.includes('..\\')
-	) {
-		throw new Error('Invalid task ID: path traversal detected');
-	}
-
-	// Validate against canonical numeric regex
-	if (TASK_ID_REGEX.test(taskId)) {
-		return taskId;
-	}
-
-	// Also accept retrospective IDs like retro-1, retro-2
-	if (RETRO_TASK_ID_REGEX.test(taskId)) {
-		return taskId;
-	}
-
-	// Also accept internal automated-tool IDs like sast_scan, quality_budget, etc.
-	if (INTERNAL_TOOL_ID_REGEX.test(taskId)) {
-		return taskId;
-	}
-
-	// Accept any general safe alphanumeric task ID (e.g. task-1, my_task, Task123)
-	if (GENERAL_TASK_ID_REGEX.test(taskId)) {
-		return taskId;
-	}
-
-	// Reject anything else (spaces, special chars, unicode beyond ASCII, etc.)
-	throw new Error(
-		`Invalid task ID: must be alphanumeric (ASCII) with optional hyphens, underscores, or dots, got "${taskId}"`,
-	);
-}
+export const sanitizeTaskId = _sanitizeTaskId;
 
 /**
  * Save evidence to a task's evidence bundle.
@@ -255,10 +161,18 @@ export async function saveEvidence(
 		};
 	}
 
+	// Trim oldest entries if bundle exceeds max entry count to prevent unbounded
+	// growth from continuously-appended bundles (e.g. retro-session) (#444 item 10)
+	const MAX_BUNDLE_ENTRIES = 100;
+	let entries = [...bundle.entries, evidence];
+	if (entries.length > MAX_BUNDLE_ENTRIES) {
+		entries = entries.slice(entries.length - MAX_BUNDLE_ENTRIES);
+	}
+
 	// Create new bundle with appended evidence
 	const updatedBundle: EvidenceBundle = {
 		...bundle,
-		entries: [...bundle.entries, evidence],
+		entries,
 		updated_at: new Date().toISOString(),
 	};
 

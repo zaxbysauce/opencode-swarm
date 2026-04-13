@@ -54,6 +54,10 @@ import {
 } from './knowledge-store';
 import type { SwarmKnowledgeEntry } from './knowledge-types.js';
 import {
+	buildCoderLocalizationBlock,
+	buildReviewerBlastRadiusBlock,
+} from './repo-graph-injection';
+import {
 	estimateTokens,
 	readSwarmFileAsync,
 	safeHook,
@@ -940,6 +944,24 @@ ${handoffContent}`;
 							} catch {
 								// Silently skip evidence read failures
 							}
+
+							// Repo graph: surface importers/blast radius for the declared scope.
+							// Silent no-op if the graph hasn't been built yet — the coder can
+							// invoke `repo_map action="build"` to enable this on demand.
+							try {
+								const coderScopePrimary = ccpSession?.declaredCoderScope?.[0];
+								if (coderScopePrimary) {
+									const localizationBlock = buildCoderLocalizationBlock(
+										directory,
+										coderScopePrimary,
+									);
+									if (localizationBlock) {
+										tryInject(localizationBlock);
+									}
+								}
+							} catch {
+								// Silently skip graph injection failures
+							}
 						}
 
 						// v6.16: Language-specific coder constraints injection
@@ -965,6 +987,26 @@ ${handoffContent}`;
 								buildLanguageReviewerChecklist(taskText_rev_a);
 							if (revChecklist_a) {
 								tryInject(revChecklist_a);
+							}
+
+							// Repo graph: surface blast radius for the files the coder just
+							// changed (carried in the session's declaredCoderScope).
+							try {
+								const reviewerSessionId = _input.sessionID ?? '';
+								const reviewerSession =
+									swarmState.agentSessions.get(reviewerSessionId);
+								const changed = reviewerSession?.declaredCoderScope ?? [];
+								if (changed.length > 0) {
+									const blastBlock = buildReviewerBlastRadiusBlock(
+										directory,
+										changed,
+									);
+									if (blastBlock) {
+										tryInject(blastBlock);
+									}
+								}
+							} catch {
+								// Silently skip graph injection failures
 							}
 						}
 

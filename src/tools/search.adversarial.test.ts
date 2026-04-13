@@ -138,7 +138,7 @@ describe('search ADVERSARIAL - Malformed inputs', () => {
 			{ query: 123 as unknown as string },
 			tmpDir,
 		);
-		const parsed = JSON.parse(result);
+		const _parsed = JSON.parse(result);
 
 		// String(123) = "123" which is a valid query, but should work
 		expect(typeof result).toBe('string');
@@ -149,7 +149,7 @@ describe('search ADVERSARIAL - Malformed inputs', () => {
 			{ query: ['a', 'b'] as unknown as string },
 			tmpDir,
 		);
-		const parsed = JSON.parse(result);
+		const _parsed = JSON.parse(result);
 
 		// String(['a','b']) = "a,b" - might still work
 		expect(typeof result).toBe('string');
@@ -160,7 +160,7 @@ describe('search ADVERSARIAL - Malformed inputs', () => {
 			{ query: { val: 'test' } as unknown as string },
 			tmpDir,
 		);
-		const parsed = JSON.parse(result);
+		const _parsed = JSON.parse(result);
 
 		// String({...}) = "[object Object]" - should be treated as literal
 		expect(typeof result).toBe('string');
@@ -291,7 +291,7 @@ describe('search ADVERSARIAL - Path traversal', () => {
 			{ query: 'test', include: 'C:\\Windows\\System32' },
 			tmpDir,
 		);
-		const parsed = JSON.parse(result);
+		const _parsed = JSON.parse(result);
 
 		// Windows is not a reserved name, so this may be accepted as a glob pattern
 		expect(typeof result).toBe('string');
@@ -304,7 +304,7 @@ describe('search ADVERSARIAL - Path traversal', () => {
 			{ query: 'test', include: 'C:/Windows/System32' },
 			tmpDir,
 		);
-		const parsed = JSON.parse(result);
+		const _parsed = JSON.parse(result);
 
 		// Not a reserved name, may be accepted
 		expect(typeof result).toBe('string');
@@ -377,7 +377,7 @@ describe('search ADVERSARIAL - Path traversal', () => {
 
 describe('search ADVERSARIAL - Regex DoS patterns', () => {
 	it('handles catastrophic backtracking pattern gracefully', async () => {
-		createTestFile('src/slow.ts', 'a'.repeat(50) + '\n');
+		createTestFile('src/slow.ts', `${'a'.repeat(50)}\n`);
 
 		// Classic catastrophic backtracking: (a+)+b
 		const result = await executeSearch(
@@ -535,7 +535,7 @@ describe('search ADVERSARIAL - Injection attacks', () => {
 			{ query: 'test; rm -rf /', mode: 'literal' },
 			tmpDir,
 		);
-		const parsed = JSON.parse(result);
+		const _parsed = JSON.parse(result);
 
 		// Should treat as literal, not execute
 		expect(typeof result).toBe('string');
@@ -548,7 +548,7 @@ describe('search ADVERSARIAL - Injection attacks', () => {
 			{ query: 'test | cat /etc/passwd', mode: 'literal' },
 			tmpDir,
 		);
-		const parsed = JSON.parse(result);
+		const _parsed = JSON.parse(result);
 
 		expect(typeof result).toBe('string');
 	});
@@ -560,7 +560,7 @@ describe('search ADVERSARIAL - Injection attacks', () => {
 			{ query: 'test `whoami`', mode: 'literal' },
 			tmpDir,
 		);
-		const parsed = JSON.parse(result);
+		const _parsed = JSON.parse(result);
 
 		expect(typeof result).toBe('string');
 	});
@@ -572,7 +572,7 @@ describe('search ADVERSARIAL - Injection attacks', () => {
 			{ query: 'test $(whoami)', mode: 'literal' },
 			tmpDir,
 		);
-		const parsed = JSON.parse(result);
+		const _parsed = JSON.parse(result);
 
 		expect(typeof result).toBe('string');
 	});
@@ -585,7 +585,7 @@ describe('search ADVERSARIAL - Injection attacks', () => {
 			{ query: '*.ts', mode: 'literal' },
 			tmpDir,
 		);
-		const parsed = JSON.parse(result);
+		const _parsed = JSON.parse(result);
 
 		expect(typeof result).toBe('string');
 		// Should search for literal "*.ts", not expand as glob
@@ -598,7 +598,7 @@ describe('search ADVERSARIAL - Injection attacks', () => {
 			{ query: 'test?.js', mode: 'literal' },
 			tmpDir,
 		);
-		const parsed = JSON.parse(result);
+		const _parsed = JSON.parse(result);
 
 		expect(typeof result).toBe('string');
 	});
@@ -610,7 +610,7 @@ describe('search ADVERSARIAL - Injection attacks', () => {
 			{ query: 'file[0-9].txt', mode: 'literal' },
 			tmpDir,
 		);
-		const parsed = JSON.parse(result);
+		const _parsed = JSON.parse(result);
 
 		expect(typeof result).toBe('string');
 	});
@@ -622,7 +622,7 @@ describe('search ADVERSARIAL - Injection attacks', () => {
 			{ query: '<script>alert(1)</script>', mode: 'literal' },
 			tmpDir,
 		);
-		const parsed = JSON.parse(result);
+		const _parsed = JSON.parse(result);
 
 		expect(typeof result).toBe('string');
 	});
@@ -631,10 +631,11 @@ describe('search ADVERSARIAL - Injection attacks', () => {
 		createTestFile('src/tpl.ts', 'content\n');
 
 		const result = await executeSearch(
+			// biome-ignore lint/suspicious/noTemplateCurlyInString: intentional injection test
 			{ query: '${process.env.SECRET}', mode: 'literal' },
 			tmpDir,
 		);
-		const parsed = JSON.parse(result);
+		const _parsed = JSON.parse(result);
 
 		expect(typeof result).toBe('string');
 	});
@@ -646,7 +647,7 @@ describe('search ADVERSARIAL - Injection attacks', () => {
 			{ query: "' OR '1'='1", mode: 'literal' },
 			tmpDir,
 		);
-		const parsed = JSON.parse(result);
+		const _parsed = JSON.parse(result);
 
 		expect(typeof result).toBe('string');
 	});
@@ -658,7 +659,7 @@ describe('search ADVERSARIAL - Injection attacks', () => {
 			{ query: '{"injected": true}', mode: 'literal' },
 			tmpDir,
 		);
-		const parsed = JSON.parse(result);
+		const _parsed = JSON.parse(result);
 
 		expect(typeof result).toBe('string');
 	});
@@ -669,7 +670,7 @@ describe('search ADVERSARIAL - Injection attacks', () => {
 			{ query: 'test', include: '**/*' },
 			tmpDir,
 		);
-		const parsed = JSON.parse(result);
+		const _parsed = JSON.parse(result);
 
 		// **/* is a valid glob, not traversal - should be accepted
 		expect(typeof result).toBe('string');
@@ -728,7 +729,7 @@ describe('search ADVERSARIAL - Boundary cases', () => {
 			{ query: 'some', max_results: -5 },
 			tmpDir,
 		);
-		const parsed = JSON.parse(result);
+		const _parsed = JSON.parse(result);
 
 		// Should still work with default or clamped value
 		expect(typeof result).toBe('string');
@@ -752,7 +753,7 @@ describe('search ADVERSARIAL - Boundary cases', () => {
 			{ query: 'some', max_lines: -10 },
 			tmpDir,
 		);
-		const parsed = JSON.parse(result);
+		const _parsed = JSON.parse(result);
 
 		expect(typeof result).toBe('string');
 	});
@@ -776,7 +777,7 @@ describe('search ADVERSARIAL - Boundary cases', () => {
 			{ query: 'some', max_results: Number.MAX_VALUE },
 			tmpDir,
 		);
-		const parsed = JSON.parse(result);
+		const _parsed = JSON.parse(result);
 
 		expect(typeof result).toBe('string');
 	});
@@ -811,7 +812,7 @@ describe('search ADVERSARIAL - Boundary cases', () => {
 
 	it('handles Unicode boundary cases', async () => {
 		// Very long Unicode string
-		createTestFile('src/unicode-long.ts', '日本語'.repeat(1000) + '\n');
+		createTestFile('src/unicode-long.ts', `${'日本語'.repeat(1000)}\n`);
 
 		const result = await executeSearch(
 			{ query: '日本', max_lines: 50 },
@@ -839,7 +840,7 @@ describe('search ADVERSARIAL - Boundary cases', () => {
 			{ query: 'test\u202e3.2\u202c', mode: 'literal' },
 			tmpDir,
 		);
-		const parsed = JSON.parse(result);
+		const _parsed = JSON.parse(result);
 
 		expect(typeof result).toBe('string');
 	});
@@ -852,7 +853,7 @@ describe('search ADVERSARIAL - Boundary cases', () => {
 			{ query: 'résumé', mode: 'literal' },
 			tmpDir,
 		);
-		const parsed = JSON.parse(result);
+		const _parsed = JSON.parse(result);
 
 		expect(typeof result).toBe('string');
 	});
@@ -874,7 +875,7 @@ describe('search ADVERSARIAL - Boundary cases', () => {
 		createTestFile('src/surrogate.ts', '𝟙𝟚𝟛\n');
 
 		const result = await executeSearch({ query: '𝟙', mode: 'literal' }, tmpDir);
-		const parsed = JSON.parse(result);
+		const _parsed = JSON.parse(result);
 
 		expect(typeof result).toBe('string');
 	});
@@ -910,14 +911,14 @@ describe('search ADVERSARIAL - rg-not-found fallback', () => {
 		createTestFile('src/malformed.ts', 'some content\n');
 
 		const result = await executeSearch({ query: 'some' }, tmpDir);
-		const parsed = JSON.parse(result);
+		const _parsed = JSON.parse(result);
 
 		expect(typeof result).toBe('string');
 		// Should not throw even if ripgrep outputs garbage
 	});
 
 	it('handles missing workspace directory gracefully', async () => {
-		const nonexistentDir = path.join(os.tmpdir(), 'nonexistent_' + Date.now());
+		const nonexistentDir = path.join(os.tmpdir(), `nonexistent_${Date.now()}`);
 
 		const result = await executeSearch({ query: 'test' }, nonexistentDir);
 		const parsed = JSON.parse(result);
@@ -933,14 +934,14 @@ describe('search ADVERSARIAL - rg-not-found fallback', () => {
 
 		// File exists for initial scan
 		const result1 = await executeSearch({ query: 'content' }, tmpDir);
-		const parsed1 = JSON.parse(result1);
+		const _parsed1 = JSON.parse(result1);
 
 		// Delete the file
 		rmSync(testFile);
 
 		// Search again - should handle gracefully
 		const result2 = await executeSearch({ query: 'content' }, tmpDir);
-		const parsed2 = JSON.parse(result2);
+		const _parsed2 = JSON.parse(result2);
 
 		expect(typeof result2).toBe('string');
 		// Should either return no matches or empty (file was deleted)
@@ -971,7 +972,7 @@ describe('search ADVERSARIAL - rg-not-found fallback', () => {
 		createTestFile('src/original.ts', 'symlink content\n');
 
 		const result = await executeSearch({ query: 'symlink' }, tmpDir);
-		const parsed = JSON.parse(result);
+		const _parsed = JSON.parse(result);
 
 		// Should work regardless of symlink handling
 		expect(typeof result).toBe('string');
@@ -999,7 +1000,7 @@ describe('search ADVERSARIAL - rg-not-found fallback', () => {
 
 			// Search should still be scoped to workspace
 			const result = await executeSearch({ query: 'test' }, tmpDir);
-			const parsed = JSON.parse(result);
+			const _parsed = JSON.parse(result);
 
 			// Should return valid response without accessing outside
 			expect(typeof result).toBe('string');
@@ -1021,7 +1022,7 @@ describe('search ADVERSARIAL - Stale context / race conditions', () => {
 	it('handles file created during search', async () => {
 		// Initial search
 		const result1 = await executeSearch({ query: 'NEWFILE' }, tmpDir);
-		const parsed1 = JSON.parse(result1);
+		const _parsed1 = JSON.parse(result1);
 
 		// File created after initial search started
 		createTestFile('src/newfile.ts', 'NEWFILE marker\n');
@@ -1049,13 +1050,13 @@ describe('search ADVERSARIAL - Stale context / race conditions', () => {
 
 		// Search after delete should handle gracefully
 		const result2 = await executeSearch({ query: 'content' }, tmpDir);
-		const parsed2 = JSON.parse(result2);
+		const _parsed2 = JSON.parse(result2);
 
 		expect(typeof result2).toBe('string');
 	});
 
 	it('handles file permissions changed during search', async () => {
-		const testFile = path.join(tmpDir, 'src', 'permission.ts');
+		const _testFile = path.join(tmpDir, 'src', 'permission.ts');
 		createTestFile('src/permission.ts', 'permission content\n');
 
 		const result = await executeSearch({ query: 'permission' }, tmpDir);
@@ -1095,10 +1096,10 @@ describe('search ADVERSARIAL - Stale context / race conditions', () => {
 	it('handles extremely large file (over MAX_FILE_SIZE_BYTES)', async () => {
 		// File just over 1MB limit
 		const almostMax = 'x'.repeat(1024 * 1024 + 100);
-		createTestFile('src/overlimit.ts', almostMax + '\n');
+		createTestFile('src/overlimit.ts', `${almostMax}\n`);
 
 		const result = await executeSearch({ query: 'x' }, tmpDir);
-		const parsed = JSON.parse(result);
+		const _parsed = JSON.parse(result);
 
 		// Should either skip the file or handle gracefully
 		expect(typeof result).toBe('string');
@@ -1111,7 +1112,7 @@ describe('search ADVERSARIAL - Stale context / race conditions', () => {
 		writeFileSync(testFile, binaryContent);
 
 		const result = await executeSearch({ query: 'test' }, tmpDir);
-		const parsed = JSON.parse(result);
+		const _parsed = JSON.parse(result);
 
 		// Should handle binary gracefully (might not find matches)
 		expect(typeof result).toBe('string');
@@ -1122,7 +1123,7 @@ describe('search ADVERSARIAL - Stale context / race conditions', () => {
 		writeFileSync(testFile, '\x00\x00\x00\x00');
 
 		const result = await executeSearch({ query: 'test' }, tmpDir);
-		const parsed = JSON.parse(result);
+		const _parsed = JSON.parse(result);
 
 		expect(typeof result).toBe('string');
 	});
@@ -1178,7 +1179,7 @@ describe('search ADVERSARIAL - Read-only verification', () => {
 	});
 
 	it('does not create any temporary files', async () => {
-		const initialTempFiles = new Set<string>();
+		const _initialTempFiles = new Set<string>();
 
 		await executeSearch({ query: 'test' }, tmpDir);
 
@@ -1199,7 +1200,7 @@ describe('search ADVERSARIAL - Error message sanitization', () => {
 			{ query: 'test' },
 			'/nonexistent/path/that/does/not/exist',
 		);
-		const parsed = JSON.parse(result);
+		const _parsed = JSON.parse(result);
 
 		// Should either return error OR fallback gracefully
 		expect(typeof result).toBe('string');
@@ -1278,7 +1279,7 @@ describe('search ADVERSARIAL - Malicious getter attacks', () => {
 			maliciousArgs as Record<string, unknown>,
 			tmpDir,
 		);
-		const parsed = JSON.parse(result);
+		const _parsed = JSON.parse(result);
 
 		// Should fall back to default or handle gracefully
 		expect(typeof result).toBe('string');
@@ -1295,7 +1296,7 @@ describe('search ADVERSARIAL - Type confusion attacks', () => {
 			{ query: 'test', mode: 1 as unknown as string },
 			tmpDir,
 		);
-		const parsed = JSON.parse(result);
+		const _parsed = JSON.parse(result);
 
 		// Should treat as literal (default)
 		expect(typeof result).toBe('string');
@@ -1306,7 +1307,7 @@ describe('search ADVERSARIAL - Type confusion attacks', () => {
 			{ query: 'test', mode: { val: 'regex' } as unknown as string },
 			tmpDir,
 		);
-		const parsed = JSON.parse(result);
+		const _parsed = JSON.parse(result);
 
 		expect(typeof result).toBe('string');
 	});
@@ -1316,7 +1317,7 @@ describe('search ADVERSARIAL - Type confusion attacks', () => {
 			{ query: 'test', include: 123 as unknown as string },
 			tmpDir,
 		);
-		const parsed = JSON.parse(result);
+		const _parsed = JSON.parse(result);
 
 		expect(typeof result).toBe('string');
 		// String(123) = "123" - might still be used as glob pattern
@@ -1327,7 +1328,7 @@ describe('search ADVERSARIAL - Type confusion attacks', () => {
 			{ query: 'test', exclude: ['a', 'b'] as unknown as string },
 			tmpDir,
 		);
-		const parsed = JSON.parse(result);
+		const _parsed = JSON.parse(result);
 
 		expect(typeof result).toBe('string');
 		// String(['a','b']) = "a,b" - might be split into multiple patterns
@@ -1340,7 +1341,7 @@ describe('search ADVERSARIAL - Type confusion attacks', () => {
 			{ query: 'test', max_results: '100' as unknown as number },
 			tmpDir,
 		);
-		const parsed = JSON.parse(result);
+		const _parsed = JSON.parse(result);
 
 		// Should fall back to default or use Number('100')
 		expect(typeof result).toBe('string');
@@ -1353,7 +1354,7 @@ describe('search ADVERSARIAL - Type confusion attacks', () => {
 			{ query: 'test', max_results: NaN },
 			tmpDir,
 		);
-		const parsed = JSON.parse(result);
+		const _parsed = JSON.parse(result);
 
 		// Should fall back to default
 		expect(typeof result).toBe('string');
@@ -1366,7 +1367,7 @@ describe('search ADVERSARIAL - Type confusion attacks', () => {
 			{ query: 'test', max_results: Infinity },
 			tmpDir,
 		);
-		const parsed = JSON.parse(result);
+		const _parsed = JSON.parse(result);
 
 		expect(typeof result).toBe('string');
 	});
@@ -1389,7 +1390,7 @@ describe('search ADVERSARIAL - Type confusion attacks', () => {
 			{ query: undefined } as Record<string, unknown>,
 			tmpDir,
 		);
-		const parsed = JSON.parse(result);
+		const _parsed = JSON.parse(result);
 
 		// String(undefined) = "undefined" - still a valid query
 		expect(typeof result).toBe('string');
@@ -1397,7 +1398,7 @@ describe('search ADVERSARIAL - Type confusion attacks', () => {
 
 	it('handles completely missing args object', async () => {
 		const result = await executeSearch({} as Record<string, unknown>, tmpDir);
-		const parsed = JSON.parse(result);
+		const _parsed = JSON.parse(result);
 
 		// String(undefined) = "undefined" as query
 		expect(typeof result).toBe('string');

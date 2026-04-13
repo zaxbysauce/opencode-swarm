@@ -157,7 +157,7 @@ describe('suggest_patch ADVERSARIAL - Malformed inputs', () => {
 			},
 			tmpDir,
 		);
-		const parsed = JSON.parse(result);
+		const _parsed = JSON.parse(result);
 
 		// Should handle gracefully - either reject or process
 		expect(typeof result).toBe('string');
@@ -172,7 +172,7 @@ describe('suggest_patch ADVERSARIAL - Malformed inputs', () => {
 			},
 			tmpDir,
 		);
-		const parsed = JSON.parse(result);
+		const _parsed = JSON.parse(result);
 
 		// Should handle gracefully
 		expect(typeof result).toBe('string');
@@ -204,7 +204,7 @@ describe('suggest_patch ADVERSARIAL - Malformed inputs', () => {
 	});
 
 	it('rejects non-existent workspace directory', async () => {
-		const nonexistentDir = path.join(os.tmpdir(), 'nonexistent_' + Date.now());
+		const nonexistentDir = path.join(os.tmpdir(), `nonexistent_${Date.now()}`);
 		const result = await executeSuggestPatch(
 			{
 				targetFiles: ['test.txt'],
@@ -595,7 +595,7 @@ describe('suggest_patch ADVERSARIAL - Type confusion', () => {
 			},
 			tmpDir,
 		);
-		const parsed = JSON.parse(result);
+		const _parsed = JSON.parse(result);
 
 		// Number gets coerced or causes validation failure
 		expect(typeof result).toBe('string');
@@ -609,7 +609,7 @@ describe('suggest_patch ADVERSARIAL - Type confusion', () => {
 			},
 			tmpDir,
 		);
-		const parsed = JSON.parse(result);
+		const _parsed = JSON.parse(result);
 
 		expect(typeof result).toBe('string');
 	});
@@ -630,7 +630,7 @@ describe('suggest_patch ADVERSARIAL - Type confusion', () => {
 			},
 			tmpDir,
 		);
-		const parsed = JSON.parse(result);
+		const _parsed = JSON.parse(result);
 
 		// Should handle type confusion gracefully
 		expect(typeof result).toBe('string');
@@ -652,7 +652,7 @@ describe('suggest_patch ADVERSARIAL - Type confusion', () => {
 			},
 			tmpDir,
 		);
-		const parsed = JSON.parse(result);
+		const _parsed = JSON.parse(result);
 
 		expect(typeof result).toBe('string');
 	});
@@ -673,7 +673,7 @@ describe('suggest_patch ADVERSARIAL - Type confusion', () => {
 			},
 			tmpDir,
 		);
-		const parsed = JSON.parse(result);
+		const _parsed = JSON.parse(result);
 
 		expect(typeof result).toBe('string');
 	});
@@ -755,7 +755,7 @@ describe('suggest_patch ADVERSARIAL - Context injection', () => {
 			},
 			tmpDir,
 		);
-		const parsed = JSON.parse(result);
+		const _parsed = JSON.parse(result);
 
 		// Should handle gracefully - context won't match
 		expect(typeof result).toBe('string');
@@ -778,7 +778,7 @@ describe('suggest_patch ADVERSARIAL - Context injection', () => {
 			},
 			tmpDir,
 		);
-		const parsed = JSON.parse(result);
+		const _parsed = JSON.parse(result);
 
 		expect(typeof result).toBe('string');
 	});
@@ -794,13 +794,14 @@ describe('suggest_patch ADVERSARIAL - Context injection', () => {
 						file: 'test.txt',
 						contextBefore: ['line1'],
 						contextAfter: ['line3'],
+						// biome-ignore lint/suspicious/noTemplateCurlyInString: intentional injection test
 						newContent: '${process.env.SECRET}',
 					},
 				],
 			},
 			tmpDir,
 		);
-		const parsed = JSON.parse(result);
+		const _parsed = JSON.parse(result);
 
 		// Should return patch suggestion (read-only tool)
 		expect(typeof result).toBe('string');
@@ -823,7 +824,7 @@ describe('suggest_patch ADVERSARIAL - Context injection', () => {
 			},
 			tmpDir,
 		);
-		const parsed = JSON.parse(result);
+		const _parsed = JSON.parse(result);
 
 		// Should return patch suggestion (read-only tool)
 		expect(typeof result).toBe('string');
@@ -845,7 +846,7 @@ describe('suggest_patch ADVERSARIAL - Context injection', () => {
 			},
 			tmpDir,
 		);
-		const parsed = JSON.parse(result);
+		const _parsed = JSON.parse(result);
 
 		// Context won't match due to null byte
 		expect(typeof result).toBe('string');
@@ -875,7 +876,7 @@ describe('suggest_patch ADVERSARIAL - Denial of service', () => {
 			},
 			tmpDir,
 		);
-		const parsed = JSON.parse(result);
+		const _parsed = JSON.parse(result);
 
 		// Should handle without hanging or crashing
 		expect(typeof result).toBe('string');
@@ -883,7 +884,7 @@ describe('suggest_patch ADVERSARIAL - Denial of service', () => {
 
 	it('handles file with very long lines', async () => {
 		const longLineContent = 'x'.repeat(500_000);
-		createTestFile('longline.txt', longLineContent + '\n');
+		createTestFile('longline.txt', `${longLineContent}\n`);
 
 		const result = await executeSuggestPatch(
 			{
@@ -899,14 +900,14 @@ describe('suggest_patch ADVERSARIAL - Denial of service', () => {
 			},
 			tmpDir,
 		);
-		const parsed = JSON.parse(result);
+		const _parsed = JSON.parse(result);
 
 		// No context provided means context match will fail gracefully
 		expect(typeof result).toBe('string');
 	});
 
 	it('handles deeply nested directory structure', async () => {
-		const nestedPath = 'src/' + 'a/'.repeat(50) + 'deep.txt';
+		const nestedPath = `src/${'a/'.repeat(50)}deep.txt`;
 		createTestFile(nestedPath, 'deep content\n');
 
 		const result = await executeSuggestPatch(
@@ -922,7 +923,7 @@ describe('suggest_patch ADVERSARIAL - Denial of service', () => {
 			},
 			tmpDir,
 		);
-		const parsed = JSON.parse(result);
+		const _parsed = JSON.parse(result);
 
 		// Should handle deep paths
 		expect(typeof result).toBe('string');
@@ -946,7 +947,7 @@ describe('suggest_patch ADVERSARIAL - Denial of service', () => {
 			},
 			tmpDir,
 		);
-		const parsed = JSON.parse(result);
+		const _parsed = JSON.parse(result);
 
 		// Most will fail context mismatch, but should handle
 		expect(typeof result).toBe('string');
@@ -975,7 +976,7 @@ describe('suggest_patch ADVERSARIAL - Boundary cases', () => {
 			},
 			tmpDir,
 		);
-		const parsed = JSON.parse(result);
+		const _parsed = JSON.parse(result);
 
 		expect(typeof result).toBe('string');
 	});
@@ -997,7 +998,7 @@ describe('suggest_patch ADVERSARIAL - Boundary cases', () => {
 			},
 			tmpDir,
 		);
-		const parsed = JSON.parse(result);
+		const _parsed = JSON.parse(result);
 
 		expect(typeof result).toBe('string');
 	});
@@ -1019,7 +1020,7 @@ describe('suggest_patch ADVERSARIAL - Boundary cases', () => {
 			},
 			tmpDir,
 		);
-		const parsed = JSON.parse(result);
+		const _parsed = JSON.parse(result);
 
 		expect(typeof result).toBe('string');
 	});
@@ -1041,7 +1042,7 @@ describe('suggest_patch ADVERSARIAL - Boundary cases', () => {
 			},
 			tmpDir,
 		);
-		const parsed = JSON.parse(result);
+		const _parsed = JSON.parse(result);
 
 		expect(typeof result).toBe('string');
 	});
@@ -1062,7 +1063,7 @@ describe('suggest_patch ADVERSARIAL - Boundary cases', () => {
 			},
 			tmpDir,
 		);
-		const parsed = JSON.parse(result);
+		const _parsed = JSON.parse(result);
 
 		expect(typeof result).toBe('string');
 	});
@@ -1083,7 +1084,7 @@ describe('suggest_patch ADVERSARIAL - Boundary cases', () => {
 			},
 			tmpDir,
 		);
-		const parsed = JSON.parse(result);
+		const _parsed = JSON.parse(result);
 
 		expect(typeof result).toBe('string');
 	});
@@ -1104,7 +1105,7 @@ describe('suggest_patch ADVERSARIAL - Boundary cases', () => {
 			},
 			tmpDir,
 		);
-		const parsed = JSON.parse(result);
+		const _parsed = JSON.parse(result);
 
 		expect(typeof result).toBe('string');
 	});
@@ -1126,7 +1127,7 @@ describe('suggest_patch ADVERSARIAL - Boundary cases', () => {
 			},
 			tmpDir,
 		);
-		const parsed = JSON.parse(result);
+		const _parsed = JSON.parse(result);
 
 		expect(typeof result).toBe('string');
 	});
@@ -1282,7 +1283,7 @@ describe('suggest_patch ADVERSARIAL - Context matching', () => {
 			},
 			tmpDir,
 		);
-		const parsed = JSON.parse(result);
+		const _parsed = JSON.parse(result);
 
 		// Should either succeed or give context-mismatch depending on exact content match
 		expect(typeof result).toBe('string');
@@ -1311,7 +1312,7 @@ describe('suggest_patch ADVERSARIAL - Context matching', () => {
 			},
 			tmpDir,
 		);
-		const parsed = JSON.parse(result);
+		const _parsed = JSON.parse(result);
 
 		// Should handle gracefully - either partial success or all errors
 		expect(typeof result).toBe('string');

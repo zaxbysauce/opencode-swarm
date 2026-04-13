@@ -124,7 +124,7 @@ describe('in-ledger snapshot adversarial tests', () => {
 				schema_version: '1.0.0',
 				payload: { plan: null, payload_hash: 'corrupted' },
 			});
-			fs.appendFileSync(ledgerPath, corruptedEvent + '\n');
+			fs.appendFileSync(ledgerPath, `${corruptedEvent}\n`);
 
 			// Replay should handle gracefully — either skip or return null
 			const rebuilt = await replayFromLedger(testDir);

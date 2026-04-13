@@ -14,6 +14,7 @@
 import { mkdirSync, readFileSync, renameSync, unlinkSync } from 'node:fs';
 import * as path from 'node:path';
 import { telemetry } from './telemetry.js';
+import { assertStrictTaskId, isStrictTaskId } from './validation/task-id';
 
 export interface GateEvidence {
 	sessionId: string;
@@ -30,36 +31,17 @@ export interface TaskEvidence {
 
 export const DEFAULT_REQUIRED_GATES = ['reviewer', 'test_engineer'];
 
-/** Strict N.M or N.M.P pattern — same as validateTaskId in update-task-status.ts */
-const TASK_ID_PATTERN = /^\d+\.\d+(\.\d+)*$/;
-
 /**
  * Canonical task-id validation helper.
- * Returns true if the taskId is a valid numeric format (N.M or N.M.P),
- * false otherwise.
- *
- * Validates:
- * - Non-empty string
- * - Matches N.M or N.M.P numeric pattern (e.g., "1.1", "1.2.3")
- * - No path traversal (..)
- * - No path separators (/, \)
- * - No null bytes
+ * Delegates to the shared strict validator (#452 item 2).
+ * Re-exported for backward compatibility with existing callers.
  */
 export function isValidTaskId(taskId: string): boolean {
-	if (!taskId) return false;
-	if (taskId.includes('..')) return false;
-	if (taskId.includes('/')) return false;
-	if (taskId.includes('\\')) return false;
-	if (taskId.includes('\0')) return false;
-	return TASK_ID_PATTERN.test(taskId);
+	return isStrictTaskId(taskId);
 }
 
 function assertValidTaskId(taskId: string): void {
-	if (!isValidTaskId(taskId)) {
-		throw new Error(
-			`Invalid taskId: "${taskId}". Must match N.M or N.M.P (e.g. "1.1", "1.2.3").`,
-		);
-	}
+	assertStrictTaskId(taskId);
 }
 
 /**
@@ -107,6 +89,7 @@ function getEvidenceDir(directory: string): string {
 }
 
 function getEvidencePath(directory: string, taskId: string): string {
+	assertValidTaskId(taskId);
 	return path.join(getEvidenceDir(directory), `${taskId}.json`);
 }
 

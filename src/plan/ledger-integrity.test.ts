@@ -129,7 +129,7 @@ describe('readLedgerEventsWithIntegrity', () => {
 
 		fs.writeFileSync(
 			ledgerPath,
-			JSON.stringify(validEvent) + '\n' + JSON.stringify(event2) + '\n',
+			`${JSON.stringify(validEvent)}\n${JSON.stringify(event2)}\n`,
 			'utf8',
 		);
 
@@ -219,7 +219,7 @@ describe('readLedgerEventsWithIntegrity', () => {
 
 		fs.writeFileSync(
 			ledgerPath,
-			JSON.stringify(validEvent) + '\n' + badLine + '\n',
+			`${JSON.stringify(validEvent)}\n${badLine}\n`,
 			'utf8',
 		);
 
@@ -227,7 +227,7 @@ describe('readLedgerEventsWithIntegrity', () => {
 
 		expect(result.truncated).toBe(true);
 		// badSuffix includes trailing newline from split
-		expect(result.badSuffix).toBe(badLine + '\n');
+		expect(result.badSuffix).toBe(`${badLine}\n`);
 		expect(result.events).toHaveLength(1);
 		expect(result.events[0].seq).toBe(1);
 	});

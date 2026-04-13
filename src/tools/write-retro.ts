@@ -496,10 +496,20 @@ export async function executeWriteRetro(
 		// Dynamically discover task IDs from evidence store instead of hardcoded suffixes
 		const allTaskIds = await listEvidenceTaskIds(directory);
 		const phaseTaskIds = allTaskIds.filter((id) => id.startsWith(`${phase}.`));
+		// Session-scoping: when session_start is provided in metadata, filter out
+		// evidence bundles from prior sessions to prevent taxonomy noise (#444 item 9)
+		const sessionStart =
+			args.metadata && typeof args.metadata.session_start === 'string'
+				? args.metadata.session_start
+				: undefined;
 		for (const phaseTaskId of phaseTaskIds) {
 			const result = await loadEvidence(directory, phaseTaskId);
 			if (result.status !== 'found') continue;
 			const bundle = result.bundle;
+			// Skip bundles not updated since the current session started.
+			// Uses updated_at (refreshed on every append) rather than created_at
+			// (set once at bundle creation) so bundles with new entries are included.
+			if (sessionStart && bundle.updated_at < sessionStart) continue;
 
 			// Scan entries for rejection/failure patterns
 			for (const entry of bundle.entries) {

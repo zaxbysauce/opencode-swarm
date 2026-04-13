@@ -48,7 +48,9 @@ export type ToolName =
 	| 'search'
 	| 'batch_symbols'
 	| 'suggest_patch'
-	| 'req_coverage';
+	| 'req_coverage'
+	| 'get_approved_plan'
+	| 'repo_map';
 
 /** Readonly array of all tool names */
 export const TOOL_NAMES: readonly ToolName[] = [
@@ -96,6 +98,8 @@ export const TOOL_NAMES: readonly ToolName[] = [
 	'batch_symbols',
 	'suggest_patch',
 	'req_coverage',
+	'get_approved_plan',
+	'repo_map',
 ] as const;
 
 /** Set for O(1) tool name validation */

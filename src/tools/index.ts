@@ -13,6 +13,7 @@ export { doc_extract, doc_scan } from './doc-scan';
 export { detect_domains } from './domain-detector';
 export { evidence_check } from './evidence-check';
 export { extract_code_blocks } from './file-extractor';
+export { get_approved_plan } from './get-approved-plan';
 export { fetchGitingest, type GitingestArgs, gitingest } from './gitingest';
 export { imports } from './imports';
 export { knowledge_add } from './knowledge-add';
@@ -44,6 +45,18 @@ export {
 	quality_budget,
 	qualityBudget,
 } from './quality-budget';
+export {
+	buildWorkspaceGraph,
+	type GraphEdge,
+	type GraphNode,
+	loadGraph,
+	loadOrCreateGraph,
+	type RepoGraph,
+	resolveModuleSpecifier,
+	saveGraph,
+	updateGraphForFiles,
+} from './repo-graph';
+export { repo_map } from './repo-map';
 export { req_coverage } from './req-coverage';
 export { retrieve_summary } from './retrieve-summary';
 export {

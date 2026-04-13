@@ -172,10 +172,10 @@ describe('syntax_check tool', () => {
 	// ============ Size Limit Enforcement ============
 
 	describe('size limit enforcement', () => {
-		it('skips files larger than 5MB', async () => {
+		it('skips files larger than 2MB', async () => {
 			const testFile = path.join(tmpDir, 'large.js');
-			// Create a file larger than 5MB
-			const largeContent = 'x'.repeat(6 * 1024 * 1024);
+			// Create a file larger than 2MB (WASM tree-sitter aborts on larger files)
+			const largeContent = 'x'.repeat(3 * 1024 * 1024);
 			fs.writeFileSync(testFile, largeContent);
 
 			const input: SyntaxCheckInput = {
@@ -189,10 +189,12 @@ describe('syntax_check tool', () => {
 			expect(result.files[0]?.skipped_reason).toBe('file_too_large');
 		});
 
-		it('processes files exactly at 5MB limit', async () => {
+		it('skips files at 2MB limit', async () => {
 			const testFile = path.join(tmpDir, 'boundary.js');
-			// Create a file at exactly 5MB
-			const boundaryContent = 'const x = 1;'.repeat((5 * 1024 * 1024) / 15);
+			// Create a file at or above the 2MB limit — skipped to avoid WASM OOM
+			const boundaryContent = 'const x = 1;'.repeat(
+				Math.ceil((2 * 1024 * 1024) / 'const x = 1;'.length),
+			);
 			fs.writeFileSync(testFile, boundaryContent);
 
 			const input: SyntaxCheckInput = {
@@ -202,8 +204,8 @@ describe('syntax_check tool', () => {
 
 			const result = await syntaxCheck(input, tmpDir);
 
-			// Should be processed (not skipped as too large)
-			expect(result.files[0]?.skipped_reason).not.toBe('file_too_large');
+			// Files at exactly the size limit are skipped (>= check prevents WASM crash)
+			expect(result.files[0]?.skipped_reason).toBe('file_too_large');
 		});
 	});
 

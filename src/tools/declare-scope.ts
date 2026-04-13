@@ -8,6 +8,7 @@ import * as fs from 'node:fs';
 import * as path from 'node:path';
 import { type ToolDefinition, tool } from '@opencode-ai/plugin/tool';
 import { swarmState } from '../state';
+import { validateTaskIdFormat as _validateTaskIdFormat } from '../validation/task-id';
 import { createSwarmTool } from './create-tool';
 
 /**
@@ -38,11 +39,7 @@ export interface DeclareScopeResult {
  * @returns Error message if invalid, undefined if valid
  */
 export function validateTaskIdFormat(taskId: string): string | undefined {
-	const taskIdPattern = /^\d+\.\d+(\.\d+)*$/;
-	if (!taskIdPattern.test(taskId)) {
-		return `Invalid taskId "${taskId}". Must match pattern N.M or N.M.P (e.g., "1.1", "1.2.3")`;
-	}
-	return undefined;
+	return _validateTaskIdFormat(taskId);
 }
 
 /**

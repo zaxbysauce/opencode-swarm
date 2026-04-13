@@ -53,7 +53,7 @@ function buildKnowledgeBlock(
 
 		let lessonText = sanitizeLessonForContext(entry.lesson);
 		if (lessonText.length > maxDisplayChars) {
-			lessonText = lessonText.slice(0, maxDisplayChars) + '\u2026';
+			lessonText = `${lessonText.slice(0, maxDisplayChars)}\u2026`;
 		}
 
 		// source_project only for hive entries when it differs from current project
@@ -72,10 +72,10 @@ function buildKnowledgeBlock(
 	const header = '\ud83d\udcda Lessons:\n';
 
 	// Trim whole entries from end if block exceeds charBudget
-	let block = header + '\n' + lines.join('\n');
+	let block = `${header}\n${lines.join('\n')}`;
 	while (block.length > charBudget && lines.length > 0) {
 		lines.pop();
-		block = header + '\n' + lines.join('\n');
+		block = `${header}\n${lines.join('\n')}`;
 	}
 
 	return lines.length > 0 ? block : null;

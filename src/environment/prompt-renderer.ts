@@ -1,4 +1,4 @@
-import type { CommandPolicy, EnvironmentProfile } from './profile.js';
+import type { EnvironmentProfile } from './profile.js';
 import { deriveCommandPolicy } from './profile.js';
 
 /**

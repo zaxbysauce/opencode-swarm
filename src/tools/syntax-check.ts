@@ -36,7 +36,7 @@ export interface SyntaxCheckResult {
 	summary: string;
 }
 
-const MAX_FILE_SIZE = 5 * 1024 * 1024; // 5MB
+const MAX_FILE_SIZE = 2 * 1024 * 1024; // 2MB — WASM tree-sitter aborts on larger files
 const BINARY_CHECK_BYTES = 8192; // 8KB
 const BINARY_NULL_THRESHOLD = 0.1; // 10% null bytes
 
@@ -70,7 +70,7 @@ function extractSyntaxErrors(
 
 	const errors: Array<{ line: number; column: number; message: string }> = [];
 
-	// Walk the tree to find ERROR nodes
+	// Walk the tree to find ERROR and MISSING nodes
 	// biome-ignore lint/suspicious/noExplicitAny: tree-sitter node type not exported
 	function walkNode(node: any) {
 		if (node.type === 'ERROR') {
@@ -79,6 +79,12 @@ function extractSyntaxErrors(
 				column: node.startPosition.column,
 				message: 'Syntax error',
 			});
+		} else if (node.isMissing) {
+			errors.push({
+				line: node.startPosition.row + 1,
+				column: node.startPosition.column,
+				message: `Missing '${node.type}'`,
+			});
 		}
 		for (const child of node.children) {
 			walkNode(child);
@@ -86,6 +92,18 @@ function extractSyntaxErrors(
 	}
 
 	walkNode(tree.rootNode);
+
+	// Fallback: if tree-walking found no explicit ERROR/MISSING nodes but the
+	// root reports hasError, flag the file so errors aren't silently swallowed
+	// (can happen when WASM tree-sitter is partially degraded in test environments)
+	if (errors.length === 0 && tree.rootNode.hasError) {
+		errors.push({
+			line: 1,
+			column: 0,
+			message: 'Syntax error detected (tree has errors)',
+		});
+	}
+
 	tree.delete();
 
 	return errors;
@@ -186,7 +204,7 @@ export async function syntaxCheck(
 			}
 
 			// Check file size
-			if (content.length > MAX_FILE_SIZE) {
+			if (content.length >= MAX_FILE_SIZE) {
 				result.skipped_reason = 'file_too_large';
 				skippedCount++;
 				results.push(result);

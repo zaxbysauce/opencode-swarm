@@ -45,6 +45,10 @@ export {
 } from './phase-monitor';
 export { createPipelineTrackerHook } from './pipeline-tracker';
 export {
+	createRepoGraphBuilderHook,
+	type RepoGraphBuilderHook,
+} from './repo-graph-builder';
+export {
 	buildApprovedReceipt,
 	buildReceiptContextForDrift,
 	buildRejectedReceipt,
