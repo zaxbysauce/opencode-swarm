@@ -511,6 +511,13 @@ export declare const AuthorityConfigSchema: z.ZodObject<{
     }, z.core.$strip>>>;
 }, z.core.$strip>;
 export type AuthorityConfig = z.infer<typeof AuthorityConfigSchema>;
+export declare const CouncilConfigSchema: z.ZodObject<{
+    enabled: z.ZodDefault<z.ZodBoolean>;
+    maxRounds: z.ZodDefault<z.ZodNumber>;
+    parallelTimeoutMs: z.ZodDefault<z.ZodNumber>;
+    vetoPriority: z.ZodDefault<z.ZodBoolean>;
+}, z.core.$strict>;
+export type CouncilConfig = z.infer<typeof CouncilConfigSchema>;
 export declare const PluginConfigSchema: z.ZodObject<{
     agents: z.ZodOptional<z.ZodRecord<z.ZodString, z.ZodObject<{
         model: z.ZodOptional<z.ZodString>;
@@ -854,6 +861,12 @@ export declare const PluginConfigSchema: z.ZodObject<{
         emergencyThreshold: z.ZodDefault<z.ZodNumber>;
         preserveLastNTurns: z.ZodDefault<z.ZodNumber>;
     }, z.core.$strip>>;
+    council: z.ZodOptional<z.ZodObject<{
+        enabled: z.ZodDefault<z.ZodBoolean>;
+        maxRounds: z.ZodDefault<z.ZodNumber>;
+        parallelTimeoutMs: z.ZodDefault<z.ZodNumber>;
+        vetoPriority: z.ZodDefault<z.ZodBoolean>;
+    }, z.core.$strict>>;
     turbo_mode: z.ZodOptional<z.ZodDefault<z.ZodBoolean>>;
     full_auto: z.ZodDefault<z.ZodOptional<z.ZodObject<{
         enabled: z.ZodDefault<z.ZodBoolean>;

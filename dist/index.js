@@ -67,6 +67,7 @@ var init_tool_names = __esm(() => {
     "evidence_check",
     "check_gate_status",
     "completion_verify",
+    "convene_council",
     "sbom_generate",
     "checkpoint",
     "pkg_audit",
@@ -191,6 +192,7 @@ var init_constants = __esm(() => {
       "checkpoint",
       "check_gate_status",
       "completion_verify",
+      "convene_council",
       "complexity_hotspots",
       "detect_domains",
       "evidence_check",
@@ -412,6 +414,7 @@ var init_constants = __esm(() => {
     co_change_analyzer: "detect hidden couplings by analyzing git history",
     check_gate_status: "check the gate status of a specific task",
     completion_verify: "verify completed tasks have required evidence",
+    convene_council: "convene the Work Complete Council \u2014 parallel veto-aware verification gate across critic, reviewer, sme, and test_engineer verdicts",
     detect_domains: "detect which SME domains are relevant for a given text",
     extract_code_blocks: "extract code blocks from text content and save them to files",
     gitingest: "fetch a GitHub repository full content via gitingest.com",
@@ -14646,7 +14649,7 @@ function resolveGuardrailsConfig(config2, agentName) {
   };
   return resolved;
 }
-var KNOWN_SWARM_PREFIXES, SEPARATORS, AgentOverrideConfigSchema, SwarmConfigSchema, HooksConfigSchema, ScoringWeightsSchema, DecisionDecaySchema, TokenRatiosSchema, ScoringConfigSchema, ContextBudgetConfigSchema, EvidenceConfigSchema, GateFeatureSchema, PlaceholderScanConfigSchema, QualityBudgetConfigSchema, GateConfigSchema, PipelineConfigSchema, PhaseCompleteConfigSchema, SummaryConfigSchema, ReviewPassesConfigSchema, AdversarialDetectionConfigSchema, AdversarialTestingConfigSchemaBase, AdversarialTestingConfigSchema, IntegrationAnalysisConfigSchema, DocsConfigSchema, UIReviewConfigSchema, CompactionAdvisoryConfigSchema, LintConfigSchema, SecretscanConfigSchema, GuardrailsProfileSchema, DEFAULT_AGENT_PROFILES, DEFAULT_ARCHITECT_PROFILE, GuardrailsConfigSchema, WatchdogConfigSchema, SelfReviewConfigSchema, ToolFilterConfigSchema, PlanCursorConfigSchema, CheckpointConfigSchema, AutomationModeSchema, AutomationCapabilitiesSchema, AutomationConfigSchemaBase, AutomationConfigSchema, KnowledgeConfigSchema, CuratorConfigSchema, SlopDetectorConfigSchema, IncrementalVerifyConfigSchema, CompactionConfigSchema, AgentAuthorityRuleSchema, AuthorityConfigSchema, PluginConfigSchema;
+var KNOWN_SWARM_PREFIXES, SEPARATORS, AgentOverrideConfigSchema, SwarmConfigSchema, HooksConfigSchema, ScoringWeightsSchema, DecisionDecaySchema, TokenRatiosSchema, ScoringConfigSchema, ContextBudgetConfigSchema, EvidenceConfigSchema, GateFeatureSchema, PlaceholderScanConfigSchema, QualityBudgetConfigSchema, GateConfigSchema, PipelineConfigSchema, PhaseCompleteConfigSchema, SummaryConfigSchema, ReviewPassesConfigSchema, AdversarialDetectionConfigSchema, AdversarialTestingConfigSchemaBase, AdversarialTestingConfigSchema, IntegrationAnalysisConfigSchema, DocsConfigSchema, UIReviewConfigSchema, CompactionAdvisoryConfigSchema, LintConfigSchema, SecretscanConfigSchema, GuardrailsProfileSchema, DEFAULT_AGENT_PROFILES, DEFAULT_ARCHITECT_PROFILE, GuardrailsConfigSchema, WatchdogConfigSchema, SelfReviewConfigSchema, ToolFilterConfigSchema, PlanCursorConfigSchema, CheckpointConfigSchema, AutomationModeSchema, AutomationCapabilitiesSchema, AutomationConfigSchemaBase, AutomationConfigSchema, KnowledgeConfigSchema, CuratorConfigSchema, SlopDetectorConfigSchema, IncrementalVerifyConfigSchema, CompactionConfigSchema, AgentAuthorityRuleSchema, AuthorityConfigSchema, CouncilConfigSchema, PluginConfigSchema;
 var init_schema = __esm(() => {
   init_zod();
   init_constants();
@@ -15138,6 +15141,12 @@ var init_schema = __esm(() => {
     enabled: exports_external.boolean().default(true),
     rules: exports_external.record(exports_external.string(), AgentAuthorityRuleSchema).default({})
   });
+  CouncilConfigSchema = exports_external.object({
+    enabled: exports_external.boolean().default(false),
+    maxRounds: exports_external.number().int().min(1).max(10).default(3),
+    parallelTimeoutMs: exports_external.number().int().min(5000).max(120000).default(30000),
+    vetoPriority: exports_external.boolean().default(true)
+  }).strict();
   PluginConfigSchema = exports_external.object({
     agents: exports_external.record(exports_external.string(), AgentOverrideConfigSchema).optional(),
     swarms: exports_external.record(exports_external.string(), SwarmConfigSchema).optional(),
@@ -15185,6 +15194,7 @@ var init_schema = __esm(() => {
     }).optional(),
     incremental_verify: IncrementalVerifyConfigSchema.optional(),
     compaction_service: CompactionConfigSchema.optional(),
+    council: CouncilConfigSchema.optional(),
     turbo_mode: exports_external.boolean().default(false).optional(),
     full_auto: exports_external.object({
       enabled: exports_external.boolean().default(false),
@@ -45360,8 +45370,8 @@ async function loadGrammar(languageId) {
   const parser = new Parser;
   const wasmFileName = getWasmFileName(normalizedId);
   const wasmPath = path66.join(getGrammarsDirAbsolute(), wasmFileName);
-  const { existsSync: existsSync37 } = await import("fs");
-  if (!existsSync37(wasmPath)) {
+  const { existsSync: existsSync39 } = await import("fs");
+  if (!existsSync39(wasmPath)) {
     throw new Error(`Grammar file not found for ${languageId}: ${wasmPath}
 Make sure to run 'bun run build' to copy grammar files to dist/lang/grammars/`);
   }
@@ -68268,6 +68278,281 @@ var complexity_hotspots = createSwarmTool({
     }
   }
 });
+// src/tools/convene-council.ts
+init_dist();
+init_zod();
+init_loader();
+
+// src/council/council-evidence-writer.ts
+import { existsSync as existsSync36, mkdirSync as mkdirSync16, readFileSync as readFileSync35, writeFileSync as writeFileSync11 } from "fs";
+import { join as join59 } from "path";
+var EVIDENCE_DIR2 = ".swarm/evidence";
+var VALID_TASK_ID = /^\d+\.\d+(\.\d+)*$/;
+function writeCouncilEvidence(workingDir, synthesis) {
+  if (!VALID_TASK_ID.test(synthesis.taskId)) {
+    throw new Error(`writeCouncilEvidence: invalid taskId "${synthesis.taskId}" \u2014 must match N.M or N.M.P format`);
+  }
+  const dir = join59(workingDir, EVIDENCE_DIR2);
+  mkdirSync16(dir, { recursive: true });
+  const filePath = join59(dir, `${synthesis.taskId}.json`);
+  let existing = {};
+  if (existsSync36(filePath)) {
+    try {
+      const parsed = JSON.parse(readFileSync35(filePath, "utf-8"));
+      if (parsed && typeof parsed === "object" && !Array.isArray(parsed)) {
+        existing = parsed;
+      }
+    } catch {}
+  }
+  const updated = {
+    ...existing,
+    council: {
+      verdict: synthesis.overallVerdict,
+      vetoedBy: synthesis.vetoedBy,
+      roundNumber: synthesis.roundNumber,
+      allCriteriaMet: synthesis.allCriteriaMet,
+      timestamp: synthesis.timestamp
+    }
+  };
+  writeFileSync11(filePath, JSON.stringify(updated, null, 2));
+}
+
+// src/council/types.ts
+var COUNCIL_DEFAULTS = {
+  enabled: false,
+  maxRounds: 3,
+  parallelTimeoutMs: 30000,
+  vetoPriority: true
+};
+
+// src/council/council-service.ts
+function synthesizeCouncilVerdicts(taskId, swarmId, verdicts, criteria, roundNumber, config3 = {}) {
+  const cfg = { ...COUNCIL_DEFAULTS, ...config3 };
+  const timestamp = new Date().toISOString();
+  const rejectingMembers = verdicts.filter((v) => v.verdict === "REJECT").map((v) => v.agent);
+  let overallVerdict;
+  if (cfg.vetoPriority && rejectingMembers.length > 0) {
+    overallVerdict = "REJECT";
+  } else if (verdicts.some((v) => v.verdict === "CONCERNS") || !cfg.vetoPriority && rejectingMembers.length > 0) {
+    overallVerdict = "CONCERNS";
+  } else {
+    overallVerdict = "APPROVE";
+  }
+  const unresolvedConflicts = detectConflicts(verdicts);
+  const rejectingSet = new Set(rejectingMembers);
+  const vetoFindings = verdicts.filter((v) => rejectingSet.has(v.agent)).flatMap((v) => v.findings);
+  const requiredFixes = vetoFindings.filter((f) => f.severity === "HIGH" || f.severity === "MEDIUM");
+  const advisoryFindings = [
+    ...vetoFindings.filter((f) => f.severity === "LOW"),
+    ...verdicts.filter((v) => !rejectingSet.has(v.agent)).flatMap((v) => v.findings)
+  ];
+  const allUnmetIds = new Set(verdicts.flatMap((v) => v.criteriaUnmet));
+  const mandatoryIds = new Set((criteria?.criteria ?? []).filter((c) => c.mandatory).map((c) => c.id));
+  const allCriteriaMet = [...mandatoryIds].every((id) => !allUnmetIds.has(id));
+  const unifiedFeedbackMd = buildUnifiedFeedback(taskId, overallVerdict, rejectingMembers, requiredFixes, advisoryFindings, unresolvedConflicts, roundNumber, cfg.maxRounds);
+  return {
+    taskId,
+    swarmId,
+    timestamp,
+    overallVerdict,
+    vetoedBy: rejectingMembers.length > 0 ? rejectingMembers : null,
+    memberVerdicts: verdicts,
+    unresolvedConflicts,
+    requiredFixes,
+    advisoryFindings,
+    unifiedFeedbackMd,
+    roundNumber,
+    allCriteriaMet
+  };
+}
+function detectConflicts(verdicts) {
+  const conflicts = [];
+  const locationMap = new Map;
+  for (const verdict of verdicts) {
+    for (const finding of verdict.findings) {
+      const key = finding.location.toLowerCase();
+      if (!key)
+        continue;
+      const entries = locationMap.get(key);
+      if (entries) {
+        entries.push({ agent: verdict.agent, detail: finding.detail });
+      } else {
+        locationMap.set(key, [
+          { agent: verdict.agent, detail: finding.detail }
+        ]);
+      }
+    }
+  }
+  for (const [location, entries] of locationMap) {
+    if (entries.length < 2)
+      continue;
+    const addDirectives = entries.filter((e) => /\badd\b|\binclude\b|\binsert\b/i.test(e.detail));
+    const removeDirectives = entries.filter((e) => /\bremove\b|\bdelete\b|\beliminate\b/i.test(e.detail));
+    if (addDirectives.length > 0 && removeDirectives.length > 0) {
+      conflicts.push(`Conflict at ${location}: ${addDirectives.map((e) => `${e.agent} says "${e.detail}"`).join(", ")} vs ${removeDirectives.map((e) => `${e.agent} says "${e.detail}"`).join(", ")}`);
+    }
+  }
+  return conflicts;
+}
+function buildUnifiedFeedback(taskId, verdict, vetoedBy, requiredFixes, advisoryFindings, conflicts, roundNumber, maxRounds) {
+  const lines = [
+    `## Work Complete Council \u2014 Round ${roundNumber}/${maxRounds}`,
+    `**Task:** ${taskId}  **Overall verdict:** ${verdict}`,
+    ""
+  ];
+  if (vetoedBy.length > 0) {
+    lines.push(`> \u26D4 **BLOCKED** by: ${vetoedBy.join(", ")}`);
+    lines.push("");
+  }
+  if (requiredFixes.length > 0) {
+    lines.push("### Required Fixes (must resolve before re-submission)");
+    for (const f of requiredFixes) {
+      lines.push(`- **[${f.severity}]** \`${f.location}\` \u2014 ${f.detail}`, `  _Evidence:_ ${f.evidence}`);
+    }
+    lines.push("");
+  }
+  if (conflicts.length > 0) {
+    lines.push("### Conflicts to Resolve");
+    lines.push("_The following reviewers gave contradictory instructions. Architect must resolve before sending to coder._");
+    for (const c of conflicts) {
+      lines.push(`- ${c}`);
+    }
+    lines.push("");
+  }
+  if (advisoryFindings.length > 0) {
+    lines.push("### Advisory Findings (non-blocking)");
+    for (const f of advisoryFindings) {
+      lines.push(`- **[${f.severity}]** \`${f.location}\` \u2014 ${f.detail}`);
+    }
+    lines.push("");
+  }
+  if (verdict === "APPROVE") {
+    lines.push("> \u2705 **All council members approved.** Work may advance to `complete`.");
+  } else if (roundNumber >= maxRounds) {
+    lines.push(`> \u26A0\uFE0F **Max rounds (${maxRounds}) reached.** Escalate to user \u2014 do not auto-advance.`);
+  }
+  return lines.join(`
+`);
+}
+
+// src/council/criteria-store.ts
+import { existsSync as existsSync37, mkdirSync as mkdirSync17, readFileSync as readFileSync36, writeFileSync as writeFileSync12 } from "fs";
+import { join as join60 } from "path";
+var COUNCIL_DIR = ".swarm/council";
+function readCriteria(workingDir, taskId) {
+  const filePath = join60(workingDir, COUNCIL_DIR, `${safeId(taskId)}.json`);
+  if (!existsSync37(filePath))
+    return null;
+  try {
+    const parsed = JSON.parse(readFileSync36(filePath, "utf-8"));
+    if (parsed && typeof parsed === "object" && typeof parsed.taskId === "string" && Array.isArray(parsed.criteria)) {
+      return parsed;
+    }
+    return null;
+  } catch {
+    return null;
+  }
+}
+function safeId(id) {
+  return id.replace(/[^a-zA-Z0-9_-]/g, "_");
+}
+
+// src/tools/convene-council.ts
+init_create_tool();
+init_resolve_working_directory();
+var FindingSchema = exports_external.object({
+  severity: exports_external.enum(["HIGH", "MEDIUM", "LOW"]),
+  category: exports_external.string().min(1),
+  location: exports_external.string(),
+  detail: exports_external.string(),
+  evidence: exports_external.string()
+});
+var VerdictSchema = exports_external.object({
+  agent: exports_external.enum(["critic", "reviewer", "sme", "test_engineer"]),
+  verdict: exports_external.enum(["APPROVE", "CONCERNS", "REJECT"]),
+  confidence: exports_external.number().min(0).max(1),
+  findings: exports_external.array(FindingSchema),
+  criteriaAssessed: exports_external.array(exports_external.string()),
+  criteriaUnmet: exports_external.array(exports_external.string()),
+  durationMs: exports_external.number().nonnegative()
+});
+var ArgsSchema = exports_external.object({
+  taskId: exports_external.string().min(1).regex(/^\d+\.\d+(\.\d+)*$/, 'Task ID must be in N.M or N.M.P format (e.g. "1.1")'),
+  swarmId: exports_external.string().min(1),
+  roundNumber: exports_external.number().int().min(1).max(10).default(1),
+  verdicts: exports_external.array(VerdictSchema).min(1).max(4),
+  working_directory: exports_external.string().optional()
+});
+var convene_council = createSwarmTool({
+  description: "Convene the Work Complete Council. Accepts parallel verdicts from critic, " + "reviewer, sme, and test_engineer. Returns a synthesized assessment with a " + "veto-aware overall verdict, required fixes, and a single unified feedback " + "document. Architect-only. Config-gated via council.enabled.",
+  args: {
+    taskId: tool.schema.string().min(1).regex(/^\d+\.\d+(\.\d+)*$/, "Task ID must be in N.M or N.M.P format").describe('Task ID being evaluated, e.g. "1.1", "1.2.3"'),
+    swarmId: tool.schema.string().min(1).describe('Swarm identifier, e.g. "mega"'),
+    roundNumber: tool.schema.number().int().min(1).max(10).optional().describe("1-indexed round number. Defaults to 1."),
+    verdicts: tool.schema.array(tool.schema.object({
+      agent: tool.schema.enum([
+        "critic",
+        "reviewer",
+        "sme",
+        "test_engineer"
+      ]),
+      verdict: tool.schema.enum(["APPROVE", "CONCERNS", "REJECT"]),
+      confidence: tool.schema.number().min(0).max(1),
+      findings: tool.schema.array(tool.schema.object({
+        severity: tool.schema.enum(["HIGH", "MEDIUM", "LOW"]),
+        category: tool.schema.string().min(1),
+        location: tool.schema.string(),
+        detail: tool.schema.string(),
+        evidence: tool.schema.string()
+      })),
+      criteriaAssessed: tool.schema.array(tool.schema.string()),
+      criteriaUnmet: tool.schema.array(tool.schema.string()),
+      durationMs: tool.schema.number()
+    })).min(1).max(4).describe("Array of CouncilMemberVerdict objects. Must include between 1 and 4 entries, one per participating member (critic, reviewer, sme, test_engineer)."),
+    working_directory: tool.schema.string().optional().describe("Explicit project root directory. When provided, .swarm/council/ and .swarm/evidence/ are resolved relative to this path instead of the plugin context directory.")
+  },
+  async execute(args2, directory) {
+    const parsed = ArgsSchema.safeParse(args2);
+    if (!parsed.success) {
+      return JSON.stringify({
+        success: false,
+        reason: "invalid arguments",
+        errors: parsed.error.issues.map((i2) => ({
+          path: i2.path.join("."),
+          message: i2.message
+        }))
+      }, null, 2);
+    }
+    const input = parsed.data;
+    const dirResult = resolveWorkingDirectory(input.working_directory, directory);
+    if (!dirResult.success) {
+      return JSON.stringify({ success: false, reason: dirResult.message }, null, 2);
+    }
+    const workingDir = dirResult.directory;
+    const config3 = loadPluginConfig(workingDir);
+    if (!config3.council?.enabled) {
+      return JSON.stringify({
+        success: false,
+        reason: "council feature is disabled \u2014 set council.enabled: true in .opencode/opencode-swarm.json to enable"
+      }, null, 2);
+    }
+    const criteria = readCriteria(workingDir, input.taskId);
+    const verdicts = input.verdicts;
+    const synthesis = synthesizeCouncilVerdicts(input.taskId, input.swarmId, verdicts, criteria, input.roundNumber, config3.council);
+    writeCouncilEvidence(workingDir, synthesis);
+    return JSON.stringify({
+      success: true,
+      overallVerdict: synthesis.overallVerdict,
+      vetoedBy: synthesis.vetoedBy,
+      roundNumber: synthesis.roundNumber,
+      allCriteriaMet: synthesis.allCriteriaMet,
+      requiredFixesCount: synthesis.requiredFixes.length,
+      advisoryFindingsCount: synthesis.advisoryFindings.length,
+      unresolvedConflictsCount: synthesis.unresolvedConflicts.length,
+      unifiedFeedbackMd: synthesis.unifiedFeedbackMd
+    }, null, 2);
+  }
+});
 // src/tools/curator-analyze.ts
 init_dist();
 init_config();
@@ -69265,7 +69550,7 @@ import * as fs52 from "fs";
 import * as path67 from "path";
 var MAX_FILE_SIZE_BYTES6 = 1024 * 1024;
 var MAX_EVIDENCE_FILES = 1000;
-var EVIDENCE_DIR2 = ".swarm/evidence";
+var EVIDENCE_DIR3 = ".swarm/evidence";
 var PLAN_FILE = ".swarm/plan.md";
 var SHELL_METACHAR_REGEX2 = /[;&|%$`\\]/;
 var VALID_EVIDENCE_FILENAME_REGEX = /^[a-zA-Z0-9_-]+(\.[a-zA-Z0-9_-]+)*\.json$/;
@@ -69474,7 +69759,7 @@ var evidence_check = createSwarmTool({
       };
       return JSON.stringify(result2, null, 2);
     }
-    const evidenceDir = path67.join(cwd, EVIDENCE_DIR2);
+    const evidenceDir = path67.join(cwd, EVIDENCE_DIR3);
     const evidence = readEvidenceFiles(evidenceDir, cwd);
     const { tasksWithFullEvidence, gaps } = analyzeGaps(completedTasks, evidence, requiredTypes);
     const completeness = completedTasks.length > 0 ? Math.round(tasksWithFullEvidence.length / completedTasks.length * 100) / 100 : 1;
@@ -70278,7 +70563,7 @@ init_dist();
 init_config();
 init_knowledge_store();
 init_create_tool();
-import { existsSync as existsSync40 } from "fs";
+import { existsSync as existsSync42 } from "fs";
 var DEFAULT_LIMIT = 10;
 var MAX_LESSON_LENGTH = 200;
 var VALID_CATEGORIES3 = [
@@ -70347,14 +70632,14 @@ function validateLimit(limit) {
 }
 async function readSwarmKnowledge(directory) {
   const swarmPath = resolveSwarmKnowledgePath(directory);
-  if (!existsSync40(swarmPath)) {
+  if (!existsSync42(swarmPath)) {
     return [];
   }
   return readKnowledge(swarmPath);
 }
 async function readHiveKnowledge() {
   const hivePath = resolveHiveKnowledgePath();
-  if (!existsSync40(hivePath)) {
+  if (!existsSync42(hivePath)) {
     return [];
   }
   return readKnowledge(hivePath);
@@ -75204,7 +75489,7 @@ init_create_tool();
 import * as fs60 from "fs";
 import * as path76 from "path";
 var SPEC_FILE = ".swarm/spec.md";
-var EVIDENCE_DIR3 = ".swarm/evidence";
+var EVIDENCE_DIR4 = ".swarm/evidence";
 var OBLIGATION_KEYWORDS = ["MUST", "SHOULD", "SHALL"];
 var MAX_FILE_SIZE_BYTES9 = 1024 * 1024;
 function extractRequirements(specContent) {
@@ -75500,7 +75785,7 @@ var req_coverage = createSwarmTool({
         message: "No FR requirements found in spec.md"
       }, null, 2);
     }
-    const evidenceDir = path76.join(cwd, EVIDENCE_DIR3);
+    const evidenceDir = path76.join(cwd, EVIDENCE_DIR4);
     const touchedFiles = readTouchedFiles(evidenceDir, phase, cwd);
     const analyzedRequirements = [];
     let coveredCount = 0;

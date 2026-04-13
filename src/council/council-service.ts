@@ -72,9 +72,7 @@ export function synthesizeCouncilVerdicts(
 	// ── Criteria assessment ───────────────────────────────────────────────
 	const allUnmetIds = new Set(verdicts.flatMap((v) => v.criteriaUnmet));
 	const mandatoryIds = new Set(
-		(criteria?.criteria ?? [])
-			.filter((c) => c.mandatory)
-			.map((c) => c.id),
+		(criteria?.criteria ?? []).filter((c) => c.mandatory).map((c) => c.id),
 	);
 	const allCriteriaMet = [...mandatoryIds].every((id) => !allUnmetIds.has(id));
 
@@ -201,9 +199,7 @@ function buildUnifiedFeedback(
 	if (advisoryFindings.length > 0) {
 		lines.push('### Advisory Findings (non-blocking)');
 		for (const f of advisoryFindings) {
-			lines.push(
-				`- **[${f.severity}]** \`${f.location}\` — ${f.detail}`,
-			);
+			lines.push(`- **[${f.severity}]** \`${f.location}\` — ${f.detail}`);
 		}
 		lines.push('');
 	}

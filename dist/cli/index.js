@@ -18488,6 +18488,7 @@ var TOOL_NAMES = [
   "evidence_check",
   "check_gate_status",
   "completion_verify",
+  "convene_council",
   "sbom_generate",
   "checkpoint",
   "pkg_audit",
@@ -18544,6 +18545,7 @@ var AGENT_TOOL_MAP = {
     "checkpoint",
     "check_gate_status",
     "completion_verify",
+    "convene_council",
     "complexity_hotspots",
     "detect_domains",
     "evidence_check",
@@ -19200,6 +19202,12 @@ var AuthorityConfigSchema = exports_external.object({
   enabled: exports_external.boolean().default(true),
   rules: exports_external.record(exports_external.string(), AgentAuthorityRuleSchema).default({})
 });
+var CouncilConfigSchema = exports_external.object({
+  enabled: exports_external.boolean().default(false),
+  maxRounds: exports_external.number().int().min(1).max(10).default(3),
+  parallelTimeoutMs: exports_external.number().int().min(5000).max(120000).default(30000),
+  vetoPriority: exports_external.boolean().default(true)
+}).strict();
 var PluginConfigSchema = exports_external.object({
   agents: exports_external.record(exports_external.string(), AgentOverrideConfigSchema).optional(),
   swarms: exports_external.record(exports_external.string(), SwarmConfigSchema).optional(),
@@ -19247,6 +19255,7 @@ var PluginConfigSchema = exports_external.object({
   }).optional(),
   incremental_verify: IncrementalVerifyConfigSchema.optional(),
   compaction_service: CompactionConfigSchema.optional(),
+  council: CouncilConfigSchema.optional(),
   turbo_mode: exports_external.boolean().default(false).optional(),
   full_auto: exports_external.object({
     enabled: exports_external.boolean().default(false),

@@ -931,12 +931,7 @@ export const CouncilConfigSchema = z
 	.object({
 		enabled: z.boolean().default(false),
 		maxRounds: z.number().int().min(1).max(10).default(3),
-		parallelTimeoutMs: z
-			.number()
-			.int()
-			.min(5_000)
-			.max(120_000)
-			.default(30_000),
+		parallelTimeoutMs: z.number().int().min(5_000).max(120_000).default(30_000),
 		vetoPriority: z.boolean().default(true),
 	})
 	.strict();

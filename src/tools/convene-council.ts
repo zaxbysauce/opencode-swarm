@@ -12,8 +12,8 @@
 import { tool } from '@opencode-ai/plugin';
 import { z } from 'zod';
 import { loadPluginConfig } from '../config/loader';
-import { synthesizeCouncilVerdicts } from '../council/council-service';
 import { writeCouncilEvidence } from '../council/council-evidence-writer';
+import { synthesizeCouncilVerdicts } from '../council/council-service';
 import { readCriteria } from '../council/criteria-store';
 import type { CouncilMemberVerdict } from '../council/types';
 import { createSwarmTool } from './create-tool';
@@ -64,10 +64,7 @@ export const convene_council: ReturnType<typeof tool> = createSwarmTool({
 		taskId: tool.schema
 			.string()
 			.min(1)
-			.regex(
-				/^\d+\.\d+(\.\d+)*$/,
-				'Task ID must be in N.M or N.M.P format',
-			)
+			.regex(/^\d+\.\d+(\.\d+)*$/, 'Task ID must be in N.M or N.M.P format')
 			.describe('Task ID being evaluated, e.g. "1.1", "1.2.3"'),
 		swarmId: tool.schema
 			.string()

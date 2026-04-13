@@ -1,6 +1,6 @@
 import { describe, expect, test } from 'bun:test';
 import { AGENT_TOOL_MAP } from '../../../src/config/constants';
-import { TOOL_NAMES, TOOL_NAME_SET } from '../../../src/tools/tool-names';
+import { TOOL_NAME_SET, TOOL_NAMES } from '../../../src/tools/tool-names';
 
 describe('convene_council — registration', () => {
 	test('convene_council is in TOOL_NAMES', () => {
