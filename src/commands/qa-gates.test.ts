@@ -1,8 +1,8 @@
 import { afterEach, beforeEach, describe, expect, test } from 'bun:test';
 import * as fs from 'node:fs';
 import * as path from 'node:path';
-import { closeAllProjectDbs, getProfile } from '../db/index.js';
 import type { Plan } from '../config/plan-schema.js';
+import { closeAllProjectDbs, getProfile } from '../db/index.js';
 import { handleQaGatesCommand } from './qa-gates.js';
 
 let tempDir: string;

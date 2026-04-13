@@ -7,6 +7,7 @@
  * → SPEC WRITE + SELF-REVIEW → QA GATE SELECTION → TRANSITION.
  *
  * Any arguments become the initial topic/problem statement for the
- * architect to reason about.
+ * architect to reason about. The topic is sanitized to prevent prompt
+ * injection of rival MODE: headers or newline-based control sequences.
  */
 export declare function handleBrainstormCommand(_directory: string, args: string[]): Promise<string>;

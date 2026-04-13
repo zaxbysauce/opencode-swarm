@@ -63,5 +63,20 @@ export declare function computeProfileHash(profile: QaGateProfile): string;
  * Merge session-level gate overrides on top of the spec-level profile.
  * Session overrides can only ratchet gates tighter (set to true); false
  * values in overrides are ignored.
+ *
+ * IMPORTANT — caller responsibility: this function is the *computation*
+ * of effective gates, not an enforcement point. Enforcement consumers
+ * (reviewer dispatch, SAST runner, council convene paths, etc.) must
+ * call this at their own check sites, passing the current profile from
+ * `getProfile` and the agent session's `qaGateSessionOverrides ?? {}`.
+ * Reading raw `profile.gates` directly from an enforcement site will
+ * silently ignore operator-applied session overrides. Session overrides
+ * are currently surfaced via `/swarm qa-gates show`; wiring additional
+ * enforcement consumers is tracked as follow-up work and does not affect
+ * spec-level gate correctness on the approved-plan path.
+ *
+ * Session overrides are intentionally ephemeral — they live only in
+ * in-memory `AgentSessionState.qaGateSessionOverrides` and are NOT
+ * persisted to the session snapshot. Process restart clears them.
  */
 export declare function getEffectiveGates(profile: QaGateProfile, sessionOverrides: Partial<QaGates>): QaGates;

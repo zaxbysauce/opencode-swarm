@@ -19841,8 +19841,17 @@ async function handleBenchmarkCommand(directory, args) {
 }
 
 // src/commands/brainstorm.ts
+function sanitizeTopic(raw) {
+  const collapsed = raw.replace(/\s+/g, " ").trim();
+  const stripped = collapsed.replace(/\[\s*MODE\s*:[^\]]*\]/gi, "");
+  const normalized = stripped.replace(/\s+/g, " ").trim();
+  const MAX_TOPIC_LEN = 2000;
+  if (normalized.length <= MAX_TOPIC_LEN)
+    return normalized;
+  return `${normalized.slice(0, MAX_TOPIC_LEN)}\u2026`;
+}
 async function handleBrainstormCommand(_directory, args) {
-  const description = args.join(" ").trim();
+  const description = sanitizeTopic(args.join(" "));
   if (description) {
     return `[MODE: BRAINSTORM] ${description}`;
   }
@@ -41528,9 +41537,9 @@ async function handlePromoteCommand(directory, args) {
 import { createHash as createHash4 } from "crypto";
 
 // src/db/project-db.ts
+import { Database } from "bun:sqlite";
 import { mkdirSync as mkdirSync7 } from "fs";
 import { join as join22, resolve as resolve11 } from "path";
-import { Database } from "bun:sqlite";
 var MIGRATIONS = [
   {
     version: 1,
@@ -41580,7 +41589,10 @@ function runProjectMigrations(db) {
       continue;
     const apply = db.transaction(() => {
       db.run(migration.sql);
-      db.run("INSERT INTO schema_migrations (version, name) VALUES (?, ?)", [migration.version, migration.name]);
+      db.run("INSERT INTO schema_migrations (version, name) VALUES (?, ?)", [
+        migration.version,
+        migration.name
+      ]);
     });
     apply();
   }

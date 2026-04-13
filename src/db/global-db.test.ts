@@ -5,10 +5,10 @@
  * a temp directory (Linux only — this test suite is gated accordingly).
  */
 
+import { Database } from 'bun:sqlite';
 import { afterEach, beforeEach, describe, expect, test } from 'bun:test';
 import * as fs from 'node:fs';
 import * as path from 'node:path';
-import { Database } from 'bun:sqlite';
 import {
 	closeGlobalDb,
 	getGlobalDb,

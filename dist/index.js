@@ -46010,8 +46010,17 @@ async function handleBenchmarkCommand(directory, args2) {
 }
 
 // src/commands/brainstorm.ts
+function sanitizeTopic(raw) {
+  const collapsed = raw.replace(/\s+/g, " ").trim();
+  const stripped = collapsed.replace(/\[\s*MODE\s*:[^\]]*\]/gi, "");
+  const normalized = stripped.replace(/\s+/g, " ").trim();
+  const MAX_TOPIC_LEN = 2000;
+  if (normalized.length <= MAX_TOPIC_LEN)
+    return normalized;
+  return `${normalized.slice(0, MAX_TOPIC_LEN)}\u2026`;
+}
 async function handleBrainstormCommand(_directory, args2) {
-  const description = args2.join(" ").trim();
+  const description = sanitizeTopic(args2.join(" "));
   if (description) {
     return `[MODE: BRAINSTORM] ${description}`;
   }
@@ -51538,9 +51547,9 @@ async function handlePromoteCommand(directory, args2) {
 import { createHash as createHash4 } from "crypto";
 
 // src/db/project-db.ts
+import { Database } from "bun:sqlite";
 import { mkdirSync as mkdirSync9 } from "fs";
 import { join as join26, resolve as resolve11 } from "path";
-import { Database } from "bun:sqlite";
 var MIGRATIONS = [
   {
     version: 1,
@@ -51590,7 +51599,10 @@ function runProjectMigrations(db) {
       continue;
     const apply = db.transaction(() => {
       db.run(migration.sql);
-      db.run("INSERT INTO schema_migrations (version, name) VALUES (?, ?)", [migration.version, migration.name]);
+      db.run("INSERT INTO schema_migrations (version, name) VALUES (?, ?)", [
+        migration.version,
+        migration.name
+      ]);
     });
     apply();
   }
@@ -70729,84 +70741,6 @@ var get_qa_gate_profile = createSwarmTool({
     return JSON.stringify(await executeGetQaGateProfile(typedArgs, directory), null, 2);
   }
 });
-// src/tools/set-qa-gates.ts
-init_dist();
-init_manager();
-init_create_tool();
-function derivePlanId4(plan) {
-  return `${plan.swarm}-${plan.title}`.replace(/[^a-zA-Z0-9-_]/g, "_");
-}
-async function executeSetQaGates(args2, directory) {
-  const plan = await loadPlanJsonOnly(directory);
-  if (!plan) {
-    return {
-      success: false,
-      reason: "plan_json_unavailable",
-      message: "Cannot configure QA gates: plan.json is missing or invalid. " + "Create a plan first (e.g. via /swarm specify or save_plan)."
-    };
-  }
-  const planId = derivePlanId4(plan);
-  getOrCreateProfile(directory, planId, args2.project_type);
-  const partial3 = {};
-  for (const key of [
-    "reviewer",
-    "test_engineer",
-    "council_mode",
-    "sme_enabled",
-    "critic_pre_plan",
-    "hallucination_guard",
-    "sast_enabled"
-  ]) {
-    if (args2[key] !== undefined)
-      partial3[key] = args2[key];
-  }
-  try {
-    const updated = setGates(directory, planId, partial3);
-    return {
-      success: true,
-      plan_id: planId,
-      message: `QA gates updated for plan_id=${planId}`,
-      profile: {
-        plan_id: updated.plan_id,
-        gates: { ...updated.gates },
-        locked_at: updated.locked_at,
-        locked_by_snapshot_seq: updated.locked_by_snapshot_seq,
-        profile_hash: computeProfileHash(updated)
-      }
-    };
-  } catch (err2) {
-    const msg = err2 instanceof Error ? err2.message : String(err2);
-    const lower = msg.toLowerCase();
-    let reason = "set_gates_failed";
-    if (lower.includes("locked"))
-      reason = "profile_locked";
-    else if (lower.includes("ratchet"))
-      reason = "ratchet_violation";
-    return {
-      success: false,
-      reason,
-      message: msg,
-      plan_id: planId
-    };
-  }
-}
-var set_qa_gates = createSwarmTool({
-  description: "Configure the QA gate profile for the current plan. Architect-only. " + "Ratchet-tighter: can enable additional gates but cannot disable gates " + "that are already enabled. Rejects all writes once the profile is " + "locked (after critic approval). Creates the profile with defaults if " + "none exists. plan_id is derived automatically from plan.json.",
-  args: {
-    reviewer: tool.schema.boolean().optional().describe("Enable the reviewer gate (true) \u2014 cannot be disabled."),
-    test_engineer: tool.schema.boolean().optional().describe("Enable the test_engineer gate (true) \u2014 cannot be disabled once on."),
-    council_mode: tool.schema.boolean().optional().describe("Enable council mode (multi-SME consensus on high-risk phases)."),
-    sme_enabled: tool.schema.boolean().optional().describe("Enable SME consultation."),
-    critic_pre_plan: tool.schema.boolean().optional().describe("Enable critic_pre_plan review before plan approval."),
-    hallucination_guard: tool.schema.boolean().optional().describe("Enable hallucination_guard checks on plan and implementation claims."),
-    sast_enabled: tool.schema.boolean().optional().describe("Enable SAST scanning as a required QA gate."),
-    project_type: tool.schema.string().optional().describe('Project type label (e.g. "ts", "python"). Only applied when the profile is being created for the first time.')
-  },
-  execute: async (args2, directory) => {
-    const typedArgs = args2 ?? {};
-    return JSON.stringify(await executeSetQaGates(typedArgs, directory), null, 2);
-  }
-});
 // src/tools/gitingest.ts
 init_dist();
 init_create_tool();
@@ -78726,6 +78660,84 @@ var search = createSwarmTool({
 // src/tools/index.ts
 init_secretscan();
 
+// src/tools/set-qa-gates.ts
+init_dist();
+init_manager();
+init_create_tool();
+function derivePlanId4(plan) {
+  return `${plan.swarm}-${plan.title}`.replace(/[^a-zA-Z0-9-_]/g, "_");
+}
+async function executeSetQaGates(args2, directory) {
+  const plan = await loadPlanJsonOnly(directory);
+  if (!plan) {
+    return {
+      success: false,
+      reason: "plan_json_unavailable",
+      message: "Cannot configure QA gates: plan.json is missing or invalid. " + "Create a plan first (e.g. via /swarm specify or save_plan)."
+    };
+  }
+  const planId = derivePlanId4(plan);
+  getOrCreateProfile(directory, planId, args2.project_type);
+  const partial3 = {};
+  for (const key of [
+    "reviewer",
+    "test_engineer",
+    "council_mode",
+    "sme_enabled",
+    "critic_pre_plan",
+    "hallucination_guard",
+    "sast_enabled"
+  ]) {
+    if (args2[key] !== undefined)
+      partial3[key] = args2[key];
+  }
+  try {
+    const updated = setGates(directory, planId, partial3);
+    return {
+      success: true,
+      plan_id: planId,
+      message: `QA gates updated for plan_id=${planId}`,
+      profile: {
+        plan_id: updated.plan_id,
+        gates: { ...updated.gates },
+        locked_at: updated.locked_at,
+        locked_by_snapshot_seq: updated.locked_by_snapshot_seq,
+        profile_hash: computeProfileHash(updated)
+      }
+    };
+  } catch (err3) {
+    const msg = err3 instanceof Error ? err3.message : String(err3);
+    const lower = msg.toLowerCase();
+    let reason = "set_gates_failed";
+    if (lower.includes("locked"))
+      reason = "profile_locked";
+    else if (lower.includes("ratchet"))
+      reason = "ratchet_violation";
+    return {
+      success: false,
+      reason,
+      message: msg,
+      plan_id: planId
+    };
+  }
+}
+var set_qa_gates = createSwarmTool({
+  description: "Configure the QA gate profile for the current plan. Architect-only. " + "Ratchet-tighter: can enable additional gates but cannot disable gates " + "that are already enabled. Rejects all writes once the profile is " + "locked (after critic approval). Creates the profile with defaults if " + "none exists. plan_id is derived automatically from plan.json.",
+  args: {
+    reviewer: tool.schema.boolean().optional().describe("Enable the reviewer gate (true) \u2014 cannot be disabled."),
+    test_engineer: tool.schema.boolean().optional().describe("Enable the test_engineer gate (true) \u2014 cannot be disabled once on."),
+    council_mode: tool.schema.boolean().optional().describe("Enable council mode (multi-SME consensus on high-risk phases)."),
+    sme_enabled: tool.schema.boolean().optional().describe("Enable SME consultation."),
+    critic_pre_plan: tool.schema.boolean().optional().describe("Enable critic_pre_plan review before plan approval."),
+    hallucination_guard: tool.schema.boolean().optional().describe("Enable hallucination_guard checks on plan and implementation claims."),
+    sast_enabled: tool.schema.boolean().optional().describe("Enable SAST scanning as a required QA gate."),
+    project_type: tool.schema.string().optional().describe('Project type label (e.g. "ts", "python"). Only applied when the profile is being created for the first time.')
+  },
+  execute: async (args2, directory) => {
+    const typedArgs = args2 ?? {};
+    return JSON.stringify(await executeSetQaGates(typedArgs, directory), null, 2);
+  }
+});
 // src/tools/suggest-patch.ts
 init_tool();
 init_path_security();

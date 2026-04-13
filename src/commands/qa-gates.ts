@@ -44,9 +44,9 @@ function isGateName(name: string): name is keyof QaGates {
 }
 
 function formatGates(gates: QaGates): string {
-	return ALL_GATE_NAMES.map(
-		(g) => `  - ${g}: ${gates[g] ? 'on' : 'off'}`,
-	).join('\n');
+	return ALL_GATE_NAMES.map((g) => `  - ${g}: ${gates[g] ? 'on' : 'off'}`).join(
+		'\n',
+	);
 }
 
 export async function handleQaGatesCommand(

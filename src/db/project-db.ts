@@ -6,9 +6,9 @@
  * directory path.
  */
 
+import { Database } from 'bun:sqlite';
 import { mkdirSync } from 'node:fs';
 import { join, resolve } from 'node:path';
-import { Database } from 'bun:sqlite';
 
 interface Migration {
 	version: number;
@@ -76,10 +76,10 @@ export function runProjectMigrations(db: Database): void {
 		if (migration.version <= currentVersion) continue;
 		const apply = db.transaction(() => {
 			db.run(migration.sql);
-			db.run(
-				'INSERT INTO schema_migrations (version, name) VALUES (?, ?)',
-				[migration.version, migration.name],
-			);
+			db.run('INSERT INTO schema_migrations (version, name) VALUES (?, ?)', [
+				migration.version,
+				migration.name,
+			]);
 		});
 		apply();
 	}

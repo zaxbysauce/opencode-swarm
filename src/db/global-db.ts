@@ -6,9 +6,9 @@
  * project DB (see `./project-db.ts`), not here.
  */
 
+import { Database } from 'bun:sqlite';
 import { mkdirSync } from 'node:fs';
 import { join } from 'node:path';
-import { Database } from 'bun:sqlite';
 import { getPlatformConfigDir } from '../hooks/knowledge-store.js';
 
 interface Migration {
@@ -69,10 +69,10 @@ export function runGlobalMigrations(db: Database): void {
 		if (migration.version <= currentVersion) continue;
 		const apply = db.transaction(() => {
 			db.run(migration.sql);
-			db.run(
-				'INSERT INTO schema_migrations (version, name) VALUES (?, ?)',
-				[migration.version, migration.name],
-			);
+			db.run('INSERT INTO schema_migrations (version, name) VALUES (?, ?)', [
+				migration.version,
+				migration.name,
+			]);
 		});
 		apply();
 	}

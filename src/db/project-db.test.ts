@@ -2,10 +2,10 @@
  * Tests for src/db/project-db.ts.
  */
 
+import { Database } from 'bun:sqlite';
 import { afterEach, beforeEach, describe, expect, test } from 'bun:test';
 import * as fs from 'node:fs';
 import * as path from 'node:path';
-import { Database } from 'bun:sqlite';
 import {
 	closeAllProjectDbs,
 	closeProjectDb,
@@ -99,9 +99,7 @@ describe('project-db', () => {
 	test('qa_gate_profile.plan_id is UNIQUE', () => {
 		const db = new Database(':memory:');
 		runProjectMigrations(db);
-		db.run(
-			"INSERT INTO qa_gate_profile (plan_id, gates) VALUES ('p1', '{}')",
-		);
+		db.run("INSERT INTO qa_gate_profile (plan_id, gates) VALUES ('p1', '{}')");
 		expect(() => {
 			db.run(
 				"INSERT INTO qa_gate_profile (plan_id, gates) VALUES ('p1', '{}')",
@@ -131,7 +129,7 @@ describe('project-db', () => {
 			"INSERT INTO qa_gate_profile (plan_id, gates) VALUES ('p1', '{\"reviewer\":true}')",
 		);
 		db.run(
-			"UPDATE qa_gate_profile SET gates = '{\"reviewer\":true,\"sast_enabled\":true}' WHERE plan_id = 'p1'",
+			'UPDATE qa_gate_profile SET gates = \'{"reviewer":true,"sast_enabled":true}\' WHERE plan_id = \'p1\'',
 		);
 		const row = db
 			.query<{ gates: string }, []>(

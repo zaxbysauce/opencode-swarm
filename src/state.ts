@@ -12,8 +12,8 @@ import * as path from 'node:path';
 import type { OpencodeClient } from '@opencode-ai/sdk';
 import { ORCHESTRATOR_NAME } from './config/constants';
 import { type Plan, PlanSchema, type TaskStatus } from './config/plan-schema';
-import type { QaGates } from './db/qa-gate-profile.js';
 import { stripKnownSwarmPrefix } from './config/schema';
+import type { QaGates } from './db/qa-gate-profile.js';
 import {
 	detectEnvironmentProfile,
 	type EnvironmentProfile,

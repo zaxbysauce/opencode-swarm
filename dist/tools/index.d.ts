@@ -16,7 +16,6 @@ export { evidence_check } from './evidence-check';
 export { extract_code_blocks } from './file-extractor';
 export { get_approved_plan } from './get-approved-plan';
 export { get_qa_gate_profile } from './get-qa-gate-profile';
-export { set_qa_gates } from './set-qa-gates';
 export { fetchGitingest, type GitingestArgs, gitingest } from './gitingest';
 export { imports } from './imports';
 export { knowledge_add } from './knowledge-add';
@@ -40,6 +39,7 @@ export { type SbomGenerateInput, type SbomGenerateResult, sbom_generate, } from 
 export { schema_drift } from './schema-drift';
 export { search } from './search';
 export { type SecretFinding, type SecretscanResult, secretscan, } from './secretscan';
+export { set_qa_gates } from './set-qa-gates';
 import { suggestPatch } from './suggest-patch';
 export { suggestPatch };
 export type { SuggestPatchArgs } from './suggest-patch';
