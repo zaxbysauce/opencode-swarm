@@ -68,7 +68,9 @@ describe('handleBrainstormCommand', () => {
 		const longTopic = 'x'.repeat(5000);
 		const result = await handleBrainstormCommand('/tmp', [longTopic]);
 		// Header + space + payload; payload capped at 2000 + ellipsis
-		expect(result.length).toBeLessThanOrEqual('[MODE: BRAINSTORM] '.length + 2001);
+		expect(result.length).toBeLessThanOrEqual(
+			'[MODE: BRAINSTORM] '.length + 2001,
+		);
 		expect(result.endsWith('…')).toBe(true);
 	});
 });

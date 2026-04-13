@@ -41538,7 +41538,7 @@ import { createHash as createHash4 } from "crypto";
 
 // src/db/project-db.ts
 import { Database } from "bun:sqlite";
-import { mkdirSync as mkdirSync7 } from "fs";
+import { existsSync as existsSync16, mkdirSync as mkdirSync7 } from "fs";
 import { join as join22, resolve as resolve11 } from "path";
 var MIGRATIONS = [
   {
@@ -41597,6 +41597,12 @@ function runProjectMigrations(db) {
     apply();
   }
 }
+function projectDbPath(directory) {
+  return join22(resolve11(directory), ".swarm", "swarm.db");
+}
+function projectDbExists(directory) {
+  return existsSync16(projectDbPath(directory));
+}
 function getProjectDb(directory) {
   const key = resolve11(directory);
   const existing = _projectDbs.get(key);
@@ -41643,6 +41649,8 @@ function rowToProfile(row) {
   };
 }
 function getProfile(directory, planId) {
+  if (!projectDbExists(directory))
+    return null;
   const db = getProjectDb(directory);
   const row = db.query("SELECT * FROM qa_gate_profile WHERE plan_id = ?").get(planId);
   return row ? rowToProfile(row) : null;

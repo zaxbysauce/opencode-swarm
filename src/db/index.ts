@@ -18,6 +18,8 @@ export {
 	closeAllProjectDbs,
 	closeProjectDb,
 	getProjectDb,
+	projectDbExists,
+	projectDbPath,
 	runProjectMigrations,
 } from './project-db.js';
 export {

@@ -7,7 +7,7 @@
  */
 
 import { Database } from 'bun:sqlite';
-import { mkdirSync } from 'node:fs';
+import { existsSync, mkdirSync } from 'node:fs';
 import { join, resolve } from 'node:path';
 
 interface Migration {
@@ -83,6 +83,24 @@ export function runProjectMigrations(db: Database): void {
 		});
 		apply();
 	}
+}
+
+/**
+ * Return the absolute path to `.swarm/swarm.db` for the given directory.
+ * Does not create the file or any parent directory.
+ */
+export function projectDbPath(directory: string): string {
+	return join(resolve(directory), '.swarm', 'swarm.db');
+}
+
+/**
+ * Return true iff the project DB file already exists on disk. Does not
+ * open the DB, create `.swarm/`, or run migrations. Intended for
+ * read-only callers (e.g. `getProfile`) that must avoid mutating the
+ * workspace just to check for a missing record.
+ */
+export function projectDbExists(directory: string): boolean {
+	return existsSync(projectDbPath(directory));
 }
 
 /**

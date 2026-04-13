@@ -9,5 +9,5 @@
  *   in the project DB.
  */
 export { closeGlobalDb, getGlobalDb, runGlobalMigrations, } from './global-db.js';
-export { closeAllProjectDbs, closeProjectDb, getProjectDb, runProjectMigrations, } from './project-db.js';
+export { closeAllProjectDbs, closeProjectDb, getProjectDb, projectDbExists, projectDbPath, runProjectMigrations, } from './project-db.js';
 export { computeProfileHash, DEFAULT_QA_GATES, getEffectiveGates, getOrCreateProfile, getProfile, lockProfile, type QaGateProfile, type QaGates, setGates, } from './qa-gate-profile.js';

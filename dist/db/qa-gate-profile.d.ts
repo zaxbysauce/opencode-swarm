@@ -36,6 +36,13 @@ export interface QaGateProfile {
 }
 /**
  * Fetch the profile for `planId` or return null if none exists.
+ *
+ * Read-only: if `.swarm/swarm.db` does not exist yet, returns null
+ * without creating the DB file or running migrations. This keeps callers
+ * on read-only paths (`get_approved_plan`, `get_qa_gate_profile`, the
+ * `qa-gates show` command) from silently mutating the workspace just by
+ * looking for a profile. Write paths (`getOrCreateProfile`, `setGates`,
+ * `lockProfile`) continue to initialize the DB on demand.
  */
 export declare function getProfile(directory: string, planId: string): QaGateProfile | null;
 /**

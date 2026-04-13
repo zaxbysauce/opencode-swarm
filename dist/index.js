@@ -38778,11 +38778,11 @@ __export(exports_evidence_summary_integration, {
   createEvidenceSummaryIntegration: () => createEvidenceSummaryIntegration,
   EvidenceSummaryIntegration: () => EvidenceSummaryIntegration
 });
-import { existsSync as existsSync21, mkdirSync as mkdirSync11, writeFileSync as writeFileSync5 } from "fs";
+import { existsSync as existsSync22, mkdirSync as mkdirSync11, writeFileSync as writeFileSync5 } from "fs";
 import * as path36 from "path";
 function persistSummary(swarmDir, artifact, filename) {
   const swarmPath = path36.join(swarmDir, ".swarm");
-  if (!existsSync21(swarmPath)) {
+  if (!existsSync22(swarmPath)) {
     mkdirSync11(swarmPath, { recursive: true });
   }
   const artifactPath = path36.join(swarmPath, filename);
@@ -45392,8 +45392,8 @@ async function loadGrammar(languageId) {
   const parser = new Parser;
   const wasmFileName = getWasmFileName(normalizedId);
   const wasmPath = path66.join(getGrammarsDirAbsolute(), wasmFileName);
-  const { existsSync: existsSync39 } = await import("fs");
-  if (!existsSync39(wasmPath)) {
+  const { existsSync: existsSync40 } = await import("fs");
+  if (!existsSync40(wasmPath)) {
     throw new Error(`Grammar file not found for ${languageId}: ${wasmPath}
 Make sure to run 'bun run build' to copy grammar files to dist/lang/grammars/`);
   }
@@ -51548,7 +51548,7 @@ import { createHash as createHash4 } from "crypto";
 
 // src/db/project-db.ts
 import { Database } from "bun:sqlite";
-import { mkdirSync as mkdirSync9 } from "fs";
+import { existsSync as existsSync18, mkdirSync as mkdirSync9 } from "fs";
 import { join as join26, resolve as resolve11 } from "path";
 var MIGRATIONS = [
   {
@@ -51607,6 +51607,12 @@ function runProjectMigrations(db) {
     apply();
   }
 }
+function projectDbPath(directory) {
+  return join26(resolve11(directory), ".swarm", "swarm.db");
+}
+function projectDbExists(directory) {
+  return existsSync18(projectDbPath(directory));
+}
 function getProjectDb(directory) {
   const key = resolve11(directory);
   const existing = _projectDbs.get(key);
@@ -51653,6 +51659,8 @@ function rowToProfile(row) {
   };
 }
 function getProfile(directory, planId) {
+  if (!projectDbExists(directory))
+    return null;
   const db = getProjectDb(directory);
   const row = db.query("SELECT * FROM qa_gate_profile WHERE plan_id = ?").get(planId);
   return row ? rowToProfile(row) : null;
@@ -61451,7 +61459,7 @@ import * as path47 from "path";
 init_utils2();
 init_path_security();
 import * as fsSync2 from "fs";
-import { constants as constants2, existsSync as existsSync27, realpathSync as realpathSync6 } from "fs";
+import { constants as constants2, existsSync as existsSync28, realpathSync as realpathSync6 } from "fs";
 import * as fsPromises3 from "fs/promises";
 import * as path46 from "path";
 
@@ -61913,7 +61921,7 @@ function resolveModuleSpecifier(workspaceRoot, sourceFile, specifier) {
       } catch {
         realRoot = path46.normalize(workspaceRoot);
       }
-      if (!existsSync27(resolved)) {
+      if (!existsSync28(resolved)) {
         const EXTENSIONS = [
           ".ts",
           ".tsx",
@@ -61927,7 +61935,7 @@ function resolveModuleSpecifier(workspaceRoot, sourceFile, specifier) {
         let found = null;
         for (const ext of EXTENSIONS) {
           const candidate = resolved + ext;
-          if (existsSync27(candidate)) {
+          if (existsSync28(candidate)) {
             found = candidate;
             break;
           }
@@ -62024,7 +62032,7 @@ async function loadGraph(workspace) {
   if (cached3 && !isDirty(normalized)) {
     try {
       const graphPath = getGraphPath(workspace);
-      if (existsSync27(graphPath)) {
+      if (existsSync28(graphPath)) {
         const stats = await fsPromises3.stat(graphPath);
         const cachedMtime = mtimeCache.get(normalized);
         if (cachedMtime !== undefined && stats.mtimeMs !== cachedMtime) {
@@ -62041,7 +62049,7 @@ async function loadGraph(workspace) {
   }
   try {
     const graphPath = getGraphPath(workspace);
-    if (!existsSync27(graphPath)) {
+    if (!existsSync28(graphPath)) {
       return null;
     }
     const stats = await fsPromises3.stat(graphPath);
@@ -62300,7 +62308,7 @@ function buildWorkspaceGraph(workspaceRoot, options) {
   const maxFileSize = options?.maxFileSizeBytes ?? 1024 * 1024;
   const maxFiles = options?.maxFiles ?? 1e4;
   const absoluteRoot = path46.resolve(workspaceRoot);
-  if (!existsSync27(absoluteRoot)) {
+  if (!existsSync28(absoluteRoot)) {
     throw new Error(`Workspace directory does not exist: ${workspaceRoot}`);
   }
   const graph = createEmptyGraph(workspaceRoot);
@@ -62454,7 +62462,7 @@ async function updateGraphForFiles(workspaceRoot, filePaths, options) {
   const updatedPaths = new Set;
   for (const rawFilePath of filePaths) {
     const normalizedPath = normalizeGraphPath(rawFilePath);
-    const fileExists = existsSync27(rawFilePath);
+    const fileExists = existsSync28(rawFilePath);
     if (fileExists) {
       graph.edges = graph.edges.filter((e) => normalizeGraphPath(e.source) !== normalizedPath);
       const result = scanFile(rawFilePath, absoluteRoot, maxFileSize);
@@ -68831,7 +68839,7 @@ ${body2}`);
 // src/council/council-evidence-writer.ts
 import {
   appendFileSync as appendFileSync7,
-  existsSync as existsSync36,
+  existsSync as existsSync37,
   mkdirSync as mkdirSync17,
   readFileSync as readFileSync35,
   writeFileSync as writeFileSync11
@@ -68874,7 +68882,7 @@ function writeCouncilEvidence(workingDir, synthesis) {
   mkdirSync17(dir, { recursive: true });
   const filePath = join60(dir, `${synthesis.taskId}.json`);
   const existingRoot = Object.create(null);
-  if (existsSync36(filePath)) {
+  if (existsSync37(filePath)) {
     try {
       const parsed = JSON.parse(readFileSync35(filePath, "utf-8"));
       if (parsed && typeof parsed === "object" && !Array.isArray(parsed)) {
@@ -69038,7 +69046,7 @@ function buildUnifiedFeedback(taskId, verdict, vetoedBy, requiredFixes, advisory
 }
 
 // src/council/criteria-store.ts
-import { existsSync as existsSync37, mkdirSync as mkdirSync18, readFileSync as readFileSync36, writeFileSync as writeFileSync12 } from "fs";
+import { existsSync as existsSync38, mkdirSync as mkdirSync18, readFileSync as readFileSync36, writeFileSync as writeFileSync12 } from "fs";
 import { join as join61 } from "path";
 var COUNCIL_DIR = ".swarm/council";
 function writeCriteria(workingDir, taskId, criteria) {
@@ -69053,7 +69061,7 @@ function writeCriteria(workingDir, taskId, criteria) {
 }
 function readCriteria(workingDir, taskId) {
   const filePath = join61(workingDir, COUNCIL_DIR, `${safeId(taskId)}.json`);
-  if (!existsSync37(filePath))
+  if (!existsSync38(filePath))
     return null;
   try {
     const parsed = JSON.parse(readFileSync36(filePath, "utf-8"));
@@ -71324,7 +71332,7 @@ init_dist();
 init_config();
 init_knowledge_store();
 init_create_tool();
-import { existsSync as existsSync42 } from "fs";
+import { existsSync as existsSync43 } from "fs";
 var DEFAULT_LIMIT = 10;
 var MAX_LESSON_LENGTH = 200;
 var VALID_CATEGORIES3 = [
@@ -71393,14 +71401,14 @@ function validateLimit(limit) {
 }
 async function readSwarmKnowledge(directory) {
   const swarmPath = resolveSwarmKnowledgePath(directory);
-  if (!existsSync42(swarmPath)) {
+  if (!existsSync43(swarmPath)) {
     return [];
   }
   return readKnowledge(swarmPath);
 }
 async function readHiveKnowledge() {
   const hivePath = resolveHiveKnowledgePath();
-  if (!existsSync42(hivePath)) {
+  if (!existsSync43(hivePath)) {
     return [];
   }
   return readKnowledge(hivePath);

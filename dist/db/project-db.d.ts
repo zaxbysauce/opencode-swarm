@@ -12,6 +12,18 @@ import { Database } from 'bun:sqlite';
  */
 export declare function runProjectMigrations(db: Database): void;
 /**
+ * Return the absolute path to `.swarm/swarm.db` for the given directory.
+ * Does not create the file or any parent directory.
+ */
+export declare function projectDbPath(directory: string): string;
+/**
+ * Return true iff the project DB file already exists on disk. Does not
+ * open the DB, create `.swarm/`, or run migrations. Intended for
+ * read-only callers (e.g. `getProfile`) that must avoid mutating the
+ * workspace just to check for a missing record.
+ */
+export declare function projectDbExists(directory: string): boolean;
+/**
  * Return the cached project database for the given directory, opening it
  * if needed. Creates `.swarm/` if absent and enables WAL + foreign keys.
  */

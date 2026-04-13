@@ -38,6 +38,19 @@ describe('qa-gate-profile', () => {
 		expect(getProfile(tempDir, 'missing')).toBeNull();
 	});
 
+	test('getProfile does NOT create .swarm/swarm.db on read from fresh dir', () => {
+		const dbPath = path.join(tempDir, '.swarm', 'swarm.db');
+		// Precondition: fresh dir, no .swarm
+		expect(fs.existsSync(path.join(tempDir, '.swarm'))).toBe(false);
+		expect(fs.existsSync(dbPath)).toBe(false);
+
+		const result = getProfile(tempDir, 'plan-that-does-not-exist');
+		expect(result).toBeNull();
+
+		// Postcondition: read-only call must not have created the DB file
+		expect(fs.existsSync(dbPath)).toBe(false);
+	});
+
 	test('getOrCreateProfile seeds defaults', () => {
 		const p = getOrCreateProfile(tempDir, 'plan-1', 'ts');
 		expect(p.plan_id).toBe('plan-1');
