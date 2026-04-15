@@ -77,7 +77,7 @@ export function generateSummary(
 		totalChanges: changes.length,
 		byRisk,
 		byCategory,
-		criticalItems: byRisk['Critical'],
+		criticalItems: byRisk.Critical,
 	};
 }
 

@@ -273,7 +273,7 @@ describe('semanticSummary populated when astDiffs exist', () => {
 		];
 
 		// Simulate the diff.ts integration logic
-		let semanticSummary;
+		let semanticSummary: any;
 		if (astDiffs.length > 0) {
 			const classifiedChanges = classifyChanges(astDiffs);
 			semanticSummary = generateSummary(classifiedChanges);
@@ -317,7 +317,7 @@ describe('semanticSummary undefined when astDiffs is empty', () => {
 		const astDiffs: ASTDiffResult[] = [];
 
 		// Simulate the diff.ts integration logic
-		let semanticSummary;
+		let semanticSummary: any;
 		if (astDiffs.length > 0) {
 			const classifiedChanges = classifyChanges(astDiffs);
 			semanticSummary = generateSummary(classifiedChanges);
@@ -356,7 +356,7 @@ describe('Graceful fallback when classification throws', () => {
 		];
 
 		// Simulate the diff.ts try/catch block
-		let semanticSummary;
+		let semanticSummary: any;
 		try {
 			// Intentionally throw to simulate error
 			throw new Error('Classification failed');
@@ -376,7 +376,7 @@ describe('Graceful fallback when classification throws', () => {
 			}),
 		];
 
-		let semanticSummary;
+		let semanticSummary: any;
 		try {
 			const classifiedChanges = classifyChanges(astDiffs);
 			// Simulate generateSummary throwing
@@ -391,7 +391,7 @@ describe('Graceful fallback when classification throws', () => {
 	test('diff result should still be valid after graceful fallback', () => {
 		// Simulate full diff.ts result construction with fallback
 		const astDiffs: ASTDiffResult[] = [];
-		let semanticSummary;
+		let semanticSummary: any;
 
 		try {
 			throw new Error('Simulated classification error');

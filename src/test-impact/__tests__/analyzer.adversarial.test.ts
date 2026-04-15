@@ -315,6 +315,7 @@ describe('analyzeImpact — adversarial inputs', () => {
 	});
 
 	test('handles arrays with holes in changedFiles', async () => {
+		// biome-ignore lint/suspicious/noSparseArray: intentionally sparse for adversarial test
 		const result = await analyzeImpact([, 1, , 2] as any[], tempDir);
 		expect(result).toHaveProperty('impactedTests');
 		expect(result).toHaveProperty('untestedFiles');

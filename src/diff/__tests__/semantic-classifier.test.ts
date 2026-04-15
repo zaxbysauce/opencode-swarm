@@ -1,11 +1,6 @@
 import { describe, expect, test } from 'bun:test';
 import type { ASTChange, ASTDiffResult } from '../../diff/ast-diff';
-import {
-	type ChangeCategory,
-	type ClassifiedChange,
-	classifyChanges,
-	type RiskLevel,
-} from '../semantic-classifier';
+import { classifyChanges, type RiskLevel } from '../semantic-classifier';
 
 // Helper to create minimal ASTDiffResult
 function makeDiff(changes: ASTChange[], filePath = 'test.ts'): ASTDiffResult {

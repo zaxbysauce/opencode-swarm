@@ -3,7 +3,6 @@ import type { ClassifiedChange } from '../semantic-classifier.js';
 import {
 	generateSummary,
 	generateSummaryMarkdown,
-	type SemanticDiffSummary,
 } from '../summary-generator.js';
 
 const createMockChange = (
@@ -69,26 +68,26 @@ describe('generateSummary', () => {
 		const changes = [criticalChange, otherChange];
 		const summary = generateSummary(changes);
 		expect(summary.criticalItems).toEqual([criticalChange]);
-		expect(summary.criticalItems).toEqual(summary.byRisk['Critical']);
+		expect(summary.criticalItems).toEqual(summary.byRisk.Critical);
 	});
 
 	test('6. empty input produces totalFiles=0, totalChanges=0, all arrays empty', () => {
 		const summary = generateSummary([]);
 		expect(summary.totalFiles).toBe(0);
 		expect(summary.totalChanges).toBe(0);
-		expect(summary.byRisk['Critical']).toEqual([]);
-		expect(summary.byRisk['High']).toEqual([]);
-		expect(summary.byRisk['Medium']).toEqual([]);
-		expect(summary.byRisk['Low']).toEqual([]);
-		expect(summary.byCategory['SIGNATURE_CHANGE']).toEqual([]);
-		expect(summary.byCategory['API_CHANGE']).toEqual([]);
-		expect(summary.byCategory['GUARD_REMOVED']).toEqual([]);
-		expect(summary.byCategory['LOGIC_CHANGE']).toEqual([]);
-		expect(summary.byCategory['DELETED_FUNCTION']).toEqual([]);
-		expect(summary.byCategory['NEW_FUNCTION']).toEqual([]);
-		expect(summary.byCategory['REFACTOR']).toEqual([]);
-		expect(summary.byCategory['COSMETIC']).toEqual([]);
-		expect(summary.byCategory['UNCLASSIFIED']).toEqual([]);
+		expect(summary.byRisk.Critical).toEqual([]);
+		expect(summary.byRisk.High).toEqual([]);
+		expect(summary.byRisk.Medium).toEqual([]);
+		expect(summary.byRisk.Low).toEqual([]);
+		expect(summary.byCategory.SIGNATURE_CHANGE).toEqual([]);
+		expect(summary.byCategory.API_CHANGE).toEqual([]);
+		expect(summary.byCategory.GUARD_REMOVED).toEqual([]);
+		expect(summary.byCategory.LOGIC_CHANGE).toEqual([]);
+		expect(summary.byCategory.DELETED_FUNCTION).toEqual([]);
+		expect(summary.byCategory.NEW_FUNCTION).toEqual([]);
+		expect(summary.byCategory.REFACTOR).toEqual([]);
+		expect(summary.byCategory.COSMETIC).toEqual([]);
+		expect(summary.byCategory.UNCLASSIFIED).toEqual([]);
 	});
 
 	test('7. changes correctly grouped by risk level', () => {
@@ -100,10 +99,10 @@ describe('generateSummary', () => {
 			createMockChange({ riskLevel: 'Low', category: 'COSMETIC' }),
 		];
 		const summary = generateSummary(changes);
-		expect(summary.byRisk['Critical']).toHaveLength(2);
-		expect(summary.byRisk['High']).toHaveLength(1);
-		expect(summary.byRisk['Medium']).toHaveLength(1);
-		expect(summary.byRisk['Low']).toHaveLength(1);
+		expect(summary.byRisk.Critical).toHaveLength(2);
+		expect(summary.byRisk.High).toHaveLength(1);
+		expect(summary.byRisk.Medium).toHaveLength(1);
+		expect(summary.byRisk.Low).toHaveLength(1);
 	});
 
 	test('8. changes correctly grouped by category', () => {
@@ -120,15 +119,15 @@ describe('generateSummary', () => {
 			createMockChange({ category: 'UNCLASSIFIED' }),
 		];
 		const summary = generateSummary(changes);
-		expect(summary.byCategory['SIGNATURE_CHANGE']).toHaveLength(2);
-		expect(summary.byCategory['API_CHANGE']).toHaveLength(1);
-		expect(summary.byCategory['GUARD_REMOVED']).toHaveLength(1);
-		expect(summary.byCategory['LOGIC_CHANGE']).toHaveLength(1);
-		expect(summary.byCategory['DELETED_FUNCTION']).toHaveLength(1);
-		expect(summary.byCategory['NEW_FUNCTION']).toHaveLength(1);
-		expect(summary.byCategory['REFACTOR']).toHaveLength(1);
-		expect(summary.byCategory['COSMETIC']).toHaveLength(1);
-		expect(summary.byCategory['UNCLASSIFIED']).toHaveLength(1);
+		expect(summary.byCategory.SIGNATURE_CHANGE).toHaveLength(2);
+		expect(summary.byCategory.API_CHANGE).toHaveLength(1);
+		expect(summary.byCategory.GUARD_REMOVED).toHaveLength(1);
+		expect(summary.byCategory.LOGIC_CHANGE).toHaveLength(1);
+		expect(summary.byCategory.DELETED_FUNCTION).toHaveLength(1);
+		expect(summary.byCategory.NEW_FUNCTION).toHaveLength(1);
+		expect(summary.byCategory.REFACTOR).toHaveLength(1);
+		expect(summary.byCategory.COSMETIC).toHaveLength(1);
+		expect(summary.byCategory.UNCLASSIFIED).toHaveLength(1);
 	});
 });
 

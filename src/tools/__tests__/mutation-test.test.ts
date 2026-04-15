@@ -263,6 +263,9 @@ describe('mutation_test tool', () => {
 				validArgs.test_command,
 				validArgs.files,
 				'/custom/path',
+				undefined,
+				undefined,
+				undefined,
 			);
 		});
 	});
