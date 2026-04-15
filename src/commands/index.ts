@@ -175,12 +175,18 @@ export function createSwarmCommandHandler(
 		if (!resolved) {
 			text = HELP_TEXT;
 		} else {
-			text = await resolved.entry.handler({
-				directory,
-				args: resolved.remainingArgs,
-				sessionID: input.sessionID,
-				agents,
-			});
+			try {
+				text = await resolved.entry.handler({
+					directory,
+					args: resolved.remainingArgs,
+					sessionID: input.sessionID,
+					agents,
+				});
+			} catch (err) {
+				const cmdName = tokens[0] || 'unknown';
+				const errMsg = err instanceof Error ? err.message : String(err);
+				text = `Error executing /swarm ${cmdName}: ${errMsg}`;
+			}
 		}
 
 		// Convert string result to Part[]

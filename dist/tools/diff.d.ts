@@ -1,4 +1,5 @@
 import { type ASTDiffResult } from '../diff/ast-diff.js';
+import { type SemanticDiffSummary } from '../diff/summary-generator.js';
 import { createSwarmTool } from './create-tool';
 export interface DiffResult {
     files: Array<{
@@ -10,6 +11,8 @@ export interface DiffResult {
     hasContractChanges: boolean;
     summary: string;
     astDiffs?: ASTDiffResult[];
+    semanticSummary?: SemanticDiffSummary;
+    markdownSummary?: string;
 }
 export interface DiffErrorResult {
     error: string;

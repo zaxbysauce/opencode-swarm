@@ -45,6 +45,7 @@ export const AGENT_TOOL_MAP: Record<AgentName, ToolName[]> = {
 		'knowledge_query',
 		'lint',
 		'diff',
+		'diff_summary',
 		'pkg_audit',
 		'pre_check_batch',
 		'quality_budget',
@@ -56,6 +57,8 @@ export const AGENT_TOOL_MAP: Record<AgentName, ToolName[]> = {
 		'secretscan',
 		'symbols',
 		'test_runner',
+		'test_impact',
+		'mutation_test',
 		'todo_extract',
 		'update_task_status',
 		'lint_spec',
@@ -112,6 +115,8 @@ export const AGENT_TOOL_MAP: Record<AgentName, ToolName[]> = {
 	],
 	test_engineer: [
 		'test_runner',
+		'test_impact',
+		'mutation_test',
 		'diff',
 		'symbols',
 		'extract_code_blocks',
@@ -135,6 +140,7 @@ export const AGENT_TOOL_MAP: Record<AgentName, ToolName[]> = {
 	],
 	reviewer: [
 		'diff',
+		'diff_summary',
 		'imports',
 		'lint',
 		'pkg_audit',
@@ -145,6 +151,7 @@ export const AGENT_TOOL_MAP: Record<AgentName, ToolName[]> = {
 		'retrieve_summary',
 		'extract_code_blocks',
 		'test_runner',
+		'test_impact',
 		'sast_scan',
 		'placeholder_scan',
 		'knowledge_recall',
@@ -242,6 +249,8 @@ export const TOOL_DESCRIPTIONS: Partial<Record<ToolName, string>> = {
 	symbols: 'code symbol search',
 	checkpoint: 'state snapshots',
 	diff: 'structured git diff with contract change detection',
+	diff_summary:
+		'filter classified AST changes by category, risk level, or file for reviewer drill-down',
 	imports: 'dependency audit',
 	lint: 'code quality',
 	placeholder_scan: 'placeholder/todo detection',
@@ -249,6 +258,10 @@ export const TOOL_DESCRIPTIONS: Partial<Record<ToolName, string>> = {
 	sast_scan: 'static analysis security scan',
 	syntax_check: 'syntax validation',
 	test_runner: 'auto-detect and run tests',
+	test_impact:
+		'identify test files impacted by changed source files via import analysis',
+	mutation_test:
+		'executes pre-generated mutation patches against tests, evaluates kill rate against quality gate thresholds',
 	pkg_audit: 'dependency vulnerability scan — npm/pip/cargo',
 	complexity_hotspots: 'git churn × complexity risk map',
 	schema_drift: 'OpenAPI spec vs route drift',
@@ -302,6 +315,8 @@ export const TOOL_DESCRIPTIONS: Partial<Record<ToolName, string>> = {
 		'retrieve the QA gate profile for the current plan: gates, lock state, and profile hash. Read-only.',
 	set_qa_gates:
 		'configure the QA gate profile for the current plan. Architect-only. Ratchet-tighter only — rejected once the profile is locked after critic approval.',
+	req_coverage:
+		'query requirement coverage status for tracked functional requirements',
 };
 
 // Runtime validation: ensure all tool names in AGENT_TOOL_MAP are registered

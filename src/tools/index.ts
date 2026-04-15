@@ -11,6 +11,7 @@ export { curator_analyze } from './curator-analyze';
 export { declare_council_criteria } from './declare-council-criteria';
 export { declare_scope } from './declare-scope';
 export { type DiffErrorResult, type DiffResult, diff } from './diff';
+export { diff_summary } from './diff-summary';
 export { doc_extract, doc_scan } from './doc-scan';
 export { detect_domains } from './domain-detector';
 export { evidence_check } from './evidence-check';
@@ -91,7 +92,25 @@ export { suggestPatch };
 export type { SuggestPatchArgs } from './suggest-patch';
 // Alias for TOOL_NAMES compliance - suggest_patch and suggestPatch are the same tool
 export const suggest_patch: typeof suggestPatch = suggestPatch;
+export type {
+	ClassifiedFailure,
+	FailureClassification,
+	FailureCluster,
+} from '../test-impact/failure-classifier.js';
+// Internal test analysis utilities (not standalone agent tools)
+export {
+	classifyAndCluster,
+	classifyFailure,
+	clusterFailures,
+} from '../test-impact/failure-classifier.js';
+export type { FlakyTestEntry } from '../test-impact/flaky-detector.js';
+export {
+	computeFlakyScore,
+	detectFlakyTests,
+	isTestQuarantined,
+} from '../test-impact/flaky-detector.js';
 export { lint_spec } from './lint-spec';
+export { mutation_test } from './mutation-test';
 export { symbols } from './symbols';
 export {
 	type SyntaxCheckFileResult,
@@ -100,6 +119,7 @@ export {
 	syntax_check,
 	syntaxCheck,
 } from './syntax-check';
+export { test_impact } from './test-impact';
 export { test_runner } from './test-runner';
 export { todo_extract } from './todo-extract';
 export {

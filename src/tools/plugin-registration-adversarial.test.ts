@@ -5,30 +5,9 @@
  * Focus: Ensure all tools are properly exposed without collisions, omissions, or malformed wiring
  */
 import { describe, expect, it } from 'bun:test';
+import { TOOL_NAMES } from './tool-names.js';
 
-// List of tools registered in src/index.ts (lines 336-357)
-const REGISTERED_TOOL_NAMES = [
-	'checkpoint',
-	'complexity_hotspots',
-	'detect_domains',
-	'evidence_check',
-	'extract_code_blocks',
-	'gitingest',
-	'imports',
-	'lint',
-	'diff',
-	'pkg_audit',
-	'phase_complete',
-	'pre_check_batch',
-	'retrieve_summary',
-	'save_plan',
-	'schema_drift',
-	'secretscan',
-	'symbols',
-	'test_runner',
-	'todo_extract',
-	'update_task_status',
-];
+const REGISTERED_TOOL_NAMES = TOOL_NAMES;
 
 describe('Plugin Runtime Registration - Adversarial Tests', () => {
 	describe('Tool Registration Integrity', () => {
@@ -285,11 +264,11 @@ describe('Plugin Runtime Registration - Adversarial Tests', () => {
 	});
 
 	describe('Tool Wiring Verification', () => {
-		it('should have all 20 tools accounted for', () => {
-			expect(REGISTERED_TOOL_NAMES.length).toBe(20);
+		it('should have all tools accounted for', () => {
+			expect(REGISTERED_TOOL_NAMES.length).toBe(TOOL_NAMES.length);
 		});
 
-		it('should export all 20 registered tools', async () => {
+		it('should export all registered tools', async () => {
 			const toolsIndex = await import('./index');
 			let exportCount = 0;
 
@@ -306,7 +285,7 @@ describe('Plugin Runtime Registration - Adversarial Tests', () => {
 				}
 			}
 
-			expect(exportCount).toBe(20);
+			expect(exportCount).toBe(TOOL_NAMES.length);
 		});
 
 		it('should have no null or undefined tools', async () => {

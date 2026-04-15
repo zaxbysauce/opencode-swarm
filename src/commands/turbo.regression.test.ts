@@ -13,6 +13,7 @@ import { afterEach, beforeEach, describe, expect, it } from 'bun:test';
 import * as fs from 'node:fs';
 import * as os from 'node:os';
 import * as path from 'node:path';
+import type { PluginConfig } from '../config';
 import { createSystemEnhancerHook } from '../hooks/system-enhancer';
 import {
 	formatStatusMarkdown,
@@ -286,7 +287,7 @@ describe('Task 4: Turbo Mode Regression Tests', () => {
 			const session = getAgentSession(testSessionId);
 			session!.turboMode = true;
 
-			const hook = createSystemEnhancerHook({} as any, tmpDir);
+			const hook = createSystemEnhancerHook({} as PluginConfig, tmpDir);
 			const output = { system: [] as string[], messages: [] as string[] };
 			// @ts-expect-error - testing internal hook interface
 			await hook['experimental.chat.system.transform'](
@@ -303,7 +304,7 @@ describe('Task 4: Turbo Mode Regression Tests', () => {
 			const session = getAgentSession(testSessionId);
 			session!.turboMode = false;
 
-			const hook = createSystemEnhancerHook({} as any, tmpDir);
+			const hook = createSystemEnhancerHook({} as PluginConfig, tmpDir);
 			const output = { system: [] as string[], messages: [] as string[] };
 			// @ts-expect-error - testing internal hook interface
 			await hook['experimental.chat.system.transform'](
@@ -366,7 +367,7 @@ describe('Task 4: Turbo Mode Regression Tests', () => {
 			session!.turboMode = false;
 
 			// Call hook WITHOUT sessionID - should check all sessions
-			const hook = createSystemEnhancerHook({} as any, tmpDir);
+			const hook = createSystemEnhancerHook({} as PluginConfig, tmpDir);
 			const output = { system: [] as string[], messages: [] as string[] };
 			// @ts-expect-error - testing internal hook interface
 			await hook['experimental.chat.system.transform']({}, output);
@@ -383,7 +384,7 @@ describe('Task 4: Turbo Mode Regression Tests', () => {
 			// Remove all sessions
 			swarmState.agentSessions.clear();
 
-			const hook = createSystemEnhancerHook({} as any, tmpDir);
+			const hook = createSystemEnhancerHook({} as PluginConfig, tmpDir);
 			const output = { system: [] as string[], messages: [] as string[] };
 			// @ts-expect-error - testing internal hook interface
 			await hook['experimental.chat.system.transform']({}, output);
@@ -440,7 +441,7 @@ describe('Task 4: Turbo Mode Regression Tests', () => {
 			const session = getAgentSession(testSessionId);
 			session!.turboMode = true;
 
-			const hook = createSystemEnhancerHook({} as any, tmpDir);
+			const hook = createSystemEnhancerHook({} as PluginConfig, tmpDir);
 			const output = { system: [] as string[], messages: [] as string[] };
 			// @ts-expect-error - testing internal hook interface
 			await hook['experimental.chat.system.transform'](
