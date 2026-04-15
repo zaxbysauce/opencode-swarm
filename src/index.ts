@@ -80,6 +80,7 @@ import {
 	declare_scope,
 	detect_domains,
 	diff,
+	diff_summary,
 	doc_extract,
 	doc_scan,
 	evidence_check,
@@ -94,6 +95,7 @@ import {
 	knowledge_remove,
 	lint,
 	lint_spec,
+	mutation_test,
 	phase_complete,
 	pkg_audit,
 	placeholder_scan,
@@ -112,6 +114,7 @@ import {
 	suggestPatch,
 	symbols,
 	syntax_check,
+	test_impact,
 	test_runner,
 	todo_extract,
 	update_task_status,
@@ -559,6 +562,7 @@ const OpenCodeSwarm: Plugin = async (ctx) => {
 			knowledge_remove,
 			co_change_analyzer,
 			detect_domains,
+			mutation_test,
 			doc_extract,
 			doc_scan,
 			evidence_check,
@@ -572,6 +576,7 @@ const OpenCodeSwarm: Plugin = async (ctx) => {
 			lint,
 			lint_spec,
 			diff,
+			diff_summary,
 			pkg_audit,
 			placeholder_scan,
 			phase_complete,
@@ -588,6 +593,7 @@ const OpenCodeSwarm: Plugin = async (ctx) => {
 			symbols,
 			syntax_check,
 			test_runner,
+			test_impact,
 			todo_extract,
 			search,
 			batch_symbols,
@@ -779,6 +785,16 @@ const OpenCodeSwarm: Plugin = async (ctx) => {
 					template: '/swarm close',
 					description:
 						'Use /swarm close to close the swarm project and archive state',
+				},
+				'swarm-acknowledge-spec-drift': {
+					template: '/swarm acknowledge-spec-drift',
+					description:
+						'Use /swarm acknowledge-spec-drift to acknowledge spec drift and suppress further warnings',
+				},
+				'swarm-doctor-tools': {
+					template: '/swarm doctor tools',
+					description:
+						'Use /swarm doctor tools to run tool registration coherence check',
 				},
 			};
 

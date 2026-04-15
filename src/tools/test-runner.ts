@@ -2,6 +2,13 @@ import * as fs from 'node:fs';
 import * as path from 'node:path';
 import { tool } from '@opencode-ai/plugin';
 import { isCommandAvailable } from '../build/discovery';
+import { analyzeImpact } from '../test-impact/analyzer.js';
+import { classifyAndCluster } from '../test-impact/failure-classifier.js';
+import {
+	detectFlakyTests,
+	type FlakyTestEntry,
+} from '../test-impact/flaky-detector.js';
+import { appendTestRun, getAllHistory } from '../test-impact/history-store.js';
 import {
 	containsControlChars,
 	containsPathTraversal,
@@ -40,7 +47,7 @@ export type TestFramework = (typeof SUPPORTED_FRAMEWORKS)[number] | 'none';
 
 // ============ Input Types ============
 export interface TestRunnerArgs {
-	scope?: 'all' | 'convention' | 'graph';
+	scope?: 'all' | 'convention' | 'graph' | 'impact';
 	files?: string[];
 	coverage?: boolean;
 	timeout_ms?: number;
@@ -65,7 +72,7 @@ export interface TestTotals {
 export interface TestSuccessResult {
 	success: true;
 	framework: TestFramework;
-	scope: 'all' | 'convention' | 'graph';
+	scope: 'all' | 'convention' | 'graph' | 'impact';
 	command: string[];
 	timeout_ms: number;
 	duration_ms: number;
@@ -79,7 +86,7 @@ export interface TestSuccessResult {
 export interface TestErrorResult {
 	success: false;
 	framework: TestFramework;
-	scope: 'all' | 'convention' | 'graph';
+	scope: 'all' | 'convention' | 'graph' | 'impact';
 	command?: string[];
 	timeout_ms?: number;
 	duration_ms?: number;
@@ -129,7 +136,8 @@ function validateArgs(args: unknown): args is TestRunnerArgs {
 		if (
 			obj.scope !== 'all' &&
 			obj.scope !== 'convention' &&
-			obj.scope !== 'graph'
+			obj.scope !== 'graph' &&
+			obj.scope !== 'impact'
 		) {
 			return false;
 		}
@@ -621,7 +629,7 @@ async function getTestFilesFromGraph(sourceFiles: string[]): Promise<string[]> {
 // ============ Test Command Building ============
 function buildTestCommand(
 	framework: TestFramework,
-	scope: 'all' | 'convention' | 'graph',
+	scope: 'all' | 'convention' | 'graph' | 'impact',
 	files: string[],
 	coverage: boolean,
 	baseDir: string,
@@ -1059,7 +1067,7 @@ async function readBoundedStream(
 
 export async function runTests(
 	framework: TestFramework,
-	scope: 'all' | 'convention' | 'graph',
+	scope: 'all' | 'convention' | 'graph' | 'impact',
 	files: string[],
 	coverage: boolean,
 	timeout_ms: number,
@@ -1309,16 +1317,100 @@ function _findSourceFiles(dir: string, files: string[] = []): string[] {
 	return files;
 }
 
+// ============ Test History Integration ============
+interface TestHistoryReport {
+	flakyTests: FlakyTestEntry[];
+	failureClusters: Array<{
+		rootCause: string;
+		affectedFiles: string[];
+		classification: string;
+	}>;
+	quarantinedFailures: string[];
+}
+
+function recordAndAnalyzeResults(
+	result: TestResult,
+	testFiles: string[],
+	workingDir: string,
+	sourceFiles?: string[],
+): void {
+	// Only record if we have meaningful results
+	if (!result.totals || result.totals.total === 0) return;
+
+	const now = new Date().toISOString();
+	const changedFiles = (
+		sourceFiles && sourceFiles.length > 0 ? sourceFiles : testFiles
+	).map((f) => f.replace(/\\/g, '/'));
+
+	// Record aggregate result for each test file
+	for (const testFile of testFiles) {
+		try {
+			appendTestRun(
+				{
+					timestamp: now,
+					taskId: 'auto',
+					testFile: testFile.replace(/\\/g, '/'),
+					testName: '(aggregate)',
+					result: result.success ? 'pass' : 'fail',
+					durationMs: result.duration_ms || 0,
+					changedFiles,
+				},
+				workingDir,
+			);
+		} catch {
+			// History recording failure should not block test results
+		}
+	}
+}
+
+function analyzeFailures(workingDir: string): TestHistoryReport {
+	const report: TestHistoryReport = {
+		flakyTests: [],
+		failureClusters: [],
+		quarantinedFailures: [],
+	};
+
+	try {
+		const history = getAllHistory(workingDir);
+		if (history.length === 0) return report;
+
+		// Detect flaky tests
+		report.flakyTests = detectFlakyTests(history);
+
+		// Classify and cluster failures
+		const failingResults = history.filter((r) => r.result === 'fail');
+		if (failingResults.length > 0) {
+			const { clusters } = classifyAndCluster(failingResults, history);
+			report.failureClusters = clusters.map((c) => ({
+				rootCause: c.rootCause,
+				affectedFiles: c.affectedTestFiles,
+				classification: c.classification,
+			}));
+		}
+
+		// Identify quarantined test files
+		for (const entry of report.flakyTests) {
+			if (entry.isQuarantined) {
+				report.quarantinedFailures.push(`${entry.testFile}: ${entry.testName}`);
+			}
+		}
+	} catch {
+		// Analysis failure should not block test results
+	}
+
+	return report;
+}
+
 // ============ Tool Definition ============
 export const test_runner: ReturnType<typeof tool> = createSwarmTool({
 	description:
-		'Run project tests with framework detection. Supports bun, vitest, jest, mocha, pytest, cargo, pester, go-test, maven, gradle, dotnet-test, ctest, swift-test, dart-test, rspec, and minitest. Returns deterministic normalized JSON with framework, scope, command, totals, coverage, duration, success status, and failures. Use scope "all" for full suite, "convention" to map source files to test files, or "graph" to find related tests via imports.',
+		'Run project tests with framework detection. Supports bun, vitest, jest, mocha, pytest, cargo, pester, go-test, maven, gradle, dotnet-test, ctest, swift-test, dart-test, rspec, and minitest. Returns deterministic normalized JSON with framework, scope, command, totals, coverage, duration, success status, and failures. Use scope "all" for full suite, "convention" to map source files to test files, "graph" to find related tests via imports, or "impact" to find tests covering changed files using test-impact analysis.',
 	args: {
 		scope: tool.schema
-			.enum(['all', 'convention', 'graph'])
+			.enum(['all', 'convention', 'graph', 'impact'])
 			.optional()
 			.describe(
-				'Test scope: "all" runs full suite, "convention" maps source files to test files by naming, "graph" finds related tests via imports',
+				'Test scope: "all" runs full suite, "convention" maps source files to test files by naming, "graph" finds related tests via imports, "impact" finds tests covering changed files via test-impact analysis',
 			),
 		files: tool.schema
 			.array(tool.schema.string())
@@ -1419,7 +1511,7 @@ export const test_runner: ReturnType<typeof tool> = createSwarmTool({
 				scope: 'all',
 				error: 'Invalid arguments',
 				message:
-					'scope must be "all", "convention", or "graph"; files must be array of strings; coverage must be boolean; timeout_ms must be a positive number',
+					'scope must be "all", "convention", "graph", or "impact"; files must be array of strings; coverage must be boolean; timeout_ms must be a positive number',
 				outcome: 'error',
 			};
 			return JSON.stringify(errorResult, null, 2);
@@ -1452,9 +1544,9 @@ export const test_runner: ReturnType<typeof tool> = createSwarmTool({
 			// Allow through — caller explicitly opted in
 		}
 
-		// Hard guard: convention and graph scopes require explicit files to prevent unsafe full-project discovery
+		// Hard guard: convention, graph, and impact scopes require explicit files to prevent unsafe full-project discovery
 		if (
-			(scope === 'convention' || scope === 'graph') &&
+			(scope === 'convention' || scope === 'graph' || scope === 'impact') &&
 			(!args.files || args.files.length === 0)
 		) {
 			const errorResult: TestErrorResult = {
@@ -1502,10 +1594,11 @@ export const test_runner: ReturnType<typeof tool> = createSwarmTool({
 		// Handle different scopes: 'convention' and 'graph' do file-based discovery; 'all' skips to runTests directly
 		let testFiles: string[] = [];
 		let graphFallbackReason: string | undefined;
-		let effectiveScope: 'all' | 'convention' | 'graph' = scope as
+		let effectiveScope: 'all' | 'convention' | 'graph' | 'impact' = scope as
 			| 'all'
 			| 'convention'
-			| 'graph';
+			| 'graph'
+			| 'impact';
 
 		// scope "all" — skip file discovery, let the test framework run its full suite
 		if (scope === 'all') {
@@ -1569,6 +1662,65 @@ export const test_runner: ReturnType<typeof tool> = createSwarmTool({
 				effectiveScope = 'convention';
 				testFiles = getTestFilesFromConvention(sourceFiles);
 			}
+		} else if (scope === 'impact') {
+			// Impact scope: use test-impact analyzer to find tests covering changed files
+			// args.files is guaranteed non-empty by the guard above
+			const sourceFiles = args.files!.filter((f) => {
+				const ext = path.extname(f).toLowerCase();
+				return SOURCE_EXTENSIONS.has(ext);
+			});
+
+			if (sourceFiles.length === 0) {
+				const errorResult: TestErrorResult = {
+					success: false,
+					framework,
+					scope,
+					error:
+						'Provided files contain no source files with recognized extensions',
+					message:
+						'The files array must contain at least one source file with a recognized extension (.ts, .tsx, .js, .jsx, .py, .rs, .ps1, etc.).',
+					outcome: 'error',
+				};
+				return JSON.stringify(errorResult, null, 2);
+			}
+
+			try {
+				const impactResult = await analyzeImpact(sourceFiles, workingDir);
+				if (impactResult.impactedTests.length > 0) {
+					// Convert absolute paths from impact map to relative paths for test framework
+					testFiles = impactResult.impactedTests.map((absPath) => {
+						const relativePath = path.relative(workingDir, absPath);
+						return path.isAbsolute(relativePath) ? absPath : relativePath;
+					});
+				} else {
+					// Cold start: no impact map or no matches — fall back to graph scope
+					graphFallbackReason =
+						'no impacted tests found via impact analysis, falling back to graph';
+					effectiveScope = 'graph';
+					const graphTestFiles = await getTestFilesFromGraph(sourceFiles);
+					if (graphTestFiles.length > 0) {
+						testFiles = graphTestFiles;
+					} else {
+						graphFallbackReason =
+							'imports resolution returned no results, falling back to convention';
+						effectiveScope = 'convention';
+						testFiles = getTestFilesFromConvention(sourceFiles);
+					}
+				}
+			} catch {
+				// Impact analysis failed — fall back to graph scope
+				graphFallbackReason = 'impact analysis failed, falling back to graph';
+				effectiveScope = 'graph';
+				const graphTestFiles = await getTestFilesFromGraph(sourceFiles);
+				if (graphTestFiles.length > 0) {
+					testFiles = graphTestFiles;
+				} else {
+					graphFallbackReason =
+						'imports resolution returned no results, falling back to convention';
+					effectiveScope = 'convention';
+					testFiles = getTestFilesFromConvention(sourceFiles);
+				}
+			}
 		}
 
 		// Guard: Reject when source files resolve to zero test files (prevents accidental full-suite run)
@@ -1586,6 +1738,7 @@ export const test_runner: ReturnType<typeof tool> = createSwarmTool({
 					: baseMessage,
 				outcome: 'skip',
 				...(scope === 'graph' && { attempted_scope: 'graph' }),
+				...(scope === 'impact' && { attempted_scope: 'graph' }),
 			};
 			return JSON.stringify(errorResult, null, 2);
 		}
@@ -1615,6 +1768,32 @@ export const test_runner: ReturnType<typeof tool> = createSwarmTool({
 			timeout_ms,
 			workingDir,
 		);
+
+		// Record results to history and analyze failures
+		recordAndAnalyzeResults(
+			result,
+			testFiles,
+			workingDir,
+			_files.length > 0 ? _files : undefined,
+		);
+
+		// If test failed, add failure analysis to the result message
+		let historyReport: TestHistoryReport | undefined;
+		if (!result.success && result.totals && result.totals.failed > 0) {
+			historyReport = analyzeFailures(workingDir);
+			if (historyReport.quarantinedFailures.length > 0) {
+				result.message =
+					(result.message || '') +
+					` | QUARANTINED (flaky): ${historyReport.quarantinedFailures.join(', ')}`;
+			}
+			if (historyReport.failureClusters.length > 0) {
+				const clusterSummary = historyReport.failureClusters
+					.slice(0, 3)
+					.map((c) => `${c.classification}: ${c.rootCause.substring(0, 80)}`)
+					.join('; ');
+				result.message = `${result.message || ''} | FAILURE ANALYSIS: ${clusterSummary}`;
+			}
+		}
 
 		// Add graph fallback message if applicable
 		if (graphFallbackReason && result.message) {

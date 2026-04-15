@@ -120,6 +120,7 @@ describe('tool-names registry integrity - adversarial', () => {
 		test('should have all expected tool names in the registry', () => {
 			const expectedTools = [
 				'diff',
+				'diff_summary',
 				'syntax_check',
 				'placeholder_scan',
 				'imports',
@@ -140,6 +141,7 @@ describe('tool-names registry integrity - adversarial', () => {
 				'checkpoint',
 				'pkg_audit',
 				'test_runner',
+				'test_impact',
 				'detect_domains',
 				'gitingest',
 				'retrieve_summary',
@@ -148,6 +150,7 @@ describe('tool-names registry integrity - adversarial', () => {
 				'save_plan',
 				'update_task_status',
 				'lint_spec',
+				'mutation_test',
 				'write_retro',
 				'declare_scope',
 				'knowledge_query',
@@ -181,6 +184,7 @@ describe('tool-names registry integrity - adversarial', () => {
 		test('should have no extra tool names beyond the expected set', () => {
 			const expectedToolsSet = new Set([
 				'diff',
+				'diff_summary',
 				'syntax_check',
 				'placeholder_scan',
 				'imports',
@@ -201,6 +205,7 @@ describe('tool-names registry integrity - adversarial', () => {
 				'checkpoint',
 				'pkg_audit',
 				'test_runner',
+				'test_impact',
 				'detect_domains',
 				'gitingest',
 				'retrieve_summary',
@@ -209,6 +214,7 @@ describe('tool-names registry integrity - adversarial', () => {
 				'save_plan',
 				'update_task_status',
 				'lint_spec',
+				'mutation_test',
 				'write_retro',
 				'declare_scope',
 				'knowledge_query',
@@ -241,9 +247,9 @@ describe('tool-names registry integrity - adversarial', () => {
 
 	describe('boundary conditions', () => {
 		test('should handle maximum array length', () => {
-			// Verify array has expected count
+			// Verify TOOL_NAMES array and TOOL_NAME_SET are consistent
 			expect(TOOL_NAMES.length).toBeGreaterThan(0);
-			expect(TOOL_NAMES.length).toBe(50); // Explicit expected count
+			expect(TOOL_NAMES.length).toBe(TOOL_NAME_SET.size);
 		});
 
 		test('should have non-empty registry', () => {
@@ -317,12 +323,12 @@ describe('tool-names registry integrity - adversarial', () => {
 		});
 
 		test('should maintain registry order integrity after check_gate_status insertion', () => {
-			// check_gate_status should be at index 15 (after evidence_check at index 14)
+			// check_gate_status should be at index 15 (after evidence_check at index 15)
 			const evidenceCheckIndex = TOOL_NAMES.indexOf('evidence_check');
 			const checkGateStatusIndex = TOOL_NAMES.indexOf('check_gate_status');
 
-			expect(evidenceCheckIndex).toBe(14);
-			expect(checkGateStatusIndex).toBe(15);
+			expect(evidenceCheckIndex).toBe(15);
+			expect(checkGateStatusIndex).toBe(16);
 			expect(checkGateStatusIndex).toBe(evidenceCheckIndex + 1);
 		});
 	});

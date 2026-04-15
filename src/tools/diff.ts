@@ -1,6 +1,12 @@
 import * as child_process from 'node:child_process';
 import { type ToolContext, tool } from '@opencode-ai/plugin';
 import { type ASTDiffResult, computeASTDiff } from '../diff/ast-diff.js';
+import { classifyChanges } from '../diff/semantic-classifier.js';
+import {
+	generateSummary,
+	generateSummaryMarkdown,
+	type SemanticDiffSummary,
+} from '../diff/summary-generator.js';
 import { createSwarmTool } from './create-tool';
 
 const MAX_DIFF_LINES = 500;
@@ -59,6 +65,8 @@ export interface DiffResult {
 	hasContractChanges: boolean;
 	summary: string;
 	astDiffs?: ASTDiffResult[];
+	semanticSummary?: SemanticDiffSummary;
+	markdownSummary?: string;
 }
 
 export interface DiffErrorResult {
@@ -278,11 +286,48 @@ export const diff: ReturnType<typeof createSwarmTool> = createSwarmTool({
 						oldContent,
 						newContent,
 					);
-					if (astResult && astResult.changes.length > 0) {
+					if (astResult && (astResult.changes.length > 0 || astResult.error)) {
 						astDiffs.push(astResult);
 					}
 				} catch {
-					// AST diff not available for this file — git diff is sufficient
+					// AST parse failed — create fallback entry with generic change
+					astDiffs.push({
+						filePath: file.path,
+						language: null,
+						changes: [
+							{
+								type: 'modified',
+								category: 'other',
+								name: '(parse failed)',
+								lineStart: 0,
+								lineEnd: 0,
+							},
+						],
+						durationMs: 0,
+						usedAST: false,
+						error:
+							'AST parse unavailable — tree-sitter analysis failed for this file',
+					});
+				}
+			}
+
+			// Generate semantic classification and summary from AST diffs
+			let semanticSummary: SemanticDiffSummary | undefined;
+			if (astDiffs.length > 0) {
+				try {
+					const classifiedChanges = classifyChanges(astDiffs);
+					semanticSummary = generateSummary(classifiedChanges);
+				} catch {
+					// Semantic classification unavailable — continue without semanticSummary
+				}
+			}
+
+			let markdownSummary: string | undefined;
+			if (semanticSummary) {
+				try {
+					markdownSummary = generateSummaryMarkdown(semanticSummary);
+				} catch {
+					// Markdown generation failed — continue without markdown summary
 				}
 			}
 
@@ -298,6 +343,8 @@ export const diff: ReturnType<typeof createSwarmTool> = createSwarmTool({
 				hasContractChanges,
 				summary,
 				...(astDiffs.length > 0 ? { astDiffs } : {}),
+				...(semanticSummary ? { semanticSummary } : {}),
+				...(markdownSummary ? { markdownSummary } : {}),
 			};
 
 			return JSON.stringify(result, null, 2);
