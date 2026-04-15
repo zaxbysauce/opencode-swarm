@@ -79,6 +79,8 @@ describe('tool-names-fix adversarial attacks', () => {
 				'req_coverage',
 				'get_approved_plan',
 				'repo_map',
+				'get_qa_gate_profile',
+				'set_qa_gates',
 			];
 
 			const expectedToolsSet = new Set([
@@ -133,6 +135,8 @@ describe('tool-names-fix adversarial attacks', () => {
 				'req_coverage',
 				'get_approved_plan',
 				'repo_map',
+				'get_qa_gate_profile',
+				'set_qa_gates',
 			]);
 
 			// Direction of attack: items in set but NOT in array
@@ -199,6 +203,8 @@ describe('tool-names-fix adversarial attacks', () => {
 				'req_coverage',
 				'get_approved_plan',
 				'repo_map',
+				'get_qa_gate_profile',
+				'set_qa_gates',
 			];
 
 			const expectedToolsSet = new Set([
@@ -253,6 +259,8 @@ describe('tool-names-fix adversarial attacks', () => {
 				'req_coverage',
 				'get_approved_plan',
 				'repo_map',
+				'get_qa_gate_profile',
+				'set_qa_gates',
 			]);
 
 			// Sort both for order-independent comparison
@@ -340,6 +348,8 @@ describe('tool-names-fix adversarial attacks', () => {
 				'req_coverage',
 				'get_approved_plan',
 				'repo_map',
+				'get_qa_gate_profile',
+				'set_qa_gates',
 			];
 
 			expect(TOOL_NAMES).toEqual(sourceOrder as ToolName[]);
@@ -415,6 +425,8 @@ describe('tool-names-fix adversarial attacks', () => {
 				'req_coverage',
 				'get_approved_plan',
 				'repo_map',
+				'get_qa_gate_profile',
+				'set_qa_gates',
 			]);
 
 			// All three should agree
@@ -493,6 +505,8 @@ describe('tool-names-fix adversarial attacks', () => {
 				'req_coverage',
 				'get_approved_plan',
 				'repo_map',
+				'get_qa_gate_profile',
+				'set_qa_gates',
 			];
 
 			// From tool-names.adversarial.test.ts (expectedTools at line 121)
@@ -546,6 +560,8 @@ describe('tool-names-fix adversarial attacks', () => {
 				'req_coverage',
 				'get_approved_plan',
 				'repo_map',
+				'get_qa_gate_profile',
+				'set_qa_gates',
 				'convene_council',
 				'declare_council_criteria',
 			];
@@ -611,6 +627,8 @@ describe('tool-names-fix adversarial attacks', () => {
 				'req_coverage',
 				'get_approved_plan',
 				'repo_map',
+				'get_qa_gate_profile',
+				'set_qa_gates',
 			]);
 
 			// From tool-names.adversarial.test.ts (expectedToolsSet at line 183)
@@ -664,6 +682,8 @@ describe('tool-names-fix adversarial attacks', () => {
 				'req_coverage',
 				'get_approved_plan',
 				'repo_map',
+				'get_qa_gate_profile',
+				'set_qa_gates',
 				'convene_council',
 				'declare_council_criteria',
 			]);

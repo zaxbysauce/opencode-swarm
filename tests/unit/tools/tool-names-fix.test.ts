@@ -75,6 +75,8 @@ describe('tool-names adversarial test fix verification', () => {
 				'req_coverage',
 				'get_approved_plan',
 				'repo_map',
+				'get_qa_gate_profile',
+				'set_qa_gates',
 			];
 			expect(expectedTools).toContain('diff_summary');
 			expect(expectedTools.indexOf('diff_summary')).toBe(1); // 0-indexed: position 2 = index 1
@@ -133,6 +135,8 @@ describe('tool-names adversarial test fix verification', () => {
 				'req_coverage',
 				'get_approved_plan',
 				'repo_map',
+				'get_qa_gate_profile',
+				'set_qa_gates',
 			]);
 			expect(expectedToolsSet.has('diff_summary')).toBe(true);
 		});
@@ -190,6 +194,8 @@ describe('tool-names adversarial test fix verification', () => {
 				'req_coverage',
 				'get_approved_plan',
 				'repo_map',
+				'get_qa_gate_profile',
+				'set_qa_gates',
 			];
 
 			const expectedToolsSet = new Set([
@@ -244,6 +250,8 @@ describe('tool-names adversarial test fix verification', () => {
 				'req_coverage',
 				'get_approved_plan',
 				'repo_map',
+				'get_qa_gate_profile',
+				'set_qa_gates',
 			]);
 
 			// Both should have 51 entries
@@ -349,6 +357,8 @@ describe('tool-names adversarial test fix verification', () => {
 				'req_coverage',
 				'get_approved_plan',
 				'repo_map',
+				'get_qa_gate_profile',
+				'set_qa_gates',
 			];
 
 			const expectedToolsSet = new Set(expectedTools);
@@ -413,6 +423,8 @@ describe('tool-names adversarial test fix verification', () => {
 				'req_coverage',
 				'get_approved_plan',
 				'repo_map',
+				'get_qa_gate_profile',
+				'set_qa_gates',
 			];
 
 			const expectedToolsSet = new Set([
@@ -467,6 +479,8 @@ describe('tool-names adversarial test fix verification', () => {
 				'req_coverage',
 				'get_approved_plan',
 				'repo_map',
+				'get_qa_gate_profile',
+				'set_qa_gates',
 			]);
 
 			expect(expectedTools.length).toBe(53);
