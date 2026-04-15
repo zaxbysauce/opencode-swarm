@@ -1,0 +1,15 @@
+export type TestRunResult = 'pass' | 'fail' | 'skip';
+export interface TestRunRecord {
+    timestamp: string;
+    taskId: string;
+    testFile: string;
+    testName: string;
+    result: TestRunResult;
+    durationMs: number;
+    errorMessage?: string;
+    stackPrefix?: string;
+    changedFiles: string[];
+}
+export declare function appendTestRun(record: TestRunRecord, workingDir?: string): void;
+export declare function getTestHistory(testFile: string, workingDir?: string): TestRunRecord[];
+export declare function getAllHistory(workingDir?: string): TestRunRecord[];

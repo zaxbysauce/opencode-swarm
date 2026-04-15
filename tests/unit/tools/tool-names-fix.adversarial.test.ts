@@ -354,7 +354,7 @@ describe('tool-names-fix adversarial attacks', () => {
 	 */
 	describe('attack: hardcoded count fragility', () => {
 		test('TOOL_NAMES length should be exactly 51', () => {
-			expect(TOOL_NAMES.length).toBe(51);
+			expect(TOOL_NAMES.length).toBe(53);
 		});
 
 		test('TOOL_NAME_SET size should match array length', () => {
@@ -418,9 +418,9 @@ describe('tool-names-fix adversarial attacks', () => {
 			]);
 
 			// All three should agree
-			expect(TOOL_NAMES.length).toBe(51);
-			expect(TOOL_NAME_SET.size).toBe(51);
-			expect(expectedToolsSet.size).toBe(51);
+			expect(TOOL_NAMES.length).toBe(53);
+			expect(TOOL_NAME_SET.size).toBe(53);
+			expect(expectedToolsSet.size).toBe(53);
 			expect(TOOL_NAMES.length).toBe(TOOL_NAME_SET.size);
 		});
 

@@ -247,8 +247,8 @@ describe('tool-names adversarial test fix verification', () => {
 			]);
 
 			// Both should have 51 entries
-			expect(expectedTools.length).toBe(51);
-			expect(expectedToolsSet.size).toBe(51);
+			expect(expectedTools.length).toBe(53);
+			expect(expectedToolsSet.size).toBe(53);
 
 			// Every item in array should be in set
 			const missingFromSet = expectedTools.filter(
@@ -268,7 +268,7 @@ describe('tool-names adversarial test fix verification', () => {
 		// The original issue: assertion was .toBe(15) but check_gate_status is at index 16
 
 		test('TOOL_NAMES should have exactly 51 entries', () => {
-			expect(TOOL_NAMES.length).toBe(51);
+			expect(TOOL_NAMES.length).toBe(53);
 		});
 
 		test('evidence_check should be at index 15', () => {
@@ -469,8 +469,8 @@ describe('tool-names adversarial test fix verification', () => {
 				'repo_map',
 			]);
 
-			expect(expectedTools.length).toBe(51);
-			expect(expectedToolsSet.size).toBe(51);
+			expect(expectedTools.length).toBe(53);
+			expect(expectedToolsSet.size).toBe(53);
 
 			// Verify diff_summary specifically
 			expect(expectedTools.includes('diff_summary')).toBe(true);
