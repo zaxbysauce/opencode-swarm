@@ -623,7 +623,7 @@ const OpenCodeSwarm: Plugin = async (ctx) => {
 					// The actual command is handled by command.execute.before hook.
 					template: '/swarm $ARGUMENTS',
 					description:
-						'Swarm management commands: /swarm [status|plan|agents|history|config|evidence|handoff|archive|diagnose|preflight|sync-plan|benchmark|export|reset|rollback|retrieve|clarify|analyze|specify|brainstorm|qa-gates|dark-matter|knowledge|curate|turbo|full-auto|write-retro|reset-session|simulate|promote|checkpoint|close]',
+						'Swarm management commands: /swarm [status|plan|agents|history|config|evidence|handoff|archive|diagnose|preflight|sync-plan|benchmark|export|reset|rollback|retrieve|clarify|analyze|specify|brainstorm|qa-gates|dark-matter|knowledge|curate|turbo|full-auto|write-retro|reset-session|simulate|promote|checkpoint|acknowledge-spec-drift|doctor-tools|close]',
 				},
 				// Individual subcommands for discoverability by weaker models (Haiku-class)
 				'swarm-status': {
