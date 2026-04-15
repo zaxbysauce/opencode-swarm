@@ -234,18 +234,29 @@ describe('evaluateMutationGate', () => {
 			];
 			const perFunction = new Map<
 				string,
-				{ killed: number; survived: number; total: number; killRate: number }
+				{
+					killed: number;
+					survived: number;
+					total: number;
+					equivalent: number;
+					skipped: number;
+					killRate: number;
+				}
 			>();
 			perFunction.set('/path/f1.ts:func1', {
 				killed: 1,
 				survived: 0,
 				total: 1,
+				equivalent: 0,
+				skipped: 0,
 				killRate: 1.0,
 			});
 			perFunction.set('/path/f2.ts:func2', {
 				killed: 1,
 				survived: 0,
 				total: 1,
+				equivalent: 0,
+				skipped: 0,
 				killRate: 1.0,
 			});
 
@@ -275,18 +286,29 @@ describe('evaluateMutationGate', () => {
 			];
 			const perFunction = new Map<
 				string,
-				{ killed: number; survived: number; total: number; killRate: number }
+				{
+					killed: number;
+					survived: number;
+					total: number;
+					equivalent: number;
+					skipped: number;
+					killRate: number;
+				}
 			>();
 			perFunction.set('/path/bad.ts:badFunc', {
 				killed: 0,
 				survived: 1,
 				total: 1,
+				equivalent: 0,
+				skipped: 0,
 				killRate: 0.0,
 			});
 			perFunction.set('/path/good.ts:goodFunc', {
 				killed: 1,
 				survived: 0,
 				total: 1,
+				equivalent: 0,
+				skipped: 0,
 				killRate: 1.0,
 			});
 
@@ -319,18 +341,29 @@ describe('evaluateMutationGate', () => {
 			];
 			const perFunction = new Map<
 				string,
-				{ killed: number; survived: number; total: number; killRate: number }
+				{
+					killed: number;
+					survived: number;
+					total: number;
+					equivalent: number;
+					skipped: number;
+					killRate: number;
+				}
 			>();
 			perFunction.set('/path/bad.ts:badFunc', {
 				killed: 0,
 				survived: 1,
 				total: 1,
+				equivalent: 0,
+				skipped: 0,
 				killRate: 0.0,
 			});
 			perFunction.set('/path/bad.ts:worseFunc', {
 				killed: 0,
 				survived: 1,
 				total: 1,
+				equivalent: 0,
+				skipped: 0,
 				killRate: 0.0,
 			});
 
@@ -355,12 +388,21 @@ describe('evaluateMutationGate', () => {
 			];
 			const perFunction = new Map<
 				string,
-				{ killed: number; survived: number; total: number; killRate: number }
+				{
+					killed: number;
+					survived: number;
+					total: number;
+					equivalent: number;
+					skipped: number;
+					killRate: number;
+				}
 			>();
 			perFunction.set('/src/util.ts:myFunc', {
 				killed: 0,
 				survived: 1,
 				total: 1,
+				equivalent: 0,
+				skipped: 0,
 				killRate: 0.0,
 			});
 
@@ -389,12 +431,21 @@ describe('evaluateMutationGate', () => {
 			];
 			const perFunction = new Map<
 				string,
-				{ killed: number; survived: number; total: number; killRate: number }
+				{
+					killed: number;
+					survived: number;
+					total: number;
+					equivalent: number;
+					skipped: number;
+					killRate: number;
+				}
 			>();
 			perFunction.set('C:\\path\\to\\file.ts:testFn', {
 				killed: 0,
 				survived: 1,
 				total: 1,
+				equivalent: 0,
+				skipped: 0,
 				killRate: 0.0,
 			});
 
@@ -425,24 +476,37 @@ describe('evaluateMutationGate', () => {
 			];
 			const perFunction = new Map<
 				string,
-				{ killed: number; survived: number; total: number; killRate: number }
+				{
+					killed: number;
+					survived: number;
+					total: number;
+					equivalent: number;
+					skipped: number;
+					killRate: number;
+				}
 			>();
 			perFunction.set('noColonKey', {
 				killed: 0,
 				survived: 1,
 				total: 1,
+				equivalent: 0,
+				skipped: 0,
 				killRate: 0.0,
 			});
 			perFunction.set('/path.ts:func', {
 				killed: 1,
 				survived: 1,
 				total: 2,
+				equivalent: 0,
+				skipped: 0,
 				killRate: 0.5,
 			});
 			perFunction.set('/path.ts:func2', {
 				killed: 0,
 				survived: 1,
 				total: 1,
+				equivalent: 0,
+				skipped: 0,
 				killRate: 0.0,
 			});
 
@@ -469,12 +533,21 @@ describe('evaluateMutationGate', () => {
 			];
 			const perFunction = new Map<
 				string,
-				{ killed: number; survived: number; total: number; killRate: number }
+				{
+					killed: number;
+					survived: number;
+					total: number;
+					equivalent: number;
+					skipped: number;
+					killRate: number;
+				}
 			>();
 			perFunction.set('/path/to:weird/file.ts:myFunc', {
 				killed: 0,
 				survived: 1,
 				total: 1,
+				equivalent: 0,
+				skipped: 0,
 				killRate: 0.0,
 			});
 

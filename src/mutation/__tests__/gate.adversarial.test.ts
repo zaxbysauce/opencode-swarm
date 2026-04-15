@@ -152,7 +152,14 @@ test('6. Threshold of 1 should only pass perfect kill rate', () => {
 test('7. Large perFunction Map (10000 entries) should complete quickly', () => {
 	const largeMap = new Map<
 		string,
-		{ killed: number; survived: number; total: number; killRate: number }
+		{
+			killed: number;
+			survived: number;
+			total: number;
+			equivalent: number;
+			skipped: number;
+			killRate: number;
+		}
 	>();
 
 	// Create 10000 entries
@@ -161,6 +168,8 @@ test('7. Large perFunction Map (10000 entries) should complete quickly', () => {
 			killed: 5,
 			survived: 5,
 			total: 10,
+			equivalent: 0,
+			skipped: 0,
 			killRate: 0.5,
 		});
 	}
@@ -186,12 +195,21 @@ test('8. perFunction key with many colons parses function name correctly', () =>
 	const complexKey = 'a:b:c:d:e:myFunction';
 	const complexMap = new Map<
 		string,
-		{ killed: number; survived: number; total: number; killRate: number }
+		{
+			killed: number;
+			survived: number;
+			total: number;
+			equivalent: number;
+			skipped: number;
+			killRate: number;
+		}
 	>();
 	complexMap.set(complexKey, {
 		killed: 8,
 		survived: 2,
 		total: 10,
+		equivalent: 0,
+		skipped: 0,
 		killRate: 0.8,
 	});
 
@@ -231,12 +249,21 @@ test('9. Empty results but non-zero totalMutants should handle gracefully', () =
 test('10. perFunction entry with NaN killRate should not crash', () => {
 	const nanMap = new Map<
 		string,
-		{ killed: number; survived: number; total: number; killRate: number }
+		{
+			killed: number;
+			survived: number;
+			total: number;
+			equivalent: number;
+			skipped: number;
+			killRate: number;
+		}
 	>();
 	nanMap.set('/src/file.ts:func', {
 		killed: 0,
 		survived: 0,
 		total: 0,
+		equivalent: 0,
+		skipped: 0,
 		killRate: NaN,
 	});
 

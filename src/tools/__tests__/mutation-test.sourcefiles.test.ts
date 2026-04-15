@@ -78,7 +78,7 @@ describe('mutation_test sourceFiles wiring', () => {
 			fs.writeFileSync(testFilePath, 'export function foo() { return 1; }');
 
 			const { mutation_test } = await import('../mutation-test.js');
-			const execute = mutation_test.execute as (
+			const execute = mutation_test.execute as unknown as (
 				args: unknown,
 				directory: string,
 			) => Promise<string>;
@@ -105,7 +105,7 @@ describe('mutation_test sourceFiles wiring', () => {
 			expect(mockExecuteMutationSuiteFn).toHaveBeenCalled();
 
 			const lastCall = mockExecuteMutationSuiteFn.mock.calls[0];
-			const sourceFilesArg = lastCall[6];
+			const sourceFilesArg = (lastCall as any[])[6];
 
 			// sourceFiles should be a Map with the file content
 			expect(sourceFilesArg).toBeDefined();
@@ -125,7 +125,7 @@ describe('mutation_test sourceFiles wiring', () => {
 			fs.writeFileSync(testFilePath, 'export function shared() { return 1; }');
 
 			const { mutation_test } = await import('../mutation-test.js');
-			const execute = mutation_test.execute as (
+			const execute = mutation_test.execute as unknown as (
 				args: unknown,
 				directory: string,
 			) => Promise<string>;
@@ -160,7 +160,7 @@ describe('mutation_test sourceFiles wiring', () => {
 			expect(mockExecuteMutationSuiteFn).toHaveBeenCalled();
 
 			const lastCall = mockExecuteMutationSuiteFn.mock.calls[0];
-			const sourceFilesArg = lastCall[6];
+			const sourceFilesArg = (lastCall as any[])[6];
 
 			// sourceFiles should have only 1 entry (deduplicated)
 			expect(sourceFilesArg).toBeInstanceOf(Map);
@@ -182,7 +182,7 @@ describe('mutation_test sourceFiles wiring', () => {
 			// src/missing.ts does NOT exist
 
 			const { mutation_test } = await import('../mutation-test.js');
-			const execute = mutation_test.execute as (
+			const execute = mutation_test.execute as unknown as (
 				args: unknown,
 				directory: string,
 			) => Promise<string>;
@@ -217,7 +217,7 @@ describe('mutation_test sourceFiles wiring', () => {
 			expect(mockExecuteMutationSuiteFn).toHaveBeenCalled();
 
 			const lastCall = mockExecuteMutationSuiteFn.mock.calls[0];
-			const sourceFilesArg = lastCall[6];
+			const sourceFilesArg = (lastCall as any[])[6];
 
 			// sourceFiles should have only 1 entry (the readable one)
 			expect(sourceFilesArg).toBeInstanceOf(Map);
@@ -228,7 +228,7 @@ describe('mutation_test sourceFiles wiring', () => {
 
 		test('4. when all files missing, sourceFiles is undefined', async () => {
 			const { mutation_test } = await import('../mutation-test.js');
-			const execute = mutation_test.execute as (
+			const execute = mutation_test.execute as unknown as (
 				args: unknown,
 				directory: string,
 			) => Promise<string>;
@@ -263,7 +263,7 @@ describe('mutation_test sourceFiles wiring', () => {
 			expect(mockExecuteMutationSuiteFn).toHaveBeenCalled();
 
 			const lastCall = mockExecuteMutationSuiteFn.mock.calls[0];
-			const sourceFilesArg = lastCall[6];
+			const sourceFilesArg = (lastCall as any[])[6];
 
 			// When no files can be read, sourceFiles should be undefined
 			expect(sourceFilesArg).toBeUndefined();
@@ -281,7 +281,7 @@ describe('mutation_test sourceFiles wiring', () => {
 			fs.writeFileSync(filePath2, 'export function bar() { return 2; }');
 
 			const { mutation_test } = await import('../mutation-test.js');
-			const execute = mutation_test.execute as (
+			const execute = mutation_test.execute as unknown as (
 				args: unknown,
 				directory: string,
 			) => Promise<string>;
@@ -316,7 +316,7 @@ describe('mutation_test sourceFiles wiring', () => {
 			expect(mockExecuteMutationSuiteFn).toHaveBeenCalled();
 
 			const lastCall = mockExecuteMutationSuiteFn.mock.calls[0];
-			const sourceFilesArg = lastCall[6];
+			const sourceFilesArg = (lastCall as any[])[6];
 
 			// When files can be read, sourceFiles should be a Map
 			expect(sourceFilesArg).toBeInstanceOf(Map);
@@ -327,7 +327,7 @@ describe('mutation_test sourceFiles wiring', () => {
 	describe('empty patches validation', () => {
 		test('6. empty patches array returns error before sourceFiles are built', async () => {
 			const { mutation_test } = await import('../mutation-test.js');
-			const execute = mutation_test.execute as (
+			const execute = mutation_test.execute as unknown as (
 				args: unknown,
 				directory: string,
 			) => Promise<string>;
@@ -350,7 +350,7 @@ describe('mutation_test sourceFiles wiring', () => {
 
 		test('7. undefined patches returns error', async () => {
 			const { mutation_test } = await import('../mutation-test.js');
-			const execute = mutation_test.execute as (
+			const execute = mutation_test.execute as unknown as (
 				args: unknown,
 				directory: string,
 			) => Promise<string>;
@@ -379,7 +379,7 @@ describe('mutation_test sourceFiles wiring', () => {
 			fs.writeFileSync(testFilePath, 'export function test() { return 1; }');
 
 			const { mutation_test } = await import('../mutation-test.js');
-			const execute = mutation_test.execute as (
+			const execute = mutation_test.execute as unknown as (
 				args: unknown,
 				directory: string,
 			) => Promise<string>;
@@ -405,7 +405,7 @@ describe('mutation_test sourceFiles wiring', () => {
 			expect(mockExecuteMutationSuiteFn).toHaveBeenCalled();
 
 			// Verify all arguments are in correct positions
-			const callArgs = mockExecuteMutationSuiteFn.mock.calls[0];
+			const callArgs = mockExecuteMutationSuiteFn.mock.calls[0] as any[];
 			expect(callArgs[0]).toEqual(args.patches); // patches
 			expect(callArgs[1]).toEqual(args.test_command); // testCommand
 			expect(callArgs[2]).toEqual(args.files); // testFiles

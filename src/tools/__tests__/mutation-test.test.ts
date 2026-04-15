@@ -97,7 +97,7 @@ describe('mutation_test tool', () => {
 
 		test('4. empty patches array returns error', async () => {
 			const { mutation_test } = await import('../mutation-test.js');
-			const execute = mutation_test.execute as (
+			const execute = mutation_test.execute as unknown as (
 				args: unknown,
 				directory: string,
 			) => Promise<string>;
@@ -109,7 +109,7 @@ describe('mutation_test tool', () => {
 
 		test('5. empty files array returns error', async () => {
 			const { mutation_test } = await import('../mutation-test.js');
-			const execute = mutation_test.execute as (
+			const execute = mutation_test.execute as unknown as (
 				args: unknown,
 				directory: string,
 			) => Promise<string>;
@@ -121,7 +121,7 @@ describe('mutation_test tool', () => {
 
 		test('6. empty test_command array returns error', async () => {
 			const { mutation_test } = await import('../mutation-test.js');
-			const execute = mutation_test.execute as (
+			const execute = mutation_test.execute as unknown as (
 				args: unknown,
 				directory: string,
 			) => Promise<string>;
@@ -136,7 +136,7 @@ describe('mutation_test tool', () => {
 
 		test('7. missing patches returns error', async () => {
 			const { mutation_test } = await import('../mutation-test.js');
-			const execute = mutation_test.execute as (
+			const execute = mutation_test.execute as unknown as (
 				args: unknown,
 				directory: string,
 			) => Promise<string>;
@@ -151,7 +151,7 @@ describe('mutation_test tool', () => {
 
 		test('8. missing files returns error', async () => {
 			const { mutation_test } = await import('../mutation-test.js');
-			const execute = mutation_test.execute as (
+			const execute = mutation_test.execute as unknown as (
 				args: unknown,
 				directory: string,
 			) => Promise<string>;
@@ -169,7 +169,7 @@ describe('mutation_test tool', () => {
 
 		test('9. missing test_command returns error', async () => {
 			const { mutation_test } = await import('../mutation-test.js');
-			const execute = mutation_test.execute as (
+			const execute = mutation_test.execute as unknown as (
 				args: unknown,
 				directory: string,
 			) => Promise<string>;
@@ -200,7 +200,7 @@ describe('mutation_test tool', () => {
 
 		test('10. Successful execution returns JSON with verdict/killRate/adjustedKillRate', async () => {
 			const { mutation_test } = await import('../mutation-test.js');
-			const execute = mutation_test.execute as (
+			const execute = mutation_test.execute as unknown as (
 				args: unknown,
 				directory: string,
 			) => Promise<string>;
@@ -216,7 +216,7 @@ describe('mutation_test tool', () => {
 
 		test('11. Default thresholds are 0.8 (pass) and 0.6 (warn)', async () => {
 			const { mutation_test } = await import('../mutation-test.js');
-			const execute = mutation_test.execute as (
+			const execute = mutation_test.execute as unknown as (
 				args: unknown,
 				directory: string,
 			) => Promise<string>;
@@ -231,7 +231,7 @@ describe('mutation_test tool', () => {
 
 		test('12. Custom thresholds are passed through correctly', async () => {
 			const { mutation_test } = await import('../mutation-test.js');
-			const execute = mutation_test.execute as (
+			const execute = mutation_test.execute as unknown as (
 				args: unknown,
 				directory: string,
 			) => Promise<string>;
@@ -249,13 +249,13 @@ describe('mutation_test tool', () => {
 
 		test('13. working_directory overrides directory', async () => {
 			const { mutation_test } = await import('../mutation-test.js');
-			const execute = mutation_test.execute as (
+			const execute = mutation_test.execute as unknown as (
 				args: unknown,
 				directory: string,
 			) => Promise<string>;
 			await execute(
 				{ ...validArgs, working_directory: '/custom/path' },
-				'/default/path',
+				'/test',
 			);
 
 			expect(mockExecuteMutationSuiteFn).toHaveBeenCalledWith(
@@ -289,7 +289,7 @@ describe('mutation_test tool', () => {
 			});
 
 			const { mutation_test } = await import('../mutation-test.js');
-			const execute = mutation_test.execute as (
+			const execute = mutation_test.execute as unknown as (
 				args: unknown,
 				directory: string,
 			) => Promise<string>;
@@ -326,7 +326,7 @@ describe('mutation_test tool', () => {
 			});
 
 			const { mutation_test } = await import('../mutation-test.js');
-			const execute = mutation_test.execute as (
+			const execute = mutation_test.execute as unknown as (
 				args: unknown,
 				directory: string,
 			) => Promise<string>;

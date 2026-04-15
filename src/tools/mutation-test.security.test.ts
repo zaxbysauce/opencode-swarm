@@ -1,4 +1,4 @@
-import { describe, test, expect, vi, beforeEach, afterEach } from 'bun:test';
+import { afterEach, beforeEach, describe, expect, test, vi } from 'bun:test';
 
 // Mock fs module
 const mockReadFileSync = vi.fn();
@@ -67,6 +67,7 @@ describe('mutation_test security tests', () => {
 		args.patches[0].filePath = '../../../etc/passwd';
 
 		const tool = mutation_test;
+		// @ts-expect-error — security test bypasses type checking
 		const result = await tool.execute(args, '/project/root', {});
 
 		// Should not crash - tool should handle gracefully
@@ -81,6 +82,7 @@ describe('mutation_test security tests', () => {
 		args.patches[0].filePath = '..\\..\\..\\windows\\system32\\config\\sam';
 
 		const tool = mutation_test;
+		// @ts-expect-error — security test bypasses type checking
 		const result = await tool.execute(args, 'C:\\project\\root', {});
 
 		// Should handle gracefully without crashing
@@ -95,6 +97,7 @@ describe('mutation_test security tests', () => {
 		args.patches[0].filePath = '';
 
 		const tool = mutation_test;
+		// @ts-expect-error — security test bypasses type checking
 		const result = await tool.execute(args, '/project/root', {});
 
 		const parsed = JSON.parse(result);
@@ -107,10 +110,11 @@ describe('mutation_test security tests', () => {
 	// =========================================================================
 	test('ATTACK: handles numeric filePath without crashing (coerced to string)', async () => {
 		const args = createBaseArgs();
-		// @ts-ignore - intentionally passing invalid type
+		// @ts-expect-error - intentionally passing invalid type
 		args.patches[0].filePath = 12345;
 
 		const tool = mutation_test;
+		// @ts-expect-error — security test bypasses type checking
 		const result = await tool.execute(args, '/project/root', {});
 
 		const parsed = JSON.parse(result);
@@ -123,10 +127,11 @@ describe('mutation_test security tests', () => {
 	// =========================================================================
 	test('ATTACK: handles object filePath without crashing (coerced to string)', async () => {
 		const args = createBaseArgs();
-		// @ts-ignore - intentionally passing invalid type
+		// @ts-expect-error - intentionally passing invalid type
 		args.patches[0].filePath = { malicious: 'object' };
 
 		const tool = mutation_test;
+		// @ts-expect-error — security test bypasses type checking
 		const result = await tool.execute(args, '/project/root', {});
 
 		const parsed = JSON.parse(result);
@@ -139,10 +144,11 @@ describe('mutation_test security tests', () => {
 	// =========================================================================
 	test('ATTACK: handles null filePath without crashing (coerced to string)', async () => {
 		const args = createBaseArgs();
-		// @ts-ignore - intentionally passing invalid type
+		// @ts-expect-error - intentionally passing invalid type
 		args.patches[0].filePath = null;
 
 		const tool = mutation_test;
+		// @ts-expect-error — security test bypasses type checking
 		const result = await tool.execute(args, '/project/root', {});
 
 		const parsed = JSON.parse(result);
@@ -158,6 +164,7 @@ describe('mutation_test security tests', () => {
 		args.patches[0].filePath = '/etc/passwd\x00malicious';
 
 		const tool = mutation_test;
+		// @ts-expect-error — security test bypasses type checking
 		const result = await tool.execute(args, '/project/root', {});
 
 		const parsed = JSON.parse(result);
@@ -173,6 +180,7 @@ describe('mutation_test security tests', () => {
 		args.patches[0].filePath = 'a'.repeat(100000);
 
 		const tool = mutation_test;
+		// @ts-expect-error — security test bypasses type checking
 		const result = await tool.execute(args, '/project/root', {});
 
 		const parsed = JSON.parse(result);
@@ -188,6 +196,7 @@ describe('mutation_test security tests', () => {
 		args.patches[0].filePath = '/absolute/../../../etc/passwd';
 
 		const tool = mutation_test;
+		// @ts-expect-error — security test bypasses type checking
 		const result = await tool.execute(args, '/project/root', {});
 
 		const parsed = JSON.parse(result);
@@ -202,6 +211,7 @@ describe('mutation_test security tests', () => {
 		args.patches[0].filePath = '../../../etc/🎄';
 
 		const tool = mutation_test;
+		// @ts-expect-error — security test bypasses type checking
 		const result = await tool.execute(args, '/project/root', {});
 
 		const parsed = JSON.parse(result);
@@ -245,6 +255,7 @@ describe('mutation_test security tests', () => {
 		});
 
 		const tool = mutation_test;
+		// @ts-expect-error — security test bypasses type checking
 		const result = await tool.execute(args, '/project/root', {});
 
 		const parsed = JSON.parse(result);
@@ -264,6 +275,7 @@ describe('mutation_test security tests', () => {
 		});
 
 		const tool = mutation_test;
+		// @ts-expect-error — security test bypasses type checking
 		const result = await tool.execute(args, '/project/root', {});
 
 		const parsed = JSON.parse(result);
@@ -292,6 +304,7 @@ describe('mutation_test security tests', () => {
 		mockReadFileSync.mockReturnValue('const x = 1;');
 
 		const tool = mutation_test;
+		// @ts-expect-error — security test bypasses type checking
 		const result = await tool.execute(args, '/project/root', {});
 
 		const parsed = JSON.parse(result);
@@ -311,6 +324,7 @@ describe('mutation_test security tests', () => {
 		});
 
 		const tool = mutation_test;
+		// @ts-expect-error — security test bypasses type checking
 		const result = await tool.execute(args, '/project/root', {});
 
 		const parsed = JSON.parse(result);
@@ -325,6 +339,7 @@ describe('mutation_test security tests', () => {
 		args.patches[0].filePath = 'src/file;rm -rf /';
 
 		const tool = mutation_test;
+		// @ts-expect-error — security test bypasses type checking
 		const result = await tool.execute(args, '/project/root', {});
 
 		const parsed = JSON.parse(result);
@@ -337,10 +352,11 @@ describe('mutation_test security tests', () => {
 	// =========================================================================
 	test('ATTACK: handles undefined filePath without crashing (coerced to string)', async () => {
 		const args = createBaseArgs();
-		// @ts-ignore - intentionally passing invalid type
+		// @ts-expect-error - intentionally passing invalid type
 		args.patches[0].filePath = undefined;
 
 		const tool = mutation_test;
+		// @ts-expect-error — security test bypasses type checking
 		const result = await tool.execute(args, '/project/root', {});
 
 		const parsed = JSON.parse(result);
@@ -357,6 +373,7 @@ describe('mutation_test security tests', () => {
 		args.patches[0].filePath = binaryPath;
 
 		const tool = mutation_test;
+		// @ts-expect-error — security test bypasses type checking
 		const result = await tool.execute(args, '/project/root', {});
 
 		const parsed = JSON.parse(result);
@@ -369,10 +386,11 @@ describe('mutation_test security tests', () => {
 	// =========================================================================
 	test('ATTACK: handles array as filePath without crashing (coerced to string)', async () => {
 		const args = createBaseArgs();
-		// @ts-ignore - intentionally passing invalid type
+		// @ts-expect-error - intentionally passing invalid type
 		args.patches[0].filePath = ['../', '../', '../etc/passwd'];
 
 		const tool = mutation_test;
+		// @ts-expect-error — security test bypasses type checking
 		const result = await tool.execute(args, '/project/root', {});
 
 		const parsed = JSON.parse(result);
@@ -390,21 +408,21 @@ describe('mutation_test security tests', () => {
 				id: '1',
 				filePath: 'src/a.ts',
 				functionName: 'f',
-				mutationType: 't',
+				mutationType: 't' as any,
 				patch: 'p',
 			},
 			{
 				id: '2',
 				filePath: 'src/b.ts',
 				functionName: 'f',
-				mutationType: 't',
+				mutationType: 't' as any,
 				patch: 'p',
 			},
 			{
 				id: '3',
 				filePath: 'src/a.ts',
 				functionName: 'f',
-				mutationType: 't',
+				mutationType: 't' as any,
 				patch: 'p',
 			}, // duplicate
 		];
@@ -421,6 +439,7 @@ describe('mutation_test security tests', () => {
 		});
 
 		const tool = mutation_test;
+		// @ts-expect-error — security test bypasses type checking
 		await tool.execute(args, '/project/root', {});
 
 		// Verify sourceFiles was called - only unique paths should be read
@@ -440,6 +459,7 @@ describe('mutation_test security tests', () => {
 		args.patches[0].filePath = 'src/../src/utils.ts';
 
 		const tool = mutation_test;
+		// @ts-expect-error — security test bypasses type checking
 		const result = await tool.execute(args, '/project/root', {});
 
 		const parsed = JSON.parse(result);
@@ -457,6 +477,7 @@ describe('mutation_test security tests', () => {
 		mockReadFileSync.mockReturnValue('const original = true;');
 
 		const tool = mutation_test;
+		// @ts-expect-error — security test bypasses type checking
 		await tool.execute(args, '/project/root', {});
 
 		// Verify executeMutationSuite was called
@@ -482,14 +503,14 @@ describe('mutation_test security tests', () => {
 				id: '1',
 				filePath: '../../../etc/passwd',
 				functionName: 'f',
-				mutationType: 't',
+				mutationType: 't' as any,
 				patch: 'p',
 			},
 			{
 				id: '2',
 				filePath: '../../../root/.ssh/id_rsa',
 				functionName: 'f',
-				mutationType: 't',
+				mutationType: 't' as any,
 				patch: 'p',
 			},
 		];
@@ -499,6 +520,7 @@ describe('mutation_test security tests', () => {
 		});
 
 		const tool = mutation_test;
+		// @ts-expect-error — security test bypasses type checking
 		const result = await tool.execute(args, '/project/root', {});
 
 		const parsed = JSON.parse(result);
@@ -517,6 +539,7 @@ describe('mutation_test security tests', () => {
 		mockReadFileSync.mockReturnValue(unicodeContent);
 
 		const tool = mutation_test;
+		// @ts-expect-error — security test bypasses type checking
 		const result = await tool.execute(args, '/project/root', {});
 
 		const parsed = JSON.parse(result);

@@ -35,6 +35,7 @@ describe('AST diff fallback — regression: error results were silently dropped'
 			});
 
 			// Act
+			// @ts-expect-error — test bypasses createSwarmTool wrapper
 			const result = await diff.execute({ base: 'staged' });
 			const parsed = JSON.parse(result);
 
@@ -55,6 +56,7 @@ describe('AST diff fallback — regression: error results were silently dropped'
 			});
 
 			// Act
+			// @ts-expect-error — test bypasses createSwarmTool wrapper
 			const result = await diff.execute({ base: 'staged' });
 			const parsed = JSON.parse(result);
 
@@ -86,6 +88,7 @@ describe('AST diff fallback — regression: error results were silently dropped'
 			mockExecFileSync.mockReturnValueOnce('new');
 
 			// Act
+			// @ts-expect-error — test bypasses createSwarmTool wrapper
 			const result = await diff.execute({ base: 'unstaged' });
 			const parsed = JSON.parse(result);
 
@@ -106,6 +109,7 @@ describe('AST diff fallback — regression: error results were silently dropped'
 			mockExecFileSync.mockReturnValueOnce('new b');
 
 			// Act
+			// @ts-expect-error — test bypasses createSwarmTool wrapper
 			const result = await diff.execute({ base: 'unstaged' });
 			const parsed = JSON.parse(result);
 
@@ -121,6 +125,7 @@ describe('AST diff fallback — regression: error results were silently dropped'
 			mockExecFileSync.mockReturnValueOnce('new content');
 
 			// Act
+			// @ts-expect-error — test bypasses createSwarmTool wrapper
 			const result = await diff.execute({ base: 'unstaged' });
 			const parsed = JSON.parse(result);
 
@@ -182,6 +187,7 @@ describe('AST diff fallback — regression: error results were silently dropped'
 			});
 
 			// Act
+			// @ts-expect-error — test bypasses createSwarmTool wrapper
 			const result = await diff.execute({ base: 'staged' });
 			const parsed = JSON.parse(result);
 
