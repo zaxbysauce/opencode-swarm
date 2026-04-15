@@ -1,5 +1,12 @@
 # Changelog
 
+## [6.68.1](https://github.com/zaxbysauce/opencode-swarm/compare/v6.68.0...v6.68.1) (2026-04-15)
+
+
+### Bug Fixes
+
+* **mutation,tools,commands:** resolve council audit findings — equivalence detection, command templates, kill rate fix, validation hardening ([#497](https://github.com/zaxbysauce/opencode-swarm/issues/497)) ([e3c61da](https://github.com/zaxbysauce/opencode-swarm/commit/e3c61da2269151e1231e92c28496bf18f82d79ca))
+
 ## [6.68.0](https://github.com/zaxbysauce/opencode-swarm/compare/v6.67.1...v6.68.0) (2026-04-13)
 
 
