@@ -375,8 +375,10 @@ function dcNormalizeCommand(cmd: string): string {
 	// Carets outside quoted strings are escape characters; collapse all caret-letter sequences.
 	s = s.replace(/\^([a-zA-Z0-9 ])/g, '$1');
 
-	// Step 4: quote-splicing evasion e.g. r""m""dir — collapse doubled quotes
+	// Step 4: quote-splicing evasion e.g. r""m""dir or R''e''m''o''v''e''-''I''t''e''m
+	// Collapse both doubled double-quotes and doubled single-quotes (PS single-quote splice).
 	s = s.replace(/""/g, '');
+	s = s.replace(/''/g, '');
 
 	return s;
 }

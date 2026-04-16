@@ -343,6 +343,18 @@ describe('wrapper unwrapping and normalization — adversarial', () => {
 		test('r""m""dir /s node_modules → ALLOWED (safe target after quote collapse)', async () => {
 			await expectAllowed('r""m""dir /s node_modules');
 		});
+
+		// PowerShell single-quote splice: R''e''m''o''v''e''-''I''t''e''m
+		// PS treats '' as empty quoted string, so concatenation produces Remove-Item.
+		test("R''e''m''o''v''e''-''I''t''e''m -Recurse important_files → BLOCKED (single-quote splice)", async () => {
+			await expectBlocked(
+				"R''e''m''o''v''e''-''I''t''e''m -Recurse important_files",
+			);
+		});
+
+		test("r''m''dir /s important_files → BLOCKED (single-quote splice collapses to rmdir)", async () => {
+			await expectBlocked("r''m''dir /s important_files");
+		});
 	});
 
 	// -------------------------------------------------------------------------
