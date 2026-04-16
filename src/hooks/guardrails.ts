@@ -251,6 +251,10 @@ function getCurrentTaskId(sessionId: string): string {
 /**
  * v6.21 Task 5.4: Check if a file path is within declared scope entries.
  * Handles both exact matches and directory containment.
+ *
+ * v6.70.0 gap-closure: on Windows (case-insensitive FS), compare lowercased
+ * variants so scope `config/` correctly matches a write to `Config/foo.rb`.
+ * POSIX filesystems stay case-sensitive.
  */
 function isInDeclaredScope(
 	filePath: string,
@@ -258,9 +262,16 @@ function isInDeclaredScope(
 	cwd?: string,
 ): boolean {
 	const dir = cwd ?? process.cwd();
-	const resolvedFile = path.resolve(dir, filePath);
+	const caseInsensitive = process.platform === 'win32';
+	const resolvedFileRaw = path.resolve(dir, filePath);
+	const resolvedFile = caseInsensitive
+		? resolvedFileRaw.toLowerCase()
+		: resolvedFileRaw;
 	return scopeEntries.some((scope) => {
-		const resolvedScope = path.resolve(dir, scope);
+		const resolvedScopeRaw = path.resolve(dir, scope);
+		const resolvedScope = caseInsensitive
+			? resolvedScopeRaw.toLowerCase()
+			: resolvedScopeRaw;
 		// Exact match: file IS the scope entry
 		if (resolvedFile === resolvedScope) return true;
 		// Directory containment: file is inside a scope directory
@@ -1369,6 +1380,23 @@ export function createGuardrailsHooks(
 	}
 
 	/**
+	 * v6.70.0 gap-closure (#496): resolve declared coder scope from either
+	 * `session.declaredCoderScope` (primary) or the per-task fallback map
+	 * (`pendingCoderScopeByTaskId`). Used by all four `checkFileAuthorityWithRules`
+	 * call sites so delegated writes and transparent writes honour declared scope
+	 * identically.
+	 */
+	function resolveDeclaredScope(sessionID: string): string[] | null {
+		const session = swarmState.agentSessions.get(sessionID);
+		return (
+			session?.declaredCoderScope ??
+			(session?.currentTaskId
+				? (pendingCoderScopeByTaskId.get(session.currentTaskId) ?? null)
+				: null)
+		);
+	}
+
+	/**
 	 * Handles delegated write tracking and coder delegation reset.
 	 * MUST be called first — before any exemptions.
 	 */
@@ -1388,11 +1416,16 @@ export function createGuardrailsHooks(
 				if (typeof delegTargetPath === 'string' && delegTargetPath.length > 0) {
 					const agentName = swarmState.activeAgent.get(sessionID) ?? 'unknown';
 					const cwd = effectiveDirectory;
+					// v6.70.0 gap-closure (#496): honour declared scope on delegated
+					// writes too, not just the transparent path. Without this, the
+					// primary architect→coder workflow still blocks Rails/Python/Go
+					// paths declared via `declare_scope`.
 					const authorityCheck = checkFileAuthorityWithRules(
 						agentName,
 						delegTargetPath,
 						cwd,
 						precomputedAuthorityRules,
+						{ declaredScope: resolveDeclaredScope(sessionID) },
 					);
 					if (!authorityCheck.allowed) {
 						throw new Error(
@@ -1411,11 +1444,15 @@ export function createGuardrailsHooks(
 				const agentName = swarmState.activeAgent.get(sessionID) ?? 'unknown';
 				const cwd = effectiveDirectory;
 				for (const p of extractPatchTargetPaths(tool, args)) {
+					// v6.70.0 gap-closure (#496): same reasoning as Write/Edit above —
+					// declared scope must flow into patch authority checks on the
+					// delegated-write path.
 					const authorityCheck = checkFileAuthorityWithRules(
 						agentName,
 						p,
 						cwd,
 						precomputedAuthorityRules,
+						{ declaredScope: resolveDeclaredScope(sessionID) },
 					);
 					if (!authorityCheck.allowed) {
 						throw new Error(
@@ -1896,13 +1933,8 @@ export function createGuardrailsHooks(
 					// v6.70.0 (#496): resolve declared scope so the authority check can
 					// honour architect-declared paths that fall outside the agent's
 					// hardcoded allowedPrefix (e.g. Rails `config/`, `app/`).
-					const writeSession = swarmState.agentSessions.get(input.sessionID);
-					const writeDeclaredScope =
-						writeSession?.declaredCoderScope ??
-						(writeSession?.currentTaskId
-							? (pendingCoderScopeByTaskId.get(writeSession.currentTaskId) ??
-								null)
-							: null);
+					// Shared with the delegated-write path via `resolveDeclaredScope`.
+					const writeDeclaredScope = resolveDeclaredScope(input.sessionID);
 
 					// Per-agent authority check — applies to all agents
 					const authorityCheck = checkFileAuthorityWithRules(
@@ -1955,13 +1987,8 @@ export function createGuardrailsHooks(
 
 					// v6.70.0 (#496): resolve declared scope for apply_patch path (see
 					// Write/Edit path above for rationale).
-					const patchSession = swarmState.agentSessions.get(input.sessionID);
-					const patchDeclaredScope =
-						patchSession?.declaredCoderScope ??
-						(patchSession?.currentTaskId
-							? (pendingCoderScopeByTaskId.get(patchSession.currentTaskId) ??
-								null)
-							: null);
+					// Shared with the delegated-write path via `resolveDeclaredScope`.
+					const patchDeclaredScope = resolveDeclaredScope(input.sessionID);
 
 					// Per-agent authority check for patches
 					const authorityCheck = checkFileAuthorityWithRules(

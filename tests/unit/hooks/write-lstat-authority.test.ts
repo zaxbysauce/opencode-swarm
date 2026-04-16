@@ -834,4 +834,144 @@ describe('declared scope overrides allowedPrefix (#496)', () => {
 			{ args: { patch: patchContent } },
 		);
 	});
+
+	// ─── Gap-closure over e95bbce: delegated-write call sites + Windows FS ───
+	//
+	// The initial #496 fix only wired declaredScope into the transparent path.
+	// The delegated-write path (session.delegationActive === true — the primary
+	// architect→coder workflow) still used pre-fix behaviour, so Rails/Python/Go
+	// paths declared via `declare_scope` were WRITE BLOCKED on delegated writes.
+
+	it('GAP-CLOSURE: delegated write honours declared scope', async () => {
+		const hooks = makeHooks();
+		const id = 'coder-delegated-scope';
+		coderSession(id);
+
+		const session = swarmState.agentSessions.get(id);
+		if (session) {
+			session.delegationActive = true;
+			session.declaredCoderScope = ['config/'];
+		}
+
+		// Without the gap-closure fix, this would throw because the delegated
+		// call site didn't pass `options.declaredScope`.
+		await hooks.toolBefore(
+			{ tool: 'write', sessionID: id, callID: 'gc1' },
+			{ args: { filePath: 'config/routes.rb' } },
+		);
+	});
+
+	it('GAP-CLOSURE: delegated write without declared scope is still blocked', async () => {
+		// Baseline: delegation-active + no scope must still reject non-allowedPrefix paths.
+		const hooks = makeHooks();
+		const id = 'coder-delegated-no-scope';
+		coderSession(id);
+
+		const session = swarmState.agentSessions.get(id);
+		if (session) {
+			session.delegationActive = true;
+			// no declaredCoderScope, no currentTaskId → nothing to relax allowedPrefix.
+		}
+
+		await expect(
+			hooks.toolBefore(
+				{ tool: 'write', sessionID: id, callID: 'gc2' },
+				{ args: { filePath: 'config/routes.rb' } },
+			),
+		).rejects.toThrow(/WRITE BLOCKED.*not in allowed list/);
+	});
+
+	it('GAP-CLOSURE: delegated apply_patch honours declared scope', async () => {
+		const hooks = makeHooks();
+		const id = 'coder-delegated-patch-scope';
+		coderSession(id);
+
+		const session = swarmState.agentSessions.get(id);
+		if (session) {
+			session.delegationActive = true;
+			session.declaredCoderScope = ['config/'];
+		}
+
+		const patchContent = `*** Begin Patch
+*** Update File: config/routes.rb
+@@
+-old
++new
+*** End Patch`;
+
+		await hooks.toolBefore(
+			{ tool: 'apply_patch', sessionID: id, callID: 'gc3' },
+			{ args: { patch: patchContent } },
+		);
+	});
+
+	it('GAP-CLOSURE (Windows): case-insensitive scope match', () => {
+		// Only exercise on win32 — POSIX filesystems are case-sensitive and
+		// `CONFIG/foo.rb` is a different path than `config/foo.rb` on Linux/macOS.
+		if (process.platform !== 'win32') {
+			return;
+		}
+
+		const hooks = makeHooks();
+		const id = 'coder-windows-caseinsens';
+		coderSession(id);
+
+		const session = swarmState.agentSessions.get(id);
+		if (session) {
+			session.declaredCoderScope = ['config/'];
+		}
+
+		// Not using `await expect(...).resolves` here because the test body
+		// short-circuits on non-win32 above; bun's `it` accepts a sync return.
+		return hooks.toolBefore(
+			{ tool: 'write', sessionID: id, callID: 'gc4' },
+			{ args: { filePath: 'CONFIG/foo.rb' } },
+		);
+	});
+});
+
+// ─── 7. resetSwarmState clears pendingCoderScopeByTaskId ─────────────────────
+//
+// The pending map is module-scoped in src/hooks/delegation-gate.ts — not part
+// of swarmState — so without an explicit clear it leaks across /swarm close
+// cycles. Stale scope for a reused taskId (e.g. "1.1") would allow a fresh
+// session to bypass allowedPrefix using the previous swarm's declaration.
+
+describe('resetSwarmState clears pendingCoderScopeByTaskId', () => {
+	beforeEach(setup);
+	afterEach(teardown);
+
+	it('clears the task-scope map', () => {
+		pendingCoderScopeByTaskId.set('task-1', ['config/']);
+		expect(pendingCoderScopeByTaskId.has('task-1')).toBe(true);
+
+		resetSwarmState();
+
+		expect(pendingCoderScopeByTaskId.has('task-1')).toBe(false);
+	});
+
+	it('stale scope does not persist across reset', async () => {
+		// Populate map with scope for task-1, reset, then build a new session
+		// that references the same taskId. The write must be BLOCKED because
+		// the reset cleared the previous scope.
+		pendingCoderScopeByTaskId.set('task-1', ['config/']);
+
+		resetSwarmState();
+
+		const hooks = makeHooks();
+		const id = 'coder-post-reset';
+		coderSession(id);
+		const session = swarmState.agentSessions.get(id);
+		if (session) {
+			session.declaredCoderScope = null;
+			session.currentTaskId = 'task-1';
+		}
+
+		await expect(
+			hooks.toolBefore(
+				{ tool: 'write', sessionID: id, callID: 'reset1' },
+				{ args: { filePath: 'config/routes.rb' } },
+			),
+		).rejects.toThrow(/WRITE BLOCKED.*not in allowed list/);
+	});
 });
