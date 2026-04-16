@@ -63,6 +63,17 @@ jobs:
             fi
           done
           exit $failed
+      - name: Unit tests (destructive command guard - all platforms)
+        shell: bash
+        run: |
+          failed=0
+          for f in tests/unit/hooks/destructive-command*.test.ts tests/unit/hooks/incident-replay*.test.ts; do
+            [ -f "$f" ] || continue
+            if ! bun --smol test "$f" --timeout 120000; then
+              failed=1
+            fi
+          done
+          exit $failed
       - name: Unit tests (hooks - knowledge types/validator/store)
         if: runner.os != 'Windows'
         shell: bash

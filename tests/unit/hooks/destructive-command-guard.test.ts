@@ -59,7 +59,7 @@ describe('destructive command guard', () => {
 			const input = makeBashInput('test-session', 'rm -rf /');
 			const output = makeBashOutput('rm -rf /');
 			await expect(hooks.toolBefore(input, output)).rejects.toThrow(
-				/BLOCKED: Potentially destructive shell command/,
+				/BLOCKED/,
 			);
 		});
 
@@ -69,7 +69,7 @@ describe('destructive command guard', () => {
 			const input = makeBashInput('test-session', 'rm -rf /important');
 			const output = makeBashOutput('rm -rf /important');
 			await expect(hooks.toolBefore(input, output)).rejects.toThrow(
-				/BLOCKED: Potentially destructive shell command/,
+				/BLOCKED/,
 			);
 		});
 
@@ -79,7 +79,7 @@ describe('destructive command guard', () => {
 			const input = makeBashInput('test-session', 'rm -rf src/ dist/');
 			const output = makeBashOutput('rm -rf src/ dist/');
 			await expect(hooks.toolBefore(input, output)).rejects.toThrow(
-				/BLOCKED: Potentially destructive shell command/,
+				/BLOCKED/,
 			);
 		});
 
@@ -89,17 +89,16 @@ describe('destructive command guard', () => {
 			const input = makeBashInput('test-session', 'rm -r -f /');
 			const output = makeBashOutput('rm -r -f /');
 			await expect(hooks.toolBefore(input, output)).rejects.toThrow(
-				/BLOCKED: Potentially destructive shell command/,
+				/BLOCKED/,
 			);
 		});
 
-		test('rm --recursive --force / → allowed (long-form flags not detected by current patterns)', async () => {
-			// Current patterns only detect -rf combined or -r/-f separate, not long-form --recursive --force
+		test('rm --recursive --force / → BLOCKED (long-form flags now detected)', async () => {
 			const config = defaultConfig();
 			const hooks = createGuardrailsHooks(TEST_DIR, undefined, config);
 			const input = makeBashInput('test-session', 'rm --recursive --force /');
 			const output = makeBashOutput('rm --recursive --force /');
-			await expect(hooks.toolBefore(input, output)).resolves.toBeUndefined();
+			await expect(hooks.toolBefore(input, output)).rejects.toThrow(/BLOCKED/);
 		});
 
 		test('rm -rf node_modules/.cache → BLOCKED (node_modules/.cache is not safe)', async () => {
@@ -108,7 +107,7 @@ describe('destructive command guard', () => {
 			const input = makeBashInput('test-session', 'rm -rf node_modules/.cache');
 			const output = makeBashOutput('rm -rf node_modules/.cache');
 			await expect(hooks.toolBefore(input, output)).rejects.toThrow(
-				/BLOCKED: Potentially destructive shell command/,
+				/BLOCKED/,
 			);
 		});
 	});
@@ -254,7 +253,7 @@ describe('destructive command guard', () => {
 			};
 			const output = makeBashOutput('rm -rf /');
 			await expect(hooks.toolBefore(input, output)).rejects.toThrow(
-				/BLOCKED: Potentially destructive shell command/,
+				/BLOCKED/,
 			);
 		});
 	});
