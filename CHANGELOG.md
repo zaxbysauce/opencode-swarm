@@ -1,5 +1,20 @@
 # Changelog
 
+## [6.71.1](https://github.com/zaxbysauce/opencode-swarm/compare/v6.71.0...v6.71.1) (2026-04-16)
+
+
+### Bug Fixes
+
+* **scope:** persist declared scope to disk and fall back to plan.json ([#519](https://github.com/zaxbysauce/opencode-swarm/issues/519))
+  * New `src/scope/scope-persistence.ts` module with atomic write + proper-lockfile serialization, schema versioning (fail-closed on unknown versions), 24h TTL, and a multi-layer symlink guard against hostile repos (both leaf file and parent `.swarm/scopes/` directory are validated via `realpath` containment + `O_NOFOLLOW` opens).
+  * `declare_scope` tool now writes `.swarm/scopes/scope-{taskId}.json` so scope survives cross-process coder delegation, and surfaces a standing `SCOPE ENFORCEMENT NOTE` warning reminding callers that bash-based writes bypass the tool-layer check (syscall-layer enforcement tracked in [#520](https://github.com/zaxbysauce/opencode-swarm/issues/520)).
+  * `guardrails.ts` and `scope-guard.ts` resolve scope through a 4-layer chain: in-memory → disk → `plan.json:files_touched` → pending-map.
+  * `/swarm close` clears `.swarm/scopes/` so stale scopes cannot leak into the next session.
+  * Architect prompt hardened with explicit `SCOPE DISCIPLINE` section: `declare_scope` must be called before every coder delegation, and WRITE BLOCKED responses must re-scope rather than bypass via bash/eval/heredoc.
+  * Coder prompt hardened with a rule-based `WRITE BLOCKED PROTOCOL`: STOP on block, and NO mechanism outside Edit/Write/Patch may write a denied path — shell redirects, in-place editors/interpreters, patch/binary-decode tools, network writes, and indirection wrappers are all non-paths; the enumeration is illustrative, the rule is exhaustive.
+  * Defence-in-depth hardening: reject files whose stored `taskId` disagrees with the filename, reject future `declaredAt` timestamps, cap `files_touched` arrays (10 000 entries) and `plan.json` size (10 MiB) to block DoS, and refuse Windows reserved device names (`CON`, `NUL`, `LPT1`, trailing-dot variants) as task IDs.
+  * Addresses root cause B of [#496](https://github.com/zaxbysauce/opencode-swarm/issues/496) (in-memory-only scope lost across process boundaries). Tool-layer mitigation; full syscall-layer enforcement tracked in [#520](https://github.com/zaxbysauce/opencode-swarm/issues/520).
+
 ## [6.71.0](https://github.com/zaxbysauce/opencode-swarm/compare/v6.70.0...v6.71.0) (2026-04-16)
 
 

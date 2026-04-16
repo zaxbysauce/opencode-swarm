@@ -26,6 +26,7 @@ import {
 } from '../config/schema';
 import { classifyFile, type FileZone } from '../context/zone-classifier';
 import { loadPlan } from '../plan/manager';
+import { resolveScopeWithFallbacks } from '../scope/scope-persistence';
 import {
 	advanceTaskState,
 	beginInvocation,
@@ -1511,15 +1512,21 @@ export function createGuardrailsHooks(
 	 * (`pendingCoderScopeByTaskId`). Used by all four `checkFileAuthorityWithRules`
 	 * call sites so delegated writes and transparent writes honour declared scope
 	 * identically.
+	 *
+	 * v6.71.1 (#519) extends the fallback chain with disk persistence and
+	 * plan-as-scope so scope survives cross-process delegation and architect
+	 * plans become a durable scope source. Order: in-memory → `.swarm/scopes/`
+	 * → `.swarm/plan.json:files_touched` → pending-map. First non-empty wins.
 	 */
 	function resolveDeclaredScope(sessionID: string): string[] | null {
 		const session = swarmState.agentSessions.get(sessionID);
-		return (
-			session?.declaredCoderScope ??
-			(session?.currentTaskId
-				? (pendingCoderScopeByTaskId.get(session.currentTaskId) ?? null)
-				: null)
-		);
+		const taskId = session?.currentTaskId ?? null;
+		return resolveScopeWithFallbacks({
+			directory: effectiveDirectory,
+			taskId,
+			inMemoryScope: session?.declaredCoderScope,
+			pendingMapScope: taskId ? pendingCoderScopeByTaskId.get(taskId) : null,
+		});
 	}
 
 	/**

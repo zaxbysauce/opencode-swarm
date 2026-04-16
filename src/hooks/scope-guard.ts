@@ -12,6 +12,7 @@
 import * as path from 'node:path';
 import { ORCHESTRATOR_NAME, WRITE_TOOL_NAMES } from '../config/constants';
 import { stripKnownSwarmPrefix } from '../config/schema';
+import { resolveScopeWithFallbacks } from '../scope/scope-persistence';
 import { swarmState } from '../state';
 import { pendingCoderScopeByTaskId } from './delegation-gate.js';
 import { normalizeToolName } from './normalize-tool-name';
@@ -74,13 +75,18 @@ export function createScopeGuardHook(
 				stripKnownSwarmPrefix(agentName) === ORCHESTRATOR_NAME;
 			if (isArchitect) return; // Architect writes are always allowed
 
-			// Get declared scope for this session
-			// v6.33.1 CRIT-1: Check session first, then fallback map by taskId
-			const declaredScope =
-				session?.declaredCoderScope ??
-				(session?.currentTaskId
-					? pendingCoderScopeByTaskId.get(session.currentTaskId)
-					: null);
+			// Get declared scope for this session.
+			// v6.33.1 CRIT-1: check session first, then fallback map by taskId.
+			// v6.71.1 (#519): extend with disk persistence + plan-as-scope so
+			// scope survives cross-process delegation and architect plans become
+			// a durable scope source.
+			const taskId = session?.currentTaskId ?? null;
+			const declaredScope = resolveScopeWithFallbacks({
+				directory,
+				taskId,
+				inMemoryScope: session?.declaredCoderScope,
+				pendingMapScope: taskId ? pendingCoderScopeByTaskId.get(taskId) : null,
+			});
 			if (!declaredScope || declaredScope.length === 0) return; // No scope declared — allow
 
 			// Get the file path from args
