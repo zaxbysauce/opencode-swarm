@@ -1,5 +1,12 @@
 # Changelog
 
+## [6.69.0](https://github.com/zaxbysauce/opencode-swarm/compare/v6.68.1...v6.69.0) (2026-04-16)
+
+
+### Features
+
+* **security:** cross-platform destructive command guardrails ([#499](https://github.com/zaxbysauce/opencode-swarm/issues/499)) ([68289bf](https://github.com/zaxbysauce/opencode-swarm/commit/68289bf283e726165c4ebf542b3d6593a092f64a))
+
 ## [6.68.1](https://github.com/zaxbysauce/opencode-swarm/compare/v6.68.0...v6.68.1) (2026-04-15)
 
 
