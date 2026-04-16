@@ -1,5 +1,12 @@
 # Changelog
 
+## [6.71.0](https://github.com/zaxbysauce/opencode-swarm/compare/v6.70.0...v6.71.0) (2026-04-16)
+
+
+### Features
+
+* **security:** interpreter gating + redacted shell audit log ([#503](https://github.com/zaxbysauce/opencode-swarm/issues/503)) ([ece213b](https://github.com/zaxbysauce/opencode-swarm/commit/ece213bfffdbf9091ffb34377b509d0d5a06a518))
+
 ## [6.70.0](https://github.com/zaxbysauce/opencode-swarm/compare/v6.69.0...v6.70.0) (2026-04-16)
 
 
