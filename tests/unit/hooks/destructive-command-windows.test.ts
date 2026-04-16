@@ -45,9 +45,7 @@ describe('Windows cmd.exe destructive command guard (adversarial)', () => {
 			const hooks = createGuardrailsHooks(TEST_DIR, undefined, config);
 			const input = makeBashInput('test-session', 'rmdir /s /q C:\\target');
 			const output = makeBashOutput('rmdir /s /q C:\\target');
-			await expect(hooks.toolBefore(input, output)).rejects.toThrow(
-				/BLOCKED/,
-			);
+			await expect(hooks.toolBefore(input, output)).rejects.toThrow(/BLOCKED/);
 		});
 
 		test('rd /S /Q some-path → BLOCKED', async () => {
@@ -55,20 +53,19 @@ describe('Windows cmd.exe destructive command guard (adversarial)', () => {
 			const hooks = createGuardrailsHooks(TEST_DIR, undefined, config);
 			const input = makeBashInput('test-session', 'rd /S /Q some-path');
 			const output = makeBashOutput('rd /S /Q some-path');
-			await expect(hooks.toolBefore(input, output)).rejects.toThrow(
-				/BLOCKED/,
-			);
+			await expect(hooks.toolBefore(input, output)).rejects.toThrow(/BLOCKED/);
 		});
 
 		// Uppercase command — cmd.exe is case-insensitive
 		test('RMDIR /S /Q important_files → BLOCKED (all-caps command)', async () => {
 			const config = defaultConfig();
 			const hooks = createGuardrailsHooks(TEST_DIR, undefined, config);
-			const input = makeBashInput('test-session', 'RMDIR /S /Q important_files');
-			const output = makeBashOutput('RMDIR /S /Q important_files');
-			await expect(hooks.toolBefore(input, output)).rejects.toThrow(
-				/BLOCKED/,
+			const input = makeBashInput(
+				'test-session',
+				'RMDIR /S /Q important_files',
 			);
+			const output = makeBashOutput('RMDIR /S /Q important_files');
+			await expect(hooks.toolBefore(input, output)).rejects.toThrow(/BLOCKED/);
 		});
 
 		// Uppercase RD alias
@@ -77,9 +74,7 @@ describe('Windows cmd.exe destructive command guard (adversarial)', () => {
 			const hooks = createGuardrailsHooks(TEST_DIR, undefined, config);
 			const input = makeBashInput('test-session', 'RD /s path');
 			const output = makeBashOutput('RD /s path');
-			await expect(hooks.toolBefore(input, output)).rejects.toThrow(
-				/BLOCKED/,
-			);
+			await expect(hooks.toolBefore(input, output)).rejects.toThrow(/BLOCKED/);
 		});
 
 		// Path with spaces (quoted)
@@ -89,9 +84,7 @@ describe('Windows cmd.exe destructive command guard (adversarial)', () => {
 			const cmd = 'rmdir /s /q "C:\\My Documents\\target"';
 			const input = makeBashInput('test-session', cmd);
 			const output = makeBashOutput(cmd);
-			await expect(hooks.toolBefore(input, output)).rejects.toThrow(
-				/BLOCKED/,
-			);
+			await expect(hooks.toolBefore(input, output)).rejects.toThrow(/BLOCKED/);
 		});
 
 		// Extra whitespace between flags
@@ -101,9 +94,7 @@ describe('Windows cmd.exe destructive command guard (adversarial)', () => {
 			const cmd = 'rmdir  /s  /q  C:\\target';
 			const input = makeBashInput('test-session', cmd);
 			const output = makeBashOutput(cmd);
-			await expect(hooks.toolBefore(input, output)).rejects.toThrow(
-				/BLOCKED/,
-			);
+			await expect(hooks.toolBefore(input, output)).rejects.toThrow(/BLOCKED/);
 		});
 
 		// .exe suffix variant
@@ -113,9 +104,7 @@ describe('Windows cmd.exe destructive command guard (adversarial)', () => {
 			const cmd = 'rmdir.exe /s /q C:\\target';
 			const input = makeBashInput('test-session', cmd);
 			const output = makeBashOutput(cmd);
-			await expect(hooks.toolBefore(input, output)).rejects.toThrow(
-				/BLOCKED/,
-			);
+			await expect(hooks.toolBefore(input, output)).rejects.toThrow(/BLOCKED/);
 		});
 
 		// Safe target: node_modules → ALLOWED
@@ -144,11 +133,12 @@ describe('Windows cmd.exe destructive command guard (adversarial)', () => {
 		test('del /s /q /f important_files → BLOCKED', async () => {
 			const config = defaultConfig();
 			const hooks = createGuardrailsHooks(TEST_DIR, undefined, config);
-			const input = makeBashInput('test-session', 'del /s /q /f important_files');
-			const output = makeBashOutput('del /s /q /f important_files');
-			await expect(hooks.toolBefore(input, output)).rejects.toThrow(
-				/BLOCKED/,
+			const input = makeBashInput(
+				'test-session',
+				'del /s /q /f important_files',
 			);
+			const output = makeBashOutput('del /s /q /f important_files');
+			await expect(hooks.toolBefore(input, output)).rejects.toThrow(/BLOCKED/);
 		});
 
 		// Uppercase flags
@@ -158,9 +148,7 @@ describe('Windows cmd.exe destructive command guard (adversarial)', () => {
 			const cmd = 'del /S /Q /F C:\\target';
 			const input = makeBashInput('test-session', cmd);
 			const output = makeBashOutput(cmd);
-			await expect(hooks.toolBefore(input, output)).rejects.toThrow(
-				/BLOCKED/,
-			);
+			await expect(hooks.toolBefore(input, output)).rejects.toThrow(/BLOCKED/);
 		});
 
 		// .exe suffix
@@ -170,9 +158,7 @@ describe('Windows cmd.exe destructive command guard (adversarial)', () => {
 			const cmd = 'del.exe /s /q /f important_files';
 			const input = makeBashInput('test-session', cmd);
 			const output = makeBashOutput(cmd);
-			await expect(hooks.toolBefore(input, output)).rejects.toThrow(
-				/BLOCKED/,
-			);
+			await expect(hooks.toolBefore(input, output)).rejects.toThrow(/BLOCKED/);
 		});
 	});
 
@@ -198,9 +184,7 @@ describe('Windows cmd.exe destructive command guard (adversarial)', () => {
 			const cmd = 'VSSADMIN DELETE shadows /all';
 			const input = makeBashInput('test-session', cmd);
 			const output = makeBashOutput(cmd);
-			await expect(hooks.toolBefore(input, output)).rejects.toThrow(
-				/BLOCKED/,
-			);
+			await expect(hooks.toolBefore(input, output)).rejects.toThrow(/BLOCKED/);
 		});
 
 		// .exe suffix
@@ -210,9 +194,7 @@ describe('Windows cmd.exe destructive command guard (adversarial)', () => {
 			const cmd = 'vssadmin.exe delete shadows /all';
 			const input = makeBashInput('test-session', cmd);
 			const output = makeBashOutput(cmd);
-			await expect(hooks.toolBefore(input, output)).rejects.toThrow(
-				/BLOCKED/,
-			);
+			await expect(hooks.toolBefore(input, output)).rejects.toThrow(/BLOCKED/);
 		});
 	});
 
@@ -235,9 +217,7 @@ describe('Windows cmd.exe destructive command guard (adversarial)', () => {
 			const cmd = 'wbadmin.exe delete catalog';
 			const input = makeBashInput('test-session', cmd);
 			const output = makeBashOutput(cmd);
-			await expect(hooks.toolBefore(input, output)).rejects.toThrow(
-				/BLOCKED/,
-			);
+			await expect(hooks.toolBefore(input, output)).rejects.toThrow(/BLOCKED/);
 		});
 	});
 
@@ -258,9 +238,7 @@ describe('Windows cmd.exe destructive command guard (adversarial)', () => {
 			const hooks = createGuardrailsHooks(TEST_DIR, undefined, config);
 			const input = makeBashInput('test-session', 'DISKPART');
 			const output = makeBashOutput('DISKPART');
-			await expect(hooks.toolBefore(input, output)).rejects.toThrow(
-				/BLOCKED/,
-			);
+			await expect(hooks.toolBefore(input, output)).rejects.toThrow(/BLOCKED/);
 		});
 
 		// .exe suffix
@@ -269,9 +247,7 @@ describe('Windows cmd.exe destructive command guard (adversarial)', () => {
 			const hooks = createGuardrailsHooks(TEST_DIR, undefined, config);
 			const input = makeBashInput('test-session', 'diskpart.exe');
 			const output = makeBashOutput('diskpart.exe');
-			await expect(hooks.toolBefore(input, output)).rejects.toThrow(
-				/BLOCKED/,
-			);
+			await expect(hooks.toolBefore(input, output)).rejects.toThrow(/BLOCKED/);
 		});
 	});
 
@@ -294,9 +270,7 @@ describe('Windows cmd.exe destructive command guard (adversarial)', () => {
 			const cmd = 'bcdedit /DELETE {12345678-1234-1234-1234-123456789abc}';
 			const input = makeBashInput('test-session', cmd);
 			const output = makeBashOutput(cmd);
-			await expect(hooks.toolBefore(input, output)).rejects.toThrow(
-				/BLOCKED/,
-			);
+			await expect(hooks.toolBefore(input, output)).rejects.toThrow(/BLOCKED/);
 		});
 
 		// .exe suffix
@@ -306,9 +280,7 @@ describe('Windows cmd.exe destructive command guard (adversarial)', () => {
 			const cmd = 'bcdedit.exe /delete {12345678-1234-1234-1234-123456789abc}';
 			const input = makeBashInput('test-session', cmd);
 			const output = makeBashOutput(cmd);
-			await expect(hooks.toolBefore(input, output)).rejects.toThrow(
-				/BLOCKED/,
-			);
+			await expect(hooks.toolBefore(input, output)).rejects.toThrow(/BLOCKED/);
 		});
 	});
 
@@ -331,9 +303,7 @@ describe('Windows cmd.exe destructive command guard (adversarial)', () => {
 			const cmd = 'SDELETE -p 3 file.txt';
 			const input = makeBashInput('test-session', cmd);
 			const output = makeBashOutput(cmd);
-			await expect(hooks.toolBefore(input, output)).rejects.toThrow(
-				/BLOCKED/,
-			);
+			await expect(hooks.toolBefore(input, output)).rejects.toThrow(/BLOCKED/);
 		});
 
 		// .exe suffix
@@ -343,9 +313,7 @@ describe('Windows cmd.exe destructive command guard (adversarial)', () => {
 			const cmd = 'sdelete.exe -p 3 file.txt';
 			const input = makeBashInput('test-session', cmd);
 			const output = makeBashOutput(cmd);
-			await expect(hooks.toolBefore(input, output)).rejects.toThrow(
-				/BLOCKED/,
-			);
+			await expect(hooks.toolBefore(input, output)).rejects.toThrow(/BLOCKED/);
 		});
 	});
 
@@ -368,9 +336,7 @@ describe('Windows cmd.exe destructive command guard (adversarial)', () => {
 			const cmd = 'FSUTIL REPARSEPOINT DELETE C:\\link';
 			const input = makeBashInput('test-session', cmd);
 			const output = makeBashOutput(cmd);
-			await expect(hooks.toolBefore(input, output)).rejects.toThrow(
-				/BLOCKED/,
-			);
+			await expect(hooks.toolBefore(input, output)).rejects.toThrow(/BLOCKED/);
 		});
 
 		// Mixed case subcommands
@@ -380,9 +346,7 @@ describe('Windows cmd.exe destructive command guard (adversarial)', () => {
 			const cmd = 'fsutil REPARSEPOINT DELETE C:\\link';
 			const input = makeBashInput('test-session', cmd);
 			const output = makeBashOutput(cmd);
-			await expect(hooks.toolBefore(input, output)).rejects.toThrow(
-				/BLOCKED/,
-			);
+			await expect(hooks.toolBefore(input, output)).rejects.toThrow(/BLOCKED/);
 		});
 
 		// .exe suffix
@@ -392,9 +356,7 @@ describe('Windows cmd.exe destructive command guard (adversarial)', () => {
 			const cmd = 'fsutil.exe reparsepoint delete C:\\link';
 			const input = makeBashInput('test-session', cmd);
 			const output = makeBashOutput(cmd);
-			await expect(hooks.toolBefore(input, output)).rejects.toThrow(
-				/BLOCKED/,
-			);
+			await expect(hooks.toolBefore(input, output)).rejects.toThrow(/BLOCKED/);
 		});
 	});
 
@@ -417,9 +379,7 @@ describe('Windows cmd.exe destructive command guard (adversarial)', () => {
 			const cmd = 'takeown /r /f C:\\target';
 			const input = makeBashInput('test-session', cmd);
 			const output = makeBashOutput(cmd);
-			await expect(hooks.toolBefore(input, output)).rejects.toThrow(
-				/BLOCKED/,
-			);
+			await expect(hooks.toolBefore(input, output)).rejects.toThrow(/BLOCKED/);
 		});
 
 		// .exe suffix
@@ -429,9 +389,7 @@ describe('Windows cmd.exe destructive command guard (adversarial)', () => {
 			const cmd = 'takeown.exe /R /F C:\\target';
 			const input = makeBashInput('test-session', cmd);
 			const output = makeBashOutput(cmd);
-			await expect(hooks.toolBefore(input, output)).rejects.toThrow(
-				/BLOCKED/,
-			);
+			await expect(hooks.toolBefore(input, output)).rejects.toThrow(/BLOCKED/);
 		});
 	});
 
@@ -454,9 +412,7 @@ describe('Windows cmd.exe destructive command guard (adversarial)', () => {
 			const cmd = 'cipher /W:C:\\temp';
 			const input = makeBashInput('test-session', cmd);
 			const output = makeBashOutput(cmd);
-			await expect(hooks.toolBefore(input, output)).rejects.toThrow(
-				/BLOCKED/,
-			);
+			await expect(hooks.toolBefore(input, output)).rejects.toThrow(/BLOCKED/);
 		});
 
 		// .exe suffix
@@ -466,9 +422,7 @@ describe('Windows cmd.exe destructive command guard (adversarial)', () => {
 			const cmd = 'cipher.exe /w:C:\\temp';
 			const input = makeBashInput('test-session', cmd);
 			const output = makeBashOutput(cmd);
-			await expect(hooks.toolBefore(input, output)).rejects.toThrow(
-				/BLOCKED/,
-			);
+			await expect(hooks.toolBefore(input, output)).rejects.toThrow(/BLOCKED/);
 		});
 	});
 
@@ -491,9 +445,7 @@ describe('Windows cmd.exe destructive command guard (adversarial)', () => {
 			const cmd = 'FORMAT C:';
 			const input = makeBashInput('test-session', cmd);
 			const output = makeBashOutput(cmd);
-			await expect(hooks.toolBefore(input, output)).rejects.toThrow(
-				/BLOCKED/,
-			);
+			await expect(hooks.toolBefore(input, output)).rejects.toThrow(/BLOCKED/);
 		});
 
 		// Different drive letters — adversarial: pattern uses [A-Za-z]: so all drives covered
@@ -503,9 +455,7 @@ describe('Windows cmd.exe destructive command guard (adversarial)', () => {
 			const cmd = 'format D:';
 			const input = makeBashInput('test-session', cmd);
 			const output = makeBashOutput(cmd);
-			await expect(hooks.toolBefore(input, output)).rejects.toThrow(
-				/BLOCKED/,
-			);
+			await expect(hooks.toolBefore(input, output)).rejects.toThrow(/BLOCKED/);
 		});
 
 		// Lowercase drive letter
@@ -515,9 +465,7 @@ describe('Windows cmd.exe destructive command guard (adversarial)', () => {
 			const cmd = 'format c:';
 			const input = makeBashInput('test-session', cmd);
 			const output = makeBashOutput(cmd);
-			await expect(hooks.toolBefore(input, output)).rejects.toThrow(
-				/BLOCKED/,
-			);
+			await expect(hooks.toolBefore(input, output)).rejects.toThrow(/BLOCKED/);
 		});
 	});
 
@@ -541,9 +489,7 @@ describe('Windows cmd.exe destructive command guard (adversarial)', () => {
 			const cmd = 'robocopy src dest /mir';
 			const input = makeBashInput('test-session', cmd);
 			const output = makeBashOutput(cmd);
-			await expect(hooks.toolBefore(input, output)).rejects.toThrow(
-				/BLOCKED/,
-			);
+			await expect(hooks.toolBefore(input, output)).rejects.toThrow(/BLOCKED/);
 		});
 
 		// .exe suffix
@@ -553,9 +499,7 @@ describe('Windows cmd.exe destructive command guard (adversarial)', () => {
 			const cmd = 'robocopy.exe /MIR empty dest';
 			const input = makeBashInput('test-session', cmd);
 			const output = makeBashOutput(cmd);
-			await expect(hooks.toolBefore(input, output)).rejects.toThrow(
-				/BLOCKED/,
-			);
+			await expect(hooks.toolBefore(input, output)).rejects.toThrow(/BLOCKED/);
 		});
 	});
 
@@ -578,9 +522,7 @@ describe('Windows cmd.exe destructive command guard (adversarial)', () => {
 			const cmd = 'icacls C:\\path /DENY Everyone:(OI)(CI)F';
 			const input = makeBashInput('test-session', cmd);
 			const output = makeBashOutput(cmd);
-			await expect(hooks.toolBefore(input, output)).rejects.toThrow(
-				/BLOCKED/,
-			);
+			await expect(hooks.toolBefore(input, output)).rejects.toThrow(/BLOCKED/);
 		});
 
 		// .exe suffix
@@ -590,9 +532,7 @@ describe('Windows cmd.exe destructive command guard (adversarial)', () => {
 			const cmd = 'icacls.exe C:\\path /deny Everyone:(OI)(CI)F';
 			const input = makeBashInput('test-session', cmd);
 			const output = makeBashOutput(cmd);
-			await expect(hooks.toolBefore(input, output)).rejects.toThrow(
-				/BLOCKED/,
-			);
+			await expect(hooks.toolBefore(input, output)).rejects.toThrow(/BLOCKED/);
 		});
 	});
 
@@ -634,9 +574,7 @@ describe('PowerShell destructive command guard (adversarial)', () => {
 			const cmd = 'Remove-Item -Recurse -Force C:\\target';
 			const input = makeBashInput('test-session', cmd);
 			const output = makeBashOutput(cmd);
-			await expect(hooks.toolBefore(input, output)).rejects.toThrow(
-				/BLOCKED/,
-			);
+			await expect(hooks.toolBefore(input, output)).rejects.toThrow(/BLOCKED/);
 		});
 
 		test('Remove-Item C:\\target -Recurse → BLOCKED (flag after path)', async () => {
@@ -645,9 +583,7 @@ describe('PowerShell destructive command guard (adversarial)', () => {
 			const cmd = 'Remove-Item C:\\target -Recurse';
 			const input = makeBashInput('test-session', cmd);
 			const output = makeBashOutput(cmd);
-			await expect(hooks.toolBefore(input, output)).rejects.toThrow(
-				/BLOCKED/,
-			);
+			await expect(hooks.toolBefore(input, output)).rejects.toThrow(/BLOCKED/);
 		});
 
 		// PowerShell is case-insensitive; implementation regex uses /i flag
@@ -657,9 +593,7 @@ describe('PowerShell destructive command guard (adversarial)', () => {
 			const cmd = 'remove-item -recurse important_files';
 			const input = makeBashInput('test-session', cmd);
 			const output = makeBashOutput(cmd);
-			await expect(hooks.toolBefore(input, output)).rejects.toThrow(
-				/BLOCKED/,
-			);
+			await expect(hooks.toolBefore(input, output)).rejects.toThrow(/BLOCKED/);
 		});
 
 		// REMOVE-ITEM all-caps — adversarial: must be caught by case-insensitive regex
@@ -669,9 +603,7 @@ describe('PowerShell destructive command guard (adversarial)', () => {
 			const cmd = 'REMOVE-ITEM -RECURSE important_files';
 			const input = makeBashInput('test-session', cmd);
 			const output = makeBashOutput(cmd);
-			await expect(hooks.toolBefore(input, output)).rejects.toThrow(
-				/BLOCKED/,
-			);
+			await expect(hooks.toolBefore(input, output)).rejects.toThrow(/BLOCKED/);
 		});
 
 		// -R short form — adversarial: implementation checks /-[Rr]\b/ separately
@@ -681,9 +613,7 @@ describe('PowerShell destructive command guard (adversarial)', () => {
 			const cmd = 'Remove-Item -R C:\\path';
 			const input = makeBashInput('test-session', cmd);
 			const output = makeBashOutput(cmd);
-			await expect(hooks.toolBefore(input, output)).rejects.toThrow(
-				/BLOCKED/,
-			);
+			await expect(hooks.toolBefore(input, output)).rejects.toThrow(/BLOCKED/);
 		});
 
 		// Path with spaces (quoted) — adversarial: target extractor must handle quotes
@@ -693,9 +623,7 @@ describe('PowerShell destructive command guard (adversarial)', () => {
 			const cmd = 'Remove-Item -Recurse -Force "C:\\Program Files\\target"';
 			const input = makeBashInput('test-session', cmd);
 			const output = makeBashOutput(cmd);
-			await expect(hooks.toolBefore(input, output)).rejects.toThrow(
-				/BLOCKED/,
-			);
+			await expect(hooks.toolBefore(input, output)).rejects.toThrow(/BLOCKED/);
 		});
 
 		// Safe target: node_modules → ALLOWED
@@ -716,9 +644,7 @@ describe('PowerShell destructive command guard (adversarial)', () => {
 			const cmd = 'ri -r C:\\path';
 			const input = makeBashInput('test-session', cmd);
 			const output = makeBashOutput(cmd);
-			await expect(hooks.toolBefore(input, output)).rejects.toThrow(
-				/BLOCKED/,
-			);
+			await expect(hooks.toolBefore(input, output)).rejects.toThrow(/BLOCKED/);
 		});
 
 		// Uppercase -R flag
@@ -728,9 +654,7 @@ describe('PowerShell destructive command guard (adversarial)', () => {
 			const cmd = 'ri -R C:\\path';
 			const input = makeBashInput('test-session', cmd);
 			const output = makeBashOutput(cmd);
-			await expect(hooks.toolBefore(input, output)).rejects.toThrow(
-				/BLOCKED/,
-			);
+			await expect(hooks.toolBefore(input, output)).rejects.toThrow(/BLOCKED/);
 		});
 	});
 
@@ -741,9 +665,7 @@ describe('PowerShell destructive command guard (adversarial)', () => {
 			const cmd = 'rm -r C:\\path';
 			const input = makeBashInput('test-session', cmd);
 			const output = makeBashOutput(cmd);
-			await expect(hooks.toolBefore(input, output)).rejects.toThrow(
-				/BLOCKED/,
-			);
+			await expect(hooks.toolBefore(input, output)).rejects.toThrow(/BLOCKED/);
 		});
 	});
 
@@ -754,9 +676,7 @@ describe('PowerShell destructive command guard (adversarial)', () => {
 			const cmd = 'Get-ChildItem C:\\target | Remove-Item -Recurse';
 			const input = makeBashInput('test-session', cmd);
 			const output = makeBashOutput(cmd);
-			await expect(hooks.toolBefore(input, output)).rejects.toThrow(
-				/BLOCKED/,
-			);
+			await expect(hooks.toolBefore(input, output)).rejects.toThrow(/BLOCKED/);
 		});
 
 		// Extra whitespace around pipe — adversarial: regex uses \|\s* so extra spaces must still match
@@ -766,9 +686,7 @@ describe('PowerShell destructive command guard (adversarial)', () => {
 			const cmd = 'Get-ChildItem C:\\target  |  Remove-Item -Recurse';
 			const input = makeBashInput('test-session', cmd);
 			const output = makeBashOutput(cmd);
-			await expect(hooks.toolBefore(input, output)).rejects.toThrow(
-				/BLOCKED/,
-			);
+			await expect(hooks.toolBefore(input, output)).rejects.toThrow(/BLOCKED/);
 		});
 
 		// gci | ri short aliases — adversarial: implementation has explicit gci/ri pattern
@@ -778,9 +696,7 @@ describe('PowerShell destructive command guard (adversarial)', () => {
 			const cmd = 'gci C:\\target | ri -Recurse';
 			const input = makeBashInput('test-session', cmd);
 			const output = makeBashOutput(cmd);
-			await expect(hooks.toolBefore(input, output)).rejects.toThrow(
-				/BLOCKED/,
-			);
+			await expect(hooks.toolBefore(input, output)).rejects.toThrow(/BLOCKED/);
 		});
 	});
 });
@@ -797,51 +713,61 @@ describe('tool: shell — must trigger identical blocks', () => {
 	test('rmdir /s /q C:\\target blocked when tool is shell', async () => {
 		const config = defaultConfig();
 		const hooks = createGuardrailsHooks(TEST_DIR, undefined, config);
-		const input = { tool: 'shell', sessionID: 'test-session', callID: 'call-1' };
+		const input = {
+			tool: 'shell',
+			sessionID: 'test-session',
+			callID: 'call-1',
+		};
 		const output = makeBashOutput('rmdir /s /q C:\\target');
-		await expect(hooks.toolBefore(input, output)).rejects.toThrow(
-			/BLOCKED/,
-		);
+		await expect(hooks.toolBefore(input, output)).rejects.toThrow(/BLOCKED/);
 	});
 
 	test('Remove-Item -Recurse -Force C:\\target blocked when tool is shell', async () => {
 		const config = defaultConfig();
 		const hooks = createGuardrailsHooks(TEST_DIR, undefined, config);
-		const input = { tool: 'shell', sessionID: 'test-session', callID: 'call-1' };
+		const input = {
+			tool: 'shell',
+			sessionID: 'test-session',
+			callID: 'call-1',
+		};
 		const output = makeBashOutput('Remove-Item -Recurse -Force C:\\target');
-		await expect(hooks.toolBefore(input, output)).rejects.toThrow(
-			/BLOCKED/,
-		);
+		await expect(hooks.toolBefore(input, output)).rejects.toThrow(/BLOCKED/);
 	});
 
 	test('vssadmin delete shadows /all blocked when tool is shell', async () => {
 		const config = defaultConfig();
 		const hooks = createGuardrailsHooks(TEST_DIR, undefined, config);
-		const input = { tool: 'shell', sessionID: 'test-session', callID: 'call-1' };
+		const input = {
+			tool: 'shell',
+			sessionID: 'test-session',
+			callID: 'call-1',
+		};
 		const output = makeBashOutput('vssadmin delete shadows /all');
-		await expect(hooks.toolBefore(input, output)).rejects.toThrow(
-			/BLOCKED/,
-		);
+		await expect(hooks.toolBefore(input, output)).rejects.toThrow(/BLOCKED/);
 	});
 
 	test('diskpart blocked when tool is shell', async () => {
 		const config = defaultConfig();
 		const hooks = createGuardrailsHooks(TEST_DIR, undefined, config);
-		const input = { tool: 'shell', sessionID: 'test-session', callID: 'call-1' };
+		const input = {
+			tool: 'shell',
+			sessionID: 'test-session',
+			callID: 'call-1',
+		};
 		const output = makeBashOutput('diskpart');
-		await expect(hooks.toolBefore(input, output)).rejects.toThrow(
-			/BLOCKED/,
-		);
+		await expect(hooks.toolBefore(input, output)).rejects.toThrow(/BLOCKED/);
 	});
 
 	test('format C: blocked when tool is shell', async () => {
 		const config = defaultConfig();
 		const hooks = createGuardrailsHooks(TEST_DIR, undefined, config);
-		const input = { tool: 'shell', sessionID: 'test-session', callID: 'call-1' };
+		const input = {
+			tool: 'shell',
+			sessionID: 'test-session',
+			callID: 'call-1',
+		};
 		const output = makeBashOutput('format C:');
-		await expect(hooks.toolBefore(input, output)).rejects.toThrow(
-			/BLOCKED/,
-		);
+		await expect(hooks.toolBefore(input, output)).rejects.toThrow(/BLOCKED/);
 	});
 });
 
@@ -881,7 +807,10 @@ describe('block_destructive_commands: false — all Windows commands pass throug
 	test('Remove-Item -Recurse -Force C:\\target allowed when block_destructive_commands is false', async () => {
 		const config = defaultConfig({ block_destructive_commands: false });
 		const hooks = createGuardrailsHooks(TEST_DIR, undefined, config);
-		const input = makeBashInput('test-session', 'Remove-Item -Recurse -Force C:\\target');
+		const input = makeBashInput(
+			'test-session',
+			'Remove-Item -Recurse -Force C:\\target',
+		);
 		const output = makeBashOutput('Remove-Item -Recurse -Force C:\\target');
 		await expect(hooks.toolBefore(input, output)).resolves.toBeUndefined();
 	});

@@ -106,11 +106,15 @@ describe('wrapper unwrapping and normalization — adversarial', () => {
 	// -------------------------------------------------------------------------
 	describe('powershell -Command wrapper', () => {
 		test('powershell -Command "Remove-Item -Recurse C:\\target" → BLOCKED', async () => {
-			await expectBlocked('powershell -Command "Remove-Item -Recurse C:\\target"');
+			await expectBlocked(
+				'powershell -Command "Remove-Item -Recurse C:\\target"',
+			);
 		});
 
 		test('powershell -command "Remove-Item -Recurse C:\\target" → BLOCKED (lowercase -command)', async () => {
-			await expectBlocked('powershell -command "Remove-Item -Recurse C:\\target"');
+			await expectBlocked(
+				'powershell -command "Remove-Item -Recurse C:\\target"',
+			);
 		});
 
 		test('powershell -c "Remove-Item -Recurse C:\\target" → BLOCKED (-c short form)', async () => {
@@ -122,7 +126,9 @@ describe('wrapper unwrapping and normalization — adversarial', () => {
 		});
 
 		test('powershell.exe -Command "Remove-Item -Recurse C:\\target" → BLOCKED (.exe suffix)', async () => {
-			await expectBlocked('powershell.exe -Command "Remove-Item -Recurse C:\\target"');
+			await expectBlocked(
+				'powershell.exe -Command "Remove-Item -Recurse C:\\target"',
+			);
 		});
 
 		test('pwsh -Command "Remove-Item C:\\target -Recurse" → BLOCKED (pwsh, flags after path)', async () => {
@@ -194,7 +200,9 @@ describe('wrapper unwrapping and normalization — adversarial', () => {
 		});
 
 		test('powershell -EncodedCommand <rm -rf /important> → BLOCKED (POSIX rm encoded in PS)', async () => {
-			const encoded = Buffer.from('rm -rf /important', 'utf16le').toString('base64');
+			const encoded = Buffer.from('rm -rf /important', 'utf16le').toString(
+				'base64',
+			);
 			await expectBlocked(`powershell -EncodedCommand ${encoded}`);
 		});
 	});

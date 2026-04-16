@@ -50,9 +50,10 @@ describe('junction and symlink creation blocking', () => {
 		// On Linux, path.resolve('/tmp', 'C:\\path') treats the Windows path as relative,
 		// so use a POSIX absolute path to reliably trigger the "outside cwd" detection.
 		// On Windows, C:\opencode\... is properly recognized as an absolute external path.
-		const externalTarget = process.platform === 'win32'
-			? 'C:\\opencode\\dist3\\DocumentQA'
-			: '/opt/opencode/dist3';
+		const externalTarget =
+			process.platform === 'win32'
+				? 'C:\\opencode\\dist3\\DocumentQA'
+				: '/opt/opencode/dist3';
 		const hooks = createGuardrailsHooks(TEST_DIR, undefined, defaultConfig());
 		const output = {
 			args: { command: `mklink /J link ${externalTarget}` },
@@ -66,9 +67,8 @@ describe('junction and symlink creation blocking', () => {
 	});
 
 	test('mklink /D with external absolute target → BLOCKED', async () => {
-		const externalTarget = process.platform === 'win32'
-			? 'C:\\Windows\\System32'
-			: '/opt/system32';
+		const externalTarget =
+			process.platform === 'win32' ? 'C:\\Windows\\System32' : '/opt/system32';
 		const hooks = createGuardrailsHooks(TEST_DIR, undefined, defaultConfig());
 		const output = {
 			args: { command: `mklink /D dirlink ${externalTarget}` },
@@ -82,9 +82,10 @@ describe('junction and symlink creation blocking', () => {
 	});
 
 	test('New-Item -ItemType Junction with external absolute target → BLOCKED', async () => {
-		const externalTarget = process.platform === 'win32'
-			? 'C:\\opencode\\dist3\\DocumentQA'
-			: '/opt/opencode/dist3';
+		const externalTarget =
+			process.platform === 'win32'
+				? 'C:\\opencode\\dist3\\DocumentQA'
+				: '/opt/opencode/dist3';
 		const hooks = createGuardrailsHooks(TEST_DIR, undefined, defaultConfig());
 		const output = {
 			args: {
@@ -100,9 +101,10 @@ describe('junction and symlink creation blocking', () => {
 	});
 
 	test('New-Item -ItemType SymbolicLink with external absolute target → BLOCKED', async () => {
-		const externalTarget = process.platform === 'win32'
-			? 'C:\\sensitive\\data'
-			: '/opt/sensitive/data';
+		const externalTarget =
+			process.platform === 'win32'
+				? 'C:\\sensitive\\data'
+				: '/opt/sensitive/data';
 		const hooks = createGuardrailsHooks(TEST_DIR, undefined, defaultConfig());
 		const output = {
 			args: {
@@ -546,9 +548,10 @@ describe('lstat ancestor walk — real symlink detection', () => {
 // ---------------------------------------------------------------------------
 describe('block_destructive_commands: false bypasses all guards', () => {
 	test('mklink /J with external target allowed when flag is false', async () => {
-		const externalTarget = process.platform === 'win32'
-			? 'C:\\opencode\\dist3\\DocumentQA'
-			: '/opt/opencode/dist3';
+		const externalTarget =
+			process.platform === 'win32'
+				? 'C:\\opencode\\dist3\\DocumentQA'
+				: '/opt/opencode/dist3';
 		const hooks = createGuardrailsHooks(
 			TEST_DIR,
 			undefined,

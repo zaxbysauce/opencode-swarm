@@ -400,15 +400,16 @@ function dcStripOneWrapper(cmd: string): string | null {
 	const t = cmd.trim();
 
 	// cmd.exe wrappers: cmd /c "inner" or cmd /k "inner" — case-insensitive (CMD, cmd, Cmd)
-	const cmdExeMatch = /^cmd(?:\.exe)?\s+\/[ckCK]\s+"?(.*?)"?\s*$/si.exec(t);
+	const cmdExeMatch = /^cmd(?:\.exe)?\s+\/[ckCK]\s+"?(.*?)"?\s*$/is.exec(t);
 	if (cmdExeMatch) return cmdExeMatch[1].trim();
 
 	// PowerShell -Command / -c variants — case-insensitive (POWERSHELL, powershell, pwsh, PWSH)
 	const psCommandMatch =
-		/^(?:powershell|pwsh)(?:\.exe)?\s+(?:-(?:Command|command|c)\s+)(.+)$/si.exec(
+		/^(?:powershell|pwsh)(?:\.exe)?\s+(?:-(?:Command|command|c)\s+)(.+)$/is.exec(
 			t,
 		);
-	if (psCommandMatch) return psCommandMatch[1].replace(/^["']|["']$/g, '').trim();
+	if (psCommandMatch)
+		return psCommandMatch[1].replace(/^["']|["']$/g, '').trim();
 
 	// PowerShell -EncodedCommand / -enc (base64): decode and return
 	const psEncMatch =
@@ -426,7 +427,8 @@ function dcStripOneWrapper(cmd: string): string | null {
 	}
 
 	// bash/sh/zsh -c "inner"
-	const shellMatch = /^(?:bash|sh|zsh|dash|fish)(?:\.exe)?\s+-c\s+"?(.*?)"?\s*$/s.exec(t);
+	const shellMatch =
+		/^(?:bash|sh|zsh|dash|fish)(?:\.exe)?\s+-c\s+"?(.*?)"?\s*$/s.exec(t);
 	if (shellMatch) return shellMatch[1].trim();
 
 	// sudo / env VAR=val / time / nohup / nice -n N: strip leading word + optional args
@@ -450,7 +452,8 @@ function dcStripOneWrapper(cmd: string): string | null {
 	if (iexMatch) return iexMatch[1].replace(/^["'`]|["'`]$/g, '').trim();
 
 	// PowerShell Invoke-Command -ScriptBlock { ... }
-	const invokeCommandMatch = /^Invoke-Command\s+.*-ScriptBlock\s*\{(.+)\}$/is.exec(t);
+	const invokeCommandMatch =
+		/^Invoke-Command\s+.*-ScriptBlock\s*\{(.+)\}$/is.exec(t);
 	if (invokeCommandMatch) return invokeCommandMatch[1].trim();
 
 	// batch: call <command>
@@ -546,10 +549,7 @@ function dcIsRemotePath(p: string): boolean {
  * Skips silently on ENOENT (target does not exist — nothing to delete).
  * Fails closed on unexpected lstat errors.
  */
-function dcLstatAncestorWalk(
-	targetPath: string,
-	cwd: string,
-): string | null {
+function dcLstatAncestorWalk(targetPath: string, cwd: string): string | null {
 	// Normalize separators to the platform convention
 	const normalizedTarget = path.resolve(cwd, targetPath);
 	const normalizedCwd = path.resolve(cwd);
@@ -599,10 +599,7 @@ function dcLstatAncestorWalk(
  *
  * Returns a block reason string or null if targets are acceptable.
  */
-function dcValidateTargets(
-	targets: string[],
-	cwd: string,
-): string | null {
+function dcValidateTargets(targets: string[], cwd: string): string | null {
 	for (const raw of targets) {
 		const t = raw.trim().replace(/^["']|["']$/g, '');
 		if (!t || t === '.') continue;
@@ -666,10 +663,7 @@ function dcValidateTargets(
  *   New-Item -ItemType SymbolicLink -Path <link> -Target <target>
  *   ln -s <target> <link>  (when target is outside cwd)
  */
-function dcCheckJunctionCreation(
-	segment: string,
-	cwd: string,
-): string | null {
+function dcCheckJunctionCreation(segment: string, cwd: string): string | null {
 	// mklink /J or /D (cmd.exe)
 	const mklinkMatch =
 		/^mklink(?:\.exe)?\s+\/[JjDd]\s+"?([^"\s]+)"?\s+"?([^"\s]+)"?/i.exec(
@@ -705,7 +699,10 @@ function dcCheckJunctionCreation(
 	}
 
 	// ln -s <target> (POSIX symlink; only block if target is outside cwd)
-	const lnMatch = /^ln\s+(?:-[sfnv]*s[sfnv]*|-s)\s+"?([^"\s]+)"?(?:\s+"?[^"\s]+"?)?\s*$/.exec(segment);
+	const lnMatch =
+		/^ln\s+(?:-[sfnv]*s[sfnv]*|-s)\s+"?([^"\s]+)"?(?:\s+"?[^"\s]+"?)?\s*$/.exec(
+			segment,
+		);
 	if (lnMatch) {
 		const target = lnMatch[1].trim();
 		if (!dcHasUnresolvableVars(target) && path.isAbsolute(target)) {
@@ -726,11 +723,14 @@ function dcCheckJunctionCreation(
  */
 function dcExtractWindowsCmdTargets(segment: string): string[] {
 	// rmdir /s /q <path> or rd /s <path>
-	const rmdirMatch = /^(?:rmdir|rd)(?:\.exe)?\s+(?:\/[sqSQ]\s+)*"?(.+?)"?\s*$/i.exec(segment);
+	const rmdirMatch =
+		/^(?:rmdir|rd)(?:\.exe)?\s+(?:\/[sqSQ]\s+)*"?(.+?)"?\s*$/i.exec(segment);
 	if (rmdirMatch) return [rmdirMatch[1].trim()];
 
 	// del /s /q /f <path>
-	const delMatch = /^del(?:\.exe)?\s+(?:\/[sqfSQF]\s+)*"?(.+?)"?\s*$/i.exec(segment);
+	const delMatch = /^del(?:\.exe)?\s+(?:\/[sqfSQF]\s+)*"?(.+?)"?\s*$/i.exec(
+		segment,
+	);
 	if (delMatch) return [delMatch[1].trim()];
 
 	return [];
@@ -742,19 +742,23 @@ function dcExtractWindowsCmdTargets(segment: string): string[] {
  */
 function dcExtractPowerShellTargets(segment: string): string[] {
 	// Strip the leading verb
-	const verbMatch =
-		/^(?:Remove-Item|ri|rm|rmdir|del|erase|rd)\s+/i.exec(segment);
+	const verbMatch = /^(?:Remove-Item|ri|rm|rmdir|del|erase|rd)\s+/i.exec(
+		segment,
+	);
 	if (!verbMatch) return [];
 	const rest = segment.slice(verbMatch[0].length);
 
 	// Tokenize remainder; quoted strings count as one token
-	const tokens: string[] =
-		rest.match(/"[^"]*"|'[^']*'|[^\s]+/g) ?? [];
+	const tokens: string[] = rest.match(/"[^"]*"|'[^']*'|[^\s]+/g) ?? [];
 
 	const targets: string[] = [];
 	// Flags that consume the next token as a value
 	const valueFlags = new Set([
-		'-literalpath', '-path', '-filter', '-include', '-exclude',
+		'-literalpath',
+		'-path',
+		'-filter',
+		'-include',
+		'-exclude',
 		'-lp', // alias for -LiteralPath in PS 7+
 	]);
 	let skipNext = false;
@@ -936,8 +940,9 @@ export function createGuardrailsHooks(
 			// ----------------------------------------------------------------
 			const rmShortMatch =
 				/^rm\s+(-[rRfF]+(?:\s+-[rRfF]+)*|-r\s+-f|-f\s+-r)\s+(.+)$/.exec(seg);
-			const rmLongMatch =
-				/^rm\s+(?:--(?:recursive|force)\s+){1,2}(.+)$/.exec(seg);
+			const rmLongMatch = /^rm\s+(?:--(?:recursive|force)\s+){1,2}(.+)$/.exec(
+				seg,
+			);
 			const rmAnyMatch = rmShortMatch ?? rmLongMatch;
 			if (rmAnyMatch) {
 				const targetPart = rmAnyMatch[rmShortMatch ? 2 : 1].trim();
@@ -945,7 +950,9 @@ export function createGuardrailsHooks(
 				// Always validate — dcValidateTargets runs lstat even for safe-named targets
 				const validateBlock = dcValidateTargets(targets, cwd);
 				if (validateBlock) throw new Error(validateBlock);
-				const allSafe = targets.every((t) => DC_SAFE_TARGETS.has(t.replace(/^["']|["']$/g, '').trim()));
+				const allSafe = targets.every((t) =>
+					DC_SAFE_TARGETS.has(t.replace(/^["']|["']$/g, '').trim()),
+				);
 				if (!allSafe) {
 					throw new Error(
 						`BLOCKED: Potentially destructive shell command: rm with recursive/force flags on unsafe path(s): ${targetPart}`,
@@ -1064,9 +1071,7 @@ export function createGuardrailsHooks(
 				/^fsutil(?:\.exe)?\s+reparsepoint\s+delete\b/i.test(seg) ||
 				/^fsutil(?:\.exe)?\s+file\s+setzerodata\b/i.test(seg)
 			) {
-				throw new Error(
-					`BLOCKED: "fsutil" destructive subcommand detected`,
-				);
+				throw new Error(`BLOCKED: "fsutil" destructive subcommand detected`);
 			}
 			if (/^takeown(?:\.exe)?\s+.*\/[rR]\b/i.test(seg)) {
 				throw new Error(
@@ -1079,9 +1084,7 @@ export function createGuardrailsHooks(
 				);
 			}
 			if (/^format\s+[A-Za-z]:/i.test(seg)) {
-				throw new Error(
-					`BLOCKED: Windows disk format command detected`,
-				);
+				throw new Error(`BLOCKED: Windows disk format command detected`);
 			}
 			if (/^robocopy(?:\.exe)?\s+.*\/(?:MIR|mir)\b/.test(seg)) {
 				throw new Error(
@@ -1149,9 +1152,7 @@ export function createGuardrailsHooks(
 			// ----------------------------------------------------------------
 			// 12. rsync mirror / sync with delete
 			// ----------------------------------------------------------------
-			if (
-				/^rsync\b.*--delete(?:-after|-before|-during|-delay)?\b/.test(seg)
-			) {
+			if (/^rsync\b.*--delete(?:-after|-before|-during|-delay)?\b/.test(seg)) {
 				throw new Error(
 					`BLOCKED: "rsync --delete" detected — can delete files in the destination. Verify source is not empty.`,
 				);

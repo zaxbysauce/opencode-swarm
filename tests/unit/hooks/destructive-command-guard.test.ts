@@ -58,9 +58,7 @@ describe('destructive command guard', () => {
 			const hooks = createGuardrailsHooks(TEST_DIR, undefined, config);
 			const input = makeBashInput('test-session', 'rm -rf /');
 			const output = makeBashOutput('rm -rf /');
-			await expect(hooks.toolBefore(input, output)).rejects.toThrow(
-				/BLOCKED/,
-			);
+			await expect(hooks.toolBefore(input, output)).rejects.toThrow(/BLOCKED/);
 		});
 
 		test('rm -rf /important → BLOCKED', async () => {
@@ -68,9 +66,7 @@ describe('destructive command guard', () => {
 			const hooks = createGuardrailsHooks(TEST_DIR, undefined, config);
 			const input = makeBashInput('test-session', 'rm -rf /important');
 			const output = makeBashOutput('rm -rf /important');
-			await expect(hooks.toolBefore(input, output)).rejects.toThrow(
-				/BLOCKED/,
-			);
+			await expect(hooks.toolBefore(input, output)).rejects.toThrow(/BLOCKED/);
 		});
 
 		test('rm -rf src/ dist/ → BLOCKED (multiple paths, src/ is not safe)', async () => {
@@ -78,9 +74,7 @@ describe('destructive command guard', () => {
 			const hooks = createGuardrailsHooks(TEST_DIR, undefined, config);
 			const input = makeBashInput('test-session', 'rm -rf src/ dist/');
 			const output = makeBashOutput('rm -rf src/ dist/');
-			await expect(hooks.toolBefore(input, output)).rejects.toThrow(
-				/BLOCKED/,
-			);
+			await expect(hooks.toolBefore(input, output)).rejects.toThrow(/BLOCKED/);
 		});
 
 		test('rm -r -f / → BLOCKED (reversed flags)', async () => {
@@ -88,9 +82,7 @@ describe('destructive command guard', () => {
 			const hooks = createGuardrailsHooks(TEST_DIR, undefined, config);
 			const input = makeBashInput('test-session', 'rm -r -f /');
 			const output = makeBashOutput('rm -r -f /');
-			await expect(hooks.toolBefore(input, output)).rejects.toThrow(
-				/BLOCKED/,
-			);
+			await expect(hooks.toolBefore(input, output)).rejects.toThrow(/BLOCKED/);
 		});
 
 		test('rm --recursive --force / → BLOCKED (long-form flags now detected)', async () => {
@@ -106,9 +98,7 @@ describe('destructive command guard', () => {
 			const hooks = createGuardrailsHooks(TEST_DIR, undefined, config);
 			const input = makeBashInput('test-session', 'rm -rf node_modules/.cache');
 			const output = makeBashOutput('rm -rf node_modules/.cache');
-			await expect(hooks.toolBefore(input, output)).rejects.toThrow(
-				/BLOCKED/,
-			);
+			await expect(hooks.toolBefore(input, output)).rejects.toThrow(/BLOCKED/);
 		});
 	});
 
@@ -252,9 +242,7 @@ describe('destructive command guard', () => {
 				callID: 'call-1',
 			};
 			const output = makeBashOutput('rm -rf /');
-			await expect(hooks.toolBefore(input, output)).rejects.toThrow(
-				/BLOCKED/,
-			);
+			await expect(hooks.toolBefore(input, output)).rejects.toThrow(/BLOCKED/);
 		});
 	});
 
