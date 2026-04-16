@@ -299,15 +299,21 @@ index 1234567..89abcdef 100644
 			const { swarmState } = await import('../../../src/state');
 			swarmState.activeAgent.set(sessionId, ORCHESTRATOR_NAME);
 
-			// Diff with /dev/null should be ignored
-			const diffContent = `*** Add File: /dev/null
+			// Diff with +++ b/dev/null should be ignored by the extractor's
+			// /dev/null filter (applies to +++ b/ and --- a/ patterns per
+			// extractPatchTargetPaths). The test title matches this format.
+			// A sibling real file must be present so the patch parses as valid
+			// but contains no extractable non-/dev/null path.
+			const diffContent = `--- a/dev/null
++++ b/dev/null
+@@ -0,0 +1 @@
 +new content
 `;
 
 			const input = makeInput(sessionId, 'apply_patch', 'call-1');
 			const output = makeOutput({ input: diffContent });
 
-			// Should NOT throw - /dev/null is ignored
+			// Should NOT throw - /dev/null is filtered from the +++ b/ pattern.
 			await hooks.toolBefore(input, output);
 		});
 	});

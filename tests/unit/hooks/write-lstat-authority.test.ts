@@ -168,20 +168,24 @@ describe('Transparent authority: non-architect agents checked on Write', () => {
 		).rejects.toThrow(/WRITE BLOCKED/);
 	});
 
-	it('coder allowed to write to src/ (in allowedPrefix)', async () => {
+	it('coder allowed to write to src/ (production zone, no DENY match)', async () => {
 		const hooks = makeHooks();
 		coderSession('coder-src-allow');
 
-		// Should NOT throw — coder's allowedPrefix includes 'src/'
+		// Should NOT throw — coder has no allowedPrefix whitelist (removed in
+		// df4ac3b for language-agnostic writes per #496). 'src/utils/helper.ts'
+		// is the 'production' zone, not under blockedPrefix '.swarm/', and not
+		// in blockedZones ['generated', 'config'], so the write is allowed.
 		await hooks.toolBefore(
 			{ tool: 'write', sessionID: 'coder-src-allow', callID: 'c2' },
 			{ args: { filePath: 'src/utils/helper.ts' } },
 		);
 	});
 
-	it('coder allowed to write to tests/ via edit tool (in coder allowedPrefix)', async () => {
-		// Default coder allowedPrefix: ['src/', 'tests/', 'docs/', 'scripts/']
-		// tests/ IS included for coder — so this should be allowed
+	it('coder allowed to write to tests/ via edit tool (test zone, no DENY match)', async () => {
+		// Coder has no allowedPrefix whitelist after df4ac3b. 'tests/unit/my.test.ts'
+		// is the 'test' zone, not under blockedPrefix '.swarm/', and not in
+		// blockedZones ['generated', 'config'], so the edit is allowed.
 		const hooks = makeHooks();
 		coderSession('coder-tests-allow');
 
