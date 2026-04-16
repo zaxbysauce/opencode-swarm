@@ -331,6 +331,8 @@ export declare const GuardrailsConfigSchema: z.ZodObject<{
         idle_timeout_minutes: z.ZodOptional<z.ZodNumber>;
     }, z.core.$strip>>>;
     block_destructive_commands: z.ZodDefault<z.ZodBoolean>;
+    interpreter_allowed_agents: z.ZodOptional<z.ZodArray<z.ZodString>>;
+    shell_audit_log: z.ZodDefault<z.ZodBoolean>;
 }, z.core.$strip>;
 export type GuardrailsConfig = z.infer<typeof GuardrailsConfigSchema>;
 export declare const WatchdogConfigSchema: z.ZodObject<{
@@ -667,6 +669,8 @@ export declare const PluginConfigSchema: z.ZodObject<{
             idle_timeout_minutes: z.ZodOptional<z.ZodNumber>;
         }, z.core.$strip>>>;
         block_destructive_commands: z.ZodDefault<z.ZodBoolean>;
+        interpreter_allowed_agents: z.ZodOptional<z.ZodArray<z.ZodString>>;
+        shell_audit_log: z.ZodDefault<z.ZodBoolean>;
     }, z.core.$strip>>;
     watchdog: z.ZodOptional<z.ZodObject<{
         scope_guard: z.ZodDefault<z.ZodBoolean>;

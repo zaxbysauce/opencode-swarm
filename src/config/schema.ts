@@ -604,6 +604,25 @@ export const GuardrailsConfigSchema = z.object({
 		.optional(),
 	profiles: z.record(z.string(), GuardrailsProfileSchema).optional(),
 	block_destructive_commands: z.boolean().default(true),
+	/**
+	 * Restrict the bash/shell interpreter to a specific set of agent roles.
+	 *
+	 * When `undefined` (default), all agents may invoke bash/shell.
+	 *
+	 * WARNING: Supplying an empty array (`[]`) blocks ALL agents including
+	 * architect — this is almost always a misconfiguration. To allow every
+	 * agent, omit the field entirely rather than setting it to `[]`.
+	 *
+	 * Agent role names are matched case-insensitively after swarm prefix
+	 * stripping (e.g. "swarm-architect" matches "architect").
+	 */
+	interpreter_allowed_agents: z.array(z.string().min(1)).optional(),
+	/**
+	 * When true (default), every bash/shell invocation is appended as a
+	 * single-line JSON entry to `.swarm/session/shell-audit.jsonl` with
+	 * known secret patterns (tokens, passwords, Bearer headers) redacted.
+	 */
+	shell_audit_log: z.boolean().default(true),
 });
 
 export type GuardrailsConfig = z.infer<typeof GuardrailsConfigSchema>;

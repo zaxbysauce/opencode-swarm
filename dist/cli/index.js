@@ -19109,7 +19109,9 @@ var GuardrailsConfigSchema = exports_external.object({
     require_reviewer_test_engineer: exports_external.boolean().default(true)
   }).optional(),
   profiles: exports_external.record(exports_external.string(), GuardrailsProfileSchema).optional(),
-  block_destructive_commands: exports_external.boolean().default(true)
+  block_destructive_commands: exports_external.boolean().default(true),
+  interpreter_allowed_agents: exports_external.array(exports_external.string().min(1)).optional(),
+  shell_audit_log: exports_external.boolean().default(true)
 });
 var WatchdogConfigSchema = exports_external.object({
   scope_guard: exports_external.boolean().default(true),
