@@ -7,6 +7,7 @@
 import * as fs from 'node:fs';
 import * as path from 'node:path';
 import { type ToolDefinition, tool } from '@opencode-ai/plugin/tool';
+import { checkWriteTargetForSymlink } from '../hooks/guardrails';
 import { swarmState } from '../state';
 import { validateTaskIdFormat as _validateTaskIdFormat } from '../validation/task-id';
 import { createSwarmTool } from './create-tool';
@@ -293,6 +294,25 @@ export async function executeDeclareScope(
 			success: false,
 			message: 'Validation failed',
 			errors: normalizeErrors,
+		};
+	}
+
+	// Step 7c: lstat check — reject scope if any declared file is behind a symlink.
+	// Writing through a symlink can redirect writes outside the working directory,
+	// bypassing scope containment. Checked here at scope-declaration time so the
+	// architect gets an early error rather than a per-write block during coder execution.
+	const lstatErrors: string[] = [];
+	for (const file of mergedFiles) {
+		const block = checkWriteTargetForSymlink(file, dir);
+		if (block) {
+			lstatErrors.push(block);
+		}
+	}
+	if (lstatErrors.length > 0) {
+		return {
+			success: false,
+			message: 'Scope contains symlink-backed paths',
+			errors: lstatErrors,
 		};
 	}
 

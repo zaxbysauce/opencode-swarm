@@ -340,6 +340,9 @@ export function createGuardrailsHooks(
 
 	// Pre-compute effective authority rules once — authorityConfig is immutable after plugin init
 	const precomputedAuthorityRules = buildEffectiveRules(authorityConfig);
+	// Global deny prefixes — apply to all agents regardless of per-agent rules
+	const universalDenyPrefixes: string[] =
+		authorityConfig?.universal_deny_prefixes ?? [];
 
 	// TypeScript narrowing: guardrailsConfig must be defined if we reach here
 	const cfg = guardrailsConfig!;
@@ -1075,11 +1078,13 @@ export function createGuardrailsHooks(
 			// Block destructive shell commands (rm -rf, force push, kubectl delete, etc.)
 			checkDestructiveCommand(input.tool, output.args);
 
-			// Plan state + scope protection for architect writes
+			// Plan state + scope protection — architect-only
 			if (isArchitect(input.sessionID) && isWriteTool(input.tool)) {
 				handlePlanAndScopeProtection(input.sessionID, input.tool, output.args);
+			}
 
-				// Architect direct write authority check
+			// Authority + lstat + universal-deny checks for ALL agents on Write/Edit
+			if (isWriteTool(input.tool)) {
 				const toolArgs = output.args as Record<string, unknown> | undefined;
 				const targetPath =
 					toolArgs?.filePath ??
@@ -1087,8 +1092,45 @@ export function createGuardrailsHooks(
 					toolArgs?.file ??
 					toolArgs?.target;
 				if (typeof targetPath === 'string' && targetPath.length > 0) {
-					const agentName =
-						swarmState.activeAgent.get(input.sessionID) ?? 'architect';
+					// lstat: block writes through symlinks (prevents scope-escape via junction)
+					const lstatBlock = checkWriteTargetForSymlink(
+						targetPath,
+						effectiveDirectory,
+					);
+					if (lstatBlock) {
+						throw new Error(lstatBlock);
+					}
+
+					// Fail closed if no active agent is registered for this session.
+					// Defaulting to 'architect' would grant broad write permissions to
+					// unknown sessions; instead we block until the session is identified.
+					const agentName = swarmState.activeAgent.get(input.sessionID);
+					if (!agentName) {
+						throw new Error(
+							`WRITE BLOCKED: No active agent registered for session "${input.sessionID}". Call startAgentSession before issuing write tool calls.`,
+						);
+					}
+
+					// Universal deny prefixes — applies to all agents before per-agent rules
+					if (universalDenyPrefixes.length > 0) {
+						const normalizedPath = path
+							.relative(
+								path.resolve(effectiveDirectory),
+								path.resolve(effectiveDirectory, targetPath),
+							)
+							.replace(/\\/g, '/');
+						for (const prefix of universalDenyPrefixes) {
+							if (
+								normalizedPath.toLowerCase().startsWith(prefix.toLowerCase())
+							) {
+								throw new Error(
+									`WRITE BLOCKED: Agent "${agentName}" is not authorised to write "${targetPath}". Reason: Path is under universal deny prefix "${prefix}"`,
+								);
+							}
+						}
+					}
+
+					// Per-agent authority check — applies to all agents
 					const authorityCheck = checkFileAuthorityWithRules(
 						agentName,
 						targetPath,
@@ -1102,19 +1144,50 @@ export function createGuardrailsHooks(
 					}
 				}
 			}
+
+			// Authority + lstat + universal-deny for apply_patch / patch
 			if (input.tool === 'apply_patch' || input.tool === 'patch') {
-				const agentName =
-					swarmState.activeAgent.get(input.sessionID) ?? 'architect';
+				// Fail closed if no active agent is registered (same as Write/Edit path above)
+				const patchAgentName = swarmState.activeAgent.get(input.sessionID);
+				if (!patchAgentName) {
+					throw new Error(
+						`WRITE BLOCKED: No active agent registered for session "${input.sessionID}". Call startAgentSession before issuing write tool calls.`,
+					);
+				}
 				for (const p of extractPatchTargetPaths(input.tool, output.args)) {
+					// lstat: block patches through symlinks
+					const lstatBlock = checkWriteTargetForSymlink(p, effectiveDirectory);
+					if (lstatBlock) {
+						throw new Error(lstatBlock);
+					}
+
+					// Universal deny prefixes for patches (case-insensitive)
+					if (universalDenyPrefixes.length > 0) {
+						const normalizedP = path
+							.relative(
+								path.resolve(effectiveDirectory),
+								path.resolve(effectiveDirectory, p),
+							)
+							.replace(/\\/g, '/');
+						for (const prefix of universalDenyPrefixes) {
+							if (normalizedP.toLowerCase().startsWith(prefix.toLowerCase())) {
+								throw new Error(
+									`WRITE BLOCKED: Agent "${patchAgentName}" is not authorised to write "${p}" (via patch). Reason: Path is under universal deny prefix "${prefix}"`,
+								);
+							}
+						}
+					}
+
+					// Per-agent authority check for patches
 					const authorityCheck = checkFileAuthorityWithRules(
-						agentName,
+						patchAgentName,
 						p,
 						effectiveDirectory,
 						precomputedAuthorityRules,
 					);
 					if (!authorityCheck.allowed) {
 						throw new Error(
-							`WRITE BLOCKED: Agent "${agentName}" is not authorised to write "${p}" (via patch). Reason: ${authorityCheck.reason}`,
+							`WRITE BLOCKED: Agent "${patchAgentName}" is not authorised to write "${p}" (via patch). Reason: ${authorityCheck.reason}`,
 						);
 					}
 				}
@@ -2251,6 +2324,53 @@ export const DEFAULT_AGENT_AUTHORITY_RULES: Record<string, AgentRule> = {
 		blockedZones: ['generated'],
 	},
 };
+
+/**
+ * Checks whether a write target path (or any ancestor up to cwd) is a symlink.
+ * Writing through a symlink can redirect the write to a location outside the
+ * working directory, bypassing scope containment.
+ *
+ * ENOENT on any node in the chain is allowed — the file/dir doesn't exist yet.
+ * Any other lstat error (EPERM, EACCES) fails closed.
+ *
+ * @returns A block reason string if a symlink is detected, null if all clear.
+ */
+export function checkWriteTargetForSymlink(
+	targetPath: string,
+	cwd: string,
+): string | null {
+	const normalizedCwd = path.resolve(cwd);
+	const normalizedTarget = path.resolve(cwd, targetPath);
+
+	// Walk ancestor chain from target up to (and including) cwd
+	const ancestors: string[] = [];
+	let current = normalizedTarget;
+	while (true) {
+		ancestors.push(current);
+		const rel = path.relative(normalizedCwd, current);
+		if (rel === '' || rel.startsWith('..')) break;
+		const parent = path.dirname(current);
+		if (parent === current) break; // filesystem root
+		current = parent;
+	}
+
+	for (const ancestor of ancestors) {
+		let stat: ReturnType<typeof fsSync.lstatSync> | null = null;
+		try {
+			stat = fsSync.lstatSync(ancestor);
+		} catch (err: unknown) {
+			const code = (err as NodeJS.ErrnoException).code;
+			if (code === 'ENOENT') continue; // not yet created — OK for writes
+			// Unexpected error: fail closed
+			return `WRITE BLOCKED: lstat failed on "${ancestor}": ${String(err)} — refusing write on unverifiable path`;
+		}
+		if (stat.isSymbolicLink()) {
+			return `WRITE BLOCKED: "${ancestor}" is a symlink — writing through a symlink could redirect the write outside the working directory`;
+		}
+	}
+
+	return null; // all clear
+}
 
 /**
  * Builds the effective rules map by merging user-configured rules with defaults.

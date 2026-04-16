@@ -15162,7 +15162,8 @@ var init_schema = __esm(() => {
   });
   AuthorityConfigSchema = exports_external.object({
     enabled: exports_external.boolean().default(true),
-    rules: exports_external.record(exports_external.string(), AgentAuthorityRuleSchema).default({})
+    rules: exports_external.record(exports_external.string(), AgentAuthorityRuleSchema).default({}),
+    universal_deny_prefixes: exports_external.array(exports_external.string()).default([])
   });
   CouncilConfigSchema = exports_external.object({
     enabled: exports_external.boolean().default(false),
@@ -59462,6 +59463,7 @@ function createGuardrailsHooks(directory, directoryOrConfig, config3, authorityC
     };
   }
   const precomputedAuthorityRules = buildEffectiveRules(authorityConfig);
+  const universalDenyPrefixes = authorityConfig?.universal_deny_prefixes ?? [];
   const cfg = guardrailsConfig;
   const requiredQaGates = cfg.qa_gates?.required_tools ?? [
     "diff",
@@ -59871,10 +59873,27 @@ function createGuardrailsHooks(directory, directoryOrConfig, config3, authorityC
       checkDestructiveCommand(input.tool, output.args);
       if (isArchitect(input.sessionID) && isWriteTool(input.tool)) {
         handlePlanAndScopeProtection(input.sessionID, input.tool, output.args);
+      }
+      if (isWriteTool(input.tool)) {
         const toolArgs = output.args;
         const targetPath = toolArgs?.filePath ?? toolArgs?.path ?? toolArgs?.file ?? toolArgs?.target;
         if (typeof targetPath === "string" && targetPath.length > 0) {
-          const agentName = swarmState.activeAgent.get(input.sessionID) ?? "architect";
+          const lstatBlock = checkWriteTargetForSymlink(targetPath, effectiveDirectory);
+          if (lstatBlock) {
+            throw new Error(lstatBlock);
+          }
+          const agentName = swarmState.activeAgent.get(input.sessionID);
+          if (!agentName) {
+            throw new Error(`WRITE BLOCKED: No active agent registered for session "${input.sessionID}". Call startAgentSession before issuing write tool calls.`);
+          }
+          if (universalDenyPrefixes.length > 0) {
+            const normalizedPath = path41.relative(path41.resolve(effectiveDirectory), path41.resolve(effectiveDirectory, targetPath)).replace(/\\/g, "/");
+            for (const prefix of universalDenyPrefixes) {
+              if (normalizedPath.toLowerCase().startsWith(prefix.toLowerCase())) {
+                throw new Error(`WRITE BLOCKED: Agent "${agentName}" is not authorised to write "${targetPath}". Reason: Path is under universal deny prefix "${prefix}"`);
+              }
+            }
+          }
           const authorityCheck = checkFileAuthorityWithRules(agentName, targetPath, effectiveDirectory, precomputedAuthorityRules);
           if (!authorityCheck.allowed) {
             throw new Error(`WRITE BLOCKED: Agent "${agentName}" is not authorised to write "${targetPath}". Reason: ${authorityCheck.reason}`);
@@ -59882,11 +59901,26 @@ function createGuardrailsHooks(directory, directoryOrConfig, config3, authorityC
         }
       }
       if (input.tool === "apply_patch" || input.tool === "patch") {
-        const agentName = swarmState.activeAgent.get(input.sessionID) ?? "architect";
+        const patchAgentName = swarmState.activeAgent.get(input.sessionID);
+        if (!patchAgentName) {
+          throw new Error(`WRITE BLOCKED: No active agent registered for session "${input.sessionID}". Call startAgentSession before issuing write tool calls.`);
+        }
         for (const p of extractPatchTargetPaths(input.tool, output.args)) {
-          const authorityCheck = checkFileAuthorityWithRules(agentName, p, effectiveDirectory, precomputedAuthorityRules);
+          const lstatBlock = checkWriteTargetForSymlink(p, effectiveDirectory);
+          if (lstatBlock) {
+            throw new Error(lstatBlock);
+          }
+          if (universalDenyPrefixes.length > 0) {
+            const normalizedP = path41.relative(path41.resolve(effectiveDirectory), path41.resolve(effectiveDirectory, p)).replace(/\\/g, "/");
+            for (const prefix of universalDenyPrefixes) {
+              if (normalizedP.toLowerCase().startsWith(prefix.toLowerCase())) {
+                throw new Error(`WRITE BLOCKED: Agent "${patchAgentName}" is not authorised to write "${p}" (via patch). Reason: Path is under universal deny prefix "${prefix}"`);
+              }
+            }
+          }
+          const authorityCheck = checkFileAuthorityWithRules(patchAgentName, p, effectiveDirectory, precomputedAuthorityRules);
           if (!authorityCheck.allowed) {
-            throw new Error(`WRITE BLOCKED: Agent "${agentName}" is not authorised to write "${p}" (via patch). Reason: ${authorityCheck.reason}`);
+            throw new Error(`WRITE BLOCKED: Agent "${patchAgentName}" is not authorised to write "${p}" (via patch). Reason: ${authorityCheck.reason}`);
           }
         }
       }
@@ -60491,6 +60525,37 @@ var DEFAULT_AGENT_AUTHORITY_RULES = {
     blockedZones: ["generated"]
   }
 };
+function checkWriteTargetForSymlink(targetPath, cwd) {
+  const normalizedCwd = path41.resolve(cwd);
+  const normalizedTarget = path41.resolve(cwd, targetPath);
+  const ancestors = [];
+  let current = normalizedTarget;
+  while (true) {
+    ancestors.push(current);
+    const rel = path41.relative(normalizedCwd, current);
+    if (rel === "" || rel.startsWith(".."))
+      break;
+    const parent = path41.dirname(current);
+    if (parent === current)
+      break;
+    current = parent;
+  }
+  for (const ancestor of ancestors) {
+    let stat2 = null;
+    try {
+      stat2 = fsSync.lstatSync(ancestor);
+    } catch (err2) {
+      const code = err2.code;
+      if (code === "ENOENT")
+        continue;
+      return `WRITE BLOCKED: lstat failed on "${ancestor}": ${String(err2)} \u2014 refusing write on unverifiable path`;
+    }
+    if (stat2.isSymbolicLink()) {
+      return `WRITE BLOCKED: "${ancestor}" is a symlink \u2014 writing through a symlink could redirect the write outside the working directory`;
+    }
+  }
+  return null;
+}
 function buildEffectiveRules(authorityConfig) {
   if (authorityConfig?.enabled === false || !authorityConfig?.rules) {
     return DEFAULT_AGENT_AUTHORITY_RULES;
@@ -70085,11 +70150,11 @@ var declare_council_criteria = createSwarmTool({
 });
 // src/tools/declare-scope.ts
 init_tool();
+import * as fs53 from "fs";
+import * as path67 from "path";
 init_state();
 init_task_id();
 init_create_tool();
-import * as fs53 from "fs";
-import * as path67 from "path";
 function validateTaskIdFormat2(taskId) {
   return validateTaskIdFormat(taskId);
 }
@@ -70257,6 +70322,20 @@ async function executeDeclareScope(args2, fallbackDir) {
       success: false,
       message: "Validation failed",
       errors: normalizeErrors
+    };
+  }
+  const lstatErrors = [];
+  for (const file3 of mergedFiles) {
+    const block = checkWriteTargetForSymlink(file3, dir);
+    if (block) {
+      lstatErrors.push(block);
+    }
+  }
+  if (lstatErrors.length > 0) {
+    return {
+      success: false,
+      message: "Scope contains symlink-backed paths",
+      errors: lstatErrors
     };
   }
   for (const [_sessionId, session] of swarmState.agentSessions) {

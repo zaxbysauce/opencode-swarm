@@ -919,6 +919,10 @@ export type AgentAuthorityRule = z.infer<typeof AgentAuthorityRuleSchema>;
 export const AuthorityConfigSchema = z.object({
 	enabled: z.boolean().default(true),
 	rules: z.record(z.string(), AgentAuthorityRuleSchema).default({}),
+	// Path prefixes that no agent may write to, regardless of per-agent rules.
+	// Applied before per-agent authority checks and cannot be overridden.
+	// Example: [".env", ".git/config", "secrets/"]
+	universal_deny_prefixes: z.array(z.string()).default([]),
 });
 
 export type AuthorityConfig = z.infer<typeof AuthorityConfigSchema>;

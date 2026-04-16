@@ -120,6 +120,17 @@ type AgentRule = {
 };
 export declare const DEFAULT_AGENT_AUTHORITY_RULES: Record<string, AgentRule>;
 /**
+ * Checks whether a write target path (or any ancestor up to cwd) is a symlink.
+ * Writing through a symlink can redirect the write to a location outside the
+ * working directory, bypassing scope containment.
+ *
+ * ENOENT on any node in the chain is allowed — the file/dir doesn't exist yet.
+ * Any other lstat error (EPERM, EACCES) fails closed.
+ *
+ * @returns A block reason string if a symlink is detected, null if all clear.
+ */
+export declare function checkWriteTargetForSymlink(targetPath: string, cwd: string): string | null;
+/**
  * Checks whether the given agent is authorised to write to the given file path.
  */
 export declare function checkFileAuthority(agentName: string, filePath: string, cwd: string, authorityConfig?: AuthorityConfig): {
