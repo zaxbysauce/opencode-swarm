@@ -178,7 +178,7 @@ describe('Transparent authority: non-architect agents checked on Write', () => {
 		);
 	});
 
-	it('coder blocked from writing to tests/ via edit tool (not in coder allowedPrefix in default rules)', async () => {
+	it('coder allowed to write to tests/ via edit tool (in coder allowedPrefix)', async () => {
 		// Default coder allowedPrefix: ['src/', 'tests/', 'docs/', 'scripts/']
 		// tests/ IS included for coder — so this should be allowed
 		const hooks = makeHooks();
@@ -325,6 +325,51 @@ describe('universal_deny_prefixes', () => {
 		).rejects.toThrow(/universal deny prefix/);
 	});
 
+	it('blocks paths using ../ traversal that normalize to a denied prefix', async () => {
+		// Test gap fix: ensures path.resolve/relative normalizes '..' before prefix check,
+		// preventing bypass via 'src/../.env' which resolves to '.env'
+		const hooks = makeHooks({ universal_deny_prefixes: ['.env'] });
+		coderSession('coder-deny-traversal');
+
+		await expect(
+			hooks.toolBefore(
+				{ tool: 'write', sessionID: 'coder-deny-traversal', callID: 'u8' },
+				{ args: { filePath: 'src/../.env' } },
+			),
+		).rejects.toThrow(/universal deny prefix/);
+	});
+
+	it('blocks nested ../ traversal that normalizes to a denied prefix', async () => {
+		// Test gap fix: deep traversal 'a/b/../../secrets/key' normalizes to 'secrets/key'
+		const hooks = makeHooks({ universal_deny_prefixes: ['secrets/'] });
+		coderSession('coder-deny-nested-traversal');
+
+		await expect(
+			hooks.toolBefore(
+				{
+					tool: 'write',
+					sessionID: 'coder-deny-nested-traversal',
+					callID: 'u9',
+				},
+				{ args: { filePath: 'a/b/../../secrets/key.pem' } },
+			),
+		).rejects.toThrow(/universal deny prefix/);
+	});
+
+	it('blocks absolute paths inside cwd that match a denied prefix', async () => {
+		// Test gap fix: absolute paths should also be normalized and matched
+		const hooks = makeHooks({ universal_deny_prefixes: ['.env'] });
+		coderSession('coder-deny-absolute');
+
+		const absolutePath = path.join(tempDir, '.env');
+		await expect(
+			hooks.toolBefore(
+				{ tool: 'write', sessionID: 'coder-deny-absolute', callID: 'u10' },
+				{ args: { filePath: absolutePath } },
+			),
+		).rejects.toThrow(/universal deny prefix/);
+	});
+
 	it('BLOCKS write when no active agent is registered for the session', async () => {
 		// Fix for adversarial finding: missing activeAgent fell back to 'architect' (broad permissions)
 		// Now it fails closed instead
@@ -402,6 +447,65 @@ describe('lstat check via toolBefore (Write tool)', () => {
 			{ args: { filePath: 'src/new.ts' } },
 		);
 	});
+
+	it('BLOCKS apply_patch when target path is a symlink', async () => {
+		// Test gap fix: apply_patch + lstat combination was not previously tested
+		await fs.mkdir(path.join(tempDir, 'src'), { recursive: true });
+		const realFile = path.join(tempDir, 'src', 'real.ts');
+		const linkFile = path.join(tempDir, 'src', 'link.ts');
+		await fs.writeFile(realFile, 'real');
+		fsSync.symlinkSync(realFile, linkFile);
+
+		const hooks = makeHooks();
+		coderSession('coder-patch-lstat');
+
+		const patchContent = `*** Begin Patch
+*** Update File: src/link.ts
+@@
+-real
++modified
+*** End Patch`;
+
+		await expect(
+			hooks.toolBefore(
+				{ tool: 'apply_patch', sessionID: 'coder-patch-lstat', callID: 'l4' },
+				{ args: { patch: patchContent } },
+			),
+		).rejects.toThrow(/WRITE BLOCKED.*symlink/);
+	});
+
+	it('BLOCKS apply_patch when a parent directory is a symlink', async () => {
+		// Test gap fix: verifies ancestor-chain walk works for patch targets
+		const outside = await fs.mkdtemp(path.join(os.tmpdir(), 'patch-ext-'));
+		fsSync.symlinkSync(outside, path.join(tempDir, 'linked-src'));
+
+		const hooks = makeHooks();
+		coderSession('coder-patch-lstat-parent');
+
+		const patchContent = `*** Begin Patch
+*** Update File: linked-src/file.ts
+@@
+-x
++y
+*** End Patch`;
+
+		await expect(
+			hooks.toolBefore(
+				{
+					tool: 'apply_patch',
+					sessionID: 'coder-patch-lstat-parent',
+					callID: 'l5',
+				},
+				{ args: { patch: patchContent } },
+			),
+		).rejects.toThrow(/WRITE BLOCKED.*symlink/);
+
+		try {
+			await fs.rm(outside, { recursive: true, force: true });
+		} catch {
+			/* ignore */
+		}
+	});
 });
 
 // ─── 5. declare_scope lstat gate ─────────────────────────────────────────────
@@ -475,5 +579,28 @@ describe('declare_scope lstat validation', () => {
 			tempDir,
 		);
 		expect(result.success).toBe(true);
+	});
+
+	it('rejects mixed scope when only some files are symlinked (no early-exit)', async () => {
+		// Test gap fix: verifies the lstat check loop does NOT short-circuit on the
+		// first real file — every declared file must be validated.
+		await writePlan();
+		await fs.mkdir(path.join(tempDir, 'src'), { recursive: true });
+		const realFile = path.join(tempDir, 'src', 'real.ts');
+		await fs.writeFile(realFile, 'ok');
+
+		// Create a symlink that appears AFTER a real file in the scope list
+		const linkTarget = path.join(tempDir, 'target.ts');
+		await fs.writeFile(linkTarget, 'target');
+		fsSync.symlinkSync(linkTarget, path.join(tempDir, 'src', 'link.ts'));
+
+		const result = await executeDeclareScope(
+			{ taskId: '1.1', files: ['src/real.ts', 'src/link.ts'] },
+			tempDir,
+		);
+		expect(result.success).toBe(false);
+		expect(result.message).toContain('symlink');
+		// Confirm the symlinked file was actually detected (not skipped by early-exit)
+		expect(JSON.stringify(result.errors ?? [])).toContain('link.ts');
 	});
 });
