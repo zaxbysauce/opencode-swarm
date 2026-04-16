@@ -219,6 +219,17 @@ describe('Transparent authority: non-architect agents checked on Write', () => {
 			),
 		).rejects.toThrow(/WRITE BLOCKED/);
 	});
+
+	it('architect is permitted to write to src/ (authority check does not block architect)', async () => {
+		const hooks = makeHooks();
+		architectSession('arch-write-src');
+
+		// Architect writes to src/ must not be blocked by the authority check
+		await hooks.toolBefore(
+			{ tool: 'write', sessionID: 'arch-write-src', callID: 'arch-w1' },
+			{ args: { filePath: 'src/new-module.ts' } },
+		);
+	});
 });
 
 // ─── 3. universal_deny_prefixes ───────────────────────────────────────────────
