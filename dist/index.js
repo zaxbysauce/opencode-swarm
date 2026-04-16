@@ -59508,6 +59508,7 @@ function dcNormalizeCommand(cmd) {
   s = s.replace(/`(.)/g, "$1");
   s = s.replace(/\^([a-zA-Z0-9 ])/g, "$1");
   s = s.replace(/""/g, "");
+  s = s.replace(/''/g, "");
   return s;
 }
 function dcStripOneWrapper(cmd) {
@@ -59527,13 +59528,13 @@ function dcStripOneWrapper(cmd) {
       return t;
     }
   }
-  const shellMatch = /^(?:bash|sh|zsh|dash|fish)(?:\.exe)?\s+-c\s+"?(.*?)"?\s*$/s.exec(t);
+  const shellMatch = /^(?:bash|sh|zsh|dash|fish)(?:\.exe)?\s+-c\s+"?(.*?)"?\s*$/is.exec(t);
   if (shellMatch)
     return shellMatch[1].trim();
-  const prefixMatch = /^(?:sudo|time|nohup)\s+(.+)$/s.exec(t) ?? /^env(?:\s+[A-Za-z_][A-Za-z0-9_]*=[^\s]*)*\s+(.+)$/s.exec(t) ?? /^nice\s+(?:-n\s+\d+\s+)?(.+)$/s.exec(t);
+  const prefixMatch = /^(?:sudo|time|nohup)\s+(.+)$/is.exec(t) ?? /^env(?:\s+[A-Za-z_][A-Za-z0-9_]*=[^\s]*)*\s+(.+)$/is.exec(t) ?? /^nice\s+(?:-n\s+\d+\s+)?(.+)$/is.exec(t);
   if (prefixMatch)
     return prefixMatch[1].trim();
-  const wslMatch = /^wsl(?:\.exe)?\s+(?:-e|--)\s+(.+)$/s.exec(t);
+  const wslMatch = /^wsl(?:\.exe)?\s+(?:-e|--)\s+(.+)$/is.exec(t);
   if (wslMatch)
     return wslMatch[1].trim();
   const scriptBlockMatch = /^&\s*\{(.+)\}$/s.exec(t);
@@ -59683,7 +59684,9 @@ function dcCheckJunctionCreation(segment, cwd) {
     }
     return null;
   }
-  const newItemMatch = /New-Item\b.*-ItemType\s+(?:Junction|SymbolicLink|HardLink)\b.*-Target\s+"?([^"\s;]+)"?/i.exec(segment);
+  const newItemTypeMatch = /New-Item\b.*-ItemType\s+(?:Junction|SymbolicLink|HardLink)\b/i.test(segment);
+  const newItemTargetMatch = /-Target\s+"?([^"\s;]+)"?/i.exec(segment);
+  const newItemMatch = newItemTypeMatch ? newItemTargetMatch : null;
   if (newItemMatch) {
     const target = newItemMatch[1].trim();
     if (!dcHasUnresolvableVars(target)) {
@@ -59698,10 +59701,11 @@ function dcCheckJunctionCreation(segment, cwd) {
   const lnMatch = /^ln\s+(?:-[sfnv]*s[sfnv]*|-s)\s+"?([^"\s]+)"?(?:\s+"?[^"\s]+"?)?\s*$/.exec(segment);
   if (lnMatch) {
     const target = lnMatch[1].trim();
-    if (!dcHasUnresolvableVars(target) && path41.isAbsolute(target)) {
-      const rel = path41.relative(cwd, target);
+    if (!dcHasUnresolvableVars(target)) {
+      const resolved = path41.resolve(cwd, target);
+      const rel = path41.relative(cwd, resolved);
       if (rel.startsWith("..") || path41.isAbsolute(rel)) {
-        return `BLOCKED: Symlink creation targeting path outside working directory: ln -s target "${target}" is outside "${cwd}". Symlinks to external paths combined with recursive deletion can destroy data.`;
+        return `BLOCKED: Symlink creation targeting path outside working directory: ln -s target "${target}" resolves to "${resolved}" which is outside "${cwd}". Symlinks to external paths combined with recursive deletion can destroy data.`;
       }
     }
     return null;
