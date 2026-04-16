@@ -268,6 +268,537 @@ function isInDeclaredScope(
 	});
 }
 
+// ============================================================================
+// PR A: Cross-platform destructive command protection helpers
+// ============================================================================
+
+/** Maximum recursion depth for wrapper unwrapping */
+const DC_MAX_UNWRAP_DEPTH = 5;
+
+/**
+ * Expanded safe-target allowlist for recursive delete operations.
+ * These directory names are safe to delete recursively by name alone.
+ * NOTE: Subdirectory paths like node_modules/.cache are NOT safe — the
+ * check requires the target be exactly one of these bare names.
+ */
+const DC_SAFE_TARGETS = new Set([
+	'node_modules',
+	'.git',
+	'dist',
+	'build',
+	'coverage',
+	'.next',
+	'.turbo',
+	'.cache',
+	'.venv',
+	'venv',
+	'__pycache__',
+	'target',
+	'out',
+	'.parcel-cache',
+	'.svelte-kit',
+	'.nuxt',
+	'.output',
+	'.angular',
+	'.gradle',
+	'vendor',
+]);
+
+/**
+ * Path prefixes that are unconditionally blocked as destructive targets.
+ * These represent filesystem roots and critical system directories.
+ */
+const DC_BLOCKED_ABSOLUTE_PREFIXES: readonly string[] = [
+	// POSIX roots
+	'/root',
+	'/home',
+	'/Users',
+	'/etc',
+	'/var',
+	'/usr',
+	'/opt',
+	'/bin',
+	'/sbin',
+	'/lib',
+	'/boot',
+	'/proc',
+	'/sys',
+	'/dev',
+	'/run',
+	'/System',
+	'/Library',
+	'/Applications',
+	// Windows roots (drive letters)
+	'C:\\Windows',
+	'C:\\Users',
+	'C:\\Program Files',
+	'C:\\ProgramData',
+	'C:/Windows',
+	'C:/Users',
+	'C:/Program Files',
+	'C:/ProgramData',
+];
+
+/** Filesystem roots that are always blocked outright */
+const DC_FS_ROOTS = new Set(['/', 'C:\\', 'C:/', 'D:\\', 'D:/', 'E:\\', 'E:/']);
+
+/** Path prefixes indicating a remote or network filesystem (best-effort) */
+const DC_REMOTE_PREFIXES: readonly string[] = [
+	'\\\\', // UNC paths e.g. \\server\share
+	'/Volumes/', // macOS external/network volumes
+	'/net/', // autofs network paths
+	'/nfs/', // explicit NFS mounts
+	'/smb/', // Samba mounts
+	'/run/user/', // user session mounts
+];
+
+/**
+ * Normalize a command string for pattern matching:
+ * 1. Unicode NFKC normalize (collapses homoglyphs)
+ * 2. Detect evasion techniques that exist only to defeat scanners
+ *
+ * When an evasion technique is detected, the decoded form is returned so
+ * that pattern matching can still fire on it. Only fails-closed when the
+ * evasion wraps a form we cannot safely decode.
+ */
+function dcNormalizeCommand(cmd: string): string {
+	// Step 1: NFKC — collapses Unicode fullwidth letters and homoglyphs
+	let s = cmd.normalize('NFKC');
+
+	// Step 2: PowerShell backtick escapes — PS uses ` as escape char inside strings.
+	// `r`m`d`i`r decodes to rmdir; R`e`m`o`v`e`-`I`t`e`m decodes to Remove-Item.
+	// In PS, backtick before ANY character produces that character (e.g. `- is just -).
+	// Strip all backtick-char pairs so pattern matching fires on the decoded form.
+	s = s.replace(/`(.)/g, '$1');
+
+	// Step 3: cmd.exe caret escapes — ^r^m^d^i^r decodes to rmdir.
+	// Carets outside quoted strings are escape characters; collapse all caret-letter sequences.
+	s = s.replace(/\^([a-zA-Z0-9 ])/g, '$1');
+
+	// Step 4: quote-splicing evasion e.g. r""m""dir or R''e''m''o''v''e''-''I''t''e''m
+	// Collapse both doubled double-quotes and doubled single-quotes (PS single-quote splice).
+	s = s.replace(/""/g, '');
+	s = s.replace(/''/g, '');
+
+	return s;
+}
+
+/**
+ * Strip one layer of a shell wrapper from a command string.
+ * Returns the inner command if a wrapper was found, null otherwise.
+ *
+ * Handles:
+ *   - cmd /c "..."  cmd /k "..."
+ *   - powershell -Command "..." / -c "..." / -EncodedCommand <b64> / -enc <b64>
+ *   - pwsh -Command / -c / -EncodedCommand / -enc
+ *   - bash -c "..." / sh -c / zsh -c
+ *   - sudo <...> / env VAR=val <...> / time <...> / nohup <...>
+ *   - wsl -e ... / wsl -- ... / wsl.exe -e ...
+ *   - PowerShell & { ... } script blocks
+ *   - PowerShell iex / Invoke-Expression <...>
+ *   - call <...> (batch)
+ */
+function dcStripOneWrapper(cmd: string): string | null {
+	const t = cmd.trim();
+
+	// cmd.exe wrappers: cmd /c "inner" or cmd /k "inner" — case-insensitive (CMD, cmd, Cmd)
+	const cmdExeMatch = /^cmd(?:\.exe)?\s+\/[ckCK]\s+"?(.*?)"?\s*$/is.exec(t);
+	if (cmdExeMatch) return cmdExeMatch[1].trim();
+
+	// PowerShell -Command / -c variants — case-insensitive (POWERSHELL, powershell, pwsh, PWSH)
+	const psCommandMatch =
+		/^(?:powershell|pwsh)(?:\.exe)?\s+(?:-(?:Command|command|c)\s+)(.+)$/is.exec(
+			t,
+		);
+	if (psCommandMatch)
+		return psCommandMatch[1].replace(/^["']|["']$/g, '').trim();
+
+	// PowerShell -EncodedCommand / -enc (base64): decode and return
+	const psEncMatch =
+		/^(?:powershell|pwsh)(?:\.exe)?\s+(?:-(?:EncodedCommand|encodedcommand|enc|e)\s+)([A-Za-z0-9+/=]+)\s*$/.exec(
+			t,
+		);
+	if (psEncMatch) {
+		try {
+			const decoded = Buffer.from(psEncMatch[1], 'base64').toString('utf16le');
+			return decoded.trim();
+		} catch {
+			// Cannot decode — fail closed by returning the original (pattern match will see -EncodedCommand)
+			return t;
+		}
+	}
+
+	// bash/sh/zsh -c "inner" — case-insensitive for consistency with other wrappers
+	const shellMatch =
+		/^(?:bash|sh|zsh|dash|fish)(?:\.exe)?\s+-c\s+"?(.*?)"?\s*$/is.exec(t);
+	if (shellMatch) return shellMatch[1].trim();
+
+	// sudo / env VAR=val / time / nohup / nice -n N: strip leading word + optional args
+	// Case-insensitive: SUDO, TIME, NOHUP are valid in encoded/obfuscated commands.
+	const prefixMatch =
+		/^(?:sudo|time|nohup)\s+(.+)$/is.exec(t) ??
+		/^env(?:\s+[A-Za-z_][A-Za-z0-9_]*=[^\s]*)*\s+(.+)$/is.exec(t) ??
+		/^nice\s+(?:-n\s+\d+\s+)?(.+)$/is.exec(t);
+	if (prefixMatch) return prefixMatch[1].trim();
+
+	// WSL cross-OS bridge: wsl -e ... / wsl -- ... / wsl.exe -e ...
+	// Case-insensitive: WSL.EXE is commonly written uppercase on Windows.
+	// These execute commands in the Linux subsystem — paths like /mnt/c/ map to C:\
+	const wslMatch = /^wsl(?:\.exe)?\s+(?:-e|--)\s+(.+)$/is.exec(t);
+	if (wslMatch) return wslMatch[1].trim();
+
+	// PowerShell script block: & { ... } or & { ... } ; & { ... }
+	const scriptBlockMatch = /^&\s*\{(.+)\}$/s.exec(t);
+	if (scriptBlockMatch) return scriptBlockMatch[1].trim();
+
+	// PowerShell Invoke-Expression / iex
+	const iexMatch = /^(?:Invoke-Expression|iex)\s+(.+)$/is.exec(t);
+	if (iexMatch) return iexMatch[1].replace(/^["'`]|["'`]$/g, '').trim();
+
+	// PowerShell Invoke-Command -ScriptBlock { ... }
+	const invokeCommandMatch =
+		/^Invoke-Command\s+.*-ScriptBlock\s*\{(.+)\}$/is.exec(t);
+	if (invokeCommandMatch) return invokeCommandMatch[1].trim();
+
+	// batch: call <command>
+	const callMatch = /^call\s+(.+)$/is.exec(t);
+	if (callMatch) return callMatch[1].trim();
+
+	return null;
+}
+
+/**
+ * Recursively unwrap all shell wrappers up to DC_MAX_UNWRAP_DEPTH.
+ * Returns the innermost unwrapped command.
+ */
+function dcUnwrapWrappers(cmd: string): string {
+	let current = cmd.trim();
+	for (let depth = 0; depth < DC_MAX_UNWRAP_DEPTH; depth++) {
+		const inner = dcStripOneWrapper(current);
+		if (inner === null || inner === current) break;
+		current = inner.trim();
+	}
+	return current;
+}
+
+/**
+ * Split a compound command into individual segments, splitting on:
+ *   ; && || | newlines
+ * Respects double-quoted strings (does not split inside quotes).
+ * Returns array of trimmed non-empty segments.
+ */
+function dcSplitSegments(cmd: string): string[] {
+	const segments: string[] = [];
+	let current = '';
+	let inDoubleQuote = false;
+	let inSingleQuote = false;
+
+	for (let i = 0; i < cmd.length; i++) {
+		const ch = cmd[i];
+		const next = cmd[i + 1];
+
+		if (ch === '"' && !inSingleQuote) {
+			inDoubleQuote = !inDoubleQuote;
+			current += ch;
+			continue;
+		}
+		if (ch === "'" && !inDoubleQuote) {
+			inSingleQuote = !inSingleQuote;
+			current += ch;
+			continue;
+		}
+
+		if (!inDoubleQuote && !inSingleQuote) {
+			// Check for && or ||
+			if ((ch === '&' && next === '&') || (ch === '|' && next === '|')) {
+				segments.push(current.trim());
+				current = '';
+				i++; // skip second char
+				continue;
+			}
+			// Single | (pipe) or ; or newline
+			if (ch === '|' || ch === ';' || ch === '\n' || ch === '\r') {
+				segments.push(current.trim());
+				current = '';
+				continue;
+			}
+		}
+		current += ch;
+	}
+	if (current.trim()) segments.push(current.trim());
+	return segments.filter((s) => s.length > 0);
+}
+
+/**
+ * Returns true if a path string contains unexpanded environment variable
+ * references that we cannot resolve at check time.
+ */
+function dcHasUnresolvableVars(p: string): boolean {
+	// %VAR% (cmd.exe), $VAR or ${VAR} or $env:VAR (PS/bash)
+	return /(%[A-Za-z_][A-Za-z0-9_]*%|\$\{?[A-Za-z_]|\$env:)/i.test(p);
+}
+
+/**
+ * Returns true if the path looks like a remote/network filesystem path.
+ */
+function dcIsRemotePath(p: string): boolean {
+	return DC_REMOTE_PREFIXES.some((pfx) => p.startsWith(pfx));
+}
+
+/**
+ * Walk from target path up to (but not beyond) cwd using synchronous lstat,
+ * checking each ancestor for symlinks, junctions, or reparse points.
+ *
+ * Returns a block reason string if a suspicious ancestor is found, null otherwise.
+ * Skips silently on ENOENT (target does not exist — nothing to delete).
+ * Fails closed on unexpected lstat errors.
+ */
+function dcLstatAncestorWalk(targetPath: string, cwd: string): string | null {
+	// Normalize separators to the platform convention
+	const normalizedTarget = path.resolve(cwd, targetPath);
+	const normalizedCwd = path.resolve(cwd);
+
+	// Collect ancestor chain from target up to (and including) cwd
+	const ancestors: string[] = [];
+	let current = normalizedTarget;
+	while (true) {
+		ancestors.push(current);
+		const parent = path.dirname(current);
+		if (parent === current) break; // filesystem root
+		// Stop once we've gone past cwd
+		const rel = path.relative(normalizedCwd, current);
+		if (rel === '' || rel.startsWith('..')) break;
+		current = parent;
+	}
+
+	for (const ancestor of ancestors) {
+		let stat: ReturnType<typeof fsSync.lstatSync> | null = null;
+		try {
+			stat = fsSync.lstatSync(ancestor);
+		} catch (err: unknown) {
+			const code = (err as NodeJS.ErrnoException).code;
+			if (code === 'ENOENT') {
+				// Target does not exist — nothing to delete at this point
+				break;
+			}
+			// Unexpected error (EPERM, EACCES, etc.) — fail closed
+			return `lstat failed on "${ancestor}": ${String(err)} — refusing to allow destructive operation on unverifiable path`;
+		}
+
+		if (stat.isSymbolicLink()) {
+			return `BLOCKED: "${ancestor}" is a symlink/junction — deleting recursively through it would destroy the link target. Use platform-specific junction deletion (fsutil reparsepoint delete, Remove-Item without -Recurse) instead.`;
+		}
+	}
+
+	return null; // all clear
+}
+
+/**
+ * Given a set of raw target strings from a destructive command, apply:
+ * 1. Unresolvable-var check (fail closed)
+ * 2. Safe-target allowlist check (allow through)
+ * 3. Remote filesystem check (block)
+ * 4. Unconditional system-path block
+ * 5. lstat ancestor walk (block on symlink/junction in chain)
+ *
+ * Returns a block reason string or null if targets are acceptable.
+ */
+function dcValidateTargets(targets: string[], cwd: string): string | null {
+	for (const raw of targets) {
+		const t = raw.trim().replace(/^["']|["']$/g, '');
+		if (!t || t === '.') continue;
+
+		// Check for unexpanded vars — fail closed (cannot verify safety)
+		if (dcHasUnresolvableVars(t)) {
+			return `BLOCKED: Destructive command targets path with unexpanded variable "${t}" — cannot verify safety. Resolve variables before using destructive operations.`;
+		}
+
+		// Check remote filesystem prefixes
+		if (dcIsRemotePath(t)) {
+			return `BLOCKED: Destructive command targets remote/network filesystem path "${t}" — refusing to execute remote destructive operations.`;
+		}
+
+		// UNC path \\server\share or extended \\?\
+		if (/^\\\\/.test(t)) {
+			return `BLOCKED: Destructive command targets UNC path "${t}" — UNC paths in destructive operations are not allowed.`;
+		}
+
+		// lstat ancestor walk: MUST run before safe-target allowlist.
+		// An LLM can create a junction named "node_modules" (or "dist", etc.) pointing to
+		// important data, then run "rm -rf node_modules". Without this check, the safe-target
+		// allowlist would permit the deletion — this is the K2.6 incident mechanism replayed
+		// with a safe-named junction.
+		const lstatBlock = dcLstatAncestorWalk(t, cwd);
+		if (lstatBlock) return lstatBlock;
+
+		// Safe bare-name targets (after lstat confirms no junction/symlink): skip path checks
+		const basename = path.basename(t);
+		if (t === basename && DC_SAFE_TARGETS.has(t)) {
+			continue; // Allowed — lstat confirmed no junction/symlink in ancestor chain
+		}
+
+		// Filesystem roots — unconditional block
+		if (DC_FS_ROOTS.has(t) || DC_FS_ROOTS.has(t.replace(/\//g, '\\'))) {
+			return `BLOCKED: Destructive command targets filesystem root "${t}"`;
+		}
+
+		// Absolute path: check against blocked system prefixes
+		if (path.isAbsolute(t) || /^[A-Za-z]:/.test(t)) {
+			for (const blocked of DC_BLOCKED_ABSOLUTE_PREFIXES) {
+				if (t.startsWith(blocked)) {
+					return `BLOCKED: Destructive command targets system path "${t}" which is under protected prefix "${blocked}"`;
+				}
+			}
+		}
+	}
+	return null;
+}
+
+/**
+ * Detect Windows junction or symlink CREATION commands.
+ * Junction creation followed by recursive deletion of the junction is the
+ * exact mechanism of the K2.6 data-loss incident.
+ * Block junction/symlink creation where the target resolves outside cwd.
+ *
+ * Patterns covered:
+ *   mklink /J <link> <target>
+ *   mklink /D <link> <target>
+ *   New-Item -ItemType Junction -Path <link> -Target <target>
+ *   New-Item -ItemType SymbolicLink -Path <link> -Target <target>
+ *   ln -s <target> <link>  (when target is outside cwd)
+ */
+function dcCheckJunctionCreation(segment: string, cwd: string): string | null {
+	// mklink /J or /D (cmd.exe)
+	const mklinkMatch =
+		/^mklink(?:\.exe)?\s+\/[JjDd]\s+"?([^"\s]+)"?\s+"?([^"\s]+)"?/i.exec(
+			segment,
+		);
+	if (mklinkMatch) {
+		const target = mklinkMatch[2].trim();
+		if (!dcHasUnresolvableVars(target)) {
+			const resolved = path.resolve(cwd, target);
+			const rel = path.relative(cwd, resolved);
+			if (rel.startsWith('..') || path.isAbsolute(rel)) {
+				return `BLOCKED: Junction/symlink creation targeting path outside working directory: mklink target "${target}" resolves to "${resolved}" which is outside "${cwd}". Creating junctions to external paths and then deleting them recursively can destroy data.`;
+			}
+		}
+		return null; // target is inside cwd — allow
+	}
+
+	// New-Item -ItemType Junction|SymbolicLink (PowerShell)
+	// Parameters are order-independent in PS, so check for -ItemType and -Target independently.
+	const newItemTypeMatch =
+		/New-Item\b.*-ItemType\s+(?:Junction|SymbolicLink|HardLink)\b/i.test(
+			segment,
+		);
+	const newItemTargetMatch = /-Target\s+"?([^"\s;]+)"?/i.exec(segment);
+	const newItemMatch = newItemTypeMatch ? newItemTargetMatch : null;
+	if (newItemMatch) {
+		const target = newItemMatch[1].trim();
+		if (!dcHasUnresolvableVars(target)) {
+			const resolved = path.resolve(cwd, target);
+			const rel = path.relative(cwd, resolved);
+			if (rel.startsWith('..') || path.isAbsolute(rel)) {
+				return `BLOCKED: Junction/symlink creation targeting path outside working directory: New-Item target "${target}" resolves to "${resolved}" which is outside "${cwd}". This pattern caused the K2.6 data-loss incident.`;
+			}
+		}
+		return null;
+	}
+
+	// ln -s <target> (POSIX symlink; block if target resolves outside cwd)
+	// Both absolute and relative targets are checked: ln -s ../sensitive dist escapes cwd.
+	const lnMatch =
+		/^ln\s+(?:-[sfnv]*s[sfnv]*|-s)\s+"?([^"\s]+)"?(?:\s+"?[^"\s]+"?)?\s*$/.exec(
+			segment,
+		);
+	if (lnMatch) {
+		const target = lnMatch[1].trim();
+		if (!dcHasUnresolvableVars(target)) {
+			const resolved = path.resolve(cwd, target);
+			const rel = path.relative(cwd, resolved);
+			if (rel.startsWith('..') || path.isAbsolute(rel)) {
+				return `BLOCKED: Symlink creation targeting path outside working directory: ln -s target "${target}" resolves to "${resolved}" which is outside "${cwd}". Symlinks to external paths combined with recursive deletion can destroy data.`;
+			}
+		}
+		return null;
+	}
+
+	return null;
+}
+
+/**
+ * Extract candidate target paths from a destructive Windows cmd.exe command.
+ * Returns array of path-like arguments.
+ */
+function dcExtractWindowsCmdTargets(segment: string): string[] {
+	// rmdir /s /q <path> or rd /s <path>
+	const rmdirMatch =
+		/^(?:rmdir|rd)(?:\.exe)?\s+(?:\/[sqSQ]\s+)*"?(.+?)"?\s*$/i.exec(segment);
+	if (rmdirMatch) return [rmdirMatch[1].trim()];
+
+	// del /s /q /f <path>
+	const delMatch = /^del(?:\.exe)?\s+(?:\/[sqfSQF]\s+)*"?(.+?)"?\s*$/i.exec(
+		segment,
+	);
+	if (delMatch) return [delMatch[1].trim()];
+
+	return [];
+}
+
+/**
+ * Extract candidate target paths from a destructive PowerShell command.
+ * Handles both `Remove-Item <path> -Recurse` and `Remove-Item -Recurse <path>` orderings.
+ */
+function dcExtractPowerShellTargets(segment: string): string[] {
+	// Strip the leading verb
+	const verbMatch = /^(?:Remove-Item|ri|rm|rmdir|del|erase|rd)\s+/i.exec(
+		segment,
+	);
+	if (!verbMatch) return [];
+	const rest = segment.slice(verbMatch[0].length);
+
+	// Tokenize remainder; quoted strings count as one token
+	const tokens: string[] = rest.match(/"[^"]*"|'[^']*'|[^\s]+/g) ?? [];
+
+	const targets: string[] = [];
+	// Flags that consume the next token as a value
+	const valueFlags = new Set([
+		'-literalpath',
+		'-path',
+		'-filter',
+		'-include',
+		'-exclude',
+		'-lp', // alias for -LiteralPath in PS 7+
+	]);
+	let skipNext = false;
+	for (const tok of tokens) {
+		if (skipNext) {
+			skipNext = false;
+			continue;
+		}
+		if (tok.startsWith('-')) {
+			// Switch-like flags: -Recurse, -Force, -ErrorAction, -WhatIf etc.
+			if (valueFlags.has(tok.toLowerCase())) {
+				skipNext = true; // next token is the flag's value (a path) — capture it
+				// Don't push here; the *next* token IS the target path
+				// Re-enter loop with skipNext=false to capture it
+				const idx = tokens.indexOf(tok);
+				if (idx !== -1 && idx + 1 < tokens.length) {
+					const val = tokens[idx + 1].replace(/^["']|["']$/g, '');
+					if (val) targets.push(val);
+					skipNext = true; // skip the value token on next iteration
+				}
+			}
+			// else: plain switch flag like -Recurse, -Force — skip
+		} else {
+			// Non-flag positional argument → path target
+			const cleaned = tok.replace(/^["']|["']$/g, '');
+			if (cleaned) targets.push(cleaned);
+		}
+	}
+	return targets;
+}
+
 /**
  * Creates guardrails hooks for circuit breaker protection
  * @param directory Working directory from plugin init context (required)
@@ -356,91 +887,322 @@ export function createGuardrailsHooks(
 	/**
 	 * Check if a bash/shell command is potentially destructive and should be blocked.
 	 * Only active when block_destructive_commands is not false.
+	 *
+	 * PR A: Extended with cross-platform coverage:
+	 *   - Windows cmd.exe: rmdir /s, rd /s, del /s /q, ransomware-grade commands
+	 *   - PowerShell: Remove-Item -Recurse and all PS aliases, -EncodedCommand
+	 *   - Shell wrapper unwrapping: cmd /c, powershell -Command, bash -c, sudo, wsl, iex
+	 *   - Normalization: NFKC, caret-escape, backtick-escape, quote-splicing
+	 *   - Runtime lstat-ancestor-walk on destructive targets
+	 *   - Junction/symlink creation with external targets
+	 *   - Remote filesystem path rejection
+	 *   - POSIX long-form flags (--recursive --force)
 	 */
 	function checkDestructiveCommand(tool: string, args: unknown): void {
 		if (tool !== 'bash' && tool !== 'shell') return;
 		if (cfg.block_destructive_commands === false) return;
 		const toolArgs = args as Record<string, unknown> | undefined;
-		const command =
+		const rawCommand =
 			typeof toolArgs?.command === 'string' ? toolArgs.command.trim() : '';
-		if (!command) return;
+		if (!rawCommand) return;
 
-		// Fork bomb patterns
+		const cwd = effectiveDirectory;
+
+		// --- Normalize the top-level command (NFKC + evasion collapse) ---
+		const command = dcNormalizeCommand(rawCommand);
+
+		// --- Fork bomb: check on whole command BEFORE splitting (splits break the pattern) ---
 		if (/:\s*\(\s*\)\s*\{[^}]*\|[^}]*:/.test(command)) {
 			throw new Error(
 				`BLOCKED: Potentially destructive shell command detected: fork bomb pattern`,
 			);
 		}
 
-		// rm -rf / rm -r -f with non-safe paths
-		const rmFlagPattern = /^rm\s+(-r\s+-f|-f\s+-r|-rf|-fr)\s+(.+)$/;
-		const rmMatch = rmFlagPattern.exec(command);
-		if (rmMatch) {
-			const targetPart = rmMatch[2].trim();
-			const targets = targetPart.split(/\s+/);
-			const safeTargets = /^(node_modules|\.git)$/;
-			const allSafe = targets.every((t) => safeTargets.test(t));
-			if (!allSafe) {
+		// --- Unwrap all shell wrappers to the innermost command ---
+		const unwrapped = dcUnwrapWrappers(command);
+
+		// --- Split compound command into segments ---
+		// We check both the outer (post-norm) and the innermost (post-unwrap) form
+		const outerSegments = dcSplitSegments(command);
+		const innerSegments = dcSplitSegments(unwrapped);
+		// Per-segment unwrapping: handles wrappers embedded inside compound commands,
+		// e.g. "echo hello && powershell -c 'Remove-Item -Recurse C:\target'"
+		const perSegmentUnwrapped = outerSegments.map((s) => dcUnwrapWrappers(s));
+		// Deduplicate while preserving order
+		const allSegments = [
+			...new Set([...outerSegments, ...innerSegments, ...perSegmentUnwrapped]),
+		];
+
+		for (const segment of allSegments) {
+			const seg = segment.trim();
+			if (!seg) continue;
+
+			// ----------------------------------------------------------------
+			// 2. Junction/symlink CREATION with out-of-cwd target
+			//    (must check before deletion patterns; creation is the setup step)
+			// ----------------------------------------------------------------
+			const junctionBlock = dcCheckJunctionCreation(seg, cwd);
+			if (junctionBlock) throw new Error(junctionBlock);
+
+			// ----------------------------------------------------------------
+			// 3. POSIX rm — short flags (-rf, -fr, -r -f) and long flags
+			// ----------------------------------------------------------------
+			const rmShortMatch =
+				/^rm\s+(-[rRfF]+(?:\s+-[rRfF]+)*|-r\s+-f|-f\s+-r)\s+(.+)$/.exec(seg);
+			const rmLongMatch = /^rm\s+(?:--(?:recursive|force)\s+){1,2}(.+)$/.exec(
+				seg,
+			);
+			const rmAnyMatch = rmShortMatch ?? rmLongMatch;
+			if (rmAnyMatch) {
+				const targetPart = rmAnyMatch[rmShortMatch ? 2 : 1].trim();
+				const targets = targetPart.split(/\s+/);
+				// Always validate — dcValidateTargets runs lstat even for safe-named targets
+				const validateBlock = dcValidateTargets(targets, cwd);
+				if (validateBlock) throw new Error(validateBlock);
+				const allSafe = targets.every((t) =>
+					DC_SAFE_TARGETS.has(t.replace(/^["']|["']$/g, '').trim()),
+				);
+				if (!allSafe) {
+					throw new Error(
+						`BLOCKED: Potentially destructive shell command: rm with recursive/force flags on unsafe path(s): ${targetPart}`,
+					);
+				}
+			}
+
+			// ----------------------------------------------------------------
+			// 4. Windows cmd.exe: rmdir /s, rd /s
+			// ----------------------------------------------------------------
+			if (/^(?:rmdir|rd)(?:\.exe)?\s+.*\/[sS]/i.test(seg)) {
+				const targets = dcExtractWindowsCmdTargets(seg);
+				if (targets.length === 0) {
+					// Cannot extract target — fail closed
+					throw new Error(
+						`BLOCKED: Windows recursive directory delete (rmdir /s or rd /s) detected. Verify the target is not a junction/symlink.`,
+					);
+				}
+				// Always validate — dcValidateTargets runs lstat even for safe-named targets
+				const validateBlock = dcValidateTargets(targets, cwd);
+				if (validateBlock) throw new Error(validateBlock);
+				const allSafe = targets.every((t) => DC_SAFE_TARGETS.has(t.trim()));
+				if (!allSafe) {
+					throw new Error(
+						`BLOCKED: Windows recursive directory delete on unsafe path(s): ${targets.join(', ')}`,
+					);
+				}
+			}
+
+			// ----------------------------------------------------------------
+			// 5. Windows cmd.exe: del /s /q /f
+			// ----------------------------------------------------------------
+			if (/^del(?:\.exe)?\s+.*\/[sS]/i.test(seg)) {
+				const targets = dcExtractWindowsCmdTargets(seg);
+				if (targets.length > 0) {
+					// Always validate — dcValidateTargets runs lstat even for safe-named targets
+					const validateBlock = dcValidateTargets(targets, cwd);
+					if (validateBlock) throw new Error(validateBlock);
+					const allSafe = targets.every((t) => DC_SAFE_TARGETS.has(t.trim()));
+					if (!allSafe) {
+						throw new Error(
+							`BLOCKED: Windows recursive file delete (del /s) on unsafe path(s): ${targets.join(', ')}`,
+						);
+					}
+				}
+			}
+
+			// ----------------------------------------------------------------
+			// 6. PowerShell: Remove-Item / aliases with -Recurse
+			// ----------------------------------------------------------------
+			if (
+				/^(?:Remove-Item|ri|rm|rmdir|del|erase|rd)\b.*-[Rr]ecurse\b/i.test(
+					seg,
+				) ||
+				/^(?:Remove-Item|ri|rm|rmdir|del|erase|rd)\b.*-[Rr]\b/i.test(seg)
+			) {
+				const targets = dcExtractPowerShellTargets(seg);
+				if (targets.length > 0) {
+					// Always validate — dcValidateTargets runs lstat even for safe-named targets
+					const validateBlock = dcValidateTargets(targets, cwd);
+					if (validateBlock) throw new Error(validateBlock);
+					const allSafe = targets.every((t) => DC_SAFE_TARGETS.has(t.trim()));
+					if (!allSafe) {
+						throw new Error(
+							`BLOCKED: PowerShell recursive delete on unsafe path(s): ${targets.join(', ')}`,
+						);
+					}
+				} else {
+					throw new Error(
+						`BLOCKED: PowerShell Remove-Item with -Recurse detected — cannot verify target safety`,
+					);
+				}
+			}
+
+			// ----------------------------------------------------------------
+			// 7. PowerShell: Get-ChildItem | Remove-Item -Recurse (pipe form)
+			// ----------------------------------------------------------------
+			if (
+				/Get-ChildItem\b.*\|\s*Remove-Item\b.*-[Rr]ecurse/i.test(seg) ||
+				/gci\b.*\|\s*ri\b.*-[Rr]ecurse/i.test(seg)
+			) {
 				throw new Error(
-					`BLOCKED: Potentially destructive shell command: rm -rf on unsafe path(s): ${targetPart}`,
+					`BLOCKED: PowerShell pipeline "Get-ChildItem | Remove-Item -Recurse" detected — verify target safety and avoid recursive deletion through symlinks/junctions`,
 				);
 			}
-		}
 
-		// git push --force or -f
-		if (/^git\s+push\b.*?(--force|-f)\b/.test(command)) {
-			throw new Error(
-				`BLOCKED: Force push detected — git push --force is not allowed`,
-			);
-		}
+			// ----------------------------------------------------------------
+			// 8. Ransomware-grade / disk-level destruction
+			// ----------------------------------------------------------------
+			if (/^vssadmin(?:\.exe)?\s+delete\b/i.test(seg)) {
+				throw new Error(
+					`BLOCKED: "vssadmin delete" detected — deletes Volume Shadow Copies (ransomware-grade operation)`,
+				);
+			}
+			if (/^wbadmin(?:\.exe)?\s+delete\b/i.test(seg)) {
+				throw new Error(
+					`BLOCKED: "wbadmin delete" detected — deletes Windows backup catalog (ransomware-grade operation)`,
+				);
+			}
+			if (/^diskpart(?:\.exe)?$/i.test(seg)) {
+				throw new Error(
+					`BLOCKED: "diskpart" detected — interactive disk partitioning tool`,
+				);
+			}
+			if (/^bcdedit(?:\.exe)?\s+\/delete\b/i.test(seg)) {
+				throw new Error(
+					`BLOCKED: "bcdedit /delete" detected — modifies Windows boot configuration`,
+				);
+			}
+			if (/^sdelete(?:\.exe)?\s+/i.test(seg)) {
+				throw new Error(
+					`BLOCKED: "sdelete" detected — secure file deletion (Sysinternals)`,
+				);
+			}
+			if (
+				/^fsutil(?:\.exe)?\s+reparsepoint\s+delete\b/i.test(seg) ||
+				/^fsutil(?:\.exe)?\s+file\s+setzerodata\b/i.test(seg)
+			) {
+				throw new Error(`BLOCKED: "fsutil" destructive subcommand detected`);
+			}
+			if (/^takeown(?:\.exe)?\s+.*\/[rR]\b/i.test(seg)) {
+				throw new Error(
+					`BLOCKED: "takeown /R" (recursive ownership takeover) detected — often precedes destructive operations`,
+				);
+			}
+			if (/^cipher(?:\.exe)?\s+\/[wW]\b/i.test(seg)) {
+				throw new Error(
+					`BLOCKED: "cipher /w" detected — overwrites free disk space (data wipe operation)`,
+				);
+			}
+			if (/^format\s+[A-Za-z]:/i.test(seg)) {
+				throw new Error(`BLOCKED: Windows disk format command detected`);
+			}
+			if (/^robocopy(?:\.exe)?\s+.*\/(?:MIR|mir)\b/.test(seg)) {
+				throw new Error(
+					`BLOCKED: "robocopy /MIR" (mirror) detected — can delete files in the destination that don't exist in the source`,
+				);
+			}
 
-		// git reset --hard
-		if (/^git\s+reset\s+--hard/.test(command)) {
-			throw new Error(
-				`BLOCKED: "git reset --hard" detected — use --soft or --mixed with caution`,
-			);
-		}
+			// ----------------------------------------------------------------
+			// 9. POSIX: chmod/chattr/icacls denial-of-service patterns
+			// ----------------------------------------------------------------
+			if (/^chmod\s+.*-[rR]\b.*000\b/.test(seg)) {
+				throw new Error(
+					`BLOCKED: "chmod -R 000" detected — removes all permissions recursively`,
+				);
+			}
+			if (/^chattr\s+.*\+i\b/.test(seg)) {
+				throw new Error(
+					`BLOCKED: "chattr +i" detected — makes files immutable`,
+				);
+			}
+			if (/^icacls(?:\.exe)?\s+.*\/deny\b/i.test(seg)) {
+				throw new Error(
+					`BLOCKED: "icacls /deny" detected — denies filesystem permissions`,
+				);
+			}
 
-		// git reset --mixed with target commit
-		if (/^git\s+reset\s+--mixed\s+\S+/.test(command)) {
-			throw new Error(
-				`BLOCKED: "git reset --mixed" with a target branch/commit is not allowed`,
-			);
-		}
+			// ----------------------------------------------------------------
+			// 10. dd data-wipe patterns
+			// ----------------------------------------------------------------
+			if (/^dd\b.*\bif=\/dev\/(zero|null|urandom)\b/.test(seg)) {
+				throw new Error(
+					`BLOCKED: "dd" with /dev/zero, /dev/null, or /dev/urandom as input detected — data wipe operation`,
+				);
+			}
 
-		// kubectl delete
-		if (/^kubectl\s+delete\b/.test(command)) {
-			throw new Error(
-				`BLOCKED: "kubectl delete" detected — destructive cluster operation`,
-			);
-		}
+			// ----------------------------------------------------------------
+			// 11. Git destructive operations
+			// ----------------------------------------------------------------
+			if (/^git\s+push\b.*?(--force|-f)\b/.test(seg)) {
+				throw new Error(
+					`BLOCKED: Force push detected — git push --force is not allowed`,
+				);
+			}
+			if (/^git\s+reset\s+--hard/.test(seg)) {
+				throw new Error(
+					`BLOCKED: "git reset --hard" detected — use --soft or --mixed with caution`,
+				);
+			}
+			if (/^git\s+reset\s+--mixed\s+\S+/.test(seg)) {
+				throw new Error(
+					`BLOCKED: "git reset --mixed" with a target branch/commit is not allowed`,
+				);
+			}
+			if (/^git\s+clean\s+.*-[fF].*[dD]/.test(seg)) {
+				throw new Error(
+					`BLOCKED: "git clean -fd" detected — permanently deletes untracked files and directories`,
+				);
+			}
+			if (/^git\s+worktree\s+remove\s+.*--force\b/i.test(seg)) {
+				throw new Error(
+					`BLOCKED: "git worktree remove --force" detected — can delete working tree contents`,
+				);
+			}
 
-		// docker system prune
-		if (/^docker\s+system\s+prune\b/.test(command)) {
-			throw new Error(
-				`BLOCKED: "docker system prune" detected — destructive container operation`,
-			);
-		}
+			// ----------------------------------------------------------------
+			// 12. rsync mirror / sync with delete
+			// ----------------------------------------------------------------
+			if (/^rsync\b.*--delete(?:-after|-before|-during|-delay)?\b/.test(seg)) {
+				throw new Error(
+					`BLOCKED: "rsync --delete" detected — can delete files in the destination. Verify source is not empty.`,
+				);
+			}
 
-		// SQL DROP TABLE/DATABASE/SCHEMA
-		if (/^\s*DROP\s+(TABLE|DATABASE|SCHEMA)\b/i.test(command)) {
-			throw new Error(
-				`BLOCKED: SQL DROP command detected — destructive database operation`,
-			);
-		}
+			// ----------------------------------------------------------------
+			// 13. kubectl / docker (existing patterns preserved)
+			// ----------------------------------------------------------------
+			if (/^kubectl\s+delete\b/.test(seg)) {
+				throw new Error(
+					`BLOCKED: "kubectl delete" detected — destructive cluster operation`,
+				);
+			}
+			if (/^docker\s+system\s+prune\b/.test(seg)) {
+				throw new Error(
+					`BLOCKED: "docker system prune" detected — destructive container operation`,
+				);
+			}
 
-		// SQL TRUNCATE TABLE
-		if (/^\s*TRUNCATE\s+TABLE\b/i.test(command)) {
-			throw new Error(
-				`BLOCKED: SQL TRUNCATE command detected — destructive database operation`,
-			);
-		}
+			// ----------------------------------------------------------------
+			// 14. SQL DDL (existing patterns preserved)
+			// ----------------------------------------------------------------
+			if (/^\s*DROP\s+(TABLE|DATABASE|SCHEMA)\b/i.test(seg)) {
+				throw new Error(
+					`BLOCKED: SQL DROP command detected — destructive database operation`,
+				);
+			}
+			if (/^\s*TRUNCATE\s+TABLE\b/i.test(seg)) {
+				throw new Error(
+					`BLOCKED: SQL TRUNCATE command detected — destructive database operation`,
+				);
+			}
 
-		// mkfs disk format
-		if (/^mkfs[./]/.test(command)) {
-			throw new Error(
-				`BLOCKED: Disk format command (mkfs) detected — disk formatting operation`,
-			);
+			// ----------------------------------------------------------------
+			// 15. Disk format (existing mkfs + new format X:)
+			// ----------------------------------------------------------------
+			if (/^mkfs[./]/.test(seg)) {
+				throw new Error(
+					`BLOCKED: Disk format command (mkfs) detected — disk formatting operation`,
+				);
+			}
 		}
 	}
 
