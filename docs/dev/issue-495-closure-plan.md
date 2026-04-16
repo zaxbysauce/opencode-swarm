@@ -321,12 +321,24 @@ Proposed order (critic-pass correction: scope persistence ships first, not bash 
 - [ ] No sub-issues created until user approves §1.3 list and §2.3 mitigation scope.
 - [ ] No code changes in this session.
 
-## 4. Open questions for user before execution
+## 4. Decisions (locked 2026-04-16)
 
-1. Confirm §1.4 manifest vs decorator recommendation. Default: manifest.
-2. Confirm §2.3 bash-interception approach. Accept "mitigation now, syscall-level fix later" framing, or prefer jumping straight to §2.6 (e.g. Landlock/sandbox)?
-3. Confirm §2.4 hotfix ordering (persistence v6.71.1 → interception v6.71.2 → #495 phases v6.72+).
-4. Confirm scope / deferral decisions for §1.3 items #7 (FR-014), #8 (FR-019), #13 (concurrent-write safety), #16 (`command-names.ts`).
-5. Approve sub-issue creation for items in §1.3, or request a different split (e.g. group related items into fewer umbrella sub-issues).
-6. Any constraints on updating the architect / coder system prompts mid-release (§2.3 #3-4)?
+1. **§1.4 auto-registration: single manifest file.** Build `src/tools/manifest.ts` with `satisfies Record<ToolName, ToolDef>`. Phase 2 sub-plan (parallel run → cut over → enforce) applies. Plan factory pattern for async-init tools; document tree-shaking limitation.
+2. **§2.3 bash bypass: layered mitigation now + syscall-level fix as separate tracked issue.** Ship §2.3 #1, #1b, #2, #3, #4, #5 in v6.71.x. File §2.6 as new issue targeted at v7.0 or later; include design-review gate.
+3. **§2.3 scope source: BOTH plan-as-scope (#1b) AND disk-persisted declare_scope (#1).** Plan.json:files_touched is the durable source; declare_scope persists to `.swarm/scope-{taskId}.json` as per-task override. Both ship in the same hotfix because the user-visible failure is compound and partial fixes leave users worse off.
+4. **§1.5 sequencing: one sub-issue per §1.3 item (11 sub-issues), grouped into 5 PR phases.** Phase 2 (manifest) ships before Phase 1 (renames) to minimize `src/index.ts` rebase pain.
+5. **Hotfix ordering accepted as proposed:** v6.71.1 = scope persistence + plan-as-scope + prompt hardening; v6.71.2 = bash interception + regression suite; v6.72.0+ = #495 phases.
+6. **Deferral decisions for low-priority items:** §1.3 #7 (FR-014 LLM patch gen), #8 (FR-019 parallel mutation), #13 (concurrent-write safety), #16 (`command-names.ts`) are tracked as sub-issues but marked `wontfix-this-cycle` / `not-planned` until concrete user demand or unblocking dependency.
+
+## 5. Next steps (pending user confirmation)
+
+The plan is locked. Next actions are side-effecting (visible on GitHub):
+
+- **Create 11 sub-issues** under #495 (one per §1.3 open item) with severity, scope, file:line references, and phase assignment.
+- **Create 1 sub-issue** under #496 for the layered remediation (§2.3 items #1, #1b, #2, #3, #4, #5 grouped — they ship together).
+- **Create 1 standalone issue** for §2.6 syscall-level enforcement (not a sub-issue of #496; targets v7.0).
+- **Post a consolidation comment on #495** with the §1.2 already-closed evidence table.
+- **Post a status comment on #496** linking to the layered-remediation sub-issue and the syscall-level standalone issue.
+
+These are reversible (issues can be edited or closed) but they are visible to the project. Pause here for explicit user confirmation before proceeding.
 
