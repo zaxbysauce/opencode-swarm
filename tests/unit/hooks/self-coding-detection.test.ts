@@ -1520,7 +1520,7 @@ describe('ADVERSARIAL: attack vectors (Task 4.2)', () => {
 	});
 
 	// Path traversal attacks
-	it('path traversal attempt: ../../../etc/passwd -> triggers self-coding warning (not .swarm/)', async () => {
+	it('path traversal attempt: ../../../etc/passwd -> triggers self-coding warning AND blocks (not .swarm/)', async () => {
 		const config = makeGuardrailsConfig();
 		const hook = createGuardrailsHooks(config);
 
@@ -1528,12 +1528,19 @@ describe('ADVERSARIAL: attack vectors (Task 4.2)', () => {
 		swarmState.activeAgent.set(sessionId, ORCHESTRATOR_NAME);
 		startAgentSession(sessionId, ORCHESTRATOR_NAME);
 
-		// Malicious path traversal attempt
+		// Malicious path traversal attempt.
+		// v6.70.0 (#496): the cwd-containment check now rejects any path that
+		// resolves outside the working directory, so this call throws WRITE
+		// BLOCKED from the authority layer. Self-coding detection in
+		// handlePlanAndScopeProtection runs BEFORE the authority throw, so
+		// architectWriteCount is still incremented and observable.
 		const toolInput = { tool: 'write', sessionID: sessionId, callID: 'call-1' };
 		const toolOutput = {
 			args: { filePath: '../../../etc/passwd', content: 'malicious' },
 		};
-		await hook.toolBefore(toolInput as any, toolOutput as any);
+		await expect(
+			hook.toolBefore(toolInput as any, toolOutput as any),
+		).rejects.toThrow('WRITE BLOCKED');
 
 		const session = ensureAgentSession(sessionId);
 		expect(session.architectWriteCount).toBe(1);
@@ -1561,7 +1568,7 @@ describe('ADVERSARIAL: attack vectors (Task 4.2)', () => {
 	});
 
 	// Agent identity spoofing
-	it('agent name spoofing: "architect_evil" does not bypass detection', async () => {
+	it('agent name spoofing: "architect_evil" is blocked by authority (stronger than self-coding warning)', async () => {
 		const config = makeGuardrailsConfig();
 		const hook = createGuardrailsHooks(config);
 
@@ -1573,9 +1580,16 @@ describe('ADVERSARIAL: attack vectors (Task 4.2)', () => {
 		const toolOutput = {
 			args: { filePath: 'src/evil.ts', content: 'malicious' },
 		};
-		await hook.toolBefore(toolInput as any, toolOutput as any);
+		// v6.70.0 (#496): unknown agent names (not in the authority rules map)
+		// fail closed at the authority layer with "Unknown agent: architect_evil"
+		// — a stronger protection than the prior silent no-op. The spoofed
+		// identity cannot write at all.
+		await expect(
+			hook.toolBefore(toolInput as any, toolOutput as any),
+		).rejects.toThrow(/WRITE BLOCKED.*Unknown agent/);
 
-		// Should NOT trigger self-coding warning because it's not the real architect
+		// And self-coding warning still does not fire because architect_evil
+		// is not the real architect name.
 		const messages = makeMessages('TASK: Hack', 'architect_evil', sessionId);
 		await hook.messagesTransform({}, messages as any);
 
@@ -1584,25 +1598,28 @@ describe('ADVERSARIAL: attack vectors (Task 4.2)', () => {
 		);
 	});
 
-	// VULNERABILITY: Empty/null sessionID causes unhandled behavior
-	it('VULNERABILITY: empty sessionID is not architect (no self-coding check)', async () => {
+	// Empty/null sessionID is now fail-closed (v6.70.0 #496 hardening).
+	it('empty sessionID fails closed (no agent registered, not silently promoted to architect)', async () => {
 		const config = makeGuardrailsConfig();
 		const hook = createGuardrailsHooks(config);
 
-		// Empty sessionID - no architect session exists, so no self-coding detection
+		// Empty sessionID - no activeAgent mapping, so the write authority
+		// check fails closed with "No active agent registered". Previously
+		// this silently fell through to architect defaults; v6.70.0 #496
+		// requires startAgentSession before any Write/Edit.
 		const toolInput = { tool: 'write', sessionID: '', callID: 'call-1' };
 		const toolOutput = { args: { filePath: 'src/test.ts', content: 'test' } };
 
-		// Hook runs but doesn't detect architect (empty session has no agent mapping)
-		await hook.toolBefore(toolInput as any, toolOutput as any);
+		await expect(
+			hook.toolBefore(toolInput as any, toolOutput as any),
+		).rejects.toThrow(/WRITE BLOCKED.*No active agent registered/);
 
-		// Empty session won't be tracked as architect since no activeAgent mapping exists
+		// Empty session is still not tracked as architect — no silent promotion.
 		const session = swarmState.agentSessions.get('');
-		// Session may not exist or have 0 write count (not recognized as architect)
 		expect(session?.architectWriteCount ?? 0).toBe(0);
 	});
 
-	it('null sessionID is handled gracefully (uses fallback)', async () => {
+	it('null sessionID fails closed with deterministic error (no crash, no silent fallback)', async () => {
 		const config = makeGuardrailsConfig();
 		const hook = createGuardrailsHooks(config);
 
@@ -1613,8 +1630,12 @@ describe('ADVERSARIAL: attack vectors (Task 4.2)', () => {
 		};
 		const toolOutput = { args: { filePath: 'src/test.ts', content: 'test' } };
 
-		// Should NOT crash - null is handled as undefined session
-		await hook.toolBefore(toolInput as any, toolOutput as any);
+		// Should NOT crash unexpectedly — instead, fail closed with a clean
+		// WRITE BLOCKED error. v6.70.0 #496 no longer silently falls back to
+		// architect defaults for unknown sessions.
+		await expect(
+			hook.toolBefore(toolInput as any, toolOutput as any),
+		).rejects.toThrow(/WRITE BLOCKED.*No active agent registered/);
 	});
 });
 
@@ -1919,7 +1940,7 @@ describe('ADVERSARIAL: boundary cases (Task 4.2)', () => {
 		expect(session.architectWriteCount).toBe(1);
 	});
 
-	it('filePath with null byte injection: "src/test.ts\x00.swarm/" -> triggers warning', async () => {
+	it('filePath with null byte injection: "src/test.ts\x00.swarm/" -> triggers warning AND fails closed at lstat', async () => {
 		const config = makeGuardrailsConfig();
 		const hook = createGuardrailsHooks(config);
 
@@ -1928,11 +1949,18 @@ describe('ADVERSARIAL: boundary cases (Task 4.2)', () => {
 		startAgentSession(sessionId, ORCHESTRATOR_NAME);
 
 		const toolInput = { tool: 'write', sessionID: sessionId, callID: 'call-1' };
-		// Null byte injection attempt
+		// Null byte injection attempt.
+		// v6.70.0 (#496): handlePlanAndScopeProtection still detects the
+		// non-.swarm write intent and increments architectWriteCount BEFORE
+		// the lstat symlink guard runs. The lstat guard then fails closed
+		// with WRITE BLOCKED because node's fs.lstatSync rejects paths with
+		// null bytes — an even stronger protection than the prior warning.
 		const toolOutput = {
 			args: { filePath: 'src/test.ts\x00.swarm/', content: 'test' },
 		};
-		await hook.toolBefore(toolInput as any, toolOutput as any);
+		await expect(
+			hook.toolBefore(toolInput as any, toolOutput as any),
+		).rejects.toThrow('WRITE BLOCKED');
 
 		const session = ensureAgentSession(sessionId);
 		// Should detect as outside .swarm/ since null byte is before .swarm/
