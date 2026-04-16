@@ -16965,7 +16965,7 @@ var require_signal_exit = __commonJS((exports, module) => {
       emitter.count -= 1;
     };
     module.exports.unload = unload;
-    emit = function emit2(event, code, signal) {
+    emit2 = function emit3(event, code, signal) {
       if (emitter.emitted[event]) {
         return;
       }
@@ -16981,8 +16981,8 @@ var require_signal_exit = __commonJS((exports, module) => {
         var listeners = process3.listeners(sig);
         if (listeners.length === emitter.count) {
           unload();
-          emit("exit", null, sig);
-          emit("afterexit", null, sig);
+          emit2("exit", null, sig);
+          emit2("afterexit", null, sig);
           if (isWin && sig === "SIGHUP") {
             sig = "SIGINT";
           }
@@ -17018,8 +17018,8 @@ var require_signal_exit = __commonJS((exports, module) => {
         return;
       }
       process3.exitCode = code || 0;
-      emit("exit", process3.exitCode, null);
-      emit("afterexit", process3.exitCode, null);
+      emit2("exit", process3.exitCode, null);
+      emit2("afterexit", process3.exitCode, null);
       originalProcessReallyExit.call(process3, process3.exitCode);
     };
     originalProcessEmit = process3.emit;
@@ -17029,8 +17029,8 @@ var require_signal_exit = __commonJS((exports, module) => {
           process3.exitCode = arg;
         }
         var ret = originalProcessEmit.apply(this, arguments);
-        emit("exit", process3.exitCode, null);
-        emit("afterexit", process3.exitCode, null);
+        emit2("exit", process3.exitCode, null);
+        emit2("afterexit", process3.exitCode, null);
         return ret;
       } else {
         return originalProcessEmit.apply(this, arguments);
@@ -17043,7 +17043,7 @@ var require_signal_exit = __commonJS((exports, module) => {
   var EE;
   var emitter;
   var unload;
-  var emit;
+  var emit2;
   var sigListeners;
   var loaded;
   var load;
@@ -19223,7 +19223,8 @@ var AgentAuthorityRuleSchema = exports_external.object({
 });
 var AuthorityConfigSchema = exports_external.object({
   enabled: exports_external.boolean().default(true),
-  rules: exports_external.record(exports_external.string(), AgentAuthorityRuleSchema).default({})
+  rules: exports_external.record(exports_external.string(), AgentAuthorityRuleSchema).default({}),
+  universal_deny_prefixes: exports_external.array(exports_external.string().min(1)).default([])
 });
 var CouncilConfigSchema = exports_external.object({
   enabled: exports_external.boolean().default(false),
@@ -19482,6 +19483,416 @@ init_manager2();
 
 // src/state.ts
 init_plan_schema();
+
+// src/hooks/delegation-gate.ts
+init_telemetry();
+
+// node_modules/quick-lru/index.js
+class QuickLRU extends Map {
+  #size = 0;
+  #cache = new Map;
+  #oldCache = new Map;
+  #maxSize;
+  #maxAge;
+  #onEviction;
+  constructor(options = {}) {
+    super();
+    if (!(options.maxSize && options.maxSize > 0)) {
+      throw new TypeError("`maxSize` must be a number greater than 0");
+    }
+    if (typeof options.maxAge === "number" && options.maxAge === 0) {
+      throw new TypeError("`maxAge` must be a number greater than 0");
+    }
+    this.#maxSize = options.maxSize;
+    this.#maxAge = options.maxAge || Number.POSITIVE_INFINITY;
+    this.#onEviction = options.onEviction;
+  }
+  get __oldCache() {
+    return this.#oldCache;
+  }
+  #emitEvictions(cache) {
+    if (typeof this.#onEviction !== "function") {
+      return;
+    }
+    for (const [key, item] of cache) {
+      this.#onEviction(key, item.value);
+    }
+  }
+  #deleteIfExpired(key, item) {
+    if (typeof item.expiry === "number" && item.expiry <= Date.now()) {
+      if (typeof this.#onEviction === "function") {
+        this.#onEviction(key, item.value);
+      }
+      return this.delete(key);
+    }
+    return false;
+  }
+  #getOrDeleteIfExpired(key, item) {
+    const deleted = this.#deleteIfExpired(key, item);
+    if (deleted === false) {
+      return item.value;
+    }
+  }
+  #getItemValue(key, item) {
+    return item.expiry ? this.#getOrDeleteIfExpired(key, item) : item.value;
+  }
+  #peek(key, cache) {
+    const item = cache.get(key);
+    return this.#getItemValue(key, item);
+  }
+  #set(key, value) {
+    this.#cache.set(key, value);
+    this.#size++;
+    if (this.#size >= this.#maxSize) {
+      this.#size = 0;
+      this.#emitEvictions(this.#oldCache);
+      this.#oldCache = this.#cache;
+      this.#cache = new Map;
+    }
+  }
+  #moveToRecent(key, item) {
+    this.#oldCache.delete(key);
+    this.#set(key, item);
+  }
+  *#entriesAscending() {
+    for (const item of this.#oldCache) {
+      const [key, value] = item;
+      if (!this.#cache.has(key)) {
+        const deleted = this.#deleteIfExpired(key, value);
+        if (deleted === false) {
+          yield item;
+        }
+      }
+    }
+    for (const item of this.#cache) {
+      const [key, value] = item;
+      const deleted = this.#deleteIfExpired(key, value);
+      if (deleted === false) {
+        yield item;
+      }
+    }
+  }
+  get(key) {
+    if (this.#cache.has(key)) {
+      const item = this.#cache.get(key);
+      return this.#getItemValue(key, item);
+    }
+    if (this.#oldCache.has(key)) {
+      const item = this.#oldCache.get(key);
+      if (this.#deleteIfExpired(key, item) === false) {
+        this.#moveToRecent(key, item);
+        return item.value;
+      }
+    }
+  }
+  set(key, value, { maxAge = this.#maxAge } = {}) {
+    const expiry = typeof maxAge === "number" && maxAge !== Number.POSITIVE_INFINITY ? Date.now() + maxAge : undefined;
+    if (this.#cache.has(key)) {
+      this.#cache.set(key, {
+        value,
+        expiry
+      });
+    } else {
+      this.#set(key, { value, expiry });
+    }
+    return this;
+  }
+  has(key) {
+    if (this.#cache.has(key)) {
+      return !this.#deleteIfExpired(key, this.#cache.get(key));
+    }
+    if (this.#oldCache.has(key)) {
+      return !this.#deleteIfExpired(key, this.#oldCache.get(key));
+    }
+    return false;
+  }
+  peek(key) {
+    if (this.#cache.has(key)) {
+      return this.#peek(key, this.#cache);
+    }
+    if (this.#oldCache.has(key)) {
+      return this.#peek(key, this.#oldCache);
+    }
+  }
+  expiresIn(key) {
+    const item = this.#cache.get(key) ?? this.#oldCache.get(key);
+    if (item) {
+      return item.expiry ? item.expiry - Date.now() : Number.POSITIVE_INFINITY;
+    }
+  }
+  delete(key) {
+    const deleted = this.#cache.delete(key);
+    if (deleted) {
+      this.#size--;
+    }
+    return this.#oldCache.delete(key) || deleted;
+  }
+  clear() {
+    this.#cache.clear();
+    this.#oldCache.clear();
+    this.#size = 0;
+  }
+  resize(newSize) {
+    if (!(newSize && newSize > 0)) {
+      throw new TypeError("`maxSize` must be a number greater than 0");
+    }
+    const items = [...this.#entriesAscending()];
+    const removeCount = items.length - newSize;
+    if (removeCount < 0) {
+      this.#cache = new Map(items);
+      this.#oldCache = new Map;
+      this.#size = items.length;
+    } else {
+      if (removeCount > 0) {
+        this.#emitEvictions(items.slice(0, removeCount));
+      }
+      this.#oldCache = new Map(items.slice(removeCount));
+      this.#cache = new Map;
+      this.#size = 0;
+    }
+    this.#maxSize = newSize;
+  }
+  evict(count = 1) {
+    const requested = Number(count);
+    if (!requested || requested <= 0) {
+      return;
+    }
+    const items = [...this.#entriesAscending()];
+    const evictCount = Math.trunc(Math.min(requested, Math.max(items.length - 1, 0)));
+    if (evictCount <= 0) {
+      return;
+    }
+    this.#emitEvictions(items.slice(0, evictCount));
+    this.#oldCache = new Map(items.slice(evictCount));
+    this.#cache = new Map;
+    this.#size = 0;
+  }
+  *keys() {
+    for (const [key] of this) {
+      yield key;
+    }
+  }
+  *values() {
+    for (const [, value] of this) {
+      yield value;
+    }
+  }
+  *[Symbol.iterator]() {
+    for (const item of this.#cache) {
+      const [key, value] = item;
+      const deleted = this.#deleteIfExpired(key, value);
+      if (deleted === false) {
+        yield [key, value.value];
+      }
+    }
+    for (const item of this.#oldCache) {
+      const [key, value] = item;
+      if (!this.#cache.has(key)) {
+        const deleted = this.#deleteIfExpired(key, value);
+        if (deleted === false) {
+          yield [key, value.value];
+        }
+      }
+    }
+  }
+  *entriesDescending() {
+    let items = [...this.#cache];
+    for (let i = items.length - 1;i >= 0; --i) {
+      const item = items[i];
+      const [key, value] = item;
+      const deleted = this.#deleteIfExpired(key, value);
+      if (deleted === false) {
+        yield [key, value.value];
+      }
+    }
+    items = [...this.#oldCache];
+    for (let i = items.length - 1;i >= 0; --i) {
+      const item = items[i];
+      const [key, value] = item;
+      if (!this.#cache.has(key)) {
+        const deleted = this.#deleteIfExpired(key, value);
+        if (deleted === false) {
+          yield [key, value.value];
+        }
+      }
+    }
+  }
+  *entriesAscending() {
+    for (const [key, value] of this.#entriesAscending()) {
+      yield [key, value.value];
+    }
+  }
+  get size() {
+    if (!this.#size) {
+      return this.#oldCache.size;
+    }
+    let oldCacheSize = 0;
+    for (const key of this.#oldCache.keys()) {
+      if (!this.#cache.has(key)) {
+        oldCacheSize++;
+      }
+    }
+    return Math.min(this.#size + oldCacheSize, this.#maxSize);
+  }
+  get maxSize() {
+    return this.#maxSize;
+  }
+  get maxAge() {
+    return this.#maxAge;
+  }
+  entries() {
+    return this.entriesAscending();
+  }
+  forEach(callbackFunction, thisArgument = this) {
+    for (const [key, value] of this.entriesAscending()) {
+      callbackFunction.call(thisArgument, value, key, this);
+    }
+  }
+  get [Symbol.toStringTag]() {
+    return "QuickLRU";
+  }
+  toString() {
+    return `QuickLRU(${this.size}/${this.maxSize})`;
+  }
+  [Symbol.for("nodejs.util.inspect.custom")]() {
+    return this.toString();
+  }
+}
+
+// src/config/index.ts
+init_evidence_schema();
+init_plan_schema();
+
+// src/config/spec-schema.ts
+init_zod();
+var ObligationSchema = exports_external.enum(["MUST", "SHALL", "SHOULD", "MAY"]);
+var SpecRequirementSchema = exports_external.object({
+  id: exports_external.string().regex(/^FR-(?!000)\d{3}$/, "Requirement ID must match FR-### pattern (e.g., FR-001)"),
+  obligation: ObligationSchema,
+  text: exports_external.string().min(1)
+});
+var SpecScenarioSchema = exports_external.object({
+  name: exports_external.string().min(1),
+  given: exports_external.array(exports_external.string()).optional().default([]),
+  when: exports_external.array(exports_external.string()).min(1, 'Scenario must have at least one "when" clause'),
+  thenClauses: exports_external.array(exports_external.string()).min(1, 'Scenario must have at least one "then" clause')
+});
+var SpecSectionSchema = exports_external.object({
+  name: exports_external.string().min(1),
+  requirements: exports_external.array(SpecRequirementSchema).default([])
+});
+var SwarmSpecSchema = exports_external.object({
+  title: exports_external.string().min(1),
+  purpose: exports_external.string().min(1),
+  sections: exports_external.array(SpecSectionSchema).min(1, "Spec must have at least one section")
+});
+var SpecDeltaSchema = exports_external.object({
+  added: exports_external.array(SpecRequirementSchema).default([]),
+  modified: exports_external.array(SpecRequirementSchema).default([]),
+  removed: exports_external.array(SpecRequirementSchema).default([])
+});
+var DeltaSpecSchema = exports_external.union([
+  SwarmSpecSchema,
+  SpecDeltaSchema
+]);
+// src/agents/index.ts
+var warnedAgents = new Set;
+
+// src/hooks/guardrails.ts
+init_manager();
+init_telemetry();
+init_utils();
+
+// src/hooks/conflict-resolution.ts
+init_telemetry();
+
+// src/hooks/extractors.ts
+function extractCurrentPhase(planContent) {
+  if (!planContent) {
+    return null;
+  }
+  const lines = planContent.split(`
+`);
+  for (let i = 0;i < Math.min(20, lines.length); i++) {
+    const line = lines[i].trim();
+    const progressMatch = line.match(/^## Phase (\d+):?\s*(.*?)\s*\[IN PROGRESS\]/i);
+    if (progressMatch) {
+      const phaseNum = progressMatch[1];
+      const description = progressMatch[2]?.trim() || "";
+      return `Phase ${phaseNum}: ${description} [IN PROGRESS]`;
+    }
+  }
+  for (let i = 0;i < Math.min(3, lines.length); i++) {
+    const line = lines[i].trim();
+    const phaseMatch = line.match(/Phase:\s*(\d+)/i);
+    if (phaseMatch) {
+      const phaseNum = phaseMatch[1];
+      return `Phase ${phaseNum} [PENDING]`;
+    }
+  }
+  return null;
+}
+function extractCurrentPhaseFromPlan(plan) {
+  const phase = plan.phases.find((p) => p.id === plan.current_phase);
+  if (!phase)
+    return null;
+  const statusMap = {
+    pending: "PENDING",
+    in_progress: "IN PROGRESS",
+    complete: "COMPLETE",
+    blocked: "BLOCKED"
+  };
+  const statusText = statusMap[phase.status] || "PENDING";
+  return `Phase ${phase.id}: ${phase.name} [${statusText}]`;
+}
+
+// src/hooks/model-limits.ts
+init_utils();
+var loggedFirstCalls = new Set;
+
+// src/hooks/guardrails.ts
+var storedInputArgs = new Map;
+var toolCallsSinceLastWrite = new Map;
+var noOpWarningIssued = new Set;
+var consecutiveNoToolTurns = new Map;
+var DC_SAFE_TARGETS = new Set([
+  "node_modules",
+  ".git",
+  "dist",
+  "build",
+  "coverage",
+  ".next",
+  ".turbo",
+  ".cache",
+  ".venv",
+  "venv",
+  "__pycache__",
+  "target",
+  "out",
+  ".parcel-cache",
+  ".svelte-kit",
+  ".nuxt",
+  ".output",
+  ".angular",
+  ".gradle",
+  "vendor"
+]);
+var DC_FS_ROOTS = new Set(["/", "C:\\", "C:/", "D:\\", "D:/", "E:\\", "E:/"]);
+var pathNormalizationCache = new QuickLRU({
+  maxSize: 500
+});
+var globMatcherCache = new QuickLRU({
+  maxSize: 200
+});
+
+// src/hooks/delegation-gate.ts
+init_utils2();
+var pendingCoderScopeByTaskId = new Map;
+function clearPendingCoderScope() {
+  pendingCoderScopeByTaskId.clear();
+}
+
+// src/state.ts
 init_telemetry();
 var _rehydrationCache = null;
 var swarmState = {
@@ -19514,6 +19925,7 @@ function resetSwarmState() {
   _rehydrationCache = null;
   swarmState.fullAutoEnabledInConfig = false;
   swarmState.environmentProfiles.clear();
+  clearPendingCoderScope();
 }
 function getAgentSession(sessionId) {
   return swarmState.agentSessions.get(sessionId);
@@ -32196,43 +32608,6 @@ function tool(input) {
   return input;
 }
 tool.schema = exports_external2;
-
-// src/config/index.ts
-init_evidence_schema();
-init_plan_schema();
-
-// src/config/spec-schema.ts
-init_zod();
-var ObligationSchema = exports_external.enum(["MUST", "SHALL", "SHOULD", "MAY"]);
-var SpecRequirementSchema = exports_external.object({
-  id: exports_external.string().regex(/^FR-(?!000)\d{3}$/, "Requirement ID must match FR-### pattern (e.g., FR-001)"),
-  obligation: ObligationSchema,
-  text: exports_external.string().min(1)
-});
-var SpecScenarioSchema = exports_external.object({
-  name: exports_external.string().min(1),
-  given: exports_external.array(exports_external.string()).optional().default([]),
-  when: exports_external.array(exports_external.string()).min(1, 'Scenario must have at least one "when" clause'),
-  thenClauses: exports_external.array(exports_external.string()).min(1, 'Scenario must have at least one "then" clause')
-});
-var SpecSectionSchema = exports_external.object({
-  name: exports_external.string().min(1),
-  requirements: exports_external.array(SpecRequirementSchema).default([])
-});
-var SwarmSpecSchema = exports_external.object({
-  title: exports_external.string().min(1),
-  purpose: exports_external.string().min(1),
-  sections: exports_external.array(SpecSectionSchema).min(1, "Spec must have at least one section")
-});
-var SpecDeltaSchema = exports_external.object({
-  added: exports_external.array(SpecRequirementSchema).default([]),
-  modified: exports_external.array(SpecRequirementSchema).default([]),
-  removed: exports_external.array(SpecRequirementSchema).default([])
-});
-var DeltaSpecSchema = exports_external.union([
-  SwarmSpecSchema,
-  SpecDeltaSchema
-]);
 // src/tools/create-tool.ts
 function classifyToolError(error93) {
   const msg = (error93 instanceof Error ? error93.message ?? "" : String(error93)).toLowerCase();
@@ -37555,7 +37930,7 @@ function validatePlanPhases(plan) {
   }
   return true;
 }
-function extractCurrentPhaseFromPlan(plan) {
+function extractCurrentPhaseFromPlan2(plan) {
   if (!plan) {
     return { currentPhase: null, currentTask: null, incompleteTasks: [] };
   }
@@ -37703,7 +38078,7 @@ async function getHandoffData(directory) {
   const sessionContent = await readSwarmFileAsync(directory, "session/state.json");
   const sessionState = parseSessionState(sessionContent);
   const plan = await loadPlanJsonOnly(directory);
-  const planInfo = extractCurrentPhaseFromPlan(plan);
+  const planInfo = extractCurrentPhaseFromPlan2(plan);
   if (!plan) {
     const planMdContent = await readSwarmFileAsync(directory, "plan.md");
     if (planMdContent) {
@@ -43542,46 +43917,6 @@ async function handleSpecifyCommand(_directory, args) {
   return "[MODE: SPECIFY] Please enter MODE: SPECIFY and generate a spec for this project.";
 }
 
-// src/hooks/extractors.ts
-function extractCurrentPhase(planContent) {
-  if (!planContent) {
-    return null;
-  }
-  const lines = planContent.split(`
-`);
-  for (let i = 0;i < Math.min(20, lines.length); i++) {
-    const line = lines[i].trim();
-    const progressMatch = line.match(/^## Phase (\d+):?\s*(.*?)\s*\[IN PROGRESS\]/i);
-    if (progressMatch) {
-      const phaseNum = progressMatch[1];
-      const description = progressMatch[2]?.trim() || "";
-      return `Phase ${phaseNum}: ${description} [IN PROGRESS]`;
-    }
-  }
-  for (let i = 0;i < Math.min(3, lines.length); i++) {
-    const line = lines[i].trim();
-    const phaseMatch = line.match(/Phase:\s*(\d+)/i);
-    if (phaseMatch) {
-      const phaseNum = phaseMatch[1];
-      return `Phase ${phaseNum} [PENDING]`;
-    }
-  }
-  return null;
-}
-function extractCurrentPhaseFromPlan2(plan) {
-  const phase = plan.phases.find((p) => p.id === plan.current_phase);
-  if (!phase)
-    return null;
-  const statusMap = {
-    pending: "PENDING",
-    in_progress: "IN PROGRESS",
-    complete: "COMPLETE",
-    blocked: "BLOCKED"
-  };
-  const statusText = statusMap[phase.status] || "PENDING";
-  return `Phase ${phase.id}: ${phase.name} [${statusText}]`;
-}
-
 // src/services/status-service.ts
 init_utils2();
 init_manager();
@@ -43641,7 +43976,7 @@ var DEFAULT_CONTEXT_BUDGET_CONFIG = {
 async function getStatusData(directory, agents) {
   const plan = await loadPlan(directory);
   if (plan && plan.migration_status !== "migration_failed") {
-    const currentPhase2 = extractCurrentPhaseFromPlan2(plan) || "Unknown";
+    const currentPhase2 = extractCurrentPhaseFromPlan(plan) || "Unknown";
     let completedTasks2 = 0;
     let totalTasks2 = 0;
     for (const phase of plan.phases) {

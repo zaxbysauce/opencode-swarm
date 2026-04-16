@@ -369,7 +369,7 @@ describe('guardrails self-coding detection gate (Task 7A.2)', () => {
 			);
 		});
 
-		it('no session (session lookup returns undefined): → no throw, no warn', async () => {
+		it('no session (session lookup returns undefined): → fail-closed WRITE BLOCKED', async () => {
 			const config = defaultConfig();
 			const hooks = createGuardrailsHooks(config);
 			// Do NOT start an agent session
@@ -377,8 +377,14 @@ describe('guardrails self-coding detection gate (Task 7A.2)', () => {
 			const input = makeInput('non-existent-session', 'write', 'call-1');
 			const output = makeOutput({ filePath: 'src/test.ts' });
 
-			// Should NOT throw when session doesn't exist
-			await expect(hooks.toolBefore(input, output)).resolves.toBeUndefined();
+			// PR #501: writes from sessions without a registered active agent
+			// are now fail-closed with "WRITE BLOCKED: No active agent
+			// registered ...". Defaulting unregistered sessions to architect
+			// would grant broad write authority to any unknown caller, so the
+			// hook blocks the write instead.
+			await expect(hooks.toolBefore(input, output)).rejects.toThrow(
+				'No active agent registered',
+			);
 		});
 
 		it.skip('apply_patch tool at count 3: → throws Error with SELF_CODING_BLOCK', async () => {

@@ -398,7 +398,7 @@ describe('guardrails modifiedFilesThisCoderTask tracking (Task 5.2)', () => {
 			expect(session?.modifiedFilesThisCoderTask?.length ?? 0).toBe(0);
 		});
 
-		it('no session → does not throw, no tracking', async () => {
+		it('no session → fail-closed with WRITE BLOCKED (no active agent)', async () => {
 			const config = defaultConfig();
 			const hooks = createGuardrailsHooks(config);
 			// No session started
@@ -406,8 +406,13 @@ describe('guardrails modifiedFilesThisCoderTask tracking (Task 5.2)', () => {
 			const input = makeInput('non-existent-session', 'write', 'call-1');
 			const output = makeOutput({ filePath: 'src/foo.ts' });
 
-			// Should not throw
-			await expect(hooks.toolBefore(input, output)).resolves.toBeUndefined();
+			// PR #501: writes from unknown sessions are now fail-closed rather
+			// than silently defaulting to architect. The hook throws
+			// "WRITE BLOCKED: No active agent registered ..." so unregistered
+			// sessions can never reach the per-agent authority check.
+			await expect(hooks.toolBefore(input, output)).rejects.toThrow(
+				'No active agent registered',
+			);
 		});
 	});
 

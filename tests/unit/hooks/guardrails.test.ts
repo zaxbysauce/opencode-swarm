@@ -225,7 +225,10 @@ describe('guardrails circuit breaker', () => {
 		it('does not flag different tools', async () => {
 			const config = defaultConfig({ max_repetitions: 3 });
 			const hooks = createGuardrailsHooks(TEST_DIR, undefined, config);
-			const args = { filePath: '/test.ts' };
+			// Path must resolve inside TEST_DIR (/tmp) so the write-tool authority
+			// containment check does not reject `edit`. The test is about repetition
+			// logic across different tools, not path semantics.
+			const args = { filePath: '/tmp/test.ts' };
 
 			// Call with different tools but same args
 			await hooks.toolBefore(
@@ -2053,10 +2056,12 @@ describe('guardrails circuit breaker', () => {
 				};
 			}
 
-			// Architect attempts to write to a non-.swarm file
+			// Architect attempts to write to a non-.swarm file (inside TEST_DIR
+			// so containment check passes — test intent is self-coding detection,
+			// not path containment).
 			await hooks.toolBefore(
 				makeInput('selffix-session', 'edit', 'call-1'),
-				makeOutput({ filePath: '/src/test.ts' }), // Outside .swarm/
+				makeOutput({ filePath: '/tmp/src/test.ts' }), // Outside .swarm/, inside cwd
 			);
 
 			// Flag should be set
@@ -2270,10 +2275,11 @@ describe('guardrails circuit breaker', () => {
 
 			// No gate failure set
 
-			// Architect attempts to write to a non-.swarm file
+			// Architect attempts to write to a non-.swarm file (inside TEST_DIR
+			// so containment check passes).
 			await hooks.toolBefore(
 				makeInput('no-failure-session', 'edit', 'call-1'),
-				makeOutput({ filePath: '/src/test.ts' }),
+				makeOutput({ filePath: '/tmp/src/test.ts' }),
 			);
 
 			// Flag should NOT be set without a gate failure
@@ -2389,9 +2395,10 @@ describe('guardrails circuit breaker', () => {
 			}
 
 			// Fire: toolBefore with edit tool and source code file path
+			// (inside TEST_DIR so containment check passes)
 			await hooks.toolBefore(
 				makeInput('test-session', 'edit', 'call-1'),
-				makeOutput({ filePath: '/src/test.ts' }),
+				makeOutput({ filePath: '/tmp/src/test.ts' }),
 			);
 
 			// Verify: session.architectWriteCount DOES increment (real self-coding caught)
@@ -2408,9 +2415,10 @@ describe('guardrails circuit breaker', () => {
 			// Note: startAgentSession does not set delegationActive by default, so it's undefined
 
 			// Fire: toolBefore with edit tool and source code file
+			// (inside TEST_DIR so containment check passes)
 			await hooks.toolBefore(
 				makeInput('test-session', 'edit', 'call-1'),
-				makeOutput({ filePath: '/src/test.ts' }),
+				makeOutput({ filePath: '/tmp/src/test.ts' }),
 			);
 
 			const session = getAgentSession('test-session');
@@ -2756,28 +2764,38 @@ describe('guardrails circuit breaker', () => {
 					.spyOn(utilsModule, 'warn')
 					.mockImplementation(() => {});
 
-				// Attempt: apply_patch with *** Update File: /dev/null
-				await hooks.toolBefore(
-					makeInput('test-session', 'apply_patch', 'call-1'),
-					makeOutput({
-						patch:
-							'*** Update File: /dev/null\n+++ b/dev/null\nTrying to inject /dev/null',
-					}),
-				);
+				try {
+					// Attempt: apply_patch with *** Update File: /dev/null
+					// v6.70.0 (#496): The authority check rejects /dev/null because it
+					// resolves outside cwd (containment check). However, self-coding
+					// detection in handlePlanAndScopeProtection runs BEFORE the authority
+					// throw and still increments architectWriteCount + fires the warn.
+					// We wrap in rejects.toThrow so the expected WRITE BLOCKED error is
+					// captured; the pre-throw assertions below still verify detection.
+					await expect(
+						hooks.toolBefore(
+							makeInput('test-session', 'apply_patch', 'call-1'),
+							makeOutput({
+								patch:
+									'*** Update File: /dev/null\n+++ b/dev/null\nTrying to inject /dev/null',
+							}),
+						),
+					).rejects.toThrow('WRITE BLOCKED');
 
-				// Actual behavior: /dev/null IS detected by *** Update File: pattern (not filtered)
-				// Implementation note: /dev/null filter only applies to +++ b/ pattern
-				expect(session?.architectWriteCount).toBe(1);
+					// Actual behavior: /dev/null IS detected by *** Update File: pattern (not filtered)
+					// Implementation note: /dev/null filter only applies to +++ b/ pattern
+					expect(session?.architectWriteCount).toBe(1);
 
-				// Expected: Warning for /dev/null (actual implementation behavior)
-				expect(warnSpy).toHaveBeenCalledWith(
-					'Architect direct code edit detected via apply_patch',
-					expect.objectContaining({
-						targetPath: '/dev/null',
-					}),
-				);
-
-				warnSpy.mockRestore();
+					// Expected: Warning for /dev/null (actual implementation behavior)
+					expect(warnSpy).toHaveBeenCalledWith(
+						'Architect direct code edit detected via apply_patch',
+						expect.objectContaining({
+							targetPath: '/dev/null',
+						}),
+					);
+				} finally {
+					warnSpy.mockRestore();
+				}
 			});
 
 			it('Attack Vector 4: Coder with delegationActive=true is not detected (not architect)', async () => {

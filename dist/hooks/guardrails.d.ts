@@ -6,6 +6,7 @@
  * - Layer 1 (Soft Warning @ warning_threshold): Sets warning flag for messagesTransform to inject warning
  * - Layer 2 (Hard Block @ 100%): Throws error in toolBefore to block further calls, injects STOP message
  */
+import * as path from 'node:path';
 import { type AuthorityConfig, type GuardrailsConfig } from '../config/schema';
 import { type FileZone } from '../context/zone-classifier';
 /**
@@ -120,9 +121,43 @@ type AgentRule = {
 };
 export declare const DEFAULT_AGENT_AUTHORITY_RULES: Record<string, AgentRule>;
 /**
+ * Checks whether a write target path (or any ancestor strictly inside cwd)
+ * is a symlink. Writing through a symlink can redirect the write to a
+ * location outside the working directory, bypassing scope containment.
+ *
+ * The walk stops at cwd — cwd itself is NOT lstat'd. A user's chosen
+ * working directory may legitimately be reached via a symlink (e.g.,
+ * macOS's /tmp → /private/tmp), and that symlink does not constitute a
+ * redirect *within* the workspace. Only attacker-plantable symlinks
+ * BELOW cwd are relevant to this guard.
+ *
+ * ENOENT on any node in the chain is allowed — the file/dir doesn't exist yet.
+ * Any other lstat error (EPERM, EACCES, ENAMETOOLONG, …) fails closed:
+ * an unverifiable ancestor must not be written through, even if the OS
+ * would eventually reject the write. Defense-in-depth over optimism.
+ *
+ * @returns A block reason string if a symlink is detected, null if all clear.
+ */
+export declare function checkWriteTargetForSymlink(targetPath: string, cwd: string): string | null;
+/**
+ * Returns true when `targetAbsolute` and `cwdAbsolute` resolve to different
+ * filesystem roots. On POSIX this is always false (single root `/`); on
+ * Windows it is true when the two paths sit on different drive letters or
+ * different UNC roots — the symptom Codex flagged on PR #501, where
+ * `path.relative('C:\\repo', 'D:\\secret.txt')` returns the absolute
+ * `'D:\\secret.txt'` and slips past `startsWith('../')` containment.
+ *
+ * Exposed (and accepts an injectable `pathLib`) so the cross-drive guard
+ * is falsifiable on Linux CI without depending on a Windows runner: tests
+ * pass `path.win32` / `path.posix` directly.
+ */
+export declare function isOnDifferentFilesystemRoot(targetAbsolute: string, cwdAbsolute: string, pathLib?: Pick<typeof path, 'parse'>): boolean;
+/**
  * Checks whether the given agent is authorised to write to the given file path.
  */
-export declare function checkFileAuthority(agentName: string, filePath: string, cwd: string, authorityConfig?: AuthorityConfig): {
+export declare function checkFileAuthority(agentName: string, filePath: string, cwd: string, authorityConfig?: AuthorityConfig, options?: {
+    declaredScope?: string[] | null;
+}): {
     allowed: true;
 } | {
     allowed: false;

@@ -37,6 +37,7 @@ import {
 import { telemetry } from '../telemetry.js';
 import { log, warn } from '../utils';
 import { resolveAgentConflict } from './conflict-resolution';
+import { pendingCoderScopeByTaskId } from './delegation-gate.js';
 import { extractCurrentPhaseFromPlan } from './extractors';
 import { detectLoop } from './loop-detector';
 import { extractModelInfo } from './model-limits';
@@ -250,6 +251,10 @@ function getCurrentTaskId(sessionId: string): string {
 /**
  * v6.21 Task 5.4: Check if a file path is within declared scope entries.
  * Handles both exact matches and directory containment.
+ *
+ * v6.70.0 gap-closure: on Windows (case-insensitive FS), compare lowercased
+ * variants so scope `config/` correctly matches a write to `Config/foo.rb`.
+ * POSIX filesystems stay case-sensitive.
  */
 function isInDeclaredScope(
 	filePath: string,
@@ -257,9 +262,16 @@ function isInDeclaredScope(
 	cwd?: string,
 ): boolean {
 	const dir = cwd ?? process.cwd();
-	const resolvedFile = path.resolve(dir, filePath);
+	const caseInsensitive = process.platform === 'win32';
+	const resolvedFileRaw = path.resolve(dir, filePath);
+	const resolvedFile = caseInsensitive
+		? resolvedFileRaw.toLowerCase()
+		: resolvedFileRaw;
 	return scopeEntries.some((scope) => {
-		const resolvedScope = path.resolve(dir, scope);
+		const resolvedScopeRaw = path.resolve(dir, scope);
+		const resolvedScope = caseInsensitive
+			? resolvedScopeRaw.toLowerCase()
+			: resolvedScopeRaw;
 		// Exact match: file IS the scope entry
 		if (resolvedFile === resolvedScope) return true;
 		// Directory containment: file is inside a scope directory
@@ -871,6 +883,9 @@ export function createGuardrailsHooks(
 
 	// Pre-compute effective authority rules once — authorityConfig is immutable after plugin init
 	const precomputedAuthorityRules = buildEffectiveRules(authorityConfig);
+	// Global deny prefixes — apply to all agents regardless of per-agent rules
+	const universalDenyPrefixes: string[] =
+		authorityConfig?.universal_deny_prefixes ?? [];
 
 	// TypeScript narrowing: guardrailsConfig must be defined if we reach here
 	const cfg = guardrailsConfig!;
@@ -1365,6 +1380,23 @@ export function createGuardrailsHooks(
 	}
 
 	/**
+	 * v6.70.0 gap-closure (#496): resolve declared coder scope from either
+	 * `session.declaredCoderScope` (primary) or the per-task fallback map
+	 * (`pendingCoderScopeByTaskId`). Used by all four `checkFileAuthorityWithRules`
+	 * call sites so delegated writes and transparent writes honour declared scope
+	 * identically.
+	 */
+	function resolveDeclaredScope(sessionID: string): string[] | null {
+		const session = swarmState.agentSessions.get(sessionID);
+		return (
+			session?.declaredCoderScope ??
+			(session?.currentTaskId
+				? (pendingCoderScopeByTaskId.get(session.currentTaskId) ?? null)
+				: null)
+		);
+	}
+
+	/**
 	 * Handles delegated write tracking and coder delegation reset.
 	 * MUST be called first — before any exemptions.
 	 */
@@ -1384,11 +1416,16 @@ export function createGuardrailsHooks(
 				if (typeof delegTargetPath === 'string' && delegTargetPath.length > 0) {
 					const agentName = swarmState.activeAgent.get(sessionID) ?? 'unknown';
 					const cwd = effectiveDirectory;
+					// v6.70.0 gap-closure (#496): honour declared scope on delegated
+					// writes too, not just the transparent path. Without this, the
+					// primary architect→coder workflow still blocks Rails/Python/Go
+					// paths declared via `declare_scope`.
 					const authorityCheck = checkFileAuthorityWithRules(
 						agentName,
 						delegTargetPath,
 						cwd,
 						precomputedAuthorityRules,
+						{ declaredScope: resolveDeclaredScope(sessionID) },
 					);
 					if (!authorityCheck.allowed) {
 						throw new Error(
@@ -1407,11 +1444,15 @@ export function createGuardrailsHooks(
 				const agentName = swarmState.activeAgent.get(sessionID) ?? 'unknown';
 				const cwd = effectiveDirectory;
 				for (const p of extractPatchTargetPaths(tool, args)) {
+					// v6.70.0 gap-closure (#496): same reasoning as Write/Edit above —
+					// declared scope must flow into patch authority checks on the
+					// delegated-write path.
 					const authorityCheck = checkFileAuthorityWithRules(
 						agentName,
 						p,
 						cwd,
 						precomputedAuthorityRules,
+						{ declaredScope: resolveDeclaredScope(sessionID) },
 					);
 					if (!authorityCheck.allowed) {
 						throw new Error(
@@ -1837,11 +1878,13 @@ export function createGuardrailsHooks(
 			// Block destructive shell commands (rm -rf, force push, kubectl delete, etc.)
 			checkDestructiveCommand(input.tool, output.args);
 
-			// Plan state + scope protection for architect writes
+			// Plan state + scope protection — architect-only
 			if (isArchitect(input.sessionID) && isWriteTool(input.tool)) {
 				handlePlanAndScopeProtection(input.sessionID, input.tool, output.args);
+			}
 
-				// Architect direct write authority check
+			// Authority + lstat + universal-deny checks for ALL agents on Write/Edit
+			if (isWriteTool(input.tool)) {
 				const toolArgs = output.args as Record<string, unknown> | undefined;
 				const targetPath =
 					toolArgs?.filePath ??
@@ -1849,13 +1892,57 @@ export function createGuardrailsHooks(
 					toolArgs?.file ??
 					toolArgs?.target;
 				if (typeof targetPath === 'string' && targetPath.length > 0) {
-					const agentName =
-						swarmState.activeAgent.get(input.sessionID) ?? 'architect';
+					// lstat: block writes through symlinks (prevents scope-escape via junction)
+					const lstatBlock = checkWriteTargetForSymlink(
+						targetPath,
+						effectiveDirectory,
+					);
+					if (lstatBlock) {
+						throw new Error(lstatBlock);
+					}
+
+					// Fail closed if no active agent is registered for this session.
+					// Defaulting to 'architect' would grant broad write permissions to
+					// unknown sessions; instead we block until the session is identified.
+					const agentName = swarmState.activeAgent.get(input.sessionID);
+					if (!agentName) {
+						throw new Error(
+							`WRITE BLOCKED: No active agent registered for session "${input.sessionID}". Call startAgentSession before issuing write tool calls.`,
+						);
+					}
+
+					// Universal deny prefixes — applies to all agents before per-agent rules
+					if (universalDenyPrefixes.length > 0) {
+						const normalizedPath = path
+							.relative(
+								path.resolve(effectiveDirectory),
+								path.resolve(effectiveDirectory, targetPath),
+							)
+							.replace(/\\/g, '/');
+						for (const prefix of universalDenyPrefixes) {
+							if (
+								normalizedPath.toLowerCase().startsWith(prefix.toLowerCase())
+							) {
+								throw new Error(
+									`WRITE BLOCKED: Agent "${agentName}" is not authorised to write "${targetPath}". Reason: Path is under universal deny prefix "${prefix}"`,
+								);
+							}
+						}
+					}
+
+					// v6.70.0 (#496): resolve declared scope so the authority check can
+					// honour architect-declared paths that fall outside the agent's
+					// hardcoded allowedPrefix (e.g. Rails `config/`, `app/`).
+					// Shared with the delegated-write path via `resolveDeclaredScope`.
+					const writeDeclaredScope = resolveDeclaredScope(input.sessionID);
+
+					// Per-agent authority check — applies to all agents
 					const authorityCheck = checkFileAuthorityWithRules(
 						agentName,
 						targetPath,
 						effectiveDirectory,
 						precomputedAuthorityRules,
+						{ declaredScope: writeDeclaredScope },
 					);
 					if (!authorityCheck.allowed) {
 						throw new Error(
@@ -1864,19 +1951,56 @@ export function createGuardrailsHooks(
 					}
 				}
 			}
+
+			// Authority + lstat + universal-deny for apply_patch / patch
 			if (input.tool === 'apply_patch' || input.tool === 'patch') {
-				const agentName =
-					swarmState.activeAgent.get(input.sessionID) ?? 'architect';
+				// Fail closed if no active agent is registered (same as Write/Edit path above)
+				const patchAgentName = swarmState.activeAgent.get(input.sessionID);
+				if (!patchAgentName) {
+					throw new Error(
+						`WRITE BLOCKED: No active agent registered for session "${input.sessionID}". Call startAgentSession before issuing write tool calls.`,
+					);
+				}
 				for (const p of extractPatchTargetPaths(input.tool, output.args)) {
+					// lstat: block patches through symlinks
+					const lstatBlock = checkWriteTargetForSymlink(p, effectiveDirectory);
+					if (lstatBlock) {
+						throw new Error(lstatBlock);
+					}
+
+					// Universal deny prefixes for patches (case-insensitive)
+					if (universalDenyPrefixes.length > 0) {
+						const normalizedP = path
+							.relative(
+								path.resolve(effectiveDirectory),
+								path.resolve(effectiveDirectory, p),
+							)
+							.replace(/\\/g, '/');
+						for (const prefix of universalDenyPrefixes) {
+							if (normalizedP.toLowerCase().startsWith(prefix.toLowerCase())) {
+								throw new Error(
+									`WRITE BLOCKED: Agent "${patchAgentName}" is not authorised to write "${p}" (via patch). Reason: Path is under universal deny prefix "${prefix}"`,
+								);
+							}
+						}
+					}
+
+					// v6.70.0 (#496): resolve declared scope for apply_patch path (see
+					// Write/Edit path above for rationale).
+					// Shared with the delegated-write path via `resolveDeclaredScope`.
+					const patchDeclaredScope = resolveDeclaredScope(input.sessionID);
+
+					// Per-agent authority check for patches
 					const authorityCheck = checkFileAuthorityWithRules(
-						agentName,
+						patchAgentName,
 						p,
 						effectiveDirectory,
 						precomputedAuthorityRules,
+						{ declaredScope: patchDeclaredScope },
 					);
 					if (!authorityCheck.allowed) {
 						throw new Error(
-							`WRITE BLOCKED: Agent "${agentName}" is not authorised to write "${p}" (via patch). Reason: ${authorityCheck.reason}`,
+							`WRITE BLOCKED: Agent "${patchAgentName}" is not authorised to write "${p}" (via patch). Reason: ${authorityCheck.reason}`,
 						);
 					}
 				}
@@ -2979,7 +3103,6 @@ export const DEFAULT_AGENT_AUTHORITY_RULES: Record<string, AgentRule> = {
 	},
 	coder: {
 		blockedPrefix: ['.swarm/'],
-		allowedPrefix: ['src/', 'tests/', 'docs/', 'scripts/'],
 		blockedZones: ['generated', 'config'],
 	},
 	reviewer: {
@@ -3013,6 +3136,63 @@ export const DEFAULT_AGENT_AUTHORITY_RULES: Record<string, AgentRule> = {
 		blockedZones: ['generated'],
 	},
 };
+
+/**
+ * Checks whether a write target path (or any ancestor strictly inside cwd)
+ * is a symlink. Writing through a symlink can redirect the write to a
+ * location outside the working directory, bypassing scope containment.
+ *
+ * The walk stops at cwd — cwd itself is NOT lstat'd. A user's chosen
+ * working directory may legitimately be reached via a symlink (e.g.,
+ * macOS's /tmp → /private/tmp), and that symlink does not constitute a
+ * redirect *within* the workspace. Only attacker-plantable symlinks
+ * BELOW cwd are relevant to this guard.
+ *
+ * ENOENT on any node in the chain is allowed — the file/dir doesn't exist yet.
+ * Any other lstat error (EPERM, EACCES, ENAMETOOLONG, …) fails closed:
+ * an unverifiable ancestor must not be written through, even if the OS
+ * would eventually reject the write. Defense-in-depth over optimism.
+ *
+ * @returns A block reason string if a symlink is detected, null if all clear.
+ */
+export function checkWriteTargetForSymlink(
+	targetPath: string,
+	cwd: string,
+): string | null {
+	const normalizedCwd = path.resolve(cwd);
+	const normalizedTarget = path.resolve(cwd, targetPath);
+
+	// Walk ancestor chain from target up to (but NOT including) cwd.
+	const ancestors: string[] = [];
+	let current = normalizedTarget;
+	while (true) {
+		const rel = path.relative(normalizedCwd, current);
+		// Stop at cwd (rel === '') or as soon as we leave cwd (starts with '..').
+		// Do NOT push cwd itself onto the ancestor list — see function docstring.
+		if (rel === '' || rel.startsWith('..')) break;
+		ancestors.push(current);
+		const parent = path.dirname(current);
+		if (parent === current) break; // filesystem root
+		current = parent;
+	}
+
+	for (const ancestor of ancestors) {
+		let stat: ReturnType<typeof fsSync.lstatSync> | null = null;
+		try {
+			stat = fsSync.lstatSync(ancestor);
+		} catch (err: unknown) {
+			const code = (err as NodeJS.ErrnoException).code;
+			if (code === 'ENOENT') continue; // not yet created — OK for writes
+			// Unexpected error: fail closed
+			return `WRITE BLOCKED: lstat failed on "${ancestor}": ${String(err)} — refusing write on unverifiable path`;
+		}
+		if (stat.isSymbolicLink()) {
+			return `WRITE BLOCKED: "${ancestor}" is a symlink — writing through a symlink could redirect the write outside the working directory`;
+		}
+	}
+
+	return null; // all clear
+}
 
 /**
  * Builds the effective rules map by merging user-configured rules with defaults.
@@ -3051,6 +3231,26 @@ function buildEffectiveRules(
 }
 
 /**
+ * Returns true when `targetAbsolute` and `cwdAbsolute` resolve to different
+ * filesystem roots. On POSIX this is always false (single root `/`); on
+ * Windows it is true when the two paths sit on different drive letters or
+ * different UNC roots — the symptom Codex flagged on PR #501, where
+ * `path.relative('C:\\repo', 'D:\\secret.txt')` returns the absolute
+ * `'D:\\secret.txt'` and slips past `startsWith('../')` containment.
+ *
+ * Exposed (and accepts an injectable `pathLib`) so the cross-drive guard
+ * is falsifiable on Linux CI without depending on a Windows runner: tests
+ * pass `path.win32` / `path.posix` directly.
+ */
+export function isOnDifferentFilesystemRoot(
+	targetAbsolute: string,
+	cwdAbsolute: string,
+	pathLib: Pick<typeof path, 'parse'> = path,
+): boolean {
+	return pathLib.parse(targetAbsolute).root !== pathLib.parse(cwdAbsolute).root;
+}
+
+/**
  * Checks file path authority against a pre-computed rules map.
  * Implements DENY-first evaluation order:
  * 1. readOnly - blocks all writes
@@ -3067,6 +3267,7 @@ function checkFileAuthorityWithRules(
 	filePath: string,
 	cwd: string,
 	effectiveRules: Record<string, AgentRule>,
+	options?: { declaredScope?: string[] | null },
 ): { allowed: true } | { allowed: false; reason: string; zone?: FileZone } {
 	const normalizedAgent = agentName.toLowerCase();
 	const strippedAgent = stripKnownSwarmPrefix(agentName).toLowerCase();
@@ -3080,13 +3281,43 @@ function checkFileAuthorityWithRules(
 	// Single normalization call using normalizePathWithCache for consistent security
 	// This resolves symlinks and normalizes paths the same way for ALL checks
 	let normalizedPath: string;
+	let resolvedTarget: string;
 	try {
 		const normalizedWithSymlinks = normalizePathWithCache(filePath, dir);
-		const resolved = path.resolve(dir, normalizedWithSymlinks);
-		normalizedPath = path.relative(dir, resolved).replace(/\\/g, '/');
+		resolvedTarget = path.resolve(dir, normalizedWithSymlinks);
+		normalizedPath = path.relative(dir, resolvedTarget).replace(/\\/g, '/');
 	} catch {
-		const resolved = path.resolve(dir, filePath);
-		normalizedPath = path.relative(dir, resolved).replace(/\\/g, '/');
+		resolvedTarget = path.resolve(dir, filePath);
+		normalizedPath = path.relative(dir, resolvedTarget).replace(/\\/g, '/');
+	}
+
+	// Containment check (applies to all agents): reject paths that resolve
+	// outside the working directory. Previously this was implicitly enforced
+	// by the hardcoded relative allowedPrefix whitelist; removing that
+	// whitelist (v6.70.0 #496 final) required making containment explicit.
+	// Any path whose resolved location escapes cwd — via an absolute path
+	// like "/etc/passwd" or a traversal like "../../etc/passwd" — is rejected
+	// here regardless of agent rules. This is defense-in-depth and applies
+	// even to architect (which never had an allowedPrefix).
+	//
+	// v6.70.0 post-Codex-review: also reject cross-drive / cross-root
+	// targets. On Windows, `path.relative('C:/repo', 'D:/secret.txt')`
+	// returns `"D:\\secret.txt"` — an absolute drive-letter path that does
+	// NOT start with `..` and therefore would slip past the traversal check
+	// below. Comparing filesystem roots catches this universally: POSIX
+	// systems only have root `/`, so roots only differ when the target is
+	// on a different Windows drive.
+	if (isOnDifferentFilesystemRoot(resolvedTarget, dir)) {
+		return {
+			allowed: false,
+			reason: `Path blocked: ${filePath} is on a different drive/root than the working directory`,
+		};
+	}
+	if (normalizedPath === '..' || normalizedPath.startsWith('../')) {
+		return {
+			allowed: false,
+			reason: `Path blocked: ${normalizedPath} resolves outside the working directory`,
+		};
 	}
 
 	const rules =
@@ -3163,23 +3394,54 @@ function checkFileAuthorityWithRules(
 	}
 
 	// Step 7: allowedPrefix - prefix-based allow (whitelist model)
-	// If configured, only paths starting with these prefixes are allowed
-	if (rules.allowedPrefix != null && rules.allowedPrefix.length > 0) {
-		const isAllowed = rules.allowedPrefix.some((prefix) =>
-			normalizedPath.startsWith(prefix),
-		);
-		if (!isAllowed) {
+	// If configured, only paths starting with these prefixes are allowed.
+	//
+	// v6.70.0 (#496): If the architect has declared an explicit scope via the
+	// `declare_scope` tool, paths inside that scope bypass the hardcoded
+	// allowedPrefix whitelist. This lets the architect authorise framework-agnostic
+	// paths (Rails `config/`, `app/`, `db/`; Python `module/`, `pyproject.toml`; etc.)
+	// without editing the default rule set.
+	//
+	// SECURITY: declaredScope ONLY relaxes allowedPrefix (Step 7). All DENY rules
+	// (readOnly, blockedExact, blockedGlobs, blockedPrefix, blockedZones) and
+	// universal_deny_prefixes (checked upstream in toolBefore) remain fully
+	// enforced. A declared scope cannot grant writes into .env, .git/, secrets/,
+	// or any blocked path.
+	//
+	// v6.70.0 post-Codex-review: declaredScope is the architect→coder hand-off
+	// channel ONLY. Honouring it for other roles (docs, designer, reviewer,
+	// test_engineer, critic) would let an architect's coder authorisation leak
+	// into other agents' write capabilities — e.g., declaring `src/foo.ts` for
+	// the coder would also let `docs` write into `src/`, breaking per-agent
+	// isolation. Restrict the bypass to coder agents (canonical or prefixed
+	// like `local_coder` / `paid_coder`).
+	const isCoderAgent = normalizedAgent === 'coder' || strippedAgent === 'coder';
+	const pathIsInDeclaredScope =
+		isCoderAgent &&
+		options?.declaredScope != null &&
+		options.declaredScope.length > 0 &&
+		isInDeclaredScope(normalizedPath, options.declaredScope, dir);
+	if (!pathIsInDeclaredScope) {
+		if (rules.allowedPrefix != null && rules.allowedPrefix.length > 0) {
+			const isAllowed = rules.allowedPrefix.some((prefix) =>
+				normalizedPath.startsWith(prefix),
+			);
+			if (!isAllowed) {
+				return {
+					allowed: false,
+					reason: `Path ${normalizedPath} not in allowed list for ${normalizedAgent}`,
+				};
+			}
+		} else if (
+			rules.allowedPrefix != null &&
+			rules.allowedPrefix.length === 0
+		) {
+			// Empty allowedPrefix means nothing is allowed by prefix
 			return {
 				allowed: false,
 				reason: `Path ${normalizedPath} not in allowed list for ${normalizedAgent}`,
 			};
 		}
-	} else if (rules.allowedPrefix != null && rules.allowedPrefix.length === 0) {
-		// Empty allowedPrefix means nothing is allowed by prefix
-		return {
-			allowed: false,
-			reason: `Path ${normalizedPath} not in allowed list for ${normalizedAgent}`,
-		};
 	}
 
 	// Step 8: blockedZones - zone-based blocking
@@ -3205,11 +3467,13 @@ export function checkFileAuthority(
 	filePath: string,
 	cwd: string,
 	authorityConfig?: AuthorityConfig,
+	options?: { declaredScope?: string[] | null },
 ): { allowed: true } | { allowed: false; reason: string; zone?: FileZone } {
 	return checkFileAuthorityWithRules(
 		agentName,
 		filePath,
 		cwd,
 		buildEffectiveRules(authorityConfig),
+		options,
 	);
 }

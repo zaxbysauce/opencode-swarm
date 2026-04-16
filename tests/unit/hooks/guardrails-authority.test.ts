@@ -135,12 +135,12 @@ describe('guardrails-authority - File Authority Enforcement', () => {
 			expect(result.allowed).toBe(true);
 		});
 
-		it('blocks coder from writing outside allowed paths', () => {
+		it('allows coder to write to top-level files outside config zone', () => {
+			// After #496 coder no longer has a default allowedPrefix whitelist.
+			// README.md is not blocked by any DENY rule (markdown → docs zone),
+			// so the write is allowed.
 			const result = checkFileAuthority('coder', 'README.md', tempDir);
-			expect(result.allowed).toBe(false);
-			if (isDenied(result)) {
-				expect(result.reason).toContain('not in allowed list');
-			}
+			expect(result.allowed).toBe(true);
 		});
 	});
 
@@ -429,13 +429,12 @@ describe('guardrails-authority - File Authority Enforcement', () => {
 			expect(result.allowed).toBe(true);
 		});
 
-		it('blocks coder from writing outside allowed paths via absolute path', () => {
+		it('allows coder top-level non-config file via absolute path after #496', () => {
+			// After #496 coder no longer has a default allowedPrefix whitelist.
+			// README.md (markdown, not config zone) is allowed.
 			const absolutePath = path.join(tempDir, 'README.md');
 			const result = checkFileAuthority('coder', absolutePath, tempDir);
-			expect(result.allowed).toBe(false);
-			if (isDenied(result)) {
-				expect(result.reason).toContain('not in allowed list');
-			}
+			expect(result.allowed).toBe(true);
 		});
 
 		it('blocks coder from .swarm/ via absolute path', () => {
@@ -460,6 +459,73 @@ describe('guardrails-authority - File Authority Enforcement', () => {
 		});
 	});
 
+	describe('Cwd containment (rule-level, defense-in-depth)', () => {
+		it('checkFileAuthority blocks path outside cwd regardless of agent', () => {
+			// Defense-in-depth rule-level check added after removing
+			// coder.allowedPrefix (#496 final). Absolute paths outside cwd
+			// and `../` traversals must be rejected for every agent —
+			// including architect, which never had an allowedPrefix to
+			// provide implicit containment.
+			const projectDir = '/tmp/project';
+
+			// coder — absolute path outside cwd.
+			const coderAbs = checkFileAuthority(
+				'coder',
+				'/etc/passwd',
+				projectDir,
+				undefined,
+			);
+			expect(coderAbs.allowed).toBe(false);
+			if (isDenied(coderAbs)) {
+				expect(coderAbs.reason).toContain(
+					'resolves outside the working directory',
+				);
+			}
+
+			// architect — absolute path outside cwd (pre-existing gap also closed).
+			const archAbs = checkFileAuthority(
+				'architect',
+				'/etc/passwd',
+				projectDir,
+				undefined,
+			);
+			expect(archAbs.allowed).toBe(false);
+			if (isDenied(archAbs)) {
+				expect(archAbs.reason).toContain(
+					'resolves outside the working directory',
+				);
+			}
+
+			// coder — relative traversal outside cwd.
+			const coderTraversal = checkFileAuthority(
+				'coder',
+				'../../etc/passwd',
+				projectDir,
+				undefined,
+			);
+			expect(coderTraversal.allowed).toBe(false);
+			if (isDenied(coderTraversal)) {
+				expect(coderTraversal.reason).toContain(
+					'resolves outside the working directory',
+				);
+			}
+
+			// architect — relative traversal outside cwd.
+			const archTraversal = checkFileAuthority(
+				'architect',
+				'../../etc/passwd',
+				projectDir,
+				undefined,
+			);
+			expect(archTraversal.allowed).toBe(false);
+			if (isDenied(archTraversal)) {
+				expect(archTraversal.reason).toContain(
+					'resolves outside the working directory',
+				);
+			}
+		});
+	});
+
 	describe('Edge cases', () => {
 		it('handles empty file path', () => {
 			const result = checkFileAuthority('coder', '', tempDir);
@@ -478,8 +544,10 @@ describe('guardrails-authority - File Authority Enforcement', () => {
 
 		it('handles single file in root', () => {
 			const result = checkFileAuthority('coder', 'index.ts', tempDir);
-			// Not in allowed prefixes for coder
-			expect(result.allowed).toBe(false);
+			// After #496 coder has no default allowedPrefix. index.ts is a
+			// production-zone .ts file in the project root and is not blocked
+			// by any DENY rule, so the write is allowed.
+			expect(result.allowed).toBe(true);
 		});
 	});
 
@@ -683,6 +751,10 @@ describe('guardrails-authority - File Authority Enforcement', () => {
 		// NOTE: allowedPrefix: [] means deny all paths; omission of allowedPrefix means no allowlist restriction
 		it('allowedPrefix: [] denies traversal attempt outside cwd', () => {
 			// Using traversal sequence to escape tempDir - path.resolve normalizes ../
+			// After the rule-level cwd containment check was added (#496 final),
+			// a traversal outside cwd is rejected by containment BEFORE the
+			// allowedPrefix check runs. The path is still denied — just with a
+			// clearer reason — so this test now asserts the containment reason.
 			const result = checkFileAuthority(
 				'coder',
 				'../../../etc/passwd',
@@ -698,7 +770,9 @@ describe('guardrails-authority - File Authority Enforcement', () => {
 			);
 			expect(result.allowed).toBe(false);
 			if (isDenied(result)) {
-				expect(result.reason).toContain('not in allowed list');
+				expect(result.reason).toContain(
+					'resolves outside the working directory',
+				);
 			}
 		});
 	});
@@ -835,8 +909,9 @@ describe('guardrails-authority - File Authority Enforcement', () => {
 		/**
 		 * Test 5: paid_coder write to src/file.ts via delegation → ALLOWED
 		 * When delegationActive=true and paid_coder (which inherits from coder)
-		 * tries to write to src/, the canonical fallback allows it because
-		 * coder's allowedPrefix includes 'src/'.
+		 * tries to write to src/, the canonical fallback allows it. After #496
+		 * coder has no default allowedPrefix, so src/file.ts is allowed simply
+		 * because no DENY rule matches.
 		 */
 		it('paid_coder write to src/file.ts via delegation is allowed', async () => {
 			const sessionId = 'toolbefore-paidcoder-delegation';
@@ -1038,8 +1113,15 @@ describe('buildEffectiveRules pre-computation edge cases', () => {
 			session.delegationActive = true; // Enable delegation to trigger authority check
 			beginInvocation(sessionId, 'coder');
 
-			// Direct call result
-			const directResult = checkFileAuthority('coder', 'README.md', tempDir);
+			// After #496 the coder's default allowedPrefix is gone, so README.md
+			// is now allowed. To exercise "hook vs direct call produce identical
+			// DENIED result" we use a path still blocked by a DENY rule —
+			// `.swarm/plan.json` is rejected by blockedPrefix: ['.swarm/'].
+			const directResult = checkFileAuthority(
+				'coder',
+				'.swarm/plan.json',
+				tempDir,
+			);
 
 			// Hook path result via toolBefore - should throw for denied paths
 			const hooks = createGuardrailsHooks(
@@ -1050,7 +1132,7 @@ describe('buildEffectiveRules pre-computation edge cases', () => {
 			await expect(
 				hooks.toolBefore(
 					{ tool: 'write', sessionID: sessionId, callID: 'call-b2' },
-					{ args: { filePath: 'README.md' } },
+					{ args: { filePath: '.swarm/plan.json' } },
 				),
 			).rejects.toThrow(/WRITE BLOCKED/i);
 
@@ -1264,7 +1346,9 @@ describe('buildEffectiveRules pre-computation edge cases', () => {
 				);
 			}
 
-			// Also verify blocked paths remain blocked consistently
+			// Also verify blocked paths remain blocked consistently. After #496
+			// README.md is no longer blocked for coder, so we exercise a path
+			// that still hits a DENY rule (blockedPrefix: ['.swarm/']).
 			for (let i = 0; i < 3; i++) {
 				await expect(
 					hooks.toolBefore(
@@ -1273,7 +1357,7 @@ describe('buildEffectiveRules pre-computation edge cases', () => {
 							sessionID: sessionId,
 							callID: `call-c3-block-${i}`,
 						},
-						{ args: { filePath: 'README.md' } },
+						{ args: { filePath: '.swarm/plan.json' } },
 					),
 				).rejects.toThrow(/WRITE BLOCKED/i);
 			}
@@ -1601,7 +1685,7 @@ describe('patch-style write authority enforcement', () => {
 @@ -1 +1 @@
 +// new line`;
 
-			// Should NOT throw - src/ is in coder's allowedPrefix
+			// Should NOT throw - src/foo.ts is not blocked by any DENY rule.
 			await hooks.toolBefore(
 				{ tool: 'apply_patch', sessionID: sessionId, callID: 'call-f2' },
 				{ args: { input: patchContent } },
@@ -1722,7 +1806,7 @@ new file mode 100644
 @@ -1 +1 @@
 +// new line`;
 
-			// Should NOT throw - src/ is in coder's allowedPrefix
+			// Should NOT throw - src/file.ts is not blocked by any DENY rule.
 			await hooks.toolBefore(
 				{ tool: 'patch', sessionID: sessionId, callID: 'call-g2' },
 				{ args: { input: patchContent } },
@@ -1754,7 +1838,7 @@ index 1234567..abcdefg 100644
  // original
 +// added line`;
 
-			// Should NOT throw - src/x.ts is in coder's allowedPrefix
+			// Should NOT throw - src/x.ts is not blocked by any DENY rule.
 			await hooks.toolBefore(
 				{ tool: 'apply_patch', sessionID: sessionId, callID: 'call-h1' },
 				{ args: { input: patchContent } },

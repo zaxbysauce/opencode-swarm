@@ -88,14 +88,15 @@ describe('v6.12 Guardrails — ADVERSARIAL PATH TRAVERSAL SECURITY TESTS', () =>
 			// Null byte should not bypass protection
 			const maliciousPath = 'src\x00evil.ts';
 
-			await hooks.toolBefore(
-				{ tool: 'write', sessionID: 'null-byte-test', callID: 'c1' },
-				{ args: { filePath: maliciousPath } },
-			);
-
-			const session = getAgentSession('null-byte-test');
-			// Path should be detected as outside .swarm (null byte is stripped or treated as part of name)
-			expect(session?.architectWriteCount).toBeGreaterThanOrEqual(1);
+			// PR #501: the lstat guard fails on null-byte paths
+			// (ERR_INVALID_ARG_VALUE) and fails closed with WRITE BLOCKED
+			// rather than letting the write reach the filesystem.
+			await expect(
+				hooks.toolBefore(
+					{ tool: 'write', sessionID: 'null-byte-test', callID: 'c1' },
+					{ args: { filePath: maliciousPath } },
+				),
+			).rejects.toThrow('WRITE BLOCKED');
 		});
 
 		it('should reject URL-encoded traversal (%2e%2e/src/evil.ts)', async () => {
@@ -134,19 +135,21 @@ describe('v6.12 Guardrails — ADVERSARIAL PATH TRAVERSAL SECURITY TESTS', () =>
 
 			const longPath = generateLongString('a', 10000);
 
-			// Should complete quickly without hanging
+			// PR #501: oversized paths fail the lstat guard with ENAMETOOLONG
+			// and the hook fails closed with WRITE BLOCKED. The original
+			// test intent (no DoS / returns quickly) is preserved by the
+			// fast fail-closed rejection.
 			const startTime = Date.now();
-			await hooks.toolBefore(
-				{ tool: 'write', sessionID: 'long-path-test', callID: 'c1' },
-				{ args: { filePath: longPath } },
-			);
+			await expect(
+				hooks.toolBefore(
+					{ tool: 'write', sessionID: 'long-path-test', callID: 'c1' },
+					{ args: { filePath: longPath } },
+				),
+			).rejects.toThrow('WRITE BLOCKED');
 			const elapsed = Date.now() - startTime;
 
-			// Should complete in reasonable time (< 1000ms)
+			// Should complete in reasonable time (< 1000ms) — fast fail-closed
 			expect(elapsed).toBeLessThan(1000);
-
-			const session = getAgentSession('long-path-test');
-			expect(session?.architectWriteCount).toBeGreaterThanOrEqual(1);
 		});
 
 		it('should reject Unicode homoglyphs in .swarm path', async () => {
@@ -231,13 +234,15 @@ describe('v6.12 Guardrails — ADVERSARIAL PATH TRAVERSAL SECURITY TESTS', () =>
 			// Windows backslash traversal
 			const maliciousPath = '..\\..\\src\\evil.ts';
 
-			await hooks.toolBefore(
-				{ tool: 'write', sessionID: 'backslash-test', callID: 'c1' },
-				{ args: { filePath: maliciousPath } },
-			);
-
-			const session = getAgentSession('backslash-test');
-			expect(session?.architectWriteCount).toBeGreaterThanOrEqual(1);
+			// PR #501 + #496: the cwd-containment check normalises backslashes
+			// and rejects the resulting ../../src/evil.ts path as outside the
+			// working directory, blocking the write fail-closed.
+			await expect(
+				hooks.toolBefore(
+					{ tool: 'write', sessionID: 'backslash-test', callID: 'c1' },
+					{ args: { filePath: maliciousPath } },
+				),
+			).rejects.toThrow('WRITE BLOCKED');
 		});
 
 		it('should reject traversal with null byte before extension (src/evil.ts\\x00.md)', async () => {
@@ -253,13 +258,14 @@ describe('v6.12 Guardrails — ADVERSARIAL PATH TRAVERSAL SECURITY TESTS', () =>
 			// Null byte before extension - classic attack
 			const maliciousPath = 'src/evil.ts\x00.md';
 
-			await hooks.toolBefore(
-				{ tool: 'write', sessionID: 'null-ext-test', callID: 'c1' },
-				{ args: { filePath: maliciousPath } },
-			);
-
-			const session = getAgentSession('null-ext-test');
-			expect(session?.architectWriteCount).toBeGreaterThanOrEqual(1);
+			// PR #501: lstat guard rejects null-byte paths fail-closed
+			// (ERR_INVALID_ARG_VALUE → WRITE BLOCKED).
+			await expect(
+				hooks.toolBefore(
+					{ tool: 'write', sessionID: 'null-ext-test', callID: 'c1' },
+					{ args: { filePath: maliciousPath } },
+				),
+			).rejects.toThrow('WRITE BLOCKED');
 		});
 
 		it('should reject path with overlong UTF-8 sequences', async () => {
@@ -298,14 +304,17 @@ describe('v6.12 Guardrails — ADVERSARIAL PATH TRAVERSAL SECURITY TESTS', () =>
 			// Symlink-style path (doesn't exist but should still be caught)
 			const maliciousPath = '.swarm/../../../etc/passwd';
 
-			await hooks.toolBefore(
-				{ tool: 'write', sessionID: 'symlink-test', callID: 'c1' },
-				{ args: { filePath: maliciousPath } },
-			);
-
-			const session = getAgentSession('symlink-test');
-			// Path resolves outside .swarm, should be flagged
-			expect(session?.architectWriteCount).toBeGreaterThanOrEqual(1);
+			// PR #501 + #496: the cwd-containment check rejects the resolved
+			// path as outside the working directory before the
+			// architectWriteCount counter can increment. Previously the test
+			// allowed the write to proceed and merely observed the counter;
+			// the write is now fail-closed with WRITE BLOCKED.
+			await expect(
+				hooks.toolBefore(
+					{ tool: 'write', sessionID: 'symlink-test', callID: 'c1' },
+					{ args: { filePath: maliciousPath } },
+				),
+			).rejects.toThrow('WRITE BLOCKED');
 		});
 	});
 
@@ -434,14 +443,19 @@ describe('v6.12 Guardrails — ADVERSARIAL PATH TRAVERSAL SECURITY TESTS', () =>
 			// 100KB string
 			const oversizedPath = generateLongString('a', 100 * 1024);
 
+			// PR #501: oversized filePath trips the lstat guard
+			// (ENAMETOOLONG → WRITE BLOCKED). The no-DoS intent is preserved
+			// by the fast fail-closed rejection.
 			const startTime = Date.now();
-			await hooks.toolBefore(
-				{ tool: 'write', sessionID: 'oversized-path-test', callID: 'c1' },
-				{ args: { filePath: oversizedPath } },
-			);
+			await expect(
+				hooks.toolBefore(
+					{ tool: 'write', sessionID: 'oversized-path-test', callID: 'c1' },
+					{ args: { filePath: oversizedPath } },
+				),
+			).rejects.toThrow('WRITE BLOCKED');
 			const elapsed = Date.now() - startTime;
 
-			// Should complete in reasonable time (< 2000ms)
+			// Should complete in reasonable time (< 2000ms) — fast fail-closed
 			expect(elapsed).toBeLessThan(2000);
 		});
 

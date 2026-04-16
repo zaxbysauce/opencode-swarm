@@ -19,6 +19,7 @@ import {
 	type EnvironmentProfile,
 } from './environment/profile.js';
 import type { TaskEvidence } from './gate-evidence';
+import { clearPendingCoderScope } from './hooks/delegation-gate.js';
 import { telemetry } from './telemetry.js';
 
 /**
@@ -315,6 +316,10 @@ export function resetSwarmState(): void {
 	// Full Auto Mode (Phase 4)
 	swarmState.fullAutoEnabledInConfig = false;
 	swarmState.environmentProfiles.clear();
+	// v6.70.0 gap-closure (#496): clear the module-scoped pending coder-scope
+	// map so a /swarm close + new session with a colliding taskId (e.g. "1.1")
+	// cannot inherit stale scope from the previous swarm.
+	clearPendingCoderScope();
 	// Note: Session-scoped fields (architectWriteCount, gateLog, reviewerCallCount, lastGateFailure)
 	// are cleared when agentSessions entries are deleted
 }

@@ -509,6 +509,7 @@ export declare const AuthorityConfigSchema: z.ZodObject<{
         blockedGlobs: z.ZodOptional<z.ZodArray<z.ZodString>>;
         allowedGlobs: z.ZodOptional<z.ZodArray<z.ZodString>>;
     }, z.core.$strip>>>;
+    universal_deny_prefixes: z.ZodDefault<z.ZodArray<z.ZodString>>;
 }, z.core.$strip>;
 export type AuthorityConfig = z.infer<typeof AuthorityConfigSchema>;
 export declare const CouncilConfigSchema: z.ZodObject<{
@@ -699,6 +700,7 @@ export declare const PluginConfigSchema: z.ZodObject<{
             blockedGlobs: z.ZodOptional<z.ZodArray<z.ZodString>>;
             allowedGlobs: z.ZodOptional<z.ZodArray<z.ZodString>>;
         }, z.core.$strip>>>;
+        universal_deny_prefixes: z.ZodDefault<z.ZodArray<z.ZodString>>;
     }, z.core.$strip>>;
     plan_cursor: z.ZodOptional<z.ZodObject<{
         enabled: z.ZodDefault<z.ZodBoolean>;
