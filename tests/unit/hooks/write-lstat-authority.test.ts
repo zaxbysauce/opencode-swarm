@@ -20,6 +20,7 @@ import {
 	type GuardrailsConfig,
 	GuardrailsConfigSchema,
 } from '../../../src/config/schema';
+import { pendingCoderScopeByTaskId } from '../../../src/hooks/delegation-gate';
 import {
 	checkWriteTargetForSymlink,
 	createGuardrailsHooks,
@@ -602,5 +603,235 @@ describe('declare_scope lstat validation', () => {
 		expect(result.message).toContain('symlink');
 		// Confirm the symlinked file was actually detected (not skipped by early-exit)
 		expect(JSON.stringify(result.errors ?? [])).toContain('link.ts');
+	});
+});
+
+// ─── 6. declared scope overrides allowedPrefix (issue #496) ──────────────────
+//
+// declare_scope-declared paths bypass the hardcoded allowedPrefix whitelist
+// (e.g. coder's ['src/', 'tests/', 'docs/', 'scripts/']) so the architect can
+// authorise framework-agnostic paths (Rails config/, app/, db/; Python module/;
+// etc.) without editing the default rule set. All DENY rules remain enforced.
+
+describe('declared scope overrides allowedPrefix (#496)', () => {
+	beforeEach(setup);
+	afterEach(teardown);
+
+	it('ALLOWS Rails config/ path after declare_scope (outside coder allowedPrefix)', async () => {
+		// Without declare_scope, coder cannot write to `config/` (not in allowedPrefix).
+		// After declare_scope, the same write succeeds — scope overrides allowedPrefix.
+		const hooks = makeHooks();
+		const id = 'coder-scope-rails-config';
+		coderSession(id);
+
+		const session = swarmState.agentSessions.get(id);
+		if (session) {
+			session.declaredCoderScope = ['config/environments/test.rb'];
+		}
+
+		// config/environments/test.rb is outside ['src/','tests/','docs/','scripts/']
+		// but inside the declared scope — authority check should allow it.
+		await hooks.toolBefore(
+			{ tool: 'write', sessionID: id, callID: 's1' },
+			{ args: { filePath: 'config/environments/test.rb' } },
+		);
+	});
+
+	it('ALLOWS Rails app/ and db/migrate/ directories after declare_scope', async () => {
+		const hooks = makeHooks();
+		const id = 'coder-scope-rails-app';
+		coderSession(id);
+
+		const session = swarmState.agentSessions.get(id);
+		if (session) {
+			session.declaredCoderScope = ['app/', 'db/migrate/'];
+		}
+
+		// Directory-containment: files under declared directories are in scope.
+		await hooks.toolBefore(
+			{ tool: 'write', sessionID: id, callID: 's2a' },
+			{ args: { filePath: 'app/models/user.rb' } },
+		);
+		await hooks.toolBefore(
+			{ tool: 'write', sessionID: id, callID: 's2b' },
+			{ args: { filePath: 'db/migrate/20260416_create_users.rb' } },
+		);
+	});
+
+	it('BLOCKS non-Rails path outside declared scope (scope does not widen everything)', async () => {
+		const hooks = makeHooks();
+		const id = 'coder-scope-narrow';
+		coderSession(id);
+
+		const session = swarmState.agentSessions.get(id);
+		if (session) {
+			session.declaredCoderScope = ['config/'];
+		}
+
+		// `app/` is NOT in declared scope, and also NOT in coder's allowedPrefix
+		// → authority check must still block.
+		await expect(
+			hooks.toolBefore(
+				{ tool: 'write', sessionID: id, callID: 's3' },
+				{ args: { filePath: 'app/models/user.rb' } },
+			),
+		).rejects.toThrow(/not in allowed list/);
+	});
+
+	it('BACKWARD COMPAT: without declare_scope, allowedPrefix still restricts coder to src/', async () => {
+		// Pre-fix behaviour must be preserved: if the architect has NOT declared
+		// scope, the hardcoded allowedPrefix whitelist still applies.
+		const hooks = makeHooks();
+		const id = 'coder-no-scope';
+		coderSession(id);
+
+		// No declaredCoderScope set. `config/` is not in coder's allowedPrefix.
+		await expect(
+			hooks.toolBefore(
+				{ tool: 'write', sessionID: id, callID: 's4' },
+				{ args: { filePath: 'config/routes.rb' } },
+			),
+		).rejects.toThrow(/not in allowed list/);
+	});
+
+	it('SECURITY: blockedPrefix still enforced even when path is in declared scope', async () => {
+		// blockedPrefix takes priority over the declared-scope allow. Declaring
+		// `.swarm/` in scope must NOT let the coder write into it.
+		const hooks = makeHooks();
+		const id = 'coder-scope-blocked-prefix';
+		coderSession(id);
+
+		const session = swarmState.agentSessions.get(id);
+		if (session) {
+			session.declaredCoderScope = ['.swarm/plan.json'];
+		}
+
+		// coder's blockedPrefix is ['.swarm/'] — must still fire.
+		await expect(
+			hooks.toolBefore(
+				{ tool: 'write', sessionID: id, callID: 's5' },
+				{ args: { filePath: '.swarm/plan.json' } },
+			),
+		).rejects.toThrow(/WRITE BLOCKED.*under \.swarm/);
+	});
+
+	it('SECURITY: readOnly (explorer) still enforced even when path is in declared scope', async () => {
+		const hooks = makeHooks();
+		const id = 'explorer-scope-readonly';
+		ensureAgentSession(id, 'explorer');
+		swarmState.activeAgent.set(id, 'explorer');
+		beginInvocation(id, 'explorer');
+
+		const session = swarmState.agentSessions.get(id);
+		if (session) {
+			session.declaredCoderScope = ['src/feature.ts'];
+		}
+
+		// explorer is read-only — scope declaration must not grant write authority.
+		await expect(
+			hooks.toolBefore(
+				{ tool: 'write', sessionID: id, callID: 's6' },
+				{ args: { filePath: 'src/feature.ts' } },
+			),
+		).rejects.toThrow(/read-only/);
+	});
+
+	it('SECURITY: universal_deny still blocks even when path is in declared scope', async () => {
+		const hooks = makeHooks({
+			universal_deny_prefixes: ['.env', 'secrets/'],
+		});
+		const id = 'coder-scope-universal-deny';
+		coderSession(id);
+
+		const session = swarmState.agentSessions.get(id);
+		if (session) {
+			session.declaredCoderScope = ['.env', 'secrets/api-key.pem'];
+		}
+
+		// universal_deny_prefixes is checked before per-agent rules and is not
+		// relaxed by declared scope.
+		await expect(
+			hooks.toolBefore(
+				{ tool: 'write', sessionID: id, callID: 's7a' },
+				{ args: { filePath: '.env' } },
+			),
+		).rejects.toThrow(/universal deny prefix/);
+
+		await expect(
+			hooks.toolBefore(
+				{ tool: 'write', sessionID: id, callID: 's7b' },
+				{ args: { filePath: 'secrets/api-key.pem' } },
+			),
+		).rejects.toThrow(/universal deny prefix/);
+	});
+
+	it('SECURITY: blockedZones still enforced even when path is in declared scope', async () => {
+		// coder blockedZones = ['generated', 'config']. A `.yaml` file classifies
+		// as `config` zone — declared scope must not bypass blockedZones.
+		const hooks = makeHooks();
+		const id = 'coder-scope-blocked-zone';
+		coderSession(id);
+
+		const session = swarmState.agentSessions.get(id);
+		if (session) {
+			session.declaredCoderScope = ['config/database.yml'];
+		}
+
+		await expect(
+			hooks.toolBefore(
+				{ tool: 'write', sessionID: id, callID: 's8' },
+				{ args: { filePath: 'config/database.yml' } },
+			),
+		).rejects.toThrow(/config zone/);
+	});
+
+	it('FALLBACK: pendingCoderScopeByTaskId used when session.declaredCoderScope is null', async () => {
+		// After /swarm close and before a new session inherits scope, the
+		// per-task map is the source of truth. The guard must consult it.
+		const hooks = makeHooks();
+		const id = 'coder-scope-task-fallback';
+		coderSession(id);
+
+		const session = swarmState.agentSessions.get(id);
+		if (session) {
+			session.declaredCoderScope = null;
+			session.currentTaskId = 'task-rails-1';
+		}
+		pendingCoderScopeByTaskId.set('task-rails-1', ['config/', 'app/']);
+
+		try {
+			await hooks.toolBefore(
+				{ tool: 'write', sessionID: id, callID: 's9' },
+				{ args: { filePath: 'config/routes.rb' } },
+			);
+		} finally {
+			pendingCoderScopeByTaskId.delete('task-rails-1');
+		}
+	});
+
+	it('apply_patch also honours declared scope (parity with Write/Edit)', async () => {
+		const hooks = makeHooks();
+		const id = 'coder-scope-patch';
+		coderSession(id);
+
+		const session = swarmState.agentSessions.get(id);
+		if (session) {
+			session.declaredCoderScope = ['config/'];
+		}
+
+		const patchContent = `*** Begin Patch
+*** Update File: config/routes.rb
+@@
+-old
++new
+*** End Patch`;
+
+		// config/routes.rb would normally be rejected by coder's allowedPrefix,
+		// but declared scope lets it through — and blockedZones/blockedPrefix
+		// still apply (routes.rb is production zone, not blocked).
+		await hooks.toolBefore(
+			{ tool: 'apply_patch', sessionID: id, callID: 's10' },
+			{ args: { patch: patchContent } },
+		);
 	});
 });

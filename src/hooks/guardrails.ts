@@ -37,6 +37,7 @@ import {
 import { telemetry } from '../telemetry.js';
 import { log, warn } from '../utils';
 import { resolveAgentConflict } from './conflict-resolution';
+import { pendingCoderScopeByTaskId } from './delegation-gate.js';
 import { extractCurrentPhaseFromPlan } from './extractors';
 import { detectLoop } from './loop-detector';
 import { extractModelInfo } from './model-limits';
@@ -1892,12 +1893,24 @@ export function createGuardrailsHooks(
 						}
 					}
 
+					// v6.70.0 (#496): resolve declared scope so the authority check can
+					// honour architect-declared paths that fall outside the agent's
+					// hardcoded allowedPrefix (e.g. Rails `config/`, `app/`).
+					const writeSession = swarmState.agentSessions.get(input.sessionID);
+					const writeDeclaredScope =
+						writeSession?.declaredCoderScope ??
+						(writeSession?.currentTaskId
+							? (pendingCoderScopeByTaskId.get(writeSession.currentTaskId) ??
+								null)
+							: null);
+
 					// Per-agent authority check — applies to all agents
 					const authorityCheck = checkFileAuthorityWithRules(
 						agentName,
 						targetPath,
 						effectiveDirectory,
 						precomputedAuthorityRules,
+						{ declaredScope: writeDeclaredScope },
 					);
 					if (!authorityCheck.allowed) {
 						throw new Error(
@@ -1940,12 +1953,23 @@ export function createGuardrailsHooks(
 						}
 					}
 
+					// v6.70.0 (#496): resolve declared scope for apply_patch path (see
+					// Write/Edit path above for rationale).
+					const patchSession = swarmState.agentSessions.get(input.sessionID);
+					const patchDeclaredScope =
+						patchSession?.declaredCoderScope ??
+						(patchSession?.currentTaskId
+							? (pendingCoderScopeByTaskId.get(patchSession.currentTaskId) ??
+								null)
+							: null);
+
 					// Per-agent authority check for patches
 					const authorityCheck = checkFileAuthorityWithRules(
 						patchAgentName,
 						p,
 						effectiveDirectory,
 						precomputedAuthorityRules,
+						{ declaredScope: patchDeclaredScope },
 					);
 					if (!authorityCheck.allowed) {
 						throw new Error(
@@ -3187,6 +3211,7 @@ function checkFileAuthorityWithRules(
 	filePath: string,
 	cwd: string,
 	effectiveRules: Record<string, AgentRule>,
+	options?: { declaredScope?: string[] | null },
 ): { allowed: true } | { allowed: false; reason: string; zone?: FileZone } {
 	const normalizedAgent = agentName.toLowerCase();
 	const strippedAgent = stripKnownSwarmPrefix(agentName).toLowerCase();
@@ -3283,23 +3308,44 @@ function checkFileAuthorityWithRules(
 	}
 
 	// Step 7: allowedPrefix - prefix-based allow (whitelist model)
-	// If configured, only paths starting with these prefixes are allowed
-	if (rules.allowedPrefix != null && rules.allowedPrefix.length > 0) {
-		const isAllowed = rules.allowedPrefix.some((prefix) =>
-			normalizedPath.startsWith(prefix),
-		);
-		if (!isAllowed) {
+	// If configured, only paths starting with these prefixes are allowed.
+	//
+	// v6.70.0 (#496): If the architect has declared an explicit scope via the
+	// `declare_scope` tool, paths inside that scope bypass the hardcoded
+	// allowedPrefix whitelist. This lets the architect authorise framework-agnostic
+	// paths (Rails `config/`, `app/`, `db/`; Python `module/`, `pyproject.toml`; etc.)
+	// without editing the default rule set.
+	//
+	// SECURITY: declaredScope ONLY relaxes allowedPrefix (Step 7). All DENY rules
+	// (readOnly, blockedExact, blockedGlobs, blockedPrefix, blockedZones) and
+	// universal_deny_prefixes (checked upstream in toolBefore) remain fully
+	// enforced. A declared scope cannot grant writes into .env, .git/, secrets/,
+	// or any blocked path.
+	const pathIsInDeclaredScope =
+		options?.declaredScope != null &&
+		options.declaredScope.length > 0 &&
+		isInDeclaredScope(normalizedPath, options.declaredScope, dir);
+	if (!pathIsInDeclaredScope) {
+		if (rules.allowedPrefix != null && rules.allowedPrefix.length > 0) {
+			const isAllowed = rules.allowedPrefix.some((prefix) =>
+				normalizedPath.startsWith(prefix),
+			);
+			if (!isAllowed) {
+				return {
+					allowed: false,
+					reason: `Path ${normalizedPath} not in allowed list for ${normalizedAgent}`,
+				};
+			}
+		} else if (
+			rules.allowedPrefix != null &&
+			rules.allowedPrefix.length === 0
+		) {
+			// Empty allowedPrefix means nothing is allowed by prefix
 			return {
 				allowed: false,
 				reason: `Path ${normalizedPath} not in allowed list for ${normalizedAgent}`,
 			};
 		}
-	} else if (rules.allowedPrefix != null && rules.allowedPrefix.length === 0) {
-		// Empty allowedPrefix means nothing is allowed by prefix
-		return {
-			allowed: false,
-			reason: `Path ${normalizedPath} not in allowed list for ${normalizedAgent}`,
-		};
 	}
 
 	// Step 8: blockedZones - zone-based blocking
