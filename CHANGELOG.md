@@ -1,5 +1,12 @@
 # Changelog
 
+## [6.70.0](https://github.com/zaxbysauce/opencode-swarm/compare/v6.69.0...v6.70.0) (2026-04-16)
+
+
+### Features
+
+* **guardrails:** transparent write authority + lstat symlink guard + universal deny prefixes ([#501](https://github.com/zaxbysauce/opencode-swarm/issues/501)) ([c884a33](https://github.com/zaxbysauce/opencode-swarm/commit/c884a330ce8434859daabb6133d7a3737e024178))
+
 ## [6.69.0](https://github.com/zaxbysauce/opencode-swarm/compare/v6.68.1...v6.69.0) (2026-04-16)
 
 
