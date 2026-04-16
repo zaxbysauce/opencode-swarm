@@ -258,14 +258,10 @@ describe('guardrails-zone-authority - Zone Authority Integration', () => {
 			const zoneResult = classifyFile('foo/docs/guide.md');
 			expect(zoneResult.zone).toBe('docs');
 
-			// Coder allowed prefixes: docs/ - wait, it's 'docs/' not 'foo/docs/'
-			// Actually coder's allowedPrefixes is ['src/', 'tests/', 'docs/', 'scripts/']
-			// So 'docs/guide.md' should work because it starts with 'docs/'
-			// But zone check will fail because it's config zone (ends with .md - wait, no .md is not config)
-			// Let me check what zone docs/guide.md actually is
-
-			// Actually 'docs/guide.md' is classified as 'production' (default), not 'docs'
-			// So it passes the zone check (no blockedZones for production)
+			// After #496 coder has no default allowedPrefix; writes are gated
+			// only by DENY rules. 'docs/guide.md' is classified as 'production'
+			// zone (default), which is not in coder's blockedZones
+			// (['generated', 'config']), so the write is allowed.
 			const authorityResult = checkFileAuthority(
 				'coder',
 				'docs/guide.md',

@@ -3103,7 +3103,6 @@ export const DEFAULT_AGENT_AUTHORITY_RULES: Record<string, AgentRule> = {
 	},
 	coder: {
 		blockedPrefix: ['.swarm/'],
-		allowedPrefix: ['src/', 'tests/', 'docs/', 'scripts/'],
 		blockedZones: ['generated', 'config'],
 	},
 	reviewer: {

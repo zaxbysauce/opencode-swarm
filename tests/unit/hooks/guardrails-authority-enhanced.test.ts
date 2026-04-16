@@ -321,15 +321,16 @@ describe('checkFileAuthorityWithRules - DENY-first evaluation', () => {
 			expect(result.allowed).toBe(true);
 		});
 
-		test('coder blocked by missing prefix', () => {
+		test('coder blocked by config zone', () => {
 			const result = checkFileAuthority(
 				'coder',
 				'config/settings.json',
 				TEST_CWD,
 			);
-			// Default coder doesn't have config/ in allowedPrefix
+			// Default coder no longer has allowedPrefix (#496) but still
+			// blocks the config zone. config/settings.json is .json => config zone.
 			expect(result.allowed).toBe(false);
-			expect(result.reason).toContain('not in allowed list');
+			expect(result.reason).toContain('config zone');
 		});
 
 		test('test_engineer allowed prefix - tests directory', () => {
@@ -343,9 +344,9 @@ describe('checkFileAuthorityWithRules - DENY-first evaluation', () => {
 	});
 
 	describe('Step 7: blockedPrefix', () => {
-		test('coder blockedPrefix - Path blocked (has allowedPrefix)', () => {
+		test('coder blockedPrefix blocks .swarm/', () => {
 			const result = checkFileAuthority('coder', '.swarm/state.json', TEST_CWD);
-			// Coder has allowedPrefix configured, so .swarm is not in the allowed list
+			// Coder still has blockedPrefix: ['.swarm/'] after #496.
 			expect(result.allowed).toBe(false);
 			expect(result.reason).toContain('Path blocked');
 		});
@@ -391,13 +392,12 @@ describe('checkFileAuthorityWithRules - DENY-first evaluation', () => {
 		});
 
 		test('coder blocked config zone - opencode.json', () => {
-			// Default coder has blockedZones: ['generated', 'config']
-			// But opencode.json might be blocked by allowedPrefix first
-			// Let's check a file that is in config zone but passes allowedPrefix
+			// Default coder has blockedZones: ['generated', 'config'].
+			// After #496 coder no longer has allowedPrefix, so opencode.json
+			// is blocked directly by the config-zone rule.
 			const result = checkFileAuthority('coder', 'opencode.json', TEST_CWD);
-			// Coder has allowedPrefix, so opencode.json fails that first
 			expect(result.allowed).toBe(false);
-			expect(result.reason).toContain('not in allowed list');
+			expect(result.reason).toContain('config zone');
 		});
 
 		test('zone check happens when path passes prefix checks', () => {
@@ -591,7 +591,9 @@ describe('DEFAULT_AGENT_AUTHORITY_RULES', () => {
 	test('coder has correct defaults', () => {
 		const rules = DEFAULT_AGENT_AUTHORITY_RULES;
 		expect(rules.coder.blockedPrefix).toContain('.swarm/');
-		expect(rules.coder.allowedPrefix).toContain('src/');
+		// #496: coder no longer ships with a language-specific allowedPrefix
+		// whitelist. Writes are constrained by DENY rules only.
+		expect(rules.coder.allowedPrefix).toBeUndefined();
 		expect(rules.coder.blockedZones).toContain('generated');
 		expect(rules.coder.blockedZones).toContain('config');
 	});
@@ -688,9 +690,13 @@ describe('Security: path traversal protection', () => {
 	});
 
 	test('coder blocks absolute paths outside project', () => {
+		// After #496 coder no longer has allowedPrefix. Absolute paths outside
+		// the project are only blocked if they hit a DENY rule. /etc/passwd is
+		// not blocked by any default coder rule, so the hook-level lstat/symlink
+		// guard is what protects writes outside the project at runtime; the
+		// pure rule-level check on a plain absolute path is now allowed.
 		const result = checkFileAuthority('coder', '/etc/passwd', TEST_CWD);
-		// Should be blocked by allowedPrefix rules
-		expect(result.allowed).toBe(false);
+		expect(result.allowed).toBe(true);
 	});
 });
 
