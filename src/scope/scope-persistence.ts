@@ -14,7 +14,34 @@
  *   - File lock via proper-lockfile while writing.
  *   - Schema versioning: readers fail closed on unknown version.
  *   - TTL: default 24h from declaredAt; expired scopes return null.
- *   - lstat symlink guard: refuse to read a scope file that is a symlink.
+ *   - Symlink guards (defence in depth):
+ *       * realpath containment check on `.swarm/scopes/` (closes parent-dir attack)
+ *       * O_NOFOLLOW on both write-create and read-fd (closes leaf-file TOCTOU)
+ *       * taskId-in-file must match the filename (closes cross-pollination)
+ *       * declaredAt must be <= now (closes future-timestamp attack)
+ *       * files array capped at MAX_FILES_PER_SCOPE (DoS cap)
+ *       * plan.json size capped at MAX_PLAN_BYTES (DoS cap)
+ *       * Windows reserved device names rejected (CON, NUL, LPT1, …)
+ *
+ * RESIDUAL RISKS — explicitly accepted (#520 tracks full syscall-layer remediation):
+ *   1. Bash / interpreter writes bypass the tool-layer authority check. This
+ *      module does not protect against a coder process running `sed -i`,
+ *      `echo >`, `python -c`, etc. Mitigation is prompt-only (see coder.ts
+ *      WRITE BLOCKED PROTOCOL) until #520 lands.
+ *   2. Platform-portability of symlink guards:
+ *        - realpath resolves POSIX symlinks and Windows junctions, but the
+ *          Windows behaviour is not covered by CI (Linux-only test matrix).
+ *        - O_NOFOLLOW is a no-op on Windows (falls back to 0). The realpath
+ *          containment check on `.swarm/scopes/` remains the primary guard
+ *          on that platform; leaf-file TOCTOU on Windows is not closed.
+ *   3. Stale lockfile DoS: a crashed writer leaves a lock for up to
+ *      LOCK_STALE_MS (30s). During that window, concurrent `declare_scope`
+ *      calls fail silently and the architect relies on in-memory state.
+ *      Acceptable because in-memory state remains authoritative inside the
+ *      live process; disk is a fallback.
+ *   4. Temp-file leak: a crash between `Bun.write(tmp)` and `renameSync`
+ *      leaves `scope-{id}.json.tmp.{ts}.{rand}` files. No sweeper runs today;
+ *      accumulation is bounded by `/swarm close` (which rm -rf's .swarm/scopes/).
  *
  * NOT a security boundary. Bash remains unguarded at the write-authority layer.
  * The durable fix lives at the syscall layer (#520). This module closes the
