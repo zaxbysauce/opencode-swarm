@@ -686,10 +686,13 @@ function dcCheckJunctionCreation(segment: string, cwd: string): string | null {
 	}
 
 	// New-Item -ItemType Junction|SymbolicLink (PowerShell)
-	const newItemMatch =
-		/New-Item\b.*-ItemType\s+(?:Junction|SymbolicLink|HardLink)\b.*-Target\s+"?([^"\s;]+)"?/i.exec(
+	// Parameters are order-independent in PS, so check for -ItemType and -Target independently.
+	const newItemTypeMatch =
+		/New-Item\b.*-ItemType\s+(?:Junction|SymbolicLink|HardLink)\b/i.test(
 			segment,
 		);
+	const newItemTargetMatch = /-Target\s+"?([^"\s;]+)"?/i.exec(segment);
+	const newItemMatch = newItemTypeMatch ? newItemTargetMatch : null;
 	if (newItemMatch) {
 		const target = newItemMatch[1].trim();
 		if (!dcHasUnresolvableVars(target)) {
@@ -702,17 +705,19 @@ function dcCheckJunctionCreation(segment: string, cwd: string): string | null {
 		return null;
 	}
 
-	// ln -s <target> (POSIX symlink; only block if target is outside cwd)
+	// ln -s <target> (POSIX symlink; block if target resolves outside cwd)
+	// Both absolute and relative targets are checked: ln -s ../sensitive dist escapes cwd.
 	const lnMatch =
 		/^ln\s+(?:-[sfnv]*s[sfnv]*|-s)\s+"?([^"\s]+)"?(?:\s+"?[^"\s]+"?)?\s*$/.exec(
 			segment,
 		);
 	if (lnMatch) {
 		const target = lnMatch[1].trim();
-		if (!dcHasUnresolvableVars(target) && path.isAbsolute(target)) {
-			const rel = path.relative(cwd, target);
+		if (!dcHasUnresolvableVars(target)) {
+			const resolved = path.resolve(cwd, target);
+			const rel = path.relative(cwd, resolved);
 			if (rel.startsWith('..') || path.isAbsolute(rel)) {
-				return `BLOCKED: Symlink creation targeting path outside working directory: ln -s target "${target}" is outside "${cwd}". Symlinks to external paths combined with recursive deletion can destroy data.`;
+				return `BLOCKED: Symlink creation targeting path outside working directory: ln -s target "${target}" resolves to "${resolved}" which is outside "${cwd}". Symlinks to external paths combined with recursive deletion can destroy data.`;
 			}
 		}
 		return null;

@@ -166,8 +166,9 @@ describe('junction and symlink creation blocking', () => {
 		).resolves.toBeUndefined();
 	});
 
-	test('ln -s relative/inside target → ALLOWED (non-absolute target)', async () => {
-		// Non-absolute targets are not blocked — the guard only rejects absolute paths outside cwd
+	test('ln -s relative/inside target → ALLOWED (resolves inside cwd)', async () => {
+		// Relative target that stays inside cwd is allowed.
+		// path.resolve(TEST_DIR='/tmp', 'real-target') = '/tmp/real-target' — inside cwd.
 		const hooks = createGuardrailsHooks(TEST_DIR, undefined, defaultConfig());
 		const output = { args: { command: 'ln -s real-target mylink' } };
 		await expect(
@@ -176,6 +177,66 @@ describe('junction and symlink creation blocking', () => {
 				output,
 			),
 		).resolves.toBeUndefined();
+	});
+
+	test('ln -s ../outside mylink → BLOCKED (relative path escaping cwd)', async () => {
+		// path.resolve('/tmp', '../outside') = '/outside' which is outside /tmp → BLOCKED
+		const hooks = createGuardrailsHooks(TEST_DIR, undefined, defaultConfig());
+		const output = { args: { command: 'ln -s ../outside mylink' } };
+		await expect(
+			hooks.toolBefore(
+				{ tool: 'bash', sessionID: 'test-session', callID: 'c4d' },
+				output,
+			),
+		).rejects.toThrow(/BLOCKED/);
+	});
+
+	test('ln -s ../../etc/passwd mylink → BLOCKED (deep relative path escaping cwd)', async () => {
+		const hooks = createGuardrailsHooks(TEST_DIR, undefined, defaultConfig());
+		const output = { args: { command: 'ln -s ../../etc/passwd mylink' } };
+		await expect(
+			hooks.toolBefore(
+				{ tool: 'bash', sessionID: 'test-session', callID: 'c4e' },
+				output,
+			),
+		).rejects.toThrow(/BLOCKED/);
+	});
+
+	test('New-Item -Target /opt/sensitive -ItemType Junction -Path dist → BLOCKED (Target before ItemType)', async () => {
+		// PS params are order-independent; -Target before -ItemType must still be caught
+		const externalTarget =
+			process.platform === 'win32'
+				? 'C:\\opencode\\dist3\\DocumentQA'
+				: '/opt/sensitive/data';
+		const hooks = createGuardrailsHooks(TEST_DIR, undefined, defaultConfig());
+		const output = {
+			args: {
+				command: `New-Item -Target ${externalTarget} -ItemType Junction -Path dist`,
+			},
+		};
+		await expect(
+			hooks.toolBefore(
+				{ tool: 'bash', sessionID: 'test-session', callID: 'c4f' },
+				output,
+			),
+		).rejects.toThrow(/BLOCKED/);
+	});
+
+	test('New-Item -Path mylink -Target /opt/secret -ItemType SymbolicLink → BLOCKED (Target before ItemType)', async () => {
+		const externalTarget =
+			process.platform === 'win32' ? 'C:\\sensitive\\data' : '/opt/secret';
+		const hooks = createGuardrailsHooks(TEST_DIR, undefined, defaultConfig());
+		const output = {
+			args: {
+				command: `New-Item -Path mylink -Target ${externalTarget} -ItemType SymbolicLink`,
+			},
+		};
+		await expect(
+			hooks.toolBefore(
+				{ tool: 'bash', sessionID: 'test-session', callID: 'c4g' },
+				output,
+			),
+		).rejects.toThrow(/BLOCKED/);
 	});
 });
 
