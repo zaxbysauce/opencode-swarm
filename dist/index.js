@@ -42136,17 +42136,17 @@ function normalizeSeparators(filePath) {
 }
 function matchesDocPattern(filePath, patterns) {
   const normalizedPath = normalizeSeparators(filePath);
-  const basename7 = path56.basename(filePath);
+  const basename8 = path56.basename(filePath);
   for (const pattern of patterns) {
     if (!pattern.includes("/") && !pattern.includes("\\")) {
-      if (basename7 === pattern) {
+      if (basename8 === pattern) {
         return true;
       }
       continue;
     }
     if (pattern.startsWith("**/")) {
       const filenamePattern = pattern.slice(3);
-      if (basename7 === filenamePattern) {
+      if (basename8 === filenamePattern) {
         return true;
       }
       continue;
@@ -59444,6 +59444,324 @@ function isInDeclaredScope(filePath, scopeEntries, cwd) {
     return rel.length > 0 && !rel.startsWith("..") && !path41.isAbsolute(rel);
   });
 }
+var DC_MAX_UNWRAP_DEPTH = 5;
+var DC_SAFE_TARGETS = new Set([
+  "node_modules",
+  ".git",
+  "dist",
+  "build",
+  "coverage",
+  ".next",
+  ".turbo",
+  ".cache",
+  ".venv",
+  "venv",
+  "__pycache__",
+  "target",
+  "out",
+  ".parcel-cache",
+  ".svelte-kit",
+  ".nuxt",
+  ".output",
+  ".angular",
+  ".gradle",
+  "vendor"
+]);
+var DC_BLOCKED_ABSOLUTE_PREFIXES = [
+  "/root",
+  "/home",
+  "/Users",
+  "/etc",
+  "/var",
+  "/usr",
+  "/opt",
+  "/bin",
+  "/sbin",
+  "/lib",
+  "/boot",
+  "/proc",
+  "/sys",
+  "/dev",
+  "/run",
+  "/System",
+  "/Library",
+  "/Applications",
+  "C:\\Windows",
+  "C:\\Users",
+  "C:\\Program Files",
+  "C:\\ProgramData",
+  "C:/Windows",
+  "C:/Users",
+  "C:/Program Files",
+  "C:/ProgramData"
+];
+var DC_FS_ROOTS = new Set(["/", "C:\\", "C:/", "D:\\", "D:/", "E:\\", "E:/"]);
+var DC_REMOTE_PREFIXES = [
+  "\\\\",
+  "/Volumes/",
+  "/net/",
+  "/nfs/",
+  "/smb/",
+  "/run/user/"
+];
+function dcNormalizeCommand(cmd) {
+  let s = cmd.normalize("NFKC");
+  s = s.replace(/`(.)/g, "$1");
+  s = s.replace(/\^([a-zA-Z0-9 ])/g, "$1");
+  s = s.replace(/""/g, "");
+  s = s.replace(/''/g, "");
+  return s;
+}
+function dcStripOneWrapper(cmd) {
+  const t = cmd.trim();
+  const cmdExeMatch = /^cmd(?:\.exe)?\s+\/[ckCK]\s+"?(.*?)"?\s*$/is.exec(t);
+  if (cmdExeMatch)
+    return cmdExeMatch[1].trim();
+  const psCommandMatch = /^(?:powershell|pwsh)(?:\.exe)?\s+(?:-(?:Command|command|c)\s+)(.+)$/is.exec(t);
+  if (psCommandMatch)
+    return psCommandMatch[1].replace(/^["']|["']$/g, "").trim();
+  const psEncMatch = /^(?:powershell|pwsh)(?:\.exe)?\s+(?:-(?:EncodedCommand|encodedcommand|enc|e)\s+)([A-Za-z0-9+/=]+)\s*$/.exec(t);
+  if (psEncMatch) {
+    try {
+      const decoded = Buffer.from(psEncMatch[1], "base64").toString("utf16le");
+      return decoded.trim();
+    } catch {
+      return t;
+    }
+  }
+  const shellMatch = /^(?:bash|sh|zsh|dash|fish)(?:\.exe)?\s+-c\s+"?(.*?)"?\s*$/is.exec(t);
+  if (shellMatch)
+    return shellMatch[1].trim();
+  const prefixMatch = /^(?:sudo|time|nohup)\s+(.+)$/is.exec(t) ?? /^env(?:\s+[A-Za-z_][A-Za-z0-9_]*=[^\s]*)*\s+(.+)$/is.exec(t) ?? /^nice\s+(?:-n\s+\d+\s+)?(.+)$/is.exec(t);
+  if (prefixMatch)
+    return prefixMatch[1].trim();
+  const wslMatch = /^wsl(?:\.exe)?\s+(?:-e|--)\s+(.+)$/is.exec(t);
+  if (wslMatch)
+    return wslMatch[1].trim();
+  const scriptBlockMatch = /^&\s*\{(.+)\}$/s.exec(t);
+  if (scriptBlockMatch)
+    return scriptBlockMatch[1].trim();
+  const iexMatch = /^(?:Invoke-Expression|iex)\s+(.+)$/is.exec(t);
+  if (iexMatch)
+    return iexMatch[1].replace(/^["'`]|["'`]$/g, "").trim();
+  const invokeCommandMatch = /^Invoke-Command\s+.*-ScriptBlock\s*\{(.+)\}$/is.exec(t);
+  if (invokeCommandMatch)
+    return invokeCommandMatch[1].trim();
+  const callMatch = /^call\s+(.+)$/is.exec(t);
+  if (callMatch)
+    return callMatch[1].trim();
+  return null;
+}
+function dcUnwrapWrappers(cmd) {
+  let current = cmd.trim();
+  for (let depth = 0;depth < DC_MAX_UNWRAP_DEPTH; depth++) {
+    const inner = dcStripOneWrapper(current);
+    if (inner === null || inner === current)
+      break;
+    current = inner.trim();
+  }
+  return current;
+}
+function dcSplitSegments(cmd) {
+  const segments = [];
+  let current = "";
+  let inDoubleQuote = false;
+  let inSingleQuote = false;
+  for (let i2 = 0;i2 < cmd.length; i2++) {
+    const ch = cmd[i2];
+    const next = cmd[i2 + 1];
+    if (ch === '"' && !inSingleQuote) {
+      inDoubleQuote = !inDoubleQuote;
+      current += ch;
+      continue;
+    }
+    if (ch === "'" && !inDoubleQuote) {
+      inSingleQuote = !inSingleQuote;
+      current += ch;
+      continue;
+    }
+    if (!inDoubleQuote && !inSingleQuote) {
+      if (ch === "&" && next === "&" || ch === "|" && next === "|") {
+        segments.push(current.trim());
+        current = "";
+        i2++;
+        continue;
+      }
+      if (ch === "|" || ch === ";" || ch === `
+` || ch === "\r") {
+        segments.push(current.trim());
+        current = "";
+        continue;
+      }
+    }
+    current += ch;
+  }
+  if (current.trim())
+    segments.push(current.trim());
+  return segments.filter((s) => s.length > 0);
+}
+function dcHasUnresolvableVars(p) {
+  return /(%[A-Za-z_][A-Za-z0-9_]*%|\$\{?[A-Za-z_]|\$env:)/i.test(p);
+}
+function dcIsRemotePath(p) {
+  return DC_REMOTE_PREFIXES.some((pfx) => p.startsWith(pfx));
+}
+function dcLstatAncestorWalk(targetPath, cwd) {
+  const normalizedTarget = path41.resolve(cwd, targetPath);
+  const normalizedCwd = path41.resolve(cwd);
+  const ancestors = [];
+  let current = normalizedTarget;
+  while (true) {
+    ancestors.push(current);
+    const parent = path41.dirname(current);
+    if (parent === current)
+      break;
+    const rel = path41.relative(normalizedCwd, current);
+    if (rel === "" || rel.startsWith(".."))
+      break;
+    current = parent;
+  }
+  for (const ancestor of ancestors) {
+    let stat2 = null;
+    try {
+      stat2 = fsSync.lstatSync(ancestor);
+    } catch (err2) {
+      const code = err2.code;
+      if (code === "ENOENT") {
+        break;
+      }
+      return `lstat failed on "${ancestor}": ${String(err2)} \u2014 refusing to allow destructive operation on unverifiable path`;
+    }
+    if (stat2.isSymbolicLink()) {
+      return `BLOCKED: "${ancestor}" is a symlink/junction \u2014 deleting recursively through it would destroy the link target. Use platform-specific junction deletion (fsutil reparsepoint delete, Remove-Item without -Recurse) instead.`;
+    }
+  }
+  return null;
+}
+function dcValidateTargets(targets, cwd) {
+  for (const raw of targets) {
+    const t = raw.trim().replace(/^["']|["']$/g, "");
+    if (!t || t === ".")
+      continue;
+    if (dcHasUnresolvableVars(t)) {
+      return `BLOCKED: Destructive command targets path with unexpanded variable "${t}" \u2014 cannot verify safety. Resolve variables before using destructive operations.`;
+    }
+    if (dcIsRemotePath(t)) {
+      return `BLOCKED: Destructive command targets remote/network filesystem path "${t}" \u2014 refusing to execute remote destructive operations.`;
+    }
+    if (/^\\\\/.test(t)) {
+      return `BLOCKED: Destructive command targets UNC path "${t}" \u2014 UNC paths in destructive operations are not allowed.`;
+    }
+    const lstatBlock = dcLstatAncestorWalk(t, cwd);
+    if (lstatBlock)
+      return lstatBlock;
+    const basename6 = path41.basename(t);
+    if (t === basename6 && DC_SAFE_TARGETS.has(t)) {
+      continue;
+    }
+    if (DC_FS_ROOTS.has(t) || DC_FS_ROOTS.has(t.replace(/\//g, "\\"))) {
+      return `BLOCKED: Destructive command targets filesystem root "${t}"`;
+    }
+    if (path41.isAbsolute(t) || /^[A-Za-z]:/.test(t)) {
+      for (const blocked of DC_BLOCKED_ABSOLUTE_PREFIXES) {
+        if (t.startsWith(blocked)) {
+          return `BLOCKED: Destructive command targets system path "${t}" which is under protected prefix "${blocked}"`;
+        }
+      }
+    }
+  }
+  return null;
+}
+function dcCheckJunctionCreation(segment, cwd) {
+  const mklinkMatch = /^mklink(?:\.exe)?\s+\/[JjDd]\s+"?([^"\s]+)"?\s+"?([^"\s]+)"?/i.exec(segment);
+  if (mklinkMatch) {
+    const target = mklinkMatch[2].trim();
+    if (!dcHasUnresolvableVars(target)) {
+      const resolved = path41.resolve(cwd, target);
+      const rel = path41.relative(cwd, resolved);
+      if (rel.startsWith("..") || path41.isAbsolute(rel)) {
+        return `BLOCKED: Junction/symlink creation targeting path outside working directory: mklink target "${target}" resolves to "${resolved}" which is outside "${cwd}". Creating junctions to external paths and then deleting them recursively can destroy data.`;
+      }
+    }
+    return null;
+  }
+  const newItemTypeMatch = /New-Item\b.*-ItemType\s+(?:Junction|SymbolicLink|HardLink)\b/i.test(segment);
+  const newItemTargetMatch = /-Target\s+"?([^"\s;]+)"?/i.exec(segment);
+  const newItemMatch = newItemTypeMatch ? newItemTargetMatch : null;
+  if (newItemMatch) {
+    const target = newItemMatch[1].trim();
+    if (!dcHasUnresolvableVars(target)) {
+      const resolved = path41.resolve(cwd, target);
+      const rel = path41.relative(cwd, resolved);
+      if (rel.startsWith("..") || path41.isAbsolute(rel)) {
+        return `BLOCKED: Junction/symlink creation targeting path outside working directory: New-Item target "${target}" resolves to "${resolved}" which is outside "${cwd}". This pattern caused the K2.6 data-loss incident.`;
+      }
+    }
+    return null;
+  }
+  const lnMatch = /^ln\s+(?:-[sfnv]*s[sfnv]*|-s)\s+"?([^"\s]+)"?(?:\s+"?[^"\s]+"?)?\s*$/.exec(segment);
+  if (lnMatch) {
+    const target = lnMatch[1].trim();
+    if (!dcHasUnresolvableVars(target)) {
+      const resolved = path41.resolve(cwd, target);
+      const rel = path41.relative(cwd, resolved);
+      if (rel.startsWith("..") || path41.isAbsolute(rel)) {
+        return `BLOCKED: Symlink creation targeting path outside working directory: ln -s target "${target}" resolves to "${resolved}" which is outside "${cwd}". Symlinks to external paths combined with recursive deletion can destroy data.`;
+      }
+    }
+    return null;
+  }
+  return null;
+}
+function dcExtractWindowsCmdTargets(segment) {
+  const rmdirMatch = /^(?:rmdir|rd)(?:\.exe)?\s+(?:\/[sqSQ]\s+)*"?(.+?)"?\s*$/i.exec(segment);
+  if (rmdirMatch)
+    return [rmdirMatch[1].trim()];
+  const delMatch = /^del(?:\.exe)?\s+(?:\/[sqfSQF]\s+)*"?(.+?)"?\s*$/i.exec(segment);
+  if (delMatch)
+    return [delMatch[1].trim()];
+  return [];
+}
+function dcExtractPowerShellTargets(segment) {
+  const verbMatch = /^(?:Remove-Item|ri|rm|rmdir|del|erase|rd)\s+/i.exec(segment);
+  if (!verbMatch)
+    return [];
+  const rest = segment.slice(verbMatch[0].length);
+  const tokens = rest.match(/"[^"]*"|'[^']*'|[^\s]+/g) ?? [];
+  const targets = [];
+  const valueFlags = new Set([
+    "-literalpath",
+    "-path",
+    "-filter",
+    "-include",
+    "-exclude",
+    "-lp"
+  ]);
+  let skipNext = false;
+  for (const tok of tokens) {
+    if (skipNext) {
+      skipNext = false;
+      continue;
+    }
+    if (tok.startsWith("-")) {
+      if (valueFlags.has(tok.toLowerCase())) {
+        skipNext = true;
+        const idx = tokens.indexOf(tok);
+        if (idx !== -1 && idx + 1 < tokens.length) {
+          const val = tokens[idx + 1].replace(/^["']|["']$/g, "");
+          if (val)
+            targets.push(val);
+          skipNext = true;
+        }
+      }
+    } else {
+      const cleaned = tok.replace(/^["']|["']$/g, "");
+      if (cleaned)
+        targets.push(cleaned);
+    }
+  }
+  return targets;
+}
 function createGuardrailsHooks(directory, directoryOrConfig, config3, authorityConfig) {
   let guardrailsConfig;
   if (directory && typeof directory === "object" && "enabled" in directory) {
@@ -59479,46 +59797,159 @@ function createGuardrailsHooks(directory, directoryOrConfig, config3, authorityC
     if (cfg.block_destructive_commands === false)
       return;
     const toolArgs = args2;
-    const command = typeof toolArgs?.command === "string" ? toolArgs.command.trim() : "";
-    if (!command)
+    const rawCommand = typeof toolArgs?.command === "string" ? toolArgs.command.trim() : "";
+    if (!rawCommand)
       return;
+    const cwd = effectiveDirectory;
+    const command = dcNormalizeCommand(rawCommand);
     if (/:\s*\(\s*\)\s*\{[^}]*\|[^}]*:/.test(command)) {
       throw new Error(`BLOCKED: Potentially destructive shell command detected: fork bomb pattern`);
     }
-    const rmFlagPattern = /^rm\s+(-r\s+-f|-f\s+-r|-rf|-fr)\s+(.+)$/;
-    const rmMatch = rmFlagPattern.exec(command);
-    if (rmMatch) {
-      const targetPart = rmMatch[2].trim();
-      const targets = targetPart.split(/\s+/);
-      const safeTargets = /^(node_modules|\.git)$/;
-      const allSafe = targets.every((t) => safeTargets.test(t));
-      if (!allSafe) {
-        throw new Error(`BLOCKED: Potentially destructive shell command: rm -rf on unsafe path(s): ${targetPart}`);
+    const unwrapped = dcUnwrapWrappers(command);
+    const outerSegments = dcSplitSegments(command);
+    const innerSegments = dcSplitSegments(unwrapped);
+    const perSegmentUnwrapped = outerSegments.map((s) => dcUnwrapWrappers(s));
+    const allSegments = [
+      ...new Set([...outerSegments, ...innerSegments, ...perSegmentUnwrapped])
+    ];
+    for (const segment of allSegments) {
+      const seg = segment.trim();
+      if (!seg)
+        continue;
+      const junctionBlock = dcCheckJunctionCreation(seg, cwd);
+      if (junctionBlock)
+        throw new Error(junctionBlock);
+      const rmShortMatch = /^rm\s+(-[rRfF]+(?:\s+-[rRfF]+)*|-r\s+-f|-f\s+-r)\s+(.+)$/.exec(seg);
+      const rmLongMatch = /^rm\s+(?:--(?:recursive|force)\s+){1,2}(.+)$/.exec(seg);
+      const rmAnyMatch = rmShortMatch ?? rmLongMatch;
+      if (rmAnyMatch) {
+        const targetPart = rmAnyMatch[rmShortMatch ? 2 : 1].trim();
+        const targets = targetPart.split(/\s+/);
+        const validateBlock = dcValidateTargets(targets, cwd);
+        if (validateBlock)
+          throw new Error(validateBlock);
+        const allSafe = targets.every((t) => DC_SAFE_TARGETS.has(t.replace(/^["']|["']$/g, "").trim()));
+        if (!allSafe) {
+          throw new Error(`BLOCKED: Potentially destructive shell command: rm with recursive/force flags on unsafe path(s): ${targetPart}`);
+        }
       }
-    }
-    if (/^git\s+push\b.*?(--force|-f)\b/.test(command)) {
-      throw new Error(`BLOCKED: Force push detected \u2014 git push --force is not allowed`);
-    }
-    if (/^git\s+reset\s+--hard/.test(command)) {
-      throw new Error(`BLOCKED: "git reset --hard" detected \u2014 use --soft or --mixed with caution`);
-    }
-    if (/^git\s+reset\s+--mixed\s+\S+/.test(command)) {
-      throw new Error(`BLOCKED: "git reset --mixed" with a target branch/commit is not allowed`);
-    }
-    if (/^kubectl\s+delete\b/.test(command)) {
-      throw new Error(`BLOCKED: "kubectl delete" detected \u2014 destructive cluster operation`);
-    }
-    if (/^docker\s+system\s+prune\b/.test(command)) {
-      throw new Error(`BLOCKED: "docker system prune" detected \u2014 destructive container operation`);
-    }
-    if (/^\s*DROP\s+(TABLE|DATABASE|SCHEMA)\b/i.test(command)) {
-      throw new Error(`BLOCKED: SQL DROP command detected \u2014 destructive database operation`);
-    }
-    if (/^\s*TRUNCATE\s+TABLE\b/i.test(command)) {
-      throw new Error(`BLOCKED: SQL TRUNCATE command detected \u2014 destructive database operation`);
-    }
-    if (/^mkfs[./]/.test(command)) {
-      throw new Error(`BLOCKED: Disk format command (mkfs) detected \u2014 disk formatting operation`);
+      if (/^(?:rmdir|rd)(?:\.exe)?\s+.*\/[sS]/i.test(seg)) {
+        const targets = dcExtractWindowsCmdTargets(seg);
+        if (targets.length === 0) {
+          throw new Error(`BLOCKED: Windows recursive directory delete (rmdir /s or rd /s) detected. Verify the target is not a junction/symlink.`);
+        }
+        const validateBlock = dcValidateTargets(targets, cwd);
+        if (validateBlock)
+          throw new Error(validateBlock);
+        const allSafe = targets.every((t) => DC_SAFE_TARGETS.has(t.trim()));
+        if (!allSafe) {
+          throw new Error(`BLOCKED: Windows recursive directory delete on unsafe path(s): ${targets.join(", ")}`);
+        }
+      }
+      if (/^del(?:\.exe)?\s+.*\/[sS]/i.test(seg)) {
+        const targets = dcExtractWindowsCmdTargets(seg);
+        if (targets.length > 0) {
+          const validateBlock = dcValidateTargets(targets, cwd);
+          if (validateBlock)
+            throw new Error(validateBlock);
+          const allSafe = targets.every((t) => DC_SAFE_TARGETS.has(t.trim()));
+          if (!allSafe) {
+            throw new Error(`BLOCKED: Windows recursive file delete (del /s) on unsafe path(s): ${targets.join(", ")}`);
+          }
+        }
+      }
+      if (/^(?:Remove-Item|ri|rm|rmdir|del|erase|rd)\b.*-[Rr]ecurse\b/i.test(seg) || /^(?:Remove-Item|ri|rm|rmdir|del|erase|rd)\b.*-[Rr]\b/i.test(seg)) {
+        const targets = dcExtractPowerShellTargets(seg);
+        if (targets.length > 0) {
+          const validateBlock = dcValidateTargets(targets, cwd);
+          if (validateBlock)
+            throw new Error(validateBlock);
+          const allSafe = targets.every((t) => DC_SAFE_TARGETS.has(t.trim()));
+          if (!allSafe) {
+            throw new Error(`BLOCKED: PowerShell recursive delete on unsafe path(s): ${targets.join(", ")}`);
+          }
+        } else {
+          throw new Error(`BLOCKED: PowerShell Remove-Item with -Recurse detected \u2014 cannot verify target safety`);
+        }
+      }
+      if (/Get-ChildItem\b.*\|\s*Remove-Item\b.*-[Rr]ecurse/i.test(seg) || /gci\b.*\|\s*ri\b.*-[Rr]ecurse/i.test(seg)) {
+        throw new Error(`BLOCKED: PowerShell pipeline "Get-ChildItem | Remove-Item -Recurse" detected \u2014 verify target safety and avoid recursive deletion through symlinks/junctions`);
+      }
+      if (/^vssadmin(?:\.exe)?\s+delete\b/i.test(seg)) {
+        throw new Error(`BLOCKED: "vssadmin delete" detected \u2014 deletes Volume Shadow Copies (ransomware-grade operation)`);
+      }
+      if (/^wbadmin(?:\.exe)?\s+delete\b/i.test(seg)) {
+        throw new Error(`BLOCKED: "wbadmin delete" detected \u2014 deletes Windows backup catalog (ransomware-grade operation)`);
+      }
+      if (/^diskpart(?:\.exe)?$/i.test(seg)) {
+        throw new Error(`BLOCKED: "diskpart" detected \u2014 interactive disk partitioning tool`);
+      }
+      if (/^bcdedit(?:\.exe)?\s+\/delete\b/i.test(seg)) {
+        throw new Error(`BLOCKED: "bcdedit /delete" detected \u2014 modifies Windows boot configuration`);
+      }
+      if (/^sdelete(?:\.exe)?\s+/i.test(seg)) {
+        throw new Error(`BLOCKED: "sdelete" detected \u2014 secure file deletion (Sysinternals)`);
+      }
+      if (/^fsutil(?:\.exe)?\s+reparsepoint\s+delete\b/i.test(seg) || /^fsutil(?:\.exe)?\s+file\s+setzerodata\b/i.test(seg)) {
+        throw new Error(`BLOCKED: "fsutil" destructive subcommand detected`);
+      }
+      if (/^takeown(?:\.exe)?\s+.*\/[rR]\b/i.test(seg)) {
+        throw new Error(`BLOCKED: "takeown /R" (recursive ownership takeover) detected \u2014 often precedes destructive operations`);
+      }
+      if (/^cipher(?:\.exe)?\s+\/[wW]\b/i.test(seg)) {
+        throw new Error(`BLOCKED: "cipher /w" detected \u2014 overwrites free disk space (data wipe operation)`);
+      }
+      if (/^format\s+[A-Za-z]:/i.test(seg)) {
+        throw new Error(`BLOCKED: Windows disk format command detected`);
+      }
+      if (/^robocopy(?:\.exe)?\s+.*\/(?:MIR|mir)\b/.test(seg)) {
+        throw new Error(`BLOCKED: "robocopy /MIR" (mirror) detected \u2014 can delete files in the destination that don't exist in the source`);
+      }
+      if (/^chmod\s+.*-[rR]\b.*000\b/.test(seg)) {
+        throw new Error(`BLOCKED: "chmod -R 000" detected \u2014 removes all permissions recursively`);
+      }
+      if (/^chattr\s+.*\+i\b/.test(seg)) {
+        throw new Error(`BLOCKED: "chattr +i" detected \u2014 makes files immutable`);
+      }
+      if (/^icacls(?:\.exe)?\s+.*\/deny\b/i.test(seg)) {
+        throw new Error(`BLOCKED: "icacls /deny" detected \u2014 denies filesystem permissions`);
+      }
+      if (/^dd\b.*\bif=\/dev\/(zero|null|urandom)\b/.test(seg)) {
+        throw new Error(`BLOCKED: "dd" with /dev/zero, /dev/null, or /dev/urandom as input detected \u2014 data wipe operation`);
+      }
+      if (/^git\s+push\b.*?(--force|-f)\b/.test(seg)) {
+        throw new Error(`BLOCKED: Force push detected \u2014 git push --force is not allowed`);
+      }
+      if (/^git\s+reset\s+--hard/.test(seg)) {
+        throw new Error(`BLOCKED: "git reset --hard" detected \u2014 use --soft or --mixed with caution`);
+      }
+      if (/^git\s+reset\s+--mixed\s+\S+/.test(seg)) {
+        throw new Error(`BLOCKED: "git reset --mixed" with a target branch/commit is not allowed`);
+      }
+      if (/^git\s+clean\s+.*-[fF].*[dD]/.test(seg)) {
+        throw new Error(`BLOCKED: "git clean -fd" detected \u2014 permanently deletes untracked files and directories`);
+      }
+      if (/^git\s+worktree\s+remove\s+.*--force\b/i.test(seg)) {
+        throw new Error(`BLOCKED: "git worktree remove --force" detected \u2014 can delete working tree contents`);
+      }
+      if (/^rsync\b.*--delete(?:-after|-before|-during|-delay)?\b/.test(seg)) {
+        throw new Error(`BLOCKED: "rsync --delete" detected \u2014 can delete files in the destination. Verify source is not empty.`);
+      }
+      if (/^kubectl\s+delete\b/.test(seg)) {
+        throw new Error(`BLOCKED: "kubectl delete" detected \u2014 destructive cluster operation`);
+      }
+      if (/^docker\s+system\s+prune\b/.test(seg)) {
+        throw new Error(`BLOCKED: "docker system prune" detected \u2014 destructive container operation`);
+      }
+      if (/^\s*DROP\s+(TABLE|DATABASE|SCHEMA)\b/i.test(seg)) {
+        throw new Error(`BLOCKED: SQL DROP command detected \u2014 destructive database operation`);
+      }
+      if (/^\s*TRUNCATE\s+TABLE\b/i.test(seg)) {
+        throw new Error(`BLOCKED: SQL TRUNCATE command detected \u2014 destructive database operation`);
+      }
+      if (/^mkfs[./]/.test(seg)) {
+        throw new Error(`BLOCKED: Disk format command (mkfs) detected \u2014 disk formatting operation`);
+      }
     }
   }
   async function checkGateLimits(params) {
@@ -68967,7 +69398,7 @@ function countCodeLines(content) {
   return lines.length;
 }
 function isTestFile(filePath) {
-  const basename9 = path65.basename(filePath);
+  const basename10 = path65.basename(filePath);
   const _ext = path65.extname(filePath).toLowerCase();
   const testPatterns = [
     ".test.",
@@ -68983,7 +69414,7 @@ function isTestFile(filePath) {
     ".spec.jsx"
   ];
   for (const pattern of testPatterns) {
-    if (basename9.includes(pattern)) {
+    if (basename10.includes(pattern)) {
       return true;
     }
   }
