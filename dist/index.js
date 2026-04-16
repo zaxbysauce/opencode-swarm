@@ -22059,13 +22059,20 @@ function checkFileAuthorityWithRules(agentName, filePath, cwd, effectiveRules, o
   const strippedAgent = stripKnownSwarmPrefix(agentName).toLowerCase();
   const dir = cwd || process.cwd();
   let normalizedPath;
+  let resolvedTarget;
   try {
     const normalizedWithSymlinks = normalizePathWithCache(filePath, dir);
-    const resolved = path7.resolve(dir, normalizedWithSymlinks);
-    normalizedPath = path7.relative(dir, resolved).replace(/\\/g, "/");
+    resolvedTarget = path7.resolve(dir, normalizedWithSymlinks);
+    normalizedPath = path7.relative(dir, resolvedTarget).replace(/\\/g, "/");
   } catch {
-    const resolved = path7.resolve(dir, filePath);
-    normalizedPath = path7.relative(dir, resolved).replace(/\\/g, "/");
+    resolvedTarget = path7.resolve(dir, filePath);
+    normalizedPath = path7.relative(dir, resolvedTarget).replace(/\\/g, "/");
+  }
+  if (path7.parse(resolvedTarget).root !== path7.parse(dir).root) {
+    return {
+      allowed: false,
+      reason: `Path blocked: ${filePath} is on a different drive/root than the working directory`
+    };
   }
   if (normalizedPath === ".." || normalizedPath.startsWith("../")) {
     return {
@@ -22129,7 +22136,8 @@ function checkFileAuthorityWithRules(agentName, filePath, cwd, effectiveRules, o
       }
     }
   }
-  const pathIsInDeclaredScope = options?.declaredScope != null && options.declaredScope.length > 0 && isInDeclaredScope(normalizedPath, options.declaredScope, dir);
+  const isCoderAgent = normalizedAgent === "coder" || strippedAgent === "coder";
+  const pathIsInDeclaredScope = isCoderAgent && options?.declaredScope != null && options.declaredScope.length > 0 && isInDeclaredScope(normalizedPath, options.declaredScope, dir);
   if (!pathIsInDeclaredScope) {
     if (rules.allowedPrefix != null && rules.allowedPrefix.length > 0) {
       const isAllowed = rules.allowedPrefix.some((prefix) => normalizedPath.startsWith(prefix));
@@ -24759,7 +24767,7 @@ var _parse2 = (_Err) => (schema, value, _ctx, _params) => {
     throw e;
   }
   return result.value;
-}, parse5, _parseAsync2 = (_Err) => async (schema, value, _ctx, params) => {
+}, parse6, _parseAsync2 = (_Err) => async (schema, value, _ctx, params) => {
   const ctx = _ctx ? Object.assign(_ctx, { async: true }) : { async: true };
   let result = schema._zod.run({ value, issues: [] }, ctx);
   if (result instanceof Promise)
@@ -24814,7 +24822,7 @@ var init_parse3 = __esm(() => {
   init_core3();
   init_errors4();
   init_util2();
-  parse5 = /* @__PURE__ */ _parse2($ZodRealError2);
+  parse6 = /* @__PURE__ */ _parse2($ZodRealError2);
   parseAsync3 = /* @__PURE__ */ _parseAsync2($ZodRealError2);
   safeParse3 = /* @__PURE__ */ _safeParse2($ZodRealError2);
   safeParseAsync3 = /* @__PURE__ */ _safeParseAsync2($ZodRealError2);
@@ -27304,10 +27312,10 @@ var init_schemas3 = __esm(() => {
         throw new Error("implement() must be called with a function");
       }
       return function(...args2) {
-        const parsedArgs = inst._def.input ? parse5(inst._def.input, args2) : args2;
+        const parsedArgs = inst._def.input ? parse6(inst._def.input, args2) : args2;
         const result = Reflect.apply(func2, this, parsedArgs);
         if (inst._def.output) {
-          return parse5(inst._def.output, result);
+          return parse6(inst._def.output, result);
         }
         return result;
       };
@@ -34883,7 +34891,7 @@ __export(exports_core4, {
   regexes: () => exports_regexes2,
   prettifyError: () => prettifyError2,
   parseAsync: () => parseAsync3,
-  parse: () => parse5,
+  parse: () => parse6,
   locales: () => exports_locales2,
   isValidJWT: () => isValidJWT2,
   isValidBase64URL: () => isValidBase64URL2,
@@ -35236,11 +35244,11 @@ var init_errors5 = __esm(() => {
 });
 
 // node_modules/@opencode-ai/plugin/node_modules/zod/v4/classic/parse.js
-var parse7, parseAsync4, safeParse4, safeParseAsync4, encode4, decode4, encodeAsync4, decodeAsync4, safeEncode4, safeDecode4, safeEncodeAsync4, safeDecodeAsync4;
+var parse8, parseAsync4, safeParse4, safeParseAsync4, encode4, decode4, encodeAsync4, decodeAsync4, safeEncode4, safeDecode4, safeEncodeAsync4, safeDecodeAsync4;
 var init_parse4 = __esm(() => {
   init_core4();
   init_errors5();
-  parse7 = /* @__PURE__ */ _parse2(ZodRealError2);
+  parse8 = /* @__PURE__ */ _parse2(ZodRealError2);
   parseAsync4 = /* @__PURE__ */ _parseAsync2(ZodRealError2);
   safeParse4 = /* @__PURE__ */ _safeParse2(ZodRealError2);
   safeParseAsync4 = /* @__PURE__ */ _safeParseAsync2(ZodRealError2);
@@ -35712,7 +35720,7 @@ var init_schemas4 = __esm(() => {
       reg.add(inst, meta3);
       return inst;
     };
-    inst.parse = (data, params) => parse7(inst, data, params, { callee: inst.parse });
+    inst.parse = (data, params) => parse8(inst, data, params, { callee: inst.parse });
     inst.safeParse = (data, params) => safeParse4(inst, data, params);
     inst.parseAsync = async (data, params) => parseAsync4(inst, data, params, { callee: inst.parseAsync });
     inst.safeParseAsync = async (data, params) => safeParseAsync4(inst, data, params);
@@ -36352,7 +36360,7 @@ __export(exports_external2, {
   pipe: () => pipe2,
   partialRecord: () => partialRecord2,
   parseAsync: () => parseAsync4,
-  parse: () => parse7,
+  parse: () => parse8,
   overwrite: () => _overwrite2,
   optional: () => optional2,
   object: () => object2,

@@ -3261,13 +3261,14 @@ function checkFileAuthorityWithRules(
 	// Single normalization call using normalizePathWithCache for consistent security
 	// This resolves symlinks and normalizes paths the same way for ALL checks
 	let normalizedPath: string;
+	let resolvedTarget: string;
 	try {
 		const normalizedWithSymlinks = normalizePathWithCache(filePath, dir);
-		const resolved = path.resolve(dir, normalizedWithSymlinks);
-		normalizedPath = path.relative(dir, resolved).replace(/\\/g, '/');
+		resolvedTarget = path.resolve(dir, normalizedWithSymlinks);
+		normalizedPath = path.relative(dir, resolvedTarget).replace(/\\/g, '/');
 	} catch {
-		const resolved = path.resolve(dir, filePath);
-		normalizedPath = path.relative(dir, resolved).replace(/\\/g, '/');
+		resolvedTarget = path.resolve(dir, filePath);
+		normalizedPath = path.relative(dir, resolvedTarget).replace(/\\/g, '/');
 	}
 
 	// Containment check (applies to all agents): reject paths that resolve
@@ -3278,6 +3279,20 @@ function checkFileAuthorityWithRules(
 	// like "/etc/passwd" or a traversal like "../../etc/passwd" — is rejected
 	// here regardless of agent rules. This is defense-in-depth and applies
 	// even to architect (which never had an allowedPrefix).
+	//
+	// v6.70.0 post-Codex-review: also reject cross-drive / cross-root
+	// targets. On Windows, `path.relative('C:/repo', 'D:/secret.txt')`
+	// returns `"D:\\secret.txt"` — an absolute drive-letter path that does
+	// NOT start with `..` and therefore would slip past the traversal check
+	// below. Comparing filesystem roots catches this universally: POSIX
+	// systems only have root `/`, so roots only differ when the target is
+	// on a different Windows drive.
+	if (path.parse(resolvedTarget).root !== path.parse(dir).root) {
+		return {
+			allowed: false,
+			reason: `Path blocked: ${filePath} is on a different drive/root than the working directory`,
+		};
+	}
 	if (normalizedPath === '..' || normalizedPath.startsWith('../')) {
 		return {
 			allowed: false,
@@ -3372,7 +3387,17 @@ function checkFileAuthorityWithRules(
 	// universal_deny_prefixes (checked upstream in toolBefore) remain fully
 	// enforced. A declared scope cannot grant writes into .env, .git/, secrets/,
 	// or any blocked path.
+	//
+	// v6.70.0 post-Codex-review: declaredScope is the architect→coder hand-off
+	// channel ONLY. Honouring it for other roles (docs, designer, reviewer,
+	// test_engineer, critic) would let an architect's coder authorisation leak
+	// into other agents' write capabilities — e.g., declaring `src/foo.ts` for
+	// the coder would also let `docs` write into `src/`, breaking per-agent
+	// isolation. Restrict the bypass to coder agents (canonical or prefixed
+	// like `local_coder` / `paid_coder`).
+	const isCoderAgent = normalizedAgent === 'coder' || strippedAgent === 'coder';
 	const pathIsInDeclaredScope =
+		isCoderAgent &&
 		options?.declaredScope != null &&
 		options.declaredScope.length > 0 &&
 		isInDeclaredScope(normalizedPath, options.declaredScope, dir);
@@ -3422,11 +3447,13 @@ export function checkFileAuthority(
 	filePath: string,
 	cwd: string,
 	authorityConfig?: AuthorityConfig,
+	options?: { declaredScope?: string[] | null },
 ): { allowed: true } | { allowed: false; reason: string; zone?: FileZone } {
 	return checkFileAuthorityWithRules(
 		agentName,
 		filePath,
 		cwd,
 		buildEffectiveRules(authorityConfig),
+		options,
 	);
 }

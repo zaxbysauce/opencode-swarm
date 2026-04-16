@@ -141,7 +141,9 @@ export declare function checkWriteTargetForSymlink(targetPath: string, cwd: stri
 /**
  * Checks whether the given agent is authorised to write to the given file path.
  */
-export declare function checkFileAuthority(agentName: string, filePath: string, cwd: string, authorityConfig?: AuthorityConfig): {
+export declare function checkFileAuthority(agentName: string, filePath: string, cwd: string, authorityConfig?: AuthorityConfig, options?: {
+    declaredScope?: string[] | null;
+}): {
     allowed: true;
 } | {
     allowed: false;
