@@ -146,7 +146,9 @@ describe('writeScopeToDisk / readScopeFromDisk', () => {
 		await writeScopeToDisk(tmpDir, '../escape', ['a.ts']);
 		expect(readScopeFromDisk(tmpDir, '../escape')).toBeNull();
 		expect(
-			fs.existsSync(path.join(tmpDir, '.swarm', 'scopes', 'scope-../escape.json')),
+			fs.existsSync(
+				path.join(tmpDir, '.swarm', 'scopes', 'scope-../escape.json'),
+			),
 		).toBe(false);
 	});
 
@@ -158,10 +160,7 @@ describe('writeScopeToDisk / readScopeFromDisk', () => {
 	test('overwrites existing scope on re-declaration', async () => {
 		await writeScopeToDisk(tmpDir, '1.1', ['src/a.ts']);
 		await writeScopeToDisk(tmpDir, '1.1', ['src/a.ts', 'src/b.ts']);
-		expect(readScopeFromDisk(tmpDir, '1.1')).toEqual([
-			'src/a.ts',
-			'src/b.ts',
-		]);
+		expect(readScopeFromDisk(tmpDir, '1.1')).toEqual(['src/a.ts', 'src/b.ts']);
 	});
 
 	test('concurrent writes for different taskIds do not interfere', async () => {
@@ -192,9 +191,7 @@ describe('readPlanScope (plan-as-scope fallback)', () => {
 	}
 
 	test('reads files_touched array for active task', () => {
-		writePlan(tmpDir, [
-			{ id: '1.1', files_touched: ['src/a.ts', 'src/b.ts'] },
-		]);
+		writePlan(tmpDir, [{ id: '1.1', files_touched: ['src/a.ts', 'src/b.ts'] }]);
 		expect(readPlanScope(tmpDir, '1.1')).toEqual(['src/a.ts', 'src/b.ts']);
 	});
 
@@ -257,9 +254,7 @@ describe('resolveScopeWithFallbacks', () => {
 		fs.writeFileSync(
 			path.join(planDir, 'plan.json'),
 			JSON.stringify({
-				phases: [
-					{ tasks: [{ id: '1.1', files_touched: ['plan.ts'] }] },
-				],
+				phases: [{ tasks: [{ id: '1.1', files_touched: ['plan.ts'] }] }],
 			}),
 		);
 		const result = resolveScopeWithFallbacks({

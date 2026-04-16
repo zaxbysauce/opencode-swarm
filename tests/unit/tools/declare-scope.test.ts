@@ -467,9 +467,9 @@ describe('executeDeclareScope', () => {
 		// v6.71.1 (#519): the standing SCOPE ENFORCEMENT NOTE is always appended,
 		// but no per-path normalization warning is produced for relative inputs.
 		const warnings = result.warnings ?? [];
-		expect(
-			warnings.some((w) => w.includes('Absolute path normalized')),
-		).toBe(false);
+		expect(warnings.some((w) => w.includes('Absolute path normalized'))).toBe(
+			false,
+		);
 		expect(warnings.some((w) => w.includes('SCOPE ENFORCEMENT NOTE'))).toBe(
 			true,
 		);
