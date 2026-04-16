@@ -109,6 +109,7 @@ describe('GuardrailsConfigSchema with profiles', () => {
 		const config = {
 			enabled: true,
 			block_destructive_commands: true,
+			shell_audit_log: true,
 			max_tool_calls: 200,
 			max_duration_minutes: 30,
 			max_repetitions: 10,
@@ -132,6 +133,7 @@ describe('GuardrailsConfigSchema with profiles', () => {
 		const config = {
 			enabled: true,
 			block_destructive_commands: true,
+			shell_audit_log: true,
 			max_tool_calls: 200,
 			max_duration_minutes: 30,
 			max_repetitions: 10,
@@ -151,6 +153,7 @@ describe('GuardrailsConfigSchema with profiles', () => {
 		const config = {
 			enabled: true,
 			block_destructive_commands: true,
+			shell_audit_log: true,
 			max_tool_calls: 200,
 			max_duration_minutes: 30,
 			max_repetitions: 10,

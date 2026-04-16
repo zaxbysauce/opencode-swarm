@@ -29,6 +29,13 @@ export declare function setStoredInputArgs(callID: string, args: unknown): void;
  */
 export declare function deleteStoredInputArgs(callID: string): void;
 /**
+ * Redacts sensitive values from a shell command string before audit logging.
+ * Covers env-var assignments, CLI flags, Bearer/Basic auth, and -H header flags.
+ * Conservative: only redacts patterns with well-known secret-bearing names.
+ * Export allows unit testing without spinning up a full hooks factory.
+ */
+export declare function redactShellCommand(cmd: string): string;
+/**
  * Creates guardrails hooks for circuit breaker protection
  * @param directory Working directory from plugin init context (required)
  * @param directoryOrConfig Guardrails configuration object (when passed as second arg, replaces legacy config param)

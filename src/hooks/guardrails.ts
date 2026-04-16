@@ -812,6 +812,52 @@ function dcExtractPowerShellTargets(segment: string): string[] {
 }
 
 /**
+ * Redacts sensitive values from a shell command string before audit logging.
+ * Covers env-var assignments, CLI flags, Bearer/Basic auth, and -H header flags.
+ * Conservative: only redacts patterns with well-known secret-bearing names.
+ * Export allows unit testing without spinning up a full hooks factory.
+ */
+export function redactShellCommand(cmd: string): string {
+	// Guard against accidental non-string calls (e.g. undefined from missing args).
+	if (typeof cmd !== 'string') return '';
+	// Env-var assignment: TOKEN=abc, SECRET_KEY=abc, PASSWORD=abc, etc.
+	// Matches NAME=value where NAME contains a known sensitive keyword.
+	let out = cmd.replace(
+		/\b([A-Z_]*(?:TOKEN|SECRET|PASSWORD|PASSWD|API[_]?KEY|APIKEY|AUTH|CREDENTIAL|PRIVATE[_]?KEY|ACCESS[_]?KEY)[A-Z_0-9]*)\s*=\s*(\S+)/gi,
+		'$1=[REDACTED]',
+	);
+
+	// CLI flag with = separator: --token=abc, --password=abc
+	out = out.replace(
+		/--([a-zA-Z-]*(?:token|secret|password|passwd|api[_-]?key|apikey|auth|credential|private[_-]?key|access[_-]?key)[a-zA-Z-]*)=(\S+)/gi,
+		'--$1=[REDACTED]',
+	);
+
+	// CLI flag with space separator: --token abc, --password abc
+	// Only match when followed by a non-flag argument (no leading --)
+	out = out.replace(
+		/(--[a-zA-Z-]*(?:token|secret|password|passwd|api[_-]?key|apikey|auth|credential|private[_-]?key|access[_-]?key)[a-zA-Z-]*)(\s+)(?!--)(\S+)/gi,
+		'$1$2[REDACTED]',
+	);
+
+	// Bearer / Basic authorization tokens
+	out = out.replace(
+		/\b(Bearer|Basic)\s+[A-Za-z0-9+/=._-]{4,}/gi,
+		'$1 [REDACTED]',
+	);
+
+	// curl -H "Authorization: <value>" or -H 'X-API-Key: <value>'
+	// Use greedy quantifier (*) so the full token value is consumed before the closing quote,
+	// preventing a non-greedy match from stopping after the first character and leaking fragments.
+	out = out.replace(
+		/(-H\s+['"]?(?:Authorization|X-API-Key|X-Auth-Token):\s*)([^'">\s][^'">\n]*)(['"]?)/gi,
+		'$1[REDACTED]$3',
+	);
+
+	return out;
+}
+
+/**
  * Creates guardrails hooks for circuit breaker protection
  * @param directory Working directory from plugin init context (required)
  * @param directoryOrConfig Guardrails configuration object (when passed as second arg, replaces legacy config param)
@@ -898,6 +944,86 @@ export function createGuardrailsHooks(
 	];
 	const requireReviewerAndTestEngineer =
 		cfg.qa_gates?.require_reviewer_test_engineer ?? true;
+
+	// Interpreter gating: undefined means no restriction (all agents allowed).
+	// An explicit empty array blocks ALL agents — this is a misconfiguration
+	// warning documented in the schema.
+	const interpreterAllowedAgents: string[] | undefined =
+		cfg.interpreter_allowed_agents;
+
+	// Shell audit: enabled by default. Always writes to <cwd>/.swarm/session/shell-audit.jsonl.
+	const shellAuditEnabled: boolean = cfg.shell_audit_log ?? true;
+	const shellAuditPath = path.join(
+		effectiveDirectory,
+		'.swarm',
+		'session',
+		'shell-audit.jsonl',
+	);
+
+	/**
+	 * Blocks bash/shell tool calls from agent roles not in interpreter_allowed_agents.
+	 * No-op when interpreter_allowed_agents is undefined (all agents allowed, default).
+	 */
+	function handleInterpreterGating(sessionID: string, tool: string): void {
+		const normalizedTool = normalizeToolName(tool).toLowerCase();
+		if (normalizedTool !== 'bash' && normalizedTool !== 'shell') return;
+		if (!interpreterAllowedAgents) return; // no restriction configured
+
+		const rawAgent = swarmState.activeAgent.get(sessionID);
+		// If no active agent is registered, use 'unknown' — denied unless 'unknown' is listed
+		const agentRole = rawAgent
+			? stripKnownSwarmPrefix(rawAgent).toLowerCase()
+			: 'unknown';
+
+		const allowed = interpreterAllowedAgents.some(
+			(a) => a.toLowerCase() === agentRole,
+		);
+		if (!allowed) {
+			throw new Error(
+				`BLOCKED: Agent "${agentRole}" is not permitted to use the bash/shell interpreter. ` +
+					`Allowed agents: [${interpreterAllowedAgents.map((a) => `"${a}"`).join(', ')}]`,
+			);
+		}
+	}
+
+	/**
+	 * Appends a redacted audit entry to .swarm/session/shell-audit.jsonl.
+	 * Creates the directory if it does not exist.
+	 * Errors are swallowed — audit failures must not block tool execution.
+	 */
+	async function appendShellAuditLog(
+		sessionID: string,
+		tool: string,
+		args: unknown,
+	): Promise<void> {
+		if (!shellAuditEnabled) return;
+		const normalizedAuditTool = normalizeToolName(tool).toLowerCase();
+		if (normalizedAuditTool !== 'bash' && normalizedAuditTool !== 'shell')
+			return;
+
+		const bashArgs = args as Record<string, unknown> | undefined;
+		const rawCmd =
+			typeof bashArgs?.command === 'string' ? bashArgs.command : '';
+		const redacted = redactShellCommand(rawCmd);
+
+		const rawAgent = swarmState.activeAgent.get(sessionID);
+		const agentRole = rawAgent ? stripKnownSwarmPrefix(rawAgent) : 'unknown';
+
+		const entry = JSON.stringify({
+			ts: new Date().toISOString(),
+			sessionID,
+			agent: agentRole,
+			tool,
+			command: redacted,
+		});
+
+		try {
+			await fs.mkdir(path.dirname(shellAuditPath), { recursive: true });
+			await fs.appendFile(shellAuditPath, `${entry}\n`, 'utf-8');
+		} catch {
+			// Intentionally swallowed — audit failures must never block shell execution
+		}
+	}
 
 	/**
 	 * Check if a bash/shell command is potentially destructive and should be blocked.
@@ -1874,6 +2000,14 @@ export function createGuardrailsHooks(
 
 			// Block full test suite execution without file argument
 			handleTestSuiteBlocking(input.tool, output.args);
+
+			// Shell audit log: runs BEFORE enforcement so blocked attempts are also recorded.
+			// Errors are swallowed — audit failures must never block execution.
+			await appendShellAuditLog(input.sessionID, input.tool, output.args);
+
+			// Interpreter gating: block bash/shell calls from disallowed agent roles.
+			// Runs after audit so denied attempts appear in the audit trail.
+			handleInterpreterGating(input.sessionID, input.tool);
 
 			// Block destructive shell commands (rm -rf, force push, kubectl delete, etc.)
 			checkDestructiveCommand(input.tool, output.args);
