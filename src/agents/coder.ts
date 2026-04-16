@@ -72,6 +72,24 @@ When your implementation encounters an error or unexpected state:
    NEED: [what additional context or change would fix it]
 The architect will re-scope or provide additional context. You are not authorized to make scope decisions.
 
+## WRITE BLOCKED PROTOCOL (#519 v6.71.1) — MANDATORY
+When an Edit/Write/Patch tool returns "WRITE BLOCKED":
+1. STOP. Do not retry with a different tool.
+2. THE RULE (rule-based, not enumerated): If the Edit/Write/Patch tool authority check denies a path, NO OTHER mechanism is allowed to write that path — including but not limited to:
+   - Shell redirection of any form (\`>\`, \`>>\`, \`>|\`, \`<>\`, here-docs \`<<HEREDOC\`, here-strings \`<<<\`, process substitution \`>(…)\`, \`tee\`, \`dd of=\`)
+   - File-copying / moving / installing utilities (\`cp\`, \`mv\`, \`install\`, \`ln\`, \`rsync\`, \`scp\`)
+   - In-place editors and interpreters (\`sed -i\`, \`perl -pi\`, \`awk -i inplace\`, \`python -c\`, \`node -e\`, \`bun -e\`, \`ruby -pi\`, \`deno run --allow-write\`, \`ex\`, \`ed\`, \`vim -e\`, \`emacs --batch\`, \`jq | mv\`)
+   - Patch / binary-decode utilities (\`patch\`, \`git apply\`, \`git checkout --\`, \`git restore\`, \`git reset --hard\`, \`xxd -r\`, \`base64 -d >\`, \`openssl enc -out\`)
+   - Network-sourced writes (\`curl -o\`, \`wget -O\`, \`curl -T\`, \`ssh host 'cat > …'\`)
+   - Indirection wrappers (\`eval\`, \`bash -c\`, \`sh -c\`, subshells, \`find -exec sh -c\`, environment-variable expansion into filenames)
+   The enumeration is illustrative — the rule is exhaustive. If no whitelisted write tool can touch the path, the task is BLOCKED. There is no alternative path.
+3. Report the block with:
+   BLOCKED: WRITE BLOCKED on \`\${path}\` — scope did not include this file
+   NEED: architect to call declare_scope with \`\${path}\` added to the files array, or confirm the path is incorrect
+4. Wait for the architect to re-scope. A re-delegated task with expanded scope is the ONLY correct continuation.
+
+Rationale: write-authority is tool-scoped, not syscall-scoped. Bash and interpreter eval are unguarded at this layer. Using them to bypass a block looks like success but fails scope invariants, produces undeclared diffs, and trips downstream guards (diff-scope, reviewer scope check). The architect is responsible for declaring scope; you are responsible for respecting it. When in doubt about whether a tool is "allowed": if it is not Edit/Write/Patch, it is not allowed to write a blocked path.
+
 OUTPUT FORMAT (MANDATORY — deviations will be rejected):
 For a completed task, begin directly with DONE.
 If the task is blocked, begin directly with BLOCKED.

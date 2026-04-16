@@ -436,11 +436,13 @@ describe('executeDeclareScope', () => {
 
 		expect(result.success).toBe(true);
 		expect(result.warnings).toBeDefined();
-		expect(result.warnings!.length).toBe(1);
-		expect(result.warnings![0]).toContain(
-			'Absolute path normalized to relative',
+		// v6.71.1 (#519): a standing SCOPE ENFORCEMENT NOTE is always appended.
+		const warnings = result.warnings ?? [];
+		const normalizeWarning = warnings.find((w) =>
+			w.includes('Absolute path normalized to relative'),
 		);
-		expect(result.warnings![0]).toContain('src/services/price-calculator.ts');
+		expect(normalizeWarning).toBeDefined();
+		expect(normalizeWarning!).toContain('src/services/price-calculator.ts');
 
 		// Verify the stored scope is relative, not absolute
 		const updatedSession = swarmState.agentSessions.get('test-session');
@@ -450,7 +452,7 @@ describe('executeDeclareScope', () => {
 		);
 	});
 
-	test('relative paths produce no warnings', async () => {
+	test('relative paths produce no normalization warnings', async () => {
 		const session = createWorkflowTestSession();
 		swarmState.agentSessions.set('test-session', session);
 
@@ -462,7 +464,15 @@ describe('executeDeclareScope', () => {
 		const result = await executeDeclareScope(args, tempDir);
 
 		expect(result.success).toBe(true);
-		expect(result.warnings).toBeUndefined();
+		// v6.71.1 (#519): the standing SCOPE ENFORCEMENT NOTE is always appended,
+		// but no per-path normalization warning is produced for relative inputs.
+		const warnings = result.warnings ?? [];
+		expect(warnings.some((w) => w.includes('Absolute path normalized'))).toBe(
+			false,
+		);
+		expect(warnings.some((w) => w.includes('SCOPE ENFORCEMENT NOTE'))).toBe(
+			true,
+		);
 	});
 
 	test('mixed absolute and relative paths normalizes only absolute ones', async () => {
@@ -479,7 +489,11 @@ describe('executeDeclareScope', () => {
 
 		expect(result.success).toBe(true);
 		expect(result.warnings).toBeDefined();
-		expect(result.warnings!.length).toBe(1);
+		// v6.71.1 (#519): a standing SCOPE ENFORCEMENT NOTE plus one normalization warning.
+		const warnings = result.warnings ?? [];
+		expect(warnings.some((w) => w.includes('Absolute path normalized'))).toBe(
+			true,
+		);
 		expect(result.fileCount).toBe(2);
 
 		const updatedSession = swarmState.agentSessions.get('test-session');

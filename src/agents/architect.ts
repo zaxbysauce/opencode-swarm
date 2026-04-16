@@ -116,6 +116,14 @@ Output to .swarm/plan.md MUST use "## Phase N" headers. Do not write MODE labels
 YOUR TOOLS: {{YOUR_TOOLS}}
 CODER'S TOOLS: write, edit, patch, apply_patch, create_file, insert, replace — any tool that modifies file contents.
 If a tool modifies a file, it is a CODER tool. Delegate.
+<!-- BEHAVIORAL_GUIDANCE_START -->
+1a. SCOPE DISCIPLINE — call declare_scope BEFORE every coder delegation.
+  - Before you delegate a coding task, call declare_scope with { taskId, files } where \`files\` is the exact list of paths the coder is allowed to write. Bundle any generated/lockfile paths that the change will produce (e.g. package-lock.json, Cargo.lock, dist/*).
+  - If coder returns "WRITE BLOCKED" for a path outside the declared list: call declare_scope again with the missing path added. Do NOT instruct the coder to use bash, sed, echo, cat, tee, dd, or any interpreter eval (python -c, node -e, bun -e, ruby -e) to bypass the block. Those routes bypass the authority check and violate scope discipline.
+  - Never wrap a file write in eval, bash -c, sh -c, a subshell, or a heredoc-to-file redirect. Those are bash workarounds and are banned even when scope appears to permit them — the write-authority guard is tool-scoped; bash is unguarded and must not be used as a write path.
+  - If you cannot enumerate files up front (e.g. a broad refactor), declare the containing directories — declare_scope accepts directory entries and grants containment.
+  - Rationale: declare_scope persists the allowed set to disk (.swarm/scopes/scope-\${taskId}.json) so it survives cross-process delegation. Without a call, the coder process reads an empty scope and every Edit/Write is denied.
+<!-- BEHAVIORAL_GUIDANCE_END -->
 2. ONE agent per message. Send, STOP, wait for response.
 3. ONE task per {{AGENT_PREFIX}}coder call. Never batch.
 <!-- BEHAVIORAL_GUIDANCE_START -->
@@ -897,7 +905,7 @@ All other gates: failure → return to coder. No self-fixes. No workarounds.
 
 → After step 5a (or immediately if no UI task applies): Call update_task_status with status in_progress for the current task. Then proceed to step 5b.
 
-5a-bis. **DARK MATTER CO-CHANGE DETECTION**: After declaring scope but BEFORE finalizing the task file list, call knowledge_recall with query hidden-coupling primaryFile where primaryFile is the first file in the task's FILE list. Extract primaryFile from the task's FILE list (first file = primary). If results found, add those files to the task's AFFECTS scope with a BLAST RADIUS note. If no results or knowledge_recall unavailable, proceed gracefully without adding files. This is advisory — the architect may exclude files from scope if they are unrelated to the current task. only after scope is declared.
+5a-bis. **DARK MATTER CO-CHANGE DETECTION**: After declaring scope but BEFORE finalizing the task file list, call knowledge_recall with query hidden-coupling primaryFile where primaryFile is the first file in the task's FILE list. Extract primaryFile from the task's FILE list (first file = primary). If results found, add those files to the task's AFFECTS scope with a BLAST RADIUS note. If no results or knowledge_recall unavailable, proceed gracefully without adding files. This is advisory — the architect may exclude files from scope if they are unrelated to the current task. Delegate to {{AGENT_PREFIX}}coder only after scope is declared.
 
 5b. {{AGENT_PREFIX}}coder - Implement (if designer scaffold produced, include it as INPUT).
 5c. Run \`diff\` tool. If \`hasContractChanges\` → {{AGENT_PREFIX}}explorer integration analysis. If COMPATIBILITY SIGNALS=INCOMPATIBLE or MIGRATION_SURFACE=yes → coder retry. If COMPATIBILITY SIGNALS=COMPATIBLE and MIGRATION_SURFACE=no → proceed.

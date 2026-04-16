@@ -12,6 +12,7 @@ import {
 import { curateAndStoreSwarm } from '../hooks/knowledge-curator';
 import { validateSwarmPath } from '../hooks/utils';
 import { writeCheckpoint } from '../plan/checkpoint';
+import { clearAllScopes } from '../scope/scope-persistence';
 import { flushPendingSnapshot } from '../session/snapshot-writer';
 import { resetSwarmState, swarmState } from '../state';
 import { executeWriteRetro } from '../tools/write-retro';
@@ -484,6 +485,12 @@ export async function handleCloseCommand(
 	} catch {
 		// readdir failure is non-blocking
 	}
+
+	// #519 (v6.71.1): clear persisted declare_scope files so the next session
+	// starts without inherited scope. Scope files are ephemeral state; they are
+	// not archived because they contain no forensic signal not already captured
+	// by plan.json:files_touched.
+	clearAllScopes(directory);
 
 	// Reset context.md so new sessions start fresh
 	const contextPath = path.join(swarmDir, 'context.md');

@@ -8,6 +8,7 @@ import * as fs from 'node:fs';
 import * as path from 'node:path';
 import { type ToolDefinition, tool } from '@opencode-ai/plugin/tool';
 import { checkWriteTargetForSymlink } from '../hooks/guardrails';
+import { writeScopeToDisk } from '../scope/scope-persistence';
 import { swarmState } from '../state';
 import { validateTaskIdFormat as _validateTaskIdFormat } from '../validation/task-id';
 import { createSwarmTool } from './create-tool';
@@ -323,12 +324,30 @@ export async function executeDeclareScope(
 		session.lastScopeViolation = null;
 	}
 
+	// Step 9 (#519, v6.71.1): persist scope to disk so it survives cross-process
+	// delegation. In-memory state is lost when a coder session starts in a
+	// separate process — persisting here lets scope-guard / authority checks in
+	// the coder process read the architect's declared scope via the disk fallback.
+	// Failure is silent: in-memory state remains authoritative for the live process.
+	void writeScopeToDisk(dir, args.taskId, mergedFiles).catch(() => {
+		/* non-blocking — persistence is defense in depth */
+	});
+
+	// v6.71.1: surface the tool-layer vs syscall-layer limitation to the caller
+	// so architects know that bash-based writes are not currently enforced.
+	// Syscall-layer enforcement is tracked in #520.
+	warnings.push(
+		'SCOPE ENFORCEMENT NOTE: Scope is enforced at the Edit/Write/Patch tool layer only. ' +
+			'Bash-based writes (sed -i, echo >, cat > <<HEREDOC, etc.) bypass this check — ' +
+			'see issue #520 for the syscall-layer follow-up.',
+	);
+
 	return {
 		success: true,
 		message: 'Scope declared successfully',
 		taskId: args.taskId,
 		fileCount: mergedFiles.length,
-		...(warnings.length > 0 ? { warnings } : {}),
+		warnings,
 	};
 }
 
