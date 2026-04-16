@@ -22000,10 +22000,10 @@ function checkWriteTargetForSymlink(targetPath, cwd) {
   const ancestors = [];
   let current = normalizedTarget;
   while (true) {
-    ancestors.push(current);
     const rel = path7.relative(normalizedCwd, current);
     if (rel === "" || rel.startsWith(".."))
       break;
+    ancestors.push(current);
     const parent = path7.dirname(current);
     if (parent === current)
       break;

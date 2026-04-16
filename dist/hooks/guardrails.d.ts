@@ -120,12 +120,20 @@ type AgentRule = {
 };
 export declare const DEFAULT_AGENT_AUTHORITY_RULES: Record<string, AgentRule>;
 /**
- * Checks whether a write target path (or any ancestor up to cwd) is a symlink.
- * Writing through a symlink can redirect the write to a location outside the
- * working directory, bypassing scope containment.
+ * Checks whether a write target path (or any ancestor strictly inside cwd)
+ * is a symlink. Writing through a symlink can redirect the write to a
+ * location outside the working directory, bypassing scope containment.
+ *
+ * The walk stops at cwd — cwd itself is NOT lstat'd. A user's chosen
+ * working directory may legitimately be reached via a symlink (e.g.,
+ * macOS's /tmp → /private/tmp), and that symlink does not constitute a
+ * redirect *within* the workspace. Only attacker-plantable symlinks
+ * BELOW cwd are relevant to this guard.
  *
  * ENOENT on any node in the chain is allowed — the file/dir doesn't exist yet.
- * Any other lstat error (EPERM, EACCES) fails closed.
+ * Any other lstat error (EPERM, EACCES, ENAMETOOLONG, …) fails closed:
+ * an unverifiable ancestor must not be written through, even if the OS
+ * would eventually reject the write. Defense-in-depth over optimism.
  *
  * @returns A block reason string if a symlink is detected, null if all clear.
  */

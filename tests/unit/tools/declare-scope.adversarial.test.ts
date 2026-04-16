@@ -275,7 +275,7 @@ describe('declare-scope adversarial tests', () => {
 			expect(result).toBeDefined();
 		});
 
-		it('rejects file path at exactly 4096 chars', async () => {
+		it('does not reject file path at exactly 4096 chars for length reasons', async () => {
 			const exact4096 = 'a'.repeat(4096);
 			const args: DeclareScopeArgs = {
 				taskId: '1.1',
@@ -283,8 +283,17 @@ describe('declare-scope adversarial tests', () => {
 			};
 
 			const result = await executeDeclareScope(args, tempDir);
-			// At exactly 4096 should pass validation
-			expect(result.success).toBe(true);
+			// The length boundary is strict-greater-than 4096 (validateFiles:
+			// `if (file.length > 4096)`), so a 4096-char path passes the
+			// length check itself. v6.70.0 (#496) also runs lstat on every
+			// declared file; when tempDir + 4096 chars exceeds PATH_MAX the
+			// lstat-gate may fail closed for a different reason. Assert
+			// specifically that NO "exceeds maximum length" error is raised,
+			// which is the boundary this test is about.
+			const hasLengthError = result.errors?.some((e) =>
+				e.includes('exceeds maximum length'),
+			);
+			expect(hasLengthError).toBeFalsy();
 		});
 
 		it('rejects file path over 4096 chars', async () => {
