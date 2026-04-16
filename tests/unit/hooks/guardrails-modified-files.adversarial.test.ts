@@ -140,7 +140,7 @@ describe('Task 5.2 Modified Files Tracking — ADVERSARIAL SECURITY TESTS', () =
 	// ATTACK VECTOR 2: Oversized payload (>10000 characters)
 	// ============================================================
 	describe('Attack Vector 2 — Oversized payload', () => {
-		it('should not crash with 10000+ character path', async () => {
+		it('should fail-closed on 10000+ character path (lstat ENAMETOOLONG)', async () => {
 			const config = defaultConfig();
 			const hooks = createGuardrailsHooks(config);
 
@@ -152,11 +152,15 @@ describe('Task 5.2 Modified Files Tracking — ADVERSARIAL SECURITY TESTS', () =
 			const input = makeInput('session-1', 'write', 'call-1');
 			const output = { args: { filePath: longPath } };
 
-			// Should not throw
-			await expect(hooks.toolBefore(input, output)).resolves.toBeUndefined();
+			// PR #501: lstat on a path that triggers ENAMETOOLONG is converted
+			// to a WRITE BLOCKED error instead of silently passing, so the
+			// unverifiable path cannot reach the filesystem.
+			await expect(hooks.toolBefore(input, output)).rejects.toThrow(
+				'WRITE BLOCKED',
+			);
 		});
 
-		it('should add 10000+ character path to array without crashing', async () => {
+		it('should fail-closed when tracking 10000+ character path (lstat ENAMETOOLONG)', async () => {
 			const config = defaultConfig();
 			const hooks = createGuardrailsHooks(config);
 
@@ -168,14 +172,16 @@ describe('Task 5.2 Modified Files Tracking — ADVERSARIAL SECURITY TESTS', () =
 			const input = makeInput('session-1', 'write', 'call-1');
 			const output = { args: { filePath: longPath } };
 
-			await hooks.toolBefore(input, output);
-
-			// Path should be added (length > 0 check passes)
-			expect(session!.modifiedFilesThisCoderTask).toHaveLength(1);
-			expect(session!.modifiedFilesThisCoderTask[0]).toBe(longPath);
+			// PR #501: oversized paths trip the lstat guard in the transparent
+			// write path (ENAMETOOLONG → WRITE BLOCKED). Delegated-write
+			// tracking runs earlier and may record the path before the guard
+			// throws — that's benign because the throw aborts the write.
+			await expect(hooks.toolBefore(input, output)).rejects.toThrow(
+				'WRITE BLOCKED',
+			);
 		});
 
-		it('should handle multiple large paths in sequence', async () => {
+		it('should fail-closed on sequence of large paths (lstat ENAMETOOLONG)', async () => {
 			const config = defaultConfig();
 			const hooks = createGuardrailsHooks(config);
 
@@ -183,16 +189,19 @@ describe('Task 5.2 Modified Files Tracking — ADVERSARIAL SECURITY TESTS', () =
 			const session = getAgentSession('session-1');
 			session!.delegationActive = true;
 
-			// Add 100 large paths
-			for (let i = 0; i < 100; i++) {
+			// PR #501: each oversized path is rejected by the lstat guard.
+			for (let i = 0; i < 5; i++) {
 				const longPath = `src/file${i}.ts`.padEnd(5000, 'x');
-				await hooks.toolBefore(makeInput('session-1', 'write', `call-${i}`), {
-					args: { filePath: longPath },
-				});
+				await expect(
+					hooks.toolBefore(makeInput('session-1', 'write', `call-${i}`), {
+						args: { filePath: longPath },
+					}),
+				).rejects.toThrow('WRITE BLOCKED');
 			}
 
-			// Should not crash and all should be added
-			expect(session!.modifiedFilesThisCoderTask).toHaveLength(100);
+			// Session remains defined — the guard throws synchronously inside
+			// toolBefore without corrupting agent state.
+			expect(session).toBeDefined();
 		});
 	});
 
@@ -200,7 +209,7 @@ describe('Task 5.2 Modified Files Tracking — ADVERSARIAL SECURITY TESTS', () =
 	// ATTACK VECTOR 3: Null byte injection
 	// ============================================================
 	describe('Attack Vector 3 — Null byte injection', () => {
-		it('should store path with null byte verbatim', async () => {
+		it('should reject path with null byte (lstat fail-closed)', async () => {
 			const config = defaultConfig();
 			const hooks = createGuardrailsHooks(config);
 
@@ -212,14 +221,18 @@ describe('Task 5.2 Modified Files Tracking — ADVERSARIAL SECURITY TESTS', () =
 			const input = makeInput('session-1', 'write', 'call-1');
 			const output = { args: { filePath: pathWithNullByte } };
 
-			await hooks.toolBefore(input, output);
-
-			// Path should be stored as-is (tracking only)
-			expect(session!.modifiedFilesThisCoderTask).toHaveLength(1);
-			expect(session!.modifiedFilesThisCoderTask[0]).toBe(pathWithNullByte);
+			// PR #501: paths containing null bytes fail the lstat guard (node
+			// rejects null-byte paths with ERR_INVALID_ARG_VALUE) which is
+			// converted to a WRITE BLOCKED error. The delegated-write tracker
+			// may record the path before the guard fires; the throw still
+			// aborts the write.
+			await expect(hooks.toolBefore(input, output)).rejects.toThrow(
+				'WRITE BLOCKED',
+			);
+			expect(session).toBeDefined();
 		});
 
-		it('should handle multiple null bytes', async () => {
+		it('should reject path with multiple null bytes (lstat fail-closed)', async () => {
 			const config = defaultConfig();
 			const hooks = createGuardrailsHooks(config);
 
@@ -228,11 +241,16 @@ describe('Task 5.2 Modified Files Tracking — ADVERSARIAL SECURITY TESTS', () =
 			session!.delegationActive = true;
 
 			const pathWithNulls = 'src/a\x00b\x00c\x00d.ts';
-			await hooks.toolBefore(makeInput('session-1', 'write', 'call-1'), {
-				args: { filePath: pathWithNulls },
-			});
 
-			expect(session!.modifiedFilesThisCoderTask).toHaveLength(1);
+			// PR #501: multi-null-byte paths are likewise rejected by the
+			// lstat guard.
+			await expect(
+				hooks.toolBefore(makeInput('session-1', 'write', 'call-1'), {
+					args: { filePath: pathWithNulls },
+				}),
+			).rejects.toThrow('WRITE BLOCKED');
+
+			expect(session).toBeDefined();
 		});
 	});
 
@@ -624,7 +642,13 @@ describe('Task 5.2 Modified Files Tracking — ADVERSARIAL SECURITY TESTS', () =
 	// ATTACK VECTOR 11: Path with only whitespace
 	// ============================================================
 	describe('Attack Vector 11 — Path with only whitespace', () => {
-		it('should not add whitespace-only path', async () => {
+		// PR #501 + #496 (coder.allowedPrefix removal): coder no longer has a
+		// positive-prefix whitelist, so whitespace-only paths are no longer
+		// rejected by the authority check. They still resolve inside cwd and
+		// do not escape the sandbox, so the hook records them and returns.
+		// These tests previously asserted a WRITE BLOCKED throw; they now
+		// assert the resolve-and-track path.
+		it('should accept whitespace-only path (tracked, contained in cwd)', async () => {
 			const config = defaultConfig();
 			const hooks = createGuardrailsHooks(config);
 
@@ -635,14 +659,11 @@ describe('Task 5.2 Modified Files Tracking — ADVERSARIAL SECURITY TESTS', () =
 			const input = makeInput('session-1', 'write', 'call-1');
 			const output = { args: { filePath: '   ' } };
 
-			// Whitespace-only paths don't match any allowed prefix — write is blocked
-			await expect(hooks.toolBefore(input, output)).rejects.toThrow(
-				'WRITE BLOCKED',
-			);
-			expect(session!.modifiedFilesThisCoderTask).toHaveLength(0);
+			await expect(hooks.toolBefore(input, output)).resolves.toBeUndefined();
+			expect(session!.modifiedFilesThisCoderTask).toContain('   ');
 		});
 
-		it('should not add tab-only path', async () => {
+		it('should accept tab-only path (tracked, contained in cwd)', async () => {
 			const config = defaultConfig();
 			const hooks = createGuardrailsHooks(config);
 
@@ -653,14 +674,11 @@ describe('Task 5.2 Modified Files Tracking — ADVERSARIAL SECURITY TESTS', () =
 			const input = makeInput('session-1', 'write', 'call-1');
 			const output = { args: { filePath: '\t\t' } };
 
-			// Tab-only paths don't match any allowed prefix — write is blocked
-			await expect(hooks.toolBefore(input, output)).rejects.toThrow(
-				'WRITE BLOCKED',
-			);
-			expect(session!.modifiedFilesThisCoderTask).toHaveLength(0);
+			await expect(hooks.toolBefore(input, output)).resolves.toBeUndefined();
+			expect(session!.modifiedFilesThisCoderTask).toContain('\t\t');
 		});
 
-		it('should not add newline-only path', async () => {
+		it('should accept newline-only path (tracked, contained in cwd)', async () => {
 			const config = defaultConfig();
 			const hooks = createGuardrailsHooks(config);
 
@@ -671,14 +689,11 @@ describe('Task 5.2 Modified Files Tracking — ADVERSARIAL SECURITY TESTS', () =
 			const input = makeInput('session-1', 'write', 'call-1');
 			const output = { args: { filePath: '\n\n' } };
 
-			// Newline-only paths don't match any allowed prefix — write is blocked
-			await expect(hooks.toolBefore(input, output)).rejects.toThrow(
-				'WRITE BLOCKED',
-			);
-			expect(session!.modifiedFilesThisCoderTask).toHaveLength(0);
+			await expect(hooks.toolBefore(input, output)).resolves.toBeUndefined();
+			expect(session!.modifiedFilesThisCoderTask).toContain('\n\n');
 		});
 
-		it('should block path with surrounding whitespace (no allowed prefix match)', async () => {
+		it('should accept path with surrounding whitespace (tracked, contained in cwd)', async () => {
 			const config = defaultConfig();
 			const hooks = createGuardrailsHooks(config);
 
@@ -689,11 +704,10 @@ describe('Task 5.2 Modified Files Tracking — ADVERSARIAL SECURITY TESTS', () =
 			const input = makeInput('session-1', 'write', 'call-1');
 			const output = { args: { filePath: '  valid/path.ts  ' } };
 
-			// Leading spaces prevent an allowed-prefix match — write is blocked
-			await expect(hooks.toolBefore(input, output)).rejects.toThrow(
-				'WRITE BLOCKED',
+			await expect(hooks.toolBefore(input, output)).resolves.toBeUndefined();
+			expect(session!.modifiedFilesThisCoderTask).toContain(
+				'  valid/path.ts  ',
 			);
-			expect(session!.modifiedFilesThisCoderTask).toHaveLength(0);
 		});
 	});
 

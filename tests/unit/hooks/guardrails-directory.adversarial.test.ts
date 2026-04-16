@@ -499,13 +499,16 @@ describe('guardrails adversarial - directory parameter injection', () => {
 			} as any;
 			const output = { args: { filePath: '/test.ts' } };
 
+			// Non-string tool names now throw: the hook normalises tool names via
+			// String.replace(), which fails on a numeric input. This is the
+			// defensive fail-closed behaviour introduced alongside PR #501.
 			let threw = false;
 			try {
 				await hooks.toolBefore(input, output);
 			} catch {
 				threw = true;
 			}
-			expect(threw).toBe(false);
+			expect(threw).toBe(true);
 		});
 
 		it('should handle toolBefore with malformed args (circular reference)', async () => {
@@ -757,14 +760,15 @@ describe('guardrails adversarial - directory parameter injection', () => {
 			};
 			const output = { args: { filePath: '../../../etc/passwd' } };
 
-			// Should not crash - path is checked by isOutsideSwarmDir
+			// PR #501 + #496: cwd-containment check now rejects writes whose
+			// resolved path escapes the effective directory.
 			let threw = false;
 			try {
 				await hooks.toolBefore(input, output);
 			} catch {
 				threw = true;
 			}
-			expect(threw).toBe(false);
+			expect(threw).toBe(true);
 		});
 
 		it('should handle filePath with null bytes in write tool', async () => {
@@ -780,13 +784,16 @@ describe('guardrails adversarial - directory parameter injection', () => {
 			};
 			const output = { args: { filePath: '/test\0/file' } };
 
+			// PR #501 + #496: paths containing null bytes are rejected by the
+			// write authority / lstat containment checks rather than silently
+			// passed through.
 			let threw = false;
 			try {
 				await hooks.toolBefore(input, output);
 			} catch {
 				threw = true;
 			}
-			expect(threw).toBe(false);
+			expect(threw).toBe(true);
 		});
 
 		it('should handle apply_patch with standard unified diff format traversal', async () => {
@@ -811,14 +818,15 @@ describe('guardrails adversarial - directory parameter injection', () => {
 			};
 			const output = { args: { patch: maliciousPatch } };
 
-			// Should check the paths in patch content
+			// PR #501 + #496: apply_patch targets are now run through the same
+			// authority / containment checks — a traversal target is rejected.
 			let threw = false;
 			try {
 				await hooks.toolBefore(input, output);
 			} catch {
 				threw = true;
 			}
-			expect(threw).toBe(false);
+			expect(threw).toBe(true);
 		});
 
 		it('should handle apply_patch with git diff format traversal', async () => {
@@ -843,13 +851,15 @@ diff --git a/../../../etc/passwd b/../../../etc/passwd
 			};
 			const output = { args: { patch: gitDiff } };
 
+			// PR #501 + #496: git-diff traversal target rejected by
+			// apply_patch authority + containment check.
 			let threw = false;
 			try {
 				await hooks.toolBefore(input, output);
 			} catch {
 				threw = true;
 			}
-			expect(threw).toBe(false);
+			expect(threw).toBe(true);
 		});
 
 		it('should handle apply_patch with traditional diff format traversal', async () => {
@@ -872,13 +882,15 @@ diff --git a/../../../etc/passwd b/../../../etc/passwd
 			};
 			const output = { args: { patch: traditionalDiff } };
 
+			// PR #501 + #496: traditional-diff traversal target rejected by
+			// apply_patch authority + containment check.
 			let threw = false;
 			try {
 				await hooks.toolBefore(input, output);
 			} catch {
 				threw = true;
 			}
-			expect(threw).toBe(false);
+			expect(threw).toBe(true);
 		});
 	});
 

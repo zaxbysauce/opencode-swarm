@@ -137,14 +137,19 @@ describe('guardrails directory parameter injection', () => {
 			const testDirectory = '/test/project';
 			const hooks = createGuardrailsHooks(testDirectory, config);
 
-			// Start a non-architect session
-			startAgentSession('test-session', 'coder');
+			// Use an architect session writing to an allowed .swarm/ path.
+			// (PR #501 + #496: coder now has blockedPrefix:['.swarm/'] so coder
+			// can no longer write under .swarm/; architect retains write access
+			// to .swarm/ except for the exact plan files.) This test's intent is
+			// to verify isOutsideSwarmDir uses the injected directory — we need
+			// a write that successfully reaches the .swarm/ check path.
+			startAgentSession('test-session', 'architect');
 
-			// Call toolBefore with a file path inside .swarm/
+			// Call toolBefore with a file path inside .swarm/ (not blockedExact for architect)
 			const input = makeInput('test-session', 'write', 'call-1');
-			const output = makeOutput({ filePath: '.swarm/plan.json' });
+			const output = makeOutput({ filePath: '.swarm/evidence/test.json' });
 
-			// Should not throw - file is inside .swarm/
+			// Should not throw - file is inside .swarm/ (recognised via injected directory)
 			await hooks.toolBefore(input, output);
 
 			// Verify that the hook executed without error
