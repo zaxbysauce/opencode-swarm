@@ -3231,6 +3231,26 @@ function buildEffectiveRules(
 }
 
 /**
+ * Returns true when `targetAbsolute` and `cwdAbsolute` resolve to different
+ * filesystem roots. On POSIX this is always false (single root `/`); on
+ * Windows it is true when the two paths sit on different drive letters or
+ * different UNC roots — the symptom Codex flagged on PR #501, where
+ * `path.relative('C:\\repo', 'D:\\secret.txt')` returns the absolute
+ * `'D:\\secret.txt'` and slips past `startsWith('../')` containment.
+ *
+ * Exposed (and accepts an injectable `pathLib`) so the cross-drive guard
+ * is falsifiable on Linux CI without depending on a Windows runner: tests
+ * pass `path.win32` / `path.posix` directly.
+ */
+export function isOnDifferentFilesystemRoot(
+	targetAbsolute: string,
+	cwdAbsolute: string,
+	pathLib: Pick<typeof path, 'parse'> = path,
+): boolean {
+	return pathLib.parse(targetAbsolute).root !== pathLib.parse(cwdAbsolute).root;
+}
+
+/**
  * Checks file path authority against a pre-computed rules map.
  * Implements DENY-first evaluation order:
  * 1. readOnly - blocks all writes
@@ -3287,7 +3307,7 @@ function checkFileAuthorityWithRules(
 	// below. Comparing filesystem roots catches this universally: POSIX
 	// systems only have root `/`, so roots only differ when the target is
 	// on a different Windows drive.
-	if (path.parse(resolvedTarget).root !== path.parse(dir).root) {
+	if (isOnDifferentFilesystemRoot(resolvedTarget, dir)) {
 		return {
 			allowed: false,
 			reason: `Path blocked: ${filePath} is on a different drive/root than the working directory`,

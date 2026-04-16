@@ -22054,6 +22054,9 @@ function buildEffectiveRules(authorityConfig) {
   }
   return merged;
 }
+function isOnDifferentFilesystemRoot(targetAbsolute, cwdAbsolute, pathLib = path7) {
+  return pathLib.parse(targetAbsolute).root !== pathLib.parse(cwdAbsolute).root;
+}
 function checkFileAuthorityWithRules(agentName, filePath, cwd, effectiveRules, options) {
   const normalizedAgent = agentName.toLowerCase();
   const strippedAgent = stripKnownSwarmPrefix(agentName).toLowerCase();
@@ -22068,7 +22071,7 @@ function checkFileAuthorityWithRules(agentName, filePath, cwd, effectiveRules, o
     resolvedTarget = path7.resolve(dir, filePath);
     normalizedPath = path7.relative(dir, resolvedTarget).replace(/\\/g, "/");
   }
-  if (path7.parse(resolvedTarget).root !== path7.parse(dir).root) {
+  if (isOnDifferentFilesystemRoot(resolvedTarget, dir)) {
     return {
       allowed: false,
       reason: `Path blocked: ${filePath} is on a different drive/root than the working directory`
@@ -24767,7 +24770,7 @@ var _parse2 = (_Err) => (schema, value, _ctx, _params) => {
     throw e;
   }
   return result.value;
-}, parse6, _parseAsync2 = (_Err) => async (schema, value, _ctx, params) => {
+}, parse5, _parseAsync2 = (_Err) => async (schema, value, _ctx, params) => {
   const ctx = _ctx ? Object.assign(_ctx, { async: true }) : { async: true };
   let result = schema._zod.run({ value, issues: [] }, ctx);
   if (result instanceof Promise)
@@ -24822,7 +24825,7 @@ var init_parse3 = __esm(() => {
   init_core3();
   init_errors4();
   init_util2();
-  parse6 = /* @__PURE__ */ _parse2($ZodRealError2);
+  parse5 = /* @__PURE__ */ _parse2($ZodRealError2);
   parseAsync3 = /* @__PURE__ */ _parseAsync2($ZodRealError2);
   safeParse3 = /* @__PURE__ */ _safeParse2($ZodRealError2);
   safeParseAsync3 = /* @__PURE__ */ _safeParseAsync2($ZodRealError2);
@@ -27312,10 +27315,10 @@ var init_schemas3 = __esm(() => {
         throw new Error("implement() must be called with a function");
       }
       return function(...args2) {
-        const parsedArgs = inst._def.input ? parse6(inst._def.input, args2) : args2;
+        const parsedArgs = inst._def.input ? parse5(inst._def.input, args2) : args2;
         const result = Reflect.apply(func2, this, parsedArgs);
         if (inst._def.output) {
-          return parse6(inst._def.output, result);
+          return parse5(inst._def.output, result);
         }
         return result;
       };
@@ -34891,7 +34894,7 @@ __export(exports_core4, {
   regexes: () => exports_regexes2,
   prettifyError: () => prettifyError2,
   parseAsync: () => parseAsync3,
-  parse: () => parse6,
+  parse: () => parse5,
   locales: () => exports_locales2,
   isValidJWT: () => isValidJWT2,
   isValidBase64URL: () => isValidBase64URL2,
@@ -35244,11 +35247,11 @@ var init_errors5 = __esm(() => {
 });
 
 // node_modules/@opencode-ai/plugin/node_modules/zod/v4/classic/parse.js
-var parse8, parseAsync4, safeParse4, safeParseAsync4, encode4, decode4, encodeAsync4, decodeAsync4, safeEncode4, safeDecode4, safeEncodeAsync4, safeDecodeAsync4;
+var parse7, parseAsync4, safeParse4, safeParseAsync4, encode4, decode4, encodeAsync4, decodeAsync4, safeEncode4, safeDecode4, safeEncodeAsync4, safeDecodeAsync4;
 var init_parse4 = __esm(() => {
   init_core4();
   init_errors5();
-  parse8 = /* @__PURE__ */ _parse2(ZodRealError2);
+  parse7 = /* @__PURE__ */ _parse2(ZodRealError2);
   parseAsync4 = /* @__PURE__ */ _parseAsync2(ZodRealError2);
   safeParse4 = /* @__PURE__ */ _safeParse2(ZodRealError2);
   safeParseAsync4 = /* @__PURE__ */ _safeParseAsync2(ZodRealError2);
@@ -35720,7 +35723,7 @@ var init_schemas4 = __esm(() => {
       reg.add(inst, meta3);
       return inst;
     };
-    inst.parse = (data, params) => parse8(inst, data, params, { callee: inst.parse });
+    inst.parse = (data, params) => parse7(inst, data, params, { callee: inst.parse });
     inst.safeParse = (data, params) => safeParse4(inst, data, params);
     inst.parseAsync = async (data, params) => parseAsync4(inst, data, params, { callee: inst.parseAsync });
     inst.safeParseAsync = async (data, params) => safeParseAsync4(inst, data, params);
@@ -36360,7 +36363,7 @@ __export(exports_external2, {
   pipe: () => pipe2,
   partialRecord: () => partialRecord2,
   parseAsync: () => parseAsync4,
-  parse: () => parse8,
+  parse: () => parse7,
   overwrite: () => _overwrite2,
   optional: () => optional2,
   object: () => object2,

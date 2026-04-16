@@ -6,6 +6,7 @@
  * - Layer 1 (Soft Warning @ warning_threshold): Sets warning flag for messagesTransform to inject warning
  * - Layer 2 (Hard Block @ 100%): Throws error in toolBefore to block further calls, injects STOP message
  */
+import * as path from 'node:path';
 import { type AuthorityConfig, type GuardrailsConfig } from '../config/schema';
 import { type FileZone } from '../context/zone-classifier';
 /**
@@ -138,6 +139,19 @@ export declare const DEFAULT_AGENT_AUTHORITY_RULES: Record<string, AgentRule>;
  * @returns A block reason string if a symlink is detected, null if all clear.
  */
 export declare function checkWriteTargetForSymlink(targetPath: string, cwd: string): string | null;
+/**
+ * Returns true when `targetAbsolute` and `cwdAbsolute` resolve to different
+ * filesystem roots. On POSIX this is always false (single root `/`); on
+ * Windows it is true when the two paths sit on different drive letters or
+ * different UNC roots — the symptom Codex flagged on PR #501, where
+ * `path.relative('C:\\repo', 'D:\\secret.txt')` returns the absolute
+ * `'D:\\secret.txt'` and slips past `startsWith('../')` containment.
+ *
+ * Exposed (and accepts an injectable `pathLib`) so the cross-drive guard
+ * is falsifiable on Linux CI without depending on a Windows runner: tests
+ * pass `path.win32` / `path.posix` directly.
+ */
+export declare function isOnDifferentFilesystemRoot(targetAbsolute: string, cwdAbsolute: string, pathLib?: Pick<typeof path, 'parse'>): boolean;
 /**
  * Checks whether the given agent is authorised to write to the given file path.
  */

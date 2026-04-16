@@ -21,7 +21,10 @@
 
 import { describe, expect, test } from 'bun:test';
 import * as path from 'node:path';
-import { checkFileAuthority } from '../../../src/hooks/guardrails';
+import {
+	checkFileAuthority,
+	isOnDifferentFilesystemRoot,
+} from '../../../src/hooks/guardrails';
 
 const TEST_CWD = '/test/project';
 
@@ -161,23 +164,57 @@ describe('Codex P1 fix: declaredScope gated to coder agents only', () => {
 });
 
 describe('Codex P1 fix: cross-drive / cross-root containment', () => {
-	test('rejects target on a different Windows drive (D:/ from C:/repo)', () => {
-		// We simulate Windows path semantics deterministically: comparing
-		// `path.parse(target).root` to `path.parse(cwd).root` returns
-		// different values for different drive letters on Windows. On
-		// POSIX, both roots are `/`, so this branch is a no-op there.
-		// We test the parse-root invariant directly to make the contract
-		// platform-independent at the test level.
-		const cwdRoot = path.win32.parse('C:\\repo').root;
-		const targetRoot = path.win32.parse('D:\\secret.txt').root;
-		expect(cwdRoot).not.toBe(targetRoot);
+	// These tests exercise the actual `isOnDifferentFilesystemRoot` helper
+	// that backs the cross-drive guard at `checkFileAuthorityWithRules`. They
+	// inject `path.win32` / `path.posix` to make the Windows-only branch
+	// falsifiable on Linux CI: deleting the inline call site or returning a
+	// constant from the helper would now break this suite. Previously the
+	// suite only validated Node.js's own `path.parse` invariant, which made
+	// the production code path untestable outside Windows runners.
 
-		// And the symptom Codex reported: path.relative returns an absolute
-		// drive-letter path that does NOT start with `..`, which would
-		// previously have slipped past the containment check.
-		const rel = path.win32.relative('C:\\repo', 'D:\\secret.txt');
-		expect(rel).toBe('D:\\secret.txt');
-		expect(rel.startsWith('..')).toBe(false);
+	test('helper: returns true for different Windows drives (D:/ vs C:/)', () => {
+		// Direct invariant: deleting the body and returning `false` from the
+		// helper would break this case. This is the symptom Codex reported.
+		expect(
+			isOnDifferentFilesystemRoot('D:\\secret.txt', 'C:\\repo', path.win32),
+		).toBe(true);
+	});
+
+	test('helper: returns false for same Windows drive (C:\\repo\\foo vs C:\\repo)', () => {
+		expect(
+			isOnDifferentFilesystemRoot('C:\\repo\\foo.ts', 'C:\\repo', path.win32),
+		).toBe(false);
+	});
+
+	test('helper: returns false on POSIX (single root `/`)', () => {
+		// Even an "escape" target shares root `/` with cwd on POSIX, so this
+		// branch must be a no-op there — the existing `startsWith('../')`
+		// check below handles traversal. Returning `true` here would break
+		// every legitimate write on Linux/macOS.
+		expect(
+			isOnDifferentFilesystemRoot('/etc/passwd', '/test/project', path.posix),
+		).toBe(false);
+		expect(
+			isOnDifferentFilesystemRoot(
+				'/test/project/src/index.ts',
+				'/test/project',
+				path.posix,
+			),
+		).toBe(false);
+	});
+
+	test('helper: defaults to host `path` lib when none injected', () => {
+		// Host platform decides; we only assert the call shape works. On
+		// POSIX, both roots are `/`, so the result is `false`. On Windows,
+		// running these absolute-style POSIX strings through `path.win32` is
+		// not what happens at runtime — the helper just delegates to the
+		// host `path` module. This guarantees the default-arg path is
+		// covered without locking the test to one platform.
+		const result = isOnDifferentFilesystemRoot(
+			'/test/project/src/index.ts',
+			'/test/project',
+		);
+		expect(typeof result).toBe('boolean');
 	});
 
 	test('checkFileAuthority blocks /etc/passwd-style escape (POSIX)', () => {
@@ -201,4 +238,25 @@ describe('Codex P1 fix: cross-drive / cross-root containment', () => {
 		const result = checkFileAuthority('architect', 'src/index.ts', TEST_CWD);
 		expect(result.allowed).toBe(true);
 	});
+
+	// Windows-only end-to-end coverage: when running on a real Windows CI
+	// runner, exercise `checkFileAuthority` against a literal cross-drive
+	// path. On POSIX this is skipped (the helper tests above cover the logic
+	// deterministically; running the full path here would just trip the
+	// `startsWith('../')` clause and not the cross-drive branch).
+	const winTest = process.platform === 'win32' ? test : test.skip;
+	winTest(
+		'checkFileAuthority blocks D:\\secret.txt from C:\\repo (Windows only)',
+		() => {
+			const result = checkFileAuthority(
+				'architect',
+				'D:\\secret.txt',
+				'C:\\repo',
+			);
+			expect(result.allowed).toBe(false);
+			if (!result.allowed) {
+				expect(result.reason).toContain('different drive/root');
+			}
+		},
+	);
 });
