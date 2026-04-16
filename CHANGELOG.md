@@ -1,5 +1,12 @@
 # Changelog
 
+## [6.71.1](https://github.com/zaxbysauce/opencode-swarm/compare/v6.71.0...v6.71.1) (2026-04-16)
+
+
+### Bug Fixes
+
+* **scope:** persist declared scope across process boundaries ([#521](https://github.com/zaxbysauce/opencode-swarm/issues/521)) ([dc61b64](https://github.com/zaxbysauce/opencode-swarm/commit/dc61b64e62248df8a8ababa28658505213b71ce7))
+
 ## [6.71.0](https://github.com/zaxbysauce/opencode-swarm/compare/v6.70.0...v6.71.0) (2026-04-16)
 
 
