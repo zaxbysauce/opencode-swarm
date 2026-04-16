@@ -1129,6 +1129,54 @@ describe('coder transparency (#496)', () => {
 		).rejects.toThrow(/symlink|WRITE BLOCKED/i);
 	});
 
+	it('BLOCKS coder write to absolute path /etc/passwd', async () => {
+		// Containment check: /etc/passwd resolves outside cwd (tempDir).
+		// Before the containment check was added, removing coder.allowedPrefix
+		// (#496) lost the implicit cwd containment because no DENY rule matched
+		// the escaped path. This test locks in that the explicit rule-level
+		// check rejects absolute paths outside cwd.
+		const hooks = makeHooks();
+		const id = 'coder-abs-escape';
+		coderSession(id);
+
+		await expect(
+			hooks.toolBefore(
+				{ tool: 'write', sessionID: id, callID: 'esc1' },
+				{ args: { filePath: '/etc/passwd' } },
+			),
+		).rejects.toThrow(/resolves outside the working directory/);
+	});
+
+	it('BLOCKS coder write to relative traversal ../../etc/passwd', async () => {
+		// Containment check: ../../etc/passwd resolves outside cwd via traversal.
+		const hooks = makeHooks();
+		const id = 'coder-traversal-escape';
+		coderSession(id);
+
+		await expect(
+			hooks.toolBefore(
+				{ tool: 'write', sessionID: id, callID: 'esc2' },
+				{ args: { filePath: '../../etc/passwd' } },
+			),
+		).rejects.toThrow(/resolves outside the working directory/);
+	});
+
+	it('BLOCKS architect write to absolute path /etc/passwd (pre-existing gap also closed)', async () => {
+		// Defense-in-depth: architect never had an allowedPrefix whitelist,
+		// so the same cwd-escape gap existed for architect pre-#496. The
+		// rule-level containment check applies to every agent uniformly.
+		const hooks = makeHooks();
+		const id = 'arch-abs-escape';
+		architectSession(id);
+
+		await expect(
+			hooks.toolBefore(
+				{ tool: 'write', sessionID: id, callID: 'esc3' },
+				{ args: { filePath: '/etc/passwd' } },
+			),
+		).rejects.toThrow(/resolves outside the working directory/);
+	});
+
 	it('USER OVERRIDE: authority.rules.coder.allowedPrefix: [lib/] still restricts coder to lib/', async () => {
 		const hooks = makeHooks({
 			enabled: true,

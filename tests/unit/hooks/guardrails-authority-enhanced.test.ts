@@ -31,24 +31,34 @@ describe('normalizePathWithCache', () => {
 		expect(result.allowed).toBe(true);
 	});
 
-	test('architect allows any path not explicitly blocked', () => {
+	test('architect blocks absolute paths outside cwd (containment)', () => {
+		// Updated for the rule-level cwd containment check added after
+		// removing coder.allowedPrefix (#496 final). Absolute paths outside
+		// the working directory are rejected for every agent, including
+		// architect, as defense-in-depth.
 		const result = checkFileAuthority(
 			'architect',
 			'/home/user/project/src/index.ts',
 			TEST_CWD,
 		);
-		// Architect has no prefix restrictions, so absolute paths are allowed
-		expect(result.allowed).toBe(true);
+		expect(result.allowed).toBe(false);
+		if (!result.allowed) {
+			expect(result.reason).toContain('resolves outside the working directory');
+		}
 	});
 
-	test('architect allows paths with .. segments in general', () => {
+	test('architect blocks paths with .. segments that escape cwd (containment)', () => {
+		// Updated for the rule-level cwd containment check. `../parent/file.ts`
+		// resolves outside TEST_CWD and is rejected for every agent.
 		const result = checkFileAuthority(
 			'architect',
 			'../parent/file.ts',
 			TEST_CWD,
 		);
-		// Architect has no prefix restrictions by default
-		expect(result.allowed).toBe(true);
+		expect(result.allowed).toBe(false);
+		if (!result.allowed) {
+			expect(result.reason).toContain('resolves outside the working directory');
+		}
 	});
 });
 
@@ -679,24 +689,31 @@ describe('Edge cases', () => {
 });
 
 describe('Security: path traversal protection', () => {
-	test('architect allows .. paths (no prefix restrictions)', () => {
+	test('architect blocks .. paths that escape cwd (containment)', () => {
+		// Updated for the rule-level cwd containment check added after
+		// removing coder.allowedPrefix (#496 final). `../../../etc/passwd`
+		// resolves outside TEST_CWD and is rejected for every agent.
 		const result = checkFileAuthority(
 			'architect',
 			'../../../etc/passwd',
 			TEST_CWD,
 		);
-		// Architect has no prefix restrictions
-		expect(result.allowed).toBe(true);
+		expect(result.allowed).toBe(false);
+		if (!result.allowed) {
+			expect(result.reason).toContain('resolves outside the working directory');
+		}
 	});
 
-	test('coder blocks absolute paths outside project', () => {
-		// After #496 coder no longer has allowedPrefix. Absolute paths outside
-		// the project are only blocked if they hit a DENY rule. /etc/passwd is
-		// not blocked by any default coder rule, so the hook-level lstat/symlink
-		// guard is what protects writes outside the project at runtime; the
-		// pure rule-level check on a plain absolute path is now allowed.
+	test('coder blocks absolute paths outside project (containment)', () => {
+		// After #496 coder no longer has allowedPrefix. The defense-in-depth
+		// rule-level containment check rejects paths whose normalized
+		// location escapes cwd — so `/etc/passwd` is blocked explicitly by
+		// the rule layer (no longer relying on the hook-level lstat guard).
 		const result = checkFileAuthority('coder', '/etc/passwd', TEST_CWD);
-		expect(result.allowed).toBe(true);
+		expect(result.allowed).toBe(false);
+		if (!result.allowed) {
+			expect(result.reason).toContain('resolves outside the working directory');
+		}
 	});
 });
 

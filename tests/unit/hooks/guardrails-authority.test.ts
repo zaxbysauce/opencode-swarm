@@ -459,6 +459,73 @@ describe('guardrails-authority - File Authority Enforcement', () => {
 		});
 	});
 
+	describe('Cwd containment (rule-level, defense-in-depth)', () => {
+		it('checkFileAuthority blocks path outside cwd regardless of agent', () => {
+			// Defense-in-depth rule-level check added after removing
+			// coder.allowedPrefix (#496 final). Absolute paths outside cwd
+			// and `../` traversals must be rejected for every agent —
+			// including architect, which never had an allowedPrefix to
+			// provide implicit containment.
+			const projectDir = '/tmp/project';
+
+			// coder — absolute path outside cwd.
+			const coderAbs = checkFileAuthority(
+				'coder',
+				'/etc/passwd',
+				projectDir,
+				undefined,
+			);
+			expect(coderAbs.allowed).toBe(false);
+			if (isDenied(coderAbs)) {
+				expect(coderAbs.reason).toContain(
+					'resolves outside the working directory',
+				);
+			}
+
+			// architect — absolute path outside cwd (pre-existing gap also closed).
+			const archAbs = checkFileAuthority(
+				'architect',
+				'/etc/passwd',
+				projectDir,
+				undefined,
+			);
+			expect(archAbs.allowed).toBe(false);
+			if (isDenied(archAbs)) {
+				expect(archAbs.reason).toContain(
+					'resolves outside the working directory',
+				);
+			}
+
+			// coder — relative traversal outside cwd.
+			const coderTraversal = checkFileAuthority(
+				'coder',
+				'../../etc/passwd',
+				projectDir,
+				undefined,
+			);
+			expect(coderTraversal.allowed).toBe(false);
+			if (isDenied(coderTraversal)) {
+				expect(coderTraversal.reason).toContain(
+					'resolves outside the working directory',
+				);
+			}
+
+			// architect — relative traversal outside cwd.
+			const archTraversal = checkFileAuthority(
+				'architect',
+				'../../etc/passwd',
+				projectDir,
+				undefined,
+			);
+			expect(archTraversal.allowed).toBe(false);
+			if (isDenied(archTraversal)) {
+				expect(archTraversal.reason).toContain(
+					'resolves outside the working directory',
+				);
+			}
+		});
+	});
+
 	describe('Edge cases', () => {
 		it('handles empty file path', () => {
 			const result = checkFileAuthority('coder', '', tempDir);
@@ -684,6 +751,10 @@ describe('guardrails-authority - File Authority Enforcement', () => {
 		// NOTE: allowedPrefix: [] means deny all paths; omission of allowedPrefix means no allowlist restriction
 		it('allowedPrefix: [] denies traversal attempt outside cwd', () => {
 			// Using traversal sequence to escape tempDir - path.resolve normalizes ../
+			// After the rule-level cwd containment check was added (#496 final),
+			// a traversal outside cwd is rejected by containment BEFORE the
+			// allowedPrefix check runs. The path is still denied — just with a
+			// clearer reason — so this test now asserts the containment reason.
 			const result = checkFileAuthority(
 				'coder',
 				'../../../etc/passwd',
@@ -699,7 +770,9 @@ describe('guardrails-authority - File Authority Enforcement', () => {
 			);
 			expect(result.allowed).toBe(false);
 			if (isDenied(result)) {
-				expect(result.reason).toContain('not in allowed list');
+				expect(result.reason).toContain(
+					'resolves outside the working directory',
+				);
 			}
 		});
 	});

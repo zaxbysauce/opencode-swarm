@@ -55,7 +55,7 @@ describe('guardrails plan.md write-block guard - adversarial tests', () => {
 			await hooks.toolBefore(input, output);
 		});
 
-		it('absolute Unix path /workspace/.swarm/plan.md → NOT blocked (bypass gap)', async () => {
+		it('absolute Unix path /workspace/.swarm/plan.md → blocked (containment, gap closed)', async () => {
 			const config = defaultConfig();
 			const hooks = createGuardrailsHooks(config);
 			startAgentSession('test-session', ORCHESTRATOR_NAME);
@@ -63,8 +63,15 @@ describe('guardrails plan.md write-block guard - adversarial tests', () => {
 			const input = makeInput('test-session', 'write', 'call-1');
 			const output = makeOutput({ filePath: '/workspace/.swarm/plan.md' });
 
-			// Guard does NOT block absolute paths - this is a known gap
-			await hooks.toolBefore(input, output);
+			// Previously this was a known bypass gap — the plan.md guard only
+			// resolved relative to the project directory, so an unrelated
+			// absolute path wasn't blocked. The rule-level cwd containment
+			// check added in #496 final now closes this gap: /workspace/... is
+			// outside the running test's cwd and is rejected by the authority
+			// layer before it reaches the plan.md guard.
+			await expect(hooks.toolBefore(input, output)).rejects.toThrow(
+				/resolves outside the working directory/,
+			);
 		});
 
 		it('absolute path with forward slashes on Windows → NOT blocked (bypass gap)', async () => {
@@ -193,7 +200,7 @@ describe('guardrails plan.md write-block guard - adversarial tests', () => {
 			);
 		});
 
-		it('../.swarm/plan.md from subdirectory → NOT blocked (outside project)', async () => {
+		it('../.swarm/plan.md from subdirectory → blocked (containment, gap closed)', async () => {
 			const config = defaultConfig();
 			const hooks = createGuardrailsHooks(config);
 			startAgentSession('test-session', ORCHESTRATOR_NAME);
@@ -201,8 +208,14 @@ describe('guardrails plan.md write-block guard - adversarial tests', () => {
 			const input = makeInput('test-session', 'write', 'call-1');
 			const output = makeOutput({ filePath: '../.swarm/plan.md' });
 
-			// This resolves to parent directory, which is outside project - not blocked
-			await hooks.toolBefore(input, output);
+			// Previously this was a known bypass: `../.swarm/plan.md` resolves
+			// to a parent directory (outside cwd) and the plan.md guard only
+			// matched paths that resolved *inside* cwd. The rule-level cwd
+			// containment check added in #496 final now rejects any path that
+			// escapes cwd for every agent, which closes the bypass.
+			await expect(hooks.toolBefore(input, output)).rejects.toThrow(
+				/resolves outside the working directory/,
+			);
 		});
 
 		it.skipIf(process.platform !== 'win32')(

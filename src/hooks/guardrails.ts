@@ -3260,6 +3260,21 @@ function checkFileAuthorityWithRules(
 		normalizedPath = path.relative(dir, resolved).replace(/\\/g, '/');
 	}
 
+	// Containment check (applies to all agents): reject paths that resolve
+	// outside the working directory. Previously this was implicitly enforced
+	// by the hardcoded relative allowedPrefix whitelist; removing that
+	// whitelist (v6.70.0 #496 final) required making containment explicit.
+	// Any path whose resolved location escapes cwd — via an absolute path
+	// like "/etc/passwd" or a traversal like "../../etc/passwd" — is rejected
+	// here regardless of agent rules. This is defense-in-depth and applies
+	// even to architect (which never had an allowedPrefix).
+	if (normalizedPath === '..' || normalizedPath.startsWith('../')) {
+		return {
+			allowed: false,
+			reason: `Path blocked: ${normalizedPath} resolves outside the working directory`,
+		};
+	}
+
 	const rules =
 		effectiveRules[normalizedAgent] ?? effectiveRules[strippedAgent];
 	if (!rules) {
