@@ -284,6 +284,31 @@ describe('wrapper unwrapping and normalization — adversarial', () => {
 		test('wsl -e echo hello → ALLOWED (safe command through wsl)', async () => {
 			await expectAllowed('wsl -e echo hello');
 		});
+
+		test('WSL.EXE -e rm -rf /mnt/c/opencode → BLOCKED (uppercase WSL.EXE)', async () => {
+			await expectBlocked('WSL.EXE -e rm -rf /mnt/c/opencode');
+		});
+
+		test('WSL -- rm -rf /important → BLOCKED (uppercase WSL with --)', async () => {
+			await expectBlocked('WSL -- rm -rf /important');
+		});
+	});
+
+	// -------------------------------------------------------------------------
+	// Uppercase sudo/nohup wrappers
+	// -------------------------------------------------------------------------
+	describe('uppercase prefix wrappers (SUDO, NOHUP)', () => {
+		test('SUDO rm -rf /important → BLOCKED (uppercase SUDO)', async () => {
+			await expectBlocked('SUDO rm -rf /important');
+		});
+
+		test('NOHUP rm -rf /important → BLOCKED (uppercase NOHUP)', async () => {
+			await expectBlocked('NOHUP rm -rf /important');
+		});
+
+		test('SUDO Remove-Item -Recurse /important → BLOCKED (uppercase SUDO + PS)', async () => {
+			await expectBlocked('SUDO Remove-Item -Recurse /important');
+		});
 	});
 
 	// -------------------------------------------------------------------------

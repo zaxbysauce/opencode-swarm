@@ -428,21 +428,23 @@ function dcStripOneWrapper(cmd: string): string | null {
 		}
 	}
 
-	// bash/sh/zsh -c "inner"
+	// bash/sh/zsh -c "inner" — case-insensitive for consistency with other wrappers
 	const shellMatch =
-		/^(?:bash|sh|zsh|dash|fish)(?:\.exe)?\s+-c\s+"?(.*?)"?\s*$/s.exec(t);
+		/^(?:bash|sh|zsh|dash|fish)(?:\.exe)?\s+-c\s+"?(.*?)"?\s*$/is.exec(t);
 	if (shellMatch) return shellMatch[1].trim();
 
 	// sudo / env VAR=val / time / nohup / nice -n N: strip leading word + optional args
+	// Case-insensitive: SUDO, TIME, NOHUP are valid in encoded/obfuscated commands.
 	const prefixMatch =
-		/^(?:sudo|time|nohup)\s+(.+)$/s.exec(t) ??
-		/^env(?:\s+[A-Za-z_][A-Za-z0-9_]*=[^\s]*)*\s+(.+)$/s.exec(t) ??
-		/^nice\s+(?:-n\s+\d+\s+)?(.+)$/s.exec(t);
+		/^(?:sudo|time|nohup)\s+(.+)$/is.exec(t) ??
+		/^env(?:\s+[A-Za-z_][A-Za-z0-9_]*=[^\s]*)*\s+(.+)$/is.exec(t) ??
+		/^nice\s+(?:-n\s+\d+\s+)?(.+)$/is.exec(t);
 	if (prefixMatch) return prefixMatch[1].trim();
 
 	// WSL cross-OS bridge: wsl -e ... / wsl -- ... / wsl.exe -e ...
+	// Case-insensitive: WSL.EXE is commonly written uppercase on Windows.
 	// These execute commands in the Linux subsystem — paths like /mnt/c/ map to C:\
-	const wslMatch = /^wsl(?:\.exe)?\s+(?:-e|--)\s+(.+)$/s.exec(t);
+	const wslMatch = /^wsl(?:\.exe)?\s+(?:-e|--)\s+(.+)$/is.exec(t);
 	if (wslMatch) return wslMatch[1].trim();
 
 	// PowerShell script block: & { ... } or & { ... } ; & { ... }
