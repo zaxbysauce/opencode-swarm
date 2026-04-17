@@ -53453,7 +53453,7 @@ Present the seven gates with their defaults (DEFAULT_QA_GATES) as a single user-
 - critic_pre_plan (default: ON) \u2014 critic review before plan finalization
 - sast_enabled (default: ON) \u2014 static security scanning
 - council_mode (default: OFF) \u2014 multi-member council gate (recommended for high-impact architecture, public APIs, schema/data mutation, security-sensitive code)
-- hallucination_guard (default: OFF) \u2014 when enabled, mandatory per-phase API/signature/claim/citation verification via critic_hallucination_verifier at PHASE-WRAP; phase_complete is BLOCKED until .swarm/evidence/{phase}/hallucination-guard.json has an APPROVED verdict (recommended for claim-heavy or research-heavy work)
+- hallucination_guard (default: OFF) \u2014 when enabled, mandatory per-phase API/signature/claim/citation verification via critic_hallucination_verifier at PHASE-WRAP; phase_complete will REJECT phase completion unless .swarm/evidence/{phase}/hallucination-guard.json exists with an APPROVED verdict (recommended for claim-heavy or research-heavy work)
 
 One question, one message, defaults pre-stated. Wait for the user's answer.`;
 }
