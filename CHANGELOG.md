@@ -1,5 +1,12 @@
 # Changelog
 
+## [6.73.0](https://github.com/zaxbysauce/opencode-swarm/compare/v6.72.1...v6.73.0) (2026-04-17)
+
+
+### Features
+
+* **architect:** add critic_hallucination_verifier and phase_complete Gate 3 enforcement for hallucination_guard QA gate ([#531](https://github.com/zaxbysauce/opencode-swarm/issues/531)) ([109a7b0](https://github.com/zaxbysauce/opencode-swarm/commit/109a7b09afb7bb7c5229c31b78bdce486c6ed327))
+
 ## [6.72.1](https://github.com/zaxbysauce/opencode-swarm/compare/v6.72.0...v6.72.1) (2026-04-17)
 
 
