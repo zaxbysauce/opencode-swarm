@@ -275,4 +275,83 @@ describe('sweepStaleTodos', () => {
 		expect(result.scanned).toBe(0);
 		expect(result.removed).toBe(0);
 	});
+
+	test('promoted TODO entries are NOT removed (TTL-exempt per design)', async () => {
+		const promotedTodo = makeEntry({
+			id: '1',
+			lesson: 'TODO: critical blocker',
+			category: 'todo',
+			status: 'promoted',
+			phases_alive: 100, // Way past todoMaxPhases: 3
+		});
+		const regularTodo = makeEntry({
+			id: '2',
+			lesson: 'TODO: old task',
+			category: 'todo',
+			status: 'candidate',
+			phases_alive: 5, // Past todoMaxPhases: 3
+		});
+		fs.writeFileSync(knowledgePath, '');
+		fs.appendFileSync(knowledgePath, JSON.stringify(promotedTodo) + '\n');
+		fs.appendFileSync(knowledgePath, JSON.stringify(regularTodo) + '\n');
+
+		const result = await sweepStaleTodos(knowledgePath, 3);
+		expect(result.removed).toBe(1); // only regularTodo removed
+
+		const entries = await readKnowledge<SwarmKnowledgeEntry>(knowledgePath);
+		expect(entries).toHaveLength(1);
+		expect(entries[0].id).toBe('1'); // promoted survives
+	});
+});
+
+describe('sweep regression tests', () => {
+	test('age bumps persist across separate sweep calls (not just archives)', async () => {
+		const entry = makeEntry({
+			id: '1',
+			lesson: 'test lesson',
+			status: 'candidate',
+			max_phases: 10, // High TTL so we test age persistence, not archival
+		});
+		fs.writeFileSync(knowledgePath, JSON.stringify(entry) + '\n');
+
+		// Sweep 1: undefined → 1
+		const result1 = await sweepAgedEntries(knowledgePath, 10);
+		expect(result1.aged).toBe(1);
+
+		// Sweep 2: should read phases_alive: 1 from disk, bump to 2 (NOT reset to 1)
+		const result2 = await sweepAgedEntries(knowledgePath, 10);
+		expect(result2.aged).toBe(1);
+		const entries2 = await readKnowledge<SwarmKnowledgeEntry>(knowledgePath);
+		expect(entries2[0].phases_alive).toBe(2); // proves persistence
+	});
+
+	test('nested sweep does not deadlock (direct writeFile under held lock)', async () => {
+		const entry = makeEntry({
+			id: '1',
+			lesson: 'test lesson',
+			status: 'candidate',
+			max_phases: 0, // Archives on sweep 1 (0+1=1, 1 > 0 → archive)
+		});
+		fs.writeFileSync(knowledgePath, JSON.stringify(entry) + '\n');
+
+		// Under nested lock bug, this hangs on stale timeout (~5s).
+		// After fix, should complete quickly.
+		const start = Date.now();
+		const result = await sweepAgedEntries(knowledgePath, 10);
+		const elapsed = Date.now() - start;
+
+		expect(result.archived).toBe(1);
+		expect(elapsed).toBeLessThan(2000); // proves no 5s stall
+	});
+
+	test('sweep succeeds on fresh directory (mkdir before lock)', async () => {
+		// Delete .swarm dir entirely to simulate fresh install
+		fs.rmSync(path.dirname(knowledgePath), { recursive: true, force: true });
+
+		// Under the bug (no mkdir), lock on non-existent dir crashes.
+		// After fix, mkdir precedes lock so this succeeds.
+		const result = await sweepAgedEntries(knowledgePath, 10);
+		expect(result.scanned).toBe(0); // No file yet, but no crash
+		expect(fs.existsSync(path.dirname(knowledgePath))).toBe(true);
+	});
 });

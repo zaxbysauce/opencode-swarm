@@ -188,6 +188,8 @@ export async function sweepAgedEntries<T extends KnowledgeEntryBase>(
 	let release: (() => Promise<void>) | null = null;
 	try {
 		const dir = path.dirname(filePath);
+		// Ensure directory exists before acquiring lock (required by proper-lockfile).
+		await mkdir(dir, { recursive: true });
 		// Acquire directory lock for entire read-modify-write to prevent
 		// concurrent appendKnowledge from racing (H2 race condition prevention)
 		release = await lockfile.lock(dir, {
@@ -218,21 +220,27 @@ export async function sweepAgedEntries<T extends KnowledgeEntryBase>(
 				continue;
 			}
 
-			// Bump age and test against TTL
+			// Bump age and test against TTL. Any age change must persist.
 			entry.phases_alive = (entry.phases_alive ?? 0) + 1;
 			result.aged++;
+			mutated = true;
 
 			const ttl = entry.max_phases ?? defaultMaxPhases;
-			if (entry.phases_alive >= ttl) {
+			// max_phases=N means entry can live N complete phases; archive on N+1.
+			if (entry.phases_alive > ttl) {
 				entry.status = 'archived';
 				entry.updated_at = now;
 				result.archived++;
-				mutated = true;
 			}
 		}
 
-		// Only rewrite if something changed (avoid write churn)
-		if (mutated) await rewriteKnowledge(filePath, entries);
+		// Write directly with the held lock (avoid nested lock via rewriteKnowledge).
+		if (mutated) {
+			const content =
+				entries.map((e) => JSON.stringify(e)).join('\n') +
+				(entries.length > 0 ? '\n' : '');
+			await writeFile(filePath, content, 'utf-8');
+		}
 		return result;
 	} finally {
 		if (release) {
@@ -254,6 +262,8 @@ export async function sweepStaleTodos<T extends KnowledgeEntryBase>(
 	let release: (() => Promise<void>) | null = null;
 	try {
 		const dir = path.dirname(filePath);
+		// Ensure directory exists before acquiring lock (required by proper-lockfile).
+		await mkdir(dir, { recursive: true });
 		release = await lockfile.lock(dir, {
 			retries: { retries: 5, minTimeout: 100, maxTimeout: 500 },
 			stale: 5000,
@@ -270,16 +280,23 @@ export async function sweepStaleTodos<T extends KnowledgeEntryBase>(
 		if (entries.length === 0) return result;
 
 		const kept = entries.filter((e) => {
-			if (e.category !== 'todo') return true;
+			// Promoted entries are TTL-exempt per design, even for TODO category.
+			if (e.category !== 'todo' || e.status === 'promoted') return true;
 			const age = e.phases_alive ?? 0;
-			if (age >= todoMaxPhases) {
+			if (age > todoMaxPhases) {
 				result.removed++;
 				return false;
 			}
 			return true;
 		});
 
-		if (result.removed > 0) await rewriteKnowledge(filePath, kept);
+		// Write directly with the held lock (avoid nested lock via rewriteKnowledge).
+		if (result.removed > 0) {
+			const content =
+				kept.map((e) => JSON.stringify(e)).join('\n') +
+				(kept.length > 0 ? '\n' : '');
+			await writeFile(filePath, content, 'utf-8');
+		}
 		return result;
 	} finally {
 		if (release) {

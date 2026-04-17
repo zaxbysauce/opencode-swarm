@@ -276,6 +276,7 @@ export async function curateAndStoreSwarm(
 		['performance', 'performance'],
 		['integration', 'integration'],
 		['other', 'other'],
+		['todo', 'todo'],
 	]);
 
 	for (const lesson of lessons) {

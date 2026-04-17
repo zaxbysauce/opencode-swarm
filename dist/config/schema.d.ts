@@ -437,6 +437,9 @@ export declare const KnowledgeConfigSchema: z.ZodObject<{
     initial_encounter_score: z.ZodDefault<z.ZodNumber>;
     encounter_increment: z.ZodDefault<z.ZodNumber>;
     max_encounter_score: z.ZodDefault<z.ZodNumber>;
+    default_max_phases: z.ZodDefault<z.ZodNumber>;
+    todo_max_phases: z.ZodDefault<z.ZodNumber>;
+    sweep_enabled: z.ZodDefault<z.ZodBoolean>;
 }, z.core.$strip>;
 export type KnowledgeConfig = z.infer<typeof KnowledgeConfigSchema>;
 export declare const CuratorConfigSchema: z.ZodObject<{
@@ -826,6 +829,9 @@ export declare const PluginConfigSchema: z.ZodObject<{
         initial_encounter_score: z.ZodDefault<z.ZodNumber>;
         encounter_increment: z.ZodDefault<z.ZodNumber>;
         max_encounter_score: z.ZodDefault<z.ZodNumber>;
+        default_max_phases: z.ZodDefault<z.ZodNumber>;
+        todo_max_phases: z.ZodDefault<z.ZodNumber>;
+        sweep_enabled: z.ZodDefault<z.ZodBoolean>;
     }, z.core.$strip>>;
     curator: z.ZodOptional<z.ZodObject<{
         enabled: z.ZodDefault<z.ZodBoolean>;

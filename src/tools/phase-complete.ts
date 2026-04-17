@@ -675,9 +675,14 @@ export async function executePhaseComplete(
 
 	// Knowledge config: load from plugin config so user overrides are respected.
 	// Falls back to schema defaults if config is absent or partially specified.
-	const knowledgeConfig: KnowledgeConfig = KnowledgeConfigSchema.parse(
-		config.knowledge ?? {},
-	);
+	// Degrade gracefully on malformed user config — sweep is non-blocking.
+	let knowledgeConfig: KnowledgeConfig;
+	try {
+		knowledgeConfig = KnowledgeConfigSchema.parse(config.knowledge ?? {});
+	} catch (parseErr) {
+		warnings.push(`Knowledge config validation failed: ${String(parseErr)}`);
+		knowledgeConfig = KnowledgeConfigSchema.parse({});
+	}
 
 	// Extract and store lessons from retrospective to knowledge.jsonl
 	if (
@@ -1108,9 +1113,15 @@ export async function executePhaseComplete(
 			}
 		} catch (err) {
 			// Never block phase completion on a sweep failure. Log and continue.
-			warnings.push(
-				`Knowledge sweep failed for phase ${phase}: ${String(err)}`,
-			);
+			let detail = String(err);
+			if (detail.includes('ELOCKED')) {
+				detail = 'lock timeout (stale lock detected)';
+			} else if (detail.includes('ENOSPC')) {
+				detail = 'disk full';
+			} else if (detail.includes('EACCES')) {
+				detail = 'permission denied';
+			}
+			warnings.push(`Knowledge sweep failed for phase ${phase}: ${detail}`);
 		}
 
 		// Update plan.json phase status to complete via ledger-first savePlan
