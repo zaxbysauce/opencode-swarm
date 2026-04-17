@@ -8,7 +8,7 @@ import {
 } from '../history-store.js';
 
 describe('history-store adversarial security tests', () => {
-	const tempDir = path.join(import.meta.dir, 'adversarial-temp-' + Date.now());
+	const tempDir = path.join(import.meta.dir, `adversarial-temp-${Date.now()}`);
 
 	beforeEach(() => {
 		// Create fresh temp directory for each test
@@ -186,7 +186,7 @@ describe('history-store adversarial security tests', () => {
 
 		test('Unicode emoji in errorMessage is preserved correctly', () => {
 			// Use fewer A's so total is under 500 chars
-			const emojiMessage = '💣💥🔥😈💀👾' + 'A'.repeat(100);
+			const emojiMessage = `💣💥🔥😈💀👾${'A'.repeat(100)}`;
 			appendTestRun(
 				{
 					timestamp: new Date().toISOString(),

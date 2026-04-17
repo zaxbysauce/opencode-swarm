@@ -20,10 +20,7 @@ import { mkdirSync, mkdtempSync, rmSync, writeFileSync } from 'node:fs';
 import * as os from 'node:os';
 import * as path from 'node:path';
 import type { PluginConfig } from '../../../src/config';
-import {
-	getOrCreateProfile,
-	setGates,
-} from '../../../src/db/qa-gate-profile';
+import { getOrCreateProfile, setGates } from '../../../src/db/qa-gate-profile';
 import { createDelegationGateHook } from '../../../src/hooks/delegation-gate';
 import {
 	advanceTaskState,
@@ -389,9 +386,7 @@ describe('delegation-gate council wiring (Stage B suppression + APPROVE fast-pat
 			);
 
 			expect(getTaskState(session, '1.1')).toBe('pre_check_passed');
-			expect(session.taskCouncilApproved?.get('1.1')?.verdict).toBe(
-				'CONCERNS',
-			);
+			expect(session.taskCouncilApproved?.get('1.1')?.verdict).toBe('CONCERNS');
 		});
 	});
 

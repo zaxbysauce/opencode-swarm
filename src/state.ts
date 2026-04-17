@@ -14,13 +14,13 @@ import { ORCHESTRATOR_NAME } from './config/constants';
 import { type Plan, PlanSchema, type TaskStatus } from './config/plan-schema';
 import { stripKnownSwarmPrefix } from './config/schema';
 import { getProfile, type QaGates } from './db/qa-gate-profile.js';
-import { loadPlanJsonOnly } from './plan/manager.js';
 import {
 	detectEnvironmentProfile,
 	type EnvironmentProfile,
 } from './environment/profile.js';
 import type { TaskEvidence } from './gate-evidence';
 import { clearPendingCoderScope } from './hooks/delegation-gate.js';
+import { loadPlanJsonOnly } from './plan/manager.js';
 import { telemetry } from './telemetry.js';
 
 /**

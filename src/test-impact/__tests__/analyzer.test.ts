@@ -10,7 +10,6 @@ import {
 	analyzeImpact,
 	buildImpactMap,
 	loadImpactMap,
-	type TestImpactResult,
 } from '../analyzer.js';
 
 describe('TestImpactAnalyzer', () => {
@@ -315,7 +314,7 @@ test('foo', () => { expect(foo).toBe(1); });`,
 			const cacheContent = JSON.parse(
 				await fs.promises.readFile(cachePath, 'utf-8'),
 			);
-			const originalGeneratedAt = cacheContent.generatedAt;
+			const _originalGeneratedAt = cacheContent.generatedAt;
 
 			// Wait a tiny bit so the timestamp would differ if rebuilt
 			await new Promise((r) => setTimeout(r, 10));

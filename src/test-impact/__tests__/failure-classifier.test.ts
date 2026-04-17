@@ -4,7 +4,6 @@ import {
 	classifyAndCluster,
 	classifyFailure,
 	clusterFailures,
-	type FailureCluster,
 } from '../failure-classifier.js';
 import type { TestRunRecord } from '../history-store.js';
 

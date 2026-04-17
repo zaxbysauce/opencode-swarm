@@ -639,9 +639,7 @@ export function createDelegationGateHook(
 						session.taskCouncilApproved.set(taskId, {
 							verdict: result.overallVerdict,
 							roundNumber:
-								typeof result.roundNumber === 'number'
-									? result.roundNumber
-									: 1,
+								typeof result.roundNumber === 'number' ? result.roundNumber : 1,
 						});
 						if (
 							result.overallVerdict === 'APPROVE' &&
@@ -777,7 +775,10 @@ export function createDelegationGateHook(
 									seedTaskId &&
 									!otherSession.taskWorkflowStates.has(seedTaskId)
 								) {
-									otherSession.taskWorkflowStates.set(seedTaskId, 'reviewer_run');
+									otherSession.taskWorkflowStates.set(
+										seedTaskId,
+										'reviewer_run',
+									);
 								}
 								for (const [taskId, state] of otherSession.taskWorkflowStates) {
 									if (state === 'reviewer_run') {
