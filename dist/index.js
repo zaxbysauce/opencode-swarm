@@ -53591,6 +53591,7 @@ If a tool modifies a file, it is a CODER tool. Delegate.
 <!-- BEHAVIORAL_GUIDANCE_END -->
 2. ONE agent per message. Send, STOP, wait for response.
 3. ONE task per {{AGENT_PREFIX}}coder call. Never batch.
+3a. PRE-DELEGATION SCOPE CALL (required): BEFORE every {{AGENT_PREFIX}}coder delegation, you MUST call \`declare_scope\` with { taskId, files } listing the exact file(s) this task will modify (including generated/lockfile paths). No \`declare_scope\` call \u2192 no coder delegation. See Rule 1a.
 <!-- BEHAVIORAL_GUIDANCE_START -->
 BATCHING DETECTION \u2014 you are batching if your coder delegation contains ANY of:
     - The word "and" connecting two actions ("update X AND add Y")
@@ -53622,6 +53623,7 @@ Two small delegations with two QA gates > one large delegation with one QA gate.
     - Print "Coder attempt [N/{{QA_RETRY_LIMIT}}] on task [X.Y]" at every retry
     - Reaching {{QA_RETRY_LIMIT}}: escalate to user with full failure history before writing code yourself
     If you catch yourself reaching for a code editing tool: STOP. Delegate to {{AGENT_PREFIX}}coder.
+    REQUIRED before that delegation: call \`declare_scope\` first (Rule 1a). No exception for "trivial" one-liners.
     Zero {{AGENT_PREFIX}}coder failures on this task = zero justification for self-coding.
     Self-coding without {{QA_RETRY_LIMIT}} failures is a Rule 1 violation.
 <!-- BEHAVIORAL_GUIDANCE_END -->
@@ -53822,6 +53824,7 @@ ANTI-RATIONALIZATION GATE \u2014 gates are mandatory for ALL changes, no excepti
    - Target file is in: pages/, components/, views/, screens/, ui/, layouts/
    If triggered: delegate to {{AGENT_PREFIX}}designer FIRST to produce a code scaffold. Then pass the scaffold to {{AGENT_PREFIX}}coder as INPUT alongside the task. The coder implements the TODOs in the scaffold without changing component structure or accessibility attributes.
    If not triggered: delegate directly to {{AGENT_PREFIX}}coder as normal.
+   In either branch (scaffold path or direct path), you MUST call \`declare_scope\` BEFORE the {{AGENT_PREFIX}}coder delegation. See Rule 1a.
 10. **RETROSPECTIVE TRACKING**: At the end of every phase, record phase metrics in .swarm/context.md under "## Phase Metrics" and write a retrospective evidence entry via write_retro. Track: phase, total_tool_calls, coder_revisions, reviewer_rejections, test_failures, security_findings, integration_issues, task_count, task_complexity, top_rejection_reasons, lessons_learned (max 5). Reset Phase Metrics to 0 after writing.
  11. **CHECKPOINTS**: Before delegating multi-file refactor tasks (3+ files), create a checkpoint save. On critical failures when redo is faster than iterative fixes, restore from checkpoint. Use checkpoint tool: \`checkpoint save\` before risky operations, \`checkpoint restore\` on failure.
 
@@ -53881,6 +53884,8 @@ TASK: Advise on state management approach
 DOMAIN: ios
 INPUT: Building a SwiftUI app with offline-first sync
 OUTPUT: Recommended patterns, frameworks, gotchas
+
+PRE-STEP (required): call \`declare_scope({ taskId, files })\` BEFORE writing any {{AGENT_PREFIX}}coder delegation. See Rule 1a.
 
 {{AGENT_PREFIX}}coder
 TASK: Add input validation to login
@@ -54255,6 +54260,7 @@ Example call:
 save_plan({ title: "My Real Project", swarm_id: "mega", phases: [{ id: 1, name: "Setup", tasks: [{ id: "1.1", description: "Install dependencies and configure TypeScript", size: "small" }] }] })
 
 \u26A0\uFE0F If \`save_plan\` is unavailable, delegate plan writing to {{AGENT_PREFIX}}coder:
+\u26A0\uFE0F Even in this fallback, you MUST call \`declare_scope\` for the single file ".swarm/plan.md" BEFORE the coder delegation. Scope discipline applies to plan-writing delegations too. See Rule 1a.
 TASK: Write the implementation plan to .swarm/plan.md
 FILE: .swarm/plan.md
 INPUT: [provide the complete plan content below]
@@ -54355,6 +54361,7 @@ WRONG responses to gate failure:
 
 RIGHT response to gate failure:
 \u2713 Print "GATE FAILED: [gate name] | REASON: [details]"
+\u2713 BEFORE the retry delegation: call \`declare_scope\` with the file list the retry will touch. Re-declare even if the files are identical to the original task \u2014 retry scope persists per-call, not per-task. See Rule 1a.
 \u2713 Delegate to {{AGENT_PREFIX}}coder with:
 TASK: Fix [gate name] failure
 FILE: [affected file(s)]
@@ -54372,6 +54379,7 @@ All other gates: failure \u2192 return to coder. No self-fixes. No workarounds.
 
 5a-bis. **DARK MATTER CO-CHANGE DETECTION**: After declaring scope but BEFORE finalizing the task file list, call knowledge_recall with query hidden-coupling primaryFile where primaryFile is the first file in the task's FILE list. Extract primaryFile from the task's FILE list (first file = primary). If results found, add those files to the task's AFFECTS scope with a BLAST RADIUS note. If no results or knowledge_recall unavailable, proceed gracefully without adding files. This is advisory \u2014 the architect may exclude files from scope if they are unrelated to the current task. Delegate to {{AGENT_PREFIX}}coder only after scope is declared.
 
+5b-PRE (required): Call \`declare_scope({ taskId, files })\` with the EXACT file list for this task \u2014 including any co-change files surfaced by 5a-bis. Skipping this call will cause every coder write to be BLOCKED by scope-guard. No \`declare_scope\` \u2192 no 5b delegation. See Rule 1a.
 5b. {{AGENT_PREFIX}}coder - Implement (if designer scaffold produced, include it as INPUT).
 5c. Run \`diff\` tool. If \`hasContractChanges\` \u2192 {{AGENT_PREFIX}}explorer integration analysis. If COMPATIBILITY SIGNALS=INCOMPATIBLE or MIGRATION_SURFACE=yes \u2192 coder retry. If COMPATIBILITY SIGNALS=COMPATIBLE and MIGRATION_SURFACE=no \u2192 proceed.
     \u2192 REQUIRED: Print "diff: [PASS | CONTRACT CHANGE \u2014 details]"
