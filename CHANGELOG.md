@@ -1,5 +1,12 @@
 # Changelog
 
+## [6.72.0](https://github.com/zaxbysauce/opencode-swarm/compare/v6.71.1...v6.72.0) (2026-04-17)
+
+
+### Features
+
+* **knowledge:** add N-phase TTL decay and TODO stale-entry sweep ([#524](https://github.com/zaxbysauce/opencode-swarm/issues/524)) ([b89f875](https://github.com/zaxbysauce/opencode-swarm/commit/b89f875fdea504cb34880fe0f03479f431782d50))
+
 ## [6.71.1](https://github.com/zaxbysauce/opencode-swarm/compare/v6.71.0...v6.71.1) (2026-04-16)
 
 
