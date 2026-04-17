@@ -486,4 +486,155 @@ describe('delegation-gate council wiring (Stage B suppression + APPROVE fast-pat
 			).toBe(true);
 		});
 	});
+
+	describe('race condition: concurrent APPROVE + reviewer Task on same taskId', () => {
+		it('council APPROVE then reviewer Task — state stays complete, not overwritten by reviewer_run', async () => {
+			writePlan();
+			enableCouncilGate();
+
+			const config = makeConfig(undefined, { enabled: true });
+			const hook = createDelegationGateHook(config, tmpDir);
+
+			startAgentSession('sess-race', 'architect');
+			const session = ensureAgentSession('sess-race');
+			advanceTaskState(session, '1.1', 'coder_delegated');
+			advanceTaskState(session, '1.1', 'pre_check_passed');
+
+			// Step 1: council APPROVE — should advance to complete.
+			await hook.toolAfter(
+				{
+					tool: 'convene_council',
+					sessionID: 'sess-race',
+					callID: 'call-cc-race',
+					args: { taskId: '1.1' },
+				},
+				{
+					success: true,
+					overallVerdict: 'APPROVE',
+					allCriteriaMet: true,
+					requiredFixesCount: 0,
+					roundNumber: 1,
+				},
+			);
+
+			expect(getTaskState(session, '1.1')).toBe('complete');
+
+			// Step 2: a reviewer Task delegation arrives immediately after (late dispatch).
+			// With councilActive=true the reviewer branch is suppressed — state must remain complete.
+			await hook.toolAfter(
+				{
+					tool: 'Task',
+					sessionID: 'sess-race',
+					callID: 'call-race-rev',
+					args: { subagent_type: 'reviewer' },
+				},
+				{},
+			);
+
+			expect(getTaskState(session, '1.1')).toBe('complete');
+		});
+	});
+
+	describe('edge cases: task not at pre_check_passed when APPROVE arrives', () => {
+		it('APPROVE when task is at coder_delegated (pre-check not done) does NOT advance to complete', async () => {
+			writePlan();
+			enableCouncilGate();
+
+			const config = makeConfig(undefined, { enabled: true });
+			const hook = createDelegationGateHook(config, tmpDir);
+
+			startAgentSession('sess-early', 'architect');
+			const session = ensureAgentSession('sess-early');
+			advanceTaskState(session, '1.1', 'coder_delegated');
+			// NOTE: do NOT advance to pre_check_passed — council arrives too early.
+
+			const warnings: string[] = [];
+			const origWarn = console.warn;
+			console.warn = (...args: unknown[]) => {
+				warnings.push(args.map(String).join(' '));
+			};
+			try {
+				await hook.toolAfter(
+					{
+						tool: 'convene_council',
+						sessionID: 'sess-early',
+						callID: 'call-cc-early',
+						args: { taskId: '1.1' },
+					},
+					{
+						success: true,
+						overallVerdict: 'APPROVE',
+						allCriteriaMet: true,
+						requiredFixesCount: 0,
+						roundNumber: 1,
+					},
+				);
+			} finally {
+				console.warn = origWarn;
+			}
+
+			// Must NOT be complete; pre-check has not passed.
+			expect(getTaskState(session, '1.1')).not.toBe('complete');
+			// Verdict IS recorded for observability.
+			expect(session.taskCouncilApproved?.get('1.1')?.verdict).toBe('APPROVE');
+		});
+	});
+
+	describe('isCouncilGateActive: graceful fallback when plan.json missing', () => {
+		it('returns false (council not active) when plan.json is absent', async () => {
+			// Deliberately do NOT call writePlan() — no plan.json exists.
+			enableCouncilGate();
+
+			const config = makeConfig(undefined, { enabled: true });
+			const hook = createDelegationGateHook(config, tmpDir);
+
+			startAgentSession('sess-no-plan', 'architect');
+			const session = ensureAgentSession('sess-no-plan');
+			session.currentTaskId = '1.1';
+			session.taskWorkflowStates.set('1.1', 'coder_delegated');
+
+			// Reviewer Task: if council correctly falls back to inactive → Stage B advances.
+			await hook.toolAfter(
+				{
+					tool: 'Task',
+					sessionID: 'sess-no-plan',
+					callID: 'call-no-plan-rev',
+					args: { subagent_type: 'reviewer' },
+				},
+				{},
+			);
+
+			expect(getTaskState(session, '1.1')).toBe('reviewer_run');
+		});
+
+		it('convene_council with missing plan.json logs warn and does not advance', async () => {
+			// No plan written — isCouncilGateActive returns false.
+			const config = makeConfig(undefined, { enabled: true });
+			const hook = createDelegationGateHook(config, tmpDir);
+
+			startAgentSession('sess-no-plan-cc', 'architect');
+			const session = ensureAgentSession('sess-no-plan-cc');
+			session.currentTaskId = '1.1';
+			session.taskWorkflowStates.set('1.1', 'pre_check_passed');
+
+			await hook.toolAfter(
+				{
+					tool: 'convene_council',
+					sessionID: 'sess-no-plan-cc',
+					callID: 'call-no-plan-cc',
+					args: { taskId: '1.1' },
+				},
+				{
+					success: true,
+					overallVerdict: 'APPROVE',
+					allCriteriaMet: true,
+					requiredFixesCount: 0,
+					roundNumber: 1,
+				},
+			);
+
+			// Council not active → verdict recorded but state NOT advanced.
+			expect(getTaskState(session, '1.1')).toBe('pre_check_passed');
+		});
+	});
 });

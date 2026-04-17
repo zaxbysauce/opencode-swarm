@@ -943,7 +943,15 @@ export async function isCouncilGateActive(
 	let profile: ReturnType<typeof getProfile> | null = null;
 	try {
 		profile = getProfile(directory, planId);
-	} catch {
+	} catch (err) {
+		// Distinguish a missing-profile (expected in fresh repos) from an I/O error
+		// (EACCES, EBUSY, etc.) that may indicate a real problem.
+		const code = (err as NodeJS.ErrnoException)?.code;
+		if (code && code !== 'ENOENT' && code !== 'SQLITE_CANTOPEN') {
+			console.warn(
+				`[isCouncilGateActive] getProfile failed for plan ${planId}: ${code}. Treating council as inactive.`,
+			);
+		}
 		profile = null;
 	}
 	if (!profile) {

@@ -645,6 +645,7 @@ export function createDelegationGateHook(
 								typeof result.roundNumber === 'number' ? result.roundNumber : 1,
 						});
 						if (
+							councilActive &&
 							result.overallVerdict === 'APPROVE' &&
 							result.allCriteriaMet === true &&
 							(result.requiredFixesCount ?? 0) === 0

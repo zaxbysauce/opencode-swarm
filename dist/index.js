@@ -24628,7 +24628,7 @@ function createDelegationGateHook(config2, directory) {
               verdict: result.overallVerdict,
               roundNumber: typeof result.roundNumber === "number" ? result.roundNumber : 1
             });
-            if (result.overallVerdict === "APPROVE" && result.allCriteriaMet === true && (result.requiredFixesCount ?? 0) === 0) {
+            if (councilActive && result.overallVerdict === "APPROVE" && result.allCriteriaMet === true && (result.requiredFixesCount ?? 0) === 0) {
               try {
                 advanceTaskState(session, taskId, "complete");
               } catch (err2) {
@@ -25485,7 +25485,11 @@ async function isCouncilGateActive(directory, council) {
   let profile = null;
   try {
     profile = getProfile(directory, planId);
-  } catch {
+  } catch (err2) {
+    const code = err2?.code;
+    if (code && code !== "ENOENT" && code !== "SQLITE_CANTOPEN") {
+      console.warn(`[isCouncilGateActive] getProfile failed for plan ${planId}: ${code}. Treating council as inactive.`);
+    }
     profile = null;
   }
   if (!profile) {
