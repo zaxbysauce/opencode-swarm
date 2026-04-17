@@ -96,9 +96,7 @@ describe('Architect prompt: hallucination_guard gate enforcement', () => {
 
 			test(`${mode} dialogue includes mandatory enforcement language`, () => {
 				const dialogue = buildQaGateSelectionDialogue(mode);
-				expect(dialogue).toMatch(
-					/REJECT phase completion|mandatory per-phase/,
-				);
+				expect(dialogue).toMatch(/REJECT phase completion|mandatory per-phase/);
 			});
 
 			test(`${mode} dialogue references critic_hallucination_verifier`, () => {
