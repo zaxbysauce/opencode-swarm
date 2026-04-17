@@ -119,6 +119,7 @@ import {
 	todo_extract,
 	update_task_status,
 	write_drift_evidence,
+	write_hallucination_evidence,
 	write_retro,
 } from './tools';
 import { log } from './utils';
@@ -602,6 +603,7 @@ const OpenCodeSwarm: Plugin = async (ctx) => {
 			update_task_status,
 			write_retro,
 			write_drift_evidence,
+			write_hallucination_evidence,
 			declare_scope,
 		},
 
