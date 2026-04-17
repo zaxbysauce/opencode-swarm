@@ -77,6 +77,15 @@ describe('Architect prompt — Work Complete Council workflow block', () => {
 			expect(prompt).toContain('maxRounds');
 			expect(prompt).toMatch(/surface.*unifiedFeedbackMd.*HALT/is);
 		});
+
+		it('does not contain the old "supplements — does NOT replace" wording', () => {
+			expect(prompt).not.toContain('supplements — does NOT replace');
+		});
+
+		it('contains the REPLACES Stage B wording inside the council block', () => {
+			expect(prompt).toContain('REPLACES Stage B');
+			expect(prompt).toContain('Stage A (precheckbatch) still runs');
+		});
 	});
 
 	describe('council.enabled === false', () => {
@@ -97,6 +106,22 @@ describe('Architect prompt — Work Complete Council workflow block', () => {
 
 		it('does not leave the {{COUNCIL_WORKFLOW}} placeholder unexpanded', () => {
 			expect(prompt).not.toContain('{{COUNCIL_WORKFLOW}}');
+		});
+
+		it('YOUR TOOLS does not contain convene_council or declare_council_criteria', () => {
+			const yourToolsLine = prompt.match(/YOUR TOOLS:\s*(.+?)(?:\n|$)/)?.[1];
+			expect(yourToolsLine).toBeDefined();
+			expect(yourToolsLine).not.toContain('convene_council');
+			expect(yourToolsLine).not.toContain('declare_council_criteria');
+		});
+
+		it('Available Tools does not contain convene_council or declare_council_criteria', () => {
+			const availableToolsLine = prompt.match(
+				/Available Tools:\s*([\s\S]*?)(?:\n##|$)/,
+			)?.[1];
+			expect(availableToolsLine).toBeDefined();
+			expect(availableToolsLine).not.toContain('convene_council');
+			expect(availableToolsLine).not.toContain('declare_council_criteria');
 		});
 	});
 

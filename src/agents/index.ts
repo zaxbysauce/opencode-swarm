@@ -540,6 +540,26 @@ export function getAgentConfigs(
 				}
 			}
 
+			// Symmetric validation: when council is OFF but the user override
+			// INCLUDES the council tools, the runtime gate in
+			// src/tools/convene-council.ts will reject any model attempt to call
+			// them. Warn so the user knows the tools are present in the override
+			// but unusable at runtime.
+			if (
+				baseAgentName === 'architect' &&
+				config?.council?.enabled !== true &&
+				override !== undefined
+			) {
+				const councilTools = ['declare_council_criteria', 'convene_council'];
+				const present = councilTools.filter((t) => override.includes(t));
+				if (present.length > 0) {
+					console.warn(
+						`[opencode-swarm] tool_filter.overrides.architect includes ${present.join(', ')} but council.enabled is not true. ` +
+							`The runtime gate will reject these calls. Either set council.enabled=true, or remove ${present.join(', ')} from the architect override.`,
+					);
+				}
+			}
+
 			// Warn once when base name lacks a whitelist entry (no override and no AGENT_TOOL_MAP)
 			if (!allowedTools && !Object.hasOwn(toolFilterOverrides, baseAgentName)) {
 				if (!warnedMissingWhitelist.has(baseAgentName)) {

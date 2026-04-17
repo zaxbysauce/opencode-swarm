@@ -545,6 +545,77 @@ ACCEPTANCECRITERA: test passes`;
 			advanceTaskState(session, 'task4', 'reviewer_run');
 			expect(() => advanceTaskState(session, 'task4', 'complete')).toThrow();
 		});
+
+		// v6.71+ Council fast-path coverage: complete-from-pre_check_passed should
+		// remain rejected without a council APPROVE record, and allowed with one.
+		it('should reject complete from pre_check_passed when no council APPROVE recorded', () => {
+			const session = ensureAgentSession('session-no-council-approve');
+
+			advanceTaskState(session, 'council-task', 'coder_delegated');
+			advanceTaskState(session, 'council-task', 'pre_check_passed');
+
+			// taskCouncilApproved is empty — must throw the standard guard.
+			expect(() =>
+				advanceTaskState(session, 'council-task', 'complete'),
+			).toThrow(/INVALID_TASK_STATE_TRANSITION/);
+			// State should remain at pre_check_passed.
+			expect(getTaskState(session, 'council-task')).toBe('pre_check_passed');
+		});
+
+		it('should allow complete from pre_check_passed when council APPROVE is recorded', () => {
+			const session = ensureAgentSession('session-council-approve');
+
+			advanceTaskState(session, 'council-task', 'coder_delegated');
+			advanceTaskState(session, 'council-task', 'pre_check_passed');
+
+			// Simulate convene_council recording an APPROVE verdict on the session.
+			session.taskCouncilApproved = new Map();
+			session.taskCouncilApproved.set('council-task', {
+				verdict: 'APPROVE',
+				roundNumber: 1,
+			});
+
+			// Council fast-path: should allow complete from pre_check_passed.
+			expect(() =>
+				advanceTaskState(session, 'council-task', 'complete'),
+			).not.toThrow();
+			expect(getTaskState(session, 'council-task')).toBe('complete');
+		});
+
+		it('should NOT allow complete from coder_delegated even with council APPROVE (Stage A still required)', () => {
+			const session = ensureAgentSession('session-council-no-precheck');
+
+			advanceTaskState(session, 'council-task', 'coder_delegated');
+
+			// APPROVE recorded but no pre_check_passed — Stage A is still required.
+			session.taskCouncilApproved = new Map();
+			session.taskCouncilApproved.set('council-task', {
+				verdict: 'APPROVE',
+				roundNumber: 1,
+			});
+
+			expect(() =>
+				advanceTaskState(session, 'council-task', 'complete'),
+			).toThrow(/INVALID_TASK_STATE_TRANSITION/);
+			expect(getTaskState(session, 'council-task')).toBe('coder_delegated');
+		});
+
+		it('should NOT allow complete from pre_check_passed when council recorded REJECT', () => {
+			const session = ensureAgentSession('session-council-reject');
+
+			advanceTaskState(session, 'council-task', 'coder_delegated');
+			advanceTaskState(session, 'council-task', 'pre_check_passed');
+
+			session.taskCouncilApproved = new Map();
+			session.taskCouncilApproved.set('council-task', {
+				verdict: 'REJECT',
+				roundNumber: 1,
+			});
+
+			expect(() =>
+				advanceTaskState(session, 'council-task', 'complete'),
+			).toThrow(/INVALID_TASK_STATE_TRANSITION/);
+		});
 	});
 
 	describe('state machine isolation between sessions', () => {

@@ -6,12 +6,7 @@ import path from 'node:path';
 const isWindows = process.platform === 'win32';
 
 // Import the module under test
-import {
-	analyzeImpact,
-	buildImpactMap,
-	loadImpactMap,
-	type TestImpactResult,
-} from '../analyzer.js';
+import { analyzeImpact, buildImpactMap, loadImpactMap } from '../analyzer.js';
 
 describe('TestImpactAnalyzer', () => {
 	let tempDir: string;
@@ -315,7 +310,7 @@ test('foo', () => { expect(foo).toBe(1); });`,
 			const cacheContent = JSON.parse(
 				await fs.promises.readFile(cachePath, 'utf-8'),
 			);
-			const originalGeneratedAt = cacheContent.generatedAt;
+			const _originalGeneratedAt = cacheContent.generatedAt;
 
 			// Wait a tiny bit so the timestamp would differ if rebuilt
 			await new Promise((r) => setTimeout(r, 10));

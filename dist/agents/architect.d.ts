@@ -25,4 +25,15 @@ export interface CouncilWorkflowConfig {
  * council feature is off or the config key is absent.
  */
 export declare function buildCouncilWorkflow(council?: CouncilWorkflowConfig): string;
+/**
+ * Build the user-facing QA gate selection dialogue, used by MODE: SPECIFY
+ * (step 5b), MODE: BRAINSTORM (Phase 6), and MODE: PLAN (post-`save_plan`
+ * inline path). The dialogue is dialogue-only — persistence happens during
+ * MODE: PLAN after `save_plan` creates `plan.json`.
+ *
+ * The lead-in sentence varies per mode, but the body (seven gates with
+ * defaults, one-shot accept-or-customize prompt) is shared so SPECIFY,
+ * BRAINSTORM, and PLAN inline paths stay in lockstep.
+ */
+export declare function buildQaGateSelectionDialogue(modeLabel: 'BRAINSTORM' | 'SPECIFY' | 'PLAN'): string;
 export declare function createArchitectAgent(model: string, customPrompt?: string, customAppendPrompt?: string, adversarialTesting?: AdversarialTestingConfig, council?: CouncilWorkflowConfig): AgentDefinition;

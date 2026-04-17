@@ -1,8 +1,8 @@
-import { afterEach, beforeEach, describe, expect, mock, test } from 'bun:test';
+import { afterEach, beforeEach, describe, expect, test } from 'bun:test';
 import fs from 'node:fs';
 import os from 'node:os';
 import path from 'node:path';
-import { analyzeImpact, buildImpactMap, loadImpactMap } from '../analyzer';
+import { analyzeImpact, buildImpactMap } from '../analyzer';
 
 function createTempDir(): string {
 	const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'analyzer-adversarial-'));

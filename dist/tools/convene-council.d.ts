@@ -24,8 +24,8 @@ export declare const ArgsSchema: z.ZodObject<{
         }>;
         verdict: z.ZodEnum<{
             APPROVE: "APPROVE";
-            CONCERNS: "CONCERNS";
             REJECT: "REJECT";
+            CONCERNS: "CONCERNS";
         }>;
         confidence: z.ZodNumber;
         findings: z.ZodArray<z.ZodObject<{

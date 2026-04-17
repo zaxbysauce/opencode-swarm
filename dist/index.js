@@ -17555,6 +17555,220 @@ var init_archive = __esm(() => {
   init_manager2();
 });
 
+// src/db/project-db.ts
+import { Database } from "bun:sqlite";
+import { existsSync as existsSync4, mkdirSync as mkdirSync3 } from "fs";
+import { join as join6, resolve as resolve4 } from "path";
+function runProjectMigrations(db) {
+  db.run(`CREATE TABLE IF NOT EXISTS schema_migrations (
+		version INTEGER PRIMARY KEY,
+		name TEXT NOT NULL,
+		applied_at TEXT NOT NULL DEFAULT (datetime('now'))
+	)`);
+  const row = db.query("SELECT MAX(version) as version FROM schema_migrations").get();
+  const currentVersion = row?.version ?? 0;
+  for (const migration of MIGRATIONS) {
+    if (migration.version <= currentVersion)
+      continue;
+    const apply = db.transaction(() => {
+      db.run(migration.sql);
+      db.run("INSERT INTO schema_migrations (version, name) VALUES (?, ?)", [
+        migration.version,
+        migration.name
+      ]);
+    });
+    apply();
+  }
+}
+function projectDbPath(directory) {
+  return join6(resolve4(directory), ".swarm", "swarm.db");
+}
+function projectDbExists(directory) {
+  return existsSync4(projectDbPath(directory));
+}
+function getProjectDb(directory) {
+  const key = resolve4(directory);
+  const existing = _projectDbs.get(key);
+  if (existing)
+    return existing;
+  const swarmDir = join6(key, ".swarm");
+  mkdirSync3(swarmDir, { recursive: true });
+  const db = new Database(join6(swarmDir, "swarm.db"));
+  db.run("PRAGMA journal_mode = WAL;");
+  db.run("PRAGMA synchronous = NORMAL;");
+  db.run("PRAGMA busy_timeout = 5000;");
+  db.run("PRAGMA foreign_keys = ON;");
+  runProjectMigrations(db);
+  _projectDbs.set(key, db);
+  return db;
+}
+var MIGRATIONS, _projectDbs;
+var init_project_db = __esm(() => {
+  MIGRATIONS = [
+    {
+      version: 1,
+      name: "create_project_constraints",
+      sql: `CREATE TABLE project_constraints (
+			id INTEGER PRIMARY KEY AUTOINCREMENT,
+			constraint_type TEXT NOT NULL,
+			content TEXT NOT NULL,
+			created_at TEXT NOT NULL DEFAULT (datetime('now'))
+		)`
+    },
+    {
+      version: 2,
+      name: "create_qa_gate_profile",
+      sql: `CREATE TABLE qa_gate_profile (
+			id INTEGER PRIMARY KEY AUTOINCREMENT,
+			plan_id TEXT NOT NULL UNIQUE,
+			created_at TEXT NOT NULL DEFAULT (datetime('now')),
+			project_type TEXT,
+			gates TEXT NOT NULL DEFAULT '{}',
+			locked_at TEXT,
+			locked_by_snapshot_seq INTEGER
+		)`
+    },
+    {
+      version: 3,
+      name: "create_qa_gate_profile_immutability_trigger",
+      sql: `CREATE TRIGGER IF NOT EXISTS trg_qa_gate_profile_no_update_after_lock
+			BEFORE UPDATE ON qa_gate_profile
+			WHEN OLD.locked_at IS NOT NULL
+			BEGIN
+				SELECT RAISE(ABORT, 'qa_gate_profile row is locked and cannot be modified after critic approval');
+			END`
+    }
+  ];
+  _projectDbs = new Map;
+});
+
+// src/db/qa-gate-profile.ts
+import { createHash as createHash3 } from "crypto";
+function rowToProfile(row) {
+  let parsed = {};
+  try {
+    parsed = JSON.parse(row.gates);
+  } catch {
+    parsed = {};
+  }
+  const gates = { ...DEFAULT_QA_GATES, ...parsed };
+  return {
+    id: row.id,
+    plan_id: row.plan_id,
+    created_at: row.created_at,
+    project_type: row.project_type,
+    gates,
+    locked_at: row.locked_at,
+    locked_by_snapshot_seq: row.locked_by_snapshot_seq
+  };
+}
+function getProfile(directory, planId) {
+  if (!projectDbExists(directory))
+    return null;
+  const db = getProjectDb(directory);
+  const row = db.query("SELECT * FROM qa_gate_profile WHERE plan_id = ?").get(planId);
+  return row ? rowToProfile(row) : null;
+}
+function getOrCreateProfile(directory, planId, projectType) {
+  const existing = getProfile(directory, planId);
+  if (existing)
+    return existing;
+  const db = getProjectDb(directory);
+  const gatesJson = JSON.stringify(DEFAULT_QA_GATES);
+  const insert = db.transaction(() => {
+    db.run("INSERT INTO qa_gate_profile (plan_id, project_type, gates) VALUES (?, ?, ?)", [planId, projectType ?? null, gatesJson]);
+  });
+  try {
+    insert();
+  } catch (err2) {
+    const msg = err2 instanceof Error ? err2.message : String(err2);
+    if (!msg.toLowerCase().includes("unique")) {
+      throw err2;
+    }
+  }
+  const after = getProfile(directory, planId);
+  if (!after) {
+    throw new Error(`Failed to create or load QA gate profile for plan_id=${planId}`);
+  }
+  return after;
+}
+function setGates(directory, planId, gates) {
+  const current = getProfile(directory, planId);
+  if (!current) {
+    throw new Error(`No QA gate profile found for plan_id=${planId} \u2014 call getOrCreateProfile first`);
+  }
+  if (current.locked_at !== null) {
+    throw new Error("Cannot modify gates: QA gate profile is locked after critic approval");
+  }
+  const merged = { ...current.gates };
+  for (const key of Object.keys(gates)) {
+    const incoming = gates[key];
+    if (incoming === undefined)
+      continue;
+    if (incoming === false && current.gates[key] === true) {
+      throw new Error(`Cannot disable gate '${key}': sessions can only ratchet tighter`);
+    }
+    if (incoming === true) {
+      merged[key] = true;
+    }
+  }
+  const db = getProjectDb(directory);
+  db.run("UPDATE qa_gate_profile SET gates = ? WHERE plan_id = ?", [
+    JSON.stringify(merged),
+    planId
+  ]);
+  const updated = getProfile(directory, planId);
+  if (!updated) {
+    throw new Error(`Failed to re-read QA gate profile after update for plan_id=${planId}`);
+  }
+  return updated;
+}
+function lockProfile(directory, planId, snapshotSeq) {
+  const current = getProfile(directory, planId);
+  if (!current) {
+    throw new Error(`No QA gate profile found for plan_id=${planId} \u2014 cannot lock`);
+  }
+  if (current.locked_at !== null) {
+    return current;
+  }
+  const db = getProjectDb(directory);
+  db.run("UPDATE qa_gate_profile SET locked_at = datetime('now'), locked_by_snapshot_seq = ? WHERE plan_id = ?", [snapshotSeq, planId]);
+  const locked = getProfile(directory, planId);
+  if (!locked) {
+    throw new Error(`Failed to re-read locked QA gate profile for plan_id=${planId}`);
+  }
+  return locked;
+}
+function computeProfileHash(profile) {
+  const payload = JSON.stringify({
+    plan_id: profile.plan_id,
+    gates: profile.gates
+  });
+  return createHash3("sha256").update(payload).digest("hex");
+}
+function getEffectiveGates(profile, sessionOverrides) {
+  const merged = { ...profile.gates };
+  for (const key of Object.keys(sessionOverrides)) {
+    if (sessionOverrides[key] === true) {
+      merged[key] = true;
+    }
+  }
+  return merged;
+}
+var DEFAULT_QA_GATES;
+var init_qa_gate_profile = __esm(() => {
+  init_project_db();
+  DEFAULT_QA_GATES = {
+    reviewer: true,
+    test_engineer: true,
+    council_mode: false,
+    sme_enabled: true,
+    critic_pre_plan: true,
+    hallucination_guard: false,
+    sast_enabled: true
+  };
+});
+
 // src/environment/profile.ts
 function detectHostOS() {
   switch (process.platform) {
@@ -21377,12 +21591,12 @@ var require_adapter = __commonJS((exports, module2) => {
     return newFs;
   }
   function toPromise(method) {
-    return (...args2) => new Promise((resolve4, reject) => {
+    return (...args2) => new Promise((resolve5, reject) => {
       args2.push((err2, result) => {
         if (err2) {
           reject(err2);
         } else {
-          resolve4(result);
+          resolve5(result);
         }
       });
       method(...args2);
@@ -24130,7 +24344,7 @@ __export(exports_gate_evidence, {
   deriveRequiredGates: () => deriveRequiredGates,
   DEFAULT_REQUIRED_GATES: () => DEFAULT_REQUIRED_GATES
 });
-import { mkdirSync as mkdirSync5, readFileSync as readFileSync4, renameSync as renameSync5, unlinkSync as unlinkSync3 } from "fs";
+import { mkdirSync as mkdirSync6, readFileSync as readFileSync4, renameSync as renameSync5, unlinkSync as unlinkSync3 } from "fs";
 import * as path9 from "path";
 function isValidTaskId(taskId) {
   return isStrictTaskId(taskId);
@@ -24195,7 +24409,7 @@ async function recordGateEvidence(directory, taskId, gate, sessionId, turbo) {
   assertValidTaskId(taskId);
   const evidenceDir = getEvidenceDir(directory);
   const evidencePath = getEvidencePath(directory, taskId);
-  mkdirSync5(evidenceDir, { recursive: true });
+  mkdirSync6(evidenceDir, { recursive: true });
   const existing = readExisting(evidencePath);
   const requiredGates = existing ? expandRequiredGates(existing.required_gates, gate) : deriveRequiredGates(gate);
   const updated = {
@@ -24218,7 +24432,7 @@ async function recordAgentDispatch(directory, taskId, agentType, turbo) {
   assertValidTaskId(taskId);
   const evidenceDir = getEvidenceDir(directory);
   const evidencePath = getEvidencePath(directory, taskId);
-  mkdirSync5(evidenceDir, { recursive: true });
+  mkdirSync6(evidenceDir, { recursive: true });
   const existing = readExisting(evidencePath);
   const requiredGates = existing ? expandRequiredGates(existing.required_gates, agentType) : deriveRequiredGates(agentType);
   const updated = {
@@ -24397,6 +24611,37 @@ function createDelegationGateHook(config2, directory) {
     if (!session)
       return;
     const normalized = normalizeToolName(input.tool);
+    const councilActive = await isCouncilGateActive(directory, config2.council);
+    if (normalized === "convene_council") {
+      try {
+        const parsed = typeof _output === "string" ? JSON.parse(_output) : _output;
+        const result = parsed;
+        if (result && typeof result === "object" && result.success === true && typeof result.overallVerdict === "string") {
+          const directArgs = input.args;
+          const storedArgs = getStoredInputArgs(input.callID);
+          const taskIdRaw = directArgs?.taskId ?? storedArgs?.taskId;
+          const taskId = typeof taskIdRaw === "string" ? taskIdRaw : null;
+          if (taskId) {
+            if (!session.taskCouncilApproved)
+              session.taskCouncilApproved = new Map;
+            session.taskCouncilApproved.set(taskId, {
+              verdict: result.overallVerdict,
+              roundNumber: typeof result.roundNumber === "number" ? result.roundNumber : 1
+            });
+            if (councilActive && result.overallVerdict === "APPROVE" && result.allCriteriaMet === true && (result.requiredFixesCount ?? 0) === 0) {
+              try {
+                advanceTaskState(session, taskId, "complete");
+              } catch (err2) {
+                console.warn(`[delegation-gate] toolAfter convene_council: could not advance ${taskId} \u2192 complete: ${err2 instanceof Error ? err2.message : String(err2)}`);
+              }
+            }
+          }
+        }
+      } catch (err2) {
+        console.warn(`[delegation-gate] toolAfter convene_council: failed to parse output: ${err2 instanceof Error ? err2.message : String(err2)}`);
+      }
+      return;
+    }
     if (normalized === "Task" || normalized === "task") {
       const directArgs = input.args;
       const storedArgs = getStoredInputArgs(input.callID);
@@ -24409,60 +24654,62 @@ function createDelegationGateHook(config2, directory) {
           hasReviewer = true;
         if (targetAgent === "test_engineer")
           hasTestEngineer = true;
-        if (targetAgent === "reviewer" && session.taskWorkflowStates) {
-          for (const [taskId, state] of session.taskWorkflowStates) {
-            if (state === "coder_delegated" || state === "pre_check_passed") {
-              try {
-                advanceTaskState(session, taskId, "reviewer_run");
-              } catch (err2) {
-                console.warn(`[delegation-gate] toolAfter: could not advance ${taskId} (${state}) \u2192 reviewer_run: ${err2 instanceof Error ? err2.message : String(err2)}`);
-              }
-            }
-          }
-        }
-        if (targetAgent === "test_engineer" && session.taskWorkflowStates) {
-          for (const [taskId, state] of session.taskWorkflowStates) {
-            if (state === "reviewer_run") {
-              try {
-                advanceTaskState(session, taskId, "tests_run");
-              } catch (err2) {
-                console.warn(`[delegation-gate] toolAfter: could not advance ${taskId} (${state}) \u2192 tests_run: ${err2 instanceof Error ? err2.message : String(err2)}`);
-              }
-            }
-          }
-        }
-        if (targetAgent === "reviewer" || targetAgent === "test_engineer") {
-          for (const [, otherSession] of swarmState.agentSessions) {
-            if (otherSession === session)
-              continue;
-            if (!otherSession.taskWorkflowStates)
-              continue;
-            if (targetAgent === "reviewer") {
-              const seedTaskId = getSeedTaskId(session);
-              if (seedTaskId && !otherSession.taskWorkflowStates.has(seedTaskId)) {
-                otherSession.taskWorkflowStates.set(seedTaskId, "coder_delegated");
-              }
-              for (const [taskId, state] of otherSession.taskWorkflowStates) {
-                if (state === "coder_delegated" || state === "pre_check_passed") {
-                  try {
-                    advanceTaskState(otherSession, taskId, "reviewer_run");
-                  } catch (err2) {
-                    console.warn(`[delegation-gate] toolAfter cross-session: could not advance ${taskId} (${state}) \u2192 reviewer_run: ${err2 instanceof Error ? err2.message : String(err2)}`);
-                  }
+        if (!councilActive) {
+          if (targetAgent === "reviewer" && session.taskWorkflowStates) {
+            for (const [taskId, state] of session.taskWorkflowStates) {
+              if (state === "coder_delegated" || state === "pre_check_passed") {
+                try {
+                  advanceTaskState(session, taskId, "reviewer_run");
+                } catch (err2) {
+                  console.warn(`[delegation-gate] toolAfter: could not advance ${taskId} (${state}) \u2192 reviewer_run: ${err2 instanceof Error ? err2.message : String(err2)}`);
                 }
               }
             }
-            if (targetAgent === "test_engineer") {
-              const seedTaskId = getSeedTaskId(session);
-              if (seedTaskId && !otherSession.taskWorkflowStates.has(seedTaskId)) {
-                otherSession.taskWorkflowStates.set(seedTaskId, "reviewer_run");
+          }
+          if (targetAgent === "test_engineer" && session.taskWorkflowStates) {
+            for (const [taskId, state] of session.taskWorkflowStates) {
+              if (state === "reviewer_run") {
+                try {
+                  advanceTaskState(session, taskId, "tests_run");
+                } catch (err2) {
+                  console.warn(`[delegation-gate] toolAfter: could not advance ${taskId} (${state}) \u2192 tests_run: ${err2 instanceof Error ? err2.message : String(err2)}`);
+                }
               }
-              for (const [taskId, state] of otherSession.taskWorkflowStates) {
-                if (state === "reviewer_run") {
-                  try {
-                    advanceTaskState(otherSession, taskId, "tests_run");
-                  } catch (err2) {
-                    console.warn(`[delegation-gate] toolAfter cross-session: could not advance ${taskId} (${state}) \u2192 tests_run: ${err2 instanceof Error ? err2.message : String(err2)}`);
+            }
+          }
+          if (targetAgent === "reviewer" || targetAgent === "test_engineer") {
+            for (const [, otherSession] of swarmState.agentSessions) {
+              if (otherSession === session)
+                continue;
+              if (!otherSession.taskWorkflowStates)
+                continue;
+              if (targetAgent === "reviewer") {
+                const seedTaskId = getSeedTaskId(session);
+                if (seedTaskId && !otherSession.taskWorkflowStates.has(seedTaskId)) {
+                  otherSession.taskWorkflowStates.set(seedTaskId, "coder_delegated");
+                }
+                for (const [taskId, state] of otherSession.taskWorkflowStates) {
+                  if (state === "coder_delegated" || state === "pre_check_passed") {
+                    try {
+                      advanceTaskState(otherSession, taskId, "reviewer_run");
+                    } catch (err2) {
+                      console.warn(`[delegation-gate] toolAfter cross-session: could not advance ${taskId} (${state}) \u2192 reviewer_run: ${err2 instanceof Error ? err2.message : String(err2)}`);
+                    }
+                  }
+                }
+              }
+              if (targetAgent === "test_engineer") {
+                const seedTaskId = getSeedTaskId(session);
+                if (seedTaskId && !otherSession.taskWorkflowStates.has(seedTaskId)) {
+                  otherSession.taskWorkflowStates.set(seedTaskId, "reviewer_run");
+                }
+                for (const [taskId, state] of otherSession.taskWorkflowStates) {
+                  if (state === "reviewer_run") {
+                    try {
+                      advanceTaskState(otherSession, taskId, "tests_run");
+                    } catch (err2) {
+                      console.warn(`[delegation-gate] toolAfter cross-session: could not advance ${taskId} (${state}) \u2192 tests_run: ${err2 instanceof Error ? err2.message : String(err2)}`);
+                    }
                   }
                 }
               }
@@ -24521,69 +24768,71 @@ function createDelegationGateHook(config2, directory) {
             if (target === "test_engineer")
               hasTestEngineer = true;
           }
-          if (lastCoderIndex !== -1 && hasReviewer && hasTestEngineer) {
-            session.qaSkipCount = 0;
-            session.qaSkipTaskIds = [];
-          }
-          if (lastCoderIndex !== -1 && hasReviewer && session.taskWorkflowStates) {
-            for (const [taskId, state] of session.taskWorkflowStates) {
-              if (state === "coder_delegated" || state === "pre_check_passed") {
-                try {
-                  advanceTaskState(session, taskId, "reviewer_run");
-                } catch (err2) {
-                  console.warn(`[delegation-gate] fallback: could not advance ${taskId} (${state}) \u2192 reviewer_run: ${err2 instanceof Error ? err2.message : String(err2)}`);
-                }
-              }
+          if (!councilActive) {
+            if (lastCoderIndex !== -1 && hasReviewer && hasTestEngineer) {
+              session.qaSkipCount = 0;
+              session.qaSkipTaskIds = [];
             }
-          }
-          if (lastCoderIndex !== -1 && hasReviewer && hasTestEngineer && session.taskWorkflowStates) {
-            for (const [taskId, state] of session.taskWorkflowStates) {
-              if (state === "reviewer_run") {
-                try {
-                  advanceTaskState(session, taskId, "tests_run");
-                } catch (err2) {
-                  console.warn(`[delegation-gate] fallback: could not advance ${taskId} (${state}) \u2192 tests_run: ${err2 instanceof Error ? err2.message : String(err2)}`);
-                }
-              }
-            }
-          }
-          if (lastCoderIndex !== -1 && hasReviewer) {
-            for (const [, otherSession] of swarmState.agentSessions) {
-              if (otherSession === session)
-                continue;
-              if (!otherSession.taskWorkflowStates)
-                continue;
-              const seedTaskId = getSeedTaskId(session);
-              if (seedTaskId && !otherSession.taskWorkflowStates.has(seedTaskId)) {
-                otherSession.taskWorkflowStates.set(seedTaskId, "coder_delegated");
-              }
-              for (const [taskId, state] of otherSession.taskWorkflowStates) {
+            if (lastCoderIndex !== -1 && hasReviewer && session.taskWorkflowStates) {
+              for (const [taskId, state] of session.taskWorkflowStates) {
                 if (state === "coder_delegated" || state === "pre_check_passed") {
                   try {
-                    advanceTaskState(otherSession, taskId, "reviewer_run");
+                    advanceTaskState(session, taskId, "reviewer_run");
                   } catch (err2) {
-                    console.warn(`[delegation-gate] fallback cross-session: could not advance ${taskId} (${state}) \u2192 reviewer_run: ${err2 instanceof Error ? err2.message : String(err2)}`);
+                    console.warn(`[delegation-gate] fallback: could not advance ${taskId} (${state}) \u2192 reviewer_run: ${err2 instanceof Error ? err2.message : String(err2)}`);
                   }
                 }
               }
             }
-          }
-          if (lastCoderIndex !== -1 && hasReviewer && hasTestEngineer) {
-            for (const [, otherSession] of swarmState.agentSessions) {
-              if (otherSession === session)
-                continue;
-              if (!otherSession.taskWorkflowStates)
-                continue;
-              const seedTaskId = getSeedTaskId(session);
-              if (seedTaskId && !otherSession.taskWorkflowStates.has(seedTaskId)) {
-                otherSession.taskWorkflowStates.set(seedTaskId, "reviewer_run");
-              }
-              for (const [taskId, state] of otherSession.taskWorkflowStates) {
+            if (lastCoderIndex !== -1 && hasReviewer && hasTestEngineer && session.taskWorkflowStates) {
+              for (const [taskId, state] of session.taskWorkflowStates) {
                 if (state === "reviewer_run") {
                   try {
-                    advanceTaskState(otherSession, taskId, "tests_run");
+                    advanceTaskState(session, taskId, "tests_run");
                   } catch (err2) {
-                    console.warn(`[delegation-gate] fallback cross-session: could not advance ${taskId} (${state}) \u2192 tests_run: ${err2 instanceof Error ? err2.message : String(err2)}`);
+                    console.warn(`[delegation-gate] fallback: could not advance ${taskId} (${state}) \u2192 tests_run: ${err2 instanceof Error ? err2.message : String(err2)}`);
+                  }
+                }
+              }
+            }
+            if (lastCoderIndex !== -1 && hasReviewer) {
+              for (const [, otherSession] of swarmState.agentSessions) {
+                if (otherSession === session)
+                  continue;
+                if (!otherSession.taskWorkflowStates)
+                  continue;
+                const seedTaskId = getSeedTaskId(session);
+                if (seedTaskId && !otherSession.taskWorkflowStates.has(seedTaskId)) {
+                  otherSession.taskWorkflowStates.set(seedTaskId, "coder_delegated");
+                }
+                for (const [taskId, state] of otherSession.taskWorkflowStates) {
+                  if (state === "coder_delegated" || state === "pre_check_passed") {
+                    try {
+                      advanceTaskState(otherSession, taskId, "reviewer_run");
+                    } catch (err2) {
+                      console.warn(`[delegation-gate] fallback cross-session: could not advance ${taskId} (${state}) \u2192 reviewer_run: ${err2 instanceof Error ? err2.message : String(err2)}`);
+                    }
+                  }
+                }
+              }
+            }
+            if (lastCoderIndex !== -1 && hasReviewer && hasTestEngineer) {
+              for (const [, otherSession] of swarmState.agentSessions) {
+                if (otherSession === session)
+                  continue;
+                if (!otherSession.taskWorkflowStates)
+                  continue;
+                const seedTaskId = getSeedTaskId(session);
+                if (seedTaskId && !otherSession.taskWorkflowStates.has(seedTaskId)) {
+                  otherSession.taskWorkflowStates.set(seedTaskId, "reviewer_run");
+                }
+                for (const [taskId, state] of otherSession.taskWorkflowStates) {
+                  if (state === "reviewer_run") {
+                    try {
+                      advanceTaskState(otherSession, taskId, "tests_run");
+                    } catch (err2) {
+                      console.warn(`[delegation-gate] fallback cross-session: could not advance ${taskId} (${state}) \u2192 tests_run: ${err2 instanceof Error ? err2.message : String(err2)}`);
+                    }
                   }
                 }
               }
@@ -24854,6 +25103,7 @@ __export(exports_state, {
   rehydrateSessionFromDisk: () => rehydrateSessionFromDisk,
   recordPhaseAgentDispatch: () => recordPhaseAgentDispatch,
   pruneOldWindows: () => pruneOldWindows,
+  isCouncilGateActive: () => isCouncilGateActive,
   hasActiveTurboMode: () => hasActiveTurboMode,
   hasActiveFullAuto: () => hasActiveFullAuto,
   getTaskState: () => getTaskState,
@@ -24866,7 +25116,8 @@ __export(exports_state, {
   buildRehydrationCache: () => buildRehydrationCache,
   beginInvocation: () => beginInvocation,
   applyRehydrationCache: () => applyRehydrationCache,
-  advanceTaskState: () => advanceTaskState
+  advanceTaskState: () => advanceTaskState,
+  _resetCouncilDisagreementWarnings: () => _resetCouncilDisagreementWarnings
 });
 import * as fs9 from "fs/promises";
 import * as path11 from "path";
@@ -24886,6 +25137,7 @@ function resetSwarmState() {
   swarmState.fullAutoEnabledInConfig = false;
   swarmState.environmentProfiles.clear();
   clearPendingCoderScope();
+  _councilDisagreementWarned.clear();
 }
 function startAgentSession(sessionId, agentName, staleDurationMs = 7200000, directory) {
   const now = Date.now();
@@ -24924,6 +25176,7 @@ function startAgentSession(sessionId, agentName, staleDurationMs = 7200000, dire
     qaSkipCount: 0,
     qaSkipTaskIds: [],
     taskWorkflowStates: new Map,
+    taskCouncilApproved: new Map,
     lastGateOutcome: null,
     declaredCoderScope: null,
     lastScopeViolation: null,
@@ -25037,6 +25290,9 @@ function ensureAgentSession(sessionId, agentName, directory) {
     }
     if (!session.taskWorkflowStates) {
       session.taskWorkflowStates = new Map;
+    }
+    if (!session.taskCouncilApproved) {
+      session.taskCouncilApproved = new Map;
     }
     if (session.lastGateOutcome === undefined) {
       session.lastGateOutcome = null;
@@ -25192,7 +25448,12 @@ function advanceTaskState(session, taskId, newState) {
     throw new Error(`INVALID_TASK_STATE_TRANSITION: ${taskId} ${current} \u2192 ${newState}`);
   }
   if (newState === "complete" && current !== "tests_run") {
-    throw new Error(`INVALID_TASK_STATE_TRANSITION: ${taskId} cannot reach complete from ${current} \u2014 must pass through tests_run first`);
+    const councilEntry = session.taskCouncilApproved?.get(taskId);
+    const councilApproved = councilEntry?.verdict === "APPROVE";
+    const pastPreCheck = currentIndex >= STATE_ORDER.indexOf("pre_check_passed");
+    if (!councilApproved || !pastPreCheck) {
+      throw new Error(`INVALID_TASK_STATE_TRANSITION: ${taskId} cannot reach complete from ${current} \u2014 must pass through tests_run first (or have council APPROVE after pre_check)`);
+    }
   }
   session.taskWorkflowStates.set(taskId, newState);
   telemetry.taskStateChanged(session.agentName, taskId, newState, current);
@@ -25205,6 +25466,48 @@ function getTaskState(session, taskId) {
     session.taskWorkflowStates = new Map;
   }
   return session.taskWorkflowStates.get(taskId) ?? "idle";
+}
+function derivePlanIdFromPlan(plan) {
+  return `${plan.swarm}-${plan.title}`.replace(/[^a-zA-Z0-9-_]/g, "_");
+}
+async function isCouncilGateActive(directory, council) {
+  const enabled = council?.enabled === true;
+  let plan = null;
+  try {
+    plan = await loadPlanJsonOnly(directory);
+  } catch {
+    plan = null;
+  }
+  if (!plan) {
+    return false;
+  }
+  const planId = derivePlanIdFromPlan(plan);
+  let profile = null;
+  try {
+    profile = getProfile(directory, planId);
+  } catch (err2) {
+    const msg = err2 instanceof Error ? err2.message : String(err2);
+    const isBenign = msg.includes("SQLITE_CANTOPEN") || msg.includes("ENOENT");
+    if (!isBenign) {
+      console.warn(`[isCouncilGateActive] getProfile threw unexpectedly for plan ${planId}: ${msg}. Treating council as inactive.`);
+    }
+    profile = null;
+  }
+  if (!profile) {
+    return false;
+  }
+  const councilMode = profile.gates.council_mode === true;
+  if (enabled && councilMode) {
+    return true;
+  }
+  if (enabled !== councilMode && !_councilDisagreementWarned.has(planId)) {
+    _councilDisagreementWarned.add(planId);
+    console.warn(`[delegation-gate] Council mode mismatch for plan ${planId}: ` + `pluginConfig.council.enabled=${enabled}, QaGates.council_mode=${councilMode}. ` + "Falling back to Stage B (non-council) advancement.");
+  }
+  return false;
+}
+function _resetCouncilDisagreementWarnings() {
+  _councilDisagreementWarned.clear();
 }
 function planStatusToWorkflowState(status) {
   switch (status) {
@@ -25291,6 +25594,9 @@ function applyRehydrationCache(session) {
   if (!session.taskWorkflowStates) {
     session.taskWorkflowStates = new Map;
   }
+  if (!session.taskCouncilApproved) {
+    session.taskCouncilApproved = new Map;
+  }
   const { planTaskStates, evidenceMap } = _rehydrationCache;
   const STATE_ORDER = [
     "idle",
@@ -25364,13 +25670,16 @@ function ensureSessionEnvironment(sessionId) {
   }).catch(() => {});
   return profile;
 }
-var _rehydrationCache = null, swarmState;
+var _rehydrationCache = null, _councilDisagreementWarned, swarmState;
 var init_state = __esm(() => {
   init_constants();
   init_plan_schema();
   init_schema();
+  init_qa_gate_profile();
   init_delegation_gate();
+  init_manager();
   init_telemetry();
+  _councilDisagreementWarned = new Set;
   swarmState = {
     activeToolCalls: new Map,
     toolAggregates: new Map,
@@ -38897,7 +39206,7 @@ var init_branch = __esm(() => {
 });
 
 // src/hooks/knowledge-store.ts
-import { existsSync as existsSync7 } from "fs";
+import { existsSync as existsSync8 } from "fs";
 import { appendFile as appendFile3, mkdir as mkdir2, readFile as readFile3, writeFile as writeFile2 } from "fs/promises";
 import * as os3 from "os";
 import * as path13 from "path";
@@ -38925,7 +39234,7 @@ function resolveHiveRejectedPath() {
   return path13.join(path13.dirname(hivePath), "shared-learnings-rejected.jsonl");
 }
 async function readKnowledge(filePath) {
-  if (!existsSync7(filePath))
+  if (!existsSync8(filePath))
     return [];
   const content = await readFile3(filePath, "utf-8");
   const results = [];
@@ -39161,7 +39470,7 @@ var init_knowledge_store = __esm(() => {
 });
 
 // src/hooks/knowledge-reader.ts
-import { existsSync as existsSync8 } from "fs";
+import { existsSync as existsSync9 } from "fs";
 import { mkdir as mkdir3, readFile as readFile4, writeFile as writeFile3 } from "fs/promises";
 import * as path14 from "path";
 function inferCategoriesFromPhase(phaseDescription) {
@@ -39211,7 +39520,7 @@ async function recordLessonsShown(directory, lessonIds, currentPhase) {
   const shownFile = path14.join(directory, ".swarm", ".knowledge-shown.json");
   try {
     let shownData = {};
-    if (existsSync8(shownFile)) {
+    if (existsSync9(shownFile)) {
       const content = await readFile4(shownFile, "utf-8");
       shownData = JSON.parse(content);
     }
@@ -39317,7 +39626,7 @@ async function readMergedKnowledge(directory, config3, context) {
 async function updateRetrievalOutcome(directory, phaseInfo, phaseSucceeded) {
   const shownFile = path14.join(directory, ".swarm", ".knowledge-shown.json");
   try {
-    if (!existsSync8(shownFile)) {
+    if (!existsSync9(shownFile)) {
       return;
     }
     const content = await readFile4(shownFile, "utf-8");
@@ -40090,7 +40399,7 @@ var init_checkpoint3 = __esm(() => {
 });
 
 // src/session/snapshot-writer.ts
-import { mkdirSync as mkdirSync7, renameSync as renameSync7 } from "fs";
+import { mkdirSync as mkdirSync8, renameSync as renameSync7 } from "fs";
 import * as path17 from "path";
 function serializeAgentSession(s) {
   const gateLog = {};
@@ -40181,7 +40490,7 @@ async function writeSnapshot(directory, state) {
     const content = JSON.stringify(snapshot, null, 2);
     const resolvedPath = validateSwarmPath(directory, "session/state.json");
     const dir = path17.dirname(resolvedPath);
-    mkdirSync7(dir, { recursive: true });
+    mkdirSync8(dir, { recursive: true });
     const tempPath = `${resolvedPath}.tmp.${Date.now()}.${Math.random().toString(36).slice(2)}`;
     await Bun.write(tempPath, content);
     renameSync7(tempPath, resolvedPath);
@@ -42717,7 +43026,7 @@ var init_dark_matter = __esm(() => {
 
 // src/services/diagnose-service.ts
 import * as child_process4 from "child_process";
-import { existsSync as existsSync9, readdirSync as readdirSync3, readFileSync as readFileSync7, statSync as statSync5 } from "fs";
+import { existsSync as existsSync10, readdirSync as readdirSync3, readFileSync as readFileSync7, statSync as statSync5 } from "fs";
 import path23 from "path";
 import { fileURLToPath } from "url";
 function validateTaskDag(plan) {
@@ -42951,7 +43260,7 @@ async function checkConfigBackups(directory) {
 }
 async function checkGitRepository(directory) {
   try {
-    if (!existsSync9(directory) || !statSync5(directory).isDirectory()) {
+    if (!existsSync10(directory) || !statSync5(directory).isDirectory()) {
       return {
         name: "Git Repository",
         status: "\u274C",
@@ -43016,7 +43325,7 @@ async function checkSpecStaleness(directory, plan) {
 }
 async function checkConfigParseability(directory) {
   const configPath = path23.join(directory, ".opencode/opencode-swarm.json");
-  if (!existsSync9(configPath)) {
+  if (!existsSync10(configPath)) {
     return {
       name: "Config Parseability",
       status: "\u2705",
@@ -43066,11 +43375,11 @@ async function checkGrammarWasmFiles() {
   const isSource = thisDir.replace(/\\/g, "/").endsWith("/src/services");
   const grammarDir = isSource ? path23.join(thisDir, "..", "lang", "grammars") : path23.join(thisDir, "lang", "grammars");
   const missing = [];
-  if (!existsSync9(path23.join(grammarDir, "tree-sitter.wasm"))) {
+  if (!existsSync10(path23.join(grammarDir, "tree-sitter.wasm"))) {
     missing.push("tree-sitter.wasm (core runtime)");
   }
   for (const file3 of grammarFiles) {
-    if (!existsSync9(path23.join(grammarDir, file3))) {
+    if (!existsSync10(path23.join(grammarDir, file3))) {
       missing.push(file3);
     }
   }
@@ -43089,7 +43398,7 @@ async function checkGrammarWasmFiles() {
 }
 async function checkCheckpointManifest(directory) {
   const manifestPath = path23.join(directory, ".swarm/checkpoints.json");
-  if (!existsSync9(manifestPath)) {
+  if (!existsSync10(manifestPath)) {
     return {
       name: "Checkpoint Manifest",
       status: "\u2705",
@@ -43141,7 +43450,7 @@ async function checkCheckpointManifest(directory) {
 }
 async function checkEventStreamIntegrity(directory) {
   const eventsPath = path23.join(directory, ".swarm/events.jsonl");
-  if (!existsSync9(eventsPath)) {
+  if (!existsSync10(eventsPath)) {
     return {
       name: "Event Stream",
       status: "\u2705",
@@ -43182,7 +43491,7 @@ async function checkEventStreamIntegrity(directory) {
 }
 async function checkSteeringDirectives(directory) {
   const eventsPath = path23.join(directory, ".swarm/events.jsonl");
-  if (!existsSync9(eventsPath)) {
+  if (!existsSync10(eventsPath)) {
     return {
       name: "Steering Directives",
       status: "\u2705",
@@ -43238,7 +43547,7 @@ async function checkCurator(directory) {
       };
     }
     const summaryPath = path23.join(directory, ".swarm/curator-summary.json");
-    if (!existsSync9(summaryPath)) {
+    if (!existsSync10(summaryPath)) {
       return {
         name: "Curator",
         status: "\u2705",
@@ -43386,7 +43695,7 @@ async function getDiagnoseData(directory) {
   checks5.push(await checkCurator(directory));
   try {
     const evidenceDir = path23.join(directory, ".swarm", "evidence");
-    const snapshotFiles = existsSync9(evidenceDir) ? readdirSync3(evidenceDir).filter((f) => f.startsWith("agent-tools-") && f.endsWith(".json")) : [];
+    const snapshotFiles = existsSync10(evidenceDir) ? readdirSync3(evidenceDir).filter((f) => f.startsWith("agent-tools-") && f.endsWith(".json")) : [];
     if (snapshotFiles.length > 0) {
       const latest = snapshotFiles.sort().pop();
       checks5.push({
@@ -45051,7 +45360,7 @@ var init_profiles = __esm(() => {
 
 // src/lang/detector.ts
 import { access as access2, readdir as readdir3 } from "fs/promises";
-import { extname as extname2, join as join21 } from "path";
+import { extname as extname2, join as join22 } from "path";
 function getProfileForFile(filePath) {
   const ext = extname2(filePath);
   if (!ext)
@@ -45073,7 +45382,7 @@ async function detectProjectLanguages(projectDir) {
         if (detectFile.includes("*") || detectFile.includes("?"))
           continue;
         try {
-          await access2(join21(dir, detectFile));
+          await access2(join22(dir, detectFile));
           detected.add(profile.id);
           break;
         } catch {}
@@ -45094,7 +45403,7 @@ async function detectProjectLanguages(projectDir) {
     const topEntries = await readdir3(projectDir, { withFileTypes: true });
     for (const entry of topEntries) {
       if (entry.isDirectory() && !entry.name.startsWith(".") && entry.name !== "node_modules") {
-        await scanDir(join21(projectDir, entry.name));
+        await scanDir(join22(projectDir, entry.name));
       }
     }
   } catch {}
@@ -46781,14 +47090,14 @@ var init_history = __esm(() => {
 
 // src/hooks/knowledge-migrator.ts
 import { randomUUID as randomUUID3 } from "crypto";
-import { existsSync as existsSync13, readFileSync as readFileSync11 } from "fs";
+import { existsSync as existsSync14, readFileSync as readFileSync11 } from "fs";
 import { mkdir as mkdir5, readFile as readFile6, writeFile as writeFile5 } from "fs/promises";
 import * as path27 from "path";
 async function migrateContextToKnowledge(directory, config3) {
   const sentinelPath = path27.join(directory, ".swarm", ".knowledge-migrated");
   const contextPath = path27.join(directory, ".swarm", "context.md");
   const knowledgePath = resolveSwarmKnowledgePath(directory);
-  if (existsSync13(sentinelPath)) {
+  if (existsSync14(sentinelPath)) {
     return {
       migrated: false,
       entriesMigrated: 0,
@@ -46797,7 +47106,7 @@ async function migrateContextToKnowledge(directory, config3) {
       skippedReason: "sentinel-exists"
     };
   }
-  if (!existsSync13(contextPath)) {
+  if (!existsSync14(contextPath)) {
     return {
       migrated: false,
       entriesMigrated: 0,
@@ -46983,7 +47292,7 @@ function truncateLesson(text) {
 }
 function inferProjectName(directory) {
   const packageJsonPath = path27.join(directory, "package.json");
-  if (existsSync13(packageJsonPath)) {
+  if (existsSync14(packageJsonPath)) {
     try {
       const pkg = JSON.parse(readFileSync11(packageJsonPath, "utf-8"));
       if (pkg.name && typeof pkg.name === "string") {
@@ -47551,7 +47860,7 @@ async function _detectAvailableLinter(_projectDir, biomeBin, eslintBin) {
       stderr: "pipe"
     });
     const biomeExit = biomeProc.exited;
-    const timeout = new Promise((resolve9) => setTimeout(() => resolve9("timeout"), DETECT_TIMEOUT));
+    const timeout = new Promise((resolve10) => setTimeout(() => resolve10("timeout"), DETECT_TIMEOUT));
     const result = await Promise.race([biomeExit, timeout]);
     if (result === "timeout") {
       biomeProc.kill();
@@ -47565,7 +47874,7 @@ async function _detectAvailableLinter(_projectDir, biomeBin, eslintBin) {
       stderr: "pipe"
     });
     const eslintExit = eslintProc.exited;
-    const timeout = new Promise((resolve9) => setTimeout(() => resolve9("timeout"), DETECT_TIMEOUT));
+    const timeout = new Promise((resolve10) => setTimeout(() => resolve10("timeout"), DETECT_TIMEOUT));
     const result = await Promise.race([eslintExit, timeout]);
     if (result === "timeout") {
       eslintProc.kill();
@@ -48948,15 +49257,15 @@ function appendTestRun(record3, workingDir) {
   prunedRecords.sort((a, b) => new Date(a.timestamp).getTime() - new Date(b.timestamp).getTime());
   try {
     const lines = prunedRecords.map((rec) => JSON.stringify(rec));
-    const content = lines.join(`
-`) + `
+    const content = `${lines.join(`
+`)}
 `;
-    const tempPath = historyPath + ".tmp";
+    const tempPath = `${historyPath}.tmp`;
     fs21.writeFileSync(tempPath, content, "utf-8");
     fs21.renameSync(tempPath, historyPath);
   } catch (err2) {
     try {
-      const tempPath = historyPath + ".tmp";
+      const tempPath = `${historyPath}.tmp`;
       if (fs21.existsSync(tempPath)) {
         fs21.unlinkSync(tempPath);
       }
@@ -49764,9 +50073,9 @@ async function runTests(framework, scope, files, coverage, timeout_ms, cwd) {
       stderr: "pipe",
       cwd
     });
-    const timeoutPromise = new Promise((resolve12) => setTimeout(() => {
+    const timeoutPromise = new Promise((resolve13) => setTimeout(() => {
       proc.kill();
-      resolve12(-1);
+      resolve13(-1);
     }, timeout_ms));
     const [exitCode, stdoutResult, stderrResult] = await Promise.all([
       Promise.race([proc.exited, timeoutPromise]),
@@ -51043,220 +51352,6 @@ async function handlePromoteCommand(directory, args2) {
 }
 var init_promote = __esm(() => {
   init_hive_promoter2();
-});
-
-// src/db/project-db.ts
-import { Database } from "bun:sqlite";
-import { existsSync as existsSync19, mkdirSync as mkdirSync11 } from "fs";
-import { join as join30, resolve as resolve13 } from "path";
-function runProjectMigrations(db) {
-  db.run(`CREATE TABLE IF NOT EXISTS schema_migrations (
-		version INTEGER PRIMARY KEY,
-		name TEXT NOT NULL,
-		applied_at TEXT NOT NULL DEFAULT (datetime('now'))
-	)`);
-  const row = db.query("SELECT MAX(version) as version FROM schema_migrations").get();
-  const currentVersion = row?.version ?? 0;
-  for (const migration of MIGRATIONS) {
-    if (migration.version <= currentVersion)
-      continue;
-    const apply = db.transaction(() => {
-      db.run(migration.sql);
-      db.run("INSERT INTO schema_migrations (version, name) VALUES (?, ?)", [
-        migration.version,
-        migration.name
-      ]);
-    });
-    apply();
-  }
-}
-function projectDbPath(directory) {
-  return join30(resolve13(directory), ".swarm", "swarm.db");
-}
-function projectDbExists(directory) {
-  return existsSync19(projectDbPath(directory));
-}
-function getProjectDb(directory) {
-  const key = resolve13(directory);
-  const existing = _projectDbs.get(key);
-  if (existing)
-    return existing;
-  const swarmDir = join30(key, ".swarm");
-  mkdirSync11(swarmDir, { recursive: true });
-  const db = new Database(join30(swarmDir, "swarm.db"));
-  db.run("PRAGMA journal_mode = WAL;");
-  db.run("PRAGMA synchronous = NORMAL;");
-  db.run("PRAGMA busy_timeout = 5000;");
-  db.run("PRAGMA foreign_keys = ON;");
-  runProjectMigrations(db);
-  _projectDbs.set(key, db);
-  return db;
-}
-var MIGRATIONS, _projectDbs;
-var init_project_db = __esm(() => {
-  MIGRATIONS = [
-    {
-      version: 1,
-      name: "create_project_constraints",
-      sql: `CREATE TABLE project_constraints (
-			id INTEGER PRIMARY KEY AUTOINCREMENT,
-			constraint_type TEXT NOT NULL,
-			content TEXT NOT NULL,
-			created_at TEXT NOT NULL DEFAULT (datetime('now'))
-		)`
-    },
-    {
-      version: 2,
-      name: "create_qa_gate_profile",
-      sql: `CREATE TABLE qa_gate_profile (
-			id INTEGER PRIMARY KEY AUTOINCREMENT,
-			plan_id TEXT NOT NULL UNIQUE,
-			created_at TEXT NOT NULL DEFAULT (datetime('now')),
-			project_type TEXT,
-			gates TEXT NOT NULL DEFAULT '{}',
-			locked_at TEXT,
-			locked_by_snapshot_seq INTEGER
-		)`
-    },
-    {
-      version: 3,
-      name: "create_qa_gate_profile_immutability_trigger",
-      sql: `CREATE TRIGGER IF NOT EXISTS trg_qa_gate_profile_no_update_after_lock
-			BEFORE UPDATE ON qa_gate_profile
-			WHEN OLD.locked_at IS NOT NULL
-			BEGIN
-				SELECT RAISE(ABORT, 'qa_gate_profile row is locked and cannot be modified after critic approval');
-			END`
-    }
-  ];
-  _projectDbs = new Map;
-});
-
-// src/db/qa-gate-profile.ts
-import { createHash as createHash4 } from "crypto";
-function rowToProfile(row) {
-  let parsed = {};
-  try {
-    parsed = JSON.parse(row.gates);
-  } catch {
-    parsed = {};
-  }
-  const gates = { ...DEFAULT_QA_GATES, ...parsed };
-  return {
-    id: row.id,
-    plan_id: row.plan_id,
-    created_at: row.created_at,
-    project_type: row.project_type,
-    gates,
-    locked_at: row.locked_at,
-    locked_by_snapshot_seq: row.locked_by_snapshot_seq
-  };
-}
-function getProfile(directory, planId) {
-  if (!projectDbExists(directory))
-    return null;
-  const db = getProjectDb(directory);
-  const row = db.query("SELECT * FROM qa_gate_profile WHERE plan_id = ?").get(planId);
-  return row ? rowToProfile(row) : null;
-}
-function getOrCreateProfile(directory, planId, projectType) {
-  const existing = getProfile(directory, planId);
-  if (existing)
-    return existing;
-  const db = getProjectDb(directory);
-  const gatesJson = JSON.stringify(DEFAULT_QA_GATES);
-  const insert = db.transaction(() => {
-    db.run("INSERT INTO qa_gate_profile (plan_id, project_type, gates) VALUES (?, ?, ?)", [planId, projectType ?? null, gatesJson]);
-  });
-  try {
-    insert();
-  } catch (err2) {
-    const msg = err2 instanceof Error ? err2.message : String(err2);
-    if (!msg.toLowerCase().includes("unique")) {
-      throw err2;
-    }
-  }
-  const after = getProfile(directory, planId);
-  if (!after) {
-    throw new Error(`Failed to create or load QA gate profile for plan_id=${planId}`);
-  }
-  return after;
-}
-function setGates(directory, planId, gates) {
-  const current = getProfile(directory, planId);
-  if (!current) {
-    throw new Error(`No QA gate profile found for plan_id=${planId} \u2014 call getOrCreateProfile first`);
-  }
-  if (current.locked_at !== null) {
-    throw new Error("Cannot modify gates: QA gate profile is locked after critic approval");
-  }
-  const merged = { ...current.gates };
-  for (const key of Object.keys(gates)) {
-    const incoming = gates[key];
-    if (incoming === undefined)
-      continue;
-    if (incoming === false && current.gates[key] === true) {
-      throw new Error(`Cannot disable gate '${key}': sessions can only ratchet tighter`);
-    }
-    if (incoming === true) {
-      merged[key] = true;
-    }
-  }
-  const db = getProjectDb(directory);
-  db.run("UPDATE qa_gate_profile SET gates = ? WHERE plan_id = ?", [
-    JSON.stringify(merged),
-    planId
-  ]);
-  const updated = getProfile(directory, planId);
-  if (!updated) {
-    throw new Error(`Failed to re-read QA gate profile after update for plan_id=${planId}`);
-  }
-  return updated;
-}
-function lockProfile(directory, planId, snapshotSeq) {
-  const current = getProfile(directory, planId);
-  if (!current) {
-    throw new Error(`No QA gate profile found for plan_id=${planId} \u2014 cannot lock`);
-  }
-  if (current.locked_at !== null) {
-    return current;
-  }
-  const db = getProjectDb(directory);
-  db.run("UPDATE qa_gate_profile SET locked_at = datetime('now'), locked_by_snapshot_seq = ? WHERE plan_id = ?", [snapshotSeq, planId]);
-  const locked = getProfile(directory, planId);
-  if (!locked) {
-    throw new Error(`Failed to re-read locked QA gate profile for plan_id=${planId}`);
-  }
-  return locked;
-}
-function computeProfileHash(profile) {
-  const payload = JSON.stringify({
-    plan_id: profile.plan_id,
-    gates: profile.gates
-  });
-  return createHash4("sha256").update(payload).digest("hex");
-}
-function getEffectiveGates(profile, sessionOverrides) {
-  const merged = { ...profile.gates };
-  for (const key of Object.keys(sessionOverrides)) {
-    if (sessionOverrides[key] === true) {
-      merged[key] = true;
-    }
-  }
-  return merged;
-}
-var DEFAULT_QA_GATES;
-var init_qa_gate_profile = __esm(() => {
-  init_project_db();
-  DEFAULT_QA_GATES = {
-    reviewer: true,
-    test_engineer: true,
-    council_mode: false,
-    sme_enabled: true,
-    critic_pre_plan: true,
-    hallucination_guard: false,
-    sast_enabled: true
-  };
 });
 
 // src/commands/qa-gates.ts
@@ -53268,8 +53363,7 @@ function buildCouncilWorkflow(council) {
   return `## Work Complete Council (when enabled)
 
 When \`council.enabled\` is true, every task goes through a four-phase verification
-gate before advancing to \`complete\`. This supplements \u2014 does NOT replace \u2014 the
-existing precheckbatch / reviewer / test_engineer gate sequence.
+gate before advancing to \`complete\`. When council is authoritative, this REPLACES Stage B (reviewer + test_engineer as standalone delegations). Stage A (precheckbatch) still runs as the pre-review gate; Phase 1 dispatch of reviewer and test_engineer is the sole review pass for this task.
 
 ### Phase 0 \u2014 Pre-declare criteria (at plan time, BEFORE dispatching the coder)
 Call \`declare_council_criteria\` for each task with at least 3 concrete,
@@ -53324,15 +53418,32 @@ architect resolves any \`unresolvedConflicts\` in \`unifiedFeedbackMd\` BEFORE
 sending it to the coder \u2014 the coder never sees contradictory instructions
 from different members.`;
 }
-function buildYourToolsList() {
+function buildYourToolsList(council) {
   const tools = AGENT_TOOL_MAP.architect ?? [];
   const sorted = [...tools].sort();
-  return `Task (delegation), ${sorted.join(", ")}.`;
+  const filtered = council?.enabled === true ? sorted : sorted.filter((t) => t !== "convene_council" && t !== "declare_council_criteria");
+  return `Task (delegation), ${filtered.join(", ")}.`;
 }
-function buildAvailableToolsList() {
+function buildQaGateSelectionDialogue(modeLabel) {
+  const leadIn = modeLabel === "BRAINSTORM" ? "Now ask the user which QA gates to enable for this plan \u2014 do not select on their behalf." : modeLabel === "SPECIFY" ? "Ask the user which QA gates to enable for this plan before suggesting the next step." : "No pending gate selection found in `.swarm/context.md`. Ask the user inline now.";
+  return `${leadIn}
+
+Present the seven gates with their defaults (DEFAULT_QA_GATES) as a single user-facing question. Offer the user a one-shot choice: accept defaults, or customize. The seven gates are:
+- reviewer (default: ON) \u2014 code review of coder output
+- test_engineer (default: ON) \u2014 test verification of coder output
+- sme_enabled (default: ON) \u2014 SME consultation during planning/clarification
+- critic_pre_plan (default: ON) \u2014 critic review before plan finalization
+- sast_enabled (default: ON) \u2014 static security scanning
+- council_mode (default: OFF) \u2014 multi-member council gate (recommended for high-impact architecture, public APIs, schema/data mutation, security-sensitive code)
+- hallucination_guard (default: OFF) \u2014 claim verification (recommended for claim-heavy or research-heavy work)
+
+One question, one message, defaults pre-stated. Wait for the user's answer.`;
+}
+function buildAvailableToolsList(council) {
   const tools = AGENT_TOOL_MAP.architect ?? [];
   const sorted = [...tools].sort();
-  return sorted.map((t) => {
+  const filtered = council?.enabled === true ? sorted : sorted.filter((t) => t !== "convene_council" && t !== "declare_council_criteria");
+  return filtered.map((t) => {
     const desc = TOOL_DESCRIPTIONS[t];
     return desc ? `${t} (${desc})` : t;
   }).join(", ");
@@ -53473,7 +53584,8 @@ function createArchitectAgent(model, customPrompt, customAppendPrompt, adversari
 
 ${customAppendPrompt}`;
   }
-  prompt = prompt?.replace("{{YOUR_TOOLS}}", buildYourToolsList())?.replace("{{AVAILABLE_TOOLS}}", buildAvailableToolsList())?.replace("{{SLASH_COMMANDS}}", buildSlashCommandsList());
+  prompt = prompt?.replace("{{YOUR_TOOLS}}", buildYourToolsList(council))?.replace("{{AVAILABLE_TOOLS}}", buildAvailableToolsList(council))?.replace("{{SLASH_COMMANDS}}", buildSlashCommandsList());
+  prompt = prompt?.replace(/\{\{QA_GATE_DIALOGUE_SPECIFY\}\}/g, buildQaGateSelectionDialogue("SPECIFY"))?.replace(/\{\{QA_GATE_DIALOGUE_BRAINSTORM\}\}/g, buildQaGateSelectionDialogue("BRAINSTORM"))?.replace(/\{\{QA_GATE_DIALOGUE_PLAN\}\}/g, buildQaGateSelectionDialogue("PLAN"));
   const councilBlock = buildCouncilWorkflow(council);
   const hasPlaceholder = prompt?.includes("{{COUNCIL_WORKFLOW}}") === true;
   if (councilBlock === "") {
@@ -53701,6 +53813,8 @@ TIER 3 \u2014 CRITICAL
   Pipeline: Full Stage A. Stage B = {{AGENT_PREFIX}}reviewer\xD72 + {{AGENT_PREFIX}}test_engineer\xD72.
   Rationale: Security paths need adversarial review.
 
+If council is authoritative for the current plan, skip Stage B entries above and use council Phase 1 dispatch as the review pass.
+
 CLASSIFICATION RULES:
 - Multi-tier \u2192 use HIGHEST tier.
 - Format: "Classification: TIER {N} \u2014 {label}"
@@ -53721,9 +53835,11 @@ VERIFICATION PROTOCOL: After the coder reports DONE, and before running Stage B 
 
 \u2500\u2500 STAGE B: AGENT REVIEW GATES \u2500\u2500
 {{AGENT_PREFIX}}reviewer \u2192 security reviewer (conditional) \u2192 {{AGENT_PREFIX}}test_engineer verification \u2192 {{AGENT_PREFIX}}test_engineer adversarial \u2192 coverage check
-Stage B CANNOT be skipped for TIER 1-3 classifications. Stage A passing does not satisfy Stage B.
+Stage B runs by default for TIER 1-3 classifications. Stage A passing does not satisfy Stage B.
 Stage B is where logic errors, security flaws, edge cases, and behavioral bugs are caught.
 You MUST delegate to each Stage B agent and wait for their response.
+
+When council is authoritative for the current plan (\`pluginConfig.council.enabled === true\` AND \`QaGates.council_mode === true\`), Stage B is REPLACED by council Phase 1 \u2014 reviewer and test_engineer are dispatched as council members in the parallel Phase 1 fan-out, not as a separate Stage B sequence. Do not run Stage B a second time after the council has rendered a verdict. Stage A (precheckbatch) still runs as the pre-review gate in both modes.
 
 A task is complete ONLY when BOTH stages pass.
 
@@ -54009,12 +54125,23 @@ MODE: BRAINSTORM runs seven phases in strict order. Do not skip phases. Do not c
 - Write the final spec to \`.swarm/spec.md\`.
 - Exit when reviewer signs off (or user explicitly accepts remaining disagreements).
 
-**Phase 6: QA GATE SELECTION (architect).**
-- Read the current QA gate profile for this plan via \`get_qa_gate_profile\`. If none exists, the tool returns \`success: false, reason: 'no_profile'\` \u2014 this is expected for a new plan.
-- Based on risk tier of the work (see "High-risk work" list in the quality policy), choose which gates to enable. Default profile enables reviewer, test_engineer, sme_enabled, critic_pre_plan, and sast_enabled. Consider enabling council_mode for high-impact architecture and hallucination_guard for claim-heavy work.
-- Apply the chosen gates via \`set_qa_gates\`. The tool ratchets tighter only \u2014 it cannot disable gates that are already on. It rejects writes once the profile is locked by critic approval.
-- Briefly explain to the user which gates you selected and why.
-- Exit with a QA gate profile persisted for this plan.
+**Phase 6: QA GATE SELECTION (architect, dialogue only).**
+{{QA_GATE_DIALOGUE_BRAINSTORM}}
+
+Do NOT call \`set_qa_gates\` yet \u2014 \`plan.json\` does not exist at this point. Once the user answers, write the elected gates to \`.swarm/context.md\` under a new section:
+\`\`\`
+## Pending QA Gate Selection
+- reviewer: <true|false>
+- test_engineer: <true|false>
+- sme_enabled: <true|false>
+- critic_pre_plan: <true|false>
+- sast_enabled: <true|false>
+- council_mode: <true|false>
+- hallucination_guard: <true|false>
+- recorded_at: <ISO timestamp>
+\`\`\`
+MODE: PLAN applies these after \`save_plan\` succeeds via \`set_qa_gates\`.
+- Exit with the elected gates recorded in \`.swarm/context.md\` (NOT yet persisted to plan.json).
 
 **Phase 7: TRANSITION.**
 - Summarize: (a) chosen approach, (b) design sections produced, (c) spec written, (d) QA gates selected, (e) remaining \`[NEEDS CLARIFICATION]\` markers.
@@ -54026,7 +54153,7 @@ BRAINSTORM RULES:
 - One question per message in DIALOGUE \u2014 never batch.
 - Always offer an informed default for every question.
 - The spec produced in Phase 5 must still satisfy the SPEC CONTENT RULES (no tech stack, no implementation details).
-- QA gates set in Phase 6 are ratchet-tighter \u2014 you cannot undo them later in the session.
+- QA gates elected in Phase 6 are persisted during MODE: PLAN after \`save_plan\` succeeds and are ratchet-tighter from that point \u2014 once persisted you cannot undo them later in the session.
 
 ### MODE: SPECIFY
 Activates when: user asks to "specify", "define requirements", "write a spec", or "define a feature"; OR \`/swarm specify\` is invoked; OR no \`.swarm/spec.md\` exists and no \`.swarm/plan.md\` exists.
@@ -54050,7 +54177,23 @@ Activates when: user asks to "specify", "define requirements", "write a spec", o
    - Edge cases and known failure modes
    - \`[NEEDS CLARIFICATION]\` markers (max 3) for items where uncertainty could change scope, security, or core behavior; prefer informed defaults over asking
 5. Write the spec to \`.swarm/spec.md\`.
-6. Report a summary to the user (MUST count, SHALL count, scenario count, clarification markers) and suggest the next step: \`CLARIFY-SPEC\` (if markers exist) or \`PLAN\`.
+5b. **QA GATE SELECTION (dialogue only).**
+{{QA_GATE_DIALOGUE_SPECIFY}}
+
+Do NOT call \`set_qa_gates\` yet \u2014 \`plan.json\` does not exist at this point. Once the user answers, write the elected gates to \`.swarm/context.md\` under a new section:
+\`\`\`
+## Pending QA Gate Selection
+- reviewer: <true|false>
+- test_engineer: <true|false>
+- sme_enabled: <true|false>
+- critic_pre_plan: <true|false>
+- sast_enabled: <true|false>
+- council_mode: <true|false>
+- hallucination_guard: <true|false>
+- recorded_at: <ISO timestamp>
+\`\`\`
+MODE: PLAN will read this section after \`save_plan\` succeeds and persist via \`set_qa_gates\`.
+7. Report a summary to the user (MUST count, SHALL count, scenario count, clarification markers, elected QA gates) and suggest the next step: \`CLARIFY-SPEC\` (if markers exist) or \`PLAN\`.
 
 SPEC CONTENT RULES \u2014 the spec MUST NOT contain:
 - Technology stack, framework choices, library names
@@ -54258,6 +54401,12 @@ Use the \`save_plan\` tool to create the implementation plan. Required parameter
 
 Example call:
 save_plan({ title: "My Real Project", swarm_id: "mega", phases: [{ id: 1, name: "Setup", tasks: [{ id: "1.1", description: "Install dependencies and configure TypeScript", size: "small" }] }] })
+
+**POST-SAVE_PLAN: APPLY QA GATE SELECTION.**
+After \`save_plan\` succeeds, read \`.swarm/context.md\`:
+- If a \`## Pending QA Gate Selection\` section exists: parse the gate values, call \`set_qa_gates\` with those flags, confirm with the user ("QA gates applied: <list>"), then remove the section from context.md.
+- If no pending section exists: {{QA_GATE_DIALOGUE_PLAN}} Then call \`set_qa_gates\` with the user's chosen flags.
+Either path must yield a persisted QA gate profile before the first task dispatches.
 
 \u26A0\uFE0F If \`save_plan\` is unavailable, delegate plan writing to {{AGENT_PREFIX}}coder:
 \u26A0\uFE0F Even in this fallback, you MUST call \`declare_scope\` for the single file ".swarm/plan.md" BEFORE the coder delegation. Scope discipline applies to plan-writing delegations too. See Rule 1a.
@@ -56380,6 +56529,13 @@ function getAgentConfigs(config3, directory, sessionId) {
       const missing = required3.filter((t) => !override.includes(t));
       if (missing.length > 0) {
         throw new Error(`[opencode-swarm] Conflicting config: council.enabled=true but tool_filter.overrides.architect omits ${missing.join(", ")}. ` + `Either set council.enabled=false, remove the architect override entirely to fall back on AGENT_TOOL_MAP, or add the missing council tools to the override. ` + `Refusing to silently override your explicit tool_filter.overrides.architect.`);
+      }
+    }
+    if (baseAgentName === "architect" && config3?.council?.enabled !== true && override !== undefined) {
+      const councilTools = ["declare_council_criteria", "convene_council"];
+      const present = councilTools.filter((t) => override.includes(t));
+      if (present.length > 0) {
+        console.warn(`[opencode-swarm] tool_filter.overrides.architect includes ${present.join(", ")} but council.enabled is not true. ` + `The runtime gate will reject these calls. Either set council.enabled=true, or remove ${present.join(", ")} from the architect override.`);
       }
     }
     if (!allowedTools && !Object.hasOwn(toolFilterOverrides, baseAgentName)) {

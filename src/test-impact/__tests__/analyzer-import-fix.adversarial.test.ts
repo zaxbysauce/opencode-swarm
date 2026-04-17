@@ -22,7 +22,7 @@ function execRegex(regex: RegExp, content: string): string[] {
 	return results;
 }
 
-function extractImports(content: string): string[] {
+function _extractImports(content: string): string[] {
 	return [
 		...execRegex(IMPORT_REGEX_ES, content),
 		...execRegex(IMPORT_REGEX_REQUIRE, content),
@@ -250,7 +250,7 @@ describe('RESOLVE_RELATIVE_IMPORT EDGE CASES', () => {
 	});
 
 	test('very long import path handling', () => {
-		const longPath = './' + 'a'.repeat(10000);
+		const longPath = `./${'a'.repeat(10000)}`;
 		const resolved = path.resolve('/cwd', longPath);
 		expect(resolved.length).toBeGreaterThan(10000);
 	});
@@ -328,7 +328,7 @@ export { C } from './c'; // This should be captured
 
 describe('ADVERSARIAL: Catastrophic backtracking', () => {
 	test('many commas in export braces', () => {
-		const content = 'export { ' + 'a'.repeat(1000) + " } from './bar';";
+		const content = `export { ${'a'.repeat(1000)} } from './bar';`;
 		const start = Date.now();
 		const results = execRegex(IMPORT_REGEX_REEXPORT, content);
 		const elapsed = Date.now() - start;
@@ -403,7 +403,7 @@ describe('EDGE CASES: Path traversal and security', () => {
 	});
 
 	test('very deep relative path', () => {
-		const deepPath = './' + Array(100).fill('a').join('/');
+		const deepPath = `./${Array(100).fill('a').join('/')}`;
 		const content = `export { X } from '${deepPath}';`;
 		const results = execRegex(IMPORT_REGEX_REEXPORT, content);
 		expect(results).toEqual([deepPath]);

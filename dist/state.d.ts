@@ -7,7 +7,7 @@
  * and delegation chains.
  */
 import type { OpencodeClient } from '@opencode-ai/sdk';
-import type { QaGates } from './db/qa-gate-profile.js';
+import { type QaGates } from './db/qa-gate-profile.js';
 import { type EnvironmentProfile } from './environment/profile.js';
 /**
  * Represents a single tool call entry for tracking purposes
@@ -101,6 +101,11 @@ export interface AgentSessionState {
     qaSkipTaskIds: string[];
     /** Per-task workflow state — taskId → current state */
     taskWorkflowStates: Map<string, TaskWorkflowState>;
+    /** v6.71+ Council mode: per-task council verdict, recorded by delegation-gate when convene_council resolves. */
+    taskCouncilApproved?: Map<string, {
+        verdict: 'APPROVE' | 'REJECT' | 'CONCERNS';
+        roundNumber: number;
+    }>;
     /** Last gate outcome for deliberation preamble injection */
     lastGateOutcome: {
         gate: string;
@@ -331,6 +336,27 @@ export declare function advanceTaskState(session: AgentSessionState, taskId: str
  * @returns Current task workflow state
  */
 export declare function getTaskState(session: AgentSessionState, taskId: string): TaskWorkflowState;
+/**
+ * Returns true iff council is authoritative for the current plan.
+ *
+ * AND semantics: council is authoritative when BOTH `pluginConfig.council.enabled === true`
+ * AND `QaGates.council_mode === true` for the plan associated with this directory.
+ *
+ * If exactly one of the two flags is true, a one-time warning is logged per plan_id
+ * (so operators can see the deadlock case) and the function falls back to `false`,
+ * which keeps Stage B running as the default.
+ *
+ * Returns false when the plan or QA gate profile cannot be loaded — when the plan
+ * is missing the council cannot meaningfully be "authoritative".
+ */
+export declare function isCouncilGateActive(directory: string, council: {
+    enabled?: boolean;
+} | undefined): Promise<boolean>;
+/**
+ * Test-only helper: clear the warn-once memo so each test can observe a fresh
+ * disagreement warning. Not part of the public surface.
+ */
+export declare function _resetCouncilDisagreementWarnings(): void;
 /**
  * Rehydrates session workflow state from durable swarm files.
  *

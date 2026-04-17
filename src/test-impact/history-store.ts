@@ -166,14 +166,14 @@ export function appendTestRun(
 	// Write atomically: temp file + rename to prevent corruption on crash
 	try {
 		const lines = prunedRecords.map((rec) => JSON.stringify(rec));
-		const content = lines.join('\n') + '\n';
-		const tempPath = historyPath + '.tmp';
+		const content = `${lines.join('\n')}\n`;
+		const tempPath = `${historyPath}.tmp`;
 		fs.writeFileSync(tempPath, content, 'utf-8');
 		fs.renameSync(tempPath, historyPath);
 	} catch (err) {
 		// Clean up temp file if rename failed
 		try {
-			const tempPath = historyPath + '.tmp';
+			const tempPath = `${historyPath}.tmp`;
 			if (fs.existsSync(tempPath)) {
 				fs.unlinkSync(tempPath);
 			}

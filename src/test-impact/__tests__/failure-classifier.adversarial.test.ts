@@ -1,4 +1,4 @@
-import { describe, expect, test } from 'bun:test';
+import { expect, test } from 'bun:test';
 import {
 	classifyAndCluster,
 	classifyFailure,
@@ -291,7 +291,7 @@ test('classifyFailure handles extremely long errorMessage (10000 chars)', () => 
 });
 
 test('classifyFailure handles extremely long stackPrefix (10000 chars)', () => {
-	const longPrefix = 'at ' + 'x'.repeat(9997);
+	const longPrefix = `at ${'x'.repeat(9997)}`;
 	const current = makeRecord({ stackPrefix: longPrefix });
 
 	const result = classifyFailure(current, []);
@@ -300,7 +300,7 @@ test('classifyFailure handles extremely long stackPrefix (10000 chars)', () => {
 });
 
 test('clusterFailures handles long strings in clustering', () => {
-	const longKey = 'prefix' + 'x'.repeat(5000) + 'error' + 'y'.repeat(5000);
+	const _longKey = `prefix${'x'.repeat(5000)}error${'y'.repeat(5000)}`;
 	const failures = [
 		{
 			testFile: 'f1',

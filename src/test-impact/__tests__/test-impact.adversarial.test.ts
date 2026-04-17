@@ -152,7 +152,7 @@ describe('test_impact — adversarial input handling', () => {
 		});
 
 		test('extremely long file path (10000 chars) completes', async () => {
-			const longPath = 'a'.repeat(10000) + '.ts';
+			const longPath = `${'a'.repeat(10000)}.ts`;
 
 			const result = await test_impact.execute(
 				{ changedFiles: [longPath] },
@@ -164,8 +164,7 @@ describe('test_impact — adversarial input handling', () => {
 		});
 
 		test('deeply nested path (1000 levels) completes', async () => {
-			const deepPath =
-				Array.from({ length: 1000 }, () => 'dir').join('/') + '/file.ts';
+			const deepPath = `${Array.from({ length: 1000 }, () => 'dir').join('/')}/file.ts`;
 
 			const result = await test_impact.execute(
 				{ changedFiles: [deepPath] },

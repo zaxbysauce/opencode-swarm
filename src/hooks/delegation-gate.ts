@@ -20,6 +20,7 @@ import {
 	ensureAgentSession,
 	getTaskState,
 	hasActiveTurboMode,
+	isCouncilGateActive,
 	swarmState,
 } from '../state';
 import { telemetry } from '../telemetry.js';
@@ -599,6 +600,77 @@ export function createDelegationGateHook(
 
 		// Detect task tool calls
 		const normalized = normalizeToolName(input.tool);
+
+		// Cache council-active status; if true, Stage B advancement is REPLACED by
+		// council Phase 1 — reviewer/test_engineer Task delegations remain
+		// observable but do not advance state. The advancement event is the
+		// council verdict (handled in the convene_council branch below).
+		// isCouncilGateActive returns false when the plan or QA gate profile is
+		// missing, which is the safe default.
+		const councilActive = await isCouncilGateActive(directory, config.council);
+
+		// Council branch: handle convene_council tool calls. Records the verdict on the
+		// session, and if APPROVE + allCriteriaMet + zero required fixes, advances the
+		// task to 'complete'. State machine still requires pre_check_passed (Stage A).
+		if (normalized === 'convene_council') {
+			try {
+				// _output may be a string (older runtimes) or already-parsed object.
+				const parsed =
+					typeof _output === 'string' ? JSON.parse(_output) : _output;
+				const result = parsed as {
+					success?: boolean;
+					overallVerdict?: 'APPROVE' | 'REJECT' | 'CONCERNS';
+					allCriteriaMet?: boolean;
+					requiredFixesCount?: number;
+					roundNumber?: number;
+				} | null;
+				if (
+					result &&
+					typeof result === 'object' &&
+					result.success === true &&
+					typeof result.overallVerdict === 'string'
+				) {
+					const directArgs = input.args as Record<string, unknown> | undefined;
+					const storedArgs = getStoredInputArgs(input.callID) as
+						| Record<string, unknown>
+						| undefined;
+					const taskIdRaw = directArgs?.taskId ?? storedArgs?.taskId;
+					const taskId = typeof taskIdRaw === 'string' ? taskIdRaw : null;
+					if (taskId) {
+						if (!session.taskCouncilApproved)
+							session.taskCouncilApproved = new Map();
+						session.taskCouncilApproved.set(taskId, {
+							verdict: result.overallVerdict,
+							roundNumber:
+								typeof result.roundNumber === 'number' ? result.roundNumber : 1,
+						});
+						if (
+							councilActive &&
+							result.overallVerdict === 'APPROVE' &&
+							result.allCriteriaMet === true &&
+							(result.requiredFixesCount ?? 0) === 0
+						) {
+							try {
+								advanceTaskState(session, taskId, 'complete');
+							} catch (err) {
+								console.warn(
+									`[delegation-gate] toolAfter convene_council: could not advance ${taskId} → complete: ${err instanceof Error ? err.message : String(err)}`,
+								);
+							}
+						}
+					}
+				}
+			} catch (err) {
+				console.warn(
+					`[delegation-gate] toolAfter convene_council: failed to parse output: ${err instanceof Error ? err.message : String(err)}`,
+				);
+			}
+			// Return early — gate-evidence recording (inside the Task branch below)
+			// does not apply to convene_council: it is a synthesis tool, not a gate
+			// delegation, and 'convene_council' is not in the gateAgents list.
+			return;
+		}
+
 		if (normalized === 'Task' || normalized === 'task') {
 			// Primary source: input.args from OpenCode's tool.execute.after hook (authoritative)
 			// Fallback: stored args from guardrails toolBefore (legacy path)
@@ -621,94 +693,106 @@ export function createDelegationGateHook(
 				if (targetAgent === 'reviewer') hasReviewer = true;
 				if (targetAgent === 'test_engineer') hasTestEngineer = true;
 
-				// Pass 1: advance tasks at coder_delegated or pre_check_passed → reviewer_run
-				if (targetAgent === 'reviewer' && session.taskWorkflowStates) {
-					for (const [taskId, state] of session.taskWorkflowStates) {
-						if (state === 'coder_delegated' || state === 'pre_check_passed') {
-							try {
-								advanceTaskState(session, taskId, 'reviewer_run');
-							} catch (err) {
-								// Non-fatal: state may already be at or past reviewer_run.
-								// Log so that silent swallowing does not hide root-cause bugs
-								// (e.g. INVALID_TASK_STATE_TRANSITION from PR #123 strict mode).
-								console.warn(
-									`[delegation-gate] toolAfter: could not advance ${taskId} (${state}) → reviewer_run: ${err instanceof Error ? err.message : String(err)}`,
-								);
-							}
-						}
-					}
-				}
-
-				// Pass 2: advance tasks at reviewer_run → tests_run for test_engineer only
-				if (targetAgent === 'test_engineer' && session.taskWorkflowStates) {
-					for (const [taskId, state] of session.taskWorkflowStates) {
-						if (state === 'reviewer_run') {
-							try {
-								advanceTaskState(session, taskId, 'tests_run');
-							} catch (err) {
-								// Non-fatal: state may already be at or past tests_run.
-								// Log so advancement failures are diagnosable.
-								console.warn(
-									`[delegation-gate] toolAfter: could not advance ${taskId} (${state}) → tests_run: ${err instanceof Error ? err.message : String(err)}`,
-								);
-							}
-						}
-					}
-				}
-
-				// Also advance states in OTHER sessions (cross-session propagation)
-				if (targetAgent === 'reviewer' || targetAgent === 'test_engineer') {
-					for (const [, otherSession] of swarmState.agentSessions) {
-						if (otherSession === session) continue;
-						if (!otherSession.taskWorkflowStates) continue;
-
-						// Pass 1: coder_delegated/pre_check_passed → reviewer_run
-						if (targetAgent === 'reviewer') {
-							// Seed task state in sessions that don't have an entry yet
-							const seedTaskId = getSeedTaskId(session);
-							if (
-								seedTaskId &&
-								!otherSession.taskWorkflowStates.has(seedTaskId)
-							) {
-								otherSession.taskWorkflowStates.set(
-									seedTaskId,
-									'coder_delegated',
-								);
-							}
-							for (const [taskId, state] of otherSession.taskWorkflowStates) {
-								if (
-									state === 'coder_delegated' ||
-									state === 'pre_check_passed'
-								) {
-									try {
-										advanceTaskState(otherSession, taskId, 'reviewer_run');
-									} catch (err) {
-										console.warn(
-											`[delegation-gate] toolAfter cross-session: could not advance ${taskId} (${state}) → reviewer_run: ${err instanceof Error ? err.message : String(err)}`,
-										);
-									}
+				// Stage B advancement (current-session and cross-session) is the
+				// non-council path. When council is authoritative for this plan
+				// (pluginConfig.council.enabled=true AND QaGates.council_mode=true),
+				// the council Phase 1 dispatch of reviewer/test_engineer is the sole
+				// review pass — Stage B is REPLACED, not supplemented. Skip both the
+				// current-session and cross-session advancement blocks, but keep the
+				// evidence-recording block below intact so the calls remain auditable.
+				if (!councilActive) {
+					// Pass 1: advance tasks at coder_delegated or pre_check_passed → reviewer_run
+					if (targetAgent === 'reviewer' && session.taskWorkflowStates) {
+						for (const [taskId, state] of session.taskWorkflowStates) {
+							if (state === 'coder_delegated' || state === 'pre_check_passed') {
+								try {
+									advanceTaskState(session, taskId, 'reviewer_run');
+								} catch (err) {
+									// Non-fatal: state may already be at or past reviewer_run.
+									// Log so that silent swallowing does not hide root-cause bugs
+									// (e.g. INVALID_TASK_STATE_TRANSITION from PR #123 strict mode).
+									console.warn(
+										`[delegation-gate] toolAfter: could not advance ${taskId} (${state}) → reviewer_run: ${err instanceof Error ? err.message : String(err)}`,
+									);
 								}
 							}
 						}
+					}
 
-						// Pass 2: reviewer_run → tests_run
-						if (targetAgent === 'test_engineer') {
-							// Seed task state in sessions that don't have an entry yet
-							const seedTaskId = getSeedTaskId(session);
-							if (
-								seedTaskId &&
-								!otherSession.taskWorkflowStates.has(seedTaskId)
-							) {
-								otherSession.taskWorkflowStates.set(seedTaskId, 'reviewer_run');
+					// Pass 2: advance tasks at reviewer_run → tests_run for test_engineer only
+					if (targetAgent === 'test_engineer' && session.taskWorkflowStates) {
+						for (const [taskId, state] of session.taskWorkflowStates) {
+							if (state === 'reviewer_run') {
+								try {
+									advanceTaskState(session, taskId, 'tests_run');
+								} catch (err) {
+									// Non-fatal: state may already be at or past tests_run.
+									// Log so advancement failures are diagnosable.
+									console.warn(
+										`[delegation-gate] toolAfter: could not advance ${taskId} (${state}) → tests_run: ${err instanceof Error ? err.message : String(err)}`,
+									);
+								}
 							}
-							for (const [taskId, state] of otherSession.taskWorkflowStates) {
-								if (state === 'reviewer_run') {
-									try {
-										advanceTaskState(otherSession, taskId, 'tests_run');
-									} catch (err) {
-										console.warn(
-											`[delegation-gate] toolAfter cross-session: could not advance ${taskId} (${state}) → tests_run: ${err instanceof Error ? err.message : String(err)}`,
-										);
+						}
+					}
+
+					// Also advance states in OTHER sessions (cross-session propagation)
+					if (targetAgent === 'reviewer' || targetAgent === 'test_engineer') {
+						for (const [, otherSession] of swarmState.agentSessions) {
+							if (otherSession === session) continue;
+							if (!otherSession.taskWorkflowStates) continue;
+
+							// Pass 1: coder_delegated/pre_check_passed → reviewer_run
+							if (targetAgent === 'reviewer') {
+								// Seed task state in sessions that don't have an entry yet
+								const seedTaskId = getSeedTaskId(session);
+								if (
+									seedTaskId &&
+									!otherSession.taskWorkflowStates.has(seedTaskId)
+								) {
+									otherSession.taskWorkflowStates.set(
+										seedTaskId,
+										'coder_delegated',
+									);
+								}
+								for (const [taskId, state] of otherSession.taskWorkflowStates) {
+									if (
+										state === 'coder_delegated' ||
+										state === 'pre_check_passed'
+									) {
+										try {
+											advanceTaskState(otherSession, taskId, 'reviewer_run');
+										} catch (err) {
+											console.warn(
+												`[delegation-gate] toolAfter cross-session: could not advance ${taskId} (${state}) → reviewer_run: ${err instanceof Error ? err.message : String(err)}`,
+											);
+										}
+									}
+								}
+							}
+
+							// Pass 2: reviewer_run → tests_run
+							if (targetAgent === 'test_engineer') {
+								// Seed task state in sessions that don't have an entry yet
+								const seedTaskId = getSeedTaskId(session);
+								if (
+									seedTaskId &&
+									!otherSession.taskWorkflowStates.has(seedTaskId)
+								) {
+									otherSession.taskWorkflowStates.set(
+										seedTaskId,
+										'reviewer_run',
+									);
+								}
+								for (const [taskId, state] of otherSession.taskWorkflowStates) {
+									if (state === 'reviewer_run') {
+										try {
+											advanceTaskState(otherSession, taskId, 'tests_run');
+										} catch (err) {
+											console.warn(
+												`[delegation-gate] toolAfter cross-session: could not advance ${taskId} (${state}) → tests_run: ${err instanceof Error ? err.message : String(err)}`,
+											);
+										}
 									}
 								}
 							}
@@ -806,105 +890,113 @@ export function createDelegationGateHook(
 
 					// Only reset qaSkip when BOTH have been seen since last coder
 					// (skip qaSkip reset entirely when there's no coder in chain)
-					if (lastCoderIndex !== -1 && hasReviewer && hasTestEngineer) {
-						session.qaSkipCount = 0;
-						session.qaSkipTaskIds = [];
-					}
-
-					// Fallback Pass 1: advance states via delegationChains
-					if (
-						lastCoderIndex !== -1 &&
-						hasReviewer &&
-						session.taskWorkflowStates
-					) {
-						for (const [taskId, state] of session.taskWorkflowStates) {
-							if (state === 'coder_delegated' || state === 'pre_check_passed') {
-								try {
-									advanceTaskState(session, taskId, 'reviewer_run');
-								} catch (err) {
-									console.warn(
-										`[delegation-gate] fallback: could not advance ${taskId} (${state}) → reviewer_run: ${err instanceof Error ? err.message : String(err)}`,
-									);
-								}
-							}
+					if (!councilActive) {
+						if (lastCoderIndex !== -1 && hasReviewer && hasTestEngineer) {
+							session.qaSkipCount = 0;
+							session.qaSkipTaskIds = [];
 						}
-					}
 
-					// Fallback Pass 2: advance states via delegationChains
-					if (
-						lastCoderIndex !== -1 &&
-						hasReviewer &&
-						hasTestEngineer &&
-						session.taskWorkflowStates
-					) {
-						for (const [taskId, state] of session.taskWorkflowStates) {
-							if (state === 'reviewer_run') {
-								try {
-									advanceTaskState(session, taskId, 'tests_run');
-								} catch (err) {
-									console.warn(
-										`[delegation-gate] fallback: could not advance ${taskId} (${state}) → tests_run: ${err instanceof Error ? err.message : String(err)}`,
-									);
-								}
-							}
-						}
-					}
-
-					// Fallback: Also advance states in OTHER sessions via delegationChains
-					if (lastCoderIndex !== -1 && hasReviewer) {
-						for (const [, otherSession] of swarmState.agentSessions) {
-							if (otherSession === session) continue;
-							if (!otherSession.taskWorkflowStates) continue;
-
-							// Seed task state in sessions that don't have an entry yet
-							const seedTaskId = getSeedTaskId(session);
-							if (
-								seedTaskId &&
-								!otherSession.taskWorkflowStates.has(seedTaskId)
-							) {
-								otherSession.taskWorkflowStates.set(
-									seedTaskId,
-									'coder_delegated',
-								);
-							}
-							for (const [taskId, state] of otherSession.taskWorkflowStates) {
+						// Fallback Pass 1: advance states via delegationChains
+						if (
+							lastCoderIndex !== -1 &&
+							hasReviewer &&
+							session.taskWorkflowStates
+						) {
+							for (const [taskId, state] of session.taskWorkflowStates) {
 								if (
 									state === 'coder_delegated' ||
 									state === 'pre_check_passed'
 								) {
 									try {
-										advanceTaskState(otherSession, taskId, 'reviewer_run');
+										advanceTaskState(session, taskId, 'reviewer_run');
 									} catch (err) {
 										console.warn(
-											`[delegation-gate] fallback cross-session: could not advance ${taskId} (${state}) → reviewer_run: ${err instanceof Error ? err.message : String(err)}`,
+											`[delegation-gate] fallback: could not advance ${taskId} (${state}) → reviewer_run: ${err instanceof Error ? err.message : String(err)}`,
 										);
 									}
 								}
 							}
 						}
-					}
 
-					if (lastCoderIndex !== -1 && hasReviewer && hasTestEngineer) {
-						for (const [, otherSession] of swarmState.agentSessions) {
-							if (otherSession === session) continue;
-							if (!otherSession.taskWorkflowStates) continue;
-
-							// Seed task state in sessions that don't have an entry yet
-							const seedTaskId = getSeedTaskId(session);
-							if (
-								seedTaskId &&
-								!otherSession.taskWorkflowStates.has(seedTaskId)
-							) {
-								otherSession.taskWorkflowStates.set(seedTaskId, 'reviewer_run');
-							}
-							for (const [taskId, state] of otherSession.taskWorkflowStates) {
+						// Fallback Pass 2: advance states via delegationChains
+						if (
+							lastCoderIndex !== -1 &&
+							hasReviewer &&
+							hasTestEngineer &&
+							session.taskWorkflowStates
+						) {
+							for (const [taskId, state] of session.taskWorkflowStates) {
 								if (state === 'reviewer_run') {
 									try {
-										advanceTaskState(otherSession, taskId, 'tests_run');
+										advanceTaskState(session, taskId, 'tests_run');
 									} catch (err) {
 										console.warn(
-											`[delegation-gate] fallback cross-session: could not advance ${taskId} (${state}) → tests_run: ${err instanceof Error ? err.message : String(err)}`,
+											`[delegation-gate] fallback: could not advance ${taskId} (${state}) → tests_run: ${err instanceof Error ? err.message : String(err)}`,
 										);
+									}
+								}
+							}
+						}
+
+						// Fallback: Also advance states in OTHER sessions via delegationChains
+						if (lastCoderIndex !== -1 && hasReviewer) {
+							for (const [, otherSession] of swarmState.agentSessions) {
+								if (otherSession === session) continue;
+								if (!otherSession.taskWorkflowStates) continue;
+
+								// Seed task state in sessions that don't have an entry yet
+								const seedTaskId = getSeedTaskId(session);
+								if (
+									seedTaskId &&
+									!otherSession.taskWorkflowStates.has(seedTaskId)
+								) {
+									otherSession.taskWorkflowStates.set(
+										seedTaskId,
+										'coder_delegated',
+									);
+								}
+								for (const [taskId, state] of otherSession.taskWorkflowStates) {
+									if (
+										state === 'coder_delegated' ||
+										state === 'pre_check_passed'
+									) {
+										try {
+											advanceTaskState(otherSession, taskId, 'reviewer_run');
+										} catch (err) {
+											console.warn(
+												`[delegation-gate] fallback cross-session: could not advance ${taskId} (${state}) → reviewer_run: ${err instanceof Error ? err.message : String(err)}`,
+											);
+										}
+									}
+								}
+							}
+						}
+
+						if (lastCoderIndex !== -1 && hasReviewer && hasTestEngineer) {
+							for (const [, otherSession] of swarmState.agentSessions) {
+								if (otherSession === session) continue;
+								if (!otherSession.taskWorkflowStates) continue;
+
+								// Seed task state in sessions that don't have an entry yet
+								const seedTaskId = getSeedTaskId(session);
+								if (
+									seedTaskId &&
+									!otherSession.taskWorkflowStates.has(seedTaskId)
+								) {
+									otherSession.taskWorkflowStates.set(
+										seedTaskId,
+										'reviewer_run',
+									);
+								}
+								for (const [taskId, state] of otherSession.taskWorkflowStates) {
+									if (state === 'reviewer_run') {
+										try {
+											advanceTaskState(otherSession, taskId, 'tests_run');
+										} catch (err) {
+											console.warn(
+												`[delegation-gate] fallback cross-session: could not advance ${taskId} (${state}) → tests_run: ${err instanceof Error ? err.message : String(err)}`,
+											);
+										}
 									}
 								}
 							}
