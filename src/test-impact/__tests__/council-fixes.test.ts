@@ -348,7 +348,7 @@ describe('council-fixes', () => {
 			// Use a different approach - write to a temp dir first, then try to write to locked location
 			fs.mkdirSync(cacheDir, { recursive: true });
 
-			const record = makeRecord({
+			const _record = makeRecord({
 				testFile: 'fail-test.test.ts',
 				testName: 'fail test',
 				result: 'pass',
