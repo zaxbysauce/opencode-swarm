@@ -1,5 +1,13 @@
 # Changelog
 
+## [6.72.1](https://github.com/zaxbysauce/opencode-swarm/compare/v6.72.0...v6.72.1) (2026-04-17)
+
+
+### Bug Fixes
+
+* **architect:** add declare_scope reminders at every coder delegation site ([#526](https://github.com/zaxbysauce/opencode-swarm/issues/526)) ([0e71cf0](https://github.com/zaxbysauce/opencode-swarm/commit/0e71cf0ea8bc0f9be71495aecfe91ba368097008))
+* **delegation-gate, architect, state:** resolve three wiring gaps in council mode ([#487](https://github.com/zaxbysauce/opencode-swarm/issues/487)) ([#530](https://github.com/zaxbysauce/opencode-swarm/issues/530)) ([54cd413](https://github.com/zaxbysauce/opencode-swarm/commit/54cd4133b3602693284f314d666996c57622098e))
+
 ## [6.72.0](https://github.com/zaxbysauce/opencode-swarm/compare/v6.71.1...v6.72.0) (2026-04-17)
 
 
