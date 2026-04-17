@@ -236,6 +236,8 @@ TIER 3 — CRITICAL
   Pipeline: Full Stage A. Stage B = {{AGENT_PREFIX}}reviewer×2 + {{AGENT_PREFIX}}test_engineer×2.
   Rationale: Security paths need adversarial review.
 
+If council is authoritative for the current plan, skip Stage B entries above and use council Phase 1 dispatch as the review pass.
+
 CLASSIFICATION RULES:
 - Multi-tier → use HIGHEST tier.
 - Format: "Classification: TIER {N} — {label}"
@@ -256,9 +258,11 @@ VERIFICATION PROTOCOL: After the coder reports DONE, and before running Stage B 
 
 ── STAGE B: AGENT REVIEW GATES ──
 {{AGENT_PREFIX}}reviewer → security reviewer (conditional) → {{AGENT_PREFIX}}test_engineer verification → {{AGENT_PREFIX}}test_engineer adversarial → coverage check
-Stage B CANNOT be skipped for TIER 1-3 classifications. Stage A passing does not satisfy Stage B.
+Stage B runs by default for TIER 1-3 classifications. Stage A passing does not satisfy Stage B.
 Stage B is where logic errors, security flaws, edge cases, and behavioral bugs are caught.
 You MUST delegate to each Stage B agent and wait for their response.
+
+When council is authoritative for the current plan (\`pluginConfig.council.enabled === true\` AND \`QaGates.council_mode === true\`), Stage B is REPLACED by council Phase 1 — reviewer and test_engineer are dispatched as council members in the parallel Phase 1 fan-out, not as a separate Stage B sequence. Do not run Stage B a second time after the council has rendered a verdict. Stage A (precheckbatch) still runs as the pre-review gate in both modes.
 
 A task is complete ONLY when BOTH stages pass.
 
@@ -544,12 +548,23 @@ MODE: BRAINSTORM runs seven phases in strict order. Do not skip phases. Do not c
 - Write the final spec to \`.swarm/spec.md\`.
 - Exit when reviewer signs off (or user explicitly accepts remaining disagreements).
 
-**Phase 6: QA GATE SELECTION (architect).**
-- Read the current QA gate profile for this plan via \`get_qa_gate_profile\`. If none exists, the tool returns \`success: false, reason: 'no_profile'\` — this is expected for a new plan.
-- Based on risk tier of the work (see "High-risk work" list in the quality policy), choose which gates to enable. Default profile enables reviewer, test_engineer, sme_enabled, critic_pre_plan, and sast_enabled. Consider enabling council_mode for high-impact architecture and hallucination_guard for claim-heavy work.
-- Apply the chosen gates via \`set_qa_gates\`. The tool ratchets tighter only — it cannot disable gates that are already on. It rejects writes once the profile is locked by critic approval.
-- Briefly explain to the user which gates you selected and why.
-- Exit with a QA gate profile persisted for this plan.
+**Phase 6: QA GATE SELECTION (architect, dialogue only).**
+{{QA_GATE_DIALOGUE_BRAINSTORM}}
+
+Do NOT call \`set_qa_gates\` yet — \`plan.json\` does not exist at this point. Once the user answers, write the elected gates to \`.swarm/context.md\` under a new section:
+\`\`\`
+## Pending QA Gate Selection
+- reviewer: <true|false>
+- test_engineer: <true|false>
+- sme_enabled: <true|false>
+- critic_pre_plan: <true|false>
+- sast_enabled: <true|false>
+- council_mode: <true|false>
+- hallucination_guard: <true|false>
+- recorded_at: <ISO timestamp>
+\`\`\`
+MODE: PLAN applies these after \`save_plan\` succeeds via \`set_qa_gates\`.
+- Exit with the elected gates recorded in \`.swarm/context.md\` (NOT yet persisted to plan.json).
 
 **Phase 7: TRANSITION.**
 - Summarize: (a) chosen approach, (b) design sections produced, (c) spec written, (d) QA gates selected, (e) remaining \`[NEEDS CLARIFICATION]\` markers.
@@ -561,7 +576,7 @@ BRAINSTORM RULES:
 - One question per message in DIALOGUE — never batch.
 - Always offer an informed default for every question.
 - The spec produced in Phase 5 must still satisfy the SPEC CONTENT RULES (no tech stack, no implementation details).
-- QA gates set in Phase 6 are ratchet-tighter — you cannot undo them later in the session.
+- QA gates elected in Phase 6 are persisted during MODE: PLAN after \`save_plan\` succeeds and are ratchet-tighter from that point — once persisted you cannot undo them later in the session.
 
 ### MODE: SPECIFY
 Activates when: user asks to "specify", "define requirements", "write a spec", or "define a feature"; OR \`/swarm specify\` is invoked; OR no \`.swarm/spec.md\` exists and no \`.swarm/plan.md\` exists.
@@ -585,7 +600,23 @@ Activates when: user asks to "specify", "define requirements", "write a spec", o
    - Edge cases and known failure modes
    - \`[NEEDS CLARIFICATION]\` markers (max 3) for items where uncertainty could change scope, security, or core behavior; prefer informed defaults over asking
 5. Write the spec to \`.swarm/spec.md\`.
-6. Report a summary to the user (MUST count, SHALL count, scenario count, clarification markers) and suggest the next step: \`CLARIFY-SPEC\` (if markers exist) or \`PLAN\`.
+5b. **QA GATE SELECTION (dialogue only).**
+{{QA_GATE_DIALOGUE_SPECIFY}}
+
+Do NOT call \`set_qa_gates\` yet — \`plan.json\` does not exist at this point. Once the user answers, write the elected gates to \`.swarm/context.md\` under a new section:
+\`\`\`
+## Pending QA Gate Selection
+- reviewer: <true|false>
+- test_engineer: <true|false>
+- sme_enabled: <true|false>
+- critic_pre_plan: <true|false>
+- sast_enabled: <true|false>
+- council_mode: <true|false>
+- hallucination_guard: <true|false>
+- recorded_at: <ISO timestamp>
+\`\`\`
+MODE: PLAN will read this section after \`save_plan\` succeeds and persist via \`set_qa_gates\`.
+7. Report a summary to the user (MUST count, SHALL count, scenario count, clarification markers, elected QA gates) and suggest the next step: \`CLARIFY-SPEC\` (if markers exist) or \`PLAN\`.
 
 SPEC CONTENT RULES — the spec MUST NOT contain:
 - Technology stack, framework choices, library names
@@ -793,6 +824,12 @@ Use the \`save_plan\` tool to create the implementation plan. Required parameter
 
 Example call:
 save_plan({ title: "My Real Project", swarm_id: "mega", phases: [{ id: 1, name: "Setup", tasks: [{ id: "1.1", description: "Install dependencies and configure TypeScript", size: "small" }] }] })
+
+**POST-SAVE_PLAN: APPLY QA GATE SELECTION.**
+After \`save_plan\` succeeds, read \`.swarm/context.md\`:
+- If a \`## Pending QA Gate Selection\` section exists: parse the gate values, call \`set_qa_gates\` with those flags, confirm with the user ("QA gates applied: <list>"), then remove the section from context.md.
+- If no pending section exists: {{QA_GATE_DIALOGUE_PLAN}} Then call \`set_qa_gates\` with the user's chosen flags.
+Either path must yield a persisted QA gate profile before the first task dispatches.
 
 ⚠️ If \`save_plan\` is unavailable, delegate plan writing to {{AGENT_PREFIX}}coder:
 ⚠️ Even in this fallback, you MUST call \`declare_scope\` for the single file ".swarm/plan.md" BEFORE the coder delegation. Scope discipline applies to plan-writing delegations too. See Rule 1a.
@@ -1187,8 +1224,7 @@ export function buildCouncilWorkflow(council?: CouncilWorkflowConfig): string {
 	return `## Work Complete Council (when enabled)
 
 When \`council.enabled\` is true, every task goes through a four-phase verification
-gate before advancing to \`complete\`. This supplements — does NOT replace — the
-existing precheckbatch / reviewer / test_engineer gate sequence.
+gate before advancing to \`complete\`. When council is authoritative, this REPLACES Stage B (reviewer + test_engineer as standalone delegations). Stage A (precheckbatch) still runs as the pre-review gate; Phase 1 dispatch of reviewer and test_engineer is the sole review pass for this task.
 
 ### Phase 0 — Pre-declare criteria (at plan time, BEFORE dispatching the coder)
 Call \`declare_council_criteria\` for each task with at least 3 concrete,
@@ -1247,21 +1283,74 @@ from different members.`;
 /**
  * Generate the YOUR TOOLS line from AGENT_TOOL_MAP.architect.
  * Format: "Task (delegation), tool1, tool2, ..." — Task is always first.
+ *
+ * When `council?.enabled !== true`, the council-only tools
+ * (`convene_council`, `declare_council_criteria`) are filtered out so the
+ * model is not shown phantom tools the runtime gate would reject.
  */
-function buildYourToolsList(): string {
+function buildYourToolsList(council?: CouncilWorkflowConfig): string {
 	const tools = AGENT_TOOL_MAP.architect ?? [];
 	const sorted = [...tools].sort();
-	return `Task (delegation), ${sorted.join(', ')}.`;
+	const filtered =
+		council?.enabled === true
+			? sorted
+			: sorted.filter(
+					(t) => t !== 'convene_council' && t !== 'declare_council_criteria',
+				);
+	return `Task (delegation), ${filtered.join(', ')}.`;
+}
+
+/**
+ * Build the user-facing QA gate selection dialogue, used by MODE: SPECIFY
+ * (step 5b), MODE: BRAINSTORM (Phase 6), and MODE: PLAN (post-`save_plan`
+ * inline path). The dialogue is dialogue-only — persistence happens during
+ * MODE: PLAN after `save_plan` creates `plan.json`.
+ *
+ * The lead-in sentence varies per mode, but the body (seven gates with
+ * defaults, one-shot accept-or-customize prompt) is shared so SPECIFY,
+ * BRAINSTORM, and PLAN inline paths stay in lockstep.
+ */
+export function buildQaGateSelectionDialogue(
+	modeLabel: 'BRAINSTORM' | 'SPECIFY' | 'PLAN',
+): string {
+	const leadIn =
+		modeLabel === 'BRAINSTORM'
+			? 'Now ask the user which QA gates to enable for this plan — do not select on their behalf.'
+			: modeLabel === 'SPECIFY'
+				? 'Ask the user which QA gates to enable for this plan before suggesting the next step.'
+				: 'No pending gate selection found in `.swarm/context.md`. Ask the user inline now.';
+	return `${leadIn}
+
+Present the seven gates with their defaults (DEFAULT_QA_GATES) as a single user-facing question. Offer the user a one-shot choice: accept defaults, or customize. The seven gates are:
+- reviewer (default: ON) — code review of coder output
+- test_engineer (default: ON) — test verification of coder output
+- sme_enabled (default: ON) — SME consultation during planning/clarification
+- critic_pre_plan (default: ON) — critic review before plan finalization
+- sast_enabled (default: ON) — static security scanning
+- council_mode (default: OFF) — multi-member council gate (recommended for high-impact architecture, public APIs, schema/data mutation, security-sensitive code)
+- hallucination_guard (default: OFF) — claim verification (recommended for claim-heavy or research-heavy work)
+
+One question, one message, defaults pre-stated. Wait for the user's answer.`;
 }
 
 /**
  * Generate the Available Tools block from AGENT_TOOL_MAP.architect + TOOL_DESCRIPTIONS.
  * Format: "tool1 (description), tool2 (description), ..." — tools without descriptions use name only.
+ *
+ * When `council?.enabled !== true`, the council-only tools
+ * (`convene_council`, `declare_council_criteria`) are filtered out so the
+ * model is not shown phantom tools the runtime gate would reject.
  */
-function buildAvailableToolsList(): string {
+function buildAvailableToolsList(council?: CouncilWorkflowConfig): string {
 	const tools = AGENT_TOOL_MAP.architect ?? [];
 	const sorted = [...tools].sort();
-	return sorted
+	const filtered =
+		council?.enabled === true
+			? sorted
+			: sorted.filter(
+					(t) => t !== 'convene_council' && t !== 'declare_council_criteria',
+				);
+	return filtered
 		.map((t) => {
 			const desc = TOOL_DESCRIPTIONS[t];
 			return desc ? `${t} (${desc})` : t;
@@ -1459,11 +1548,33 @@ export function createArchitectAgent(
 		prompt = `${ARCHITECT_PROMPT}\n\n${customAppendPrompt}`;
 	}
 
-	// Resolve capability placeholders from AGENT_TOOL_MAP (single source of truth)
+	// Resolve capability placeholders from AGENT_TOOL_MAP (single source of truth).
+	// Thread `council` through the tool-list builders so council-only tools
+	// (`convene_council`, `declare_council_criteria`) are omitted when the
+	// feature is disabled — keeping the rendered tool list in sync with the
+	// runtime gate in src/tools/convene-council.ts.
 	prompt = prompt
-		?.replace('{{YOUR_TOOLS}}', buildYourToolsList())
-		?.replace('{{AVAILABLE_TOOLS}}', buildAvailableToolsList())
+		?.replace('{{YOUR_TOOLS}}', buildYourToolsList(council))
+		?.replace('{{AVAILABLE_TOOLS}}', buildAvailableToolsList(council))
 		?.replace('{{SLASH_COMMANDS}}', buildSlashCommandsList());
+
+	// Substitute the QA gate selection dialogue blocks shared across
+	// MODE: SPECIFY (step 5b), MODE: BRAINSTORM (Phase 6), and MODE: PLAN
+	// (post-save_plan inline path). Use /g so any composed prompt with
+	// multiple occurrences is fully substituted.
+	prompt = prompt
+		?.replace(
+			/\{\{QA_GATE_DIALOGUE_SPECIFY\}\}/g,
+			buildQaGateSelectionDialogue('SPECIFY'),
+		)
+		?.replace(
+			/\{\{QA_GATE_DIALOGUE_BRAINSTORM\}\}/g,
+			buildQaGateSelectionDialogue('BRAINSTORM'),
+		)
+		?.replace(
+			/\{\{QA_GATE_DIALOGUE_PLAN\}\}/g,
+			buildQaGateSelectionDialogue('PLAN'),
+		);
 
 	// Option A: inline placeholder substitution (matches existing {{YOUR_TOOLS}},
 	// {{AVAILABLE_TOOLS}} pattern). When council is disabled/missing, collapse

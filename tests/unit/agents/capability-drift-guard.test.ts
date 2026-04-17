@@ -50,8 +50,19 @@ function extractAvailableToolsNames(prompt: string): string[] {
 // ---------------------------------------------------------------------------
 const ARCHITECT_TOOL_COUNT = AGENT_TOOL_MAP.architect.length;
 
+// Render with council.enabled=true so the full AGENT_TOOL_MAP.architect
+// surface (including `convene_council` and `declare_council_criteria`)
+// appears in YOUR TOOLS and Available Tools. Without council enabled,
+// those tools are filtered out — see architect-tool-visibility-council.test.ts
+// for the council-off behavior.
 const resolvedPrompt = (() => {
-	const agent = createArchitectAgent('test-model');
+	const agent = createArchitectAgent(
+		'test-model',
+		undefined,
+		undefined,
+		undefined,
+		{ enabled: true },
+	);
 	return agent.config.prompt ?? '';
 })();
 
