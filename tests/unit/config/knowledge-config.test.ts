@@ -35,6 +35,10 @@ describe('KnowledgeConfigSchema', () => {
 				initial_encounter_score: 1.0,
 				encounter_increment: 0.1,
 				max_encounter_score: 10.0,
+				// v6.71+ decay config fields
+				default_max_phases: 10,
+				todo_max_phases: 3,
+				sweep_enabled: true,
 			});
 		});
 
@@ -78,6 +82,10 @@ describe('KnowledgeConfigSchema', () => {
 				initial_encounter_score: 1.0,
 				encounter_increment: 0.1,
 				max_encounter_score: 10.0,
+				// v6.71+ decay config fields
+				default_max_phases: 10,
+				todo_max_phases: 3,
+				sweep_enabled: true,
 			};
 
 			const result = KnowledgeConfigSchema.parse(fullConfig);
@@ -187,6 +195,10 @@ describe('KnowledgeConfigSchema', () => {
 					initial_encounter_score: 1.0,
 					encounter_increment: 0.1,
 					max_encounter_score: 10.0,
+					// v6.71+ decay config fields
+					default_max_phases: 10,
+					todo_max_phases: 3,
+					sweep_enabled: true,
 				},
 			};
 
@@ -406,6 +418,43 @@ describe('KnowledgeConfigSchema', () => {
 			});
 
 			expect(result.max_inject_count).toBe(50);
+		});
+	});
+
+	describe('decay config keys (v6.71+)', () => {
+		it('should preserve default_max_phases, todo_max_phases, sweep_enabled in round-trip', () => {
+			const input = {
+				enabled: true,
+				default_max_phases: 10,
+				todo_max_phases: 3,
+				sweep_enabled: true,
+			};
+
+			const parsed = KnowledgeConfigSchema.parse(input);
+
+			expect(parsed.default_max_phases).toBe(10);
+			expect(parsed.todo_max_phases).toBe(3);
+			expect(parsed.sweep_enabled).toBe(true);
+		});
+
+		it('should use decay config defaults when not provided', () => {
+			const result = KnowledgeConfigSchema.parse({});
+
+			expect(result.default_max_phases).toBe(10);
+			expect(result.todo_max_phases).toBe(3);
+			expect(result.sweep_enabled).toBe(true);
+		});
+
+		it('should accept custom decay values', () => {
+			const result = KnowledgeConfigSchema.parse({
+				default_max_phases: 20,
+				todo_max_phases: 5,
+				sweep_enabled: false,
+			});
+
+			expect(result.default_max_phases).toBe(20);
+			expect(result.todo_max_phases).toBe(5);
+			expect(result.sweep_enabled).toBe(false);
 		});
 	});
 });

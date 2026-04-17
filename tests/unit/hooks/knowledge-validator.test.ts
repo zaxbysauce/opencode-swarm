@@ -89,6 +89,20 @@ describe('knowledge-validator', () => {
 			});
 		});
 
+		it("accepts 'todo' as a valid category", () => {
+			const result = validateLesson(
+				'TODO: follow up on retry backoff tuning later',
+				[],
+				{
+					category: 'todo',
+					scope: 'global',
+					confidence: 0.9,
+				},
+			);
+			expect(result.layer).not.toBe(1);
+			expect(result.reason).not.toContain('invalid category');
+		});
+
 		it('rejects invalid scope "local"', () => {
 			const result = validateLesson(
 				'Valid lesson with good length and content',

@@ -88,6 +88,7 @@ const VALID_CATEGORIES = new Set<string>([
 	'debugging',
 	'performance',
 	'integration',
+	'todo',
 	'other',
 ]);
 

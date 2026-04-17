@@ -5,7 +5,7 @@ import { appendFile, mkdir, readFile, writeFile } from 'node:fs/promises';
 import * as os from 'node:os';
 import * as path from 'node:path';
 import lockfile from 'proper-lockfile';
-import type { RejectedLesson } from './knowledge-types.js';
+import type { KnowledgeEntryBase, RejectedLesson } from './knowledge-types.js';
 
 // ============================================================================
 // Path Resolvers
@@ -136,7 +136,8 @@ export async function rewriteKnowledge<T>(
 	let release: (() => Promise<void>) | null = null;
 	try {
 		release = await lockfile.lock(dir, {
-			retries: { retries: 3, minTimeout: 100 },
+			retries: { retries: 5, minTimeout: 100, maxTimeout: 500 },
+			stale: 5000,
 		});
 		const content =
 			entries.map((e) => JSON.stringify(e)).join('\n') +
@@ -164,6 +165,147 @@ export async function enforceKnowledgeCap<T>(
 	if (entries.length > maxEntries) {
 		const trimmed = entries.slice(entries.length - maxEntries);
 		await rewriteKnowledge(filePath, trimmed);
+	}
+}
+
+// Results from a sweep operation (aging or TODO removal)
+export interface SweepResult {
+	scanned: number;
+	aged: number;
+	archived: number;
+	removed: number;
+	skipped_promoted: number;
+}
+
+// Increment phases_alive on all non-archived, non-promoted entries and archive
+// those exceeding their TTL. Archives entries by setting status='archived' and
+// updated_at timestamp; does not remove them from the JSONL (FIFO cap removes later).
+// Promoted entries are TTL-exempt but still skipped (no age bumping for promoted).
+export async function sweepAgedEntries<T extends KnowledgeEntryBase>(
+	filePath: string,
+	defaultMaxPhases: number,
+): Promise<SweepResult> {
+	let release: (() => Promise<void>) | null = null;
+	try {
+		const dir = path.dirname(filePath);
+		// Ensure directory exists before acquiring lock (required by proper-lockfile).
+		await mkdir(dir, { recursive: true });
+		// Acquire directory lock for entire read-modify-write to prevent
+		// concurrent appendKnowledge from racing (H2 race condition prevention)
+		release = await lockfile.lock(dir, {
+			retries: { retries: 5, minTimeout: 100, maxTimeout: 500 },
+			stale: 5000,
+		});
+
+		const entries = await readKnowledge<T>(filePath);
+		const result: SweepResult = {
+			scanned: entries.length,
+			aged: 0,
+			archived: 0,
+			removed: 0,
+			skipped_promoted: 0,
+		};
+		if (entries.length === 0) return result;
+
+		const now = new Date().toISOString();
+		let mutated = false;
+		for (const entry of entries) {
+			// Skip age bumps for archived entries (already dead, no churn)
+			if (entry.status === 'archived') continue;
+
+			// Skip promoted entries: do not increment age and do not archive them
+			// (promoted entries have unlimited TTL per feature design).
+			if (entry.status === 'promoted') {
+				result.skipped_promoted++;
+				continue;
+			}
+
+			// Bump age and test against TTL. Any age change must persist.
+			entry.phases_alive = (entry.phases_alive ?? 0) + 1;
+			result.aged++;
+			mutated = true;
+
+			const ttl = entry.max_phases ?? defaultMaxPhases;
+			// max_phases=N means entry can live N complete phases; archive on N+1.
+			if (entry.phases_alive > ttl) {
+				entry.status = 'archived';
+				entry.updated_at = now;
+				result.archived++;
+			}
+		}
+
+		// Write directly with the held lock (avoid nested lock via rewriteKnowledge).
+		if (mutated) {
+			const content =
+				entries.map((e) => JSON.stringify(e)).join('\n') +
+				(entries.length > 0 ? '\n' : '');
+			await writeFile(filePath, content, 'utf-8');
+		}
+		return result;
+	} finally {
+		if (release) {
+			try {
+				await release();
+			} catch {
+				// Lock release failed — non-blocking
+			}
+		}
+	}
+}
+
+// Hard-remove todo-category entries that have aged past todoMaxPhases.
+// Other entry categories are untouched; general aging is handled by sweepAgedEntries.
+export async function sweepStaleTodos<T extends KnowledgeEntryBase>(
+	filePath: string,
+	todoMaxPhases: number,
+): Promise<SweepResult> {
+	let release: (() => Promise<void>) | null = null;
+	try {
+		const dir = path.dirname(filePath);
+		// Ensure directory exists before acquiring lock (required by proper-lockfile).
+		await mkdir(dir, { recursive: true });
+		release = await lockfile.lock(dir, {
+			retries: { retries: 5, minTimeout: 100, maxTimeout: 500 },
+			stale: 5000,
+		});
+
+		const entries = await readKnowledge<T>(filePath);
+		const result: SweepResult = {
+			scanned: entries.length,
+			aged: 0,
+			archived: 0,
+			removed: 0,
+			skipped_promoted: 0,
+		};
+		if (entries.length === 0) return result;
+
+		const kept = entries.filter((e) => {
+			// Promoted entries are TTL-exempt per design, even for TODO category.
+			if (e.category !== 'todo' || e.status === 'promoted') return true;
+			const age = e.phases_alive ?? 0;
+			if (age > todoMaxPhases) {
+				result.removed++;
+				return false;
+			}
+			return true;
+		});
+
+		// Write directly with the held lock (avoid nested lock via rewriteKnowledge).
+		if (result.removed > 0) {
+			const content =
+				kept.map((e) => JSON.stringify(e)).join('\n') +
+				(kept.length > 0 ? '\n' : '');
+			await writeFile(filePath, content, 'utf-8');
+		}
+		return result;
+	} finally {
+		if (release) {
+			try {
+				await release();
+			} catch {
+				// Lock release failed — non-blocking
+			}
+		}
 	}
 }
 
@@ -252,6 +394,10 @@ export function computeConfidence(
 export function inferTags(lesson: string): string[] {
 	const lower = lesson.toLowerCase();
 	const tags: string[] = [];
+
+	// Category + tag detection
+	if (/(^|\s)(?:todo|remember|don't?(?:\s+)?forget)(?:\s|:|,|$)/i.test(lesson))
+		tags.push('todo');
 
 	// Tech/tool detection
 	if (/\b(?:typescript|ts)\b/.test(lower)) tags.push('typescript');

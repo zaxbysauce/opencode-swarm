@@ -1,5 +1,5 @@
 /** Core storage layer for the opencode-swarm v6.17 two-tier knowledge system. */
-import type { RejectedLesson } from './knowledge-types.js';
+import type { KnowledgeEntryBase, RejectedLesson } from './knowledge-types.js';
 export declare function getPlatformConfigDir(): string;
 export declare function resolveSwarmKnowledgePath(directory: string): string;
 export declare function resolveSwarmRejectedPath(directory: string): string;
@@ -10,6 +10,15 @@ export declare function readRejectedLessons(directory: string): Promise<Rejected
 export declare function appendKnowledge<T>(filePath: string, entry: T): Promise<void>;
 export declare function rewriteKnowledge<T>(filePath: string, entries: T[]): Promise<void>;
 export declare function enforceKnowledgeCap<T>(filePath: string, maxEntries: number): Promise<void>;
+export interface SweepResult {
+    scanned: number;
+    aged: number;
+    archived: number;
+    removed: number;
+    skipped_promoted: number;
+}
+export declare function sweepAgedEntries<T extends KnowledgeEntryBase>(filePath: string, defaultMaxPhases: number): Promise<SweepResult>;
+export declare function sweepStaleTodos<T extends KnowledgeEntryBase>(filePath: string, todoMaxPhases: number): Promise<SweepResult>;
 export declare function appendRejectedLesson(directory: string, lesson: RejectedLesson): Promise<void>;
 export declare function normalize(text: string): string;
 export declare function wordBigrams(text: string): Set<string>;

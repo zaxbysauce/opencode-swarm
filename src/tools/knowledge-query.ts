@@ -241,7 +241,7 @@ export const knowledge_query: ReturnType<typeof tool> = createSwarmTool({
 			.string()
 			.optional()
 			.describe(
-				"Filter by category: 'process', 'architecture', 'tooling', 'security', 'testing', 'debugging', 'performance', 'integration', or 'other'",
+				"Filter by category: 'process', 'architecture', 'tooling', 'security', 'testing', 'debugging', 'performance', 'integration', 'todo', or 'other'",
 			),
 		min_score: tool.schema
 			.number()
