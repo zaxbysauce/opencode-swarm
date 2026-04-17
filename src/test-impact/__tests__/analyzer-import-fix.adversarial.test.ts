@@ -250,7 +250,7 @@ describe('RESOLVE_RELATIVE_IMPORT EDGE CASES', () => {
 	});
 
 	test('very long import path handling', () => {
-		const longPath = './' + 'a'.repeat(10000);
+		const longPath = `./${'a'.repeat(10000)}`;
 		const resolved = path.resolve('/cwd', longPath);
 		expect(resolved.length).toBeGreaterThan(10000);
 	});

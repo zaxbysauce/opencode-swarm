@@ -323,7 +323,7 @@ describe('council-fixes', () => {
 				'cache',
 				'test-history.jsonl',
 			);
-			const tempPath = historyPath + '.tmp';
+			const tempPath = `${historyPath}.tmp`;
 
 			// Write first record
 			appendTestRun(record, tempDir);
@@ -360,7 +360,7 @@ describe('council-fixes', () => {
 			// Let's just verify the cleanup happens on error by mocking
 			// For now, just verify normal operation works
 
-			expect(fs.existsSync(historyPath + '.tmp')).toBe(false);
+			expect(fs.existsSync(`${historyPath}.tmp`)).toBe(false);
 		});
 
 		test('appendTestRun writes valid JSONL content', () => {
