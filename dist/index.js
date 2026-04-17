@@ -39683,6 +39683,7 @@ var init_knowledge_validator = __esm(() => {
     "debugging",
     "performance",
     "integration",
+    "todo",
     "other"
   ]);
   TECH_REFERENCE_WORDS = new Set([
@@ -73708,7 +73709,7 @@ var knowledge_query = createSwarmTool({
   args: {
     tier: tool.schema.string().optional().describe("Knowledge tier to query: 'swarm', 'hive', or 'all' (default: 'all')"),
     status: tool.schema.string().optional().describe("Filter by status: 'candidate', 'established', or 'promoted'"),
-    category: tool.schema.string().optional().describe("Filter by category: 'process', 'architecture', 'tooling', 'security', 'testing', 'debugging', 'performance', 'integration', or 'other'"),
+    category: tool.schema.string().optional().describe("Filter by category: 'process', 'architecture', 'tooling', 'security', 'testing', 'debugging', 'performance', 'integration', 'todo', or 'other'"),
     min_score: tool.schema.number().optional().describe("Minimum confidence score filter (0.0-1.0)"),
     limit: tool.schema.number().optional().describe(`Maximum number of results to return (default: ${DEFAULT_LIMIT}, max: 100)`)
   },
