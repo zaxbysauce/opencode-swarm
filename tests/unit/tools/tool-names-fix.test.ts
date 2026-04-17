@@ -77,6 +77,7 @@ describe('tool-names adversarial test fix verification', () => {
 				'repo_map',
 				'get_qa_gate_profile',
 				'set_qa_gates',
+				'write_hallucination_evidence',
 			];
 			expect(expectedTools).toContain('diff_summary');
 			expect(expectedTools.indexOf('diff_summary')).toBe(1); // 0-indexed: position 2 = index 1
@@ -137,6 +138,7 @@ describe('tool-names adversarial test fix verification', () => {
 				'repo_map',
 				'get_qa_gate_profile',
 				'set_qa_gates',
+				'write_hallucination_evidence',
 			]);
 			expect(expectedToolsSet.has('diff_summary')).toBe(true);
 		});
@@ -196,6 +198,7 @@ describe('tool-names adversarial test fix verification', () => {
 				'repo_map',
 				'get_qa_gate_profile',
 				'set_qa_gates',
+				'write_hallucination_evidence',
 			];
 
 			const expectedToolsSet = new Set([
@@ -252,11 +255,12 @@ describe('tool-names adversarial test fix verification', () => {
 				'repo_map',
 				'get_qa_gate_profile',
 				'set_qa_gates',
+				'write_hallucination_evidence',
 			]);
 
-			// Both should have 51 entries
-			expect(expectedTools.length).toBe(53);
-			expect(expectedToolsSet.size).toBe(53);
+			// Both should have 54 entries
+			expect(expectedTools.length).toBe(54);
+			expect(expectedToolsSet.size).toBe(54);
 
 			// Every item in array should be in set
 			const missingFromSet = expectedTools.filter(
@@ -275,8 +279,8 @@ describe('tool-names adversarial test fix verification', () => {
 	describe('Fix #2: check_gate_status index verification', () => {
 		// The original issue: assertion was .toBe(15) but check_gate_status is at index 16
 
-		test('TOOL_NAMES should have exactly 51 entries', () => {
-			expect(TOOL_NAMES.length).toBe(53);
+		test('TOOL_NAMES should have exactly 54 entries', () => {
+			expect(TOOL_NAMES.length).toBe(54);
 		});
 
 		test('evidence_check should be at index 15', () => {
@@ -359,6 +363,7 @@ describe('tool-names adversarial test fix verification', () => {
 				'repo_map',
 				'get_qa_gate_profile',
 				'set_qa_gates',
+				'write_hallucination_evidence',
 			];
 
 			const expectedToolsSet = new Set(expectedTools);
@@ -425,6 +430,7 @@ describe('tool-names adversarial test fix verification', () => {
 				'repo_map',
 				'get_qa_gate_profile',
 				'set_qa_gates',
+				'write_hallucination_evidence',
 			];
 
 			const expectedToolsSet = new Set([
@@ -481,10 +487,11 @@ describe('tool-names adversarial test fix verification', () => {
 				'repo_map',
 				'get_qa_gate_profile',
 				'set_qa_gates',
+				'write_hallucination_evidence',
 			]);
 
-			expect(expectedTools.length).toBe(53);
-			expect(expectedToolsSet.size).toBe(53);
+			expect(expectedTools.length).toBe(54);
+			expect(expectedToolsSet.size).toBe(54);
 
 			// Verify diff_summary specifically
 			expect(expectedTools.includes('diff_summary')).toBe(true);

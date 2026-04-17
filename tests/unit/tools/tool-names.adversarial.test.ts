@@ -172,6 +172,7 @@ describe('tool-names registry integrity - adversarial', () => {
 				'declare_council_criteria',
 				'get_qa_gate_profile',
 				'set_qa_gates',
+				'write_hallucination_evidence',
 			];
 
 			expect(TOOL_NAMES.length).toBe(expectedTools.length);
@@ -236,6 +237,7 @@ describe('tool-names registry integrity - adversarial', () => {
 				'declare_council_criteria',
 				'get_qa_gate_profile',
 				'set_qa_gates',
+				'write_hallucination_evidence',
 			]);
 
 			const extraTools = TOOL_NAMES.filter(

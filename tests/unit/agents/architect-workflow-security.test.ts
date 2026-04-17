@@ -384,7 +384,7 @@ describe('ARCHITECT WORKFLOW: Retrospective Tracking', () => {
 
 	test('SECURITY: Evidence written BEFORE user summary in Phase 6', () => {
 		const phase6Start = prompt.indexOf('### MODE: PHASE-WRAP');
-		const phase6Section = prompt.substring(phase6Start, phase6Start + 3200);
+		const phase6Section = prompt.substring(phase6Start, phase6Start + 6000);
 
 		const evidencePos = phase6Section.indexOf('Write retrospective evidence');
 		const summarizePos = phase6Section.indexOf('6. Summarize');
