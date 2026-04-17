@@ -129,4 +129,5 @@ export {
 	update_task_status,
 } from './update-task-status';
 export { write_drift_evidence } from './write-drift-evidence';
+export { write_hallucination_evidence } from './write-hallucination-evidence';
 export { executeWriteRetro, write_retro } from './write-retro';

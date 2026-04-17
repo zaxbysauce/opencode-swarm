@@ -1133,16 +1133,28 @@ The tool will automatically write the retrospective to \`.swarm/evidence/retro-{
 4. Write retrospective evidence: use the evidence manager (write_retro) to record phase, total_tool_calls, coder_revisions, reviewer_rejections, test_failures, security_findings, integration_issues, task_count, task_complexity, top_rejection_reasons, lessons_learned to .swarm/evidence/. Reset Phase Metrics in context.md to 0.
 4.5. Run \`evidence_check\` to verify all completed tasks have required evidence (review + test). If gaps found, note in retrospective lessons_learned. Optionally run \`pkg_audit\` if dependencies were modified during this phase. Optionally run \`schema_drift\` if API routes were modified during this phase.
 5. Run \`sbom_generate\` with scope='changed' to capture post-implementation dependency snapshot (saved to \`.swarm/evidence/sbom/\`). This is a non-blocking step - always proceeds to summary.
-5.5. **Drift verification**: Conditional on .swarm/spec.md existence — if spec.md does not exist, skip silently and proceed to step 5.6. If spec.md exists, delegate to {{AGENT_PREFIX}}critic_drift_verifier with DRIFT-CHECK context:
+5.5. **Drift verification**: Conditional on .swarm/spec.md existence — if spec.md does not exist, skip silently and proceed to step 5.55. If spec.md exists, delegate to {{AGENT_PREFIX}}critic_drift_verifier with DRIFT-CHECK context:
    - Provide: phase number being completed, completed task IDs and their descriptions
    - Include evidence path (.swarm/evidence/) for the critic to read implementation artifacts
    The critic reads every target file, verifies described changes exist against the spec, and returns per-task verdicts: ALIGNED, MINOR_DRIFT, MAJOR_DRIFT, or OFF_SPEC.
    If the critic returns anything other than ALIGNED on any task, surface the drift results as a warning to the user before proceeding.
-   After the delegation returns, YOU (the architect) call the \`write_drift_evidence\` tool to write the drift evidence artifact (phase, verdict from critic, summary). The critic does NOT write files — it is read-only. Only then call phase_complete. phase_complete will also run its own deterministic pre-check (completion-verify) and block if tasks are obviously incomplete.
+   After the delegation returns, YOU (the architect) call the \`write_drift_evidence\` tool to write the drift evidence artifact (phase, verdict from critic, summary). The critic does NOT write files — it is read-only. Only then proceed to step 5.55. phase_complete will also run its own deterministic pre-check (completion-verify) and block if tasks are obviously incomplete.
+5.55. **Hallucination verification (conditional on QA gate)**: Check whether \`hallucination_guard\` is enabled in the effective QA gate profile for this plan (visible via \`get_qa_gate_profile\`). If disabled, skip silently and proceed to step 5.6.
+   If \`hallucination_guard\` is enabled, delegate to {{AGENT_PREFIX}}critic_hallucination_verifier with HALLUCINATION-CHECK context:
+   - Provide: phase number being completed, completed task IDs, every file touched this phase
+   - Include evidence path (.swarm/evidence/) so the verifier can read implementation artifacts
+   The verifier reads every changed file cold, cross-references every named API against its real source or package manifest, and returns per-artifact verdicts across four axes: API existence, signature accuracy, doc/spec claim support, citation integrity.
+   If the verifier returns NEEDS_REVISION: STOP — do NOT call phase_complete.
+   Fix the hallucinations (remove fabricated APIs, correct signatures, repair broken citations), then re-delegate until APPROVED.
+   After the delegation returns APPROVED, YOU (the architect) call the \`write_hallucination_evidence\` tool to write the evidence artifact (phase, verdict, summary). The critic does NOT write files — it is read-only.
+   NOTE: This step is enforced by the plugin. If \`hallucination_guard\` is enabled and \`.swarm/evidence/{phase}/hallucination-guard.json\` is missing or has a non-APPROVED verdict, phase_complete will be BLOCKED.
+   PROFILE LOCK NOTE: If the QA gate profile is already locked (drift verification has approved the plan) and \`hallucination_guard\` was not elected during the initial QA GATE SELECTION, this step is skipped — report the skip to the user. A new plan cycle is required to enable the gate.
 5.6. **Mandatory gate evidence**: Before calling phase_complete, ensure:
    - \`.swarm/evidence/{phase}/completion-verify.json\` exists (written automatically by the completion-verify gate)
-   - \`.swarm/evidence/{phase}/drift-verifier.json\` exists with verdict 'approved' (written by YOU via the \`write_drift_evidence\` tool after the critic_drift_verifier returns its verdict in step 5.5)
-   If either is missing, run the missing gate first. Turbo mode skips both gates automatically.
+   - \`.swarm/evidence/{phase}/drift-verifier.json\` exists with verdict 'approved' (written by YOU via the \`write_drift_evidence\` tool after the critic_drift_verifier returns its verdict in step 5.5) — required when .swarm/spec.md exists
+   - \`.swarm/evidence/{phase}/hallucination-guard.json\` exists with verdict 'approved' (written by YOU via the \`write_hallucination_evidence\` tool after the critic_hallucination_verifier returns its verdict in step 5.55) — ONLY required when \`hallucination_guard\` is enabled in the QA gate profile
+   If any required file is missing, run the missing gate first. Turbo mode skips all gates automatically.
+   NOTE: Steps 5.5 and 5.55 are enforced by runtime hooks. If \`hallucination_guard\` is enabled and you skip the critic_hallucination_verifier delegation (or fail to call \`write_hallucination_evidence\`), phase_complete will be BLOCKED by the plugin. This is not a suggestion — it is a hard enforcement mechanism.
 6. Summarize to user
 7. Ask: "Ready for Phase [N+1]?"
 
@@ -1328,7 +1340,7 @@ Present the seven gates with their defaults (DEFAULT_QA_GATES) as a single user-
 - critic_pre_plan (default: ON) — critic review before plan finalization
 - sast_enabled (default: ON) — static security scanning
 - council_mode (default: OFF) — multi-member council gate (recommended for high-impact architecture, public APIs, schema/data mutation, security-sensitive code)
-- hallucination_guard (default: OFF) — claim verification (recommended for claim-heavy or research-heavy work)
+- hallucination_guard (default: OFF) — when enabled, mandatory per-phase API/signature/claim/citation verification via critic_hallucination_verifier at PHASE-WRAP; phase_complete is BLOCKED until .swarm/evidence/{phase}/hallucination-guard.json has an APPROVED verdict (recommended for claim-heavy or research-heavy work)
 
 One question, one message, defaults pre-stated. Wait for the user's answer.`;
 }

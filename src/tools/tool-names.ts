@@ -41,6 +41,7 @@ export type ToolName =
 	| 'lint_spec'
 	| 'write_retro'
 	| 'write_drift_evidence'
+	| 'write_hallucination_evidence'
 	| 'declare_scope'
 	| 'knowledge_query'
 	| 'doc_scan'
@@ -97,6 +98,7 @@ export const TOOL_NAMES: readonly ToolName[] = [
 	'lint_spec',
 	'write_retro',
 	'write_drift_evidence',
+	'write_hallucination_evidence',
 	'declare_scope',
 	'knowledge_query',
 	'doc_scan',

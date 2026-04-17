@@ -149,4 +149,14 @@ describe('qa-gate-profile', () => {
 		const eff = getEffectiveGates(p, { reviewer: false });
 		expect(eff.reviewer).toBe(true);
 	});
+
+	test('getEffectiveGates ratchets hallucination_guard via session overrides', () => {
+		const p = getOrCreateProfile(tempDir, 'plan-hg');
+		// Default is false
+		expect(p.gates.hallucination_guard).toBe(false);
+		const eff = getEffectiveGates(p, { hallucination_guard: true });
+		expect(eff.hallucination_guard).toBe(true);
+		// Other gates unchanged
+		expect(eff.reviewer).toBe(true);
+	});
 });

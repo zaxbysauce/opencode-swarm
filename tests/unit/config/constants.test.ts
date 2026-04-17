@@ -45,20 +45,20 @@ describe('constants.ts', () => {
 			expect(ALL_SUBAGENT_NAMES).toContain('explorer');
 			expect(ALL_SUBAGENT_NAMES).toContain('coder');
 			expect(ALL_SUBAGENT_NAMES).toContain('test_engineer');
-			expect(ALL_SUBAGENT_NAMES).toHaveLength(13);
+			expect(ALL_SUBAGENT_NAMES).toHaveLength(14);
 		});
 	});
 
 	describe('ALL_AGENT_NAMES', () => {
-		it('contains architect + all 13 subagents = 14 total', () => {
-			// v6.1: added docs and designer; v6.34: added critic_sounding_board; v6.36.0: added critic_drift_verifier; v6.42.1: added curator_init + curator_phase; v6.x.x: added critic_oversight
+		it('contains architect + all 14 subagents = 15 total', () => {
+			// v6.1: added docs and designer; v6.34: added critic_sounding_board; v6.36.0: added critic_drift_verifier; v6.42.1: added curator_init + curator_phase; v6.x.x: added critic_oversight; v6.72.x: added critic_hallucination_verifier
 			// architect must be first — it is the orchestrator and must be listed before all subagents
 			expect(ALL_AGENT_NAMES[0]).toBe('architect');
 			// All subagents must be present
 			for (const name of ALL_SUBAGENT_NAMES) {
 				expect(ALL_AGENT_NAMES).toContain(name);
 			}
-			expect(ALL_AGENT_NAMES).toHaveLength(14);
+			expect(ALL_AGENT_NAMES).toHaveLength(15);
 		});
 	});
 
@@ -132,9 +132,9 @@ describe('constants.ts', () => {
 			}
 		});
 
-		it('has exactly 14 entries (13 subagents + default, no architect)', () => {
-			// v6.14: architect removed - inherits OpenCode UI selection instead; v6.36.0: added critic_drift_verifier; v6.42.1: added curator_init + curator_phase; v6.x.x: added critic_oversight
-			expect(Object.keys(DEFAULT_MODELS)).toHaveLength(14);
+		it('has exactly 15 entries (14 subagents + default, no architect)', () => {
+			// v6.14: architect removed - inherits OpenCode UI selection instead; v6.36.0: added critic_drift_verifier; v6.42.1: added curator_init + curator_phase; v6.x.x: added critic_oversight; v6.72.x: added critic_hallucination_verifier
+			expect(Object.keys(DEFAULT_MODELS)).toHaveLength(15);
 		});
 	});
 

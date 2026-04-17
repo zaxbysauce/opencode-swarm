@@ -47,6 +47,10 @@ import {
 	replayFromLedger,
 	takeSnapshotEvent,
 } from '../plan/ledger';
+import {
+	getEffectiveGates,
+	getProfile,
+} from '../db/qa-gate-profile.js';
 import { loadPlan, savePlan } from '../plan/manager';
 import { flushPendingSnapshot } from '../session/snapshot-writer';
 import { ensureAgentSession, hasActiveTurboMode, swarmState } from '../state';
@@ -486,11 +490,11 @@ export async function executePhaseComplete(
 		);
 	}
 
-	// Turbo mode: skip both completion-verify and drift-verifier gates
+	// Turbo mode: skip completion-verify, drift-verifier, and hallucination-guard gates
 	if (hasActiveTurboMode(sessionID)) {
 		// Non-blocking warning so architect knows gates were bypassed
 		console.warn(
-			`[phase_complete] Turbo mode active — skipping completion-verify and drift-verifier gates for phase ${phase}`,
+			`[phase_complete] Turbo mode active — skipping completion-verify, drift-verifier, and hallucination-guard gates for phase ${phase}`,
 		);
 	} else {
 		// Gate 1: Completion Verify (deterministic, in-process)
@@ -669,6 +673,122 @@ export async function executePhaseComplete(
 			safeWarn(
 				`[phase_complete] Drift verifier error (non-blocking):`,
 				driftError,
+			);
+		}
+
+		// Gate 3: Hallucination Guard (conditional on QA gate flag)
+		try {
+			const plan = await loadPlan(dir);
+			if (plan) {
+				const planId = `${plan.swarm}-${plan.title}`.replace(
+					/[^a-zA-Z0-9-_]/g,
+					'_',
+				);
+				const profile = getProfile(dir, planId);
+				if (profile) {
+					const session = sessionID
+						? swarmState.agentSessions.get(sessionID)
+						: undefined;
+					const overrides = session?.qaGateSessionOverrides ?? {};
+					const effective = getEffectiveGates(profile, overrides);
+
+					if (effective.hallucination_guard === true) {
+						const hgPath = path.join(
+							dir,
+							'.swarm',
+							'evidence',
+							String(phase),
+							'hallucination-guard.json',
+						);
+						let hgVerdictFound = false;
+						let hgVerdictApproved = false;
+
+						try {
+							const hgContent = fs.readFileSync(hgPath, 'utf-8');
+							const hgBundle = JSON.parse(hgContent);
+							for (const entry of hgBundle.entries ?? []) {
+								if (
+									typeof entry.type === 'string' &&
+									entry.type.includes('hallucination') &&
+									typeof entry.verdict === 'string'
+								) {
+									hgVerdictFound = true;
+									if (entry.verdict === 'approved') {
+										hgVerdictApproved = true;
+									}
+									if (
+										entry.verdict === 'rejected' ||
+										(typeof entry.summary === 'string' &&
+											entry.summary.includes('NEEDS_REVISION'))
+									) {
+										return JSON.stringify(
+											{
+												success: false,
+												phase,
+												status: 'blocked' as const,
+												reason: 'HALLUCINATION_VERIFICATION_REJECTED',
+												message: `Phase ${phase} cannot be completed: hallucination verifier returned verdict '${entry.verdict}'. Remove fabricated APIs/signatures and fix broken citations before completing the phase.`,
+												agentsDispatched,
+												agentsMissing: [],
+												warnings: [],
+											},
+											null,
+											2,
+										);
+									}
+								}
+							}
+						} catch (readErr) {
+							if ((readErr as NodeJS.ErrnoException).code !== 'ENOENT') {
+								safeWarn(
+									`[phase_complete] Hallucination guard evidence unreadable:`,
+									readErr,
+								);
+							}
+							hgVerdictFound = false;
+						}
+
+						if (!hgVerdictFound) {
+							return JSON.stringify(
+								{
+									success: false,
+									phase,
+									status: 'blocked' as const,
+									reason: 'HALLUCINATION_VERIFICATION_MISSING',
+									message: `Phase ${phase} cannot be completed: hallucination_guard is enabled and evidence not found at .swarm/evidence/${phase}/hallucination-guard.json. Delegate to critic_hallucination_verifier and call write_hallucination_evidence before completing the phase.`,
+									agentsDispatched,
+									agentsMissing: [],
+									warnings: [],
+								},
+								null,
+								2,
+							);
+						}
+
+						if (!hgVerdictApproved) {
+							return JSON.stringify(
+								{
+									success: false,
+									phase,
+									status: 'blocked' as const,
+									reason: 'HALLUCINATION_VERIFICATION_REJECTED',
+									message: `Phase ${phase} cannot be completed: hallucination verifier verdict is not approved.`,
+									agentsDispatched,
+									agentsMissing: [],
+									warnings: [],
+								},
+								null,
+								2,
+							);
+						}
+					}
+				}
+			}
+		} catch (hgError) {
+			// Non-blocking — treat as warning and continue
+			safeWarn(
+				`[phase_complete] Hallucination guard error (non-blocking):`,
+				hgError,
 			);
 		}
 	}
