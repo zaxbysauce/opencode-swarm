@@ -944,12 +944,13 @@ export async function isCouncilGateActive(
 	try {
 		profile = getProfile(directory, planId);
 	} catch (err) {
-		// Distinguish a missing-profile (expected in fresh repos) from an I/O error
-		// (EACCES, EBUSY, etc.) that may indicate a real problem.
-		const code = (err as NodeJS.ErrnoException)?.code;
-		if (code && code !== 'ENOENT' && code !== 'SQLITE_CANTOPEN') {
+		// getProfile returns null on missing DB; it only throws on unexpected I/O or
+		// SQLite errors (EACCES, EBUSY, corrupt database). Log those so they're visible.
+		const msg = err instanceof Error ? err.message : String(err);
+		const isBenign = msg.includes('SQLITE_CANTOPEN') || msg.includes('ENOENT');
+		if (!isBenign) {
 			console.warn(
-				`[isCouncilGateActive] getProfile failed for plan ${planId}: ${code}. Treating council as inactive.`,
+				`[isCouncilGateActive] getProfile threw unexpectedly for plan ${planId}: ${msg}. Treating council as inactive.`,
 			);
 		}
 		profile = null;

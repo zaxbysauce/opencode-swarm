@@ -580,6 +580,69 @@ describe('delegation-gate council wiring (Stage B suppression + APPROVE fast-pat
 		});
 	});
 
+	describe('cross-session council config divergence: disagreement warn fires once across sessions', () => {
+		it('mismatch warn emitted once even when multiple sessions trigger isCouncilGateActive', async () => {
+			// Plan exists; QA profile has council_mode=true; but config.enabled=false → disagreement.
+			writePlan();
+			enableCouncilGate();
+
+			// Single hook instance (the real runtime shape — plugin config is shared).
+			const config = makeConfig(undefined, { enabled: false });
+			const hook = createDelegationGateHook(config, tmpDir);
+
+			startAgentSession('sess-multi-A', 'architect');
+			const sessionA = ensureAgentSession('sess-multi-A');
+			sessionA.currentTaskId = '1.1';
+			sessionA.taskWorkflowStates.set('1.1', 'coder_delegated');
+
+			startAgentSession('sess-multi-B', 'architect');
+			const sessionB = ensureAgentSession('sess-multi-B');
+			sessionB.currentTaskId = '1.2';
+			sessionB.taskWorkflowStates.set('1.2', 'coder_delegated');
+
+			const warnings: string[] = [];
+			const origWarn = console.warn;
+			console.warn = (...args: unknown[]) => {
+				warnings.push(args.map(String).join(' '));
+			};
+
+			try {
+				// Session A reviewer: triggers disagreement check.
+				await hook.toolAfter(
+					{
+						tool: 'Task',
+						sessionID: 'sess-multi-A',
+						callID: 'call-multi-A-rev',
+						args: { subagent_type: 'reviewer' },
+					},
+					{},
+				);
+				// Session B reviewer: should NOT emit a second disagreement warn.
+				await hook.toolAfter(
+					{
+						tool: 'Task',
+						sessionID: 'sess-multi-B',
+						callID: 'call-multi-B-rev',
+						args: { subagent_type: 'reviewer' },
+					},
+					{},
+				);
+			} finally {
+				console.warn = origWarn;
+			}
+
+			// Disagreement: both sessions fell back to Stage B (council disabled).
+			expect(getTaskState(sessionA, '1.1')).toBe('reviewer_run');
+			expect(getTaskState(sessionB, '1.2')).toBe('reviewer_run');
+
+			// Warn-once: the disagreement notice fires exactly once for the plan.
+			const mismatchWarns = warnings.filter((m) =>
+				m.includes('Council mode mismatch'),
+			);
+			expect(mismatchWarns.length).toBe(1);
+		});
+	});
+
 	describe('isCouncilGateActive: graceful fallback when plan.json missing', () => {
 		it('returns false (council not active) when plan.json is absent', async () => {
 			// Deliberately do NOT call writePlan() — no plan.json exists.

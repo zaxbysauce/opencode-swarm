@@ -25486,9 +25486,10 @@ async function isCouncilGateActive(directory, council) {
   try {
     profile = getProfile(directory, planId);
   } catch (err2) {
-    const code = err2?.code;
-    if (code && code !== "ENOENT" && code !== "SQLITE_CANTOPEN") {
-      console.warn(`[isCouncilGateActive] getProfile failed for plan ${planId}: ${code}. Treating council as inactive.`);
+    const msg = err2 instanceof Error ? err2.message : String(err2);
+    const isBenign = msg.includes("SQLITE_CANTOPEN") || msg.includes("ENOENT");
+    if (!isBenign) {
+      console.warn(`[isCouncilGateActive] getProfile threw unexpectedly for plan ${planId}: ${msg}. Treating council as inactive.`);
     }
     profile = null;
   }
