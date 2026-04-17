@@ -9,6 +9,7 @@ export type KnowledgeCategory =
 	| 'debugging'
 	| 'performance'
 	| 'integration'
+	| 'todo'
 	| 'other';
 
 export interface PhaseConfirmationRecord {
@@ -46,6 +47,8 @@ export interface KnowledgeEntryBase {
 	updated_at: string; // ISO 8601
 	hive_eligible?: boolean; // set true when ready for hive promotion
 	auto_generated?: boolean; // true if created without human review
+	phases_alive?: number; // monotonic phase counter, incremented at phase-wrap (excluding promoted & archived)
+	max_phases?: number; // per-entry TTL in phases, falls back to KnowledgeConfig.default_max_phases
 }
 
 export interface SwarmKnowledgeEntry extends KnowledgeEntryBase {
@@ -121,6 +124,12 @@ export interface KnowledgeConfig {
 	encounter_increment: number;
 	/** Weighted scoring: maximum encounter score cap. Default: 10.0 */
 	max_encounter_score: number;
+	/** Default N-phase TTL for knowledge entries. Default: 10 */
+	default_max_phases: number;
+	/** N-phase TTL for 'todo' category entries. Default: 3 */
+	todo_max_phases: number;
+	/** Enable age-based sweep of knowledge entries. Default: true */
+	sweep_enabled: boolean;
 }
 
 export interface MessageInfo {

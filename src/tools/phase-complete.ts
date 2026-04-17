@@ -24,7 +24,16 @@ import {
 import { createCuratorLLMDelegate } from '../hooks/curator-llm-factory.js';
 import { curateAndStoreSwarm } from '../hooks/knowledge-curator.js';
 import { updateRetrievalOutcome } from '../hooks/knowledge-reader.js';
-import type { KnowledgeConfig } from '../hooks/knowledge-types.js';
+import {
+	resolveHiveKnowledgePath,
+	resolveSwarmKnowledgePath,
+	sweepAgedEntries,
+	sweepStaleTodos,
+} from '../hooks/knowledge-store.js';
+import type {
+	KnowledgeConfig,
+	KnowledgeEntryBase,
+} from '../hooks/knowledge-types.js';
 import {
 	buildApprovedReceipt,
 	buildRejectedReceipt,
@@ -1062,6 +1071,46 @@ export async function executePhaseComplete(
 				contributorSession.lastPhaseCompletePhase = phase;
 				telemetry.phaseChanged(contributorSessionId, oldPhase ?? 0, phase);
 			}
+		}
+
+		// Knowledge decay sweep: runs on EVERY successful phase completion.
+		// Note: sweep fires regardless of drift-verifier (when no spec.md exists,
+		// drift is advisory-only and sweep still runs). Reuses the knowledgeConfig
+		// parsed earlier in this tool (see above near line 675).
+		try {
+			if (knowledgeConfig.sweep_enabled) {
+				const swarmPath = resolveSwarmKnowledgePath(dir);
+				await sweepAgedEntries<KnowledgeEntryBase>(
+					swarmPath,
+					knowledgeConfig.default_max_phases,
+				);
+				await sweepStaleTodos<KnowledgeEntryBase>(
+					swarmPath,
+					knowledgeConfig.todo_max_phases,
+				);
+
+				// Hive sweep. Directory lock in both sweep functions prevents concurrent
+				// appends from racing. Non-promoted hive entries may age N× faster under
+				// N concurrent projects, but this is acceptable: (a) hive entries are
+				// 100% promoted by design (hive-promoter.ts:436/511), and (b) non-promoted
+				// entries should age out anyway.
+				if (knowledgeConfig.hive_enabled) {
+					const hivePath = resolveHiveKnowledgePath();
+					await sweepAgedEntries<KnowledgeEntryBase>(
+						hivePath,
+						knowledgeConfig.default_max_phases,
+					);
+					await sweepStaleTodos<KnowledgeEntryBase>(
+						hivePath,
+						knowledgeConfig.todo_max_phases,
+					);
+				}
+			}
+		} catch (err) {
+			// Never block phase completion on a sweep failure. Log and continue.
+			warnings.push(
+				`Knowledge sweep failed for phase ${phase}: ${String(err)}`,
+			);
 		}
 
 		// Update plan.json phase status to complete via ledger-first savePlan

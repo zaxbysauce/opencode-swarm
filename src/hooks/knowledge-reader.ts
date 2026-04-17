@@ -359,8 +359,11 @@ export async function readMergedKnowledge(
 
 	// Step 3.5: Apply scope_filter — exclude entries whose scope doesn't match
 	const scopeFilter = config.scope_filter ?? ['global'];
-	const filtered = merged.filter((entry) =>
-		scopeFilter.some((pattern) => (entry.scope ?? 'global') === pattern),
+	// Also filter out archived entries (stale by age/decay)
+	const filtered = merged.filter(
+		(entry) =>
+			scopeFilter.some((pattern) => (entry.scope ?? 'global') === pattern) &&
+			entry.status !== 'archived',
 	);
 
 	// Step 4: Compute finalScore using three-tier weighted scoring

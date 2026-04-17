@@ -849,6 +849,12 @@ export const KnowledgeConfigSchema = z.object({
 	encounter_increment: z.number().min(0).max(1).default(0.1),
 	/** Weighted scoring: maximum encounter score cap */
 	max_encounter_score: z.number().min(1).max(20).default(10.0),
+	/** Default N-phase TTL for knowledge entries */
+	default_max_phases: z.number().int().positive().default(10),
+	/** N-phase TTL for 'todo' category entries */
+	todo_max_phases: z.number().int().positive().default(3),
+	/** Enable age-based sweep of stale knowledge entries */
+	sweep_enabled: z.boolean().default(true),
 });
 
 export type KnowledgeConfig = z.infer<typeof KnowledgeConfigSchema>;
