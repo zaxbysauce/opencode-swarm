@@ -6,11 +6,7 @@ import path from 'node:path';
 const isWindows = process.platform === 'win32';
 
 // Import the module under test
-import {
-	analyzeImpact,
-	buildImpactMap,
-	loadImpactMap,
-} from '../analyzer.js';
+import { analyzeImpact, buildImpactMap, loadImpactMap } from '../analyzer.js';
 
 describe('TestImpactAnalyzer', () => {
 	let tempDir: string;
