@@ -332,6 +332,20 @@ If you call @coder instead of @${swarmId}_coder, the call will FAIL or go to the
 		agents.push(applyOverrides(critic, swarmAgents, swarmPrefix));
 	}
 
+	// 5c-bis. Create Critic Hallucination Verifier
+	if (
+		!isAgentDisabled('critic_hallucination_verifier', swarmAgents, swarmPrefix)
+	) {
+		const critic = createCriticAgent(
+			swarmAgents?.critic_hallucination_verifier?.model ?? getModel('critic'),
+			undefined,
+			undefined,
+			'hallucination_verifier' as CriticRole,
+		);
+		critic.name = prefixName('critic_hallucination_verifier');
+		agents.push(applyOverrides(critic, swarmAgents, swarmPrefix));
+	}
+
 	// 5d. Create Critic Autonomous Oversight
 	if (!isAgentDisabled('critic_oversight', swarmAgents, swarmPrefix)) {
 		const critic = createCriticAutonomousOversightAgent(

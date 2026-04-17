@@ -243,14 +243,22 @@ export function computeProfileHash(profile: QaGateProfile): string {
  *
  * IMPORTANT — caller responsibility: this function is the *computation*
  * of effective gates, not an enforcement point. Enforcement consumers
- * (reviewer dispatch, SAST runner, council convene paths, etc.) must
- * call this at their own check sites, passing the current profile from
- * `getProfile` and the agent session's `qaGateSessionOverrides ?? {}`.
+ * must call this at their own check sites, passing the current profile
+ * from `getProfile` and the agent session's `qaGateSessionOverrides ?? {}`.
  * Reading raw `profile.gates` directly from an enforcement site will
- * silently ignore operator-applied session overrides. Session overrides
- * are currently surfaced via `/swarm qa-gates show`; wiring additional
- * enforcement consumers is tracked as follow-up work and does not affect
- * spec-level gate correctness on the approved-plan path.
+ * silently ignore operator-applied session overrides.
+ *
+ * Active enforcement consumers (keep this list in sync when wiring new gates):
+ * - reviewer / test_engineer — src/hooks/delegation-gate.ts (Stage B state
+ *   machine; blocks coder→next-coder advancement until reviewer + test_engineer
+ *   delegations observed).
+ * - council_mode — src/state.ts isCouncilGateActive + src/hooks/delegation-gate.ts
+ *   (Stage B replaced by convene_council verdict).
+ * - sme_enabled — consumed during MODE: BRAINSTORM/SPECIFY architect dialogue.
+ * - critic_pre_plan — consumed by MODE: PLAN critic delegation before save_plan.
+ * - sast_enabled — consumed inside pre_check_batch tool.
+ * - hallucination_guard — src/tools/phase-complete.ts Gate 3 (blocks phase_complete
+ *   until .swarm/evidence/{phase}/hallucination-guard.json has APPROVED verdict).
  *
  * Session overrides are intentionally ephemeral — they live only in
  * in-memory `AgentSessionState.qaGateSessionOverrides` and are NOT

@@ -333,6 +333,7 @@ describe('tool-names-fix adversarial attacks', () => {
 				'lint_spec',
 				'write_retro',
 				'write_drift_evidence',
+				'write_hallucination_evidence',
 				'declare_scope',
 				'knowledge_query',
 				'doc_scan',
@@ -363,8 +364,8 @@ describe('tool-names-fix adversarial attacks', () => {
 	 * This is actually GOOD behavior (forces test updates) but we verify it.
 	 */
 	describe('attack: hardcoded count fragility', () => {
-		test('TOOL_NAMES length should be exactly 51', () => {
-			expect(TOOL_NAMES.length).toBe(53);
+		test('TOOL_NAMES length should be exactly 54', () => {
+			expect(TOOL_NAMES.length).toBe(54);
 		});
 
 		test('TOOL_NAME_SET size should match array length', () => {
@@ -410,6 +411,7 @@ describe('tool-names-fix adversarial attacks', () => {
 				'lint_spec',
 				'write_retro',
 				'write_drift_evidence',
+				'write_hallucination_evidence',
 				'declare_scope',
 				'knowledge_query',
 				'doc_scan',
@@ -429,10 +431,10 @@ describe('tool-names-fix adversarial attacks', () => {
 				'set_qa_gates',
 			]);
 
-			// All three should agree
-			expect(TOOL_NAMES.length).toBe(53);
-			expect(TOOL_NAME_SET.size).toBe(53);
-			expect(expectedToolsSet.size).toBe(53);
+			// All four should agree
+			expect(TOOL_NAMES.length).toBe(54);
+			expect(TOOL_NAME_SET.size).toBe(54);
+			expect(expectedToolsSet.size).toBe(54);
 			expect(TOOL_NAMES.length).toBe(TOOL_NAME_SET.size);
 		});
 

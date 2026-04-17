@@ -18514,6 +18514,7 @@ var TOOL_NAMES = [
   "lint_spec",
   "write_retro",
   "write_drift_evidence",
+  "write_hallucination_evidence",
   "declare_scope",
   "knowledge_query",
   "doc_scan",
@@ -18544,6 +18545,7 @@ var ALL_SUBAGENT_NAMES = [
   "designer",
   "critic_sounding_board",
   "critic_drift_verifier",
+  "critic_hallucination_verifier",
   "curator_init",
   "curator_phase",
   ...QA_AGENTS,
@@ -18588,6 +18590,7 @@ var AGENT_TOOL_MAP = {
     "lint_spec",
     "write_retro",
     "write_drift_evidence",
+    "write_hallucination_evidence",
     "declare_scope",
     "sast_scan",
     "sbom_generate",
@@ -18713,6 +18716,19 @@ var AGENT_TOOL_MAP = {
     "knowledge_recall",
     "req_coverage",
     "get_approved_plan",
+    "repo_map"
+  ],
+  critic_hallucination_verifier: [
+    "complexity_hotspots",
+    "detect_domains",
+    "imports",
+    "retrieve_summary",
+    "symbols",
+    "batch_symbols",
+    "search",
+    "pkg_audit",
+    "knowledge_recall",
+    "req_coverage",
     "repo_map"
   ],
   critic_oversight: [
