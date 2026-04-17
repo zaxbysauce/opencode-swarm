@@ -4,10 +4,7 @@ import * as os from 'node:os';
 import * as path from 'node:path';
 
 import { closeAllProjectDbs } from '../../../src/db/project-db';
-import {
-	getOrCreateProfile,
-	setGates,
-} from '../../../src/db/qa-gate-profile';
+import { getOrCreateProfile, setGates } from '../../../src/db/qa-gate-profile';
 import {
 	ensureAgentSession,
 	recordPhaseAgentDispatch,

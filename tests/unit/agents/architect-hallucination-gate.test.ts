@@ -81,7 +81,9 @@ describe('Architect prompt: hallucination_guard gate enforcement', () => {
 			const step56Text =
 				pos6 > pos56 ? section.slice(pos56, pos6) : section.slice(pos56);
 			// Should mention that it's only required when gate is enabled
-			expect(step56Text.toLowerCase()).toMatch(/only required|when.*hallucination_guard.*enabled/);
+			expect(step56Text.toLowerCase()).toMatch(
+				/only required|when.*hallucination_guard.*enabled/,
+			);
 		});
 	});
 

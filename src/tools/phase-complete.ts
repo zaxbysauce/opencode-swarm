@@ -16,6 +16,7 @@ import {
 	PhaseCompleteConfigSchema,
 	stripKnownSwarmPrefix,
 } from '../config/schema';
+import { getEffectiveGates, getProfile } from '../db/qa-gate-profile.js';
 import { listEvidenceTaskIds, loadEvidence } from '../evidence/manager';
 import {
 	applyCuratorKnowledgeUpdates,
@@ -47,10 +48,6 @@ import {
 	replayFromLedger,
 	takeSnapshotEvent,
 } from '../plan/ledger';
-import {
-	getEffectiveGates,
-	getProfile,
-} from '../db/qa-gate-profile.js';
 import { loadPlan, savePlan } from '../plan/manager';
 import { flushPendingSnapshot } from '../session/snapshot-writer';
 import { ensureAgentSession, hasActiveTurboMode, swarmState } from '../state';
