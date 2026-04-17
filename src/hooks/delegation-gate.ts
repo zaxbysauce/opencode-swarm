@@ -663,6 +663,9 @@ export function createDelegationGateHook(
 					`[delegation-gate] toolAfter convene_council: failed to parse output: ${err instanceof Error ? err.message : String(err)}`,
 				);
 			}
+			// Return early — gate-evidence recording (inside the Task branch below)
+			// does not apply to convene_council: it is a synthesis tool, not a gate
+			// delegation, and 'convene_council' is not in the gateAgents list.
 			return;
 		}
 
