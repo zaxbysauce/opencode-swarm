@@ -17338,12 +17338,12 @@ var require_adapter = __commonJS((exports, module) => {
     return newFs;
   }
   function toPromise(method) {
-    return (...args) => new Promise((resolve4, reject) => {
+    return (...args) => new Promise((resolve5, reject) => {
       args.push((err, result) => {
         if (err) {
           reject(err);
         } else {
-          resolve4(result);
+          resolve5(result);
         }
       });
       method(...args);
@@ -19489,6 +19489,199 @@ init_manager2();
 // src/state.ts
 init_plan_schema();
 
+// src/db/qa-gate-profile.ts
+import { createHash as createHash3 } from "crypto";
+
+// src/db/project-db.ts
+import { Database } from "bun:sqlite";
+import { existsSync as existsSync4, mkdirSync as mkdirSync3 } from "fs";
+import { join as join6, resolve as resolve4 } from "path";
+var MIGRATIONS = [
+  {
+    version: 1,
+    name: "create_project_constraints",
+    sql: `CREATE TABLE project_constraints (
+			id INTEGER PRIMARY KEY AUTOINCREMENT,
+			constraint_type TEXT NOT NULL,
+			content TEXT NOT NULL,
+			created_at TEXT NOT NULL DEFAULT (datetime('now'))
+		)`
+  },
+  {
+    version: 2,
+    name: "create_qa_gate_profile",
+    sql: `CREATE TABLE qa_gate_profile (
+			id INTEGER PRIMARY KEY AUTOINCREMENT,
+			plan_id TEXT NOT NULL UNIQUE,
+			created_at TEXT NOT NULL DEFAULT (datetime('now')),
+			project_type TEXT,
+			gates TEXT NOT NULL DEFAULT '{}',
+			locked_at TEXT,
+			locked_by_snapshot_seq INTEGER
+		)`
+  },
+  {
+    version: 3,
+    name: "create_qa_gate_profile_immutability_trigger",
+    sql: `CREATE TRIGGER IF NOT EXISTS trg_qa_gate_profile_no_update_after_lock
+			BEFORE UPDATE ON qa_gate_profile
+			WHEN OLD.locked_at IS NOT NULL
+			BEGIN
+				SELECT RAISE(ABORT, 'qa_gate_profile row is locked and cannot be modified after critic approval');
+			END`
+  }
+];
+var _projectDbs = new Map;
+function runProjectMigrations(db) {
+  db.run(`CREATE TABLE IF NOT EXISTS schema_migrations (
+		version INTEGER PRIMARY KEY,
+		name TEXT NOT NULL,
+		applied_at TEXT NOT NULL DEFAULT (datetime('now'))
+	)`);
+  const row = db.query("SELECT MAX(version) as version FROM schema_migrations").get();
+  const currentVersion = row?.version ?? 0;
+  for (const migration of MIGRATIONS) {
+    if (migration.version <= currentVersion)
+      continue;
+    const apply = db.transaction(() => {
+      db.run(migration.sql);
+      db.run("INSERT INTO schema_migrations (version, name) VALUES (?, ?)", [
+        migration.version,
+        migration.name
+      ]);
+    });
+    apply();
+  }
+}
+function projectDbPath(directory) {
+  return join6(resolve4(directory), ".swarm", "swarm.db");
+}
+function projectDbExists(directory) {
+  return existsSync4(projectDbPath(directory));
+}
+function getProjectDb(directory) {
+  const key = resolve4(directory);
+  const existing = _projectDbs.get(key);
+  if (existing)
+    return existing;
+  const swarmDir = join6(key, ".swarm");
+  mkdirSync3(swarmDir, { recursive: true });
+  const db = new Database(join6(swarmDir, "swarm.db"));
+  db.run("PRAGMA journal_mode = WAL;");
+  db.run("PRAGMA synchronous = NORMAL;");
+  db.run("PRAGMA busy_timeout = 5000;");
+  db.run("PRAGMA foreign_keys = ON;");
+  runProjectMigrations(db);
+  _projectDbs.set(key, db);
+  return db;
+}
+
+// src/db/qa-gate-profile.ts
+var DEFAULT_QA_GATES = {
+  reviewer: true,
+  test_engineer: true,
+  council_mode: false,
+  sme_enabled: true,
+  critic_pre_plan: true,
+  hallucination_guard: false,
+  sast_enabled: true
+};
+function rowToProfile(row) {
+  let parsed = {};
+  try {
+    parsed = JSON.parse(row.gates);
+  } catch {
+    parsed = {};
+  }
+  const gates = { ...DEFAULT_QA_GATES, ...parsed };
+  return {
+    id: row.id,
+    plan_id: row.plan_id,
+    created_at: row.created_at,
+    project_type: row.project_type,
+    gates,
+    locked_at: row.locked_at,
+    locked_by_snapshot_seq: row.locked_by_snapshot_seq
+  };
+}
+function getProfile(directory, planId) {
+  if (!projectDbExists(directory))
+    return null;
+  const db = getProjectDb(directory);
+  const row = db.query("SELECT * FROM qa_gate_profile WHERE plan_id = ?").get(planId);
+  return row ? rowToProfile(row) : null;
+}
+function getOrCreateProfile(directory, planId, projectType) {
+  const existing = getProfile(directory, planId);
+  if (existing)
+    return existing;
+  const db = getProjectDb(directory);
+  const gatesJson = JSON.stringify(DEFAULT_QA_GATES);
+  const insert = db.transaction(() => {
+    db.run("INSERT INTO qa_gate_profile (plan_id, project_type, gates) VALUES (?, ?, ?)", [planId, projectType ?? null, gatesJson]);
+  });
+  try {
+    insert();
+  } catch (err) {
+    const msg = err instanceof Error ? err.message : String(err);
+    if (!msg.toLowerCase().includes("unique")) {
+      throw err;
+    }
+  }
+  const after = getProfile(directory, planId);
+  if (!after) {
+    throw new Error(`Failed to create or load QA gate profile for plan_id=${planId}`);
+  }
+  return after;
+}
+function setGates(directory, planId, gates) {
+  const current = getProfile(directory, planId);
+  if (!current) {
+    throw new Error(`No QA gate profile found for plan_id=${planId} \u2014 call getOrCreateProfile first`);
+  }
+  if (current.locked_at !== null) {
+    throw new Error("Cannot modify gates: QA gate profile is locked after critic approval");
+  }
+  const merged = { ...current.gates };
+  for (const key of Object.keys(gates)) {
+    const incoming = gates[key];
+    if (incoming === undefined)
+      continue;
+    if (incoming === false && current.gates[key] === true) {
+      throw new Error(`Cannot disable gate '${key}': sessions can only ratchet tighter`);
+    }
+    if (incoming === true) {
+      merged[key] = true;
+    }
+  }
+  const db = getProjectDb(directory);
+  db.run("UPDATE qa_gate_profile SET gates = ? WHERE plan_id = ?", [
+    JSON.stringify(merged),
+    planId
+  ]);
+  const updated = getProfile(directory, planId);
+  if (!updated) {
+    throw new Error(`Failed to re-read QA gate profile after update for plan_id=${planId}`);
+  }
+  return updated;
+}
+function computeProfileHash(profile) {
+  const payload = JSON.stringify({
+    plan_id: profile.plan_id,
+    gates: profile.gates
+  });
+  return createHash3("sha256").update(payload).digest("hex");
+}
+function getEffectiveGates(profile, sessionOverrides) {
+  const merged = { ...profile.gates };
+  for (const key of Object.keys(sessionOverrides)) {
+    if (sessionOverrides[key] === true) {
+      merged[key] = true;
+    }
+  }
+  return merged;
+}
+
 // src/hooks/delegation-gate.ts
 init_telemetry();
 
@@ -19942,8 +20135,10 @@ function clearPendingCoderScope() {
 }
 
 // src/state.ts
+init_manager();
 init_telemetry();
 var _rehydrationCache = null;
+var _councilDisagreementWarned = new Set;
 var swarmState = {
   activeToolCalls: new Map,
   toolAggregates: new Map,
@@ -19975,6 +20170,7 @@ function resetSwarmState() {
   swarmState.fullAutoEnabledInConfig = false;
   swarmState.environmentProfiles.clear();
   clearPendingCoderScope();
+  _councilDisagreementWarned.clear();
 }
 function getAgentSession(sessionId) {
   return swarmState.agentSessions.get(sessionId);
@@ -33150,7 +33346,7 @@ function hasUncommittedChanges(cwd) {
 
 // src/hooks/knowledge-store.ts
 var import_proper_lockfile2 = __toESM(require_proper_lockfile(), 1);
-import { existsSync as existsSync5 } from "fs";
+import { existsSync as existsSync6 } from "fs";
 import { appendFile as appendFile2, mkdir, readFile as readFile2, writeFile as writeFile2 } from "fs/promises";
 import * as os2 from "os";
 import * as path8 from "path";
@@ -33178,7 +33374,7 @@ function resolveHiveRejectedPath() {
   return path8.join(path8.dirname(hivePath), "shared-learnings-rejected.jsonl");
 }
 async function readKnowledge(filePath) {
-  if (!existsSync5(filePath))
+  if (!existsSync6(filePath))
     return [];
   const content = await readFile2(filePath, "utf-8");
   const results = [];
@@ -33811,7 +34007,7 @@ async function writeCheckpoint(directory) {
 
 // src/session/snapshot-writer.ts
 init_utils2();
-import { mkdirSync as mkdirSync5, renameSync as renameSync5 } from "fs";
+import { mkdirSync as mkdirSync6, renameSync as renameSync5 } from "fs";
 import * as path11 from "path";
 init_utils();
 var _writeInFlight = Promise.resolve();
@@ -33904,7 +34100,7 @@ async function writeSnapshot(directory, state) {
     const content = JSON.stringify(snapshot, null, 2);
     const resolvedPath = validateSwarmPath(directory, "session/state.json");
     const dir = path11.dirname(resolvedPath);
-    mkdirSync5(dir, { recursive: true });
+    mkdirSync6(dir, { recursive: true });
     const tempPath = `${resolvedPath}.tmp.${Date.now()}.${Math.random().toString(36).slice(2)}`;
     await Bun.write(tempPath, content);
     renameSync5(tempPath, resolvedPath);
@@ -35402,7 +35598,7 @@ async function handleDarkMatterCommand(directory, args) {
 
 // src/services/diagnose-service.ts
 import * as child_process4 from "child_process";
-import { existsSync as existsSync6, readdirSync as readdirSync3, readFileSync as readFileSync6, statSync as statSync4 } from "fs";
+import { existsSync as existsSync7, readdirSync as readdirSync3, readFileSync as readFileSync6, statSync as statSync4 } from "fs";
 import path16 from "path";
 import { fileURLToPath } from "url";
 init_manager2();
@@ -35639,7 +35835,7 @@ async function checkConfigBackups(directory) {
 }
 async function checkGitRepository(directory) {
   try {
-    if (!existsSync6(directory) || !statSync4(directory).isDirectory()) {
+    if (!existsSync7(directory) || !statSync4(directory).isDirectory()) {
       return {
         name: "Git Repository",
         status: "\u274C",
@@ -35704,7 +35900,7 @@ async function checkSpecStaleness(directory, plan) {
 }
 async function checkConfigParseability(directory) {
   const configPath = path16.join(directory, ".opencode/opencode-swarm.json");
-  if (!existsSync6(configPath)) {
+  if (!existsSync7(configPath)) {
     return {
       name: "Config Parseability",
       status: "\u2705",
@@ -35754,11 +35950,11 @@ async function checkGrammarWasmFiles() {
   const isSource = thisDir.replace(/\\/g, "/").endsWith("/src/services");
   const grammarDir = isSource ? path16.join(thisDir, "..", "lang", "grammars") : path16.join(thisDir, "lang", "grammars");
   const missing = [];
-  if (!existsSync6(path16.join(grammarDir, "tree-sitter.wasm"))) {
+  if (!existsSync7(path16.join(grammarDir, "tree-sitter.wasm"))) {
     missing.push("tree-sitter.wasm (core runtime)");
   }
   for (const file3 of grammarFiles) {
-    if (!existsSync6(path16.join(grammarDir, file3))) {
+    if (!existsSync7(path16.join(grammarDir, file3))) {
       missing.push(file3);
     }
   }
@@ -35777,7 +35973,7 @@ async function checkGrammarWasmFiles() {
 }
 async function checkCheckpointManifest(directory) {
   const manifestPath = path16.join(directory, ".swarm/checkpoints.json");
-  if (!existsSync6(manifestPath)) {
+  if (!existsSync7(manifestPath)) {
     return {
       name: "Checkpoint Manifest",
       status: "\u2705",
@@ -35829,7 +36025,7 @@ async function checkCheckpointManifest(directory) {
 }
 async function checkEventStreamIntegrity(directory) {
   const eventsPath = path16.join(directory, ".swarm/events.jsonl");
-  if (!existsSync6(eventsPath)) {
+  if (!existsSync7(eventsPath)) {
     return {
       name: "Event Stream",
       status: "\u2705",
@@ -35870,7 +36066,7 @@ async function checkEventStreamIntegrity(directory) {
 }
 async function checkSteeringDirectives(directory) {
   const eventsPath = path16.join(directory, ".swarm/events.jsonl");
-  if (!existsSync6(eventsPath)) {
+  if (!existsSync7(eventsPath)) {
     return {
       name: "Steering Directives",
       status: "\u2705",
@@ -35926,7 +36122,7 @@ async function checkCurator(directory) {
       };
     }
     const summaryPath = path16.join(directory, ".swarm/curator-summary.json");
-    if (!existsSync6(summaryPath)) {
+    if (!existsSync7(summaryPath)) {
       return {
         name: "Curator",
         status: "\u2705",
@@ -36074,7 +36270,7 @@ async function getDiagnoseData(directory) {
   checks5.push(await checkCurator(directory));
   try {
     const evidenceDir = path16.join(directory, ".swarm", "evidence");
-    const snapshotFiles = existsSync6(evidenceDir) ? readdirSync3(evidenceDir).filter((f) => f.startsWith("agent-tools-") && f.endsWith(".json")) : [];
+    const snapshotFiles = existsSync7(evidenceDir) ? readdirSync3(evidenceDir).filter((f) => f.startsWith("agent-tools-") && f.endsWith(".json")) : [];
     if (snapshotFiles.length > 0) {
       const latest = snapshotFiles.sort().pop();
       checks5.push({
@@ -36134,7 +36330,7 @@ import * as path18 from "path";
 
 // src/lang/detector.ts
 import { access as access2, readdir as readdir2 } from "fs/promises";
-import { extname as extname2, join as join14 } from "path";
+import { extname as extname2, join as join15 } from "path";
 
 // src/lang/profiles.ts
 class LanguageRegistry {
@@ -37114,7 +37310,7 @@ async function detectProjectLanguages(projectDir) {
         if (detectFile.includes("*") || detectFile.includes("?"))
           continue;
         try {
-          await access2(join14(dir, detectFile));
+          await access2(join15(dir, detectFile));
           detected.add(profile.id);
           break;
         } catch {}
@@ -37135,7 +37331,7 @@ async function detectProjectLanguages(projectDir) {
     const topEntries = await readdir2(projectDir, { withFileTypes: true });
     for (const entry of topEntries) {
       if (entry.isDirectory() && !entry.name.startsWith(".") && entry.name !== "node_modules") {
-        await scanDir(join14(projectDir, entry.name));
+        await scanDir(join15(projectDir, entry.name));
       }
     }
   } catch {}
@@ -38471,14 +38667,14 @@ async function handleHistoryCommand(directory, _args) {
 }
 // src/hooks/knowledge-migrator.ts
 import { randomUUID as randomUUID2 } from "crypto";
-import { existsSync as existsSync10, readFileSync as readFileSync10 } from "fs";
+import { existsSync as existsSync11, readFileSync as readFileSync10 } from "fs";
 import { mkdir as mkdir3, readFile as readFile4, writeFile as writeFile4 } from "fs/promises";
 import * as path20 from "path";
 async function migrateContextToKnowledge(directory, config3) {
   const sentinelPath = path20.join(directory, ".swarm", ".knowledge-migrated");
   const contextPath = path20.join(directory, ".swarm", "context.md");
   const knowledgePath = resolveSwarmKnowledgePath(directory);
-  if (existsSync10(sentinelPath)) {
+  if (existsSync11(sentinelPath)) {
     return {
       migrated: false,
       entriesMigrated: 0,
@@ -38487,7 +38683,7 @@ async function migrateContextToKnowledge(directory, config3) {
       skippedReason: "sentinel-exists"
     };
   }
-  if (!existsSync10(contextPath)) {
+  if (!existsSync11(contextPath)) {
     return {
       migrated: false,
       entriesMigrated: 0,
@@ -38673,7 +38869,7 @@ function truncateLesson(text) {
 }
 function inferProjectName(directory) {
   const packageJsonPath = path20.join(directory, "package.json");
-  if (existsSync10(packageJsonPath)) {
+  if (existsSync11(packageJsonPath)) {
     try {
       const pkg = JSON.parse(readFileSync10(packageJsonPath, "utf-8"));
       if (pkg.name && typeof pkg.name === "string") {
@@ -39181,7 +39377,7 @@ async function _detectAvailableLinter(_projectDir, biomeBin, eslintBin) {
       stderr: "pipe"
     });
     const biomeExit = biomeProc.exited;
-    const timeout = new Promise((resolve7) => setTimeout(() => resolve7("timeout"), DETECT_TIMEOUT));
+    const timeout = new Promise((resolve8) => setTimeout(() => resolve8("timeout"), DETECT_TIMEOUT));
     const result = await Promise.race([biomeExit, timeout]);
     if (result === "timeout") {
       biomeProc.kill();
@@ -39195,7 +39391,7 @@ async function _detectAvailableLinter(_projectDir, biomeBin, eslintBin) {
       stderr: "pipe"
     });
     const eslintExit = eslintProc.exited;
-    const timeout = new Promise((resolve7) => setTimeout(() => resolve7("timeout"), DETECT_TIMEOUT));
+    const timeout = new Promise((resolve8) => setTimeout(() => resolve8("timeout"), DETECT_TIMEOUT));
     const result = await Promise.race([eslintExit, timeout]);
     if (result === "timeout") {
       eslintProc.kill();
@@ -40584,15 +40780,15 @@ function appendTestRun(record3, workingDir) {
   prunedRecords.sort((a, b) => new Date(a.timestamp).getTime() - new Date(b.timestamp).getTime());
   try {
     const lines = prunedRecords.map((rec) => JSON.stringify(rec));
-    const content = lines.join(`
-`) + `
+    const content = `${lines.join(`
+`)}
 `;
-    const tempPath = historyPath + ".tmp";
+    const tempPath = `${historyPath}.tmp`;
     fs14.writeFileSync(tempPath, content, "utf-8");
     fs14.renameSync(tempPath, historyPath);
   } catch (err) {
     try {
-      const tempPath = historyPath + ".tmp";
+      const tempPath = `${historyPath}.tmp`;
       if (fs14.existsSync(tempPath)) {
         fs14.unlinkSync(tempPath);
       }
@@ -41414,9 +41610,9 @@ async function runTests(framework, scope, files, coverage, timeout_ms, cwd) {
       stderr: "pipe",
       cwd
     });
-    const timeoutPromise = new Promise((resolve10) => setTimeout(() => {
+    const timeoutPromise = new Promise((resolve11) => setTimeout(() => {
       proc.kill();
-      resolve10(-1);
+      resolve11(-1);
     }, timeout_ms));
     const [exitCode, stdoutResult, stderrResult] = await Promise.all([
       Promise.race([proc.exited, timeoutPromise]),
@@ -42643,199 +42839,6 @@ async function handlePromoteCommand(directory, args) {
     }
     return `Failed to promote lesson: ${error93 instanceof Error ? error93.message : String(error93)}`;
   }
-}
-
-// src/db/qa-gate-profile.ts
-import { createHash as createHash4 } from "crypto";
-
-// src/db/project-db.ts
-import { Database } from "bun:sqlite";
-import { existsSync as existsSync16, mkdirSync as mkdirSync8 } from "fs";
-import { join as join23, resolve as resolve11 } from "path";
-var MIGRATIONS = [
-  {
-    version: 1,
-    name: "create_project_constraints",
-    sql: `CREATE TABLE project_constraints (
-			id INTEGER PRIMARY KEY AUTOINCREMENT,
-			constraint_type TEXT NOT NULL,
-			content TEXT NOT NULL,
-			created_at TEXT NOT NULL DEFAULT (datetime('now'))
-		)`
-  },
-  {
-    version: 2,
-    name: "create_qa_gate_profile",
-    sql: `CREATE TABLE qa_gate_profile (
-			id INTEGER PRIMARY KEY AUTOINCREMENT,
-			plan_id TEXT NOT NULL UNIQUE,
-			created_at TEXT NOT NULL DEFAULT (datetime('now')),
-			project_type TEXT,
-			gates TEXT NOT NULL DEFAULT '{}',
-			locked_at TEXT,
-			locked_by_snapshot_seq INTEGER
-		)`
-  },
-  {
-    version: 3,
-    name: "create_qa_gate_profile_immutability_trigger",
-    sql: `CREATE TRIGGER IF NOT EXISTS trg_qa_gate_profile_no_update_after_lock
-			BEFORE UPDATE ON qa_gate_profile
-			WHEN OLD.locked_at IS NOT NULL
-			BEGIN
-				SELECT RAISE(ABORT, 'qa_gate_profile row is locked and cannot be modified after critic approval');
-			END`
-  }
-];
-var _projectDbs = new Map;
-function runProjectMigrations(db) {
-  db.run(`CREATE TABLE IF NOT EXISTS schema_migrations (
-		version INTEGER PRIMARY KEY,
-		name TEXT NOT NULL,
-		applied_at TEXT NOT NULL DEFAULT (datetime('now'))
-	)`);
-  const row = db.query("SELECT MAX(version) as version FROM schema_migrations").get();
-  const currentVersion = row?.version ?? 0;
-  for (const migration of MIGRATIONS) {
-    if (migration.version <= currentVersion)
-      continue;
-    const apply = db.transaction(() => {
-      db.run(migration.sql);
-      db.run("INSERT INTO schema_migrations (version, name) VALUES (?, ?)", [
-        migration.version,
-        migration.name
-      ]);
-    });
-    apply();
-  }
-}
-function projectDbPath(directory) {
-  return join23(resolve11(directory), ".swarm", "swarm.db");
-}
-function projectDbExists(directory) {
-  return existsSync16(projectDbPath(directory));
-}
-function getProjectDb(directory) {
-  const key = resolve11(directory);
-  const existing = _projectDbs.get(key);
-  if (existing)
-    return existing;
-  const swarmDir = join23(key, ".swarm");
-  mkdirSync8(swarmDir, { recursive: true });
-  const db = new Database(join23(swarmDir, "swarm.db"));
-  db.run("PRAGMA journal_mode = WAL;");
-  db.run("PRAGMA synchronous = NORMAL;");
-  db.run("PRAGMA busy_timeout = 5000;");
-  db.run("PRAGMA foreign_keys = ON;");
-  runProjectMigrations(db);
-  _projectDbs.set(key, db);
-  return db;
-}
-
-// src/db/qa-gate-profile.ts
-var DEFAULT_QA_GATES = {
-  reviewer: true,
-  test_engineer: true,
-  council_mode: false,
-  sme_enabled: true,
-  critic_pre_plan: true,
-  hallucination_guard: false,
-  sast_enabled: true
-};
-function rowToProfile(row) {
-  let parsed = {};
-  try {
-    parsed = JSON.parse(row.gates);
-  } catch {
-    parsed = {};
-  }
-  const gates = { ...DEFAULT_QA_GATES, ...parsed };
-  return {
-    id: row.id,
-    plan_id: row.plan_id,
-    created_at: row.created_at,
-    project_type: row.project_type,
-    gates,
-    locked_at: row.locked_at,
-    locked_by_snapshot_seq: row.locked_by_snapshot_seq
-  };
-}
-function getProfile(directory, planId) {
-  if (!projectDbExists(directory))
-    return null;
-  const db = getProjectDb(directory);
-  const row = db.query("SELECT * FROM qa_gate_profile WHERE plan_id = ?").get(planId);
-  return row ? rowToProfile(row) : null;
-}
-function getOrCreateProfile(directory, planId, projectType) {
-  const existing = getProfile(directory, planId);
-  if (existing)
-    return existing;
-  const db = getProjectDb(directory);
-  const gatesJson = JSON.stringify(DEFAULT_QA_GATES);
-  const insert = db.transaction(() => {
-    db.run("INSERT INTO qa_gate_profile (plan_id, project_type, gates) VALUES (?, ?, ?)", [planId, projectType ?? null, gatesJson]);
-  });
-  try {
-    insert();
-  } catch (err) {
-    const msg = err instanceof Error ? err.message : String(err);
-    if (!msg.toLowerCase().includes("unique")) {
-      throw err;
-    }
-  }
-  const after = getProfile(directory, planId);
-  if (!after) {
-    throw new Error(`Failed to create or load QA gate profile for plan_id=${planId}`);
-  }
-  return after;
-}
-function setGates(directory, planId, gates) {
-  const current = getProfile(directory, planId);
-  if (!current) {
-    throw new Error(`No QA gate profile found for plan_id=${planId} \u2014 call getOrCreateProfile first`);
-  }
-  if (current.locked_at !== null) {
-    throw new Error("Cannot modify gates: QA gate profile is locked after critic approval");
-  }
-  const merged = { ...current.gates };
-  for (const key of Object.keys(gates)) {
-    const incoming = gates[key];
-    if (incoming === undefined)
-      continue;
-    if (incoming === false && current.gates[key] === true) {
-      throw new Error(`Cannot disable gate '${key}': sessions can only ratchet tighter`);
-    }
-    if (incoming === true) {
-      merged[key] = true;
-    }
-  }
-  const db = getProjectDb(directory);
-  db.run("UPDATE qa_gate_profile SET gates = ? WHERE plan_id = ?", [
-    JSON.stringify(merged),
-    planId
-  ]);
-  const updated = getProfile(directory, planId);
-  if (!updated) {
-    throw new Error(`Failed to re-read QA gate profile after update for plan_id=${planId}`);
-  }
-  return updated;
-}
-function computeProfileHash(profile) {
-  const payload = JSON.stringify({
-    plan_id: profile.plan_id,
-    gates: profile.gates
-  });
-  return createHash4("sha256").update(payload).digest("hex");
-}
-function getEffectiveGates(profile, sessionOverrides) {
-  const merged = { ...profile.gates };
-  for (const key of Object.keys(sessionOverrides)) {
-    if (sessionOverrides[key] === true) {
-      merged[key] = true;
-    }
-  }
-  return merged;
 }
 
 // src/commands/qa-gates.ts
