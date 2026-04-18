@@ -65748,6 +65748,7 @@ function validateConcurrency(concurrency) {
 }
 
 // src/graph/import-extractor.ts
+init_path_security();
 import * as fs40 from "fs";
 import * as path53 from "path";
 var SOURCE_EXTENSIONS2 = [
@@ -66260,6 +66261,8 @@ function extractImports2(opts) {
   const sourceRel = toRelForwardSlash(absoluteFilePath, workspaceRoot);
   const edges = [];
   for (const p of parsed) {
+    if (containsControlChars(p.rawModule))
+      continue;
     let resolvedAbs = null;
     if (language === "typescript" || language === "javascript") {
       resolvedAbs = tryResolveTSJS(p.rawModule, absoluteFilePath);

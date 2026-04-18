@@ -1,5 +1,6 @@
 import * as fs from 'node:fs';
 import * as path from 'node:path';
+import { containsControlChars } from '../utils/path-security';
 import type { ImportEdge, ImportType } from './types';
 
 /**
@@ -691,6 +692,12 @@ export function extractImports(opts: ExtractImportsOptions): ImportEdge[] {
 	const edges: ImportEdge[] = [];
 
 	for (const p of parsed) {
+		// Belt-and-suspenders: skip any specifier that contains control characters
+		// (\0, \t, \r, \n). These can appear when binary or malformed files are
+		// scanned; allowing them through would corrupt the graph with dirty
+		// rawModule values — the same fix applied to src/tools/repo-graph.ts in #538.
+		if (containsControlChars(p.rawModule)) continue;
+
 		let resolvedAbs: string | null = null;
 		if (language === 'typescript' || language === 'javascript') {
 			resolvedAbs = tryResolveTSJS(p.rawModule, absoluteFilePath);
