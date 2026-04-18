@@ -1053,7 +1053,10 @@ export async function runPreCheckBatch(
 			// Populate reviewer triage with pre_existing_findings (if any), regardless of verdict.
 			// Use sast_threshold as triage filter so mediums are not silently dropped when
 			// threshold is 'medium' or lower.
-			if (sastResult.pre_existing_findings && sastResult.pre_existing_findings.length > 0) {
+			if (
+				sastResult.pre_existing_findings &&
+				sastResult.pre_existing_findings.length > 0
+			) {
 				sastPreexistingFindings = sastResult.pre_existing_findings.filter((f) =>
 					meetsThresholdForTriage(f.severity, sast_threshold),
 				);
