@@ -13,7 +13,6 @@
  *   (timeout path emits nothing extra; EvidenceLockTimeoutError is thrown instead)
  */
 
-import * as path from 'node:path';
 import { tryAcquireLock } from '../parallel/file-locks.js';
 import { emit } from '../telemetry.js';
 

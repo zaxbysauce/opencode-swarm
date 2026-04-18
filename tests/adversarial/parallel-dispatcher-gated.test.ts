@@ -13,9 +13,7 @@ import { describe, expect, test } from 'bun:test';
 describe('parallel-dispatcher — import safety', () => {
 	test('importing dispatcher types has no side effects', async () => {
 		// Dynamic import — if this throws or hangs, the module has side effects.
-		const types = await import(
-			'../../src/parallel/dispatcher/types.js'
-		);
+		const types = await import('../../src/parallel/dispatcher/types.js');
 		// The types module exports only type aliases; at runtime it has no values.
 		// Simply importing it must not throw.
 		expect(types).toBeDefined();
@@ -29,9 +27,7 @@ describe('parallel-dispatcher — import safety', () => {
 	});
 
 	test('importing dispatcher barrel has no side effects', async () => {
-		const barrel = await import(
-			'../../src/parallel/dispatcher/index.js'
-		);
+		const barrel = await import('../../src/parallel/dispatcher/index.js');
 		expect(typeof barrel.createNoopDispatcher).toBe('function');
 	});
 });

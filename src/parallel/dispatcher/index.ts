@@ -1,4 +1,7 @@
-export { createNoopDispatcher, type NoopDispatcher } from './noop-dispatcher.js';
+export {
+	createNoopDispatcher,
+	type NoopDispatcher,
+} from './noop-dispatcher.js';
 export type {
 	DispatchDecision,
 	DispatcherConfig,

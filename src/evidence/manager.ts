@@ -1,7 +1,6 @@
 import { mkdirSync, readdirSync, rmSync, statSync } from 'node:fs';
 import * as fs from 'node:fs/promises';
 import * as path from 'node:path';
-import { withEvidenceLock } from './lock.js';
 import { ZodError } from 'zod';
 import {
 	type BuildEvidence,
@@ -18,6 +17,7 @@ import {
 } from '../config/evidence-schema';
 import { readSwarmFileAsync, validateSwarmPath } from '../hooks/utils';
 import { warn } from '../utils';
+import { withEvidenceLock } from './lock.js';
 
 /**
  * Discriminated union returned by loadEvidence.

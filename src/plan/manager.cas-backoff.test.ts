@@ -8,15 +8,7 @@
  *   - verifyValid returning false causes early exit without error
  */
 
-import {
-	afterEach,
-	beforeEach,
-	describe,
-	expect,
-	mock,
-	spyOn,
-	test,
-} from 'bun:test';
+import { afterEach, beforeEach, describe, expect, mock, test } from 'bun:test';
 import * as fs from 'node:fs';
 import * as os from 'node:os';
 import * as path from 'node:path';
@@ -42,7 +34,6 @@ import { LedgerStaleWriterError } from './ledger';
 
 let appendLedgerEventCallCount = 0;
 let appendLedgerEventFailTimes = 0; // fail first N attempts
-let appendLedgerEventVerifyValid: (() => Promise<boolean>) | undefined;
 
 mock.module('./ledger', () => {
 	const real = require('./ledger');
@@ -57,7 +48,10 @@ mock.module('./ledger', () => {
 			if (appendLedgerEventCallCount <= appendLedgerEventFailTimes) {
 				throw new LedgerStaleWriterError('mock stale');
 			}
-			return { seq: appendLedgerEventCallCount, event_type: 'task_status_changed' };
+			return {
+				seq: appendLedgerEventCallCount,
+				event_type: 'task_status_changed',
+			};
 		},
 		computeCurrentPlanHash: () => 'aabbccdd1122334455667788',
 	};
@@ -71,7 +65,6 @@ beforeEach(() => {
 	emitCalls.length = 0;
 	appendLedgerEventCallCount = 0;
 	appendLedgerEventFailTimes = 0;
-	appendLedgerEventVerifyValid = undefined;
 });
 
 afterEach(() => {

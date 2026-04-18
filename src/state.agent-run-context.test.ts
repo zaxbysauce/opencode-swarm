@@ -22,7 +22,9 @@ describe('AgentRunContext — facade equivalence', () => {
 	});
 
 	test('swarmState.delegationChains is the same Map as defaultRunContext.delegationChains', () => {
-		expect(swarmState.delegationChains).toBe(defaultRunContext.delegationChains);
+		expect(swarmState.delegationChains).toBe(
+			defaultRunContext.delegationChains,
+		);
 	});
 
 	test('swarmState.agentSessions is the same Map as defaultRunContext.agentSessions', () => {
@@ -75,7 +77,7 @@ describe('AgentRunContext — process-global toolAggregates', () => {
 		expect(ctx.toolAggregates).toBe(sharedAgg);
 	});
 
-	test('two contexts sharing the same toolAggregates Map see each other\'s entries', () => {
+	test("two contexts sharing the same toolAggregates Map see each other's entries", () => {
 		const shared = new Map<string, unknown>();
 		const a = new AgentRunContext('run-d', shared);
 		const b = new AgentRunContext('run-e', shared);

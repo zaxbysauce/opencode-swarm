@@ -29,10 +29,10 @@ import {
 	type TaskStatus,
 } from '../config/plan-schema';
 import { readSwarmFileAsync } from '../hooks/utils';
+import { emit } from '../telemetry.js';
 import type { SpecStaleDetectedEvent } from '../types/events';
 import { warn } from '../utils';
 import { isSpecStale } from '../utils/spec-hash';
-import { emit } from '../telemetry.js';
 import {
 	appendLedgerEvent,
 	computeCurrentPlanHash,
@@ -102,10 +102,7 @@ export async function retryCasWithBackoff(
 				planHashAfter: options.planHashAfter,
 			});
 		} catch (error) {
-			if (
-				!(error instanceof LedgerStaleWriterError) ||
-				attempt >= maxRetries
-			) {
+			if (!(error instanceof LedgerStaleWriterError) || attempt >= maxRetries) {
 				throw error;
 			}
 			attempt++;
