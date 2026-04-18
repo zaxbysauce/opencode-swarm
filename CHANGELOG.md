@@ -1,5 +1,12 @@
 # Changelog
 
+## [6.75.0](https://github.com/zaxbysauce/opencode-swarm/compare/v6.74.1...v6.75.0) (2026-04-18)
+
+
+### Features
+
+* **parallel:** pr 1 — dark foundation for stacked parallelization ([#540](https://github.com/zaxbysauce/opencode-swarm/issues/540)) ([8fc1cdb](https://github.com/zaxbysauce/opencode-swarm/commit/8fc1cdbaabbc03677d199521049f0428bd326fcc))
+
 ## [6.74.1](https://github.com/zaxbysauce/opencode-swarm/compare/v6.74.0...v6.74.1) (2026-04-18)
 
 
