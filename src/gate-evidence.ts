@@ -135,35 +135,29 @@ export async function recordGateEvidence(
 	mkdirSync(evidenceDir, { recursive: true });
 
 	const lockRelPath = path.join('evidence', `${taskId}.json`);
-	await withEvidenceLock(
-		directory,
-		lockRelPath,
-		gate,
-		taskId,
-		async () => {
-			const evidencePath = getEvidencePath(directory, taskId);
-			const existing = readExisting(evidencePath);
-			const requiredGates = existing
-				? expandRequiredGates(existing.required_gates, gate)
-				: deriveRequiredGates(gate);
+	await withEvidenceLock(directory, lockRelPath, gate, taskId, async () => {
+		const evidencePath = getEvidencePath(directory, taskId);
+		const existing = readExisting(evidencePath);
+		const requiredGates = existing
+			? expandRequiredGates(existing.required_gates, gate)
+			: deriveRequiredGates(gate);
 
-			const updated: TaskEvidence = {
-				taskId,
-				required_gates: requiredGates,
-				turbo: turbo === true ? true : existing?.turbo,
-				gates: {
-					...(existing?.gates ?? {}),
-					[gate]: {
-						sessionId,
-						timestamp: new Date().toISOString(),
-						agent: gate,
-					},
+		const updated: TaskEvidence = {
+			taskId,
+			required_gates: requiredGates,
+			turbo: turbo === true ? true : existing?.turbo,
+			gates: {
+				...(existing?.gates ?? {}),
+				[gate]: {
+					sessionId,
+					timestamp: new Date().toISOString(),
+					agent: gate,
 				},
-			};
+			},
+		};
 
-			await atomicWrite(evidencePath, JSON.stringify(updated, null, 2));
-		},
-	);
+		await atomicWrite(evidencePath, JSON.stringify(updated, null, 2));
+	});
 	telemetry.gatePassed(sessionId, gate, taskId);
 }
 
