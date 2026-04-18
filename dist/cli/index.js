@@ -15344,7 +15344,7 @@ var init_manager = __esm(() => {
 });
 
 // src/config/evidence-schema.ts
-var EVIDENCE_MAX_JSON_BYTES, EVIDENCE_MAX_PATCH_BYTES, EVIDENCE_MAX_TASK_BYTES, EvidenceTypeSchema, EvidenceVerdictSchema, BaseEvidenceSchema, ReviewEvidenceSchema, TestEvidenceSchema, DiffEvidenceSchema, ApprovalEvidenceSchema, NoteEvidenceSchema, RetrospectiveEvidenceSchema, SyntaxEvidenceSchema, PlaceholderEvidenceSchema, SastEvidenceSchema, SbomEvidenceSchema, BuildEvidenceSchema, QualityBudgetEvidenceSchema, SecretscanEvidenceSchema, EvidenceSchema, EvidenceBundleSchema;
+var EVIDENCE_MAX_JSON_BYTES, EVIDENCE_MAX_PATCH_BYTES, EVIDENCE_MAX_TASK_BYTES, EvidenceTypeSchema, EvidenceVerdictSchema, BaseEvidenceSchema, ReviewEvidenceSchema, TestEvidenceSchema, DiffEvidenceSchema, ApprovalEvidenceSchema, NoteEvidenceSchema, RetrospectiveEvidenceSchema, SyntaxEvidenceSchema, PlaceholderEvidenceSchema, SastFindingSchema, SastEvidenceSchema, SbomEvidenceSchema, BuildEvidenceSchema, QualityBudgetEvidenceSchema, SecretscanEvidenceSchema, EvidenceSchema, EvidenceBundleSchema;
 var init_evidence_schema = __esm(() => {
   init_zod();
   EVIDENCE_MAX_JSON_BYTES = 500 * 1024;
@@ -15483,19 +15483,20 @@ var init_evidence_schema = __esm(() => {
     files_with_findings: exports_external.number().int(),
     findings_count: exports_external.number().int()
   });
+  SastFindingSchema = exports_external.object({
+    rule_id: exports_external.string(),
+    severity: exports_external.enum(["critical", "high", "medium", "low"]),
+    message: exports_external.string(),
+    location: exports_external.object({
+      file: exports_external.string(),
+      line: exports_external.number().int(),
+      column: exports_external.number().int().optional()
+    }),
+    remediation: exports_external.string().optional()
+  });
   SastEvidenceSchema = BaseEvidenceSchema.extend({
     type: exports_external.literal("sast"),
-    findings: exports_external.array(exports_external.object({
-      rule_id: exports_external.string(),
-      severity: exports_external.enum(["critical", "high", "medium", "low"]),
-      message: exports_external.string(),
-      location: exports_external.object({
-        file: exports_external.string(),
-        line: exports_external.number().int(),
-        column: exports_external.number().int().optional()
-      }),
-      remediation: exports_external.string().optional()
-    })).default([]),
+    findings: exports_external.array(SastFindingSchema).default([]),
     engine: exports_external.enum(["tier_a", "tier_a+tier_b"]),
     files_scanned: exports_external.number().int(),
     findings_count: exports_external.number().int(),
@@ -15504,7 +15505,10 @@ var init_evidence_schema = __esm(() => {
       high: exports_external.number().int(),
       medium: exports_external.number().int(),
       low: exports_external.number().int()
-    })
+    }),
+    new_findings: exports_external.array(SastFindingSchema).optional(),
+    pre_existing_findings: exports_external.array(SastFindingSchema).optional(),
+    baseline_used: exports_external.boolean().optional()
   });
   SbomEvidenceSchema = BaseEvidenceSchema.extend({
     type: exports_external.literal("sbom"),
