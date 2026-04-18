@@ -232,6 +232,20 @@ describe('SECURITY CONTROL VERIFICATION', () => {
 		// Low temperature reduces chance of unexpected/malicious output
 		expect(agent.config.temperature).toBe(0.2);
 	});
+
+	it('should avoid claiming direct test execution for any language', () => {
+		const agent = createTestEngineerAgent('gpt-4');
+		expect(agent.config.prompt).not.toContain('ANY language');
+		expect(agent.config.prompt).not.toContain('Any other language');
+	});
+
+	it('should tell the agent to stop when targeted execution is unsupported', () => {
+		const agent = createTestEngineerAgent('gpt-4');
+		expect(agent.config.prompt).toContain(
+			'does not support targeted test-file execution',
+		);
+		expect(agent.config.prompt).toContain('report SKIPPED');
+	});
 });
 
 describe('T1: Assertion Quality Rules', () => {

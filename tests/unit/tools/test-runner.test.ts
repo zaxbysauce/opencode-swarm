@@ -18,6 +18,7 @@ const {
 	detectTestFramework,
 	isLanguageSpecificTestFile,
 	getTestFilesFromConvention,
+	runTests,
 } = testRunnerModule;
 
 describe('test-runner.ts - Constants and Types', () => {
@@ -559,8 +560,37 @@ describe('test-runner.ts - Security Validation', () => {
 			'no source files with recognized extensions',
 		);
 		expect(parsed.message).toContain(
-			'Non-source files like README.md or config.json',
+			'direct test file in a supported test location',
 		);
+
+		process.chdir(originalCwd);
+		setTimeout(() => {
+			try {
+				fs.rmSync(tempDir, { recursive: true, force: true });
+			} catch {
+				// Ignore
+			}
+		}, 100);
+	}, 10000);
+
+	test('accepts direct test files for convention scope without source extensions', async () => {
+		const tempDir = fs.realpathSync(
+			fs.mkdtempSync(path.join(os.tmpdir(), 'test-runner-direct-conv-')),
+		);
+		const originalCwd = process.cwd();
+		process.chdir(tempDir);
+
+		fs.writeFileSync('pester.config.ps1', 'configuration');
+		fs.mkdirSync(path.join(tempDir, 'qa'), { recursive: true });
+		fs.writeFileSync(path.join(tempDir, 'qa', 'Smoke.Tests.ps1'), 'Describe "x" {}');
+
+		const result = await test_runner.execute(
+			{ scope: 'convention', files: ['qa/Smoke.Tests.ps1'] },
+			{} as any,
+		);
+		const parsed = JSON.parse(result);
+		expect(parsed.success).toBe(true);
+		expect(parsed.framework).toBe('pester');
 
 		process.chdir(originalCwd);
 		setTimeout(() => {
@@ -602,6 +632,41 @@ describe('test-runner.ts - Security Validation', () => {
 		expect(parsed.message).toContain(
 			'Non-source files like README.md or config.json',
 		);
+
+		process.chdir(originalCwd);
+		setTimeout(() => {
+			try {
+				fs.rmSync(tempDir, { recursive: true, force: true });
+			} catch {
+				// Ignore
+			}
+		}, 100);
+	}, 10000);
+
+	test('tells graph scope callers to use convention for direct test files', async () => {
+		const tempDir = fs.realpathSync(
+			fs.mkdtempSync(path.join(os.tmpdir(), 'test-runner-graph-testfile-')),
+		);
+		const originalCwd = process.cwd();
+		process.chdir(tempDir);
+
+		fs.writeFileSync(
+			'package.json',
+			JSON.stringify({
+				scripts: { test: 'vitest run' },
+				devDependencies: { vitest: '^1.0.0' },
+			}),
+		);
+		fs.mkdirSync(path.join(tempDir, 'tests'), { recursive: true });
+		fs.writeFileSync(path.join(tempDir, 'tests', 'utils.test.ts'), 'export {};');
+
+		const result = await test_runner.execute(
+			{ scope: 'graph', files: ['tests/utils.test.ts'] },
+			{} as any,
+		);
+		const parsed = JSON.parse(result);
+		expect(parsed.success).toBe(false);
+		expect(parsed.message).toContain('Direct test files belong in scope "convention"');
 
 		process.chdir(originalCwd);
 		setTimeout(() => {
@@ -1495,5 +1560,92 @@ describe('test-runner.ts — getTestFilesFromConvention (language-specific)', ()
 			const result = getTestFilesFromConvention([testFile, testFile]);
 			expect(result).toHaveLength(1);
 		});
+	});
+
+	describe('PowerShell', () => {
+		test('Foo.Tests.ps1 is passed through as-is', () => {
+			const testFile = write('qa/Foo.Tests.ps1', '');
+			const result = getTestFilesFromConvention([testFile]);
+			expect(result).toEqual([testFile]);
+		});
+
+		test('script.ps1 maps to repo-root tests/script.Tests.ps1', () => {
+			const src = write('scripts/script.ps1', '');
+			const tst = write('tests/script.Tests.ps1', '');
+			const result = getTestFilesFromConvention([src], tmpDir);
+			expect(result).toContain(tst);
+		});
+	});
+
+	describe('repo-root discovery', () => {
+		test('src/utils.ts maps to repo-root tests/utils.test.ts', () => {
+			const src = write('src/utils.ts', '');
+			const tst = write('tests/utils.test.ts', '');
+			const result = getTestFilesFromConvention([src], tmpDir);
+			expect(result).toContain(tst);
+		});
+
+		test('lib/foo.rb maps to repo-root spec/foo_spec.rb', () => {
+			const src = write('lib/foo.rb', '');
+			const tst = write('spec/foo_spec.rb', '');
+			const result = getTestFilesFromConvention([src], tmpDir);
+			expect(result).toContain(tst);
+		});
+	});
+});
+
+describe('test-runner.ts — targeted framework safeguards', () => {
+	test('returns explicit error when targeted file execution is unsupported', async () => {
+		const result = await runTests(
+			'go-test',
+			'convention',
+			['pkg/foo_test.go'],
+			false,
+			60_000,
+			process.cwd(),
+		);
+
+		expect(result.success).toBe(false);
+		if (result.success) {
+			throw new Error('expected failure result');
+		}
+		expect(result.error).toContain('does not support targeted test-file execution');
+		expect(result.message).toContain('go test targets packages');
+	});
+
+	test('allows targeted execution for rspec-compatible frameworks', async () => {
+		const originalSpawn = Bun.spawn;
+		const encoder = new TextEncoder();
+		Bun.spawn = (() =>
+			({
+				stdout: new ReadableStream({
+					start(controller) {
+						controller.enqueue(encoder.encode('1 example, 0 failures'));
+						controller.close();
+					},
+				}),
+				stderr: new ReadableStream({
+					start(controller) {
+						controller.close();
+					},
+				}),
+				exited: Promise.resolve(0),
+				exitCode: 0,
+				kill: () => {},
+			}) as ReturnType<typeof Bun.spawn>) as typeof Bun.spawn;
+
+		try {
+			const result = await runTests(
+				'rspec',
+				'convention',
+				['spec/foo_spec.rb'],
+				false,
+				60_000,
+				process.cwd(),
+			);
+			expect(result.success).toBe(true);
+		} finally {
+			Bun.spawn = originalSpawn;
+		}
 	});
 });

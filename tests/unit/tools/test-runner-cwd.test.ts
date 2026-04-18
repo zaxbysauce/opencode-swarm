@@ -470,6 +470,82 @@ tokio = { version = "1.0", features = ["full"] }
 			}
 		});
 
+		test('working_directory drives repo-root discovery when cwd differs', async () => {
+			const callerDir = createTempDir();
+			process.chdir(callerDir);
+
+			try {
+				createTestFile(
+					tempDir,
+					'package.json',
+					JSON.stringify({
+						scripts: { test: 'vitest run' },
+						devDependencies: { vitest: '^1.0.0' },
+					}),
+				);
+				createTestFile(tempDir, 'src/utils.ts', 'export const x = 1;');
+				createTestFile(
+					tempDir,
+					'tests/utils.test.ts',
+					'import { describe, test, expect } from "vitest"; describe("x", () => { test("x", () => expect(1).toBe(1)); });',
+				);
+
+				mockStdout = JSON.stringify({
+					numTotalTests: 1,
+					numPassedTests: 1,
+					numFailedTests: 0,
+				});
+				Bun.spawn = mockSpawn as any;
+
+				await test_runner.execute(
+					{
+						scope: 'convention',
+						files: ['src/utils.ts'],
+						working_directory: tempDir,
+					},
+					{ directory: callerDir } as any,
+				);
+
+				expect(spawnCalls.length).toBeGreaterThan(0);
+				expect((spawnCalls[0].opts as any)?.cwd).toBe(tempDir);
+				expect(spawnCalls[0].cmd).toContain('tests/utils.test.ts');
+			} finally {
+				fs.rmSync(callerDir, { recursive: true, force: true });
+			}
+		});
+
+		test('working_directory accepts direct PowerShell test files outside source directories', async () => {
+			const callerDir = createTempDir();
+			process.chdir(callerDir);
+
+			try {
+				createTestFile(tempDir, 'pester.config.ps1', 'configuration');
+				createTestFile(
+					tempDir,
+					'qa/Smoke.Tests.ps1',
+					'Describe "Smoke" { It "passes" { $true | Should -Be $true } }',
+				);
+
+				mockStdout = 'Passed: 1 Failed: 0 Skipped: 0';
+				Bun.spawn = mockSpawn as any;
+
+				await test_runner.execute(
+					{
+						scope: 'convention',
+						files: ['qa/Smoke.Tests.ps1'],
+						working_directory: tempDir,
+					},
+					{ directory: callerDir } as any,
+				);
+
+				expect(spawnCalls.length).toBeGreaterThan(0);
+				expect((spawnCalls[0].opts as any)?.cwd).toBe(tempDir);
+				expect(spawnCalls[0].cmd[0]).toBe('pwsh');
+			} finally {
+				fs.rmSync(callerDir, { recursive: true, force: true });
+			}
+		});
+
 		test('correctly detects vitest framework from ctx.directory path', async () => {
 			// Set up vitest framework in tempDir
 			process.chdir(tempDir);
