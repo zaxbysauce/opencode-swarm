@@ -21,6 +21,7 @@ nul
 # Spurious test-created directories
 undefined/
 syntax-check-test-*/
+test-tmp-discovery-profiles/
 # Test output artifacts (numbered variants)
 testlog*.txt
 test_result*.txt
