@@ -58,7 +58,10 @@ Run every tier in order. Fix failures before proceeding.
 ```bash
 # Tier 1 — quality
 bun run typecheck
-bunx biome ci .
+bunx biome ci .   # MUST run on the full project — never scope to modified files only.
+                  # CI runs it on all files; a scoped run will miss errors in files you
+                  # touched indirectly (e.g. reformatted by another tool, or modified via
+                  # biome --write on one file but not re-checked globally).
 
 # Tier 2 — unit tests (use per-file loop for tools/services/agents to avoid mock conflicts)
 for f in tests/unit/tools/*.test.ts; do bun --smol test "$f" --timeout 30000; done
@@ -75,6 +78,11 @@ bun test tests/adversarial --timeout 120000
 
 # Tier 5 — build + smoke (smoke requires a successful build first)
 bun run build
+# After building, commit any updated dist/ files if the repo tracks them.
+# CI runs a dist-check that diffs committed dist/ against a fresh build and fails
+# if they diverge. Check with: git status dist/
+# If dist/ files are modified or new, stage and commit them before pushing:
+#   git add dist/ && git commit -m "chore: update dist artifacts"
 bun test tests/smoke --timeout 120000
 ```
 
@@ -125,7 +133,8 @@ Verify every item before asking for a merge:
 - [ ] PR title matches the primary change type
 - [ ] `docs/releases/v{NEXT_VERSION}.md` exists with meaningful release notes
 - [ ] `package.json` version, `CHANGELOG.md`, `.release-please-manifest.json` are untouched
-- [ ] All 5 test tiers pass locally
+- [ ] All 5 test tiers pass locally, including `bunx biome ci .` on the full project (not scoped)
+- [ ] If the repo tracks `dist/` files: `bun run build` was run and updated dist/ artifacts were committed
 - [ ] All workflow `uses:` references are SHA-pinned (if workflows changed)
 - [ ] PR body has `## Summary` and `## Test plan`
 - [ ] All CI checks are green before merging
