@@ -557,7 +557,7 @@ describe('test-runner.ts - Security Validation', () => {
 		expect(parsed.success).toBe(false);
 		expect(parsed.scope).toBe('convention');
 		expect(parsed.error).toContain(
-			'no source files with recognized extensions',
+			'no recognized source files or direct test files',
 		);
 		expect(parsed.message).toContain(
 			'direct test file in a supported test location',
@@ -630,7 +630,7 @@ describe('test-runner.ts - Security Validation', () => {
 			'no source files with recognized extensions',
 		);
 		expect(parsed.message).toContain(
-			'Non-source files like README.md or config.json',
+			'Direct test files belong in scope "convention"',
 		);
 
 		process.chdir(originalCwd);

@@ -492,11 +492,10 @@ function getRepoLevelCandidateDirectories(
 ): string[] {
 	const relativeDir = path.dirname(relativePath);
 	const nestedRelativeDir = relativeDir === '.' ? '' : relativeDir;
-	const directories = TEST_DIRECTORY_NAMES.map((dirName) =>
-		nestedRelativeDir
-			? path.join(workingDir, dirName, nestedRelativeDir)
-			: path.join(workingDir, dirName),
-	);
+	const directories = TEST_DIRECTORY_NAMES.flatMap((dirName) => {
+		const rootDir = path.join(workingDir, dirName);
+		return nestedRelativeDir ? [rootDir, path.join(rootDir, nestedRelativeDir)] : [rootDir];
+	});
 
 	const normalizedRelativePath = relativePath.replace(/\\/g, '/');
 	if (ext === '.java' && normalizedRelativePath.startsWith('src/main/java/')) {

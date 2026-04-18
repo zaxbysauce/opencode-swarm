@@ -41098,6 +41098,7 @@ var COMPOUND_TEST_EXTENSIONS = [
   ".test.tsx",
   ".test.js",
   ".test.jsx",
+  ".tests.ps1",
   ".spec.ts",
   ".spec.tsx",
   ".spec.js",
@@ -41105,6 +41106,68 @@ var COMPOUND_TEST_EXTENSIONS = [
   ".test.ps1",
   ".spec.ps1"
 ];
+var TEST_DIRECTORY_NAMES = ["__tests__", "tests", "test", "spec"];
+function isTestDirectoryPath(normalizedPath) {
+  return normalizedPath.split("/").some((segment) => TEST_DIRECTORY_NAMES.includes(segment));
+}
+function resolveWorkspacePath(file3, workingDir) {
+  return path26.isAbsolute(file3) ? path26.resolve(file3) : path26.resolve(workingDir, file3);
+}
+function toWorkspaceOutputPath(absolutePath, workingDir, preferRelative) {
+  if (!preferRelative)
+    return absolutePath;
+  return path26.relative(workingDir, absolutePath);
+}
+function dedupePush(target, value) {
+  if (!target.includes(value)) {
+    target.push(value);
+  }
+}
+function buildLanguageSpecificTestNames(nameWithoutExt, ext) {
+  switch (ext) {
+    case ".go":
+      return [`${nameWithoutExt}_test.go`];
+    case ".py":
+      return [`test_${nameWithoutExt}.py`, `${nameWithoutExt}_test.py`];
+    case ".rb":
+      return [`${nameWithoutExt}_spec.rb`];
+    case ".java":
+      return [
+        `${nameWithoutExt}Test.java`,
+        `${nameWithoutExt}Tests.java`,
+        `Test${nameWithoutExt}.java`,
+        `${nameWithoutExt}IT.java`
+      ];
+    case ".cs":
+      return [`${nameWithoutExt}Test.cs`, `${nameWithoutExt}Tests.cs`];
+    case ".kt":
+      return [
+        `${nameWithoutExt}Test.kt`,
+        `${nameWithoutExt}Tests.kt`,
+        `Test${nameWithoutExt}.kt`
+      ];
+    case ".ps1":
+      return [`${nameWithoutExt}.Tests.ps1`, `${nameWithoutExt}.tests.ps1`];
+    default:
+      return [];
+  }
+}
+function getRepoLevelCandidateDirectories(workingDir, relativePath, ext) {
+  const relativeDir = path26.dirname(relativePath);
+  const nestedRelativeDir = relativeDir === "." ? "" : relativeDir;
+  const directories = TEST_DIRECTORY_NAMES.flatMap((dirName) => {
+    const rootDir = path26.join(workingDir, dirName);
+    return nestedRelativeDir ? [rootDir, path26.join(rootDir, nestedRelativeDir)] : [rootDir];
+  });
+  const normalizedRelativePath = relativePath.replace(/\\/g, "/");
+  if (ext === ".java" && normalizedRelativePath.startsWith("src/main/java/")) {
+    directories.push(path26.join(workingDir, "src/test/java", path26.dirname(normalizedRelativePath.slice("src/main/java/".length))));
+  }
+  if ((ext === ".kt" || ext === ".java") && normalizedRelativePath.startsWith("src/main/kotlin/")) {
+    directories.push(path26.join(workingDir, "src/test/kotlin", path26.dirname(normalizedRelativePath.slice("src/main/kotlin/".length))));
+  }
+  return [...new Set(directories)];
+}
 function hasCompoundTestExtension(filename) {
   const lower = filename.toLowerCase();
   return COMPOUND_TEST_EXTENSIONS.some((ext) => lower.endsWith(ext));
@@ -41123,60 +41186,66 @@ function isLanguageSpecificTestFile(basename4) {
     return true;
   if (lower.endsWith(".kt") && (/^Test[A-Z]/.test(basename4) || lower.endsWith("test.kt") || lower.endsWith("tests.kt")))
     return true;
+  if (lower.endsWith(".tests.ps1"))
+    return true;
   return false;
 }
-function getTestFilesFromConvention(sourceFiles) {
+function isConventionTestFilePath(filePath) {
+  const normalizedPath = filePath.replace(/\\/g, "/");
+  const basename4 = path26.basename(filePath);
+  return hasCompoundTestExtension(basename4) || basename4.includes(".spec.") || basename4.includes(".test.") || isLanguageSpecificTestFile(basename4) || isTestDirectoryPath(normalizedPath);
+}
+function getTestFilesFromConvention(sourceFiles, workingDir = process.cwd()) {
   const testFiles = [];
   for (const file3 of sourceFiles) {
-    const normalizedPath = file3.replace(/\\/g, "/");
-    const basename4 = path26.basename(file3);
-    const dirname10 = path26.dirname(file3);
-    if (hasCompoundTestExtension(basename4) || basename4.includes(".spec.") || basename4.includes(".test.") || isLanguageSpecificTestFile(basename4) || normalizedPath.includes("/__tests__/") || normalizedPath.includes("/tests/") || normalizedPath.includes("/test/") || normalizedPath.includes("/spec/")) {
-      if (!testFiles.includes(file3)) {
-        testFiles.push(file3);
-      }
+    const absoluteFile = resolveWorkspacePath(file3, workingDir);
+    const relativeFile = path26.relative(workingDir, absoluteFile);
+    const basename4 = path26.basename(absoluteFile);
+    const dirname10 = path26.dirname(absoluteFile);
+    const preferRelativeOutput = !path26.isAbsolute(file3);
+    if (isConventionTestFilePath(relativeFile) || isConventionTestFilePath(file3)) {
+      dedupePush(testFiles, toWorkspaceOutputPath(absoluteFile, workingDir, preferRelativeOutput));
       continue;
     }
     const nameWithoutExt = basename4.replace(/\.[^.]+$/, "");
     const ext = path26.extname(basename4);
-    const possibleTestFiles = [
-      path26.join(dirname10, `${nameWithoutExt}.spec${ext}`),
-      path26.join(dirname10, `${nameWithoutExt}.test${ext}`),
-      path26.join(dirname10, "__tests__", `${nameWithoutExt}${ext}`),
-      path26.join(dirname10, "tests", `${nameWithoutExt}${ext}`),
-      path26.join(dirname10, "test", `${nameWithoutExt}${ext}`)
+    const genericTestNames = [`${nameWithoutExt}.spec${ext}`, `${nameWithoutExt}.test${ext}`];
+    const languageSpecificTestNames = buildLanguageSpecificTestNames(nameWithoutExt, ext);
+    const colocatedCandidates = [
+      ...genericTestNames,
+      ...languageSpecificTestNames
+    ].map((candidateName) => path26.join(dirname10, candidateName));
+    const testDirectoryNames = [
+      basename4,
+      ...genericTestNames,
+      ...languageSpecificTestNames
     ];
-    if (ext === ".go") {
-      possibleTestFiles.push(path26.join(dirname10, `${nameWithoutExt}_test.go`), path26.join(dirname10, "test", `${nameWithoutExt}_test.go`));
-    } else if (ext === ".py") {
-      possibleTestFiles.push(path26.join(dirname10, `test_${nameWithoutExt}.py`), path26.join(dirname10, `${nameWithoutExt}_test.py`), path26.join(dirname10, "tests", `test_${nameWithoutExt}.py`), path26.join(dirname10, "test", `test_${nameWithoutExt}.py`));
-    } else if (ext === ".rb") {
-      possibleTestFiles.push(path26.join(dirname10, `${nameWithoutExt}_spec.rb`), path26.join(dirname10, "spec", `${nameWithoutExt}_spec.rb`));
-    } else if (ext === ".java") {
-      possibleTestFiles.push(path26.join(dirname10, `${nameWithoutExt}Test.java`), path26.join(dirname10, `${nameWithoutExt}Tests.java`), path26.join(dirname10, `Test${nameWithoutExt}.java`));
-    } else if (ext === ".cs") {
-      possibleTestFiles.push(path26.join(dirname10, `${nameWithoutExt}Test.cs`), path26.join(dirname10, `${nameWithoutExt}Tests.cs`));
-    } else if (ext === ".kt") {
-      possibleTestFiles.push(path26.join(dirname10, `${nameWithoutExt}Test.kt`), path26.join(dirname10, `${nameWithoutExt}Tests.kt`), path26.join(dirname10, `Test${nameWithoutExt}.kt`));
-    }
+    const repoLevelDirectories = getRepoLevelCandidateDirectories(workingDir, relativeFile, ext);
+    const possibleTestFiles = [
+      ...colocatedCandidates,
+      ...TEST_DIRECTORY_NAMES.flatMap((dirName) => testDirectoryNames.map((candidateName) => path26.join(dirname10, dirName, candidateName))),
+      ...repoLevelDirectories.flatMap((candidateDir) => testDirectoryNames.map((candidateName) => path26.join(candidateDir, candidateName)))
+    ];
     for (const testFile of possibleTestFiles) {
-      if (fs16.existsSync(testFile) && !testFiles.includes(testFile)) {
-        testFiles.push(testFile);
+      if (fs16.existsSync(testFile)) {
+        dedupePush(testFiles, toWorkspaceOutputPath(testFile, workingDir, preferRelativeOutput));
       }
     }
   }
   return testFiles;
 }
-async function getTestFilesFromGraph(sourceFiles) {
+async function getTestFilesFromGraph(sourceFiles, workingDir) {
   const testFiles = [];
-  const candidateTestFiles = getTestFilesFromConvention(sourceFiles);
+  const absoluteSourceFiles = sourceFiles.map((sourceFile) => resolveWorkspacePath(sourceFile, workingDir));
+  const candidateTestFiles = getTestFilesFromConvention(sourceFiles, workingDir);
   if (sourceFiles.length === 0) {
     return testFiles;
   }
   for (const testFile of candidateTestFiles) {
     try {
-      const content = fs16.readFileSync(testFile, "utf-8");
-      const testDir = path26.dirname(testFile);
+      const absoluteTestFile = resolveWorkspacePath(testFile, workingDir);
+      const content = fs16.readFileSync(absoluteTestFile, "utf-8");
+      const testDir = path26.dirname(absoluteTestFile);
       const importRegex = /import\s+.*?\s+from\s+['"]([^'"]+)['"]/g;
       let match;
       match = importRegex.exec(content);
@@ -41196,7 +41265,7 @@ async function getTestFilesFromGraph(sourceFiles) {
               ".cjs"
             ]) {
               const withExt = resolvedImport + extToTry;
-              if (sourceFiles.includes(withExt) || fs16.existsSync(withExt)) {
+              if (absoluteSourceFiles.includes(withExt) || fs16.existsSync(withExt)) {
                 resolvedImport = withExt;
                 break;
               }
@@ -41207,14 +41276,12 @@ async function getTestFilesFromGraph(sourceFiles) {
         }
         const importBasename = path26.basename(resolvedImport, path26.extname(resolvedImport));
         const importDir = path26.dirname(resolvedImport);
-        for (const sourceFile of sourceFiles) {
+        for (const sourceFile of absoluteSourceFiles) {
           const sourceDir = path26.dirname(sourceFile);
           const sourceBasename = path26.basename(sourceFile, path26.extname(sourceFile));
-          const isRelatedDir = importDir === sourceDir || importDir === path26.join(sourceDir, "__tests__") || importDir === path26.join(sourceDir, "tests") || importDir === path26.join(sourceDir, "test");
+          const isRelatedDir = importDir === sourceDir || importDir === path26.join(sourceDir, "__tests__") || importDir === path26.join(sourceDir, "tests") || importDir === path26.join(sourceDir, "test") || importDir === path26.join(sourceDir, "spec");
           if (resolvedImport === sourceFile || importBasename === sourceBasename && isRelatedDir) {
-            if (!testFiles.includes(testFile)) {
-              testFiles.push(testFile);
-            }
+            dedupePush(testFiles, testFile);
             break;
           }
         }
@@ -41237,7 +41304,7 @@ async function getTestFilesFromGraph(sourceFiles) {
               ".cjs"
             ]) {
               const withExt = resolvedImport + extToTry;
-              if (sourceFiles.includes(withExt) || fs16.existsSync(withExt)) {
+              if (absoluteSourceFiles.includes(withExt) || fs16.existsSync(withExt)) {
                 resolvedImport = withExt;
                 break;
               }
@@ -41245,14 +41312,12 @@ async function getTestFilesFromGraph(sourceFiles) {
           }
           const importDir = path26.dirname(resolvedImport);
           const importBasename = path26.basename(resolvedImport, path26.extname(resolvedImport));
-          for (const sourceFile of sourceFiles) {
+          for (const sourceFile of absoluteSourceFiles) {
             const sourceDir = path26.dirname(sourceFile);
             const sourceBasename = path26.basename(sourceFile, path26.extname(sourceFile));
-            const isRelatedDir = importDir === sourceDir || importDir === path26.join(sourceDir, "__tests__") || importDir === path26.join(sourceDir, "tests") || importDir === path26.join(sourceDir, "test");
+            const isRelatedDir = importDir === sourceDir || importDir === path26.join(sourceDir, "__tests__") || importDir === path26.join(sourceDir, "tests") || importDir === path26.join(sourceDir, "test") || importDir === path26.join(sourceDir, "spec");
             if (resolvedImport === sourceFile || importBasename === sourceBasename && isRelatedDir) {
-              if (!testFiles.includes(testFile)) {
-                testFiles.push(testFile);
-              }
+              dedupePush(testFiles, testFile);
               break;
             }
           }
@@ -41262,6 +41327,26 @@ async function getTestFilesFromGraph(sourceFiles) {
     } catch {}
   }
   return testFiles;
+}
+function getTargetedExecutionUnsupportedReason(framework) {
+  switch (framework) {
+    case "go-test":
+      return "go test targets packages, not individual test files";
+    case "cargo":
+      return "cargo test targets crates, targets, or test names rather than file paths";
+    case "maven":
+      return "maven test selection is class-based, not file-path based";
+    case "gradle":
+      return "gradle test selection is class-based, not file-path based";
+    case "dotnet-test":
+      return "dotnet test filters by fully qualified names, not file paths";
+    case "ctest":
+      return "ctest filters named tests from the build tree, not source test files";
+    case "swift-test":
+      return "swift test filters test names, not file paths";
+    default:
+      return null;
+  }
 }
 function buildTestCommand(framework, scope, files, coverage, baseDir) {
   switch (framework) {
@@ -41357,10 +41442,18 @@ function buildTestCommand(framework, scope, files, coverage, baseDir) {
     case "swift-test":
       return ["swift", "test"];
     case "dart-test":
-      return isCommandAvailable("flutter") ? ["flutter", "test"] : ["dart", "test"];
-    case "rspec":
-      return isCommandAvailable("bundle") ? ["bundle", "exec", "rspec"] : ["rspec"];
+      return isCommandAvailable("flutter") ? ["flutter", "test", ...files] : ["dart", "test", ...files];
+    case "rspec": {
+      const args = isCommandAvailable("bundle") ? ["bundle", "exec", "rspec"] : ["rspec"];
+      if (scope !== "all" && files.length > 0) {
+        args.push(...files);
+      }
+      return args;
+    }
     case "minitest":
+      if (scope !== "all" && files.length > 0) {
+        return ["ruby", "-Itest", ...files];
+      }
       return [
         "ruby",
         "-Itest",
@@ -41621,6 +41714,19 @@ async function readBoundedStream(stream, maxBytes) {
   return { text: decoder.decode(combined), truncated };
 }
 async function runTests(framework, scope, files, coverage, timeout_ms, cwd) {
+  if (scope !== "all" && files.length > 0) {
+    const unsupportedReason = getTargetedExecutionUnsupportedReason(framework);
+    if (unsupportedReason) {
+      return {
+        success: false,
+        framework,
+        scope,
+        error: `Framework "${framework}" does not support targeted test-file execution`,
+        message: `The resolved test selection cannot be run safely because ${unsupportedReason}. Use a framework-native selector manually or let the architect handle the broader sweep.`,
+        outcome: "error"
+      };
+    }
+  }
   const command = buildTestCommand(framework, scope, files, coverage, cwd);
   if (!command) {
     return {
@@ -41825,10 +41931,10 @@ function analyzeFailures(workingDir) {
   return report;
 }
 var test_runner = createSwarmTool({
-  description: 'Run project tests with framework detection. Supports bun, vitest, jest, mocha, pytest, cargo, pester, go-test, maven, gradle, dotnet-test, ctest, swift-test, dart-test, rspec, and minitest. Returns deterministic normalized JSON with framework, scope, command, totals, coverage, duration, success status, and failures. Use scope "all" for full suite, "convention" to map source files to test files, "graph" to find related tests via imports, or "impact" to find tests covering changed files using test-impact analysis.',
+  description: 'Run project tests with framework detection. Supports bun, vitest, jest, mocha, pytest, cargo, pester, go-test, maven, gradle, dotnet-test, ctest, swift-test, dart-test, rspec, and minitest. Returns deterministic normalized JSON with framework, scope, command, totals, coverage, duration, success status, and failures. Use scope "all" for full suite, "convention" to accept direct test files or map source files to test files, "graph" to find related tests via imports from source files, or "impact" to find tests covering changed source files using test-impact analysis.',
   args: {
-    scope: tool.schema.enum(["all", "convention", "graph", "impact"]).optional().describe('Test scope: "all" runs full suite, "convention" maps source files to test files by naming, "graph" finds related tests via imports, "impact" finds tests covering changed files via test-impact analysis'),
-    files: tool.schema.array(tool.schema.string()).optional().describe("Specific files to test (used with convention or graph scope)"),
+    scope: tool.schema.enum(["all", "convention", "graph", "impact"]).optional().describe('Test scope: "all" runs full suite, "convention" accepts direct test files or maps source files to tests by naming, "graph" finds related tests via imports from source files, "impact" finds tests covering changed source files via test-impact analysis'),
+    files: tool.schema.array(tool.schema.string()).optional().describe('Specific files to test. For "convention", pass source files or direct test files. For "graph" and "impact", pass source files only.'),
     coverage: tool.schema.boolean().optional().describe("Enable coverage reporting if supported"),
     timeout_ms: tool.schema.number().optional().describe("Timeout in milliseconds (default 60000, max 300000)"),
     allow_full_suite: tool.schema.boolean().optional().describe('Explicit opt-in for scope "all". Required because full-suite output can destabilize SSE streaming.'),
@@ -41953,24 +42059,45 @@ var test_runner = createSwarmTool({
     let graphFallbackReason;
     let effectiveScope = scope;
     if (scope === "all") {} else if (scope === "convention") {
-      const sourceFiles = args.files.filter((f) => {
-        const ext = path26.extname(f).toLowerCase();
+      const directTestFiles = args.files.filter((file3) => isConventionTestFilePath(file3));
+      const sourceFiles = args.files.filter((file3) => {
+        if (directTestFiles.includes(file3))
+          return false;
+        const ext = path26.extname(file3).toLowerCase();
         return SOURCE_EXTENSIONS.has(ext);
       });
-      if (sourceFiles.length === 0) {
+      const invalidFiles = args.files.filter((file3) => !directTestFiles.includes(file3) && !sourceFiles.includes(file3));
+      if (directTestFiles.length === 0 && sourceFiles.length === 0) {
         const errorResult = {
           success: false,
           framework,
           scope,
-          error: "Provided files contain no source files with recognized extensions",
-          message: "The files array must contain at least one source file with a recognized extension (.ts, .tsx, .js, .jsx, .py, .rs, .ps1, etc.). Non-source files like README.md or config.json are not valid for test discovery.",
+          error: "Provided files contain no recognized source files or direct test files",
+          message: "The files array must contain at least one source file with a recognized extension (.ts, .tsx, .js, .jsx, .py, .rs, .ps1, etc.) or a direct test file in a supported test location/naming convention.",
           outcome: "error"
         };
         return JSON.stringify(errorResult, null, 2);
       }
-      testFiles = getTestFilesFromConvention(sourceFiles);
+      if (invalidFiles.length > 0) {
+        const errorResult = {
+          success: false,
+          framework,
+          scope,
+          error: "Provided files include entries that are neither recognized source files nor direct test files",
+          message: `These files are not valid for targeted test discovery: ${invalidFiles.join(", ")}`,
+          outcome: "error"
+        };
+        return JSON.stringify(errorResult, null, 2);
+      }
+      testFiles = [
+        ...directTestFiles,
+        ...getTestFilesFromConvention(sourceFiles, workingDir)
+      ].filter((file3, index, items) => items.indexOf(file3) === index);
     } else if (scope === "graph") {
       const sourceFiles = args.files.filter((f) => {
+        if (isConventionTestFilePath(f)) {
+          return false;
+        }
         const ext = path26.extname(f).toLowerCase();
         return SOURCE_EXTENSIONS.has(ext);
       });
@@ -41980,21 +42107,24 @@ var test_runner = createSwarmTool({
           framework,
           scope,
           error: "Provided files contain no source files with recognized extensions",
-          message: "The files array must contain at least one source file with a recognized extension (.ts, .tsx, .js, .jsx, .py, .rs, .ps1, etc.). Non-source files like README.md or config.json are not valid for test discovery.",
+          message: 'The files array for scope "graph" must contain at least one source file with a recognized extension (.ts, .tsx, .js, .jsx, .py, .rs, .ps1, etc.). Direct test files belong in scope "convention".',
           outcome: "error"
         };
         return JSON.stringify(errorResult, null, 2);
       }
-      const graphTestFiles = await getTestFilesFromGraph(sourceFiles);
+      const graphTestFiles = await getTestFilesFromGraph(sourceFiles, workingDir);
       if (graphTestFiles.length > 0) {
         testFiles = graphTestFiles;
       } else {
         graphFallbackReason = "imports resolution returned no results, falling back to convention";
         effectiveScope = "convention";
-        testFiles = getTestFilesFromConvention(sourceFiles);
+        testFiles = getTestFilesFromConvention(sourceFiles, workingDir);
       }
     } else if (scope === "impact") {
       const sourceFiles = args.files.filter((f) => {
+        if (isConventionTestFilePath(f)) {
+          return false;
+        }
         const ext = path26.extname(f).toLowerCase();
         return SOURCE_EXTENSIONS.has(ext);
       });
@@ -42004,7 +42134,7 @@ var test_runner = createSwarmTool({
           framework,
           scope,
           error: "Provided files contain no source files with recognized extensions",
-          message: "The files array must contain at least one source file with a recognized extension (.ts, .tsx, .js, .jsx, .py, .rs, .ps1, etc.).",
+          message: 'The files array for scope "impact" must contain at least one source file with a recognized extension (.ts, .tsx, .js, .jsx, .py, .rs, .ps1, etc.). Direct test files belong in scope "convention".',
           outcome: "error"
         };
         return JSON.stringify(errorResult, null, 2);
@@ -42019,30 +42149,30 @@ var test_runner = createSwarmTool({
         } else {
           graphFallbackReason = "no impacted tests found via impact analysis, falling back to graph";
           effectiveScope = "graph";
-          const graphTestFiles = await getTestFilesFromGraph(sourceFiles);
+          const graphTestFiles = await getTestFilesFromGraph(sourceFiles, workingDir);
           if (graphTestFiles.length > 0) {
             testFiles = graphTestFiles;
           } else {
             graphFallbackReason = "imports resolution returned no results, falling back to convention";
             effectiveScope = "convention";
-            testFiles = getTestFilesFromConvention(sourceFiles);
+            testFiles = getTestFilesFromConvention(sourceFiles, workingDir);
           }
         }
       } catch {
         graphFallbackReason = "impact analysis failed, falling back to graph";
         effectiveScope = "graph";
-        const graphTestFiles = await getTestFilesFromGraph(sourceFiles);
+        const graphTestFiles = await getTestFilesFromGraph(sourceFiles, workingDir);
         if (graphTestFiles.length > 0) {
           testFiles = graphTestFiles;
         } else {
           graphFallbackReason = "imports resolution returned no results, falling back to convention";
           effectiveScope = "convention";
-          testFiles = getTestFilesFromConvention(sourceFiles);
+          testFiles = getTestFilesFromConvention(sourceFiles, workingDir);
         }
       }
     }
     if (scope !== "all" && testFiles.length === 0) {
-      const baseMessage = "No matching test files found for the provided source files. Check that test files exist with matching naming conventions (.spec.*, .test.*, __tests__/, tests/, test/).";
+      const baseMessage = "No matching test files found for the provided source files. Check that test files exist with matching naming conventions (.spec.*, .test.*, .Tests.ps1, __tests__/, tests/, test/, spec/).";
       const errorResult = {
         success: false,
         framework,

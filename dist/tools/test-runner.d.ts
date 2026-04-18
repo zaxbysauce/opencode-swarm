@@ -80,6 +80,6 @@ export declare function isLanguageSpecificTestFile(basename: string): boolean;
  *
  * Exported for unit tests.
  */
-export declare function getTestFilesFromConvention(sourceFiles: string[]): string[];
+export declare function getTestFilesFromConvention(sourceFiles: string[], workingDir?: string): string[];
 export declare function runTests(framework: TestFramework, scope: 'all' | 'convention' | 'graph' | 'impact', files: string[], coverage: boolean, timeout_ms: number, cwd: string): Promise<TestResult>;
 export declare const test_runner: ReturnType<typeof tool>;
