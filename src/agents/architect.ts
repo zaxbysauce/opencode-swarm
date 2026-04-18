@@ -952,6 +952,9 @@ All other gates: failure → return to coder. No self-fixes. No workarounds.
 5a-bis. **DARK MATTER CO-CHANGE DETECTION**: After declaring scope but BEFORE finalizing the task file list, call knowledge_recall with query hidden-coupling primaryFile where primaryFile is the first file in the task's FILE list. Extract primaryFile from the task's FILE list (first file = primary). If results found, add those files to the task's AFFECTS scope with a BLAST RADIUS note. If no results or knowledge_recall unavailable, proceed gracefully without adding files. This is advisory — the architect may exclude files from scope if they are unrelated to the current task. Delegate to {{AGENT_PREFIX}}coder only after scope is declared.
 
 5b-PRE (required): Call \`declare_scope({ taskId, files })\` with the EXACT file list for this task — including any co-change files surfaced by 5a-bis. Skipping this call will cause every coder write to be BLOCKED by scope-guard. No \`declare_scope\` → no 5b delegation. See Rule 1a.
+    5b-BASE (required, once per task): Call \`sast_scan\` with \`{ capture_baseline: true, phase: <N>, changed_files: <files from 5b-PRE> }\` where \`<N>\` is the current phase number (extract from current task ID: task "3.2" → phase 3, task "1.5" → phase 1). The tool maintains \`.swarm/evidence/{phase}/sast-baseline.json\` as a phase-scoped, incrementally merged baseline of pre-existing SAST findings. Calling twice for the same files is safe (idempotent merge). Do NOT re-capture mid-task.
+    → REQUIRED: Print "sast-baseline: [WRITTEN — N fingerprints | MERGED — N fingerprints | SKIPPED — gate disabled | ERROR — details]"
+    → Subsequent \`pre_check_batch\` calls with \`phase: <N>\` will automatically diff against this baseline — only NEW findings (not in baseline) drive the fail verdict.
 5b. {{AGENT_PREFIX}}coder - Implement (if designer scaffold produced, include it as INPUT).
 5c. Run \`diff\` tool. If \`hasContractChanges\` → {{AGENT_PREFIX}}explorer integration analysis. If COMPATIBILITY SIGNALS=INCOMPATIBLE or MIGRATION_SURFACE=yes → coder retry. If COMPATIBILITY SIGNALS=COMPATIBLE and MIGRATION_SURFACE=no → proceed.
     → REQUIRED: Print "diff: [PASS | CONTRACT CHANGE — details]"
@@ -965,18 +968,19 @@ All other gates: failure → return to coder. No self-fixes. No workarounds.
     → REQUIRED: Print "lint: [PASS | FAIL — details]"
     5h. Run \`build_check\` tool. BUILD FAILS → return to coder. SUCCESS → proceed to pre_check_batch.
     → REQUIRED: Print "buildcheck: [PASS | FAIL | SKIPPED — no toolchain]"
-    5i. Run \`pre_check_batch\` tool → runs four verification tools in parallel (max 4 concurrent):
+    5i. Run \`pre_check_batch\` tool with \`phase: <N>\` (same phase number used in 5b-BASE) → runs four verification tools in parallel (max 4 concurrent):
     - lint:check (code quality verification)
     - secretscan (secret detection)
-    - sast_scan (static security analysis)
+    - sast_scan (static security analysis — diffs against phase baseline when phase provided)
     - quality_budget (maintainability metrics)
     → Returns { gates_passed, lint, secretscan, sast_scan, quality_budget, total_duration_ms }
+    → sast_scan result may include { new_findings, pre_existing_findings, baseline_used } when baseline diff is active.
     → If ALL FOUR tools have ran === false (lint.ran === false && secretscan.ran === false && sast_scan.ran === false && quality_budget.ran === false):
         → This is a SKIP - no tools actually ran. Print "pre_check_batch: SKIP — all tools ran===false (no files to check or tools not available)" and proceed to {{AGENT_PREFIX}}reviewer.
     → Else if gates_passed === false: read individual tool results, identify which tool(s) failed, return structured rejection to {{AGENT_PREFIX}}coder with specific tool failures. Do NOT call {{AGENT_PREFIX}}reviewer.
-    → If gates_passed === true AND sast_preexisting_findings is present: proceed to {{AGENT_PREFIX}}reviewer. Include the pre-existing SAST findings in the reviewer delegation context with instruction: "SAST TRIAGE REQUIRED: The following HIGH/CRITICAL SAST findings exist on unchanged lines in this changeset. Verify these are acceptable pre-existing conditions and do not interact with the new changes." Do NOT return to coder for pre-existing findings on unchanged code.
+    → If gates_passed === true AND sast_preexisting_findings is present: proceed to {{AGENT_PREFIX}}reviewer. Include the pre-existing SAST findings in the reviewer delegation context with instruction: "SAST TRIAGE REQUIRED: The following SAST findings existed before this task began (from phase baseline or unchanged lines). Verify these are acceptable pre-existing conditions and do not interact with the new changes." Do NOT return to coder for pre-existing findings.
     → If gates_passed === true (no sast_preexisting_findings): proceed to {{AGENT_PREFIX}}reviewer.
-    → REQUIRED: Print "pre_check_batch: [PASS — all gates passed | PASS — pre-existing SAST findings on unchanged lines (N findings, reviewer triage) | FAIL — [gate]: [details]]"
+    → REQUIRED: Print "pre_check_batch: [PASS — all gates passed | PASS — pre-existing SAST findings (N findings, reviewer triage) | FAIL — [gate]: [details]]"
 
 ⚠️ pre_check_batch SCOPE BOUNDARY:
 pre_check_batch runs FOUR automated tools: lint:check, secretscan, sast_scan, quality_budget.

@@ -206,23 +206,21 @@ export const PlaceholderEvidenceSchema = BaseEvidenceSchema.extend({
 });
 export type PlaceholderEvidence = z.infer<typeof PlaceholderEvidenceSchema>;
 
+export const SastFindingSchema = z.object({
+	rule_id: z.string(),
+	severity: z.enum(['critical', 'high', 'medium', 'low']),
+	message: z.string(),
+	location: z.object({
+		file: z.string(),
+		line: z.number().int(),
+		column: z.number().int().optional(),
+	}),
+	remediation: z.string().optional(),
+});
+
 export const SastEvidenceSchema = BaseEvidenceSchema.extend({
 	type: z.literal('sast'),
-	findings: z
-		.array(
-			z.object({
-				rule_id: z.string(),
-				severity: z.enum(['critical', 'high', 'medium', 'low']),
-				message: z.string(),
-				location: z.object({
-					file: z.string(),
-					line: z.number().int(),
-					column: z.number().int().optional(),
-				}),
-				remediation: z.string().optional(),
-			}),
-		)
-		.default([]),
+	findings: z.array(SastFindingSchema).default([]),
 	engine: z.enum(['tier_a', 'tier_a+tier_b']),
 	files_scanned: z.number().int(),
 	findings_count: z.number().int(),
@@ -232,6 +230,10 @@ export const SastEvidenceSchema = BaseEvidenceSchema.extend({
 		medium: z.number().int(),
 		low: z.number().int(),
 	}),
+	// Baseline-diffing fields (optional — present when baseline diff was active)
+	new_findings: z.array(SastFindingSchema).optional(),
+	pre_existing_findings: z.array(SastFindingSchema).optional(),
+	baseline_used: z.boolean().optional(),
 });
 export type SastEvidence = z.infer<typeof SastEvidenceSchema>;
 

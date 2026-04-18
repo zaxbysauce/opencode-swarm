@@ -17,6 +17,13 @@ import { executeRulesSync } from '../sast/rules/index';
 import { isSemgrepAvailable, runSemgrep } from '../sast/semgrep';
 import { warn } from '../utils';
 import { createSwarmTool } from './create-tool';
+import {
+	assignOccurrenceIndices,
+	type CaptureResult,
+	captureOrMergeBaseline,
+	loadBaseline,
+	MAX_BASELINE_FINDINGS,
+} from './sast-baseline';
 
 // ============ Types ============
 
@@ -25,6 +32,21 @@ export interface SastScanInput {
 	changed_files: string[];
 	/** Minimum severity that causes failure (default: 'medium') */
 	severity_threshold?: 'low' | 'medium' | 'high' | 'critical';
+	/**
+	 * When true, capture/merge a phase-scoped baseline snapshot and return
+	 * status:'baseline_captured'. Subsequent scans with the same phase will
+	 * diff against this baseline so only NEW findings drive the fail verdict.
+	 *
+	 * Capture mode ignores severity_threshold — all severities are recorded.
+	 * Requires `phase` to be provided.
+	 */
+	capture_baseline?: boolean;
+	/**
+	 * Current phase number (positive integer, >= 1). Required when
+	 * capture_baseline is true. When provided without capture_baseline, enables
+	 * baseline diff mode: only findings absent from the phase baseline fail.
+	 */
+	phase?: number;
 }
 
 export interface SastScanResult {
@@ -48,6 +70,19 @@ export interface SastScanResult {
 			low: number;
 		};
 	};
+	// Baseline-diffing fields — present when capture_baseline is true or a baseline was loaded
+	/** 'baseline_captured' when capture_baseline:true succeeded */
+	status?: 'baseline_captured' | 'baseline_merged';
+	/** Number of findings recorded in the baseline (capture mode only) */
+	finding_count?: number;
+	/** Findings NOT present in the baseline (diff mode only) */
+	new_findings?: SastScanFinding[];
+	/** Findings that match the baseline (diff mode only) */
+	pre_existing_findings?: SastScanFinding[];
+	/** True when a baseline was loaded and diff mode was active */
+	baseline_used?: boolean;
+	/** True when pre_existing_findings were truncated to fit result limits */
+	truncated_pre_existing?: boolean;
 }
 
 export interface SastScanFinding {
@@ -199,7 +234,12 @@ export async function sastScan(
 	directory: string,
 	config?: PluginConfig,
 ): Promise<SastScanResult> {
-	const { changed_files, severity_threshold = 'medium' } = input;
+	const {
+		changed_files,
+		severity_threshold = 'medium',
+		capture_baseline = false,
+		phase,
+	} = input;
 
 	// Check feature flag
 	if (config?.gates?.sast_scan?.enabled === false) {
@@ -224,6 +264,8 @@ export async function sastScan(
 	const allFindings: SastScanFinding[] = [];
 	let filesScanned = 0;
 	let _filesSkipped = 0;
+	/** Paths of files that were successfully scanned (for baseline capture). */
+	const scannedFilePaths: string[] = [];
 
 	// Check Semgrep availability once
 	const semgrepAvailable = isSemgrepAvailable();
@@ -324,6 +366,7 @@ export async function sastScan(
 		}
 
 		filesScanned++;
+		scannedFilePaths.push(resolvedPath);
 
 		// Limit files scanned
 		if (filesScanned >= MAX_FILES_SCANNED) {
@@ -394,29 +437,163 @@ export async function sastScan(
 		}
 	}
 
-	// Limit findings
-	let finalFindings = allFindings;
-	if (allFindings.length > MAX_FINDINGS) {
-		finalFindings = allFindings.slice(0, MAX_FINDINGS);
-		warn(
-			`SAST Scan: Found ${allFindings.length} findings, limiting to ${MAX_FINDINGS}`,
+	// ── Capture mode ─────────────────────────────────────────────────────────
+	// Records a baseline snapshot WITHOUT applying severity_threshold and WITHOUT
+	// the zero-coverage-fail invariant (capturing nothing is legitimate).
+	if (capture_baseline) {
+		if (phase === undefined || !Number.isInteger(phase) || phase < 1) {
+			// Capture without a valid phase is a hard error
+			const errorResult: SastScanResult = {
+				verdict: 'fail',
+				findings: allFindings.slice(0, MAX_FINDINGS),
+				summary: {
+					engine,
+					files_scanned: filesScanned,
+					findings_count: Math.min(allFindings.length, MAX_FINDINGS),
+					findings_by_severity: countBySeverity(
+						allFindings.slice(0, MAX_FINDINGS),
+					),
+				},
+			};
+			return errorResult;
+		}
+
+		// Use raised cap for baseline capture so mediums/lows aren't silently lost.
+		const captureFindings = allFindings.slice(0, MAX_BASELINE_FINDINGS);
+
+		const captureResult: CaptureResult = await captureOrMergeBaseline(
+			directory,
+			phase,
+			captureFindings,
+			engine,
+			scannedFilePaths,
 		);
+
+		// Even on capture error, return a pass so the architect flow continues —
+		// baseline failure is surfaced in status field and should be logged.
+		const captureStatus =
+			captureResult.status === 'written'
+				? 'baseline_captured'
+				: captureResult.status === 'merged'
+					? 'baseline_merged'
+					: undefined;
+
+		if (captureResult.status === 'error') {
+			warn(`SAST Baseline: capture failed — ${captureResult.message}`);
+		}
+
+		const finalFindings = allFindings.slice(0, MAX_FINDINGS);
+		const summary = {
+			engine,
+			files_scanned: filesScanned,
+			findings_count: finalFindings.length,
+			findings_by_severity: countBySeverity(finalFindings),
+		};
+
+		await saveEvidence(directory, 'sast_scan', {
+			task_id: 'sast_scan',
+			type: 'sast',
+			timestamp: new Date().toISOString(),
+			agent: 'sast_scan',
+			verdict: 'pass',
+			summary: `Baseline capture: scanned ${filesScanned} files, recorded ${captureFindings.length} finding(s)`,
+			...summary,
+			findings: finalFindings,
+			baseline_used: false,
+		});
+
+		return {
+			verdict: 'pass',
+			findings: finalFindings,
+			summary,
+			status: captureStatus,
+			finding_count:
+				captureResult.status !== 'error'
+					? captureResult.fingerprint_count
+					: undefined,
+			baseline_used: false,
+		};
+	}
+
+	// ── Diff mode (baseline-aware) ────────────────────────────────────────────
+	// When a phase is provided and a baseline exists, partition findings into
+	// new (not in baseline) vs pre_existing (in baseline). Only new findings
+	// drive the fail verdict. Severity threshold applied post-partition.
+	let newFindings: SastScanFinding[] | undefined;
+	let preExistingFindings: SastScanFinding[] | undefined;
+	let baselineUsed = false;
+	let truncatedPreExisting = false;
+
+	if (phase !== undefined && Number.isInteger(phase) && phase >= 1) {
+		const baselineResult = loadBaseline(directory, phase);
+
+		if (baselineResult.status === 'found') {
+			baselineUsed = true;
+			const baselineSet = baselineResult.fingerprints;
+
+			// Partition ALL raw findings (pre-truncation) — avoids false passes
+			// from new findings that would have been truncated before partitioning.
+			const indexed = assignOccurrenceIndices(allFindings, directory);
+
+			const rawNew: SastScanFinding[] = [];
+			const rawPreExisting: SastScanFinding[] = [];
+
+			for (const { finding, stable, fingerprint } of indexed) {
+				if (!stable || !baselineSet.has(fingerprint)) {
+					// Unstable fingerprint or not in baseline → treat as NEW (fail-closed)
+					rawNew.push(finding);
+				} else {
+					rawPreExisting.push(finding);
+				}
+			}
+
+			// Truncate per-bucket (new_findings take priority)
+			newFindings = rawNew.slice(0, MAX_FINDINGS);
+			const preExistingBudget = Math.max(0, MAX_FINDINGS - newFindings.length);
+			preExistingFindings = rawPreExisting.slice(0, preExistingBudget);
+			truncatedPreExisting = rawPreExisting.length > preExistingBudget;
+		} else if (baselineResult.status === 'invalid_schema') {
+			warn(
+				`SAST Baseline: could not load baseline for phase ${phase} — ${baselineResult.errors.join(', ')}. Falling back to legacy behavior.`,
+			);
+		}
+		// 'not_found' → silent legacy fallback (no baseline yet for this phase)
+	}
+
+	// ── Legacy verdict (no baseline) ─────────────────────────────────────────
+	let finalFindings: SastScanFinding[];
+	if (!baselineUsed) {
+		finalFindings = allFindings;
+		if (allFindings.length > MAX_FINDINGS) {
+			finalFindings = allFindings.slice(0, MAX_FINDINGS);
+			warn(
+				`SAST Scan: Found ${allFindings.length} findings, limiting to ${MAX_FINDINGS}`,
+			);
+		}
+	} else {
+		// findings[] = all findings (new + pre_existing) for backward compat with callers
+		finalFindings = [
+			...(newFindings ?? []),
+			...(preExistingFindings ?? []),
+		].slice(0, MAX_FINDINGS);
 	}
 
 	// Count by severity
 	const findingsBySeverity = countBySeverity(finalFindings);
 
-	// Determine verdict based on severity threshold
+	// Determine verdict:
+	// - Baseline mode: only new_findings (above threshold) drive fail
+	// - Legacy mode: all finalFindings (above threshold) drive fail
+	const verdictSource = baselineUsed ? (newFindings ?? []) : finalFindings;
 	let verdict: EvidenceVerdict = 'pass';
-	for (const finding of finalFindings) {
+	for (const finding of verdictSource) {
 		if (meetsThreshold(finding.severity, severity_threshold)) {
 			verdict = 'fail';
 			break;
 		}
 	}
 
-	// Zero-coverage fail: if enabled mode and no files were scanned, fail the verdict
-	// This ensures zero-scanned coverage cannot be treated as a successful security check
+	// Zero-coverage fail: preserved in both modes (only skip for capture mode, handled above)
 	if (filesScanned === 0) {
 		verdict = 'fail';
 	}
@@ -439,13 +616,27 @@ export async function sastScan(
 		summary: `Scanned ${filesScanned} files, found ${finalFindings.length} finding(s) using ${engine}`,
 		...summary,
 		findings: finalFindings,
+		...(baselineUsed && {
+			new_findings: newFindings,
+			pre_existing_findings: preExistingFindings,
+			baseline_used: true,
+		}),
 	});
 
-	return {
+	const result: SastScanResult = {
 		verdict,
 		findings: finalFindings,
 		summary,
 	};
+
+	if (baselineUsed) {
+		result.new_findings = newFindings;
+		result.pre_existing_findings = preExistingFindings;
+		result.baseline_used = true;
+		if (truncatedPreExisting) result.truncated_pre_existing = true;
+	}
+
+	return result;
 }
 
 // ============ Tool Definition ============
@@ -458,7 +649,7 @@ export async function sastScan(
  */
 export const sast_scan: ToolDefinition = createSwarmTool({
 	description:
-		'Static Application Security Testing (SAST) scan. Scans files for security vulnerabilities using built-in rules (Tier A) and optional Semgrep (Tier B). Returns structured findings with severity levels.',
+		'Static Application Security Testing (SAST) scan. Scans files for security vulnerabilities using built-in rules (Tier A) and optional Semgrep (Tier B). Supports phase-scoped baseline diffing: set capture_baseline:true before first coder delegation to snapshot pre-existing findings; subsequent scans with the same phase only fail on NEW findings.',
 	args: {
 		directory: tool.schema
 			.string()
@@ -472,6 +663,20 @@ export const sast_scan: ToolDefinition = createSwarmTool({
 			.optional()
 			.default('medium')
 			.describe('Minimum severity that causes failure'),
+		capture_baseline: tool.schema
+			.boolean()
+			.optional()
+			.describe(
+				'When true, capture/merge a phase-scoped baseline of pre-existing findings. Requires phase. Subsequent scans with phase only fail on NEW findings.',
+			),
+		phase: tool.schema
+			.number()
+			.int()
+			.min(1)
+			.optional()
+			.describe(
+				'Current phase number (positive integer >= 1). Required with capture_baseline. Enables baseline diff when provided on non-capture scans.',
+			),
 	},
 	execute: async (args, directory) => {
 		// Safe args extraction - guard against malformed args and malicious getters
@@ -479,10 +684,14 @@ export const sast_scan: ToolDefinition = createSwarmTool({
 			directory: string | undefined;
 			changed_files: string[] | undefined;
 			severity_threshold: 'low' | 'medium' | 'high' | 'critical' | undefined;
+			capture_baseline: boolean | undefined;
+			phase: number | undefined;
 		};
 
 		try {
 			if (args && typeof args === 'object') {
+				const rawPhase = (args as Record<string, unknown>).phase;
+				const rawCapture = (args as Record<string, unknown>).capture_baseline;
 				safeArgs = {
 					directory: args.directory as unknown as string | undefined,
 					changed_files: args.changed_files as unknown as string[] | undefined,
@@ -492,12 +701,23 @@ export const sast_scan: ToolDefinition = createSwarmTool({
 						| 'high'
 						| 'critical'
 						| undefined,
+					// Strict type guards: reject coerced/string values
+					phase:
+						typeof rawPhase === 'number' &&
+						Number.isInteger(rawPhase) &&
+						rawPhase >= 1
+							? rawPhase
+							: undefined,
+					capture_baseline:
+						typeof rawCapture === 'boolean' ? rawCapture : undefined,
 				};
 			} else {
 				safeArgs = {
 					directory: undefined,
 					changed_files: undefined,
 					severity_threshold: undefined,
+					capture_baseline: undefined,
+					phase: undefined,
 				};
 			}
 		} catch {
@@ -506,6 +726,8 @@ export const sast_scan: ToolDefinition = createSwarmTool({
 				directory: undefined,
 				changed_files: undefined,
 				severity_threshold: undefined,
+				capture_baseline: undefined,
+				phase: undefined,
 			};
 		}
 
@@ -532,6 +754,8 @@ export const sast_scan: ToolDefinition = createSwarmTool({
 		const input: SastScanInput = {
 			changed_files: safeArgs.changed_files ?? [],
 			severity_threshold: safeArgs.severity_threshold ?? 'medium',
+			capture_baseline: safeArgs.capture_baseline,
+			phase: safeArgs.phase,
 		};
 
 		const result = await sastScan(input, directory);

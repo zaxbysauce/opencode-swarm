@@ -289,6 +289,22 @@ export declare const PlaceholderEvidenceSchema: z.ZodObject<{
     findings_count: z.ZodNumber;
 }, z.core.$strip>;
 export type PlaceholderEvidence = z.infer<typeof PlaceholderEvidenceSchema>;
+export declare const SastFindingSchema: z.ZodObject<{
+    rule_id: z.ZodString;
+    severity: z.ZodEnum<{
+        medium: "medium";
+        low: "low";
+        high: "high";
+        critical: "critical";
+    }>;
+    message: z.ZodString;
+    location: z.ZodObject<{
+        file: z.ZodString;
+        line: z.ZodNumber;
+        column: z.ZodOptional<z.ZodNumber>;
+    }, z.core.$strip>;
+    remediation: z.ZodOptional<z.ZodString>;
+}, z.core.$strip>;
 export declare const SastEvidenceSchema: z.ZodObject<{
     task_id: z.ZodString;
     timestamp: z.ZodString;
@@ -331,6 +347,39 @@ export declare const SastEvidenceSchema: z.ZodObject<{
         medium: z.ZodNumber;
         low: z.ZodNumber;
     }, z.core.$strip>;
+    new_findings: z.ZodOptional<z.ZodArray<z.ZodObject<{
+        rule_id: z.ZodString;
+        severity: z.ZodEnum<{
+            medium: "medium";
+            low: "low";
+            high: "high";
+            critical: "critical";
+        }>;
+        message: z.ZodString;
+        location: z.ZodObject<{
+            file: z.ZodString;
+            line: z.ZodNumber;
+            column: z.ZodOptional<z.ZodNumber>;
+        }, z.core.$strip>;
+        remediation: z.ZodOptional<z.ZodString>;
+    }, z.core.$strip>>>;
+    pre_existing_findings: z.ZodOptional<z.ZodArray<z.ZodObject<{
+        rule_id: z.ZodString;
+        severity: z.ZodEnum<{
+            medium: "medium";
+            low: "low";
+            high: "high";
+            critical: "critical";
+        }>;
+        message: z.ZodString;
+        location: z.ZodObject<{
+            file: z.ZodString;
+            line: z.ZodNumber;
+            column: z.ZodOptional<z.ZodNumber>;
+        }, z.core.$strip>;
+        remediation: z.ZodOptional<z.ZodString>;
+    }, z.core.$strip>>>;
+    baseline_used: z.ZodOptional<z.ZodBoolean>;
 }, z.core.$strip>;
 export type SastEvidence = z.infer<typeof SastEvidenceSchema>;
 export declare const SbomEvidenceSchema: z.ZodObject<{
@@ -722,6 +771,39 @@ export declare const EvidenceSchema: z.ZodDiscriminatedUnion<[z.ZodObject<{
         medium: z.ZodNumber;
         low: z.ZodNumber;
     }, z.core.$strip>;
+    new_findings: z.ZodOptional<z.ZodArray<z.ZodObject<{
+        rule_id: z.ZodString;
+        severity: z.ZodEnum<{
+            medium: "medium";
+            low: "low";
+            high: "high";
+            critical: "critical";
+        }>;
+        message: z.ZodString;
+        location: z.ZodObject<{
+            file: z.ZodString;
+            line: z.ZodNumber;
+            column: z.ZodOptional<z.ZodNumber>;
+        }, z.core.$strip>;
+        remediation: z.ZodOptional<z.ZodString>;
+    }, z.core.$strip>>>;
+    pre_existing_findings: z.ZodOptional<z.ZodArray<z.ZodObject<{
+        rule_id: z.ZodString;
+        severity: z.ZodEnum<{
+            medium: "medium";
+            low: "low";
+            high: "high";
+            critical: "critical";
+        }>;
+        message: z.ZodString;
+        location: z.ZodObject<{
+            file: z.ZodString;
+            line: z.ZodNumber;
+            column: z.ZodOptional<z.ZodNumber>;
+        }, z.core.$strip>;
+        remediation: z.ZodOptional<z.ZodString>;
+    }, z.core.$strip>>>;
+    baseline_used: z.ZodOptional<z.ZodBoolean>;
 }, z.core.$strip>, z.ZodObject<{
     task_id: z.ZodString;
     timestamp: z.ZodString;
@@ -1108,6 +1190,39 @@ export declare const EvidenceBundleSchema: z.ZodObject<{
             medium: z.ZodNumber;
             low: z.ZodNumber;
         }, z.core.$strip>;
+        new_findings: z.ZodOptional<z.ZodArray<z.ZodObject<{
+            rule_id: z.ZodString;
+            severity: z.ZodEnum<{
+                medium: "medium";
+                low: "low";
+                high: "high";
+                critical: "critical";
+            }>;
+            message: z.ZodString;
+            location: z.ZodObject<{
+                file: z.ZodString;
+                line: z.ZodNumber;
+                column: z.ZodOptional<z.ZodNumber>;
+            }, z.core.$strip>;
+            remediation: z.ZodOptional<z.ZodString>;
+        }, z.core.$strip>>>;
+        pre_existing_findings: z.ZodOptional<z.ZodArray<z.ZodObject<{
+            rule_id: z.ZodString;
+            severity: z.ZodEnum<{
+                medium: "medium";
+                low: "low";
+                high: "high";
+                critical: "critical";
+            }>;
+            message: z.ZodString;
+            location: z.ZodObject<{
+                file: z.ZodString;
+                line: z.ZodNumber;
+                column: z.ZodOptional<z.ZodNumber>;
+            }, z.core.$strip>;
+            remediation: z.ZodOptional<z.ZodString>;
+        }, z.core.$strip>>>;
+        baseline_used: z.ZodOptional<z.ZodBoolean>;
     }, z.core.$strip>, z.ZodObject<{
         task_id: z.ZodString;
         timestamp: z.ZodString;

@@ -42,6 +42,14 @@ export interface PreCheckBatchInput {
 	sast_threshold?: 'low' | 'medium' | 'high' | 'critical';
 	/** Optional plugin config */
 	config?: PluginConfig;
+	/**
+	 * Current phase number (positive integer >= 1).
+	 * When provided, enables SAST baseline diffing: only findings absent from the
+	 * phase-scoped baseline (.swarm/evidence/{phase}/sast-baseline.json) drive the
+	 * fail verdict. Capture the baseline before first coder delegation via sast_scan
+	 * with capture_baseline:true.
+	 */
+	phase?: number;
 }
 
 export interface ToolResult<T> {
@@ -617,13 +625,18 @@ async function runSastScanWrapped(
 	directory: string,
 	severityThreshold: 'low' | 'medium' | 'high' | 'critical',
 	config?: PluginConfig,
+	phase?: number,
 ): Promise<ToolResult<SastScanResult>> {
 	const start = process.hrtime.bigint();
 
 	try {
 		const result = await runWithTimeout(
 			sastScan(
-				{ changed_files: changedFiles, severity_threshold: severityThreshold },
+				{
+					changed_files: changedFiles,
+					severity_threshold: severityThreshold,
+					phase,
+				},
 				directory,
 				config,
 			),
@@ -676,8 +689,25 @@ async function runQualityBudgetWrapped(
 
 // ============ Changed-Line Detection ============
 
-/** Severity levels that trigger the gate */
+/** Severity levels that trigger the gate (legacy changed-line triage) */
 const GATE_SEVERITIES = new Set(['high', 'critical']);
+
+const SEVERITY_ORDER_PCB: Record<string, number> = {
+	low: 0,
+	medium: 1,
+	high: 2,
+	critical: 3,
+};
+
+/** Whether a finding severity meets or exceeds the given threshold. */
+function meetsThresholdForTriage(
+	severity: string,
+	threshold: 'low' | 'medium' | 'high' | 'critical',
+): boolean {
+	return (
+		(SEVERITY_ORDER_PCB[severity] ?? 0) >= (SEVERITY_ORDER_PCB[threshold] ?? 1)
+	);
+}
 
 /**
  * Run a git diff command and return stdout, or null on failure.
@@ -850,7 +880,7 @@ export async function runPreCheckBatch(
 	const effectiveWorkspaceDir = (workspaceDir ||
 		input.directory ||
 		contextDir) as string;
-	const { files, directory, sast_threshold = 'medium', config } = input;
+	const { files, directory, sast_threshold = 'medium', config, phase } = input;
 
 	// Validate directory
 	const dirError = validateDirectory(directory, effectiveWorkspaceDir);
@@ -939,7 +969,13 @@ export async function runPreCheckBatch(
 			limit(() => runLintWrapped(changedFiles, directory, config)),
 			limit(() => runSecretscanWrapped(changedFiles, directory, config)),
 			limit(() =>
-				runSastScanWrapped(changedFiles, directory, sast_threshold, config),
+				runSastScanWrapped(
+					changedFiles,
+					directory,
+					sast_threshold,
+					config,
+					phase,
+				),
 			),
 			limit(() => runQualityBudgetWrapped(changedFiles, directory, config)),
 		]);
@@ -1010,9 +1046,36 @@ export async function runPreCheckBatch(
 	// Check SAST scan (hard gate with pre-existing finding classification)
 	let sastPreexistingFindings: SastScanFinding[] | undefined;
 	if (sastScanResult.ran && sastScanResult.result) {
-		if (sastScanResult.result.verdict === 'fail') {
-			// Classify HIGH/CRITICAL findings as new vs pre-existing
-			const gateFindings = sastScanResult.result.findings.filter((f) =>
+		const sastResult = sastScanResult.result;
+
+		if (sastResult.baseline_used) {
+			// Baseline diff mode: verdict is driven ONLY by new_findings in sastScan.
+			// Populate reviewer triage with pre_existing_findings (if any), regardless of verdict.
+			// Use sast_threshold as triage filter so mediums are not silently dropped when
+			// threshold is 'medium' or lower.
+			if (
+				sastResult.pre_existing_findings &&
+				sastResult.pre_existing_findings.length > 0
+			) {
+				sastPreexistingFindings = sastResult.pre_existing_findings.filter((f) =>
+					meetsThresholdForTriage(f.severity, sast_threshold),
+				);
+				if (sastPreexistingFindings.length > 0) {
+					warn(
+						`pre_check_batch: SAST baseline diff found ${sastPreexistingFindings.length} pre-existing finding(s) - passing to reviewer for triage`,
+					);
+				}
+			}
+			// Verdict is already correctly set by sastScan — do not override.
+			if (sastResult.verdict === 'fail') {
+				gatesPassed = false;
+				warn(
+					`pre_check_batch: SAST scan found new findings above threshold - GATE FAILED`,
+				);
+			}
+		} else if (sastResult.verdict === 'fail') {
+			// Legacy mode (no baseline): classify HIGH/CRITICAL findings by changed lines
+			const gateFindings = sastResult.findings.filter((f) =>
 				GATE_SEVERITIES.has(f.severity),
 			);
 
@@ -1111,6 +1174,14 @@ export const pre_check_batch: ReturnType<typeof tool> = createSwarmTool({
 			.optional()
 			.describe(
 				'Minimum severity for SAST findings to cause failure (default: medium)',
+			),
+		phase: tool.schema
+			.number()
+			.int()
+			.min(1)
+			.optional()
+			.describe(
+				'Current phase number (positive integer >= 1). When provided, enables SAST baseline diffing: only findings absent from the phase-scoped baseline fail the gate.',
 			),
 	},
 	async execute(args: unknown, directory: string): Promise<string> {
@@ -1213,12 +1284,21 @@ export const pre_check_batch: ReturnType<typeof tool> = createSwarmTool({
 
 		// Run pre-check batch
 		try {
+			const rawPhase = (typedArgs as unknown as Record<string, unknown>).phase;
+			const safePhase =
+				typeof rawPhase === 'number' &&
+				Number.isInteger(rawPhase) &&
+				rawPhase >= 1
+					? rawPhase
+					: undefined;
+
 			const result = await runPreCheckBatch(
 				{
 					files: typedArgs.files,
 					directory: resolvedDirectory,
 					sast_threshold: typedArgs.sast_threshold,
 					config: typedArgs.config,
+					phase: safePhase,
 				},
 				workspaceAnchor,
 				directory,
