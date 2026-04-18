@@ -1,5 +1,12 @@
 # Changelog
 
+## [6.73.1](https://github.com/zaxbysauce/opencode-swarm/compare/v6.73.0...v6.73.1) (2026-04-18)
+
+
+### Bug Fixes
+
+* update_task_status silently fails to downgrade completed tasks; add reset_statuses to save_plan ([#533](https://github.com/zaxbysauce/opencode-swarm/issues/533)) ([3657f30](https://github.com/zaxbysauce/opencode-swarm/commit/3657f3045827b4d9b156fe76929e0c575e5c6e67))
+
 ## [6.73.0](https://github.com/zaxbysauce/opencode-swarm/compare/v6.72.1...v6.73.0) (2026-04-17)
 
 
