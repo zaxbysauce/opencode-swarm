@@ -21,6 +21,13 @@ export interface SavePlanArgs {
         }>;
     }>;
     working_directory?: string;
+    /**
+     * When true, all task statuses are reset to 'pending' and existing completed
+     * statuses are NOT preserved.  Use this when creating a fresh revision of a
+     * plan where prior completion state should no longer apply (e.g., re-planning
+     * after a failed phase).  Defaults to false (existing statuses preserved).
+     */
+    reset_statuses?: boolean;
 }
 /**
  * Result from executing save_plan

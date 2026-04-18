@@ -1152,8 +1152,18 @@ export async function updateTaskStatus(
 
 		const updatedPlan: Plan = { ...plan, phases: updatedPhases };
 		try {
+			// preserveCompletedStatuses must be false here so that the caller's explicit
+			// status request is honoured even when downgrading from 'completed'.
+			// The guard is not needed in updateTaskStatus because:
+			//   1. We load the CURRENT plan from disk first (all other tasks already carry
+			//      their real status values, including any 'completed' ones).
+			//   2. We only mutate the single targeted task — no other task status can
+			//      accidentally regress.
+			// Passing true would cause savePlan to re-read disk, see the task as
+			// 'completed', and silently override the explicit caller request back to
+			// 'completed', producing a false-positive success return.
 			await savePlan(directory, updatedPlan, {
-				preserveCompletedStatuses: true,
+				preserveCompletedStatuses: false,
 			});
 			return updatedPlan;
 		} catch (error) {

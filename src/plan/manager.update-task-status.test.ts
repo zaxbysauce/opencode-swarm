@@ -79,4 +79,62 @@ describe('updateTaskStatus phase status derivation', () => {
 		const reloaded = await loadPlan(tempDir);
 		expect(reloaded?.phases[0].status).toBe('pending');
 	});
+
+	// Regression test: downgrading completed → pending must actually persist.
+	//
+	// Root cause: updateTaskStatus previously called savePlan with
+	// preserveCompletedStatuses:true, which caused savePlan to re-read disk,
+	// see the task as 'completed', and silently override the caller's explicit
+	// request back to 'completed'.  The function returned success (with the
+	// requested status in its return value) but disk still had 'completed',
+	// producing a silent false-positive that confused LLM agents trying to
+	// reset task status for re-planning.
+	it('regression: downgrading completed → pending is persisted to disk (not silently overridden)', async () => {
+		// Mark both tasks completed so phase becomes complete
+		await updateTaskStatus(tempDir, '1.1', 'completed');
+		await updateTaskStatus(tempDir, '1.2', 'completed');
+
+		// Downgrade task 1.1 back to pending
+		const returned = await updateTaskStatus(tempDir, '1.1', 'pending');
+
+		// The returned plan must reflect the new status
+		const task11Returned = returned.phases[0].tasks.find((t) => t.id === '1.1');
+		expect(task11Returned?.status).toBe('pending');
+
+		// CRITICAL: disk must also reflect the new status — not silently remain 'completed'
+		const reloaded = await loadPlan(tempDir);
+		const task11OnDisk = reloaded?.phases[0].tasks.find((t) => t.id === '1.1');
+		expect(task11OnDisk?.status).toBe('pending');
+
+		// Phase is 'pending': task 1.1 is pending, task 1.2 is completed, none are in_progress
+		expect(reloaded?.phases[0].status).toBe('pending');
+	});
+
+	// Regression test: downgrading completed → in_progress must also persist.
+	it('regression: downgrading completed → in_progress is persisted to disk', async () => {
+		await updateTaskStatus(tempDir, '1.1', 'completed');
+
+		const returned = await updateTaskStatus(tempDir, '1.1', 'in_progress');
+
+		const task11Returned = returned.phases[0].tasks.find((t) => t.id === '1.1');
+		expect(task11Returned?.status).toBe('in_progress');
+
+		const reloaded = await loadPlan(tempDir);
+		const task11OnDisk = reloaded?.phases[0].tasks.find((t) => t.id === '1.1');
+		expect(task11OnDisk?.status).toBe('in_progress');
+	});
+
+	// Verify that other tasks' completed status is still preserved when a
+	// DIFFERENT task is updated (no unintended regression on sibling tasks).
+	it('downgrading one task does not reset sibling completed tasks', async () => {
+		await updateTaskStatus(tempDir, '1.1', 'completed');
+		await updateTaskStatus(tempDir, '1.2', 'completed');
+
+		// Reset only 1.1 — 1.2 must remain completed
+		await updateTaskStatus(tempDir, '1.1', 'pending');
+
+		const reloaded = await loadPlan(tempDir);
+		const task12OnDisk = reloaded?.phases[0].tasks.find((t) => t.id === '1.2');
+		expect(task12OnDisk?.status).toBe('completed');
+	});
 });

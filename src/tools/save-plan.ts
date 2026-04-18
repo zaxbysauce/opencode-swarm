@@ -33,6 +33,13 @@ export interface SavePlanArgs {
 		}>;
 	}>;
 	working_directory?: string;
+	/**
+	 * When true, all task statuses are reset to 'pending' and existing completed
+	 * statuses are NOT preserved.  Use this when creating a fresh revision of a
+	 * plan where prior completion state should no longer apply (e.g., re-planning
+	 * after a failed phase).  Defaults to false (existing statuses preserved).
+	 */
+	reset_statuses?: boolean;
 }
 
 /**
@@ -222,19 +229,23 @@ export async function executeSavePlan(
 	// Step 2.5: Read current plan for status preservation (merge mode)
 	// This ensures all task statuses are preserved across plan revisions,
 	// not just tasks that happen to share the same ID with the incoming plan.
+	// When args.reset_statuses is true the map is intentionally left empty so
+	// every task starts fresh at 'pending'.
 	const dir = targetWorkspace as string;
 	const existingStatusMap: Map<string, TaskStatus> = new Map();
-	try {
-		const existing = await loadPlanJsonOnly(dir);
-		if (existing) {
-			for (const phase of existing.phases) {
-				for (const task of phase.tasks) {
-					existingStatusMap.set(task.id, task.status);
+	if (!args.reset_statuses) {
+		try {
+			const existing = await loadPlanJsonOnly(dir);
+			if (existing) {
+				for (const phase of existing.phases) {
+					for (const task of phase.tasks) {
+						existingStatusMap.set(task.id, task.status);
+					}
 				}
 			}
+		} catch {
+			// First plan write or unreadable — proceed with all-pending
 		}
-	} catch {
-		// First plan write or unreadable — proceed with all-pending
 	}
 
 	// Step 3: Build the Plan object from args
@@ -296,7 +307,14 @@ export async function executeSavePlan(
 			};
 		}
 		try {
-			await savePlan(dir, plan);
+			// When reset_statuses is requested, bypass the preserveCompletedStatuses
+			// guard in savePlan so that the caller's intent (all tasks → pending) is
+			// fully honoured.  The existingStatusMap was already left empty above, but
+			// savePlan has its own independent guard that would re-read disk and
+			// silently restore 'completed' statuses — so we must also disable it here.
+			await savePlan(dir, plan, {
+				preserveCompletedStatuses: !args.reset_statuses,
+			});
 			// Take an explicit snapshot after every save_plan call.
 			// This ensures replayFromLedger always has a complete plan baseline to work from.
 			const savedPlan = await loadPlanJsonOnly(dir);
@@ -437,6 +455,14 @@ export const save_plan: ToolDefinition = createSwarmTool({
 			.string()
 			.optional()
 			.describe('Working directory (explicit path, required - no fallback)'),
+		reset_statuses: tool.schema
+			.boolean()
+			.optional()
+			.describe(
+				'When true, reset ALL task statuses to pending regardless of prior completion state. ' +
+					'Use only when deliberately re-planning a phase from scratch. ' +
+					'Default false (preserves existing task statuses across plan revisions).',
+			),
 	},
 	execute: async (args: unknown, _directory: string) => {
 		return JSON.stringify(
