@@ -21,7 +21,10 @@ import {
 import type { TaskEvidence } from './gate-evidence';
 import { clearPendingCoderScope } from './hooks/delegation-gate.js';
 import { loadPlanJsonOnly } from './plan/manager.js';
+import { AgentRunContext } from './state/agent-run-context.js';
 import { telemetry } from './telemetry.js';
+
+export { AgentRunContext } from './state/agent-run-context.js';
 
 /**
  * Cached plan + evidence data read once at plugin init by buildRehydrationCache().
@@ -262,21 +265,51 @@ export interface InvocationWindow {
 	warningReason: string;
 }
 
+// Process-global tool aggregates — intentionally shared across all run contexts.
+// Isolated per-run maps live on AgentRunContext; this one is a cross-run accumulator.
+const _toolAggregates = new Map<string, ToolAggregate>();
+
 /**
- * Singleton state object for sharing data across hooks
+ * Default run context — the single active run for current single-threaded behavior.
+ * PR 2 will create additional contexts for parallel dispatcher slots.
+ */
+export const defaultRunContext = new AgentRunContext<
+	ToolCallEntry,
+	ToolAggregate,
+	DelegationEntry,
+	AgentSessionState,
+	EnvironmentProfile
+>('default', _toolAggregates);
+
+// Registry for future multi-run dispatch (dark, not yet populated by production code).
+const _runContexts = new Map<string, typeof defaultRunContext>();
+
+/**
+ * Return the AgentRunContext for the given runId.
+ * No argument or unknown runId returns defaultRunContext (single-run semantics preserved).
+ */
+export function getRunContext(runId?: string): typeof defaultRunContext {
+	if (!runId) return defaultRunContext;
+	return _runContexts.get(runId) ?? defaultRunContext;
+}
+
+/**
+ * Singleton state object for sharing data across hooks.
+ * Per-run maps are backed by defaultRunContext so that swarmState references
+ * stay valid and single-run behavior is unchanged.
  */
 export const swarmState = {
 	/** Active tool calls — keyed by callID for before→after correlation */
-	activeToolCalls: new Map<string, ToolCallEntry>(),
+	activeToolCalls: defaultRunContext.activeToolCalls,
 
-	/** Aggregated tool usage stats — keyed by tool name */
-	toolAggregates: new Map<string, ToolAggregate>(),
+	/** Aggregated tool usage stats — process-global accumulator */
+	toolAggregates: defaultRunContext.toolAggregates,
 
 	/** Active agent per session — keyed by sessionID, updated by chat.message hook */
-	activeAgent: new Map<string, string>(),
+	activeAgent: defaultRunContext.activeAgent,
 
 	/** Delegation chains per session — keyed by sessionID */
-	delegationChains: new Map<string, DelegationEntry[]>(),
+	delegationChains: defaultRunContext.delegationChains,
 
 	/** Number of events since last flush */
 	pendingEvents: 0,
@@ -296,7 +329,7 @@ export const swarmState = {
 	lastBudgetPct: 0,
 
 	/** Per-session guardrail state — keyed by sessionID */
-	agentSessions: new Map<string, AgentSessionState>(),
+	agentSessions: defaultRunContext.agentSessions,
 
 	/** In-flight rehydration promises — awaited by rehydrateState before clearing agentSessions */
 	pendingRehydrations: new Set<Promise<void>>(),
@@ -306,7 +339,7 @@ export const swarmState = {
 	fullAutoEnabledInConfig: false,
 
 	/** Per-session environment profiles — keyed by sessionID */
-	environmentProfiles: new Map<string, EnvironmentProfile>(),
+	environmentProfiles: defaultRunContext.environmentProfiles,
 };
 
 /**

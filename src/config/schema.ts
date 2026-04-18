@@ -979,6 +979,20 @@ export const CouncilConfigSchema = z
 
 export type CouncilConfig = z.infer<typeof CouncilConfigSchema>;
 
+// Parallelization configuration (PR 1 — dark foundation, disabled by default)
+// All fields default to single-run-equivalent values so no production path
+// activates parallel execution while this config exists.
+export const ParallelizationConfigSchema = z.object({
+	/** Master switch. Defaults to false — no parallel execution in current code. */
+	enabled: z.boolean().default(false),
+	/** Maximum concurrent tasks. 1 = serial (current behavior). */
+	maxConcurrentTasks: z.number().int().min(1).max(64).default(1),
+	/** Timeout in ms for evidence file locks before throwing EvidenceLockTimeoutError. */
+	evidenceLockTimeoutMs: z.number().int().min(1000).max(300000).default(60000),
+});
+
+export type ParallelizationConfig = z.infer<typeof ParallelizationConfigSchema>;
+
 // Main plugin configuration
 export const PluginConfigSchema = z.object({
 	// Legacy: Per-agent overrides (default swarm)
@@ -1125,6 +1139,10 @@ export const PluginConfigSchema = z.object({
 
 	// Work Complete Council configuration — parallel four-member verification gate (off by default)
 	council: CouncilConfigSchema.optional(),
+
+	// Parallelization configuration (PR 1 dark foundation — disabled by default)
+	// Exists structurally; no production code path branches on enabled===true yet.
+	parallelization: ParallelizationConfigSchema.optional(),
 
 	// Turbo mode — bypasses reviewer/test gates for rapid iteration (v6.40)
 	turbo_mode: z.boolean().default(false).optional(),
