@@ -526,6 +526,12 @@ export declare const CouncilConfigSchema: z.ZodObject<{
     escalateOnMaxRounds: z.ZodOptional<z.ZodString>;
 }, z.core.$strict>;
 export type CouncilConfig = z.infer<typeof CouncilConfigSchema>;
+export declare const ParallelizationConfigSchema: z.ZodObject<{
+    enabled: z.ZodDefault<z.ZodBoolean>;
+    maxConcurrentTasks: z.ZodDefault<z.ZodNumber>;
+    evidenceLockTimeoutMs: z.ZodDefault<z.ZodNumber>;
+}, z.core.$strip>;
+export type ParallelizationConfig = z.infer<typeof ParallelizationConfigSchema>;
 export declare const PluginConfigSchema: z.ZodObject<{
     agents: z.ZodOptional<z.ZodRecord<z.ZodString, z.ZodObject<{
         model: z.ZodOptional<z.ZodString>;
@@ -883,6 +889,11 @@ export declare const PluginConfigSchema: z.ZodObject<{
         requireAllMembers: z.ZodDefault<z.ZodBoolean>;
         escalateOnMaxRounds: z.ZodOptional<z.ZodString>;
     }, z.core.$strict>>;
+    parallelization: z.ZodOptional<z.ZodObject<{
+        enabled: z.ZodDefault<z.ZodBoolean>;
+        maxConcurrentTasks: z.ZodDefault<z.ZodNumber>;
+        evidenceLockTimeoutMs: z.ZodDefault<z.ZodNumber>;
+    }, z.core.$strip>>;
     turbo_mode: z.ZodOptional<z.ZodDefault<z.ZodBoolean>>;
     full_auto: z.ZodDefault<z.ZodOptional<z.ZodObject<{
         enabled: z.ZodDefault<z.ZodBoolean>;

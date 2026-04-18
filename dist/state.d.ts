@@ -9,6 +9,8 @@
 import type { OpencodeClient } from '@opencode-ai/sdk';
 import { type QaGates } from './db/qa-gate-profile.js';
 import { type EnvironmentProfile } from './environment/profile.js';
+import { AgentRunContext } from './state/agent-run-context.js';
+export { AgentRunContext } from './state/agent-run-context.js';
 /**
  * Represents a single tool call entry for tracking purposes
  */
@@ -203,12 +205,24 @@ export interface InvocationWindow {
     warningReason: string;
 }
 /**
- * Singleton state object for sharing data across hooks
+ * Default run context — the single active run for current single-threaded behavior.
+ * PR 2 will create additional contexts for parallel dispatcher slots.
+ */
+export declare const defaultRunContext: AgentRunContext<ToolCallEntry, ToolAggregate, DelegationEntry, AgentSessionState, EnvironmentProfile>;
+/**
+ * Return the AgentRunContext for the given runId.
+ * No argument or unknown runId returns defaultRunContext (single-run semantics preserved).
+ */
+export declare function getRunContext(runId?: string): typeof defaultRunContext;
+/**
+ * Singleton state object for sharing data across hooks.
+ * Per-run maps are backed by defaultRunContext so that swarmState references
+ * stay valid and single-run behavior is unchanged.
  */
 export declare const swarmState: {
     /** Active tool calls — keyed by callID for before→after correlation */
     activeToolCalls: Map<string, ToolCallEntry>;
-    /** Aggregated tool usage stats — keyed by tool name */
+    /** Aggregated tool usage stats — process-global accumulator */
     toolAggregates: Map<string, ToolAggregate>;
     /** Active agent per session — keyed by sessionID, updated by chat.message hook */
     activeAgent: Map<string, string>;
