@@ -186,7 +186,10 @@ export function validateGraphNode(node: GraphNode): void {
 			throw new Error('Invalid node: exports must be an array of strings');
 		}
 		if (containsControlChars(exp)) {
-			throw new Error('Invalid node: exports contains control characters');
+			const preview = exp.slice(0, 120);
+			throw new Error(
+				`Invalid node: exports contains control characters (file=${node.filePath}, value="${preview}")`,
+			);
 		}
 	}
 	if (!Array.isArray(node.imports)) {
@@ -197,7 +200,10 @@ export function validateGraphNode(node: GraphNode): void {
 			throw new Error('Invalid node: imports must be an array of strings');
 		}
 		if (containsControlChars(imp)) {
-			throw new Error('Invalid node: imports contains control characters');
+			const preview = imp.slice(0, 120);
+			throw new Error(
+				`Invalid node: imports contains control characters (file=${node.filePath}, value="${preview}")`,
+			);
 		}
 	}
 }
@@ -975,13 +981,15 @@ function parseFileImports(content: string): ParsedImport[] {
 	// - export { x } from '...' (named re-export)
 	// - export * from '...' (namespace re-export)
 	const importRegex =
-		/import\s+(?:\{[\s\S]*?\}|(?:\*\s+as\s+\w+)|\w+)\s+from\s+['"`]([^'"`]+)['"`]|import\s+['"`]([^'"`]+)['"`]|require\s*\(\s*['"`]([^'"`]+)['"`]\s*\)|export\s*\{[^}]*\}\s*from\s+['"`]([^'"`]+)['"`]|export\s+\*(?:\s+as\s+\w+)?\s+from\s+['"`]([^'"`]+)['"`]|import\s*\(\s*['"`]([^'"`]+)['"`]\s*\)/g;
+		/import\s+(?:\{[\s\S]*?\}|(?:\*\s+as\s+\w+)|\w+)\s+from\s+['"`]([^'"`\0\t\r\n]+)['"`]|import\s+['"`]([^'"`\0\t\r\n]+)['"`]|require\s*\(\s*['"`]([^'"`\0\t\r\n]+)['"`]\s*\)|export\s*\{[^}]*\}\s*from\s+['"`]([^'"`\0\t\r\n]+)['"`]|export\s+\*(?:\s+as\s+\w+)?\s+from\s+['"`]([^'"`\0\t\r\n]+)['"`]|import\s*\(\s*['"`]([^'"`\0\t\r\n]+)['"`]\s*\)/g;
 
 	for (const match of content.matchAll(importRegex)) {
 		// Extract the module path from whichever capture group matched
 		const modulePath =
 			match[1] || match[2] || match[3] || match[4] || match[5] || match[6];
 		if (!modulePath) continue;
+		// Belt-and-suspenders: drop any specifier that still contains control chars
+		if (containsControlChars(modulePath)) continue;
 
 		// Get the matched string for type detection
 		const matchedString = match[0];
