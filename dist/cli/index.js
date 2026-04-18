@@ -41117,11 +41117,11 @@ function isLanguageSpecificTestFile(basename4) {
     return true;
   if (lower.endsWith("_spec.rb"))
     return true;
-  if (lower.endsWith(".java") && (lower.startsWith("test") || lower.endsWith("test.java") || lower.endsWith("tests.java") || lower.endsWith("it.java")))
+  if (lower.endsWith(".java") && (/^Test[A-Z]/.test(basename4) || lower.endsWith("test.java") || lower.endsWith("tests.java") || lower.endsWith("it.java")))
     return true;
   if (lower.endsWith(".cs") && (lower.endsWith("test.cs") || lower.endsWith("tests.cs")))
     return true;
-  if (lower.endsWith(".kt") && (lower.startsWith("test") || lower.endsWith("test.kt") || lower.endsWith("tests.kt")))
+  if (lower.endsWith(".kt") && (/^Test[A-Z]/.test(basename4) || lower.endsWith("test.kt") || lower.endsWith("tests.kt")))
     return true;
   return false;
 }

@@ -49,7 +49,7 @@ RULES:
     C#                   → xUnit   (name files <Name>Tests.cs)
     Any other language   → use the idiomatic test framework for that language
 - TypeScript/JavaScript only: import from 'bun:test', NOT from 'vitest'
-- TypeScript/JavaScript only: vi.mock() calls MUST be at the top level of the file, BEFORE importing the mocked module
+- TypeScript/JavaScript only: use mock.module() (preferred) or vi.mock() for module mocking — calls MUST appear at the top level, BEFORE importing the mocked module
 - Tests MUST clean up temp directories in afterEach — leaked dirs break Windows CI
 - Tests must be runnable
 - Include setup/teardown if needed

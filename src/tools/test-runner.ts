@@ -461,7 +461,10 @@ export function isLanguageSpecificTestFile(basename: string): boolean {
 	// Java
 	if (
 		lower.endsWith('.java') &&
-		(lower.startsWith('test') || lower.endsWith('test.java') || lower.endsWith('tests.java') || lower.endsWith('it.java'))
+		(/^Test[A-Z]/.test(basename) ||
+			lower.endsWith('test.java') ||
+			lower.endsWith('tests.java') ||
+			lower.endsWith('it.java'))
 	)
 		return true;
 	// C#
@@ -473,7 +476,9 @@ export function isLanguageSpecificTestFile(basename: string): boolean {
 	// Kotlin
 	if (
 		lower.endsWith('.kt') &&
-		(lower.startsWith('test') || lower.endsWith('test.kt') || lower.endsWith('tests.kt'))
+		(/^Test[A-Z]/.test(basename) ||
+			lower.endsWith('test.kt') ||
+			lower.endsWith('tests.kt'))
 	)
 		return true;
 	return false;

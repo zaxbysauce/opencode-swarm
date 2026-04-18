@@ -49589,11 +49589,11 @@ function isLanguageSpecificTestFile(basename6) {
     return true;
   if (lower.endsWith("_spec.rb"))
     return true;
-  if (lower.endsWith(".java") && (lower.startsWith("test") || lower.endsWith("test.java") || lower.endsWith("tests.java") || lower.endsWith("it.java")))
+  if (lower.endsWith(".java") && (/^Test[A-Z]/.test(basename6) || lower.endsWith("test.java") || lower.endsWith("tests.java") || lower.endsWith("it.java")))
     return true;
   if (lower.endsWith(".cs") && (lower.endsWith("test.cs") || lower.endsWith("tests.cs")))
     return true;
-  if (lower.endsWith(".kt") && (lower.startsWith("test") || lower.endsWith("test.kt") || lower.endsWith("tests.kt")))
+  if (lower.endsWith(".kt") && (/^Test[A-Z]/.test(basename6) || lower.endsWith("test.kt") || lower.endsWith("tests.kt")))
     return true;
   return false;
 }
@@ -56316,7 +56316,7 @@ RULES:
     C#                   \u2192 xUnit   (name files <Name>Tests.cs)
     Any other language   \u2192 use the idiomatic test framework for that language
 - TypeScript/JavaScript only: import from 'bun:test', NOT from 'vitest'
-- TypeScript/JavaScript only: vi.mock() calls MUST be at the top level of the file, BEFORE importing the mocked module
+- TypeScript/JavaScript only: use mock.module() (preferred) or vi.mock() for module mocking \u2014 calls MUST appear at the top level, BEFORE importing the mocked module
 - Tests MUST clean up temp directories in afterEach \u2014 leaked dirs break Windows CI
 - Tests must be runnable
 - Include setup/teardown if needed

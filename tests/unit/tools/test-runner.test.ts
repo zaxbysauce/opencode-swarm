@@ -1296,6 +1296,12 @@ describe('test-runner.ts — isLanguageSpecificTestFile', () => {
 		test('does not recognise Foo.java (source)', () => {
 			expect(isLanguageSpecificTestFile('Foo.java')).toBe(false);
 		});
+		test('does not recognise testutils.java (utility, not test class)', () => {
+			expect(isLanguageSpecificTestFile('testutils.java')).toBe(false);
+		});
+		test('does not recognise testing.java (utility, not test class)', () => {
+			expect(isLanguageSpecificTestFile('testing.java')).toBe(false);
+		});
 	});
 
 	describe('C# convention (*Test.cs and *Tests.cs)', () => {
@@ -1317,8 +1323,17 @@ describe('test-runner.ts — isLanguageSpecificTestFile', () => {
 		test('recognises FooTests.kt', () => {
 			expect(isLanguageSpecificTestFile('FooTests.kt')).toBe(true);
 		});
+		test('recognises TestFoo.kt', () => {
+			expect(isLanguageSpecificTestFile('TestFoo.kt')).toBe(true);
+		});
 		test('does not recognise Foo.kt (source)', () => {
 			expect(isLanguageSpecificTestFile('Foo.kt')).toBe(false);
+		});
+		test('does not recognise testutil.kt (utility, not test class)', () => {
+			expect(isLanguageSpecificTestFile('testutil.kt')).toBe(false);
+		});
+		test('does not recognise testing.kt (utility, not test class)', () => {
+			expect(isLanguageSpecificTestFile('testing.kt')).toBe(false);
 		});
 	});
 });
