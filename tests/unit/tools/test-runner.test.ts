@@ -1591,6 +1591,13 @@ describe('test-runner.ts — getTestFilesFromConvention (language-specific)', ()
 			const result = getTestFilesFromConvention([src], tmpDir);
 			expect(result).toContain(tst);
 		});
+
+		test('src/main/java/Foo.java maps to src/test/java/FooTest.java', () => {
+			const src = write('src/main/java/com/example/Foo.java', '');
+			const tst = write('src/test/java/com/example/FooTest.java', '');
+			const result = getTestFilesFromConvention([src], tmpDir);
+			expect(result).toContain(tst);
+		});
 	});
 });
 
