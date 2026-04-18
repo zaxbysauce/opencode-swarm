@@ -971,8 +971,16 @@ describe('executeUpdateTaskStatus Task 1.2 regression: in_progress activation sy
 			taskId: '1.2',
 			required_gates: ['reviewer', 'test_engineer'],
 			gates: {
-				reviewer: { sessionId: 'test-session', timestamp: new Date().toISOString(), agent: 'reviewer' },
-				test_engineer: { sessionId: 'test-session', timestamp: new Date().toISOString(), agent: 'test_engineer' },
+				reviewer: {
+					sessionId: 'test-session',
+					timestamp: new Date().toISOString(),
+					agent: 'reviewer',
+				},
+				test_engineer: {
+					sessionId: 'test-session',
+					timestamp: new Date().toISOString(),
+					agent: 'test_engineer',
+				},
 			},
 		};
 		fs.writeFileSync(
@@ -2111,8 +2119,16 @@ describe('checkReviewerGate — evidence directory fallback removed (v6.35.1 Cod
 			taskId: '1.1',
 			required_gates: ['reviewer', 'test_engineer'],
 			gates: {
-				reviewer: { sessionId: 'test-session', timestamp: new Date().toISOString(), agent: 'reviewer' },
-				test_engineer: { sessionId: 'test-session', timestamp: new Date().toISOString(), agent: 'test_engineer' },
+				reviewer: {
+					sessionId: 'test-session',
+					timestamp: new Date().toISOString(),
+					agent: 'reviewer',
+				},
+				test_engineer: {
+					sessionId: 'test-session',
+					timestamp: new Date().toISOString(),
+					agent: 'test_engineer',
+				},
 			},
 		};
 		fs.writeFileSync(evidenceJsonPath, JSON.stringify(evidence));
@@ -2146,7 +2162,11 @@ describe('checkReviewerGate — evidence directory fallback removed (v6.35.1 Cod
 			taskId: '1.1',
 			required_gates: ['reviewer', 'test_engineer'],
 			gates: {
-				reviewer: { sessionId: 'test-session', timestamp: new Date().toISOString(), agent: 'reviewer' },
+				reviewer: {
+					sessionId: 'test-session',
+					timestamp: new Date().toISOString(),
+					agent: 'reviewer',
+				},
 				// test_engineer is MISSING
 			},
 		};
