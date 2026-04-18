@@ -18900,7 +18900,9 @@ import * as fs5 from "fs";
 import * as path6 from "path";
 function getLockFilePath(directory, filePath) {
   const normalized = path6.resolve(directory, filePath);
-  if (!normalized.startsWith(path6.resolve(directory) + path6.sep)) {
+  const baseDir = path6.resolve(directory) + path6.sep;
+  const pathOk = process.platform === "win32" ? normalized.toLowerCase().startsWith(baseDir.toLowerCase()) : normalized.startsWith(baseDir);
+  if (!pathOk) {
     throw new Error("Invalid file path: path traversal not allowed");
   }
   const hash2 = Buffer.from(normalized).toString("base64").replace(/[/+=]/g, "_");
