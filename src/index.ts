@@ -122,7 +122,7 @@ import {
 	write_hallucination_evidence,
 	write_retro,
 } from './tools';
-import { log, warn } from './utils';
+import { log, resolveSwarmRoot, warn } from './utils';
 import { truncateToolOutput } from './utils/tool-output';
 
 /**
@@ -422,7 +422,10 @@ const OpenCodeSwarm: Plugin = async (ctx) => {
 		const { AutomationStatusArtifact: ASA } = await import(
 			'./background/status-artifact'
 		);
-		const swarmDir = path.resolve(ctx.directory, '.swarm');
+		// Resolve project root safely — ctx.directory may be absent when OpenCode omits it
+		// (issue #528). resolveSwarmRoot falls back to marker walk-up rather than raw cwd.
+		const resolvedRoot = resolveSwarmRoot(ctx.directory);
+		const swarmDir = path.resolve(resolvedRoot, '.swarm');
 		statusArtifact = new ASA(swarmDir);
 		statusArtifact.updateConfig(
 			automationConfig.mode,
@@ -436,8 +439,8 @@ const OpenCodeSwarm: Plugin = async (ctx) => {
 			);
 			createEvidenceSummaryIntegration({
 				automationConfig,
-				directory: ctx.directory,
-				swarmDir: ctx.directory, // NOTE: persistSummary appends .swarm/ internally
+				directory: resolvedRoot,
+				swarmDir: resolvedRoot, // NOTE: persistSummary appends .swarm/ internally
 				summaryFilename: 'evidence-summary.json',
 			});
 			log('Evidence summary integration initialized', {
