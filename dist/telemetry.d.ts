@@ -1,4 +1,4 @@
-export type TelemetryEvent = 'session_started' | 'session_ended' | 'agent_activated' | 'delegation_begin' | 'delegation_end' | 'task_state_changed' | 'gate_passed' | 'gate_failed' | 'phase_changed' | 'budget_updated' | 'model_fallback' | 'hard_limit_hit' | 'revision_limit_hit' | 'loop_detected' | 'scope_violation' | 'qa_skip_violation' | 'heartbeat' | 'turbo_mode_changed' | 'auto_oversight_escalation' | 'environment_detected';
+export type TelemetryEvent = 'session_started' | 'session_ended' | 'agent_activated' | 'delegation_begin' | 'delegation_end' | 'task_state_changed' | 'gate_passed' | 'gate_failed' | 'phase_changed' | 'budget_updated' | 'model_fallback' | 'hard_limit_hit' | 'revision_limit_hit' | 'loop_detected' | 'scope_violation' | 'qa_skip_violation' | 'heartbeat' | 'turbo_mode_changed' | 'auto_oversight_escalation' | 'environment_detected' | 'evidence_lock_acquired' | 'evidence_lock_contended' | 'evidence_lock_stale_recovered' | 'plan_ledger_cas_retry';
 export type TelemetryListener = (event: TelemetryEvent, data: Record<string, unknown>) => void;
 /** @internal - For testing only */
 export declare function resetTelemetryForTesting(): void;

@@ -7,8 +7,25 @@ export declare class PlanConcurrentModificationError extends Error {
     constructor(message: string);
 }
 import { type Plan, type RuntimePlan, type TaskStatus } from '../config/plan-schema';
+import { type LedgerEvent, type LedgerEventInput } from './ledger';
 /** Reset the startup ledger check flag. For testing only. */
 export declare function resetStartupLedgerCheck(): void;
+/**
+ * Append a ledger event with exponential-backoff retry on stale-writer conflicts.
+ *
+ * Replaces the raw `appendLedgerEventWithRetry` call in savePlan with a helper
+ * that uses the project-standard backoff schedule and emits observable telemetry
+ * on each retry. Hash values in telemetry are truncated to 8-char prefixes to
+ * avoid leaking full content hashes into event streams.
+ *
+ * Backoff schedule: start=5ms, doubles each attempt, cap=250ms, ±25% jitter.
+ */
+export declare function retryCasWithBackoff(directory: string, eventInput: LedgerEventInput, options: {
+    expectedHash: string;
+    planHashAfter?: string;
+    verifyValid?: () => Promise<boolean> | boolean;
+    maxRetries?: number;
+}): Promise<LedgerEvent | null>;
 /**
  * Load plan.json ONLY without auto-migration from plan.md.
  * Returns null if plan.json doesn't exist or is invalid.

@@ -1979,3 +1979,13 @@ Key principles:
 - Agent-discovered patterns require 2+ session frequency before persisting
 
 > **Note:** The actual restructuring of `context.md` is deferred to v6.14. This section documents the target architecture for planning purposes.
+
+---
+
+## Parallelization Foundation (PR 1 — Dark)
+
+PR 1 of the stacked parallelization release lands dark infrastructure with zero behavior change.
+See [docs/dev/pr1-foundation.md](dev/pr1-foundation.md) for the full design note covering:
+- What is dark now vs. deferred to PR 2 and PR 3
+- Process-global variable audit and isolation classification
+- Invariants that prove runtime behavior is unchanged

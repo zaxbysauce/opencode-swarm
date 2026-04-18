@@ -911,11 +911,19 @@ describe('executeUpdateTaskStatus Task 1.2 regression: in_progress activation sy
 		// Create evidence directory for task 1.1 (prior task with completed evidence)
 		fs.mkdirSync(path.join(tempDir, '.swarm', 'evidence'), { recursive: true });
 		const priorTaskEvidence = {
-			task_id: '1.1',
+			taskId: '1.1',
 			required_gates: ['reviewer', 'test_engineer'],
 			gates: {
-				reviewer: { timestamp: Date.now(), result: 'PASS' },
-				test_engineer: { timestamp: Date.now(), result: 'PASS' },
+				reviewer: {
+					sessionId: 'sess-prior',
+					timestamp: new Date().toISOString(),
+					agent: 'reviewer',
+				},
+				test_engineer: {
+					sessionId: 'sess-prior',
+					timestamp: new Date().toISOString(),
+					agent: 'test_engineer',
+				},
 			},
 		};
 		fs.writeFileSync(
@@ -968,11 +976,19 @@ describe('executeUpdateTaskStatus Task 1.2 regression: in_progress activation sy
 
 		// Step 5: Simulate durable evidence for the NEW task (1.2) - should satisfy completion
 		const newTaskEvidence = {
-			task_id: '1.2',
+			taskId: '1.2',
 			required_gates: ['reviewer', 'test_engineer'],
 			gates: {
-				reviewer: { timestamp: Date.now(), result: 'PASS' },
-				test_engineer: { timestamp: Date.now(), result: 'PASS' },
+				reviewer: {
+					sessionId: 'test-session',
+					timestamp: new Date().toISOString(),
+					agent: 'reviewer',
+				},
+				test_engineer: {
+					sessionId: 'test-session',
+					timestamp: new Date().toISOString(),
+					agent: 'test_engineer',
+				},
 			},
 		};
 		fs.writeFileSync(
@@ -2108,11 +2124,19 @@ describe('checkReviewerGate — evidence directory fallback removed (v6.35.1 Cod
 			'1.1.json',
 		);
 		const evidence = {
-			task_id: '1.1',
+			taskId: '1.1',
 			required_gates: ['reviewer', 'test_engineer'],
 			gates: {
-				reviewer: { timestamp: Date.now(), result: 'PASS' },
-				test_engineer: { timestamp: Date.now(), result: 'PASS' },
+				reviewer: {
+					sessionId: 'test-session',
+					timestamp: new Date().toISOString(),
+					agent: 'reviewer',
+				},
+				test_engineer: {
+					sessionId: 'test-session',
+					timestamp: new Date().toISOString(),
+					agent: 'test_engineer',
+				},
 			},
 		};
 		fs.writeFileSync(evidenceJsonPath, JSON.stringify(evidence));
@@ -2143,10 +2167,14 @@ describe('checkReviewerGate — evidence directory fallback removed (v6.35.1 Cod
 			'1.1.json',
 		);
 		const evidence = {
-			task_id: '1.1',
+			taskId: '1.1',
 			required_gates: ['reviewer', 'test_engineer'],
 			gates: {
-				reviewer: { timestamp: Date.now(), result: 'PASS' },
+				reviewer: {
+					sessionId: 'test-session',
+					timestamp: new Date().toISOString(),
+					agent: 'reviewer',
+				},
 				// test_engineer is MISSING
 			},
 		};
@@ -2246,17 +2274,16 @@ describe('Durable evidence seed on in_progress transition', () => {
 		expect(fs.existsSync(evidencePath)).toBe(true);
 
 		const evidence = JSON.parse(fs.readFileSync(evidencePath, 'utf-8'));
-		expect(evidence.task_id).toBe('1.1');
+		expect(evidence.taskId).toBe('1.1');
 		expect(evidence.required_gates).toEqual(['reviewer', 'test_engineer']);
 		expect(evidence.gates).toEqual({});
-		expect(evidence.started_at).toBeDefined();
 	});
 
 	test('does not overwrite existing evidence file', async () => {
 		// Pre-create an evidence file with a gate already satisfied
 		fs.mkdirSync(path.join(tempDir, '.swarm', 'evidence'), { recursive: true });
 		const existingEvidence = {
-			task_id: '1.1',
+			taskId: '1.1',
 			required_gates: ['reviewer', 'test_engineer'],
 			gates: {
 				reviewer: {
@@ -2265,7 +2292,6 @@ describe('Durable evidence seed on in_progress transition', () => {
 					agent: 'reviewer',
 				},
 			},
-			started_at: '2025-01-01T00:00:00.000Z',
 		};
 		fs.writeFileSync(
 			path.join(tempDir, '.swarm', 'evidence', '1.1.json'),

@@ -27,7 +27,12 @@ export type TelemetryEvent =
 	| 'heartbeat'
 	| 'turbo_mode_changed'
 	| 'auto_oversight_escalation'
-	| 'environment_detected';
+	| 'environment_detected'
+	// PR 1 parallelization foundation events (dark — emitted but no live parallel paths)
+	| 'evidence_lock_acquired'
+	| 'evidence_lock_contended'
+	| 'evidence_lock_stale_recovered'
+	| 'plan_ledger_cas_retry';
 
 export type TelemetryListener = (
 	event: TelemetryEvent,

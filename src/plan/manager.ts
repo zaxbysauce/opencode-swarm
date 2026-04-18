@@ -29,15 +29,17 @@ import {
 	type TaskStatus,
 } from '../config/plan-schema';
 import { readSwarmFileAsync } from '../hooks/utils';
+import { emit } from '../telemetry.js';
 import type { SpecStaleDetectedEvent } from '../types/events';
 import { warn } from '../utils';
 import { isSpecStale } from '../utils/spec-hash';
 import {
-	appendLedgerEventWithRetry,
+	appendLedgerEvent,
 	computeCurrentPlanHash,
 	computePlanHash,
 	getLatestLedgerSeq,
 	initLedger,
+	type LedgerEvent,
 	type LedgerEventInput,
 	LedgerStaleWriterError,
 	ledgerExists,
@@ -61,6 +63,72 @@ const recoveryMutexes = new Map<string, Promise<void>>();
 export function resetStartupLedgerCheck(): void {
 	startupLedgerCheckedWorkspaces.clear();
 	recoveryMutexes.clear();
+}
+
+// ── CAS backoff constants ─────────────────────────────────────────────────────
+const CAS_BACKOFF_START_MS = 5;
+const CAS_BACKOFF_CAP_MS = 250;
+const CAS_BACKOFF_JITTER = 0.25;
+const CAS_MAX_RETRIES = 3; // matches pre-existing maxRetries: 3 call sites
+
+/**
+ * Append a ledger event with exponential-backoff retry on stale-writer conflicts.
+ *
+ * Replaces the raw `appendLedgerEventWithRetry` call in savePlan with a helper
+ * that uses the project-standard backoff schedule and emits observable telemetry
+ * on each retry. Hash values in telemetry are truncated to 8-char prefixes to
+ * avoid leaking full content hashes into event streams.
+ *
+ * Backoff schedule: start=5ms, doubles each attempt, cap=250ms, ±25% jitter.
+ */
+export async function retryCasWithBackoff(
+	directory: string,
+	eventInput: LedgerEventInput,
+	options: {
+		expectedHash: string;
+		planHashAfter?: string;
+		verifyValid?: () => Promise<boolean> | boolean;
+		maxRetries?: number;
+	},
+): Promise<LedgerEvent | null> {
+	const maxRetries = options.maxRetries ?? CAS_MAX_RETRIES;
+	let currentExpected = options.expectedHash;
+	let attempt = 0;
+
+	while (true) {
+		try {
+			return await appendLedgerEvent(directory, eventInput, {
+				expectedHash: currentExpected,
+				planHashAfter: options.planHashAfter,
+			});
+		} catch (error) {
+			if (!(error instanceof LedgerStaleWriterError) || attempt >= maxRetries) {
+				throw error;
+			}
+			attempt++;
+
+			const base = Math.min(
+				CAS_BACKOFF_START_MS * 2 ** (attempt - 1),
+				CAS_BACKOFF_CAP_MS,
+			);
+			const jitter = base * CAS_BACKOFF_JITTER * (Math.random() * 2 - 1);
+			const delayMs = Math.max(1, Math.round(base + jitter));
+
+			emit('plan_ledger_cas_retry', {
+				attempt,
+				expectedHashPrefix: currentExpected.slice(0, 8),
+				delayMs,
+			});
+
+			await new Promise((resolve) => setTimeout(resolve, delayMs));
+
+			if (options.verifyValid) {
+				const stillValid = await options.verifyValid();
+				if (!stillValid) return null;
+			}
+			currentExpected = computeCurrentPlanHash(directory);
+		}
+	}
 }
 
 /**
@@ -889,7 +957,7 @@ export async function savePlan(
 
 		// Find tasks that changed status.
 		//
-		// Each change is written via appendLedgerEventWithRetry so that concurrent
+		// Each change is written via retryCasWithBackoff so that concurrent
 		// savePlan writers do not lose audit events to a single CAS collision. The
 		// verifyValid callback re-reads plan.json between retries and skips the
 		// event if the task has already moved past the from_status (another writer
@@ -914,10 +982,9 @@ export async function savePlan(
 						};
 						const capturedFromStatus = oldTask.status;
 						const capturedTaskId = task.id;
-						await appendLedgerEventWithRetry(directory, eventInput, {
+						await retryCasWithBackoff(directory, eventInput, {
 							expectedHash: currentHash,
 							planHashAfter: hashAfter,
-							maxRetries: 3,
 							verifyValid: async () => {
 								// If another writer already persisted the transition, skip.
 								const onDisk = await loadPlanJsonOnly(directory);
