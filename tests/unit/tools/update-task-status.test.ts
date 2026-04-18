@@ -2266,10 +2266,9 @@ describe('Durable evidence seed on in_progress transition', () => {
 		expect(fs.existsSync(evidencePath)).toBe(true);
 
 		const evidence = JSON.parse(fs.readFileSync(evidencePath, 'utf-8'));
-		expect(evidence.task_id).toBe('1.1');
+		expect(evidence.taskId).toBe('1.1');
 		expect(evidence.required_gates).toEqual(['reviewer', 'test_engineer']);
 		expect(evidence.gates).toEqual({});
-		expect(evidence.started_at).toBeDefined();
 	});
 
 	test('does not overwrite existing evidence file', async () => {

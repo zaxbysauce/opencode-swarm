@@ -24661,7 +24661,7 @@ var init_gate_evidence = __esm(() => {
   }).passthrough();
   TaskEvidenceSchema = exports_external.object({
     taskId: exports_external.string(),
-    required_gates: exports_external.array(exports_external.string()),
+    required_gates: exports_external.array(exports_external.string()).default([]),
     gates: exports_external.record(exports_external.string(), GateEvidenceSchema),
     turbo: exports_external.boolean().optional()
   });
@@ -83956,10 +83956,9 @@ async function executeUpdateTaskStatus(args2, fallbackDir) {
       let writeOk = false;
       try {
         fs77.writeSync(fd, JSON.stringify({
-          task_id: args2.task_id,
+          taskId: args2.task_id,
           required_gates: ["reviewer", "test_engineer"],
-          gates: {},
-          started_at: new Date().toISOString()
+          gates: {}
         }, null, 2));
         writeOk = true;
       } finally {

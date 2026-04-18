@@ -168,7 +168,7 @@ describe('Gate restart-recovery: evidence-file durability', () => {
 		const evidence = JSON.parse(
 			fs.readFileSync(evidencePath(tmpDir, '1.1'), 'utf-8'),
 		);
-		expect(evidence.task_id).toBe('1.1');
+		expect(evidence.taskId).toBe('1.1');
 		expect(Array.isArray(evidence.required_gates)).toBe(true);
 		expect(evidence.required_gates).toContain('reviewer');
 		expect(evidence.required_gates).toContain('test_engineer');

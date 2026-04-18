@@ -713,10 +713,9 @@ export async function executeUpdateTaskStatus(
 					fd,
 					JSON.stringify(
 						{
-							task_id: args.task_id,
+							taskId: args.task_id,
 							required_gates: ['reviewer', 'test_engineer'],
 							gates: {},
-							started_at: new Date().toISOString(),
 						},
 						null,
 						2,

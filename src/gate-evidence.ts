@@ -41,7 +41,7 @@ const GateEvidenceSchema = z
 
 const TaskEvidenceSchema = z.object({
 	taskId: z.string(),
-	required_gates: z.array(z.string()),
+	required_gates: z.array(z.string()).default([]),
 	gates: z.record(z.string(), GateEvidenceSchema),
 	turbo: z.boolean().optional(),
 });
