@@ -1,5 +1,12 @@
 # Changelog
 
+## [6.74.1](https://github.com/zaxbysauce/opencode-swarm/compare/v6.74.0...v6.74.1) (2026-04-18)
+
+
+### Bug Fixes
+
+* **repo-graph:** drop import specifiers with control chars to prevent graph build failure ([#538](https://github.com/zaxbysauce/opencode-swarm/issues/538)) ([d6c7ea5](https://github.com/zaxbysauce/opencode-swarm/commit/d6c7ea5adecdc1957843083c7a1c72d8ae05ff95))
+
 ## [6.74.0](https://github.com/zaxbysauce/opencode-swarm/compare/v6.73.1...v6.74.0) (2026-04-18)
 
 
