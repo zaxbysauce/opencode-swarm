@@ -1,5 +1,12 @@
 # Changelog
 
+## [6.74.0](https://github.com/zaxbysauce/opencode-swarm/compare/v6.73.1...v6.74.0) (2026-04-18)
+
+
+### Features
+
+* **sast:** phase-scoped baseline diffing so only new findings fail ([#535](https://github.com/zaxbysauce/opencode-swarm/issues/535)) ([145b736](https://github.com/zaxbysauce/opencode-swarm/commit/145b73670d5b60725900ef80456859544b47f0db))
+
 ## [6.73.1](https://github.com/zaxbysauce/opencode-swarm/compare/v6.73.0...v6.73.1) (2026-04-18)
 
 
