@@ -21,8 +21,9 @@ function getLockFilePath(directory: string, filePath: string): string {
 	// Normalize path before validation to handle relative segments
 	const normalized = path.resolve(directory, filePath);
 
-	// Validate path to prevent traversal attacks
-	if (!normalized.startsWith(path.resolve(directory))) {
+	// Validate path to prevent traversal attacks.
+	// Must use path.sep suffix so that /project doesn't match /project_evil.
+	if (!normalized.startsWith(path.resolve(directory) + path.sep)) {
 		throw new Error('Invalid file path: path traversal not allowed');
 	}
 

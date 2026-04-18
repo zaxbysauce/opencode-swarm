@@ -18900,7 +18900,7 @@ import * as fs5 from "fs";
 import * as path6 from "path";
 function getLockFilePath(directory, filePath) {
   const normalized = path6.resolve(directory, filePath);
-  if (!normalized.startsWith(path6.resolve(directory))) {
+  if (!normalized.startsWith(path6.resolve(directory) + path6.sep)) {
     throw new Error("Invalid file path: path traversal not allowed");
   }
   const hash2 = Buffer.from(normalized).toString("base64").replace(/[/+=]/g, "_");
@@ -24558,7 +24558,7 @@ function getEvidencePath(directory, taskId) {
 function readExisting(evidencePath) {
   try {
     const raw = readFileSync4(evidencePath, "utf-8");
-    return JSON.parse(raw);
+    return TaskEvidenceSchema.parse(JSON.parse(raw));
   } catch {
     return null;
   }
@@ -24631,7 +24631,7 @@ function readTaskEvidenceRaw(directory, taskId) {
   const evidencePath = getEvidencePath(directory, taskId);
   try {
     const raw = readFileSync4(evidencePath, "utf-8");
-    return JSON.parse(raw);
+    return TaskEvidenceSchema.parse(JSON.parse(raw));
   } catch (error49) {
     if (error49.code === "ENOENT")
       return null;
@@ -24646,11 +24646,23 @@ async function hasPassedAllGates(directory, taskId) {
     return false;
   return evidence.required_gates.every((gate) => evidence.gates[gate] != null);
 }
-var DEFAULT_REQUIRED_GATES;
+var GateEvidenceSchema, TaskEvidenceSchema, DEFAULT_REQUIRED_GATES;
 var init_gate_evidence = __esm(() => {
+  init_zod();
   init_lock();
   init_telemetry();
   init_task_id();
+  GateEvidenceSchema = exports_external.object({
+    sessionId: exports_external.string(),
+    timestamp: exports_external.string(),
+    agent: exports_external.string()
+  });
+  TaskEvidenceSchema = exports_external.object({
+    taskId: exports_external.string(),
+    required_gates: exports_external.array(exports_external.string()),
+    gates: exports_external.record(exports_external.string(), GateEvidenceSchema),
+    turbo: exports_external.boolean().optional()
+  });
   DEFAULT_REQUIRED_GATES = ["reviewer", "test_engineer"];
 });
 
@@ -57066,9 +57078,9 @@ function validateFilename(filename) {
     throw new Error("Invalid filename: contains null byte");
   }
   const pathSeparators = ["/", "\\", ".."];
-  for (const sep6 of pathSeparators) {
-    if (filename.includes(sep6)) {
-      throw new Error(`Invalid filename: contains path separator '${sep6}'`);
+  for (const sep7 of pathSeparators) {
+    if (filename.includes(sep7)) {
+      throw new Error(`Invalid filename: contains path separator '${sep7}'`);
     }
   }
   if (filename.startsWith("/") || filename.startsWith("\\") || /^[a-zA-Z]:/.test(filename)) {
