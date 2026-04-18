@@ -112,9 +112,13 @@ describe('sast-baseline', () => {
 			expect(r1.fingerprint).not.toBe(r2.fingerprint);
 		});
 
-		it('returns stable:false when file is unreadable (non-root only)', () => {
+		it('returns stable:false when file is unreadable (non-root, non-Windows only)', () => {
 			if (process.getuid && process.getuid() === 0) {
 				// root ignores chmod — skip
+				return;
+			}
+			if (process.platform === 'win32') {
+				// Windows permissions don't work the same way — skip
 				return;
 			}
 			const file = path.join(tempDir, 'unreadable.js');
