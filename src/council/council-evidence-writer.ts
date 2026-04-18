@@ -129,6 +129,12 @@ export function writeCouncilEvidence(
 	const updated: Record<string, unknown> = Object.create(null);
 	safeAssignOwnProps(updated, existingRoot);
 	updated.gates = mergedGates;
+	// Ensure TaskEvidence schema-required fields are always present.
+	// readTaskEvidenceRaw validates against TaskEvidenceSchema (requires taskId +
+	// required_gates); council-only writes omit them when no prior gate evidence
+	// exists, causing ZodError → false "gate not run" block in checkCouncilGate.
+	if (!updated.taskId) updated.taskId = synthesis.taskId;
+	if (!Array.isArray(updated.required_gates)) updated.required_gates = [];
 
 	writeFileSync(filePath, JSON.stringify(updated, null, 2));
 

@@ -31,11 +31,13 @@ export interface TaskEvidence {
 	turbo?: boolean;
 }
 
-const GateEvidenceSchema = z.object({
-	sessionId: z.string(),
-	timestamp: z.string(),
-	agent: z.string(),
-});
+const GateEvidenceSchema = z
+	.object({
+		sessionId: z.string(),
+		timestamp: z.string(),
+		agent: z.string(),
+	})
+	.passthrough(); // preserve council-specific extras (verdict, vetoedBy, etc.)
 
 const TaskEvidenceSchema = z.object({
 	taskId: z.string(),

@@ -24656,7 +24656,7 @@ var init_gate_evidence = __esm(() => {
     sessionId: exports_external.string(),
     timestamp: exports_external.string(),
     agent: exports_external.string()
-  });
+  }).passthrough();
   TaskEvidenceSchema = exports_external.object({
     taskId: exports_external.string(),
     required_gates: exports_external.array(exports_external.string()),
@@ -71297,6 +71297,10 @@ function writeCouncilEvidence(workingDir, synthesis) {
   const updated = Object.create(null);
   safeAssignOwnProps(updated, existingRoot);
   updated.gates = mergedGates;
+  if (!updated.taskId)
+    updated.taskId = synthesis.taskId;
+  if (!Array.isArray(updated.required_gates))
+    updated.required_gates = [];
   writeFileSync11(filePath, JSON.stringify(updated, null, 2));
   try {
     const councilDir = join61(workingDir, ".swarm", "council");
