@@ -8,12 +8,13 @@
  * - Edge cases
  */
 
-import { beforeEach, describe, expect, it, vi } from 'bun:test';
+import { beforeEach, describe, expect, it, mock, vi } from 'bun:test';
 import * as fs from 'node:fs';
 import { tmpdir } from 'node:os';
 import * as path from 'node:path';
 import type { PluginConfig } from '../../../src/config';
 import { resetSemgrepCache } from '../../../src/sast/semgrep';
+import type { LoadBaselineResult } from '../../../src/tools/sast-baseline';
 import { type SastScanInput, sastScan } from '../../../src/tools/sast-scan';
 
 // Mock the saveEvidence function
@@ -33,6 +34,33 @@ vi.mock('../../../src/sast/semgrep', () => ({
 	}),
 	resetSemgrepCache: vi.fn(),
 }));
+
+// Mock sast-baseline I/O functions so tests don't write real files.
+// Use bun-native mock() + mock.module() so we can hold direct references
+// to the mock functions (vi.mocked() is not available in bun:test).
+// The real helpers (assignOccurrenceIndices, fingerprintFinding, etc.) are
+// re-exported from the actual module so sast-scan.ts logic stays intact.
+const mockCaptureOrMergeBaseline = mock(async () => ({
+	status: 'written' as const,
+	path: '/fake/sast-baseline.json',
+	fingerprint_count: 1,
+}));
+const mockLoadBaseline = mock(
+	(): LoadBaselineResult => ({ status: 'not_found' }),
+);
+
+mock.module('../../../src/tools/sast-baseline', () => {
+	// Spread the real module so non-I/O exports (assignOccurrenceIndices,
+	// MAX_BASELINE_FINDINGS, etc.) remain functional.
+	// eslint-disable-next-line @typescript-eslint/no-require-imports
+	const actual =
+		require('../../../src/tools/sast-baseline') as typeof import('../../../src/tools/sast-baseline');
+	return {
+		...actual,
+		captureOrMergeBaseline: mockCaptureOrMergeBaseline,
+		loadBaseline: mockLoadBaseline,
+	};
+});
 
 describe('sastScan', () => {
 	let tempDir: string;
@@ -702,5 +730,221 @@ const key = "sk-1234567890";`,
 			expect(result.findings).toEqual([]);
 			expect(result.summary.files_scanned).toBe(0);
 		});
+	});
+});
+
+describe('Baseline diffing', () => {
+	let tempDir: string;
+
+	beforeEach(() => {
+		tempDir = fs.mkdtempSync(path.join(tmpdir(), 'sast-baseline-test-'));
+		mockSemgrepAvailable = false;
+		vi.clearAllMocks();
+		// Reset defaults after clearAllMocks — use direct mock references
+		// (vi.mocked() is not available in bun:test).
+		mockCaptureOrMergeBaseline.mockResolvedValue({
+			status: 'written',
+			path: '/fake/sast-baseline.json',
+			fingerprint_count: 1,
+		});
+		mockLoadBaseline.mockReturnValue({ status: 'not_found' });
+	});
+
+	it('capture mode returns status:baseline_captured and finding_count', async () => {
+		const testFile = path.join(tempDir, 'vuln.js');
+		fs.writeFileSync(testFile, 'eval("x");');
+
+		const input: SastScanInput = {
+			changed_files: [testFile],
+			capture_baseline: true,
+			phase: 1,
+		};
+
+		const result = await sastScan(input, tempDir);
+
+		expect(result.status).toBe('baseline_captured');
+		expect(typeof result.finding_count).toBe('number');
+		expect(result.finding_count).toBeGreaterThanOrEqual(0);
+		expect(result.verdict).toBe('pass');
+		expect(Array.isArray(result.findings)).toBe(true);
+		expect(result.findings.length).toBeGreaterThanOrEqual(0);
+	});
+
+	it('capture mode without phase returns verdict:fail (hard error, no crash)', async () => {
+		const testFile = path.join(tempDir, 'vuln.js');
+		fs.writeFileSync(testFile, 'eval("x");');
+
+		const input: SastScanInput = {
+			changed_files: [testFile],
+			capture_baseline: true,
+			// phase intentionally omitted
+		};
+
+		const result = await sastScan(input, tempDir);
+
+		// phase is required for capture — must fail but not crash
+		expect(result.verdict).toBe('fail');
+	});
+
+	it('diff mode: all findings pre-existing → verdict pass', async () => {
+		const testFile = path.join(tempDir, 'vuln.js');
+		fs.writeFileSync(testFile, 'eval("x");');
+
+		// Simulate a baseline that already contains the finding's fingerprint
+		// by making loadBaseline return 'found' with a Set containing a wildcard key
+		// that assignOccurrenceIndices will produce for this file.
+		// The easiest approach: pre-build the fingerprint the same way sastScan would.
+		// Instead, use a real capture + diff against real files to avoid coupling to internals.
+		// We mock loadBaseline to return a Set that contains any fingerprint
+		// by using a Proxy-backed Set that always returns true for .has().
+		const alwaysFoundSet = new Proxy(new Set<string>(), {
+			get(target, prop) {
+				if (prop === 'has') return () => true;
+				return Reflect.get(target, prop);
+			},
+		});
+
+		mockLoadBaseline.mockReturnValueOnce({
+			status: 'found',
+			fingerprints: alwaysFoundSet,
+			bundle: {
+				schema_version: '1.0.0',
+				phase: 1,
+				created_at: new Date().toISOString(),
+				updated_at: new Date().toISOString(),
+				engine: 'tier_a',
+				files_indexed: [testFile],
+				fingerprints: [],
+				findings_snapshot: [],
+				truncated: false,
+			},
+		});
+
+		const input: SastScanInput = {
+			changed_files: [testFile],
+			phase: 1,
+		};
+
+		const result = await sastScan(input, tempDir);
+
+		expect(result.baseline_used).toBe(true);
+		expect(result.verdict).toBe('pass');
+		expect(result.new_findings?.length).toBe(0);
+		expect(result.pre_existing_findings?.length ?? 0).toBeGreaterThan(0);
+	});
+
+	it('diff mode: new finding → verdict fail', async () => {
+		// Baseline is empty (no known fingerprints) but file has eval() → new finding
+		mockLoadBaseline.mockReturnValueOnce({
+			status: 'found',
+			fingerprints: new Set<string>(), // empty — nothing pre-existing
+			bundle: {
+				schema_version: '1.0.0',
+				phase: 1,
+				created_at: new Date().toISOString(),
+				updated_at: new Date().toISOString(),
+				engine: 'tier_a',
+				files_indexed: [],
+				fingerprints: [],
+				findings_snapshot: [],
+				truncated: false,
+			},
+		});
+
+		const testFile = path.join(tempDir, 'new_vuln.js');
+		fs.writeFileSync(testFile, 'eval("x");');
+
+		const input: SastScanInput = {
+			changed_files: [testFile],
+			phase: 1,
+		};
+
+		const result = await sastScan(input, tempDir);
+
+		expect(result.verdict).toBe('fail');
+		expect(result.baseline_used).toBe(true);
+		expect(result.new_findings?.length ?? 0).toBeGreaterThan(0);
+	});
+
+	it('zero-coverage-fail is preserved under baseline mode', async () => {
+		// Even with a phase, scanning zero files should still fail
+		mockLoadBaseline.mockReturnValueOnce({
+			status: 'found',
+			fingerprints: new Set<string>(),
+			bundle: {
+				schema_version: '1.0.0',
+				phase: 1,
+				created_at: new Date().toISOString(),
+				updated_at: new Date().toISOString(),
+				engine: 'tier_a',
+				files_indexed: [],
+				fingerprints: [],
+				findings_snapshot: [],
+				truncated: false,
+			},
+		});
+
+		const input: SastScanInput = {
+			changed_files: [],
+			phase: 1,
+		};
+
+		const result = await sastScan(input, tempDir);
+
+		expect(result.verdict).toBe('fail');
+	});
+
+	it('gate disabled + capture_baseline: returns pass and does NOT write baseline file', async () => {
+		const testFile = path.join(tempDir, 'vuln.js');
+		fs.writeFileSync(testFile, 'eval("x");');
+
+		const config = {
+			gates: {
+				sast_scan: {
+					enabled: false,
+				},
+			},
+		} as unknown as PluginConfig;
+
+		const input: SastScanInput = {
+			changed_files: [testFile],
+			capture_baseline: true,
+			phase: 1,
+		};
+
+		const result = await sastScan(input, tempDir, config);
+
+		expect(result.verdict).toBe('pass');
+		// captureOrMergeBaseline must NOT have been called (gate is disabled, early return)
+		expect(mockCaptureOrMergeBaseline).not.toHaveBeenCalled();
+		// No physical baseline file should have been written
+		const baselinePath = path.join(
+			tempDir,
+			'.swarm',
+			'evidence',
+			'1',
+			'sast-baseline.json',
+		);
+		expect(fs.existsSync(baselinePath)).toBe(false);
+	});
+
+	it('legacy behavior (no phase): baseline_used is falsy, verdict driven by findings', async () => {
+		const testFile = path.join(tempDir, 'vuln.js');
+		fs.writeFileSync(testFile, 'eval("x");');
+
+		const input: SastScanInput = {
+			changed_files: [testFile],
+			// no phase — legacy mode
+		};
+
+		const result = await sastScan(input, tempDir);
+
+		// No baseline participation
+		expect(result.baseline_used).toBeFalsy();
+		// loadBaseline should NOT have been called
+		expect(mockLoadBaseline).not.toHaveBeenCalled();
+		// Verdict should be driven by findings the normal way
+		expect(result.findings.length).toBeGreaterThan(0);
+		expect(result.verdict).toBe('fail');
 	});
 });

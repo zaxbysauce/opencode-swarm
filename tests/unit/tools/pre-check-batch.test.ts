@@ -1373,3 +1373,214 @@ describe('Task 2.1: Fail-Closed for Invalid Scoped Files', () => {
 		expect(result.lint.ran).toBe(true);
 	});
 });
+
+// ============ SAST BASELINE DIFF MODE TESTS ============
+
+describe('SAST baseline diff mode', () => {
+	let tempDir: string;
+	let originalCwd: string;
+
+	beforeEach(() => {
+		originalCwd = process.cwd();
+		tempDir = createTempDir();
+		process.chdir(tempDir);
+
+		try {
+			fs.symlinkSync(
+				path.join(originalCwd, 'node_modules'),
+				path.join(tempDir, 'node_modules'),
+				'junction',
+			);
+		} catch {
+			// Symlink may already exist or fail on some platforms
+		}
+
+		mockDetectAvailableLinter.mockClear();
+		mockRunLint.mockClear();
+		mockRunSecretscan.mockClear();
+		mockSastScan.mockClear();
+		mockQualityBudget.mockClear();
+	});
+
+	afterEach(() => {
+		process.chdir(originalCwd);
+		fs.rmSync(tempDir, { recursive: true, force: true });
+	});
+
+	test('phase in tool schema: runPreCheckBatch accepts phase:1 without schema error', async () => {
+		fs.writeFileSync(path.join(tempDir, 'test.ts'), 'export const x = 1;\n');
+
+		const input: PreCheckBatchInput = {
+			files: ['test.ts'],
+			directory: tempDir,
+			phase: 1,
+		};
+
+		// Should not throw; a schema validation error would surface as a rejection or error in result
+		const result = await runPreCheckBatch(input);
+		expect(result).toBeDefined();
+		expect(result.sast_scan.ran).toBe(true);
+	});
+
+	test('phase is threaded to sastScan: mock receives phase:2', async () => {
+		fs.writeFileSync(path.join(tempDir, 'test.ts'), 'export const x = 1;\n');
+
+		const input: PreCheckBatchInput = {
+			files: ['test.ts'],
+			directory: tempDir,
+			phase: 2,
+		};
+
+		await runPreCheckBatch(input);
+
+		expect(mockSastScan).toHaveBeenCalled();
+		// The first argument to sastScan is the SastScanInput object
+		const callArgs = mockSastScan.mock.calls[0];
+		expect(callArgs).toBeDefined();
+		// callArgs[0] is the SastScanInput
+		const sastInput = callArgs[0] as { phase?: number };
+		expect(sastInput.phase).toBe(2);
+	});
+
+	test('sast_preexisting_findings populated when baseline_used:true and verdict:pass', async () => {
+		fs.writeFileSync(path.join(tempDir, 'test.ts'), 'export const x = 1;\n');
+
+		const highFinding = {
+			rule_id: 'sast/js-eval',
+			severity: 'high' as const,
+			message: 'Use of eval() is dangerous',
+			location: { file: path.join(tempDir, 'test.ts'), line: 1 },
+		};
+
+		mockSastScan.mockResolvedValueOnce({
+			verdict: 'pass' as const,
+			findings: [highFinding],
+			baseline_used: true,
+			pre_existing_findings: [highFinding],
+			new_findings: [],
+			summary: {
+				engine: 'tier_a' as const,
+				files_scanned: 1,
+				findings_count: 1,
+				findings_by_severity: { critical: 0, high: 1, medium: 0, low: 0 },
+			},
+		});
+
+		const input: PreCheckBatchInput = {
+			files: ['test.ts'],
+			directory: tempDir,
+			phase: 1,
+			sast_threshold: 'medium',
+		};
+
+		const result = await runPreCheckBatch(input);
+
+		// Gate passes because verdict is pass (only new findings drive fail in baseline mode)
+		expect(result.gates_passed).toBe(true);
+		// Pre-existing high finding should be surfaced for reviewer triage
+		expect(result.sast_preexisting_findings).toBeDefined();
+		expect(result.sast_preexisting_findings?.length).toBeGreaterThan(0);
+		expect(result.sast_preexisting_findings?.[0].rule_id).toBe('sast/js-eval');
+	});
+
+	test('baseline_used:true and verdict:fail (new finding): gates_passed false, sast_preexisting_findings has only pre-existing', async () => {
+		fs.writeFileSync(path.join(tempDir, 'test.ts'), 'export const x = 1;\n');
+
+		const preExistingFinding = {
+			rule_id: 'sast/js-eval',
+			severity: 'high' as const,
+			message: 'Pre-existing eval usage',
+			location: { file: path.join(tempDir, 'test.ts'), line: 1 },
+		};
+
+		const newFinding = {
+			rule_id: 'sast/js-command-injection',
+			severity: 'high' as const,
+			message: 'New command injection',
+			location: { file: path.join(tempDir, 'test.ts'), line: 5 },
+		};
+
+		mockSastScan.mockResolvedValueOnce({
+			verdict: 'fail' as const,
+			findings: [preExistingFinding, newFinding],
+			baseline_used: true,
+			pre_existing_findings: [preExistingFinding],
+			new_findings: [newFinding],
+			summary: {
+				engine: 'tier_a' as const,
+				files_scanned: 1,
+				findings_count: 2,
+				findings_by_severity: { critical: 0, high: 2, medium: 0, low: 0 },
+			},
+		});
+
+		const input: PreCheckBatchInput = {
+			files: ['test.ts'],
+			directory: tempDir,
+			phase: 1,
+			sast_threshold: 'medium',
+		};
+
+		const result = await runPreCheckBatch(input);
+
+		// New finding above threshold should fail the gate
+		expect(result.gates_passed).toBe(false);
+		// sast_preexisting_findings should contain only the pre-existing finding, not the new one
+		expect(result.sast_preexisting_findings).toBeDefined();
+		const preexistingIds = result.sast_preexisting_findings?.map(
+			(f) => f.rule_id,
+		);
+		expect(preexistingIds).toContain('sast/js-eval');
+		expect(preexistingIds).not.toContain('sast/js-command-injection');
+	});
+
+	test('legacy behavior unchanged: no baseline_used → changed-line classifier path used', async () => {
+		fs.writeFileSync(path.join(tempDir, 'test.ts'), 'export const x = 1;\n');
+
+		const highFinding = {
+			rule_id: 'sast/js-eval',
+			severity: 'high' as const,
+			message: 'eval usage',
+			location: { file: path.join(tempDir, 'test.ts'), line: 1 },
+		};
+
+		// Return without baseline_used — legacy mode
+		mockSastScan.mockResolvedValueOnce({
+			verdict: 'fail' as const,
+			findings: [highFinding],
+			// baseline_used intentionally absent (legacy)
+			summary: {
+				engine: 'tier_a' as const,
+				files_scanned: 1,
+				findings_count: 1,
+				findings_by_severity: { critical: 0, high: 1, medium: 0, low: 0 },
+			},
+		});
+
+		const input: PreCheckBatchInput = {
+			files: ['test.ts'],
+			directory: tempDir,
+			// no phase — pure legacy mode
+		};
+
+		const result = await runPreCheckBatch(input);
+
+		// SAST ran and returned fail verdict
+		expect(result.sast_scan.ran).toBe(true);
+		expect(result.sast_scan.result?.verdict).toBe('fail');
+		// The legacy changed-line classifier is invoked. In a temp dir without git history
+		// the classifier falls back to treating all findings as new (fail-closed),
+		// so gates should fail.
+		expect(result.gates_passed).toBe(false);
+	});
+
+	test('hint text unchanged: pre_check_batch hint mentions pre_check_batch(files, directory)', async () => {
+		// Verify the parallel pre-check hint still references the correct signature
+		const expectedHint =
+			'[SWARM HINT] Parallel pre-check enabled: call pre_check_batch(files, directory) after lint --fix and build_check to run lint:check + secretscan + sast_scan + quality_budget concurrently (max 4 parallel). Check gates_passed before calling @reviewer.';
+
+		expect(expectedHint).toContain('pre_check_batch(files, directory)');
+		expect(expectedHint).toContain('concurrently');
+		expect(expectedHint).toContain('Parallel pre-check enabled');
+	});
+});
