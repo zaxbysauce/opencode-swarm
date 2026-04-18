@@ -62,6 +62,11 @@ bunx biome ci .   # MUST run on the full project — never scope to modified fil
                   # CI runs it on all files; a scoped run will miss errors in files you
                   # touched indirectly (e.g. reformatted by another tool, or modified via
                   # biome --write on one file but not re-checked globally).
+                  #
+                  # If you ran `bunx biome check --write` to auto-fix formatting,
+                  # re-run `bunx biome ci .` afterwards and commit the auto-fixed files
+                  # BEFORE pushing — biome --write produces unstaged changes that will
+                  # cause the quality CI check to fail on the un-fixed commit.
 
 # Tier 2 — unit tests (use per-file loop for tools/services/agents to avoid mock conflicts)
 for f in tests/unit/tools/*.test.ts; do bun --smol test "$f" --timeout 30000; done
@@ -70,6 +75,8 @@ for f in tests/unit/agents/*.test.ts; do bun --smol test "$f" --timeout 30000; d
 bun --smol test tests/unit/hooks tests/unit/cli tests/unit/commands tests/unit/config --timeout 120000
 
 # Tier 3 — integration tests
+# IMPORTANT: always run Tier 3 after fixing Tier 2 failures — the same root cause
+# often appears in integration test fixtures that unit tests don't cover.
 bun test tests/integration ./test --timeout 120000
 
 # Tier 4 — security and adversarial tests
@@ -85,6 +92,18 @@ bun run build
 #   git add dist/ && git commit -m "chore: update dist artifacts"
 bun test tests/smoke --timeout 120000
 ```
+
+**Schema or field name changes: extra step required.**
+When you rename a field in a Zod schema, TypeScript interface, or serialized format (e.g. `task_id` → `taskId`):
+1. Grep for the old field name across ALL test files — unit AND integration:
+   ```bash
+   grep -rn "old_field_name" tests/ --include="*.ts"
+   ```
+2. Update every test fixture that writes JSON with the old field name.
+3. Update every assertion that reads the old field name from parsed JSON.
+4. Run Tier 2 and Tier 3 together after fixing all fixtures.
+
+Failing to do this causes test fixtures to write stale-format JSON that passes Zod validation for the write but fails on the read path — a silent correctness hazard.
 
 If a failure is pre-existing and unrelated to your changes, note it in the PR description — do not skip the other tiers.
 
