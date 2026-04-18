@@ -427,7 +427,66 @@ function hasCompoundTestExtension(filename: string): boolean {
 	return COMPOUND_TEST_EXTENSIONS.some((ext) => lower.endsWith(ext));
 }
 
-function getTestFilesFromConvention(sourceFiles: string[]): string[] {
+/**
+ * Returns true when `basename` matches a language-specific test file naming
+ * convention that is NOT captured by the compound-extension or dot-separated
+ * `.test.`/`.spec.` checks above.
+ *
+ * Covered patterns (all lower-cased for comparison):
+ *   Go   : <name>_test.go          (per `go test` convention)
+ *   Python: test_<name>.py          (pytest discovery default)
+ *           <name>_test.py          (pytest alternative)
+ *   Ruby : <name>_spec.rb           (RSpec convention)
+ *   Java : Test<Name>.java          (JUnit 4/5 prefix)
+ *          <Name>Test.java          (JUnit 4/5 suffix)
+ *          <Name>Tests.java         (JUnit 4/5 plural suffix)
+ *          <Name>IT.java            (Maven Failsafe integration-test suffix)
+ *   C#   : <Name>Test.cs            (xUnit/NUnit/MSTest suffix)
+ *          <Name>Tests.cs           (xUnit/NUnit/MSTest plural suffix)
+ *   Rust : tests/<anything>.rs      (handled by /tests/ directory check)
+ *   Kotlin: <Name>Test.kt / <Name>Tests.kt / Test<Name>.kt
+ *
+ * Exported for unit tests; production code uses it only through
+ * getTestFilesFromConvention.
+ */
+export function isLanguageSpecificTestFile(basename: string): boolean {
+	const lower = basename.toLowerCase();
+	// Go
+	if (lower.endsWith('_test.go')) return true;
+	// Python
+	if (lower.endsWith('.py') && (lower.startsWith('test_') || lower.endsWith('_test.py')))
+		return true;
+	// Ruby
+	if (lower.endsWith('_spec.rb')) return true;
+	// Java
+	if (
+		lower.endsWith('.java') &&
+		(lower.startsWith('test') || lower.endsWith('test.java') || lower.endsWith('tests.java') || lower.endsWith('it.java'))
+	)
+		return true;
+	// C#
+	if (
+		lower.endsWith('.cs') &&
+		(lower.endsWith('test.cs') || lower.endsWith('tests.cs'))
+	)
+		return true;
+	// Kotlin
+	if (
+		lower.endsWith('.kt') &&
+		(lower.startsWith('test') || lower.endsWith('test.kt') || lower.endsWith('tests.kt'))
+	)
+		return true;
+	return false;
+}
+
+/**
+ * Map source files (or already-test files) to the test files that should be
+ * run for them. Handles any language whose test files follow a naming convention
+ * — TS/JS, Go, Python, Ruby, Java, C#, Kotlin, PowerShell.
+ *
+ * Exported for unit tests.
+ */
+export function getTestFilesFromConvention(sourceFiles: string[]): string[] {
 	const testFiles: string[] = [];
 
 	for (const file of sourceFiles) {
@@ -435,14 +494,16 @@ function getTestFilesFromConvention(sourceFiles: string[]): string[] {
 		const basename = path.basename(file);
 		const dirname = path.dirname(file);
 
-		// Skip if already a test file
+		// Skip if already a test file — covers any language
 		if (
 			hasCompoundTestExtension(basename) ||
 			basename.includes('.spec.') ||
 			basename.includes('.test.') ||
+			isLanguageSpecificTestFile(basename) ||
 			normalizedPath.includes('/__tests__/') ||
 			normalizedPath.includes('/tests/') ||
-			normalizedPath.includes('/test/')
+			normalizedPath.includes('/test/') ||
+			normalizedPath.includes('/spec/')
 		) {
 			if (!testFiles.includes(file)) {
 				testFiles.push(file);
@@ -450,25 +511,66 @@ function getTestFilesFromConvention(sourceFiles: string[]): string[] {
 			continue;
 		}
 
-		// Map source files to test files by naming convention
-		// e.g., utils.ts -> utils.test.ts, utils.spec.ts
-		for (const _pattern of TEST_PATTERNS) {
-			// Try common test file names for the source file
-			const nameWithoutExt = basename.replace(/\.[^.]+$/, '');
-			const ext = path.extname(basename);
+		// Map source files to test files by naming convention.
+		// First the universal dot-separated patterns (TS/JS/PS1/etc.):
+		//   utils.ts -> utils.test.ts, utils.spec.ts, __tests__/utils.ts, …
+		const nameWithoutExt = basename.replace(/\.[^.]+$/, '');
+		const ext = path.extname(basename);
 
-			const possibleTestFiles = [
-				path.join(dirname, `${nameWithoutExt}.spec${ext}`),
-				path.join(dirname, `${nameWithoutExt}.test${ext}`),
-				path.join(dirname, '__tests__', `${nameWithoutExt}${ext}`),
-				path.join(dirname, 'tests', `${nameWithoutExt}${ext}`),
-				path.join(dirname, 'test', `${nameWithoutExt}${ext}`),
-			];
+		const possibleTestFiles = [
+			path.join(dirname, `${nameWithoutExt}.spec${ext}`),
+			path.join(dirname, `${nameWithoutExt}.test${ext}`),
+			path.join(dirname, '__tests__', `${nameWithoutExt}${ext}`),
+			path.join(dirname, 'tests', `${nameWithoutExt}${ext}`),
+			path.join(dirname, 'test', `${nameWithoutExt}${ext}`),
+		];
 
-			for (const testFile of possibleTestFiles) {
-				if (fs.existsSync(testFile) && !testFiles.includes(testFile)) {
-					testFiles.push(testFile);
-				}
+		// Language-specific source→test mappings:
+		if (ext === '.go') {
+			// Go: foo.go → foo_test.go (colocated) or test/foo_test.go
+			possibleTestFiles.push(
+				path.join(dirname, `${nameWithoutExt}_test.go`),
+				path.join(dirname, 'test', `${nameWithoutExt}_test.go`),
+			);
+		} else if (ext === '.py') {
+			// Python pytest: foo.py → test_foo.py or foo_test.py (colocated or in tests/)
+			possibleTestFiles.push(
+				path.join(dirname, `test_${nameWithoutExt}.py`),
+				path.join(dirname, `${nameWithoutExt}_test.py`),
+				path.join(dirname, 'tests', `test_${nameWithoutExt}.py`),
+				path.join(dirname, 'test', `test_${nameWithoutExt}.py`),
+			);
+		} else if (ext === '.rb') {
+			// Ruby RSpec: foo.rb → foo_spec.rb or spec/foo_spec.rb
+			possibleTestFiles.push(
+				path.join(dirname, `${nameWithoutExt}_spec.rb`),
+				path.join(dirname, 'spec', `${nameWithoutExt}_spec.rb`),
+			);
+		} else if (ext === '.java') {
+			// Java JUnit: Foo.java → FooTest.java, FooTests.java, TestFoo.java
+			possibleTestFiles.push(
+				path.join(dirname, `${nameWithoutExt}Test.java`),
+				path.join(dirname, `${nameWithoutExt}Tests.java`),
+				path.join(dirname, `Test${nameWithoutExt}.java`),
+			);
+		} else if (ext === '.cs') {
+			// C# xUnit/NUnit/MSTest: Foo.cs → FooTest.cs, FooTests.cs
+			possibleTestFiles.push(
+				path.join(dirname, `${nameWithoutExt}Test.cs`),
+				path.join(dirname, `${nameWithoutExt}Tests.cs`),
+			);
+		} else if (ext === '.kt') {
+			// Kotlin JUnit: Foo.kt → FooTest.kt, FooTests.kt, TestFoo.kt
+			possibleTestFiles.push(
+				path.join(dirname, `${nameWithoutExt}Test.kt`),
+				path.join(dirname, `${nameWithoutExt}Tests.kt`),
+				path.join(dirname, `Test${nameWithoutExt}.kt`),
+			);
+		}
+
+		for (const testFile of possibleTestFiles) {
+			if (fs.existsSync(testFile) && !testFiles.includes(testFile)) {
+				testFiles.push(testFile);
 			}
 		}
 	}

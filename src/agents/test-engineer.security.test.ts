@@ -71,14 +71,16 @@ describe('ADVERSARIAL: Unsafe Command Guidance', () => {
 	});
 
 	it('ATTACK: Test runner scope manipulation', () => {
-		// The prompt now uses stronger scope guidance: always convention, never all, graph as fallback
+		// The prompt uses scope guidance: convention is the default, never all, graph as fallback
 		const agent = createTestEngineerAgent('gpt-4');
 		const prompt = agent.config.prompt!;
 
 		// HARDENED: Scope guidance now restricts to safe values
-		const hasConventionGuidance = prompt.includes(
-			'ALWAYS use scope: "convention"',
-		);
+		// Convention scope is recommended (phrasing updated to cover any-language test files)
+		const hasConventionGuidance =
+			prompt.includes('scope: "convention"') &&
+			(prompt.includes('Use scope: "convention"') ||
+				prompt.includes('use scope: "convention"'));
 		const hasAllRestriction = prompt.includes('NEVER use scope: "all"');
 		const hasGraphFallback = prompt.includes('Use scope: "graph" ONLY if');
 

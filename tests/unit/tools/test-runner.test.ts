@@ -16,6 +16,8 @@ const {
 	SUPPORTED_FRAMEWORKS,
 	test_runner,
 	detectTestFramework,
+	isLanguageSpecificTestFile,
+	getTestFilesFromConvention,
 } = testRunnerModule;
 
 describe('test-runner.ts - Constants and Types', () => {
@@ -1230,5 +1232,253 @@ describe('test-runner.ts - scope:"all" gated access (allow_full_suite)', () => {
 			},
 			15000,
 		);
+	});
+});
+
+// ============ Language-Specific Test File Detection ============
+
+describe('test-runner.ts — isLanguageSpecificTestFile', () => {
+	describe('Go convention (_test.go suffix)', () => {
+		test('recognises foo_test.go', () => {
+			expect(isLanguageSpecificTestFile('foo_test.go')).toBe(true);
+		});
+		test('recognises util_test.go', () => {
+			expect(isLanguageSpecificTestFile('util_test.go')).toBe(true);
+		});
+		test('does not recognise foo.go (source file)', () => {
+			expect(isLanguageSpecificTestFile('foo.go')).toBe(false);
+		});
+		test('does not recognise test_helper.go (no _test.go suffix)', () => {
+			expect(isLanguageSpecificTestFile('test_helper.go')).toBe(false);
+		});
+	});
+
+	describe('Python convention (test_*.py prefix and *_test.py suffix)', () => {
+		test('recognises test_foo.py (pytest prefix)', () => {
+			expect(isLanguageSpecificTestFile('test_foo.py')).toBe(true);
+		});
+		test('recognises test_utils.py', () => {
+			expect(isLanguageSpecificTestFile('test_utils.py')).toBe(true);
+		});
+		test('recognises foo_test.py (pytest suffix)', () => {
+			expect(isLanguageSpecificTestFile('foo_test.py')).toBe(true);
+		});
+		test('does not recognise foo.py (source)', () => {
+			expect(isLanguageSpecificTestFile('foo.py')).toBe(false);
+		});
+		test('does not recognise conftest.py', () => {
+			expect(isLanguageSpecificTestFile('conftest.py')).toBe(false);
+		});
+	});
+
+	describe('Ruby convention (*_spec.rb)', () => {
+		test('recognises foo_spec.rb', () => {
+			expect(isLanguageSpecificTestFile('foo_spec.rb')).toBe(true);
+		});
+		test('recognises user_service_spec.rb', () => {
+			expect(isLanguageSpecificTestFile('user_service_spec.rb')).toBe(true);
+		});
+		test('does not recognise foo.rb (source)', () => {
+			expect(isLanguageSpecificTestFile('foo.rb')).toBe(false);
+		});
+	});
+
+	describe('Java convention (Test*.java prefix and *Test.java / *Tests.java suffix)', () => {
+		test('recognises FooTest.java', () => {
+			expect(isLanguageSpecificTestFile('FooTest.java')).toBe(true);
+		});
+		test('recognises FooTests.java', () => {
+			expect(isLanguageSpecificTestFile('FooTests.java')).toBe(true);
+		});
+		test('recognises TestFoo.java', () => {
+			expect(isLanguageSpecificTestFile('TestFoo.java')).toBe(true);
+		});
+		test('does not recognise Foo.java (source)', () => {
+			expect(isLanguageSpecificTestFile('Foo.java')).toBe(false);
+		});
+	});
+
+	describe('C# convention (*Test.cs and *Tests.cs)', () => {
+		test('recognises FooTest.cs', () => {
+			expect(isLanguageSpecificTestFile('FooTest.cs')).toBe(true);
+		});
+		test('recognises FooTests.cs', () => {
+			expect(isLanguageSpecificTestFile('FooTests.cs')).toBe(true);
+		});
+		test('does not recognise Foo.cs (source)', () => {
+			expect(isLanguageSpecificTestFile('Foo.cs')).toBe(false);
+		});
+	});
+
+	describe('Kotlin convention (*Test.kt and *Tests.kt)', () => {
+		test('recognises FooTest.kt', () => {
+			expect(isLanguageSpecificTestFile('FooTest.kt')).toBe(true);
+		});
+		test('recognises FooTests.kt', () => {
+			expect(isLanguageSpecificTestFile('FooTests.kt')).toBe(true);
+		});
+		test('does not recognise Foo.kt (source)', () => {
+			expect(isLanguageSpecificTestFile('Foo.kt')).toBe(false);
+		});
+	});
+});
+
+describe('test-runner.ts — getTestFilesFromConvention (language-specific)', () => {
+	let tmpDir: string;
+
+	beforeEach(() => {
+		tmpDir = fs.realpathSync(fs.mkdtempSync(path.join(os.tmpdir(), 'conv-test-')));
+	});
+
+	afterEach(() => {
+		fs.rmSync(tmpDir, { recursive: true, force: true });
+	});
+
+	function write(rel: string, content = ''): string {
+		const abs = path.join(tmpDir, rel);
+		fs.mkdirSync(path.dirname(abs), { recursive: true });
+		fs.writeFileSync(abs, content, 'utf-8');
+		return abs;
+	}
+
+	describe('Go — test files passed directly', () => {
+		test('foo_test.go is passed through as-is', () => {
+			const testFile = write('pkg/foo_test.go', '');
+			const result = getTestFilesFromConvention([testFile]);
+			expect(result).toEqual([testFile]);
+		});
+
+		test('foo_test.go in a tests/ directory is passed through', () => {
+			const testFile = write('tests/foo_test.go', '');
+			const result = getTestFilesFromConvention([testFile]);
+			expect(result).toEqual([testFile]);
+		});
+	});
+
+	describe('Go — source-to-test mapping', () => {
+		test('foo.go maps to colocated foo_test.go when it exists', () => {
+			const src = write('pkg/foo.go', '');
+			const tst = write('pkg/foo_test.go', '');
+			const result = getTestFilesFromConvention([src]);
+			expect(result).toContain(tst);
+			expect(result).not.toContain(src);
+		});
+
+		test('foo.go produces empty result when no test file exists', () => {
+			const src = write('pkg/foo.go', '');
+			const result = getTestFilesFromConvention([src]);
+			expect(result).toHaveLength(0);
+		});
+	});
+
+	describe('Python — test files passed directly', () => {
+		test('test_foo.py (prefix) is passed through as-is', () => {
+			const testFile = write('test_foo.py', '');
+			const result = getTestFilesFromConvention([testFile]);
+			expect(result).toEqual([testFile]);
+		});
+
+		test('foo_test.py (suffix) is passed through as-is', () => {
+			const testFile = write('src/foo_test.py', '');
+			const result = getTestFilesFromConvention([testFile]);
+			expect(result).toEqual([testFile]);
+		});
+
+		test('test_foo.py in a tests/ directory is passed through', () => {
+			const testFile = write('tests/test_foo.py', '');
+			const result = getTestFilesFromConvention([testFile]);
+			expect(result).toEqual([testFile]);
+		});
+	});
+
+	describe('Python — source-to-test mapping', () => {
+		test('foo.py maps to colocated test_foo.py when it exists', () => {
+			const src = write('src/foo.py', '');
+			const tst = write('src/test_foo.py', '');
+			const result = getTestFilesFromConvention([src]);
+			expect(result).toContain(tst);
+		});
+
+		test('foo.py maps to colocated foo_test.py when it exists', () => {
+			const src = write('src/foo.py', '');
+			const tst = write('src/foo_test.py', '');
+			const result = getTestFilesFromConvention([src]);
+			expect(result).toContain(tst);
+		});
+
+		test('foo.py maps to tests/test_foo.py when colocated test missing', () => {
+			const src = write('src/foo.py', '');
+			const tst = write('src/tests/test_foo.py', '');
+			const result = getTestFilesFromConvention([src]);
+			expect(result).toContain(tst);
+		});
+	});
+
+	describe('Ruby — test files passed directly', () => {
+		test('foo_spec.rb is passed through as-is', () => {
+			const testFile = write('spec/foo_spec.rb', '');
+			const result = getTestFilesFromConvention([testFile]);
+			expect(result).toEqual([testFile]);
+		});
+
+		test('foo_spec.rb colocated with source is passed through', () => {
+			const testFile = write('lib/foo_spec.rb', '');
+			const result = getTestFilesFromConvention([testFile]);
+			expect(result).toEqual([testFile]);
+		});
+	});
+
+	describe('Ruby — source-to-test mapping', () => {
+		test('foo.rb maps to colocated foo_spec.rb when it exists', () => {
+			const src = write('lib/foo.rb', '');
+			const tst = write('lib/foo_spec.rb', '');
+			const result = getTestFilesFromConvention([src]);
+			expect(result).toContain(tst);
+		});
+
+		test('foo.rb maps to spec/foo_spec.rb when colocated missing', () => {
+			const src = write('lib/foo.rb', '');
+			const tst = write('lib/spec/foo_spec.rb', '');
+			const result = getTestFilesFromConvention([src]);
+			expect(result).toContain(tst);
+		});
+	});
+
+	describe('/spec/ directory — any language', () => {
+		test('file in spec/ directory is passed through as-is', () => {
+			const testFile = write('spec/helpers/foo.ts', '');
+			const result = getTestFilesFromConvention([testFile]);
+			expect(result).toEqual([testFile]);
+		});
+	});
+
+	describe('Java — test files passed directly', () => {
+		test('FooTest.java is passed through', () => {
+			const testFile = write('src/test/FooTest.java', '');
+			const result = getTestFilesFromConvention([testFile]);
+			expect(result).toEqual([testFile]);
+		});
+
+		test('TestFoo.java is passed through', () => {
+			const testFile = write('src/FooDir/TestFoo.java', '');
+			const result = getTestFilesFromConvention([testFile]);
+			expect(result).toEqual([testFile]);
+		});
+	});
+
+	describe('C# — test files passed directly', () => {
+		test('FooTests.cs is passed through', () => {
+			const testFile = write('tests/FooTests.cs', '');
+			const result = getTestFilesFromConvention([testFile]);
+			expect(result).toEqual([testFile]);
+		});
+	});
+
+	describe('deduplication', () => {
+		test('duplicate paths are not returned twice', () => {
+			const testFile = write('pkg/foo_test.go', '');
+			const result = getTestFilesFromConvention([testFile, testFile]);
+			expect(result).toHaveLength(1);
+		});
 	});
 });
