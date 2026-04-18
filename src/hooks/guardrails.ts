@@ -37,6 +37,7 @@ import {
 } from '../state';
 import { telemetry } from '../telemetry.js';
 import { log, warn } from '../utils';
+import { resolveSwarmRoot } from '../utils/swarm-root';
 import { resolveAgentConflict } from './conflict-resolution';
 import { pendingCoderScopeByTaskId } from './delegation-gate.js';
 import { extractCurrentPhaseFromPlan } from './extractors';
@@ -915,9 +916,10 @@ export function createGuardrailsHooks(
 		guardrailsConfig = config;
 	}
 
-	// Normalize directory: legacy calls pass the config object as the first arg, so fall back to cwd
+	// Normalize directory: legacy calls pass the config object as the first arg.
+	// Use marker-based root detection instead of bare process.cwd() (issue #528).
 	const effectiveDirectory =
-		typeof directory === 'string' ? directory : process.cwd();
+		typeof directory === 'string' ? directory : resolveSwarmRoot();
 
 	// If guardrails are disabled, return no-op handlers
 	if (guardrailsConfig?.enabled === false) {

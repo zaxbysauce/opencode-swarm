@@ -122,7 +122,7 @@ import {
 	write_hallucination_evidence,
 	write_retro,
 } from './tools';
-import { log } from './utils';
+import { log, warn } from './utils';
 import { truncateToolOutput } from './utils/tool-output';
 
 /**
@@ -139,6 +139,17 @@ import { truncateToolOutput } from './utils/tool-output';
 const _heartbeatTimers = new Map<string, number>();
 
 const OpenCodeSwarm: Plugin = async (ctx) => {
+	// Warn early if ctx.directory is absent — all hook registrations below depend on it
+	// to resolve .swarm/ paths correctly. Missing ctx.directory causes swarm-root fallback
+	// to marker-based detection; if that also fails, .swarm/ may scatter (issue #528).
+	if (!ctx.directory) {
+		warn(
+			'[opencode-swarm] ctx.directory is not set at plugin init — .swarm/ path resolution ' +
+				'will fall back to marker-based detection. Ensure OpenCode passes the project root ' +
+				'as ctx.directory to prevent scattered .swarm/ directories.',
+		);
+	}
+
 	const { config, loadedFromFile } = loadPluginConfigWithMeta(ctx.directory);
 
 	// Full-auto mode validation: critic model must differ from architect model

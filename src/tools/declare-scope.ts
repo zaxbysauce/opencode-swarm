@@ -12,6 +12,7 @@ import { writeScopeToDisk } from '../scope/scope-persistence';
 import { swarmState } from '../state';
 import { validateTaskIdFormat as _validateTaskIdFormat } from '../validation/task-id';
 import { createSwarmTool } from './create-tool';
+import { resolveSwarmRoot } from '../utils/swarm-root';
 
 /**
  * Arguments for the declare_scope tool
@@ -198,13 +199,9 @@ export async function executeDeclareScope(
 		}
 	}
 
-	// Step 4: Resolve target directory
-	if (!fallbackDir) {
-		console.warn(
-			'[declare-scope] fallbackDir is undefined, falling back to process.cwd()',
-		);
-	}
-	const directory = normalizedDir || fallbackDir;
+	// Step 4: Resolve target directory — use marker-based root detection instead of
+	// bare process.cwd() so .swarm/ lands at the project root (issue #528).
+	const directory = normalizedDir || resolveSwarmRoot(fallbackDir);
 
 	// Step 5: Check that taskId exists in plan.json
 	const planPath = path.resolve(directory!, '.swarm', 'plan.json');
@@ -271,7 +268,7 @@ export async function executeDeclareScope(
 	// them here and warn the caller to prevent confusing downstream WRITE BLOCKED errors.
 	const warnings: string[] = [];
 	const normalizeErrors: string[] = [];
-	const dir = normalizedDir || fallbackDir || process.cwd();
+	const dir = normalizedDir || resolveSwarmRoot(fallbackDir);
 	const mergedFiles = rawMergedFiles.map((file) => {
 		if (path.isAbsolute(file)) {
 			const relativePath = path.relative(dir, file).replace(/\\/g, '/');

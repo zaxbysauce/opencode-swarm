@@ -1,4 +1,5 @@
 import { type ToolContext, tool } from '@opencode-ai/plugin';
+import { resolveSwarmRoot } from '../utils/swarm-root';
 
 /**
  * Options for creating a swarm tool.
@@ -56,8 +57,10 @@ export function createSwarmTool<Args extends Record<string, unknown>>(
 		description: opts.description,
 		args: opts.args as unknown as ToolArgs,
 		execute: async (args: ToolExecuteArgs, ctx?: ToolContext) => {
-			// process.cwd() fallback is intentional: used when tool is invoked directly (CLI) without plugin runtime context
-			const directory = ctx?.directory ?? process.cwd();
+			// Resolve project root via ctx.directory; marker-based walk-up when ctx.directory is
+			// absent rather than a bare process.cwd() so .swarm/ always lands at the project root
+			// even when OpenCode omits ctx.directory (see issue #528, PR #352).
+			const directory = resolveSwarmRoot(ctx?.directory);
 			try {
 				return await opts.execute(args as Args, directory, ctx);
 			} catch (error) {

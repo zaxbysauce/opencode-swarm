@@ -9,6 +9,7 @@ import * as fs from 'node:fs';
 import * as path from 'node:path';
 import { loadPlanJsonOnly, regeneratePlanMarkdown } from '../plan/manager';
 import { log } from '../utils';
+import { resolveSwarmRoot } from '../utils/swarm-root';
 
 /** Configuration options for PlanSyncWorker */
 export interface PlanSyncWorkerOptions {
@@ -59,7 +60,7 @@ export class PlanSyncWorker {
 	private disposed = false;
 
 	constructor(options: PlanSyncWorkerOptions = {}) {
-		this.directory = options.directory ?? '';
+		this.directory = resolveSwarmRoot(options.directory);
 		this.debounceMs = options.debounceMs ?? 500;
 		this.pollIntervalMs = options.pollIntervalMs ?? 2000;
 		this.syncTimeoutMs = options.syncTimeoutMs ?? 30000;
@@ -89,8 +90,8 @@ export class PlanSyncWorker {
 			return;
 		}
 
-		if (!this.directory) {
-			log('[PlanSyncWorker] Cannot start - no directory provided');
+		if (!this.directory || this.directory.trim() === '') {
+			log('[PlanSyncWorker] Cannot start - no directory resolved');
 			return;
 		}
 

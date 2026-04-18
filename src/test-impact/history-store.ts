@@ -1,5 +1,6 @@
 import fs from 'node:fs';
 import path from 'node:path';
+import { resolveSwarmRoot } from '../utils/swarm-root';
 
 export type TestRunResult = 'pass' | 'fail' | 'skip';
 
@@ -22,7 +23,7 @@ const MAX_CHANGED_FILES = 50;
 
 function getHistoryPath(workingDir?: string): string {
 	return path.join(
-		workingDir || process.cwd(),
+		resolveSwarmRoot(workingDir),
 		'.swarm',
 		'cache',
 		'test-history.jsonl',

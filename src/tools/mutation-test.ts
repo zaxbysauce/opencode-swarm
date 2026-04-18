@@ -10,6 +10,7 @@ import {
 	type MutationGateResult,
 } from '../mutation/gate.js';
 import { createSwarmTool } from './create-tool';
+import { resolveSwarmRoot } from '../utils/swarm-root';
 
 export const mutation_test: ReturnType<typeof createSwarmTool> =
 	createSwarmTool({
@@ -145,7 +146,7 @@ export const mutation_test: ReturnType<typeof createSwarmTool> =
 					);
 				}
 
-				const cwd = typedArgs.working_directory || directory || process.cwd();
+				const cwd = resolveSwarmRoot(directory, typedArgs.working_directory);
 				const passThreshold = typedArgs.pass_threshold ?? 0.8;
 				const warnThreshold = typedArgs.warn_threshold ?? 0.6;
 
