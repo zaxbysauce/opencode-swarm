@@ -315,25 +315,42 @@ export async function loadEvidence(
 		// Validate the wrapped bundle
 		try {
 			const validated = EvidenceBundleSchema.parse(wrappedBundle);
-			// Persist repaired bundle back to the same file path
-			const evidenceDir = path.dirname(evidencePath);
-			const bundleJson = JSON.stringify(validated);
-			const tempPath = path.join(
-				evidenceDir,
-				`evidence.json.tmp.${Date.now()}.${process.pid}`,
-			);
+			// Persist repaired bundle under the evidence lock so the write-back
+			// cannot race with a concurrent saveEvidence call.
+			// Non-fatal: read-only return value is valid even if write-back fails.
 			try {
-				await Bun.write(tempPath, bundleJson);
-				await fs.rename(tempPath, evidencePath);
-			} catch (writeError) {
-				// Clean up temp file on failure
-				try {
-					rmSync(tempPath, { force: true });
-				} catch {}
-				warn(
-					`Failed to persist repaired flat retrospective for task ${sanitizedTaskId}: ${writeError instanceof Error ? writeError.message : String(writeError)}`,
+				await withEvidenceLock(
+					directory,
+					relativePath,
+					'evidence-loader',
+					sanitizedTaskId,
+					async () => {
+						const evidenceDir = path.dirname(evidencePath);
+						const bundleJson = JSON.stringify(validated);
+						const tempPath = path.join(
+							evidenceDir,
+							`evidence.json.tmp.${Date.now()}.${process.pid}`,
+						);
+						try {
+							await Bun.write(tempPath, bundleJson);
+							await fs.rename(tempPath, evidencePath);
+						} catch (writeError) {
+							try {
+								rmSync(tempPath, { force: true });
+							} catch {}
+							warn(
+								`Failed to persist repaired flat retrospective for task ${sanitizedTaskId}: ${writeError instanceof Error ? writeError.message : String(writeError)}`,
+							);
+						}
+					},
 				);
-				// Still return the validated bundle even if write failed
+			} catch (lockErr) {
+				// EvidenceLockTimeoutError or unexpected lock error — non-fatal.
+				// The flat-retrospective format upgrade will be retried on the next
+				// loadEvidence call; the validated bundle is returned to this caller.
+				warn(
+					`Evidence lock failed during flat-retrospective write-back for task ${sanitizedTaskId}: ${lockErr instanceof Error ? lockErr.message : String(lockErr)}`,
+				);
 			}
 			return { status: 'found', bundle: validated };
 		} catch (error) {

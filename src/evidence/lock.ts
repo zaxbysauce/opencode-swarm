@@ -81,6 +81,17 @@ export async function withEvidenceLock<T>(
 
 		if (result.acquired) {
 			const lock = result.lock;
+			// Emit stale_recovered when proper-lockfile cleaned a stale lock and we
+			// now hold it (heuristic: success after prior contention indicates recovery).
+			if (attempt > 0) {
+				emit('evidence_lock_stale_recovered', {
+					directory,
+					evidencePath,
+					agent,
+					taskId,
+					attempt,
+				});
+			}
 			emit('evidence_lock_acquired', {
 				directory,
 				evidencePath,
@@ -112,25 +123,17 @@ export async function withEvidenceLock<T>(
 			);
 		}
 
-		const staleRecovered = !result.existing;
-		if (staleRecovered) {
-			emit('evidence_lock_stale_recovered', {
-				directory,
-				evidencePath,
-				agent,
-				taskId,
-				attempt,
-			});
-		} else {
-			emit('evidence_lock_contended', {
-				directory,
-				evidencePath,
-				agent,
-				taskId,
-				attempt,
-				holderAgent: result.existing?.agent ?? 'unknown',
-			});
-		}
+		// tryAcquireLock returns { acquired: false } with no `existing` field —
+		// proper-lockfile handles stale cleanup internally and never surfaces it to
+		// callers. Emit contended on every failed acquire; stale_recovered is emitted
+		// on successful acquire after prior contention (attempt > 0 path above).
+		emit('evidence_lock_contended', {
+			directory,
+			evidencePath,
+			agent,
+			taskId,
+			attempt,
+		});
 
 		const delay = Math.min(backoffMs(attempt), deadline - Date.now());
 		if (delay > 0) {
