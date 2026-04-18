@@ -372,7 +372,10 @@ export async function captureOrMergeBaseline(
 			if (truncated) {
 				const survivingFiles = new Set<string>();
 				for (const finding of cappedSnapshot) {
-					const relFile = normalizeFindingPath(directory, finding.location.file);
+					const relFile = normalizeFindingPath(
+						directory,
+						finding.location.file,
+					);
 					survivingFiles.add(relFile);
 				}
 				cappedFilesIndexed = Array.from(survivingFiles);
