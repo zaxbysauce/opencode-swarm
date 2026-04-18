@@ -125,10 +125,34 @@ Find the SHA for a tag:
 gh api repos/{owner}/{repo}/git/ref/tags/{tag} --jq '.object.sha'
 ```
 
-### Step 7 — Open the PR with the correct body format
+### Step 7 — Squash to a single clean commit
+
+Before pushing, collapse all interim commits into one. The PR must land as a single commit whose message is the canonical record of the change.
 
 ```bash
-git push -u origin <branch-name>
+# See what you're about to squash (sanity check)
+BASE=$(git merge-base HEAD main)
+git log --oneline $BASE..HEAD
+
+# Squash everything since branching from main
+git reset --soft $BASE
+git commit -m "type(scope): description"
+
+# Force-push with lease (never plain --force)
+git push --force-with-lease -u origin <branch-name>
+```
+
+**Rules:**
+- The squash commit message must match the PR title exactly — they are the same thing.
+- Use `--force-with-lease`, never `--force`. Lease rejects the push if the remote has commits you haven't seen.
+- If a review cycle is already in progress (reviewer comments reference specific commit SHAs), do **not** squash until all review threads are resolved — squashing rewrites history and orphans inline comments.
+- Any dist/ build artifact commits must be included in the squash (stage them before `git commit`).
+
+**Why:** Interim commits (`fix attempt 1`, `wip`, `address review`) are noise in the project history. A single well-named commit makes `git log`, `git bisect`, and release notes meaningful. The PR title doubles as the squash commit message — both must be correct conventional-commit format.
+
+### Step 8 — Open the PR with the correct body format
+
+```bash
 gh pr create --title "<type>(<scope>): <description>" --body "$(cat <<'EOF'
 ## Summary
 - <bullet 1>
@@ -145,15 +169,15 @@ EOF
 
 `## Summary` must have 1–3 bullets explaining what and why. `## Test plan` must be a markdown checklist. Do not replace the body of an existing release-please PR — prepend only.
 
-### Step 8 — Pre-merge checklist
+### Step 9 — Pre-merge checklist
 
 Verify every item before asking for a merge:
-- [ ] Every commit follows `<type>(<scope>): <description>` (lowercase, no trailing period, allowed type)
-- [ ] PR title matches the primary change type
+- [ ] Branch has exactly **one commit** — the squashed commit from Step 7 (`git log --oneline main..HEAD` shows one line)
+- [ ] That commit message matches the PR title exactly, and both follow `<type>(<scope>): <description>`
 - [ ] `docs/releases/v{NEXT_VERSION}.md` exists with meaningful release notes
 - [ ] `package.json` version, `CHANGELOG.md`, `.release-please-manifest.json` are untouched
 - [ ] All 5 test tiers pass locally, including `bunx biome ci .` on the full project (not scoped)
-- [ ] If the repo tracks `dist/` files: `bun run build` was run and updated dist/ artifacts were committed
+- [ ] If the repo tracks `dist/` files: `bun run build` was run and dist/ artifacts are included in the squash commit
 - [ ] All workflow `uses:` references are SHA-pinned (if workflows changed)
 - [ ] PR body has `## Summary` and `## Test plan`
 - [ ] All CI checks are green before merging
