@@ -1048,18 +1048,20 @@ export async function runPreCheckBatch(
 	if (sastScanResult.ran && sastScanResult.result) {
 		const sastResult = sastScanResult.result;
 
-		if (sastResult.baseline_used && sastResult.pre_existing_findings?.length) {
-			// Baseline diff mode: pre_existing_findings come from the phase baseline.
-			// Populate reviewer triage regardless of verdict (verdict is already driven
-			// by new_findings only inside sastScan). Use sast_threshold as triage filter
-			// so mediums are not silently dropped when threshold is 'medium' or lower.
-			sastPreexistingFindings = sastResult.pre_existing_findings.filter((f) =>
-				meetsThresholdForTriage(f.severity, sast_threshold),
-			);
-			if (sastPreexistingFindings.length > 0) {
-				warn(
-					`pre_check_batch: SAST baseline diff found ${sastPreexistingFindings.length} pre-existing finding(s) - passing to reviewer for triage`,
+		if (sastResult.baseline_used) {
+			// Baseline diff mode: verdict is driven ONLY by new_findings in sastScan.
+			// Populate reviewer triage with pre_existing_findings (if any), regardless of verdict.
+			// Use sast_threshold as triage filter so mediums are not silently dropped when
+			// threshold is 'medium' or lower.
+			if (sastResult.pre_existing_findings && sastResult.pre_existing_findings.length > 0) {
+				sastPreexistingFindings = sastResult.pre_existing_findings.filter((f) =>
+					meetsThresholdForTriage(f.severity, sast_threshold),
 				);
+				if (sastPreexistingFindings.length > 0) {
+					warn(
+						`pre_check_batch: SAST baseline diff found ${sastPreexistingFindings.length} pre-existing finding(s) - passing to reviewer for triage`,
+					);
+				}
 			}
 			// Verdict is already correctly set by sastScan — do not override.
 			if (sastResult.verdict === 'fail') {

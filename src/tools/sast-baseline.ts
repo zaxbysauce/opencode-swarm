@@ -361,11 +361,22 @@ export async function captureOrMergeBaseline(
 
 			const truncated = mergedSnapshot.length > MAX_BASELINE_FINDINGS;
 			const cappedSnapshot = truncated
-				? mergedSnapshot.slice(0, MAX_BASELINE_FINDINGS)
+				? mergedSnapshot.slice(-MAX_BASELINE_FINDINGS)
 				: mergedSnapshot;
 			const cappedFingerprints = truncated
-				? mergedFingerprints.slice(0, MAX_BASELINE_FINDINGS)
+				? mergedFingerprints.slice(-MAX_BASELINE_FINDINGS)
 				: mergedFingerprints;
+
+			// When truncating, rebuild files_indexed to only include files with surviving fingerprints
+			let cappedFilesIndexed = mergedFilesIndexed;
+			if (truncated) {
+				const survivingFiles = new Set<string>();
+				for (const finding of cappedSnapshot) {
+					const relFile = normalizeFindingPath(directory, finding.location.file);
+					survivingFiles.add(relFile);
+				}
+				cappedFilesIndexed = Array.from(survivingFiles);
+			}
 
 			const now = new Date().toISOString();
 			const bundle: SastBaselineFile = {
@@ -374,7 +385,7 @@ export async function captureOrMergeBaseline(
 				created_at: existing.created_at,
 				updated_at: now,
 				engine,
-				files_indexed: mergedFilesIndexed,
+				files_indexed: cappedFilesIndexed,
 				fingerprints: cappedFingerprints,
 				findings_snapshot: cappedSnapshot,
 				truncated,
