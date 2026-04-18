@@ -911,11 +911,19 @@ describe('executeUpdateTaskStatus Task 1.2 regression: in_progress activation sy
 		// Create evidence directory for task 1.1 (prior task with completed evidence)
 		fs.mkdirSync(path.join(tempDir, '.swarm', 'evidence'), { recursive: true });
 		const priorTaskEvidence = {
-			task_id: '1.1',
+			taskId: '1.1',
 			required_gates: ['reviewer', 'test_engineer'],
 			gates: {
-				reviewer: { timestamp: Date.now(), result: 'PASS' },
-				test_engineer: { timestamp: Date.now(), result: 'PASS' },
+				reviewer: {
+					sessionId: 'sess-prior',
+					timestamp: new Date().toISOString(),
+					agent: 'reviewer',
+				},
+				test_engineer: {
+					sessionId: 'sess-prior',
+					timestamp: new Date().toISOString(),
+					agent: 'test_engineer',
+				},
 			},
 		};
 		fs.writeFileSync(
@@ -2275,7 +2283,7 @@ describe('Durable evidence seed on in_progress transition', () => {
 		// Pre-create an evidence file with a gate already satisfied
 		fs.mkdirSync(path.join(tempDir, '.swarm', 'evidence'), { recursive: true });
 		const existingEvidence = {
-			task_id: '1.1',
+			taskId: '1.1',
 			required_gates: ['reviewer', 'test_engineer'],
 			gates: {
 				reviewer: {
@@ -2284,7 +2292,6 @@ describe('Durable evidence seed on in_progress transition', () => {
 					agent: 'reviewer',
 				},
 			},
-			started_at: '2025-01-01T00:00:00.000Z',
 		};
 		fs.writeFileSync(
 			path.join(tempDir, '.swarm', 'evidence', '1.1.json'),

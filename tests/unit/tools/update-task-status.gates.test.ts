@@ -191,7 +191,7 @@ describe('Gate restart-recovery: evidence-file durability', () => {
 	it('seed write is skipped when evidence file already exists', async () => {
 		// Write a custom evidence file first
 		const customEvidence = {
-			task_id: '1.1',
+			taskId: '1.1',
 			required_gates: ['reviewer', 'test_engineer'],
 			gates: {
 				reviewer: {
@@ -200,7 +200,6 @@ describe('Gate restart-recovery: evidence-file durability', () => {
 					sessionId: 'sess-r',
 				},
 			},
-			started_at: '2024-01-01T00:00:00.000Z',
 		};
 		fs.mkdirSync(path.join(tmpDir, '.swarm', 'evidence'), { recursive: true });
 		fs.writeFileSync(
