@@ -1282,4 +1282,149 @@ describe('save-plan tool verification tests', () => {
 			expect(savedPlan.phases[0].tasks[0].status).toBe('blocked');
 		});
 	});
+
+	// ========== GROUP 9: reset_statuses parameter ==========
+	describe('Group 9: reset_statuses parameter', () => {
+		// Regression test: save_plan with reset_statuses: true must reset completed
+		// task statuses back to pending.  Before this fix, executeSavePlan always
+		// populated existingStatusMap from the current plan.json and applied existing
+		// statuses to every incoming task — making it impossible to reset 'completed'
+		// tasks via save_plan regardless of intent.
+		it('reset_statuses: true resets all completed tasks to pending', async () => {
+			const planJsonPath = path.join(tmpDir, '.swarm', 'plan.json');
+
+			// First save: create plan with two tasks
+			const args1: SavePlanArgs = {
+				title: 'Reset Status Test',
+				swarm_id: 'mega',
+				phases: [
+					{
+						id: 1,
+						name: 'Phase 1',
+						tasks: [
+							{ id: '1.1', description: 'Task A' },
+							{ id: '1.2', description: 'Task B' },
+						],
+					},
+				],
+				working_directory: tmpDir,
+			};
+			await executeSavePlan(args1);
+
+			// Manually set both tasks to completed on disk
+			const planData = JSON.parse(await fs.readFile(planJsonPath, 'utf-8'));
+			planData.phases[0].tasks[0].status = 'completed';
+			planData.phases[0].tasks[1].status = 'completed';
+			await fs.writeFile(planJsonPath, JSON.stringify(planData, null, 2));
+
+			// Second save with reset_statuses: true — all tasks must become pending
+			const args2: SavePlanArgs = {
+				title: 'Reset Status Test',
+				swarm_id: 'mega',
+				phases: [
+					{
+						id: 1,
+						name: 'Phase 1',
+						tasks: [
+							{ id: '1.1', description: 'Task A' },
+							{ id: '1.2', description: 'Task B' },
+						],
+					},
+				],
+				working_directory: tmpDir,
+				reset_statuses: true,
+			};
+			const result = await executeSavePlan(args2);
+			expect(result.success).toBe(true);
+
+			// CRITICAL: both tasks must now be pending on disk
+			const savedPlan = JSON.parse(await fs.readFile(planJsonPath, 'utf-8'));
+			expect(savedPlan.phases[0].tasks[0].status).toBe('pending');
+			expect(savedPlan.phases[0].tasks[1].status).toBe('pending');
+			expect(savedPlan.phases[0].status).toBe('pending');
+		});
+
+		it('reset_statuses: false (default) still preserves completed status', async () => {
+			const planJsonPath = path.join(tmpDir, '.swarm', 'plan.json');
+
+			const args1: SavePlanArgs = {
+				title: 'Preserve Status Test',
+				swarm_id: 'mega',
+				phases: [
+					{
+						id: 1,
+						name: 'Phase 1',
+						tasks: [{ id: '1.1', description: 'Task A' }],
+					},
+				],
+				working_directory: tmpDir,
+			};
+			await executeSavePlan(args1);
+
+			const planData = JSON.parse(await fs.readFile(planJsonPath, 'utf-8'));
+			planData.phases[0].tasks[0].status = 'completed';
+			await fs.writeFile(planJsonPath, JSON.stringify(planData, null, 2));
+
+			// Second save with reset_statuses: false (explicit) — completed is preserved
+			const args2: SavePlanArgs = {
+				title: 'Preserve Status Test',
+				swarm_id: 'mega',
+				phases: [
+					{
+						id: 1,
+						name: 'Phase 1',
+						tasks: [{ id: '1.1', description: 'Task A' }],
+					},
+				],
+				working_directory: tmpDir,
+				reset_statuses: false,
+			};
+			const result = await executeSavePlan(args2);
+			expect(result.success).toBe(true);
+
+			const savedPlan = JSON.parse(await fs.readFile(planJsonPath, 'utf-8'));
+			expect(savedPlan.phases[0].tasks[0].status).toBe('completed');
+		});
+
+		it('reset_statuses omitted (default) still preserves completed status', async () => {
+			const planJsonPath = path.join(tmpDir, '.swarm', 'plan.json');
+
+			const args1: SavePlanArgs = {
+				title: 'Default Preserve Test',
+				swarm_id: 'mega',
+				phases: [
+					{
+						id: 1,
+						name: 'Phase 1',
+						tasks: [{ id: '1.1', description: 'Task A' }],
+					},
+				],
+				working_directory: tmpDir,
+			};
+			await executeSavePlan(args1);
+
+			const planData = JSON.parse(await fs.readFile(planJsonPath, 'utf-8'));
+			planData.phases[0].tasks[0].status = 'completed';
+			await fs.writeFile(planJsonPath, JSON.stringify(planData, null, 2));
+
+			// Second save with no reset_statuses — completed is preserved (backward compat)
+			const args2: SavePlanArgs = {
+				title: 'Default Preserve Test',
+				swarm_id: 'mega',
+				phases: [
+					{
+						id: 1,
+						name: 'Phase 1',
+						tasks: [{ id: '1.1', description: 'Task A' }],
+					},
+				],
+				working_directory: tmpDir,
+			};
+			const result = await executeSavePlan(args2);
+			expect(result.success).toBe(true);
+
+			const savedPlan = JSON.parse(await fs.readFile(planJsonPath, 'utf-8'));
+			expect(savedPlan.phases[0].tasks[0].status).toBe('completed');
+		});
+	});
 });
