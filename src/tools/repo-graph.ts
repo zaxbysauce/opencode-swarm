@@ -980,7 +980,6 @@ function parseFileImports(content: string): ParsedImport[] {
 	// - require('...')
 	// - export { x } from '...' (named re-export)
 	// - export * from '...' (namespace re-export)
-	// biome-ignore lint/suspicious/noControlCharactersInRegex: intentionally excludes control characters from import specifier captures
 	const importRegex =
 		/import\s+(?:\{[\s\S]*?\}|(?:\*\s+as\s+\w+)|\w+)\s+from\s+['"`]([^'"`\0\t\r\n]+)['"`]|import\s+['"`]([^'"`\0\t\r\n]+)['"`]|require\s*\(\s*['"`]([^'"`\0\t\r\n]+)['"`]\s*\)|export\s*\{[^}]*\}\s*from\s+['"`]([^'"`\0\t\r\n]+)['"`]|export\s+\*(?:\s+as\s+\w+)?\s+from\s+['"`]([^'"`\0\t\r\n]+)['"`]|import\s*\(\s*['"`]([^'"`\0\t\r\n]+)['"`]\s*\)/g;
 

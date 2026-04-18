@@ -1165,12 +1165,19 @@ describe('control character safety in buildWorkspaceGraph', () => {
 			"const d = import('./dyn');",
 		].join('\n');
 
-		await fs.promises.writeFile(path.join(tempDir, 'dirty.ts'), dirtyContent, 'binary');
+		await fs.promises.writeFile(
+			path.join(tempDir, 'dirty.ts'),
+			dirtyContent,
+			'binary',
+		);
 		await fs.promises.writeFile(path.join(tempDir, 'clean.ts'), cleanContent);
 		// Stub target files so edges can resolve (optional — edges are only created
 		// when targets exist, but graph build must not throw regardless)
 		await fs.promises.writeFile(path.join(tempDir, 'ok.ts'), 'export {};');
-		await fs.promises.writeFile(path.join(tempDir, 'foo.ts'), 'export const foo = 1;');
+		await fs.promises.writeFile(
+			path.join(tempDir, 'foo.ts'),
+			'export const foo = 1;',
+		);
 
 		// Must not throw
 		const graph = buildWorkspaceGraph(workspacePath);
@@ -1210,7 +1217,9 @@ describe('control character safety in buildWorkspaceGraph', () => {
 			mtime: '123',
 		};
 		// Original substring must still be present (toThrow uses substring matching)
-		expect(() => validateGraphNode(node)).toThrow('Invalid node: imports contains control characters');
+		expect(() => validateGraphNode(node)).toThrow(
+			'Invalid node: imports contains control characters',
+		);
 		// New context info must also appear
 		expect(() => validateGraphNode(node)).toThrow('/abs/foo.ts');
 	});

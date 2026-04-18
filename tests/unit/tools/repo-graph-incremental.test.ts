@@ -336,7 +336,7 @@ export const indexExport = 'hello';`,
 
 	test('updateGraphForFiles does not produce control-char specifiers when file has CR in import', async () => {
 		// Seed workspace with a clean file so there is a baseline graph to update
-		const seedContent = "export const seed = 1;\n";
+		const seedContent = 'export const seed = 1;\n';
 		await fsSync.promises.writeFile(path.join(tempDir, 'seed.ts'), seedContent);
 
 		const initialGraph = buildWorkspaceGraph(workspacePath);
