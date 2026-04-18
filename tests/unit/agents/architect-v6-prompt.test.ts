@@ -551,8 +551,8 @@ describe('Architect Prompt v6.0 QA & Security Gates (Task 3.2)', () => {
 				prompt.indexOf('### MODE: EXECUTE'),
 				prompt.indexOf('### MODE: PHASE-WRAP'),
 			);
-			const buildPos = phase5Section.indexOf('build_check');
-			const precheckPos = phase5Section.indexOf('pre_check_batch');
+			const buildPos = phase5Section.indexOf('5h. Run `build_check`');
+			const precheckPos = phase5Section.indexOf('5i. Run `pre_check_batch`');
 			expect(buildPos).toBeLessThan(precheckPos);
 		});
 	});
