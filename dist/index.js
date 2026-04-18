@@ -16752,7 +16752,7 @@ async function updateTaskStatus(directory, taskId, status) {
     const updatedPlan = { ...plan, phases: updatedPhases };
     try {
       await savePlan(directory, updatedPlan, {
-        preserveCompletedStatuses: true
+        preserveCompletedStatuses: false
       });
       return updatedPlan;
     } catch (error49) {
@@ -79392,16 +79392,18 @@ async function executeSavePlan(args2, fallbackDir) {
   }
   const dir = targetWorkspace;
   const existingStatusMap = new Map;
-  try {
-    const existing = await loadPlanJsonOnly(dir);
-    if (existing) {
-      for (const phase of existing.phases) {
-        for (const task of phase.tasks) {
-          existingStatusMap.set(task.id, task.status);
+  if (!args2.reset_statuses) {
+    try {
+      const existing = await loadPlanJsonOnly(dir);
+      if (existing) {
+        for (const phase of existing.phases) {
+          for (const task of phase.tasks) {
+            existingStatusMap.set(task.id, task.status);
+          }
         }
       }
-    }
-  } catch {}
+    } catch {}
+  }
   const plan = {
     schema_version: "1.0.0",
     title: args2.title,
@@ -79446,7 +79448,9 @@ async function executeSavePlan(args2, fallbackDir) {
       };
     }
     try {
-      await savePlan(dir, plan);
+      await savePlan(dir, plan, {
+        preserveCompletedStatuses: !args2.reset_statuses
+      });
       const savedPlan = await loadPlanJsonOnly(dir);
       if (savedPlan) {
         await takeSnapshotEvent(dir, savedPlan).catch(() => {});
@@ -79511,7 +79515,8 @@ var save_plan = createSwarmTool({
         acceptance: tool.schema.string().optional().describe("Acceptance criteria for this task")
       })).min(1).describe("Tasks in this phase")
     })).min(1).describe("Implementation phases"),
-    working_directory: tool.schema.string().optional().describe("Working directory (explicit path, required - no fallback)")
+    working_directory: tool.schema.string().optional().describe("Working directory (explicit path, required - no fallback)"),
+    reset_statuses: tool.schema.boolean().optional().describe("When true, reset ALL task statuses to pending regardless of prior completion state. " + "Use only when deliberately re-planning a phase from scratch. " + "Default false (preserves existing task statuses across plan revisions).")
   },
   execute: async (args2, _directory) => {
     return JSON.stringify(await executeSavePlan(args2, _directory), null, 2);
