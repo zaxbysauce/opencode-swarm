@@ -157,6 +157,13 @@ export interface AgentSessionState {
 	// v6.21 Per-task state machine
 	/** Per-task workflow state — taskId → current state */
 	taskWorkflowStates: Map<string, TaskWorkflowState>;
+	/**
+	 * PR 2 Stage B barrier: per-task set of completed Stage B agents.
+	 * Order-independent — either 'reviewer' or 'test_engineer' may complete first.
+	 * When both are present, the task may advance to tests_run regardless of order.
+	 * Only populated when parallelization.stageB.parallel.enabled = true.
+	 */
+	stageBCompletion?: Map<string, Set<'reviewer' | 'test_engineer'>>;
 	/** v6.71+ Council mode: per-task council verdict, recorded by delegation-gate when convene_council resolves. */
 	taskCouncilApproved?: Map<
 		string,
@@ -431,6 +438,7 @@ export function startAgentSession(
 		qaSkipTaskIds: [],
 		// v6.21 Per-task state machine
 		taskWorkflowStates: new Map(),
+		stageBCompletion: new Map(),
 		taskCouncilApproved: new Map(),
 		lastGateOutcome: null,
 		declaredCoderScope: null,
@@ -609,6 +617,10 @@ export function ensureAgentSession(
 		// v6.21 Per-task state machine migration safety
 		if (!session.taskWorkflowStates) {
 			session.taskWorkflowStates = new Map();
+		}
+		// PR 2 Stage B barrier migration safety
+		if (!session.stageBCompletion) {
+			session.stageBCompletion = new Map();
 		}
 		// v6.71+ Council mode migration safety
 		if (!session.taskCouncilApproved) {
@@ -933,6 +945,50 @@ export function getTaskState(
 	}
 
 	return session.taskWorkflowStates.get(taskId) ?? 'idle';
+}
+
+/**
+ * PR 2 Stage B barrier: record that a Stage B agent has completed for a task.
+ * Order-independent — either 'reviewer' or 'test_engineer' may complete first.
+ * Initializes the per-task set on first write.
+ *
+ * @param session - The agent session state
+ * @param taskId - The task identifier
+ * @param agent - Which Stage B agent completed ('reviewer' or 'test_engineer')
+ */
+export function recordStageBCompletion(
+	session: AgentSessionState,
+	taskId: string,
+	agent: 'reviewer' | 'test_engineer',
+): void {
+	if (!isValidTaskId(taskId)) return;
+	if (!session.stageBCompletion) {
+		session.stageBCompletion = new Map();
+	}
+	const existing = session.stageBCompletion.get(taskId);
+	if (existing) {
+		existing.add(agent);
+	} else {
+		session.stageBCompletion.set(taskId, new Set([agent]));
+	}
+}
+
+/**
+ * PR 2 Stage B barrier: returns true iff both 'reviewer' and 'test_engineer' have
+ * been recorded for the given task in this session.
+ *
+ * @param session - The agent session state
+ * @param taskId - The task identifier
+ * @returns true when both Stage B agents have completed
+ */
+export function hasBothStageBCompletions(
+	session: AgentSessionState,
+	taskId: string,
+): boolean {
+	if (!isValidTaskId(taskId)) return false;
+	const completions = session.stageBCompletion?.get(taskId);
+	if (!completions) return false;
+	return completions.has('reviewer') && completions.has('test_engineer');
 }
 
 /**
