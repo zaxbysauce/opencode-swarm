@@ -15203,7 +15203,12 @@ var init_schema = __esm(() => {
   ParallelizationConfigSchema = exports_external.object({
     enabled: exports_external.boolean().default(false),
     maxConcurrentTasks: exports_external.number().int().min(1).max(64).default(1),
-    evidenceLockTimeoutMs: exports_external.number().int().min(1000).max(300000).default(60000)
+    evidenceLockTimeoutMs: exports_external.number().int().min(1000).max(300000).default(60000),
+    stageB: exports_external.object({
+      parallel: exports_external.object({
+        enabled: exports_external.boolean().default(false)
+      }).default({ enabled: false })
+    }).default({ parallel: { enabled: false } })
   });
   PluginConfigSchema = exports_external.object({
     agents: exports_external.record(exports_external.string(), AgentOverrideConfigSchema).optional(),
@@ -24845,60 +24850,121 @@ function createDelegationGateHook(config2, directory) {
         if (targetAgent === "test_engineer")
           hasTestEngineer = true;
         if (!councilActive) {
-          if (targetAgent === "reviewer" && session.taskWorkflowStates) {
-            for (const [taskId, state] of session.taskWorkflowStates) {
-              if (state === "coder_delegated" || state === "pre_check_passed") {
-                try {
-                  advanceTaskState(session, taskId, "reviewer_run");
-                } catch (err2) {
-                  console.warn(`[delegation-gate] toolAfter: could not advance ${taskId} (${state}) \u2192 reviewer_run: ${err2 instanceof Error ? err2.message : String(err2)}`);
+          const stageBParallelEnabled = config2.parallelization?.stageB?.parallel?.enabled === true;
+          if (stageBParallelEnabled) {
+            if ((targetAgent === "reviewer" || targetAgent === "test_engineer") && session.taskWorkflowStates) {
+              const stageBEligibleStates = [
+                "coder_delegated",
+                "pre_check_passed",
+                "reviewer_run"
+              ];
+              for (const [taskId, state] of session.taskWorkflowStates) {
+                if (!stageBEligibleStates.includes(state))
+                  continue;
+                const eligibleState = state;
+                recordStageBCompletion(session, taskId, targetAgent);
+                if (hasBothStageBCompletions(session, taskId)) {
+                  try {
+                    if (eligibleState === "coder_delegated" || eligibleState === "pre_check_passed") {
+                      advanceTaskState(session, taskId, "reviewer_run");
+                    }
+                    advanceTaskState(session, taskId, "tests_run");
+                  } catch (err2) {
+                    console.warn(`[delegation-gate] toolAfter stage-b-parallel: could not advance ${taskId} (${eligibleState}) \u2192 tests_run: ${err2 instanceof Error ? err2.message : String(err2)}`);
+                  }
                 }
               }
-            }
-          }
-          if (targetAgent === "test_engineer" && session.taskWorkflowStates) {
-            for (const [taskId, state] of session.taskWorkflowStates) {
-              if (state === "reviewer_run") {
-                try {
-                  advanceTaskState(session, taskId, "tests_run");
-                } catch (err2) {
-                  console.warn(`[delegation-gate] toolAfter: could not advance ${taskId} (${state}) \u2192 tests_run: ${err2 instanceof Error ? err2.message : String(err2)}`);
-                }
-              }
-            }
-          }
-          if (targetAgent === "reviewer" || targetAgent === "test_engineer") {
-            for (const [, otherSession] of swarmState.agentSessions) {
-              if (otherSession === session)
-                continue;
-              if (!otherSession.taskWorkflowStates)
-                continue;
-              if (targetAgent === "reviewer") {
-                const seedTaskId = getSeedTaskId(session);
-                if (seedTaskId && !otherSession.taskWorkflowStates.has(seedTaskId)) {
-                  otherSession.taskWorkflowStates.set(seedTaskId, "coder_delegated");
-                }
-                for (const [taskId, state] of otherSession.taskWorkflowStates) {
-                  if (state === "coder_delegated" || state === "pre_check_passed") {
+              const seedTaskId = getSeedTaskId(session);
+              if (seedTaskId) {
+                for (const [, otherSession] of swarmState.agentSessions) {
+                  if (otherSession === session)
+                    continue;
+                  if (!otherSession.taskWorkflowStates)
+                    continue;
+                  if (!otherSession.taskWorkflowStates.has(seedTaskId)) {
+                    otherSession.taskWorkflowStates.set(seedTaskId, "coder_delegated");
+                  }
+                  const seedState = otherSession.taskWorkflowStates.get(seedTaskId);
+                  if (!seedState || !stageBEligibleStates.includes(seedState)) {
+                    continue;
+                  }
+                  const seedEligibleState = seedState;
+                  recordStageBCompletion(otherSession, seedTaskId, targetAgent);
+                  if (hasBothStageBCompletions(otherSession, seedTaskId)) {
                     try {
-                      advanceTaskState(otherSession, taskId, "reviewer_run");
+                      if (seedEligibleState === "coder_delegated" || seedEligibleState === "pre_check_passed") {
+                        advanceTaskState(otherSession, seedTaskId, "reviewer_run");
+                      }
+                      advanceTaskState(otherSession, seedTaskId, "tests_run");
                     } catch (err2) {
-                      console.warn(`[delegation-gate] toolAfter cross-session: could not advance ${taskId} (${state}) \u2192 reviewer_run: ${err2 instanceof Error ? err2.message : String(err2)}`);
+                      console.warn(`[delegation-gate] toolAfter cross-session stage-b-parallel: could not advance ${seedTaskId} (${seedEligibleState}) \u2192 tests_run: ${err2 instanceof Error ? err2.message : String(err2)}`);
                     }
                   }
                 }
               }
-              if (targetAgent === "test_engineer") {
-                const seedTaskId = getSeedTaskId(session);
-                if (seedTaskId && !otherSession.taskWorkflowStates.has(seedTaskId)) {
-                  otherSession.taskWorkflowStates.set(seedTaskId, "reviewer_run");
+            }
+          } else {
+            if (targetAgent === "reviewer" && session.taskWorkflowStates) {
+              for (const [taskId, state] of session.taskWorkflowStates) {
+                if (state === "coder_delegated" || state === "pre_check_passed") {
+                  try {
+                    advanceTaskState(session, taskId, "reviewer_run");
+                  } catch (err2) {
+                    console.warn(`[delegation-gate] toolAfter: could not advance ${taskId} (${state}) \u2192 reviewer_run: ${err2 instanceof Error ? err2.message : String(err2)}`);
+                  }
                 }
-                for (const [taskId, state] of otherSession.taskWorkflowStates) {
-                  if (state === "reviewer_run") {
-                    try {
-                      advanceTaskState(otherSession, taskId, "tests_run");
-                    } catch (err2) {
-                      console.warn(`[delegation-gate] toolAfter cross-session: could not advance ${taskId} (${state}) \u2192 tests_run: ${err2 instanceof Error ? err2.message : String(err2)}`);
+              }
+            }
+            if (targetAgent === "test_engineer" && session.taskWorkflowStates) {
+              for (const [taskId, state] of session.taskWorkflowStates) {
+                if (state === "reviewer_run") {
+                  try {
+                    advanceTaskState(session, taskId, "tests_run");
+                  } catch (err2) {
+                    console.warn(`[delegation-gate] toolAfter: could not advance ${taskId} (${state}) \u2192 tests_run: ${err2 instanceof Error ? err2.message : String(err2)}`);
+                  }
+                }
+              }
+            }
+            if (targetAgent === "reviewer" || targetAgent === "test_engineer") {
+              for (const [, otherSession] of swarmState.agentSessions) {
+                if (otherSession === session)
+                  continue;
+                if (!otherSession.taskWorkflowStates)
+                  continue;
+                if (targetAgent === "reviewer") {
+                  const seedTaskId = getSeedTaskId(session);
+                  if (seedTaskId && !otherSession.taskWorkflowStates.has(seedTaskId)) {
+                    otherSession.taskWorkflowStates.set(seedTaskId, "coder_delegated");
+                  }
+                  for (const [
+                    taskId,
+                    state
+                  ] of otherSession.taskWorkflowStates) {
+                    if (state === "coder_delegated" || state === "pre_check_passed") {
+                      try {
+                        advanceTaskState(otherSession, taskId, "reviewer_run");
+                      } catch (err2) {
+                        console.warn(`[delegation-gate] toolAfter cross-session: could not advance ${taskId} (${state}) \u2192 reviewer_run: ${err2 instanceof Error ? err2.message : String(err2)}`);
+                      }
+                    }
+                  }
+                }
+                if (targetAgent === "test_engineer") {
+                  const seedTaskId = getSeedTaskId(session);
+                  if (seedTaskId && !otherSession.taskWorkflowStates.has(seedTaskId)) {
+                    otherSession.taskWorkflowStates.set(seedTaskId, "reviewer_run");
+                  }
+                  for (const [
+                    taskId,
+                    state
+                  ] of otherSession.taskWorkflowStates) {
+                    if (state === "reviewer_run") {
+                      try {
+                        advanceTaskState(otherSession, taskId, "tests_run");
+                      } catch (err2) {
+                        console.warn(`[delegation-gate] toolAfter cross-session: could not advance ${taskId} (${state}) \u2192 tests_run: ${err2 instanceof Error ? err2.message : String(err2)}`);
+                      }
                     }
                   }
                 }
@@ -25311,9 +25377,11 @@ __export(exports_state, {
   setSessionEnvironment: () => setSessionEnvironment,
   resetSwarmState: () => resetSwarmState,
   rehydrateSessionFromDisk: () => rehydrateSessionFromDisk,
+  recordStageBCompletion: () => recordStageBCompletion,
   recordPhaseAgentDispatch: () => recordPhaseAgentDispatch,
   pruneOldWindows: () => pruneOldWindows,
   isCouncilGateActive: () => isCouncilGateActive,
+  hasBothStageBCompletions: () => hasBothStageBCompletions,
   hasActiveTurboMode: () => hasActiveTurboMode,
   hasActiveFullAuto: () => hasActiveFullAuto,
   getTaskState: () => getTaskState,
@@ -25394,6 +25462,7 @@ function startAgentSession(sessionId, agentName, staleDurationMs = 7200000, dire
     qaSkipCount: 0,
     qaSkipTaskIds: [],
     taskWorkflowStates: new Map,
+    stageBCompletion: new Map,
     taskCouncilApproved: new Map,
     lastGateOutcome: null,
     declaredCoderScope: null,
@@ -25508,6 +25577,9 @@ function ensureAgentSession(sessionId, agentName, directory) {
     }
     if (!session.taskWorkflowStates) {
       session.taskWorkflowStates = new Map;
+    }
+    if (!session.stageBCompletion) {
+      session.stageBCompletion = new Map;
     }
     if (!session.taskCouncilApproved) {
       session.taskCouncilApproved = new Map;
@@ -25684,6 +25756,27 @@ function getTaskState(session, taskId) {
     session.taskWorkflowStates = new Map;
   }
   return session.taskWorkflowStates.get(taskId) ?? "idle";
+}
+function recordStageBCompletion(session, taskId, agent) {
+  if (!isValidTaskId2(taskId))
+    return;
+  if (!session.stageBCompletion) {
+    session.stageBCompletion = new Map;
+  }
+  const existing = session.stageBCompletion.get(taskId);
+  if (existing) {
+    existing.add(agent);
+  } else {
+    session.stageBCompletion.set(taskId, new Set([agent]));
+  }
+}
+function hasBothStageBCompletions(session, taskId) {
+  if (!isValidTaskId2(taskId))
+    return false;
+  const completions = session.stageBCompletion?.get(taskId);
+  if (!completions)
+    return false;
+  return completions.has("reviewer") && completions.has("test_engineer");
 }
 function derivePlanIdFromPlan(plan) {
   return `${plan.swarm}-${plan.title}`.replace(/[^a-zA-Z0-9-_]/g, "_");
@@ -83782,7 +83875,7 @@ function matchesTier3Pattern(files) {
   }
   return false;
 }
-function checkReviewerGate(taskId, workingDirectory) {
+function checkReviewerGate(taskId, workingDirectory, stageBParallelEnabled = false) {
   try {
     if (hasActiveTurboMode()) {
       const resolvedDir2 = workingDirectory;
@@ -83839,6 +83932,9 @@ function checkReviewerGate(taskId, workingDirectory) {
       validSessionCount++;
       const state = getTaskState(session, taskId);
       if (state === "tests_run" || state === "complete") {
+        return { blocked: false, reason: "" };
+      }
+      if (stageBParallelEnabled && hasBothStageBCompletions(session, taskId)) {
         return { blocked: false, reason: "" };
       }
     }
@@ -83915,7 +84011,14 @@ function checkReviewerGate(taskId, workingDirectory) {
   }
 }
 async function checkReviewerGateWithScope(taskId, workingDirectory) {
-  const result = checkReviewerGate(taskId, workingDirectory);
+  let stageBParallelEnabled = false;
+  if (workingDirectory) {
+    try {
+      const cfg = await loadPluginConfig(workingDirectory);
+      stageBParallelEnabled = cfg.parallelization?.stageB?.parallel?.enabled === true;
+    } catch {}
+  }
+  const result = checkReviewerGate(taskId, workingDirectory, stageBParallelEnabled);
   const scopeWarning = await validateDiffScope(taskId, workingDirectory).catch(() => null);
   if (!scopeWarning)
     return result;

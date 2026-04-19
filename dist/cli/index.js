@@ -19432,7 +19432,12 @@ var CouncilConfigSchema = exports_external.object({
 var ParallelizationConfigSchema = exports_external.object({
   enabled: exports_external.boolean().default(false),
   maxConcurrentTasks: exports_external.number().int().min(1).max(64).default(1),
-  evidenceLockTimeoutMs: exports_external.number().int().min(1000).max(300000).default(60000)
+  evidenceLockTimeoutMs: exports_external.number().int().min(1000).max(300000).default(60000),
+  stageB: exports_external.object({
+    parallel: exports_external.object({
+      enabled: exports_external.boolean().default(false)
+    }).default({ enabled: false })
+  }).default({ parallel: { enabled: false } })
 });
 var PluginConfigSchema = exports_external.object({
   agents: exports_external.record(exports_external.string(), AgentOverrideConfigSchema).optional(),

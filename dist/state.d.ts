@@ -103,6 +103,13 @@ export interface AgentSessionState {
     qaSkipTaskIds: string[];
     /** Per-task workflow state — taskId → current state */
     taskWorkflowStates: Map<string, TaskWorkflowState>;
+    /**
+     * PR 2 Stage B barrier: per-task set of completed Stage B agents.
+     * Order-independent — either 'reviewer' or 'test_engineer' may complete first.
+     * When both are present, the task may advance to tests_run regardless of order.
+     * Only populated when parallelization.stageB.parallel.enabled = true.
+     */
+    stageBCompletion?: Map<string, Set<'reviewer' | 'test_engineer'>>;
     /** v6.71+ Council mode: per-task council verdict, recorded by delegation-gate when convene_council resolves. */
     taskCouncilApproved?: Map<string, {
         verdict: 'APPROVE' | 'REJECT' | 'CONCERNS';
@@ -350,6 +357,25 @@ export declare function advanceTaskState(session: AgentSessionState, taskId: str
  * @returns Current task workflow state
  */
 export declare function getTaskState(session: AgentSessionState, taskId: string): TaskWorkflowState;
+/**
+ * PR 2 Stage B barrier: record that a Stage B agent has completed for a task.
+ * Order-independent — either 'reviewer' or 'test_engineer' may complete first.
+ * Initializes the per-task set on first write.
+ *
+ * @param session - The agent session state
+ * @param taskId - The task identifier
+ * @param agent - Which Stage B agent completed ('reviewer' or 'test_engineer')
+ */
+export declare function recordStageBCompletion(session: AgentSessionState, taskId: string, agent: 'reviewer' | 'test_engineer'): void;
+/**
+ * PR 2 Stage B barrier: returns true iff both 'reviewer' and 'test_engineer' have
+ * been recorded for the given task in this session.
+ *
+ * @param session - The agent session state
+ * @param taskId - The task identifier
+ * @returns true when both Stage B agents have completed
+ */
+export declare function hasBothStageBCompletions(session: AgentSessionState, taskId: string): boolean;
 /**
  * Returns true iff council is authoritative for the current plan.
  *
