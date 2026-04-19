@@ -25969,7 +25969,11 @@ function applyRehydrationCache(session) {
       }
     }
   }
-  const VALID_COUNCIL_VERDICTS = new Set(["APPROVE", "REJECT", "CONCERNS"]);
+  const VALID_COUNCIL_VERDICTS = new Set([
+    "APPROVE",
+    "REJECT",
+    "CONCERNS"
+  ]);
   for (const [taskId, evidence] of evidenceMap) {
     if (session.taskCouncilApproved.has(taskId)) {
       continue;

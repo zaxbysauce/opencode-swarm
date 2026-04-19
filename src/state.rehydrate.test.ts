@@ -476,10 +476,17 @@ describe('council verdict rehydration', () => {
 		requiredGates: string[] = ['council'],
 	): void {
 		const gates: Record<string, unknown> = {};
-		if (councilData.verdict !== undefined || councilData.roundNumber !== undefined) {
+		if (
+			councilData.verdict !== undefined ||
+			councilData.roundNumber !== undefined
+		) {
 			gates.council = {
-				...(councilData.verdict !== undefined && { verdict: councilData.verdict }),
-				...(councilData.roundNumber !== undefined && { roundNumber: councilData.roundNumber }),
+				...(councilData.verdict !== undefined && {
+					verdict: councilData.verdict,
+				}),
+				...(councilData.roundNumber !== undefined && {
+					roundNumber: councilData.roundNumber,
+				}),
 			};
 		}
 		writeEvidence(taskId, gates, requiredGates);
@@ -595,7 +602,10 @@ describe('council verdict rehydration', () => {
 	it('7. null verdict is skipped silently', async () => {
 		// Arrange: verdict is explicitly null
 		writePlan([{ id: '1.1', status: 'in_progress' }]);
-		writeCouncilEvidence('1.1', { verdict: null as unknown as string, roundNumber: 1 });
+		writeCouncilEvidence('1.1', {
+			verdict: null as unknown as string,
+			roundNumber: 1,
+		});
 
 		const session = createTestSession();
 
@@ -609,7 +619,10 @@ describe('council verdict rehydration', () => {
 	it('8. non-string verdict (number) is skipped silently', async () => {
 		// Arrange: verdict is a number instead of string
 		writePlan([{ id: '1.1', status: 'in_progress' }]);
-		writeCouncilEvidence('1.1', { verdict: 123 as unknown as string, roundNumber: 1 });
+		writeCouncilEvidence('1.1', {
+			verdict: 123 as unknown as string,
+			roundNumber: 1,
+		});
 
 		const session = createTestSession();
 
@@ -707,7 +720,10 @@ describe('council verdict rehydration', () => {
 	it('14. roundNumber defaults to 1 when non-number type (string)', async () => {
 		// Arrange
 		writePlan([{ id: '1.1', status: 'in_progress' }]);
-		writeCouncilEvidence('1.1', { verdict: 'APPROVE', roundNumber: 'two' as unknown as number });
+		writeCouncilEvidence('1.1', {
+			verdict: 'APPROVE',
+			roundNumber: 'two' as unknown as number,
+		});
 
 		const session = createTestSession();
 
@@ -774,9 +790,18 @@ describe('council verdict rehydration', () => {
 		await rehydrateSessionFromDisk(tmpDir, session);
 
 		// Assert: all three should be rehydrated
-		expect(session.taskCouncilApproved!.get('1.1')).toEqual({ verdict: 'APPROVE', roundNumber: 1 });
-		expect(session.taskCouncilApproved!.get('1.2')).toEqual({ verdict: 'REJECT', roundNumber: 2 });
-		expect(session.taskCouncilApproved!.get('1.3')).toEqual({ verdict: 'CONCERNS', roundNumber: 3 });
+		expect(session.taskCouncilApproved!.get('1.1')).toEqual({
+			verdict: 'APPROVE',
+			roundNumber: 1,
+		});
+		expect(session.taskCouncilApproved!.get('1.2')).toEqual({
+			verdict: 'REJECT',
+			roundNumber: 2,
+		});
+		expect(session.taskCouncilApproved!.get('1.3')).toEqual({
+			verdict: 'CONCERNS',
+			roundNumber: 3,
+		});
 	});
 
 	it('18. taskWorkflowStates also rehydrated alongside council verdicts', async () => {
@@ -795,7 +820,10 @@ describe('council verdict rehydration', () => {
 
 		// Assert: plan-derived workflow state AND council verdict are both rehydrated
 		expect(session.taskWorkflowStates!.get('1.1')).toBe('coder_delegated');
-		expect(session.taskCouncilApproved!.get('1.1')).toEqual({ verdict: 'APPROVE', roundNumber: 1 });
+		expect(session.taskCouncilApproved!.get('1.1')).toEqual({
+			verdict: 'APPROVE',
+			roundNumber: 1,
+		});
 	});
 
 	it('19. empty string verdict is skipped', async () => {
@@ -821,10 +849,17 @@ describe('adversarial council verdict rehydration', () => {
 		requiredGates: string[] = ['council'],
 	): void {
 		const gates: Record<string, unknown> = {};
-		if (councilData.verdict !== undefined || councilData.roundNumber !== undefined) {
+		if (
+			councilData.verdict !== undefined ||
+			councilData.roundNumber !== undefined
+		) {
 			gates.council = {
-				...(councilData.verdict !== undefined && { verdict: councilData.verdict }),
-				...(councilData.roundNumber !== undefined && { roundNumber: councilData.roundNumber }),
+				...(councilData.verdict !== undefined && {
+					verdict: councilData.verdict,
+				}),
+				...(councilData.roundNumber !== undefined && {
+					roundNumber: councilData.roundNumber,
+				}),
 			};
 		}
 		writeEvidence(taskId, gates, requiredGates);
@@ -1208,7 +1243,10 @@ describe('adversarial council verdict rehydration', () => {
 				taskId: '1.1',
 				required_gates: ['council'],
 				gates: {
-					council: { verdict: 'APPROVE', roundNumber: -Number.MAX_SAFE_INTEGER },
+					council: {
+						verdict: 'APPROVE',
+						roundNumber: -Number.MAX_SAFE_INTEGER,
+					},
 				},
 			}),
 		);
@@ -1524,12 +1562,9 @@ describe('council fast-path to complete (evidenceToWorkflowState)', () => {
 	it('1. APPROVE + allCriteriaMet=true + reviewer gate -> complete', async () => {
 		// Arrange
 		writePlan([{ id: '1.1', status: 'in_progress' }]);
-		writeCouncilWithOtherGates(
-			'1.1',
-			'APPROVE',
-			true,
-			{ reviewer: { sessionId: 's1', timestamp: 't1', agent: 'reviewer' } },
-		);
+		writeCouncilWithOtherGates('1.1', 'APPROVE', true, {
+			reviewer: { sessionId: 's1', timestamp: 't1', agent: 'reviewer' },
+		});
 
 		const session = createTestSession();
 
@@ -1543,12 +1578,13 @@ describe('council fast-path to complete (evidenceToWorkflowState)', () => {
 	it('2. APPROVE + allCriteriaMet=true + test_engineer gate -> complete', async () => {
 		// Arrange
 		writePlan([{ id: '1.1', status: 'in_progress' }]);
-		writeCouncilWithOtherGates(
-			'1.1',
-			'APPROVE',
-			true,
-			{ test_engineer: { sessionId: 's1', timestamp: 't1', agent: 'test_engineer' } },
-		);
+		writeCouncilWithOtherGates('1.1', 'APPROVE', true, {
+			test_engineer: {
+				sessionId: 's1',
+				timestamp: 't1',
+				agent: 'test_engineer',
+			},
+		});
 
 		const session = createTestSession();
 
@@ -1562,12 +1598,9 @@ describe('council fast-path to complete (evidenceToWorkflowState)', () => {
 	it('3. APPROVE + allCriteriaMet=true + lint gate (any non-council) -> complete', async () => {
 		// Arrange: lint is any non-council gate - proves any non-council gate triggers fast-path
 		writePlan([{ id: '1.1', status: 'in_progress' }]);
-		writeCouncilWithOtherGates(
-			'1.1',
-			'APPROVE',
-			true,
-			{ lint: { sessionId: 's1', timestamp: 't1', agent: 'lint' } },
-		);
+		writeCouncilWithOtherGates('1.1', 'APPROVE', true, {
+			lint: { sessionId: 's1', timestamp: 't1', agent: 'lint' },
+		});
 
 		const session = createTestSession();
 
@@ -1599,12 +1632,9 @@ describe('council fast-path to complete (evidenceToWorkflowState)', () => {
 	it('5. REJECT + reviewer gate -> NOT complete', async () => {
 		// Arrange
 		writePlan([{ id: '1.1', status: 'in_progress' }]);
-		writeCouncilWithOtherGates(
-			'1.1',
-			'REJECT',
-			true,
-			{ reviewer: { sessionId: 's1', timestamp: 't1', agent: 'reviewer' } },
-		);
+		writeCouncilWithOtherGates('1.1', 'REJECT', true, {
+			reviewer: { sessionId: 's1', timestamp: 't1', agent: 'reviewer' },
+		});
 
 		const session = createTestSession();
 
@@ -1618,12 +1648,9 @@ describe('council fast-path to complete (evidenceToWorkflowState)', () => {
 	it('6. CONCERNS + reviewer gate -> NOT complete', async () => {
 		// Arrange
 		writePlan([{ id: '1.1', status: 'in_progress' }]);
-		writeCouncilWithOtherGates(
-			'1.1',
-			'CONCERNS',
-			true,
-			{ reviewer: { sessionId: 's1', timestamp: 't1', agent: 'reviewer' } },
-		);
+		writeCouncilWithOtherGates('1.1', 'CONCERNS', true, {
+			reviewer: { sessionId: 's1', timestamp: 't1', agent: 'reviewer' },
+		});
 
 		const session = createTestSession();
 
@@ -1660,12 +1687,9 @@ describe('council fast-path to complete (evidenceToWorkflowState)', () => {
 	it('8. APPROVE + allCriteriaMet=true + reviewer gate: verdict is also rehydrated', async () => {
 		// Arrange
 		writePlan([{ id: '1.1', status: 'in_progress' }]);
-		writeCouncilWithOtherGates(
-			'1.1',
-			'APPROVE',
-			true,
-			{ reviewer: { sessionId: 's1', timestamp: 't1', agent: 'reviewer' } },
-		);
+		writeCouncilWithOtherGates('1.1', 'APPROVE', true, {
+			reviewer: { sessionId: 's1', timestamp: 't1', agent: 'reviewer' },
+		});
 
 		const session = createTestSession();
 
@@ -1685,16 +1709,15 @@ describe('council fast-path to complete (evidenceToWorkflowState)', () => {
 	it('9. APPROVE + allCriteriaMet=true + multiple non-council gates -> complete', async () => {
 		// Arrange: reviewer + test_engineer + lint
 		writePlan([{ id: '1.1', status: 'in_progress' }]);
-		writeCouncilWithOtherGates(
-			'1.1',
-			'APPROVE',
-			true,
-			{
-				reviewer: { sessionId: 's1', timestamp: 't1', agent: 'reviewer' },
-				test_engineer: { sessionId: 's2', timestamp: 't2', agent: 'test_engineer' },
-				lint: { sessionId: 's3', timestamp: 't3', agent: 'lint' },
+		writeCouncilWithOtherGates('1.1', 'APPROVE', true, {
+			reviewer: { sessionId: 's1', timestamp: 't1', agent: 'reviewer' },
+			test_engineer: {
+				sessionId: 's2',
+				timestamp: 't2',
+				agent: 'test_engineer',
 			},
-		);
+			lint: { sessionId: 's3', timestamp: 't3', agent: 'lint' },
+		});
 
 		const session = createTestSession();
 
@@ -1754,12 +1777,9 @@ describe('council fast-path to complete (evidenceToWorkflowState)', () => {
 	it('12. in-memory complete preserved when disk has APPROVE + reviewer', async () => {
 		// Arrange: session already at complete, disk shows earlier state
 		writePlan([{ id: '1.1', status: 'in_progress' }]);
-		writeCouncilWithOtherGates(
-			'1.1',
-			'APPROVE',
-			true,
-			{ reviewer: { sessionId: 's1', timestamp: 't1', agent: 'reviewer' } },
-		);
+		writeCouncilWithOtherGates('1.1', 'APPROVE', true, {
+			reviewer: { sessionId: 's1', timestamp: 't1', agent: 'reviewer' },
+		});
 
 		const session = createTestSession();
 		session.taskWorkflowStates!.set('1.1', 'complete');
