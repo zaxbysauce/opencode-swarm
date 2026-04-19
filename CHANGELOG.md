@@ -1,5 +1,13 @@
 # Changelog
 
+## [6.78.0](https://github.com/zaxbysauce/opencode-swarm/compare/v6.77.0...v6.78.0) (2026-04-19)
+
+
+### Features
+
+* **parallelization:** mark pr 3 release as v6.78.0 ([#552](https://github.com/zaxbysauce/opencode-swarm/issues/552)) ([69c6450](https://github.com/zaxbysauce/opencode-swarm/commit/69c64508c02e6ae3466e415f4205511b868376bb))
+* **parallelization:** pr 3 — lockable execution_profile, ledger events, and fail-closed enforcement ([#550](https://github.com/zaxbysauce/opencode-swarm/issues/550)) ([2f02e47](https://github.com/zaxbysauce/opencode-swarm/commit/2f02e47a2a1379b35b19785566fa2006367ae675))
+
 ## [6.77.0](https://github.com/zaxbysauce/opencode-swarm/compare/v6.76.0...v6.77.0) (2026-04-19)
 
 
