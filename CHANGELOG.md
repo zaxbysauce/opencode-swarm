@@ -1,5 +1,13 @@
 # Changelog
 
+## [6.77.0](https://github.com/zaxbysauce/opencode-swarm/compare/v6.76.0...v6.77.0) (2026-04-19)
+
+
+### Features
+
+* **parallelization:** pr 2 — stage b order-independent barrier and bounded concurrency ([#548](https://github.com/zaxbysauce/opencode-swarm/issues/548)) ([2f2fd48](https://github.com/zaxbysauce/opencode-swarm/commit/2f2fd486e4c8fee3998963ef9ce62d854856dbd2))
+* **parallelization:** pr 3 — lockable execution_profile, ledger events, and fail-closed enforcement ([#550](https://github.com/zaxbysauce/opencode-swarm/issues/550)) ([2f02e47](https://github.com/zaxbysauce/opencode-swarm/commit/2f02e47a2a1379b35b19785566fa2006367ae675))
+
 ## [6.76.0](https://github.com/zaxbysauce/opencode-swarm/compare/v6.75.0...v6.76.0) (2026-04-19)
 
 
