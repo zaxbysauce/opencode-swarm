@@ -1113,6 +1113,23 @@ function evidenceToWorkflowState(evidence: TaskEvidence): TaskWorkflowState {
 		}
 	}
 
+	// Council fast-path: when council APPROVEs with all criteria met and Stage A passed
+	// (indicated by at least one non-council gate present — equivalent to pastPreCheck guard
+	// in advanceTaskState()), the task can jump directly to 'complete'.
+	const councilGate = gates.council as
+		| { verdict?: string; allCriteriaMet?: boolean }
+		| undefined;
+	if (
+		councilGate &&
+		councilGate.verdict === 'APPROVE' &&
+		councilGate.allCriteriaMet === true
+	) {
+		const nonCouncilGates = Object.keys(gates).filter((k) => k !== 'council');
+		if (nonCouncilGates.length > 0) {
+			return 'complete';
+		}
+	}
+
 	// Check the highest gate passed
 	if (gates.test_engineer != null) {
 		return 'tests_run';
@@ -1263,37 +1280,71 @@ export function applyRehydrationCache(session: AgentSessionState): void {
 		'complete',
 	];
 
-	for (const [taskId, planState] of planTaskStates) {
-		const existingState = session.taskWorkflowStates.get(taskId);
-		const evidence = evidenceMap.get(taskId);
+		for (const [taskId, planState] of planTaskStates) {
+			const existingState = session.taskWorkflowStates.get(taskId);
+			const evidence = evidenceMap.get(taskId);
 
-		if (evidence) {
-			// Evidence provides the strongest signal for completed gates.
-			// But evidence files lag behind in-memory state (evidence recording
-			// is async and only captures completed gates). Only upgrade state,
-			// never downgrade — same guard as the plan-only branch below.
-			const derivedState = evidenceToWorkflowState(evidence);
-			const existingIndex = existingState
-				? STATE_ORDER.indexOf(existingState)
-				: -1;
-			const derivedIndex = STATE_ORDER.indexOf(derivedState);
-			if (derivedIndex > existingIndex) {
-				session.taskWorkflowStates.set(taskId, derivedState);
-			}
-		} else {
-			// Plan-only: only advance past existing state, never downgrade.
-			// A snapshot state that is ahead of the plan is valid (e.g. gates passed
-			// after plan was last written), so keep it.
-			const existingIndex = existingState
-				? STATE_ORDER.indexOf(existingState)
-				: -1;
-			const derivedIndex = STATE_ORDER.indexOf(planState);
-			if (derivedIndex > existingIndex) {
-				session.taskWorkflowStates.set(taskId, planState);
+			if (evidence) {
+				// Evidence provides the strongest signal for completed gates.
+				// But evidence files lag behind in-memory state (evidence recording
+				// is async and only captures completed gates). Only upgrade state,
+				// never downgrade — same guard as the plan-only branch below.
+				const derivedState = evidenceToWorkflowState(evidence);
+				const existingIndex = existingState
+					? STATE_ORDER.indexOf(existingState)
+					: -1;
+				const derivedIndex = STATE_ORDER.indexOf(derivedState);
+				if (derivedIndex > existingIndex) {
+					session.taskWorkflowStates.set(taskId, derivedState);
+				}
+			} else {
+				// Plan-only: only advance past existing state, never downgrade.
+				// A snapshot state that is ahead of the plan is valid (e.g. gates passed
+				// after plan was last written), so keep it.
+				const existingIndex = existingState
+					? STATE_ORDER.indexOf(existingState)
+					: -1;
+				const derivedIndex = STATE_ORDER.indexOf(planState);
+				if (derivedIndex > existingIndex) {
+					session.taskWorkflowStates.set(taskId, planState);
+				}
 			}
 		}
+
+		// Rehydrate council verdicts from evidenceMap for ALL tasks (not just planTaskStates).
+		// In-memory entries take priority; skip on malformed or missing data.
+		const VALID_COUNCIL_VERDICTS = new Set(['APPROVE', 'REJECT', 'CONCERNS'] as const);
+		for (const [taskId, evidence] of evidenceMap) {
+			// Skip if already in memory (in-memory wins over persisted evidence).
+			if (session.taskCouncilApproved.has(taskId)) {
+				continue;
+			}
+			// Cast to extended type — verdict/roundNumber are preserved via passthrough()
+			// but not in the base GateEvidence interface (which only has sessionId/timestamp/agent).
+			const council = evidence.gates?.council as
+				| { verdict?: string; roundNumber?: number }
+				| undefined;
+			if (!council) {
+				continue;
+			}
+			const rawVerdict = council.verdict;
+			if (!rawVerdict || typeof rawVerdict !== 'string') {
+				continue;
+			}
+			if (!VALID_COUNCIL_VERDICTS.has(rawVerdict as 'APPROVE' | 'REJECT' | 'CONCERNS')) {
+				continue;
+			}
+			const verdict = rawVerdict as 'APPROVE' | 'REJECT' | 'CONCERNS';
+			let roundNumber = council.roundNumber;
+			if (typeof roundNumber !== 'number' || !Number.isFinite(roundNumber)) {
+				roundNumber = 1;
+			}
+			session.taskCouncilApproved.set(taskId, {
+				verdict,
+				roundNumber,
+			});
+		}
 	}
-}
 
 /**
  * Rehydrates session workflow state from durable swarm files.

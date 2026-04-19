@@ -153,6 +153,23 @@ Pre-existing `gates[*]` entries and top-level keys are preserved across
 writes. This is the only integration point with the gate pipeline: the
 council does not introduce a parallel evidence format.
 
+### Verdict persistence and session restart
+
+Council verdicts (`APPROVE`, `REJECT`, `CONCERNS`) persisted in `gates.council`
+are automatically rehydrated into the in-memory `taskCouncilApproved` Map when
+a session starts up. All verdict types are recovered — the session retains the
+correct round number and verdict for ongoing retry tracking.
+
+Tasks with an `APPROVE` verdict **and** `allCriteriaMet === true` **and** at
+least one non-council gate present (indicating Stage A passed) can fast-path
+to `completed` without re-running the council. Tasks that only passed the
+council but lack Stage A evidence will still need to pass pre-check before
+advancing.
+
+In-memory state always wins over disk state: if a newer verdict exists
+in memory it supersedes any older entry on disk, preventing accidental
+downgrades after a restart.
+
 ## 9. Retry protocol and `maxRounds`
 
 - `roundNumber` is 1-indexed and tracked by the architect across retries.

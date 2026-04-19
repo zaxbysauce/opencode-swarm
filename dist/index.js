@@ -25866,6 +25866,13 @@ function evidenceToWorkflowState(evidence) {
       return "complete";
     }
   }
+  const councilGate = gates.council;
+  if (councilGate && councilGate.verdict === "APPROVE" && councilGate.allCriteriaMet === true) {
+    const nonCouncilGates = Object.keys(gates).filter((k) => k !== "council");
+    if (nonCouncilGates.length > 0) {
+      return "complete";
+    }
+  }
   if (gates.test_engineer != null) {
     return "tests_run";
   }
@@ -25961,6 +25968,32 @@ function applyRehydrationCache(session) {
         session.taskWorkflowStates.set(taskId, planState);
       }
     }
+  }
+  const VALID_COUNCIL_VERDICTS = new Set(["APPROVE", "REJECT", "CONCERNS"]);
+  for (const [taskId, evidence] of evidenceMap) {
+    if (session.taskCouncilApproved.has(taskId)) {
+      continue;
+    }
+    const council = evidence.gates?.council;
+    if (!council) {
+      continue;
+    }
+    const rawVerdict = council.verdict;
+    if (!rawVerdict || typeof rawVerdict !== "string") {
+      continue;
+    }
+    if (!VALID_COUNCIL_VERDICTS.has(rawVerdict)) {
+      continue;
+    }
+    const verdict = rawVerdict;
+    let roundNumber = council.roundNumber;
+    if (typeof roundNumber !== "number" || !Number.isFinite(roundNumber)) {
+      roundNumber = 1;
+    }
+    session.taskCouncilApproved.set(taskId, {
+      verdict,
+      roundNumber
+    });
   }
 }
 async function rehydrateSessionFromDisk(directory, session) {
