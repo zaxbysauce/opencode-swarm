@@ -33,6 +33,13 @@ interface ApprovedPlanPayload {
     snapshot_seq: number;
     snapshot_timestamp: string;
     payload_hash: string;
+    /** The execution_profile from the approved snapshot, if any. */
+    execution_profile?: {
+        parallelization_enabled: boolean;
+        max_concurrent_tasks: number;
+        council_parallel: boolean;
+        locked: boolean;
+    } | null;
 }
 interface CurrentPlanPayload {
     plan: unknown;

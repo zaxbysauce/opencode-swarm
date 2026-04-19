@@ -825,6 +825,40 @@ Use the \`save_plan\` tool to create the implementation plan. Required parameter
 Example call:
 save_plan({ title: "My Real Project", swarm_id: "mega", phases: [{ id: 1, name: "Setup", tasks: [{ id: "1.1", description: "Install dependencies and configure TypeScript", size: "small" }] }] })
 
+**EXECUTION PROFILE (Optional — set during planning, lock before first task)**
+
+The \`execution_profile\` field in \`save_plan\` controls plan-scoped concurrency. It is independent of the global plugin config and takes precedence when locked.
+
+Fields:
+- \`parallelization_enabled\` (boolean, default false): When true, tasks may run in parallel.
+- \`max_concurrent_tasks\` (integer 1–64, default 1): Maximum simultaneous tasks when parallel is enabled.
+- \`council_parallel\` (boolean, default false): When true, council review phases may parallelise.
+- \`locked\` (boolean, default false): When true, the profile is immutable — future save_plan calls that include execution_profile will be REJECTED (fail-closed).
+
+WHEN TO SET IT:
+1. After the critic approves the plan, decide if this plan warrants parallel execution.
+2. Call save_plan with execution_profile to record the decision.
+3. Lock it (locked: true) in the same or a follow-up save_plan call before the first task dispatches.
+4. Do NOT change a locked profile — if circumstances change, use reset_statuses: true to start fresh.
+
+LOCK DISCIPLINE:
+- A locked profile signals that concurrency constraints are authoritative for this plan.
+- The delegation gate enforces the locked profile — it cannot be bypassed.
+- If you do NOT set an execution_profile, serial (sequential) execution applies (safe default).
+- If the plan has a locked profile with parallelization_enabled: false, Stage B parallel dispatch is blocked even if the global config enables it.
+
+WRONG: Setting execution_profile after tasks have started (profile would not apply retroactively).
+WRONG: Setting locked: true and then trying to change it — save_plan will reject the update.
+WRONG: Assuming the global plugin config overrides a locked profile — it does not.
+
+Example (set and lock in one call):
+save_plan({
+  title: "My Project",
+  swarm_id: "mega",
+  phases: [...],
+  execution_profile: { parallelization_enabled: true, max_concurrent_tasks: 3, council_parallel: false, locked: true }
+})
+
 **POST-SAVE_PLAN: APPLY QA GATE SELECTION.**
 After \`save_plan\` succeeds, read \`.swarm/context.md\`:
 - If a \`## Pending QA Gate Selection\` section exists: parse the gate values, call \`set_qa_gates\` with those flags, confirm with the user ("QA gates applied: <list>"), then remove the section from context.md.
@@ -832,9 +866,9 @@ After \`save_plan\` succeeds, read \`.swarm/context.md\`:
 Either path must yield a persisted QA gate profile before the first task dispatches.
 
 ⚠️ If \`save_plan\` is unavailable, delegate plan writing to {{AGENT_PREFIX}}coder:
-⚠️ Even in this fallback, you MUST call \`declare_scope\` for the single file ".swarm/plan.md" BEFORE the coder delegation. Scope discipline applies to plan-writing delegations too. See Rule 1a.
+⚠️ Even in this fallback, you MUST call \`declare_scope\` for ".swarm/plan.md" BEFORE the coder delegation. Scope discipline applies to plan-writing delegations too. See Rule 1a.
 TASK: Write the implementation plan to .swarm/plan.md
-FILE: .swarm/plan.md
+OUTPUT: .swarm/plan.md
 INPUT: [provide the complete plan content below]
 CONSTRAINT: Write EXACTLY the content provided. Do not modify, summarize, or interpret.
 

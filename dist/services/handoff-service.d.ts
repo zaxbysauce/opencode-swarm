@@ -48,6 +48,13 @@ export interface HandoffData {
     recentDecisions: string[];
     /** Delegation state */
     delegationState: DelegationState | null;
+    /** Locked execution_profile for this plan, if set. Resuming sessions must honour it. */
+    execution_profile?: {
+        parallelization_enabled: boolean;
+        max_concurrent_tasks: number;
+        council_parallel: boolean;
+        locked: boolean;
+    } | null;
 }
 /**
  * Get handoff data from the swarm directory.
