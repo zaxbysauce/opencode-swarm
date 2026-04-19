@@ -19,6 +19,10 @@ import {
 } from '../../src/state';
 import { checkReviewerGate } from '../../src/tools/update-task-status';
 
+// Regression for adversarial-reviewer finding: cross-session Stage B completion
+// marker contamination. The cross-session loop in delegation-gate must only
+// record completion for seedTaskId, not every task in every other session.
+
 beforeEach(() => {
 	resetSwarmState();
 });
@@ -177,5 +181,35 @@ describe('Stage B race — multi-task isolation', () => {
 		expect(checkReviewerGate('1.1', undefined, true).blocked).toBe(false);
 		// Task 1.2 still blocked
 		expect(checkReviewerGate('1.2', undefined, true).blocked).toBe(true);
+	});
+
+	test('cross-session: completion for seedTaskId does not contaminate other tasks in other sessions', () => {
+		// Session A owns task 9.6; session B has tasks 9.7 AND 9.8 in eligible state.
+		// When reviewer marks 9.6 complete in session A, only 9.6 in session B should
+		// get the marker — NOT 9.7 or 9.8, which have nothing to do with this operation.
+		const sessAId = 'cross-sess-A';
+		const sessBId = 'cross-sess-B';
+		startAgentSession(sessAId, 'reviewer');
+		startAgentSession(sessBId, 'coder');
+
+		const sessA = swarmState.agentSessions.get(sessAId)!;
+		const sessB = swarmState.agentSessions.get(sessBId)!;
+
+		sessA.taskWorkflowStates.set('9.6', 'coder_delegated');
+		sessA.currentTaskId = '9.6';
+
+		// Session B has two unrelated eligible tasks
+		sessB.taskWorkflowStates.set('9.7', 'coder_delegated');
+		sessB.taskWorkflowStates.set('9.8', 'coder_delegated');
+
+		// Directly record reviewer completion for 9.6 in sessA (simulating what
+		// delegation-gate does for the in-session step)
+		recordStageBCompletion(sessA, '9.6', 'reviewer');
+
+		// Session B's unrelated tasks must NOT have received a reviewer marker
+		expect(hasBothStageBCompletions(sessB, '9.7')).toBe(false);
+		expect(sessB.stageBCompletion?.get('9.7')?.has('reviewer')).toBeFalsy();
+		expect(hasBothStageBCompletions(sessB, '9.8')).toBe(false);
+		expect(sessB.stageBCompletion?.get('9.8')?.has('reviewer')).toBeFalsy();
 	});
 });

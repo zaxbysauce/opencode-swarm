@@ -752,45 +752,54 @@ export function createDelegationGateHook(
 								}
 							}
 
-							// Cross-session propagation for Stage B parallel path
-							for (const [, otherSession] of swarmState.agentSessions) {
-								if (otherSession === session) continue;
-								if (!otherSession.taskWorkflowStates) continue;
+							// Cross-session propagation for Stage B parallel path.
+							// Scoped to seedTaskId only — recording completion for every task
+							// in every other session would contaminate unrelated tasks.
+							const seedTaskId = getSeedTaskId(session);
+							if (seedTaskId) {
+								for (const [, otherSession] of swarmState.agentSessions) {
+									if (otherSession === session) continue;
+									if (!otherSession.taskWorkflowStates) continue;
 
-								const seedTaskId = getSeedTaskId(session);
-								if (
-									seedTaskId &&
-									!otherSession.taskWorkflowStates.has(seedTaskId)
-								) {
-									otherSession.taskWorkflowStates.set(
-										seedTaskId,
-										'coder_delegated',
-									);
-								}
+									if (!otherSession.taskWorkflowStates.has(seedTaskId)) {
+										otherSession.taskWorkflowStates.set(
+											seedTaskId,
+											'coder_delegated',
+										);
+									}
 
-								for (const [taskId, state] of otherSession.taskWorkflowStates) {
+									const seedState =
+										otherSession.taskWorkflowStates.get(seedTaskId);
 									if (
-										!(stageBEligibleStates as readonly string[]).includes(state)
-									)
+										!seedState ||
+										!(stageBEligibleStates as readonly string[]).includes(
+											seedState,
+										)
+									) {
 										continue;
-									const eligibleState = state as EligibleState;
+									}
+									const seedEligibleState = seedState as EligibleState;
 									recordStageBCompletion(
 										otherSession,
-										taskId,
+										seedTaskId,
 										targetAgent as 'reviewer' | 'test_engineer',
 									);
-									if (hasBothStageBCompletions(otherSession, taskId)) {
+									if (hasBothStageBCompletions(otherSession, seedTaskId)) {
 										try {
 											if (
-												eligibleState === 'coder_delegated' ||
-												eligibleState === 'pre_check_passed'
+												seedEligibleState === 'coder_delegated' ||
+												seedEligibleState === 'pre_check_passed'
 											) {
-												advanceTaskState(otherSession, taskId, 'reviewer_run');
+												advanceTaskState(
+													otherSession,
+													seedTaskId,
+													'reviewer_run',
+												);
 											}
-											advanceTaskState(otherSession, taskId, 'tests_run');
+											advanceTaskState(otherSession, seedTaskId, 'tests_run');
 										} catch (err) {
 											console.warn(
-												`[delegation-gate] toolAfter cross-session stage-b-parallel: could not advance ${taskId} (${eligibleState}) → tests_run: ${err instanceof Error ? err.message : String(err)}`,
+												`[delegation-gate] toolAfter cross-session stage-b-parallel: could not advance ${seedTaskId} (${seedEligibleState}) → tests_run: ${err instanceof Error ? err.message : String(err)}`,
 											);
 										}
 									}
