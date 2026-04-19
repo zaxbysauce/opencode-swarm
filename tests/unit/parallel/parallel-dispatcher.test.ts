@@ -119,6 +119,19 @@ describe('createParallelDispatcher — dispatch', () => {
 		expect(d.config.enabled).toBe(true);
 		expect(d.config.maxConcurrentTasks).toBe(4);
 	});
+
+	test('dispatch rejects when config.enabled is false (defense-in-depth guard)', () => {
+		// createDispatcher factory prevents this path in normal use, but
+		// createParallelDispatcher is exported so callers could pass enabled:false.
+		const d = createParallelDispatcher({
+			enabled: false,
+			maxConcurrentTasks: 4,
+			evidenceLockTimeoutMs: 60000,
+		});
+		const decision = d.dispatch('1.1');
+		expect(decision.action).toBe('reject');
+		expect(decision.reason).toBe('dispatcher_disabled');
+	});
 });
 
 // ── ParallelDispatcher — handles ──────────────────────────────────────────────

@@ -36,6 +36,10 @@ export function createParallelDispatcher(
 		config,
 
 		dispatch(taskId: string): DispatchDecision {
+			if (!config.enabled) {
+				return { action: 'reject', reason: 'dispatcher_disabled' };
+			}
+
 			if (shutdownCalled) {
 				return { action: 'reject', reason: 'dispatcher_shutdown' };
 			}
