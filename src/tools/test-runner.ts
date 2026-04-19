@@ -571,12 +571,12 @@ export function isLanguageSpecificTestFile(basename: string): boolean {
 		return true;
 	// Ruby
 	if (lower.endsWith('_spec.rb')) return true;
-	// Java
+	// Java — convention: *Test.java, *Tests.java, Test*.java, *IT.java
 	if (
 		lower.endsWith('.java') &&
 		(/^Test[A-Z]/.test(basename) ||
-			lower.endsWith('test.java') ||
-			lower.endsWith('tests.java') ||
+			basename.endsWith('Test.java') ||
+			basename.endsWith('Tests.java') ||
 			lower.endsWith('it.java'))
 	)
 		return true;
@@ -1018,9 +1018,16 @@ function buildTestCommand(
 			return args;
 		}
 		case 'minitest':
-			// Use ruby -e with Dir.glob to avoid platform-specific shell glob expansion
 			if (scope !== 'all' && files.length > 0) {
-				return ['ruby', '-Itest', ...files];
+				// Ruby only executes the first positional file arg; use -e with
+				// require_relative to run multiple files in a single process.
+				const requires = files
+					.map(
+						(f) =>
+							`require_relative '${f.replace(/\\/g, '/').replace(/'/g, "\\'")}'`,
+					)
+					.join('; ');
+				return ['ruby', '-Itest', '-e', requires];
 			}
 			return [
 				'ruby',

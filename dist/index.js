@@ -49849,7 +49849,7 @@ function isLanguageSpecificTestFile(basename6) {
     return true;
   if (lower.endsWith("_spec.rb"))
     return true;
-  if (lower.endsWith(".java") && (/^Test[A-Z]/.test(basename6) || lower.endsWith("test.java") || lower.endsWith("tests.java") || lower.endsWith("it.java")))
+  if (lower.endsWith(".java") && (/^Test[A-Z]/.test(basename6) || basename6.endsWith("Test.java") || basename6.endsWith("Tests.java") || lower.endsWith("it.java")))
     return true;
   if (lower.endsWith(".cs") && (lower.endsWith("test.cs") || lower.endsWith("tests.cs")))
     return true;
@@ -50124,7 +50124,8 @@ function buildTestCommand(framework, scope, files, coverage, baseDir) {
     }
     case "minitest":
       if (scope !== "all" && files.length > 0) {
-        return ["ruby", "-Itest", ...files];
+        const requires = files.map((f) => `require_relative '${f.replace(/\\/g, "/").replace(/'/g, "\\'")}'`).join("; ");
+        return ["ruby", "-Itest", "-e", requires];
       }
       return [
         "ruby",

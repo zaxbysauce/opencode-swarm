@@ -510,7 +510,12 @@ tokio = { version = "1.0", features = ["full"] }
 				expect((spawnCalls[0].opts as any)?.cwd).toBe(tempDir);
 				expect(spawnCalls[0].cmd).toContain('tests/utils.test.ts');
 			} finally {
-				fs.rmSync(callerDir, { recursive: true, force: true });
+				try {
+					fs.rmSync(callerDir, { recursive: true, force: true });
+				} catch {
+					// Windows EBUSY: subprocess may still hold directory handle.
+					// Temp dirs are cleaned by the OS; safe to ignore.
+				}
 			}
 		});
 
@@ -542,7 +547,12 @@ tokio = { version = "1.0", features = ["full"] }
 				expect((spawnCalls[0].opts as any)?.cwd).toBe(tempDir);
 				expect(spawnCalls[0].cmd[0]).toBe('pwsh');
 			} finally {
-				fs.rmSync(callerDir, { recursive: true, force: true });
+				try {
+					fs.rmSync(callerDir, { recursive: true, force: true });
+				} catch {
+					// Windows EBUSY: subprocess may still hold directory handle.
+					// Temp dirs are cleaned by the OS; safe to ignore.
+				}
 			}
 		});
 
