@@ -508,7 +508,9 @@ tokio = { version = "1.0", features = ["full"] }
 
 				expect(spawnCalls.length).toBeGreaterThan(0);
 				expect((spawnCalls[0].opts as any)?.cwd).toBe(tempDir);
-				expect(spawnCalls[0].cmd.join('/')).toContain('tests/utils.test.ts');
+				expect(spawnCalls[0].cmd.join('/').replace(/\\/g, '/')).toContain(
+					'tests/utils.test.ts',
+				);
 			} finally {
 				try {
 					fs.rmSync(callerDir, { recursive: true, force: true });
