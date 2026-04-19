@@ -98,3 +98,55 @@ describe('buildRepoGraph', () => {
 		expect(Object.keys(graph.files).length).toBeLessThanOrEqual(1);
 	});
 });
+
+describe('buildRepoGraph — regression: control characters in import specifiers (F3)', () => {
+	// Prior to the fix in import-extractor.ts, a file containing a control
+	// character (e.g. CR \r) in an import specifier would cause the dirty
+	// rawModule to propagate into the graph's ImportEdge records and ultimately
+	// into the persisted graph JSON.  buildRepoGraph must not throw and must
+	// produce clean data when encountering such files.
+
+	it('does not throw and produces clean edges when a source file has a CR in an import path', async () => {
+		const dirtyTmp = fs.mkdtempSync(
+			path.join(os.tmpdir(), 'graph-builder-ctrl-'),
+		);
+		try {
+			const cr = String.fromCharCode(13);
+			// dirty.ts: one dirty import (specifier has CR) + one clean import
+			fs.writeFileSync(
+				path.join(dirtyTmp, 'dirty.ts'),
+				`import bad from './bar${cr}.js';\nimport ok from './clean-file';\n`,
+				'binary',
+			);
+			// clean target so the clean edge resolves
+			fs.writeFileSync(
+				path.join(dirtyTmp, 'clean-file.ts'),
+				'export default 1;\n',
+			);
+
+			// Must not throw
+			const graph = await buildRepoGraph(dirtyTmp);
+
+			// Both files appear as graph nodes
+			expect(Object.keys(graph.files)).toContain('dirty.ts');
+			expect(Object.keys(graph.files)).toContain('clean-file.ts');
+
+			// No edge or rawModule in the graph contains control characters
+			for (const node of Object.values(graph.files)) {
+				for (const edge of node.imports) {
+					expect(/[\0\t\r\n]/.test(edge.rawModule)).toBe(false);
+					expect(/[\0\t\r\n]/.test(edge.target)).toBe(false);
+				}
+			}
+
+			// The clean import survives
+			const dirtyNode = graph.files['dirty.ts'];
+			const cleanEdge = dirtyNode?.imports.find(
+				(e) => e.rawModule === './clean-file',
+			);
+			expect(cleanEdge).toBeDefined();
+		} finally {
+			fs.rmSync(dirtyTmp, { recursive: true, force: true });
+		}
+	});
+});

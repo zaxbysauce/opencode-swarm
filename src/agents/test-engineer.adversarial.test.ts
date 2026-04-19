@@ -232,6 +232,20 @@ describe('SECURITY CONTROL VERIFICATION', () => {
 		// Low temperature reduces chance of unexpected/malicious output
 		expect(agent.config.temperature).toBe(0.2);
 	});
+
+	it('should avoid claiming direct test execution for any language', () => {
+		const agent = createTestEngineerAgent('gpt-4');
+		expect(agent.config.prompt).not.toContain('ANY language');
+		expect(agent.config.prompt).not.toContain('Any other language');
+	});
+
+	it('should tell the agent to stop when targeted execution is unsupported', () => {
+		const agent = createTestEngineerAgent('gpt-4');
+		expect(agent.config.prompt).toContain(
+			'does not support targeted test-file execution',
+		);
+		expect(agent.config.prompt).toContain('report SKIPPED');
+	});
 });
 
 describe('T1: Assertion Quality Rules', () => {
@@ -396,5 +410,31 @@ describe('T5: Adversarial Test Patterns', () => {
 			advIdx + 1200,
 		);
 		expect(advSection).toMatch(/specific.*outcome|SPECIFIC outcome/i);
+	});
+});
+
+describe('Go Test Targeting Warning', () => {
+	let agent: ReturnType<typeof createTestEngineerAgent>;
+
+	beforeEach(() => {
+		agent = createTestEngineerAgent('gpt-4');
+	});
+
+	it('should contain Go warning in RULES section about not being able to target individual files', () => {
+		const prompt = agent.config.prompt ?? '';
+		const rulesIdx = prompt.indexOf('RULES:');
+		const rulesSection = prompt.substring(rulesIdx, rulesIdx + 800);
+		expect(rulesSection).toContain('Go');
+		expect(rulesSection).toContain('CANNOT TARGET');
+	});
+
+	it('should explain that go test runs packages, not individual files', () => {
+		const prompt = agent.config.prompt ?? '';
+		expect(prompt).toContain('go test runs packages, not individual files');
+	});
+
+	it('should mention SKIPPED as the expected outcome for Go', () => {
+		const prompt = agent.config.prompt ?? '';
+		expect(prompt).toContain('SKIPPED for Go');
 	});
 });
