@@ -406,6 +406,8 @@ const TEST_PATTERNS = [
 	{ test: '/__tests__/', source: '/' },
 	{ test: '/tests/', source: '/' },
 	{ test: '/test/', source: '/' },
+	// Language-specific patterns
+	{ test: '_test.go', source: '.go' }, // Go test files
 ];
 
 // Compound test extensions that need special handling
@@ -426,15 +428,19 @@ const COMPOUND_TEST_EXTENSIONS = [
 const TEST_DIRECTORY_NAMES = ['__tests__', 'tests', 'test', 'spec'] as const;
 
 function isTestDirectoryPath(normalizedPath: string): boolean {
-	return normalizedPath.split('/').some((segment) =>
-		TEST_DIRECTORY_NAMES.includes(
-			segment as (typeof TEST_DIRECTORY_NAMES)[number],
-		),
-	);
+	return normalizedPath
+		.split('/')
+		.some((segment) =>
+			TEST_DIRECTORY_NAMES.includes(
+				segment as (typeof TEST_DIRECTORY_NAMES)[number],
+			),
+		);
 }
 
 function resolveWorkspacePath(file: string, workingDir: string): string {
-	return path.isAbsolute(file) ? path.resolve(file) : path.resolve(workingDir, file);
+	return path.isAbsolute(file)
+		? path.resolve(file)
+		: path.resolve(workingDir, file);
 }
 
 function toWorkspaceOutputPath(
@@ -494,7 +500,9 @@ function getRepoLevelCandidateDirectories(
 	const nestedRelativeDir = relativeDir === '.' ? '' : relativeDir;
 	const directories = TEST_DIRECTORY_NAMES.flatMap((dirName) => {
 		const rootDir = path.join(workingDir, dirName);
-		return nestedRelativeDir ? [rootDir, path.join(rootDir, nestedRelativeDir)] : [rootDir];
+		return nestedRelativeDir
+			? [rootDir, path.join(rootDir, nestedRelativeDir)]
+			: [rootDir];
 	});
 
 	const normalizedRelativePath = relativePath.replace(/\\/g, '/');
@@ -556,7 +564,10 @@ export function isLanguageSpecificTestFile(basename: string): boolean {
 	// Go
 	if (lower.endsWith('_test.go')) return true;
 	// Python
-	if (lower.endsWith('.py') && (lower.startsWith('test_') || lower.endsWith('_test.py')))
+	if (
+		lower.endsWith('.py') &&
+		(lower.startsWith('test_') || lower.endsWith('_test.py'))
+	)
 		return true;
 	// Ruby
 	if (lower.endsWith('_spec.rb')) return true;
@@ -622,7 +633,10 @@ export function getTestFilesFromConvention(
 		const preferRelativeOutput = !path.isAbsolute(file);
 
 		// Skip if already a test file — covers any language
-		if (isConventionTestFilePath(relativeFile) || isConventionTestFilePath(file)) {
+		if (
+			isConventionTestFilePath(relativeFile) ||
+			isConventionTestFilePath(file)
+		) {
 			dedupePush(
 				testFiles,
 				toWorkspaceOutputPath(absoluteFile, workingDir, preferRelativeOutput),
@@ -635,7 +649,10 @@ export function getTestFilesFromConvention(
 		//   utils.ts -> utils.test.ts, utils.spec.ts, __tests__/utils.ts, …
 		const nameWithoutExt = basename.replace(/\.[^.]+$/, '');
 		const ext = path.extname(basename);
-		const genericTestNames = [`${nameWithoutExt}.spec${ext}`, `${nameWithoutExt}.test${ext}`];
+		const genericTestNames = [
+			`${nameWithoutExt}.spec${ext}`,
+			`${nameWithoutExt}.test${ext}`,
+		];
 		const languageSpecificTestNames = buildLanguageSpecificTestNames(
 			nameWithoutExt,
 			ext,
@@ -693,7 +710,10 @@ async function getTestFilesFromGraph(
 	);
 
 	// First, get candidate test files via convention
-	const candidateTestFiles = getTestFilesFromConvention(sourceFiles, workingDir);
+	const candidateTestFiles = getTestFilesFromConvention(
+		sourceFiles,
+		workingDir,
+	);
 
 	// If no source files to analyze, return empty
 	if (sourceFiles.length === 0) {
@@ -1877,7 +1897,8 @@ export const test_runner: ReturnType<typeof tool> = createSwarmTool({
 				return SOURCE_EXTENSIONS.has(ext);
 			});
 			const invalidFiles = args.files!.filter(
-				(file) => !directTestFiles.includes(file) && !sourceFiles.includes(file),
+				(file) =>
+					!directTestFiles.includes(file) && !sourceFiles.includes(file),
 			);
 
 			if (directTestFiles.length === 0 && sourceFiles.length === 0) {
@@ -1938,7 +1959,10 @@ export const test_runner: ReturnType<typeof tool> = createSwarmTool({
 			}
 
 			// Try graph-based discovery via imports (best effort)
-			const graphTestFiles = await getTestFilesFromGraph(sourceFiles, workingDir);
+			const graphTestFiles = await getTestFilesFromGraph(
+				sourceFiles,
+				workingDir,
+			);
 			if (graphTestFiles.length > 0) {
 				testFiles = graphTestFiles;
 			} else {

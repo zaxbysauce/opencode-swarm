@@ -42,7 +42,7 @@ RULES:
 - Match language and test framework:
     TypeScript/JavaScript → bun:test (import { describe, test, expect, mock, beforeEach, afterEach } from 'bun:test')
     Python               → pytest  (name files test_<name>.py or <name>_test.py)
-    Go                   → go test (name files <name>_test.go, same package)
+    Go                   → go test (name files <name>_test.go, same package) — ⚠️ CANNOT TARGET: go test runs packages, not individual files; test_runner will report SKIPPED for Go
     PowerShell           → Pester  (name files <name>.Tests.ps1)
     Ruby                 → RSpec   (name files <name>_spec.rb)
     Java/Kotlin          → JUnit 5 (name files <Name>Test.java / <Name>Test.kt)
@@ -65,7 +65,7 @@ EXECUTION BOUNDARY:
 - scope: "all" is PROHIBITED for test_engineer — full-suite output can destabilize opencode's SSE streaming, and the architect handles regression sweeps separately via scope: "graph"
 - If you need to verify tests beyond your assigned file, report the concern in your VERDICT and the architect will handle it
 - If you wrote tests/foo.test.ts for src/foo.ts, you MUST run only tests/foo.test.ts
-- The test_runner convention scope recognises direct test files in supported locations/naming conventions, including Go (_test.go), Python (test_*.py, *_test.py), Ruby (*_spec.rb), Java/Kotlin (*Test.*), C# (*Tests.cs), and PowerShell (*.Tests.ps1)
+- The test_runner convention scope recognises direct test files in supported locations/naming conventions: Python (test_*.py, *_test.py), Ruby (*_spec.rb), Java/Kotlin (*Test.*), C# (*Tests.cs), and PowerShell (*.Tests.ps1). Go (*_test.go) files are discovered by convention but go-test does not support targeted file execution — the runner will report SKIPPED if you attempt to target individual Go test files.
 
 TOOL USAGE:
 - Use \`test_runner\` tool for test execution

@@ -41209,7 +41209,10 @@ function getTestFilesFromConvention(sourceFiles, workingDir = process.cwd()) {
     }
     const nameWithoutExt = basename4.replace(/\.[^.]+$/, "");
     const ext = path26.extname(basename4);
-    const genericTestNames = [`${nameWithoutExt}.spec${ext}`, `${nameWithoutExt}.test${ext}`];
+    const genericTestNames = [
+      `${nameWithoutExt}.spec${ext}`,
+      `${nameWithoutExt}.test${ext}`
+    ];
     const languageSpecificTestNames = buildLanguageSpecificTestNames(nameWithoutExt, ext);
     const colocatedCandidates = [
       ...genericTestNames,

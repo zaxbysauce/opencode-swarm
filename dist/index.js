@@ -49679,7 +49679,10 @@ function getTestFilesFromConvention(sourceFiles, workingDir = process.cwd()) {
     }
     const nameWithoutExt = basename6.replace(/\.[^.]+$/, "");
     const ext = path34.extname(basename6);
-    const genericTestNames = [`${nameWithoutExt}.spec${ext}`, `${nameWithoutExt}.test${ext}`];
+    const genericTestNames = [
+      `${nameWithoutExt}.spec${ext}`,
+      `${nameWithoutExt}.test${ext}`
+    ];
     const languageSpecificTestNames = buildLanguageSpecificTestNames(nameWithoutExt, ext);
     const colocatedCandidates = [
       ...genericTestNames,
@@ -56439,7 +56442,7 @@ RULES:
 - Match language and test framework:
     TypeScript/JavaScript \u2192 bun:test (import { describe, test, expect, mock, beforeEach, afterEach } from 'bun:test')
     Python               \u2192 pytest  (name files test_<name>.py or <name>_test.py)
-    Go                   \u2192 go test (name files <name>_test.go, same package)
+    Go                   \u2192 go test (name files <name>_test.go, same package) \u2014 \u26A0\uFE0F CANNOT TARGET: go test runs packages, not individual files; test_runner will report SKIPPED for Go
     PowerShell           \u2192 Pester  (name files <name>.Tests.ps1)
     Ruby                 \u2192 RSpec   (name files <name>_spec.rb)
     Java/Kotlin          \u2192 JUnit 5 (name files <Name>Test.java / <Name>Test.kt)
@@ -56462,7 +56465,7 @@ EXECUTION BOUNDARY:
 - scope: "all" is PROHIBITED for test_engineer \u2014 full-suite output can destabilize opencode's SSE streaming, and the architect handles regression sweeps separately via scope: "graph"
 - If you need to verify tests beyond your assigned file, report the concern in your VERDICT and the architect will handle it
 - If you wrote tests/foo.test.ts for src/foo.ts, you MUST run only tests/foo.test.ts
-- The test_runner convention scope recognises direct test files in supported locations/naming conventions, including Go (_test.go), Python (test_*.py, *_test.py), Ruby (*_spec.rb), Java/Kotlin (*Test.*), C# (*Tests.cs), and PowerShell (*.Tests.ps1)
+- The test_runner convention scope recognises direct test files in supported locations/naming conventions: Python (test_*.py, *_test.py), Ruby (*_spec.rb), Java/Kotlin (*Test.*), C# (*Tests.cs), and PowerShell (*.Tests.ps1). Go (*_test.go) files are discovered by convention but go-test does not support targeted file execution \u2014 the runner will report SKIPPED if you attempt to target individual Go test files.
 
 TOOL USAGE:
 - Use \`test_runner\` tool for test execution

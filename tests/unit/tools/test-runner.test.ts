@@ -582,7 +582,10 @@ describe('test-runner.ts - Security Validation', () => {
 
 		fs.writeFileSync('pester.config.ps1', 'configuration');
 		fs.mkdirSync(path.join(tempDir, 'qa'), { recursive: true });
-		fs.writeFileSync(path.join(tempDir, 'qa', 'Smoke.Tests.ps1'), 'Describe "x" {}');
+		fs.writeFileSync(
+			path.join(tempDir, 'qa', 'Smoke.Tests.ps1'),
+			'Describe "x" {}',
+		);
 
 		const result = await test_runner.execute(
 			{ scope: 'convention', files: ['qa/Smoke.Tests.ps1'] },
@@ -658,7 +661,10 @@ describe('test-runner.ts - Security Validation', () => {
 			}),
 		);
 		fs.mkdirSync(path.join(tempDir, 'tests'), { recursive: true });
-		fs.writeFileSync(path.join(tempDir, 'tests', 'utils.test.ts'), 'export {};');
+		fs.writeFileSync(
+			path.join(tempDir, 'tests', 'utils.test.ts'),
+			'export {};',
+		);
 
 		const result = await test_runner.execute(
 			{ scope: 'graph', files: ['tests/utils.test.ts'] },
@@ -666,7 +672,9 @@ describe('test-runner.ts - Security Validation', () => {
 		);
 		const parsed = JSON.parse(result);
 		expect(parsed.success).toBe(false);
-		expect(parsed.message).toContain('Direct test files belong in scope "convention"');
+		expect(parsed.message).toContain(
+			'Direct test files belong in scope "convention"',
+		);
 
 		process.chdir(originalCwd);
 		setTimeout(() => {
@@ -1407,7 +1415,9 @@ describe('test-runner.ts — getTestFilesFromConvention (language-specific)', ()
 	let tmpDir: string;
 
 	beforeEach(() => {
-		tmpDir = fs.realpathSync(fs.mkdtempSync(path.join(os.tmpdir(), 'conv-test-')));
+		tmpDir = fs.realpathSync(
+			fs.mkdtempSync(path.join(os.tmpdir(), 'conv-test-')),
+		);
 	});
 
 	afterEach(() => {
@@ -1616,7 +1626,9 @@ describe('test-runner.ts — targeted framework safeguards', () => {
 		if (result.success) {
 			throw new Error('expected failure result');
 		}
-		expect(result.error).toContain('does not support targeted test-file execution');
+		expect(result.error).toContain(
+			'does not support targeted test-file execution',
+		);
 		expect(result.message).toContain('go test targets packages');
 	});
 

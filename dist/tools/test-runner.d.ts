@@ -66,7 +66,8 @@ export declare function detectTestFramework(cwd: string): Promise<TestFramework>
  *          <Name>IT.java            (Maven Failsafe integration-test suffix)
  *   C#   : <Name>Test.cs            (xUnit/NUnit/MSTest suffix)
  *          <Name>Tests.cs           (xUnit/NUnit/MSTest plural suffix)
- *   Rust : tests/<anything>.rs      (handled by /tests/ directory check)
+ *   Rust : test files are recognized by test-directory placement
+ *           (for example, tests/<anything>.rs via /tests/ path detection)
  *   Kotlin: <Name>Test.kt / <Name>Tests.kt / Test<Name>.kt
  *
  * Exported for unit tests; production code uses it only through
