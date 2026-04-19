@@ -4,7 +4,9 @@ import * as os from 'node:os';
 import * as path from 'node:path';
 
 // Import the function under test
-const { isLanguageSpecificTestFile, runTests } = await import('../../../src/tools/test-runner');
+const { isLanguageSpecificTestFile, runTests } = await import(
+	'../../../src/tools/test-runner'
+);
 
 describe('isLanguageSpecificTestFile — Java word boundary fix', () => {
 	describe('Java CamelCase suffix "Test"', () => {
@@ -105,7 +107,14 @@ describe('Minitest multi-file targeted execution — regression', () => {
 		];
 
 		try {
-			const result = await runTests('minitest', 'convention', files, false, 5000, tempDir);
+			const result = await runTests(
+				'minitest',
+				'convention',
+				files,
+				false,
+				5000,
+				tempDir,
+			);
 			expect(result.framework).toBe('minitest');
 			// If success, command should be present
 			if (result.success && 'command' in result) {
@@ -118,12 +127,19 @@ describe('Minitest multi-file targeted execution — regression', () => {
 	});
 
 	test('minitest code path handles single quotes in filename', async () => {
-		const fileWithQuote = path.join(tempDir, "test", "user'_test.rb");
+		const fileWithQuote = path.join(tempDir, 'test', "user'_test.rb");
 		fs.writeFileSync(fileWithQuote, '');
 		const files = [fileWithQuote];
 
 		try {
-			const result = await runTests('minitest', 'convention', files, false, 5000, tempDir);
+			const result = await runTests(
+				'minitest',
+				'convention',
+				files,
+				false,
+				5000,
+				tempDir,
+			);
 			expect(result.framework).toBe('minitest');
 		} catch (e) {
 			// Expected if ruby is not installed
