@@ -1,5 +1,15 @@
 import { z } from 'zod';
 
+// Execution profile schema — plan-scoped parallelization controls set by the architect.
+// When locked, the profile is immutable; any attempt to modify it via save_plan is rejected.
+export const ExecutionProfileSchema = z.object({
+	parallelization_enabled: z.boolean().default(false),
+	max_concurrent_tasks: z.number().int().min(1).max(64).default(1),
+	council_parallel: z.boolean().default(false),
+	locked: z.boolean().default(false),
+});
+export type ExecutionProfile = z.infer<typeof ExecutionProfileSchema>;
+
 // Task status enum
 export const TaskStatusSchema = z.enum([
 	'pending',
@@ -89,6 +99,7 @@ export const PlanSchema = z.object({
 	migration_status: MigrationStatusSchema.optional(), // only set when migrated from legacy
 	specMtime: z.string().optional(), // ISO 8601 timestamp of when .swarm/spec.md was last modified
 	specHash: z.string().optional(), // SHA-256 hex of .swarm/spec.md content
+	execution_profile: ExecutionProfileSchema.optional(), // architect-facing concurrency controls (PR3)
 });
 export type Plan = z.infer<typeof PlanSchema>;
 

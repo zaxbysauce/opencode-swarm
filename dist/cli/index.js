@@ -14026,9 +14026,15 @@ var init_zod = __esm(() => {
 });
 
 // src/config/plan-schema.ts
-var TaskStatusSchema, TaskSizeSchema, PhaseStatusSchema, MigrationStatusSchema, TaskSchema, PhaseSchema, PlanSchema;
+var ExecutionProfileSchema, TaskStatusSchema, TaskSizeSchema, PhaseStatusSchema, MigrationStatusSchema, TaskSchema, PhaseSchema, PlanSchema;
 var init_plan_schema = __esm(() => {
   init_zod();
+  ExecutionProfileSchema = exports_external.object({
+    parallelization_enabled: exports_external.boolean().default(false),
+    max_concurrent_tasks: exports_external.number().int().min(1).max(64).default(1),
+    council_parallel: exports_external.boolean().default(false),
+    locked: exports_external.boolean().default(false)
+  });
   TaskStatusSchema = exports_external.enum([
     "pending",
     "in_progress",
@@ -14077,7 +14083,8 @@ var init_plan_schema = __esm(() => {
     phases: exports_external.array(PhaseSchema).min(1),
     migration_status: MigrationStatusSchema.optional(),
     specMtime: exports_external.string().optional(),
-    specHash: exports_external.string().optional()
+    specHash: exports_external.string().optional(),
+    execution_profile: ExecutionProfileSchema.optional()
   });
 });
 
@@ -14168,6 +14175,7 @@ function computePlanHash(plan) {
     swarm: plan.swarm,
     current_phase: plan.current_phase,
     migration_status: plan.migration_status,
+    execution_profile: plan.execution_profile,
     phases: plan.phases.map((phase) => ({
       id: phase.id,
       name: phase.name,
@@ -14442,6 +14450,25 @@ function applyEventToPlan(plan, event) {
       return plan;
     case "plan_reset":
       return null;
+    case "execution_profile_set": {
+      const rawProfile = event.payload?.execution_profile;
+      if (rawProfile !== undefined) {
+        const parsed = ExecutionProfileSchema.safeParse(rawProfile);
+        if (parsed.success) {
+          return { ...plan, execution_profile: parsed.data };
+        }
+      }
+      return plan;
+    }
+    case "execution_profile_locked": {
+      if (plan.execution_profile) {
+        return {
+          ...plan,
+          execution_profile: { ...plan.execution_profile, locked: true }
+        };
+      }
+      return plan;
+    }
     default:
       throw new Error(`applyEventToPlan: unhandled event type "${event.event_type}" at seq ${event.seq}`);
   }
@@ -38319,7 +38346,8 @@ async function getExportData(directory) {
     version: "4.5.0",
     exported: new Date().toISOString(),
     plan: planStructured || planContent,
-    context: contextContent
+    context: contextContent,
+    execution_profile: planStructured?.execution_profile ?? null
   };
 }
 function formatExportMarkdown(exportData) {
@@ -38609,7 +38637,8 @@ async function getHandoffData(directory) {
     pendingQA,
     activeAgent: sessionState?.activeAgent ? escapeHtml(sessionState.activeAgent) : null,
     recentDecisions: escapedDecisions,
-    delegationState: escapedDelegationState
+    delegationState: escapedDelegationState,
+    execution_profile: plan?.execution_profile ?? null
   };
 }
 function formatHandoffMarkdown(data) {
@@ -38668,6 +38697,14 @@ function formatHandoffMarkdown(data) {
     lines.push("```");
     lines.push(data.delegationState.pendingHandoffs[0]);
     lines.push("```");
+  }
+  if (data.execution_profile) {
+    lines.push("### Execution Profile");
+    lines.push(`- **Parallelization**: ${data.execution_profile.parallelization_enabled ? "enabled" : "disabled"}`);
+    lines.push(`- **Max Concurrent Tasks**: ${data.execution_profile.max_concurrent_tasks}`);
+    lines.push(`- **Council Parallel**: ${data.execution_profile.council_parallel ? "yes" : "no"}`);
+    lines.push(`- **Locked**: ${data.execution_profile.locked ? "YES \u2014 profile is immutable" : "no"}`);
+    lines.push("");
   }
   return lines.join(`
 `);

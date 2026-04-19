@@ -12,7 +12,7 @@ export declare const LEDGER_SCHEMA_VERSION = "1.0.0";
 /**
  * Valid ledger event types
  */
-export declare const LEDGER_EVENT_TYPES: readonly ["plan_created", "task_added", "task_updated", "task_status_changed", "task_reordered", "phase_completed", "plan_rebuilt", "plan_exported", "plan_reset", "snapshot"];
+export declare const LEDGER_EVENT_TYPES: readonly ["plan_created", "task_added", "task_updated", "task_status_changed", "task_reordered", "phase_completed", "plan_rebuilt", "plan_exported", "plan_reset", "snapshot", "execution_profile_set", "execution_profile_locked"];
 export type LedgerEventType = (typeof LEDGER_EVENT_TYPES)[number];
 /**
  * A ledger event representing a plan mutation.

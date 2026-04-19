@@ -15412,9 +15412,15 @@ var init_loader = __esm(() => {
 });
 
 // src/config/plan-schema.ts
-var TaskStatusSchema, TaskSizeSchema, PhaseStatusSchema, MigrationStatusSchema, TaskSchema, PhaseSchema, PlanSchema;
+var ExecutionProfileSchema, TaskStatusSchema, TaskSizeSchema, PhaseStatusSchema, MigrationStatusSchema, TaskSchema, PhaseSchema, PlanSchema;
 var init_plan_schema = __esm(() => {
   init_zod();
+  ExecutionProfileSchema = exports_external.object({
+    parallelization_enabled: exports_external.boolean().default(false),
+    max_concurrent_tasks: exports_external.number().int().min(1).max(64).default(1),
+    council_parallel: exports_external.boolean().default(false),
+    locked: exports_external.boolean().default(false)
+  });
   TaskStatusSchema = exports_external.enum([
     "pending",
     "in_progress",
@@ -15463,7 +15469,8 @@ var init_plan_schema = __esm(() => {
     phases: exports_external.array(PhaseSchema).min(1),
     migration_status: MigrationStatusSchema.optional(),
     specMtime: exports_external.string().optional(),
-    specHash: exports_external.string().optional()
+    specHash: exports_external.string().optional(),
+    execution_profile: ExecutionProfileSchema.optional()
   });
 });
 
@@ -15984,6 +15991,7 @@ function computePlanHash(plan) {
     swarm: plan.swarm,
     current_phase: plan.current_phase,
     migration_status: plan.migration_status,
+    execution_profile: plan.execution_profile,
     phases: plan.phases.map((phase) => ({
       id: phase.id,
       name: phase.name,
@@ -16258,6 +16266,25 @@ function applyEventToPlan(plan, event) {
       return plan;
     case "plan_reset":
       return null;
+    case "execution_profile_set": {
+      const rawProfile = event.payload?.execution_profile;
+      if (rawProfile !== undefined) {
+        const parsed = ExecutionProfileSchema.safeParse(rawProfile);
+        if (parsed.success) {
+          return { ...plan, execution_profile: parsed.data };
+        }
+      }
+      return plan;
+    }
+    case "execution_profile_locked": {
+      if (plan.execution_profile) {
+        return {
+          ...plan,
+          execution_profile: { ...plan.execution_profile, locked: true }
+        };
+      }
+      return plan;
+    }
     default:
       throw new Error(`applyEventToPlan: unhandled event type "${event.event_type}" at seq ${event.seq}`);
   }
@@ -46806,7 +46833,8 @@ async function getExportData(directory) {
     version: "4.5.0",
     exported: new Date().toISOString(),
     plan: planStructured || planContent,
-    context: contextContent
+    context: contextContent,
+    execution_profile: planStructured?.execution_profile ?? null
   };
 }
 function formatExportMarkdown(exportData) {
@@ -47097,7 +47125,8 @@ async function getHandoffData(directory) {
     pendingQA,
     activeAgent: sessionState?.activeAgent ? escapeHtml(sessionState.activeAgent) : null,
     recentDecisions: escapedDecisions,
-    delegationState: escapedDelegationState
+    delegationState: escapedDelegationState,
+    execution_profile: plan?.execution_profile ?? null
   };
 }
 function formatHandoffMarkdown(data) {
@@ -47156,6 +47185,14 @@ function formatHandoffMarkdown(data) {
     lines.push("```");
     lines.push(data.delegationState.pendingHandoffs[0]);
     lines.push("```");
+  }
+  if (data.execution_profile) {
+    lines.push("### Execution Profile");
+    lines.push(`- **Parallelization**: ${data.execution_profile.parallelization_enabled ? "enabled" : "disabled"}`);
+    lines.push(`- **Max Concurrent Tasks**: ${data.execution_profile.max_concurrent_tasks}`);
+    lines.push(`- **Council Parallel**: ${data.execution_profile.council_parallel ? "yes" : "no"}`);
+    lines.push(`- **Locked**: ${data.execution_profile.locked ? "YES \u2014 profile is immutable" : "no"}`);
+    lines.push("");
   }
   return lines.join(`
 `);
@@ -54870,6 +54907,40 @@ Use the \`save_plan\` tool to create the implementation plan. Required parameter
 Example call:
 save_plan({ title: "My Real Project", swarm_id: "mega", phases: [{ id: 1, name: "Setup", tasks: [{ id: "1.1", description: "Install dependencies and configure TypeScript", size: "small" }] }] })
 
+**EXECUTION PROFILE (Optional \u2014 set during planning, lock before first task)**
+
+The \`execution_profile\` field in \`save_plan\` controls plan-scoped concurrency. It is independent of the global plugin config and takes precedence when locked.
+
+Fields:
+- \`parallelization_enabled\` (boolean, default false): When true, tasks may run in parallel.
+- \`max_concurrent_tasks\` (integer 1\u201364, default 1): Maximum simultaneous tasks when parallel is enabled.
+- \`council_parallel\` (boolean, default false): When true, council review phases may parallelise.
+- \`locked\` (boolean, default false): When true, the profile is immutable \u2014 future save_plan calls that include execution_profile will be REJECTED (fail-closed).
+
+WHEN TO SET IT:
+1. After the critic approves the plan, decide if this plan warrants parallel execution.
+2. Call save_plan with execution_profile to record the decision.
+3. Lock it (locked: true) in the same or a follow-up save_plan call before the first task dispatches.
+4. Do NOT change a locked profile \u2014 if circumstances change, use reset_statuses: true to start fresh.
+
+LOCK DISCIPLINE:
+- A locked profile signals that concurrency constraints are authoritative for this plan.
+- The delegation gate enforces the locked profile \u2014 it cannot be bypassed.
+- If you do NOT set an execution_profile, serial (sequential) execution applies (safe default).
+- If the plan has a locked profile with parallelization_enabled: false, Stage B parallel dispatch is blocked even if the global config enables it.
+
+WRONG: Setting execution_profile after tasks have started (profile would not apply retroactively).
+WRONG: Setting locked: true and then trying to change it \u2014 save_plan will reject the update.
+WRONG: Assuming the global plugin config overrides a locked profile \u2014 it does not.
+
+Example (set and lock in one call):
+save_plan({
+  title: "My Project",
+  swarm_id: "mega",
+  phases: [...],
+  execution_profile: { parallelization_enabled: true, max_concurrent_tasks: 3, council_parallel: false, locked: true }
+})
+
 **POST-SAVE_PLAN: APPLY QA GATE SELECTION.**
 After \`save_plan\` succeeds, read \`.swarm/context.md\`:
 - If a \`## Pending QA Gate Selection\` section exists: parse the gate values, call \`set_qa_gates\` with those flags, confirm with the user ("QA gates applied: <list>"), then remove the section from context.md.
@@ -54877,9 +54948,9 @@ After \`save_plan\` succeeds, read \`.swarm/context.md\`:
 Either path must yield a persisted QA gate profile before the first task dispatches.
 
 \u26A0\uFE0F If \`save_plan\` is unavailable, delegate plan writing to {{AGENT_PREFIX}}coder:
-\u26A0\uFE0F Even in this fallback, you MUST call \`declare_scope\` for the single file ".swarm/plan.md" BEFORE the coder delegation. Scope discipline applies to plan-writing delegations too. See Rule 1a.
+\u26A0\uFE0F Even in this fallback, you MUST call \`declare_scope\` for ".swarm/plan.md" BEFORE the coder delegation. Scope discipline applies to plan-writing delegations too. See Rule 1a.
 TASK: Write the implementation plan to .swarm/plan.md
-FILE: .swarm/plan.md
+OUTPUT: .swarm/plan.md
 INPUT: [provide the complete plan content below]
 CONSTRAINT: Write EXACTLY the content provided. Do not modify, summarize, or interpret.
 
@@ -55580,6 +55651,12 @@ Score each axis PASS or CONCERN:
 4. **Scope containment**: Does the plan stay within stated scope?
 5. **Risk assessment**: Are high-risk changes without rollback or verification steps?
 
+EXECUTION PROFILE CHECK (when plan includes execution_profile):
+- If execution_profile is present and locked: verify the values are internally consistent (max_concurrent_tasks \u2265 1 when parallelization_enabled is true; council_parallel only set true when council is configured).
+- If execution_profile.locked is true: confirm the plan tasks are designed to work within the stated concurrency budget.
+- If execution_profile has parallelization_enabled: true but max_concurrent_tasks: 1, flag as CONCERN (contradictory \u2014 serial execution is the default even when parallel is enabled).
+- Note execution_profile.locked state in your review. A locked profile cannot be changed mid-plan; flag if that creates a problem for later phases.
+
 - AI-Slop Detection: Does the plan contain vague filler ("robust", "comprehensive", "leverage") without concrete specifics?
 - Task Atomicity: Does any single task touch 2+ files or mix unrelated concerns ("implement auth and add logging and refactor config")? Flag as MAJOR \u2014 oversized tasks blow coder's context and cause downstream gate failures. Suggested fix: Split into sequential single-file tasks grouped by concern, not per-file subtasks.
 - Governance Compliance (conditional): If \`.swarm/context.md\` contains a \`## Project Governance\` section, read the MUST and SHOULD rules and validate the plan against them. MUST rule violations are CRITICAL severity. SHOULD rule violations are recommendation-level (note them but do not block approval). If no \`## Project Governance\` section exists in context.md, skip this check silently.
@@ -55769,6 +55846,7 @@ Before reviewing individual tasks, check whether the plan itself was silently mu
    - If \`drift_detected: true\`: the plan was mutated after critic approval. Compare \`approved_plan\` vs \`current_plan\` to identify what changed (phases added/removed, tasks modified, scope changes). Report findings in a \`## BASELINE DRIFT\` section before the per-task rubric.
    - If \`drift_detected: "unknown"\`: current plan.json is unavailable. Flag this as a warning and proceed.
 3. If baseline drift is detected, this is a CRITICAL finding \u2014 plan mutations after approval bypass the quality gate.
+4. EXECUTION PROFILE DRIFT: If the \`get_approved_plan\` response includes \`execution_profile\` (on \`approved_plan\`) and the current plan also has \`execution_profile\`, compare them. If they differ and the approved profile was locked, flag as CRITICAL (locked profiles are immutable \u2014 a change indicates tampering or plan reset without re-approval). If the current plan has lost its execution_profile entirely when the approved plan had a locked one, flag as CRITICAL.
 
 Use \`summary_only: true\` if the plan is large and you only need structural comparison (phase/task counts).
 
@@ -65162,10 +65240,25 @@ function createRepoGraphBuilderHook(workspaceRoot, deps) {
       if (!WRITE_TOOL_NAMES.includes(input.tool)) {
         return;
       }
-      const filePath = extractFilePath(input.args);
-      if (!filePath) {
+      const rawFilePath = extractFilePath(input.args);
+      if (!rawFilePath) {
         return;
       }
+      if (rawFilePath.includes("\x00")) {
+        return;
+      }
+      let filePath = rawFilePath;
+      for (let i2 = 0;i2 < 3; i2++) {
+        try {
+          const decoded = decodeURIComponent(filePath);
+          if (decoded === filePath)
+            break;
+          filePath = decoded;
+        } catch {
+          break;
+        }
+      }
+      filePath = filePath.replace(/\uff0e/g, ".").replace(/\uff0f/g, "/").replace(/\u2024/g, ".");
       if (!isSupportedSourceFile(filePath)) {
         return;
       }
@@ -73625,7 +73718,8 @@ async function executeGetApprovedPlan(args2, directory) {
     approval_metadata: approved.approval,
     snapshot_seq: approved.seq,
     snapshot_timestamp: approved.timestamp,
-    payload_hash: approved.payloadHash
+    payload_hash: approved.payloadHash,
+    execution_profile: approved.plan.execution_profile ?? null
   };
   const currentHash = computePlanHash(currentPlan);
   const driftDetected = currentHash !== approved.payloadHash;
@@ -80161,6 +80255,7 @@ ${paginatedContent}`;
 });
 // src/tools/save-plan.ts
 init_tool();
+init_plan_schema();
 init_file_locks();
 init_checkpoint3();
 init_ledger();
@@ -80262,17 +80357,53 @@ async function executeSavePlan(args2, fallbackDir) {
   }
   const dir = targetWorkspace;
   const existingStatusMap = new Map;
-  if (!args2.reset_statuses) {
+  let preservedExecutionProfile;
+  {
+    let existing = null;
     try {
-      const existing = await loadPlanJsonOnly(dir);
-      if (existing) {
+      existing = await loadPlanJsonOnly(dir);
+    } catch {}
+    if (existing) {
+      if (!args2.reset_statuses) {
         for (const phase of existing.phases) {
           for (const task of phase.tasks) {
             existingStatusMap.set(task.id, task.status);
           }
         }
       }
-    } catch {}
+      if (existing.execution_profile?.locked) {
+        if (args2.execution_profile !== undefined && !args2.reset_statuses) {
+          return {
+            success: false,
+            message: "EXECUTION_PROFILE_LOCKED: The execution_profile for this plan is locked and cannot be changed.",
+            errors: [
+              "execution_profile.locked is true \u2014 to change the profile you must first unlock it via a separate plan revision that explicitly sets locked: false, or reset the plan with reset_statuses."
+            ],
+            recovery_guidance: "Remove the execution_profile field from this save_plan call to preserve the locked profile, " + "or use reset_statuses: true to start fresh (this clears the lock). " + "Never modify execution_profile directly in plan.json."
+          };
+        }
+        if (!args2.reset_statuses) {
+          preservedExecutionProfile = existing.execution_profile;
+        }
+      } else {
+        preservedExecutionProfile = existing.execution_profile;
+      }
+    }
+  }
+  let resolvedProfile = preservedExecutionProfile;
+  if (args2.execution_profile !== undefined) {
+    const base = preservedExecutionProfile ?? {};
+    const merged = { ...base, ...args2.execution_profile };
+    const parsed = ExecutionProfileSchema.safeParse(merged);
+    if (!parsed.success) {
+      return {
+        success: false,
+        message: "Invalid execution_profile: schema validation failed",
+        errors: parsed.error.issues.map((i2) => `${i2.path.join(".")}: ${i2.message}`),
+        recovery_guidance: "Check execution_profile fields: parallelization_enabled (boolean), " + "max_concurrent_tasks (integer 1-64), council_parallel (boolean), locked (boolean)."
+      };
+    }
+    resolvedProfile = parsed.data;
   }
   const plan = {
     schema_version: "1.0.0",
@@ -80282,6 +80413,7 @@ async function executeSavePlan(args2, fallbackDir) {
     current_phase: args2.phases[0]?.id,
     specMtime,
     specHash,
+    ...resolvedProfile !== undefined ? { execution_profile: resolvedProfile } : {},
     phases: args2.phases.map((phase) => {
       return {
         id: phase.id,
@@ -80325,6 +80457,27 @@ async function executeSavePlan(args2, fallbackDir) {
       if (savedPlan) {
         await takeSnapshotEvent(dir, savedPlan).catch(() => {});
       }
+      if (resolvedProfile !== undefined && savedPlan) {
+        const planId = `${plan.swarm}-${plan.title}`.replace(/[^a-zA-Z0-9-_]/g, "_");
+        const planHashAfter = computePlanHash(savedPlan);
+        const profileChanged = JSON.stringify(resolvedProfile) !== JSON.stringify(preservedExecutionProfile);
+        if (profileChanged) {
+          await appendLedgerEvent(dir, {
+            event_type: "execution_profile_set",
+            source: "save_plan",
+            plan_id: planId,
+            payload: { execution_profile: resolvedProfile }
+          }, { planHashAfter }).catch(() => {});
+        }
+        const wasAlreadyLocked = preservedExecutionProfile?.locked === true;
+        if (resolvedProfile.locked && !wasAlreadyLocked) {
+          await appendLedgerEvent(dir, {
+            event_type: "execution_profile_locked",
+            source: "save_plan",
+            plan_id: planId
+          }, { planHashAfter }).catch(() => {});
+        }
+      }
       await writeCheckpoint(dir).catch(() => {});
       try {
         const markerPath = path82.join(dir, ".swarm", ".plan-write-marker");
@@ -80353,6 +80506,7 @@ async function executeSavePlan(args2, fallbackDir) {
         plan_path: path82.join(dir, ".swarm", "plan.json"),
         phases_count: plan.phases.length,
         tasks_count: tasksCount,
+        ...resolvedProfile !== undefined ? { execution_profile: resolvedProfile } : {},
         ...warnings.length > 0 ? { warnings } : {}
       };
     } finally {
@@ -80386,7 +80540,13 @@ var save_plan = createSwarmTool({
       })).min(1).describe("Tasks in this phase")
     })).min(1).describe("Implementation phases"),
     working_directory: tool.schema.string().optional().describe("Working directory (explicit path, required - no fallback)"),
-    reset_statuses: tool.schema.boolean().optional().describe("When true, reset ALL task statuses to pending regardless of prior completion state. " + "Use only when deliberately re-planning a phase from scratch. " + "Default false (preserves existing task statuses across plan revisions).")
+    reset_statuses: tool.schema.boolean().optional().describe("When true, reset ALL task statuses to pending regardless of prior completion state. " + "Use only when deliberately re-planning a phase from scratch. " + "Default false (preserves existing task statuses across plan revisions)."),
+    execution_profile: tool.schema.object({
+      parallelization_enabled: tool.schema.boolean().optional().describe("When true, enables parallel task dispatch for this plan. Default false (serial)."),
+      max_concurrent_tasks: tool.schema.number().int().min(1).max(64).optional().describe("Maximum tasks that may run concurrently when parallelization is enabled. Default 1."),
+      council_parallel: tool.schema.boolean().optional().describe("When true, council review phases may run in parallel. Default false."),
+      locked: tool.schema.boolean().optional().describe("When true, locks the profile \u2014 future save_plan calls that include " + "execution_profile will be rejected (fail-closed). " + "Unlock by resetting the plan (reset_statuses: true).")
+    }).optional().describe("Architect-facing concurrency controls. Once locked, cannot be changed without resetting. " + "Omit to preserve the existing profile.")
   },
   execute: async (args2, _directory) => {
     return JSON.stringify(await executeSavePlan(args2, _directory), null, 2);

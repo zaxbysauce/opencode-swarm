@@ -9,6 +9,13 @@ export interface ExportData {
 	exported: string;
 	plan: unknown; // structured Plan object if available, else markdown string
 	context: string | null;
+	/** The plan's execution_profile, if set. Consumers must honour locked profiles. */
+	execution_profile?: {
+		parallelization_enabled: boolean;
+		max_concurrent_tasks: number;
+		council_parallel: boolean;
+		locked: boolean;
+	} | null;
 }
 
 /**
@@ -25,6 +32,7 @@ export async function getExportData(directory: string): Promise<ExportData> {
 		exported: new Date().toISOString(),
 		plan: planStructured || planContent, // structured Plan object if available, else markdown
 		context: contextContent,
+		execution_profile: planStructured?.execution_profile ?? null,
 	};
 }
 

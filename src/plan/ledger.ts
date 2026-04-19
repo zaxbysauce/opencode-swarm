@@ -8,7 +8,12 @@
 import * as crypto from 'node:crypto';
 import * as fs from 'node:fs';
 import * as path from 'node:path';
-import { type Plan, PlanSchema, TaskStatusSchema } from '../config/plan-schema';
+import {
+	ExecutionProfileSchema,
+	type Plan,
+	PlanSchema,
+	TaskStatusSchema,
+} from '../config/plan-schema';
 
 /**
  * Ledger schema version
@@ -29,6 +34,8 @@ export const LEDGER_EVENT_TYPES = [
 	'plan_exported',
 	'plan_reset',
 	'snapshot',
+	'execution_profile_set',
+	'execution_profile_locked',
 ] as const;
 
 export type LedgerEventType = (typeof LEDGER_EVENT_TYPES)[number];
@@ -137,6 +144,7 @@ export function computePlanHash(plan: Plan): string {
 		swarm: plan.swarm,
 		current_phase: plan.current_phase,
 		migration_status: plan.migration_status,
+		execution_profile: plan.execution_profile,
 		phases: plan.phases.map((phase) => ({
 			id: phase.id,
 			name: phase.name,
@@ -757,6 +765,31 @@ function applyEventToPlan(plan: Plan, event: LedgerEvent): Plan | null {
 		case 'plan_reset':
 			// Reset means start fresh — nothing to replay after a reset
 			return null;
+
+		case 'execution_profile_set': {
+			// Validate and apply the embedded execution_profile from the event payload.
+			const rawProfile = (event.payload as Record<string, unknown> | undefined)
+				?.execution_profile;
+			if (rawProfile !== undefined) {
+				const parsed = ExecutionProfileSchema.safeParse(rawProfile);
+				if (parsed.success) {
+					return { ...plan, execution_profile: parsed.data };
+				}
+				// Malformed profile in payload — leave plan unchanged (do not corrupt state)
+			}
+			return plan;
+		}
+
+		case 'execution_profile_locked': {
+			// Lock the existing execution_profile in place. If no profile exists yet, no-op.
+			if (plan.execution_profile) {
+				return {
+					...plan,
+					execution_profile: { ...plan.execution_profile, locked: true },
+				};
+			}
+			return plan;
+		}
 
 		default:
 			// Unknown or unhandled event type — fail replay rather than silently produce wrong state

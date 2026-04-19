@@ -1,4 +1,11 @@
 import { z } from 'zod';
+export declare const ExecutionProfileSchema: z.ZodObject<{
+    parallelization_enabled: z.ZodDefault<z.ZodBoolean>;
+    max_concurrent_tasks: z.ZodDefault<z.ZodNumber>;
+    council_parallel: z.ZodDefault<z.ZodBoolean>;
+    locked: z.ZodDefault<z.ZodBoolean>;
+}, z.core.$strip>;
+export type ExecutionProfile = z.infer<typeof ExecutionProfileSchema>;
 export declare const TaskStatusSchema: z.ZodEnum<{
     pending: "pending";
     in_progress: "in_progress";
@@ -146,6 +153,12 @@ export declare const PlanSchema: z.ZodObject<{
     }>>;
     specMtime: z.ZodOptional<z.ZodString>;
     specHash: z.ZodOptional<z.ZodString>;
+    execution_profile: z.ZodOptional<z.ZodObject<{
+        parallelization_enabled: z.ZodDefault<z.ZodBoolean>;
+        max_concurrent_tasks: z.ZodDefault<z.ZodNumber>;
+        council_parallel: z.ZodDefault<z.ZodBoolean>;
+        locked: z.ZodDefault<z.ZodBoolean>;
+    }, z.core.$strip>>;
 }, z.core.$strip>;
 export type Plan = z.infer<typeof PlanSchema>;
 /**

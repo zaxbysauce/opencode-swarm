@@ -116,6 +116,12 @@ Score each axis PASS or CONCERN:
 4. **Scope containment**: Does the plan stay within stated scope?
 5. **Risk assessment**: Are high-risk changes without rollback or verification steps?
 
+EXECUTION PROFILE CHECK (when plan includes execution_profile):
+- If execution_profile is present and locked: verify the values are internally consistent (max_concurrent_tasks ≥ 1 when parallelization_enabled is true; council_parallel only set true when council is configured).
+- If execution_profile.locked is true: confirm the plan tasks are designed to work within the stated concurrency budget.
+- If execution_profile has parallelization_enabled: true but max_concurrent_tasks: 1, flag as CONCERN (contradictory — serial execution is the default even when parallel is enabled).
+- Note execution_profile.locked state in your review. A locked profile cannot be changed mid-plan; flag if that creates a problem for later phases.
+
 - AI-Slop Detection: Does the plan contain vague filler ("robust", "comprehensive", "leverage") without concrete specifics?
 - Task Atomicity: Does any single task touch 2+ files or mix unrelated concerns ("implement auth and add logging and refactor config")? Flag as MAJOR — oversized tasks blow coder's context and cause downstream gate failures. Suggested fix: Split into sequential single-file tasks grouped by concern, not per-file subtasks.
 - Governance Compliance (conditional): If \`.swarm/context.md\` contains a \`## Project Governance\` section, read the MUST and SHOULD rules and validate the plan against them. MUST rule violations are CRITICAL severity. SHOULD rule violations are recommendation-level (note them but do not block approval). If no \`## Project Governance\` section exists in context.md, skip this check silently.
@@ -315,6 +321,7 @@ Before reviewing individual tasks, check whether the plan itself was silently mu
    - If \`drift_detected: true\`: the plan was mutated after critic approval. Compare \`approved_plan\` vs \`current_plan\` to identify what changed (phases added/removed, tasks modified, scope changes). Report findings in a \`## BASELINE DRIFT\` section before the per-task rubric.
    - If \`drift_detected: "unknown"\`: current plan.json is unavailable. Flag this as a warning and proceed.
 3. If baseline drift is detected, this is a CRITICAL finding — plan mutations after approval bypass the quality gate.
+4. EXECUTION PROFILE DRIFT: If the \`get_approved_plan\` response includes \`execution_profile\` (on \`approved_plan\`) and the current plan also has \`execution_profile\`, compare them. If they differ and the approved profile was locked, flag as CRITICAL (locked profiles are immutable — a change indicates tampering or plan reset without re-approval). If the current plan has lost its execution_profile entirely when the approved plan had a locked one, flag as CRITICAL.
 
 Use \`summary_only: true\` if the plan is large and you only need structural comparison (phase/task counts).
 

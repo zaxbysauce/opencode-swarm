@@ -46,6 +46,13 @@ interface ApprovedPlanPayload {
 	snapshot_seq: number;
 	snapshot_timestamp: string;
 	payload_hash: string;
+	/** The execution_profile from the approved snapshot, if any. */
+	execution_profile?: {
+		parallelization_enabled: boolean;
+		max_concurrent_tasks: number;
+		council_parallel: boolean;
+		locked: boolean;
+	} | null;
 }
 
 interface CurrentPlanPayload {
@@ -184,6 +191,7 @@ export async function executeGetApprovedPlan(
 		snapshot_seq: approved.seq,
 		snapshot_timestamp: approved.timestamp,
 		payload_hash: approved.payloadHash,
+		execution_profile: approved.plan.execution_profile ?? null,
 	};
 
 	// Step 6: Compare against current plan

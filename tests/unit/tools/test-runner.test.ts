@@ -6,6 +6,22 @@ import * as path from 'node:path';
 // Import the module under test
 const testRunnerModule = await import('../../../src/tools/test-runner');
 
+// Runtime capability check: detect whether pwsh (PowerShell) is installed.
+// Tests that invoke pwsh are skipped when it is not available.
+let hasPwsh = false;
+try {
+	const proc = Bun.spawnSync([
+		'pwsh',
+		'-NoLogo',
+		'-NonInteractive',
+		'-Command',
+		'exit 0',
+	]);
+	hasPwsh = proc.exitCode === 0;
+} catch {
+	hasPwsh = false;
+}
+
 // Extract the exports we need
 const {
 	MAX_OUTPUT_BYTES,
@@ -573,37 +589,41 @@ describe('test-runner.ts - Security Validation', () => {
 		}, 100);
 	}, 10000);
 
-	test('accepts direct test files for convention scope without source extensions', async () => {
-		const tempDir = fs.realpathSync(
-			fs.mkdtempSync(path.join(os.tmpdir(), 'test-runner-direct-conv-')),
-		);
-		const originalCwd = process.cwd();
-		process.chdir(tempDir);
+	test.skipIf(!hasPwsh)(
+		'accepts direct test files for convention scope without source extensions',
+		async () => {
+			const tempDir = fs.realpathSync(
+				fs.mkdtempSync(path.join(os.tmpdir(), 'test-runner-direct-conv-')),
+			);
+			const originalCwd = process.cwd();
+			process.chdir(tempDir);
 
-		fs.writeFileSync('pester.config.ps1', 'configuration');
-		fs.mkdirSync(path.join(tempDir, 'qa'), { recursive: true });
-		fs.writeFileSync(
-			path.join(tempDir, 'qa', 'Smoke.Tests.ps1'),
-			'Describe "x" {}',
-		);
+			fs.writeFileSync('pester.config.ps1', 'configuration');
+			fs.mkdirSync(path.join(tempDir, 'qa'), { recursive: true });
+			fs.writeFileSync(
+				path.join(tempDir, 'qa', 'Smoke.Tests.ps1'),
+				'Describe "x" {}',
+			);
 
-		const result = await test_runner.execute(
-			{ scope: 'convention', files: ['qa/Smoke.Tests.ps1'] },
-			{} as any,
-		);
-		const parsed = JSON.parse(result);
-		expect(parsed.success).toBe(true);
-		expect(parsed.framework).toBe('pester');
+			const result = await test_runner.execute(
+				{ scope: 'convention', files: ['qa/Smoke.Tests.ps1'] },
+				{} as any,
+			);
+			const parsed = JSON.parse(result);
+			expect(parsed.success).toBe(true);
+			expect(parsed.framework).toBe('pester');
 
-		process.chdir(originalCwd);
-		setTimeout(() => {
-			try {
-				fs.rmSync(tempDir, { recursive: true, force: true });
-			} catch {
-				// Ignore
-			}
-		}, 100);
-	}, 10000);
+			process.chdir(originalCwd);
+			setTimeout(() => {
+				try {
+					fs.rmSync(tempDir, { recursive: true, force: true });
+				} catch {
+					// Ignore
+				}
+			}, 100);
+		},
+		10000,
+	);
 
 	test('rejects non-source files array for graph scope', async () => {
 		// Set up a detectable framework first so we can test the non-source-file guard
