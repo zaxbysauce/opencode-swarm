@@ -1,5 +1,12 @@
 # Changelog
 
+## [6.76.0](https://github.com/zaxbysauce/opencode-swarm/compare/v6.75.0...v6.76.0) (2026-04-19)
+
+
+### Features
+
+* **test-runner:** widen convention test resolution and add explicit targeting limits ([#546](https://github.com/zaxbysauce/opencode-swarm/issues/546)) ([7718053](https://github.com/zaxbysauce/opencode-swarm/commit/7718053ff76f18ab309f11c78ca6ab1d1cbe0955))
+
 ## [6.75.0](https://github.com/zaxbysauce/opencode-swarm/compare/v6.74.1...v6.75.0) (2026-04-18)
 
 
