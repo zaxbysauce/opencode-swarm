@@ -49,12 +49,14 @@ export interface ReviewerGateResult {
  * both reviewer delegation and test_engineer runs have been recorded.
  * @param taskId - The task ID to check gate state for
  * @param workingDirectory - Optional working directory for plan.json fallback
+ * @param stageBParallelEnabled - When true, also accept both-markers-present as passing (PR 2 barrier)
  * @returns ReviewerGateResult indicating whether the gate is blocked
  */
-export declare function checkReviewerGate(taskId: string, workingDirectory?: string): ReviewerGateResult;
+export declare function checkReviewerGate(taskId: string, workingDirectory?: string, stageBParallelEnabled?: boolean): ReviewerGateResult;
 /**
  * Wrapper around checkReviewerGate that appends a diff-scope advisory warning.
  * Keeps checkReviewerGate synchronous for backward compatibility.
+ * Also resolves the PR 2 stageB.parallel.enabled flag from config.
  * @param taskId - The task ID to check gate state for
  * @param workingDirectory - Optional working directory for plan.json fallback
  * @returns ReviewerGateResult with optional scope warning appended to reason
