@@ -25866,13 +25866,6 @@ function evidenceToWorkflowState(evidence) {
       return "complete";
     }
   }
-  const councilGate = gates.council;
-  if (councilGate && councilGate.verdict === "APPROVE" && councilGate.allCriteriaMet === true) {
-    const nonCouncilGates = Object.keys(gates).filter((k) => k !== "council");
-    if (nonCouncilGates.length > 0) {
-      return "complete";
-    }
-  }
   if (gates.test_engineer != null) {
     return "tests_run";
   }

@@ -896,7 +896,7 @@ describe('adversarial council verdict rehydration', () => {
 			roundNumber: 1,
 		});
 		// Verify no prototype pollution
-		expect(Object.prototype.hasOwnProperty.call({}, 'isEvil')).toBe(false);
+		expect(Object.hasOwn({}, 'isEvil')).toBe(false);
 	});
 
 	// ── ATTACK VECTOR 2: Prototype pollution via constructor ───────────────
@@ -930,7 +930,7 @@ describe('adversarial council verdict rehydration', () => {
 			roundNumber: 2,
 		});
 		// Verify no constructor prototype pollution
-		expect(Object.prototype.hasOwnProperty.call({}, 'isAdmin')).toBe(false);
+		expect(Object.hasOwn({}, 'isAdmin')).toBe(false);
 	});
 
 	// ── ATTACK VECTOR 3: gates.council as array instead of object ──────────
@@ -1384,7 +1384,7 @@ describe('adversarial council verdict rehydration', () => {
 			verdict: 'APPROVE',
 			roundNumber: 1,
 		});
-		expect(Object.prototype.hasOwnProperty.call({}, 'isAdmin')).toBe(false);
+		expect(Object.hasOwn({}, 'isAdmin')).toBe(false);
 	});
 
 	it('21. gates.council is boolean true (truthy but not object) is safely skipped', async () => {
@@ -1537,8 +1537,8 @@ describe('adversarial council verdict rehydration', () => {
 	});
 });
 
-describe('council fast-path to complete (evidenceToWorkflowState)', () => {
-	// Helper to write evidence with council gate plus optional non-council gates
+describe('council verdict rehydration does NOT bypass Stage-A', () => {
+	// Helper to write evidence with council + other gates
 	function writeCouncilWithOtherGates(
 		taskId: string,
 		councilVerdict: string,
@@ -1557,26 +1557,28 @@ describe('council fast-path to complete (evidenceToWorkflowState)', () => {
 		writeEvidence(taskId, gates, requiredGates);
 	}
 
-	// ── HAPPY PATH: Council APPROVE + allCriteriaMet=true + non-council gate -> complete ──
+	// ── REGRESSION: Council APPROVE does NOT fast-path to 'complete' ──────
+	// Gate evidence (reviewer/test_engineer) is recorded at delegation time,
+	// NOT after Stage A passes. Using "any non-council gate exists" as a proxy
+	// for Stage-A would allow a bypass of the pastPreCheck guard.
 
-	it('1. APPROVE + allCriteriaMet=true + reviewer gate -> complete', async () => {
-		// Arrange
+	it('1. APPROVE + allCriteriaMet=true + reviewer gate -> NOT complete (no Stage-A bypass)', async () => {
 		writePlan([{ id: '1.1', status: 'in_progress' }]);
 		writeCouncilWithOtherGates('1.1', 'APPROVE', true, {
 			reviewer: { sessionId: 's1', timestamp: 't1', agent: 'reviewer' },
 		});
-
 		const session = createTestSession();
-
-		// Act
 		await rehydrateSessionFromDisk(tmpDir, session);
-
-		// Assert: council fast-path triggers -> complete
-		expect(session.taskWorkflowStates!.get('1.1')).toBe('complete');
+		// Without explicit Stage-A evidence, must NOT jump to complete
+		expect(session.taskWorkflowStates!.get('1.1')).toBe('reviewer_run');
+		// But council verdict IS still recovered
+		expect(session.taskCouncilApproved!.get('1.1')).toEqual({
+			verdict: 'APPROVE',
+			roundNumber: 1,
+		});
 	});
 
-	it('2. APPROVE + allCriteriaMet=true + test_engineer gate -> complete', async () => {
-		// Arrange
+	it('2. APPROVE + allCriteriaMet=true + test_engineer gate -> NOT complete', async () => {
 		writePlan([{ id: '1.1', status: 'in_progress' }]);
 		writeCouncilWithOtherGates('1.1', 'APPROVE', true, {
 			test_engineer: {
@@ -1585,129 +1587,30 @@ describe('council fast-path to complete (evidenceToWorkflowState)', () => {
 				agent: 'test_engineer',
 			},
 		});
-
 		const session = createTestSession();
-
-		// Act
 		await rehydrateSessionFromDisk(tmpDir, session);
-
-		// Assert: council fast-path triggers -> complete
-		expect(session.taskWorkflowStates!.get('1.1')).toBe('complete');
-	});
-
-	it('3. APPROVE + allCriteriaMet=true + lint gate (any non-council) -> complete', async () => {
-		// Arrange: lint is any non-council gate - proves any non-council gate triggers fast-path
-		writePlan([{ id: '1.1', status: 'in_progress' }]);
-		writeCouncilWithOtherGates('1.1', 'APPROVE', true, {
-			lint: { sessionId: 's1', timestamp: 't1', agent: 'lint' },
-		});
-
-		const session = createTestSession();
-
-		// Act
-		await rehydrateSessionFromDisk(tmpDir, session);
-
-		// Assert: any non-council gate triggers fast-path -> complete
-		expect(session.taskWorkflowStates!.get('1.1')).toBe('complete');
-	});
-
-	// ── NEGATIVE: Council APPROVE + allCriteriaMet=true but NO other gates -> NOT complete ──
-
-	it('4. APPROVE + allCriteriaMet=true but NO other gates -> NOT complete (falls through)', async () => {
-		// Arrange: council only, no non-council gates
-		writePlan([{ id: '1.1', status: 'in_progress' }]);
-		writeCouncilWithOtherGates('1.1', 'APPROVE', true, {});
-
-		const session = createTestSession();
-
-		// Act
-		await rehydrateSessionFromDisk(tmpDir, session);
-
-		// Assert: no non-council gates -> fast-path not triggered, falls through to coder_delegated
-		expect(session.taskWorkflowStates!.get('1.1')).toBe('coder_delegated');
-	});
-
-	// ── NEGATIVE: Other verdicts do NOT trigger fast-path ──
-
-	it('5. REJECT + reviewer gate -> NOT complete', async () => {
-		// Arrange
-		writePlan([{ id: '1.1', status: 'in_progress' }]);
-		writeCouncilWithOtherGates('1.1', 'REJECT', true, {
-			reviewer: { sessionId: 's1', timestamp: 't1', agent: 'reviewer' },
-		});
-
-		const session = createTestSession();
-
-		// Act
-		await rehydrateSessionFromDisk(tmpDir, session);
-
-		// Assert: REJECT does not trigger fast-path -> reviewer_run
-		expect(session.taskWorkflowStates!.get('1.1')).toBe('reviewer_run');
-	});
-
-	it('6. CONCERNS + reviewer gate -> NOT complete', async () => {
-		// Arrange
-		writePlan([{ id: '1.1', status: 'in_progress' }]);
-		writeCouncilWithOtherGates('1.1', 'CONCERNS', true, {
-			reviewer: { sessionId: 's1', timestamp: 't1', agent: 'reviewer' },
-		});
-
-		const session = createTestSession();
-
-		// Act
-		await rehydrateSessionFromDisk(tmpDir, session);
-
-		// Assert: CONCERNS does not trigger fast-path -> reviewer_run
-		expect(session.taskWorkflowStates!.get('1.1')).toBe('reviewer_run');
-	});
-
-	// ── NEGATIVE: allCriteriaMet=false does NOT trigger fast-path ──
-
-	it('7. APPROVE + allCriteriaMet=false + reviewer gate -> NOT complete', async () => {
-		// Arrange
-		writePlan([{ id: '1.1', status: 'in_progress' }]);
-		writeCouncilWithOtherGates(
-			'1.1',
-			'APPROVE',
-			false, // allCriteriaMet is false
-			{ reviewer: { sessionId: 's1', timestamp: 't1', agent: 'reviewer' } },
-		);
-
-		const session = createTestSession();
-
-		// Act
-		await rehydrateSessionFromDisk(tmpDir, session);
-
-		// Assert: allCriteriaMet=false -> fast-path not triggered -> reviewer_run
-		expect(session.taskWorkflowStates!.get('1.1')).toBe('reviewer_run');
-	});
-
-	// ── EDGE: Fast-path does not affect council verdict rehydration ──
-
-	it('8. APPROVE + allCriteriaMet=true + reviewer gate: verdict is also rehydrated', async () => {
-		// Arrange
-		writePlan([{ id: '1.1', status: 'in_progress' }]);
-		writeCouncilWithOtherGates('1.1', 'APPROVE', true, {
-			reviewer: { sessionId: 's1', timestamp: 't1', agent: 'reviewer' },
-		});
-
-		const session = createTestSession();
-
-		// Act
-		await rehydrateSessionFromDisk(tmpDir, session);
-
-		// Assert: both workflow state AND council verdict are rehydrated correctly
-		expect(session.taskWorkflowStates!.get('1.1')).toBe('complete');
+		expect(session.taskWorkflowStates!.get('1.1')).toBe('tests_run');
 		expect(session.taskCouncilApproved!.get('1.1')).toEqual({
 			verdict: 'APPROVE',
 			roundNumber: 1,
 		});
 	});
 
-	// ── EDGE: multiple non-council gates all trigger fast-path ──
+	it('3. APPROVE + allCriteriaMet=true + lint gate -> NOT complete', async () => {
+		writePlan([{ id: '1.1', status: 'in_progress' }]);
+		writeCouncilWithOtherGates('1.1', 'APPROVE', true, {
+			lint: { sessionId: 's1', timestamp: 't1', agent: 'lint' },
+		});
+		const session = createTestSession();
+		await rehydrateSessionFromDisk(tmpDir, session);
+		expect(session.taskWorkflowStates!.get('1.1')).toBe('coder_delegated');
+		expect(session.taskCouncilApproved!.get('1.1')).toEqual({
+			verdict: 'APPROVE',
+			roundNumber: 1,
+		});
+	});
 
-	it('9. APPROVE + allCriteriaMet=true + multiple non-council gates -> complete', async () => {
-		// Arrange: reviewer + test_engineer + lint
+	it('4. APPROVE + allCriteriaMet=true + multiple non-council gates -> NOT complete', async () => {
 		writePlan([{ id: '1.1', status: 'in_progress' }]);
 		writeCouncilWithOtherGates('1.1', 'APPROVE', true, {
 			reviewer: { sessionId: 's1', timestamp: 't1', agent: 'reviewer' },
@@ -1716,78 +1619,26 @@ describe('council fast-path to complete (evidenceToWorkflowState)', () => {
 				timestamp: 't2',
 				agent: 'test_engineer',
 			},
-			lint: { sessionId: 's3', timestamp: 't3', agent: 'lint' },
 		});
-
 		const session = createTestSession();
-
-		// Act
 		await rehydrateSessionFromDisk(tmpDir, session);
-
-		// Assert: multiple non-council gates -> still complete
-		expect(session.taskWorkflowStates!.get('1.1')).toBe('complete');
+		// Even with multiple gates, no fast-path to complete
+		expect(session.taskWorkflowStates!.get('1.1')).toBe('tests_run');
+		expect(session.taskCouncilApproved!.get('1.1')).toEqual({
+			verdict: 'APPROVE',
+			roundNumber: 1,
+		});
 	});
 
-	// ── EDGE: allCriteriaMet undefined vs false ──
-
-	it('10. APPROVE + allCriteriaMet undefined (not present) + reviewer -> NOT complete', async () => {
-		// Arrange: council gate without allCriteriaMet field
-		writePlan([{ id: '1.1', status: 'in_progress' }]);
-		writeEvidence(
-			'1.1',
-			{
-				council: { verdict: 'APPROVE', roundNumber: 1 }, // no allCriteriaMet
-				reviewer: { sessionId: 's1', timestamp: 't1', agent: 'reviewer' },
-			},
-			[],
-		);
-
-		const session = createTestSession();
-
-		// Act
-		await rehydrateSessionFromDisk(tmpDir, session);
-
-		// Assert: allCriteriaMet undefined (falsy) -> fast-path not triggered -> reviewer_run
-		expect(session.taskWorkflowStates!.get('1.1')).toBe('reviewer_run');
-	});
-
-	it('11. APPROVE + allCriteriaMet=null + reviewer -> NOT complete', async () => {
-		// Arrange: council gate with allCriteriaMet explicitly null
-		writePlan([{ id: '1.1', status: 'in_progress' }]);
-		writeEvidence(
-			'1.1',
-			{
-				council: { verdict: 'APPROVE', allCriteriaMet: null, roundNumber: 1 },
-				reviewer: { sessionId: 's1', timestamp: 't1', agent: 'reviewer' },
-			},
-			[],
-		);
-
-		const session = createTestSession();
-
-		// Act
-		await rehydrateSessionFromDisk(tmpDir, session);
-
-		// Assert: allCriteriaMet=null (falsy) -> fast-path not triggered -> reviewer_run
-		expect(session.taskWorkflowStates!.get('1.1')).toBe('reviewer_run');
-	});
-
-	// ── EDGE: in-memory complete is preserved (no downgrade) ──
-
-	it('12. in-memory complete preserved when disk has APPROVE + reviewer', async () => {
-		// Arrange: session already at complete, disk shows earlier state
+	it('5. in-memory complete is preserved when disk has APPROVE + reviewer', async () => {
 		writePlan([{ id: '1.1', status: 'in_progress' }]);
 		writeCouncilWithOtherGates('1.1', 'APPROVE', true, {
 			reviewer: { sessionId: 's1', timestamp: 't1', agent: 'reviewer' },
 		});
-
 		const session = createTestSession();
 		session.taskWorkflowStates!.set('1.1', 'complete');
-
-		// Act
 		await rehydrateSessionFromDisk(tmpDir, session);
-
-		// Assert: in-memory complete is preserved
+		// In-memory complete is preserved (never downgrade)
 		expect(session.taskWorkflowStates!.get('1.1')).toBe('complete');
 	});
 });

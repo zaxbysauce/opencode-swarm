@@ -160,11 +160,13 @@ are automatically rehydrated into the in-memory `taskCouncilApproved` Map when
 a session starts up. All verdict types are recovered — the session retains the
 correct round number and verdict for ongoing retry tracking.
 
-Tasks with an `APPROVE` verdict **and** `allCriteriaMet === true` **and** at
-least one non-council gate present (indicating Stage A passed) can fast-path
-to `completed` without re-running the council. Tasks that only passed the
-council but lack Stage A evidence will still need to pass pre-check before
-advancing.
+Tasks with an `APPROVE` verdict are rehydrated into `taskCouncilApproved` so
+the council gate does not need to re-run, but the task's workflow state is
+derived from the highest non-council gate in the evidence file — the task does
+not fast-path to `completed` on rehydration. This avoids a bypass of the
+Stage-A (pre-check) guard, since gate evidence is recorded at delegation time
+rather than after Stage A passes. The task will advance to `completed` through
+the normal `advanceTaskState()` flow once pre-check succeeds.
 
 In-memory state always wins over disk state: if a newer verdict exists
 in memory it supersedes any older entry on disk, preventing accidental

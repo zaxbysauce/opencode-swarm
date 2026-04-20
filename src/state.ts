@@ -1113,23 +1113,6 @@ function evidenceToWorkflowState(evidence: TaskEvidence): TaskWorkflowState {
 		}
 	}
 
-	// Council fast-path: when council APPROVEs with all criteria met and Stage A passed
-	// (indicated by at least one non-council gate present — equivalent to pastPreCheck guard
-	// in advanceTaskState()), the task can jump directly to 'complete'.
-	const councilGate = gates.council as
-		| { verdict?: string; allCriteriaMet?: boolean }
-		| undefined;
-	if (
-		councilGate &&
-		councilGate.verdict === 'APPROVE' &&
-		councilGate.allCriteriaMet === true
-	) {
-		const nonCouncilGates = Object.keys(gates).filter((k) => k !== 'council');
-		if (nonCouncilGates.length > 0) {
-			return 'complete';
-		}
-	}
-
 	// Check the highest gate passed
 	if (gates.test_engineer != null) {
 		return 'tests_run';
