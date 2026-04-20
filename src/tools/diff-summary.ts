@@ -11,8 +11,6 @@ import {
 import { generateSummary } from '../diff/summary-generator.js';
 import { createSwarmTool } from './create-tool';
 
-const MAX_BUFFER_BYTES = 5 * 1024 * 1024;
-
 export interface DiffSummaryArgs {
 	files: string[];
 	classification?: ChangeCategory;
@@ -72,35 +70,79 @@ export const diff_summary: ReturnType<typeof createSwarmTool> = createSwarmTool(
 				const astDiffs: ASTDiffResult[] = [];
 
 				for (const filePath of typedArgs.files) {
+					let astResult: ASTDiffResult | null = null;
+					let gitBinaryMissing = false;
+					let gitError: unknown = null;
+					let fileExistsInHead = false;
+
+					// Git cat-file check wrapped in its own try/catch to separate git ENOENT from file-read ENOENT
 					try {
-						// Get old content from HEAD
-						const oldContent = child_process.execFileSync(
+						child_process.execFileSync(
 							'git',
-							['show', `HEAD:${filePath}`],
+							['cat-file', '-e', `HEAD:${filePath}`],
 							{
 								encoding: 'utf-8',
-								timeout: 5000,
+								timeout: 3000,
 								cwd: workingDir,
+								stdio: 'pipe',
 							},
 						);
+						fileExistsInHead = true;
+					} catch (e: unknown) {
+						// If git binary itself is missing or crashed, that's critical
+						if (e && typeof e === 'object' && 'code' in e) {
+							const err = e as { code?: string; status?: number };
+							if (err.code === 'ENOENT') {
+								gitBinaryMissing = true;
+								gitError = e;
+							}
+						}
+						// git ran but file not in HEAD — it's a new/untracked file
+						// fileExistsInHead stays false
+					}
 
-						// Get new content from working tree (read directly from disk)
-						const newContent = fs.readFileSync(
+					// Propagate git binary ENOENT immediately — don't let it be caught by outer catch
+					if (gitBinaryMissing && gitError) {
+						throw gitError;
+					}
+
+					try {
+						let oldContent: string;
+						const newContent: string = fs.readFileSync(
 							path.join(workingDir, filePath),
 							'utf-8',
 						);
 
-						const astResult = await computeASTDiff(
-							filePath,
-							oldContent,
-							newContent,
-						);
-
-						if (astResult && astResult.changes.length > 0) {
-							astDiffs.push(astResult);
+						if (fileExistsInHead) {
+							// File exists in HEAD, get old content
+							oldContent = child_process.execFileSync(
+								'git',
+								['show', `HEAD:${filePath}`],
+								{
+									encoding: 'utf-8',
+									timeout: 5000,
+									cwd: workingDir,
+									stdio: 'pipe',
+									maxBuffer: 5 * 1024 * 1024,
+								},
+							);
+						} else {
+							// New file — no previous content
+							oldContent = '';
 						}
-					} catch {
-						// File not in git or AST diff failed — skip this file
+
+						astResult = await computeASTDiff(filePath, oldContent, newContent);
+					} catch (_e: unknown) {
+						// Silently skip: file-read errors (including deleted files) and parse failures
+						astResult = null;
+					}
+
+					// Include results with changes OR error-only results (usedAST: false with error message)
+					if (
+						astResult &&
+						(astResult.changes.length > 0 || astResult.error !== undefined)
+					) {
+						astDiffs.push(astResult);
 					}
 				}
 

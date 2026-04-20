@@ -30,7 +30,7 @@ describe('Language Registry', () => {
 		it('should return language for .tsx files', () => {
 			const lang = getLanguageForExtension('.tsx');
 			expect(lang).toBeDefined();
-			expect(lang?.id).toBe('typescript');
+			expect(lang?.id).toBe('tsx');
 		});
 
 		it('should return language for .py files', () => {
@@ -51,6 +51,84 @@ describe('Language Registry', () => {
 			expect(lang?.id).toBe('rust');
 		});
 
+		it('should return language for .java files', () => {
+			const lang = getLanguageForExtension('.java');
+			expect(lang).toBeDefined();
+			expect(lang?.id).toBe('java');
+		});
+
+		it('should return language for .c files', () => {
+			const lang = getLanguageForExtension('.c');
+			expect(lang).toBeDefined();
+			expect(lang?.id).toBe('c');
+		});
+
+		it('should return language for .cpp files', () => {
+			const lang = getLanguageForExtension('.cpp');
+			expect(lang).toBeDefined();
+			expect(lang?.id).toBe('cpp');
+		});
+
+		it('should return language for .cs files', () => {
+			const lang = getLanguageForExtension('.cs');
+			expect(lang).toBeDefined();
+			expect(lang?.id).toBe('csharp');
+		});
+
+		it('should return language for .rb files', () => {
+			const lang = getLanguageForExtension('.rb');
+			expect(lang).toBeDefined();
+			expect(lang?.id).toBe('ruby');
+		});
+
+		it('should return language for .swift files', () => {
+			const lang = getLanguageForExtension('.swift');
+			expect(lang).toBeDefined();
+			expect(lang?.id).toBe('swift');
+		});
+
+		it('should return language for .kt files', () => {
+			const lang = getLanguageForExtension('.kt');
+			expect(lang).toBeDefined();
+			expect(lang?.id).toBe('kotlin');
+		});
+
+		it('should return language for .dart files', () => {
+			const lang = getLanguageForExtension('.dart');
+			expect(lang).toBeDefined();
+			expect(lang?.id).toBe('dart');
+		});
+
+		it('should return language for .css files', () => {
+			const lang = getLanguageForExtension('.css');
+			expect(lang).toBeDefined();
+			expect(lang?.id).toBe('css');
+		});
+
+		it('should return language for .sh files', () => {
+			const lang = getLanguageForExtension('.sh');
+			expect(lang).toBeDefined();
+			expect(lang?.id).toBe('bash');
+		});
+
+		it('should return language for .ps1 files', () => {
+			const lang = getLanguageForExtension('.ps1');
+			expect(lang).toBeDefined();
+			expect(lang?.id).toBe('powershell');
+		});
+
+		it('should return language for .ini files', () => {
+			const lang = getLanguageForExtension('.ini');
+			expect(lang).toBeDefined();
+			expect(lang?.id).toBe('ini');
+		});
+
+		it('should return language for .regex files', () => {
+			const lang = getLanguageForExtension('.regex');
+			expect(lang).toBeDefined();
+			expect(lang?.id).toBe('regex');
+		});
+
 		it('should be case insensitive', () => {
 			const lang1 = getLanguageForExtension('.JS');
 			const lang2 = getLanguageForExtension('.js');
@@ -66,7 +144,7 @@ describe('Language Registry', () => {
 	describe('listSupportedLanguages', () => {
 		it('should return all supported languages', () => {
 			const languages = listSupportedLanguages();
-			expect(languages.length).toBe(6);
+			expect(languages.length).toBe(20);
 
 			const ids = languages.map((l) => l.id);
 			expect(ids).toContain('javascript');
@@ -79,7 +157,7 @@ describe('Language Registry', () => {
 		it('should include comment nodes for each language', () => {
 			const languages = listSupportedLanguages();
 			for (const lang of languages) {
-				expect(lang.commentNodes.length).toBeGreaterThan(0);
+				expect(Array.isArray(lang.commentNodes)).toBe(true);
 			}
 		});
 	});
@@ -97,7 +175,7 @@ describe('Language Registry', () => {
 		it('should return false for unsupported extensions', () => {
 			expect(isSupportedFile('file.unknown')).toBe(false);
 			expect(isSupportedFile('file')).toBe(false);
-			expect(isSupportedFile('file.java')).toBe(false);
+			expect(isSupportedFile('file.xyz')).toBe(false);
 		});
 
 		it('should handle paths with directories', () => {
@@ -122,7 +200,7 @@ describe('Language Registry', () => {
 		});
 
 		it('should return null for files with no recognized extension', async () => {
-			const parser = await getParserForFile('file.java');
+			const parser = await getParserForFile('file.cobol');
 			expect(parser).toBeNull();
 		});
 
@@ -155,10 +233,10 @@ describe('Language Registry', () => {
 			}
 		});
 
-		it('should attempt to load grammar for .tsx files (TypeScript)', async () => {
+		it('should attempt to load grammar for .tsx files (TSX)', async () => {
 			try {
 				const parser = await getParserForFile('Component.tsx');
-				// Should resolve to TypeScript, not JavaScript
+				// TSX now has its own registry entry and grammar
 				expect(parser === null || typeof parser === 'object').toBe(true);
 			} catch {
 				expect(false).toBe(true);

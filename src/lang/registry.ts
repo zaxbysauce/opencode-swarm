@@ -15,7 +15,7 @@ export const languageDefinitions: LanguageDefinition[] = [
 	},
 	{
 		id: 'typescript',
-		extensions: ['.ts', '.tsx'],
+		extensions: ['.ts'],
 		commentNodes: ['comment', 'line_comment', 'block_comment'],
 	},
 	{
@@ -36,6 +36,76 @@ export const languageDefinitions: LanguageDefinition[] = [
 	{
 		id: 'php',
 		extensions: ['.php', '.phtml'],
+		commentNodes: ['comment'],
+	},
+	{
+		id: 'java',
+		extensions: ['.java'],
+		commentNodes: ['line_comment', 'block_comment'],
+	},
+	{
+		id: 'c',
+		extensions: ['.c', '.h'],
+		commentNodes: ['comment'],
+	},
+	{
+		id: 'cpp',
+		extensions: ['.cpp', '.cxx', '.cc', '.hpp', '.hxx', '.hh'],
+		commentNodes: ['comment'],
+	},
+	{
+		id: 'csharp',
+		extensions: ['.cs'],
+		commentNodes: ['comment'],
+	},
+	{
+		id: 'ruby',
+		extensions: ['.rb'],
+		commentNodes: ['comment'],
+	},
+	{
+		id: 'swift',
+		extensions: ['.swift'],
+		commentNodes: ['comment', 'multiline_comment'],
+	},
+	{
+		id: 'kotlin',
+		extensions: ['.kt', '.kts'],
+		commentNodes: ['line_comment', 'multiline_comment'],
+	},
+	{
+		id: 'dart',
+		extensions: ['.dart'],
+		commentNodes: ['comment', 'documentation_comment'],
+	},
+	{
+		id: 'css',
+		extensions: ['.css'],
+		commentNodes: ['comment'],
+	},
+	{
+		id: 'bash',
+		extensions: ['.sh', '.bash'],
+		commentNodes: ['comment'],
+	},
+	{
+		id: 'powershell',
+		extensions: ['.ps1', '.psm1'],
+		commentNodes: ['comment'],
+	},
+	{
+		id: 'ini',
+		extensions: ['.ini', '.cfg', '.conf'],
+		commentNodes: ['comment'],
+	},
+	{
+		id: 'regex',
+		extensions: ['.regex'],
+		commentNodes: [],
+	},
+	{
+		id: 'tsx',
+		extensions: ['.tsx'],
 		commentNodes: ['comment'],
 	},
 ];

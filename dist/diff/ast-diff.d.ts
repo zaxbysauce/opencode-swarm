@@ -1,10 +1,11 @@
 export interface ASTChange {
-    type: 'added' | 'modified' | 'removed';
+    type: 'added' | 'modified' | 'removed' | 'renamed';
     category: 'function' | 'class' | 'type' | 'export' | 'import' | 'variable' | 'other';
     name: string;
     lineStart: number;
     lineEnd: number;
     signature?: string;
+    renamedFrom?: string;
 }
 export interface ASTDiffResult {
     filePath: string;
