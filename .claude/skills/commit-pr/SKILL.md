@@ -51,7 +51,17 @@ This file is **mandatory on every PR, no exceptions**, including one-line fixes.
 
 Do **not** edit `package.json` version field, `CHANGELOG.md`, or `.release-please-manifest.json`. Release-please manages them; manual edits cause merge conflicts and break the pipeline.
 
-### Step 5 — Run the full 5-tier test suite before pushing
+### Step 5 — ⛔ MANDATORY: Run the full 5-tier test suite before pushing
+
+**This step is MANDATORY. It is not optional, skippable, or conditional.**
+
+Every tier MUST be run in order, regardless of:
+- Whether the swarm's internal QA gates already ran lint/checks (swarm scope ≠ CI scope)
+- Whether the change looks trivial or cosmetic
+- Whether tests passed locally in isolation
+- Whether you are in a hurry
+
+Skipping this step WILL cause CI failures that waste time and require a follow-up commit.
 
 Run every tier in order. Fix failures before proceeding.
 
@@ -176,7 +186,7 @@ Verify every item before asking for a merge:
 - [ ] That commit message matches the PR title exactly, and both follow `<type>(<scope>): <description>`
 - [ ] `docs/releases/v{NEXT_VERSION}.md` exists with meaningful release notes
 - [ ] `package.json` version, `CHANGELOG.md`, `.release-please-manifest.json` are untouched
-- [ ] All 5 test tiers pass locally, including `bunx biome ci .` on the full project (not scoped)
+- [ ] All 5 test tiers from Step 5 were actually run (not assumed — you must have the output in context), including `bunx biome ci .` on the full project (not scoped)
 - [ ] If the repo tracks `dist/` files: `bun run build` was run and dist/ artifacts are included in the squash commit
 - [ ] All workflow `uses:` references are SHA-pinned (if workflows changed)
 - [ ] PR body has `## Summary` and `## Test plan`
