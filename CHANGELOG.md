@@ -1,5 +1,12 @@
 # Changelog
 
+## [6.80.0](https://github.com/zaxbysauce/opencode-swarm/compare/v6.79.0...v6.80.0) (2026-04-20)
+
+
+### Features
+
+* **diff:** AST semantic diff summary pipeline with remediation fixes ([#557](https://github.com/zaxbysauce/opencode-swarm/issues/557)) ([c740998](https://github.com/zaxbysauce/opencode-swarm/commit/c7409987707de48759a57b9cb46edc9560cc31b6))
+
 ## [Unreleased]
 
 ### Features
