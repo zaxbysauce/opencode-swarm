@@ -1,5 +1,12 @@
 # Changelog
 
+## [6.79.0](https://github.com/zaxbysauce/opencode-swarm/compare/v6.78.0...v6.79.0) (2026-04-20)
+
+
+### Features
+
+* **state:** rehydrate council verdicts from disk evidence on session restart ([#554](https://github.com/zaxbysauce/opencode-swarm/issues/554)) ([9948f11](https://github.com/zaxbysauce/opencode-swarm/commit/9948f116d39434780efeeb7fd8314c222facf6d4))
+
 ## [6.78.0](https://github.com/zaxbysauce/opencode-swarm/compare/v6.77.0...v6.78.0) (2026-04-19)
 
 
