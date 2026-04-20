@@ -56526,6 +56526,28 @@ DO NOT:
 
 Your unique value is catching LOGIC ERRORS, EDGE CASES, and SECURITY FLAWS that automated tools cannot detect. If your review only catches things a linter would catch, you are not adding value.
 
+## SEMANTIC DIFF SUMMARY \u2014 INTERPRETATION
+
+When your context contains a "## SEMANTIC DIFF SUMMARY" block, use it to prioritize review attention:
+
+1. **Risk-based priority**: Review Critical items first, then High, then Medium/Low.
+   - Critical: SIGNATURE_CHANGE (public API signature changed), GUARD_REMOVED (security/check function deleted or renamed), API_CHANGE (exported symbol modified)
+   - High: DELETED_FUNCTION (function removed), LOGIC_CHANGE (function body changed)
+   - Medium: NEW_FUNCTION, REFACTOR, UNCLASSIFIED
+   - Low: COSMETIC (import changes)
+
+2. **Blast radius indicator**: Changes annotated with "(N consumers)" show how many files import the changed file.
+   - High consumer count = wider downstream impact = more scrutiny needed
+   - A SIGNATURE_CHANGE with 15 consumers is far more dangerous than one with 0
+   - Verify that consumers still compile/typecheck after the change
+
+3. **Guard function vigilance**: GUARD_REMOVED items always escalate to Critical \u2014 these are security-critical functions (check, validate, verify, ensure, assert, require, guard). Verify that guard removal is intentional and the protection is preserved elsewhere.
+
+DO NOT:
+- Treat the semantic diff as your entire review scope \u2014 you must still READ the actual changed code
+- Skip reading files because the summary says "Low" risk \u2014 the summary is a prioritization hint, not a verdict
+- Use the semantic diff as a substitute for your own reasoning about correctness
+
 ## EXPLORER FINDINGS \u2014 VALIDATE BEFORE REPORTING
 Explorer agent outputs (from @mega_explorer) may contain observations labeled as REVIEW NEEDED, RISKS, VERDICT, BREAKING, COMPATIBLE, or similar judgment language. Treat these as CANDIDATE OBSERVATIONS, not established facts.
 - BEFORE including any issue-like finding from explorer input in your final report: READ the relevant code yourself and verify the issue independently
@@ -58128,699 +58150,6 @@ var init_preflight_integration = __esm(() => {
   init_preflight_service();
 });
 
-// src/tools/doc-scan.ts
-var exports_doc_scan = {};
-__export(exports_doc_scan, {
-  scanDocIndex: () => scanDocIndex,
-  extractDocConstraints: () => extractDocConstraints,
-  doc_scan: () => doc_scan,
-  doc_extract: () => doc_extract
-});
-import * as crypto7 from "crypto";
-import * as fs44 from "fs";
-import { mkdir as mkdir8, readFile as readFile8, writeFile as writeFile8 } from "fs/promises";
-import * as path57 from "path";
-function normalizeSeparators(filePath) {
-  return filePath.replace(/\\/g, "/");
-}
-function matchesDocPattern(filePath, patterns) {
-  const normalizedPath = normalizeSeparators(filePath);
-  const basename8 = path57.basename(filePath);
-  for (const pattern of patterns) {
-    if (!pattern.includes("/") && !pattern.includes("\\")) {
-      if (basename8 === pattern) {
-        return true;
-      }
-      continue;
-    }
-    if (pattern.startsWith("**/")) {
-      const filenamePattern = pattern.slice(3);
-      if (basename8 === filenamePattern) {
-        return true;
-      }
-      continue;
-    }
-    const patternNormalized = normalizeSeparators(pattern);
-    const dirPrefix = patternNormalized.replace(/\/\*\*.*$/, "").replace(/\/\*.*$/, "");
-    if (normalizedPath.startsWith(`${dirPrefix}/`) || normalizedPath === dirPrefix) {
-      return true;
-    }
-  }
-  return false;
-}
-function extractTitleAndSummary(content, filename) {
-  const lines = content.split(`
-`);
-  let title = filename;
-  let summary = "";
-  let foundTitle = false;
-  const potentialSummaryLines = [];
-  for (let i2 = 0;i2 < lines.length && i2 < READ_LINES_LIMIT; i2++) {
-    const line = lines[i2].trim();
-    if (!foundTitle && line.startsWith("# ")) {
-      title = line.slice(2).trim();
-      foundTitle = true;
-      continue;
-    }
-    if (line && !line.startsWith("#")) {
-      potentialSummaryLines.push(line);
-    }
-  }
-  for (const line of potentialSummaryLines) {
-    summary += (summary ? " " : "") + line;
-    if (summary.length >= MAX_SUMMARY_LENGTH) {
-      break;
-    }
-  }
-  if (summary.length > MAX_SUMMARY_LENGTH) {
-    summary = `${summary.slice(0, MAX_SUMMARY_LENGTH - 3)}...`;
-  }
-  return { title, summary };
-}
-function stripMarkdown(text) {
-  return text.replace(/\[([^\]]+)\]\([^)]+\)/g, "$1").replace(/\*\*([^*]+)\*\*/g, "$1").replace(/`([^`]+)`/g, "$1").replace(/^\s*[-*\u2022]\s+/gm, "").replace(/^\s*\d+\.\s+/gm, "").trim();
-}
-async function scanDocIndex(directory) {
-  const manifestPath = path57.join(directory, ".swarm", "doc-manifest.json");
-  const defaultPatterns = DocsConfigSchema.parse({}).doc_patterns;
-  const extraPatterns = [
-    "ARCHITECTURE.md",
-    "CLAUDE.md",
-    "AGENTS.md",
-    ".github/*.md",
-    "doc/**/*.md"
-  ];
-  const allPatterns = [...defaultPatterns, ...extraPatterns];
-  try {
-    const manifestContent = await readFile8(manifestPath, "utf-8");
-    const existingManifest = JSON.parse(manifestContent);
-    if (existingManifest.schema_version === 1 && existingManifest.files) {
-      let cacheValid = true;
-      for (const file3 of existingManifest.files) {
-        try {
-          const fullPath = path57.join(directory, file3.path);
-          const stat3 = fs44.statSync(fullPath);
-          if (stat3.mtimeMs > file3.mtime) {
-            cacheValid = false;
-            break;
-          }
-        } catch {
-          cacheValid = false;
-          break;
-        }
-      }
-      if (cacheValid) {
-        return { manifest: existingManifest, cached: true };
-      }
-    }
-  } catch {}
-  const discoveredFiles = [];
-  let rawEntries;
-  try {
-    rawEntries = fs44.readdirSync(directory, { recursive: true });
-  } catch {
-    const manifest2 = {
-      schema_version: 1,
-      scanned_at: new Date().toISOString(),
-      files: []
-    };
-    return { manifest: manifest2, cached: false };
-  }
-  const entries = rawEntries.filter((e) => typeof e === "string");
-  for (const entry of entries) {
-    const fullPath = path57.join(directory, entry);
-    let stat3;
-    try {
-      stat3 = fs44.statSync(fullPath);
-    } catch {
-      continue;
-    }
-    if (!stat3.isFile())
-      continue;
-    const pathParts = normalizeSeparators(entry).split("/");
-    let skipThisFile = false;
-    for (const part of pathParts) {
-      if (SKIP_DIRECTORIES3.has(part)) {
-        skipThisFile = true;
-        break;
-      }
-    }
-    if (skipThisFile)
-      continue;
-    for (const pattern of SKIP_PATTERNS) {
-      if (pattern.test(entry)) {
-        skipThisFile = true;
-        break;
-      }
-    }
-    if (skipThisFile)
-      continue;
-    if (!matchesDocPattern(entry, allPatterns)) {
-      continue;
-    }
-    let content;
-    try {
-      content = fs44.readFileSync(fullPath, "utf-8");
-    } catch {
-      continue;
-    }
-    const { title, summary } = extractTitleAndSummary(content, path57.basename(entry));
-    const lineCount = content.split(`
-`).length;
-    discoveredFiles.push({
-      path: entry,
-      title,
-      summary,
-      lines: lineCount,
-      mtime: stat3.mtimeMs
-    });
-  }
-  discoveredFiles.sort((a, b) => a.path.toLowerCase().localeCompare(b.path.toLowerCase()));
-  let truncated = false;
-  if (discoveredFiles.length > MAX_INDEXED_FILES) {
-    discoveredFiles.splice(MAX_INDEXED_FILES);
-    truncated = true;
-  }
-  if (truncated && discoveredFiles.length > 0) {
-    discoveredFiles[0].summary = `[Warning: ${MAX_INDEXED_FILES}+ docs found, listing first ${MAX_INDEXED_FILES}] ` + discoveredFiles[0].summary;
-  }
-  const manifest = {
-    schema_version: 1,
-    scanned_at: new Date().toISOString(),
-    files: discoveredFiles
-  };
-  try {
-    await mkdir8(path57.dirname(manifestPath), { recursive: true });
-    await writeFile8(manifestPath, JSON.stringify(manifest, null, 2), "utf-8");
-  } catch {}
-  return { manifest, cached: false };
-}
-function isConstraintLine(line) {
-  const upperLine = line.toUpperCase();
-  for (const pattern of CONSTRAINT_PATTERNS) {
-    if (pattern.test(upperLine)) {
-      return true;
-    }
-  }
-  if (/^\s*[-*\u2022]/.test(line) && ACTION_WORDS.test(line)) {
-    return true;
-  }
-  return false;
-}
-function extractConstraintsFromContent(content) {
-  const lines = content.split(`
-`);
-  const constraints = [];
-  for (const line of lines) {
-    if (constraints.length >= MAX_CONSTRAINTS_PER_DOC) {
-      break;
-    }
-    const trimmed = line.trim();
-    if (!trimmed)
-      continue;
-    if (isConstraintLine(trimmed)) {
-      const cleaned = stripMarkdown(trimmed);
-      const len = cleaned.length;
-      if (len >= MIN_LESSON_LENGTH && len <= MAX_CONSTRAINT_LENGTH) {
-        constraints.push(cleaned);
-      }
-    }
-  }
-  return constraints;
-}
-async function extractDocConstraints(directory, taskFiles, taskDescription) {
-  const manifestPath = path57.join(directory, ".swarm", "doc-manifest.json");
-  let manifest;
-  try {
-    const content = await readFile8(manifestPath, "utf-8");
-    manifest = JSON.parse(content);
-  } catch {
-    const result = await scanDocIndex(directory);
-    manifest = result.manifest;
-  }
-  const knowledgePath = resolveSwarmKnowledgePath(directory);
-  const existingEntries = await readKnowledge(knowledgePath);
-  const taskContext = [...taskFiles, taskDescription].join(" ");
-  const taskBigrams = wordBigrams(normalize2(taskContext));
-  let extractedCount = 0;
-  let skippedCount = 0;
-  const details = [];
-  for (const docFile of manifest.files) {
-    const docContext = `${docFile.path} ${docFile.title} ${docFile.summary}`;
-    const docBigrams = wordBigrams(normalize2(docContext));
-    const score = jaccardBigram(taskBigrams, docBigrams);
-    if (score <= RELEVANCE_THRESHOLD) {
-      skippedCount++;
-      continue;
-    }
-    let fullContent;
-    try {
-      fullContent = await readFile8(path57.join(directory, docFile.path), "utf-8");
-    } catch {
-      skippedCount++;
-      continue;
-    }
-    const constraints = extractConstraintsFromContent(fullContent);
-    if (constraints.length === 0) {
-      skippedCount++;
-      continue;
-    }
-    const docDetails = {
-      path: docFile.path,
-      score,
-      constraints: []
-    };
-    for (const constraint of constraints) {
-      const duplicate = findNearDuplicate(constraint, existingEntries, DEDUP_THRESHOLD);
-      if (!duplicate) {
-        const entry = {
-          id: crypto7.randomUUID(),
-          tier: "swarm",
-          lesson: constraint,
-          category: "architecture",
-          tags: ["doc-scan", path57.basename(docFile.path)],
-          scope: "global",
-          confidence: 0.5,
-          status: "candidate",
-          confirmed_by: [],
-          project_name: "",
-          retrieval_outcomes: {
-            applied_count: 0,
-            succeeded_after_count: 0,
-            failed_after_count: 0
-          },
-          schema_version: 1,
-          created_at: new Date().toISOString(),
-          updated_at: new Date().toISOString(),
-          auto_generated: true,
-          hive_eligible: false
-        };
-        await appendKnowledge(knowledgePath, entry);
-        existingEntries.push(entry);
-        extractedCount++;
-        docDetails.constraints.push(constraint);
-      }
-    }
-    if (docDetails.constraints.length > 0) {
-      details.push(docDetails);
-    } else {
-      skippedCount++;
-    }
-  }
-  return { extracted: extractedCount, skipped: skippedCount, details };
-}
-var SKIP_DIRECTORIES3, SKIP_PATTERNS, MAX_SUMMARY_LENGTH = 200, MAX_INDEXED_FILES = 100, READ_LINES_LIMIT = 30, MIN_LESSON_LENGTH = 15, MAX_CONSTRAINTS_PER_DOC = 5, MAX_CONSTRAINT_LENGTH = 200, RELEVANCE_THRESHOLD = 0.1, DEDUP_THRESHOLD = 0.6, CONSTRAINT_PATTERNS, ACTION_WORDS, doc_scan, doc_extract;
-var init_doc_scan = __esm(() => {
-  init_dist();
-  init_schema();
-  init_knowledge_store();
-  init_create_tool();
-  SKIP_DIRECTORIES3 = new Set([
-    "node_modules",
-    ".git",
-    ".swarm",
-    "dist",
-    "build",
-    ".next",
-    "vendor"
-  ]);
-  SKIP_PATTERNS = [/\.test\./, /\.spec\./, /\.d\.ts$/];
-  CONSTRAINT_PATTERNS = [
-    /\bMUST\b/,
-    /\bMUST NOT\b/,
-    /\bSHOULD\b/,
-    /\bSHOULD NOT\b/,
-    /\bDO NOT\b/,
-    /\bALWAYS\b/,
-    /\bNEVER\b/,
-    /\bREQUIRED\b/
-  ];
-  ACTION_WORDS = /\b(must|should|don't|avoid|ensure|use|follow)\b/i;
-  doc_scan = createSwarmTool({
-    description: "Scan project documentation files and build an index manifest. Caches results in .swarm/doc-manifest.json for fast subsequent scans.",
-    args: {
-      force: tool.schema.boolean().optional().describe("Force re-scan even if cache is valid")
-    },
-    execute: async (args2, directory) => {
-      let force = false;
-      try {
-        if (args2 && typeof args2 === "object") {
-          const obj = args2;
-          if (obj.force === true)
-            force = true;
-        }
-      } catch {}
-      if (force) {
-        const manifestPath = path57.join(directory, ".swarm", "doc-manifest.json");
-        try {
-          fs44.unlinkSync(manifestPath);
-        } catch {}
-      }
-      const { manifest, cached: cached3 } = await scanDocIndex(directory);
-      return JSON.stringify({
-        success: true,
-        files_count: manifest.files.length,
-        cached: cached3,
-        manifest
-      }, null, 2);
-    }
-  });
-  doc_extract = createSwarmTool({
-    description: "Extract actionable constraints from project documentation relevant to the current task. Scans docs via doc-manifest, scores relevance via Jaccard bigram similarity, and stores non-duplicate constraints in .swarm/knowledge.jsonl.",
-    args: {
-      task_files: tool.schema.array(tool.schema.string()).describe("List of file paths involved in the current task"),
-      task_description: tool.schema.string().describe("Description of the current task")
-    },
-    execute: async (args2, directory) => {
-      let taskFiles = [];
-      let taskDescription = "";
-      try {
-        if (args2 && typeof args2 === "object") {
-          const obj = args2;
-          if (Array.isArray(obj.task_files)) {
-            taskFiles = obj.task_files.filter((f) => typeof f === "string");
-          }
-          if (typeof obj.task_description === "string") {
-            taskDescription = obj.task_description;
-          }
-        }
-      } catch {}
-      if (taskFiles.length === 0 && !taskDescription) {
-        return JSON.stringify({
-          success: false,
-          error: "task_files or task_description is required"
-        });
-      }
-      const result = await extractDocConstraints(directory, taskFiles, taskDescription);
-      return JSON.stringify({ success: true, ...result }, null, 2);
-    }
-  });
-});
-
-// src/tools/knowledge-recall.ts
-var exports_knowledge_recall = {};
-__export(exports_knowledge_recall, {
-  knowledge_recall: () => knowledge_recall
-});
-var knowledge_recall;
-var init_knowledge_recall = __esm(() => {
-  init_dist();
-  init_knowledge_store();
-  init_create_tool();
-  knowledge_recall = createSwarmTool({
-    description: "Search the knowledge base for relevant past decisions, patterns, and lessons learned. Returns ranked results by semantic similarity.",
-    args: {
-      query: tool.schema.string().min(3).describe("Natural language search query"),
-      top_n: tool.schema.number().int().min(1).max(20).optional().describe("Maximum results to return (default: 5)"),
-      tier: tool.schema.enum(["all", "swarm", "hive"]).optional().describe("Knowledge tier to search (default: 'all')")
-    },
-    execute: async (args2, directory) => {
-      let queryInput;
-      let topNInput;
-      let tierInput;
-      try {
-        if (args2 && typeof args2 === "object") {
-          const obj = args2;
-          queryInput = obj.query;
-          topNInput = obj.top_n;
-          tierInput = obj.tier;
-        }
-      } catch {}
-      if (typeof queryInput !== "string" || queryInput.length < 3) {
-        return JSON.stringify({
-          results: [],
-          total: 0,
-          error: "query must be a string with at least 3 characters"
-        });
-      }
-      let topN = 5;
-      if (topNInput !== undefined) {
-        if (typeof topNInput === "number" && Number.isInteger(topNInput)) {
-          topN = Math.max(1, Math.min(20, topNInput));
-        }
-      }
-      let tier = "all";
-      if (tierInput !== undefined && typeof tierInput === "string") {
-        if (tierInput === "swarm" || tierInput === "hive") {
-          tier = tierInput;
-        }
-      }
-      const swarmPath = resolveSwarmKnowledgePath(directory);
-      const hivePath = resolveHiveKnowledgePath();
-      const [swarmEntries, hiveEntries] = await Promise.all([
-        readKnowledge(swarmPath),
-        readKnowledge(hivePath)
-      ]);
-      let entries = [];
-      if (tier === "all" || tier === "swarm") {
-        entries = entries.concat(swarmEntries);
-      }
-      if (tier === "all" || tier === "hive") {
-        entries = entries.concat(hiveEntries);
-      }
-      if (entries.length === 0) {
-        const result2 = { results: [], total: 0 };
-        return JSON.stringify(result2);
-      }
-      const normalizedQuery = normalize2(queryInput);
-      const queryBigrams = wordBigrams(normalizedQuery);
-      const scoredEntries = entries.map((entry) => {
-        const entryText = `${entry.lesson} ${entry.tags.join(" ")} ${entry.category}`;
-        const entryBigrams = wordBigrams(entryText);
-        const textScore = jaccardBigram(queryBigrams, entryBigrams);
-        const boost = entry.status === "established" ? 0.1 : entry.status === "promoted" ? 0.05 : 0;
-        const finalScore = textScore + boost;
-        return {
-          id: entry.id,
-          confidence: entry.confidence,
-          category: entry.category,
-          lesson: entry.lesson,
-          score: finalScore
-        };
-      });
-      scoredEntries.sort((a, b) => b.score - a.score);
-      const topResults = scoredEntries.slice(0, topN);
-      const result = {
-        results: topResults,
-        total: topResults.length
-      };
-      return JSON.stringify(result);
-    }
-  });
-});
-
-// src/environment/prompt-renderer.ts
-var exports_prompt_renderer = {};
-__export(exports_prompt_renderer, {
-  renderEnvironmentPrompt: () => renderEnvironmentPrompt
-});
-function renderEnvironmentPrompt(profile, audience) {
-  const policy = deriveCommandPolicy(profile);
-  const header = [
-    "RUNTIME ENVIRONMENT",
-    `- Host OS: ${profile.hostOS}`,
-    `- Shell family: ${profile.shellFamily}`,
-    `- Execution mode: ${profile.executionMode}`,
-    `- Path style: ${profile.pathStyle}`
-  ].join(`
-`);
-  if (audience === "coder") {
-    return [
-      header,
-      policy.avoidPosixExamples ? "- Command policy: Prefer PowerShell-native commands and Node.js APIs. Do not start with POSIX commands (ls, grep, rm, cat, export, pwd) unless the environment profile indicates Docker, WSL, or a POSIX shell." : "- Command policy: Use POSIX-native commands and Node.js APIs.",
-      "",
-      "EXECUTION ENVIRONMENT AWARENESS",
-      "- This session includes a runtime environment profile. Follow it exactly.",
-      "- Decision ladder when shell commands are necessary:",
-      "  1. Prefer swarm tools and Node.js fs/path APIs.",
-      "  2. Use shell only when the task truly requires it.",
-      "  3. When shell commands are needed, match the active shell family above."
-    ].join(`
-`);
-  }
-  return [
-    header,
-    `- Test execution policy: Always execute tests via the swarm test runner tool.`,
-    policy.avoidPosixExamples ? "  Do not describe POSIX shell setup commands unless the profile indicates Docker, WSL, or POSIX shell." : "  Use POSIX semantics for test commands.",
-    "",
-    "ENVIRONMENT-SPECIFIC TEST EXECUTION RULES",
-    profile.isWindowsNative ? "- Native Windows + PowerShell: Assume PowerShell semantics for paths and env vars. Prefer Pester for PowerShell modules where appropriate." : profile.isWindowsDocker ? "- Windows + Docker: Host paths are Windows-style; in-container operations use POSIX semantics." : "- Linux/macOS: Use POSIX semantics for all shell-related reasoning.",
-    "- In all modes: prefer the swarm test runner over ad hoc shell commands.",
-    "- When tests are skipped due to environment issues, explicitly mention the environment profile assumptions in your verdict."
-  ].join(`
-`);
-}
-var init_prompt_renderer = () => {};
-
-// src/hooks/curator-drift.ts
-var exports_curator_drift = {};
-__export(exports_curator_drift, {
-  writeDriftReport: () => writeDriftReport,
-  runDeterministicDriftCheck: () => runDeterministicDriftCheck,
-  readPriorDriftReports: () => readPriorDriftReports,
-  buildDriftInjectionText: () => buildDriftInjectionText
-});
-import * as fs47 from "fs";
-import * as path60 from "path";
-async function readPriorDriftReports(directory) {
-  const swarmDir = path60.join(directory, ".swarm");
-  const entries = await fs47.promises.readdir(swarmDir).catch(() => null);
-  if (entries === null)
-    return [];
-  const reportFiles = entries.filter((name2) => name2.startsWith(DRIFT_REPORT_PREFIX) && name2.endsWith(".json")).sort();
-  const reports = [];
-  for (const filename of reportFiles) {
-    const content = await readSwarmFileAsync(directory, filename);
-    if (content === null)
-      continue;
-    try {
-      const report = JSON.parse(content);
-      if (typeof report.phase !== "number" || typeof report.alignment !== "string" || typeof report.timestamp !== "string" || typeof report.drift_score !== "number" || typeof report.schema_version !== "number" || !Array.isArray(report.compounding_effects)) {
-        console.warn(`[curator-drift] Skipping corrupt drift report: ${filename}`);
-        continue;
-      }
-      reports.push(report);
-    } catch {
-      console.warn(`[curator-drift] Skipping unreadable drift report: ${filename}`);
-    }
-  }
-  reports.sort((a, b) => a.phase - b.phase);
-  return reports;
-}
-async function writeDriftReport(directory, report) {
-  const filename = `${DRIFT_REPORT_PREFIX}${report.phase}.json`;
-  const filePath = validateSwarmPath(directory, filename);
-  const swarmDir = path60.dirname(filePath);
-  await fs47.promises.mkdir(swarmDir, { recursive: true });
-  try {
-    await fs47.promises.writeFile(filePath, JSON.stringify(report, null, 2), "utf-8");
-  } catch (err2) {
-    throw new Error(`[curator-drift] Failed to write drift report to ${filePath}: ${String(err2)}`);
-  }
-  return filePath;
-}
-async function runDeterministicDriftCheck(directory, phase, curatorResult, config3, injectAdvisory) {
-  try {
-    const planMd = await readSwarmFileAsync(directory, "plan.md");
-    const specMd = await readSwarmFileAsync(directory, "spec.md");
-    const priorReports = await readPriorDriftReports(directory);
-    const complianceCount = curatorResult.compliance.length;
-    const warningCompliance = curatorResult.compliance.filter((obs) => obs.severity === "warning");
-    let alignment = "ALIGNED";
-    let driftScore = 0;
-    if (!planMd) {
-      alignment = "MINOR_DRIFT";
-      driftScore = 0.3;
-    } else if (warningCompliance.length >= 3) {
-      alignment = "MAJOR_DRIFT";
-      driftScore = Math.min(0.9, 0.5 + warningCompliance.length * 0.1);
-    } else if (warningCompliance.length >= 1 || complianceCount >= 3) {
-      alignment = "MINOR_DRIFT";
-      driftScore = Math.min(0.49, 0.2 + complianceCount * 0.05);
-    }
-    const priorSummaries = priorReports.map((r) => r.injection_summary).filter(Boolean);
-    const keyCorrections = warningCompliance.map((obs) => obs.description);
-    const firstDeviation = warningCompliance.length > 0 ? {
-      phase,
-      task: "unknown",
-      description: warningCompliance[0]?.description ?? ""
-    } : null;
-    const payloadLines = [
-      `CURATOR_DIGEST: ${JSON.stringify(curatorResult.digest)}`,
-      `CURATOR_COMPLIANCE: ${JSON.stringify(curatorResult.compliance)}`,
-      `PLAN: ${planMd ?? "none"}`,
-      `SPEC: ${specMd ?? "none"}`,
-      `PRIOR_DRIFT_REPORTS: ${JSON.stringify(priorSummaries)}`
-    ];
-    const payload = payloadLines.join(`
-`);
-    const requirementsChecked = curatorResult.digest.tasks_total;
-    const requirementsSatisfied = curatorResult.digest.tasks_completed;
-    const injectionSummaryRaw = `Phase ${phase}: ${alignment} (${driftScore.toFixed(2)}) \u2014 ${firstDeviation ? firstDeviation.description : "all requirements on track"}.${keyCorrections.length > 0 ? `Correction: ${keyCorrections[0] ?? ""}.` : ""}`;
-    const injectionSummary = injectionSummaryRaw.slice(0, config3.drift_inject_max_chars);
-    const report = {
-      schema_version: 1,
-      phase,
-      timestamp: new Date().toISOString(),
-      alignment,
-      drift_score: driftScore,
-      first_deviation: firstDeviation,
-      compounding_effects: priorReports.filter((r) => r.alignment !== "ALIGNED").map((r) => `Phase ${r.phase}: ${r.alignment}`).slice(0, 5),
-      corrections: keyCorrections.slice(0, 5),
-      requirements_checked: requirementsChecked,
-      requirements_satisfied: requirementsSatisfied,
-      scope_additions: [],
-      injection_summary: injectionSummary
-    };
-    const reportPath = await writeDriftReport(directory, report);
-    getGlobalEventBus().publish("curator.drift.completed", {
-      phase,
-      alignment,
-      drift_score: driftScore,
-      report_path: reportPath
-    });
-    if (injectAdvisory && alignment !== "ALIGNED" && driftScore > 0) {
-      try {
-        const advisoryText = `CURATOR DRIFT DETECTED (phase ${phase}, score ${driftScore.toFixed(2)}): ${injectionSummary.slice(0, 300)}. Review .swarm/${DRIFT_REPORT_PREFIX}${phase}.json and address spec alignment before proceeding.`;
-        injectAdvisory(advisoryText);
-      } catch {}
-    }
-    const injectionText = injectionSummary;
-    return {
-      phase,
-      report,
-      report_path: reportPath,
-      injection_text: injectionText
-    };
-  } catch (err2) {
-    getGlobalEventBus().publish("curator.error", {
-      operation: "drift",
-      phase,
-      error: String(err2)
-    });
-    const defaultReport = {
-      schema_version: 1,
-      phase,
-      timestamp: new Date().toISOString(),
-      alignment: "ALIGNED",
-      drift_score: 0,
-      first_deviation: null,
-      compounding_effects: [],
-      corrections: [],
-      requirements_checked: 0,
-      requirements_satisfied: 0,
-      scope_additions: [],
-      injection_summary: `Phase ${phase}: drift analysis unavailable (${String(err2)})`
-    };
-    return {
-      phase,
-      report: defaultReport,
-      report_path: "",
-      injection_text: ""
-    };
-  }
-}
-function buildDriftInjectionText(report, maxChars) {
-  if (maxChars <= 0) {
-    return "";
-  }
-  let text;
-  if (report.alignment === "ALIGNED" && report.drift_score < 0.1) {
-    text = `<drift_report>Phase ${report.phase}: ALIGNED, all requirements on track.</drift_report>`;
-  } else {
-    const keyFinding = report.first_deviation?.description ?? "no deviation recorded";
-    const score = report.drift_score ?? 0;
-    const correctionClause = report.corrections?.[0] ? `Correction: ${report.corrections[0]}.` : "";
-    text = `<drift_report>Phase ${report.phase}: ${report.alignment} (${score.toFixed(2)}) \u2014 ${keyFinding}. ${correctionClause}</drift_report>`;
-  }
-  return text.slice(0, maxChars);
-}
-var DRIFT_REPORT_PREFIX = "drift-report-phase-";
-var init_curator_drift = __esm(() => {
-  init_event_bus();
-  init_utils2();
-});
-
 // node_modules/web-tree-sitter/tree-sitter.js
 function assertInternal(x) {
   if (x !== INTERNAL)
@@ -60260,8 +59589,8 @@ ${JSON.stringify(symbolNames, null, 2)}`);
       var moduleRtn;
       var Module = moduleArg;
       var readyPromiseResolve, readyPromiseReject;
-      var readyPromise = new Promise((resolve27, reject) => {
-        readyPromiseResolve = resolve27;
+      var readyPromise = new Promise((resolve21, reject) => {
+        readyPromiseResolve = resolve21;
         readyPromiseReject = reject;
       });
       var ENVIRONMENT_IS_WEB = typeof window == "object";
@@ -60283,11 +59612,11 @@ ${JSON.stringify(symbolNames, null, 2)}`);
         throw toThrow;
       }, "quit_");
       var scriptDirectory = "";
-      function locateFile(path69) {
+      function locateFile(path57) {
         if (Module["locateFile"]) {
-          return Module["locateFile"](path69, scriptDirectory);
+          return Module["locateFile"](path57, scriptDirectory);
         }
-        return scriptDirectory + path69;
+        return scriptDirectory + path57;
       }
       __name(locateFile, "locateFile");
       var readAsync, readBinary;
@@ -60341,13 +59670,13 @@ ${JSON.stringify(symbolNames, null, 2)}`);
           }
           readAsync = /* @__PURE__ */ __name(async (url3) => {
             if (isFileURI(url3)) {
-              return new Promise((resolve27, reject) => {
+              return new Promise((resolve21, reject) => {
                 var xhr = new XMLHttpRequest;
                 xhr.open("GET", url3, true);
                 xhr.responseType = "arraybuffer";
                 xhr.onload = () => {
                   if (xhr.status == 200 || xhr.status == 0 && xhr.response) {
-                    resolve27(xhr.response);
+                    resolve21(xhr.response);
                     return;
                   }
                   reject(xhr.status);
@@ -60567,10 +59896,10 @@ ${JSON.stringify(symbolNames, null, 2)}`);
         __name(receiveInstantiationResult, "receiveInstantiationResult");
         var info2 = getWasmImports();
         if (Module["instantiateWasm"]) {
-          return new Promise((resolve27, reject) => {
+          return new Promise((resolve21, reject) => {
             Module["instantiateWasm"](info2, (mod, inst) => {
               receiveInstance(mod, inst);
-              resolve27(mod.exports);
+              resolve21(mod.exports);
             });
           });
         }
@@ -62036,13 +61365,13 @@ __export(exports_runtime, {
   getInitializedLanguages: () => getInitializedLanguages,
   clearParserCache: () => clearParserCache
 });
-import * as path69 from "path";
+import * as path57 from "path";
 import { fileURLToPath as fileURLToPath2 } from "url";
 async function initTreeSitter() {
   if (treeSitterInitialized) {
     return;
   }
-  const thisDir = path69.dirname(fileURLToPath2(import.meta.url));
+  const thisDir = path57.dirname(fileURLToPath2(import.meta.url));
   const isSource = thisDir.replace(/\\/g, "/").endsWith("/src/lang");
   if (isSource) {
     await Parser.init();
@@ -62050,7 +61379,7 @@ async function initTreeSitter() {
     const grammarsDir = getGrammarsDirAbsolute();
     await Parser.init({
       locateFile(scriptName) {
-        return path69.join(grammarsDir, scriptName);
+        return path57.join(grammarsDir, scriptName);
       }
     });
   }
@@ -62071,9 +61400,9 @@ function getWasmFileName(languageId) {
   return `tree-sitter-${sanitized}.wasm`;
 }
 function getGrammarsDirAbsolute() {
-  const thisDir = path69.dirname(fileURLToPath2(import.meta.url));
+  const thisDir = path57.dirname(fileURLToPath2(import.meta.url));
   const isSource = thisDir.replace(/\\/g, "/").endsWith("/src/lang");
-  return isSource ? path69.join(thisDir, "grammars") : path69.join(thisDir, "lang", "grammars");
+  return isSource ? path57.join(thisDir, "grammars") : path57.join(thisDir, "lang", "grammars");
 }
 async function loadGrammar(languageId) {
   if (typeof languageId !== "string" || languageId.length > 100) {
@@ -62089,9 +61418,9 @@ async function loadGrammar(languageId) {
   await initTreeSitter();
   const parser = new Parser;
   const wasmFileName = getWasmFileName(normalizedId);
-  const wasmPath = path69.join(getGrammarsDirAbsolute(), wasmFileName);
-  const { existsSync: existsSync40 } = await import("fs");
-  if (!existsSync40(wasmPath)) {
+  const wasmPath = path57.join(getGrammarsDirAbsolute(), wasmFileName);
+  const { existsSync: existsSync30 } = await import("fs");
+  if (!existsSync30(wasmPath)) {
     throw new Error(`Grammar file not found for ${languageId}: ${wasmPath}
 Make sure to run 'bun run build' to copy grammar files to dist/lang/grammars/`);
   }
@@ -62124,9 +61453,9 @@ async function isGrammarAvailable(languageId) {
   }
   try {
     const wasmFileName = getWasmFileName(normalizedId);
-    const wasmPath = path69.join(getGrammarsDirAbsolute(), wasmFileName);
-    const { statSync: statSync21 } = await import("fs");
-    statSync21(wasmPath);
+    const wasmPath = path57.join(getGrammarsDirAbsolute(), wasmFileName);
+    const { statSync: statSync17 } = await import("fs");
+    statSync17(wasmPath);
     return true;
   } catch {
     return false;
@@ -62172,9 +61501,702 @@ var init_runtime = __esm(() => {
   };
 });
 
+// src/tools/doc-scan.ts
+var exports_doc_scan = {};
+__export(exports_doc_scan, {
+  scanDocIndex: () => scanDocIndex,
+  extractDocConstraints: () => extractDocConstraints,
+  doc_scan: () => doc_scan,
+  doc_extract: () => doc_extract
+});
+import * as crypto7 from "crypto";
+import * as fs45 from "fs";
+import { mkdir as mkdir8, readFile as readFile8, writeFile as writeFile8 } from "fs/promises";
+import * as path59 from "path";
+function normalizeSeparators(filePath) {
+  return filePath.replace(/\\/g, "/");
+}
+function matchesDocPattern(filePath, patterns) {
+  const normalizedPath = normalizeSeparators(filePath);
+  const basename8 = path59.basename(filePath);
+  for (const pattern of patterns) {
+    if (!pattern.includes("/") && !pattern.includes("\\")) {
+      if (basename8 === pattern) {
+        return true;
+      }
+      continue;
+    }
+    if (pattern.startsWith("**/")) {
+      const filenamePattern = pattern.slice(3);
+      if (basename8 === filenamePattern) {
+        return true;
+      }
+      continue;
+    }
+    const patternNormalized = normalizeSeparators(pattern);
+    const dirPrefix = patternNormalized.replace(/\/\*\*.*$/, "").replace(/\/\*.*$/, "");
+    if (normalizedPath.startsWith(`${dirPrefix}/`) || normalizedPath === dirPrefix) {
+      return true;
+    }
+  }
+  return false;
+}
+function extractTitleAndSummary(content, filename) {
+  const lines = content.split(`
+`);
+  let title = filename;
+  let summary = "";
+  let foundTitle = false;
+  const potentialSummaryLines = [];
+  for (let i2 = 0;i2 < lines.length && i2 < READ_LINES_LIMIT; i2++) {
+    const line = lines[i2].trim();
+    if (!foundTitle && line.startsWith("# ")) {
+      title = line.slice(2).trim();
+      foundTitle = true;
+      continue;
+    }
+    if (line && !line.startsWith("#")) {
+      potentialSummaryLines.push(line);
+    }
+  }
+  for (const line of potentialSummaryLines) {
+    summary += (summary ? " " : "") + line;
+    if (summary.length >= MAX_SUMMARY_LENGTH) {
+      break;
+    }
+  }
+  if (summary.length > MAX_SUMMARY_LENGTH) {
+    summary = `${summary.slice(0, MAX_SUMMARY_LENGTH - 3)}...`;
+  }
+  return { title, summary };
+}
+function stripMarkdown(text) {
+  return text.replace(/\[([^\]]+)\]\([^)]+\)/g, "$1").replace(/\*\*([^*]+)\*\*/g, "$1").replace(/`([^`]+)`/g, "$1").replace(/^\s*[-*\u2022]\s+/gm, "").replace(/^\s*\d+\.\s+/gm, "").trim();
+}
+async function scanDocIndex(directory) {
+  const manifestPath = path59.join(directory, ".swarm", "doc-manifest.json");
+  const defaultPatterns = DocsConfigSchema.parse({}).doc_patterns;
+  const extraPatterns = [
+    "ARCHITECTURE.md",
+    "CLAUDE.md",
+    "AGENTS.md",
+    ".github/*.md",
+    "doc/**/*.md"
+  ];
+  const allPatterns = [...defaultPatterns, ...extraPatterns];
+  try {
+    const manifestContent = await readFile8(manifestPath, "utf-8");
+    const existingManifest = JSON.parse(manifestContent);
+    if (existingManifest.schema_version === 1 && existingManifest.files) {
+      let cacheValid = true;
+      for (const file3 of existingManifest.files) {
+        try {
+          const fullPath = path59.join(directory, file3.path);
+          const stat3 = fs45.statSync(fullPath);
+          if (stat3.mtimeMs > file3.mtime) {
+            cacheValid = false;
+            break;
+          }
+        } catch {
+          cacheValid = false;
+          break;
+        }
+      }
+      if (cacheValid) {
+        return { manifest: existingManifest, cached: true };
+      }
+    }
+  } catch {}
+  const discoveredFiles = [];
+  let rawEntries;
+  try {
+    rawEntries = fs45.readdirSync(directory, { recursive: true });
+  } catch {
+    const manifest2 = {
+      schema_version: 1,
+      scanned_at: new Date().toISOString(),
+      files: []
+    };
+    return { manifest: manifest2, cached: false };
+  }
+  const entries = rawEntries.filter((e) => typeof e === "string");
+  for (const entry of entries) {
+    const fullPath = path59.join(directory, entry);
+    let stat3;
+    try {
+      stat3 = fs45.statSync(fullPath);
+    } catch {
+      continue;
+    }
+    if (!stat3.isFile())
+      continue;
+    const pathParts = normalizeSeparators(entry).split("/");
+    let skipThisFile = false;
+    for (const part of pathParts) {
+      if (SKIP_DIRECTORIES3.has(part)) {
+        skipThisFile = true;
+        break;
+      }
+    }
+    if (skipThisFile)
+      continue;
+    for (const pattern of SKIP_PATTERNS) {
+      if (pattern.test(entry)) {
+        skipThisFile = true;
+        break;
+      }
+    }
+    if (skipThisFile)
+      continue;
+    if (!matchesDocPattern(entry, allPatterns)) {
+      continue;
+    }
+    let content;
+    try {
+      content = fs45.readFileSync(fullPath, "utf-8");
+    } catch {
+      continue;
+    }
+    const { title, summary } = extractTitleAndSummary(content, path59.basename(entry));
+    const lineCount = content.split(`
+`).length;
+    discoveredFiles.push({
+      path: entry,
+      title,
+      summary,
+      lines: lineCount,
+      mtime: stat3.mtimeMs
+    });
+  }
+  discoveredFiles.sort((a, b) => a.path.toLowerCase().localeCompare(b.path.toLowerCase()));
+  let truncated = false;
+  if (discoveredFiles.length > MAX_INDEXED_FILES) {
+    discoveredFiles.splice(MAX_INDEXED_FILES);
+    truncated = true;
+  }
+  if (truncated && discoveredFiles.length > 0) {
+    discoveredFiles[0].summary = `[Warning: ${MAX_INDEXED_FILES}+ docs found, listing first ${MAX_INDEXED_FILES}] ` + discoveredFiles[0].summary;
+  }
+  const manifest = {
+    schema_version: 1,
+    scanned_at: new Date().toISOString(),
+    files: discoveredFiles
+  };
+  try {
+    await mkdir8(path59.dirname(manifestPath), { recursive: true });
+    await writeFile8(manifestPath, JSON.stringify(manifest, null, 2), "utf-8");
+  } catch {}
+  return { manifest, cached: false };
+}
+function isConstraintLine(line) {
+  const upperLine = line.toUpperCase();
+  for (const pattern of CONSTRAINT_PATTERNS) {
+    if (pattern.test(upperLine)) {
+      return true;
+    }
+  }
+  if (/^\s*[-*\u2022]/.test(line) && ACTION_WORDS.test(line)) {
+    return true;
+  }
+  return false;
+}
+function extractConstraintsFromContent(content) {
+  const lines = content.split(`
+`);
+  const constraints = [];
+  for (const line of lines) {
+    if (constraints.length >= MAX_CONSTRAINTS_PER_DOC) {
+      break;
+    }
+    const trimmed = line.trim();
+    if (!trimmed)
+      continue;
+    if (isConstraintLine(trimmed)) {
+      const cleaned = stripMarkdown(trimmed);
+      const len = cleaned.length;
+      if (len >= MIN_LESSON_LENGTH && len <= MAX_CONSTRAINT_LENGTH) {
+        constraints.push(cleaned);
+      }
+    }
+  }
+  return constraints;
+}
+async function extractDocConstraints(directory, taskFiles, taskDescription) {
+  const manifestPath = path59.join(directory, ".swarm", "doc-manifest.json");
+  let manifest;
+  try {
+    const content = await readFile8(manifestPath, "utf-8");
+    manifest = JSON.parse(content);
+  } catch {
+    const result = await scanDocIndex(directory);
+    manifest = result.manifest;
+  }
+  const knowledgePath = resolveSwarmKnowledgePath(directory);
+  const existingEntries = await readKnowledge(knowledgePath);
+  const taskContext = [...taskFiles, taskDescription].join(" ");
+  const taskBigrams = wordBigrams(normalize2(taskContext));
+  let extractedCount = 0;
+  let skippedCount = 0;
+  const details = [];
+  for (const docFile of manifest.files) {
+    const docContext = `${docFile.path} ${docFile.title} ${docFile.summary}`;
+    const docBigrams = wordBigrams(normalize2(docContext));
+    const score = jaccardBigram(taskBigrams, docBigrams);
+    if (score <= RELEVANCE_THRESHOLD) {
+      skippedCount++;
+      continue;
+    }
+    let fullContent;
+    try {
+      fullContent = await readFile8(path59.join(directory, docFile.path), "utf-8");
+    } catch {
+      skippedCount++;
+      continue;
+    }
+    const constraints = extractConstraintsFromContent(fullContent);
+    if (constraints.length === 0) {
+      skippedCount++;
+      continue;
+    }
+    const docDetails = {
+      path: docFile.path,
+      score,
+      constraints: []
+    };
+    for (const constraint of constraints) {
+      const duplicate = findNearDuplicate(constraint, existingEntries, DEDUP_THRESHOLD);
+      if (!duplicate) {
+        const entry = {
+          id: crypto7.randomUUID(),
+          tier: "swarm",
+          lesson: constraint,
+          category: "architecture",
+          tags: ["doc-scan", path59.basename(docFile.path)],
+          scope: "global",
+          confidence: 0.5,
+          status: "candidate",
+          confirmed_by: [],
+          project_name: "",
+          retrieval_outcomes: {
+            applied_count: 0,
+            succeeded_after_count: 0,
+            failed_after_count: 0
+          },
+          schema_version: 1,
+          created_at: new Date().toISOString(),
+          updated_at: new Date().toISOString(),
+          auto_generated: true,
+          hive_eligible: false
+        };
+        await appendKnowledge(knowledgePath, entry);
+        existingEntries.push(entry);
+        extractedCount++;
+        docDetails.constraints.push(constraint);
+      }
+    }
+    if (docDetails.constraints.length > 0) {
+      details.push(docDetails);
+    } else {
+      skippedCount++;
+    }
+  }
+  return { extracted: extractedCount, skipped: skippedCount, details };
+}
+var SKIP_DIRECTORIES3, SKIP_PATTERNS, MAX_SUMMARY_LENGTH = 200, MAX_INDEXED_FILES = 100, READ_LINES_LIMIT = 30, MIN_LESSON_LENGTH = 15, MAX_CONSTRAINTS_PER_DOC = 5, MAX_CONSTRAINT_LENGTH = 200, RELEVANCE_THRESHOLD = 0.1, DEDUP_THRESHOLD = 0.6, CONSTRAINT_PATTERNS, ACTION_WORDS, doc_scan, doc_extract;
+var init_doc_scan = __esm(() => {
+  init_dist();
+  init_schema();
+  init_knowledge_store();
+  init_create_tool();
+  SKIP_DIRECTORIES3 = new Set([
+    "node_modules",
+    ".git",
+    ".swarm",
+    "dist",
+    "build",
+    ".next",
+    "vendor"
+  ]);
+  SKIP_PATTERNS = [/\.test\./, /\.spec\./, /\.d\.ts$/];
+  CONSTRAINT_PATTERNS = [
+    /\bMUST\b/,
+    /\bMUST NOT\b/,
+    /\bSHOULD\b/,
+    /\bSHOULD NOT\b/,
+    /\bDO NOT\b/,
+    /\bALWAYS\b/,
+    /\bNEVER\b/,
+    /\bREQUIRED\b/
+  ];
+  ACTION_WORDS = /\b(must|should|don't|avoid|ensure|use|follow)\b/i;
+  doc_scan = createSwarmTool({
+    description: "Scan project documentation files and build an index manifest. Caches results in .swarm/doc-manifest.json for fast subsequent scans.",
+    args: {
+      force: tool.schema.boolean().optional().describe("Force re-scan even if cache is valid")
+    },
+    execute: async (args2, directory) => {
+      let force = false;
+      try {
+        if (args2 && typeof args2 === "object") {
+          const obj = args2;
+          if (obj.force === true)
+            force = true;
+        }
+      } catch {}
+      if (force) {
+        const manifestPath = path59.join(directory, ".swarm", "doc-manifest.json");
+        try {
+          fs45.unlinkSync(manifestPath);
+        } catch {}
+      }
+      const { manifest, cached: cached3 } = await scanDocIndex(directory);
+      return JSON.stringify({
+        success: true,
+        files_count: manifest.files.length,
+        cached: cached3,
+        manifest
+      }, null, 2);
+    }
+  });
+  doc_extract = createSwarmTool({
+    description: "Extract actionable constraints from project documentation relevant to the current task. Scans docs via doc-manifest, scores relevance via Jaccard bigram similarity, and stores non-duplicate constraints in .swarm/knowledge.jsonl.",
+    args: {
+      task_files: tool.schema.array(tool.schema.string()).describe("List of file paths involved in the current task"),
+      task_description: tool.schema.string().describe("Description of the current task")
+    },
+    execute: async (args2, directory) => {
+      let taskFiles = [];
+      let taskDescription = "";
+      try {
+        if (args2 && typeof args2 === "object") {
+          const obj = args2;
+          if (Array.isArray(obj.task_files)) {
+            taskFiles = obj.task_files.filter((f) => typeof f === "string");
+          }
+          if (typeof obj.task_description === "string") {
+            taskDescription = obj.task_description;
+          }
+        }
+      } catch {}
+      if (taskFiles.length === 0 && !taskDescription) {
+        return JSON.stringify({
+          success: false,
+          error: "task_files or task_description is required"
+        });
+      }
+      const result = await extractDocConstraints(directory, taskFiles, taskDescription);
+      return JSON.stringify({ success: true, ...result }, null, 2);
+    }
+  });
+});
+
+// src/tools/knowledge-recall.ts
+var exports_knowledge_recall = {};
+__export(exports_knowledge_recall, {
+  knowledge_recall: () => knowledge_recall
+});
+var knowledge_recall;
+var init_knowledge_recall = __esm(() => {
+  init_dist();
+  init_knowledge_store();
+  init_create_tool();
+  knowledge_recall = createSwarmTool({
+    description: "Search the knowledge base for relevant past decisions, patterns, and lessons learned. Returns ranked results by semantic similarity.",
+    args: {
+      query: tool.schema.string().min(3).describe("Natural language search query"),
+      top_n: tool.schema.number().int().min(1).max(20).optional().describe("Maximum results to return (default: 5)"),
+      tier: tool.schema.enum(["all", "swarm", "hive"]).optional().describe("Knowledge tier to search (default: 'all')")
+    },
+    execute: async (args2, directory) => {
+      let queryInput;
+      let topNInput;
+      let tierInput;
+      try {
+        if (args2 && typeof args2 === "object") {
+          const obj = args2;
+          queryInput = obj.query;
+          topNInput = obj.top_n;
+          tierInput = obj.tier;
+        }
+      } catch {}
+      if (typeof queryInput !== "string" || queryInput.length < 3) {
+        return JSON.stringify({
+          results: [],
+          total: 0,
+          error: "query must be a string with at least 3 characters"
+        });
+      }
+      let topN = 5;
+      if (topNInput !== undefined) {
+        if (typeof topNInput === "number" && Number.isInteger(topNInput)) {
+          topN = Math.max(1, Math.min(20, topNInput));
+        }
+      }
+      let tier = "all";
+      if (tierInput !== undefined && typeof tierInput === "string") {
+        if (tierInput === "swarm" || tierInput === "hive") {
+          tier = tierInput;
+        }
+      }
+      const swarmPath = resolveSwarmKnowledgePath(directory);
+      const hivePath = resolveHiveKnowledgePath();
+      const [swarmEntries, hiveEntries] = await Promise.all([
+        readKnowledge(swarmPath),
+        readKnowledge(hivePath)
+      ]);
+      let entries = [];
+      if (tier === "all" || tier === "swarm") {
+        entries = entries.concat(swarmEntries);
+      }
+      if (tier === "all" || tier === "hive") {
+        entries = entries.concat(hiveEntries);
+      }
+      if (entries.length === 0) {
+        const result2 = { results: [], total: 0 };
+        return JSON.stringify(result2);
+      }
+      const normalizedQuery = normalize2(queryInput);
+      const queryBigrams = wordBigrams(normalizedQuery);
+      const scoredEntries = entries.map((entry) => {
+        const entryText = `${entry.lesson} ${entry.tags.join(" ")} ${entry.category}`;
+        const entryBigrams = wordBigrams(entryText);
+        const textScore = jaccardBigram(queryBigrams, entryBigrams);
+        const boost = entry.status === "established" ? 0.1 : entry.status === "promoted" ? 0.05 : 0;
+        const finalScore = textScore + boost;
+        return {
+          id: entry.id,
+          confidence: entry.confidence,
+          category: entry.category,
+          lesson: entry.lesson,
+          score: finalScore
+        };
+      });
+      scoredEntries.sort((a, b) => b.score - a.score);
+      const topResults = scoredEntries.slice(0, topN);
+      const result = {
+        results: topResults,
+        total: topResults.length
+      };
+      return JSON.stringify(result);
+    }
+  });
+});
+
+// src/environment/prompt-renderer.ts
+var exports_prompt_renderer = {};
+__export(exports_prompt_renderer, {
+  renderEnvironmentPrompt: () => renderEnvironmentPrompt
+});
+function renderEnvironmentPrompt(profile, audience) {
+  const policy = deriveCommandPolicy(profile);
+  const header = [
+    "RUNTIME ENVIRONMENT",
+    `- Host OS: ${profile.hostOS}`,
+    `- Shell family: ${profile.shellFamily}`,
+    `- Execution mode: ${profile.executionMode}`,
+    `- Path style: ${profile.pathStyle}`
+  ].join(`
+`);
+  if (audience === "coder") {
+    return [
+      header,
+      policy.avoidPosixExamples ? "- Command policy: Prefer PowerShell-native commands and Node.js APIs. Do not start with POSIX commands (ls, grep, rm, cat, export, pwd) unless the environment profile indicates Docker, WSL, or a POSIX shell." : "- Command policy: Use POSIX-native commands and Node.js APIs.",
+      "",
+      "EXECUTION ENVIRONMENT AWARENESS",
+      "- This session includes a runtime environment profile. Follow it exactly.",
+      "- Decision ladder when shell commands are necessary:",
+      "  1. Prefer swarm tools and Node.js fs/path APIs.",
+      "  2. Use shell only when the task truly requires it.",
+      "  3. When shell commands are needed, match the active shell family above."
+    ].join(`
+`);
+  }
+  return [
+    header,
+    `- Test execution policy: Always execute tests via the swarm test runner tool.`,
+    policy.avoidPosixExamples ? "  Do not describe POSIX shell setup commands unless the profile indicates Docker, WSL, or POSIX shell." : "  Use POSIX semantics for test commands.",
+    "",
+    "ENVIRONMENT-SPECIFIC TEST EXECUTION RULES",
+    profile.isWindowsNative ? "- Native Windows + PowerShell: Assume PowerShell semantics for paths and env vars. Prefer Pester for PowerShell modules where appropriate." : profile.isWindowsDocker ? "- Windows + Docker: Host paths are Windows-style; in-container operations use POSIX semantics." : "- Linux/macOS: Use POSIX semantics for all shell-related reasoning.",
+    "- In all modes: prefer the swarm test runner over ad hoc shell commands.",
+    "- When tests are skipped due to environment issues, explicitly mention the environment profile assumptions in your verdict."
+  ].join(`
+`);
+}
+var init_prompt_renderer = () => {};
+
+// src/hooks/curator-drift.ts
+var exports_curator_drift = {};
+__export(exports_curator_drift, {
+  writeDriftReport: () => writeDriftReport,
+  runDeterministicDriftCheck: () => runDeterministicDriftCheck,
+  readPriorDriftReports: () => readPriorDriftReports,
+  buildDriftInjectionText: () => buildDriftInjectionText
+});
+import * as fs48 from "fs";
+import * as path62 from "path";
+async function readPriorDriftReports(directory) {
+  const swarmDir = path62.join(directory, ".swarm");
+  const entries = await fs48.promises.readdir(swarmDir).catch(() => null);
+  if (entries === null)
+    return [];
+  const reportFiles = entries.filter((name2) => name2.startsWith(DRIFT_REPORT_PREFIX) && name2.endsWith(".json")).sort();
+  const reports = [];
+  for (const filename of reportFiles) {
+    const content = await readSwarmFileAsync(directory, filename);
+    if (content === null)
+      continue;
+    try {
+      const report = JSON.parse(content);
+      if (typeof report.phase !== "number" || typeof report.alignment !== "string" || typeof report.timestamp !== "string" || typeof report.drift_score !== "number" || typeof report.schema_version !== "number" || !Array.isArray(report.compounding_effects)) {
+        console.warn(`[curator-drift] Skipping corrupt drift report: ${filename}`);
+        continue;
+      }
+      reports.push(report);
+    } catch {
+      console.warn(`[curator-drift] Skipping unreadable drift report: ${filename}`);
+    }
+  }
+  reports.sort((a, b) => a.phase - b.phase);
+  return reports;
+}
+async function writeDriftReport(directory, report) {
+  const filename = `${DRIFT_REPORT_PREFIX}${report.phase}.json`;
+  const filePath = validateSwarmPath(directory, filename);
+  const swarmDir = path62.dirname(filePath);
+  await fs48.promises.mkdir(swarmDir, { recursive: true });
+  try {
+    await fs48.promises.writeFile(filePath, JSON.stringify(report, null, 2), "utf-8");
+  } catch (err2) {
+    throw new Error(`[curator-drift] Failed to write drift report to ${filePath}: ${String(err2)}`);
+  }
+  return filePath;
+}
+async function runDeterministicDriftCheck(directory, phase, curatorResult, config3, injectAdvisory) {
+  try {
+    const planMd = await readSwarmFileAsync(directory, "plan.md");
+    const specMd = await readSwarmFileAsync(directory, "spec.md");
+    const priorReports = await readPriorDriftReports(directory);
+    const complianceCount = curatorResult.compliance.length;
+    const warningCompliance = curatorResult.compliance.filter((obs) => obs.severity === "warning");
+    let alignment = "ALIGNED";
+    let driftScore = 0;
+    if (!planMd) {
+      alignment = "MINOR_DRIFT";
+      driftScore = 0.3;
+    } else if (warningCompliance.length >= 3) {
+      alignment = "MAJOR_DRIFT";
+      driftScore = Math.min(0.9, 0.5 + warningCompliance.length * 0.1);
+    } else if (warningCompliance.length >= 1 || complianceCount >= 3) {
+      alignment = "MINOR_DRIFT";
+      driftScore = Math.min(0.49, 0.2 + complianceCount * 0.05);
+    }
+    const priorSummaries = priorReports.map((r) => r.injection_summary).filter(Boolean);
+    const keyCorrections = warningCompliance.map((obs) => obs.description);
+    const firstDeviation = warningCompliance.length > 0 ? {
+      phase,
+      task: "unknown",
+      description: warningCompliance[0]?.description ?? ""
+    } : null;
+    const payloadLines = [
+      `CURATOR_DIGEST: ${JSON.stringify(curatorResult.digest)}`,
+      `CURATOR_COMPLIANCE: ${JSON.stringify(curatorResult.compliance)}`,
+      `PLAN: ${planMd ?? "none"}`,
+      `SPEC: ${specMd ?? "none"}`,
+      `PRIOR_DRIFT_REPORTS: ${JSON.stringify(priorSummaries)}`
+    ];
+    const payload = payloadLines.join(`
+`);
+    const requirementsChecked = curatorResult.digest.tasks_total;
+    const requirementsSatisfied = curatorResult.digest.tasks_completed;
+    const injectionSummaryRaw = `Phase ${phase}: ${alignment} (${driftScore.toFixed(2)}) \u2014 ${firstDeviation ? firstDeviation.description : "all requirements on track"}.${keyCorrections.length > 0 ? `Correction: ${keyCorrections[0] ?? ""}.` : ""}`;
+    const injectionSummary = injectionSummaryRaw.slice(0, config3.drift_inject_max_chars);
+    const report = {
+      schema_version: 1,
+      phase,
+      timestamp: new Date().toISOString(),
+      alignment,
+      drift_score: driftScore,
+      first_deviation: firstDeviation,
+      compounding_effects: priorReports.filter((r) => r.alignment !== "ALIGNED").map((r) => `Phase ${r.phase}: ${r.alignment}`).slice(0, 5),
+      corrections: keyCorrections.slice(0, 5),
+      requirements_checked: requirementsChecked,
+      requirements_satisfied: requirementsSatisfied,
+      scope_additions: [],
+      injection_summary: injectionSummary
+    };
+    const reportPath = await writeDriftReport(directory, report);
+    getGlobalEventBus().publish("curator.drift.completed", {
+      phase,
+      alignment,
+      drift_score: driftScore,
+      report_path: reportPath
+    });
+    if (injectAdvisory && alignment !== "ALIGNED" && driftScore > 0) {
+      try {
+        const advisoryText = `CURATOR DRIFT DETECTED (phase ${phase}, score ${driftScore.toFixed(2)}): ${injectionSummary.slice(0, 300)}. Review .swarm/${DRIFT_REPORT_PREFIX}${phase}.json and address spec alignment before proceeding.`;
+        injectAdvisory(advisoryText);
+      } catch {}
+    }
+    const injectionText = injectionSummary;
+    return {
+      phase,
+      report,
+      report_path: reportPath,
+      injection_text: injectionText
+    };
+  } catch (err2) {
+    getGlobalEventBus().publish("curator.error", {
+      operation: "drift",
+      phase,
+      error: String(err2)
+    });
+    const defaultReport = {
+      schema_version: 1,
+      phase,
+      timestamp: new Date().toISOString(),
+      alignment: "ALIGNED",
+      drift_score: 0,
+      first_deviation: null,
+      compounding_effects: [],
+      corrections: [],
+      requirements_checked: 0,
+      requirements_satisfied: 0,
+      scope_additions: [],
+      injection_summary: `Phase ${phase}: drift analysis unavailable (${String(err2)})`
+    };
+    return {
+      phase,
+      report: defaultReport,
+      report_path: "",
+      injection_text: ""
+    };
+  }
+}
+function buildDriftInjectionText(report, maxChars) {
+  if (maxChars <= 0) {
+    return "";
+  }
+  let text;
+  if (report.alignment === "ALIGNED" && report.drift_score < 0.1) {
+    text = `<drift_report>Phase ${report.phase}: ALIGNED, all requirements on track.</drift_report>`;
+  } else {
+    const keyFinding = report.first_deviation?.description ?? "no deviation recorded";
+    const score = report.drift_score ?? 0;
+    const correctionClause = report.corrections?.[0] ? `Correction: ${report.corrections[0]}.` : "";
+    text = `<drift_report>Phase ${report.phase}: ${report.alignment} (${score.toFixed(2)}) \u2014 ${keyFinding}. ${correctionClause}</drift_report>`;
+  }
+  return text.slice(0, maxChars);
+}
+var DRIFT_REPORT_PREFIX = "drift-report-phase-";
+var init_curator_drift = __esm(() => {
+  init_event_bus();
+  init_utils2();
+});
+
 // src/index.ts
 init_agents();
-import * as path96 from "path";
+import * as path98 from "path";
 
 // src/background/index.ts
 init_event_bus();
@@ -65318,8 +65340,8 @@ init_schema();
 init_manager2();
 init_detector();
 init_manager();
-import * as fs45 from "fs";
-import * as path58 from "path";
+import * as fs46 from "fs";
+import * as path60 from "path";
 
 // src/services/decision-drift-analyzer.ts
 init_utils2();
@@ -67183,6 +67205,818 @@ function buildReviewerBlastRadiusBlock(directory, changedFiles) {
 `);
 }
 
+// src/hooks/semantic-diff-injection.ts
+import * as child_process5 from "child_process";
+import * as fs44 from "fs";
+import * as path58 from "path";
+
+// src/diff/ast-diff.ts
+init_tree_sitter();
+import { extname as extname11 } from "path";
+
+// src/lang/registry.ts
+init_runtime();
+import { extname as extname10 } from "path";
+var languageDefinitions = [
+  {
+    id: "javascript",
+    extensions: [".js", ".jsx"],
+    commentNodes: ["comment", "line_comment", "block_comment"]
+  },
+  {
+    id: "typescript",
+    extensions: [".ts"],
+    commentNodes: ["comment", "line_comment", "block_comment"]
+  },
+  {
+    id: "python",
+    extensions: [".py"],
+    commentNodes: ["comment"]
+  },
+  {
+    id: "go",
+    extensions: [".go"],
+    commentNodes: ["comment"]
+  },
+  {
+    id: "rust",
+    extensions: [".rs"],
+    commentNodes: ["line_comment", "block_comment"]
+  },
+  {
+    id: "php",
+    extensions: [".php", ".phtml"],
+    commentNodes: ["comment"]
+  },
+  {
+    id: "java",
+    extensions: [".java"],
+    commentNodes: ["line_comment", "block_comment"]
+  },
+  {
+    id: "c",
+    extensions: [".c", ".h"],
+    commentNodes: ["comment"]
+  },
+  {
+    id: "cpp",
+    extensions: [".cpp", ".cxx", ".cc", ".hpp", ".hxx", ".hh"],
+    commentNodes: ["comment"]
+  },
+  {
+    id: "csharp",
+    extensions: [".cs"],
+    commentNodes: ["comment"]
+  },
+  {
+    id: "ruby",
+    extensions: [".rb"],
+    commentNodes: ["comment"]
+  },
+  {
+    id: "swift",
+    extensions: [".swift"],
+    commentNodes: ["comment", "multiline_comment"]
+  },
+  {
+    id: "kotlin",
+    extensions: [".kt", ".kts"],
+    commentNodes: ["line_comment", "multiline_comment"]
+  },
+  {
+    id: "dart",
+    extensions: [".dart"],
+    commentNodes: ["comment", "documentation_comment"]
+  },
+  {
+    id: "css",
+    extensions: [".css"],
+    commentNodes: ["comment"]
+  },
+  {
+    id: "bash",
+    extensions: [".sh", ".bash"],
+    commentNodes: ["comment"]
+  },
+  {
+    id: "powershell",
+    extensions: [".ps1", ".psm1"],
+    commentNodes: ["comment"]
+  },
+  {
+    id: "ini",
+    extensions: [".ini", ".cfg", ".conf"],
+    commentNodes: ["comment"]
+  },
+  {
+    id: "regex",
+    extensions: [".regex"],
+    commentNodes: []
+  },
+  {
+    id: "tsx",
+    extensions: [".tsx"],
+    commentNodes: ["comment"]
+  }
+];
+var extensionMap = new Map;
+for (const definition of languageDefinitions) {
+  for (const extension of definition.extensions) {
+    extensionMap.set(extension, definition);
+  }
+}
+function getLanguageForExtension(extension) {
+  return extensionMap.get(extension.toLowerCase());
+}
+async function getParserForFile(filePath) {
+  const extension = extname10(filePath).toLowerCase();
+  const language = getLanguageForExtension(extension);
+  if (!language) {
+    return null;
+  }
+  try {
+    return await loadGrammar(language.id);
+  } catch {
+    return null;
+  }
+}
+
+// src/diff/ast-diff.ts
+init_runtime();
+var QUERIES = {
+  javascript: `
+    (function_declaration name: (identifier) @func.name) @func.def
+    (class_declaration name: (identifier) @class.name) @class.def
+    (export_statement) @export
+    (import_statement) @import
+    (type_alias_declaration name: (type_identifier) @type.name) @type.def
+  `,
+  typescript: `
+    (function_declaration name: (identifier) @func.name) @func.def
+    (class_declaration name: (type_identifier) @class.name) @class.def
+    (export_statement) @export
+    (import_statement) @import
+    (type_alias_declaration name: (type_identifier) @type.name) @type.def
+    (interface_declaration name: (type_identifier) @interface.name) @interface.def
+  `,
+  python: `
+    (function_definition name: (identifier) @func.name) @func.def
+    (class_definition name: (identifier) @class.name) @class.def
+    (import_statement) @import
+    (expression_statement (assignment left: (identifier) @var.name)) @var.def
+  `,
+  go: `
+    (function_declaration name: (identifier) @func.name) @func.def
+    (type_declaration (type_spec name: (type_identifier) @type.name)) @type.def
+    (import_declaration) @import
+  `,
+  rust: `
+    (function_item name: (identifier) @func.name) @func.def
+    (struct_item name: (type_identifier) @struct.name) @struct.def
+    (impl_item type: (type_identifier) @impl.name) @impl.def
+    (use_declaration) @import
+  `,
+  java: `
+    (method_declaration name: (identifier) @func.name) @func.def
+    (class_declaration name: (identifier) @class.name) @class.def
+    (interface_declaration name: (identifier) @interface.name) @interface.def
+    (import_declaration) @import
+  `,
+  c: `
+    (function_definition declarator: (function_declarator declarator: (identifier) @func.name)) @func.def
+    (struct_specifier name: (type_identifier) @struct.name) @struct.def
+    (type_definition declarator: (type_identifier) @type.name) @type.def
+    (preproc_include) @import
+  `,
+  cpp: `
+    (function_definition declarator: (function_declarator declarator: (identifier) @func.name)) @func.def
+    (class_specifier name: (type_identifier) @class.name) @class.def
+    (struct_specifier name: (type_identifier) @struct.name) @struct.def
+    (preproc_include) @import
+  `,
+  csharp: `
+    (method_declaration name: (identifier) @func.name) @func.def
+    (class_declaration name: (identifier) @class.name) @class.def
+    (interface_declaration name: (identifier) @interface.name) @interface.def
+    (struct_declaration name: (identifier) @struct.name) @struct.def
+    (using_directive) @using
+  `,
+  ruby: `
+    (method name: (identifier) @func.name) @func.def
+    (class name: (constant) @class.name) @class.def
+    (module name: (constant) @module.name) @module.def
+  `,
+  php: `
+    (function_definition name: (name) @func.name) @func.def
+    (class_declaration name: (name) @class.name) @class.def
+    (interface_declaration name: (name) @interface.name) @interface.def
+    (namespace_use_declaration) @import
+  `,
+  swift: `
+    (function_declaration name: (identifier) @func.name) @func.def
+    (class_declaration name: (identifier) @class.name) @class.def
+    (struct_declaration name: (identifier) @struct.name) @struct.def
+    (protocol_declaration name: (identifier) @protocol.name) @protocol.def
+    (import_declaration) @import
+  `,
+  kotlin: `
+    (function_declaration name: (identifier) @func.name) @func.def
+    (class_declaration name: (identifier) @class.name) @class.def
+    (object_declaration name: (identifier) @object.name) @object.def
+    (import_header) @import
+  `,
+  dart: `
+    (function_signature name: (identifier) @func.name) @func.def
+    (class_definition name: (identifier) @class.name) @class.def
+    (mixin_declaration name: (identifier) @mixin.name) @mixin.def
+    (import_directive) @import
+  `,
+  css: `
+    (rule_set (selectors) @rule.selector) @rule.def
+  `,
+  bash: `
+    (function_definition name: (word) @command.name) @command.def
+  `,
+  powershell: `
+    (function_statement (function_name) @func.name) @func.def
+  `,
+  tsx: `
+    (function_declaration name: (identifier) @func.name) @func.def
+    (class_declaration name: (identifier) @class.name) @class.def
+    (export_statement) @export
+    (import_statement) @import
+    (type_alias_declaration name: (type_identifier) @type.name) @type.def
+    (interface_declaration name: (type_identifier) @interface.name) @interface.def
+  `
+};
+var AST_TIMEOUT_MS = 500;
+async function computeASTDiff(filePath, oldContent, newContent) {
+  const startTime = Date.now();
+  const extension = extname11(filePath).toLowerCase();
+  const language = getLanguageForExtension(extension);
+  if (!language) {
+    return {
+      filePath,
+      language: null,
+      changes: [],
+      durationMs: Date.now() - startTime,
+      usedAST: false
+    };
+  }
+  try {
+    let timeoutId;
+    const parser = await Promise.race([
+      loadGrammar(language.id),
+      new Promise((_, reject) => {
+        timeoutId = setTimeout(() => reject(new Error("AST_TIMEOUT")), AST_TIMEOUT_MS);
+      })
+    ]).finally(() => {
+      if (timeoutId)
+        clearTimeout(timeoutId);
+    });
+    const oldTree = parser.parse(oldContent);
+    const newTree = parser.parse(newContent);
+    if (!oldTree || !newTree) {
+      return {
+        filePath,
+        language: language.id,
+        changes: [],
+        durationMs: Date.now() - startTime,
+        usedAST: false,
+        error: "Failed to parse file"
+      };
+    }
+    const oldSymbols = extractSymbols(oldTree, language);
+    const newSymbols = extractSymbols(newTree, language);
+    const changes = compareSymbols(oldSymbols, newSymbols);
+    oldTree.delete();
+    newTree.delete();
+    return {
+      filePath,
+      language: language.id,
+      changes,
+      durationMs: Date.now() - startTime,
+      usedAST: true
+    };
+  } catch (error93) {
+    const errorMsg = error93 instanceof Error ? error93.message : "Unknown error";
+    if (errorMsg === "AST_TIMEOUT") {
+      console.warn(`[ast-diff] Timeout for ${filePath}, falling back to raw diff`);
+    }
+    return {
+      filePath,
+      language: language.id,
+      changes: [],
+      durationMs: Date.now() - startTime,
+      usedAST: false,
+      error: errorMsg
+    };
+  }
+}
+function extractSymbols(tree, language) {
+  const symbols2 = [];
+  const queryStr = QUERIES[language.id];
+  if (!queryStr) {
+    return symbols2;
+  }
+  try {
+    const lang = tree.language;
+    if (!lang) {
+      return symbols2;
+    }
+    const query = new Query(lang, queryStr);
+    const matches = query.matches(tree.rootNode);
+    for (const match of matches) {
+      const symbol3 = parseMatch(match, language.id);
+      if (symbol3) {
+        symbols2.push(symbol3);
+      }
+    }
+    const defEntries = symbols2.filter((s) => s.category !== "export" && s.category !== "import");
+    if (defEntries.length > 0 && defEntries.length < symbols2.length) {
+      const filtered = symbols2.filter((symbol3) => {
+        if (symbol3.category !== "export" && symbol3.category !== "import") {
+          return true;
+        }
+        const isDuplicate = defEntries.some((def) => symbol3.lineStart === def.lineStart && symbol3.lineEnd === def.lineEnd);
+        return !isDuplicate;
+      });
+      symbols2.length = 0;
+      symbols2.push(...filtered);
+    }
+  } catch {}
+  return symbols2;
+}
+function parseMatch(match, languageId) {
+  const captures = match.captures;
+  const defCapture = captures.find((c) => c.name.endsWith(".def"));
+  const nameCapture = captures.find((c) => c.name.endsWith(".name"));
+  if (!defCapture) {
+    const exportCapture = captures.find((c) => c.name === "export");
+    const importCapture = captures.find((c) => c.name === "import");
+    const categoryCapture = exportCapture || importCapture;
+    if (!categoryCapture)
+      return null;
+    const node2 = categoryCapture.node;
+    const text = node2.text.trim();
+    const name2 = extractStatementName(text, categoryCapture.name);
+    return {
+      category: categoryCapture.name === "export" ? "export" : "import",
+      name: name2,
+      lineStart: node2.startPosition.row + 1,
+      lineEnd: node2.endPosition.row + 1
+    };
+  }
+  const node = defCapture.node;
+  const nameNode = nameCapture?.node;
+  return {
+    category: inferCategory(captures[0]?.name || "other"),
+    name: nameNode?.text || "anonymous",
+    lineStart: node.startPosition.row + 1,
+    lineEnd: node.endPosition.row + 1,
+    signature: extractSignature(node, languageId)
+  };
+}
+function extractStatementName(text, captureType) {
+  if (captureType === "import") {
+    const fromMatch = text.match(/from\s+['"]([^'"]+)['"]/);
+    if (fromMatch)
+      return fromMatch[1];
+    const stringMatch = text.match(/['"]([^'"]+)['"]/);
+    if (stringMatch)
+      return stringMatch[1];
+  } else {
+    const namedExport = text.match(/export\s+(?:default\s+)?(?:function|class|const|let|var|type|interface)\s+(\w+)/);
+    if (namedExport)
+      return namedExport[1];
+    const anonymousDefault = text.match(/export\s+default\s+(?:function|class)\b/);
+    if (anonymousDefault)
+      return "default";
+    const braceExport = text.match(/export\s+\{([^}]+)\}/);
+    if (braceExport)
+      return braceExport[1].trim();
+  }
+  const tokens = text.split(/\s+/);
+  return tokens.length > 1 ? tokens.slice(0, 3).join(" ") : text.slice(0, 30);
+}
+function inferCategory(captureName) {
+  if (captureName.includes("func"))
+    return "function";
+  if (captureName.includes("class"))
+    return "class";
+  if (captureName.includes("type") || captureName.includes("interface") || captureName.includes("struct") || captureName.includes("protocol") || captureName.includes("mixin") || captureName.includes("object") || captureName.includes("module"))
+    return "type";
+  if (captureName.includes("export"))
+    return "export";
+  if (captureName.includes("import") || captureName.includes("use") || captureName.includes("using"))
+    return "import";
+  if (captureName.includes("var"))
+    return "variable";
+  if (captureName.includes("command"))
+    return "function";
+  if (captureName.includes("rule"))
+    return "type";
+  return "other";
+}
+var paramNodeTypes = {
+  javascript: ["formal_parameters"],
+  typescript: ["formal_parameters"],
+  tsx: ["formal_parameters"],
+  python: ["parameters"],
+  go: ["parameter_list"],
+  rust: ["parameters", "function_item"],
+  java: ["formal_parameters", "method_declaration"],
+  c: ["parameter_list"],
+  cpp: ["parameter_list"],
+  csharp: ["formal_parameters"],
+  ruby: ["parameters"],
+  php: ["formal_parameters", "parameter_list"],
+  swift: ["parameter_clause"],
+  kotlin: ["parameter_list"],
+  dart: ["parameter_list", "function_signature"],
+  css: [],
+  bash: ["command_position"],
+  powershell: ["parameter_list"]
+};
+function extractSignature(node, languageId) {
+  const nodeTypes = paramNodeTypes[languageId] || [];
+  for (const child of node.children) {
+    if (child && nodeTypes.includes(child.type)) {
+      return child.text;
+    }
+  }
+  if (languageId === "javascript" || languageId === "typescript" || languageId === "tsx") {
+    const paramsNode = node.children.find((c) => c !== null && c.type === "formal_parameters");
+    if (paramsNode) {
+      return paramsNode.text;
+    }
+  }
+  return;
+}
+function compareSymbols(oldSymbols, newSymbols) {
+  const changes = [];
+  const oldMap = new Map(oldSymbols.map((s) => [s.name, s]));
+  const newMap = new Map(newSymbols.map((s) => [s.name, s]));
+  const matchedOldSymbols = new Set;
+  for (const newSymbol of newSymbols) {
+    if (!oldMap.has(newSymbol.name)) {
+      const matchingOldSymbol = findRenamedSymbol(newSymbol, oldSymbols, matchedOldSymbols);
+      if (matchingOldSymbol) {
+        changes.push({
+          type: "renamed",
+          category: newSymbol.category,
+          name: newSymbol.name,
+          lineStart: newSymbol.lineStart,
+          lineEnd: newSymbol.lineEnd,
+          signature: newSymbol.signature,
+          renamedFrom: matchingOldSymbol.name
+        });
+        matchedOldSymbols.add(matchingOldSymbol);
+      } else {
+        changes.push({
+          type: "added",
+          category: newSymbol.category,
+          name: newSymbol.name,
+          lineStart: newSymbol.lineStart,
+          lineEnd: newSymbol.lineEnd,
+          signature: newSymbol.signature
+        });
+      }
+    } else {
+      const oldSymbol = oldMap.get(newSymbol.name);
+      matchedOldSymbols.add(oldSymbol);
+      if (oldSymbol.lineStart !== newSymbol.lineStart || oldSymbol.lineEnd !== newSymbol.lineEnd || oldSymbol.signature !== newSymbol.signature) {
+        changes.push({
+          type: "modified",
+          category: newSymbol.category,
+          name: newSymbol.name,
+          lineStart: newSymbol.lineStart,
+          lineEnd: newSymbol.lineEnd,
+          signature: newSymbol.signature
+        });
+      }
+    }
+  }
+  for (const oldSymbol of oldSymbols) {
+    if (!newMap.has(oldSymbol.name) && !matchedOldSymbols.has(oldSymbol)) {
+      changes.push({
+        type: "removed",
+        category: oldSymbol.category,
+        name: oldSymbol.name,
+        lineStart: oldSymbol.lineStart,
+        lineEnd: oldSymbol.lineEnd,
+        signature: oldSymbol.signature
+      });
+    }
+  }
+  return changes;
+}
+function findRenamedSymbol(newSymbol, oldSymbols, matchedOldSymbols) {
+  if (newSymbol.category !== "function" && newSymbol.category !== "type") {
+    return null;
+  }
+  if (!newSymbol.signature) {
+    return null;
+  }
+  if (newSymbol.category === "function" && newSymbol.signature.replace(/\s/g, "") === "()") {
+    return null;
+  }
+  const lineCount = newSymbol.lineEnd - newSymbol.lineStart;
+  for (const oldSymbol of oldSymbols) {
+    if (matchedOldSymbols.has(oldSymbol) || oldSymbol.category !== newSymbol.category) {
+      continue;
+    }
+    if (oldSymbol.signature !== newSymbol.signature) {
+      continue;
+    }
+    const oldLineCount = oldSymbol.lineEnd - oldSymbol.lineStart;
+    const maxAllowedLines = Math.ceil(lineCount * 1.2);
+    if (oldLineCount > maxAllowedLines) {
+      continue;
+    }
+    return oldSymbol;
+  }
+  return null;
+}
+
+// src/diff/semantic-classifier.ts
+var GUARD_KEYWORDS = [
+  "guard",
+  "check",
+  "validate",
+  "verify",
+  "ensure",
+  "assert",
+  "require"
+];
+function isGuardKeyword(name2) {
+  return GUARD_KEYWORDS.some((keyword) => {
+    const ciKeyword = keyword.split("").map((c) => `[${c.toLowerCase()}${c.toUpperCase()}]`).join("");
+    const re = new RegExp("(?<![a-z])" + ciKeyword + "(?![a-z])");
+    return re.test(name2);
+  });
+}
+function isExportedFunction(name2, allChanges) {
+  return allChanges.some((c) => c.name === name2 && c.category === "export");
+}
+function classifyChange(change, filePath, allChanges) {
+  const base = {
+    filePath,
+    symbolName: change.name,
+    changeType: change.type,
+    lineStart: change.lineStart,
+    lineEnd: change.lineEnd,
+    signature: change.signature
+  };
+  if (change.type === "removed" && change.category === "function") {
+    if (isGuardKeyword(change.name)) {
+      return {
+        ...base,
+        category: "GUARD_REMOVED",
+        riskLevel: "Critical",
+        description: `Guard function '${change.name}' was removed`
+      };
+    }
+    return {
+      ...base,
+      category: "DELETED_FUNCTION",
+      riskLevel: "High",
+      description: `Deleted function '${change.name}'`
+    };
+  }
+  if (change.type === "renamed") {
+    if (change.category === "function" && (isGuardKeyword(change.name) || isGuardKeyword(change.renamedFrom || ""))) {
+      return {
+        ...base,
+        category: "GUARD_REMOVED",
+        riskLevel: "Critical",
+        description: `Guard function renamed from '${change.renamedFrom || "unknown"}' to '${change.name}'`,
+        renamedFrom: change.renamedFrom
+      };
+    }
+    return {
+      ...base,
+      category: "REFACTOR",
+      riskLevel: "Medium",
+      description: `${change.category} renamed from '${change.renamedFrom || "unknown"}' to '${change.name}'`,
+      renamedFrom: change.renamedFrom
+    };
+  }
+  if (change.type === "added" && change.category === "function") {
+    return {
+      ...base,
+      category: "NEW_FUNCTION",
+      riskLevel: "Medium",
+      description: `New function '${change.name}' added`
+    };
+  }
+  if (change.type === "modified" && change.category === "function" && change.signature) {
+    return {
+      ...base,
+      category: "SIGNATURE_CHANGE",
+      riskLevel: "Critical",
+      description: `Function signature changed for '${change.name}': ${change.signature}`
+    };
+  }
+  if (change.type === "modified") {
+    if (change.category === "export" || change.category === "type") {
+      return {
+        ...base,
+        category: "API_CHANGE",
+        riskLevel: "Critical",
+        description: `API surface changed for '${change.name}' (${change.category})`
+      };
+    }
+    if (change.category === "function" && isExportedFunction(change.name, allChanges)) {
+      return {
+        ...base,
+        category: "API_CHANGE",
+        riskLevel: "Critical",
+        description: `Exported function '${change.name}' was modified`
+      };
+    }
+  }
+  if (change.type === "modified" && change.category === "function") {
+    return {
+      ...base,
+      category: "LOGIC_CHANGE",
+      riskLevel: "High",
+      description: `Function body logic changed for '${change.name}'`
+    };
+  }
+  if (change.type === "modified" && (change.category === "class" || change.category === "type" || change.category === "variable")) {
+    return {
+      ...base,
+      category: "REFACTOR",
+      riskLevel: "Medium",
+      description: `${change.category} '${change.name}' was refactored`
+    };
+  }
+  if (change.category === "import") {
+    return {
+      ...base,
+      category: "COSMETIC",
+      riskLevel: "Low",
+      description: `Import ${change.type} for '${change.name}'`
+    };
+  }
+  return {
+    ...base,
+    category: "UNCLASSIFIED",
+    riskLevel: "Medium",
+    description: `Unclassified ${change.type} of ${change.category} '${change.name}'`
+  };
+}
+function classifyChanges(astDiffs, fileConsumers) {
+  const result = [];
+  for (const diff of astDiffs) {
+    for (const change of diff.changes) {
+      const classified = classifyChange(change, diff.filePath, diff.changes);
+      if (fileConsumers && diff.filePath in fileConsumers) {
+        classified.consumersCount = fileConsumers[diff.filePath];
+      }
+      result.push(classified);
+    }
+  }
+  return result;
+}
+
+// src/diff/summary-generator.ts
+var RISK_LEVELS = ["Critical", "High", "Medium", "Low"];
+var CHANGE_CATEGORIES = [
+  "SIGNATURE_CHANGE",
+  "API_CHANGE",
+  "GUARD_REMOVED",
+  "LOGIC_CHANGE",
+  "DELETED_FUNCTION",
+  "NEW_FUNCTION",
+  "REFACTOR",
+  "COSMETIC",
+  "UNCLASSIFIED"
+];
+function generateSummary(changes) {
+  const byRisk = RISK_LEVELS.reduce((acc, level) => {
+    acc[level] = [];
+    return acc;
+  }, {});
+  const byCategory = CHANGE_CATEGORIES.reduce((acc, cat) => {
+    acc[cat] = [];
+    return acc;
+  }, {});
+  for (const change of changes) {
+    byRisk[change.riskLevel].push(change);
+    byCategory[change.category].push(change);
+  }
+  const uniqueFiles = new Set(changes.map((c) => c.filePath));
+  return {
+    totalFiles: uniqueFiles.size,
+    totalChanges: changes.length,
+    byRisk,
+    byCategory,
+    criticalItems: byRisk.Critical
+  };
+}
+function generateSummaryMarkdown(summary) {
+  const lines = [];
+  const totalFiles = summary.totalFiles;
+  const totalChanges = summary.totalChanges;
+  lines.push(`## Change Summary (${totalFiles} files, ${totalChanges} changes)`);
+  const riskLabels = {
+    Critical: "Critical (review first)",
+    High: "High",
+    Medium: "Medium",
+    Low: "Low (skim)"
+  };
+  for (const riskLevel of RISK_LEVELS) {
+    const changes = summary.byRisk[riskLevel];
+    const header = riskLabels[riskLevel];
+    lines.push(`### ${header}`);
+    if (changes.length === 0) {
+      lines.push("- (none)");
+    } else {
+      for (const change of changes) {
+        const consumers = change.consumersCount != null ? ` (${change.consumersCount} consumer${change.consumersCount !== 1 ? "s" : ""})` : "";
+        lines.push(`- ${change.filePath}: ${change.category} \u2014 ${change.description}${consumers}`);
+      }
+    }
+  }
+  return lines.join(`
+`);
+}
+
+// src/hooks/semantic-diff-injection.ts
+async function buildSemanticDiffBlock(directory, changedFiles, maxFiles = 10) {
+  if (changedFiles.length === 0)
+    return null;
+  try {
+    const filesToProcess = changedFiles.slice(0, maxFiles);
+    const astDiffs = [];
+    const graph = getCachedGraph2(directory);
+    const fileConsumers = {};
+    if (graph) {
+      for (const f of filesToProcess) {
+        const relativePath = path58.isAbsolute(f) ? path58.relative(directory, f) : f;
+        const normalized = normalizeGraphPath2(relativePath);
+        fileConsumers[normalized] = getImporters(graph, normalized).length;
+        fileConsumers[f] = fileConsumers[normalized];
+      }
+    }
+    for (const filePath of filesToProcess) {
+      const normalizedPath = path58.normalize(filePath);
+      const resolvedPath = path58.resolve(directory, normalizedPath);
+      const relativeToDir = path58.relative(directory, resolvedPath);
+      if (relativeToDir.startsWith("..") || path58.isAbsolute(relativeToDir)) {
+        continue;
+      }
+      try {
+        let fileExistsInHead = false;
+        try {
+          child_process5.execFileSync("git", ["cat-file", "-e", `HEAD:${filePath}`], {
+            encoding: "utf-8",
+            timeout: 3000,
+            cwd: directory,
+            stdio: "pipe"
+          });
+          fileExistsInHead = true;
+        } catch (err2) {
+          if (err2.code === "ENOENT") {
+            err2._gitBinaryMissing = true;
+            throw err2;
+          }
+          fileExistsInHead = false;
+        }
+        const oldContent = fileExistsInHead ? child_process5.execFileSync("git", ["show", `HEAD:${filePath}`], {
+          encoding: "utf-8",
+          timeout: 5000,
+          cwd: directory,
+          stdio: "pipe",
+          maxBuffer: 5 * 1024 * 1024
+        }) : "";
+        const newContent = fs44.readFileSync(path58.join(directory, filePath), "utf-8");
+        const astResult = await computeASTDiff(filePath, oldContent, newContent);
+        if (astResult && (astResult.changes.length > 0 || astResult.error !== undefined)) {
+          astDiffs.push(astResult);
+        }
+      } catch (err2) {
+        if (err2.code === "ENOENT" && err2._gitBinaryMissing) {
+          throw err2;
+        }
+      }
+    }
+    if (astDiffs.length === 0)
+      return null;
+    const classifiedChanges = classifyChanges(astDiffs, fileConsumers);
+    if (classifiedChanges.length === 0)
+      return null;
+    const summary = generateSummary(classifiedChanges);
+    const markdown = generateSummaryMarkdown(summary);
+    return `## SEMANTIC DIFF SUMMARY
+${markdown}`;
+  } catch {
+    return null;
+  }
+}
+
 // src/hooks/system-enhancer.ts
 init_utils2();
 function extractAgentPrefix(fullAgentName) {
@@ -67485,7 +68319,7 @@ function createSystemEnhancerHook(config3, directory) {
         } catch {}
         try {
           const darkMatterPath = validateSwarmPath(directory, "dark-matter.md");
-          if (!fs45.existsSync(darkMatterPath)) {
+          if (!fs46.existsSync(darkMatterPath)) {
             const {
               detectDarkMatter: detectDarkMatter2,
               formatDarkMatterOutput: formatDarkMatterOutput2,
@@ -67497,10 +68331,10 @@ function createSystemEnhancerHook(config3, directory) {
             });
             if (darkMatter && darkMatter.length > 0) {
               const darkMatterReport = formatDarkMatterOutput2(darkMatter);
-              await fs45.promises.writeFile(darkMatterPath, darkMatterReport, "utf-8");
+              await fs46.promises.writeFile(darkMatterPath, darkMatterReport, "utf-8");
               warn(`[system-enhancer] Dark matter scan complete: ${darkMatter.length} co-change patterns found`);
               try {
-                const projectName = path58.basename(path58.resolve(directory));
+                const projectName = path60.basename(path60.resolve(directory));
                 const knowledgeEntries = darkMatterToKnowledgeEntries2(darkMatter, projectName);
                 const knowledgePath = resolveSwarmKnowledgePath(directory);
                 const existingEntries = await readKnowledge(knowledgePath);
@@ -67564,14 +68398,14 @@ function createSystemEnhancerHook(config3, directory) {
               if (handoffContent) {
                 const handoffPath = validateSwarmPath(directory, "handoff.md");
                 const consumedPath = validateSwarmPath(directory, "handoff-consumed.md");
-                if (fs45.existsSync(consumedPath)) {
+                if (fs46.existsSync(consumedPath)) {
                   warn("Duplicate handoff detected: handoff-consumed.md already exists");
-                  fs45.unlinkSync(consumedPath);
+                  fs46.unlinkSync(consumedPath);
                 }
-                fs45.renameSync(handoffPath, consumedPath);
+                fs46.renameSync(handoffPath, consumedPath);
                 try {
                   const promptPath = validateSwarmPath(directory, "handoff-prompt.md");
-                  fs45.unlinkSync(promptPath);
+                  fs46.unlinkSync(promptPath);
                 } catch {}
                 const handoffBlock = `## HANDOFF \u2014 Resuming from model switch
 The previous model's session ended. Here is your starting context:
@@ -67699,9 +68533,9 @@ ${lines.join(`
             try {
               const taskId_ccp = ccpSession?.currentTaskId;
               if (taskId_ccp && !taskId_ccp.includes("..") && !taskId_ccp.includes("/") && !taskId_ccp.includes("\\") && !taskId_ccp.includes("\x00")) {
-                const evidencePath = path58.join(directory, ".swarm", "evidence", `${taskId_ccp}.json`);
-                if (fs45.existsSync(evidencePath)) {
-                  const evidenceContent = fs45.readFileSync(evidencePath, "utf-8");
+                const evidencePath = path60.join(directory, ".swarm", "evidence", `${taskId_ccp}.json`);
+                if (fs46.existsSync(evidencePath)) {
+                  const evidenceContent = fs46.readFileSync(evidencePath, "utf-8");
                   const evidenceData = JSON.parse(evidenceContent);
                   const rejections = (evidenceData.bundle?.entries ?? []).filter((e) => e.type === "gate" && e.gate_type === "reviewer" && e.verdict === "reject");
                   if (rejections.length > 0) {
@@ -67744,6 +68578,17 @@ ${lines.join(`
                 const blastBlock = buildReviewerBlastRadiusBlock(directory, changed);
                 if (blastBlock) {
                   tryInject(blastBlock);
+                }
+              }
+            } catch {}
+            try {
+              const reviewerSessionId = _input.sessionID ?? "";
+              const reviewerSession = swarmState.agentSessions.get(reviewerSessionId);
+              const semDiffChanged = reviewerSession?.declaredCoderScope ?? [];
+              if (semDiffChanged.length > 0) {
+                const semDiffBlock = await buildSemanticDiffBlock(directory, semDiffChanged);
+                if (semDiffBlock) {
+                  tryInject(semDiffBlock);
                 }
               }
             } catch {}
@@ -67954,11 +68799,11 @@ ${budgetWarning}`);
             if (handoffContent) {
               const handoffPath = validateSwarmPath(directory, "handoff.md");
               const consumedPath = validateSwarmPath(directory, "handoff-consumed.md");
-              if (fs45.existsSync(consumedPath)) {
+              if (fs46.existsSync(consumedPath)) {
                 warn("Duplicate handoff detected: handoff-consumed.md already exists");
-                fs45.unlinkSync(consumedPath);
+                fs46.unlinkSync(consumedPath);
               }
-              fs45.renameSync(handoffPath, consumedPath);
+              fs46.renameSync(handoffPath, consumedPath);
               const handoffBlock = `## HANDOFF \u2014 Resuming from model switch
 The previous model's session ended. Here is your starting context:
 
@@ -68243,6 +69088,26 @@ ${handoffBlock}`;
               metadata: { contentType: "prose" }
             });
           }
+        }
+        if (isReviewer_b) {
+          try {
+            const semDiffSessionId_b = _input.sessionID ?? "";
+            const semDiffSession_b = swarmState.agentSessions.get(semDiffSessionId_b);
+            const semDiffChanged_b = semDiffSession_b?.declaredCoderScope ?? [];
+            if (semDiffChanged_b.length > 0) {
+              const semDiffBlock_b = await buildSemanticDiffBlock(directory, semDiffChanged_b);
+              if (semDiffBlock_b) {
+                candidates.push({
+                  id: `candidate-${idCounter++}`,
+                  kind: "agent_context",
+                  text: semDiffBlock_b,
+                  tokens: estimateTokens(semDiffBlock_b),
+                  priority: 2,
+                  metadata: { contentType: "prose" }
+                });
+              }
+            }
+          } catch {}
         }
         const isTestEngineer_b = activeAgent_coder_b && stripKnownSwarmPrefix(activeAgent_coder_b) === "test_engineer";
         if (isTestEngineer_b) {
@@ -68813,18 +69678,18 @@ init_guardrails();
 init_hive_promoter();
 
 // src/hooks/incremental-verify.ts
-import * as fs46 from "fs";
-import * as path59 from "path";
+import * as fs47 from "fs";
+import * as path61 from "path";
 
 // src/hooks/spawn-helper.ts
-import * as child_process5 from "child_process";
+import * as child_process6 from "child_process";
 var WIN32_CMD_BINARIES = new Set(["npm", "npx", "pnpm", "yarn"]);
 function spawnAsync(command, cwd, timeoutMs) {
-  return new Promise((resolve22) => {
+  return new Promise((resolve23) => {
     try {
       const [rawCmd, ...args2] = command;
       const cmd = process.platform === "win32" && WIN32_CMD_BINARIES.has(rawCmd) && !rawCmd.includes(".") ? `${rawCmd}.cmd` : rawCmd;
-      const proc = child_process5.spawn(cmd, args2, {
+      const proc = child_process6.spawn(cmd, args2, {
         cwd,
         stdio: ["ignore", "pipe", "pipe"]
       });
@@ -68867,24 +69732,24 @@ function spawnAsync(command, cwd, timeoutMs) {
         try {
           proc.kill();
         } catch {}
-        resolve22(null);
+        resolve23(null);
       }, timeoutMs);
       proc.on("close", (code) => {
         if (done)
           return;
         done = true;
         clearTimeout(timer);
-        resolve22({ exitCode: code ?? 1, stdout, stderr });
+        resolve23({ exitCode: code ?? 1, stdout, stderr });
       });
       proc.on("error", () => {
         if (done)
           return;
         done = true;
         clearTimeout(timer);
-        resolve22(null);
+        resolve23(null);
       });
     } catch {
-      resolve22(null);
+      resolve23(null);
     }
   });
 }
@@ -68892,21 +69757,21 @@ function spawnAsync(command, cwd, timeoutMs) {
 // src/hooks/incremental-verify.ts
 var emittedSkipAdvisories = new Set;
 function detectPackageManager(projectDir) {
-  if (fs46.existsSync(path59.join(projectDir, "bun.lockb")))
+  if (fs47.existsSync(path61.join(projectDir, "bun.lockb")))
     return "bun";
-  if (fs46.existsSync(path59.join(projectDir, "pnpm-lock.yaml")))
+  if (fs47.existsSync(path61.join(projectDir, "pnpm-lock.yaml")))
     return "pnpm";
-  if (fs46.existsSync(path59.join(projectDir, "yarn.lock")))
+  if (fs47.existsSync(path61.join(projectDir, "yarn.lock")))
     return "yarn";
-  if (fs46.existsSync(path59.join(projectDir, "package-lock.json")))
+  if (fs47.existsSync(path61.join(projectDir, "package-lock.json")))
     return "npm";
   return "bun";
 }
 function detectTypecheckCommand(projectDir) {
-  const pkgPath = path59.join(projectDir, "package.json");
-  if (fs46.existsSync(pkgPath)) {
+  const pkgPath = path61.join(projectDir, "package.json");
+  if (fs47.existsSync(pkgPath)) {
     try {
-      const pkg = JSON.parse(fs46.readFileSync(pkgPath, "utf8"));
+      const pkg = JSON.parse(fs47.readFileSync(pkgPath, "utf8"));
       const scripts = pkg.scripts;
       if (scripts?.typecheck) {
         const pm = detectPackageManager(projectDir);
@@ -68920,8 +69785,8 @@ function detectTypecheckCommand(projectDir) {
         ...pkg.dependencies,
         ...pkg.devDependencies
       };
-      if (!deps?.typescript && !fs46.existsSync(path59.join(projectDir, "tsconfig.json"))) {}
-      const hasTSMarkers = deps?.typescript || fs46.existsSync(path59.join(projectDir, "tsconfig.json"));
+      if (!deps?.typescript && !fs47.existsSync(path61.join(projectDir, "tsconfig.json"))) {}
+      const hasTSMarkers = deps?.typescript || fs47.existsSync(path61.join(projectDir, "tsconfig.json"));
       if (hasTSMarkers) {
         return { command: ["npx", "tsc", "--noEmit"], language: "typescript" };
       }
@@ -68929,17 +69794,17 @@ function detectTypecheckCommand(projectDir) {
       return null;
     }
   }
-  if (fs46.existsSync(path59.join(projectDir, "go.mod"))) {
+  if (fs47.existsSync(path61.join(projectDir, "go.mod"))) {
     return { command: ["go", "vet", "./..."], language: "go" };
   }
-  if (fs46.existsSync(path59.join(projectDir, "Cargo.toml"))) {
+  if (fs47.existsSync(path61.join(projectDir, "Cargo.toml"))) {
     return { command: ["cargo", "check"], language: "rust" };
   }
-  if (fs46.existsSync(path59.join(projectDir, "pyproject.toml")) || fs46.existsSync(path59.join(projectDir, "requirements.txt")) || fs46.existsSync(path59.join(projectDir, "setup.py"))) {
+  if (fs47.existsSync(path61.join(projectDir, "pyproject.toml")) || fs47.existsSync(path61.join(projectDir, "requirements.txt")) || fs47.existsSync(path61.join(projectDir, "setup.py"))) {
     return { command: null, language: "python" };
   }
   try {
-    const entries = fs46.readdirSync(projectDir);
+    const entries = fs47.readdirSync(projectDir);
     if (entries.some((f) => f.endsWith(".csproj") || f.endsWith(".sln"))) {
       return {
         command: ["dotnet", "build", "--no-restore"],
@@ -69285,7 +70150,7 @@ init_scope_persistence();
 init_state();
 init_delegation_gate();
 init_normalize_tool_name();
-import * as path61 from "path";
+import * as path63 from "path";
 var WRITE_TOOLS = new Set(WRITE_TOOL_NAMES);
 function createScopeGuardHook(config3, directory, injectAdvisory) {
   const enabled = config3.enabled ?? true;
@@ -69343,13 +70208,13 @@ function createScopeGuardHook(config3, directory, injectAdvisory) {
 }
 function isFileInScope(filePath, scopeEntries, directory) {
   const dir = directory ?? process.cwd();
-  const resolvedFile = path61.resolve(dir, filePath);
+  const resolvedFile = path63.resolve(dir, filePath);
   return scopeEntries.some((scope) => {
-    const resolvedScope = path61.resolve(dir, scope);
+    const resolvedScope = path63.resolve(dir, scope);
     if (resolvedFile === resolvedScope)
       return true;
-    const rel = path61.relative(resolvedScope, resolvedFile);
-    return rel.length > 0 && !rel.startsWith("..") && !path61.isAbsolute(rel);
+    const rel = path63.relative(resolvedScope, resolvedFile);
+    return rel.length > 0 && !rel.startsWith("..") && !path63.isAbsolute(rel);
   });
 }
 
@@ -69400,8 +70265,8 @@ function createSelfReviewHook(config3, injectAdvisory) {
 }
 
 // src/hooks/slop-detector.ts
-import * as fs48 from "fs";
-import * as path62 from "path";
+import * as fs49 from "fs";
+import * as path64 from "path";
 var WRITE_EDIT_TOOLS = new Set([
   "write",
   "edit",
@@ -69446,12 +70311,12 @@ function checkBoilerplateExplosion(content, taskDescription, threshold) {
 function walkFiles(dir, exts, deadline) {
   const results = [];
   try {
-    for (const entry of fs48.readdirSync(dir, { withFileTypes: true })) {
+    for (const entry of fs49.readdirSync(dir, { withFileTypes: true })) {
       if (deadline !== undefined && Date.now() > deadline)
         break;
       if (entry.isSymbolicLink())
         continue;
-      const full = path62.join(dir, entry.name);
+      const full = path64.join(dir, entry.name);
       if (entry.isDirectory()) {
         if (entry.name === "node_modules" || entry.name === ".git")
           continue;
@@ -69466,7 +70331,7 @@ function walkFiles(dir, exts, deadline) {
   return results;
 }
 function checkDeadExports(content, projectDir, startTime) {
-  const hasPackageJson = fs48.existsSync(path62.join(projectDir, "package.json"));
+  const hasPackageJson = fs49.existsSync(path64.join(projectDir, "package.json"));
   if (!hasPackageJson)
     return null;
   const exportMatches = content.matchAll(/^\+(?:export)\s+(?:function|class|const|type|interface)\s+(\w{3,})/gm);
@@ -69489,7 +70354,7 @@ function checkDeadExports(content, projectDir, startTime) {
         if (found || Date.now() - startTime > 480)
           break;
         try {
-          const text = fs48.readFileSync(file3, "utf-8");
+          const text = fs49.readFileSync(file3, "utf-8");
           if (importPattern.test(text))
             found = true;
           importPattern.lastIndex = 0;
@@ -69622,7 +70487,7 @@ Review before proceeding.`;
 
 // src/hooks/steering-consumed.ts
 init_utils2();
-import * as fs49 from "fs";
+import * as fs50 from "fs";
 function recordSteeringConsumed(directory, directiveId) {
   try {
     const eventsPath = validateSwarmPath(directory, "events.jsonl");
@@ -69631,7 +70496,7 @@ function recordSteeringConsumed(directory, directiveId) {
       directiveId,
       timestamp: new Date().toISOString()
     };
-    fs49.appendFileSync(eventsPath, `${JSON.stringify(event)}
+    fs50.appendFileSync(eventsPath, `${JSON.stringify(event)}
 `, "utf-8");
   } catch {}
 }
@@ -69879,8 +70744,8 @@ init_telemetry();
 // src/tools/batch-symbols.ts
 init_tool();
 init_create_tool();
-import * as fs50 from "fs";
-import * as path63 from "path";
+import * as fs51 from "fs";
+import * as path65 from "path";
 init_path_security();
 var WINDOWS_RESERVED_NAMES2 = /^(con|prn|aux|nul|com[1-9]|lpt[1-9])(\.|:|$)/i;
 function containsWindowsAttacks2(str) {
@@ -69897,14 +70762,14 @@ function containsWindowsAttacks2(str) {
 }
 function isPathInWorkspace2(filePath, workspace) {
   try {
-    const resolvedPath = path63.resolve(workspace, filePath);
-    if (!fs50.existsSync(resolvedPath)) {
+    const resolvedPath = path65.resolve(workspace, filePath);
+    if (!fs51.existsSync(resolvedPath)) {
       return true;
     }
-    const realWorkspace = fs50.realpathSync(workspace);
-    const realResolvedPath = fs50.realpathSync(resolvedPath);
-    const relativePath = path63.relative(realWorkspace, realResolvedPath);
-    if (relativePath.startsWith("..") || path63.isAbsolute(relativePath)) {
+    const realWorkspace = fs51.realpathSync(workspace);
+    const realResolvedPath = fs51.realpathSync(resolvedPath);
+    const relativePath = path65.relative(realWorkspace, realResolvedPath);
+    if (relativePath.startsWith("..") || path65.isAbsolute(relativePath)) {
       return false;
     }
     return true;
@@ -69913,7 +70778,7 @@ function isPathInWorkspace2(filePath, workspace) {
   }
 }
 function processFile2(file3, cwd, exportedOnly) {
-  const ext = path63.extname(file3);
+  const ext = path65.extname(file3);
   if (containsControlChars(file3)) {
     return {
       file: file3,
@@ -69946,8 +70811,8 @@ function processFile2(file3, cwd, exportedOnly) {
       errorType: "path-outside-workspace"
     };
   }
-  const fullPath = path63.join(cwd, file3);
-  if (!fs50.existsSync(fullPath)) {
+  const fullPath = path65.join(cwd, file3);
+  if (!fs51.existsSync(fullPath)) {
     return {
       file: file3,
       success: false,
@@ -69978,14 +70843,14 @@ function processFile2(file3, cwd, exportedOnly) {
   }
   let isEmptyFile = false;
   try {
-    const stats = fs50.statSync(fullPath);
+    const stats = fs51.statSync(fullPath);
     if (stats.size === 0) {
       isEmptyFile = true;
     }
   } catch {}
   if (syms.length === 0) {
     try {
-      const content = fs50.readFileSync(fullPath, "utf-8");
+      const content = fs51.readFileSync(fullPath, "utf-8");
       if (content.trim().length === 0) {
         isEmptyFile = true;
       }
@@ -70237,25 +71102,25 @@ init_manager2();
 init_task_id();
 init_create_tool();
 init_resolve_working_directory();
-import * as fs51 from "fs";
-import * as path64 from "path";
+import * as fs52 from "fs";
+import * as path66 from "path";
 var EVIDENCE_DIR = ".swarm/evidence";
 function isValidTaskId3(taskId) {
   return isStrictTaskId(taskId);
 }
 function isPathWithinSwarm(filePath, workspaceRoot) {
-  const normalizedWorkspace = path64.resolve(workspaceRoot);
-  const swarmPath = path64.join(normalizedWorkspace, ".swarm", "evidence");
-  const normalizedPath = path64.resolve(filePath);
+  const normalizedWorkspace = path66.resolve(workspaceRoot);
+  const swarmPath = path66.join(normalizedWorkspace, ".swarm", "evidence");
+  const normalizedPath = path66.resolve(filePath);
   return normalizedPath.startsWith(swarmPath);
 }
 function readEvidenceFile(evidencePath) {
-  if (!fs51.existsSync(evidencePath)) {
+  if (!fs52.existsSync(evidencePath)) {
     return null;
   }
   let content;
   try {
-    content = fs51.readFileSync(evidencePath, "utf-8");
+    content = fs52.readFileSync(evidencePath, "utf-8");
   } catch {
     return null;
   }
@@ -70327,7 +71192,7 @@ var check_gate_status = createSwarmTool({
       };
       return JSON.stringify(errorResult, null, 2);
     }
-    const evidencePath = path64.join(directory, EVIDENCE_DIR, `${taskIdInput}.json`);
+    const evidencePath = path66.join(directory, EVIDENCE_DIR, `${taskIdInput}.json`);
     if (!isPathWithinSwarm(evidencePath, directory)) {
       const errorResult = {
         taskId: taskIdInput,
@@ -70423,8 +71288,8 @@ init_utils2();
 init_state();
 init_create_tool();
 init_resolve_working_directory();
-import * as fs52 from "fs";
-import * as path65 from "path";
+import * as fs53 from "fs";
+import * as path67 from "path";
 function extractMatches(regex, text) {
   return Array.from(text.matchAll(regex));
 }
@@ -70518,7 +71383,7 @@ async function executeCompletionVerify(args2, directory) {
   let plan;
   try {
     const planPath = validateSwarmPath(directory, "plan.json");
-    const planRaw = fs52.readFileSync(planPath, "utf-8");
+    const planRaw = fs53.readFileSync(planPath, "utf-8");
     plan = JSON.parse(planRaw);
   } catch {
     const result2 = {
@@ -70576,10 +71441,10 @@ async function executeCompletionVerify(args2, directory) {
     let hasFileReadFailure = false;
     for (const filePath of fileTargets) {
       const normalizedPath = filePath.replace(/\\/g, "/");
-      const resolvedPath = path65.resolve(directory, normalizedPath);
-      const projectRoot = path65.resolve(directory);
-      const relative15 = path65.relative(projectRoot, resolvedPath);
-      const withinProject = relative15 === "" || !relative15.startsWith("..") && !path65.isAbsolute(relative15);
+      const resolvedPath = path67.resolve(directory, normalizedPath);
+      const projectRoot = path67.resolve(directory);
+      const relative16 = path67.relative(projectRoot, resolvedPath);
+      const withinProject = relative16 === "" || !relative16.startsWith("..") && !path67.isAbsolute(relative16);
       if (!withinProject) {
         blockedTasks.push({
           task_id: task.id,
@@ -70592,7 +71457,7 @@ async function executeCompletionVerify(args2, directory) {
       }
       let fileContent;
       try {
-        fileContent = fs52.readFileSync(resolvedPath, "utf-8");
+        fileContent = fs53.readFileSync(resolvedPath, "utf-8");
       } catch {
         blockedTasks.push({
           task_id: task.id,
@@ -70634,9 +71499,9 @@ async function executeCompletionVerify(args2, directory) {
     blockedTasks
   };
   try {
-    const evidenceDir = path65.join(directory, ".swarm", "evidence", `${phase}`);
-    const evidencePath = path65.join(evidenceDir, "completion-verify.json");
-    fs52.mkdirSync(evidenceDir, { recursive: true });
+    const evidenceDir = path67.join(directory, ".swarm", "evidence", `${phase}`);
+    const evidencePath = path67.join(evidenceDir, "completion-verify.json");
+    fs53.mkdirSync(evidenceDir, { recursive: true });
     const evidenceBundle = {
       schema_version: "1.0.0",
       task_id: "completion-verify",
@@ -70657,7 +71522,7 @@ async function executeCompletionVerify(args2, directory) {
         }
       ]
     };
-    fs52.writeFileSync(evidencePath, JSON.stringify(evidenceBundle, null, 2), "utf-8");
+    fs53.writeFileSync(evidencePath, JSON.stringify(evidenceBundle, null, 2), "utf-8");
   } catch {}
   return JSON.stringify(result, null, 2);
 }
@@ -70711,12 +71576,12 @@ var completion_verify = createSwarmTool({
 });
 // src/tools/complexity-hotspots.ts
 init_dist();
-import * as fs54 from "fs";
-import * as path67 from "path";
+import * as fs55 from "fs";
+import * as path69 from "path";
 
 // src/quality/metrics.ts
-import * as fs53 from "fs";
-import * as path66 from "path";
+import * as fs54 from "fs";
+import * as path68 from "path";
 var MAX_FILE_SIZE_BYTES4 = 256 * 1024;
 var MIN_DUPLICATION_LINES = 10;
 function estimateCyclomaticComplexity(content) {
@@ -70754,11 +71619,11 @@ function estimateCyclomaticComplexity(content) {
 }
 function getComplexityForFile(filePath) {
   try {
-    const stat3 = fs53.statSync(filePath);
+    const stat3 = fs54.statSync(filePath);
     if (stat3.size > MAX_FILE_SIZE_BYTES4) {
       return null;
     }
-    const content = fs53.readFileSync(filePath, "utf-8");
+    const content = fs54.readFileSync(filePath, "utf-8");
     return estimateCyclomaticComplexity(content);
   } catch {
     return null;
@@ -70768,8 +71633,8 @@ async function computeComplexityDelta(files, workingDir) {
   let totalComplexity = 0;
   const analyzedFiles = [];
   for (const file3 of files) {
-    const fullPath = path66.isAbsolute(file3) ? file3 : path66.join(workingDir, file3);
-    if (!fs53.existsSync(fullPath)) {
+    const fullPath = path68.isAbsolute(file3) ? file3 : path68.join(workingDir, file3);
+    if (!fs54.existsSync(fullPath)) {
       continue;
     }
     const complexity = getComplexityForFile(fullPath);
@@ -70890,8 +71755,8 @@ function countGoExports(content) {
 }
 function getExportCountForFile(filePath) {
   try {
-    const content = fs53.readFileSync(filePath, "utf-8");
-    const ext = path66.extname(filePath).toLowerCase();
+    const content = fs54.readFileSync(filePath, "utf-8");
+    const ext = path68.extname(filePath).toLowerCase();
     switch (ext) {
       case ".ts":
       case ".tsx":
@@ -70917,8 +71782,8 @@ async function computePublicApiDelta(files, workingDir) {
   let totalExports = 0;
   const analyzedFiles = [];
   for (const file3 of files) {
-    const fullPath = path66.isAbsolute(file3) ? file3 : path66.join(workingDir, file3);
-    if (!fs53.existsSync(fullPath)) {
+    const fullPath = path68.isAbsolute(file3) ? file3 : path68.join(workingDir, file3);
+    if (!fs54.existsSync(fullPath)) {
       continue;
     }
     const exports = getExportCountForFile(fullPath);
@@ -70951,16 +71816,16 @@ async function computeDuplicationRatio(files, workingDir) {
   let duplicateLines = 0;
   const analyzedFiles = [];
   for (const file3 of files) {
-    const fullPath = path66.isAbsolute(file3) ? file3 : path66.join(workingDir, file3);
-    if (!fs53.existsSync(fullPath)) {
+    const fullPath = path68.isAbsolute(file3) ? file3 : path68.join(workingDir, file3);
+    if (!fs54.existsSync(fullPath)) {
       continue;
     }
     try {
-      const stat3 = fs53.statSync(fullPath);
+      const stat3 = fs54.statSync(fullPath);
       if (stat3.size > MAX_FILE_SIZE_BYTES4) {
         continue;
       }
-      const content = fs53.readFileSync(fullPath, "utf-8");
+      const content = fs54.readFileSync(fullPath, "utf-8");
       const lines = content.split(`
 `).filter((line) => line.trim().length > 0);
       if (lines.length < MIN_DUPLICATION_LINES) {
@@ -70984,8 +71849,8 @@ function countCodeLines(content) {
   return lines.length;
 }
 function isTestFile(filePath) {
-  const basename10 = path66.basename(filePath);
-  const _ext = path66.extname(filePath).toLowerCase();
+  const basename10 = path68.basename(filePath);
+  const _ext = path68.extname(filePath).toLowerCase();
   const testPatterns = [
     ".test.",
     ".spec.",
@@ -71066,8 +71931,8 @@ function matchGlobSegment(globSegments, pathSegments) {
   }
   return gIndex === globSegments.length && pIndex === pathSegments.length;
 }
-function matchesGlobSegment(path67, glob) {
-  const normalizedPath = path67.replace(/\\/g, "/");
+function matchesGlobSegment(path69, glob) {
+  const normalizedPath = path69.replace(/\\/g, "/");
   const normalizedGlob = glob.replace(/\\/g, "/");
   if (normalizedPath.includes("//")) {
     return false;
@@ -71098,8 +71963,8 @@ function simpleGlobToRegex2(glob) {
 function hasGlobstar(glob) {
   return glob.includes("**");
 }
-function globMatches(path67, glob) {
-  const normalizedPath = path67.replace(/\\/g, "/");
+function globMatches(path69, glob) {
+  const normalizedPath = path69.replace(/\\/g, "/");
   if (!glob || glob === "") {
     if (normalizedPath.includes("//")) {
       return false;
@@ -71135,31 +72000,31 @@ function shouldExcludeFile(filePath, excludeGlobs) {
 async function computeTestToCodeRatio(workingDir, enforceGlobs, excludeGlobs) {
   let testLines = 0;
   let codeLines = 0;
-  const srcDir = path66.join(workingDir, "src");
-  if (fs53.existsSync(srcDir)) {
+  const srcDir = path68.join(workingDir, "src");
+  if (fs54.existsSync(srcDir)) {
     await scanDirectoryForLines(srcDir, enforceGlobs, excludeGlobs, false, (lines) => {
       codeLines += lines;
     });
   }
   const possibleSrcDirs = ["lib", "app", "source", "core"];
   for (const dir of possibleSrcDirs) {
-    const dirPath = path66.join(workingDir, dir);
-    if (fs53.existsSync(dirPath)) {
+    const dirPath = path68.join(workingDir, dir);
+    if (fs54.existsSync(dirPath)) {
       await scanDirectoryForLines(dirPath, enforceGlobs, excludeGlobs, false, (lines) => {
         codeLines += lines;
       });
     }
   }
-  const testsDir = path66.join(workingDir, "tests");
-  if (fs53.existsSync(testsDir)) {
+  const testsDir = path68.join(workingDir, "tests");
+  if (fs54.existsSync(testsDir)) {
     await scanDirectoryForLines(testsDir, ["**"], ["node_modules", "dist"], true, (lines) => {
       testLines += lines;
     });
   }
   const possibleTestDirs = ["test", "__tests__", "specs"];
   for (const dir of possibleTestDirs) {
-    const dirPath = path66.join(workingDir, dir);
-    if (fs53.existsSync(dirPath) && dirPath !== testsDir) {
+    const dirPath = path68.join(workingDir, dir);
+    if (fs54.existsSync(dirPath) && dirPath !== testsDir) {
       await scanDirectoryForLines(dirPath, ["**"], ["node_modules", "dist"], true, (lines) => {
         testLines += lines;
       });
@@ -71171,9 +72036,9 @@ async function computeTestToCodeRatio(workingDir, enforceGlobs, excludeGlobs) {
 }
 async function scanDirectoryForLines(dirPath, includeGlobs, excludeGlobs, isTestScan, callback) {
   try {
-    const entries = fs53.readdirSync(dirPath, { withFileTypes: true });
+    const entries = fs54.readdirSync(dirPath, { withFileTypes: true });
     for (const entry of entries) {
-      const fullPath = path66.join(dirPath, entry.name);
+      const fullPath = path68.join(dirPath, entry.name);
       if (entry.isDirectory()) {
         if (entry.name === "node_modules" || entry.name === "dist" || entry.name === "build" || entry.name === ".git") {
           continue;
@@ -71181,7 +72046,7 @@ async function scanDirectoryForLines(dirPath, includeGlobs, excludeGlobs, isTest
         await scanDirectoryForLines(fullPath, includeGlobs, excludeGlobs, isTestScan, callback);
       } else if (entry.isFile()) {
         const relativePath = fullPath.replace(`${dirPath}/`, "");
-        const ext = path66.extname(entry.name).toLowerCase();
+        const ext = path68.extname(entry.name).toLowerCase();
         const validExts = [
           ".ts",
           ".tsx",
@@ -71217,7 +72082,7 @@ async function scanDirectoryForLines(dirPath, includeGlobs, excludeGlobs, isTest
             continue;
         }
         try {
-          const content = fs53.readFileSync(fullPath, "utf-8");
+          const content = fs54.readFileSync(fullPath, "utf-8");
           const lines = countCodeLines(content);
           callback(lines);
         } catch {}
@@ -71419,11 +72284,11 @@ async function getGitChurn(days, directory) {
 }
 function getComplexityForFile2(filePath) {
   try {
-    const stat3 = fs54.statSync(filePath);
+    const stat3 = fs55.statSync(filePath);
     if (stat3.size > MAX_FILE_SIZE_BYTES5) {
       return null;
     }
-    const content = fs54.readFileSync(filePath, "utf-8");
+    const content = fs55.readFileSync(filePath, "utf-8");
     return estimateCyclomaticComplexity(content);
   } catch {
     return null;
@@ -71434,7 +72299,7 @@ async function analyzeHotspots(days, topN, extensions, directory) {
   const extSet = new Set(extensions.map((e) => e.startsWith(".") ? e : `.${e}`));
   const filteredChurn = new Map;
   for (const [file3, count] of churnMap) {
-    const ext = path67.extname(file3).toLowerCase();
+    const ext = path69.extname(file3).toLowerCase();
     if (extSet.has(ext)) {
       filteredChurn.set(file3, count);
     }
@@ -71444,8 +72309,8 @@ async function analyzeHotspots(days, topN, extensions, directory) {
   let analyzedFiles = 0;
   for (const [file3, churnCount] of filteredChurn) {
     let fullPath = file3;
-    if (!fs54.existsSync(fullPath)) {
-      fullPath = path67.join(cwd, file3);
+    if (!fs55.existsSync(fullPath)) {
+      fullPath = path69.join(cwd, file3);
     }
     const complexity = getComplexityForFile2(fullPath);
     if (complexity !== null) {
@@ -71617,10 +72482,10 @@ import {
   appendFileSync as appendFileSync7,
   existsSync as existsSync37,
   mkdirSync as mkdirSync18,
-  readFileSync as readFileSync36,
+  readFileSync as readFileSync37,
   writeFileSync as writeFileSync11
 } from "fs";
-import { join as join61 } from "path";
+import { join as join63 } from "path";
 var EVIDENCE_DIR2 = ".swarm/evidence";
 var VALID_TASK_ID = /^\d+\.\d+(\.\d+)*$/;
 var COUNCIL_GATE_NAME = "council";
@@ -71654,13 +72519,13 @@ function writeCouncilEvidence(workingDir, synthesis) {
   if (!VALID_TASK_ID.test(synthesis.taskId)) {
     throw new Error(`writeCouncilEvidence: invalid taskId "${synthesis.taskId}" \u2014 must match N.M or N.M.P format`);
   }
-  const dir = join61(workingDir, EVIDENCE_DIR2);
+  const dir = join63(workingDir, EVIDENCE_DIR2);
   mkdirSync18(dir, { recursive: true });
-  const filePath = join61(dir, `${synthesis.taskId}.json`);
+  const filePath = join63(dir, `${synthesis.taskId}.json`);
   const existingRoot = Object.create(null);
   if (existsSync37(filePath)) {
     try {
-      const parsed = JSON.parse(readFileSync36(filePath, "utf-8"));
+      const parsed = JSON.parse(readFileSync37(filePath, "utf-8"));
       if (parsed && typeof parsed === "object" && !Array.isArray(parsed)) {
         safeAssignOwnProps(existingRoot, parsed);
       }
@@ -71689,7 +72554,7 @@ function writeCouncilEvidence(workingDir, synthesis) {
     updated.required_gates = [];
   writeFileSync11(filePath, JSON.stringify(updated, null, 2));
   try {
-    const councilDir = join61(workingDir, ".swarm", "council");
+    const councilDir = join63(workingDir, ".swarm", "council");
     mkdirSync18(councilDir, { recursive: true });
     const auditLine = JSON.stringify({
       round: synthesis.roundNumber,
@@ -71697,7 +72562,7 @@ function writeCouncilEvidence(workingDir, synthesis) {
       timestamp: synthesis.timestamp,
       vetoedBy: synthesis.vetoedBy
     });
-    appendFileSync7(join61(councilDir, `${synthesis.taskId}.rounds.jsonl`), `${auditLine}
+    appendFileSync7(join63(councilDir, `${synthesis.taskId}.rounds.jsonl`), `${auditLine}
 `);
   } catch (auditError) {
     console.warn(`writeCouncilEvidence: failed to append round-history audit log: ${auditError instanceof Error ? auditError.message : String(auditError)}`);
@@ -71826,25 +72691,25 @@ function buildUnifiedFeedback(taskId, verdict, vetoedBy, requiredFixes, advisory
 }
 
 // src/council/criteria-store.ts
-import { existsSync as existsSync38, mkdirSync as mkdirSync19, readFileSync as readFileSync37, writeFileSync as writeFileSync12 } from "fs";
-import { join as join62 } from "path";
+import { existsSync as existsSync38, mkdirSync as mkdirSync19, readFileSync as readFileSync38, writeFileSync as writeFileSync12 } from "fs";
+import { join as join64 } from "path";
 var COUNCIL_DIR = ".swarm/council";
 function writeCriteria(workingDir, taskId, criteria) {
-  const dir = join62(workingDir, COUNCIL_DIR);
+  const dir = join64(workingDir, COUNCIL_DIR);
   mkdirSync19(dir, { recursive: true });
   const payload = {
     taskId,
     criteria,
     declaredAt: new Date().toISOString()
   };
-  writeFileSync12(join62(dir, `${safeId(taskId)}.json`), JSON.stringify(payload, null, 2));
+  writeFileSync12(join64(dir, `${safeId(taskId)}.json`), JSON.stringify(payload, null, 2));
 }
 function readCriteria(workingDir, taskId) {
-  const filePath = join62(workingDir, COUNCIL_DIR, `${safeId(taskId)}.json`);
+  const filePath = join64(workingDir, COUNCIL_DIR, `${safeId(taskId)}.json`);
   if (!existsSync38(filePath))
     return null;
   try {
-    const parsed = JSON.parse(readFileSync37(filePath, "utf-8"));
+    const parsed = JSON.parse(readFileSync38(filePath, "utf-8"));
     if (parsed && typeof parsed === "object" && typeof parsed.taskId === "string" && Array.isArray(parsed.criteria)) {
       return parsed;
     }
@@ -72177,8 +73042,8 @@ init_scope_persistence();
 init_state();
 init_task_id();
 init_create_tool();
-import * as fs55 from "fs";
-import * as path68 from "path";
+import * as fs56 from "fs";
+import * as path70 from "path";
 function validateTaskIdFormat2(taskId) {
   return validateTaskIdFormat(taskId);
 }
@@ -72252,8 +73117,8 @@ async function executeDeclareScope(args2, fallbackDir) {
         };
       }
     }
-    normalizedDir = path68.normalize(args2.working_directory);
-    const pathParts = normalizedDir.split(path68.sep);
+    normalizedDir = path70.normalize(args2.working_directory);
+    const pathParts = normalizedDir.split(path70.sep);
     if (pathParts.includes("..")) {
       return {
         success: false,
@@ -72263,11 +73128,11 @@ async function executeDeclareScope(args2, fallbackDir) {
         ]
       };
     }
-    const resolvedDir = path68.resolve(normalizedDir);
+    const resolvedDir = path70.resolve(normalizedDir);
     try {
-      const realPath = fs55.realpathSync(resolvedDir);
-      const planPath2 = path68.join(realPath, ".swarm", "plan.json");
-      if (!fs55.existsSync(planPath2)) {
+      const realPath = fs56.realpathSync(resolvedDir);
+      const planPath2 = path70.join(realPath, ".swarm", "plan.json");
+      if (!fs56.existsSync(planPath2)) {
         return {
           success: false,
           message: `Invalid working_directory: plan not found in "${realPath}"`,
@@ -72290,8 +73155,8 @@ async function executeDeclareScope(args2, fallbackDir) {
     console.warn("[declare-scope] fallbackDir is undefined, falling back to process.cwd()");
   }
   const directory = normalizedDir || fallbackDir;
-  const planPath = path68.resolve(directory, ".swarm", "plan.json");
-  if (!fs55.existsSync(planPath)) {
+  const planPath = path70.resolve(directory, ".swarm", "plan.json");
+  if (!fs56.existsSync(planPath)) {
     return {
       success: false,
       message: "No plan found",
@@ -72300,7 +73165,7 @@ async function executeDeclareScope(args2, fallbackDir) {
   }
   let planContent;
   try {
-    planContent = JSON.parse(fs55.readFileSync(planPath, "utf-8"));
+    planContent = JSON.parse(fs56.readFileSync(planPath, "utf-8"));
   } catch {
     return {
       success: false,
@@ -72330,8 +73195,8 @@ async function executeDeclareScope(args2, fallbackDir) {
   const normalizeErrors = [];
   const dir = normalizedDir || fallbackDir || process.cwd();
   const mergedFiles = rawMergedFiles.map((file3) => {
-    if (path68.isAbsolute(file3)) {
-      const relativePath = path68.relative(dir, file3).replace(/\\/g, "/");
+    if (path70.isAbsolute(file3)) {
+      const relativePath = path70.relative(dir, file3).replace(/\\/g, "/");
       if (relativePath.startsWith("..")) {
         normalizeErrors.push(`Path '${file3}' resolves outside the project directory`);
         return file3;
@@ -72390,458 +73255,14 @@ var declare_scope = createSwarmTool({
 });
 // src/tools/diff.ts
 init_dist();
-import * as child_process6 from "child_process";
-
-// src/diff/ast-diff.ts
-init_tree_sitter();
-import { extname as extname14 } from "path";
-
-// src/lang/registry.ts
-init_runtime();
-import { extname as extname13 } from "path";
-var languageDefinitions = [
-  {
-    id: "javascript",
-    extensions: [".js", ".jsx"],
-    commentNodes: ["comment", "line_comment", "block_comment"]
-  },
-  {
-    id: "typescript",
-    extensions: [".ts", ".tsx"],
-    commentNodes: ["comment", "line_comment", "block_comment"]
-  },
-  {
-    id: "python",
-    extensions: [".py"],
-    commentNodes: ["comment"]
-  },
-  {
-    id: "go",
-    extensions: [".go"],
-    commentNodes: ["comment"]
-  },
-  {
-    id: "rust",
-    extensions: [".rs"],
-    commentNodes: ["line_comment", "block_comment"]
-  },
-  {
-    id: "php",
-    extensions: [".php", ".phtml"],
-    commentNodes: ["comment"]
-  }
-];
-var extensionMap = new Map;
-for (const definition of languageDefinitions) {
-  for (const extension of definition.extensions) {
-    extensionMap.set(extension, definition);
-  }
-}
-function getLanguageForExtension(extension) {
-  return extensionMap.get(extension.toLowerCase());
-}
-async function getParserForFile(filePath) {
-  const extension = extname13(filePath).toLowerCase();
-  const language = getLanguageForExtension(extension);
-  if (!language) {
-    return null;
-  }
-  try {
-    return await loadGrammar(language.id);
-  } catch {
-    return null;
-  }
-}
-
-// src/diff/ast-diff.ts
-init_runtime();
-var QUERIES = {
-  javascript: `
-    (function_declaration name: (identifier) @func.name) @func.def
-    (class_declaration name: (type_identifier) @class.name) @class.def
-    (export_statement) @export
-    (import_statement) @import
-    (type_alias_declaration name: (type_identifier) @type.name) @type.def
-  `,
-  typescript: `
-    (function_declaration name: (identifier) @func.name) @func.def
-    (class_declaration name: (type_identifier) @class.name) @class.def
-    (export_statement) @export
-    (import_statement) @import
-    (type_alias_declaration name: (type_identifier) @type.name) @type.def
-    (interface_declaration name: (type_identifier) @interface.name) @interface.def
-  `,
-  python: `
-    (function_definition name: (identifier) @func.name) @func.def
-    (class_definition name: (identifier) @class.name) @class.def
-    (import_statement) @import
-    (expression_statement (assignment left: (identifier) @var.name)) @var.def
-  `,
-  go: `
-    (function_declaration name: (identifier) @func.name) @func.def
-    (type_declaration (type_spec name: (type_identifier) @type.name)) @type.def
-    (import_declaration) @import
-  `,
-  rust: `
-    (function_item name: (identifier) @func.name) @func.def
-    (struct_item name: (type_identifier) @struct.name) @struct.def
-    (impl_item type: (type_identifier) @impl.name) @impl.def
-    (use_declaration) @import
-  `
-};
-var AST_TIMEOUT_MS = 500;
-async function computeASTDiff(filePath, oldContent, newContent) {
-  const startTime = Date.now();
-  const extension = extname14(filePath).toLowerCase();
-  const language = getLanguageForExtension(extension);
-  if (!language) {
-    return {
-      filePath,
-      language: null,
-      changes: [],
-      durationMs: Date.now() - startTime,
-      usedAST: false
-    };
-  }
-  try {
-    let timeoutId;
-    const parser = await Promise.race([
-      loadGrammar(language.id),
-      new Promise((_, reject) => {
-        timeoutId = setTimeout(() => reject(new Error("AST_TIMEOUT")), AST_TIMEOUT_MS);
-      })
-    ]).finally(() => {
-      if (timeoutId)
-        clearTimeout(timeoutId);
-    });
-    const oldTree = parser.parse(oldContent);
-    const newTree = parser.parse(newContent);
-    if (!oldTree || !newTree) {
-      return {
-        filePath,
-        language: language.id,
-        changes: [],
-        durationMs: Date.now() - startTime,
-        usedAST: false,
-        error: "Failed to parse file"
-      };
-    }
-    const oldSymbols = extractSymbols(oldTree, language);
-    const newSymbols = extractSymbols(newTree, language);
-    const changes = compareSymbols(oldSymbols, newSymbols);
-    oldTree.delete();
-    newTree.delete();
-    return {
-      filePath,
-      language: language.id,
-      changes,
-      durationMs: Date.now() - startTime,
-      usedAST: true
-    };
-  } catch (error93) {
-    const errorMsg = error93 instanceof Error ? error93.message : "Unknown error";
-    if (errorMsg === "AST_TIMEOUT") {
-      console.warn(`[ast-diff] Timeout for ${filePath}, falling back to raw diff`);
-    }
-    return {
-      filePath,
-      language: language.id,
-      changes: [],
-      durationMs: Date.now() - startTime,
-      usedAST: false,
-      error: errorMsg
-    };
-  }
-}
-function extractSymbols(tree, language) {
-  const symbols2 = [];
-  const queryStr = QUERIES[language.id];
-  if (!queryStr) {
-    return symbols2;
-  }
-  try {
-    const lang = tree.language;
-    if (!lang) {
-      return symbols2;
-    }
-    const query = new Query(lang, queryStr);
-    const matches = query.matches(tree.rootNode);
-    for (const match of matches) {
-      const symbol3 = parseMatch(match, language.id);
-      if (symbol3) {
-        symbols2.push(symbol3);
-      }
-    }
-  } catch {}
-  return symbols2;
-}
-function parseMatch(match, languageId) {
-  const captures = match.captures;
-  const defCapture = captures.find((c) => c.name.endsWith(".def"));
-  const nameCapture = captures.find((c) => c.name.endsWith(".name"));
-  if (!defCapture)
-    return null;
-  const node = defCapture.node;
-  const nameNode = nameCapture?.node;
-  return {
-    category: inferCategory(captures[0]?.name || "other"),
-    name: nameNode?.text || "anonymous",
-    lineStart: node.startPosition.row + 1,
-    lineEnd: node.endPosition.row + 1,
-    signature: extractSignature(node, languageId)
-  };
-}
-function inferCategory(captureName) {
-  if (captureName.includes("func"))
-    return "function";
-  if (captureName.includes("class"))
-    return "class";
-  if (captureName.includes("type") || captureName.includes("interface") || captureName.includes("struct"))
-    return "type";
-  if (captureName.includes("export"))
-    return "export";
-  if (captureName.includes("import") || captureName.includes("use"))
-    return "import";
-  if (captureName.includes("var"))
-    return "variable";
-  return "other";
-}
-function extractSignature(node, languageId) {
-  if (languageId === "javascript" || languageId === "typescript") {
-    const paramsNode = node.children.find((c) => c !== null && c.type === "formal_parameters");
-    if (paramsNode) {
-      return paramsNode.text;
-    }
-  }
-  return;
-}
-function compareSymbols(oldSymbols, newSymbols) {
-  const changes = [];
-  const oldMap = new Map(oldSymbols.map((s) => [s.name, s]));
-  const newMap = new Map(newSymbols.map((s) => [s.name, s]));
-  for (const [name2, symbol3] of newMap) {
-    if (!oldMap.has(name2)) {
-      changes.push({
-        type: "added",
-        category: symbol3.category,
-        name: symbol3.name,
-        lineStart: symbol3.lineStart,
-        lineEnd: symbol3.lineEnd,
-        signature: symbol3.signature
-      });
-    } else {
-      const oldSymbol = oldMap.get(name2);
-      if (oldSymbol.lineStart !== symbol3.lineStart || oldSymbol.lineEnd !== symbol3.lineEnd || oldSymbol.signature !== symbol3.signature) {
-        changes.push({
-          type: "modified",
-          category: symbol3.category,
-          name: symbol3.name,
-          lineStart: symbol3.lineStart,
-          lineEnd: symbol3.lineEnd,
-          signature: symbol3.signature
-        });
-      }
-    }
-  }
-  for (const [name2, symbol3] of oldMap) {
-    if (!newMap.has(name2)) {
-      changes.push({
-        type: "removed",
-        category: symbol3.category,
-        name: symbol3.name,
-        lineStart: symbol3.lineStart,
-        lineEnd: symbol3.lineEnd,
-        signature: symbol3.signature
-      });
-    }
-  }
-  return changes;
-}
-
-// src/diff/semantic-classifier.ts
-var GUARD_KEYWORDS = [
-  "guard",
-  "check",
-  "validate",
-  "verify",
-  "ensure",
-  "assert",
-  "require"
-];
-function isGuardKeyword(name2) {
-  const lowerName = name2.toLowerCase();
-  return GUARD_KEYWORDS.some((keyword) => lowerName.includes(keyword));
-}
-function isExportedFunction(name2, allChanges) {
-  return allChanges.some((c) => c.name === name2 && c.category === "export");
-}
-function classifyChange(change, filePath, allChanges) {
-  const base = {
-    filePath,
-    symbolName: change.name,
-    changeType: change.type,
-    lineStart: change.lineStart,
-    lineEnd: change.lineEnd,
-    signature: change.signature
-  };
-  if (change.type === "removed" && change.category === "function") {
-    if (isGuardKeyword(change.name)) {
-      return {
-        ...base,
-        category: "GUARD_REMOVED",
-        riskLevel: "Critical",
-        description: `Guard function '${change.name}' was removed`
-      };
-    }
-    return {
-      ...base,
-      category: "DELETED_FUNCTION",
-      riskLevel: "High",
-      description: `Deleted function '${change.name}'`
-    };
-  }
-  if (change.type === "added" && change.category === "function") {
-    return {
-      ...base,
-      category: "NEW_FUNCTION",
-      riskLevel: "Medium",
-      description: `New function '${change.name}' added`
-    };
-  }
-  if (change.type === "modified" && change.category === "function" && change.signature) {
-    return {
-      ...base,
-      category: "SIGNATURE_CHANGE",
-      riskLevel: "Critical",
-      description: `Function signature changed for '${change.name}': ${change.signature}`
-    };
-  }
-  if (change.type === "modified") {
-    if (change.category === "export" || change.category === "type") {
-      return {
-        ...base,
-        category: "API_CHANGE",
-        riskLevel: "Critical",
-        description: `API surface changed for '${change.name}' (${change.category})`
-      };
-    }
-    if (change.category === "function" && isExportedFunction(change.name, allChanges)) {
-      return {
-        ...base,
-        category: "API_CHANGE",
-        riskLevel: "Critical",
-        description: `Exported function '${change.name}' was modified`
-      };
-    }
-  }
-  if (change.type === "modified" && change.category === "function") {
-    return {
-      ...base,
-      category: "LOGIC_CHANGE",
-      riskLevel: "High",
-      description: `Function body logic changed for '${change.name}'`
-    };
-  }
-  if (change.type === "modified" && (change.category === "class" || change.category === "type" || change.category === "variable")) {
-    return {
-      ...base,
-      category: "REFACTOR",
-      riskLevel: "Medium",
-      description: `${change.category} '${change.name}' was refactored`
-    };
-  }
-  if (change.category === "import") {
-    return {
-      ...base,
-      category: "COSMETIC",
-      riskLevel: "Low",
-      description: `Import ${change.type} for '${change.name}'`
-    };
-  }
-  return {
-    ...base,
-    category: "UNCLASSIFIED",
-    riskLevel: "Medium",
-    description: `Unclassified ${change.type} of ${change.category} '${change.name}'`
-  };
-}
-function classifyChanges(astDiffs) {
-  const result = [];
-  for (const diff of astDiffs) {
-    for (const change of diff.changes) {
-      result.push(classifyChange(change, diff.filePath, diff.changes));
-    }
-  }
-  return result;
-}
-
-// src/diff/summary-generator.ts
-var RISK_LEVELS = ["Critical", "High", "Medium", "Low"];
-var CHANGE_CATEGORIES = [
-  "SIGNATURE_CHANGE",
-  "API_CHANGE",
-  "GUARD_REMOVED",
-  "LOGIC_CHANGE",
-  "DELETED_FUNCTION",
-  "NEW_FUNCTION",
-  "REFACTOR",
-  "COSMETIC",
-  "UNCLASSIFIED"
-];
-function generateSummary(changes) {
-  const byRisk = RISK_LEVELS.reduce((acc, level) => {
-    acc[level] = [];
-    return acc;
-  }, {});
-  const byCategory = CHANGE_CATEGORIES.reduce((acc, cat) => {
-    acc[cat] = [];
-    return acc;
-  }, {});
-  for (const change of changes) {
-    byRisk[change.riskLevel].push(change);
-    byCategory[change.category].push(change);
-  }
-  const uniqueFiles = new Set(changes.map((c) => c.filePath));
-  return {
-    totalFiles: uniqueFiles.size,
-    totalChanges: changes.length,
-    byRisk,
-    byCategory,
-    criticalItems: byRisk.Critical
-  };
-}
-function generateSummaryMarkdown(summary) {
-  const lines = [];
-  const totalFiles = summary.totalFiles;
-  const totalChanges = summary.totalChanges;
-  lines.push(`## Change Summary (${totalFiles} files, ${totalChanges} changes)`);
-  const riskLabels = {
-    Critical: "Critical (review first)",
-    High: "High",
-    Medium: "Medium",
-    Low: "Low (skim)"
-  };
-  for (const riskLevel of RISK_LEVELS) {
-    const changes = summary.byRisk[riskLevel];
-    const header = riskLabels[riskLevel];
-    lines.push(`### ${header}`);
-    if (changes.length === 0) {
-      lines.push("- (none)");
-    } else {
-      for (const change of changes) {
-        lines.push(`- ${change.filePath}: ${change.category} \u2014 ${change.description}`);
-      }
-    }
-  }
-  return lines.join(`
-`);
-}
-
-// src/tools/diff.ts
+import * as child_process7 from "child_process";
+import * as fs57 from "fs";
+import * as path71 from "path";
 init_create_tool();
 var MAX_DIFF_LINES = 500;
 var DIFF_TIMEOUT_MS = 30000;
 var MAX_BUFFER_BYTES = 5 * 1024 * 1024;
+var MAX_AST_FILES = 50;
 var CONTRACT_PATTERNS = [
   /^[+-]\s*export\s+(function|const|class|interface|type|enum|default)\b/,
   /^[+-]\s*(interface|type)\s+\w+/,
@@ -72865,20 +73286,20 @@ function validateBase(base) {
 function validatePaths(paths) {
   if (!paths)
     return null;
-  for (const path70 of paths) {
-    if (!path70 || path70.length === 0) {
+  for (const path72 of paths) {
+    if (!path72 || path72.length === 0) {
       return "empty path not allowed";
     }
-    if (path70.length > MAX_PATH_LENGTH) {
+    if (path72.length > MAX_PATH_LENGTH) {
       return `path exceeds maximum length of ${MAX_PATH_LENGTH}`;
     }
-    if (SHELL_METACHARACTERS2.test(path70)) {
+    if (SHELL_METACHARACTERS2.test(path72)) {
       return "path contains shell metacharacters";
     }
-    if (path70.startsWith("-")) {
+    if (path72.startsWith("-")) {
       return 'path cannot start with "-" (option-like arguments not allowed)';
     }
-    if (CONTROL_CHAR_PATTERN2.test(path70)) {
+    if (CONTROL_CHAR_PATTERN2.test(path72)) {
       return "path contains control characters";
     }
   }
@@ -72893,6 +73314,31 @@ var diff = createSwarmTool({
   async execute(args2, directory, _ctx) {
     const typedArgs = args2;
     try {
+      let fileExistsInRef = function(refPath) {
+        try {
+          child_process7.execFileSync("git", ["cat-file", "-e", refPath], {
+            encoding: "utf-8",
+            timeout: 3000,
+            cwd: directory,
+            stdio: "pipe"
+          });
+          return true;
+        } catch (e) {
+          if (e && typeof e === "object" && "code" in e) {
+            const err2 = e;
+            if (err2.code === "ENOENT")
+              throw e;
+          }
+          return false;
+        }
+      }, getContentFromRef = function(refPath) {
+        return child_process7.execFileSync("git", ["show", refPath], {
+          encoding: "utf-8",
+          timeout: 5000,
+          cwd: directory,
+          stdio: "pipe"
+        });
+      };
       if (!directory || typeof directory !== "string" || directory.trim() === "") {
         const errorResult = {
           error: "project directory is required but was not provided",
@@ -72937,13 +73383,13 @@ var diff = createSwarmTool({
         numstatArgs.push("--", ...typedArgs.paths);
         fullDiffArgs.push("--", ...typedArgs.paths);
       }
-      const numstatOutput = child_process6.execFileSync("git", numstatArgs, {
+      const numstatOutput = child_process7.execFileSync("git", numstatArgs, {
         encoding: "utf-8",
         timeout: DIFF_TIMEOUT_MS,
         maxBuffer: MAX_BUFFER_BYTES,
         cwd: directory
       });
-      const fullDiffOutput = child_process6.execFileSync("git", fullDiffArgs, {
+      const fullDiffOutput = child_process7.execFileSync("git", fullDiffArgs, {
         encoding: "utf-8",
         timeout: DIFF_TIMEOUT_MS,
         maxBuffer: MAX_BUFFER_BYTES,
@@ -72959,8 +73405,8 @@ var diff = createSwarmTool({
         if (parts2.length >= 3) {
           const additions = parseInt(parts2[0], 10) || 0;
           const deletions = parseInt(parts2[1], 10) || 0;
-          const path70 = parts2[2];
-          files.push({ path: path70, additions, deletions });
+          const path72 = parts2[2];
+          files.push({ path: path72, additions, deletions });
         }
       }
       const contractChanges = [];
@@ -72987,52 +73433,35 @@ var diff = createSwarmTool({
       const hasContractChanges = contractChanges.length > 0;
       const fileCount = files.length;
       const astDiffs = [];
-      for (const file3 of files) {
+      const filesForAST = files.slice(0, MAX_AST_FILES);
+      const astSkippedCount = files.length > MAX_AST_FILES ? files.length - MAX_AST_FILES : 0;
+      for (const file3 of filesForAST) {
         try {
           let oldContent;
           let newContent;
           if (base === "staged") {
-            oldContent = child_process6.execFileSync("git", ["show", `HEAD:${file3.path}`], {
-              encoding: "utf-8",
-              timeout: 5000,
-              cwd: directory
-            });
-            newContent = child_process6.execFileSync("git", ["show", `:${file3.path}`], {
-              encoding: "utf-8",
-              timeout: 5000,
-              cwd: directory
-            });
+            const oldRef = `HEAD:${file3.path}`;
+            oldContent = fileExistsInRef(oldRef) ? getContentFromRef(oldRef) : "";
+            newContent = getContentFromRef(`:${file3.path}`);
           } else if (base === "unstaged") {
-            oldContent = child_process6.execFileSync("git", ["show", `:${file3.path}`], {
-              encoding: "utf-8",
-              timeout: 5000,
-              cwd: directory
-            });
-            newContent = child_process6.execFileSync("git", ["show", `HEAD:${file3.path}`], {
-              encoding: "utf-8",
-              timeout: 5000,
-              cwd: directory
-            });
-            const fsModule = await import("fs");
-            const pathModule = await import("path");
-            newContent = fsModule.readFileSync(pathModule.join(directory, file3.path), "utf-8");
+            const oldRef = `:${file3.path}`;
+            oldContent = fileExistsInRef(oldRef) ? getContentFromRef(oldRef) : "";
+            newContent = fs57.readFileSync(path71.join(directory, file3.path), "utf-8");
           } else {
-            oldContent = child_process6.execFileSync("git", ["show", `${base}:${file3.path}`], {
-              encoding: "utf-8",
-              timeout: 5000,
-              cwd: directory
-            });
-            newContent = child_process6.execFileSync("git", ["show", `HEAD:${file3.path}`], {
-              encoding: "utf-8",
-              timeout: 5000,
-              cwd: directory
-            });
+            const oldRef = `${base}:${file3.path}`;
+            oldContent = fileExistsInRef(oldRef) ? getContentFromRef(oldRef) : "";
+            newContent = getContentFromRef(`HEAD:${file3.path}`);
           }
           const astResult = await computeASTDiff(file3.path, oldContent, newContent);
           if (astResult && (astResult.changes.length > 0 || astResult.error)) {
             astDiffs.push(astResult);
           }
-        } catch {
+        } catch (e) {
+          if (e && typeof e === "object" && "code" in e) {
+            const err2 = e;
+            if (err2.code === "ENOENT")
+              throw e;
+          }
           astDiffs.push({
             filePath: file3.path,
             language: null,
@@ -73073,7 +73502,8 @@ var diff = createSwarmTool({
         summary,
         ...astDiffs.length > 0 ? { astDiffs } : {},
         ...semanticSummary ? { semanticSummary } : {},
-        ...markdownSummary ? { markdownSummary } : {}
+        ...markdownSummary ? { markdownSummary } : {},
+        ...astSkippedCount > 0 ? { astSkippedCount } : {}
       };
       return JSON.stringify(result, null, 2);
     } catch (e) {
@@ -73089,11 +73519,10 @@ var diff = createSwarmTool({
 });
 // src/tools/diff-summary.ts
 init_dist();
-import * as child_process7 from "child_process";
-import * as fs56 from "fs";
-import * as path70 from "path";
+import * as child_process8 from "child_process";
+import * as fs58 from "fs";
+import * as path72 from "path";
 init_create_tool();
-var MAX_BUFFER_BYTES2 = 5 * 1024 * 1024;
 var diff_summary = createSwarmTool({
   description: "Generate a filtered semantic diff summary from AST analysis. Returns SemanticDiffSummary with optional filtering by classification or riskLevel.",
   args: {
@@ -73114,18 +73543,51 @@ var diff_summary = createSwarmTool({
       const workingDir = directory || process.cwd();
       const astDiffs = [];
       for (const filePath of typedArgs.files) {
+        let astResult = null;
+        let gitBinaryMissing = false;
+        let gitError = null;
+        let fileExistsInHead = false;
         try {
-          const oldContent = child_process7.execFileSync("git", ["show", `HEAD:${filePath}`], {
+          child_process8.execFileSync("git", ["cat-file", "-e", `HEAD:${filePath}`], {
             encoding: "utf-8",
-            timeout: 5000,
-            cwd: workingDir
+            timeout: 3000,
+            cwd: workingDir,
+            stdio: "pipe"
           });
-          const newContent = fs56.readFileSync(path70.join(workingDir, filePath), "utf-8");
-          const astResult = await computeASTDiff(filePath, oldContent, newContent);
-          if (astResult && astResult.changes.length > 0) {
-            astDiffs.push(astResult);
+          fileExistsInHead = true;
+        } catch (e) {
+          if (e && typeof e === "object" && "code" in e) {
+            const err2 = e;
+            if (err2.code === "ENOENT") {
+              gitBinaryMissing = true;
+              gitError = e;
+            }
           }
-        } catch {}
+        }
+        if (gitBinaryMissing && gitError) {
+          throw gitError;
+        }
+        try {
+          let oldContent;
+          const newContent = fs58.readFileSync(path72.join(workingDir, filePath), "utf-8");
+          if (fileExistsInHead) {
+            oldContent = child_process8.execFileSync("git", ["show", `HEAD:${filePath}`], {
+              encoding: "utf-8",
+              timeout: 5000,
+              cwd: workingDir,
+              stdio: "pipe",
+              maxBuffer: 5 * 1024 * 1024
+            });
+          } else {
+            oldContent = "";
+          }
+          astResult = await computeASTDiff(filePath, oldContent, newContent);
+        } catch (_e) {
+          astResult = null;
+        }
+        if (astResult && (astResult.changes.length > 0 || astResult.error !== undefined)) {
+          astDiffs.push(astResult);
+        }
       }
       const allClassifiedChanges = classifyChanges(astDiffs);
       let filteredChanges = allClassifiedChanges;
@@ -73334,8 +73796,8 @@ Use these as DOMAIN values when delegating to @sme.`;
 init_dist();
 init_create_tool();
 init_path_security();
-import * as fs57 from "fs";
-import * as path71 from "path";
+import * as fs59 from "fs";
+import * as path73 from "path";
 var MAX_FILE_SIZE_BYTES6 = 1024 * 1024;
 var MAX_EVIDENCE_FILES = 1000;
 var EVIDENCE_DIR3 = ".swarm/evidence";
@@ -73362,9 +73824,9 @@ function validateRequiredTypes(input) {
   return null;
 }
 function isPathWithinSwarm2(filePath, cwd) {
-  const normalizedCwd = path71.resolve(cwd);
-  const swarmPath = path71.join(normalizedCwd, ".swarm");
-  const normalizedPath = path71.resolve(filePath);
+  const normalizedCwd = path73.resolve(cwd);
+  const swarmPath = path73.join(normalizedCwd, ".swarm");
+  const normalizedPath = path73.resolve(filePath);
   return normalizedPath.startsWith(swarmPath);
 }
 function parseCompletedTasks(planContent) {
@@ -73380,12 +73842,12 @@ function parseCompletedTasks(planContent) {
 }
 function readEvidenceFiles(evidenceDir, _cwd) {
   const evidence = [];
-  if (!fs57.existsSync(evidenceDir) || !fs57.statSync(evidenceDir).isDirectory()) {
+  if (!fs59.existsSync(evidenceDir) || !fs59.statSync(evidenceDir).isDirectory()) {
     return evidence;
   }
   let files;
   try {
-    files = fs57.readdirSync(evidenceDir);
+    files = fs59.readdirSync(evidenceDir);
   } catch {
     return evidence;
   }
@@ -73394,14 +73856,14 @@ function readEvidenceFiles(evidenceDir, _cwd) {
     if (!VALID_EVIDENCE_FILENAME_REGEX.test(filename)) {
       continue;
     }
-    const filePath = path71.join(evidenceDir, filename);
+    const filePath = path73.join(evidenceDir, filename);
     try {
-      const resolvedPath = path71.resolve(filePath);
-      const evidenceDirResolved = path71.resolve(evidenceDir);
+      const resolvedPath = path73.resolve(filePath);
+      const evidenceDirResolved = path73.resolve(evidenceDir);
       if (!resolvedPath.startsWith(evidenceDirResolved)) {
         continue;
       }
-      const stat3 = fs57.lstatSync(filePath);
+      const stat3 = fs59.lstatSync(filePath);
       if (!stat3.isFile()) {
         continue;
       }
@@ -73410,7 +73872,7 @@ function readEvidenceFiles(evidenceDir, _cwd) {
     }
     let fileStat;
     try {
-      fileStat = fs57.statSync(filePath);
+      fileStat = fs59.statSync(filePath);
       if (fileStat.size > MAX_FILE_SIZE_BYTES6) {
         continue;
       }
@@ -73419,7 +73881,7 @@ function readEvidenceFiles(evidenceDir, _cwd) {
     }
     let content;
     try {
-      content = fs57.readFileSync(filePath, "utf-8");
+      content = fs59.readFileSync(filePath, "utf-8");
     } catch {
       continue;
     }
@@ -73515,7 +73977,7 @@ var evidence_check = createSwarmTool({
       return JSON.stringify(errorResult, null, 2);
     }
     const requiredTypes = requiredTypesValue.split(",").map((t) => t.trim()).filter((t) => t.length > 0).map(normalizeEvidenceType);
-    const planPath = path71.join(cwd, PLAN_FILE);
+    const planPath = path73.join(cwd, PLAN_FILE);
     if (!isPathWithinSwarm2(planPath, cwd)) {
       const errorResult = {
         error: "plan file path validation failed",
@@ -73529,7 +73991,7 @@ var evidence_check = createSwarmTool({
     }
     let planContent;
     try {
-      planContent = fs57.readFileSync(planPath, "utf-8");
+      planContent = fs59.readFileSync(planPath, "utf-8");
     } catch {
       const result2 = {
         message: "No completed tasks found in plan.",
@@ -73547,7 +74009,7 @@ var evidence_check = createSwarmTool({
       };
       return JSON.stringify(result2, null, 2);
     }
-    const evidenceDir = path71.join(cwd, EVIDENCE_DIR3);
+    const evidenceDir = path73.join(cwd, EVIDENCE_DIR3);
     const evidence = readEvidenceFiles(evidenceDir, cwd);
     const { tasksWithFullEvidence, gaps } = analyzeGaps(completedTasks, evidence, requiredTypes);
     const completeness = completedTasks.length > 0 ? Math.round(tasksWithFullEvidence.length / completedTasks.length * 100) / 100 : 1;
@@ -73564,8 +74026,8 @@ var evidence_check = createSwarmTool({
 // src/tools/file-extractor.ts
 init_tool();
 init_create_tool();
-import * as fs58 from "fs";
-import * as path72 from "path";
+import * as fs60 from "fs";
+import * as path74 from "path";
 var EXT_MAP = {
   python: ".py",
   py: ".py",
@@ -73627,8 +74089,8 @@ var extract_code_blocks = createSwarmTool({
   execute: async (args2, directory) => {
     const { content, output_dir, prefix } = args2;
     const targetDir = output_dir || directory;
-    if (!fs58.existsSync(targetDir)) {
-      fs58.mkdirSync(targetDir, { recursive: true });
+    if (!fs60.existsSync(targetDir)) {
+      fs60.mkdirSync(targetDir, { recursive: true });
     }
     if (!content) {
       return "Error: content is required";
@@ -73646,16 +74108,16 @@ var extract_code_blocks = createSwarmTool({
       if (prefix) {
         filename = `${prefix}_${filename}`;
       }
-      let filepath = path72.join(targetDir, filename);
-      const base = path72.basename(filepath, path72.extname(filepath));
-      const ext = path72.extname(filepath);
+      let filepath = path74.join(targetDir, filename);
+      const base = path74.basename(filepath, path74.extname(filepath));
+      const ext = path74.extname(filepath);
       let counter = 1;
-      while (fs58.existsSync(filepath)) {
-        filepath = path72.join(targetDir, `${base}_${counter}${ext}`);
+      while (fs60.existsSync(filepath)) {
+        filepath = path74.join(targetDir, `${base}_${counter}${ext}`);
         counter++;
       }
       try {
-        fs58.writeFileSync(filepath, code.trim(), "utf-8");
+        fs60.writeFileSync(filepath, code.trim(), "utf-8");
         savedFiles.push(filepath);
       } catch (error93) {
         errors5.push(`Failed to save ${filename}: ${error93 instanceof Error ? error93.message : String(error93)}`);
@@ -73827,7 +74289,7 @@ init_create_tool();
 var GITINGEST_TIMEOUT_MS = 1e4;
 var GITINGEST_MAX_RESPONSE_BYTES = 5242880;
 var GITINGEST_MAX_RETRIES = 2;
-var delay = (ms) => new Promise((resolve28) => setTimeout(resolve28, ms));
+var delay = (ms) => new Promise((resolve29) => setTimeout(resolve29, ms));
 async function fetchGitingest(args2) {
   for (let attempt = 0;attempt <= GITINGEST_MAX_RETRIES; attempt++) {
     try {
@@ -73914,8 +74376,8 @@ var gitingest = createSwarmTool({
 init_dist();
 init_create_tool();
 init_path_security();
-import * as fs59 from "fs";
-import * as path73 from "path";
+import * as fs61 from "fs";
+import * as path75 from "path";
 var MAX_FILE_PATH_LENGTH2 = 500;
 var MAX_SYMBOL_LENGTH = 256;
 var MAX_FILE_SIZE_BYTES7 = 1024 * 1024;
@@ -73963,7 +74425,7 @@ function validateSymbolInput(symbol3) {
   return null;
 }
 function isBinaryFile2(filePath, buffer) {
-  const ext = path73.extname(filePath).toLowerCase();
+  const ext = path75.extname(filePath).toLowerCase();
   if (ext === ".json" || ext === ".md" || ext === ".txt") {
     return false;
   }
@@ -73987,15 +74449,15 @@ function parseImports(content, targetFile, targetSymbol) {
   const imports = [];
   let _resolvedTarget;
   try {
-    _resolvedTarget = path73.resolve(targetFile);
+    _resolvedTarget = path75.resolve(targetFile);
   } catch {
     _resolvedTarget = targetFile;
   }
-  const targetBasename = path73.basename(targetFile, path73.extname(targetFile));
+  const targetBasename = path75.basename(targetFile, path75.extname(targetFile));
   const targetWithExt = targetFile;
   const targetWithoutExt = targetFile.replace(/\.(ts|tsx|js|jsx|mjs|cjs)$/i, "");
-  const normalizedTargetWithExt = path73.normalize(targetWithExt).replace(/\\/g, "/");
-  const normalizedTargetWithoutExt = path73.normalize(targetWithoutExt).replace(/\\/g, "/");
+  const normalizedTargetWithExt = path75.normalize(targetWithExt).replace(/\\/g, "/");
+  const normalizedTargetWithoutExt = path75.normalize(targetWithoutExt).replace(/\\/g, "/");
   const importRegex = /import\s+(?:\{[\s\S]*?\}|(?:\*\s+as\s+\w+)|\w+)\s+from\s+['"`]([^'"`]+)['"`]|import\s+['"`]([^'"`]+)['"`]|require\s*\(\s*['"`]([^'"`]+)['"`]\s*\)/g;
   for (let match = importRegex.exec(content);match !== null; match = importRegex.exec(content)) {
     const modulePath = match[1] || match[2] || match[3];
@@ -74018,9 +74480,9 @@ function parseImports(content, targetFile, targetSymbol) {
     }
     const _normalizedModule = modulePath.replace(/^\.\//, "").replace(/^\.\.\\/, "../");
     let isMatch = false;
-    const _targetDir = path73.dirname(targetFile);
-    const targetExt = path73.extname(targetFile);
-    const targetBasenameNoExt = path73.basename(targetFile, targetExt);
+    const _targetDir = path75.dirname(targetFile);
+    const targetExt = path75.extname(targetFile);
+    const targetBasenameNoExt = path75.basename(targetFile, targetExt);
     const moduleNormalized = modulePath.replace(/\\/g, "/").replace(/^\.\//, "");
     const moduleName = modulePath.split(/[/\\]/).pop() || "";
     const moduleNameNoExt = moduleName.replace(/\.(ts|tsx|js|jsx|mjs|cjs)$/i, "");
@@ -74077,7 +74539,7 @@ var SKIP_DIRECTORIES4 = new Set([
 function findSourceFiles3(dir, files = [], stats = { skippedDirs: [], skippedFiles: 0, fileErrors: [] }) {
   let entries;
   try {
-    entries = fs59.readdirSync(dir);
+    entries = fs61.readdirSync(dir);
   } catch (e) {
     stats.fileErrors.push({
       path: dir,
@@ -74088,13 +74550,13 @@ function findSourceFiles3(dir, files = [], stats = { skippedDirs: [], skippedFil
   entries.sort((a, b) => a.toLowerCase().localeCompare(b.toLowerCase()));
   for (const entry of entries) {
     if (SKIP_DIRECTORIES4.has(entry)) {
-      stats.skippedDirs.push(path73.join(dir, entry));
+      stats.skippedDirs.push(path75.join(dir, entry));
       continue;
     }
-    const fullPath = path73.join(dir, entry);
+    const fullPath = path75.join(dir, entry);
     let stat3;
     try {
-      stat3 = fs59.statSync(fullPath);
+      stat3 = fs61.statSync(fullPath);
     } catch (e) {
       stats.fileErrors.push({
         path: fullPath,
@@ -74105,7 +74567,7 @@ function findSourceFiles3(dir, files = [], stats = { skippedDirs: [], skippedFil
     if (stat3.isDirectory()) {
       findSourceFiles3(fullPath, files, stats);
     } else if (stat3.isFile()) {
-      const ext = path73.extname(fullPath).toLowerCase();
+      const ext = path75.extname(fullPath).toLowerCase();
       if (SUPPORTED_EXTENSIONS3.includes(ext)) {
         files.push(fullPath);
       }
@@ -74162,8 +74624,8 @@ var imports = createSwarmTool({
       return JSON.stringify(errorResult, null, 2);
     }
     try {
-      const targetFile = path73.resolve(file3);
-      if (!fs59.existsSync(targetFile)) {
+      const targetFile = path75.resolve(file3);
+      if (!fs61.existsSync(targetFile)) {
         const errorResult = {
           error: `target file not found: ${file3}`,
           target: file3,
@@ -74173,7 +74635,7 @@ var imports = createSwarmTool({
         };
         return JSON.stringify(errorResult, null, 2);
       }
-      const targetStat = fs59.statSync(targetFile);
+      const targetStat = fs61.statSync(targetFile);
       if (!targetStat.isFile()) {
         const errorResult = {
           error: "target must be a file, not a directory",
@@ -74184,7 +74646,7 @@ var imports = createSwarmTool({
         };
         return JSON.stringify(errorResult, null, 2);
       }
-      const baseDir = path73.dirname(targetFile);
+      const baseDir = path75.dirname(targetFile);
       const scanStats = {
         skippedDirs: [],
         skippedFiles: 0,
@@ -74199,12 +74661,12 @@ var imports = createSwarmTool({
         if (consumers.length >= MAX_CONSUMERS)
           break;
         try {
-          const stat3 = fs59.statSync(filePath);
+          const stat3 = fs61.statSync(filePath);
           if (stat3.size > MAX_FILE_SIZE_BYTES7) {
             skippedFileCount++;
             continue;
           }
-          const buffer = fs59.readFileSync(filePath);
+          const buffer = fs61.readFileSync(filePath);
           if (isBinaryFile2(filePath, buffer)) {
             skippedFileCount++;
             continue;
@@ -74716,8 +75178,8 @@ init_schema();
 init_qa_gate_profile();
 init_manager2();
 init_curator();
-import * as fs60 from "fs";
-import * as path74 from "path";
+import * as fs62 from "fs";
+import * as path76 from "path";
 init_knowledge_curator();
 init_knowledge_reader();
 init_knowledge_store();
@@ -74948,11 +75410,11 @@ async function executePhaseComplete(args2, workingDirectory, directory) {
       safeWarn(`[phase_complete] Completion verify error (non-blocking):`, completionError);
     }
     try {
-      const driftEvidencePath = path74.join(dir, ".swarm", "evidence", String(phase), "drift-verifier.json");
+      const driftEvidencePath = path76.join(dir, ".swarm", "evidence", String(phase), "drift-verifier.json");
       let driftVerdictFound = false;
       let driftVerdictApproved = false;
       try {
-        const driftEvidenceContent = fs60.readFileSync(driftEvidencePath, "utf-8");
+        const driftEvidenceContent = fs62.readFileSync(driftEvidencePath, "utf-8");
         const driftEvidence = JSON.parse(driftEvidenceContent);
         const entries = driftEvidence.entries ?? [];
         for (const entry of entries) {
@@ -74982,14 +75444,14 @@ async function executePhaseComplete(args2, workingDirectory, directory) {
         driftVerdictFound = false;
       }
       if (!driftVerdictFound) {
-        const specPath = path74.join(dir, ".swarm", "spec.md");
-        const specExists = fs60.existsSync(specPath);
+        const specPath = path76.join(dir, ".swarm", "spec.md");
+        const specExists = fs62.existsSync(specPath);
         if (!specExists) {
           let incompleteTaskCount = 0;
           let planPhaseFound = false;
           try {
             const planPath = validateSwarmPath(dir, "plan.json");
-            const planRaw = fs60.readFileSync(planPath, "utf-8");
+            const planRaw = fs62.readFileSync(planPath, "utf-8");
             const plan = JSON.parse(planRaw);
             const targetPhase = plan.phases.find((p) => p.id === phase);
             if (targetPhase) {
@@ -75040,11 +75502,11 @@ async function executePhaseComplete(args2, workingDirectory, directory) {
           const overrides = session2?.qaGateSessionOverrides ?? {};
           const effective = getEffectiveGates(profile, overrides);
           if (effective.hallucination_guard === true) {
-            const hgPath = path74.join(dir, ".swarm", "evidence", String(phase), "hallucination-guard.json");
+            const hgPath = path76.join(dir, ".swarm", "evidence", String(phase), "hallucination-guard.json");
             let hgVerdictFound = false;
             let hgVerdictApproved = false;
             try {
-              const hgContent = fs60.readFileSync(hgPath, "utf-8");
+              const hgContent = fs62.readFileSync(hgPath, "utf-8");
               const hgBundle = JSON.parse(hgContent);
               for (const entry of hgBundle.entries ?? []) {
                 if (typeof entry.type === "string" && entry.type.includes("hallucination") && typeof entry.verdict === "string") {
@@ -75112,7 +75574,7 @@ async function executePhaseComplete(args2, workingDirectory, directory) {
   }
   if (retroFound && retroEntry?.lessons_learned && retroEntry.lessons_learned.length > 0) {
     try {
-      const projectName = path74.basename(dir);
+      const projectName = path76.basename(dir);
       const curationResult = await curateAndStoreSwarm(retroEntry.lessons_learned, projectName, { phase_number: phase }, dir, knowledgeConfig);
       if (curationResult) {
         const sessionState = swarmState.agentSessions.get(sessionID);
@@ -75192,7 +75654,7 @@ async function executePhaseComplete(args2, workingDirectory, directory) {
   let phaseRequiredAgents;
   try {
     const planPath = validateSwarmPath(dir, "plan.json");
-    const planRaw = fs60.readFileSync(planPath, "utf-8");
+    const planRaw = fs62.readFileSync(planPath, "utf-8");
     const plan = JSON.parse(planRaw);
     const phaseObj = plan.phases.find((p) => p.id === phase);
     phaseRequiredAgents = phaseObj?.required_agents;
@@ -75207,7 +75669,7 @@ async function executePhaseComplete(args2, workingDirectory, directory) {
   if (agentsMissing.length > 0) {
     try {
       const planPath = validateSwarmPath(dir, "plan.json");
-      const planRaw = fs60.readFileSync(planPath, "utf-8");
+      const planRaw = fs62.readFileSync(planPath, "utf-8");
       const plan = JSON.parse(planRaw);
       const targetPhase = plan.phases.find((p) => p.id === phase);
       if (targetPhase && targetPhase.tasks.length > 0 && targetPhase.tasks.every((t) => t.status === "completed")) {
@@ -75247,7 +75709,7 @@ async function executePhaseComplete(args2, workingDirectory, directory) {
   if (phaseCompleteConfig.regression_sweep?.enforce) {
     try {
       const planPath = validateSwarmPath(dir, "plan.json");
-      const planRaw = fs60.readFileSync(planPath, "utf-8");
+      const planRaw = fs62.readFileSync(planPath, "utf-8");
       const plan = JSON.parse(planRaw);
       const targetPhase = plan.phases.find((p) => p.id === phase);
       if (targetPhase) {
@@ -75301,7 +75763,7 @@ async function executePhaseComplete(args2, workingDirectory, directory) {
   }
   try {
     const eventsPath = validateSwarmPath(dir, "events.jsonl");
-    fs60.appendFileSync(eventsPath, `${JSON.stringify(event)}
+    fs62.appendFileSync(eventsPath, `${JSON.stringify(event)}
 `, "utf-8");
   } catch (writeError) {
     warnings.push(`Warning: failed to write phase complete event: ${writeError instanceof Error ? writeError.message : String(writeError)}`);
@@ -75376,12 +75838,12 @@ async function executePhaseComplete(args2, workingDirectory, directory) {
         warnings.push(`Warning: failed to update plan.json phase status`);
         try {
           const planPath = validateSwarmPath(dir, "plan.json");
-          const planRaw = fs60.readFileSync(planPath, "utf-8");
+          const planRaw = fs62.readFileSync(planPath, "utf-8");
           const plan2 = JSON.parse(planRaw);
           const phaseObj = plan2.phases.find((p) => p.id === phase);
           if (phaseObj) {
             phaseObj.status = "complete";
-            fs60.writeFileSync(planPath, JSON.stringify(plan2, null, 2), "utf-8");
+            fs62.writeFileSync(planPath, JSON.stringify(plan2, null, 2), "utf-8");
           }
         } catch {}
       } else if (plan) {
@@ -75418,12 +75880,12 @@ async function executePhaseComplete(args2, workingDirectory, directory) {
       warnings.push(`Warning: failed to update plan.json phase status`);
       try {
         const planPath = validateSwarmPath(dir, "plan.json");
-        const planRaw = fs60.readFileSync(planPath, "utf-8");
+        const planRaw = fs62.readFileSync(planPath, "utf-8");
         const plan = JSON.parse(planRaw);
         const phaseObj = plan.phases.find((p) => p.id === phase);
         if (phaseObj) {
           phaseObj.status = "complete";
-          fs60.writeFileSync(planPath, JSON.stringify(plan, null, 2), "utf-8");
+          fs62.writeFileSync(planPath, JSON.stringify(plan, null, 2), "utf-8");
         }
       } catch {}
     }
@@ -75480,8 +75942,8 @@ init_dist();
 init_discovery();
 init_utils();
 init_create_tool();
-import * as fs61 from "fs";
-import * as path75 from "path";
+import * as fs63 from "fs";
+import * as path77 from "path";
 var MAX_OUTPUT_BYTES5 = 52428800;
 var AUDIT_TIMEOUT_MS = 120000;
 function isValidEcosystem(value) {
@@ -75509,31 +75971,31 @@ function validateArgs3(args2) {
 function detectEcosystems(directory) {
   const ecosystems = [];
   const cwd = directory;
-  if (fs61.existsSync(path75.join(cwd, "package.json"))) {
+  if (fs63.existsSync(path77.join(cwd, "package.json"))) {
     ecosystems.push("npm");
   }
-  if (fs61.existsSync(path75.join(cwd, "pyproject.toml")) || fs61.existsSync(path75.join(cwd, "requirements.txt"))) {
+  if (fs63.existsSync(path77.join(cwd, "pyproject.toml")) || fs63.existsSync(path77.join(cwd, "requirements.txt"))) {
     ecosystems.push("pip");
   }
-  if (fs61.existsSync(path75.join(cwd, "Cargo.toml"))) {
+  if (fs63.existsSync(path77.join(cwd, "Cargo.toml"))) {
     ecosystems.push("cargo");
   }
-  if (fs61.existsSync(path75.join(cwd, "go.mod"))) {
+  if (fs63.existsSync(path77.join(cwd, "go.mod"))) {
     ecosystems.push("go");
   }
   try {
-    const files = fs61.readdirSync(cwd);
+    const files = fs63.readdirSync(cwd);
     if (files.some((f) => f.endsWith(".csproj") || f.endsWith(".sln"))) {
       ecosystems.push("dotnet");
     }
   } catch {}
-  if (fs61.existsSync(path75.join(cwd, "Gemfile")) || fs61.existsSync(path75.join(cwd, "Gemfile.lock"))) {
+  if (fs63.existsSync(path77.join(cwd, "Gemfile")) || fs63.existsSync(path77.join(cwd, "Gemfile.lock"))) {
     ecosystems.push("ruby");
   }
-  if (fs61.existsSync(path75.join(cwd, "pubspec.yaml"))) {
+  if (fs63.existsSync(path77.join(cwd, "pubspec.yaml"))) {
     ecosystems.push("dart");
   }
-  if (fs61.existsSync(path75.join(cwd, "composer.lock"))) {
+  if (fs63.existsSync(path77.join(cwd, "composer.lock"))) {
     ecosystems.push("composer");
   }
   return ecosystems;
@@ -75546,7 +76008,7 @@ async function runNpmAudit(directory) {
       stderr: "pipe",
       cwd: directory
     });
-    const timeoutPromise = new Promise((resolve29) => setTimeout(() => resolve29("timeout"), AUDIT_TIMEOUT_MS));
+    const timeoutPromise = new Promise((resolve30) => setTimeout(() => resolve30("timeout"), AUDIT_TIMEOUT_MS));
     const result = await Promise.race([
       Promise.all([
         new Response(proc.stdout).text(),
@@ -75669,7 +76131,7 @@ async function runPipAudit(directory) {
       stderr: "pipe",
       cwd: directory
     });
-    const timeoutPromise = new Promise((resolve29) => setTimeout(() => resolve29("timeout"), AUDIT_TIMEOUT_MS));
+    const timeoutPromise = new Promise((resolve30) => setTimeout(() => resolve30("timeout"), AUDIT_TIMEOUT_MS));
     const result = await Promise.race([
       Promise.all([
         new Response(proc.stdout).text(),
@@ -75800,7 +76262,7 @@ async function runCargoAudit(directory) {
       stderr: "pipe",
       cwd: directory
     });
-    const timeoutPromise = new Promise((resolve29) => setTimeout(() => resolve29("timeout"), AUDIT_TIMEOUT_MS));
+    const timeoutPromise = new Promise((resolve30) => setTimeout(() => resolve30("timeout"), AUDIT_TIMEOUT_MS));
     const result = await Promise.race([
       Promise.all([
         new Response(proc.stdout).text(),
@@ -75927,7 +76389,7 @@ async function runGoAudit(directory) {
       stderr: "pipe",
       cwd: directory
     });
-    const timeoutPromise = new Promise((resolve29) => setTimeout(() => resolve29("timeout"), AUDIT_TIMEOUT_MS));
+    const timeoutPromise = new Promise((resolve30) => setTimeout(() => resolve30("timeout"), AUDIT_TIMEOUT_MS));
     const result = await Promise.race([
       Promise.all([
         new Response(proc.stdout).text(),
@@ -76063,7 +76525,7 @@ async function runDotnetAudit(directory) {
       stderr: "pipe",
       cwd: directory
     });
-    const timeoutPromise = new Promise((resolve29) => setTimeout(() => resolve29("timeout"), AUDIT_TIMEOUT_MS));
+    const timeoutPromise = new Promise((resolve30) => setTimeout(() => resolve30("timeout"), AUDIT_TIMEOUT_MS));
     const result = await Promise.race([
       Promise.all([
         new Response(proc.stdout).text(),
@@ -76182,7 +76644,7 @@ async function runBundleAudit(directory) {
       stderr: "pipe",
       cwd: directory
     });
-    const timeoutPromise = new Promise((resolve29) => setTimeout(() => resolve29("timeout"), AUDIT_TIMEOUT_MS));
+    const timeoutPromise = new Promise((resolve30) => setTimeout(() => resolve30("timeout"), AUDIT_TIMEOUT_MS));
     const result = await Promise.race([
       Promise.all([
         new Response(proc.stdout).text(),
@@ -76330,7 +76792,7 @@ async function runDartAudit(directory) {
       stderr: "pipe",
       cwd: directory
     });
-    const timeoutPromise = new Promise((resolve29) => setTimeout(() => resolve29("timeout"), AUDIT_TIMEOUT_MS));
+    const timeoutPromise = new Promise((resolve30) => setTimeout(() => resolve30("timeout"), AUDIT_TIMEOUT_MS));
     const result = await Promise.race([
       Promise.all([
         new Response(proc.stdout).text(),
@@ -76448,7 +76910,7 @@ async function runComposerAudit(directory) {
       stderr: "pipe",
       cwd: directory
     });
-    const timeoutPromise = new Promise((resolve29) => setTimeout(() => resolve29("timeout"), AUDIT_TIMEOUT_MS));
+    const timeoutPromise = new Promise((resolve30) => setTimeout(() => resolve30("timeout"), AUDIT_TIMEOUT_MS));
     const result = await Promise.race([
       Promise.all([
         new Response(proc.stdout).text(),
@@ -76692,8 +77154,8 @@ var pkg_audit = createSwarmTool({
 // src/tools/placeholder-scan.ts
 init_dist();
 init_manager2();
-import * as fs62 from "fs";
-import * as path76 from "path";
+import * as fs64 from "fs";
+import * as path78 from "path";
 init_utils();
 init_create_tool();
 var MAX_FILE_SIZE = 1024 * 1024;
@@ -76816,7 +77278,7 @@ function isScaffoldFile(filePath) {
   if (SCAFFOLD_PATH_PATTERNS.some((pattern) => pattern.test(normalizedPath))) {
     return true;
   }
-  const filename = path76.basename(filePath);
+  const filename = path78.basename(filePath);
   if (SCAFFOLD_FILENAME_PATTERNS.some((pattern) => pattern.test(filename))) {
     return true;
   }
@@ -76833,7 +77295,7 @@ function isAllowedByGlobs(filePath, allowGlobs) {
     if (regex.test(normalizedPath)) {
       return true;
     }
-    const filename = path76.basename(filePath);
+    const filename = path78.basename(filePath);
     const filenameRegex = new RegExp(`^${regexPattern}$`, "i");
     if (filenameRegex.test(filename)) {
       return true;
@@ -76842,7 +77304,7 @@ function isAllowedByGlobs(filePath, allowGlobs) {
   return false;
 }
 function isParserSupported(filePath) {
-  const ext = path76.extname(filePath).toLowerCase();
+  const ext = path78.extname(filePath).toLowerCase();
   return SUPPORTED_PARSER_EXTENSIONS.has(ext);
 }
 function isPlanFile(filePath) {
@@ -77089,28 +77551,28 @@ async function placeholderScan(input, directory) {
   let filesScanned = 0;
   const filesWithFindings = new Set;
   for (const filePath of changed_files) {
-    const fullPath = path76.isAbsolute(filePath) ? filePath : path76.resolve(directory, filePath);
-    const resolvedDirectory = path76.resolve(directory);
-    if (!fullPath.startsWith(resolvedDirectory + path76.sep) && fullPath !== resolvedDirectory) {
+    const fullPath = path78.isAbsolute(filePath) ? filePath : path78.resolve(directory, filePath);
+    const resolvedDirectory = path78.resolve(directory);
+    if (!fullPath.startsWith(resolvedDirectory + path78.sep) && fullPath !== resolvedDirectory) {
       continue;
     }
-    if (!fs62.existsSync(fullPath)) {
+    if (!fs64.existsSync(fullPath)) {
       continue;
     }
     if (isAllowedByGlobs(filePath, allow_globs)) {
       continue;
     }
-    const relativeFilePath = path76.relative(directory, fullPath).replace(/\\/g, "/");
+    const relativeFilePath = path78.relative(directory, fullPath).replace(/\\/g, "/");
     if (FILE_ALLOWLIST.some((allowed) => relativeFilePath.endsWith(allowed))) {
       continue;
     }
     let content;
     try {
-      const stat3 = fs62.statSync(fullPath);
+      const stat3 = fs64.statSync(fullPath);
       if (stat3.size > MAX_FILE_SIZE) {
         continue;
       }
-      content = fs62.readFileSync(fullPath, "utf-8");
+      content = fs64.readFileSync(fullPath, "utf-8");
     } catch {
       continue;
     }
@@ -77172,8 +77634,8 @@ var placeholder_scan = createSwarmTool({
 });
 // src/tools/pre-check-batch.ts
 init_dist();
-import * as fs65 from "fs";
-import * as path79 from "path";
+import * as fs67 from "fs";
+import * as path81 from "path";
 init_manager2();
 init_utils();
 init_create_tool();
@@ -77308,8 +77770,8 @@ var quality_budget = createSwarmTool({
 init_dist();
 init_manager2();
 init_detector();
-import * as fs64 from "fs";
-import * as path78 from "path";
+import * as fs66 from "fs";
+import * as path80 from "path";
 import { extname as extname18 } from "path";
 
 // src/sast/rules/c.ts
@@ -78023,7 +78485,7 @@ function executeRulesSync(filePath, content, language) {
 }
 
 // src/sast/semgrep.ts
-import * as child_process8 from "child_process";
+import * as child_process9 from "child_process";
 var semgrepAvailableCache = null;
 var DEFAULT_RULES_DIR = ".swarm/semgrep-rules";
 var DEFAULT_TIMEOUT_MS3 = 30000;
@@ -78032,7 +78494,7 @@ function isSemgrepAvailable() {
     return semgrepAvailableCache;
   }
   try {
-    child_process8.execFileSync("semgrep", ["--version"], {
+    child_process9.execFileSync("semgrep", ["--version"], {
       encoding: "utf-8",
       stdio: "pipe"
     });
@@ -78090,8 +78552,8 @@ function mapSemgrepSeverity(severity) {
   }
 }
 async function executeWithTimeout(command, args2, options) {
-  return new Promise((resolve30) => {
-    const child = child_process8.spawn(command, args2, {
+  return new Promise((resolve31) => {
+    const child = child_process9.spawn(command, args2, {
       shell: false,
       cwd: options.cwd
     });
@@ -78099,7 +78561,7 @@ async function executeWithTimeout(command, args2, options) {
     let stderr = "";
     const timeout = setTimeout(() => {
       child.kill("SIGTERM");
-      resolve30({
+      resolve31({
         stdout,
         stderr: "Process timed out",
         exitCode: 124
@@ -78113,7 +78575,7 @@ async function executeWithTimeout(command, args2, options) {
     });
     child.on("close", (code) => {
       clearTimeout(timeout);
-      resolve30({
+      resolve31({
         stdout,
         stderr,
         exitCode: code ?? 0
@@ -78121,7 +78583,7 @@ async function executeWithTimeout(command, args2, options) {
     });
     child.on("error", (err2) => {
       clearTimeout(timeout);
-      resolve30({
+      resolve31({
         stdout,
         stderr: err2.message,
         exitCode: 1
@@ -78202,25 +78664,25 @@ init_create_tool();
 // src/tools/sast-baseline.ts
 init_utils2();
 import * as crypto8 from "crypto";
-import * as fs63 from "fs";
-import * as path77 from "path";
+import * as fs65 from "fs";
+import * as path79 from "path";
 var BASELINE_SCHEMA_VERSION = "1.0.0";
 var MAX_BASELINE_FINDINGS = 2000;
 var MAX_BASELINE_BYTES = 2 * 1048576;
 var LOCK_RETRY_DELAYS_MS = [50, 100, 200, 400, 800];
 function normalizeFindingPath(directory, file3) {
-  const resolved = path77.isAbsolute(file3) ? file3 : path77.resolve(directory, file3);
-  const rel = path77.relative(path77.resolve(directory), resolved);
+  const resolved = path79.isAbsolute(file3) ? file3 : path79.resolve(directory, file3);
+  const rel = path79.relative(path79.resolve(directory), resolved);
   return rel.replace(/\\/g, "/");
 }
 function baselineRelPath(phase) {
-  return path77.join("evidence", String(phase), "sast-baseline.json");
+  return path79.join("evidence", String(phase), "sast-baseline.json");
 }
 function tempRelPath(phase) {
-  return path77.join("evidence", String(phase), `sast-baseline.json.tmp.${Date.now()}.${process.pid}`);
+  return path79.join("evidence", String(phase), `sast-baseline.json.tmp.${Date.now()}.${process.pid}`);
 }
 function lockRelPath(phase) {
-  return path77.join("evidence", String(phase), "sast-baseline.json.lock");
+  return path79.join("evidence", String(phase), "sast-baseline.json.lock");
 }
 function getLine(lines, idx) {
   if (idx < 0 || idx >= lines.length)
@@ -78237,7 +78699,7 @@ function fingerprintFinding(finding, directory, occurrenceIndex) {
   }
   const lineNum = finding.location.line;
   try {
-    const content = fs63.readFileSync(finding.location.file, "utf-8");
+    const content = fs65.readFileSync(finding.location.file, "utf-8");
     const lines = content.split(`
 `);
     const idx = lineNum - 1;
@@ -78268,7 +78730,7 @@ function assignOccurrenceIndices(findings, directory) {
     try {
       if (relFile.startsWith(".."))
         throw new Error("escapes workspace");
-      const content = fs63.readFileSync(finding.location.file, "utf-8");
+      const content = fs65.readFileSync(finding.location.file, "utf-8");
       const lines = content.split(`
 `);
       const idx = lineNum - 1;
@@ -78297,16 +78759,16 @@ function assignOccurrenceIndices(findings, directory) {
 async function acquireLock(lockPath) {
   for (let attempt = 0;attempt <= LOCK_RETRY_DELAYS_MS.length; attempt++) {
     try {
-      const fd = fs63.openSync(lockPath, "wx");
-      fs63.closeSync(fd);
+      const fd = fs65.openSync(lockPath, "wx");
+      fs65.closeSync(fd);
       return () => {
         try {
-          fs63.unlinkSync(lockPath);
+          fs65.unlinkSync(lockPath);
         } catch {}
       };
     } catch {
       if (attempt < LOCK_RETRY_DELAYS_MS.length) {
-        await new Promise((resolve31) => setTimeout(resolve31, LOCK_RETRY_DELAYS_MS[attempt]));
+        await new Promise((resolve32) => setTimeout(resolve32, LOCK_RETRY_DELAYS_MS[attempt]));
       }
     }
   }
@@ -78341,12 +78803,12 @@ async function captureOrMergeBaseline(directory, phase, findings, engine, scanne
       message: e instanceof Error ? e.message : "Path validation failed"
     };
   }
-  fs63.mkdirSync(path77.dirname(baselinePath), { recursive: true });
+  fs65.mkdirSync(path79.dirname(baselinePath), { recursive: true });
   const releaseLock = await acquireLock(lockPath);
   try {
     let existing = null;
     try {
-      const raw = fs63.readFileSync(baselinePath, "utf-8");
+      const raw = fs65.readFileSync(baselinePath, "utf-8");
       const parsed = JSON.parse(raw);
       if (parsed.schema_version === BASELINE_SCHEMA_VERSION) {
         existing = parsed;
@@ -78406,8 +78868,8 @@ async function captureOrMergeBaseline(directory, phase, findings, engine, scanne
           message: `Baseline would exceed size cap (${json4.length} bytes > ${MAX_BASELINE_BYTES})`
         };
       }
-      fs63.writeFileSync(tempPath, json4, "utf-8");
-      fs63.renameSync(tempPath, baselinePath);
+      fs65.writeFileSync(tempPath, json4, "utf-8");
+      fs65.renameSync(tempPath, baselinePath);
       return {
         status: "merged",
         path: baselinePath,
@@ -78438,8 +78900,8 @@ async function captureOrMergeBaseline(directory, phase, findings, engine, scanne
         message: `Baseline would exceed size cap (${json3.length} bytes > ${MAX_BASELINE_BYTES})`
       };
     }
-    fs63.writeFileSync(tempPath, json3, "utf-8");
-    fs63.renameSync(tempPath, baselinePath);
+    fs65.writeFileSync(tempPath, json3, "utf-8");
+    fs65.renameSync(tempPath, baselinePath);
     return {
       status: "written",
       path: baselinePath,
@@ -78464,7 +78926,7 @@ function loadBaseline(directory, phase) {
     };
   }
   try {
-    const raw = fs63.readFileSync(baselinePath, "utf-8");
+    const raw = fs65.readFileSync(baselinePath, "utf-8");
     const parsed = JSON.parse(raw);
     if (parsed.schema_version !== BASELINE_SCHEMA_VERSION) {
       return {
@@ -78506,17 +78968,17 @@ var SEVERITY_ORDER = {
 };
 function shouldSkipFile(filePath) {
   try {
-    const stats = fs64.statSync(filePath);
+    const stats = fs66.statSync(filePath);
     if (stats.size > MAX_FILE_SIZE_BYTES8) {
       return { skip: true, reason: "file too large" };
     }
     if (stats.size === 0) {
       return { skip: true, reason: "empty file" };
     }
-    const fd = fs64.openSync(filePath, "r");
+    const fd = fs66.openSync(filePath, "r");
     const buffer = Buffer.alloc(8192);
-    const bytesRead = fs64.readSync(fd, buffer, 0, 8192, 0);
-    fs64.closeSync(fd);
+    const bytesRead = fs66.readSync(fd, buffer, 0, 8192, 0);
+    fs66.closeSync(fd);
     if (bytesRead > 0) {
       let nullCount = 0;
       for (let i2 = 0;i2 < bytesRead; i2++) {
@@ -78555,7 +79017,7 @@ function countBySeverity(findings) {
 }
 function scanFileWithTierA(filePath, language) {
   try {
-    const content = fs64.readFileSync(filePath, "utf-8");
+    const content = fs66.readFileSync(filePath, "utf-8");
     const findings = executeRulesSync(filePath, content, language);
     return findings.map((f) => ({
       rule_id: f.rule_id,
@@ -78608,13 +79070,13 @@ async function sastScan(input, directory, config3) {
       _filesSkipped++;
       continue;
     }
-    const resolvedPath = path78.isAbsolute(filePath) ? filePath : path78.resolve(directory, filePath);
-    const resolvedDirectory = path78.resolve(directory);
-    if (!resolvedPath.startsWith(resolvedDirectory + path78.sep) && resolvedPath !== resolvedDirectory) {
+    const resolvedPath = path80.isAbsolute(filePath) ? filePath : path80.resolve(directory, filePath);
+    const resolvedDirectory = path80.resolve(directory);
+    if (!resolvedPath.startsWith(resolvedDirectory + path80.sep) && resolvedPath !== resolvedDirectory) {
       _filesSkipped++;
       continue;
     }
-    if (!fs64.existsSync(resolvedPath)) {
+    if (!fs66.existsSync(resolvedPath)) {
       _filesSkipped++;
       continue;
     }
@@ -78921,20 +79383,20 @@ function validatePath(inputPath, baseDir, workspaceDir) {
   let resolved;
   const isWinAbs = isWindowsAbsolutePath(inputPath);
   if (isWinAbs) {
-    resolved = path79.win32.resolve(inputPath);
-  } else if (path79.isAbsolute(inputPath)) {
-    resolved = path79.resolve(inputPath);
+    resolved = path81.win32.resolve(inputPath);
+  } else if (path81.isAbsolute(inputPath)) {
+    resolved = path81.resolve(inputPath);
   } else {
-    resolved = path79.resolve(baseDir, inputPath);
+    resolved = path81.resolve(baseDir, inputPath);
   }
-  const workspaceResolved = path79.resolve(workspaceDir);
-  let relative19;
+  const workspaceResolved = path81.resolve(workspaceDir);
+  let relative20;
   if (isWinAbs) {
-    relative19 = path79.win32.relative(workspaceResolved, resolved);
+    relative20 = path81.win32.relative(workspaceResolved, resolved);
   } else {
-    relative19 = path79.relative(workspaceResolved, resolved);
+    relative20 = path81.relative(workspaceResolved, resolved);
   }
-  if (relative19.startsWith("..")) {
+  if (relative20.startsWith("..")) {
     return "path traversal detected";
   }
   return null;
@@ -78997,7 +79459,7 @@ async function runLintOnFiles(linter, files, workspaceDir) {
     if (typeof file3 !== "string") {
       continue;
     }
-    const resolvedPath = path79.resolve(file3);
+    const resolvedPath = path81.resolve(file3);
     const validationError = validatePath(resolvedPath, workspaceDir, workspaceDir);
     if (validationError) {
       continue;
@@ -79154,7 +79616,7 @@ async function runSecretscanWithFiles(files, directory) {
         skippedFiles++;
         continue;
       }
-      const resolvedPath = path79.resolve(file3);
+      const resolvedPath = path81.resolve(file3);
       const validationError = validatePath(resolvedPath, directory, directory);
       if (validationError) {
         skippedFiles++;
@@ -79172,14 +79634,14 @@ async function runSecretscanWithFiles(files, directory) {
       };
     }
     for (const file3 of validatedFiles) {
-      const ext = path79.extname(file3).toLowerCase();
+      const ext = path81.extname(file3).toLowerCase();
       if (DEFAULT_EXCLUDE_EXTENSIONS2.has(ext)) {
         skippedFiles++;
         continue;
       }
       let stat3;
       try {
-        stat3 = fs65.statSync(file3);
+        stat3 = fs67.statSync(file3);
       } catch {
         skippedFiles++;
         continue;
@@ -79190,7 +79652,7 @@ async function runSecretscanWithFiles(files, directory) {
       }
       let content;
       try {
-        const buffer = fs65.readFileSync(file3);
+        const buffer = fs67.readFileSync(file3);
         if (buffer.includes(0)) {
           skippedFiles++;
           continue;
@@ -79391,7 +79853,7 @@ function classifySastFindings(findings, changedLineRanges, directory) {
   const preexistingFindings = [];
   for (const finding of findings) {
     const filePath = finding.location.file;
-    const normalised = path79.relative(directory, filePath).replace(/\\/g, "/");
+    const normalised = path81.relative(directory, filePath).replace(/\\/g, "/");
     const changedLines = changedLineRanges.get(normalised);
     if (changedLines?.has(finding.location.line)) {
       newFindings.push(finding);
@@ -79442,7 +79904,7 @@ async function runPreCheckBatch(input, workspaceDir, contextDir) {
       warn(`pre_check_batch: Invalid file path: ${file3}`);
       continue;
     }
-    changedFiles.push(path79.resolve(directory, file3));
+    changedFiles.push(path81.resolve(directory, file3));
   }
   if (changedFiles.length === 0) {
     warn("pre_check_batch: No valid files after validation, skipping all tools (fail-closed)");
@@ -79643,7 +80105,7 @@ var pre_check_batch = createSwarmTool({
       };
       return JSON.stringify(errorResult, null, 2);
     }
-    const resolvedDirectory = path79.resolve(typedArgs.directory);
+    const resolvedDirectory = path81.resolve(typedArgs.directory);
     const workspaceAnchor = resolvedDirectory;
     const dirError = validateDirectory2(resolvedDirectory, workspaceAnchor);
     if (dirError) {
@@ -79684,7 +80146,7 @@ var pre_check_batch = createSwarmTool({
 });
 // src/tools/repo-map.ts
 init_dist();
-import * as path80 from "path";
+import * as path82 from "path";
 init_path_security();
 init_create_tool();
 var VALID_ACTIONS = [
@@ -79709,7 +80171,7 @@ function validateFile(p) {
     return "file contains control characters";
   if (containsPathTraversal(p))
     return "file contains path traversal";
-  if (path80.isAbsolute(p) || /^[a-zA-Z]:[\\/]/.test(p)) {
+  if (path82.isAbsolute(p) || /^[a-zA-Z]:[\\/]/.test(p)) {
     return "file must be a workspace-relative path, not absolute";
   }
   return null;
@@ -79732,8 +80194,8 @@ function ok(action, payload) {
 }
 function toRelativeGraphPath(input, workspaceRoot) {
   const normalized = input.replace(/\\/g, "/");
-  if (path80.isAbsolute(normalized)) {
-    const rel = path80.relative(workspaceRoot, normalized).replace(/\\/g, "/");
+  if (path82.isAbsolute(normalized)) {
+    const rel = path82.relative(workspaceRoot, normalized).replace(/\\/g, "/");
     return normalizeGraphPath2(rel);
   }
   return normalizeGraphPath2(normalized);
@@ -79877,8 +80339,8 @@ var repo_map = createSwarmTool({
 // src/tools/req-coverage.ts
 init_dist();
 init_create_tool();
-import * as fs66 from "fs";
-import * as path81 from "path";
+import * as fs68 from "fs";
+import * as path83 from "path";
 var SPEC_FILE = ".swarm/spec.md";
 var EVIDENCE_DIR4 = ".swarm/evidence";
 var OBLIGATION_KEYWORDS = ["MUST", "SHOULD", "SHALL"];
@@ -79937,19 +80399,19 @@ function extractObligationAndText(id, lineText) {
 var PHASE_TASK_ID_REGEX = /^\d+\.\d+(\.\d+)*$/;
 function readTouchedFiles(evidenceDir, phase, cwd) {
   const touchedFiles = new Set;
-  if (!fs66.existsSync(evidenceDir) || !fs66.statSync(evidenceDir).isDirectory()) {
+  if (!fs68.existsSync(evidenceDir) || !fs68.statSync(evidenceDir).isDirectory()) {
     return [];
   }
   let entries;
   try {
-    entries = fs66.readdirSync(evidenceDir);
+    entries = fs68.readdirSync(evidenceDir);
   } catch {
     return [];
   }
   for (const entry of entries) {
-    const entryPath = path81.join(evidenceDir, entry);
+    const entryPath = path83.join(evidenceDir, entry);
     try {
-      const stat3 = fs66.statSync(entryPath);
+      const stat3 = fs68.statSync(entryPath);
       if (!stat3.isDirectory()) {
         continue;
       }
@@ -79963,14 +80425,14 @@ function readTouchedFiles(evidenceDir, phase, cwd) {
     if (entryPhase !== String(phase)) {
       continue;
     }
-    const evidenceFilePath = path81.join(entryPath, "evidence.json");
+    const evidenceFilePath = path83.join(entryPath, "evidence.json");
     try {
-      const resolvedPath = path81.resolve(evidenceFilePath);
-      const evidenceDirResolved = path81.resolve(evidenceDir);
-      if (!resolvedPath.startsWith(evidenceDirResolved + path81.sep)) {
+      const resolvedPath = path83.resolve(evidenceFilePath);
+      const evidenceDirResolved = path83.resolve(evidenceDir);
+      if (!resolvedPath.startsWith(evidenceDirResolved + path83.sep)) {
         continue;
       }
-      const stat3 = fs66.lstatSync(evidenceFilePath);
+      const stat3 = fs68.lstatSync(evidenceFilePath);
       if (!stat3.isFile()) {
         continue;
       }
@@ -79982,7 +80444,7 @@ function readTouchedFiles(evidenceDir, phase, cwd) {
     }
     let content;
     try {
-      content = fs66.readFileSync(evidenceFilePath, "utf-8");
+      content = fs68.readFileSync(evidenceFilePath, "utf-8");
     } catch {
       continue;
     }
@@ -80001,7 +80463,7 @@ function readTouchedFiles(evidenceDir, phase, cwd) {
             if (Array.isArray(diffEntry.files_changed)) {
               for (const file3 of diffEntry.files_changed) {
                 if (typeof file3 === "string") {
-                  touchedFiles.add(path81.resolve(cwd, file3));
+                  touchedFiles.add(path83.resolve(cwd, file3));
                 }
               }
             }
@@ -80014,12 +80476,12 @@ function readTouchedFiles(evidenceDir, phase, cwd) {
 }
 function searchFileForKeywords(filePath, keywords, cwd) {
   try {
-    const resolvedPath = path81.resolve(filePath);
-    const cwdResolved = path81.resolve(cwd);
+    const resolvedPath = path83.resolve(filePath);
+    const cwdResolved = path83.resolve(cwd);
     if (!resolvedPath.startsWith(cwdResolved)) {
       return false;
     }
-    const content = fs66.readFileSync(resolvedPath, "utf-8");
+    const content = fs68.readFileSync(resolvedPath, "utf-8");
     for (const keyword of keywords) {
       const regex = new RegExp(`\\b${keyword}\\b`, "i");
       if (regex.test(content)) {
@@ -80149,10 +80611,10 @@ var req_coverage = createSwarmTool({
       }, null, 2);
     }
     const cwd = inputDirectory || directory;
-    const specPath = path81.join(cwd, SPEC_FILE);
+    const specPath = path83.join(cwd, SPEC_FILE);
     let specContent;
     try {
-      specContent = fs66.readFileSync(specPath, "utf-8");
+      specContent = fs68.readFileSync(specPath, "utf-8");
     } catch (readError) {
       return JSON.stringify({
         success: false,
@@ -80176,7 +80638,7 @@ var req_coverage = createSwarmTool({
         message: "No FR requirements found in spec.md"
       }, null, 2);
     }
-    const evidenceDir = path81.join(cwd, EVIDENCE_DIR4);
+    const evidenceDir = path83.join(cwd, EVIDENCE_DIR4);
     const touchedFiles = readTouchedFiles(evidenceDir, phase, cwd);
     const analyzedRequirements = [];
     let coveredCount = 0;
@@ -80202,12 +80664,12 @@ var req_coverage = createSwarmTool({
       requirements: analyzedRequirements
     };
     const reportFilename = `req-coverage-phase-${phase}.json`;
-    const reportPath = path81.join(evidenceDir, reportFilename);
+    const reportPath = path83.join(evidenceDir, reportFilename);
     try {
-      if (!fs66.existsSync(evidenceDir)) {
-        fs66.mkdirSync(evidenceDir, { recursive: true });
+      if (!fs68.existsSync(evidenceDir)) {
+        fs68.mkdirSync(evidenceDir, { recursive: true });
       }
-      fs66.writeFileSync(reportPath, JSON.stringify(result, null, 2), "utf-8");
+      fs68.writeFileSync(reportPath, JSON.stringify(result, null, 2), "utf-8");
     } catch (writeError) {
       console.warn(`Failed to write coverage report: ${writeError instanceof Error ? writeError.message : String(writeError)}`);
     }
@@ -80293,8 +80755,8 @@ init_manager();
 init_state();
 init_create_tool();
 import * as crypto9 from "crypto";
-import * as fs67 from "fs";
-import * as path82 from "path";
+import * as fs69 from "fs";
+import * as path84 from "path";
 function detectPlaceholderContent(args2) {
   const issues = [];
   const placeholderPattern = /^\[\w[\w\s]*\]$/;
@@ -80370,11 +80832,11 @@ async function executeSavePlan(args2, fallbackDir) {
   let specMtime;
   let specHash;
   if (process.env.SWARM_SKIP_SPEC_GATE !== "1") {
-    const specPath = path82.join(targetWorkspace, ".swarm", "spec.md");
+    const specPath = path84.join(targetWorkspace, ".swarm", "spec.md");
     try {
-      const stat3 = await fs67.promises.stat(specPath);
+      const stat3 = await fs69.promises.stat(specPath);
       specMtime = stat3.mtime.toISOString();
-      const content = await fs67.promises.readFile(specPath, "utf8");
+      const content = await fs69.promises.readFile(specPath, "utf8");
       specHash = crypto9.createHash("sha256").update(content).digest("hex");
     } catch {
       return {
@@ -80510,14 +80972,14 @@ async function executeSavePlan(args2, fallbackDir) {
       }
       await writeCheckpoint(dir).catch(() => {});
       try {
-        const markerPath = path82.join(dir, ".swarm", ".plan-write-marker");
+        const markerPath = path84.join(dir, ".swarm", ".plan-write-marker");
         const marker = JSON.stringify({
           source: "save_plan",
           timestamp: new Date().toISOString(),
           phases_count: plan.phases.length,
           tasks_count: tasksCount
         });
-        await fs67.promises.writeFile(markerPath, marker, "utf8");
+        await fs69.promises.writeFile(markerPath, marker, "utf8");
       } catch {}
       const warnings = [];
       let criticReviewFound = false;
@@ -80533,7 +80995,7 @@ async function executeSavePlan(args2, fallbackDir) {
       return {
         success: true,
         message: "Plan saved successfully",
-        plan_path: path82.join(dir, ".swarm", "plan.json"),
+        plan_path: path84.join(dir, ".swarm", "plan.json"),
         phases_count: plan.phases.length,
         tasks_count: tasksCount,
         ...resolvedProfile !== undefined ? { execution_profile: resolvedProfile } : {},
@@ -80585,8 +81047,8 @@ var save_plan = createSwarmTool({
 // src/tools/sbom-generate.ts
 init_dist();
 init_manager2();
-import * as fs68 from "fs";
-import * as path83 from "path";
+import * as fs70 from "fs";
+import * as path85 from "path";
 
 // src/sbom/detectors/index.ts
 init_utils();
@@ -81434,9 +81896,9 @@ function findManifestFiles(rootDir) {
   const patterns = [...new Set(allDetectors.flatMap((d) => d.patterns))];
   function searchDir(dir) {
     try {
-      const entries = fs68.readdirSync(dir, { withFileTypes: true });
+      const entries = fs70.readdirSync(dir, { withFileTypes: true });
       for (const entry of entries) {
-        const fullPath = path83.join(dir, entry.name);
+        const fullPath = path85.join(dir, entry.name);
         if (entry.name.startsWith(".") || entry.name === "node_modules" || entry.name === "dist" || entry.name === "build" || entry.name === "target") {
           continue;
         }
@@ -81445,7 +81907,7 @@ function findManifestFiles(rootDir) {
         } else if (entry.isFile()) {
           for (const pattern of patterns) {
             if (simpleGlobToRegex(pattern).test(entry.name)) {
-              manifestFiles.push(path83.relative(rootDir, fullPath));
+              manifestFiles.push(path85.relative(rootDir, fullPath));
               break;
             }
           }
@@ -81461,13 +81923,13 @@ function findManifestFilesInDirs(directories, workingDir) {
   const patterns = [...new Set(allDetectors.flatMap((d) => d.patterns))];
   for (const dir of directories) {
     try {
-      const entries = fs68.readdirSync(dir, { withFileTypes: true });
+      const entries = fs70.readdirSync(dir, { withFileTypes: true });
       for (const entry of entries) {
-        const fullPath = path83.join(dir, entry.name);
+        const fullPath = path85.join(dir, entry.name);
         if (entry.isFile()) {
           for (const pattern of patterns) {
             if (simpleGlobToRegex(pattern).test(entry.name)) {
-              found.push(path83.relative(workingDir, fullPath));
+              found.push(path85.relative(workingDir, fullPath));
               break;
             }
           }
@@ -81480,11 +81942,11 @@ function findManifestFilesInDirs(directories, workingDir) {
 function getDirectoriesFromChangedFiles(changedFiles, workingDir) {
   const dirs = new Set;
   for (const file3 of changedFiles) {
-    let currentDir = path83.dirname(file3);
+    let currentDir = path85.dirname(file3);
     while (true) {
-      if (currentDir && currentDir !== "." && currentDir !== path83.sep) {
-        dirs.add(path83.join(workingDir, currentDir));
-        const parent = path83.dirname(currentDir);
+      if (currentDir && currentDir !== "." && currentDir !== path85.sep) {
+        dirs.add(path85.join(workingDir, currentDir));
+        const parent = path85.dirname(currentDir);
         if (parent === currentDir)
           break;
         currentDir = parent;
@@ -81498,7 +81960,7 @@ function getDirectoriesFromChangedFiles(changedFiles, workingDir) {
 }
 function ensureOutputDir(outputDir) {
   try {
-    fs68.mkdirSync(outputDir, { recursive: true });
+    fs70.mkdirSync(outputDir, { recursive: true });
   } catch (error93) {
     if (!error93 || error93.code !== "EEXIST") {
       throw error93;
@@ -81568,7 +82030,7 @@ var sbom_generate = createSwarmTool({
     const changedFiles = obj.changed_files;
     const relativeOutputDir = obj.output_dir || DEFAULT_OUTPUT_DIR;
     const workingDir = directory;
-    const outputDir = path83.isAbsolute(relativeOutputDir) ? relativeOutputDir : path83.join(workingDir, relativeOutputDir);
+    const outputDir = path85.isAbsolute(relativeOutputDir) ? relativeOutputDir : path85.join(workingDir, relativeOutputDir);
     let manifestFiles = [];
     if (scope === "all") {
       manifestFiles = findManifestFiles(workingDir);
@@ -81591,11 +82053,11 @@ var sbom_generate = createSwarmTool({
     const processedFiles = [];
     for (const manifestFile of manifestFiles) {
       try {
-        const fullPath = path83.isAbsolute(manifestFile) ? manifestFile : path83.join(workingDir, manifestFile);
-        if (!fs68.existsSync(fullPath)) {
+        const fullPath = path85.isAbsolute(manifestFile) ? manifestFile : path85.join(workingDir, manifestFile);
+        if (!fs70.existsSync(fullPath)) {
           continue;
         }
-        const content = fs68.readFileSync(fullPath, "utf-8");
+        const content = fs70.readFileSync(fullPath, "utf-8");
         const components = detectComponents(manifestFile, content);
         processedFiles.push(manifestFile);
         if (components.length > 0) {
@@ -81608,8 +82070,8 @@ var sbom_generate = createSwarmTool({
     const bom = generateCycloneDX(allComponents);
     const bomJson = serializeCycloneDX(bom);
     const filename = generateSbomFilename();
-    const outputPath = path83.join(outputDir, filename);
-    fs68.writeFileSync(outputPath, bomJson, "utf-8");
+    const outputPath = path85.join(outputDir, filename);
+    fs70.writeFileSync(outputPath, bomJson, "utf-8");
     const verdict = processedFiles.length > 0 ? "pass" : "pass";
     try {
       const timestamp = new Date().toISOString();
@@ -81651,8 +82113,8 @@ var sbom_generate = createSwarmTool({
 // src/tools/schema-drift.ts
 init_dist();
 init_create_tool();
-import * as fs69 from "fs";
-import * as path84 from "path";
+import * as fs71 from "fs";
+import * as path86 from "path";
 var SPEC_CANDIDATES = [
   "openapi.json",
   "openapi.yaml",
@@ -81684,28 +82146,28 @@ function normalizePath3(p) {
 }
 function discoverSpecFile(cwd, specFileArg) {
   if (specFileArg) {
-    const resolvedPath = path84.resolve(cwd, specFileArg);
-    const normalizedCwd = cwd.endsWith(path84.sep) ? cwd : cwd + path84.sep;
+    const resolvedPath = path86.resolve(cwd, specFileArg);
+    const normalizedCwd = cwd.endsWith(path86.sep) ? cwd : cwd + path86.sep;
     if (!resolvedPath.startsWith(normalizedCwd) && resolvedPath !== cwd) {
       throw new Error("Invalid spec_file: path traversal detected");
     }
-    const ext = path84.extname(resolvedPath).toLowerCase();
+    const ext = path86.extname(resolvedPath).toLowerCase();
     if (!ALLOWED_EXTENSIONS.includes(ext)) {
       throw new Error(`Invalid spec_file: must end in .json, .yaml, or .yml, got ${ext}`);
     }
-    const stats = fs69.statSync(resolvedPath);
+    const stats = fs71.statSync(resolvedPath);
     if (stats.size > MAX_SPEC_SIZE) {
       throw new Error(`Invalid spec_file: file exceeds ${MAX_SPEC_SIZE / 1024 / 1024}MB limit`);
     }
-    if (!fs69.existsSync(resolvedPath)) {
+    if (!fs71.existsSync(resolvedPath)) {
       throw new Error(`Spec file not found: ${resolvedPath}`);
     }
     return resolvedPath;
   }
   for (const candidate of SPEC_CANDIDATES) {
-    const candidatePath = path84.resolve(cwd, candidate);
-    if (fs69.existsSync(candidatePath)) {
-      const stats = fs69.statSync(candidatePath);
+    const candidatePath = path86.resolve(cwd, candidate);
+    if (fs71.existsSync(candidatePath)) {
+      const stats = fs71.statSync(candidatePath);
       if (stats.size <= MAX_SPEC_SIZE) {
         return candidatePath;
       }
@@ -81714,8 +82176,8 @@ function discoverSpecFile(cwd, specFileArg) {
   return null;
 }
 function parseSpec(specFile) {
-  const content = fs69.readFileSync(specFile, "utf-8");
-  const ext = path84.extname(specFile).toLowerCase();
+  const content = fs71.readFileSync(specFile, "utf-8");
+  const ext = path86.extname(specFile).toLowerCase();
   if (ext === ".json") {
     return parseJsonSpec(content);
   }
@@ -81786,12 +82248,12 @@ function extractRoutes(cwd) {
   function walkDir(dir) {
     let entries;
     try {
-      entries = fs69.readdirSync(dir, { withFileTypes: true });
+      entries = fs71.readdirSync(dir, { withFileTypes: true });
     } catch {
       return;
     }
     for (const entry of entries) {
-      const fullPath = path84.join(dir, entry.name);
+      const fullPath = path86.join(dir, entry.name);
       if (entry.isSymbolicLink()) {
         continue;
       }
@@ -81801,7 +82263,7 @@ function extractRoutes(cwd) {
         }
         walkDir(fullPath);
       } else if (entry.isFile()) {
-        const ext = path84.extname(entry.name).toLowerCase();
+        const ext = path86.extname(entry.name).toLowerCase();
         const baseName = entry.name.toLowerCase();
         if (![".ts", ".js", ".mjs"].includes(ext)) {
           continue;
@@ -81819,7 +82281,7 @@ function extractRoutes(cwd) {
 }
 function extractRoutesFromFile(filePath) {
   const routes = [];
-  const content = fs69.readFileSync(filePath, "utf-8");
+  const content = fs71.readFileSync(filePath, "utf-8");
   const lines = content.split(/\r?\n/);
   const expressRegex = /(?:app|router|server|express)\.(get|post|put|patch|delete|options|head)\s*\(\s*['"`]([^'"`]+)['"`]/g;
   const flaskRegex = /@(?:app|blueprint|bp)\.route\s*\(\s*['"]([^'"]+)['"]/g;
@@ -81967,8 +82429,8 @@ var schema_drift = createSwarmTool({
 init_tool();
 init_path_security();
 init_create_tool();
-import * as fs70 from "fs";
-import * as path85 from "path";
+import * as fs72 from "fs";
+import * as path87 from "path";
 var DEFAULT_MAX_RESULTS = 100;
 var DEFAULT_MAX_LINES = 200;
 var REGEX_TIMEOUT_MS = 5000;
@@ -82004,11 +82466,11 @@ function containsWindowsAttacks3(str) {
 }
 function isPathInWorkspace3(filePath, workspace) {
   try {
-    const resolvedPath = path85.resolve(workspace, filePath);
-    const realWorkspace = fs70.realpathSync(workspace);
-    const realResolvedPath = fs70.realpathSync(resolvedPath);
-    const relativePath = path85.relative(realWorkspace, realResolvedPath);
-    if (relativePath.startsWith("..") || path85.isAbsolute(relativePath)) {
+    const resolvedPath = path87.resolve(workspace, filePath);
+    const realWorkspace = fs72.realpathSync(workspace);
+    const realResolvedPath = fs72.realpathSync(resolvedPath);
+    const relativePath = path87.relative(realWorkspace, realResolvedPath);
+    if (relativePath.startsWith("..") || path87.isAbsolute(relativePath)) {
       return false;
     }
     return true;
@@ -82021,12 +82483,12 @@ function validatePathForRead2(filePath, workspace) {
 }
 function findRgInEnvPath() {
   const searchPath = process.env.PATH ?? "";
-  for (const dir of searchPath.split(path85.delimiter)) {
+  for (const dir of searchPath.split(path87.delimiter)) {
     if (!dir)
       continue;
     const isWindows = process.platform === "win32";
-    const candidate = path85.join(dir, isWindows ? "rg.exe" : "rg");
-    if (fs70.existsSync(candidate))
+    const candidate = path87.join(dir, isWindows ? "rg.exe" : "rg");
+    if (fs72.existsSync(candidate))
       return candidate;
   }
   return null;
@@ -82080,7 +82542,7 @@ async function ripgrepSearch(opts) {
       stderr: "pipe",
       cwd: opts.workspace
     });
-    const timeout = new Promise((resolve36) => setTimeout(() => resolve36("timeout"), REGEX_TIMEOUT_MS));
+    const timeout = new Promise((resolve37) => setTimeout(() => resolve37("timeout"), REGEX_TIMEOUT_MS));
     const exitPromise = proc.exited;
     const result = await Promise.race([exitPromise, timeout]);
     if (result === "timeout") {
@@ -82153,10 +82615,10 @@ function collectFiles(dir, workspace, includeGlobs, excludeGlobs) {
     return files;
   }
   try {
-    const entries = fs70.readdirSync(dir, { withFileTypes: true });
+    const entries = fs72.readdirSync(dir, { withFileTypes: true });
     for (const entry of entries) {
-      const fullPath = path85.join(dir, entry.name);
-      const relativePath = path85.relative(workspace, fullPath);
+      const fullPath = path87.join(dir, entry.name);
+      const relativePath = path87.relative(workspace, fullPath);
       if (!validatePathForRead2(fullPath, workspace)) {
         continue;
       }
@@ -82197,13 +82659,13 @@ async function fallbackSearch(opts) {
   const matches = [];
   let total = 0;
   for (const file3 of files) {
-    const fullPath = path85.join(opts.workspace, file3);
+    const fullPath = path87.join(opts.workspace, file3);
     if (!validatePathForRead2(fullPath, opts.workspace)) {
       continue;
     }
     let stats;
     try {
-      stats = fs70.statSync(fullPath);
+      stats = fs72.statSync(fullPath);
       if (stats.size > MAX_FILE_SIZE_BYTES10) {
         continue;
       }
@@ -82212,7 +82674,7 @@ async function fallbackSearch(opts) {
     }
     let content;
     try {
-      content = fs70.readFileSync(fullPath, "utf-8");
+      content = fs72.readFileSync(fullPath, "utf-8");
     } catch {
       continue;
     }
@@ -82324,7 +82786,7 @@ var search = createSwarmTool({
         message: "Exclude pattern contains invalid Windows-specific sequence"
       }, null, 2);
     }
-    if (!fs70.existsSync(directory)) {
+    if (!fs72.existsSync(directory)) {
       return JSON.stringify({
         error: true,
         type: "unknown",
@@ -82447,8 +82909,8 @@ var set_qa_gates = createSwarmTool({
 init_tool();
 init_path_security();
 init_create_tool();
-import * as fs71 from "fs";
-import * as path86 from "path";
+import * as fs73 from "fs";
+import * as path88 from "path";
 var WINDOWS_RESERVED_NAMES4 = /^(con|prn|aux|nul|com[1-9]|lpt[1-9])(\.|:|$)/i;
 function containsWindowsAttacks4(str) {
   if (/:[^\\/]/.test(str))
@@ -82462,14 +82924,14 @@ function containsWindowsAttacks4(str) {
 }
 function isPathInWorkspace4(filePath, workspace) {
   try {
-    const resolvedPath = path86.resolve(workspace, filePath);
-    if (!fs71.existsSync(resolvedPath)) {
+    const resolvedPath = path88.resolve(workspace, filePath);
+    if (!fs73.existsSync(resolvedPath)) {
       return true;
     }
-    const realWorkspace = fs71.realpathSync(workspace);
-    const realResolvedPath = fs71.realpathSync(resolvedPath);
-    const relativePath = path86.relative(realWorkspace, realResolvedPath);
-    if (relativePath.startsWith("..") || path86.isAbsolute(relativePath)) {
+    const realWorkspace = fs73.realpathSync(workspace);
+    const realResolvedPath = fs73.realpathSync(resolvedPath);
+    const relativePath = path88.relative(realWorkspace, realResolvedPath);
+    if (relativePath.startsWith("..") || path88.isAbsolute(relativePath)) {
       return false;
     }
     return true;
@@ -82641,7 +83103,7 @@ var suggestPatch = createSwarmTool({
         message: "changes cannot be empty"
       }, null, 2);
     }
-    if (!fs71.existsSync(directory)) {
+    if (!fs73.existsSync(directory)) {
       return JSON.stringify({
         success: false,
         error: true,
@@ -82677,8 +83139,8 @@ var suggestPatch = createSwarmTool({
         });
         continue;
       }
-      const fullPath = path86.resolve(directory, change.file);
-      if (!fs71.existsSync(fullPath)) {
+      const fullPath = path88.resolve(directory, change.file);
+      if (!fs73.existsSync(fullPath)) {
         errors5.push({
           success: false,
           error: true,
@@ -82692,7 +83154,7 @@ var suggestPatch = createSwarmTool({
       }
       let content;
       try {
-        content = fs71.readFileSync(fullPath, "utf-8");
+        content = fs73.readFileSync(fullPath, "utf-8");
       } catch (err3) {
         errors5.push({
           success: false,
@@ -82771,8 +83233,8 @@ var suggestPatch = createSwarmTool({
 // src/tools/lint-spec.ts
 init_spec_schema();
 init_create_tool();
-import * as fs72 from "fs";
-import * as path87 from "path";
+import * as fs74 from "fs";
+import * as path89 from "path";
 var SPEC_FILE_NAME = "spec.md";
 var SWARM_DIR2 = ".swarm";
 var OBLIGATION_KEYWORDS2 = ["MUST", "SHALL", "SHOULD", "MAY"];
@@ -82825,8 +83287,8 @@ var lint_spec = createSwarmTool({
   async execute(_args, directory) {
     const errors5 = [];
     const warnings = [];
-    const specPath = path87.join(directory, SWARM_DIR2, SPEC_FILE_NAME);
-    if (!fs72.existsSync(specPath)) {
+    const specPath = path89.join(directory, SWARM_DIR2, SPEC_FILE_NAME);
+    if (!fs74.existsSync(specPath)) {
       const result2 = {
         valid: false,
         specMtime: null,
@@ -82845,12 +83307,12 @@ var lint_spec = createSwarmTool({
     }
     let specMtime = null;
     try {
-      const stats = fs72.statSync(specPath);
+      const stats = fs74.statSync(specPath);
       specMtime = stats.mtime.toISOString();
     } catch {}
     let content;
     try {
-      content = fs72.readFileSync(specPath, "utf-8");
+      content = fs74.readFileSync(specPath, "utf-8");
     } catch (e) {
       const result2 = {
         valid: false,
@@ -82895,13 +83357,13 @@ var lint_spec = createSwarmTool({
 });
 // src/tools/mutation-test.ts
 init_dist();
-import * as fs73 from "fs";
-import * as path89 from "path";
+import * as fs75 from "fs";
+import * as path91 from "path";
 
 // src/mutation/engine.ts
 import { spawnSync as spawnSync3 } from "child_process";
 import { unlinkSync as unlinkSync12, writeFileSync as writeFileSync18 } from "fs";
-import * as path88 from "path";
+import * as path90 from "path";
 
 // src/mutation/equivalence.ts
 function isStaticallyEquivalent(originalCode, mutatedCode) {
@@ -83036,7 +83498,7 @@ async function executeMutation(patch, testCommand, _testFiles, workingDir) {
   let patchFile;
   try {
     const safeId2 = patch.id.replace(/[^a-zA-Z0-9_-]/g, "_");
-    patchFile = path88.join(workingDir, `.mutation_patch_${safeId2}.diff`);
+    patchFile = path90.join(workingDir, `.mutation_patch_${safeId2}.diff`);
     try {
       writeFileSync18(patchFile, patch.patch);
     } catch (writeErr) {
@@ -83430,8 +83892,8 @@ var mutation_test = createSwarmTool({
       ];
       for (const filePath of uniquePaths) {
         try {
-          const resolvedPath = path89.resolve(cwd, filePath);
-          sourceFiles.set(filePath, fs73.readFileSync(resolvedPath, "utf-8"));
+          const resolvedPath = path91.resolve(cwd, filePath);
+          sourceFiles.set(filePath, fs75.readFileSync(resolvedPath, "utf-8"));
         } catch {}
       }
       const report = await executeMutationSuite(typedArgs.patches, typedArgs.test_command, typedArgs.files, cwd, undefined, undefined, sourceFiles.size > 0 ? sourceFiles : undefined);
@@ -83449,8 +83911,8 @@ var mutation_test = createSwarmTool({
 init_dist();
 init_manager2();
 init_detector();
-import * as fs74 from "fs";
-import * as path90 from "path";
+import * as fs76 from "fs";
+import * as path92 from "path";
 init_create_tool();
 var MAX_FILE_SIZE2 = 2 * 1024 * 1024;
 var BINARY_CHECK_BYTES = 8192;
@@ -83516,7 +83978,7 @@ async function syntaxCheck(input, directory, config3) {
   if (languages?.length) {
     const lowerLangs = languages.map((l) => l.toLowerCase());
     filesToCheck = filesToCheck.filter((file3) => {
-      const ext = path90.extname(file3.path).toLowerCase();
+      const ext = path92.extname(file3.path).toLowerCase();
       const langDef = getLanguageForExtension(ext);
       const fileProfile = getProfileForFile(file3.path);
       const langId = fileProfile?.id || langDef?.id;
@@ -83529,7 +83991,7 @@ async function syntaxCheck(input, directory, config3) {
   let skippedCount = 0;
   for (const fileInfo of filesToCheck) {
     const { path: filePath } = fileInfo;
-    const fullPath = path90.isAbsolute(filePath) ? filePath : path90.join(directory, filePath);
+    const fullPath = path92.isAbsolute(filePath) ? filePath : path92.join(directory, filePath);
     const result = {
       path: filePath,
       language: "",
@@ -83559,7 +84021,7 @@ async function syntaxCheck(input, directory, config3) {
       }
       let content;
       try {
-        content = fs74.readFileSync(fullPath, "utf8");
+        content = fs76.readFileSync(fullPath, "utf8");
       } catch {
         result.skipped_reason = "file_read_error";
         skippedCount++;
@@ -83578,7 +84040,7 @@ async function syntaxCheck(input, directory, config3) {
         results.push(result);
         continue;
       }
-      const ext = path90.extname(filePath).toLowerCase();
+      const ext = path92.extname(filePath).toLowerCase();
       const langDef = getLanguageForExtension(ext);
       result.language = profile?.id || langDef?.id || "unknown";
       const errors5 = extractSyntaxErrors(parser, content);
@@ -83670,8 +84132,8 @@ init_dist();
 init_utils();
 init_create_tool();
 init_path_security();
-import * as fs75 from "fs";
-import * as path91 from "path";
+import * as fs77 from "fs";
+import * as path93 from "path";
 var MAX_TEXT_LENGTH = 200;
 var MAX_FILE_SIZE_BYTES11 = 1024 * 1024;
 var SUPPORTED_EXTENSIONS4 = new Set([
@@ -83737,9 +84199,9 @@ function validatePathsInput(paths, cwd) {
     return { error: "paths contains path traversal", resolvedPath: null };
   }
   try {
-    const resolvedPath = path91.resolve(paths);
-    const normalizedCwd = path91.resolve(cwd);
-    const normalizedResolved = path91.resolve(resolvedPath);
+    const resolvedPath = path93.resolve(paths);
+    const normalizedCwd = path93.resolve(cwd);
+    const normalizedResolved = path93.resolve(resolvedPath);
     if (!normalizedResolved.startsWith(normalizedCwd)) {
       return {
         error: "paths must be within the current working directory",
@@ -83755,13 +84217,13 @@ function validatePathsInput(paths, cwd) {
   }
 }
 function isSupportedExtension(filePath) {
-  const ext = path91.extname(filePath).toLowerCase();
+  const ext = path93.extname(filePath).toLowerCase();
   return SUPPORTED_EXTENSIONS4.has(ext);
 }
 function findSourceFiles4(dir, files = []) {
   let entries;
   try {
-    entries = fs75.readdirSync(dir);
+    entries = fs77.readdirSync(dir);
   } catch {
     return files;
   }
@@ -83770,10 +84232,10 @@ function findSourceFiles4(dir, files = []) {
     if (SKIP_DIRECTORIES5.has(entry)) {
       continue;
     }
-    const fullPath = path91.join(dir, entry);
+    const fullPath = path93.join(dir, entry);
     let stat3;
     try {
-      stat3 = fs75.statSync(fullPath);
+      stat3 = fs77.statSync(fullPath);
     } catch {
       continue;
     }
@@ -83866,7 +84328,7 @@ var todo_extract = createSwarmTool({
       return JSON.stringify(errorResult, null, 2);
     }
     const scanPath = resolvedPath;
-    if (!fs75.existsSync(scanPath)) {
+    if (!fs77.existsSync(scanPath)) {
       const errorResult = {
         error: `path not found: ${pathsInput}`,
         total: 0,
@@ -83876,13 +84338,13 @@ var todo_extract = createSwarmTool({
       return JSON.stringify(errorResult, null, 2);
     }
     const filesToScan = [];
-    const stat3 = fs75.statSync(scanPath);
+    const stat3 = fs77.statSync(scanPath);
     if (stat3.isFile()) {
       if (isSupportedExtension(scanPath)) {
         filesToScan.push(scanPath);
       } else {
         const errorResult = {
-          error: `unsupported file extension: ${path91.extname(scanPath)}`,
+          error: `unsupported file extension: ${path93.extname(scanPath)}`,
           total: 0,
           byPriority: { high: 0, medium: 0, low: 0 },
           entries: []
@@ -83895,11 +84357,11 @@ var todo_extract = createSwarmTool({
     const allEntries = [];
     for (const filePath of filesToScan) {
       try {
-        const fileStat = fs75.statSync(filePath);
+        const fileStat = fs77.statSync(filePath);
         if (fileStat.size > MAX_FILE_SIZE_BYTES11) {
           continue;
         }
-        const content = fs75.readFileSync(filePath, "utf-8");
+        const content = fs77.readFileSync(filePath, "utf-8");
         const entries = parseTodoComments(content, filePath, tagsSet);
         allEntries.push(...entries);
       } catch {}
@@ -83929,18 +84391,18 @@ init_tool();
 init_loader();
 init_schema();
 init_gate_evidence();
-import * as fs77 from "fs";
-import * as path93 from "path";
+import * as fs79 from "fs";
+import * as path95 from "path";
 
 // src/hooks/diff-scope.ts
-import * as fs76 from "fs";
-import * as path92 from "path";
+import * as fs78 from "fs";
+import * as path94 from "path";
 function getDeclaredScope(taskId, directory) {
   try {
-    const planPath = path92.join(directory, ".swarm", "plan.json");
-    if (!fs76.existsSync(planPath))
+    const planPath = path94.join(directory, ".swarm", "plan.json");
+    if (!fs78.existsSync(planPath))
       return null;
-    const raw = fs76.readFileSync(planPath, "utf-8");
+    const raw = fs78.readFileSync(planPath, "utf-8");
     const plan = JSON.parse(raw);
     for (const phase of plan.phases ?? []) {
       for (const task of phase.tasks ?? []) {
@@ -84056,7 +84518,7 @@ var TIER_3_PATTERNS = [
 ];
 function matchesTier3Pattern(files) {
   for (const file3 of files) {
-    const fileName = path93.basename(file3);
+    const fileName = path95.basename(file3);
     for (const pattern of TIER_3_PATTERNS) {
       if (pattern.test(fileName)) {
         return true;
@@ -84070,8 +84532,8 @@ function checkReviewerGate(taskId, workingDirectory, stageBParallelEnabled = fal
     if (hasActiveTurboMode()) {
       const resolvedDir2 = workingDirectory;
       try {
-        const planPath = path93.join(resolvedDir2, ".swarm", "plan.json");
-        const planRaw = fs77.readFileSync(planPath, "utf-8");
+        const planPath = path95.join(resolvedDir2, ".swarm", "plan.json");
+        const planRaw = fs79.readFileSync(planPath, "utf-8");
         const plan = JSON.parse(planRaw);
         for (const planPhase of plan.phases ?? []) {
           for (const task of planPhase.tasks ?? []) {
@@ -84140,8 +84602,8 @@ function checkReviewerGate(taskId, workingDirectory, stageBParallelEnabled = fal
     }
     try {
       const resolvedDir2 = workingDirectory;
-      const planPath = path93.join(resolvedDir2, ".swarm", "plan.json");
-      const planRaw = fs77.readFileSync(planPath, "utf-8");
+      const planPath = path95.join(resolvedDir2, ".swarm", "plan.json");
+      const planRaw = fs79.readFileSync(planPath, "utf-8");
       const plan = JSON.parse(planRaw);
       for (const planPhase of plan.phases ?? []) {
         for (const task of planPhase.tasks ?? []) {
@@ -84365,8 +84827,8 @@ async function executeUpdateTaskStatus(args2, fallbackDir) {
         };
       }
     }
-    normalizedDir = path93.normalize(args2.working_directory);
-    const pathParts = normalizedDir.split(path93.sep);
+    normalizedDir = path95.normalize(args2.working_directory);
+    const pathParts = normalizedDir.split(path95.sep);
     if (pathParts.includes("..")) {
       return {
         success: false,
@@ -84376,11 +84838,11 @@ async function executeUpdateTaskStatus(args2, fallbackDir) {
         ]
       };
     }
-    const resolvedDir = path93.resolve(normalizedDir);
+    const resolvedDir = path95.resolve(normalizedDir);
     try {
-      const realPath = fs77.realpathSync(resolvedDir);
-      const planPath = path93.join(realPath, ".swarm", "plan.json");
-      if (!fs77.existsSync(planPath)) {
+      const realPath = fs79.realpathSync(resolvedDir);
+      const planPath = path95.join(realPath, ".swarm", "plan.json");
+      if (!fs79.existsSync(planPath)) {
         return {
           success: false,
           message: `Invalid working_directory: plan not found in "${realPath}"`,
@@ -84411,22 +84873,22 @@ async function executeUpdateTaskStatus(args2, fallbackDir) {
   }
   if (args2.status === "in_progress") {
     try {
-      const evidencePath = path93.join(directory, ".swarm", "evidence", `${args2.task_id}.json`);
-      fs77.mkdirSync(path93.dirname(evidencePath), { recursive: true });
-      const fd = fs77.openSync(evidencePath, "wx");
+      const evidencePath = path95.join(directory, ".swarm", "evidence", `${args2.task_id}.json`);
+      fs79.mkdirSync(path95.dirname(evidencePath), { recursive: true });
+      const fd = fs79.openSync(evidencePath, "wx");
       let writeOk = false;
       try {
-        fs77.writeSync(fd, JSON.stringify({
+        fs79.writeSync(fd, JSON.stringify({
           taskId: args2.task_id,
           required_gates: ["reviewer", "test_engineer"],
           gates: {}
         }, null, 2));
         writeOk = true;
       } finally {
-        fs77.closeSync(fd);
+        fs79.closeSync(fd);
         if (!writeOk) {
           try {
-            fs77.unlinkSync(evidencePath);
+            fs79.unlinkSync(evidencePath);
           } catch {}
         }
       }
@@ -84436,8 +84898,8 @@ async function executeUpdateTaskStatus(args2, fallbackDir) {
     recoverTaskStateFromDelegations(args2.task_id);
     let phaseRequiresReviewer = true;
     try {
-      const planPath = path93.join(directory, ".swarm", "plan.json");
-      const planRaw = fs77.readFileSync(planPath, "utf-8");
+      const planPath = path95.join(directory, ".swarm", "plan.json");
+      const planRaw = fs79.readFileSync(planPath, "utf-8");
       const plan = JSON.parse(planRaw);
       const taskPhase = plan.phases.find((p) => p.tasks.some((t) => t.id === args2.task_id));
       if (taskPhase?.required_agents && !taskPhase.required_agents.includes("reviewer")) {
@@ -84546,8 +85008,8 @@ init_utils2();
 init_ledger();
 init_manager();
 init_create_tool();
-import fs78 from "fs";
-import path94 from "path";
+import fs80 from "fs";
+import path96 from "path";
 function derivePlanId5(plan) {
   return `${plan.swarm}-${plan.title}`.replace(/[^a-zA-Z0-9-_]/g, "_");
 }
@@ -84598,7 +85060,7 @@ async function executeWriteDriftEvidence(args2, directory) {
     entries: [evidenceEntry]
   };
   const filename = "drift-verifier.json";
-  const relativePath = path94.join("evidence", String(phase), filename);
+  const relativePath = path96.join("evidence", String(phase), filename);
   let validatedPath;
   try {
     validatedPath = validateSwarmPath(directory, relativePath);
@@ -84609,12 +85071,12 @@ async function executeWriteDriftEvidence(args2, directory) {
       message: error93 instanceof Error ? error93.message : "Failed to validate path"
     }, null, 2);
   }
-  const evidenceDir = path94.dirname(validatedPath);
+  const evidenceDir = path96.dirname(validatedPath);
   try {
-    await fs78.promises.mkdir(evidenceDir, { recursive: true });
-    const tempPath = path94.join(evidenceDir, `.${filename}.tmp`);
-    await fs78.promises.writeFile(tempPath, JSON.stringify(evidenceContent, null, 2), "utf-8");
-    await fs78.promises.rename(tempPath, validatedPath);
+    await fs80.promises.mkdir(evidenceDir, { recursive: true });
+    const tempPath = path96.join(evidenceDir, `.${filename}.tmp`);
+    await fs80.promises.writeFile(tempPath, JSON.stringify(evidenceContent, null, 2), "utf-8");
+    await fs80.promises.rename(tempPath, validatedPath);
     let snapshotInfo;
     let snapshotError;
     let qaProfileLocked;
@@ -84708,8 +85170,8 @@ var write_drift_evidence = createSwarmTool({
 init_tool();
 init_utils2();
 init_create_tool();
-import fs79 from "fs";
-import path95 from "path";
+import fs81 from "fs";
+import path97 from "path";
 function normalizeVerdict2(verdict) {
   switch (verdict) {
     case "APPROVED":
@@ -84757,7 +85219,7 @@ async function executeWriteHallucinationEvidence(args2, directory) {
     entries: [evidenceEntry]
   };
   const filename = "hallucination-guard.json";
-  const relativePath = path95.join("evidence", String(phase), filename);
+  const relativePath = path97.join("evidence", String(phase), filename);
   let validatedPath;
   try {
     validatedPath = validateSwarmPath(directory, relativePath);
@@ -84768,12 +85230,12 @@ async function executeWriteHallucinationEvidence(args2, directory) {
       message: error93 instanceof Error ? error93.message : "Failed to validate path"
     }, null, 2);
   }
-  const evidenceDir = path95.dirname(validatedPath);
+  const evidenceDir = path97.dirname(validatedPath);
   try {
-    await fs79.promises.mkdir(evidenceDir, { recursive: true });
-    const tempPath = path95.join(evidenceDir, `.${filename}.tmp`);
-    await fs79.promises.writeFile(tempPath, JSON.stringify(evidenceContent, null, 2), "utf-8");
-    await fs79.promises.rename(tempPath, validatedPath);
+    await fs81.promises.mkdir(evidenceDir, { recursive: true });
+    const tempPath = path97.join(evidenceDir, `.${filename}.tmp`);
+    await fs81.promises.writeFile(tempPath, JSON.stringify(evidenceContent, null, 2), "utf-8");
+    await fs81.promises.rename(tempPath, validatedPath);
     return JSON.stringify({
       success: true,
       phase,
@@ -84982,7 +85444,7 @@ var OpenCodeSwarm = async (ctx) => {
     const { PreflightTriggerManager: PTM } = await Promise.resolve().then(() => (init_trigger(), exports_trigger));
     preflightTriggerManager = new PTM(automationConfig);
     const { AutomationStatusArtifact: ASA } = await Promise.resolve().then(() => (init_status_artifact(), exports_status_artifact));
-    const swarmDir = path96.resolve(ctx.directory, ".swarm");
+    const swarmDir = path98.resolve(ctx.directory, ".swarm");
     statusArtifact = new ASA(swarmDir);
     statusArtifact.updateConfig(automationConfig.mode, automationConfig.capabilities);
     if (automationConfig.capabilities?.evidence_auto_summaries === true) {

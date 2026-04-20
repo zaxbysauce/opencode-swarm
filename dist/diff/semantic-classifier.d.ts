@@ -27,7 +27,7 @@ export interface ClassifiedChange {
     /** Name of the symbol (function, class, etc.) affected */
     symbolName: string;
     /** Type of change operation */
-    changeType: 'added' | 'modified' | 'removed';
+    changeType: 'added' | 'modified' | 'removed' | 'renamed';
     /** Starting line number of the change */
     lineStart: number;
     /** Ending line number of the change */
@@ -36,6 +36,10 @@ export interface ClassifiedChange {
     description: string;
     /** Original AST change signature detail (if available) */
     signature?: string;
+    /** Original name before rename, if this is a renamed symbol */
+    renamedFrom?: string;
+    /** Number of files that depend on this file (blast radius indicator) */
+    consumersCount?: number;
 }
 /**
  * Classify an array of AST diff results into semantic categories with risk levels.
@@ -52,4 +56,4 @@ export interface ClassifiedChange {
  * }
  * ```
  */
-export declare function classifyChanges(astDiffs: ASTDiffResult[]): ClassifiedChange[];
+export declare function classifyChanges(astDiffs: ASTDiffResult[], fileConsumers?: Record<string, number>): ClassifiedChange[];

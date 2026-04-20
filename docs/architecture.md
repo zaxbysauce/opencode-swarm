@@ -253,13 +253,18 @@ For each task in current phase:
     ├── 5a. @coder implements (ONE task only)
     │       └── → REQUIRED: Print task start confirmation
     │
-    ├── 5b. diff + imports tools analyze changes
+    ├── 5b. diff + imports tools analyze changes + semantic diff injection
     │       ├── Detect contract changes (exports, interfaces, types)
     │       ├── Track import dependencies across files
+    │       ├── system-enhancer injects AST-based semantic diff summary into reviewer context
+    │       │   - Computes AST diffs for changed files (up to 10, from `declaredCoderScope`)
+    │       │   - Enriches with blast radius (consumers count from repo graph)
+    │       │   - Generates risk-ranked markdown for reviewer prioritization
+    │       │   - Fully error-resilient: never throws, returns null on failure
     │       └── → REQUIRED: Print change summary
     │
     ├── 5c. syntax_check validates code syntax (v6.9.0)
-    │       ├── Tree-sitter parse validation for 9+ languages
+    │       ├── Tree-sitter parse validation for 20 languages
     │       ├── Catches syntax errors before review
     │       └── → REQUIRED: Print syntax status
     │
@@ -944,7 +949,7 @@ v6.9.0 "Quality & Anti-Slop Tooling" adds 6 automated gates to the pre-reviewer 
 
 | Gate | Purpose | Local-Only |
 |------|---------|------------|
-| `syntax_check` | Tree-sitter parse validation across 9+ languages | ✅ |
+| `syntax_check` | Tree-sitter parse validation across 20 languages | ✅ |
 | `placeholder_scan` | Anti-slop detection for TODO/FIXME/stubs | ✅ |
 | `sast_scan` | Static security analysis with 63+ rules | ✅ |
 | `sbom_generate` | CycloneDX SBOM generation for dependencies | ✅ |
@@ -988,7 +993,7 @@ The hooks system is the foundation of v5.1.x+, extended in v6.0.0 with config-aw
 | Hook Type | Handler | Purpose |
 |-----------|---------|---------|
 | `experimental.chat.messages.transform` | `composeHandlers(pipelineTracker, contextBudget)` | Pipeline logging + token budget warnings; progressive task disclosure; deliberation preamble injection; tier-based behavioral prompt trimming |
-| `experimental.chat.system.transform` | `systemEnhancerHook` | Inject phase/task/decisions + cross-agent context |
+| `experimental.chat.system.transform` | `systemEnhancerHook` | Inject phase/task/decisions + cross-agent context; reviewer receives semantic AST diff summary with blast radius (consumers count) from `buildSemanticDiffBlock()` |
 | `experimental.session.compacting` | `compactionHook` | Enrich compaction with plan.md + context.md data |
 | `command.execute.before` | `safeHook(commandHandler)` | Handle `/swarm` slash commands |
 | `tool.execute.before` | `safeHook(activityHooks.toolBefore)` | Track tool usage per agent; append written file paths to `modifiedFilesThisCoderTask`; reset tracking on coder delegation |
@@ -1272,7 +1277,7 @@ Six new automated gates enforce code quality before human review. All gates run 
 
 ### syntax_check - Parse Validation
 
-Uses Tree-sitter grammars for 9+ languages:
+Uses Tree-sitter grammars for 20 languages:
 - TypeScript/JavaScript
 - Python
 - Rust

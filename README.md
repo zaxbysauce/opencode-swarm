@@ -30,7 +30,7 @@ Most AI coding tools let one model write code and ask that same model whether th
 - 🔒 **Gated pipeline** — code never ships without reviewer + test engineer approval (bypassed in turbo mode)
 - 🔄 **Phase completion gates** — completion-verify and drift verifier gates enforced before phase completion (bypassed in turbo mode)
 - 🔁 **Resumable sessions** — all state saved to `.swarm/`; pick up any project any day
-- 🌐 **12 languages** — TypeScript, Python, Go, Rust, Java, Kotlin, C#, C/C++, Swift, Dart, Ruby, PHP
+- 🌐 **20 languages** — TypeScript, TSX, Python, Go, Rust, Java, Kotlin, C, C++, C#, Ruby, Swift, Dart, PHP, JavaScript, CSS, Bash, PowerShell, INI, Regex
 - 🛡️ **Built-in security** — SAST, secrets scanning, dependency audit per task
 - 🆓 **Free tier** — works with OpenCode Zen's free model roster
 - ⚙️ **Fully configurable** — override any agent's model, disable agents, tune guardrails
@@ -351,7 +351,7 @@ Agent roles (see [Agent Categories](#agent-categories) for classification refere
 | `critic_sounding_board` | Pre-escalation pushback — the architect consults this before contacting the user; returns UNNECESSARY / REPHRASE / APPROVED / RESOLVE | When architect hits an impasse |
 | `critic_drift_verifier` | **Phase-close drift detector**: verifies that the completed implementation still matches the original plan spec. Returns APPROVED or NEEDS_REVISION. When NEEDS_REVISION is returned, the phase is **blocked** — the architect must address deviations before calling `phase_complete`. After receiving the verdict, the architect calls `write_drift_evidence` to record the gate result. Bypassed in turbo mode. | Before `phase_complete` (PHASE-WRAP mode) |
 | `coder` | Implements one task at a time | During execution |
-| `reviewer` | Reviews correctness and security | After each task |
+| `reviewer` | Reviews correctness and security; receives AST semantic diff summary with blast radius | After each task |
 | `test_engineer` | Writes and runs tests | After each task |
 | `designer` | Generates UI scaffolds and design tokens when needed | UI-specific work |
 | `docs` | Updates docs to match what was actually built | After each phase |
@@ -405,7 +405,9 @@ Every task goes through this sequence. No exceptions, no overrides.
 MODE: EXECUTE (per task)
 │
 ├── 5a. @coder implements (ONE task only)
-├── 5b. diff + imports (contract + dependency analysis)
+├── 5b. diff + imports (contract + dependency analysis + semantic diff context)
+│       └── @system-enhancer injects AST-based semantic diff summary with blast radius
+│           into @reviewer context (up to 10 files, conditional on declared scope)
 ├── 5c. syntax_check (parse validation)
 ├── 5d. placeholder_scan (catches TODOs, stubs, incomplete code)
 ├── 5e. lint fix → lint check

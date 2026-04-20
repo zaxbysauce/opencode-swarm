@@ -243,3 +243,66 @@ describe('generateSummaryMarkdown', () => {
 		expect(mediumSection).toContain('- (none)');
 	});
 });
+
+describe('consumersCount rendering', () => {
+	test('markdown includes consumers count when present', () => {
+		const changes: ClassifiedChange[] = [
+			createMockChange({
+				filePath: 'src/core.ts',
+				category: 'LOGIC_CHANGE',
+				riskLevel: 'High',
+				description: 'Logic changed',
+				consumersCount: 5,
+			}),
+		];
+		const summary = generateSummary(changes);
+		const markdown = generateSummaryMarkdown(summary);
+		expect(markdown).toContain('(5 consumers)');
+	});
+
+	test('markdown omits consumers count when absent', () => {
+		const changes: ClassifiedChange[] = [
+			createMockChange({
+				filePath: 'src/core.ts',
+				category: 'LOGIC_CHANGE',
+				riskLevel: 'High',
+				description: 'Logic changed',
+			}),
+		];
+		const summary = generateSummary(changes);
+		const markdown = generateSummaryMarkdown(summary);
+		// Should NOT contain "consumers" anywhere in the output
+		expect(markdown).not.toContain('consumer');
+	});
+
+	test('markdown uses singular "consumer" for count of 1', () => {
+		const changes: ClassifiedChange[] = [
+			createMockChange({
+				filePath: 'src/core.ts',
+				category: 'LOGIC_CHANGE',
+				riskLevel: 'High',
+				description: 'Logic changed',
+				consumersCount: 1,
+			}),
+		];
+		const summary = generateSummary(changes);
+		const markdown = generateSummaryMarkdown(summary);
+		expect(markdown).toContain('(1 consumer)');
+		expect(markdown).not.toContain('(1 consumers)');
+	});
+
+	test('markdown renders 0 consumers explicitly', () => {
+		const changes: ClassifiedChange[] = [
+			createMockChange({
+				filePath: 'src/isolated.ts',
+				category: 'NEW_FUNCTION',
+				riskLevel: 'Medium',
+				description: 'New function added',
+				consumersCount: 0,
+			}),
+		];
+		const summary = generateSummary(changes);
+		const markdown = generateSummaryMarkdown(summary);
+		expect(markdown).toContain('(0 consumers)');
+	});
+});

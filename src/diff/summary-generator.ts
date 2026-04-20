@@ -114,8 +114,12 @@ export function generateSummaryMarkdown(summary: SemanticDiffSummary): string {
 			lines.push('- (none)');
 		} else {
 			for (const change of changes) {
+				const consumers =
+					change.consumersCount != null
+						? ` (${change.consumersCount} consumer${change.consumersCount !== 1 ? 's' : ''})`
+						: '';
 				lines.push(
-					`- ${change.filePath}: ${change.category} — ${change.description}`,
+					`- ${change.filePath}: ${change.category} — ${change.description}${consumers}`,
 				);
 			}
 		}

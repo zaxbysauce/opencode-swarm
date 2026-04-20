@@ -245,6 +245,64 @@ describe('semantic-classifier', () => {
 		});
 	});
 
+	describe('consumersCount via fileConsumers parameter', () => {
+		test('fileConsumers populates consumersCount on classified changes', () => {
+			const diff = makeDiff(
+				[makeChange('modified', 'function', 'coreFn')],
+				'src/core.ts',
+			);
+			const result = classifyChanges([diff], { 'src/core.ts': 5 });
+			expect(result).toHaveLength(1);
+			expect(result[0].consumersCount).toBe(5);
+		});
+
+		test('file not in fileConsumers map has undefined consumersCount', () => {
+			const diff = makeDiff(
+				[makeChange('added', 'function', 'newFn')],
+				'src/isolated.ts',
+			);
+			const result = classifyChanges([diff], { 'src/other.ts': 3 });
+			expect(result).toHaveLength(1);
+			expect(result[0].consumersCount).toBeUndefined();
+		});
+
+		test('multiple files get correct consumersCount each', () => {
+			const diff1 = makeDiff(
+				[makeChange('modified', 'function', 'fn1')],
+				'src/core.ts',
+			);
+			const diff2 = makeDiff(
+				[makeChange('added', 'function', 'fn2')],
+				'src/util.ts',
+			);
+			const result = classifyChanges([diff1, diff2], {
+				'src/core.ts': 10,
+				'src/util.ts': 2,
+			});
+			expect(result).toHaveLength(2);
+			const coreChange = result.find((c) => c.symbolName === 'fn1');
+			const utilChange = result.find((c) => c.symbolName === 'fn2');
+			expect(coreChange?.consumersCount).toBe(10);
+			expect(utilChange?.consumersCount).toBe(2);
+		});
+
+		test('zero consumers is a valid value (file has no consumers)', () => {
+			const diff = makeDiff(
+				[makeChange('added', 'function', 'newFn')],
+				'src/isolated.ts',
+			);
+			const result = classifyChanges([diff], { 'src/isolated.ts': 0 });
+			expect(result).toHaveLength(1);
+			expect(result[0].consumersCount).toBe(0);
+		});
+
+		test('without fileConsumers parameter, consumersCount is undefined', () => {
+			const diff = makeDiff([makeChange('modified', 'function', 'fn')]);
+			const result = classifyChanges([diff]);
+			expect(result[0].consumersCount).toBeUndefined();
+		});
+	});
+
 	describe('result completeness', () => {
 		test('all results have required fields', () => {
 			const diff = makeDiff([
@@ -302,6 +360,78 @@ describe('semantic-classifier', () => {
 			expect(result[0].changeType).toBe('added');
 			expect(result[1].changeType).toBe('removed');
 			expect(result[2].changeType).toBe('modified');
+		});
+	});
+
+	describe('rename detection', () => {
+		test('Renamed function with guard keyword in NEW name → GUARD_REMOVED Critical', () => {
+			const diff = makeDiff([
+				makeChange('renamed', 'function', 'checkPermissions', {
+					renamedFrom: 'oldPerm',
+				}),
+			]);
+			const result = classifyChanges([diff]);
+			expect(result).toHaveLength(1);
+			expect(result[0].category).toBe('GUARD_REMOVED');
+			expect(result[0].riskLevel).toBe('Critical');
+			expect(result[0].description).toContain('Guard function renamed');
+			expect(result[0].renamedFrom).toBe('oldPerm');
+		});
+
+		test('Renamed function with guard keyword in OLD name (renamedFrom) → GUARD_REMOVED Critical', () => {
+			const diff = makeDiff([
+				makeChange('renamed', 'function', 'newName', {
+					renamedFrom: 'validateInput',
+				}),
+			]);
+			const result = classifyChanges([diff]);
+			expect(result).toHaveLength(1);
+			expect(result[0].category).toBe('GUARD_REMOVED');
+			expect(result[0].riskLevel).toBe('Critical');
+			expect(result[0].description).toContain('validateInput');
+			expect(result[0].description).toContain('newName');
+			expect(result[0].renamedFrom).toBe('validateInput');
+		});
+
+		test('Renamed regular function (no guard keyword) → REFACTOR Medium', () => {
+			const diff = makeDiff([
+				makeChange('renamed', 'function', 'betterName', {
+					renamedFrom: 'oldName',
+				}),
+			]);
+			const result = classifyChanges([diff]);
+			expect(result).toHaveLength(1);
+			expect(result[0].category).toBe('REFACTOR');
+			expect(result[0].riskLevel).toBe('Medium');
+			expect(result[0].description).toContain('function renamed');
+			expect(result[0].renamedFrom).toBe('oldName');
+		});
+
+		test('Renamed class → REFACTOR Medium with correct description', () => {
+			const diff = makeDiff([
+				makeChange('renamed', 'class', 'NewClassName', {
+					renamedFrom: 'OldClassName',
+				}),
+			]);
+			const result = classifyChanges([diff]);
+			expect(result).toHaveLength(1);
+			expect(result[0].category).toBe('REFACTOR');
+			expect(result[0].riskLevel).toBe('Medium');
+			expect(result[0].description).toContain('class renamed');
+			expect(result[0].symbolName).toBe('NewClassName');
+			expect(result[0].renamedFrom).toBe('OldClassName');
+		});
+
+		test('Renamed type → REFACTOR Medium', () => {
+			const diff = makeDiff([
+				makeChange('renamed', 'type', 'NewType', { renamedFrom: 'OldType' }),
+			]);
+			const result = classifyChanges([diff]);
+			expect(result).toHaveLength(1);
+			expect(result[0].category).toBe('REFACTOR');
+			expect(result[0].riskLevel).toBe('Medium');
+			expect(result[0].description).toContain('type renamed');
+			expect(result[0].renamedFrom).toBe('OldType');
 		});
 	});
 });

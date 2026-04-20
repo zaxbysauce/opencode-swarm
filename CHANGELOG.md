@@ -1,5 +1,22 @@
 # Changelog
 
+## [Unreleased]
+
+### Features
+
+* **lang/registry:** expand language coverage from 6 to 20 (java, c, cpp, csharp, ruby, swift, kotlin, dart, css, bash, powershell, ini, regex, tsx); TypeScript split to .ts-only with separate TSX entry; commentNodes verified against tree-sitter grammars ([#PH2](https://github.com/zaxbysauce/opencode-swarm/issues/PH2))
+* **diff/ast-diff:** add 13 tree-sitter query patterns for java, c, cpp, csharp, ruby, php, swift, kotlin, dart, css, bash, powershell, tsx; expand extractSignature() with lookup table for 15 languages; add rename detection to compareSymbols() with conservative thresholds; add 'renamed' change type and renamedFrom field to ASTChange
+* **diff/semantic-classifier:** add 'renamed' to ClassifiedChange.changeType union; add renamedFrom field; guard renamed function classification as Critical
+* **diff/semantic-classifier:** add optional `consumersCount` field to `ClassifiedChange` — blast radius indicator (number of files importing the changed file); `classifyChanges()` now accepts optional `fileConsumers?: Record<string, number>` parameter; field only set when file key exists in the map
+* **diff/summary-generator:** `generateSummaryMarkdown()` renders consumers count inline with singular/plural grammar: "(N consumers)" or "(1 consumer)"
+* **hooks/semantic-diff-injection (NEW):** `buildSemanticDiffBlock(directory, changedFiles, maxFiles=10)` — end-to-end pipeline: computes AST diffs for changed files, builds `fileConsumers` from repo graph, classifies changes with `consumersCount`, generates markdown summary; fully error-resilient (never throws, returns `null` on any failure); uses `cat-file -e` to check for untracked files; relativizes absolute paths for graph lookup
+* **hooks/system-enhancer:** injects `buildSemanticDiffBlock` output into reviewer context (after blast radius in reviewer section); derived from `reviewerSession?.declaredCoderScope`; capped at 10 files; silent failure (no errors emitted)
+* **agents/reviewer:** added "## SEMANTIC DIFF SUMMARY — INTERPRETATION" section to reviewer prompt: risk-based priority ranking (Critical → High → Medium → Low), blast radius interpretation ("(N consumers)" indicator), guard function vigilance guidance (GUARD_REMOVED escalation), and explicit DO NOT guidance to prevent over-reliance on the summary
+
+### Bug Fixes
+
+* **diff/ast-diff:** fix rename detection preventing false DELETED+NEW pairs when functions are renamed with matching signatures; guard function renames classified as Critical (not hidden as Medium refactor)
+
 ## [6.79.0](https://github.com/zaxbysauce/opencode-swarm/compare/v6.78.0...v6.79.0) (2026-04-20)
 
 

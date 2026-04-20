@@ -57,6 +57,7 @@ import {
 	buildCoderLocalizationBlock,
 	buildReviewerBlastRadiusBlock,
 } from './repo-graph-injection';
+import { buildSemanticDiffBlock } from './semantic-diff-injection.js';
 import {
 	estimateTokens,
 	readSwarmFileAsync,
@@ -1008,6 +1009,26 @@ ${handoffContent}`;
 							} catch {
 								// Silently skip graph injection failures
 							}
+
+							// v6.x: Semantic diff summary injection
+							try {
+								const reviewerSessionId = _input.sessionID ?? '';
+								const reviewerSession =
+									swarmState.agentSessions.get(reviewerSessionId);
+								const semDiffChanged =
+									reviewerSession?.declaredCoderScope ?? [];
+								if (semDiffChanged.length > 0) {
+									const semDiffBlock = await buildSemanticDiffBlock(
+										directory,
+										semDiffChanged,
+									);
+									if (semDiffBlock) {
+										tryInject(semDiffBlock);
+									}
+								}
+							} catch {
+								// Silently skip semantic diff injection failures
+							}
 						}
 
 						// v6.46: Language-specific test-engineer constraints injection
@@ -1754,6 +1775,35 @@ ${handoffContent}`;
 								priority: 2,
 								metadata: { contentType: 'prose' as ContentType },
 							});
+						}
+					}
+
+					// v6.x: Semantic diff summary injection (Path B) — reviewer-only
+					if (isReviewer_b) {
+						try {
+							const semDiffSessionId_b = _input.sessionID ?? '';
+							const semDiffSession_b =
+								swarmState.agentSessions.get(semDiffSessionId_b);
+							const semDiffChanged_b =
+								semDiffSession_b?.declaredCoderScope ?? [];
+							if (semDiffChanged_b.length > 0) {
+								const semDiffBlock_b = await buildSemanticDiffBlock(
+									directory,
+									semDiffChanged_b,
+								);
+								if (semDiffBlock_b) {
+									candidates.push({
+										id: `candidate-${idCounter++}`,
+										kind: 'agent_context' as ContextCandidate['kind'],
+										text: semDiffBlock_b,
+										tokens: estimateTokens(semDiffBlock_b),
+										priority: 2,
+										metadata: { contentType: 'prose' as ContentType },
+									});
+								}
+							}
+						} catch {
+							// Silently skip semantic diff injection failures
 						}
 					}
 
