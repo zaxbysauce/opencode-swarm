@@ -1293,6 +1293,48 @@ export function applyRehydrationCache(session: AgentSessionState): void {
 			}
 		}
 	}
+
+	// Rehydrate council verdicts from evidenceMap for ALL tasks (not just planTaskStates).
+	// In-memory entries take priority; skip on malformed or missing data.
+	const VALID_COUNCIL_VERDICTS = new Set([
+		'APPROVE',
+		'REJECT',
+		'CONCERNS',
+	] as const);
+	for (const [taskId, evidence] of evidenceMap) {
+		// Skip if already in memory (in-memory wins over persisted evidence).
+		if (session.taskCouncilApproved.has(taskId)) {
+			continue;
+		}
+		// Cast to extended type — verdict/roundNumber are preserved via passthrough()
+		// but not in the base GateEvidence interface (which only has sessionId/timestamp/agent).
+		const council = evidence.gates?.council as
+			| { verdict?: string; roundNumber?: number }
+			| undefined;
+		if (!council) {
+			continue;
+		}
+		const rawVerdict = council.verdict;
+		if (!rawVerdict || typeof rawVerdict !== 'string') {
+			continue;
+		}
+		if (
+			!VALID_COUNCIL_VERDICTS.has(
+				rawVerdict as 'APPROVE' | 'REJECT' | 'CONCERNS',
+			)
+		) {
+			continue;
+		}
+		const verdict = rawVerdict as 'APPROVE' | 'REJECT' | 'CONCERNS';
+		let roundNumber = council.roundNumber;
+		if (typeof roundNumber !== 'number' || !Number.isFinite(roundNumber)) {
+			roundNumber = 1;
+		}
+		session.taskCouncilApproved.set(taskId, {
+			verdict,
+			roundNumber,
+		});
+	}
 }
 
 /**

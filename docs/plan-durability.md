@@ -97,6 +97,19 @@ On first `savePlan()` call in v6.42.0+, the ledger is created automatically:
 
 No data is lost, no manual migration steps needed.
 
+## Council Verdict Recovery
+
+Council verdicts (`APPROVE`, `REJECT`, `CONCERNS`) are persisted in
+`.swarm/evidence/{taskId}.json` under `gates.council`. On session restart,
+`applyRehydrationCache()` reconstructs `session.taskCouncilApproved` from
+these entries, allowing tasks that passed the council before a crash to
+retain their verdict without re-running the council gate. The task's
+workflow state is derived from the highest non-council gate present — the
+council verdict alone does not fast-path the task to `completed`, because
+gate evidence is recorded at delegation time and does not prove Stage A
+(pre-check) passed. The task advances through the normal state machine
+once pre-check succeeds.
+
 ## Execution Profile
 
 **v6.77.0** added the `execution_profile` field to the Plan schema. It is architect-controlled and plan-scoped.

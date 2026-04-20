@@ -25962,6 +25962,36 @@ function applyRehydrationCache(session) {
       }
     }
   }
+  const VALID_COUNCIL_VERDICTS = new Set([
+    "APPROVE",
+    "REJECT",
+    "CONCERNS"
+  ]);
+  for (const [taskId, evidence] of evidenceMap) {
+    if (session.taskCouncilApproved.has(taskId)) {
+      continue;
+    }
+    const council = evidence.gates?.council;
+    if (!council) {
+      continue;
+    }
+    const rawVerdict = council.verdict;
+    if (!rawVerdict || typeof rawVerdict !== "string") {
+      continue;
+    }
+    if (!VALID_COUNCIL_VERDICTS.has(rawVerdict)) {
+      continue;
+    }
+    const verdict = rawVerdict;
+    let roundNumber = council.roundNumber;
+    if (typeof roundNumber !== "number" || !Number.isFinite(roundNumber)) {
+      roundNumber = 1;
+    }
+    session.taskCouncilApproved.set(taskId, {
+      verdict,
+      roundNumber
+    });
+  }
 }
 async function rehydrateSessionFromDisk(directory, session) {
   await buildRehydrationCache(directory);
