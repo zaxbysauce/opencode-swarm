@@ -91,6 +91,60 @@ All project state lives in `.swarm/`:
 
 Swarm is resumable by design. If `.swarm/` already exists, the architect goes straight into **RESUME** → **EXECUTE** instead of repeating discovery.
 
+## Process Remediation Model (PRM)
+
+Swarm includes a lightweight Process Remediation Model that monitors agent trajectories and injects course-correction guidance before loops form. Based on research from SWE-PRM (arXiv 2509.02360), taxonomy-guided PRMs improve task resolution by detecting failure patterns early.
+
+### Detected Patterns
+
+The PRM detects five trajectory patterns:
+
+1. **Repetition Loop** — Same agent performs the same action on the same target file repeatedly
+2. **Ping-Pong** — Agent A hands off to B, B hands back to A, and A hands to B again
+3. **Expansion Drift** — Successive plans grow in scope beyond the original task
+4. **Stuck-on-Test** — Coder edits → tests fail → coder edits same file → tests fail, repeating
+5. **Context Thrashing** — Agent requests increasingly large file sets without narrowing scope
+
+### Escalation Protocol
+
+When a pattern is detected, the PRM tracks escalation levels:
+
+- **Level 1 (1st detection):** Course-correction guidance is added to `pendingAdvisoryMessages` and injected via the `[ADVISORIES]` block. Sets `escalationLevel = 1`.
+- **Level 2 (2nd detection):** Additional guidance added to `pendingAdvisoryMessages`, `architectAlertPending = true` is set, and `telemetry.prmEscalationTriggered()` is emitted. Sets `escalationLevel = 2`.
+- **Level 3 (3rd+ detection):** Guidance added to `pendingAdvisoryMessages`, plus a hard stop directive is injected separately via `[HARD STOP]` block. Sets `escalationLevel = 3` and `hardStopPending = true`. Emits `telemetry.prmHardStop()`.
+
+### Configuration
+
+PRM behavior is controlled via the `prm` section in your configuration:
+
+```json
+{
+  "prm": {
+    "enabled": true,
+    "pattern_thresholds": {
+      "repetition_loop": 2,
+      "ping_pong": 4,
+      "expansion_drift": 3,
+      "stuck_on_test": 3,
+      "context_thrash": 5
+    },
+    "max_trajectory_lines": 100,
+    "escalation_enabled": true,
+    "detection_timeout_ms": 5000
+  }
+}
+```
+
+> **Note:** `max_trajectory_lines`, `escalation_enabled`, and `detection_timeout_ms` are defined in the schema but not yet enforced at runtime. The default trajectory limit is 1000 lines.
+
+### Replay Recording
+
+PRM records all pattern detections, course corrections, escalations, and hard stops to `.swarm/replays/{sessionId}-{timestamp}.jsonl` for post-mortem analysis. Use the replay artifacts to understand why loops formed and how they were resolved.
+
+### Performance
+
+Pattern detection runs in less than 100ms per step using rule-based analysis — no LLM calls required for detection.
+
 ---
 
 ## Quick Start
