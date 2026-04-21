@@ -399,7 +399,7 @@ export async function detectTestFramework(cwd: string): Promise<TestFramework> {
 }
 
 // ============ Test File Mapping (Convention Scope) ============
-const TEST_PATTERNS = [
+const _TEST_PATTERNS = [
 	// Common test file patterns
 	{ test: '.spec.', source: '.' },
 	{ test: '.test.', source: '.' },

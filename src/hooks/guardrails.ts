@@ -15,6 +15,7 @@ import QuickLRU from 'quick-lru';
 import { getSwarmAgents, resolveFallbackModel } from '../agents/index';
 import {
 	isLowCapabilityModel,
+	OPENCODE_NATIVE_AGENTS,
 	ORCHESTRATOR_NAME,
 	WRITE_TOOL_NAMES,
 } from '../config/constants';
@@ -109,6 +110,15 @@ function isWriteTool(toolName: string): boolean {
 	// Strip namespace prefix (e.g., "opencode:write" -> "write")
 	const normalized = normalizeToolName(toolName);
 	return (WRITE_TOOL_NAMES as readonly string[]).includes(normalized);
+}
+
+/**
+ * Returns true when agentName is one of opencode's built-in native agents.
+ * These agents are not part of the swarm workflow and must be fully exempt from
+ * swarm guardrails (authority checks, circuit breaker, loop detection, etc.).
+ */
+function isNativeOpencodeAgent(agentName: string): boolean {
+	return OPENCODE_NATIVE_AGENTS.has(agentName.toLowerCase() as never);
 }
 
 /**
@@ -1901,12 +1911,14 @@ export function createGuardrailsHooks(
 			? stripKnownSwarmPrefix(rawActiveAgent)
 			: undefined;
 		if (strippedAgent === ORCHESTRATOR_NAME) return null;
+		if (strippedAgent && isNativeOpencodeAgent(strippedAgent)) return null;
 
 		// Check 2: session state fallback
 		const existingSession = swarmState.agentSessions.get(sessionID);
 		if (existingSession) {
 			const sessionAgent = stripKnownSwarmPrefix(existingSession.agentName);
 			if (sessionAgent === ORCHESTRATOR_NAME) return null;
+			if (isNativeOpencodeAgent(sessionAgent)) return null;
 		}
 
 		const agentName =
@@ -1916,6 +1928,7 @@ export function createGuardrailsHooks(
 		// Check 3: after session resolution
 		const resolvedName = stripKnownSwarmPrefix(session.agentName);
 		if (resolvedName === ORCHESTRATOR_NAME) return null;
+		if (isNativeOpencodeAgent(resolvedName)) return null;
 
 		const agentConfig = resolveGuardrailsConfig(cfg, session.agentName);
 
@@ -3238,6 +3251,14 @@ type AgentRule = {
 };
 
 export const DEFAULT_AGENT_AUTHORITY_RULES: Record<string, AgentRule> = {
+	// Opencode native built-in agents — pass through with no swarm write restrictions.
+	// Opencode's own permission system governs what these agents may write; the swarm
+	// authority layer must not add further constraints on top of it.
+	build: {},
+	plan: {},
+	general: {},
+	explore: {},
+
 	architect: {
 		blockedExact: ['.swarm/plan.md', '.swarm/plan.json'],
 		blockedZones: ['generated'],

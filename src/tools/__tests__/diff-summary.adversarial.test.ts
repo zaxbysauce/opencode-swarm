@@ -1,6 +1,4 @@
 import { afterEach, beforeEach, describe, expect, test, vi } from 'bun:test';
-import * as child_process from 'node:child_process';
-import * as fs from 'node:fs';
 import type { ASTChange, ASTDiffResult } from '../../diff/ast-diff.js';
 import type { ClassifiedChange } from '../../diff/semantic-classifier.js';
 import type { SemanticDiffSummary } from '../../diff/summary-generator.js';
@@ -345,7 +343,7 @@ describe('diff_summary ADVERSARIAL security tests', () => {
 	test('should never crash on 10000 char path - returns valid JSON', async () => {
 		setupHappyPath();
 		const { parsed, raw } = await invokeTool({
-			files: ['a'.repeat(10000) + '.ts'],
+			files: [`${'a'.repeat(10000)}.ts`],
 		});
 		expect(raw).toBeTruthy();
 		expect(typeof raw).toBe('string');

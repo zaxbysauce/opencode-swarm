@@ -99,7 +99,7 @@ describe('withEvidenceLock — contention path', () => {
 	test('second caller waits while first holds the lock', async () => {
 		const order: string[] = [];
 		let resolveInner!: () => void;
-		const innerDone = new Promise<void>((r) => {
+		const _innerDone = new Promise<void>((r) => {
 			resolveInner = r;
 		});
 

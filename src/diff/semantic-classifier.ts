@@ -84,7 +84,7 @@ function isGuardKeyword(name: string): boolean {
 			.split('')
 			.map((c) => `[${c.toLowerCase()}${c.toUpperCase()}]`)
 			.join('');
-		const re = new RegExp('(?<![a-z])' + ciKeyword + '(?![a-z])');
+		const re = new RegExp(`(?<![a-z])${ciKeyword}(?![a-z])`);
 		return re.test(name);
 	});
 }

@@ -7,8 +7,6 @@ import {
 	mock,
 	test,
 } from 'bun:test';
-import * as fs from 'node:fs';
-import * as path from 'node:path';
 
 // We need to use mock.module which is set up in beforeEach
 // This allows us to properly intercept the module imports
@@ -352,7 +350,7 @@ describe('test-runner impact scope ADVERSARIAL security tests', () => {
 	test('impact: rejects 10000 character path', async () => {
 		const { parsed, raw } = await invokeTool({
 			scope: 'impact',
-			files: ['a'.repeat(10000) + '.ts'],
+			files: [`${'a'.repeat(10000)}.ts`],
 		});
 		expect(raw).toBeTruthy();
 		const obj = parsed as { success?: boolean; error?: string };
@@ -362,7 +360,7 @@ describe('test-runner impact scope ADVERSARIAL security tests', () => {
 	test('impact: rejects 50000 character path', async () => {
 		const { parsed, raw } = await invokeTool({
 			scope: 'impact',
-			files: ['a'.repeat(50000) + '.ts'],
+			files: [`${'a'.repeat(50000)}.ts`],
 		});
 		expect(raw).toBeTruthy();
 		const obj = parsed as { success?: boolean; error?: string };

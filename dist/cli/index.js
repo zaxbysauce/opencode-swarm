@@ -18756,6 +18756,15 @@ var ALL_AGENT_NAMES = [
   ORCHESTRATOR_NAME,
   ...ALL_SUBAGENT_NAMES
 ];
+var OPENCODE_NATIVE_AGENTS = new Set([
+  "build",
+  "plan",
+  "general",
+  "explore",
+  "compaction",
+  "title",
+  "summary"
+]);
 var AGENT_TOOL_MAP = {
   architect: [
     "checkpoint",

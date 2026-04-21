@@ -101,7 +101,7 @@ describe('buildSemanticDiffBlock', () => {
 
 		// Mock file exists in HEAD
 		mockExecFileSync.mockImplementation(
-			(command: string, args: string[], _options: unknown) => {
+			(_command: string, args: string[], _options: unknown) => {
 				if (args[0] === 'cat-file') return ''; // file exists
 				if (args[0] === 'show') return 'old content';
 				throw new Error('unexpected git command');
@@ -389,7 +389,7 @@ describe('buildSemanticDiffBlock', () => {
 		);
 
 		mockExecFileSync.mockImplementation(
-			(command: string, args: string[], _options: unknown) => {
+			(_command: string, args: string[], _options: unknown) => {
 				if (args[0] === 'cat-file') return '';
 				if (args[0] === 'show') return 'old';
 				throw new Error('unexpected');
@@ -481,7 +481,7 @@ describe('buildSemanticDiffBlock', () => {
 		);
 
 		mockExecFileSync.mockImplementation(
-			(command: string, args: string[], _options: unknown) => {
+			(_command: string, args: string[], _options: unknown) => {
 				if (args[0] === 'cat-file') return '';
 				if (args[0] === 'show') return 'old';
 				throw new Error('unexpected');
@@ -561,9 +561,9 @@ describe('buildSemanticDiffBlock', () => {
 			'../semantic-diff-injection.js'
 		);
 
-		let callCount = 0;
-		mockExecFileSync.mockImplementation((_cmd: string, args: string[]) => {
-			callCount++;
+		let _callCount = 0;
+		mockExecFileSync.mockImplementation((_cmd: string, _args: string[]) => {
+			_callCount++;
 			// All calls throw ENOENT (git binary missing)
 			const error = new Error('spawnSync git ENOENT');
 			(error as NodeJS.ErrnoException).code = 'ENOENT';
@@ -635,7 +635,7 @@ describe('buildSemanticDiffBlock', () => {
 		mockGenerateSummary.mockReturnValue(mockSummary);
 		mockGenerateSummaryMarkdown.mockReturnValue('');
 
-		const result = await buildSemanticDiffBlock('/fake/dir', ['broken.ts']);
+		const _result = await buildSemanticDiffBlock('/fake/dir', ['broken.ts']);
 
 		// classifyChanges should have been called with astDiffs that include the error-only result
 		expect(mockClassifyChanges).toHaveBeenCalled();
@@ -671,7 +671,7 @@ describe('buildSemanticDiffBlock', () => {
 		mockGenerateSummaryMarkdown.mockReturnValue('');
 
 		// Pass traversal paths mixed with a valid path
-		const result = await buildSemanticDiffBlock('/safe/dir', [
+		const _result = await buildSemanticDiffBlock('/safe/dir', [
 			'../../../etc/passwd',
 			'/absolute/path/secret',
 			'valid.ts',
@@ -695,7 +695,7 @@ describe('buildSemanticDiffBlock', () => {
 
 			// Mock git cat-file to return '' (file exists), git show to return 'old content'
 			mockExecFileSync.mockImplementation(
-				(command: string, args: string[], _options: unknown) => {
+				(_command: string, args: string[], _options: unknown) => {
 					if (args[0] === 'cat-file') return '';
 					if (args[0] === 'show') return 'old content';
 					throw new Error('unexpected git command');

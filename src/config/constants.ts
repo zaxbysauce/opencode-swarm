@@ -24,6 +24,19 @@ export const ALL_AGENT_NAMES = [
 	...ALL_SUBAGENT_NAMES,
 ] as const;
 
+// Opencode built-in native agents — not part of the swarm workflow.
+// These agents are managed entirely by opencode's own permission system and
+// must be exempted from swarm guardrails (authority checks, circuit breaker, etc.).
+export const OPENCODE_NATIVE_AGENTS = new Set([
+	'build',
+	'plan',
+	'general',
+	'explore',
+	'compaction',
+	'title',
+	'summary',
+] as const);
+
 // Type definitions
 export type QAAgentName = (typeof QA_AGENTS)[number];
 export type PipelineAgentName = (typeof PIPELINE_AGENTS)[number];
