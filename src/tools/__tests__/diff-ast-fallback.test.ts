@@ -169,7 +169,7 @@ describe('AST diff fallback — regression: error results were silently dropped'
 			// we can verify the source code contains the fix.
 			//
 			// This test passes when the source code contains the fix.
-			const sourceCode = await Bun.file(import.meta.dir + '/../diff.ts').text();
+			const sourceCode = await Bun.file(`${import.meta.dir}/../diff.ts`).text();
 
 			// The fix adds || astResult.error to the guard condition
 			// Look for the pattern: (astResult.changes.length > 0 || astResult.error)
@@ -178,7 +178,7 @@ describe('AST diff fallback — regression: error results were silently dropped'
 
 		test('catch block pushes fallback with category other (lines 290-308)', async () => {
 			// Verify the catch block has the fallback entry structure
-			const sourceCode = await Bun.file(import.meta.dir + '/../diff.ts').text();
+			const sourceCode = await Bun.file(`${import.meta.dir}/../diff.ts`).text();
 
 			// The fallback should push a change with category 'other'
 			expect(sourceCode).toContain("category: 'other'");

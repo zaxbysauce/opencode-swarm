@@ -1,4 +1,4 @@
-import { beforeEach, describe, expect, test } from 'bun:test';
+import { expect, test } from 'bun:test';
 import type { MutationReport, MutationResult } from '../engine.js';
 import { evaluateMutationGate } from '../gate.js';
 

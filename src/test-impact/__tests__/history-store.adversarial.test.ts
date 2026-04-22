@@ -1,4 +1,4 @@
-import { afterEach, beforeEach, describe, expect, test, vi } from 'bun:test';
+import { afterEach, beforeEach, describe, expect, test } from 'bun:test';
 import fs from 'node:fs';
 import path from 'node:path';
 import {
@@ -105,7 +105,7 @@ describe('history-store adversarial security tests', () => {
 			}).not.toThrow();
 
 			// Null byte should be stripped or handled
-			const history = getTestHistory(maliciousPath, tempDir);
+			const _history = getTestHistory(maliciousPath, tempDir);
 			// The file is written with the path as-is; null byte handling is at OS level
 		});
 	});

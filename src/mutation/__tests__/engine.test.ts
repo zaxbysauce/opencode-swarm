@@ -24,7 +24,7 @@ function makeResult(
 }
 
 // Helper to create a MutationPatch
-function makePatch(
+function _makePatch(
 	id: string,
 	filePath = 'src/foo.ts',
 	functionName = 'foo',

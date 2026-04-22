@@ -43,8 +43,8 @@ describe('executeMutation - shell injection mitigation', () => {
 	beforeEach(() => {
 		vi.clearAllMocks();
 
-		mockWriteFileSync.mockReturnValue(undefined as unknown as void);
-		mockUnlinkSync.mockReturnValue(undefined as unknown as void);
+		mockWriteFileSync.mockReturnValue(undefined as unknown as undefined);
+		mockUnlinkSync.mockReturnValue(undefined as unknown as undefined);
 		mockPathJoin.mockImplementation((...args: string[]) => args.join('/'));
 
 		// Default: successful git apply and revert

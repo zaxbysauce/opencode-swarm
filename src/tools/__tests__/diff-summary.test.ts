@@ -1,6 +1,4 @@
 import { afterEach, beforeEach, describe, expect, test, vi } from 'bun:test';
-import * as child_process from 'node:child_process';
-import * as fs from 'node:fs';
 import type { ASTChange, ASTDiffResult } from '../../diff/ast-diff.js';
 import type { ClassifiedChange } from '../../diff/semantic-classifier.js';
 import type { SemanticDiffSummary } from '../../diff/summary-generator.js';
@@ -323,7 +321,7 @@ describe('diff_summary tool', () => {
 			});
 		});
 
-		const result = await diff_summary.execute(
+		const _result = await diff_summary.execute(
 			{ files: ['src/api.ts'], classification: 'SIGNATURE_CHANGE' },
 			createToolContext('/fake/dir'),
 		);
@@ -379,7 +377,7 @@ describe('diff_summary tool', () => {
 			});
 		});
 
-		const result = await diff_summary.execute(
+		const _result = await diff_summary.execute(
 			{ files: ['src/api.ts'], riskLevel: 'Critical' },
 			createToolContext('/fake/dir'),
 		);
@@ -437,7 +435,7 @@ describe('diff_summary tool', () => {
 			});
 		});
 
-		const result = await diff_summary.execute(
+		const _result = await diff_summary.execute(
 			{
 				files: ['src/api.ts'],
 				classification: 'SIGNATURE_CHANGE',
@@ -463,7 +461,7 @@ describe('diff_summary tool', () => {
 		const { diff_summary } = await import('../../tools/diff-summary.js');
 
 		// Mock cat-file -e to throw (file not in HEAD)
-		mockExecFileSync.mockImplementation((cmd: string, args: string[]) => {
+		mockExecFileSync.mockImplementation((_cmd: string, args: string[]) => {
 			if (args[0] === 'cat-file' && args[1] === '-e') {
 				throw new Error('fatal: pathspec did not match any files');
 			}
@@ -533,7 +531,7 @@ describe('diff_summary tool', () => {
 		const { diff_summary } = await import('../../tools/diff-summary.js');
 
 		// Mock cat-file -e to throw for badge.tsx (simulating untracked file)
-		mockExecFileSync.mockImplementation((cmd: string, args: string[]) => {
+		mockExecFileSync.mockImplementation((_cmd: string, args: string[]) => {
 			if (
 				args[0] === 'cat-file' &&
 				args[1] === '-e' &&
@@ -726,7 +724,7 @@ describe('diff_summary tool', () => {
 		const { diff_summary } = await import('../../tools/diff-summary.js');
 
 		// Mock execFileSync to succeed for cat-file check (file exists in HEAD) and git show
-		mockExecFileSync.mockImplementation((cmd: string, args: string[]) => {
+		mockExecFileSync.mockImplementation((_cmd: string, args: string[]) => {
 			if (args[0] === 'cat-file' && args[1] === '-e') {
 				// File exists in HEAD
 				return '';
@@ -781,7 +779,7 @@ describe('diff_summary tool', () => {
 		const { diff_summary } = await import('../../tools/diff-summary.js');
 
 		// First file: git success, second file: git failure
-		mockExecFileSync.mockImplementation((cmd: string, args: string[]) => {
+		mockExecFileSync.mockImplementation((_cmd: string, args: string[]) => {
 			if (args[1] === 'HEAD:src/file1.ts') {
 				return 'old content 1';
 			}

@@ -1011,7 +1011,7 @@ describe('adversarial council verdict rehydration', () => {
 	it('6. extremely long verdict string (>10KB) is safely rejected', async () => {
 		// Arrange: verdict string is 10000+ characters
 		writePlan([{ id: '1.1', status: 'in_progress' }]);
-		const longVerdict = 'APPROVE' + 'x'.repeat(10000);
+		const longVerdict = `APPROVE${'x'.repeat(10000)}`;
 		writeFileSync(
 			path.join(tmpDir, '.swarm', 'evidence', '1.1.json'),
 			JSON.stringify({

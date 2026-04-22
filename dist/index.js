@@ -147,7 +147,7 @@ function isLowCapabilityModel(modelId) {
   const lower = modelId.toLowerCase();
   return LOW_CAPABILITY_MODELS.some((substr) => lower.includes(substr));
 }
-var QA_AGENTS, PIPELINE_AGENTS, ORCHESTRATOR_NAME = "architect", ALL_SUBAGENT_NAMES, ALL_AGENT_NAMES, AGENT_TOOL_MAP, WRITE_TOOL_NAMES, TOOL_DESCRIPTIONS, DEFAULT_MODELS, DEFAULT_SCORING_CONFIG, LOW_CAPABILITY_MODELS, TURBO_MODE_BANNER = `## \uD83D\uDE80 TURBO MODE ACTIVE
+var QA_AGENTS, PIPELINE_AGENTS, ORCHESTRATOR_NAME = "architect", ALL_SUBAGENT_NAMES, ALL_AGENT_NAMES, OPENCODE_NATIVE_AGENTS, AGENT_TOOL_MAP, WRITE_TOOL_NAMES, TOOL_DESCRIPTIONS, DEFAULT_MODELS, DEFAULT_SCORING_CONFIG, LOW_CAPABILITY_MODELS, TURBO_MODE_BANNER = `## \uD83D\uDE80 TURBO MODE ACTIVE
 
 **Speed optimization enabled for this session.**
 
@@ -195,6 +195,15 @@ var init_constants = __esm(() => {
     ORCHESTRATOR_NAME,
     ...ALL_SUBAGENT_NAMES
   ];
+  OPENCODE_NATIVE_AGENTS = new Set([
+    "build",
+    "plan",
+    "general",
+    "explore",
+    "compaction",
+    "title",
+    "summary"
+  ]);
   AGENT_TOOL_MAP = {
     architect: [
       "checkpoint",
@@ -22658,6 +22667,9 @@ function isWriteTool(toolName) {
   const normalized = normalizeToolName(toolName);
   return WRITE_TOOL_NAMES.includes(normalized);
 }
+function isNativeOpencodeAgent(agentName) {
+  return OPENCODE_NATIVE_AGENTS.has(agentName.toLowerCase());
+}
 function isArchitect(sessionId) {
   const activeAgent = swarmState.activeAgent.get(sessionId);
   if (activeAgent) {
@@ -23556,16 +23568,22 @@ function createGuardrailsHooks(directory, directoryOrConfig, config2, authorityC
     const strippedAgent = rawActiveAgent ? stripKnownSwarmPrefix(rawActiveAgent) : undefined;
     if (strippedAgent === ORCHESTRATOR_NAME)
       return null;
+    if (strippedAgent && isNativeOpencodeAgent(strippedAgent))
+      return null;
     const existingSession = swarmState.agentSessions.get(sessionID);
     if (existingSession) {
       const sessionAgent = stripKnownSwarmPrefix(existingSession.agentName);
       if (sessionAgent === ORCHESTRATOR_NAME)
+        return null;
+      if (isNativeOpencodeAgent(sessionAgent))
         return null;
     }
     const agentName = swarmState.activeAgent.get(sessionID) ?? ORCHESTRATOR_NAME;
     const session = ensureAgentSession(sessionID, agentName);
     const resolvedName = stripKnownSwarmPrefix(session.agentName);
     if (resolvedName === ORCHESTRATOR_NAME)
+      return null;
+    if (isNativeOpencodeAgent(resolvedName))
       return null;
     const agentConfig = resolveGuardrailsConfig(cfg, session.agentName);
     if (agentConfig.max_duration_minutes === 0 && agentConfig.max_tool_calls === 0) {
@@ -24493,6 +24511,10 @@ var init_guardrails = __esm(() => {
     maxSize: 200
   });
   DEFAULT_AGENT_AUTHORITY_RULES = {
+    build: {},
+    plan: {},
+    general: {},
+    explore: {},
     architect: {
       blockedExact: [".swarm/plan.md", ".swarm/plan.json"],
       blockedZones: ["generated"]
@@ -67752,7 +67774,7 @@ var GUARD_KEYWORDS = [
 function isGuardKeyword(name2) {
   return GUARD_KEYWORDS.some((keyword) => {
     const ciKeyword = keyword.split("").map((c) => `[${c.toLowerCase()}${c.toUpperCase()}]`).join("");
-    const re = new RegExp("(?<![a-z])" + ciKeyword + "(?![a-z])");
+    const re = new RegExp(`(?<![a-z])${ciKeyword}(?![a-z])`);
     return re.test(name2);
   });
 }
