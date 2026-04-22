@@ -130,6 +130,18 @@ export function createPrmHook(config: PrmConfig, directory: string): PrmHook {
 		}
 
 		try {
+			// Get or create per-session PRM state (needed for initialization guard below)
+			const sessionPrmState = session as typeof session & SessionPrmState;
+
+			// One-time per session: run file TTL cleanup (non-blocking, fire-and-forget)
+			// Runs unconditionally on first toolAfter call, regardless of pattern detection.
+			if (!sessionPrmState.prmInitialized) {
+				sessionPrmState.prmInitialized = true;
+				cleanupOldTrajectoryFiles(directory).catch(() => {
+					// Non-blocking
+				});
+			}
+
 			// Use in-memory cache (O(1)) with disk fallback on cold start (process restart)
 			const cachedTrajectory = getInMemoryTrajectory(sessionID);
 			const trajectory =
@@ -144,8 +156,6 @@ export function createPrmHook(config: PrmConfig, directory: string): PrmHook {
 				return;
 			}
 
-			// Get or create escalation tracker for this session
-			const sessionPrmState = session as typeof session & SessionPrmState;
 			let escalationTracker = sessionPrmState.prmEscalationTracker;
 
 			// Initialize replay recording on first use (lazy initialization)
@@ -154,14 +164,6 @@ export function createPrmHook(config: PrmConfig, directory: string): PrmHook {
 					sessionID,
 					directory,
 				);
-			}
-
-			// One-time per session: run file TTL cleanup (non-blocking, fire-and-forget)
-			if (!sessionPrmState.prmInitialized) {
-				sessionPrmState.prmInitialized = true;
-				cleanupOldTrajectoryFiles(directory).catch(() => {
-					// Non-blocking
-				});
 			}
 
 			const artifactPath = sessionPrmState.replayArtifactPath;
