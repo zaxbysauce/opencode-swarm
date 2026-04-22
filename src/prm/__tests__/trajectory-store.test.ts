@@ -12,6 +12,7 @@ import path from 'node:path';
 
 import {
 	appendTrajectoryEntry,
+	clearTrajectoryCache,
 	getCurrentStep,
 	getTrajectoryForSession,
 	readTrajectory,
@@ -28,6 +29,8 @@ describe('trajectory-store', () => {
 	beforeEach(async () => {
 		// Create a unique temp directory for each test
 		tempDir = mkdtempSync(path.join(tmpdir(), 'trajectory-store-test-'));
+		// Reset module-level in-memory cache between tests for isolation
+		clearTrajectoryCache();
 	});
 
 	afterEach(() => {

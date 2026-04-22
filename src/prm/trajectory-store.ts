@@ -30,7 +30,8 @@ const _inMemoryTrajectoryCache = new Map<string, TrajectoryEntry[]>();
  * Returns cached trajectory entries for a session (empty array if not cached).
  */
 export function getInMemoryTrajectory(sessionId: string): TrajectoryEntry[] {
-	return _inMemoryTrajectoryCache.get(sessionId) ?? [];
+	const cached = _inMemoryTrajectoryCache.get(sessionId);
+	return cached ? [...cached] : [];
 }
 
 /**
