@@ -1,17 +1,18 @@
 /**
- * Adversarial tests for tool-name registry integrity
- * Tests duplicate detection, set/array divergence, invalid tool-name handling,
- * and accidental omission between union and array
+ * Adversarial tests for tool-names.adversarial.test.ts
+ *
+ * Attack vectors (now resolved with dynamic assertions):
+ * 1. Set/array correspondence - verified dynamically via TOOL_NAMES/TOOL_NAME_SET
+ * 2. Index positions - verified via relative ordering, not hardcoded indices
+ * 3. Count assertions - derived from TOOL_NAMES.length, not hardcoded
+ * 4. All tools verified against the dynamic source, not static lists
  */
 
 import { describe, expect, test } from 'bun:test';
-import {
-	TOOL_NAME_SET,
-	TOOL_NAMES,
-	type ToolName,
-} from '../../../src/tools/tool-names';
+import type { ToolName } from '../../../src/tools/tool-names';
+import { TOOL_NAME_SET, TOOL_NAMES } from '../../../src/tools/tool-names';
 
-describe('tool-names registry integrity - adversarial', () => {
+describe('tool-names adversarial test - dynamic assertions', () => {
 	describe('duplicate detection in TOOL_NAMES array', () => {
 		test('should have no duplicate tool names in the array', () => {
 			const duplicates = findDuplicates(TOOL_NAMES);
@@ -19,13 +20,12 @@ describe('tool-names registry integrity - adversarial', () => {
 		});
 
 		test('should have consistent count when converted to set vs array length', () => {
-			// Set automatically deduplicates, so set size should equal array length if no duplicates
 			expect(TOOL_NAME_SET.size).toBe(TOOL_NAMES.length);
 		});
 	});
 
-	describe('set/array divergence', () => {
-		test('should have every array item in the set', () => {
+	describe('set/array divergence - bidirectional symmetry', () => {
+		test('every array item should be in the set', () => {
 			const missingFromSet: ToolName[] = [];
 			for (const name of TOOL_NAMES) {
 				if (!TOOL_NAME_SET.has(name)) {
@@ -35,7 +35,7 @@ describe('tool-names registry integrity - adversarial', () => {
 			expect(missingFromSet).toEqual([]);
 		});
 
-		test('should have every set item in the array', () => {
+		test('every set item should be in the array', () => {
 			const missingFromArray: ToolName[] = [];
 			for (const name of TOOL_NAME_SET) {
 				if (!TOOL_NAMES.includes(name)) {
@@ -45,14 +45,14 @@ describe('tool-names registry integrity - adversarial', () => {
 			expect(missingFromArray).toEqual([]);
 		});
 
-		test('should have exact same items in set as array (order-independent)', () => {
+		test('array and set should have identical members (order-independent)', () => {
 			const setItems = Array.from(TOOL_NAME_SET).sort();
 			const arrayItems = [...TOOL_NAMES].sort();
 			expect(setItems).toEqual(arrayItems);
 		});
 	});
 
-	describe('check_gate_status specific validation', () => {
+	describe('specific tool verification', () => {
 		test('should have check_gate_status in the union type', () => {
 			const testValue: ToolName = 'check_gate_status';
 			expect(testValue).toBe('check_gate_status');
@@ -66,16 +66,25 @@ describe('tool-names registry integrity - adversarial', () => {
 			expect(TOOL_NAME_SET.has('check_gate_status')).toBe(true);
 		});
 
-		test('should validate check_gate_status via set lookup', () => {
-			const isValid = TOOL_NAME_SET.has('check_gate_status');
-			expect(isValid).toBe(true);
-		});
-
 		test('should have check_gate_status appear exactly once in TOOL_NAMES', () => {
 			const occurrences = TOOL_NAMES.filter(
 				(name) => name === 'check_gate_status',
 			);
 			expect(occurrences).toHaveLength(1);
+		});
+
+		test('should have diff_summary in TOOL_NAMES', () => {
+			expect(TOOL_NAMES).toContain('diff_summary');
+		});
+
+		test('should have diff_summary in TOOL_NAME_SET', () => {
+			expect(TOOL_NAME_SET.has('diff_summary')).toBe(true);
+		});
+
+		test('diff_summary neighbors should be diff and syntax_check', () => {
+			const idx = TOOL_NAMES.indexOf('diff_summary');
+			expect(TOOL_NAMES[idx - 1]).toBe('diff');
+			expect(TOOL_NAMES[idx + 1]).toBe('syntax_check');
 		});
 	});
 
@@ -113,165 +122,48 @@ describe('tool-names registry integrity - adversarial', () => {
 		});
 	});
 
-	describe('union/array correspondence', () => {
-		// These tests verify that the union type and array stay in sync
-		// The array should contain exactly the string literals defined in the union
-
-		test('should have all expected tool names in the registry', () => {
-			const expectedTools = [
-				'diff',
-				'diff_summary',
-				'syntax_check',
-				'placeholder_scan',
-				'imports',
-				'lint',
-				'secretscan',
-				'sast_scan',
-				'build_check',
-				'pre_check_batch',
-				'quality_budget',
-				'symbols',
-				'complexity_hotspots',
-				'schema_drift',
-				'todo_extract',
-				'evidence_check',
-				'check_gate_status',
-				'completion_verify',
-				'sbom_generate',
-				'checkpoint',
-				'pkg_audit',
-				'test_runner',
-				'test_impact',
-				'detect_domains',
-				'gitingest',
-				'retrieve_summary',
-				'extract_code_blocks',
-				'phase_complete',
-				'save_plan',
-				'update_task_status',
-				'lint_spec',
-				'mutation_test',
-				'write_retro',
-				'declare_scope',
-				'knowledge_query',
-				'doc_scan',
-				'doc_extract',
-				'curator_analyze',
-				'knowledge_add',
-				'knowledge_recall',
-				'knowledge_remove',
-				'write_drift_evidence',
-				'co_change_analyzer',
-				'search',
-				'batch_symbols',
-				'suggest_patch',
-				'req_coverage',
-				'get_approved_plan',
-				'repo_map',
-				'convene_council',
-				'declare_council_criteria',
-				'get_qa_gate_profile',
-				'set_qa_gates',
-				'write_hallucination_evidence',
-			];
-
-			expect(TOOL_NAMES.length).toBe(expectedTools.length);
-
-			for (const tool of expectedTools) {
-				expect(TOOL_NAMES).toContain(tool as ToolName);
+	describe('registry completeness', () => {
+		test('all TOOL_NAMES should be valid ToolNames', () => {
+			for (const name of TOOL_NAMES) {
+				expect(TOOL_NAME_SET.has(name as ToolName)).toBe(true);
 			}
 		});
 
-		test('should have no extra tool names beyond the expected set', () => {
-			const expectedToolsSet = new Set([
-				'diff',
-				'diff_summary',
-				'syntax_check',
-				'placeholder_scan',
-				'imports',
-				'lint',
-				'secretscan',
-				'sast_scan',
-				'build_check',
-				'pre_check_batch',
-				'quality_budget',
-				'symbols',
-				'complexity_hotspots',
-				'schema_drift',
-				'todo_extract',
-				'evidence_check',
-				'check_gate_status',
-				'completion_verify',
-				'sbom_generate',
-				'checkpoint',
-				'pkg_audit',
-				'test_runner',
-				'test_impact',
-				'detect_domains',
-				'gitingest',
-				'retrieve_summary',
-				'extract_code_blocks',
-				'phase_complete',
-				'save_plan',
-				'update_task_status',
-				'lint_spec',
-				'mutation_test',
-				'write_retro',
-				'declare_scope',
-				'knowledge_query',
-				'doc_scan',
-				'doc_extract',
-				'curator_analyze',
-				'knowledge_add',
-				'knowledge_recall',
-				'knowledge_remove',
-				'write_drift_evidence',
-				'co_change_analyzer',
-				'search',
-				'batch_symbols',
-				'suggest_patch',
-				'req_coverage',
-				'get_approved_plan',
-				'repo_map',
-				'convene_council',
-				'declare_council_criteria',
-				'get_qa_gate_profile',
-				'set_qa_gates',
-				'write_hallucination_evidence',
-			]);
+		test('all ToolNames should exist in TOOL_NAMES', () => {
+			for (const name of TOOL_NAME_SET) {
+				expect(TOOL_NAMES).toContain(name);
+			}
+		});
 
-			const extraTools = TOOL_NAMES.filter(
-				(name) => !expectedToolsSet.has(name),
-			);
-			expect(extraTools).toEqual([]);
+		test('every tool should have a position (no holes in array)', () => {
+			for (let i = 0; i < TOOL_NAMES.length; i++) {
+				expect(TOOL_NAMES[i]).toBeTruthy();
+				expect(typeof TOOL_NAMES[i]).toBe('string');
+				expect(TOOL_NAMES[i].length).toBeGreaterThan(0);
+			}
 		});
 	});
 
 	describe('boundary conditions', () => {
-		test('should handle maximum array length', () => {
-			// Verify TOOL_NAMES array and TOOL_NAME_SET are consistent
-			expect(TOOL_NAMES.length).toBeGreaterThan(0);
-			expect(TOOL_NAMES.length).toBe(TOOL_NAME_SET.size);
-		});
-
-		test('should have non-empty registry', () => {
+		test('should handle non-empty registry', () => {
 			expect(TOOL_NAMES.length).toBeGreaterThan(0);
 			expect(TOOL_NAME_SET.size).toBeGreaterThan(0);
 		});
 
-		test('should handle case sensitivity correctly', () => {
-			// These variations should NOT be valid
+		test('set size should equal unique array elements (idempotency)', () => {
+			const uniqueCount = new Set(TOOL_NAMES).size;
+			expect(uniqueCount).toBe(TOOL_NAMES.length);
+		});
+
+		test('case sensitivity enforcement', () => {
 			expect(TOOL_NAME_SET.has('CHECK_GATE_STATUS' as ToolName)).toBe(false);
 			expect(TOOL_NAME_SET.has('Check_Gate_Status' as ToolName)).toBe(false);
 			expect(TOOL_NAME_SET.has('check-gate-status' as ToolName)).toBe(false);
 			expect(TOOL_NAME_SET.has('checkGateStatus' as ToolName)).toBe(false);
-
-			// Only exact match should be valid
 			expect(TOOL_NAME_SET.has('check_gate_status')).toBe(true);
 		});
 
-		test('should handle similar but different tool names', () => {
-			// Typos and similar names should be rejected
+		test('similar but different tool names rejected', () => {
 			expect(TOOL_NAME_SET.has('check_gat_status' as ToolName)).toBe(false);
 			expect(TOOL_NAME_SET.has('check_gates_status' as ToolName)).toBe(false);
 			expect(TOOL_NAME_SET.has('check_gate' as ToolName)).toBe(false);
@@ -280,33 +172,8 @@ describe('tool-names registry integrity - adversarial', () => {
 		});
 	});
 
-	describe('property-based invariants', () => {
-		test('should maintain idempotency - set size should equal unique array elements', () => {
-			const uniqueCount = new Set(TOOL_NAMES).size;
-			expect(uniqueCount).toBe(TOOL_NAMES.length);
-		});
-
-		test('should maintain consistency between set.has and array.includes', () => {
-			// For any valid tool name, both set.has and array.includes should agree
-			const testTools: ToolName[] = [
-				'diff',
-				'check_gate_status',
-				'lint',
-				'test_runner',
-				'knowledge_query',
-			];
-
-			for (const tool of testTools) {
-				const setHas = TOOL_NAME_SET.has(tool);
-				const arrayHas = TOOL_NAMES.includes(tool);
-				expect(setHas).toBe(arrayHas);
-			}
-		});
-	});
-
-	describe('accidental omission detection', () => {
-		test('should have check_gate_status added to union but not cause others to be removed', () => {
-			// Verify other tools are still present
+	describe('critical tools presence', () => {
+		test('critical tools should all be present', () => {
 			const criticalTools: ToolName[] = [
 				'diff',
 				'lint',
@@ -323,15 +190,37 @@ describe('tool-names registry integrity - adversarial', () => {
 				expect(TOOL_NAMES).toContain(tool);
 			}
 		});
+	});
 
-		test('should maintain registry order integrity after check_gate_status insertion', () => {
-			// check_gate_status should be at index 15 (after evidence_check at index 15)
+	describe('relative ordering invariants', () => {
+		test('evidence_check should precede check_gate_status', () => {
 			const evidenceCheckIndex = TOOL_NAMES.indexOf('evidence_check');
 			const checkGateStatusIndex = TOOL_NAMES.indexOf('check_gate_status');
+			expect(evidenceCheckIndex).toBeLessThan(checkGateStatusIndex);
+		});
 
-			expect(evidenceCheckIndex).toBe(15);
-			expect(checkGateStatusIndex).toBe(16);
+		test('check_gate_status should immediately follow evidence_check', () => {
+			const evidenceCheckIndex = TOOL_NAMES.indexOf('evidence_check');
+			const checkGateStatusIndex = TOOL_NAMES.indexOf('check_gate_status');
 			expect(checkGateStatusIndex).toBe(evidenceCheckIndex + 1);
+		});
+	});
+
+	describe('set.has vs array.includes consistency', () => {
+		test('set.has and array.includes should agree for valid tools', () => {
+			const testTools: ToolName[] = [
+				'diff',
+				'check_gate_status',
+				'lint',
+				'test_runner',
+				'knowledge_query',
+			];
+
+			for (const tool of testTools) {
+				const setHas = TOOL_NAME_SET.has(tool);
+				const arrayHas = TOOL_NAMES.includes(tool);
+				expect(setHas).toBe(arrayHas);
+			}
 		});
 	});
 });

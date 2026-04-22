@@ -31,7 +31,7 @@ export declare function buildCouncilWorkflow(council?: CouncilWorkflowConfig): s
  * inline path). The dialogue is dialogue-only — persistence happens during
  * MODE: PLAN after `save_plan` creates `plan.json`.
  *
- * The lead-in sentence varies per mode, but the body (seven gates with
+ * The lead-in sentence varies per mode, but the body (eight gates with
  * defaults, one-shot accept-or-customize prompt) is shared so SPECIFY,
  * BRAINSTORM, and PLAN inline paths stay in lockstep.
  */

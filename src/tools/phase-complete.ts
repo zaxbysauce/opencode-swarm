@@ -491,7 +491,7 @@ export async function executePhaseComplete(
 	if (hasActiveTurboMode(sessionID)) {
 		// Non-blocking warning so architect knows gates were bypassed
 		console.warn(
-			`[phase_complete] Turbo mode active — skipping completion-verify, drift-verifier, and hallucination-guard gates for phase ${phase}`,
+			`[phase_complete] Turbo mode active — skipping completion-verify, drift-verifier, hallucination-guard, and mutation-gate gates for phase ${phase}`,
 		);
 	} else {
 		// Gate 1: Completion Verify (deterministic, in-process)
@@ -787,6 +787,120 @@ export async function executePhaseComplete(
 				`[phase_complete] Hallucination guard error (non-blocking):`,
 				hgError,
 			);
+		}
+
+		// Gate 4: Mutation Gate (conditional on QA gate flag)
+		try {
+			const plan = await loadPlan(dir);
+			if (plan) {
+				const planId = `${plan.swarm}-${plan.title}`.replace(
+					/[^a-zA-Z0-9-_]/g,
+					'_',
+				);
+				const profile = getProfile(dir, planId);
+				if (profile) {
+					const session = sessionID
+						? swarmState.agentSessions.get(sessionID)
+						: undefined;
+					const overrides = session?.qaGateSessionOverrides ?? {};
+					const effective = getEffectiveGates(profile, overrides);
+
+					if (effective.mutation_test === true) {
+						const mgPath = path.join(
+							dir,
+							'.swarm',
+							'evidence',
+							String(phase),
+							'mutation-gate.json',
+						);
+						let mgVerdictFound = false;
+						let mgVerdict: string | undefined;
+
+						try {
+							const mgContent = fs.readFileSync(mgPath, 'utf-8');
+							const mgBundle = JSON.parse(mgContent);
+							for (const entry of mgBundle.entries ?? []) {
+								if (
+									typeof entry.type === 'string' &&
+									entry.type === 'mutation-gate' &&
+									typeof entry.verdict === 'string'
+								) {
+									mgVerdictFound = true;
+									mgVerdict = entry.verdict;
+									if (entry.verdict === 'fail') {
+										return JSON.stringify(
+											{
+												success: false,
+												phase,
+												status: 'blocked' as const,
+												reason: 'MUTATION_GATE_FAIL',
+												message: `Phase ${phase} cannot be completed: mutation gate returned verdict 'fail'. Resolve surviving mutants or lower the kill-rate threshold before completing the phase.`,
+												agentsDispatched,
+												agentsMissing: [],
+												warnings: [],
+											},
+											null,
+											2,
+										);
+									} else if (
+										!['pass', 'warn', 'skip'].includes(entry.verdict)
+									) {
+										return JSON.stringify(
+											{
+												success: false,
+												phase,
+												status: 'blocked' as const,
+												reason: 'MUTATION_GATE_FAIL',
+												message: `Phase ${phase} cannot be completed: mutation gate evidence contains unrecognized verdict '${entry.verdict}'. Expected one of: pass, warn, fail, skip.`,
+												agentsDispatched,
+												agentsMissing: [],
+												warnings: [],
+											},
+											null,
+											2,
+										);
+									}
+								}
+							}
+						} catch (readErr) {
+							if ((readErr as NodeJS.ErrnoException).code !== 'ENOENT') {
+								safeWarn(
+									`[phase_complete] Mutation gate evidence unreadable:`,
+									readErr,
+								);
+							}
+							mgVerdictFound = false;
+						}
+
+						if (!mgVerdictFound) {
+							return JSON.stringify(
+								{
+									success: false,
+									phase,
+									status: 'blocked' as const,
+									reason: 'MUTATION_GATE_MISSING',
+									message: `Phase ${phase} cannot be completed: mutation_test is enabled and evidence not found at .swarm/evidence/${phase}/mutation-gate.json. Run mutation_test, then call write_mutation_evidence before completing the phase.`,
+									agentsDispatched,
+									agentsMissing: [],
+									warnings: [],
+								},
+								null,
+								2,
+							);
+						}
+
+						if (mgVerdict === 'warn') {
+							safeWarn(
+								`[phase_complete] Mutation gate verdict is 'warn' for phase ${phase} — proceeding with warning`,
+								undefined,
+							);
+						}
+					}
+				}
+			}
+		} catch (mgError) {
+			// Non-blocking — treat as warning and continue
+			safeWarn(`[phase_complete] Mutation gate error (non-blocking):`, mgError);
 		}
 	}
 

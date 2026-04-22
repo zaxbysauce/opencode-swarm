@@ -22,6 +22,36 @@ const ARCHITECT_TOOL_COUNT = AGENT_TOOL_MAP['architect'].length;
 
 let resolvedPrompt: string;
 
+// ---------------------------------------------------------------------------
+// Helper: extract Available Tools tool names from resolved prompt
+// ---------------------------------------------------------------------------
+function extractAvailableToolsNames(prompt: string): string[] {
+	// Find line like: "Available Tools: tool1 (desc), tool2 (desc), ..."
+	const match = prompt.match(/^Available Tools:\s*(.+?)$/m);
+	if (!match) return [];
+
+	const line = match[1];
+	const segments: string[] = [];
+	let current = '';
+	let depth = 0;
+	for (let i = 0; i < line.length; i++) {
+		const ch = line[i];
+		if (ch === '(') depth++;
+		if (ch === ')') depth--;
+		if (ch === ',' && depth === 0) {
+			segments.push(current.trim());
+			current = '';
+		} else {
+			current += ch;
+		}
+	}
+	if (current.trim()) segments.push(current.trim());
+
+	return segments
+		.map((seg) => seg.match(/^(\w+)/)?.[1])
+		.filter(Boolean) as string[];
+}
+
 // Render with council.enabled=true so the full AGENT_TOOL_MAP.architect
 // surface (including `convene_council` and `declare_council_criteria`)
 // appears in YOUR TOOLS and Available Tools. Without council enabled,
@@ -108,36 +138,12 @@ describe('Available Tools generation from AGENT_TOOL_MAP', () => {
 	});
 
 	it('tool count matches AGENT_TOOL_MAP.architect.length', () => {
-		// Extract Available Tools line
-		const availableToolsMatch = resolvedPrompt.match(
-			/^Available Tools: (.+?)$/m,
-		);
-		expect(availableToolsMatch).not.toBeNull();
-		const availableToolsContent = availableToolsMatch![1];
-
-		// Use regex to extract tool names - handles descriptions with commas
-		// Match: word characters (tool name) optionally followed by (description)
-		const toolMatches = availableToolsContent.matchAll(
-			/(\w+)(?:\s*\([^)]*\))?/g,
-		);
-		const tools = [...toolMatches].map((m) => m[1]).filter(Boolean);
-
+		const tools = extractAvailableToolsNames(resolvedPrompt);
 		expect(tools.length).toBe(ARCHITECT_TOOL_COUNT);
 	});
 
 	it('tools are sorted alphabetically', () => {
-		const availableToolsMatch = resolvedPrompt.match(
-			/^Available Tools: (.+?)$/m,
-		);
-		expect(availableToolsMatch).not.toBeNull();
-		const availableToolsContent = availableToolsMatch![1];
-
-		// Use regex to extract tool names - handles descriptions with commas
-		const toolMatches = availableToolsContent.matchAll(
-			/(\w+)(?:\s*\([^)]*\))?/g,
-		);
-		const tools = [...toolMatches].map((m) => m[1]).filter(Boolean);
-
+		const tools = extractAvailableToolsNames(resolvedPrompt);
 		const sorted = [...tools].sort();
 		expect(tools).toEqual(sorted);
 	});
@@ -159,16 +165,7 @@ describe('Single source of truth verification', () => {
 			.filter(Boolean);
 
 		// Extract Available Tools line
-		const availableToolsMatch = resolvedPrompt.match(
-			/^Available Tools: (.+?)$/m,
-		);
-		expect(availableToolsMatch).not.toBeNull();
-		const availableToolsContent = availableToolsMatch![1];
-		// Use regex to extract tool names - handles descriptions with commas
-		const toolMatches = availableToolsContent.matchAll(
-			/(\w+)(?:\s*\([^)]*\))?/g,
-		);
-		const availableTools = [...toolMatches].map((m) => m[1]).filter(Boolean);
+		const availableTools = extractAvailableToolsNames(resolvedPrompt);
 
 		expect(yourTools.length).toBe(ARCHITECT_TOOL_COUNT);
 		expect(availableTools.length).toBe(ARCHITECT_TOOL_COUNT);

@@ -160,7 +160,7 @@ export declare const COMMAND_REGISTRY: {
         readonly handler: (ctx: CommandContext) => Promise<string>;
         readonly description: "View or modify QA gate profile for the current plan [enable|override <gate>...]";
         readonly args: "[show|enable|override] <gate>...";
-        readonly details: "show: display spec-level, session-override, and effective QA gates for the current plan. enable: persist gate(s) into the locked-once profile (architect; rejected after critic approval lock). override: session-only ratchet-tighter enable. Valid gates: reviewer, test_engineer, council_mode, sme_enabled, critic_pre_plan, hallucination_guard, sast_enabled.";
+        readonly details: "show: display spec-level, session-override, and effective QA gates for the current plan. enable: persist gate(s) into the locked-once profile (architect; rejected after critic approval lock). override: session-only ratchet-tighter enable. Valid gates: reviewer, test_engineer, council_mode, sme_enabled, critic_pre_plan, hallucination_guard, sast_enabled, mutation_test.";
     };
     readonly promote: {
         readonly handler: (ctx: CommandContext) => Promise<string>;

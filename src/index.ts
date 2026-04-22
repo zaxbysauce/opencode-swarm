@@ -88,6 +88,7 @@ import {
 	doc_scan,
 	evidence_check,
 	extract_code_blocks,
+	generate_mutants,
 	get_approved_plan,
 	get_qa_gate_profile,
 	gitingest,
@@ -123,6 +124,7 @@ import {
 	update_task_status,
 	write_drift_evidence,
 	write_hallucination_evidence,
+	write_mutation_evidence,
 	write_retro,
 } from './tools';
 import { log } from './utils';
@@ -578,6 +580,7 @@ const OpenCodeSwarm: Plugin = async (ctx) => {
 			co_change_analyzer,
 			detect_domains,
 			mutation_test,
+			generate_mutants,
 			doc_extract,
 			doc_scan,
 			evidence_check,
@@ -618,6 +621,7 @@ const OpenCodeSwarm: Plugin = async (ctx) => {
 			write_retro,
 			write_drift_evidence,
 			write_hallucination_evidence,
+			write_mutation_evidence,
 			declare_scope,
 		},
 
