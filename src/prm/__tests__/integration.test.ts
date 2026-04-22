@@ -336,7 +336,8 @@ describe('PRM Integration Tests', () => {
 			await toolAfter({ sessionID: sessionId });
 
 			// Verify pattern detection fired (repetition_loop)
-			expect(detectPatterns).toHaveBeenCalledWith(trajectory, config);
+			// detectPatterns is called with trajectory, config, and lastProcessedStep (0 on first call)
+			expect(detectPatterns).toHaveBeenCalledWith(trajectory, config, 0);
 
 			// Verify course correction is added to pendingAdvisoryMessages
 			expect(session.pendingAdvisoryMessages).toHaveLength(1);
