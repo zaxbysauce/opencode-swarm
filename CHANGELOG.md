@@ -1,5 +1,12 @@
 # Changelog
 
+## [6.80.2](https://github.com/zaxbysauce/opencode-swarm/compare/v6.80.1...v6.80.2) (2026-04-22)
+
+
+### Bug Fixes
+
+* **spiral-detection:** eliminate repeated checkpoint: spiral-unknown-xxxx commits (issue [#564](https://github.com/zaxbysauce/opencode-swarm/issues/564)) ([#565](https://github.com/zaxbysauce/opencode-swarm/issues/565)) ([791da0c](https://github.com/zaxbysauce/opencode-swarm/commit/791da0c748948f89eccf6e9f901945d7b6533867))
+
 ## [6.80.1](https://github.com/zaxbysauce/opencode-swarm/compare/v6.80.0...v6.80.1) (2026-04-22)
 
 
