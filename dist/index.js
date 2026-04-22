@@ -70681,7 +70681,8 @@ function getTrajectoryPath(sessionId, directory) {
 }
 var _inMemoryTrajectoryCache = new Map;
 function getInMemoryTrajectory(sessionId) {
-  return _inMemoryTrajectoryCache.get(sessionId) ?? [];
+  const cached3 = _inMemoryTrajectoryCache.get(sessionId);
+  return cached3 ? [...cached3] : [];
 }
 async function appendTrajectoryEntry(sessionId, entry, directory, maxLines = 1000) {
   try {
