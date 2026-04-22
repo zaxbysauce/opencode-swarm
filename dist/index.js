@@ -86690,19 +86690,23 @@ async function executeWriteMutationEvidence(args2, directory) {
       message: "Invalid verdict: must be 'PASS', 'WARN', 'FAIL', or 'SKIP'"
     }, null, 2);
   }
-  if (typeof args2.killRate !== "number" || Number.isNaN(args2.killRate)) {
-    return JSON.stringify({
-      success: false,
-      phase,
-      message: "Invalid killRate: must be a number"
-    }, null, 2);
+  if (args2.killRate !== undefined) {
+    if (typeof args2.killRate !== "number" || Number.isNaN(args2.killRate)) {
+      return JSON.stringify({
+        success: false,
+        phase,
+        message: "Invalid killRate: must be a number"
+      }, null, 2);
+    }
   }
-  if (typeof args2.adjustedKillRate !== "number" || Number.isNaN(args2.adjustedKillRate)) {
-    return JSON.stringify({
-      success: false,
-      phase,
-      message: "Invalid adjustedKillRate: must be a number"
-    }, null, 2);
+  if (args2.adjustedKillRate !== undefined) {
+    if (typeof args2.adjustedKillRate !== "number" || Number.isNaN(args2.adjustedKillRate)) {
+      return JSON.stringify({
+        success: false,
+        phase,
+        message: "Invalid adjustedKillRate: must be a number"
+      }, null, 2);
+    }
   }
   const summary = args2.summary;
   if (typeof summary !== "string" || summary.trim().length === 0) {
@@ -86716,8 +86720,8 @@ async function executeWriteMutationEvidence(args2, directory) {
   const evidenceEntry = {
     type: "mutation-gate",
     verdict: normalizedVerdict,
-    killRate: args2.killRate,
-    adjustedKillRate: args2.adjustedKillRate,
+    killRate: args2.killRate ?? 0,
+    adjustedKillRate: args2.adjustedKillRate ?? 0,
     summary: summary.trim(),
     timestamp: new Date().toISOString()
   };
@@ -86764,8 +86768,8 @@ var write_mutation_evidence = createSwarmTool({
   args: {
     phase: tool.schema.number().int().min(1).describe("The phase number for the mutation gate (e.g., 1, 2, 3)"),
     verdict: tool.schema.enum(["PASS", "WARN", "FAIL", "SKIP"]).describe("Verdict of the mutation gate: 'PASS', 'WARN', 'FAIL', or 'SKIP'"),
-    killRate: tool.schema.number().describe("The raw kill rate (e.g., 0.85)"),
-    adjustedKillRate: tool.schema.number().describe("The adjusted kill rate accounting for timeout survived mutants (e.g., 0.87)"),
+    killRate: tool.schema.number().optional().describe("The raw kill rate (e.g., 0.85)"),
+    adjustedKillRate: tool.schema.number().optional().describe("The adjusted kill rate accounting for timeout survived mutants (e.g., 0.87)"),
     summary: tool.schema.string().describe("Human-readable summary of the mutation gate result"),
     survivedMutants: tool.schema.string().optional().describe("Optional JSON-serialized list of survived mutants")
   },
@@ -86775,8 +86779,8 @@ var write_mutation_evidence = createSwarmTool({
       const typedArgs = {
         phase: Number(args2.phase),
         verdict: String(args2.verdict),
-        killRate: Number(args2.killRate),
-        adjustedKillRate: Number(args2.adjustedKillRate),
+        killRate: args2.killRate !== undefined ? Number(args2.killRate) : undefined,
+        adjustedKillRate: args2.adjustedKillRate !== undefined ? Number(args2.adjustedKillRate) : undefined,
         summary: String(args2.summary ?? ""),
         survivedMutants: args2.survivedMutants !== undefined ? String(args2.survivedMutants) : undefined
       };

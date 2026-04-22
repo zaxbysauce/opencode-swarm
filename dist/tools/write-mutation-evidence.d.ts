@@ -16,9 +16,9 @@ export interface WriteMutationEvidenceArgs {
     /** Verdict of the mutation gate: 'PASS', 'WARN', 'FAIL', or 'SKIP' */
     verdict: 'PASS' | 'WARN' | 'FAIL' | 'SKIP';
     /** The raw kill rate (e.g., 0.85) */
-    killRate: number;
+    killRate?: number;
     /** The adjusted kill rate accounting for timeout survived mutants (e.g., 0.87) */
-    adjustedKillRate: number;
+    adjustedKillRate?: number;
     /** Human-readable summary of the mutation gate result */
     summary: string;
     /** Optional JSON-serialized list of survived mutants */

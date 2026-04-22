@@ -143,7 +143,6 @@ describe('write-mutation-evidence', () => {
 	});
 
 	test('4: Invalid verdict INVALID WITH rates — should fail with validation error', async () => {
-		// @ts-expect-error - Testing invalid input
 		const result = await executeWriteMutationEvidence(
 			{
 				phase: 4,
@@ -151,7 +150,7 @@ describe('write-mutation-evidence', () => {
 				killRate: 0.85,
 				adjustedKillRate: 0.87,
 				summary: 'This should fail',
-			},
+			} as any,
 			testDir,
 		);
 
@@ -219,7 +218,6 @@ describe('write-mutation-evidence', () => {
 			{
 				phase: 8,
 				verdict: 'PASS',
-				// @ts-expect-error - Testing invalid input
 				killRate: NaN,
 				summary: 'NaN killRate',
 			},
