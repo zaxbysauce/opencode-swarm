@@ -12,11 +12,16 @@ export interface TrajectoryConfig {
     max_lines: number;
 }
 export interface TrajectoryEntry {
+    step: number;
+    agent: string;
+    action: string;
+    target: string;
+    intent: string;
+    timestamp: string;
+    result: 'success' | 'failure' | 'pending';
     tool: string;
     args_summary: string;
     verdict: string;
-    timestamp: string;
-    agent: string;
     elapsed_ms: number;
 }
 /**
@@ -46,6 +51,13 @@ export declare function createTrajectoryLoggerHook(config: Partial<TrajectoryCon
         metadata: unknown;
     }) => Promise<void>;
 };
+/**
+ * Resets the step counter for a session. Called when a new session starts
+ * or when trajectory tracking should restart from step 1.
+ *
+ * @param sessionId - Session identifier
+ */
+export declare function resetTrajectoryStep(sessionId: string): void;
 /**
  * Records the start time for a tool call (called from toolBefore).
  * Stored in a module-level Map for correlation with toolAfter.

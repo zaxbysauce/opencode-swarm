@@ -9,6 +9,8 @@
 import type { OpencodeClient } from '@opencode-ai/sdk';
 import { type QaGates } from './db/qa-gate-profile.js';
 import { type EnvironmentProfile } from './environment/profile.js';
+import type { EscalationTracker } from './prm/escalation.js';
+import type { PatternMatch } from './prm/types.js';
 import { AgentRunContext } from './state/agent-run-context.js';
 export { AgentRunContext } from './state/agent-run-context.js';
 /**
@@ -179,6 +181,18 @@ export interface AgentSessionState {
     pendingAdvisoryMessages?: string[];
     /** Timestamp when session was rehydrated from snapshot (0 if never rehydrated) */
     sessionRehydratedAt: number;
+    /** Pattern type to detection count mapping */
+    prmPatternCounts: Map<string, number>;
+    /** Current escalation level (0=none, 1=guidance, 2=strong guidance, 3=hard stop) */
+    prmEscalationLevel: number;
+    /** Last pattern detected (if any) */
+    prmLastPatternDetected: PatternMatch | null;
+    /** Current trajectory step counter */
+    prmTrajectoryStep: number;
+    /** Whether a hard stop has been triggered */
+    prmHardStopPending: boolean;
+    /** Per-session escalation tracker instance (set lazily by PRM hook) */
+    prmEscalationTracker?: EscalationTracker;
 }
 /**
  * Represents a single agent invocation window with isolated guardrail budgets.
