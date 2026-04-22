@@ -17,6 +17,7 @@ import {
 	AutomationConfigSchema,
 	GuardrailsConfigSchema,
 	KnowledgeConfigSchema,
+	PrmConfigSchema,
 	SelfReviewConfigSchema,
 	SummaryConfigSchema,
 	stripKnownSwarmPrefix,
@@ -201,19 +202,7 @@ const OpenCodeSwarm: Plugin = async (ctx) => {
 	);
 	const activityHooks = createAgentActivityHooks(config, ctx.directory);
 	const prmHook = createPrmHook(
-		config.prm ?? {
-			enabled: true,
-			pattern_thresholds: {
-				repetition_loop: 2,
-				ping_pong: 2,
-				expansion_drift: 3,
-				stuck_on_test: 3,
-				context_thrash: 3,
-			},
-			max_trajectory_lines: 1000,
-			escalation_enabled: true,
-			detection_timeout_ms: 100,
-		},
+		config.prm ?? PrmConfigSchema.parse({}),
 		ctx.directory,
 	);
 	const trajectoryLoggerHook = createTrajectoryLoggerHook(

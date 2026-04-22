@@ -1190,12 +1190,14 @@ describe('detectContextThrash', () => {
 
 		const matches = detectContextThrash(trajectory, config);
 
-		// Returns 3 matches for overlapping windows (starting at steps 1, 2, 3)
+		// O(n) algorithm emits one match per monotonic-increasing run
 		expect(matches.length).toBeGreaterThanOrEqual(1);
-		const match = matches.find((m) => m.occurrenceCount === 5);
+		const match = matches[0];
 		expect(match).toBeDefined();
-		expect(match!.pattern).toBe('context_thrash');
-		expect(match!.severity).toBe('medium');
+		expect(match.pattern).toBe('context_thrash');
+		expect(match.severity).toBe('medium');
+		// Full monotonic run spans all 7 unique targets
+		expect(match.occurrenceCount).toBe(7);
 	});
 
 	test('does not detect context thrash when targets stabilize', () => {

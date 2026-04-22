@@ -73,10 +73,10 @@ export function sanitizeString(input: string): string {
  */
 const DEFAULT_THRESHOLDS: Record<PatternType, number> = {
 	repetition_loop: 2,
-	ping_pong: 4,
+	ping_pong: 2,
 	expansion_drift: 3,
 	stuck_on_test: 3,
-	context_thrash: 5,
+	context_thrash: 3,
 };
 
 /**
@@ -174,44 +174,37 @@ export function detectPingPong(
 	const minThreshold = 3;
 	const effectiveThreshold = Math.max(threshold, minThreshold);
 
-	if (trajectory.length < effectiveThreshold) {
+	// Pre-filter: examine only delegation handoffs (regardless of non-delegate actions between them)
+	const delegateEntries = trajectory.filter((e) => e.action === 'delegate');
+
+	if (delegateEntries.length < effectiveThreshold) {
 		return matches;
 	}
 
-	// Track already-detected ping-pong pairs to avoid duplicate matches
+	// Track already-detected ping-pong pairs to emit one match per agent pair + target
 	const detectedPairs = new Set<string>();
 
-	// Find all alternating delegation sequences
+	// Find all alternating delegation sequences over delegate-only entries
 	let i = 0;
-	while (i < trajectory.length) {
-		// Start of a potential alternating sequence
-		if (i + 1 >= trajectory.length) break;
+	while (i < delegateEntries.length) {
+		if (i + 1 >= delegateEntries.length) break;
 
-		// Check if entries at i and i+1 form the start of an alternating pattern
-		const firstAgent = trajectory[i].agent;
-		const secondAgent = trajectory[i + 1].agent;
-		const target = trajectory[i].target;
+		const firstAgent = delegateEntries[i].agent;
+		const secondAgent = delegateEntries[i + 1].agent;
+		const target = delegateEntries[i].target;
 
-		// Ensure distinct agents and delegate actions
-		if (
-			firstAgent === secondAgent ||
-			trajectory[i].action !== 'delegate' ||
-			trajectory[i + 1].action !== 'delegate'
-		) {
+		if (firstAgent === secondAgent) {
 			i++;
 			continue;
 		}
 
-		// Find the extent of the alternating pattern
+		// Find the full extent of the alternating sequence over delegate entries
 		let endIndex = i + 1;
-		const isAlternating = true;
-
-		for (let j = i + 2; j < trajectory.length; j++) {
+		for (let j = i + 2; j < delegateEntries.length; j++) {
 			const expectedAgent = (j - i) % 2 === 0 ? firstAgent : secondAgent;
 			if (
-				trajectory[j].agent !== expectedAgent ||
-				trajectory[j].target !== target ||
-				trajectory[j].action !== 'delegate'
+				delegateEntries[j].agent !== expectedAgent ||
+				delegateEntries[j].target !== target
 			) {
 				break;
 			}
@@ -220,21 +213,17 @@ export function detectPingPong(
 
 		const patternLength = endIndex - i + 1;
 
-		// Check if pattern meets threshold
 		if (patternLength >= effectiveThreshold) {
-			// Check if we've already detected this agent pair + target combination
 			const pairKey = `${[firstAgent, secondAgent].sort().join(',')}-${target}`;
 			if (!detectedPairs.has(pairKey)) {
 				detectedPairs.add(pairKey);
-
-				// Calculate number of round-trips (pattern length / 2, rounded down)
 				const roundTrips = Math.floor(patternLength / 2);
 
 				matches.push({
 					pattern: 'ping_pong',
 					severity: 'high',
 					category: 'coordination_error',
-					stepRange: [trajectory[i].step, trajectory[endIndex].step],
+					stepRange: [delegateEntries[i].step, delegateEntries[endIndex].step],
 					description: `Ping-pong delegation detected: "${sanitizeString(firstAgent)}" and "${sanitizeString(secondAgent)}" alternating on "${sanitizeString(target)}"`,
 					affectedAgents: [
 						sanitizeString(firstAgent),
@@ -245,7 +234,6 @@ export function detectPingPong(
 				});
 			}
 
-			// Skip past this detected sequence
 			i = endIndex + 1;
 		} else {
 			i++;
@@ -442,65 +430,57 @@ export function detectContextThrash(
 		config.pattern_thresholds?.context_thrash ??
 		DEFAULT_THRESHOLDS.context_thrash;
 
-	// Calculate cumulative unique targets for the FULL trajectory
-	const fullCumulativeCounts: number[] = [];
-	for (let i = 0; i < trajectory.length; i++) {
-		const uniqueSoFar = new Set(trajectory.slice(0, i + 1).map((e) => e.target))
-			.size;
-		fullCumulativeCounts.push(uniqueSoFar);
+	// O(n): Build cumulative unique-target counts with running Set
+	const seenTargets = new Set<string>();
+	const cumulativeCounts: number[] = [];
+	for (const entry of trajectory) {
+		seenTargets.add(entry.target);
+		cumulativeCounts.push(seenTargets.size);
 	}
 
-	// Find the longest sequence of consecutive increases in the full trajectory
-	// starting from any position
-	for (
-		let startIdx = 0;
-		startIdx <= trajectory.length - threshold;
-		startIdx++
-	) {
-		let increasingSteps = 1;
-		const startStep = trajectory[startIdx].step;
-		let endStep = trajectory[startIdx].step;
-		const startCount = fullCumulativeCounts[startIdx];
+	// O(n): Single forward pass to find monotonic-increasing runs >= threshold
+	let runStart = 0;
+	let runLength = 1;
 
-		// Count consecutive steps where unique target count increases (strictly)
-		// A "consecutive increase" means each step strictly increases from the previous
-		for (let j = startIdx + 1; j < trajectory.length; j++) {
-			if (fullCumulativeCounts[j] > fullCumulativeCounts[j - 1]) {
-				increasingSteps++;
-				endStep = trajectory[j].step;
-			} else {
-				// Plateau found - consecutive increase sequence broken
-				break;
+	for (let i = 1; i <= cumulativeCounts.length; i++) {
+		const extending =
+			i < cumulativeCounts.length &&
+			cumulativeCounts[i] > cumulativeCounts[i - 1];
+
+		if (extending) {
+			runLength++;
+		} else {
+			if (runLength >= threshold) {
+				const runEnd = i - 1;
+				const priorCount = runStart > 0 ? cumulativeCounts[runStart - 1] : 0;
+				const finalCount = cumulativeCounts[runEnd];
+
+				matches.push({
+					pattern: 'context_thrash',
+					severity: 'medium',
+					category: 'coordination_error',
+					stepRange: [trajectory[runStart].step, trajectory[runEnd].step],
+					description: `Context thrash detected: unique targets grew monotonically from ${priorCount} to ${finalCount} over ${runLength} steps`,
+					affectedAgents: [
+						...new Set(
+							trajectory
+								.slice(runStart, runEnd + 1)
+								.map((e) => sanitizeString(e.agent)),
+						),
+					],
+					affectedTargets: [
+						...new Set(
+							trajectory
+								.slice(runStart, runEnd + 1)
+								.map((e) => sanitizeString(e.target)),
+						),
+					],
+					occurrenceCount: runLength,
+				});
 			}
-		}
 
-		// Check if we have enough consecutive increases (with NO plateaus)
-		if (
-			increasingSteps >= threshold &&
-			fullCumulativeCounts[startIdx + increasingSteps - 1] > startCount
-		) {
-			matches.push({
-				pattern: 'context_thrash',
-				severity: 'medium',
-				category: 'coordination_error',
-				stepRange: [startStep, endStep],
-				description: `Context thrash detected: unique targets grew monotonically from ${startCount} to ${fullCumulativeCounts[startIdx + increasingSteps - 1]} over ${increasingSteps} steps`,
-				affectedAgents: [
-					...new Set(
-						trajectory
-							.slice(startIdx, startIdx + increasingSteps)
-							.map((e) => sanitizeString(e.agent)),
-					),
-				],
-				affectedTargets: [
-					...new Set(
-						trajectory
-							.slice(startIdx, startIdx + increasingSteps)
-							.map((e) => sanitizeString(e.target)),
-					),
-				],
-				occurrenceCount: increasingSteps,
-			});
+			runStart = i;
+			runLength = 1;
 		}
 	}
 

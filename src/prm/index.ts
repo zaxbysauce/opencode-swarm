@@ -51,7 +51,11 @@ import {
 import { EscalationTracker } from './escalation';
 import { detectPatterns } from './pattern-detector';
 import { recordReplayEntry, startReplayRecording } from './replay';
-import { readTrajectory } from './trajectory-store';
+import {
+	cleanupOldTrajectoryFiles,
+	getInMemoryTrajectory,
+	readTrajectory,
+} from './trajectory-store';
 import type { PatternType, PrmConfig } from './types';
 
 /**
@@ -126,8 +130,12 @@ export function createPrmHook(config: PrmConfig, directory: string): PrmHook {
 		}
 
 		try {
-			// Read trajectory for this session
-			const trajectory = await readTrajectory(sessionID, directory);
+			// Use in-memory cache (O(1)) with disk fallback on cold start (process restart)
+			const cachedTrajectory = getInMemoryTrajectory(sessionID);
+			const trajectory =
+				cachedTrajectory.length > 0
+					? cachedTrajectory
+					: await readTrajectory(sessionID, directory);
 
 			// Run pattern detection, filtering out historical matches already processed
 			const detectionResult = detectPatterns(
@@ -154,8 +162,17 @@ export function createPrmHook(config: PrmConfig, directory: string): PrmHook {
 
 			const artifactPath = sessionPrmState.replayArtifactPath;
 
+			// One-time per session: run file TTL cleanup (non-blocking, fire-and-forget)
+			if (!sessionPrmState.prmInitialized) {
+				sessionPrmState.prmInitialized = true;
+				cleanupOldTrajectoryFiles(directory).catch(() => {
+					/* non-blocking */
+				});
+			}
+
 			if (!escalationTracker) {
-				// Create tracker with existing state if available (for session resumption)
+				// PRM escalation state is session-scoped and transient — resets on session start.
+				// This code reuses state from prior detections WITHIN the session, not across restarts.
 				const initialState = session.prmLastPatternDetected
 					? {
 							patternCounts: new Map(session.prmPatternCounts.entries()) as Map<

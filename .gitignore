@@ -27,6 +27,7 @@ test_result*.txt
 dist-build-test/
 # Build tool type-declaration subdirs
 dist/build/
+dist/prm/
 dist/quality/
 dist/sbom/
 dist/tools/build-check.d.ts

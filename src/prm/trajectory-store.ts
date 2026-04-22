@@ -21,13 +21,36 @@ function getTrajectoryPath(sessionId: string, directory: string): string {
 	return validateSwarmPath(directory, relativePath);
 }
 
+// Module-level in-memory trajectory cache per sessionId.
+// Populated on write by appendTrajectoryEntry, used by pattern detection.
+// Eliminates full disk reads on every toolAfter call.
+const _inMemoryTrajectoryCache = new Map<string, TrajectoryEntry[]>();
+
+/**
+ * Returns cached trajectory entries for a session (empty array if not cached).
+ */
+export function getInMemoryTrajectory(sessionId: string): TrajectoryEntry[] {
+	return _inMemoryTrajectoryCache.get(sessionId) ?? [];
+}
+
+/**
+ * Clears trajectory cache (for test isolation or session cleanup).
+ */
+export function clearTrajectoryCache(sessionId?: string): void {
+	if (sessionId !== undefined) {
+		_inMemoryTrajectoryCache.delete(sessionId);
+	} else {
+		_inMemoryTrajectoryCache.clear();
+	}
+}
+
 /**
  * Appends a single TrajectoryEntry to the session's trajectory file.
  *
  * @param sessionId - Session identifier
  * @param entry - Trajectory entry to append
  * @param directory - Base directory (workspace root)
- * @param maxLines - Maximum lines before auto-truncation (default 1000)
+ * @param maxLines - Maximum lines before in-memory cache trimming (default 1000)
  */
 export async function appendTrajectoryEntry(
 	sessionId: string,
@@ -36,17 +59,23 @@ export async function appendTrajectoryEntry(
 	maxLines: number = 1000,
 ): Promise<void> {
 	try {
+		// 1. Update in-memory cache (always)
+		const cached = _inMemoryTrajectoryCache.get(sessionId) ?? [];
+		cached.push(entry);
+
+		// Keep in-memory cache bounded
+		if (cached.length > maxLines) {
+			const keepCount = Math.max(1, Math.floor(maxLines / 2));
+			_inMemoryTrajectoryCache.set(sessionId, cached.slice(-keepCount));
+		} else {
+			_inMemoryTrajectoryCache.set(sessionId, cached);
+		}
+
+		// 2. Append to disk (best-effort, no truncation read)
 		const trajectoryPath = getTrajectoryPath(sessionId, directory);
-
-		// Ensure directory exists
 		await fs.mkdir(path.dirname(trajectoryPath), { recursive: true });
-
-		// Append entry as JSON line
 		const line = `${JSON.stringify(entry)}\n`;
 		await fs.appendFile(trajectoryPath, line, 'utf-8');
-
-		// Auto-truncate after append to prevent unbounded growth
-		await truncateTrajectoryIfNeeded(sessionId, directory, maxLines);
 	} catch (err) {
 		// Non-blocking: swallow errors to prevent PRM from breaking main flow
 		console.warn(
@@ -177,5 +206,39 @@ export async function getCurrentStep(
 		}
 		console.warn(`[trajectory-store] Failed to get current step: ${err}`);
 		return 0;
+	}
+}
+
+/**
+ * Deletes trajectory and replay files older than maxAgeDays.
+ * Runs against .swarm/trajectories/ and .swarm/replays/ directories.
+ * Non-blocking: errors logged, not thrown.
+ */
+export async function cleanupOldTrajectoryFiles(
+	directory: string,
+	maxAgeDays: number = 7,
+): Promise<void> {
+	const cutoffMs = maxAgeDays * 24 * 60 * 60 * 1000;
+	const now = Date.now();
+
+	for (const subdir of ['trajectories', 'replays']) {
+		try {
+			const dirPath = validateSwarmPath(directory, subdir);
+			const entries = await fs.readdir(dirPath, { withFileTypes: true });
+			for (const entry of entries) {
+				if (!entry.isFile()) continue;
+				const filePath = path.join(dirPath, entry.name);
+				try {
+					const stat = await fs.stat(filePath);
+					if (now - stat.mtimeMs > cutoffMs) {
+						await fs.unlink(filePath);
+					}
+				} catch {
+					// Non-blocking
+				}
+			}
+		} catch {
+			// Non-blocking
+		}
 	}
 }

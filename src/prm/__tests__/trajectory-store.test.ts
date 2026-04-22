@@ -269,7 +269,7 @@ describe('trajectory-store', () => {
 			for (let i = 1; i <= 10; i++) {
 				lines.push(`{"step":${i},"agent":"agent${i}"}`);
 			}
-			fs.writeFileSync(trajectoryPath, lines.join('\n') + '\n');
+			fs.writeFileSync(trajectoryPath, `${lines.join('\n')}\n`);
 
 			// Truncate to max 6 lines (should keep floor(6/2) = 3 newest)
 			await truncateTrajectoryIfNeeded(sessionId, tempDir, 6);
