@@ -1040,18 +1040,21 @@ const OpenCodeSwarm: Plugin = async (ctx) => {
 
 				// Record tool call for debugging spiral detection
 				try {
-					recordToolCall(normalizedTool, input.args);
+					recordToolCall(normalizedTool, input.args, input.sessionID);
 				} catch {
 					// non-fatal
 				}
 
 				// Debugging spiral detection
 				try {
-					const spiralMatch = await detectDebuggingSpiral(ctx.directory);
+					const spiralMatch = await detectDebuggingSpiral(
+						ctx.directory,
+						input.sessionID,
+					);
 					if (spiralMatch) {
 						const taskId =
 							swarmState.agentSessions.get(input.sessionID)?.currentTaskId ??
-							'unknown';
+							`session-${input.sessionID.slice(0, 12)}`;
 						const spiralResult = await handleDebuggingSpiral(
 							spiralMatch,
 							taskId,

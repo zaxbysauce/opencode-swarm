@@ -65924,20 +65924,32 @@ Recommendation: Consider escalating to user or taking a different approach
 The current fix strategy appears to be cycling without progress`;
   return { eventLogged, checkpointCreated, message };
 }
-var recentToolCalls = [];
+var recentToolCallsBySession = new Map;
+var lastSpiralTimestampBySession = new Map;
 var MAX_RECENT_CALLS = 20;
 var SPIRAL_THRESHOLD = 5;
 var SPIRAL_WINDOW_MS = 300000;
-function recordToolCall(tool3, args2) {
+var SPIRAL_COOLDOWN_MS = 60000;
+var MAX_TRACKED_SESSIONS = 500;
+function recordToolCall(tool3, args2, sessionId) {
   const argsHash = typeof args2 === "string" ? args2.slice(0, 100) : JSON.stringify(args2 ?? "").slice(0, 100);
-  recentToolCalls.push({ tool: tool3, argsHash, timestamp: Date.now() });
-  if (recentToolCalls.length > MAX_RECENT_CALLS) {
-    recentToolCalls.shift();
+  let calls = recentToolCallsBySession.get(sessionId);
+  if (!calls) {
+    calls = [];
+    recentToolCallsBySession.set(sessionId, calls);
+  }
+  calls.push({ tool: tool3, argsHash, timestamp: Date.now() });
+  if (calls.length > MAX_RECENT_CALLS) {
+    calls.shift();
   }
 }
-async function detectDebuggingSpiral(_directory) {
+async function detectDebuggingSpiral(_directory, sessionId) {
   const now = Date.now();
-  const windowCalls = recentToolCalls.filter((c) => now - c.timestamp < SPIRAL_WINDOW_MS);
+  const lastTrigger = lastSpiralTimestampBySession.get(sessionId) ?? 0;
+  if (now - lastTrigger < SPIRAL_COOLDOWN_MS)
+    return null;
+  const calls = recentToolCallsBySession.get(sessionId) ?? [];
+  const windowCalls = calls.filter((c) => now - c.timestamp < SPIRAL_WINDOW_MS);
   if (windowCalls.length < SPIRAL_THRESHOLD)
     return null;
   const lastN = windowCalls.slice(-SPIRAL_THRESHOLD);
@@ -65946,6 +65958,17 @@ async function detectDebuggingSpiral(_directory) {
   const allSameTool = lastN.every((c) => c.tool === firstTool);
   const allSimilarArgs = lastN.every((c) => c.argsHash === firstArgs);
   if (allSameTool && allSimilarArgs) {
+    lastSpiralTimestampBySession.set(sessionId, now);
+    recentToolCallsBySession.delete(sessionId);
+    if (lastSpiralTimestampBySession.size > MAX_TRACKED_SESSIONS) {
+      for (const oldest of lastSpiralTimestampBySession.keys()) {
+        if (oldest !== sessionId) {
+          lastSpiralTimestampBySession.delete(oldest);
+          recentToolCallsBySession.delete(oldest);
+          break;
+        }
+      }
+    }
     return {
       pattern: "VELOCITY_RATIONALIZATION",
       severity: "HIGH",
@@ -85915,12 +85938,12 @@ var OpenCodeSwarm = async (ctx) => {
           } catch {}
         }
         try {
-          recordToolCall(normalizedTool, input.args);
+          recordToolCall(normalizedTool, input.args, input.sessionID);
         } catch {}
         try {
-          const spiralMatch = await detectDebuggingSpiral(ctx.directory);
+          const spiralMatch = await detectDebuggingSpiral(ctx.directory, input.sessionID);
           if (spiralMatch) {
-            const taskId = swarmState.agentSessions.get(input.sessionID)?.currentTaskId ?? "unknown";
+            const taskId = swarmState.agentSessions.get(input.sessionID)?.currentTaskId ?? `session-${input.sessionID.slice(0, 12)}`;
             const spiralResult = await handleDebuggingSpiral(spiralMatch, taskId, ctx.directory);
             const session = swarmState.agentSessions.get(input.sessionID);
             if (session) {

@@ -27,17 +27,54 @@ describe('adversarial detector wiring', () => {
 	});
 
 	test('detectDebuggingSpiral returns null with insufficient data', async () => {
-		const result = await detectDebuggingSpiral('/tmp/test');
+		const result = await detectDebuggingSpiral(
+			'/tmp/test',
+			'test-session-empty',
+		);
 		expect(result).toBeNull();
 	});
 
 	test('detectDebuggingSpiral detects repeated tool calls', async () => {
+		const sessionId = 'test-session-spiral';
 		// Record 5+ identical tool calls
 		for (let i = 0; i < 6; i++) {
-			recordToolCall('bash', { command: 'npm test' });
+			recordToolCall('bash', { command: 'npm test' }, sessionId);
 		}
-		const result = await detectDebuggingSpiral('/tmp/test');
+		const result = await detectDebuggingSpiral('/tmp/test', sessionId);
 		expect(result).not.toBeNull();
 		expect(result!.matchedText).toContain('bash');
+	});
+
+	test('session isolation: spiral in session A does not affect session B', async () => {
+		const sessionA = 'test-isolation-session-a';
+		const sessionB = 'test-isolation-session-b';
+
+		// Session A spirals
+		for (let i = 0; i < 6; i++) {
+			recordToolCall('read', { path: '/tmp/foo' }, sessionA);
+		}
+		const resultA = await detectDebuggingSpiral('/tmp/test', sessionA);
+		expect(resultA).not.toBeNull();
+
+		// Session B has no calls — must still return null
+		const resultB = await detectDebuggingSpiral('/tmp/test', sessionB);
+		expect(resultB).toBeNull();
+	});
+
+	test('cooldown prevents re-detection immediately after spiral fires', async () => {
+		const sessionId = 'test-cooldown-session';
+		for (let i = 0; i < 6; i++) {
+			recordToolCall('write', { path: '/tmp/bar' }, sessionId);
+		}
+		// First detection fires
+		const first = await detectDebuggingSpiral('/tmp/test', sessionId);
+		expect(first).not.toBeNull();
+
+		// Subsequent calls to the same session within cooldown must return null
+		for (let i = 0; i < 6; i++) {
+			recordToolCall('write', { path: '/tmp/bar' }, sessionId);
+		}
+		const second = await detectDebuggingSpiral('/tmp/test', sessionId);
+		expect(second).toBeNull();
 	});
 });
