@@ -164,6 +164,44 @@ function extractTarget(tool: string, args?: Record<string, unknown>): string {
 		}
 	}
 
+	// Fallback for bash/shell and other tools: extract from command/description/args fields
+	// This prevents unrelated commands from collapsing to the same empty target
+	const toolLower = tool.toLowerCase();
+	if (
+		toolLower === 'bash' ||
+		toolLower === 'shell' ||
+		toolLower === 'execute' ||
+		toolLower === 'command'
+	) {
+		// Try to extract from command field
+		const command = args.command;
+		if (typeof command === 'string' && command.length > 0) {
+			// Return first word of command as target (e.g., "git" from "git commit")
+			const firstWord = command.split(/\s+/)[0] || '';
+			if (firstWord.length > 0) {
+				return firstWord;
+			}
+		}
+
+		// Try description field
+		const description = args.description;
+		if (typeof description === 'string' && description.length > 0) {
+			// Return first 30 chars as target to differentiate commands
+			return description.length > 30
+				? `${description.slice(0, 27)}...`
+				: description;
+		}
+
+		// Try args field (generic fallback)
+		const argsStr = args.args;
+		if (typeof argsStr === 'string' && argsStr.length > 0) {
+			const firstWord = argsStr.split(/\s+/)[0] || '';
+			if (firstWord.length > 0) {
+				return firstWord;
+			}
+		}
+	}
+
 	return '';
 }
 

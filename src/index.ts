@@ -41,6 +41,7 @@ import {
 	createToolSummarizerHook,
 	safeHook,
 } from './hooks';
+import { createTrajectoryLoggerHook } from './hooks/trajectory-logger';
 import {
 	detectAdversarialPatterns,
 	detectDebuggingSpiral,
@@ -212,6 +213,13 @@ const OpenCodeSwarm: Plugin = async (ctx) => {
 			max_trajectory_lines: 1000,
 			escalation_enabled: true,
 			detection_timeout_ms: 100,
+		},
+		ctx.directory,
+	);
+	const trajectoryLoggerHook = createTrajectoryLoggerHook(
+		{
+			enabled: true,
+			max_lines: 1000,
 		},
 		ctx.directory,
 	);
@@ -1012,6 +1020,9 @@ const OpenCodeSwarm: Plugin = async (ctx) => {
 				await activityHooks.toolAfter(input, output);
 				if (_dbg)
 					console.error(`[DIAG] toolAfter activity done tool=${_toolName}`);
+				await safeHook(trajectoryLoggerHook.toolAfter)(input, output);
+				if (_dbg)
+					console.error(`[DIAG] toolAfter trajectoryLogger done tool=${_toolName}`);
 				await safeHook(prmHook.toolAfter)(input, output);
 				await guardrailsHooks.toolAfter(input, output);
 				if (_dbg)

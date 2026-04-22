@@ -129,8 +129,12 @@ export function createPrmHook(config: PrmConfig, directory: string): PrmHook {
 			// Read trajectory for this session
 			const trajectory = await readTrajectory(sessionID, directory);
 
-			// Run pattern detection
-			const detectionResult = detectPatterns(trajectory, config);
+			// Run pattern detection, filtering out historical matches already processed
+			const detectionResult = detectPatterns(
+				trajectory,
+				config,
+				session.prmTrajectoryStep,
+			);
 
 			if (detectionResult.matches.length === 0) {
 				return;
@@ -284,6 +288,11 @@ export function createPrmHook(config: PrmConfig, directory: string): PrmHook {
 						triggeredAt: new Date().toISOString(),
 					},
 				});
+			}
+
+			// Update last-processed trajectory step to prevent re-reporting historical matches
+			if (trajectory.length > 0) {
+				session.prmTrajectoryStep = trajectory[trajectory.length - 1].step;
 			}
 		} catch (err) {
 			// Non-blocking: log error and continue

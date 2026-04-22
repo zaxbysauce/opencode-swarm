@@ -497,6 +497,7 @@ export function detectContextThrash(
 export function detectPatterns(
 	trajectory: TrajectoryEntry[],
 	config: PrmConfig,
+	lastProcessedStep: number = 0,
 ): PatternDetectionResult {
 	const startTime = Date.now();
 
@@ -523,7 +524,12 @@ export function detectPatterns(
 	// Deduplicate matches to prevent multiple escalation advances from a single toolAfter call.
 	// A trajectory with 3 identical entries would otherwise emit 3 matches (one per window position),
 	// causing escalation to jump multiple levels in a single invocation.
-	const severityRank = { high: 3, medium: 2, low: 1 };
+	const severityRank: Record<PatternSeverity, number> = {
+		critical: 4,
+		high: 3,
+		medium: 2,
+		low: 1,
+	};
 	const dedupedMatches = new Map<string, PatternMatch>();
 
 	for (const match of allMatches) {
@@ -543,8 +549,14 @@ export function detectPatterns(
 		}
 	}
 
+	// Filter to only include matches involving new steps (stepRange end > lastProcessedStep)
+	// This prevents re-reporting historical patterns on every toolAfter call
+	const newMatches = Array.from(dedupedMatches.values()).filter(
+		(match) => match.stepRange[1] > lastProcessedStep,
+	);
+
 	return {
-		matches: Array.from(dedupedMatches.values()),
+		matches: newMatches,
 		detectionTimeMs,
 		patternsChecked: 5,
 	};
