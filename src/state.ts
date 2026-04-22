@@ -21,6 +21,7 @@ import {
 import type { TaskEvidence } from './gate-evidence';
 import { clearPendingCoderScope } from './hooks/delegation-gate.js';
 import { loadPlanJsonOnly } from './plan/manager.js';
+import type { EscalationTracker } from './prm/escalation.js';
 import type { PatternMatch } from './prm/types.js';
 import { AgentRunContext } from './state/agent-run-context.js';
 import { telemetry } from './telemetry.js';
@@ -255,6 +256,8 @@ export interface AgentSessionState {
 	prmTrajectoryStep: number;
 	/** Whether a hard stop has been triggered */
 	prmHardStopPending: boolean;
+	/** Per-session escalation tracker instance (set lazily by PRM hook) */
+	prmEscalationTracker?: EscalationTracker;
 }
 
 /**

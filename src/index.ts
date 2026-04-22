@@ -41,7 +41,6 @@ import {
 	createToolSummarizerHook,
 	safeHook,
 } from './hooks';
-import { createTrajectoryLoggerHook } from './hooks/trajectory-logger';
 import {
 	detectAdversarialPatterns,
 	detectDebuggingSpiral,
@@ -61,6 +60,7 @@ import { createScopeGuardHook } from './hooks/scope-guard.js';
 import { createSelfReviewHook } from './hooks/self-review.js';
 import { createSlopDetectorHook } from './hooks/slop-detector';
 import { createSteeringConsumedHook } from './hooks/steering-consumed.js';
+import { createTrajectoryLoggerHook } from './hooks/trajectory-logger';
 import { createPrmHook } from './prm';
 import { createCompactionService } from './services/compaction-service';
 import { shouldRunOnStartup } from './services/config-doctor';
@@ -1022,7 +1022,9 @@ const OpenCodeSwarm: Plugin = async (ctx) => {
 					console.error(`[DIAG] toolAfter activity done tool=${_toolName}`);
 				await safeHook(trajectoryLoggerHook.toolAfter)(input, output);
 				if (_dbg)
-					console.error(`[DIAG] toolAfter trajectoryLogger done tool=${_toolName}`);
+					console.error(
+						`[DIAG] toolAfter trajectoryLogger done tool=${_toolName}`,
+					);
 				await safeHook(prmHook.toolAfter)(input, output);
 				await guardrailsHooks.toolAfter(input, output);
 				if (_dbg)

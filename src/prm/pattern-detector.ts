@@ -204,7 +204,7 @@ export function detectPingPong(
 
 		// Find the extent of the alternating pattern
 		let endIndex = i + 1;
-		let isAlternating = true;
+		const isAlternating = true;
 
 		for (let j = i + 2; j < trajectory.length; j++) {
 			const expectedAgent = (j - i) % 2 === 0 ? firstAgent : secondAgent;
@@ -234,12 +234,12 @@ export function detectPingPong(
 					pattern: 'ping_pong',
 					severity: 'high',
 					category: 'coordination_error',
-					stepRange: [
-						trajectory[i].step,
-						trajectory[endIndex].step,
-					],
+					stepRange: [trajectory[i].step, trajectory[endIndex].step],
 					description: `Ping-pong delegation detected: "${sanitizeString(firstAgent)}" and "${sanitizeString(secondAgent)}" alternating on "${sanitizeString(target)}"`,
-					affectedAgents: [sanitizeString(firstAgent), sanitizeString(secondAgent)],
+					affectedAgents: [
+						sanitizeString(firstAgent),
+						sanitizeString(secondAgent),
+					],
 					affectedTargets: [sanitizeString(target)],
 					occurrenceCount: roundTrips,
 				});
