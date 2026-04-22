@@ -2160,6 +2160,17 @@ export function createGuardrailsHooks(
 				}
 			}
 
+			// v6.29: PRM hard stop — blocks all tool execution when escalation level 3 is reached.
+			// Check before resolveSessionAndWindow so it fires even for architect sessions.
+			{
+				const prmSession = swarmState.agentSessions.get(input.sessionID);
+				if (prmSession?.prmHardStopPending) {
+					throw new Error(
+						'🛑 PRM HARD STOP: Pattern escalation maximum reached. Stop tool calls and return progress summary.',
+					);
+				}
+			}
+
 			// Resolve session — returns null if architect-exempt
 			const resolved = resolveSessionAndWindow(input.sessionID);
 			if (!resolved) return;
@@ -2721,6 +2732,38 @@ export function createGuardrailsHooks(
 				// Non-architect sessions never inject advisories, but must still drain
 				// the queue to prevent unbounded accumulation in long-lived coder sessions.
 				session.pendingAdvisoryMessages = [];
+			}
+
+			// v6.29: PRM hard stop injection (Task 2.1)
+			if (isArchitectSession && session?.prmHardStopPending) {
+				// Clear before injecting to avoid repeat
+				session.prmHardStopPending = false;
+				// Emit telemetry for hard stop injection
+				const lastPattern = session.prmLastPatternDetected;
+				const patternType = lastPattern?.pattern ?? 'unknown';
+				const occurrenceCount = session.prmPatternCounts.get(patternType) ?? 0;
+				telemetry.prmHardStop(
+					_input.sessionID,
+					patternType,
+					session.prmEscalationLevel,
+					occurrenceCount,
+				);
+				// Inject into first system message
+				const hardStopMsg = systemMessages[0];
+				if (hardStopMsg) {
+					const hardStopTextPart = (hardStopMsg.parts ?? []).find(
+						(part): part is { type: string; text: string } =>
+							part.type === 'text' && typeof part.text === 'string',
+					);
+					if (
+						hardStopTextPart &&
+						!hardStopTextPart.text.includes('[HARD STOP]')
+					) {
+						hardStopTextPart.text =
+							`[HARD STOP] PRM has detected repeated pattern violations. STOP all tool calls and return a summary of your progress. [/HARD STOP]\n\n` +
+							hardStopTextPart.text;
+					}
+				}
 			}
 
 			// v6.12: Self-coding warning injection - now injected into SYSTEM messages only (model-only)

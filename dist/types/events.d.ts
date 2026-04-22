@@ -90,4 +90,36 @@ export interface SpecDriftAcknowledgedEvent {
     previousHash: string;
     newHash: string | null;
 }
-export type V619Event = SoundingBoardConsultedEvent | ArchitectLoopDetectedEvent | PrecedentManipulationDetectedEvent | CoderSelfAuditEvent | CoderRetryCircuitBreakerEvent | AgentConflictDetectedEvent | AuthorityHandoffResolvedEvent | SpecStaleDetectedEvent | SpecDriftAcknowledgedEvent;
+export interface PrmPatternDetectedEvent {
+    type: 'prm_pattern_detected';
+    timestamp: string;
+    sessionId: string;
+    pattern: string;
+    severity: string;
+    category: string;
+    stepRange: [number, number];
+}
+export interface PrmCourseCorrectionInjectedEvent {
+    type: 'prm_course_correction_injected';
+    timestamp: string;
+    sessionId: string;
+    pattern: string;
+    level: number;
+}
+export interface PrmEscalationTriggeredEvent {
+    type: 'prm_escalation_triggered';
+    timestamp: string;
+    sessionId: string;
+    pattern: string;
+    level: number;
+    occurrenceCount: number;
+}
+export interface PrmHardStopEvent {
+    type: 'prm_hard_stop';
+    timestamp: string;
+    sessionId: string;
+    pattern: string;
+    level: number;
+    occurrenceCount: number;
+}
+export type V619Event = SoundingBoardConsultedEvent | ArchitectLoopDetectedEvent | PrecedentManipulationDetectedEvent | CoderSelfAuditEvent | CoderRetryCircuitBreakerEvent | AgentConflictDetectedEvent | AuthorityHandoffResolvedEvent | SpecStaleDetectedEvent | SpecDriftAcknowledgedEvent | PrmPatternDetectedEvent | PrmCourseCorrectionInjectedEvent | PrmEscalationTriggeredEvent | PrmHardStopEvent;

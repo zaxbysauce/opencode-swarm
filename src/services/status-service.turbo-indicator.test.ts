@@ -88,6 +88,11 @@ describe('StatusService - Turbo Mode Indicator', () => {
 			model_fallback_index: 0,
 			modelFallbackExhausted: false,
 			sessionRehydratedAt: 0,
+			prmPatternCounts: new Map(),
+			prmEscalationLevel: 0,
+			prmLastPatternDetected: null,
+			prmTrajectoryStep: 0,
+			prmHardStopPending: false,
 		});
 	});
 

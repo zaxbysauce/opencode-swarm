@@ -19442,6 +19442,25 @@ var CompactionConfigSchema = exports_external.object({
   emergencyThreshold: exports_external.number().min(1).max(99).default(80),
   preserveLastNTurns: exports_external.number().int().min(1).default(5)
 });
+var PrmConfigSchema = exports_external.object({
+  enabled: exports_external.boolean().default(true),
+  pattern_thresholds: exports_external.object({
+    repetition_loop: exports_external.number().min(1).default(2),
+    ping_pong: exports_external.number().min(1).default(2),
+    expansion_drift: exports_external.number().min(1).default(3),
+    stuck_on_test: exports_external.number().min(1).default(3),
+    context_thrash: exports_external.number().min(1).default(3)
+  }).default(() => ({
+    repetition_loop: 2,
+    ping_pong: 2,
+    expansion_drift: 3,
+    stuck_on_test: 3,
+    context_thrash: 3
+  })),
+  max_trajectory_lines: exports_external.number().min(10).default(1000),
+  escalation_enabled: exports_external.boolean().default(true),
+  detection_timeout_ms: exports_external.number().min(10).default(100)
+});
 var AgentAuthorityRuleSchema = exports_external.object({
   readOnly: exports_external.boolean().optional(),
   blockedExact: exports_external.array(exports_external.string()).optional(),
@@ -19522,6 +19541,7 @@ var PluginConfigSchema = exports_external.object({
   }).optional(),
   incremental_verify: IncrementalVerifyConfigSchema.optional(),
   compaction_service: CompactionConfigSchema.optional(),
+  prm: PrmConfigSchema.optional(),
   council: CouncilConfigSchema.optional(),
   parallelization: ParallelizationConfigSchema.optional(),
   turbo_mode: exports_external.boolean().default(false).optional(),

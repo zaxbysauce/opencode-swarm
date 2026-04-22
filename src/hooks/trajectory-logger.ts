@@ -11,6 +11,7 @@
 import * as fs from 'node:fs/promises';
 import * as path from 'node:path';
 import { sanitizeTaskId } from '../evidence/manager';
+import { appendTrajectoryEntry } from '../prm/trajectory-store';
 import { swarmState } from '../state';
 import { validateSwarmPath } from './utils';
 
@@ -20,11 +21,16 @@ export interface TrajectoryConfig {
 }
 
 export interface TrajectoryEntry {
+	step: number;
+	agent: string;
+	action: string;
+	target: string;
+	intent: string;
+	timestamp: string;
+	result: 'success' | 'failure' | 'pending';
 	tool: string;
 	args_summary: string;
 	verdict: string;
-	timestamp: string;
-	agent: string;
 	elapsed_ms: number;
 }
 
@@ -33,6 +39,12 @@ export interface TrajectoryEntry {
  * Populated by toolBefore (via recordToolCallStart), consumed by toolAfter.
  */
 const callStartTimes = new Map<string, number>();
+
+/**
+ * Module-level map for tracking step counters per session.
+ * Incremented on each tool call to provide sequential step numbers.
+ */
+const sessionStepCounters = new Map<string, number>();
 
 /**
  * Sensitive field names to redact in args summaries.
@@ -110,6 +122,140 @@ export async function truncateTrajectoryFile(
 }
 
 /**
+ * Derives the action type from the tool name.
+ *
+ * @param tool - Tool name
+ * @returns Action type string
+ */
+function deriveAction(tool: string): string {
+	const toolLower = tool.toLowerCase();
+	if (toolLower === 'task') return 'delegate';
+	if (['write', 'edit', 'apply_patch'].includes(toolLower)) return 'edit';
+	if (['read', 'glob', 'search'].includes(toolLower)) return 'read';
+	if (['bash', 'shell'].includes(toolLower)) return 'execute';
+	if (toolLower === 'test_runner') return 'test';
+	return 'tool_use';
+}
+
+/**
+ * Extracts the target from tool arguments.
+ *
+ * @param tool - Tool name
+ * @param args - Tool arguments object
+ * @returns Target string
+ */
+function extractTarget(tool: string, args?: Record<string, unknown>): string {
+	if (!args) return '';
+
+	// For Task tool, use subagent_type as target
+	if (tool.toLowerCase() === 'task') {
+		const subagentType = args.subagent_type;
+		if (typeof subagentType === 'string' && subagentType.length > 0) {
+			return subagentType;
+		}
+	}
+
+	// Check common target field names
+	const targetFields = ['filePath', 'path', 'file', 'target'];
+	for (const field of targetFields) {
+		const value = args[field];
+		if (typeof value === 'string' && value.length > 0) {
+			return value;
+		}
+	}
+
+	// Fallback for bash/shell and other tools: extract from command/description/args fields
+	// This prevents unrelated commands from collapsing to the same empty target
+	const toolLower = tool.toLowerCase();
+	if (
+		toolLower === 'bash' ||
+		toolLower === 'shell' ||
+		toolLower === 'execute' ||
+		toolLower === 'command'
+	) {
+		// Try to extract from command field
+		const command = args.command;
+		if (typeof command === 'string' && command.length > 0) {
+			// Return first word of command as target (e.g., "git" from "git commit")
+			const firstWord = command.split(/\s+/)[0] || '';
+			if (firstWord.length > 0) {
+				return firstWord;
+			}
+		}
+
+		// Try description field
+		const description = args.description;
+		if (typeof description === 'string' && description.length > 0) {
+			// Return first 30 chars as target to differentiate commands
+			return description.length > 30
+				? `${description.slice(0, 27)}...`
+				: description;
+		}
+
+		// Try args field (generic fallback)
+		const argsStr = args.args;
+		if (typeof argsStr === 'string' && argsStr.length > 0) {
+			const firstWord = argsStr.split(/\s+/)[0] || '';
+			if (firstWord.length > 0) {
+				return firstWord;
+			}
+		}
+	}
+
+	return '';
+}
+
+/**
+ * Extracts the intent from tool arguments.
+ *
+ * @param tool - Tool name
+ * @param args - Tool arguments object
+ * @returns Intent string (max 100 chars for Task tool descriptions)
+ */
+function extractIntent(tool: string, args?: Record<string, unknown>): string {
+	if (!args) return '';
+
+	// For Task tool, extract first 100 chars of prompt or description
+	if (tool.toLowerCase() === 'task') {
+		const prompt = args.prompt;
+		const description = args.description;
+		const text =
+			typeof prompt === 'string'
+				? prompt
+				: typeof description === 'string'
+					? description
+					: '';
+		if (text.length > 100) {
+			return `${text.slice(0, 97)}...`;
+		}
+		return text;
+	}
+
+	// Check for description or task fields
+	const intentFields = ['description', 'task'];
+	for (const field of intentFields) {
+		const value = args[field];
+		if (typeof value === 'string' && value.length > 0) {
+			return value.length > 200 ? `${value.slice(0, 197)}...` : value;
+		}
+	}
+
+	return '';
+}
+
+/**
+ * Maps verdict to result status.
+ *
+ * @param verdict - Verdict string from tool execution
+ * @returns Result status
+ */
+function mapResult(verdict: string): 'success' | 'failure' | 'pending' {
+	if (verdict === 'success') return 'success';
+	if (verdict === 'failure') return 'failure';
+	return 'pending';
+}
+
+/**
  * Creates the trajectory logger hook pair.
  *
  * @param config - TrajectoryConfig { enabled: boolean (default true), max_lines: number (default 500) }
@@ -168,12 +314,34 @@ export function createTrajectoryLoggerHook(
 			// Derive verdict from output metadata or default to success/failure
 			const verdict = deriveVerdict(output);
 
+			// Derive step counter for this session
+			const currentStep = sessionStepCounters.get(sessionId) ?? 0;
+			const step = currentStep + 1;
+			sessionStepCounters.set(sessionId, step);
+
+			// Derive action type from tool name
+			const action = deriveAction(input.tool);
+
+			// Extract target from args
+			const target = extractTarget(input.tool, input.args);
+
+			// Extract intent from args
+			const intent = extractIntent(input.tool, input.args);
+
+			// Map verdict to result status
+			const result = mapResult(verdict);
+
 			const entry: TrajectoryEntry = {
+				step,
+				agent: agentName,
+				action,
+				target,
+				intent,
+				timestamp: new Date().toISOString(),
+				result,
 				tool: input.tool,
 				args_summary,
 				verdict,
-				timestamp: new Date().toISOString(),
-				agent: agentName,
 				elapsed_ms,
 			};
 
@@ -195,8 +363,25 @@ export function createTrajectoryLoggerHook(
 			} catch {
 				/* non-blocking: file I/O errors are swallowed */
 			}
+
+			// Also write to session-level trajectory store for PRM pattern detection
+			try {
+				await appendTrajectoryEntry(sessionId, entry, _directory, maxLines);
+			} catch {
+				/* non-blocking: PRM errors should not break task-level logging */
+			}
 		},
 	};
+}
+
+/**
+ * Resets the step counter for a session. Called when a new session starts
+ * or when trajectory tracking should restart from step 1.
+ *
+ * @param sessionId - Session identifier
+ */
+export function resetTrajectoryStep(sessionId: string): void {
+	sessionStepCounters.set(sessionId, 0);
 }
 
 /**

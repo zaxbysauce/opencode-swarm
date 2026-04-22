@@ -114,6 +114,42 @@ export interface SpecDriftAcknowledgedEvent {
 	newHash: string | null;
 }
 
+export interface PrmPatternDetectedEvent {
+	type: 'prm_pattern_detected';
+	timestamp: string;
+	sessionId: string;
+	pattern: string;
+	severity: string;
+	category: string;
+	stepRange: [number, number];
+}
+
+export interface PrmCourseCorrectionInjectedEvent {
+	type: 'prm_course_correction_injected';
+	timestamp: string;
+	sessionId: string;
+	pattern: string;
+	level: number;
+}
+
+export interface PrmEscalationTriggeredEvent {
+	type: 'prm_escalation_triggered';
+	timestamp: string;
+	sessionId: string;
+	pattern: string;
+	level: number;
+	occurrenceCount: number;
+}
+
+export interface PrmHardStopEvent {
+	type: 'prm_hard_stop';
+	timestamp: string;
+	sessionId: string;
+	pattern: string;
+	level: number;
+	occurrenceCount: number;
+}
+
 // Union type for all v6.19 events
 export type V619Event =
 	| SoundingBoardConsultedEvent
@@ -124,4 +160,8 @@ export type V619Event =
 	| AgentConflictDetectedEvent
 	| AuthorityHandoffResolvedEvent
 	| SpecStaleDetectedEvent
-	| SpecDriftAcknowledgedEvent;
+	| SpecDriftAcknowledgedEvent
+	| PrmPatternDetectedEvent
+	| PrmCourseCorrectionInjectedEvent
+	| PrmEscalationTriggeredEvent
+	| PrmHardStopEvent;
