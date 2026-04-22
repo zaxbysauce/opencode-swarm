@@ -1,5 +1,12 @@
 # Changelog
 
+## [6.80.1](https://github.com/zaxbysauce/opencode-swarm/compare/v6.80.0...v6.80.1) (2026-04-22)
+
+
+### Bug Fixes
+
+* **guardrails:** exempt opencode native agents from swarm guardrails (issue [#559](https://github.com/zaxbysauce/opencode-swarm/issues/559)) ([#561](https://github.com/zaxbysauce/opencode-swarm/issues/561)) ([d5adf41](https://github.com/zaxbysauce/opencode-swarm/commit/d5adf41e81afcac4af1fa9b7c3b5d5e985d441d0))
+
 ## [6.80.0](https://github.com/zaxbysauce/opencode-swarm/compare/v6.79.0...v6.80.0) (2026-04-20)
 
 
