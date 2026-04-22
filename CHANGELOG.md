@@ -1,5 +1,12 @@
 # Changelog
 
+## [6.81.0](https://github.com/zaxbysauce/opencode-swarm/compare/v6.80.2...v6.81.0) (2026-04-22)
+
+
+### Features
+
+* **prm:** Implement Process Reward Model for live trajectory course-correction ([#562](https://github.com/zaxbysauce/opencode-swarm/issues/562)) ([544634e](https://github.com/zaxbysauce/opencode-swarm/commit/544634e9105d08ee58e7880a31c8ec595f6eabf0))
+
 ## [6.80.2](https://github.com/zaxbysauce/opencode-swarm/compare/v6.80.1...v6.80.2) (2026-04-22)
 
 
