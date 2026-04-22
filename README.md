@@ -111,7 +111,7 @@ When a pattern is detected, the PRM tracks escalation levels:
 
 - **Level 1 (1st detection):** Course-correction guidance is added to `pendingAdvisoryMessages` and injected via the `[ADVISORIES]` block. Sets `escalationLevel = 1`.
 - **Level 2 (2nd detection):** Additional guidance added to `pendingAdvisoryMessages`, `architectAlertPending = true` is set, and `telemetry.prmEscalationTriggered()` is emitted. Sets `escalationLevel = 2`.
-- **Level 3 (3rd+ detection):** Guidance added to `pendingAdvisoryMessages`, plus a hard stop directive is injected separately via `[HARD STOP]` block. Sets `escalationLevel = 3` and `hardStopPending = true`. Emits `telemetry.prmHardStop()`.
+- **Level 3 (3rd+ detection):** Guidance added to `pendingAdvisoryMessages`, plus a throw in `toolBefore` that blocks all subsequent tool calls. Sets `escalationLevel = 3` and `hardStopPending = true`. Emits `telemetry.prmHardStop()`.
 
 ### Configuration
 

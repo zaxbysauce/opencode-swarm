@@ -328,7 +328,7 @@ export function createTrajectoryLoggerHook(
 
 			// Also write to session-level trajectory store for PRM pattern detection
 			try {
-				await appendTrajectoryEntry(sessionId, entry, _directory);
+				await appendTrajectoryEntry(sessionId, entry, _directory, maxLines);
 			} catch {
 				/* non-blocking: PRM errors should not break task-level logging */
 			}

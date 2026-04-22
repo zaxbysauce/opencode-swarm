@@ -942,6 +942,7 @@ export const PrmConfigSchema = z.object({
 		})),
 	max_trajectory_lines: z.number().min(10).default(1000),
 	escalation_enabled: z.boolean().default(true),
+	// TODO: detection_timeout_ms is not yet enforced. Pattern detection is synchronous & typically <10ms.
 	detection_timeout_ms: z.number().min(10).default(100),
 });
 

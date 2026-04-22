@@ -12,7 +12,9 @@ import path from 'node:path';
 
 import {
 	appendTrajectoryEntry,
+	clearTrajectoryCache,
 	getCurrentStep,
+	getInMemoryTrajectory,
 	getTrajectoryForSession,
 	readTrajectory,
 	truncateTrajectoryIfNeeded,
@@ -28,6 +30,8 @@ describe('trajectory-store', () => {
 	beforeEach(async () => {
 		// Create a unique temp directory for each test
 		tempDir = mkdtempSync(path.join(tmpdir(), 'trajectory-store-test-'));
+		// Clear module-level cache to prevent cross-test contamination
+		clearTrajectoryCache();
 	});
 
 	afterEach(() => {
@@ -518,6 +522,77 @@ describe('trajectory-store', () => {
 
 			await appendTrajectoryEntry(sessionId, createEntry(10), tempDir);
 			expect(await getCurrentStep(sessionId, tempDir)).toBe(10);
+		});
+	});
+
+	// =========================================================================
+	// In-memory cache Tests (H2+H3)
+	// =========================================================================
+
+	describe('in-memory cache (H2+H3)', () => {
+		test('getInMemoryTrajectory returns empty before writes', () => {
+			const result = getInMemoryTrajectory('no-writes');
+			expect(result).toEqual([]);
+		});
+
+		test('appendTrajectoryEntry populates cache', async () => {
+			const sessionId = 'cache-test';
+			const entry = createEntry(1);
+			await appendTrajectoryEntry(sessionId, entry, tempDir);
+
+			const cached = getInMemoryTrajectory(sessionId);
+			expect(cached).toHaveLength(1);
+			expect(cached[0].step).toBe(1);
+		});
+
+		test('cache accumulates multiple entries in order', async () => {
+			const sessionId = 'cache-order';
+			await appendTrajectoryEntry(sessionId, createEntry(1), tempDir);
+			await appendTrajectoryEntry(sessionId, createEntry(2), tempDir);
+			await appendTrajectoryEntry(sessionId, createEntry(3), tempDir);
+
+			const cached = getInMemoryTrajectory(sessionId);
+			expect(cached).toHaveLength(3);
+			expect(cached.map((e) => e.step)).toEqual([1, 2, 3]);
+		});
+
+		test('cache trims to half when exceeding maxLines', async () => {
+			const sessionId = 'cache-trim';
+			for (let i = 1; i <= 15; i++) {
+				await appendTrajectoryEntry(sessionId, createEntry(i), tempDir, 10);
+			}
+
+			const cached = getInMemoryTrajectory(sessionId);
+			expect(cached.length).toBeLessThanOrEqual(10);
+			expect(cached.length).toBeGreaterThanOrEqual(1);
+		});
+
+		test('clearTrajectoryCache removes single session', async () => {
+			const sessionId = 'cache-clear';
+			await appendTrajectoryEntry(sessionId, createEntry(1), tempDir);
+			expect(getInMemoryTrajectory(sessionId)).toHaveLength(1);
+
+			clearTrajectoryCache(sessionId);
+			expect(getInMemoryTrajectory(sessionId)).toHaveLength(0);
+		});
+
+		test('clearTrajectoryCache with no arg clears all sessions', async () => {
+			await appendTrajectoryEntry('session-x', createEntry(1), tempDir);
+			await appendTrajectoryEntry('session-y', createEntry(1), tempDir);
+
+			clearTrajectoryCache();
+			expect(getInMemoryTrajectory('session-x')).toHaveLength(0);
+			expect(getInMemoryTrajectory('session-y')).toHaveLength(0);
+		});
+
+		test('separate sessions have independent caches', async () => {
+			await appendTrajectoryEntry('session-a', createEntry(1), tempDir);
+			await appendTrajectoryEntry('session-a', createEntry(2), tempDir);
+			await appendTrajectoryEntry('session-b', createEntry(10), tempDir);
+
+			expect(getInMemoryTrajectory('session-a')).toHaveLength(2);
+			expect(getInMemoryTrajectory('session-b')).toHaveLength(1);
+			expect(getInMemoryTrajectory('session-b')[0].step).toBe(10);
 		});
 	});
 });
