@@ -410,6 +410,7 @@ describe('createPrmHook', () => {
 			expect(patternDetectorModule.detectPatterns).toHaveBeenCalledWith(
 				trajectory,
 				config,
+				0, // lastProcessedStep defaults to 0 for first call
 			);
 		});
 	});

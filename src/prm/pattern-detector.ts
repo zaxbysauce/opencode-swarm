@@ -178,57 +178,77 @@ export function detectPingPong(
 		return matches;
 	}
 
-	// Window size based on threshold for ping-pong pattern detection
-	for (let i = effectiveThreshold - 1; i < trajectory.length; i++) {
-		const windowStart = i - effectiveThreshold + 1;
-		const entries = trajectory.slice(windowStart, i + 1);
+	// Track already-detected ping-pong pairs to avoid duplicate matches
+	const detectedPairs = new Set<string>();
 
-		// Check for alternating agent pattern: A -> B -> A -> B (or longer)
-		// Pattern: all entries are delegate actions with same target
-		const agentA = entries[0].agent;
-		const agentB = entries[1].agent;
-		const target = entries[0].target;
+	// Find all alternating delegation sequences
+	let i = 0;
+	while (i < trajectory.length) {
+		// Start of a potential alternating sequence
+		if (i + 1 >= trajectory.length) break;
 
-		// Ensure distinct agents (ping-pong requires two different agents)
-		if (agentA === agentB) {
+		// Check if entries at i and i+1 form the start of an alternating pattern
+		const firstAgent = trajectory[i].agent;
+		const secondAgent = trajectory[i + 1].agent;
+		const target = trajectory[i].target;
+
+		// Ensure distinct agents and delegate actions
+		if (
+			firstAgent === secondAgent ||
+			trajectory[i].action !== 'delegate' ||
+			trajectory[i + 1].action !== 'delegate'
+		) {
+			i++;
 			continue;
 		}
 
-		// Verify alternating pattern: entries at even indices are agentA, odd indices are agentB
+		// Find the extent of the alternating pattern
+		let endIndex = i + 1;
 		let isAlternating = true;
-		let allSameTarget = true;
-		let allDelegateAction = true;
 
-		for (let j = 0; j < entries.length; j++) {
-			const expectedAgent = j % 2 === 0 ? agentA : agentB;
-			if (entries[j].agent !== expectedAgent) {
-				isAlternating = false;
+		for (let j = i + 2; j < trajectory.length; j++) {
+			const expectedAgent = (j - i) % 2 === 0 ? firstAgent : secondAgent;
+			if (
+				trajectory[j].agent !== expectedAgent ||
+				trajectory[j].target !== target ||
+				trajectory[j].action !== 'delegate'
+			) {
 				break;
 			}
-			if (entries[j].target !== target) {
-				allSameTarget = false;
-				break;
-			}
-			if (entries[j].action !== 'delegate') {
-				allDelegateAction = false;
-				break;
-			}
+			endIndex = j;
 		}
 
-		if (isAlternating && allSameTarget && allDelegateAction) {
-			// Calculate number of round-trips (threshold / 2, rounded down)
-			const roundTrips = Math.floor(effectiveThreshold / 2);
+		const patternLength = endIndex - i + 1;
 
-			matches.push({
-				pattern: 'ping_pong',
-				severity: 'high',
-				category: 'coordination_error',
-				stepRange: [entries[0].step, entries[entries.length - 1].step],
-				description: `Ping-pong delegation detected: "${sanitizeString(agentA)}" and "${sanitizeString(agentB)}" alternating on "${sanitizeString(target)}"`,
-				affectedAgents: [sanitizeString(agentA), sanitizeString(agentB)],
-				affectedTargets: [sanitizeString(target)],
-				occurrenceCount: roundTrips,
-			});
+		// Check if pattern meets threshold
+		if (patternLength >= effectiveThreshold) {
+			// Check if we've already detected this agent pair + target combination
+			const pairKey = `${[firstAgent, secondAgent].sort().join(',')}-${target}`;
+			if (!detectedPairs.has(pairKey)) {
+				detectedPairs.add(pairKey);
+
+				// Calculate number of round-trips (pattern length / 2, rounded down)
+				const roundTrips = Math.floor(patternLength / 2);
+
+				matches.push({
+					pattern: 'ping_pong',
+					severity: 'high',
+					category: 'coordination_error',
+					stepRange: [
+						trajectory[i].step,
+						trajectory[endIndex].step,
+					],
+					description: `Ping-pong delegation detected: "${sanitizeString(firstAgent)}" and "${sanitizeString(secondAgent)}" alternating on "${sanitizeString(target)}"`,
+					affectedAgents: [sanitizeString(firstAgent), sanitizeString(secondAgent)],
+					affectedTargets: [sanitizeString(target)],
+					occurrenceCount: roundTrips,
+				});
+			}
+
+			// Skip past this detected sequence
+			i = endIndex + 1;
+		} else {
+			i++;
 		}
 	}
 

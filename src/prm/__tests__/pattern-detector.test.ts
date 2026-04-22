@@ -26,10 +26,10 @@ function createDefaultConfig(overrides?: Partial<PrmConfig>): PrmConfig {
 		enabled: true,
 		pattern_thresholds: {
 			repetition_loop: 2,
-			ping_pong: 4,
+			ping_pong: 2,
 			expansion_drift: 3,
 			stuck_on_test: 3,
-			context_thrash: 5,
+			context_thrash: 3,
 		},
 		max_trajectory_lines: 1000,
 		escalation_enabled: true,
@@ -1215,11 +1215,10 @@ describe('detectContextThrash', () => {
 	});
 
 	test('does not detect context thrash when unique targets decrease', () => {
-		// Unique targets: 1, 2, 3, 4, 5, then back to 2, 1 - not monotonic increase
+		// Unique targets: 1, 2, then repeats - not monotonic increase (stays at 2)
 		const trajectory = createEntries([
 			{ agent: 'agent-a', action: 'edit', target: 'src/a.ts' },
 			{ agent: 'agent-a', action: 'edit', target: 'src/b.ts' },
-			{ agent: 'agent-a', action: 'edit', target: 'src/c.ts' },
 			{ agent: 'agent-a', action: 'edit', target: 'src/a.ts' },
 			{ agent: 'agent-a', action: 'edit', target: 'src/b.ts' },
 			{ agent: 'agent-a', action: 'edit', target: 'src/a.ts' },
@@ -1228,6 +1227,7 @@ describe('detectContextThrash', () => {
 
 		const matches = detectContextThrash(trajectory, config);
 
+		// Cumulative unique counts: [1, 2, 2, 2, 2] - one increase, not monotonic
 		expect(matches).toHaveLength(0);
 	});
 
@@ -1237,27 +1237,27 @@ describe('detectContextThrash', () => {
 			{ agent: 'agent-a', action: 'edit', target: 'src/b.ts' },
 			{ agent: 'agent-a', action: 'edit', target: 'src/a.ts' },
 			{ agent: 'agent-a', action: 'edit', target: 'src/c.ts' },
-			{ agent: 'agent-a', action: 'edit', target: 'src/b.ts' },
-			{ agent: 'agent-a', action: 'edit', target: 'src/d.ts' },
-			{ agent: 'agent-a', action: 'edit', target: 'src/e.ts' },
+			{ agent: 'agent-a', action: 'edit', target: 'src/a.ts' },
 		]);
 		const config = createDefaultConfig();
 
 		const matches = detectContextThrash(trajectory, config);
 
+		// Trajectory: [a, b, a, c, a] -> unique counts [1, 2, 2, 3, 3]
+		// No monotonic run of 3+ consecutive increases
 		expect(matches).toHaveLength(0);
 	});
 
-	test('returns empty for trajectory shorter than 5', () => {
+	test('returns empty for trajectory shorter than threshold', () => {
 		const trajectory = createEntries([
 			{ agent: 'agent-a', action: 'edit', target: 'src/a.ts' },
 			{ agent: 'agent-a', action: 'edit', target: 'src/b.ts' },
-			{ agent: 'agent-a', action: 'edit', target: 'src/c.ts' },
 		]);
 		const config = createDefaultConfig();
 
 		const matches = detectContextThrash(trajectory, config);
 
+		// 2 unique targets (1 increase) is below threshold of 3
 		expect(matches).toHaveLength(0);
 	});
 
@@ -1380,14 +1380,12 @@ describe('detectContextThrash', () => {
 		const trajectory = createEntries([
 			{ agent: 'agent-a', action: 'edit', target: 'src/a.ts' },
 			{ agent: 'agent-a', action: 'edit', target: 'src/b.ts' },
-			{ agent: 'agent-a', action: 'edit', target: 'src/c.ts' },
-			{ agent: 'agent-a', action: 'edit', target: 'src/d.ts' },
 		]);
 		const config = createDefaultConfig();
 
 		const matches = detectContextThrash(trajectory, config);
 
-		// 4 increases is below threshold of 5
+		// 2 unique targets (1 increase) is below threshold of 3
 		expect(matches).toHaveLength(0);
 	});
 });
