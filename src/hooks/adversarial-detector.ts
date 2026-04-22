@@ -469,28 +469,42 @@ The current fix strategy appears to be cycling without progress`;
 	return { eventLogged, checkpointCreated, message };
 }
 
-/** In-memory circular buffer of recent tool calls for spiral detection */
-const recentToolCalls: Array<{
-	tool: string;
-	argsHash: string;
-	timestamp: number;
-}> = [];
+/** Per-session circular buffer of recent tool calls for spiral detection */
+const recentToolCallsBySession = new Map<
+	string,
+	Array<{ tool: string; argsHash: string; timestamp: number }>
+>();
+
+/** Per-session timestamp of last triggered spiral, used for cooldown enforcement */
+const lastSpiralTimestampBySession = new Map<string, number>();
+
 const MAX_RECENT_CALLS = 20;
 const SPIRAL_THRESHOLD = 5;
 const SPIRAL_WINDOW_MS = 5 * 60 * 1000; // 5 minutes
+const SPIRAL_COOLDOWN_MS = 60 * 1000; // 1 minute between spiral triggers per session
+const MAX_TRACKED_SESSIONS = 500; // evict oldest entry to bound memory usage
 
 /**
  * Record a tool call for debugging spiral detection.
  * Call this from toolAfter to track repetitive patterns.
  */
-export function recordToolCall(tool: string, args: unknown): void {
+export function recordToolCall(
+	tool: string,
+	args: unknown,
+	sessionId: string,
+): void {
 	const argsHash =
 		typeof args === 'string'
 			? args.slice(0, 100)
 			: JSON.stringify(args ?? '').slice(0, 100);
-	recentToolCalls.push({ tool, argsHash, timestamp: Date.now() });
-	if (recentToolCalls.length > MAX_RECENT_CALLS) {
-		recentToolCalls.shift();
+	let calls = recentToolCallsBySession.get(sessionId);
+	if (!calls) {
+		calls = [];
+		recentToolCallsBySession.set(sessionId, calls);
+	}
+	calls.push({ tool, argsHash, timestamp: Date.now() });
+	if (calls.length > MAX_RECENT_CALLS) {
+		calls.shift();
 	}
 }
 
@@ -500,11 +514,16 @@ export function recordToolCall(tool: string, args: unknown): void {
  */
 export async function detectDebuggingSpiral(
 	_directory: string,
+	sessionId: string,
 ): Promise<AdversarialPatternMatch | null> {
 	const now = Date.now();
-	const windowCalls = recentToolCalls.filter(
-		(c) => now - c.timestamp < SPIRAL_WINDOW_MS,
-	);
+
+	// Cooldown: don't re-trigger for the same session within SPIRAL_COOLDOWN_MS
+	const lastTrigger = lastSpiralTimestampBySession.get(sessionId) ?? 0;
+	if (now - lastTrigger < SPIRAL_COOLDOWN_MS) return null;
+
+	const calls = recentToolCallsBySession.get(sessionId) ?? [];
+	const windowCalls = calls.filter((c) => now - c.timestamp < SPIRAL_WINDOW_MS);
 
 	if (windowCalls.length < SPIRAL_THRESHOLD) return null;
 
@@ -517,6 +536,21 @@ export async function detectDebuggingSpiral(
 	const allSimilarArgs = lastN.every((c) => c.argsHash === firstArgs);
 
 	if (allSameTool && allSimilarArgs) {
+		// Record trigger time and clear the buffer to prevent immediate re-detection
+		lastSpiralTimestampBySession.set(sessionId, now);
+		recentToolCallsBySession.delete(sessionId);
+		// Evict oldest session entry to bound memory growth.
+		// Skip self-eviction: if the oldest key is the current sessionId, evict the
+		// next-oldest instead so the cooldown we just set isn't immediately deleted.
+		if (lastSpiralTimestampBySession.size > MAX_TRACKED_SESSIONS) {
+			for (const oldest of lastSpiralTimestampBySession.keys()) {
+				if (oldest !== sessionId) {
+					lastSpiralTimestampBySession.delete(oldest);
+					recentToolCallsBySession.delete(oldest);
+					break;
+				}
+			}
+		}
 		return {
 			pattern: 'VELOCITY_RATIONALIZATION',
 			severity: 'HIGH',
