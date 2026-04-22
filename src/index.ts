@@ -60,6 +60,7 @@ import { createScopeGuardHook } from './hooks/scope-guard.js';
 import { createSelfReviewHook } from './hooks/self-review.js';
 import { createSlopDetectorHook } from './hooks/slop-detector';
 import { createSteeringConsumedHook } from './hooks/steering-consumed.js';
+import { createPrmHook } from './prm';
 import { createCompactionService } from './services/compaction-service';
 import { shouldRunOnStartup } from './services/config-doctor';
 import { loadSnapshot } from './session/snapshot-reader.js';
@@ -198,6 +199,22 @@ const OpenCodeSwarm: Plugin = async (ctx) => {
 		Object.fromEntries(agentDefinitions.map((agent) => [agent.name, agent])),
 	);
 	const activityHooks = createAgentActivityHooks(config, ctx.directory);
+	const prmHook = createPrmHook(
+		config.prm ?? {
+			enabled: true,
+			pattern_thresholds: {
+				repetition_loop: 2,
+				ping_pong: 2,
+				expansion_drift: 3,
+				stuck_on_test: 3,
+				context_thrash: 3,
+			},
+			max_trajectory_lines: 1000,
+			escalation_enabled: true,
+			detection_timeout_ms: 100,
+		},
+		ctx.directory,
+	);
 	const delegationGateHooks = createDelegationGateHook(config, ctx.directory);
 	const delegationSanitizerHook = createDelegationSanitizerHook(ctx.directory);
 	// Fail-secure: honor explicit guardrails.enabled === false (preserving the full
@@ -995,6 +1012,7 @@ const OpenCodeSwarm: Plugin = async (ctx) => {
 				await activityHooks.toolAfter(input, output);
 				if (_dbg)
 					console.error(`[DIAG] toolAfter activity done tool=${_toolName}`);
+				await safeHook(prmHook.toolAfter)(input, output);
 				await guardrailsHooks.toolAfter(input, output);
 				if (_dbg)
 					console.error(`[DIAG] toolAfter guardrails done tool=${_toolName}`);

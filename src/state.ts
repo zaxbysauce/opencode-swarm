@@ -21,6 +21,7 @@ import {
 import type { TaskEvidence } from './gate-evidence';
 import { clearPendingCoderScope } from './hooks/delegation-gate.js';
 import { loadPlanJsonOnly } from './plan/manager.js';
+import type { PatternMatch } from './prm/types.js';
 import { AgentRunContext } from './state/agent-run-context.js';
 import { telemetry } from './telemetry.js';
 
@@ -242,6 +243,18 @@ export interface AgentSessionState {
 	// Stale state detection (Bug B)
 	/** Timestamp when session was rehydrated from snapshot (0 if never rehydrated) */
 	sessionRehydratedAt: number;
+
+	// PRM (Process Remediation Manager) - Phase 1
+	/** Pattern type to detection count mapping */
+	prmPatternCounts: Map<string, number>;
+	/** Current escalation level (0=none, 1=guidance, 2=strong guidance, 3=hard stop) */
+	prmEscalationLevel: number;
+	/** Last pattern detected (if any) */
+	prmLastPatternDetected: PatternMatch | null;
+	/** Current trajectory step counter */
+	prmTrajectoryStep: number;
+	/** Whether a hard stop has been triggered */
+	prmHardStopPending: boolean;
 }
 
 /**
@@ -463,6 +476,12 @@ export function startAgentSession(
 		loopDetectionWindow: [],
 		pendingAdvisoryMessages: [],
 		sessionRehydratedAt: 0,
+		// PRM (Process Remediation Manager) - Phase 1
+		prmPatternCounts: new Map(),
+		prmEscalationLevel: 0,
+		prmLastPatternDetected: null,
+		prmTrajectoryStep: 0,
+		prmHardStopPending: false,
 	};
 
 	swarmState.agentSessions.set(sessionId, sessionState);
@@ -672,6 +691,22 @@ export function ensureAgentSession(
 		// Stale state detection migration safety (Bug B)
 		if (session.sessionRehydratedAt === undefined) {
 			session.sessionRehydratedAt = 0;
+		}
+		// PRM migration safety (Phase 1)
+		if (session.prmPatternCounts === undefined) {
+			session.prmPatternCounts = new Map();
+		}
+		if (session.prmEscalationLevel === undefined) {
+			session.prmEscalationLevel = 0;
+		}
+		if (session.prmLastPatternDetected === undefined) {
+			session.prmLastPatternDetected = null;
+		}
+		if (session.prmTrajectoryStep === undefined) {
+			session.prmTrajectoryStep = 0;
+		}
+		if (session.prmHardStopPending === undefined) {
+			session.prmHardStopPending = false;
 		}
 
 		session.lastToolCallTime = now;

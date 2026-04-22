@@ -146,6 +146,11 @@ export function deserializeAgentSession(
 		fullAutoInteractionCount: s.fullAutoInteractionCount ?? 0,
 		fullAutoDeadlockCount: s.fullAutoDeadlockCount ?? 0,
 		fullAutoLastQuestionHash: s.fullAutoLastQuestionHash ?? null,
+		prmPatternCounts: new Map(),
+		prmEscalationLevel: 0,
+		prmLastPatternDetected: null,
+		prmTrajectoryStep: 0,
+		prmHardStopPending: false,
 		sessionRehydratedAt: s.sessionRehydratedAt ?? 0,
 	};
 }
