@@ -245,13 +245,17 @@ describe('telemetry init and heartbeat (Task 3.9)', () => {
 
 			telemetry.heartbeat('session-shape-test');
 
-			await new Promise((resolve) => setTimeout(resolve, 100));
-
+			// Poll for the heartbeat line to appear (async write race condition)
 			const telemetryPath = path.join(tempDir, '.swarm', 'telemetry.jsonl');
-			const content = fs.readFileSync(telemetryPath, 'utf-8');
-			const lines = content.trim().split('\n').filter(Boolean);
-
-			const heartbeatLine = lines.find((l) => l.includes('session-shape-test'));
+			let heartbeatLine: string | undefined;
+			for (let attempt = 0; attempt < 20; attempt++) {
+				await new Promise((resolve) => setTimeout(resolve, 100));
+				const content = fs.readFileSync(telemetryPath, 'utf-8');
+				const lines = content.trim().split('\n').filter(Boolean);
+				heartbeatLine = lines.find((l) => l.includes('session-shape-test'));
+				if (heartbeatLine) break;
+			}
+			expect(heartbeatLine).toBeDefined();
 			const parsed = JSON.parse(heartbeatLine!);
 
 			// Verify the shape of a heartbeat event
