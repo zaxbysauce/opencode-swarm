@@ -1,5 +1,12 @@
 # Changelog
 
+## [6.82.0](https://github.com/zaxbysauce/opencode-swarm/compare/v6.81.1...v6.82.0) (2026-04-23)
+
+
+### Features
+
+* **mutation-gate:** add mutation-testing-backed test quality gate ([#569](https://github.com/zaxbysauce/opencode-swarm/issues/569)) ([3e5059d](https://github.com/zaxbysauce/opencode-swarm/commit/3e5059d105ad74ccf21c5ab106d8349135763625))
+
 ## [Unreleased]
 
 ### Features
