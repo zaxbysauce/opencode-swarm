@@ -23563,7 +23563,7 @@ function createGuardrailsHooks(directory, directoryOrConfig, config2, authorityC
       const planMdPath = path9.resolve(effectiveDirectory, ".swarm", "plan.md").toLowerCase();
       const planJsonPath = path9.resolve(effectiveDirectory, ".swarm", "plan.json").toLowerCase();
       if (resolvedTarget === planMdPath || resolvedTarget === planJsonPath) {
-        throw new Error("PLAN STATE VIOLATION: Direct writes to .swarm/plan.md and .swarm/plan.json are blocked. " + "plan.md is auto-regenerated from plan.json by PlanSyncWorker. " + "Use update_task_status() to mark tasks complete, " + "phase_complete() for phase transitions, or " + "save_plan to create/restructure plans.");
+        throw new Error("PLAN STATE VIOLATION: Direct writes to .swarm/plan.md and .swarm/plan.json are blocked. " + "plan.md is auto-regenerated from plan.json by PlanSyncWorker. " + "Use save_plan for ALL structural plan changes (adding/removing tasks, updating descriptions, dependencies, or phase names). " + "Use update_task_status() for task status only. " + "Use phase_complete() for phase transitions only.");
       }
     }
     if (!targetPath && (tool === "apply_patch" || tool === "patch")) {
@@ -23572,7 +23572,7 @@ function createGuardrailsHooks(directory, directoryOrConfig, config2, authorityC
         const planMdPath = path9.resolve(effectiveDirectory, ".swarm", "plan.md").toLowerCase();
         const planJsonPath = path9.resolve(effectiveDirectory, ".swarm", "plan.json").toLowerCase();
         if (resolvedP.toLowerCase() === planMdPath || resolvedP.toLowerCase() === planJsonPath) {
-          throw new Error("PLAN STATE VIOLATION: Direct writes to .swarm/plan.md and .swarm/plan.json are blocked. " + "plan.md is auto-regenerated from plan.json by PlanSyncWorker. " + "Use update_task_status() to mark tasks complete, " + "phase_complete() for phase transitions, or " + "save_plan to create/restructure plans.");
+          throw new Error("PLAN STATE VIOLATION: Direct writes to .swarm/plan.md and .swarm/plan.json are blocked. " + "plan.md is auto-regenerated from plan.json by PlanSyncWorker. " + "Use save_plan for ALL structural plan changes (adding/removing tasks, updating descriptions, dependencies, or phase names). " + "Use update_task_status() for task status only. " + "Use phase_complete() for phase transitions only.");
         }
         if (isOutsideSwarmDir(p, effectiveDirectory) && (isSourceCodePath(p) || hasTraversalSegments(p))) {
           const session = swarmState.agentSessions.get(sessionID);
@@ -54539,7 +54539,7 @@ The correct tools: save_plan to create or restructure a plan (writes plan.json \
 .swarm/plan.md and .swarm/plan.json are READABLE but NOT DIRECTLY WRITABLE for state transitions.
 Task-level status changes (marking individual tasks as "completed") must use update_task_status().
 Phase-level completion (marking an entire phase as done) must use phase_complete().
-You may write to plan.md/plan.json for STRUCTURAL changes (adding tasks, updating descriptions).
+For STRUCTURAL changes (adding tasks, updating descriptions, changing dependencies), use save_plan \u2014 do NOT write plan.md/plan.json directly.
 You may NOT write to plan.md/plan.json to change task completion status or phase status directly.
 "I'll just mark it done directly" is a bypass \u2014 equivalent to GATE_DELEGATION_BYPASS.
 
@@ -82235,7 +82235,7 @@ async function executeSavePlan(args2, fallbackDir) {
   }
 }
 var save_plan = createSwarmTool({
-  description: "Save a structured implementation plan to .swarm/plan.json and .swarm/plan.md. " + "Task descriptions and phase names MUST contain real content from the spec \u2014 " + "bracket placeholders like [task] or [Project] will be rejected.",
+  description: "Save or revise a structured implementation plan to .swarm/plan.json and .swarm/plan.md. " + "Use this tool for all structural plan changes on an existing plan (adding/removing tasks, updating descriptions, dependencies, or phase names) \u2014 existing task statuses are preserved by default (set reset_statuses: true to start fresh). " + "Task descriptions and phase names MUST contain real content from the spec \u2014 " + "bracket placeholders like [task] or [Project] will be rejected.",
   args: {
     title: tool.schema.string().min(1).describe("Plan title \u2014 the REAL project name from the spec. NOT a placeholder like [Project]."),
     swarm_id: tool.schema.string().min(1).describe('Swarm identifier (e.g. "mega")'),

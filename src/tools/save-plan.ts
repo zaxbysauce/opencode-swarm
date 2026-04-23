@@ -517,7 +517,8 @@ export async function executeSavePlan(
  */
 export const save_plan: ToolDefinition = createSwarmTool({
 	description:
-		'Save a structured implementation plan to .swarm/plan.json and .swarm/plan.md. ' +
+		'Save or revise a structured implementation plan to .swarm/plan.json and .swarm/plan.md. ' +
+		'Use this tool for all structural plan changes on an existing plan (adding/removing tasks, updating descriptions, dependencies, or phase names) — existing task statuses are preserved by default (set reset_statuses: true to start fresh). ' +
 		'Task descriptions and phase names MUST contain real content from the spec — ' +
 		'bracket placeholders like [task] or [Project] will be rejected.',
 	args: {
