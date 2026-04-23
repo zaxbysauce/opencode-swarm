@@ -1,5 +1,7 @@
 # Knowledge System Verification Report
 
+> **Archived 2026-04-23.** This verification captured a point-in-time review from March 2026. The knowledge system has evolved — see [docs/knowledge.md](../../knowledge.md) for current behavior.
+
 **Project**: opencode-swarm
 **Date**: 2026-03-31
 **Branch**: `claude/debug-knowledge-system-AFnEp`

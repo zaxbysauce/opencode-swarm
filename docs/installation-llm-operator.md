@@ -1,6 +1,10 @@
 # OpenCode Swarm LLM Operator Guide
 
-Use this guide when an LLM is installing `opencode-swarm` for a user through OpenCode. It is written to be executed step-by-step by an agent.
+**← Back to [Installation Guide](installation.md)** | This is an executable runbook for LLM agents. For human-friendly installation, see the main guide or [platform-specific guide](installation-linux-docker.md).
+
+---
+
+Use this guide when an LLM installs `opencode-swarm` for a user through OpenCode; each step is meant to be executed directly.
 
 ## Goal
 
@@ -96,7 +100,6 @@ Use the user-approved config. If not provided, use this minimum valid config:
         "architect": { "model": "opencode/gpt-5-nano" },
         "coder": { "model": "minimax-coding-plan/MiniMax-M2.5" },
         "explorer": { "model": "minimax-coding-plan/MiniMax-M2.1" },
-        "explore": { "model": "minimax-coding-plan/MiniMax-M2.1" },
         "sme": { "model": "kimi-for-coding/k2p5" },
         "critic": { "model": "zai-coding-plan/glm-5" },
         "reviewer": { "model": "zai-coding-plan/glm-5" },

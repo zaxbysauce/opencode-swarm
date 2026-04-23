@@ -1990,7 +1990,7 @@ Key principles:
 ## Parallelization Foundation (PR 1 — Dark)
 
 PR 1 of the stacked parallelization release lands dark infrastructure with zero behavior change.
-See [docs/dev/pr1-foundation.md](dev/pr1-foundation.md) for the full design note covering:
+See [docs/archive/dev/pr1-foundation.md](archive/dev/pr1-foundation.md) for the full design note covering:
 - What is dark now vs. deferred to PR 2 and PR 3
 - Process-global variable audit and isolation classification
 - Invariants that prove runtime behavior is unchanged

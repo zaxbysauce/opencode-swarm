@@ -161,7 +161,7 @@ Focused task = focused code.
 
 ```json
 {
-  "coder": "anthropic/claude-sonnet-4-5",
+  "coder": "anthropic/claude-sonnet-4-20250514",
   "reviewer": "openai/gpt-4o",
   "critic": "google/gemini-2.0-flash"
 }
