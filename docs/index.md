@@ -1,70 +1,119 @@
 # OpenCode Swarm Documentation
 
-This index covers all documentation available for OpenCode Swarm.
+OpenCode Swarm (v6.81.0) is an architect-centric agentic swarm plugin for OpenCode that orchestrates 11 specialized agents for planning, code generation, review, testing, and documentation. This documentation covers installation, configuration, usage, and architecture.
 
-## For new users
+---
 
-| Document | What it covers |
-|----------|---------------|
-| [Getting Started](getting-started.md) | First-run workflow, common questions, and how to restart |
-| [Installation Guide](installation.md) | Install steps, model configuration, and multiple-swarm setup |
-| [Installation: Linux + Docker](installation-linux-docker.md) | Step-by-step for native Linux, native Windows, and Windows via Docker Desktop |
-| [Installation: LLM Operator](installation-llm-operator.md) | Machine-executable install and validation runbook for LLM-driven setup |
+## Getting Started — Choose Your Path
 
-## For day-to-day use
+**I am a new user** — I want to get Swarm running on my first project  
+→ Start with [Getting Started](getting-started.md) — a 15-minute first-run walkthrough
 
-| Document | What it covers |
-|----------|---------------|
-| [Configuration Reference](configuration.md) | Config file locations, minimal example, and all config keys |
-| [Pre-Swarm Planning Guide](planning.md) | How to plan tasks before running the swarm, task field reference, multi-model planning, and the built-in spec pipeline |
-| [Swarm Briefing for LLMs](swarm-briefing.md) | Pipeline steps, task format, state machine, and scope enforcement — written for an LLM acting as plan author |
-| [PHP and Laravel Practical Guide](php-laravel.md) | PHP/Composer project detection, Laravel framework detection and command override, Pest/PHPUnit coexistence, Composer audit, and Blade/Eloquent SAST coverage |
+**I am an operator** — I want to install Swarm in CI/container or a specific environment  
+→ Choose your platform:
+- [Installation Guide](installation.md) — comprehensive reference for all platforms
+- [Installation: Linux + Docker](installation-linux-docker.md) — native Linux, Windows, Docker Desktop specifics
+- [Installation: LLM Operator](installation-llm-operator.md) — machine-executable runbook for LLM-driven setup
 
-## Architecture and design
+**I am a contributor** — I want to understand the architecture or contribute to the project  
+→ Read [Architecture Deep Dive](architecture.md) and [Design Rationale](design-rationale.md), then [CONTRIBUTING.md](../contributing.md)
 
-| Document | What it covers |
-|----------|---------------|
-| [Architecture Deep Dive](architecture.md) | Control model, agent roles, full execution flow, and mode labels |
-| [Design Rationale](design-rationale.md) | The "why" behind every major design decision from serial execution to quality gates |
+---
 
-## Release history
+## User Documentation
 
-| Release | Highlights |
+### For Day-to-Day Use
+
+| Document | Covers |
+|----------|--------|
+| [Configuration Reference](configuration.md) | Config file locations, minimal example, all configuration keys |
+| [Commands Reference](commands.md) | All 41 `/swarm` subcommands, flags, and examples |
+| [Modes: Swarm vs Turbo vs Full-Auto](modes.md) | Execution modes, safety gates, when to use each |
+| [Pre-Swarm Planning Guide](planning.md) | How to plan tasks before running, task field reference, multi-model planning, spec pipeline |
+| [Swarm Briefing for LLMs](swarm-briefing.md) | Pipeline steps, task format, state machine — written for LLM plan authors |
+| [PHP and Laravel Practical Guide](php-laravel.md) | Framework detection, Laravel command override, Pest/PHPUnit coexistence, SAST coverage |
+
+### Advanced Topics
+
+| Document | Covers |
+|----------|--------|
+| [Knowledge System](knowledge.md) | Hive vs swarm knowledge, TTL decay, migration, quarantine workflows |
+| [Evidence and Telemetry](evidence-and-telemetry.md) | Evidence bundle schema, JSONL event stream, how to analyze results |
+| [Work Complete Council](council/README.md) | Optional consensus gate for verifying phase completion |
+| [Troubleshooting](troubleshooting/recovery-guide.md) | Session recovery, common error scenarios |
+
+### Architecture and Design
+
+| Document | Covers |
+|----------|--------|
+| [Architecture Deep Dive](architecture.md) | Control model, 11 agent roles, full execution pipeline, tools, evidence schema, modes, guardrails |
+| [Design Rationale](design-rationale.md) | Core design decisions: serial execution, phased planning, persistent memory, gated QA |
+| [Plan Durability](plan-durability.md) | How `.swarm/plan-ledger.jsonl` provides crash-safe plan persistence |
+
+---
+
+## Release History
+
+**Latest version: v6.81.0** (released 2026-04-22)
+
+The full release history is documented in [CHANGELOG.md](../CHANGELOG.md) (v6.15.0 through v6.81.0).
+
+Recent highlights:
+
+| Version | Highlights |
 |---------|-----------|
-| [v6.45.0](releases/v6.45.0.md) | Structured workspace search (search), reviewer-safe patch suggestions (suggest_patch), batched symbol extraction (batch_symbols), canonical tool-name normalization, architect-led test drift review |
-| [v6.44.3](releases/v6.44.3.md) | Patch release |
-| [v6.31.0](releases/v6.31.0.md) | process.cwd() cleanup, curator pipeline wiring, watchdog enforcement, knowledge memory tools |
-| [v6.29.4](releases/v6.29.4.md) | Cross-task regression sweep, curator data pipeline visibility, opt-in full-suite testing |
-| [v6.29.3](releases/v6.29.3.md) | Curator status in `/swarm diagnose`, documentation refresh |
-| [v6.29.2](releases/v6.29.2.md) | Multi-language incremental verify, slop-detector hardening, codebase reality check |
-| [v6.29.1](releases/v6.29.1.md) | Advisory hook message injection improvements |
-| [v6.27.0](releases/v6.27.0.md) | TypeScript compilation fixes from v6.26.0 |
-| [v6.26.1](releases/v6.26.1.md) | Gate recovery fix for pure-verification tasks |
-| [v6.26.0](releases/v6.26.0.md) | Session durability, evidence task resolution, Turbo Mode |
-| [v6.22.0](releases/v6.22.0.md) | Curator background analysis system, Issue #81 session state persistence fix |
-| [v6.19.1](releases/v6.19.1.md) | Patch release |
-| [v6.19.0](releases/v6.19.0.md) | Critic sounding board, adversarial hardening, escalation discipline, intent reconstruction |
-| [v6.18.1](releases/v6.18.1.md) | Patch release |
-| [v6.18.0](releases/v6.18.0.md) | Release notes |
-| [v6.17.3](releases/v6.17.3.md) | Patch release |
-| [v6.17.2](releases/v6.17.2.md) | Patch release |
-| [v6.17.1](releases/v6.17.1.md) | Patch release |
-| [v6.17.0](releases/v6.17.0.md) | Release notes |
-| [v6.16.1](releases/v6.16.1.md) | Patch release |
-| [v6.16.0](releases/v6.16.0.md) | Language-aware prompt injection, multi-language support |
-| [v6.15.0](releases/v6.15.0.md) | Release notes |
+| [v6.81.0](releases/v6.81.0.md) | Current version — documentation refresh |
+| [v6.80.2](releases/v6.80.2.md) | Latest stable release with notes |
+| [v6.80.1](releases/v6.80.1.md) | Patch release |
+| [v6.78.0](releases/v6.78.0.md) | Stability improvements |
+| [v6.77.0](releases/v6.77.0.md) | Feature releases and hardening |
+| [v6.76.0](releases/v6.76.0.md) | Major feature additions |
+| [v6.74.0](releases/v6.74.0.md) | Quality gate enhancements |
+| [v6.73.0](releases/v6.73.0.md) | Critic hallucination verifier, phase_complete gate enforcement |
+| [v6.72.0](releases/v6.72.0.md) | Knowledge N-phase TTL decay, stale-entry sweep |
+| [v6.71.0](releases/v6.71.0.md) | Scope persistence, interpreter gating, audit logging |
+| [v6.70.0](releases/v6.70.0.md) | Transparent write authority, symlink guards, universal deny prefixes |
+| [v6.68.0](releases/v6.68.0.md) | SQLite constraint store, QA gate profiles, BRAINSTORM mode |
+| [v6.67.0](releases/v6.67.0.md) | Council tools, round-history auditing |
+| [v6.66.0](releases/v6.66.0.md) | Work Complete Council verification gate |
+| [v6.65.0](releases/v6.65.0.md) | Workspace dependency graph |
+| [v6.64.0](releases/v6.64.0.md) | Repo map and code graph |
+| [v6.63.0](releases/v6.63.0.md) | Crash-safe ledger, typed concurrency errors |
+| [v6.59.0](releases/v6.59.0.md) | State-of-the-art PR review agent, explorer hardening |
+| [v6.58.0](releases/v6.58.0.md) | Structured spec format with RFC 2119 keywords |
+| [v6.45.0](releases/v6.45.0.md) | Structured workspace search, patch suggestions, symbol extraction |
 
-For the full version-by-version changelog, see [CHANGELOG.md](../CHANGELOG.md).
+All versions from v6.15.0 onward have release notes in `/docs/releases/`.
 
-## Internal / development docs
+---
 
-These documents are for contributors working on the swarm codebase itself.
+## Historical / Development Docs
 
-| Document | What it covers |
-|----------|---------------|
-| [dev/phase0-execution-plan.md](dev/phase0-execution-plan.md) | Stage 0 baseline recon and design freeze for v6.9.0 quality tooling |
-| [dev/phase0-tool-architecture.md](dev/phase0-tool-architecture.md) | Tool contract, evidence schema, and CI-gate intake for v6.9.0 |
-| [dev/v6-9-roadmap.md](dev/v6-9-roadmap.md) | Stages 1-8 implementation plan for v6.9.0 quality/anti-slop tooling |
-| [dev/v6.9.0-release-checklist.md](dev/v6.9.0-release-checklist.md) | Pre-release verification checklist for v6.9.0 |
-| [dev/sme-engagement-plan.md](dev/sme-engagement-plan.md) | SME consultation schedule for v6.9.0 implementation |
-| [dev/stage1-plan.md](dev/stage1-plan.md) through [dev/stage8-plan.md](dev/stage8-plan.md) | Per-stage implementation plans for v6.9.0 |
+These documents are archived from the v6.9.0 development phase and are retained for historical provenance.
+
+See [Archive](archive/ARCHIVE.md) for:
+- v6.9.0 phase planning documents (phase0-*, stages 1–8)
+- Historical tech debt reviews and closure plans
+- Archived issue-specific planning documents
+
+---
+
+## Quick Links
+
+- **[CHANGELOG.md](../CHANGELOG.md)** — full version-by-version history
+- **[README.md](../README.md)** — project overview, feature summary, configuration quick ref
+- **[CONTRIBUTING.md](../contributing.md)** — how to contribute, commit format, PR workflow
+- **[TESTING.md](../TESTING.md)** — test framework (bun:test), mock isolation, CI pipeline
+
+---
+
+## Staying Current
+
+- **New to Swarm?** Start with [Getting Started](getting-started.md)
+- **Upgrading?** Check [CHANGELOG.md](../CHANGELOG.md) for breaking changes (rare)
+- **Reporting issues?** See [CONTRIBUTING.md](../contributing.md) for how to file bugs
+- **Have questions?** Check this index or search [CHANGELOG.md](../CHANGELOG.md) and [architecture.md](architecture.md) for your keyword
+
+---
+
+*Last updated: 2026-04-22. Covers opencode-swarm v6.81.0.*

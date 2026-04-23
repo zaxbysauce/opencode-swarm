@@ -1,11 +1,13 @@
 # OpenCode Swarm Installation (Linux, Native Windows, and Docker Desktop)
 
-This guide covers a full install for `opencode-swarm` on:
+**← Back to [Installation Guide](installation.md)** | For comprehensive config reference and troubleshooting, see the main installation guide.
+
+---
+
+Full install steps for `opencode-swarm` on:
 - Native Linux
 - Native Windows (PowerShell)
 - Windows via Docker Desktop (Linux container)
-
-It includes install, configuration, run, and verification.
 
 ## Prerequisites
 
@@ -105,7 +107,6 @@ Create `~/.config/opencode/opencode-swarm.json`:
         "architect": { "model": "opencode/gpt-5-nano" },
         "coder": { "model": "minimax-coding-plan/MiniMax-M2.5" },
         "explorer": { "model": "minimax-coding-plan/MiniMax-M2.1" },
-        "explore": { "model": "minimax-coding-plan/MiniMax-M2.1" },
         "sme": { "model": "kimi-for-coding/k2p5" },
         "critic": { "model": "zai-coding-plan/glm-5" },
         "reviewer": { "model": "zai-coding-plan/glm-5" },

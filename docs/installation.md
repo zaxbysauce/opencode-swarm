@@ -1,8 +1,17 @@
 # Installation Guide
 
-For full platform-specific setup, see:
-- `docs/installation-linux-docker.md` (native Linux + native Windows + Docker Desktop on Windows)
-- `docs/installation-llm-operator.md` (LLM-executable install and validation runbook)
+## Choose Your Path
+
+**I want to install on my machine** (macOS, Linux, Windows, or Docker)  
+→ See [Installation: Linux, Windows, and Docker](installation-linux-docker.md)
+
+**I am an LLM or automation tool installing for a user**  
+→ See [Installation: LLM Operator Guide](installation-llm-operator.md) (executable runbook)
+
+**I want the full reference** (configuration, troubleshooting, all options)  
+→ Continue below
+
+---
 
 ## Quick Start
 
@@ -411,39 +420,6 @@ Or use the slash command:
 
 ---
 
-## Development
-
-### Running Tests
-
-```bash
-# Run all tests
-bun test
-
-# Run specific test file
-bun test tests/unit/config/schema.test.ts
-
-# Run tests in a specific directory
-bun test tests/unit/agents/
-```
-
-### Build & Verify
-
-```bash
-# Build
-bun run build
-
-# Type check
-bun run typecheck
-
-# Lint
-bun run lint
-
-# Full verification
-bun test && bun run build && bun run typecheck && bun run lint
-```
-
----
-
 ## Troubleshooting
 
 ### Agents Not Loading
@@ -524,7 +500,7 @@ Control which hooks are active:
 
 ## Context Budget Configuration
 
-The context budget system now includes several additional controls to fine‑tune how token usage is managed and enforced. The full schema (see `src/config/schema.ts`) supports the following options:
+Context budget controls (full schema in `src/config/schema.ts`):
 
 | Option | Type | Default | Description |
 |--------|------|---------|-------------|
@@ -540,8 +516,6 @@ The context budget system now includes several additional controls to fine‑tun
 | `recent_window` | number | `10` | How many recent turns are considered for priority‑based pruning |
 | `enforce_on_agent_switch` | boolean | `true` | Enforce a hard context reset when the active agent changes (e.g., from `explorer` to `coder`) |
 | `tool_output_mask_threshold` | number | `2000` | Minimum token count at which tool output is masked/truncated to stay within the budget |
-
-These fields give operators granular control over context budgeting, enabling both soft warnings and hard enforcement policies.
 
 ```json
 {
@@ -714,7 +688,7 @@ Control the dual-pass security review behavior introduced in v6.0.0:
 | `always_security_review` | boolean | `false` | When `true`, run a security-only review pass on every task regardless of file path. When `false`, only trigger on files matching `security_globs`. |
 | `security_globs` | string[] | 7 patterns | Glob patterns for security-sensitive files. When a changed file matches any pattern, the architect triggers an automatic security-only reviewer pass after the general review. |
 
-The security review pass uses **OWASP Top 10 2021** categories as its review framework. It runs as a separate reviewer delegation with security-only framing — the same reviewer agent, different mission.
+The security review pass uses **OWASP Top 10 2021** categories as its review framework. It runs as a separate reviewer delegation that reuses the same reviewer agent with security-only framing.
 
 ---
 
@@ -783,7 +757,7 @@ No background automation. All actions require explicit slash commands:
 - `/swarm config doctor` - Validate config manually
 - `/swarm sync-plan` - Sync plan.md from plan.json manually
 
-Use this mode when you want full control over background operations.
+Choose manual when you want full control over background operations.
 
 #### Hybrid
 
@@ -796,7 +770,7 @@ Manual triggers for sensitive operations:
 - Preflight checks run via slash command
 - Any manual overrides via `/swarm` commands
 
-Use this mode when you want some automation but want to approve sensitive operations.
+Choose hybrid when you want safe-ops automation but manual approval for sensitive changes.
 
 #### Auto
 
@@ -807,17 +781,19 @@ Full background automation (target state):
 - Evidence summaries generated automatically
 - Plan sync in background
 
-Use this mode when you've tested automation and want maximum productivity.
+Pick auto once you've tested the individual capabilities and want full throughput.
 
 ### Feature Flag Safety
 
-**Every automation feature has a default-off feature flag:**
+Every automation capability is default-off:
+
 - Start with `mode: "manual"` and all capabilities `false`
 - Enable features as you test them
 - Never enable everything at once
 - Revert to manual mode if something goes wrong
 
-**Config Doctor security:**
+#### Config Doctor security
+
 - Defaults to scan-only mode (`autoFix: false`)
 - Only runs auto-fix when explicitly enabled via `config_doctor_autofix: true`
 - Creates encrypted backups in `.swarm/` before applying fixes
@@ -1034,7 +1010,7 @@ Auto-detected commands by ecosystem:
 ```json
 {
   "agents": {
-    "architect": { "model": "anthropic/claude-opus-4-6" },
+    "architect": { "model": "anthropic/claude-sonnet-4-20250514" },
     "coder": { "model": "minimax-coding-plan/MiniMax-M2.5" }
   },
   "gates": {
@@ -1102,13 +1078,9 @@ Or disable all gates:
 
 ### Local-Only Guarantee
 
-All v6.9.0 quality gates run entirely locally:
-- ✅ No Docker containers
-- ✅ No network connections
-- ✅ No external APIs
-- ✅ No cloud services
+Quality gates run entirely on your machine: no Docker, no network calls, no external APIs, no cloud services.
 
-Optional enhancement: Semgrep CLI (if already on PATH, not required)
+Optional enhancement: Semgrep CLI (if already on PATH, not required).
 
 ---
 
@@ -1190,4 +1162,4 @@ Run performance benchmarks and display metrics. Tracks tool call rates, delegati
 
 ### `/swarm retrieve [id]`
 
-Retrieve auto-summarized tool outputs by ID. When tool outputs are too large, they are summarized automatically — use this command to retrieve the full content by ID.
+Retrieve the full content behind a summary ID (like `S1`, `S2`) when the summary alone is insufficient.
