@@ -84,12 +84,28 @@ async function install(): Promise<number> {
 	// Add fresh entry
 	opencodeConfig.plugin.push(pluginName);
 
-	// Disable OpenCode's default agents to avoid conflicts
+	// Disable OpenCode's default agents to avoid conflicts.
+	// Use merge semantics to preserve any custom settings (e.g. model) the user
+	// may have configured — only enforce disable:true, don't wipe other keys.
+	// Safely handle edge cases where agent.explore/general might be non-objects
+	// (null, false, string, etc.) to avoid data corruption from spread operator.
 	if (!opencodeConfig.agent) {
 		opencodeConfig.agent = {};
 	}
-	opencodeConfig.agent.explore = { disable: true };
-	opencodeConfig.agent.general = { disable: true };
+	opencodeConfig.agent.explore = {
+		...(typeof opencodeConfig.agent.explore === 'object' &&
+		opencodeConfig.agent.explore !== null
+			? (opencodeConfig.agent.explore as Record<string, unknown>)
+			: {}),
+		disable: true,
+	};
+	opencodeConfig.agent.general = {
+		...(typeof opencodeConfig.agent.general === 'object' &&
+		opencodeConfig.agent.general !== null
+			? (opencodeConfig.agent.general as Record<string, unknown>)
+			: {}),
+		disable: true,
+	};
 
 	saveJson(OPENCODE_CONFIG_PATH, opencodeConfig);
 	console.log('✓ Added opencode-swarm to OpenCode plugins');
@@ -308,10 +324,17 @@ async function main(): Promise<void> {
 	}
 }
 
-main().catch((err) => {
-	console.error('Fatal error:', err);
-	process.exit(1);
-});
+// Guard against module-level side effects when imported by test files.
+// In Bun's test worker, process.argv has only 2 elements, so slice(2) is
+// empty and command defaults to 'install', which would overwrite the user's
+// real opencode.json. import.meta.main is false when this module is imported,
+// so main() only runs when the file is the actual CLI entry point.
+if (import.meta.main) {
+	main().catch((err) => {
+		console.error('Fatal error:', err);
+		process.exit(1);
+	});
+}
 
 /**
  * Dispatch function for routing argv tokens to plugin command handlers.
