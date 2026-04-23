@@ -1,5 +1,12 @@
 # Changelog
 
+## [6.82.1](https://github.com/zaxbysauce/opencode-swarm/compare/v6.82.0...v6.82.1) (2026-04-23)
+
+
+### Bug Fixes
+
+* **architect:** remove stale plan.md structural-write permission ([#574](https://github.com/zaxbysauce/opencode-swarm/issues/574)) ([#576](https://github.com/zaxbysauce/opencode-swarm/issues/576)) ([974070c](https://github.com/zaxbysauce/opencode-swarm/commit/974070ce295e3fc4e33bb4e3f4a108948bf79c97))
+
 ## [6.82.0](https://github.com/zaxbysauce/opencode-swarm/compare/v6.81.1...v6.82.0) (2026-04-23)
 
 
