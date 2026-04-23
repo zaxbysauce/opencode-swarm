@@ -561,6 +561,7 @@ Do NOT call \`set_qa_gates\` yet — \`plan.json\` does not exist at this point.
 - sast_enabled: <true|false>
 - council_mode: <true|false>
 - hallucination_guard: <true|false>
+- mutation_test: <true|false>
 - recorded_at: <ISO timestamp>
 \`\`\`
 MODE: PLAN applies these after \`save_plan\` succeeds via \`set_qa_gates\`.
@@ -613,6 +614,7 @@ Do NOT call \`set_qa_gates\` yet — \`plan.json\` does not exist at this point.
 - sast_enabled: <true|false>
 - council_mode: <true|false>
 - hallucination_guard: <true|false>
+- mutation_test: <true|false>
 - recorded_at: <ISO timestamp>
 \`\`\`
 MODE: PLAN will read this section after \`save_plan\` succeeds and persist via \`set_qa_gates\`.
@@ -1187,12 +1189,23 @@ The tool will automatically write the retrospective to \`.swarm/evidence/retro-{
    After the delegation returns APPROVED, YOU (the architect) call the \`write_hallucination_evidence\` tool to write the evidence artifact (phase, verdict, summary). The critic does NOT write files — it is read-only.
    NOTE: This step is enforced by the plugin. If \`hallucination_guard\` is enabled and \`.swarm/evidence/{phase}/hallucination-guard.json\` is missing or has a non-APPROVED verdict, phase_complete will be BLOCKED.
    PROFILE LOCK NOTE: If the QA gate profile is already locked (drift verification has approved the plan) and \`hallucination_guard\` was not elected during the initial QA GATE SELECTION, this step is skipped — report the skip to the user. A new plan cycle is required to enable the gate.
+5.56. **Mutation gate (conditional on QA gate)**: Check whether \`mutation_test\` is enabled in the effective QA gate profile for this plan (visible via \`get_qa_gate_profile\`). If disabled or turbo mode is active, skip silently and proceed to step 5.6.
+   If \`mutation_test\` is enabled:
+   1. Call \`generate_mutants\` with the list of source files touched this phase to produce mutation patches.
+   2. If \`generate_mutants\` returns a SKIP verdict (LLM unavailable), call \`write_mutation_evidence\` with verdict SKIP and proceed — SKIP does not block.
+   3. Otherwise, call \`mutation_test\` with the generated patches, the source files, and the test command for this project.
+   4. Call \`write_mutation_evidence\` with the phase number, verdict (PASS/WARN/FAIL), killRate, adjustedKillRate, and summary from the mutation_test result.
+   5. If verdict is FAIL: STOP — do NOT call phase_complete. Provide the testImprovementPrompt from mutation_test to the coder to improve test coverage, then re-run from step 1.
+   6. If verdict is WARN: non-blocking — proceed to step 5.6 with a warning to the user.
+   7. If verdict is PASS: proceed to step 5.6.
+   NOTE: This step is enforced by the plugin. If \`mutation_test\` is enabled and \`.swarm/evidence/{phase}/mutation-gate.json\` is missing or has a 'fail' verdict, phase_complete will be BLOCKED.
 5.6. **Mandatory gate evidence**: Before calling phase_complete, ensure:
    - \`.swarm/evidence/{phase}/completion-verify.json\` exists (written automatically by the completion-verify gate)
    - \`.swarm/evidence/{phase}/drift-verifier.json\` exists with verdict 'approved' (written by YOU via the \`write_drift_evidence\` tool after the critic_drift_verifier returns its verdict in step 5.5) — required when .swarm/spec.md exists
    - \`.swarm/evidence/{phase}/hallucination-guard.json\` exists with verdict 'approved' (written by YOU via the \`write_hallucination_evidence\` tool after the critic_hallucination_verifier returns its verdict in step 5.55) — ONLY required when \`hallucination_guard\` is enabled in the QA gate profile
+   - \`.swarm/evidence/{phase}/mutation-gate.json\` exists with verdict 'pass' or 'warn' (written by YOU via the \`write_mutation_evidence\` tool after step 5.56) — ONLY required when \`mutation_test\` is enabled in the QA gate profile
    If any required file is missing, run the missing gate first. Turbo mode skips all gates automatically.
-   NOTE: Steps 5.5 and 5.55 are enforced by runtime hooks. If \`hallucination_guard\` is enabled and you skip the critic_hallucination_verifier delegation (or fail to call \`write_hallucination_evidence\`), phase_complete will be BLOCKED by the plugin. This is not a suggestion — it is a hard enforcement mechanism.
+   NOTE: Steps 5.5, 5.55, and 5.56 are enforced by runtime hooks. If \`hallucination_guard\` is enabled and you skip the critic_hallucination_verifier delegation (or fail to call \`write_hallucination_evidence\`), phase_complete will be BLOCKED by the plugin. Similarly, if \`mutation_test\` is enabled and you skip step 5.56 (or fail to call \`write_mutation_evidence\`), phase_complete will be BLOCKED. These are not suggestions — they are hard enforcement mechanisms.
 6. Summarize to user
 7. Ask: "Ready for Phase [N+1]?"
 
@@ -1356,7 +1369,7 @@ function buildYourToolsList(council?: CouncilWorkflowConfig): string {
  * inline path). The dialogue is dialogue-only — persistence happens during
  * MODE: PLAN after `save_plan` creates `plan.json`.
  *
- * The lead-in sentence varies per mode, but the body (seven gates with
+ * The lead-in sentence varies per mode, but the body (eight gates with
  * defaults, one-shot accept-or-customize prompt) is shared so SPECIFY,
  * BRAINSTORM, and PLAN inline paths stay in lockstep.
  */
@@ -1371,7 +1384,7 @@ export function buildQaGateSelectionDialogue(
 				: 'No pending gate selection found in `.swarm/context.md`. Ask the user inline now.';
 	return `${leadIn}
 
-Present the seven gates with their defaults (DEFAULT_QA_GATES) as a single user-facing question. Offer the user a one-shot choice: accept defaults, or customize. The seven gates are:
+Present the eight gates with their defaults (DEFAULT_QA_GATES) as a single user-facing question. Offer the user a one-shot choice: accept defaults, or customize. The eight gates are:
 - reviewer (default: ON) — code review of coder output
 - test_engineer (default: ON) — test verification of coder output
 - sme_enabled (default: ON) — SME consultation during planning/clarification
@@ -1379,6 +1392,7 @@ Present the seven gates with their defaults (DEFAULT_QA_GATES) as a single user-
 - sast_enabled (default: ON) — static security scanning
 - council_mode (default: OFF) — multi-member council gate (recommended for high-impact architecture, public APIs, schema/data mutation, security-sensitive code)
 - hallucination_guard (default: OFF) — when enabled, mandatory per-phase API/signature/claim/citation verification via critic_hallucination_verifier at PHASE-WRAP; phase_complete will REJECT phase completion unless .swarm/evidence/{phase}/hallucination-guard.json exists with an APPROVED verdict (recommended for claim-heavy or research-heavy work)
+- mutation_test (default: OFF) — when enabled, runs mutation testing on source files touched this phase via generate_mutants + mutation_test + write_mutation_evidence at PHASE-WRAP; FAIL verdict blocks phase_complete; WARN is non-blocking (recommended for projects with coverage gaps or safety-critical code)
 
 One question, one message, defaults pre-stated. Wait for the user's answer.`;
 }

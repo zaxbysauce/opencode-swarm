@@ -18705,6 +18705,7 @@ var TOOL_NAMES = [
   "test_runner",
   "test_impact",
   "mutation_test",
+  "generate_mutants",
   "detect_domains",
   "gitingest",
   "retrieve_summary",
@@ -18716,6 +18717,7 @@ var TOOL_NAMES = [
   "write_retro",
   "write_drift_evidence",
   "write_hallucination_evidence",
+  "write_mutation_evidence",
   "declare_scope",
   "knowledge_query",
   "doc_scan",
@@ -18795,6 +18797,8 @@ var AGENT_TOOL_MAP = {
     "test_runner",
     "test_impact",
     "mutation_test",
+    "generate_mutants",
+    "write_mutation_evidence",
     "todo_extract",
     "update_task_status",
     "lint_spec",
@@ -19841,7 +19845,8 @@ var DEFAULT_QA_GATES = {
   sme_enabled: true,
   critic_pre_plan: true,
   hallucination_guard: false,
-  sast_enabled: true
+  sast_enabled: true,
+  mutation_test: false
 };
 function rowToProfile(row) {
   let parsed = {};
@@ -43296,7 +43301,8 @@ var ALL_GATE_NAMES = [
   "sme_enabled",
   "critic_pre_plan",
   "hallucination_guard",
-  "sast_enabled"
+  "sast_enabled",
+  "mutation_test"
 ];
 function derivePlanId(plan) {
   return `${plan.swarm}-${plan.title}`.replace(/[^a-zA-Z0-9-_]/g, "_");
@@ -44819,7 +44825,7 @@ var COMMAND_REGISTRY = {
     handler: (ctx) => handleQaGatesCommand(ctx.directory, ctx.args, ctx.sessionID),
     description: "View or modify QA gate profile for the current plan [enable|override <gate>...]",
     args: "[show|enable|override] <gate>...",
-    details: "show: display spec-level, session-override, and effective QA gates for the current plan. enable: persist gate(s) into the locked-once profile (architect; rejected after critic approval lock). override: session-only ratchet-tighter enable. Valid gates: reviewer, test_engineer, council_mode, sme_enabled, critic_pre_plan, hallucination_guard, sast_enabled."
+    details: "show: display spec-level, session-override, and effective QA gates for the current plan. enable: persist gate(s) into the locked-once profile (architect; rejected after critic approval lock). override: session-only ratchet-tighter enable. Valid gates: reviewer, test_engineer, council_mode, sme_enabled, critic_pre_plan, hallucination_guard, sast_enabled, mutation_test."
   },
   promote: {
     handler: (ctx) => handlePromoteCommand(ctx.directory, ctx.args),

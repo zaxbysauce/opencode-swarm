@@ -16,11 +16,11 @@ export declare const ArgsSchema: z.ZodObject<{
     roundNumber: z.ZodDefault<z.ZodNumber>;
     verdicts: z.ZodArray<z.ZodObject<{
         agent: z.ZodEnum<{
-            reviewer: "reviewer";
-            test_engineer: "test_engineer";
-            explorer: "explorer";
             sme: "sme";
+            reviewer: "reviewer";
             critic: "critic";
+            explorer: "explorer";
+            test_engineer: "test_engineer";
         }>;
         verdict: z.ZodEnum<{
             APPROVE: "APPROVE";

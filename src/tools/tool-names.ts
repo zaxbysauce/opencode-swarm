@@ -31,6 +31,7 @@ export type ToolName =
 	| 'test_runner'
 	| 'test_impact'
 	| 'mutation_test'
+	| 'generate_mutants'
 	| 'detect_domains'
 	| 'gitingest'
 	| 'retrieve_summary'
@@ -42,6 +43,7 @@ export type ToolName =
 	| 'write_retro'
 	| 'write_drift_evidence'
 	| 'write_hallucination_evidence'
+	| 'write_mutation_evidence'
 	| 'declare_scope'
 	| 'knowledge_query'
 	| 'doc_scan'
@@ -88,6 +90,7 @@ export const TOOL_NAMES: readonly ToolName[] = [
 	'test_runner',
 	'test_impact',
 	'mutation_test',
+	'generate_mutants',
 	'detect_domains',
 	'gitingest',
 	'retrieve_summary',
@@ -99,6 +102,7 @@ export const TOOL_NAMES: readonly ToolName[] = [
 	'write_retro',
 	'write_drift_evidence',
 	'write_hallucination_evidence',
+	'write_mutation_evidence',
 	'declare_scope',
 	'knowledge_query',
 	'doc_scan',

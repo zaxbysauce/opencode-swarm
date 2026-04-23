@@ -1,5 +1,20 @@
 # Changelog
 
+## [Unreleased]
+
+### Features
+
+* **mutation:** add LLM-driven mutation patch generator (`src/mutation/generator.ts`) — generates 5–10 patches per function across 6 mutation types (off-by-one, null substitution, operator swap, guard removal, branch swap, side-effect deletion) using an ephemeral LLM session; gracefully returns `[]` on any failure
+
+### Architecture
+
+* **qa-gate-profile:** add `mutation_test: boolean` to `QaGates` interface (`src/db/qa-gate-profile.ts`); default `false` (opt-in per project); listed alongside the other 7 gates in `DEFAULT_QA_GATES`; consumed by Gate 4 enforcement in `phase_complete`
+* **tools:** add two architect-only tools for mutation-testing-backed QA gates:
+  - `generate_mutants` (`src/tools/generate-mutants.ts`) — accepts `files: string[]`, calls `generateMutants()` with ToolContext, returns patches for direct consumption by the `mutation_test` tool; emits `SKIP` verdict on LLM failure rather than throwing
+  - `write_mutation_evidence` (`src/tools/write-mutation-evidence.ts`) — writes phase-close mutation gate results atomically to `.swarm/evidence/{phase}/mutation-gate.json`; accepts verdict (PASS/WARN/FAIL/SKIP), kill rate metrics, and optional survived mutant details; normalised uppercase-to-lowercase before persisting
+* **evidence:** add `mutation-gate` evidence type — phase-level artifact containing verdict, killRate, adjustedKillRate, summary, and survivedMutants; read by the `mutation_test` phase gate (Gate 4) in `phase_complete`
+* **phase-complete:** add Gate 4 mutation gate enforcement — reads `.swarm/evidence/{phase}/mutation-gate.json` when `mutation_test` is enabled in the QA gate profile; `fail` verdict blocks `phase_complete`; `warn` verdict allows advancement with a warning; `pass`/`skip` allow advancement; automatically bypassed in turbo mode alongside Gates 1–3
+
 ## [6.81.1](https://github.com/zaxbysauce/opencode-swarm/compare/v6.81.0...v6.81.1) (2026-04-23)
 
 

@@ -203,8 +203,8 @@ export declare const PhaseCompleteConfigSchema: z.ZodObject<{
     enabled: z.ZodDefault<z.ZodBoolean>;
     required_agents: z.ZodDefault<z.ZodArray<z.ZodEnum<{
         reviewer: "reviewer";
-        test_engineer: "test_engineer";
         coder: "coder";
+        test_engineer: "test_engineer";
     }>>>;
     require_docs: z.ZodDefault<z.ZodBoolean>;
     policy: z.ZodDefault<z.ZodEnum<{
@@ -233,8 +233,8 @@ export type ReviewPassesConfig = z.infer<typeof ReviewPassesConfigSchema>;
 export declare const AdversarialDetectionConfigSchema: z.ZodObject<{
     enabled: z.ZodDefault<z.ZodBoolean>;
     policy: z.ZodDefault<z.ZodEnum<{
-        gate: "gate";
         warn: "warn";
+        gate: "gate";
         ignore: "ignore";
     }>>;
     pairs: z.ZodDefault<z.ZodArray<z.ZodTuple<[z.ZodString, z.ZodString], null>>>;
@@ -575,8 +575,8 @@ export declare const PluginConfigSchema: z.ZodObject<{
         enabled: z.ZodDefault<z.ZodBoolean>;
         required_agents: z.ZodDefault<z.ZodArray<z.ZodEnum<{
             reviewer: "reviewer";
-            test_engineer: "test_engineer";
             coder: "coder";
+            test_engineer: "test_engineer";
         }>>>;
         require_docs: z.ZodDefault<z.ZodBoolean>;
         policy: z.ZodDefault<z.ZodEnum<{
@@ -760,8 +760,8 @@ export declare const PluginConfigSchema: z.ZodObject<{
     adversarial_detection: z.ZodOptional<z.ZodObject<{
         enabled: z.ZodDefault<z.ZodBoolean>;
         policy: z.ZodDefault<z.ZodEnum<{
-            gate: "gate";
             warn: "warn";
+            gate: "gate";
             ignore: "ignore";
         }>>;
         pairs: z.ZodDefault<z.ZodArray<z.ZodTuple<[z.ZodString, z.ZodString], null>>>;

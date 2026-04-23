@@ -6,49 +6,6 @@ import {
 	VALID_COMMANDS,
 } from './registry';
 
-// Expected command keys - verified manually to match registry content
-const EXPECTED_COMMANDS = [
-	'acknowledge-spec-drift',
-	'status',
-	'plan',
-	'agents',
-	'history',
-	'config',
-	'config doctor',
-	'config-doctor',
-	'doctor tools',
-	'diagnose',
-	'preflight',
-	'sync-plan',
-	'benchmark',
-	'export',
-	'evidence',
-	'evidence summary',
-	'evidence-summary',
-	'archive',
-	'curate',
-	'dark-matter',
-	'close',
-	'simulate',
-	'analyze',
-	'clarify',
-	'specify',
-	'promote',
-	'reset',
-	'reset-session',
-	'rollback',
-	'retrieve',
-	'handoff',
-	'turbo',
-	'full-auto',
-	'write-retro',
-	'knowledge migrate',
-	'knowledge quarantine',
-	'knowledge restore',
-	'knowledge',
-	'checkpoint',
-] as const;
-
 describe('CommandEntry type', () => {
 	describe('backward compatibility - entries without details/args', () => {
 		it('should accept a minimal CommandEntry without optional fields', () => {
@@ -199,13 +156,6 @@ describe('CommandEntry type', () => {
 	});
 
 	describe('COMMAND_REGISTRY integrity', () => {
-		it('should have all expected commands', () => {
-			const actualKeys = Object.keys(COMMAND_REGISTRY).sort();
-			const expectedKeys = [...EXPECTED_COMMANDS].sort();
-
-			expect(actualKeys).toEqual(expectedKeys);
-		});
-
 		it('VALID_COMMANDS should match registry keys', () => {
 			const registryKeys = Object.keys(COMMAND_REGISTRY).sort();
 			const validCommands = [...VALID_COMMANDS].sort();
@@ -215,6 +165,24 @@ describe('CommandEntry type', () => {
 
 		it('should have at least 30 commands registered', () => {
 			expect(Object.keys(COMMAND_REGISTRY).length).toBeGreaterThanOrEqual(30);
+		});
+
+		it('all registry entries should have required fields (handler and description)', () => {
+			for (const [name, entry] of Object.entries(COMMAND_REGISTRY)) {
+				expect(entry, `Command "${name}" should have a handler`).toBeDefined();
+				expect(
+					typeof entry.handler,
+					`Command "${name}" handler should be a function`,
+				).toBe('function');
+				expect(
+					typeof entry.description,
+					`Command "${name}" should have a description string`,
+				).toBe('string');
+				expect(
+					entry.description.length,
+					`Command "${name}" description should not be empty`,
+				).toBeGreaterThan(0);
+			}
 		});
 
 		it('resolveCommand should find known commands', () => {

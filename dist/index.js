@@ -76,6 +76,7 @@ var init_tool_names = __esm(() => {
     "test_runner",
     "test_impact",
     "mutation_test",
+    "generate_mutants",
     "detect_domains",
     "gitingest",
     "retrieve_summary",
@@ -87,6 +88,7 @@ var init_tool_names = __esm(() => {
     "write_retro",
     "write_drift_evidence",
     "write_hallucination_evidence",
+    "write_mutation_evidence",
     "declare_scope",
     "knowledge_query",
     "doc_scan",
@@ -234,6 +236,8 @@ var init_constants = __esm(() => {
       "test_runner",
       "test_impact",
       "mutation_test",
+      "generate_mutants",
+      "write_mutation_evidence",
       "todo_extract",
       "update_task_status",
       "lint_spec",
@@ -433,6 +437,8 @@ var init_constants = __esm(() => {
     test_runner: "auto-detect and run tests",
     test_impact: "identify test files impacted by changed source files via import analysis",
     mutation_test: "executes pre-generated mutation patches against tests, evaluates kill rate against quality gate thresholds",
+    generate_mutants: "generate LLM-based mutation testing patches for source files; returns MutationPatch[] for direct consumption by the mutation_test tool",
+    write_mutation_evidence: "write mutation gate evidence for a completed phase; normalizes PASS/WARN/FAIL/SKIP verdicts and writes .swarm/evidence/{phase}/mutation-gate.json",
     pkg_audit: "dependency vulnerability scan \u2014 npm/pip/cargo",
     complexity_hotspots: "git churn \xD7 complexity risk map",
     schema_drift: "OpenAPI spec vs route drift",
@@ -471,8 +477,8 @@ var init_constants = __esm(() => {
     lint_spec: "validate .swarm/spec.md format and required fields",
     get_approved_plan: "retrieve the last critic-approved immutable plan snapshot for baseline drift comparison",
     repo_map: "query the repo code graph: importers, dependencies, blast radius, and localization context for structural awareness before refactoring",
-    get_qa_gate_profile: "retrieve the QA gate profile for the current plan: gates, lock state, and profile hash. Read-only.",
-    set_qa_gates: "configure the QA gate profile for the current plan. Architect-only. Ratchet-tighter only \u2014 rejected once the profile is locked after critic approval.",
+    get_qa_gate_profile: "retrieve the QA gate profile for the current plan: gates (reviewer, test_engineer, sme_enabled, critic_pre_plan, sast_enabled, council_mode, hallucination_guard, mutation_test), lock state, and profile hash. Read-only.",
+    set_qa_gates: "configure the QA gate profile for the current plan. Architect-only. Ratchet-tighter only \u2014 rejected once the profile is locked after critic approval. Supports: reviewer, test_engineer, sme_enabled, critic_pre_plan, sast_enabled, council_mode, hallucination_guard, mutation_test.",
     req_coverage: "query requirement coverage status for tracked functional requirements"
   };
   for (const [agentName, tools] of Object.entries(AGENT_TOOL_MAP)) {
@@ -19719,7 +19725,8 @@ var init_qa_gate_profile = __esm(() => {
     sme_enabled: true,
     critic_pre_plan: true,
     hallucination_guard: false,
-    sast_enabled: true
+    sast_enabled: true,
+    mutation_test: false
   };
 });
 
@@ -52122,7 +52129,8 @@ var init_qa_gates = __esm(() => {
     "sme_enabled",
     "critic_pre_plan",
     "hallucination_guard",
-    "sast_enabled"
+    "sast_enabled",
+    "mutation_test"
   ];
 });
 
@@ -53907,7 +53915,7 @@ var init_registry = __esm(() => {
       handler: (ctx) => handleQaGatesCommand(ctx.directory, ctx.args, ctx.sessionID),
       description: "View or modify QA gate profile for the current plan [enable|override <gate>...]",
       args: "[show|enable|override] <gate>...",
-      details: "show: display spec-level, session-override, and effective QA gates for the current plan. enable: persist gate(s) into the locked-once profile (architect; rejected after critic approval lock). override: session-only ratchet-tighter enable. Valid gates: reviewer, test_engineer, council_mode, sme_enabled, critic_pre_plan, hallucination_guard, sast_enabled."
+      details: "show: display spec-level, session-override, and effective QA gates for the current plan. enable: persist gate(s) into the locked-once profile (architect; rejected after critic approval lock). override: session-only ratchet-tighter enable. Valid gates: reviewer, test_engineer, council_mode, sme_enabled, critic_pre_plan, hallucination_guard, sast_enabled, mutation_test."
     },
     promote: {
       handler: (ctx) => handlePromoteCommand(ctx.directory, ctx.args),
@@ -54070,7 +54078,7 @@ function buildQaGateSelectionDialogue(modeLabel) {
   const leadIn = modeLabel === "BRAINSTORM" ? "Now ask the user which QA gates to enable for this plan \u2014 do not select on their behalf." : modeLabel === "SPECIFY" ? "Ask the user which QA gates to enable for this plan before suggesting the next step." : "No pending gate selection found in `.swarm/context.md`. Ask the user inline now.";
   return `${leadIn}
 
-Present the seven gates with their defaults (DEFAULT_QA_GATES) as a single user-facing question. Offer the user a one-shot choice: accept defaults, or customize. The seven gates are:
+Present the eight gates with their defaults (DEFAULT_QA_GATES) as a single user-facing question. Offer the user a one-shot choice: accept defaults, or customize. The eight gates are:
 - reviewer (default: ON) \u2014 code review of coder output
 - test_engineer (default: ON) \u2014 test verification of coder output
 - sme_enabled (default: ON) \u2014 SME consultation during planning/clarification
@@ -54078,6 +54086,7 @@ Present the seven gates with their defaults (DEFAULT_QA_GATES) as a single user-
 - sast_enabled (default: ON) \u2014 static security scanning
 - council_mode (default: OFF) \u2014 multi-member council gate (recommended for high-impact architecture, public APIs, schema/data mutation, security-sensitive code)
 - hallucination_guard (default: OFF) \u2014 when enabled, mandatory per-phase API/signature/claim/citation verification via critic_hallucination_verifier at PHASE-WRAP; phase_complete will REJECT phase completion unless .swarm/evidence/{phase}/hallucination-guard.json exists with an APPROVED verdict (recommended for claim-heavy or research-heavy work)
+- mutation_test (default: OFF) \u2014 when enabled, runs mutation testing on source files touched this phase via generate_mutants + mutation_test + write_mutation_evidence at PHASE-WRAP; FAIL verdict blocks phase_complete; WARN is non-blocking (recommended for projects with coverage gaps or safety-critical code)
 
 One question, one message, defaults pre-stated. Wait for the user's answer.`;
 }
@@ -54780,6 +54789,7 @@ Do NOT call \`set_qa_gates\` yet \u2014 \`plan.json\` does not exist at this poi
 - sast_enabled: <true|false>
 - council_mode: <true|false>
 - hallucination_guard: <true|false>
+- mutation_test: <true|false>
 - recorded_at: <ISO timestamp>
 \`\`\`
 MODE: PLAN applies these after \`save_plan\` succeeds via \`set_qa_gates\`.
@@ -54832,6 +54842,7 @@ Do NOT call \`set_qa_gates\` yet \u2014 \`plan.json\` does not exist at this poi
 - sast_enabled: <true|false>
 - council_mode: <true|false>
 - hallucination_guard: <true|false>
+- mutation_test: <true|false>
 - recorded_at: <ISO timestamp>
 \`\`\`
 MODE: PLAN will read this section after \`save_plan\` succeeds and persist via \`set_qa_gates\`.
@@ -55406,12 +55417,23 @@ The tool will automatically write the retrospective to \`.swarm/evidence/retro-{
    After the delegation returns APPROVED, YOU (the architect) call the \`write_hallucination_evidence\` tool to write the evidence artifact (phase, verdict, summary). The critic does NOT write files \u2014 it is read-only.
    NOTE: This step is enforced by the plugin. If \`hallucination_guard\` is enabled and \`.swarm/evidence/{phase}/hallucination-guard.json\` is missing or has a non-APPROVED verdict, phase_complete will be BLOCKED.
    PROFILE LOCK NOTE: If the QA gate profile is already locked (drift verification has approved the plan) and \`hallucination_guard\` was not elected during the initial QA GATE SELECTION, this step is skipped \u2014 report the skip to the user. A new plan cycle is required to enable the gate.
+5.56. **Mutation gate (conditional on QA gate)**: Check whether \`mutation_test\` is enabled in the effective QA gate profile for this plan (visible via \`get_qa_gate_profile\`). If disabled or turbo mode is active, skip silently and proceed to step 5.6.
+   If \`mutation_test\` is enabled:
+   1. Call \`generate_mutants\` with the list of source files touched this phase to produce mutation patches.
+   2. If \`generate_mutants\` returns a SKIP verdict (LLM unavailable), call \`write_mutation_evidence\` with verdict SKIP and proceed \u2014 SKIP does not block.
+   3. Otherwise, call \`mutation_test\` with the generated patches, the source files, and the test command for this project.
+   4. Call \`write_mutation_evidence\` with the phase number, verdict (PASS/WARN/FAIL), killRate, adjustedKillRate, and summary from the mutation_test result.
+   5. If verdict is FAIL: STOP \u2014 do NOT call phase_complete. Provide the testImprovementPrompt from mutation_test to the coder to improve test coverage, then re-run from step 1.
+   6. If verdict is WARN: non-blocking \u2014 proceed to step 5.6 with a warning to the user.
+   7. If verdict is PASS: proceed to step 5.6.
+   NOTE: This step is enforced by the plugin. If \`mutation_test\` is enabled and \`.swarm/evidence/{phase}/mutation-gate.json\` is missing or has a 'fail' verdict, phase_complete will be BLOCKED.
 5.6. **Mandatory gate evidence**: Before calling phase_complete, ensure:
    - \`.swarm/evidence/{phase}/completion-verify.json\` exists (written automatically by the completion-verify gate)
    - \`.swarm/evidence/{phase}/drift-verifier.json\` exists with verdict 'approved' (written by YOU via the \`write_drift_evidence\` tool after the critic_drift_verifier returns its verdict in step 5.5) \u2014 required when .swarm/spec.md exists
    - \`.swarm/evidence/{phase}/hallucination-guard.json\` exists with verdict 'approved' (written by YOU via the \`write_hallucination_evidence\` tool after the critic_hallucination_verifier returns its verdict in step 5.55) \u2014 ONLY required when \`hallucination_guard\` is enabled in the QA gate profile
+   - \`.swarm/evidence/{phase}/mutation-gate.json\` exists with verdict 'pass' or 'warn' (written by YOU via the \`write_mutation_evidence\` tool after step 5.56) \u2014 ONLY required when \`mutation_test\` is enabled in the QA gate profile
    If any required file is missing, run the missing gate first. Turbo mode skips all gates automatically.
-   NOTE: Steps 5.5 and 5.55 are enforced by runtime hooks. If \`hallucination_guard\` is enabled and you skip the critic_hallucination_verifier delegation (or fail to call \`write_hallucination_evidence\`), phase_complete will be BLOCKED by the plugin. This is not a suggestion \u2014 it is a hard enforcement mechanism.
+   NOTE: Steps 5.5, 5.55, and 5.56 are enforced by runtime hooks. If \`hallucination_guard\` is enabled and you skip the critic_hallucination_verifier delegation (or fail to call \`write_hallucination_evidence\`), phase_complete will be BLOCKED by the plugin. Similarly, if \`mutation_test\` is enabled and you skip step 5.56 (or fail to call \`write_mutation_evidence\`), phase_complete will be BLOCKED. These are not suggestions \u2014 they are hard enforcement mechanisms.
 6. Summarize to user
 7. Ask: "Ready for Phase [N+1]?"
 
@@ -62303,7 +62325,7 @@ var init_curator_drift = __esm(() => {
 
 // src/index.ts
 init_agents();
-import * as path101 from "path";
+import * as path102 from "path";
 
 // src/background/index.ts
 init_event_bus();
@@ -76512,7 +76534,7 @@ async function executePhaseComplete(args2, workingDirectory, directory) {
     }, null, 2);
   }
   if (hasActiveTurboMode(sessionID)) {
-    console.warn(`[phase_complete] Turbo mode active \u2014 skipping completion-verify, drift-verifier, and hallucination-guard gates for phase ${phase}`);
+    console.warn(`[phase_complete] Turbo mode active \u2014 skipping completion-verify, drift-verifier, hallucination-guard, and mutation-gate gates for phase ${phase}`);
   } else {
     try {
       const completionResultRaw = await executeCompletionVerify({ phase }, dir);
@@ -76688,6 +76710,78 @@ async function executePhaseComplete(args2, workingDirectory, directory) {
       }
     } catch (hgError) {
       safeWarn(`[phase_complete] Hallucination guard error (non-blocking):`, hgError);
+    }
+    try {
+      const plan = await loadPlan(dir);
+      if (plan) {
+        const planId = `${plan.swarm}-${plan.title}`.replace(/[^a-zA-Z0-9-_]/g, "_");
+        const profile = getProfile(dir, planId);
+        if (profile) {
+          const session2 = sessionID ? swarmState.agentSessions.get(sessionID) : undefined;
+          const overrides = session2?.qaGateSessionOverrides ?? {};
+          const effective = getEffectiveGates(profile, overrides);
+          if (effective.mutation_test === true) {
+            const mgPath = path79.join(dir, ".swarm", "evidence", String(phase), "mutation-gate.json");
+            let mgVerdictFound = false;
+            let mgVerdict;
+            try {
+              const mgContent = fs65.readFileSync(mgPath, "utf-8");
+              const mgBundle = JSON.parse(mgContent);
+              for (const entry of mgBundle.entries ?? []) {
+                if (typeof entry.type === "string" && entry.type === "mutation-gate" && typeof entry.verdict === "string") {
+                  mgVerdictFound = true;
+                  mgVerdict = entry.verdict;
+                  if (entry.verdict === "fail") {
+                    return JSON.stringify({
+                      success: false,
+                      phase,
+                      status: "blocked",
+                      reason: "MUTATION_GATE_FAIL",
+                      message: `Phase ${phase} cannot be completed: mutation gate returned verdict 'fail'. Resolve surviving mutants or lower the kill-rate threshold before completing the phase.`,
+                      agentsDispatched,
+                      agentsMissing: [],
+                      warnings: []
+                    }, null, 2);
+                  } else if (!["pass", "warn", "skip"].includes(entry.verdict)) {
+                    return JSON.stringify({
+                      success: false,
+                      phase,
+                      status: "blocked",
+                      reason: "MUTATION_GATE_FAIL",
+                      message: `Phase ${phase} cannot be completed: mutation gate evidence contains unrecognized verdict '${entry.verdict}'. Expected one of: pass, warn, fail, skip.`,
+                      agentsDispatched,
+                      agentsMissing: [],
+                      warnings: []
+                    }, null, 2);
+                  }
+                }
+              }
+            } catch (readErr) {
+              if (readErr.code !== "ENOENT") {
+                safeWarn(`[phase_complete] Mutation gate evidence unreadable:`, readErr);
+              }
+              mgVerdictFound = false;
+            }
+            if (!mgVerdictFound) {
+              return JSON.stringify({
+                success: false,
+                phase,
+                status: "blocked",
+                reason: "MUTATION_GATE_MISSING",
+                message: `Phase ${phase} cannot be completed: mutation_test is enabled and evidence not found at .swarm/evidence/${phase}/mutation-gate.json. Run mutation_test, then call write_mutation_evidence before completing the phase.`,
+                agentsDispatched,
+                agentsMissing: [],
+                warnings: []
+              }, null, 2);
+            }
+            if (mgVerdict === "warn") {
+              safeWarn(`[phase_complete] Mutation gate verdict is 'warn' for phase ${phase} \u2014 proceeding with warning`, undefined);
+            }
+          }
+        }
+      }
+    } catch (mgError) {
+      safeWarn(`[phase_complete] Mutation gate error (non-blocking):`, mgError);
     }
   }
   let knowledgeConfig;
@@ -83978,7 +84072,8 @@ async function executeSetQaGates(args2, directory) {
     "sme_enabled",
     "critic_pre_plan",
     "hallucination_guard",
-    "sast_enabled"
+    "sast_enabled",
+    "mutation_test"
   ]) {
     if (args2[key] !== undefined)
       partial3[key] = args2[key];
@@ -84023,6 +84118,7 @@ var set_qa_gates = createSwarmTool({
     critic_pre_plan: tool.schema.boolean().optional().describe("Enable critic_pre_plan review before plan approval."),
     hallucination_guard: tool.schema.boolean().optional().describe("Enable hallucination_guard checks on plan and implementation claims."),
     sast_enabled: tool.schema.boolean().optional().describe("Enable SAST scanning as a required QA gate."),
+    mutation_test: tool.schema.boolean().optional().describe("Enable the mutation-testing gate (default: off). Requires mutation " + "tests to achieve a passing kill rate before phase completion; " + "WARN verdict allows advancement, FAIL blocks."),
     project_type: tool.schema.string().optional().describe('Project type label (e.g. "ts", "python"). Only applied when the profile is being created for the first time.')
   },
   execute: async (args2, directory) => {
@@ -84353,6 +84449,161 @@ var suggestPatch = createSwarmTool({
       message: `All ${errors5.length} patch suggestions failed`,
       errors: errors5
     }, null, 2);
+  }
+});
+// src/tools/generate-mutants.ts
+init_dist();
+
+// src/mutation/generator.ts
+init_state();
+function slugify2(str) {
+  return str.replace(/[^a-zA-Z0-9_-]/g, "_").replace(/_+/g, "_");
+}
+async function generateMutants(files, ctx) {
+  if (!ctx) {
+    console.warn("[generateMutants] No ToolContext \u2014 cannot call LLM; returning empty patch set");
+    return [];
+  }
+  const client = swarmState.opencodeClient;
+  if (!client) {
+    console.warn("[generateMutants] opencodeClient not available; returning empty patch set");
+    return [];
+  }
+  const directory = ctx.directory ?? process.cwd();
+  let ephemeralSessionId;
+  const cleanup = () => {
+    if (ephemeralSessionId) {
+      const id = ephemeralSessionId;
+      ephemeralSessionId = undefined;
+      client.session.delete({ path: { id } }).catch(() => {});
+    }
+  };
+  try {
+    const createResult = await client.session.create({
+      query: { directory }
+    });
+    if (!createResult.data) {
+      console.warn(`[generateMutants] Failed to create session: ${JSON.stringify(createResult.error)}; returning empty patch set`);
+      return [];
+    }
+    ephemeralSessionId = createResult.data.id;
+    const mutationTypes = [
+      "off-by-one",
+      "null-substitution",
+      "operator-swap",
+      "guard-removal",
+      "branch-swap",
+      "side-effect-deletion"
+    ].join(", ");
+    const promptText = `Generate mutation testing patches for the following files: ${files.join(", ")}
+
+Return a JSON array where each element has:
+{ id, filePath, functionName, mutationType, patch, lineNumber }
+
+- id: unique string like "mut-001"
+- mutationType: one of: ${mutationTypes}
+- patch: unified diff format (--- a/file\\n+++ a/file\\n@@ ... @@\\n-old\\n+new)
+- Generate 5-10 mutations per function
+
+Return ONLY valid JSON array, no markdown, no explanation.`;
+    const promptResult = await client.session.prompt({
+      path: { id: ephemeralSessionId },
+      body: {
+        agent: undefined,
+        tools: { write: false, edit: false, patch: false },
+        parts: [{ type: "text", text: promptText }]
+      }
+    });
+    if (!promptResult.data) {
+      console.warn(`[generateMutants] LLM prompt failed: ${JSON.stringify(promptResult.error)}; returning empty patch set`);
+      return [];
+    }
+    const textParts = promptResult.data.parts.filter((p) => p.type === "text");
+    const rawText = textParts.map((p) => p.text).join(`
+`);
+    let parsed;
+    try {
+      parsed = JSON.parse(rawText);
+    } catch (error93) {
+      console.warn(`[generateMutants] Failed to parse LLM response as MutationPatch[]: ${error93 instanceof Error ? error93.message : String(error93)}; returning empty patch set`);
+      return [];
+    }
+    if (!Array.isArray(parsed) || parsed.length === 0) {
+      return [];
+    }
+    const patches = [];
+    for (const item of parsed) {
+      if (typeof item !== "object" || item === null || typeof item.filePath !== "string" || typeof item.functionName !== "string" || typeof item.mutationType !== "string" || typeof item.patch !== "string") {
+        continue;
+      }
+      const mutationType = item.mutationType;
+      const fileSlug = slugify2(item.filePath);
+      const fnSlug = slugify2(item.functionName);
+      const typeSlug = slugify2(mutationType);
+      const idStr = typeof item.id === "string" ? item.id : "";
+      const id = idStr.startsWith("mut-") ? idStr : `mut-${fileSlug}-${fnSlug}-${typeSlug}-${String(patches.length + 1).padStart(3, "0")}`;
+      patches.push({
+        id,
+        filePath: item.filePath,
+        functionName: item.functionName,
+        mutationType,
+        patch: item.patch,
+        lineNumber: typeof item.lineNumber === "number" ? item.lineNumber : undefined
+      });
+    }
+    return patches;
+  } catch (error93) {
+    console.warn(`[generateMutants] LLM call failed: ${error93 instanceof Error ? error93.message : String(error93)}; returning empty patch set`);
+    return [];
+  } finally {
+    cleanup();
+  }
+}
+
+// src/tools/generate-mutants.ts
+init_create_tool();
+var generate_mutants = createSwarmTool({
+  description: "Generate LLM-based mutation testing patches for the specified source files. Returns MutationPatch[] for direct consumption by the mutation_test tool. On LLM failure or when no patches can be generated, returns a SKIP verdict with a diagnostic message rather than throwing.",
+  args: {
+    files: tool.schema.array(tool.schema.string()).describe("Array of source file paths to generate mutation patches for")
+  },
+  async execute(args2, _directory, ctx) {
+    const typedArgs = args2;
+    if (!typedArgs.files || !Array.isArray(typedArgs.files) || typedArgs.files.length === 0) {
+      const result = {
+        verdict: "SKIP",
+        patches: [],
+        count: 0,
+        message: "generate_mutants: files must be a non-empty array"
+      };
+      return JSON.stringify(result, null, 2);
+    }
+    try {
+      const patches = await generateMutants(typedArgs.files, ctx);
+      if (patches.length === 0) {
+        const result2 = {
+          verdict: "SKIP",
+          patches: [],
+          count: 0,
+          message: "generate_mutants: LLM returned no patches \u2014 skipping mutation gate"
+        };
+        return JSON.stringify(result2, null, 2);
+      }
+      const result = {
+        verdict: "ready",
+        patches,
+        count: patches.length
+      };
+      return JSON.stringify(result, null, 2);
+    } catch (error93) {
+      const result = {
+        verdict: "SKIP",
+        patches: [],
+        count: 0,
+        message: `generate_mutants: unexpected error \u2014 ${error93 instanceof Error ? error93.message : String(error93)}`
+      };
+      return JSON.stringify(result, null, 2);
+    }
   }
 });
 // src/tools/lint-spec.ts
@@ -86402,6 +86653,147 @@ var write_hallucination_evidence = createSwarmTool({
     }
   }
 });
+// src/tools/write-mutation-evidence.ts
+init_tool();
+init_utils2();
+init_create_tool();
+import fs85 from "fs";
+import path101 from "path";
+function normalizeVerdict3(verdict) {
+  switch (verdict) {
+    case "PASS":
+      return "pass";
+    case "WARN":
+      return "warn";
+    case "FAIL":
+      return "fail";
+    case "SKIP":
+      return "skip";
+    default:
+      throw new Error(`Invalid verdict: must be 'PASS', 'WARN', 'FAIL', or 'SKIP', got '${verdict}'`);
+  }
+}
+async function executeWriteMutationEvidence(args2, directory) {
+  const phase = args2.phase;
+  if (!Number.isInteger(phase) || phase < 1) {
+    return JSON.stringify({
+      success: false,
+      phase,
+      message: "Invalid phase: must be a positive integer"
+    }, null, 2);
+  }
+  const validVerdicts = ["PASS", "WARN", "FAIL", "SKIP"];
+  if (!validVerdicts.includes(args2.verdict)) {
+    return JSON.stringify({
+      success: false,
+      phase,
+      message: "Invalid verdict: must be 'PASS', 'WARN', 'FAIL', or 'SKIP'"
+    }, null, 2);
+  }
+  if (args2.killRate !== undefined) {
+    if (typeof args2.killRate !== "number" || Number.isNaN(args2.killRate)) {
+      return JSON.stringify({
+        success: false,
+        phase,
+        message: "Invalid killRate: must be a number"
+      }, null, 2);
+    }
+  }
+  if (args2.adjustedKillRate !== undefined) {
+    if (typeof args2.adjustedKillRate !== "number" || Number.isNaN(args2.adjustedKillRate)) {
+      return JSON.stringify({
+        success: false,
+        phase,
+        message: "Invalid adjustedKillRate: must be a number"
+      }, null, 2);
+    }
+  }
+  const summary = args2.summary;
+  if (typeof summary !== "string" || summary.trim().length === 0) {
+    return JSON.stringify({
+      success: false,
+      phase,
+      message: "Invalid summary: must be a non-empty string"
+    }, null, 2);
+  }
+  const normalizedVerdict = normalizeVerdict3(args2.verdict);
+  const evidenceEntry = {
+    type: "mutation-gate",
+    verdict: normalizedVerdict,
+    killRate: args2.killRate ?? 0,
+    adjustedKillRate: args2.adjustedKillRate ?? 0,
+    summary: summary.trim(),
+    timestamp: new Date().toISOString()
+  };
+  if (args2.survivedMutants !== undefined) {
+    evidenceEntry.survivedMutants = args2.survivedMutants;
+  }
+  const evidenceContent = {
+    entries: [evidenceEntry]
+  };
+  const filename = "mutation-gate.json";
+  const relativePath = path101.join("evidence", String(phase), filename);
+  let validatedPath;
+  try {
+    validatedPath = validateSwarmPath(directory, relativePath);
+  } catch (error93) {
+    return JSON.stringify({
+      success: false,
+      phase,
+      message: error93 instanceof Error ? error93.message : "Failed to validate path"
+    }, null, 2);
+  }
+  const evidenceDir = path101.dirname(validatedPath);
+  try {
+    await fs85.promises.mkdir(evidenceDir, { recursive: true });
+    const tempPath = path101.join(evidenceDir, `.${filename}.tmp`);
+    await fs85.promises.writeFile(tempPath, JSON.stringify(evidenceContent, null, 2), "utf-8");
+    await fs85.promises.rename(tempPath, validatedPath);
+    return JSON.stringify({
+      success: true,
+      phase,
+      verdict: normalizedVerdict,
+      message: `Mutation gate evidence written to .swarm/evidence/${phase}/mutation-gate.json`
+    }, null, 2);
+  } catch (error93) {
+    return JSON.stringify({
+      success: false,
+      phase,
+      message: error93 instanceof Error ? error93.message : String(error93)
+    }, null, 2);
+  }
+}
+var write_mutation_evidence = createSwarmTool({
+  description: 'Write mutation gate evidence for a completed phase. Accepts phase, verdict (PASS/WARN/FAIL/SKIP), killRate, adjustedKillRate, summary, and optional survivedMutants. Normalizes uppercase verdicts to lowercase (PASS\u2192pass, WARN\u2192warn, FAIL\u2192fail, SKIP\u2192skip) and writes entries[0].type="mutation-gate" to .swarm/evidence/{phase}/mutation-gate.json using atomic temp+rename write. Use this after mutation_test tool returns to persist the gate verdict.',
+  args: {
+    phase: tool.schema.number().int().min(1).describe("The phase number for the mutation gate (e.g., 1, 2, 3)"),
+    verdict: tool.schema.enum(["PASS", "WARN", "FAIL", "SKIP"]).describe("Verdict of the mutation gate: 'PASS', 'WARN', 'FAIL', or 'SKIP'"),
+    killRate: tool.schema.number().optional().describe("The raw kill rate (e.g., 0.85)"),
+    adjustedKillRate: tool.schema.number().optional().describe("The adjusted kill rate accounting for timeout survived mutants (e.g., 0.87)"),
+    summary: tool.schema.string().describe("Human-readable summary of the mutation gate result"),
+    survivedMutants: tool.schema.string().optional().describe("Optional JSON-serialized list of survived mutants")
+  },
+  execute: async (args2, directory) => {
+    const rawPhase = args2.phase !== undefined ? Number(args2.phase) : 0;
+    try {
+      const typedArgs = {
+        phase: Number(args2.phase),
+        verdict: String(args2.verdict),
+        killRate: args2.killRate !== undefined ? Number(args2.killRate) : undefined,
+        adjustedKillRate: args2.adjustedKillRate !== undefined ? Number(args2.adjustedKillRate) : undefined,
+        summary: String(args2.summary ?? ""),
+        survivedMutants: args2.survivedMutants !== undefined ? String(args2.survivedMutants) : undefined
+      };
+      return await executeWriteMutationEvidence(typedArgs, directory);
+    } catch (error93) {
+      return JSON.stringify({
+        success: false,
+        phase: rawPhase,
+        message: error93 instanceof Error ? error93.message : "Unknown error"
+      }, null, 2);
+    }
+  }
+});
 
 // src/tools/index.ts
 init_write_retro();
@@ -86574,7 +86966,7 @@ var OpenCodeSwarm = async (ctx) => {
     const { PreflightTriggerManager: PTM } = await Promise.resolve().then(() => (init_trigger(), exports_trigger));
     preflightTriggerManager = new PTM(automationConfig);
     const { AutomationStatusArtifact: ASA } = await Promise.resolve().then(() => (init_status_artifact(), exports_status_artifact));
-    const swarmDir = path101.resolve(ctx.directory, ".swarm");
+    const swarmDir = path102.resolve(ctx.directory, ".swarm");
     statusArtifact = new ASA(swarmDir);
     statusArtifact.updateConfig(automationConfig.mode, automationConfig.capabilities);
     if (automationConfig.capabilities?.evidence_auto_summaries === true) {
@@ -86688,6 +87080,7 @@ var OpenCodeSwarm = async (ctx) => {
       co_change_analyzer,
       detect_domains,
       mutation_test,
+      generate_mutants,
       doc_extract,
       doc_scan,
       evidence_check,
@@ -86728,6 +87121,7 @@ var OpenCodeSwarm = async (ctx) => {
       write_retro,
       write_drift_evidence,
       write_hallucination_evidence,
+      write_mutation_evidence,
       declare_scope
     },
     config: async (opencodeConfig) => {
