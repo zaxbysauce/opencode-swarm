@@ -125,7 +125,10 @@ describe('AGENT_TOOL_MAP.architect whitelist verification', () => {
 				const invalidTools = tools.filter(
 					(tool) => !TOOL_NAME_SET.has(tool as ToolName),
 				);
-				expect(invalidTools, `${agentName} has invalid tools: ${invalidTools.join(', ')}`).toHaveLength(0);
+				expect(
+					invalidTools,
+					`${agentName} has invalid tools: ${invalidTools.join(', ')}`,
+				).toHaveLength(0);
 			}
 		});
 	});

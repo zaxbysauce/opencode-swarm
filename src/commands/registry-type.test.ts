@@ -170,9 +170,18 @@ describe('CommandEntry type', () => {
 		it('all registry entries should have required fields (handler and description)', () => {
 			for (const [name, entry] of Object.entries(COMMAND_REGISTRY)) {
 				expect(entry, `Command "${name}" should have a handler`).toBeDefined();
-				expect(typeof entry.handler, `Command "${name}" handler should be a function`).toBe('function');
-				expect(typeof entry.description, `Command "${name}" should have a description string`).toBe('string');
-				expect(entry.description.length, `Command "${name}" description should not be empty`).toBeGreaterThan(0);
+				expect(
+					typeof entry.handler,
+					`Command "${name}" handler should be a function`,
+				).toBe('function');
+				expect(
+					typeof entry.description,
+					`Command "${name}" should have a description string`,
+				).toBe('string');
+				expect(
+					entry.description.length,
+					`Command "${name}" description should not be empty`,
+				).toBeGreaterThan(0);
 			}
 		});
 

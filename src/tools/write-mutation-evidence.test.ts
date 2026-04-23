@@ -1,4 +1,4 @@
-import { describe, test, expect, beforeEach, afterEach, vi } from 'bun:test';
+import { afterEach, beforeEach, describe, expect, test, vi } from 'bun:test';
 import fs from 'node:fs';
 import path from 'node:path';
 
@@ -42,10 +42,16 @@ vi.mock('@opencode-ai/plugin/tool', () => ({
 }));
 
 // Import the module AFTER mocking
-const { executeWriteMutationEvidence } = await import('./write-mutation-evidence');
+const { executeWriteMutationEvidence } = await import(
+	'./write-mutation-evidence'
+);
 
 describe('write-mutation-evidence', () => {
-	const testDir = path.join(process.env.TEMP ?? '/tmp', 'mutation-evidence-test', String(Date.now()));
+	const testDir = path.join(
+		process.env.TEMP ?? '/tmp',
+		'mutation-evidence-test',
+		String(Date.now()),
+	);
 
 	beforeEach(async () => {
 		vi.clearAllMocks();
@@ -79,13 +85,22 @@ describe('write-mutation-evidence', () => {
 		expect(parsed.verdict).toBe('skip');
 
 		// Verify the file was written with defaults
-		const evidencePath = path.join(testDir, 'evidence', '1', 'mutation-gate.json');
-		const content = JSON.parse(await fs.promises.readFile(evidencePath, 'utf-8'));
+		const evidencePath = path.join(
+			testDir,
+			'evidence',
+			'1',
+			'mutation-gate.json',
+		);
+		const content = JSON.parse(
+			await fs.promises.readFile(evidencePath, 'utf-8'),
+		);
 		expect(content.entries[0].type).toBe('mutation-gate');
 		expect(content.entries[0].verdict).toBe('skip');
 		expect(content.entries[0].killRate).toBe(0);
 		expect(content.entries[0].adjustedKillRate).toBe(0);
-		expect(content.entries[0].summary).toBe('Mutation testing skipped for this phase');
+		expect(content.entries[0].summary).toBe(
+			'Mutation testing skipped for this phase',
+		);
 	});
 
 	test('2: PASS verdict WITH killRate=0.85, adjustedKillRate=0.87 — should succeed', async () => {
@@ -106,8 +121,15 @@ describe('write-mutation-evidence', () => {
 		expect(parsed.verdict).toBe('pass');
 
 		// Verify the file was written with correct rates
-		const evidencePath = path.join(testDir, 'evidence', '2', 'mutation-gate.json');
-		const content = JSON.parse(await fs.promises.readFile(evidencePath, 'utf-8'));
+		const evidencePath = path.join(
+			testDir,
+			'evidence',
+			'2',
+			'mutation-gate.json',
+		);
+		const content = JSON.parse(
+			await fs.promises.readFile(evidencePath, 'utf-8'),
+		);
 		expect(content.entries[0].type).toBe('mutation-gate');
 		expect(content.entries[0].verdict).toBe('pass');
 		expect(content.entries[0].killRate).toBe(0.85);
@@ -133,8 +155,15 @@ describe('write-mutation-evidence', () => {
 		expect(parsed.verdict).toBe('fail');
 
 		// Verify the file was written with correct rates
-		const evidencePath = path.join(testDir, 'evidence', '3', 'mutation-gate.json');
-		const content = JSON.parse(await fs.promises.readFile(evidencePath, 'utf-8'));
+		const evidencePath = path.join(
+			testDir,
+			'evidence',
+			'3',
+			'mutation-gate.json',
+		);
+		const content = JSON.parse(
+			await fs.promises.readFile(evidencePath, 'utf-8'),
+		);
 		expect(content.entries[0].type).toBe('mutation-gate');
 		expect(content.entries[0].verdict).toBe('fail');
 		expect(content.entries[0].killRate).toBe(0.3);
@@ -157,7 +186,9 @@ describe('write-mutation-evidence', () => {
 		const parsed = JSON.parse(result);
 		expect(parsed.success).toBe(false);
 		expect(parsed.phase).toBe(4);
-		expect(parsed.message).toContain("Invalid verdict: must be 'PASS', 'WARN', 'FAIL', or 'SKIP'");
+		expect(parsed.message).toContain(
+			"Invalid verdict: must be 'PASS', 'WARN', 'FAIL', or 'SKIP'",
+		);
 	});
 
 	test('5: WARN verdict — should succeed', async () => {
@@ -176,8 +207,15 @@ describe('write-mutation-evidence', () => {
 		expect(parsed.success).toBe(true);
 		expect(parsed.verdict).toBe('warn');
 
-		const evidencePath = path.join(testDir, 'evidence', '5', 'mutation-gate.json');
-		const content = JSON.parse(await fs.promises.readFile(evidencePath, 'utf-8'));
+		const evidencePath = path.join(
+			testDir,
+			'evidence',
+			'5',
+			'mutation-gate.json',
+		);
+		const content = JSON.parse(
+			await fs.promises.readFile(evidencePath, 'utf-8'),
+		);
 		expect(content.entries[0].verdict).toBe('warn');
 		expect(content.entries[0].killRate).toBe(0.6);
 		expect(content.entries[0].adjustedKillRate).toBe(0.65);
@@ -260,8 +298,15 @@ describe('write-mutation-evidence', () => {
 		const parsed = JSON.parse(result);
 		expect(parsed.success).toBe(true);
 
-		const evidencePath = path.join(testDir, 'evidence', '10', 'mutation-gate.json');
-		const content = JSON.parse(await fs.promises.readFile(evidencePath, 'utf-8'));
+		const evidencePath = path.join(
+			testDir,
+			'evidence',
+			'10',
+			'mutation-gate.json',
+		);
+		const content = JSON.parse(
+			await fs.promises.readFile(evidencePath, 'utf-8'),
+		);
 		expect(content.entries[0].survivedMutants).toBe('["mutant1", "mutant2"]');
 	});
 });
