@@ -6,9 +6,19 @@
  *
  * Tests edge cases, invalid inputs, and potential failure modes.
  */
-import { afterEach, beforeEach, describe, expect, it, test, vi } from 'bun:test';
+import {
+	afterEach,
+	beforeEach,
+	describe,
+	expect,
+	it,
+	test,
+	vi,
+} from 'bun:test';
 import fs from 'node:fs';
 import path from 'node:path';
+import { AGENT_TOOL_MAP } from './config/constants';
+import { TOOL_NAME_SET } from './tools/tool-names';
 
 // =============================================================================
 // ADVERSARIAL TESTS FOR constants.architect-whitelist.test.ts
@@ -17,36 +27,31 @@ import path from 'node:path';
 describe('ADVERSARIAL: constants.architect-whitelist', () => {
 	describe('TOOL_NAME_SET edge cases', () => {
 		it('TOOL_NAME_SET should not be empty (runtime check)', () => {
-			const { TOOL_NAME_SET } = require('./tools/tool-names');
 			expect(TOOL_NAME_SET.size).toBeGreaterThan(0);
 		});
 
 		it('TOOL_NAME_SET should contain expected number of tools (regression check)', () => {
-			const { TOOL_NAME_SET } = require('./tools/tool-names');
 			// There are 56 tool names defined (verified against TOOL_NAMES array)
 			expect(TOOL_NAME_SET.size).toBeGreaterThanOrEqual(56);
 		});
 
 		it('TOOL_NAME_SET should only contain lowercase snake_case names', () => {
-			const { TOOL_NAME_SET } = require('./tools/tool-names');
 			for (const tool of TOOL_NAME_SET) {
 				expect(tool).toMatch(/^[a-z][a-z0-9_]*$/);
 			}
 		});
 
 		it('AGENT_TOOL_MAP should have no duplicate tools within same agent', () => {
-			const { AGENT_TOOL_MAP } = require('./config/constants');
 			for (const [agent, tools] of Object.entries(AGENT_TOOL_MAP)) {
 				const uniqueTools = new Set(tools);
-				expect(uniqueTools.size).toBe(
-					tools.length,
+				expect(
+					uniqueTools.size,
 					`Agent '${agent}' has duplicate tools: ${tools.filter((t, i) => tools.indexOf(t) !== i).join(', ')}`,
-				);
+				).toBe(tools.length);
 			}
 		});
 
 		it('AGENT_TOOL_MAP should have no tools appearing in multiple agents excessively (sanity bound)', () => {
-			const { AGENT_TOOL_MAP } = require('./config/constants');
 			const toolCount: Record<string, number> = {};
 			for (const tools of Object.values(AGENT_TOOL_MAP)) {
 				for (const tool of tools) {
@@ -60,12 +65,10 @@ describe('ADVERSARIAL: constants.architect-whitelist', () => {
 
 	describe('AGENT_TOOL_MAP structure validation', () => {
 		it('architect should NOT be empty (critical agent)', () => {
-			const { AGENT_TOOL_MAP } = require('./config/constants');
 			expect(AGENT_TOOL_MAP.architect.length).toBeGreaterThan(50);
 		});
 
 		it('all roles should have unique tool lists (no accidental aliasing)', () => {
-			const { AGENT_TOOL_MAP } = require('./config/constants');
 			const roleToolLists = Object.values(AGENT_TOOL_MAP).map((t) =>
 				[...t].sort().join(','),
 			);
@@ -76,7 +79,6 @@ describe('ADVERSARIAL: constants.architect-whitelist', () => {
 		});
 
 		it('AGENT_TOOL_MAP should have all required roles', () => {
-			const { AGENT_TOOL_MAP } = require('./config/constants');
 			const requiredRoles = [
 				'explorer',
 				'coder',
@@ -94,7 +96,6 @@ describe('ADVERSARIAL: constants.architect-whitelist', () => {
 
 	describe('Dynamic assertion edge cases', () => {
 		it('architect tools > 40 is a reasonable bound', () => {
-			const { AGENT_TOOL_MAP } = require('./config/constants');
 			// This test in the original file checks > 40
 			// Let's verify it's still a reasonable bound
 			expect(AGENT_TOOL_MAP.architect.length).toBeGreaterThan(40);
@@ -102,12 +103,8 @@ describe('ADVERSARIAL: constants.architect-whitelist', () => {
 		});
 
 		it('all roles should have at least 1 tool', () => {
-			const { AGENT_TOOL_MAP } = require('./config/constants');
 			for (const [role, tools] of Object.entries(AGENT_TOOL_MAP)) {
-				expect(tools.length).toBeGreaterThan(
-					0,
-					`Role '${role}' has no tools`,
-				);
+				expect(tools.length, `Role '${role}' has no tools`).toBeGreaterThan(0);
 			}
 		});
 	});
@@ -322,7 +319,9 @@ describe('ADVERSARIAL: write-mutation-evidence', () => {
 
 			const parsed = JSON.parse(result);
 			expect(parsed.success).toBe(false);
-			expect(parsed.message).toBe('Invalid summary: must be a non-empty string');
+			expect(parsed.message).toBe(
+				'Invalid summary: must be a non-empty string',
+			);
 		});
 
 		test('summary with emoji only should succeed', async () => {
@@ -391,7 +390,8 @@ describe('ADVERSARIAL: write-mutation-evidence', () => {
 					phase: 203,
 					verdict: 'FAIL',
 					summary: 'Mutants survived',
-					survivedMutants: '["mutant1", "test with \'quotes\'", "unicode: \u00e9"]',
+					survivedMutants:
+						'["mutant1", "test with \'quotes\'", "unicode: \u00e9"]',
 				},
 				testDir,
 			);
