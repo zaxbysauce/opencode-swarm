@@ -44978,8 +44978,14 @@ async function install() {
   if (!opencodeConfig.agent) {
     opencodeConfig.agent = {};
   }
-  opencodeConfig.agent.explore = { disable: true };
-  opencodeConfig.agent.general = { disable: true };
+  opencodeConfig.agent.explore = {
+    ...typeof opencodeConfig.agent.explore === "object" && opencodeConfig.agent.explore !== null ? opencodeConfig.agent.explore : {},
+    disable: true
+  };
+  opencodeConfig.agent.general = {
+    ...typeof opencodeConfig.agent.general === "object" && opencodeConfig.agent.general !== null ? opencodeConfig.agent.general : {},
+    disable: true
+  };
   saveJson(OPENCODE_CONFIG_PATH, opencodeConfig);
   console.log("\u2713 Added opencode-swarm to OpenCode plugins");
   console.log("\u2713 Disabled default OpenCode agents (explore, general)");
@@ -45147,10 +45153,12 @@ async function main() {
     process.exit(1);
   }
 }
-main().catch((err) => {
-  console.error("Fatal error:", err);
-  process.exit(1);
-});
+if (import.meta.main) {
+  main().catch((err) => {
+    console.error("Fatal error:", err);
+    process.exit(1);
+  });
+}
 async function run(args) {
   const cwd = process.cwd();
   if (!args || args.length === 0) {
