@@ -311,7 +311,7 @@ The correct tools: save_plan to create or restructure a plan (writes plan.json �
 .swarm/plan.md and .swarm/plan.json are READABLE but NOT DIRECTLY WRITABLE for state transitions.
 Task-level status changes (marking individual tasks as "completed") must use update_task_status().
 Phase-level completion (marking an entire phase as done) must use phase_complete().
-You may write to plan.md/plan.json for STRUCTURAL changes (adding tasks, updating descriptions).
+For STRUCTURAL changes (adding tasks, updating descriptions, changing dependencies), use save_plan — do NOT write plan.md/plan.json directly.
 You may NOT write to plan.md/plan.json to change task completion status or phase status directly.
 "I'll just mark it done directly" is a bypass — equivalent to GATE_DELEGATION_BYPASS.
 

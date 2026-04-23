@@ -1809,9 +1809,9 @@ export function createGuardrailsHooks(
 				throw new Error(
 					'PLAN STATE VIOLATION: Direct writes to .swarm/plan.md and .swarm/plan.json are blocked. ' +
 						'plan.md is auto-regenerated from plan.json by PlanSyncWorker. ' +
-						'Use update_task_status() to mark tasks complete, ' +
-						'phase_complete() for phase transitions, or ' +
-						'save_plan to create/restructure plans.',
+						'Use save_plan for ALL structural plan changes (adding/removing tasks, updating descriptions, dependencies, or phase names). ' +
+						'Use update_task_status() for task status only. ' +
+						'Use phase_complete() for phase transitions only.',
 				);
 			}
 		}
@@ -1833,9 +1833,9 @@ export function createGuardrailsHooks(
 					throw new Error(
 						'PLAN STATE VIOLATION: Direct writes to .swarm/plan.md and .swarm/plan.json are blocked. ' +
 							'plan.md is auto-regenerated from plan.json by PlanSyncWorker. ' +
-							'Use update_task_status() to mark tasks complete, ' +
-							'phase_complete() for phase transitions, or ' +
-							'save_plan to create/restructure plans.',
+							'Use save_plan for ALL structural plan changes (adding/removing tasks, updating descriptions, dependencies, or phase names). ' +
+							'Use update_task_status() for task status only. ' +
+							'Use phase_complete() for phase transitions only.',
 					);
 				}
 				if (
