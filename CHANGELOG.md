@@ -1,5 +1,12 @@
 # Changelog
 
+## [6.81.1](https://github.com/zaxbysauce/opencode-swarm/compare/v6.81.0...v6.81.1) (2026-04-23)
+
+
+### Bug Fixes
+
+* **cli:** prevent install() from firing when cli/index is imported by tests ([#572](https://github.com/zaxbysauce/opencode-swarm/issues/572)) ([10d0721](https://github.com/zaxbysauce/opencode-swarm/commit/10d07215ab59d519082c8bce6c7467a99eed0cb8))
+
 ## [6.81.0](https://github.com/zaxbysauce/opencode-swarm/compare/v6.80.2...v6.81.0) (2026-04-22)
 
 
