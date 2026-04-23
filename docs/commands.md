@@ -267,12 +267,23 @@ When you type a two-word command like `/swarm config doctor`, Swarm tries the co
 
 ## CLI Invocation
 
-All `/swarm` subcommands work in two places:
+### Inside an OpenCode session
 
-- **Inside OpenCode session:** type `/swarm <subcommand>` in the chat.
-- **Standalone CLI:** run `opencode-swarm <subcommand>` from your shell.
+Type `/swarm <subcommand>` in the chat. All commands in this reference work here.
 
-Both routes share the same registry. See `src/commands/registry.ts` for the raw definitions.
+### Standalone CLI
+
+The standalone binary accepts three top-level commands: `install`, `uninstall`, and `run`. To invoke a registry command from the shell, prefix it with `run`:
+
+```bash
+opencode-swarm run status
+opencode-swarm run plan 2
+opencode-swarm run evidence 2.1
+```
+
+Session-scoped commands (`turbo`, `full-auto`) require an active session and only work inside an OpenCode session — invoking them via the standalone CLI will fail.
+
+Both routes share the same registry. See `src/commands/registry.ts` for the raw definitions and `src/cli/index.ts` for the standalone dispatcher.
 
 ---
 
