@@ -21,6 +21,8 @@ nul
 # Spurious test-created directories
 undefined/
 syntax-check-test-*/
+# Session trajectory recordings
+trajectories/
 # Test output artifacts (numbered variants)
 testlog*.txt
 test_result*.txt

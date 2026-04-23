@@ -32,6 +32,11 @@ export interface SavePlanArgs {
 			acceptance?: string;
 		}>;
 	}>;
+	/**
+	 * Must be the project root directory. When provided, it anchors all .swarm directory
+	 * creation and plan file operations to the project root (issue #577).
+	 * Omit to use the fallback directory (injected by createSwarmTool, typically process.cwd()).
+	 */
 	working_directory?: string;
 	/**
 	 * When true, all task statuses are reset to 'pending' and existing completed
@@ -202,6 +207,27 @@ export async function executeSavePlan(
 			recovery_guidance:
 				'Use save_plan with corrected inputs to create or restructure plans. Never write .swarm/plan.json or .swarm/plan.md directly.',
 		};
+	}
+
+	// Project root anchor check — prevent .swarm from being created in subdirectories (issue #577).
+	// If working_directory was explicitly provided, it must resolve to the project root.
+	if (args.working_directory && fallbackDir) {
+		const resolvedTarget = path.resolve(fallbackDir, args.working_directory);
+		const resolvedRoot = path.resolve(fallbackDir);
+		if (resolvedTarget !== resolvedRoot) {
+			return {
+				success: false,
+				message:
+					`working_directory must be the project root. ` +
+					`Got "${args.working_directory}" (resolves to "${resolvedTarget}"), ` +
+					`expected "${resolvedRoot}". ` +
+					`Omit working_directory or pass the project root explicitly.`,
+				errors: [
+					`working_directory "${resolvedTarget}" is not the project root "${resolvedRoot}"`,
+				],
+				recovery_guidance: `Pass working_directory: "${resolvedRoot}" or omit the field entirely.`,
+			};
+		}
 	}
 
 	// Step 2.x: SPEC GATE - verify .swarm/spec.md exists and capture its hash/mtime

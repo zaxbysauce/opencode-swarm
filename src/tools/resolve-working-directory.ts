@@ -80,13 +80,28 @@ export function resolveWorkingDirectory(
 
 	// Resolve and verify existence
 	const resolvedDir = path.resolve(normalizedDir);
+	let realPath: string;
 	try {
-		const realPath = fs.realpathSync(resolvedDir);
-		return { success: true, directory: realPath };
+		realPath = fs.realpathSync(resolvedDir);
 	} catch {
 		return {
 			success: false,
 			message: `Invalid working_directory: path "${resolvedDir}" does not exist or is inaccessible`,
 		};
 	}
+
+	// Project root anchor: reject paths that resolve anywhere other than the project root.
+	// Prevents .swarm directories from being created in subdirectories (issue #577).
+	const resolvedFallback = path.resolve(fallbackDirectory);
+	if (realPath !== resolvedFallback) {
+		return {
+			success: false,
+			message:
+				`Invalid working_directory: "${workingDirectory}" resolves to "${realPath}" ` +
+				`but must be the project root "${resolvedFallback}". ` +
+				`Pass the project root path or omit working_directory entirely.`,
+		};
+	}
+
+	return { success: true, directory: realPath };
 }

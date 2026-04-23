@@ -20,6 +20,11 @@ export interface SavePlanArgs {
             acceptance?: string;
         }>;
     }>;
+    /**
+     * Must be the project root directory. When provided, it anchors all .swarm directory
+     * creation and plan file operations to the project root (issue #577).
+     * Omit to use the fallback directory (injected by createSwarmTool, typically process.cwd()).
+     */
     working_directory?: string;
     /**
      * When true, all task statuses are reset to 'pending' and existing completed

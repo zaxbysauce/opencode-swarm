@@ -40880,15 +40880,23 @@ function resolveWorkingDirectory(workingDirectory, fallbackDirectory) {
     };
   }
   const resolvedDir = path25.resolve(normalizedDir);
+  let realPath;
   try {
-    const realPath = fs15.realpathSync(resolvedDir);
-    return { success: true, directory: realPath };
+    realPath = fs15.realpathSync(resolvedDir);
   } catch {
     return {
       success: false,
       message: `Invalid working_directory: path "${resolvedDir}" does not exist or is inaccessible`
     };
   }
+  const resolvedFallback = path25.resolve(fallbackDirectory);
+  if (realPath !== resolvedFallback) {
+    return {
+      success: false,
+      message: `Invalid working_directory: "${workingDirectory}" resolves to "${realPath}" ` + `but must be the project root "${resolvedFallback}". ` + `Pass the project root path or omit working_directory entirely.`
+    };
+  }
+  return { success: true, directory: realPath };
 }
 
 // src/tools/test-runner.ts

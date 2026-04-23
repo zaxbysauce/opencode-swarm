@@ -916,8 +916,17 @@ export function createGuardrailsHooks(
 	}
 
 	// Normalize directory: legacy calls pass the config object as the first arg, so fall back to cwd
-	const effectiveDirectory =
-		typeof directory === 'string' ? directory : process.cwd();
+	// Use provided directory; if legacy call with no string directory, resolve against cwd but
+	// emit a warning so callers can migrate to the new signature before this path is removed.
+	const effectiveDirectory = (() => {
+		if (typeof directory === 'string') return directory;
+		const cwd = process.cwd();
+		console.warn(
+			`[guardrails] effectiveDirectory resolved to process.cwd() "${cwd}" — ` +
+				'pass an explicit directory string to createGuardrailsHooks to avoid .swarm artifacts in wrong locations',
+		);
+		return cwd;
+	})();
 
 	// If guardrails are disabled, return no-op handlers
 	if (guardrailsConfig?.enabled === false) {
@@ -1799,9 +1808,9 @@ export function createGuardrailsHooks(
 				throw new Error(
 					'PLAN STATE VIOLATION: Direct writes to .swarm/plan.md and .swarm/plan.json are blocked. ' +
 						'plan.md is auto-regenerated from plan.json by PlanSyncWorker. ' +
-						'Use update_task_status() to mark tasks complete, ' +
-						'phase_complete() for phase transitions, or ' +
-						'save_plan to create/restructure plans.',
+						'Use save_plan for ALL structural plan changes (adding/removing tasks, updating descriptions, dependencies, or phase names). ' +
+						'Use update_task_status() for task status only. ' +
+						'Use phase_complete() for phase transitions only.',
 				);
 			}
 		}
@@ -1823,9 +1832,9 @@ export function createGuardrailsHooks(
 					throw new Error(
 						'PLAN STATE VIOLATION: Direct writes to .swarm/plan.md and .swarm/plan.json are blocked. ' +
 							'plan.md is auto-regenerated from plan.json by PlanSyncWorker. ' +
-							'Use update_task_status() to mark tasks complete, ' +
-							'phase_complete() for phase transitions, or ' +
-							'save_plan to create/restructure plans.',
+							'Use save_plan for ALL structural plan changes (adding/removing tasks, updating descriptions, dependencies, or phase names). ' +
+							'Use update_task_status() for task status only. ' +
+							'Use phase_complete() for phase transitions only.',
 					);
 				}
 				if (
@@ -2146,6 +2155,17 @@ export function createGuardrailsHooks(
 					}
 				}
 			}
+
+			// v6.29: PRM hard stop — blocks all tool execution when escalation level 3 is reached.
+			// PRM HARD STOP check disabled - PRM module not yet implemented
+			// {
+			// 	const prmSession = swarmState.agentSessions.get(input.sessionID);
+			// 	if (prmSession?.prmHardStopPending) {
+			// 		throw new Error(
+			// 			'🛑 PRM HARD STOP: Pattern escalation maximum reached. Stop tool calls and return progress summary.',
+			// 		);
+			// 	}
+			// }
 
 			// Resolve session — returns null if architect-exempt
 			const resolved = resolveSessionAndWindow(input.sessionID);
@@ -2710,6 +2730,39 @@ export function createGuardrailsHooks(
 				session.pendingAdvisoryMessages = [];
 			}
 
+			// v6.29: PRM hard stop injection (Task 2.1) - DISABLED
+			// PRM module not yet implemented
+			// if (isArchitectSession && session?.prmHardStopPending) {
+			// 	// Clear before injecting to avoid repeat
+			// 	session.prmHardStopPending = false;
+			// 	// Emit telemetry for hard stop injection
+			// 	const lastPattern = session.prmLastPatternDetected;
+			// 	const patternType = lastPattern?.pattern ?? 'unknown';
+			// 	const occurrenceCount = session.prmPatternCounts.get(patternType) ?? 0;
+			// 	telemetry.prmHardStop(
+			// 		_input.sessionID,
+			// 		patternType,
+			// 		session.prmEscalationLevel,
+			// 		occurrenceCount,
+			// 	);
+			// 	// Inject into first system message
+			// 	const hardStopMsg = systemMessages[0];
+			// 	if (hardStopMsg) {
+			// 		const hardStopTextPart = (hardStopMsg.parts ?? []).find(
+			// 			(part): part is { type: string; text: string } =>
+			// 				part.type === 'text' && typeof part.text === 'string',
+			// 		);
+			// 		if (
+			// 			hardStopTextPart &&
+			// 			!hardStopTextPart.text.includes('[HARD STOP]')
+			// 		) {
+			// 			hardStopTextPart.text =
+			// 				`[HARD STOP] PRM has detected repeated pattern violations. STOP all tool calls and return a summary of your progress. [/HARD STOP]\n\n` +
+			// 				hardStopTextPart.text;
+			// 		}
+			// 	}
+			// }
+
 			// v6.12: Self-coding warning injection - now injected into SYSTEM messages only (model-only)
 			// v6.22.8: Only re-inject when architectWriteCount has increased since last warning
 			// (prevents repeated acknowledgements in chat each turn)
@@ -3238,6 +3291,14 @@ type AgentRule = {
 };
 
 export const DEFAULT_AGENT_AUTHORITY_RULES: Record<string, AgentRule> = {
+	// Opencode native built-in agents — pass through with no swarm write restrictions.
+	// Opencode's own permission system governs what these agents may write; the swarm
+	// authority layer must not add further constraints on top of it.
+	build: {},
+	plan: {},
+	general: {},
+	explore: {},
+
 	architect: {
 		blockedExact: ['.swarm/plan.md', '.swarm/plan.json'],
 		blockedZones: ['generated'],
