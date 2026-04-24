@@ -335,6 +335,41 @@ describe('swarm-* shortcut command routing', () => {
 		});
 	});
 
+	// Regression: '/swarm diagnosis' (common misspelling of 'diagnose') must route to
+	// the diagnose handler, not fall through to help text.
+	// Fixes issue #588: "Commands dont work" — user typed 'diagnosis' instead of 'diagnose'.
+	describe('diagnosis alias routes to diagnose command (issue #588)', () => {
+		it('/swarm diagnosis runs diagnose (not help text)', async () => {
+			const handler = createSwarmCommandHandler(tempDir, {});
+			const output = { parts: [] as unknown[] };
+
+			await handler(
+				{ command: 'swarm', arguments: 'diagnosis', sessionID: sessionId },
+				output,
+			);
+
+			expect(output.parts).toHaveLength(1);
+			const text = (output.parts[0] as { text: string }).text;
+			// Must NOT fall through to help text
+			expect(text).not.toContain('## Swarm Commands');
+		});
+
+		it('swarm-diagnosis shortcut routes to diagnose (not help text)', async () => {
+			const handler = createSwarmCommandHandler(tempDir, {});
+			const output = { parts: [] as unknown[] };
+
+			await handler(
+				{ command: 'swarm-diagnosis', arguments: '', sessionID: sessionId },
+				output,
+			);
+
+			expect(output.parts).toHaveLength(1);
+			const text = (output.parts[0] as { text: string }).text;
+			// Must NOT fall through to help text
+			expect(text).not.toContain('## Swarm Commands');
+		});
+	});
+
 	// Regression: adding 'config-doctor' (dash) alias must not break the original
 	// space-based path '/swarm config doctor' which uses the generic swarm handler.
 	describe('Backward compatibility: space-based compound commands still work', () => {

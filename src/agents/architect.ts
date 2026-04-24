@@ -1578,7 +1578,7 @@ function buildAvailableToolsList(council?: CouncilWorkflowConfig): string {
  */
 function buildSlashCommandsList(): string {
 	// Commands with dashes that are aliases — skip entirely
-	const SKIP_ALIASES = new Set(['config-doctor', 'evidence-summary']);
+	const SKIP_ALIASES = new Set(['config-doctor', 'evidence-summary', 'diagnosis']);
 
 	// Commands where description only — skip details even if present
 	const READ_ONLY_OBSERVATION = new Set([

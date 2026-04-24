@@ -124,6 +124,12 @@ export const COMMAND_REGISTRY = {
 		handler: (ctx) => handleDiagnoseCommand(ctx.directory, ctx.args),
 		description: 'Run health check on swarm state',
 	},
+	// Alias: users commonly type 'diagnosis' instead of 'diagnose'.
+	// Same handler, same behavior — resolveCommand picks this up before falling through to help text.
+	diagnosis: {
+		handler: (ctx) => handleDiagnoseCommand(ctx.directory, ctx.args),
+		description: 'Run health check on swarm state',
+	},
 	preflight: {
 		handler: (ctx) => handlePreflightCommand(ctx.directory, ctx.args),
 		description: 'Run preflight automation checks',

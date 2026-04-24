@@ -85,6 +85,12 @@ describe('buildSlashCommandsList (via createArchitectAgent)', () => {
 		expect(prompt).not.toContain('evidence-summary');
 	});
 
+	it('alias "diagnosis" does NOT appear in output (issue #588)', () => {
+		// 'diagnosis' is a user-facing alias for 'diagnose' (SKIP_ALIASES),
+		// only 'diagnose' should appear in the architect prompt
+		expect(prompt).not.toContain('/swarm diagnosis');
+	});
+
 	// ============ ARGS FORMAT ============
 
 	it('commands with args have "Args:" in their line', () => {
