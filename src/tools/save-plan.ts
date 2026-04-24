@@ -7,10 +7,20 @@ import * as crypto from 'node:crypto';
 import * as fs from 'node:fs';
 import * as path from 'node:path';
 import { type ToolDefinition, tool } from '@opencode-ai/plugin/tool';
-import type { Phase, Plan, Task, TaskStatus } from '../config/plan-schema';
+import {
+	ExecutionProfileSchema,
+	type Phase,
+	type Plan,
+	type Task,
+	type TaskStatus,
+} from '../config/plan-schema';
 import { tryAcquireLock } from '../parallel/file-locks.js';
 import { writeCheckpoint } from '../plan/checkpoint';
-import { takeSnapshotEvent } from '../plan/ledger';
+import {
+	appendLedgerEvent,
+	computePlanHash,
+	takeSnapshotEvent,
+} from '../plan/ledger';
 import { loadPlanJsonOnly, savePlan } from '../plan/manager';
 import { swarmState } from '../state';
 import { createSwarmTool } from './create-tool';
@@ -45,6 +55,18 @@ export interface SavePlanArgs {
 	 * after a failed phase).  Defaults to false (existing statuses preserved).
 	 */
 	reset_statuses?: boolean;
+	/**
+	 * Architect-facing concurrency controls for this plan.
+	 * When execution_profile.locked is true the profile is immutable — subsequent
+	 * save_plan calls that try to change it will be rejected (fail-closed).
+	 * Omit to leave the current profile unchanged.
+	 */
+	execution_profile?: {
+		parallelization_enabled?: boolean;
+		max_concurrent_tasks?: number;
+		council_parallel?: boolean;
+		locked?: boolean;
+	};
 }
 
 /**
@@ -59,6 +81,13 @@ export interface SavePlanResult {
 	errors?: string[];
 	warnings?: string[];
 	recovery_guidance?: string;
+	/** The resolved execution_profile that was persisted, if any. */
+	execution_profile?: {
+		parallelization_enabled: boolean;
+		max_concurrent_tasks: number;
+		council_parallel: boolean;
+		locked: boolean;
+	};
 }
 
 /**
@@ -210,24 +239,42 @@ export async function executeSavePlan(
 	}
 
 	// Project root anchor check — prevent .swarm from being created in subdirectories (issue #577).
-	// If working_directory was explicitly provided, it must resolve to the project root.
+	// If working_directory was explicitly provided, reject only if it is a subdirectory of fallbackDir.
+	// If fallbackDir doesn't exist (CWD mismatch), trust the explicit working_directory.
 	if (args.working_directory && fallbackDir) {
-		const resolvedTarget = path.resolve(fallbackDir, args.working_directory);
+		const resolvedTarget = path.resolve(args.working_directory);
 		const resolvedRoot = path.resolve(fallbackDir);
-		if (resolvedTarget !== resolvedRoot) {
-			return {
-				success: false,
-				message:
-					`working_directory must be the project root. ` +
-					`Got "${args.working_directory}" (resolves to "${resolvedTarget}"), ` +
-					`expected "${resolvedRoot}". ` +
-					`Omit working_directory or pass the project root explicitly.`,
-				errors: [
-					`working_directory "${resolvedTarget}" is not the project root "${resolvedRoot}"`,
-				],
-				recovery_guidance: `Pass working_directory: "${resolvedRoot}" or omit the field entirely.`,
-			};
+
+		// Check if fallbackDir exists (to detect CWD mismatch scenario)
+		let fallbackExists = false;
+		try {
+			fs.accessSync(resolvedRoot, fs.constants.F_OK);
+			fallbackExists = true;
+		} catch {
+			fallbackExists = false;
 		}
+
+		if (fallbackExists) {
+			// Reject only if working_directory is a subdirectory of fallback.
+			// Example: workingDir=/project/src, fallback=/project → src is a subdirectory of /project → REJECT
+			// Example: workingDir=/project, fallback=/tmp/wrong → /project is NOT a subdirectory of /tmp/wrong → TRUST
+			const isSubdirectory = resolvedTarget.startsWith(resolvedRoot + path.sep);
+			if (isSubdirectory) {
+				return {
+					success: false,
+					message:
+						`working_directory must be the project root. ` +
+						`Got "${args.working_directory}" (resolves to "${resolvedTarget}"), ` +
+						`which is a subdirectory of fallback "${resolvedRoot}". ` +
+						`Omit working_directory or pass the project root explicitly.`,
+					errors: [
+						`working_directory "${resolvedTarget}" is a subdirectory of fallback "${resolvedRoot}"`,
+					],
+					recovery_guidance: `Pass working_directory: "${resolvedRoot}" or omit the field entirely.`,
+				};
+			}
+		}
+		// Trust explicit working_directory (fallback doesn't exist, or not a subdirectory)
 	}
 
 	// Step 2.x: SPEC GATE - verify .swarm/spec.md exists and capture its hash/mtime
@@ -252,29 +299,89 @@ export async function executeSavePlan(
 		}
 	}
 
-	// Step 2.5: Read current plan for status preservation (merge mode)
-	// This ensures all task statuses are preserved across plan revisions,
-	// not just tasks that happen to share the same ID with the incoming plan.
-	// When args.reset_statuses is true the map is intentionally left empty so
-	// every task starts fresh at 'pending'.
+	// Step 2.5: Read current plan for status preservation (merge mode) and
+	// locked execution_profile enforcement.
+	// Status merge: ensures all task statuses are preserved across plan revisions.
+	// When args.reset_statuses is true the map is intentionally left empty.
+	// Profile enforcement: if the existing plan has a locked execution_profile,
+	// reject any attempt to change it (fail-closed).
 	const dir = targetWorkspace as string;
 	const existingStatusMap: Map<string, TaskStatus> = new Map();
-	if (!args.reset_statuses) {
+	let preservedExecutionProfile: Plan['execution_profile'];
+	{
+		let existing: Awaited<ReturnType<typeof loadPlanJsonOnly>> = null;
 		try {
-			const existing = await loadPlanJsonOnly(dir);
-			if (existing) {
+			existing = await loadPlanJsonOnly(dir);
+		} catch {
+			// First plan write or unreadable — proceed with defaults
+		}
+
+		if (existing) {
+			// Status map (skip when resetting)
+			if (!args.reset_statuses) {
 				for (const phase of existing.phases) {
 					for (const task of phase.tasks) {
 						existingStatusMap.set(task.id, task.status);
 					}
 				}
 			}
-		} catch {
-			// First plan write or unreadable — proceed with all-pending
+
+			// Locked execution_profile enforcement — fail closed (unless reset_statuses clears it)
+			if (existing.execution_profile?.locked) {
+				if (args.execution_profile !== undefined && !args.reset_statuses) {
+					// Caller is trying to change a locked profile without reset → reject
+					return {
+						success: false,
+						message:
+							'EXECUTION_PROFILE_LOCKED: The execution_profile for this plan is locked and cannot be changed.',
+						errors: [
+							'execution_profile.locked is true — to change the profile you must first unlock it via a separate plan revision that explicitly sets locked: false, or reset the plan with reset_statuses.',
+						],
+						recovery_guidance:
+							'Remove the execution_profile field from this save_plan call to preserve the locked profile, ' +
+							'or use reset_statuses: true to start fresh (this clears the lock). ' +
+							'Never modify execution_profile directly in plan.json.',
+					};
+				}
+				// When reset_statuses is true, clear the lock (fresh start).
+				// Otherwise preserve the locked profile unchanged.
+				if (!args.reset_statuses) {
+					preservedExecutionProfile = existing.execution_profile;
+				}
+			} else {
+				// Profile is not locked — carry it forward if no new one provided
+				preservedExecutionProfile = existing.execution_profile;
+			}
 		}
 	}
 
-	// Step 3: Build the Plan object from args
+	// Step 3: Resolve the effective execution_profile for this save.
+	// Precedence: incoming args.execution_profile > preserved existing profile > undefined.
+	// The locked-profile guard above already rejected the case where args.execution_profile
+	// is provided for a locked plan, so reaching here with args.execution_profile set means
+	// the plan is NOT locked (or is brand new).
+	let resolvedProfile: Plan['execution_profile'] = preservedExecutionProfile;
+	if (args.execution_profile !== undefined) {
+		// Merge incoming profile fields over the preserved base (if any)
+		const base = preservedExecutionProfile ?? {};
+		const merged = { ...base, ...args.execution_profile };
+		const parsed = ExecutionProfileSchema.safeParse(merged);
+		if (!parsed.success) {
+			return {
+				success: false,
+				message: 'Invalid execution_profile: schema validation failed',
+				errors: parsed.error.issues.map(
+					(i) => `${i.path.join('.')}: ${i.message}`,
+				),
+				recovery_guidance:
+					'Check execution_profile fields: parallelization_enabled (boolean), ' +
+					'max_concurrent_tasks (integer 1-64), council_parallel (boolean), locked (boolean).',
+			};
+		}
+		resolvedProfile = parsed.data;
+	}
+
+	// Step 4: Build the Plan object from args
 	const plan: Plan = {
 		schema_version: '1.0.0',
 		title: args.title,
@@ -283,6 +390,9 @@ export async function executeSavePlan(
 		current_phase: args.phases[0]?.id,
 		specMtime,
 		specHash,
+		...(resolvedProfile !== undefined
+			? { execution_profile: resolvedProfile }
+			: {}),
 		phases: args.phases.map((phase): Phase => {
 			return {
 				id: phase.id,
@@ -347,6 +457,44 @@ export async function executeSavePlan(
 			if (savedPlan) {
 				await takeSnapshotEvent(dir, savedPlan).catch(() => {});
 			}
+			// Append execution_profile ledger events when the profile changed.
+			// execution_profile_set tracks every profile write; execution_profile_locked
+			// is appended once when the profile transitions to locked state.
+			if (resolvedProfile !== undefined && savedPlan) {
+				const planId = `${plan.swarm}-${plan.title}`.replace(
+					/[^a-zA-Z0-9-_]/g,
+					'_',
+				);
+				const planHashAfter = computePlanHash(savedPlan);
+				const profileChanged =
+					JSON.stringify(resolvedProfile) !==
+					JSON.stringify(preservedExecutionProfile);
+				if (profileChanged) {
+					await appendLedgerEvent(
+						dir,
+						{
+							event_type: 'execution_profile_set',
+							source: 'save_plan',
+							plan_id: planId,
+							payload: { execution_profile: resolvedProfile },
+						},
+						{ planHashAfter },
+					).catch(() => {});
+				}
+				// Append locked event when the profile was just locked
+				const wasAlreadyLocked = preservedExecutionProfile?.locked === true;
+				if (resolvedProfile.locked && !wasAlreadyLocked) {
+					await appendLedgerEvent(
+						dir,
+						{
+							event_type: 'execution_profile_locked',
+							source: 'save_plan',
+							plan_id: planId,
+						},
+						{ planHashAfter },
+					).catch(() => {});
+				}
+			}
 			// Write root-level checkpoint artifact (non-blocking)
 			await writeCheckpoint(dir).catch(() => {});
 			// Advisory: write marker file for unauthorized-write detection
@@ -386,6 +534,9 @@ export async function executeSavePlan(
 				plan_path: path.join(dir, '.swarm', 'plan.json'),
 				phases_count: plan.phases.length,
 				tasks_count: tasksCount,
+				...(resolvedProfile !== undefined
+					? { execution_profile: resolvedProfile }
+					: {}),
 				...(warnings.length > 0 ? { warnings } : {}),
 			};
 		} finally {
@@ -410,7 +561,8 @@ export async function executeSavePlan(
  */
 export const save_plan: ToolDefinition = createSwarmTool({
 	description:
-		'Save a structured implementation plan to .swarm/plan.json and .swarm/plan.md. ' +
+		'Save or revise a structured implementation plan to .swarm/plan.json and .swarm/plan.md. ' +
+		'Use this tool for all structural plan changes on an existing plan (adding/removing tasks, updating descriptions, dependencies, or phase names) — existing task statuses are preserved by default (set reset_statuses: true to start fresh). ' +
 		'Task descriptions and phase names MUST contain real content from the spec — ' +
 		'bracket placeholders like [task] or [Project] will be rejected.',
 	args: {
@@ -488,6 +640,43 @@ export const save_plan: ToolDefinition = createSwarmTool({
 				'When true, reset ALL task statuses to pending regardless of prior completion state. ' +
 					'Use only when deliberately re-planning a phase from scratch. ' +
 					'Default false (preserves existing task statuses across plan revisions).',
+			),
+		execution_profile: tool.schema
+			.object({
+				parallelization_enabled: tool.schema
+					.boolean()
+					.optional()
+					.describe(
+						'When true, enables parallel task dispatch for this plan. Default false (serial).',
+					),
+				max_concurrent_tasks: tool.schema
+					.number()
+					.int()
+					.min(1)
+					.max(64)
+					.optional()
+					.describe(
+						'Maximum tasks that may run concurrently when parallelization is enabled. Default 1.',
+					),
+				council_parallel: tool.schema
+					.boolean()
+					.optional()
+					.describe(
+						'When true, council review phases may run in parallel. Default false.',
+					),
+				locked: tool.schema
+					.boolean()
+					.optional()
+					.describe(
+						'When true, locks the profile — future save_plan calls that include ' +
+							'execution_profile will be rejected (fail-closed). ' +
+							'Unlock by resetting the plan (reset_statuses: true).',
+					),
+			})
+			.optional()
+			.describe(
+				'Architect-facing concurrency controls. Once locked, cannot be changed without resetting. ' +
+					'Omit to preserve the existing profile.',
 			),
 	},
 	execute: async (args: unknown, _directory: string) => {

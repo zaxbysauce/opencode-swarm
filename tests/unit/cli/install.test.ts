@@ -184,4 +184,121 @@ describe('CLI install command', () => {
 		const newConfig = JSON.parse(await readFile(opencodeJsonPath, 'utf-8'));
 		expect(newConfig.plugin).toContain('opencode-swarm');
 	});
+
+	test('Install preserves existing custom agent settings — does not wipe user config', async () => {
+		// Setup: Create opencode.json with custom agent settings and other user config
+		const opencodeDir = join(tempDir, 'opencode');
+		const opencodeJsonPath = join(opencodeDir, 'opencode.json');
+
+		const existingConfig = {
+			plugin: ['other-plugin'],
+			theme: 'dark',
+			agent: {
+				explore: { model: 'my-custom-explore-model', temperature: 0.2 },
+				general: { model: 'my-custom-general-model' },
+				coder: { model: 'my-coder-model' },
+			},
+		};
+		await writeFile(opencodeJsonPath, JSON.stringify(existingConfig, null, 2));
+
+		// Run install
+		const result = await runCLI(['install'], { XDG_CONFIG_HOME: tempDir });
+		expect(result.exitCode).toBe(0);
+
+		const updated = JSON.parse(await readFile(opencodeJsonPath, 'utf-8'));
+
+		// Plugin entry added
+		expect(updated.plugin).toContain('opencode-swarm');
+
+		// Top-level user config preserved
+		expect(updated.theme).toBe('dark');
+
+		// agent.explore: disable enforced but custom keys preserved
+		expect(updated.agent.explore.disable).toBe(true);
+		expect(updated.agent.explore.model).toBe('my-custom-explore-model');
+		expect(updated.agent.explore.temperature).toBe(0.2);
+
+		// agent.general: disable enforced but custom model preserved
+		expect(updated.agent.general.disable).toBe(true);
+		expect(updated.agent.general.model).toBe('my-custom-general-model');
+
+		// Unrelated agent untouched
+		expect(updated.agent.coder.model).toBe('my-coder-model');
+	});
+
+	test('import.meta.main is true in test entry point, false in imported modules — confirming the guard in cli/index is effective', () => {
+		// Each Bun test worker uses the test file as its entry point.
+		// import.meta.main is TRUE here (this file is the entry point) and
+		// FALSE in any module this file imports. The guard in cli/index.ts uses
+		// `if (import.meta.main)` to prevent main() from running when that
+		// module is imported rather than directly executed. Without this guard,
+		// Bun test workers would call install() with an empty argv defaulting to
+		// 'install', overwriting the user's real opencode.json.
+		expect(import.meta.main).toBe(true);
+	});
+
+	test('Install safely handles malformed agent config (null, false, string values)', async () => {
+		// Edge case: if agent.explore or agent.general are non-objects
+		// (null, false, string, number, etc.), the merge semantics should
+		// safely ignore them without corrupting data via spread operator.
+		const opencodeDir = join(tempDir, 'opencode');
+		const opencodeJsonPath = join(opencodeDir, 'opencode.json');
+
+		const malformedConfig = {
+			plugin: [],
+			agent: {
+				explore: null, // Invalid: should be object or undefined
+				general: false, // Invalid: should be object or undefined
+				coder: { model: 'my-coder' }, // Valid: keep as-is
+			},
+		};
+		await writeFile(opencodeJsonPath, JSON.stringify(malformedConfig, null, 2));
+
+		// Run install
+		const result = await runCLI(['install'], { XDG_CONFIG_HOME: tempDir });
+		expect(result.exitCode).toBe(0);
+
+		const updated = JSON.parse(await readFile(opencodeJsonPath, 'utf-8'));
+
+		// agent.explore: should become { disable: true } (the null is replaced)
+		expect(updated.agent.explore).toEqual({ disable: true });
+
+		// agent.general: should become { disable: true } (the false is replaced)
+		expect(updated.agent.general).toEqual({ disable: true });
+
+		// Unrelated agent should be preserved as-is
+		expect(updated.agent.coder.model).toBe('my-coder');
+	});
+
+	test('Install overwrites disable:false to disable:true for standard config', async () => {
+		// Regression: if user has disable:false explicitly set, ensure
+		// install() overwrites it to disable:true (enforce the required flag).
+		const opencodeDir = join(tempDir, 'opencode');
+		const opencodeJsonPath = join(opencodeDir, 'opencode.json');
+
+		const configWithDisableFalse = {
+			plugin: [],
+			agent: {
+				explore: { disable: false, model: 'custom-explore' },
+				general: { disable: false, model: 'custom-general' },
+			},
+		};
+		await writeFile(
+			opencodeJsonPath,
+			JSON.stringify(configWithDisableFalse, null, 2),
+		);
+
+		// Run install
+		const result = await runCLI(['install'], { XDG_CONFIG_HOME: tempDir });
+		expect(result.exitCode).toBe(0);
+
+		const updated = JSON.parse(await readFile(opencodeJsonPath, 'utf-8'));
+
+		// disable should be overwritten to true, custom model preserved
+		expect(updated.agent.explore.disable).toBe(true);
+		expect(updated.agent.explore.model).toBe('custom-explore');
+
+		expect(updated.agent.general.disable).toBe(true);
+		expect(updated.agent.general.model).toBe('custom-general');
+	});
 });

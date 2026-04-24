@@ -125,6 +125,13 @@ export interface HandoffData {
 	recentDecisions: string[];
 	/** Delegation state */
 	delegationState: DelegationState | null;
+	/** Locked execution_profile for this plan, if set. Resuming sessions must honour it. */
+	execution_profile?: {
+		parallelization_enabled: boolean;
+		max_concurrent_tasks: number;
+		council_parallel: boolean;
+		locked: boolean;
+	} | null;
 }
 
 /**
@@ -464,6 +471,7 @@ export async function getHandoffData(directory: string): Promise<HandoffData> {
 			: null,
 		recentDecisions: escapedDecisions,
 		delegationState: escapedDelegationState,
+		execution_profile: plan?.execution_profile ?? null,
 	};
 }
 
@@ -544,6 +552,24 @@ export function formatHandoffMarkdown(data: HandoffData): string {
 		lines.push('```');
 		lines.push(data.delegationState.pendingHandoffs[0]);
 		lines.push('```');
+	}
+
+	// Execution profile (if set — resuming sessions must honour locked profiles)
+	if (data.execution_profile) {
+		lines.push('### Execution Profile');
+		lines.push(
+			`- **Parallelization**: ${data.execution_profile.parallelization_enabled ? 'enabled' : 'disabled'}`,
+		);
+		lines.push(
+			`- **Max Concurrent Tasks**: ${data.execution_profile.max_concurrent_tasks}`,
+		);
+		lines.push(
+			`- **Council Parallel**: ${data.execution_profile.council_parallel ? 'yes' : 'no'}`,
+		);
+		lines.push(
+			`- **Locked**: ${data.execution_profile.locked ? 'YES — profile is immutable' : 'no'}`,
+		);
+		lines.push('');
 	}
 
 	return lines.join('\n');

@@ -518,13 +518,20 @@ describe('update-task-status adversarial tests', () => {
 			await fs.writeFile(
 				path.join(tempDir, '.swarm', 'evidence', '1.1.json'),
 				JSON.stringify({
-					task_id: '1.1',
+					taskId: '1.1',
 					required_gates: ['reviewer', 'test_engineer'],
 					gates: {
-						reviewer: { passed_at: new Date().toISOString() },
-						test_engineer: { passed_at: new Date().toISOString() },
+						reviewer: {
+							sessionId: 'test-session',
+							timestamp: new Date().toISOString(),
+							agent: 'reviewer',
+						},
+						test_engineer: {
+							sessionId: 'test-session',
+							timestamp: new Date().toISOString(),
+							agent: 'test_engineer',
+						},
 					},
-					started_at: new Date().toISOString(),
 				}),
 			);
 		});

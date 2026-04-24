@@ -40,9 +40,26 @@ function extractAvailableToolsNames(prompt: string): string[] {
 	const match = prompt.match(/^Available Tools:\s*(.+?)$/m);
 	if (!match) return [];
 
-	// Extract just the tool name (word characters) before any description parentheses
-	const toolMatches = match[1].matchAll(/(\w+)(?:\s*\([^)]*\))?/g);
-	return [...toolMatches].map((m) => m[1]).filter(Boolean);
+	const line = match[1];
+	const segments: string[] = [];
+	let current = '';
+	let depth = 0;
+	for (let i = 0; i < line.length; i++) {
+		const ch = line[i];
+		if (ch === '(') depth++;
+		if (ch === ')') depth--;
+		if (ch === ',' && depth === 0) {
+			segments.push(current.trim());
+			current = '';
+		} else {
+			current += ch;
+		}
+	}
+	if (current.trim()) segments.push(current.trim());
+
+	return segments
+		.map((seg) => seg.match(/^(\w+)/)?.[1])
+		.filter(Boolean) as string[];
 }
 
 // ---------------------------------------------------------------------------

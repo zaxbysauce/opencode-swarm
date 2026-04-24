@@ -49,6 +49,7 @@ export type { ClassifiedFailure, FailureClassification, FailureCluster, } from '
 export { classifyAndCluster, classifyFailure, clusterFailures, } from '../test-impact/failure-classifier.js';
 export type { FlakyTestEntry } from '../test-impact/flaky-detector.js';
 export { computeFlakyScore, detectFlakyTests, isTestQuarantined, } from '../test-impact/flaky-detector.js';
+export { generate_mutants } from './generate-mutants';
 export { lint_spec } from './lint-spec';
 export { mutation_test } from './mutation-test';
 export { symbols } from './symbols';
@@ -59,4 +60,5 @@ export { todo_extract } from './todo-extract';
 export { executeUpdateTaskStatus, type UpdateTaskStatusArgs, type UpdateTaskStatusResult, update_task_status, } from './update-task-status';
 export { write_drift_evidence } from './write-drift-evidence';
 export { write_hallucination_evidence } from './write-hallucination-evidence';
+export { write_mutation_evidence } from './write-mutation-evidence';
 export { executeWriteRetro, write_retro } from './write-retro';

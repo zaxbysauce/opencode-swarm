@@ -27,10 +27,10 @@ Most AI coding tools let one model write code and ask that same model whether th
 ### Key Features
 
 - 🏗️ **11 specialized agents** — architect, coder, reviewer, test engineer, critic, critic_sounding_board, critic_drift_verifier, explorer, SME, docs, designer
-- 🔒 **Gated pipeline** — code never ships without reviewer + test engineer approval (bypassed in turbo mode)
-- 🔄 **Phase completion gates** — completion-verify and drift verifier gates enforced before phase completion (bypassed in turbo mode)
+- 🔒 **Gated pipeline** — code never ships without reviewer + test engineer approval
+- 🔄 **Phase completion gates** — completion-verify and drift verifier gates enforced before phase completion
 - 🔁 **Resumable sessions** — all state saved to `.swarm/`; pick up any project any day
-- 🌐 **12 languages** — TypeScript, Python, Go, Rust, Java, Kotlin, C#, C/C++, Swift, Dart, Ruby, PHP
+- 🌐 **20 languages** — TypeScript, Python, Go, Rust, Java, Kotlin, C/C++, C#, Ruby, Swift, Dart, PHP, JavaScript, CSS, Bash, PowerShell, INI, Regex
 - 🛡️ **Built-in security** — SAST, secrets scanning, dependency audit per task
 - 🆓 **Free tier** — works with OpenCode Zen's free model roster
 - ⚙️ **Fully configurable** — override any agent's model, disable agents, tune guardrails
@@ -60,326 +60,266 @@ Swarm then:
 * automated checks run
 * reviewer checks correctness
 * test engineer writes and runs tests
-* architect runs regression sweep (scope:"graph" to find cross-task test regressions)
+* architect runs regression sweep
 * failures loop back with structured feedback
 
 7. After each phase, docs and retrospectives are updated.
 
-All project state lives in `.swarm/`:
+All project state lives in `.swarm/` — plans, evidence, context, knowledge, and telemetry. Resumable by design. If `.swarm/` already exists, the architect goes straight into **RESUME** → **EXECUTE** instead of repeating discovery.
 
-```text
-.swarm/
-├── plan.md                        # Projected plan (generated from ledger)
-├── plan.json                      # Projected plan data (generated from ledger)
-├── plan-ledger.jsonl              # Durable append-only ledger — authoritative source of truth (v6.44)
-├── SWARM_PLAN.md                  # Export checkpoint artifact written on save_plan / phase_complete / close
-├── SWARM_PLAN.json                # Export checkpoint artifact (importable via importCheckpoint)
-├── context.md                     # Technical decisions and SME guidance
-├── spec.md                        # Feature specification (written by /swarm specify)
-├── close-summary.md               # Written by /swarm close with project summary
-├── close-lessons.md               # Optional: explicit session lessons for /swarm close to curate
-├── doc-manifest.json              # Documentation index built by doc_scan tool
-├── events.jsonl                   # Event stream for diagnostics
-├── evidence/                      # Review/test evidence bundles per task
-├── telemetry.jsonl                # Session observability events (JSONL)
-├── curator-summary.json           # Curator system state
-├── curator-briefing.md            # Curator init briefing injected at session start
-└── drift-report-phase-N.json      # Plan-vs-reality drift reports (Curator)
-```
+---
 
-> **Plan durability (v6.44):** `plan-ledger.jsonl` is the authoritative source of truth for plan state. `plan.json` and `plan.md` are projections derived from the ledger — if they are missing or stale, `loadPlan()` auto-rebuilds them from the ledger. `SWARM_PLAN.md` / `SWARM_PLAN.json` are export-only checkpoint artifacts written automatically — use `SWARM_PLAN.json` to restore if both `plan.json` and the ledger are lost.
+## Execution Modes
 
-Swarm is resumable by design. If `.swarm/` already exists, the architect goes straight into **RESUME** → **EXECUTE** instead of repeating discovery.
+Swarm has two independent mode systems:
+
+**Session modes** — toggle per session with a slash command:
+
+| Mode | Safety | Speed | When to Use |
+|------|--------|-------|------------|
+| **Balanced** (default) | High | Medium | Everyday development |
+| **Turbo** | Medium | Fast | Rapid iteration; skips Stage B gates for non-Tier-3 files |
+| **Full-Auto** | Depends on critic | Fast | Unattended multi-interaction runs |
+
+**Project mode** — persistent via `execution_mode` config key:
+
+| Value | Effect |
+|-------|--------|
+| `strict` | Maximum safety — adds slop-detector and incremental-verify hooks |
+| `balanced` (default) | Standard hooks |
+| `fast` | Skips compaction service — for short sessions under context pressure |
+
+Switch session modes with `/swarm turbo [on|off]` or `/swarm full-auto [on|off]`. Set project mode in config. The two systems compose independently — see [docs/modes.md](docs/modes.md).
 
 ---
 
 ## Quick Start
 
-> **Prerequisites:** [OpenCode](https://opencode.ai) installed and working. An API key for at least one LLM provider (or use the free OpenCode Zen tier — no key required).
+**→ For a complete first-run walkthrough, see [Getting Started](docs/getting-started.md).**
 
-### Step 1 — Install
-
-```bash
-npm install -g opencode-swarm
-```
-
-### Step 2 — Open your project in OpenCode
-
-```bash
-cd /your/project
-opencode
-```
-
-### Step 3 — Select a Swarm architect and describe your goal
-
-1. In the OpenCode GUI, open the **agent/mode dropdown** and select a **Swarm architect** (e.g., `architect`).
-2. Type what you want to build:
-
-```text
-Build a REST API with user registration, login, and JWT auth.
-```
-
-That's it. The architect coordinates all other agents automatically.
-
-> **First time?** Run `/swarm diagnose` to verify Swarm is healthy, `/swarm agents` to see registered agents, and `/swarm config` to see the resolved configuration.
-
-### Step 4 — Monitor progress
-
-```text
-/swarm status    # Current phase and task
-/swarm plan      # Full project plan
-/swarm evidence  # Review and test results per task
-```
-
-### Step 5 — Start over if needed
-
-```text
-/swarm reset --confirm
-```
-
-### Step 6 — Configure models (optional)
-
-Swarm works with its defaults out of the box. To override models, create `.opencode/opencode-swarm.json`:
-
-```json
-{
-  "agents": {
-    "coder": { "model": "opencode/minimax-m2.5-free" },
-    "reviewer": { "model": "opencode/big-pickle" }
-  }
-}
-```
-
-You only need to specify the agents you want to override. The `architect` inherits the model currently selected in the OpenCode UI unless you set it explicitly.
-
-See the [full configuration reference](#configuration-reference) and the [free-tier model setup](#free-tier-opencode-zen-models) for more options.
-
-### Step 7 — Performance modes (optional)
-
-Swarm runs optional quality hooks (slop detection, incremental verification, compaction) on every tool call. For faster iteration, you can skip these:
-
-**Via slash command** (session-wide):
-```
-/swarm turbo
-```
-
-**Via config** (persistent):
-```json
-{
-  "execution_mode": "fast"
-}
-```
-
-| Mode | Behavior |
-|------|----------|
-| `strict` | Runs all quality hooks (slop detector, incremental verify, compaction). Maximum safety, highest overhead. |
-| `balanced` (default) | Skips optional quality hooks. Recommended for most workflows. |
-| `fast` | Same as balanced. Reserved for future more aggressive optimizations. |
-
-Use `strict` mode for critical security-sensitive changes. Switch to `balanced` for routine development.
+The 15-minute guide covers:
+- Installation (`bunx opencode-swarm install`)
+- Selecting the architect in OpenCode
+- Running your first task
+- Troubleshooting common issues
 
 ---
 
-## Common First-Run Questions
+## Commands
 
-### "Do I need to select a Swarm architect?"
+All 41 subcommands at a glance:
 
-**Yes.** You must explicitly choose a Swarm architect agent in the OpenCode GUI before starting your session. If you use the default OpenCode `Build` / `Plan` options, the plugin is bypassed entirely.
-
-### "Why did the second run start coding immediately?"
-
-Because Swarm persists state in `.swarm/` and resumes from where it left off. Check `/swarm status` or `/swarm plan`.
-
-### "How do I know Swarm is really active?"
-
-Run:
-
-```text
-/swarm diagnose
-/swarm agents
-/swarm config
+```bash
+/swarm status              # Current phase and task
+/swarm plan [N]            # Full plan or filtered by phase
+/swarm agents              # Registered agents and models
+/swarm diagnose            # Health check
+/swarm evidence [task]     # Test and review results
+/swarm reset --confirm     # Clear swarm state
 ```
 
-### "How do I force a clean restart?"
-
-Run:
-
-```text
-/swarm reset --confirm
-```
-
----
-
-## LLM Provider Guide
-
-Swarm works with any LLM provider supported by OpenCode. Different agents benefit from different models — the architect needs strong reasoning, the coder needs strong code generation, and the reviewer benefits from a model different from the coder (to catch blind spots).
-
-### Free Tier — OpenCode Zen Models {#free-tier-opencode-zen-models}
-
-OpenCode Zen provides free models via the `opencode/` provider prefix. These are excellent starting points and require no API key:
-
-```json
-{
-  "agents": {
-    "coder":        { "model": "opencode/minimax-m2.5-free" },
-    "reviewer":     { "model": "opencode/big-pickle" },
-    "test_engineer":{ "model": "opencode/gpt-5-nano" },
-    "explorer":     { "model": "opencode/trinity-large-preview-free" },
-    "sme":          { "model": "opencode/trinity-large-preview-free" },
-    "critic":       { "model": "opencode/trinity-large-preview-free" },
-    "docs":         { "model": "opencode/trinity-large-preview-free" },
-    "designer":     { "model": "opencode/trinity-large-preview-free" }
-  }
-}
-```
-
-> Save this configuration to `.opencode/opencode-swarm.json` in your project root (or `~/.config/opencode/opencode-swarm.json` for global config).
-
-> **Note:** The `architect` key is intentionally omitted — it inherits whatever model you have selected in the OpenCode UI for maximum reasoning quality.
-
-### Paid Providers
-
-For production use, mix providers to maximize quality across writing vs. reviewing:
-
-| Agent | Recommended Model | Why |
-|---|---|---|
-| `architect` | OpenCode UI selection | Needs strongest reasoning |
-| `coder` | `minimax-coding-plan/MiniMax-M2.5` | Fast, accurate code generation |
-| `reviewer` | `zai-coding-plan/glm-5` | Different training data from coder |
-| `test_engineer` | `minimax-coding-plan/MiniMax-M2.5` | Same strengths as coder |
-| `explorer` | `google/gemini-2.5-flash` | Fast read-heavy analysis |
-| `sme` | `kimi-for-coding/k2p5` | Strong domain expertise |
-| `critic` | `zai-coding-plan/glm-5` | Independent plan review |
-| `docs` | `zai-coding-plan/glm-4.7-flash` | Fast, cost-effective documentation generation |
-| `designer` | `kimi-for-coding/k2p5` | Strong UI/UX generation capabilities |
-
-### Provider Formats
-
-| Provider | Format | Example |
-|---|---|---|
-| OpenCode Zen (free) | `opencode/<model>` | `opencode/trinity-large-preview-free` |
-| Anthropic | `anthropic/<model>` | `anthropic/claude-opus-4-6` |
-| Google | `google/<model>` | `google/gemini-2.5-flash` |
-| Z.ai | `zai-coding-plan/<model>` | `zai-coding-plan/glm-5` |
-| MiniMax | `minimax-coding-plan/<model>` | `minimax-coding-plan/MiniMax-M2.5` |
-| Kimi | `kimi-for-coding/<model>` | `kimi-for-coding/k2p5` |
-
-### Model Fallback (v6.33)
-
-When a transient model error occurs (rate limit, 429, 503, timeout, overloaded, model not found), Swarm can automatically switch to a fallback model.
-
-**Configuration:**
-
-```json
-{
-  "agents": {
-    "coder": {
-      "model": "anthropic/claude-opus-4-6",
-      "fallback_models": [
-        "anthropic/claude-sonnet-4-5",
-        "opencode/gpt-5-nano"
-      ]
-    }
-  }
-}
-```
-
-- **`fallback_models`** — Optional array of up to 3 fallback model identifiers. When the primary model fails with a transient error, Swarm injects a `MODEL FALLBACK` advisory and the next retry uses the next fallback model in the list.
-- **Advisory injection** — When a transient error is detected, a `MODEL FALLBACK` advisory is injected into the architect's context: *"Transient model error detected (attempt N). The agent model may be rate-limited, overloaded, or temporarily unavailable. Consider retrying with a fallback model or waiting before retrying."*
-- **Exhaustion guard** — After exhausting all fallbacks (`modelFallbackExhausted = true`), further transient errors do not spam additional advisories.
-- **Reset on success** — Both `model_fallback_index` and `modelFallbackExhausted` reset to 0/false on the next successful tool execution.
-
-### Bounded Coder Revisions (v6.33)
-
-When a task requires multiple coder attempts (e.g., reviewer rejections), Swarm tracks how many times the coder has been re-delegated for the same task and warns when limits are approached.
-
-**Configuration:**
-
-```json
-{
-  "guardrails": {
-    "max_coder_revisions": 5
-  }
-}
-```
-
-| Parameter | Type | Default | Description |
-|-----------|------|---------|-------------|
-| `max_coder_revisions` | integer | `5` | Maximum coder re-delegations per task before advisory warning (1–20) |
-
-**Behavior:**
-- **`coderRevisions` counter** — Incremented each time the coder delegation completes for the same task (reset on new task)
-- **`revisionLimitHit` flag** — Set when `coderRevisions >= max_coder_revisions`
-- **Advisory injection** — When the limit is hit, a `CODER REVISION LIMIT` advisory is injected: *"Agent has been revised N times (max: M) for task X. Escalate to user or consider a fundamentally different approach."*
-- **Persistence** — Both `coderRevisions` and `revisionLimitHit` are serialized/deserialized in session snapshots
-
-## Useful Commands
-
-| Command | What It Does |
-|---------|-------------|
-| `/swarm status` | Where am I? Current phase, task progress |
-| `/swarm plan` | Show the full project plan |
-| `/swarm diagnose` | Health check for swarm state, including config parsing, grammar files, checkpoint manifest, events stream integrity, and steering directive staleness |
-| `/swarm evidence 2.1` | Show review/test results for a specific task |
-| `/swarm history` | What's been completed so far |
-| `/swarm close [--prune-branches]` | Idempotent session close-out: writes retrospectives, curates lessons (reads `.swarm/close-lessons.md` if present), archives evidence, resets `context.md`, cleans config-backup files, optionally prunes merged branches |
-| `/swarm reset --confirm` | Start over (clears all swarm state) |
+See [docs/commands.md](docs/commands.md) for the full reference (41 commands).
 
 ---
 
 ## The Agents
 
-Swarm has specialized internal agents, but you do **not** manually switch into them during normal use.
+Swarm has 11 specialized agents. You don't manually switch between them — the architect coordinates automatically.
 
-The **architect** is the coordinator. It decides when to invoke the other agents and what they should do.
+| Agent | Role |
+|---|---|
+| **architect** | Orchestrates workflow, writes plans, enforces gates |
+| **coder** | Implements one task at a time |
+| **reviewer** | Checks correctness and security |
+| **test_engineer** | Writes and runs tests |
+| **critic** | Reviews plans and challenges findings |
+| **explorer** | Scans codebase and gathers context |
+| **sme** | Provides domain expertise guidance |
+| **docs** | Updates documentation to match implementation |
+| **designer** | Generates UI scaffolds and design tokens |
+| **critic_sounding_board** | Pre-escalation pushback to the architect |
+| **critic_drift_verifier** | Verifies implementation matches plan |
 
-That means the normal user workflow is:
-
-1. open the project in OpenCode
-2. describe what you want built or changed
-3. let Swarm coordinate the internal pipeline
-4. inspect progress with `/swarm status`, `/swarm plan`, and `/swarm evidence`
-
-Agent roles (see [Agent Categories](#agent-categories) for classification reference):
-
-| Agent | Role | When It Runs |
-|---|---|---|
-| `architect` | Coordinates the workflow, writes plans, enforces gates | Always |
-| `explorer` | Scans the codebase and gathers context | Before planning, after phase wrap |
-| `sme` | Provides domain guidance | During planning / consultation |
-| `critic` | Reviews the plan before execution and blocks coding until approved | Before coding starts (CRITIC-GATE mode) |
-| `critic_sounding_board` | Pre-escalation pushback — the architect consults this before contacting the user; returns UNNECESSARY / REPHRASE / APPROVED / RESOLVE | When architect hits an impasse |
-| `critic_drift_verifier` | **Phase-close drift detector**: verifies that the completed implementation still matches the original plan spec. Returns APPROVED or NEEDS_REVISION. When NEEDS_REVISION is returned, the phase is **blocked** — the architect must address deviations before calling `phase_complete`. After receiving the verdict, the architect calls `write_drift_evidence` to record the gate result. Bypassed in turbo mode. | Before `phase_complete` (PHASE-WRAP mode) |
-| `coder` | Implements one task at a time | During execution |
-| `reviewer` | Reviews correctness and security | After each task |
-| `test_engineer` | Writes and runs tests | After each task |
-| `designer` | Generates UI scaffolds and design tokens when needed | UI-specific work |
-| `docs` | Updates docs to match what was actually built | After each phase |
-
-If you want to see what is active right now, run:
-
-```text
-/swarm status
-/swarm agents
-```
+Run `/swarm status` and `/swarm agents` to see what's active.
 
 ---
 
 ## How It Compares
 
-| | OpenCode Swarm | oh-my-opencode | get-shit-done |
+| Feature | Swarm | oh-my-opencode | get-shit-done |
 |---|:-:|:-:|:-:|
-| Multiple specialized agents | ✅ 11 agents | ❌ Prompt config | ❌ Single-agent macros |
-| Plan reviewed before coding starts | ✅ | ❌ | ❌ |
+| Multiple specialized agents | ✅ 11 agents | ❌ | ❌ |
+| Plan reviewed before coding | ✅ | ❌ | ❌ |
 | Every task reviewed + tested | ✅ | ❌ | ❌ |
-| Different model for review vs. coding | ✅ | ❌ | ❌ |
-| Saves state to disk, resumable | ✅ | ❌ | ❌ |
-| Security scanning built in | ✅ | ❌ | ❌ |
-| Learns from its own mistakes | ✅ (retrospectives) | ❌ | ❌ |
+| Different model for review vs. code | ✅ | ❌ | ❌ |
+| Resumable sessions | ✅ | ❌ | ❌ |
+| Built-in security scanning | ✅ | ❌ | ❌ |
+| Learns from mistakes | ✅ | ❌ | ❌ |
 
 ---
 
-## Agent Categories
+## LLM Provider Guide
+
+Swarm works with any provider supported by OpenCode.
+
+### Free Tier (OpenCode Zen)
+
+No API key required. Excellent starting point:
+
+```json
+{
+  "agents": {
+    "coder": { "model": "opencode/minimax-m2.5-free" },
+    "reviewer": { "model": "opencode/big-pickle" },
+    "explorer": { "model": "opencode/trinity-large-preview-free" }
+  }
+}
+```
+
+### Paid Providers
+
+For production, mix providers by role:
+
+| Agent | Recommended | Why |
+|---|---|---|
+| architect | OpenCode UI selection | Needs strongest reasoning |
+| coder | minimax-coding-plan/MiniMax-M2.5 | Fast, accurate code generation |
+| reviewer | zai-coding-plan/glm-5 | Different training from coder |
+| test_engineer | minimax-coding-plan/MiniMax-M2.5 | Same strengths as coder |
+| explorer | google/gemini-2.5-flash | Fast read-heavy analysis |
+| sme | kimi-for-coding/k2p5 | Strong domain expertise |
+
+### Provider Formats
+
+| Provider | Format | Example |
+|---|---|---|
+| OpenCode Zen | `opencode/<model>` | `opencode/trinity-large-preview-free` |
+| Anthropic | `anthropic/<model>` | `anthropic/claude-sonnet-4-20250514` |
+| Google | `google/<model>` | `google/gemini-2.5-flash` |
+| Z.ai | `zai-coding-plan/<model>` | `zai-coding-plan/glm-5` |
+| MiniMax | `minimax-coding-plan/<model>` | `minimax-coding-plan/MiniMax-M2.5` |
+| Kimi | `kimi-for-coding/<model>` | `kimi-for-coding/k2p5` |
+
+### Model Fallback
+
+Automatic fallback to a secondary model on transient errors:
+
+```json
+{
+  "agents": {
+    "coder": {
+      "model": "anthropic/claude-sonnet-4-20250514",
+      "fallback_models": ["opencode/gpt-5-nano"]
+    }
+  }
+}
+```
+
+See [docs/configuration.md](docs/configuration.md) for full configuration reference.
+
+---
+
+<details>
+<summary><strong>Advanced Topics (Technical Detail)</strong></summary>
+
+### Process Remediation Model (PRM)
+
+Swarm monitors agent trajectories and injects course-correction guidance before loops form. Detects five failure patterns:
+
+1. **Repetition Loop** — Same agent performs the same action repeatedly
+2. **Ping-Pong** — Agents hand off back and forth without progress
+3. **Expansion Drift** — Plan scope grows beyond original task
+4. **Stuck-on-Test** — Coder and tests fail in a loop
+5. **Context Thrashing** — Agent requests increasingly large file sets
+
+When detected, escalation levels trigger:
+- Level 1: Advisory guidance injected
+- Level 2: Architect alert sent
+- Level 3: Hard stop directive
+
+Configure via:
+
+```json
+{
+  "prm": {
+    "enabled": true,
+    "pattern_thresholds": {
+      "repetition_loop": 2,
+      "ping_pong": 4,
+      "expansion_drift": 3,
+      "stuck_on_test": 3,
+      "context_thrash": 5
+    }
+  }
+}
+```
+
+> **Note:** Some configuration fields (`max_trajectory_lines`, `escalation_enabled`) are defined in schema but not yet enforced at runtime.
+
+### Persistent Memory
+
+**`.swarm/plan-ledger.jsonl`** — authoritative source of truth (v6.44 durability model)
+
+**`.swarm/context.md`** — technical decisions and cached SME guidance
+
+**`.swarm/evidence/`** — review/test results per task
+
+**`.swarm/telemetry.jsonl`** — session observability events (fire-and-forget, never blocks execution)
+
+**`.swarm/curator-summary.json`** — phase-level intelligence and drift reports
+
+### Guardrails & Circuit Breakers
+
+Every agent runs inside a circuit breaker that prevents runaway behavior:
+
+| Signal | Default Limit |
+|--------|:---:|
+| Tool calls | 200 |
+| Duration | 30 min |
+| Same tool repeated | 10x |
+| Consecutive errors | 5 |
+
+Limits reset per task. Per-agent overrides available in config.
+
+### File Authority (Per-Agent Write Permissions)
+
+Each agent can only write to specific paths:
+
+- **architect** — Everything (except `.swarm/plan.md`, `.swarm/plan.json`)
+- **coder** — `src/`, `tests/`, `docs/`, `scripts/`
+- **reviewer** — `.swarm/evidence/`
+- **test_engineer** — `tests/`, `.swarm/evidence/`
+- **explorer, sme** — Read-only
+
+Override via `authority.rules` in config.
+
+### Quality Gates
+
+Built-in tools verify every task before it ships:
+
+- **syntax_check** — Tree-sitter validation (12 languages)
+- **placeholder_scan** — Catches TODOs, stubs, incomplete code
+- **sast_scan** — 63+ security rules, 9 languages (offline)
+- **sbom_generate** — Dependency tracking (CycloneDX)
+- **quality_budget** — Complexity, duplication, test ratio limits
+
+All tools run locally. No Docker, no network calls.
+
+### Context Budget Guard
+
+Monitors how much context Swarm injects to prevent overflow:
+
+- **Warning threshold (70%)** — Advisory when context reaches ~2800 tokens
+- **Critical threshold (90%)** — Alert at ~3600 tokens with `/swarm handoff` recommendation
+- **Non-nagging** — One-time alerts per session
+
+Disable entirely with `context_budget.enabled: false`.
+
+### File Locking for Concurrent Safety
+
+Hard lock on `plan.json` (serialized writes), advisory lock on `events.jsonl` (append-only log). Stale locks auto-expire via `proper-lockfile`.
+
+### Agent Categories
 
 Agents are classified into four categories for the monitor server `/metadata` endpoint:
 
@@ -405,7 +345,9 @@ Every task goes through this sequence. No exceptions, no overrides.
 MODE: EXECUTE (per task)
 │
 ├── 5a. @coder implements (ONE task only)
-├── 5b. diff + imports (contract + dependency analysis)
+├── 5b. diff + imports (contract + dependency analysis + semantic diff context)
+│       └── @system-enhancer injects AST-based semantic diff summary with blast radius
+│           into @reviewer context (up to 10 files, conditional on declared scope)
 ├── 5c. syntax_check (parse validation)
 ├── 5d. placeholder_scan (catches TODOs, stubs, incomplete code)
 ├── 5e. lint fix → lint check
@@ -903,6 +845,9 @@ To disable entirely, set `context_budget.enabled: false` in your swarm config.
 | quality_budget | Enforces complexity, duplication, and test ratio limits |
 | pre_check_batch | Runs lint, secretscan, SAST, and quality budget in parallel (~15s vs ~60s sequential) |
 | phase_complete | Enforces phase completion, verifies required agents, requires a valid retrospective evidence bundle, logs events, and resets state; appends to `events.jsonl` with file locking |
+| mutation_test | Applies LLM-generated mutation patches to source files and runs tests to measure kill rate; verdict is pass/warn/fail based on configurable thresholds; used by the mutation_test gate (opt-in, off by default) |
+| generate_mutants | Architect-only: generates LLM-based mutation patches (5–10 per function across 6 types: off-by-one, null substitution, operator swap, guard removal, branch swap, side-effect deletion) for direct consumption by the mutation_test tool; returns SKIP verdict on LLM failure rather than throwing |
+| write_mutation_evidence | Architect-only: writes mutation gate results atomically to `.swarm/evidence/{phase}/mutation-gate.json`; accepts verdict (PASS/WARN/FAIL/SKIP), kill rate metrics, and optional survived mutant details; normalizes uppercase-to-lowercase before persisting |
 
 
 All tools run locally. No Docker, no network calls, no external APIs.
@@ -1207,309 +1152,19 @@ Control how tool outputs are summarized for LLM context.
 
 ---
 
-## Role-Scoped Tool Filtering
+## Supported Languages
 
-Swarm limits which tools each agent can access based on their role. This prevents agents from using tools that aren't appropriate for their responsibilities, reducing errors and keeping agents focused.
+Full Tier-1 support: TypeScript, JavaScript, Python, Go, Rust  
+Tier-2 support: Java, Kotlin, C#, C/C++, Swift  
+Tier-3 support: Dart, Ruby, PHP/Laravel
 
-### Default Tool Allocations
-
-| Agent | Tools | Count | Rationale |
-|-------|-------|:---:|-----------|
-| **architect** | All registered tools | — | Orchestrator needs full visibility |
-| **reviewer** | diff, imports, lint, pkg_audit, pre_check_batch, secretscan, symbols, complexity_hotspots, retrieve_summary, extract_code_blocks, test_runner, suggest_patch, batch_symbols | 13 | Security-focused QA |
-| **coder** | diff, imports, lint, symbols, extract_code_blocks, retrieve_summary, search | 7 | Write-focused, minimal read tools |
-| **test_engineer** | test_runner, diff, symbols, extract_code_blocks, retrieve_summary, imports, complexity_hotspots, pkg_audit, search | 9 | Testing and verification |
-| **explorer** | complexity_hotspots, detect_domains, extract_code_blocks, gitingest, imports, retrieve_summary, schema_drift, symbols, todo_extract, search, batch_symbols | 11 | Discovery and analysis |
-| **sme** | complexity_hotspots, detect_domains, extract_code_blocks, imports, retrieve_summary, schema_drift, symbols | 7 | Domain expertise research |
-| **critic** | complexity_hotspots, detect_domains, imports, retrieve_summary, symbols | 5 | Plan review, minimal toolset |
-| **docs** | detect_domains, doc_extract, doc_scan, extract_code_blocks, gitingest, imports, retrieve_summary, schema_drift, symbols, todo_extract | 10 | Documentation synthesis and discovery |
-| **designer** | extract_code_blocks, retrieve_summary, symbols | 3 | UI-focused, minimal toolset |
-
-### Configuration
-
-Tool filtering is enabled by default. Customize it in your config:
-
-```json
-{
-  "tool_filter": {
-    "enabled": true,
-    "overrides": {
-      "coder": ["diff", "imports", "lint", "symbols", "test_runner"],
-      "reviewer": ["diff", "secretscan", "sast_scan", "symbols"]
-    }
-  }
-}
-```
-
-| Option | Type | Default | Description |
-|--------|------|---------|-------------|
-| `enabled` | boolean | `true` | Enable tool filtering globally |
-| `overrides` | Record<string, string[]> | `{}` | Per-agent tool whitelist. Empty array denies all tools. |
-
-### Troubleshooting: Agent Missing a Tool
-
-If an agent reports it doesn't have access to a tool it needs:
-
-1. Check if the tool is in the agent's default allocation (see table above)
-2. Add a custom override in your config:
-
-```json
-{
-  "tool_filter": {
-    "overrides": {
-      "coder": ["diff", "imports", "lint", "symbols", "extract_code_blocks", "retrieve_summary", "test_runner"]
-    }
-  }
-}
-```
-
-3. To completely disable filtering for all agents:
-
-```json
-{
-  "tool_filter": {
-    "enabled": false
-  }
-}
-```
-
-### Available Tools Reference
-
-The following tools can be assigned to agents via overrides:
-
-| Tool | Purpose |
-|------|---------|
-| `batch_symbols` | Extract exported symbols from multiple files in a single call; per-file error isolation; 75–98% call reduction vs sequential (v6.45); registered for architect, explorer, reviewer |
-| `checkpoint` | Save/restore git checkpoints |
-| `check_gate_status` | Read-only query of task gate status |
-| `co_change_analyzer` | Scan git history for files that co-change frequently; generates dark matter architecture knowledge entries during DISCOVER mode (v6.41); architect-only |
-| `complexity_hotspots` | Identify high-risk code areas |
-| `declare_scope` | Pre-declare the file scope for the next coder delegation (architect-only); violations trigger warnings |
-| `detect_domains` | Detect SME domains from text |
-| `diff` | Analyze git diffs and changes |
-| `doc_extract` | Extract actionable constraints from project documentation relevant to current task (Jaccard bigram scoring + dedup) |
-| `doc_scan` | Scan project documentation and build index manifest at `.swarm/doc-manifest.json` (mtime-based caching) |
-| `evidence_check` | Verify task evidence |
-| `extract_code_blocks` | Extract code from markdown |
-| `gitingest` | Ingest external repositories |
-| `imports` | Analyze import relationships |
-| `lint` | Run project linters |
-| `phase_complete` | Enforces phase completion, verifies required agents, logs events, resets state; appends to `events.jsonl` with file locking |
-| `pkg_audit` | Security audit of dependencies |
-| `pre_check_batch` | Parallel pre-checks (lint, secrets, SAST, quality) |
-| `retrieve_summary` | Retrieve summarized tool outputs |
-| `save_plan` | Persist plan to `.swarm/plan.json`, `plan.md`, and ledger; also writes `SWARM_PLAN.md` / `SWARM_PLAN.json` checkpoint artifacts; requires explicit `working_directory` parameter |
-| `schema_drift` | Detect OpenAPI/schema drift |
-| `search` | Workspace-scoped ripgrep-style structured text search; literal and regex modes, glob filtering, result limits (v6.45); registered for architect, coder, reviewer, explorer, test_engineer |
-| `secretscan` | Scan for secrets in code |
-| `suggest_patch` | Generate contextual diff hunks without modifying files; read-only patch suggestions for reviewer→coder handoff (v6.45); registered for reviewer and architect |
-| `symbols` | Extract exported symbols |
-| `test_runner` | Run project tests |
-| `update_task_status` | Mark plan tasks as pending/in_progress/completed/blocked; track phase progress; acquires lock on `plan.json` before writing |
-| `todo_extract` | Extract TODO/FIXME comments |
-| `write_retro` | Document phase retrospectives via the phase_complete workflow; capture lessons learned |
-| `write_drift_evidence` | Write drift verification evidence after critic_drift_verifier completes; architect calls this after receiving the verifier’s verdict — the critic does not write files directly |
-
----
-
-<details>
-<summary><strong>Recent Changes (v6.12 – v6.31+)</strong></summary>
-
-> For the complete version history, see [CHANGELOG.md](CHANGELOG.md) or [docs/releases/](docs/releases/).
-
-### v6.47.0 — `/swarm close` Full Session Close-Out
-
-- **`/swarm close` expanded**: Now performs complete close-out: resets `context.md`, deletes stale `config-backup-*.json` files, supports plan-free sessions (PR reviews, investigations), and accepts `--prune-branches` to delete local branches whose remote tracking ref is `gone` (merged/deleted upstream).
-- **Lesson injection**: If `.swarm/close-lessons.md` exists when `/swarm close` runs, the architect’s explicit lessons are curated into the knowledge base before the file is deleted.
-
-### v6.45.0 — New Search, Patch, and Batch Tools
-
-- **`search` tool**: Workspace-scoped ripgrep-style structured search with literal/regex modes and glob filtering. Registered for architect, coder, reviewer, explorer, test_engineer.
-- **`suggest_patch` tool**: Reviewer-safe context-anchored patch suggestion. Generates diff hunks without writing files. Registered for reviewer and architect.
-- **`batch_symbols` tool**: Batched symbol extraction from multiple files in one call; per-file error isolation; 75–98% call reduction vs sequential single-file calls. Registered for architect, explorer, reviewer.
-- **Step 5l-ter**: Test drift detection step added to the EXECUTE pipeline. Fires conditionally when changes involve command behaviour, parsing/routing logic, user-visible output, public contracts, assertion-heavy areas, or helper lifecycle changes.
-
-### v6.44.0 — Durable Plan Ledger
-
-- **`plan-ledger.jsonl`**: Append-only JSONL ledger is now the authoritative source of truth for plan state. `plan.json` and `plan.md` are projections derived from the ledger. `loadPlan()` auto-rebuilds projections from the ledger on hash mismatch.
-- **Checkpoint artifacts**: `writeCheckpoint()` writes `SWARM_PLAN.md` and `SWARM_PLAN.json` at the project root on every `save_plan`, `phase_complete`, and `/swarm close`. Use `SWARM_PLAN.json` to restore after data loss.
-- **Auto-generated tool lists**: Architect prompt `YOUR TOOLS` and `Available Tools` sections are now generated from `AGENT_TOOL_MAP.architect` — no more hand-maintained lists that drift.
-- See [docs/plan-durability.md](docs/plan-durability.md) for migration notes.
-
-### v6.42.0 — Curator LLM Delegation Wired
-
-- **Curator now performs real LLM analysis**: Previously the LLM delegation was scaffolded but never connected — every call fell through to data-only mode. All three call sites now invoke the Explorer agent with curator-specific system prompts.
-- **`curator.enabled` now defaults to `true`**: The curator falls back gracefully to data-only mode when no SDK client is available (e.g., in unit tests). If you relied on the previous `false` default, set `"curator": { "enabled": false }` explicitly.
-
-### v6.41.0 — Dark Matter Detection + `/swarm close` + Drift Evidence Tool
-
-- **Dark matter detection pipeline**: During DISCOVER mode, automatically scans git history for files that frequently co-change. Results are stored as `architecture` knowledge entries and the architect is guided to consider co-change partners when declaring scope. Silently skips repos with fewer than 20 commits or no git history.
-- **`/swarm close` command**: New idempotent close command. Writes retrospectives for in-progress phases, curates session lessons via the knowledge pipeline, archives evidence, marks phases/tasks as `closed`, writes `.swarm/close-summary.md`, and cleans state.
-- **`write_drift_evidence` tool**: New architect tool for persisting drift verification evidence after critic_drift_verifier delegation
-  - Accepts phase number, verdict (APPROVED/NEEDS_REVISION), and summary
-  - Normalizes verdict automatically (APPROVED → approved, NEEDS_REVISION → rejected)
-  - Writes gate-contract formatted evidence to `.swarm/evidence/{phase}/drift-verifier.json`
-
-### v6.31.0 — process.cwd() Cleanup + Watchdog + Knowledge Tools
-
-- **process.cwd() cleanup**: All 14 source files now use plugin-injected `directory` parameter. Five tools migrated to `createSwarmTool` wrapper.
-- **`curator_analyze` tool**: Architect can now explicitly trigger phase analysis and apply curator recommendations.
-- **Watchdog system**: `scope_guard` (blocks out-of-scope writes), `delegation_ledger` (tracks per-session tool calls), and loop-detector escalation.
-- **Self-correcting workflow**: `self_review` advisory hook after task transitions; `checkStaleImports` heuristic for unused import detection.
-- **Knowledge memory tools**: `knowledge_recall`, `knowledge_add`, `knowledge_remove` — any agent can now directly access the persistent knowledge base.
-
-### v6.30.1 — Bug Fixes
-
-- **Package manager detection**: `incremental_verify` now detects bun/npm/pnpm/yarn from lockfiles instead of always using `bun`.
-- **spawnAsync OOM fix**: 512KB output cap prevents infinite-output commands from OOM-crashing.
-- **Windows spawn fix**: `npx.cmd`, `npm.cmd`, `pnpm.cmd`, `yarn.cmd` resolved correctly on Windows.
-- **Curator config fix**: `applyCuratorKnowledgeUpdates` now receives fully-populated `KnowledgeConfig`.
-- **Rehydration race guard**: Concurrent `loadSnapshot` calls no longer silently drop workflow state.
-
-### v6.29.4 — Cross-Task Regression Sweep
-
-- **Regression sweep**: Architect dispatches `scope:"graph"` test runs after each task to catch cross-task regressions (found 15 in RAGAPPv2 retrospective).
-- **Curator data pipeline**: Curator outputs now visible to the architect via advisory injection.
-- **Full-suite opt-in**: Explicit flag unlocks full `bun test` execution when needed.
-
-### v6.29.3 — Curator Visibility + Documentation Refresh
-
-- **Curator status in diagnose**: `/swarm diagnose` now reports whether Curator is enabled/disabled and validates `curator-summary.json`.
-- **README and config docs refreshed**: Updated `.swarm/` directory tree, Curator configuration options, and drift report artifacts.
-
-### v6.29.2 — Multi-Language Incremental Verify + Slop-Detector Hardening
-
-- **Multi-language incremental_verify**: Post-coder typecheck supports TypeScript/JavaScript, Go, Rust, and C#.
-- **Slop-detector hardening**: Multi-language heuristics for placeholder code detection across Go/Rust/C#/Python.
-- **CODEBASE REALITY CHECK**: Explorer verifies referenced items before planning (NOT STARTED / PARTIALLY DONE / ALREADY COMPLETE / ASSUMPTION INCORRECT).
-- **Evidence schema fix**: Evidence bundles now correctly validate against schema.
-
-### v6.29.1 — Advisory Hook Message Injection
-
-- **Advisory hook message injection**: Enhanced message formatting for self-coding detection, partial gate tracking, batch detection, and scope violation warnings.
-
-### v6.26 through v6.28 — Session Durability + Turbo Mode
-
-- **Turbo Mode**: Accelerated task delegation for faster pipeline execution.
-- **Session durability**: Directory-based evidence writes, task ID recovery from `plan.json` for cold/resumed sessions.
-- **Gate recovery fix** (v6.26.1): `update_task_status(completed)` no longer blocks pure-verification tasks without a prior coder delegation.
-
-### v6.22 — Curator Background Analysis + Session State Persistence
-
-This release adds the optional Curator system for phase-level intelligence and fixes session snapshot persistence for task workflow states.
-
-- **Curator system**: Background analysis system (`curator.enabled = false` by default in v6.22; **changed to `true` in v6.42**). After each phase, collects events, checks compliance, and writes drift reports to `.swarm/drift-report-phase-N.json`. Three integration points: init on first phase, phase analysis after each phase, and drift injection into architect context at phase start.
-- **Drift reports**: `runCriticDriftCheck` compares planned vs. actual decisions and writes structured drift reports with alignment scores (`ALIGNED` / `MINOR_DRIFT` / `MAJOR_DRIFT` / `OFF_SPEC`). Latest drift summary is prepended to the architect's knowledge context each phase.
-- **Issue #81 fix — taskWorkflowStates persistence**: Session snapshots now correctly serialize and restore the per-task state machine. Invalid state values are filtered to `idle` on deserialization. `reconcileTaskStatesFromPlan` seeds task states from `plan.json` on snapshot load (completed → `tests_run`, in-progress → `coder_delegated`).
-
-See the [Curator section](#curator) above for configuration details and the [v6.22 release notes](docs/releases/v6.22.0.md) for the full change list.
-
-### v6.21 — Gate Enforcement Hardening
-
-This release replaces soft advisory warnings with hard runtime blocks and adds structural compliance tooling for all model tiers.
-
-#### Phase 1 — P0 Bug Fixes: Hard Blocks Replace Soft Warnings
-
-- **`qaSkipCount` reset fixed**: The skip-detection counter in `delegation-gate.ts` now resets only when **both** reviewer **and** test_engineer have been seen since the last coder entry — not when either one runs alone.
-- **`update_task_status` reviewer gate check**: Accepting `status='completed'` now validates that the reviewer gate is present in the session's `gateLog` for the given task. Missing reviewer returns a structured error naming the absent gate.
-- **Architect self-coding hard block**: `architectWriteCount ≥ 3` now throws an `Error` with message `SELF_CODING_BLOCK` (previously a warning only). Counts 1–2 remain advisory warnings. Counter resets on coder delegation.
-
-#### Phase 2 — Per-Task State Machine
-
-Every task now has a tracked workflow state in the session:
-
-| State | Meaning |
-|-------|---------|
-| `idle` | Task not started |
-| `coder_delegated` | Coder has received the delegation |
-| `pre_check_passed` | Automated gates (lint, SAST, secrets, quality) passed |
-| `reviewer_run` | Reviewer agent has returned a verdict |
-| `tests_run` | Test engineer has completed (verification + adversarial) |
-| `complete` | `update_task_status` accepted the `completed` transition |
-
-Transitions are forward-only. `advanceTaskState()` throws `INVALID_TASK_STATE_TRANSITION` if an illegal jump is attempted. `getTaskState()` returns `'idle'` for unknown tasks.
-
-`session.lastGateOutcome` records the most recent gate result: `{ gate, taskId, passed, timestamp }`.
-
-#### Phase 3 — State Machine Integration
-
-- `update_task_status` now uses the state machine (not a raw `gateLog.has()` check): `status='completed'` is rejected unless the task is in `'tests_run'` or `'complete'` state.
-- `delegation-gate.ts` protocol-violation check additionally verifies that the prior task's state has advanced past `'coder_delegated'` before allowing a new coder delegation.
-
-#### Phase 4 — Context Engineering
-
-- **Progressive task disclosure**: When >5 tasks are visible in the last user message, `delegation-gate.ts` trims to the current task ± a context window. A `[Task window: showing N of M tasks]` comment marks the trim point.
-- **Deliberation preamble**: Each architect turn is prefixed with `[Last gate: {tool} {result} for task {taskId}]` sourced from `session.lastGateOutcome`, prompting the architect to identify the single next step.
-- **Low-capability model detection**: `LOW_CAPABILITY_MODELS` constant (matches substrings `mini`, `nano`, `small`, `free`) and `isLowCapabilityModel(modelId)` helper added to `constants.ts`.
-- **Behavioral guidance markers**: Three `<!-- BEHAVIORAL_GUIDANCE_START --> … <!-- BEHAVIORAL_GUIDANCE_END -->` pairs wrap the BATCHING DETECTION, ARCHITECT CODING BOUNDARIES, and QA gate behavioral sections in the architect prompt.
-- **Tier-based prompt trimming**: When `session.activeModel` matches `isLowCapabilityModel()`, the behavioral guidance blocks are stripped from the architect prompt and replaced with `[Enforcement: programmatic gates active]`. Programmatic enforcement substitutes for verbose prompt instructions on smaller models.
-
-#### Phase 5 — Structural Scope Declaration (`declare_scope`)
-
-New architect-only tool and supporting runtime enforcement:
-
-- **`declare_scope` tool**: Pre-declares which files the coder is allowed to modify for a given task. Input: `{ taskId, files, whitelist?, working_directory? }`. Validates task ID format, plan membership, and non-`complete` state. On success, sets `session.declaredCoderScope`. Architect-only.
-- **Automatic scope from FILE: directives**: When a coder delegation is detected, `delegation-gate.ts` extracts FILE: directive values and stores them as `session.declaredCoderScope` automatically — no explicit `declare_scope` call required.
-- **Scope containment tracking**: `guardrails.ts` appends every file the architect writes to `session.modifiedFilesThisCoderTask`. On coder delegation start, the list resets to `[]`.
-- **Violation detection**: After a coder task completes, `toolAfter` compares `modifiedFilesThisCoderTask` against `declaredCoderScope`. If >2 files are outside the declared scope, `session.lastScopeViolation` is set. The next architect message receives a scope violation warning.
-- **`isInDeclaredScope(filePath, scopeEntries)`**: Module-level helper using `path.resolve()` + `path.relative()` for proper directory containment (not string matching).
-
-### v6.13.2 — Pipeline Enforcement
-
-This release adds enforcement-layer tooling and self-healing guardrails:
-
-- **`phase_complete` tool**: Verifies all required agents were dispatched before a phase closes; emits events to `.swarm/events.jsonl`; configurable `enforce`/`warn` policy
-- **Summarization loop fix**: `exempt_tools` config prevents `retrieve_summary` and `task` outputs from being re-summarized (fixes Issue #8)
-- **Same-model adversarial detection**: Warns when coder and reviewer share the same model; `warn`/`gate`/`ignore` policy
-- **Architect test guardrail (HF-1b)**: Prevents architect from running full `bun test` suite — must target specific files one at a time
-- **Docs**: `docs/swarm-briefing.md` (LLM pipeline briefing), Task Field Reference in `docs/planning.md`
-
-### v6.13.1 — Consolidation & Defaults Fix
-
-- **`consolidateSystemMessages`**: Merges multiple system messages into one at index 0
-- **Test isolation helpers**: `createIsolatedTestEnv` and `assertSafeForWrite`
-- **Coder self-verify guardrail (HF-1)**: Coder and test_engineer agents blocked from running build/test/lint
-- **`/swarm` template fix**: `{{arguments}}` → `$ARGUMENTS`
-- **DEFAULT_MODELS update**: `claude-sonnet-4-5` → `claude-sonnet-4-20250514`, `gemini-2.0-flash` → `gemini-2.5-flash`
-
-### v6.13.0 — Context Efficiency
-
-This release focuses on reducing context usage and improving mode-conditional behavior:
-
-- **Role-Scoped Tool Filtering**: Agent tools filtered via AGENT_TOOL_MAP
-- **Plan Cursor**: Compressed plan summary under 1,500 tokens
-- **Mode Detection**: DISCOVER/PLAN/EXECUTE/PHASE-WRAP/UNKNOWN modes
-- **Tool Output Truncation**: diff/symbols outputs truncated with footer
-- **ZodError Fixes**: Optional current_phase, 'completed' status support
-
-### v6.12.0 — Anti-Process-Violation Hardening
-
-This release adds runtime detection hooks to catch and warn about architect workflow violations:
-
-- **Self-coding detection**: Warns when the architect writes code directly instead of delegating
-- **Partial gate tracking**: Detects when QA gates are skipped
-- **Self-fix detection**: Warns when an agent fixes its own gate failure (should delegate to fresh agent)
-- **Batch detection**: Catches "implement X and add Y" batching in task requests
-- **Zero-delegation detection**: Warns when tasks complete without any coder delegation; supports parsing delegation envelopes from JSON or KEY: VALUE text format for validation.
-
-These hooks are advisory (warnings only) and help maintain workflow discipline during long sessions.
-
-### v6.19 — Critic Sounding Board + Complexity-Scaled Review
-
-- **Critic sounding board**: Before escalating to the user, the Architect consults the critic in SOUNDING_BOARD mode. Returns: UNNECESSARY, REPHRASE, APPROVED, or RESOLVE.
-- **Escalation discipline**: Three-tier hierarchy — self-resolve → critic consult → user escalation (requires critic APPROVED).
-- **Retry circuit breaker**: After 3 coder rejections, the Architect simplifies the approach instead of adding more logic.
-- **Intent reconstruction**: Reviewer reconstructs developer intent from task specs and diffs before evaluating changes.
-- **Complexity-scaled review**: TRIVIAL → Tier 1 only; MODERATE → Tiers 1–2; COMPLEX → all three tiers.
-- **`meta.summary` convention**: Agents include one-line summaries in state events for downstream agent consumption.
-
-</details>
+All binaries optional. Missing tools produce soft warnings, never hard-fail.
 
 ---
 
 ## Testing
 
-6,000+ tests. Unit, integration, adversarial, and smoke. Zero additional test dependencies.
+6,000+ tests. Unit, integration, adversarial, and smoke. Run with:
 
 ```bash
 bun test
@@ -1519,139 +1174,26 @@ bun test
 
 ## Design Principles
 
-1. **Plan before code.** The critic approves the plan before a single line is written.
-2. **One task at a time.** The coder gets one task and full context. Nothing else.
+1. **Plan before code.** Critic approves the plan before a single line is written.
+2. **One task at a time.** Coder gets one task and full context. Nothing else.
 3. **Review everything immediately.** Correctness, security, tests, adversarial tests. Every task.
-4. **Different models catch different bugs.** The coder's blind spot is the reviewer's strength.
-5. **Save everything to disk.** Any session, any model, any day, pick up where you left off.
-6. **Document failures.** Rejections and retries are recorded. After 5 failures, it escalates to you.
-
----
-
-## Supported Languages
-
-OpenCode Swarm v6.46+ ships with language profiles for 12 languages across three quality tiers. All tools use graceful degradation — if a binary is not on PATH, the tool skips with a soft warning rather than a hard failure.
-
-| Language | Tier | Syntax | Build | Test | Lint | Audit | SAST |
-|---|:---:|:---:|:---:|:---:|:---:|:---:|:---:|
-| TypeScript / JavaScript | 1 | ✅ | ✅ | ✅ | ✅ Biome / ESLint | ✅ npm audit | ✅ Semgrep |
-| Python | 1 | ✅ | ✅ | ✅ pytest | ✅ ruff | ✅ pip-audit | ✅ Semgrep |
-| Rust | 1 | ✅ | ✅ | ✅ cargo test | ✅ clippy | ✅ cargo audit | ✅ Semgrep |
-| Go | 1 | ✅ | ✅ | ✅ go test | ✅ golangci-lint | ✅ govulncheck | ✅ Semgrep |
-| Java | 2 | ✅ | ✅ Gradle / Maven | ✅ JUnit | ✅ Checkstyle | — | ✅ Semgrep |
-| Kotlin | 2 | ✅ | ✅ Gradle | ✅ JUnit | ✅ ktlint | — | 🔶 Semgrep beta |
-| C# / .NET | 2 | ✅ | ✅ dotnet build | ✅ dotnet test | ✅ dotnet format | ✅ dotnet list | ✅ Semgrep |
-| C / C++ | 2 | ✅ | ✅ cmake / make | ✅ ctest | ✅ cppcheck | — | 🔶 Semgrep exp. |
-| Swift | 2 | ✅ | ✅ swift build | ✅ swift test | ✅ swiftlint | — | 🔶 Semgrep exp. |
-| Dart / Flutter | 3 | ✅ | ✅ dart pub | ✅ dart test | ✅ dart analyze | ✅ dart pub outdated | — |
-| Ruby | 3 | ✅ | — | ✅ RSpec / minitest | ✅ RuboCop | ✅ bundle-audit | 🔶 Semgrep exp. |
-| PHP / Laravel | 3 | ✅ | ✅ Composer install | ✅ PHPUnit / Pest / artisan test | ✅ Pint / PHP-CS-Fixer | ✅ composer audit | ✅ 10+ native rules |
-
-> **PHP + Laravel baseline**: PHP v6.49+ ships with deterministic Laravel project detection (multi-signal: `artisan` file, `laravel/framework` dependency, `config/app.php`). When detected, commands are automatically overridden to `php artisan test`, Pint formatting, and PHPStan static analysis. Laravel-specific SAST rules cover SQL injection via raw queries, mass-assignment vulnerabilities, and destructive migrations without rollback. `.blade.php` files are included in all scanning pipelines.
-
-**Tier definitions:**
-- **Tier 1** — Full pipeline: all tools integrated and tested end-to-end.
-- **Tier 2** — Strong coverage: most tools integrated; some optional (audit, SAST).
-- **Tier 3** — Basic coverage: core tools integrated; advanced tooling limited.
-
-> All binaries are optional. Missing tools produce a soft warning and skip — the pipeline never hard-fails on a missing linter or auditor.
-
----
-
-## Curator
-
-The Curator is a background analysis system that runs after each phase. It is **enabled by default** as of v6.42 (`curator.enabled = true`) and never blocks execution — all Curator operations are wrapped in try/catch. It falls back gracefully to data-only mode when no SDK client is available.
-
-Since v6.42, the Curator performs real LLM analysis by delegating to the Explorer agent with curator-specific prompts. Before v6.42, the LLM delegation was scaffolded but never wired.
-
-To disable, set `"curator": { "enabled": false }` in your config. When enabled, it writes `.swarm/curator-summary.json`, `.swarm/curator-briefing.md`, and `.swarm/drift-report-phase-N.json` files.
-
-### What the Curator Does
-
-- **Init** (`phase-monitor.ts`): On the first phase, initializes a curator summary file at `.swarm/curator-summary.json` and persists the init briefing to `.swarm/curator-briefing.md`.
-- **Phase analysis** (`phase-complete.ts`): After each phase completes, collects phase events, checks compliance, and optionally invokes the curator explorer to summarize findings.
-- **Compliance surfacing** (`phase-complete.ts`): Compliance observations are surfaced in the return value's warnings array (unless `suppress_warnings` is true).
-- **Knowledge updates** (`phase-complete.ts`): Merges curator findings into the knowledge base up to the configured `max_summary_tokens` cap.
-- **Briefing injection** (`knowledge-injector.ts`): The curator-briefing.md content is injected into the architect's context at session start.
-- **Drift injection** (`knowledge-injector.ts`): Prepends the latest drift report summary to the architect's knowledge context at phase start, up to `drift_inject_max_chars` characters. Drift reports now inject even when no knowledge entries exist.
-
-### Configuration
-
-Add a `curator` block to `.opencode/opencode-swarm.json`:
-
-```json
-{
-  "curator": {
-    "enabled": true,
-    "init_enabled": true,
-    "phase_enabled": true,
-    "max_summary_tokens": 2000,
-    "min_knowledge_confidence": 0.7,
-    "compliance_report": true,
-    "suppress_warnings": true,
-    "drift_inject_max_chars": 500
-  }
-}
-```
-
-| Field | Default | Description |
-|-------|---------|-------------|
-| `enabled` | `true` | Master switch. Set to `false` to disable the Curator pipeline. |
-| `init_enabled` | `true` | Initialize curator summary on first phase (requires `enabled: true`). |
-| `phase_enabled` | `true` | Run phase analysis and knowledge updates after each phase. |
-| `max_summary_tokens` | `2000` | Maximum token budget for curator knowledge summaries. |
-| `min_knowledge_confidence` | `0.7` | Minimum confidence threshold for curator knowledge entries. |
-| `compliance_report` | `true` | Include phase compliance check results in curator summary. |
-| `suppress_warnings` | `true` | Suppress non-critical curator warnings from the architect context. |
-| `drift_inject_max_chars` | `500` | Maximum characters of drift report text injected into each phase context. |
-
-### Drift Reports
-
-Drift reports are written to `.swarm/drift-report-phase-N.json` after each phase. The `knowledge-injector.ts` hook reads the latest report and prepends a summary to the architect's knowledge context for the next phase, helping the architect stay aware of plan vs. reality divergence.
-
-### Issue #81 Hotfix — taskWorkflowStates Persistence
-
-v6.22 includes a fix for session snapshot persistence of per-task workflow states:
-
-- **`SerializedAgentSession.taskWorkflowStates`**: Task workflow states are now serialized as `Record<string, string>` in session snapshots and deserialized back to a `Map` on load. Invalid state values are filtered out and default to `idle`.
-- **`reconcileTaskStatesFromPlan`**: On snapshot load, task states are reconciled against the current plan — tasks marked `completed` in the plan are seeded to `tests_run` state, and `in_progress` tasks are seeded to `coder_delegated` if currently `idle`. This is best-effort and never throws.
-
-See [CHANGELOG.md](CHANGELOG.md) for shipped features.
-
----
-
-## FAQ
-
-### Do I need to select a Swarm architect?
-
-**Yes.** You must explicitly choose a Swarm architect agent in the OpenCode GUI before starting your session. The architect name shown in OpenCode is config-driven — you can define multiple architects with different model assignments in your configuration.
-
-If you use the default OpenCode `Build` / `Plan` options without selecting a Swarm architect, the plugin is bypassed entirely.
-
-### Why did Swarm start coding immediately on my second run?
-Because Swarm resumes from `.swarm/` state when it exists. Check `/swarm status` to see the current mode.
-
-### How do I know which agents and models are active?
-Run `/swarm agents` and `/swarm config`.
-
-### How do I start over?
-Run `/swarm reset --confirm`.
+4. **Different models catch different bugs.** Blind spots of the coder are the reviewer's strength.
+5. **Save everything to disk.** Resume any project any day from `.swarm/` state.
+6. **Document failures.** Rejections and retries recorded. After 5 failures, escalate to you.
 
 ---
 
 ## Documentation
 
-- [Documentation Index](docs/index.md)
-- [Getting Started](docs/getting-started.md)
-- [Architecture Deep Dive](docs/architecture.md)
-- [Design Rationale](docs/design-rationale.md)
-- [Plan Durability & Ledger](docs/plan-durability.md)
-- [Installation Guide](docs/installation.md)
-- [Linux + Docker Desktop Install Guide](docs/installation-linux-docker.md)
-- [LLM Operator Installation Guide](docs/installation-llm-operator.md)
-- [Pre-Swarm Planning Guide](docs/planning.md)
-- [Swarm Briefing for LLMs](docs/swarm-briefing.md)
-- [Configuration](docs/configuration.md)
+- [Getting Started](docs/getting-started.md) — 15-minute first-run guide
+- [Documentation Index](docs/index.md) — navigate all docs
+- [Installation Guide](docs/installation.md) — comprehensive reference
+- [Architecture Deep Dive](docs/architecture.md) — control model, pipeline, tools
+- [Design Rationale](docs/design-rationale.md) — why every major decision
+- [Commands Reference](docs/commands.md) — all 41 `/swarm` subcommands
+- [Modes Guide](docs/modes.md) — session modes (Turbo, Full-Auto) and project modes (strict/balanced/fast)
+- [Configuration](docs/configuration.md) — all config keys and examples
+- [Planning Guide](docs/planning.md) — task format, phase structure, sizing
 
 ---
 

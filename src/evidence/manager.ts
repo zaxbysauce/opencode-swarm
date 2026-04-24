@@ -17,6 +17,7 @@ import {
 } from '../config/evidence-schema';
 import { readSwarmFileAsync, validateSwarmPath } from '../hooks/utils';
 import { warn } from '../utils';
+import { withEvidenceLock } from './lock.js';
 
 /**
  * Discriminated union returned by loadEvidence.
@@ -119,91 +120,100 @@ export async function saveEvidence(
 	taskId: string,
 	evidence: Evidence,
 ): Promise<EvidenceBundle> {
-	// Validate task ID
+	// Validate task ID and resolve paths before acquiring the lock.
 	const sanitizedTaskId = sanitizeTaskId(taskId);
-
-	// Construct and validate path
 	const relativePath = path.join('evidence', sanitizedTaskId, 'evidence.json');
-	const evidencePath = validateSwarmPath(directory, relativePath);
-	const evidenceDir = path.dirname(evidencePath);
+	// validateSwarmPath throws synchronously on traversal — keep outside lock.
+	validateSwarmPath(directory, relativePath);
 
-	// Load existing bundle or create new one
-	let bundle: EvidenceBundle;
-	const existingContent = await readSwarmFileAsync(directory, relativePath);
+	return withEvidenceLock(
+		directory,
+		relativePath,
+		'evidence-manager',
+		sanitizedTaskId,
+		async () => {
+			const evidencePath = validateSwarmPath(directory, relativePath);
+			const evidenceDir = path.dirname(evidencePath);
 
-	if (existingContent !== null) {
-		try {
-			const parsed = JSON.parse(existingContent);
-			bundle = EvidenceBundleSchema.parse(parsed);
-		} catch (error) {
-			// Invalid existing bundle, create new one
-			warn(
-				`Existing evidence bundle invalid for task ${sanitizedTaskId}, creating new: ${error instanceof Error ? error.message : String(error)}`,
-			);
-			const now = new Date().toISOString();
-			bundle = {
-				schema_version: '1.0.0',
-				task_id: sanitizedTaskId,
-				entries: [],
-				created_at: now,
-				updated_at: now,
+			// Load existing bundle or create new one
+			let bundle: EvidenceBundle;
+			const existingContent = await readSwarmFileAsync(directory, relativePath);
+
+			if (existingContent !== null) {
+				try {
+					const parsed = JSON.parse(existingContent);
+					bundle = EvidenceBundleSchema.parse(parsed);
+				} catch (error) {
+					// Invalid existing bundle, create new one
+					warn(
+						`Existing evidence bundle invalid for task ${sanitizedTaskId}, creating new: ${error instanceof Error ? error.message : String(error)}`,
+					);
+					const now = new Date().toISOString();
+					bundle = {
+						schema_version: '1.0.0',
+						task_id: sanitizedTaskId,
+						entries: [],
+						created_at: now,
+						updated_at: now,
+					};
+				}
+			} else {
+				// Create new bundle
+				const now = new Date().toISOString();
+				bundle = {
+					schema_version: '1.0.0',
+					task_id: sanitizedTaskId,
+					entries: [],
+					created_at: now,
+					updated_at: now,
+				};
+			}
+
+			// Trim oldest entries if bundle exceeds max entry count to prevent unbounded
+			// growth from continuously-appended bundles (e.g. retro-session) (#444 item 10)
+			const MAX_BUNDLE_ENTRIES = 100;
+			let entries = [...bundle.entries, evidence];
+			if (entries.length > MAX_BUNDLE_ENTRIES) {
+				entries = entries.slice(entries.length - MAX_BUNDLE_ENTRIES);
+			}
+
+			// Create new bundle with appended evidence
+			const updatedBundle: EvidenceBundle = {
+				...bundle,
+				entries,
+				updated_at: new Date().toISOString(),
 			};
-		}
-	} else {
-		// Create new bundle
-		const now = new Date().toISOString();
-		bundle = {
-			schema_version: '1.0.0',
-			task_id: sanitizedTaskId,
-			entries: [],
-			created_at: now,
-			updated_at: now,
-		};
-	}
 
-	// Trim oldest entries if bundle exceeds max entry count to prevent unbounded
-	// growth from continuously-appended bundles (e.g. retro-session) (#444 item 10)
-	const MAX_BUNDLE_ENTRIES = 100;
-	let entries = [...bundle.entries, evidence];
-	if (entries.length > MAX_BUNDLE_ENTRIES) {
-		entries = entries.slice(entries.length - MAX_BUNDLE_ENTRIES);
-	}
+			// Check size limit
+			const bundleJson = JSON.stringify(updatedBundle);
+			if (bundleJson.length > EVIDENCE_MAX_JSON_BYTES) {
+				throw new Error(
+					`Evidence bundle size (${bundleJson.length} bytes) exceeds maximum (${EVIDENCE_MAX_JSON_BYTES} bytes)`,
+				);
+			}
 
-	// Create new bundle with appended evidence
-	const updatedBundle: EvidenceBundle = {
-		...bundle,
-		entries,
-		updated_at: new Date().toISOString(),
-	};
+			// Create directory (recursive)
+			mkdirSync(evidenceDir, { recursive: true });
 
-	// Check size limit
-	const bundleJson = JSON.stringify(updatedBundle);
-	if (bundleJson.length > EVIDENCE_MAX_JSON_BYTES) {
-		throw new Error(
-			`Evidence bundle size (${bundleJson.length} bytes) exceeds maximum (${EVIDENCE_MAX_JSON_BYTES} bytes)`,
-		);
-	}
+			// Write atomically: temp file + rename (unchanged semantics)
+			const tempPath = path.join(
+				evidenceDir,
+				`evidence.json.tmp.${Date.now()}.${process.pid}`,
+			);
+			try {
+				await Bun.write(tempPath, bundleJson);
+				await fs.rename(tempPath, evidencePath);
+			} catch (error) {
+				// Clean up temp file on failure
+				try {
+					rmSync(tempPath, { force: true });
+				} catch {}
+				throw error;
+			}
 
-	// Create directory (recursive)
-	mkdirSync(evidenceDir, { recursive: true });
-
-	// Write atomically: temp file + rename
-	const tempPath = path.join(
-		evidenceDir,
-		`evidence.json.tmp.${Date.now()}.${process.pid}`,
+			return updatedBundle;
+		},
 	);
-	try {
-		await Bun.write(tempPath, bundleJson);
-		await fs.rename(tempPath, evidencePath);
-	} catch (error) {
-		// Clean up temp file on failure
-		try {
-			rmSync(tempPath, { force: true });
-		} catch {}
-		throw error;
-	}
-
-	return updatedBundle;
 }
 
 /**
@@ -305,25 +315,42 @@ export async function loadEvidence(
 		// Validate the wrapped bundle
 		try {
 			const validated = EvidenceBundleSchema.parse(wrappedBundle);
-			// Persist repaired bundle back to the same file path
-			const evidenceDir = path.dirname(evidencePath);
-			const bundleJson = JSON.stringify(validated);
-			const tempPath = path.join(
-				evidenceDir,
-				`evidence.json.tmp.${Date.now()}.${process.pid}`,
-			);
+			// Persist repaired bundle under the evidence lock so the write-back
+			// cannot race with a concurrent saveEvidence call.
+			// Non-fatal: read-only return value is valid even if write-back fails.
 			try {
-				await Bun.write(tempPath, bundleJson);
-				await fs.rename(tempPath, evidencePath);
-			} catch (writeError) {
-				// Clean up temp file on failure
-				try {
-					rmSync(tempPath, { force: true });
-				} catch {}
-				warn(
-					`Failed to persist repaired flat retrospective for task ${sanitizedTaskId}: ${writeError instanceof Error ? writeError.message : String(writeError)}`,
+				await withEvidenceLock(
+					directory,
+					relativePath,
+					'evidence-loader',
+					sanitizedTaskId,
+					async () => {
+						const evidenceDir = path.dirname(evidencePath);
+						const bundleJson = JSON.stringify(validated);
+						const tempPath = path.join(
+							evidenceDir,
+							`evidence.json.tmp.${Date.now()}.${process.pid}`,
+						);
+						try {
+							await Bun.write(tempPath, bundleJson);
+							await fs.rename(tempPath, evidencePath);
+						} catch (writeError) {
+							try {
+								rmSync(tempPath, { force: true });
+							} catch {}
+							warn(
+								`Failed to persist repaired flat retrospective for task ${sanitizedTaskId}: ${writeError instanceof Error ? writeError.message : String(writeError)}`,
+							);
+						}
+					},
 				);
-				// Still return the validated bundle even if write failed
+			} catch (lockErr) {
+				// EvidenceLockTimeoutError or unexpected lock error — non-fatal.
+				// The flat-retrospective format upgrade will be retried on the next
+				// loadEvidence call; the validated bundle is returned to this caller.
+				warn(
+					`Evidence lock failed during flat-retrospective write-back for task ${sanitizedTaskId}: ${lockErr instanceof Error ? lockErr.message : String(lockErr)}`,
+				);
 			}
 			return { status: 'found', bundle: validated };
 		} catch (error) {

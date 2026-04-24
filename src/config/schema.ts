@@ -922,6 +922,31 @@ export const CompactionConfigSchema = z.object({
 
 export type CompactionConfig = z.infer<typeof CompactionConfigSchema>;
 
+// PRM (Process Remediation Manager) configuration
+export const PrmConfigSchema = z.object({
+	enabled: z.boolean().default(true),
+	pattern_thresholds: z
+		.object({
+			repetition_loop: z.number().min(1).default(2),
+			ping_pong: z.number().min(1).default(2),
+			expansion_drift: z.number().min(1).default(3),
+			stuck_on_test: z.number().min(1).default(3),
+			context_thrash: z.number().min(1).default(3),
+		})
+		.default(() => ({
+			repetition_loop: 2,
+			ping_pong: 2,
+			expansion_drift: 3,
+			stuck_on_test: 3,
+			context_thrash: 3,
+		})),
+	max_trajectory_lines: z.number().min(10).default(1000),
+	escalation_enabled: z.boolean().default(true),
+	detection_timeout_ms: z.number().min(10).default(100),
+});
+
+export type PrmConfig = z.infer<typeof PrmConfigSchema>;
+
 // Agent authority rule - describes per-agent file write authority
 export const AgentAuthorityRuleSchema = z.object({
 	readOnly: z.boolean().optional(),
@@ -978,6 +1003,35 @@ export const CouncilConfigSchema = z
 	.strict();
 
 export type CouncilConfig = z.infer<typeof CouncilConfigSchema>;
+
+// Parallelization configuration (PR 1 — dark foundation, disabled by default)
+// All fields default to single-run-equivalent values so no production path
+// activates parallel execution while this config exists.
+export const ParallelizationConfigSchema = z.object({
+	/** Master switch. Defaults to false — no parallel execution in current code. */
+	enabled: z.boolean().default(false),
+	/** Maximum concurrent tasks. 1 = serial (current behavior). */
+	maxConcurrentTasks: z.number().int().min(1).max(64).default(1),
+	/** Timeout in ms for evidence file locks before throwing EvidenceLockTimeoutError. */
+	evidenceLockTimeoutMs: z.number().int().min(1000).max(300000).default(60000),
+	/**
+	 * Stage B (reviewer + test_engineer) parallelization settings.
+	 * PR 2 runtime gating — defaults to disabled so no production path activates
+	 * order-independent barrier semantics until explicitly opted in.
+	 */
+	stageB: z
+		.object({
+			parallel: z
+				.object({
+					/** When true, reviewer and test_engineer run order-independently (barrier). Default: false. */
+					enabled: z.boolean().default(false),
+				})
+				.default({ enabled: false }),
+		})
+		.default({ parallel: { enabled: false } }),
+});
+
+export type ParallelizationConfig = z.infer<typeof ParallelizationConfigSchema>;
 
 // Main plugin configuration
 export const PluginConfigSchema = z.object({
@@ -1123,8 +1177,15 @@ export const PluginConfigSchema = z.object({
 	// Compaction service configuration (v6.29)
 	compaction_service: CompactionConfigSchema.optional(),
 
+	// PRM (Process Remediation Manager) configuration
+	prm: PrmConfigSchema.optional(),
+
 	// Work Complete Council configuration — parallel four-member verification gate (off by default)
 	council: CouncilConfigSchema.optional(),
+
+	// Parallelization configuration (PR 1 dark foundation — disabled by default)
+	// Exists structurally; no production code path branches on enabled===true yet.
+	parallelization: ParallelizationConfigSchema.optional(),
 
 	// Turbo mode — bypasses reviewer/test gates for rapid iteration (v6.40)
 	turbo_mode: z.boolean().default(false).optional(),

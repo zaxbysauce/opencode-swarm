@@ -141,4 +141,32 @@ Controls phase completion gating and validation.
 }
 ```
 
+## Council
+
+Opt-in verification gate that runs five specialized reviewers in parallel before a task advances to `completed`.
+
+| Field | Type | Default | Description |
+|-------|------|---------|-------------|
+| `enabled` | boolean | `false` | Master switch for the council gate |
+| `maxRounds` | number | `3` | Maximum REJECT-retry rounds before architect must escalate to user (1–10) |
+| `parallelTimeoutMs` | number | `30000` | Per-member dispatch timeout in milliseconds (5000–120000) |
+| `vetoPriority` | boolean | `true` | When `true`, any single REJECT blocks advancement |
+| `requireAllMembers` | boolean | `false` | When `true`, reject synthesis if fewer than 5 verdicts provided |
+| `escalateOnMaxRounds` | string? | undefined | Reserved for future use — no runtime behavior today |
+
+When `enabled: false`, the council gate is completely inert. When enabled, `convene_council` must be called before a task can transition to `completed`. See the [Council guide](council/README.md) for the full workflow.
+
+**Example** — Enable the council gate:
+
+```json
+{
+  "council": {
+    "enabled": true,
+    "maxRounds": 3,
+    "vetoPriority": true,
+    "requireAllMembers": false
+  }
+}
+```
+
 For a full configuration reference, see the [Full Configuration Reference](../README.md) section in the README (expand the "Full Configuration Reference" details block).

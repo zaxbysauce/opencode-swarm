@@ -253,13 +253,18 @@ For each task in current phase:
     ├── 5a. @coder implements (ONE task only)
     │       └── → REQUIRED: Print task start confirmation
     │
-    ├── 5b. diff + imports tools analyze changes
+    ├── 5b. diff + imports tools analyze changes + semantic diff injection
     │       ├── Detect contract changes (exports, interfaces, types)
     │       ├── Track import dependencies across files
+    │       ├── system-enhancer injects AST-based semantic diff summary into reviewer context
+    │       │   - Computes AST diffs for changed files (up to 10, from `declaredCoderScope`)
+    │       │   - Enriches with blast radius (consumers count from repo graph)
+    │       │   - Generates risk-ranked markdown for reviewer prioritization
+    │       │   - Fully error-resilient: never throws, returns null on failure
     │       └── → REQUIRED: Print change summary
     │
     ├── 5c. syntax_check validates code syntax (v6.9.0)
-    │       ├── Tree-sitter parse validation for 9+ languages
+    │       ├── Tree-sitter parse validation for 20 languages
     │       ├── Catches syntax errors before review
     │       └── → REQUIRED: Print syntax status
     │
@@ -354,12 +359,16 @@ All tasks in phase done
 ├── 5.6. Verify mandatory gate evidence exists:
 │         - .swarm/evidence/{phase}/completion-verify.json (auto-written by completion-verify gate)
 │         - .swarm/evidence/{phase}/drift-verifier.json (written by @critic_drift_verifier)
+│         - .swarm/evidence/{phase}/hallucination-guard.json (if hallucination_guard enabled; written by write_hallucination_evidence)
+│         - .swarm/evidence/{phase}/mutation-gate.json (if mutation_test enabled; written by write_mutation_evidence after generate_mutants + mutation_test)
 │         If either missing: run the missing gate first
-│         Note: Turbo mode automatically bypasses both gates
-├── 6. Call phase_complete (enforces two mandatory gates automatically)
+│         Note: All gates automatically bypassed in turbo mode
+├── 6. Call phase_complete (enforces four phase gates automatically)
 │         - Gate 1: completion-verify — deterministic identifier check in source files
 │         - Gate 2: drift verifier evidence — reads drift-verifier.json for approved verdict
-│         - Both gates bypassed when turbo mode is active
+│         - Gate 3: hallucination guard — reads hallucination-guard.json for approved verdict (if enabled)
+│         - Gate 4: mutation gate — reads mutation-gate.json for pass/warn/fail verdict (if enabled)
+│         - All four gates bypassed when turbo mode is active
 └── 7. Ask user: "Ready for Phase [N+1]?"
 ```
 
@@ -371,6 +380,8 @@ The `phase_complete` tool enforces two mandatory gates before marking a phase co
 |------|---------|-----------------|--------------|
 | `completion-verify` | Deterministic check that plan task identifiers exist in source files | `COMPLETION_INCOMPLETE` — zero identifiers found in target files | Yes |
 | `drift-verifier` | Evidence-based check that `critic_drift_verifier` approved the implementation | `DRIFT_VERIFICATION_MISSING` or `DRIFT_VERIFICATION_REJECTED` | Yes |
+| `hallucination-guard` | Evidence-based check that `critic_hallucination_verifier` approved plan/implementation claims | `HALLUCINATION_VERIFICATION_MISSING` or `HALLUCINATION_VERIFICATION_REJECTED` | Yes |
+| `mutation-test` | Evidence-based check that mutation tests achieved a passing kill rate | `MUTATION_GATE_MISSING` or `MUTATION_GATE_FAIL` | Yes |
 
 **Gate 1: Completion Verify**
 - Parses plan task descriptions for identifiers (backtick, camelCase, PascalCase, config keys)
@@ -385,8 +396,27 @@ The `phase_complete` tool enforces two mandatory gates before marking a phase co
 - Defense-in-depth: architect should delegate to `@critic_drift_verifier` BEFORE calling `phase_complete` for early feedback
 - Uses `write_drift_evidence` tool to persist verification results (verdict is normalized automatically)
 
+**Gate 3: Hallucination Guard (optional)**
+- Only enforced when `hallucination_guard: true` in the QA gate profile
+- Reads `.swarm/evidence/{phase}/hallucination-guard.json`
+- Checks for entry with `type` containing 'hallucination' and `verdict` of 'approved'
+- Blocks if evidence missing or verdict is 'rejected'
+- Architect should delegate to `@critic_hallucination_verifier` and call `write_hallucination_evidence` before `phase_complete`
+- Enabled via `set_qa_gates` tool with `hallucination_guard: true`
+
+**Gate 4: Mutation Gate (optional)**
+- Only enforced when `mutation_test: true` in the QA gate profile (default: OFF)
+- Reads `.swarm/evidence/{phase}/mutation-gate.json`
+- Checks for entry with `type` of 'mutation-gate' and verdict of 'pass', 'warn', or 'skip'
+- **Blocks** if verdict is 'fail' — resolve surviving mutants or lower threshold before continuing
+- **Warns** (proceeds) if verdict is 'warn'
+- **Allows** if verdict is 'pass' or 'skip'
+- Architect workflow: call `generate_mutants` to create patches, pipe patches to `mutation_test` tool, then call `write_mutation_evidence` with verdict and kill rate metrics before `phase_complete`
+- Enabled via `set_qa_gates` tool with `mutation_test: true`
+- **Expensive**: requires one LLM call per mutation phase due to LLM-based patch generation; OFF by default to avoid cost on all projects
+
 **Turbo Mode Behavior:**
-When `hasActiveTurboMode()` returns true, both gates are automatically bypassed. The `phase_complete` tool logs a warning and proceeds without enforcement.
+When `hasActiveTurboMode()` returns true, all four gates are automatically bypassed (completion-verify, drift-verifier, hallucination-guard, mutation-test). The `phase_complete` tool logs a warning and proceeds without enforcement.
 
 ---
 
@@ -944,7 +974,7 @@ v6.9.0 "Quality & Anti-Slop Tooling" adds 6 automated gates to the pre-reviewer 
 
 | Gate | Purpose | Local-Only |
 |------|---------|------------|
-| `syntax_check` | Tree-sitter parse validation across 9+ languages | ✅ |
+| `syntax_check` | Tree-sitter parse validation across 20 languages | ✅ |
 | `placeholder_scan` | Anti-slop detection for TODO/FIXME/stubs | ✅ |
 | `sast_scan` | Static security analysis with 63+ rules | ✅ |
 | `sbom_generate` | CycloneDX SBOM generation for dependencies | ✅ |
@@ -988,7 +1018,7 @@ The hooks system is the foundation of v5.1.x+, extended in v6.0.0 with config-aw
 | Hook Type | Handler | Purpose |
 |-----------|---------|---------|
 | `experimental.chat.messages.transform` | `composeHandlers(pipelineTracker, contextBudget)` | Pipeline logging + token budget warnings; progressive task disclosure; deliberation preamble injection; tier-based behavioral prompt trimming |
-| `experimental.chat.system.transform` | `systemEnhancerHook` | Inject phase/task/decisions + cross-agent context |
+| `experimental.chat.system.transform` | `systemEnhancerHook` | Inject phase/task/decisions + cross-agent context; reviewer receives semantic AST diff summary with blast radius (consumers count) from `buildSemanticDiffBlock()` |
 | `experimental.session.compacting` | `compactionHook` | Enrich compaction with plan.md + context.md data |
 | `command.execute.before` | `safeHook(commandHandler)` | Handle `/swarm` slash commands |
 | `tool.execute.before` | `safeHook(activityHooks.toolBefore)` | Track tool usage per agent; append written file paths to `modifiedFilesThisCoderTask`; reset tracking on coder delegation |
@@ -1226,6 +1256,7 @@ The evidence system persists verifiable execution artifacts per task.
 | `approval` | (base fields only) | Explicit approval record |
 | `note` | (base fields only) | Free-form annotation |
 | `secretscan` | findings_count, scan_directory, files_scanned, skipped_files | Secret scan results (v6.33) |
+| `mutation-gate` | verdict, killRate, adjustedKillRate, summary, survivedMutants[] | Phase-close mutation testing gate results — written by `write_mutation_evidence` tool; blocks phase completion when verdict is `fail` (v6.68+) |
 
 ### Storage
 
@@ -1272,7 +1303,7 @@ Six new automated gates enforce code quality before human review. All gates run 
 
 ### syntax_check - Parse Validation
 
-Uses Tree-sitter grammars for 9+ languages:
+Uses Tree-sitter grammars for 20 languages:
 - TypeScript/JavaScript
 - Python
 - Rust
@@ -1979,3 +2010,13 @@ Key principles:
 - Agent-discovered patterns require 2+ session frequency before persisting
 
 > **Note:** The actual restructuring of `context.md` is deferred to v6.14. This section documents the target architecture for planning purposes.
+
+---
+
+## Parallelization Foundation (PR 1 — Dark)
+
+PR 1 of the stacked parallelization release lands dark infrastructure with zero behavior change.
+See [docs/archive/dev/pr1-foundation.md](archive/dev/pr1-foundation.md) for the full design note covering:
+- What is dark now vs. deferred to PR 2 and PR 3
+- Process-global variable audit and isolation classification
+- Invariants that prove runtime behavior is unchanged

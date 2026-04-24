@@ -2190,3 +2190,60 @@ describe('patch authority hardening', () => {
 		);
 	});
 });
+
+// ─────────────────────────────────────────────────────────────────────────────
+// Regression: issue #559 — opencode native agents must not be blocked
+// ─────────────────────────────────────────────────────────────────────────────
+describe('Opencode native agents — authority pass-through (issue #559)', () => {
+	let tempDir: string;
+
+	beforeEach(async () => {
+		tempDir = await fs.mkdtemp(path.join(os.tmpdir(), 'native-agent-auth-'));
+	});
+
+	afterEach(async () => {
+		try {
+			await fs.rm(tempDir, { recursive: true, force: true });
+		} catch {
+			// ignore
+		}
+	});
+
+	it('build agent can write eslint.config.mts (exact repro from issue #559)', () => {
+		const result = checkFileAuthority('build', 'eslint.config.mts', tempDir);
+		expect(result.allowed).toBe(true);
+	});
+
+	it('build agent is not blocked with "Unknown agent" reason', () => {
+		const result = checkFileAuthority('build', 'src/index.ts', tempDir);
+		expect(result.allowed).toBe(true);
+		if (!result.allowed) {
+			expect((result as { reason: string }).reason).not.toContain(
+				'Unknown agent',
+			);
+		}
+	});
+
+	it('plan agent can write to arbitrary in-cwd paths', () => {
+		const result = checkFileAuthority('plan', 'src/app.ts', tempDir);
+		expect(result.allowed).toBe(true);
+	});
+
+	it('general agent can write to arbitrary in-cwd paths', () => {
+		const result = checkFileAuthority('general', 'lib/utils.ts', tempDir);
+		expect(result.allowed).toBe(true);
+	});
+
+	it('explore agent passes authority check (opencode permission layer enforces read-only)', () => {
+		const result = checkFileAuthority('explore', 'src/read-target.ts', tempDir);
+		expect(result.allowed).toBe(true);
+	});
+
+	it('truly unknown agents are still blocked', () => {
+		const result = checkFileAuthority('unknown-agent', 'src/file.ts', tempDir);
+		expect(result.allowed).toBe(false);
+		if (!result.allowed) {
+			expect((result as { reason: string }).reason).toContain('Unknown agent');
+		}
+	});
+});

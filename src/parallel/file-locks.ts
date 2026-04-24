@@ -21,8 +21,15 @@ function getLockFilePath(directory: string, filePath: string): string {
 	// Normalize path before validation to handle relative segments
 	const normalized = path.resolve(directory, filePath);
 
-	// Validate path to prevent traversal attacks
-	if (!normalized.startsWith(path.resolve(directory))) {
+	// Validate path to prevent traversal attacks.
+	// Must use path.sep suffix so that /project doesn't match /project_evil.
+	// Windows: case-insensitive comparison (matches pattern in src/hooks/utils.ts).
+	const baseDir = path.resolve(directory) + path.sep;
+	const pathOk =
+		process.platform === 'win32'
+			? normalized.toLowerCase().startsWith(baseDir.toLowerCase())
+			: normalized.startsWith(baseDir);
+	if (!pathOk) {
 		throw new Error('Invalid file path: path traversal not allowed');
 	}
 

@@ -75,8 +75,8 @@ describe('executeMutation — ENOENT error handling', () => {
 	beforeEach(() => {
 		vi.clearAllMocks();
 		mockSpawnSync.mockReturnValue(makeSuccess());
-		mockWriteFileSync.mockReturnValue(undefined as unknown as void);
-		mockUnlinkSync.mockReturnValue(undefined as unknown as void);
+		mockWriteFileSync.mockReturnValue(undefined as unknown as undefined);
+		mockUnlinkSync.mockReturnValue(undefined as unknown as undefined);
 	});
 
 	afterEach(() => {

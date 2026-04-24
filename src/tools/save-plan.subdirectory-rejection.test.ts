@@ -45,17 +45,21 @@ describe('save_plan subdirectory rejection (issue #577 regression)', () => {
 		expect(result.message).toContain('project root');
 	});
 
-	// ── 2. Completely different absolute path is rejected ──
+	// ── 2. Completely different absolute path is NOT rejected by anchor check ──
 
-	it('rejects working_directory that is a completely different absolute path', async () => {
+	it('does not reject working_directory that is a completely different absolute path at anchor check', async () => {
 		const wrongDir = '/tmp/wrong-dir';
 		const result = await executeSavePlan(
 			{ ...minimalPlan, working_directory: wrongDir },
 			tmpDir,
 		);
 
-		expect(result.success).toBe(false);
-		expect(result.message).toContain('project root');
+		// Anchor check only rejects true subdirectories; explicit absolutes proceed.
+		// May fail later (e.g. SPEC_REQUIRED), but NOT due to the anchor check.
+		expect(result.message).not.toContain('project root');
+		expect(
+			result.errors?.some((e) => e.includes('not the project root')),
+		).not.toBe(true);
 	});
 
 	// ── 3. working_directory matching fallbackDir exactly is NOT rejected by anchor check ──

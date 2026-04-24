@@ -27,7 +27,17 @@ export type TelemetryEvent =
 	| 'heartbeat'
 	| 'turbo_mode_changed'
 	| 'auto_oversight_escalation'
-	| 'environment_detected';
+	| 'environment_detected'
+	// PR 1 parallelization foundation events (dark — emitted but no live parallel paths)
+	| 'evidence_lock_acquired'
+	| 'evidence_lock_contended'
+	| 'evidence_lock_stale_recovered'
+	| 'plan_ledger_cas_retry'
+	// PRM events
+	| 'prm_pattern_detected'
+	| 'prm_course_correction_injected'
+	| 'prm_escalation_triggered'
+	| 'prm_hard_stop';
 
 export type TelemetryListener = (
 	event: TelemetryEvent,
@@ -341,5 +351,52 @@ export const telemetry = {
 			shellFamily,
 			executionMode,
 		});
+	},
+
+	prmPatternDetected(
+		sessionId: string,
+		pattern: string,
+		severity: string,
+		category: string,
+		stepRange: [number, number],
+	): void {
+		emit('prm_pattern_detected', {
+			sessionId,
+			pattern,
+			severity,
+			category,
+			stepRange,
+		});
+	},
+
+	prmCourseCorrectionInjected(
+		sessionId: string,
+		pattern: string,
+		level: number,
+	): void {
+		emit('prm_course_correction_injected', { sessionId, pattern, level });
+	},
+
+	prmEscalationTriggered(
+		sessionId: string,
+		pattern: string,
+		level: number,
+		occurrenceCount: number,
+	): void {
+		emit('prm_escalation_triggered', {
+			sessionId,
+			pattern,
+			level,
+			occurrenceCount,
+		});
+	},
+
+	prmHardStop(
+		sessionId: string,
+		pattern: string,
+		level: number,
+		occurrenceCount: number,
+	): void {
+		emit('prm_hard_stop', { sessionId, pattern, level, occurrenceCount });
 	},
 };

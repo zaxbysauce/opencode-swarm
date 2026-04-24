@@ -106,10 +106,34 @@ export function createRepoGraphBuilderHook(
 			}
 
 			// Extract file path from tool args
-			const filePath = extractFilePath(input.args);
-			if (!filePath) {
+			const rawFilePath = extractFilePath(input.args);
+			if (!rawFilePath) {
 				return;
 			}
+
+			// Normalize path to prevent traversal via encoding tricks:
+			// 1. Reject null bytes outright (null byte injection — never valid in a file path)
+			// 2. Decode URL-encoding repeatedly until stable (handles %2e%2e, %252e, etc.)
+			// 3. Normalize Unicode fullwidth dots/slashes to ASCII equivalents
+			if (rawFilePath.includes('\0')) {
+				return;
+			}
+			let filePath = rawFilePath;
+			// Decode URL percent-encoding in a loop (max 3 passes) to handle double-encoding
+			for (let i = 0; i < 3; i++) {
+				try {
+					const decoded = decodeURIComponent(filePath);
+					if (decoded === filePath) break;
+					filePath = decoded;
+				} catch {
+					break;
+				}
+			}
+			// Normalize Unicode fullwidth characters used for dot/slash obfuscation
+			filePath = filePath
+				.replace(/\uff0e/g, '.') // fullwidth full stop → ASCII dot
+				.replace(/\uff0f/g, '/') // fullwidth solidus → ASCII slash
+				.replace(/\u2024/g, '.'); // one dot leader → ASCII dot
 
 			// Only process supported source files
 			if (!isSupportedSourceFile(filePath)) {

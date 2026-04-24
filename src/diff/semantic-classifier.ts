@@ -44,7 +44,7 @@ export interface ClassifiedChange {
 	/** Name of the symbol (function, class, etc.) affected */
 	symbolName: string;
 	/** Type of change operation */
-	changeType: 'added' | 'modified' | 'removed';
+	changeType: 'added' | 'modified' | 'removed' | 'renamed';
 	/** Starting line number of the change */
 	lineStart: number;
 	/** Ending line number of the change */
@@ -53,6 +53,10 @@ export interface ClassifiedChange {
 	description: string;
 	/** Original AST change signature detail (if available) */
 	signature?: string;
+	/** Original name before rename, if this is a renamed symbol */
+	renamedFrom?: string;
+	/** Number of files that depend on this file (blast radius indicator) */
+	consumersCount?: number;
 }
 
 // ============================================================================
@@ -74,8 +78,15 @@ const GUARD_KEYWORDS = [
  * Check if a symbol name contains guard-related keywords.
  */
 function isGuardKeyword(name: string): boolean {
-	const lowerName = name.toLowerCase();
-	return GUARD_KEYWORDS.some((keyword) => lowerName.includes(keyword));
+	return GUARD_KEYWORDS.some((keyword) => {
+		// Build case-insensitive keyword pattern: 'check' → '[cC][hH][eE][cC][kK]'
+		const ciKeyword = keyword
+			.split('')
+			.map((c) => `[${c.toLowerCase()}${c.toUpperCase()}]`)
+			.join('');
+		const re = new RegExp(`(?<![a-z])${ciKeyword}(?![a-z])`);
+		return re.test(name);
+	});
 }
 
 // ============================================================================
@@ -131,6 +142,32 @@ function classifyChange(
 			category: 'DELETED_FUNCTION',
 			riskLevel: 'High',
 			description: `Deleted function '${change.name}'`,
+		};
+	}
+
+	// REFACTOR: renamed (signatures match, structural but not breaking)
+	if (change.type === 'renamed') {
+		// Guard function renames are higher risk — guards are security-critical
+		if (
+			change.category === 'function' &&
+			(isGuardKeyword(change.name) || isGuardKeyword(change.renamedFrom || ''))
+		) {
+			return {
+				...base,
+				category: 'GUARD_REMOVED',
+				riskLevel: 'Critical',
+				description: `Guard function renamed from '${change.renamedFrom || 'unknown'}' to '${change.name}'`,
+				renamedFrom: change.renamedFrom,
+			};
+		}
+
+		// Regular rename — structural change but not breaking (signatures match)
+		return {
+			...base,
+			category: 'REFACTOR',
+			riskLevel: 'Medium',
+			description: `${change.category} renamed from '${change.renamedFrom || 'unknown'}' to '${change.name}'`,
+			renamedFrom: change.renamedFrom,
 		};
 	}
 
@@ -245,12 +282,19 @@ function classifyChange(
  * }
  * ```
  */
-export function classifyChanges(astDiffs: ASTDiffResult[]): ClassifiedChange[] {
+export function classifyChanges(
+	astDiffs: ASTDiffResult[],
+	fileConsumers?: Record<string, number>,
+): ClassifiedChange[] {
 	const result: ClassifiedChange[] = [];
 
 	for (const diff of astDiffs) {
 		for (const change of diff.changes) {
-			result.push(classifyChange(change, diff.filePath, diff.changes));
+			const classified = classifyChange(change, diff.filePath, diff.changes);
+			if (fileConsumers && diff.filePath in fileConsumers) {
+				classified.consumersCount = fileConsumers[diff.filePath];
+			}
+			result.push(classified);
 		}
 	}
 

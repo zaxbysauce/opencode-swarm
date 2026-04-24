@@ -132,4 +132,51 @@ describe('guardrails plan.md write-block (issues #57, #71)', () => {
 			'PLAN STATE VIOLATION',
 		);
 	});
+
+	describe('recovery guidance — structural changes route to save_plan (issue #574)', () => {
+		it('write to plan.md → message explicitly routes structural changes to save_plan', async () => {
+			const config = defaultConfig();
+			const hooks = createGuardrailsHooks(config);
+			startAgentSession('s1', ORCHESTRATOR_NAME);
+
+			const input = makeInput('s1', 'write', 'call-1');
+			const output = makeOutput({ filePath: '.swarm/plan.md' });
+
+			await expect(hooks.toolBefore(input, output)).rejects.toThrow(
+				/save_plan.*structural/i,
+			);
+		});
+
+		it('write to plan.json → message explicitly routes structural changes to save_plan', async () => {
+			const config = defaultConfig();
+			const hooks = createGuardrailsHooks(config);
+			startAgentSession('s1', ORCHESTRATOR_NAME);
+
+			const input = makeInput('s1', 'write', 'call-1');
+			const output = makeOutput({ filePath: '.swarm/plan.json' });
+
+			await expect(hooks.toolBefore(input, output)).rejects.toThrow(
+				/save_plan.*structural/i,
+			);
+		});
+
+		it('apply_patch to plan.md → message explicitly routes structural changes to save_plan', async () => {
+			const config = defaultConfig();
+			const hooks = createGuardrailsHooks(config);
+			startAgentSession('s1', ORCHESTRATOR_NAME);
+
+			const input = makeInput('s1', 'apply_patch', 'call-1');
+			const diffContent = `--- a/.swarm/plan.md
++++ b/.swarm/plan.md
+@@ -1,3 +1,4 @@
+ # Plan
++New task
+`;
+			const output = makeOutput({ input: diffContent });
+
+			await expect(hooks.toolBefore(input, output)).rejects.toThrow(
+				/save_plan.*structural/i,
+			);
+		});
+	});
 });

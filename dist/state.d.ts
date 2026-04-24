@@ -9,6 +9,10 @@
 import type { OpencodeClient } from '@opencode-ai/sdk';
 import { type QaGates } from './db/qa-gate-profile.js';
 import { type EnvironmentProfile } from './environment/profile.js';
+import type { EscalationTracker } from './prm/escalation.js';
+import type { PatternMatch } from './prm/types.js';
+import { AgentRunContext } from './state/agent-run-context.js';
+export { AgentRunContext } from './state/agent-run-context.js';
 /**
  * Represents a single tool call entry for tracking purposes
  */
@@ -101,6 +105,13 @@ export interface AgentSessionState {
     qaSkipTaskIds: string[];
     /** Per-task workflow state — taskId → current state */
     taskWorkflowStates: Map<string, TaskWorkflowState>;
+    /**
+     * PR 2 Stage B barrier: per-task set of completed Stage B agents.
+     * Order-independent — either 'reviewer' or 'test_engineer' may complete first.
+     * When both are present, the task may advance to tests_run regardless of order.
+     * Only populated when parallelization.stageB.parallel.enabled = true.
+     */
+    stageBCompletion?: Map<string, Set<'reviewer' | 'test_engineer'>>;
     /** v6.71+ Council mode: per-task council verdict, recorded by delegation-gate when convene_council resolves. */
     taskCouncilApproved?: Map<string, {
         verdict: 'APPROVE' | 'REJECT' | 'CONCERNS';
@@ -170,6 +181,18 @@ export interface AgentSessionState {
     pendingAdvisoryMessages?: string[];
     /** Timestamp when session was rehydrated from snapshot (0 if never rehydrated) */
     sessionRehydratedAt: number;
+    /** Pattern type to detection count mapping */
+    prmPatternCounts: Map<string, number>;
+    /** Current escalation level (0=none, 1=guidance, 2=strong guidance, 3=hard stop) */
+    prmEscalationLevel: number;
+    /** Last pattern detected (if any) */
+    prmLastPatternDetected: PatternMatch | null;
+    /** Current trajectory step counter */
+    prmTrajectoryStep: number;
+    /** Whether a hard stop has been triggered */
+    prmHardStopPending: boolean;
+    /** Per-session escalation tracker instance (set lazily by PRM hook) */
+    prmEscalationTracker?: EscalationTracker;
 }
 /**
  * Represents a single agent invocation window with isolated guardrail budgets.
@@ -203,12 +226,24 @@ export interface InvocationWindow {
     warningReason: string;
 }
 /**
- * Singleton state object for sharing data across hooks
+ * Default run context — the single active run for current single-threaded behavior.
+ * PR 2 will create additional contexts for parallel dispatcher slots.
+ */
+export declare const defaultRunContext: AgentRunContext<ToolCallEntry, ToolAggregate, DelegationEntry, AgentSessionState, EnvironmentProfile>;
+/**
+ * Return the AgentRunContext for the given runId.
+ * No argument or unknown runId returns defaultRunContext (single-run semantics preserved).
+ */
+export declare function getRunContext(runId?: string): typeof defaultRunContext;
+/**
+ * Singleton state object for sharing data across hooks.
+ * Per-run maps are backed by defaultRunContext so that swarmState references
+ * stay valid and single-run behavior is unchanged.
  */
 export declare const swarmState: {
     /** Active tool calls — keyed by callID for before→after correlation */
     activeToolCalls: Map<string, ToolCallEntry>;
-    /** Aggregated tool usage stats — keyed by tool name */
+    /** Aggregated tool usage stats — process-global accumulator */
     toolAggregates: Map<string, ToolAggregate>;
     /** Active agent per session — keyed by sessionID, updated by chat.message hook */
     activeAgent: Map<string, string>;
@@ -336,6 +371,25 @@ export declare function advanceTaskState(session: AgentSessionState, taskId: str
  * @returns Current task workflow state
  */
 export declare function getTaskState(session: AgentSessionState, taskId: string): TaskWorkflowState;
+/**
+ * PR 2 Stage B barrier: record that a Stage B agent has completed for a task.
+ * Order-independent — either 'reviewer' or 'test_engineer' may complete first.
+ * Initializes the per-task set on first write.
+ *
+ * @param session - The agent session state
+ * @param taskId - The task identifier
+ * @param agent - Which Stage B agent completed ('reviewer' or 'test_engineer')
+ */
+export declare function recordStageBCompletion(session: AgentSessionState, taskId: string, agent: 'reviewer' | 'test_engineer'): void;
+/**
+ * PR 2 Stage B barrier: returns true iff both 'reviewer' and 'test_engineer' have
+ * been recorded for the given task in this session.
+ *
+ * @param session - The agent session state
+ * @param taskId - The task identifier
+ * @returns true when both Stage B agents have completed
+ */
+export declare function hasBothStageBCompletions(session: AgentSessionState, taskId: string): boolean;
 /**
  * Returns true iff council is authoritative for the current plan.
  *

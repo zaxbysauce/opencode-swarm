@@ -258,3 +258,86 @@ describe('extractImports — error handling', () => {
 		expect(edges).toEqual([]);
 	});
 });
+
+describe('extractImports — regression: control characters in import specifiers (F3)', () => {
+	// Prior to this fix, the TS/JS regex used [^'"`]+ and Go used [^"`]+, neither
+	// excluding control characters.  A file whose import path contains a literal
+	// CR (\r), LF (\n), TAB (\t), or NUL (\0) byte caused the dirty character to
+	// propagate into ImportEdge.rawModule and ultimately into the saved graph JSON.
+	// The same class of bug was fixed in src/tools/repo-graph.ts in #538 via a
+	// belt-and-suspenders containsControlChars() guard.  This block is the
+	// equivalent regression guard for src/graph/import-extractor.ts.
+
+	it('does not produce edges when a TS import specifier contains a CR byte', () => {
+		// Write the file in binary mode so the CR is a literal byte, not \\r.
+		const cr = String.fromCharCode(13);
+		const abs = path.join(tmp, 'ctrl-cr.ts');
+		fs.writeFileSync(
+			abs,
+			`import x from './bar${cr}.js';\nimport y from './ok-ctrl';\n`,
+			'binary',
+		);
+		write('ok-ctrl.ts', 'export {};');
+		const edges = extractImports({ absoluteFilePath: abs, workspaceRoot: tmp });
+		// The dirty edge must be dropped; only the clean one survives.
+		for (const e of edges) {
+			expect(containsControlCharsTest(e.rawModule)).toBe(false);
+		}
+		const targets = edges.map((e) => e.target);
+		expect(targets).toContain('ok-ctrl.ts');
+		expect(targets.some((t) => t.includes(cr))).toBe(false);
+	});
+
+	it('does not produce edges when a TS require() specifier contains a null byte', () => {
+		const nul = String.fromCharCode(0);
+		const abs = path.join(tmp, 'ctrl-nul.ts');
+		fs.writeFileSync(
+			abs,
+			`const r = require('./bad${nul}module');\nconst s = require('./good-ctrl');\n`,
+			'binary',
+		);
+		write('good-ctrl.ts', 'export {};');
+		const edges = extractImports({ absoluteFilePath: abs, workspaceRoot: tmp });
+		for (const e of edges) {
+			expect(containsControlCharsTest(e.rawModule)).toBe(false);
+		}
+	});
+
+	it('does not produce edges when a Go import specifier contains a CR byte', () => {
+		const cr = String.fromCharCode(13);
+		const abs = path.join(tmp, 'main.go');
+		fs.writeFileSync(
+			abs,
+			`package main\nimport (\n  "fmt"\n  "my/pkg${cr}/sub"\n)\n`,
+			'binary',
+		);
+		const edges = extractImports({ absoluteFilePath: abs, workspaceRoot: tmp });
+		for (const e of edges) {
+			expect(containsControlCharsTest(e.rawModule)).toBe(false);
+		}
+	});
+
+	it('retains clean specifiers when a file mixes dirty and clean imports', () => {
+		const cr = String.fromCharCode(13);
+		write('clean-sibling.ts', 'export const ok = 1;\n');
+		const abs = path.join(tmp, 'mixed-ctrl.ts');
+		fs.writeFileSync(
+			abs,
+			[
+				`import bad from './dirty${cr}.js';`,
+				"import { ok } from './clean-sibling';",
+			].join('\n'),
+			'binary',
+		);
+		const edges = extractImports({ absoluteFilePath: abs, workspaceRoot: tmp });
+		// dirty edge dropped; clean edge kept
+		expect(edges).toHaveLength(1);
+		expect(edges[0].rawModule).toBe('./clean-sibling');
+		expect(edges[0].target).toBe('clean-sibling.ts');
+	});
+});
+
+/** Helper mirrors containsControlChars from path-security (avoids importing it in tests). */
+function containsControlCharsTest(s: string): boolean {
+	return /[\0\t\r\n]/.test(s);
+}

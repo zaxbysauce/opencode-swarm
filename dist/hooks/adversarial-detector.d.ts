@@ -42,9 +42,9 @@ export declare function handleDebuggingSpiral(match: AdversarialPatternMatch, ta
  * Record a tool call for debugging spiral detection.
  * Call this from toolAfter to track repetitive patterns.
  */
-export declare function recordToolCall(tool: string, args: unknown): void;
+export declare function recordToolCall(tool: string, args: unknown, sessionId: string): void;
 /**
  * Detect debugging spiral: same tool called 5+ times in a row with similar args
  * within a 5-minute window. Indicates the agent is stuck in a loop.
  */
-export declare function detectDebuggingSpiral(_directory: string): Promise<AdversarialPatternMatch | null>;
+export declare function detectDebuggingSpiral(_directory: string, sessionId: string): Promise<AdversarialPatternMatch | null>;

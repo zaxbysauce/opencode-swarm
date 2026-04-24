@@ -17,6 +17,7 @@ import {
 	AutomationConfigSchema,
 	GuardrailsConfigSchema,
 	KnowledgeConfigSchema,
+	PrmConfigSchema,
 	SelfReviewConfigSchema,
 	SummaryConfigSchema,
 	stripKnownSwarmPrefix,
@@ -61,6 +62,7 @@ import { createSelfReviewHook } from './hooks/self-review.js';
 import { createSlopDetectorHook } from './hooks/slop-detector';
 import { createSteeringConsumedHook } from './hooks/steering-consumed.js';
 import { createTrajectoryLoggerHook } from './hooks/trajectory-logger';
+import { createPrmHook } from './prm';
 import { createCompactionService } from './services/compaction-service';
 import { shouldRunOnStartup } from './services/config-doctor';
 import { loadSnapshot } from './session/snapshot-reader.js';
@@ -86,6 +88,7 @@ import {
 	doc_scan,
 	evidence_check,
 	extract_code_blocks,
+	generate_mutants,
 	get_approved_plan,
 	get_qa_gate_profile,
 	gitingest,
@@ -121,6 +124,7 @@ import {
 	update_task_status,
 	write_drift_evidence,
 	write_hallucination_evidence,
+	write_mutation_evidence,
 	write_retro,
 } from './tools';
 import { log } from './utils';
@@ -199,6 +203,10 @@ const OpenCodeSwarm: Plugin = async (ctx) => {
 		Object.fromEntries(agentDefinitions.map((agent) => [agent.name, agent])),
 	);
 	const activityHooks = createAgentActivityHooks(config, ctx.directory);
+	const prmHook = createPrmHook(
+		config.prm ?? PrmConfigSchema.parse({}),
+		ctx.directory,
+	);
 	const trajectoryLoggerHook = createTrajectoryLoggerHook(
 		{
 			enabled: true,
@@ -572,6 +580,7 @@ const OpenCodeSwarm: Plugin = async (ctx) => {
 			co_change_analyzer,
 			detect_domains,
 			mutation_test,
+			generate_mutants,
 			doc_extract,
 			doc_scan,
 			evidence_check,
@@ -612,6 +621,7 @@ const OpenCodeSwarm: Plugin = async (ctx) => {
 			write_retro,
 			write_drift_evidence,
 			write_hallucination_evidence,
+			write_mutation_evidence,
 			declare_scope,
 		},
 
@@ -1008,6 +1018,7 @@ const OpenCodeSwarm: Plugin = async (ctx) => {
 					console.error(
 						`[DIAG] toolAfter trajectoryLogger done tool=${_toolName}`,
 					);
+				await safeHook(prmHook.toolAfter)(input, output);
 				await guardrailsHooks.toolAfter(input, output);
 				if (_dbg)
 					console.error(`[DIAG] toolAfter guardrails done tool=${_toolName}`);
@@ -1053,14 +1064,17 @@ const OpenCodeSwarm: Plugin = async (ctx) => {
 
 				// Record tool call for debugging spiral detection
 				try {
-					recordToolCall(normalizedTool, input.args);
+					recordToolCall(normalizedTool, input.args, input.sessionID);
 				} catch {
 					// non-fatal
 				}
 
 				// Debugging spiral detection
 				try {
-					const spiralMatch = await detectDebuggingSpiral(ctx.directory);
+					const spiralMatch = await detectDebuggingSpiral(
+						ctx.directory,
+						input.sessionID,
+					);
 					if (spiralMatch) {
 						const taskId =
 							swarmState.agentSessions.get(input.sessionID)?.currentTaskId ??

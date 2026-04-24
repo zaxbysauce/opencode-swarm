@@ -17,6 +17,7 @@ export interface SetQaGatesArgs {
     critic_pre_plan?: boolean;
     hallucination_guard?: boolean;
     sast_enabled?: boolean;
+    mutation_test?: boolean;
     project_type?: string;
 }
 interface SetQaGatesResult {

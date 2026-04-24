@@ -2,7 +2,12 @@ import { afterEach, beforeEach, describe, expect, it } from 'bun:test';
 import { mkdirSync, mkdtempSync, rmSync, writeFileSync } from 'node:fs';
 import * as os from 'node:os';
 import * as path from 'node:path';
-import { ensureAgentSession, startAgentSession, swarmState } from './state';
+import {
+	ensureAgentSession,
+	resetSwarmState,
+	startAgentSession,
+	swarmState,
+} from './state';
 
 let tmpDir: string;
 let testSessionId: string;
@@ -20,6 +25,7 @@ afterEach(() => {
 		/* best effort */
 	}
 	swarmState.agentSessions.delete(testSessionId);
+	resetSwarmState();
 });
 
 // ============================================================================

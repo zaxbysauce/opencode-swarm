@@ -21,7 +21,12 @@ import {
 import type { TaskEvidence } from './gate-evidence';
 import { clearPendingCoderScope } from './hooks/delegation-gate.js';
 import { loadPlanJsonOnly } from './plan/manager.js';
+import type { EscalationTracker } from './prm/escalation.js';
+import type { PatternMatch } from './prm/types.js';
+import { AgentRunContext } from './state/agent-run-context.js';
 import { telemetry } from './telemetry.js';
+
+export { AgentRunContext } from './state/agent-run-context.js';
 
 /**
  * Cached plan + evidence data read once at plugin init by buildRehydrationCache().
@@ -154,6 +159,13 @@ export interface AgentSessionState {
 	// v6.21 Per-task state machine
 	/** Per-task workflow state — taskId → current state */
 	taskWorkflowStates: Map<string, TaskWorkflowState>;
+	/**
+	 * PR 2 Stage B barrier: per-task set of completed Stage B agents.
+	 * Order-independent — either 'reviewer' or 'test_engineer' may complete first.
+	 * When both are present, the task may advance to tests_run regardless of order.
+	 * Only populated when parallelization.stageB.parallel.enabled = true.
+	 */
+	stageBCompletion?: Map<string, Set<'reviewer' | 'test_engineer'>>;
 	/** v6.71+ Council mode: per-task council verdict, recorded by delegation-gate when convene_council resolves. */
 	taskCouncilApproved?: Map<
 		string,
@@ -232,6 +244,20 @@ export interface AgentSessionState {
 	// Stale state detection (Bug B)
 	/** Timestamp when session was rehydrated from snapshot (0 if never rehydrated) */
 	sessionRehydratedAt: number;
+
+	// PRM (Process Remediation Manager) - Phase 1
+	/** Pattern type to detection count mapping */
+	prmPatternCounts: Map<string, number>;
+	/** Current escalation level (0=none, 1=guidance, 2=strong guidance, 3=hard stop) */
+	prmEscalationLevel: number;
+	/** Last pattern detected (if any) */
+	prmLastPatternDetected: PatternMatch | null;
+	/** Current trajectory step counter */
+	prmTrajectoryStep: number;
+	/** Whether a hard stop has been triggered */
+	prmHardStopPending: boolean;
+	/** Per-session escalation tracker instance (set lazily by PRM hook) */
+	prmEscalationTracker?: EscalationTracker;
 }
 
 /**
@@ -262,21 +288,51 @@ export interface InvocationWindow {
 	warningReason: string;
 }
 
+// Process-global tool aggregates — intentionally shared across all run contexts.
+// Isolated per-run maps live on AgentRunContext; this one is a cross-run accumulator.
+const _toolAggregates = new Map<string, ToolAggregate>();
+
 /**
- * Singleton state object for sharing data across hooks
+ * Default run context — the single active run for current single-threaded behavior.
+ * PR 2 will create additional contexts for parallel dispatcher slots.
+ */
+export const defaultRunContext = new AgentRunContext<
+	ToolCallEntry,
+	ToolAggregate,
+	DelegationEntry,
+	AgentSessionState,
+	EnvironmentProfile
+>('default', _toolAggregates);
+
+// Registry for future multi-run dispatch (dark, not yet populated by production code).
+const _runContexts = new Map<string, typeof defaultRunContext>();
+
+/**
+ * Return the AgentRunContext for the given runId.
+ * No argument or unknown runId returns defaultRunContext (single-run semantics preserved).
+ */
+export function getRunContext(runId?: string): typeof defaultRunContext {
+	if (!runId) return defaultRunContext;
+	return _runContexts.get(runId) ?? defaultRunContext;
+}
+
+/**
+ * Singleton state object for sharing data across hooks.
+ * Per-run maps are backed by defaultRunContext so that swarmState references
+ * stay valid and single-run behavior is unchanged.
  */
 export const swarmState = {
 	/** Active tool calls — keyed by callID for before→after correlation */
-	activeToolCalls: new Map<string, ToolCallEntry>(),
+	activeToolCalls: defaultRunContext.activeToolCalls,
 
-	/** Aggregated tool usage stats — keyed by tool name */
-	toolAggregates: new Map<string, ToolAggregate>(),
+	/** Aggregated tool usage stats — process-global accumulator */
+	toolAggregates: defaultRunContext.toolAggregates,
 
 	/** Active agent per session — keyed by sessionID, updated by chat.message hook */
-	activeAgent: new Map<string, string>(),
+	activeAgent: defaultRunContext.activeAgent,
 
 	/** Delegation chains per session — keyed by sessionID */
-	delegationChains: new Map<string, DelegationEntry[]>(),
+	delegationChains: defaultRunContext.delegationChains,
 
 	/** Number of events since last flush */
 	pendingEvents: 0,
@@ -296,7 +352,7 @@ export const swarmState = {
 	lastBudgetPct: 0,
 
 	/** Per-session guardrail state — keyed by sessionID */
-	agentSessions: new Map<string, AgentSessionState>(),
+	agentSessions: defaultRunContext.agentSessions,
 
 	/** In-flight rehydration promises — awaited by rehydrateState before clearing agentSessions */
 	pendingRehydrations: new Set<Promise<void>>(),
@@ -306,7 +362,7 @@ export const swarmState = {
 	fullAutoEnabledInConfig: false,
 
 	/** Per-session environment profiles — keyed by sessionID */
-	environmentProfiles: new Map<string, EnvironmentProfile>(),
+	environmentProfiles: defaultRunContext.environmentProfiles,
 };
 
 /**
@@ -398,6 +454,7 @@ export function startAgentSession(
 		qaSkipTaskIds: [],
 		// v6.21 Per-task state machine
 		taskWorkflowStates: new Map(),
+		stageBCompletion: new Map(),
 		taskCouncilApproved: new Map(),
 		lastGateOutcome: null,
 		declaredCoderScope: null,
@@ -422,6 +479,12 @@ export function startAgentSession(
 		loopDetectionWindow: [],
 		pendingAdvisoryMessages: [],
 		sessionRehydratedAt: 0,
+		// PRM (Process Remediation Manager) - Phase 1
+		prmPatternCounts: new Map(),
+		prmEscalationLevel: 0,
+		prmLastPatternDetected: null,
+		prmTrajectoryStep: 0,
+		prmHardStopPending: false,
 	};
 
 	swarmState.agentSessions.set(sessionId, sessionState);
@@ -577,6 +640,10 @@ export function ensureAgentSession(
 		if (!session.taskWorkflowStates) {
 			session.taskWorkflowStates = new Map();
 		}
+		// PR 2 Stage B barrier migration safety
+		if (!session.stageBCompletion) {
+			session.stageBCompletion = new Map();
+		}
 		// v6.71+ Council mode migration safety
 		if (!session.taskCouncilApproved) {
 			session.taskCouncilApproved = new Map();
@@ -627,6 +694,22 @@ export function ensureAgentSession(
 		// Stale state detection migration safety (Bug B)
 		if (session.sessionRehydratedAt === undefined) {
 			session.sessionRehydratedAt = 0;
+		}
+		// PRM migration safety (Phase 1)
+		if (session.prmPatternCounts === undefined) {
+			session.prmPatternCounts = new Map();
+		}
+		if (session.prmEscalationLevel === undefined) {
+			session.prmEscalationLevel = 0;
+		}
+		if (session.prmLastPatternDetected === undefined) {
+			session.prmLastPatternDetected = null;
+		}
+		if (session.prmTrajectoryStep === undefined) {
+			session.prmTrajectoryStep = 0;
+		}
+		if (session.prmHardStopPending === undefined) {
+			session.prmHardStopPending = false;
 		}
 
 		session.lastToolCallTime = now;
@@ -900,6 +983,50 @@ export function getTaskState(
 	}
 
 	return session.taskWorkflowStates.get(taskId) ?? 'idle';
+}
+
+/**
+ * PR 2 Stage B barrier: record that a Stage B agent has completed for a task.
+ * Order-independent — either 'reviewer' or 'test_engineer' may complete first.
+ * Initializes the per-task set on first write.
+ *
+ * @param session - The agent session state
+ * @param taskId - The task identifier
+ * @param agent - Which Stage B agent completed ('reviewer' or 'test_engineer')
+ */
+export function recordStageBCompletion(
+	session: AgentSessionState,
+	taskId: string,
+	agent: 'reviewer' | 'test_engineer',
+): void {
+	if (!isValidTaskId(taskId)) return;
+	if (!session.stageBCompletion) {
+		session.stageBCompletion = new Map();
+	}
+	const existing = session.stageBCompletion.get(taskId);
+	if (existing) {
+		existing.add(agent);
+	} else {
+		session.stageBCompletion.set(taskId, new Set([agent]));
+	}
+}
+
+/**
+ * PR 2 Stage B barrier: returns true iff both 'reviewer' and 'test_engineer' have
+ * been recorded for the given task in this session.
+ *
+ * @param session - The agent session state
+ * @param taskId - The task identifier
+ * @returns true when both Stage B agents have completed
+ */
+export function hasBothStageBCompletions(
+	session: AgentSessionState,
+	taskId: string,
+): boolean {
+	if (!isValidTaskId(taskId)) return false;
+	const completions = session.stageBCompletion?.get(taskId);
+	if (!completions) return false;
+	return completions.has('reviewer') && completions.has('test_engineer');
 }
 
 /**
@@ -1203,6 +1330,48 @@ export function applyRehydrationCache(session: AgentSessionState): void {
 				session.taskWorkflowStates.set(taskId, planState);
 			}
 		}
+	}
+
+	// Rehydrate council verdicts from evidenceMap for ALL tasks (not just planTaskStates).
+	// In-memory entries take priority; skip on malformed or missing data.
+	const VALID_COUNCIL_VERDICTS = new Set([
+		'APPROVE',
+		'REJECT',
+		'CONCERNS',
+	] as const);
+	for (const [taskId, evidence] of evidenceMap) {
+		// Skip if already in memory (in-memory wins over persisted evidence).
+		if (session.taskCouncilApproved.has(taskId)) {
+			continue;
+		}
+		// Cast to extended type — verdict/roundNumber are preserved via passthrough()
+		// but not in the base GateEvidence interface (which only has sessionId/timestamp/agent).
+		const council = evidence.gates?.council as
+			| { verdict?: string; roundNumber?: number }
+			| undefined;
+		if (!council) {
+			continue;
+		}
+		const rawVerdict = council.verdict;
+		if (!rawVerdict || typeof rawVerdict !== 'string') {
+			continue;
+		}
+		if (
+			!VALID_COUNCIL_VERDICTS.has(
+				rawVerdict as 'APPROVE' | 'REJECT' | 'CONCERNS',
+			)
+		) {
+			continue;
+		}
+		const verdict = rawVerdict as 'APPROVE' | 'REJECT' | 'CONCERNS';
+		let roundNumber = council.roundNumber;
+		if (typeof roundNumber !== 'number' || !Number.isFinite(roundNumber)) {
+			roundNumber = 1;
+		}
+		session.taskCouncilApproved.set(taskId, {
+			verdict,
+			roundNumber,
+		});
 	}
 }
 

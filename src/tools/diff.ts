@@ -1,4 +1,6 @@
 import * as child_process from 'node:child_process';
+import * as fs from 'node:fs';
+import * as path from 'node:path';
 import { type ToolContext, tool } from '@opencode-ai/plugin';
 import { type ASTDiffResult, computeASTDiff } from '../diff/ast-diff.js';
 import { classifyChanges } from '../diff/semantic-classifier.js';
@@ -12,6 +14,7 @@ import { createSwarmTool } from './create-tool';
 const MAX_DIFF_LINES = 500;
 const DIFF_TIMEOUT_MS = 30_000;
 const MAX_BUFFER_BYTES = 5 * 1024 * 1024;
+const MAX_AST_FILES = 50;
 
 const CONTRACT_PATTERNS = [
 	/^[+-]\s*export\s+(function|const|class|interface|type|enum|default)\b/,
@@ -67,6 +70,7 @@ export interface DiffResult {
 	astDiffs?: ASTDiffResult[];
 	semanticSummary?: SemanticDiffSummary;
 	markdownSummary?: string;
+	astSkippedCount?: number;
 }
 
 export interface DiffErrorResult {
@@ -211,76 +215,72 @@ export const diff: ReturnType<typeof createSwarmTool> = createSwarmTool({
 
 			// Try AST diff for richer structural analysis on each changed file
 			const astDiffs: ASTDiffResult[] = [];
-			for (const file of files) {
+			const filesForAST = files.slice(0, MAX_AST_FILES);
+			const astSkippedCount =
+				files.length > MAX_AST_FILES ? files.length - MAX_AST_FILES : 0;
+
+			// Helper: check if a ref:path exists using git cat-file -e
+			function fileExistsInRef(refPath: string): boolean {
 				try {
-					// Get old content from base ref and new content from working tree
+					child_process.execFileSync('git', ['cat-file', '-e', refPath], {
+						encoding: 'utf-8',
+						timeout: 3000,
+						cwd: directory,
+						stdio: 'pipe',
+					});
+					return true;
+				} catch (e: unknown) {
+					// Re-throw ENOENT (git binary missing) — not a "file not in ref" scenario
+					if (e && typeof e === 'object' && 'code' in e) {
+						const err = e as { code?: string };
+						if (err.code === 'ENOENT') throw e;
+					}
+					return false;
+				}
+			}
+
+			// Helper: read file content from a git ref
+			function getContentFromRef(refPath: string): string {
+				return child_process.execFileSync('git', ['show', refPath], {
+					encoding: 'utf-8',
+					timeout: 5000,
+					cwd: directory,
+					stdio: 'pipe',
+				});
+			}
+
+			for (const file of filesForAST) {
+				try {
 					let oldContent: string;
 					let newContent: string;
+
 					if (base === 'staged') {
-						oldContent = child_process.execFileSync(
-							'git',
-							['show', `HEAD:${file.path}`],
-							{
-								encoding: 'utf-8',
-								timeout: 5000,
-								cwd: directory,
-							},
-						);
-						newContent = child_process.execFileSync(
-							'git',
-							['show', `:${file.path}`],
-							{
-								encoding: 'utf-8',
-								timeout: 5000,
-								cwd: directory,
-							},
-						);
+						// staged: old = HEAD, new = index
+						const oldRef = `HEAD:${file.path}`;
+						oldContent = fileExistsInRef(oldRef)
+							? getContentFromRef(oldRef)
+							: '';
+						newContent = getContentFromRef(`:${file.path}`);
 					} else if (base === 'unstaged') {
-						oldContent = child_process.execFileSync(
-							'git',
-							['show', `:${file.path}`],
-							{
-								encoding: 'utf-8',
-								timeout: 5000,
-								cwd: directory,
-							},
-						);
-						newContent = child_process.execFileSync(
-							'git',
-							['show', `HEAD:${file.path}`],
-							{
-								encoding: 'utf-8',
-								timeout: 5000,
-								cwd: directory,
-							},
-						);
-						// For unstaged: old = index, new = working tree (read from disk)
-						const fsModule = await import('node:fs');
-						const pathModule = await import('node:path');
-						newContent = fsModule.readFileSync(
-							pathModule.join(directory, file.path),
+						// unstaged: old = index, new = working tree (disk)
+						const oldRef = `:${file.path}`;
+						oldContent = fileExistsInRef(oldRef)
+							? getContentFromRef(oldRef)
+							: '';
+						// Read newContent from disk (not from git — this is the working tree version)
+						newContent = fs.readFileSync(
+							path.join(directory, file.path),
 							'utf-8',
 						);
 					} else {
-						oldContent = child_process.execFileSync(
-							'git',
-							['show', `${base}:${file.path}`],
-							{
-								encoding: 'utf-8',
-								timeout: 5000,
-								cwd: directory,
-							},
-						);
-						newContent = child_process.execFileSync(
-							'git',
-							['show', `HEAD:${file.path}`],
-							{
-								encoding: 'utf-8',
-								timeout: 5000,
-								cwd: directory,
-							},
-						);
+						// default: old = base ref, new = HEAD
+						const oldRef = `${base}:${file.path}`;
+						oldContent = fileExistsInRef(oldRef)
+							? getContentFromRef(oldRef)
+							: '';
+						newContent = getContentFromRef(`HEAD:${file.path}`);
 					}
+
 					const astResult = await computeASTDiff(
 						file.path,
 						oldContent,
@@ -289,7 +289,12 @@ export const diff: ReturnType<typeof createSwarmTool> = createSwarmTool({
 					if (astResult && (astResult.changes.length > 0 || astResult.error)) {
 						astDiffs.push(astResult);
 					}
-				} catch {
+				} catch (e: unknown) {
+					// Re-throw critical errors (git binary missing)
+					if (e && typeof e === 'object' && 'code' in e) {
+						const err = e as { code?: string };
+						if (err.code === 'ENOENT') throw e;
+					}
 					// AST parse failed — create fallback entry with generic change
 					astDiffs.push({
 						filePath: file.path,
@@ -345,6 +350,7 @@ export const diff: ReturnType<typeof createSwarmTool> = createSwarmTool({
 				...(astDiffs.length > 0 ? { astDiffs } : {}),
 				...(semanticSummary ? { semanticSummary } : {}),
 				...(markdownSummary ? { markdownSummary } : {}),
+				...(astSkippedCount > 0 ? { astSkippedCount } : {}),
 			};
 
 			return JSON.stringify(result, null, 2);

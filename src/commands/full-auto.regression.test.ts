@@ -64,6 +64,11 @@ describe('Full-Auto Mode Regression Tests', () => {
 			model_fallback_index: 0,
 			modelFallbackExhausted: false,
 			sessionRehydratedAt: 0,
+			prmPatternCounts: new Map(),
+			prmEscalationLevel: 0,
+			prmLastPatternDetected: null,
+			prmTrajectoryStep: 0,
+			prmHardStopPending: false,
 		});
 
 		tmpDir = fs.mkdtempSync(path.join(os.tmpdir(), 'full-auto-regression-'));
@@ -194,6 +199,11 @@ describe('Full-Auto Mode Regression Tests', () => {
 				model_fallback_index: 0,
 				modelFallbackExhausted: false,
 				sessionRehydratedAt: 0,
+				prmPatternCounts: new Map(),
+				prmEscalationLevel: 0,
+				prmLastPatternDetected: null,
+				prmTrajectoryStep: 0,
+				prmHardStopPending: false,
 			});
 
 			// Global fallback (no sessionID)
@@ -319,6 +329,11 @@ describe('Full-Auto Mode Regression Tests', () => {
 				model_fallback_index: 0,
 				modelFallbackExhausted: false,
 				sessionRehydratedAt: 0,
+				prmPatternCounts: new Map(),
+				prmEscalationLevel: 0,
+				prmLastPatternDetected: null,
+				prmTrajectoryStep: 0,
+				prmHardStopPending: false,
 			});
 
 			// First session has fullAutoMode: false; call hook without sessionID
@@ -387,6 +402,11 @@ describe('Full-Auto Mode Regression Tests', () => {
 				model_fallback_index: 0,
 				modelFallbackExhausted: false,
 				sessionRehydratedAt: 0,
+				prmPatternCounts: new Map(),
+				prmEscalationLevel: 0,
+				prmLastPatternDetected: null,
+				prmTrajectoryStep: 0,
+				prmHardStopPending: false,
 			});
 		});
 

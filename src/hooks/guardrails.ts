@@ -15,6 +15,7 @@ import QuickLRU from 'quick-lru';
 import { getSwarmAgents, resolveFallbackModel } from '../agents/index';
 import {
 	isLowCapabilityModel,
+	OPENCODE_NATIVE_AGENTS,
 	ORCHESTRATOR_NAME,
 	WRITE_TOOL_NAMES,
 } from '../config/constants';
@@ -109,6 +110,15 @@ function isWriteTool(toolName: string): boolean {
 	// Strip namespace prefix (e.g., "opencode:write" -> "write")
 	const normalized = normalizeToolName(toolName);
 	return (WRITE_TOOL_NAMES as readonly string[]).includes(normalized);
+}
+
+/**
+ * Returns true when agentName is one of opencode's built-in native agents.
+ * These agents are not part of the swarm workflow and must be fully exempt from
+ * swarm guardrails (authority checks, circuit breaker, loop detection, etc.).
+ */
+function isNativeOpencodeAgent(agentName: string): boolean {
+	return OPENCODE_NATIVE_AGENTS.has(agentName.toLowerCase() as never);
 }
 
 /**
@@ -1910,12 +1920,14 @@ export function createGuardrailsHooks(
 			? stripKnownSwarmPrefix(rawActiveAgent)
 			: undefined;
 		if (strippedAgent === ORCHESTRATOR_NAME) return null;
+		if (strippedAgent && isNativeOpencodeAgent(strippedAgent)) return null;
 
 		// Check 2: session state fallback
 		const existingSession = swarmState.agentSessions.get(sessionID);
 		if (existingSession) {
 			const sessionAgent = stripKnownSwarmPrefix(existingSession.agentName);
 			if (sessionAgent === ORCHESTRATOR_NAME) return null;
+			if (isNativeOpencodeAgent(sessionAgent)) return null;
 		}
 
 		const agentName =
@@ -1925,6 +1937,7 @@ export function createGuardrailsHooks(
 		// Check 3: after session resolution
 		const resolvedName = stripKnownSwarmPrefix(session.agentName);
 		if (resolvedName === ORCHESTRATOR_NAME) return null;
+		if (isNativeOpencodeAgent(resolvedName)) return null;
 
 		const agentConfig = resolveGuardrailsConfig(cfg, session.agentName);
 
@@ -2157,15 +2170,15 @@ export function createGuardrailsHooks(
 			}
 
 			// v6.29: PRM hard stop — blocks all tool execution when escalation level 3 is reached.
-			// PRM HARD STOP check disabled - PRM module not yet implemented
-			// {
-			// 	const prmSession = swarmState.agentSessions.get(input.sessionID);
-			// 	if (prmSession?.prmHardStopPending) {
-			// 		throw new Error(
-			// 			'🛑 PRM HARD STOP: Pattern escalation maximum reached. Stop tool calls and return progress summary.',
-			// 		);
-			// 	}
-			// }
+			// Check before resolveSessionAndWindow so it fires even for architect sessions.
+			{
+				const prmSession = swarmState.agentSessions.get(input.sessionID);
+				if (prmSession?.prmHardStopPending) {
+					throw new Error(
+						'🛑 PRM HARD STOP: Pattern escalation maximum reached. Stop tool calls and return progress summary.',
+					);
+				}
+			}
 
 			// Resolve session — returns null if architect-exempt
 			const resolved = resolveSessionAndWindow(input.sessionID);
@@ -2730,38 +2743,37 @@ export function createGuardrailsHooks(
 				session.pendingAdvisoryMessages = [];
 			}
 
-			// v6.29: PRM hard stop injection (Task 2.1) - DISABLED
-			// PRM module not yet implemented
-			// if (isArchitectSession && session?.prmHardStopPending) {
-			// 	// Clear before injecting to avoid repeat
-			// 	session.prmHardStopPending = false;
-			// 	// Emit telemetry for hard stop injection
-			// 	const lastPattern = session.prmLastPatternDetected;
-			// 	const patternType = lastPattern?.pattern ?? 'unknown';
-			// 	const occurrenceCount = session.prmPatternCounts.get(patternType) ?? 0;
-			// 	telemetry.prmHardStop(
-			// 		_input.sessionID,
-			// 		patternType,
-			// 		session.prmEscalationLevel,
-			// 		occurrenceCount,
-			// 	);
-			// 	// Inject into first system message
-			// 	const hardStopMsg = systemMessages[0];
-			// 	if (hardStopMsg) {
-			// 		const hardStopTextPart = (hardStopMsg.parts ?? []).find(
-			// 			(part): part is { type: string; text: string } =>
-			// 				part.type === 'text' && typeof part.text === 'string',
-			// 		);
-			// 		if (
-			// 			hardStopTextPart &&
-			// 			!hardStopTextPart.text.includes('[HARD STOP]')
-			// 		) {
-			// 			hardStopTextPart.text =
-			// 				`[HARD STOP] PRM has detected repeated pattern violations. STOP all tool calls and return a summary of your progress. [/HARD STOP]\n\n` +
-			// 				hardStopTextPart.text;
-			// 		}
-			// 	}
-			// }
+			// v6.29: PRM hard stop injection (Task 2.1)
+			if (isArchitectSession && session?.prmHardStopPending) {
+				// Clear before injecting to avoid repeat
+				session.prmHardStopPending = false;
+				// Emit telemetry for hard stop injection
+				const lastPattern = session.prmLastPatternDetected;
+				const patternType = lastPattern?.pattern ?? 'unknown';
+				const occurrenceCount = session.prmPatternCounts.get(patternType) ?? 0;
+				telemetry.prmHardStop(
+					_input.sessionID,
+					patternType,
+					session.prmEscalationLevel,
+					occurrenceCount,
+				);
+				// Inject into first system message
+				const hardStopMsg = systemMessages[0];
+				if (hardStopMsg) {
+					const hardStopTextPart = (hardStopMsg.parts ?? []).find(
+						(part): part is { type: string; text: string } =>
+							part.type === 'text' && typeof part.text === 'string',
+					);
+					if (
+						hardStopTextPart &&
+						!hardStopTextPart.text.includes('[HARD STOP]')
+					) {
+						hardStopTextPart.text =
+							`[HARD STOP] PRM has detected repeated pattern violations. STOP all tool calls and return a summary of your progress. [/HARD STOP]\n\n` +
+							hardStopTextPart.text;
+					}
+				}
+			}
 
 			// v6.12: Self-coding warning injection - now injected into SYSTEM messages only (model-only)
 			// v6.22.8: Only re-inject when architectWriteCount has increased since last warning

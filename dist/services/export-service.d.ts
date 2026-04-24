@@ -6,6 +6,13 @@ export interface ExportData {
     exported: string;
     plan: unknown;
     context: string | null;
+    /** The plan's execution_profile, if set. Consumers must honour locked profiles. */
+    execution_profile?: {
+        parallelization_enabled: boolean;
+        max_concurrent_tasks: number;
+        council_parallel: boolean;
+        locked: boolean;
+    } | null;
 }
 /**
  * Get export data from the swarm directory.

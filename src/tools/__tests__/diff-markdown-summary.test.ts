@@ -1,5 +1,4 @@
 import { afterEach, beforeEach, describe, expect, test, vi } from 'bun:test';
-import * as child_process from 'node:child_process';
 import type { ASTChange, ASTDiffResult } from '../../diff/ast-diff.js';
 import type { ClassifiedChange } from '../../diff/semantic-classifier.js';
 import type { SemanticDiffSummary } from '../../diff/summary-generator.js';
@@ -129,7 +128,7 @@ describe('diff tool — generateSummaryMarkdown wiring', () => {
 		const { diff } = await import('../../tools/diff.js');
 
 		// --- git numstat ---
-		mockExecFileSync.mockImplementation((cmd: string, args: string[]) => {
+		mockExecFileSync.mockImplementation((_cmd: string, args: string[]) => {
 			if (args?.includes('--numstat')) {
 				return '10\t5\tsrc/api.ts';
 			}
@@ -201,7 +200,7 @@ describe('diff tool — generateSummaryMarkdown wiring', () => {
 		const { diff } = await import('../../tools/diff.js');
 
 		// --- git numstat ---
-		mockExecFileSync.mockImplementation((cmd: string, args: string[]) => {
+		mockExecFileSync.mockImplementation((_cmd: string, args: string[]) => {
 			if (args?.includes('--numstat')) {
 				return '10\t5\tsrc/broken.ts';
 			}
@@ -235,7 +234,7 @@ describe('diff tool — generateSummaryMarkdown wiring', () => {
 	test('markdownSummary is absent when AST returns zero changes (no semanticSummary)', async () => {
 		const { diff } = await import('../../tools/diff.js');
 
-		mockExecFileSync.mockImplementation((cmd: string, args: string[]) => {
+		mockExecFileSync.mockImplementation((_cmd: string, args: string[]) => {
 			if (args?.includes('--numstat')) {
 				return '10\t5\tsrc/unchanged.ts';
 			}
@@ -275,7 +274,7 @@ describe('diff tool — generateSummaryMarkdown wiring', () => {
 	test('markdownSummary is absent when generateSummaryMarkdown throws', async () => {
 		const { diff } = await import('../../tools/diff.js');
 
-		mockExecFileSync.mockImplementation((cmd: string, args: string[]) => {
+		mockExecFileSync.mockImplementation((_cmd: string, args: string[]) => {
 			if (args?.includes('--numstat')) {
 				return '10\t5\tsrc/api.ts';
 			}
@@ -334,7 +333,7 @@ describe('diff tool — generateSummaryMarkdown wiring', () => {
 	test('markdownSummary is absent when classifyChanges throws', async () => {
 		const { diff } = await import('../../tools/diff.js');
 
-		mockExecFileSync.mockImplementation((cmd: string, args: string[]) => {
+		mockExecFileSync.mockImplementation((_cmd: string, args: string[]) => {
 			if (args?.includes('--numstat')) {
 				return '10\t5\tsrc/api.ts';
 			}

@@ -1,4 +1,4 @@
-import { afterEach, beforeEach, describe, expect, test, vi } from 'bun:test';
+import { describe, expect, test } from 'bun:test';
 import type { ASTChange, ASTDiffResult } from '../../diff/ast-diff.js';
 import { classifyChanges } from '../../diff/semantic-classifier.js';
 import { generateSummary } from '../../diff/summary-generator.js';
@@ -348,7 +348,7 @@ describe('semanticSummary undefined when astDiffs is empty', () => {
 // =============================================================================
 describe('Graceful fallback when classification throws', () => {
 	test('should continue without semanticSummary when classifyChanges throws', () => {
-		const astDiffs = [
+		const _astDiffs = [
 			makeASTDiffResult({
 				filePath: 'src/test.ts',
 				changes: [makeASTChange()],
@@ -378,7 +378,7 @@ describe('Graceful fallback when classification throws', () => {
 
 		let semanticSummary: any;
 		try {
-			const classifiedChanges = classifyChanges(astDiffs);
+			const _classifiedChanges = classifyChanges(astDiffs);
 			// Simulate generateSummary throwing
 			throw new Error('Summary generation failed');
 		} catch {

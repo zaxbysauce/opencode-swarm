@@ -1,82 +1,293 @@
-# Getting Started
+# Getting Started with OpenCode Swarm
 
-This page answers the two questions new users hit most often:
+Get your first swarm task running in under 15 minutes. By the end, you'll have orchestrated a team of AI agents to tackle your first coding task.
 
-1. "How do I actually use Swarm?"
-2. "Why did the second run behave differently from the first one?"
+---
 
-## How to use Swarm
+## Prerequisites
 
-You must explicitly choose a Swarm architect in the OpenCode GUI before starting. The architect names shown in OpenCode come from your config file, so they may differ from the defaults and you can define multiple architects with different model assignments. If you use the default OpenCode `Build` / `Plan` options instead of selecting a Swarm architect, the plugin is bypassed entirely.
+Before you start, verify you have:
 
-Once you select a Swarm architect, you do **not** manually operate its internal sub-agents.
+- **Bun >=1.0.0** — required by the swarm plugin
+  ```bash
+  bun --version
+  ```
+  If missing, install from [bun.sh](https://bun.sh)
 
-Normal workflow:
+- **OpenCode installed and authenticated** — you'll select the architect agent from the OpenCode GUI
+  ```bash
+  opencode
+  ```
+  If this opens a web interface, you're ready. If it fails, [install OpenCode](https://opencode.ai).
 
-1. start OpenCode in your project: `opencode`
-2. **Select a Swarm architect** from the agent/mode dropdown in the OpenCode GUI — do **not** use the default `Build` or `Plan` modes, those bypass the plugin entirely
-3. verify Swarm once with:
-   - `/swarm diagnose`
-   - `/swarm agents`
-   - `/swarm config`
-4. describe the work you want done
-5. monitor progress with:
-   - `/swarm status`
-   - `/swarm plan`
-   - `/swarm evidence`
+- **Internet connection** — required for LLM provider API calls (Anthropic, Google, etc.) or free OpenCode Zen tier
 
-## What "Swarm activates automatically" means
+- **A project directory to test with** — any small codebase works; even an empty directory is fine for your first run
 
-After you select a Swarm architect in the OpenCode GUI, the plugin hooks into your session automatically.
+---
 
-It does **not** mean:
-- you should manually switch between internal agents
-- every run will start from the same phase
-- Swarm always redoes discovery/planning from scratch
+## Step 1 — Install the Swarm Plugin
 
-## Why the second run may look different
+Run the installer in your terminal:
 
-Swarm persists project state in `.swarm/`.
-
-If a prior run already created `.swarm/plan.md`, the architect can resume immediately and continue execution.
-
-That is expected behavior.
-
-## How to tell what Swarm is doing right now
-
-Run:
-
-```text
-/swarm status
+```bash
+bunx opencode-swarm install
 ```
 
-Useful follow-ups:
+**Expected output:**
 
-```text
-/swarm plan
-/swarm history
+```
+✓ Registered opencode-swarm plugin with OpenCode
+✓ Created global config: ~/.config/opencode/opencode-swarm.json
+✓ Disabled default OpenCode agents (explore, general) to avoid conflicts
+✓ Ready to use. Open OpenCode and select an architect agent.
+```
+
+**What just happened:**
+- The installer registered the swarm plugin with OpenCode
+- Two config files were created:
+  - **Global:** `~/.config/opencode/opencode-swarm.json` (applies to all projects)
+  - **Project-local override (if needed):** `.opencode/opencode-swarm.json` (applies only to this project)
+
+If the command fails:
+- **"bunx not found"** — Bun is not installed; see Prerequisites above
+- **"opencode-swarm not found"** — Try `npm install -g opencode-swarm` instead (npm fallback)
+- **Permission denied on ~/.config** — Ensure you have write permissions to your home directory
+
+---
+
+## Step 2 — Verify Installation
+
+Before proceeding, confirm Swarm is loaded:
+
+```bash
+/swarm diagnose
+```
+
+You should see a summary like:
+
+```
+✓ Swarm plugin loaded
+✓ 11 agents registered: architect, coder, reviewer, test_engineer, critic, explorer, sme, docs, designer, ...
+✓ Configuration loaded from ~/.config/opencode/opencode-swarm.json
+✓ Ready to orchestrate
+```
+
+Also check:
+
+```bash
 /swarm agents
 /swarm config
 ```
 
-## How to restart from scratch
+These commands show which agents are available and what models they're using. If you see errors, go back to Step 1.
 
-If you intentionally want to discard current Swarm state for this project:
+---
 
-```text
-/swarm reset --confirm
+## Step 3 — Open Your Project
+
+In your terminal:
+
+```bash
+cd /path/to/your/project
+opencode
 ```
 
-## Config file locations
+The OpenCode GUI will open. You're now ready to select a Swarm architect.
 
-Global:
+---
 
-```text
-~/.config/opencode/opencode-swarm.json
+## Step 4 — Select the Architect Agent
+
+**On OpenCode desktop (GUI):**
+1. Look for an **agent/mode dropdown** in the top toolbar or sidebar (usually labeled "Agent" or "Mode")
+2. Click it and look for an option named **`architect`** (or any name starting with "architect")
+3. Select it
+
+The dropdown might look like:
+```
+[Select Agent ▼]
+├─ architect         ← Select this
+├─ local_architect
+├─ Build (default)
+└─ Plan (default)
 ```
 
-Project:
+**On OpenCode TUI (terminal UI):**
+1. Press Ctrl+K or type `/` to open the command palette
+2. Search for "architect" or "swarm"
+3. Select the architect agent
 
-```text
-.opencode/opencode-swarm.json
+**Troubleshooting:**
+- **Architect dropdown not visible** — Swarm may not be loaded. Go back to Step 2.
+- **Only seeing "Build" and "Plan"** — You're not looking at the right dropdown. Look for "Agent Mode" or "Select Agent" specifically.
+- **Can't find any architect option** — the installer may have failed. Retry `bunx opencode-swarm install`.
+
+---
+
+## Step 5 — Run Your First Task
+
+Once the architect is selected, type or paste a prompt:
+
 ```
+Build a simple command-line tool that reads a CSV file and outputs a nicely formatted table to the terminal.
+```
+
+Press Enter/Send. **Stop here and watch.**
+
+---
+
+## What Happens Next (8–15 minutes)
+
+The architect will now:
+
+1. **Discover** — scan your codebase structure (framework, dependencies, existing patterns)
+2. **Plan** — break your request into phases and tasks
+3. **Delegate** — send work to the coder, reviewer, test engineer, etc.
+4. **Verify** — run tests, security checks, code review gates
+5. **Finalize** — generate a summary and mark tasks complete
+
+You'll see this progress in:
+
+```bash
+/swarm status          # Current phase and active task
+/swarm plan            # The full multi-phase plan
+/swarm evidence        # Test results, review findings per task
+```
+
+**You don't need to do anything.** The architect runs the other agents automatically. Let it finish.
+
+---
+
+## What Success Looks Like
+
+When the task completes, you should see:
+
+1. **Code files created** — the CSV table tool exists in your project
+2. **Tests passing** — `/swarm evidence` shows green checkmarks on syntax, tests, and review gates
+3. **A summary** — the architect explains what was built and why
+
+You'll also find a directory called `.swarm/` in your project root:
+
+```
+.swarm/
+├─ plan.md                    # Multi-phase plan
+├─ plan.json                  # Structured plan data
+├─ plan-ledger.jsonl          # Durable plan history
+├─ evidence/                  # Test, review, security results per task
+├─ context.md                 # Cached LLM context between runs
+├─ knowledge.jsonl            # Lessons learned (project-scoped; see docs/knowledge.md)
+└─ summaries/                 # Output summaries from each phase
+```
+
+This is Swarm's persistent state. On your next run, it will resume from where it left off instead of redoing discovery.
+
+---
+
+## Step 6 — Common First-Run Errors
+
+### "Missing OpenCode authentication"
+OpenCode requires an LLM provider API key or a free Zen account. If Swarm can't reach the API:
+- Verify your API key is set in OpenCode settings
+- Or create a free OpenCode Zen account (no key needed)
+- Retry the task
+
+### "OpenCode command not found"
+OpenCode is not in your PATH. Either:
+- Reinstall OpenCode from [opencode.ai](https://opencode.ai)
+- Or add the OpenCode install directory to your PATH
+
+### "Architect not visible in dropdown"
+Swarm is not loaded. Retry `bunx opencode-swarm install` and restart OpenCode.
+
+### "First run takes longer than 15 minutes"
+Codebase discovery scales with repo size. For large repos (>100K lines), allow 20–30 min on the first run. Subsequent runs are much faster.
+
+### "Second run looks different"
+Swarm resumes from `.swarm/plan.md` instead of redoing discovery. This is expected. Run `/swarm reset --confirm` if you want a clean restart.
+
+---
+
+## Step 7 — Next Steps
+
+### Learn the Commands
+
+```bash
+/swarm status            # Current swarm state
+/swarm plan [phase]      # View the plan (optionally filtered by phase)
+/swarm agents            # List registered agents
+/swarm evidence          # Review test and code review results
+/swarm reset --confirm   # Clear swarm state and start over
+```
+
+See [`docs/commands.md`](commands.md) for all 41 subcommands and their options.
+
+### Configure Models (Optional)
+
+The swarm works with free defaults out of the box. To use your own LLM models:
+
+**Create `.opencode/opencode-swarm.json` in your project:**
+
+```json
+{
+  "agents": {
+    "architect": { "model": "anthropic/claude-sonnet-4-20250514" },
+    "coder": { "model": "google/gemini-2.5-flash" },
+    "reviewer": { "model": "opencode/big-pickle" }
+  }
+}
+```
+
+You only need to specify the agents you want to override. See [`docs/configuration.md`](configuration.md) for the full reference.
+
+### Understand the Modes
+
+Swarm has session-scoped modes you toggle at any time:
+
+| Mode | Speed | Safety | When to Use |
+|------|-------|--------|-------------|
+| **Balanced** (default) | Medium | High | Everyday development |
+| **Turbo** | Fast | Medium | Rapid iteration, skip non-critical checks (Tier-3 files still reviewed) |
+| **Full-Auto** | Fast | Depends on critic | Unattended multi-interaction runs |
+
+Project-level `execution_mode` (`strict` / `balanced` / `fast`) is persistent and configured in `.opencode/opencode-swarm.json`. Switch session modes with `/swarm turbo` or `/swarm full-auto`. See [`docs/modes.md`](modes.md).
+
+### Explore Advanced Features
+
+- **Knowledge system** — Swarm learns lessons across runs; see [`docs/knowledge.md`](knowledge.md)
+- **Evidence and telemetry** — inspect raw test results and system events; see [`docs/evidence-and-telemetry.md`](evidence-and-telemetry.md)
+- **Architecture and design** — deep dive into how Swarm works; see [`docs/architecture.md`](architecture.md)
+
+---
+
+## Troubleshooting
+
+### "I'm stuck or something seems broken"
+
+Run the diagnostic:
+
+```bash
+/swarm diagnose
+```
+
+This checks plugin registration, agent availability, config validity, and file permissions. Fix any reported issues, then retry your task.
+
+### "Where do I find the swarm project directory?"
+
+It's in your OpenCode project root (wherever you ran `opencode` from):
+
+```bash
+ls -la .swarm/
+```
+
+### "How do I disable swarm mode?"
+
+Swarm only runs if you explicitly select a Swarm architect. Selecting the default `Build` or `Plan` modes bypasses the plugin entirely.
+
+### "Where can I ask for help?"
+
+See the main project [`README.md`](../README.md) or [`docs/index.md`](index.md) for links to community resources.
+
+---
+
+**You're ready.** Go build something. 🚀

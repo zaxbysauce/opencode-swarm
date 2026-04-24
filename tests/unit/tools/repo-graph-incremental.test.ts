@@ -333,4 +333,45 @@ export const indexExport = 'hello';`,
 		// Note: CSS files are scanned but don't produce nodes in the graph
 		// since scanFile only creates nodes for .ts, .tsx, .js, .jsx, .mjs, .cjs, .py
 	});
+
+	test('updateGraphForFiles does not produce control-char specifiers when file has CR in import', async () => {
+		// Seed workspace with a clean file so there is a baseline graph to update
+		const seedContent = 'export const seed = 1;\n';
+		await fsSync.promises.writeFile(path.join(tempDir, 'seed.ts'), seedContent);
+
+		const initialGraph = buildWorkspaceGraph(workspacePath);
+		await saveGraph(workspacePath, initialGraph);
+
+		// Now add a file whose import specifier contains a literal carriage-return byte.
+		// Use String.fromCharCode(13) — unambiguously 0x0D, not the two-char \r sequence.
+		const cr = String.fromCharCode(13);
+		const dirtyContent = `import x from './bar${cr}.js';\nimport y from './ok';\n`;
+		const dirtyPath = path.join(tempDir, 'dirty.ts');
+		await fsSync.promises.writeFile(dirtyPath, dirtyContent, 'binary');
+
+		// Must not throw
+		const updatedGraph = await updateGraphForFiles(workspacePath, [dirtyPath]);
+
+		// Node for the dirty file must exist
+		const dirtyModuleName = 'dirty.ts';
+		const dirtyNode = Object.values(updatedGraph.nodes).find(
+			(n) => n.moduleName === dirtyModuleName,
+		);
+		expect(dirtyNode).toBeDefined();
+
+		// No control chars in any node's imports
+		for (const node of Object.values(updatedGraph.nodes)) {
+			for (const imp of node.imports) {
+				expect(/[\0\t\r\n]/.test(imp)).toBe(false);
+			}
+		}
+
+		// No control chars in any edge's importSpecifier originating from the dirty file
+		const dirtyAbsPath = path.resolve(tempDir, 'dirty.ts');
+		for (const edge of updatedGraph.edges) {
+			if (edge.source === dirtyAbsPath) {
+				expect(/[\0\t\r\n]/.test(edge.importSpecifier)).toBe(false);
+			}
+		}
+	});
 });

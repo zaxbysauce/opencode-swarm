@@ -189,7 +189,7 @@ describe('save_plan + update_task_status round-trip integration', () => {
 				'utf-8',
 			),
 		);
-		expect(evidence.task_id).toBe('1.1');
+		expect(evidence.taskId).toBe('1.1');
 		expect(evidence.required_gates).toEqual(['reviewer', 'test_engineer']);
 	});
 });

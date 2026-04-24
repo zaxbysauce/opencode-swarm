@@ -80,28 +80,71 @@ export function resolveWorkingDirectory(
 
 	// Resolve and verify existence
 	const resolvedDir = path.resolve(normalizedDir);
-	let realPath: string;
+	// Use statSync instead of realpathSync to preserve original path casing.
+	// realpathSync on Windows returns short 8.3 filenames which break path lookups
+	// when the file was created using the long filename.
+	let statResult: fs.Stats;
 	try {
-		realPath = fs.realpathSync(resolvedDir);
+		statResult = fs.statSync(resolvedDir);
 	} catch {
 		return {
 			success: false,
 			message: `Invalid working_directory: path "${resolvedDir}" does not exist or is inaccessible`,
 		};
 	}
-
-	// Project root anchor: reject paths that resolve anywhere other than the project root.
-	// Prevents .swarm directories from being created in subdirectories (issue #577).
-	const resolvedFallback = path.resolve(fallbackDirectory);
-	if (realPath !== resolvedFallback) {
+	if (!statResult.isDirectory()) {
 		return {
 			success: false,
-			message:
-				`Invalid working_directory: "${workingDirectory}" resolves to "${realPath}" ` +
-				`but must be the project root "${resolvedFallback}". ` +
-				`Pass the project root path or omit working_directory entirely.`,
+			message: `Invalid working_directory: path "${resolvedDir}" is not a directory`,
 		};
 	}
 
-	return { success: true, directory: realPath };
+	// Check if fallbackDirectory exists (used to detect CWD mismatch scenario)
+	const resolvedFallback = path.resolve(fallbackDirectory);
+	let fallbackExists = false;
+	try {
+		fs.statSync(resolvedFallback);
+		fallbackExists = true;
+	} catch {
+		fallbackExists = false;
+	}
+
+	// Project root anchor: when working_directory is explicitly provided and differs from
+	// fallback_directory, reject only if working_directory is a subdirectory of fallback_directory.
+	// If fallback doesn't exist (CWD mismatch), trust the explicit working_directory.
+	// This allows valid explicit overrides while preventing .swarm creation in subdirectories.
+	if (workingDirectory != null && workingDirectory !== '') {
+		if (fallbackExists) {
+			// Reject only if working_directory is a subdirectory of fallback.
+			// Example: workingDir=/project/src, fallback=/project → src is a subdirectory of /project → REJECT
+			// Example: workingDir=/project, fallback=/tmp/wrong → /project is NOT a subdirectory of /tmp/wrong → TRUST
+			const isSubdirectory = resolvedDir.startsWith(
+				resolvedFallback + path.sep,
+			);
+			if (isSubdirectory) {
+				return {
+					success: false,
+					message:
+						`Invalid working_directory: "${workingDirectory}" resolves to "${resolvedDir}" ` +
+						`which is a subdirectory of fallback "${resolvedFallback}". ` +
+						`Pass the project root path or omit working_directory entirely.`,
+				};
+			}
+		}
+		// Trust explicit working_directory (either fallback doesn't exist, or it's not a subdirectory)
+		return { success: true, directory: resolvedDir };
+	}
+
+	// No explicit working_directory - fallback must be the project root
+	if (resolvedDir !== resolvedFallback) {
+		return {
+			success: false,
+			message:
+				`Invalid working_directory: path resolves to "${resolvedDir}" but fallbackDirectory ` +
+				`"${resolvedFallback}" is not the project root. ` +
+				`This may indicate CWD mismatch. Pass the project root path explicitly.`,
+		};
+	}
+
+	return { success: true, directory: resolvedDir };
 }

@@ -2,11 +2,22 @@ import { afterEach, beforeEach, describe, expect, mock, test } from 'bun:test';
 
 // Mock only execFileSync while preserving every other export (#330).
 const mockExecFileSync = mock(() => '');
+const mockReadFileSync = mock(() => '// mock file content');
 
 const realChildProcess = await import('node:child_process');
 mock.module('node:child_process', () => ({
 	...realChildProcess,
 	execFileSync: mockExecFileSync,
+}));
+
+mock.module('node:fs', () => ({
+	readFileSync: mockReadFileSync,
+}));
+
+const realPath = await import('node:path');
+mock.module('node:path', () => ({
+	...realPath,
+	join: (...args: string[]) => args.join('/'),
 }));
 
 // Import diff AFTER mock setup
@@ -15,10 +26,12 @@ const { diff } = await import('../../../src/tools/diff');
 describe('AST diff fallback — regression: error results were silently dropped', () => {
 	beforeEach(() => {
 		mockExecFileSync.mockClear();
+		mockReadFileSync.mockClear();
 	});
 
 	afterEach(() => {
 		mockExecFileSync.mockClear();
+		mockReadFileSync.mockClear();
 	});
 
 	describe('git show throws (file not in base) — fallback entry pushed', () => {
@@ -118,18 +131,21 @@ describe('AST diff fallback — regression: error results were silently dropped'
 		});
 
 		test('astDiffs array is present when files are processed', async () => {
-			// Arrange - a single file that will trigger AST processing
+			// Arrange - staged base, git show will throw to produce fallback entry
 			mockExecFileSync.mockReturnValueOnce('10\t5\tsrc/code.ts');
 			mockExecFileSync.mockReturnValueOnce('diff --git a/src/code.ts');
-			mockExecFileSync.mockReturnValueOnce('old content');
-			mockExecFileSync.mockReturnValueOnce('new content');
+			// cat-file -e succeeds, but git show throws → fallback entry
+			mockExecFileSync.mockReturnValueOnce(''); // cat-file -e HEAD: (succeeds)
+			mockExecFileSync.mockImplementation(() => {
+				throw new Error('git show failed');
+			});
 
 			// Act
 			// @ts-expect-error — test bypasses createSwarmTool wrapper
-			const result = await diff.execute({ base: 'unstaged' });
+			const result = await diff.execute({ base: 'staged' });
 			const parsed = JSON.parse(result);
 
-			// Assert - astDiffs should be present (even if it contains fallback entries)
+			// Assert - astDiffs should be present with fallback entry
 			expect(parsed.astDiffs).toBeDefined();
 			expect(Array.isArray(parsed.astDiffs)).toBe(true);
 		});
@@ -153,10 +169,7 @@ describe('AST diff fallback — regression: error results were silently dropped'
 			// we can verify the source code contains the fix.
 			//
 			// This test passes when the source code contains the fix.
-			const fs = await import('node:fs');
-			const path = await import('node:path');
-			const sourcePath = path.join(process.cwd(), 'src/tools/diff.ts');
-			const sourceCode = fs.readFileSync(sourcePath, 'utf-8');
+			const sourceCode = await Bun.file(`${import.meta.dir}/../diff.ts`).text();
 
 			// The fix adds || astResult.error to the guard condition
 			// Look for the pattern: (astResult.changes.length > 0 || astResult.error)
@@ -165,10 +178,7 @@ describe('AST diff fallback — regression: error results were silently dropped'
 
 		test('catch block pushes fallback with category other (lines 290-308)', async () => {
 			// Verify the catch block has the fallback entry structure
-			const fs = await import('node:fs');
-			const path = await import('node:path');
-			const sourcePath = path.join(process.cwd(), 'src/tools/diff.ts');
-			const sourceCode = fs.readFileSync(sourcePath, 'utf-8');
+			const sourceCode = await Bun.file(`${import.meta.dir}/../diff.ts`).text();
 
 			// The fallback should push a change with category 'other'
 			expect(sourceCode).toContain("category: 'other'");

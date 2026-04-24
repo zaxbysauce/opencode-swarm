@@ -1,4 +1,8 @@
 // Parallel execution framework for swarm tasks
+export {
+	EvidenceLockTimeoutError,
+	withEvidenceLock,
+} from '../evidence/lock.js';
 
 export {
 	type DependencyGraph,

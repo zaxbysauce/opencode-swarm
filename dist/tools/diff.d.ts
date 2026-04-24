@@ -13,6 +13,7 @@ export interface DiffResult {
     astDiffs?: ASTDiffResult[];
     semanticSummary?: SemanticDiffSummary;
     markdownSummary?: string;
+    astSkippedCount?: number;
 }
 export interface DiffErrorResult {
     error: string;

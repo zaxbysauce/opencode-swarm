@@ -6,6 +6,22 @@ import * as path from 'node:path';
 // Import the module under test
 const testRunnerModule = await import('../../../src/tools/test-runner');
 
+// Runtime capability check: detect whether pwsh (PowerShell) is installed.
+// Tests that invoke pwsh are skipped when it is not available.
+let hasPwsh = false;
+try {
+	const proc = Bun.spawnSync([
+		'pwsh',
+		'-NoLogo',
+		'-NonInteractive',
+		'-Command',
+		'exit 0',
+	]);
+	hasPwsh = proc.exitCode === 0;
+} catch {
+	hasPwsh = false;
+}
+
 // Extract the exports we need
 const {
 	MAX_OUTPUT_BYTES,
@@ -16,6 +32,9 @@ const {
 	SUPPORTED_FRAMEWORKS,
 	test_runner,
 	detectTestFramework,
+	isLanguageSpecificTestFile,
+	getTestFilesFromConvention,
+	runTests,
 } = testRunnerModule;
 
 describe('test-runner.ts - Constants and Types', () => {
@@ -554,10 +573,10 @@ describe('test-runner.ts - Security Validation', () => {
 		expect(parsed.success).toBe(false);
 		expect(parsed.scope).toBe('convention');
 		expect(parsed.error).toContain(
-			'no source files with recognized extensions',
+			'no recognized source files or direct test files',
 		);
 		expect(parsed.message).toContain(
-			'Non-source files like README.md or config.json',
+			'direct test file in a supported test location',
 		);
 
 		process.chdir(originalCwd);
@@ -569,6 +588,42 @@ describe('test-runner.ts - Security Validation', () => {
 			}
 		}, 100);
 	}, 10000);
+
+	test.skipIf(!hasPwsh)(
+		'accepts direct test files for convention scope without source extensions',
+		async () => {
+			const tempDir = fs.realpathSync(
+				fs.mkdtempSync(path.join(os.tmpdir(), 'test-runner-direct-conv-')),
+			);
+			const originalCwd = process.cwd();
+			process.chdir(tempDir);
+
+			fs.writeFileSync('pester.config.ps1', 'configuration');
+			fs.mkdirSync(path.join(tempDir, 'qa'), { recursive: true });
+			fs.writeFileSync(
+				path.join(tempDir, 'qa', 'Smoke.Tests.ps1'),
+				'Describe "x" {}',
+			);
+
+			const result = await test_runner.execute(
+				{ scope: 'convention', files: ['qa/Smoke.Tests.ps1'] },
+				{} as any,
+			);
+			const parsed = JSON.parse(result);
+			expect(parsed.success).toBe(true);
+			expect(parsed.framework).toBe('pester');
+
+			process.chdir(originalCwd);
+			setTimeout(() => {
+				try {
+					fs.rmSync(tempDir, { recursive: true, force: true });
+				} catch {
+					// Ignore
+				}
+			}, 100);
+		},
+		10000,
+	);
 
 	test('rejects non-source files array for graph scope', async () => {
 		// Set up a detectable framework first so we can test the non-source-file guard
@@ -598,7 +653,47 @@ describe('test-runner.ts - Security Validation', () => {
 			'no source files with recognized extensions',
 		);
 		expect(parsed.message).toContain(
-			'Non-source files like README.md or config.json',
+			'Direct test files belong in scope "convention"',
+		);
+
+		process.chdir(originalCwd);
+		setTimeout(() => {
+			try {
+				fs.rmSync(tempDir, { recursive: true, force: true });
+			} catch {
+				// Ignore
+			}
+		}, 100);
+	}, 10000);
+
+	test('tells graph scope callers to use convention for direct test files', async () => {
+		const tempDir = fs.realpathSync(
+			fs.mkdtempSync(path.join(os.tmpdir(), 'test-runner-graph-testfile-')),
+		);
+		const originalCwd = process.cwd();
+		process.chdir(tempDir);
+
+		fs.writeFileSync(
+			'package.json',
+			JSON.stringify({
+				scripts: { test: 'vitest run' },
+				devDependencies: { vitest: '^1.0.0' },
+			}),
+		);
+		fs.mkdirSync(path.join(tempDir, 'tests'), { recursive: true });
+		fs.writeFileSync(
+			path.join(tempDir, 'tests', 'utils.test.ts'),
+			'export {};',
+		);
+
+		const result = await test_runner.execute(
+			{ scope: 'graph', files: ['tests/utils.test.ts'] },
+			{} as any,
+		);
+		const parsed = JSON.parse(result);
+		expect(parsed.success).toBe(false);
+		expect(parsed.message).toContain(
+			'Direct test files belong in scope "convention"',
 		);
 
 		process.chdir(originalCwd);
@@ -1230,5 +1325,366 @@ describe('test-runner.ts - scope:"all" gated access (allow_full_suite)', () => {
 			},
 			15000,
 		);
+	});
+});
+
+// ============ Language-Specific Test File Detection ============
+
+describe('test-runner.ts — isLanguageSpecificTestFile', () => {
+	describe('Go convention (_test.go suffix)', () => {
+		test('recognises foo_test.go', () => {
+			expect(isLanguageSpecificTestFile('foo_test.go')).toBe(true);
+		});
+		test('recognises util_test.go', () => {
+			expect(isLanguageSpecificTestFile('util_test.go')).toBe(true);
+		});
+		test('does not recognise foo.go (source file)', () => {
+			expect(isLanguageSpecificTestFile('foo.go')).toBe(false);
+		});
+		test('does not recognise test_helper.go (no _test.go suffix)', () => {
+			expect(isLanguageSpecificTestFile('test_helper.go')).toBe(false);
+		});
+	});
+
+	describe('Python convention (test_*.py prefix and *_test.py suffix)', () => {
+		test('recognises test_foo.py (pytest prefix)', () => {
+			expect(isLanguageSpecificTestFile('test_foo.py')).toBe(true);
+		});
+		test('recognises test_utils.py', () => {
+			expect(isLanguageSpecificTestFile('test_utils.py')).toBe(true);
+		});
+		test('recognises foo_test.py (pytest suffix)', () => {
+			expect(isLanguageSpecificTestFile('foo_test.py')).toBe(true);
+		});
+		test('does not recognise foo.py (source)', () => {
+			expect(isLanguageSpecificTestFile('foo.py')).toBe(false);
+		});
+		test('does not recognise conftest.py', () => {
+			expect(isLanguageSpecificTestFile('conftest.py')).toBe(false);
+		});
+	});
+
+	describe('Ruby convention (*_spec.rb)', () => {
+		test('recognises foo_spec.rb', () => {
+			expect(isLanguageSpecificTestFile('foo_spec.rb')).toBe(true);
+		});
+		test('recognises user_service_spec.rb', () => {
+			expect(isLanguageSpecificTestFile('user_service_spec.rb')).toBe(true);
+		});
+		test('does not recognise foo.rb (source)', () => {
+			expect(isLanguageSpecificTestFile('foo.rb')).toBe(false);
+		});
+	});
+
+	describe('Java convention (Test*.java prefix and *Test.java / *Tests.java suffix)', () => {
+		test('recognises FooTest.java', () => {
+			expect(isLanguageSpecificTestFile('FooTest.java')).toBe(true);
+		});
+		test('recognises FooTests.java', () => {
+			expect(isLanguageSpecificTestFile('FooTests.java')).toBe(true);
+		});
+		test('recognises TestFoo.java', () => {
+			expect(isLanguageSpecificTestFile('TestFoo.java')).toBe(true);
+		});
+		test('does not recognise Foo.java (source)', () => {
+			expect(isLanguageSpecificTestFile('Foo.java')).toBe(false);
+		});
+		test('does not recognise testutils.java (utility, not test class)', () => {
+			expect(isLanguageSpecificTestFile('testutils.java')).toBe(false);
+		});
+		test('does not recognise testing.java (utility, not test class)', () => {
+			expect(isLanguageSpecificTestFile('testing.java')).toBe(false);
+		});
+	});
+
+	describe('C# convention (*Test.cs and *Tests.cs)', () => {
+		test('recognises FooTest.cs', () => {
+			expect(isLanguageSpecificTestFile('FooTest.cs')).toBe(true);
+		});
+		test('recognises FooTests.cs', () => {
+			expect(isLanguageSpecificTestFile('FooTests.cs')).toBe(true);
+		});
+		test('does not recognise Foo.cs (source)', () => {
+			expect(isLanguageSpecificTestFile('Foo.cs')).toBe(false);
+		});
+	});
+
+	describe('Kotlin convention (*Test.kt and *Tests.kt)', () => {
+		test('recognises FooTest.kt', () => {
+			expect(isLanguageSpecificTestFile('FooTest.kt')).toBe(true);
+		});
+		test('recognises FooTests.kt', () => {
+			expect(isLanguageSpecificTestFile('FooTests.kt')).toBe(true);
+		});
+		test('recognises TestFoo.kt', () => {
+			expect(isLanguageSpecificTestFile('TestFoo.kt')).toBe(true);
+		});
+		test('does not recognise Foo.kt (source)', () => {
+			expect(isLanguageSpecificTestFile('Foo.kt')).toBe(false);
+		});
+		test('does not recognise testutil.kt (utility, not test class)', () => {
+			expect(isLanguageSpecificTestFile('testutil.kt')).toBe(false);
+		});
+		test('does not recognise testing.kt (utility, not test class)', () => {
+			expect(isLanguageSpecificTestFile('testing.kt')).toBe(false);
+		});
+	});
+});
+
+describe('test-runner.ts — getTestFilesFromConvention (language-specific)', () => {
+	let tmpDir: string;
+
+	beforeEach(() => {
+		tmpDir = fs.realpathSync(
+			fs.mkdtempSync(path.join(os.tmpdir(), 'conv-test-')),
+		);
+	});
+
+	afterEach(() => {
+		fs.rmSync(tmpDir, { recursive: true, force: true });
+	});
+
+	function write(rel: string, content = ''): string {
+		const abs = path.join(tmpDir, rel);
+		fs.mkdirSync(path.dirname(abs), { recursive: true });
+		fs.writeFileSync(abs, content, 'utf-8');
+		return abs;
+	}
+
+	describe('Go — test files passed directly', () => {
+		test('foo_test.go is passed through as-is', () => {
+			const testFile = write('pkg/foo_test.go', '');
+			const result = getTestFilesFromConvention([testFile]);
+			expect(result).toEqual([testFile]);
+		});
+
+		test('foo_test.go in a tests/ directory is passed through', () => {
+			const testFile = write('tests/foo_test.go', '');
+			const result = getTestFilesFromConvention([testFile]);
+			expect(result).toEqual([testFile]);
+		});
+	});
+
+	describe('Go — source-to-test mapping', () => {
+		test('foo.go maps to colocated foo_test.go when it exists', () => {
+			const src = write('pkg/foo.go', '');
+			const tst = write('pkg/foo_test.go', '');
+			const result = getTestFilesFromConvention([src]);
+			expect(result).toContain(tst);
+			expect(result).not.toContain(src);
+		});
+
+		test('foo.go produces empty result when no test file exists', () => {
+			const src = write('pkg/foo.go', '');
+			const result = getTestFilesFromConvention([src]);
+			expect(result).toHaveLength(0);
+		});
+	});
+
+	describe('Python — test files passed directly', () => {
+		test('test_foo.py (prefix) is passed through as-is', () => {
+			const testFile = write('test_foo.py', '');
+			const result = getTestFilesFromConvention([testFile]);
+			expect(result).toEqual([testFile]);
+		});
+
+		test('foo_test.py (suffix) is passed through as-is', () => {
+			const testFile = write('src/foo_test.py', '');
+			const result = getTestFilesFromConvention([testFile]);
+			expect(result).toEqual([testFile]);
+		});
+
+		test('test_foo.py in a tests/ directory is passed through', () => {
+			const testFile = write('tests/test_foo.py', '');
+			const result = getTestFilesFromConvention([testFile]);
+			expect(result).toEqual([testFile]);
+		});
+	});
+
+	describe('Python — source-to-test mapping', () => {
+		test('foo.py maps to colocated test_foo.py when it exists', () => {
+			const src = write('src/foo.py', '');
+			const tst = write('src/test_foo.py', '');
+			const result = getTestFilesFromConvention([src]);
+			expect(result).toContain(tst);
+		});
+
+		test('foo.py maps to colocated foo_test.py when it exists', () => {
+			const src = write('src/foo.py', '');
+			const tst = write('src/foo_test.py', '');
+			const result = getTestFilesFromConvention([src]);
+			expect(result).toContain(tst);
+		});
+
+		test('foo.py maps to tests/test_foo.py when colocated test missing', () => {
+			const src = write('src/foo.py', '');
+			const tst = write('src/tests/test_foo.py', '');
+			const result = getTestFilesFromConvention([src]);
+			expect(result).toContain(tst);
+		});
+	});
+
+	describe('Ruby — test files passed directly', () => {
+		test('foo_spec.rb is passed through as-is', () => {
+			const testFile = write('spec/foo_spec.rb', '');
+			const result = getTestFilesFromConvention([testFile]);
+			expect(result).toEqual([testFile]);
+		});
+
+		test('foo_spec.rb colocated with source is passed through', () => {
+			const testFile = write('lib/foo_spec.rb', '');
+			const result = getTestFilesFromConvention([testFile]);
+			expect(result).toEqual([testFile]);
+		});
+	});
+
+	describe('Ruby — source-to-test mapping', () => {
+		test('foo.rb maps to colocated foo_spec.rb when it exists', () => {
+			const src = write('lib/foo.rb', '');
+			const tst = write('lib/foo_spec.rb', '');
+			const result = getTestFilesFromConvention([src]);
+			expect(result).toContain(tst);
+		});
+
+		test('foo.rb maps to spec/foo_spec.rb when colocated missing', () => {
+			const src = write('lib/foo.rb', '');
+			const tst = write('lib/spec/foo_spec.rb', '');
+			const result = getTestFilesFromConvention([src]);
+			expect(result).toContain(tst);
+		});
+	});
+
+	describe('/spec/ directory — any language', () => {
+		test('file in spec/ directory is passed through as-is', () => {
+			const testFile = write('spec/helpers/foo.ts', '');
+			const result = getTestFilesFromConvention([testFile]);
+			expect(result).toEqual([testFile]);
+		});
+	});
+
+	describe('Java — test files passed directly', () => {
+		test('FooTest.java is passed through', () => {
+			const testFile = write('src/test/FooTest.java', '');
+			const result = getTestFilesFromConvention([testFile]);
+			expect(result).toEqual([testFile]);
+		});
+
+		test('TestFoo.java is passed through', () => {
+			const testFile = write('src/FooDir/TestFoo.java', '');
+			const result = getTestFilesFromConvention([testFile]);
+			expect(result).toEqual([testFile]);
+		});
+	});
+
+	describe('C# — test files passed directly', () => {
+		test('FooTests.cs is passed through', () => {
+			const testFile = write('tests/FooTests.cs', '');
+			const result = getTestFilesFromConvention([testFile]);
+			expect(result).toEqual([testFile]);
+		});
+	});
+
+	describe('deduplication', () => {
+		test('duplicate paths are not returned twice', () => {
+			const testFile = write('pkg/foo_test.go', '');
+			const result = getTestFilesFromConvention([testFile, testFile]);
+			expect(result).toHaveLength(1);
+		});
+	});
+
+	describe('PowerShell', () => {
+		test('Foo.Tests.ps1 is passed through as-is', () => {
+			const testFile = write('qa/Foo.Tests.ps1', '');
+			const result = getTestFilesFromConvention([testFile]);
+			expect(result).toEqual([testFile]);
+		});
+
+		test('script.ps1 maps to repo-root tests/script.Tests.ps1', () => {
+			const src = write('scripts/script.ps1', '');
+			const tst = write('tests/script.Tests.ps1', '');
+			const result = getTestFilesFromConvention([src], tmpDir);
+			expect(result).toContain(tst);
+		});
+	});
+
+	describe('repo-root discovery', () => {
+		test('src/utils.ts maps to repo-root tests/utils.test.ts', () => {
+			const src = write('src/utils.ts', '');
+			const tst = write('tests/utils.test.ts', '');
+			const result = getTestFilesFromConvention([src], tmpDir);
+			expect(result).toContain(tst);
+		});
+
+		test('lib/foo.rb maps to repo-root spec/foo_spec.rb', () => {
+			const src = write('lib/foo.rb', '');
+			const tst = write('spec/foo_spec.rb', '');
+			const result = getTestFilesFromConvention([src], tmpDir);
+			expect(result).toContain(tst);
+		});
+
+		test('src/main/java/Foo.java maps to src/test/java/FooTest.java', () => {
+			const src = write('src/main/java/com/example/Foo.java', '');
+			const tst = write('src/test/java/com/example/FooTest.java', '');
+			const result = getTestFilesFromConvention([src], tmpDir);
+			expect(result).toContain(tst);
+		});
+	});
+});
+
+describe('test-runner.ts — targeted framework safeguards', () => {
+	test('returns explicit error when targeted file execution is unsupported', async () => {
+		const result = await runTests(
+			'go-test',
+			'convention',
+			['pkg/foo_test.go'],
+			false,
+			60_000,
+			process.cwd(),
+		);
+
+		expect(result.success).toBe(false);
+		if (result.success) {
+			throw new Error('expected failure result');
+		}
+		expect(result.error).toContain(
+			'does not support targeted test-file execution',
+		);
+		expect(result.message).toContain('go test targets packages');
+	});
+
+	test('allows targeted execution for rspec-compatible frameworks', async () => {
+		const originalSpawn = Bun.spawn;
+		const encoder = new TextEncoder();
+		Bun.spawn = (() =>
+			({
+				stdout: new ReadableStream({
+					start(controller) {
+						controller.enqueue(encoder.encode('1 example, 0 failures'));
+						controller.close();
+					},
+				}),
+				stderr: new ReadableStream({
+					start(controller) {
+						controller.close();
+					},
+				}),
+				exited: Promise.resolve(0),
+				exitCode: 0,
+				kill: () => {},
+			}) as ReturnType<typeof Bun.spawn>) as typeof Bun.spawn;
+
+		try {
+			const result = await runTests(
+				'rspec',
+				'convention',
+				['spec/foo_spec.rb'],
+				false,
+				60_000,
+				process.cwd(),
+			);
+			expect(result.success).toBe(true);
+		} finally {
+			Bun.spawn = originalSpawn;
+		}
 	});
 });

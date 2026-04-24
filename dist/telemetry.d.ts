@@ -1,4 +1,4 @@
-export type TelemetryEvent = 'session_started' | 'session_ended' | 'agent_activated' | 'delegation_begin' | 'delegation_end' | 'task_state_changed' | 'gate_passed' | 'gate_failed' | 'phase_changed' | 'budget_updated' | 'model_fallback' | 'hard_limit_hit' | 'revision_limit_hit' | 'loop_detected' | 'scope_violation' | 'qa_skip_violation' | 'heartbeat' | 'turbo_mode_changed' | 'auto_oversight_escalation' | 'environment_detected';
+export type TelemetryEvent = 'session_started' | 'session_ended' | 'agent_activated' | 'delegation_begin' | 'delegation_end' | 'task_state_changed' | 'gate_passed' | 'gate_failed' | 'phase_changed' | 'budget_updated' | 'model_fallback' | 'hard_limit_hit' | 'revision_limit_hit' | 'loop_detected' | 'scope_violation' | 'qa_skip_violation' | 'heartbeat' | 'turbo_mode_changed' | 'auto_oversight_escalation' | 'environment_detected' | 'evidence_lock_acquired' | 'evidence_lock_contended' | 'evidence_lock_stale_recovered' | 'plan_ledger_cas_retry' | 'prm_pattern_detected' | 'prm_course_correction_injected' | 'prm_escalation_triggered' | 'prm_hard_stop';
 export type TelemetryListener = (event: TelemetryEvent, data: Record<string, unknown>) => void;
 /** @internal - For testing only */
 export declare function resetTelemetryForTesting(): void;
@@ -52,4 +52,8 @@ export declare const telemetry: {
     turboModeChanged(sessionId: string, enabled: boolean, agentName: string): void;
     autoOversightEscalation(sessionId: string, reason: string, interactionCount: number, deadlockCount: number, phase?: number): void;
     environmentDetected(sessionId: string, hostOS: string, shellFamily: string, executionMode: string): void;
+    prmPatternDetected(sessionId: string, pattern: string, severity: string, category: string, stepRange: [number, number]): void;
+    prmCourseCorrectionInjected(sessionId: string, pattern: string, level: number): void;
+    prmEscalationTriggered(sessionId: string, pattern: string, level: number, occurrenceCount: number): void;
+    prmHardStop(sessionId: string, pattern: string, level: number, occurrenceCount: number): void;
 };

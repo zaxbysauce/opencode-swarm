@@ -13,6 +13,8 @@
 
 import { mkdirSync, readFileSync, renameSync, unlinkSync } from 'node:fs';
 import * as path from 'node:path';
+import { z } from 'zod';
+import { withEvidenceLock } from './evidence/lock.js';
 import { telemetry } from './telemetry.js';
 import { assertStrictTaskId, isStrictTaskId } from './validation/task-id';
 
@@ -28,6 +30,21 @@ export interface TaskEvidence {
 	gates: Record<string, GateEvidence>;
 	turbo?: boolean;
 }
+
+const GateEvidenceSchema = z
+	.object({
+		sessionId: z.string(),
+		timestamp: z.string(),
+		agent: z.string(),
+	})
+	.passthrough(); // preserve council-specific extras (verdict, vetoedBy, etc.)
+
+const TaskEvidenceSchema = z.object({
+	taskId: z.string(),
+	required_gates: z.array(z.string()).default([]),
+	gates: z.record(z.string(), GateEvidenceSchema),
+	turbo: z.boolean().optional(),
+});
 
 export const DEFAULT_REQUIRED_GATES = ['reviewer', 'test_engineer'];
 
@@ -96,7 +113,7 @@ function getEvidencePath(directory: string, taskId: string): string {
 function readExisting(evidencePath: string): TaskEvidence | null {
 	try {
 		const raw = readFileSync(evidencePath, 'utf-8');
-		return JSON.parse(raw) as TaskEvidence;
+		return TaskEvidenceSchema.parse(JSON.parse(raw));
 	} catch {
 		return null;
 	}
@@ -131,30 +148,32 @@ export async function recordGateEvidence(
 ): Promise<void> {
 	assertValidTaskId(taskId);
 	const evidenceDir = getEvidenceDir(directory);
-	const evidencePath = getEvidencePath(directory, taskId);
-
 	mkdirSync(evidenceDir, { recursive: true });
 
-	const existing = readExisting(evidencePath);
-	const requiredGates = existing
-		? expandRequiredGates(existing.required_gates, gate)
-		: deriveRequiredGates(gate);
+	const lockRelPath = path.join('evidence', `${taskId}.json`);
+	await withEvidenceLock(directory, lockRelPath, gate, taskId, async () => {
+		const evidencePath = getEvidencePath(directory, taskId);
+		const existing = readExisting(evidencePath);
+		const requiredGates = existing
+			? expandRequiredGates(existing.required_gates, gate)
+			: deriveRequiredGates(gate);
 
-	const updated: TaskEvidence = {
-		taskId,
-		required_gates: requiredGates,
-		turbo: turbo === true ? true : existing?.turbo,
-		gates: {
-			...(existing?.gates ?? {}),
-			[gate]: {
-				sessionId,
-				timestamp: new Date().toISOString(),
-				agent: gate,
+		const updated: TaskEvidence = {
+			taskId,
+			required_gates: requiredGates,
+			turbo: turbo === true ? true : existing?.turbo,
+			gates: {
+				...(existing?.gates ?? {}),
+				[gate]: {
+					sessionId,
+					timestamp: new Date().toISOString(),
+					agent: gate,
+				},
 			},
-		},
-	};
+		};
 
-	await atomicWrite(evidencePath, JSON.stringify(updated, null, 2));
+		await atomicWrite(evidencePath, JSON.stringify(updated, null, 2));
+	});
 	telemetry.gatePassed(sessionId, gate, taskId);
 }
 
@@ -171,23 +190,31 @@ export async function recordAgentDispatch(
 ): Promise<void> {
 	assertValidTaskId(taskId);
 	const evidenceDir = getEvidenceDir(directory);
-	const evidencePath = getEvidencePath(directory, taskId);
-
 	mkdirSync(evidenceDir, { recursive: true });
 
-	const existing = readExisting(evidencePath);
-	const requiredGates = existing
-		? expandRequiredGates(existing.required_gates, agentType)
-		: deriveRequiredGates(agentType);
-
-	const updated: TaskEvidence = {
+	const lockRelPath = path.join('evidence', `${taskId}.json`);
+	await withEvidenceLock(
+		directory,
+		lockRelPath,
+		agentType,
 		taskId,
-		required_gates: requiredGates,
-		turbo: turbo === true ? true : existing?.turbo,
-		gates: existing?.gates ?? {},
-	};
+		async () => {
+			const evidencePath = getEvidencePath(directory, taskId);
+			const existing = readExisting(evidencePath);
+			const requiredGates = existing
+				? expandRequiredGates(existing.required_gates, agentType)
+				: deriveRequiredGates(agentType);
 
-	await atomicWrite(evidencePath, JSON.stringify(updated, null, 2));
+			const updated: TaskEvidence = {
+				taskId,
+				required_gates: requiredGates,
+				turbo: turbo === true ? true : existing?.turbo,
+				gates: existing?.gates ?? {},
+			};
+
+			await atomicWrite(evidencePath, JSON.stringify(updated, null, 2));
+		},
+	);
 }
 
 /**
@@ -219,7 +246,7 @@ export function readTaskEvidenceRaw(
 	const evidencePath = getEvidencePath(directory, taskId);
 	try {
 		const raw = readFileSync(evidencePath, 'utf-8');
-		return JSON.parse(raw) as TaskEvidence;
+		return TaskEvidenceSchema.parse(JSON.parse(raw));
 	} catch (error) {
 		if ((error as NodeJS.ErrnoException).code === 'ENOENT') return null;
 		throw error;

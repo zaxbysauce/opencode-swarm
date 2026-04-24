@@ -1,5 +1,130 @@
 # Changelog
 
+## [6.82.1](https://github.com/zaxbysauce/opencode-swarm/compare/v6.82.0...v6.82.1) (2026-04-23)
+
+
+### Bug Fixes
+
+* **architect:** remove stale plan.md structural-write permission ([#574](https://github.com/zaxbysauce/opencode-swarm/issues/574)) ([#576](https://github.com/zaxbysauce/opencode-swarm/issues/576)) ([974070c](https://github.com/zaxbysauce/opencode-swarm/commit/974070ce295e3fc4e33bb4e3f4a108948bf79c97))
+
+## [6.82.0](https://github.com/zaxbysauce/opencode-swarm/compare/v6.81.1...v6.82.0) (2026-04-23)
+
+
+### Features
+
+* **mutation-gate:** add mutation-testing-backed test quality gate ([#569](https://github.com/zaxbysauce/opencode-swarm/issues/569)) ([3e5059d](https://github.com/zaxbysauce/opencode-swarm/commit/3e5059d105ad74ccf21c5ab106d8349135763625))
+
+## [Unreleased]
+
+### Features
+
+* **mutation:** add LLM-driven mutation patch generator (`src/mutation/generator.ts`) — generates 5–10 patches per function across 6 mutation types (off-by-one, null substitution, operator swap, guard removal, branch swap, side-effect deletion) using an ephemeral LLM session; gracefully returns `[]` on any failure
+
+### Architecture
+
+* **qa-gate-profile:** add `mutation_test: boolean` to `QaGates` interface (`src/db/qa-gate-profile.ts`); default `false` (opt-in per project); listed alongside the other 7 gates in `DEFAULT_QA_GATES`; consumed by Gate 4 enforcement in `phase_complete`
+* **tools:** add two architect-only tools for mutation-testing-backed QA gates:
+  - `generate_mutants` (`src/tools/generate-mutants.ts`) — accepts `files: string[]`, calls `generateMutants()` with ToolContext, returns patches for direct consumption by the `mutation_test` tool; emits `SKIP` verdict on LLM failure rather than throwing
+  - `write_mutation_evidence` (`src/tools/write-mutation-evidence.ts`) — writes phase-close mutation gate results atomically to `.swarm/evidence/{phase}/mutation-gate.json`; accepts verdict (PASS/WARN/FAIL/SKIP), kill rate metrics, and optional survived mutant details; normalised uppercase-to-lowercase before persisting
+* **evidence:** add `mutation-gate` evidence type — phase-level artifact containing verdict, killRate, adjustedKillRate, summary, and survivedMutants; read by the `mutation_test` phase gate (Gate 4) in `phase_complete`
+* **phase-complete:** add Gate 4 mutation gate enforcement — reads `.swarm/evidence/{phase}/mutation-gate.json` when `mutation_test` is enabled in the QA gate profile; `fail` verdict blocks `phase_complete`; `warn` verdict allows advancement with a warning; `pass`/`skip` allow advancement; automatically bypassed in turbo mode alongside Gates 1–3
+
+## [6.81.1](https://github.com/zaxbysauce/opencode-swarm/compare/v6.81.0...v6.81.1) (2026-04-23)
+
+
+### Bug Fixes
+
+* **cli:** prevent install() from firing when cli/index is imported by tests ([#572](https://github.com/zaxbysauce/opencode-swarm/issues/572)) ([10d0721](https://github.com/zaxbysauce/opencode-swarm/commit/10d07215ab59d519082c8bce6c7467a99eed0cb8))
+
+## [6.81.0](https://github.com/zaxbysauce/opencode-swarm/compare/v6.80.2...v6.81.0) (2026-04-22)
+
+
+### Features
+
+* **prm:** Implement Process Reward Model for live trajectory course-correction ([#562](https://github.com/zaxbysauce/opencode-swarm/issues/562)) ([544634e](https://github.com/zaxbysauce/opencode-swarm/commit/544634e9105d08ee58e7880a31c8ec595f6eabf0))
+
+## [6.80.2](https://github.com/zaxbysauce/opencode-swarm/compare/v6.80.1...v6.80.2) (2026-04-22)
+
+
+### Bug Fixes
+
+* **spiral-detection:** eliminate repeated checkpoint: spiral-unknown-xxxx commits (issue [#564](https://github.com/zaxbysauce/opencode-swarm/issues/564)) ([#565](https://github.com/zaxbysauce/opencode-swarm/issues/565)) ([791da0c](https://github.com/zaxbysauce/opencode-swarm/commit/791da0c748948f89eccf6e9f901945d7b6533867))
+
+## [6.80.1](https://github.com/zaxbysauce/opencode-swarm/compare/v6.80.0...v6.80.1) (2026-04-22)
+
+
+### Bug Fixes
+
+* **guardrails:** exempt opencode native agents from swarm guardrails (issue [#559](https://github.com/zaxbysauce/opencode-swarm/issues/559)) ([#561](https://github.com/zaxbysauce/opencode-swarm/issues/561)) ([d5adf41](https://github.com/zaxbysauce/opencode-swarm/commit/d5adf41e81afcac4af1fa9b7c3b5d5e985d441d0))
+
+## [6.80.0](https://github.com/zaxbysauce/opencode-swarm/compare/v6.79.0...v6.80.0) (2026-04-20)
+
+
+### Features
+
+* **diff:** AST semantic diff summary pipeline with remediation fixes ([#557](https://github.com/zaxbysauce/opencode-swarm/issues/557)) ([c740998](https://github.com/zaxbysauce/opencode-swarm/commit/c7409987707de48759a57b9cb46edc9560cc31b6))
+
+## [Unreleased]
+
+### Features
+
+* **lang/registry:** expand language coverage from 6 to 20 (java, c, cpp, csharp, ruby, swift, kotlin, dart, css, bash, powershell, ini, regex, tsx); TypeScript split to .ts-only with separate TSX entry; commentNodes verified against tree-sitter grammars ([#PH2](https://github.com/zaxbysauce/opencode-swarm/issues/PH2))
+* **diff/ast-diff:** add 13 tree-sitter query patterns for java, c, cpp, csharp, ruby, php, swift, kotlin, dart, css, bash, powershell, tsx; expand extractSignature() with lookup table for 15 languages; add rename detection to compareSymbols() with conservative thresholds; add 'renamed' change type and renamedFrom field to ASTChange
+* **diff/semantic-classifier:** add 'renamed' to ClassifiedChange.changeType union; add renamedFrom field; guard renamed function classification as Critical
+* **diff/semantic-classifier:** add optional `consumersCount` field to `ClassifiedChange` — blast radius indicator (number of files importing the changed file); `classifyChanges()` now accepts optional `fileConsumers?: Record<string, number>` parameter; field only set when file key exists in the map
+* **diff/summary-generator:** `generateSummaryMarkdown()` renders consumers count inline with singular/plural grammar: "(N consumers)" or "(1 consumer)"
+* **hooks/semantic-diff-injection (NEW):** `buildSemanticDiffBlock(directory, changedFiles, maxFiles=10)` — end-to-end pipeline: computes AST diffs for changed files, builds `fileConsumers` from repo graph, classifies changes with `consumersCount`, generates markdown summary; fully error-resilient (never throws, returns `null` on any failure); uses `cat-file -e` to check for untracked files; relativizes absolute paths for graph lookup
+* **hooks/system-enhancer:** injects `buildSemanticDiffBlock` output into reviewer context (after blast radius in reviewer section); derived from `reviewerSession?.declaredCoderScope`; capped at 10 files; silent failure (no errors emitted)
+* **agents/reviewer:** added "## SEMANTIC DIFF SUMMARY — INTERPRETATION" section to reviewer prompt: risk-based priority ranking (Critical → High → Medium → Low), blast radius interpretation ("(N consumers)" indicator), guard function vigilance guidance (GUARD_REMOVED escalation), and explicit DO NOT guidance to prevent over-reliance on the summary
+
+### Bug Fixes
+
+* **diff/ast-diff:** fix rename detection preventing false DELETED+NEW pairs when functions are renamed with matching signatures; guard function renames classified as Critical (not hidden as Medium refactor)
+
+## [6.79.0](https://github.com/zaxbysauce/opencode-swarm/compare/v6.78.0...v6.79.0) (2026-04-20)
+
+
+### Features
+
+* **state:** rehydrate council verdicts from disk evidence on session restart ([#554](https://github.com/zaxbysauce/opencode-swarm/issues/554)) ([9948f11](https://github.com/zaxbysauce/opencode-swarm/commit/9948f116d39434780efeeb7fd8314c222facf6d4))
+
+## [6.78.0](https://github.com/zaxbysauce/opencode-swarm/compare/v6.77.0...v6.78.0) (2026-04-19)
+
+
+### Features
+
+* **parallelization:** mark pr 3 release as v6.78.0 ([#552](https://github.com/zaxbysauce/opencode-swarm/issues/552)) ([69c6450](https://github.com/zaxbysauce/opencode-swarm/commit/69c64508c02e6ae3466e415f4205511b868376bb))
+* **parallelization:** pr 3 — lockable execution_profile, ledger events, and fail-closed enforcement ([#550](https://github.com/zaxbysauce/opencode-swarm/issues/550)) ([2f02e47](https://github.com/zaxbysauce/opencode-swarm/commit/2f02e47a2a1379b35b19785566fa2006367ae675))
+
+## [6.77.0](https://github.com/zaxbysauce/opencode-swarm/compare/v6.76.0...v6.77.0) (2026-04-19)
+
+
+### Features
+
+* **parallelization:** pr 2 — stage b order-independent barrier and bounded concurrency ([#548](https://github.com/zaxbysauce/opencode-swarm/issues/548)) ([2f2fd48](https://github.com/zaxbysauce/opencode-swarm/commit/2f2fd486e4c8fee3998963ef9ce62d854856dbd2))
+* **parallelization:** pr 3 — lockable execution_profile, ledger events, and fail-closed enforcement ([#550](https://github.com/zaxbysauce/opencode-swarm/issues/550)) ([2f02e47](https://github.com/zaxbysauce/opencode-swarm/commit/2f02e47a2a1379b35b19785566fa2006367ae675))
+
+## [6.76.0](https://github.com/zaxbysauce/opencode-swarm/compare/v6.75.0...v6.76.0) (2026-04-19)
+
+
+### Features
+
+* **test-runner:** widen convention test resolution and add explicit targeting limits ([#546](https://github.com/zaxbysauce/opencode-swarm/issues/546)) ([7718053](https://github.com/zaxbysauce/opencode-swarm/commit/7718053ff76f18ab309f11c78ca6ab1d1cbe0955))
+
+## [6.75.0](https://github.com/zaxbysauce/opencode-swarm/compare/v6.74.1...v6.75.0) (2026-04-18)
+
+
+### Features
+
+* **parallel:** pr 1 — dark foundation for stacked parallelization ([#540](https://github.com/zaxbysauce/opencode-swarm/issues/540)) ([8fc1cdb](https://github.com/zaxbysauce/opencode-swarm/commit/8fc1cdbaabbc03677d199521049f0428bd326fcc))
+
+## [6.74.1](https://github.com/zaxbysauce/opencode-swarm/compare/v6.74.0...v6.74.1) (2026-04-18)
+
+
+### Bug Fixes
+
+* **repo-graph:** drop import specifiers with control chars to prevent graph build failure ([#538](https://github.com/zaxbysauce/opencode-swarm/issues/538)) ([d6c7ea5](https://github.com/zaxbysauce/opencode-swarm/commit/d6c7ea5adecdc1957843083c7a1c72d8ae05ff95))
+
 ## [6.74.0](https://github.com/zaxbysauce/opencode-swarm/compare/v6.73.1...v6.74.0) (2026-04-18)
 
 

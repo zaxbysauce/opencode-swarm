@@ -33,6 +33,18 @@ export interface SavePlanArgs {
      * after a failed phase).  Defaults to false (existing statuses preserved).
      */
     reset_statuses?: boolean;
+    /**
+     * Architect-facing concurrency controls for this plan.
+     * When execution_profile.locked is true the profile is immutable — subsequent
+     * save_plan calls that try to change it will be rejected (fail-closed).
+     * Omit to leave the current profile unchanged.
+     */
+    execution_profile?: {
+        parallelization_enabled?: boolean;
+        max_concurrent_tasks?: number;
+        council_parallel?: boolean;
+        locked?: boolean;
+    };
 }
 /**
  * Result from executing save_plan
@@ -46,6 +58,13 @@ export interface SavePlanResult {
     errors?: string[];
     warnings?: string[];
     recovery_guidance?: string;
+    /** The resolved execution_profile that was persisted, if any. */
+    execution_profile?: {
+        parallelization_enabled: boolean;
+        max_concurrent_tasks: number;
+        council_parallel: boolean;
+        locked: boolean;
+    };
 }
 /**
  * Detect template placeholder content (e.g., [task], [Project], [description], [N]).

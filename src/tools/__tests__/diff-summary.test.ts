@@ -1,6 +1,4 @@
 import { afterEach, beforeEach, describe, expect, test, vi } from 'bun:test';
-import * as child_process from 'node:child_process';
-import * as fs from 'node:fs';
 import type { ASTChange, ASTDiffResult } from '../../diff/ast-diff.js';
 import type { ClassifiedChange } from '../../diff/semantic-classifier.js';
 import type { SemanticDiffSummary } from '../../diff/summary-generator.js';
@@ -323,7 +321,7 @@ describe('diff_summary tool', () => {
 			});
 		});
 
-		const result = await diff_summary.execute(
+		const _result = await diff_summary.execute(
 			{ files: ['src/api.ts'], classification: 'SIGNATURE_CHANGE' },
 			createToolContext('/fake/dir'),
 		);
@@ -379,7 +377,7 @@ describe('diff_summary tool', () => {
 			});
 		});
 
-		const result = await diff_summary.execute(
+		const _result = await diff_summary.execute(
 			{ files: ['src/api.ts'], riskLevel: 'Critical' },
 			createToolContext('/fake/dir'),
 		);
@@ -437,7 +435,7 @@ describe('diff_summary tool', () => {
 			});
 		});
 
-		const result = await diff_summary.execute(
+		const _result = await diff_summary.execute(
 			{
 				files: ['src/api.ts'],
 				classification: 'SIGNATURE_CHANGE',
@@ -457,21 +455,63 @@ describe('diff_summary tool', () => {
 	});
 
 	// =============================================================================
-	// TEST 9: Handles git show failure gracefully (file not in git)
+	// TEST 9: Handles untracked file - produces AST changes (not skipped)
 	// =============================================================================
-	test('handles git show failure gracefully - skips file not in git', async () => {
+	test('handles untracked file - produces AST changes (not skipped)', async () => {
 		const { diff_summary } = await import('../../tools/diff-summary.js');
 
-		// Mock git show throwing (file not in git)
-		mockExecFileSync.mockImplementation(() => {
-			throw new Error('fatal: pathspec did not match any files');
+		// Mock cat-file -e to throw (file not in HEAD)
+		mockExecFileSync.mockImplementation((_cmd: string, args: string[]) => {
+			if (args[0] === 'cat-file' && args[1] === '-e') {
+				throw new Error('fatal: pathspec did not match any files');
+			}
+			return 'old content';
 		});
-		mockReadFileSync.mockReturnValue('new content');
+		mockReadFileSync.mockReturnValue('export function newFeature() {}');
 
-		// No mock for computeASTDiff since file should be skipped
+		// Mock computeASTDiff returning result with added changes
+		const astDiff = makeASTDiffResult({
+			filePath: 'new-file.ts',
+			changes: [
+				makeASTChange({
+					type: 'added',
+					category: 'function',
+					name: 'newFeature',
+					lineStart: 1,
+					lineEnd: 2,
+				}),
+			],
+		});
+		mockComputeASTDiff.mockResolvedValue(astDiff);
 
-		mockClassifyChanges.mockReturnValue([]);
-		mockGenerateSummary.mockReturnValue(makeSemanticDiffSummary());
+		const classifiedChanges: ClassifiedChange[] = [
+			makeClassifiedChange({
+				category: 'NEW_FUNCTION',
+				riskLevel: 'Medium',
+				filePath: 'new-file.ts',
+				symbolName: 'newFeature',
+				changeType: 'added',
+			}),
+		];
+		mockClassifyChanges.mockReturnValue(classifiedChanges);
+
+		mockGenerateSummary.mockReturnValue(
+			makeSemanticDiffSummary({
+				totalFiles: 1,
+				totalChanges: 1,
+				byCategory: {
+					SIGNATURE_CHANGE: [],
+					API_CHANGE: [],
+					GUARD_REMOVED: [],
+					LOGIC_CHANGE: [],
+					DELETED_FUNCTION: [],
+					NEW_FUNCTION: classifiedChanges,
+					REFACTOR: [],
+					COSMETIC: [],
+					UNCLASSIFIED: [],
+				},
+			}),
+		);
 
 		const result = await diff_summary.execute(
 			{ files: ['new-file.ts'] },
@@ -479,13 +519,114 @@ describe('diff_summary tool', () => {
 		);
 
 		const parsed = JSON.parse(result);
-		// Should return empty summary since the only file was skipped
-		expect(parsed.totalFiles).toBe(0);
-		expect(parsed.totalChanges).toBe(0);
+		// Should produce changes for the untracked file
+		expect(parsed.totalFiles).toBe(1);
+		expect(parsed.totalChanges).toBe(1);
 	});
 
 	// =============================================================================
-	// TEST 10: Handles fs read failure gracefully
+	// TEST 10: Handles untracked file - produces NEW_FUNCTION entries
+	// =============================================================================
+	test('handles untracked file - produces NEW_FUNCTION entries', async () => {
+		const { diff_summary } = await import('../../tools/diff-summary.js');
+
+		// Mock cat-file -e to throw for badge.tsx (simulating untracked file)
+		mockExecFileSync.mockImplementation((_cmd: string, args: string[]) => {
+			if (
+				args[0] === 'cat-file' &&
+				args[1] === '-e' &&
+				args[2] === 'HEAD:badge.tsx'
+			) {
+				throw new Error('fatal: pathspec did not match any files');
+			}
+			return 'old content';
+		});
+		mockReadFileSync.mockReturnValue(
+			'export function Badge() { return <div/> }',
+		);
+
+		// Mock computeASTDiff returning result with type: 'added'
+		const astDiff = makeASTDiffResult({
+			filePath: 'badge.tsx',
+			changes: [
+				makeASTChange({
+					type: 'added',
+					category: 'function',
+					name: 'Badge',
+					lineStart: 1,
+					lineEnd: 1,
+				}),
+			],
+		});
+		mockComputeASTDiff.mockResolvedValue(astDiff);
+
+		// Mock classifyChanges returning NEW_FUNCTION category
+		const classifiedChanges: ClassifiedChange[] = [
+			makeClassifiedChange({
+				category: 'NEW_FUNCTION',
+				riskLevel: 'Medium',
+				filePath: 'badge.tsx',
+				symbolName: 'Badge',
+				changeType: 'added',
+				description: "New function 'Badge' added",
+			}),
+		];
+		mockClassifyChanges.mockReturnValue(classifiedChanges);
+
+		mockGenerateSummary.mockReturnValue(
+			makeSemanticDiffSummary({
+				totalFiles: 1,
+				totalChanges: 1,
+				byCategory: {
+					SIGNATURE_CHANGE: [],
+					API_CHANGE: [],
+					GUARD_REMOVED: [],
+					LOGIC_CHANGE: [],
+					DELETED_FUNCTION: [],
+					NEW_FUNCTION: classifiedChanges,
+					REFACTOR: [],
+					COSMETIC: [],
+					UNCLASSIFIED: [],
+				},
+			}),
+		);
+
+		const result = await diff_summary.execute(
+			{ files: ['badge.tsx'] },
+			createToolContext('/fake/dir'),
+		);
+
+		const parsed = JSON.parse(result);
+		expect(parsed.totalFiles).toBe(1);
+		expect(parsed.totalChanges).toBe(1);
+	});
+
+	// =============================================================================
+	// TEST 11: Handles ENOENT from git binary missing - returns error (not silent skip)
+	// =============================================================================
+	test('handles ENOENT from git binary missing - returns error not silent skip', async () => {
+		const { diff_summary } = await import('../../tools/diff-summary.js');
+
+		// Mock execFileSync to throw ENOENT (git binary not found)
+		const enoentError = Object.assign(new Error('spawnSync git ENOENT'), {
+			code: 'ENOENT',
+		});
+		mockExecFileSync.mockImplementation(() => {
+			throw enoentError;
+		});
+
+		const result = await diff_summary.execute(
+			{ files: ['test.ts'] },
+			createToolContext('/fake/dir'),
+		);
+
+		const parsed = JSON.parse(result);
+		expect(parsed.success).toBe(false);
+		expect(parsed.error).toContain('diff_summary failed');
+	});
+
+	// =============================================================================
+	// TEST 12: Handles fs read failure gracefully
 	// =============================================================================
 	test('handles fs read failure gracefully - skips file with read error', async () => {
 		const { diff_summary } = await import('../../tools/diff-summary.js');
@@ -493,9 +634,13 @@ describe('diff_summary tool', () => {
 		// Mock git show success
 		mockExecFileSync.mockReturnValue('old content');
 
-		// Mock fs.readFileSync throwing
+		// Mock fs.readFileSync throwing with ENOENT code (deleted file scenario)
 		mockReadFileSync.mockImplementation(() => {
-			throw new Error('ENOENT: no such file or directory');
+			const err = new Error('ENOENT: no such file or directory') as Error & {
+				code: string;
+			};
+			err.code = 'ENOENT';
+			throw err;
 		});
 
 		mockClassifyChanges.mockReturnValue([]);
@@ -513,7 +658,7 @@ describe('diff_summary tool', () => {
 	});
 
 	// =============================================================================
-	// TEST 11: Handles computeASTDiff throwing an error
+	// TEST 13: Handles computeASTDiff throwing an error
 	// =============================================================================
 	test('handles computeASTDiff throwing an error - skips file gracefully', async () => {
 		const { diff_summary } = await import('../../tools/diff-summary.js');
@@ -539,13 +684,102 @@ describe('diff_summary tool', () => {
 	});
 
 	// =============================================================================
-	// TEST 12: Processes multiple files correctly
+	// TEST 13b: ENOENT from fs.readFileSync for deleted file is silently skipped, not re-thrown
+	// =============================================================================
+	test('ENOENT from fs.readFileSync for deleted file is silently skipped, not re-thrown', async () => {
+		const { diff_summary } = await import('../../tools/diff-summary.js');
+
+		// Mock execFileSync succeeds (git operations work)
+		mockExecFileSync.mockReturnValue('old content');
+
+		// Mock fs.readFileSync throwing ENOENT (file deleted from disk)
+		mockReadFileSync.mockImplementation(() => {
+			const err = new Error('ENOENT: no such file or directory') as Error & {
+				code: string;
+			};
+			err.code = 'ENOENT';
+			throw err;
+		});
+
+		mockClassifyChanges.mockReturnValue([]);
+		mockGenerateSummary.mockReturnValue(makeSemanticDiffSummary());
+
+		const result = await diff_summary.execute(
+			{ files: ['deleted-file.ts'] },
+			createToolContext('/fake/dir'),
+		);
+
+		const parsed = JSON.parse(result);
+		// File should be silently skipped, returning empty summary (not crash)
+		expect(parsed.totalFiles).toBe(0);
+		expect(parsed.totalChanges).toBe(0);
+		// Should NOT have an error - the deleted file was handled gracefully
+		expect(parsed.success).not.toBe(false);
+	});
+
+	// =============================================================================
+	// TEST 13c: ASTDiffResult with empty changes but non-empty error IS included (not silently dropped)
+	// =============================================================================
+	test('ASTDiffResult with empty changes but non-empty error is included via the || astResult.error guard', async () => {
+		const { diff_summary } = await import('../../tools/diff-summary.js');
+
+		// Mock execFileSync to succeed for cat-file check (file exists in HEAD) and git show
+		mockExecFileSync.mockImplementation((_cmd: string, args: string[]) => {
+			if (args[0] === 'cat-file' && args[1] === '-e') {
+				// File exists in HEAD
+				return '';
+			}
+			if (args[0] === 'show') {
+				// git show HEAD:filepath returns old content
+				return 'old content';
+			}
+			return '';
+		});
+
+		// Mock fs.readFileSync to return new content
+		mockReadFileSync.mockReturnValue('new content');
+
+		// Mock computeASTDiff returning result with empty changes but non-empty error
+		// This exercises the guard: (astResult.changes.length > 0 || astResult.error !== undefined)
+		mockComputeASTDiff.mockResolvedValue(
+			makeASTDiffResult({
+				filePath: 'broken.ts',
+				language: 'typescript',
+				changes: [],
+				durationMs: 5,
+				usedAST: false,
+				error: 'parse failed: tree-sitter timeout',
+			}),
+		);
+
+		mockClassifyChanges.mockReturnValue([]);
+		mockGenerateSummary.mockReturnValue(makeSemanticDiffSummary());
+
+		const result = await diff_summary.execute(
+			{ files: ['broken.ts'] },
+			createToolContext('/fake/dir'),
+		);
+
+		const parsed = JSON.parse(result);
+		// Should NOT return an error result — the file was processed (even though it had a parse error)
+		expect(parsed.success).not.toBe(false);
+		// The error-only result was NOT silently dropped — it passed the guard
+		// verify computeASTDiff was called (meaning the guard allowed it through)
+		expect(mockComputeASTDiff).toHaveBeenCalledWith(
+			'broken.ts',
+			'old content',
+			'new content',
+		);
+	});
+
+	// =============================================================================
+	// TEST 14: Processes multiple files correctly
 	// =============================================================================
 	test('processes multiple files and accumulates changes', async () => {
 		const { diff_summary } = await import('../../tools/diff-summary.js');
 
 		// First file: git success, second file: git failure
-		mockExecFileSync.mockImplementation((cmd: string, args: string[]) => {
+		mockExecFileSync.mockImplementation((_cmd: string, args: string[]) => {
 			if (args[1] === 'HEAD:src/file1.ts') {
 				return 'old content 1';
 			}
@@ -599,7 +833,7 @@ describe('diff_summary tool', () => {
 	});
 
 	// =============================================================================
-	// TEST 13: Top-level error handling (unexpected exceptions)
+	// TEST 15: Top-level error handling (unexpected exceptions)
 	// =============================================================================
 	test('catches unexpected errors and returns error result', async () => {
 		const { diff_summary } = await import('../../tools/diff-summary.js');

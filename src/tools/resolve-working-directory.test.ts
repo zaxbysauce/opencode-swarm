@@ -31,14 +31,12 @@ describe('resolveWorkingDirectory project root anchor (issue #577 regression)', 
 		}
 	});
 
-	it('rejects working_directory pointing to a different absolute path', () => {
+	it('accepts working_directory pointing to a different absolute path that is not a subdirectory', () => {
 		const result = resolveWorkingDirectory('/tmp', tmpDir);
-		// /tmp exists and is a real directory but is not the project root
-		if (!result.success) {
-			expect(result.message).toContain('project root');
-		} else {
-			// If /tmp resolves to tmpDir somehow (impossible), that's also fine
-			expect(result.directory).toBe(path.resolve(tmpDir));
+		// /tmp is a valid directory and is not a subdirectory of the project root, so it should be accepted
+		expect(result.success).toBe(true);
+		if (result.success) {
+			expect(result.directory).toBe(path.resolve('/tmp'));
 		}
 	});
 

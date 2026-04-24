@@ -1,5 +1,7 @@
 # Technical Debt and CI Stability Report
 
+> **Archived 2026-04-23.** This report captured a point-in-time review from early April 2026 and is retained for historical reference. Findings may no longer reflect the current state of the codebase.
+
 Generated: 2026-04-01
 Scope: All CI workflows, all unit/integration/smoke/security test directories, src/, package.json, tsconfig.json, biome.json, bun.lock, TESTING.md
 Files reviewed: ~350+

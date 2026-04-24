@@ -17,6 +17,7 @@ import {
 	advanceTaskState,
 	getTaskState,
 	hasActiveTurboMode,
+	hasBothStageBCompletions,
 	swarmState,
 } from '../state';
 import { telemetry } from '../telemetry.js';
@@ -130,11 +131,13 @@ function matchesTier3Pattern(files: string[]): boolean {
  * both reviewer delegation and test_engineer runs have been recorded.
  * @param taskId - The task ID to check gate state for
  * @param workingDirectory - Optional working directory for plan.json fallback
+ * @param stageBParallelEnabled - When true, also accept both-markers-present as passing (PR 2 barrier)
  * @returns ReviewerGateResult indicating whether the gate is blocked
  */
 export function checkReviewerGate(
 	taskId: string,
 	workingDirectory?: string,
+	stageBParallelEnabled = false,
 ): ReviewerGateResult {
 	try {
 		// === Turbo Mode bypass check ===
@@ -253,6 +256,13 @@ export function checkReviewerGate(
 			if (state === 'tests_run' || state === 'complete') {
 				return { blocked: false, reason: '' };
 			}
+
+			// PR 2 Stage B parallel barrier: both completion markers present is sufficient
+			// even if state machine advancement was delayed (e.g., non-fatal exception
+			// in toolAfter). Only active when flag is on.
+			if (stageBParallelEnabled && hasBothStageBCompletions(session, taskId)) {
+				return { blocked: false, reason: '' };
+			}
 		}
 
 		// If all sessions had corrupt workflow state, allow through —
@@ -364,6 +374,7 @@ export function checkReviewerGate(
 /**
  * Wrapper around checkReviewerGate that appends a diff-scope advisory warning.
  * Keeps checkReviewerGate synchronous for backward compatibility.
+ * Also resolves the PR 2 stageB.parallel.enabled flag from config.
  * @param taskId - The task ID to check gate state for
  * @param workingDirectory - Optional working directory for plan.json fallback
  * @returns ReviewerGateResult with optional scope warning appended to reason
@@ -372,7 +383,21 @@ export async function checkReviewerGateWithScope(
 	taskId: string,
 	workingDirectory?: string,
 ): Promise<ReviewerGateResult> {
-	const result = checkReviewerGate(taskId, workingDirectory);
+	let stageBParallelEnabled = false;
+	if (workingDirectory) {
+		try {
+			const cfg = await loadPluginConfig(workingDirectory);
+			stageBParallelEnabled =
+				cfg.parallelization?.stageB?.parallel?.enabled === true;
+		} catch {
+			// Config load failure — fall back to disabled (safe default)
+		}
+	}
+	const result = checkReviewerGate(
+		taskId,
+		workingDirectory,
+		stageBParallelEnabled,
+	);
 	const scopeWarning = await validateDiffScope(taskId, workingDirectory!).catch(
 		() => null,
 	);
@@ -713,10 +738,9 @@ export async function executeUpdateTaskStatus(
 					fd,
 					JSON.stringify(
 						{
-							task_id: args.task_id,
+							taskId: args.task_id,
 							required_gates: ['reviewer', 'test_engineer'],
 							gates: {},
-							started_at: new Date().toISOString(),
 						},
 						null,
 						2,

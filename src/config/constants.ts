@@ -24,6 +24,19 @@ export const ALL_AGENT_NAMES = [
 	...ALL_SUBAGENT_NAMES,
 ] as const;
 
+// Opencode built-in native agents — not part of the swarm workflow.
+// These agents are managed entirely by opencode's own permission system and
+// must be exempted from swarm guardrails (authority checks, circuit breaker, etc.).
+export const OPENCODE_NATIVE_AGENTS = new Set([
+	'build',
+	'plan',
+	'general',
+	'explore',
+	'compaction',
+	'title',
+	'summary',
+] as const);
+
 // Type definitions
 export type QAAgentName = (typeof QA_AGENTS)[number];
 export type PipelineAgentName = (typeof PIPELINE_AGENTS)[number];
@@ -60,6 +73,8 @@ export const AGENT_TOOL_MAP: Record<AgentName, ToolName[]> = {
 		'test_runner',
 		'test_impact',
 		'mutation_test',
+		'generate_mutants',
+		'write_mutation_evidence',
 		'todo_extract',
 		'update_task_status',
 		'lint_spec',
@@ -277,6 +292,10 @@ export const TOOL_DESCRIPTIONS: Partial<Record<ToolName, string>> = {
 		'identify test files impacted by changed source files via import analysis',
 	mutation_test:
 		'executes pre-generated mutation patches against tests, evaluates kill rate against quality gate thresholds',
+	generate_mutants:
+		'generate LLM-based mutation testing patches for source files; returns MutationPatch[] for direct consumption by the mutation_test tool',
+	write_mutation_evidence:
+		'write mutation gate evidence for a completed phase; normalizes PASS/WARN/FAIL/SKIP verdicts and writes .swarm/evidence/{phase}/mutation-gate.json',
 	pkg_audit: 'dependency vulnerability scan — npm/pip/cargo',
 	complexity_hotspots: 'git churn × complexity risk map',
 	schema_drift: 'OpenAPI spec vs route drift',
@@ -329,9 +348,9 @@ export const TOOL_DESCRIPTIONS: Partial<Record<ToolName, string>> = {
 	repo_map:
 		'query the repo code graph: importers, dependencies, blast radius, and localization context for structural awareness before refactoring',
 	get_qa_gate_profile:
-		'retrieve the QA gate profile for the current plan: gates, lock state, and profile hash. Read-only.',
+		'retrieve the QA gate profile for the current plan: gates (reviewer, test_engineer, sme_enabled, critic_pre_plan, sast_enabled, council_mode, hallucination_guard, mutation_test), lock state, and profile hash. Read-only.',
 	set_qa_gates:
-		'configure the QA gate profile for the current plan. Architect-only. Ratchet-tighter only — rejected once the profile is locked after critic approval.',
+		'configure the QA gate profile for the current plan. Architect-only. Ratchet-tighter only — rejected once the profile is locked after critic approval. Supports: reviewer, test_engineer, sme_enabled, critic_pre_plan, sast_enabled, council_mode, hallucination_guard, mutation_test.',
 	req_coverage:
 		'query requirement coverage status for tracked functional requirements',
 };

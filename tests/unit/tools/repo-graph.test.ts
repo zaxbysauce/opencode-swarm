@@ -12,6 +12,7 @@ import * as os from 'node:os';
 import * as path from 'node:path';
 import {
 	addEdge,
+	buildWorkspaceGraph,
 	clearCache,
 	createEmptyGraph,
 	type GraphEdge,
@@ -1127,5 +1128,99 @@ describe('adversarial input shapes', () => {
 		const graph = createEmptyGraph('test');
 		upsertNode(graph, node);
 		expect(graph.nodes[longPath]).toEqual(node);
+	});
+});
+
+describe('control character safety in buildWorkspaceGraph', () => {
+	let tempDir: string;
+	let workspacePath: string;
+
+	beforeEach(async () => {
+		tempDir = await fs.promises.mkdtemp(
+			path.join(process.cwd(), 'repo-graph-ctrl-char-'),
+		);
+		workspacePath = path.relative(process.cwd(), tempDir);
+	});
+
+	afterEach(async () => {
+		clearCache(workspacePath);
+		try {
+			await fs.promises.rm(tempDir, { recursive: true, force: true });
+		} catch {
+			// Ignore cleanup errors
+		}
+	});
+
+	test('buildWorkspaceGraph does not throw when an import specifier contains a CR byte', async () => {
+		// dirty.ts: one clean import + one import whose specifier contains a literal
+		// carriage-return byte (0x0D).  Use String.fromCharCode(13) so the CR is
+		// unambiguously a single control character, not the two-char sequence \r.
+		const cr = String.fromCharCode(13);
+		const dirtyContent = `import x from './bar${cr}.js';\nimport y from './ok';\n`;
+
+		// clean.ts: a file with well-formed imports of all three kinds
+		const cleanContent = [
+			"import { foo } from './foo';",
+			"const r = require('./req');",
+			"const d = import('./dyn');",
+		].join('\n');
+
+		await fs.promises.writeFile(
+			path.join(tempDir, 'dirty.ts'),
+			dirtyContent,
+			'binary',
+		);
+		await fs.promises.writeFile(path.join(tempDir, 'clean.ts'), cleanContent);
+		// Stub target files so edges can resolve (optional — edges are only created
+		// when targets exist, but graph build must not throw regardless)
+		await fs.promises.writeFile(path.join(tempDir, 'ok.ts'), 'export {};');
+		await fs.promises.writeFile(
+			path.join(tempDir, 'foo.ts'),
+			'export const foo = 1;',
+		);
+
+		// Must not throw
+		const graph = buildWorkspaceGraph(workspacePath);
+
+		// Both source files appear as nodes
+		const moduleNames = Object.values(graph.nodes).map((n) => n.moduleName);
+		expect(moduleNames).toContain('dirty.ts');
+		expect(moduleNames).toContain('clean.ts');
+
+		// The dirty specifier must not appear in any node's imports
+		for (const node of Object.values(graph.nodes)) {
+			for (const imp of node.imports) {
+				expect(/[\0\t\r\n]/.test(imp)).toBe(false);
+			}
+		}
+
+		// The dirty specifier must not appear in any edge's importSpecifier
+		for (const edge of graph.edges) {
+			expect(/[\0\t\r\n]/.test(edge.importSpecifier)).toBe(false);
+		}
+
+		// clean.ts's well-formed specifier is retained
+		const cleanNode = Object.values(graph.nodes).find(
+			(n) => n.moduleName === 'clean.ts',
+		);
+		expect(cleanNode).toBeDefined();
+		expect(cleanNode?.imports).toContain('./foo');
+	});
+
+	test('validateGraphNode error message includes filePath and value when imports contains control characters', () => {
+		const node: GraphNode = {
+			filePath: '/abs/foo.ts',
+			moduleName: 'foo',
+			exports: [],
+			imports: [`./bar${String.fromCharCode(13)}.js`],
+			language: 'ts',
+			mtime: '123',
+		};
+		// Original substring must still be present (toThrow uses substring matching)
+		expect(() => validateGraphNode(node)).toThrow(
+			'Invalid node: imports contains control characters',
+		);
+		// New context info must also appear
+		expect(() => validateGraphNode(node)).toThrow('/abs/foo.ts');
 	});
 });

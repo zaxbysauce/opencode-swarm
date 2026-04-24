@@ -36,6 +36,7 @@ export interface SetQaGatesArgs {
 	critic_pre_plan?: boolean;
 	hallucination_guard?: boolean;
 	sast_enabled?: boolean;
+	mutation_test?: boolean;
 	project_type?: string;
 }
 
@@ -81,6 +82,7 @@ export async function executeSetQaGates(
 		'critic_pre_plan',
 		'hallucination_guard',
 		'sast_enabled',
+		'mutation_test',
 	] as Array<keyof QaGates>) {
 		if (args[key] !== undefined) partial[key] = args[key] as boolean;
 	}
@@ -156,6 +158,14 @@ export const set_qa_gates: ReturnType<typeof tool> = createSwarmTool({
 			.boolean()
 			.optional()
 			.describe('Enable SAST scanning as a required QA gate.'),
+		mutation_test: tool.schema
+			.boolean()
+			.optional()
+			.describe(
+				'Enable the mutation-testing gate (default: off). Requires mutation ' +
+					'tests to achieve a passing kill rate before phase completion; ' +
+					'WARN verdict allows advancement, FAIL blocks.',
+			),
 		project_type: tool.schema
 			.string()
 			.optional()

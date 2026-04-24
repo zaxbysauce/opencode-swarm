@@ -203,8 +203,8 @@ export declare const PhaseCompleteConfigSchema: z.ZodObject<{
     enabled: z.ZodDefault<z.ZodBoolean>;
     required_agents: z.ZodDefault<z.ZodArray<z.ZodEnum<{
         reviewer: "reviewer";
-        test_engineer: "test_engineer";
         coder: "coder";
+        test_engineer: "test_engineer";
     }>>>;
     require_docs: z.ZodDefault<z.ZodBoolean>;
     policy: z.ZodDefault<z.ZodEnum<{
@@ -233,8 +233,8 @@ export type ReviewPassesConfig = z.infer<typeof ReviewPassesConfigSchema>;
 export declare const AdversarialDetectionConfigSchema: z.ZodObject<{
     enabled: z.ZodDefault<z.ZodBoolean>;
     policy: z.ZodDefault<z.ZodEnum<{
-        gate: "gate";
         warn: "warn";
+        gate: "gate";
         ignore: "ignore";
     }>>;
     pairs: z.ZodDefault<z.ZodArray<z.ZodTuple<[z.ZodString, z.ZodString], null>>>;
@@ -477,6 +477,20 @@ export declare const CompactionConfigSchema: z.ZodObject<{
     preserveLastNTurns: z.ZodDefault<z.ZodNumber>;
 }, z.core.$strip>;
 export type CompactionConfig = z.infer<typeof CompactionConfigSchema>;
+export declare const PrmConfigSchema: z.ZodObject<{
+    enabled: z.ZodDefault<z.ZodBoolean>;
+    pattern_thresholds: z.ZodDefault<z.ZodObject<{
+        repetition_loop: z.ZodDefault<z.ZodNumber>;
+        ping_pong: z.ZodDefault<z.ZodNumber>;
+        expansion_drift: z.ZodDefault<z.ZodNumber>;
+        stuck_on_test: z.ZodDefault<z.ZodNumber>;
+        context_thrash: z.ZodDefault<z.ZodNumber>;
+    }, z.core.$strip>>;
+    max_trajectory_lines: z.ZodDefault<z.ZodNumber>;
+    escalation_enabled: z.ZodDefault<z.ZodBoolean>;
+    detection_timeout_ms: z.ZodDefault<z.ZodNumber>;
+}, z.core.$strip>;
+export type PrmConfig = z.infer<typeof PrmConfigSchema>;
 export declare const AgentAuthorityRuleSchema: z.ZodObject<{
     readOnly: z.ZodOptional<z.ZodBoolean>;
     blockedExact: z.ZodOptional<z.ZodArray<z.ZodString>>;
@@ -526,6 +540,17 @@ export declare const CouncilConfigSchema: z.ZodObject<{
     escalateOnMaxRounds: z.ZodOptional<z.ZodString>;
 }, z.core.$strict>;
 export type CouncilConfig = z.infer<typeof CouncilConfigSchema>;
+export declare const ParallelizationConfigSchema: z.ZodObject<{
+    enabled: z.ZodDefault<z.ZodBoolean>;
+    maxConcurrentTasks: z.ZodDefault<z.ZodNumber>;
+    evidenceLockTimeoutMs: z.ZodDefault<z.ZodNumber>;
+    stageB: z.ZodDefault<z.ZodObject<{
+        parallel: z.ZodDefault<z.ZodObject<{
+            enabled: z.ZodDefault<z.ZodBoolean>;
+        }, z.core.$strip>>;
+    }, z.core.$strip>>;
+}, z.core.$strip>;
+export type ParallelizationConfig = z.infer<typeof ParallelizationConfigSchema>;
 export declare const PluginConfigSchema: z.ZodObject<{
     agents: z.ZodOptional<z.ZodRecord<z.ZodString, z.ZodObject<{
         model: z.ZodOptional<z.ZodString>;
@@ -550,8 +575,8 @@ export declare const PluginConfigSchema: z.ZodObject<{
         enabled: z.ZodDefault<z.ZodBoolean>;
         required_agents: z.ZodDefault<z.ZodArray<z.ZodEnum<{
             reviewer: "reviewer";
-            test_engineer: "test_engineer";
             coder: "coder";
+            test_engineer: "test_engineer";
         }>>>;
         require_docs: z.ZodDefault<z.ZodBoolean>;
         policy: z.ZodDefault<z.ZodEnum<{
@@ -735,8 +760,8 @@ export declare const PluginConfigSchema: z.ZodObject<{
     adversarial_detection: z.ZodOptional<z.ZodObject<{
         enabled: z.ZodDefault<z.ZodBoolean>;
         policy: z.ZodDefault<z.ZodEnum<{
-            gate: "gate";
             warn: "warn";
+            gate: "gate";
             ignore: "ignore";
         }>>;
         pairs: z.ZodDefault<z.ZodArray<z.ZodTuple<[z.ZodString, z.ZodString], null>>>;
@@ -875,6 +900,19 @@ export declare const PluginConfigSchema: z.ZodObject<{
         emergencyThreshold: z.ZodDefault<z.ZodNumber>;
         preserveLastNTurns: z.ZodDefault<z.ZodNumber>;
     }, z.core.$strip>>;
+    prm: z.ZodOptional<z.ZodObject<{
+        enabled: z.ZodDefault<z.ZodBoolean>;
+        pattern_thresholds: z.ZodDefault<z.ZodObject<{
+            repetition_loop: z.ZodDefault<z.ZodNumber>;
+            ping_pong: z.ZodDefault<z.ZodNumber>;
+            expansion_drift: z.ZodDefault<z.ZodNumber>;
+            stuck_on_test: z.ZodDefault<z.ZodNumber>;
+            context_thrash: z.ZodDefault<z.ZodNumber>;
+        }, z.core.$strip>>;
+        max_trajectory_lines: z.ZodDefault<z.ZodNumber>;
+        escalation_enabled: z.ZodDefault<z.ZodBoolean>;
+        detection_timeout_ms: z.ZodDefault<z.ZodNumber>;
+    }, z.core.$strip>>;
     council: z.ZodOptional<z.ZodObject<{
         enabled: z.ZodDefault<z.ZodBoolean>;
         maxRounds: z.ZodDefault<z.ZodNumber>;
@@ -883,6 +921,16 @@ export declare const PluginConfigSchema: z.ZodObject<{
         requireAllMembers: z.ZodDefault<z.ZodBoolean>;
         escalateOnMaxRounds: z.ZodOptional<z.ZodString>;
     }, z.core.$strict>>;
+    parallelization: z.ZodOptional<z.ZodObject<{
+        enabled: z.ZodDefault<z.ZodBoolean>;
+        maxConcurrentTasks: z.ZodDefault<z.ZodNumber>;
+        evidenceLockTimeoutMs: z.ZodDefault<z.ZodNumber>;
+        stageB: z.ZodDefault<z.ZodObject<{
+            parallel: z.ZodDefault<z.ZodObject<{
+                enabled: z.ZodDefault<z.ZodBoolean>;
+            }, z.core.$strip>>;
+        }, z.core.$strip>>;
+    }, z.core.$strip>>;
     turbo_mode: z.ZodOptional<z.ZodDefault<z.ZodBoolean>>;
     full_auto: z.ZodDefault<z.ZodOptional<z.ZodObject<{
         enabled: z.ZodDefault<z.ZodBoolean>;
