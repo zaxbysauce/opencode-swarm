@@ -1,5 +1,12 @@
 # Changelog
 
+## [6.84.2](https://github.com/zaxbysauce/opencode-swarm/compare/v6.84.1...v6.84.2) (2026-04-24)
+
+
+### Bug Fixes
+
+* **install:** clear opencode runtime plugin cache on install ([#601](https://github.com/zaxbysauce/opencode-swarm/issues/601)) ([383d155](https://github.com/zaxbysauce/opencode-swarm/commit/383d1559d6d2f6ddd4e40902b1b9f35232656ae6))
+
 ## [6.84.1](https://github.com/zaxbysauce/opencode-swarm/compare/v6.84.0...v6.84.1) (2026-04-24)
 
 
