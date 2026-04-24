@@ -14,6 +14,13 @@ const OPENCODE_CONFIG_PATH = path.join(CONFIG_DIR, 'opencode.json');
 const PLUGIN_CONFIG_PATH = path.join(CONFIG_DIR, 'opencode-swarm.json');
 const PROMPTS_DIR = path.join(CONFIG_DIR, 'opencode-swarm');
 
+const OPENCODE_PLUGIN_CACHE_PATH = path.join(
+	process.env.XDG_CACHE_HOME || path.join(os.homedir(), '.cache'),
+	'opencode',
+	'packages',
+	'opencode-swarm@latest',
+);
+
 interface OpenCodeConfig {
 	plugin?: string[];
 	agent?: Record<string, unknown>;
@@ -110,6 +117,25 @@ async function install(): Promise<number> {
 	saveJson(OPENCODE_CONFIG_PATH, opencodeConfig);
 	console.log('✓ Added opencode-swarm to OpenCode plugins');
 	console.log('✓ Disabled default OpenCode agents (explore, general)');
+
+	// Evict the opencode plugin cache so the next startup pulls the latest version
+	// from npm. opencode's Npm.add() is cache-first with no staleness check — once
+	// the directory exists it is returned verbatim on every subsequent start,
+	// ignoring all npm updates. Clearing it here ensures `bunx opencode-swarm install`
+	// actually upgrades the running version, not just the config registration.
+	try {
+		if (fs.existsSync(OPENCODE_PLUGIN_CACHE_PATH)) {
+			fs.rmSync(OPENCODE_PLUGIN_CACHE_PATH, { recursive: true, force: true });
+			console.log(
+				'✓ Cleared opencode plugin cache (next start will fetch latest)',
+			);
+		}
+	} catch {
+		console.warn(
+			'⚠ Could not clear opencode plugin cache — you may need to delete it manually:',
+		);
+		console.warn(`  ${OPENCODE_PLUGIN_CACHE_PATH}`);
+	}
 
 	// Create default plugin config if not exists
 	if (!fs.existsSync(PLUGIN_CONFIG_PATH)) {
