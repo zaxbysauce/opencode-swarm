@@ -1,5 +1,12 @@
 # Changelog
 
+## [6.83.0](https://github.com/zaxbysauce/opencode-swarm/compare/v6.82.2...v6.83.0) (2026-04-24)
+
+
+### Features
+
+* **agents:** add get_approved_plan to critic with baseline comparison mandate ([#582](https://github.com/zaxbysauce/opencode-swarm/issues/582)) ([6ec5b70](https://github.com/zaxbysauce/opencode-swarm/commit/6ec5b704488226f81004ceefc13d56c74008ae98))
+
 ## [6.82.2](https://github.com/zaxbysauce/opencode-swarm/compare/v6.82.1...v6.82.2) (2026-04-24)
 
 
