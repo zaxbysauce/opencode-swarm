@@ -64,14 +64,14 @@ const mockIsAutoSummaryEnabled = isAutoSummaryEnabled as jest.MockedFunction<
 >;
 
 let tempDir: string;
-let swarmDir: string;
+let projectDir: string;
 
 beforeEach(() => {
 	tempDir = join(
 		tmpdir(),
 		`evidence-integration-test-${Date.now()}-${Math.random().toString(36).slice(2)}`,
 	);
-	swarmDir = tempDir;
+	projectDir = tempDir;
 	mkdirSync(join(tempDir, '.swarm'), { recursive: true });
 	mockSubscribers.clear();
 	jest.clearAllMocks();
@@ -104,7 +104,7 @@ function createIntegrationConfig(
 	return {
 		automationConfig: createMockAutomationConfig(),
 		directory: tempDir,
-		swarmDir,
+		projectDir,
 		...overrides,
 	};
 }
@@ -217,7 +217,7 @@ describe('EvidenceSummaryIntegration', () => {
 			expect(result!.planTitle).toBe('Test Plan');
 
 			// Verify artifact was persisted
-			const artifactPath = join(swarmDir, '.swarm', 'evidence-summary.json');
+			const artifactPath = join(projectDir, '.swarm', 'evidence-summary.json');
 			expect(existsSync(artifactPath)).toBe(true);
 
 			const content = JSON.parse(readFileSync(artifactPath, 'utf-8'));
@@ -244,14 +244,14 @@ describe('EvidenceSummaryIntegration', () => {
 
 			await integration.generateSummary(1, 'preflight.completed');
 
-			const artifactPath = join(swarmDir, '.swarm', 'custom-summary.json');
+			const artifactPath = join(projectDir, '.swarm', 'custom-summary.json');
 			expect(existsSync(artifactPath)).toBe(true);
 		});
 
 		it('creates .swarm directory if it does not exist', async () => {
 			// Remove the .swarm directory
-			rmSync(join(swarmDir, '.swarm'), { recursive: true, force: true });
-			expect(existsSync(join(swarmDir, '.swarm'))).toBe(false);
+			rmSync(join(projectDir, '.swarm'), { recursive: true, force: true });
+			expect(existsSync(join(projectDir, '.swarm'))).toBe(false);
 
 			mockIsAutoSummaryEnabled.mockReturnValue(true);
 			mockBuildEvidenceSummary.mockResolvedValue({
@@ -270,7 +270,7 @@ describe('EvidenceSummaryIntegration', () => {
 
 			await integration.generateSummary(1, 'preflight.completed');
 
-			expect(existsSync(join(swarmDir, '.swarm'))).toBe(true);
+			expect(existsSync(join(projectDir, '.swarm'))).toBe(true);
 		});
 
 		it('handles errors gracefully', async () => {
