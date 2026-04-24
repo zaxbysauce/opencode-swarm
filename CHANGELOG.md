@@ -1,5 +1,12 @@
 # Changelog
 
+## [6.82.2](https://github.com/zaxbysauce/opencode-swarm/compare/v6.82.1...v6.82.2) (2026-04-24)
+
+
+### Bug Fixes
+
+* **swarm-dirs:** prevent .swarm directories from being created in project sub-folders ([#577](https://github.com/zaxbysauce/opencode-swarm/issues/577)) ([#579](https://github.com/zaxbysauce/opencode-swarm/issues/579)) ([e8f0f88](https://github.com/zaxbysauce/opencode-swarm/commit/e8f0f88edbf9fca54a58fa410a7a006009f79a41))
+
 ## [6.82.1](https://github.com/zaxbysauce/opencode-swarm/compare/v6.82.0...v6.82.1) (2026-04-23)
 
 
