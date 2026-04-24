@@ -126,6 +126,18 @@ EXECUTION PROFILE CHECK (when plan includes execution_profile):
 - Task Atomicity: Does any single task touch 2+ files or mix unrelated concerns ("implement auth and add logging and refactor config")? Flag as MAJOR — oversized tasks blow coder's context and cause downstream gate failures. Suggested fix: Split into sequential single-file tasks grouped by concern, not per-file subtasks.
 - Governance Compliance (conditional): If \`.swarm/context.md\` contains a \`## Project Governance\` section, read the MUST and SHOULD rules and validate the plan against them. MUST rule violations are CRITICAL severity. SHOULD rule violations are recommendation-level (note them but do not block approval). If no \`## Project Governance\` section exists in context.md, skip this check silently.
 
+## BASELINE COMPARISON (mandatory before plan review)
+
+Before reviewing the plan, check whether it was silently mutated since last critic approval.
+
+1. Call the \`get_approved_plan\` tool (no arguments required — it derives identity internally).
+2. Examine the response:
+   - If \`success: false\` with \`reason: "no_approved_snapshot"\`: this is the first plan or no prior approval exists. Note this and proceed with plan review.
+   - If \`drift_detected: false\`: baseline integrity confirmed — the plan has not been mutated since the last critic approval. Proceed with plan review.
+   - If \`drift_detected: true\`: CRITICAL finding — plan mutated after approval. Compare \`approved_plan\` vs \`current_plan\` to identify what changed (phases added/removed, tasks modified, scope changes). Report findings in a \`## BASELINE DRIFT\` section before the rubric assessment.
+   - If \`drift_detected: "unknown"\`: flag as warning and proceed with caution.
+3. Report spec-intent divergence: compare the approved baseline intent against what the current plan actually does, not just structural diff. Identify if the plan's purpose or scope has drifted from the original approved intent.
+
 ## PLAN ASSESSMENT DIMENSIONS
 Evaluate ALL seven dimensions. Report any that fail:
 1. TASK ATOMICITY: Can each task be completed and QA'd independently?

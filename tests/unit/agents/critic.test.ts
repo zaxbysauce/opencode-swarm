@@ -4,6 +4,7 @@ import {
 	createCriticAgent,
 	createCriticAutonomousOversightAgent,
 	createCriticDriftVerifierAgent,
+	HALLUCINATION_VERIFIER_PROMPT,
 	PHASE_DRIFT_VERIFIER_PROMPT,
 	PLAN_CRITIC_PROMPT,
 	SOUNDING_BOARD_PROMPT,
@@ -441,6 +442,66 @@ describe('critic.ts prompt overhaul', () => {
 			expect(agent.config.prompt).toBe(
 				`${AUTONOMOUS_OVERSIGHT_PROMPT}\n\n${customAppend}`,
 			);
+		});
+	});
+
+	// ============================================================
+	// TEST 12: Verify PLAN_CRITIC_PROMPT contains BASELINE COMPARISON
+	// ============================================================
+	describe('PLAN_CRITIC_PROMPT baseline comparison requirements', () => {
+		test('contains get_approved_plan call instruction', () => {
+			expect(PLAN_CRITIC_PROMPT).toContain('get_approved_plan');
+		});
+
+		test('contains BASELINE COMPARISON section', () => {
+			expect(PLAN_CRITIC_PROMPT).toContain('BASELINE COMPARISON');
+		});
+
+		test('contains approved baseline or approved plan reference', () => {
+			const hasApprovedReference =
+				PLAN_CRITIC_PROMPT.includes('approved baseline') ||
+				PLAN_CRITIC_PROMPT.includes('approved_plan');
+			expect(hasApprovedReference).toBe(true);
+		});
+
+		test('contains drift_detected or drift handling', () => {
+			const hasDriftHandling =
+				PLAN_CRITIC_PROMPT.includes('drift_detected') ||
+				PLAN_CRITIC_PROMPT.includes('drift');
+			expect(hasDriftHandling).toBe(true);
+		});
+
+		test('contains spec-intent divergence or spec intent', () => {
+			const hasSpecIntent =
+				PLAN_CRITIC_PROMPT.includes('spec-intent divergence') ||
+				PLAN_CRITIC_PROMPT.includes('spec intent');
+			expect(hasSpecIntent).toBe(true);
+		});
+
+		test('contains no_approved_snapshot handling', () => {
+			expect(PLAN_CRITIC_PROMPT).toContain('no_approved_snapshot');
+		});
+
+		test('contains CRITICAL finding for unauthorized mutation', () => {
+			expect(PLAN_CRITIC_PROMPT).toContain('CRITICAL finding');
+		});
+
+		test('HALLUCINATION_VERIFIER_PROMPT does NOT contain get_approved_plan', () => {
+			// BASELINE COMPARISON is only for plan review, not hallucination verification
+			expect(HALLUCINATION_VERIFIER_PROMPT).not.toContain('get_approved_plan');
+		});
+
+		test('AUTONOMOUS_OVERSIGHT_PROMPT does NOT contain get_approved_plan', () => {
+			// Autonomous oversight operates OUTSIDE the council/live plan-review baseline
+			// enforcement path. It performs its own review based on constitution rules
+			// and evidence verification, not by comparing against an approved baseline.
+			// This is intentional — full-auto intercept is a separate oversight path.
+			expect(AUTONOMOUS_OVERSIGHT_PROMPT).not.toContain('get_approved_plan');
+		});
+
+		test('PHASE_DRIFT_VERIFIER_PROMPT still contains BASELINE COMPARISON', () => {
+			// Ensure we didn't remove it from phase drift verifier
+			expect(PHASE_DRIFT_VERIFIER_PROMPT).toContain('BASELINE COMPARISON');
 		});
 	});
 });
