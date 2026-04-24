@@ -1,5 +1,12 @@
 # Changelog
 
+## [6.84.0](https://github.com/zaxbysauce/opencode-swarm/compare/v6.83.0...v6.84.0) (2026-04-24)
+
+
+### Features
+
+* **council:** add General Council Mode and harden QA gate selection ([#590](https://github.com/zaxbysauce/opencode-swarm/issues/590)) ([4f61090](https://github.com/zaxbysauce/opencode-swarm/commit/4f61090d7cbe39c05e87819e8bdc10e6c9b0b497))
+
 ## [6.83.0](https://github.com/zaxbysauce/opencode-swarm/compare/v6.82.2...v6.83.0) (2026-04-24)
 
 
