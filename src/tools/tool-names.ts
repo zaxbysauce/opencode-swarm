@@ -60,7 +60,9 @@ export type ToolName =
 	| 'get_approved_plan'
 	| 'repo_map'
 	| 'get_qa_gate_profile'
-	| 'set_qa_gates';
+	| 'set_qa_gates'
+	| 'web_search'
+	| 'convene_general_council';
 
 /** Readonly array of all tool names */
 export const TOOL_NAMES: readonly ToolName[] = [
@@ -120,6 +122,8 @@ export const TOOL_NAMES: readonly ToolName[] = [
 	'repo_map',
 	'get_qa_gate_profile',
 	'set_qa_gates',
+	'web_search',
+	'convene_general_council',
 ] as const;
 
 /** Set for O(1) tool name validation */

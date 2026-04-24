@@ -296,12 +296,13 @@ describe('src/agents/architect.ts - SOUNDING BOARD PROTOCOL (ADVERSARIAL TESTS)'
 			const totalCharacters = architectContent.length;
 			const estimatedTotalTokens = Math.ceil(totalCharacters / 4);
 
-			// The entire prompt should be within reasonable bounds
-			// A typical context window is 128K tokens, and this prompt should be
-			// well under 30K tokens to allow for user input and responses
-			// The system prompt contains all hardening blocks and workflows, so
-			// being around 15-25K tokens is expected and acceptable
-			expect(estimatedTotalTokens).toBeLessThan(30000);
+			// The entire prompt should be within reasonable bounds. A typical
+			// context window is 128K tokens, and this prompt should be well under
+			// 35K tokens to allow for user input and responses. v6.84.0 added
+			// MODE: COUNCIL, SPECIFY-COUNCIL-REVIEW (step 5c), and three
+			// BEHAVIORAL_GUIDANCE blocks for QA gate hardening, bringing the
+			// prompt to around 30–32K tokens.
+			expect(estimatedTotalTokens).toBeLessThan(35000);
 		});
 	});
 

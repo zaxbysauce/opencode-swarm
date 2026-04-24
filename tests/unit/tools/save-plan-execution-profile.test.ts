@@ -39,10 +39,12 @@ beforeEach(async () => {
 	await mkdir(join(tmpDir, '.swarm'), { recursive: true });
 	await writeFile(join(tmpDir, '.swarm', 'spec.md'), '# Spec\n');
 	process.env.SWARM_SKIP_SPEC_GATE = '1';
+	process.env.SWARM_SKIP_GATE_SELECTION = '1';
 });
 
 afterEach(async () => {
 	delete process.env.SWARM_SKIP_SPEC_GATE;
+	delete process.env.SWARM_SKIP_GATE_SELECTION;
 	await rm(tmpDir, { recursive: true, force: true });
 });
 

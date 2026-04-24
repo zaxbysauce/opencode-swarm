@@ -1,0 +1,323 @@
+/**
+ * General Council Mode — architect-only synthesis tool.
+ *
+ * The architect spawns council_member subagents in parallel for Round 1,
+ * collects their JSON responses, and calls this tool to synthesize results.
+ * If the tool detects disagreements and Round 2 deliberation is configured,
+ * the architect re-delegates to disputing members and calls this tool again
+ * with both round1Responses and round2Responses populated.
+ *
+ * Mirrors the convene-council.ts skeleton but explicitly does NOT inherit
+ * the QA-council-only constraints:
+ *   - agent: enum (replaced with memberId: string — general-council member
+ *     IDs are user-configured, not a fixed enum)
+ *   - verdicts.min(1).max(5) (replaced with round1Responses.min(1) — no upper
+ *     cap; member count is per-config)
+ *   - taskId regex (dropped — general council has no taskId)
+ *   - readCriteria(workingDir, taskId) (dropped — general council has no
+ *     pre-declared criteria store)
+ *   - requireAllMembers < 5 check (dropped — not applicable)
+ *
+ * Evidence path is .swarm/council/general/ (subdirectory; never writes to
+ * .swarm/council/ root, where the QA council stores its files).
+ */
+
+import * as fs from 'node:fs';
+import * as path from 'node:path';
+import { tool } from '@opencode-ai/plugin';
+import { z } from 'zod';
+import { loadPluginConfig } from '../config/loader';
+import { pushGeneralCouncilAdvisory } from '../council/general-council-advisory';
+import { synthesizeGeneralCouncil } from '../council/general-council-service';
+import type {
+	GeneralCouncilDeliberationResponse,
+	GeneralCouncilMemberResponse,
+} from '../council/general-council-types';
+import { getAgentSession } from '../state';
+import { createSwarmTool } from './create-tool';
+import { resolveWorkingDirectory } from './resolve-working-directory';
+
+const WebSearchResultSchema = z.object({
+	title: z.string(),
+	url: z.string(),
+	snippet: z.string(),
+	query: z.string(),
+});
+
+const MemberRoleEnum = z.enum([
+	'generalist',
+	'skeptic',
+	'domain_expert',
+	'devil_advocate',
+	'synthesizer',
+]);
+
+const Round1ResponseSchema = z.object({
+	memberId: z.string().min(1),
+	model: z.string().min(1),
+	role: MemberRoleEnum,
+	response: z.string(),
+	sources: z.array(WebSearchResultSchema).default([]),
+	searchQueries: z.array(z.string()).default([]),
+	confidence: z.number().min(0).max(1),
+	areasOfUncertainty: z.array(z.string()).default([]),
+	durationMs: z.number().nonnegative().default(0),
+});
+
+const Round2ResponseSchema = Round1ResponseSchema.extend({
+	disagreementTopics: z.array(z.string()).default([]),
+});
+
+const ArgsSchema = z.object({
+	question: z.string().min(1).max(8000),
+	mode: z.enum(['general', 'spec_review']).default('general'),
+	members: z.array(z.string()).default([]),
+	round1Responses: z.array(Round1ResponseSchema).min(1),
+	round2Responses: z.array(Round2ResponseSchema).optional(),
+	working_directory: z.string().optional(),
+});
+
+interface ConveneOk {
+	success: true;
+	question: string;
+	mode: 'general' | 'spec_review';
+	roundsCompleted: 1 | 2;
+	consensusPoints: string[];
+	disagreementsCount: number;
+	persistingDisagreements: string[];
+	allSourcesCount: number;
+	synthesis: string;
+	moderatorPrompt?: string;
+	evidencePath: string;
+}
+
+interface ConveneFail {
+	success: false;
+	reason: string;
+	message: string;
+}
+
+function buildModeratorPrompt(question: string, synthesis: string): string {
+	return [
+		'A multi-model council has deliberated on the following question. Your job is to synthesize',
+		'the council output into a single coherent answer for the user, following the rules in your',
+		'system prompt (lead with consensus, acknowledge persisting disagreement honestly, cite the',
+		'strongest sources, be concise, do not invent claims, do not run new searches).',
+		'',
+		`QUESTION:\n${question}`,
+		'',
+		'COUNCIL OUTPUT:',
+		synthesis,
+	].join('\n');
+}
+
+export const convene_general_council: ReturnType<typeof tool> = createSwarmTool(
+	{
+		description:
+			'Synthesize responses from a multi-model General Council. Accepts parallel member ' +
+			'responses (Round 1, optionally Round 2), detects disagreements, and returns ' +
+			'consensus points, persisting disagreements, a structured synthesis, and an optional ' +
+			'moderator prompt. Architect-only. Config-gated on council.general.enabled.',
+		args: {
+			question: tool.schema
+				.string()
+				.min(1)
+				.max(8000)
+				.describe(
+					'The question put to the council, or the spec text to review.',
+				),
+			mode: tool.schema
+				.enum(['general', 'spec_review'])
+				.optional()
+				.describe(
+					'"general" for /swarm council; "spec_review" for SPECIFY-COUNCIL-REVIEW gate.',
+				),
+			members: tool.schema
+				.array(tool.schema.string())
+				.optional()
+				.describe('Optional list of member IDs convened (for evidence/audit).'),
+			round1Responses: tool.schema
+				.array(
+					tool.schema.object({
+						memberId: tool.schema.string().min(1),
+						model: tool.schema.string().min(1),
+						role: tool.schema.enum([
+							'generalist',
+							'skeptic',
+							'domain_expert',
+							'devil_advocate',
+							'synthesizer',
+						]),
+						response: tool.schema.string(),
+						sources: tool.schema
+							.array(
+								tool.schema.object({
+									title: tool.schema.string(),
+									url: tool.schema.string(),
+									snippet: tool.schema.string(),
+									query: tool.schema.string(),
+								}),
+							)
+							.optional(),
+						searchQueries: tool.schema.array(tool.schema.string()).optional(),
+						confidence: tool.schema.number().min(0).max(1),
+						areasOfUncertainty: tool.schema
+							.array(tool.schema.string())
+							.optional(),
+						durationMs: tool.schema.number().nonnegative().optional(),
+					}),
+				)
+				.describe('Round 1 member responses (one per council member).'),
+			round2Responses: tool.schema
+				.array(
+					tool.schema.object({
+						memberId: tool.schema.string().min(1),
+						model: tool.schema.string().min(1),
+						role: tool.schema.enum([
+							'generalist',
+							'skeptic',
+							'domain_expert',
+							'devil_advocate',
+							'synthesizer',
+						]),
+						response: tool.schema.string(),
+						sources: tool.schema
+							.array(
+								tool.schema.object({
+									title: tool.schema.string(),
+									url: tool.schema.string(),
+									snippet: tool.schema.string(),
+									query: tool.schema.string(),
+								}),
+							)
+							.optional(),
+						searchQueries: tool.schema.array(tool.schema.string()).optional(),
+						confidence: tool.schema.number().min(0).max(1),
+						areasOfUncertainty: tool.schema
+							.array(tool.schema.string())
+							.optional(),
+						durationMs: tool.schema.number().nonnegative().optional(),
+						disagreementTopics: tool.schema
+							.array(tool.schema.string())
+							.optional(),
+					}),
+				)
+				.optional()
+				.describe(
+					'Round 2 deliberation responses (omit when no deliberation has occurred).',
+				),
+			working_directory: tool.schema
+				.string()
+				.optional()
+				.describe('Project root for config + evidence path resolution.'),
+		},
+		execute: async (args, directory, ctx) => {
+			// ── Validate args ─────────────────────────────────────────────────
+			const parsed = ArgsSchema.safeParse(args);
+			if (!parsed.success) {
+				const fail: ConveneFail = {
+					success: false,
+					reason: 'invalid_args',
+					message: parsed.error.issues
+						.map((i) => `${i.path.join('.')}: ${i.message}`)
+						.join('; '),
+				};
+				return JSON.stringify(fail, null, 2);
+			}
+			const input = parsed.data;
+
+			// ── Resolve working directory ─────────────────────────────────────
+			const dirResult = resolveWorkingDirectory(
+				input.working_directory,
+				directory,
+			);
+			if (!dirResult.success) {
+				const fail: ConveneFail = {
+					success: false,
+					reason: 'invalid_working_directory',
+					message: dirResult.message,
+				};
+				return JSON.stringify(fail, null, 2);
+			}
+			const workingDir = dirResult.directory;
+
+			// ── Config gate ───────────────────────────────────────────────────
+			const config = loadPluginConfig(workingDir);
+			const generalConfig = config.council?.general;
+			if (!generalConfig || generalConfig.enabled !== true) {
+				const fail: ConveneFail = {
+					success: false,
+					reason: 'council_general_disabled',
+					message:
+						'convene_general_council requires council.general.enabled: true in opencode-swarm.json.',
+				};
+				return JSON.stringify(fail, null, 2);
+			}
+
+			// ── Synthesis (pure) ──────────────────────────────────────────────
+			const round1 = input.round1Responses as GeneralCouncilMemberResponse[];
+			const round2 = (input.round2Responses ??
+				[]) as GeneralCouncilDeliberationResponse[];
+
+			const result = synthesizeGeneralCouncil(
+				input.question,
+				input.mode,
+				round1,
+				round2,
+			);
+
+			// ── Evidence write to .swarm/council/general/ ─────────────────────
+			const evidenceDir = path.join(workingDir, '.swarm', 'council', 'general');
+			const safeTimestamp = result.timestamp.replace(/[:.]/g, '-');
+			const evidenceFile = `${safeTimestamp}-${input.mode}.json`;
+			const evidencePath = path.join(evidenceDir, evidenceFile);
+			try {
+				await fs.promises.mkdir(evidenceDir, { recursive: true });
+				await fs.promises.writeFile(
+					evidencePath,
+					JSON.stringify(result, null, 2),
+				);
+			} catch (err) {
+				// Evidence write is best-effort; surface but do not abort.
+				const message = err instanceof Error ? err.message : String(err);
+				console.warn(
+					`[convene_general_council] Failed to write evidence to ${evidencePath}: ${message}`,
+				);
+			}
+
+			// ── Advisory push (best-effort) ───────────────────────────────────
+			try {
+				const sessionID = ctx?.sessionID;
+				if (sessionID) {
+					const session = getAgentSession(sessionID);
+					if (session) {
+						pushGeneralCouncilAdvisory(session, result);
+					}
+				}
+			} catch {
+				// non-critical
+			}
+
+			// ── Moderator prompt (only when configured) ───────────────────────
+			const moderatorPrompt =
+				generalConfig.moderator === true
+					? buildModeratorPrompt(input.question, result.synthesis)
+					: undefined;
+
+			const ok: ConveneOk = {
+				success: true,
+				question: input.question,
+				mode: input.mode,
+				roundsCompleted: round2.length > 0 ? 2 : 1,
+				consensusPoints: result.consensusPoints,
+				disagreementsCount: result.disagreements.length,
+				persistingDisagreements: result.persistingDisagreements,
+				allSourcesCount: result.allSources.length,
+				synthesis: result.synthesis,
+				...(moderatorPrompt !== undefined && { moderatorPrompt }),
+				evidencePath,
+			};
+			return JSON.stringify(ok, null, 2);
+		},
+	},
+);

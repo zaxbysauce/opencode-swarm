@@ -9,6 +9,7 @@ import { handleCheckpointCommand } from './checkpoint.js';
 import { handleClarifyCommand } from './clarify.js';
 import { handleCloseCommand } from './close.js';
 import { handleConfigCommand } from './config.js';
+import { handleCouncilCommand } from './council.js';
 import { handleCurateCommand } from './curate.js';
 import { handleDarkMatterCommand } from './dark-matter.js';
 import { handleDiagnoseCommand } from './diagnose.js';
@@ -223,6 +224,14 @@ export const COMMAND_REGISTRY = {
 		details:
 			'Triggers the architect to run the brainstorm workflow: CONTEXT SCAN, single-question DIALOGUE, APPROACHES, DESIGN SECTIONS, SPEC WRITE + SELF-REVIEW, QA GATE SELECTION, TRANSITION. Use for new plans where requirements need to be drawn out before writing spec.md / plan.md.',
 	},
+	council: {
+		handler: (ctx) => handleCouncilCommand(ctx.directory, ctx.args),
+		description:
+			'Enter architect MODE: COUNCIL — multi-model deliberation [question] [--preset <name>] [--spec-review]',
+		args: '<question> [--preset <name>] [--spec-review]',
+		details:
+			'Triggers the architect to convene a configurable General Council: each member independently web-searches, answers, and engages in one structured deliberation round on disagreements; an optional moderator pass synthesizes the final answer. --preset <name> selects a member group from council.general.presets. --spec-review switches to single-pass advisory mode for spec review. Requires council.general.enabled: true and a search API key in opencode-swarm.json.',
+	},
 	'qa-gates': {
 		handler: (ctx) =>
 			handleQaGatesCommand(ctx.directory, ctx.args, ctx.sessionID),
@@ -230,7 +239,7 @@ export const COMMAND_REGISTRY = {
 			'View or modify QA gate profile for the current plan [enable|override <gate>...]',
 		args: '[show|enable|override] <gate>...',
 		details:
-			'show: display spec-level, session-override, and effective QA gates for the current plan. enable: persist gate(s) into the locked-once profile (architect; rejected after critic approval lock). override: session-only ratchet-tighter enable. Valid gates: reviewer, test_engineer, council_mode, sme_enabled, critic_pre_plan, hallucination_guard, sast_enabled, mutation_test.',
+			'show: display spec-level, session-override, and effective QA gates for the current plan. enable: persist gate(s) into the locked-once profile (architect; rejected after critic approval lock). override: session-only ratchet-tighter enable. Valid gates: reviewer, test_engineer, council_mode, sme_enabled, critic_pre_plan, hallucination_guard, sast_enabled, mutation_test, council_general_review.',
 	},
 	promote: {
 		handler: (ctx) => handlePromoteCommand(ctx.directory, ctx.args),

@@ -531,6 +531,43 @@ export declare const AuthorityConfigSchema: z.ZodObject<{
     universal_deny_prefixes: z.ZodDefault<z.ZodArray<z.ZodString>>;
 }, z.core.$strip>;
 export type AuthorityConfig = z.infer<typeof AuthorityConfigSchema>;
+export declare const GeneralCouncilConfigSchema: z.ZodObject<{
+    enabled: z.ZodDefault<z.ZodBoolean>;
+    searchProvider: z.ZodDefault<z.ZodEnum<{
+        tavily: "tavily";
+        brave: "brave";
+    }>>;
+    searchApiKey: z.ZodOptional<z.ZodString>;
+    members: z.ZodDefault<z.ZodArray<z.ZodObject<{
+        memberId: z.ZodString;
+        model: z.ZodString;
+        role: z.ZodEnum<{
+            generalist: "generalist";
+            skeptic: "skeptic";
+            domain_expert: "domain_expert";
+            devil_advocate: "devil_advocate";
+            synthesizer: "synthesizer";
+        }>;
+        persona: z.ZodOptional<z.ZodString>;
+    }, z.core.$strict>>>;
+    presets: z.ZodDefault<z.ZodRecord<z.ZodString, z.ZodArray<z.ZodObject<{
+        memberId: z.ZodString;
+        model: z.ZodString;
+        role: z.ZodEnum<{
+            generalist: "generalist";
+            skeptic: "skeptic";
+            domain_expert: "domain_expert";
+            devil_advocate: "devil_advocate";
+            synthesizer: "synthesizer";
+        }>;
+        persona: z.ZodOptional<z.ZodString>;
+    }, z.core.$strict>>>>;
+    deliberate: z.ZodDefault<z.ZodBoolean>;
+    moderator: z.ZodDefault<z.ZodBoolean>;
+    moderatorModel: z.ZodOptional<z.ZodString>;
+    maxSourcesPerMember: z.ZodDefault<z.ZodNumber>;
+}, z.core.$strict>;
+export type GeneralCouncilConfig = z.infer<typeof GeneralCouncilConfigSchema>;
 export declare const CouncilConfigSchema: z.ZodObject<{
     enabled: z.ZodDefault<z.ZodBoolean>;
     maxRounds: z.ZodDefault<z.ZodNumber>;
@@ -538,6 +575,42 @@ export declare const CouncilConfigSchema: z.ZodObject<{
     vetoPriority: z.ZodDefault<z.ZodBoolean>;
     requireAllMembers: z.ZodDefault<z.ZodBoolean>;
     escalateOnMaxRounds: z.ZodOptional<z.ZodString>;
+    general: z.ZodOptional<z.ZodObject<{
+        enabled: z.ZodDefault<z.ZodBoolean>;
+        searchProvider: z.ZodDefault<z.ZodEnum<{
+            tavily: "tavily";
+            brave: "brave";
+        }>>;
+        searchApiKey: z.ZodOptional<z.ZodString>;
+        members: z.ZodDefault<z.ZodArray<z.ZodObject<{
+            memberId: z.ZodString;
+            model: z.ZodString;
+            role: z.ZodEnum<{
+                generalist: "generalist";
+                skeptic: "skeptic";
+                domain_expert: "domain_expert";
+                devil_advocate: "devil_advocate";
+                synthesizer: "synthesizer";
+            }>;
+            persona: z.ZodOptional<z.ZodString>;
+        }, z.core.$strict>>>;
+        presets: z.ZodDefault<z.ZodRecord<z.ZodString, z.ZodArray<z.ZodObject<{
+            memberId: z.ZodString;
+            model: z.ZodString;
+            role: z.ZodEnum<{
+                generalist: "generalist";
+                skeptic: "skeptic";
+                domain_expert: "domain_expert";
+                devil_advocate: "devil_advocate";
+                synthesizer: "synthesizer";
+            }>;
+            persona: z.ZodOptional<z.ZodString>;
+        }, z.core.$strict>>>>;
+        deliberate: z.ZodDefault<z.ZodBoolean>;
+        moderator: z.ZodDefault<z.ZodBoolean>;
+        moderatorModel: z.ZodOptional<z.ZodString>;
+        maxSourcesPerMember: z.ZodDefault<z.ZodNumber>;
+    }, z.core.$strict>>;
 }, z.core.$strict>;
 export type CouncilConfig = z.infer<typeof CouncilConfigSchema>;
 export declare const ParallelizationConfigSchema: z.ZodObject<{
@@ -920,6 +993,42 @@ export declare const PluginConfigSchema: z.ZodObject<{
         vetoPriority: z.ZodDefault<z.ZodBoolean>;
         requireAllMembers: z.ZodDefault<z.ZodBoolean>;
         escalateOnMaxRounds: z.ZodOptional<z.ZodString>;
+        general: z.ZodOptional<z.ZodObject<{
+            enabled: z.ZodDefault<z.ZodBoolean>;
+            searchProvider: z.ZodDefault<z.ZodEnum<{
+                tavily: "tavily";
+                brave: "brave";
+            }>>;
+            searchApiKey: z.ZodOptional<z.ZodString>;
+            members: z.ZodDefault<z.ZodArray<z.ZodObject<{
+                memberId: z.ZodString;
+                model: z.ZodString;
+                role: z.ZodEnum<{
+                    generalist: "generalist";
+                    skeptic: "skeptic";
+                    domain_expert: "domain_expert";
+                    devil_advocate: "devil_advocate";
+                    synthesizer: "synthesizer";
+                }>;
+                persona: z.ZodOptional<z.ZodString>;
+            }, z.core.$strict>>>;
+            presets: z.ZodDefault<z.ZodRecord<z.ZodString, z.ZodArray<z.ZodObject<{
+                memberId: z.ZodString;
+                model: z.ZodString;
+                role: z.ZodEnum<{
+                    generalist: "generalist";
+                    skeptic: "skeptic";
+                    domain_expert: "domain_expert";
+                    devil_advocate: "devil_advocate";
+                    synthesizer: "synthesizer";
+                }>;
+                persona: z.ZodOptional<z.ZodString>;
+            }, z.core.$strict>>>>;
+            deliberate: z.ZodDefault<z.ZodBoolean>;
+            moderator: z.ZodDefault<z.ZodBoolean>;
+            moderatorModel: z.ZodOptional<z.ZodString>;
+            maxSourcesPerMember: z.ZodDefault<z.ZodNumber>;
+        }, z.core.$strict>>;
     }, z.core.$strict>>;
     parallelization: z.ZodOptional<z.ZodObject<{
         enabled: z.ZodDefault<z.ZodBoolean>;

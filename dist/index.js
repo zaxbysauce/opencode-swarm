@@ -105,7 +105,9 @@ var init_tool_names = __esm(() => {
     "get_approved_plan",
     "repo_map",
     "get_qa_gate_profile",
-    "set_qa_gates"
+    "set_qa_gates",
+    "web_search",
+    "convene_general_council"
   ];
   TOOL_NAME_SET = new Set(TOOL_NAMES);
 });
@@ -188,6 +190,8 @@ var init_constants = __esm(() => {
     "critic_hallucination_verifier",
     "curator_init",
     "curator_phase",
+    "council_member",
+    "council_moderator",
     ...QA_AGENTS,
     ...PIPELINE_AGENTS
   ];
@@ -259,7 +263,8 @@ var init_constants = __esm(() => {
       "suggest_patch",
       "repo_map",
       "get_qa_gate_profile",
-      "set_qa_gates"
+      "set_qa_gates",
+      "convene_general_council"
     ],
     explorer: [
       "complexity_hotspots",
@@ -409,7 +414,9 @@ var init_constants = __esm(() => {
       "knowledge_recall"
     ],
     curator_init: ["knowledge_recall"],
-    curator_phase: ["knowledge_recall"]
+    curator_phase: ["knowledge_recall"],
+    council_member: ["web_search"],
+    council_moderator: []
   };
   WRITE_TOOL_NAMES = [
     "write",
@@ -471,13 +478,15 @@ var init_constants = __esm(() => {
     gitingest: "fetch a GitHub repository full content via gitingest.com",
     retrieve_summary: "retrieve the full content of a stored tool output summary",
     search: "Workspace-scoped ripgrep-style text search with structured JSON output. Supports literal and regex modes, glob filtering, and result limits. NOTE: This is text search, not structural AST search \u2014 use symbols and imports tools for structural queries.",
+    web_search: "External web search (Tavily or Brave) for General Council member agents. Returns titled results with snippets and URLs. Restricted to council_member agents via AGENT_TOOL_MAP. Config-gated on council.general.enabled; requires a search API key.",
+    convene_general_council: "Synthesize responses from a multi-model General Council. Accepts parallel member responses (Round 1, optionally Round 2), detects disagreements, and returns consensus points, persisting disagreements, a structured synthesis, and an optional moderator prompt. Architect-only. Config-gated on council.general.enabled.",
     batch_symbols: "Batched symbol extraction across multiple files. Returns per-file symbol summaries with isolated error handling.",
     suggest_patch: "Reviewer-safe structured patch suggestion tool. Produces context-anchored patch artifacts without file modification. Returns structured diagnostics on context mismatch.",
     lint_spec: "validate .swarm/spec.md format and required fields",
     get_approved_plan: "retrieve the last critic-approved immutable plan snapshot for baseline drift comparison",
     repo_map: "query the repo code graph: importers, dependencies, blast radius, and localization context for structural awareness before refactoring",
-    get_qa_gate_profile: "retrieve the QA gate profile for the current plan: gates (reviewer, test_engineer, sme_enabled, critic_pre_plan, sast_enabled, council_mode, hallucination_guard, mutation_test), lock state, and profile hash. Read-only.",
-    set_qa_gates: "configure the QA gate profile for the current plan. Architect-only. Ratchet-tighter only \u2014 rejected once the profile is locked after critic approval. Supports: reviewer, test_engineer, sme_enabled, critic_pre_plan, sast_enabled, council_mode, hallucination_guard, mutation_test.",
+    get_qa_gate_profile: "retrieve the QA gate profile for the current plan: gates (reviewer, test_engineer, sme_enabled, critic_pre_plan, sast_enabled, council_mode, hallucination_guard, mutation_test, council_general_review), lock state, and profile hash. Read-only.",
+    set_qa_gates: "configure the QA gate profile for the current plan. Architect-only. Ratchet-tighter only \u2014 rejected once the profile is locked after critic approval. Supports: reviewer, test_engineer, sme_enabled, critic_pre_plan, sast_enabled, council_mode, hallucination_guard, mutation_test, council_general_review.",
     req_coverage: "query requirement coverage status for tracked functional requirements"
   };
   for (const [agentName, tools] of Object.entries(AGENT_TOOL_MAP)) {
@@ -501,6 +510,8 @@ var init_constants = __esm(() => {
     designer: "opencode/trinity-large-preview-free",
     curator_init: "opencode/trinity-large-preview-free",
     curator_phase: "opencode/trinity-large-preview-free",
+    council_member: "opencode/trinity-large-preview-free",
+    council_moderator: "opencode/trinity-large-preview-free",
     default: "opencode/trinity-large-preview-free"
   };
   DEFAULT_SCORING_CONFIG = {
@@ -14708,7 +14719,7 @@ function resolveGuardrailsConfig(config2, agentName) {
   };
   return resolved;
 }
-var KNOWN_SWARM_PREFIXES, SEPARATORS, AgentOverrideConfigSchema, SwarmConfigSchema, HooksConfigSchema, ScoringWeightsSchema, DecisionDecaySchema, TokenRatiosSchema, ScoringConfigSchema, ContextBudgetConfigSchema, EvidenceConfigSchema, GateFeatureSchema, PlaceholderScanConfigSchema, QualityBudgetConfigSchema, GateConfigSchema, PipelineConfigSchema, PhaseCompleteConfigSchema, SummaryConfigSchema, ReviewPassesConfigSchema, AdversarialDetectionConfigSchema, AdversarialTestingConfigSchemaBase, AdversarialTestingConfigSchema, IntegrationAnalysisConfigSchema, DocsConfigSchema, UIReviewConfigSchema, CompactionAdvisoryConfigSchema, LintConfigSchema, SecretscanConfigSchema, GuardrailsProfileSchema, DEFAULT_AGENT_PROFILES, DEFAULT_ARCHITECT_PROFILE, GuardrailsConfigSchema, WatchdogConfigSchema, SelfReviewConfigSchema, ToolFilterConfigSchema, PlanCursorConfigSchema, CheckpointConfigSchema, AutomationModeSchema, AutomationCapabilitiesSchema, AutomationConfigSchemaBase, AutomationConfigSchema, KnowledgeConfigSchema, CuratorConfigSchema, SlopDetectorConfigSchema, IncrementalVerifyConfigSchema, CompactionConfigSchema, PrmConfigSchema, AgentAuthorityRuleSchema, AuthorityConfigSchema, CouncilConfigSchema, ParallelizationConfigSchema, PluginConfigSchema;
+var KNOWN_SWARM_PREFIXES, SEPARATORS, AgentOverrideConfigSchema, SwarmConfigSchema, HooksConfigSchema, ScoringWeightsSchema, DecisionDecaySchema, TokenRatiosSchema, ScoringConfigSchema, ContextBudgetConfigSchema, EvidenceConfigSchema, GateFeatureSchema, PlaceholderScanConfigSchema, QualityBudgetConfigSchema, GateConfigSchema, PipelineConfigSchema, PhaseCompleteConfigSchema, SummaryConfigSchema, ReviewPassesConfigSchema, AdversarialDetectionConfigSchema, AdversarialTestingConfigSchemaBase, AdversarialTestingConfigSchema, IntegrationAnalysisConfigSchema, DocsConfigSchema, UIReviewConfigSchema, CompactionAdvisoryConfigSchema, LintConfigSchema, SecretscanConfigSchema, GuardrailsProfileSchema, DEFAULT_AGENT_PROFILES, DEFAULT_ARCHITECT_PROFILE, GuardrailsConfigSchema, WatchdogConfigSchema, SelfReviewConfigSchema, ToolFilterConfigSchema, PlanCursorConfigSchema, CheckpointConfigSchema, AutomationModeSchema, AutomationCapabilitiesSchema, AutomationConfigSchemaBase, AutomationConfigSchema, KnowledgeConfigSchema, CuratorConfigSchema, SlopDetectorConfigSchema, IncrementalVerifyConfigSchema, CompactionConfigSchema, PrmConfigSchema, AgentAuthorityRuleSchema, AuthorityConfigSchema, GeneralCouncilMemberConfigSchema, GeneralCouncilConfigSchema, CouncilConfigSchema, ParallelizationConfigSchema, PluginConfigSchema;
 var init_schema = __esm(() => {
   init_zod();
   init_constants();
@@ -15225,13 +15236,37 @@ var init_schema = __esm(() => {
     rules: exports_external.record(exports_external.string(), AgentAuthorityRuleSchema).default({}),
     universal_deny_prefixes: exports_external.array(exports_external.string().min(1)).default([])
   });
+  GeneralCouncilMemberConfigSchema = exports_external.object({
+    memberId: exports_external.string().min(1),
+    model: exports_external.string().min(1),
+    role: exports_external.enum([
+      "generalist",
+      "skeptic",
+      "domain_expert",
+      "devil_advocate",
+      "synthesizer"
+    ]),
+    persona: exports_external.string().optional()
+  }).strict();
+  GeneralCouncilConfigSchema = exports_external.object({
+    enabled: exports_external.boolean().default(false),
+    searchProvider: exports_external.enum(["tavily", "brave"]).default("tavily"),
+    searchApiKey: exports_external.string().optional(),
+    members: exports_external.array(GeneralCouncilMemberConfigSchema).default([]),
+    presets: exports_external.record(exports_external.string(), exports_external.array(GeneralCouncilMemberConfigSchema)).default({}),
+    deliberate: exports_external.boolean().default(true),
+    moderator: exports_external.boolean().default(true),
+    moderatorModel: exports_external.string().optional(),
+    maxSourcesPerMember: exports_external.number().int().min(1).max(20).default(5)
+  }).strict();
   CouncilConfigSchema = exports_external.object({
     enabled: exports_external.boolean().default(false),
     maxRounds: exports_external.number().int().min(1).max(10).default(3),
     parallelTimeoutMs: exports_external.number().int().min(5000).max(120000).default(30000),
     vetoPriority: exports_external.boolean().default(true),
     requireAllMembers: exports_external.boolean().default(false).describe("When true, convene_council rejects if fewer than 5 member verdicts are provided."),
-    escalateOnMaxRounds: exports_external.string().optional().describe("Optional webhook URL or handler name invoked when maxRounds is reached without APPROVE. Declared for forward compatibility; no behavior is implemented yet.")
+    escalateOnMaxRounds: exports_external.string().optional().describe("Optional webhook URL or handler name invoked when maxRounds is reached without APPROVE. Declared for forward compatibility; no behavior is implemented yet."),
+    general: GeneralCouncilConfigSchema.optional()
   }).strict();
   ParallelizationConfigSchema = exports_external.object({
     enabled: exports_external.boolean().default(false),
@@ -19725,7 +19760,8 @@ var init_qa_gate_profile = __esm(() => {
     critic_pre_plan: true,
     hallucination_guard: false,
     sast_enabled: true,
-    mutation_test: false
+    mutation_test: false,
+    council_general_review: false
   };
 });
 
@@ -41882,6 +41918,76 @@ var init_config2 = __esm(() => {
   init_loader();
 });
 
+// src/commands/council.ts
+function sanitizeQuestion(raw) {
+  const collapsed = raw.replace(/\s+/g, " ").trim();
+  const stripped = collapsed.replace(/\[\s*MODE\s*:[^\]]*\]/gi, "");
+  const normalized = stripped.replace(/\s+/g, " ").trim();
+  if (normalized.length <= MAX_QUESTION_LEN)
+    return normalized;
+  return `${normalized.slice(0, MAX_QUESTION_LEN)}\u2026`;
+}
+function sanitizePresetName(raw) {
+  const trimmed = raw.trim();
+  if (!trimmed)
+    return null;
+  if (trimmed.length > 64)
+    return null;
+  if (!/^[A-Za-z0-9_-]+$/.test(trimmed))
+    return null;
+  return trimmed;
+}
+function parseArgs(args2) {
+  const out2 = { specReview: false, rest: [] };
+  for (let i2 = 0;i2 < args2.length; i2++) {
+    const token = args2[i2];
+    if (token === "--spec-review") {
+      out2.specReview = true;
+      continue;
+    }
+    if (token === "--preset") {
+      const next = args2[i2 + 1];
+      if (next !== undefined) {
+        const sanitized = sanitizePresetName(next);
+        if (sanitized)
+          out2.preset = sanitized;
+        i2++;
+      }
+      continue;
+    }
+    out2.rest.push(token);
+  }
+  return out2;
+}
+async function handleCouncilCommand(_directory, args2) {
+  const parsed = parseArgs(args2);
+  const question = sanitizeQuestion(parsed.rest.join(" "));
+  if (!question) {
+    return USAGE;
+  }
+  const tokens = ["MODE: COUNCIL"];
+  if (parsed.preset) {
+    tokens.push(`preset=${parsed.preset}`);
+  }
+  if (parsed.specReview) {
+    tokens.push("spec_review");
+  }
+  return `[${tokens.join(" ")}] ${question}`;
+}
+var MAX_QUESTION_LEN = 2000, USAGE;
+var init_council = __esm(() => {
+  USAGE = [
+    "Usage: /swarm council <question> [--preset <name>] [--spec-review]",
+    "",
+    "  question         The question to put to the council",
+    "  --preset <name>  Use a named member preset from council.general.presets",
+    "  --spec-review    Use spec_review mode (single advisory pass on a draft spec)",
+    "",
+    "Requires council.general.enabled: true and a configured search API key in opencode-swarm.json."
+  ].join(`
+`);
+});
+
 // src/agents/explorer.ts
 function createExplorerAgent(model, customPrompt, customAppendPrompt) {
   let prompt = EXPLORER_PROMPT;
@@ -52168,7 +52274,8 @@ var init_qa_gates = __esm(() => {
     "critic_pre_plan",
     "hallucination_guard",
     "sast_enabled",
-    "mutation_test"
+    "mutation_test",
+    "council_general_review"
   ];
 });
 
@@ -53794,6 +53901,7 @@ var init_registry = __esm(() => {
   init_checkpoint2();
   init_close();
   init_config2();
+  init_council();
   init_curate();
   init_dark_matter();
   init_diagnose();
@@ -53949,11 +54057,17 @@ var init_registry = __esm(() => {
       args: "[topic-text]",
       details: "Triggers the architect to run the brainstorm workflow: CONTEXT SCAN, single-question DIALOGUE, APPROACHES, DESIGN SECTIONS, SPEC WRITE + SELF-REVIEW, QA GATE SELECTION, TRANSITION. Use for new plans where requirements need to be drawn out before writing spec.md / plan.md."
     },
+    council: {
+      handler: (ctx) => handleCouncilCommand(ctx.directory, ctx.args),
+      description: "Enter architect MODE: COUNCIL \u2014 multi-model deliberation [question] [--preset <name>] [--spec-review]",
+      args: "<question> [--preset <name>] [--spec-review]",
+      details: "Triggers the architect to convene a configurable General Council: each member independently web-searches, answers, and engages in one structured deliberation round on disagreements; an optional moderator pass synthesizes the final answer. --preset <name> selects a member group from council.general.presets. --spec-review switches to single-pass advisory mode for spec review. Requires council.general.enabled: true and a search API key in opencode-swarm.json."
+    },
     "qa-gates": {
       handler: (ctx) => handleQaGatesCommand(ctx.directory, ctx.args, ctx.sessionID),
       description: "View or modify QA gate profile for the current plan [enable|override <gate>...]",
       args: "[show|enable|override] <gate>...",
-      details: "show: display spec-level, session-override, and effective QA gates for the current plan. enable: persist gate(s) into the locked-once profile (architect; rejected after critic approval lock). override: session-only ratchet-tighter enable. Valid gates: reviewer, test_engineer, council_mode, sme_enabled, critic_pre_plan, hallucination_guard, sast_enabled, mutation_test."
+      details: "show: display spec-level, session-override, and effective QA gates for the current plan. enable: persist gate(s) into the locked-once profile (architect; rejected after critic approval lock). override: session-only ratchet-tighter enable. Valid gates: reviewer, test_engineer, council_mode, sme_enabled, critic_pre_plan, hallucination_guard, sast_enabled, mutation_test, council_general_review."
     },
     promote: {
       handler: (ctx) => handlePromoteCommand(ctx.directory, ctx.args),
@@ -54109,14 +54223,24 @@ from different members.`;
 function buildYourToolsList(council) {
   const tools = AGENT_TOOL_MAP.architect ?? [];
   const sorted = [...tools].sort();
-  const filtered = council?.enabled === true ? sorted : sorted.filter((t) => t !== "convene_council" && t !== "declare_council_criteria");
+  const qaCouncilEnabled = council?.enabled === true;
+  const generalCouncilEnabled = council?.general?.enabled === true;
+  const filtered = sorted.filter((t) => {
+    if (!qaCouncilEnabled && (t === "convene_council" || t === "declare_council_criteria")) {
+      return false;
+    }
+    if (!generalCouncilEnabled && t === "convene_general_council") {
+      return false;
+    }
+    return true;
+  });
   return `Task (delegation), ${filtered.join(", ")}.`;
 }
 function buildQaGateSelectionDialogue(modeLabel) {
   const leadIn = modeLabel === "BRAINSTORM" ? "Now ask the user which QA gates to enable for this plan \u2014 do not select on their behalf." : modeLabel === "SPECIFY" ? "Ask the user which QA gates to enable for this plan before suggesting the next step." : "No pending gate selection found in `.swarm/context.md`. Ask the user inline now.";
   return `${leadIn}
 
-Present the eight gates with their defaults (DEFAULT_QA_GATES) as a single user-facing question. Offer the user a one-shot choice: accept defaults, or customize. The eight gates are:
+Present the nine gates with their defaults (DEFAULT_QA_GATES) as a single user-facing question. Offer the user a one-shot choice: accept defaults, or customize. The nine gates are:
 - reviewer (default: ON) \u2014 code review of coder output
 - test_engineer (default: ON) \u2014 test verification of coder output
 - sme_enabled (default: ON) \u2014 SME consultation during planning/clarification
@@ -54125,13 +54249,24 @@ Present the eight gates with their defaults (DEFAULT_QA_GATES) as a single user-
 - council_mode (default: OFF) \u2014 multi-member council gate (recommended for high-impact architecture, public APIs, schema/data mutation, security-sensitive code)
 - hallucination_guard (default: OFF) \u2014 when enabled, mandatory per-phase API/signature/claim/citation verification via critic_hallucination_verifier at PHASE-WRAP; phase_complete will REJECT phase completion unless .swarm/evidence/{phase}/hallucination-guard.json exists with an APPROVED verdict (recommended for claim-heavy or research-heavy work)
 - mutation_test (default: OFF) \u2014 when enabled, runs mutation testing on source files touched this phase via generate_mutants + mutation_test + write_mutation_evidence at PHASE-WRAP; FAIL verdict blocks phase_complete; WARN is non-blocking (recommended for projects with coverage gaps or safety-critical code)
+- council_general_review (default: OFF) \u2014 when enabled, MODE: SPECIFY runs convene_general_council on the draft spec before the critic-gate; multiple models each independently search the web, deliberate on disagreements, and a moderator synthesizes a final answer that the architect folds into the spec (recommended for novel architecture, unclear best practices, or high-risk design decisions). Requires council.general.enabled: true and a configured search API key.
 
 One question, one message, defaults pre-stated. Wait for the user's answer.`;
 }
 function buildAvailableToolsList(council) {
   const tools = AGENT_TOOL_MAP.architect ?? [];
   const sorted = [...tools].sort();
-  const filtered = council?.enabled === true ? sorted : sorted.filter((t) => t !== "convene_council" && t !== "declare_council_criteria");
+  const qaCouncilEnabled = council?.enabled === true;
+  const generalCouncilEnabled = council?.general?.enabled === true;
+  const filtered = sorted.filter((t) => {
+    if (!qaCouncilEnabled && (t === "convene_council" || t === "declare_council_criteria")) {
+      return false;
+    }
+    if (!generalCouncilEnabled && t === "convene_general_council") {
+      return false;
+    }
+    return true;
+  });
   return filtered.map((t) => {
     const desc = TOOL_DESCRIPTIONS[t];
     return desc ? `${t} (${desc})` : t;
@@ -54172,7 +54307,8 @@ function buildSlashCommandsList() {
       "analyze",
       "plan",
       "sync-plan",
-      "acknowledge-spec-drift"
+      "acknowledge-spec-drift",
+      "council"
     ],
     "Execution Modes": ["turbo", "full-auto"],
     Observation: [
@@ -54817,6 +54953,29 @@ MODE: BRAINSTORM runs seven phases in strict order. Do not skip phases. Do not c
 **Phase 6: QA GATE SELECTION (architect, dialogue only).**
 {{QA_GATE_DIALOGUE_BRAINSTORM}}
 
+<!-- BEHAVIORAL_GUIDANCE_START -->
+GATE SELECTION IS MANDATORY \u2014 these thoughts are WRONG and must be ignored:
+  \u2717 "I'll use the defaults \u2014 they're probably fine"
+    \u2192 WRONG: defaults are not the user's decision. The user must be asked every time.
+  \u2717 "The user didn't mention gates, so defaults are fine"
+    \u2192 WRONG: silence is not consent. The gate dialogue is not optional.
+  \u2717 "I'll handle it in MODE: PLAN after the spec is done"
+    \u2192 WRONG: ## Pending QA Gate Selection must exist in context.md BEFORE save_plan is called.
+      save_plan will reject with QA_GATE_SELECTION_REQUIRED if this section is absent.
+  \u2717 "This feature is simple \u2014 gates are obvious"
+    \u2192 WRONG: complexity does not exempt this step. Gate selection is mandatory for ALL plans.
+  \u2717 "I already know which gates are right for this project"
+    \u2192 WRONG: the architect does not configure gates. The user configures gates. Always ask.
+  \u2717 "council_general_review is off by default, I don't need to mention it"
+    \u2192 WRONG: every gate is presented with its default stated. The user opts in or accepts the default explicitly.
+
+MANDATORY PAUSE: Do NOT write the spec summary (step 7). Do NOT suggest next steps.
+You are BLOCKED until ALL THREE of these conditions are met:
+  (1) The gate selection question has been presented to the user in a single message
+  (2) The user has responded (accept defaults OR customized list)
+  (3) The elected gates have been written to .swarm/context.md under "## Pending QA Gate Selection"
+<!-- BEHAVIORAL_GUIDANCE_END -->
+
 Do NOT call \`set_qa_gates\` yet \u2014 \`plan.json\` does not exist at this point. Once the user answers, write the elected gates to \`.swarm/context.md\` under a new section:
 \`\`\`
 ## Pending QA Gate Selection
@@ -54828,6 +54987,7 @@ Do NOT call \`set_qa_gates\` yet \u2014 \`plan.json\` does not exist at this poi
 - council_mode: <true|false>
 - hallucination_guard: <true|false>
 - mutation_test: <true|false>
+- council_general_review: <true|false>
 - recorded_at: <ISO timestamp>
 \`\`\`
 MODE: PLAN applies these after \`save_plan\` succeeds via \`set_qa_gates\`.
@@ -54870,6 +55030,29 @@ Activates when: user asks to "specify", "define requirements", "write a spec", o
 5b. **QA GATE SELECTION (dialogue only).**
 {{QA_GATE_DIALOGUE_SPECIFY}}
 
+<!-- BEHAVIORAL_GUIDANCE_START -->
+GATE SELECTION IS MANDATORY \u2014 these thoughts are WRONG and must be ignored:
+  \u2717 "I'll use the defaults \u2014 they're probably fine"
+    \u2192 WRONG: defaults are not the user's decision. The user must be asked every time.
+  \u2717 "The user didn't mention gates, so defaults are fine"
+    \u2192 WRONG: silence is not consent. The gate dialogue is not optional.
+  \u2717 "I'll handle it in MODE: PLAN after the spec is done"
+    \u2192 WRONG: ## Pending QA Gate Selection must exist in context.md BEFORE save_plan is called.
+      save_plan will reject with QA_GATE_SELECTION_REQUIRED if this section is absent.
+  \u2717 "This feature is simple \u2014 gates are obvious"
+    \u2192 WRONG: complexity does not exempt this step. Gate selection is mandatory for ALL plans.
+  \u2717 "I already know which gates are right for this project"
+    \u2192 WRONG: the architect does not configure gates. The user configures gates. Always ask.
+  \u2717 "council_general_review is off by default, I don't need to mention it"
+    \u2192 WRONG: every gate is presented with its default stated. The user opts in or accepts the default explicitly.
+
+MANDATORY PAUSE: Do NOT write the spec summary (step 7). Do NOT suggest next steps.
+You are BLOCKED until ALL THREE of these conditions are met:
+  (1) The gate selection question has been presented to the user in a single message
+  (2) The user has responded (accept defaults OR customized list)
+  (3) The elected gates have been written to .swarm/context.md under "## Pending QA Gate Selection"
+<!-- BEHAVIORAL_GUIDANCE_END -->
+
 Do NOT call \`set_qa_gates\` yet \u2014 \`plan.json\` does not exist at this point. Once the user answers, write the elected gates to \`.swarm/context.md\` under a new section:
 \`\`\`
 ## Pending QA Gate Selection
@@ -54881,9 +55064,37 @@ Do NOT call \`set_qa_gates\` yet \u2014 \`plan.json\` does not exist at this poi
 - council_mode: <true|false>
 - hallucination_guard: <true|false>
 - mutation_test: <true|false>
+- council_general_review: <true|false>
 - recorded_at: <ISO timestamp>
 \`\`\`
 MODE: PLAN will read this section after \`save_plan\` succeeds and persist via \`set_qa_gates\`.
+
+5c. **SPECIFY-COUNCIL-REVIEW (fires ONLY when council_general_review gate is true).**
+Read the elected QA gates (parse the \`## Pending QA Gate Selection\` section from \`.swarm/context.md\` you just wrote, OR call \`get_qa_gate_profile\` if a profile already exists). If \`council_general_review\` is false or absent, skip directly to step 7.
+
+If \`council_general_review\` is true:
+1. Read \`council.general\` config. If \`council.general.enabled\` is not true OR no search API key is configured, surface to the user: "council_general_review gate is enabled but the General Council is not configured. Set council.general.enabled: true and configure a search API key in opencode-swarm.json, or unset council_general_review and re-run." Then stop.
+2. Determine the council members from \`council.general.members\` (or \`council.general.presets[<name>]\` if you were invoked via \`/swarm council --preset <name>\` originally).
+3. Delegate to each council member in PARALLEL \u2014 one message per member, then STOP and wait. Pass: the spec text as the question, the member's role/persona, round number 1. Do NOT share other members' perspectives at this stage.
+4. Collect all member JSON responses.
+5. Call \`convene_general_council\` with mode: 'spec_review', the spec as question, and the collected \`round1Responses\`. Omit \`round2Responses\` \u2014 spec review is a single-pass advisory, not a full deliberation.
+6. Read \`consensusPoints\` \u2014 incorporate unambiguous consensus directly into the spec.
+7. Read \`disagreements\` \u2014 for each: (a) accept one position with rationale, (b) mark as \`[NEEDS CLARIFICATION]\` in the spec, or (c) schedule an SME consultation.
+8. If \`council.general.moderator\` is true, the tool returned a \`moderatorPrompt\` field. Delegate this prompt to \`{{AGENT_PREFIX}}council_moderator\`. Use the moderator's output to refine the spec further.
+9. Revise \`.swarm/spec.md\` to reflect the council input.
+
+<!-- BEHAVIORAL_GUIDANCE_START -->
+SPECIFY-COUNCIL-REVIEW RULES:
+  \u2717 "council_general_review is off by default, I'll skip this"
+    \u2192 CORRECT only when the gate is explicitly false or absent. Do NOT assume false. Read the actual gate value before deciding to skip.
+  \u2717 "The spec is already good, no need to ask the council"
+    \u2192 WRONG when gate is true: the user enabled this gate for a reason. Run it regardless.
+  \u2717 "I'll include round2Responses for spec_review \u2014 more is better"
+    \u2192 WRONG: spec review is a single advisory pass. Omit \`round2Responses\` for spec_review mode.
+  \u2717 "I'll skip the moderator pass to save time"
+    \u2192 WRONG when council.general.moderator is true: invoke \`{{AGENT_PREFIX}}council_moderator\` with the moderatorPrompt the tool returns.
+<!-- BEHAVIORAL_GUIDANCE_END -->
+
 7. Report a summary to the user (MUST count, SHALL count, scenario count, clarification markers, elected QA gates) and suggest the next step: \`CLARIFY-SPEC\` (if markers exist) or \`PLAN\`.
 
 SPEC CONTENT RULES \u2014 the spec MUST NOT contain:
@@ -55052,6 +55263,39 @@ This check fires automatically in:
 
 GREENFIELD EXEMPTION: If the work is purely greenfield (new project, no existing codebase references), skip this check.
 
+### MODE: COUNCIL
+
+Activates when: user invokes \`/swarm council <question>\` (optionally with \`--preset <name>\` or \`--spec-review\`).
+
+Purpose: convene a configurable multi-model General Council for an advisory deliberation. Each member independently web-searches and answers; the architect routes any disagreements back for one targeted reconciliation round; an optional moderator pass synthesizes the final user-facing answer.
+
+This mode is ADVISORY \u2014 it does NOT block any other workflow and does NOT modify code, plans, or specs. The output is for the user (general mode) or for the spec being drafted in MODE: SPECIFY (spec_review mode, gated by \`council_general_review\`).
+
+#### Pre-flight (always run first)
+1. Read \`council.general\` config. If \`council.general.enabled\` is not true OR no search API key is configured (neither \`council.general.searchApiKey\` nor the corresponding env var \`TAVILY_API_KEY\` / \`BRAVE_SEARCH_API_KEY\`), surface to the user: "General Council is not enabled. Set council.general.enabled: true and configure a search API key in opencode-swarm.json." Then STOP.
+
+#### Round 1 \u2014 Parallel Independent Search
+2. Determine council members. Default: \`council.general.members\`. If invoked with \`--preset <name>\`: \`council.general.presets[<name>]\`. If a named preset is missing, surface a clear error and stop.
+3. Delegate to each council member in PARALLEL \u2014 one message per member, then STOP and wait for all responses to come back. Pass: the question, the member's role/persona, round number 1. Do NOT share other members' responses at this stage.
+4. Collect all member JSON responses (each member returns a fenced JSON block per the council_member prompt).
+
+#### Synthesis and Deliberation (when council.general.deliberate is true; default true)
+5. Call \`convene_general_council\` with mode set from the command (\`general\` or \`spec_review\`), \`question\`, and the collected \`round1Responses\` only (omit \`round2Responses\`). Inspect the returned \`disagreementsCount\`.
+6. If \`disagreementsCount > 0\`:
+   a. For each disagreement in the tool's response, identify the disputing members (the members listed in the disagreement's positions).
+   b. Re-delegate ONLY to the disputing members \u2014 one message per member \u2014 passing: their Round 1 response, the disagreement topic, the opposing position(s), round number 2.
+   c. Collect the Round 2 responses.
+   d. Call \`convene_general_council\` AGAIN with both \`round1Responses\` AND \`round2Responses\` populated.
+
+#### Moderator Pass (when council.general.moderator is true; default true)
+7. The most recent \`convene_general_council\` call returned a \`moderatorPrompt\` field. Delegate this prompt to \`{{AGENT_PREFIX}}council_moderator\`. The moderator agent has no tools and no web access \u2014 it synthesizes a final user-facing answer from the council output you give it. Collect the moderator's markdown output.
+
+#### Output
+8. Present the final answer to the user:
+   - If the moderator pass ran: present the moderator's output verbatim, prefaced with the participating models (one line).
+   - If no moderator: present the structural \`synthesis\` markdown from the tool's return.
+   In either case, do NOT present the raw per-member JSON. Do NOT silently pick a winner among persisting disagreements \u2014 surface them honestly.
+
 ### MODE: PLAN
 
 SPEC GATE (soft \u2014 check before planning):
@@ -55130,7 +55374,18 @@ save_plan({
 **POST-SAVE_PLAN: APPLY QA GATE SELECTION.**
 After \`save_plan\` succeeds, read \`.swarm/context.md\`:
 - If a \`## Pending QA Gate Selection\` section exists: parse the gate values, call \`set_qa_gates\` with those flags, confirm with the user ("QA gates applied: <list>"), then remove the section from context.md.
-- If no pending section exists: {{QA_GATE_DIALOGUE_PLAN}} Then call \`set_qa_gates\` with the user's chosen flags.
+- If no pending section exists: {{QA_GATE_DIALOGUE_PLAN}}
+<!-- BEHAVIORAL_GUIDANCE_START -->
+INLINE GATE SELECTION \u2014 no pending section found in context.md. You MUST ask now.
+  \u2717 "I'll call set_qa_gates with defaults and move on"
+    \u2192 WRONG: set_qa_gates with assumed values is a gate violation. The user must answer first.
+  \u2717 "The user provided a plan \u2014 they know what gates they want"
+    \u2192 WRONG: providing a plan is not the same as configuring gates. Always ask.
+
+MANDATORY PAUSE: Present the gate question. Wait for the user's answer.
+Do NOT call \`set_qa_gates\` until the user has responded.
+<!-- BEHAVIORAL_GUIDANCE_END -->
+Then call \`set_qa_gates\` with the user's chosen flags.
 Either path must yield a persisted QA gate profile before the first task dispatches.
 
 \u26A0\uFE0F If \`save_plan\` is unavailable, delegate plan writing to {{AGENT_PREFIX}}coder:
@@ -55717,6 +55972,189 @@ META.SUMMARY CONVENTION \u2014 When reporting task completion, include:
 
     Write for the next agent reading the event log, not for a human.
 
+`;
+
+// src/agents/council-member.ts
+function createCouncilMemberAgent(model, customPrompt, customAppendPrompt) {
+  let prompt = COUNCIL_MEMBER_PROMPT;
+  if (customPrompt) {
+    prompt = customPrompt;
+  } else if (customAppendPrompt) {
+    prompt = `${COUNCIL_MEMBER_PROMPT}
+
+${customAppendPrompt}`;
+  }
+  return {
+    name: "council_member",
+    description: "General Council deliberation member. Independently web-searches and answers in Round 1; " + "targeted MAINTAIN/CONCEDE/NUANCE deliberation in Round 2. Tool-restricted to web_search only.",
+    config: {
+      model,
+      temperature: 0.4,
+      prompt,
+      tools: {
+        write: false,
+        edit: false,
+        patch: false
+      }
+    }
+  };
+}
+var COUNCIL_MEMBER_PROMPT = `You are Council Member {{MEMBER_ID}} ({{ROLE}}) on a multi-model General Council.
+
+{{PERSONA_BLOCK}}
+
+You are participating in Round {{ROUND}} of a structured deliberation. Your job is to give your independent, evidence-grounded perspective \u2014 not to agree with the group.
+
+================================================================
+ROUND {{ROUND}} PROTOCOL
+================================================================
+
+ROUND 1 \u2014 Independent Research and Answer
+- Issue 1\u20133 targeted web_search calls to gather evidence relevant to the question.
+- Cite EVERY factual claim with a source URL from your search results.
+- State your confidence (0.0\u20131.0) explicitly. Be honest \u2014 overconfident answers hurt the council.
+- Enumerate areas of uncertainty so the architect knows where you're guessing vs. where you're sure.
+- Do NOT coordinate with other members. You will not see their responses until Round 2.
+- Do NOT pad. Be concise. Substance over volume.
+
+ROUND 2 \u2014 Targeted Deliberation (ONLY when this round is invoked for you)
+- {{DISAGREEMENT_BLOCK}}
+- Issue at most 1 additional web_search call.
+- Declare your stance explicitly using one of these keywords as the FIRST word of a paragraph:
+    MAINTAIN  \u2014 your Round 1 position holds; cite the new evidence supporting it
+    CONCEDE   \u2014 the opposing position is correct; state specifically what you got wrong
+    NUANCE    \u2014 both positions are partially right; state the boundary condition that distinguishes them
+- Never CONCEDE without evidence. Sycophantic capitulation degrades the council below an individual member's baseline (NSED arXiv:2601.16863).
+- Never MAINTAIN without engaging the opposing argument on its merits.
+
+================================================================
+RESPONSE FORMAT (always \u2014 both rounds)
+================================================================
+
+Reply with a single fenced JSON block. No prose outside the block.
+
+\`\`\`json
+{
+  "memberId": "{{MEMBER_ID}}",
+  "role": "{{ROLE}}",
+  "round": {{ROUND}},
+  "response": "Your full answer (Round 1) or stance + reasoning (Round 2). Markdown OK inside the string.",
+  "searchQueries": ["query 1", "query 2"],
+  "sources": [
+    { "title": "...", "url": "...", "snippet": "...", "query": "..." }
+  ],
+  "confidence": 0.85,
+  "areasOfUncertainty": [
+    "What I'm not sure about, in plain language."
+  ],
+  "disagreementTopics": []
+}
+\`\`\`
+
+For Round 1: leave \`disagreementTopics\` as []. For Round 2: list the specific disagreement topics this response addresses.
+
+================================================================
+HARD RULES
+================================================================
+- web_search is your ONLY tool. You cannot read or write files, run commands, or delegate.
+- Never invent sources. If a search returns nothing useful, say so in \`areasOfUncertainty\`.
+- Never echo other members' responses verbatim. Paraphrase or quote with attribution.
+- Stay within your role and persona. The architect chose you for a specific perspective.
+`;
+
+// src/agents/council-moderator.ts
+function createCouncilModeratorAgent(model, customPrompt, customAppendPrompt) {
+  let prompt = COUNCIL_MODERATOR_PROMPT;
+  if (customPrompt) {
+    prompt = customPrompt;
+  } else if (customAppendPrompt) {
+    prompt = `${COUNCIL_MODERATOR_PROMPT}
+
+${customAppendPrompt}`;
+  }
+  return {
+    name: "council_moderator",
+    description: "General Council moderator. Synthesizes a coherent final answer from member " + "responses; no web search (works on already-gathered content).",
+    config: {
+      model,
+      temperature: 0.3,
+      prompt,
+      tools: {
+        write: false,
+        edit: false,
+        patch: false
+      }
+    }
+  };
+}
+var COUNCIL_MODERATOR_PROMPT = `You are the General Council Moderator.
+
+You are receiving the structural synthesis from a multi-model council deliberation:
+- Question (and mode: general or spec_review)
+- All member Round 1 responses with sources
+- Detected disagreements
+- Round 2 deliberation responses (if any)
+- Confidence-weighted consensus claims
+- Persisting disagreements after deliberation
+
+Your job: produce a coherent, well-structured final answer for the user.
+
+================================================================
+RULES
+================================================================
+
+1. LEAD WITH CONSENSUS \u2014 open with the strongest consensus position. Use the
+   confidence-weighted ordering (Quadratic Voting): higher-confidence claims
+   from multiple members rank higher, but evidence quality outranks raw
+   confidence. Never elevate a single confident voice over a well-evidenced
+   contrary majority.
+
+2. ACKNOWLEDGE DISAGREEMENT HONESTLY \u2014 for each persisting disagreement, write
+   "experts disagree on X because\u2026" and present the strongest version of each
+   side. Do NOT pretend disagreements are resolved when they are not. Do NOT
+   silently pick a winner.
+
+3. CITE THE STRONGEST SOURCES \u2014 link key claims with [title](url) format from
+   the deduplicated source list. Pick the most reputable source for each claim;
+   do not cite duplicates.
+
+4. BE CONCISE \u2014 the user wants an answer, not a committee report. Default
+   length: a few short paragraphs plus a bulleted summary. Expand only when
+   the question genuinely requires it.
+
+================================================================
+HARD CONSTRAINTS
+================================================================
+
+- You MUST NOT invent claims that are not present in the council's responses.
+- You MUST NOT add new web research. If something was missed, say so.
+- You MUST NOT favor a position based on member confidence alone \u2014 evidence
+  quality is the tie-breaker.
+- You have NO tools. You write the final synthesis from the input given.
+
+================================================================
+OUTPUT FORMAT
+================================================================
+
+Plain markdown. No code fences. No JSON. Suggested structure:
+
+# Answer
+
+<lead consensus position with citation(s)>
+
+<remaining consensus / context paragraphs as needed>
+
+## Where Experts Disagree
+
+- <topic 1>: <position A> vs <position B>, with sources for each
+- <topic 2>: ...
+
+## Sources
+
+- [title](url)
+- ...
+
+(Omit any section that is empty.)
 `;
 
 // src/agents/critic.ts
@@ -57362,6 +57800,19 @@ If you call @coder instead of @${swarmId}_coder, the call will FAIL or go to the
     const testEngineer = createTestEngineerAgent(getModel("test_engineer"), testPrompts.prompt, testPrompts.appendPrompt);
     testEngineer.name = prefixName("test_engineer");
     agents.push(applyOverrides(testEngineer, swarmAgents, swarmPrefix));
+  }
+  if (pluginConfig?.council?.general?.enabled === true && !isAgentDisabled("council_member", swarmAgents, swarmPrefix)) {
+    const councilMemberPrompts = getPrompts("council_member");
+    const councilMember = createCouncilMemberAgent(getModel("council_member"), councilMemberPrompts.prompt, councilMemberPrompts.appendPrompt);
+    councilMember.name = prefixName("council_member");
+    agents.push(applyOverrides(councilMember, swarmAgents, swarmPrefix));
+  }
+  if (pluginConfig?.council?.general?.enabled === true && pluginConfig?.council?.general?.moderator === true && !isAgentDisabled("council_moderator", swarmAgents, swarmPrefix)) {
+    const moderatorPrompts = getPrompts("council_moderator");
+    const moderatorModel = pluginConfig?.council?.general?.moderatorModel ?? getModel("council_moderator");
+    const councilModerator = createCouncilModeratorAgent(moderatorModel, moderatorPrompts.prompt, moderatorPrompts.appendPrompt);
+    councilModerator.name = prefixName("council_moderator");
+    agents.push(applyOverrides(councilModerator, swarmAgents, swarmPrefix));
   }
   if (!isAgentDisabled("docs", swarmAgents, swarmPrefix)) {
     const docsPrompts = getPrompts("docs");
@@ -62375,7 +62826,7 @@ var init_curator_drift = __esm(() => {
 
 // src/index.ts
 init_agents();
-import * as path102 from "path";
+import * as path103 from "path";
 
 // src/background/index.ts
 init_event_bus();
@@ -62674,6 +63125,7 @@ init_benchmark();
 init_checkpoint2();
 init_close();
 init_config2();
+init_council();
 init_curate();
 init_dark_matter();
 init_diagnose();
@@ -74032,6 +74484,496 @@ var convene_council = createSwarmTool({
     }, null, 2);
   }
 });
+// src/tools/convene-general-council.ts
+init_dist();
+init_zod();
+init_loader();
+import * as fs59 from "fs";
+import * as path73 from "path";
+
+// src/council/general-council-advisory.ts
+var ADVISORY_HEADER = "[general_council] (advisory; not blocking)";
+function pushGeneralCouncilAdvisory(session, result) {
+  if (!session)
+    return;
+  const body2 = renderAdvisoryBody(result);
+  if (!body2)
+    return;
+  session.pendingAdvisoryMessages ??= [];
+  session.pendingAdvisoryMessages.push(`${ADVISORY_HEADER}
+${body2}`);
+}
+function renderAdvisoryBody(result) {
+  const parts2 = [result.synthesis];
+  if (result.moderatorOutput && result.moderatorOutput.trim().length > 0) {
+    parts2.push("", "### Moderator Output", result.moderatorOutput);
+  }
+  return parts2.join(`
+`).trim();
+}
+
+// src/council/disagreement-detector.ts
+var MAX_DISAGREEMENTS = 10;
+var EXPLICIT_DISAGREEMENT_MARKERS = [
+  "i disagree with",
+  "i would push back on",
+  "contrary to",
+  "this contradicts",
+  "unlike "
+];
+var STRONG_RECOMMENDATION_MARKERS = [
+  "recommend",
+  "best approach",
+  "should use",
+  "i suggest",
+  "the answer is",
+  "the right choice is"
+];
+function tokenize(text) {
+  return text.toLowerCase().replace(/[^a-z0-9\s]/g, " ").split(/\s+/).filter((t) => t.length >= 3);
+}
+function termOverlap(a, b) {
+  const tokensA = new Set(tokenize(a));
+  const tokensB = new Set(tokenize(b));
+  if (tokensA.size === 0 || tokensB.size === 0)
+    return 0;
+  let intersection3 = 0;
+  for (const t of tokensA) {
+    if (tokensB.has(t))
+      intersection3++;
+  }
+  const union3 = tokensA.size + tokensB.size - intersection3;
+  return union3 === 0 ? 0 : intersection3 / union3;
+}
+function extractMarkerSentence(response, markers) {
+  const lower = response.toLowerCase();
+  const sentences = response.split(/(?<=[.!?])\s+/);
+  for (const sentence of sentences) {
+    const sentLower = sentence.toLowerCase();
+    if (markers.some((m) => sentLower.includes(m))) {
+      return sentence.trim();
+    }
+  }
+  for (const marker of markers) {
+    const idx = lower.indexOf(marker);
+    if (idx !== -1) {
+      const slice = response.slice(idx, idx + 200);
+      return slice.split(/\n/)[0]?.trim() ?? slice.trim();
+    }
+  }
+  return null;
+}
+function dedupeByTopic(disagreements) {
+  const result = [];
+  for (const d of disagreements) {
+    const topicLower = d.topic.toLowerCase();
+    const existing = result.find((r) => r.topic.toLowerCase().includes(topicLower) || topicLower.includes(r.topic.toLowerCase()));
+    if (existing) {
+      for (const pos of d.positions) {
+        if (!existing.positions.some((p) => p.memberId === pos.memberId)) {
+          existing.positions.push(pos);
+        }
+      }
+    } else {
+      result.push(d);
+    }
+  }
+  return result;
+}
+function detectExplicitMarkers(responses) {
+  const out2 = [];
+  for (const member of responses) {
+    const markerSentence = extractMarkerSentence(member.response, EXPLICIT_DISAGREEMENT_MARKERS);
+    if (!markerSentence)
+      continue;
+    const position = {
+      memberId: member.memberId,
+      claim: markerSentence,
+      evidence: member.sources[0]?.url ?? "(no source cited in marker sentence)"
+    };
+    out2.push({
+      topic: markerSentence.slice(0, 80),
+      positions: [position]
+    });
+  }
+  return out2;
+}
+function extractRecommendation(response) {
+  return extractMarkerSentence(response, STRONG_RECOMMENDATION_MARKERS);
+}
+function detectClaimDivergence(responses) {
+  const recommendations = [];
+  for (const member of responses) {
+    const rec = extractRecommendation(member.response);
+    if (!rec)
+      continue;
+    recommendations.push({
+      memberId: member.memberId,
+      text: rec,
+      evidence: member.sources[0]?.url ?? "(no source cited)"
+    });
+  }
+  const out2 = [];
+  for (let i2 = 0;i2 < recommendations.length; i2++) {
+    for (let j = i2 + 1;j < recommendations.length; j++) {
+      const a = recommendations[i2];
+      const b = recommendations[j];
+      if (!a || !b)
+        continue;
+      const topicOverlap = termOverlap(a.text, b.text);
+      if (topicOverlap > 0.4)
+        continue;
+      if (topicOverlap > 0 && topicOverlap < 0.3) {
+        const topic = `${a.text.slice(0, 50)} vs ${b.text.slice(0, 50)}`;
+        out2.push({
+          topic,
+          positions: [
+            { memberId: a.memberId, claim: a.text, evidence: a.evidence },
+            { memberId: b.memberId, claim: b.text, evidence: b.evidence }
+          ]
+        });
+      }
+    }
+  }
+  return out2;
+}
+function detectDisagreements(responses) {
+  if (!Array.isArray(responses) || responses.length < 2)
+    return [];
+  const safeResponses = responses.filter((r) => typeof r?.memberId === "string" && typeof r?.response === "string");
+  const explicit = detectExplicitMarkers(safeResponses);
+  const divergent = detectClaimDivergence(safeResponses);
+  const combined = [...explicit, ...divergent];
+  const deduped = dedupeByTopic(combined);
+  return deduped.slice(0, MAX_DISAGREEMENTS);
+}
+
+// src/council/general-council-service.ts
+var CONSENSUS_WEIGHT_THRESHOLD = 0.6;
+function tokenize2(text) {
+  return text.toLowerCase().replace(/[^a-z0-9\s]/g, " ").split(/\s+/).filter((t) => t.length >= 4);
+}
+function similarity(a, b) {
+  const tokensA = new Set(tokenize2(a));
+  const tokensB = new Set(tokenize2(b));
+  if (tokensA.size === 0 || tokensB.size === 0)
+    return 0;
+  let intersection3 = 0;
+  for (const t of tokensA)
+    if (tokensB.has(t))
+      intersection3++;
+  const union3 = tokensA.size + tokensB.size - intersection3;
+  return union3 === 0 ? 0 : intersection3 / union3;
+}
+function extractClaims(response) {
+  return response.split(/(?<=[.!?])\s+/).map((s) => s.trim()).filter((s) => s.length >= 30 && s.length <= 400);
+}
+function buildConsensusClusters(responses) {
+  if (responses.length < 2)
+    return [];
+  const totalMembers = responses.length;
+  const clusters = [];
+  for (const member of responses) {
+    const confidence = clamp01(member.confidence ?? 0.5);
+    const claims = extractClaims(member.response ?? "");
+    for (const claim of claims) {
+      let assigned = false;
+      for (const cluster of clusters) {
+        if (similarity(cluster.representative, claim) >= 0.5) {
+          if (!cluster.memberIds.has(member.memberId)) {
+            cluster.weightedAgreement += confidence;
+            cluster.memberIds.add(member.memberId);
+          }
+          if (claim.length > cluster.representative.length) {
+            cluster.representative = claim;
+          }
+          assigned = true;
+          break;
+        }
+      }
+      if (!assigned) {
+        clusters.push({
+          representative: claim,
+          weightedAgreement: confidence,
+          memberIds: new Set([member.memberId])
+        });
+      }
+    }
+  }
+  return clusters.filter((c) => c.memberIds.size >= 2 && c.weightedAgreement / totalMembers >= CONSENSUS_WEIGHT_THRESHOLD).sort((a, b) => b.weightedAgreement - a.weightedAgreement || b.memberIds.size - a.memberIds.size).map((c) => c.representative);
+}
+function clamp01(n) {
+  if (typeof n !== "number" || Number.isNaN(n))
+    return 0;
+  if (n < 0)
+    return 0;
+  if (n > 1)
+    return 1;
+  return n;
+}
+function computePersistingDisagreements(disagreements, round2) {
+  if (disagreements.length === 0)
+    return [];
+  if (round2.length === 0)
+    return disagreements;
+  return disagreements.filter((d) => {
+    const disputants = new Set(d.positions.map((p) => p.memberId));
+    const conceded = round2.some((r) => {
+      if (!disputants.has(r.memberId))
+        return false;
+      if (!r.disagreementTopics?.includes(d.topic))
+        return false;
+      return /\bconcede\b/i.test(r.response ?? "");
+    });
+    return !conceded;
+  });
+}
+function dedupeSources(round1, round2) {
+  const seen = new Set;
+  const out2 = [];
+  const allSources = [...round1, ...round2].flatMap((r) => r.sources ?? []);
+  for (const src of allSources) {
+    if (!src?.url)
+      continue;
+    if (seen.has(src.url))
+      continue;
+    seen.add(src.url);
+    out2.push(src);
+  }
+  return out2;
+}
+function renderSynthesisMarkdown(question, mode, roundsCompleted, members, consensusPoints, persistingDisagreements, allSources) {
+  const memberLines = members.map((m) => `- ${m.memberId} (${m.model}, ${m.role})`).join(`
+`);
+  const consensusBlock = consensusPoints.length > 0 ? consensusPoints.map((c) => `- ${c}`).join(`
+`) : "_No consensus claims reached the weighted-agreement threshold._";
+  const disagreementsBlock = persistingDisagreements.length > 0 ? persistingDisagreements.map((d) => `- **${d.topic}**
+` + d.positions.map((p) => `  - ${p.memberId}: ${p.claim}`).join(`
+`)).join(`
+`) : "_No persisting disagreements after deliberation._";
+  const sourcesBlock = allSources.length > 0 ? allSources.map((s) => `- [${s.title || s.url}](${s.url})`).join(`
+`) : "_No sources cited._";
+  return [
+    "## General Council Synthesis",
+    "",
+    `**Question:** ${question}`,
+    `**Mode:** ${mode}`,
+    `**Members:**
+${memberLines}`,
+    `**Rounds:** ${roundsCompleted}`,
+    "",
+    "### Consensus",
+    consensusBlock,
+    "",
+    "### Persistent Disagreements",
+    disagreementsBlock,
+    "",
+    "### Sources",
+    sourcesBlock
+  ].join(`
+`);
+}
+function synthesizeGeneralCouncil(question, mode, round1Responses, round2Responses) {
+  const safeRound1 = Array.isArray(round1Responses) ? round1Responses : [];
+  const safeRound2 = Array.isArray(round2Responses) ? round2Responses : [];
+  const disagreements = detectDisagreements(safeRound1);
+  const consensusPoints = buildConsensusClusters(safeRound1);
+  const persistingDisagreements = computePersistingDisagreements(disagreements, safeRound2);
+  const allSources = dedupeSources(safeRound1, safeRound2);
+  const roundsCompleted = safeRound2.length > 0 ? 2 : 1;
+  const synthesis = renderSynthesisMarkdown(question, mode, roundsCompleted, safeRound1, consensusPoints, persistingDisagreements, allSources);
+  return {
+    question,
+    mode,
+    round1Responses: safeRound1,
+    disagreements,
+    round2Responses: safeRound2,
+    synthesis,
+    consensusPoints,
+    persistingDisagreements: persistingDisagreements.map((d) => d.topic),
+    allSources,
+    timestamp: new Date().toISOString()
+  };
+}
+
+// src/tools/convene-general-council.ts
+init_state();
+init_create_tool();
+init_resolve_working_directory();
+var WebSearchResultSchema = exports_external.object({
+  title: exports_external.string(),
+  url: exports_external.string(),
+  snippet: exports_external.string(),
+  query: exports_external.string()
+});
+var MemberRoleEnum = exports_external.enum([
+  "generalist",
+  "skeptic",
+  "domain_expert",
+  "devil_advocate",
+  "synthesizer"
+]);
+var Round1ResponseSchema = exports_external.object({
+  memberId: exports_external.string().min(1),
+  model: exports_external.string().min(1),
+  role: MemberRoleEnum,
+  response: exports_external.string(),
+  sources: exports_external.array(WebSearchResultSchema).default([]),
+  searchQueries: exports_external.array(exports_external.string()).default([]),
+  confidence: exports_external.number().min(0).max(1),
+  areasOfUncertainty: exports_external.array(exports_external.string()).default([]),
+  durationMs: exports_external.number().nonnegative().default(0)
+});
+var Round2ResponseSchema = Round1ResponseSchema.extend({
+  disagreementTopics: exports_external.array(exports_external.string()).default([])
+});
+var ArgsSchema2 = exports_external.object({
+  question: exports_external.string().min(1).max(8000),
+  mode: exports_external.enum(["general", "spec_review"]).default("general"),
+  members: exports_external.array(exports_external.string()).default([]),
+  round1Responses: exports_external.array(Round1ResponseSchema).min(1),
+  round2Responses: exports_external.array(Round2ResponseSchema).optional(),
+  working_directory: exports_external.string().optional()
+});
+function buildModeratorPrompt(question, synthesis) {
+  return [
+    "A multi-model council has deliberated on the following question. Your job is to synthesize",
+    "the council output into a single coherent answer for the user, following the rules in your",
+    "system prompt (lead with consensus, acknowledge persisting disagreement honestly, cite the",
+    "strongest sources, be concise, do not invent claims, do not run new searches).",
+    "",
+    `QUESTION:
+${question}`,
+    "",
+    "COUNCIL OUTPUT:",
+    synthesis
+  ].join(`
+`);
+}
+var convene_general_council = createSwarmTool({
+  description: "Synthesize responses from a multi-model General Council. Accepts parallel member " + "responses (Round 1, optionally Round 2), detects disagreements, and returns " + "consensus points, persisting disagreements, a structured synthesis, and an optional " + "moderator prompt. Architect-only. Config-gated on council.general.enabled.",
+  args: {
+    question: tool.schema.string().min(1).max(8000).describe("The question put to the council, or the spec text to review."),
+    mode: tool.schema.enum(["general", "spec_review"]).optional().describe('"general" for /swarm council; "spec_review" for SPECIFY-COUNCIL-REVIEW gate.'),
+    members: tool.schema.array(tool.schema.string()).optional().describe("Optional list of member IDs convened (for evidence/audit)."),
+    round1Responses: tool.schema.array(tool.schema.object({
+      memberId: tool.schema.string().min(1),
+      model: tool.schema.string().min(1),
+      role: tool.schema.enum([
+        "generalist",
+        "skeptic",
+        "domain_expert",
+        "devil_advocate",
+        "synthesizer"
+      ]),
+      response: tool.schema.string(),
+      sources: tool.schema.array(tool.schema.object({
+        title: tool.schema.string(),
+        url: tool.schema.string(),
+        snippet: tool.schema.string(),
+        query: tool.schema.string()
+      })).optional(),
+      searchQueries: tool.schema.array(tool.schema.string()).optional(),
+      confidence: tool.schema.number().min(0).max(1),
+      areasOfUncertainty: tool.schema.array(tool.schema.string()).optional(),
+      durationMs: tool.schema.number().nonnegative().optional()
+    })).describe("Round 1 member responses (one per council member)."),
+    round2Responses: tool.schema.array(tool.schema.object({
+      memberId: tool.schema.string().min(1),
+      model: tool.schema.string().min(1),
+      role: tool.schema.enum([
+        "generalist",
+        "skeptic",
+        "domain_expert",
+        "devil_advocate",
+        "synthesizer"
+      ]),
+      response: tool.schema.string(),
+      sources: tool.schema.array(tool.schema.object({
+        title: tool.schema.string(),
+        url: tool.schema.string(),
+        snippet: tool.schema.string(),
+        query: tool.schema.string()
+      })).optional(),
+      searchQueries: tool.schema.array(tool.schema.string()).optional(),
+      confidence: tool.schema.number().min(0).max(1),
+      areasOfUncertainty: tool.schema.array(tool.schema.string()).optional(),
+      durationMs: tool.schema.number().nonnegative().optional(),
+      disagreementTopics: tool.schema.array(tool.schema.string()).optional()
+    })).optional().describe("Round 2 deliberation responses (omit when no deliberation has occurred)."),
+    working_directory: tool.schema.string().optional().describe("Project root for config + evidence path resolution.")
+  },
+  execute: async (args2, directory, ctx) => {
+    const parsed = ArgsSchema2.safeParse(args2);
+    if (!parsed.success) {
+      const fail = {
+        success: false,
+        reason: "invalid_args",
+        message: parsed.error.issues.map((i2) => `${i2.path.join(".")}: ${i2.message}`).join("; ")
+      };
+      return JSON.stringify(fail, null, 2);
+    }
+    const input = parsed.data;
+    const dirResult = resolveWorkingDirectory(input.working_directory, directory);
+    if (!dirResult.success) {
+      const fail = {
+        success: false,
+        reason: "invalid_working_directory",
+        message: dirResult.message
+      };
+      return JSON.stringify(fail, null, 2);
+    }
+    const workingDir = dirResult.directory;
+    const config3 = loadPluginConfig(workingDir);
+    const generalConfig = config3.council?.general;
+    if (!generalConfig || generalConfig.enabled !== true) {
+      const fail = {
+        success: false,
+        reason: "council_general_disabled",
+        message: "convene_general_council requires council.general.enabled: true in opencode-swarm.json."
+      };
+      return JSON.stringify(fail, null, 2);
+    }
+    const round1 = input.round1Responses;
+    const round2 = input.round2Responses ?? [];
+    const result = synthesizeGeneralCouncil(input.question, input.mode, round1, round2);
+    const evidenceDir = path73.join(workingDir, ".swarm", "council", "general");
+    const safeTimestamp = result.timestamp.replace(/[:.]/g, "-");
+    const evidenceFile = `${safeTimestamp}-${input.mode}.json`;
+    const evidencePath = path73.join(evidenceDir, evidenceFile);
+    try {
+      await fs59.promises.mkdir(evidenceDir, { recursive: true });
+      await fs59.promises.writeFile(evidencePath, JSON.stringify(result, null, 2));
+    } catch (err2) {
+      const message = err2 instanceof Error ? err2.message : String(err2);
+      console.warn(`[convene_general_council] Failed to write evidence to ${evidencePath}: ${message}`);
+    }
+    try {
+      const sessionID = ctx?.sessionID;
+      if (sessionID) {
+        const session = getAgentSession(sessionID);
+        if (session) {
+          pushGeneralCouncilAdvisory(session, result);
+        }
+      }
+    } catch {}
+    const moderatorPrompt = generalConfig.moderator === true ? buildModeratorPrompt(input.question, result.synthesis) : undefined;
+    const ok = {
+      success: true,
+      question: input.question,
+      mode: input.mode,
+      roundsCompleted: round2.length > 0 ? 2 : 1,
+      consensusPoints: result.consensusPoints,
+      disagreementsCount: result.disagreements.length,
+      persistingDisagreements: result.persistingDisagreements,
+      allSourcesCount: result.allSources.length,
+      synthesis: result.synthesis,
+      ...moderatorPrompt !== undefined && { moderatorPrompt },
+      evidencePath
+    };
+    return JSON.stringify(ok, null, 2);
+  }
+});
 // src/tools/curator-analyze.ts
 init_dist();
 init_config();
@@ -74161,7 +75103,7 @@ var CriteriaItemSchema = exports_external.object({
   description: exports_external.string().min(10).max(500),
   mandatory: exports_external.boolean()
 });
-var ArgsSchema2 = exports_external.object({
+var ArgsSchema3 = exports_external.object({
   taskId: exports_external.string().min(1).regex(/^\d+\.\d+(\.\d+)*$/, "Task ID must be in N.M or N.M.P format"),
   criteria: exports_external.array(CriteriaItemSchema).min(1).max(20),
   working_directory: exports_external.string().optional()
@@ -74178,7 +75120,7 @@ var declare_council_criteria = createSwarmTool({
     working_directory: tool.schema.string().optional().describe("Explicit project root directory. When provided, .swarm/council/ is resolved relative to this path instead of the plugin context directory.")
   },
   async execute(args2, directory) {
-    const parsed = ArgsSchema2.safeParse(args2);
+    const parsed = ArgsSchema3.safeParse(args2);
     if (!parsed.success) {
       return JSON.stringify({
         success: false,
@@ -74239,8 +75181,8 @@ init_scope_persistence();
 init_state();
 init_task_id();
 init_create_tool();
-import * as fs59 from "fs";
-import * as path73 from "path";
+import * as fs60 from "fs";
+import * as path74 from "path";
 function validateTaskIdFormat2(taskId) {
   return validateTaskIdFormat(taskId);
 }
@@ -74314,8 +75256,8 @@ async function executeDeclareScope(args2, fallbackDir) {
         };
       }
     }
-    normalizedDir = path73.normalize(args2.working_directory);
-    const pathParts = normalizedDir.split(path73.sep);
+    normalizedDir = path74.normalize(args2.working_directory);
+    const pathParts = normalizedDir.split(path74.sep);
     if (pathParts.includes("..")) {
       return {
         success: false,
@@ -74325,11 +75267,11 @@ async function executeDeclareScope(args2, fallbackDir) {
         ]
       };
     }
-    const resolvedDir = path73.resolve(normalizedDir);
+    const resolvedDir = path74.resolve(normalizedDir);
     try {
-      const realPath = fs59.realpathSync(resolvedDir);
-      const planPath2 = path73.join(realPath, ".swarm", "plan.json");
-      if (!fs59.existsSync(planPath2)) {
+      const realPath = fs60.realpathSync(resolvedDir);
+      const planPath2 = path74.join(realPath, ".swarm", "plan.json");
+      if (!fs60.existsSync(planPath2)) {
         return {
           success: false,
           message: `Invalid working_directory: plan not found in "${realPath}"`,
@@ -74352,8 +75294,8 @@ async function executeDeclareScope(args2, fallbackDir) {
     console.warn("[declare-scope] fallbackDir is undefined, falling back to process.cwd()");
   }
   const directory = normalizedDir || fallbackDir;
-  const planPath = path73.resolve(directory, ".swarm", "plan.json");
-  if (!fs59.existsSync(planPath)) {
+  const planPath = path74.resolve(directory, ".swarm", "plan.json");
+  if (!fs60.existsSync(planPath)) {
     return {
       success: false,
       message: "No plan found",
@@ -74362,7 +75304,7 @@ async function executeDeclareScope(args2, fallbackDir) {
   }
   let planContent;
   try {
-    planContent = JSON.parse(fs59.readFileSync(planPath, "utf-8"));
+    planContent = JSON.parse(fs60.readFileSync(planPath, "utf-8"));
   } catch {
     return {
       success: false,
@@ -74392,8 +75334,8 @@ async function executeDeclareScope(args2, fallbackDir) {
   const normalizeErrors = [];
   const dir = normalizedDir || fallbackDir || process.cwd();
   const mergedFiles = rawMergedFiles.map((file3) => {
-    if (path73.isAbsolute(file3)) {
-      const relativePath = path73.relative(dir, file3).replace(/\\/g, "/");
+    if (path74.isAbsolute(file3)) {
+      const relativePath = path74.relative(dir, file3).replace(/\\/g, "/");
       if (relativePath.startsWith("..")) {
         normalizeErrors.push(`Path '${file3}' resolves outside the project directory`);
         return file3;
@@ -74453,8 +75395,8 @@ var declare_scope = createSwarmTool({
 // src/tools/diff.ts
 init_dist();
 import * as child_process7 from "child_process";
-import * as fs60 from "fs";
-import * as path74 from "path";
+import * as fs61 from "fs";
+import * as path75 from "path";
 init_create_tool();
 var MAX_DIFF_LINES = 500;
 var DIFF_TIMEOUT_MS = 30000;
@@ -74483,20 +75425,20 @@ function validateBase(base) {
 function validatePaths(paths) {
   if (!paths)
     return null;
-  for (const path75 of paths) {
-    if (!path75 || path75.length === 0) {
+  for (const path76 of paths) {
+    if (!path76 || path76.length === 0) {
       return "empty path not allowed";
     }
-    if (path75.length > MAX_PATH_LENGTH) {
+    if (path76.length > MAX_PATH_LENGTH) {
       return `path exceeds maximum length of ${MAX_PATH_LENGTH}`;
     }
-    if (SHELL_METACHARACTERS2.test(path75)) {
+    if (SHELL_METACHARACTERS2.test(path76)) {
       return "path contains shell metacharacters";
     }
-    if (path75.startsWith("-")) {
+    if (path76.startsWith("-")) {
       return 'path cannot start with "-" (option-like arguments not allowed)';
     }
-    if (CONTROL_CHAR_PATTERN2.test(path75)) {
+    if (CONTROL_CHAR_PATTERN2.test(path76)) {
       return "path contains control characters";
     }
   }
@@ -74602,8 +75544,8 @@ var diff = createSwarmTool({
         if (parts2.length >= 3) {
           const additions = parseInt(parts2[0], 10) || 0;
           const deletions = parseInt(parts2[1], 10) || 0;
-          const path75 = parts2[2];
-          files.push({ path: path75, additions, deletions });
+          const path76 = parts2[2];
+          files.push({ path: path76, additions, deletions });
         }
       }
       const contractChanges = [];
@@ -74643,7 +75585,7 @@ var diff = createSwarmTool({
           } else if (base === "unstaged") {
             const oldRef = `:${file3.path}`;
             oldContent = fileExistsInRef(oldRef) ? getContentFromRef(oldRef) : "";
-            newContent = fs60.readFileSync(path74.join(directory, file3.path), "utf-8");
+            newContent = fs61.readFileSync(path75.join(directory, file3.path), "utf-8");
           } else {
             const oldRef = `${base}:${file3.path}`;
             oldContent = fileExistsInRef(oldRef) ? getContentFromRef(oldRef) : "";
@@ -74717,8 +75659,8 @@ var diff = createSwarmTool({
 // src/tools/diff-summary.ts
 init_dist();
 import * as child_process8 from "child_process";
-import * as fs61 from "fs";
-import * as path75 from "path";
+import * as fs62 from "fs";
+import * as path76 from "path";
 init_create_tool();
 var diff_summary = createSwarmTool({
   description: "Generate a filtered semantic diff summary from AST analysis. Returns SemanticDiffSummary with optional filtering by classification or riskLevel.",
@@ -74766,7 +75708,7 @@ var diff_summary = createSwarmTool({
         }
         try {
           let oldContent;
-          const newContent = fs61.readFileSync(path75.join(workingDir, filePath), "utf-8");
+          const newContent = fs62.readFileSync(path76.join(workingDir, filePath), "utf-8");
           if (fileExistsInHead) {
             oldContent = child_process8.execFileSync("git", ["show", `HEAD:${filePath}`], {
               encoding: "utf-8",
@@ -74993,8 +75935,8 @@ Use these as DOMAIN values when delegating to @sme.`;
 init_dist();
 init_create_tool();
 init_path_security();
-import * as fs62 from "fs";
-import * as path76 from "path";
+import * as fs63 from "fs";
+import * as path77 from "path";
 var MAX_FILE_SIZE_BYTES6 = 1024 * 1024;
 var MAX_EVIDENCE_FILES = 1000;
 var EVIDENCE_DIR3 = ".swarm/evidence";
@@ -75021,9 +75963,9 @@ function validateRequiredTypes(input) {
   return null;
 }
 function isPathWithinSwarm2(filePath, cwd) {
-  const normalizedCwd = path76.resolve(cwd);
-  const swarmPath = path76.join(normalizedCwd, ".swarm");
-  const normalizedPath = path76.resolve(filePath);
+  const normalizedCwd = path77.resolve(cwd);
+  const swarmPath = path77.join(normalizedCwd, ".swarm");
+  const normalizedPath = path77.resolve(filePath);
   return normalizedPath.startsWith(swarmPath);
 }
 function parseCompletedTasks(planContent) {
@@ -75039,12 +75981,12 @@ function parseCompletedTasks(planContent) {
 }
 function readEvidenceFiles(evidenceDir, _cwd) {
   const evidence = [];
-  if (!fs62.existsSync(evidenceDir) || !fs62.statSync(evidenceDir).isDirectory()) {
+  if (!fs63.existsSync(evidenceDir) || !fs63.statSync(evidenceDir).isDirectory()) {
     return evidence;
   }
   let files;
   try {
-    files = fs62.readdirSync(evidenceDir);
+    files = fs63.readdirSync(evidenceDir);
   } catch {
     return evidence;
   }
@@ -75053,14 +75995,14 @@ function readEvidenceFiles(evidenceDir, _cwd) {
     if (!VALID_EVIDENCE_FILENAME_REGEX.test(filename)) {
       continue;
     }
-    const filePath = path76.join(evidenceDir, filename);
+    const filePath = path77.join(evidenceDir, filename);
     try {
-      const resolvedPath = path76.resolve(filePath);
-      const evidenceDirResolved = path76.resolve(evidenceDir);
+      const resolvedPath = path77.resolve(filePath);
+      const evidenceDirResolved = path77.resolve(evidenceDir);
       if (!resolvedPath.startsWith(evidenceDirResolved)) {
         continue;
       }
-      const stat4 = fs62.lstatSync(filePath);
+      const stat4 = fs63.lstatSync(filePath);
       if (!stat4.isFile()) {
         continue;
       }
@@ -75069,7 +76011,7 @@ function readEvidenceFiles(evidenceDir, _cwd) {
     }
     let fileStat;
     try {
-      fileStat = fs62.statSync(filePath);
+      fileStat = fs63.statSync(filePath);
       if (fileStat.size > MAX_FILE_SIZE_BYTES6) {
         continue;
       }
@@ -75078,7 +76020,7 @@ function readEvidenceFiles(evidenceDir, _cwd) {
     }
     let content;
     try {
-      content = fs62.readFileSync(filePath, "utf-8");
+      content = fs63.readFileSync(filePath, "utf-8");
     } catch {
       continue;
     }
@@ -75174,7 +76116,7 @@ var evidence_check = createSwarmTool({
       return JSON.stringify(errorResult, null, 2);
     }
     const requiredTypes = requiredTypesValue.split(",").map((t) => t.trim()).filter((t) => t.length > 0).map(normalizeEvidenceType);
-    const planPath = path76.join(cwd, PLAN_FILE);
+    const planPath = path77.join(cwd, PLAN_FILE);
     if (!isPathWithinSwarm2(planPath, cwd)) {
       const errorResult = {
         error: "plan file path validation failed",
@@ -75188,7 +76130,7 @@ var evidence_check = createSwarmTool({
     }
     let planContent;
     try {
-      planContent = fs62.readFileSync(planPath, "utf-8");
+      planContent = fs63.readFileSync(planPath, "utf-8");
     } catch {
       const result2 = {
         message: "No completed tasks found in plan.",
@@ -75206,7 +76148,7 @@ var evidence_check = createSwarmTool({
       };
       return JSON.stringify(result2, null, 2);
     }
-    const evidenceDir = path76.join(cwd, EVIDENCE_DIR3);
+    const evidenceDir = path77.join(cwd, EVIDENCE_DIR3);
     const evidence = readEvidenceFiles(evidenceDir, cwd);
     const { tasksWithFullEvidence, gaps } = analyzeGaps(completedTasks, evidence, requiredTypes);
     const completeness = completedTasks.length > 0 ? Math.round(tasksWithFullEvidence.length / completedTasks.length * 100) / 100 : 1;
@@ -75223,8 +76165,8 @@ var evidence_check = createSwarmTool({
 // src/tools/file-extractor.ts
 init_tool();
 init_create_tool();
-import * as fs63 from "fs";
-import * as path77 from "path";
+import * as fs64 from "fs";
+import * as path78 from "path";
 var EXT_MAP = {
   python: ".py",
   py: ".py",
@@ -75286,8 +76228,8 @@ var extract_code_blocks = createSwarmTool({
   execute: async (args2, directory) => {
     const { content, output_dir, prefix } = args2;
     const targetDir = output_dir || directory;
-    if (!fs63.existsSync(targetDir)) {
-      fs63.mkdirSync(targetDir, { recursive: true });
+    if (!fs64.existsSync(targetDir)) {
+      fs64.mkdirSync(targetDir, { recursive: true });
     }
     if (!content) {
       return "Error: content is required";
@@ -75305,16 +76247,16 @@ var extract_code_blocks = createSwarmTool({
       if (prefix) {
         filename = `${prefix}_${filename}`;
       }
-      let filepath = path77.join(targetDir, filename);
-      const base = path77.basename(filepath, path77.extname(filepath));
-      const ext = path77.extname(filepath);
+      let filepath = path78.join(targetDir, filename);
+      const base = path78.basename(filepath, path78.extname(filepath));
+      const ext = path78.extname(filepath);
       let counter = 1;
-      while (fs63.existsSync(filepath)) {
-        filepath = path77.join(targetDir, `${base}_${counter}${ext}`);
+      while (fs64.existsSync(filepath)) {
+        filepath = path78.join(targetDir, `${base}_${counter}${ext}`);
         counter++;
       }
       try {
-        fs63.writeFileSync(filepath, code.trim(), "utf-8");
+        fs64.writeFileSync(filepath, code.trim(), "utf-8");
         savedFiles.push(filepath);
       } catch (error93) {
         errors5.push(`Failed to save ${filename}: ${error93 instanceof Error ? error93.message : String(error93)}`);
@@ -75573,8 +76515,8 @@ var gitingest = createSwarmTool({
 init_dist();
 init_create_tool();
 init_path_security();
-import * as fs64 from "fs";
-import * as path78 from "path";
+import * as fs65 from "fs";
+import * as path79 from "path";
 var MAX_FILE_PATH_LENGTH2 = 500;
 var MAX_SYMBOL_LENGTH = 256;
 var MAX_FILE_SIZE_BYTES7 = 1024 * 1024;
@@ -75622,7 +76564,7 @@ function validateSymbolInput(symbol3) {
   return null;
 }
 function isBinaryFile2(filePath, buffer) {
-  const ext = path78.extname(filePath).toLowerCase();
+  const ext = path79.extname(filePath).toLowerCase();
   if (ext === ".json" || ext === ".md" || ext === ".txt") {
     return false;
   }
@@ -75646,15 +76588,15 @@ function parseImports(content, targetFile, targetSymbol) {
   const imports = [];
   let _resolvedTarget;
   try {
-    _resolvedTarget = path78.resolve(targetFile);
+    _resolvedTarget = path79.resolve(targetFile);
   } catch {
     _resolvedTarget = targetFile;
   }
-  const targetBasename = path78.basename(targetFile, path78.extname(targetFile));
+  const targetBasename = path79.basename(targetFile, path79.extname(targetFile));
   const targetWithExt = targetFile;
   const targetWithoutExt = targetFile.replace(/\.(ts|tsx|js|jsx|mjs|cjs)$/i, "");
-  const normalizedTargetWithExt = path78.normalize(targetWithExt).replace(/\\/g, "/");
-  const normalizedTargetWithoutExt = path78.normalize(targetWithoutExt).replace(/\\/g, "/");
+  const normalizedTargetWithExt = path79.normalize(targetWithExt).replace(/\\/g, "/");
+  const normalizedTargetWithoutExt = path79.normalize(targetWithoutExt).replace(/\\/g, "/");
   const importRegex = /import\s+(?:\{[\s\S]*?\}|(?:\*\s+as\s+\w+)|\w+)\s+from\s+['"`]([^'"`]+)['"`]|import\s+['"`]([^'"`]+)['"`]|require\s*\(\s*['"`]([^'"`]+)['"`]\s*\)/g;
   for (let match = importRegex.exec(content);match !== null; match = importRegex.exec(content)) {
     const modulePath = match[1] || match[2] || match[3];
@@ -75677,9 +76619,9 @@ function parseImports(content, targetFile, targetSymbol) {
     }
     const _normalizedModule = modulePath.replace(/^\.\//, "").replace(/^\.\.\\/, "../");
     let isMatch = false;
-    const _targetDir = path78.dirname(targetFile);
-    const targetExt = path78.extname(targetFile);
-    const targetBasenameNoExt = path78.basename(targetFile, targetExt);
+    const _targetDir = path79.dirname(targetFile);
+    const targetExt = path79.extname(targetFile);
+    const targetBasenameNoExt = path79.basename(targetFile, targetExt);
     const moduleNormalized = modulePath.replace(/\\/g, "/").replace(/^\.\//, "");
     const moduleName = modulePath.split(/[/\\]/).pop() || "";
     const moduleNameNoExt = moduleName.replace(/\.(ts|tsx|js|jsx|mjs|cjs)$/i, "");
@@ -75736,7 +76678,7 @@ var SKIP_DIRECTORIES4 = new Set([
 function findSourceFiles3(dir, files = [], stats = { skippedDirs: [], skippedFiles: 0, fileErrors: [] }) {
   let entries;
   try {
-    entries = fs64.readdirSync(dir);
+    entries = fs65.readdirSync(dir);
   } catch (e) {
     stats.fileErrors.push({
       path: dir,
@@ -75747,13 +76689,13 @@ function findSourceFiles3(dir, files = [], stats = { skippedDirs: [], skippedFil
   entries.sort((a, b) => a.toLowerCase().localeCompare(b.toLowerCase()));
   for (const entry of entries) {
     if (SKIP_DIRECTORIES4.has(entry)) {
-      stats.skippedDirs.push(path78.join(dir, entry));
+      stats.skippedDirs.push(path79.join(dir, entry));
       continue;
     }
-    const fullPath = path78.join(dir, entry);
+    const fullPath = path79.join(dir, entry);
     let stat4;
     try {
-      stat4 = fs64.statSync(fullPath);
+      stat4 = fs65.statSync(fullPath);
     } catch (e) {
       stats.fileErrors.push({
         path: fullPath,
@@ -75764,7 +76706,7 @@ function findSourceFiles3(dir, files = [], stats = { skippedDirs: [], skippedFil
     if (stat4.isDirectory()) {
       findSourceFiles3(fullPath, files, stats);
     } else if (stat4.isFile()) {
-      const ext = path78.extname(fullPath).toLowerCase();
+      const ext = path79.extname(fullPath).toLowerCase();
       if (SUPPORTED_EXTENSIONS3.includes(ext)) {
         files.push(fullPath);
       }
@@ -75821,8 +76763,8 @@ var imports = createSwarmTool({
       return JSON.stringify(errorResult, null, 2);
     }
     try {
-      const targetFile = path78.resolve(file3);
-      if (!fs64.existsSync(targetFile)) {
+      const targetFile = path79.resolve(file3);
+      if (!fs65.existsSync(targetFile)) {
         const errorResult = {
           error: `target file not found: ${file3}`,
           target: file3,
@@ -75832,7 +76774,7 @@ var imports = createSwarmTool({
         };
         return JSON.stringify(errorResult, null, 2);
       }
-      const targetStat = fs64.statSync(targetFile);
+      const targetStat = fs65.statSync(targetFile);
       if (!targetStat.isFile()) {
         const errorResult = {
           error: "target must be a file, not a directory",
@@ -75843,7 +76785,7 @@ var imports = createSwarmTool({
         };
         return JSON.stringify(errorResult, null, 2);
       }
-      const baseDir = path78.dirname(targetFile);
+      const baseDir = path79.dirname(targetFile);
       const scanStats = {
         skippedDirs: [],
         skippedFiles: 0,
@@ -75858,12 +76800,12 @@ var imports = createSwarmTool({
         if (consumers.length >= MAX_CONSUMERS)
           break;
         try {
-          const stat4 = fs64.statSync(filePath);
+          const stat4 = fs65.statSync(filePath);
           if (stat4.size > MAX_FILE_SIZE_BYTES7) {
             skippedFileCount++;
             continue;
           }
-          const buffer = fs64.readFileSync(filePath);
+          const buffer = fs65.readFileSync(filePath);
           if (isBinaryFile2(filePath, buffer)) {
             skippedFileCount++;
             continue;
@@ -76375,8 +77317,8 @@ init_schema();
 init_qa_gate_profile();
 init_manager2();
 init_curator();
-import * as fs65 from "fs";
-import * as path79 from "path";
+import * as fs66 from "fs";
+import * as path80 from "path";
 init_knowledge_curator();
 init_knowledge_reader();
 init_knowledge_store();
@@ -76607,11 +77549,11 @@ async function executePhaseComplete(args2, workingDirectory, directory) {
       safeWarn(`[phase_complete] Completion verify error (non-blocking):`, completionError);
     }
     try {
-      const driftEvidencePath = path79.join(dir, ".swarm", "evidence", String(phase), "drift-verifier.json");
+      const driftEvidencePath = path80.join(dir, ".swarm", "evidence", String(phase), "drift-verifier.json");
       let driftVerdictFound = false;
       let driftVerdictApproved = false;
       try {
-        const driftEvidenceContent = fs65.readFileSync(driftEvidencePath, "utf-8");
+        const driftEvidenceContent = fs66.readFileSync(driftEvidencePath, "utf-8");
         const driftEvidence = JSON.parse(driftEvidenceContent);
         const entries = driftEvidence.entries ?? [];
         for (const entry of entries) {
@@ -76641,14 +77583,14 @@ async function executePhaseComplete(args2, workingDirectory, directory) {
         driftVerdictFound = false;
       }
       if (!driftVerdictFound) {
-        const specPath = path79.join(dir, ".swarm", "spec.md");
-        const specExists = fs65.existsSync(specPath);
+        const specPath = path80.join(dir, ".swarm", "spec.md");
+        const specExists = fs66.existsSync(specPath);
         if (!specExists) {
           let incompleteTaskCount = 0;
           let planPhaseFound = false;
           try {
             const planPath = validateSwarmPath(dir, "plan.json");
-            const planRaw = fs65.readFileSync(planPath, "utf-8");
+            const planRaw = fs66.readFileSync(planPath, "utf-8");
             const plan = JSON.parse(planRaw);
             const targetPhase = plan.phases.find((p) => p.id === phase);
             if (targetPhase) {
@@ -76699,11 +77641,11 @@ async function executePhaseComplete(args2, workingDirectory, directory) {
           const overrides = session2?.qaGateSessionOverrides ?? {};
           const effective = getEffectiveGates(profile, overrides);
           if (effective.hallucination_guard === true) {
-            const hgPath = path79.join(dir, ".swarm", "evidence", String(phase), "hallucination-guard.json");
+            const hgPath = path80.join(dir, ".swarm", "evidence", String(phase), "hallucination-guard.json");
             let hgVerdictFound = false;
             let hgVerdictApproved = false;
             try {
-              const hgContent = fs65.readFileSync(hgPath, "utf-8");
+              const hgContent = fs66.readFileSync(hgPath, "utf-8");
               const hgBundle = JSON.parse(hgContent);
               for (const entry of hgBundle.entries ?? []) {
                 if (typeof entry.type === "string" && entry.type.includes("hallucination") && typeof entry.verdict === "string") {
@@ -76771,11 +77713,11 @@ async function executePhaseComplete(args2, workingDirectory, directory) {
           const overrides = session2?.qaGateSessionOverrides ?? {};
           const effective = getEffectiveGates(profile, overrides);
           if (effective.mutation_test === true) {
-            const mgPath = path79.join(dir, ".swarm", "evidence", String(phase), "mutation-gate.json");
+            const mgPath = path80.join(dir, ".swarm", "evidence", String(phase), "mutation-gate.json");
             let mgVerdictFound = false;
             let mgVerdict;
             try {
-              const mgContent = fs65.readFileSync(mgPath, "utf-8");
+              const mgContent = fs66.readFileSync(mgPath, "utf-8");
               const mgBundle = JSON.parse(mgContent);
               for (const entry of mgBundle.entries ?? []) {
                 if (typeof entry.type === "string" && entry.type === "mutation-gate" && typeof entry.verdict === "string") {
@@ -76843,7 +77785,7 @@ async function executePhaseComplete(args2, workingDirectory, directory) {
   }
   if (retroFound && retroEntry?.lessons_learned && retroEntry.lessons_learned.length > 0) {
     try {
-      const projectName = path79.basename(dir);
+      const projectName = path80.basename(dir);
       const curationResult = await curateAndStoreSwarm(retroEntry.lessons_learned, projectName, { phase_number: phase }, dir, knowledgeConfig);
       if (curationResult) {
         const sessionState = swarmState.agentSessions.get(sessionID);
@@ -76923,7 +77865,7 @@ async function executePhaseComplete(args2, workingDirectory, directory) {
   let phaseRequiredAgents;
   try {
     const planPath = validateSwarmPath(dir, "plan.json");
-    const planRaw = fs65.readFileSync(planPath, "utf-8");
+    const planRaw = fs66.readFileSync(planPath, "utf-8");
     const plan = JSON.parse(planRaw);
     const phaseObj = plan.phases.find((p) => p.id === phase);
     phaseRequiredAgents = phaseObj?.required_agents;
@@ -76938,7 +77880,7 @@ async function executePhaseComplete(args2, workingDirectory, directory) {
   if (agentsMissing.length > 0) {
     try {
       const planPath = validateSwarmPath(dir, "plan.json");
-      const planRaw = fs65.readFileSync(planPath, "utf-8");
+      const planRaw = fs66.readFileSync(planPath, "utf-8");
       const plan = JSON.parse(planRaw);
       const targetPhase = plan.phases.find((p) => p.id === phase);
       if (targetPhase && targetPhase.tasks.length > 0 && targetPhase.tasks.every((t) => t.status === "completed")) {
@@ -76978,7 +77920,7 @@ async function executePhaseComplete(args2, workingDirectory, directory) {
   if (phaseCompleteConfig.regression_sweep?.enforce) {
     try {
       const planPath = validateSwarmPath(dir, "plan.json");
-      const planRaw = fs65.readFileSync(planPath, "utf-8");
+      const planRaw = fs66.readFileSync(planPath, "utf-8");
       const plan = JSON.parse(planRaw);
       const targetPhase = plan.phases.find((p) => p.id === phase);
       if (targetPhase) {
@@ -77032,7 +77974,7 @@ async function executePhaseComplete(args2, workingDirectory, directory) {
   }
   try {
     const eventsPath = validateSwarmPath(dir, "events.jsonl");
-    fs65.appendFileSync(eventsPath, `${JSON.stringify(event)}
+    fs66.appendFileSync(eventsPath, `${JSON.stringify(event)}
 `, "utf-8");
   } catch (writeError) {
     warnings.push(`Warning: failed to write phase complete event: ${writeError instanceof Error ? writeError.message : String(writeError)}`);
@@ -77107,12 +78049,12 @@ async function executePhaseComplete(args2, workingDirectory, directory) {
         warnings.push(`Warning: failed to update plan.json phase status`);
         try {
           const planPath = validateSwarmPath(dir, "plan.json");
-          const planRaw = fs65.readFileSync(planPath, "utf-8");
+          const planRaw = fs66.readFileSync(planPath, "utf-8");
           const plan2 = JSON.parse(planRaw);
           const phaseObj = plan2.phases.find((p) => p.id === phase);
           if (phaseObj) {
             phaseObj.status = "complete";
-            fs65.writeFileSync(planPath, JSON.stringify(plan2, null, 2), "utf-8");
+            fs66.writeFileSync(planPath, JSON.stringify(plan2, null, 2), "utf-8");
           }
         } catch {}
       } else if (plan) {
@@ -77149,12 +78091,12 @@ async function executePhaseComplete(args2, workingDirectory, directory) {
       warnings.push(`Warning: failed to update plan.json phase status`);
       try {
         const planPath = validateSwarmPath(dir, "plan.json");
-        const planRaw = fs65.readFileSync(planPath, "utf-8");
+        const planRaw = fs66.readFileSync(planPath, "utf-8");
         const plan = JSON.parse(planRaw);
         const phaseObj = plan.phases.find((p) => p.id === phase);
         if (phaseObj) {
           phaseObj.status = "complete";
-          fs65.writeFileSync(planPath, JSON.stringify(plan, null, 2), "utf-8");
+          fs66.writeFileSync(planPath, JSON.stringify(plan, null, 2), "utf-8");
         }
       } catch {}
     }
@@ -77211,8 +78153,8 @@ init_dist();
 init_discovery();
 init_utils();
 init_create_tool();
-import * as fs66 from "fs";
-import * as path80 from "path";
+import * as fs67 from "fs";
+import * as path81 from "path";
 var MAX_OUTPUT_BYTES5 = 52428800;
 var AUDIT_TIMEOUT_MS = 120000;
 function isValidEcosystem(value) {
@@ -77240,31 +78182,31 @@ function validateArgs3(args2) {
 function detectEcosystems(directory) {
   const ecosystems = [];
   const cwd = directory;
-  if (fs66.existsSync(path80.join(cwd, "package.json"))) {
+  if (fs67.existsSync(path81.join(cwd, "package.json"))) {
     ecosystems.push("npm");
   }
-  if (fs66.existsSync(path80.join(cwd, "pyproject.toml")) || fs66.existsSync(path80.join(cwd, "requirements.txt"))) {
+  if (fs67.existsSync(path81.join(cwd, "pyproject.toml")) || fs67.existsSync(path81.join(cwd, "requirements.txt"))) {
     ecosystems.push("pip");
   }
-  if (fs66.existsSync(path80.join(cwd, "Cargo.toml"))) {
+  if (fs67.existsSync(path81.join(cwd, "Cargo.toml"))) {
     ecosystems.push("cargo");
   }
-  if (fs66.existsSync(path80.join(cwd, "go.mod"))) {
+  if (fs67.existsSync(path81.join(cwd, "go.mod"))) {
     ecosystems.push("go");
   }
   try {
-    const files = fs66.readdirSync(cwd);
+    const files = fs67.readdirSync(cwd);
     if (files.some((f) => f.endsWith(".csproj") || f.endsWith(".sln"))) {
       ecosystems.push("dotnet");
     }
   } catch {}
-  if (fs66.existsSync(path80.join(cwd, "Gemfile")) || fs66.existsSync(path80.join(cwd, "Gemfile.lock"))) {
+  if (fs67.existsSync(path81.join(cwd, "Gemfile")) || fs67.existsSync(path81.join(cwd, "Gemfile.lock"))) {
     ecosystems.push("ruby");
   }
-  if (fs66.existsSync(path80.join(cwd, "pubspec.yaml"))) {
+  if (fs67.existsSync(path81.join(cwd, "pubspec.yaml"))) {
     ecosystems.push("dart");
   }
-  if (fs66.existsSync(path80.join(cwd, "composer.lock"))) {
+  if (fs67.existsSync(path81.join(cwd, "composer.lock"))) {
     ecosystems.push("composer");
   }
   return ecosystems;
@@ -78423,8 +79365,8 @@ var pkg_audit = createSwarmTool({
 // src/tools/placeholder-scan.ts
 init_dist();
 init_manager2();
-import * as fs67 from "fs";
-import * as path81 from "path";
+import * as fs68 from "fs";
+import * as path82 from "path";
 init_utils();
 init_create_tool();
 var MAX_FILE_SIZE = 1024 * 1024;
@@ -78547,7 +79489,7 @@ function isScaffoldFile(filePath) {
   if (SCAFFOLD_PATH_PATTERNS.some((pattern) => pattern.test(normalizedPath))) {
     return true;
   }
-  const filename = path81.basename(filePath);
+  const filename = path82.basename(filePath);
   if (SCAFFOLD_FILENAME_PATTERNS.some((pattern) => pattern.test(filename))) {
     return true;
   }
@@ -78564,7 +79506,7 @@ function isAllowedByGlobs(filePath, allowGlobs) {
     if (regex.test(normalizedPath)) {
       return true;
     }
-    const filename = path81.basename(filePath);
+    const filename = path82.basename(filePath);
     const filenameRegex = new RegExp(`^${regexPattern}$`, "i");
     if (filenameRegex.test(filename)) {
       return true;
@@ -78573,7 +79515,7 @@ function isAllowedByGlobs(filePath, allowGlobs) {
   return false;
 }
 function isParserSupported(filePath) {
-  const ext = path81.extname(filePath).toLowerCase();
+  const ext = path82.extname(filePath).toLowerCase();
   return SUPPORTED_PARSER_EXTENSIONS.has(ext);
 }
 function isPlanFile(filePath) {
@@ -78820,28 +79762,28 @@ async function placeholderScan(input, directory) {
   let filesScanned = 0;
   const filesWithFindings = new Set;
   for (const filePath of changed_files) {
-    const fullPath = path81.isAbsolute(filePath) ? filePath : path81.resolve(directory, filePath);
-    const resolvedDirectory = path81.resolve(directory);
-    if (!fullPath.startsWith(resolvedDirectory + path81.sep) && fullPath !== resolvedDirectory) {
+    const fullPath = path82.isAbsolute(filePath) ? filePath : path82.resolve(directory, filePath);
+    const resolvedDirectory = path82.resolve(directory);
+    if (!fullPath.startsWith(resolvedDirectory + path82.sep) && fullPath !== resolvedDirectory) {
       continue;
     }
-    if (!fs67.existsSync(fullPath)) {
+    if (!fs68.existsSync(fullPath)) {
       continue;
     }
     if (isAllowedByGlobs(filePath, allow_globs)) {
       continue;
     }
-    const relativeFilePath = path81.relative(directory, fullPath).replace(/\\/g, "/");
+    const relativeFilePath = path82.relative(directory, fullPath).replace(/\\/g, "/");
     if (FILE_ALLOWLIST.some((allowed) => relativeFilePath.endsWith(allowed))) {
       continue;
     }
     let content;
     try {
-      const stat4 = fs67.statSync(fullPath);
+      const stat4 = fs68.statSync(fullPath);
       if (stat4.size > MAX_FILE_SIZE) {
         continue;
       }
-      content = fs67.readFileSync(fullPath, "utf-8");
+      content = fs68.readFileSync(fullPath, "utf-8");
     } catch {
       continue;
     }
@@ -78903,8 +79845,8 @@ var placeholder_scan = createSwarmTool({
 });
 // src/tools/pre-check-batch.ts
 init_dist();
-import * as fs70 from "fs";
-import * as path84 from "path";
+import * as fs71 from "fs";
+import * as path85 from "path";
 init_manager2();
 init_utils();
 init_create_tool();
@@ -79039,8 +79981,8 @@ var quality_budget = createSwarmTool({
 init_dist();
 init_manager2();
 init_detector();
-import * as fs69 from "fs";
-import * as path83 from "path";
+import * as fs70 from "fs";
+import * as path84 from "path";
 import { extname as extname18 } from "path";
 
 // src/sast/rules/c.ts
@@ -79933,25 +80875,25 @@ init_create_tool();
 // src/tools/sast-baseline.ts
 init_utils2();
 import * as crypto8 from "crypto";
-import * as fs68 from "fs";
-import * as path82 from "path";
+import * as fs69 from "fs";
+import * as path83 from "path";
 var BASELINE_SCHEMA_VERSION = "1.0.0";
 var MAX_BASELINE_FINDINGS = 2000;
 var MAX_BASELINE_BYTES = 2 * 1048576;
 var LOCK_RETRY_DELAYS_MS = [50, 100, 200, 400, 800];
 function normalizeFindingPath(directory, file3) {
-  const resolved = path82.isAbsolute(file3) ? file3 : path82.resolve(directory, file3);
-  const rel = path82.relative(path82.resolve(directory), resolved);
+  const resolved = path83.isAbsolute(file3) ? file3 : path83.resolve(directory, file3);
+  const rel = path83.relative(path83.resolve(directory), resolved);
   return rel.replace(/\\/g, "/");
 }
 function baselineRelPath(phase) {
-  return path82.join("evidence", String(phase), "sast-baseline.json");
+  return path83.join("evidence", String(phase), "sast-baseline.json");
 }
 function tempRelPath(phase) {
-  return path82.join("evidence", String(phase), `sast-baseline.json.tmp.${Date.now()}.${process.pid}`);
+  return path83.join("evidence", String(phase), `sast-baseline.json.tmp.${Date.now()}.${process.pid}`);
 }
 function lockRelPath(phase) {
-  return path82.join("evidence", String(phase), "sast-baseline.json.lock");
+  return path83.join("evidence", String(phase), "sast-baseline.json.lock");
 }
 function getLine(lines, idx) {
   if (idx < 0 || idx >= lines.length)
@@ -79968,7 +80910,7 @@ function fingerprintFinding(finding, directory, occurrenceIndex) {
   }
   const lineNum = finding.location.line;
   try {
-    const content = fs68.readFileSync(finding.location.file, "utf-8");
+    const content = fs69.readFileSync(finding.location.file, "utf-8");
     const lines = content.split(`
 `);
     const idx = lineNum - 1;
@@ -79999,7 +80941,7 @@ function assignOccurrenceIndices(findings, directory) {
     try {
       if (relFile.startsWith(".."))
         throw new Error("escapes workspace");
-      const content = fs68.readFileSync(finding.location.file, "utf-8");
+      const content = fs69.readFileSync(finding.location.file, "utf-8");
       const lines = content.split(`
 `);
       const idx = lineNum - 1;
@@ -80028,11 +80970,11 @@ function assignOccurrenceIndices(findings, directory) {
 async function acquireLock(lockPath) {
   for (let attempt = 0;attempt <= LOCK_RETRY_DELAYS_MS.length; attempt++) {
     try {
-      const fd = fs68.openSync(lockPath, "wx");
-      fs68.closeSync(fd);
+      const fd = fs69.openSync(lockPath, "wx");
+      fs69.closeSync(fd);
       return () => {
         try {
-          fs68.unlinkSync(lockPath);
+          fs69.unlinkSync(lockPath);
         } catch {}
       };
     } catch {
@@ -80072,12 +81014,12 @@ async function captureOrMergeBaseline(directory, phase, findings, engine, scanne
       message: e instanceof Error ? e.message : "Path validation failed"
     };
   }
-  fs68.mkdirSync(path82.dirname(baselinePath), { recursive: true });
+  fs69.mkdirSync(path83.dirname(baselinePath), { recursive: true });
   const releaseLock = await acquireLock(lockPath);
   try {
     let existing = null;
     try {
-      const raw = fs68.readFileSync(baselinePath, "utf-8");
+      const raw = fs69.readFileSync(baselinePath, "utf-8");
       const parsed = JSON.parse(raw);
       if (parsed.schema_version === BASELINE_SCHEMA_VERSION) {
         existing = parsed;
@@ -80137,8 +81079,8 @@ async function captureOrMergeBaseline(directory, phase, findings, engine, scanne
           message: `Baseline would exceed size cap (${json4.length} bytes > ${MAX_BASELINE_BYTES})`
         };
       }
-      fs68.writeFileSync(tempPath, json4, "utf-8");
-      fs68.renameSync(tempPath, baselinePath);
+      fs69.writeFileSync(tempPath, json4, "utf-8");
+      fs69.renameSync(tempPath, baselinePath);
       return {
         status: "merged",
         path: baselinePath,
@@ -80169,8 +81111,8 @@ async function captureOrMergeBaseline(directory, phase, findings, engine, scanne
         message: `Baseline would exceed size cap (${json3.length} bytes > ${MAX_BASELINE_BYTES})`
       };
     }
-    fs68.writeFileSync(tempPath, json3, "utf-8");
-    fs68.renameSync(tempPath, baselinePath);
+    fs69.writeFileSync(tempPath, json3, "utf-8");
+    fs69.renameSync(tempPath, baselinePath);
     return {
       status: "written",
       path: baselinePath,
@@ -80195,7 +81137,7 @@ function loadBaseline(directory, phase) {
     };
   }
   try {
-    const raw = fs68.readFileSync(baselinePath, "utf-8");
+    const raw = fs69.readFileSync(baselinePath, "utf-8");
     const parsed = JSON.parse(raw);
     if (parsed.schema_version !== BASELINE_SCHEMA_VERSION) {
       return {
@@ -80237,17 +81179,17 @@ var SEVERITY_ORDER = {
 };
 function shouldSkipFile(filePath) {
   try {
-    const stats = fs69.statSync(filePath);
+    const stats = fs70.statSync(filePath);
     if (stats.size > MAX_FILE_SIZE_BYTES8) {
       return { skip: true, reason: "file too large" };
     }
     if (stats.size === 0) {
       return { skip: true, reason: "empty file" };
     }
-    const fd = fs69.openSync(filePath, "r");
+    const fd = fs70.openSync(filePath, "r");
     const buffer = Buffer.alloc(8192);
-    const bytesRead = fs69.readSync(fd, buffer, 0, 8192, 0);
-    fs69.closeSync(fd);
+    const bytesRead = fs70.readSync(fd, buffer, 0, 8192, 0);
+    fs70.closeSync(fd);
     if (bytesRead > 0) {
       let nullCount = 0;
       for (let i2 = 0;i2 < bytesRead; i2++) {
@@ -80286,7 +81228,7 @@ function countBySeverity(findings) {
 }
 function scanFileWithTierA(filePath, language) {
   try {
-    const content = fs69.readFileSync(filePath, "utf-8");
+    const content = fs70.readFileSync(filePath, "utf-8");
     const findings = executeRulesSync(filePath, content, language);
     return findings.map((f) => ({
       rule_id: f.rule_id,
@@ -80339,13 +81281,13 @@ async function sastScan(input, directory, config3) {
       _filesSkipped++;
       continue;
     }
-    const resolvedPath = path83.isAbsolute(filePath) ? filePath : path83.resolve(directory, filePath);
-    const resolvedDirectory = path83.resolve(directory);
-    if (!resolvedPath.startsWith(resolvedDirectory + path83.sep) && resolvedPath !== resolvedDirectory) {
+    const resolvedPath = path84.isAbsolute(filePath) ? filePath : path84.resolve(directory, filePath);
+    const resolvedDirectory = path84.resolve(directory);
+    if (!resolvedPath.startsWith(resolvedDirectory + path84.sep) && resolvedPath !== resolvedDirectory) {
       _filesSkipped++;
       continue;
     }
-    if (!fs69.existsSync(resolvedPath)) {
+    if (!fs70.existsSync(resolvedPath)) {
       _filesSkipped++;
       continue;
     }
@@ -80652,18 +81594,18 @@ function validatePath(inputPath, baseDir, workspaceDir) {
   let resolved;
   const isWinAbs = isWindowsAbsolutePath(inputPath);
   if (isWinAbs) {
-    resolved = path84.win32.resolve(inputPath);
-  } else if (path84.isAbsolute(inputPath)) {
-    resolved = path84.resolve(inputPath);
+    resolved = path85.win32.resolve(inputPath);
+  } else if (path85.isAbsolute(inputPath)) {
+    resolved = path85.resolve(inputPath);
   } else {
-    resolved = path84.resolve(baseDir, inputPath);
+    resolved = path85.resolve(baseDir, inputPath);
   }
-  const workspaceResolved = path84.resolve(workspaceDir);
+  const workspaceResolved = path85.resolve(workspaceDir);
   let relative20;
   if (isWinAbs) {
-    relative20 = path84.win32.relative(workspaceResolved, resolved);
+    relative20 = path85.win32.relative(workspaceResolved, resolved);
   } else {
-    relative20 = path84.relative(workspaceResolved, resolved);
+    relative20 = path85.relative(workspaceResolved, resolved);
   }
   if (relative20.startsWith("..")) {
     return "path traversal detected";
@@ -80728,7 +81670,7 @@ async function runLintOnFiles(linter, files, workspaceDir) {
     if (typeof file3 !== "string") {
       continue;
     }
-    const resolvedPath = path84.resolve(file3);
+    const resolvedPath = path85.resolve(file3);
     const validationError = validatePath(resolvedPath, workspaceDir, workspaceDir);
     if (validationError) {
       continue;
@@ -80885,7 +81827,7 @@ async function runSecretscanWithFiles(files, directory) {
         skippedFiles++;
         continue;
       }
-      const resolvedPath = path84.resolve(file3);
+      const resolvedPath = path85.resolve(file3);
       const validationError = validatePath(resolvedPath, directory, directory);
       if (validationError) {
         skippedFiles++;
@@ -80903,14 +81845,14 @@ async function runSecretscanWithFiles(files, directory) {
       };
     }
     for (const file3 of validatedFiles) {
-      const ext = path84.extname(file3).toLowerCase();
+      const ext = path85.extname(file3).toLowerCase();
       if (DEFAULT_EXCLUDE_EXTENSIONS2.has(ext)) {
         skippedFiles++;
         continue;
       }
       let stat4;
       try {
-        stat4 = fs70.statSync(file3);
+        stat4 = fs71.statSync(file3);
       } catch {
         skippedFiles++;
         continue;
@@ -80921,7 +81863,7 @@ async function runSecretscanWithFiles(files, directory) {
       }
       let content;
       try {
-        const buffer = fs70.readFileSync(file3);
+        const buffer = fs71.readFileSync(file3);
         if (buffer.includes(0)) {
           skippedFiles++;
           continue;
@@ -81122,7 +82064,7 @@ function classifySastFindings(findings, changedLineRanges, directory) {
   const preexistingFindings = [];
   for (const finding of findings) {
     const filePath = finding.location.file;
-    const normalised = path84.relative(directory, filePath).replace(/\\/g, "/");
+    const normalised = path85.relative(directory, filePath).replace(/\\/g, "/");
     const changedLines = changedLineRanges.get(normalised);
     if (changedLines?.has(finding.location.line)) {
       newFindings.push(finding);
@@ -81173,7 +82115,7 @@ async function runPreCheckBatch(input, workspaceDir, contextDir) {
       warn(`pre_check_batch: Invalid file path: ${file3}`);
       continue;
     }
-    changedFiles.push(path84.resolve(directory, file3));
+    changedFiles.push(path85.resolve(directory, file3));
   }
   if (changedFiles.length === 0) {
     warn("pre_check_batch: No valid files after validation, skipping all tools (fail-closed)");
@@ -81374,7 +82316,7 @@ var pre_check_batch = createSwarmTool({
       };
       return JSON.stringify(errorResult, null, 2);
     }
-    const resolvedDirectory = path84.resolve(typedArgs.directory);
+    const resolvedDirectory = path85.resolve(typedArgs.directory);
     const workspaceAnchor = resolvedDirectory;
     const dirError = validateDirectory2(resolvedDirectory, workspaceAnchor);
     if (dirError) {
@@ -81415,7 +82357,7 @@ var pre_check_batch = createSwarmTool({
 });
 // src/tools/repo-map.ts
 init_dist();
-import * as path85 from "path";
+import * as path86 from "path";
 init_path_security();
 init_create_tool();
 var VALID_ACTIONS = [
@@ -81440,7 +82382,7 @@ function validateFile(p) {
     return "file contains control characters";
   if (containsPathTraversal(p))
     return "file contains path traversal";
-  if (path85.isAbsolute(p) || /^[a-zA-Z]:[\\/]/.test(p)) {
+  if (path86.isAbsolute(p) || /^[a-zA-Z]:[\\/]/.test(p)) {
     return "file must be a workspace-relative path, not absolute";
   }
   return null;
@@ -81463,8 +82405,8 @@ function ok(action, payload) {
 }
 function toRelativeGraphPath(input, workspaceRoot) {
   const normalized = input.replace(/\\/g, "/");
-  if (path85.isAbsolute(normalized)) {
-    const rel = path85.relative(workspaceRoot, normalized).replace(/\\/g, "/");
+  if (path86.isAbsolute(normalized)) {
+    const rel = path86.relative(workspaceRoot, normalized).replace(/\\/g, "/");
     return normalizeGraphPath2(rel);
   }
   return normalizeGraphPath2(normalized);
@@ -81608,8 +82550,8 @@ var repo_map = createSwarmTool({
 // src/tools/req-coverage.ts
 init_dist();
 init_create_tool();
-import * as fs71 from "fs";
-import * as path86 from "path";
+import * as fs72 from "fs";
+import * as path87 from "path";
 var SPEC_FILE = ".swarm/spec.md";
 var EVIDENCE_DIR4 = ".swarm/evidence";
 var OBLIGATION_KEYWORDS = ["MUST", "SHOULD", "SHALL"];
@@ -81668,19 +82610,19 @@ function extractObligationAndText(id, lineText) {
 var PHASE_TASK_ID_REGEX = /^\d+\.\d+(\.\d+)*$/;
 function readTouchedFiles(evidenceDir, phase, cwd) {
   const touchedFiles = new Set;
-  if (!fs71.existsSync(evidenceDir) || !fs71.statSync(evidenceDir).isDirectory()) {
+  if (!fs72.existsSync(evidenceDir) || !fs72.statSync(evidenceDir).isDirectory()) {
     return [];
   }
   let entries;
   try {
-    entries = fs71.readdirSync(evidenceDir);
+    entries = fs72.readdirSync(evidenceDir);
   } catch {
     return [];
   }
   for (const entry of entries) {
-    const entryPath = path86.join(evidenceDir, entry);
+    const entryPath = path87.join(evidenceDir, entry);
     try {
-      const stat4 = fs71.statSync(entryPath);
+      const stat4 = fs72.statSync(entryPath);
       if (!stat4.isDirectory()) {
         continue;
       }
@@ -81694,14 +82636,14 @@ function readTouchedFiles(evidenceDir, phase, cwd) {
     if (entryPhase !== String(phase)) {
       continue;
     }
-    const evidenceFilePath = path86.join(entryPath, "evidence.json");
+    const evidenceFilePath = path87.join(entryPath, "evidence.json");
     try {
-      const resolvedPath = path86.resolve(evidenceFilePath);
-      const evidenceDirResolved = path86.resolve(evidenceDir);
-      if (!resolvedPath.startsWith(evidenceDirResolved + path86.sep)) {
+      const resolvedPath = path87.resolve(evidenceFilePath);
+      const evidenceDirResolved = path87.resolve(evidenceDir);
+      if (!resolvedPath.startsWith(evidenceDirResolved + path87.sep)) {
         continue;
       }
-      const stat4 = fs71.lstatSync(evidenceFilePath);
+      const stat4 = fs72.lstatSync(evidenceFilePath);
       if (!stat4.isFile()) {
         continue;
       }
@@ -81713,7 +82655,7 @@ function readTouchedFiles(evidenceDir, phase, cwd) {
     }
     let content;
     try {
-      content = fs71.readFileSync(evidenceFilePath, "utf-8");
+      content = fs72.readFileSync(evidenceFilePath, "utf-8");
     } catch {
       continue;
     }
@@ -81732,7 +82674,7 @@ function readTouchedFiles(evidenceDir, phase, cwd) {
             if (Array.isArray(diffEntry.files_changed)) {
               for (const file3 of diffEntry.files_changed) {
                 if (typeof file3 === "string") {
-                  touchedFiles.add(path86.resolve(cwd, file3));
+                  touchedFiles.add(path87.resolve(cwd, file3));
                 }
               }
             }
@@ -81745,12 +82687,12 @@ function readTouchedFiles(evidenceDir, phase, cwd) {
 }
 function searchFileForKeywords(filePath, keywords, cwd) {
   try {
-    const resolvedPath = path86.resolve(filePath);
-    const cwdResolved = path86.resolve(cwd);
+    const resolvedPath = path87.resolve(filePath);
+    const cwdResolved = path87.resolve(cwd);
     if (!resolvedPath.startsWith(cwdResolved)) {
       return false;
     }
-    const content = fs71.readFileSync(resolvedPath, "utf-8");
+    const content = fs72.readFileSync(resolvedPath, "utf-8");
     for (const keyword of keywords) {
       const regex = new RegExp(`\\b${keyword}\\b`, "i");
       if (regex.test(content)) {
@@ -81880,10 +82822,10 @@ var req_coverage = createSwarmTool({
       }, null, 2);
     }
     const cwd = inputDirectory || directory;
-    const specPath = path86.join(cwd, SPEC_FILE);
+    const specPath = path87.join(cwd, SPEC_FILE);
     let specContent;
     try {
-      specContent = fs71.readFileSync(specPath, "utf-8");
+      specContent = fs72.readFileSync(specPath, "utf-8");
     } catch (readError) {
       return JSON.stringify({
         success: false,
@@ -81907,7 +82849,7 @@ var req_coverage = createSwarmTool({
         message: "No FR requirements found in spec.md"
       }, null, 2);
     }
-    const evidenceDir = path86.join(cwd, EVIDENCE_DIR4);
+    const evidenceDir = path87.join(cwd, EVIDENCE_DIR4);
     const touchedFiles = readTouchedFiles(evidenceDir, phase, cwd);
     const analyzedRequirements = [];
     let coveredCount = 0;
@@ -81933,12 +82875,12 @@ var req_coverage = createSwarmTool({
       requirements: analyzedRequirements
     };
     const reportFilename = `req-coverage-phase-${phase}.json`;
-    const reportPath = path86.join(evidenceDir, reportFilename);
+    const reportPath = path87.join(evidenceDir, reportFilename);
     try {
-      if (!fs71.existsSync(evidenceDir)) {
-        fs71.mkdirSync(evidenceDir, { recursive: true });
+      if (!fs72.existsSync(evidenceDir)) {
+        fs72.mkdirSync(evidenceDir, { recursive: true });
       }
-      fs71.writeFileSync(reportPath, JSON.stringify(result, null, 2), "utf-8");
+      fs72.writeFileSync(reportPath, JSON.stringify(result, null, 2), "utf-8");
     } catch (writeError) {
       console.warn(`Failed to write coverage report: ${writeError instanceof Error ? writeError.message : String(writeError)}`);
     }
@@ -82017,6 +82959,7 @@ ${paginatedContent}`;
 // src/tools/save-plan.ts
 init_tool();
 init_plan_schema();
+init_qa_gate_profile();
 init_file_locks();
 init_checkpoint3();
 init_ledger();
@@ -82024,8 +82967,8 @@ init_manager();
 init_state();
 init_create_tool();
 import * as crypto9 from "crypto";
-import * as fs72 from "fs";
-import * as path87 from "path";
+import * as fs73 from "fs";
+import * as path88 from "path";
 function detectPlaceholderContent(args2) {
   const issues = [];
   const placeholderPattern = /^\[\w[\w\s]*\]$/;
@@ -82099,17 +83042,17 @@ async function executeSavePlan(args2, fallbackDir) {
     };
   }
   if (args2.working_directory && fallbackDir) {
-    const resolvedTarget = path87.resolve(args2.working_directory);
-    const resolvedRoot = path87.resolve(fallbackDir);
+    const resolvedTarget = path88.resolve(args2.working_directory);
+    const resolvedRoot = path88.resolve(fallbackDir);
     let fallbackExists = false;
     try {
-      fs72.accessSync(resolvedRoot, fs72.constants.F_OK);
+      fs73.accessSync(resolvedRoot, fs73.constants.F_OK);
       fallbackExists = true;
     } catch {
       fallbackExists = false;
     }
     if (fallbackExists) {
-      const isSubdirectory = resolvedTarget.startsWith(resolvedRoot + path87.sep);
+      const isSubdirectory = resolvedTarget.startsWith(resolvedRoot + path88.sep);
       if (isSubdirectory) {
         return {
           success: false,
@@ -82125,11 +83068,11 @@ async function executeSavePlan(args2, fallbackDir) {
   let specMtime;
   let specHash;
   if (process.env.SWARM_SKIP_SPEC_GATE !== "1") {
-    const specPath = path87.join(targetWorkspace, ".swarm", "spec.md");
+    const specPath = path88.join(targetWorkspace, ".swarm", "spec.md");
     try {
-      const stat4 = await fs72.promises.stat(specPath);
+      const stat4 = await fs73.promises.stat(specPath);
       specMtime = stat4.mtime.toISOString();
-      const content = await fs72.promises.readFile(specPath, "utf8");
+      const content = await fs73.promises.readFile(specPath, "utf8");
       specHash = crypto9.createHash("sha256").update(content).digest("hex");
     } catch {
       return {
@@ -82138,6 +83081,32 @@ async function executeSavePlan(args2, fallbackDir) {
         errors: ["Missing .swarm/spec.md in workspace"],
         recovery_guidance: "Create or restore .swarm/spec.md before saving a plan. Never write .swarm/plan.json or .swarm/plan.md directly."
       };
+    }
+  }
+  if (process.env.SWARM_SKIP_GATE_SELECTION !== "1") {
+    const contextPath = path88.join(targetWorkspace, ".swarm", "context.md");
+    let contextContent = "";
+    try {
+      contextContent = await fs73.promises.readFile(contextPath, "utf8");
+    } catch {}
+    const hasPendingSection = contextContent.includes("## Pending QA Gate Selection");
+    if (!hasPendingSection) {
+      const candidatePlanId = `${args2.swarm_id}-${args2.title}`.replace(/[^a-zA-Z0-9-_]/g, "_");
+      let existingProfile = null;
+      try {
+        existingProfile = getProfile(targetWorkspace, candidatePlanId);
+      } catch {}
+      if (!existingProfile) {
+        return {
+          success: false,
+          message: "QA_GATE_SELECTION_REQUIRED: QA gate selection has not been completed. " + "Present the gate selection question to the user (step 5b of MODE: SPECIFY " + "or Phase 6 of MODE: BRAINSTORM), write their response to .swarm/context.md " + 'under "## Pending QA Gate Selection", then retry save_plan.',
+          errors: [
+            "Missing ## Pending QA Gate Selection in .swarm/context.md",
+            "No existing QaGateProfile found for this plan"
+          ],
+          recovery_guidance: "Do not call set_qa_gates with assumed values. Present the gate dialogue, " + "wait for the user's answer, write it to context.md, then retry save_plan."
+        };
+      }
     }
   }
   const dir = targetWorkspace;
@@ -82265,14 +83234,14 @@ async function executeSavePlan(args2, fallbackDir) {
       }
       await writeCheckpoint(dir).catch(() => {});
       try {
-        const markerPath = path87.join(dir, ".swarm", ".plan-write-marker");
+        const markerPath = path88.join(dir, ".swarm", ".plan-write-marker");
         const marker = JSON.stringify({
           source: "save_plan",
           timestamp: new Date().toISOString(),
           phases_count: plan.phases.length,
           tasks_count: tasksCount
         });
-        await fs72.promises.writeFile(markerPath, marker, "utf8");
+        await fs73.promises.writeFile(markerPath, marker, "utf8");
       } catch {}
       const warnings = [];
       let criticReviewFound = false;
@@ -82288,7 +83257,7 @@ async function executeSavePlan(args2, fallbackDir) {
       return {
         success: true,
         message: "Plan saved successfully",
-        plan_path: path87.join(dir, ".swarm", "plan.json"),
+        plan_path: path88.join(dir, ".swarm", "plan.json"),
         phases_count: plan.phases.length,
         tasks_count: tasksCount,
         ...resolvedProfile !== undefined ? { execution_profile: resolvedProfile } : {},
@@ -82340,8 +83309,8 @@ var save_plan = createSwarmTool({
 // src/tools/sbom-generate.ts
 init_dist();
 init_manager2();
-import * as fs73 from "fs";
-import * as path88 from "path";
+import * as fs74 from "fs";
+import * as path89 from "path";
 
 // src/sbom/detectors/index.ts
 init_utils();
@@ -83189,9 +84158,9 @@ function findManifestFiles(rootDir) {
   const patterns = [...new Set(allDetectors.flatMap((d) => d.patterns))];
   function searchDir(dir) {
     try {
-      const entries = fs73.readdirSync(dir, { withFileTypes: true });
+      const entries = fs74.readdirSync(dir, { withFileTypes: true });
       for (const entry of entries) {
-        const fullPath = path88.join(dir, entry.name);
+        const fullPath = path89.join(dir, entry.name);
         if (entry.name.startsWith(".") || entry.name === "node_modules" || entry.name === "dist" || entry.name === "build" || entry.name === "target") {
           continue;
         }
@@ -83200,7 +84169,7 @@ function findManifestFiles(rootDir) {
         } else if (entry.isFile()) {
           for (const pattern of patterns) {
             if (simpleGlobToRegex(pattern).test(entry.name)) {
-              manifestFiles.push(path88.relative(rootDir, fullPath));
+              manifestFiles.push(path89.relative(rootDir, fullPath));
               break;
             }
           }
@@ -83216,13 +84185,13 @@ function findManifestFilesInDirs(directories, workingDir) {
   const patterns = [...new Set(allDetectors.flatMap((d) => d.patterns))];
   for (const dir of directories) {
     try {
-      const entries = fs73.readdirSync(dir, { withFileTypes: true });
+      const entries = fs74.readdirSync(dir, { withFileTypes: true });
       for (const entry of entries) {
-        const fullPath = path88.join(dir, entry.name);
+        const fullPath = path89.join(dir, entry.name);
         if (entry.isFile()) {
           for (const pattern of patterns) {
             if (simpleGlobToRegex(pattern).test(entry.name)) {
-              found.push(path88.relative(workingDir, fullPath));
+              found.push(path89.relative(workingDir, fullPath));
               break;
             }
           }
@@ -83235,11 +84204,11 @@ function findManifestFilesInDirs(directories, workingDir) {
 function getDirectoriesFromChangedFiles(changedFiles, workingDir) {
   const dirs = new Set;
   for (const file3 of changedFiles) {
-    let currentDir = path88.dirname(file3);
+    let currentDir = path89.dirname(file3);
     while (true) {
-      if (currentDir && currentDir !== "." && currentDir !== path88.sep) {
-        dirs.add(path88.join(workingDir, currentDir));
-        const parent = path88.dirname(currentDir);
+      if (currentDir && currentDir !== "." && currentDir !== path89.sep) {
+        dirs.add(path89.join(workingDir, currentDir));
+        const parent = path89.dirname(currentDir);
         if (parent === currentDir)
           break;
         currentDir = parent;
@@ -83253,7 +84222,7 @@ function getDirectoriesFromChangedFiles(changedFiles, workingDir) {
 }
 function ensureOutputDir(outputDir) {
   try {
-    fs73.mkdirSync(outputDir, { recursive: true });
+    fs74.mkdirSync(outputDir, { recursive: true });
   } catch (error93) {
     if (!error93 || error93.code !== "EEXIST") {
       throw error93;
@@ -83323,7 +84292,7 @@ var sbom_generate = createSwarmTool({
     const changedFiles = obj.changed_files;
     const relativeOutputDir = obj.output_dir || DEFAULT_OUTPUT_DIR;
     const workingDir = directory;
-    const outputDir = path88.isAbsolute(relativeOutputDir) ? relativeOutputDir : path88.join(workingDir, relativeOutputDir);
+    const outputDir = path89.isAbsolute(relativeOutputDir) ? relativeOutputDir : path89.join(workingDir, relativeOutputDir);
     let manifestFiles = [];
     if (scope === "all") {
       manifestFiles = findManifestFiles(workingDir);
@@ -83346,11 +84315,11 @@ var sbom_generate = createSwarmTool({
     const processedFiles = [];
     for (const manifestFile of manifestFiles) {
       try {
-        const fullPath = path88.isAbsolute(manifestFile) ? manifestFile : path88.join(workingDir, manifestFile);
-        if (!fs73.existsSync(fullPath)) {
+        const fullPath = path89.isAbsolute(manifestFile) ? manifestFile : path89.join(workingDir, manifestFile);
+        if (!fs74.existsSync(fullPath)) {
           continue;
         }
-        const content = fs73.readFileSync(fullPath, "utf-8");
+        const content = fs74.readFileSync(fullPath, "utf-8");
         const components = detectComponents(manifestFile, content);
         processedFiles.push(manifestFile);
         if (components.length > 0) {
@@ -83363,8 +84332,8 @@ var sbom_generate = createSwarmTool({
     const bom = generateCycloneDX(allComponents);
     const bomJson = serializeCycloneDX(bom);
     const filename = generateSbomFilename();
-    const outputPath = path88.join(outputDir, filename);
-    fs73.writeFileSync(outputPath, bomJson, "utf-8");
+    const outputPath = path89.join(outputDir, filename);
+    fs74.writeFileSync(outputPath, bomJson, "utf-8");
     const verdict = processedFiles.length > 0 ? "pass" : "pass";
     try {
       const timestamp = new Date().toISOString();
@@ -83406,8 +84375,8 @@ var sbom_generate = createSwarmTool({
 // src/tools/schema-drift.ts
 init_dist();
 init_create_tool();
-import * as fs74 from "fs";
-import * as path89 from "path";
+import * as fs75 from "fs";
+import * as path90 from "path";
 var SPEC_CANDIDATES = [
   "openapi.json",
   "openapi.yaml",
@@ -83439,28 +84408,28 @@ function normalizePath3(p) {
 }
 function discoverSpecFile(cwd, specFileArg) {
   if (specFileArg) {
-    const resolvedPath = path89.resolve(cwd, specFileArg);
-    const normalizedCwd = cwd.endsWith(path89.sep) ? cwd : cwd + path89.sep;
+    const resolvedPath = path90.resolve(cwd, specFileArg);
+    const normalizedCwd = cwd.endsWith(path90.sep) ? cwd : cwd + path90.sep;
     if (!resolvedPath.startsWith(normalizedCwd) && resolvedPath !== cwd) {
       throw new Error("Invalid spec_file: path traversal detected");
     }
-    const ext = path89.extname(resolvedPath).toLowerCase();
+    const ext = path90.extname(resolvedPath).toLowerCase();
     if (!ALLOWED_EXTENSIONS.includes(ext)) {
       throw new Error(`Invalid spec_file: must end in .json, .yaml, or .yml, got ${ext}`);
     }
-    const stats = fs74.statSync(resolvedPath);
+    const stats = fs75.statSync(resolvedPath);
     if (stats.size > MAX_SPEC_SIZE) {
       throw new Error(`Invalid spec_file: file exceeds ${MAX_SPEC_SIZE / 1024 / 1024}MB limit`);
     }
-    if (!fs74.existsSync(resolvedPath)) {
+    if (!fs75.existsSync(resolvedPath)) {
       throw new Error(`Spec file not found: ${resolvedPath}`);
     }
     return resolvedPath;
   }
   for (const candidate of SPEC_CANDIDATES) {
-    const candidatePath = path89.resolve(cwd, candidate);
-    if (fs74.existsSync(candidatePath)) {
-      const stats = fs74.statSync(candidatePath);
+    const candidatePath = path90.resolve(cwd, candidate);
+    if (fs75.existsSync(candidatePath)) {
+      const stats = fs75.statSync(candidatePath);
       if (stats.size <= MAX_SPEC_SIZE) {
         return candidatePath;
       }
@@ -83469,8 +84438,8 @@ function discoverSpecFile(cwd, specFileArg) {
   return null;
 }
 function parseSpec(specFile) {
-  const content = fs74.readFileSync(specFile, "utf-8");
-  const ext = path89.extname(specFile).toLowerCase();
+  const content = fs75.readFileSync(specFile, "utf-8");
+  const ext = path90.extname(specFile).toLowerCase();
   if (ext === ".json") {
     return parseJsonSpec(content);
   }
@@ -83541,12 +84510,12 @@ function extractRoutes(cwd) {
   function walkDir(dir) {
     let entries;
     try {
-      entries = fs74.readdirSync(dir, { withFileTypes: true });
+      entries = fs75.readdirSync(dir, { withFileTypes: true });
     } catch {
       return;
     }
     for (const entry of entries) {
-      const fullPath = path89.join(dir, entry.name);
+      const fullPath = path90.join(dir, entry.name);
       if (entry.isSymbolicLink()) {
         continue;
       }
@@ -83556,7 +84525,7 @@ function extractRoutes(cwd) {
         }
         walkDir(fullPath);
       } else if (entry.isFile()) {
-        const ext = path89.extname(entry.name).toLowerCase();
+        const ext = path90.extname(entry.name).toLowerCase();
         const baseName = entry.name.toLowerCase();
         if (![".ts", ".js", ".mjs"].includes(ext)) {
           continue;
@@ -83574,7 +84543,7 @@ function extractRoutes(cwd) {
 }
 function extractRoutesFromFile(filePath) {
   const routes = [];
-  const content = fs74.readFileSync(filePath, "utf-8");
+  const content = fs75.readFileSync(filePath, "utf-8");
   const lines = content.split(/\r?\n/);
   const expressRegex = /(?:app|router|server|express)\.(get|post|put|patch|delete|options|head)\s*\(\s*['"`]([^'"`]+)['"`]/g;
   const flaskRegex = /@(?:app|blueprint|bp)\.route\s*\(\s*['"]([^'"]+)['"]/g;
@@ -83722,8 +84691,8 @@ var schema_drift = createSwarmTool({
 init_tool();
 init_path_security();
 init_create_tool();
-import * as fs75 from "fs";
-import * as path90 from "path";
+import * as fs76 from "fs";
+import * as path91 from "path";
 var DEFAULT_MAX_RESULTS = 100;
 var DEFAULT_MAX_LINES = 200;
 var REGEX_TIMEOUT_MS = 5000;
@@ -83759,11 +84728,11 @@ function containsWindowsAttacks3(str) {
 }
 function isPathInWorkspace3(filePath, workspace) {
   try {
-    const resolvedPath = path90.resolve(workspace, filePath);
-    const realWorkspace = fs75.realpathSync(workspace);
-    const realResolvedPath = fs75.realpathSync(resolvedPath);
-    const relativePath = path90.relative(realWorkspace, realResolvedPath);
-    if (relativePath.startsWith("..") || path90.isAbsolute(relativePath)) {
+    const resolvedPath = path91.resolve(workspace, filePath);
+    const realWorkspace = fs76.realpathSync(workspace);
+    const realResolvedPath = fs76.realpathSync(resolvedPath);
+    const relativePath = path91.relative(realWorkspace, realResolvedPath);
+    if (relativePath.startsWith("..") || path91.isAbsolute(relativePath)) {
       return false;
     }
     return true;
@@ -83776,12 +84745,12 @@ function validatePathForRead2(filePath, workspace) {
 }
 function findRgInEnvPath() {
   const searchPath = process.env.PATH ?? "";
-  for (const dir of searchPath.split(path90.delimiter)) {
+  for (const dir of searchPath.split(path91.delimiter)) {
     if (!dir)
       continue;
     const isWindows = process.platform === "win32";
-    const candidate = path90.join(dir, isWindows ? "rg.exe" : "rg");
-    if (fs75.existsSync(candidate))
+    const candidate = path91.join(dir, isWindows ? "rg.exe" : "rg");
+    if (fs76.existsSync(candidate))
       return candidate;
   }
   return null;
@@ -83908,10 +84877,10 @@ function collectFiles(dir, workspace, includeGlobs, excludeGlobs) {
     return files;
   }
   try {
-    const entries = fs75.readdirSync(dir, { withFileTypes: true });
+    const entries = fs76.readdirSync(dir, { withFileTypes: true });
     for (const entry of entries) {
-      const fullPath = path90.join(dir, entry.name);
-      const relativePath = path90.relative(workspace, fullPath);
+      const fullPath = path91.join(dir, entry.name);
+      const relativePath = path91.relative(workspace, fullPath);
       if (!validatePathForRead2(fullPath, workspace)) {
         continue;
       }
@@ -83952,13 +84921,13 @@ async function fallbackSearch(opts) {
   const matches = [];
   let total = 0;
   for (const file3 of files) {
-    const fullPath = path90.join(opts.workspace, file3);
+    const fullPath = path91.join(opts.workspace, file3);
     if (!validatePathForRead2(fullPath, opts.workspace)) {
       continue;
     }
     let stats;
     try {
-      stats = fs75.statSync(fullPath);
+      stats = fs76.statSync(fullPath);
       if (stats.size > MAX_FILE_SIZE_BYTES10) {
         continue;
       }
@@ -83967,7 +84936,7 @@ async function fallbackSearch(opts) {
     }
     let content;
     try {
-      content = fs75.readFileSync(fullPath, "utf-8");
+      content = fs76.readFileSync(fullPath, "utf-8");
     } catch {
       continue;
     }
@@ -84079,7 +85048,7 @@ var search = createSwarmTool({
         message: "Exclude pattern contains invalid Windows-specific sequence"
       }, null, 2);
     }
-    if (!fs75.existsSync(directory)) {
+    if (!fs76.existsSync(directory)) {
       return JSON.stringify({
         error: true,
         type: "unknown",
@@ -84147,7 +85116,8 @@ async function executeSetQaGates(args2, directory) {
     "critic_pre_plan",
     "hallucination_guard",
     "sast_enabled",
-    "mutation_test"
+    "mutation_test",
+    "council_general_review"
   ]) {
     if (args2[key] !== undefined)
       partial3[key] = args2[key];
@@ -84193,6 +85163,7 @@ var set_qa_gates = createSwarmTool({
     hallucination_guard: tool.schema.boolean().optional().describe("Enable hallucination_guard checks on plan and implementation claims."),
     sast_enabled: tool.schema.boolean().optional().describe("Enable SAST scanning as a required QA gate."),
     mutation_test: tool.schema.boolean().optional().describe("Enable the mutation-testing gate (default: off). Requires mutation " + "tests to achieve a passing kill rate before phase completion; " + "WARN verdict allows advancement, FAIL blocks."),
+    council_general_review: tool.schema.boolean().optional().describe("Enable the council_general_review gate (default: off). When on, " + "MODE: SPECIFY runs convene_general_council on the draft spec " + "before the critic-gate, folding multi-model deliberation into " + "the spec. Requires council.general.enabled and a search API key."),
     project_type: tool.schema.string().optional().describe('Project type label (e.g. "ts", "python"). Only applied when the profile is being created for the first time.')
   },
   execute: async (args2, directory) => {
@@ -84204,8 +85175,8 @@ var set_qa_gates = createSwarmTool({
 init_tool();
 init_path_security();
 init_create_tool();
-import * as fs76 from "fs";
-import * as path91 from "path";
+import * as fs77 from "fs";
+import * as path92 from "path";
 var WINDOWS_RESERVED_NAMES4 = /^(con|prn|aux|nul|com[1-9]|lpt[1-9])(\.|:|$)/i;
 function containsWindowsAttacks4(str) {
   if (/:[^\\/]/.test(str))
@@ -84219,14 +85190,14 @@ function containsWindowsAttacks4(str) {
 }
 function isPathInWorkspace4(filePath, workspace) {
   try {
-    const resolvedPath = path91.resolve(workspace, filePath);
-    if (!fs76.existsSync(resolvedPath)) {
+    const resolvedPath = path92.resolve(workspace, filePath);
+    if (!fs77.existsSync(resolvedPath)) {
       return true;
     }
-    const realWorkspace = fs76.realpathSync(workspace);
-    const realResolvedPath = fs76.realpathSync(resolvedPath);
-    const relativePath = path91.relative(realWorkspace, realResolvedPath);
-    if (relativePath.startsWith("..") || path91.isAbsolute(relativePath)) {
+    const realWorkspace = fs77.realpathSync(workspace);
+    const realResolvedPath = fs77.realpathSync(resolvedPath);
+    const relativePath = path92.relative(realWorkspace, realResolvedPath);
+    if (relativePath.startsWith("..") || path92.isAbsolute(relativePath)) {
       return false;
     }
     return true;
@@ -84398,7 +85369,7 @@ var suggestPatch = createSwarmTool({
         message: "changes cannot be empty"
       }, null, 2);
     }
-    if (!fs76.existsSync(directory)) {
+    if (!fs77.existsSync(directory)) {
       return JSON.stringify({
         success: false,
         error: true,
@@ -84434,8 +85405,8 @@ var suggestPatch = createSwarmTool({
         });
         continue;
       }
-      const fullPath = path91.resolve(directory, change.file);
-      if (!fs76.existsSync(fullPath)) {
+      const fullPath = path92.resolve(directory, change.file);
+      if (!fs77.existsSync(fullPath)) {
         errors5.push({
           success: false,
           error: true,
@@ -84449,7 +85420,7 @@ var suggestPatch = createSwarmTool({
       }
       let content;
       try {
-        content = fs76.readFileSync(fullPath, "utf-8");
+        content = fs77.readFileSync(fullPath, "utf-8");
       } catch (err3) {
         errors5.push({
           success: false,
@@ -84683,8 +85654,8 @@ var generate_mutants = createSwarmTool({
 // src/tools/lint-spec.ts
 init_spec_schema();
 init_create_tool();
-import * as fs77 from "fs";
-import * as path92 from "path";
+import * as fs78 from "fs";
+import * as path93 from "path";
 var SPEC_FILE_NAME = "spec.md";
 var SWARM_DIR2 = ".swarm";
 var OBLIGATION_KEYWORDS2 = ["MUST", "SHALL", "SHOULD", "MAY"];
@@ -84737,8 +85708,8 @@ var lint_spec = createSwarmTool({
   async execute(_args, directory) {
     const errors5 = [];
     const warnings = [];
-    const specPath = path92.join(directory, SWARM_DIR2, SPEC_FILE_NAME);
-    if (!fs77.existsSync(specPath)) {
+    const specPath = path93.join(directory, SWARM_DIR2, SPEC_FILE_NAME);
+    if (!fs78.existsSync(specPath)) {
       const result2 = {
         valid: false,
         specMtime: null,
@@ -84757,12 +85728,12 @@ var lint_spec = createSwarmTool({
     }
     let specMtime = null;
     try {
-      const stats = fs77.statSync(specPath);
+      const stats = fs78.statSync(specPath);
       specMtime = stats.mtime.toISOString();
     } catch {}
     let content;
     try {
-      content = fs77.readFileSync(specPath, "utf-8");
+      content = fs78.readFileSync(specPath, "utf-8");
     } catch (e) {
       const result2 = {
         valid: false,
@@ -84807,13 +85778,13 @@ var lint_spec = createSwarmTool({
 });
 // src/tools/mutation-test.ts
 init_dist();
-import * as fs78 from "fs";
-import * as path94 from "path";
+import * as fs79 from "fs";
+import * as path95 from "path";
 
 // src/mutation/engine.ts
 import { spawnSync as spawnSync3 } from "child_process";
 import { unlinkSync as unlinkSync12, writeFileSync as writeFileSync18 } from "fs";
-import * as path93 from "path";
+import * as path94 from "path";
 
 // src/mutation/equivalence.ts
 function isStaticallyEquivalent(originalCode, mutatedCode) {
@@ -84948,7 +85919,7 @@ async function executeMutation(patch, testCommand, _testFiles, workingDir) {
   let patchFile;
   try {
     const safeId2 = patch.id.replace(/[^a-zA-Z0-9_-]/g, "_");
-    patchFile = path93.join(workingDir, `.mutation_patch_${safeId2}.diff`);
+    patchFile = path94.join(workingDir, `.mutation_patch_${safeId2}.diff`);
     try {
       writeFileSync18(patchFile, patch.patch);
     } catch (writeErr) {
@@ -85342,8 +86313,8 @@ var mutation_test = createSwarmTool({
       ];
       for (const filePath of uniquePaths) {
         try {
-          const resolvedPath = path94.resolve(cwd, filePath);
-          sourceFiles.set(filePath, fs78.readFileSync(resolvedPath, "utf-8"));
+          const resolvedPath = path95.resolve(cwd, filePath);
+          sourceFiles.set(filePath, fs79.readFileSync(resolvedPath, "utf-8"));
         } catch {}
       }
       const report = await executeMutationSuite(typedArgs.patches, typedArgs.test_command, typedArgs.files, cwd, undefined, undefined, sourceFiles.size > 0 ? sourceFiles : undefined);
@@ -85361,8 +86332,8 @@ var mutation_test = createSwarmTool({
 init_dist();
 init_manager2();
 init_detector();
-import * as fs79 from "fs";
-import * as path95 from "path";
+import * as fs80 from "fs";
+import * as path96 from "path";
 init_create_tool();
 var MAX_FILE_SIZE2 = 2 * 1024 * 1024;
 var BINARY_CHECK_BYTES = 8192;
@@ -85428,7 +86399,7 @@ async function syntaxCheck(input, directory, config3) {
   if (languages?.length) {
     const lowerLangs = languages.map((l) => l.toLowerCase());
     filesToCheck = filesToCheck.filter((file3) => {
-      const ext = path95.extname(file3.path).toLowerCase();
+      const ext = path96.extname(file3.path).toLowerCase();
       const langDef = getLanguageForExtension(ext);
       const fileProfile = getProfileForFile(file3.path);
       const langId = fileProfile?.id || langDef?.id;
@@ -85441,7 +86412,7 @@ async function syntaxCheck(input, directory, config3) {
   let skippedCount = 0;
   for (const fileInfo of filesToCheck) {
     const { path: filePath } = fileInfo;
-    const fullPath = path95.isAbsolute(filePath) ? filePath : path95.join(directory, filePath);
+    const fullPath = path96.isAbsolute(filePath) ? filePath : path96.join(directory, filePath);
     const result = {
       path: filePath,
       language: "",
@@ -85471,7 +86442,7 @@ async function syntaxCheck(input, directory, config3) {
       }
       let content;
       try {
-        content = fs79.readFileSync(fullPath, "utf8");
+        content = fs80.readFileSync(fullPath, "utf8");
       } catch {
         result.skipped_reason = "file_read_error";
         skippedCount++;
@@ -85490,7 +86461,7 @@ async function syntaxCheck(input, directory, config3) {
         results.push(result);
         continue;
       }
-      const ext = path95.extname(filePath).toLowerCase();
+      const ext = path96.extname(filePath).toLowerCase();
       const langDef = getLanguageForExtension(ext);
       result.language = profile?.id || langDef?.id || "unknown";
       const errors5 = extractSyntaxErrors(parser, content);
@@ -85582,8 +86553,8 @@ init_dist();
 init_utils();
 init_create_tool();
 init_path_security();
-import * as fs80 from "fs";
-import * as path96 from "path";
+import * as fs81 from "fs";
+import * as path97 from "path";
 var MAX_TEXT_LENGTH = 200;
 var MAX_FILE_SIZE_BYTES11 = 1024 * 1024;
 var SUPPORTED_EXTENSIONS4 = new Set([
@@ -85649,9 +86620,9 @@ function validatePathsInput(paths, cwd) {
     return { error: "paths contains path traversal", resolvedPath: null };
   }
   try {
-    const resolvedPath = path96.resolve(paths);
-    const normalizedCwd = path96.resolve(cwd);
-    const normalizedResolved = path96.resolve(resolvedPath);
+    const resolvedPath = path97.resolve(paths);
+    const normalizedCwd = path97.resolve(cwd);
+    const normalizedResolved = path97.resolve(resolvedPath);
     if (!normalizedResolved.startsWith(normalizedCwd)) {
       return {
         error: "paths must be within the current working directory",
@@ -85667,13 +86638,13 @@ function validatePathsInput(paths, cwd) {
   }
 }
 function isSupportedExtension(filePath) {
-  const ext = path96.extname(filePath).toLowerCase();
+  const ext = path97.extname(filePath).toLowerCase();
   return SUPPORTED_EXTENSIONS4.has(ext);
 }
 function findSourceFiles4(dir, files = []) {
   let entries;
   try {
-    entries = fs80.readdirSync(dir);
+    entries = fs81.readdirSync(dir);
   } catch {
     return files;
   }
@@ -85682,10 +86653,10 @@ function findSourceFiles4(dir, files = []) {
     if (SKIP_DIRECTORIES5.has(entry)) {
       continue;
     }
-    const fullPath = path96.join(dir, entry);
+    const fullPath = path97.join(dir, entry);
     let stat4;
     try {
-      stat4 = fs80.statSync(fullPath);
+      stat4 = fs81.statSync(fullPath);
     } catch {
       continue;
     }
@@ -85778,7 +86749,7 @@ var todo_extract = createSwarmTool({
       return JSON.stringify(errorResult, null, 2);
     }
     const scanPath = resolvedPath;
-    if (!fs80.existsSync(scanPath)) {
+    if (!fs81.existsSync(scanPath)) {
       const errorResult = {
         error: `path not found: ${pathsInput}`,
         total: 0,
@@ -85788,13 +86759,13 @@ var todo_extract = createSwarmTool({
       return JSON.stringify(errorResult, null, 2);
     }
     const filesToScan = [];
-    const stat4 = fs80.statSync(scanPath);
+    const stat4 = fs81.statSync(scanPath);
     if (stat4.isFile()) {
       if (isSupportedExtension(scanPath)) {
         filesToScan.push(scanPath);
       } else {
         const errorResult = {
-          error: `unsupported file extension: ${path96.extname(scanPath)}`,
+          error: `unsupported file extension: ${path97.extname(scanPath)}`,
           total: 0,
           byPriority: { high: 0, medium: 0, low: 0 },
           entries: []
@@ -85807,11 +86778,11 @@ var todo_extract = createSwarmTool({
     const allEntries = [];
     for (const filePath of filesToScan) {
       try {
-        const fileStat = fs80.statSync(filePath);
+        const fileStat = fs81.statSync(filePath);
         if (fileStat.size > MAX_FILE_SIZE_BYTES11) {
           continue;
         }
-        const content = fs80.readFileSync(filePath, "utf-8");
+        const content = fs81.readFileSync(filePath, "utf-8");
         const entries = parseTodoComments(content, filePath, tagsSet);
         allEntries.push(...entries);
       } catch {}
@@ -85841,18 +86812,18 @@ init_tool();
 init_loader();
 init_schema();
 init_gate_evidence();
-import * as fs82 from "fs";
-import * as path98 from "path";
+import * as fs83 from "fs";
+import * as path99 from "path";
 
 // src/hooks/diff-scope.ts
-import * as fs81 from "fs";
-import * as path97 from "path";
+import * as fs82 from "fs";
+import * as path98 from "path";
 function getDeclaredScope(taskId, directory) {
   try {
-    const planPath = path97.join(directory, ".swarm", "plan.json");
-    if (!fs81.existsSync(planPath))
+    const planPath = path98.join(directory, ".swarm", "plan.json");
+    if (!fs82.existsSync(planPath))
       return null;
-    const raw = fs81.readFileSync(planPath, "utf-8");
+    const raw = fs82.readFileSync(planPath, "utf-8");
     const plan = JSON.parse(raw);
     for (const phase of plan.phases ?? []) {
       for (const task of phase.tasks ?? []) {
@@ -85968,7 +86939,7 @@ var TIER_3_PATTERNS = [
 ];
 function matchesTier3Pattern(files) {
   for (const file3 of files) {
-    const fileName = path98.basename(file3);
+    const fileName = path99.basename(file3);
     for (const pattern of TIER_3_PATTERNS) {
       if (pattern.test(fileName)) {
         return true;
@@ -85982,8 +86953,8 @@ function checkReviewerGate(taskId, workingDirectory, stageBParallelEnabled = fal
     if (hasActiveTurboMode()) {
       const resolvedDir2 = workingDirectory;
       try {
-        const planPath = path98.join(resolvedDir2, ".swarm", "plan.json");
-        const planRaw = fs82.readFileSync(planPath, "utf-8");
+        const planPath = path99.join(resolvedDir2, ".swarm", "plan.json");
+        const planRaw = fs83.readFileSync(planPath, "utf-8");
         const plan = JSON.parse(planRaw);
         for (const planPhase of plan.phases ?? []) {
           for (const task of planPhase.tasks ?? []) {
@@ -86052,8 +87023,8 @@ function checkReviewerGate(taskId, workingDirectory, stageBParallelEnabled = fal
     }
     try {
       const resolvedDir2 = workingDirectory;
-      const planPath = path98.join(resolvedDir2, ".swarm", "plan.json");
-      const planRaw = fs82.readFileSync(planPath, "utf-8");
+      const planPath = path99.join(resolvedDir2, ".swarm", "plan.json");
+      const planRaw = fs83.readFileSync(planPath, "utf-8");
       const plan = JSON.parse(planRaw);
       for (const planPhase of plan.phases ?? []) {
         for (const task of planPhase.tasks ?? []) {
@@ -86277,8 +87248,8 @@ async function executeUpdateTaskStatus(args2, fallbackDir) {
         };
       }
     }
-    normalizedDir = path98.normalize(args2.working_directory);
-    const pathParts = normalizedDir.split(path98.sep);
+    normalizedDir = path99.normalize(args2.working_directory);
+    const pathParts = normalizedDir.split(path99.sep);
     if (pathParts.includes("..")) {
       return {
         success: false,
@@ -86288,11 +87259,11 @@ async function executeUpdateTaskStatus(args2, fallbackDir) {
         ]
       };
     }
-    const resolvedDir = path98.resolve(normalizedDir);
+    const resolvedDir = path99.resolve(normalizedDir);
     try {
-      const realPath = fs82.realpathSync(resolvedDir);
-      const planPath = path98.join(realPath, ".swarm", "plan.json");
-      if (!fs82.existsSync(planPath)) {
+      const realPath = fs83.realpathSync(resolvedDir);
+      const planPath = path99.join(realPath, ".swarm", "plan.json");
+      if (!fs83.existsSync(planPath)) {
         return {
           success: false,
           message: `Invalid working_directory: plan not found in "${realPath}"`,
@@ -86323,22 +87294,22 @@ async function executeUpdateTaskStatus(args2, fallbackDir) {
   }
   if (args2.status === "in_progress") {
     try {
-      const evidencePath = path98.join(directory, ".swarm", "evidence", `${args2.task_id}.json`);
-      fs82.mkdirSync(path98.dirname(evidencePath), { recursive: true });
-      const fd = fs82.openSync(evidencePath, "wx");
+      const evidencePath = path99.join(directory, ".swarm", "evidence", `${args2.task_id}.json`);
+      fs83.mkdirSync(path99.dirname(evidencePath), { recursive: true });
+      const fd = fs83.openSync(evidencePath, "wx");
       let writeOk = false;
       try {
-        fs82.writeSync(fd, JSON.stringify({
+        fs83.writeSync(fd, JSON.stringify({
           taskId: args2.task_id,
           required_gates: ["reviewer", "test_engineer"],
           gates: {}
         }, null, 2));
         writeOk = true;
       } finally {
-        fs82.closeSync(fd);
+        fs83.closeSync(fd);
         if (!writeOk) {
           try {
-            fs82.unlinkSync(evidencePath);
+            fs83.unlinkSync(evidencePath);
           } catch {}
         }
       }
@@ -86348,8 +87319,8 @@ async function executeUpdateTaskStatus(args2, fallbackDir) {
     recoverTaskStateFromDelegations(args2.task_id);
     let phaseRequiresReviewer = true;
     try {
-      const planPath = path98.join(directory, ".swarm", "plan.json");
-      const planRaw = fs82.readFileSync(planPath, "utf-8");
+      const planPath = path99.join(directory, ".swarm", "plan.json");
+      const planRaw = fs83.readFileSync(planPath, "utf-8");
       const plan = JSON.parse(planRaw);
       const taskPhase = plan.phases.find((p) => p.tasks.some((t) => t.id === args2.task_id));
       if (taskPhase?.required_agents && !taskPhase.required_agents.includes("reviewer")) {
@@ -86451,6 +87422,217 @@ var update_task_status = createSwarmTool({
     return JSON.stringify(await executeUpdateTaskStatus(args2, _directory), null, 2);
   }
 });
+// src/tools/web-search.ts
+init_dist();
+init_zod();
+init_loader();
+
+// src/council/web-search-provider.ts
+class WebSearchError extends Error {
+  cause;
+  constructor(message, cause) {
+    super(message);
+    this.cause = cause;
+    this.name = "WebSearchError";
+  }
+}
+
+class WebSearchConfigError extends Error {
+  constructor(message) {
+    super(message);
+    this.name = "WebSearchConfigError";
+  }
+}
+
+class TavilyProvider {
+  apiKey;
+  constructor(apiKey) {
+    this.apiKey = apiKey;
+  }
+  async search(query, maxResults) {
+    let response;
+    try {
+      response = await fetch("https://api.tavily.com/search", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          api_key: this.apiKey,
+          query,
+          max_results: maxResults,
+          search_depth: "advanced"
+        })
+      });
+    } catch (err3) {
+      throw new WebSearchError(`Tavily network error for query "${query}"`, err3);
+    }
+    if (!response.ok) {
+      throw new WebSearchError(`Tavily HTTP ${response.status} for query "${query}"`);
+    }
+    let body2;
+    try {
+      body2 = await response.json();
+    } catch (err3) {
+      throw new WebSearchError("Tavily returned non-JSON response", err3);
+    }
+    const results = body2?.results;
+    if (!Array.isArray(results)) {
+      return [];
+    }
+    return results.filter((r) => typeof r?.title === "string" && typeof r?.url === "string" && typeof r?.content === "string").map((r) => ({
+      title: r.title,
+      url: r.url,
+      snippet: r.content,
+      query
+    }));
+  }
+}
+
+class BraveProvider {
+  apiKey;
+  constructor(apiKey) {
+    this.apiKey = apiKey;
+  }
+  async search(query, maxResults) {
+    const url3 = new URL("https://api.search.brave.com/res/v1/web/search");
+    url3.searchParams.set("q", query);
+    url3.searchParams.set("count", String(maxResults));
+    let response;
+    try {
+      response = await fetch(url3.toString(), {
+        method: "GET",
+        headers: {
+          "X-Subscription-Token": this.apiKey,
+          Accept: "application/json"
+        }
+      });
+    } catch (err3) {
+      throw new WebSearchError(`Brave network error for query "${query}"`, err3);
+    }
+    if (!response.ok) {
+      throw new WebSearchError(`Brave HTTP ${response.status} for query "${query}"`);
+    }
+    let body2;
+    try {
+      body2 = await response.json();
+    } catch (err3) {
+      throw new WebSearchError("Brave returned non-JSON response", err3);
+    }
+    const results = body2?.web?.results;
+    if (!Array.isArray(results)) {
+      return [];
+    }
+    return results.filter((r) => typeof r?.title === "string" && typeof r?.url === "string" && typeof r?.description === "string").map((r) => ({
+      title: r.title,
+      url: r.url,
+      snippet: r.description,
+      query
+    }));
+  }
+}
+function resolveApiKey(provider, configKey) {
+  if (configKey && configKey.length > 0) {
+    return configKey;
+  }
+  const envName = provider === "tavily" ? "TAVILY_API_KEY" : "BRAVE_SEARCH_API_KEY";
+  const fromEnv = process.env[envName];
+  return fromEnv && fromEnv.length > 0 ? fromEnv : undefined;
+}
+function createWebSearchProvider(config3) {
+  const apiKey = resolveApiKey(config3.searchProvider, config3.searchApiKey);
+  if (!apiKey) {
+    const envName = config3.searchProvider === "tavily" ? "TAVILY_API_KEY" : "BRAVE_SEARCH_API_KEY";
+    throw new WebSearchConfigError(`No API key for search provider "${config3.searchProvider}". Set ` + `council.general.searchApiKey in opencode-swarm.json or export ${envName}.`);
+  }
+  switch (config3.searchProvider) {
+    case "tavily":
+      return new TavilyProvider(apiKey);
+    case "brave":
+      return new BraveProvider(apiKey);
+  }
+}
+
+// src/tools/web-search.ts
+init_create_tool();
+init_resolve_working_directory();
+var MAX_RESULTS_HARD_CAP = 10;
+var DEFAULT_MAX_RESULTS2 = 5;
+var ArgsSchema4 = exports_external.object({
+  query: exports_external.string().min(1).max(500),
+  max_results: exports_external.number().int().min(1).max(20).optional(),
+  working_directory: exports_external.string().optional()
+});
+var web_search = createSwarmTool({
+  description: "External web search for council member agents. Returns titled results with snippets and URLs. " + "Restricted to council_member agents via AGENT_TOOL_MAP. Requires council.general.enabled and a " + "configured search API key (Tavily or Brave). max_results is capped at 10.",
+  args: {
+    query: tool.schema.string().min(1).max(500).describe("Search query string (1\u2013500 characters)."),
+    max_results: tool.schema.number().int().min(1).max(20).optional().describe(`Number of results to request (1\u201320). Hard-capped at ${MAX_RESULTS_HARD_CAP}. Default ${DEFAULT_MAX_RESULTS2}.`),
+    working_directory: tool.schema.string().optional().describe("Project root for config resolution. Optional.")
+  },
+  execute: async (args2, directory) => {
+    const parsed = ArgsSchema4.safeParse(args2);
+    if (!parsed.success) {
+      const fail = {
+        success: false,
+        reason: "invalid_args",
+        message: parsed.error.issues.map((i2) => `${i2.path.join(".")}: ${i2.message}`).join("; ")
+      };
+      return JSON.stringify(fail, null, 2);
+    }
+    const dirResult = resolveWorkingDirectory(parsed.data.working_directory, directory);
+    if (!dirResult.success) {
+      const fail = {
+        success: false,
+        reason: "invalid_working_directory",
+        message: dirResult.message
+      };
+      return JSON.stringify(fail, null, 2);
+    }
+    const config3 = loadPluginConfig(dirResult.directory);
+    const generalConfig = config3.council?.general;
+    if (!generalConfig || generalConfig.enabled !== true) {
+      const fail = {
+        success: false,
+        reason: "council_general_disabled",
+        message: "web_search is disabled \u2014 set council.general.enabled: true in opencode-swarm.json."
+      };
+      return JSON.stringify(fail, null, 2);
+    }
+    const requested = parsed.data.max_results ?? DEFAULT_MAX_RESULTS2;
+    const maxResults = Math.min(requested, MAX_RESULTS_HARD_CAP);
+    let provider;
+    try {
+      provider = createWebSearchProvider(generalConfig);
+    } catch (err3) {
+      const fail = {
+        success: false,
+        reason: err3 instanceof WebSearchConfigError ? "missing_api_key" : "provider_init_failed",
+        message: err3 instanceof Error ? err3.message : String(err3)
+      };
+      return JSON.stringify(fail, null, 2);
+    }
+    try {
+      const results = await provider.search(parsed.data.query, maxResults);
+      const ok2 = {
+        success: true,
+        query: parsed.data.query,
+        totalResults: results.length,
+        results: results.map(({ title, url: url3, snippet }) => ({
+          title,
+          url: url3,
+          snippet
+        }))
+      };
+      return JSON.stringify(ok2, null, 2);
+    } catch (err3) {
+      const fail = {
+        success: false,
+        reason: err3 instanceof WebSearchError ? "search_failed" : "unknown",
+        message: err3 instanceof Error ? err3.message : String(err3)
+      };
+      return JSON.stringify(fail, null, 2);
+    }
+  }
+});
 // src/tools/write-drift-evidence.ts
 init_tool();
 init_qa_gate_profile();
@@ -86458,8 +87640,8 @@ init_utils2();
 init_ledger();
 init_manager();
 init_create_tool();
-import fs83 from "fs";
-import path99 from "path";
+import fs84 from "fs";
+import path100 from "path";
 function derivePlanId5(plan) {
   return `${plan.swarm}-${plan.title}`.replace(/[^a-zA-Z0-9-_]/g, "_");
 }
@@ -86510,7 +87692,7 @@ async function executeWriteDriftEvidence(args2, directory) {
     entries: [evidenceEntry]
   };
   const filename = "drift-verifier.json";
-  const relativePath = path99.join("evidence", String(phase), filename);
+  const relativePath = path100.join("evidence", String(phase), filename);
   let validatedPath;
   try {
     validatedPath = validateSwarmPath(directory, relativePath);
@@ -86521,12 +87703,12 @@ async function executeWriteDriftEvidence(args2, directory) {
       message: error93 instanceof Error ? error93.message : "Failed to validate path"
     }, null, 2);
   }
-  const evidenceDir = path99.dirname(validatedPath);
+  const evidenceDir = path100.dirname(validatedPath);
   try {
-    await fs83.promises.mkdir(evidenceDir, { recursive: true });
-    const tempPath = path99.join(evidenceDir, `.${filename}.tmp`);
-    await fs83.promises.writeFile(tempPath, JSON.stringify(evidenceContent, null, 2), "utf-8");
-    await fs83.promises.rename(tempPath, validatedPath);
+    await fs84.promises.mkdir(evidenceDir, { recursive: true });
+    const tempPath = path100.join(evidenceDir, `.${filename}.tmp`);
+    await fs84.promises.writeFile(tempPath, JSON.stringify(evidenceContent, null, 2), "utf-8");
+    await fs84.promises.rename(tempPath, validatedPath);
     let snapshotInfo;
     let snapshotError;
     let qaProfileLocked;
@@ -86620,8 +87802,8 @@ var write_drift_evidence = createSwarmTool({
 init_tool();
 init_utils2();
 init_create_tool();
-import fs84 from "fs";
-import path100 from "path";
+import fs85 from "fs";
+import path101 from "path";
 function normalizeVerdict2(verdict) {
   switch (verdict) {
     case "APPROVED":
@@ -86669,7 +87851,7 @@ async function executeWriteHallucinationEvidence(args2, directory) {
     entries: [evidenceEntry]
   };
   const filename = "hallucination-guard.json";
-  const relativePath = path100.join("evidence", String(phase), filename);
+  const relativePath = path101.join("evidence", String(phase), filename);
   let validatedPath;
   try {
     validatedPath = validateSwarmPath(directory, relativePath);
@@ -86680,12 +87862,12 @@ async function executeWriteHallucinationEvidence(args2, directory) {
       message: error93 instanceof Error ? error93.message : "Failed to validate path"
     }, null, 2);
   }
-  const evidenceDir = path100.dirname(validatedPath);
+  const evidenceDir = path101.dirname(validatedPath);
   try {
-    await fs84.promises.mkdir(evidenceDir, { recursive: true });
-    const tempPath = path100.join(evidenceDir, `.${filename}.tmp`);
-    await fs84.promises.writeFile(tempPath, JSON.stringify(evidenceContent, null, 2), "utf-8");
-    await fs84.promises.rename(tempPath, validatedPath);
+    await fs85.promises.mkdir(evidenceDir, { recursive: true });
+    const tempPath = path101.join(evidenceDir, `.${filename}.tmp`);
+    await fs85.promises.writeFile(tempPath, JSON.stringify(evidenceContent, null, 2), "utf-8");
+    await fs85.promises.rename(tempPath, validatedPath);
     return JSON.stringify({
       success: true,
       phase,
@@ -86731,8 +87913,8 @@ var write_hallucination_evidence = createSwarmTool({
 init_tool();
 init_utils2();
 init_create_tool();
-import fs85 from "fs";
-import path101 from "path";
+import fs86 from "fs";
+import path102 from "path";
 function normalizeVerdict3(verdict) {
   switch (verdict) {
     case "PASS":
@@ -86806,7 +87988,7 @@ async function executeWriteMutationEvidence(args2, directory) {
     entries: [evidenceEntry]
   };
   const filename = "mutation-gate.json";
-  const relativePath = path101.join("evidence", String(phase), filename);
+  const relativePath = path102.join("evidence", String(phase), filename);
   let validatedPath;
   try {
     validatedPath = validateSwarmPath(directory, relativePath);
@@ -86817,12 +87999,12 @@ async function executeWriteMutationEvidence(args2, directory) {
       message: error93 instanceof Error ? error93.message : "Failed to validate path"
     }, null, 2);
   }
-  const evidenceDir = path101.dirname(validatedPath);
+  const evidenceDir = path102.dirname(validatedPath);
   try {
-    await fs85.promises.mkdir(evidenceDir, { recursive: true });
-    const tempPath = path101.join(evidenceDir, `.${filename}.tmp`);
-    await fs85.promises.writeFile(tempPath, JSON.stringify(evidenceContent, null, 2), "utf-8");
-    await fs85.promises.rename(tempPath, validatedPath);
+    await fs86.promises.mkdir(evidenceDir, { recursive: true });
+    const tempPath = path102.join(evidenceDir, `.${filename}.tmp`);
+    await fs86.promises.writeFile(tempPath, JSON.stringify(evidenceContent, null, 2), "utf-8");
+    await fs86.promises.rename(tempPath, validatedPath);
     return JSON.stringify({
       success: true,
       phase,
@@ -87040,7 +88222,7 @@ var OpenCodeSwarm = async (ctx) => {
     const { PreflightTriggerManager: PTM } = await Promise.resolve().then(() => (init_trigger(), exports_trigger));
     preflightTriggerManager = new PTM(automationConfig);
     const { AutomationStatusArtifact: ASA } = await Promise.resolve().then(() => (init_status_artifact(), exports_status_artifact));
-    const swarmDir = path102.resolve(ctx.directory, ".swarm");
+    const swarmDir = path103.resolve(ctx.directory, ".swarm");
     statusArtifact = new ASA(swarmDir);
     statusArtifact.updateConfig(automationConfig.mode, automationConfig.capabilities);
     if (automationConfig.capabilities?.evidence_auto_summaries === true) {
@@ -87146,6 +88328,7 @@ var OpenCodeSwarm = async (ctx) => {
       completion_verify,
       complexity_hotspots,
       convene_council,
+      convene_general_council,
       curator_analyze,
       declare_council_criteria,
       knowledge_add,
@@ -87192,6 +88375,7 @@ var OpenCodeSwarm = async (ctx) => {
       build_check,
       suggest_patch: suggestPatch,
       update_task_status,
+      web_search,
       write_retro,
       write_drift_evidence,
       write_hallucination_evidence,

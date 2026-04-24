@@ -14,6 +14,8 @@ import {
 	type Task,
 	type TaskStatus,
 } from '../config/plan-schema';
+// QA gate check — first save-plan integration with profile store
+import { getProfile } from '../db/qa-gate-profile.js';
 import { tryAcquireLock } from '../parallel/file-locks.js';
 import { writeCheckpoint } from '../plan/checkpoint';
 import {
@@ -296,6 +298,65 @@ export async function executeSavePlan(
 				recovery_guidance:
 					'Create or restore .swarm/spec.md before saving a plan. Never write .swarm/plan.json or .swarm/plan.md directly.',
 			};
+		}
+	}
+
+	// Step 2.y: QA GATE SELECTION CHECK
+	// Verify gate selection has occurred before allowing plan save.
+	// Mirrors the SPEC GATE pattern above. Bypass for CI: SWARM_SKIP_GATE_SELECTION=1.
+	// Only blocks when BOTH conditions are true: no `## Pending QA Gate Selection`
+	// section in context.md AND no existing QaGateProfile for this plan id.
+	if (process.env.SWARM_SKIP_GATE_SELECTION !== '1') {
+		const contextPath = path.join(
+			targetWorkspace as string,
+			'.swarm',
+			'context.md',
+		);
+		let contextContent = '';
+		try {
+			contextContent = await fs.promises.readFile(contextPath, 'utf8');
+		} catch {
+			// context.md may not exist yet — treat as absent section
+		}
+		const hasPendingSection = contextContent.includes(
+			'## Pending QA Gate Selection',
+		);
+
+		if (!hasPendingSection) {
+			// Inline derivePlanId formula (matches canonical form in
+			// set-qa-gates.ts:27-29 and qa-gates.ts:39-41; plan.swarm === args.swarm_id
+			// at runtime because save_plan writes it that way at line 388).
+			const candidatePlanId = `${args.swarm_id}-${args.title}`.replace(
+				/[^a-zA-Z0-9-_]/g,
+				'_',
+			);
+			let existingProfile = null;
+			try {
+				existingProfile = getProfile(
+					targetWorkspace as string,
+					candidatePlanId,
+				);
+			} catch {
+				// getProfile can throw on SQLITE_CORRUPT, disk full, migration errors
+				// (qa-gate-profile.ts:97-103). Treat as no profile — fail forward.
+			}
+			if (!existingProfile) {
+				return {
+					success: false,
+					message:
+						'QA_GATE_SELECTION_REQUIRED: QA gate selection has not been completed. ' +
+						'Present the gate selection question to the user (step 5b of MODE: SPECIFY ' +
+						'or Phase 6 of MODE: BRAINSTORM), write their response to .swarm/context.md ' +
+						'under "## Pending QA Gate Selection", then retry save_plan.',
+					errors: [
+						'Missing ## Pending QA Gate Selection in .swarm/context.md',
+						'No existing QaGateProfile found for this plan',
+					],
+					recovery_guidance:
+						'Do not call set_qa_gates with assumed values. Present the gate dialogue, ' +
+						"wait for the user's answer, write it to context.md, then retry save_plan.",
+				};
+			}
 		}
 	}
 

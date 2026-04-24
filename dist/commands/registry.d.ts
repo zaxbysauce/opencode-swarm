@@ -156,11 +156,17 @@ export declare const COMMAND_REGISTRY: {
         readonly args: "[topic-text]";
         readonly details: "Triggers the architect to run the brainstorm workflow: CONTEXT SCAN, single-question DIALOGUE, APPROACHES, DESIGN SECTIONS, SPEC WRITE + SELF-REVIEW, QA GATE SELECTION, TRANSITION. Use for new plans where requirements need to be drawn out before writing spec.md / plan.md.";
     };
+    readonly council: {
+        readonly handler: (ctx: CommandContext) => Promise<string>;
+        readonly description: "Enter architect MODE: COUNCIL — multi-model deliberation [question] [--preset <name>] [--spec-review]";
+        readonly args: "<question> [--preset <name>] [--spec-review]";
+        readonly details: "Triggers the architect to convene a configurable General Council: each member independently web-searches, answers, and engages in one structured deliberation round on disagreements; an optional moderator pass synthesizes the final answer. --preset <name> selects a member group from council.general.presets. --spec-review switches to single-pass advisory mode for spec review. Requires council.general.enabled: true and a search API key in opencode-swarm.json.";
+    };
     readonly 'qa-gates': {
         readonly handler: (ctx: CommandContext) => Promise<string>;
         readonly description: "View or modify QA gate profile for the current plan [enable|override <gate>...]";
         readonly args: "[show|enable|override] <gate>...";
-        readonly details: "show: display spec-level, session-override, and effective QA gates for the current plan. enable: persist gate(s) into the locked-once profile (architect; rejected after critic approval lock). override: session-only ratchet-tighter enable. Valid gates: reviewer, test_engineer, council_mode, sme_enabled, critic_pre_plan, hallucination_guard, sast_enabled, mutation_test.";
+        readonly details: "show: display spec-level, session-override, and effective QA gates for the current plan. enable: persist gate(s) into the locked-once profile (architect; rejected after critic approval lock). override: session-only ratchet-tighter enable. Valid gates: reviewer, test_engineer, council_mode, sme_enabled, critic_pre_plan, hallucination_guard, sast_enabled, mutation_test, council_general_review.";
     };
     readonly promote: {
         readonly handler: (ctx: CommandContext) => Promise<string>;

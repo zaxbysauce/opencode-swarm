@@ -10,6 +10,8 @@ import { AGENT_TOOL_MAP, DEFAULT_MODELS } from '../config/constants';
 import { stripKnownSwarmPrefix } from '../config/schema';
 import { type AgentDefinition, createArchitectAgent } from './architect';
 import { createCoderAgent } from './coder';
+import { createCouncilMemberAgent } from './council-member';
+import { createCouncilModeratorAgent } from './council-moderator';
 import {
 	type CriticRole,
 	createCriticAgent,
@@ -392,6 +394,43 @@ If you call @coder instead of @${swarmId}_coder, the call will FAIL or go to the
 		agents.push(applyOverrides(testEngineer, swarmAgents, swarmPrefix));
 	}
 
+	// 5f. General Council member (opt-in — only when council.general.enabled === true)
+	if (
+		pluginConfig?.council?.general?.enabled === true &&
+		!isAgentDisabled('council_member', swarmAgents, swarmPrefix)
+	) {
+		const councilMemberPrompts = getPrompts('council_member');
+		const councilMember = createCouncilMemberAgent(
+			getModel('council_member'),
+			councilMemberPrompts.prompt,
+			councilMemberPrompts.appendPrompt,
+		);
+		councilMember.name = prefixName('council_member');
+		agents.push(applyOverrides(councilMember, swarmAgents, swarmPrefix));
+	}
+
+	// 5g. General Council moderator (opt-in — only when council.general.enabled
+	// AND council.general.moderator are both true; moderatorModel optional but
+	// recommended). The moderator has no tools — it synthesizes already-gathered
+	// member content.
+	if (
+		pluginConfig?.council?.general?.enabled === true &&
+		pluginConfig?.council?.general?.moderator === true &&
+		!isAgentDisabled('council_moderator', swarmAgents, swarmPrefix)
+	) {
+		const moderatorPrompts = getPrompts('council_moderator');
+		const moderatorModel =
+			pluginConfig?.council?.general?.moderatorModel ??
+			getModel('council_moderator');
+		const councilModerator = createCouncilModeratorAgent(
+			moderatorModel,
+			moderatorPrompts.prompt,
+			moderatorPrompts.appendPrompt,
+		);
+		councilModerator.name = prefixName('council_moderator');
+		agents.push(applyOverrides(councilModerator, swarmAgents, swarmPrefix));
+	}
+
 	// 8. Create Docs agent (enabled by default — must be explicitly disabled)
 	if (!isAgentDisabled('docs', swarmAgents, swarmPrefix)) {
 		const docsPrompts = getPrompts('docs');
@@ -644,6 +683,8 @@ export function getAgentConfigs(
 // Re-export agent types
 export { createArchitectAgent } from './architect';
 export { createCoderAgent } from './coder';
+export { createCouncilMemberAgent } from './council-member';
+export { createCouncilModeratorAgent } from './council-moderator';
 export { createCriticAgent } from './critic';
 export { createCuratorAgent } from './curator-agent';
 export { createDesignerAgent } from './designer';

@@ -170,3 +170,73 @@ When `enabled: false`, the council gate is completely inert. When enabled, `conv
 ```
 
 For a full configuration reference, see the [Full Configuration Reference](../README.md) section in the README (expand the "Full Configuration Reference" details block).
+
+### `council.general` — General Council Mode (advisory)
+
+Distinct from the Work Complete Council above. Where the Work Complete Council is a **verdict-based QA gate** that blocks task completion, the General Council is an **advisory deliberation system**: user-selected models each independently web-search and answer a question, then engage in one structured deliberation round on disagreements. An optional moderator agent synthesizes the final answer.
+
+Triggered by `/swarm council <question>` (see [Commands](commands.md#swarm-council-question---preset-name---spec-review)) or by enabling the `council_general_review` QA gate (which runs the council on a draft spec during MODE: SPECIFY).
+
+| Field | Type | Default | Description |
+|-------|------|---------|-------------|
+| `enabled` | boolean | `false` | Master switch for the General Council feature |
+| `searchProvider` | `'tavily' \| 'brave'` | `'tavily'` | Web search backend used by council members |
+| `searchApiKey` | string? | undefined | API key for the chosen provider. Falls back to `TAVILY_API_KEY` / `BRAVE_SEARCH_API_KEY` env vars when unset. |
+| `members` | array | `[]` | Default member configs (see structure below) |
+| `presets` | record | `{}` | Named member groups for `/swarm council --preset <name>` |
+| `deliberate` | boolean | `true` | When `true`, the architect routes Round 1 disagreements back to disputing members for a single Round 2 reconciliation |
+| `moderator` | boolean | `true` | When `true`, the architect delegates the final synthesis to the `council_moderator` agent |
+| `moderatorModel` | string? | undefined | Model identifier for the `council_moderator` agent. Required when `moderator: true` to override the default. |
+| `maxSourcesPerMember` | number | `5` | Hard cap on results per `web_search` call (1–20) |
+
+**Member shape** (each entry in `members` and `presets`):
+
+| Field | Type | Description |
+|-------|------|-------------|
+| `memberId` | string | Stable identifier (e.g. `"m1"`, `"security-skeptic"`) |
+| `model` | string | Model identifier (e.g. `"opencode/trinity-large-preview-free"`) |
+| `role` | enum | One of `generalist`, `skeptic`, `domain_expert`, `devil_advocate`, `synthesizer` |
+| `persona` | string? | Optional free-form persona instructions appended to the member prompt |
+
+**Example** — Enable a 3-member general council with a moderator:
+
+```json
+{
+  "council": {
+    "enabled": false,
+    "general": {
+      "enabled": true,
+      "searchProvider": "tavily",
+      "searchApiKey": "tvly-xxxxxxxx",
+      "deliberate": true,
+      "moderator": true,
+      "moderatorModel": "anthropic/claude-sonnet-4-6",
+      "members": [
+        { "memberId": "m1", "model": "anthropic/claude-opus-4-7", "role": "generalist" },
+        { "memberId": "m2", "model": "openai/gpt-5", "role": "skeptic", "persona": "Default to scepticism. Demand evidence before accepting claims." },
+        { "memberId": "m3", "model": "google/gemini-2.5-pro", "role": "domain_expert" }
+      ]
+    }
+  }
+}
+```
+
+> ⚠️ **Strict-validation warning.** `CouncilConfigSchema` is `.strict()`. A typo in any `council.general.*` key (e.g. `searchProvder`) causes the *entire* user config to fail Zod validation. The loader (`src/config/loader.ts`) then falls back to **guardrail-only defaults** — silently losing every setting in `opencode-swarm.json`, not just the misspelled field. Validate with `/swarm config` after editing, and watch for the `[opencode-swarm] ⚠️ SECURITY: Falling back to conservative defaults` warning in the console.
+
+## QA gates reference
+
+The QA gate profile (per-plan, persisted in the project DB) controls which quality gates fire during a plan's execution. Configure interactively via the gate-selection dialogue surfaced in MODE: SPECIFY step 5b, MODE: BRAINSTORM Phase 6, or the MODE: PLAN inline path. Programmatic configuration via `set_qa_gates` (architect-only) or `/swarm qa-gates enable <gate>...`.
+
+All gates are **ratchet-tighter** — once enabled they cannot be disabled until the profile is reset, and once locked (after critic approval) no changes are accepted at all.
+
+| Gate | Default | Description |
+|------|---------|-------------|
+| `reviewer` | ON | Code review of coder output |
+| `test_engineer` | ON | Test verification of coder output |
+| `sme_enabled` | ON | SME consultation during planning / clarification |
+| `critic_pre_plan` | ON | Critic review before plan finalization |
+| `sast_enabled` | ON | Static security scanning |
+| `council_mode` | OFF | Multi-member Work Complete Council gate (recommended for high-impact architecture, public APIs, schema/data mutation, security-sensitive code) |
+| `hallucination_guard` | OFF | Mandatory per-phase API/signature/claim/citation verification at PHASE-WRAP; blocks `phase_complete` until evidence is APPROVED |
+| `mutation_test` | OFF | Runs mutation testing on source files touched this phase at PHASE-WRAP; FAIL blocks `phase_complete`, WARN is non-blocking |
+| `council_general_review` | OFF | When enabled, MODE: SPECIFY runs `convene_general_council` on the draft spec before the critic-gate; multi-model deliberation folded into the spec. Requires `council.general.enabled: true` and a search API key. |

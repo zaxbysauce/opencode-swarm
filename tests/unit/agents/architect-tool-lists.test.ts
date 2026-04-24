@@ -58,12 +58,15 @@ function extractAvailableToolsNames(prompt: string): string[] {
 // those tools are filtered out of the prompt — see
 // architect-tool-visibility-council.test.ts for the council-off behavior.
 beforeAll(() => {
+	// Both councils enabled so the full AGENT_TOOL_MAP.architect surface
+	// (convene_council, declare_council_criteria, AND convene_general_council)
+	// renders into YOUR TOOLS and Available Tools.
 	const agent = createArchitectAgent(
 		'test-model',
 		undefined,
 		undefined,
 		undefined,
-		{ enabled: true },
+		{ enabled: true, general: { enabled: true } },
 	);
 	resolvedPrompt = agent.config.prompt ?? '';
 });

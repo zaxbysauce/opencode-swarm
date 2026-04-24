@@ -28,13 +28,17 @@ describe('architect.ts BEHAVIORAL_GUIDANCE markers', () => {
 	const startPositions = findMarkerPositions(START_MARKER);
 	const endPositions = findMarkerPositions(END_MARKER);
 
-	it('should contain exactly 4 START markers', () => {
+	it('should contain exactly 8 START markers', () => {
 		// v6.71.1 (#519): added a 4th BEHAVIORAL_GUIDANCE block for SCOPE DISCIPLINE rule 1a.
-		expect(startPositions.length).toBe(4);
+		// QA gate hardening: added 3 more blocks for SPECIFY step 5b, BRAINSTORM Phase 6,
+		// and PLAN inline gate-selection paths.
+		// SPECIFY-COUNCIL-REVIEW (Phase 5): added 1 more block for the 5c council-review
+		// guidance inside MODE: SPECIFY.
+		expect(startPositions.length).toBe(8);
 	});
 
-	it('should contain exactly 4 END markers', () => {
-		expect(endPositions.length).toBe(4);
+	it('should contain exactly 8 END markers', () => {
+		expect(endPositions.length).toBe(8);
 	});
 
 	it('should have balanced START and END marker counts', () => {
