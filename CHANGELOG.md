@@ -1,5 +1,12 @@
 # Changelog
 
+## [6.84.1](https://github.com/zaxbysauce/opencode-swarm/compare/v6.84.0...v6.84.1) (2026-04-24)
+
+
+### Bug Fixes
+
+* **guardrails:** skip transient api errors from circuit breaker while fallback available ([#599](https://github.com/zaxbysauce/opencode-swarm/issues/599)) ([bdf2c7c](https://github.com/zaxbysauce/opencode-swarm/commit/bdf2c7c38cd42987eb00f8d9c3a53cb07459a931))
+
 ## [6.84.0](https://github.com/zaxbysauce/opencode-swarm/compare/v6.83.0...v6.84.0) (2026-04-24)
 
 
