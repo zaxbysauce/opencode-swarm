@@ -240,7 +240,7 @@ describe('resolveGuardrailsConfig', () => {
 		expect(result.max_tool_calls).toBe(20); // User profile override
 		expect(result.max_duration_minutes).toBe(45); // Built-in profile
 		expect(result.max_repetitions).toBe(10); // Base value
-		expect(result.max_consecutive_errors).toBe(5); // Base value
+		expect(result.max_consecutive_errors).toBe(8); // Built-in coder profile (v6.84.1 rate limit hardening)
 		expect(result.warning_threshold).toBe(0.7); // User profile override (0.7), not built-in (0.85)
 	});
 
@@ -726,6 +726,57 @@ describe('resolveGuardrailsConfig with prefixed agent names', () => {
 		};
 		const result = resolveGuardrailsConfig(config, 'myswarm_coder');
 		expect(result.max_tool_calls).toBe(500);
+	});
+});
+
+describe('resolveGuardrailsConfig rate-limit hardened profiles (v6.84.1)', () => {
+	const base: GuardrailsConfig = {
+		enabled: true,
+		max_tool_calls: 100,
+		max_duration_minutes: 30,
+		max_repetitions: 10,
+		max_consecutive_errors: 5,
+		warning_threshold: 0.75,
+		idle_timeout_minutes: 60,
+	};
+
+	it('test_engineer gets max_consecutive_errors=8 from built-in profile', () => {
+		const result = resolveGuardrailsConfig(base, 'test_engineer');
+		expect(result.max_consecutive_errors).toBe(8);
+		expect(result.max_tool_calls).toBe(400); // Also verify other built-in values
+		expect(result.max_duration_minutes).toBe(45);
+	});
+
+	it('explorer gets max_consecutive_errors=8 from built-in profile', () => {
+		const result = resolveGuardrailsConfig(base, 'explorer');
+		expect(result.max_consecutive_errors).toBe(8);
+		expect(result.max_tool_calls).toBe(150); // Also verify other built-in values
+		expect(result.max_duration_minutes).toBe(20);
+	});
+
+	it('reviewer gets max_consecutive_errors=8 from built-in profile', () => {
+		const result = resolveGuardrailsConfig(base, 'reviewer');
+		expect(result.max_consecutive_errors).toBe(8);
+		expect(result.max_tool_calls).toBe(200); // Also verify other built-in values
+		expect(result.max_duration_minutes).toBe(30);
+	});
+
+	it('DEFAULT_AGENT_PROFILES has max_consecutive_errors=8 for hardened agents', () => {
+		expect(DEFAULT_AGENT_PROFILES.coder.max_consecutive_errors).toBe(8);
+		expect(DEFAULT_AGENT_PROFILES.test_engineer.max_consecutive_errors).toBe(8);
+		expect(DEFAULT_AGENT_PROFILES.explorer.max_consecutive_errors).toBe(8);
+		expect(DEFAULT_AGENT_PROFILES.reviewer.max_consecutive_errors).toBe(8);
+	});
+
+	it('user profile can override hardened agent max_consecutive_errors', () => {
+		const config: GuardrailsConfig = {
+			...base,
+			profiles: {
+				explorer: { max_consecutive_errors: 6 },
+			},
+		};
+		const result = resolveGuardrailsConfig(config, 'explorer');
+		expect(result.max_consecutive_errors).toBe(6); // User override wins
 	});
 });
 

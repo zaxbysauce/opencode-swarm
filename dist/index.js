@@ -15034,21 +15034,25 @@ var init_schema = __esm(() => {
     coder: {
       max_tool_calls: 400,
       max_duration_minutes: 45,
+      max_consecutive_errors: 8,
       warning_threshold: 0.85
     },
     test_engineer: {
       max_tool_calls: 400,
       max_duration_minutes: 45,
+      max_consecutive_errors: 8,
       warning_threshold: 0.85
     },
     explorer: {
       max_tool_calls: 150,
       max_duration_minutes: 20,
+      max_consecutive_errors: 8,
       warning_threshold: 0.75
     },
     reviewer: {
       max_tool_calls: 200,
       max_duration_minutes: 30,
+      max_consecutive_errors: 8,
       warning_threshold: 0.65
     },
     critic: {
@@ -23398,7 +23402,7 @@ function createGuardrailsHooks(directory, directoryOrConfig, config2, authorityC
     if (window2.consecutiveErrors >= agentConfig.max_consecutive_errors) {
       window2.hardLimitHit = true;
       telemetry.hardLimitHit(sessionID, window2.agentName, "consecutive_errors", window2.consecutiveErrors);
-      throw new Error(`\uD83D\uDED1 LIMIT REACHED: ${window2.consecutiveErrors} consecutive tool errors detected. Return your progress summary with details of what went wrong.`);
+      throw new Error(`\uD83D\uDED1 LIMIT REACHED: ${window2.consecutiveErrors} consecutive tool errors detected. Return your progress summary with details of what went wrong. Run /swarm reset-session to clear the circuit breaker without restarting your session.`);
     }
     const idleMinutes = (Date.now() - window2.lastSuccessTimeMs) / 60000;
     if (idleMinutes >= agentConfig.idle_timeout_minutes) {
@@ -23939,31 +23943,32 @@ function createGuardrailsHooks(directory, directoryOrConfig, config2, authorityC
         return;
       const hasError = output.output === null || output.output === undefined;
       if (hasError) {
-        window2.consecutiveErrors++;
-        if (session) {
-          const outputStr = typeof output.output === "string" ? output.output : "";
-          const errorContent = output.error ?? outputStr;
-          if (typeof errorContent === "string" && TRANSIENT_MODEL_ERROR_PATTERN.test(errorContent) && !session.modelFallbackExhausted) {
-            session.model_fallback_index++;
-            const baseAgentName = session.agentName ? session.agentName.replace(/^[^_]+[_]/, "") : "";
-            const swarmAgents = getSwarmAgents();
-            const fallbackModels = swarmAgents?.[baseAgentName]?.fallback_models;
-            session.modelFallbackExhausted = !fallbackModels || session.model_fallback_index > fallbackModels.length;
-            const fallbackModel = resolveFallbackModel(baseAgentName, session.model_fallback_index, swarmAgents);
-            const primaryModel = swarmAgents?.[baseAgentName]?.model ?? "default";
-            if (fallbackModel) {
-              if (swarmAgents?.[baseAgentName]) {
-                swarmAgents[baseAgentName].model = fallbackModel;
-              }
-              session.pendingAdvisoryMessages ??= [];
-              session.pendingAdvisoryMessages.push(`MODEL FALLBACK: Applied fallback model "${fallbackModel}" (attempt ${session.model_fallback_index}). ` + `Using /swarm handoff to reset to primary model.`);
-            } else {
-              session.pendingAdvisoryMessages ??= [];
-              session.pendingAdvisoryMessages.push(`MODEL FALLBACK: Transient model error detected (attempt ${session.model_fallback_index}). ` + `No fallback models configured for this agent. Add "fallback_models": ["model-a", "model-b"] ` + `to the agent's config in opencode-swarm.json.`);
+        const outputStr = typeof output.output === "string" ? output.output : "";
+        const errorContent = output.error ?? outputStr;
+        const isTransient = !!session && !session.modelFallbackExhausted && typeof errorContent === "string" && TRANSIENT_MODEL_ERROR_PATTERN.test(errorContent);
+        if (!isTransient) {
+          window2.consecutiveErrors++;
+        }
+        if (session && isTransient) {
+          session.model_fallback_index++;
+          const baseAgentName = session.agentName ? session.agentName.replace(/^[^_]+[_]/, "") : "";
+          const swarmAgents = getSwarmAgents();
+          const fallbackModels = swarmAgents?.[baseAgentName]?.fallback_models;
+          session.modelFallbackExhausted = !fallbackModels || session.model_fallback_index > fallbackModels.length;
+          const fallbackModel = resolveFallbackModel(baseAgentName, session.model_fallback_index, swarmAgents);
+          const primaryModel = swarmAgents?.[baseAgentName]?.model ?? "default";
+          if (fallbackModel) {
+            if (swarmAgents?.[baseAgentName]) {
+              swarmAgents[baseAgentName].model = fallbackModel;
             }
-            telemetry.modelFallback(input.sessionID, session.agentName, primaryModel, fallbackModel ?? "none", "transient_model_error");
-            swarmState.pendingEvents++;
+            session.pendingAdvisoryMessages ??= [];
+            session.pendingAdvisoryMessages.push(`MODEL FALLBACK: Applied fallback model "${fallbackModel}" (attempt ${session.model_fallback_index}). ` + `Using /swarm handoff to reset to primary model.`);
+          } else {
+            session.pendingAdvisoryMessages ??= [];
+            session.pendingAdvisoryMessages.push(`MODEL FALLBACK: Transient model error detected (attempt ${session.model_fallback_index}). ` + `No fallback models configured for this agent. Add "fallback_models": ["model-a", "model-b"] ` + `to the agent's config in opencode-swarm.json.`);
           }
+          telemetry.modelFallback(input.sessionID, session.agentName, primaryModel, fallbackModel ?? "none", "transient_model_error");
+          swarmState.pendingEvents++;
         }
       } else {
         window2.consecutiveErrors = 0;
@@ -53094,7 +53099,7 @@ async function handleResetSessionCommand(directory, _args) {
     "",
     "Session state cleared. Plan, evidence, and knowledge preserved.",
     "",
-    "**Next step:** Start a new OpenCode session. The plugin will initialize fresh session state on startup."
+    "**All circuit breakers and revision limits have been cleared.** You can continue in this session \u2014 fresh state will be initialized automatically on the next tool call."
   ].join(`
 `);
 }

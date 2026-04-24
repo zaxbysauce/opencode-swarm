@@ -589,3 +589,170 @@ describe('guardrails model fallback retry logic (toolAfter)', () => {
 		expect(session.pendingAdvisoryMessages?.length).toBe(1);
 	});
 });
+
+// =============================================================================
+// consecutiveErrors counter behaviour for transient vs non-transient errors
+// (issue #593: rate limit errors should not burn the circuit breaker budget)
+// =============================================================================
+describe('guardrails consecutiveErrors: transient errors skip increment', () => {
+	let hooks: ReturnType<typeof createGuardrailsHooks>;
+
+	const config: GuardrailsConfig = {
+		enabled: true,
+		max_tool_calls: 200,
+		max_duration_minutes: 30,
+		max_repetitions: 10,
+		max_consecutive_errors: 5,
+		warning_threshold: 0.75,
+		idle_timeout_minutes: 60,
+	};
+
+	beforeEach(() => {
+		resetSwarmState();
+		hooks = createGuardrailsHooks(TEST_DIR, config);
+	});
+
+	afterEach(() => {
+		resetSwarmState();
+	});
+
+	// -------------------------------------------------------------------------
+	// Transient 429 must NOT increment consecutiveErrors while fallback available
+	// -------------------------------------------------------------------------
+	test('transient 429 error does not increment consecutiveErrors when fallback available', async () => {
+		const sessionId = 'session-cb-transient';
+		ensureAgentSession(sessionId, 'coder');
+		swarmState.activeAgent.set(sessionId, 'coder');
+		await hooks.toolBefore(
+			{ tool: 'Task', sessionID: sessionId, callID: 'call-init' } as any,
+			{ args: { subagent_type: 'coder', prompt: 'fix' } } as any,
+		);
+
+		const session = swarmState.agentSessions.get(sessionId)!;
+		// modelFallbackExhausted starts false — fallback is still available
+		expect(session.modelFallbackExhausted).toBe(false);
+
+		await hooks.toolAfter(
+			{ tool: 'bash', sessionID: sessionId, callID: 'call-1' } as any,
+			{
+				title: 'bash',
+				output: null,
+				error: '429 Too Many Requests',
+				metadata: {},
+			} as any,
+		);
+
+		const window = Object.values(session.windows)[0];
+		expect(window).toBeDefined();
+		// consecutiveErrors must NOT have been incremented — 429 is a transient error
+		expect(window!.consecutiveErrors).toBe(0);
+		// fallback tracking must have advanced
+		expect(session.model_fallback_index).toBe(1);
+	});
+
+	// -------------------------------------------------------------------------
+	// Non-transient errors must still increment consecutiveErrors
+	// -------------------------------------------------------------------------
+	test('non-transient error increments consecutiveErrors normally', async () => {
+		const sessionId = 'session-cb-nontransient';
+		ensureAgentSession(sessionId, 'coder');
+		swarmState.activeAgent.set(sessionId, 'coder');
+		await hooks.toolBefore(
+			{ tool: 'Task', sessionID: sessionId, callID: 'call-init' } as any,
+			{ args: { subagent_type: 'coder', prompt: 'fix' } } as any,
+		);
+
+		const session = swarmState.agentSessions.get(sessionId)!;
+
+		await hooks.toolAfter(
+			{ tool: 'bash', sessionID: sessionId, callID: 'call-1' } as any,
+			{
+				title: 'bash',
+				output: null,
+				error: 'syntax error on line 42',
+				metadata: {},
+			} as any,
+		);
+
+		const window = Object.values(session.windows)[0];
+		expect(window).toBeDefined();
+		// Non-transient error must increment consecutiveErrors
+		expect(window!.consecutiveErrors).toBe(1);
+		expect(session.model_fallback_index).toBe(0);
+	});
+
+	// -------------------------------------------------------------------------
+	// Once modelFallbackExhausted = true, transient errors count toward the breaker
+	// -------------------------------------------------------------------------
+	test('transient error increments consecutiveErrors when modelFallbackExhausted is true', async () => {
+		const sessionId = 'session-cb-exhausted';
+		ensureAgentSession(sessionId, 'coder');
+		swarmState.activeAgent.set(sessionId, 'coder');
+		await hooks.toolBefore(
+			{ tool: 'Task', sessionID: sessionId, callID: 'call-init' } as any,
+			{ args: { subagent_type: 'coder', prompt: 'fix' } } as any,
+		);
+
+		const session = swarmState.agentSessions.get(sessionId)!;
+		// Simulate all fallback models already exhausted
+		session.modelFallbackExhausted = true;
+		session.model_fallback_index = 2;
+
+		await hooks.toolAfter(
+			{ tool: 'bash', sessionID: sessionId, callID: 'call-1' } as any,
+			{
+				title: 'bash',
+				output: null,
+				error: 'rate limit exceeded',
+				metadata: {},
+			} as any,
+		);
+
+		const window = Object.values(session.windows)[0];
+		expect(window).toBeDefined();
+		// When fallback is exhausted, even transient errors must burn the breaker
+		expect(window!.consecutiveErrors).toBe(1);
+		// model_fallback_index must not advance further
+		expect(session.model_fallback_index).toBe(2);
+	});
+
+	// -------------------------------------------------------------------------
+	// Five consecutive transient 429s must NOT trip the circuit breaker
+	// -------------------------------------------------------------------------
+	test('five consecutive 429 errors do not trip circuit breaker while fallback available', async () => {
+		const sessionId = 'session-cb-five-429';
+		ensureAgentSession(sessionId, 'coder');
+		swarmState.activeAgent.set(sessionId, 'coder');
+		await hooks.toolBefore(
+			{ tool: 'Task', sessionID: sessionId, callID: 'call-init' } as any,
+			{ args: { subagent_type: 'coder', prompt: 'fix' } } as any,
+		);
+
+		const session = swarmState.agentSessions.get(sessionId)!;
+		// Keep modelFallbackExhausted false for all attempts
+		session.modelFallbackExhausted = false;
+
+		for (let i = 1; i <= 5; i++) {
+			// Reset exhausted flag each iteration to simulate repeated rate limits
+			// before fallback kicks in (edge case: fallback config absent, exhausted immediately)
+			session.modelFallbackExhausted = false;
+			session.model_fallback_index = 0;
+
+			await hooks.toolAfter(
+				{ tool: 'bash', sessionID: sessionId, callID: `call-${i}` } as any,
+				{
+					title: 'bash',
+					output: null,
+					error: '429 rate limit',
+					metadata: {},
+				} as any,
+			);
+		}
+
+		const window = Object.values(session.windows)[0];
+		expect(window).toBeDefined();
+		// Circuit breaker must NOT have fired — consecutiveErrors stays 0
+		expect(window!.consecutiveErrors).toBe(0);
+		expect(window!.hardLimitHit).toBe(false);
+	});
+});
