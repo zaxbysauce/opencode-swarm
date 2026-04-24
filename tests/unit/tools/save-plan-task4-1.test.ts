@@ -40,6 +40,15 @@ describe('Task 4.1: fallbackDir parameter behavior', () => {
 			path.join(tmpDir2, '.swarm', 'spec.md'),
 			'# Test Spec\n',
 		);
+		// Create context.md with the QA gate selection section required by the gate-selection check
+		await fs.writeFile(
+			path.join(tmpDir1, '.swarm', 'context.md'),
+			'## Pending QA Gate Selection\n',
+		);
+		await fs.writeFile(
+			path.join(tmpDir2, '.swarm', 'context.md'),
+			'## Pending QA Gate Selection\n',
+		);
 	});
 
 	afterEach(async () => {
@@ -165,6 +174,11 @@ describe('Task 4.1: explicit workspace behavior', () => {
 		await fs.mkdir(path.join(tmpDir, '.swarm'), { recursive: true });
 		// Create spec.md required by the spec gate
 		await fs.writeFile(path.join(tmpDir, '.swarm', 'spec.md'), '# Test Spec\n');
+		// Create context.md with the QA gate selection section required by the gate-selection check
+		await fs.writeFile(
+			path.join(tmpDir, '.swarm', 'context.md'),
+			'## Pending QA Gate Selection\n',
+		);
 	});
 
 	afterEach(async () => {
@@ -210,6 +224,10 @@ describe('Task 4.1: explicit workspace behavior', () => {
 		await fs.writeFile(
 			path.join(otherDir, '.swarm', 'spec.md'),
 			'# Test Spec\n',
+		);
+		await fs.writeFile(
+			path.join(otherDir, '.swarm', 'context.md'),
+			'## Pending QA Gate Selection\n',
 		);
 
 		const args: SavePlanArgs = {
@@ -263,6 +281,11 @@ describe('Task 4.1: temp file cleanup behavior', () => {
 		await fs.mkdir(path.join(tmpDir, '.swarm'), { recursive: true });
 		// Create spec.md required by the spec gate
 		await fs.writeFile(path.join(tmpDir, '.swarm', 'spec.md'), '# Test Spec\n');
+		// Create context.md with the QA gate selection section required by the gate-selection check
+		await fs.writeFile(
+			path.join(tmpDir, '.swarm', 'context.md'),
+			'## Pending QA Gate Selection\n',
+		);
 	});
 
 	afterEach(async () => {

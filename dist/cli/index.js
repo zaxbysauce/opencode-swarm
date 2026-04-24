@@ -18734,7 +18734,9 @@ var TOOL_NAMES = [
   "get_approved_plan",
   "repo_map",
   "get_qa_gate_profile",
-  "set_qa_gates"
+  "set_qa_gates",
+  "web_search",
+  "convene_general_council"
 ];
 var TOOL_NAME_SET = new Set(TOOL_NAMES);
 
@@ -18751,6 +18753,8 @@ var ALL_SUBAGENT_NAMES = [
   "critic_hallucination_verifier",
   "curator_init",
   "curator_phase",
+  "council_member",
+  "council_moderator",
   ...QA_AGENTS,
   ...PIPELINE_AGENTS
 ];
@@ -18822,7 +18826,8 @@ var AGENT_TOOL_MAP = {
     "suggest_patch",
     "repo_map",
     "get_qa_gate_profile",
-    "set_qa_gates"
+    "set_qa_gates",
+    "convene_general_council"
   ],
   explorer: [
     "complexity_hotspots",
@@ -18972,7 +18977,9 @@ var AGENT_TOOL_MAP = {
     "knowledge_recall"
   ],
   curator_init: ["knowledge_recall"],
-  curator_phase: ["knowledge_recall"]
+  curator_phase: ["knowledge_recall"],
+  council_member: ["web_search"],
+  council_moderator: []
 };
 for (const [agentName, tools] of Object.entries(AGENT_TOOL_MAP)) {
   const invalidTools = tools.filter((tool) => !TOOL_NAME_SET.has(tool));
@@ -19481,13 +19488,37 @@ var AuthorityConfigSchema = exports_external.object({
   rules: exports_external.record(exports_external.string(), AgentAuthorityRuleSchema).default({}),
   universal_deny_prefixes: exports_external.array(exports_external.string().min(1)).default([])
 });
+var GeneralCouncilMemberConfigSchema = exports_external.object({
+  memberId: exports_external.string().min(1),
+  model: exports_external.string().min(1),
+  role: exports_external.enum([
+    "generalist",
+    "skeptic",
+    "domain_expert",
+    "devil_advocate",
+    "synthesizer"
+  ]),
+  persona: exports_external.string().optional()
+}).strict();
+var GeneralCouncilConfigSchema = exports_external.object({
+  enabled: exports_external.boolean().default(false),
+  searchProvider: exports_external.enum(["tavily", "brave"]).default("tavily"),
+  searchApiKey: exports_external.string().optional(),
+  members: exports_external.array(GeneralCouncilMemberConfigSchema).default([]),
+  presets: exports_external.record(exports_external.string(), exports_external.array(GeneralCouncilMemberConfigSchema)).default({}),
+  deliberate: exports_external.boolean().default(true),
+  moderator: exports_external.boolean().default(true),
+  moderatorModel: exports_external.string().optional(),
+  maxSourcesPerMember: exports_external.number().int().min(1).max(20).default(5)
+}).strict();
 var CouncilConfigSchema = exports_external.object({
   enabled: exports_external.boolean().default(false),
   maxRounds: exports_external.number().int().min(1).max(10).default(3),
   parallelTimeoutMs: exports_external.number().int().min(5000).max(120000).default(30000),
   vetoPriority: exports_external.boolean().default(true),
   requireAllMembers: exports_external.boolean().default(false).describe("When true, convene_council rejects if fewer than 5 member verdicts are provided."),
-  escalateOnMaxRounds: exports_external.string().optional().describe("Optional webhook URL or handler name invoked when maxRounds is reached without APPROVE. Declared for forward compatibility; no behavior is implemented yet.")
+  escalateOnMaxRounds: exports_external.string().optional().describe("Optional webhook URL or handler name invoked when maxRounds is reached without APPROVE. Declared for forward compatibility; no behavior is implemented yet."),
+  general: GeneralCouncilConfigSchema.optional()
 }).strict();
 var ParallelizationConfigSchema = exports_external.object({
   enabled: exports_external.boolean().default(false),
@@ -19847,7 +19878,8 @@ var DEFAULT_QA_GATES = {
   critic_pre_plan: true,
   hallucination_guard: false,
   sast_enabled: true,
-  mutation_test: false
+  mutation_test: false,
+  council_general_review: false
 };
 function rowToProfile(row) {
   let parsed = {};
@@ -35253,6 +35285,74 @@ async function handleConfigCommand(directory, _args) {
 `);
 }
 
+// src/commands/council.ts
+var MAX_QUESTION_LEN = 2000;
+function sanitizeQuestion(raw) {
+  const collapsed = raw.replace(/\s+/g, " ").trim();
+  const stripped = collapsed.replace(/\[\s*MODE\s*:[^\]]*\]/gi, "");
+  const normalized = stripped.replace(/\s+/g, " ").trim();
+  if (normalized.length <= MAX_QUESTION_LEN)
+    return normalized;
+  return `${normalized.slice(0, MAX_QUESTION_LEN)}\u2026`;
+}
+function sanitizePresetName(raw) {
+  const trimmed = raw.trim();
+  if (!trimmed)
+    return null;
+  if (trimmed.length > 64)
+    return null;
+  if (!/^[A-Za-z0-9_-]+$/.test(trimmed))
+    return null;
+  return trimmed;
+}
+function parseArgs(args) {
+  const out = { specReview: false, rest: [] };
+  for (let i = 0;i < args.length; i++) {
+    const token = args[i];
+    if (token === "--spec-review") {
+      out.specReview = true;
+      continue;
+    }
+    if (token === "--preset") {
+      const next = args[i + 1];
+      if (next !== undefined) {
+        const sanitized = sanitizePresetName(next);
+        if (sanitized)
+          out.preset = sanitized;
+        i++;
+      }
+      continue;
+    }
+    out.rest.push(token);
+  }
+  return out;
+}
+var USAGE = [
+  "Usage: /swarm council <question> [--preset <name>] [--spec-review]",
+  "",
+  "  question         The question to put to the council",
+  "  --preset <name>  Use a named member preset from council.general.presets",
+  "  --spec-review    Use spec_review mode (single advisory pass on a draft spec)",
+  "",
+  "Requires council.general.enabled: true and a configured search API key in opencode-swarm.json."
+].join(`
+`);
+async function handleCouncilCommand(_directory, args) {
+  const parsed = parseArgs(args);
+  const question = sanitizeQuestion(parsed.rest.join(" "));
+  if (!question) {
+    return USAGE;
+  }
+  const tokens = ["MODE: COUNCIL"];
+  if (parsed.preset) {
+    tokens.push(`preset=${parsed.preset}`);
+  }
+  if (parsed.specReview) {
+    tokens.push("spec_review");
+  }
+  return `[${tokens.join(" ")}] ${question}`;
+}
+
 // src/background/event-bus.ts
 init_utils();
 
@@ -43336,7 +43436,8 @@ var ALL_GATE_NAMES = [
   "critic_pre_plan",
   "hallucination_guard",
   "sast_enabled",
-  "mutation_test"
+  "mutation_test",
+  "council_general_review"
 ];
 function derivePlanId(plan) {
   return `${plan.swarm}-${plan.title}`.replace(/[^a-zA-Z0-9-_]/g, "_");
@@ -44855,11 +44956,17 @@ var COMMAND_REGISTRY = {
     args: "[topic-text]",
     details: "Triggers the architect to run the brainstorm workflow: CONTEXT SCAN, single-question DIALOGUE, APPROACHES, DESIGN SECTIONS, SPEC WRITE + SELF-REVIEW, QA GATE SELECTION, TRANSITION. Use for new plans where requirements need to be drawn out before writing spec.md / plan.md."
   },
+  council: {
+    handler: (ctx) => handleCouncilCommand(ctx.directory, ctx.args),
+    description: "Enter architect MODE: COUNCIL \u2014 multi-model deliberation [question] [--preset <name>] [--spec-review]",
+    args: "<question> [--preset <name>] [--spec-review]",
+    details: "Triggers the architect to convene a configurable General Council: each member independently web-searches, answers, and engages in one structured deliberation round on disagreements; an optional moderator pass synthesizes the final answer. --preset <name> selects a member group from council.general.presets. --spec-review switches to single-pass advisory mode for spec review. Requires council.general.enabled: true and a search API key in opencode-swarm.json."
+  },
   "qa-gates": {
     handler: (ctx) => handleQaGatesCommand(ctx.directory, ctx.args, ctx.sessionID),
     description: "View or modify QA gate profile for the current plan [enable|override <gate>...]",
     args: "[show|enable|override] <gate>...",
-    details: "show: display spec-level, session-override, and effective QA gates for the current plan. enable: persist gate(s) into the locked-once profile (architect; rejected after critic approval lock). override: session-only ratchet-tighter enable. Valid gates: reviewer, test_engineer, council_mode, sme_enabled, critic_pre_plan, hallucination_guard, sast_enabled, mutation_test."
+    details: "show: display spec-level, session-override, and effective QA gates for the current plan. enable: persist gate(s) into the locked-once profile (architect; rejected after critic approval lock). override: session-only ratchet-tighter enable. Valid gates: reviewer, test_engineer, council_mode, sme_enabled, critic_pre_plan, hallucination_guard, sast_enabled, mutation_test, council_general_review."
   },
   promote: {
     handler: (ctx) => handlePromoteCommand(ctx.directory, ctx.args),

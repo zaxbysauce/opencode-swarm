@@ -17,6 +17,14 @@ export interface AdversarialTestingConfig {
  */
 export interface CouncilWorkflowConfig {
     enabled?: boolean;
+    /**
+     * General Council Mode (advisory). When `general?.enabled === true`, the
+     * architect's tool list includes `convene_general_council` and the prompt
+     * emits `MODE: COUNCIL` and `SPECIFY-COUNCIL-REVIEW` instructions.
+     */
+    general?: {
+        enabled?: boolean;
+    };
 }
 /**
  * Build the Work Complete Council four-phase workflow block. Returns the full
@@ -31,7 +39,7 @@ export declare function buildCouncilWorkflow(council?: CouncilWorkflowConfig): s
  * inline path). The dialogue is dialogue-only — persistence happens during
  * MODE: PLAN after `save_plan` creates `plan.json`.
  *
- * The lead-in sentence varies per mode, but the body (eight gates with
+ * The lead-in sentence varies per mode, but the body (nine gates with
  * defaults, one-shot accept-or-customize prompt) is shared so SPECIFY,
  * BRAINSTORM, and PLAN inline paths stay in lockstep.
  */

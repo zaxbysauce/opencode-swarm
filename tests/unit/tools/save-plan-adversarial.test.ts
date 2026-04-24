@@ -29,6 +29,11 @@ describe('save-plan adversarial tests', () => {
 			path.join(tempDir, '.swarm', 'spec.md'),
 			'# Test Spec\n',
 		);
+		// Create context.md with the QA gate selection section required by the gate-selection check
+		await fs.writeFile(
+			path.join(tempDir, '.swarm', 'context.md'),
+			'## Pending QA Gate Selection\n',
+		);
 	});
 
 	afterEach(async () => {
@@ -825,9 +830,12 @@ describe('save-plan adversarial tests', () => {
 				// name (backslash is a valid filename character), so the write succeeds.
 				// On Windows: this would attempt to write to the real C:\projects\ path,
 				// which requires admin permissions unavailable in CI.
-				// Skip spec gate so this test focuses purely on path validation behavior.
+				// Skip spec gate and gate-selection check so this test focuses purely
+				// on path validation behavior.
 				const prevGate = process.env.SWARM_SKIP_SPEC_GATE;
+				const prevGateSel = process.env.SWARM_SKIP_GATE_SELECTION;
 				process.env.SWARM_SKIP_SPEC_GATE = '1';
+				process.env.SWARM_SKIP_GATE_SELECTION = '1';
 				try {
 					const args: SavePlanArgs = {
 						title: 'Test Plan',
@@ -849,6 +857,11 @@ describe('save-plan adversarial tests', () => {
 						delete process.env.SWARM_SKIP_SPEC_GATE;
 					} else {
 						process.env.SWARM_SKIP_SPEC_GATE = prevGate;
+					}
+					if (prevGateSel === undefined) {
+						delete process.env.SWARM_SKIP_GATE_SELECTION;
+					} else {
+						process.env.SWARM_SKIP_GATE_SELECTION = prevGateSel;
 					}
 				}
 			},

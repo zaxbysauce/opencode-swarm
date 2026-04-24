@@ -18,16 +18,17 @@ function extractPromptTools(prompt: string): string[] {
 }
 
 describe('architect prompt tool alignment', () => {
-	test('YOUR TOOLS with council.enabled=true matches full AGENT_TOOL_MAP architect entry', () => {
-		// council.enabled=true exposes the full AGENT_TOOL_MAP.architect surface
-		// including convene_council and declare_council_criteria. This is the
-		// only configuration where YOUR TOOLS matches the map exactly.
+	test('YOUR TOOLS with both councils enabled matches full AGENT_TOOL_MAP architect entry', () => {
+		// Both council.enabled=true AND council.general.enabled=true expose the
+		// full AGENT_TOOL_MAP.architect surface (convene_council,
+		// declare_council_criteria, convene_general_council). This is the only
+		// configuration where YOUR TOOLS matches the map exactly.
 		const agent = createArchitectAgent(
 			'test-model',
 			undefined,
 			undefined,
 			undefined,
-			{ enabled: true },
+			{ enabled: true, general: { enabled: true } },
 		);
 		const prompt =
 			((agent.config as Record<string, unknown>).prompt as string) ?? '';
@@ -43,11 +44,11 @@ describe('architect prompt tool alignment', () => {
 		expect(promptToolsWithoutTask).toEqual(mapTools);
 	});
 
-	test('YOUR TOOLS with council disabled (default) excludes the two council-only tools', () => {
+	test('YOUR TOOLS with all councils disabled (default) excludes the three council tools', () => {
 		// Default no-arg call: council is undefined, which the prompt builder
-		// treats as disabled. convene_council and declare_council_criteria
-		// must be filtered out so the model is not shown phantom tools the
-		// runtime gate (src/hooks/convene-council.ts) would reject.
+		// treats as disabled. convene_council, declare_council_criteria, and
+		// convene_general_council must all be filtered out so the model is
+		// not shown phantom tools the runtime gates would reject.
 		const agent = createArchitectAgent('test-model');
 		const prompt =
 			((agent.config as Record<string, unknown>).prompt as string) ?? '';
@@ -55,7 +56,10 @@ describe('architect prompt tool alignment', () => {
 		const promptTools = extractPromptTools(prompt);
 		const expected = [...AGENT_TOOL_MAP.architect]
 			.filter(
-				(t) => t !== 'convene_council' && t !== 'declare_council_criteria',
+				(t) =>
+					t !== 'convene_council' &&
+					t !== 'declare_council_criteria' &&
+					t !== 'convene_general_council',
 			)
 			.sort();
 
@@ -66,5 +70,23 @@ describe('architect prompt tool alignment', () => {
 		expect(promptToolsWithoutTask).toEqual(expected);
 		expect(promptToolsWithoutTask).not.toContain('convene_council');
 		expect(promptToolsWithoutTask).not.toContain('declare_council_criteria');
+		expect(promptToolsWithoutTask).not.toContain('convene_general_council');
+	});
+
+	test('YOUR TOOLS with QA council on but general off includes QA tools, excludes general', () => {
+		const agent = createArchitectAgent(
+			'test-model',
+			undefined,
+			undefined,
+			undefined,
+			{ enabled: true },
+		);
+		const prompt =
+			((agent.config as Record<string, unknown>).prompt as string) ?? '';
+
+		const promptTools = extractPromptTools(prompt);
+		expect(promptTools).toContain('convene_council');
+		expect(promptTools).toContain('declare_council_criteria');
+		expect(promptTools).not.toContain('convene_general_council');
 	});
 });

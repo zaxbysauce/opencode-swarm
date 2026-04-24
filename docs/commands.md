@@ -63,6 +63,19 @@ Compare `spec.md` against `plan.md` to find requirement coverage gaps. Useful be
 
 Enter architect BRAINSTORM mode: seven-phase planning workflow for new features needing requirement discovery. Sequence: CONTEXT SCAN → DIALOGUE → APPROACHES → DESIGN → SPEC → SELF-REVIEW → GATE SELECTION → TRANSITION.
 
+### `/swarm council <question> [--preset <name>] [--spec-review]`
+
+Enter architect MODE: COUNCIL — convene a configurable multi-model General Council for an advisory deliberation. Each council member independently web-searches and answers; the architect routes any disagreements back for one targeted reconciliation round; an optional moderator pass synthesizes the final user-facing answer.
+
+| Flag | Effect |
+|------|--------|
+| `--preset <name>` | Use a named member group from `council.general.presets` instead of `council.general.members`. Preset name must match `[A-Za-z0-9_-]{1,64}`. |
+| `--spec-review` | Switch to single-pass advisory mode. Used by the `council_general_review` QA gate during MODE: SPECIFY to fold council input into a draft spec — no Round 2 deliberation. |
+
+**Prerequisites:** `council.general.enabled: true` and a configured search API key (Tavily or Brave) in `opencode-swarm.json`. See [Council guide — General Council Mode](council/README.md#general-council-mode) for setup.
+
+**No-args behavior:** prints a usage string. The command never throws on bad input — invalid preset names and injected `[MODE: ...]` headers are silently dropped.
+
 ### `/swarm sync-plan`
 
 Force `plan.md` regeneration from canonical `plan-ledger.jsonl`. Safe, read-only.
@@ -118,7 +131,7 @@ View or modify QA gate profile for the current plan.
 - `enable`: persist gate(s) into the locked profile. Architect-only. Rejected after critic approval lock.
 - `override`: session-only ratchet-tighter enable.
 
-Valid gates: `reviewer`, `test_engineer`, `council_mode`, `sme_enabled`, `critic_pre_plan`, `hallucination_guard`, `sast_enabled`.
+Valid gates: `reviewer`, `test_engineer`, `council_mode`, `sme_enabled`, `critic_pre_plan`, `hallucination_guard`, `sast_enabled`, `mutation_test`, `council_general_review`.
 
 ---
 

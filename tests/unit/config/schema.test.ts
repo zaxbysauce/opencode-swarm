@@ -7,6 +7,7 @@ import {
 	AgentOverrideConfigSchema,
 	ContextBudgetConfigSchema,
 	DecisionDecaySchema,
+	GeneralCouncilConfigSchema,
 	GuardrailsConfigSchema,
 	PipelineConfigSchema,
 	PluginConfigSchema,
@@ -1090,5 +1091,122 @@ describe('stripKnownSwarmPrefix', () => {
 
 	it('handles empty string', () => {
 		expect(stripKnownSwarmPrefix('')).toBe('');
+	});
+});
+
+describe('GeneralCouncilConfigSchema', () => {
+	it('accepts an empty object and applies defaults', () => {
+		const result = GeneralCouncilConfigSchema.safeParse({});
+		expect(result.success).toBe(true);
+		if (result.success) {
+			expect(result.data.enabled).toBe(false);
+			expect(result.data.searchProvider).toBe('tavily');
+			expect(result.data.deliberate).toBe(true);
+			expect(result.data.moderator).toBe(true);
+			expect(result.data.maxSourcesPerMember).toBe(5);
+			expect(result.data.members).toEqual([]);
+			expect(result.data.presets).toEqual({});
+		}
+	});
+
+	it('accepts a fully-populated config', () => {
+		const result = GeneralCouncilConfigSchema.safeParse({
+			enabled: true,
+			searchProvider: 'brave',
+			searchApiKey: 'test-key',
+			members: [
+				{ memberId: 'm1', model: 'gpt-4', role: 'generalist' },
+				{
+					memberId: 'm2',
+					model: 'claude',
+					role: 'skeptic',
+					persona: 'Be contrarian',
+				},
+			],
+			presets: {
+				tech: [{ memberId: 't1', model: 'opus', role: 'domain_expert' }],
+			},
+			deliberate: true,
+			moderator: true,
+			moderatorModel: 'gpt-5',
+			maxSourcesPerMember: 8,
+		});
+		expect(result.success).toBe(true);
+	});
+
+	it('rejects an unknown provider', () => {
+		const result = GeneralCouncilConfigSchema.safeParse({
+			searchProvider: 'duckduckgo',
+		});
+		expect(result.success).toBe(false);
+	});
+
+	it('rejects maxSourcesPerMember out of range (0)', () => {
+		const result = GeneralCouncilConfigSchema.safeParse({
+			maxSourcesPerMember: 0,
+		});
+		expect(result.success).toBe(false);
+	});
+
+	it('rejects maxSourcesPerMember out of range (21)', () => {
+		const result = GeneralCouncilConfigSchema.safeParse({
+			maxSourcesPerMember: 21,
+		});
+		expect(result.success).toBe(false);
+	});
+
+	it('rejects unknown keys (.strict)', () => {
+		const result = GeneralCouncilConfigSchema.safeParse({
+			enabled: true,
+			extraneous: 'oops',
+		});
+		expect(result.success).toBe(false);
+	});
+
+	it('rejects an unknown member role', () => {
+		const result = GeneralCouncilConfigSchema.safeParse({
+			members: [{ memberId: 'm1', model: 'gpt-4', role: 'overlord' }],
+		});
+		expect(result.success).toBe(false);
+	});
+
+	it('rejects empty memberId', () => {
+		const result = GeneralCouncilConfigSchema.safeParse({
+			members: [{ memberId: '', model: 'gpt-4', role: 'generalist' }],
+		});
+		expect(result.success).toBe(false);
+	});
+});
+
+describe('CouncilConfigSchema with general council', () => {
+	it('accepts a council config without `general` (backward compat)', () => {
+		const result = PluginConfigSchema.safeParse({
+			council: { enabled: false },
+		});
+		expect(result.success).toBe(true);
+	});
+
+	it('accepts council.general nested under council', () => {
+		const result = PluginConfigSchema.safeParse({
+			council: {
+				enabled: true,
+				general: {
+					enabled: true,
+					searchProvider: 'tavily',
+				},
+			},
+		});
+		expect(result.success).toBe(true);
+		if (result.success) {
+			expect(result.data.council?.general?.enabled).toBe(true);
+			expect(result.data.council?.general?.searchProvider).toBe('tavily');
+		}
+	});
+
+	it('rejects unknown key directly under council (.strict)', () => {
+		const result = PluginConfigSchema.safeParse({
+			council: { enabled: true, generel: {} },
+		});
+		expect(result.success).toBe(false);
 	});
 });

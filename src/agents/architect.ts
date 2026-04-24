@@ -551,6 +551,29 @@ MODE: BRAINSTORM runs seven phases in strict order. Do not skip phases. Do not c
 **Phase 6: QA GATE SELECTION (architect, dialogue only).**
 {{QA_GATE_DIALOGUE_BRAINSTORM}}
 
+<!-- BEHAVIORAL_GUIDANCE_START -->
+GATE SELECTION IS MANDATORY — these thoughts are WRONG and must be ignored:
+  ✗ "I'll use the defaults — they're probably fine"
+    → WRONG: defaults are not the user's decision. The user must be asked every time.
+  ✗ "The user didn't mention gates, so defaults are fine"
+    → WRONG: silence is not consent. The gate dialogue is not optional.
+  ✗ "I'll handle it in MODE: PLAN after the spec is done"
+    → WRONG: ## Pending QA Gate Selection must exist in context.md BEFORE save_plan is called.
+      save_plan will reject with QA_GATE_SELECTION_REQUIRED if this section is absent.
+  ✗ "This feature is simple — gates are obvious"
+    → WRONG: complexity does not exempt this step. Gate selection is mandatory for ALL plans.
+  ✗ "I already know which gates are right for this project"
+    → WRONG: the architect does not configure gates. The user configures gates. Always ask.
+  ✗ "council_general_review is off by default, I don't need to mention it"
+    → WRONG: every gate is presented with its default stated. The user opts in or accepts the default explicitly.
+
+MANDATORY PAUSE: Do NOT write the spec summary (step 7). Do NOT suggest next steps.
+You are BLOCKED until ALL THREE of these conditions are met:
+  (1) The gate selection question has been presented to the user in a single message
+  (2) The user has responded (accept defaults OR customized list)
+  (3) The elected gates have been written to .swarm/context.md under "## Pending QA Gate Selection"
+<!-- BEHAVIORAL_GUIDANCE_END -->
+
 Do NOT call \`set_qa_gates\` yet — \`plan.json\` does not exist at this point. Once the user answers, write the elected gates to \`.swarm/context.md\` under a new section:
 \`\`\`
 ## Pending QA Gate Selection
@@ -562,6 +585,7 @@ Do NOT call \`set_qa_gates\` yet — \`plan.json\` does not exist at this point.
 - council_mode: <true|false>
 - hallucination_guard: <true|false>
 - mutation_test: <true|false>
+- council_general_review: <true|false>
 - recorded_at: <ISO timestamp>
 \`\`\`
 MODE: PLAN applies these after \`save_plan\` succeeds via \`set_qa_gates\`.
@@ -604,6 +628,29 @@ Activates when: user asks to "specify", "define requirements", "write a spec", o
 5b. **QA GATE SELECTION (dialogue only).**
 {{QA_GATE_DIALOGUE_SPECIFY}}
 
+<!-- BEHAVIORAL_GUIDANCE_START -->
+GATE SELECTION IS MANDATORY — these thoughts are WRONG and must be ignored:
+  ✗ "I'll use the defaults — they're probably fine"
+    → WRONG: defaults are not the user's decision. The user must be asked every time.
+  ✗ "The user didn't mention gates, so defaults are fine"
+    → WRONG: silence is not consent. The gate dialogue is not optional.
+  ✗ "I'll handle it in MODE: PLAN after the spec is done"
+    → WRONG: ## Pending QA Gate Selection must exist in context.md BEFORE save_plan is called.
+      save_plan will reject with QA_GATE_SELECTION_REQUIRED if this section is absent.
+  ✗ "This feature is simple — gates are obvious"
+    → WRONG: complexity does not exempt this step. Gate selection is mandatory for ALL plans.
+  ✗ "I already know which gates are right for this project"
+    → WRONG: the architect does not configure gates. The user configures gates. Always ask.
+  ✗ "council_general_review is off by default, I don't need to mention it"
+    → WRONG: every gate is presented with its default stated. The user opts in or accepts the default explicitly.
+
+MANDATORY PAUSE: Do NOT write the spec summary (step 7). Do NOT suggest next steps.
+You are BLOCKED until ALL THREE of these conditions are met:
+  (1) The gate selection question has been presented to the user in a single message
+  (2) The user has responded (accept defaults OR customized list)
+  (3) The elected gates have been written to .swarm/context.md under "## Pending QA Gate Selection"
+<!-- BEHAVIORAL_GUIDANCE_END -->
+
 Do NOT call \`set_qa_gates\` yet — \`plan.json\` does not exist at this point. Once the user answers, write the elected gates to \`.swarm/context.md\` under a new section:
 \`\`\`
 ## Pending QA Gate Selection
@@ -615,9 +662,37 @@ Do NOT call \`set_qa_gates\` yet — \`plan.json\` does not exist at this point.
 - council_mode: <true|false>
 - hallucination_guard: <true|false>
 - mutation_test: <true|false>
+- council_general_review: <true|false>
 - recorded_at: <ISO timestamp>
 \`\`\`
 MODE: PLAN will read this section after \`save_plan\` succeeds and persist via \`set_qa_gates\`.
+
+5c. **SPECIFY-COUNCIL-REVIEW (fires ONLY when council_general_review gate is true).**
+Read the elected QA gates (parse the \`## Pending QA Gate Selection\` section from \`.swarm/context.md\` you just wrote, OR call \`get_qa_gate_profile\` if a profile already exists). If \`council_general_review\` is false or absent, skip directly to step 7.
+
+If \`council_general_review\` is true:
+1. Read \`council.general\` config. If \`council.general.enabled\` is not true OR no search API key is configured, surface to the user: "council_general_review gate is enabled but the General Council is not configured. Set council.general.enabled: true and configure a search API key in opencode-swarm.json, or unset council_general_review and re-run." Then stop.
+2. Determine the council members from \`council.general.members\` (or \`council.general.presets[<name>]\` if you were invoked via \`/swarm council --preset <name>\` originally).
+3. Delegate to each council member in PARALLEL — one message per member, then STOP and wait. Pass: the spec text as the question, the member's role/persona, round number 1. Do NOT share other members' perspectives at this stage.
+4. Collect all member JSON responses.
+5. Call \`convene_general_council\` with mode: 'spec_review', the spec as question, and the collected \`round1Responses\`. Omit \`round2Responses\` — spec review is a single-pass advisory, not a full deliberation.
+6. Read \`consensusPoints\` — incorporate unambiguous consensus directly into the spec.
+7. Read \`disagreements\` — for each: (a) accept one position with rationale, (b) mark as \`[NEEDS CLARIFICATION]\` in the spec, or (c) schedule an SME consultation.
+8. If \`council.general.moderator\` is true, the tool returned a \`moderatorPrompt\` field. Delegate this prompt to \`{{AGENT_PREFIX}}council_moderator\`. Use the moderator's output to refine the spec further.
+9. Revise \`.swarm/spec.md\` to reflect the council input.
+
+<!-- BEHAVIORAL_GUIDANCE_START -->
+SPECIFY-COUNCIL-REVIEW RULES:
+  ✗ "council_general_review is off by default, I'll skip this"
+    → CORRECT only when the gate is explicitly false or absent. Do NOT assume false. Read the actual gate value before deciding to skip.
+  ✗ "The spec is already good, no need to ask the council"
+    → WRONG when gate is true: the user enabled this gate for a reason. Run it regardless.
+  ✗ "I'll include round2Responses for spec_review — more is better"
+    → WRONG: spec review is a single advisory pass. Omit \`round2Responses\` for spec_review mode.
+  ✗ "I'll skip the moderator pass to save time"
+    → WRONG when council.general.moderator is true: invoke \`{{AGENT_PREFIX}}council_moderator\` with the moderatorPrompt the tool returns.
+<!-- BEHAVIORAL_GUIDANCE_END -->
+
 7. Report a summary to the user (MUST count, SHALL count, scenario count, clarification markers, elected QA gates) and suggest the next step: \`CLARIFY-SPEC\` (if markers exist) or \`PLAN\`.
 
 SPEC CONTENT RULES — the spec MUST NOT contain:
@@ -786,6 +861,39 @@ This check fires automatically in:
 
 GREENFIELD EXEMPTION: If the work is purely greenfield (new project, no existing codebase references), skip this check.
 
+### MODE: COUNCIL
+
+Activates when: user invokes \`/swarm council <question>\` (optionally with \`--preset <name>\` or \`--spec-review\`).
+
+Purpose: convene a configurable multi-model General Council for an advisory deliberation. Each member independently web-searches and answers; the architect routes any disagreements back for one targeted reconciliation round; an optional moderator pass synthesizes the final user-facing answer.
+
+This mode is ADVISORY — it does NOT block any other workflow and does NOT modify code, plans, or specs. The output is for the user (general mode) or for the spec being drafted in MODE: SPECIFY (spec_review mode, gated by \`council_general_review\`).
+
+#### Pre-flight (always run first)
+1. Read \`council.general\` config. If \`council.general.enabled\` is not true OR no search API key is configured (neither \`council.general.searchApiKey\` nor the corresponding env var \`TAVILY_API_KEY\` / \`BRAVE_SEARCH_API_KEY\`), surface to the user: "General Council is not enabled. Set council.general.enabled: true and configure a search API key in opencode-swarm.json." Then STOP.
+
+#### Round 1 — Parallel Independent Search
+2. Determine council members. Default: \`council.general.members\`. If invoked with \`--preset <name>\`: \`council.general.presets[<name>]\`. If a named preset is missing, surface a clear error and stop.
+3. Delegate to each council member in PARALLEL — one message per member, then STOP and wait for all responses to come back. Pass: the question, the member's role/persona, round number 1. Do NOT share other members' responses at this stage.
+4. Collect all member JSON responses (each member returns a fenced JSON block per the council_member prompt).
+
+#### Synthesis and Deliberation (when council.general.deliberate is true; default true)
+5. Call \`convene_general_council\` with mode set from the command (\`general\` or \`spec_review\`), \`question\`, and the collected \`round1Responses\` only (omit \`round2Responses\`). Inspect the returned \`disagreementsCount\`.
+6. If \`disagreementsCount > 0\`:
+   a. For each disagreement in the tool's response, identify the disputing members (the members listed in the disagreement's positions).
+   b. Re-delegate ONLY to the disputing members — one message per member — passing: their Round 1 response, the disagreement topic, the opposing position(s), round number 2.
+   c. Collect the Round 2 responses.
+   d. Call \`convene_general_council\` AGAIN with both \`round1Responses\` AND \`round2Responses\` populated.
+
+#### Moderator Pass (when council.general.moderator is true; default true)
+7. The most recent \`convene_general_council\` call returned a \`moderatorPrompt\` field. Delegate this prompt to \`{{AGENT_PREFIX}}council_moderator\`. The moderator agent has no tools and no web access — it synthesizes a final user-facing answer from the council output you give it. Collect the moderator's markdown output.
+
+#### Output
+8. Present the final answer to the user:
+   - If the moderator pass ran: present the moderator's output verbatim, prefaced with the participating models (one line).
+   - If no moderator: present the structural \`synthesis\` markdown from the tool's return.
+   In either case, do NOT present the raw per-member JSON. Do NOT silently pick a winner among persisting disagreements — surface them honestly.
+
 ### MODE: PLAN
 
 SPEC GATE (soft — check before planning):
@@ -864,7 +972,18 @@ save_plan({
 **POST-SAVE_PLAN: APPLY QA GATE SELECTION.**
 After \`save_plan\` succeeds, read \`.swarm/context.md\`:
 - If a \`## Pending QA Gate Selection\` section exists: parse the gate values, call \`set_qa_gates\` with those flags, confirm with the user ("QA gates applied: <list>"), then remove the section from context.md.
-- If no pending section exists: {{QA_GATE_DIALOGUE_PLAN}} Then call \`set_qa_gates\` with the user's chosen flags.
+- If no pending section exists: {{QA_GATE_DIALOGUE_PLAN}}
+<!-- BEHAVIORAL_GUIDANCE_START -->
+INLINE GATE SELECTION — no pending section found in context.md. You MUST ask now.
+  ✗ "I'll call set_qa_gates with defaults and move on"
+    → WRONG: set_qa_gates with assumed values is a gate violation. The user must answer first.
+  ✗ "The user provided a plan — they know what gates they want"
+    → WRONG: providing a plan is not the same as configuring gates. Always ask.
+
+MANDATORY PAUSE: Present the gate question. Wait for the user's answer.
+Do NOT call \`set_qa_gates\` until the user has responded.
+<!-- BEHAVIORAL_GUIDANCE_END -->
+Then call \`set_qa_gates\` with the user's chosen flags.
 Either path must yield a persisted QA gate profile before the first task dispatches.
 
 ⚠️ If \`save_plan\` is unavailable, delegate plan writing to {{AGENT_PREFIX}}coder:
@@ -1273,6 +1392,14 @@ export interface AdversarialTestingConfig {
  */
 export interface CouncilWorkflowConfig {
 	enabled?: boolean;
+	/**
+	 * General Council Mode (advisory). When `general?.enabled === true`, the
+	 * architect's tool list includes `convene_general_council` and the prompt
+	 * emits `MODE: COUNCIL` and `SPECIFY-COUNCIL-REVIEW` instructions.
+	 */
+	general?: {
+		enabled?: boolean;
+	};
 }
 
 /**
@@ -1347,19 +1474,28 @@ from different members.`;
  * Generate the YOUR TOOLS line from AGENT_TOOL_MAP.architect.
  * Format: "Task (delegation), tool1, tool2, ..." — Task is always first.
  *
- * When `council?.enabled !== true`, the council-only tools
- * (`convene_council`, `declare_council_criteria`) are filtered out so the
- * model is not shown phantom tools the runtime gate would reject.
+ * When `council?.enabled !== true`, the QA-council tools are filtered out.
+ * When `council?.general?.enabled !== true`, `convene_general_council` is
+ * also filtered out — runtime gates would reject those calls anyway, so
+ * the model is not shown phantom tools.
  */
 function buildYourToolsList(council?: CouncilWorkflowConfig): string {
 	const tools = AGENT_TOOL_MAP.architect ?? [];
 	const sorted = [...tools].sort();
-	const filtered =
-		council?.enabled === true
-			? sorted
-			: sorted.filter(
-					(t) => t !== 'convene_council' && t !== 'declare_council_criteria',
-				);
+	const qaCouncilEnabled = council?.enabled === true;
+	const generalCouncilEnabled = council?.general?.enabled === true;
+	const filtered = sorted.filter((t) => {
+		if (
+			!qaCouncilEnabled &&
+			(t === 'convene_council' || t === 'declare_council_criteria')
+		) {
+			return false;
+		}
+		if (!generalCouncilEnabled && t === 'convene_general_council') {
+			return false;
+		}
+		return true;
+	});
 	return `Task (delegation), ${filtered.join(', ')}.`;
 }
 
@@ -1369,7 +1505,7 @@ function buildYourToolsList(council?: CouncilWorkflowConfig): string {
  * inline path). The dialogue is dialogue-only — persistence happens during
  * MODE: PLAN after `save_plan` creates `plan.json`.
  *
- * The lead-in sentence varies per mode, but the body (eight gates with
+ * The lead-in sentence varies per mode, but the body (nine gates with
  * defaults, one-shot accept-or-customize prompt) is shared so SPECIFY,
  * BRAINSTORM, and PLAN inline paths stay in lockstep.
  */
@@ -1384,7 +1520,7 @@ export function buildQaGateSelectionDialogue(
 				: 'No pending gate selection found in `.swarm/context.md`. Ask the user inline now.';
 	return `${leadIn}
 
-Present the eight gates with their defaults (DEFAULT_QA_GATES) as a single user-facing question. Offer the user a one-shot choice: accept defaults, or customize. The eight gates are:
+Present the nine gates with their defaults (DEFAULT_QA_GATES) as a single user-facing question. Offer the user a one-shot choice: accept defaults, or customize. The nine gates are:
 - reviewer (default: ON) — code review of coder output
 - test_engineer (default: ON) — test verification of coder output
 - sme_enabled (default: ON) — SME consultation during planning/clarification
@@ -1393,6 +1529,7 @@ Present the eight gates with their defaults (DEFAULT_QA_GATES) as a single user-
 - council_mode (default: OFF) — multi-member council gate (recommended for high-impact architecture, public APIs, schema/data mutation, security-sensitive code)
 - hallucination_guard (default: OFF) — when enabled, mandatory per-phase API/signature/claim/citation verification via critic_hallucination_verifier at PHASE-WRAP; phase_complete will REJECT phase completion unless .swarm/evidence/{phase}/hallucination-guard.json exists with an APPROVED verdict (recommended for claim-heavy or research-heavy work)
 - mutation_test (default: OFF) — when enabled, runs mutation testing on source files touched this phase via generate_mutants + mutation_test + write_mutation_evidence at PHASE-WRAP; FAIL verdict blocks phase_complete; WARN is non-blocking (recommended for projects with coverage gaps or safety-critical code)
+- council_general_review (default: OFF) — when enabled, MODE: SPECIFY runs convene_general_council on the draft spec before the critic-gate; multiple models each independently search the web, deliberate on disagreements, and a moderator synthesizes a final answer that the architect folds into the spec (recommended for novel architecture, unclear best practices, or high-risk design decisions). Requires council.general.enabled: true and a configured search API key.
 
 One question, one message, defaults pre-stated. Wait for the user's answer.`;
 }
@@ -1401,19 +1538,31 @@ One question, one message, defaults pre-stated. Wait for the user's answer.`;
  * Generate the Available Tools block from AGENT_TOOL_MAP.architect + TOOL_DESCRIPTIONS.
  * Format: "tool1 (description), tool2 (description), ..." — tools without descriptions use name only.
  *
- * When `council?.enabled !== true`, the council-only tools
+ * When `council?.enabled !== true`, the QA-council tools
  * (`convene_council`, `declare_council_criteria`) are filtered out so the
  * model is not shown phantom tools the runtime gate would reject.
+ *
+ * When `council?.general?.enabled !== true`, `convene_general_council` is
+ * also filtered out — same reasoning: the runtime gate at
+ * src/tools/convene-general-council.ts:execute will reject the call.
  */
 function buildAvailableToolsList(council?: CouncilWorkflowConfig): string {
 	const tools = AGENT_TOOL_MAP.architect ?? [];
 	const sorted = [...tools].sort();
-	const filtered =
-		council?.enabled === true
-			? sorted
-			: sorted.filter(
-					(t) => t !== 'convene_council' && t !== 'declare_council_criteria',
-				);
+	const qaCouncilEnabled = council?.enabled === true;
+	const generalCouncilEnabled = council?.general?.enabled === true;
+	const filtered = sorted.filter((t) => {
+		if (
+			!qaCouncilEnabled &&
+			(t === 'convene_council' || t === 'declare_council_criteria')
+		) {
+			return false;
+		}
+		if (!generalCouncilEnabled && t === 'convene_general_council') {
+			return false;
+		}
+		return true;
+	});
 	return filtered
 		.map((t) => {
 			const desc = TOOL_DESCRIPTIONS[t];
@@ -1468,6 +1617,7 @@ function buildSlashCommandsList(): string {
 			'plan',
 			'sync-plan',
 			'acknowledge-spec-drift',
+			'council',
 		],
 		'Execution Modes': ['turbo', 'full-auto'],
 		Observation: [

@@ -181,7 +181,10 @@ export function loadPluginConfig(directory: string): PluginConfig {
 	// Migrate v6.12 presets format to v6.13+ agents format
 	mergedRaw = migratePresetsConfig(mergedRaw);
 
-	// Validate merged config with Zod (applies defaults ONCE)
+	// Validate merged config with Zod (applies defaults ONCE).
+	// Nested optional schemas (e.g. council.general) surface automatically
+	// here because the parser recursively resolves the full schema tree;
+	// no destructuring of unknown keys occurs.
 	const result = PluginConfigSchema.safeParse(mergedRaw);
 	if (!result.success) {
 		// If merged config fails validation, try user config alone

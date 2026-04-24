@@ -9,6 +9,7 @@ export { handleCheckpointCommand } from './checkpoint';
 export { handleClarifyCommand } from './clarify';
 export { handleCloseCommand } from './close';
 export { handleConfigCommand } from './config';
+export { handleCouncilCommand } from './council';
 export { handleCurateCommand } from './curate';
 export { handleDarkMatterCommand } from './dark-matter';
 export { handleDiagnoseCommand } from './diagnose';

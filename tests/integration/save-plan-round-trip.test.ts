@@ -20,6 +20,11 @@ describe('save_plan + update_task_status round-trip integration', () => {
 			path.join(tmpDir, '.swarm', 'spec.md'),
 			'# Test Spec\nIntegration test specification.',
 		);
+		// Create context.md with the QA gate selection section required by the gate-selection check
+		await fs.writeFile(
+			path.join(tmpDir, '.swarm', 'context.md'),
+			'## Pending QA Gate Selection\n',
+		);
 	});
 
 	afterEach(async () => {

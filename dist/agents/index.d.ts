@@ -36,6 +36,8 @@ export declare function createAgents(config?: PluginConfig): AgentDefinition[];
 export declare function getAgentConfigs(config?: PluginConfig, directory?: string, sessionId?: string): Record<string, SDKAgentConfig>;
 export { createArchitectAgent } from './architect';
 export { createCoderAgent } from './coder';
+export { createCouncilMemberAgent } from './council-member';
+export { createCouncilModeratorAgent } from './council-moderator';
 export { createCriticAgent } from './critic';
 export { createCuratorAgent } from './curator-agent';
 export { createDesignerAgent } from './designer';

@@ -37,6 +37,7 @@ export interface SetQaGatesArgs {
 	hallucination_guard?: boolean;
 	sast_enabled?: boolean;
 	mutation_test?: boolean;
+	council_general_review?: boolean;
 	project_type?: string;
 }
 
@@ -83,6 +84,7 @@ export async function executeSetQaGates(
 		'hallucination_guard',
 		'sast_enabled',
 		'mutation_test',
+		'council_general_review',
 	] as Array<keyof QaGates>) {
 		if (args[key] !== undefined) partial[key] = args[key] as boolean;
 	}
@@ -165,6 +167,15 @@ export const set_qa_gates: ReturnType<typeof tool> = createSwarmTool({
 				'Enable the mutation-testing gate (default: off). Requires mutation ' +
 					'tests to achieve a passing kill rate before phase completion; ' +
 					'WARN verdict allows advancement, FAIL blocks.',
+			),
+		council_general_review: tool.schema
+			.boolean()
+			.optional()
+			.describe(
+				'Enable the council_general_review gate (default: off). When on, ' +
+					'MODE: SPECIFY runs convene_general_council on the draft spec ' +
+					'before the critic-gate, folding multi-model deliberation into ' +
+					'the spec. Requires council.general.enabled and a search API key.',
 			),
 		project_type: tool.schema
 			.string()

@@ -977,6 +977,52 @@ export const AuthorityConfigSchema = z.object({
 
 export type AuthorityConfig = z.infer<typeof AuthorityConfigSchema>;
 
+// General Council Mode configuration (advisory deliberation — distinct from the
+// verdict-based Work Complete Council below). Off by default. When enabled,
+// `/swarm council <question>` and the SPECIFY-COUNCIL-REVIEW gate convene a
+// configurable multi-model council where each member independently web-searches
+// and answers, then the architect routes any disagreements back for one
+// reconciliation round, after which a `council_moderator` agent (synthesis-only,
+// no web_search) produces the final answer.
+//
+// IMPORTANT: this schema is `.strict()`. A typo in any nested key will fail
+// validation and the loader (config/loader.ts:186-207) will fall back to
+// guardrail-only defaults — silently losing the user's council config. Keep
+// the field set in sync with `GeneralCouncilConfig` in
+// src/council/general-council-types.ts.
+const GeneralCouncilMemberConfigSchema = z
+	.object({
+		memberId: z.string().min(1),
+		model: z.string().min(1),
+		role: z.enum([
+			'generalist',
+			'skeptic',
+			'domain_expert',
+			'devil_advocate',
+			'synthesizer',
+		]),
+		persona: z.string().optional(),
+	})
+	.strict();
+
+export const GeneralCouncilConfigSchema = z
+	.object({
+		enabled: z.boolean().default(false),
+		searchProvider: z.enum(['tavily', 'brave']).default('tavily'),
+		searchApiKey: z.string().optional(),
+		members: z.array(GeneralCouncilMemberConfigSchema).default([]),
+		presets: z
+			.record(z.string(), z.array(GeneralCouncilMemberConfigSchema))
+			.default({}),
+		deliberate: z.boolean().default(true),
+		moderator: z.boolean().default(true),
+		moderatorModel: z.string().optional(),
+		maxSourcesPerMember: z.number().int().min(1).max(20).default(5),
+	})
+	.strict();
+
+export type GeneralCouncilConfig = z.infer<typeof GeneralCouncilConfigSchema>;
+
 // Work Complete Council configuration
 // v1 — off by default. When enabled, the architect convenes a parallel four-member
 // verification gate (critic, reviewer, sme, test_engineer) before update_task_status
@@ -999,6 +1045,10 @@ export const CouncilConfigSchema = z
 			.describe(
 				'Optional webhook URL or handler name invoked when maxRounds is reached without APPROVE. Declared for forward compatibility; no behavior is implemented yet.',
 			),
+		// General Council Mode (advisory). Optional — undefined means feature is
+		// not configured. When present and enabled: true, the architect can run
+		// `/swarm council` and the SPECIFY-COUNCIL-REVIEW gate.
+		general: GeneralCouncilConfigSchema.optional(),
 	})
 	.strict();
 

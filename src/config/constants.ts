@@ -15,6 +15,8 @@ export const ALL_SUBAGENT_NAMES = [
 	'critic_hallucination_verifier',
 	'curator_init',
 	'curator_phase',
+	'council_member',
+	'council_moderator',
 	...QA_AGENTS,
 	...PIPELINE_AGENTS,
 ] as const;
@@ -99,6 +101,7 @@ export const AGENT_TOOL_MAP: Record<AgentName, ToolName[]> = {
 		'repo_map',
 		'get_qa_gate_profile',
 		'set_qa_gates',
+		'convene_general_council',
 	],
 	explorer: [
 		'complexity_hotspots',
@@ -250,6 +253,14 @@ export const AGENT_TOOL_MAP: Record<AgentName, ToolName[]> = {
 	// Curator agents are read-only analysis roles — knowledge recall only
 	curator_init: ['knowledge_recall'],
 	curator_phase: ['knowledge_recall'],
+	// General Council member: web_search ONLY — no write tools, no orchestration tools.
+	// Member runs Round 1 independent search and Round 2 deliberation; the architect
+	// synthesizes via convene_general_council.
+	council_member: ['web_search'],
+	// General Council moderator: empty — synthesizes already-gathered member content.
+	// Does NOT need web_search; the moderator's job is to write the user-facing answer
+	// from the council's existing research, not to fact-check it with new searches.
+	council_moderator: [],
 };
 
 /**
@@ -339,6 +350,10 @@ export const TOOL_DESCRIPTIONS: Partial<Record<ToolName, string>> = {
 	retrieve_summary: 'retrieve the full content of a stored tool output summary',
 	search:
 		'Workspace-scoped ripgrep-style text search with structured JSON output. Supports literal and regex modes, glob filtering, and result limits. NOTE: This is text search, not structural AST search — use symbols and imports tools for structural queries.',
+	web_search:
+		'External web search (Tavily or Brave) for General Council member agents. Returns titled results with snippets and URLs. Restricted to council_member agents via AGENT_TOOL_MAP. Config-gated on council.general.enabled; requires a search API key.',
+	convene_general_council:
+		'Synthesize responses from a multi-model General Council. Accepts parallel member responses (Round 1, optionally Round 2), detects disagreements, and returns consensus points, persisting disagreements, a structured synthesis, and an optional moderator prompt. Architect-only. Config-gated on council.general.enabled.',
 	batch_symbols:
 		'Batched symbol extraction across multiple files. Returns per-file symbol summaries with isolated error handling.',
 	suggest_patch:
@@ -349,9 +364,9 @@ export const TOOL_DESCRIPTIONS: Partial<Record<ToolName, string>> = {
 	repo_map:
 		'query the repo code graph: importers, dependencies, blast radius, and localization context for structural awareness before refactoring',
 	get_qa_gate_profile:
-		'retrieve the QA gate profile for the current plan: gates (reviewer, test_engineer, sme_enabled, critic_pre_plan, sast_enabled, council_mode, hallucination_guard, mutation_test), lock state, and profile hash. Read-only.',
+		'retrieve the QA gate profile for the current plan: gates (reviewer, test_engineer, sme_enabled, critic_pre_plan, sast_enabled, council_mode, hallucination_guard, mutation_test, council_general_review), lock state, and profile hash. Read-only.',
 	set_qa_gates:
-		'configure the QA gate profile for the current plan. Architect-only. Ratchet-tighter only — rejected once the profile is locked after critic approval. Supports: reviewer, test_engineer, sme_enabled, critic_pre_plan, sast_enabled, council_mode, hallucination_guard, mutation_test.',
+		'configure the QA gate profile for the current plan. Architect-only. Ratchet-tighter only — rejected once the profile is locked after critic approval. Supports: reviewer, test_engineer, sme_enabled, critic_pre_plan, sast_enabled, council_mode, hallucination_guard, mutation_test, council_general_review.',
 	req_coverage:
 		'query requirement coverage status for tracked functional requirements',
 };
@@ -394,6 +409,12 @@ export const DEFAULT_MODELS: Record<string, string> = {
 	// Curator agents — lightweight read-only analysis (same model family as explorer)
 	curator_init: 'opencode/trinity-large-preview-free',
 	curator_phase: 'opencode/trinity-large-preview-free',
+
+	// General Council agents — runtime model is overridden per-member by
+	// council.general.members[*].model and council.general.moderatorModel; these
+	// defaults are fallbacks only.
+	council_member: 'opencode/trinity-large-preview-free',
+	council_moderator: 'opencode/trinity-large-preview-free',
 
 	// Fallback
 	default: 'opencode/trinity-large-preview-free',

@@ -67,10 +67,11 @@ function extractAvailableToolsNames(prompt: string): string[] {
 // ---------------------------------------------------------------------------
 const ARCHITECT_TOOL_COUNT = AGENT_TOOL_MAP.architect.length;
 
-// Render with council.enabled=true so the full AGENT_TOOL_MAP.architect
-// surface (including `convene_council` and `declare_council_criteria`)
-// appears in YOUR TOOLS and Available Tools. Without council enabled,
-// those tools are filtered out — see architect-tool-visibility-council.test.ts
+// Render with both councils enabled so the full AGENT_TOOL_MAP.architect
+// surface (including `convene_council`, `declare_council_criteria`, AND
+// `convene_general_council`) appears in YOUR TOOLS and Available Tools.
+// Without council/general enabled, those tools are filtered out — see
+// architect-tool-visibility-council.test.ts and architect-tool-alignment.test.ts
 // for the council-off behavior.
 const resolvedPrompt = (() => {
 	const agent = createArchitectAgent(
@@ -78,7 +79,7 @@ const resolvedPrompt = (() => {
 		undefined,
 		undefined,
 		undefined,
-		{ enabled: true },
+		{ enabled: true, general: { enabled: true } },
 	);
 	return agent.config.prompt ?? '';
 })();
@@ -210,10 +211,17 @@ describe('No unknown agents in AGENT_TOOL_MAP', () => {
 		expect(AGENT_TOOL_MAP).toHaveProperty(ORCHESTRATOR_NAME);
 	});
 
-	test('every ALL_SUBAGENT_NAMES entry that has a tool map entry has at least 1 tool', () => {
+	test('every ALL_SUBAGENT_NAMES entry that has a tool map entry has at least 1 tool (except synthesis-only agents)', () => {
+		// Allow-list: agents whose role is pure synthesis on already-gathered
+		// content do not need tools. council_moderator is the canonical example —
+		// it writes the final user-facing answer from the council's existing
+		// research, so web_search / file tools are intentionally absent.
+		const ALLOWED_TOOLLESS = new Set<string>(['council_moderator']);
+
 		for (const subagent of ALL_SUBAGENT_NAMES) {
 			if (subagent in AGENT_TOOL_MAP) {
 				const tools = AGENT_TOOL_MAP[subagent as keyof typeof AGENT_TOOL_MAP];
+				if (ALLOWED_TOOLLESS.has(subagent)) continue;
 				expect(
 					tools.length,
 					`"${subagent}" has ${tools.length} tools, expected >= 1`,

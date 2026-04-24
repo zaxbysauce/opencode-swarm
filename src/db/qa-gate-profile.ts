@@ -11,7 +11,7 @@ import { createHash } from 'node:crypto';
 import { getProjectDb, projectDbExists } from './project-db.js';
 
 /**
- * QA gate flags. All eight gates are tracked explicitly.
+ * QA gate flags. All nine gates are tracked explicitly.
  */
 export interface QaGates {
 	reviewer: boolean;
@@ -22,6 +22,7 @@ export interface QaGates {
 	hallucination_guard: boolean;
 	sast_enabled: boolean;
 	mutation_test: boolean;
+	council_general_review: boolean;
 }
 
 /**
@@ -36,6 +37,7 @@ export const DEFAULT_QA_GATES: QaGates = {
 	hallucination_guard: false,
 	sast_enabled: true,
 	mutation_test: false,
+	council_general_review: false,
 };
 
 /**
@@ -263,6 +265,9 @@ export function computeProfileHash(profile: QaGateProfile): string {
  *   until .swarm/evidence/{phase}/hallucination-guard.json has APPROVED verdict).
  * - mutation_test — src/tools/phase-complete.ts Gate 4 (blocks phase_complete
  *   until .swarm/evidence/{phase}/mutation-gate.json has pass verdict; warn does not block)
+ * - council_general_review — src/agents/architect.ts SPECIFY-COUNCIL-REVIEW
+ *   (fires when gate is true; runs convene_general_council on draft spec before
+ *   critic-gate to fold multi-model deliberation into the spec).
  *
  * Session overrides are intentionally ephemeral — they live only in
  * in-memory `AgentSessionState.qaGateSessionOverrides` and are NOT
