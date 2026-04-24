@@ -185,6 +185,7 @@ export const AGENT_TOOL_MAP: Record<AgentName, ToolName[]> = {
 		'symbols',
 		'knowledge_recall',
 		'req_coverage',
+		'get_approved_plan',
 		'repo_map',
 	],
 	critic_sounding_board: [
@@ -283,7 +284,7 @@ export const TOOL_DESCRIPTIONS: Partial<Record<ToolName, string>> = {
 		'filter classified AST changes by category, risk level, or file for reviewer drill-down',
 	imports: 'dependency audit',
 	lint: 'code quality',
-	placeholder_scan: 'placeholder/todo detection',
+	placeholder_scan: 'todo and FIXME comment detection',
 	secretscan: 'secret detection',
 	sast_scan: 'static analysis security scan',
 	syntax_check: 'syntax validation',
@@ -475,8 +476,7 @@ export const LOW_CAPABILITY_MODELS = ['mini', 'nano', 'small', 'free'] as const;
  * @returns true if the model is considered low capability, false otherwise
  */
 export function isLowCapabilityModel(modelId: string): boolean {
-	if (!modelId) return false;
-	const lower = modelId.toLowerCase();
+	const lower = (modelId || '').toLowerCase();
 	return LOW_CAPABILITY_MODELS.some((substr) => lower.includes(substr));
 }
 

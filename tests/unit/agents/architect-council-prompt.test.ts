@@ -86,6 +86,27 @@ describe('Architect prompt — Work Complete Council workflow block', () => {
 			expect(prompt).toContain('REPLACES Stage B');
 			expect(prompt).toContain('Stage A (precheckbatch) still runs');
 		});
+
+		describe('critic dispatch includes approved-plan baseline and drift analysis', () => {
+			it('contains get_approved_plan in the critic dispatch text', () => {
+				expect(prompt).toContain('get_approved_plan');
+			});
+
+			it('contains baseline or approved-plan in the critic dispatch', () => {
+				// At least one of these approved-plan baseline terms should appear
+				// near the critic dispatch line
+				expect(prompt).toMatch(
+					/critic[\s\S]{0,300}(?:baseline|approved-plan)/i,
+				);
+			});
+
+			it('contains spec-intent drift language in the critic dispatch', () => {
+				// The critic line should reference spec-intent drift analysis
+				expect(prompt).toMatch(
+					/critic[\s\S]{0,300}spec.?intent.*drift|drift.*spec.?intent/i,
+				);
+			});
+		});
 	});
 
 	describe('council.enabled === false', () => {
@@ -143,6 +164,41 @@ describe('Architect prompt — Work Complete Council workflow block', () => {
 
 		it('does not leave the {{COUNCIL_WORKFLOW}} placeholder unexpanded', () => {
 			expect(prompt).not.toContain('{{COUNCIL_WORKFLOW}}');
+		});
+	});
+
+	describe('critic_oversight is outside council scope', () => {
+		const agent = createArchitectAgent(
+			'test-model',
+			undefined,
+			undefined,
+			undefined,
+			{ enabled: true },
+		);
+		const prompt = agent.config.prompt!;
+
+		it('council workflow block does not reference critic_oversight', () => {
+			// The council workflow dispatches a plan_critic (council critic) for
+			// live plan-review. The full-auto intercept uses a separate
+			// critic_oversight agent that operates outside council scope.
+			// Verifying the council block does not mention critic_oversight
+			// confirms these are separate dispatch paths.
+			expect(prompt).not.toContain('critic_oversight');
+		});
+
+		it('council workflow block does not reference AUTONOMOUS_OVERSIGHT', () => {
+			// The autonomous oversight path is a distinct full-auto intercept,
+			// not part of the council workflow. The council block should be
+			// silent about autonomous oversight.
+			expect(prompt).not.toContain('AUTONOMOUS_OVERSIGHT');
+		});
+
+		it('critic dispatch in council block refers to council critic (not critic_oversight)', () => {
+			// The council dispatches a single "critic" member for live plan-review
+			// with approved-baseline comparison (get_approved_plan). This is distinct
+			// from critic_oversight which is used by full-auto intercept.
+			// Confirms council and autonomous oversight are separate critic paths.
+			expect(prompt).toMatch(/- `critic`\s*—/);
 		});
 	});
 

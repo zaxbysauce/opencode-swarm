@@ -59,37 +59,35 @@ describe('Critic Agent Registration', () => {
 		});
 	});
 
-	describe('Tool lists for critic_sounding_board match critic', () => {
+	describe('Tool lists for critic vs critic_sounding_board — least-privilege divergence', () => {
 		const criticTools = AGENT_TOOL_MAP.critic;
 		const criticSoundingBoardTools = AGENT_TOOL_MAP.critic_sounding_board;
 
-		test('critic_sounding_board has same tool count as critic', () => {
-			expect(criticSoundingBoardTools).toHaveLength(criticTools.length);
+		test('critic has get_approved_plan (plan baseline retrieval for drift comparison)', () => {
+			expect(criticTools).toContain('get_approved_plan');
 		});
 
-		test('critic and critic_sounding_board have complexity_hotspots', () => {
+		test('critic_sounding_board does NOT have get_approved_plan (least-privilege — sounding_board is advisory only, not a baseline authority)', () => {
+			expect(criticSoundingBoardTools).not.toContain('get_approved_plan');
+		});
+
+		test('critic and critic_sounding_board both have shared base tools', () => {
 			expect(criticTools).toContain('complexity_hotspots');
 			expect(criticSoundingBoardTools).toContain('complexity_hotspots');
-		});
-
-		test('critic and critic_sounding_board have detect_domains', () => {
 			expect(criticTools).toContain('detect_domains');
 			expect(criticSoundingBoardTools).toContain('detect_domains');
-		});
-
-		test('critic and critic_sounding_board have imports', () => {
 			expect(criticTools).toContain('imports');
 			expect(criticSoundingBoardTools).toContain('imports');
-		});
-
-		test('critic and critic_sounding_board have retrieve_summary', () => {
 			expect(criticTools).toContain('retrieve_summary');
 			expect(criticSoundingBoardTools).toContain('retrieve_summary');
-		});
-
-		test('critic and critic_sounding_board have symbols', () => {
 			expect(criticTools).toContain('symbols');
 			expect(criticSoundingBoardTools).toContain('symbols');
+			expect(criticTools).toContain('knowledge_recall');
+			expect(criticSoundingBoardTools).toContain('knowledge_recall');
+			expect(criticTools).toContain('req_coverage');
+			expect(criticSoundingBoardTools).toContain('req_coverage');
+			expect(criticTools).toContain('repo_map');
+			expect(criticSoundingBoardTools).toContain('repo_map');
 		});
 	});
 

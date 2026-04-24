@@ -18909,6 +18909,7 @@ var AGENT_TOOL_MAP = {
     "symbols",
     "knowledge_recall",
     "req_coverage",
+    "get_approved_plan",
     "repo_map"
   ],
   critic_sounding_board: [

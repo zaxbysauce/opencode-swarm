@@ -1299,7 +1299,7 @@ follow the pattern \`C1\`, \`C2\`, etc. The criteria are persisted to
 ### Phase 1 — Parallel dispatch (when the coder signals the task is complete)
 Dispatch all FIVE council members IN PARALLEL — do not run them sequentially.
 Each receives ONLY their role-relevant context, not the full conversation:
-- \`critic\`        — original task spec + acceptance criteria + code diff + test results
+- \`critic\`        — original task spec + acceptance criteria + code diff + test results + approved-plan baseline comparison (via \`get_approved_plan\`) and spec-intent drift analysis against the approved baseline
 - \`reviewer\`      — semantic diff summary + blast radius (files importing changed files) + style guide
 - \`sme\`           — task domain context + relevant knowledge base entries
 - \`test_engineer\` — changed test files + coverage delta + known mutation gaps

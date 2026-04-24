@@ -144,9 +144,7 @@ function isSubagent(name2) {
   return ALL_SUBAGENT_NAMES.includes(name2);
 }
 function isLowCapabilityModel(modelId) {
-  if (!modelId)
-    return false;
-  const lower = modelId.toLowerCase();
+  const lower = (modelId || "").toLowerCase();
   return LOW_CAPABILITY_MODELS.some((substr) => lower.includes(substr));
 }
 var QA_AGENTS, PIPELINE_AGENTS, ORCHESTRATOR_NAME = "architect", ALL_SUBAGENT_NAMES, ALL_AGENT_NAMES, OPENCODE_NATIVE_AGENTS, AGENT_TOOL_MAP, WRITE_TOOL_NAMES, TOOL_DESCRIPTIONS, DEFAULT_MODELS, DEFAULT_SCORING_CONFIG, LOW_CAPABILITY_MODELS, TURBO_MODE_BANNER = `## \uD83D\uDE80 TURBO MODE ACTIVE
@@ -348,6 +346,7 @@ var init_constants = __esm(() => {
       "symbols",
       "knowledge_recall",
       "req_coverage",
+      "get_approved_plan",
       "repo_map"
     ],
     critic_sounding_board: [
@@ -430,7 +429,7 @@ var init_constants = __esm(() => {
     diff_summary: "filter classified AST changes by category, risk level, or file for reviewer drill-down",
     imports: "dependency audit",
     lint: "code quality",
-    placeholder_scan: "placeholder/todo detection",
+    placeholder_scan: "todo and FIXME comment detection",
     secretscan: "secret detection",
     sast_scan: "static analysis security scan",
     syntax_check: "syntax validation",
@@ -54064,7 +54063,7 @@ follow the pattern \`C1\`, \`C2\`, etc. The criteria are persisted to
 ### Phase 1 \u2014 Parallel dispatch (when the coder signals the task is complete)
 Dispatch all FIVE council members IN PARALLEL \u2014 do not run them sequentially.
 Each receives ONLY their role-relevant context, not the full conversation:
-- \`critic\`        \u2014 original task spec + acceptance criteria + code diff + test results
+- \`critic\`        \u2014 original task spec + acceptance criteria + code diff + test results + approved-plan baseline comparison (via \`get_approved_plan\`) and spec-intent drift analysis against the approved baseline
 - \`reviewer\`      \u2014 semantic diff summary + blast radius (files importing changed files) + style guide
 - \`sme\`           \u2014 task domain context + relevant knowledge base entries
 - \`test_engineer\` \u2014 changed test files + coverage delta + known mutation gaps
@@ -55858,6 +55857,18 @@ EXECUTION PROFILE CHECK (when plan includes execution_profile):
 - AI-Slop Detection: Does the plan contain vague filler ("robust", "comprehensive", "leverage") without concrete specifics?
 - Task Atomicity: Does any single task touch 2+ files or mix unrelated concerns ("implement auth and add logging and refactor config")? Flag as MAJOR \u2014 oversized tasks blow coder's context and cause downstream gate failures. Suggested fix: Split into sequential single-file tasks grouped by concern, not per-file subtasks.
 - Governance Compliance (conditional): If \`.swarm/context.md\` contains a \`## Project Governance\` section, read the MUST and SHOULD rules and validate the plan against them. MUST rule violations are CRITICAL severity. SHOULD rule violations are recommendation-level (note them but do not block approval). If no \`## Project Governance\` section exists in context.md, skip this check silently.
+
+## BASELINE COMPARISON (mandatory before plan review)
+
+Before reviewing the plan, check whether it was silently mutated since last critic approval.
+
+1. Call the \`get_approved_plan\` tool (no arguments required \u2014 it derives identity internally).
+2. Examine the response:
+   - If \`success: false\` with \`reason: "no_approved_snapshot"\`: this is the first plan or no prior approval exists. Note this and proceed with plan review.
+   - If \`drift_detected: false\`: baseline integrity confirmed \u2014 the plan has not been mutated since the last critic approval. Proceed with plan review.
+   - If \`drift_detected: true\`: CRITICAL finding \u2014 plan mutated after approval. Compare \`approved_plan\` vs \`current_plan\` to identify what changed (phases added/removed, tasks modified, scope changes). Report findings in a \`## BASELINE DRIFT\` section before the rubric assessment.
+   - If \`drift_detected: "unknown"\`: flag as warning and proceed with caution.
+3. Report spec-intent divergence: compare the approved baseline intent against what the current plan actually does, not just structural diff. Identify if the plan's purpose or scope has drifted from the original approved intent.
 
 ## PLAN ASSESSMENT DIMENSIONS
 Evaluate ALL seven dimensions. Report any that fail:
