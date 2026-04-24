@@ -442,7 +442,7 @@ const OpenCodeSwarm: Plugin = async (ctx) => {
 			createEvidenceSummaryIntegration({
 				automationConfig,
 				directory: ctx.directory,
-				swarmDir: ctx.directory, // NOTE: persistSummary appends .swarm/ internally
+				projectDir: ctx.directory,
 				summaryFilename: 'evidence-summary.json',
 			});
 			log('Evidence summary integration initialized', {

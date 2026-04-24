@@ -926,8 +926,17 @@ export function createGuardrailsHooks(
 	}
 
 	// Normalize directory: legacy calls pass the config object as the first arg, so fall back to cwd
-	const effectiveDirectory =
-		typeof directory === 'string' ? directory : process.cwd();
+	// Use provided directory; if legacy call with no string directory, resolve against cwd but
+	// emit a warning so callers can migrate to the new signature before this path is removed.
+	const effectiveDirectory = (() => {
+		if (typeof directory === 'string') return directory;
+		const cwd = process.cwd();
+		console.warn(
+			`[guardrails] effectiveDirectory resolved to process.cwd() "${cwd}" — ` +
+				'pass an explicit directory string to createGuardrailsHooks to avoid .swarm artifacts in wrong locations',
+		);
+		return cwd;
+	})();
 
 	// If guardrails are disabled, return no-op handlers
 	if (guardrailsConfig?.enabled === false) {

@@ -23101,7 +23101,13 @@ function createGuardrailsHooks(directory, directoryOrConfig, config2, authorityC
   } else {
     guardrailsConfig = config2;
   }
-  const effectiveDirectory = typeof directory === "string" ? directory : process.cwd();
+  const effectiveDirectory = (() => {
+    if (typeof directory === "string")
+      return directory;
+    const cwd = process.cwd();
+    console.warn(`[guardrails] effectiveDirectory resolved to process.cwd() "${cwd}" \u2014 ` + "pass an explicit directory string to createGuardrailsHooks to avoid .swarm artifacts in wrong locations");
+    return cwd;
+  })();
   if (guardrailsConfig?.enabled === false) {
     return {
       toolBefore: async () => {},
@@ -49840,15 +49846,48 @@ function resolveWorkingDirectory(workingDirectory, fallbackDirectory) {
     };
   }
   const resolvedDir = path34.resolve(normalizedDir);
+  let statResult;
   try {
-    const realPath = fs23.realpathSync(resolvedDir);
-    return { success: true, directory: realPath };
+    statResult = fs23.statSync(resolvedDir);
   } catch {
     return {
       success: false,
       message: `Invalid working_directory: path "${resolvedDir}" does not exist or is inaccessible`
     };
   }
+  if (!statResult.isDirectory()) {
+    return {
+      success: false,
+      message: `Invalid working_directory: path "${resolvedDir}" is not a directory`
+    };
+  }
+  const resolvedFallback = path34.resolve(fallbackDirectory);
+  let fallbackExists = false;
+  try {
+    fs23.statSync(resolvedFallback);
+    fallbackExists = true;
+  } catch {
+    fallbackExists = false;
+  }
+  if (workingDirectory != null && workingDirectory !== "") {
+    if (fallbackExists) {
+      const isSubdirectory = resolvedDir.startsWith(resolvedFallback + path34.sep);
+      if (isSubdirectory) {
+        return {
+          success: false,
+          message: `Invalid working_directory: "${workingDirectory}" resolves to "${resolvedDir}" ` + `which is a subdirectory of fallback "${resolvedFallback}". ` + `Pass the project root path or omit working_directory entirely.`
+        };
+      }
+    }
+    return { success: true, directory: resolvedDir };
+  }
+  if (resolvedDir !== resolvedFallback) {
+    return {
+      success: false,
+      message: `Invalid working_directory: path resolves to "${resolvedDir}" but fallbackDirectory ` + `"${resolvedFallback}" is not the project root. ` + `This may indicate CWD mismatch. Pass the project root path explicitly.`
+    };
+  }
+  return { success: true, directory: resolvedDir };
 }
 var init_resolve_working_directory = () => {};
 
@@ -52959,7 +52998,7 @@ var init_reset_session = __esm(() => {
 });
 
 // src/summaries/manager.ts
-import { mkdirSync as mkdirSync13, readdirSync as readdirSync10, renameSync as renameSync10, rmSync as rmSync4, statSync as statSync9 } from "fs";
+import { mkdirSync as mkdirSync13, readdirSync as readdirSync10, renameSync as renameSync10, rmSync as rmSync4, statSync as statSync10 } from "fs";
 import * as path39 from "path";
 function sanitizeSummaryId(id) {
   if (!id || id.length === 0) {
@@ -57455,8 +57494,8 @@ __export(exports_evidence_summary_integration, {
 });
 import { existsSync as existsSync24, mkdirSync as mkdirSync14, writeFileSync as writeFileSync6 } from "fs";
 import * as path43 from "path";
-function persistSummary(swarmDir, artifact, filename) {
-  const swarmPath = path43.join(swarmDir, ".swarm");
+function persistSummary(projectDir, artifact, filename) {
+  const swarmPath = path43.join(projectDir, ".swarm");
   if (!existsSync24(swarmPath)) {
     mkdirSync14(swarmPath, { recursive: true });
   }
@@ -57516,7 +57555,7 @@ class EvidenceSummaryIntegration {
         return null;
       }
       const filename = this.config.summaryFilename ?? "evidence-summary.json";
-      const artifactPath = persistSummary(this.config.swarmDir, artifact, filename);
+      const artifactPath = persistSummary(this.config.projectDir, artifact, filename);
       log("[EvidenceSummaryIntegration] Summary generated and persisted", {
         path: artifactPath,
         completionRatio: artifact.overallCompletionRatio,
@@ -61583,8 +61622,8 @@ async function isGrammarAvailable(languageId) {
   try {
     const wasmFileName = getWasmFileName(normalizedId);
     const wasmPath = path57.join(getGrammarsDirAbsolute(), wasmFileName);
-    const { statSync: statSync17 } = await import("fs");
-    statSync17(wasmPath);
+    const { statSync: statSync18 } = await import("fs");
+    statSync18(wasmPath);
     return true;
   } catch {
     return false;
@@ -64329,7 +64368,7 @@ import * as path50 from "path";
 init_utils2();
 init_path_security();
 import * as fsSync2 from "fs";
-import { constants as constants3, existsSync as existsSync28, realpathSync as realpathSync7 } from "fs";
+import { constants as constants3, existsSync as existsSync28, realpathSync as realpathSync6 } from "fs";
 import * as fsPromises3 from "fs/promises";
 import * as path49 from "path";
 
@@ -64783,13 +64822,13 @@ function resolveModuleSpecifier(workspaceRoot, sourceFile, specifier) {
       let resolved = path49.resolve(sourceDir, specifier);
       let realResolved;
       try {
-        realResolved = realpathSync7(resolved);
+        realResolved = realpathSync6(resolved);
       } catch {
         realResolved = resolved;
       }
       let realRoot;
       try {
-        realRoot = realpathSync7(workspaceRoot);
+        realRoot = realpathSync6(workspaceRoot);
       } catch {
         realRoot = path49.normalize(workspaceRoot);
       }
@@ -64814,7 +64853,7 @@ function resolveModuleSpecifier(workspaceRoot, sourceFile, specifier) {
         }
         if (found) {
           try {
-            realResolved = realpathSync7(found);
+            realResolved = realpathSync6(found);
           } catch {
             realResolved = found;
           }
@@ -64996,14 +65035,14 @@ async function saveGraph(workspace, graph, options) {
   const normalizedWorkspace = path49.normalize(workspace);
   let realWorkspace;
   try {
-    realWorkspace = realpathSync7(workspace);
+    realWorkspace = realpathSync6(workspace);
   } catch {
     realWorkspace = normalizedWorkspace;
   }
   const normalizedGraphRoot = path49.normalize(graph.workspaceRoot);
   let realGraphRoot;
   try {
-    realGraphRoot = realpathSync7(graph.workspaceRoot);
+    realGraphRoot = realpathSync6(graph.workspaceRoot);
   } catch {
     realGraphRoot = normalizedGraphRoot;
   }
@@ -82048,6 +82087,30 @@ async function executeSavePlan(args2, fallbackDir) {
       recovery_guidance: "Use save_plan with corrected inputs to create or restructure plans. Never write .swarm/plan.json or .swarm/plan.md directly."
     };
   }
+  if (args2.working_directory && fallbackDir) {
+    const resolvedTarget = path87.resolve(args2.working_directory);
+    const resolvedRoot = path87.resolve(fallbackDir);
+    let fallbackExists = false;
+    try {
+      fs72.accessSync(resolvedRoot, fs72.constants.F_OK);
+      fallbackExists = true;
+    } catch {
+      fallbackExists = false;
+    }
+    if (fallbackExists) {
+      const isSubdirectory = resolvedTarget.startsWith(resolvedRoot + path87.sep);
+      if (isSubdirectory) {
+        return {
+          success: false,
+          message: `working_directory must be the project root. ` + `Got "${args2.working_directory}" (resolves to "${resolvedTarget}"), ` + `which is a subdirectory of fallback "${resolvedRoot}". ` + `Omit working_directory or pass the project root explicitly.`,
+          errors: [
+            `working_directory "${resolvedTarget}" is a subdirectory of fallback "${resolvedRoot}"`
+          ],
+          recovery_guidance: `Pass working_directory: "${resolvedRoot}" or omit the field entirely.`
+        };
+      }
+    }
+  }
   let specMtime;
   let specHash;
   if (process.env.SWARM_SKIP_SPEC_GATE !== "1") {
@@ -83761,7 +83824,7 @@ async function ripgrepSearch(opts) {
       stderr: "pipe",
       cwd: opts.workspace
     });
-    const timeout = new Promise((resolve37) => setTimeout(() => resolve37("timeout"), REGEX_TIMEOUT_MS));
+    const timeout = new Promise((resolve38) => setTimeout(() => resolve38("timeout"), REGEX_TIMEOUT_MS));
     const exitPromise = proc.exited;
     const result = await Promise.race([exitPromise, timeout]);
     if (result === "timeout") {
@@ -86974,7 +87037,7 @@ var OpenCodeSwarm = async (ctx) => {
       createEvidenceSummaryIntegration2({
         automationConfig,
         directory: ctx.directory,
-        swarmDir: ctx.directory,
+        projectDir: ctx.directory,
         summaryFilename: "evidence-summary.json"
       });
       log("Evidence summary integration initialized", {

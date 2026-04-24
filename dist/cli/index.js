@@ -41157,15 +41157,48 @@ function resolveWorkingDirectory(workingDirectory, fallbackDirectory) {
     };
   }
   const resolvedDir = path26.resolve(normalizedDir);
+  let statResult;
   try {
-    const realPath = fs16.realpathSync(resolvedDir);
-    return { success: true, directory: realPath };
+    statResult = fs16.statSync(resolvedDir);
   } catch {
     return {
       success: false,
       message: `Invalid working_directory: path "${resolvedDir}" does not exist or is inaccessible`
     };
   }
+  if (!statResult.isDirectory()) {
+    return {
+      success: false,
+      message: `Invalid working_directory: path "${resolvedDir}" is not a directory`
+    };
+  }
+  const resolvedFallback = path26.resolve(fallbackDirectory);
+  let fallbackExists = false;
+  try {
+    fs16.statSync(resolvedFallback);
+    fallbackExists = true;
+  } catch {
+    fallbackExists = false;
+  }
+  if (workingDirectory != null && workingDirectory !== "") {
+    if (fallbackExists) {
+      const isSubdirectory = resolvedDir.startsWith(resolvedFallback + path26.sep);
+      if (isSubdirectory) {
+        return {
+          success: false,
+          message: `Invalid working_directory: "${workingDirectory}" resolves to "${resolvedDir}" ` + `which is a subdirectory of fallback "${resolvedFallback}". ` + `Pass the project root path or omit working_directory entirely.`
+        };
+      }
+    }
+    return { success: true, directory: resolvedDir };
+  }
+  if (resolvedDir !== resolvedFallback) {
+    return {
+      success: false,
+      message: `Invalid working_directory: path resolves to "${resolvedDir}" but fallbackDirectory ` + `"${resolvedFallback}" is not the project root. ` + `This may indicate CWD mismatch. Pass the project root path explicitly.`
+    };
+  }
+  return { success: true, directory: resolvedDir };
 }
 
 // src/tools/test-runner.ts

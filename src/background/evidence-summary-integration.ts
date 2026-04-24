@@ -29,8 +29,8 @@ export interface EvidenceSummaryIntegrationConfig {
 	automationConfig: AutomationConfig;
 	/** Directory to run evidence analysis in */
 	directory: string;
-	/** Swarm directory for persisting summary artifacts */
-	swarmDir: string;
+	/** Project root directory for persisting summary artifacts under .swarm/ */
+	projectDir: string;
 	/** Filename for the summary artifact (default: evidence-summary.json) */
 	summaryFilename?: string;
 }
@@ -54,12 +54,12 @@ export interface EvidenceSummaryTriggerPayload {
  * Persist evidence summary artifact to disk
  */
 function persistSummary(
-	swarmDir: string,
+	projectDir: string,
 	artifact: EvidenceSummaryArtifact,
 	filename: string,
 ): string {
 	// Ensure .swarm directory exists
-	const swarmPath = path.join(swarmDir, '.swarm');
+	const swarmPath = path.join(projectDir, '.swarm');
 	if (!existsSync(swarmPath)) {
 		mkdirSync(swarmPath, { recursive: true });
 	}
@@ -165,7 +165,7 @@ export class EvidenceSummaryIntegration {
 			// Persist to disk
 			const filename = this.config.summaryFilename ?? 'evidence-summary.json';
 			const artifactPath = persistSummary(
-				this.config.swarmDir,
+				this.config.projectDir,
 				artifact,
 				filename,
 			);

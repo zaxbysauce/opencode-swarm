@@ -15,8 +15,8 @@ export interface EvidenceSummaryIntegrationConfig {
     automationConfig: AutomationConfig;
     /** Directory to run evidence analysis in */
     directory: string;
-    /** Swarm directory for persisting summary artifacts */
-    swarmDir: string;
+    /** Project root directory for persisting summary artifacts under .swarm/ */
+    projectDir: string;
     /** Filename for the summary artifact (default: evidence-summary.json) */
     summaryFilename?: string;
 }

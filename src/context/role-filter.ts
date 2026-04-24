@@ -191,14 +191,6 @@ export function filterByRole(
 		return [];
 	}
 
-	if (!directory) {
-		console.warn(
-			'[role-filter] No directory provided — falling back to process.cwd()',
-		);
-		directory = process.cwd();
-	}
-	const projectDir = directory;
-
 	// Filter entries based on role and tags
 	const filtered: ContextEntry[] = [];
 
@@ -224,8 +216,10 @@ export function filterByRole(
 		}
 	}
 
-	// Log metrics
-	logFilteringMetrics(projectDir, targetRole, entries.length, filtered.length);
+	// Log metrics only when directory is provided — never fall back to cwd
+	if (directory) {
+		logFilteringMetrics(directory, targetRole, entries.length, filtered.length);
+	}
 
 	return filtered;
 }
