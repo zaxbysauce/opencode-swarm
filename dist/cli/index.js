@@ -45086,6 +45086,7 @@ var CONFIG_DIR = path33.join(process.env.XDG_CONFIG_HOME || path33.join(os7.home
 var OPENCODE_CONFIG_PATH = path33.join(CONFIG_DIR, "opencode.json");
 var PLUGIN_CONFIG_PATH = path33.join(CONFIG_DIR, "opencode-swarm.json");
 var PROMPTS_DIR = path33.join(CONFIG_DIR, "opencode-swarm");
+var OPENCODE_PLUGIN_CACHE_PATH = path33.join(process.env.XDG_CACHE_HOME || path33.join(os7.homedir(), ".cache"), "opencode", "packages", "opencode-swarm@latest");
 function ensureDir(dir) {
   if (!fs23.existsSync(dir)) {
     fs23.mkdirSync(dir, { recursive: true });
@@ -45140,6 +45141,15 @@ async function install() {
   saveJson(OPENCODE_CONFIG_PATH, opencodeConfig);
   console.log("\u2713 Added opencode-swarm to OpenCode plugins");
   console.log("\u2713 Disabled default OpenCode agents (explore, general)");
+  try {
+    if (fs23.existsSync(OPENCODE_PLUGIN_CACHE_PATH)) {
+      fs23.rmSync(OPENCODE_PLUGIN_CACHE_PATH, { recursive: true, force: true });
+      console.log("\u2713 Cleared opencode plugin cache (next start will fetch latest)");
+    }
+  } catch {
+    console.warn("\u26A0 Could not clear opencode plugin cache \u2014 you may need to delete it manually:");
+    console.warn(`  ${OPENCODE_PLUGIN_CACHE_PATH}`);
+  }
   if (!fs23.existsSync(PLUGIN_CONFIG_PATH)) {
     const defaultConfig = {
       agents: {

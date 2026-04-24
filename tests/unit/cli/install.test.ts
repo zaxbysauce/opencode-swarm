@@ -1,5 +1,5 @@
 import { afterEach, beforeEach, describe, expect, test } from 'bun:test';
-import { existsSync } from 'node:fs';
+import { chmodSync, existsSync } from 'node:fs';
 import { mkdir, mkdtemp, readFile, rm, writeFile } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
@@ -300,5 +300,156 @@ describe('CLI install command', () => {
 
 		expect(updated.agent.general.disable).toBe(true);
 		expect(updated.agent.general.model).toBe('custom-general');
+	});
+});
+
+describe('CLI install — opencode plugin cache eviction', () => {
+	let tempConfigDir: string;
+	let tempCacheDir: string;
+
+	beforeEach(async () => {
+		tempConfigDir = await mkdtemp(join(tmpdir(), 'opencode-swarm-cfg-'));
+		tempCacheDir = await mkdtemp(join(tmpdir(), 'opencode-swarm-cache-'));
+		await mkdir(join(tempConfigDir, 'opencode'), { recursive: true });
+	});
+
+	afterEach(async () => {
+		for (const dir of [tempConfigDir, tempCacheDir]) {
+			if (existsSync(dir)) await rm(dir, { recursive: true, force: true });
+		}
+	});
+
+	test('Clears stale plugin cache directory when it exists', async () => {
+		// Setup: Create the opencode plugin cache directory (simulating a stale install)
+		const pluginCacheDir = join(
+			tempCacheDir,
+			'opencode',
+			'packages',
+			'opencode-swarm@latest',
+		);
+		await mkdir(pluginCacheDir, { recursive: true });
+		// Write a fake old package.json to simulate cached 6.75.0
+		await mkdir(join(pluginCacheDir, 'node_modules', 'opencode-swarm'), {
+			recursive: true,
+		});
+		await writeFile(
+			join(pluginCacheDir, 'node_modules', 'opencode-swarm', 'package.json'),
+			JSON.stringify({ name: 'opencode-swarm', version: '6.75.0' }),
+		);
+		expect(existsSync(pluginCacheDir)).toBe(true);
+
+		// Run install with both env vars controlled
+		const result = await runCLI(['install'], {
+			XDG_CONFIG_HOME: tempConfigDir,
+			XDG_CACHE_HOME: tempCacheDir,
+		});
+
+		// Assert: exit code 0 and cache-cleared log message
+		expect(result.exitCode).toBe(0);
+		expect(result.stdout).toContain('✓ Cleared opencode plugin cache');
+
+		// Assert: the stale cache directory is gone
+		expect(existsSync(pluginCacheDir)).toBe(false);
+	});
+
+	test('Does not error when plugin cache directory does not exist', async () => {
+		// Setup: No cache directory exists (fresh machine or already cleared)
+		const pluginCacheDir = join(
+			tempCacheDir,
+			'opencode',
+			'packages',
+			'opencode-swarm@latest',
+		);
+		expect(existsSync(pluginCacheDir)).toBe(false);
+
+		// Run install
+		const result = await runCLI(['install'], {
+			XDG_CONFIG_HOME: tempConfigDir,
+			XDG_CACHE_HOME: tempCacheDir,
+		});
+
+		// Assert: exit code 0, no error or warning emitted
+		expect(result.exitCode).toBe(0);
+		expect(result.stdout).not.toContain('Could not clear');
+		expect(result.stderr).toBe('');
+
+		// Assert: no cache-cleared log (nothing to clear)
+		expect(result.stdout).not.toContain('Cleared opencode plugin cache');
+	});
+
+	test('Install is idempotent with cache eviction — second run also succeeds', async () => {
+		// Setup: Create a stale cache directory so the first run exercises the eviction path
+		const pluginCacheDir = join(
+			tempCacheDir,
+			'opencode',
+			'packages',
+			'opencode-swarm@latest',
+		);
+		await mkdir(pluginCacheDir, { recursive: true });
+		expect(existsSync(pluginCacheDir)).toBe(true);
+
+		const env = {
+			XDG_CONFIG_HOME: tempConfigDir,
+			XDG_CACHE_HOME: tempCacheDir,
+		};
+
+		// First run: should clear the stale cache
+		const result1 = await runCLI(['install'], env);
+		expect(result1.exitCode).toBe(0);
+		expect(result1.stdout).toContain('✓ Cleared opencode plugin cache');
+		expect(existsSync(pluginCacheDir)).toBe(false);
+
+		// Second run: cache is already gone; should succeed without error
+		const result2 = await runCLI(['install'], env);
+		expect(result2.exitCode).toBe(0);
+		expect(result2.stderr).toBe('');
+
+		// Plugin entry still correct after both runs
+		const configData = JSON.parse(
+			await readFile(
+				join(tempConfigDir, 'opencode', 'opencode.json'),
+				'utf-8',
+			),
+		);
+		const swarmPlugins = configData.plugin.filter(
+			(p: string) => p === 'opencode-swarm',
+		);
+		expect(swarmPlugins).toHaveLength(1);
+	});
+
+	test('Prints warning to stderr when cache directory cannot be deleted', async () => {
+		// This test requires POSIX permission semantics — skip on Windows and when
+		// running as root (root bypasses permission checks).
+		if (process.platform === 'win32') return;
+		if (typeof process.getuid === 'function' && process.getuid() === 0) return;
+
+		// Setup: Create the cache directory inside a parent that will be made read-only
+		const pluginCacheParent = join(tempCacheDir, 'opencode', 'packages');
+		const pluginCacheDir = join(pluginCacheParent, 'opencode-swarm@latest');
+		await mkdir(pluginCacheDir, { recursive: true });
+
+		// Remove write permission from parent directory so rmSync cannot delete the entry
+		chmodSync(pluginCacheParent, 0o555);
+
+		try {
+			const result = await runCLI(['install'], {
+				XDG_CONFIG_HOME: tempConfigDir,
+				XDG_CACHE_HOME: tempCacheDir,
+			});
+
+			// Install must still succeed — cache-clear failure is non-fatal
+			expect(result.exitCode).toBe(0);
+
+			// Warning must be printed to stderr (console.warn)
+			expect(result.stderr).toContain(
+				'Could not clear opencode plugin cache',
+			);
+
+			// Stale cache directory is still present (we could not delete it)
+			expect(existsSync(pluginCacheDir)).toBe(true);
+		} finally {
+			// Restore permissions so afterEach cleanup can remove the directory
+			chmodSync(pluginCacheParent, 0o755);
+		}
 	});
 });
