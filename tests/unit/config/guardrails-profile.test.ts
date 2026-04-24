@@ -729,6 +729,57 @@ describe('resolveGuardrailsConfig with prefixed agent names', () => {
 	});
 });
 
+describe('resolveGuardrailsConfig rate-limit hardened profiles (v6.84.1)', () => {
+	const base: GuardrailsConfig = {
+		enabled: true,
+		max_tool_calls: 100,
+		max_duration_minutes: 30,
+		max_repetitions: 10,
+		max_consecutive_errors: 5,
+		warning_threshold: 0.75,
+		idle_timeout_minutes: 60,
+	};
+
+	it('test_engineer gets max_consecutive_errors=8 from built-in profile', () => {
+		const result = resolveGuardrailsConfig(base, 'test_engineer');
+		expect(result.max_consecutive_errors).toBe(8);
+		expect(result.max_tool_calls).toBe(400); // Also verify other built-in values
+		expect(result.max_duration_minutes).toBe(45);
+	});
+
+	it('explorer gets max_consecutive_errors=8 from built-in profile', () => {
+		const result = resolveGuardrailsConfig(base, 'explorer');
+		expect(result.max_consecutive_errors).toBe(8);
+		expect(result.max_tool_calls).toBe(150); // Also verify other built-in values
+		expect(result.max_duration_minutes).toBe(20);
+	});
+
+	it('reviewer gets max_consecutive_errors=8 from built-in profile', () => {
+		const result = resolveGuardrailsConfig(base, 'reviewer');
+		expect(result.max_consecutive_errors).toBe(8);
+		expect(result.max_tool_calls).toBe(200); // Also verify other built-in values
+		expect(result.max_duration_minutes).toBe(30);
+	});
+
+	it('DEFAULT_AGENT_PROFILES has max_consecutive_errors=8 for hardened agents', () => {
+		expect(DEFAULT_AGENT_PROFILES.coder.max_consecutive_errors).toBe(8);
+		expect(DEFAULT_AGENT_PROFILES.test_engineer.max_consecutive_errors).toBe(8);
+		expect(DEFAULT_AGENT_PROFILES.explorer.max_consecutive_errors).toBe(8);
+		expect(DEFAULT_AGENT_PROFILES.reviewer.max_consecutive_errors).toBe(8);
+	});
+
+	it('user profile can override hardened agent max_consecutive_errors', () => {
+		const config: GuardrailsConfig = {
+			...base,
+			profiles: {
+				explorer: { max_consecutive_errors: 6 },
+			},
+		};
+		const result = resolveGuardrailsConfig(config, 'explorer');
+		expect(result.max_consecutive_errors).toBe(6); // User override wins
+	});
+});
+
 describe('GuardrailsProfileSchema idle_timeout_minutes', () => {
 	it('valid idle_timeout_minutes parses', () => {
 		const result = GuardrailsProfileSchema.parse({ idle_timeout_minutes: 30 });
