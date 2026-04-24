@@ -1452,7 +1452,7 @@ export function createGuardrailsHooks(
 				window.consecutiveErrors,
 			);
 			throw new Error(
-				`🛑 LIMIT REACHED: ${window.consecutiveErrors} consecutive tool errors detected. Return your progress summary with details of what went wrong.`,
+				`🛑 LIMIT REACHED: ${window.consecutiveErrors} consecutive tool errors detected. Return your progress summary with details of what went wrong. Run /swarm reset-session to clear the circuit breaker without restarting your session.`,
 			);
 		}
 
@@ -2444,84 +2444,88 @@ export function createGuardrailsHooks(
 			const hasError = output.output === null || output.output === undefined;
 
 			if (hasError) {
-				window.consecutiveErrors++;
+				const outputStr =
+					typeof output.output === 'string' ? output.output : '';
+				// output.error may contain error message for failed tool calls (not in TS type but present at runtime)
+				const errorContent =
+					(output as Record<string, unknown>).error ?? outputStr;
+
+				// v6.33: Transient model errors (429, 503, timeout, overloaded) while fallback
+				// models are still available do not count toward consecutiveErrors — these are
+				// infrastructure failures, not agent logic errors. Once modelFallbackExhausted
+				// is true all retries are spent, so errors count normally to eventually halt.
+				const isTransient =
+					!!session &&
+					!session.modelFallbackExhausted &&
+					typeof errorContent === 'string' &&
+					TRANSIENT_MODEL_ERROR_PATTERN.test(errorContent);
+
+				if (!isTransient) {
+					window.consecutiveErrors++;
+				}
 
 				// v6.33: Model fallback detection for transient model failures
 				// Only check for subagent sessions (not architect)
-				if (session) {
-					const outputStr =
-						typeof output.output === 'string' ? output.output : '';
-					// output.error may contain error message for failed tool calls (not in TS type but present at runtime)
-					const errorContent =
-						(output as Record<string, unknown>).error ?? outputStr;
+				if (session && isTransient) {
+					// Increment fallback index
+					session.model_fallback_index++;
 
-					if (
-						typeof errorContent === 'string' &&
-						TRANSIENT_MODEL_ERROR_PATTERN.test(errorContent) &&
-						!session.modelFallbackExhausted
-					) {
-						// Increment fallback index
-						session.model_fallback_index++;
+					// Resolve the fallback model from config
+					const baseAgentName = session.agentName
+						? session.agentName.replace(/^[^_]+[_]/, '')
+						: '';
+					const swarmAgents = getSwarmAgents();
+					const fallbackModels = swarmAgents?.[baseAgentName]?.fallback_models;
+					// Mark exhausted only when all fallback models have been tried
+					session.modelFallbackExhausted =
+						!fallbackModels ||
+						session.model_fallback_index > fallbackModels.length;
 
-						// Resolve the fallback model from config
-						const baseAgentName = session.agentName
-							? session.agentName.replace(/^[^_]+[_]/, '')
-							: '';
-						const swarmAgents = getSwarmAgents();
-						const fallbackModels =
-							swarmAgents?.[baseAgentName]?.fallback_models;
-						// Mark exhausted only when all fallback models have been tried
-						session.modelFallbackExhausted =
-							!fallbackModels ||
-							session.model_fallback_index > fallbackModels.length;
+					const fallbackModel = resolveFallbackModel(
+						baseAgentName,
+						session.model_fallback_index,
+						swarmAgents,
+					);
 
-						const fallbackModel = resolveFallbackModel(
-							baseAgentName,
-							session.model_fallback_index,
-							swarmAgents,
-						);
+					// Resolve primary model name for telemetry before applying fallback
+					const primaryModel = swarmAgents?.[baseAgentName]?.model ?? 'default';
 
-						// Resolve primary model name for telemetry before applying fallback
-						const primaryModel =
-							swarmAgents?.[baseAgentName]?.model ?? 'default';
-
-						if (fallbackModel) {
-							// Actually apply the fallback model to the agent config
-							if (swarmAgents?.[baseAgentName]) {
-								swarmAgents[baseAgentName].model = fallbackModel;
-							}
-
-							// Inject actionable advisory with the specific fallback model
-							session.pendingAdvisoryMessages ??= [];
-							session.pendingAdvisoryMessages.push(
-								`MODEL FALLBACK: Applied fallback model "${fallbackModel}" (attempt ${session.model_fallback_index}). ` +
-									`Using /swarm handoff to reset to primary model.`,
-							);
-						} else {
-							// No fallback configured — generic advisory
-							session.pendingAdvisoryMessages ??= [];
-							session.pendingAdvisoryMessages.push(
-								`MODEL FALLBACK: Transient model error detected (attempt ${session.model_fallback_index}). ` +
-									`No fallback models configured for this agent. Add "fallback_models": ["model-a", "model-b"] ` +
-									`to the agent's config in opencode-swarm.json.`,
-							);
+					if (fallbackModel) {
+						// Actually apply the fallback model to the agent config
+						if (swarmAgents?.[baseAgentName]) {
+							swarmAgents[baseAgentName].model = fallbackModel;
 						}
 
-						// Always emit telemetry when a transient model error is detected
-						telemetry.modelFallback(
-							input.sessionID,
-							session.agentName,
-							primaryModel,
-							fallbackModel ?? 'none',
-							'transient_model_error',
+						// Inject actionable advisory with the specific fallback model
+						session.pendingAdvisoryMessages ??= [];
+						session.pendingAdvisoryMessages.push(
+							`MODEL FALLBACK: Applied fallback model "${fallbackModel}" (attempt ${session.model_fallback_index}). ` +
+								`Using /swarm handoff to reset to primary model.`,
 						);
-
-						// Track event for telemetry
-						swarmState.pendingEvents++;
-
-						// Reset fallback index on next successful task completion
-						// (handled by the success path below)
+					} else {
+						// No fallback configured — generic advisory
+						session.pendingAdvisoryMessages ??= [];
+						session.pendingAdvisoryMessages.push(
+							`MODEL FALLBACK: Transient model error detected (attempt ${session.model_fallback_index}). ` +
+								`No fallback models configured for this agent. Add "fallback_models": ["model-a", "model-b"] ` +
+								`to the agent's config in opencode-swarm.json.`,
+						);
 					}
+
+					// Always emit telemetry when a transient model error is detected
+					telemetry.modelFallback(
+						input.sessionID,
+						session.agentName,
+						primaryModel,
+						fallbackModel ?? 'none',
+						'transient_model_error',
+					);
+
+					// Track event for telemetry
+					swarmState.pendingEvents++;
+
+					// Reset fallback index on next successful task completion
+					// (handled by the success path below)
 				}
 			} else {
 				window.consecutiveErrors = 0;

@@ -240,7 +240,7 @@ describe('resolveGuardrailsConfig', () => {
 		expect(result.max_tool_calls).toBe(20); // User profile override
 		expect(result.max_duration_minutes).toBe(45); // Built-in profile
 		expect(result.max_repetitions).toBe(10); // Base value
-		expect(result.max_consecutive_errors).toBe(5); // Base value
+		expect(result.max_consecutive_errors).toBe(8); // Built-in coder profile (v6.84.1 rate limit hardening)
 		expect(result.warning_threshold).toBe(0.7); // User profile override (0.7), not built-in (0.85)
 	});
 

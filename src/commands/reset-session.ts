@@ -67,6 +67,6 @@ export async function handleResetSessionCommand(
 		'',
 		'Session state cleared. Plan, evidence, and knowledge preserved.',
 		'',
-		'**Next step:** Start a new OpenCode session. The plugin will initialize fresh session state on startup.',
+		'**All circuit breakers and revision limits have been cleared.** You can continue in this session — fresh state will be initialized automatically on the next tool call.',
 	].join('\n');
 }

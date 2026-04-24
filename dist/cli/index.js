@@ -19286,21 +19286,25 @@ var DEFAULT_AGENT_PROFILES = {
   coder: {
     max_tool_calls: 400,
     max_duration_minutes: 45,
+    max_consecutive_errors: 8,
     warning_threshold: 0.85
   },
   test_engineer: {
     max_tool_calls: 400,
     max_duration_minutes: 45,
+    max_consecutive_errors: 8,
     warning_threshold: 0.85
   },
   explorer: {
     max_tool_calls: 150,
     max_duration_minutes: 20,
+    max_consecutive_errors: 8,
     warning_threshold: 0.75
   },
   reviewer: {
     max_tool_calls: 200,
     max_duration_minutes: 30,
+    max_consecutive_errors: 8,
     warning_threshold: 0.65
   },
   critic: {
@@ -44338,7 +44342,7 @@ async function handleResetSessionCommand(directory, _args) {
     "",
     "Session state cleared. Plan, evidence, and knowledge preserved.",
     "",
-    "**Next step:** Start a new OpenCode session. The plugin will initialize fresh session state on startup."
+    "**All circuit breakers and revision limits have been cleared.** You can continue in this session \u2014 fresh state will be initialized automatically on the next tool call."
   ].join(`
 `);
 }

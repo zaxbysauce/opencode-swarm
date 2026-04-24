@@ -534,21 +534,25 @@ export const DEFAULT_AGENT_PROFILES: Record<string, GuardrailsProfile> = {
 	coder: {
 		max_tool_calls: 400,
 		max_duration_minutes: 45,
+		max_consecutive_errors: 8,
 		warning_threshold: 0.85,
 	},
 	test_engineer: {
 		max_tool_calls: 400,
 		max_duration_minutes: 45,
+		max_consecutive_errors: 8,
 		warning_threshold: 0.85,
 	},
 	explorer: {
 		max_tool_calls: 150,
 		max_duration_minutes: 20,
+		max_consecutive_errors: 8,
 		warning_threshold: 0.75,
 	},
 	reviewer: {
 		max_tool_calls: 200,
 		max_duration_minutes: 30,
+		max_consecutive_errors: 8,
 		warning_threshold: 0.65,
 	},
 	critic: {
