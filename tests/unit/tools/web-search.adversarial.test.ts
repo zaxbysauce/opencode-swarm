@@ -18,16 +18,19 @@
  */
 
 import { afterEach, beforeEach, describe, expect, test, vi } from 'bun:test';
+import { loadPluginConfig } from '../../../src/config/loader.js';
 import type { GeneralCouncilConfig } from '../../../src/council/general-council-types.js';
 import {
+	createWebSearchProvider,
 	WebSearchConfigError,
 	WebSearchError,
-	createWebSearchProvider,
 } from '../../../src/council/web-search-provider.js';
-import { loadPluginConfig } from '../../../src/config/loader.js';
 
 // Mock the provider to prevent actual search calls
-const mockSearch = vi.fn<[string, number], Promise<Array<{ title: string; url: string; snippet: string }>>>();
+const mockSearch = vi.fn<
+	[string, number],
+	Promise<Array<{ title: string; url: string; snippet: string }>>
+>();
 const mockCreateProvider = vi.fn(() => ({
 	search: mockSearch,
 }));
@@ -47,7 +50,9 @@ const ORIGINAL_FETCH = globalThis.fetch;
 
 const mockLoadPluginConfig = loadPluginConfig as ReturnType<typeof vi.fn>;
 
-function buildConfig(overrides: Partial<GeneralCouncilConfig> = {}): { council?: { general?: GeneralCouncilConfig } } {
+function buildConfig(overrides: Partial<GeneralCouncilConfig> = {}): {
+	council?: { general?: GeneralCouncilConfig };
+} {
 	return {
 		council: {
 			general: {
@@ -86,7 +91,10 @@ describe('Adversarial: max_results validation', () => {
 			execute: (args: unknown, dir: string) => Promise<string>;
 		};
 
-		const result = await wrapped.execute({ query: 'test', max_results: 0 }, '/tmp/test');
+		const result = await wrapped.execute(
+			{ query: 'test', max_results: 0 },
+			'/tmp/test',
+		);
 		const parsed = JSON.parse(result);
 
 		expect(parsed.success).toBe(false);
@@ -105,7 +113,10 @@ describe('Adversarial: max_results validation', () => {
 			execute: (args: unknown, dir: string) => Promise<string>;
 		};
 
-		const result = await wrapped.execute({ query: 'test', max_results: -1 }, '/tmp/test');
+		const result = await wrapped.execute(
+			{ query: 'test', max_results: -1 },
+			'/tmp/test',
+		);
 		const parsed = JSON.parse(result);
 
 		expect(parsed.success).toBe(false);
@@ -123,7 +134,10 @@ describe('Adversarial: max_results validation', () => {
 		};
 
 		// NaN is technically a number type but fails .int() check
-		const result = await wrapped.execute({ query: 'test', max_results: NaN }, '/tmp/test');
+		const result = await wrapped.execute(
+			{ query: 'test', max_results: NaN },
+			'/tmp/test',
+		);
 		const parsed = JSON.parse(result);
 
 		expect(parsed.success).toBe(false);
@@ -140,7 +154,10 @@ describe('Adversarial: max_results validation', () => {
 			execute: (args: unknown, dir: string) => Promise<string>;
 		};
 
-		const result = await wrapped.execute({ query: 'test', max_results: Infinity }, '/tmp/test');
+		const result = await wrapped.execute(
+			{ query: 'test', max_results: Infinity },
+			'/tmp/test',
+		);
 		const parsed = JSON.parse(result);
 
 		expect(parsed.success).toBe(false);
@@ -158,7 +175,10 @@ describe('Adversarial: max_results validation', () => {
 		};
 
 		// @ts-expect-error — intentionally passing wrong type to test runtime validation
-		const result = await wrapped.execute({ query: 'test', max_results: '10' }, '/tmp/test');
+		const result = await wrapped.execute(
+			{ query: 'test', max_results: '10' },
+			'/tmp/test',
+		);
 		const parsed = JSON.parse(result);
 
 		expect(parsed.success).toBe(false);
@@ -175,7 +195,10 @@ describe('Adversarial: max_results validation', () => {
 			execute: (args: unknown, dir: string) => Promise<string>;
 		};
 
-		const result = await wrapped.execute({ query: 'test', max_results: 21 }, '/tmp/test');
+		const result = await wrapped.execute(
+			{ query: 'test', max_results: 21 },
+			'/tmp/test',
+		);
 		const parsed = JSON.parse(result);
 
 		expect(parsed.success).toBe(false);
@@ -198,7 +221,9 @@ describe('Adversarial: config maxSourcesPerMember validation', () => {
 	test('7. Config maxSourcesPerMember = 0 should fail Zod validation at config load time', async () => {
 		// This tests the schema validation in src/config/schema.ts
 		// GeneralCouncilConfigSchema.safeParse rejects values below min(1)
-		const { GeneralCouncilConfigSchema } = await import('../../../src/config/schema.js');
+		const { GeneralCouncilConfigSchema } = await import(
+			'../../../src/config/schema.js'
+		);
 
 		const result = GeneralCouncilConfigSchema.safeParse({
 			maxSourcesPerMember: 0,
@@ -206,12 +231,16 @@ describe('Adversarial: config maxSourcesPerMember validation', () => {
 
 		expect(result.success).toBe(false);
 		if (!result.success) {
-			expect(result.error.issues.some(i => i.path.includes('maxSourcesPerMember'))).toBe(true);
+			expect(
+				result.error.issues.some((i) => i.path.includes('maxSourcesPerMember')),
+			).toBe(true);
 		}
 	});
 
 	test('8. Config maxSourcesPerMember = 21 should fail Zod validation', async () => {
-		const { GeneralCouncilConfigSchema } = await import('../../../src/config/schema.js');
+		const { GeneralCouncilConfigSchema } = await import(
+			'../../../src/config/schema.js'
+		);
 
 		const result = GeneralCouncilConfigSchema.safeParse({
 			maxSourcesPerMember: 21,
@@ -219,7 +248,9 @@ describe('Adversarial: config maxSourcesPerMember validation', () => {
 
 		expect(result.success).toBe(false);
 		if (!result.success) {
-			expect(result.error.issues.some(i => i.path.includes('maxSourcesPerMember'))).toBe(true);
+			expect(
+				result.error.issues.some((i) => i.path.includes('maxSourcesPerMember')),
+			).toBe(true);
 		}
 	});
 });

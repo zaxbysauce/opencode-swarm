@@ -11,16 +11,19 @@
  */
 
 import { afterEach, beforeEach, describe, expect, test, vi } from 'bun:test';
+import { loadPluginConfig } from '../../../src/config/loader.js';
 import type { GeneralCouncilConfig } from '../../../src/council/general-council-types.js';
 import {
+	createWebSearchProvider,
 	WebSearchConfigError,
 	WebSearchError,
-	createWebSearchProvider,
 } from '../../../src/council/web-search-provider.js';
-import { loadPluginConfig } from '../../../src/config/loader.js';
 
 // Mock the provider to capture the maxResults argument
-const mockSearch = vi.fn<[string, number], Promise<Array<{ title: string; url: string; snippet: string }>>>();
+const mockSearch = vi.fn<
+	[string, number],
+	Promise<Array<{ title: string; url: string; snippet: string }>>
+>();
 const mockCreateProvider = vi.fn(() => ({
 	search: mockSearch,
 }));
@@ -40,7 +43,9 @@ const ORIGINAL_FETCH = globalThis.fetch;
 
 const mockLoadPluginConfig = loadPluginConfig as ReturnType<typeof vi.fn>;
 
-function buildConfig(overrides: Partial<GeneralCouncilConfig> = {}): { council?: { general?: GeneralCouncilConfig } } {
+function buildConfig(overrides: Partial<GeneralCouncilConfig> = {}): {
+	council?: { general?: GeneralCouncilConfig };
+} {
 	return {
 		council: {
 			general: {
@@ -72,7 +77,9 @@ describe('max_results resolution', () => {
 
 	test('1. When max_results arg is omitted, uses generalConfig.maxSourcesPerMember', async () => {
 		// maxSourcesPerMember = 7
-		mockLoadPluginConfig.mockReturnValue(buildConfig({ maxSourcesPerMember: 7 }));
+		mockLoadPluginConfig.mockReturnValue(
+			buildConfig({ maxSourcesPerMember: 7 }),
+		);
 		mockCreateProvider.mockReturnValue({ search: mockSearch });
 
 		const { web_search } = await import('../../../src/tools/web-search.js');
@@ -88,7 +95,9 @@ describe('max_results resolution', () => {
 
 	test('2. When max_results is provided, it overrides the config default', async () => {
 		// config has maxSourcesPerMember = 5, but arg provides max_results = 3
-		mockLoadPluginConfig.mockReturnValue(buildConfig({ maxSourcesPerMember: 5 }));
+		mockLoadPluginConfig.mockReturnValue(
+			buildConfig({ maxSourcesPerMember: 5 }),
+		);
 		mockCreateProvider.mockReturnValue({ search: mockSearch });
 
 		const { web_search } = await import('../../../src/tools/web-search.js');
@@ -104,7 +113,9 @@ describe('max_results resolution', () => {
 
 	test('3. Values above MAX_RESULTS_HARD_CAP (10) are clamped', async () => {
 		// config has maxSourcesPerMember = 5, arg provides max_results = 20 (above hard cap of 10)
-		mockLoadPluginConfig.mockReturnValue(buildConfig({ maxSourcesPerMember: 5 }));
+		mockLoadPluginConfig.mockReturnValue(
+			buildConfig({ maxSourcesPerMember: 5 }),
+		);
 		mockCreateProvider.mockReturnValue({ search: mockSearch });
 
 		const { web_search } = await import('../../../src/tools/web-search.js');
@@ -120,7 +131,9 @@ describe('max_results resolution', () => {
 
 	test('3b. Config value above hard cap is also clamped', async () => {
 		// config has maxSourcesPerMember = 15 (above hard cap of 10), no arg
-		mockLoadPluginConfig.mockReturnValue(buildConfig({ maxSourcesPerMember: 15 }));
+		mockLoadPluginConfig.mockReturnValue(
+			buildConfig({ maxSourcesPerMember: 15 }),
+		);
 		mockCreateProvider.mockReturnValue({ search: mockSearch });
 
 		const { web_search } = await import('../../../src/tools/web-search.js');
@@ -136,7 +149,9 @@ describe('max_results resolution', () => {
 
 	test('4. Config default of 5 is respected when council.general is enabled', async () => {
 		// Default maxSourcesPerMember = 5 (from GENERAL_COUNCIL_DEFAULTS)
-		mockLoadPluginConfig.mockReturnValue(buildConfig({ maxSourcesPerMember: 5 }));
+		mockLoadPluginConfig.mockReturnValue(
+			buildConfig({ maxSourcesPerMember: 5 }),
+		);
 		mockCreateProvider.mockReturnValue({ search: mockSearch });
 
 		const { web_search } = await import('../../../src/tools/web-search.js');
@@ -151,7 +166,9 @@ describe('max_results resolution', () => {
 	});
 
 	test('Edge: max_results of 1 is respected (below hard cap)', async () => {
-		mockLoadPluginConfig.mockReturnValue(buildConfig({ maxSourcesPerMember: 5 }));
+		mockLoadPluginConfig.mockReturnValue(
+			buildConfig({ maxSourcesPerMember: 5 }),
+		);
 		mockCreateProvider.mockReturnValue({ search: mockSearch });
 
 		const { web_search } = await import('../../../src/tools/web-search.js');
@@ -165,7 +182,9 @@ describe('max_results resolution', () => {
 	});
 
 	test('Edge: max_results of 10 equals hard cap (boundary)', async () => {
-		mockLoadPluginConfig.mockReturnValue(buildConfig({ maxSourcesPerMember: 5 }));
+		mockLoadPluginConfig.mockReturnValue(
+			buildConfig({ maxSourcesPerMember: 5 }),
+		);
 		mockCreateProvider.mockReturnValue({ search: mockSearch });
 
 		const { web_search } = await import('../../../src/tools/web-search.js');
