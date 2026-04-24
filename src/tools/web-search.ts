@@ -7,7 +7,7 @@
  * configuration via WebSearchConfigError, which this tool maps to a structured
  * `success: false` response.
  *
- * Hard cap on max_results = 10 (clamped silently). Default = 5.
+ * Hard cap on max_results = 10 (clamped silently). Default sourced from council.general.maxSourcesPerMember.
  */
 
 import { tool } from '@opencode-ai/plugin';
@@ -22,7 +22,6 @@ import { createSwarmTool } from './create-tool';
 import { resolveWorkingDirectory } from './resolve-working-directory';
 
 const MAX_RESULTS_HARD_CAP = 10;
-const DEFAULT_MAX_RESULTS = 5;
 
 const ArgsSchema = z.object({
 	query: z.string().min(1).max(500),
@@ -47,7 +46,7 @@ export const web_search: ReturnType<typeof tool> = createSwarmTool({
 	description:
 		'External web search for council member agents. Returns titled results with snippets and URLs. ' +
 		'Restricted to council_member agents via AGENT_TOOL_MAP. Requires council.general.enabled and a ' +
-		'configured search API key (Tavily or Brave). max_results is capped at 10.',
+		'configured search API key (Tavily or Brave). max_results is capped at 10 with default from council.general.maxSourcesPerMember.',
 	args: {
 		query: tool.schema
 			.string()
@@ -61,7 +60,7 @@ export const web_search: ReturnType<typeof tool> = createSwarmTool({
 			.max(20)
 			.optional()
 			.describe(
-				`Number of results to request (1–20). Hard-capped at ${MAX_RESULTS_HARD_CAP}. Default ${DEFAULT_MAX_RESULTS}.`,
+				`Number of results to request (1–20). Hard-capped at ${MAX_RESULTS_HARD_CAP}. Defaults to council.general.maxSourcesPerMember.`,
 			),
 		working_directory: tool.schema
 			.string()
@@ -106,7 +105,8 @@ export const web_search: ReturnType<typeof tool> = createSwarmTool({
 			return JSON.stringify(fail, null, 2);
 		}
 
-		const requested = parsed.data.max_results ?? DEFAULT_MAX_RESULTS;
+		const requested =
+			parsed.data.max_results ?? generalConfig.maxSourcesPerMember;
 		const maxResults = Math.min(requested, MAX_RESULTS_HARD_CAP);
 
 		let provider: ReturnType<typeof createWebSearchProvider>;

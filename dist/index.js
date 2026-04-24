@@ -87555,17 +87555,16 @@ function createWebSearchProvider(config3) {
 init_create_tool();
 init_resolve_working_directory();
 var MAX_RESULTS_HARD_CAP = 10;
-var DEFAULT_MAX_RESULTS2 = 5;
 var ArgsSchema4 = exports_external.object({
   query: exports_external.string().min(1).max(500),
   max_results: exports_external.number().int().min(1).max(20).optional(),
   working_directory: exports_external.string().optional()
 });
 var web_search = createSwarmTool({
-  description: "External web search for council member agents. Returns titled results with snippets and URLs. " + "Restricted to council_member agents via AGENT_TOOL_MAP. Requires council.general.enabled and a " + "configured search API key (Tavily or Brave). max_results is capped at 10.",
+  description: "External web search for council member agents. Returns titled results with snippets and URLs. " + "Restricted to council_member agents via AGENT_TOOL_MAP. Requires council.general.enabled and a " + "configured search API key (Tavily or Brave). max_results is capped at 10 with default from council.general.maxSourcesPerMember.",
   args: {
     query: tool.schema.string().min(1).max(500).describe("Search query string (1\u2013500 characters)."),
-    max_results: tool.schema.number().int().min(1).max(20).optional().describe(`Number of results to request (1\u201320). Hard-capped at ${MAX_RESULTS_HARD_CAP}. Default ${DEFAULT_MAX_RESULTS2}.`),
+    max_results: tool.schema.number().int().min(1).max(20).optional().describe(`Number of results to request (1\u201320). Hard-capped at ${MAX_RESULTS_HARD_CAP}. Defaults to council.general.maxSourcesPerMember.`),
     working_directory: tool.schema.string().optional().describe("Project root for config resolution. Optional.")
   },
   execute: async (args2, directory) => {
@@ -87597,7 +87596,7 @@ var web_search = createSwarmTool({
       };
       return JSON.stringify(fail, null, 2);
     }
-    const requested = parsed.data.max_results ?? DEFAULT_MAX_RESULTS2;
+    const requested = parsed.data.max_results ?? generalConfig.maxSourcesPerMember;
     const maxResults = Math.min(requested, MAX_RESULTS_HARD_CAP);
     let provider;
     try {
