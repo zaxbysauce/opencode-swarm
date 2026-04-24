@@ -406,10 +406,7 @@ describe('CLI install — opencode plugin cache eviction', () => {
 
 		// Plugin entry still correct after both runs
 		const configData = JSON.parse(
-			await readFile(
-				join(tempConfigDir, 'opencode', 'opencode.json'),
-				'utf-8',
-			),
+			await readFile(join(tempConfigDir, 'opencode', 'opencode.json'), 'utf-8'),
 		);
 		const swarmPlugins = configData.plugin.filter(
 			(p: string) => p === 'opencode-swarm',
@@ -441,9 +438,7 @@ describe('CLI install — opencode plugin cache eviction', () => {
 			expect(result.exitCode).toBe(0);
 
 			// Warning must be printed to stderr (console.warn)
-			expect(result.stderr).toContain(
-				'Could not clear opencode plugin cache',
-			);
+			expect(result.stderr).toContain('Could not clear opencode plugin cache');
 
 			// Stale cache directory is still present (we could not delete it)
 			expect(existsSync(pluginCacheDir)).toBe(true);
