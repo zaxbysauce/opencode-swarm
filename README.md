@@ -17,8 +17,10 @@
 OpenCode Swarm is a plugin for [OpenCode](https://opencode.ai) that turns a single AI coding session into an **architect-led team of 11 specialized agents**. One agent writes the code. A different agent reviews it. Another writes and runs tests. Another checks security. **Nothing ships until every required gate passes.**
 
 ```bash
-npm install -g opencode-swarm
+bunx opencode-swarm install
 ```
+
+> This single command installs the package, registers it as an OpenCode plugin, disables conflicting default agents, and creates a ready-to-edit config at `~/.config/opencode/opencode-swarm.json`. Requires [Bun](https://bun.sh) (`bun --version` to check). If you must use npm: `npm install -g opencode-swarm && opencode-swarm install`.
 
 ### Why Swarm?
 
