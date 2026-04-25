@@ -1,5 +1,12 @@
 # Changelog
 
+## [6.84.3](https://github.com/zaxbysauce/opencode-swarm/compare/v6.84.2...v6.84.3) (2026-04-25)
+
+
+### Bug Fixes
+
+* add 'diagnosis' as alias for 'diagnose' command (issue [#588](https://github.com/zaxbysauce/opencode-swarm/issues/588)) ([#610](https://github.com/zaxbysauce/opencode-swarm/issues/610)) ([8a45fd6](https://github.com/zaxbysauce/opencode-swarm/commit/8a45fd6e5394c68b5bdd516d4e1f133323b0541f))
+
 ## [6.84.2](https://github.com/zaxbysauce/opencode-swarm/compare/v6.84.1...v6.84.2) (2026-04-24)
 
 
