@@ -177,12 +177,16 @@ const OpenCodeSwarm: Plugin = async (ctx) => {
 
 	// v6.18 Session persistence — restore state from previous session (non-blocking)
 	await loadSnapshot(ctx.directory);
+	// Initialize telemetry first to create .swarm/ directory synchronously.
+	// This is a defensive second layer — the repo graph hook also defensively
+	// creates .swarm/ before writing, but we want it to exist before the async
+	// write is dispatched by the libuv worker.
+	initTelemetry(ctx.directory);
 	// Non-blocking: build repo graph in background
 	const repoGraphHook = createRepoGraphBuilderHook(ctx.directory);
 	repoGraphHook.init().catch(() => {
 		/* already logged inside init */
 	});
-	initTelemetry(ctx.directory);
 	const agents = getAgentConfigs(config, ctx.directory);
 	const agentDefinitions = createAgents(config);
 

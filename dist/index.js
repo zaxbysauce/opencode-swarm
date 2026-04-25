@@ -62150,7 +62150,7 @@ __export(exports_doc_scan, {
 });
 import * as crypto7 from "crypto";
 import * as fs45 from "fs";
-import { mkdir as mkdir8, readFile as readFile8, writeFile as writeFile8 } from "fs/promises";
+import { mkdir as mkdir9, readFile as readFile8, writeFile as writeFile8 } from "fs/promises";
 import * as path59 from "path";
 function normalizeSeparators(filePath) {
   return filePath.replace(/\\/g, "/");
@@ -62322,7 +62322,7 @@ async function scanDocIndex(directory) {
     files: discoveredFiles
   };
   try {
-    await mkdir8(path59.dirname(manifestPath), { recursive: true });
+    await mkdir9(path59.dirname(manifestPath), { recursive: true });
     await writeFile8(manifestPath, JSON.stringify(manifest, null, 2), "utf-8");
   } catch {}
   return { manifest, cached: false };
@@ -65525,6 +65525,7 @@ async function saveGraph(workspace, graph, options) {
   const graphPath = getGraphPath(workspace);
   updateGraphMetadata(graph);
   const tempPath = `${graphPath}.tmp.${Date.now()}.${Math.floor(Math.random() * 1e9)}`;
+  await fsPromises3.mkdir(path49.dirname(tempPath), { recursive: true });
   let lastError = null;
   try {
     if (options?.createAtomic) {
@@ -65735,16 +65736,21 @@ function buildWorkspaceGraph(workspaceRoot, options) {
     stats.filesScanned++;
     const ext = path49.extname(filePath).toLowerCase();
     let exports = [];
-    if ([".ts", ".tsx", ".js", ".jsx", ".mjs", ".cjs"].includes(ext)) {
-      const relativePath = path49.relative(absoluteRoot, filePath);
-      const symbols2 = extractTSSymbols(relativePath, absoluteRoot);
-      exports = symbols2.filter((s) => s.exported).map((s) => s.name);
-    } else if (ext === ".py") {
-      const relativePath = path49.relative(absoluteRoot, filePath);
-      const symbols2 = extractPythonSymbols(relativePath, absoluteRoot);
-      exports = symbols2.filter((s) => s.exported).map((s) => s.name);
+    let parsedImports = [];
+    try {
+      if ([".ts", ".tsx", ".js", ".jsx", ".mjs", ".cjs"].includes(ext)) {
+        const relativePath = path49.relative(absoluteRoot, filePath);
+        const symbols2 = extractTSSymbols(relativePath, absoluteRoot);
+        exports = symbols2.filter((s) => s.exported).map((s) => s.name);
+      } else if (ext === ".py") {
+        const relativePath = path49.relative(absoluteRoot, filePath);
+        const symbols2 = extractPythonSymbols(relativePath, absoluteRoot);
+        exports = symbols2.filter((s) => s.exported).map((s) => s.name);
+      }
+      parsedImports = parseFileImports(content);
+    } catch {
+      continue;
     }
-    const parsedImports = parseFileImports(content);
     const node = {
       filePath,
       moduleName: toModuleName(filePath, absoluteRoot),
@@ -65796,38 +65802,42 @@ function scanFile(filePath, absoluteRoot, maxFileSize) {
   }
   const ext = path49.extname(filePath).toLowerCase();
   let exports = [];
-  if ([".ts", ".tsx", ".js", ".jsx", ".mjs", ".cjs"].includes(ext)) {
-    const relativePath = path49.relative(absoluteRoot, filePath);
-    const symbols2 = extractTSSymbols(relativePath, absoluteRoot);
-    exports = symbols2.filter((s) => s.exported).map((s) => s.name);
-  } else if (ext === ".py") {
-    const relativePath = path49.relative(absoluteRoot, filePath);
-    const symbols2 = extractPythonSymbols(relativePath, absoluteRoot);
-    exports = symbols2.filter((s) => s.exported).map((s) => s.name);
-  }
-  const parsedImports = parseFileImports(content);
-  const node = {
-    filePath,
-    moduleName: toModuleName(filePath, absoluteRoot),
-    exports,
-    imports: parsedImports.map((p) => p.specifier),
-    language: getLanguage(filePath),
-    mtime: fileStats.mtime.toISOString()
-  };
-  const edges = [];
-  const sortedImports = [...parsedImports].sort((a, b) => a.specifier.localeCompare(b.specifier));
-  for (const parsed of sortedImports) {
-    const resolvedTarget = resolveModuleSpecifier(absoluteRoot, filePath, parsed.specifier);
-    if (resolvedTarget !== null) {
-      edges.push({
-        source: filePath,
-        target: resolvedTarget,
-        importSpecifier: parsed.specifier,
-        importType: parsed.importType
-      });
+  try {
+    if ([".ts", ".tsx", ".js", ".jsx", ".mjs", ".cjs"].includes(ext)) {
+      const relativePath = path49.relative(absoluteRoot, filePath);
+      const symbols2 = extractTSSymbols(relativePath, absoluteRoot);
+      exports = symbols2.filter((s) => s.exported).map((s) => s.name);
+    } else if (ext === ".py") {
+      const relativePath = path49.relative(absoluteRoot, filePath);
+      const symbols2 = extractPythonSymbols(relativePath, absoluteRoot);
+      exports = symbols2.filter((s) => s.exported).map((s) => s.name);
     }
+    const parsedImports = parseFileImports(content);
+    const node = {
+      filePath,
+      moduleName: toModuleName(filePath, absoluteRoot),
+      exports,
+      imports: parsedImports.map((p) => p.specifier),
+      language: getLanguage(filePath),
+      mtime: fileStats.mtime.toISOString()
+    };
+    const edges = [];
+    const sortedImports = [...parsedImports].sort((a, b) => a.specifier.localeCompare(b.specifier));
+    for (const parsed of sortedImports) {
+      const resolvedTarget = resolveModuleSpecifier(absoluteRoot, filePath, parsed.specifier);
+      if (resolvedTarget !== null) {
+        edges.push({
+          source: filePath,
+          target: resolvedTarget,
+          importSpecifier: parsed.specifier,
+          importType: parsed.importType
+        });
+      }
+    }
+    return { node, edges };
+  } catch {
+    return { node: null, edges: [] };
   }
-  return { node, edges };
 }
 async function updateGraphForFiles(workspaceRoot, filePaths, options) {
   if (options?.forceRebuild) {
@@ -65925,7 +65935,7 @@ function createRepoGraphBuilderHook(workspaceRoot, deps) {
         if (message.includes("does not exist")) {
           return;
         }
-        console.error(`[repo-graph] Failed to build graph: ${message}`);
+        console.warn(`[repo-graph] Failed to build graph: ${message}`);
       }
     },
     async toolAfter(input, _output) {
@@ -65965,7 +65975,7 @@ function createRepoGraphBuilderHook(workspaceRoot, deps) {
         console.log(`[repo-graph] Incremental update for ${path50.basename(filePath)}`);
       } catch (error93) {
         const message = error93 instanceof Error ? error93.message : String(error93);
-        console.error(`[repo-graph] Incremental update failed: ${message}`);
+        console.warn(`[repo-graph] Incremental update failed: ${message}`);
       }
     }
   };
@@ -88125,9 +88135,9 @@ var OpenCodeSwarm = async (ctx) => {
   swarmState.fullAutoEnabledInConfig = config3.full_auto?.enabled === true;
   swarmState.opencodeClient = ctx.client;
   await loadSnapshot(ctx.directory);
+  initTelemetry(ctx.directory);
   const repoGraphHook = createRepoGraphBuilderHook(ctx.directory);
   repoGraphHook.init().catch(() => {});
-  initTelemetry(ctx.directory);
   const agents = getAgentConfigs(config3, ctx.directory);
   const agentDefinitions = createAgents(config3);
   swarmState.curatorInitAgentNames = Object.keys(agents).filter((k) => k === "curator_init" || k.endsWith("_curator_init"));
