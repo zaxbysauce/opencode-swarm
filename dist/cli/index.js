@@ -18994,6 +18994,13 @@ var AgentOverrideConfigSchema = exports_external.object({
   temperature: exports_external.number().min(0).max(2).optional(),
   disabled: exports_external.boolean().optional(),
   fallback_models: exports_external.array(exports_external.string()).max(3).optional()
+}).refine((data) => {
+  if (data.model && !data.fallback_models) {
+    console.warn(`[opencode-swarm] WARNING: Agent configured with custom model "${data.model}" but no fallback_models. This means if the custom model fails, there is no fallback protection. Consider adding fallback_models for reliability.`);
+  }
+  return true;
+}, {
+  message: "Agent configuration warning: Custom model without fallback protection"
 });
 var SwarmConfigSchema = exports_external.object({
   name: exports_external.string().optional(),
@@ -45159,56 +45166,67 @@ async function install() {
       agents: {
         coder: {
           model: "opencode/minimax-m2.5-free",
-          fallback_models: ["opencode/gpt-5-nano"]
+          fallback_models: ["opencode/gpt-5-nano", "opencode/big-pickle"]
         },
         reviewer: {
           model: "opencode/big-pickle",
-          fallback_models: ["opencode/gpt-5-nano"]
+          fallback_models: ["opencode/gpt-5-nano", "opencode/big-pickle"]
         },
-        test_engineer: { model: "opencode/gpt-5-nano" },
+        test_engineer: {
+          model: "opencode/gpt-5-nano",
+          fallback_models: ["opencode/big-pickle"]
+        },
         explorer: {
           model: "opencode/big-pickle",
-          fallback_models: ["opencode/gpt-5-nano"]
+          fallback_models: ["opencode/gpt-5-nano", "opencode/big-pickle"]
         },
         sme: {
           model: "opencode/big-pickle",
-          fallback_models: ["opencode/gpt-5-nano"]
+          fallback_models: ["opencode/gpt-5-nano", "opencode/big-pickle"]
         },
         critic: {
           model: "opencode/big-pickle",
-          fallback_models: ["opencode/gpt-5-nano"]
+          fallback_models: ["opencode/gpt-5-nano", "opencode/big-pickle"]
         },
         docs: {
           model: "opencode/big-pickle",
-          fallback_models: ["opencode/gpt-5-nano"]
+          fallback_models: ["opencode/gpt-5-nano", "opencode/big-pickle"]
         },
         designer: {
           model: "opencode/big-pickle",
-          fallback_models: ["opencode/gpt-5-nano"]
+          fallback_models: ["opencode/gpt-5-nano", "opencode/big-pickle"]
         },
         critic_sounding_board: {
-          fallback_models: ["opencode/gpt-5-nano"]
+          model: "opencode/gpt-5-nano",
+          fallback_models: ["opencode/big-pickle"]
         },
         critic_drift_verifier: {
-          fallback_models: ["opencode/gpt-5-nano"]
+          model: "opencode/gpt-5-nano",
+          fallback_models: ["opencode/big-pickle"]
         },
         critic_hallucination_verifier: {
-          fallback_models: ["opencode/gpt-5-nano"]
+          model: "opencode/gpt-5-nano",
+          fallback_models: ["opencode/big-pickle"]
         },
         critic_oversight: {
-          fallback_models: ["opencode/gpt-5-nano"]
+          model: "opencode/gpt-5-nano",
+          fallback_models: ["opencode/big-pickle"]
         },
         curator_init: {
-          fallback_models: ["opencode/gpt-5-nano"]
+          model: "opencode/gpt-5-nano",
+          fallback_models: ["opencode/big-pickle"]
         },
         curator_phase: {
-          fallback_models: ["opencode/gpt-5-nano"]
+          model: "opencode/gpt-5-nano",
+          fallback_models: ["opencode/big-pickle"]
         },
         council_member: {
-          fallback_models: ["opencode/gpt-5-nano"]
+          model: "opencode/gpt-5-nano",
+          fallback_models: ["opencode/big-pickle"]
         },
         council_moderator: {
-          fallback_models: ["opencode/gpt-5-nano"]
+          model: "opencode/gpt-5-nano",
+          fallback_models: ["opencode/big-pickle"]
         }
       },
       max_iterations: 5

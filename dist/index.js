@@ -14742,6 +14742,13 @@ var init_schema = __esm(() => {
     temperature: exports_external.number().min(0).max(2).optional(),
     disabled: exports_external.boolean().optional(),
     fallback_models: exports_external.array(exports_external.string()).max(3).optional()
+  }).refine((data) => {
+    if (data.model && !data.fallback_models) {
+      console.warn(`[opencode-swarm] WARNING: Agent configured with custom model "${data.model}" but no fallback_models. This means if the custom model fails, there is no fallback protection. Consider adding fallback_models for reliability.`);
+    }
+    return true;
+  }, {
+    message: "Agent configuration warning: Custom model without fallback protection"
   });
   SwarmConfigSchema = exports_external.object({
     name: exports_external.string().optional(),
@@ -57680,7 +57687,11 @@ function getModelForAgent(agentName, swarmAgents, swarmPrefix) {
   return resolvedModel;
 }
 function resolveFallbackModel(agentBaseName, fallbackIndex, swarmAgents) {
-  const fallbackModels = swarmAgents?.[agentBaseName]?.fallback_models;
+  const agentConfig = swarmAgents?.[agentBaseName];
+  let fallbackModels = agentConfig?.fallback_models;
+  if (fallbackModels === undefined && (agentBaseName === "curator_init" || agentBaseName === "curator_phase")) {
+    fallbackModels = swarmAgents?.explorer?.fallback_models;
+  }
   if (!fallbackModels || fallbackModels.length === 0)
     return null;
   if (fallbackIndex < 1 || fallbackIndex > fallbackModels.length)
