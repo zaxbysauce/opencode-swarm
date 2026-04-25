@@ -86816,6 +86816,7 @@ var todo_extract = createSwarmTool({
 init_tool();
 init_loader();
 init_schema();
+init_qa_gate_profile();
 init_gate_evidence();
 import * as fs83 from "fs";
 import * as path99 from "path";
@@ -87181,6 +87182,20 @@ function checkCouncilGate(workingDirectory, taskId) {
     return { blocked: false, reason: "" };
   }
   if (!councilEnabled) {
+    return { blocked: false, reason: "" };
+  }
+  try {
+    const planPath = path99.join(workingDirectory, ".swarm", "plan.json");
+    const planRaw = fs83.readFileSync(planPath, "utf-8");
+    const planObj = JSON.parse(planRaw);
+    if (planObj.swarm && planObj.title) {
+      const planId = `${planObj.swarm}-${planObj.title}`.replace(/[^a-zA-Z0-9-_]/g, "_");
+      const profile = getProfile(workingDirectory, planId);
+      if (!profile || !profile.gates.council_mode) {
+        return { blocked: false, reason: "" };
+      }
+    }
+  } catch {
     return { blocked: false, reason: "" };
   }
   let evidence;

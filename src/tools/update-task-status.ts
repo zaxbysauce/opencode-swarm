@@ -9,6 +9,7 @@ import { type ToolDefinition, tool } from '@opencode-ai/plugin/tool';
 import { loadPluginConfig } from '../config/loader';
 import type { TaskStatus } from '../config/plan-schema';
 import { stripKnownSwarmPrefix } from '../config/schema';
+import { getProfile } from '../db/qa-gate-profile.js';
 import { readTaskEvidenceRaw } from '../gate-evidence.js';
 import { validateDiffScope } from '../hooks/diff-scope';
 import { tryAcquireLock } from '../parallel/file-locks.js';
@@ -529,6 +530,12 @@ export interface CouncilGateResult {
  * Check the council gate for a completion transition. Pure — reads config and
  * evidence only, no state mutation. Exported for focused unit testing.
  *
+ * AND semantics (mirrors isCouncilGateActive in state.ts): the gate only
+ * activates when BOTH pluginConfig.council.enabled === true AND the QA gate
+ * profile for this plan has council_mode === true.  When council.enabled is
+ * true but council_mode is false (or the profile is absent), the gate is
+ * treated as inactive — the operator has disabled it at the profile level.
+ *
  * @param workingDirectory - Validated project root (contains .swarm/evidence/)
  * @param taskId - Task ID in N.M or N.M.P format
  */
@@ -546,6 +553,30 @@ export function checkCouncilGate(
 	}
 
 	if (!councilEnabled) {
+		return { blocked: false, reason: '' };
+	}
+
+	// AND gate: also require council_mode === true in the QA gate profile.
+	// This matches the isCouncilGateActive semantics in state.ts.  When
+	// council.enabled is true but council_mode is false (the default), the
+	// feature is intentionally off at the plan level — do not block.
+	try {
+		const planPath = path.join(workingDirectory, '.swarm', 'plan.json');
+		const planRaw = fs.readFileSync(planPath, 'utf-8');
+		const planObj = JSON.parse(planRaw) as { swarm?: string; title?: string };
+		if (planObj.swarm && planObj.title) {
+			const planId = `${planObj.swarm}-${planObj.title}`.replace(
+				/[^a-zA-Z0-9-_]/g,
+				'_',
+			);
+			const profile = getProfile(workingDirectory, planId);
+			if (!profile || !profile.gates.council_mode) {
+				return { blocked: false, reason: '' };
+			}
+		}
+	} catch {
+		// plan.json missing, unreadable, or profile DB absent — fall back to
+		// treating the gate as inactive (no regression; same as isCouncilGateActive).
 		return { blocked: false, reason: '' };
 	}
 

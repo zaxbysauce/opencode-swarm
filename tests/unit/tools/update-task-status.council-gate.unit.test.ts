@@ -2,6 +2,7 @@ import { afterEach, beforeEach, describe, expect, test } from 'bun:test';
 import { mkdirSync, mkdtempSync, rmSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
+import { getOrCreateProfile, setGates } from '../../../src/db/qa-gate-profile';
 import { checkCouncilGate } from '../../../src/tools/update-task-status';
 
 type CouncilGate = {
@@ -16,11 +17,18 @@ type CouncilEnabledValue = boolean | undefined;
 interface FixtureOptions {
 	councilEnabled: CouncilEnabledValue;
 	councilGate?: CouncilGate | null;
+	/** When true, writes plan.json and creates a QA gate profile with council_mode=true */
+	councilModeEnabled?: boolean;
 }
 
 let tempDir: string;
 
 const TASK_ID = '1.1';
+
+// plan_id derived by the same formula as derivePlanIdFromPlan in state.ts
+const PLAN_SWARM = 'test-swarm';
+const PLAN_TITLE = 'test-plan';
+const PLAN_ID = `${PLAN_SWARM}-${PLAN_TITLE}`.replace(/[^a-zA-Z0-9-_]/g, '_');
 
 function writeFixture(opts: FixtureOptions): void {
 	// .opencode/opencode-swarm.json
@@ -33,6 +41,24 @@ function writeFixture(opts: FixtureOptions): void {
 		join(tempDir, '.opencode', 'opencode-swarm.json'),
 		JSON.stringify(configBody),
 	);
+
+	// .swarm/plan.json — required for the AND-gate council_mode check
+	mkdirSync(join(tempDir, '.swarm'), { recursive: true });
+	writeFileSync(
+		join(tempDir, '.swarm', 'plan.json'),
+		JSON.stringify({
+			swarm: PLAN_SWARM,
+			title: PLAN_TITLE,
+			spec: '',
+			phases: [],
+		}),
+	);
+
+	// QA gate profile in the project DB — write council_mode if requested
+	if (opts.councilModeEnabled) {
+		getOrCreateProfile(tempDir, PLAN_ID);
+		setGates(tempDir, PLAN_ID, { council_mode: true });
+	}
 
 	// .swarm/evidence/1.1.json
 	mkdirSync(join(tempDir, '.swarm', 'evidence'), { recursive: true });
@@ -74,23 +100,35 @@ afterEach(() => {
 	rmSync(tempDir, { recursive: true, force: true });
 });
 
-describe('checkCouncilGate — council.enabled=true', () => {
+describe('checkCouncilGate — council.enabled=true AND council_mode=true (fully active)', () => {
 	test('gates.council absent → blocked with "council gate required" reason', () => {
-		writeFixture({ councilEnabled: true, councilGate: null });
+		writeFixture({
+			councilEnabled: true,
+			councilModeEnabled: true,
+			councilGate: null,
+		});
 		const result = checkCouncilGate(tempDir, TASK_ID);
 		expect(result.blocked).toBe(true);
 		expect(result.reason).toMatch(/council gate required/);
 	});
 
 	test('gates.council.verdict=REJECT → blocked with "council gate blocked" reason', () => {
-		writeFixture({ councilEnabled: true, councilGate: { verdict: 'REJECT' } });
+		writeFixture({
+			councilEnabled: true,
+			councilModeEnabled: true,
+			councilGate: { verdict: 'REJECT' },
+		});
 		const result = checkCouncilGate(tempDir, TASK_ID);
 		expect(result.blocked).toBe(true);
 		expect(result.reason).toMatch(/council gate blocked/);
 	});
 
 	test('gates.council.verdict=APPROVE → allowed', () => {
-		writeFixture({ councilEnabled: true, councilGate: { verdict: 'APPROVE' } });
+		writeFixture({
+			councilEnabled: true,
+			councilModeEnabled: true,
+			councilGate: { verdict: 'APPROVE' },
+		});
 		const result = checkCouncilGate(tempDir, TASK_ID);
 		expect(result.blocked).toBe(false);
 		expect(result.reason).toBe('');
@@ -99,7 +137,40 @@ describe('checkCouncilGate — council.enabled=true', () => {
 	test('gates.council.verdict=CONCERNS → allowed', () => {
 		writeFixture({
 			councilEnabled: true,
+			councilModeEnabled: true,
 			councilGate: { verdict: 'CONCERNS' },
+		});
+		const result = checkCouncilGate(tempDir, TASK_ID);
+		expect(result.blocked).toBe(false);
+		expect(result.reason).toBe('');
+	});
+});
+
+describe('checkCouncilGate — council.enabled=true BUT council_mode=false (AND gate: not active)', () => {
+	// Regression: council gate must NOT block when council_mode is false in the
+	// QA gate profile, even when council.enabled is true in the plugin config.
+	// Without the AND check, the old code would block here — that was the bug.
+	test('council_mode=false, no evidence → NOT blocked', () => {
+		// councilModeEnabled omitted (defaults false — profile not created)
+		writeFixture({ councilEnabled: true, councilGate: null });
+		const result = checkCouncilGate(tempDir, TASK_ID);
+		expect(result.blocked).toBe(false);
+		expect(result.reason).toBe('');
+	});
+
+	test('council_mode=false explicitly in profile, no evidence → NOT blocked', () => {
+		// Create profile but leave council_mode at its default (false)
+		getOrCreateProfile(tempDir, PLAN_ID);
+		writeFixture({ councilEnabled: true, councilGate: null });
+		const result = checkCouncilGate(tempDir, TASK_ID);
+		expect(result.blocked).toBe(false);
+		expect(result.reason).toBe('');
+	});
+
+	test('council_mode=false, verdict=REJECT → NOT blocked (gate inactive)', () => {
+		writeFixture({
+			councilEnabled: true,
+			councilGate: { verdict: 'REJECT' },
 		});
 		const result = checkCouncilGate(tempDir, TASK_ID);
 		expect(result.blocked).toBe(false);
