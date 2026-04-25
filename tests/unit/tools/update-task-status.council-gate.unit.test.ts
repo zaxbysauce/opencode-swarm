@@ -2,6 +2,7 @@ import { afterEach, beforeEach, describe, expect, test } from 'bun:test';
 import { mkdirSync, mkdtempSync, rmSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
+import { closeProjectDb } from '../../../src/db/project-db';
 import { getOrCreateProfile, setGates } from '../../../src/db/qa-gate-profile';
 import { checkCouncilGate } from '../../../src/tools/update-task-status';
 
@@ -97,6 +98,8 @@ beforeEach(() => {
 });
 
 afterEach(() => {
+	// Close project DB before deleting temp dir to avoid EBUSY on Windows
+	closeProjectDb(tempDir);
 	rmSync(tempDir, { recursive: true, force: true });
 });
 
