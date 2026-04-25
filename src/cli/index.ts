@@ -142,59 +142,71 @@ async function install(): Promise<number> {
 		const defaultConfig = {
 			// Must match PluginConfigSchema in src/config/schema.ts
 			// v6.14: free OpenCode Zen models; v6.73+ switched to big-pickle with gpt-5-nano fallback; architect inherits OpenCode UI selection
+			// v6.85+: Multi-level fallback chains - only big-pickle and gpt-5-nano are consistently available in free tier
 			agents: {
 				coder: {
 					model: 'opencode/minimax-m2.5-free',
-					fallback_models: ['opencode/gpt-5-nano'],
+					fallback_models: ['opencode/gpt-5-nano', 'opencode/big-pickle'],
 				},
 				reviewer: {
 					model: 'opencode/big-pickle',
-					fallback_models: ['opencode/gpt-5-nano'],
+					fallback_models: ['opencode/gpt-5-nano', 'opencode/big-pickle'],
 				},
-				test_engineer: { model: 'opencode/gpt-5-nano' },
+				test_engineer: {
+					model: 'opencode/gpt-5-nano',
+					fallback_models: ['opencode/big-pickle'],
+				},
 				explorer: {
 					model: 'opencode/big-pickle',
-					fallback_models: ['opencode/gpt-5-nano'],
+					fallback_models: ['opencode/gpt-5-nano', 'opencode/big-pickle'],
 				},
 				sme: {
 					model: 'opencode/big-pickle',
-					fallback_models: ['opencode/gpt-5-nano'],
+					fallback_models: ['opencode/gpt-5-nano', 'opencode/big-pickle'],
 				},
 				critic: {
 					model: 'opencode/big-pickle',
-					fallback_models: ['opencode/gpt-5-nano'],
+					fallback_models: ['opencode/gpt-5-nano', 'opencode/big-pickle'],
 				},
 				docs: {
 					model: 'opencode/big-pickle',
-					fallback_models: ['opencode/gpt-5-nano'],
+					fallback_models: ['opencode/gpt-5-nano', 'opencode/big-pickle'],
 				},
 				designer: {
 					model: 'opencode/big-pickle',
-					fallback_models: ['opencode/gpt-5-nano'],
+					fallback_models: ['opencode/gpt-5-nano', 'opencode/big-pickle'],
 				},
 				critic_sounding_board: {
-					fallback_models: ['opencode/gpt-5-nano'],
+					model: 'opencode/gpt-5-nano',
+					fallback_models: ['opencode/big-pickle'],
 				},
 				critic_drift_verifier: {
-					fallback_models: ['opencode/gpt-5-nano'],
+					model: 'opencode/gpt-5-nano',
+					fallback_models: ['opencode/big-pickle'],
 				},
 				critic_hallucination_verifier: {
-					fallback_models: ['opencode/gpt-5-nano'],
+					model: 'opencode/gpt-5-nano',
+					fallback_models: ['opencode/big-pickle'],
 				},
 				critic_oversight: {
-					fallback_models: ['opencode/gpt-5-nano'],
+					model: 'opencode/gpt-5-nano',
+					fallback_models: ['opencode/big-pickle'],
 				},
 				curator_init: {
-					fallback_models: ['opencode/gpt-5-nano'],
+					model: 'opencode/gpt-5-nano',
+					fallback_models: ['opencode/big-pickle'],
 				},
 				curator_phase: {
-					fallback_models: ['opencode/gpt-5-nano'],
+					model: 'opencode/gpt-5-nano',
+					fallback_models: ['opencode/big-pickle'],
 				},
 				council_member: {
-					fallback_models: ['opencode/gpt-5-nano'],
+					model: 'opencode/gpt-5-nano',
+					fallback_models: ['opencode/big-pickle'],
 				},
 				council_moderator: {
-					fallback_models: ['opencode/gpt-5-nano'],
+					model: 'opencode/gpt-5-nano',
+					fallback_models: ['opencode/big-pickle'],
 				},
 			},
 			max_iterations: 5,

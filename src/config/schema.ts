@@ -81,12 +81,29 @@ export function stripKnownSwarmPrefix(agentName: string): string {
 }
 
 // Agent override configuration
-export const AgentOverrideConfigSchema = z.object({
-	model: z.string().optional(),
-	temperature: z.number().min(0).max(2).optional(),
-	disabled: z.boolean().optional(),
-	fallback_models: z.array(z.string()).max(3).optional(),
-});
+export const AgentOverrideConfigSchema = z
+	.object({
+		model: z.string().optional(),
+		temperature: z.number().min(0).max(2).optional(),
+		disabled: z.boolean().optional(),
+		fallback_models: z.array(z.string()).max(3).optional(),
+	})
+	.refine(
+		(data) => {
+			// If model is explicitly set but fallback_models is not, warn about potential loss of protection
+			if (data.model && !data.fallback_models) {
+				console.warn(
+					`[opencode-swarm] WARNING: Agent configured with custom model "${data.model}" but no fallback_models. This means if the custom model fails, there is no fallback protection. Consider adding fallback_models for reliability.`,
+				);
+			}
+			// Always pass validation — this is a warning, not a block
+			return true;
+		},
+		{
+			message:
+				'Agent configuration warning: Custom model without fallback protection',
+		},
+	);
 
 export type AgentOverrideConfig = z.infer<typeof AgentOverrideConfigSchema>;
 
