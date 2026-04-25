@@ -20,8 +20,14 @@ import {
 } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
+import { closeProjectDb } from '../../../src/db/project-db';
+import { getOrCreateProfile, setGates } from '../../../src/db/qa-gate-profile';
 
 let tempDir: string;
+
+const PLAN_SWARM = 'test-swarm';
+const PLAN_TITLE = 'test-plan';
+const PLAN_ID = `${PLAN_SWARM}-${PLAN_TITLE}`.replace(/[^a-zA-Z0-9-_]/g, '_');
 
 function seedEnabledConfig(): void {
 	mkdirSync(join(tempDir, '.opencode'), { recursive: true });
@@ -29,6 +35,22 @@ function seedEnabledConfig(): void {
 		join(tempDir, '.opencode', 'opencode-swarm.json'),
 		JSON.stringify({ council: { enabled: true } }),
 	);
+
+	// plan.json required for council_mode check in checkCouncilGate
+	mkdirSync(join(tempDir, '.swarm'), { recursive: true });
+	writeFileSync(
+		join(tempDir, '.swarm', 'plan.json'),
+		JSON.stringify({
+			swarm: PLAN_SWARM,
+			title: PLAN_TITLE,
+			spec: '',
+			phases: [],
+		}),
+	);
+
+	// Activate council_mode in QA gate profile so checkCouncilGate proceeds to evidence check
+	getOrCreateProfile(tempDir, PLAN_ID);
+	setGates(tempDir, PLAN_ID, { council_mode: true });
 }
 
 beforeEach(() => {
@@ -36,6 +58,8 @@ beforeEach(() => {
 });
 
 afterEach(() => {
+	// Close project DB before deleting temp dir to avoid EBUSY on Windows
+	closeProjectDb(tempDir);
 	rmSync(tempDir, { recursive: true, force: true });
 });
 
