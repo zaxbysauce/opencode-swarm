@@ -73,7 +73,7 @@ describe('repoGraphHook.toolAfter wiring verification', () => {
 			// Lines are 0-indexed, so line 1054 in file is our 1055th line
 			const actualLineNum = wiringLine + 1;
 			expect(actualLineNum).toBeGreaterThanOrEqual(1050);
-			expect(actualLineNum).toBeLessThanOrEqual(1120);
+			expect(actualLineNum).toBeLessThanOrEqual(1160);
 		});
 
 		test('wiring comment "Repo graph incremental update on write tools" exists', () => {
@@ -425,7 +425,7 @@ describe('repoGraphHook.toolAfter wiring verification', () => {
 			expect(createLine).not.toBe(-1);
 			// Should be around line 162 (1-indexed, upper bound grows as file grows)
 			expect(createLine + 1).toBeGreaterThanOrEqual(160);
-			expect(createLine + 1).toBeLessThanOrEqual(185);
+			expect(createLine + 1).toBeLessThanOrEqual(195);
 
 			// Find init() call - should be on the very next line
 			expect(lines[createLine + 1]).toContain('repoGraphHook.init()');
