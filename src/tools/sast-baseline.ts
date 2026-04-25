@@ -307,6 +307,7 @@ export async function captureOrMergeBaseline(
 	}
 
 	fs.mkdirSync(path.dirname(baselinePath), { recursive: true });
+	fs.mkdirSync(path.dirname(tempPath), { recursive: true });
 
 	const releaseLock = await acquireLock(lockPath);
 	try {

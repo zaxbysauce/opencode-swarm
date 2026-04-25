@@ -255,8 +255,12 @@ describe('adversarial-detector - Adversarial Security Testing', () => {
 		});
 
 		it('ATTACK 11b: Case variations should not cause false positives', () => {
-			// Different agents should not match even with mixed case
-			const result = detectAdversarialPair('ARCHITECT', 'REVIEWER', mockConfig);
+			// Different agents with different models should not match even with mixed case
+			const result = detectAdversarialPair(
+				'CODER',
+				'TEST_ENGINEER',
+				mockConfig,
+			);
 			expect(result).toBeNull();
 		});
 	});

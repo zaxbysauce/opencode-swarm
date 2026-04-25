@@ -52,14 +52,12 @@ describe('v6.1 Agent Registration Constants', () => {
 	});
 
 	describe('DEFAULT_MODELS', () => {
-		test('DEFAULT_MODELS has "docs" key with "opencode/trinity-large-preview-free"', () => {
-			expect(DEFAULT_MODELS.docs).toBe('opencode/trinity-large-preview-free');
+		test('DEFAULT_MODELS has "docs" key with "opencode/big-pickle"', () => {
+			expect(DEFAULT_MODELS.docs).toBe('opencode/big-pickle');
 		});
 
-		test('DEFAULT_MODELS has "designer" key with "opencode/trinity-large-preview-free"', () => {
-			expect(DEFAULT_MODELS.designer).toBe(
-				'opencode/trinity-large-preview-free',
-			);
+		test('DEFAULT_MODELS has "designer" key with "opencode/big-pickle"', () => {
+			expect(DEFAULT_MODELS.designer).toBe('opencode/big-pickle');
 		});
 
 		test('DEFAULT_MODELS does NOT have "architect" key (inherits OpenCode UI selection)', () => {

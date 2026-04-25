@@ -496,23 +496,23 @@ var init_constants = __esm(() => {
     }
   }
   DEFAULT_MODELS = {
-    explorer: "opencode/trinity-large-preview-free",
+    explorer: "opencode/big-pickle",
     coder: "opencode/minimax-m2.5-free",
     reviewer: "opencode/big-pickle",
     test_engineer: "opencode/gpt-5-nano",
-    sme: "opencode/trinity-large-preview-free",
-    critic: "opencode/trinity-large-preview-free",
-    critic_sounding_board: "opencode/trinity-large-preview-free",
-    critic_drift_verifier: "opencode/trinity-large-preview-free",
-    critic_hallucination_verifier: "opencode/trinity-large-preview-free",
-    critic_oversight: "opencode/trinity-large-preview-free",
-    docs: "opencode/trinity-large-preview-free",
-    designer: "opencode/trinity-large-preview-free",
-    curator_init: "opencode/trinity-large-preview-free",
-    curator_phase: "opencode/trinity-large-preview-free",
-    council_member: "opencode/trinity-large-preview-free",
-    council_moderator: "opencode/trinity-large-preview-free",
-    default: "opencode/trinity-large-preview-free"
+    sme: "opencode/big-pickle",
+    critic: "opencode/big-pickle",
+    critic_sounding_board: "opencode/big-pickle",
+    critic_drift_verifier: "opencode/big-pickle",
+    critic_hallucination_verifier: "opencode/big-pickle",
+    critic_oversight: "opencode/big-pickle",
+    docs: "opencode/big-pickle",
+    designer: "opencode/big-pickle",
+    curator_init: "opencode/big-pickle",
+    curator_phase: "opencode/big-pickle",
+    council_member: "opencode/big-pickle",
+    council_moderator: "opencode/big-pickle",
+    default: "opencode/big-pickle"
   };
   DEFAULT_SCORING_CONFIG = {
     enabled: false,
@@ -81034,6 +81034,7 @@ async function captureOrMergeBaseline(directory, phase, findings, engine, scanne
     };
   }
   fs69.mkdirSync(path83.dirname(baselinePath), { recursive: true });
+  fs69.mkdirSync(path83.dirname(tempPath), { recursive: true });
   const releaseLock = await acquireLock(lockPath);
   try {
     let existing = null;

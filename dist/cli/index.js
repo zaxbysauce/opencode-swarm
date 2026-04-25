@@ -45157,14 +45157,59 @@ async function install() {
   if (!fs23.existsSync(PLUGIN_CONFIG_PATH)) {
     const defaultConfig = {
       agents: {
-        coder: { model: "opencode/minimax-m2.5-free" },
-        reviewer: { model: "opencode/big-pickle" },
+        coder: {
+          model: "opencode/minimax-m2.5-free",
+          fallback_models: ["opencode/gpt-5-nano"]
+        },
+        reviewer: {
+          model: "opencode/big-pickle",
+          fallback_models: ["opencode/gpt-5-nano"]
+        },
         test_engineer: { model: "opencode/gpt-5-nano" },
-        explorer: { model: "opencode/trinity-large-preview-free" },
-        sme: { model: "opencode/trinity-large-preview-free" },
-        critic: { model: "opencode/trinity-large-preview-free" },
-        docs: { model: "opencode/trinity-large-preview-free" },
-        designer: { model: "opencode/trinity-large-preview-free" }
+        explorer: {
+          model: "opencode/big-pickle",
+          fallback_models: ["opencode/gpt-5-nano"]
+        },
+        sme: {
+          model: "opencode/big-pickle",
+          fallback_models: ["opencode/gpt-5-nano"]
+        },
+        critic: {
+          model: "opencode/big-pickle",
+          fallback_models: ["opencode/gpt-5-nano"]
+        },
+        docs: {
+          model: "opencode/big-pickle",
+          fallback_models: ["opencode/gpt-5-nano"]
+        },
+        designer: {
+          model: "opencode/big-pickle",
+          fallback_models: ["opencode/gpt-5-nano"]
+        },
+        critic_sounding_board: {
+          fallback_models: ["opencode/gpt-5-nano"]
+        },
+        critic_drift_verifier: {
+          fallback_models: ["opencode/gpt-5-nano"]
+        },
+        critic_hallucination_verifier: {
+          fallback_models: ["opencode/gpt-5-nano"]
+        },
+        critic_oversight: {
+          fallback_models: ["opencode/gpt-5-nano"]
+        },
+        curator_init: {
+          fallback_models: ["opencode/gpt-5-nano"]
+        },
+        curator_phase: {
+          fallback_models: ["opencode/gpt-5-nano"]
+        },
+        council_member: {
+          fallback_models: ["opencode/gpt-5-nano"]
+        },
+        council_moderator: {
+          fallback_models: ["opencode/gpt-5-nano"]
+        }
       },
       max_iterations: 5
     };
