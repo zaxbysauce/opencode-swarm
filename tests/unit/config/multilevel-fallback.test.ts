@@ -95,7 +95,10 @@ describe('Multi-Level Fallback Configuration', () => {
 			const result = AgentOverrideConfigSchema.safeParse(config);
 			expect(result.success).toBe(true);
 			if (!result.success) {
-				console.error(`Agent ${agent} failed validation:`, result.error.message);
+				console.error(
+					`Agent ${agent} failed validation:`,
+					result.error.message,
+				);
 			}
 		}
 	});
@@ -160,7 +163,7 @@ describe('Multi-Level Fallback Configuration', () => {
 		for (const [agent, config] of Object.entries(DEFAULT_AGENTS)) {
 			if (config.model && !allowedModels.has(config.model)) {
 				throw new Error(
-					`Agent ${agent} has disallowed primary model: ${config.model}`
+					`Agent ${agent} has disallowed primary model: ${config.model}`,
 				);
 			}
 
@@ -187,7 +190,7 @@ describe('Multi-Level Fallback Configuration', () => {
 			...(DEFAULT_AGENTS.coder.fallback_models || []),
 		];
 		const coderAvailableFallback = coderChain.find(
-			(m) => m !== 'opencode/minimax-m2.5-free'
+			(m) => m !== 'opencode/minimax-m2.5-free',
 		);
 		expect(coderAvailableFallback).toBeDefined();
 
@@ -207,12 +210,15 @@ describe('Multi-Level Fallback Configuration', () => {
 			'opencode/gpt-5-nano',
 			...(DEFAULT_AGENTS.test_engineer.fallback_models || []),
 		];
-		expect(testEngineerChain).toEqual(['opencode/gpt-5-nano', 'opencode/big-pickle']);
+		expect(testEngineerChain).toEqual([
+			'opencode/gpt-5-nano',
+			'opencode/big-pickle',
+		]);
 	});
 
 	test('Each agent has a model assignment (explicit or inherited)', () => {
 		const agentsWithoutModel = Object.entries(DEFAULT_AGENTS).filter(
-			([_, config]) => !config.model
+			([_, config]) => !config.model,
 		);
 		expect(agentsWithoutModel).toHaveLength(0);
 	});
@@ -240,11 +246,17 @@ describe('Multi-Level Fallback Configuration', () => {
 		}
 
 		// Primary agents should have depth 3 (primary + 2 fallbacks)
-		['coder', 'reviewer', 'explorer', 'sme', 'critic', 'docs', 'designer'].forEach(
-			(agent) => {
-				expect(resilienceCounts[agent]).toBe(3);
-			}
-		);
+		[
+			'coder',
+			'reviewer',
+			'explorer',
+			'sme',
+			'critic',
+			'docs',
+			'designer',
+		].forEach((agent) => {
+			expect(resilienceCounts[agent]).toBe(3);
+		});
 
 		// Lightweight agents should have depth 2 (primary + 1 fallback)
 		[

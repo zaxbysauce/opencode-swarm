@@ -109,12 +109,8 @@ describe('AgentOverrideConfigSchema', () => {
 		console.warn = originalWarn;
 
 		expect(result.success).toBe(true);
-		expect(warnings.some((w) =>
-			w.includes('custom-model'),
-		)).toBe(true);
-		expect(warnings.some((w) =>
-			w.includes('fallback_models'),
-		)).toBe(true);
+		expect(warnings.some((w) => w.includes('custom-model'))).toBe(true);
+		expect(warnings.some((w) => w.includes('fallback_models'))).toBe(true);
 	});
 
 	it('does not warn when model is set with fallback_models', () => {
@@ -132,11 +128,7 @@ describe('AgentOverrideConfigSchema', () => {
 		console.warn = originalWarn;
 
 		expect(result.success).toBe(true);
-		expect(
-			warnings.some((w) =>
-				w.includes('fallback_models'),
-			),
-		).toBe(false);
+		expect(warnings.some((w) => w.includes('fallback_models'))).toBe(false);
 	});
 
 	it('does not warn when fallback_models is set without model', () => {
@@ -153,11 +145,7 @@ describe('AgentOverrideConfigSchema', () => {
 		console.warn = originalWarn;
 
 		expect(result.success).toBe(true);
-		expect(
-			warnings.some((w) =>
-				w.includes('fallback_models'),
-			),
-		).toBe(false);
+		expect(warnings.some((w) => w.includes('fallback_models'))).toBe(false);
 	});
 
 	it('does not warn when neither model nor fallback_models is set', () => {
@@ -174,11 +162,7 @@ describe('AgentOverrideConfigSchema', () => {
 		console.warn = originalWarn;
 
 		expect(result.success).toBe(true);
-		expect(
-			warnings.some((w) =>
-				w.includes('fallback_models'),
-			),
-		).toBe(false);
+		expect(warnings.some((w) => w.includes('fallback_models'))).toBe(false);
 	});
 
 	it('accepts valid fallback_models array with up to 3 items', () => {
@@ -193,12 +177,7 @@ describe('AgentOverrideConfigSchema', () => {
 
 	it('rejects fallback_models array with more than 3 items', () => {
 		const result = AgentOverrideConfigSchema.safeParse({
-			fallback_models: [
-				'fallback-1',
-				'fallback-2',
-				'fallback-3',
-				'fallback-4',
-			],
+			fallback_models: ['fallback-1', 'fallback-2', 'fallback-3', 'fallback-4'],
 		});
 		expect(result.success).toBe(false);
 	});

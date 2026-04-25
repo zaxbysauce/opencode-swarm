@@ -125,8 +125,10 @@ export function resolveFallbackModel(
 
 	// 2. If not explicitly set, check if this is a curator agent that should inherit from explorer
 	// Only inherit if the curator agent does NOT have fallback_models key at all
-	if (fallbackModels === undefined &&
-		(agentBaseName === 'curator_init' || agentBaseName === 'curator_phase')) {
+	if (
+		fallbackModels === undefined &&
+		(agentBaseName === 'curator_init' || agentBaseName === 'curator_phase')
+	) {
 		fallbackModels = swarmAgents?.explorer?.fallback_models;
 	}
 

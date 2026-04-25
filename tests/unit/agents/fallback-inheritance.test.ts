@@ -39,9 +39,15 @@ describe('resolveFallbackModel - curator fallback inheritance', () => {
 			},
 		};
 
-		expect(resolveFallbackModel('curator_phase', 1, swarmAgents)).toBe('model-a');
-		expect(resolveFallbackModel('curator_phase', 2, swarmAgents)).toBe('model-b');
-		expect(resolveFallbackModel('curator_phase', 3, swarmAgents)).toBe('model-c');
+		expect(resolveFallbackModel('curator_phase', 1, swarmAgents)).toBe(
+			'model-a',
+		);
+		expect(resolveFallbackModel('curator_phase', 2, swarmAgents)).toBe(
+			'model-b',
+		);
+		expect(resolveFallbackModel('curator_phase', 3, swarmAgents)).toBe(
+			'model-c',
+		);
 	});
 
 	test('curator_init uses explicit fallback_models when set, ignoring explorer', () => {
@@ -58,10 +64,10 @@ describe('resolveFallbackModel - curator fallback inheritance', () => {
 
 		// Should use curator_init's explicit fallback_models, not explorer's
 		expect(resolveFallbackModel('curator_init', 1, swarmAgents)).toBe(
-			'curator-specific-1'
+			'curator-specific-1',
 		);
 		expect(resolveFallbackModel('curator_init', 2, swarmAgents)).toBe(
-			'curator-specific-2'
+			'curator-specific-2',
 		);
 	});
 
@@ -78,7 +84,7 @@ describe('resolveFallbackModel - curator fallback inheritance', () => {
 		};
 
 		expect(resolveFallbackModel('curator_phase', 1, swarmAgents)).toBe(
-			'curator-explicit'
+			'curator-explicit',
 		);
 	});
 
