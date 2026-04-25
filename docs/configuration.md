@@ -194,7 +194,7 @@ Triggered by `/swarm council <question>` (see [Commands](commands.md#swarm-counc
 | Field | Type | Description |
 |-------|------|-------------|
 | `memberId` | string | Stable identifier (e.g. `"m1"`, `"security-skeptic"`) |
-| `model` | string | Model identifier (e.g. `"opencode/trinity-large-preview-free"`) |
+| `model` | string | Model identifier (e.g. `"opencode/big-pickle"`) |
 | `role` | enum | One of `generalist`, `skeptic`, `domain_expert`, `devil_advocate`, `synthesizer` |
 | `persona` | string? | Optional free-form persona instructions appended to the member prompt |
 

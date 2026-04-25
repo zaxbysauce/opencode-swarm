@@ -173,7 +173,7 @@ No API key required. Excellent starting point:
   "agents": {
     "coder": { "model": "opencode/minimax-m2.5-free" },
     "reviewer": { "model": "opencode/big-pickle" },
-    "explorer": { "model": "opencode/trinity-large-preview-free" }
+    "explorer": { "model": "opencode/big-pickle" }
   }
 }
 ```
@@ -195,7 +195,7 @@ For production, mix providers by role:
 
 | Provider | Format | Example |
 |---|---|---|
-| OpenCode Zen | `opencode/<model>` | `opencode/trinity-large-preview-free` |
+| OpenCode Zen | `opencode/<model>` | `opencode/big-pickle` |
 | Anthropic | `anthropic/<model>` | `anthropic/claude-sonnet-4-20250514` |
 | Google | `google/<model>` | `google/gemini-2.5-flash` |
 | Z.ai | `zai-coding-plan/<model>` | `zai-coding-plan/glm-5` |
