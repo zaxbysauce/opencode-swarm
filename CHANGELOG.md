@@ -1,5 +1,12 @@
 # Changelog
 
+## [6.84.4](https://github.com/zaxbysauce/opencode-swarm/compare/v6.84.3...v6.84.4) (2026-04-25)
+
+
+### Bug Fixes
+
+* **council:** checkCouncilGate blocks completion when council_mode=false ([#612](https://github.com/zaxbysauce/opencode-swarm/issues/612)) ([f760956](https://github.com/zaxbysauce/opencode-swarm/commit/f7609560fd239cb2d229ec2445a769a58b2f7d04))
+
 ## [6.84.3](https://github.com/zaxbysauce/opencode-swarm/compare/v6.84.2...v6.84.3) (2026-04-25)
 
 
