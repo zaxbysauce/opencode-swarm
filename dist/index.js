@@ -53974,6 +53974,10 @@ var init_registry = __esm(() => {
       handler: (ctx) => handleDiagnoseCommand(ctx.directory, ctx.args),
       description: "Run health check on swarm state"
     },
+    diagnosis: {
+      handler: (ctx) => handleDiagnoseCommand(ctx.directory, ctx.args),
+      description: "Run health check on swarm state"
+    },
     preflight: {
       handler: (ctx) => handlePreflightCommand(ctx.directory, ctx.args),
       description: "Run preflight automation checks"
@@ -88396,7 +88400,7 @@ var OpenCodeSwarm = async (ctx) => {
         ...opencodeConfig.command || {},
         swarm: {
           template: "/swarm $ARGUMENTS",
-          description: "Swarm management commands: /swarm [status|plan|agents|history|config|evidence|handoff|archive|diagnose|preflight|sync-plan|benchmark|export|reset|rollback|retrieve|clarify|analyze|specify|brainstorm|qa-gates|dark-matter|knowledge|curate|turbo|full-auto|write-retro|reset-session|simulate|promote|checkpoint|acknowledge-spec-drift|doctor-tools|close]"
+          description: "Swarm management commands: /swarm [status|plan|agents|history|config|evidence|handoff|archive|diagnose|diagnosis|preflight|sync-plan|benchmark|export|reset|rollback|retrieve|clarify|analyze|specify|brainstorm|qa-gates|dark-matter|knowledge|curate|turbo|full-auto|write-retro|reset-session|simulate|promote|checkpoint|acknowledge-spec-drift|doctor-tools|close]"
         },
         "swarm-status": {
           template: "/swarm status",
@@ -88433,6 +88437,10 @@ var OpenCodeSwarm = async (ctx) => {
         "swarm-diagnose": {
           template: "/swarm diagnose",
           description: "Use /swarm diagnose to run health checks on swarm state"
+        },
+        "swarm-diagnosis": {
+          template: "/swarm diagnosis",
+          description: "Use /swarm diagnosis to run health checks on swarm state"
         },
         "swarm-preflight": {
           template: "/swarm preflight",
