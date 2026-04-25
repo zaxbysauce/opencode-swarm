@@ -1,5 +1,12 @@
 # Changelog
 
+## [6.84.5](https://github.com/zaxbysauce/opencode-swarm/compare/v6.84.4...v6.84.5) (2026-04-25)
+
+
+### Bug Fixes
+
+* **repo-graph:** prevent first-initialization error on new workspaces ([#614](https://github.com/zaxbysauce/opencode-swarm/issues/614)) ([2b13a00](https://github.com/zaxbysauce/opencode-swarm/commit/2b13a00f994aa7312187c2222b7a48502da08bd5)), closes [#585](https://github.com/zaxbysauce/opencode-swarm/issues/585)
+
 ## [6.84.4](https://github.com/zaxbysauce/opencode-swarm/compare/v6.84.3...v6.84.4) (2026-04-25)
 
 
