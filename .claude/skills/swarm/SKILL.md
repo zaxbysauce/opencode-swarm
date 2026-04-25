@@ -17,7 +17,7 @@ Argument handling:
 
 Known plugin subcommands (do NOT interpret these as tasks):
 <!-- Keep in sync with COMMAND_REGISTRY in src/commands/registry.ts -->
-`status`, `plan`, `agents`, `history`, `config`, `evidence`, `handoff`, `archive`, `diagnose`, `preflight`, `sync-plan`, `benchmark`, `export`, `reset`, `rollback`, `retrieve`, `clarify`, `analyze`, `specify`, `brainstorm`, `qa-gates`, `dark-matter`, `knowledge`, `curate`, `turbo`, `full-auto`, `write-retro`, `reset-session`, `simulate`, `promote`, `checkpoint`, `close`
+`status`, `plan`, `agents`, `history`, `config`, `evidence`, `handoff`, `archive`, `diagnose`, `diagnosis`, `preflight`, `sync-plan`, `benchmark`, `export`, `reset`, `rollback`, `retrieve`, `clarify`, `analyze`, `specify`, `brainstorm`, `qa-gates`, `dark-matter`, `knowledge`, `curate`, `turbo`, `full-auto`, `write-retro`, `reset-session`, `simulate`, `promote`, `checkpoint`, `close`
 
 Examples:
 - `/swarm` — enable swarm mode only

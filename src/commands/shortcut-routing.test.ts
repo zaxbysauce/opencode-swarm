@@ -335,6 +335,65 @@ describe('swarm-* shortcut command routing', () => {
 		});
 	});
 
+	// Regression: 'diagnosis' alias — users commonly type this instead of 'diagnose'.
+	// Both the generic swarm handler and the swarm-diagnosis shortcut must resolve correctly.
+	describe("'diagnosis' alias routes to health check (issue #588)", () => {
+		it('/swarm diagnosis (generic handler) returns health check output', async () => {
+			const handler = createSwarmCommandHandler(tempDir, {});
+			const output = { parts: [] as unknown[] };
+
+			await handler(
+				{ command: 'swarm', arguments: 'diagnosis', sessionID: sessionId },
+				output,
+			);
+
+			expect(output.parts).toHaveLength(1);
+			const text = (output.parts[0] as { text: string }).text;
+			expect(text).not.toContain('## Swarm Commands');
+			expect(text).toContain('## Swarm Health Check');
+		});
+
+		it('swarm-diagnosis shortcut routes to health check output', async () => {
+			const handler = createSwarmCommandHandler(tempDir, {});
+			const output = { parts: [] as unknown[] };
+
+			await handler(
+				{ command: 'swarm-diagnosis', arguments: '', sessionID: sessionId },
+				output,
+			);
+
+			expect(output.parts).toHaveLength(1);
+			const text = (output.parts[0] as { text: string }).text;
+			expect(text).not.toContain('## Swarm Commands');
+			expect(text).toContain('## Swarm Health Check');
+		});
+
+		it('/swarm diagnose and /swarm diagnosis return the same kind of output', async () => {
+			const handler = createSwarmCommandHandler(tempDir, {});
+			const out1 = { parts: [] as unknown[] };
+			const out2 = { parts: [] as unknown[] };
+
+			await handler(
+				{ command: 'swarm', arguments: 'diagnose', sessionID: sessionId },
+				out1,
+			);
+			await handler(
+				{ command: 'swarm', arguments: 'diagnosis', sessionID: sessionId },
+				out2,
+			);
+
+			expect(out1.parts).toHaveLength(1);
+			expect(out2.parts).toHaveLength(1);
+			// Both must contain the health-check heading
+			expect((out1.parts[0] as { text: string }).text).toContain(
+				'## Swarm Health Check',
+			);
+			expect((out2.parts[0] as { text: string }).text).toContain(
+				'## Swarm Health Check',
+			);
+		});
+	});
+
 	// Regression: adding 'config-doctor' (dash) alias must not break the original
 	// space-based path '/swarm config doctor' which uses the generic swarm handler.
 	describe('Backward compatibility: space-based compound commands still work', () => {

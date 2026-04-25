@@ -44872,6 +44872,10 @@ var COMMAND_REGISTRY = {
     handler: (ctx) => handleDiagnoseCommand(ctx.directory, ctx.args),
     description: "Run health check on swarm state"
   },
+  diagnosis: {
+    handler: (ctx) => handleDiagnoseCommand(ctx.directory, ctx.args),
+    description: "Run health check on swarm state"
+  },
   preflight: {
     handler: (ctx) => handlePreflightCommand(ctx.directory, ctx.args),
     description: "Run preflight automation checks"

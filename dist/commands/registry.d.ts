@@ -68,6 +68,10 @@ export declare const COMMAND_REGISTRY: {
         readonly handler: (ctx: CommandContext) => Promise<string>;
         readonly description: "Run health check on swarm state";
     };
+    readonly diagnosis: {
+        readonly handler: (ctx: CommandContext) => Promise<string>;
+        readonly description: "Run health check on swarm state";
+    };
     readonly preflight: {
         readonly handler: (ctx: CommandContext) => Promise<string>;
         readonly description: "Run preflight automation checks";
