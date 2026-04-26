@@ -1,5 +1,14 @@
 # Changelog
 
+## [6.84.7](https://github.com/zaxbysauce/opencode-swarm/compare/v6.84.6...v6.84.7) (2026-04-26)
+
+
+### Bug Fixes
+
+* commit since tag v6.84.6 and correctly produce a 6.84.7 patch release. ([10dbe86](https://github.com/zaxbysauce/opencode-swarm/commit/10dbe86cb788b2422c17aae9e677a4154359543c))
+* **guardrails:** redact opencode key variants and warn on missing .swarm gitignore ([#620](https://github.com/zaxbysauce/opencode-swarm/issues/620)) ([bb9804d](https://github.com/zaxbysauce/opencode-swarm/commit/bb9804d7c5c060882beeafd1dca7930fbd554a07))
+* revert manifest to 6.84.6 so release-please calculates correct 6.84.7 ([10dbe86](https://github.com/zaxbysauce/opencode-swarm/commit/10dbe86cb788b2422c17aae9e677a4154359543c))
+
 ## [6.84.6](https://github.com/zaxbysauce/opencode-swarm/compare/v6.84.5...v6.84.6) (2026-04-26)
 
 

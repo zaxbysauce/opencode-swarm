@@ -129,6 +129,30 @@ describe('redactShellCommand', () => {
 		expect(redactShellCommand(null as unknown as string)).toBe('');
 		expect(redactShellCommand(undefined as unknown as string)).toBe('');
 	});
+
+	it('redacts OPENCODE_KEY env-var assignment', () => {
+		const result = redactShellCommand(
+			'OPENCODE_KEY=sk-oc-abc123 node server.js',
+		);
+		expect(result).toContain('[REDACTED]');
+		expect(result).not.toContain('sk-oc-abc123');
+	});
+
+	it('redacts custom x-*-key curl header', () => {
+		const result = redactShellCommand(
+			'curl -H "x-opencode-key: sk-oc-abc123" https://api.opencode.ai',
+		);
+		expect(result).toContain('[REDACTED]');
+		expect(result).not.toContain('sk-oc-abc123');
+	});
+
+	it('redacts non-X-prefix header ending in -key', () => {
+		const result = redactShellCommand(
+			'curl -H "Opencode-Key: sk-oc-abc123" https://api.opencode.ai',
+		);
+		expect(result).toContain('[REDACTED]');
+		expect(result).not.toContain('sk-oc-abc123');
+	});
 });
 
 // ─── Interpreter gating ───────────────────────────────────────────────────────
