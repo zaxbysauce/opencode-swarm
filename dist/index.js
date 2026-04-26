@@ -88733,7 +88733,15 @@ var OpenCodeSwarm = async (ctx) => {
         } catch {}
         return Promise.resolve();
       },
-      automationConfig.capabilities?.phase_preflight === true && preflightTriggerManager ? createPhaseMonitorHook(ctx.directory, preflightTriggerManager, undefined, (sessionId) => createCuratorLLMDelegate(ctx.directory, "init", sessionId)) : knowledgeConfig.enabled ? createPhaseMonitorHook(ctx.directory, undefined, undefined, (sessionId) => createCuratorLLMDelegate(ctx.directory, "init", sessionId)) : undefined
+      automationConfig.capabilities?.phase_preflight === true && preflightTriggerManager ? createPhaseMonitorHook(ctx.directory, preflightTriggerManager, undefined, (sessionId) => createCuratorLLMDelegate(ctx.directory, "init", sessionId)) : knowledgeConfig.enabled ? createPhaseMonitorHook(ctx.directory, undefined, undefined, (sessionId) => createCuratorLLMDelegate(ctx.directory, "init", sessionId)) : undefined,
+      (_input, output) => {
+        if (Array.isArray(output.system) && output.system.length > 1) {
+          output.system = [output.system.join(`
+
+`)];
+        }
+        return Promise.resolve();
+      }
     ].filter(Boolean)),
     "experimental.session.compacting": compactionHook["experimental.session.compacting"],
     "command.execute.before": safeHook(commandHandler),
