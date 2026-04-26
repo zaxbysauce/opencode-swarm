@@ -16,6 +16,16 @@ export interface DiagnoseData {
     allPassed: boolean;
 }
 /**
+ * Resolve the grammar WASM directory from an arbitrary module directory.
+ * Exported for unit testing — callers should not pass import.meta.url directly.
+ *
+ * Rules:
+ *   - Dev source  (ends with /src/services): go up one level → src/lang/grammars
+ *   - CLI bundle  (ends with /cli):           go up one level → dist/lang/grammars
+ *   - Main bundle (everything else):          stay put        → dist/lang/grammars
+ */
+export declare function resolveGrammarDir(thisDir: string): string;
+/**
  * Get diagnose data from the swarm directory.
  * Returns structured health checks for GUI, background flows, or commands.
  */

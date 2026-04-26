@@ -43965,6 +43965,12 @@ async function checkConfigParseability(directory) {
     };
   }
 }
+function resolveGrammarDir(thisDir) {
+  const normalized = thisDir.replace(/\\/g, "/");
+  const isSource = normalized.endsWith("/src/services");
+  const isCliBundle = normalized.endsWith("/cli");
+  return isSource || isCliBundle ? path24.join(thisDir, "..", "lang", "grammars") : path24.join(thisDir, "lang", "grammars");
+}
 async function checkGrammarWasmFiles() {
   const grammarFiles = [
     "tree-sitter-javascript.wasm",
@@ -43988,8 +43994,7 @@ async function checkGrammarWasmFiles() {
     "tree-sitter-regex.wasm"
   ];
   const thisDir = path24.dirname(fileURLToPath(import.meta.url));
-  const isSource = thisDir.replace(/\\/g, "/").endsWith("/src/services");
-  const grammarDir = isSource ? path24.join(thisDir, "..", "lang", "grammars") : path24.join(thisDir, "lang", "grammars");
+  const grammarDir = resolveGrammarDir(thisDir);
   const missing = [];
   if (!existsSync11(path24.join(grammarDir, "tree-sitter.wasm"))) {
     missing.push("tree-sitter.wasm (core runtime)");
@@ -45509,7 +45514,7 @@ var init_profiles = __esm(() => {
     displayName: "C# / .NET",
     tier: 2,
     extensions: [".cs", ".csx"],
-    treeSitter: { grammarId: "c_sharp", wasmFile: "tree-sitter-c_sharp.wasm" },
+    treeSitter: { grammarId: "csharp", wasmFile: "tree-sitter-c-sharp.wasm" },
     build: {
       detectFiles: ["*.csproj", "*.sln", "Directory.Build.props"],
       commands: [
@@ -62059,8 +62064,10 @@ function getWasmFileName(languageId) {
 }
 function getGrammarsDirAbsolute() {
   const thisDir = path57.dirname(fileURLToPath2(import.meta.url));
-  const isSource = thisDir.replace(/\\/g, "/").endsWith("/src/lang");
-  return isSource ? path57.join(thisDir, "grammars") : path57.join(thisDir, "lang", "grammars");
+  const normalized = thisDir.replace(/\\/g, "/");
+  const isSource = normalized.endsWith("/src/lang");
+  const isCliBundle = normalized.endsWith("/cli");
+  return isSource ? path57.join(thisDir, "grammars") : isCliBundle ? path57.join(thisDir, "..", "lang", "grammars") : path57.join(thisDir, "lang", "grammars");
 }
 async function loadGrammar(languageId) {
   if (typeof languageId !== "string" || languageId.length > 100) {
