@@ -75897,7 +75897,7 @@ var detect_domains = createSwarmTool({
     text: exports_external.string().describe("The text to analyze for domain patterns")
   },
   execute: async (args2) => {
-    const text = args2.text.toLowerCase();
+    const text = (typeof args2.text === "string" ? args2.text : String(args2.text)).toLowerCase();
     const detected = [];
     for (const [domain3, patterns] of Object.entries(DOMAIN_PATTERNS)) {
       for (const pattern of patterns) {

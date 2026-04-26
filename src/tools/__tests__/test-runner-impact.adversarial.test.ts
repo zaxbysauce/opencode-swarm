@@ -7,9 +7,15 @@ import {
 	mock,
 	test,
 } from 'bun:test';
+import type { ToolResult } from '@opencode-ai/plugin';
 
 // We need to use mock.module which is set up in beforeEach
 // This allows us to properly intercept the module imports
+
+// Helper to convert ToolResult to string
+function resultToString(result: ToolResult): string {
+	return typeof result === 'string' ? result : result.output;
+}
 
 function createToolContext(directory: string) {
 	return { directory } as never;
@@ -88,11 +94,11 @@ describe('test-runner impact scope ADVERSARIAL security tests', () => {
 		);
 		let parsed: Record<string, unknown>;
 		try {
-			parsed = JSON.parse(result);
+			parsed = JSON.parse(resultToString(result));
 		} catch {
-			parsed = { _parseError: result };
+			parsed = { _parseError: resultToString(result) };
 		}
-		return { parsed, raw: result };
+		return { parsed, raw: resultToString(result) };
 	}
 
 	function setupAnalyzeImpactMock(impactedTests: string[] = []) {
