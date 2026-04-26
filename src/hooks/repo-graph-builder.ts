@@ -14,6 +14,7 @@ import {
 	saveGraph,
 	updateGraphForFiles,
 } from '../tools/repo-graph';
+import * as logger from '../utils/logger';
 
 export interface RepoGraphBuilderHook {
 	init(): Promise<void>;
@@ -91,7 +92,7 @@ export function createRepoGraphBuilderHook(
 			try {
 				const graph = _buildWorkspaceGraph(workspaceRoot);
 				await _saveGraph(workspaceRoot, graph);
-				console.log(
+				logger.log(
 					`[repo-graph] Built graph: ${graph.metadata.nodeCount} nodes, ${graph.metadata.edgeCount} edges`,
 				);
 			} catch (error) {
@@ -100,7 +101,7 @@ export function createRepoGraphBuilderHook(
 				if (message.includes('does not exist')) {
 					return; // Workspace not found — skip silently
 				}
-				console.warn(`[repo-graph] Failed to build graph: ${message}`);
+				logger.warn(`[repo-graph] Failed to build graph: ${message}`);
 			}
 		},
 
@@ -166,12 +167,12 @@ export function createRepoGraphBuilderHook(
 
 			try {
 				await _updateGraphForFiles(workspaceRoot, [absoluteFilePath]);
-				console.log(
+				logger.log(
 					`[repo-graph] Incremental update for ${path.basename(filePath)}`,
 				);
 			} catch (error) {
 				const message = error instanceof Error ? error.message : String(error);
-				console.warn(`[repo-graph] Incremental update failed: ${message}`);
+				logger.warn(`[repo-graph] Incremental update failed: ${message}`);
 			}
 		},
 	};
