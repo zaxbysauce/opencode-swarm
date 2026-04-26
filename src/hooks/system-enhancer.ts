@@ -1,4 +1,4 @@
-/**
+﻿/**
  * System Enhancer Hook
  *
  * Enhances the system prompt with current phase information from the plan
@@ -453,7 +453,7 @@ export function createSystemEnhancerHook(
 				try {
 					const maxInjectionTokens =
 						config.context_budget?.max_injection_tokens ??
-						Number.POSITIVE_INFINITY;
+						4000;
 					let injectedTokens = 0;
 
 					function tryInject(text: string): void {
@@ -2116,3 +2116,4 @@ export async function detectArchitectMode(
 		return 'UNKNOWN';
 	}
 }
+

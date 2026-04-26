@@ -11,8 +11,7 @@
 import {
 	promoteFromSwarm,
 	promoteToHive,
-	validateLesson,
-} from '../knowledge/hive-promoter';
+} from '../hooks/hive-promoter';
 
 export async function handlePromoteCommand(
 	directory: string,
@@ -45,13 +44,8 @@ export async function handlePromoteCommand(
 		return `Usage: /swarm promote "<lesson text>" or /swarm promote --from-swarm <id>`;
 	}
 
-	// Validate lesson text before any promotion
-	if (lessonText) {
-		const validation = validateLesson(lessonText);
-		if (!validation.valid) {
-			return `Lesson rejected by validator: ${validation.reason}`;
-		}
-	}
+	// Note: validateLesson is not needed here because promoteToHive and promoteFromSwarm
+	// (imported from hooks/hive-promoter.ts) both validate internally and throw on failure.
 
 	// Handle --from-swarm case
 	if (lessonId) {

@@ -3,6 +3,8 @@ import { tool } from '@opencode-ai/plugin';
 import { loadPluginConfigWithMeta } from '../config';
 import {
 	appendKnowledge,
+	findNearDuplicate,
+	readKnowledge,
 	resolveSwarmKnowledgePath,
 } from '../hooks/knowledge-store.js';
 import type {
@@ -141,7 +143,7 @@ export const knowledge_add: ReturnType<typeof createSwarmTool> =
 				schema_version: 1,
 				created_at: new Date().toISOString(),
 				updated_at: new Date().toISOString(),
-				auto_generated: true,
+				auto_generated: false,
 				hive_eligible: false,
 			};
 
@@ -163,6 +165,23 @@ export const knowledge_add: ReturnType<typeof createSwarmTool> =
 				}
 			} catch {
 				// Config load failure should not block knowledge storage
+			}
+
+			// Near-duplicate detection
+			try {
+				const existingEntries = await readKnowledge<SwarmKnowledgeEntry>(
+					resolveSwarmKnowledgePath(directory),
+				);
+				const duplicate = findNearDuplicate(lesson, existingEntries, 0.6);
+				if (duplicate) {
+					return JSON.stringify({
+						success: false,
+						id: duplicate.id,
+						message: 'near-duplicate of existing entry',
+					});
+				}
+			} catch {
+				// Read failure should not block knowledge storage
 			}
 
 			// Append to knowledge store

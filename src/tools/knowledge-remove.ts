@@ -10,7 +10,7 @@ import { createSwarmTool } from './create-tool.js';
 export const knowledge_remove: ReturnType<typeof createSwarmTool> =
 	createSwarmTool({
 		description:
-			'Delete an outdated knowledge entry by ID. Double-deletion is idempotent — removing a non-existent entry returns a clear message without error.',
+			'Delete an outdated swarm knowledge entry by ID (swarm tier only — does not affect hive). Double-deletion is idempotent — removing a non-existent entry returns a clear message without error.',
 		args: {
 			id: tool.schema
 				.string()
