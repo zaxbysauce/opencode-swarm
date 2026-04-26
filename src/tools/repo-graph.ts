@@ -11,12 +11,12 @@ import { constants, existsSync, realpathSync } from 'node:fs';
 import * as fsPromises from 'node:fs/promises';
 import * as path from 'node:path';
 import { validateSwarmPath } from '../hooks/utils';
+import * as logger from '../utils/logger';
 import {
 	containsControlChars,
 	containsPathTraversal,
 	validateSymlinkBoundary,
 } from '../utils/path-security';
-import * as logger from '../utils/logger';
 import { extractPythonSymbols, extractTSSymbols } from './symbols';
 
 /**
