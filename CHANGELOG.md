@@ -1,12 +1,5 @@
 # Changelog
 
-## [6.84.7](https://github.com/zaxbysauce/opencode-swarm/compare/v6.84.6...v6.84.7) (2026-04-26)
-
-
-### Bug Fixes
-
-* **guardrails:** redact opencode key variants and warn on missing .swarm gitignore ([#620](https://github.com/zaxbysauce/opencode-swarm/issues/620)) ([7537e7c](https://github.com/zaxbysauce/opencode-swarm/commit/7537e7c0f7808dba8b5b60957d149eba0a7b6729))
-
 ## [6.84.6](https://github.com/zaxbysauce/opencode-swarm/compare/v6.84.5...v6.84.6) (2026-04-26)
 
 
