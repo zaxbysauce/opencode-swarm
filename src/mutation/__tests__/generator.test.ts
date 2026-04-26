@@ -174,6 +174,50 @@ describe('generateMutants', () => {
 		expect(result[0].id).toBe('mut-123');
 	});
 
+	// 11. Regression: LLM wraps JSON in markdown code fence (```json ... ```)
+	// Previously JSON.parse threw "Unrecognized token '`'" and returned [].
+	describe('markdown code fence stripping — regression', () => {
+		const item = {
+			id: 'mut-001',
+			filePath: 'src/foo.ts',
+			functionName: 'bar',
+			mutationType: 'off-by-one',
+			patch: '--- a/src/foo.ts\n+++ b/src/foo.ts\n@@ -1,3 +1,3 @@\n-old\n+new',
+		};
+
+		test('strips ```json fence and parses patches', async () => {
+			const fenced = `\`\`\`json\n${JSON.stringify([item])}\n\`\`\``;
+			mockSessionPrompt.mockImplementation(async () => ({
+				data: { parts: [{ type: 'text', text: fenced }] },
+			}));
+			mock.module('../../state.js', () => ({
+				swarmState: { opencodeClient: mockClient },
+			}));
+			const { generateMutants } = await import('../generator.js');
+			const result = await generateMutants(['src/foo.ts'], {
+				directory: '/proj',
+			} as any);
+			expect(result).toHaveLength(1);
+			expect(result[0].id).toBe('mut-001');
+		});
+
+		test('strips plain ``` fence and parses patches', async () => {
+			const fenced = `\`\`\`\n${JSON.stringify([item])}\n\`\`\``;
+			mockSessionPrompt.mockImplementation(async () => ({
+				data: { parts: [{ type: 'text', text: fenced }] },
+			}));
+			mock.module('../../state.js', () => ({
+				swarmState: { opencodeClient: mockClient },
+			}));
+			const { generateMutants } = await import('../generator.js');
+			const result = await generateMutants(['src/foo.ts'], {
+				directory: '/proj',
+			} as any);
+			expect(result).toHaveLength(1);
+			expect(result[0].id).toBe('mut-001');
+		});
+	});
+
 	// 10. Items with missing/non-string id get a generated fallback ID (THE BUG FIX TEST)
 	test('items with missing/non-string id get a generated fallback ID', async () => {
 		const item = {

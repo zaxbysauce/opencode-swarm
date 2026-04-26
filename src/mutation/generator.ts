@@ -113,9 +113,16 @@ Return ONLY valid JSON array, no markdown, no explanation.`;
 		const rawText = textParts.map((p) => p.text).join('\n');
 
 		// 4. Parse JSON response
+		// LLMs often wrap responses in markdown code fences (```json ... ```)
+		// despite being instructed not to. Strip them before parsing.
+		const jsonText = rawText
+			.replace(/^```(?:json)?\s*\n?/im, '')
+			.replace(/\n?```\s*$/im, '')
+			.trim();
+
 		let parsed: unknown;
 		try {
-			parsed = JSON.parse(rawText);
+			parsed = JSON.parse(jsonText);
 		} catch (error) {
 			console.warn(
 				`[generateMutants] Failed to parse LLM response as MutationPatch[]: ${error instanceof Error ? error.message : String(error)}; returning empty patch set`,
