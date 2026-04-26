@@ -23123,11 +23123,11 @@ function dcExtractPowerShellTargets(segment) {
 function redactShellCommand(cmd) {
   if (typeof cmd !== "string")
     return "";
-  let out2 = cmd.replace(/\b([A-Z_]*(?:TOKEN|SECRET|PASSWORD|PASSWD|API[_]?KEY|APIKEY|AUTH|CREDENTIAL|PRIVATE[_]?KEY|ACCESS[_]?KEY)[A-Z_0-9]*)\s*=\s*(\S+)/gi, "$1=[REDACTED]");
+  let out2 = cmd.replace(/\b([A-Z_]*(?:TOKEN|SECRET|PASSWORD|PASSWD|API[_]?KEY|APIKEY|AUTH|CREDENTIAL|PRIVATE[_]?KEY|ACCESS[_]?KEY|_KEY)[A-Z_0-9]*)\s*=\s*(\S+)/gi, "$1=[REDACTED]");
   out2 = out2.replace(/--([a-zA-Z-]*(?:token|secret|password|passwd|api[_-]?key|apikey|auth|credential|private[_-]?key|access[_-]?key)[a-zA-Z-]*)=(\S+)/gi, "--$1=[REDACTED]");
   out2 = out2.replace(/(--[a-zA-Z-]*(?:token|secret|password|passwd|api[_-]?key|apikey|auth|credential|private[_-]?key|access[_-]?key)[a-zA-Z-]*)(\s+)(?!--)(\S+)/gi, "$1$2[REDACTED]");
   out2 = out2.replace(/\b(Bearer|Basic)\s+[A-Za-z0-9+/=._-]{4,}/gi, "$1 [REDACTED]");
-  out2 = out2.replace(/(-H\s+['"]?(?:Authorization|X-API-Key|X-Auth-Token):\s*)([^'">\s][^'">\n]*)(['"]?)/gi, "$1[REDACTED]$3");
+  out2 = out2.replace(/(-H\s+['"]?(?:Authorization|X-API-Key|X-Auth-Token|[A-Za-z][A-Za-z-]*-(?:key|token|secret|auth|credential)):\s*)([^'">\s][^'">\n]*)(['"]?)/gi, "$1[REDACTED]$3");
   return out2;
 }
 function createGuardrailsHooks(directory, directoryOrConfig, config2, authorityConfig) {
@@ -53974,6 +53974,10 @@ var init_registry = __esm(() => {
       handler: (ctx) => handleDiagnoseCommand(ctx.directory, ctx.args),
       description: "Run health check on swarm state"
     },
+    diagnosis: {
+      handler: (ctx) => handleDiagnoseCommand(ctx.directory, ctx.args),
+      description: "Run health check on swarm state"
+    },
     preflight: {
       handler: (ctx) => handlePreflightCommand(ctx.directory, ctx.args),
       description: "Run preflight automation checks"
@@ -62146,7 +62150,7 @@ __export(exports_doc_scan, {
 });
 import * as crypto7 from "crypto";
 import * as fs45 from "fs";
-import { mkdir as mkdir8, readFile as readFile8, writeFile as writeFile8 } from "fs/promises";
+import { mkdir as mkdir9, readFile as readFile8, writeFile as writeFile8 } from "fs/promises";
 import * as path59 from "path";
 function normalizeSeparators(filePath) {
   return filePath.replace(/\\/g, "/");
@@ -62318,7 +62322,7 @@ async function scanDocIndex(directory) {
     files: discoveredFiles
   };
   try {
-    await mkdir8(path59.dirname(manifestPath), { recursive: true });
+    await mkdir9(path59.dirname(manifestPath), { recursive: true });
     await writeFile8(manifestPath, JSON.stringify(manifest, null, 2), "utf-8");
   } catch {}
   return { manifest, cached: false };
@@ -62831,7 +62835,7 @@ var init_curator_drift = __esm(() => {
 
 // src/index.ts
 init_agents();
-import * as path103 from "path";
+import * as path104 from "path";
 
 // src/background/index.ts
 init_event_bus();
@@ -65521,6 +65525,7 @@ async function saveGraph(workspace, graph, options) {
   const graphPath = getGraphPath(workspace);
   updateGraphMetadata(graph);
   const tempPath = `${graphPath}.tmp.${Date.now()}.${Math.floor(Math.random() * 1e9)}`;
+  await fsPromises3.mkdir(path49.dirname(tempPath), { recursive: true });
   let lastError = null;
   try {
     if (options?.createAtomic) {
@@ -65731,16 +65736,21 @@ function buildWorkspaceGraph(workspaceRoot, options) {
     stats.filesScanned++;
     const ext = path49.extname(filePath).toLowerCase();
     let exports = [];
-    if ([".ts", ".tsx", ".js", ".jsx", ".mjs", ".cjs"].includes(ext)) {
-      const relativePath = path49.relative(absoluteRoot, filePath);
-      const symbols2 = extractTSSymbols(relativePath, absoluteRoot);
-      exports = symbols2.filter((s) => s.exported).map((s) => s.name);
-    } else if (ext === ".py") {
-      const relativePath = path49.relative(absoluteRoot, filePath);
-      const symbols2 = extractPythonSymbols(relativePath, absoluteRoot);
-      exports = symbols2.filter((s) => s.exported).map((s) => s.name);
+    let parsedImports = [];
+    try {
+      if ([".ts", ".tsx", ".js", ".jsx", ".mjs", ".cjs"].includes(ext)) {
+        const relativePath = path49.relative(absoluteRoot, filePath);
+        const symbols2 = extractTSSymbols(relativePath, absoluteRoot);
+        exports = symbols2.filter((s) => s.exported).map((s) => s.name);
+      } else if (ext === ".py") {
+        const relativePath = path49.relative(absoluteRoot, filePath);
+        const symbols2 = extractPythonSymbols(relativePath, absoluteRoot);
+        exports = symbols2.filter((s) => s.exported).map((s) => s.name);
+      }
+      parsedImports = parseFileImports(content);
+    } catch {
+      continue;
     }
-    const parsedImports = parseFileImports(content);
     const node = {
       filePath,
       moduleName: toModuleName(filePath, absoluteRoot),
@@ -65792,38 +65802,42 @@ function scanFile(filePath, absoluteRoot, maxFileSize) {
   }
   const ext = path49.extname(filePath).toLowerCase();
   let exports = [];
-  if ([".ts", ".tsx", ".js", ".jsx", ".mjs", ".cjs"].includes(ext)) {
-    const relativePath = path49.relative(absoluteRoot, filePath);
-    const symbols2 = extractTSSymbols(relativePath, absoluteRoot);
-    exports = symbols2.filter((s) => s.exported).map((s) => s.name);
-  } else if (ext === ".py") {
-    const relativePath = path49.relative(absoluteRoot, filePath);
-    const symbols2 = extractPythonSymbols(relativePath, absoluteRoot);
-    exports = symbols2.filter((s) => s.exported).map((s) => s.name);
-  }
-  const parsedImports = parseFileImports(content);
-  const node = {
-    filePath,
-    moduleName: toModuleName(filePath, absoluteRoot),
-    exports,
-    imports: parsedImports.map((p) => p.specifier),
-    language: getLanguage(filePath),
-    mtime: fileStats.mtime.toISOString()
-  };
-  const edges = [];
-  const sortedImports = [...parsedImports].sort((a, b) => a.specifier.localeCompare(b.specifier));
-  for (const parsed of sortedImports) {
-    const resolvedTarget = resolveModuleSpecifier(absoluteRoot, filePath, parsed.specifier);
-    if (resolvedTarget !== null) {
-      edges.push({
-        source: filePath,
-        target: resolvedTarget,
-        importSpecifier: parsed.specifier,
-        importType: parsed.importType
-      });
+  try {
+    if ([".ts", ".tsx", ".js", ".jsx", ".mjs", ".cjs"].includes(ext)) {
+      const relativePath = path49.relative(absoluteRoot, filePath);
+      const symbols2 = extractTSSymbols(relativePath, absoluteRoot);
+      exports = symbols2.filter((s) => s.exported).map((s) => s.name);
+    } else if (ext === ".py") {
+      const relativePath = path49.relative(absoluteRoot, filePath);
+      const symbols2 = extractPythonSymbols(relativePath, absoluteRoot);
+      exports = symbols2.filter((s) => s.exported).map((s) => s.name);
     }
+    const parsedImports = parseFileImports(content);
+    const node = {
+      filePath,
+      moduleName: toModuleName(filePath, absoluteRoot),
+      exports,
+      imports: parsedImports.map((p) => p.specifier),
+      language: getLanguage(filePath),
+      mtime: fileStats.mtime.toISOString()
+    };
+    const edges = [];
+    const sortedImports = [...parsedImports].sort((a, b) => a.specifier.localeCompare(b.specifier));
+    for (const parsed of sortedImports) {
+      const resolvedTarget = resolveModuleSpecifier(absoluteRoot, filePath, parsed.specifier);
+      if (resolvedTarget !== null) {
+        edges.push({
+          source: filePath,
+          target: resolvedTarget,
+          importSpecifier: parsed.specifier,
+          importType: parsed.importType
+        });
+      }
+    }
+    return { node, edges };
+  } catch {
+    return { node: null, edges: [] };
   }
-  return { node, edges };
 }
 async function updateGraphForFiles(workspaceRoot, filePaths, options) {
   if (options?.forceRebuild) {
@@ -65921,7 +65935,7 @@ function createRepoGraphBuilderHook(workspaceRoot, deps) {
         if (message.includes("does not exist")) {
           return;
         }
-        console.error(`[repo-graph] Failed to build graph: ${message}`);
+        console.warn(`[repo-graph] Failed to build graph: ${message}`);
       }
     },
     async toolAfter(input, _output) {
@@ -65961,7 +65975,7 @@ function createRepoGraphBuilderHook(workspaceRoot, deps) {
         console.log(`[repo-graph] Incremental update for ${path50.basename(filePath)}`);
       } catch (error93) {
         const message = error93 instanceof Error ? error93.message : String(error93);
-        console.error(`[repo-graph] Incremental update failed: ${message}`);
+        console.warn(`[repo-graph] Incremental update failed: ${message}`);
       }
     }
   };
@@ -86816,6 +86830,7 @@ var todo_extract = createSwarmTool({
 init_tool();
 init_loader();
 init_schema();
+init_qa_gate_profile();
 init_gate_evidence();
 import * as fs83 from "fs";
 import * as path99 from "path";
@@ -87181,6 +87196,20 @@ function checkCouncilGate(workingDirectory, taskId) {
     return { blocked: false, reason: "" };
   }
   if (!councilEnabled) {
+    return { blocked: false, reason: "" };
+  }
+  try {
+    const planPath = path99.join(workingDirectory, ".swarm", "plan.json");
+    const planRaw = fs83.readFileSync(planPath, "utf-8");
+    const planObj = JSON.parse(planRaw);
+    if (planObj.swarm && planObj.title) {
+      const planId = `${planObj.swarm}-${planObj.title}`.replace(/[^a-zA-Z0-9-_]/g, "_");
+      const profile = getProfile(workingDirectory, planId);
+      if (!profile || !profile.gates.council_mode) {
+        return { blocked: false, reason: "" };
+      }
+    }
+  } catch {
     return { blocked: false, reason: "" };
   }
   let evidence;
@@ -88061,6 +88090,67 @@ init_write_retro();
 // src/index.ts
 init_utils();
 
+// src/utils/gitignore-warning.ts
+import * as fs87 from "fs";
+import * as path103 from "path";
+var _gitignoreWarningEmitted = false;
+function findGitRoot(startDir) {
+  let current = startDir;
+  while (true) {
+    try {
+      const gitPath = path103.join(current, ".git");
+      const stat4 = fs87.statSync(gitPath);
+      if (stat4.isDirectory()) {
+        return current;
+      }
+    } catch {}
+    const parent = path103.dirname(current);
+    if (parent === current) {
+      return null;
+    }
+    current = parent;
+  }
+}
+function fileCoversSwarm(content) {
+  for (const rawLine of content.split(`
+`)) {
+    const line = rawLine.trim();
+    if (line.startsWith("#") || line.length === 0)
+      continue;
+    if (line === ".swarm" || line === ".swarm/")
+      return true;
+  }
+  return false;
+}
+function readFileSafe(filePath) {
+  try {
+    return fs87.readFileSync(filePath, "utf8");
+  } catch {
+    return null;
+  }
+}
+function warnIfSwarmNotGitignored(directory) {
+  if (_gitignoreWarningEmitted)
+    return;
+  try {
+    const gitRoot = findGitRoot(directory);
+    if (!gitRoot)
+      return;
+    const gitignoreContent = readFileSafe(path103.join(gitRoot, ".gitignore"));
+    if (gitignoreContent !== null && fileCoversSwarm(gitignoreContent)) {
+      _gitignoreWarningEmitted = true;
+      return;
+    }
+    const excludeContent = readFileSafe(path103.join(gitRoot, ".git", "info", "exclude"));
+    if (excludeContent !== null && fileCoversSwarm(excludeContent)) {
+      _gitignoreWarningEmitted = true;
+      return;
+    }
+    _gitignoreWarningEmitted = true;
+    console.warn('[opencode-swarm] WARNING: .swarm/ is not in your .gitignore. Shell audit logs may contain API keys. Add ".swarm/" to your .gitignore to prevent accidental commits.');
+  } catch {}
+}
+
 // src/utils/tool-output.ts
 function truncateToolOutput(output, maxLines, toolName, tailLines = 10) {
   if (!output) {
@@ -88106,9 +88196,10 @@ var OpenCodeSwarm = async (ctx) => {
   swarmState.fullAutoEnabledInConfig = config3.full_auto?.enabled === true;
   swarmState.opencodeClient = ctx.client;
   await loadSnapshot(ctx.directory);
+  initTelemetry(ctx.directory);
+  warnIfSwarmNotGitignored(ctx.directory);
   const repoGraphHook = createRepoGraphBuilderHook(ctx.directory);
   repoGraphHook.init().catch(() => {});
-  initTelemetry(ctx.directory);
   const agents = getAgentConfigs(config3, ctx.directory);
   const agentDefinitions = createAgents(config3);
   swarmState.curatorInitAgentNames = Object.keys(agents).filter((k) => k === "curator_init" || k.endsWith("_curator_init"));
@@ -88226,7 +88317,7 @@ var OpenCodeSwarm = async (ctx) => {
     const { PreflightTriggerManager: PTM } = await Promise.resolve().then(() => (init_trigger(), exports_trigger));
     preflightTriggerManager = new PTM(automationConfig);
     const { AutomationStatusArtifact: ASA } = await Promise.resolve().then(() => (init_status_artifact(), exports_status_artifact));
-    const swarmDir = path103.resolve(ctx.directory, ".swarm");
+    const swarmDir = path104.resolve(ctx.directory, ".swarm");
     statusArtifact = new ASA(swarmDir);
     statusArtifact.updateConfig(automationConfig.mode, automationConfig.capabilities);
     if (automationConfig.capabilities?.evidence_auto_summaries === true) {
@@ -88396,7 +88487,7 @@ var OpenCodeSwarm = async (ctx) => {
         ...opencodeConfig.command || {},
         swarm: {
           template: "/swarm $ARGUMENTS",
-          description: "Swarm management commands: /swarm [status|plan|agents|history|config|evidence|handoff|archive|diagnose|preflight|sync-plan|benchmark|export|reset|rollback|retrieve|clarify|analyze|specify|brainstorm|qa-gates|dark-matter|knowledge|curate|turbo|full-auto|write-retro|reset-session|simulate|promote|checkpoint|acknowledge-spec-drift|doctor-tools|close]"
+          description: "Swarm management commands: /swarm [status|plan|agents|history|config|evidence|handoff|archive|diagnose|diagnosis|preflight|sync-plan|benchmark|export|reset|rollback|retrieve|clarify|analyze|specify|brainstorm|qa-gates|dark-matter|knowledge|curate|turbo|full-auto|write-retro|reset-session|simulate|promote|checkpoint|acknowledge-spec-drift|doctor-tools|close]"
         },
         "swarm-status": {
           template: "/swarm status",
@@ -88433,6 +88524,10 @@ var OpenCodeSwarm = async (ctx) => {
         "swarm-diagnose": {
           template: "/swarm diagnose",
           description: "Use /swarm diagnose to run health checks on swarm state"
+        },
+        "swarm-diagnosis": {
+          template: "/swarm diagnosis",
+          description: "Use /swarm diagnosis to run health checks on swarm state"
         },
         "swarm-preflight": {
           template: "/swarm preflight",

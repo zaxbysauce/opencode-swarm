@@ -1,5 +1,26 @@
 # Changelog
 
+## [6.84.5](https://github.com/zaxbysauce/opencode-swarm/compare/v6.84.4...v6.84.5) (2026-04-25)
+
+
+### Bug Fixes
+
+* **repo-graph:** prevent first-initialization error on new workspaces ([#614](https://github.com/zaxbysauce/opencode-swarm/issues/614)) ([2b13a00](https://github.com/zaxbysauce/opencode-swarm/commit/2b13a00f994aa7312187c2222b7a48502da08bd5)), closes [#585](https://github.com/zaxbysauce/opencode-swarm/issues/585)
+
+## [6.84.4](https://github.com/zaxbysauce/opencode-swarm/compare/v6.84.3...v6.84.4) (2026-04-25)
+
+
+### Bug Fixes
+
+* **council:** checkCouncilGate blocks completion when council_mode=false ([#612](https://github.com/zaxbysauce/opencode-swarm/issues/612)) ([f760956](https://github.com/zaxbysauce/opencode-swarm/commit/f7609560fd239cb2d229ec2445a769a58b2f7d04))
+
+## [6.84.3](https://github.com/zaxbysauce/opencode-swarm/compare/v6.84.2...v6.84.3) (2026-04-25)
+
+
+### Bug Fixes
+
+* add 'diagnosis' as alias for 'diagnose' command (issue [#588](https://github.com/zaxbysauce/opencode-swarm/issues/588)) ([#610](https://github.com/zaxbysauce/opencode-swarm/issues/610)) ([8a45fd6](https://github.com/zaxbysauce/opencode-swarm/commit/8a45fd6e5394c68b5bdd516d4e1f133323b0541f))
+
 ## [6.84.2](https://github.com/zaxbysauce/opencode-swarm/compare/v6.84.1...v6.84.2) (2026-04-24)
 
 

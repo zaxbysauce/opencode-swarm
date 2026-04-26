@@ -59,7 +59,7 @@ describe('ADVERSARIAL: constants.architect-whitelist', () => {
 				}
 			}
 			// architect should have way more tools than others
-			expect(toolCount['check_gate_status']).toBe(1); // Only architect
+			expect(toolCount.check_gate_status).toBe(1); // Only architect
 		});
 	});
 

@@ -10,6 +10,7 @@ import * as path from 'node:path';
 import { WRITE_TOOL_NAMES } from '../config/constants';
 import {
 	buildWorkspaceGraph,
+	type RepoGraph,
 	saveGraph,
 	updateGraphForFiles,
 } from '../tools/repo-graph';
@@ -23,13 +24,20 @@ export interface RepoGraphBuilderHook {
 }
 
 export interface RepoGraphDeps {
-	buildWorkspaceGraph: (workspace: string, options?: any) => any;
-	saveGraph: (workspace: string, graph: any) => Promise<void>;
+	buildWorkspaceGraph: (
+		workspace: string,
+		options?: { maxFileSizeBytes?: number; maxFiles?: number },
+	) => RepoGraph;
+	saveGraph: (
+		workspace: string,
+		graph: RepoGraph,
+		options?: { createAtomic?: boolean },
+	) => Promise<void>;
 	updateGraphForFiles: (
 		workspace: string,
 		files: string[],
-		options?: any,
-	) => Promise<any>;
+		options?: { forceRebuild?: boolean },
+	) => Promise<RepoGraph>;
 }
 
 /**
@@ -92,7 +100,7 @@ export function createRepoGraphBuilderHook(
 				if (message.includes('does not exist')) {
 					return; // Workspace not found — skip silently
 				}
-				console.error(`[repo-graph] Failed to build graph: ${message}`);
+				console.warn(`[repo-graph] Failed to build graph: ${message}`);
 			}
 		},
 
@@ -163,7 +171,7 @@ export function createRepoGraphBuilderHook(
 				);
 			} catch (error) {
 				const message = error instanceof Error ? error.message : String(error);
-				console.error(`[repo-graph] Incremental update failed: ${message}`);
+				console.warn(`[repo-graph] Incremental update failed: ${message}`);
 			}
 		},
 	};
