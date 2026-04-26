@@ -1,20 +1,23 @@
 import { describe, expect, it } from 'bun:test';
 import {
+	DEFAULT_SCORING_CONFIG,
+	resolveScoringConfig,
+} from '../../../src/config/constants';
+import {
 	AgentOverrideConfigSchema,
-	SwarmConfigSchema,
-	PluginConfigSchema,
-	GuardrailsConfigSchema,
-	ScoringWeightsSchema,
-	DecisionDecaySchema,
-	TokenRatiosSchema,
-	ScoringConfigSchema,
 	ContextBudgetConfigSchema,
-	PipelineConfigSchema,
-	GeneralCouncilConfigSchema,
 	CouncilConfigSchema,
+	DecisionDecaySchema,
+	GeneralCouncilConfigSchema,
+	GuardrailsConfigSchema,
+	PipelineConfigSchema,
+	PluginConfigSchema,
+	ScoringConfigSchema,
+	ScoringWeightsSchema,
+	SwarmConfigSchema,
 	stripKnownSwarmPrefix,
+	TokenRatiosSchema,
 } from '../../../src/config/schema';
-import { resolveScoringConfig, DEFAULT_SCORING_CONFIG } from '../../../src/config/constants';
 
 describe('AgentOverrideConfigSchema', () => {
 	it('accepts empty object {}', () => {
