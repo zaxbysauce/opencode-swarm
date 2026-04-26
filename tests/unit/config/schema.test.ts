@@ -1,4 +1,4 @@
-import { describe, expect, it } from 'bun:test';
+import { afterAll, beforeAll, describe, expect, it } from 'bun:test';
 import {
 	DEFAULT_SCORING_CONFIG,
 	resolveScoringConfig,
@@ -18,6 +18,18 @@ import {
 	TokenRatiosSchema,
 } from '../../../src/config/schema';
 
+// Suppress console.warn globally to prevent Zod refine warnings (model without
+// fallback_models) from stderr on macOS arm64 where Bun treats it as exit code 1.
+// The warn-behavior tests below restore and check console.warn directly.
+let originalWarn: typeof console.warn;
+beforeAll(() => {
+	originalWarn = console.warn;
+	console.warn = () => {};
+});
+afterAll(() => {
+	console.warn = originalWarn;
+});
+
 describe('AgentOverrideConfigSchema', () => {
 	it('accepts empty object {}', () => {
 		const result = AgentOverrideConfigSchema.safeParse({});
@@ -28,7 +40,10 @@ describe('AgentOverrideConfigSchema', () => {
 	});
 
 	it('accepts valid model string', () => {
+		const originalWarn = console.warn;
+		console.warn = () => {};
 		const result = AgentOverrideConfigSchema.safeParse({ model: 'gpt-4' });
+		console.warn = originalWarn;
 		expect(result.success).toBe(true);
 		if (result.success) {
 			expect(result.data).toEqual({ model: 'gpt-4' });
