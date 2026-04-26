@@ -821,7 +821,7 @@ export async function saveGraph(
 				'code' in error &&
 				(error as { code: string }).code !== 'ENOENT'
 			) {
-				logger.warn(`Failed to clean up temp file ${tempPath}:`, error);
+				logger.error(`Failed to clean up temp file ${tempPath}:`, error);
 			}
 		}
 	}
