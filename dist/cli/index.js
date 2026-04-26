@@ -24505,6 +24505,7 @@ import * as path21 from "path";
 // src/build/discovery.ts
 import * as fs10 from "fs";
 import * as path20 from "path";
+init_zod();
 
 // src/lang/detector.ts
 import { access as access2, readdir as readdir2 } from "fs/promises";
@@ -25851,9 +25852,9 @@ async function discoverBuildCommands(workingDir, options) {
 var build_discovery = tool({
   description: "Discover build commands for various ecosystems in a project directory",
   args: {
-    workingDir: tool.schema.string().describe("Directory to scan for build commands (defaults to current directory)"),
-    scope: tool.schema.string().optional().describe('Scope of detection: "all" for all build files, "changed" for only changed files'),
-    changedFiles: tool.schema.array(tool.schema.string()).optional().describe('List of changed files when scope is "changed"')
+    workingDir: exports_external.string().describe("Directory to scan for build commands (defaults to current directory)"),
+    scope: exports_external.string().optional().describe('Scope of detection: "all" for all build files, "changed" for only changed files'),
+    changedFiles: exports_external.array(exports_external.string()).optional().describe('List of changed files when scope is "changed"')
   },
   async execute(args, _context) {
     const result = await discoverBuildCommands(args.workingDir, {

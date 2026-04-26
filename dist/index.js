@@ -33695,6 +33695,7 @@ async function discoverBuildCommands(workingDir, options) {
 var ECOSYSTEMS, PROFILE_TO_ECOSYSTEM_NAMES, toolchainCache, build_discovery;
 var init_discovery = __esm(() => {
   init_dist();
+  init_zod();
   init_detector();
   init_profiles();
   init_utils();
@@ -33812,9 +33813,9 @@ var init_discovery = __esm(() => {
   build_discovery = tool({
     description: "Discover build commands for various ecosystems in a project directory",
     args: {
-      workingDir: tool.schema.string().describe("Directory to scan for build commands (defaults to current directory)"),
-      scope: tool.schema.string().optional().describe('Scope of detection: "all" for all build files, "changed" for only changed files'),
-      changedFiles: tool.schema.array(tool.schema.string()).optional().describe('List of changed files when scope is "changed"')
+      workingDir: exports_external.string().describe("Directory to scan for build commands (defaults to current directory)"),
+      scope: exports_external.string().optional().describe('Scope of detection: "all" for all build files, "changed" for only changed files'),
+      changedFiles: exports_external.array(exports_external.string()).optional().describe('List of changed files when scope is "changed"')
     },
     async execute(args2, _context) {
       const result = await discoverBuildCommands(args2.workingDir, {
@@ -59730,7 +59731,7 @@ init_state();
 init_telemetry();
 
 // src/tools/batch-symbols.ts
-init_tool();
+init_zod();
 init_create_tool();
 import * as fs53 from "fs";
 import * as path68 from "path";
@@ -59865,8 +59866,8 @@ function processFile2(file2, cwd, exportedOnly) {
 var batch_symbols = createSwarmTool({
   description: "Extract symbols from multiple files in a single batch call. " + "Accepts an array of file paths and returns per-file symbol summaries. " + "One bad file does not crash the batch. Use for surveying a module " + "when you need symbol information from multiple files at once.",
   args: {
-    files: tool.schema.array(tool.schema.string()).describe("Array of file paths to extract symbols from"),
-    exported_only: tool.schema.boolean().default(true).describe("If true, only return exported/public symbols. If false, include all top-level symbols.")
+    files: exports_external.array(exports_external.string()).describe("Array of file paths to extract symbols from"),
+    exported_only: exports_external.boolean().default(true).describe("If true, only return exported/public symbols. If false, include all top-level symbols.")
   },
   execute: async (args2, directory) => {
     let files;
