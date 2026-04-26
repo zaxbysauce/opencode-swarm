@@ -45254,8 +45254,8 @@ Next steps:`);
 \uD83D\uDCA1 Model configuration:`);
   console.log(`   Global config: ${PLUGIN_CONFIG_PATH}`);
   console.log("   Project override: .opencode/opencode-swarm.json  (create in your project root)");
-  console.log("   On first OpenCode startup, .swarm/config.example.json will be written to your");
-  console.log("   project \u2014 use it as a reference for the override format.");
+  console.log("   On first OpenCode startup, .swarm/config.example.json will be written to your project root");
+  console.log("   \u2014 use it as a reference for customizing model assignments.");
   return 0;
 }
 async function uninstall() {

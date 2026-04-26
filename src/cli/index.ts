@@ -242,9 +242,9 @@ async function install(): Promise<number> {
 		'   Project override: .opencode/opencode-swarm.json  (create in your project root)',
 	);
 	console.log(
-		'   On first OpenCode startup, .swarm/config.example.json will be written to your',
+		'   On first OpenCode startup, .swarm/config.example.json will be written to your project root',
 	);
-	console.log('   project — use it as a reference for the override format.');
+	console.log('   — use it as a reference for customizing model assignments.');
 
 	return 0;
 }

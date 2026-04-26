@@ -58,29 +58,33 @@ If the command fails:
 
 ## Step 2 — Verify Installation
 
-Before proceeding, confirm Swarm is loaded:
+Before proceeding, confirm Swarm is loaded. Inside an OpenCode session, run:
 
 ```bash
 /swarm diagnose
 ```
 
-You should see a summary like:
+You should see a health check report like:
 
 ```
-✓ Swarm plugin loaded
-✓ 11 agents registered: architect, coder, reviewer, test_engineer, critic, explorer, sme, docs, designer, ...
-✓ Configuration loaded from ~/.config/opencode/opencode-swarm.json
-✓ Ready to orchestrate
+## Swarm Health Check
+
+- ✅ **Config Parseability**: Project config is valid JSON (or using defaults)
+- ✅ **Grammar WASM Files**: Core runtime + all language grammar files present
+- ✅ **Git Repository**: Valid git repository found
+- ✅ **Plan Sync**: No plan yet (will be created on first task)
+
+**Result**: ✅ All checks passed
 ```
 
-Also check:
+If you see ❌ failures, fix them before proceeding. Also check:
 
 ```bash
 /swarm agents
 /swarm config
 ```
 
-These commands show which agents are available and what models they're using. If you see errors, go back to Step 1.
+These commands list available agents and show what models they're using. If you see errors, go back to Step 1.
 
 ---
 
