@@ -23130,11 +23130,11 @@ function dcExtractPowerShellTargets(segment) {
 function redactShellCommand(cmd) {
   if (typeof cmd !== "string")
     return "";
-  let out2 = cmd.replace(/\b([A-Z_]*(?:TOKEN|SECRET|PASSWORD|PASSWD|API[_]?KEY|APIKEY|AUTH|CREDENTIAL|PRIVATE[_]?KEY|ACCESS[_]?KEY)[A-Z_0-9]*)\s*=\s*(\S+)/gi, "$1=[REDACTED]");
+  let out2 = cmd.replace(/\b([A-Z_]*(?:TOKEN|SECRET|PASSWORD|PASSWD|API[_]?KEY|APIKEY|AUTH|CREDENTIAL|PRIVATE[_]?KEY|ACCESS[_]?KEY|_KEY)[A-Z_0-9]*)\s*=\s*(\S+)/gi, "$1=[REDACTED]");
   out2 = out2.replace(/--([a-zA-Z-]*(?:token|secret|password|passwd|api[_-]?key|apikey|auth|credential|private[_-]?key|access[_-]?key)[a-zA-Z-]*)=(\S+)/gi, "--$1=[REDACTED]");
   out2 = out2.replace(/(--[a-zA-Z-]*(?:token|secret|password|passwd|api[_-]?key|apikey|auth|credential|private[_-]?key|access[_-]?key)[a-zA-Z-]*)(\s+)(?!--)(\S+)/gi, "$1$2[REDACTED]");
   out2 = out2.replace(/\b(Bearer|Basic)\s+[A-Za-z0-9+/=._-]{4,}/gi, "$1 [REDACTED]");
-  out2 = out2.replace(/(-H\s+['"]?(?:Authorization|X-API-Key|X-Auth-Token):\s*)([^'">\s][^'">\n]*)(['"]?)/gi, "$1[REDACTED]$3");
+  out2 = out2.replace(/(-H\s+['"]?(?:Authorization|X-API-Key|X-Auth-Token|[A-Za-z][A-Za-z-]*-(?:key|token|secret|auth|credential)):\s*)([^'">\s][^'">\n]*)(['"]?)/gi, "$1[REDACTED]$3");
   return out2;
 }
 function createGuardrailsHooks(directory, directoryOrConfig, config2, authorityConfig) {
@@ -62846,7 +62846,7 @@ var init_curator_drift = __esm(() => {
 
 // src/index.ts
 init_agents();
-import * as path103 from "path";
+import * as path104 from "path";
 
 // src/background/index.ts
 init_event_bus();
@@ -88102,6 +88102,67 @@ init_write_retro();
 // src/index.ts
 init_utils();
 
+// src/utils/gitignore-warning.ts
+import * as fs87 from "fs";
+import * as path103 from "path";
+var _gitignoreWarningEmitted = false;
+function findGitRoot(startDir) {
+  let current = startDir;
+  while (true) {
+    try {
+      const gitPath = path103.join(current, ".git");
+      const stat4 = fs87.statSync(gitPath);
+      if (stat4.isDirectory()) {
+        return current;
+      }
+    } catch {}
+    const parent = path103.dirname(current);
+    if (parent === current) {
+      return null;
+    }
+    current = parent;
+  }
+}
+function fileCoversSwarm(content) {
+  for (const rawLine of content.split(`
+`)) {
+    const line = rawLine.trim();
+    if (line.startsWith("#") || line.length === 0)
+      continue;
+    if (line === ".swarm" || line === ".swarm/")
+      return true;
+  }
+  return false;
+}
+function readFileSafe(filePath) {
+  try {
+    return fs87.readFileSync(filePath, "utf8");
+  } catch {
+    return null;
+  }
+}
+function warnIfSwarmNotGitignored(directory) {
+  if (_gitignoreWarningEmitted)
+    return;
+  try {
+    const gitRoot = findGitRoot(directory);
+    if (!gitRoot)
+      return;
+    const gitignoreContent = readFileSafe(path103.join(gitRoot, ".gitignore"));
+    if (gitignoreContent !== null && fileCoversSwarm(gitignoreContent)) {
+      _gitignoreWarningEmitted = true;
+      return;
+    }
+    const excludeContent = readFileSafe(path103.join(gitRoot, ".git", "info", "exclude"));
+    if (excludeContent !== null && fileCoversSwarm(excludeContent)) {
+      _gitignoreWarningEmitted = true;
+      return;
+    }
+    _gitignoreWarningEmitted = true;
+    console.warn('[opencode-swarm] WARNING: .swarm/ is not in your .gitignore. Shell audit logs may contain API keys. Add ".swarm/" to your .gitignore to prevent accidental commits.');
+  } catch {}
+}
+
 // src/utils/tool-output.ts
 function truncateToolOutput(output, maxLines, toolName, tailLines = 10) {
   if (!output) {
@@ -88148,6 +88209,7 @@ var OpenCodeSwarm = async (ctx) => {
   swarmState.opencodeClient = ctx.client;
   await loadSnapshot(ctx.directory);
   initTelemetry(ctx.directory);
+  warnIfSwarmNotGitignored(ctx.directory);
   const repoGraphHook = createRepoGraphBuilderHook(ctx.directory);
   repoGraphHook.init().catch(() => {});
   const agents = getAgentConfigs(config3, ctx.directory);
@@ -88267,7 +88329,7 @@ var OpenCodeSwarm = async (ctx) => {
     const { PreflightTriggerManager: PTM } = await Promise.resolve().then(() => (init_trigger(), exports_trigger));
     preflightTriggerManager = new PTM(automationConfig);
     const { AutomationStatusArtifact: ASA } = await Promise.resolve().then(() => (init_status_artifact(), exports_status_artifact));
-    const swarmDir = path103.resolve(ctx.directory, ".swarm");
+    const swarmDir = path104.resolve(ctx.directory, ".swarm");
     statusArtifact = new ASA(swarmDir);
     statusArtifact.updateConfig(automationConfig.mode, automationConfig.capabilities);
     if (automationConfig.capabilities?.evidence_auto_summaries === true) {

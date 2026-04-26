@@ -130,6 +130,7 @@ import {
 	write_retro,
 } from './tools';
 import { log } from './utils';
+import { warnIfSwarmNotGitignored } from './utils/gitignore-warning';
 import { truncateToolOutput } from './utils/tool-output';
 
 /**
@@ -182,6 +183,8 @@ const OpenCodeSwarm: Plugin = async (ctx) => {
 	// creates .swarm/ before writing, but we want it to exist before the async
 	// write is dispatched by the libuv worker.
 	initTelemetry(ctx.directory);
+	// Warn once per process if .swarm/ is not gitignored (audit logs may contain secrets)
+	warnIfSwarmNotGitignored(ctx.directory);
 	// Non-blocking: build repo graph in background
 	const repoGraphHook = createRepoGraphBuilderHook(ctx.directory);
 	repoGraphHook.init().catch(() => {

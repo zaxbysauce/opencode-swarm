@@ -834,7 +834,7 @@ export function redactShellCommand(cmd: string): string {
 	// Env-var assignment: TOKEN=abc, SECRET_KEY=abc, PASSWORD=abc, etc.
 	// Matches NAME=value where NAME contains a known sensitive keyword.
 	let out = cmd.replace(
-		/\b([A-Z_]*(?:TOKEN|SECRET|PASSWORD|PASSWD|API[_]?KEY|APIKEY|AUTH|CREDENTIAL|PRIVATE[_]?KEY|ACCESS[_]?KEY)[A-Z_0-9]*)\s*=\s*(\S+)/gi,
+		/\b([A-Z_]*(?:TOKEN|SECRET|PASSWORD|PASSWD|API[_]?KEY|APIKEY|AUTH|CREDENTIAL|PRIVATE[_]?KEY|ACCESS[_]?KEY|_KEY)[A-Z_0-9]*)\s*=\s*(\S+)/gi,
 		'$1=[REDACTED]',
 	);
 
@@ -857,11 +857,13 @@ export function redactShellCommand(cmd: string): string {
 		'$1 [REDACTED]',
 	);
 
-	// curl -H "Authorization: <value>" or -H 'X-API-Key: <value>'
+	// curl -H "Authorization: <value>" or -H 'X-API-Key: <value>' or -H 'Opencode-Key: <value>'
 	// Use greedy quantifier (*) so the full token value is consumed before the closing quote,
 	// preventing a non-greedy match from stopping after the first character and leaking fragments.
+	// The general pattern [A-Za-z][A-Za-z-]*-(?:key|token|secret|auth|credential) catches any
+	// dash-separated header ending with a known secret-bearing suffix, regardless of X- prefix.
 	out = out.replace(
-		/(-H\s+['"]?(?:Authorization|X-API-Key|X-Auth-Token):\s*)([^'">\s][^'">\n]*)(['"]?)/gi,
+		/(-H\s+['"]?(?:Authorization|X-API-Key|X-Auth-Token|[A-Za-z][A-Za-z-]*-(?:key|token|secret|auth|credential)):\s*)([^'">\s][^'">\n]*)(['"]?)/gi,
 		'$1[REDACTED]$3',
 	);
 
