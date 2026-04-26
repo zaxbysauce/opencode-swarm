@@ -8,10 +8,7 @@
  * - /swarm promote --from-swarm <lesson-id> — Promote from existing swarm lesson
  */
 
-import {
-	promoteFromSwarm,
-	promoteToHive,
-} from '../hooks/hive-promoter';
+import { promoteFromSwarm, promoteToHive } from '../hooks/hive-promoter';
 
 export async function handlePromoteCommand(
 	directory: string,

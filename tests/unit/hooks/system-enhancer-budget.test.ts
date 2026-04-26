@@ -5,12 +5,12 @@
  * when context_budget config is absent or empty.
  */
 
-import { mkdir, mkdtemp, rm, writeFile } from 'node:fs/promises';
-import { join } from 'node:path';
-import { tmpdir } from 'node:os';
 import { afterEach, beforeEach, describe, expect, it } from 'bun:test';
-import { resetSwarmState } from '../../../src/state.js';
+import { mkdir, mkdtemp, rm, writeFile } from 'node:fs/promises';
+import { tmpdir } from 'node:os';
+import { join } from 'node:path';
 import { createSystemEnhancerHook } from '../../../src/hooks/system-enhancer.js';
+import { resetSwarmState } from '../../../src/state.js';
 
 describe('Injection budget default', () => {
 	let tempDir: string;
@@ -35,12 +35,25 @@ describe('Injection budget default', () => {
 `;
 		await writeFile(join(swarmDir, 'plan.md'), planContent);
 		// 600 decision lines to exceed 4000 token budget
-		const decisions = Array.from({ length: 600 }, (_, i) =>
-			`- Decision ${i}: Use TypeScript strict mode with exactOptionalPropertyTypes`,
+		const decisions = Array.from(
+			{ length: 600 },
+			(_, i) =>
+				`- Decision ${i}: Use TypeScript strict mode with exactOptionalPropertyTypes`,
 		).join('\n');
-		await writeFile(join(swarmDir, 'context.md'), `## Decisions\n${decisions}\n## Agent Activity\n- coder: no tool activity`);
+		await writeFile(
+			join(swarmDir, 'context.md'),
+			`## Decisions\n${decisions}\n## Agent Activity\n- coder: no tool activity`,
+		);
 
-		const config = { hooks: { system_enhancer: true, agent_activity: true, agent_awareness_max_chars: 300, compaction: true, delegation_tracker: false } } as any;
+		const config = {
+			hooks: {
+				system_enhancer: true,
+				agent_activity: true,
+				agent_awareness_max_chars: 300,
+				compaction: true,
+				delegation_tracker: false,
+			},
+		} as any;
 		const hook = createSystemEnhancerHook(config, tempDir);
 		const transform = hook['experimental.chat.system.transform'] as any;
 		const output = { system: [''] };
@@ -62,12 +75,26 @@ describe('Injection budget default', () => {
 - [ ] 1.1: Initial task
 `;
 		await writeFile(join(swarmDir, 'plan.md'), planContent);
-		const decisions = Array.from({ length: 600 }, (_, i) =>
-			`- Decision ${i}: Use TypeScript strict mode with exactOptionalPropertyTypes`,
+		const decisions = Array.from(
+			{ length: 600 },
+			(_, i) =>
+				`- Decision ${i}: Use TypeScript strict mode with exactOptionalPropertyTypes`,
 		).join('\n');
-		await writeFile(join(swarmDir, 'context.md'), `## Decisions\n${decisions}\n## Agent Activity\n- coder: no tool activity`);
+		await writeFile(
+			join(swarmDir, 'context.md'),
+			`## Decisions\n${decisions}\n## Agent Activity\n- coder: no tool activity`,
+		);
 
-		const config = { context_budget: {} as any, hooks: { system_enhancer: true, agent_activity: true, agent_awareness_max_chars: 300, compaction: true, delegation_tracker: false } } as any;
+		const config = {
+			context_budget: {} as any,
+			hooks: {
+				system_enhancer: true,
+				agent_activity: true,
+				agent_awareness_max_chars: 300,
+				compaction: true,
+				delegation_tracker: false,
+			},
+		} as any;
 		const hook = createSystemEnhancerHook(config, tempDir);
 		const transform = hook['experimental.chat.system.transform'] as any;
 		const output = { system: [''] };

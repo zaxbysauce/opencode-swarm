@@ -187,7 +187,6 @@ describe('check_gate_status plugin registration verification', () => {
 
 			// Filter to only tool-like exports (objects with execute or functions)
 			const tools = exports.filter((name) => {
-				// biome-ignore lint/suspicious/noExplicitAny: dynamic index access needs type escape
 				const item = (toolsIndex as any)[name];
 				return (
 					item &&

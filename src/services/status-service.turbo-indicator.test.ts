@@ -16,11 +16,8 @@ import {
 
 // Helper to create mock agents
 const mockAgents = {
-	// biome-ignore lint/suspicious/noExplicitAny: test mock needs partial type
 	architect: { name: 'architect' } as any,
-	// biome-ignore lint/suspicious/noExplicitAny: test mock needs partial type
 	coder: { name: 'coder' } as any,
-	// biome-ignore lint/suspicious/noExplicitAny: test mock needs partial type
 	reviewer: { name: 'reviewer' } as any,
 };
 

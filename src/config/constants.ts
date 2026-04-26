@@ -334,7 +334,8 @@ export const TOOL_DESCRIPTIONS: Partial<Record<ToolName, string>> = {
 		'run curator phase analysis and optionally apply knowledge recommendations',
 	knowledge_add: 'store a new lesson in the knowledge base',
 	knowledge_recall: 'search the knowledge base for relevant past decisions',
-	knowledge_remove: 'delete an outdated swarm knowledge entry by ID (swarm tier only)',
+	knowledge_remove:
+		'delete an outdated swarm knowledge entry by ID (swarm tier only)',
 	knowledge_query: 'query swarm or hive knowledge with optional filters',
 	co_change_analyzer: 'detect hidden couplings by analyzing git history',
 	check_gate_status: 'check the gate status of a specific task',

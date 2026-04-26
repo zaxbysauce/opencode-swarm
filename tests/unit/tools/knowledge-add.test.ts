@@ -3,13 +3,7 @@
  * Covers valid lesson creation, validation errors, near-duplicate detection, and auto_generated flag
  */
 
-import {
-	afterEach,
-	beforeEach,
-	describe,
-	expect,
-	it,
-} from 'bun:test';
+import { afterEach, beforeEach, describe, expect, it } from 'bun:test';
 import { readFileSync } from 'node:fs';
 import * as fs from 'node:fs/promises';
 import * as os from 'node:os';
@@ -80,7 +74,8 @@ describe('knowledge_add tool verification tests', () => {
 		});
 
 		it('Lesson is stored in knowledge.jsonl', async () => {
-			const lessonText = 'Lesson text that is definitely longer than fifteen chars';
+			const lessonText =
+				'Lesson text that is definitely longer than fifteen chars';
 			const result = await knowledge_add.execute(
 				{
 					lesson: lessonText,
@@ -117,7 +112,9 @@ describe('knowledge_add tool verification tests', () => {
 			const entry = entries[0];
 			expect(entry.id).toBeDefined();
 			expect(entry.tier).toBe('swarm');
-			expect(entry.lesson).toBe('A properly formed lesson entry with sufficient length');
+			expect(entry.lesson).toBe(
+				'A properly formed lesson entry with sufficient length',
+			);
 			expect(entry.category).toBe('tooling');
 			expect(entry.tags).toEqual(['eslint', 'linting']);
 			expect(entry.scope).toBe('global');
@@ -224,15 +221,42 @@ describe('knowledge_add tool verification tests', () => {
 
 		it('Accepts all valid categories', async () => {
 			const lessonsByCategory: Array<{ category: string; lesson: string }> = [
-				{ category: 'process', lesson: 'Follow consistent code review workflows across the team' },
-				{ category: 'architecture', lesson: 'Use hexagonal architecture patterns for domain isolation' },
-				{ category: 'tooling', lesson: 'Configure biome with strict import sorting rules' },
-				{ category: 'security', lesson: 'Sanitize all user input before database queries' },
-				{ category: 'testing', lesson: 'Write integration tests for critical data flows' },
-				{ category: 'debugging', lesson: 'Use structured logging with correlation IDs for tracing' },
-				{ category: 'performance', lesson: 'Profile database queries before adding new indexes' },
-				{ category: 'integration', lesson: 'Use contract testing between microservice boundaries' },
-				{ category: 'other', lesson: 'Commit messages should reference ticket numbers' },
+				{
+					category: 'process',
+					lesson: 'Follow consistent code review workflows across the team',
+				},
+				{
+					category: 'architecture',
+					lesson: 'Use hexagonal architecture patterns for domain isolation',
+				},
+				{
+					category: 'tooling',
+					lesson: 'Configure biome with strict import sorting rules',
+				},
+				{
+					category: 'security',
+					lesson: 'Sanitize all user input before database queries',
+				},
+				{
+					category: 'testing',
+					lesson: 'Write integration tests for critical data flows',
+				},
+				{
+					category: 'debugging',
+					lesson: 'Use structured logging with correlation IDs for tracing',
+				},
+				{
+					category: 'performance',
+					lesson: 'Profile database queries before adding new indexes',
+				},
+				{
+					category: 'integration',
+					lesson: 'Use contract testing between microservice boundaries',
+				},
+				{
+					category: 'other',
+					lesson: 'Commit messages should reference ticket numbers',
+				},
 			];
 
 			for (const { category, lesson } of lessonsByCategory) {
