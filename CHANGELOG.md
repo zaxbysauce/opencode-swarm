@@ -1,5 +1,12 @@
 # Changelog
 
+## [6.85.1](https://github.com/zaxbysauce/opencode-swarm/compare/v6.85.0...v6.85.1) (2026-04-26)
+
+
+### Bug Fixes
+
+* **system-transform:** collapse output.system to single entry for Qwen3.6/Gemma compatibility ([#628](https://github.com/zaxbysauce/opencode-swarm/issues/628)) ([c8ad147](https://github.com/zaxbysauce/opencode-swarm/commit/c8ad147eee344368244a27c12c09f7a94cb80b6e))
+
 ## [6.85.0](https://github.com/zaxbysauce/opencode-swarm/compare/v6.84.7...v6.85.0) (2026-04-26)
 
 
