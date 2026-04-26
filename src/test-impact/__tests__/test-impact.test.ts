@@ -22,7 +22,7 @@ function createMockCtx(directory: string): ToolContext {
 		abort: new AbortController().signal,
 		metadata: () => {},
 		ask: () => Promise.resolve(undefined as never),
-	} as ToolContext;
+	} as unknown as ToolContext;
 }
 
 // Mock the analyzer module
