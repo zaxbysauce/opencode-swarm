@@ -1,4 +1,12 @@
-import { type ToolContext, type ToolResult, tool } from '@opencode-ai/plugin';
+import { type ToolContext, tool } from '@opencode-ai/plugin';
+/**
+ * ToolResult can be string | {output: string; metadata?: any}
+ * This type matches what the plugin's tool() function expects as a return value.
+ */
+export type ToolResult = string | {
+    output: string;
+    metadata?: unknown;
+};
 /**
  * Options for creating a swarm tool.
  * The args type is inferred from what you pass to the tool() call.
