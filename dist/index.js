@@ -62846,6 +62846,7 @@ var init_curator_drift = __esm(() => {
 
 // src/index.ts
 init_agents();
+import * as fs87 from "fs";
 import * as path103 from "path";
 
 // src/background/index.ts
@@ -88135,6 +88136,26 @@ ${footerLines.join(`
 
 // src/index.ts
 var _heartbeatTimers = new Map;
+function writeSwarmConfigExampleIfNew(projectDirectory) {
+  try {
+    const swarmDir = path103.join(projectDirectory, ".swarm");
+    const dest = path103.join(swarmDir, "config.example.json");
+    if (fs87.existsSync(dest))
+      return;
+    const example = {
+      agents: Object.fromEntries(Object.entries(DEFAULT_MODELS).filter(([name2]) => name2 !== "default").map(([name2, model]) => [
+        name2,
+        {
+          model,
+          fallback_models: ["opencode/gpt-5-nano", "opencode/big-pickle"]
+        }
+      ])),
+      max_iterations: 5
+    };
+    fs87.writeFileSync(dest, `${JSON.stringify(example, null, 2)}
+`, "utf-8");
+  } catch {}
+}
 var OpenCodeSwarm = async (ctx) => {
   const { config: config3, loadedFromFile } = loadPluginConfigWithMeta(ctx.directory);
   if (config3.full_auto?.enabled === true) {
@@ -88148,6 +88169,7 @@ var OpenCodeSwarm = async (ctx) => {
   swarmState.opencodeClient = ctx.client;
   await loadSnapshot(ctx.directory);
   initTelemetry(ctx.directory);
+  writeSwarmConfigExampleIfNew(ctx.directory);
   const repoGraphHook = createRepoGraphBuilderHook(ctx.directory);
   repoGraphHook.init().catch(() => {});
   const agents = getAgentConfigs(config3, ctx.directory);
