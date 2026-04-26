@@ -5,6 +5,7 @@
  */
 
 import * as fs from 'node:fs';
+import { z } from 'zod';
 import * as path from 'node:path';
 import { tool } from '@opencode-ai/plugin';
 import { createSwarmTool } from './create-tool';
@@ -410,12 +411,12 @@ export const req_coverage: ReturnType<typeof tool> = createSwarmTool({
 		'Reads .swarm/spec.md for FR-### requirements and checks coverage against ' +
 		'files touched during a phase via evidence files. Produces coverage report.',
 	args: {
-		phase: tool.schema
+		phase: z
 			.number()
 			.int()
 			.min(1)
 			.describe('The phase number to analyze coverage for'),
-		directory: tool.schema
+		directory: z
 			.string()
 			.optional()
 			.describe('Working directory (defaults to plugin context directory)'),

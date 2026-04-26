@@ -5,6 +5,7 @@
  */
 
 import { tool } from '@opencode-ai/plugin';
+import { z } from 'zod';
 import { type BuildCommand, discoverBuildCommands } from '../build/discovery';
 import type { BuildEvidence, EvidenceVerdict } from '../config/evidence-schema';
 import { saveEvidence } from '../evidence/manager';
@@ -269,16 +270,16 @@ export const build_check: ReturnType<typeof tool> = createSwarmTool({
 	description:
 		'Discover and run build commands for various ecosystems in a project directory. Supports build, typecheck, and test commands.',
 	args: {
-		scope: tool.schema
+		scope: z
 			.enum(['changed', 'all'])
 			.describe(
 				'Scope of detection: "all" for all build files, "changed" for only changed files',
 			),
-		changed_files: tool.schema
-			.array(tool.schema.string())
+		changed_files: z
+			.array(z.string())
 			.optional()
 			.describe('List of changed files when scope is "changed"'),
-		mode: tool.schema
+		mode: z
 			.enum(['build', 'typecheck', 'both'])
 			.optional()
 			.describe(

@@ -1,4 +1,5 @@
 import * as fs from 'node:fs';
+import { z } from 'zod';
 import * as path from 'node:path';
 import { tool } from '@opencode-ai/plugin';
 import { isCommandAvailable } from '../build/discovery';
@@ -1693,33 +1694,33 @@ export const test_runner: ReturnType<typeof tool> = createSwarmTool({
 	description:
 		'Run project tests with framework detection. Supports bun, vitest, jest, mocha, pytest, cargo, pester, go-test, maven, gradle, dotnet-test, ctest, swift-test, dart-test, rspec, and minitest. Returns deterministic normalized JSON with framework, scope, command, totals, coverage, duration, success status, and failures. Use scope "all" for full suite, "convention" to accept direct test files or map source files to test files, "graph" to find related tests via imports from source files, or "impact" to find tests covering changed source files using test-impact analysis.',
 	args: {
-		scope: tool.schema
+		scope: z
 			.enum(['all', 'convention', 'graph', 'impact'])
 			.optional()
 			.describe(
 				'Test scope: "all" runs full suite, "convention" accepts direct test files or maps source files to tests by naming, "graph" finds related tests via imports from source files, "impact" finds tests covering changed source files via test-impact analysis',
 			),
-		files: tool.schema
-			.array(tool.schema.string())
+		files: z
+			.array(z.string())
 			.optional()
 			.describe(
 				'Specific files to test. For "convention", pass source files or direct test files. For "graph" and "impact", pass source files only.',
 			),
-		coverage: tool.schema
+		coverage: z
 			.boolean()
 			.optional()
 			.describe('Enable coverage reporting if supported'),
-		timeout_ms: tool.schema
+		timeout_ms: z
 			.number()
 			.optional()
 			.describe('Timeout in milliseconds (default 60000, max 300000)'),
-		allow_full_suite: tool.schema
+		allow_full_suite: z
 			.boolean()
 			.optional()
 			.describe(
 				'Explicit opt-in for scope "all". Required because full-suite output can destabilize SSE streaming.',
 			),
-		working_directory: tool.schema
+		working_directory: z
 			.string()
 			.optional()
 			.describe(

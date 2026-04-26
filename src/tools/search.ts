@@ -1,6 +1,7 @@
 // Structured workspace search tool — workspace-scoped ripgrep-style search with structured JSON output
 
 import * as fs from 'node:fs';
+import { z } from 'zod';
 import * as path from 'node:path';
 import { type ToolDefinition, tool } from '@opencode-ai/plugin/tool';
 import {
@@ -507,32 +508,32 @@ export const search: ToolDefinition = createSwarmTool({
 		'Supports literal and regex search modes with glob include/exclude filtering. ' +
 		'Returns structured JSON output with file paths, line numbers, and line content.',
 	args: {
-		query: tool.schema
+		query: z
 			.string()
 			.describe('Search query string (literal or regex depending on mode)'),
-		mode: tool.schema
+		mode: z
 			.enum(['literal', 'regex'])
 			.default('literal')
 			.describe(
 				'Search mode: literal for exact string match, regex for regular expression',
 			),
-		include: tool.schema
+		include: z
 			.string()
 			.optional()
 			.describe(
 				'Glob pattern for files to include (e.g., "*.ts", "src/**/*.js")',
 			),
-		exclude: tool.schema
+		exclude: z
 			.string()
 			.optional()
 			.describe(
 				'Glob pattern for files to exclude (e.g., "node_modules/**", "*.test.ts")',
 			),
-		max_results: tool.schema
+		max_results: z
 			.number()
 			.default(DEFAULT_MAX_RESULTS)
 			.describe('Maximum number of matches to return'),
-		max_lines: tool.schema
+		max_lines: z
 			.number()
 			.default(DEFAULT_MAX_LINES)
 			.describe('Maximum characters per line in results'),

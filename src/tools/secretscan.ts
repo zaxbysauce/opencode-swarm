@@ -1,4 +1,5 @@
 import * as fs from 'node:fs';
+import { z } from 'zod';
 import * as path from 'node:path';
 import { type ToolContext, tool } from '@opencode-ai/plugin';
 import {
@@ -771,11 +772,11 @@ export const secretscan: ReturnType<typeof createSwarmTool> = createSwarmTool({
 	description:
 		'Scan directory for potential secrets (API keys, tokens, passwords) using regex patterns and entropy heuristics. Returns metadata-only findings with redacted previews - NEVER returns raw secrets. Excludes common directories (node_modules, .git, dist, etc.) by default. Supports glob patterns (e.g. **/.svelte-kit/**, **/*.test.ts) and reads .secretscanignore at the scan root.',
 	args: {
-		directory: tool.schema
+		directory: z
 			.string()
 			.describe('Directory to scan for secrets (e.g., "." or "./src")'),
-		exclude: tool.schema
-			.array(tool.schema.string())
+		exclude: z
+			.array(z.string())
 			.optional()
 			.describe(
 				'Patterns to exclude: plain directory names (e.g. node_modules), relative paths, or globs (e.g. **/.svelte-kit/**, **/*.test.ts). Added to default exclusions.',
@@ -1051,7 +1052,8 @@ export async function runSecretscan(
 			{ directory },
 			{} as Parameters<typeof secretscan.execute>[1],
 		);
-		return JSON.parse(result) as SecretscanResult | SecretscanErrorResult;
+		const jsonStr = typeof result === 'string' ? result : result.output;
+		return JSON.parse(jsonStr) as SecretscanResult | SecretscanErrorResult;
 	} catch (e) {
 		const errorResult: SecretscanErrorResult = {
 			error:

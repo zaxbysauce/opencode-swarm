@@ -4,6 +4,7 @@
  */
 
 import * as fs from 'node:fs';
+import { z } from 'zod';
 import * as path from 'node:path';
 import { tool } from '@opencode-ai/plugin';
 import type { ToolDefinition } from '@opencode-ai/plugin/tool';
@@ -1495,24 +1496,24 @@ export const phase_complete: ToolDefinition = createSwarmTool({
 		'Used for phase completion gating and tracking. ' +
 		'Accepts phase number and optional summary. Returns list of agents that were dispatched.',
 	args: {
-		phase: tool.schema
+		phase: z
 			.number()
 			.int()
 			.min(1)
 			.describe(
 				'The phase number being completed — a positive integer (e.g., 1, 2, 3)',
 			),
-		summary: tool.schema
+		summary: z
 			.string()
 			.optional()
 			.describe('Optional summary of what was accomplished in this phase'),
-		sessionID: tool.schema
+		sessionID: z
 			.string()
 			.optional()
 			.describe(
 				'Session ID for tracking state (auto-provided by plugin context)',
 			),
-		working_directory: tool.schema
+		working_directory: z
 			.string()
 			.optional()
 			.describe(

@@ -1,4 +1,5 @@
 import * as fs from 'node:fs';
+import { z } from 'zod';
 import * as path from 'node:path';
 import { type ToolDefinition, tool } from '@opencode-ai/plugin/tool';
 import { createSwarmTool } from './create-tool';
@@ -85,14 +86,14 @@ export const extract_code_blocks: ToolDefinition = createSwarmTool({
 		'Parses markdown-style code fences (```language...```) and saves each block. ' +
 		'Automatically determines filenames from comments or function names.',
 	args: {
-		content: tool.schema
+		content: z
 			.string()
 			.describe('Text content containing code blocks to extract'),
-		output_dir: tool.schema
+		output_dir: z
 			.string()
 			.optional()
 			.describe('Directory to save files (defaults to current directory)'),
-		prefix: tool.schema
+		prefix: z
 			.string()
 			.optional()
 			.describe('Optional prefix for generated filenames'),

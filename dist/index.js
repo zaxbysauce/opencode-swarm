@@ -39264,7 +39264,8 @@ function createSwarmTool(opts) {
     execute: async (args2, ctx) => {
       const directory = ctx?.directory ?? process.cwd();
       try {
-        return await opts.execute(args2, directory, ctx);
+        const result = await opts.execute(args2, directory, ctx);
+        return result;
       } catch (error93) {
         const message = error93 instanceof Error ? error93.message : String(error93);
         return JSON.stringify({
@@ -39492,7 +39493,7 @@ function handleDelete(label, directory) {
 }
 var CHECKPOINT_LOG_PATH = ".swarm/checkpoints.json", MAX_LABEL_LENGTH = 100, GIT_TIMEOUT_MS = 30000, SHELL_METACHARACTERS, SAFE_LABEL_PATTERN, CONTROL_CHAR_PATTERN, NON_ASCII_PATTERN, checkpoint;
 var init_checkpoint = __esm(() => {
-  init_tool();
+  init_zod();
   init_config();
   init_create_tool();
   SHELL_METACHARACTERS = /[;|&$`(){}<>!'"]/;
@@ -39502,8 +39503,8 @@ var init_checkpoint = __esm(() => {
   checkpoint = createSwarmTool({
     description: "Save, restore, list, and delete git checkpoints. " + "Use save to create a named snapshot, restore to return to a checkpoint (soft reset), " + "list to see all checkpoints, and delete to remove a checkpoint from the log. " + "Git commits are preserved on delete.",
     args: {
-      action: tool.schema.string().describe("Action to perform: save, restore, list, or delete"),
-      label: tool.schema.string().optional().describe("Checkpoint label (required for save, restore, delete)")
+      action: exports_external.string().describe("Action to perform: save, restore, list, or delete"),
+      label: exports_external.string().optional().describe("Checkpoint label (required for save, restore, delete)")
     },
     execute: async (args2, directory) => {
       if (!isGitRepo()) {
@@ -39572,7 +39573,8 @@ var init_checkpoint = __esm(() => {
 
 // src/commands/checkpoint.ts
 function safeParseResult(result) {
-  const parsed = CheckpointResultSchema.safeParse(JSON.parse(result));
+  const jsonStr = typeof result === "string" ? result : result.output;
+  const parsed = CheckpointResultSchema.safeParse(JSON.parse(jsonStr));
   if (!parsed.success) {
     return {
       success: false,
@@ -41367,29 +41369,29 @@ async function executeWriteRetro(args2, directory) {
 }
 var write_retro;
 var init_write_retro = __esm(() => {
-  init_tool();
+  init_zod();
   init_evidence_schema();
   init_manager2();
   init_create_tool();
   write_retro = createSwarmTool({
     description: "Write a retrospective evidence bundle for a completed phase. " + "Accepts flat retro fields and writes a correctly-wrapped EvidenceBundle to " + ".swarm/evidence/retro-{phase}/evidence.json. " + "Use this instead of manually writing retro JSON to avoid schema validation failures in phase_complete.",
     args: {
-      phase: tool.schema.number().int().min(1).max(99).describe("The phase number being completed (e.g., 1, 2, 3)"),
-      summary: tool.schema.string().describe("Human-readable summary of the phase"),
-      task_count: tool.schema.number().int().min(1).max(9999).describe("Count of tasks completed in this phase"),
-      task_complexity: tool.schema.enum(["trivial", "simple", "moderate", "complex"]).describe("Complexity level of the completed tasks"),
-      total_tool_calls: tool.schema.number().int().min(0).max(9999).describe("Total number of tool calls in this phase"),
-      coder_revisions: tool.schema.number().int().min(0).max(999).describe("Number of coder revisions made"),
-      reviewer_rejections: tool.schema.number().int().min(0).max(999).describe("Number of reviewer rejections received"),
-      loop_detections: tool.schema.number().int().min(0).max(9999).optional().describe("Number of loop detection events in this phase"),
-      circuit_breaker_trips: tool.schema.number().int().min(0).max(9999).optional().describe("Number of circuit breaker trips in this phase"),
-      test_failures: tool.schema.number().int().min(0).max(9999).describe("Number of test failures encountered"),
-      security_findings: tool.schema.number().int().min(0).max(999).describe("Number of security findings"),
-      integration_issues: tool.schema.number().int().min(0).max(999).describe("Number of integration issues"),
-      lessons_learned: tool.schema.array(tool.schema.string()).max(5).optional().describe("Key lessons learned from this phase (max 5)"),
-      top_rejection_reasons: tool.schema.array(tool.schema.string()).optional().describe("Top reasons for reviewer rejections"),
-      task_id: tool.schema.string().optional().describe("Optional custom task ID (defaults to retro-{phase})"),
-      metadata: tool.schema.record(tool.schema.string(), tool.schema.unknown()).optional().describe("Optional additional metadata")
+      phase: exports_external.number().int().min(1).max(99).describe("The phase number being completed (e.g., 1, 2, 3)"),
+      summary: exports_external.string().describe("Human-readable summary of the phase"),
+      task_count: exports_external.number().int().min(1).max(9999).describe("Count of tasks completed in this phase"),
+      task_complexity: exports_external.enum(["trivial", "simple", "moderate", "complex"]).describe("Complexity level of the completed tasks"),
+      total_tool_calls: exports_external.number().int().min(0).max(9999).describe("Total number of tool calls in this phase"),
+      coder_revisions: exports_external.number().int().min(0).max(999).describe("Number of coder revisions made"),
+      reviewer_rejections: exports_external.number().int().min(0).max(999).describe("Number of reviewer rejections received"),
+      loop_detections: exports_external.number().int().min(0).max(9999).optional().describe("Number of loop detection events in this phase"),
+      circuit_breaker_trips: exports_external.number().int().min(0).max(9999).optional().describe("Number of circuit breaker trips in this phase"),
+      test_failures: exports_external.number().int().min(0).max(9999).describe("Number of test failures encountered"),
+      security_findings: exports_external.number().int().min(0).max(999).describe("Number of security findings"),
+      integration_issues: exports_external.number().int().min(0).max(999).describe("Number of integration issues"),
+      lessons_learned: exports_external.array(exports_external.string()).max(5).optional().describe("Key lessons learned from this phase (max 5)"),
+      top_rejection_reasons: exports_external.array(exports_external.string()).optional().describe("Top reasons for reviewer rejections"),
+      task_id: exports_external.string().optional().describe("Optional custom task ID (defaults to retro-{phase})"),
+      metadata: exports_external.record(exports_external.string(), exports_external.unknown()).optional().describe("Optional additional metadata")
     },
     execute: async (args2, directory) => {
       const rawPhase = args2.phase !== undefined ? Number(args2.phase) : 0;
@@ -43639,15 +43641,15 @@ Consider adding explicit documentation or extracting the shared concern.`;
 }
 var co_change_analyzer;
 var init_co_change_analyzer = __esm(() => {
-  init_dist();
+  init_zod();
   init_create_tool();
   co_change_analyzer = createSwarmTool({
     description: "Detects hidden couplings (dark matter) by analyzing git history to find file pairs that frequently co-change but have no import relationship. Useful for identifying architectural concerns that are not explicitly documented.",
     args: {
-      min_commits: tool.schema.number().optional().describe("Minimum commit count to analyze (default: 20)"),
-      min_co_changes: tool.schema.number().optional().describe("Minimum co-change count to consider (default: 3)"),
-      threshold: tool.schema.number().optional().describe("NPMI threshold for filtering (default: 0.5)"),
-      max_commits: tool.schema.number().optional().describe("Maximum commits to analyze (default: 500)")
+      min_commits: exports_external.number().optional().describe("Minimum commit count to analyze (default: 20)"),
+      min_co_changes: exports_external.number().optional().describe("Minimum co-change count to consider (default: 3)"),
+      threshold: exports_external.number().optional().describe("NPMI threshold for filtering (default: 0.5)"),
+      max_commits: exports_external.number().optional().describe("Maximum commits to analyze (default: 500)")
     },
     async execute(args2, directory) {
       let minCommits;
@@ -48714,7 +48716,7 @@ async function runAdditionalLint(linter, mode, cwd) {
 }
 var MAX_OUTPUT_BYTES = 512000, MAX_COMMAND_LENGTH = 500, lint;
 var init_lint = __esm(() => {
-  init_dist();
+  init_zod();
   init_discovery();
   init_utils();
   init_create_tool();
@@ -48722,7 +48724,7 @@ var init_lint = __esm(() => {
   lint = createSwarmTool({
     description: "Run project linter in check or fix mode. Supports biome, eslint (JS/TS), ruff (Python), clippy (Rust), golangci-lint (Go), checkstyle (Java), ktlint (Kotlin), dotnet-format (C#), cppcheck (C/C++), swiftlint (Swift), dart analyze (Dart), and rubocop (Ruby). Returns JSON with success status, exit code, and output for architect pre-reviewer gate. Use check mode for CI/linting and fix mode to automatically apply fixes.",
     args: {
-      mode: tool.schema.enum(["fix", "check"]).describe('Linting mode: "check" for read-only lint check, "fix" to automatically apply fixes')
+      mode: exports_external.enum(["fix", "check"]).describe('Linting mode: "check" for read-only lint check, "fix" to automatically apply fixes')
     },
     async execute(args2, directory) {
       if (!validateArgs(args2)) {
@@ -49074,7 +49076,8 @@ function findScannableFiles(dir, excludeExact, excludeGlobs, scanDir, visited, s
 async function runSecretscan(directory) {
   try {
     const result = await secretscan.execute({ directory }, {});
-    return JSON.parse(result);
+    const jsonStr = typeof result === "string" ? result : result.output;
+    return JSON.parse(jsonStr);
   } catch (e) {
     const errorResult = {
       error: e instanceof Error ? `scan failed: ${e.message}` : "scan failed: unknown error",
@@ -49089,7 +49092,7 @@ async function runSecretscan(directory) {
 }
 var MAX_FILE_PATH_LENGTH = 500, MAX_FILE_SIZE_BYTES, MAX_FILES_SCANNED = 1000, MAX_FINDINGS = 100, MAX_OUTPUT_BYTES2 = 512000, MAX_LINE_LENGTH = 1e4, MAX_CONTENT_BYTES, BINARY_SIGNATURES, BINARY_PREFIX_BYTES = 4, BINARY_NULL_CHECK_BYTES = 8192, BINARY_NULL_THRESHOLD = 0.1, DEFAULT_EXCLUDE_DIRS, DEFAULT_EXCLUDE_EXTENSIONS, SECRET_PATTERNS, O_NOFOLLOW, secretscan;
 var init_secretscan = __esm(() => {
-  init_dist();
+  init_zod();
   init_path_security();
   init_create_tool();
   MAX_FILE_SIZE_BYTES = 512 * 1024;
@@ -49267,8 +49270,8 @@ var init_secretscan = __esm(() => {
   secretscan = createSwarmTool({
     description: "Scan directory for potential secrets (API keys, tokens, passwords) using regex patterns and entropy heuristics. Returns metadata-only findings with redacted previews - NEVER returns raw secrets. Excludes common directories (node_modules, .git, dist, etc.) by default. Supports glob patterns (e.g. **/.svelte-kit/**, **/*.test.ts) and reads .secretscanignore at the scan root.",
     args: {
-      directory: tool.schema.string().describe('Directory to scan for secrets (e.g., "." or "./src")'),
-      exclude: tool.schema.array(tool.schema.string()).optional().describe("Patterns to exclude: plain directory names (e.g. node_modules), relative paths, or globs (e.g. **/.svelte-kit/**, **/*.test.ts). Added to default exclusions.")
+      directory: exports_external.string().describe('Directory to scan for secrets (e.g., "." or "./src")'),
+      exclude: exports_external.array(exports_external.string()).optional().describe("Patterns to exclude: plain directory names (e.g. node_modules), relative paths, or globs (e.g. **/.svelte-kit/**, **/*.test.ts). Added to default exclusions.")
     },
     async execute(args2, _directory, _ctx) {
       const typedArgs = args2;
@@ -51077,7 +51080,7 @@ function analyzeFailures(workingDir) {
 }
 var MAX_OUTPUT_BYTES3 = 512000, MAX_COMMAND_LENGTH2 = 500, DEFAULT_TIMEOUT_MS = 60000, MAX_TIMEOUT_MS = 300000, MAX_SAFE_TEST_FILES = 50, POWERSHELL_METACHARACTERS, COMPOUND_TEST_EXTENSIONS, TEST_DIRECTORY_NAMES, SOURCE_EXTENSIONS, SKIP_DIRECTORIES, test_runner;
 var init_test_runner = __esm(() => {
-  init_dist();
+  init_zod();
   init_discovery();
   init_analyzer();
   init_history_store();
@@ -51154,12 +51157,12 @@ var init_test_runner = __esm(() => {
   test_runner = createSwarmTool({
     description: 'Run project tests with framework detection. Supports bun, vitest, jest, mocha, pytest, cargo, pester, go-test, maven, gradle, dotnet-test, ctest, swift-test, dart-test, rspec, and minitest. Returns deterministic normalized JSON with framework, scope, command, totals, coverage, duration, success status, and failures. Use scope "all" for full suite, "convention" to accept direct test files or map source files to test files, "graph" to find related tests via imports from source files, or "impact" to find tests covering changed source files using test-impact analysis.',
     args: {
-      scope: tool.schema.enum(["all", "convention", "graph", "impact"]).optional().describe('Test scope: "all" runs full suite, "convention" accepts direct test files or maps source files to tests by naming, "graph" finds related tests via imports from source files, "impact" finds tests covering changed source files via test-impact analysis'),
-      files: tool.schema.array(tool.schema.string()).optional().describe('Specific files to test. For "convention", pass source files or direct test files. For "graph" and "impact", pass source files only.'),
-      coverage: tool.schema.boolean().optional().describe("Enable coverage reporting if supported"),
-      timeout_ms: tool.schema.number().optional().describe("Timeout in milliseconds (default 60000, max 300000)"),
-      allow_full_suite: tool.schema.boolean().optional().describe('Explicit opt-in for scope "all". Required because full-suite output can destabilize SSE streaming.'),
-      working_directory: tool.schema.string().optional().describe("Explicit project root directory. When provided, tests run relative to this path instead of the plugin context directory. Use this when CWD differs from the actual project root.")
+      scope: exports_external.enum(["all", "convention", "graph", "impact"]).optional().describe('Test scope: "all" runs full suite, "convention" accepts direct test files or maps source files to tests by naming, "graph" finds related tests via imports from source files, "impact" finds tests covering changed source files via test-impact analysis'),
+      files: exports_external.array(exports_external.string()).optional().describe('Specific files to test. For "convention", pass source files or direct test files. For "graph" and "impact", pass source files only.'),
+      coverage: exports_external.boolean().optional().describe("Enable coverage reporting if supported"),
+      timeout_ms: exports_external.number().optional().describe("Timeout in milliseconds (default 60000, max 300000)"),
+      allow_full_suite: exports_external.boolean().optional().describe('Explicit opt-in for scope "all". Required because full-suite output can destabilize SSE streaming.'),
+      working_directory: exports_external.string().optional().describe("Explicit project root directory. When provided, tests run relative to this path instead of the plugin context directory. Use this when CWD differs from the actual project root.")
     },
     async execute(args2, directory) {
       let workingDirInput;
@@ -62403,7 +62406,7 @@ async function extractDocConstraints(directory, taskFiles, taskDescription) {
 }
 var SKIP_DIRECTORIES3, SKIP_PATTERNS, MAX_SUMMARY_LENGTH = 200, MAX_INDEXED_FILES = 100, READ_LINES_LIMIT = 30, MIN_LESSON_LENGTH = 15, MAX_CONSTRAINTS_PER_DOC = 5, MAX_CONSTRAINT_LENGTH = 200, RELEVANCE_THRESHOLD = 0.1, DEDUP_THRESHOLD = 0.6, CONSTRAINT_PATTERNS, ACTION_WORDS, doc_scan, doc_extract;
 var init_doc_scan = __esm(() => {
-  init_dist();
+  init_zod();
   init_schema();
   init_knowledge_store();
   init_create_tool();
@@ -62431,7 +62434,7 @@ var init_doc_scan = __esm(() => {
   doc_scan = createSwarmTool({
     description: "Scan project documentation files and build an index manifest. Caches results in .swarm/doc-manifest.json for fast subsequent scans.",
     args: {
-      force: tool.schema.boolean().optional().describe("Force re-scan even if cache is valid")
+      force: exports_external.boolean().optional().describe("Force re-scan even if cache is valid")
     },
     execute: async (args2, directory) => {
       let force = false;
@@ -62460,8 +62463,8 @@ var init_doc_scan = __esm(() => {
   doc_extract = createSwarmTool({
     description: "Extract actionable constraints from project documentation relevant to the current task. Scans docs via doc-manifest, scores relevance via Jaccard bigram similarity, and stores non-duplicate constraints in .swarm/knowledge.jsonl.",
     args: {
-      task_files: tool.schema.array(tool.schema.string()).describe("List of file paths involved in the current task"),
-      task_description: tool.schema.string().describe("Description of the current task")
+      task_files: exports_external.array(exports_external.string()).describe("List of file paths involved in the current task"),
+      task_description: exports_external.string().describe("Description of the current task")
     },
     execute: async (args2, directory) => {
       let taskFiles = [];
@@ -62496,15 +62499,15 @@ __export(exports_knowledge_recall, {
 });
 var knowledge_recall;
 var init_knowledge_recall = __esm(() => {
-  init_dist();
+  init_zod();
   init_knowledge_store();
   init_create_tool();
   knowledge_recall = createSwarmTool({
     description: "Search the knowledge base for relevant past decisions, patterns, and lessons learned. Returns ranked results by semantic similarity.",
     args: {
-      query: tool.schema.string().min(3).describe("Natural language search query"),
-      top_n: tool.schema.number().int().min(1).max(20).optional().describe("Maximum results to return (default: 5)"),
-      tier: tool.schema.enum(["all", "swarm", "hive"]).optional().describe("Knowledge tier to search (default: 'all')")
+      query: exports_external.string().min(3).describe("Natural language search query"),
+      top_n: exports_external.number().int().min(1).max(20).optional().describe("Maximum results to return (default: 5)"),
+      tier: exports_external.enum(["all", "swarm", "hive"]).optional().describe("Knowledge tier to search (default: 'all')")
     },
     execute: async (args2, directory) => {
       let queryInput;
@@ -64808,7 +64811,7 @@ import * as fsPromises3 from "fs/promises";
 import * as path49 from "path";
 
 // src/tools/symbols.ts
-init_tool();
+init_zod();
 init_create_tool();
 init_path_security();
 import * as fs36 from "fs";
@@ -65062,8 +65065,8 @@ function extractPythonSymbols(filePath, cwd) {
 var symbols = createSwarmTool({
   description: "Extract all exported symbols from a source file: functions with signatures, " + "classes with public members, interfaces, types, enums, constants. " + "Supports TypeScript/JavaScript and Python. Use for architect planning, " + "designer scaffolding, and understanding module public API surface.",
   args: {
-    file: tool.schema.string().describe('File path to extract symbols from (e.g., "src/auth/login.ts")'),
-    exported_only: tool.schema.boolean().default(true).describe("If true, only return exported/public symbols. If false, include all top-level symbols.")
+    file: exports_external.string().describe('File path to extract symbols from (e.g., "src/auth/login.ts")'),
+    exported_only: exports_external.boolean().default(true).describe("If true, only return exported/public symbols. If false, include all top-level symbols.")
   },
   execute: async (args2, directory) => {
     let file3;
@@ -72555,7 +72558,7 @@ var batch_symbols = createSwarmTool({
   }
 });
 // src/tools/build-check.ts
-init_dist();
+init_zod();
 init_discovery();
 init_manager2();
 init_create_tool();
@@ -72692,9 +72695,9 @@ async function runBuildCheck(workingDir, input) {
 var build_check = createSwarmTool({
   description: "Discover and run build commands for various ecosystems in a project directory. Supports build, typecheck, and test commands.",
   args: {
-    scope: tool.schema.enum(["changed", "all"]).describe('Scope of detection: "all" for all build files, "changed" for only changed files'),
-    changed_files: tool.schema.array(tool.schema.string()).optional().describe('List of changed files when scope is "changed"'),
-    mode: tool.schema.enum(["build", "typecheck", "both"]).optional().describe('Mode: "build" for build commands, "typecheck" for type checking, "both" for all (default: both)')
+    scope: exports_external.enum(["changed", "all"]).describe('Scope of detection: "all" for all build files, "changed" for only changed files'),
+    changed_files: exports_external.array(exports_external.string()).optional().describe('List of changed files when scope is "changed"'),
+    mode: exports_external.enum(["build", "typecheck", "both"]).optional().describe('Mode: "build" for build commands, "typecheck" for type checking, "both" for all (default: both)')
   },
   async execute(args2, directory) {
     const obj = args2;
@@ -72729,7 +72732,7 @@ var build_check = createSwarmTool({
   }
 });
 // src/tools/check-gate-status.ts
-init_dist();
+init_zod();
 init_manager2();
 init_task_id();
 init_create_tool();
@@ -72770,8 +72773,8 @@ function readEvidenceFile(evidencePath) {
 var check_gate_status = createSwarmTool({
   description: "Read-only tool to check the gate status of a specific task. Reads .swarm/evidence/{taskId}.json and returns structured JSON describing required, passed, and missing gates.",
   args: {
-    task_id: tool.schema.string().min(1).regex(/^\d+\.\d+(\.\d+)*$/, 'Task ID must be in N.M or N.M.P format (e.g., "1.1", "1.2.3", "1.2.3.4")').describe('The task ID to check gate status for (e.g., "1.1", "2.3.1")'),
-    working_directory: tool.schema.string().optional().describe("Explicit project root directory. When provided, .swarm/evidence/ is resolved relative to this path instead of the plugin context directory. Use this when CWD differs from the actual project root.")
+    task_id: exports_external.string().min(1).regex(/^\d+\.\d+(\.\d+)*$/, 'Task ID must be in N.M or N.M.P format (e.g., "1.1", "1.2.3", "1.2.3.4")').describe('The task ID to check gate status for (e.g., "1.1", "2.3.1")'),
+    working_directory: exports_external.string().optional().describe("Explicit project root directory. When provided, .swarm/evidence/ is resolved relative to this path instead of the plugin context directory. Use this when CWD differs from the actual project root.")
   },
   async execute(args2, directory) {
     let taskIdInput;
@@ -72915,7 +72918,7 @@ init_checkpoint();
 init_co_change_analyzer();
 
 // src/tools/completion-verify.ts
-init_dist();
+init_zod();
 init_utils2();
 init_state();
 init_create_tool();
@@ -73161,9 +73164,9 @@ async function executeCompletionVerify(args2, directory) {
 var completion_verify = createSwarmTool({
   description: "Deterministic pre-check verifying that plan task identifiers exist in their target source files before phase completion. Blocks if obviously incomplete.",
   args: {
-    phase: tool.schema.number().describe("The phase number to check"),
-    sessionID: tool.schema.string().optional().describe("Session ID for tracking state (auto-provided by plugin context)"),
-    working_directory: tool.schema.string().optional().describe("Explicit project root directory. When provided, .swarm/ is resolved relative to this path instead of the plugin context directory. Use this when CWD differs from the actual project root.")
+    phase: exports_external.number().describe("The phase number to check"),
+    sessionID: exports_external.string().optional().describe("Session ID for tracking state (auto-provided by plugin context)"),
+    working_directory: exports_external.string().optional().describe("Explicit project root directory. When provided, .swarm/ is resolved relative to this path instead of the plugin context directory. Use this when CWD differs from the actual project root.")
   },
   execute: async (args2, directory) => {
     let parsedArgs;
@@ -73207,7 +73210,7 @@ var completion_verify = createSwarmTool({
   }
 });
 // src/tools/complexity-hotspots.ts
-init_dist();
+init_zod();
 import * as fs57 from "fs";
 import * as path72 from "path";
 
@@ -73985,9 +73988,9 @@ async function analyzeHotspots(days, topN, extensions, directory) {
 var complexity_hotspots = createSwarmTool({
   description: "Identify high-risk code hotspots by combining git churn frequency with cyclomatic complexity estimates. Returns files with their churn count, complexity score, risk score, and recommended review level.",
   args: {
-    days: tool.schema.number().optional().describe("Number of days of git history to analyze (default: 90, valid range: 1-365)"),
-    top_n: tool.schema.number().optional().describe("Number of top hotspots to return (default: 20, valid range: 1-100)"),
-    extensions: tool.schema.string().optional().describe('Comma-separated extensions to include (default: "ts,tsx,js,jsx,py,rs,ps1")')
+    days: exports_external.number().optional().describe("Number of days of git history to analyze (default: 90, valid range: 1-365)"),
+    top_n: exports_external.number().optional().describe("Number of top hotspots to return (default: 20, valid range: 1-100)"),
+    extensions: exports_external.string().optional().describe('Comma-separated extensions to include (default: "ts,tsx,js,jsx,py,rs,ps1")')
   },
   async execute(args2, directory) {
     if (!directory || typeof directory !== "string" || directory.trim() === "") {
@@ -74088,7 +74091,6 @@ var complexity_hotspots = createSwarmTool({
   }
 });
 // src/tools/convene-council.ts
-init_dist();
 init_zod();
 init_loader();
 
@@ -74384,31 +74386,31 @@ var ArgsSchema = exports_external.object({
 var convene_council = createSwarmTool({
   description: "Convene the Work Complete Council. Accepts parallel verdicts from critic, " + "reviewer, sme, test_engineer, and explorer (anti-slop specialist). Returns " + "a synthesized assessment with a veto-aware overall verdict, required fixes, " + "and a single unified feedback document. Architect-only. Config-gated via " + "council.enabled.",
   args: {
-    taskId: tool.schema.string().min(1).regex(/^\d+\.\d+(\.\d+)*$/, "Task ID must be in N.M or N.M.P format").describe('Task ID being evaluated, e.g. "1.1", "1.2.3"'),
-    swarmId: tool.schema.string().min(1).describe('Swarm identifier, e.g. "mega"'),
-    roundNumber: tool.schema.number().int().min(1).max(10).optional().describe("1-indexed round number. Defaults to 1."),
-    verdicts: tool.schema.array(tool.schema.object({
-      agent: tool.schema.enum([
+    taskId: exports_external.string().min(1).regex(/^\d+\.\d+(\.\d+)*$/, "Task ID must be in N.M or N.M.P format").describe('Task ID being evaluated, e.g. "1.1", "1.2.3"'),
+    swarmId: exports_external.string().min(1).describe('Swarm identifier, e.g. "mega"'),
+    roundNumber: exports_external.number().int().min(1).max(10).optional().describe("1-indexed round number. Defaults to 1."),
+    verdicts: exports_external.array(exports_external.object({
+      agent: exports_external.enum([
         "critic",
         "reviewer",
         "sme",
         "test_engineer",
         "explorer"
       ]),
-      verdict: tool.schema.enum(["APPROVE", "CONCERNS", "REJECT"]),
-      confidence: tool.schema.number().min(0).max(1),
-      findings: tool.schema.array(tool.schema.object({
-        severity: tool.schema.enum(["HIGH", "MEDIUM", "LOW"]),
-        category: tool.schema.string().min(1),
-        location: tool.schema.string(),
-        detail: tool.schema.string(),
-        evidence: tool.schema.string()
+      verdict: exports_external.enum(["APPROVE", "CONCERNS", "REJECT"]),
+      confidence: exports_external.number().min(0).max(1),
+      findings: exports_external.array(exports_external.object({
+        severity: exports_external.enum(["HIGH", "MEDIUM", "LOW"]),
+        category: exports_external.string().min(1),
+        location: exports_external.string(),
+        detail: exports_external.string(),
+        evidence: exports_external.string()
       })),
-      criteriaAssessed: tool.schema.array(tool.schema.string()),
-      criteriaUnmet: tool.schema.array(tool.schema.string()),
-      durationMs: tool.schema.number()
+      criteriaAssessed: exports_external.array(exports_external.string()),
+      criteriaUnmet: exports_external.array(exports_external.string()),
+      durationMs: exports_external.number()
     })).min(1).max(5).describe("Array of CouncilMemberVerdict objects. Must include between 1 and 5 entries, one per participating member (critic, reviewer, sme, test_engineer, explorer)."),
-    working_directory: tool.schema.string().optional().describe("Explicit project root directory. When provided, .swarm/council/ and .swarm/evidence/ are resolved relative to this path instead of the plugin context directory.")
+    working_directory: exports_external.string().optional().describe("Explicit project root directory. When provided, .swarm/council/ and .swarm/evidence/ are resolved relative to this path instead of the plugin context directory.")
   },
   async execute(args2, directory, ctx) {
     const parsed = ArgsSchema.safeParse(args2);
@@ -74468,7 +74470,6 @@ var convene_council = createSwarmTool({
   }
 });
 // src/tools/convene-general-council.ts
-init_dist();
 init_zod();
 init_loader();
 import * as fs58 from "fs";
@@ -74836,55 +74837,55 @@ ${question}`,
 var convene_general_council = createSwarmTool({
   description: "Synthesize responses from a multi-model General Council. Accepts parallel member " + "responses (Round 1, optionally Round 2), detects disagreements, and returns " + "consensus points, persisting disagreements, a structured synthesis, and an optional " + "moderator prompt. Architect-only. Config-gated on council.general.enabled.",
   args: {
-    question: tool.schema.string().min(1).max(8000).describe("The question put to the council, or the spec text to review."),
-    mode: tool.schema.enum(["general", "spec_review"]).optional().describe('"general" for /swarm council; "spec_review" for SPECIFY-COUNCIL-REVIEW gate.'),
-    members: tool.schema.array(tool.schema.string()).optional().describe("Optional list of member IDs convened (for evidence/audit)."),
-    round1Responses: tool.schema.array(tool.schema.object({
-      memberId: tool.schema.string().min(1),
-      model: tool.schema.string().min(1),
-      role: tool.schema.enum([
+    question: exports_external.string().min(1).max(8000).describe("The question put to the council, or the spec text to review."),
+    mode: exports_external.enum(["general", "spec_review"]).optional().describe('"general" for /swarm council; "spec_review" for SPECIFY-COUNCIL-REVIEW gate.'),
+    members: exports_external.array(exports_external.string()).optional().describe("Optional list of member IDs convened (for evidence/audit)."),
+    round1Responses: exports_external.array(exports_external.object({
+      memberId: exports_external.string().min(1),
+      model: exports_external.string().min(1),
+      role: exports_external.enum([
         "generalist",
         "skeptic",
         "domain_expert",
         "devil_advocate",
         "synthesizer"
       ]),
-      response: tool.schema.string(),
-      sources: tool.schema.array(tool.schema.object({
-        title: tool.schema.string(),
-        url: tool.schema.string(),
-        snippet: tool.schema.string(),
-        query: tool.schema.string()
+      response: exports_external.string(),
+      sources: exports_external.array(exports_external.object({
+        title: exports_external.string(),
+        url: exports_external.string(),
+        snippet: exports_external.string(),
+        query: exports_external.string()
       })).optional(),
-      searchQueries: tool.schema.array(tool.schema.string()).optional(),
-      confidence: tool.schema.number().min(0).max(1),
-      areasOfUncertainty: tool.schema.array(tool.schema.string()).optional(),
-      durationMs: tool.schema.number().nonnegative().optional()
+      searchQueries: exports_external.array(exports_external.string()).optional(),
+      confidence: exports_external.number().min(0).max(1),
+      areasOfUncertainty: exports_external.array(exports_external.string()).optional(),
+      durationMs: exports_external.number().nonnegative().optional()
     })).describe("Round 1 member responses (one per council member)."),
-    round2Responses: tool.schema.array(tool.schema.object({
-      memberId: tool.schema.string().min(1),
-      model: tool.schema.string().min(1),
-      role: tool.schema.enum([
+    round2Responses: exports_external.array(exports_external.object({
+      memberId: exports_external.string().min(1),
+      model: exports_external.string().min(1),
+      role: exports_external.enum([
         "generalist",
         "skeptic",
         "domain_expert",
         "devil_advocate",
         "synthesizer"
       ]),
-      response: tool.schema.string(),
-      sources: tool.schema.array(tool.schema.object({
-        title: tool.schema.string(),
-        url: tool.schema.string(),
-        snippet: tool.schema.string(),
-        query: tool.schema.string()
+      response: exports_external.string(),
+      sources: exports_external.array(exports_external.object({
+        title: exports_external.string(),
+        url: exports_external.string(),
+        snippet: exports_external.string(),
+        query: exports_external.string()
       })).optional(),
-      searchQueries: tool.schema.array(tool.schema.string()).optional(),
-      confidence: tool.schema.number().min(0).max(1),
-      areasOfUncertainty: tool.schema.array(tool.schema.string()).optional(),
-      durationMs: tool.schema.number().nonnegative().optional(),
-      disagreementTopics: tool.schema.array(tool.schema.string()).optional()
+      searchQueries: exports_external.array(exports_external.string()).optional(),
+      confidence: exports_external.number().min(0).max(1),
+      areasOfUncertainty: exports_external.array(exports_external.string()).optional(),
+      durationMs: exports_external.number().nonnegative().optional(),
+      disagreementTopics: exports_external.array(exports_external.string()).optional()
     })).optional().describe("Round 2 deliberation responses (omit when no deliberation has occurred)."),
-    working_directory: tool.schema.string().optional().describe("Project root for config + evidence path resolution.")
+    working_directory: exports_external.string().optional().describe("Project root for config + evidence path resolution.")
   },
   execute: async (args2, directory, ctx) => {
     const parsed = ArgsSchema2.safeParse(args2);
@@ -74958,7 +74959,7 @@ var convene_general_council = createSwarmTool({
   }
 });
 // src/tools/curator-analyze.ts
-init_dist();
+init_zod();
 init_config();
 init_schema();
 init_curator();
@@ -74967,17 +74968,17 @@ init_create_tool();
 var curator_analyze = createSwarmTool({
   description: "Run curator phase analysis and optionally apply knowledge recommendations. " + "Call this after reviewing a phase to apply knowledge updates. " + "If recommendations is provided, applies them via applyCuratorKnowledgeUpdates.",
   args: {
-    phase: tool.schema.number().int().min(1).describe("Phase number to analyze"),
-    recommendations: tool.schema.array(tool.schema.object({
-      action: tool.schema.enum([
+    phase: exports_external.number().int().min(1).describe("Phase number to analyze"),
+    recommendations: exports_external.array(exports_external.object({
+      action: exports_external.enum([
         "promote",
         "archive",
         "flag_contradiction"
       ]),
-      entry_id: tool.schema.string().optional(),
-      lesson: tool.schema.string(),
-      reason: tool.schema.string(),
-      category: tool.schema.enum([
+      entry_id: exports_external.string().optional(),
+      lesson: exports_external.string(),
+      reason: exports_external.string(),
+      category: exports_external.enum([
         "process",
         "architecture",
         "tooling",
@@ -74988,7 +74989,7 @@ var curator_analyze = createSwarmTool({
         "integration",
         "other"
       ]).optional(),
-      confidence: tool.schema.number().min(0).max(1).optional()
+      confidence: exports_external.number().min(0).max(1).optional()
     })).optional().describe("Knowledge recommendations to apply. If omitted, only collects digest data.")
   },
   execute: async (args2, directory, ctx) => {
@@ -75076,7 +75077,6 @@ var curator_analyze = createSwarmTool({
   }
 });
 // src/tools/declare-council-criteria.ts
-init_dist();
 init_zod();
 init_loader();
 init_create_tool();
@@ -75094,13 +75094,13 @@ var ArgsSchema3 = exports_external.object({
 var declare_council_criteria = createSwarmTool({
   description: "Pre-declare acceptance criteria for a task before the coder starts work. " + "Criteria are persisted under .swarm/council/ and read back during council " + "evaluation so reviewers assess a stable, pre-committed contract. " + "Architect-only. Config-gated via council.enabled.",
   args: {
-    taskId: tool.schema.string().min(1).regex(/^\d+\.\d+(\.\d+)*$/, "Task ID must be in N.M or N.M.P format").describe('Task ID for which criteria are declared, e.g. "1.1", "1.2.3"'),
-    criteria: tool.schema.array(tool.schema.object({
-      id: tool.schema.string().min(1).max(20).regex(/^C\d+$/, "Criterion id must match C\\d+").describe('Criterion identifier, e.g. "C1", "C12"'),
-      description: tool.schema.string().min(10).max(500).describe("Human-readable description of the criterion"),
-      mandatory: tool.schema.boolean().describe("Whether the criterion is mandatory. Mandatory criteria block APPROVE when unmet.")
+    taskId: exports_external.string().min(1).regex(/^\d+\.\d+(\.\d+)*$/, "Task ID must be in N.M or N.M.P format").describe('Task ID for which criteria are declared, e.g. "1.1", "1.2.3"'),
+    criteria: exports_external.array(exports_external.object({
+      id: exports_external.string().min(1).max(20).regex(/^C\d+$/, "Criterion id must match C\\d+").describe('Criterion identifier, e.g. "C1", "C12"'),
+      description: exports_external.string().min(10).max(500).describe("Human-readable description of the criterion"),
+      mandatory: exports_external.boolean().describe("Whether the criterion is mandatory. Mandatory criteria block APPROVE when unmet.")
     })).min(1).max(20).describe("Array of acceptance criteria items. Must contain between 1 and 20 entries with unique ids."),
-    working_directory: tool.schema.string().optional().describe("Explicit project root directory. When provided, .swarm/council/ is resolved relative to this path instead of the plugin context directory.")
+    working_directory: exports_external.string().optional().describe("Explicit project root directory. When provided, .swarm/council/ is resolved relative to this path instead of the plugin context directory.")
   },
   async execute(args2, directory) {
     const parsed = ArgsSchema3.safeParse(args2);
@@ -75158,7 +75158,7 @@ var declare_council_criteria = createSwarmTool({
   }
 });
 // src/tools/declare-scope.ts
-init_tool();
+init_zod();
 init_guardrails();
 init_scope_persistence();
 init_state();
@@ -75366,17 +75366,17 @@ async function executeDeclareScope(args2, fallbackDir) {
 var declare_scope = createSwarmTool({
   description: "Declare the file scope for the next coder delegation. " + "Sets the list of files the coder is permitted to modify for a specific task. " + "Must be called before delegating to coder to enable scope containment checking.",
   args: {
-    taskId: tool.schema.string().min(1).regex(/^\d+\.\d+(\.\d+)*$/, "Task ID must be in N.M or N.M.P format").describe('Task ID for which scope is being declared, e.g. "1.1", "1.2.3"'),
-    files: tool.schema.array(tool.schema.string().min(1).max(4096)).min(1).describe("Array of file paths the coder is permitted to modify"),
-    whitelist: tool.schema.array(tool.schema.string().min(1).max(4096)).optional().describe("Additional file paths to whitelist (merged with files)"),
-    working_directory: tool.schema.string().optional().describe("Working directory where the plan is located")
+    taskId: exports_external.string().min(1).regex(/^\d+\.\d+(\.\d+)*$/, "Task ID must be in N.M or N.M.P format").describe('Task ID for which scope is being declared, e.g. "1.1", "1.2.3"'),
+    files: exports_external.array(exports_external.string().min(1).max(4096)).min(1).describe("Array of file paths the coder is permitted to modify"),
+    whitelist: exports_external.array(exports_external.string().min(1).max(4096)).optional().describe("Additional file paths to whitelist (merged with files)"),
+    working_directory: exports_external.string().optional().describe("Working directory where the plan is located")
   },
   execute: async (args2, _directory) => {
     return JSON.stringify(await executeDeclareScope(args2, _directory), null, 2);
   }
 });
 // src/tools/diff.ts
-init_dist();
+init_zod();
 import * as child_process7 from "child_process";
 import * as fs60 from "fs";
 import * as path75 from "path";
@@ -75430,8 +75430,8 @@ function validatePaths(paths) {
 var diff = createSwarmTool({
   description: "Analyze git diff for changed files, exports, interfaces, and function signatures. Returns structured output with contract change detection.",
   args: {
-    base: tool.schema.string().optional().describe('Base ref to diff against (default: HEAD). Use "staged" for staged changes, "unstaged" for working tree changes.'),
-    paths: tool.schema.array(tool.schema.string()).optional().describe("Optional file paths to restrict diff scope.")
+    base: exports_external.string().optional().describe('Base ref to diff against (default: HEAD). Use "staged" for staged changes, "unstaged" for working tree changes.'),
+    paths: exports_external.array(exports_external.string()).optional().describe("Optional file paths to restrict diff scope.")
   },
   async execute(args2, directory, _ctx) {
     const typedArgs = args2;
@@ -75640,7 +75640,7 @@ var diff = createSwarmTool({
   }
 });
 // src/tools/diff-summary.ts
-init_dist();
+init_zod();
 import * as child_process8 from "child_process";
 import * as fs61 from "fs";
 import * as path76 from "path";
@@ -75648,9 +75648,9 @@ init_create_tool();
 var diff_summary = createSwarmTool({
   description: "Generate a filtered semantic diff summary from AST analysis. Returns SemanticDiffSummary with optional filtering by classification or riskLevel.",
   args: {
-    files: tool.schema.array(tool.schema.string()).describe("Array of file paths to analyze"),
-    classification: tool.schema.string().optional().describe("Filter results to only this ChangeCategory"),
-    riskLevel: tool.schema.string().optional().describe("Filter results to only this RiskLevel")
+    files: exports_external.array(exports_external.string()).describe("Array of file paths to analyze"),
+    classification: exports_external.string().optional().describe("Filter results to only this ChangeCategory"),
+    riskLevel: exports_external.string().optional().describe("Filter results to only this RiskLevel")
   },
   async execute(args2, directory, _ctx) {
     const typedArgs = args2;
@@ -75736,6 +75736,7 @@ init_doc_scan();
 
 // src/tools/domain-detector.ts
 init_tool();
+init_zod();
 var DOMAIN_PATTERNS = {
   windows: [
     /\bwindows\b/i,
@@ -75893,7 +75894,7 @@ var DOMAIN_PATTERNS = {
 var detect_domains = tool({
   description: "Detect which SME domains are relevant for a given text. " + "Returns a list of domain names (windows, powershell, python, oracle, " + "network, security, linux, vmware, azure, active_directory, ui_ux) " + "that match patterns in the input text.",
   args: {
-    text: tool.schema.string().describe("The text to analyze for domain patterns")
+    text: exports_external.string().describe("The text to analyze for domain patterns")
   },
   execute: async (args2) => {
     const text = args2.text.toLowerCase();
@@ -75915,7 +75916,7 @@ Use these as DOMAIN values when delegating to @sme.`;
   }
 });
 // src/tools/evidence-check.ts
-init_dist();
+init_zod();
 init_create_tool();
 init_path_security();
 import * as fs62 from "fs";
@@ -76074,7 +76075,7 @@ function analyzeGaps(completedTasks, evidence, requiredTypes) {
 var evidence_check = createSwarmTool({
   description: "Verify completed tasks in the plan have required evidence. Reads .swarm/plan.md for completed tasks and .swarm/evidence/ for evidence files. Returns JSON with completeness ratio and gaps for tasks missing required evidence types.",
   args: {
-    required_types: tool.schema.string().optional().describe('Comma-separated evidence types required per task (default: "reviewer,test_engineer")')
+    required_types: exports_external.string().optional().describe('Comma-separated evidence types required per task (default: "reviewer,test_engineer")')
   },
   async execute(args2, directory) {
     let requiredTypesInput;
@@ -76146,7 +76147,7 @@ var evidence_check = createSwarmTool({
   }
 });
 // src/tools/file-extractor.ts
-init_tool();
+init_zod();
 init_create_tool();
 import * as fs63 from "fs";
 import * as path78 from "path";
@@ -76204,9 +76205,9 @@ function extractFilename(code, language, index) {
 var extract_code_blocks = createSwarmTool({
   description: "Extract code blocks from text content and save them to files. " + "Parses markdown-style code fences (```language...```) and saves each block. " + "Automatically determines filenames from comments or function names.",
   args: {
-    content: tool.schema.string().describe("Text content containing code blocks to extract"),
-    output_dir: tool.schema.string().optional().describe("Directory to save files (defaults to current directory)"),
-    prefix: tool.schema.string().optional().describe("Optional prefix for generated filenames")
+    content: exports_external.string().describe("Text content containing code blocks to extract"),
+    output_dir: exports_external.string().optional().describe("Directory to save files (defaults to current directory)"),
+    prefix: exports_external.string().optional().describe("Optional prefix for generated filenames")
   },
   execute: async (args2, directory) => {
     const { content, output_dir, prefix } = args2;
@@ -76264,7 +76265,7 @@ Errors:
   }
 });
 // src/tools/get-approved-plan.ts
-init_dist();
+init_zod();
 init_qa_gate_profile();
 init_ledger();
 init_manager();
@@ -76352,7 +76353,7 @@ async function executeGetApprovedPlan(args2, directory) {
 var get_approved_plan = createSwarmTool({
   description: "Retrieve the last critic-approved immutable plan snapshot for baseline drift comparison. " + "Returns the approved plan, its approval metadata, and optionally compares against " + "the current plan.json to detect silent mutations. Read-only.",
   args: {
-    summary_only: tool.schema.boolean().optional().describe("When true, returns only structural metadata (title, phases, task counts) " + "instead of full plan objects. Reduces output size for large plans.")
+    summary_only: exports_external.boolean().optional().describe("When true, returns only structural metadata (title, phases, task counts) " + "instead of full plan objects. Reduces output size for large plans.")
   },
   execute: async (args2, directory) => {
     const typedArgs = args2;
@@ -76406,7 +76407,7 @@ var get_qa_gate_profile = createSwarmTool({
   }
 });
 // src/tools/gitingest.ts
-init_dist();
+init_zod();
 init_create_tool();
 var GITINGEST_TIMEOUT_MS = 1e4;
 var GITINGEST_MAX_RESPONSE_BYTES = 5242880;
@@ -76484,10 +76485,10 @@ ${data.content}`;
 var gitingest = createSwarmTool({
   description: "Fetch a GitHub repository's full content via gitingest.com. Returns summary, directory tree, and file contents optimized for LLM analysis. Use when you need to understand an external repository's structure or code.",
   args: {
-    url: tool.schema.string().describe("GitHub repository URL (e.g., https://github.com/owner/repo)"),
-    maxFileSize: tool.schema.number().optional().describe("Maximum file size in bytes to include (default: 50000)"),
-    pattern: tool.schema.string().optional().describe("Glob pattern to filter files (e.g., '*.ts' or 'src/**/*.py')"),
-    patternType: tool.schema.enum(["include", "exclude"]).optional().describe("Whether pattern includes or excludes matching files (default: exclude)")
+    url: exports_external.string().describe("GitHub repository URL (e.g., https://github.com/owner/repo)"),
+    maxFileSize: exports_external.number().optional().describe("Maximum file size in bytes to include (default: 50000)"),
+    pattern: exports_external.string().optional().describe("Glob pattern to filter files (e.g., '*.ts' or 'src/**/*.py')"),
+    patternType: exports_external.enum(["include", "exclude"]).optional().describe("Whether pattern includes or excludes matching files (default: exclude)")
   },
   async execute(args2, _directory, _ctx) {
     const typedArgs = args2;
@@ -76495,7 +76496,7 @@ var gitingest = createSwarmTool({
   }
 });
 // src/tools/imports.ts
-init_dist();
+init_zod();
 init_create_tool();
 init_path_security();
 import * as fs64 from "fs";
@@ -76700,8 +76701,8 @@ function findSourceFiles3(dir, files = [], stats = { skippedDirs: [], skippedFil
 var imports = createSwarmTool({
   description: "Find all reverse dependencies (consumers) that import from a given file. Returns JSON with file path, line numbers, and import metadata for each consumer. Use this to understand who depends on a module before refactoring.",
   args: {
-    file: tool.schema.string().describe('Source file path to find importers for (e.g., "./src/utils.ts")'),
-    symbol: tool.schema.string().optional().describe('Optional specific symbol to filter imports (e.g., "MyClass")')
+    file: exports_external.string().describe('Source file path to find importers for (e.g., "./src/utils.ts")'),
+    symbol: exports_external.string().optional().describe('Optional specific symbol to filter imports (e.g., "MyClass")')
   },
   async execute(args2, _directory, _ctx) {
     const typedArgs = args2;
@@ -76852,7 +76853,7 @@ var imports = createSwarmTool({
   }
 });
 // src/tools/knowledge-add.ts
-init_dist();
+init_zod();
 init_config();
 init_knowledge_store();
 init_knowledge_validator();
@@ -76873,10 +76874,10 @@ var VALID_CATEGORIES2 = [
 var knowledge_add = createSwarmTool({
   description: "Store a new lesson in the knowledge base for future reference. The lesson will be available for retrieval via knowledge_recall.",
   args: {
-    lesson: tool.schema.string().min(15).max(280).describe("The lesson to store (15-280 characters)"),
-    category: tool.schema.enum(VALID_CATEGORIES2).describe("Knowledge category for the lesson"),
-    tags: tool.schema.array(tool.schema.string()).optional().describe("Optional tags for better searchability"),
-    scope: tool.schema.string().optional().describe("Scope of the lesson (global or stack:<name>)")
+    lesson: exports_external.string().min(15).max(280).describe("The lesson to store (15-280 characters)"),
+    category: exports_external.enum(VALID_CATEGORIES2).describe("Knowledge category for the lesson"),
+    tags: exports_external.array(exports_external.string()).optional().describe("Optional tags for better searchability"),
+    scope: exports_external.string().optional().describe("Scope of the lesson (global or stack:<name>)")
   },
   execute: async (args2, directory) => {
     let lessonInput;
@@ -76996,7 +76997,7 @@ var knowledge_add = createSwarmTool({
   }
 });
 // src/tools/knowledge-query.ts
-init_dist();
+init_zod();
 init_config();
 init_knowledge_store();
 init_create_tool();
@@ -77149,11 +77150,11 @@ function formatHiveEntry(entry) {
 var knowledge_query = createSwarmTool({
   description: 'Query swarm knowledge (project-level) or hive knowledge (cross-project) with optional filters. Returns human-readable formatted text output. Use tier "all" to query both swarm and hive knowledge.',
   args: {
-    tier: tool.schema.string().optional().describe("Knowledge tier to query: 'swarm', 'hive', or 'all' (default: 'all')"),
-    status: tool.schema.string().optional().describe("Filter by status: 'candidate', 'established', or 'promoted'"),
-    category: tool.schema.string().optional().describe("Filter by category: 'process', 'architecture', 'tooling', 'security', 'testing', 'debugging', 'performance', 'integration', 'todo', or 'other'"),
-    min_score: tool.schema.number().optional().describe("Minimum confidence score filter (0.0-1.0)"),
-    limit: tool.schema.number().optional().describe(`Maximum number of results to return (default: ${DEFAULT_LIMIT}, max: 100)`)
+    tier: exports_external.string().optional().describe("Knowledge tier to query: 'swarm', 'hive', or 'all' (default: 'all')"),
+    status: exports_external.string().optional().describe("Filter by status: 'candidate', 'established', or 'promoted'"),
+    category: exports_external.string().optional().describe("Filter by category: 'process', 'architecture', 'tooling', 'security', 'testing', 'debugging', 'performance', 'integration', 'todo', or 'other'"),
+    min_score: exports_external.number().optional().describe("Minimum confidence score filter (0.0-1.0)"),
+    limit: exports_external.number().optional().describe(`Maximum number of results to return (default: ${DEFAULT_LIMIT}, max: 100)`)
   },
   async execute(args2, directory) {
     let tierInput;
@@ -77242,13 +77243,13 @@ var knowledge_query = createSwarmTool({
 init_knowledge_recall();
 
 // src/tools/knowledge-remove.ts
-init_dist();
+init_zod();
 init_knowledge_store();
 init_create_tool();
 var knowledge_remove = createSwarmTool({
   description: "Delete an outdated swarm knowledge entry by ID (swarm tier only \u2014 does not affect hive). Double-deletion is idempotent \u2014 removing a non-existent entry returns a clear message without error.",
   args: {
-    id: tool.schema.string().min(1).describe("UUID of the knowledge entry to remove")
+    id: exports_external.string().min(1).describe("UUID of the knowledge entry to remove")
   },
   execute: async (args2, directory) => {
     let idInput;
@@ -77305,7 +77306,7 @@ var knowledge_remove = createSwarmTool({
 init_lint();
 
 // src/tools/phase-complete.ts
-init_dist();
+init_zod();
 init_config();
 init_schema();
 init_qa_gate_profile();
@@ -78105,10 +78106,10 @@ async function executePhaseComplete(args2, workingDirectory, directory) {
 var phase_complete = createSwarmTool({
   description: "Mark a phase as complete and track which agents were dispatched. Used for phase completion gating and tracking. Accepts phase number and optional summary. Returns list of agents that were dispatched.",
   args: {
-    phase: tool.schema.number().int().min(1).describe("The phase number being completed \u2014 a positive integer (e.g., 1, 2, 3)"),
-    summary: tool.schema.string().optional().describe("Optional summary of what was accomplished in this phase"),
-    sessionID: tool.schema.string().optional().describe("Session ID for tracking state (auto-provided by plugin context)"),
-    working_directory: tool.schema.string().optional().describe("Explicit project root directory. When provided, .swarm/ is resolved relative to this path instead of the plugin context directory. Use this when CWD differs from the actual project root.")
+    phase: exports_external.number().int().min(1).describe("The phase number being completed \u2014 a positive integer (e.g., 1, 2, 3)"),
+    summary: exports_external.string().optional().describe("Optional summary of what was accomplished in this phase"),
+    sessionID: exports_external.string().optional().describe("Session ID for tracking state (auto-provided by plugin context)"),
+    working_directory: exports_external.string().optional().describe("Explicit project root directory. When provided, .swarm/ is resolved relative to this path instead of the plugin context directory. Use this when CWD differs from the actual project root.")
   },
   execute: async (args2, directory, ctx) => {
     let phaseCompleteArgs;
@@ -78143,7 +78144,7 @@ var phase_complete = createSwarmTool({
   }
 });
 // src/tools/pkg-audit.ts
-init_dist();
+init_zod();
 init_discovery();
 init_utils();
 init_create_tool();
@@ -79296,7 +79297,7 @@ async function runAutoAudit(directory) {
 var pkg_audit = createSwarmTool({
   description: 'Run package manager security audit (npm, pip, cargo, go, dotnet, ruby, dart) and return structured CVE data. Use ecosystem to specify which package manager, or "auto" to detect from project files.',
   args: {
-    ecosystem: tool.schema.enum([
+    ecosystem: exports_external.enum([
       "auto",
       "npm",
       "pip",
@@ -79357,7 +79358,7 @@ var pkg_audit = createSwarmTool({
   }
 });
 // src/tools/placeholder-scan.ts
-init_dist();
+init_zod();
 init_manager2();
 import * as fs67 from "fs";
 import * as path82 from "path";
@@ -79828,9 +79829,9 @@ async function placeholderScan(input, directory) {
 var placeholder_scan = createSwarmTool({
   description: "Scan source files for placeholder content (TODO/FIXME comments, stub implementations, unimplemented functions). Returns JSON with findings grouped by file and rule.",
   args: {
-    changed_files: tool.schema.array(tool.schema.string()).describe("Files to scan for placeholders"),
-    allow_globs: tool.schema.array(tool.schema.string()).optional().describe("Globs to allow (skip scanning)"),
-    deny_patterns: tool.schema.array(tool.schema.string()).optional().describe("Custom deny patterns to search for")
+    changed_files: exports_external.array(exports_external.string()).describe("Files to scan for placeholders"),
+    allow_globs: exports_external.array(exports_external.string()).optional().describe("Globs to allow (skip scanning)"),
+    deny_patterns: exports_external.array(exports_external.string()).optional().describe("Custom deny patterns to search for")
   },
   async execute(args2, directory) {
     const result = await placeholderScan(args2, directory);
@@ -79838,7 +79839,7 @@ var placeholder_scan = createSwarmTool({
   }
 });
 // src/tools/pre-check-batch.ts
-init_dist();
+init_zod();
 import * as fs70 from "fs";
 import * as path85 from "path";
 init_manager2();
@@ -79847,7 +79848,7 @@ init_create_tool();
 init_lint();
 
 // src/tools/quality-budget.ts
-init_dist();
+init_zod();
 init_manager2();
 init_create_tool();
 function validateInput(input) {
@@ -79956,13 +79957,13 @@ async function qualityBudget(input, directory) {
 var quality_budget = createSwarmTool({
   description: "Enforce maintainability budgets for changed files. Computes quality metrics (complexity, API surface, duplication, test coverage) and compares against configured thresholds. Returns JSON with metrics, violations, and verdict.",
   args: {
-    changed_files: tool.schema.array(tool.schema.string()).describe("Files to check against quality budgets"),
-    config: tool.schema.object({
-      enabled: tool.schema.boolean().optional(),
-      max_complexity_delta: tool.schema.number().optional(),
-      max_public_api_delta: tool.schema.number().optional(),
-      max_duplication_ratio: tool.schema.number().optional(),
-      min_test_to_code_ratio: tool.schema.number().optional()
+    changed_files: exports_external.array(exports_external.string()).describe("Files to check against quality budgets"),
+    config: exports_external.object({
+      enabled: exports_external.boolean().optional(),
+      max_complexity_delta: exports_external.number().optional(),
+      max_public_api_delta: exports_external.number().optional(),
+      max_duplication_ratio: exports_external.number().optional(),
+      min_test_to_code_ratio: exports_external.number().optional()
     }).optional().describe("Quality budget thresholds")
   },
   async execute(args2, directory) {
@@ -79972,7 +79973,7 @@ var quality_budget = createSwarmTool({
 });
 
 // src/tools/sast-scan.ts
-init_dist();
+init_zod();
 init_manager2();
 init_detector();
 import * as fs69 from "fs";
@@ -81504,11 +81505,11 @@ async function sastScan(input, directory, config3) {
 var sast_scan = createSwarmTool({
   description: "Static Application Security Testing (SAST) scan. Scans files for security vulnerabilities using built-in rules (Tier A) and optional Semgrep (Tier B). Supports phase-scoped baseline diffing: set capture_baseline:true before first coder delegation to snapshot pre-existing findings; subsequent scans with the same phase only fail on NEW findings.",
   args: {
-    directory: tool.schema.string().describe("Directory to scan for security vulnerabilities"),
-    changed_files: tool.schema.array(tool.schema.string()).optional().describe("List of files to scan (leave empty to scan none)"),
-    severity_threshold: tool.schema.enum(["low", "medium", "high", "critical"]).optional().default("medium").describe("Minimum severity that causes failure"),
-    capture_baseline: tool.schema.boolean().optional().describe("When true, capture/merge a phase-scoped baseline of pre-existing findings. Requires phase. Subsequent scans with phase only fail on NEW findings."),
-    phase: tool.schema.number().int().min(1).optional().describe("Current phase number (positive integer >= 1). Required with capture_baseline. Enables baseline diff when provided on non-capture scans.")
+    directory: exports_external.string().describe("Directory to scan for security vulnerabilities"),
+    changed_files: exports_external.array(exports_external.string()).optional().describe("List of files to scan (leave empty to scan none)"),
+    severity_threshold: exports_external.enum(["low", "medium", "high", "critical"]).optional().default("medium").describe("Minimum severity that causes failure"),
+    capture_baseline: exports_external.boolean().optional().describe("When true, capture/merge a phase-scoped baseline of pre-existing findings. Requires phase. Subsequent scans with phase only fail on NEW findings."),
+    phase: exports_external.number().int().min(1).optional().describe("Current phase number (positive integer >= 1). Required with capture_baseline. Enables baseline diff when provided on non-capture scans.")
   },
   execute: async (args2, directory) => {
     let safeArgs;
@@ -82239,10 +82240,10 @@ async function runPreCheckBatch(input, workspaceDir, contextDir) {
 var pre_check_batch = createSwarmTool({
   description: "Run multiple verification tools in parallel: lint, secretscan, SAST scan, and quality budget. Returns unified result with gates_passed status. Security tools (secretscan, sast_scan) are HARD GATES - failures block merging.",
   args: {
-    files: tool.schema.array(tool.schema.string()).optional().describe("Specific files to check (optional, scans directory if not provided)"),
-    directory: tool.schema.string().describe('Directory to run checks in (e.g., "." or "./src")'),
-    sast_threshold: tool.schema.enum(["low", "medium", "high", "critical"]).optional().describe("Minimum severity for SAST findings to cause failure (default: medium)"),
-    phase: tool.schema.number().int().min(1).optional().describe("Current phase number (positive integer >= 1). When provided, enables SAST baseline diffing: only findings absent from the phase-scoped baseline fail the gate.")
+    files: exports_external.array(exports_external.string()).optional().describe("Specific files to check (optional, scans directory if not provided)"),
+    directory: exports_external.string().describe('Directory to run checks in (e.g., "." or "./src")'),
+    sast_threshold: exports_external.enum(["low", "medium", "high", "critical"]).optional().describe("Minimum severity for SAST findings to cause failure (default: medium)"),
+    phase: exports_external.number().int().min(1).optional().describe("Current phase number (positive integer >= 1). When provided, enables SAST baseline diffing: only findings absent from the phase-scoped baseline fail the gate.")
   },
   async execute(args2, directory) {
     if (!args2 || typeof args2 !== "object") {
@@ -82351,7 +82352,7 @@ var pre_check_batch = createSwarmTool({
   }
 });
 // src/tools/repo-map.ts
-init_dist();
+init_zod();
 import * as path86 from "path";
 init_path_security();
 init_create_tool();
@@ -82419,7 +82420,7 @@ function loadOrError(directory, action) {
 var repo_map = createSwarmTool({
   description: "Query the repository code graph for structural awareness before editing. " + 'Actions: "build" (build/refresh .swarm/repo-graph.json), "importers" (who imports a file), ' + '"dependencies" (what a file imports), "blast_radius" (transitive dependents + risk), ' + '"localization" (compact context block for a target file), "key_files" (top-N most-imported files). ' + "Use this before refactoring shared modules to avoid breaking unseen consumers.",
   args: {
-    action: tool.schema.enum([
+    action: exports_external.enum([
       "build",
       "importers",
       "dependencies",
@@ -82427,11 +82428,11 @@ var repo_map = createSwarmTool({
       "localization",
       "key_files"
     ]).describe('Query action: "build" | "importers" | "dependencies" | "blast_radius" | "localization" | "key_files"'),
-    file: tool.schema.string().optional().describe("Target file (workspace-relative or absolute). Required for importers/dependencies/localization."),
-    files: tool.schema.array(tool.schema.string()).optional().describe("Multiple target files for blast_radius. If omitted, falls back to `file`."),
-    symbol: tool.schema.string().optional().describe('When provided alongside `file` on action="importers", restrict to consumers of this exported symbol.'),
-    top_n: tool.schema.number().int().min(1).max(100).optional().describe('For action="key_files": number of files to return (default 10).'),
-    max_depth: tool.schema.number().int().min(1).max(10).optional().describe('For action="blast_radius": max BFS depth (default 3).')
+    file: exports_external.string().optional().describe("Target file (workspace-relative or absolute). Required for importers/dependencies/localization."),
+    files: exports_external.array(exports_external.string()).optional().describe("Multiple target files for blast_radius. If omitted, falls back to `file`."),
+    symbol: exports_external.string().optional().describe('When provided alongside `file` on action="importers", restrict to consumers of this exported symbol.'),
+    top_n: exports_external.number().int().min(1).max(100).optional().describe('For action="key_files": number of files to return (default 10).'),
+    max_depth: exports_external.number().int().min(1).max(10).optional().describe('For action="blast_radius": max BFS depth (default 3).')
   },
   async execute(args2, directory, _ctx) {
     const a = args2 ?? {};
@@ -82543,7 +82544,7 @@ var repo_map = createSwarmTool({
   }
 });
 // src/tools/req-coverage.ts
-init_dist();
+init_zod();
 init_create_tool();
 import * as fs71 from "fs";
 import * as path87 from "path";
@@ -82788,8 +82789,8 @@ function analyzeRequirementCoverage(requirement, touchedFiles, cwd) {
 var req_coverage = createSwarmTool({
   description: "Analyze requirement coverage for FR requirements against touched files. " + "Reads .swarm/spec.md for FR-### requirements and checks coverage against " + "files touched during a phase via evidence files. Produces coverage report.",
   args: {
-    phase: tool.schema.number().int().min(1).describe("The phase number to analyze coverage for"),
-    directory: tool.schema.string().optional().describe("Working directory (defaults to plugin context directory)")
+    phase: exports_external.number().int().min(1).describe("The phase number to analyze coverage for"),
+    directory: exports_external.string().optional().describe("Working directory (defaults to plugin context directory)")
   },
   async execute(args2, directory) {
     let phase;
@@ -82883,16 +82884,16 @@ var req_coverage = createSwarmTool({
   }
 });
 // src/tools/retrieve-summary.ts
-init_dist();
+init_zod();
 init_manager4();
 init_create_tool();
 var RETRIEVE_MAX_BYTES = 10 * 1024 * 1024;
 var retrieve_summary = createSwarmTool({
   description: "Retrieve the full content of a stored tool output summary by its ID (e.g. S1, S2). Use this when a prior tool output was summarized and you need the full content.",
   args: {
-    id: tool.schema.string().describe("The summary ID to retrieve (e.g. S1, S2, S99). Must match pattern S followed by digits."),
-    offset: tool.schema.number().min(0).default(0).describe("Line offset to start from (default: 0)."),
-    limit: tool.schema.number().min(1).max(500).default(100).describe("Number of lines to return (default: 100, max: 500).")
+    id: exports_external.string().describe("The summary ID to retrieve (e.g. S1, S2, S99). Must match pattern S followed by digits."),
+    offset: exports_external.number().min(0).default(0).describe("Line offset to start from (default: 0)."),
+    limit: exports_external.number().min(1).max(500).default(100).describe("Number of lines to return (default: 100, max: 500).")
   },
   async execute(args2, directory, _ctx) {
     const typedArgs = args2;
@@ -82952,7 +82953,7 @@ ${paginatedContent}`;
   }
 });
 // src/tools/save-plan.ts
-init_tool();
+init_zod();
 init_plan_schema();
 init_qa_gate_profile();
 init_file_locks();
@@ -83275,26 +83276,26 @@ async function executeSavePlan(args2, fallbackDir) {
 var save_plan = createSwarmTool({
   description: "Save or revise a structured implementation plan to .swarm/plan.json and .swarm/plan.md. " + "Use this tool for all structural plan changes on an existing plan (adding/removing tasks, updating descriptions, dependencies, or phase names) \u2014 existing task statuses are preserved by default (set reset_statuses: true to start fresh). " + "Task descriptions and phase names MUST contain real content from the spec \u2014 " + "bracket placeholders like [task] or [Project] will be rejected.",
   args: {
-    title: tool.schema.string().min(1).describe("Plan title \u2014 the REAL project name from the spec. NOT a placeholder like [Project]."),
-    swarm_id: tool.schema.string().min(1).describe('Swarm identifier (e.g. "mega")'),
-    phases: tool.schema.array(tool.schema.object({
-      id: tool.schema.number().int().min(1).describe("Phase number \u2014 a positive integer starting at 1. Use 1, 2, 3, etc."),
-      name: tool.schema.string().min(1).describe("Descriptive phase name derived from the spec"),
-      tasks: tool.schema.array(tool.schema.object({
-        id: tool.schema.string().min(1).regex(/^\d+\.\d+(\.\d+)*$/, 'Task ID must be in N.M format, e.g. "1.1"').describe('Task ID in N.M format, e.g. "1.1", "2.3"'),
-        description: tool.schema.string().min(1).describe("Specific task description from the spec. NOT a placeholder like [task]."),
-        size: tool.schema.enum(["small", "medium", "large"]).optional().describe("Task size estimate (default: small)"),
-        depends: tool.schema.array(tool.schema.string()).optional().describe('Task IDs this task depends on, e.g. ["1.1", "1.2"]'),
-        acceptance: tool.schema.string().optional().describe("Acceptance criteria for this task")
+    title: exports_external.string().min(1).describe("Plan title \u2014 the REAL project name from the spec. NOT a placeholder like [Project]."),
+    swarm_id: exports_external.string().min(1).describe('Swarm identifier (e.g. "mega")'),
+    phases: exports_external.array(exports_external.object({
+      id: exports_external.number().int().min(1).describe("Phase number \u2014 a positive integer starting at 1. Use 1, 2, 3, etc."),
+      name: exports_external.string().min(1).describe("Descriptive phase name derived from the spec"),
+      tasks: exports_external.array(exports_external.object({
+        id: exports_external.string().min(1).regex(/^\d+\.\d+(\.\d+)*$/, 'Task ID must be in N.M format, e.g. "1.1"').describe('Task ID in N.M format, e.g. "1.1", "2.3"'),
+        description: exports_external.string().min(1).describe("Specific task description from the spec. NOT a placeholder like [task]."),
+        size: exports_external.enum(["small", "medium", "large"]).optional().describe("Task size estimate (default: small)"),
+        depends: exports_external.array(exports_external.string()).optional().describe('Task IDs this task depends on, e.g. ["1.1", "1.2"]'),
+        acceptance: exports_external.string().optional().describe("Acceptance criteria for this task")
       })).min(1).describe("Tasks in this phase")
     })).min(1).describe("Implementation phases"),
-    working_directory: tool.schema.string().optional().describe("Working directory (explicit path, required - no fallback)"),
-    reset_statuses: tool.schema.boolean().optional().describe("When true, reset ALL task statuses to pending regardless of prior completion state. " + "Use only when deliberately re-planning a phase from scratch. " + "Default false (preserves existing task statuses across plan revisions)."),
-    execution_profile: tool.schema.object({
-      parallelization_enabled: tool.schema.boolean().optional().describe("When true, enables parallel task dispatch for this plan. Default false (serial)."),
-      max_concurrent_tasks: tool.schema.number().int().min(1).max(64).optional().describe("Maximum tasks that may run concurrently when parallelization is enabled. Default 1."),
-      council_parallel: tool.schema.boolean().optional().describe("When true, council review phases may run in parallel. Default false."),
-      locked: tool.schema.boolean().optional().describe("When true, locks the profile \u2014 future save_plan calls that include " + "execution_profile will be rejected (fail-closed). " + "Unlock by resetting the plan (reset_statuses: true).")
+    working_directory: exports_external.string().optional().describe("Working directory (explicit path, required - no fallback)"),
+    reset_statuses: exports_external.boolean().optional().describe("When true, reset ALL task statuses to pending regardless of prior completion state. " + "Use only when deliberately re-planning a phase from scratch. " + "Default false (preserves existing task statuses across plan revisions)."),
+    execution_profile: exports_external.object({
+      parallelization_enabled: exports_external.boolean().optional().describe("When true, enables parallel task dispatch for this plan. Default false (serial)."),
+      max_concurrent_tasks: exports_external.number().int().min(1).max(64).optional().describe("Maximum tasks that may run concurrently when parallelization is enabled. Default 1."),
+      council_parallel: exports_external.boolean().optional().describe("When true, council review phases may run in parallel. Default false."),
+      locked: exports_external.boolean().optional().describe("When true, locks the profile \u2014 future save_plan calls that include " + "execution_profile will be rejected (fail-closed). " + "Unlock by resetting the plan (reset_statuses: true).")
     }).optional().describe("Architect-facing concurrency controls. Once locked, cannot be changed without resetting. " + "Omit to preserve the existing profile.")
   },
   execute: async (args2, _directory) => {
@@ -83302,7 +83303,7 @@ var save_plan = createSwarmTool({
   }
 });
 // src/tools/sbom-generate.ts
-init_dist();
+init_zod();
 init_manager2();
 import * as fs73 from "fs";
 import * as path89 from "path";
@@ -84265,9 +84266,9 @@ function validateArgs4(args2) {
 var sbom_generate = createSwarmTool({
   description: "Generate Software Bill of Materials (SBOM) by scanning project for dependency manifests. Uses CycloneDX format. Supports scanning entire project or only changed files.",
   args: {
-    scope: tool.schema.enum(["changed", "all"]).describe('Scan scope: "changed" for modified files only, "all" for entire project'),
-    changed_files: tool.schema.array(tool.schema.string()).optional().describe('List of changed files (required if scope="changed")'),
-    output_dir: tool.schema.string().optional().describe("Output directory for SBOM (default: .swarm/evidence/sbom/)")
+    scope: exports_external.enum(["changed", "all"]).describe('Scan scope: "changed" for modified files only, "all" for entire project'),
+    changed_files: exports_external.array(exports_external.string()).optional().describe('List of changed files (required if scope="changed")'),
+    output_dir: exports_external.string().optional().describe("Output directory for SBOM (default: .swarm/evidence/sbom/)")
   },
   async execute(args2, directory) {
     if (!validateArgs4(args2)) {
@@ -84368,7 +84369,7 @@ var sbom_generate = createSwarmTool({
   }
 });
 // src/tools/schema-drift.ts
-init_dist();
+init_zod();
 init_create_tool();
 import * as fs74 from "fs";
 import * as path90 from "path";
@@ -84616,7 +84617,7 @@ function findDrift(specPaths, codeRoutes) {
 var schema_drift = createSwarmTool({
   description: "Compare OpenAPI spec against actual route implementations to find drift. Detects undocumented routes in code and phantom routes in spec.",
   args: {
-    spec_file: tool.schema.string().optional().describe("Path to OpenAPI spec file. Auto-detected if omitted. Checks: openapi.json/yaml/yml, swagger.json/yaml/yml, api/openapi.json/yaml, docs/openapi.json/yaml, spec/openapi.json/yaml")
+    spec_file: exports_external.string().optional().describe("Path to OpenAPI spec file. Auto-detected if omitted. Checks: openapi.json/yaml/yml, swagger.json/yaml/yml, api/openapi.json/yaml, docs/openapi.json/yaml, spec/openapi.json/yaml")
   },
   async execute(args2, directory) {
     const cwd = directory;
@@ -84683,7 +84684,7 @@ var schema_drift = createSwarmTool({
   }
 });
 // src/tools/search.ts
-init_tool();
+init_zod();
 init_path_security();
 init_create_tool();
 import * as fs75 from "fs";
@@ -84968,12 +84969,12 @@ async function fallbackSearch(opts) {
 var search = createSwarmTool({
   description: "Search for text within workspace files using ripgrep-style interface. " + "Supports literal and regex search modes with glob include/exclude filtering. " + "Returns structured JSON output with file paths, line numbers, and line content.",
   args: {
-    query: tool.schema.string().describe("Search query string (literal or regex depending on mode)"),
-    mode: tool.schema.enum(["literal", "regex"]).default("literal").describe("Search mode: literal for exact string match, regex for regular expression"),
-    include: tool.schema.string().optional().describe('Glob pattern for files to include (e.g., "*.ts", "src/**/*.js")'),
-    exclude: tool.schema.string().optional().describe('Glob pattern for files to exclude (e.g., "node_modules/**", "*.test.ts")'),
-    max_results: tool.schema.number().default(DEFAULT_MAX_RESULTS).describe("Maximum number of matches to return"),
-    max_lines: tool.schema.number().default(DEFAULT_MAX_LINES).describe("Maximum characters per line in results")
+    query: exports_external.string().describe("Search query string (literal or regex depending on mode)"),
+    mode: exports_external.enum(["literal", "regex"]).default("literal").describe("Search mode: literal for exact string match, regex for regular expression"),
+    include: exports_external.string().optional().describe('Glob pattern for files to include (e.g., "*.ts", "src/**/*.js")'),
+    exclude: exports_external.string().optional().describe('Glob pattern for files to exclude (e.g., "node_modules/**", "*.test.ts")'),
+    max_results: exports_external.number().default(DEFAULT_MAX_RESULTS).describe("Maximum number of matches to return"),
+    max_lines: exports_external.number().default(DEFAULT_MAX_LINES).describe("Maximum characters per line in results")
   },
   execute: async (args2, directory) => {
     let query;
@@ -85084,7 +85085,7 @@ var search = createSwarmTool({
 init_secretscan();
 
 // src/tools/set-qa-gates.ts
-init_dist();
+init_zod();
 init_qa_gate_profile();
 init_manager();
 init_create_tool();
@@ -85150,16 +85151,16 @@ async function executeSetQaGates(args2, directory) {
 var set_qa_gates = createSwarmTool({
   description: "Configure the QA gate profile for the current plan. Architect-only. " + "Ratchet-tighter: can enable additional gates but cannot disable gates " + "that are already enabled. Rejects all writes once the profile is " + "locked (after critic approval). Creates the profile with defaults if " + "none exists. plan_id is derived automatically from plan.json.",
   args: {
-    reviewer: tool.schema.boolean().optional().describe("Enable the reviewer gate (true) \u2014 cannot be disabled."),
-    test_engineer: tool.schema.boolean().optional().describe("Enable the test_engineer gate (true) \u2014 cannot be disabled once on."),
-    council_mode: tool.schema.boolean().optional().describe("Enable council mode (multi-SME consensus on high-risk phases)."),
-    sme_enabled: tool.schema.boolean().optional().describe("Enable SME consultation."),
-    critic_pre_plan: tool.schema.boolean().optional().describe("Enable critic_pre_plan review before plan approval."),
-    hallucination_guard: tool.schema.boolean().optional().describe("Enable hallucination_guard checks on plan and implementation claims."),
-    sast_enabled: tool.schema.boolean().optional().describe("Enable SAST scanning as a required QA gate."),
-    mutation_test: tool.schema.boolean().optional().describe("Enable the mutation-testing gate (default: off). Requires mutation " + "tests to achieve a passing kill rate before phase completion; " + "WARN verdict allows advancement, FAIL blocks."),
-    council_general_review: tool.schema.boolean().optional().describe("Enable the council_general_review gate (default: off). When on, " + "MODE: SPECIFY runs convene_general_council on the draft spec " + "before the critic-gate, folding multi-model deliberation into " + "the spec. Requires council.general.enabled and a search API key."),
-    project_type: tool.schema.string().optional().describe('Project type label (e.g. "ts", "python"). Only applied when the profile is being created for the first time.')
+    reviewer: exports_external.boolean().optional().describe("Enable the reviewer gate (true) \u2014 cannot be disabled."),
+    test_engineer: exports_external.boolean().optional().describe("Enable the test_engineer gate (true) \u2014 cannot be disabled once on."),
+    council_mode: exports_external.boolean().optional().describe("Enable council mode (multi-SME consensus on high-risk phases)."),
+    sme_enabled: exports_external.boolean().optional().describe("Enable SME consultation."),
+    critic_pre_plan: exports_external.boolean().optional().describe("Enable critic_pre_plan review before plan approval."),
+    hallucination_guard: exports_external.boolean().optional().describe("Enable hallucination_guard checks on plan and implementation claims."),
+    sast_enabled: exports_external.boolean().optional().describe("Enable SAST scanning as a required QA gate."),
+    mutation_test: exports_external.boolean().optional().describe("Enable the mutation-testing gate (default: off). Requires mutation " + "tests to achieve a passing kill rate before phase completion; " + "WARN verdict allows advancement, FAIL blocks."),
+    council_general_review: exports_external.boolean().optional().describe("Enable the council_general_review gate (default: off). When on, " + "MODE: SPECIFY runs convene_general_council on the draft spec " + "before the critic-gate, folding multi-model deliberation into " + "the spec. Requires council.general.enabled and a search API key."),
+    project_type: exports_external.string().optional().describe('Project type label (e.g. "ts", "python"). Only applied when the profile is being created for the first time.')
   },
   execute: async (args2, directory) => {
     const typedArgs = args2 ?? {};
@@ -85167,7 +85168,7 @@ var set_qa_gates = createSwarmTool({
   }
 });
 // src/tools/suggest-patch.ts
-init_tool();
+init_zod();
 init_path_security();
 init_create_tool();
 import * as fs76 from "fs";
@@ -85327,13 +85328,13 @@ function validateOldContent(lines, startIndex, endIndex, oldContent) {
 var suggestPatch = createSwarmTool({
   description: "Suggest a structured patch for specified files without modifying them. " + "Returns context-based patch proposals with anchors for reviewer use. " + "This is a read-only tool \u2014 it does not modify any files.",
   args: {
-    targetFiles: tool.schema.array(tool.schema.string()).describe("Array of file paths to patch").min(1),
-    changes: tool.schema.array(tool.schema.object({
-      file: tool.schema.string().describe("Path to the file this change applies to"),
-      contextBefore: tool.schema.array(tool.schema.string()).optional().describe("Lines before the change region (anchor)"),
-      contextAfter: tool.schema.array(tool.schema.string()).optional().describe("Lines after the change region (anchor)"),
-      oldContent: tool.schema.string().optional().describe("Current content to be replaced"),
-      newContent: tool.schema.string().describe("New content to replace with")
+    targetFiles: exports_external.array(exports_external.string()).describe("Array of file paths to patch").min(1),
+    changes: exports_external.array(exports_external.object({
+      file: exports_external.string().describe("Path to the file this change applies to"),
+      contextBefore: exports_external.array(exports_external.string()).optional().describe("Lines before the change region (anchor)"),
+      contextAfter: exports_external.array(exports_external.string()).optional().describe("Lines after the change region (anchor)"),
+      oldContent: exports_external.string().optional().describe("Current content to be replaced"),
+      newContent: exports_external.string().describe("New content to replace with")
     })).describe("Array of change descriptions with context anchors").min(1)
   },
   execute: async (args2, directory) => {
@@ -85492,7 +85493,7 @@ var suggestPatch = createSwarmTool({
   }
 });
 // src/tools/generate-mutants.ts
-init_dist();
+init_zod();
 
 // src/mutation/generator.ts
 init_state();
@@ -85605,7 +85606,7 @@ init_create_tool();
 var generate_mutants = createSwarmTool({
   description: "Generate LLM-based mutation testing patches for the specified source files. Returns MutationPatch[] for direct consumption by the mutation_test tool. On LLM failure or when no patches can be generated, returns a SKIP verdict with a diagnostic message rather than throwing.",
   args: {
-    files: tool.schema.array(tool.schema.string()).describe("Array of source file paths to generate mutation patches for")
+    files: exports_external.array(exports_external.string()).describe("Array of source file paths to generate mutation patches for")
   },
   async execute(args2, _directory, ctx) {
     const typedArgs = args2;
@@ -85772,7 +85773,7 @@ var lint_spec = createSwarmTool({
   }
 });
 // src/tools/mutation-test.ts
-init_dist();
+init_zod();
 import * as fs78 from "fs";
 import * as path95 from "path";
 
@@ -86258,19 +86259,19 @@ init_create_tool();
 var mutation_test = createSwarmTool({
   description: "Execute mutation testing with pre-generated patches \u2014 applies each mutant patch, runs tests, and evaluates kill rate against quality gate thresholds. Returns verdict (pass/warn/fail) with per-function kill rates and survived mutant details.",
   args: {
-    patches: tool.schema.array(tool.schema.object({
-      id: tool.schema.string().describe("Unique identifier for the mutation patch"),
-      filePath: tool.schema.string().describe("File path to apply the patch to"),
-      functionName: tool.schema.string().describe("Function being mutated"),
-      mutationType: tool.schema.string().describe("Type of mutation (e.g., off_by_one, null_substitution)"),
-      patch: tool.schema.string().describe("Unified diff patch content"),
-      lineNumber: tool.schema.number().optional().describe("Line number of the mutation")
+    patches: exports_external.array(exports_external.object({
+      id: exports_external.string().describe("Unique identifier for the mutation patch"),
+      filePath: exports_external.string().describe("File path to apply the patch to"),
+      functionName: exports_external.string().describe("Function being mutated"),
+      mutationType: exports_external.string().describe("Type of mutation (e.g., off_by_one, null_substitution)"),
+      patch: exports_external.string().describe("Unified diff patch content"),
+      lineNumber: exports_external.number().optional().describe("Line number of the mutation")
     })).describe("Array of MutationPatch objects \u2014 pre-generated mutation patches to execute"),
-    files: tool.schema.array(tool.schema.string()).describe("Array of test file paths to run against mutants"),
-    test_command: tool.schema.array(tool.schema.string()).describe('Test command as array of strings (e.g., ["npx", "vitest", "--run"])'),
-    pass_threshold: tool.schema.number().optional().describe("Kill rate threshold for pass verdict (default: 0.80)"),
-    warn_threshold: tool.schema.number().optional().describe("Kill rate threshold for warn verdict (default: 0.60)"),
-    working_directory: tool.schema.string().optional().describe("Project root directory. Defaults to current working directory.")
+    files: exports_external.array(exports_external.string()).describe("Array of test file paths to run against mutants"),
+    test_command: exports_external.array(exports_external.string()).describe('Test command as array of strings (e.g., ["npx", "vitest", "--run"])'),
+    pass_threshold: exports_external.number().optional().describe("Kill rate threshold for pass verdict (default: 0.80)"),
+    warn_threshold: exports_external.number().optional().describe("Kill rate threshold for warn verdict (default: 0.60)"),
+    working_directory: exports_external.string().optional().describe("Project root directory. Defaults to current working directory.")
   },
   async execute(args2, directory, _ctx) {
     const typedArgs = args2;
@@ -86324,7 +86325,7 @@ var mutation_test = createSwarmTool({
   }
 });
 // src/tools/syntax-check.ts
-init_dist();
+init_zod();
 init_manager2();
 init_detector();
 import * as fs79 from "fs";
@@ -86497,12 +86498,12 @@ async function syntaxCheck(input, directory, config3) {
 var syntax_check = createSwarmTool({
   description: "Check syntax of source files using tree-sitter parsers. Supports JS/TS, Python, Go, Rust, Java, C/C++, C#, PHP, Ruby. Returns JSON with syntax errors found per file.",
   args: {
-    changed_files: tool.schema.array(tool.schema.object({
-      path: tool.schema.string(),
-      additions: tool.schema.number()
+    changed_files: exports_external.array(exports_external.object({
+      path: exports_external.string(),
+      additions: exports_external.number()
     })).describe("Files to check (from diff gate)"),
-    mode: tool.schema.enum(["changed", "all"]).optional().describe("Check mode: 'changed' = only changed files, 'all' = all files in repo"),
-    languages: tool.schema.array(tool.schema.string()).optional().describe("Optional: restrict to specific languages")
+    mode: exports_external.enum(["changed", "all"]).optional().describe("Check mode: 'changed' = only changed files, 'all' = all files in repo"),
+    languages: exports_external.array(exports_external.string()).optional().describe("Optional: restrict to specific languages")
   },
   async execute(args2, directory) {
     const result = await syntaxCheck(args2, directory);
@@ -86510,14 +86511,14 @@ var syntax_check = createSwarmTool({
   }
 });
 // src/tools/test-impact.ts
-init_dist();
+init_zod();
 init_analyzer();
 init_create_tool();
 var test_impact = createSwarmTool({
   description: "Analyze which test files are impacted by changes to the given source files. Returns TestImpactResult with impactedTests, untestedFiles, and the full impact map.",
   args: {
-    changedFiles: tool.schema.array(tool.schema.string()).describe("Array of source file paths to analyze for test impact"),
-    working_directory: tool.schema.string().optional().describe("Project root directory. Defaults to current working directory.")
+    changedFiles: exports_external.array(exports_external.string()).describe("Array of source file paths to analyze for test impact"),
+    working_directory: exports_external.string().optional().describe("Project root directory. Defaults to current working directory.")
   },
   async execute(args2, directory, _ctx) {
     const typedArgs = args2;
@@ -86544,7 +86545,7 @@ var test_impact = createSwarmTool({
 init_test_runner();
 
 // src/tools/todo-extract.ts
-init_dist();
+init_zod();
 init_utils();
 init_create_tool();
 init_path_security();
@@ -86696,8 +86697,8 @@ function parseTodoComments(content, filePath, tagsSet) {
 var todo_extract = createSwarmTool({
   description: "Scan the codebase for TODO/FIXME/HACK/XXX/WARN/NOTE comments. Returns JSON with count by priority and sorted entries. Useful for identifying pending tasks and code issues.",
   args: {
-    paths: tool.schema.string().optional().describe("Directory or file to scan (default: entire project/cwd)"),
-    tags: tool.schema.string().optional().describe("Comma-separated tags to search for (default: TODO,FIXME,HACK,XXX,WARN,NOTE)")
+    paths: exports_external.string().optional().describe("Directory or file to scan (default: entire project/cwd)"),
+    tags: exports_external.string().optional().describe("Comma-separated tags to search for (default: TODO,FIXME,HACK,XXX,WARN,NOTE)")
   },
   async execute(args2, directory) {
     let paths;
@@ -86803,7 +86804,7 @@ var todo_extract = createSwarmTool({
   }
 });
 // src/tools/update-task-status.ts
-init_tool();
+init_zod();
 init_loader();
 init_schema();
 init_qa_gate_profile();
@@ -87424,16 +87425,15 @@ async function executeUpdateTaskStatus(args2, fallbackDir) {
 var update_task_status = createSwarmTool({
   description: "Update the status of a specific task in the implementation plan. " + "Task status can be one of: pending, in_progress, completed, blocked.",
   args: {
-    task_id: tool.schema.string().min(1).regex(/^\d+\.\d+(\.\d+)*$/, "Task ID must be in N.M or N.M.P format").describe('Task ID in N.M format, e.g. "1.1", "1.2.3"'),
-    status: tool.schema.enum(["pending", "in_progress", "completed", "blocked"]).describe("New status for the task: pending, in_progress, completed, or blocked"),
-    working_directory: tool.schema.string().optional().describe("Working directory where the plan is located")
+    task_id: exports_external.string().min(1).regex(/^\d+\.\d+(\.\d+)*$/, "Task ID must be in N.M or N.M.P format").describe('Task ID in N.M format, e.g. "1.1", "1.2.3"'),
+    status: exports_external.enum(["pending", "in_progress", "completed", "blocked"]).describe("New status for the task: pending, in_progress, completed, or blocked"),
+    working_directory: exports_external.string().optional().describe("Working directory where the plan is located")
   },
   execute: async (args2, _directory) => {
     return JSON.stringify(await executeUpdateTaskStatus(args2, _directory), null, 2);
   }
 });
 // src/tools/web-search.ts
-init_dist();
 init_zod();
 init_loader();
 
@@ -87573,9 +87573,9 @@ var ArgsSchema4 = exports_external.object({
 var web_search = createSwarmTool({
   description: "External web search for council member agents. Returns titled results with snippets and URLs. " + "Restricted to council_member agents via AGENT_TOOL_MAP. Requires council.general.enabled and a " + "configured search API key (Tavily or Brave). max_results is capped at 10 with default from council.general.maxSourcesPerMember.",
   args: {
-    query: tool.schema.string().min(1).max(500).describe("Search query string (1\u2013500 characters)."),
-    max_results: tool.schema.number().int().min(1).max(20).optional().describe(`Number of results to request (1\u201320). Hard-capped at ${MAX_RESULTS_HARD_CAP}. Defaults to council.general.maxSourcesPerMember.`),
-    working_directory: tool.schema.string().optional().describe("Project root for config resolution. Optional.")
+    query: exports_external.string().min(1).max(500).describe("Search query string (1\u2013500 characters)."),
+    max_results: exports_external.number().int().min(1).max(20).optional().describe(`Number of results to request (1\u201320). Hard-capped at ${MAX_RESULTS_HARD_CAP}. Defaults to council.general.maxSourcesPerMember.`),
+    working_directory: exports_external.string().optional().describe("Project root for config resolution. Optional.")
   },
   execute: async (args2, directory) => {
     const parsed = ArgsSchema4.safeParse(args2);
@@ -87643,7 +87643,7 @@ var web_search = createSwarmTool({
   }
 });
 // src/tools/write-drift-evidence.ts
-init_tool();
+init_zod();
 init_qa_gate_profile();
 init_utils2();
 init_ledger();
@@ -87783,10 +87783,10 @@ async function executeWriteDriftEvidence(args2, directory) {
 var write_drift_evidence = createSwarmTool({
   description: "Write drift verification evidence for a completed phase. " + "Normalizes verdict (APPROVED->approved, NEEDS_REVISION->rejected) and writes " + "a gate-contract formatted EvidenceBundle to .swarm/evidence/{phase}/drift-verifier.json. " + "Use this after critic_drift_verifier delegation to persist the verification result.",
   args: {
-    phase: tool.schema.number().int().min(1).describe("The phase number for the drift verification (e.g., 1, 2, 3)"),
-    verdict: tool.schema.enum(["APPROVED", "NEEDS_REVISION"]).describe("Verdict of the drift verification: 'APPROVED' or 'NEEDS_REVISION'"),
-    summary: tool.schema.string().describe("Human-readable summary of the drift verification"),
-    requirementCoverage: tool.schema.string().optional().describe("Requirement coverage report from req_coverage tool (JSON string)")
+    phase: exports_external.number().int().min(1).describe("The phase number for the drift verification (e.g., 1, 2, 3)"),
+    verdict: exports_external.enum(["APPROVED", "NEEDS_REVISION"]).describe("Verdict of the drift verification: 'APPROVED' or 'NEEDS_REVISION'"),
+    summary: exports_external.string().describe("Human-readable summary of the drift verification"),
+    requirementCoverage: exports_external.string().optional().describe("Requirement coverage report from req_coverage tool (JSON string)")
   },
   execute: async (args2, directory) => {
     const rawPhase = args2.phase !== undefined ? Number(args2.phase) : 0;
@@ -87808,7 +87808,7 @@ var write_drift_evidence = createSwarmTool({
   }
 });
 // src/tools/write-hallucination-evidence.ts
-init_tool();
+init_zod();
 init_utils2();
 init_create_tool();
 import fs84 from "fs";
@@ -87894,10 +87894,10 @@ async function executeWriteHallucinationEvidence(args2, directory) {
 var write_hallucination_evidence = createSwarmTool({
   description: "Write hallucination verification evidence for a completed phase. " + "Normalizes verdict (APPROVED->approved, NEEDS_REVISION->rejected) and writes " + "a gate-contract formatted EvidenceBundle to .swarm/evidence/{phase}/hallucination-guard.json. " + "Use this after critic_hallucination_verifier delegation to persist the verification result. " + "Unlike write_drift_evidence, this tool does NOT lock the QA gate profile.",
   args: {
-    phase: tool.schema.number().int().min(1).describe("The phase number for the hallucination verification (e.g., 1, 2, 3)"),
-    verdict: tool.schema.enum(["APPROVED", "NEEDS_REVISION"]).describe("Verdict of the hallucination verification: 'APPROVED' or 'NEEDS_REVISION'"),
-    summary: tool.schema.string().describe("Human-readable summary of the hallucination verification"),
-    findings: tool.schema.string().optional().describe("Optional bullet list of FABRICATED/DRIFTED/UNSUPPORTED/BROKEN findings (for NEEDS_REVISION)")
+    phase: exports_external.number().int().min(1).describe("The phase number for the hallucination verification (e.g., 1, 2, 3)"),
+    verdict: exports_external.enum(["APPROVED", "NEEDS_REVISION"]).describe("Verdict of the hallucination verification: 'APPROVED' or 'NEEDS_REVISION'"),
+    summary: exports_external.string().describe("Human-readable summary of the hallucination verification"),
+    findings: exports_external.string().optional().describe("Optional bullet list of FABRICATED/DRIFTED/UNSUPPORTED/BROKEN findings (for NEEDS_REVISION)")
   },
   execute: async (args2, directory) => {
     const rawPhase = args2.phase !== undefined ? Number(args2.phase) : 0;
@@ -87919,7 +87919,7 @@ var write_hallucination_evidence = createSwarmTool({
   }
 });
 // src/tools/write-mutation-evidence.ts
-init_tool();
+init_zod();
 init_utils2();
 init_create_tool();
 import fs85 from "fs";
@@ -88031,12 +88031,12 @@ async function executeWriteMutationEvidence(args2, directory) {
 var write_mutation_evidence = createSwarmTool({
   description: 'Write mutation gate evidence for a completed phase. Accepts phase, verdict (PASS/WARN/FAIL/SKIP), killRate, adjustedKillRate, summary, and optional survivedMutants. Normalizes uppercase verdicts to lowercase (PASS\u2192pass, WARN\u2192warn, FAIL\u2192fail, SKIP\u2192skip) and writes entries[0].type="mutation-gate" to .swarm/evidence/{phase}/mutation-gate.json using atomic temp+rename write. Use this after mutation_test tool returns to persist the gate verdict.',
   args: {
-    phase: tool.schema.number().int().min(1).describe("The phase number for the mutation gate (e.g., 1, 2, 3)"),
-    verdict: tool.schema.enum(["PASS", "WARN", "FAIL", "SKIP"]).describe("Verdict of the mutation gate: 'PASS', 'WARN', 'FAIL', or 'SKIP'"),
-    killRate: tool.schema.number().optional().describe("The raw kill rate (e.g., 0.85)"),
-    adjustedKillRate: tool.schema.number().optional().describe("The adjusted kill rate accounting for timeout survived mutants (e.g., 0.87)"),
-    summary: tool.schema.string().describe("Human-readable summary of the mutation gate result"),
-    survivedMutants: tool.schema.string().optional().describe("Optional JSON-serialized list of survived mutants")
+    phase: exports_external.number().int().min(1).describe("The phase number for the mutation gate (e.g., 1, 2, 3)"),
+    verdict: exports_external.enum(["PASS", "WARN", "FAIL", "SKIP"]).describe("Verdict of the mutation gate: 'PASS', 'WARN', 'FAIL', or 'SKIP'"),
+    killRate: exports_external.number().optional().describe("The raw kill rate (e.g., 0.85)"),
+    adjustedKillRate: exports_external.number().optional().describe("The adjusted kill rate accounting for timeout survived mutants (e.g., 0.87)"),
+    summary: exports_external.string().describe("Human-readable summary of the mutation gate result"),
+    survivedMutants: exports_external.string().optional().describe("Optional JSON-serialized list of survived mutants")
   },
   execute: async (args2, directory) => {
     const rawPhase = args2.phase !== undefined ? Number(args2.phase) : 0;

@@ -10,6 +10,7 @@
  */
 
 import { tool } from '@opencode-ai/plugin';
+import { z } from 'zod';
 import {
 	computeProfileHash,
 	getOrCreateProfile,
@@ -126,41 +127,41 @@ export const set_qa_gates: ReturnType<typeof tool> = createSwarmTool({
 		'locked (after critic approval). Creates the profile with defaults if ' +
 		'none exists. plan_id is derived automatically from plan.json.',
 	args: {
-		reviewer: tool.schema
+		reviewer: z
 			.boolean()
 			.optional()
 			.describe('Enable the reviewer gate (true) — cannot be disabled.'),
-		test_engineer: tool.schema
+		test_engineer: z
 			.boolean()
 			.optional()
 			.describe(
 				'Enable the test_engineer gate (true) — cannot be disabled once on.',
 			),
-		council_mode: tool.schema
+		council_mode: z
 			.boolean()
 			.optional()
 			.describe(
 				'Enable council mode (multi-SME consensus on high-risk phases).',
 			),
-		sme_enabled: tool.schema
+		sme_enabled: z
 			.boolean()
 			.optional()
 			.describe('Enable SME consultation.'),
-		critic_pre_plan: tool.schema
+		critic_pre_plan: z
 			.boolean()
 			.optional()
 			.describe('Enable critic_pre_plan review before plan approval.'),
-		hallucination_guard: tool.schema
+		hallucination_guard: z
 			.boolean()
 			.optional()
 			.describe(
 				'Enable hallucination_guard checks on plan and implementation claims.',
 			),
-		sast_enabled: tool.schema
+		sast_enabled: z
 			.boolean()
 			.optional()
 			.describe('Enable SAST scanning as a required QA gate.'),
-		mutation_test: tool.schema
+		mutation_test: z
 			.boolean()
 			.optional()
 			.describe(
@@ -168,7 +169,7 @@ export const set_qa_gates: ReturnType<typeof tool> = createSwarmTool({
 					'tests to achieve a passing kill rate before phase completion; ' +
 					'WARN verdict allows advancement, FAIL blocks.',
 			),
-		council_general_review: tool.schema
+		council_general_review: z
 			.boolean()
 			.optional()
 			.describe(
@@ -177,7 +178,7 @@ export const set_qa_gates: ReturnType<typeof tool> = createSwarmTool({
 					'before the critic-gate, folding multi-model deliberation into ' +
 					'the spec. Requires council.general.enabled and a search API key.',
 			),
-		project_type: tool.schema
+		project_type: z
 			.string()
 			.optional()
 			.describe(

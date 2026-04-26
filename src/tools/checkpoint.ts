@@ -1,4 +1,5 @@
 import * as child_process from 'node:child_process';
+import { z } from 'zod';
 import * as fs from 'node:fs';
 import * as path from 'node:path';
 import { type ToolDefinition, tool } from '@opencode-ai/plugin/tool';
@@ -397,10 +398,10 @@ export const checkpoint: ToolDefinition = createSwarmTool({
 		'list to see all checkpoints, and delete to remove a checkpoint from the log. ' +
 		'Git commits are preserved on delete.',
 	args: {
-		action: tool.schema
+		action: z
 			.string()
 			.describe('Action to perform: save, restore, list, or delete'),
-		label: tool.schema
+		label: z
 			.string()
 			.optional()
 			.describe('Checkpoint label (required for save, restore, delete)'),

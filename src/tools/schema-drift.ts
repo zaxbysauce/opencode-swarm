@@ -1,4 +1,5 @@
 import * as fs from 'node:fs';
+import { z } from 'zod';
 import * as path from 'node:path';
 import { tool } from '@opencode-ai/plugin';
 import { createSwarmTool } from './create-tool';
@@ -395,7 +396,7 @@ export const schema_drift: ReturnType<typeof tool> = createSwarmTool({
 	description:
 		'Compare OpenAPI spec against actual route implementations to find drift. Detects undocumented routes in code and phantom routes in spec.',
 	args: {
-		spec_file: tool.schema
+		spec_file: z
 			.string()
 			.optional()
 			.describe(

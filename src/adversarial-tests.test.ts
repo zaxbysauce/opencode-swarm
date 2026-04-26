@@ -102,8 +102,13 @@ describe('ADVERSARIAL: constants.architect-whitelist', () => {
 			expect(AGENT_TOOL_MAP.architect.length).toBeLessThan(100);
 		});
 
-		it('all roles should have at least 1 tool', () => {
+		it('all roles should have at least 1 tool (except synthesis-only roles)', () => {
+			const synthesisOnlyRoles = new Set(['council_moderator']);
 			for (const [role, tools] of Object.entries(AGENT_TOOL_MAP)) {
+				if (synthesisOnlyRoles.has(role)) {
+					// Synthesis-only roles may have no tools
+					continue;
+				}
 				expect(tools.length, `Role '${role}' has no tools`).toBeGreaterThan(0);
 			}
 		});

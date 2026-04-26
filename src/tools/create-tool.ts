@@ -1,4 +1,4 @@
-import { type ToolContext, tool } from '@opencode-ai/plugin';
+import { type ToolContext, tool, type ToolResult } from '@opencode-ai/plugin';
 
 /**
  * Options for creating a swarm tool.
@@ -15,7 +15,7 @@ export interface SwarmToolOptions<Args extends Record<string, unknown>> {
 		args: Args,
 		directory: string,
 		ctx?: ToolContext,
-	) => Promise<string>;
+	) => Promise<ToolResult>;
 }
 
 type ToolFailureClass =
@@ -59,7 +59,11 @@ export function createSwarmTool<Args extends Record<string, unknown>>(
 			// process.cwd() fallback is intentional: used when tool is invoked directly (CLI) without plugin runtime context
 			const directory = ctx?.directory ?? process.cwd();
 			try {
-				return await opts.execute(args as Args, directory, ctx);
+				const result = await opts.execute(args as Args, directory, ctx);
+				// ToolResult can be string | {output: string; metadata?: any}
+				// If result is a string, return it directly
+				// Otherwise return the result object as-is
+				return result;
 			} catch (error) {
 				// Defense-in-depth: sanitize error to prevent stack trace leakage to TUI.
 				// Individual tools may also catch internally — this ensures nothing leaks

@@ -1,4 +1,5 @@
 import * as fs from 'node:fs';
+import { z } from 'zod';
 import * as path from 'node:path';
 import { tool } from '@opencode-ai/plugin';
 import { isCommandAvailable } from '../build/discovery';
@@ -677,7 +678,7 @@ export const lint: ReturnType<typeof tool> = createSwarmTool({
 	description:
 		'Run project linter in check or fix mode. Supports biome, eslint (JS/TS), ruff (Python), clippy (Rust), golangci-lint (Go), checkstyle (Java), ktlint (Kotlin), dotnet-format (C#), cppcheck (C/C++), swiftlint (Swift), dart analyze (Dart), and rubocop (Ruby). Returns JSON with success status, exit code, and output for architect pre-reviewer gate. Use check mode for CI/linting and fix mode to automatically apply fixes.',
 	args: {
-		mode: tool.schema
+		mode: z
 			.enum(['fix', 'check'])
 			.describe(
 				'Linting mode: "check" for read-only lint check, "fix" to automatically apply fixes',

@@ -48,12 +48,12 @@ export const web_search: ReturnType<typeof tool> = createSwarmTool({
 		'Restricted to council_member agents via AGENT_TOOL_MAP. Requires council.general.enabled and a ' +
 		'configured search API key (Tavily or Brave). max_results is capped at 10 with default from council.general.maxSourcesPerMember.',
 	args: {
-		query: tool.schema
+		query: z
 			.string()
 			.min(1)
 			.max(500)
 			.describe('Search query string (1–500 characters).'),
-		max_results: tool.schema
+		max_results: z
 			.number()
 			.int()
 			.min(1)
@@ -62,7 +62,7 @@ export const web_search: ReturnType<typeof tool> = createSwarmTool({
 			.describe(
 				`Number of results to request (1–20). Hard-capped at ${MAX_RESULTS_HARD_CAP}. Defaults to council.general.maxSourcesPerMember.`,
 			),
-		working_directory: tool.schema
+		working_directory: z
 			.string()
 			.optional()
 			.describe('Project root for config resolution. Optional.'),

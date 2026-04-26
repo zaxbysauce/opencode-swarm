@@ -1,4 +1,5 @@
 import { randomUUID } from 'node:crypto';
+import { z } from 'zod';
 import { tool } from '@opencode-ai/plugin';
 import { loadPluginConfigWithMeta } from '../config';
 import {
@@ -32,19 +33,19 @@ export const knowledge_add: ReturnType<typeof createSwarmTool> =
 		description:
 			'Store a new lesson in the knowledge base for future reference. The lesson will be available for retrieval via knowledge_recall.',
 		args: {
-			lesson: tool.schema
+			lesson: z
 				.string()
 				.min(15)
 				.max(280)
 				.describe('The lesson to store (15-280 characters)'),
-			category: tool.schema
+			category: z
 				.enum(VALID_CATEGORIES)
 				.describe('Knowledge category for the lesson'),
-			tags: tool.schema
-				.array(tool.schema.string())
+			tags: z
+				.array(z.string())
 				.optional()
 				.describe('Optional tags for better searchability'),
-			scope: tool.schema
+			scope: z
 				.string()
 				.optional()
 				.describe('Scope of the lesson (global or stack:<name>)'),

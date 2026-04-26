@@ -1,4 +1,5 @@
 import { type ToolDefinition, tool } from '@opencode-ai/plugin/tool';
+import { z } from 'zod';
 
 const DOMAIN_PATTERNS: Record<string, RegExp[]> = {
 	windows: [
@@ -166,7 +167,7 @@ export const detect_domains: ToolDefinition = tool({
 		'network, security, linux, vmware, azure, active_directory, ui_ux) ' +
 		'that match patterns in the input text.',
 	args: {
-		text: tool.schema
+		text: z
 			.string()
 			.describe('The text to analyze for domain patterns'),
 	},

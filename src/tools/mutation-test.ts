@@ -1,4 +1,5 @@
 import * as fs from 'node:fs';
+import { z } from 'zod';
 import * as path from 'node:path';
 import { type ToolContext, tool } from '@opencode-ai/plugin';
 import {
@@ -16,25 +17,25 @@ export const mutation_test: ReturnType<typeof createSwarmTool> =
 		description:
 			'Execute mutation testing with pre-generated patches — applies each mutant patch, runs tests, and evaluates kill rate against quality gate thresholds. Returns verdict (pass/warn/fail) with per-function kill rates and survived mutant details.',
 		args: {
-			patches: tool.schema
+			patches: z
 				.array(
-					tool.schema.object({
-						id: tool.schema
+					z.object({
+						id: z
 							.string()
 							.describe('Unique identifier for the mutation patch'),
-						filePath: tool.schema
+						filePath: z
 							.string()
 							.describe('File path to apply the patch to'),
-						functionName: tool.schema
+						functionName: z
 							.string()
 							.describe('Function being mutated'),
-						mutationType: tool.schema
+						mutationType: z
 							.string()
 							.describe(
 								'Type of mutation (e.g., off_by_one, null_substitution)',
 							),
-						patch: tool.schema.string().describe('Unified diff patch content'),
-						lineNumber: tool.schema
+						patch: z.string().describe('Unified diff patch content'),
+						lineNumber: z
 							.number()
 							.optional()
 							.describe('Line number of the mutation'),
@@ -43,23 +44,23 @@ export const mutation_test: ReturnType<typeof createSwarmTool> =
 				.describe(
 					'Array of MutationPatch objects — pre-generated mutation patches to execute',
 				),
-			files: tool.schema
-				.array(tool.schema.string())
+			files: z
+				.array(z.string())
 				.describe('Array of test file paths to run against mutants'),
-			test_command: tool.schema
-				.array(tool.schema.string())
+			test_command: z
+				.array(z.string())
 				.describe(
 					'Test command as array of strings (e.g., ["npx", "vitest", "--run"])',
 				),
-			pass_threshold: tool.schema
+			pass_threshold: z
 				.number()
 				.optional()
 				.describe('Kill rate threshold for pass verdict (default: 0.80)'),
-			warn_threshold: tool.schema
+			warn_threshold: z
 				.number()
 				.optional()
 				.describe('Kill rate threshold for warn verdict (default: 0.60)'),
-			working_directory: tool.schema
+			working_directory: z
 				.string()
 				.optional()
 				.describe(

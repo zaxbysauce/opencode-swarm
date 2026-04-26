@@ -1,4 +1,5 @@
 import { tool } from '@opencode-ai/plugin';
+import { z } from 'zod';
 import {
 	jaccardBigram,
 	normalize,
@@ -31,18 +32,18 @@ export const knowledge_recall: ReturnType<typeof createSwarmTool> =
 		description:
 			'Search the knowledge base for relevant past decisions, patterns, and lessons learned. Returns ranked results by semantic similarity.',
 		args: {
-			query: tool.schema
+			query: z
 				.string()
 				.min(3)
 				.describe('Natural language search query'),
-			top_n: tool.schema
+			top_n: z
 				.number()
 				.int()
 				.min(1)
 				.max(20)
 				.optional()
 				.describe('Maximum results to return (default: 5)'),
-			tier: tool.schema
+			tier: z
 				.enum(['all', 'swarm', 'hive'])
 				.optional()
 				.describe("Knowledge tier to search (default: 'all')"),

@@ -1,4 +1,4 @@
-import { type ToolContext, tool } from '@opencode-ai/plugin';
+import { type ToolContext, tool, type ToolResult } from '@opencode-ai/plugin';
 /**
  * Options for creating a swarm tool.
  * The args type is inferred from what you pass to the tool() call.
@@ -10,7 +10,7 @@ import { type ToolContext, tool } from '@opencode-ai/plugin';
 export interface SwarmToolOptions<Args extends Record<string, unknown>> {
     description: string;
     args: Args;
-    execute: (args: Args, directory: string, ctx?: ToolContext) => Promise<string>;
+    execute: (args: Args, directory: string, ctx?: ToolContext) => Promise<ToolResult>;
 }
 /**
  * Creates a swarm tool with automatic working directory injection.

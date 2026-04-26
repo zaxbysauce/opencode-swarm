@@ -1,4 +1,5 @@
 import * as fs from 'node:fs';
+import { z } from 'zod';
 import * as path from 'node:path';
 import { type ToolContext, tool } from '@opencode-ai/plugin';
 import { createSwarmTool } from './create-tool';
@@ -393,12 +394,12 @@ export const imports: ReturnType<typeof createSwarmTool> = createSwarmTool({
 	description:
 		'Find all reverse dependencies (consumers) that import from a given file. Returns JSON with file path, line numbers, and import metadata for each consumer. Use this to understand who depends on a module before refactoring.',
 	args: {
-		file: tool.schema
+		file: z
 			.string()
 			.describe(
 				'Source file path to find importers for (e.g., "./src/utils.ts")',
 			),
-		symbol: tool.schema
+		symbol: z
 			.string()
 			.optional()
 			.describe('Optional specific symbol to filter imports (e.g., "MyClass")'),

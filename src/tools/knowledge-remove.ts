@@ -1,4 +1,5 @@
 import { tool } from '@opencode-ai/plugin';
+import { z } from 'zod';
 import {
 	readKnowledge,
 	resolveSwarmKnowledgePath,
@@ -12,7 +13,7 @@ export const knowledge_remove: ReturnType<typeof createSwarmTool> =
 		description:
 			'Delete an outdated swarm knowledge entry by ID (swarm tier only — does not affect hive). Double-deletion is idempotent — removing a non-existent entry returns a clear message without error.',
 		args: {
-			id: tool.schema
+			id: z
 				.string()
 				.min(1)
 				.describe('UUID of the knowledge entry to remove'),

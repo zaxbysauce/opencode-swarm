@@ -7,6 +7,7 @@ import * as crypto from 'node:crypto';
 import * as fs from 'node:fs';
 import * as path from 'node:path';
 import { type ToolDefinition, tool } from '@opencode-ai/plugin/tool';
+import { z } from 'zod';
 import {
 	ExecutionProfileSchema,
 	type Phase,
@@ -627,34 +628,34 @@ export const save_plan: ToolDefinition = createSwarmTool({
 		'Task descriptions and phase names MUST contain real content from the spec — ' +
 		'bracket placeholders like [task] or [Project] will be rejected.',
 	args: {
-		title: tool.schema
+		title: z
 			.string()
 			.min(1)
 			.describe(
 				'Plan title — the REAL project name from the spec. NOT a placeholder like [Project].',
 			),
-		swarm_id: tool.schema
+		swarm_id: z
 			.string()
 			.min(1)
 			.describe('Swarm identifier (e.g. "mega")'),
-		phases: tool.schema
+		phases: z
 			.array(
-				tool.schema.object({
-					id: tool.schema
+				z.object({
+					id: z
 						.number()
 						.int()
 						.min(1)
 						.describe(
 							'Phase number — a positive integer starting at 1. Use 1, 2, 3, etc.',
 						),
-					name: tool.schema
+					name: z
 						.string()
 						.min(1)
 						.describe('Descriptive phase name derived from the spec'),
-					tasks: tool.schema
+					tasks: z
 						.array(
-							tool.schema.object({
-								id: tool.schema
+							z.object({
+								id: z
 									.string()
 									.min(1)
 									.regex(
@@ -662,23 +663,23 @@ export const save_plan: ToolDefinition = createSwarmTool({
 										'Task ID must be in N.M format, e.g. "1.1"',
 									)
 									.describe('Task ID in N.M format, e.g. "1.1", "2.3"'),
-								description: tool.schema
+								description: z
 									.string()
 									.min(1)
 									.describe(
 										'Specific task description from the spec. NOT a placeholder like [task].',
 									),
-								size: tool.schema
+								size: z
 									.enum(['small', 'medium', 'large'])
 									.optional()
 									.describe('Task size estimate (default: small)'),
-								depends: tool.schema
-									.array(tool.schema.string())
+								depends: z
+									.array(z.string())
 									.optional()
 									.describe(
 										'Task IDs this task depends on, e.g. ["1.1", "1.2"]',
 									),
-								acceptance: tool.schema
+								acceptance: z
 									.string()
 									.optional()
 									.describe('Acceptance criteria for this task'),
@@ -690,11 +691,11 @@ export const save_plan: ToolDefinition = createSwarmTool({
 			)
 			.min(1)
 			.describe('Implementation phases'),
-		working_directory: tool.schema
+		working_directory: z
 			.string()
 			.optional()
 			.describe('Working directory (explicit path, required - no fallback)'),
-		reset_statuses: tool.schema
+		reset_statuses: z
 			.boolean()
 			.optional()
 			.describe(
@@ -702,15 +703,15 @@ export const save_plan: ToolDefinition = createSwarmTool({
 					'Use only when deliberately re-planning a phase from scratch. ' +
 					'Default false (preserves existing task statuses across plan revisions).',
 			),
-		execution_profile: tool.schema
+		execution_profile: z
 			.object({
-				parallelization_enabled: tool.schema
+				parallelization_enabled: z
 					.boolean()
 					.optional()
 					.describe(
 						'When true, enables parallel task dispatch for this plan. Default false (serial).',
 					),
-				max_concurrent_tasks: tool.schema
+				max_concurrent_tasks: z
 					.number()
 					.int()
 					.min(1)
@@ -719,13 +720,13 @@ export const save_plan: ToolDefinition = createSwarmTool({
 					.describe(
 						'Maximum tasks that may run concurrently when parallelization is enabled. Default 1.',
 					),
-				council_parallel: tool.schema
+				council_parallel: z
 					.boolean()
 					.optional()
 					.describe(
 						'When true, council review phases may run in parallel. Default false.',
 					),
-				locked: tool.schema
+				locked: z
 					.boolean()
 					.optional()
 					.describe(

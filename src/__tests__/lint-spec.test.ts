@@ -6,7 +6,7 @@ import { afterEach, beforeEach, describe, expect, test } from 'bun:test';
 import * as fs from 'node:fs';
 import * as os from 'node:os';
 import * as path from 'node:path';
-import type { ToolContext } from '@opencode-ai/plugin';
+import type { ToolContext, ToolResult } from '@opencode-ai/plugin';
 
 // Import the tool
 import { lint_spec } from '../tools/lint-spec';
@@ -14,6 +14,11 @@ import { lint_spec } from '../tools/lint-spec';
 // Helper to call tool execute with proper context
 function createToolContext(directory: string): ToolContext {
 	return { directory } as unknown as ToolContext;
+}
+
+// Helper to extract string from ToolResult
+function resultToString(result: ToolResult): string {
+	return typeof result === 'string' ? result : result.output;
 }
 
 describe('lint_spec tool', () => {
@@ -45,7 +50,7 @@ describe('lint_spec tool', () => {
 			}
 
 			const result = await lint_spec.execute({}, createToolContext(tempDir));
-			const parsed = JSON.parse(result);
+			const parsed = JSON.parse(resultToString(result));
 
 			expect(parsed.valid).toBe(false);
 			expect(parsed.errors).toContain('spec.md not found');
@@ -59,7 +64,7 @@ describe('lint_spec tool', () => {
 			fs.rmSync(path.join(tempDir, '.swarm'), { recursive: true, force: true });
 
 			const result = await lint_spec.execute({}, createToolContext(tempDir));
-			const parsed = JSON.parse(result);
+			const parsed = JSON.parse(resultToString(result));
 
 			expect(parsed.valid).toBe(false);
 			expect(parsed.errors).toContain('spec.md not found');
@@ -90,7 +95,7 @@ FR-005: MUST cleanup resources
 			);
 
 			const result = await lint_spec.execute({}, createToolContext(tempDir));
-			const parsed = JSON.parse(result);
+			const parsed = JSON.parse(resultToString(result));
 
 			expect(parsed.valid).toBe(true);
 			expect(parsed.requirementCount.MUST).toBe(5);
@@ -115,7 +120,7 @@ FR-001: SHALL provide fallback behavior
 			);
 
 			const result = await lint_spec.execute({}, createToolContext(tempDir));
-			const parsed = JSON.parse(result);
+			const parsed = JSON.parse(resultToString(result));
 
 			expect(parsed.valid).toBe(true);
 			expect(parsed.requirementCount.SHALL).toBe(1);
@@ -138,7 +143,7 @@ FR-001: SHOULD optimize performance
 			);
 
 			const result = await lint_spec.execute({}, createToolContext(tempDir));
-			const parsed = JSON.parse(result);
+			const parsed = JSON.parse(resultToString(result));
 
 			expect(parsed.valid).toBe(true);
 			expect(parsed.requirementCount.SHOULD).toBe(1);
@@ -161,7 +166,7 @@ FR-001: MAY support compression
 			);
 
 			const result = await lint_spec.execute({}, createToolContext(tempDir));
-			const parsed = JSON.parse(result);
+			const parsed = JSON.parse(resultToString(result));
 
 			expect(parsed.valid).toBe(true);
 			expect(parsed.requirementCount.MAY).toBe(1);
@@ -192,7 +197,7 @@ FR-007: MAY log debug info
 			);
 
 			const result = await lint_spec.execute({}, createToolContext(tempDir));
-			const parsed = JSON.parse(result);
+			const parsed = JSON.parse(resultToString(result));
 
 			expect(parsed.valid).toBe(true);
 			expect(parsed.requirementCount.MUST).toBe(2);
@@ -226,7 +231,7 @@ function test() {
 			);
 
 			const result = await lint_spec.execute({}, createToolContext(tempDir));
-			const parsed = JSON.parse(result);
+			const parsed = JSON.parse(resultToString(result));
 
 			expect(parsed.valid).toBe(true);
 			// Only FR-001 is found, code block FRs are stripped
@@ -251,7 +256,7 @@ FR-002: MUST also counted
 			);
 
 			const result = await lint_spec.execute({}, createToolContext(tempDir));
-			const parsed = JSON.parse(result);
+			const parsed = JSON.parse(resultToString(result));
 
 			expect(parsed.valid).toBe(true);
 			expect(parsed.requirementCount.MUST).toBe(2);
@@ -288,7 +293,7 @@ Then: User is logged out
 			);
 
 			const result = await lint_spec.execute({}, createToolContext(tempDir));
-			const parsed = JSON.parse(result);
+			const parsed = JSON.parse(resultToString(result));
 
 			expect(parsed.valid).toBe(true);
 			expect(parsed.scenarioCount).toBe(2);
@@ -321,7 +326,7 @@ Then Another response is received
 			);
 
 			const result = await lint_spec.execute({}, createToolContext(tempDir));
-			const parsed = JSON.parse(result);
+			const parsed = JSON.parse(resultToString(result));
 
 			// With no ## Scenario headers and using "Keyword " format (space after), it counts When clauses
 			expect(parsed.scenarioCount).toBe(2); // 2 When clauses
@@ -355,7 +360,7 @@ Then User is logged out
 			);
 
 			const result = await lint_spec.execute({}, createToolContext(tempDir));
-			const parsed = JSON.parse(result);
+			const parsed = JSON.parse(resultToString(result));
 
 			expect(parsed.valid).toBe(true);
 			expect(parsed.scenarioCount).toBe(2); // Should count ## Scenario headers
@@ -378,7 +383,7 @@ This spec has no FR requirements.
 			);
 
 			const result = await lint_spec.execute({}, createToolContext(tempDir));
-			const parsed = JSON.parse(result);
+			const parsed = JSON.parse(resultToString(result));
 
 			expect(parsed.valid).toBe(false);
 			expect(parsed.errors.length).toBeGreaterThan(0);
@@ -401,7 +406,7 @@ FR-001: MUST do something
 			);
 
 			const result = await lint_spec.execute({}, createToolContext(tempDir));
-			const parsed = JSON.parse(result);
+			const parsed = JSON.parse(resultToString(result));
 
 			expect(parsed.valid).toBe(false);
 			expect(
@@ -430,7 +435,7 @@ FR-002: do something else
 			);
 
 			const result = await lint_spec.execute({}, createToolContext(tempDir));
-			const parsed = JSON.parse(result);
+			const parsed = JSON.parse(resultToString(result));
 
 			// This should be invalid because FR IDs lack obligation keywords
 			expect(parsed.valid).toBe(false);
@@ -457,7 +462,7 @@ FR-001: MUST do something
 			);
 
 			const result = await lint_spec.execute({}, createToolContext(tempDir));
-			const parsed = JSON.parse(result);
+			const parsed = JSON.parse(resultToString(result));
 
 			expect(parsed.valid).toBe(true);
 			expect(parsed.specMtime).toBeDefined();
@@ -488,7 +493,7 @@ FR-004: MAY support SSO
 			);
 
 			const result = await lint_spec.execute({}, createToolContext(tempDir));
-			const parsed = JSON.parse(result);
+			const parsed = JSON.parse(resultToString(result));
 
 			expect(parsed.valid).toBe(true);
 			expect(parsed.errors).toHaveLength(0);

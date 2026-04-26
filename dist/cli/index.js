@@ -20860,6 +20860,7 @@ async function handleBrainstormCommand(_directory, args) {
 init_zod();
 
 // src/tools/checkpoint.ts
+init_zod();
 import * as child_process from "child_process";
 import * as fs6 from "fs";
 import * as path8 from "path";
@@ -33202,7 +33203,8 @@ function createSwarmTool(opts) {
     execute: async (args, ctx) => {
       const directory = ctx?.directory ?? process.cwd();
       try {
-        return await opts.execute(args, directory, ctx);
+        const result = await opts.execute(args, directory, ctx);
+        return result;
       } catch (error93) {
         const message = error93 instanceof Error ? error93.message : String(error93);
         return JSON.stringify({
@@ -33428,8 +33430,8 @@ function handleDelete(label, directory) {
 var checkpoint = createSwarmTool({
   description: "Save, restore, list, and delete git checkpoints. " + "Use save to create a named snapshot, restore to return to a checkpoint (soft reset), " + "list to see all checkpoints, and delete to remove a checkpoint from the log. " + "Git commits are preserved on delete.",
   args: {
-    action: tool.schema.string().describe("Action to perform: save, restore, list, or delete"),
-    label: tool.schema.string().optional().describe("Checkpoint label (required for save, restore, delete)")
+    action: exports_external.string().describe("Action to perform: save, restore, list, or delete"),
+    label: exports_external.string().optional().describe("Checkpoint label (required for save, restore, delete)")
   },
   execute: async (args, directory) => {
     if (!isGitRepo()) {
@@ -33503,7 +33505,8 @@ var CheckpointResultSchema = exports_external.object({
   checkpoints: exports_external.array(exports_external.unknown()).optional()
 }).passthrough();
 function safeParseResult(result) {
-  const parsed = CheckpointResultSchema.safeParse(JSON.parse(result));
+  const jsonStr = typeof result === "string" ? result : result.output;
+  const parsed = CheckpointResultSchema.safeParse(JSON.parse(jsonStr));
   if (!parsed.success) {
     return {
       success: false,
@@ -34447,6 +34450,7 @@ async function flushPendingSnapshot(directory) {
 }
 
 // src/tools/write-retro.ts
+init_zod();
 init_evidence_schema();
 init_manager2();
 async function executeWriteRetro(args, directory) {
@@ -34752,22 +34756,22 @@ async function executeWriteRetro(args, directory) {
 var write_retro = createSwarmTool({
   description: "Write a retrospective evidence bundle for a completed phase. " + "Accepts flat retro fields and writes a correctly-wrapped EvidenceBundle to " + ".swarm/evidence/retro-{phase}/evidence.json. " + "Use this instead of manually writing retro JSON to avoid schema validation failures in phase_complete.",
   args: {
-    phase: tool.schema.number().int().min(1).max(99).describe("The phase number being completed (e.g., 1, 2, 3)"),
-    summary: tool.schema.string().describe("Human-readable summary of the phase"),
-    task_count: tool.schema.number().int().min(1).max(9999).describe("Count of tasks completed in this phase"),
-    task_complexity: tool.schema.enum(["trivial", "simple", "moderate", "complex"]).describe("Complexity level of the completed tasks"),
-    total_tool_calls: tool.schema.number().int().min(0).max(9999).describe("Total number of tool calls in this phase"),
-    coder_revisions: tool.schema.number().int().min(0).max(999).describe("Number of coder revisions made"),
-    reviewer_rejections: tool.schema.number().int().min(0).max(999).describe("Number of reviewer rejections received"),
-    loop_detections: tool.schema.number().int().min(0).max(9999).optional().describe("Number of loop detection events in this phase"),
-    circuit_breaker_trips: tool.schema.number().int().min(0).max(9999).optional().describe("Number of circuit breaker trips in this phase"),
-    test_failures: tool.schema.number().int().min(0).max(9999).describe("Number of test failures encountered"),
-    security_findings: tool.schema.number().int().min(0).max(999).describe("Number of security findings"),
-    integration_issues: tool.schema.number().int().min(0).max(999).describe("Number of integration issues"),
-    lessons_learned: tool.schema.array(tool.schema.string()).max(5).optional().describe("Key lessons learned from this phase (max 5)"),
-    top_rejection_reasons: tool.schema.array(tool.schema.string()).optional().describe("Top reasons for reviewer rejections"),
-    task_id: tool.schema.string().optional().describe("Optional custom task ID (defaults to retro-{phase})"),
-    metadata: tool.schema.record(tool.schema.string(), tool.schema.unknown()).optional().describe("Optional additional metadata")
+    phase: exports_external.number().int().min(1).max(99).describe("The phase number being completed (e.g., 1, 2, 3)"),
+    summary: exports_external.string().describe("Human-readable summary of the phase"),
+    task_count: exports_external.number().int().min(1).max(9999).describe("Count of tasks completed in this phase"),
+    task_complexity: exports_external.enum(["trivial", "simple", "moderate", "complex"]).describe("Complexity level of the completed tasks"),
+    total_tool_calls: exports_external.number().int().min(0).max(9999).describe("Total number of tool calls in this phase"),
+    coder_revisions: exports_external.number().int().min(0).max(999).describe("Number of coder revisions made"),
+    reviewer_rejections: exports_external.number().int().min(0).max(999).describe("Number of reviewer rejections received"),
+    loop_detections: exports_external.number().int().min(0).max(9999).optional().describe("Number of loop detection events in this phase"),
+    circuit_breaker_trips: exports_external.number().int().min(0).max(9999).optional().describe("Number of circuit breaker trips in this phase"),
+    test_failures: exports_external.number().int().min(0).max(9999).describe("Number of test failures encountered"),
+    security_findings: exports_external.number().int().min(0).max(999).describe("Number of security findings"),
+    integration_issues: exports_external.number().int().min(0).max(999).describe("Number of integration issues"),
+    lessons_learned: exports_external.array(exports_external.string()).max(5).optional().describe("Key lessons learned from this phase (max 5)"),
+    top_rejection_reasons: exports_external.array(exports_external.string()).optional().describe("Top reasons for reviewer rejections"),
+    task_id: exports_external.string().optional().describe("Optional custom task ID (defaults to retro-{phase})"),
+    metadata: exports_external.record(exports_external.string(), exports_external.unknown()).optional().describe("Optional additional metadata")
   },
   execute: async (args, directory) => {
     const rawPhase = args.phase !== undefined ? Number(args.phase) : 0;
@@ -35701,6 +35705,7 @@ function formatCurationSummary(summary) {
 import path17 from "path";
 
 // src/tools/co-change-analyzer.ts
+init_zod();
 import * as child_process3 from "child_process";
 import { randomUUID } from "crypto";
 import { readdir, readFile as readFile3, stat } from "fs/promises";
@@ -36007,10 +36012,10 @@ Consider adding explicit documentation or extracting the shared concern.`;
 var co_change_analyzer = createSwarmTool({
   description: "Detects hidden couplings (dark matter) by analyzing git history to find file pairs that frequently co-change but have no import relationship. Useful for identifying architectural concerns that are not explicitly documented.",
   args: {
-    min_commits: tool.schema.number().optional().describe("Minimum commit count to analyze (default: 20)"),
-    min_co_changes: tool.schema.number().optional().describe("Minimum co-change count to consider (default: 3)"),
-    threshold: tool.schema.number().optional().describe("NPMI threshold for filtering (default: 0.5)"),
-    max_commits: tool.schema.number().optional().describe("Maximum commits to analyze (default: 500)")
+    min_commits: exports_external.number().optional().describe("Minimum commit count to analyze (default: 20)"),
+    min_co_changes: exports_external.number().optional().describe("Minimum co-change count to consider (default: 3)"),
+    threshold: exports_external.number().optional().describe("NPMI threshold for filtering (default: 0.5)"),
+    max_commits: exports_external.number().optional().describe("Maximum commits to analyze (default: 500)")
   },
   async execute(args, directory) {
     let minCommits;
@@ -39626,6 +39631,7 @@ import * as fs18 from "fs";
 import * as path29 from "path";
 
 // src/tools/lint.ts
+init_zod();
 import * as fs12 from "fs";
 import * as path23 from "path";
 init_utils();
@@ -40017,7 +40023,7 @@ async function runAdditionalLint(linter, mode, cwd) {
 var lint = createSwarmTool({
   description: "Run project linter in check or fix mode. Supports biome, eslint (JS/TS), ruff (Python), clippy (Rust), golangci-lint (Go), checkstyle (Java), ktlint (Kotlin), dotnet-format (C#), cppcheck (C/C++), swiftlint (Swift), dart analyze (Dart), and rubocop (Ruby). Returns JSON with success status, exit code, and output for architect pre-reviewer gate. Use check mode for CI/linting and fix mode to automatically apply fixes.",
   args: {
-    mode: tool.schema.enum(["fix", "check"]).describe('Linting mode: "check" for read-only lint check, "fix" to automatically apply fixes')
+    mode: exports_external.enum(["fix", "check"]).describe('Linting mode: "check" for read-only lint check, "fix" to automatically apply fixes')
   },
   async execute(args, directory) {
     if (!validateArgs(args)) {
@@ -40062,6 +40068,7 @@ For Rust: rustup component add clippy`
 });
 
 // src/tools/secretscan.ts
+init_zod();
 import * as fs13 from "fs";
 import * as path24 from "path";
 var MAX_FILE_PATH_LENGTH = 500;
@@ -40548,8 +40555,8 @@ function findScannableFiles(dir, excludeExact, excludeGlobs, scanDir, visited, s
 var secretscan = createSwarmTool({
   description: "Scan directory for potential secrets (API keys, tokens, passwords) using regex patterns and entropy heuristics. Returns metadata-only findings with redacted previews - NEVER returns raw secrets. Excludes common directories (node_modules, .git, dist, etc.) by default. Supports glob patterns (e.g. **/.svelte-kit/**, **/*.test.ts) and reads .secretscanignore at the scan root.",
   args: {
-    directory: tool.schema.string().describe('Directory to scan for secrets (e.g., "." or "./src")'),
-    exclude: tool.schema.array(tool.schema.string()).optional().describe("Patterns to exclude: plain directory names (e.g. node_modules), relative paths, or globs (e.g. **/.svelte-kit/**, **/*.test.ts). Added to default exclusions.")
+    directory: exports_external.string().describe('Directory to scan for secrets (e.g., "." or "./src")'),
+    exclude: exports_external.array(exports_external.string()).optional().describe("Patterns to exclude: plain directory names (e.g. node_modules), relative paths, or globs (e.g. **/.svelte-kit/**, **/*.test.ts). Added to default exclusions.")
   },
   async execute(args, _directory, _ctx) {
     const typedArgs = args;
@@ -40743,7 +40750,8 @@ var secretscan = createSwarmTool({
 async function runSecretscan(directory) {
   try {
     const result = await secretscan.execute({ directory }, {});
-    return JSON.parse(result);
+    const jsonStr = typeof result === "string" ? result : result.output;
+    return JSON.parse(jsonStr);
   } catch (e) {
     const errorResult = {
       error: e instanceof Error ? `scan failed: ${e.message}` : "scan failed: unknown error",
@@ -40758,6 +40766,7 @@ async function runSecretscan(directory) {
 }
 
 // src/tools/test-runner.ts
+init_zod();
 import * as fs17 from "fs";
 import * as path28 from "path";
 
@@ -42447,12 +42456,12 @@ function analyzeFailures(workingDir) {
 var test_runner = createSwarmTool({
   description: 'Run project tests with framework detection. Supports bun, vitest, jest, mocha, pytest, cargo, pester, go-test, maven, gradle, dotnet-test, ctest, swift-test, dart-test, rspec, and minitest. Returns deterministic normalized JSON with framework, scope, command, totals, coverage, duration, success status, and failures. Use scope "all" for full suite, "convention" to accept direct test files or map source files to test files, "graph" to find related tests via imports from source files, or "impact" to find tests covering changed source files using test-impact analysis.',
   args: {
-    scope: tool.schema.enum(["all", "convention", "graph", "impact"]).optional().describe('Test scope: "all" runs full suite, "convention" accepts direct test files or maps source files to tests by naming, "graph" finds related tests via imports from source files, "impact" finds tests covering changed source files via test-impact analysis'),
-    files: tool.schema.array(tool.schema.string()).optional().describe('Specific files to test. For "convention", pass source files or direct test files. For "graph" and "impact", pass source files only.'),
-    coverage: tool.schema.boolean().optional().describe("Enable coverage reporting if supported"),
-    timeout_ms: tool.schema.number().optional().describe("Timeout in milliseconds (default 60000, max 300000)"),
-    allow_full_suite: tool.schema.boolean().optional().describe('Explicit opt-in for scope "all". Required because full-suite output can destabilize SSE streaming.'),
-    working_directory: tool.schema.string().optional().describe("Explicit project root directory. When provided, tests run relative to this path instead of the plugin context directory. Use this when CWD differs from the actual project root.")
+    scope: exports_external.enum(["all", "convention", "graph", "impact"]).optional().describe('Test scope: "all" runs full suite, "convention" accepts direct test files or maps source files to tests by naming, "graph" finds related tests via imports from source files, "impact" finds tests covering changed source files via test-impact analysis'),
+    files: exports_external.array(exports_external.string()).optional().describe('Specific files to test. For "convention", pass source files or direct test files. For "graph" and "impact", pass source files only.'),
+    coverage: exports_external.boolean().optional().describe("Enable coverage reporting if supported"),
+    timeout_ms: exports_external.number().optional().describe("Timeout in milliseconds (default 60000, max 300000)"),
+    allow_full_suite: exports_external.boolean().optional().describe('Explicit opt-in for scope "all". Required because full-suite output can destabilize SSE streaming.'),
+    working_directory: exports_external.string().optional().describe("Explicit project root directory. When provided, tests run relative to this path instead of the plugin context directory. Use this when CWD differs from the actual project root.")
   },
   async execute(args, directory) {
     let workingDirInput;
