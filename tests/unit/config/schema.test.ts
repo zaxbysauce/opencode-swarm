@@ -1,34 +1,4 @@
-import { afterAll, beforeAll, describe, expect, it } from 'bun:test';
-import {
-	DEFAULT_SCORING_CONFIG,
-	resolveScoringConfig,
-} from '../../../src/config/constants';
-import {
-	AgentOverrideConfigSchema,
-	ContextBudgetConfigSchema,
-	DecisionDecaySchema,
-	GeneralCouncilConfigSchema,
-	GuardrailsConfigSchema,
-	PipelineConfigSchema,
-	PluginConfigSchema,
-	ScoringConfigSchema,
-	ScoringWeightsSchema,
-	SwarmConfigSchema,
-	stripKnownSwarmPrefix,
-	TokenRatiosSchema,
-} from '../../../src/config/schema';
-
-// Suppress console.warn globally to prevent Zod refine warnings (model without
-// fallback_models) from stderr on macOS arm64 where Bun treats it as exit code 1.
-// The warn-behavior tests below restore and check console.warn directly.
-let originalWarn: typeof console.warn;
-beforeAll(() => {
-	originalWarn = console.warn;
-	console.warn = () => {};
-});
-afterAll(() => {
-	console.warn = originalWarn;
-});
+import { describe, expect, it } from 'bun:test';
 
 describe('AgentOverrideConfigSchema', () => {
 	it('accepts empty object {}', () => {
