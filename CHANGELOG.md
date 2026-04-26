@@ -1,5 +1,12 @@
 # Changelog
 
+## [6.85.2](https://github.com/zaxbysauce/opencode-swarm/compare/v6.85.1...v6.85.2) (2026-04-26)
+
+
+### Bug Fixes
+
+* suppress repo-graph diagnostic messages from chat output ([#638](https://github.com/zaxbysauce/opencode-swarm/issues/638)) ([ad4c4b6](https://github.com/zaxbysauce/opencode-swarm/commit/ad4c4b6249fd86b3607e01c3f3182a6f40c16e9d))
+
 ## [6.85.1](https://github.com/zaxbysauce/opencode-swarm/compare/v6.85.0...v6.85.1) (2026-04-26)
 
 
