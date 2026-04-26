@@ -1,5 +1,12 @@
 # Changelog
 
+## [6.85.0](https://github.com/zaxbysauce/opencode-swarm/compare/v6.84.7...v6.85.0) (2026-04-26)
+
+
+### Features
+
+* **onboarding:** improve onboarding with autonomous planning, web app example, and config auto-discovery ([#624](https://github.com/zaxbysauce/opencode-swarm/issues/624)) ([ae81b22](https://github.com/zaxbysauce/opencode-swarm/commit/ae81b22aa613e17a3e3b1bd46ddbec93f0d446df))
+
 ## [6.84.7](https://github.com/zaxbysauce/opencode-swarm/compare/v6.84.6...v6.84.7) (2026-04-26)
 
 
