@@ -6,7 +6,7 @@
 
 import fs from 'node:fs';
 import path from 'node:path';
-import { type ToolDefinition, tool } from '@opencode-ai/plugin/tool';
+import type { ToolDefinition } from '@opencode-ai/plugin/tool';
 import { z } from 'zod';
 import { lockProfile } from '../db/qa-gate-profile.js';
 import { validateSwarmPath } from '../hooks/utils';

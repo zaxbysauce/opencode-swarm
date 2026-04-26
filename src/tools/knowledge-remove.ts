@@ -1,4 +1,3 @@
-import { tool } from '@opencode-ai/plugin';
 import { z } from 'zod';
 import {
 	readKnowledge,

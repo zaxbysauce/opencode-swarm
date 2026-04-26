@@ -6,7 +6,7 @@
 
 import * as fs from 'node:fs';
 import * as path from 'node:path';
-import { type ToolDefinition, tool } from '@opencode-ai/plugin/tool';
+import type { ToolDefinition } from '@opencode-ai/plugin/tool';
 import { z } from 'zod';
 import { checkWriteTargetForSymlink } from '../hooks/guardrails';
 import { writeScopeToDisk } from '../scope/scope-persistence';

@@ -1,4 +1,4 @@
-import { type ToolContext, tool } from '@opencode-ai/plugin';
+import type { ToolContext } from '@opencode-ai/plugin';
 import { z } from 'zod';
 import { loadFullOutput, sanitizeSummaryId } from '../summaries/manager';
 import { createSwarmTool } from './create-tool';

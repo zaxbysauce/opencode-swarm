@@ -4,7 +4,7 @@
  * giving the architect an explicit tool to call after reviewing phase data.
  */
 
-import { type ToolContext, tool } from '@opencode-ai/plugin';
+import type { ToolContext } from '@opencode-ai/plugin';
 import { z } from 'zod';
 import { loadPluginConfigWithMeta } from '../config';
 import { CuratorConfigSchema, KnowledgeConfigSchema } from '../config/schema';

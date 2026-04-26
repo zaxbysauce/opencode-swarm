@@ -4,7 +4,7 @@
  * in a RetrospectiveEvidence entry before calling saveEvidence().
  * This fixes the bug where Architect was writing flat JSON that failed EvidenceBundleSchema.parse().
  */
-import { type ToolDefinition } from '@opencode-ai/plugin/tool';
+import type { ToolDefinition } from '@opencode-ai/plugin/tool';
 /**
  * Arguments for the write_retro tool
  * User-supplied fields (the Architect provides these)

@@ -5,7 +5,7 @@
  * On LLM failure, emits a SKIP verdict with a diagnostic message.
  */
 
-import { type ToolContext, tool } from '@opencode-ai/plugin';
+import type { ToolContext } from '@opencode-ai/plugin';
 import { z } from 'zod';
 import type { MutationPatch } from '../mutation/engine.js';
 import { generateMutants } from '../mutation/generator.js';

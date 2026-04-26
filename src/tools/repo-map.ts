@@ -1,5 +1,5 @@
 import * as path from 'node:path';
-import { type ToolContext, tool } from '@opencode-ai/plugin';
+import type { ToolContext } from '@opencode-ai/plugin';
 import { z } from 'zod';
 import {
 	buildAndSaveGraph,

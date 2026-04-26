@@ -2,7 +2,6 @@ import * as crypto from 'node:crypto';
 import * as fs from 'node:fs';
 import { mkdir, readFile, writeFile } from 'node:fs/promises';
 import * as path from 'node:path';
-import { tool } from '@opencode-ai/plugin';
 import { z } from 'zod';
 import { DocsConfigSchema } from '../config/schema.js';
 import {

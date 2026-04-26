@@ -5,7 +5,7 @@
  * This fixes the bug where Architect was writing flat JSON that failed EvidenceBundleSchema.parse().
  */
 
-import { type ToolDefinition, tool } from '@opencode-ai/plugin/tool';
+import type { ToolDefinition } from '@opencode-ai/plugin/tool';
 import { z } from 'zod';
 import {
 	type RetrospectiveEvidence,
