@@ -14,9 +14,10 @@ describe('check_gate_status plugin registration verification', () => {
 		directory: string,
 	): Promise<string> {
 		const { check_gate_status } = await import('./index');
-		return check_gate_status.execute(args, {
+		const result = await check_gate_status.execute(args, {
 			directory,
 		} as unknown as ToolContext);
+		return typeof result === 'string' ? result : result.output;
 	}
 
 	// Tool names currently registered in src/index.ts (as of the change)

@@ -75735,8 +75735,8 @@ var diff_summary = createSwarmTool({
 init_doc_scan();
 
 // src/tools/domain-detector.ts
-init_tool();
 init_zod();
+init_create_tool();
 var DOMAIN_PATTERNS = {
   windows: [
     /\bwindows\b/i,
@@ -75891,7 +75891,7 @@ var DOMAIN_PATTERNS = {
     /\bresponsive\b/i
   ]
 };
-var detect_domains = tool({
+var detect_domains = createSwarmTool({
   description: "Detect which SME domains are relevant for a given text. " + "Returns a list of domain names (windows, powershell, python, oracle, " + "network, security, linux, vmware, azure, active_directory, ui_ux) " + "that match patterns in the input text.",
   args: {
     text: exports_external.string().describe("The text to analyze for domain patterns")

@@ -28,9 +28,10 @@ async function executeTool(
 	args: Record<string, unknown>,
 	directory: string,
 ): Promise<string> {
-	return curator_analyze.execute(args, {
+	const result = await curator_analyze.execute(args, {
 		directory,
 	} as unknown as ToolContext);
+	return typeof result === 'string' ? result : result.output;
 }
 
 // Mock modules before importing curator_analyze

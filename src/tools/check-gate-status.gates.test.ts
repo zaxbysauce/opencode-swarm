@@ -16,9 +16,10 @@ async function executeTool(
 	args: Record<string, unknown>,
 	directory: string,
 ): Promise<string> {
-	return check_gate_status.execute(args, {
+	const result = await check_gate_status.execute(args, {
 		directory,
 	} as unknown as ToolContext);
+	return typeof result === 'string' ? result : result.output;
 }
 
 let tmpDir: string;
