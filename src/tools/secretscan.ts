@@ -6,7 +6,7 @@ import {
 	containsControlChars,
 	containsPathTraversal,
 } from '../utils/path-security';
-import { createSwarmTool } from './create-tool';
+import { createSwarmTool, type ToolResult } from './create-tool';
 
 // ============ Constants ============
 const MAX_FILE_PATH_LENGTH = 500;
@@ -1048,10 +1048,10 @@ export async function runSecretscan(
 	try {
 		// Call the tool's execute function with proper args format
 		// Use type assertion to bypass strict context requirements for programmatic calls
-		const result = await secretscan.execute(
+		const result = (await secretscan.execute(
 			{ directory },
 			{} as Parameters<typeof secretscan.execute>[1],
-		);
+		)) as unknown as ToolResult;
 		const jsonStr = typeof result === 'string' ? result : result.output;
 		return JSON.parse(jsonStr) as SecretscanResult | SecretscanErrorResult;
 	} catch (e) {

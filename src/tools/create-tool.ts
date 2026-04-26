@@ -1,4 +1,10 @@
-import { type ToolContext, type ToolResult, tool } from '@opencode-ai/plugin';
+import { type ToolContext, tool } from '@opencode-ai/plugin';
+
+/**
+ * ToolResult can be string | {output: string; metadata?: any}
+ * This type matches what the plugin's tool() function expects as a return value.
+ */
+export type ToolResult = string | { output: string; metadata?: unknown };
 
 /**
  * Options for creating a swarm tool.
@@ -63,7 +69,7 @@ export function createSwarmTool<Args extends Record<string, unknown>>(
 				// ToolResult can be string | {output: string; metadata?: any}
 				// If result is a string, return it directly
 				// Otherwise return the result object as-is
-				return result;
+				return result as unknown as string;
 			} catch (error) {
 				// Defense-in-depth: sanitize error to prevent stack trace leakage to TUI.
 				// Individual tools may also catch internally — this ensures nothing leaks

@@ -2,7 +2,8 @@ import { afterEach, beforeEach, describe, expect, test } from 'bun:test';
 import * as fs from 'node:fs';
 import * as os from 'node:os';
 import * as path from 'node:path';
-import type { ToolContext, ToolResult } from '@opencode-ai/plugin';
+import type { ToolContext } from '@opencode-ai/plugin';
+import type { ToolResult } from './create-tool';
 import { suggestPatch } from './suggest-patch';
 
 // Helper to extract string from ToolResult

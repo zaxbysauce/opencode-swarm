@@ -1,8 +1,9 @@
 import { afterEach, beforeEach, describe, expect, test } from 'bun:test';
 import * as fs from 'node:fs';
 import * as path from 'node:path';
-import type { ToolContext, ToolResult } from '@opencode-ai/plugin';
+import type { ToolContext } from '@opencode-ai/plugin';
 import { batch_symbols } from './batch-symbols';
+import type { ToolResult } from './create-tool';
 
 // Helper to convert ToolResult to string
 function resultToString(result: ToolResult): string {

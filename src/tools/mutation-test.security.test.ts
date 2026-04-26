@@ -1,5 +1,5 @@
 import { afterEach, beforeEach, describe, expect, test, vi } from 'bun:test';
-import type { ToolResult } from '@opencode-ai/plugin';
+import type { ToolResult } from './create-tool';
 
 // Mock fs module
 const mockReadFileSync = vi.fn();

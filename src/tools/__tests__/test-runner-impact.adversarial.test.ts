@@ -7,7 +7,7 @@ import {
 	mock,
 	test,
 } from 'bun:test';
-import type { ToolResult } from '@opencode-ai/plugin';
+import type { ToolResult } from '../create-tool';
 
 // We need to use mock.module which is set up in beforeEach
 // This allows us to properly intercept the module imports

@@ -1,6 +1,7 @@
-import type { ToolContext, ToolResult } from '@opencode-ai/plugin';
+import type { ToolContext } from '@opencode-ai/plugin';
 import { z } from 'zod';
 import { checkpoint } from '../tools/checkpoint.js';
+import type { ToolResult } from '../tools/create-tool';
 
 const CheckpointResultSchema = z
 	.object({

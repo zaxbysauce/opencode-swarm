@@ -1,5 +1,6 @@
 import { describe, expect, test } from 'bun:test';
-import type { ToolContext, ToolResult } from '@opencode-ai/plugin';
+import type { ToolContext } from '@opencode-ai/plugin';
+import type { ToolResult } from '../../tools/create-tool';
 import { test_impact } from '../../tools/test-impact.js';
 
 /**

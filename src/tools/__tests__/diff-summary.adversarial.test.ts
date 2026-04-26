@@ -1,8 +1,8 @@
 import { afterEach, beforeEach, describe, expect, test, vi } from 'bun:test';
-import type { ToolResult } from '@opencode-ai/plugin';
 import type { ASTChange, ASTDiffResult } from '../../diff/ast-diff.js';
 import type { ClassifiedChange } from '../../diff/semantic-classifier.js';
 import type { SemanticDiffSummary } from '../../diff/summary-generator.js';
+import type { ToolResult } from '../create-tool';
 
 /**
  * Helper to extract string from ToolResult

@@ -6,18 +6,24 @@
  */
 import { describe, expect, it } from 'bun:test';
 import type { ToolContext } from '@opencode-ai/plugin';
+import type { ToolResult } from './create-tool';
 
 describe('check_gate_status plugin registration verification', () => {
+	// Helper to extract string from ToolResult
+	function resultToString(result: ToolResult): string {
+		return typeof result === 'string' ? result : result.output;
+	}
+
 	// Helper to call tool execute with proper context (bypasses strict type requirements for testing)
 	async function executeTool(
 		args: Record<string, unknown>,
 		directory: string,
 	): Promise<string> {
 		const { check_gate_status } = await import('./index');
-		const result = await check_gate_status.execute(args, {
+		const result = (await check_gate_status.execute(args, {
 			directory,
-		} as unknown as ToolContext);
-		return typeof result === 'string' ? result : result.output;
+		} as unknown as ToolContext)) as unknown as ToolResult;
+		return resultToString(result);
 	}
 
 	// Tool names currently registered in src/index.ts (as of the change)

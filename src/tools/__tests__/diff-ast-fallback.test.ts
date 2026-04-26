@@ -1,5 +1,5 @@
 import { afterEach, beforeEach, describe, expect, mock, test } from 'bun:test';
-import type { ToolResult } from '@opencode-ai/plugin';
+import type { ToolResult } from '../create-tool';
 
 // Helper to extract string from ToolResult
 function resultToString(result: ToolResult): string {
