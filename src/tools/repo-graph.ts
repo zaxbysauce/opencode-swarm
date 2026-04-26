@@ -11,6 +11,7 @@ import { constants, existsSync, realpathSync } from 'node:fs';
 import * as fsPromises from 'node:fs/promises';
 import * as path from 'node:path';
 import { validateSwarmPath } from '../hooks/utils';
+import * as logger from '../utils/logger';
 import {
 	containsControlChars,
 	containsPathTraversal,
@@ -820,7 +821,7 @@ export async function saveGraph(
 				'code' in error &&
 				(error as { code: string }).code !== 'ENOENT'
 			) {
-				console.error(`Failed to clean up temp file ${tempPath}:`, error);
+				logger.error(`Failed to clean up temp file ${tempPath}:`, error);
 			}
 		}
 	}
@@ -1172,7 +1173,7 @@ export function buildWorkspaceGraph(
 
 	// Truncate if file count exceeds maxFiles
 	if (sourceFiles.length > maxFiles) {
-		console.warn(
+		logger.warn(
 			`[repo-graph] Truncating scan: ${sourceFiles.length} files found, capping at ${maxFiles}. ` +
 				`${sourceFiles.length - maxFiles} files skipped.`,
 		);
@@ -1283,7 +1284,7 @@ export function buildWorkspaceGraph(
 
 	// Log scan statistics if any files were skipped or truncated
 	if (stats.skippedFiles > 0 || stats.skippedDirs > 0 || stats.truncated) {
-		console.log(
+		logger.log(
 			`[repo-graph] Scan stats: ${stats.filesScanned} files scanned, ` +
 				`${stats.skippedFiles} files skipped, ${stats.skippedDirs} dirs skipped` +
 				(stats.truncated ? ', TRUNCATED' : ''),
@@ -1492,7 +1493,7 @@ export async function updateGraphForFiles(
 	}
 
 	if (validationFailed) {
-		console.warn(
+		logger.warn(
 			`[repo-graph] Incremental update failed, falling back to full rebuild`,
 		);
 		const rebuiltGraph = buildWorkspaceGraph(workspaceRoot);

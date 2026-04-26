@@ -12,6 +12,7 @@ import {
 	upsertNode,
 	validateWorkspace,
 } from '../../../src/tools/repo-graph';
+import * as logger from '../../../src/utils/logger';
 
 describe('buildWorkspaceGraph', () => {
 	let tempDir: string;
@@ -419,12 +420,12 @@ export const file2 = 'f2';`,
 			);
 		}
 
-		const warnSpy = vi.spyOn(console, 'warn').mockImplementation(() => {});
+		const warnSpy = vi.spyOn(logger, 'warn').mockImplementation(() => {});
 
 		// Build graph with maxFiles: 2
 		buildWorkspaceGraph(workspacePath, { maxFiles: 2 });
 
-		// Should have called console.warn with truncation message
+		// Should have called logger.warn with truncation message
 		expect(warnSpy).toHaveBeenCalled();
 		const warningCall = warnSpy.mock.calls[0][0] as string;
 		expect(warningCall).toContain('Truncating scan');
