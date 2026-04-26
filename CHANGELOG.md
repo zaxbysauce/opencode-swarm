@@ -1,5 +1,12 @@
 # Changelog
 
+## [6.84.6](https://github.com/zaxbysauce/opencode-swarm/compare/v6.84.5...v6.84.6) (2026-04-26)
+
+
+### Bug Fixes
+
+* replace unavailable default models and add fallback protection ([#617](https://github.com/zaxbysauce/opencode-swarm/issues/617)) ([bbe05f0](https://github.com/zaxbysauce/opencode-swarm/commit/bbe05f0a86d27873e567de9bbdc7bc9404fe027b))
+
 ## [6.84.5](https://github.com/zaxbysauce/opencode-swarm/compare/v6.84.4...v6.84.5) (2026-04-25)
 
 
