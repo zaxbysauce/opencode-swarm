@@ -111,11 +111,16 @@ function getWasmFileName(languageId: string): string {
 function getGrammarsDirAbsolute(): string {
 	const thisDir = path.dirname(fileURLToPath(import.meta.url));
 	// In dev: thisDir = .../src/lang/ → grammars at src/lang/grammars/
-	// In bundle: thisDir = .../dist/ → grammars at dist/lang/grammars/
-	const isSource = thisDir.replace(/\\/g, '/').endsWith('/src/lang');
+	// In main bundle: thisDir = .../dist/ → grammars at dist/lang/grammars/
+	// In CLI bundle: thisDir = .../dist/cli/ → grammars at dist/lang/grammars/
+	const normalized = thisDir.replace(/\\/g, '/');
+	const isSource = normalized.endsWith('/src/lang');
+	const isCliBundle = normalized.endsWith('/cli');
 	return isSource
 		? path.join(thisDir, 'grammars')
-		: path.join(thisDir, 'lang', 'grammars');
+		: isCliBundle
+			? path.join(thisDir, '..', 'lang', 'grammars')
+			: path.join(thisDir, 'lang', 'grammars');
 }
 
 /**
