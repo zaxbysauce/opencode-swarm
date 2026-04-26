@@ -1,4 +1,4 @@
-import { tool } from '@opencode-ai/plugin';
+import type { tool } from '@opencode-ai/plugin';
 import { z } from 'zod';
 import type { QualityBudgetConfig } from '../config/schema';
 import { saveEvidence } from '../evidence/manager';

@@ -1,10 +1,10 @@
 import * as child_process from 'node:child_process';
-import { z } from 'zod';
 import { randomUUID } from 'node:crypto';
 import { readdir, readFile, stat } from 'node:fs/promises';
 import * as path from 'node:path';
 import { promisify } from 'node:util';
-import { tool } from '@opencode-ai/plugin';
+import type { tool } from '@opencode-ai/plugin';
+import { z } from 'zod';
 import type { SwarmKnowledgeEntry } from '../hooks/knowledge-types.js';
 import { createSwarmTool } from './create-tool.js';
 

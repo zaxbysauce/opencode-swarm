@@ -8,9 +8,9 @@
  */
 
 import fs from 'node:fs';
-import { z } from 'zod';
 import path from 'node:path';
 import { type ToolDefinition, tool } from '@opencode-ai/plugin/tool';
+import { z } from 'zod';
 import { validateSwarmPath } from '../hooks/utils';
 import { createSwarmTool } from './create-tool';
 
@@ -228,10 +228,7 @@ export const write_mutation_evidence: ToolDefinition = createSwarmTool({
 			.describe(
 				"Verdict of the mutation gate: 'PASS', 'WARN', 'FAIL', or 'SKIP'",
 			),
-		killRate: z
-			.number()
-			.optional()
-			.describe('The raw kill rate (e.g., 0.85)'),
+		killRate: z.number().optional().describe('The raw kill rate (e.g., 0.85)'),
 		adjustedKillRate: z
 			.number()
 			.optional()

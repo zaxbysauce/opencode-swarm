@@ -1,9 +1,9 @@
 // Structured workspace search tool — workspace-scoped ripgrep-style search with structured JSON output
 
 import * as fs from 'node:fs';
-import { z } from 'zod';
 import * as path from 'node:path';
 import { type ToolDefinition, tool } from '@opencode-ai/plugin/tool';
+import { z } from 'zod';
 import {
 	containsControlChars,
 	containsPathTraversal,

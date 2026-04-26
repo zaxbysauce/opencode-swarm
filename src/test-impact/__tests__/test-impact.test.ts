@@ -1,5 +1,13 @@
 import { afterEach, beforeEach, describe, expect, test, vi } from 'bun:test';
+import type { ToolResult } from '@opencode-ai/plugin';
 import { test_impact } from '../../tools/test-impact.js';
+
+/**
+ * Helper to extract string from ToolResult
+ */
+function resultToString(result: ToolResult): string {
+	return typeof result === 'string' ? result : result.output;
+}
 
 /**
  * Helper to create a minimal ToolContext mock for testing
@@ -42,7 +50,7 @@ describe('test_impact tool', () => {
 			{ changedFiles: [] },
 			createMockCtx('/test/dir'),
 		);
-		const parsed = JSON.parse(result);
+		const parsed = JSON.parse(resultToString(result));
 
 		expect(parsed.success).toBe(false);
 		expect(parsed.error).toBe(
@@ -55,7 +63,7 @@ describe('test_impact tool', () => {
 			{ changedFiles: 'not-an-array' } as unknown as Record<string, unknown>,
 			createMockCtx('/test/dir'),
 		);
-		const parsed = JSON.parse(result);
+		const parsed = JSON.parse(resultToString(result));
 
 		expect(parsed.success).toBe(false);
 		expect(parsed.error).toBe(
@@ -68,7 +76,7 @@ describe('test_impact tool', () => {
 			{} as unknown as Record<string, unknown>,
 			createMockCtx('/test/dir'),
 		);
-		const parsed = JSON.parse(result);
+		const parsed = JSON.parse(resultToString(result));
 
 		expect(parsed.success).toBe(false);
 		expect(parsed.error).toBe(
@@ -92,7 +100,7 @@ describe('test_impact tool', () => {
 			{ changedFiles: ['src/file1.ts', 'src/file2.ts'] },
 			createMockCtx('/test/dir'),
 		);
-		const parsed = JSON.parse(result);
+		const parsed = JSON.parse(resultToString(result));
 
 		expect(parsed.impactedTests).toEqual(['test/a.test.ts', 'test/b.test.ts']);
 		expect(parsed.unrelatedTests).toEqual(['test/c.test.ts']);
@@ -148,7 +156,7 @@ describe('test_impact tool', () => {
 			{ changedFiles: ['src/file.ts'] },
 			createMockCtx('/test/dir'),
 		);
-		const parsed = JSON.parse(result);
+		const parsed = JSON.parse(resultToString(result));
 
 		expect(parsed.success).toBe(false);
 		expect(parsed.error).toBe('test_impact failed: Analyzer failed');
@@ -161,7 +169,7 @@ describe('test_impact tool', () => {
 			{ changedFiles: ['src/file.ts'] },
 			createMockCtx('/test/dir'),
 		);
-		const parsed = JSON.parse(result);
+		const parsed = JSON.parse(resultToString(result));
 
 		expect(parsed.success).toBe(false);
 		expect(parsed.error).toBe('test_impact failed: unknown error');
@@ -180,7 +188,7 @@ describe('test_impact tool', () => {
 			{ changedFiles: ['src/file.ts'] },
 			createMockCtx('/test/dir'),
 		);
-		const parsed = JSON.parse(result);
+		const parsed = JSON.parse(resultToString(result));
 
 		expect(parsed).toHaveProperty('impactedTests');
 		expect(parsed).toHaveProperty('unrelatedTests');

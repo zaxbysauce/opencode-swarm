@@ -28,19 +28,11 @@ export const curator_analyze: ReturnType<typeof createSwarmTool> =
 			'Call this after reviewing a phase to apply knowledge updates. ' +
 			'If recommendations is provided, applies them via applyCuratorKnowledgeUpdates.',
 		args: {
-			phase: z
-				.number()
-				.int()
-				.min(1)
-				.describe('Phase number to analyze'),
+			phase: z.number().int().min(1).describe('Phase number to analyze'),
 			recommendations: z
 				.array(
 					z.object({
-						action: z.enum([
-							'promote',
-							'archive',
-							'flag_contradiction',
-						]),
+						action: z.enum(['promote', 'archive', 'flag_contradiction']),
 						entry_id: z.string().optional(),
 						lesson: z.string(),
 						reason: z.string(),

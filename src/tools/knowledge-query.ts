@@ -3,8 +3,8 @@
  */
 
 import { existsSync } from 'node:fs';
+import type { tool } from '@opencode-ai/plugin';
 import { z } from 'zod';
-import { tool } from '@opencode-ai/plugin';
 import { loadPluginConfigWithMeta } from '../config';
 import {
 	readKnowledge,

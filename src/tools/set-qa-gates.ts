@@ -9,7 +9,7 @@
  * partial update.
  */
 
-import { tool } from '@opencode-ai/plugin';
+import type { tool } from '@opencode-ai/plugin';
 import { z } from 'zod';
 import {
 	computeProfileHash,
@@ -143,10 +143,7 @@ export const set_qa_gates: ReturnType<typeof tool> = createSwarmTool({
 			.describe(
 				'Enable council mode (multi-SME consensus on high-risk phases).',
 			),
-		sme_enabled: z
-			.boolean()
-			.optional()
-			.describe('Enable SME consultation.'),
+		sme_enabled: z.boolean().optional().describe('Enable SME consultation.'),
 		critic_pre_plan: z
 			.boolean()
 			.optional()

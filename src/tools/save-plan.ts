@@ -634,10 +634,7 @@ export const save_plan: ToolDefinition = createSwarmTool({
 			.describe(
 				'Plan title — the REAL project name from the spec. NOT a placeholder like [Project].',
 			),
-		swarm_id: z
-			.string()
-			.min(1)
-			.describe('Swarm identifier (e.g. "mega")'),
+		swarm_id: z.string().min(1).describe('Swarm identifier (e.g. "mega")'),
 		phases: z
 			.array(
 				z.object({

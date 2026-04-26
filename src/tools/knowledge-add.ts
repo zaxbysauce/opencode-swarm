@@ -1,6 +1,6 @@
 import { randomUUID } from 'node:crypto';
-import { z } from 'zod';
 import { tool } from '@opencode-ai/plugin';
+import { z } from 'zod';
 import { loadPluginConfigWithMeta } from '../config';
 import {
 	appendKnowledge,

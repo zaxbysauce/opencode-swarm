@@ -1,7 +1,7 @@
 import * as fs from 'node:fs';
-import { z } from 'zod';
 import * as path from 'node:path';
-import { tool } from '@opencode-ai/plugin';
+import type { tool } from '@opencode-ai/plugin';
+import { z } from 'zod';
 import { createSwarmTool } from './create-tool';
 
 // Note: Complex YAML constructs (multi-line strings, anchors) are out of scope for v6.5

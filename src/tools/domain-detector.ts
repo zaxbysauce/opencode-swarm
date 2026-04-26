@@ -1,5 +1,5 @@
+import type { tool } from '@opencode-ai/plugin';
 import { z } from 'zod';
-import { tool } from '@opencode-ai/plugin';
 import { createSwarmTool } from './create-tool';
 
 const DOMAIN_PATTERNS: Record<string, RegExp[]> = {
@@ -168,12 +168,12 @@ export const detect_domains: ReturnType<typeof tool> = createSwarmTool({
 		'network, security, linux, vmware, azure, active_directory, ui_ux) ' +
 		'that match patterns in the input text.',
 	args: {
-		text: z
-			.string()
-			.describe('The text to analyze for domain patterns'),
+		text: z.string().describe('The text to analyze for domain patterns'),
 	},
 	execute: async (args) => {
-		const text = (typeof args.text === 'string' ? args.text : String(args.text)).toLowerCase();
+		const text = (
+			typeof args.text === 'string' ? args.text : String(args.text)
+		).toLowerCase();
 		const detected: string[] = [];
 
 		for (const [domain, patterns] of Object.entries(DOMAIN_PATTERNS)) {

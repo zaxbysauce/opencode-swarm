@@ -121,7 +121,10 @@ describe('AGENT_TOOL_MAP.architect whitelist verification', () => {
 					// Synthesis-only roles may have no tools (they aggregate/write from existing data)
 					return;
 				}
-				expect(tools.length, `${role} should have at least one tool`).toBeGreaterThan(0);
+				expect(
+					tools.length,
+					`${role} should have at least one tool`,
+				).toBeGreaterThan(0);
 			});
 		});
 

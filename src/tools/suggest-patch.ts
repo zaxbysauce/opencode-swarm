@@ -1,9 +1,9 @@
 // Reviewer-safe structured patch suggestion tool — produces patch artifacts without file modification
 
 import * as fs from 'node:fs';
-import { z } from 'zod';
 import * as path from 'node:path';
 import { type ToolDefinition, tool } from '@opencode-ai/plugin/tool';
+import { z } from 'zod';
 import {
 	containsControlChars,
 	containsPathTraversal,
@@ -292,9 +292,7 @@ export const suggestPatch: ToolDefinition = createSwarmTool({
 		changes: z
 			.array(
 				z.object({
-					file: z
-						.string()
-						.describe('Path to the file this change applies to'),
+					file: z.string().describe('Path to the file this change applies to'),
 					contextBefore: z
 						.array(z.string())
 						.optional()
@@ -307,9 +305,7 @@ export const suggestPatch: ToolDefinition = createSwarmTool({
 						.string()
 						.optional()
 						.describe('Current content to be replaced'),
-					newContent: z
-						.string()
-						.describe('New content to replace with'),
+					newContent: z.string().describe('New content to replace with'),
 				}),
 			)
 			.describe('Array of change descriptions with context anchors')

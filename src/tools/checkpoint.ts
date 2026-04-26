@@ -1,8 +1,8 @@
 import * as child_process from 'node:child_process';
-import { z } from 'zod';
 import * as fs from 'node:fs';
 import * as path from 'node:path';
 import { type ToolDefinition, tool } from '@opencode-ai/plugin/tool';
+import { z } from 'zod';
 import { loadPluginConfigWithMeta } from '../config';
 import { createSwarmTool } from './create-tool';
 

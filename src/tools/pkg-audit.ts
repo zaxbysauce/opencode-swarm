@@ -1,7 +1,7 @@
 import * as fs from 'node:fs';
-import { z } from 'zod';
 import * as path from 'node:path';
-import { tool } from '@opencode-ai/plugin';
+import type { tool } from '@opencode-ai/plugin';
+import { z } from 'zod';
 import { isCommandAvailable } from '../build/discovery';
 import { warn } from '../utils';
 import { createSwarmTool } from './create-tool';

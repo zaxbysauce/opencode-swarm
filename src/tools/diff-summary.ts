@@ -1,8 +1,8 @@
 import * as child_process from 'node:child_process';
-import { z } from 'zod';
 import * as fs from 'node:fs';
 import * as path from 'node:path';
 import { type ToolContext, tool } from '@opencode-ai/plugin';
+import { z } from 'zod';
 import { type ASTDiffResult, computeASTDiff } from '../diff/ast-diff.js';
 import {
 	type ChangeCategory,
@@ -32,9 +32,7 @@ export const diff_summary: ReturnType<typeof createSwarmTool> = createSwarmTool(
 		description:
 			'Generate a filtered semantic diff summary from AST analysis. Returns SemanticDiffSummary with optional filtering by classification or riskLevel.',
 		args: {
-			files: z
-				.array(z.string())
-				.describe('Array of file paths to analyze'),
+			files: z.array(z.string()).describe('Array of file paths to analyze'),
 			classification: z
 				.string()
 				.optional()

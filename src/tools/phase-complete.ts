@@ -4,10 +4,10 @@
  */
 
 import * as fs from 'node:fs';
-import { z } from 'zod';
 import * as path from 'node:path';
 import { tool } from '@opencode-ai/plugin';
 import type { ToolDefinition } from '@opencode-ai/plugin/tool';
+import { z } from 'zod';
 import { loadPluginConfigWithMeta } from '../config';
 import type { EvidenceBundle } from '../config/evidence-schema';
 import {

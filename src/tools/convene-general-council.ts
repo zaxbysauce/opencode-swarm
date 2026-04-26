@@ -24,7 +24,7 @@
 
 import * as fs from 'node:fs';
 import * as path from 'node:path';
-import { tool } from '@opencode-ai/plugin';
+import type { tool } from '@opencode-ai/plugin';
 import { z } from 'zod';
 import { loadPluginConfig } from '../config/loader';
 import { pushGeneralCouncilAdvisory } from '../council/general-council-advisory';
@@ -161,9 +161,7 @@ export const convene_general_council: ReturnType<typeof tool> = createSwarmTool(
 							.optional(),
 						searchQueries: z.array(z.string()).optional(),
 						confidence: z.number().min(0).max(1),
-						areasOfUncertainty: z
-							.array(z.string())
-							.optional(),
+						areasOfUncertainty: z.array(z.string()).optional(),
 						durationMs: z.number().nonnegative().optional(),
 					}),
 				)
@@ -193,13 +191,9 @@ export const convene_general_council: ReturnType<typeof tool> = createSwarmTool(
 							.optional(),
 						searchQueries: z.array(z.string()).optional(),
 						confidence: z.number().min(0).max(1),
-						areasOfUncertainty: z
-							.array(z.string())
-							.optional(),
+						areasOfUncertainty: z.array(z.string()).optional(),
 						durationMs: z.number().nonnegative().optional(),
-						disagreementTopics: z
-							.array(z.string())
-							.optional(),
+						disagreementTopics: z.array(z.string()).optional(),
 					}),
 				)
 				.optional()

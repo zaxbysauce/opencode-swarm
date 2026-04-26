@@ -1,7 +1,7 @@
 import * as fs from 'node:fs';
-import { z } from 'zod';
 import * as path from 'node:path';
 import { type ToolContext, tool } from '@opencode-ai/plugin';
+import { z } from 'zod';
 import {
 	executeMutationSuite,
 	type MutationReport,
@@ -20,15 +20,9 @@ export const mutation_test: ReturnType<typeof createSwarmTool> =
 			patches: z
 				.array(
 					z.object({
-						id: z
-							.string()
-							.describe('Unique identifier for the mutation patch'),
-						filePath: z
-							.string()
-							.describe('File path to apply the patch to'),
-						functionName: z
-							.string()
-							.describe('Function being mutated'),
+						id: z.string().describe('Unique identifier for the mutation patch'),
+						filePath: z.string().describe('File path to apply the patch to'),
+						functionName: z.string().describe('Function being mutated'),
 						mutationType: z
 							.string()
 							.describe(

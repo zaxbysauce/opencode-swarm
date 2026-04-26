@@ -14,9 +14,10 @@ async function executeBatchSymbols(
 	args: Record<string, unknown>,
 	directory: string,
 ): Promise<string> {
-	return batch_symbols.execute(args, {
+	const result = await batch_symbols.execute(args, {
 		directory,
 	} as unknown as ToolContext);
+	return resultToString(result);
 }
 
 // Helper to create temp dir

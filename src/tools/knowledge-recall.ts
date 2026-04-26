@@ -32,10 +32,7 @@ export const knowledge_recall: ReturnType<typeof createSwarmTool> =
 		description:
 			'Search the knowledge base for relevant past decisions, patterns, and lessons learned. Returns ranked results by semantic similarity.',
 		args: {
-			query: z
-				.string()
-				.min(3)
-				.describe('Natural language search query'),
+			query: z.string().min(3).describe('Natural language search query'),
 			top_n: z
 				.number()
 				.int()

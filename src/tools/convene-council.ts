@@ -9,7 +9,7 @@
  * AGENT_TOOL_MAP. Follows the check-gate-status.ts pattern.
  */
 
-import { tool } from '@opencode-ai/plugin';
+import type { tool } from '@opencode-ai/plugin';
 import { z } from 'zod';
 import { loadPluginConfig } from '../config/loader';
 import { pushCouncilAdvisory } from '../council/council-advisory';
@@ -71,10 +71,7 @@ export const convene_council: ReturnType<typeof tool> = createSwarmTool({
 			.min(1)
 			.regex(/^\d+\.\d+(\.\d+)*$/, 'Task ID must be in N.M or N.M.P format')
 			.describe('Task ID being evaluated, e.g. "1.1", "1.2.3"'),
-		swarmId: z
-			.string()
-			.min(1)
-			.describe('Swarm identifier, e.g. "mega"'),
+		swarmId: z.string().min(1).describe('Swarm identifier, e.g. "mega"'),
 		roundNumber: z
 			.number()
 			.int()

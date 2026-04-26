@@ -8,9 +8,9 @@
  */
 
 import fs from 'node:fs';
-import { z } from 'zod';
 import path from 'node:path';
 import { type ToolDefinition, tool } from '@opencode-ai/plugin/tool';
+import { z } from 'zod';
 import { validateSwarmPath } from '../hooks/utils';
 import { createSwarmTool } from './create-tool';
 

@@ -4,7 +4,7 @@
  * Discovers and runs build commands for various ecosystems in a project directory.
  */
 
-import { tool } from '@opencode-ai/plugin';
+import type { tool } from '@opencode-ai/plugin';
 import { z } from 'zod';
 import { type BuildCommand, discoverBuildCommands } from '../build/discovery';
 import type { BuildEvidence, EvidenceVerdict } from '../config/evidence-schema';

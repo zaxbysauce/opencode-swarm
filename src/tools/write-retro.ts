@@ -608,9 +608,7 @@ export const write_retro: ToolDefinition = createSwarmTool({
 			.min(1)
 			.max(99)
 			.describe('The phase number being completed (e.g., 1, 2, 3)'),
-		summary: z
-			.string()
-			.describe('Human-readable summary of the phase'),
+		summary: z.string().describe('Human-readable summary of the phase'),
 		task_count: z
 			.number()
 			.int()

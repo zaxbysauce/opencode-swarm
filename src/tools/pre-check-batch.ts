@@ -5,10 +5,10 @@
  */
 
 import * as fs from 'node:fs';
-import { z } from 'zod';
 import * as path from 'node:path';
-import { tool } from '@opencode-ai/plugin';
+import type { tool } from '@opencode-ai/plugin';
 import pLimit from 'p-limit';
+import { z } from 'zod';
 import type { PluginConfig } from '../config';
 import type { SecretscanEvidence } from '../config/evidence-schema.js';
 import { saveEvidence } from '../evidence/manager.js';

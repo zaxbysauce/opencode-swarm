@@ -1,7 +1,7 @@
 import * as fs from 'node:fs';
-import { z } from 'zod';
 import * as path from 'node:path';
-import { tool } from '@opencode-ai/plugin';
+import type { tool } from '@opencode-ai/plugin';
+import { z } from 'zod';
 import { estimateCyclomaticComplexity } from '../quality/metrics';
 import { createSwarmTool } from './create-tool';
 

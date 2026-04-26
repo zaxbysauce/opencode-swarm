@@ -11,7 +11,7 @@
  * AGENT_TOOL_MAP. Follows the convene-council.ts pattern.
  */
 
-import { tool } from '@opencode-ai/plugin';
+import type { tool } from '@opencode-ai/plugin';
 import { z } from 'zod';
 import { loadPluginConfig } from '../config/loader';
 import { readCriteria, writeCriteria } from '../council/criteria-store';

@@ -10,7 +10,7 @@
  * Hard cap on max_results = 10 (clamped silently). Default sourced from council.general.maxSourcesPerMember.
  */
 
-import { tool } from '@opencode-ai/plugin';
+import type { tool } from '@opencode-ai/plugin';
 import { z } from 'zod';
 import { loadPluginConfig } from '../config/loader';
 import {
