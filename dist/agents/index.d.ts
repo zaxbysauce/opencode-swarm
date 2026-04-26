@@ -11,6 +11,10 @@ export declare function stripSwarmPrefix(agentName: string, swarmPrefix?: string
 /**
  * Resolve the fallback model for an agent based on its config and fallback index.
  * Called by guardrails at runtime when a transient model error is detected.
+ *
+ * Fallback inheritance:
+ * - curator_init/curator_phase inherit fallback_models from explorer if not explicitly configured
+ * - This matches the model inheritance: curator agents default to explorer's model
  */
 export declare function resolveFallbackModel(agentBaseName: string, fallbackIndex: number, swarmAgents?: Record<string, {
     model?: string;

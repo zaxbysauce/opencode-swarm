@@ -496,23 +496,23 @@ var init_constants = __esm(() => {
     }
   }
   DEFAULT_MODELS = {
-    explorer: "opencode/trinity-large-preview-free",
+    explorer: "opencode/big-pickle",
     coder: "opencode/minimax-m2.5-free",
     reviewer: "opencode/big-pickle",
     test_engineer: "opencode/gpt-5-nano",
-    sme: "opencode/trinity-large-preview-free",
-    critic: "opencode/trinity-large-preview-free",
-    critic_sounding_board: "opencode/trinity-large-preview-free",
-    critic_drift_verifier: "opencode/trinity-large-preview-free",
-    critic_hallucination_verifier: "opencode/trinity-large-preview-free",
-    critic_oversight: "opencode/trinity-large-preview-free",
-    docs: "opencode/trinity-large-preview-free",
-    designer: "opencode/trinity-large-preview-free",
-    curator_init: "opencode/trinity-large-preview-free",
-    curator_phase: "opencode/trinity-large-preview-free",
-    council_member: "opencode/trinity-large-preview-free",
-    council_moderator: "opencode/trinity-large-preview-free",
-    default: "opencode/trinity-large-preview-free"
+    sme: "opencode/big-pickle",
+    critic: "opencode/big-pickle",
+    critic_sounding_board: "opencode/big-pickle",
+    critic_drift_verifier: "opencode/big-pickle",
+    critic_hallucination_verifier: "opencode/big-pickle",
+    critic_oversight: "opencode/big-pickle",
+    docs: "opencode/big-pickle",
+    designer: "opencode/big-pickle",
+    curator_init: "opencode/big-pickle",
+    curator_phase: "opencode/big-pickle",
+    council_member: "opencode/big-pickle",
+    council_moderator: "opencode/big-pickle",
+    default: "opencode/big-pickle"
   };
   DEFAULT_SCORING_CONFIG = {
     enabled: false,
@@ -14742,6 +14742,13 @@ var init_schema = __esm(() => {
     temperature: exports_external.number().min(0).max(2).optional(),
     disabled: exports_external.boolean().optional(),
     fallback_models: exports_external.array(exports_external.string()).max(3).optional()
+  }).refine((data) => {
+    if (data.model && !data.fallback_models) {
+      console.warn(`[opencode-swarm] WARNING: Agent configured with custom model "${data.model}" but no fallback_models. This means if the custom model fails, there is no fallback protection. Consider adding fallback_models for reliability.`);
+    }
+    return true;
+  }, {
+    message: "Agent configuration warning: Custom model without fallback protection"
   });
   SwarmConfigSchema = exports_external.object({
     name: exports_external.string().optional(),
@@ -57680,7 +57687,11 @@ function getModelForAgent(agentName, swarmAgents, swarmPrefix) {
   return resolvedModel;
 }
 function resolveFallbackModel(agentBaseName, fallbackIndex, swarmAgents) {
-  const fallbackModels = swarmAgents?.[agentBaseName]?.fallback_models;
+  const agentConfig = swarmAgents?.[agentBaseName];
+  let fallbackModels = agentConfig?.fallback_models;
+  if (fallbackModels === undefined && (agentBaseName === "curator_init" || agentBaseName === "curator_phase")) {
+    fallbackModels = swarmAgents?.explorer?.fallback_models;
+  }
   if (!fallbackModels || fallbackModels.length === 0)
     return null;
   if (fallbackIndex < 1 || fallbackIndex > fallbackModels.length)
@@ -81034,6 +81045,7 @@ async function captureOrMergeBaseline(directory, phase, findings, engine, scanne
     };
   }
   fs69.mkdirSync(path83.dirname(baselinePath), { recursive: true });
+  fs69.mkdirSync(path83.dirname(tempPath), { recursive: true });
   const releaseLock = await acquireLock(lockPath);
   try {
     let existing = null;
