@@ -141,16 +141,73 @@ async function install(): Promise<number> {
 	if (!fs.existsSync(PLUGIN_CONFIG_PATH)) {
 		const defaultConfig = {
 			// Must match PluginConfigSchema in src/config/schema.ts
-			// v6.14: free OpenCode Zen models; architect inherits OpenCode UI selection
+			// v6.14: free OpenCode Zen models; v6.73+ switched to big-pickle with gpt-5-nano fallback; architect inherits OpenCode UI selection
+			// v6.85+: Multi-level fallback chains - only big-pickle and gpt-5-nano are consistently available in free tier
 			agents: {
-				coder: { model: 'opencode/minimax-m2.5-free' },
-				reviewer: { model: 'opencode/big-pickle' },
-				test_engineer: { model: 'opencode/gpt-5-nano' },
-				explorer: { model: 'opencode/trinity-large-preview-free' },
-				sme: { model: 'opencode/trinity-large-preview-free' },
-				critic: { model: 'opencode/trinity-large-preview-free' },
-				docs: { model: 'opencode/trinity-large-preview-free' },
-				designer: { model: 'opencode/trinity-large-preview-free' },
+				coder: {
+					model: 'opencode/minimax-m2.5-free',
+					fallback_models: ['opencode/gpt-5-nano', 'opencode/big-pickle'],
+				},
+				reviewer: {
+					model: 'opencode/big-pickle',
+					fallback_models: ['opencode/gpt-5-nano', 'opencode/big-pickle'],
+				},
+				test_engineer: {
+					model: 'opencode/gpt-5-nano',
+					fallback_models: ['opencode/big-pickle'],
+				},
+				explorer: {
+					model: 'opencode/big-pickle',
+					fallback_models: ['opencode/gpt-5-nano', 'opencode/big-pickle'],
+				},
+				sme: {
+					model: 'opencode/big-pickle',
+					fallback_models: ['opencode/gpt-5-nano', 'opencode/big-pickle'],
+				},
+				critic: {
+					model: 'opencode/big-pickle',
+					fallback_models: ['opencode/gpt-5-nano', 'opencode/big-pickle'],
+				},
+				docs: {
+					model: 'opencode/big-pickle',
+					fallback_models: ['opencode/gpt-5-nano', 'opencode/big-pickle'],
+				},
+				designer: {
+					model: 'opencode/big-pickle',
+					fallback_models: ['opencode/gpt-5-nano', 'opencode/big-pickle'],
+				},
+				critic_sounding_board: {
+					model: 'opencode/gpt-5-nano',
+					fallback_models: ['opencode/big-pickle'],
+				},
+				critic_drift_verifier: {
+					model: 'opencode/gpt-5-nano',
+					fallback_models: ['opencode/big-pickle'],
+				},
+				critic_hallucination_verifier: {
+					model: 'opencode/gpt-5-nano',
+					fallback_models: ['opencode/big-pickle'],
+				},
+				critic_oversight: {
+					model: 'opencode/gpt-5-nano',
+					fallback_models: ['opencode/big-pickle'],
+				},
+				curator_init: {
+					model: 'opencode/gpt-5-nano',
+					fallback_models: ['opencode/big-pickle'],
+				},
+				curator_phase: {
+					model: 'opencode/gpt-5-nano',
+					fallback_models: ['opencode/big-pickle'],
+				},
+				council_member: {
+					model: 'opencode/gpt-5-nano',
+					fallback_models: ['opencode/big-pickle'],
+				},
+				council_moderator: {
+					model: 'opencode/gpt-5-nano',
+					fallback_models: ['opencode/big-pickle'],
+				},
 			},
 			max_iterations: 5,
 		};
@@ -167,15 +224,27 @@ async function install(): Promise<number> {
 
 	console.log('\n🚀 Installation complete!');
 	console.log('\nNext steps:');
-	console.log('1. Edit the plugin config to customize models and settings');
-	console.log('2. Run "opencode" to start using the swarm');
-	console.log('3. The Architect agent will orchestrate your requests');
-
-	console.log('\n📖 SME agent:');
+	console.log('1. Run "opencode" in your project directory');
 	console.log(
-		'   The SME agent supports any domain — the Architect determines',
+		'2. Select the Architect agent in the OpenCode agent/mode dropdown',
 	);
-	console.log('   what expertise is needed and requests it dynamically.');
+	console.log(
+		'3. Ask it anything — the Architect coordinates all other agents automatically',
+	);
+	console.log(
+		'4. Run /swarm diagnose inside OpenCode to confirm the plugin loaded',
+	);
+	console.log('   (also try: /swarm agents  /swarm config)');
+
+	console.log('\n💡 Model configuration:');
+	console.log(`   Global config: ${PLUGIN_CONFIG_PATH}`);
+	console.log(
+		'   Project override: .opencode/opencode-swarm.json  (create in your project root)',
+	);
+	console.log(
+		'   On first OpenCode startup, .swarm/config.example.json will be written to your project root',
+	);
+	console.log('   — use it as a reference for customizing model assignments.');
 
 	return 0;
 }

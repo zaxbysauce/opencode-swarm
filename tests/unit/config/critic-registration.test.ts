@@ -96,10 +96,8 @@ describe('Critic Agent Registration', () => {
 			expect(DEFAULT_MODELS).toHaveProperty('critic_sounding_board');
 		});
 
-		test('critic_sounding_board uses trinity-large-preview-free model', () => {
-			expect(DEFAULT_MODELS.critic_sounding_board).toBe(
-				'opencode/trinity-large-preview-free',
-			);
+		test('critic_sounding_board uses big-pickle model', () => {
+			expect(DEFAULT_MODELS.critic_sounding_board).toBe('opencode/big-pickle');
 		});
 	});
 

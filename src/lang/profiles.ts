@@ -578,7 +578,7 @@ LANGUAGE_REGISTRY.register({
 	displayName: 'C# / .NET',
 	tier: 2,
 	extensions: ['.cs', '.csx'],
-	treeSitter: { grammarId: 'c_sharp', wasmFile: 'tree-sitter-c_sharp.wasm' },
+	treeSitter: { grammarId: 'csharp', wasmFile: 'tree-sitter-c-sharp.wasm' },
 	build: {
 		detectFiles: ['*.csproj', '*.sln', 'Directory.Build.props'],
 		commands: [

@@ -33,6 +33,12 @@ OpenCode Swarm (v6.81.0) is an architect-centric agentic swarm plugin for OpenCo
 | [Swarm Briefing for LLMs](swarm-briefing.md) | Pipeline steps, task format, state machine — written for LLM plan authors |
 | [PHP and Laravel Practical Guide](php-laravel.md) | Framework detection, Laravel command override, Pest/PHPUnit coexistence, SAST coverage |
 
+### Examples
+
+| Document | Covers |
+|----------|--------|
+| [Building a Web App](examples/web-app.md) | End-to-end walkthrough: React + auth with brainstorm, autonomous execution, and monitoring |
+
 ### Advanced Topics
 
 | Document | Covers |

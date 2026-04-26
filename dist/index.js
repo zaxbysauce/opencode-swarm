@@ -496,23 +496,23 @@ var init_constants = __esm(() => {
     }
   }
   DEFAULT_MODELS = {
-    explorer: "opencode/trinity-large-preview-free",
+    explorer: "opencode/big-pickle",
     coder: "opencode/minimax-m2.5-free",
     reviewer: "opencode/big-pickle",
     test_engineer: "opencode/gpt-5-nano",
-    sme: "opencode/trinity-large-preview-free",
-    critic: "opencode/trinity-large-preview-free",
-    critic_sounding_board: "opencode/trinity-large-preview-free",
-    critic_drift_verifier: "opencode/trinity-large-preview-free",
-    critic_hallucination_verifier: "opencode/trinity-large-preview-free",
-    critic_oversight: "opencode/trinity-large-preview-free",
-    docs: "opencode/trinity-large-preview-free",
-    designer: "opencode/trinity-large-preview-free",
-    curator_init: "opencode/trinity-large-preview-free",
-    curator_phase: "opencode/trinity-large-preview-free",
-    council_member: "opencode/trinity-large-preview-free",
-    council_moderator: "opencode/trinity-large-preview-free",
-    default: "opencode/trinity-large-preview-free"
+    sme: "opencode/big-pickle",
+    critic: "opencode/big-pickle",
+    critic_sounding_board: "opencode/big-pickle",
+    critic_drift_verifier: "opencode/big-pickle",
+    critic_hallucination_verifier: "opencode/big-pickle",
+    critic_oversight: "opencode/big-pickle",
+    docs: "opencode/big-pickle",
+    designer: "opencode/big-pickle",
+    curator_init: "opencode/big-pickle",
+    curator_phase: "opencode/big-pickle",
+    council_member: "opencode/big-pickle",
+    council_moderator: "opencode/big-pickle",
+    default: "opencode/big-pickle"
   };
   DEFAULT_SCORING_CONFIG = {
     enabled: false,
@@ -14742,6 +14742,13 @@ var init_schema = __esm(() => {
     temperature: exports_external.number().min(0).max(2).optional(),
     disabled: exports_external.boolean().optional(),
     fallback_models: exports_external.array(exports_external.string()).max(3).optional()
+  }).refine((data) => {
+    if (data.model && !data.fallback_models) {
+      console.warn(`[opencode-swarm] WARNING: Agent configured with custom model "${data.model}" but no fallback_models. This means if the custom model fails, there is no fallback protection. Consider adding fallback_models for reliability.`);
+    }
+    return true;
+  }, {
+    message: "Agent configuration warning: Custom model without fallback protection"
   });
   SwarmConfigSchema = exports_external.object({
     name: exports_external.string().optional(),
@@ -15732,6 +15739,14 @@ function warn(message, data) {
     console.warn(`[opencode-swarm ${timestamp}] WARN: ${message}`, data);
   } else {
     console.warn(`[opencode-swarm ${timestamp}] WARN: ${message}`);
+  }
+}
+function error48(message, data) {
+  const timestamp = new Date().toISOString();
+  if (data !== undefined) {
+    console.error(`[opencode-swarm ${timestamp}] ERROR: ${message}`, data);
+  } else {
+    console.error(`[opencode-swarm ${timestamp}] ERROR: ${message}`);
   }
 }
 var DEBUG;
@@ -23123,11 +23138,11 @@ function dcExtractPowerShellTargets(segment) {
 function redactShellCommand(cmd) {
   if (typeof cmd !== "string")
     return "";
-  let out2 = cmd.replace(/\b([A-Z_]*(?:TOKEN|SECRET|PASSWORD|PASSWD|API[_]?KEY|APIKEY|AUTH|CREDENTIAL|PRIVATE[_]?KEY|ACCESS[_]?KEY)[A-Z_0-9]*)\s*=\s*(\S+)/gi, "$1=[REDACTED]");
+  let out2 = cmd.replace(/\b([A-Z_]*(?:TOKEN|SECRET|PASSWORD|PASSWD|API[_]?KEY|APIKEY|AUTH|CREDENTIAL|PRIVATE[_]?KEY|ACCESS[_]?KEY|_KEY)[A-Z_0-9]*)\s*=\s*(\S+)/gi, "$1=[REDACTED]");
   out2 = out2.replace(/--([a-zA-Z-]*(?:token|secret|password|passwd|api[_-]?key|apikey|auth|credential|private[_-]?key|access[_-]?key)[a-zA-Z-]*)=(\S+)/gi, "--$1=[REDACTED]");
   out2 = out2.replace(/(--[a-zA-Z-]*(?:token|secret|password|passwd|api[_-]?key|apikey|auth|credential|private[_-]?key|access[_-]?key)[a-zA-Z-]*)(\s+)(?!--)(\S+)/gi, "$1$2[REDACTED]");
   out2 = out2.replace(/\b(Bearer|Basic)\s+[A-Za-z0-9+/=._-]{4,}/gi, "$1 [REDACTED]");
-  out2 = out2.replace(/(-H\s+['"]?(?:Authorization|X-API-Key|X-Auth-Token):\s*)([^'">\s][^'">\n]*)(['"]?)/gi, "$1[REDACTED]$3");
+  out2 = out2.replace(/(-H\s+['"]?(?:Authorization|X-API-Key|X-Auth-Token|[A-Za-z][A-Za-z-]*-(?:key|token|secret|auth|credential)):\s*)([^'">\s][^'">\n]*)(['"]?)/gi, "$1[REDACTED]$3");
   return out2;
 }
 function createGuardrailsHooks(directory, directoryOrConfig, config2, authorityConfig) {
@@ -43950,6 +43965,12 @@ async function checkConfigParseability(directory) {
     };
   }
 }
+function resolveGrammarDir(thisDir) {
+  const normalized = thisDir.replace(/\\/g, "/");
+  const isSource = normalized.endsWith("/src/services");
+  const isCliBundle = normalized.endsWith("/cli");
+  return isSource || isCliBundle ? path24.join(thisDir, "..", "lang", "grammars") : path24.join(thisDir, "lang", "grammars");
+}
 async function checkGrammarWasmFiles() {
   const grammarFiles = [
     "tree-sitter-javascript.wasm",
@@ -43973,8 +43994,7 @@ async function checkGrammarWasmFiles() {
     "tree-sitter-regex.wasm"
   ];
   const thisDir = path24.dirname(fileURLToPath(import.meta.url));
-  const isSource = thisDir.replace(/\\/g, "/").endsWith("/src/services");
-  const grammarDir = isSource ? path24.join(thisDir, "..", "lang", "grammars") : path24.join(thisDir, "lang", "grammars");
+  const grammarDir = resolveGrammarDir(thisDir);
   const missing = [];
   if (!existsSync11(path24.join(grammarDir, "tree-sitter.wasm"))) {
     missing.push("tree-sitter.wasm (core runtime)");
@@ -45494,7 +45514,7 @@ var init_profiles = __esm(() => {
     displayName: "C# / .NET",
     tier: 2,
     extensions: [".cs", ".csx"],
-    treeSitter: { grammarId: "c_sharp", wasmFile: "tree-sitter-c_sharp.wasm" },
+    treeSitter: { grammarId: "csharp", wasmFile: "tree-sitter-c-sharp.wasm" },
     build: {
       detectFiles: ["*.csproj", "*.sln", "Directory.Build.props"],
       commands: [
@@ -53974,6 +53994,10 @@ var init_registry = __esm(() => {
       handler: (ctx) => handleDiagnoseCommand(ctx.directory, ctx.args),
       description: "Run health check on swarm state"
     },
+    diagnosis: {
+      handler: (ctx) => handleDiagnoseCommand(ctx.directory, ctx.args),
+      description: "Run health check on swarm state"
+    },
     preflight: {
       handler: (ctx) => handlePreflightCommand(ctx.directory, ctx.args),
       description: "Run preflight automation checks"
@@ -57676,7 +57700,11 @@ function getModelForAgent(agentName, swarmAgents, swarmPrefix) {
   return resolvedModel;
 }
 function resolveFallbackModel(agentBaseName, fallbackIndex, swarmAgents) {
-  const fallbackModels = swarmAgents?.[agentBaseName]?.fallback_models;
+  const agentConfig = swarmAgents?.[agentBaseName];
+  let fallbackModels = agentConfig?.fallback_models;
+  if (fallbackModels === undefined && (agentBaseName === "curator_init" || agentBaseName === "curator_phase")) {
+    fallbackModels = swarmAgents?.explorer?.fallback_models;
+  }
   if (!fallbackModels || fallbackModels.length === 0)
     return null;
   if (fallbackIndex < 1 || fallbackIndex > fallbackModels.length)
@@ -62036,8 +62064,10 @@ function getWasmFileName(languageId) {
 }
 function getGrammarsDirAbsolute() {
   const thisDir = path57.dirname(fileURLToPath2(import.meta.url));
-  const isSource = thisDir.replace(/\\/g, "/").endsWith("/src/lang");
-  return isSource ? path57.join(thisDir, "grammars") : path57.join(thisDir, "lang", "grammars");
+  const normalized = thisDir.replace(/\\/g, "/");
+  const isSource = normalized.endsWith("/src/lang");
+  const isCliBundle = normalized.endsWith("/cli");
+  return isSource ? path57.join(thisDir, "grammars") : isCliBundle ? path57.join(thisDir, "..", "lang", "grammars") : path57.join(thisDir, "lang", "grammars");
 }
 async function loadGrammar(languageId) {
   if (typeof languageId !== "string" || languageId.length > 100) {
@@ -62146,7 +62176,7 @@ __export(exports_doc_scan, {
 });
 import * as crypto7 from "crypto";
 import * as fs45 from "fs";
-import { mkdir as mkdir8, readFile as readFile8, writeFile as writeFile8 } from "fs/promises";
+import { mkdir as mkdir9, readFile as readFile8, writeFile as writeFile8 } from "fs/promises";
 import * as path59 from "path";
 function normalizeSeparators(filePath) {
   return filePath.replace(/\\/g, "/");
@@ -62318,7 +62348,7 @@ async function scanDocIndex(directory) {
     files: discoveredFiles
   };
   try {
-    await mkdir8(path59.dirname(manifestPath), { recursive: true });
+    await mkdir9(path59.dirname(manifestPath), { recursive: true });
     await writeFile8(manifestPath, JSON.stringify(manifest, null, 2), "utf-8");
   } catch {}
   return { manifest, cached: false };
@@ -62831,7 +62861,8 @@ var init_curator_drift = __esm(() => {
 
 // src/index.ts
 init_agents();
-import * as path103 from "path";
+import * as fs88 from "fs";
+import * as path104 from "path";
 
 // src/background/index.ts
 init_event_bus();
@@ -64834,6 +64865,7 @@ import * as path50 from "path";
 
 // src/tools/repo-graph.ts
 init_utils2();
+init_logger();
 init_path_security();
 import * as fsSync2 from "fs";
 import { constants as constants3, existsSync as existsSync28, realpathSync as realpathSync6 } from "fs";
@@ -65521,6 +65553,7 @@ async function saveGraph(workspace, graph, options) {
   const graphPath = getGraphPath(workspace);
   updateGraphMetadata(graph);
   const tempPath = `${graphPath}.tmp.${Date.now()}.${Math.floor(Math.random() * 1e9)}`;
+  await fsPromises3.mkdir(path49.dirname(tempPath), { recursive: true });
   let lastError = null;
   try {
     if (options?.createAtomic) {
@@ -65566,7 +65599,7 @@ async function saveGraph(workspace, graph, options) {
       await fsPromises3.unlink(tempPath);
     } catch (error93) {
       if (error93 instanceof Error && "code" in error93 && error93.code !== "ENOENT") {
-        console.error(`Failed to clean up temp file ${tempPath}:`, error93);
+        error48(`Failed to clean up temp file ${tempPath}:`, error93);
       }
     }
   }
@@ -65706,7 +65739,7 @@ function buildWorkspaceGraph(workspaceRoot, options) {
     return normA.localeCompare(normB);
   });
   if (sourceFiles.length > maxFiles) {
-    console.warn(`[repo-graph] Truncating scan: ${sourceFiles.length} files found, capping at ${maxFiles}. ` + `${sourceFiles.length - maxFiles} files skipped.`);
+    warn(`[repo-graph] Truncating scan: ${sourceFiles.length} files found, capping at ${maxFiles}. ` + `${sourceFiles.length - maxFiles} files skipped.`);
     sourceFiles.length = maxFiles;
     stats.truncated = true;
   }
@@ -65731,16 +65764,21 @@ function buildWorkspaceGraph(workspaceRoot, options) {
     stats.filesScanned++;
     const ext = path49.extname(filePath).toLowerCase();
     let exports = [];
-    if ([".ts", ".tsx", ".js", ".jsx", ".mjs", ".cjs"].includes(ext)) {
-      const relativePath = path49.relative(absoluteRoot, filePath);
-      const symbols2 = extractTSSymbols(relativePath, absoluteRoot);
-      exports = symbols2.filter((s) => s.exported).map((s) => s.name);
-    } else if (ext === ".py") {
-      const relativePath = path49.relative(absoluteRoot, filePath);
-      const symbols2 = extractPythonSymbols(relativePath, absoluteRoot);
-      exports = symbols2.filter((s) => s.exported).map((s) => s.name);
+    let parsedImports = [];
+    try {
+      if ([".ts", ".tsx", ".js", ".jsx", ".mjs", ".cjs"].includes(ext)) {
+        const relativePath = path49.relative(absoluteRoot, filePath);
+        const symbols2 = extractTSSymbols(relativePath, absoluteRoot);
+        exports = symbols2.filter((s) => s.exported).map((s) => s.name);
+      } else if (ext === ".py") {
+        const relativePath = path49.relative(absoluteRoot, filePath);
+        const symbols2 = extractPythonSymbols(relativePath, absoluteRoot);
+        exports = symbols2.filter((s) => s.exported).map((s) => s.name);
+      }
+      parsedImports = parseFileImports(content);
+    } catch {
+      continue;
     }
-    const parsedImports = parseFileImports(content);
     const node = {
       filePath,
       moduleName: toModuleName(filePath, absoluteRoot),
@@ -65771,7 +65809,7 @@ function buildWorkspaceGraph(workspaceRoot, options) {
     edgeCount: graph.edges.length
   };
   if (stats.skippedFiles > 0 || stats.skippedDirs > 0 || stats.truncated) {
-    console.log(`[repo-graph] Scan stats: ${stats.filesScanned} files scanned, ` + `${stats.skippedFiles} files skipped, ${stats.skippedDirs} dirs skipped` + (stats.truncated ? ", TRUNCATED" : ""));
+    log(`[repo-graph] Scan stats: ${stats.filesScanned} files scanned, ` + `${stats.skippedFiles} files skipped, ${stats.skippedDirs} dirs skipped` + (stats.truncated ? ", TRUNCATED" : ""));
   }
   return graph;
 }
@@ -65792,38 +65830,42 @@ function scanFile(filePath, absoluteRoot, maxFileSize) {
   }
   const ext = path49.extname(filePath).toLowerCase();
   let exports = [];
-  if ([".ts", ".tsx", ".js", ".jsx", ".mjs", ".cjs"].includes(ext)) {
-    const relativePath = path49.relative(absoluteRoot, filePath);
-    const symbols2 = extractTSSymbols(relativePath, absoluteRoot);
-    exports = symbols2.filter((s) => s.exported).map((s) => s.name);
-  } else if (ext === ".py") {
-    const relativePath = path49.relative(absoluteRoot, filePath);
-    const symbols2 = extractPythonSymbols(relativePath, absoluteRoot);
-    exports = symbols2.filter((s) => s.exported).map((s) => s.name);
-  }
-  const parsedImports = parseFileImports(content);
-  const node = {
-    filePath,
-    moduleName: toModuleName(filePath, absoluteRoot),
-    exports,
-    imports: parsedImports.map((p) => p.specifier),
-    language: getLanguage(filePath),
-    mtime: fileStats.mtime.toISOString()
-  };
-  const edges = [];
-  const sortedImports = [...parsedImports].sort((a, b) => a.specifier.localeCompare(b.specifier));
-  for (const parsed of sortedImports) {
-    const resolvedTarget = resolveModuleSpecifier(absoluteRoot, filePath, parsed.specifier);
-    if (resolvedTarget !== null) {
-      edges.push({
-        source: filePath,
-        target: resolvedTarget,
-        importSpecifier: parsed.specifier,
-        importType: parsed.importType
-      });
+  try {
+    if ([".ts", ".tsx", ".js", ".jsx", ".mjs", ".cjs"].includes(ext)) {
+      const relativePath = path49.relative(absoluteRoot, filePath);
+      const symbols2 = extractTSSymbols(relativePath, absoluteRoot);
+      exports = symbols2.filter((s) => s.exported).map((s) => s.name);
+    } else if (ext === ".py") {
+      const relativePath = path49.relative(absoluteRoot, filePath);
+      const symbols2 = extractPythonSymbols(relativePath, absoluteRoot);
+      exports = symbols2.filter((s) => s.exported).map((s) => s.name);
     }
+    const parsedImports = parseFileImports(content);
+    const node = {
+      filePath,
+      moduleName: toModuleName(filePath, absoluteRoot),
+      exports,
+      imports: parsedImports.map((p) => p.specifier),
+      language: getLanguage(filePath),
+      mtime: fileStats.mtime.toISOString()
+    };
+    const edges = [];
+    const sortedImports = [...parsedImports].sort((a, b) => a.specifier.localeCompare(b.specifier));
+    for (const parsed of sortedImports) {
+      const resolvedTarget = resolveModuleSpecifier(absoluteRoot, filePath, parsed.specifier);
+      if (resolvedTarget !== null) {
+        edges.push({
+          source: filePath,
+          target: resolvedTarget,
+          importSpecifier: parsed.specifier,
+          importType: parsed.importType
+        });
+      }
+    }
+    return { node, edges };
+  } catch {
+    return { node: null, edges: [] };
   }
-  return { node, edges };
 }
 async function updateGraphForFiles(workspaceRoot, filePaths, options) {
   if (options?.forceRebuild) {
@@ -65873,7 +65915,7 @@ async function updateGraphForFiles(workspaceRoot, filePaths, options) {
     }
   }
   if (validationFailed) {
-    console.warn(`[repo-graph] Incremental update failed, falling back to full rebuild`);
+    warn(`[repo-graph] Incremental update failed, falling back to full rebuild`);
     const rebuiltGraph = buildWorkspaceGraph(workspaceRoot);
     await saveGraph(workspaceRoot, rebuiltGraph);
     return rebuiltGraph;
@@ -65884,6 +65926,7 @@ async function updateGraphForFiles(workspaceRoot, filePaths, options) {
 }
 
 // src/hooks/repo-graph-builder.ts
+init_logger();
 var SUPPORTED_EXTENSIONS2 = [
   ".ts",
   ".tsx",
@@ -65915,13 +65958,13 @@ function createRepoGraphBuilderHook(workspaceRoot, deps) {
       try {
         const graph = _buildWorkspaceGraph(workspaceRoot);
         await _saveGraph(workspaceRoot, graph);
-        console.log(`[repo-graph] Built graph: ${graph.metadata.nodeCount} nodes, ${graph.metadata.edgeCount} edges`);
+        log(`[repo-graph] Built graph: ${graph.metadata.nodeCount} nodes, ${graph.metadata.edgeCount} edges`);
       } catch (error93) {
         const message = error93 instanceof Error ? error93.message : String(error93);
         if (message.includes("does not exist")) {
           return;
         }
-        console.error(`[repo-graph] Failed to build graph: ${message}`);
+        error48(`[repo-graph] Failed to build graph: ${message}`);
       }
     },
     async toolAfter(input, _output) {
@@ -65958,10 +66001,10 @@ function createRepoGraphBuilderHook(workspaceRoot, deps) {
       }
       try {
         await _updateGraphForFiles(workspaceRoot, [absoluteFilePath]);
-        console.log(`[repo-graph] Incremental update for ${path50.basename(filePath)}`);
+        log(`[repo-graph] Incremental update for ${path50.basename(filePath)}`);
       } catch (error93) {
         const message = error93 instanceof Error ? error93.message : String(error93);
-        console.error(`[repo-graph] Incremental update failed: ${message}`);
+        error48(`[repo-graph] Incremental update failed: ${message}`);
       }
     }
   };
@@ -81020,6 +81063,7 @@ async function captureOrMergeBaseline(directory, phase, findings, engine, scanne
     };
   }
   fs69.mkdirSync(path83.dirname(baselinePath), { recursive: true });
+  fs69.mkdirSync(path83.dirname(tempPath), { recursive: true });
   const releaseLock = await acquireLock(lockPath);
   try {
     let existing = null;
@@ -86816,6 +86860,7 @@ var todo_extract = createSwarmTool({
 init_tool();
 init_loader();
 init_schema();
+init_qa_gate_profile();
 init_gate_evidence();
 import * as fs83 from "fs";
 import * as path99 from "path";
@@ -87181,6 +87226,20 @@ function checkCouncilGate(workingDirectory, taskId) {
     return { blocked: false, reason: "" };
   }
   if (!councilEnabled) {
+    return { blocked: false, reason: "" };
+  }
+  try {
+    const planPath = path99.join(workingDirectory, ".swarm", "plan.json");
+    const planRaw = fs83.readFileSync(planPath, "utf-8");
+    const planObj = JSON.parse(planRaw);
+    if (planObj.swarm && planObj.title) {
+      const planId = `${planObj.swarm}-${planObj.title}`.replace(/[^a-zA-Z0-9-_]/g, "_");
+      const profile = getProfile(workingDirectory, planId);
+      if (!profile || !profile.gates.council_mode) {
+        return { blocked: false, reason: "" };
+      }
+    }
+  } catch {
     return { blocked: false, reason: "" };
   }
   let evidence;
@@ -88061,6 +88120,67 @@ init_write_retro();
 // src/index.ts
 init_utils();
 
+// src/utils/gitignore-warning.ts
+import * as fs87 from "fs";
+import * as path103 from "path";
+var _gitignoreWarningEmitted = false;
+function findGitRoot(startDir) {
+  let current = startDir;
+  while (true) {
+    try {
+      const gitPath = path103.join(current, ".git");
+      const stat4 = fs87.statSync(gitPath);
+      if (stat4.isDirectory()) {
+        return current;
+      }
+    } catch {}
+    const parent = path103.dirname(current);
+    if (parent === current) {
+      return null;
+    }
+    current = parent;
+  }
+}
+function fileCoversSwarm(content) {
+  for (const rawLine of content.split(`
+`)) {
+    const line = rawLine.trim();
+    if (line.startsWith("#") || line.length === 0)
+      continue;
+    if (line === ".swarm" || line === ".swarm/")
+      return true;
+  }
+  return false;
+}
+function readFileSafe(filePath) {
+  try {
+    return fs87.readFileSync(filePath, "utf8");
+  } catch {
+    return null;
+  }
+}
+function warnIfSwarmNotGitignored(directory) {
+  if (_gitignoreWarningEmitted)
+    return;
+  try {
+    const gitRoot = findGitRoot(directory);
+    if (!gitRoot)
+      return;
+    const gitignoreContent = readFileSafe(path103.join(gitRoot, ".gitignore"));
+    if (gitignoreContent !== null && fileCoversSwarm(gitignoreContent)) {
+      _gitignoreWarningEmitted = true;
+      return;
+    }
+    const excludeContent = readFileSafe(path103.join(gitRoot, ".git", "info", "exclude"));
+    if (excludeContent !== null && fileCoversSwarm(excludeContent)) {
+      _gitignoreWarningEmitted = true;
+      return;
+    }
+    _gitignoreWarningEmitted = true;
+    console.warn('[opencode-swarm] WARNING: .swarm/ is not in your .gitignore. Shell audit logs may contain API keys. Add ".swarm/" to your .gitignore to prevent accidental commits.');
+  } catch {}
+}
+
 // src/utils/tool-output.ts
 function truncateToolOutput(output, maxLines, toolName, tailLines = 10) {
   if (!output) {
@@ -88094,6 +88214,26 @@ ${footerLines.join(`
 
 // src/index.ts
 var _heartbeatTimers = new Map;
+function writeSwarmConfigExampleIfNew(projectDirectory) {
+  try {
+    const swarmDir = path104.join(projectDirectory, ".swarm");
+    const dest = path104.join(swarmDir, "config.example.json");
+    if (fs88.existsSync(dest))
+      return;
+    const example = {
+      agents: Object.fromEntries(Object.entries(DEFAULT_MODELS).filter(([name2]) => name2 !== "default").map(([name2, model]) => [
+        name2,
+        {
+          model,
+          fallback_models: ["opencode/gpt-5-nano", "opencode/big-pickle"]
+        }
+      ])),
+      max_iterations: 5
+    };
+    fs88.writeFileSync(dest, `${JSON.stringify(example, null, 2)}
+`, "utf-8");
+  } catch {}
+}
 var OpenCodeSwarm = async (ctx) => {
   const { config: config3, loadedFromFile } = loadPluginConfigWithMeta(ctx.directory);
   if (config3.full_auto?.enabled === true) {
@@ -88106,9 +88246,11 @@ var OpenCodeSwarm = async (ctx) => {
   swarmState.fullAutoEnabledInConfig = config3.full_auto?.enabled === true;
   swarmState.opencodeClient = ctx.client;
   await loadSnapshot(ctx.directory);
+  initTelemetry(ctx.directory);
+  writeSwarmConfigExampleIfNew(ctx.directory);
+  warnIfSwarmNotGitignored(ctx.directory);
   const repoGraphHook = createRepoGraphBuilderHook(ctx.directory);
   repoGraphHook.init().catch(() => {});
-  initTelemetry(ctx.directory);
   const agents = getAgentConfigs(config3, ctx.directory);
   const agentDefinitions = createAgents(config3);
   swarmState.curatorInitAgentNames = Object.keys(agents).filter((k) => k === "curator_init" || k.endsWith("_curator_init"));
@@ -88226,7 +88368,7 @@ var OpenCodeSwarm = async (ctx) => {
     const { PreflightTriggerManager: PTM } = await Promise.resolve().then(() => (init_trigger(), exports_trigger));
     preflightTriggerManager = new PTM(automationConfig);
     const { AutomationStatusArtifact: ASA } = await Promise.resolve().then(() => (init_status_artifact(), exports_status_artifact));
-    const swarmDir = path103.resolve(ctx.directory, ".swarm");
+    const swarmDir = path104.resolve(ctx.directory, ".swarm");
     statusArtifact = new ASA(swarmDir);
     statusArtifact.updateConfig(automationConfig.mode, automationConfig.capabilities);
     if (automationConfig.capabilities?.evidence_auto_summaries === true) {
@@ -88396,7 +88538,7 @@ var OpenCodeSwarm = async (ctx) => {
         ...opencodeConfig.command || {},
         swarm: {
           template: "/swarm $ARGUMENTS",
-          description: "Swarm management commands: /swarm [status|plan|agents|history|config|evidence|handoff|archive|diagnose|preflight|sync-plan|benchmark|export|reset|rollback|retrieve|clarify|analyze|specify|brainstorm|qa-gates|dark-matter|knowledge|curate|turbo|full-auto|write-retro|reset-session|simulate|promote|checkpoint|acknowledge-spec-drift|doctor-tools|close]"
+          description: "Swarm management commands: /swarm [status|plan|agents|history|config|evidence|handoff|archive|diagnose|diagnosis|preflight|sync-plan|benchmark|export|reset|rollback|retrieve|clarify|analyze|specify|brainstorm|qa-gates|dark-matter|knowledge|curate|turbo|full-auto|write-retro|reset-session|simulate|promote|checkpoint|acknowledge-spec-drift|doctor-tools|close]"
         },
         "swarm-status": {
           template: "/swarm status",
@@ -88433,6 +88575,10 @@ var OpenCodeSwarm = async (ctx) => {
         "swarm-diagnose": {
           template: "/swarm diagnose",
           description: "Use /swarm diagnose to run health checks on swarm state"
+        },
+        "swarm-diagnosis": {
+          template: "/swarm diagnosis",
+          description: "Use /swarm diagnosis to run health checks on swarm state"
         },
         "swarm-preflight": {
           template: "/swarm preflight",
@@ -88604,7 +88750,15 @@ var OpenCodeSwarm = async (ctx) => {
         } catch {}
         return Promise.resolve();
       },
-      automationConfig.capabilities?.phase_preflight === true && preflightTriggerManager ? createPhaseMonitorHook(ctx.directory, preflightTriggerManager, undefined, (sessionId) => createCuratorLLMDelegate(ctx.directory, "init", sessionId)) : knowledgeConfig.enabled ? createPhaseMonitorHook(ctx.directory, undefined, undefined, (sessionId) => createCuratorLLMDelegate(ctx.directory, "init", sessionId)) : undefined
+      automationConfig.capabilities?.phase_preflight === true && preflightTriggerManager ? createPhaseMonitorHook(ctx.directory, preflightTriggerManager, undefined, (sessionId) => createCuratorLLMDelegate(ctx.directory, "init", sessionId)) : knowledgeConfig.enabled ? createPhaseMonitorHook(ctx.directory, undefined, undefined, (sessionId) => createCuratorLLMDelegate(ctx.directory, "init", sessionId)) : undefined,
+      (_input, output) => {
+        if (Array.isArray(output.system) && output.system.length > 1) {
+          output.system = [output.system.join(`
+
+`)];
+        }
+        return Promise.resolve();
+      }
     ].filter(Boolean)),
     "experimental.session.compacting": compactionHook["experimental.session.compacting"],
     "command.execute.before": safeHook(commandHandler),

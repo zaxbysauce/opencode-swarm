@@ -1,3 +1,4 @@
+import * as fs from 'node:fs';
 import * as path from 'node:path';
 import type { Plugin } from '@opencode-ai/plugin';
 import { createAgents, getAgentConfigs } from './agents';
@@ -130,6 +131,7 @@ import {
 	write_retro,
 } from './tools';
 import { log } from './utils';
+import { warnIfSwarmNotGitignored } from './utils/gitignore-warning';
 import { truncateToolOutput } from './utils/tool-output';
 
 /**
@@ -144,6 +146,36 @@ import { truncateToolOutput } from './utils/tool-output';
  */
 // Heartbeat throttle map: sessionId -> last heartbeat timestamp
 const _heartbeatTimers = new Map<string, number>();
+
+// Writes .swarm/config.example.json on first plugin init for a given project.
+// This gives new users a ready-to-edit reference that shows all agent model
+// defaults. To override, copy entries into .opencode/opencode-swarm.json
+// (project-local) or ~/.config/opencode/opencode-swarm.json (global).
+// Non-fatal: all errors are silently ignored.
+function writeSwarmConfigExampleIfNew(projectDirectory: string): void {
+	try {
+		const swarmDir = path.join(projectDirectory, '.swarm');
+		const dest = path.join(swarmDir, 'config.example.json');
+		if (fs.existsSync(dest)) return;
+		const example = {
+			agents: Object.fromEntries(
+				Object.entries(DEFAULT_MODELS)
+					.filter(([name]) => name !== 'default')
+					.map(([name, model]) => [
+						name,
+						{
+							model,
+							fallback_models: ['opencode/gpt-5-nano', 'opencode/big-pickle'],
+						},
+					]),
+			),
+			max_iterations: 5,
+		};
+		fs.writeFileSync(dest, `${JSON.stringify(example, null, 2)}\n`, 'utf-8');
+	} catch {
+		// Non-fatal
+	}
+}
 
 const OpenCodeSwarm: Plugin = async (ctx) => {
 	const { config, loadedFromFile } = loadPluginConfigWithMeta(ctx.directory);
@@ -177,12 +209,19 @@ const OpenCodeSwarm: Plugin = async (ctx) => {
 
 	// v6.18 Session persistence — restore state from previous session (non-blocking)
 	await loadSnapshot(ctx.directory);
+	// Initialize telemetry first to create .swarm/ directory synchronously.
+	// This is a defensive second layer — the repo graph hook also defensively
+	// creates .swarm/ before writing, but we want it to exist before the async
+	// write is dispatched by the libuv worker.
+	initTelemetry(ctx.directory);
+	writeSwarmConfigExampleIfNew(ctx.directory);
+	// Warn once per process if .swarm/ is not gitignored (audit logs may contain secrets)
+	warnIfSwarmNotGitignored(ctx.directory);
 	// Non-blocking: build repo graph in background
 	const repoGraphHook = createRepoGraphBuilderHook(ctx.directory);
 	repoGraphHook.init().catch(() => {
 		/* already logged inside init */
 	});
-	initTelemetry(ctx.directory);
 	const agents = getAgentConfigs(config, ctx.directory);
 	const agentDefinitions = createAgents(config);
 
@@ -647,7 +686,7 @@ const OpenCodeSwarm: Plugin = async (ctx) => {
 					// The actual command is handled by command.execute.before hook.
 					template: '/swarm $ARGUMENTS',
 					description:
-						'Swarm management commands: /swarm [status|plan|agents|history|config|evidence|handoff|archive|diagnose|preflight|sync-plan|benchmark|export|reset|rollback|retrieve|clarify|analyze|specify|brainstorm|qa-gates|dark-matter|knowledge|curate|turbo|full-auto|write-retro|reset-session|simulate|promote|checkpoint|acknowledge-spec-drift|doctor-tools|close]',
+						'Swarm management commands: /swarm [status|plan|agents|history|config|evidence|handoff|archive|diagnose|diagnosis|preflight|sync-plan|benchmark|export|reset|rollback|retrieve|clarify|analyze|specify|brainstorm|qa-gates|dark-matter|knowledge|curate|turbo|full-auto|write-retro|reset-session|simulate|promote|checkpoint|acknowledge-spec-drift|doctor-tools|close]',
 				},
 				// Individual subcommands for discoverability by weaker models (Haiku-class)
 				'swarm-status': {
@@ -690,6 +729,11 @@ const OpenCodeSwarm: Plugin = async (ctx) => {
 					template: '/swarm diagnose',
 					description:
 						'Use /swarm diagnose to run health checks on swarm state',
+				},
+				'swarm-diagnosis': {
+					template: '/swarm diagnosis',
+					description:
+						'Use /swarm diagnosis to run health checks on swarm state',
 				},
 				'swarm-preflight': {
 					template: '/swarm preflight',
@@ -917,6 +961,12 @@ const OpenCodeSwarm: Plugin = async (ctx) => {
 									createCuratorLLMDelegate(ctx.directory, 'init', sessionId),
 							)
 						: undefined,
+				(_input: unknown, output: { system?: string[] }): Promise<void> => {
+					if (Array.isArray(output.system) && output.system.length > 1) {
+						output.system = [output.system.join('\n\n')];
+					}
+					return Promise.resolve();
+				},
 			].filter(Boolean) as Array<
 				(input: unknown, output: unknown) => Promise<void>
 			>),

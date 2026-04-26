@@ -61,6 +61,16 @@ describe('Tier 2 Language Profile Registry - Verification Tests', () => {
 		expect(csProfile?.id).toBe('csharp');
 	});
 
+	it('7b. csharp profile treeSitter.grammarId is "csharp" (no underscore — required by sanitizeLanguageId)', () => {
+		const csharpProfile = TEST_REGISTRY.getById('csharp');
+		expect(csharpProfile?.treeSitter.grammarId).toBe('csharp');
+	});
+
+	it('7c. csharp profile treeSitter.wasmFile uses hyphen (matches actual file tree-sitter-c-sharp.wasm)', () => {
+		const csharpProfile = TEST_REGISTRY.getById('csharp');
+		expect(csharpProfile?.treeSitter.wasmFile).toBe('tree-sitter-c-sharp.wasm');
+	});
+
 	it('8. getByExtension(".cpp") returns cpp profile', () => {
 		const cppProfile = TEST_REGISTRY.getByExtension('.cpp');
 		expect(cppProfile).toBeDefined();

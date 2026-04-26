@@ -11,6 +11,7 @@ import { constants, existsSync, realpathSync } from 'node:fs';
 import * as fsPromises from 'node:fs/promises';
 import * as path from 'node:path';
 import { validateSwarmPath } from '../hooks/utils';
+import * as logger from '../utils/logger';
 import {
 	containsControlChars,
 	containsPathTraversal,
@@ -733,6 +734,10 @@ export async function saveGraph(
 	// Atomic write: temp file + rename
 	const tempPath = `${graphPath}.tmp.${Date.now()}.${Math.floor(Math.random() * 1e9)}`;
 
+	// Defensively create .swarm/ directory before write to prevent race condition
+	// on first initialization where async write races ahead of directory creation
+	await fsPromises.mkdir(path.dirname(tempPath), { recursive: true });
+
 	let lastError: Error | null = null;
 
 	try {
@@ -816,7 +821,7 @@ export async function saveGraph(
 				'code' in error &&
 				(error as { code: string }).code !== 'ENOENT'
 			) {
-				console.error(`Failed to clean up temp file ${tempPath}:`, error);
+				logger.error(`Failed to clean up temp file ${tempPath}:`, error);
 			}
 		}
 	}
@@ -1168,7 +1173,7 @@ export function buildWorkspaceGraph(
 
 	// Truncate if file count exceeds maxFiles
 	if (sourceFiles.length > maxFiles) {
-		console.warn(
+		logger.warn(
 			`[repo-graph] Truncating scan: ${sourceFiles.length} files found, capping at ${maxFiles}. ` +
 				`${sourceFiles.length - maxFiles} files skipped.`,
 		);
@@ -1204,23 +1209,29 @@ export function buildWorkspaceGraph(
 		// Extract symbol exports based on file extension
 		const ext = path.extname(filePath).toLowerCase();
 		let exports: string[] = [];
+		let parsedImports: ParsedImport[] = [];
 
-		if (['.ts', '.tsx', '.js', '.jsx', '.mjs', '.cjs'].includes(ext)) {
-			// Convert absolute path to relative before passing to symbol extractor
-			// which expects paths relative to workspace root
-			const relativePath = path.relative(absoluteRoot, filePath);
-			const symbols = extractTSSymbols(relativePath, absoluteRoot);
-			exports = symbols.filter((s) => s.exported).map((s) => s.name);
-		} else if (ext === '.py') {
-			// Convert absolute path to relative before passing to symbol extractor
-			// which expects paths relative to workspace root
-			const relativePath = path.relative(absoluteRoot, filePath);
-			const symbols = extractPythonSymbols(relativePath, absoluteRoot);
-			exports = symbols.filter((s) => s.exported).map((s) => s.name);
+		try {
+			if (['.ts', '.tsx', '.js', '.jsx', '.mjs', '.cjs'].includes(ext)) {
+				// Convert absolute path to relative before passing to symbol extractor
+				// which expects paths relative to workspace root
+				const relativePath = path.relative(absoluteRoot, filePath);
+				const symbols = extractTSSymbols(relativePath, absoluteRoot);
+				exports = symbols.filter((s) => s.exported).map((s) => s.name);
+			} else if (ext === '.py') {
+				// Convert absolute path to relative before passing to symbol extractor
+				// which expects paths relative to workspace root
+				const relativePath = path.relative(absoluteRoot, filePath);
+				const symbols = extractPythonSymbols(relativePath, absoluteRoot);
+				exports = symbols.filter((s) => s.exported).map((s) => s.name);
+			}
+
+			// Parse imports to get specifiers with types
+			parsedImports = parseFileImports(content);
+		} catch {
+			// Skip malformed file without aborting entire graph build
+			continue;
 		}
-
-		// Parse imports to get specifiers with types
-		const parsedImports = parseFileImports(content);
 
 		// Create the graph node
 		const node: GraphNode = {
@@ -1273,7 +1284,7 @@ export function buildWorkspaceGraph(
 
 	// Log scan statistics if any files were skipped or truncated
 	if (stats.skippedFiles > 0 || stats.skippedDirs > 0 || stats.truncated) {
-		console.log(
+		logger.log(
 			`[repo-graph] Scan stats: ${stats.filesScanned} files scanned, ` +
 				`${stats.skippedFiles} files skipped, ${stats.skippedDirs} dirs skipped` +
 				(stats.truncated ? ', TRUNCATED' : ''),
@@ -1329,53 +1340,58 @@ function scanFile(
 	const ext = path.extname(filePath).toLowerCase();
 	let exports: string[] = [];
 
-	if (['.ts', '.tsx', '.js', '.jsx', '.mjs', '.cjs'].includes(ext)) {
-		const relativePath = path.relative(absoluteRoot, filePath);
-		const symbols = extractTSSymbols(relativePath, absoluteRoot);
-		exports = symbols.filter((s) => s.exported).map((s) => s.name);
-	} else if (ext === '.py') {
-		const relativePath = path.relative(absoluteRoot, filePath);
-		const symbols = extractPythonSymbols(relativePath, absoluteRoot);
-		exports = symbols.filter((s) => s.exported).map((s) => s.name);
-	}
+	try {
+		if (['.ts', '.tsx', '.js', '.jsx', '.mjs', '.cjs'].includes(ext)) {
+			const relativePath = path.relative(absoluteRoot, filePath);
+			const symbols = extractTSSymbols(relativePath, absoluteRoot);
+			exports = symbols.filter((s) => s.exported).map((s) => s.name);
+		} else if (ext === '.py') {
+			const relativePath = path.relative(absoluteRoot, filePath);
+			const symbols = extractPythonSymbols(relativePath, absoluteRoot);
+			exports = symbols.filter((s) => s.exported).map((s) => s.name);
+		}
 
-	// Parse imports to get specifiers with types
-	const parsedImports = parseFileImports(content);
+		// Parse imports to get specifiers with types
+		const parsedImports = parseFileImports(content);
 
-	// Create the graph node
-	const node: GraphNode = {
-		filePath,
-		moduleName: toModuleName(filePath, absoluteRoot),
-		exports,
-		imports: parsedImports.map((p) => p.specifier),
-		language: getLanguage(filePath),
-		mtime: fileStats.mtime.toISOString(),
-	};
-
-	// Process imports to create edges
-	const edges: GraphEdge[] = [];
-	const sortedImports = [...parsedImports].sort((a, b) =>
-		a.specifier.localeCompare(b.specifier),
-	);
-
-	for (const parsed of sortedImports) {
-		const resolvedTarget = resolveModuleSpecifier(
-			absoluteRoot,
+		// Create the graph node
+		const node: GraphNode = {
 			filePath,
-			parsed.specifier,
+			moduleName: toModuleName(filePath, absoluteRoot),
+			exports,
+			imports: parsedImports.map((p) => p.specifier),
+			language: getLanguage(filePath),
+			mtime: fileStats.mtime.toISOString(),
+		};
+
+		// Process imports to create edges
+		const edges: GraphEdge[] = [];
+		const sortedImports = [...parsedImports].sort((a, b) =>
+			a.specifier.localeCompare(b.specifier),
 		);
 
-		if (resolvedTarget !== null) {
-			edges.push({
-				source: filePath,
-				target: resolvedTarget,
-				importSpecifier: parsed.specifier,
-				importType: parsed.importType,
-			});
-		}
-	}
+		for (const parsed of sortedImports) {
+			const resolvedTarget = resolveModuleSpecifier(
+				absoluteRoot,
+				filePath,
+				parsed.specifier,
+			);
 
-	return { node, edges };
+			if (resolvedTarget !== null) {
+				edges.push({
+					source: filePath,
+					target: resolvedTarget,
+					importSpecifier: parsed.specifier,
+					importType: parsed.importType,
+				});
+			}
+		}
+
+		return { node, edges };
+	} catch {
+		// Skip malformed file without aborting incremental update
+		return { node: null, edges: [] };
+	}
 }
 
 /**
@@ -1477,7 +1493,7 @@ export async function updateGraphForFiles(
 	}
 
 	if (validationFailed) {
-		console.warn(
+		logger.warn(
 			`[repo-graph] Incremental update failed, falling back to full rebuild`,
 		);
 		const rebuiltGraph = buildWorkspaceGraph(workspaceRoot);

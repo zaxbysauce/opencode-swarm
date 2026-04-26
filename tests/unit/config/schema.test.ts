@@ -93,6 +93,101 @@ describe('AgentOverrideConfigSchema', () => {
 		const result = AgentOverrideConfigSchema.safeParse({ disabled: 'true' });
 		expect(result.success).toBe(false);
 	});
+
+	// Fallback models validation tests
+	it('warns when model is set without fallback_models', () => {
+		const originalWarn = console.warn;
+		const warnings: string[] = [];
+		console.warn = (...args: unknown[]) => {
+			warnings.push(String(args[0]));
+		};
+
+		const result = AgentOverrideConfigSchema.safeParse({
+			model: 'custom-model',
+		});
+
+		console.warn = originalWarn;
+
+		expect(result.success).toBe(true);
+		expect(warnings.some((w) => w.includes('custom-model'))).toBe(true);
+		expect(warnings.some((w) => w.includes('fallback_models'))).toBe(true);
+	});
+
+	it('does not warn when model is set with fallback_models', () => {
+		const originalWarn = console.warn;
+		const warnings: string[] = [];
+		console.warn = (...args: unknown[]) => {
+			warnings.push(String(args[0]));
+		};
+
+		const result = AgentOverrideConfigSchema.safeParse({
+			model: 'custom-model',
+			fallback_models: ['fallback-1', 'fallback-2'],
+		});
+
+		console.warn = originalWarn;
+
+		expect(result.success).toBe(true);
+		expect(warnings.some((w) => w.includes('fallback_models'))).toBe(false);
+	});
+
+	it('does not warn when fallback_models is set without model', () => {
+		const originalWarn = console.warn;
+		const warnings: string[] = [];
+		console.warn = (...args: unknown[]) => {
+			warnings.push(String(args[0]));
+		};
+
+		const result = AgentOverrideConfigSchema.safeParse({
+			fallback_models: ['fallback-1', 'fallback-2'],
+		});
+
+		console.warn = originalWarn;
+
+		expect(result.success).toBe(true);
+		expect(warnings.some((w) => w.includes('fallback_models'))).toBe(false);
+	});
+
+	it('does not warn when neither model nor fallback_models is set', () => {
+		const originalWarn = console.warn;
+		const warnings: string[] = [];
+		console.warn = (...args: unknown[]) => {
+			warnings.push(String(args[0]));
+		};
+
+		const result = AgentOverrideConfigSchema.safeParse({
+			temperature: 0.7,
+		});
+
+		console.warn = originalWarn;
+
+		expect(result.success).toBe(true);
+		expect(warnings.some((w) => w.includes('fallback_models'))).toBe(false);
+	});
+
+	it('accepts valid fallback_models array with up to 3 items', () => {
+		const result = AgentOverrideConfigSchema.safeParse({
+			fallback_models: ['fallback-1', 'fallback-2', 'fallback-3'],
+		});
+		expect(result.success).toBe(true);
+		if (result.success) {
+			expect(result.data.fallback_models).toHaveLength(3);
+		}
+	});
+
+	it('rejects fallback_models array with more than 3 items', () => {
+		const result = AgentOverrideConfigSchema.safeParse({
+			fallback_models: ['fallback-1', 'fallback-2', 'fallback-3', 'fallback-4'],
+		});
+		expect(result.success).toBe(false);
+	});
+
+	it('rejects fallback_models if not an array', () => {
+		const result = AgentOverrideConfigSchema.safeParse({
+			fallback_models: 'fallback-1',
+		});
+		expect(result.success).toBe(false);
+	});
 });
 
 describe('SwarmConfigSchema', () => {

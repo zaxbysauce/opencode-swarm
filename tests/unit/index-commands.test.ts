@@ -21,7 +21,7 @@ describe('Swarm subcommand registration', () => {
 		expect(typeof plugin.config).toBe('function');
 	});
 
-	it('should register 36 individual subcommands plus catch-all', async () => {
+	it('should register 37 individual subcommands plus catch-all', async () => {
 		const plugin = await OpenCodeSwarm(mockPluginInput);
 		const mockConfig: Record<string, unknown> = {};
 
@@ -34,8 +34,8 @@ describe('Swarm subcommand registration', () => {
 		expect(commands).toBeDefined();
 		const commandKeys = Object.keys(commands);
 
-		// Should have catch-all + 36 subcommands = 37 total
-		expect(commandKeys.length).toBe(37);
+		// Should have catch-all + 37 subcommands = 38 total
+		expect(commandKeys.length).toBe(38);
 
 		// Verify catch-all exists
 		expect(commands.swarm).toBeDefined();
@@ -54,11 +54,11 @@ describe('Swarm subcommand registration', () => {
 		expect(commands.swarm).toBeDefined();
 		expect(commands.swarm.template).toBe('/swarm $ARGUMENTS');
 		expect(commands.swarm.description).toBe(
-			'Swarm management commands: /swarm [status|plan|agents|history|config|evidence|handoff|archive|diagnose|preflight|sync-plan|benchmark|export|reset|rollback|retrieve|clarify|analyze|specify|brainstorm|qa-gates|dark-matter|knowledge|curate|turbo|full-auto|write-retro|reset-session|simulate|promote|checkpoint|acknowledge-spec-drift|doctor-tools|close]',
+			'Swarm management commands: /swarm [status|plan|agents|history|config|evidence|handoff|archive|diagnose|diagnosis|preflight|sync-plan|benchmark|export|reset|rollback|retrieve|clarify|analyze|specify|brainstorm|qa-gates|dark-matter|knowledge|curate|turbo|full-auto|write-retro|reset-session|simulate|promote|checkpoint|acknowledge-spec-drift|doctor-tools|close]',
 		);
 	});
 
-	it('should register all 36 individual subcommands with correct keys', async () => {
+	it('should register all 37 individual subcommands with correct keys', async () => {
 		const plugin = await OpenCodeSwarm(mockPluginInput);
 		const mockConfig: Record<string, unknown> = {};
 
@@ -105,6 +105,7 @@ describe('Swarm subcommand registration', () => {
 			'swarm-acknowledge-spec-drift',
 			'swarm-doctor-tools',
 			'swarm-close',
+			'swarm-diagnosis',
 		];
 
 		// Verify all expected subcommands exist

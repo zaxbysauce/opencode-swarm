@@ -389,7 +389,7 @@ for (const [agentName, tools] of Object.entries(AGENT_TOOL_MAP)) {
 // omitted so it inherits the OpenCode UI model selection.
 export const DEFAULT_MODELS: Record<string, string> = {
 	// Explorer — fast read-heavy analysis
-	explorer: 'opencode/trinity-large-preview-free',
+	explorer: 'opencode/big-pickle',
 
 	// Pipeline agents — differentiated models for writing vs reviewing
 	coder: 'opencode/minimax-m2.5-free',
@@ -397,27 +397,27 @@ export const DEFAULT_MODELS: Record<string, string> = {
 	test_engineer: 'opencode/gpt-5-nano',
 
 	// SME, Critic variants, Docs, Designer — reasoning/general tasks
-	sme: 'opencode/trinity-large-preview-free',
-	critic: 'opencode/trinity-large-preview-free',
-	critic_sounding_board: 'opencode/trinity-large-preview-free',
-	critic_drift_verifier: 'opencode/trinity-large-preview-free',
-	critic_hallucination_verifier: 'opencode/trinity-large-preview-free',
-	critic_oversight: 'opencode/trinity-large-preview-free',
-	docs: 'opencode/trinity-large-preview-free',
-	designer: 'opencode/trinity-large-preview-free',
+	sme: 'opencode/big-pickle',
+	critic: 'opencode/big-pickle',
+	critic_sounding_board: 'opencode/big-pickle',
+	critic_drift_verifier: 'opencode/big-pickle',
+	critic_hallucination_verifier: 'opencode/big-pickle',
+	critic_oversight: 'opencode/big-pickle',
+	docs: 'opencode/big-pickle',
+	designer: 'opencode/big-pickle',
 
 	// Curator agents — lightweight read-only analysis (same model family as explorer)
-	curator_init: 'opencode/trinity-large-preview-free',
-	curator_phase: 'opencode/trinity-large-preview-free',
+	curator_init: 'opencode/big-pickle',
+	curator_phase: 'opencode/big-pickle',
 
 	// General Council agents — runtime model is overridden per-member by
 	// council.general.members[*].model and council.general.moderatorModel; these
 	// defaults are fallbacks only.
-	council_member: 'opencode/trinity-large-preview-free',
-	council_moderator: 'opencode/trinity-large-preview-free',
+	council_member: 'opencode/big-pickle',
+	council_moderator: 'opencode/big-pickle',
 
 	// Fallback
-	default: 'opencode/trinity-large-preview-free',
+	default: 'opencode/big-pickle',
 };
 
 // Check if agent is in QA category

@@ -172,14 +172,15 @@ describe('write-mutation-evidence', () => {
 	});
 
 	test('4: Invalid verdict INVALID WITH rates — should fail with validation error', async () => {
+		const invalidArgs = {
+			phase: 4,
+			verdict: 'INVALID',
+			killRate: 0.85,
+			adjustedKillRate: 0.87,
+			summary: 'This should fail',
+		} as unknown;
 		const result = await executeWriteMutationEvidence(
-			{
-				phase: 4,
-				verdict: 'INVALID',
-				killRate: 0.85,
-				adjustedKillRate: 0.87,
-				summary: 'This should fail',
-			} as any,
+			invalidArgs as Parameters<typeof executeWriteMutationEvidence>[0],
 			testDir,
 		);
 

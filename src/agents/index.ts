@@ -100,6 +100,10 @@ function getModelForAgent(
 /**
  * Resolve the fallback model for an agent based on its config and fallback index.
  * Called by guardrails at runtime when a transient model error is detected.
+ *
+ * Fallback inheritance:
+ * - curator_init/curator_phase inherit fallback_models from explorer if not explicitly configured
+ * - This matches the model inheritance: curator agents default to explorer's model
  */
 export function resolveFallbackModel(
 	agentBaseName: string,
@@ -114,7 +118,20 @@ export function resolveFallbackModel(
 		}
 	>,
 ): string | null {
-	const fallbackModels = swarmAgents?.[agentBaseName]?.fallback_models;
+	const agentConfig = swarmAgents?.[agentBaseName];
+
+	// 1. Check if agent has explicit fallback_models (even if empty)
+	let fallbackModels = agentConfig?.fallback_models;
+
+	// 2. If not explicitly set, check if this is a curator agent that should inherit from explorer
+	// Only inherit if the curator agent does NOT have fallback_models key at all
+	if (
+		fallbackModels === undefined &&
+		(agentBaseName === 'curator_init' || agentBaseName === 'curator_phase')
+	) {
+		fallbackModels = swarmAgents?.explorer?.fallback_models;
+	}
+
 	if (!fallbackModels || fallbackModels.length === 0) return null;
 	if (fallbackIndex < 1 || fallbackIndex > fallbackModels.length) return null;
 	return fallbackModels[fallbackIndex - 1];

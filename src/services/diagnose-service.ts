@@ -447,6 +447,24 @@ async function checkConfigParseability(
 }
 
 /**
+ * Resolve the grammar WASM directory from an arbitrary module directory.
+ * Exported for unit testing — callers should not pass import.meta.url directly.
+ *
+ * Rules:
+ *   - Dev source  (ends with /src/services): go up one level → src/lang/grammars
+ *   - CLI bundle  (ends with /cli):           go up one level → dist/lang/grammars
+ *   - Main bundle (everything else):          stay put        → dist/lang/grammars
+ */
+export function resolveGrammarDir(thisDir: string): string {
+	const normalized = thisDir.replace(/\\/g, '/');
+	const isSource = normalized.endsWith('/src/services');
+	const isCliBundle = normalized.endsWith('/cli');
+	return isSource || isCliBundle
+		? path.join(thisDir, '..', 'lang', 'grammars')
+		: path.join(thisDir, 'lang', 'grammars');
+}
+
+/**
  * Check B: Grammar WASM Files - verifies tree-sitter grammar files exist
  */
 async function checkGrammarWasmFiles(): Promise<HealthCheck> {
@@ -474,10 +492,7 @@ async function checkGrammarWasmFiles(): Promise<HealthCheck> {
 
 	// Determine dev vs production path using import.meta.url (cross-platform)
 	const thisDir = path.dirname(fileURLToPath(import.meta.url));
-	const isSource = thisDir.replace(/\\/g, '/').endsWith('/src/services');
-	const grammarDir = isSource
-		? path.join(thisDir, '..', 'lang', 'grammars')
-		: path.join(thisDir, 'lang', 'grammars');
+	const grammarDir = resolveGrammarDir(thisDir);
 
 	const missing: string[] = [];
 

@@ -1,5 +1,63 @@
 # Changelog
 
+## [6.85.2](https://github.com/zaxbysauce/opencode-swarm/compare/v6.85.1...v6.85.2) (2026-04-26)
+
+
+### Bug Fixes
+
+* suppress repo-graph diagnostic messages from chat output ([#638](https://github.com/zaxbysauce/opencode-swarm/issues/638)) ([ad4c4b6](https://github.com/zaxbysauce/opencode-swarm/commit/ad4c4b6249fd86b3607e01c3f3182a6f40c16e9d))
+
+## [6.85.1](https://github.com/zaxbysauce/opencode-swarm/compare/v6.85.0...v6.85.1) (2026-04-26)
+
+
+### Bug Fixes
+
+* **system-transform:** collapse output.system to single entry for Qwen3.6/Gemma compatibility ([#628](https://github.com/zaxbysauce/opencode-swarm/issues/628)) ([c8ad147](https://github.com/zaxbysauce/opencode-swarm/commit/c8ad147eee344368244a27c12c09f7a94cb80b6e))
+
+## [6.85.0](https://github.com/zaxbysauce/opencode-swarm/compare/v6.84.7...v6.85.0) (2026-04-26)
+
+
+### Features
+
+* **onboarding:** improve onboarding with autonomous planning, web app example, and config auto-discovery ([#624](https://github.com/zaxbysauce/opencode-swarm/issues/624)) ([ae81b22](https://github.com/zaxbysauce/opencode-swarm/commit/ae81b22aa613e17a3e3b1bd46ddbec93f0d446df))
+
+## [6.84.7](https://github.com/zaxbysauce/opencode-swarm/compare/v6.84.6...v6.84.7) (2026-04-26)
+
+
+### Bug Fixes
+
+* commit since tag v6.84.6 and correctly produce a 6.84.7 patch release. ([10dbe86](https://github.com/zaxbysauce/opencode-swarm/commit/10dbe86cb788b2422c17aae9e677a4154359543c))
+* **guardrails:** redact opencode key variants and warn on missing .swarm gitignore ([#620](https://github.com/zaxbysauce/opencode-swarm/issues/620)) ([bb9804d](https://github.com/zaxbysauce/opencode-swarm/commit/bb9804d7c5c060882beeafd1dca7930fbd554a07))
+* revert manifest to 6.84.6 so release-please calculates correct 6.84.7 ([10dbe86](https://github.com/zaxbysauce/opencode-swarm/commit/10dbe86cb788b2422c17aae9e677a4154359543c))
+
+## [6.84.6](https://github.com/zaxbysauce/opencode-swarm/compare/v6.84.5...v6.84.6) (2026-04-26)
+
+
+### Bug Fixes
+
+* replace unavailable default models and add fallback protection ([#617](https://github.com/zaxbysauce/opencode-swarm/issues/617)) ([bbe05f0](https://github.com/zaxbysauce/opencode-swarm/commit/bbe05f0a86d27873e567de9bbdc7bc9404fe027b))
+
+## [6.84.5](https://github.com/zaxbysauce/opencode-swarm/compare/v6.84.4...v6.84.5) (2026-04-25)
+
+
+### Bug Fixes
+
+* **repo-graph:** prevent first-initialization error on new workspaces ([#614](https://github.com/zaxbysauce/opencode-swarm/issues/614)) ([2b13a00](https://github.com/zaxbysauce/opencode-swarm/commit/2b13a00f994aa7312187c2222b7a48502da08bd5)), closes [#585](https://github.com/zaxbysauce/opencode-swarm/issues/585)
+
+## [6.84.4](https://github.com/zaxbysauce/opencode-swarm/compare/v6.84.3...v6.84.4) (2026-04-25)
+
+
+### Bug Fixes
+
+* **council:** checkCouncilGate blocks completion when council_mode=false ([#612](https://github.com/zaxbysauce/opencode-swarm/issues/612)) ([f760956](https://github.com/zaxbysauce/opencode-swarm/commit/f7609560fd239cb2d229ec2445a769a58b2f7d04))
+
+## [6.84.3](https://github.com/zaxbysauce/opencode-swarm/compare/v6.84.2...v6.84.3) (2026-04-25)
+
+
+### Bug Fixes
+
+* add 'diagnosis' as alias for 'diagnose' command (issue [#588](https://github.com/zaxbysauce/opencode-swarm/issues/588)) ([#610](https://github.com/zaxbysauce/opencode-swarm/issues/610)) ([8a45fd6](https://github.com/zaxbysauce/opencode-swarm/commit/8a45fd6e5394c68b5bdd516d4e1f133323b0541f))
+
 ## [6.84.2](https://github.com/zaxbysauce/opencode-swarm/compare/v6.84.1...v6.84.2) (2026-04-24)
 
 

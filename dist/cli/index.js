@@ -18994,6 +18994,13 @@ var AgentOverrideConfigSchema = exports_external.object({
   temperature: exports_external.number().min(0).max(2).optional(),
   disabled: exports_external.boolean().optional(),
   fallback_models: exports_external.array(exports_external.string()).max(3).optional()
+}).refine((data) => {
+  if (data.model && !data.fallback_models) {
+    console.warn(`[opencode-swarm] WARNING: Agent configured with custom model "${data.model}" but no fallback_models. This means if the custom model fails, there is no fallback protection. Consider adding fallback_models for reliability.`);
+  }
+  return true;
+}, {
+  message: "Agent configuration warning: Custom model without fallback protection"
 });
 var SwarmConfigSchema = exports_external.object({
   name: exports_external.string().optional(),
@@ -36316,6 +36323,12 @@ async function checkConfigParseability(directory) {
     };
   }
 }
+function resolveGrammarDir(thisDir) {
+  const normalized = thisDir.replace(/\\/g, "/");
+  const isSource = normalized.endsWith("/src/services");
+  const isCliBundle = normalized.endsWith("/cli");
+  return isSource || isCliBundle ? path17.join(thisDir, "..", "lang", "grammars") : path17.join(thisDir, "lang", "grammars");
+}
 async function checkGrammarWasmFiles() {
   const grammarFiles = [
     "tree-sitter-javascript.wasm",
@@ -36339,8 +36352,7 @@ async function checkGrammarWasmFiles() {
     "tree-sitter-regex.wasm"
   ];
   const thisDir = path17.dirname(fileURLToPath(import.meta.url));
-  const isSource = thisDir.replace(/\\/g, "/").endsWith("/src/services");
-  const grammarDir = isSource ? path17.join(thisDir, "..", "lang", "grammars") : path17.join(thisDir, "lang", "grammars");
+  const grammarDir = resolveGrammarDir(thisDir);
   const missing = [];
   if (!existsSync8(path17.join(grammarDir, "tree-sitter.wasm"))) {
     missing.push("tree-sitter.wasm (core runtime)");
@@ -37222,7 +37234,7 @@ LANGUAGE_REGISTRY.register({
   displayName: "C# / .NET",
   tier: 2,
   extensions: [".cs", ".csx"],
-  treeSitter: { grammarId: "c_sharp", wasmFile: "tree-sitter-c_sharp.wasm" },
+  treeSitter: { grammarId: "csharp", wasmFile: "tree-sitter-c-sharp.wasm" },
   build: {
     detectFiles: ["*.csproj", "*.sln", "Directory.Build.props"],
     commands: [
@@ -44872,6 +44884,10 @@ var COMMAND_REGISTRY = {
     handler: (ctx) => handleDiagnoseCommand(ctx.directory, ctx.args),
     description: "Run health check on swarm state"
   },
+  diagnosis: {
+    handler: (ctx) => handleDiagnoseCommand(ctx.directory, ctx.args),
+    description: "Run health check on swarm state"
+  },
   preflight: {
     handler: (ctx) => handlePreflightCommand(ctx.directory, ctx.args),
     description: "Run preflight automation checks"
@@ -45153,14 +45169,70 @@ async function install() {
   if (!fs23.existsSync(PLUGIN_CONFIG_PATH)) {
     const defaultConfig = {
       agents: {
-        coder: { model: "opencode/minimax-m2.5-free" },
-        reviewer: { model: "opencode/big-pickle" },
-        test_engineer: { model: "opencode/gpt-5-nano" },
-        explorer: { model: "opencode/trinity-large-preview-free" },
-        sme: { model: "opencode/trinity-large-preview-free" },
-        critic: { model: "opencode/trinity-large-preview-free" },
-        docs: { model: "opencode/trinity-large-preview-free" },
-        designer: { model: "opencode/trinity-large-preview-free" }
+        coder: {
+          model: "opencode/minimax-m2.5-free",
+          fallback_models: ["opencode/gpt-5-nano", "opencode/big-pickle"]
+        },
+        reviewer: {
+          model: "opencode/big-pickle",
+          fallback_models: ["opencode/gpt-5-nano", "opencode/big-pickle"]
+        },
+        test_engineer: {
+          model: "opencode/gpt-5-nano",
+          fallback_models: ["opencode/big-pickle"]
+        },
+        explorer: {
+          model: "opencode/big-pickle",
+          fallback_models: ["opencode/gpt-5-nano", "opencode/big-pickle"]
+        },
+        sme: {
+          model: "opencode/big-pickle",
+          fallback_models: ["opencode/gpt-5-nano", "opencode/big-pickle"]
+        },
+        critic: {
+          model: "opencode/big-pickle",
+          fallback_models: ["opencode/gpt-5-nano", "opencode/big-pickle"]
+        },
+        docs: {
+          model: "opencode/big-pickle",
+          fallback_models: ["opencode/gpt-5-nano", "opencode/big-pickle"]
+        },
+        designer: {
+          model: "opencode/big-pickle",
+          fallback_models: ["opencode/gpt-5-nano", "opencode/big-pickle"]
+        },
+        critic_sounding_board: {
+          model: "opencode/gpt-5-nano",
+          fallback_models: ["opencode/big-pickle"]
+        },
+        critic_drift_verifier: {
+          model: "opencode/gpt-5-nano",
+          fallback_models: ["opencode/big-pickle"]
+        },
+        critic_hallucination_verifier: {
+          model: "opencode/gpt-5-nano",
+          fallback_models: ["opencode/big-pickle"]
+        },
+        critic_oversight: {
+          model: "opencode/gpt-5-nano",
+          fallback_models: ["opencode/big-pickle"]
+        },
+        curator_init: {
+          model: "opencode/gpt-5-nano",
+          fallback_models: ["opencode/big-pickle"]
+        },
+        curator_phase: {
+          model: "opencode/gpt-5-nano",
+          fallback_models: ["opencode/big-pickle"]
+        },
+        council_member: {
+          model: "opencode/gpt-5-nano",
+          fallback_models: ["opencode/big-pickle"]
+        },
+        council_moderator: {
+          model: "opencode/gpt-5-nano",
+          fallback_models: ["opencode/big-pickle"]
+        }
       },
       max_iterations: 5
     };
@@ -45178,13 +45250,17 @@ async function install() {
 \uD83D\uDE80 Installation complete!`);
   console.log(`
 Next steps:`);
-  console.log("1. Edit the plugin config to customize models and settings");
-  console.log('2. Run "opencode" to start using the swarm');
-  console.log("3. The Architect agent will orchestrate your requests");
+  console.log('1. Run "opencode" in your project directory');
+  console.log("2. Select the Architect agent in the OpenCode agent/mode dropdown");
+  console.log("3. Ask it anything \u2014 the Architect coordinates all other agents automatically");
+  console.log("4. Run /swarm diagnose inside OpenCode to confirm the plugin loaded");
+  console.log("   (also try: /swarm agents  /swarm config)");
   console.log(`
-\uD83D\uDCD6 SME agent:`);
-  console.log("   The SME agent supports any domain \u2014 the Architect determines");
-  console.log("   what expertise is needed and requests it dynamically.");
+\uD83D\uDCA1 Model configuration:`);
+  console.log(`   Global config: ${PLUGIN_CONFIG_PATH}`);
+  console.log("   Project override: .opencode/opencode-swarm.json  (create in your project root)");
+  console.log("   On first OpenCode startup, .swarm/config.example.json will be written to your project root");
+  console.log("   \u2014 use it as a reference for customizing model assignments.");
   return 0;
 }
 async function uninstall() {
