@@ -15741,6 +15741,14 @@ function warn(message, data) {
     console.warn(`[opencode-swarm ${timestamp}] WARN: ${message}`);
   }
 }
+function error48(message, data) {
+  const timestamp = new Date().toISOString();
+  if (data !== undefined) {
+    console.error(`[opencode-swarm ${timestamp}] ERROR: ${message}`, data);
+  } else {
+    console.error(`[opencode-swarm ${timestamp}] ERROR: ${message}`);
+  }
+}
 var DEBUG;
 var init_logger = __esm(() => {
   DEBUG = process.env.OPENCODE_SWARM_DEBUG === "1";
@@ -64850,6 +64858,7 @@ import * as path50 from "path";
 
 // src/tools/repo-graph.ts
 init_utils2();
+init_logger();
 init_path_security();
 import * as fsSync2 from "fs";
 import { constants as constants3, existsSync as existsSync28, realpathSync as realpathSync6 } from "fs";
@@ -65583,7 +65592,7 @@ async function saveGraph(workspace, graph, options) {
       await fsPromises3.unlink(tempPath);
     } catch (error93) {
       if (error93 instanceof Error && "code" in error93 && error93.code !== "ENOENT") {
-        console.error(`Failed to clean up temp file ${tempPath}:`, error93);
+        error48(`Failed to clean up temp file ${tempPath}:`, error93);
       }
     }
   }
@@ -65723,7 +65732,7 @@ function buildWorkspaceGraph(workspaceRoot, options) {
     return normA.localeCompare(normB);
   });
   if (sourceFiles.length > maxFiles) {
-    console.warn(`[repo-graph] Truncating scan: ${sourceFiles.length} files found, capping at ${maxFiles}. ` + `${sourceFiles.length - maxFiles} files skipped.`);
+    warn(`[repo-graph] Truncating scan: ${sourceFiles.length} files found, capping at ${maxFiles}. ` + `${sourceFiles.length - maxFiles} files skipped.`);
     sourceFiles.length = maxFiles;
     stats.truncated = true;
   }
@@ -65793,7 +65802,7 @@ function buildWorkspaceGraph(workspaceRoot, options) {
     edgeCount: graph.edges.length
   };
   if (stats.skippedFiles > 0 || stats.skippedDirs > 0 || stats.truncated) {
-    console.log(`[repo-graph] Scan stats: ${stats.filesScanned} files scanned, ` + `${stats.skippedFiles} files skipped, ${stats.skippedDirs} dirs skipped` + (stats.truncated ? ", TRUNCATED" : ""));
+    log(`[repo-graph] Scan stats: ${stats.filesScanned} files scanned, ` + `${stats.skippedFiles} files skipped, ${stats.skippedDirs} dirs skipped` + (stats.truncated ? ", TRUNCATED" : ""));
   }
   return graph;
 }
@@ -65899,7 +65908,7 @@ async function updateGraphForFiles(workspaceRoot, filePaths, options) {
     }
   }
   if (validationFailed) {
-    console.warn(`[repo-graph] Incremental update failed, falling back to full rebuild`);
+    warn(`[repo-graph] Incremental update failed, falling back to full rebuild`);
     const rebuiltGraph = buildWorkspaceGraph(workspaceRoot);
     await saveGraph(workspaceRoot, rebuiltGraph);
     return rebuiltGraph;
@@ -65910,6 +65919,7 @@ async function updateGraphForFiles(workspaceRoot, filePaths, options) {
 }
 
 // src/hooks/repo-graph-builder.ts
+init_logger();
 var SUPPORTED_EXTENSIONS2 = [
   ".ts",
   ".tsx",
@@ -65941,13 +65951,13 @@ function createRepoGraphBuilderHook(workspaceRoot, deps) {
       try {
         const graph = _buildWorkspaceGraph(workspaceRoot);
         await _saveGraph(workspaceRoot, graph);
-        console.log(`[repo-graph] Built graph: ${graph.metadata.nodeCount} nodes, ${graph.metadata.edgeCount} edges`);
+        log(`[repo-graph] Built graph: ${graph.metadata.nodeCount} nodes, ${graph.metadata.edgeCount} edges`);
       } catch (error93) {
         const message = error93 instanceof Error ? error93.message : String(error93);
         if (message.includes("does not exist")) {
           return;
         }
-        console.warn(`[repo-graph] Failed to build graph: ${message}`);
+        warn(`[repo-graph] Failed to build graph: ${message}`);
       }
     },
     async toolAfter(input, _output) {
@@ -65984,10 +65994,10 @@ function createRepoGraphBuilderHook(workspaceRoot, deps) {
       }
       try {
         await _updateGraphForFiles(workspaceRoot, [absoluteFilePath]);
-        console.log(`[repo-graph] Incremental update for ${path50.basename(filePath)}`);
+        log(`[repo-graph] Incremental update for ${path50.basename(filePath)}`);
       } catch (error93) {
         const message = error93 instanceof Error ? error93.message : String(error93);
-        console.warn(`[repo-graph] Incremental update failed: ${message}`);
+        warn(`[repo-graph] Incremental update failed: ${message}`);
       }
     }
   };
