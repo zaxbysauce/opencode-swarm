@@ -3,8 +3,6 @@ import * as fsSync from 'node:fs';
 import * as os from 'node:os';
 import * as path from 'node:path';
 
-import * as logger from '../../../src/utils/logger';
-
 import {
 	addEdge,
 	buildWorkspaceGraph,
@@ -14,6 +12,7 @@ import {
 	upsertNode,
 	validateWorkspace,
 } from '../../../src/tools/repo-graph';
+import * as logger from '../../../src/utils/logger';
 
 describe('buildWorkspaceGraph', () => {
 	let tempDir: string;
