@@ -101,7 +101,7 @@ export function createRepoGraphBuilderHook(
 				if (message.includes('does not exist')) {
 					return; // Workspace not found — skip silently
 				}
-				logger.warn(`[repo-graph] Failed to build graph: ${message}`);
+				logger.error(`[repo-graph] Failed to build graph: ${message}`);
 			}
 		},
 
@@ -172,7 +172,7 @@ export function createRepoGraphBuilderHook(
 				);
 			} catch (error) {
 				const message = error instanceof Error ? error.message : String(error);
-				logger.warn(`[repo-graph] Incremental update failed: ${message}`);
+				logger.error(`[repo-graph] Incremental update failed: ${message}`);
 			}
 		},
 	};

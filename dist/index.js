@@ -65957,7 +65957,7 @@ function createRepoGraphBuilderHook(workspaceRoot, deps) {
         if (message.includes("does not exist")) {
           return;
         }
-        warn(`[repo-graph] Failed to build graph: ${message}`);
+        error48(`[repo-graph] Failed to build graph: ${message}`);
       }
     },
     async toolAfter(input, _output) {
@@ -65997,7 +65997,7 @@ function createRepoGraphBuilderHook(workspaceRoot, deps) {
         log(`[repo-graph] Incremental update for ${path50.basename(filePath)}`);
       } catch (error93) {
         const message = error93 instanceof Error ? error93.message : String(error93);
-        warn(`[repo-graph] Incremental update failed: ${message}`);
+        error48(`[repo-graph] Incremental update failed: ${message}`);
       }
     }
   };
