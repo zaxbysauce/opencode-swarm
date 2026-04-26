@@ -1,5 +1,12 @@
 # Changelog
 
+## [6.85.3](https://github.com/zaxbysauce/opencode-swarm/compare/v6.85.2...v6.85.3) (2026-04-26)
+
+
+### Bug Fixes
+
+* **grammar:** correct WASM grammar path for CLI bundle and fix C# grammarId ([#640](https://github.com/zaxbysauce/opencode-swarm/issues/640)) ([2d95f22](https://github.com/zaxbysauce/opencode-swarm/commit/2d95f223b2ece7c344301e57309a7aa0614fff57))
+
 ## [6.85.2](https://github.com/zaxbysauce/opencode-swarm/compare/v6.85.1...v6.85.2) (2026-04-26)
 
 
