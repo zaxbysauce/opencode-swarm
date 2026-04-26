@@ -961,6 +961,12 @@ const OpenCodeSwarm: Plugin = async (ctx) => {
 									createCuratorLLMDelegate(ctx.directory, 'init', sessionId),
 							)
 						: undefined,
+				(_input: unknown, output: { system?: string[] }): Promise<void> => {
+					if (Array.isArray(output.system) && output.system.length > 1) {
+						output.system = [output.system.join('\n\n')];
+					}
+					return Promise.resolve();
+				},
 			].filter(Boolean) as Array<
 				(input: unknown, output: unknown) => Promise<void>
 			>),
