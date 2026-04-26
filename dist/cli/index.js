@@ -45245,13 +45245,17 @@ async function install() {
 \uD83D\uDE80 Installation complete!`);
   console.log(`
 Next steps:`);
-  console.log("1. Edit the plugin config to customize models and settings");
-  console.log('2. Run "opencode" to start using the swarm');
-  console.log("3. The Architect agent will orchestrate your requests");
+  console.log('1. Run "opencode" in your project directory');
+  console.log("2. Select the Architect agent in the OpenCode agent/mode dropdown");
+  console.log("3. Ask it anything \u2014 the Architect coordinates all other agents automatically");
+  console.log("4. Run /swarm diagnose inside OpenCode to confirm the plugin loaded");
+  console.log("   (also try: /swarm agents  /swarm config)");
   console.log(`
-\uD83D\uDCD6 SME agent:`);
-  console.log("   The SME agent supports any domain \u2014 the Architect determines");
-  console.log("   what expertise is needed and requests it dynamically.");
+\uD83D\uDCA1 Model configuration:`);
+  console.log(`   Global config: ${PLUGIN_CONFIG_PATH}`);
+  console.log("   Project override: .opencode/opencode-swarm.json  (create in your project root)");
+  console.log("   On first OpenCode startup, .swarm/config.example.json will be written to your project root");
+  console.log("   \u2014 use it as a reference for customizing model assignments.");
   return 0;
 }
 async function uninstall() {

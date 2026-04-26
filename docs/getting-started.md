@@ -50,37 +50,41 @@ bunx opencode-swarm install
   - **Project-local override (if needed):** `.opencode/opencode-swarm.json` (applies only to this project)
 
 If the command fails:
-- **"bunx not found"** — Bun is not installed; see Prerequisites above
-- **"opencode-swarm not found"** — Try `npm install -g opencode-swarm` instead (npm fallback)
-- **Permission denied on ~/.config** — Ensure you have write permissions to your home directory
+- **"bunx not found"** — Bun is not installed. Install it from [bun.sh](https://bun.sh), then retry `bunx opencode-swarm install`.
+- **"opencode-swarm not found"** — Bun is installed but can't find the package. Try `bun install -g opencode-swarm` first, or if you only have npm available: `npm install -g opencode-swarm && opencode-swarm install`.
+- **Permission denied on ~/.config** — Ensure you have write permissions to your home directory.
 
 ---
 
 ## Step 2 — Verify Installation
 
-Before proceeding, confirm Swarm is loaded:
+Before proceeding, confirm Swarm is loaded. Inside an OpenCode session, run:
 
 ```bash
 /swarm diagnose
 ```
 
-You should see a summary like:
+You should see a health check report like:
 
 ```
-✓ Swarm plugin loaded
-✓ 11 agents registered: architect, coder, reviewer, test_engineer, critic, explorer, sme, docs, designer, ...
-✓ Configuration loaded from ~/.config/opencode/opencode-swarm.json
-✓ Ready to orchestrate
+## Swarm Health Check
+
+- ✅ **Config Parseability**: Project config is valid JSON (or using defaults)
+- ✅ **Grammar WASM Files**: Core runtime + all language grammar files present
+- ✅ **Git Repository**: Valid git repository found
+- ✅ **Plan Sync**: No plan yet (will be created on first task)
+
+**Result**: ✅ All checks passed
 ```
 
-Also check:
+If you see ❌ failures, fix them before proceeding. Also check:
 
 ```bash
 /swarm agents
 /swarm config
 ```
 
-These commands show which agents are available and what models they're using. If you see errors, go back to Step 1.
+These commands list available agents and show what models they're using. If you see errors, go back to Step 1.
 
 ---
 
@@ -184,6 +188,34 @@ This is Swarm's persistent state. On your next run, it will resume from where it
 
 ---
 
+## Step 5.5 — Autonomous Planning (Optional but Recommended)
+
+Instead of giving the architect a direct implementation request, you can start with a structured planning session using `/swarm brainstorm`. This is useful for larger features where you want the architect to think through design options before writing any code.
+
+```
+/swarm brainstorm Build a React web app with email/password auth and a protected dashboard
+```
+
+The architect will run a seven-phase planning workflow:
+
+1. **CONTEXT SCAN** — scans your codebase for existing patterns, dependencies, and conventions
+2. **DIALOGUE** — asks clarifying questions about requirements it cannot infer
+3. **APPROACHES** — proposes 2–3 architectural approaches with tradeoffs
+4. **DESIGN SECTIONS** — works through data model, API shape, component structure, and auth flow
+5. **SPEC WRITE** — produces a structured implementation spec
+6. **SELF-REVIEW** — the architect reviews the spec for completeness and consistency
+7. **TRANSITION** — summarizes the plan and waits for your go-ahead
+
+**Important:** After the TRANSITION phase, the architect stops and waits. It will not start implementing automatically. You need to explicitly confirm — for example, type:
+
+```
+Looks good. Proceed with implementation.
+```
+
+Once you confirm, the architect creates the phased plan in `.swarm/plan.md` and begins delegating work to the coder, reviewer, test engineer, and other agents. From that point, you do not need to give further instructions unless something goes wrong or you want to change direction.
+
+---
+
 ## Step 6 — Common First-Run Errors
 
 ### "Missing OpenCode authentication"
@@ -251,6 +283,14 @@ Swarm has session-scoped modes you toggle at any time:
 | **Full-Auto** | Fast | Depends on critic | Unattended multi-interaction runs |
 
 Project-level `execution_mode` (`strict` / `balanced` / `fast`) is persistent and configured in `.opencode/opencode-swarm.json`. Switch session modes with `/swarm turbo` or `/swarm full-auto`. See [`docs/modes.md`](modes.md).
+
+### Build a Full Web App (End-to-End Example)
+
+For a complete walkthrough of building a React app with authentication using Swarm's autonomous planning workflow, see:
+
+**→ [Example: Building a Web App with Swarm](examples/web-app.md)**
+
+This covers: project setup, running `/swarm brainstorm`, confirming the plan, monitoring agent execution, and reviewing results.
 
 ### Explore Advanced Features
 

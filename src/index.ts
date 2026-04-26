@@ -1,3 +1,4 @@
+import * as fs from 'node:fs';
 import * as path from 'node:path';
 import type { Plugin } from '@opencode-ai/plugin';
 import { createAgents, getAgentConfigs } from './agents';
@@ -146,6 +147,36 @@ import { truncateToolOutput } from './utils/tool-output';
 // Heartbeat throttle map: sessionId -> last heartbeat timestamp
 const _heartbeatTimers = new Map<string, number>();
 
+// Writes .swarm/config.example.json on first plugin init for a given project.
+// This gives new users a ready-to-edit reference that shows all agent model
+// defaults. To override, copy entries into .opencode/opencode-swarm.json
+// (project-local) or ~/.config/opencode/opencode-swarm.json (global).
+// Non-fatal: all errors are silently ignored.
+function writeSwarmConfigExampleIfNew(projectDirectory: string): void {
+	try {
+		const swarmDir = path.join(projectDirectory, '.swarm');
+		const dest = path.join(swarmDir, 'config.example.json');
+		if (fs.existsSync(dest)) return;
+		const example = {
+			agents: Object.fromEntries(
+				Object.entries(DEFAULT_MODELS)
+					.filter(([name]) => name !== 'default')
+					.map(([name, model]) => [
+						name,
+						{
+							model,
+							fallback_models: ['opencode/gpt-5-nano', 'opencode/big-pickle'],
+						},
+					]),
+			),
+			max_iterations: 5,
+		};
+		fs.writeFileSync(dest, `${JSON.stringify(example, null, 2)}\n`, 'utf-8');
+	} catch {
+		// Non-fatal
+	}
+}
+
 const OpenCodeSwarm: Plugin = async (ctx) => {
 	const { config, loadedFromFile } = loadPluginConfigWithMeta(ctx.directory);
 
@@ -183,6 +214,7 @@ const OpenCodeSwarm: Plugin = async (ctx) => {
 	// creates .swarm/ before writing, but we want it to exist before the async
 	// write is dispatched by the libuv worker.
 	initTelemetry(ctx.directory);
+	writeSwarmConfigExampleIfNew(ctx.directory);
 	// Warn once per process if .swarm/ is not gitignored (audit logs may contain secrets)
 	warnIfSwarmNotGitignored(ctx.directory);
 	// Non-blocking: build repo graph in background
