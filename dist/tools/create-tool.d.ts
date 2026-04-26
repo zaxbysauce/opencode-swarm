@@ -1,4 +1,4 @@
-import { type ToolContext, tool, type ToolResult } from '@opencode-ai/plugin';
+import { type ToolContext, type ToolResult, tool } from '@opencode-ai/plugin';
 /**
  * Options for creating a swarm tool.
  * The args type is inferred from what you pass to the tool() call.

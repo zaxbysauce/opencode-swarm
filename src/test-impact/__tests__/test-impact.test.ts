@@ -1,5 +1,5 @@
 import { afterEach, beforeEach, describe, expect, test, vi } from 'bun:test';
-import type { ToolResult } from '@opencode-ai/plugin';
+import type { ToolContext, ToolResult } from '@opencode-ai/plugin';
 import { test_impact } from '../../tools/test-impact.js';
 
 /**
@@ -12,17 +12,17 @@ function resultToString(result: ToolResult): string {
 /**
  * Helper to create a minimal ToolContext mock for testing
  */
-function createMockCtx(directory: string) {
+function createMockCtx(directory: string): ToolContext {
 	return {
 		sessionID: 'test-session',
 		messageID: 'test-message-id',
-		agent: 'test-agent' as const,
+		agent: 'test-agent',
 		directory,
 		worktree: directory,
 		abort: new AbortController().signal,
-		metadata: () => ({}),
-		ask: async () => undefined,
-	};
+		metadata: () => {},
+		ask: () => Promise.resolve(undefined as never),
+	} as ToolContext;
 }
 
 // Mock the analyzer module

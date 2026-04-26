@@ -74970,11 +74970,7 @@ var curator_analyze = createSwarmTool({
   args: {
     phase: exports_external.number().int().min(1).describe("Phase number to analyze"),
     recommendations: exports_external.array(exports_external.object({
-      action: exports_external.enum([
-        "promote",
-        "archive",
-        "flag_contradiction"
-      ]),
+      action: exports_external.enum(["promote", "archive", "flag_contradiction"]),
       entry_id: exports_external.string().optional(),
       lesson: exports_external.string(),
       reason: exports_external.string(),
@@ -79839,9 +79835,9 @@ var placeholder_scan = createSwarmTool({
   }
 });
 // src/tools/pre-check-batch.ts
-init_zod();
 import * as fs70 from "fs";
 import * as path85 from "path";
+init_zod();
 init_manager2();
 init_utils();
 init_create_tool();

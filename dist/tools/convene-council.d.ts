@@ -8,7 +8,7 @@
  * Config-gated (council.enabled must be true) and architect-only via
  * AGENT_TOOL_MAP. Follows the check-gate-status.ts pattern.
  */
-import { tool } from '@opencode-ai/plugin';
+import type { tool } from '@opencode-ai/plugin';
 import { z } from 'zod';
 export declare const ArgsSchema: z.ZodObject<{
     taskId: z.ZodString;
