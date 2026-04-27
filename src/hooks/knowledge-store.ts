@@ -14,7 +14,9 @@ import type { KnowledgeEntryBase, RejectedLesson } from './knowledge-types.js';
 // Returns the platform-specific config directory for opencode-swarm
 export function getPlatformConfigDir(): string {
 	const platform = process.platform;
-	const home = os.homedir();
+	// Read $HOME live each call so test redirection via process.env.HOME works.
+	// Bun caches os.homedir(), so changing $HOME after first call is ignored.
+	const home = process.env.HOME || os.homedir();
 	if (platform === 'win32') {
 		return path.join(
 			process.env.LOCALAPPDATA || path.join(home, 'AppData', 'Local'),
@@ -44,7 +46,9 @@ export function resolveSwarmRejectedPath(directory: string): string {
 // Cross-platform resolver — inlined 15-line implementation (NO env-paths dependency)
 export function resolveHiveKnowledgePath(): string {
 	const platform = process.platform;
-	const home = os.homedir();
+	// Read $HOME live each call so test redirection via process.env.HOME works.
+	// Bun caches os.homedir(), so changing $HOME after first call is ignored.
+	const home = process.env.HOME || os.homedir();
 	let dataDir: string;
 	if (platform === 'win32') {
 		dataDir = path.join(

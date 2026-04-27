@@ -33692,7 +33692,7 @@ function resolveSwarmRejectedPath(directory) {
 }
 function resolveHiveKnowledgePath() {
   const platform = process.platform;
-  const home = os3.homedir();
+  const home = process.env.HOME || os3.homedir();
   let dataDir;
   if (platform === "win32") {
     dataDir = path9.join(process.env.LOCALAPPDATA || path9.join(home, "AppData", "Local"), "opencode-swarm", "Data");
