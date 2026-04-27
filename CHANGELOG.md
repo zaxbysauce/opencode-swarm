@@ -1,5 +1,12 @@
 # Changelog
 
+## [6.86.1](https://github.com/zaxbysauce/opencode-swarm/compare/v6.86.0...v6.86.1) (2026-04-27)
+
+
+### Bug Fixes
+
+* **agents:** strip designer from architect prompt when ui_review is disabled ([#651](https://github.com/zaxbysauce/opencode-swarm/issues/651)) ([3ee7242](https://github.com/zaxbysauce/opencode-swarm/commit/3ee724283e6c178e0f1fd999bf98971d989e9ff8))
+
 ## [6.86.0](https://github.com/zaxbysauce/opencode-swarm/compare/v6.85.4...v6.86.0) (2026-04-27)
 
 
