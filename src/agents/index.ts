@@ -174,11 +174,31 @@ function getTemperatureOverride(
 }
 
 /**
+ * Get variant (reasoning-effort) override for an agent.
+ *
+ * OpenCode reads the agent's reasoning effort from a top-level `variant` field
+ * on the agent definition (sibling to `model`), NOT from a third `/variant`
+ * segment in the model string. The TUI accepts `provider/model/variant` only
+ * because its model picker rewrites the input through a variant-aware resolver
+ * before applying it to the session; the agent loader uses the basic
+ * 2-segment parser, so encoding the variant in `model` raises
+ * ProviderModelNotFoundError. We expose `variant` as its own override field.
+ */
+function getVariantOverride(
+	agentName: string,
+	swarmAgents?: Record<string, { variant?: string }>,
+	swarmPrefix?: string,
+): string | undefined {
+	const baseAgentName = stripSwarmPrefix(agentName, swarmPrefix);
+	return swarmAgents?.[baseAgentName]?.variant;
+}
+
+/**
  * Apply config overrides to an agent definition
  */
 function applyOverrides(
 	agent: AgentDefinition,
-	swarmAgents?: Record<string, { temperature?: number }>,
+	swarmAgents?: Record<string, { temperature?: number; variant?: string }>,
 	swarmPrefix?: string,
 ): AgentDefinition {
 	const tempOverride = getTemperatureOverride(
@@ -188,6 +208,19 @@ function applyOverrides(
 	);
 	if (tempOverride !== undefined) {
 		agent.config.temperature = tempOverride;
+	}
+	const variantOverride = getVariantOverride(
+		agent.name,
+		swarmAgents,
+		swarmPrefix,
+	);
+	if (variantOverride !== undefined) {
+		// `variant` is not declared on @opencode-ai/sdk's AgentConfig type but
+		// the runtime Agent struct includes it (see opencode source:
+		// `variant: r.optional(r.String)` in the Agent schema). The SDK type
+		// has an open-ended index signature so this is structurally valid;
+		// the cast just satisfies the strict known-keys check.
+		(agent.config as { variant?: string }).variant = variantOverride;
 	}
 	return agent;
 }

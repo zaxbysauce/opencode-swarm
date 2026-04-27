@@ -165,6 +165,47 @@ describe('AgentOverrideConfigSchema', () => {
 		expect(warnings.some((w) => w.includes('fallback_models'))).toBe(false);
 	});
 
+	// Variant (reasoning-effort) field tests
+	it('accepts variant field with model', () => {
+		const result = AgentOverrideConfigSchema.safeParse({
+			model: 'grove-openai/gpt-5.3-codex',
+			variant: 'medium',
+			fallback_models: ['fallback-1'],
+		});
+		expect(result.success).toBe(true);
+		if (result.success) {
+			expect(result.data.variant).toBe('medium');
+			expect(result.data.model).toBe('grove-openai/gpt-5.3-codex');
+		}
+	});
+
+	it('accepts variant field without model', () => {
+		const result = AgentOverrideConfigSchema.safeParse({ variant: 'high' });
+		expect(result.success).toBe(true);
+		if (result.success) {
+			expect(result.data.variant).toBe('high');
+			expect(result.data.model).toBeUndefined();
+		}
+	});
+
+	it('rejects empty-string variant', () => {
+		const result = AgentOverrideConfigSchema.safeParse({ variant: '' });
+		expect(result.success).toBe(false);
+	});
+
+	it('rejects non-string variant', () => {
+		const result = AgentOverrideConfigSchema.safeParse({ variant: 5 });
+		expect(result.success).toBe(false);
+	});
+
+	it('omits variant when not set', () => {
+		const result = AgentOverrideConfigSchema.safeParse({ model: 'm' });
+		expect(result.success).toBe(true);
+		if (result.success) {
+			expect(result.data.variant).toBeUndefined();
+		}
+	});
+
 	it('accepts valid fallback_models array with up to 3 items', () => {
 		const result = AgentOverrideConfigSchema.safeParse({
 			fallback_models: ['fallback-1', 'fallback-2', 'fallback-3'],

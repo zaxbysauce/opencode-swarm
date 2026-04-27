@@ -16,6 +16,7 @@ import { z } from 'zod';
 export declare function stripKnownSwarmPrefix(agentName: string): string;
 export declare const AgentOverrideConfigSchema: z.ZodObject<{
     model: z.ZodOptional<z.ZodString>;
+    variant: z.ZodOptional<z.ZodString>;
     temperature: z.ZodOptional<z.ZodNumber>;
     disabled: z.ZodOptional<z.ZodBoolean>;
     fallback_models: z.ZodOptional<z.ZodArray<z.ZodString>>;
@@ -25,6 +26,7 @@ export declare const SwarmConfigSchema: z.ZodObject<{
     name: z.ZodOptional<z.ZodString>;
     agents: z.ZodOptional<z.ZodRecord<z.ZodString, z.ZodObject<{
         model: z.ZodOptional<z.ZodString>;
+        variant: z.ZodOptional<z.ZodString>;
         temperature: z.ZodOptional<z.ZodNumber>;
         disabled: z.ZodOptional<z.ZodBoolean>;
         fallback_models: z.ZodOptional<z.ZodArray<z.ZodString>>;
@@ -627,6 +629,7 @@ export type ParallelizationConfig = z.infer<typeof ParallelizationConfigSchema>;
 export declare const PluginConfigSchema: z.ZodObject<{
     agents: z.ZodOptional<z.ZodRecord<z.ZodString, z.ZodObject<{
         model: z.ZodOptional<z.ZodString>;
+        variant: z.ZodOptional<z.ZodString>;
         temperature: z.ZodOptional<z.ZodNumber>;
         disabled: z.ZodOptional<z.ZodBoolean>;
         fallback_models: z.ZodOptional<z.ZodArray<z.ZodString>>;
@@ -635,6 +638,7 @@ export declare const PluginConfigSchema: z.ZodObject<{
         name: z.ZodOptional<z.ZodString>;
         agents: z.ZodOptional<z.ZodRecord<z.ZodString, z.ZodObject<{
             model: z.ZodOptional<z.ZodString>;
+            variant: z.ZodOptional<z.ZodString>;
             temperature: z.ZodOptional<z.ZodNumber>;
             disabled: z.ZodOptional<z.ZodBoolean>;
             fallback_models: z.ZodOptional<z.ZodArray<z.ZodString>>;

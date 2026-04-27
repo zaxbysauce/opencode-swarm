@@ -112,6 +112,38 @@ describe('createAgents', () => {
 			expect(coder?.config.temperature).toBe(0.5);
 		});
 
+		it('variant override applies correctly', () => {
+			const config = {
+				agents: {
+					test_engineer: {
+						model: 'grove-openai/gpt-5.3-codex',
+						variant: 'medium',
+					},
+				},
+			};
+
+			const agents = createAgents(config as unknown as PluginConfig);
+			const te = agents.find((a) => a.name === 'test_engineer');
+			expect(te?.config.model).toBe('grove-openai/gpt-5.3-codex');
+			expect((te?.config as { variant?: string } | undefined)?.variant).toBe(
+				'medium',
+			);
+		});
+
+		it('variant is omitted when not configured', () => {
+			const config = {
+				agents: {
+					coder: { model: 'custom/model' },
+				},
+			};
+
+			const agents = createAgents(config as unknown as PluginConfig);
+			const coder = agents.find((a) => a.name === 'coder');
+			expect(
+				(coder?.config as { variant?: string } | undefined)?.variant,
+			).toBeUndefined();
+		});
+
 		it('disabled agent is filtered out', () => {
 			const config = {
 				agents: {

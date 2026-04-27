@@ -18991,6 +18991,7 @@ for (const [agentName, tools] of Object.entries(AGENT_TOOL_MAP)) {
 // src/config/schema.ts
 var AgentOverrideConfigSchema = exports_external.object({
   model: exports_external.string().optional(),
+  variant: exports_external.string().min(1).optional(),
   temperature: exports_external.number().min(0).max(2).optional(),
   disabled: exports_external.boolean().optional(),
   fallback_models: exports_external.array(exports_external.string()).max(3).optional()

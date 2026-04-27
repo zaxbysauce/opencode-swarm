@@ -14739,6 +14739,7 @@ var init_schema = __esm(() => {
   SEPARATORS = ["_", "-", " "];
   AgentOverrideConfigSchema = exports_external.object({
     model: exports_external.string().optional(),
+    variant: exports_external.string().min(1).optional(),
     temperature: exports_external.number().min(0).max(2).optional(),
     disabled: exports_external.boolean().optional(),
     fallback_models: exports_external.array(exports_external.string()).max(3).optional()
@@ -57722,10 +57723,18 @@ function getTemperatureOverride(agentName, swarmAgents, swarmPrefix) {
   const baseAgentName = stripSwarmPrefix(agentName, swarmPrefix);
   return swarmAgents?.[baseAgentName]?.temperature;
 }
+function getVariantOverride(agentName, swarmAgents, swarmPrefix) {
+  const baseAgentName = stripSwarmPrefix(agentName, swarmPrefix);
+  return swarmAgents?.[baseAgentName]?.variant;
+}
 function applyOverrides(agent, swarmAgents, swarmPrefix) {
   const tempOverride = getTemperatureOverride(agent.name, swarmAgents, swarmPrefix);
   if (tempOverride !== undefined) {
     agent.config.temperature = tempOverride;
+  }
+  const variantOverride = getVariantOverride(agent.name, swarmAgents, swarmPrefix);
+  if (variantOverride !== undefined) {
+    agent.config.variant = variantOverride;
   }
   return agent;
 }
