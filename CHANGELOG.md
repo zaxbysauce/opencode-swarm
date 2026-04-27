@@ -1,5 +1,13 @@
 # Changelog
 
+## [6.86.2](https://github.com/zaxbysauce/opencode-swarm/compare/v6.86.1...v6.86.2) (2026-04-27)
+
+
+### Bug Fixes
+
+* **ci:** make Windows bun test runner resilient to process crashes ([a9abbed](https://github.com/zaxbysauce/opencode-swarm/commit/a9abbedda696b26dfdb0779986d92c6b6a145a22))
+* **ci:** replace $() command substitution in run steps to pass security scan ([7aa8d8a](https://github.com/zaxbysauce/opencode-swarm/commit/7aa8d8adcd284ecf1ef3faa6daa92436fc828a92))
+
 ## [6.86.1](https://github.com/zaxbysauce/opencode-swarm/compare/v6.86.0...v6.86.1) (2026-04-27)
 
 
