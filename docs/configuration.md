@@ -33,6 +33,66 @@ You only need to define the agents you want to override.
 
 > If `architect` is not set explicitly, it inherits the currently selected OpenCode UI model.
 
+## Per-agent override fields
+
+Each entry under `agents` accepts the following optional fields:
+
+| Field | Type | Description |
+|---|---|---|
+| `model` | `"<provider>/<model>"` | Model id. **Do not** include a third `/<variant>` segment — see `variant` below. |
+| `variant` | `string` | Reasoning-effort variant for models that support it (e.g. `"low"`, `"medium"`, `"high"`, `"xhigh"` for `gpt-5.x` / `gpt-5.x-codex`). |
+| `temperature` | `0–2` | Sampling temperature override. |
+| `disabled` | `boolean` | Skip this agent entirely (it will not be registered). |
+| `fallback_models` | `string[]` (max 3) | Models to retry on transient errors (429/503/timeout). |
+
+### Why `variant` is its own field
+
+OpenCode's TUI accepts the shorthand `provider/model/variant` (e.g. `grove-openai/gpt-5.3-codex/medium`) in its model picker — the picker rewrites that input through a variant-aware resolver before applying it to the session. The agent loader, by contrast, uses a basic 2-segment parser, so embedding the variant into `model` resolves to a non-existent model id (`gpt-5.3-codex/medium`) and produces `ProviderModelNotFoundError`. Use the `variant` field instead:
+
+```json
+{
+  "agents": {
+    "test_engineer": {
+      "model": "grove-openai/gpt-5.3-codex",
+      "variant": "medium"
+    },
+    "designer": {
+      "model": "grove-openai/gpt-5.4",
+      "variant": "high"
+    }
+  }
+}
+```
+
+### Backward compatibility
+
+If you currently have a config like `{ "model": "grove-openai/gpt-5.3-codex/medium" }`, it will still work — the variant is automatically extracted and a deprecation warning is logged.
+
+**Before** (deprecated — produces a warning):
+
+```json
+{
+  "agents": {
+    "coder": {
+      "model": "grove-openai/gpt-5.3-codex/medium"
+    }
+  }
+}
+```
+
+**After** (recommended — silences the warning):
+
+```json
+{
+  "agents": {
+    "coder": {
+      "model": "grove-openai/gpt-5.3-codex",
+      "variant": "medium"
+    }
+  }
+}
+```
+
 ## How to verify the resolved config
 
 Run:

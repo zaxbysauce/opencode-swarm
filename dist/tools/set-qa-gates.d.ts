@@ -8,7 +8,7 @@
  * Creates the profile with defaults if missing, then applies the requested
  * partial update.
  */
-import { tool } from '@opencode-ai/plugin';
+import type { tool } from '@opencode-ai/plugin';
 export interface SetQaGatesArgs {
     reviewer?: boolean;
     test_engineer?: boolean;

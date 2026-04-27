@@ -9,5 +9,5 @@
  *
  * Hard cap on max_results = 10 (clamped silently). Default sourced from council.general.maxSourcesPerMember.
  */
-import { tool } from '@opencode-ai/plugin';
+import type { tool } from '@opencode-ai/plugin';
 export declare const web_search: ReturnType<typeof tool>;

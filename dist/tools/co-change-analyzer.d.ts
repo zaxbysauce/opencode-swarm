@@ -1,4 +1,4 @@
-import { tool } from '@opencode-ai/plugin';
+import type { tool } from '@opencode-ai/plugin';
 import type { SwarmKnowledgeEntry } from '../hooks/knowledge-types.js';
 export interface CoChangeEntry {
     fileA: string;

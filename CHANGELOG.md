@@ -1,5 +1,19 @@
 # Changelog
 
+## [6.86.0](https://github.com/zaxbysauce/opencode-swarm/compare/v6.85.4...v6.86.0) (2026-04-27)
+
+
+### Features
+
+* **config:** add variant field with backward-compatible auto-split ([035c4c3](https://github.com/zaxbysauce/opencode-swarm/commit/035c4c352da42adacef0474bf29cbc0028e7ef3f))
+
+## [6.85.4](https://github.com/zaxbysauce/opencode-swarm/compare/v6.85.3...v6.85.4) (2026-04-27)
+
+
+### Bug Fixes
+
+* **knowledge:** consolidate hive promoter, add dedup to knowledge_add, fix injector budget default ([#641](https://github.com/zaxbysauce/opencode-swarm/issues/641)) ([446ac98](https://github.com/zaxbysauce/opencode-swarm/commit/446ac982f7d084fa2c56080fda1a10370942c7d2))
+
 ## [6.85.3](https://github.com/zaxbysauce/opencode-swarm/compare/v6.85.2...v6.85.3) (2026-04-26)
 
 

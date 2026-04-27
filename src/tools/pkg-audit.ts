@@ -1,6 +1,7 @@
 import * as fs from 'node:fs';
 import * as path from 'node:path';
-import { tool } from '@opencode-ai/plugin';
+import type { tool } from '@opencode-ai/plugin';
+import { z } from 'zod';
 import { isCommandAvailable } from '../build/discovery';
 import { warn } from '../utils';
 import { createSwarmTool } from './create-tool';
@@ -1616,7 +1617,7 @@ export const pkg_audit: ReturnType<typeof tool> = createSwarmTool({
 	description:
 		'Run package manager security audit (npm, pip, cargo, go, dotnet, ruby, dart) and return structured CVE data. Use ecosystem to specify which package manager, or "auto" to detect from project files.',
 	args: {
-		ecosystem: tool.schema
+		ecosystem: z
 			.enum([
 				'auto',
 				'npm',
