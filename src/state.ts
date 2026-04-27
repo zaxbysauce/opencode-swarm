@@ -20,7 +20,7 @@ import {
 } from './environment/profile.js';
 import type { TaskEvidence } from './gate-evidence';
 import { clearPendingCoderScope } from './hooks/delegation-gate.js';
-import { loadPlanJsonOnly } from './plan/manager.js';
+import { loadPlanJsonOnly, updateTaskStatus } from './plan/manager.js';
 import type { EscalationTracker } from './prm/escalation.js';
 import type { PatternMatch } from './prm/types.js';
 import { AgentRunContext } from './state/agent-run-context.js';
@@ -957,6 +957,47 @@ export function advanceTaskState(
 
 	session.taskWorkflowStates.set(taskId, newState);
 	telemetry.taskStateChanged(session.agentName, taskId, newState, current);
+}
+
+/**
+ * Advance the per-task workflow state machine AND persist the corresponding
+ * plan.json status at meaningful workflow boundaries.
+ *
+ * The two-layer model splits in-memory workflow state (Layer 1, fast, used by
+ * gates) from the durable plan (Layer 2, projected to plan.md). Without this
+ * bridge, council APPROVE → 'complete' updates Layer 1 only and plan.md goes
+ * stale. This helper closes the gap by mapping:
+ *   - 'coder_delegated' → plan.json status 'in_progress'
+ *   - 'complete'        → plan.json status 'completed'
+ * Other transitions are in-memory only (the task is already in_progress on disk
+ * once coder_delegated has fired).
+ *
+ * Persistence errors are logged and swallowed so a transient disk failure does
+ * not break the in-memory state machine — matches the existing defensive
+ * pattern around advanceTaskState call sites.
+ */
+export async function advanceTaskStateAndPersist(
+	session: AgentSessionState,
+	taskId: string,
+	newState: TaskWorkflowState,
+	directory: string,
+): Promise<void> {
+	advanceTaskState(session, taskId, newState);
+
+	if (newState !== 'coder_delegated' && newState !== 'complete') {
+		return;
+	}
+
+	const planStatus: TaskStatus =
+		newState === 'complete' ? 'completed' : 'in_progress';
+
+	try {
+		await updateTaskStatus(directory, taskId, planStatus);
+	} catch (err) {
+		console.warn(
+			`[advanceTaskStateAndPersist] persist ${taskId} → ${planStatus} failed (in-memory state still advanced): ${err instanceof Error ? err.message : String(err)}`,
+		);
+	}
 }
 
 /**

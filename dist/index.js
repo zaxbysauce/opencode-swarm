@@ -17005,7 +17005,15 @@ ${markdown}`;
       } catch {}
     }
   } catch (mdError) {
-    warn(`[savePlan] plan.md write failed (non-fatal, plan.json is authoritative): ${mdError instanceof Error ? mdError.message : String(mdError)}`);
+    const message = mdError instanceof Error ? mdError.message : String(mdError);
+    warn(`[savePlan] plan.md write failed (non-fatal, plan.json is authoritative): ${message}`);
+    try {
+      emit("plan_md_write_failed", {
+        directory,
+        error: message,
+        timestamp: new Date().toISOString()
+      });
+    } catch {}
   }
   try {
     const markerPath = path5.join(swarmDir, ".plan-write-marker");
@@ -17106,7 +17114,9 @@ function derivePlanMarkdown(plan) {
     pending: "PENDING",
     in_progress: "IN PROGRESS",
     complete: "COMPLETE",
-    blocked: "BLOCKED"
+    completed: "COMPLETE",
+    blocked: "BLOCKED",
+    closed: "CLOSED"
   };
   const now = new Date().toISOString();
   const currentPhase = plan.current_phase ?? 1;
@@ -25008,7 +25018,7 @@ function createDelegationGateHook(config2, directory) {
             });
             if (councilActive && result.overallVerdict === "APPROVE" && result.allCriteriaMet === true && (result.requiredFixesCount ?? 0) === 0) {
               try {
-                advanceTaskState(session, taskId, "complete");
+                await advanceTaskStateAndPersist(session, taskId, "complete", directory);
               } catch (err2) {
                 console.warn(`[delegation-gate] toolAfter convene_council: could not advance ${taskId} \u2192 complete: ${err2 instanceof Error ? err2.message : String(err2)}`);
               }
@@ -25395,7 +25405,7 @@ ${trimComment}${after}`;
           pendingCoderScopeByTaskId.delete(currentTaskId);
         }
         try {
-          advanceTaskState(session, currentTaskId, "coder_delegated");
+          await advanceTaskStateAndPersist(session, currentTaskId, "coder_delegated", directory);
         } catch (err2) {
           console.warn(`[delegation-gate] state machine warn: ${err2 instanceof Error ? err2.message : String(err2)}`);
         }
@@ -25579,6 +25589,7 @@ __export(exports_state, {
   buildRehydrationCache: () => buildRehydrationCache,
   beginInvocation: () => beginInvocation,
   applyRehydrationCache: () => applyRehydrationCache,
+  advanceTaskStateAndPersist: () => advanceTaskStateAndPersist,
   advanceTaskState: () => advanceTaskState,
   _resetCouncilDisagreementWarnings: () => _resetCouncilDisagreementWarnings,
   AgentRunContext: () => AgentRunContext
@@ -25950,6 +25961,18 @@ function advanceTaskState(session, taskId, newState) {
   }
   session.taskWorkflowStates.set(taskId, newState);
   telemetry.taskStateChanged(session.agentName, taskId, newState, current);
+}
+async function advanceTaskStateAndPersist(session, taskId, newState, directory) {
+  advanceTaskState(session, taskId, newState);
+  if (newState !== "coder_delegated" && newState !== "complete") {
+    return;
+  }
+  const planStatus = newState === "complete" ? "completed" : "in_progress";
+  try {
+    await updateTaskStatus(directory, taskId, planStatus);
+  } catch (err2) {
+    console.warn(`[advanceTaskStateAndPersist] persist ${taskId} \u2192 ${planStatus} failed (in-memory state still advanced): ${err2 instanceof Error ? err2.message : String(err2)}`);
+  }
 }
 function getTaskState(session, taskId) {
   if (!isValidTaskId2(taskId)) {

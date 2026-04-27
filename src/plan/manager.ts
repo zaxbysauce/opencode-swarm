@@ -1070,9 +1070,22 @@ export async function savePlan(
 			}
 		}
 	} catch (mdError) {
+		const message =
+			mdError instanceof Error ? mdError.message : String(mdError);
 		warn(
-			`[savePlan] plan.md write failed (non-fatal, plan.json is authoritative): ${mdError instanceof Error ? mdError.message : String(mdError)}`,
+			`[savePlan] plan.md write failed (non-fatal, plan.json is authoritative): ${message}`,
 		);
+		// Surface as telemetry so silent staleness is observable downstream
+		// (e.g., /swarm status, telemetry consumers, post-run audits).
+		try {
+			emit('plan_md_write_failed', {
+				directory,
+				error: message,
+				timestamp: new Date().toISOString(),
+			});
+		} catch {
+			/* telemetry must never fail savePlan */
+		}
 	}
 
 	// Advisory: write marker file for plan-manager write detection
@@ -1258,7 +1271,9 @@ export function derivePlanMarkdown(plan: Plan): string {
 		pending: 'PENDING',
 		in_progress: 'IN PROGRESS',
 		complete: 'COMPLETE',
+		completed: 'COMPLETE',
 		blocked: 'BLOCKED',
+		closed: 'CLOSED',
 	};
 
 	const now = new Date().toISOString();

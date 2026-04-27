@@ -15077,7 +15077,15 @@ ${markdown}`;
       } catch {}
     }
   } catch (mdError) {
-    warn(`[savePlan] plan.md write failed (non-fatal, plan.json is authoritative): ${mdError instanceof Error ? mdError.message : String(mdError)}`);
+    const message = mdError instanceof Error ? mdError.message : String(mdError);
+    warn(`[savePlan] plan.md write failed (non-fatal, plan.json is authoritative): ${message}`);
+    try {
+      emit("plan_md_write_failed", {
+        directory,
+        error: message,
+        timestamp: new Date().toISOString()
+      });
+    } catch {}
   }
   try {
     const markerPath = path3.join(swarmDir, ".plan-write-marker");
@@ -15126,7 +15134,9 @@ function derivePlanMarkdown(plan) {
     pending: "PENDING",
     in_progress: "IN PROGRESS",
     complete: "COMPLETE",
-    blocked: "BLOCKED"
+    completed: "COMPLETE",
+    blocked: "BLOCKED",
+    closed: "CLOSED"
   };
   const now = new Date().toISOString();
   const currentPhase = plan.current_phase ?? 1;

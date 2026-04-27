@@ -361,6 +361,24 @@ export declare function recordPhaseAgentDispatch(sessionId: string, agentName: s
  */
 export declare function advanceTaskState(session: AgentSessionState, taskId: string, newState: TaskWorkflowState): void;
 /**
+ * Advance the per-task workflow state machine AND persist the corresponding
+ * plan.json status at meaningful workflow boundaries.
+ *
+ * The two-layer model splits in-memory workflow state (Layer 1, fast, used by
+ * gates) from the durable plan (Layer 2, projected to plan.md). Without this
+ * bridge, council APPROVE → 'complete' updates Layer 1 only and plan.md goes
+ * stale. This helper closes the gap by mapping:
+ *   - 'coder_delegated' → plan.json status 'in_progress'
+ *   - 'complete'        → plan.json status 'completed'
+ * Other transitions are in-memory only (the task is already in_progress on disk
+ * once coder_delegated has fired).
+ *
+ * Persistence errors are logged and swallowed so a transient disk failure does
+ * not break the in-memory state machine — matches the existing defensive
+ * pattern around advanceTaskState call sites.
+ */
+export declare function advanceTaskStateAndPersist(session: AgentSessionState, taskId: string, newState: TaskWorkflowState, directory: string): Promise<void>;
+/**
  * Get the current workflow state for a task.
  * Returns 'idle' if no entry exists.
  * Returns 'idle' for invalid taskId (null, undefined, empty, or whitespace-only).
