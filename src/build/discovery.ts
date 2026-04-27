@@ -1,7 +1,6 @@
 import * as fs from 'node:fs';
 import * as path from 'node:path';
 import { type ToolContext, tool } from '@opencode-ai/plugin';
-import { z } from 'zod';
 import { detectProjectLanguages } from '../lang/detector';
 import { LANGUAGE_REGISTRY } from '../lang/profiles';
 import { simpleGlobToRegex, warn } from '../utils';
@@ -534,19 +533,19 @@ export const build_discovery: ReturnType<typeof tool> = tool({
 	description:
 		'Discover build commands for various ecosystems in a project directory',
 	args: {
-		workingDir: z
+		workingDir: tool.schema
 			.string()
 			.describe(
 				'Directory to scan for build commands (defaults to current directory)',
 			),
-		scope: z
+		scope: tool.schema
 			.string()
 			.optional()
 			.describe(
 				'Scope of detection: "all" for all build files, "changed" for only changed files',
 			),
-		changedFiles: z
-			.array(z.string())
+		changedFiles: tool.schema
+			.array(tool.schema.string())
 			.optional()
 			.describe('List of changed files when scope is "changed"'),
 	},

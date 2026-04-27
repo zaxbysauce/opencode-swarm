@@ -1,7 +1,7 @@
 import * as fs from 'node:fs';
 import * as path from 'node:path';
+import { tool } from '@opencode-ai/plugin';
 import type { ToolDefinition } from '@opencode-ai/plugin/tool';
-import { z } from 'zod';
 import { createSwarmTool } from './create-tool';
 import { extractPythonSymbols, extractTSSymbols } from './symbols';
 
@@ -246,10 +246,10 @@ export const batch_symbols: ToolDefinition = createSwarmTool({
 		'One bad file does not crash the batch. Use for surveying a module ' +
 		'when you need symbol information from multiple files at once.',
 	args: {
-		files: z
-			.array(z.string())
+		files: tool.schema
+			.array(tool.schema.string())
 			.describe('Array of file paths to extract symbols from'),
-		exported_only: z
+		exported_only: tool.schema
 			.boolean()
 			.default(true)
 			.describe(
