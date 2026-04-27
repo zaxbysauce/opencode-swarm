@@ -54429,7 +54429,7 @@ function buildSlashCommandsList() {
   return lines.join(`
 `);
 }
-function createArchitectAgent(model, customPrompt, customAppendPrompt, adversarialTesting, council) {
+function createArchitectAgent(model, customPrompt, customAppendPrompt, adversarialTesting, council, uiReview) {
   let prompt = ARCHITECT_PROMPT;
   if (customPrompt) {
     prompt = customPrompt;
@@ -54463,6 +54463,13 @@ ${councilBlock}`;
   } else {
     prompt = prompt?.replace(/\{\{ADVERSARIAL_TEST_STEP\}\}/g, `    5m. {{AGENT_PREFIX}}test_engineer - Adversarial tests. FAIL \u2192 coder retry from 5g. Scope: attack vectors only \u2014 malformed inputs, boundary violations, injection attempts.
     \u2192 REQUIRED: Print "testengineer-adversarial: [PASS | FAIL \u2014 details]"`)?.replace(/\{\{ADVERSARIAL_TEST_CHECKLIST\}\}/g, "  [GATE] test_engineer-adversarial: PASS / FAIL \u2014 value: ___");
+  }
+  if (!uiReview?.enabled) {
+    prompt = prompt?.replace(", {{AGENT_PREFIX}}designer", "")?.replace(/\n 9\. \*\*UI\/UX DESIGN GATE\*\*:[\s\S]*?(?=\n10\. \*\*)/, `
+`)?.replace(`
+{{AGENT_PREFIX}}designer - UI/UX design specs (scaffold generation for UI components \u2014 runs BEFORE coder on UI tasks)`, "")?.replace(/\n\{\{AGENT_PREFIX\}\}designer\nTASK: Design specification[\s\S]*?accessibility(?=\n\n## WORKFLOW)/, "")?.replace(`5a. **UI DESIGN GATE** (conditional \u2014 Rule 9): If task matches UI trigger \u2192 {{AGENT_PREFIX}}designer produces scaffold \u2192 pass scaffold to coder as INPUT. If no match \u2192 skip.
+
+`, "")?.replace("\u2192 After step 5a (or immediately if no UI task applies): Call update_task_status", "\u2192 Call update_task_status")?.replace(" (if designer scaffold produced, include it as INPUT)", "");
   }
   return {
     name: "architect",
@@ -57741,7 +57748,7 @@ function createSwarmAgents(swarmId, swarmConfig, isDefault, pluginConfig) {
   const prefixName = (name2) => `${prefix}${name2}`;
   if (!isAgentDisabled("architect", swarmAgents, swarmPrefix)) {
     const architectPrompts = getPrompts("architect");
-    const architect = createArchitectAgent(getModel("architect"), architectPrompts.prompt, architectPrompts.appendPrompt, pluginConfig?.adversarial_testing, pluginConfig?.council);
+    const architect = createArchitectAgent(getModel("architect"), architectPrompts.prompt, architectPrompts.appendPrompt, pluginConfig?.adversarial_testing, pluginConfig?.council, pluginConfig?.ui_review);
     architect.name = prefixName("architect");
     const swarmName = swarmConfig.name || swarmId;
     const swarmIdentity = isDefault ? "default" : swarmId;

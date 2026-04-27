@@ -239,7 +239,16 @@ describe('ARCHITECT WORKFLOW: Reviewer Order Manipulation Prevention', () => {
 });
 
 describe('ARCHITECT WORKFLOW: UI Gate Bypass Prevention', () => {
-	const prompt = createArchitectAgent('test-model').config.prompt;
+	const prompt = createArchitectAgent(
+		'test-model',
+		undefined,
+		undefined,
+		undefined,
+		undefined,
+		{
+			enabled: true,
+		},
+	).config.prompt;
 
 	test('SECURITY: Designer must run BEFORE coder for UI tasks', () => {
 		expect(prompt).toContain('**UI/UX DESIGN GATE**');

@@ -232,6 +232,7 @@ function createSwarmAgents(
 			architectPrompts.appendPrompt,
 			pluginConfig?.adversarial_testing,
 			pluginConfig?.council,
+			pluginConfig?.ui_review,
 		);
 		architect.name = prefixName('architect');
 
