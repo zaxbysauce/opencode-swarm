@@ -21,5 +21,5 @@
  * Evidence path is .swarm/council/general/ (subdirectory; never writes to
  * .swarm/council/ root, where the QA council stores its files).
  */
-import { tool } from '@opencode-ai/plugin';
+import type { tool } from '@opencode-ai/plugin';
 export declare const convene_general_council: ReturnType<typeof tool>;

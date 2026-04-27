@@ -5,7 +5,8 @@
 
 import * as fs from 'node:fs';
 import * as path from 'node:path';
-import { type ToolDefinition, tool } from '@opencode-ai/plugin/tool';
+import type { ToolDefinition } from '@opencode-ai/plugin/tool';
+import { z } from 'zod';
 import { loadPluginConfig } from '../config/loader';
 import type { TaskStatus } from '../config/plan-schema';
 import { stripKnownSwarmPrefix } from '../config/schema';
@@ -952,17 +953,17 @@ export const update_task_status: ToolDefinition = createSwarmTool({
 		'Update the status of a specific task in the implementation plan. ' +
 		'Task status can be one of: pending, in_progress, completed, blocked.',
 	args: {
-		task_id: tool.schema
+		task_id: z
 			.string()
 			.min(1)
 			.regex(/^\d+\.\d+(\.\d+)*$/, 'Task ID must be in N.M or N.M.P format')
 			.describe('Task ID in N.M format, e.g. "1.1", "1.2.3"'),
-		status: tool.schema
+		status: z
 			.enum(['pending', 'in_progress', 'completed', 'blocked'])
 			.describe(
 				'New status for the task: pending, in_progress, completed, or blocked',
 			),
-		working_directory: tool.schema
+		working_directory: z
 			.string()
 			.optional()
 			.describe('Working directory where the plan is located'),

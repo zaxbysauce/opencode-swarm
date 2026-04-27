@@ -15,7 +15,8 @@
  * @see https://github.com/zaxbysauce/opencode-swarm/issues/449
  */
 
-import { tool } from '@opencode-ai/plugin';
+import type { tool } from '@opencode-ai/plugin';
+import { z } from 'zod';
 import { computeProfileHash, getProfile } from '../db/qa-gate-profile.js';
 import {
 	type ApprovedSnapshotInfo,
@@ -220,7 +221,7 @@ export const get_approved_plan: ReturnType<typeof tool> = createSwarmTool({
 		'Returns the approved plan, its approval metadata, and optionally compares against ' +
 		'the current plan.json to detect silent mutations. Read-only.',
 	args: {
-		summary_only: tool.schema
+		summary_only: z
 			.boolean()
 			.optional()
 			.describe(

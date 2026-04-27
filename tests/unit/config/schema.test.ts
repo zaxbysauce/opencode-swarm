@@ -6,6 +6,7 @@ import {
 import {
 	AgentOverrideConfigSchema,
 	ContextBudgetConfigSchema,
+	CouncilConfigSchema,
 	DecisionDecaySchema,
 	GeneralCouncilConfigSchema,
 	GuardrailsConfigSchema,
@@ -28,7 +29,10 @@ describe('AgentOverrideConfigSchema', () => {
 	});
 
 	it('accepts valid model string', () => {
+		const originalWarn = console.warn;
+		console.warn = () => {};
 		const result = AgentOverrideConfigSchema.safeParse({ model: 'gpt-4' });
+		console.warn = originalWarn;
 		expect(result.success).toBe(true);
 		if (result.success) {
 			expect(result.data).toEqual({ model: 'gpt-4' });

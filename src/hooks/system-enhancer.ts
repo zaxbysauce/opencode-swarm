@@ -1,4 +1,4 @@
-/**
+﻿/**
  * System Enhancer Hook
  *
  * Enhances the system prompt with current phase information from the plan
@@ -452,8 +452,7 @@ export function createSystemEnhancerHook(
 			): Promise<void> => {
 				try {
 					const maxInjectionTokens =
-						config.context_budget?.max_injection_tokens ??
-						Number.POSITIVE_INFINITY;
+						config.context_budget?.max_injection_tokens ?? 4000;
 					let injectedTokens = 0;
 
 					function tryInject(text: string): void {
@@ -864,6 +863,7 @@ ${handoffContent}`;
 									const rawResult = await knowledge_recall.execute(
 										{ query: primaryFile },
 										// Pass minimal context so createSwarmTool extracts directory correctly
+										// biome-ignore lint/suspicious/noExplicitAny: knowledge_recall.execute expects a narrow internal context; directory is the only needed field
 										{ directory } as any,
 									);
 									if (rawResult && typeof rawResult === 'string') {
