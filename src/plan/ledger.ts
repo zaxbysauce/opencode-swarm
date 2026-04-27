@@ -265,13 +265,19 @@ export async function readLedgerEvents(
 			.filter((line) => line.trim() !== '');
 
 		const events: LedgerEvent[] = [];
+		let skippedCount = 0;
 		for (const line of lines) {
 			try {
 				const event = JSON.parse(line) as LedgerEvent;
 				events.push(event);
 			} catch {
-				// Skip malformed lines
+				skippedCount++;
 			}
+		}
+		if (skippedCount > 0) {
+			console.warn(
+				`[ledger] Skipped ${skippedCount} malformed line(s) in plan-ledger.jsonl`,
+			);
 		}
 
 		// Sort by seq ascending
@@ -583,18 +589,20 @@ export async function replayFromLedger(
 	directory: string,
 	_options?: ReplayOptions,
 ): Promise<Plan | null> {
-	const events = await readLedgerEvents(directory);
+	const { events, truncated, badSuffix } =
+		await readLedgerEventsWithIntegrity(directory);
 
 	// If no events, nothing to replay
 	if (events.length === 0) {
 		return null;
 	}
 
-	// Filter to the identity of the first event (the plan_created anchor).
-	// In a mixed-identity ledger — created before savePlan's archive+reinit fix —
-	// events from multiple swarm identities may coexist. Replaying all of them
-	// would corrupt task state. Filtering to the first event's plan_id is safe:
-	// the plan_created event is always the canonical identity anchor.
+	// Handle corruption: quarantine bad suffix, then continue with clean prefix
+	if (truncated && badSuffix !== null) {
+		await quarantineLedgerSuffix(directory, badSuffix);
+	}
+
+	// Filter to the identity of the first event...
 	const targetPlanId = events[0].plan_id;
 	const relevantEvents = events.filter((e) => e.plan_id === targetPlanId);
 
