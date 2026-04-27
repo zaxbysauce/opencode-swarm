@@ -1061,7 +1061,9 @@ const OpenCodeSwarm: Plugin = async (ctx) => {
 				);
 
 			const normalizedTool = normalizeToolName(input.tool);
-			const isTaskTool = normalizedTool === 'Task' || normalizedTool === 'task';
+			const isTaskTool =
+				(normalizedTool === 'Task' || normalizedTool === 'task') &&
+				normalizedTool === input.tool;
 
 			const hookChain = async (): Promise<void> => {
 				await activityHooks.toolAfter(input, output);

@@ -230,7 +230,7 @@ function isAgentDelegation(
 	args: unknown,
 ): { isDelegation: boolean; targetAgent: string | null } {
 	const normalized = normalizeToolName(toolName);
-	if (normalized !== 'Task' && normalized !== 'task') {
+	if ((normalized !== 'Task' && normalized !== 'task') || normalized !== toolName) {
 		return { isDelegation: false, targetAgent: null };
 	}
 

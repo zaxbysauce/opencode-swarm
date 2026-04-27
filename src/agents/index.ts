@@ -8,6 +8,7 @@ import {
 } from '../config';
 import { AGENT_TOOL_MAP, DEFAULT_MODELS } from '../config/constants';
 import { stripKnownSwarmPrefix } from '../config/schema';
+import { log } from '../utils';
 import { type AgentDefinition, createArchitectAgent } from './architect';
 import { createCoderAgent } from './coder';
 import { createCouncilMemberAgent } from './council-member';
@@ -88,10 +89,8 @@ function getModelForAgent(
 	const resolvedModel = DEFAULT_MODELS[baseAgentName] ?? DEFAULT_MODELS.default;
 	if (!warnedAgents.has(baseAgentName)) {
 		warnedAgents.add(baseAgentName);
-		console.warn(
-			"[swarm] Agent '%s' not found in config — using default model '%s'. Add it to opencode-swarm.json to customize.",
-			baseAgentName,
-			resolvedModel,
+		log(
+			`[swarm] Agent '${baseAgentName}' not found in config — using default model '${resolvedModel}'. Add it to opencode-swarm.json to customize.`,
 		);
 	}
 	return resolvedModel;
@@ -682,9 +681,7 @@ export function getAgentConfigs(
 			// Warn once when base name lacks a whitelist entry (no override and no AGENT_TOOL_MAP)
 			if (!allowedTools && !Object.hasOwn(toolFilterOverrides, baseAgentName)) {
 				if (!warnedMissingWhitelist.has(baseAgentName)) {
-					console.warn(
-						`[getAgentConfigs] Unknown agent '${baseAgentName}', defaulting to minimal toolset.`,
-					);
+					log(`[getAgentConfigs] Unknown agent '${baseAgentName}', defaulting to minimal toolset.`);
 					warnedMissingWhitelist.add(baseAgentName);
 				}
 			}

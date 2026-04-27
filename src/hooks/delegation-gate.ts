@@ -496,7 +496,7 @@ export function createDelegationGateHook(
 		if (!input.sessionID) return;
 
 		const normalized = normalizeToolName(input.tool);
-		if (normalized !== 'Task' && normalized !== 'task') return;
+		if ((normalized !== 'Task' && normalized !== 'task') || normalized !== input.tool) return;
 
 		const args = output.args as Record<string, unknown> | undefined;
 		if (!args) return;
@@ -679,7 +679,7 @@ export function createDelegationGateHook(
 			return;
 		}
 
-		if (normalized === 'Task' || normalized === 'task') {
+		if ((normalized === 'Task' || normalized === 'task') && normalized === input.tool) {
 			// Primary source: input.args from OpenCode's tool.execute.after hook (authoritative)
 			// Fallback: stored args from guardrails toolBefore (legacy path)
 			const directArgs = input.args as Record<string, unknown> | undefined;
