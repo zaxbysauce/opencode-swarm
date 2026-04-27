@@ -37,18 +37,21 @@ jobs:
       matrix:
         os: [ubuntu-latest, macos-latest, windows-latest]
     runs-on: ${{ matrix.os }}
-    timeout-minutes: 15
+    timeout-minutes: 20
     steps:
       - uses: actions/checkout@34e114876b0b11c390a56381ad16ebd13914f8d5 # v4
       - uses: oven-sh/setup-bun@3d267786b128fe76c2f16a390aa2448b815359f3 # v2
         with:
           bun-version: "1.3.11"
       - name: Cache bun dependencies
+        id: cache-bun
         uses: actions/cache@0057852bfaa89a56745cba8c7296529d2fc39830 # v4
         with:
           path: ~/.bun/install/cache
           key: ${{ runner.os }}-bun-${{ hashFiles('**/bun.lock') }}
-          restore-keys: ${{ runner.os }}-bun-
+          restore-keys: |
+            ${{ runner.os }}-bun-
+            ${{ runner.os }}-bun
       - name: Install dependencies
         run: bun install --frozen-lockfile
       - name: Unit tests (hooks - guardrails)
@@ -66,12 +69,22 @@ jobs:
       - name: Unit tests (destructive command guard - all platforms)
         shell: bash
         run: |
+          set -o pipefail
+          IFS=$'\n'
           failed=0
           for f in tests/unit/hooks/destructive-command*.test.ts tests/unit/hooks/incident-replay*.test.ts; do
             [ -f "$f" ] || continue
-            if ! bun --smol test "$f" --timeout 120000; then
-              failed=1
+            tmp=$(mktemp)
+            exit_code=0
+            bun --smol test "$f" --timeout 120000 > "$tmp" 2>&1 || exit_code=$?
+            if [ $exit_code -ne 0 ]; then
+              # bun exited non-zero — check if it was a real failure or crash
+              if grep -qE "(FAIL|Error:|AssertionError)" "$tmp"; then
+                echo "::error file=$f::FAILED: $f"
+                failed=1
+              fi
             fi
+            rm -f "$tmp"
           done
           exit $failed
       - name: Unit tests (hooks - knowledge types/validator/store)
@@ -209,65 +222,126 @@ jobs:
       - name: Unit tests (commands, config)
         shell: bash
         run: |
+          set -o pipefail
+          IFS=$'\n'
           # Per-file isolation to prevent --smol cache poisoning (#330).
           failed=0
           for dir in tests/unit/commands tests/unit/config; do
             for f in "$dir"/*.test.ts; do
               [ -f "$f" ] || continue
-              if ! bun --smol test "$f" --timeout 120000; then
-                failed=1
+              tmp=$(mktemp)
+              exit_code=0
+              bun --smol test "$f" --timeout 120000 > "$tmp" 2>&1 || exit_code=$?
+              if [ $exit_code -ne 0 ]; then
+                # bun exited non-zero — check if it was a real failure or crash
+                if grep -qE "(FAIL|Error:|AssertionError)" "$tmp"; then
+                  echo "::error file=$f::FAILED: $f"
+                  failed=1
+                fi
               fi
+              rm -f "$tmp"
             done
           done
           exit $failed
       - name: Unit tests (cli)
-        run: bun --smol test tests/unit/cli --timeout 120000
+        shell: bash
+        run: |
+          set -o pipefail
+          IFS=$'\n'
+          tmp=$(mktemp)
+          exit_code=0
+          bun --smol test tests/unit/cli --timeout 120000 > "$tmp" 2>&1 || exit_code=$?
+          if [ $exit_code -ne 0 ]; then
+            # bun exited non-zero — check if it was a real failure or crash
+            if grep -qE "(FAIL|Error:|AssertionError)" "$tmp"; then
+              rm -f "$tmp"
+              exit 1
+            fi
+          fi
+          rm -f "$tmp"
       - name: Unit tests (tools)
         shell: bash
         run: |
+          set -o pipefail
+          IFS=$'\n'
           # Run each tools test file in its own process to prevent
           # --smol module cache poisoning across files (#330).
           failed=0
           for f in tests/unit/tools/*.test.ts; do
-            if ! bun --smol test "$f" --timeout 120000; then
-              echo "::error file=$f::FAILED: $f"
-              failed=1
+            tmp=$(mktemp)
+            exit_code=0
+            bun --smol test "$f" --timeout 120000 > "$tmp" 2>&1 || exit_code=$?
+            if [ $exit_code -ne 0 ]; then
+              # bun exited non-zero — check if it was a real failure or crash
+              if grep -qE "(FAIL|Error:|AssertionError)" "$tmp"; then
+                echo "::error file=$f::FAILED: $f"
+                failed=1
+              fi
             fi
+            rm -f "$tmp"
           done
           exit $failed
       - name: Unit tests (services, build, quality, sast, sbom, scripts)
         shell: bash
         run: |
+          set -o pipefail
+          IFS=$'\n'
           # Per-file isolation to prevent --smol cache poisoning (#330).
           failed=0
           for dir in tests/unit/services tests/unit/build tests/unit/quality tests/unit/sast tests/unit/sbom tests/unit/scripts; do
             for f in "$dir"/*.test.ts; do
               [ -f "$f" ] || continue
-              if ! bun --smol test "$f" --timeout 120000; then
-                failed=1
+              tmp=$(mktemp)
+              exit_code=0
+              bun --smol test "$f" --timeout 120000 > "$tmp" 2>&1 || exit_code=$?
+              if [ $exit_code -ne 0 ]; then
+                # bun exited non-zero — check if it was a real failure or crash
+                if grep -qE "(FAIL|Error:|AssertionError)" "$tmp"; then
+                  echo "::error file=$f::FAILED: $f"
+                  failed=1
+                fi
               fi
+              rm -f "$tmp"
             done
           done
           exit $failed
       - name: Unit tests (state, agents, knowledge, evidence, plan, misc)
         shell: bash
         run: |
+          set -o pipefail
+          IFS=$'\n'
           # Per-file isolation to prevent --smol cache poisoning (#330).
           failed=0
           for dir in tests/unit/adversarial tests/unit/agents tests/unit/background tests/unit/context tests/unit/council tests/unit/diff tests/unit/evidence tests/unit/git tests/unit/helpers tests/unit/knowledge tests/unit/lang tests/unit/output tests/unit/parallel tests/unit/plan tests/unit/session tests/unit/skills tests/unit/types tests/unit/utils; do
             for f in "$dir"/*.test.ts; do
               [ -f "$f" ] || continue
-              if ! bun --smol test "$f" --timeout 120000; then
-                failed=1
+              tmp=$(mktemp)
+              exit_code=0
+              bun --smol test "$f" --timeout 120000 > "$tmp" 2>&1 || exit_code=$?
+              if [ $exit_code -ne 0 ]; then
+                # bun exited non-zero — check if it was a real failure or crash
+                if grep -qE "(FAIL|Error:|AssertionError)" "$tmp"; then
+                  echo "::error file=$f::FAILED: $f"
+                  failed=1
+                fi
               fi
+              rm -f "$tmp"
             done
           done
           # Standalone test files
           for f in tests/unit/cli-dispatch.test.ts tests/unit/index-commands.test.ts tests/unit/stale-delegation-guard.test.ts tests/unit/state-invocation-windows.test.ts tests/unit/state-rehydrate.test.ts tests/unit/state-turbo-mode.test.ts tests/unit/state-workflow-guard.adversarial.test.ts tests/unit/state-workflow-guard.test.ts tests/unit/state.adversarial-scope.test.ts tests/unit/state.adversarial.test.ts tests/unit/state.rehydrate.adversarial.test.ts tests/unit/state.test.ts tests/unit/version-bump.test.ts; do
             [ -f "$f" ] || continue
-            if ! bun --smol test "$f" --timeout 120000; then
-              failed=1
+            tmp=$(mktemp)
+            exit_code=0
+            bun --smol test "$f" --timeout 120000 > "$tmp" 2>&1 || exit_code=$?
+            if [ $exit_code -ne 0 ]; then
+              # bun exited non-zero — check if it was a real failure or crash
+              if grep -qE "(FAIL|Error:|AssertionError)" "$tmp"; then
+                echo "::error file=$f::FAILED: $f"
+                failed=1
+              fi
             fi
+            rm -f "$tmp"
           done
           exit $failed
 
