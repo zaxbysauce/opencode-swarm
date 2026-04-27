@@ -1,5 +1,12 @@
 # Changelog
 
+## [6.86.5](https://github.com/zaxbysauce/opencode-swarm/compare/v6.86.4...v6.86.5) (2026-04-27)
+
+
+### Bug Fixes
+
+* **mutation:** extract JSON from LLM responses containing markdown or prose preamble ([#664](https://github.com/zaxbysauce/opencode-swarm/issues/664)) ([1793cf6](https://github.com/zaxbysauce/opencode-swarm/commit/1793cf6a9f11d878e7104e83b616cc0349c9d686))
+
 ## [6.86.4](https://github.com/zaxbysauce/opencode-swarm/compare/v6.86.3...v6.86.4) (2026-04-27)
 
 
