@@ -4,7 +4,8 @@
  * giving the architect an explicit tool to call after reviewing phase data.
  */
 
-import { type ToolContext, tool } from '@opencode-ai/plugin';
+import type { ToolContext } from '@opencode-ai/plugin';
+import { z } from 'zod';
 import { loadPluginConfigWithMeta } from '../config';
 import { CuratorConfigSchema, KnowledgeConfigSchema } from '../config/schema';
 import {
@@ -27,23 +28,15 @@ export const curator_analyze: ReturnType<typeof createSwarmTool> =
 			'Call this after reviewing a phase to apply knowledge updates. ' +
 			'If recommendations is provided, applies them via applyCuratorKnowledgeUpdates.',
 		args: {
-			phase: tool.schema
-				.number()
-				.int()
-				.min(1)
-				.describe('Phase number to analyze'),
-			recommendations: tool.schema
+			phase: z.number().int().min(1).describe('Phase number to analyze'),
+			recommendations: z
 				.array(
-					tool.schema.object({
-						action: tool.schema.enum([
-							'promote',
-							'archive',
-							'flag_contradiction',
-						]),
-						entry_id: tool.schema.string().optional(),
-						lesson: tool.schema.string(),
-						reason: tool.schema.string(),
-						category: tool.schema
+					z.object({
+						action: z.enum(['promote', 'archive', 'flag_contradiction']),
+						entry_id: z.string().optional(),
+						lesson: z.string(),
+						reason: z.string(),
+						category: z
 							.enum([
 								'process',
 								'architecture',
@@ -56,7 +49,7 @@ export const curator_analyze: ReturnType<typeof createSwarmTool> =
 								'other',
 							])
 							.optional(),
-						confidence: tool.schema.number().min(0).max(1).optional(),
+						confidence: z.number().min(0).max(1).optional(),
 					}),
 				)
 				.optional()

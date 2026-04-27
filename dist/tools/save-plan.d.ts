@@ -2,7 +2,7 @@
  * Save plan tool for persisting validated implementation plans.
  * Allows the Architect agent to save structured plans to .swarm/plan.json and .swarm/plan.md.
  */
-import { type ToolDefinition } from '@opencode-ai/plugin/tool';
+import type { ToolDefinition } from '@opencode-ai/plugin/tool';
 /**
  * Arguments for the save_plan tool
  */

@@ -1,6 +1,7 @@
 import * as fs from 'node:fs';
 import * as path from 'node:path';
-import { tool } from '@opencode-ai/plugin';
+import type { tool } from '@opencode-ai/plugin';
+import { z } from 'zod';
 import { estimateCyclomaticComplexity } from '../quality/metrics';
 import { createSwarmTool } from './create-tool';
 
@@ -320,19 +321,19 @@ export const complexity_hotspots: ReturnType<typeof tool> = createSwarmTool({
 	description:
 		'Identify high-risk code hotspots by combining git churn frequency with cyclomatic complexity estimates. Returns files with their churn count, complexity score, risk score, and recommended review level.',
 	args: {
-		days: tool.schema
+		days: z
 			.number()
 			.optional()
 			.describe(
 				'Number of days of git history to analyze (default: 90, valid range: 1-365)',
 			),
-		top_n: tool.schema
+		top_n: z
 			.number()
 			.optional()
 			.describe(
 				'Number of top hotspots to return (default: 20, valid range: 1-100)',
 			),
-		extensions: tool.schema
+		extensions: z
 			.string()
 			.optional()
 			.describe(

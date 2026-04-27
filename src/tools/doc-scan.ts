@@ -2,7 +2,7 @@ import * as crypto from 'node:crypto';
 import * as fs from 'node:fs';
 import { mkdir, readFile, writeFile } from 'node:fs/promises';
 import * as path from 'node:path';
-import { tool } from '@opencode-ai/plugin';
+import { z } from 'zod';
 import { DocsConfigSchema } from '../config/schema.js';
 import {
 	appendKnowledge,
@@ -541,7 +541,7 @@ export const doc_scan: ReturnType<typeof createSwarmTool> = createSwarmTool({
 	description:
 		'Scan project documentation files and build an index manifest. Caches results in .swarm/doc-manifest.json for fast subsequent scans.',
 	args: {
-		force: tool.schema
+		force: z
 			.boolean()
 			.optional()
 			.describe('Force re-scan even if cache is valid'),
@@ -587,12 +587,10 @@ export const doc_extract: ReturnType<typeof createSwarmTool> = createSwarmTool({
 	description:
 		'Extract actionable constraints from project documentation relevant to the current task. Scans docs via doc-manifest, scores relevance via Jaccard bigram similarity, and stores non-duplicate constraints in .swarm/knowledge.jsonl.',
 	args: {
-		task_files: tool.schema
-			.array(tool.schema.string())
+		task_files: z
+			.array(z.string())
 			.describe('List of file paths involved in the current task'),
-		task_description: tool.schema
-			.string()
-			.describe('Description of the current task'),
+		task_description: z.string().describe('Description of the current task'),
 	},
 	execute: async (args: unknown, directory: string): Promise<string> => {
 		// Safe args extraction

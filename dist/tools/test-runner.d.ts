@@ -1,4 +1,4 @@
-import { tool } from '@opencode-ai/plugin';
+import type { tool } from '@opencode-ai/plugin';
 export declare const MAX_OUTPUT_BYTES = 512000;
 export declare const MAX_COMMAND_LENGTH = 500;
 export declare const DEFAULT_TIMEOUT_MS = 60000;

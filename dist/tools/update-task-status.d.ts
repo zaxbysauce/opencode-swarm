@@ -2,7 +2,7 @@
  * Update task status tool for changing the status of individual tasks in a plan.
  * Allows agents to mark tasks as pending, in_progress, completed, or blocked.
  */
-import { type ToolDefinition } from '@opencode-ai/plugin/tool';
+import type { ToolDefinition } from '@opencode-ai/plugin/tool';
 /**
  * Arguments for the update_task_status tool
  */

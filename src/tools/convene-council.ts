@@ -9,7 +9,7 @@
  * AGENT_TOOL_MAP. Follows the check-gate-status.ts pattern.
  */
 
-import { tool } from '@opencode-ai/plugin';
+import type { tool } from '@opencode-ai/plugin';
 import { z } from 'zod';
 import { loadPluginConfig } from '../config/loader';
 import { pushCouncilAdvisory } from '../council/council-advisory';
@@ -22,7 +22,7 @@ import { createSwarmTool } from './create-tool';
 import { resolveWorkingDirectory } from './resolve-working-directory';
 
 // ============ Internal validation schema ============
-// tool.schema declares the public args surface for the plugin host.
+// z declares the public args surface for the plugin host.
 // We additionally validate with zod for strict runtime safety and clear errors.
 const FindingSchema = z.object({
 	severity: z.enum(['HIGH', 'MEDIUM', 'LOW']),
@@ -66,46 +66,43 @@ export const convene_council: ReturnType<typeof tool> = createSwarmTool({
 		'and a single unified feedback document. Architect-only. Config-gated via ' +
 		'council.enabled.',
 	args: {
-		taskId: tool.schema
+		taskId: z
 			.string()
 			.min(1)
 			.regex(/^\d+\.\d+(\.\d+)*$/, 'Task ID must be in N.M or N.M.P format')
 			.describe('Task ID being evaluated, e.g. "1.1", "1.2.3"'),
-		swarmId: tool.schema
-			.string()
-			.min(1)
-			.describe('Swarm identifier, e.g. "mega"'),
-		roundNumber: tool.schema
+		swarmId: z.string().min(1).describe('Swarm identifier, e.g. "mega"'),
+		roundNumber: z
 			.number()
 			.int()
 			.min(1)
 			.max(10)
 			.optional()
 			.describe('1-indexed round number. Defaults to 1.'),
-		verdicts: tool.schema
+		verdicts: z
 			.array(
-				tool.schema.object({
-					agent: tool.schema.enum([
+				z.object({
+					agent: z.enum([
 						'critic',
 						'reviewer',
 						'sme',
 						'test_engineer',
 						'explorer',
 					]),
-					verdict: tool.schema.enum(['APPROVE', 'CONCERNS', 'REJECT']),
-					confidence: tool.schema.number().min(0).max(1),
-					findings: tool.schema.array(
-						tool.schema.object({
-							severity: tool.schema.enum(['HIGH', 'MEDIUM', 'LOW']),
-							category: tool.schema.string().min(1),
-							location: tool.schema.string(),
-							detail: tool.schema.string(),
-							evidence: tool.schema.string(),
+					verdict: z.enum(['APPROVE', 'CONCERNS', 'REJECT']),
+					confidence: z.number().min(0).max(1),
+					findings: z.array(
+						z.object({
+							severity: z.enum(['HIGH', 'MEDIUM', 'LOW']),
+							category: z.string().min(1),
+							location: z.string(),
+							detail: z.string(),
+							evidence: z.string(),
 						}),
 					),
-					criteriaAssessed: tool.schema.array(tool.schema.string()),
-					criteriaUnmet: tool.schema.array(tool.schema.string()),
-					durationMs: tool.schema.number(),
+					criteriaAssessed: z.array(z.string()),
+					criteriaUnmet: z.array(z.string()),
+					durationMs: z.number(),
 				}),
 			)
 			.min(1)
@@ -113,7 +110,7 @@ export const convene_council: ReturnType<typeof tool> = createSwarmTool({
 			.describe(
 				'Array of CouncilMemberVerdict objects. Must include between 1 and 5 entries, one per participating member (critic, reviewer, sme, test_engineer, explorer).',
 			),
-		working_directory: tool.schema
+		working_directory: z
 			.string()
 			.optional()
 			.describe(

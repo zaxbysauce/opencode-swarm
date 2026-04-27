@@ -10,16 +10,23 @@ import {
 import * as os from 'node:os';
 import * as path from 'node:path';
 import type { ToolContext } from '@opencode-ai/plugin';
+import type { ToolResult } from './create-tool';
 import { suggestPatch } from './suggest-patch';
+
+// Helper to extract string from ToolResult
+function resultToString(result: ToolResult): string {
+	return typeof result === 'string' ? result : result.output;
+}
 
 // Helper to call tool execute with proper context
 async function executeSuggestPatch(
 	args: Record<string, unknown>,
 	directory: string,
 ): Promise<string> {
-	return suggestPatch.execute(args, {
+	const result = await suggestPatch.execute(args, {
 		directory,
 	} as unknown as ToolContext);
+	return resultToString(result);
 }
 
 let tmpDir: string;
@@ -794,7 +801,6 @@ describe('suggest_patch ADVERSARIAL - Context injection', () => {
 						file: 'test.txt',
 						contextBefore: ['line1'],
 						contextAfter: ['line3'],
-						// biome-ignore lint/suspicious/noTemplateCurlyInString: intentional injection test
 						newContent: '${process.env.SECRET}',
 					},
 				],

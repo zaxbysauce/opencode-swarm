@@ -1,7 +1,8 @@
 import * as child_process from 'node:child_process';
 import * as fs from 'node:fs';
 import * as path from 'node:path';
-import { type ToolContext, tool } from '@opencode-ai/plugin';
+import type { ToolContext } from '@opencode-ai/plugin';
+import { z } from 'zod';
 import { type ASTDiffResult, computeASTDiff } from '../diff/ast-diff.js';
 import { classifyChanges } from '../diff/semantic-classifier.js';
 import {
@@ -84,14 +85,14 @@ export const diff: ReturnType<typeof createSwarmTool> = createSwarmTool({
 	description:
 		'Analyze git diff for changed files, exports, interfaces, and function signatures. Returns structured output with contract change detection.',
 	args: {
-		base: tool.schema
+		base: z
 			.string()
 			.optional()
 			.describe(
 				'Base ref to diff against (default: HEAD). Use "staged" for staged changes, "unstaged" for working tree changes.',
 			),
-		paths: tool.schema
-			.array(tool.schema.string())
+		paths: z
+			.array(z.string())
 			.optional()
 			.describe('Optional file paths to restrict diff scope.'),
 	},

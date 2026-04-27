@@ -3,7 +3,8 @@
  */
 
 import { existsSync } from 'node:fs';
-import { tool } from '@opencode-ai/plugin';
+import type { tool } from '@opencode-ai/plugin';
+import { z } from 'zod';
 import { loadPluginConfigWithMeta } from '../config';
 import {
 	readKnowledge,
@@ -227,27 +228,27 @@ export const knowledge_query: ReturnType<typeof tool> = createSwarmTool({
 	description:
 		'Query swarm knowledge (project-level) or hive knowledge (cross-project) with optional filters. Returns human-readable formatted text output. Use tier "all" to query both swarm and hive knowledge.',
 	args: {
-		tier: tool.schema
+		tier: z
 			.string()
 			.optional()
 			.describe(
 				"Knowledge tier to query: 'swarm', 'hive', or 'all' (default: 'all')",
 			),
-		status: tool.schema
+		status: z
 			.string()
 			.optional()
 			.describe("Filter by status: 'candidate', 'established', or 'promoted'"),
-		category: tool.schema
+		category: z
 			.string()
 			.optional()
 			.describe(
 				"Filter by category: 'process', 'architecture', 'tooling', 'security', 'testing', 'debugging', 'performance', 'integration', 'todo', or 'other'",
 			),
-		min_score: tool.schema
+		min_score: z
 			.number()
 			.optional()
 			.describe('Minimum confidence score filter (0.0-1.0)'),
-		limit: tool.schema
+		limit: z
 			.number()
 			.optional()
 			.describe(

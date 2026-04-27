@@ -3,6 +3,7 @@ import * as fs from 'node:fs';
 import * as os from 'node:os';
 import * as path from 'node:path';
 import type { ToolContext } from '@opencode-ai/plugin';
+import type { ToolResult } from './create-tool';
 import { curator_analyze } from './curator-analyze';
 
 // Test utilities
@@ -23,14 +24,20 @@ function createSwarmDir(dir: string): string {
 	return swarmDir;
 }
 
+// Helper to extract string from ToolResult
+function resultToString(result: ToolResult): string {
+	return typeof result === 'string' ? result : result.output;
+}
+
 // Helper to call tool execute with proper context (bypasses strict type requirements for testing)
 async function executeTool(
 	args: Record<string, unknown>,
 	directory: string,
 ): Promise<string> {
-	return curator_analyze.execute(args, {
+	const result = (await curator_analyze.execute(args, {
 		directory,
-	} as unknown as ToolContext);
+	} as unknown as ToolContext)) as unknown as ToolResult;
+	return resultToString(result);
 }
 
 // Mock modules before importing curator_analyze
