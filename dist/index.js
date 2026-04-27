@@ -57733,7 +57733,15 @@ function applyOverrides(agent, swarmAgents, swarmPrefix) {
     agent.config.temperature = tempOverride;
   }
   const variantOverride = getVariantOverride(agent.name, swarmAgents, swarmPrefix);
-  if (variantOverride !== undefined) {
+  const modelSegments = agent.config.model?.split("/") ?? [];
+  if (modelSegments.length >= 3) {
+    const autoVariant = modelSegments[modelSegments.length - 1];
+    const cleanedModel = modelSegments.slice(0, -1).join("/");
+    const effectiveVariant = variantOverride ?? autoVariant;
+    console.warn(`[swarm] Deprecation: model "${agent.config.model}" embeds variant. ` + `Use "model": "${cleanedModel}", "variant": "${effectiveVariant}" instead.`);
+    agent.config.model = cleanedModel;
+    agent.config.variant = effectiveVariant;
+  } else if (variantOverride !== undefined) {
     agent.config.variant = variantOverride;
   }
   return agent;

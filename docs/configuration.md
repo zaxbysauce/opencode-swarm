@@ -64,6 +64,35 @@ OpenCode's TUI accepts the shorthand `provider/model/variant` (e.g. `grove-opena
 }
 ```
 
+### Backward compatibility
+
+If you currently have a config like `{ "model": "grove-openai/gpt-5.3-codex/medium" }`, it will still work — the variant is automatically extracted and a deprecation warning is logged.
+
+**Before** (deprecated — produces a warning):
+
+```json
+{
+  "agents": {
+    "coder": {
+      "model": "grove-openai/gpt-5.3-codex/medium"
+    }
+  }
+}
+```
+
+**After** (recommended — silences the warning):
+
+```json
+{
+  "agents": {
+    "coder": {
+      "model": "grove-openai/gpt-5.3-codex",
+      "variant": "medium"
+    }
+  }
+}
+```
+
 ## How to verify the resolved config
 
 Run:

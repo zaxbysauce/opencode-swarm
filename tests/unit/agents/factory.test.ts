@@ -1,4 +1,4 @@
-import { afterEach, beforeEach, describe, expect, it } from 'bun:test';
+import { afterEach, beforeEach, describe, expect, it, spyOn } from 'bun:test';
 import * as fs from 'node:fs';
 import * as os from 'node:os';
 import * as path from 'node:path';
@@ -142,6 +142,65 @@ describe('createAgents', () => {
 			expect(
 				(coder?.config as { variant?: string } | undefined)?.variant,
 			).toBeUndefined();
+		});
+
+		it('auto-splits variant from 3-segment model string', () => {
+			const warnSpy = spyOn(console, 'warn').mockImplementation(() => {});
+			const config = {
+				agents: {
+					coder: {
+						model: 'grove-openai/gpt-5.3-codex/medium',
+					},
+				},
+			};
+
+			const agents = createAgents(config as unknown as PluginConfig);
+			const coder = agents.find((a) => a.name === 'coder');
+			expect(coder?.config.model).toBe('grove-openai/gpt-5.3-codex');
+			expect((coder?.config as { variant?: string } | undefined)?.variant).toBe(
+				'medium',
+			);
+			expect(warnSpy).toHaveBeenCalled();
+			warnSpy.mockRestore();
+		});
+
+		it('explicit variant override takes precedence over auto-split', () => {
+			const warnSpy = spyOn(console, 'warn').mockImplementation(() => {});
+			const config = {
+				agents: {
+					coder: {
+						model: 'grove-openai/gpt-5.3-codex/medium',
+						variant: 'high',
+					},
+				},
+			};
+
+			const agents = createAgents(config as unknown as PluginConfig);
+			const coder = agents.find((a) => a.name === 'coder');
+			expect(coder?.config.model).toBe('grove-openai/gpt-5.3-codex');
+			expect((coder?.config as { variant?: string } | undefined)?.variant).toBe(
+				'high',
+			);
+			expect(warnSpy).toHaveBeenCalled();
+			warnSpy.mockRestore();
+		});
+
+		it('does not modify 2-segment model string', () => {
+			const warnSpy = spyOn(console, 'warn').mockImplementation(() => {});
+			const config = {
+				agents: {
+					coder: { model: 'custom/model' },
+				},
+			};
+
+			const agents = createAgents(config as unknown as PluginConfig);
+			const coder = agents.find((a) => a.name === 'coder');
+			expect(coder?.config.model).toBe('custom/model');
+			expect(
+				(coder?.config as { variant?: string } | undefined)?.variant,
+			).toBeUndefined();
+			expect(warnSpy).not.toHaveBeenCalled();
+			warnSpy.mockRestore();
 		});
 
 		it('disabled agent is filtered out', () => {

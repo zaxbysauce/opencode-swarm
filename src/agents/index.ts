@@ -214,7 +214,22 @@ function applyOverrides(
 		swarmAgents,
 		swarmPrefix,
 	);
-	if (variantOverride !== undefined) {
+	// Auto-split variant from model string for backward compatibility.
+	// If the model has 3+ segments (provider/model/variant), always clean it
+	// and use either the auto-split variant or the explicit variant override.
+	const modelSegments = agent.config.model?.split('/') ?? [];
+	if (modelSegments.length >= 3) {
+		const autoVariant = modelSegments[modelSegments.length - 1];
+		const cleanedModel = modelSegments.slice(0, -1).join('/');
+		const effectiveVariant = variantOverride ?? autoVariant;
+		console.warn(
+			`[swarm] Deprecation: model "${agent.config.model}" embeds variant. ` +
+				`Use "model": "${cleanedModel}", "variant": "${effectiveVariant}" instead.`,
+		);
+		agent.config.model = cleanedModel;
+		// Use explicit variant override if set, otherwise use auto-split variant
+		(agent.config as { variant?: string }).variant = effectiveVariant;
+	} else if (variantOverride !== undefined) {
 		// `variant` is not declared on @opencode-ai/sdk's AgentConfig type but
 		// the runtime Agent struct includes it (see opencode source:
 		// `variant: r.optional(r.String)` in the Agent schema). The SDK type
