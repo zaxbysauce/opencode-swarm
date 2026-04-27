@@ -1,5 +1,12 @@
 # Changelog
 
+## [6.86.4](https://github.com/zaxbysauce/opencode-swarm/compare/v6.86.3...v6.86.4) (2026-04-27)
+
+
+### Bug Fixes
+
+* **plan:** resolve ledger corruption handling and rollback ledger bypass audit findings ([#659](https://github.com/zaxbysauce/opencode-swarm/issues/659)) ([afce191](https://github.com/zaxbysauce/opencode-swarm/commit/afce1914557bab11349a0c6b81d74d7dc676e4af))
+
 ## [6.86.3](https://github.com/zaxbysauce/opencode-swarm/compare/v6.86.2...v6.86.3) (2026-04-27)
 
 
