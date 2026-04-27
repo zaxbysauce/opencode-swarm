@@ -14248,11 +14248,17 @@ async function readLedgerEvents(directory) {
     const lines = content.trim().split(`
 `).filter((line) => line.trim() !== "");
     const events = [];
+    let skippedCount = 0;
     for (const line of lines) {
       try {
         const event = JSON.parse(line);
         events.push(event);
-      } catch {}
+      } catch {
+        skippedCount++;
+      }
+    }
+    if (skippedCount > 0) {
+      console.warn(`[ledger] Skipped ${skippedCount} malformed line(s) in plan-ledger.jsonl`);
     }
     events.sort((a, b) => a.seq - b.seq);
     return events;
@@ -14349,9 +14355,12 @@ async function takeSnapshotEvent(directory, plan, options) {
   }, { planHashAfter: options?.planHashAfter });
 }
 async function replayFromLedger(directory, _options) {
-  const events = await readLedgerEvents(directory);
+  const { events, truncated, badSuffix } = await readLedgerEventsWithIntegrity(directory);
   if (events.length === 0) {
     return null;
+  }
+  if (truncated && badSuffix !== null) {
+    await quarantineLedgerSuffix(directory, badSuffix);
   }
   const targetPlanId = events[0].plan_id;
   const relevantEvents = events.filter((e) => e.plan_id === targetPlanId);
@@ -14472,6 +14481,46 @@ function applyEventToPlan(plan, event) {
     default:
       throw new Error(`applyEventToPlan: unhandled event type "${event.event_type}" at seq ${event.seq}`);
   }
+}
+async function readLedgerEventsWithIntegrity(directory) {
+  const ledgerPath = getLedgerPath(directory);
+  if (!fs.existsSync(ledgerPath)) {
+    return { events: [], truncated: false, badSuffix: null };
+  }
+  try {
+    const content = fs.readFileSync(ledgerPath, "utf8");
+    const lines = content.split(`
+`);
+    const events = [];
+    let truncated = false;
+    let badSuffix = null;
+    for (let i = 0;i < lines.length; i++) {
+      const line = lines[i];
+      if (line.trim() === "") {
+        continue;
+      }
+      try {
+        const event = JSON.parse(line);
+        events.push(event);
+      } catch {
+        truncated = true;
+        badSuffix = lines.slice(i).join(`
+`);
+        break;
+      }
+    }
+    events.sort((a, b) => a.seq - b.seq);
+    return { events, truncated, badSuffix };
+  } catch {
+    return { events: [], truncated: false, badSuffix: null };
+  }
+}
+async function quarantineLedgerSuffix(directory, badSuffix) {
+  try {
+    const quarantinePath = path2.join(directory, ".swarm", "plan-ledger.quarantine");
+    fs.writeFileSync(quarantinePath, badSuffix, "utf8");
+    console.warn(`[ledger] Corrupted suffix quarantined to ${path2.relative(directory, quarantinePath)}`);
+  } catch {}
 }
 async function loadLastApprovedPlan(directory, expectedPlanId) {
   const events = await readLedgerEvents(directory);
@@ -44397,7 +44446,9 @@ ${error93 instanceof Error ? error93.message : String(error93)}`;
 }
 
 // src/commands/rollback.ts
+init_plan_schema();
 init_utils2();
+init_ledger();
 import * as fs21 from "fs";
 import * as path32 from "path";
 async function handleRollbackCommand(directory, args) {
@@ -44454,9 +44505,16 @@ async function handleRollbackCommand(directory, args) {
     return `Error: Checkpoint for phase ${targetPhase} is empty. Cannot rollback.`;
   }
   const swarmDir = validateSwarmPath(directory, "");
+  const EXCLUDE_FILES = new Set([
+    "plan-ledger.jsonl",
+    "plan-ledger.quarantine"
+  ]);
   const successes = [];
   const failures = [];
   for (const file3 of checkpointFiles) {
+    if (EXCLUDE_FILES.has(file3) || file3.startsWith("plan-ledger.archived-")) {
+      continue;
+    }
     const src = path32.join(checkpointDir, file3);
     const dest = path32.join(swarmDir, file3);
     try {
@@ -44467,7 +44525,41 @@ async function handleRollbackCommand(directory, args) {
     }
   }
   if (failures.length > 0) {
-    return `Rollback partially completed. Successfully restored ${successes.length} files: ${successes.join(", ") || "none"}. Failed on ${failures.length} files: ${failures.map((f) => f.file).join(", ")}. Check permissions and disk space.`;
+    return [
+      `Rollback partially completed. Successfully restored ${successes.length} files.`,
+      `Failed on ${failures.length} files:`,
+      ...failures.map((f) => `  - ${f.file}: ${f.error}`),
+      "",
+      "Some files could not be restored. The .swarm/ directory may be in an inconsistent state.",
+      "Check permissions and disk space, then retry the rollback."
+    ].join(`
+`);
+  }
+  const existingLedgerPath = path32.join(swarmDir, "plan-ledger.jsonl");
+  if (fs21.existsSync(existingLedgerPath)) {
+    fs21.unlinkSync(existingLedgerPath);
+  }
+  try {
+    const planJsonPath = path32.join(swarmDir, "plan.json");
+    if (fs21.existsSync(planJsonPath)) {
+      const planRaw = fs21.readFileSync(planJsonPath, "utf-8");
+      const plan = PlanSchema.parse(JSON.parse(planRaw));
+      const planId = `${plan.swarm}-${plan.title}`.replace(/[^a-zA-Z0-9-_]/g, "_");
+      const planHash = computePlanHash(plan);
+      await initLedger(directory, planId, planHash, plan);
+      await appendLedgerEvent(directory, {
+        event_type: "plan_rebuilt",
+        source: "rollback",
+        plan_id: planId
+      });
+    }
+  } catch (initError) {
+    return [
+      `Rollback restored files but failed to initialize ledger: ${initError instanceof Error ? initError.message : String(initError)}`,
+      "The .swarm/plan.json has been restored but the ledger may be out of sync.",
+      "Run /swarm reset-session to reinitialize the ledger."
+    ].join(`
+`);
   }
   const eventsPath = validateSwarmPath(directory, "events.jsonl");
   const rollbackEvent = {
