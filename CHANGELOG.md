@@ -1,5 +1,12 @@
 # Changelog
 
+## [6.86.3](https://github.com/zaxbysauce/opencode-swarm/compare/v6.86.2...v6.86.3) (2026-04-27)
+
+
+### Bug Fixes
+
+* **plan:** bridge in-memory task state to plan.json so plan.md updates ([#654](https://github.com/zaxbysauce/opencode-swarm/issues/654)) ([ad45a99](https://github.com/zaxbysauce/opencode-swarm/commit/ad45a99b8ed1ae8db7c3dd1fc9583d095be2c168))
+
 ## [6.86.2](https://github.com/zaxbysauce/opencode-swarm/compare/v6.86.1...v6.86.2) (2026-04-27)
 
 
