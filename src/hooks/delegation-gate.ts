@@ -17,6 +17,7 @@ import {
 import type { AgentSessionState } from '../state';
 import {
 	advanceTaskState,
+	advanceTaskStateAndPersist,
 	ensureAgentSession,
 	getTaskState,
 	hasActiveTurboMode,
@@ -653,7 +654,12 @@ export function createDelegationGateHook(
 							(result.requiredFixesCount ?? 0) === 0
 						) {
 							try {
-								advanceTaskState(session, taskId, 'complete');
+								await advanceTaskStateAndPersist(
+									session,
+									taskId,
+									'complete',
+									directory,
+								);
 							} catch (err) {
 								console.warn(
 									`[delegation-gate] toolAfter convene_council: could not advance ${taskId} → complete: ${err instanceof Error ? err.message : String(err)}`,
@@ -1321,7 +1327,12 @@ export function createDelegationGateHook(
 				// at enforcement time. A transition failure here means state is already recorded or a
 				// re-delegation occurred; the gate continues correctly regardless.
 				try {
-					advanceTaskState(session, currentTaskId, 'coder_delegated');
+					await advanceTaskStateAndPersist(
+						session,
+						currentTaskId,
+						'coder_delegated',
+						directory,
+					);
 				} catch (err) {
 					// INVALID_TASK_STATE_TRANSITION is non-fatal in Phase 2 (observe-only)
 					console.warn(

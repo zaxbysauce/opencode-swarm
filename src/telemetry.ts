@@ -33,6 +33,7 @@ export type TelemetryEvent =
 	| 'evidence_lock_contended'
 	| 'evidence_lock_stale_recovered'
 	| 'plan_ledger_cas_retry'
+	| 'plan_md_write_failed'
 	// PRM events
 	| 'prm_pattern_detected'
 	| 'prm_course_correction_injected'
