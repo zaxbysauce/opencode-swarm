@@ -15,7 +15,16 @@ import { createArchitectAgent } from '../../../src/agents/architect';
 import { createCriticAgent } from '../../../src/agents/critic';
 
 describe('Architect Prompt v6.0 QA & Security Gates (Task 3.2)', () => {
-	const agent = createArchitectAgent('test-model');
+	const agent = createArchitectAgent(
+		'test-model',
+		undefined,
+		undefined,
+		undefined,
+		undefined,
+		{
+			enabled: true,
+		},
+	);
 	const prompt = agent.config.prompt!;
 
 	// ============================================

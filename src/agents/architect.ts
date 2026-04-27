@@ -1403,6 +1403,17 @@ export interface CouncilWorkflowConfig {
 }
 
 /**
+ * Subset of PluginConfig.ui_review needed to gate the designer agent
+ * references in the architect prompt. Only `enabled` is consumed here —
+ * runtime agent creation is handled separately in agents/index.ts.
+ * Keeping this shape narrow avoids pulling the full PluginConfig type
+ * into the agent-prompt layer.
+ */
+export interface UIReviewConfig {
+	enabled?: boolean;
+}
+
+/**
  * Build the Work Complete Council four-phase workflow block. Returns the full
  * block text when council.enabled === true, otherwise the empty string. The
  * empty-string return path guarantees byte-for-byte non-regression when the
@@ -1753,6 +1764,7 @@ export function createArchitectAgent(
 	customAppendPrompt?: string,
 	adversarialTesting?: AdversarialTestingConfig,
 	council?: CouncilWorkflowConfig,
+	uiReview?: UIReviewConfig,
 ): AgentDefinition {
 	let prompt = ARCHITECT_PROMPT;
 
@@ -1850,6 +1862,45 @@ export function createArchitectAgent(
 				/\{\{ADVERSARIAL_TEST_CHECKLIST\}\}/g,
 				'  [GATE] test_engineer-adversarial: PASS / FAIL — value: ___',
 			);
+	}
+
+	// Strip designer agent references when ui_review is not enabled.
+	// Mirrors the council feature pattern: keep the model's view of available
+	// agents in sync with what's actually registered with the SDK at runtime.
+	// When ui_review.enabled !== true, the designer agent is never registered
+	// (see agents/index.ts createSwarmAgents), so any Task delegation to it
+	// would be rejected with "designer is not a valid agent".
+	if (!uiReview?.enabled) {
+		prompt = prompt
+			// Remove from "Your agents" identity line
+			?.replace(', {{AGENT_PREFIX}}designer', '')
+			// Remove Rule 9 (UI/UX DESIGN GATE) entirely
+			?.replace(
+				/\n 9\. \*\*UI\/UX DESIGN GATE\*\*:[\s\S]*?(?=\n10\. \*\*)/,
+				'\n',
+			)
+			// Remove from ## AGENTS section listing
+			?.replace(
+				'\n{{AGENT_PREFIX}}designer - UI/UX design specs (scaffold generation for UI components — runs BEFORE coder on UI tasks)',
+				'',
+			)
+			// Remove designer delegation example in ## DELEGATION FORMAT
+			?.replace(
+				/\n\{\{AGENT_PREFIX\}\}designer\nTASK: Design specification[\s\S]*?accessibility(?=\n\n## WORKFLOW)/,
+				'',
+			)
+			// Remove UI design gate step from pipeline (5a)
+			?.replace(
+				'5a. **UI DESIGN GATE** (conditional — Rule 9): If task matches UI trigger → {{AGENT_PREFIX}}designer produces scaffold → pass scaffold to coder as INPUT. If no match → skip.\n\n',
+				'',
+			)
+			// Simplify the step-5a transition instruction
+			?.replace(
+				'→ After step 5a (or immediately if no UI task applies): Call update_task_status',
+				'→ Call update_task_status',
+			)
+			// Remove designer scaffold reference from coder step
+			?.replace(' (if designer scaffold produced, include it as INPUT)', '');
 	}
 
 	return {
