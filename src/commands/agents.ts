@@ -1,7 +1,7 @@
 import type { AgentDefinition } from '../agents';
 import { ALL_SUBAGENT_NAMES } from '../config/constants.js';
-import { stripKnownSwarmPrefix } from '../config/schema.js';
 import type { GuardrailsConfig } from '../config/schema';
+import { stripKnownSwarmPrefix } from '../config/schema.js';
 
 export function handleAgentsCommand(
 	agents: Record<string, AgentDefinition>,
