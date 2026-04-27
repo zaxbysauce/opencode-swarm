@@ -1270,6 +1270,9 @@ export const PluginConfigSchema = z.object({
 	// Turbo mode — bypasses reviewer/test gates for rapid iteration (v6.40)
 	turbo_mode: z.boolean().default(false).optional(),
 
+	// Quiet mode — suppress non-critical startup warnings (v6.xx)
+	quiet: z.boolean().default(false).optional(),
+
 	// Full-auto mode — autonomous multi-agent orchestration with critic oversight
 	full_auto: z
 		.object({

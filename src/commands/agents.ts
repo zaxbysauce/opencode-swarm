@@ -1,4 +1,6 @@
 import type { AgentDefinition } from '../agents';
+import { ALL_SUBAGENT_NAMES } from '../config/constants.js';
+import { stripKnownSwarmPrefix } from '../config/schema.js';
 import type { GuardrailsConfig } from '../config/schema';
 
 export function handleAgentsCommand(
@@ -11,7 +13,29 @@ export function handleAgentsCommand(
 		return 'No agents registered.';
 	}
 
-	const lines = [`## Registered Agents (${entries.length} total)`, ''];
+	// Compute registered subagent names and unregistered subagent names
+	// Use stripKnownSwarmPrefix so prefixed names (e.g. "mega_coder", "local_reviewer")
+	// are correctly matched against ALL_SUBAGENT_NAMES
+	const allAgentKeys = entries.map(([key]) => key);
+	const registeredSubagentNames = allAgentKeys.filter(
+		(key): key is (typeof ALL_SUBAGENT_NAMES)[number] => {
+			const stripped = stripKnownSwarmPrefix(key);
+			return (ALL_SUBAGENT_NAMES as readonly string[]).includes(stripped);
+		},
+	);
+
+	const unregistered = ALL_SUBAGENT_NAMES.filter(
+		(name) => !registeredSubagentNames.includes(name),
+	);
+
+	const hasUnregistered = unregistered.length > 0;
+	const totalCount =
+		entries.length + (hasUnregistered ? unregistered.length : 0);
+	const headerLabel = hasUnregistered
+		? `${entries.length} registered + ${unregistered.length} unregistered`
+		: `${totalCount} total`;
+
+	const lines = [`## Registered Agents (${headerLabel})`, ''];
 
 	for (const [key, agent] of entries) {
 		const model = agent.config.model || 'default';
@@ -36,6 +60,14 @@ export function handleAgentsCommand(
 		);
 		if (desc) {
 			lines.push(`  ${desc}`);
+		}
+	}
+
+	// Add unregistered subagents section when any subagents are missing
+	if (hasUnregistered) {
+		lines.push('', '### Unregistered Subagents');
+		for (const name of unregistered) {
+			lines.push(`- **${name}** (requires configuration)`);
 		}
 	}
 

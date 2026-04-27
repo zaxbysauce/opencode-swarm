@@ -222,6 +222,28 @@ describe('handleCloseCommand — finalizer stages', () => {
 			}
 		});
 
+		it('removes root-level SWARM_PLAN.json and SWARM_PLAN.md after close', async () => {
+			writePlan();
+			// Create root-level SWARM_PLAN checkpoint artifacts
+			writeFileSync(path.join(testDir, 'SWARM_PLAN.json'), '{"title":"Test"}');
+			writeFileSync(path.join(testDir, 'SWARM_PLAN.md'), '# Test Plan');
+
+			await handleCloseCommand(testDir, []);
+
+			// Root-level SWARM_PLAN artifacts must be removed
+			expect(existsSync(path.join(testDir, 'SWARM_PLAN.json'))).toBe(false);
+			expect(existsSync(path.join(testDir, 'SWARM_PLAN.md'))).toBe(false);
+		});
+
+		it('SWARM_PLAN cleanup is non-blocking — close succeeds even if removal fails', async () => {
+			writePlan();
+
+			const result = await handleCloseCommand(testDir, []);
+
+			// Close should succeed even if no SWARM_PLAN files exist to clean
+			expect(result).toContain('finalized');
+		});
+
 		it('future swarms start from clean state — no stale plan.json or events.jsonl', async () => {
 			writePlan();
 			writeFileSync(path.join(swarmDir(), 'events.jsonl'), '{"event":"old"}\n');

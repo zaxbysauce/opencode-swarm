@@ -147,6 +147,23 @@ import { truncateToolOutput } from './utils/tool-output';
 // Heartbeat throttle map: sessionId -> last heartbeat timestamp
 const _heartbeatTimers = new Map<string, number>();
 
+/**
+ * Bounded buffer for deferred non-critical init warnings.
+ * Collected during plugin startup when quiet:true, replayed in /swarm diagnose.
+ * Max 50 entries to prevent memory growth.
+ */
+export const deferredWarnings: string[] = [];
+const MAX_DEFERRED_WARNINGS = 50;
+
+/**
+ * Push a warning to the deferred buffer if under capacity.
+ */
+function addDeferredWarning(warning: string): void {
+	if (deferredWarnings.length < MAX_DEFERRED_WARNINGS) {
+		deferredWarnings.push(warning);
+	}
+}
+
 // Writes .swarm/config.example.json on first plugin init for a given project.
 // This gives new users a ready-to-edit reference that shows all agent model
 // defaults. To override, copy entries into .opencode/opencode-swarm.json
@@ -180,6 +197,9 @@ function writeSwarmConfigExampleIfNew(projectDirectory: string): void {
 const OpenCodeSwarm: Plugin = async (ctx) => {
 	const { config, loadedFromFile } = loadPluginConfigWithMeta(ctx.directory);
 
+	// Clear deferred warnings at session start for per-session isolation
+	deferredWarnings.length = 0;
+
 	// Full-auto mode validation: critic model must differ from architect model
 	if (config.full_auto?.enabled === true) {
 		// Resolve critic model (full_auto.critic_model override takes precedence,
@@ -195,9 +215,13 @@ const OpenCodeSwarm: Plugin = async (ctx) => {
 			config.agents?.architect?.model ?? DEFAULT_MODELS.default;
 
 		if (criticModel === architectModel) {
-			console.warn(
-				'[opencode-swarm] Full-auto mode warning: critic model matches architect model. Model validation is advisory-only; full-auto remains enabled. (Runtime architect model is determined by the orchestrator)',
-			);
+			const warning =
+				'[opencode-swarm] Full-auto mode warning: critic model matches architect model. Model validation is advisory-only; full-auto remains enabled. (Runtime architect model is determined by the orchestrator)';
+			if (!config.quiet) {
+				console.warn(warning);
+			} else {
+				addDeferredWarning(warning);
+			}
 		}
 	}
 
@@ -267,6 +291,7 @@ const OpenCodeSwarm: Plugin = async (ctx) => {
 
 	// SECURITY AUDIT: Emit explicit warning when guardrails are disabled via user config
 	// This is a security-relevant action that requires explicit acknowledgment
+	// INTENTIONALLY NOT gated behind config.quiet — security warnings must always be visible
 	if (loadedFromFile && guardrailsConfig.enabled === false) {
 		console.warn('');
 		console.warn(
@@ -1222,9 +1247,12 @@ const OpenCodeSwarm: Plugin = async (ctx) => {
 			try {
 				await hookChain();
 			} catch (err) {
-				console.warn(
-					`[swarm] toolAfter hook chain error tool=${_toolName}: ${err instanceof Error ? err.message : String(err)}`,
-				);
+				const warning = `[swarm] toolAfter hook chain error tool=${_toolName}: ${err instanceof Error ? err.message : String(err)}`;
+				if (!config.quiet) {
+					console.warn(warning);
+				} else {
+					addDeferredWarning(warning);
+				}
 			}
 
 			// ── Task handoff runs AFTER hooks ───────────────────────────────

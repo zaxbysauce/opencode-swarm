@@ -11,7 +11,7 @@ import {
 } from '../git/branch';
 import { curateAndStoreSwarm } from '../hooks/knowledge-curator';
 import { validateSwarmPath } from '../hooks/utils';
-import { writeCheckpoint } from '../plan/checkpoint';
+
 import { clearAllScopes } from '../scope/scope-persistence';
 import { flushPendingSnapshot } from '../session/snapshot-writer';
 import { resetSwarmState, swarmState } from '../state';
@@ -486,6 +486,33 @@ export async function handleCloseCommand(
 		// readdir failure is non-blocking
 	}
 
+	// Remove root-level SWARM_PLAN checkpoint artifacts written by writeCheckpoint().
+	// These are redundant copies of plan.json/plan.md (already archived) and should
+	// not be left behind at the project root after close.
+	let swarmPlanFilesRemoved = 0;
+	const swarmPlanJsonPath = path.join(directory, 'SWARM_PLAN.json');
+	const swarmPlanMdPath = path.join(directory, 'SWARM_PLAN.md');
+	try {
+		await fs.unlink(swarmPlanJsonPath);
+		swarmPlanFilesRemoved++;
+	} catch (err: unknown) {
+		if ((err as NodeJS.ErrnoException)?.code !== 'ENOENT') {
+			warnings.push(
+				`Failed to remove SWARM_PLAN.json: ${err instanceof Error ? err.message : String(err)}`,
+			);
+		}
+	}
+	try {
+		await fs.unlink(swarmPlanMdPath);
+		swarmPlanFilesRemoved++;
+	} catch (err: unknown) {
+		if ((err as NodeJS.ErrnoException)?.code !== 'ENOENT') {
+			warnings.push(
+				`Failed to remove SWARM_PLAN.md: ${err instanceof Error ? err.message : String(err)}`,
+			);
+		}
+	}
+
 	// #519 (v6.71.1): clear persisted declare_scope files so the next session
 	// starts without inherited scope. Scope files are ephemeral state; they are
 	// not archived because they contain no forensic signal not already captured
@@ -661,6 +688,11 @@ export async function handleCloseCommand(
 		...(configBackupsRemoved > 0
 			? [`- Removed ${configBackupsRemoved} stale config backup file(s)`]
 			: []),
+		...(swarmPlanFilesRemoved > 0
+			? [
+					`- Removed ${swarmPlanFilesRemoved} root-level SWARM_PLAN checkpoint artifact(s)`,
+				]
+			: []),
 		...(prunedBranches.length > 0
 			? [
 					`- Pruned ${prunedBranches.length} stale local git branch(es): ${prunedBranches.join(', ')}`,
@@ -717,8 +749,10 @@ export async function handleCloseCommand(
 		console.warn('[close-command] flushPendingSnapshot error:', error);
 	}
 
-	// Write root-level checkpoint artifact before clearing sessions (non-blocking)
-	await writeCheckpoint(directory).catch(() => {});
+	// NOTE: writeCheckpoint is intentionally NOT called here. SWARM_PLAN.json and
+	// SWARM_PLAN.md are redundant copies of plan.json/plan.md (already archived in
+	// .swarm/archive/) and should not be written to the project root during close.
+	// Stage 3 cleanup removes any pre-existing SWARM_PLAN artifacts from prior sessions.
 
 	// Full session reset so subsequent /swarm invocations start from a clean slate.
 	// Preserve plugin-init singletons that have no re-init path within the same
