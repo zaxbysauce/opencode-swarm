@@ -1,5 +1,12 @@
 # Changelog
 
+## [6.86.6](https://github.com/zaxbysauce/opencode-swarm/compare/v6.86.5...v6.86.6) (2026-04-28)
+
+
+### Bug Fixes
+
+* version flag, startup noise, README, agent listing, checkpoint cleanup, and CI fixes ([#669](https://github.com/zaxbysauce/opencode-swarm/issues/669)) ([0de72a5](https://github.com/zaxbysauce/opencode-swarm/commit/0de72a532f6c640d8c67d5ad5f682f7ae0395ed2))
+
 ## [6.86.5](https://github.com/zaxbysauce/opencode-swarm/compare/v6.86.4...v6.86.5) (2026-04-27)
 
 
