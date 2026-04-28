@@ -55,7 +55,6 @@ jobs:
       - name: Install dependencies
         run: bun install --frozen-lockfile
       - name: Unit tests (hooks - guardrails)
-        if: runner.os != 'Windows'
         shell: bash
         run: |
           failed=0
@@ -88,7 +87,6 @@ jobs:
           done
           exit $failed
       - name: Unit tests (hooks - knowledge types/validator/store)
-        if: runner.os != 'Windows'
         shell: bash
         run: |
           failed=0
@@ -100,7 +98,6 @@ jobs:
           done
           exit $failed
       - name: Unit tests (hooks - knowledge reader/migrator)
-        if: runner.os != 'Windows'
         shell: bash
         run: |
           failed=0
@@ -112,7 +109,6 @@ jobs:
           done
           exit $failed
       - name: Unit tests (hooks - knowledge injector)
-        if: runner.os != 'Windows'
         shell: bash
         run: |
           failed=0
@@ -124,7 +120,6 @@ jobs:
           done
           exit $failed
       - name: Unit tests (hooks - knowledge-curator)
-        if: runner.os != 'Windows'
         shell: bash
         run: |
           failed=0
@@ -136,7 +131,6 @@ jobs:
           done
           exit $failed
       - name: Unit tests (hooks - curator)
-        if: runner.os != 'Windows'
         shell: bash
         run: |
           failed=0
@@ -148,7 +142,6 @@ jobs:
           done
           exit $failed
       - name: Unit tests (hooks - hive)
-        if: runner.os != 'Windows'
         shell: bash
         run: |
           failed=0
@@ -160,7 +153,6 @@ jobs:
           done
           exit $failed
       - name: Unit tests (hooks - system-enhancer load-evidence)
-        if: runner.os != 'Windows'
         shell: bash
         run: |
           failed=0
@@ -172,7 +164,6 @@ jobs:
           done
           exit $failed
       - name: Unit tests (hooks - system-enhancer)
-        if: runner.os != 'Windows'
         shell: bash
         run: |
           failed=0
@@ -184,7 +175,6 @@ jobs:
           done
           exit $failed
       - name: Unit tests (hooks - delegation)
-        if: runner.os != 'Windows'
         shell: bash
         run: |
           failed=0
@@ -196,7 +186,6 @@ jobs:
           done
           exit $failed
       - name: Unit tests (hooks - adversarial-detector)
-        if: runner.os != 'Windows'
         shell: bash
         run: |
           failed=0
@@ -208,7 +197,6 @@ jobs:
           done
           exit $failed
       - name: Unit tests (hooks - remaining)
-        if: runner.os != 'Windows'
         shell: bash
         run: |
           failed=0
