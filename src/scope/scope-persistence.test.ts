@@ -139,6 +139,10 @@ describe('writeScopeToDisk / readScopeFromDisk', () => {
 			// Windows may refuse symlink creation without privilege; skip the assertion.
 			return;
 		}
+		if (process.platform === 'win32') {
+			// O_NOFOLLOW is a no-op on Windows (documented residual risk in scope-persistence.ts).
+			return;
+		}
 		expect(readScopeFromDisk(tmpDir, '1.1')).toBeNull();
 	});
 

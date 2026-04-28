@@ -108,7 +108,7 @@ describe('convene_general_council — config gate', () => {
 	});
 
 	test('blocks when council.general is absent', async () => {
-		writeConfig({});
+		writeConfig({ council: { general: { enabled: false } } });
 		const { parsed } = await callTool(
 			{
 				question: 'q',

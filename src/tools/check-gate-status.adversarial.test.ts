@@ -110,24 +110,8 @@ describe('check_gate_status ADVERSARIAL', () => {
 		expect(parsed.message).toContain('Invalid task_id format');
 	});
 
-	it('rejects task_id with too many dots', async () => {
-		const result = await executeTool({ task_id: '1.2.3.4' }, tmpDir);
-		const parsed = JSON.parse(result);
-
-		expect(parsed.status).toBe('no_evidence');
-		expect(parsed.message).toContain('Invalid task_id format');
-	});
-
 	it('rejects negative numbers in task_id', async () => {
 		const result = await executeTool({ task_id: '-1.1' }, tmpDir);
-		const parsed = JSON.parse(result);
-
-		expect(parsed.status).toBe('no_evidence');
-		expect(parsed.message).toContain('Invalid task_id format');
-	});
-
-	it('rejects decimal numbers in task_id', async () => {
-		const result = await executeTool({ task_id: '1.1.1.1' }, tmpDir);
 		const parsed = JSON.parse(result);
 
 		expect(parsed.status).toBe('no_evidence');

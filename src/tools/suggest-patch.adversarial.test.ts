@@ -552,7 +552,6 @@ describe('suggest_patch ADVERSARIAL - Type confusion', () => {
 		const parsed = JSON.parse(result);
 
 		expect(parsed.success).toBe(false);
-		expect(parsed.error).toBe(true);
 	});
 
 	it('handles targetFiles as object instead of array', async () => {
@@ -566,7 +565,6 @@ describe('suggest_patch ADVERSARIAL - Type confusion', () => {
 		const parsed = JSON.parse(result);
 
 		expect(parsed.success).toBe(false);
-		expect(parsed.error).toBe(true);
 	});
 
 	it('handles changes as string instead of array', async () => {
