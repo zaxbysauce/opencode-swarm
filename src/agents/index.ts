@@ -8,6 +8,7 @@ import {
 } from '../config';
 import { AGENT_TOOL_MAP, DEFAULT_MODELS } from '../config/constants';
 import { stripKnownSwarmPrefix } from '../config/schema';
+import { addDeferredWarning } from '../services/warning-buffer.js';
 import { type AgentDefinition, createArchitectAgent } from './architect';
 import { createCoderAgent } from './coder';
 import { createCouncilMemberAgent } from './council-member';
@@ -70,6 +71,7 @@ function getModelForAgent(
 		}
 	>,
 	swarmPrefix?: string,
+	quiet?: boolean,
 ): string {
 	// Strip swarm prefix if present (e.g., "local_coder" -> "coder")
 	// Only strip if we have a known swarm prefix, not just any underscore
@@ -88,11 +90,17 @@ function getModelForAgent(
 	const resolvedModel = DEFAULT_MODELS[baseAgentName] ?? DEFAULT_MODELS.default;
 	if (!warnedAgents.has(baseAgentName)) {
 		warnedAgents.add(baseAgentName);
-		console.warn(
-			"[swarm] Agent '%s' not found in config — using default model '%s'. Add it to opencode-swarm.json to customize.",
-			baseAgentName,
-			resolvedModel,
-		);
+		if (!quiet) {
+			console.warn(
+				"[swarm] Agent '%s' not found in config — using default model '%s'. Add it to opencode-swarm.json to customize.",
+				baseAgentName,
+				resolvedModel,
+			);
+		} else {
+			addDeferredWarning(
+				`[swarm] Agent '${baseAgentName}' not found in config — using default model '${resolvedModel}'. Add it to opencode-swarm.json to customize.`,
+			);
+		}
 	}
 	return resolvedModel;
 }
@@ -200,6 +208,7 @@ function applyOverrides(
 	agent: AgentDefinition,
 	swarmAgents?: Record<string, { temperature?: number; variant?: string }>,
 	swarmPrefix?: string,
+	quiet?: boolean,
 ): AgentDefinition {
 	const tempOverride = getTemperatureOverride(
 		agent.name,
@@ -222,10 +231,17 @@ function applyOverrides(
 		const autoVariant = modelSegments[modelSegments.length - 1];
 		const cleanedModel = modelSegments.slice(0, -1).join('/');
 		const effectiveVariant = variantOverride ?? autoVariant;
-		console.warn(
-			`[swarm] Deprecation: model "${agent.config.model}" embeds variant. ` +
-				`Use "model": "${cleanedModel}", "variant": "${effectiveVariant}" instead.`,
-		);
+		if (!quiet) {
+			console.warn(
+				`[swarm] Deprecation: model "${agent.config.model}" embeds variant. ` +
+					`Use "model": "${cleanedModel}", "variant": "${effectiveVariant}" instead.`,
+			);
+		} else {
+			addDeferredWarning(
+				`[swarm] Deprecation: model "${agent.config.model}" embeds variant. ` +
+					`Use "model": "${cleanedModel}", "variant": "${effectiveVariant}" instead.`,
+			);
+		}
 		agent.config.model = cleanedModel;
 		// Use explicit variant override if set, otherwise use auto-split variant
 		(agent.config as { variant?: string }).variant = effectiveVariant;
@@ -261,9 +277,12 @@ function createSwarmAgents(
 	// Get qa_retry_limit from config (default: 3)
 	const qaRetryLimit = pluginConfig?.qa_retry_limit ?? 3;
 
+	// Get quiet mode from config (default: false)
+	const quiet = pluginConfig?.quiet ?? false;
+
 	// Helper to get model for agent (pass base name, not prefixed)
 	const getModel = (baseName: string) =>
-		getModelForAgent(baseName, swarmAgents, swarmPrefix);
+		getModelForAgent(baseName, swarmAgents, swarmPrefix, quiet);
 
 	// Helper to load custom prompts
 	const getPrompts = (name: string) => loadAgentPrompt(name);
@@ -313,7 +332,7 @@ If you call @coder instead of @${swarmId}_coder, the call will FAIL or go to the
 			architect.config.prompt = swarmHeader + architect.config.prompt;
 		}
 
-		agents.push(applyOverrides(architect, swarmAgents, swarmPrefix));
+		agents.push(applyOverrides(architect, swarmAgents, swarmPrefix, quiet));
 	}
 
 	// 2. Create Explorer
@@ -325,7 +344,7 @@ If you call @coder instead of @${swarmId}_coder, the call will FAIL or go to the
 			explorerPrompts.appendPrompt,
 		);
 		explorer.name = prefixName('explorer');
-		agents.push(applyOverrides(explorer, swarmAgents, swarmPrefix));
+		agents.push(applyOverrides(explorer, swarmAgents, swarmPrefix, quiet));
 	}
 
 	// 3. Create SME agent
@@ -337,7 +356,7 @@ If you call @coder instead of @${swarmId}_coder, the call will FAIL or go to the
 			smePrompts.appendPrompt,
 		);
 		sme.name = prefixName('sme');
-		agents.push(applyOverrides(sme, swarmAgents, swarmPrefix));
+		agents.push(applyOverrides(sme, swarmAgents, swarmPrefix, quiet));
 	}
 
 	// 4. Create pipeline agents
@@ -349,7 +368,7 @@ If you call @coder instead of @${swarmId}_coder, the call will FAIL or go to the
 			coderPrompts.appendPrompt,
 		);
 		coder.name = prefixName('coder');
-		agents.push(applyOverrides(coder, swarmAgents, swarmPrefix));
+		agents.push(applyOverrides(coder, swarmAgents, swarmPrefix, quiet));
 	}
 
 	if (!isAgentDisabled('reviewer', swarmAgents, swarmPrefix)) {
@@ -360,7 +379,7 @@ If you call @coder instead of @${swarmId}_coder, the call will FAIL or go to the
 			reviewerPrompts.appendPrompt,
 		);
 		reviewer.name = prefixName('reviewer');
-		agents.push(applyOverrides(reviewer, swarmAgents, swarmPrefix));
+		agents.push(applyOverrides(reviewer, swarmAgents, swarmPrefix, quiet));
 	}
 
 	// 5a. Create Critic (Plan Review)
@@ -373,7 +392,7 @@ If you call @coder instead of @${swarmId}_coder, the call will FAIL or go to the
 			'plan_critic' as CriticRole,
 		);
 		critic.name = prefixName('critic');
-		agents.push(applyOverrides(critic, swarmAgents, swarmPrefix));
+		agents.push(applyOverrides(critic, swarmAgents, swarmPrefix, quiet));
 	}
 
 	// 5b. Create Critic Sounding Board
@@ -385,7 +404,7 @@ If you call @coder instead of @${swarmId}_coder, the call will FAIL or go to the
 			'sounding_board' as CriticRole,
 		);
 		critic.name = prefixName('critic_sounding_board');
-		agents.push(applyOverrides(critic, swarmAgents, swarmPrefix));
+		agents.push(applyOverrides(critic, swarmAgents, swarmPrefix, quiet));
 	}
 
 	// 5c. Create Critic Drift Verifier
@@ -397,7 +416,7 @@ If you call @coder instead of @${swarmId}_coder, the call will FAIL or go to the
 			'phase_drift_verifier' as CriticRole,
 		);
 		critic.name = prefixName('critic_drift_verifier');
-		agents.push(applyOverrides(critic, swarmAgents, swarmPrefix));
+		agents.push(applyOverrides(critic, swarmAgents, swarmPrefix, quiet));
 	}
 
 	// 5c-bis. Create Critic Hallucination Verifier
@@ -411,7 +430,7 @@ If you call @coder instead of @${swarmId}_coder, the call will FAIL or go to the
 			'hallucination_verifier' as CriticRole,
 		);
 		critic.name = prefixName('critic_hallucination_verifier');
-		agents.push(applyOverrides(critic, swarmAgents, swarmPrefix));
+		agents.push(applyOverrides(critic, swarmAgents, swarmPrefix, quiet));
 	}
 
 	// 5d. Create Critic Autonomous Oversight
@@ -420,7 +439,7 @@ If you call @coder instead of @${swarmId}_coder, the call will FAIL or go to the
 			swarmAgents?.critic_oversight?.model ?? getModel('critic'),
 		);
 		critic.name = prefixName('critic_oversight');
-		agents.push(applyOverrides(critic, swarmAgents, swarmPrefix));
+		agents.push(applyOverrides(critic, swarmAgents, swarmPrefix, quiet));
 	}
 
 	// 5e. Create Curator Init agent
@@ -433,7 +452,7 @@ If you call @coder instead of @${swarmId}_coder, the call will FAIL or go to the
 			'curator_init' as CuratorRole,
 		);
 		curatorInit.name = prefixName('curator_init');
-		agents.push(applyOverrides(curatorInit, swarmAgents, swarmPrefix));
+		agents.push(applyOverrides(curatorInit, swarmAgents, swarmPrefix, quiet));
 	}
 
 	// 5e. Create Curator Phase agent
@@ -446,7 +465,7 @@ If you call @coder instead of @${swarmId}_coder, the call will FAIL or go to the
 			'curator_phase' as CuratorRole,
 		);
 		curatorPhase.name = prefixName('curator_phase');
-		agents.push(applyOverrides(curatorPhase, swarmAgents, swarmPrefix));
+		agents.push(applyOverrides(curatorPhase, swarmAgents, swarmPrefix, quiet));
 	}
 
 	if (!isAgentDisabled('test_engineer', swarmAgents, swarmPrefix)) {
@@ -457,7 +476,7 @@ If you call @coder instead of @${swarmId}_coder, the call will FAIL or go to the
 			testPrompts.appendPrompt,
 		);
 		testEngineer.name = prefixName('test_engineer');
-		agents.push(applyOverrides(testEngineer, swarmAgents, swarmPrefix));
+		agents.push(applyOverrides(testEngineer, swarmAgents, swarmPrefix, quiet));
 	}
 
 	// 5f. General Council member (opt-in — only when council.general.enabled === true)
@@ -472,7 +491,7 @@ If you call @coder instead of @${swarmId}_coder, the call will FAIL or go to the
 			councilMemberPrompts.appendPrompt,
 		);
 		councilMember.name = prefixName('council_member');
-		agents.push(applyOverrides(councilMember, swarmAgents, swarmPrefix));
+		agents.push(applyOverrides(councilMember, swarmAgents, swarmPrefix, quiet));
 	}
 
 	// 5g. General Council moderator (opt-in — only when council.general.enabled
@@ -494,7 +513,9 @@ If you call @coder instead of @${swarmId}_coder, the call will FAIL or go to the
 			moderatorPrompts.appendPrompt,
 		);
 		councilModerator.name = prefixName('council_moderator');
-		agents.push(applyOverrides(councilModerator, swarmAgents, swarmPrefix));
+		agents.push(
+			applyOverrides(councilModerator, swarmAgents, swarmPrefix, quiet),
+		);
 	}
 
 	// 8. Create Docs agent (enabled by default — must be explicitly disabled)
@@ -506,7 +527,7 @@ If you call @coder instead of @${swarmId}_coder, the call will FAIL or go to the
 			docsPrompts.appendPrompt,
 		);
 		docs.name = prefixName('docs');
-		agents.push(applyOverrides(docs, swarmAgents, swarmPrefix));
+		agents.push(applyOverrides(docs, swarmAgents, swarmPrefix, quiet));
 	}
 
 	// 9. Create Designer agent (opt-in — only when ui_review.enabled === true)
@@ -521,7 +542,7 @@ If you call @coder instead of @${swarmId}_coder, the call will FAIL or go to the
 			designerPrompts.appendPrompt,
 		);
 		designer.name = prefixName('designer');
-		agents.push(applyOverrides(designer, swarmAgents, swarmPrefix));
+		agents.push(applyOverrides(designer, swarmAgents, swarmPrefix, quiet));
 	}
 
 	return agents;
@@ -582,6 +603,7 @@ export function getAgentConfigs(
 	// Check if tool filtering is disabled globally
 	const toolFilterEnabled = config?.tool_filter?.enabled ?? true;
 	const toolFilterOverrides = config?.tool_filter?.overrides ?? {};
+	const quiet = config?.quiet ?? false;
 
 	// Track warning for missing whitelist entries (warn once per unique base name)
 	const warnedMissingWhitelist = new Set<string>();
@@ -671,7 +693,7 @@ export function getAgentConfigs(
 			) {
 				const councilTools = ['declare_council_criteria', 'convene_council'];
 				const present = councilTools.filter((t) => override.includes(t));
-				if (present.length > 0) {
+				if (present.length > 0 && !quiet) {
 					console.warn(
 						`[opencode-swarm] tool_filter.overrides.architect includes ${present.join(', ')} but council.enabled is not true. ` +
 							`The runtime gate will reject these calls. Either set council.enabled=true, or remove ${present.join(', ')} from the architect override.`,
@@ -681,7 +703,7 @@ export function getAgentConfigs(
 
 			// Warn once when base name lacks a whitelist entry (no override and no AGENT_TOOL_MAP)
 			if (!allowedTools && !Object.hasOwn(toolFilterOverrides, baseAgentName)) {
-				if (!warnedMissingWhitelist.has(baseAgentName)) {
+				if (!warnedMissingWhitelist.has(baseAgentName) && !quiet) {
 					console.warn(
 						`[getAgentConfigs] Unknown agent '${baseAgentName}', defaulting to minimal toolset.`,
 					);

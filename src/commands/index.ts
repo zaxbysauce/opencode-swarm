@@ -130,7 +130,16 @@ export function buildHelpText(): string {
 	return lines.join('\n');
 }
 
-const HELP_TEXT = buildHelpText();
+// Lazy-initialized to avoid circular dependency ReferenceError
+// when VALID_COMMANDS is not yet initialized during module load.
+let _helpText: string | undefined;
+
+function getHelpText(): string {
+	if (!_helpText) {
+		_helpText = buildHelpText();
+	}
+	return _helpText;
+}
 
 /**
  * Creates a command.execute.before handler for /swarm commands.
@@ -174,7 +183,7 @@ export function createSwarmCommandHandler(
 		const resolved = resolveCommand(tokens);
 
 		if (!resolved) {
-			text = HELP_TEXT;
+			text = getHelpText();
 		} else {
 			try {
 				text = await resolved.entry.handler({

@@ -1,4 +1,6 @@
 import type { Plugin } from '@opencode-ai/plugin';
+import { addDeferredWarning, deferredWarnings } from './services/warning-buffer.js';
+export { addDeferredWarning, deferredWarnings };
 declare const OpenCodeSwarm: Plugin;
 export default OpenCodeSwarm;
 export type { AgentDefinition } from './agents';

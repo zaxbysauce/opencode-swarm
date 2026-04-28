@@ -2,18 +2,22 @@ import * as child_process from 'node:child_process';
 import { existsSync, readdirSync, readFileSync, statSync } from 'node:fs';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
+import packageJson from '../../package.json' with { type: 'json' };
 import { loadPluginConfig } from '../config/loader';
 import type { Plan } from '../config/plan-schema';
 import { listEvidenceTaskIds } from '../evidence/manager';
 import { readSwarmFileAsync } from '../hooks/utils';
 import { loadPlanJsonOnly } from '../plan/manager';
+import { deferredWarnings } from './warning-buffer.js';
+
+const { version } = packageJson;
 
 /**
  * A single health check result.
  */
 export interface HealthCheck {
 	name: string;
-	status: '✅' | '❌';
+	status: '✅' | '❌' | '⚠️';
 	detail: string;
 }
 
@@ -782,6 +786,13 @@ export async function getDiagnoseData(
 ): Promise<DiagnoseData> {
 	const checks: HealthCheck[] = [];
 
+	// Check: Version
+	checks.push({
+		name: 'Version',
+		status: '✅',
+		detail: version,
+	});
+
 	// Check 1: Try structured plan (only if plan.json exists, no auto-migration)
 	const plan = await loadPlanJsonOnly(directory);
 
@@ -956,6 +967,15 @@ export async function getDiagnoseData(
 		});
 	}
 
+	// Deferred Warnings check
+	if (deferredWarnings.length > 0) {
+		checks.push({
+			name: 'Deferred Warnings',
+			status: '⚠️',
+			detail: `${deferredWarnings.length} warning(s) deferred from init (run with verbose logs for details)`,
+		});
+	}
+
 	const passCount = checks.filter((c) => c.status === '✅').length;
 	const totalCount = checks.length;
 	const allPassed = passCount === totalCount;
@@ -979,6 +999,16 @@ export function formatDiagnoseMarkdown(diagnose: DiagnoseData): string {
 		'',
 		`**Result**: ${diagnose.allPassed ? '✅ All checks passed' : `⚠️ ${diagnose.passCount}/${diagnose.totalCount} checks passed`}`,
 	];
+
+	// Add Deferred Warnings section if any
+	if (deferredWarnings.length > 0) {
+		lines.push('');
+		lines.push('## Deferred Warnings');
+		lines.push('');
+		for (const warning of deferredWarnings) {
+			lines.push(`- ${warning}`);
+		}
+	}
 
 	return lines.join('\n');
 }
