@@ -173,6 +173,18 @@ describe('AgentOverrideConfigSchema', () => {
 		expect(warnings.some((w) => w.includes('fallback_models'))).toBe(false);
 	});
 
+	it('accepts empty fallback_models array (schema-valid; plugin-init warning catches it)', () => {
+		// fallback_models:[] is schema-valid but provides no runtime protection.
+		// The consolidated warning in initializeOpenCodeSwarm checks length===0
+		// and treats it identically to undefined.
+		const result = AgentOverrideConfigSchema.safeParse({
+			model: 'custom-model',
+			fallback_models: [],
+		});
+		expect(result.success).toBe(true);
+		expect(result.data?.fallback_models).toEqual([]);
+	});
+
 	// Variant (reasoning-effort) field tests
 	it('accepts variant field with model', () => {
 		const result = AgentOverrideConfigSchema.safeParse({

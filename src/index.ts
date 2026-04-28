@@ -237,21 +237,26 @@ async function initializeOpenCodeSwarm(ctx: Parameters<Plugin>[0]) {
 	}
 
 	// Warn once about agents with custom models but no fallback_models configured.
-	// Collect all violating agent names across top-level agents and all swarms, then
+	// Collect all violating agents across top-level agents and all swarms, then
 	// emit a single consolidated message so the TUI is not spammed per-agent.
+	// Note: fallback_models:[] is treated as "no fallback" — an empty array provides
+	// no runtime protection (resolveFallbackModel returns null for length === 0).
 	{
 		const noFallback: string[] = [];
+		const hasNoFallback = (cfg: { model?: string; fallback_models?: string[] }) =>
+			cfg.model && (!cfg.fallback_models || cfg.fallback_models.length === 0);
+
 		if (config.agents) {
 			for (const [name, cfg] of Object.entries(config.agents)) {
-				if (cfg.model && !cfg.fallback_models) noFallback.push(name);
+				if (hasNoFallback(cfg)) noFallback.push(`${name}(${cfg.model})`);
 			}
 		}
 		if (config.swarms) {
 			for (const [swarmId, swarm] of Object.entries(config.swarms)) {
 				if (swarm.agents) {
 					for (const [name, cfg] of Object.entries(swarm.agents)) {
-						if (cfg.model && !cfg.fallback_models)
-							noFallback.push(`${swarmId}/${name}`);
+						if (hasNoFallback(cfg))
+							noFallback.push(`${swarmId}/${name}(${cfg.model})`);
 					}
 				}
 			}

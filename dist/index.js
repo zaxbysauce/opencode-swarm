@@ -88789,18 +88789,19 @@ async function initializeOpenCodeSwarm(ctx) {
   }
   {
     const noFallback = [];
+    const hasNoFallback = (cfg) => cfg.model && (!cfg.fallback_models || cfg.fallback_models.length === 0);
     if (config3.agents) {
       for (const [name2, cfg] of Object.entries(config3.agents)) {
-        if (cfg.model && !cfg.fallback_models)
-          noFallback.push(name2);
+        if (hasNoFallback(cfg))
+          noFallback.push(`${name2}(${cfg.model})`);
       }
     }
     if (config3.swarms) {
       for (const [swarmId, swarm] of Object.entries(config3.swarms)) {
         if (swarm.agents) {
           for (const [name2, cfg] of Object.entries(swarm.agents)) {
-            if (cfg.model && !cfg.fallback_models)
-              noFallback.push(`${swarmId}/${name2}`);
+            if (hasNoFallback(cfg))
+              noFallback.push(`${swarmId}/${name2}(${cfg.model})`);
           }
         }
       }
