@@ -27,9 +27,11 @@ mock.module('../../../src/tools/co-change-analyzer.js', () => ({
 	detectDarkMatter: mockDetectDarkMatter,
 	formatDarkMatterOutput: mockFormatDarkMatterOutput,
 	darkMatterToKnowledgeEntries: mockDarkMatterToKnowledgeEntries,
+	co_change_analyzer: mock(() => {}),
 }));
 
 mock.module('../../../src/hooks/knowledge-store.js', () => ({
+	getPlatformConfigDir: mock(() => ''),
 	resolveSwarmKnowledgePath: mockResolveSwarmKnowledgePath,
 	resolveSwarmRejectedPath: mock(
 		() => '/test/dir/.swarm/knowledge-rejected.jsonl',
@@ -48,6 +50,8 @@ mock.module('../../../src/hooks/knowledge-store.js', () => ({
 	computeConfidence: mockComputeConfidence,
 	inferTags: mockInferTags,
 	enforceKnowledgeCap: mockEnforceKnowledgeCap,
+	sweepStaleTodos: mock(async () => ({ swept: 0, remaining: 0 })),
+	sweepAgedEntries: mock(async () => ({ swept: 0, remaining: 0 })),
 }));
 
 // Import AFTER mock setup
