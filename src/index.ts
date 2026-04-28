@@ -147,7 +147,10 @@ import { truncateToolOutput } from './utils/tool-output';
 // Heartbeat throttle map: sessionId -> last heartbeat timestamp
 const _heartbeatTimers = new Map<string, number>();
 
-import { addDeferredWarning, deferredWarnings } from './services/warning-buffer.js';
+import {
+	addDeferredWarning,
+	deferredWarnings,
+} from './services/warning-buffer.js';
 export { addDeferredWarning, deferredWarnings };
 
 // Writes .swarm/config.example.json on first plugin init for a given project.

@@ -8,6 +8,7 @@ import {
 } from '../config';
 import { AGENT_TOOL_MAP, DEFAULT_MODELS } from '../config/constants';
 import { stripKnownSwarmPrefix } from '../config/schema';
+import { addDeferredWarning } from '../services/warning-buffer.js';
 import { type AgentDefinition, createArchitectAgent } from './architect';
 import { createCoderAgent } from './coder';
 import { createCouncilMemberAgent } from './council-member';
@@ -24,7 +25,6 @@ import { createExplorerAgent } from './explorer';
 import { createReviewerAgent } from './reviewer';
 import { createSMEAgent } from './sme';
 import { createTestEngineerAgent } from './test-engineer';
-import { addDeferredWarning } from '../services/warning-buffer.js';
 
 export type { AgentDefinition } from './architect';
 

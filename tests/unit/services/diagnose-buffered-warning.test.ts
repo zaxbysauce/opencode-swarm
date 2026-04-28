@@ -361,7 +361,9 @@ describe('Import dependency validation (no circular dependency)', () => {
 		).text();
 
 		// Should import deferredWarnings from warning-buffer (not from ../index to avoid circular dep)
-		expect(diagnoseSource).toMatch(/import.*deferredWarnings.*from.*warning-buffer/);
+		expect(diagnoseSource).toMatch(
+			/import.*deferredWarnings.*from.*warning-buffer/,
+		);
 
 		// Verify the import statement exists - deferredWarnings from ./warning-buffer.js
 		const importMatch = diagnoseSource.match(
@@ -401,8 +403,12 @@ describe('Import dependency validation (no circular dependency)', () => {
 		).text();
 
 		// Verify deferredWarnings is exported (either directly or via re-export from warning-buffer)
-		const directExport = /export\s*(const|let)\s+deferredWarnings/.test(indexSource);
-		const reExport = /export\s*\{[^}]*deferredWarnings[^}]*\}/.test(indexSource);
+		const directExport = /export\s*(const|let)\s+deferredWarnings/.test(
+			indexSource,
+		);
+		const reExport = /export\s*\{[^}]*deferredWarnings[^}]*\}/.test(
+			indexSource,
+		);
 		expect(directExport || reExport).toBe(true);
 	});
 });
