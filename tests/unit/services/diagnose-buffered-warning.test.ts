@@ -354,18 +354,18 @@ describe('Import dependency validation (no circular dependency)', () => {
 		expect(indexSource).not.toMatch(/require.*diagnose-service/);
 	});
 
-	it('diagnose-service.ts imports deferredWarnings from index.ts (one-way dependency)', async () => {
+	it('diagnose-service.ts imports deferredWarnings from warning-buffer (no circular dependency)', async () => {
 		// Read the diagnose-service.ts source to verify the import
 		const diagnoseSource = await Bun.file(
 			path.join(process.cwd(), 'src', 'services', 'diagnose-service.ts'),
 		).text();
 
-		// Should import deferredWarnings from index
-		expect(diagnoseSource).toMatch(/import.*deferredWarnings.*from.*index/);
+		// Should import deferredWarnings from warning-buffer (not from ../index to avoid circular dep)
+		expect(diagnoseSource).toMatch(/import.*deferredWarnings.*from.*warning-buffer/);
 
-		// Verify the import statement exists - deferredWarnings from ../index.js
+		// Verify the import statement exists - deferredWarnings from ./warning-buffer.js
 		const importMatch = diagnoseSource.match(
-			/import\s*\{\s*deferredWarnings\s*\}\s*from\s*["']\.\.\/index/,
+			/import\s*\{\s*deferredWarnings\s*\}\s*from\s*["']\.\/warning-buffer/,
 		);
 		expect(importMatch).not.toBeNull();
 	});
@@ -400,8 +400,10 @@ describe('Import dependency validation (no circular dependency)', () => {
 			path.join(process.cwd(), 'src', 'index.ts'),
 		).text();
 
-		// Verify deferredWarnings is exported
-		expect(indexSource).toMatch(/export\s*(const|let)\s+deferredWarnings/);
+		// Verify deferredWarnings is exported (either directly or via re-export from warning-buffer)
+		const directExport = /export\s*(const|let)\s+deferredWarnings/.test(indexSource);
+		const reExport = /export\s*\{[^}]*deferredWarnings[^}]*\}/.test(indexSource);
+		expect(directExport || reExport).toBe(true);
 	});
 });
 
@@ -482,12 +484,12 @@ describe('Edge cases for deferred warnings buffer', () => {
 		expect(buffer[49]).toBe('Rapid warning 49');
 	});
 
-	it('MAX_DEFERRED_WARNINGS constant is exported from index.ts', async () => {
-		const indexSource = await Bun.file(
-			path.join(process.cwd(), 'src', 'index.ts'),
+	it('MAX_DEFERRED_WARNINGS constant of 50 exists in warning-buffer module', async () => {
+		const warningBufferSource = await Bun.file(
+			path.join(process.cwd(), 'src', 'services', 'warning-buffer.ts'),
 		).text();
 
 		// Verify MAX_DEFERRED_WARNINGS constant exists and is set to 50
-		expect(indexSource).toMatch(/MAX_DEFERRED_WARNINGS\s*=\s*50/);
+		expect(warningBufferSource).toMatch(/MAX_DEFERRED_WARNINGS\s*=\s*50/);
 	});
 });

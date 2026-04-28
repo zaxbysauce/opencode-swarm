@@ -13,27 +13,24 @@ export function handleAgentsCommand(
 		return 'No agents registered.';
 	}
 
-	// Compute registered subagent names and unregistered subagent names
-	// Use stripKnownSwarmPrefix so prefixed names (e.g. "mega_coder", "local_reviewer")
-	// are correctly matched against ALL_SUBAGENT_NAMES
+	// Compute registered subagent base names (stripped of known swarm prefixes)
+	// so prefixed names (e.g. "mega_coder", "local_reviewer") correctly match
+	// ALL_SUBAGENT_NAMES base names without appearing as unregistered.
 	const allAgentKeys = entries.map(([key]) => key);
-	const registeredSubagentNames = allAgentKeys.filter(
-		(key): key is (typeof ALL_SUBAGENT_NAMES)[number] => {
-			const stripped = stripKnownSwarmPrefix(key);
-			return (ALL_SUBAGENT_NAMES as readonly string[]).includes(stripped);
-		},
-	);
+	const registeredBaseNames = allAgentKeys
+		.map((key) => stripKnownSwarmPrefix(key))
+		.filter((stripped) =>
+			(ALL_SUBAGENT_NAMES as readonly string[]).includes(stripped),
+		);
 
 	const unregistered = ALL_SUBAGENT_NAMES.filter(
-		(name) => !registeredSubagentNames.includes(name),
+		(name) => !registeredBaseNames.includes(name),
 	);
 
 	const hasUnregistered = unregistered.length > 0;
-	const totalCount =
-		entries.length + (hasUnregistered ? unregistered.length : 0);
 	const headerLabel = hasUnregistered
 		? `${entries.length} registered + ${unregistered.length} unregistered`
-		: `${totalCount} total`;
+		: `${entries.length} total`;
 
 	const lines = [`## Registered Agents (${headerLabel})`, ''];
 

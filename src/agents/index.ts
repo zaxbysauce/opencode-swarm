@@ -24,6 +24,7 @@ import { createExplorerAgent } from './explorer';
 import { createReviewerAgent } from './reviewer';
 import { createSMEAgent } from './sme';
 import { createTestEngineerAgent } from './test-engineer';
+import { addDeferredWarning } from '../services/warning-buffer.js';
 
 export type { AgentDefinition } from './architect';
 
@@ -94,6 +95,10 @@ function getModelForAgent(
 				"[swarm] Agent '%s' not found in config — using default model '%s'. Add it to opencode-swarm.json to customize.",
 				baseAgentName,
 				resolvedModel,
+			);
+		} else {
+			addDeferredWarning(
+				`[swarm] Agent '${baseAgentName}' not found in config — using default model '${resolvedModel}'. Add it to opencode-swarm.json to customize.`,
 			);
 		}
 	}
@@ -228,6 +233,11 @@ function applyOverrides(
 		const effectiveVariant = variantOverride ?? autoVariant;
 		if (!quiet) {
 			console.warn(
+				`[swarm] Deprecation: model "${agent.config.model}" embeds variant. ` +
+					`Use "model": "${cleanedModel}", "variant": "${effectiveVariant}" instead.`,
+			);
+		} else {
+			addDeferredWarning(
 				`[swarm] Deprecation: model "${agent.config.model}" embeds variant. ` +
 					`Use "model": "${cleanedModel}", "variant": "${effectiveVariant}" instead.`,
 			);

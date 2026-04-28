@@ -147,22 +147,8 @@ import { truncateToolOutput } from './utils/tool-output';
 // Heartbeat throttle map: sessionId -> last heartbeat timestamp
 const _heartbeatTimers = new Map<string, number>();
 
-/**
- * Bounded buffer for deferred non-critical init warnings.
- * Collected during plugin startup when quiet:true, replayed in /swarm diagnose.
- * Max 50 entries to prevent memory growth.
- */
-export const deferredWarnings: string[] = [];
-const MAX_DEFERRED_WARNINGS = 50;
-
-/**
- * Push a warning to the deferred buffer if under capacity.
- */
-function addDeferredWarning(warning: string): void {
-	if (deferredWarnings.length < MAX_DEFERRED_WARNINGS) {
-		deferredWarnings.push(warning);
-	}
-}
+import { addDeferredWarning, deferredWarnings } from './services/warning-buffer.js';
+export { addDeferredWarning, deferredWarnings };
 
 // Writes .swarm/config.example.json on first plugin init for a given project.
 // This gives new users a ready-to-edit reference that shows all agent model
