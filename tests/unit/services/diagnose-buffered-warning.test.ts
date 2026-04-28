@@ -226,12 +226,14 @@ describe('Diagnose output with deferred warnings', () => {
 
 	it('includes Deferred Warnings check when buffer has warnings', async () => {
 		// Import module fresh and clear
-		const indexModule = await import('../../../src/index');
-		indexModule.deferredWarnings.length = 0;
+		const warningBuffer = await import(
+			'../../../src/services/warning-buffer.js'
+		);
+		warningBuffer.deferredWarnings.length = 0;
 
 		// Add some warnings
-		indexModule.deferredWarnings.push('Test warning 1');
-		indexModule.deferredWarnings.push('Test warning 2');
+		warningBuffer.deferredWarnings.push('Test warning 1');
+		warningBuffer.deferredWarnings.push('Test warning 2');
 
 		const { getDiagnoseData } = await import(
 			'../../../src/services/diagnose-service.js'
@@ -247,13 +249,15 @@ describe('Diagnose output with deferred warnings', () => {
 		expect(deferredCheck.detail).toContain('2 warning(s) deferred');
 
 		// Cleanup
-		indexModule.deferredWarnings.length = 0;
+		warningBuffer.deferredWarnings.length = 0;
 	});
 
 	it('does not include Deferred Warnings check when buffer is empty', async () => {
 		// Import module fresh and clear
-		const indexModule = await import('../../../src/index');
-		indexModule.deferredWarnings.length = 0;
+		const warningBuffer = await import(
+			'../../../src/services/warning-buffer.js'
+		);
+		warningBuffer.deferredWarnings.length = 0;
 
 		const { getDiagnoseData } = await import(
 			'../../../src/services/diagnose-service.js'
@@ -267,17 +271,19 @@ describe('Diagnose output with deferred warnings', () => {
 		expect(deferredCheck).toBeUndefined();
 
 		// Cleanup
-		indexModule.deferredWarnings.length = 0;
+		warningBuffer.deferredWarnings.length = 0;
 	});
 
 	it('reports correct warning count in Deferred Warnings check', async () => {
 		// Import module fresh and clear
-		const indexModule = await import('../../../src/index');
-		indexModule.deferredWarnings.length = 0;
+		const warningBuffer = await import(
+			'../../../src/services/warning-buffer.js'
+		);
+		warningBuffer.deferredWarnings.length = 0;
 
 		// Add exactly 5 warnings
 		for (let i = 0; i < 5; i++) {
-			indexModule.deferredWarnings.push(`Warning ${i + 1}`);
+			warningBuffer.deferredWarnings.push(`Warning ${i + 1}`);
 		}
 
 		const { getDiagnoseData } = await import(
@@ -293,16 +299,18 @@ describe('Diagnose output with deferred warnings', () => {
 		expect(deferredCheck.detail).toContain('5 warning(s) deferred');
 
 		// Cleanup
-		indexModule.deferredWarnings.length = 0;
+		warningBuffer.deferredWarnings.length = 0;
 	});
 
 	it('formatDiagnoseMarkdown includes Deferred Warnings section when present', async () => {
 		// Import module fresh and clear
-		const indexModule = await import('../../../src/index');
-		indexModule.deferredWarnings.length = 0;
+		const warningBuffer = await import(
+			'../../../src/services/warning-buffer.js'
+		);
+		warningBuffer.deferredWarnings.length = 0;
 
-		indexModule.deferredWarnings.push('Warning A');
-		indexModule.deferredWarnings.push('Warning B');
+		warningBuffer.deferredWarnings.push('Warning A');
+		warningBuffer.deferredWarnings.push('Warning B');
 
 		const { formatDiagnoseMarkdown, getDiagnoseData } = await import(
 			'../../../src/services/diagnose-service.js'
@@ -316,13 +324,15 @@ describe('Diagnose output with deferred warnings', () => {
 		expect(markdown).toContain('- Warning B');
 
 		// Cleanup
-		indexModule.deferredWarnings.length = 0;
+		warningBuffer.deferredWarnings.length = 0;
 	});
 
 	it('formatDiagnoseMarkdown omits Deferred Warnings section when empty', async () => {
 		// Import module fresh and clear
-		const indexModule = await import('../../../src/index');
-		indexModule.deferredWarnings.length = 0;
+		const warningBuffer = await import(
+			'../../../src/services/warning-buffer.js'
+		);
+		warningBuffer.deferredWarnings.length = 0;
 
 		const { formatDiagnoseMarkdown, getDiagnoseData } = await import(
 			'../../../src/services/diagnose-service.js'
@@ -334,7 +344,7 @@ describe('Diagnose output with deferred warnings', () => {
 		expect(markdown).not.toContain('## Deferred Warnings');
 
 		// Cleanup
-		indexModule.deferredWarnings.length = 0;
+		warningBuffer.deferredWarnings.length = 0;
 	});
 });
 
@@ -374,14 +384,23 @@ describe('Import dependency validation (no circular dependency)', () => {
 
 	it('index.ts and diagnose-service.ts can be imported without circular reference error', async () => {
 		// This test verifies that importing both modules doesn't throw
-		// "Cannot call module before it's fully loaded" or similar
+		// "Cannot call module before it's fully loaded" or similar.
+		// After issue #675 fix, deferredWarnings is no longer re-exported from
+		// index.ts — diagnose-service imports it directly from warning-buffer.js.
 
 		const indexModule = await import('../../../src/index');
-		expect(indexModule.deferredWarnings).toBeDefined();
-		expect(Array.isArray(indexModule.deferredWarnings)).toBe(true);
+		// index.ts default export is the v1 plugin object { id, server }
+		expect(indexModule.default).toBeDefined();
+		expect(typeof indexModule.default).toBe('object');
+		expect(typeof indexModule.default.server).toBe('function');
 
-		// The diagnose-service should be able to import deferredWarnings from index
-		// without causing any circular dependency issues
+		// Both warning-buffer (where deferredWarnings actually lives) and
+		// diagnose-service should import cleanly without circular reference.
+		const warningBuffer = await import(
+			'../../../src/services/warning-buffer.js'
+		);
+		expect(Array.isArray(warningBuffer.deferredWarnings)).toBe(true);
+
 		const { getDiagnoseData } = await import(
 			'../../../src/services/diagnose-service.js'
 		);
@@ -397,19 +416,26 @@ describe('Import dependency validation (no circular dependency)', () => {
 		expect(diagnoseSource).not.toMatch(/export.*deferredWarnings/);
 	});
 
-	it('index.ts exports deferredWarnings for consumption', async () => {
+	it('index.ts does NOT re-export deferredWarnings (would break OpenCode plugin loader)', async () => {
+		// Issue #675: OpenCode's getLegacyPlugins iterates Object.values(mod) and
+		// throws TypeError on any non-function export. The deferredWarnings array
+		// re-export caused 6.86.6/6.86.7/6.86.8 to silently drop the plugin.
+		// Internal consumers must import deferredWarnings directly from
+		// ./services/warning-buffer.js.
 		const indexSource = await Bun.file(
 			path.join(process.cwd(), 'src', 'index.ts'),
 		).text();
 
-		// Verify deferredWarnings is exported (either directly or via re-export from warning-buffer)
+		// No direct const/let export of deferredWarnings
 		const directExport = /export\s*(const|let)\s+deferredWarnings/.test(
 			indexSource,
 		);
+		// No re-export of deferredWarnings (the re-export that caused issue #675)
 		const reExport = /export\s*\{[^}]*deferredWarnings[^}]*\}/.test(
 			indexSource,
 		);
-		expect(directExport || reExport).toBe(true);
+		expect(directExport).toBe(false);
+		expect(reExport).toBe(false);
 	});
 });
 

@@ -50,7 +50,10 @@ describe('shipped bundle loads under Node', () => {
 		// Use file:// URL so Windows paths (with backslashes and a drive letter)
 		// load correctly through Node's default ESM resolver.
 		const bundleUrl = pathToFileURL(BUNDLE).href;
-		const script = `const m = await import(${JSON.stringify(bundleUrl)}); if (typeof m.default !== 'function') { console.error('default export is not a function:', typeof m.default); process.exit(2); }`;
+		// v1 plugin shape: default must be an object with `id` (string) and `server` (function).
+		// See issue #675 — a bare-function default falls through to OpenCode's legacy
+		// iterator and silently breaks plugin loading.
+		const script = `const m = await import(${JSON.stringify(bundleUrl)}); if (typeof m.default !== 'object' || m.default === null) { console.error('default export is not an object:', typeof m.default); process.exit(2); } if (typeof m.default.server !== 'function') { console.error('default.server is not a function:', typeof m.default.server); process.exit(3); } if (m.default.id !== 'opencode-swarm') { console.error('default.id is not opencode-swarm:', m.default.id); process.exit(4); }`;
 
 		const proc = Bun.spawn(['node', '--input-type=module', '-e', script], {
 			stdout: 'pipe',

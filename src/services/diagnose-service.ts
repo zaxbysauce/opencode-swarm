@@ -3,6 +3,7 @@ import { existsSync, readdirSync, readFileSync, statSync } from 'node:fs';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 import packageJson from '../../package.json' with { type: 'json' };
+import { getPluginCachePaths } from '../config/cache-paths.js';
 import { loadPluginConfig } from '../config/loader';
 import type { Plan } from '../config/plan-schema';
 import { listEvidenceTaskIds } from '../evidence/manager';
@@ -18,7 +19,7 @@ const { version } = packageJson;
  */
 export interface HealthCheck {
 	name: string;
-	status: '✅' | '❌' | '⚠️';
+	status: '✅' | '❌' | '⚠️' | '⬜';
 	detail: string;
 }
 
@@ -994,7 +995,47 @@ export async function getDiagnoseData(
 		});
 	}
 
-	const passCount = checks.filter((c) => c.status === '✅').length;
+	// Check: Plugin Caches — inventory of known OpenCode plugin cache locations.
+	// Shows which caches are present, what version is installed there, and which
+	// are absent. Helps users diagnose stale-cache issues (issue #675).
+	const cachePaths = getPluginCachePaths();
+	const cacheRows: string[] = [];
+	for (const cachePath of cachePaths) {
+		try {
+			if (!existsSync(cachePath)) {
+				cacheRows.push(`⬜ ${cachePath} — absent`);
+				continue;
+			}
+			const pkgJsonPath = path.join(cachePath, 'package.json');
+			try {
+				const raw = readFileSync(pkgJsonPath, 'utf-8');
+				const parsed = JSON.parse(raw) as { version?: unknown };
+				const installedVersion =
+					typeof parsed.version === 'string' ? parsed.version : '?';
+				cacheRows.push(`✅ ${cachePath} — v${installedVersion}`);
+			} catch {
+				cacheRows.push(`⚠️ ${cachePath} — present (package.json unreadable)`);
+			}
+		} catch {
+			cacheRows.push(`⚠️ ${cachePath} — status unknown (read error)`);
+		}
+	}
+	const hasCacheEntry = cacheRows.some((r) => r.startsWith('✅'));
+	const hasCacheWarning = cacheRows.some((r) => r.startsWith('⚠️'));
+	const cacheStatus: HealthCheck['status'] = hasCacheWarning
+		? '⚠️'
+		: hasCacheEntry
+			? '✅'
+			: '⬜';
+	checks.push({
+		name: 'Plugin Caches',
+		status: cacheStatus,
+		detail: cacheRows.join(' | '),
+	});
+
+	const passCount = checks.filter(
+		(c) => c.status === '✅' || c.status === '⬜',
+	).length;
 	const totalCount = checks.length;
 	const allPassed = passCount === totalCount;
 

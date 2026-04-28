@@ -153,7 +153,6 @@ import {
 	addDeferredWarning,
 	deferredWarnings,
 } from './services/warning-buffer.js';
-export { addDeferredWarning, deferredWarnings };
 
 // Writes .swarm/config.example.json on first plugin init for a given project.
 // This gives new users a ready-to-edit reference that shows all agent model
@@ -1374,10 +1373,22 @@ async function initializeOpenCodeSwarm(ctx: Parameters<Plugin>[0]) {
 	};
 }
 
-export default OpenCodeSwarm;
+// v1 plugin shape: OpenCode's readV1Plugin requires the default export to be
+// an object exposing `id` and `server`. Bare-function defaults fall through to
+// the legacy iterator, which then walks Object.values(mod) and throws on any
+// non-function export. Issue #675.
+//
+// `satisfies` keeps the wrapper type-checked against the inferred shape without
+// loosening the OpenCodeSwarm function's `Plugin` type. The id literal must
+// match the package name in package.json.
+export default {
+	id: 'opencode-swarm' as const,
+	server: OpenCodeSwarm,
+} satisfies { id: string; server: Plugin };
 
+// Type re-exports remain — they are erased at runtime so they do not appear
+// in Object.values(mod) and cannot break OpenCode's plugin loader.
 export type { AgentDefinition } from './agents';
-// Export types for consumers
 export type {
 	AgentName,
 	AutomationCapabilities,
