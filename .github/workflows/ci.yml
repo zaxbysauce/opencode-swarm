@@ -57,11 +57,21 @@ jobs:
       - name: Unit tests (hooks - guardrails)
         shell: bash
         run: |
+          set -o pipefail
+          IFS=$'\n'
           failed=0
+          tmpdir="${RUNNER_TEMP:-${TEMP:-/tmp}}"
+          trap 'rm -f "$tmpdir"/bun-out-$$-*' EXIT
           for f in tests/unit/hooks/guardrails*.test.ts; do
             [ -f "$f" ] || continue
-            if ! bun --smol test "$f" --timeout 120000; then
-              failed=1
+            tmp="$tmpdir/bun-out-$$-${f##*/}"
+            exit_code=0
+            bun --smol test "$f" --timeout 120000 > "$tmp" 2>&1 || exit_code=$?
+            if [ $exit_code -ne 0 ]; then
+              if grep -qE "^[[:space:]]*(FAIL|✗|AssertionError)" "$tmp"; then
+                echo "::error file=$f::FAILED: $f"
+                failed=1
+              fi
             fi
           done
           exit $failed
@@ -71,7 +81,8 @@ jobs:
           set -o pipefail
           IFS=$'\n'
           failed=0
-          tmpdir="${RUNNER_TEMP:-${TEMP:-.}}"
+          tmpdir="${RUNNER_TEMP:-${TEMP:-/tmp}}"
+          trap 'rm -f "$tmpdir"/bun-out-$$-*' EXIT
           for f in tests/unit/hooks/destructive-command*.test.ts tests/unit/hooks/incident-replay*.test.ts; do
             [ -f "$f" ] || continue
             tmp="$tmpdir/bun-out-$$-${f##*/}"
@@ -79,12 +90,11 @@ jobs:
             bun --smol test "$f" --timeout 120000 > "$tmp" 2>&1 || exit_code=$?
             if [ $exit_code -ne 0 ]; then
               # bun exited non-zero — check if it was a real failure or crash
-              if grep -qE "(FAIL|Error:|AssertionError)" "$tmp"; then
+              if grep -qE "^[[:space:]]*(FAIL|✗|AssertionError)" "$tmp"; then
                 echo "::error file=$f::FAILED: $f"
                 failed=1
               fi
             fi
-            rm -f "$tmp"
           done
           exit $failed
       - name: Unit tests (hooks - knowledge types/validator/store)
@@ -203,20 +213,20 @@ jobs:
           set -o pipefail
           IFS=$'\n'
           failed=0
-          tmpdir="${RUNNER_TEMP:-${TEMP:-.}}"
-          for f in tests/unit/hooks/advisory*.test.ts tests/unit/hooks/agent*.test.ts tests/unit/hooks/co-change*.test.ts tests/unit/hooks/compaction*.test.ts tests/unit/hooks/context*.test.ts tests/unit/hooks/dark*.test.ts tests/unit/hooks/destructive*.test.ts tests/unit/hooks/extractors*.test.ts tests/unit/hooks/full-auto*.test.ts tests/unit/hooks/gate*.test.ts tests/unit/hooks/log*.test.ts tests/unit/hooks/message*.test.ts tests/unit/hooks/mode-*.test.ts tests/unit/hooks/model*.test.ts tests/unit/hooks/phase*.test.ts tests/unit/hooks/pipeline*.test.ts tests/unit/hooks/plan*.test.ts tests/unit/hooks/review-receipt*.test.ts tests/unit/hooks/self*.test.ts tests/unit/hooks/steering*.test.ts tests/unit/hooks/system-message*.test.ts tests/unit/hooks/telemetry-guardrails*.test.ts tests/unit/hooks/tool*.test.ts tests/unit/hooks/trajectory*.test.ts tests/unit/hooks/utils*.test.ts; do
+          tmpdir="${RUNNER_TEMP:-${TEMP:-/tmp}}"
+          trap 'rm -f "$tmpdir"/bun-out-$$-*' EXIT
+          for f in tests/unit/hooks/advisory*.test.ts tests/unit/hooks/agent*.test.ts tests/unit/hooks/co-change*.test.ts tests/unit/hooks/compaction*.test.ts tests/unit/hooks/context*.test.ts tests/unit/hooks/dark*.test.ts tests/unit/hooks/extractors*.test.ts tests/unit/hooks/full-auto*.test.ts tests/unit/hooks/gate*.test.ts tests/unit/hooks/log*.test.ts tests/unit/hooks/message*.test.ts tests/unit/hooks/mode-*.test.ts tests/unit/hooks/model*.test.ts tests/unit/hooks/phase*.test.ts tests/unit/hooks/pipeline*.test.ts tests/unit/hooks/plan*.test.ts tests/unit/hooks/review-receipt*.test.ts tests/unit/hooks/self*.test.ts tests/unit/hooks/steering*.test.ts tests/unit/hooks/system-message*.test.ts tests/unit/hooks/telemetry-guardrails*.test.ts tests/unit/hooks/tool*.test.ts tests/unit/hooks/trajectory*.test.ts tests/unit/hooks/utils*.test.ts; do
             [ -f "$f" ] || continue
             tmp="$tmpdir/bun-out-$$-${f##*/}"
             exit_code=0
             bun --smol test "$f" --timeout 120000 > "$tmp" 2>&1 || exit_code=$?
             if [ $exit_code -ne 0 ]; then
               # bun exited non-zero — check if it was a real failure or crash
-              if grep -qE "(FAIL|Error:|AssertionError)" "$tmp"; then
+              if grep -qE "^[[:space:]]*(FAIL|✗|AssertionError)" "$tmp"; then
                 echo "::error file=$f::FAILED: $f"
                 failed=1
               fi
             fi
-            rm -f "$tmp"
           done
           exit $failed
       - name: Unit tests (commands, config)
@@ -226,7 +236,8 @@ jobs:
           IFS=$'\n'
           # Per-file isolation to prevent --smol cache poisoning (#330).
           failed=0
-          tmpdir="${RUNNER_TEMP:-${TEMP:-.}}"
+          tmpdir="${RUNNER_TEMP:-${TEMP:-/tmp}}"
+          trap 'rm -f "$tmpdir"/bun-out-$$-*' EXIT
           for dir in tests/unit/commands tests/unit/config; do
             for f in "$dir"/*.test.ts; do
               [ -f "$f" ] || continue
@@ -235,12 +246,11 @@ jobs:
               bun --smol test "$f" --timeout 120000 > "$tmp" 2>&1 || exit_code=$?
               if [ $exit_code -ne 0 ]; then
                 # bun exited non-zero — check if it was a real failure or crash
-                if grep -qE "(FAIL|Error:|AssertionError)" "$tmp"; then
+                if grep -qE "^[[:space:]]*(FAIL|✗|AssertionError)" "$tmp"; then
                   echo "::error file=$f::FAILED: $f"
                   failed=1
                 fi
               fi
-              rm -f "$tmp"
             done
           done
           exit $failed
@@ -249,18 +259,16 @@ jobs:
         run: |
           set -o pipefail
           IFS=$'\n'
-          tmpdir="${RUNNER_TEMP:-${TEMP:-.}}"
+          tmpdir="${RUNNER_TEMP:-${TEMP:-/tmp}}"
           tmp="$tmpdir/bun-out-cli-$$"
           exit_code=0
           bun --smol test tests/unit/cli --timeout 120000 > "$tmp" 2>&1 || exit_code=$?
           if [ $exit_code -ne 0 ]; then
             # bun exited non-zero — check if it was a real failure or crash
-            if grep -qE "(FAIL|Error:|AssertionError)" "$tmp"; then
-              rm -f "$tmp"
+            if grep -qE "^[[:space:]]*(FAIL|✗|AssertionError)" "$tmp"; then
               exit 1
             fi
           fi
-          rm -f "$tmp"
       - name: Unit tests (tools)
         shell: bash
         run: |
@@ -269,19 +277,19 @@ jobs:
           # Run each tools test file in its own process to prevent
           # --smol module cache poisoning across files (#330).
           failed=0
-          tmpdir="${RUNNER_TEMP:-${TEMP:-.}}"
+          tmpdir="${RUNNER_TEMP:-${TEMP:-/tmp}}"
+          trap 'rm -f "$tmpdir"/bun-out-$$-*' EXIT
           for f in tests/unit/tools/*.test.ts; do
             tmp="$tmpdir/bun-out-$$-${f##*/}"
             exit_code=0
             bun --smol test "$f" --timeout 120000 > "$tmp" 2>&1 || exit_code=$?
             if [ $exit_code -ne 0 ]; then
               # bun exited non-zero — check if it was a real failure or crash
-              if grep -qE "(FAIL|Error:|AssertionError)" "$tmp"; then
+              if grep -qE "^[[:space:]]*(FAIL|✗|AssertionError)" "$tmp"; then
                 echo "::error file=$f::FAILED: $f"
                 failed=1
               fi
             fi
-            rm -f "$tmp"
           done
           exit $failed
       - name: Unit tests (services, build, quality, sast, sbom, scripts)
@@ -291,7 +299,8 @@ jobs:
           IFS=$'\n'
           # Per-file isolation to prevent --smol cache poisoning (#330).
           failed=0
-          tmpdir="${RUNNER_TEMP:-${TEMP:-.}}"
+          tmpdir="${RUNNER_TEMP:-${TEMP:-/tmp}}"
+          trap 'rm -f "$tmpdir"/bun-out-$$-*' EXIT
           for dir in tests/unit/services tests/unit/build tests/unit/quality tests/unit/sast tests/unit/sbom tests/unit/scripts; do
             for f in "$dir"/*.test.ts; do
               [ -f "$f" ] || continue
@@ -300,12 +309,11 @@ jobs:
               bun --smol test "$f" --timeout 120000 > "$tmp" 2>&1 || exit_code=$?
               if [ $exit_code -ne 0 ]; then
                 # bun exited non-zero — check if it was a real failure or crash
-                if grep -qE "(FAIL|Error:|AssertionError)" "$tmp"; then
+                if grep -qE "^[[:space:]]*(FAIL|✗|AssertionError)" "$tmp"; then
                   echo "::error file=$f::FAILED: $f"
                   failed=1
                 fi
               fi
-              rm -f "$tmp"
             done
           done
           exit $failed
@@ -316,7 +324,8 @@ jobs:
           IFS=$'\n'
           # Per-file isolation to prevent --smol cache poisoning (#330).
           failed=0
-          tmpdir="${RUNNER_TEMP:-${TEMP:-.}}"
+          tmpdir="${RUNNER_TEMP:-${TEMP:-/tmp}}"
+          trap 'rm -f "$tmpdir"/bun-out-$$-*' EXIT
           for dir in tests/unit/adversarial tests/unit/agents tests/unit/background tests/unit/context tests/unit/council tests/unit/diff tests/unit/evidence tests/unit/git tests/unit/helpers tests/unit/knowledge tests/unit/lang tests/unit/output tests/unit/parallel tests/unit/plan tests/unit/session tests/unit/skills tests/unit/types tests/unit/utils; do
             for f in "$dir"/*.test.ts; do
               [ -f "$f" ] || continue
@@ -325,7 +334,7 @@ jobs:
               bun --smol test "$f" --timeout 120000 > "$tmp" 2>&1 || exit_code=$?
               if [ $exit_code -ne 0 ]; then
                 # bun exited non-zero — check if it was a real failure or crash
-                if grep -qE "(FAIL|Error:|AssertionError)" "$tmp"; then
+                if grep -qE "^[[:space:]]*(FAIL|✗|AssertionError)" "$tmp"; then
                   echo "::error file=$f::FAILED: $f"
                   failed=1
                 fi
@@ -341,7 +350,7 @@ jobs:
             bun --smol test "$f" --timeout 120000 > "$tmp" 2>&1 || exit_code=$?
             if [ $exit_code -ne 0 ]; then
               # bun exited non-zero — check if it was a real failure or crash
-              if grep -qE "(FAIL|Error:|AssertionError)" "$tmp"; then
+              if grep -qE "^[[:space:]]*(FAIL|✗|AssertionError)" "$tmp"; then
                 echo "::error file=$f::FAILED: $f"
                 failed=1
               fi
@@ -372,12 +381,21 @@ jobs:
         run: |
           # Per-file isolation to prevent module cache poisoning and process.chdir
           # contamination across integration test files (#330 pattern).
+          set -o pipefail
+          IFS=$'\n'
           failed=0
+          tmpdir="${RUNNER_TEMP:-${TEMP:-/tmp}}"
+          trap 'rm -f "$tmpdir"/bun-out-int-*' EXIT
           for f in tests/integration/*.test.ts ./test/*.test.ts; do
             [ -f "$f" ] || continue
-            if ! bun --smol test "$f" --timeout 120000; then
-              echo "::error file=$f::FAILED: $f"
-              failed=1
+            tmp="$tmpdir/bun-out-int-$$-${f##*/}"
+            exit_code=0
+            bun --smol test "$f" --timeout 120000 > "$tmp" 2>&1 || exit_code=$?
+            if [ $exit_code -ne 0 ]; then
+              if grep -qE "^[[:space:]]*(FAIL|✗|AssertionError)" "$tmp"; then
+                echo "::error file=$f::FAILED: $f"
+                failed=1
+              fi
             fi
           done
           exit $failed
@@ -408,12 +426,13 @@ jobs:
           # while Linux bun produces node_modules/PACKAGE.
           # After build, dist/ has clean Linux paths. We must normalize the committed
           # (git index) side before comparing, not the freshly built working tree.
-          tmpdir="${RUNNER_TEMP:-${TEMP:-.}}"
+          tmpdir="${RUNNER_TEMP:-${TEMP:-/tmp}}"
           dist_committed="$tmpdir/dist-committed"
           mkdir -p "$dist_committed"
           git archive HEAD dist/ | tar -x -C "$dist_committed"
           find "$dist_committed/dist/" -name "*.js" -type f -exec sed -i \
-            -e 's|node_modules/\.bun/[^/]\+/node_modules/|node_modules/|g' {} +
+            -e 's|node_modules/\.bun/[^/]\+/node_modules/|node_modules/|g' \
+            -e 's/\r$//' {} +
           # Remove gitignored paths from the freshly built dist before comparing.
           # These are intentionally excluded from commits (see .gitignore lines 29-35).
           rm -rf dist/build/ dist/quality/ dist/sbom/
