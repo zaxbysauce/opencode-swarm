@@ -2,8 +2,10 @@
 import * as fs from 'node:fs';
 import * as os from 'node:os';
 import * as path from 'node:path';
-
+import packageJson from '../../package.json' with { type: 'json' };
 import { resolveCommand, VALID_COMMANDS } from '../commands/registry.js';
+
+const { version } = packageJson;
 
 const CONFIG_DIR = path.join(
 	process.env.XDG_CONFIG_HOME || path.join(os.homedir(), '.config'),
@@ -51,6 +53,31 @@ function loadJson<T>(filepath: string): T | null {
 
 function saveJson(filepath: string, data: unknown): void {
 	fs.writeFileSync(filepath, `${JSON.stringify(data, null, 2)}\n`, 'utf-8');
+}
+
+function writeProjectConfigIfMissing(cwd: string): void {
+	try {
+		const opencodeDir = path.join(cwd, '.opencode');
+		const projectConfigPath = path.join(opencodeDir, 'opencode-swarm.json');
+
+		// Only write if file doesn't already exist
+		if (fs.existsSync(projectConfigPath)) {
+			return;
+		}
+
+		// Create .opencode/ directory if it doesn't exist
+		ensureDir(opencodeDir);
+
+		// Write minimal starter content
+		const starterConfig = { agents: {} };
+		saveJson(projectConfigPath, starterConfig);
+		console.log('✓ Created project config at:', projectConfigPath);
+	} catch (error) {
+		console.warn(
+			'⚠ Could not create project config — installation will continue:',
+		);
+		console.warn(`  ${error instanceof Error ? error.message : String(error)}`);
+	}
 }
 
 async function install(): Promise<number> {
@@ -216,6 +243,9 @@ async function install(): Promise<number> {
 	} else {
 		console.log('✓ Plugin config already exists at:', PLUGIN_CONFIG_PATH);
 	}
+
+	// Create project-level config if not exists
+	writeProjectConfigIfMissing(process.cwd());
 
 	console.log('\n📁 Configuration files:');
 	console.log(`   OpenCode config: ${OPENCODE_CONFIG_PATH}`);
@@ -394,6 +424,11 @@ Examples:
 
 async function main(): Promise<void> {
 	const args = process.argv.slice(2);
+
+	if (args.includes('-v') || args.includes('--version')) {
+		console.log(`opencode-swarm ${version}`);
+		process.exit(0);
+	}
 
 	if (args.includes('-h') || args.includes('--help')) {
 		printHelp();

@@ -14,7 +14,7 @@
 
 ---
 
-OpenCode Swarm is a plugin for [OpenCode](https://opencode.ai) that turns a single AI coding session into an **architect-led team of 11 specialized agents**. One agent writes the code. A different agent reviews it. Another writes and runs tests. Another checks security. **Nothing ships until every required gate passes.**
+OpenCode Swarm is a plugin for [OpenCode](https://opencode.ai) that turns a single AI coding session into an **architect-led team of 17 specialized agents**. One agent writes the code. A different agent reviews it. Another writes and runs tests. Another checks security. **Nothing ships until every required gate passes.**
 
 ```bash
 bunx opencode-swarm install
@@ -28,7 +28,7 @@ Most AI coding tools let one model write code and ask that same model whether th
 
 ### Key Features
 
-- 🏗️ **11 specialized agents** — architect, coder, reviewer, test engineer, critic, critic_sounding_board, critic_drift_verifier, explorer, SME, docs, designer
+- 🏗️ **17 specialized agents (9 core + 5 optional + 3 conditional)** — architect, coder, reviewer, test_engineer, critic, explorer, sme, docs, designer, critic_oversight, critic_sounding_board, critic_drift_verifier, critic_hallucination_verifier, curator_init, curator_phase, council_member, council_moderator
 - 🔒 **Gated pipeline** — code never ships without reviewer + test engineer approval
 - 🔄 **Phase completion gates** — completion-verify and drift verifier gates enforced before phase completion
 - 🔁 **Resumable sessions** — all state saved to `.swarm/`; pick up any project any day
@@ -126,23 +126,83 @@ See [docs/commands.md](docs/commands.md) for the full reference (41 commands).
 
 ## The Agents
 
-Swarm has 11 specialized agents. You don't manually switch between them — the architect coordinates automatically.
+Swarm has 17 specialized agents (9 core + 5 optional + 3 conditional). You don't manually switch between them — the architect coordinates automatically.
 
-| Agent | Role |
-|---|---|
-| **architect** | Orchestrates workflow, writes plans, enforces gates |
-| **coder** | Implements one task at a time |
-| **reviewer** | Checks correctness and security |
-| **test_engineer** | Writes and runs tests |
-| **critic** | Reviews plans and challenges findings |
-| **explorer** | Scans codebase and gathers context |
-| **sme** | Provides domain expertise guidance |
-| **docs** | Updates documentation to match implementation |
-| **designer** | Generates UI scaffolds and design tokens |
-| **critic_sounding_board** | Pre-escalation pushback to the architect |
-| **critic_drift_verifier** | Verifies implementation matches plan |
+| Agent | Role | Badge |
+|---|---|---|
+| **architect** | Orchestrates workflow, writes plans, enforces gates | Core |
+| **explorer** | Scans codebase, gathers context, maps facts | Core |
+| **coder** | Implements one task at a time | Core |
+| **reviewer** | Checks correctness and security | Core |
+| **test_engineer** | Writes and runs tests, adversarial testing | Core |
+| **critic** | Reviews plans before implementation begins | Core |
+| **critic_oversight** | Sole quality gate in full-auto autonomous mode | Core |
+| **sme** | Provides domain expertise guidance | Core |
+| **docs** | Updates documentation to match implementation | Core |
+| **designer** | Generates UI scaffolds and design tokens | Conditional |
+| **critic_sounding_board** | Pre-escalation pushback to the architect | Optional |
+| **critic_drift_verifier** | Verifies implementation matches spec | Optional |
+| **critic_hallucination_verifier** | Verifies APIs and citations against real sources | Optional |
+| **curator_init** | Consolidates prior knowledge at session start | Optional |
+| **curator_phase** | Consolidates phase outcomes, detects workflow drift | Optional |
+| **council_member** | Web-searches and deliberates in General Council | Conditional |
+| **council_moderator** | Synthesizes council deliberation into final answer | Conditional |
+
+Legend: Core = always available, Optional = available by default (can be disabled), Conditional = requires specific feature config (ui_review or council)
 
 Run `/swarm status` and `/swarm agents` to see what's active.
+
+```mermaid
+graph TB
+    subgraph Orchestration
+        A[Architect]
+    end
+
+    subgraph Discovery
+        E[Explorer]
+    end
+
+    subgraph Execution
+        C[Coder]
+        T[Test Engineer]
+        D[Designer]
+    end
+
+    subgraph Quality
+        R[Reviewer]
+        CR[Critic]
+        CO[Critic Oversight]
+        CSB[Critic Sounding Board]
+        CDV[Critic Drift Verifier]
+        CHV[Critic Hallucination Verifier]
+    end
+
+    subgraph Support
+        S[SME]
+        DOC[Docs]
+        CI[Curator Init]
+        CP[Curator Phase]
+    end
+
+    subgraph Council
+        CM[Council Member]
+        CMO[Council Moderator]
+    end
+
+    A -->|Discover| E
+    E -->|Context| A
+    A -->|Consult| S
+    S -->|Guidance| A
+    A -->|Design| D
+    D -->|Scaffold| C
+    A -->|Implement| C
+    C -->|Review| R
+    R -->|Verify| A
+    C -->|Test| T
+    T -->|Results| A
+    A -->|Deliberate| CM
+    CM -->|Verdict| A
+```
 
 ---
 
@@ -150,7 +210,7 @@ Run `/swarm status` and `/swarm agents` to see what's active.
 
 | Feature | Swarm | oh-my-opencode | get-shit-done |
 |---|:-:|:-:|:-:|
-| Multiple specialized agents | ✅ 11 agents | ❌ | ❌ |
+| Multiple specialized agents | ✅ 17 agents | ❌ | ❌ |
 | Plan reviewed before coding | ✅ | ❌ | ❌ |
 | Every task reviewed + tested | ✅ | ❌ | ❌ |
 | Different model for review vs. code | ✅ | ❌ | ❌ |
