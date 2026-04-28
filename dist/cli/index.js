@@ -18598,7 +18598,7 @@ import * as path32 from "path";
 // package.json
 var package_default = {
   name: "opencode-swarm",
-  version: "6.86.6",
+  version: "6.86.7",
   description: "Architect-centric agentic swarm plugin for OpenCode - hub-and-spoke orchestration with SME consultation, code generation, and QA review",
   main: "dist/index.js",
   types: "dist/index.d.ts",
@@ -18636,7 +18636,7 @@ var package_default = {
   ],
   scripts: {
     clean: `bun -e "require('fs').rmSync('dist',{recursive:true,force:true})"`,
-    build: "bun run clean && bun run scripts/copy-grammars.ts && bun build src/index.ts --outdir dist --target bun --format esm && bun build src/cli/index.ts --outdir dist/cli --target bun --format esm && bun run scripts/copy-grammars.ts --to-dist && tsc --emitDeclarationOnly",
+    build: "bun run clean && bun run scripts/copy-grammars.ts && bun build src/index.ts --outdir dist --target node --format esm && bun build src/cli/index.ts --outdir dist/cli --target bun --format esm && bun run scripts/copy-grammars.ts --to-dist && tsc --emitDeclarationOnly",
     typecheck: "tsc --noEmit",
     test: "bun test",
     lint: "biome lint .",
@@ -19709,6 +19709,7 @@ var PluginConfigSchema = exports_external.object({
   parallelization: ParallelizationConfigSchema.optional(),
   turbo_mode: exports_external.boolean().default(false).optional(),
   quiet: exports_external.boolean().default(false).optional(),
+  version_check: exports_external.boolean().default(true).optional(),
   full_auto: exports_external.object({
     enabled: exports_external.boolean().default(false),
     critic_model: exports_external.string().optional(),
@@ -19985,9 +19986,17 @@ init_plan_schema();
 import { createHash as createHash3 } from "crypto";
 
 // src/db/project-db.ts
-import { Database } from "bun:sqlite";
 import { existsSync as existsSync5, mkdirSync as mkdirSync4 } from "fs";
+import { createRequire } from "module";
 import { join as join7, resolve as resolve5 } from "path";
+var _DatabaseCtor = null;
+function loadDatabaseCtor() {
+  if (_DatabaseCtor)
+    return _DatabaseCtor;
+  const req = createRequire(import.meta.url);
+  _DatabaseCtor = req("bun:sqlite").Database;
+  return _DatabaseCtor;
+}
 var MIGRATIONS = [
   {
     version: 1,
@@ -20058,7 +20067,8 @@ function getProjectDb(directory) {
     return existing;
   const swarmDir = join7(key, ".swarm");
   mkdirSync4(swarmDir, { recursive: true });
-  const db = new Database(join7(swarmDir, "swarm.db"));
+  const Db = loadDatabaseCtor();
+  const db = new Db(join7(swarmDir, "swarm.db"));
   db.run("PRAGMA journal_mode = WAL;");
   db.run("PRAGMA synchronous = NORMAL;");
   db.run("PRAGMA busy_timeout = 5000;");
@@ -36276,12 +36286,65 @@ async function handleDarkMatterCommand(directory, args) {
 
 // src/services/diagnose-service.ts
 import * as child_process4 from "child_process";
-import { existsSync as existsSync8, readdirSync as readdirSync4, readFileSync as readFileSync5, statSync as statSync5 } from "fs";
+import { existsSync as existsSync9, readdirSync as readdirSync4, readFileSync as readFileSync6, statSync as statSync5 } from "fs";
 import path17 from "path";
 import { fileURLToPath } from "url";
 init_manager2();
 init_utils2();
 init_manager();
+
+// src/services/version-check.ts
+import { existsSync as existsSync8, mkdirSync as mkdirSync8, readFileSync as readFileSync5, writeFileSync as writeFileSync4 } from "fs";
+import { homedir as homedir4 } from "os";
+import { join as join14 } from "path";
+var CHECK_INTERVAL_MS = 24 * 60 * 60 * 1000;
+function cacheDir() {
+  const xdg = process.env.XDG_CACHE_HOME;
+  const base = xdg && xdg.length > 0 ? xdg : join14(homedir4(), ".cache");
+  return join14(base, "opencode-swarm");
+}
+function cacheFile() {
+  return join14(cacheDir(), "version-check.json");
+}
+function readVersionCache() {
+  try {
+    const path17 = cacheFile();
+    if (!existsSync8(path17))
+      return null;
+    const raw = readFileSync5(path17, "utf-8");
+    const parsed = JSON.parse(raw);
+    if (typeof parsed?.checkedAt !== "number")
+      return null;
+    const npmLatest = typeof parsed.npmLatest === "string" ? parsed.npmLatest : null;
+    return { checkedAt: parsed.checkedAt, npmLatest };
+  } catch {
+    return null;
+  }
+}
+function compareVersions(a, b) {
+  const [aBase, aPre] = a.split("-", 2);
+  const [bBase, bPre] = b.split("-", 2);
+  const aParts = aBase.split(".").map((n) => Number.parseInt(n, 10) || 0);
+  const bParts = bBase.split(".").map((n) => Number.parseInt(n, 10) || 0);
+  const len = Math.max(aParts.length, bParts.length);
+  for (let i = 0;i < len; i++) {
+    const av = aParts[i] ?? 0;
+    const bv = bParts[i] ?? 0;
+    if (av > bv)
+      return 1;
+    if (av < bv)
+      return -1;
+  }
+  if (aPre && !bPre)
+    return -1;
+  if (!aPre && bPre)
+    return 1;
+  if (aPre && bPre)
+    return aPre < bPre ? -1 : aPre > bPre ? 1 : 0;
+  return 0;
+}
+
+// src/services/diagnose-service.ts
 var { version: version3 } = package_default;
 function validateTaskDag(plan) {
   const allTaskIds = new Set;
@@ -36514,7 +36577,7 @@ async function checkConfigBackups(directory) {
 }
 async function checkGitRepository(directory) {
   try {
-    if (!existsSync8(directory) || !statSync5(directory).isDirectory()) {
+    if (!existsSync9(directory) || !statSync5(directory).isDirectory()) {
       return {
         name: "Git Repository",
         status: "\u274C",
@@ -36579,7 +36642,7 @@ async function checkSpecStaleness(directory, plan) {
 }
 async function checkConfigParseability(directory) {
   const configPath = path17.join(directory, ".opencode/opencode-swarm.json");
-  if (!existsSync8(configPath)) {
+  if (!existsSync9(configPath)) {
     return {
       name: "Config Parseability",
       status: "\u2705",
@@ -36587,7 +36650,7 @@ async function checkConfigParseability(directory) {
     };
   }
   try {
-    const content = readFileSync5(configPath, "utf-8");
+    const content = readFileSync6(configPath, "utf-8");
     JSON.parse(content);
     return {
       name: "Config Parseability",
@@ -36634,11 +36697,11 @@ async function checkGrammarWasmFiles() {
   const thisDir = path17.dirname(fileURLToPath(import.meta.url));
   const grammarDir = resolveGrammarDir(thisDir);
   const missing = [];
-  if (!existsSync8(path17.join(grammarDir, "tree-sitter.wasm"))) {
+  if (!existsSync9(path17.join(grammarDir, "tree-sitter.wasm"))) {
     missing.push("tree-sitter.wasm (core runtime)");
   }
   for (const file3 of grammarFiles) {
-    if (!existsSync8(path17.join(grammarDir, file3))) {
+    if (!existsSync9(path17.join(grammarDir, file3))) {
       missing.push(file3);
     }
   }
@@ -36657,7 +36720,7 @@ async function checkGrammarWasmFiles() {
 }
 async function checkCheckpointManifest(directory) {
   const manifestPath = path17.join(directory, ".swarm/checkpoints.json");
-  if (!existsSync8(manifestPath)) {
+  if (!existsSync9(manifestPath)) {
     return {
       name: "Checkpoint Manifest",
       status: "\u2705",
@@ -36665,7 +36728,7 @@ async function checkCheckpointManifest(directory) {
     };
   }
   try {
-    const content = readFileSync5(manifestPath, "utf-8");
+    const content = readFileSync6(manifestPath, "utf-8");
     const parsed = JSON.parse(content);
     if (!parsed.checkpoints || !Array.isArray(parsed.checkpoints)) {
       return {
@@ -36709,7 +36772,7 @@ async function checkCheckpointManifest(directory) {
 }
 async function checkEventStreamIntegrity(directory) {
   const eventsPath = path17.join(directory, ".swarm/events.jsonl");
-  if (!existsSync8(eventsPath)) {
+  if (!existsSync9(eventsPath)) {
     return {
       name: "Event Stream",
       status: "\u2705",
@@ -36717,7 +36780,7 @@ async function checkEventStreamIntegrity(directory) {
     };
   }
   try {
-    const content = readFileSync5(eventsPath, "utf-8");
+    const content = readFileSync6(eventsPath, "utf-8");
     const lines = content.split(`
 `).filter((line) => line.trim() !== "");
     let malformedCount = 0;
@@ -36750,7 +36813,7 @@ async function checkEventStreamIntegrity(directory) {
 }
 async function checkSteeringDirectives(directory) {
   const eventsPath = path17.join(directory, ".swarm/events.jsonl");
-  if (!existsSync8(eventsPath)) {
+  if (!existsSync9(eventsPath)) {
     return {
       name: "Steering Directives",
       status: "\u2705",
@@ -36758,7 +36821,7 @@ async function checkSteeringDirectives(directory) {
     };
   }
   try {
-    const content = readFileSync5(eventsPath, "utf-8");
+    const content = readFileSync6(eventsPath, "utf-8");
     const lines = content.split(`
 `).filter((line) => line.trim() !== "");
     const directivesIssued = [];
@@ -36806,7 +36869,7 @@ async function checkCurator(directory) {
       };
     }
     const summaryPath = path17.join(directory, ".swarm/curator-summary.json");
-    if (!existsSync8(summaryPath)) {
+    if (!existsSync9(summaryPath)) {
       return {
         name: "Curator",
         status: "\u2705",
@@ -36814,7 +36877,7 @@ async function checkCurator(directory) {
       };
     }
     try {
-      const content = readFileSync5(summaryPath, "utf-8");
+      const content = readFileSync6(summaryPath, "utf-8");
       const parsed = JSON.parse(content);
       if (typeof parsed.schema_version !== "number" || parsed.schema_version !== 1) {
         return {
@@ -36849,10 +36912,23 @@ async function checkCurator(directory) {
 }
 async function getDiagnoseData(directory) {
   const checks5 = [];
+  const versionCache = readVersionCache();
+  let versionDetail = version3;
+  let versionStatus = "\u2705";
+  if (versionCache?.npmLatest) {
+    const ageMs = Date.now() - versionCache.checkedAt;
+    const ageMin = Math.max(0, Math.round(ageMs / 60000));
+    if (compareVersions(versionCache.npmLatest, version3) > 0) {
+      versionStatus = "\u26A0\uFE0F";
+      versionDetail = `${version3} (npm latest: ${versionCache.npmLatest}, checked ${ageMin}m ago) ` + "\u2014 run `bunx opencode-swarm update` to refresh";
+    } else {
+      versionDetail = `${version3} (npm latest: ${versionCache.npmLatest}, checked ${ageMin}m ago)`;
+    }
+  }
   checks5.push({
     name: "Version",
-    status: "\u2705",
-    detail: version3
+    status: versionStatus,
+    detail: versionDetail
   });
   const plan = await loadPlanJsonOnly(directory);
   if (plan) {
@@ -36959,7 +37035,7 @@ async function getDiagnoseData(directory) {
   checks5.push(await checkCurator(directory));
   try {
     const evidenceDir = path17.join(directory, ".swarm", "evidence");
-    const snapshotFiles = existsSync8(evidenceDir) ? readdirSync4(evidenceDir).filter((f) => f.startsWith("agent-tools-") && f.endsWith(".json")) : [];
+    const snapshotFiles = existsSync9(evidenceDir) ? readdirSync4(evidenceDir).filter((f) => f.startsWith("agent-tools-") && f.endsWith(".json")) : [];
     if (snapshotFiles.length > 0) {
       const latest = snapshotFiles.sort().pop();
       checks5.push({
@@ -37034,7 +37110,7 @@ import * as path19 from "path";
 
 // src/lang/detector.ts
 import { access as access2, readdir as readdir2 } from "fs/promises";
-import { extname as extname2, join as join15 } from "path";
+import { extname as extname2, join as join16 } from "path";
 
 // src/lang/profiles.ts
 class LanguageRegistry {
@@ -38014,7 +38090,7 @@ async function detectProjectLanguages(projectDir) {
         if (detectFile.includes("*") || detectFile.includes("?"))
           continue;
         try {
-          await access2(join15(dir, detectFile));
+          await access2(join16(dir, detectFile));
           detected.add(profile.id);
           break;
         } catch {}
@@ -38035,7 +38111,7 @@ async function detectProjectLanguages(projectDir) {
     const topEntries = await readdir2(projectDir, { withFileTypes: true });
     for (const entry of topEntries) {
       if (entry.isDirectory() && !entry.name.startsWith(".") && entry.name !== "node_modules") {
-        await scanDir(join15(projectDir, entry.name));
+        await scanDir(join16(projectDir, entry.name));
       }
     }
   } catch {}
@@ -39381,14 +39457,14 @@ async function handleHistoryCommand(directory, _args) {
 }
 // src/hooks/knowledge-migrator.ts
 import { randomUUID as randomUUID2 } from "crypto";
-import { existsSync as existsSync12, readFileSync as readFileSync9 } from "fs";
+import { existsSync as existsSync13, readFileSync as readFileSync10 } from "fs";
 import { mkdir as mkdir3, readFile as readFile4, writeFile as writeFile4 } from "fs/promises";
 import * as path21 from "path";
 async function migrateContextToKnowledge(directory, config3) {
   const sentinelPath = path21.join(directory, ".swarm", ".knowledge-migrated");
   const contextPath = path21.join(directory, ".swarm", "context.md");
   const knowledgePath = resolveSwarmKnowledgePath(directory);
-  if (existsSync12(sentinelPath)) {
+  if (existsSync13(sentinelPath)) {
     return {
       migrated: false,
       entriesMigrated: 0,
@@ -39397,7 +39473,7 @@ async function migrateContextToKnowledge(directory, config3) {
       skippedReason: "sentinel-exists"
     };
   }
-  if (!existsSync12(contextPath)) {
+  if (!existsSync13(contextPath)) {
     return {
       migrated: false,
       entriesMigrated: 0,
@@ -39583,9 +39659,9 @@ function truncateLesson(text) {
 }
 function inferProjectName(directory) {
   const packageJsonPath = path21.join(directory, "package.json");
-  if (existsSync12(packageJsonPath)) {
+  if (existsSync13(packageJsonPath)) {
     try {
-      const pkg = JSON.parse(readFileSync9(packageJsonPath, "utf-8"));
+      const pkg = JSON.parse(readFileSync10(packageJsonPath, "utf-8"));
       if (pkg.name && typeof pkg.name === "string") {
         return pkg.name;
       }
@@ -41135,10 +41211,10 @@ async function loadImpactMap(cwd) {
   return buildImpactMap(cwd);
 }
 async function saveImpactMap(cwd, impactMap) {
-  const cacheDir = path24.join(cwd, ".swarm", "cache");
-  const cachePath = path24.join(cacheDir, "impact-map.json");
-  if (!fs13.existsSync(cacheDir)) {
-    fs13.mkdirSync(cacheDir, { recursive: true });
+  const cacheDir2 = path24.join(cwd, ".swarm", "cache");
+  const cachePath = path24.join(cacheDir2, "impact-map.json");
+  if (!fs13.existsSync(cacheDir2)) {
+    fs13.mkdirSync(cacheDir2, { recursive: true });
   }
   const data = {
     generatedAt: new Date().toISOString(),
@@ -45306,7 +45382,18 @@ var CONFIG_DIR = path32.join(process.env.XDG_CONFIG_HOME || path32.join(os6.home
 var OPENCODE_CONFIG_PATH = path32.join(CONFIG_DIR, "opencode.json");
 var PLUGIN_CONFIG_PATH = path32.join(CONFIG_DIR, "opencode-swarm.json");
 var PROMPTS_DIR = path32.join(CONFIG_DIR, "opencode-swarm");
-var OPENCODE_PLUGIN_CACHE_PATH = path32.join(process.env.XDG_CACHE_HOME || path32.join(os6.homedir(), ".cache"), "opencode", "packages", "opencode-swarm@latest");
+var OPENCODE_PLUGIN_CACHE_PATHS = [
+  path32.join(process.env.XDG_CACHE_HOME || path32.join(os6.homedir(), ".cache"), "opencode", "packages", "opencode-swarm@latest"),
+  path32.join(CONFIG_DIR, "node_modules", "opencode-swarm")
+];
+function isSafeCachePath(p) {
+  const resolved = path32.resolve(p);
+  const home = path32.resolve(os6.homedir());
+  if (resolved === "/" || resolved === home || resolved.length <= home.length)
+    return false;
+  const leaf = path32.basename(resolved);
+  return leaf === "opencode-swarm@latest" || leaf === "opencode-swarm";
+}
 function ensureDir(dir) {
   if (!fs21.existsSync(dir)) {
     fs21.mkdirSync(dir, { recursive: true });
@@ -45377,14 +45464,13 @@ async function install() {
   saveJson(OPENCODE_CONFIG_PATH, opencodeConfig);
   console.log("\u2713 Added opencode-swarm to OpenCode plugins");
   console.log("\u2713 Disabled default OpenCode agents (explore, general)");
-  try {
-    if (fs21.existsSync(OPENCODE_PLUGIN_CACHE_PATH)) {
-      fs21.rmSync(OPENCODE_PLUGIN_CACHE_PATH, { recursive: true, force: true });
-      console.log("\u2713 Cleared opencode plugin cache (next start will fetch latest)");
-    }
-  } catch {
-    console.warn("\u26A0 Could not clear opencode plugin cache \u2014 you may need to delete it manually:");
-    console.warn(`  ${OPENCODE_PLUGIN_CACHE_PATH}`);
+  const evicted = evictPluginCaches();
+  if (evicted.cleared.length > 0) {
+    console.log(`\u2713 Cleared opencode plugin cache (next start will fetch latest): ${evicted.cleared.join(", ")}`);
+  }
+  for (const failed of evicted.failed) {
+    console.warn(`\u26A0 Could not clear opencode plugin cache \u2014 you may need to delete it manually:
+  ${failed}`);
   }
   if (!fs21.existsSync(PLUGIN_CONFIG_PATH)) {
     const defaultConfig = {
@@ -45484,6 +45570,51 @@ Next steps:`);
   console.log("   \u2014 use it as a reference for customizing model assignments.");
   return 0;
 }
+async function update() {
+  console.log(`\uD83D\uDC1D Refreshing OpenCode Swarm plugin cache...
+`);
+  const result = evictPluginCaches();
+  if (result.cleared.length > 0) {
+    for (const cleared of result.cleared) {
+      console.log(`\u2713 Cleared: ${cleared}`);
+    }
+    console.log(`
+Restart OpenCode to fetch the latest version from npm.`);
+  }
+  if (result.cleared.length === 0 && result.failed.length === 0) {
+    console.log("No cached plugin found. Restart OpenCode to fetch the latest version from npm.");
+    console.log("Checked locations:");
+    for (const p of OPENCODE_PLUGIN_CACHE_PATHS) {
+      console.log(`  - ${p}`);
+    }
+  }
+  if (result.failed.length > 0) {
+    for (const failed of result.failed) {
+      console.error(`\u2717 Could not clear: ${failed}`);
+    }
+    return 1;
+  }
+  return 0;
+}
+function evictPluginCaches() {
+  const cleared = [];
+  const failed = [];
+  for (const cachePath of OPENCODE_PLUGIN_CACHE_PATHS) {
+    if (!fs21.existsSync(cachePath))
+      continue;
+    if (!isSafeCachePath(cachePath)) {
+      failed.push(`${cachePath} (refused: failed safety check)`);
+      continue;
+    }
+    try {
+      fs21.rmSync(cachePath, { recursive: true, force: true });
+      cleared.push(cachePath);
+    } catch (err) {
+      failed.push(`${cachePath} (${err instanceof Error ? err.message : String(err)})`);
+    }
+  }
+  return { cleared, failed };
+}
 async function uninstall() {
   try {
     console.log(`\uD83D\uDC1D Uninstalling OpenCode Swarm...
@@ -45554,6 +45685,7 @@ Usage: bunx opencode-swarm [command] [OPTIONS]
 
 Commands:
   install     Install and configure the plugin (default)
+  update      Refresh OpenCode's plugin cache so the next start fetches latest from npm
   uninstall   Remove the plugin from OpenCode config
   run         Run a plugin command directly (for use outside OpenCode)
 
@@ -45578,6 +45710,7 @@ Custom Prompts:
 
 Examples:
   bunx opencode-swarm install
+  bunx opencode-swarm update
   bunx opencode-swarm uninstall
   bunx opencode-swarm uninstall --clean
   bunx opencode-swarm --help
@@ -45602,6 +45735,9 @@ async function main() {
   const command = args[0] || "install";
   if (command === "install") {
     const exitCode = await install();
+    process.exit(exitCode);
+  } else if (command === "update") {
+    const exitCode = await update();
     process.exit(exitCode);
   } else if (command === "uninstall") {
     const exitCode = await uninstall();

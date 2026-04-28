@@ -1048,6 +1048,7 @@ export declare const PluginConfigSchema: z.ZodObject<{
     }, z.core.$strip>>;
     turbo_mode: z.ZodOptional<z.ZodDefault<z.ZodBoolean>>;
     quiet: z.ZodOptional<z.ZodDefault<z.ZodBoolean>>;
+    version_check: z.ZodOptional<z.ZodDefault<z.ZodBoolean>>;
     full_auto: z.ZodDefault<z.ZodOptional<z.ZodObject<{
         enabled: z.ZodDefault<z.ZodBoolean>;
         critic_model: z.ZodOptional<z.ZodString>;

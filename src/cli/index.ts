@@ -16,12 +16,41 @@ const OPENCODE_CONFIG_PATH = path.join(CONFIG_DIR, 'opencode.json');
 const PLUGIN_CONFIG_PATH = path.join(CONFIG_DIR, 'opencode-swarm.json');
 const PROMPTS_DIR = path.join(CONFIG_DIR, 'opencode-swarm');
 
-const OPENCODE_PLUGIN_CACHE_PATH = path.join(
-	process.env.XDG_CACHE_HOME || path.join(os.homedir(), '.cache'),
-	'opencode',
-	'packages',
-	'opencode-swarm@latest',
-);
+// OpenCode caches plugins in two layouts depending on the host:
+// 1. XDG cache layout (some Windows + macOS installs):
+//    `~/.cache/opencode/packages/opencode-swarm@latest/`
+// 2. node_modules layout (most Linux installs, devcontainers, GitHub
+//    Codespaces): `~/.config/opencode/node_modules/opencode-swarm/`
+//    OpenCode keeps a `package.json` + `package-lock.json` at CONFIG_DIR and
+//    npm-installs plugins into a sibling `node_modules/` (issue #675).
+//
+// `update` and `install` evict both layouts so a stale cache anywhere is
+// guaranteed to be refreshed on the next opencode startup.
+const OPENCODE_PLUGIN_CACHE_PATHS: readonly string[] = [
+	path.join(
+		process.env.XDG_CACHE_HOME || path.join(os.homedir(), '.cache'),
+		'opencode',
+		'packages',
+		'opencode-swarm@latest',
+	),
+	path.join(CONFIG_DIR, 'node_modules', 'opencode-swarm'),
+];
+
+// Safety floor: refuse to recursively delete a path that would be a
+// catastrophic deletion (root, home directory, etc.). The cache paths above
+// are derived from env-vars that, if pathologically set (e.g., XDG_CACHE_HOME=/),
+// would have us rm-rf'ing the user's filesystem. This guard rejects any path
+// shorter than the depth a real cache directory would have.
+function isSafeCachePath(p: string): boolean {
+	const resolved = path.resolve(p);
+	const home = path.resolve(os.homedir());
+	if (resolved === '/' || resolved === home || resolved.length <= home.length)
+		return false;
+	// Cache paths must end in a known cache leaf to limit blast radius
+	// even if someone redirects an env var.
+	const leaf = path.basename(resolved);
+	return leaf === 'opencode-swarm@latest' || leaf === 'opencode-swarm';
+}
 
 interface OpenCodeConfig {
 	plugin?: string[];
@@ -150,18 +179,16 @@ async function install(): Promise<number> {
 	// the directory exists it is returned verbatim on every subsequent start,
 	// ignoring all npm updates. Clearing it here ensures `bunx opencode-swarm install`
 	// actually upgrades the running version, not just the config registration.
-	try {
-		if (fs.existsSync(OPENCODE_PLUGIN_CACHE_PATH)) {
-			fs.rmSync(OPENCODE_PLUGIN_CACHE_PATH, { recursive: true, force: true });
-			console.log(
-				'✓ Cleared opencode plugin cache (next start will fetch latest)',
-			);
-		}
-	} catch {
-		console.warn(
-			'⚠ Could not clear opencode plugin cache — you may need to delete it manually:',
+	const evicted = evictPluginCaches();
+	if (evicted.cleared.length > 0) {
+		console.log(
+			`✓ Cleared opencode plugin cache (next start will fetch latest): ${evicted.cleared.join(', ')}`,
 		);
-		console.warn(`  ${OPENCODE_PLUGIN_CACHE_PATH}`);
+	}
+	for (const failed of evicted.failed) {
+		console.warn(
+			`⚠ Could not clear opencode plugin cache — you may need to delete it manually:\n  ${failed}`,
+		);
 	}
 
 	// Create default plugin config if not exists
@@ -279,6 +306,68 @@ async function install(): Promise<number> {
 	return 0;
 }
 
+/**
+ * Cache-only refresh: deletes opencode's cached copy of opencode-swarm@latest so
+ * the next opencode startup re-fetches from npm. Lighter than `install` — does
+ * not touch opencode.json, plugin config, or custom prompts.
+ *
+ * Motivation: opencode's Npm.add() is cache-first with no staleness check on
+ * `@latest`-tagged plugins (see comment in install()). Users who never re-run
+ * `install` silently keep running an old version forever (issue #675).
+ */
+async function update(): Promise<number> {
+	console.log('🐝 Refreshing OpenCode Swarm plugin cache...\n');
+	const result = evictPluginCaches();
+	if (result.cleared.length > 0) {
+		for (const cleared of result.cleared) {
+			console.log(`✓ Cleared: ${cleared}`);
+		}
+		console.log('\nRestart OpenCode to fetch the latest version from npm.');
+	}
+	if (result.cleared.length === 0 && result.failed.length === 0) {
+		console.log(
+			'No cached plugin found. Restart OpenCode to fetch the latest version from npm.',
+		);
+		console.log('Checked locations:');
+		for (const p of OPENCODE_PLUGIN_CACHE_PATHS) {
+			console.log(`  - ${p}`);
+		}
+	}
+	if (result.failed.length > 0) {
+		for (const failed of result.failed) {
+			console.error(`✗ Could not clear: ${failed}`);
+		}
+		return 1;
+	}
+	return 0;
+}
+
+/**
+ * Recursively delete every known opencode plugin cache location for
+ * opencode-swarm. Returns paths actually cleared and paths that errored.
+ * Skips paths that don't exist or fail the safety guard.
+ */
+function evictPluginCaches(): { cleared: string[]; failed: string[] } {
+	const cleared: string[] = [];
+	const failed: string[] = [];
+	for (const cachePath of OPENCODE_PLUGIN_CACHE_PATHS) {
+		if (!fs.existsSync(cachePath)) continue;
+		if (!isSafeCachePath(cachePath)) {
+			failed.push(`${cachePath} (refused: failed safety check)`);
+			continue;
+		}
+		try {
+			fs.rmSync(cachePath, { recursive: true, force: true });
+			cleared.push(cachePath);
+		} catch (err) {
+			failed.push(
+				`${cachePath} (${err instanceof Error ? err.message : String(err)})`,
+			);
+		}
+	}
+	return { cleared, failed };
+}
+
 async function uninstall(): Promise<number> {
 	try {
 		console.log('🐝 Uninstalling OpenCode Swarm...\n');
@@ -386,6 +475,7 @@ Usage: bunx opencode-swarm [command] [OPTIONS]
 
 Commands:
   install     Install and configure the plugin (default)
+  update      Refresh OpenCode's plugin cache so the next start fetches latest from npm
   uninstall   Remove the plugin from OpenCode config
   run         Run a plugin command directly (for use outside OpenCode)
 
@@ -410,6 +500,7 @@ Custom Prompts:
 
 Examples:
   bunx opencode-swarm install
+  bunx opencode-swarm update
   bunx opencode-swarm uninstall
   bunx opencode-swarm uninstall --clean
   bunx opencode-swarm --help
@@ -440,6 +531,9 @@ async function main(): Promise<void> {
 
 	if (command === 'install') {
 		const exitCode = await install();
+		process.exit(exitCode);
+	} else if (command === 'update') {
+		const exitCode = await update();
 		process.exit(exitCode);
 	} else if (command === 'uninstall') {
 		const exitCode = await uninstall();

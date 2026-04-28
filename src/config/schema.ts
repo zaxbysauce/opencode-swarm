@@ -1282,6 +1282,13 @@ export const PluginConfigSchema = z.object({
 	// Quiet mode — suppress non-critical startup warnings (v6.xx)
 	quiet: z.boolean().default(false).optional(),
 
+	// Background staleness check against npm. When a newer version of
+	// opencode-swarm has been published, emit a single deferred warning so
+	// users notice opencode is running a stale cached copy (issue #675).
+	// Throttled to once per 24h via a small on-disk cache. Set to false to
+	// fully disable the network call.
+	version_check: z.boolean().default(true).optional(),
+
 	// Full-auto mode — autonomous multi-agent orchestration with critic oversight
 	full_auto: z
 		.object({
