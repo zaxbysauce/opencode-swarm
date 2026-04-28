@@ -390,26 +390,30 @@ jobs:
       - name: Build
         run: bun run build
       - name: Check dist/ for uncommitted drift
+        shell: bash
         run: |
           # Normalize .bun cache paths in COMMITTED dist for cross-platform consistency.
           # Windows bun produces node_modules/.bun/PACKAGE@VERSION/node_modules/PACKAGE
           # while Linux bun produces node_modules/PACKAGE.
           # After build, dist/ has clean Linux paths. We must normalize the committed
           # (git index) side before comparing, not the freshly built working tree.
-          mkdir -p /tmp/dist-committed
-          git archive HEAD dist/ | tar -x -C /tmp/dist-committed
-          find /tmp/dist-committed/dist/ -name "*.js" -type f -exec sed -i \
+          tmpdir="${RUNNER_TEMP:-${TEMP:-.}}"
+          dist_committed="$tmpdir/dist-committed"
+          mkdir -p "$dist_committed"
+          git archive HEAD dist/ | tar -x -C "$dist_committed"
+          find "$dist_committed/dist/" -name "*.js" -type f -exec sed -i \
             -e 's|node_modules/\.bun/[^/]\+/node_modules/|node_modules/|g' {} +
           # Remove gitignored paths from the freshly built dist before comparing.
           # These are intentionally excluded from commits (see .gitignore lines 29-35).
           rm -rf dist/build/ dist/quality/ dist/sbom/
           rm -f dist/tools/build-check.d.ts dist/tools/pre-check-batch.d.ts \
                 dist/tools/quality-budget.d.ts dist/tools/sbom-generate.d.ts
-          diff -r /tmp/dist-committed/dist/ dist/ || {
+          diff -r "$dist_committed/dist/" dist/ || {
             echo "ERROR: dist/ has uncommitted changes after build."
             echo "Run 'bun run build' locally and commit the updated dist/."
             exit 1
           }
+          rm -rf "$dist_committed"
 
   security:
     needs: quality
