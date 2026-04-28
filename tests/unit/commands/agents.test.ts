@@ -732,3 +732,50 @@ describe('unregistered subagents', () => {
 		}
 	});
 });
+
+describe('prefixed agent name matching', () => {
+	test('prefixed agent counts as its base name being registered', () => {
+		// mega_coder strips to coder — coder should NOT appear in unregistered
+		const agents: Record<string, AgentDefinition> = {
+			mega_coder: {
+				name: 'mega_coder',
+				config: { model: 'gpt-4', temperature: 0.2 },
+			},
+		};
+
+		const result = handleAgentsCommand(agents);
+
+		expect(result).not.toContain('**coder** (requires configuration)');
+	});
+
+	test('local_ prefixed agent counts as its base name being registered', () => {
+		// local_reviewer strips to reviewer
+		const agents: Record<string, AgentDefinition> = {
+			local_reviewer: {
+				name: 'local_reviewer',
+				config: { model: 'gpt-4', temperature: 0.1 },
+			},
+		};
+
+		const result = handleAgentsCommand(agents);
+
+		expect(result).not.toContain('**reviewer** (requires configuration)');
+	});
+
+	test('all subagents registered via prefix variants shows "N total" header', () => {
+		// Register all ALL_SUBAGENT_NAMES via their base names — should produce no unregistered
+		const agents: Record<string, AgentDefinition> = Object.fromEntries(
+			ALL_SUBAGENT_NAMES.map((name) => [
+				`mega_${name}`,
+				{ name: `mega_${name}`, config: { model: 'gpt-4', temperature: 0.1 } },
+			]),
+		);
+
+		const result = handleAgentsCommand(agents);
+
+		expect(result).not.toContain('### Unregistered Subagents');
+		expect(result).toContain(
+			`## Registered Agents (${ALL_SUBAGENT_NAMES.length} total)`,
+		);
+	});
+});

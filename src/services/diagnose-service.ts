@@ -7,7 +7,7 @@ import { loadPluginConfig } from '../config/loader';
 import type { Plan } from '../config/plan-schema';
 import { listEvidenceTaskIds } from '../evidence/manager';
 import { readSwarmFileAsync } from '../hooks/utils';
-import { deferredWarnings } from '../index.js';
+import { deferredWarnings } from './warning-buffer.js';
 import { loadPlanJsonOnly } from '../plan/manager';
 
 const { version } = packageJson;
