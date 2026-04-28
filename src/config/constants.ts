@@ -51,7 +51,7 @@ export const AGENT_TOOL_MAP: Record<AgentName, ToolName[]> = {
 		'check_gate_status',
 		'completion_verify',
 		'complexity_hotspots',
-		'convene_council',
+		'submit_council_verdicts',
 		'declare_council_criteria',
 		'detect_domains',
 		'evidence_check',
@@ -340,8 +340,8 @@ export const TOOL_DESCRIPTIONS: Partial<Record<ToolName, string>> = {
 	co_change_analyzer: 'detect hidden couplings by analyzing git history',
 	check_gate_status: 'check the gate status of a specific task',
 	completion_verify: 'verify completed tasks have required evidence',
-	convene_council:
-		'convene the Work Complete Council — parallel veto-aware verification gate across critic, reviewer, sme, test_engineer, and explorer verdicts',
+	submit_council_verdicts:
+		'submit pre-collected council member verdicts for synthesis (architect MUST dispatch critic/reviewer/sme/test_engineer/explorer as Agent tasks first; this tool synthesizes only, it does not contact members)',
 	declare_council_criteria:
 		'pre-declare acceptance criteria for a task before the coder starts work; criteria are read back during council evaluation',
 	detect_domains: 'detect which SME domains are relevant for a given text',

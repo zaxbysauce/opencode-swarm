@@ -166,10 +166,20 @@ export interface AgentSessionState {
 	 * Only populated when parallelization.stageB.parallel.enabled = true.
 	 */
 	stageBCompletion?: Map<string, Set<'reviewer' | 'test_engineer'>>;
-	/** v6.71+ Council mode: per-task council verdict, recorded by delegation-gate when convene_council resolves. */
+	/** v6.71+ Council mode: per-task council verdict, recorded by delegation-gate when submit_council_verdicts resolves. */
 	taskCouncilApproved?: Map<
 		string,
-		{ verdict: 'APPROVE' | 'REJECT' | 'CONCERNS'; roundNumber: number }
+		{
+			verdict: 'APPROVE' | 'REJECT' | 'CONCERNS';
+			roundNumber: number;
+			/**
+			 * Distinct council members that voted on this verdict.
+			 * Validated by the council fast-path against `council.minimumMembers`
+			 * (default 3). Old evidence files without this field rehydrate as
+			 * quorumSize: 1 — conservative; forces a fresh council run.
+			 */
+			quorumSize: number;
+		}
 	>;
 	/** Last gate outcome for deliberation preamble injection */
 	lastGateOutcome: {
@@ -908,6 +918,7 @@ export function advanceTaskState(
 	session: AgentSessionState,
 	taskId: string,
 	newState: TaskWorkflowState,
+	councilConfig?: { minimumMembers?: number; requireAllMembers?: boolean },
 ): void {
 	// Guard against invalid taskId - safely return without mutating state
 	if (!isValidTaskId(taskId)) {
@@ -941,11 +952,24 @@ export function advanceTaskState(
 
 	// 'complete' can only be reached from 'tests_run' — enforce sequential progression
 	if (newState === 'complete' && current !== 'tests_run') {
-		// Council fast-path: if convene_council recorded an APPROVE verdict for this task,
+		// Council fast-path: if submit_council_verdicts recorded an APPROVE verdict for this task,
 		// allow advancement from any non-idle prior state. Pre-check (pre_check_passed) is
 		// still required to avoid skipping Stage A.
+		// Quorum gate: an APPROVE verdict only short-circuits the gate sequence
+		// when it was recorded with at least `minimumMembers` distinct member
+		// verdicts. Default 3; `requireAllMembers: true` overrides to 5.
+		// Callers without `councilConfig` get the default — old single-member
+		// approvals are no longer trusted automatically.
 		const councilEntry = session.taskCouncilApproved?.get(taskId);
-		const councilApproved = councilEntry?.verdict === 'APPROVE';
+		const effectiveMinimum = councilConfig?.requireAllMembers
+			? 5
+			: (councilConfig?.minimumMembers ?? 3);
+		const councilApproved =
+			councilEntry?.verdict === 'APPROVE' &&
+			// ?? 0: final safety net for Map entries lacking quorumSize. Old
+			// evidence rehydrates as quorumSize: 1 (Task 3.3); a missing field
+			// here is more conservative still and forces a fresh council run.
+			(councilEntry.quorumSize ?? 0) >= effectiveMinimum;
 		const pastPreCheck =
 			currentIndex >= STATE_ORDER.indexOf('pre_check_passed');
 		if (!councilApproved || !pastPreCheck) {
@@ -981,8 +1005,9 @@ export async function advanceTaskStateAndPersist(
 	taskId: string,
 	newState: TaskWorkflowState,
 	directory: string,
+	councilConfig?: { minimumMembers?: number; requireAllMembers?: boolean },
 ): Promise<void> {
-	advanceTaskState(session, taskId, newState);
+	advanceTaskState(session, taskId, newState, councilConfig);
 
 	if (newState !== 'coder_delegated' && newState !== 'complete') {
 		return;
@@ -1385,10 +1410,11 @@ export function applyRehydrationCache(session: AgentSessionState): void {
 		if (session.taskCouncilApproved.has(taskId)) {
 			continue;
 		}
-		// Cast to extended type — verdict/roundNumber are preserved via passthrough()
-		// but not in the base GateEvidence interface (which only has sessionId/timestamp/agent).
+		// Cast to extended type — verdict/roundNumber/quorumSize are preserved via
+		// passthrough() but not in the base GateEvidence interface (which only has
+		// sessionId/timestamp/agent).
 		const council = evidence.gates?.council as
-			| { verdict?: string; roundNumber?: number }
+			| { verdict?: string; roundNumber?: number; quorumSize?: number }
 			| undefined;
 		if (!council) {
 			continue;
@@ -1409,9 +1435,21 @@ export function applyRehydrationCache(session: AgentSessionState): void {
 		if (typeof roundNumber !== 'number' || !Number.isFinite(roundNumber)) {
 			roundNumber = 1;
 		}
+		// Conservative default: pre-quorum evidence files (without quorumSize)
+		// rehydrate as 1, which fails the fast-path against the default
+		// minimumMembers=3 — forcing a fresh council run after upgrade rather
+		// than trusting an unverified single-member APPROVE.
+		const rawQuorumSize = council.quorumSize;
+		const quorumSize =
+			typeof rawQuorumSize === 'number' &&
+			Number.isFinite(rawQuorumSize) &&
+			rawQuorumSize >= 1
+				? rawQuorumSize
+				: 1;
 		session.taskCouncilApproved.set(taskId, {
 			verdict,
 			roundNumber,
+			quorumSize,
 		});
 	}
 }

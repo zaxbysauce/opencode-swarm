@@ -19,14 +19,16 @@ import {
 describe('Architect prompt — Work Complete Council workflow block', () => {
 	// Sentinel phrases that are UNIQUE to the council workflow block. These
 	// were chosen to NOT overlap with the auto-generated tool-description list
-	// (which mentions "convene_council" and "Work Complete Council" even when
-	// the workflow block is absent), so they truly identify the block itself.
+	// (which mentions "submit_council_verdicts" even when the workflow block is
+	// absent), so they truly identify the block itself.
 	const COUNCIL_SENTINELS = [
-		'## Work Complete Council (when enabled)',
+		'## COUNCIL WORKFLOW (submit_council_verdicts)',
 		'Phase 0 — Pre-declare criteria',
-		'Phase 1 — Parallel dispatch',
-		'Phase 2 — Synthesize',
-		'Phase 3 — Act on the result',
+		'STEP 1 — DISPATCH',
+		'STEP 3 — CALL submit_council_verdicts',
+		'STEP 5 — ACT on the verdict',
+		'ANTI-PATTERNS',
+		'ROUND 2 DELIBERATION',
 		'Retry protocol',
 		'hallucinated APIs',
 	];
@@ -44,23 +46,40 @@ describe('Architect prompt — Work Complete Council workflow block', () => {
 		it('includes a Council section heading (case-insensitive match)', () => {
 			expect(prompt.toLowerCase()).toContain('council');
 			// And specifically the dedicated section header
-			expect(prompt).toContain('## Work Complete Council');
+			expect(prompt).toContain('## COUNCIL WORKFLOW');
 		});
 
-		it('includes all four phase labels', () => {
+		it('includes all five workflow steps (Phase 0 + STEP 1..STEP 5)', () => {
 			expect(prompt).toContain('Phase 0');
-			expect(prompt).toContain('Phase 1');
-			expect(prompt).toContain('Phase 2');
-			expect(prompt).toContain('Phase 3');
+			expect(prompt).toContain('STEP 1');
+			expect(prompt).toContain('STEP 2');
+			expect(prompt).toContain('STEP 3');
+			expect(prompt).toContain('STEP 4');
+			expect(prompt).toContain('STEP 5');
 		});
 
 		it('includes both council tool names', () => {
 			expect(prompt).toContain('declare_council_criteria');
-			expect(prompt).toContain('convene_council');
+			expect(prompt).toContain('submit_council_verdicts');
+		});
+
+		it('does NOT contain the old tool name (pre-rename "convene" + underscore + "council")', () => {
+			// Constructed string so the literal old identifier never appears in
+			// source — keeps the zero-tolerance grep clean.
+			const oldToolName = ['convene', 'council'].join('_');
+			expect(prompt).not.toContain(oldToolName);
+		});
+
+		it('contains the anti-bypass critical guardrail', () => {
+			expect(prompt).toContain('does NOT run council members');
+		});
+
+		it('references membersAbsent as the anti-hallucination signal', () => {
+			expect(prompt).toContain('membersAbsent');
 		});
 
 		it('mentions the explorer member (5th member)', () => {
-			// "explorer" should appear in the council Phase 1 member bullet list.
+			// "explorer" should appear in the council STEP 1 member bullet list.
 			// Use a token specific to the council block to avoid matching
 			// unrelated mentions of explorer elsewhere in the prompt.
 			expect(prompt).toContain('explorer');
@@ -84,7 +103,19 @@ describe('Architect prompt — Work Complete Council workflow block', () => {
 
 		it('contains the REPLACES Stage B wording inside the council block', () => {
 			expect(prompt).toContain('REPLACES Stage B');
-			expect(prompt).toContain('Stage A (precheckbatch) still runs');
+			expect(prompt).toContain('Stage A');
+			expect(prompt).toContain('pre_check_batch');
+		});
+
+		it('contains the ANTI-PATTERNS section listing 5 council bypass violations', () => {
+			expect(prompt).toContain('ANTI-PATTERNS');
+			// Five bullet violations.
+			const antiPatternMatches = prompt.match(/✗/g) ?? [];
+			expect(antiPatternMatches.length).toBeGreaterThanOrEqual(5);
+		});
+
+		it('contains the ROUND 2 DELIBERATION rule', () => {
+			expect(prompt).toContain('ROUND 2 DELIBERATION');
 		});
 
 		describe('critic dispatch includes approved-plan baseline and drift analysis', () => {
@@ -129,19 +160,19 @@ describe('Architect prompt — Work Complete Council workflow block', () => {
 			expect(prompt).not.toContain('{{COUNCIL_WORKFLOW}}');
 		});
 
-		it('YOUR TOOLS does not contain convene_council or declare_council_criteria', () => {
+		it('YOUR TOOLS does not contain submit_council_verdicts or declare_council_criteria', () => {
 			const yourToolsLine = prompt.match(/YOUR TOOLS:\s*(.+?)(?:\n|$)/)?.[1];
 			expect(yourToolsLine).toBeDefined();
-			expect(yourToolsLine).not.toContain('convene_council');
+			expect(yourToolsLine).not.toContain('submit_council_verdicts');
 			expect(yourToolsLine).not.toContain('declare_council_criteria');
 		});
 
-		it('Available Tools does not contain convene_council or declare_council_criteria', () => {
+		it('Available Tools does not contain submit_council_verdicts or declare_council_criteria', () => {
 			const availableToolsLine = prompt.match(
 				/Available Tools:\s*([\s\S]*?)(?:\n##|$)/,
 			)?.[1];
 			expect(availableToolsLine).toBeDefined();
-			expect(availableToolsLine).not.toContain('convene_council');
+			expect(availableToolsLine).not.toContain('submit_council_verdicts');
 			expect(availableToolsLine).not.toContain('declare_council_criteria');
 		});
 	});

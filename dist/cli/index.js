@@ -18598,7 +18598,7 @@ import * as path32 from "path";
 // package.json
 var package_default = {
   name: "opencode-swarm",
-  version: "6.86.5",
+  version: "6.86.6",
   description: "Architect-centric agentic swarm plugin for OpenCode - hub-and-spoke orchestration with SME consultation, code generation, and QA review",
   main: "dist/index.js",
   types: "dist/index.d.ts",
@@ -18760,7 +18760,7 @@ var TOOL_NAMES = [
   "evidence_check",
   "check_gate_status",
   "completion_verify",
-  "convene_council",
+  "submit_council_verdicts",
   "declare_council_criteria",
   "sbom_generate",
   "checkpoint",
@@ -18840,7 +18840,7 @@ var AGENT_TOOL_MAP = {
     "check_gate_status",
     "completion_verify",
     "complexity_hotspots",
-    "convene_council",
+    "submit_council_verdicts",
     "declare_council_criteria",
     "detect_domains",
     "evidence_check",
@@ -19642,7 +19642,8 @@ var CouncilConfigSchema = exports_external.object({
   maxRounds: exports_external.number().int().min(1).max(10).default(3),
   parallelTimeoutMs: exports_external.number().int().min(5000).max(120000).default(30000),
   vetoPriority: exports_external.boolean().default(true),
-  requireAllMembers: exports_external.boolean().default(false).describe("When true, convene_council rejects if fewer than 5 member verdicts are provided."),
+  requireAllMembers: exports_external.boolean().default(false).describe("When true, submit_council_verdicts rejects if fewer than 5 member verdicts are provided. Equivalent to minimumMembers: 5."),
+  minimumMembers: exports_external.number().int().min(1).max(5).default(3).describe("Minimum distinct council member verdicts required for synthesis. Default 3. Set to 1 to disable quorum enforcement. requireAllMembers: true overrides this to 5 (stricter constraint wins)."),
   escalateOnMaxRounds: exports_external.string().optional().describe("Optional webhook URL or handler name invoked when maxRounds is reached without APPROVE. Declared for forward compatibility; no behavior is implemented yet."),
   general: GeneralCouncilConfigSchema.optional()
 }).strict();

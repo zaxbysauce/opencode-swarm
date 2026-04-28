@@ -211,10 +211,11 @@ Opt-in verification gate that runs five specialized reviewers in parallel before
 | `maxRounds` | number | `3` | Maximum REJECT-retry rounds before architect must escalate to user (1–10) |
 | `parallelTimeoutMs` | number | `30000` | Per-member dispatch timeout in milliseconds (5000–120000) |
 | `vetoPriority` | boolean | `true` | When `true`, any single REJECT blocks advancement |
-| `requireAllMembers` | boolean | `false` | When `true`, reject synthesis if fewer than 5 verdicts provided |
+| `requireAllMembers` | boolean | `false` | When `true`, reject synthesis if fewer than 5 verdicts provided. Equivalent to `minimumMembers: 5`. |
+| `minimumMembers` | number | `3` | Minimum distinct council members required for quorum (1–5). Set to 1 to disable quorum enforcement. `requireAllMembers: true` overrides this to 5 (stricter constraint wins). |
 | `escalateOnMaxRounds` | string? | undefined | Reserved for future use — no runtime behavior today |
 
-When `enabled: false`, the council gate is completely inert. When enabled, `convene_council` must be called before a task can transition to `completed`. See the [Council guide](council/README.md) for the full workflow.
+When `enabled: false`, the council gate is completely inert. When enabled, `submit_council_verdicts` must be called before a task can transition to `completed`. See the [Council guide](council/README.md) for the full workflow.
 
 **Example** — Enable the council gate:
 
@@ -224,7 +225,8 @@ When `enabled: false`, the council gate is completely inert. When enabled, `conv
     "enabled": true,
     "maxRounds": 3,
     "vetoPriority": true,
-    "requireAllMembers": false
+    "requireAllMembers": false,
+    "minimumMembers": 3
   }
 }
 ```

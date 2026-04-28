@@ -85,7 +85,7 @@ export declare function computeProfileHash(profile: QaGateProfile): string;
  *   machine; blocks coder→next-coder advancement until reviewer + test_engineer
  *   delegations observed).
  * - council_mode — src/state.ts isCouncilGateActive + src/hooks/delegation-gate.ts
- *   (Stage B replaced by convene_council verdict).
+ *   (Stage B replaced by submit_council_verdicts verdict).
  * - sme_enabled — consumed during MODE: BRAINSTORM/SPECIFY architect dialogue.
  * - critic_pre_plan — consumed by MODE: PLAN critic delegation before save_plan.
  * - sast_enabled — consumed inside pre_check_batch tool.

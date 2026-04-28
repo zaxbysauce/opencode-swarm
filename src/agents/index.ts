@@ -659,7 +659,7 @@ export function getAgentConfigs(
 
 			// Feature-gate: when council is enabled, the architect's system prompt
 			// instructs the model to call `declare_council_criteria` and
-			// `convene_council`. A user-supplied tool_filter.overrides.architect
+			// `submit_council_verdicts`. A user-supplied tool_filter.overrides.architect
 			// that omits these tools would silently break the council workflow
 			// (same class as the original 6.66.0 bug: tools present in
 			// AGENT_TOOL_MAP but not usable). We refuse to silently override
@@ -670,7 +670,10 @@ export function getAgentConfigs(
 				config?.council?.enabled === true &&
 				override !== undefined
 			) {
-				const required = ['declare_council_criteria', 'convene_council'];
+				const required = [
+					'declare_council_criteria',
+					'submit_council_verdicts',
+				];
 				const missing = required.filter((t) => !override.includes(t));
 				if (missing.length > 0) {
 					throw new Error(
@@ -691,7 +694,10 @@ export function getAgentConfigs(
 				config?.council?.enabled !== true &&
 				override !== undefined
 			) {
-				const councilTools = ['declare_council_criteria', 'convene_council'];
+				const councilTools = [
+					'declare_council_criteria',
+					'submit_council_verdicts',
+				];
 				const present = councilTools.filter((t) => override.includes(t));
 				if (present.length > 0 && !quiet) {
 					console.warn(

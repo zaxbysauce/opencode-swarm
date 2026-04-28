@@ -1422,10 +1422,15 @@ export interface UIReviewConfig {
 export function buildCouncilWorkflow(council?: CouncilWorkflowConfig): string {
 	if (council?.enabled !== true) return '';
 
-	return `## Work Complete Council (when enabled)
+	return `## COUNCIL WORKFLOW (submit_council_verdicts)
 
-When \`council.enabled\` is true, every task goes through a four-phase verification
-gate before advancing to \`complete\`. When council is authoritative, this REPLACES Stage B (reviewer + test_engineer as standalone delegations). Stage A (precheckbatch) still runs as the pre-review gate; Phase 1 dispatch of reviewer and test_engineer is the sole review pass for this task.
+CRITICAL: \`submit_council_verdicts\` does NOT run council members.
+It synthesizes verdicts that you must collect BEFORE calling it.
+
+When \`council.enabled\` is true, every task goes through this verification
+gate before advancing to \`complete\`. The council REPLACES Stage B
+(reviewer + test_engineer as standalone delegations). Stage A
+(\`pre_check_batch\`) still runs as the pre-review gate.
 
 ### Phase 0 — Pre-declare criteria (at plan time, BEFORE dispatching the coder)
 Call \`declare_council_criteria\` for each task with at least 3 concrete,
@@ -1434,9 +1439,13 @@ testable acceptance criteria. Mark functional/correctness criteria
 follow the pattern \`C1\`, \`C2\`, etc. The criteria are persisted to
 \`.swarm/council/{taskId}.json\` and read back automatically at synthesis time.
 
-### Phase 1 — Parallel dispatch (when the coder signals the task is complete)
-Dispatch all FIVE council members IN PARALLEL — do not run them sequentially.
-Each receives ONLY their role-relevant context, not the full conversation:
+### MANDATORY SEQUENCE — never skip or reorder
+
+#### STEP 1 — DISPATCH all council members as parallel Agent tasks
+Dispatch \`critic\`, \`reviewer\`, \`sme\`, \`test_engineer\`, and \`explorer\`
+(or at minimum \`council.minimumMembers\` distinct members; default 3) in a
+SINGLE message using parallel Agent tool calls. Provide each member with
+their role-specific scope:
 - \`critic\`        — original task spec + acceptance criteria + code diff + test results + approved-plan baseline comparison (via \`get_approved_plan\`) and spec-intent drift analysis against the approved baseline
 - \`reviewer\`      — semantic diff summary + blast radius (files importing changed files) + style guide
 - \`sme\`           — task domain context + relevant knowledge base entries
@@ -1445,31 +1454,65 @@ Each receives ONLY their role-relevant context, not the full conversation:
                     (explorer hunts for lazy implementations, hallucinated APIs,
                      cargo-cult patterns, spec drift, lazy abstractions)
 
-Each member must return a \`CouncilMemberVerdict\` with all fields populated:
-\`agent\`, \`verdict\` (APPROVE|CONCERNS|REJECT), \`confidence\` (0.0–1.0),
-\`findings[]\`, \`criteriaAssessed[]\`, \`criteriaUnmet[]\`, \`durationMs\`.
+Wait for ALL dispatched agents to return their verdict objects.
 
-### Phase 2 — Synthesize
-Call \`convene_council\` with all 5 verdicts, the task id, swarm id, and the
-current round number (1-indexed). The tool returns:
-\`overallVerdict\`, \`vetoedBy\`, \`unifiedFeedbackMd\`, \`requiredFixesCount\`,
-\`allCriteriaMet\`.
+#### STEP 2 — COLLECT verdicts
+Read each agent's response and extract their \`CouncilMemberVerdict\` object.
+Each member must return all fields: \`agent\`, \`verdict\` (APPROVE|CONCERNS|REJECT),
+\`confidence\` (0.0–1.0), \`findings[]\`, \`criteriaAssessed[]\`, \`criteriaUnmet[]\`,
+\`durationMs\`.
 
-### Phase 3 — Act on the result
+Do NOT fabricate, infer, or substitute a verdict. If an agent did not return
+a valid verdict, re-dispatch that agent.
+
+#### STEP 3 — CALL submit_council_verdicts
+ONLY after collecting real verdicts from real agent dispatches, call
+\`submit_council_verdicts\` with the collected verdicts array, the task id,
+swarm id, and current round number (1-indexed).
+
+#### STEP 4 — READ the response
+Inspect \`membersAbsent\` in the response. If \`membersAbsent\` is non-empty,
+the council is incomplete — dispatch the missing members and re-collect.
+Inspect \`overallVerdict\`. APPROVE is valid only when \`membersAbsent\` is
+empty (or fewer members than \`council.minimumMembers\` are absent).
+
+The response also includes: \`vetoedBy\`, \`unifiedFeedbackMd\`,
+\`requiredFixesCount\`, \`advisoryFindingsCount\`, \`allCriteriaMet\`,
+\`quorumSize\`, \`quorumMet\`.
+
+If \`success: false\` and \`reason: 'insufficient_quorum'\`, the response
+includes \`membersVoted\`, \`membersAbsent\`, and \`quorumRequired\` — dispatch
+the absent members and re-call the tool.
+
+#### STEP 5 — ACT on the verdict
 - **APPROVE**:  Advance task to complete via \`update_task_status\`. If
-                advisoryFindingsCount > 0, deliver \`unifiedFeedbackMd\` as a
-                single non-blocking note. Otherwise, advance silently.
-- **CONCERNS**: Send \`unifiedFeedbackMd\` to the coder as ONE coherent document.
-                Do NOT enumerate individual member verdicts. Increment
-                roundNumber on the next council call. CONCERNS does not block
-                advancement at the update_task_status level — decide per
-                severity whether to advance or retry.
-- **REJECT**:   Block advancement. Send \`unifiedFeedbackMd\` to the coder with
-                the BLOCKING flag. The coder must resolve all \`requiredFixes\`
-                before re-submitting. Maximum \`council.maxRounds\` rounds
-                (default 3). If roundNumber >= maxRounds and verdict is still
-                REJECT, surface \`unifiedFeedbackMd\` to the user and HALT —
-                do NOT auto-advance.
+                \`advisoryFindingsCount > 0\`, deliver \`unifiedFeedbackMd\` as
+                a single non-blocking note. Otherwise, advance silently.
+- **CONCERNS**: Send \`unifiedFeedbackMd\` to the coder as ONE coherent
+                document. Do NOT enumerate individual member verdicts.
+                Increment \`roundNumber\` on the next council call. CONCERNS
+                does not block advancement at the update_task_status level —
+                decide per severity whether to advance or retry.
+- **REJECT**:   Block advancement. Send \`unifiedFeedbackMd\` to the coder
+                with the BLOCKING flag. The coder must resolve all
+                \`requiredFixes\` before re-submitting. Maximum
+                \`council.maxRounds\` rounds (default 3). If
+                \`roundNumber >= maxRounds\` and verdict is still REJECT,
+                surface \`unifiedFeedbackMd\` to the user and HALT — do NOT
+                auto-advance.
+
+### ANTI-PATTERNS — any of these are council bypass violations
+- ✗ Calling \`submit_council_verdicts\` without first dispatching council members.
+- ✗ Passing a verdict you inferred or fabricated rather than received from a dispatched agent.
+- ✗ Claiming "Council APPROVED" when \`membersAbsent\` is non-empty.
+- ✗ Treating a prior round's APPROVE as valid for a new task or new round.
+- ✗ Incrementing \`roundNumber\` without re-dispatching all members for the new round.
+
+### ROUND 2 DELIBERATION
+If round 1 produces REJECT or CONCERNS, dispatch only the disputing members
+for round 2 focused on the specific disagreement areas. Round 2 must produce
+NEW agent responses — do NOT reuse round 1 verdicts with a higher
+\`roundNumber\`.
 
 ### Retry protocol
 On re-submission after REJECT or CONCERNS, the council reads the same
@@ -1498,7 +1541,7 @@ function buildYourToolsList(council?: CouncilWorkflowConfig): string {
 	const filtered = sorted.filter((t) => {
 		if (
 			!qaCouncilEnabled &&
-			(t === 'convene_council' || t === 'declare_council_criteria')
+			(t === 'submit_council_verdicts' || t === 'declare_council_criteria')
 		) {
 			return false;
 		}
@@ -1550,7 +1593,7 @@ One question, one message, defaults pre-stated. Wait for the user's answer.`;
  * Format: "tool1 (description), tool2 (description), ..." — tools without descriptions use name only.
  *
  * When `council?.enabled !== true`, the QA-council tools
- * (`convene_council`, `declare_council_criteria`) are filtered out so the
+ * (`submit_council_verdicts`, `declare_council_criteria`) are filtered out so the
  * model is not shown phantom tools the runtime gate would reject.
  *
  * When `council?.general?.enabled !== true`, `convene_general_council` is
@@ -1565,7 +1608,7 @@ function buildAvailableToolsList(council?: CouncilWorkflowConfig): string {
 	const filtered = sorted.filter((t) => {
 		if (
 			!qaCouncilEnabled &&
-			(t === 'convene_council' || t === 'declare_council_criteria')
+			(t === 'submit_council_verdicts' || t === 'declare_council_criteria')
 		) {
 			return false;
 		}
@@ -1776,7 +1819,7 @@ export function createArchitectAgent(
 
 	// Resolve capability placeholders from AGENT_TOOL_MAP (single source of truth).
 	// Thread `council` through the tool-list builders so council-only tools
-	// (`convene_council`, `declare_council_criteria`) are omitted when the
+	// (`submit_council_verdicts`, `declare_council_criteria`) are omitted when the
 	// feature is disabled — keeping the rendered tool list in sync with the
 	// runtime gate in src/tools/convene-council.ts.
 	prompt = prompt

@@ -34,6 +34,8 @@ describe('synthesizeCouncilVerdicts — veto logic', () => {
 		expect(result.overallVerdict).toBe('APPROVE');
 		expect(result.vetoedBy).toBeNull();
 		expect(result.allCriteriaMet).toBe(true);
+		// quorumSize = distinct member count
+		expect(result.quorumSize).toBe(verdicts.length);
 	});
 
 	test('single REJECT → overall REJECT (veto)', () => {
@@ -246,6 +248,8 @@ describe('synthesizeCouncilVerdicts — emptyVerdictsWarning field', () => {
 		// Backward compatibility: APPROVE still returned on empty
 		expect(result.overallVerdict).toBe('APPROVE');
 		expect(result.vetoedBy).toBeNull();
+		// Empty verdicts → quorumSize = 0
+		expect(result.quorumSize).toBe(0);
 	});
 
 	test('non-empty verdicts array does NOT set emptyVerdictsWarning', () => {

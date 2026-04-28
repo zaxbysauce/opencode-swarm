@@ -112,10 +112,17 @@ export interface AgentSessionState {
      * Only populated when parallelization.stageB.parallel.enabled = true.
      */
     stageBCompletion?: Map<string, Set<'reviewer' | 'test_engineer'>>;
-    /** v6.71+ Council mode: per-task council verdict, recorded by delegation-gate when convene_council resolves. */
+    /** v6.71+ Council mode: per-task council verdict, recorded by delegation-gate when submit_council_verdicts resolves. */
     taskCouncilApproved?: Map<string, {
         verdict: 'APPROVE' | 'REJECT' | 'CONCERNS';
         roundNumber: number;
+        /**
+         * Distinct council members that voted on this verdict.
+         * Validated by the council fast-path against `council.minimumMembers`
+         * (default 3). Old evidence files without this field rehydrate as
+         * quorumSize: 1 — conservative; forces a fresh council run.
+         */
+        quorumSize: number;
     }>;
     /** Last gate outcome for deliberation preamble injection */
     lastGateOutcome: {
@@ -359,7 +366,10 @@ export declare function recordPhaseAgentDispatch(sessionId: string, agentName: s
  * @param taskId - The task identifier
  * @param newState - The requested new state
  */
-export declare function advanceTaskState(session: AgentSessionState, taskId: string, newState: TaskWorkflowState): void;
+export declare function advanceTaskState(session: AgentSessionState, taskId: string, newState: TaskWorkflowState, councilConfig?: {
+    minimumMembers?: number;
+    requireAllMembers?: boolean;
+}): void;
 /**
  * Advance the per-task workflow state machine AND persist the corresponding
  * plan.json status at meaningful workflow boundaries.
@@ -377,7 +387,10 @@ export declare function advanceTaskState(session: AgentSessionState, taskId: str
  * not break the in-memory state machine — matches the existing defensive
  * pattern around advanceTaskState call sites.
  */
-export declare function advanceTaskStateAndPersist(session: AgentSessionState, taskId: string, newState: TaskWorkflowState, directory: string): Promise<void>;
+export declare function advanceTaskStateAndPersist(session: AgentSessionState, taskId: string, newState: TaskWorkflowState, directory: string, councilConfig?: {
+    minimumMembers?: number;
+    requireAllMembers?: boolean;
+}): Promise<void>;
 /**
  * Get the current workflow state for a task.
  * Returns 'idle' if no entry exists.

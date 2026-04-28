@@ -31,6 +31,11 @@ export function synthesizeCouncilVerdicts(
 	const cfg: CouncilConfig = { ...COUNCIL_DEFAULTS, ...config };
 	const timestamp = new Date().toISOString();
 
+	// Distinct member count — the canonical quorum size for this synthesis.
+	// Computed here (rather than passed in) so the field is always self-consistent
+	// with `memberVerdicts`, even for direct test callers that bypass the tool.
+	const quorumSize = new Set(verdicts.map((v) => v.agent)).size;
+
 	// ── Veto detection ────────────────────────────────────────────────────
 	const rejectingMembers: CouncilAgent[] = verdicts
 		.filter((v) => v.verdict === 'REJECT')
@@ -108,6 +113,7 @@ export function synthesizeCouncilVerdicts(
 		unifiedFeedbackMd,
 		roundNumber,
 		allCriteriaMet,
+		quorumSize,
 		...(verdicts.length === 0 && { emptyVerdictsWarning: true }),
 	};
 }

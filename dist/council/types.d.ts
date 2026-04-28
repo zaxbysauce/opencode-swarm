@@ -48,6 +48,8 @@ export interface CouncilSynthesis {
     /** 1-indexed */
     roundNumber: number;
     allCriteriaMet: boolean;
+    /** Distinct council members that produced verdicts (deduplicated count). */
+    quorumSize: number;
     /** true when called with an empty verdicts array — the APPROVE is vacuous */
     emptyVerdictsWarning?: boolean;
 }
@@ -71,8 +73,10 @@ export interface CouncilConfig {
     parallelTimeoutMs: number;
     /** Default true — any REJECT blocks */
     vetoPriority: boolean;
-    /** Default false — when true, convene_council rejects unless all 5 member verdicts are provided */
+    /** Default false — when true, submit_council_verdicts rejects unless all 5 member verdicts are provided */
     requireAllMembers: boolean;
+    /** Default 3 — minimum distinct council members required for quorum. requireAllMembers: true overrides this to 5. */
+    minimumMembers: number;
     /**
      * Optional webhook URL or handler name for auto-escalation when maxRounds is
      * reached without APPROVE. Reserved for forward compatibility — NOT yet

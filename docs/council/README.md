@@ -45,7 +45,8 @@ documented below.
 | `maxRounds`            | number   | `3`       | Integer in `[1, 10]`. Maximum REJECT-retry rounds before the architect must escalate to the user.                            |
 | `parallelTimeoutMs`    | number   | `30000`   | Integer in `[5000, 120000]`. Per-member dispatch timeout.                                                                    |
 | `vetoPriority`         | boolean  | `true`    | When `true`, any single REJECT blocks advancement. When `false`, a lone REJECT downgrades to CONCERNS.                       |
-| `requireAllMembers`    | boolean  | `false`   | When `true`, `convene_council` rejects with a structured error if fewer than five member verdicts are supplied.              |
+| `requireAllMembers`    | boolean  | `false`   | When `true`, `submit_council_verdicts` rejects with a structured error if fewer than five member verdicts are supplied. Equivalent to `minimumMembers: 5`. |
+| `minimumMembers`       | number   | `3`       | Integer in `[1, 5]`. Minimum distinct council members required for quorum. Default 3. Set to 1 to disable quorum enforcement. `requireAllMembers: true` overrides this to 5 (stricter constraint wins). |
 | `escalateOnMaxRounds`  | string?  | undefined | Optional webhook URL or handler name invoked on max-rounds escalation. Reserved for a follow-up; no runtime behavior today.  |
 
 Schema is strict — unknown keys under `council` are rejected at config load.
@@ -78,7 +79,7 @@ a `CouncilMemberVerdict` with `verdict`, `confidence`, `findings[]`,
    dispatches all five members simultaneously. Each receives a role-scoped
    context plus the pre-declared criteria.
 3. **Synthesize.** The architect calls
-   `convene_council(taskId, swarmId, verdicts[], roundNumber)`. The tool
+   `submit_council_verdicts(taskId, swarmId, verdicts[], roundNumber)`. The tool
    computes veto, conflict reconciliation, required-fix vs advisory
    classification, mandatory-criteria assessment, and builds a single
    `unifiedFeedbackMd` — the coder never sees contradictory instructions
@@ -146,8 +147,8 @@ Council outcomes stamp into `.swarm/evidence/{taskId}.json` under
 (`evidence.gates[gateName]`, not a top-level `evidence.council`):
 
 - Standard fields — `sessionId`, `timestamp`, `agent` (always `'architect'`
-  because the architect is the caller of `convene_council`).
-- Council extras — `verdict`, `vetoedBy`, `roundNumber`, `allCriteriaMet`.
+  because the architect is the caller of `submit_council_verdicts`).
+- Council extras — `verdict`, `vetoedBy`, `roundNumber`, `allCriteriaMet`, `quorumSize`.
 
 Pre-existing `gates[*]` entries and top-level keys are preserved across
 writes. This is the only integration point with the gate pipeline: the
@@ -194,7 +195,8 @@ downgrades after a restart.
     "enabled": true,
     "maxRounds": 3,
     "vetoPriority": true,
-    "requireAllMembers": false
+    "requireAllMembers": false,
+    "minimumMembers": 3
   }
 }
 ```
@@ -208,7 +210,7 @@ refuse synthesis when any member context fails to produce a verdict.
 
 - **"Task won't advance to `completed`."** Inspect
   `.swarm/evidence/{taskId}.json` under `gates.council`. If the key is
-  absent, the council never ran — the architect must call `convene_council`
+  absent, the council never ran — the architect must call `submit_council_verdicts`
   before retrying the transition. If `verdict === 'REJECT'`, resolve every
   item in `requiredFixes` and re-convene with an incremented `roundNumber`.
 - **"Council tool returns `council feature is disabled`."** Verify
@@ -216,7 +218,7 @@ refuse synthesis when any member context fails to produce a verdict.
   `~/.config/opencode/opencode-swarm.json`. Config is strict; an unknown
   key alongside `enabled` will cause the entire `council` block to fail
   validation and fall back to disabled.
-- **"`convene_council` rejects with `requireAllMembers is true but only N
+- **"`submit_council_verdicts` rejects with `requireAllMembers is true but only N
   of 5 verdicts provided`."** You have `requireAllMembers: true` and one
   or more members failed to return a verdict. Either set
   `requireAllMembers: false` to synthesize on partial councils, or
@@ -235,7 +237,7 @@ keys, different evidence paths, and different runtime gates.
 |-|-|-|
 | Purpose | **Verdict-based QA gate** — blocks task completion until 5 specialist agents vote APPROVE / CONCERNS / REJECT | **Advisory deliberation** — multiple models independently search the web, deliberate on disagreements, and produce a synthesized answer for the user or for spec review |
 | Config key | `council.*` | `council.general.*` |
-| Trigger | Architect calls `convene_council` after coder + tests are done | User runs `/swarm council <question>`, or the `council_general_review` QA gate fires during MODE: SPECIFY |
+| Trigger | Architect calls `submit_council_verdicts` after coder + tests are done | User runs `/swarm council <question>`, or the `council_general_review` QA gate fires during MODE: SPECIFY |
 | Members | Fixed: critic, reviewer, sme, test_engineer, explorer | User-configured: any number of members with custom models, roles, and personas |
 | Verdict | APPROVE / CONCERNS / REJECT (REJECT vetoes by default) | No verdicts — produces consensus, persisting disagreements, and (optionally) a moderator synthesis |
 | Web access | None — judges existing code/tests | Each member has `web_search` (Tavily or Brave) for independent research |
