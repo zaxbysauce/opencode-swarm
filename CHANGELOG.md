@@ -1,5 +1,12 @@
 # Changelog
 
+## [6.86.9](https://github.com/zaxbysauce/opencode-swarm/compare/v6.86.8...v6.86.9) (2026-04-28)
+
+
+### Bug Fixes
+
+* **plugin:** migrate to v1 export shape for OpenCode plugin loader compatibility ([#675](https://github.com/zaxbysauce/opencode-swarm/issues/675)) ([#679](https://github.com/zaxbysauce/opencode-swarm/issues/679)) ([d696631](https://github.com/zaxbysauce/opencode-swarm/commit/d696631e49e77b5fd81dd3478a22b6d3e126030d))
+
 ## [6.86.8](https://github.com/zaxbysauce/opencode-swarm/compare/v6.86.7...v6.86.8) (2026-04-28)
 
 
