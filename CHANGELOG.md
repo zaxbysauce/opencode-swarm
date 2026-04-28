@@ -1,5 +1,12 @@
 # Changelog
 
+## [6.86.7](https://github.com/zaxbysauce/opencode-swarm/compare/v6.86.6...v6.86.7) (2026-04-28)
+
+
+### Bug Fixes
+
+* **council:** close 4 council bypass paths via rename + quorum gate + quorumSize docs ([#673](https://github.com/zaxbysauce/opencode-swarm/issues/673)) ([fa4f9ff](https://github.com/zaxbysauce/opencode-swarm/commit/fa4f9ffbf140a19501d9d987e5350473c5e2d7fc))
+
 ## [6.86.6](https://github.com/zaxbysauce/opencode-swarm/compare/v6.86.5...v6.86.6) (2026-04-28)
 
 
