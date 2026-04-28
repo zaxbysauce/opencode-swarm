@@ -8,6 +8,7 @@ import type { Plan } from '../config/plan-schema';
 import { listEvidenceTaskIds } from '../evidence/manager';
 import { readSwarmFileAsync } from '../hooks/utils';
 import { loadPlanJsonOnly } from '../plan/manager';
+import { compareVersions, readVersionCache } from './version-check.js';
 import { deferredWarnings } from './warning-buffer.js';
 
 const { version } = packageJson;
@@ -786,11 +787,28 @@ export async function getDiagnoseData(
 ): Promise<DiagnoseData> {
 	const checks: HealthCheck[] = [];
 
-	// Check: Version
+	// Check: Version (running) — surface npm staleness so users notice when
+	// opencode is loading a stale cached copy from ~/.cache/opencode/packages
+	// (issue #675). Pulls last-checked value from version-check cache file.
+	const versionCache = readVersionCache();
+	let versionDetail = version;
+	let versionStatus: HealthCheck['status'] = '✅';
+	if (versionCache?.npmLatest) {
+		const ageMs = Date.now() - versionCache.checkedAt;
+		const ageMin = Math.max(0, Math.round(ageMs / 60_000));
+		if (compareVersions(versionCache.npmLatest, version) > 0) {
+			versionStatus = '⚠️';
+			versionDetail =
+				`${version} (npm latest: ${versionCache.npmLatest}, checked ${ageMin}m ago) ` +
+				'— run `bunx opencode-swarm update` to refresh';
+		} else {
+			versionDetail = `${version} (npm latest: ${versionCache.npmLatest}, checked ${ageMin}m ago)`;
+		}
+	}
 	checks.push({
 		name: 'Version',
-		status: '✅',
-		detail: version,
+		status: versionStatus,
+		detail: versionDetail,
 	});
 
 	// Check 1: Try structured plan (only if plan.json exists, no auto-migration)

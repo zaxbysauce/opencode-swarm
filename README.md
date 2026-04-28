@@ -107,6 +107,34 @@ The 15-minute guide covers:
 
 ---
 
+## Upgrading
+
+**OpenCode caches plugins indefinitely.** A normal OpenCode restart does **not**
+pull newer versions from npm — once a plugin is cached, OpenCode keeps using
+that exact copy on every subsequent launch (issue #675). The cache lives in
+one of two places depending on your platform:
+
+- Linux / devcontainers / GitHub Codespaces:
+  `~/.config/opencode/node_modules/opencode-swarm/`
+- Some macOS / Windows installs:
+  `~/.cache/opencode/packages/opencode-swarm@latest/`
+
+To upgrade to the latest published version (clears both layouts automatically):
+
+```bash
+bunx opencode-swarm update     # cache-only refresh, then restart opencode
+# or
+bunx opencode-swarm install    # full reinstall (re-asserts config), then restart opencode
+```
+
+`/swarm diagnose` shows the running version and, when available, the latest
+version on npm so you can tell at a glance whether your cache is stale.
+
+To disable the background staleness check entirely, set `version_check: false`
+in your `opencode-swarm.json`.
+
+---
+
 ## Commands
 
 All 41 subcommands at a glance:

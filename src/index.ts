@@ -1,6 +1,7 @@
 import * as fs from 'node:fs';
 import * as path from 'node:path';
 import type { Plugin } from '@opencode-ai/plugin';
+import packageJson from '../package.json' with { type: 'json' };
 import { createAgents, getAgentConfigs } from './agents';
 import { parseSoundingBoardResponse } from './agents/critic.js';
 import {
@@ -66,6 +67,7 @@ import { createTrajectoryLoggerHook } from './hooks/trajectory-logger';
 import { createPrmHook } from './prm';
 import { createCompactionService } from './services/compaction-service';
 import { shouldRunOnStartup } from './services/config-doctor';
+import { scheduleVersionCheck } from './services/version-check.js';
 import { loadSnapshot } from './session/snapshot-reader.js';
 import { createSnapshotWriterHook } from './session/snapshot-writer.js';
 import { ensureAgentSession, swarmState } from './state';
@@ -184,6 +186,27 @@ function writeSwarmConfigExampleIfNew(projectDirectory: string): void {
 }
 
 const OpenCodeSwarm: Plugin = async (ctx) => {
+	try {
+		return await initializeOpenCodeSwarm(ctx);
+	} catch (err) {
+		// OpenCode's plugin loader silently drops plugins whose entry rejects,
+		// leaving the user staring at "in plugins" with no commands/agents and no
+		// visible error (issue #675). Surface init failures to stderr so the real
+		// cause is visible, then re-throw so the host still observes the rejection.
+		const stack =
+			err instanceof Error ? (err.stack ?? err.message) : String(err);
+		console.error(
+			'[opencode-swarm] FATAL: plugin initialization failed. Plugin will not be available.',
+		);
+		console.error(stack);
+		throw err;
+	}
+};
+
+// Return type intentionally inferred so the literal `{ name: ..., agent: ... }`
+// does not trip excess-property checks against `Hooks`. The wrapper above is
+// typed as `Plugin`, which validates the structural shape at the call site.
+async function initializeOpenCodeSwarm(ctx: Parameters<Plugin>[0]) {
 	const { config, loadedFromFile } = loadPluginConfigWithMeta(ctx.directory);
 
 	// Clear deferred warnings at session start for per-session isolation
@@ -230,6 +253,17 @@ const OpenCodeSwarm: Plugin = async (ctx) => {
 	writeSwarmConfigExampleIfNew(ctx.directory);
 	// Warn once per process if .swarm/ is not gitignored (audit logs may contain secrets)
 	warnIfSwarmNotGitignored(ctx.directory);
+	// Background staleness check against npm. Detached, never blocks init,
+	// throttled to 24h on disk. See services/version-check.ts (issue #675).
+	if (config.version_check !== false) {
+		scheduleVersionCheck(packageJson.version, (msg) => {
+			if (config.quiet) {
+				addDeferredWarning(msg);
+			} else {
+				console.warn(msg);
+			}
+		});
+	}
 	// Non-blocking: build repo graph in background
 	const repoGraphHook = createRepoGraphBuilderHook(ctx.directory);
 	repoGraphHook.init().catch(() => {
@@ -1338,7 +1372,7 @@ const OpenCodeSwarm: Plugin = async (ctx) => {
 		// Exposed for future Task 5.x business feature integration
 		automation: automationManager,
 	};
-};
+}
 
 export default OpenCodeSwarm;
 
