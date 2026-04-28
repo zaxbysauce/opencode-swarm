@@ -74,7 +74,7 @@ jobs:
           tmpdir="${RUNNER_TEMP:-${TEMP:-.}}"
           for f in tests/unit/hooks/destructive-command*.test.ts tests/unit/hooks/incident-replay*.test.ts; do
             [ -f "$f" ] || continue
-            tmp="$tmpdir/bun-out-$$-$(basename "$f")"
+            tmp="$tmpdir/bun-out-$$-${f##*/}"
             exit_code=0
             bun --smol test "$f" --timeout 120000 > "$tmp" 2>&1 || exit_code=$?
             if [ $exit_code -ne 0 ]; then
@@ -219,7 +219,7 @@ jobs:
           for dir in tests/unit/commands tests/unit/config; do
             for f in "$dir"/*.test.ts; do
               [ -f "$f" ] || continue
-              tmp="$tmpdir/bun-out-$$-$(basename "$f")"
+              tmp="$tmpdir/bun-out-$$-${f##*/}"
               exit_code=0
               bun --smol test "$f" --timeout 120000 > "$tmp" 2>&1 || exit_code=$?
               if [ $exit_code -ne 0 ]; then
@@ -260,7 +260,7 @@ jobs:
           failed=0
           tmpdir="${RUNNER_TEMP:-${TEMP:-.}}"
           for f in tests/unit/tools/*.test.ts; do
-            tmp="$tmpdir/bun-out-$$-$(basename "$f")"
+            tmp="$tmpdir/bun-out-$$-${f##*/}"
             exit_code=0
             bun --smol test "$f" --timeout 120000 > "$tmp" 2>&1 || exit_code=$?
             if [ $exit_code -ne 0 ]; then
@@ -284,7 +284,7 @@ jobs:
           for dir in tests/unit/services tests/unit/build tests/unit/quality tests/unit/sast tests/unit/sbom tests/unit/scripts; do
             for f in "$dir"/*.test.ts; do
               [ -f "$f" ] || continue
-              tmp="$tmpdir/bun-out-$$-$(basename "$f")"
+              tmp="$tmpdir/bun-out-$$-${f##*/}"
               exit_code=0
               bun --smol test "$f" --timeout 120000 > "$tmp" 2>&1 || exit_code=$?
               if [ $exit_code -ne 0 ]; then
@@ -309,7 +309,7 @@ jobs:
           for dir in tests/unit/adversarial tests/unit/agents tests/unit/background tests/unit/context tests/unit/council tests/unit/diff tests/unit/evidence tests/unit/git tests/unit/helpers tests/unit/knowledge tests/unit/lang tests/unit/output tests/unit/parallel tests/unit/plan tests/unit/session tests/unit/skills tests/unit/types tests/unit/utils; do
             for f in "$dir"/*.test.ts; do
               [ -f "$f" ] || continue
-              tmp="$tmpdir/bun-out-$$-$(basename "$f")"
+              tmp="$tmpdir/bun-out-$$-${f##*/}"
               exit_code=0
               bun --smol test "$f" --timeout 120000 > "$tmp" 2>&1 || exit_code=$?
               if [ $exit_code -ne 0 ]; then
@@ -325,7 +325,7 @@ jobs:
           # Standalone test files
           for f in tests/unit/cli-dispatch.test.ts tests/unit/index-commands.test.ts tests/unit/stale-delegation-guard.test.ts tests/unit/state-invocation-windows.test.ts tests/unit/state-rehydrate.test.ts tests/unit/state-turbo-mode.test.ts tests/unit/state-workflow-guard.adversarial.test.ts tests/unit/state-workflow-guard.test.ts tests/unit/state.adversarial-scope.test.ts tests/unit/state.adversarial.test.ts tests/unit/state.rehydrate.adversarial.test.ts tests/unit/state.test.ts tests/unit/version-bump.test.ts; do
             [ -f "$f" ] || continue
-            tmp="$tmpdir/bun-out-$$-$(basename "$f")"
+            tmp="$tmpdir/bun-out-$$-${f##*/}"
             exit_code=0
             bun --smol test "$f" --timeout 120000 > "$tmp" 2>&1 || exit_code=$?
             if [ $exit_code -ne 0 ]; then
