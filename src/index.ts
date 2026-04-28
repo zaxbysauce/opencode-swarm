@@ -236,6 +236,39 @@ async function initializeOpenCodeSwarm(ctx: Parameters<Plugin>[0]) {
 		}
 	}
 
+	// Warn once about agents with custom models but no fallback_models configured.
+	// Collect all violating agent names across top-level agents and all swarms, then
+	// emit a single consolidated message so the TUI is not spammed per-agent.
+	{
+		const noFallback: string[] = [];
+		if (config.agents) {
+			for (const [name, cfg] of Object.entries(config.agents)) {
+				if (cfg.model && !cfg.fallback_models) noFallback.push(name);
+			}
+		}
+		if (config.swarms) {
+			for (const [swarmId, swarm] of Object.entries(config.swarms)) {
+				if (swarm.agents) {
+					for (const [name, cfg] of Object.entries(swarm.agents)) {
+						if (cfg.model && !cfg.fallback_models)
+							noFallback.push(`${swarmId}/${name}`);
+					}
+				}
+			}
+		}
+		if (noFallback.length > 0) {
+			const msg =
+				`[opencode-swarm] WARNING: ${noFallback.length} agent(s) use a custom model without fallback_models: ` +
+				noFallback.join(', ') +
+				'. Add "fallback_models": ["model-a"] to each agent config for reliability.';
+			if (!config.quiet) {
+				console.warn(msg);
+			} else {
+				addDeferredWarning(msg);
+			}
+		}
+	}
+
 	// Track whether full-auto mode is enabled in config
 	swarmState.fullAutoEnabledInConfig = config.full_auto?.enabled === true;
 
