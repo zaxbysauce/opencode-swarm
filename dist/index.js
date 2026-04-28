@@ -51,7 +51,7 @@ var package_default;
 var init_package = __esm(() => {
   package_default = {
     name: "opencode-swarm",
-    version: "6.86.8",
+    version: "6.86.9",
     description: "Architect-centric agentic swarm plugin for OpenCode - hub-and-spoke orchestration with SME consultation, code generation, and QA review",
     main: "dist/index.js",
     types: "dist/index.d.ts",
@@ -23318,7 +23318,7 @@ function redactShellCommand(cmd) {
 function createGuardrailsHooks(directory, directoryOrConfig, config2, authorityConfig) {
   let guardrailsConfig;
   if (directory && typeof directory === "object" && "enabled" in directory) {
-    console.warn("[guardrails] Legacy call without directory, falling back to process.cwd()");
+    warn("[guardrails] Legacy call without directory, falling back to process.cwd()");
     guardrailsConfig = directory;
   } else if (directoryOrConfig && typeof directoryOrConfig === "object" && "enabled" in directoryOrConfig) {
     guardrailsConfig = directoryOrConfig;
@@ -23329,7 +23329,7 @@ function createGuardrailsHooks(directory, directoryOrConfig, config2, authorityC
     if (typeof directory === "string")
       return directory;
     const cwd = process.cwd();
-    console.warn(`[guardrails] effectiveDirectory resolved to process.cwd() "${cwd}" — ` + "pass an explicit directory string to createGuardrailsHooks to avoid .swarm artifacts in wrong locations");
+    warn(`[guardrails] effectiveDirectory resolved to process.cwd() "${cwd}" — ` + "pass an explicit directory string to createGuardrailsHooks to avoid .swarm artifacts in wrong locations");
     return cwd;
   })();
   if (guardrailsConfig?.enabled === false) {
@@ -24737,6 +24737,7 @@ var init_guardrails = __esm(() => {
   init_state();
   init_telemetry();
   init_utils();
+  init_logger();
   init_conflict_resolution();
   init_delegation_gate();
   init_loop_detector();
@@ -25082,7 +25083,7 @@ async function getEvidenceTaskId(session, directory) {
     }
   } catch (err2) {
     if (process.env.DEBUG_SWARM && err2 instanceof Error) {
-      console.warn(`[delegation-gate] getEvidenceTaskId error: ${err2.message} (code=${err2.code ?? "none"})`);
+      warn(`[delegation-gate] getEvidenceTaskId error: ${err2.message} (code=${err2.code ?? "none"})`);
     }
     return null;
   }
@@ -25139,7 +25140,7 @@ function createDelegationGateHook(config2, directory) {
       const hasCurrentSessionCoderDelegation = delegationChains.some((d) => stripKnownSwarmPrefix(d.to) === "coder" && d.timestamp > freshnessThreshold);
       if (!hasCurrentSessionCoderDelegation) {
         session.taskWorkflowStates.set(taskId, "idle");
-        console.warn(`[delegation-gate] Reset stale coder_delegated state for task ${taskId} — ` + `no coder delegation found in current session.`);
+        warn(`[delegation-gate] Reset stale coder_delegated state for task ${taskId} — ` + `no coder delegation found in current session.`);
         continue;
       }
       const turbo = hasActiveTurboMode(input.sessionID);
@@ -25180,7 +25181,7 @@ function createDelegationGateHook(config2, directory) {
               try {
                 await advanceTaskStateAndPersist(session, taskId, "complete", directory, config2.council);
               } catch (err2) {
-                console.warn(`[delegation-gate] toolAfter submit_council_verdicts: could not advance ${taskId} → complete: ${err2 instanceof Error ? err2.message : String(err2)}`);
+                warn(`[delegation-gate] toolAfter submit_council_verdicts: could not advance ${taskId} → complete: ${err2 instanceof Error ? err2.message : String(err2)}`);
               }
             }
           }
@@ -25223,7 +25224,7 @@ function createDelegationGateHook(config2, directory) {
                     }
                     advanceTaskState(session, taskId, "tests_run");
                   } catch (err2) {
-                    console.warn(`[delegation-gate] toolAfter stage-b-parallel: could not advance ${taskId} (${eligibleState}) → tests_run: ${err2 instanceof Error ? err2.message : String(err2)}`);
+                    warn(`[delegation-gate] toolAfter stage-b-parallel: could not advance ${taskId} (${eligibleState}) → tests_run: ${err2 instanceof Error ? err2.message : String(err2)}`);
                   }
                 }
               }
@@ -25250,7 +25251,7 @@ function createDelegationGateHook(config2, directory) {
                       }
                       advanceTaskState(otherSession, seedTaskId, "tests_run");
                     } catch (err2) {
-                      console.warn(`[delegation-gate] toolAfter cross-session stage-b-parallel: could not advance ${seedTaskId} (${seedEligibleState}) → tests_run: ${err2 instanceof Error ? err2.message : String(err2)}`);
+                      warn(`[delegation-gate] toolAfter cross-session stage-b-parallel: could not advance ${seedTaskId} (${seedEligibleState}) → tests_run: ${err2 instanceof Error ? err2.message : String(err2)}`);
                     }
                   }
                 }
@@ -25263,7 +25264,7 @@ function createDelegationGateHook(config2, directory) {
                   try {
                     advanceTaskState(session, taskId, "reviewer_run");
                   } catch (err2) {
-                    console.warn(`[delegation-gate] toolAfter: could not advance ${taskId} (${state}) → reviewer_run: ${err2 instanceof Error ? err2.message : String(err2)}`);
+                    warn(`[delegation-gate] toolAfter: could not advance ${taskId} (${state}) → reviewer_run: ${err2 instanceof Error ? err2.message : String(err2)}`);
                   }
                 }
               }
@@ -25274,7 +25275,7 @@ function createDelegationGateHook(config2, directory) {
                   try {
                     advanceTaskState(session, taskId, "tests_run");
                   } catch (err2) {
-                    console.warn(`[delegation-gate] toolAfter: could not advance ${taskId} (${state}) → tests_run: ${err2 instanceof Error ? err2.message : String(err2)}`);
+                    warn(`[delegation-gate] toolAfter: could not advance ${taskId} (${state}) → tests_run: ${err2 instanceof Error ? err2.message : String(err2)}`);
                   }
                 }
               }
@@ -25298,7 +25299,7 @@ function createDelegationGateHook(config2, directory) {
                       try {
                         advanceTaskState(otherSession, taskId, "reviewer_run");
                       } catch (err2) {
-                        console.warn(`[delegation-gate] toolAfter cross-session: could not advance ${taskId} (${state}) → reviewer_run: ${err2 instanceof Error ? err2.message : String(err2)}`);
+                        warn(`[delegation-gate] toolAfter cross-session: could not advance ${taskId} (${state}) → reviewer_run: ${err2 instanceof Error ? err2.message : String(err2)}`);
                       }
                     }
                   }
@@ -25316,7 +25317,7 @@ function createDelegationGateHook(config2, directory) {
                       try {
                         advanceTaskState(otherSession, taskId, "tests_run");
                       } catch (err2) {
-                        console.warn(`[delegation-gate] toolAfter cross-session: could not advance ${taskId} (${state}) → tests_run: ${err2 instanceof Error ? err2.message : String(err2)}`);
+                        warn(`[delegation-gate] toolAfter cross-session: could not advance ${taskId} (${state}) → tests_run: ${err2 instanceof Error ? err2.message : String(err2)}`);
                       }
                     }
                   }
@@ -25388,7 +25389,7 @@ function createDelegationGateHook(config2, directory) {
                   try {
                     advanceTaskState(session, taskId, "reviewer_run");
                   } catch (err2) {
-                    console.warn(`[delegation-gate] fallback: could not advance ${taskId} (${state}) → reviewer_run: ${err2 instanceof Error ? err2.message : String(err2)}`);
+                    warn(`[delegation-gate] fallback: could not advance ${taskId} (${state}) → reviewer_run: ${err2 instanceof Error ? err2.message : String(err2)}`);
                   }
                 }
               }
@@ -25399,7 +25400,7 @@ function createDelegationGateHook(config2, directory) {
                   try {
                     advanceTaskState(session, taskId, "tests_run");
                   } catch (err2) {
-                    console.warn(`[delegation-gate] fallback: could not advance ${taskId} (${state}) → tests_run: ${err2 instanceof Error ? err2.message : String(err2)}`);
+                    warn(`[delegation-gate] fallback: could not advance ${taskId} (${state}) → tests_run: ${err2 instanceof Error ? err2.message : String(err2)}`);
                   }
                 }
               }
@@ -25419,7 +25420,7 @@ function createDelegationGateHook(config2, directory) {
                     try {
                       advanceTaskState(otherSession, taskId, "reviewer_run");
                     } catch (err2) {
-                      console.warn(`[delegation-gate] fallback cross-session: could not advance ${taskId} (${state}) → reviewer_run: ${err2 instanceof Error ? err2.message : String(err2)}`);
+                      warn(`[delegation-gate] fallback cross-session: could not advance ${taskId} (${state}) → reviewer_run: ${err2 instanceof Error ? err2.message : String(err2)}`);
                     }
                   }
                 }
@@ -25440,7 +25441,7 @@ function createDelegationGateHook(config2, directory) {
                     try {
                       advanceTaskState(otherSession, taskId, "tests_run");
                     } catch (err2) {
-                      console.warn(`[delegation-gate] fallback cross-session: could not advance ${taskId} (${state}) → tests_run: ${err2 instanceof Error ? err2.message : String(err2)}`);
+                      warn(`[delegation-gate] fallback cross-session: could not advance ${taskId} (${state}) → tests_run: ${err2 instanceof Error ? err2.message : String(err2)}`);
                     }
                   }
                 }
@@ -25567,7 +25568,7 @@ ${trimComment}${after}`;
         try {
           await advanceTaskStateAndPersist(session, currentTaskId, "coder_delegated", directory);
         } catch (err2) {
-          console.warn(`[delegation-gate] state machine warn: ${err2 instanceof Error ? err2.message : String(err2)}`);
+          warn(`[delegation-gate] state machine warn: ${err2 instanceof Error ? err2.message : String(err2)}`);
         }
       }
       if (sessionID && !isCoderDelegation && currentTaskId) {
@@ -25695,6 +25696,7 @@ var init_delegation_gate = __esm(() => {
   init_schema();
   init_state();
   init_telemetry();
+  init_logger();
   init_guardrails();
   init_normalize_tool_name();
   init_utils2();
@@ -42619,7 +42621,7 @@ async function readCuratorSummary(directory) {
   try {
     const parsed = JSON.parse(content);
     if (parsed.schema_version !== 1) {
-      console.warn(`Curator summary has unsupported schema version: ${parsed.schema_version}. Expected 1.`);
+      warn(`Curator summary has unsupported schema version: ${parsed.schema_version}. Expected 1.`);
       return null;
     }
     return parsed;
@@ -42856,7 +42858,7 @@ ${llmOutput.trim()}`;
           enhanced: true
         });
       } catch (err2) {
-        console.warn(`[curator] LLM delegation failed during CURATOR_INIT, using data-only mode: ${err2 instanceof Error ? err2.message : String(err2)}`);
+        warn(`[curator] LLM delegation failed during CURATOR_INIT, using data-only mode: ${err2 instanceof Error ? err2.message : String(err2)}`);
         getGlobalEventBus().publish("curator.init.llm_fallback", {
           error: String(err2)
         });
@@ -42980,7 +42982,7 @@ async function runCuratorPhase(directory, phase, agentsDispatched, config3, _kno
           recommendations: knowledgeRecommendations.length
         });
       } catch (err2) {
-        console.warn(`[curator] LLM delegation failed during CURATOR_PHASE ${phase}, using data-only mode: ${err2 instanceof Error ? err2.message : String(err2)}`);
+        warn(`[curator] LLM delegation failed during CURATOR_PHASE ${phase}, using data-only mode: ${err2 instanceof Error ? err2.message : String(err2)}`);
         getGlobalEventBus().publish("curator.phase.llm_fallback", {
           phase,
           error: String(err2)
@@ -43141,7 +43143,7 @@ async function applyCuratorKnowledgeUpdates(directory, recommendations, knowledg
     if (rec.entry_id !== undefined && !appliedIds.has(rec.entry_id)) {
       const found = entries.some((e) => e.id === rec.entry_id);
       if (!found) {
-        console.warn(`[curator] applyCuratorKnowledgeUpdates: entry_id '${rec.entry_id}' not found — skipping`);
+        warn(`[curator] applyCuratorKnowledgeUpdates: entry_id '${rec.entry_id}' not found — skipping`);
       }
       skipped++;
     }
@@ -43209,6 +43211,7 @@ var DEFAULT_CURATOR_LLM_TIMEOUT_MS = 300000;
 var init_curator = __esm(() => {
   init_event_bus();
   init_manager();
+  init_logger();
   init_knowledge_store();
   init_knowledge_validator();
   init_utils2();
@@ -48282,7 +48285,7 @@ async function migrateContextToKnowledge(directory, config3) {
     await rewriteKnowledge(knowledgePath, existing);
   }
   await writeSentinel(sentinelPath, migrated, dropped);
-  console.log(`[knowledge-migrator] Migrated ${migrated} entries, dropped ${dropped}`);
+  log(`[knowledge-migrator] Migrated ${migrated} entries, dropped ${dropped}`);
   return {
     migrated: true,
     entriesMigrated: migrated,
@@ -48412,6 +48415,7 @@ async function writeSentinel(sentinelPath, migrated, dropped) {
   await writeFile5(sentinelPath, JSON.stringify(sentinel, null, 2), "utf-8");
 }
 var init_knowledge_migrator = __esm(() => {
+  init_logger();
   init_knowledge_store();
   init_knowledge_validator();
 });
@@ -59219,7 +59223,7 @@ function createPreflightIntegration(config3) {
     statusArtifact = new AutomationStatusArtifact(swarmDir);
   }
   const preflightHandler = async (request) => {
-    console.log("[PreflightIntegration] Handling preflight request", {
+    log("[PreflightIntegration] Handling preflight request", {
       requestId: request.id,
       phase: request.currentPhase,
       source: request.source
@@ -59228,13 +59232,13 @@ function createPreflightIntegration(config3) {
     if (statusArtifact) {
       const state = report.overall === "pass" ? "success" : "failure";
       statusArtifact.recordOutcome(state, request.currentPhase, report.message);
-      console.log("[PreflightIntegration] Status artifact updated", {
+      log("[PreflightIntegration] Status artifact updated", {
         state,
         phase: request.currentPhase,
         message: report.message
       });
     }
-    console.log("[PreflightIntegration] Preflight complete", {
+    log("[PreflightIntegration] Preflight complete", {
       requestId: request.id,
       overall: report.overall,
       message: report.message,
@@ -59257,6 +59261,7 @@ var init_preflight_integration = __esm(() => {
   init_status_artifact();
   init_trigger();
   init_preflight_service();
+  init_logger();
 });
 
 // node_modules/web-tree-sitter/tree-sitter.js
@@ -63161,12 +63166,12 @@ async function readPriorDriftReports(directory) {
     try {
       const report = JSON.parse(content);
       if (typeof report.phase !== "number" || typeof report.alignment !== "string" || typeof report.timestamp !== "string" || typeof report.drift_score !== "number" || typeof report.schema_version !== "number" || !Array.isArray(report.compounding_effects)) {
-        console.warn(`[curator-drift] Skipping corrupt drift report: ${filename}`);
+        warn(`[curator-drift] Skipping corrupt drift report: ${filename}`);
         continue;
       }
       reports.push(report);
     } catch {
-      console.warn(`[curator-drift] Skipping unreadable drift report: ${filename}`);
+      warn(`[curator-drift] Skipping unreadable drift report: ${filename}`);
     }
   }
   reports.sort((a, b) => a.phase - b.phase);
@@ -63303,6 +63308,7 @@ function buildDriftInjectionText(report, maxChars) {
 var DRIFT_REPORT_PREFIX = "drift-report-phase-";
 var init_curator_drift = __esm(() => {
   init_event_bus();
+  init_logger();
   init_utils2();
 });
 
@@ -64529,6 +64535,7 @@ init_schema();
 init_file_locks();
 init_state();
 init_telemetry();
+init_logger();
 init_utils2();
 import * as fs33 from "node:fs";
 var END_OF_SENTENCE_QUESTION_PATTERN = /\?\s*$/;
@@ -64640,7 +64647,7 @@ function parseCriticResponse(rawResponse) {
         if (validVerdicts.includes(normalized)) {
           res.verdict = normalized;
         } else {
-          console.warn(`[full-auto-intercept] Unknown verdict '${value}' — defaulting to NEEDS_REVISION`);
+          warn(`[full-auto-intercept] Unknown verdict '${value}' — defaulting to NEEDS_REVISION`);
           res.verdict = "NEEDS_REVISION";
         }
         break;
@@ -64717,23 +64724,23 @@ async function writeAutoOversightEvent(directory, architectOutput, criticVerdict
   try {
     lockResult = await tryAcquireLock(dir, eventsFilePath, "auto-oversight", lockTaskId);
   } catch (error93) {
-    console.warn(`[full-auto-intercept] Warning: failed to acquire lock for auto_oversight event: ${error93 instanceof Error ? error93.message : String(error93)}`);
+    warn(`[full-auto-intercept] Warning: failed to acquire lock for auto_oversight event: ${error93 instanceof Error ? error93.message : String(error93)}`);
   }
   if (!lockResult?.acquired) {
-    console.warn(`[full-auto-intercept] Warning: could not acquire lock for events.jsonl write — proceeding without lock`);
+    warn(`[full-auto-intercept] Warning: could not acquire lock for events.jsonl write — proceeding without lock`);
   }
   try {
     const eventsPath = validateSwarmPath(dir, "events.jsonl");
     fs33.appendFileSync(eventsPath, `${JSON.stringify(event)}
 `, "utf-8");
   } catch (writeError) {
-    console.error(`[full-auto-intercept] Warning: failed to write auto_oversight event: ${writeError instanceof Error ? writeError.message : String(writeError)}`);
+    error48(`[full-auto-intercept] Warning: failed to write auto_oversight event: ${writeError instanceof Error ? writeError.message : String(writeError)}`);
   } finally {
     if (lockResult?.acquired && lockResult.lock._release) {
       try {
         await lockResult.lock._release();
       } catch (releaseError) {
-        console.error(`[full-auto-intercept] Lock release failed:`, releaseError);
+        error48(`[full-auto-intercept] Lock release failed:`, releaseError);
       }
     }
   }
@@ -64839,7 +64846,7 @@ Critic reasoning: ${criticResult.reasoning}`
 async function dispatchCriticAndWriteEvent(directory, architectOutput, criticContext, criticModel, escalationType, interactionCount, deadlockCount, oversightAgentName) {
   const client = swarmState.opencodeClient;
   if (!client) {
-    console.warn("[full-auto-intercept] No opencodeClient — critic dispatch skipped (fallback to PENDING)");
+    warn("[full-auto-intercept] No opencodeClient — critic dispatch skipped (fallback to PENDING)");
     const result = {
       verdict: "PENDING",
       reasoning: "No opencodeClient available — critic dispatch not possible",
@@ -64852,7 +64859,7 @@ async function dispatchCriticAndWriteEvent(directory, architectOutput, criticCon
     return result;
   }
   const oversightAgent = createCriticAutonomousOversightAgent(criticModel, criticContext);
-  console.log(`[full-auto-intercept] Dispatching critic: ${oversightAgent.name} using model ${criticModel}`);
+  log(`[full-auto-intercept] Dispatching critic: ${oversightAgent.name} using model ${criticModel}`);
   let ephemeralSessionId;
   const cleanup = () => {
     if (ephemeralSessionId) {
@@ -64870,7 +64877,7 @@ async function dispatchCriticAndWriteEvent(directory, architectOutput, criticCon
       throw new Error(`Failed to create critic session: ${JSON.stringify(createResult.error)}`);
     }
     ephemeralSessionId = createResult.data.id;
-    console.log(`[full-auto-intercept] Created ephemeral session: ${ephemeralSessionId}`);
+    log(`[full-auto-intercept] Created ephemeral session: ${ephemeralSessionId}`);
     const promptResult = await client.session.prompt({
       path: { id: ephemeralSessionId },
       body: {
@@ -64885,9 +64892,9 @@ async function dispatchCriticAndWriteEvent(directory, architectOutput, criticCon
     const textParts = promptResult.data.parts.filter((p) => p.type === "text");
     criticResponse = textParts.map((p) => p.text).join(`
 `);
-    console.log(`[full-auto-intercept] Critic response received (${criticResponse.length} chars)`);
+    log(`[full-auto-intercept] Critic response received (${criticResponse.length} chars)`);
     if (!criticResponse.trim()) {
-      console.warn("[full-auto-intercept] Critic returned empty response — using fallback verdict");
+      warn("[full-auto-intercept] Critic returned empty response — using fallback verdict");
       criticResponse = `VERDICT: NEEDS_REVISION
 REASONING: Critic returned empty response
 EVIDENCE_CHECKED: none
@@ -64900,9 +64907,9 @@ ESCALATION_NEEDED: NO`;
   let parsed;
   try {
     parsed = parseCriticResponse(criticResponse);
-    console.log(`[full-auto-intercept] Critic verdict: ${parsed.verdict} | escalation: ${parsed.escalationNeeded}`);
+    log(`[full-auto-intercept] Critic verdict: ${parsed.verdict} | escalation: ${parsed.escalationNeeded}`);
   } catch (parseError) {
-    console.error(`[full-auto-intercept] Failed to parse critic response: ${parseError instanceof Error ? parseError.message : String(parseError)}`);
+    error48(`[full-auto-intercept] Failed to parse critic response: ${parseError instanceof Error ? parseError.message : String(parseError)}`);
     parsed = {
       verdict: "NEEDS_REVISION",
       reasoning: "Critic response parsing failed — defaulting to NEEDS_REVISION",
@@ -64915,7 +64922,7 @@ ESCALATION_NEEDED: NO`;
   try {
     await writeAutoOversightEvent(directory, architectOutput, parsed.verdict, parsed.reasoning, parsed.evidenceChecked, interactionCount, deadlockCount, escalationType);
   } catch (writeError) {
-    console.error(`[full-auto-intercept] Failed to write auto_oversight event: ${writeError instanceof Error ? writeError.message : String(writeError)}`);
+    error48(`[full-auto-intercept] Failed to write auto_oversight event: ${writeError instanceof Error ? writeError.message : String(writeError)}`);
   }
   return parsed;
 }
@@ -64984,7 +64991,7 @@ function createFullAutoInterceptHook(config3, directory) {
         const lastQuestionHash = session.fullAutoLastQuestionHash;
         if (lastQuestionHash === questionHash) {
           session.fullAutoDeadlockCount = (session.fullAutoDeadlockCount ?? 0) + 1;
-          console.warn(`[full-auto-intercept] Potential deadlock detected (count: ${session.fullAutoDeadlockCount}/${deadlockThreshold}) — identical question repeated`);
+          warn(`[full-auto-intercept] Potential deadlock detected (count: ${session.fullAutoDeadlockCount}/${deadlockThreshold}) — identical question repeated`);
           if (session.fullAutoDeadlockCount >= deadlockThreshold) {
             const escalated = await handleEscalation(directory, "deadlock", sessionID, architectText, session.fullAutoInteractionCount ?? 0, session.fullAutoDeadlockCount, escalationMode);
             if (escalated)
@@ -64996,14 +65003,14 @@ function createFullAutoInterceptHook(config3, directory) {
         session.fullAutoLastQuestionHash = questionHash;
       }
     }
-    console.log(`[full-auto-intercept] Escalation detected (${escalationType}) — triggering autonomous oversight`);
+    log(`[full-auto-intercept] Escalation detected (${escalationType}) — triggering autonomous oversight`);
     const criticContext = buildCriticContext(architectText, escalationType);
     const criticModel = fullAutoConfig.critic_model ?? "claude-sonnet-4-20250514";
     const oversightAgent = createCriticAutonomousOversightAgent(criticModel, criticContext);
     const architectAgent = architectMessage.info?.agent;
     const resolvedOversightAgentName = resolveOversightAgentName(architectAgent);
     const dispatchAgentName = resolvedOversightAgentName && resolvedOversightAgentName.length > 0 ? resolvedOversightAgentName : "critic_oversight";
-    console.log(`[full-auto-intercept] Created autonomous oversight agent: ${oversightAgent.name} using model ${criticModel} (dispatch as: ${dispatchAgentName})`);
+    log(`[full-auto-intercept] Created autonomous oversight agent: ${oversightAgent.name} using model ${criticModel} (dispatch as: ${dispatchAgentName})`);
     const criticResult = await dispatchCriticAndWriteEvent(directory, architectText, criticContext, criticModel, escalationType, session?.fullAutoInteractionCount ?? 0, session?.fullAutoDeadlockCount ?? 0, dispatchAgentName);
     injectVerdictIntoMessages(messages, lastArchitectMessageIndex, criticResult, escalationType, dispatchAgentName);
   };
@@ -65076,19 +65083,19 @@ This escalation requires human intervention. The swarm has been paused.
 Please review the architect's output above and provide guidance.
 `;
     fs33.writeFileSync(reportPath, reportContent, "utf-8");
-    console.log(`[full-auto-intercept] Escalation report written to: ${reportPath}`);
+    log(`[full-auto-intercept] Escalation report written to: ${reportPath}`);
   } catch (error93) {
-    console.error(`[full-auto-intercept] Failed to write escalation report:`, error93 instanceof Error ? error93.message : String(error93));
+    error48(`[full-auto-intercept] Failed to write escalation report:`, error93 instanceof Error ? error93.message : String(error93));
   }
 }
 async function handleEscalation(directory, reason, sessionID, architectOutput, interactionCount, deadlockCount, escalationMode, phase) {
   telemetry.autoOversightEscalation(sessionID ?? "unknown", reason, interactionCount, deadlockCount, phase);
   await writeEscalationReport(directory, reason, architectOutput, interactionCount, deadlockCount, phase);
   if (escalationMode === "terminate") {
-    console.error(`[full-auto-intercept] ESCALATION (terminate mode) — reason: ${reason}, session: ${sessionID}`);
+    error48(`[full-auto-intercept] ESCALATION (terminate mode) — reason: ${reason}, session: ${sessionID}`);
     process.exit(1);
   }
-  console.warn(`[full-auto-intercept] ESCALATION (pause mode) — reason: ${reason}, session: ${sessionID}`);
+  warn(`[full-auto-intercept] ESCALATION (pause mode) — reason: ${reason}, session: ${sessionID}`);
   return true;
 }
 

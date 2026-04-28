@@ -16,6 +16,7 @@ import { stripKnownSwarmPrefix } from '../config/schema.js';
 import { tryAcquireLock } from '../parallel/file-locks.js';
 import { hasActiveFullAuto, swarmState } from '../state.js';
 import { telemetry } from '../telemetry';
+import * as logger from '../utils/logger';
 import { validateSwarmPath } from './utils';
 
 // Pattern for detecting end-of-sentence question marks (not mid-sentence like "v1?")
@@ -246,7 +247,7 @@ export function parseCriticResponse(rawResponse: string): CriticDispatchResult {
 				if (validVerdicts.includes(normalized)) {
 					res.verdict = normalized;
 				} else {
-					console.warn(
+					logger.warn(
 						`[full-auto-intercept] Unknown verdict '${value}' — defaulting to NEEDS_REVISION`,
 					);
 					res.verdict = 'NEEDS_REVISION';
@@ -368,12 +369,12 @@ async function writeAutoOversightEvent(
 			lockTaskId,
 		);
 	} catch (error) {
-		console.warn(
+		logger.warn(
 			`[full-auto-intercept] Warning: failed to acquire lock for auto_oversight event: ${error instanceof Error ? error.message : String(error)}`,
 		);
 	}
 	if (!lockResult?.acquired) {
-		console.warn(
+		logger.warn(
 			`[full-auto-intercept] Warning: could not acquire lock for events.jsonl write — proceeding without lock`,
 		);
 	}
@@ -381,7 +382,7 @@ async function writeAutoOversightEvent(
 		const eventsPath = validateSwarmPath(dir, 'events.jsonl');
 		fs.appendFileSync(eventsPath, `${JSON.stringify(event)}\n`, 'utf-8');
 	} catch (writeError) {
-		console.error(
+		logger.error(
 			`[full-auto-intercept] Warning: failed to write auto_oversight event: ${writeError instanceof Error ? writeError.message : String(writeError)}`,
 		);
 	} finally {
@@ -389,7 +390,7 @@ async function writeAutoOversightEvent(
 			try {
 				await lockResult.lock._release();
 			} catch (releaseError) {
-				console.error(
+				logger.error(
 					`[full-auto-intercept] Lock release failed:`,
 					releaseError,
 				);
@@ -549,7 +550,7 @@ export async function dispatchCriticAndWriteEvent(
 
 	// If no client (e.g., in tests), fall back to PENDING
 	if (!client) {
-		console.warn(
+		logger.warn(
 			'[full-auto-intercept] No opencodeClient — critic dispatch skipped (fallback to PENDING)',
 		);
 		const result: CriticDispatchResult = {
@@ -577,7 +578,7 @@ export async function dispatchCriticAndWriteEvent(
 		criticModel,
 		criticContext,
 	);
-	console.log(
+	logger.log(
 		`[full-auto-intercept] Dispatching critic: ${oversightAgent.name} using model ${criticModel}`,
 	);
 
@@ -604,7 +605,7 @@ export async function dispatchCriticAndWriteEvent(
 			);
 		}
 		ephemeralSessionId = createResult.data.id;
-		console.log(
+		logger.log(
 			`[full-auto-intercept] Created ephemeral session: ${ephemeralSessionId}`,
 		);
 
@@ -629,13 +630,13 @@ export async function dispatchCriticAndWriteEvent(
 			(p): p is typeof p & { text: string } => p.type === 'text',
 		);
 		criticResponse = textParts.map((p) => p.text).join('\n');
-		console.log(
+		logger.log(
 			`[full-auto-intercept] Critic response received (${criticResponse.length} chars)`,
 		);
 
 		// 3b. Handle empty response
 		if (!criticResponse.trim()) {
-			console.warn(
+			logger.warn(
 				'[full-auto-intercept] Critic returned empty response — using fallback verdict',
 			);
 			criticResponse =
@@ -649,11 +650,11 @@ export async function dispatchCriticAndWriteEvent(
 	let parsed: CriticDispatchResult;
 	try {
 		parsed = parseCriticResponse(criticResponse);
-		console.log(
+		logger.log(
 			`[full-auto-intercept] Critic verdict: ${parsed.verdict} | escalation: ${parsed.escalationNeeded}`,
 		);
 	} catch (parseError) {
-		console.error(
+		logger.error(
 			`[full-auto-intercept] Failed to parse critic response: ${parseError instanceof Error ? parseError.message : String(parseError)}`,
 		);
 		parsed = {
@@ -680,7 +681,7 @@ export async function dispatchCriticAndWriteEvent(
 			escalationType,
 		);
 	} catch (writeError) {
-		console.error(
+		logger.error(
 			`[full-auto-intercept] Failed to write auto_oversight event: ${writeError instanceof Error ? writeError.message : String(writeError)}`,
 		);
 		// Don't rethrow — event write failure shouldn't crash the hook
@@ -817,7 +818,7 @@ export function createFullAutoInterceptHook(
 					// Same question detected — increment deadlock count
 					session.fullAutoDeadlockCount =
 						(session.fullAutoDeadlockCount ?? 0) + 1;
-					console.warn(
+					logger.warn(
 						`[full-auto-intercept] Potential deadlock detected (count: ${session.fullAutoDeadlockCount}/${deadlockThreshold}) — identical question repeated`,
 					);
 
@@ -842,7 +843,7 @@ export function createFullAutoInterceptHook(
 		}
 
 		// Trigger autonomous oversight
-		console.log(
+		logger.log(
 			`[full-auto-intercept] Escalation detected (${escalationType}) — triggering autonomous oversight`,
 		);
 
@@ -873,7 +874,7 @@ export function createFullAutoInterceptHook(
 				: 'critic_oversight';
 
 		// Log the oversight agent that was created (for debugging)
-		console.log(
+		logger.log(
 			`[full-auto-intercept] Created autonomous oversight agent: ${oversightAgent.name} using model ${criticModel} (dispatch as: ${dispatchAgentName})`,
 		);
 
@@ -1005,11 +1006,11 @@ Please review the architect's output above and provide guidance.
 `;
 
 		fs.writeFileSync(reportPath, reportContent, 'utf-8');
-		console.log(
+		logger.log(
 			`[full-auto-intercept] Escalation report written to: ${reportPath}`,
 		);
 	} catch (error) {
-		console.error(
+		logger.error(
 			`[full-auto-intercept] Failed to write escalation report:`,
 			error instanceof Error ? error.message : String(error),
 		);
@@ -1050,7 +1051,7 @@ async function handleEscalation(
 	);
 
 	if (escalationMode === 'terminate') {
-		console.error(
+		logger.error(
 			`[full-auto-intercept] ESCALATION (terminate mode) — reason: ${reason}, session: ${sessionID}`,
 		);
 		process.exit(1);
@@ -1058,7 +1059,7 @@ async function handleEscalation(
 
 	// In pause mode, return true to signal that escalation was triggered
 	// The message will still go through to the user, but critic dispatch should be skipped
-	console.warn(
+	logger.warn(
 		`[full-auto-intercept] ESCALATION (pause mode) — reason: ${reason}, session: ${sessionID}`,
 	);
 	return true;

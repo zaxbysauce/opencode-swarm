@@ -18598,7 +18598,7 @@ import * as path33 from "path";
 // package.json
 var package_default = {
   name: "opencode-swarm",
-  version: "6.86.8",
+  version: "6.86.9",
   description: "Architect-centric agentic swarm plugin for OpenCode - hub-and-spoke orchestration with SME consultation, code generation, and QA review",
   main: "dist/index.js",
   types: "dist/index.d.ts",
@@ -20188,6 +20188,7 @@ function getEffectiveGates(profile, sessionOverrides) {
 
 // src/hooks/delegation-gate.ts
 init_telemetry();
+init_logger();
 
 // node_modules/quick-lru/index.js
 class QuickLRU extends Map {
@@ -20551,6 +20552,7 @@ function clearAllScopes(directory) {
 // src/hooks/guardrails.ts
 init_telemetry();
 init_utils();
+init_logger();
 
 // src/hooks/conflict-resolution.ts
 init_telemetry();
@@ -35643,6 +35645,7 @@ function getGlobalEventBus() {
 
 // src/hooks/curator.ts
 init_manager();
+init_logger();
 init_utils2();
 
 // src/hooks/hive-promoter.ts
@@ -39503,6 +39506,7 @@ async function handleHistoryCommand(directory, _args) {
   return formatHistoryMarkdown(historyData);
 }
 // src/hooks/knowledge-migrator.ts
+init_logger();
 import { randomUUID as randomUUID2 } from "crypto";
 import { existsSync as existsSync13, readFileSync as readFileSync10 } from "fs";
 import { mkdir as mkdir3, readFile as readFile4, writeFile as writeFile4 } from "fs/promises";
@@ -39600,7 +39604,7 @@ async function migrateContextToKnowledge(directory, config3) {
     await rewriteKnowledge(knowledgePath, existing);
   }
   await writeSentinel(sentinelPath, migrated, dropped);
-  console.log(`[knowledge-migrator] Migrated ${migrated} entries, dropped ${dropped}`);
+  log(`[knowledge-migrator] Migrated ${migrated} entries, dropped ${dropped}`);
   return {
     migrated: true,
     entriesMigrated: migrated,

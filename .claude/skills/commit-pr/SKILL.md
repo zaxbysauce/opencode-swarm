@@ -78,11 +78,13 @@ bunx biome ci .   # MUST run on the full project — never scope to modified fil
                   # BEFORE pushing — biome --write produces unstaged changes that will
                   # cause the quality CI check to fail on the un-fixed commit.
 
-# Tier 2 — unit tests (use per-file loop for tools/services/agents to avoid mock conflicts)
+# Tier 2 — unit tests (per-file isolation to match CI and prevent mock conflicts)
 for f in tests/unit/tools/*.test.ts; do bun --smol test "$f" --timeout 30000; done
 for f in tests/unit/services/*.test.ts; do bun --smol test "$f" --timeout 30000; done
 for f in tests/unit/agents/*.test.ts; do bun --smol test "$f" --timeout 30000; done
-bun --smol test tests/unit/hooks tests/unit/cli tests/unit/commands tests/unit/config --timeout 120000
+# hooks must run per-file — batch mode can mask failures that CI's per-file isolation catches
+for f in tests/unit/hooks/*.test.ts; do bun --smol test "$f" --timeout 30000; done
+bun --smol test tests/unit/cli tests/unit/commands tests/unit/config --timeout 120000
 
 # Tier 3 — integration tests
 # IMPORTANT: always run Tier 3 after fixing Tier 2 failures — the same root cause
@@ -102,6 +104,18 @@ bun run build
 #   git add dist/ && git commit -m "chore: update dist artifacts"
 bun test tests/smoke --timeout 120000
 ```
+
+**Routing console calls through a debug-gated logger: extra step required.**
+When you change `console.log/warn/error` to `logger.log/warn()` (which gates output behind `OPENCODE_SWARM_DEBUG=1`):
+1. Grep for all tests that spy on those console methods and assert they ARE called:
+   ```bash
+   grep -rn "spyOn(console" tests/ --include="*.ts"
+   grep -rn "toHaveBeenCalled\|console\.warn\|console\.log\|console\.error" tests/ --include="*.ts"
+   ```
+2. For every spy that asserts the call IS made: determine whether the original call was an operational error (e.g., `catch` block reporting a real failure). Operational errors must remain as direct `console.warn/error` — never gate them behind `logger.warn()`. Only diagnostic/trace messages should be routed through the debug-gated logger.
+3. Run the affected hook test files per-file after the fix to confirm spy assertions pass.
+
+Failing to do this breaks tests silently in isolation but fails loudly in CI's per-file run.
 
 **Schema or field name changes: extra step required.**
 When you rename a field in a Zod schema, TypeScript interface, or serialized format (e.g. `task_id` → `taskId`):
@@ -138,6 +152,14 @@ gh api repos/{owner}/{repo}/git/ref/tags/{tag} --jq '.object.sha'
 ### Step 7 — Squash to a single clean commit
 
 Before pushing, collapse all interim commits into one. The PR must land as a single commit whose message is the canonical record of the change.
+
+**Before squashing, verify no tool or IDE files were accidentally staged:**
+```bash
+git diff --name-only HEAD origin/main | grep -E '\.(local\.json|vscode|idea)' || true
+# Look for: .claude/settings.local.json, .vscode/, .idea/, etc.
+# If any appear, remove them: git checkout origin/main -- <path>
+```
+These files are modified by Claude Code and IDEs during a session but must never be committed.
 
 ```bash
 # See what you're about to squash (sanity check)
