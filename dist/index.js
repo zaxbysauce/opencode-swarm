@@ -15707,6 +15707,17 @@ var init_config = __esm(() => {
   init_spec_schema();
 });
 
+// src/services/warning-buffer.ts
+function addDeferredWarning(warning) {
+  if (deferredWarnings.length < MAX_DEFERRED_WARNINGS) {
+    deferredWarnings.push(warning);
+  }
+}
+var deferredWarnings, MAX_DEFERRED_WARNINGS = 50;
+var init_warning_buffer = __esm(() => {
+  deferredWarnings = [];
+});
+
 // src/utils/errors.ts
 var SwarmError;
 var init_errors3 = __esm(() => {
@@ -43882,17 +43893,6 @@ var init_package = __esm(() => {
   };
 });
 
-// src/services/warning-buffer.ts
-function addDeferredWarning(warning) {
-  if (deferredWarnings.length < MAX_DEFERRED_WARNINGS) {
-    deferredWarnings.push(warning);
-  }
-}
-var deferredWarnings, MAX_DEFERRED_WARNINGS = 50;
-var init_warning_buffer = __esm(() => {
-  deferredWarnings = [];
-});
-
 // src/services/diagnose-service.ts
 import * as child_process4 from "child_process";
 import { existsSync as existsSync11, readdirSync as readdirSync4, readFileSync as readFileSync6, statSync as statSync6 } from "fs";
@@ -44642,8 +44642,8 @@ var init_diagnose_service = __esm(() => {
   init_loader();
   init_manager2();
   init_utils2();
-  init_warning_buffer();
   init_manager();
+  init_warning_buffer();
   ({ version: version3 } = package_default);
 });
 
@@ -58180,10 +58180,10 @@ var init_agents2 = __esm(() => {
   init_config();
   init_constants();
   init_schema();
+  init_warning_buffer();
   init_architect();
   init_curator_agent();
   init_reviewer();
-  init_warning_buffer();
   init_architect();
   init_curator_agent();
   init_reviewer();
