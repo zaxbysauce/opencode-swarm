@@ -466,7 +466,7 @@ describe('guardrails-authority - File Authority Enforcement', () => {
 			// and `../` traversals must be rejected for every agent —
 			// including architect, which never had an allowedPrefix to
 			// provide implicit containment.
-			const projectDir = '/tmp/project';
+			const projectDir = path.join(os.tmpdir(), 'project');
 
 			// coder — absolute path outside cwd.
 			const coderAbs = checkFileAuthority(

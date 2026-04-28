@@ -254,18 +254,30 @@ describe('web_search tool', () => {
 
 	test('returns structured error when council.general not configured', async () => {
 		const { web_search } = await import('../tools/web-search.js');
-		// Re-import to get fresh instance; execute via the wrapped handler
 		const wrapped = web_search as unknown as {
 			execute: (args: unknown, dir: string) => Promise<string>;
 		};
-		// Use a temp-like dir; loadPluginConfig will return guardrail defaults (no council.general)
-		const result = await wrapped.execute(
-			{ query: 'test' },
-			`/tmp/non-existent-${Date.now()}`,
+		// Use a real tmpDir with explicit disabled config so project config overrides user config
+		const fs = await import('node:fs');
+		const os = await import('node:os');
+		const path = await import('node:path');
+		const testDir = fs.mkdtempSync(path.join(os.tmpdir(), 'web-search-test-'));
+		fs.mkdirSync(path.join(testDir, '.opencode'), { recursive: true });
+		fs.writeFileSync(
+			path.join(testDir, '.opencode', 'opencode-swarm.json'),
+			JSON.stringify({ council: { general: { enabled: false } } }),
 		);
-		const parsed = JSON.parse(result);
-		expect(parsed.success).toBe(false);
-		expect(parsed.reason).toBe('council_general_disabled');
+		try {
+			const result = await wrapped.execute(
+				{ query: 'test', working_directory: testDir },
+				testDir,
+			);
+			const parsed = JSON.parse(result);
+			expect(parsed.success).toBe(false);
+			expect(parsed.reason).toBe('council_general_disabled');
+		} finally {
+			fs.rmSync(testDir, { recursive: true, force: true });
+		}
 	});
 
 	test('returns structured error on invalid args (empty query)', async () => {

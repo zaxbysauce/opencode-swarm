@@ -11,6 +11,7 @@
 
 import { afterEach, beforeEach, describe, expect, spyOn, test } from 'bun:test';
 import * as fsSync from 'node:fs';
+import * as os from 'node:os';
 import * as path from 'node:path';
 import {
 	classifyFile,
@@ -22,7 +23,7 @@ import {
 	DEFAULT_AGENT_AUTHORITY_RULES,
 } from '../../../src/hooks/guardrails';
 
-const TEST_CWD = '/test/project';
+const TEST_CWD = path.join(os.tmpdir(), 'test-project');
 
 describe('normalizePathWithCache', () => {
 	test('normalizes relative paths to absolute', () => {

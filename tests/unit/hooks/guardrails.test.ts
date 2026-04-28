@@ -1,4 +1,6 @@
 import { beforeEach, describe, expect, it, vi } from 'bun:test';
+import * as os from 'node:os';
+import * as path from 'node:path';
 import type { GuardrailsConfig } from '../../../src/config/schema';
 import { createGuardrailsHooks, hashArgs } from '../../../src/hooks/guardrails';
 import {
@@ -12,7 +14,7 @@ import {
 } from '../../../src/state';
 import * as utilsModule from '../../../src/utils';
 
-const TEST_DIR = '/tmp';
+const TEST_DIR = os.tmpdir();
 
 function defaultConfig(
 	overrides?: Partial<GuardrailsConfig>,
@@ -225,10 +227,10 @@ describe('guardrails circuit breaker', () => {
 		it('does not flag different tools', async () => {
 			const config = defaultConfig({ max_repetitions: 3 });
 			const hooks = createGuardrailsHooks(TEST_DIR, undefined, config);
-			// Path must resolve inside TEST_DIR (/tmp) so the write-tool authority
+			// Path must resolve inside TEST_DIR so the write-tool authority
 			// containment check does not reject `edit`. The test is about repetition
 			// logic across different tools, not path semantics.
-			const args = { filePath: '/tmp/test.ts' };
+			const args = { filePath: path.join(TEST_DIR, 'test.ts') };
 
 			// Call with different tools but same args
 			await hooks.toolBefore(
@@ -2036,7 +2038,7 @@ describe('guardrails circuit breaker', () => {
 			// not path containment).
 			await hooks.toolBefore(
 				makeInput('selffix-session', 'edit', 'call-1'),
-				makeOutput({ filePath: '/tmp/src/test.ts' }), // Outside .swarm/, inside cwd
+				makeOutput({ filePath: path.join(TEST_DIR, 'src', 'test.ts') }), // Outside .swarm/, inside cwd
 			);
 
 			// Flag should be set
@@ -2254,7 +2256,7 @@ describe('guardrails circuit breaker', () => {
 			// so containment check passes).
 			await hooks.toolBefore(
 				makeInput('no-failure-session', 'edit', 'call-1'),
-				makeOutput({ filePath: '/tmp/src/test.ts' }),
+				makeOutput({ filePath: path.join(TEST_DIR, 'src', 'test.ts') }),
 			);
 
 			// Flag should NOT be set without a gate failure
@@ -2373,7 +2375,7 @@ describe('guardrails circuit breaker', () => {
 			// (inside TEST_DIR so containment check passes)
 			await hooks.toolBefore(
 				makeInput('test-session', 'edit', 'call-1'),
-				makeOutput({ filePath: '/tmp/src/test.ts' }),
+				makeOutput({ filePath: path.join(TEST_DIR, 'src', 'test.ts') }),
 			);
 
 			// Verify: session.architectWriteCount DOES increment (real self-coding caught)
@@ -2393,7 +2395,7 @@ describe('guardrails circuit breaker', () => {
 			// (inside TEST_DIR so containment check passes)
 			await hooks.toolBefore(
 				makeInput('test-session', 'edit', 'call-1'),
-				makeOutput({ filePath: '/tmp/src/test.ts' }),
+				makeOutput({ filePath: path.join(TEST_DIR, 'src', 'test.ts') }),
 			);
 
 			const session = getAgentSession('test-session');

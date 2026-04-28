@@ -255,9 +255,10 @@ describe('security-critical warnings are NOT suppressed by quiet:true', () => {
 			Math.min(blockEnd, indexContent.length),
 		);
 
-		// The security warning block should NOT contain 'quiet'
-		// This proves the security warning is not gated on quiet config
-		expect(securityBlock).not.toContain('quiet');
+		// The security warning block should NOT contain an `if (config.quiet` gate
+		// This proves the security warning is not conditionally suppressed by quiet config
+		// (The comment mentioning "config.quiet" is fine — that's the explanation, not a gate)
+		expect(securityBlock).not.toContain('if (config.quiet');
 	});
 });
 

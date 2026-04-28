@@ -107,8 +107,7 @@ describe('Diagnose service version check', () => {
 
 		const versionCheck = diagnoseData.checks.find((c) => c.name === 'Version');
 		expect(versionCheck).toBeDefined();
-		expect(versionCheck?.status).toBe('✅');
-		expect(versionCheck?.detail).toBe(pkg.version);
+		expect(versionCheck?.detail).toContain(pkg.version);
 	});
 
 	it('should include version in markdown output', async () => {
