@@ -576,6 +576,7 @@ export declare const CouncilConfigSchema: z.ZodObject<{
     parallelTimeoutMs: z.ZodDefault<z.ZodNumber>;
     vetoPriority: z.ZodDefault<z.ZodBoolean>;
     requireAllMembers: z.ZodDefault<z.ZodBoolean>;
+    minimumMembers: z.ZodDefault<z.ZodNumber>;
     escalateOnMaxRounds: z.ZodOptional<z.ZodString>;
     general: z.ZodOptional<z.ZodObject<{
         enabled: z.ZodDefault<z.ZodBoolean>;
@@ -996,6 +997,7 @@ export declare const PluginConfigSchema: z.ZodObject<{
         parallelTimeoutMs: z.ZodDefault<z.ZodNumber>;
         vetoPriority: z.ZodDefault<z.ZodBoolean>;
         requireAllMembers: z.ZodDefault<z.ZodBoolean>;
+        minimumMembers: z.ZodDefault<z.ZodNumber>;
         escalateOnMaxRounds: z.ZodOptional<z.ZodString>;
         general: z.ZodOptional<z.ZodObject<{
             enabled: z.ZodDefault<z.ZodBoolean>;

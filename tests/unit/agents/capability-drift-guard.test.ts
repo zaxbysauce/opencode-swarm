@@ -68,7 +68,7 @@ function extractAvailableToolsNames(prompt: string): string[] {
 const ARCHITECT_TOOL_COUNT = AGENT_TOOL_MAP.architect.length;
 
 // Render with both councils enabled so the full AGENT_TOOL_MAP.architect
-// surface (including `convene_council`, `declare_council_criteria`, AND
+// surface (including `submit_council_verdicts`, `declare_council_criteria`, AND
 // `convene_general_council`) appears in YOUR TOOLS and Available Tools.
 // Without council/general enabled, those tools are filtered out — see
 // architect-tool-visibility-council.test.ts and architect-tool-alignment.test.ts

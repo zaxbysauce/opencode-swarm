@@ -545,9 +545,16 @@ export function checkCouncilGate(
 	taskId: string,
 ): CouncilGateResult {
 	let councilEnabled = false;
+	let effectiveMinimum = 3;
 	try {
 		const config = loadPluginConfig(workingDirectory);
 		councilEnabled = config.council?.enabled === true;
+		// Mirror the runtime fast-path quorum policy. Pre-fix evidence files
+		// without quorumSize default to 1 (rehydrated as 1 elsewhere) and must
+		// fail the same quorum gate when read from disk here.
+		effectiveMinimum = config.council?.requireAllMembers
+			? 5
+			: (config.council?.minimumMembers ?? 3);
 	} catch {
 		// Config load failure — treat council as disabled (no regression)
 		return { blocked: false, reason: '' };
@@ -589,18 +596,18 @@ export function checkCouncilGate(
 		return {
 			blocked: true,
 			reason:
-				'council gate required but not yet run — architect must call convene_council before advancing this task',
+				'council gate required but not yet run — architect must call submit_council_verdicts before advancing this task',
 		};
 	}
 
 	const councilGate = evidence?.gates?.council as
-		| { verdict?: string }
+		| { verdict?: string; quorumSize?: number }
 		| undefined;
 	if (!councilGate) {
 		return {
 			blocked: true,
 			reason:
-				'council gate required but not yet run — architect must call convene_council before advancing this task',
+				'council gate required but not yet run — architect must call submit_council_verdicts before advancing this task',
 		};
 	}
 
@@ -608,11 +615,29 @@ export function checkCouncilGate(
 		return {
 			blocked: true,
 			reason:
-				'council gate blocked advancement — resolve requiredFixes and re-run convene_council',
+				'council gate blocked advancement — resolve requiredFixes and re-run submit_council_verdicts',
 		};
 	}
 
-	// APPROVE or CONCERNS → allow
+	// Quorum guard for the disk-evidence path. Mirrors the in-memory
+	// fast-path check at state.ts (advanceTaskState). Legacy evidence without
+	// quorumSize is treated as 1 — conservative default that forces a fresh
+	// council run rather than trusting an unverified single-member APPROVE.
+	const rawQuorumSize = councilGate.quorumSize;
+	const quorumSize =
+		typeof rawQuorumSize === 'number' &&
+		Number.isFinite(rawQuorumSize) &&
+		rawQuorumSize >= 1
+			? rawQuorumSize
+			: 1;
+	if (quorumSize < effectiveMinimum) {
+		return {
+			blocked: true,
+			reason: `council gate blocked advancement — recorded verdict has insufficient quorum (${quorumSize} of ${effectiveMinimum} required members). Re-run submit_council_verdicts with the missing council members.`,
+		};
+	}
+
+	// APPROVE or CONCERNS with sufficient quorum → allow
 	return { blocked: false, reason: '' };
 }
 

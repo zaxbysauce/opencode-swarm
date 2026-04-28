@@ -23,7 +23,7 @@ export type ToolName =
 	| 'evidence_check'
 	| 'check_gate_status'
 	| 'completion_verify'
-	| 'convene_council'
+	| 'submit_council_verdicts'
 	| 'declare_council_criteria'
 	| 'sbom_generate'
 	| 'checkpoint'
@@ -84,7 +84,7 @@ export const TOOL_NAMES: readonly ToolName[] = [
 	'evidence_check',
 	'check_gate_status',
 	'completion_verify',
-	'convene_council',
+	'submit_council_verdicts',
 	'declare_council_criteria',
 	'sbom_generate',
 	'checkpoint',

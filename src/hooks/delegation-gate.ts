@@ -607,15 +607,15 @@ export function createDelegationGateHook(
 		// Cache council-active status; if true, Stage B advancement is REPLACED by
 		// council Phase 1 — reviewer/test_engineer Task delegations remain
 		// observable but do not advance state. The advancement event is the
-		// council verdict (handled in the convene_council branch below).
+		// council verdict (handled in the submit_council_verdicts branch below).
 		// isCouncilGateActive returns false when the plan or QA gate profile is
 		// missing, which is the safe default.
 		const councilActive = await isCouncilGateActive(directory, config.council);
 
-		// Council branch: handle convene_council tool calls. Records the verdict on the
+		// Council branch: handle submit_council_verdicts tool calls. Records the verdict on the
 		// session, and if APPROVE + allCriteriaMet + zero required fixes, advances the
 		// task to 'complete'. State machine still requires pre_check_passed (Stage A).
-		if (normalized === 'convene_council') {
+		if (normalized === 'submit_council_verdicts') {
 			try {
 				// _output may be a string (older runtimes) or already-parsed object.
 				const parsed =
@@ -626,6 +626,10 @@ export function createDelegationGateHook(
 					allCriteriaMet?: boolean;
 					requiredFixesCount?: number;
 					roundNumber?: number;
+					// Quorum metadata: present on success responses from
+					// submit_council_verdicts. Used downstream to validate the
+					// fast-path APPROVE has sufficient distinct members.
+					quorumSize?: number;
 				} | null;
 				if (
 					result &&
@@ -646,6 +650,11 @@ export function createDelegationGateHook(
 							verdict: result.overallVerdict,
 							roundNumber:
 								typeof result.roundNumber === 'number' ? result.roundNumber : 1,
+							// ?? 1: conservative fallback when the tool result lacks
+							// quorumSize (e.g. older tool versions). The fast-path
+							// will reject this against the default minimumMembers=3.
+							quorumSize:
+								typeof result.quorumSize === 'number' ? result.quorumSize : 1,
 						});
 						if (
 							councilActive &&
@@ -654,15 +663,20 @@ export function createDelegationGateHook(
 							(result.requiredFixesCount ?? 0) === 0
 						) {
 							try {
+								// Pass council config so the fast-path quorum check
+								// inside advanceTaskState uses the configured
+								// minimumMembers (default 3) rather than rejecting
+								// every entry it sees.
 								await advanceTaskStateAndPersist(
 									session,
 									taskId,
 									'complete',
 									directory,
+									config.council,
 								);
 							} catch (err) {
 								console.warn(
-									`[delegation-gate] toolAfter convene_council: could not advance ${taskId} → complete: ${err instanceof Error ? err.message : String(err)}`,
+									`[delegation-gate] toolAfter submit_council_verdicts: could not advance ${taskId} → complete: ${err instanceof Error ? err.message : String(err)}`,
 								);
 							}
 						}
@@ -670,12 +684,12 @@ export function createDelegationGateHook(
 				}
 			} catch (err) {
 				console.warn(
-					`[delegation-gate] toolAfter convene_council: failed to parse output: ${err instanceof Error ? err.message : String(err)}`,
+					`[delegation-gate] toolAfter submit_council_verdicts: failed to parse output: ${err instanceof Error ? err.message : String(err)}`,
 				);
 			}
 			// Return early — gate-evidence recording (inside the Task branch below)
-			// does not apply to convene_council: it is a synthesis tool, not a gate
-			// delegation, and 'convene_council' is not in the gateAgents list.
+			// does not apply to submit_council_verdicts: it is a synthesis tool, not a gate
+			// delegation, and 'submit_council_verdicts' is not in the gateAgents list.
 			return;
 		}
 

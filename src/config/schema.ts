@@ -1067,7 +1067,16 @@ export const CouncilConfigSchema = z
 			.boolean()
 			.default(false)
 			.describe(
-				'When true, convene_council rejects if fewer than 5 member verdicts are provided.',
+				'When true, submit_council_verdicts rejects if fewer than 5 member verdicts are provided. Equivalent to minimumMembers: 5.',
+			),
+		minimumMembers: z
+			.number()
+			.int()
+			.min(1)
+			.max(5)
+			.default(3)
+			.describe(
+				'Minimum distinct council member verdicts required for synthesis. Default 3. Set to 1 to disable quorum enforcement. requireAllMembers: true overrides this to 5 (stricter constraint wins).',
 			),
 		escalateOnMaxRounds: z
 			.string()

@@ -1,9 +1,14 @@
 /**
- * Work Complete Council — architect-only tool.
+ * Submit Council Verdicts — architect-only tool.
  *
- * Accepts parallel verdicts from critic, reviewer, sme, and test_engineer,
- * then synthesizes them into a veto-aware overall verdict with required fixes
- * and a single unified feedback document.
+ * Accepts pre-collected parallel verdicts from critic, reviewer, sme,
+ * test_engineer, and explorer, then synthesizes them into a veto-aware
+ * overall verdict with required fixes and a single unified feedback document.
+ *
+ * PREREQUISITE: The architect must dispatch each council member as a separate
+ * Agent task and collect the resulting CouncilMemberVerdict objects BEFORE
+ * calling this tool. This tool performs synthesis only — it does NOT dispatch,
+ * invoke, or contact council members.
  *
  * Config-gated (council.enabled must be true) and architect-only via
  * AGENT_TOOL_MAP. Follows the check-gate-status.ts pattern.
@@ -45,4 +50,4 @@ export declare const ArgsSchema: z.ZodObject<{
     }, z.core.$strip>>;
     working_directory: z.ZodOptional<z.ZodString>;
 }, z.core.$strip>;
-export declare const convene_council: ReturnType<typeof tool>;
+export declare const submit_council_verdicts: ReturnType<typeof tool>;

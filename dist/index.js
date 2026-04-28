@@ -68,7 +68,7 @@ var init_tool_names = __esm(() => {
     "evidence_check",
     "check_gate_status",
     "completion_verify",
-    "convene_council",
+    "submit_council_verdicts",
     "declare_council_criteria",
     "sbom_generate",
     "checkpoint",
@@ -214,7 +214,7 @@ var init_constants = __esm(() => {
       "check_gate_status",
       "completion_verify",
       "complexity_hotspots",
-      "convene_council",
+      "submit_council_verdicts",
       "declare_council_criteria",
       "detect_domains",
       "evidence_check",
@@ -471,7 +471,7 @@ var init_constants = __esm(() => {
     co_change_analyzer: "detect hidden couplings by analyzing git history",
     check_gate_status: "check the gate status of a specific task",
     completion_verify: "verify completed tasks have required evidence",
-    convene_council: "convene the Work Complete Council \u2014 parallel veto-aware verification gate across critic, reviewer, sme, test_engineer, and explorer verdicts",
+    submit_council_verdicts: "submit pre-collected council member verdicts for synthesis (architect MUST dispatch critic/reviewer/sme/test_engineer/explorer as Agent tasks first; this tool synthesizes only, it does not contact members)",
     declare_council_criteria: "pre-declare acceptance criteria for a task before the coder starts work; criteria are read back during council evaluation",
     detect_domains: "detect which SME domains are relevant for a given text",
     extract_code_blocks: "extract code blocks from text content and save them to files",
@@ -15276,7 +15276,8 @@ var init_schema = __esm(() => {
     maxRounds: exports_external.number().int().min(1).max(10).default(3),
     parallelTimeoutMs: exports_external.number().int().min(5000).max(120000).default(30000),
     vetoPriority: exports_external.boolean().default(true),
-    requireAllMembers: exports_external.boolean().default(false).describe("When true, convene_council rejects if fewer than 5 member verdicts are provided."),
+    requireAllMembers: exports_external.boolean().default(false).describe("When true, submit_council_verdicts rejects if fewer than 5 member verdicts are provided. Equivalent to minimumMembers: 5."),
+    minimumMembers: exports_external.number().int().min(1).max(5).default(3).describe("Minimum distinct council member verdicts required for synthesis. Default 3. Set to 1 to disable quorum enforcement. requireAllMembers: true overrides this to 5 (stricter constraint wins)."),
     escalateOnMaxRounds: exports_external.string().optional().describe("Optional webhook URL or handler name invoked when maxRounds is reached without APPROVE. Declared for forward compatibility; no behavior is implemented yet."),
     general: GeneralCouncilConfigSchema.optional()
   }).strict();
@@ -25076,7 +25077,7 @@ function createDelegationGateHook(config2, directory) {
       return;
     const normalized = normalizeToolName(input.tool);
     const councilActive = await isCouncilGateActive(directory, config2.council);
-    if (normalized === "convene_council") {
+    if (normalized === "submit_council_verdicts") {
       try {
         const parsed = typeof _output === "string" ? JSON.parse(_output) : _output;
         const result = parsed;
@@ -25090,19 +25091,20 @@ function createDelegationGateHook(config2, directory) {
               session.taskCouncilApproved = new Map;
             session.taskCouncilApproved.set(taskId, {
               verdict: result.overallVerdict,
-              roundNumber: typeof result.roundNumber === "number" ? result.roundNumber : 1
+              roundNumber: typeof result.roundNumber === "number" ? result.roundNumber : 1,
+              quorumSize: typeof result.quorumSize === "number" ? result.quorumSize : 1
             });
             if (councilActive && result.overallVerdict === "APPROVE" && result.allCriteriaMet === true && (result.requiredFixesCount ?? 0) === 0) {
               try {
-                await advanceTaskStateAndPersist(session, taskId, "complete", directory);
+                await advanceTaskStateAndPersist(session, taskId, "complete", directory, config2.council);
               } catch (err2) {
-                console.warn(`[delegation-gate] toolAfter convene_council: could not advance ${taskId} \u2192 complete: ${err2 instanceof Error ? err2.message : String(err2)}`);
+                console.warn(`[delegation-gate] toolAfter submit_council_verdicts: could not advance ${taskId} \u2192 complete: ${err2 instanceof Error ? err2.message : String(err2)}`);
               }
             }
           }
         }
       } catch (err2) {
-        console.warn(`[delegation-gate] toolAfter convene_council: failed to parse output: ${err2 instanceof Error ? err2.message : String(err2)}`);
+        console.warn(`[delegation-gate] toolAfter submit_council_verdicts: failed to parse output: ${err2 instanceof Error ? err2.message : String(err2)}`);
       }
       return;
     }
@@ -26006,7 +26008,7 @@ function isValidTaskId2(taskId) {
   const trimmed = taskId.trim();
   return trimmed.length > 0;
 }
-function advanceTaskState(session, taskId, newState) {
+function advanceTaskState(session, taskId, newState, councilConfig) {
   if (!isValidTaskId2(taskId)) {
     return;
   }
@@ -26029,7 +26031,8 @@ function advanceTaskState(session, taskId, newState) {
   }
   if (newState === "complete" && current !== "tests_run") {
     const councilEntry = session.taskCouncilApproved?.get(taskId);
-    const councilApproved = councilEntry?.verdict === "APPROVE";
+    const effectiveMinimum = councilConfig?.requireAllMembers ? 5 : councilConfig?.minimumMembers ?? 3;
+    const councilApproved = councilEntry?.verdict === "APPROVE" && (councilEntry.quorumSize ?? 0) >= effectiveMinimum;
     const pastPreCheck = currentIndex >= STATE_ORDER.indexOf("pre_check_passed");
     if (!councilApproved || !pastPreCheck) {
       throw new Error(`INVALID_TASK_STATE_TRANSITION: ${taskId} cannot reach complete from ${current} \u2014 must pass through tests_run first (or have council APPROVE after pre_check)`);
@@ -26038,8 +26041,8 @@ function advanceTaskState(session, taskId, newState) {
   session.taskWorkflowStates.set(taskId, newState);
   telemetry.taskStateChanged(session.agentName, taskId, newState, current);
 }
-async function advanceTaskStateAndPersist(session, taskId, newState, directory) {
-  advanceTaskState(session, taskId, newState);
+async function advanceTaskStateAndPersist(session, taskId, newState, directory, councilConfig) {
+  advanceTaskState(session, taskId, newState, councilConfig);
   if (newState !== "coder_delegated" && newState !== "complete") {
     return;
   }
@@ -26262,9 +26265,12 @@ function applyRehydrationCache(session) {
     if (typeof roundNumber !== "number" || !Number.isFinite(roundNumber)) {
       roundNumber = 1;
     }
+    const rawQuorumSize = council.quorumSize;
+    const quorumSize = typeof rawQuorumSize === "number" && Number.isFinite(rawQuorumSize) && rawQuorumSize >= 1 ? rawQuorumSize : 1;
     session.taskCouncilApproved.set(taskId, {
       verdict,
-      roundNumber
+      roundNumber,
+      quorumSize
     });
   }
 }
@@ -43825,7 +43831,7 @@ var package_default;
 var init_package = __esm(() => {
   package_default = {
     name: "opencode-swarm",
-    version: "6.86.5",
+    version: "6.86.6",
     description: "Architect-centric agentic swarm plugin for OpenCode - hub-and-spoke orchestration with SME consultation, code generation, and QA review",
     main: "dist/index.js",
     types: "dist/index.d.ts",
@@ -54366,10 +54372,15 @@ var init_registry = __esm(() => {
 function buildCouncilWorkflow(council) {
   if (council?.enabled !== true)
     return "";
-  return `## Work Complete Council (when enabled)
+  return `## COUNCIL WORKFLOW (submit_council_verdicts)
 
-When \`council.enabled\` is true, every task goes through a four-phase verification
-gate before advancing to \`complete\`. When council is authoritative, this REPLACES Stage B (reviewer + test_engineer as standalone delegations). Stage A (precheckbatch) still runs as the pre-review gate; Phase 1 dispatch of reviewer and test_engineer is the sole review pass for this task.
+CRITICAL: \`submit_council_verdicts\` does NOT run council members.
+It synthesizes verdicts that you must collect BEFORE calling it.
+
+When \`council.enabled\` is true, every task goes through this verification
+gate before advancing to \`complete\`. The council REPLACES Stage B
+(reviewer + test_engineer as standalone delegations). Stage A
+(\`pre_check_batch\`) still runs as the pre-review gate.
 
 ### Phase 0 \u2014 Pre-declare criteria (at plan time, BEFORE dispatching the coder)
 Call \`declare_council_criteria\` for each task with at least 3 concrete,
@@ -54378,9 +54389,13 @@ testable acceptance criteria. Mark functional/correctness criteria
 follow the pattern \`C1\`, \`C2\`, etc. The criteria are persisted to
 \`.swarm/council/{taskId}.json\` and read back automatically at synthesis time.
 
-### Phase 1 \u2014 Parallel dispatch (when the coder signals the task is complete)
-Dispatch all FIVE council members IN PARALLEL \u2014 do not run them sequentially.
-Each receives ONLY their role-relevant context, not the full conversation:
+### MANDATORY SEQUENCE \u2014 never skip or reorder
+
+#### STEP 1 \u2014 DISPATCH all council members as parallel Agent tasks
+Dispatch \`critic\`, \`reviewer\`, \`sme\`, \`test_engineer\`, and \`explorer\`
+(or at minimum \`council.minimumMembers\` distinct members; default 3) in a
+SINGLE message using parallel Agent tool calls. Provide each member with
+their role-specific scope:
 - \`critic\`        \u2014 original task spec + acceptance criteria + code diff + test results + approved-plan baseline comparison (via \`get_approved_plan\`) and spec-intent drift analysis against the approved baseline
 - \`reviewer\`      \u2014 semantic diff summary + blast radius (files importing changed files) + style guide
 - \`sme\`           \u2014 task domain context + relevant knowledge base entries
@@ -54389,31 +54404,65 @@ Each receives ONLY their role-relevant context, not the full conversation:
                     (explorer hunts for lazy implementations, hallucinated APIs,
                      cargo-cult patterns, spec drift, lazy abstractions)
 
-Each member must return a \`CouncilMemberVerdict\` with all fields populated:
-\`agent\`, \`verdict\` (APPROVE|CONCERNS|REJECT), \`confidence\` (0.0\u20131.0),
-\`findings[]\`, \`criteriaAssessed[]\`, \`criteriaUnmet[]\`, \`durationMs\`.
+Wait for ALL dispatched agents to return their verdict objects.
 
-### Phase 2 \u2014 Synthesize
-Call \`convene_council\` with all 5 verdicts, the task id, swarm id, and the
-current round number (1-indexed). The tool returns:
-\`overallVerdict\`, \`vetoedBy\`, \`unifiedFeedbackMd\`, \`requiredFixesCount\`,
-\`allCriteriaMet\`.
+#### STEP 2 \u2014 COLLECT verdicts
+Read each agent's response and extract their \`CouncilMemberVerdict\` object.
+Each member must return all fields: \`agent\`, \`verdict\` (APPROVE|CONCERNS|REJECT),
+\`confidence\` (0.0\u20131.0), \`findings[]\`, \`criteriaAssessed[]\`, \`criteriaUnmet[]\`,
+\`durationMs\`.
 
-### Phase 3 \u2014 Act on the result
+Do NOT fabricate, infer, or substitute a verdict. If an agent did not return
+a valid verdict, re-dispatch that agent.
+
+#### STEP 3 \u2014 CALL submit_council_verdicts
+ONLY after collecting real verdicts from real agent dispatches, call
+\`submit_council_verdicts\` with the collected verdicts array, the task id,
+swarm id, and current round number (1-indexed).
+
+#### STEP 4 \u2014 READ the response
+Inspect \`membersAbsent\` in the response. If \`membersAbsent\` is non-empty,
+the council is incomplete \u2014 dispatch the missing members and re-collect.
+Inspect \`overallVerdict\`. APPROVE is valid only when \`membersAbsent\` is
+empty (or fewer members than \`council.minimumMembers\` are absent).
+
+The response also includes: \`vetoedBy\`, \`unifiedFeedbackMd\`,
+\`requiredFixesCount\`, \`advisoryFindingsCount\`, \`allCriteriaMet\`,
+\`quorumSize\`, \`quorumMet\`.
+
+If \`success: false\` and \`reason: 'insufficient_quorum'\`, the response
+includes \`membersVoted\`, \`membersAbsent\`, and \`quorumRequired\` \u2014 dispatch
+the absent members and re-call the tool.
+
+#### STEP 5 \u2014 ACT on the verdict
 - **APPROVE**:  Advance task to complete via \`update_task_status\`. If
-                advisoryFindingsCount > 0, deliver \`unifiedFeedbackMd\` as a
-                single non-blocking note. Otherwise, advance silently.
-- **CONCERNS**: Send \`unifiedFeedbackMd\` to the coder as ONE coherent document.
-                Do NOT enumerate individual member verdicts. Increment
-                roundNumber on the next council call. CONCERNS does not block
-                advancement at the update_task_status level \u2014 decide per
-                severity whether to advance or retry.
-- **REJECT**:   Block advancement. Send \`unifiedFeedbackMd\` to the coder with
-                the BLOCKING flag. The coder must resolve all \`requiredFixes\`
-                before re-submitting. Maximum \`council.maxRounds\` rounds
-                (default 3). If roundNumber >= maxRounds and verdict is still
-                REJECT, surface \`unifiedFeedbackMd\` to the user and HALT \u2014
-                do NOT auto-advance.
+                \`advisoryFindingsCount > 0\`, deliver \`unifiedFeedbackMd\` as
+                a single non-blocking note. Otherwise, advance silently.
+- **CONCERNS**: Send \`unifiedFeedbackMd\` to the coder as ONE coherent
+                document. Do NOT enumerate individual member verdicts.
+                Increment \`roundNumber\` on the next council call. CONCERNS
+                does not block advancement at the update_task_status level \u2014
+                decide per severity whether to advance or retry.
+- **REJECT**:   Block advancement. Send \`unifiedFeedbackMd\` to the coder
+                with the BLOCKING flag. The coder must resolve all
+                \`requiredFixes\` before re-submitting. Maximum
+                \`council.maxRounds\` rounds (default 3). If
+                \`roundNumber >= maxRounds\` and verdict is still REJECT,
+                surface \`unifiedFeedbackMd\` to the user and HALT \u2014 do NOT
+                auto-advance.
+
+### ANTI-PATTERNS \u2014 any of these are council bypass violations
+- \u2717 Calling \`submit_council_verdicts\` without first dispatching council members.
+- \u2717 Passing a verdict you inferred or fabricated rather than received from a dispatched agent.
+- \u2717 Claiming "Council APPROVED" when \`membersAbsent\` is non-empty.
+- \u2717 Treating a prior round's APPROVE as valid for a new task or new round.
+- \u2717 Incrementing \`roundNumber\` without re-dispatching all members for the new round.
+
+### ROUND 2 DELIBERATION
+If round 1 produces REJECT or CONCERNS, dispatch only the disputing members
+for round 2 focused on the specific disagreement areas. Round 2 must produce
+NEW agent responses \u2014 do NOT reuse round 1 verdicts with a higher
+\`roundNumber\`.
 
 ### Retry protocol
 On re-submission after REJECT or CONCERNS, the council reads the same
@@ -54430,7 +54479,7 @@ function buildYourToolsList(council) {
   const qaCouncilEnabled = council?.enabled === true;
   const generalCouncilEnabled = council?.general?.enabled === true;
   const filtered = sorted.filter((t) => {
-    if (!qaCouncilEnabled && (t === "convene_council" || t === "declare_council_criteria")) {
+    if (!qaCouncilEnabled && (t === "submit_council_verdicts" || t === "declare_council_criteria")) {
       return false;
     }
     if (!generalCouncilEnabled && t === "convene_general_council") {
@@ -54463,7 +54512,7 @@ function buildAvailableToolsList(council) {
   const qaCouncilEnabled = council?.enabled === true;
   const generalCouncilEnabled = council?.general?.enabled === true;
   const filtered = sorted.filter((t) => {
-    if (!qaCouncilEnabled && (t === "convene_council" || t === "declare_council_criteria")) {
+    if (!qaCouncilEnabled && (t === "submit_council_verdicts" || t === "declare_council_criteria")) {
       return false;
     }
     if (!generalCouncilEnabled && t === "convene_general_council") {
@@ -58123,14 +58172,20 @@ function getAgentConfigs(config3, directory, sessionId) {
       allowedTools = AGENT_TOOL_MAP[baseAgentName];
     }
     if (baseAgentName === "architect" && config3?.council?.enabled === true && override !== undefined) {
-      const required3 = ["declare_council_criteria", "convene_council"];
+      const required3 = [
+        "declare_council_criteria",
+        "submit_council_verdicts"
+      ];
       const missing = required3.filter((t) => !override.includes(t));
       if (missing.length > 0) {
         throw new Error(`[opencode-swarm] Conflicting config: council.enabled=true but tool_filter.overrides.architect omits ${missing.join(", ")}. ` + `Either set council.enabled=false, remove the architect override entirely to fall back on AGENT_TOOL_MAP, or add the missing council tools to the override. ` + `Refusing to silently override your explicit tool_filter.overrides.architect.`);
       }
     }
     if (baseAgentName === "architect" && config3?.council?.enabled !== true && override !== undefined) {
-      const councilTools = ["declare_council_criteria", "convene_council"];
+      const councilTools = [
+        "declare_council_criteria",
+        "submit_council_verdicts"
+      ];
       const present = councilTools.filter((t) => override.includes(t));
       if (present.length > 0 && !quiet) {
         console.warn(`[opencode-swarm] tool_filter.overrides.architect includes ${present.join(", ")} but council.enabled is not true. ` + `The runtime gate will reject these calls. Either set council.enabled=true, or remove ${present.join(", ")} from the architect override.`);
@@ -74456,7 +74511,8 @@ function writeCouncilEvidence(workingDir, synthesis) {
     verdict: synthesis.overallVerdict,
     vetoedBy: synthesis.vetoedBy,
     roundNumber: synthesis.roundNumber,
-    allCriteriaMet: synthesis.allCriteriaMet
+    allCriteriaMet: synthesis.allCriteriaMet,
+    quorumSize: synthesis.quorumSize
   };
   const updated = Object.create(null);
   safeAssignOwnProps(updated, existingRoot);
@@ -74488,13 +74544,15 @@ var COUNCIL_DEFAULTS = {
   maxRounds: 3,
   parallelTimeoutMs: 30000,
   vetoPriority: true,
-  requireAllMembers: false
+  requireAllMembers: false,
+  minimumMembers: 3
 };
 
 // src/council/council-service.ts
 function synthesizeCouncilVerdicts(taskId, swarmId, verdicts, criteria, roundNumber, config3 = {}) {
   const cfg = { ...COUNCIL_DEFAULTS, ...config3 };
   const timestamp = new Date().toISOString();
+  const quorumSize = new Set(verdicts.map((v) => v.agent)).size;
   const rejectingMembers = verdicts.filter((v) => v.verdict === "REJECT").map((v) => v.agent);
   let overallVerdict;
   if (cfg.vetoPriority && rejectingMembers.length > 0) {
@@ -74530,6 +74588,7 @@ function synthesizeCouncilVerdicts(taskId, swarmId, verdicts, criteria, roundNum
     unifiedFeedbackMd,
     roundNumber,
     allCriteriaMet,
+    quorumSize,
     ...verdicts.length === 0 && { emptyVerdictsWarning: true }
   };
 }
@@ -74662,8 +74721,8 @@ var ArgsSchema = exports_external.object({
   verdicts: exports_external.array(VerdictSchema).min(1).max(5),
   working_directory: exports_external.string().optional()
 });
-var convene_council = createSwarmTool({
-  description: "Convene the Work Complete Council. Accepts parallel verdicts from critic, " + "reviewer, sme, test_engineer, and explorer (anti-slop specialist). Returns " + "a synthesized assessment with a veto-aware overall verdict, required fixes, " + "and a single unified feedback document. Architect-only. Config-gated via " + "council.enabled.",
+var submit_council_verdicts = createSwarmTool({
+  description: "Submit pre-collected council member verdicts for synthesis. PREREQUISITE \u2014 " + "you MUST dispatch each council member (critic, reviewer, sme, test_engineer, " + "explorer) as separate Agent tasks and collect their verdict responses BEFORE " + "calling this tool. This tool performs synthesis only \u2014 it does NOT dispatch, " + "invoke, or contact council members. Calling this tool without first " + "collecting real verdicts from dispatched agents constitutes a council bypass. " + "Returns the synthesized verdict, required fixes, and a quorum report showing " + "which members voted and which were absent. Architect-only. Config-gated via " + "council.enabled.",
   args: {
     taskId: exports_external.string().min(1).regex(/^\d+\.\d+(\.\d+)*$/, "Task ID must be in N.M or N.M.P format").describe('Task ID being evaluated, e.g. "1.1", "1.2.3"'),
     swarmId: exports_external.string().min(1).describe('Swarm identifier, e.g. "mega"'),
@@ -74716,10 +74775,25 @@ var convene_council = createSwarmTool({
         reason: "council feature is disabled \u2014 set council.enabled: true in .opencode/opencode-swarm.json to enable"
       }, null, 2);
     }
-    if (config3.council?.requireAllMembers && input.verdicts.length < 5) {
+    const effectiveMinimum = config3.council?.requireAllMembers ? 5 : config3.council?.minimumMembers ?? 3;
+    const ALL_MEMBERS = [
+      "critic",
+      "reviewer",
+      "sme",
+      "test_engineer",
+      "explorer"
+    ];
+    const distinctMembers = new Set(input.verdicts.map((v) => v.agent));
+    const membersVoted = [...distinctMembers];
+    const membersAbsent = ALL_MEMBERS.filter((m) => !distinctMembers.has(m));
+    if (membersVoted.length < effectiveMinimum) {
       return JSON.stringify({
         success: false,
-        reason: `council.requireAllMembers is true but only ${input.verdicts.length} of 5 member verdicts were provided`
+        reason: "insufficient_quorum",
+        message: `Council quorum not met: ${membersVoted.length} of ${effectiveMinimum} required members provided verdicts. ` + `Members voted: [${membersVoted.join(", ")}]. ` + `Members absent: [${membersAbsent.join(", ")}]. ` + `Dispatch the absent council members as Agent tasks and collect their verdicts before calling submit_council_verdicts.`,
+        membersVoted,
+        membersAbsent,
+        quorumRequired: effectiveMinimum
       }, null, 2);
     }
     const criteria = readCriteria(workingDir, input.taskId);
@@ -74744,6 +74818,10 @@ var convene_council = createSwarmTool({
       requiredFixesCount: synthesis.requiredFixes.length,
       advisoryFindingsCount: synthesis.advisoryFindings.length,
       unresolvedConflictsCount: synthesis.unresolvedConflicts.length,
+      membersVoted,
+      membersAbsent,
+      quorumSize: membersVoted.length,
+      quorumMet: true,
       unifiedFeedbackMd: synthesis.unifiedFeedbackMd
     }, null, 2);
   }
@@ -87475,9 +87553,11 @@ function recoverTaskStateFromDelegations(taskId) {
 }
 function checkCouncilGate(workingDirectory, taskId) {
   let councilEnabled = false;
+  let effectiveMinimum = 3;
   try {
     const config3 = loadPluginConfig(workingDirectory);
     councilEnabled = config3.council?.enabled === true;
+    effectiveMinimum = config3.council?.requireAllMembers ? 5 : config3.council?.minimumMembers ?? 3;
   } catch {
     return { blocked: false, reason: "" };
   }
@@ -87504,20 +87584,28 @@ function checkCouncilGate(workingDirectory, taskId) {
   } catch {
     return {
       blocked: true,
-      reason: "council gate required but not yet run \u2014 architect must call convene_council before advancing this task"
+      reason: "council gate required but not yet run \u2014 architect must call submit_council_verdicts before advancing this task"
     };
   }
   const councilGate = evidence?.gates?.council;
   if (!councilGate) {
     return {
       blocked: true,
-      reason: "council gate required but not yet run \u2014 architect must call convene_council before advancing this task"
+      reason: "council gate required but not yet run \u2014 architect must call submit_council_verdicts before advancing this task"
     };
   }
   if (councilGate.verdict === "REJECT") {
     return {
       blocked: true,
-      reason: "council gate blocked advancement \u2014 resolve requiredFixes and re-run convene_council"
+      reason: "council gate blocked advancement \u2014 resolve requiredFixes and re-run submit_council_verdicts"
+    };
+  }
+  const rawQuorumSize = councilGate.quorumSize;
+  const quorumSize = typeof rawQuorumSize === "number" && Number.isFinite(rawQuorumSize) && rawQuorumSize >= 1 ? rawQuorumSize : 1;
+  if (quorumSize < effectiveMinimum) {
+    return {
+      blocked: true,
+      reason: `council gate blocked advancement \u2014 recorded verdict has insufficient quorum (${quorumSize} of ${effectiveMinimum} required members). Re-run submit_council_verdicts with the missing council members.`
     };
   }
   return { blocked: false, reason: "" };
@@ -88735,7 +88823,7 @@ var OpenCodeSwarm = async (ctx) => {
       checkpoint,
       completion_verify,
       complexity_hotspots,
-      convene_council,
+      submit_council_verdicts,
       convene_general_council,
       curator_analyze,
       declare_council_criteria,
