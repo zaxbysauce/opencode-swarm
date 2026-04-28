@@ -1,5 +1,12 @@
 # Changelog
 
+## [6.86.10](https://github.com/zaxbysauce/opencode-swarm/compare/v6.86.9...v6.86.10) (2026-04-28)
+
+
+### Bug Fixes
+
+* **hooks:** route unguarded console output through debug-gated logger to suppress chat area noise ([#681](https://github.com/zaxbysauce/opencode-swarm/issues/681)) ([7b555e0](https://github.com/zaxbysauce/opencode-swarm/commit/7b555e00352d3ab77e9413e80d61e88615a6de53))
+
 ## [6.86.9](https://github.com/zaxbysauce/opencode-swarm/compare/v6.86.8...v6.86.9) (2026-04-28)
 
 
