@@ -12,6 +12,7 @@ import * as fs from 'node:fs/promises';
 import * as path from 'node:path';
 import picomatch from 'picomatch';
 import QuickLRU from 'quick-lru';
+
 import { getSwarmAgents, resolveFallbackModel } from '../agents/index';
 import {
 	isLowCapabilityModel,
@@ -38,6 +39,7 @@ import {
 } from '../state';
 import { telemetry } from '../telemetry.js';
 import { log, warn } from '../utils';
+import * as logger from '../utils/logger';
 import { resolveAgentConflict } from './conflict-resolution';
 import { pendingCoderScopeByTaskId } from './delegation-gate.js';
 import { extractCurrentPhaseFromPlan } from './extractors';
@@ -911,7 +913,7 @@ export function createGuardrailsHooks(
 
 	if (directory && typeof directory === 'object' && 'enabled' in directory) {
 		// Legacy call: createGuardrailsHooks(config) — directory param is the config object
-		console.warn(
+		logger.warn(
 			'[guardrails] Legacy call without directory, falling back to process.cwd()',
 		);
 		guardrailsConfig = directory as GuardrailsConfig;
@@ -933,7 +935,7 @@ export function createGuardrailsHooks(
 	const effectiveDirectory = (() => {
 		if (typeof directory === 'string') return directory;
 		const cwd = process.cwd();
-		console.warn(
+		logger.warn(
 			`[guardrails] effectiveDirectory resolved to process.cwd() "${cwd}" — ` +
 				'pass an explicit directory string to createGuardrailsHooks to avoid .swarm artifacts in wrong locations',
 		);

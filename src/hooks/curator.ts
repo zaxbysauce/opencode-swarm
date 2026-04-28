@@ -28,12 +28,14 @@
 import { randomUUID } from 'node:crypto';
 import * as fs from 'node:fs';
 import * as path from 'node:path';
+
 import {
 	CURATOR_INIT_PROMPT,
 	CURATOR_PHASE_PROMPT,
 } from '../agents/explorer.js';
 import { getGlobalEventBus } from '../background/event-bus.js';
 import { loadPlanJsonOnly } from '../plan/manager.js';
+import * as logger from '../utils/logger';
 import type {
 	ComplianceObservation,
 	CuratorConfig,
@@ -198,7 +200,7 @@ export async function readCuratorSummary(
 		const parsed = JSON.parse(content) as CuratorSummary;
 
 		if (parsed.schema_version !== 1) {
-			console.warn(
+			logger.warn(
 				`Curator summary has unsupported schema version: ${parsed.schema_version}. Expected 1.`,
 			);
 			return null;
@@ -593,7 +595,7 @@ export async function runCuratorInit(
 				});
 			} catch (err) {
 				// LLM failure: fall back to data-only mode with warning
-				console.warn(
+				logger.warn(
 					`[curator] LLM delegation failed during CURATOR_INIT, using data-only mode: ${err instanceof Error ? err.message : String(err)}`,
 				);
 				getGlobalEventBus().publish('curator.init.llm_fallback', {
@@ -798,7 +800,7 @@ export async function runCuratorPhase(
 				});
 			} catch (err) {
 				// LLM failure: fall back to data-only mode (empty recommendations)
-				console.warn(
+				logger.warn(
 					`[curator] LLM delegation failed during CURATOR_PHASE ${phase}, using data-only mode: ${err instanceof Error ? err.message : String(err)}`,
 				);
 				getGlobalEventBus().publish('curator.phase.llm_fallback', {
@@ -1003,7 +1005,7 @@ export async function applyCuratorKnowledgeUpdates(
 		if (rec.entry_id !== undefined && !appliedIds.has(rec.entry_id)) {
 			const found = entries.some((e) => e.id === rec.entry_id);
 			if (!found) {
-				console.warn(
+				logger.warn(
 					`[curator] applyCuratorKnowledgeUpdates: entry_id '${rec.entry_id}' not found — skipping`,
 				);
 			}

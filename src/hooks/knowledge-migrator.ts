@@ -5,6 +5,7 @@ import { existsSync, readFileSync } from 'node:fs';
 import { mkdir, readFile, writeFile } from 'node:fs/promises';
 import * as path from 'node:path';
 
+import * as logger from '../utils/logger';
 import {
 	findNearDuplicate,
 	inferTags,
@@ -202,7 +203,7 @@ export async function migrateContextToKnowledge(
 	await writeSentinel(sentinelPath, migrated, dropped);
 
 	// Log migration result
-	console.log(
+	logger.log(
 		`[knowledge-migrator] Migrated ${migrated} entries, dropped ${dropped}`,
 	);
 

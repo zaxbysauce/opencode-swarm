@@ -1,6 +1,8 @@
 import * as fs from 'node:fs';
 import * as path from 'node:path';
+
 import { getGlobalEventBus } from '../background/event-bus.js';
+import * as logger from '../utils/logger';
 import type {
 	CriticDriftResult,
 	CuratorConfig,
@@ -47,14 +49,14 @@ export async function readPriorDriftReports(
 				typeof report.schema_version !== 'number' ||
 				!Array.isArray(report.compounding_effects)
 			) {
-				console.warn(
+				logger.warn(
 					`[curator-drift] Skipping corrupt drift report: ${filename}`,
 				);
 				continue;
 			}
 			reports.push(report);
 		} catch {
-			console.warn(
+			logger.warn(
 				`[curator-drift] Skipping unreadable drift report: ${filename}`,
 			);
 		}

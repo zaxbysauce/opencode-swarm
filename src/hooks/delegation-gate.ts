@@ -31,6 +31,7 @@ import type {
 	DelegationEnvelope,
 	EnvelopeValidationResult,
 } from '../types/delegation.js';
+import * as logger from '../utils/logger';
 import { deleteStoredInputArgs, getStoredInputArgs } from './guardrails';
 import { normalizeToolName } from './normalize-tool-name';
 import { validateSwarmPath } from './utils';
@@ -418,7 +419,7 @@ async function getEvidenceTaskId(
 		// virus scanner file locks caused the entire hook chain to fail.
 		// Evidence task ID lookup is best-effort — return null on any error.
 		if (process.env.DEBUG_SWARM && err instanceof Error) {
-			console.warn(
+			logger.warn(
 				`[delegation-gate] getEvidenceTaskId error: ${err.message} (code=${(err as NodeJS.ErrnoException).code ?? 'none'})`,
 			);
 		}
@@ -562,7 +563,7 @@ export function createDelegationGateHook(
 			if (!hasCurrentSessionCoderDelegation) {
 				// Stale state from prior session — reset to idle and allow the delegation
 				session.taskWorkflowStates.set(taskId, 'idle');
-				console.warn(
+				logger.warn(
 					`[delegation-gate] Reset stale coder_delegated state for task ${taskId} — ` +
 						`no coder delegation found in current session.`,
 				);
@@ -675,7 +676,7 @@ export function createDelegationGateHook(
 									config.council,
 								);
 							} catch (err) {
-								console.warn(
+								logger.warn(
 									`[delegation-gate] toolAfter submit_council_verdicts: could not advance ${taskId} → complete: ${err instanceof Error ? err.message : String(err)}`,
 								);
 							}
@@ -765,7 +766,7 @@ export function createDelegationGateHook(
 										}
 										advanceTaskState(session, taskId, 'tests_run');
 									} catch (err) {
-										console.warn(
+										logger.warn(
 											`[delegation-gate] toolAfter stage-b-parallel: could not advance ${taskId} (${eligibleState}) → tests_run: ${err instanceof Error ? err.message : String(err)}`,
 										);
 									}
@@ -818,7 +819,7 @@ export function createDelegationGateHook(
 											}
 											advanceTaskState(otherSession, seedTaskId, 'tests_run');
 										} catch (err) {
-											console.warn(
+											logger.warn(
 												`[delegation-gate] toolAfter cross-session stage-b-parallel: could not advance ${seedTaskId} (${seedEligibleState}) → tests_run: ${err instanceof Error ? err.message : String(err)}`,
 											);
 										}
@@ -841,7 +842,7 @@ export function createDelegationGateHook(
 										// Non-fatal: state may already be at or past reviewer_run.
 										// Log so that silent swallowing does not hide root-cause bugs
 										// (e.g. INVALID_TASK_STATE_TRANSITION from PR #123 strict mode).
-										console.warn(
+										logger.warn(
 											`[delegation-gate] toolAfter: could not advance ${taskId} (${state}) → reviewer_run: ${err instanceof Error ? err.message : String(err)}`,
 										);
 									}
@@ -858,7 +859,7 @@ export function createDelegationGateHook(
 									} catch (err) {
 										// Non-fatal: state may already be at or past tests_run.
 										// Log so advancement failures are diagnosable.
-										console.warn(
+										logger.warn(
 											`[delegation-gate] toolAfter: could not advance ${taskId} (${state}) → tests_run: ${err instanceof Error ? err.message : String(err)}`,
 										);
 									}
@@ -896,7 +897,7 @@ export function createDelegationGateHook(
 											try {
 												advanceTaskState(otherSession, taskId, 'reviewer_run');
 											} catch (err) {
-												console.warn(
+												logger.warn(
 													`[delegation-gate] toolAfter cross-session: could not advance ${taskId} (${state}) → reviewer_run: ${err instanceof Error ? err.message : String(err)}`,
 												);
 											}
@@ -925,7 +926,7 @@ export function createDelegationGateHook(
 											try {
 												advanceTaskState(otherSession, taskId, 'tests_run');
 											} catch (err) {
-												console.warn(
+												logger.warn(
 													`[delegation-gate] toolAfter cross-session: could not advance ${taskId} (${state}) → tests_run: ${err instanceof Error ? err.message : String(err)}`,
 												);
 											}
@@ -1047,7 +1048,7 @@ export function createDelegationGateHook(
 									try {
 										advanceTaskState(session, taskId, 'reviewer_run');
 									} catch (err) {
-										console.warn(
+										logger.warn(
 											`[delegation-gate] fallback: could not advance ${taskId} (${state}) → reviewer_run: ${err instanceof Error ? err.message : String(err)}`,
 										);
 									}
@@ -1067,7 +1068,7 @@ export function createDelegationGateHook(
 									try {
 										advanceTaskState(session, taskId, 'tests_run');
 									} catch (err) {
-										console.warn(
+										logger.warn(
 											`[delegation-gate] fallback: could not advance ${taskId} (${state}) → tests_run: ${err instanceof Error ? err.message : String(err)}`,
 										);
 									}
@@ -1100,7 +1101,7 @@ export function createDelegationGateHook(
 										try {
 											advanceTaskState(otherSession, taskId, 'reviewer_run');
 										} catch (err) {
-											console.warn(
+											logger.warn(
 												`[delegation-gate] fallback cross-session: could not advance ${taskId} (${state}) → reviewer_run: ${err instanceof Error ? err.message : String(err)}`,
 											);
 										}
@@ -1130,7 +1131,7 @@ export function createDelegationGateHook(
 										try {
 											advanceTaskState(otherSession, taskId, 'tests_run');
 										} catch (err) {
-											console.warn(
+											logger.warn(
 												`[delegation-gate] fallback cross-session: could not advance ${taskId} (${state}) → tests_run: ${err instanceof Error ? err.message : String(err)}`,
 											);
 										}
@@ -1349,7 +1350,7 @@ export function createDelegationGateHook(
 					);
 				} catch (err) {
 					// INVALID_TASK_STATE_TRANSITION is non-fatal in Phase 2 (observe-only)
-					console.warn(
+					logger.warn(
 						`[delegation-gate] state machine warn: ${err instanceof Error ? err.message : String(err)}`,
 					);
 				}
