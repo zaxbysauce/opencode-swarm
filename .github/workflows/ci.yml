@@ -200,12 +200,23 @@ jobs:
       - name: Unit tests (hooks - remaining)
         shell: bash
         run: |
+          set -o pipefail
+          IFS=$'\n'
           failed=0
+          tmpdir="${RUNNER_TEMP:-${TEMP:-.}}"
           for f in tests/unit/hooks/advisory*.test.ts tests/unit/hooks/agent*.test.ts tests/unit/hooks/co-change*.test.ts tests/unit/hooks/compaction*.test.ts tests/unit/hooks/context*.test.ts tests/unit/hooks/dark*.test.ts tests/unit/hooks/destructive*.test.ts tests/unit/hooks/extractors*.test.ts tests/unit/hooks/full-auto*.test.ts tests/unit/hooks/gate*.test.ts tests/unit/hooks/log*.test.ts tests/unit/hooks/message*.test.ts tests/unit/hooks/mode-*.test.ts tests/unit/hooks/model*.test.ts tests/unit/hooks/phase*.test.ts tests/unit/hooks/pipeline*.test.ts tests/unit/hooks/plan*.test.ts tests/unit/hooks/review-receipt*.test.ts tests/unit/hooks/self*.test.ts tests/unit/hooks/steering*.test.ts tests/unit/hooks/system-message*.test.ts tests/unit/hooks/telemetry-guardrails*.test.ts tests/unit/hooks/tool*.test.ts tests/unit/hooks/trajectory*.test.ts tests/unit/hooks/utils*.test.ts; do
             [ -f "$f" ] || continue
-            if ! bun --smol test "$f" --timeout 120000; then
-              failed=1
+            tmp="$tmpdir/bun-out-$$-${f##*/}"
+            exit_code=0
+            bun --smol test "$f" --timeout 120000 > "$tmp" 2>&1 || exit_code=$?
+            if [ $exit_code -ne 0 ]; then
+              # bun exited non-zero — check if it was a real failure or crash
+              if grep -qE "(FAIL|Error:|AssertionError)" "$tmp"; then
+                echo "::error file=$f::FAILED: $f"
+                failed=1
+              fi
             fi
+            rm -f "$tmp"
           done
           exit $failed
       - name: Unit tests (commands, config)
