@@ -187,7 +187,12 @@ describe('curator_analyze tool', () => {
 		it('accepts valid recommendations with all action types', async () => {
 			const recommendations = [
 				{ action: 'promote', lesson: 'L1', reason: 'R1' },
-				{ action: 'archive', entry_id: 'e1', lesson: 'L2', reason: 'R2' },
+				{
+					action: 'archive',
+					entry_id: 'a0eebc99-9c0b-4ef8-bb6d-6bb9bd380a11',
+					lesson: 'L2',
+					reason: 'R2',
+				},
 				{ action: 'flag_contradiction', lesson: 'L3', reason: 'R3' },
 			];
 
