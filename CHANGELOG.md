@@ -1,5 +1,12 @@
 # Changelog
 
+## [6.86.8](https://github.com/zaxbysauce/opencode-swarm/compare/v6.86.7...v6.86.8) (2026-04-28)
+
+
+### Bug Fixes
+
+* **plugin:** make bundle portable to Node ESM hosts + cache refresh ([#675](https://github.com/zaxbysauce/opencode-swarm/issues/675)) ([#676](https://github.com/zaxbysauce/opencode-swarm/issues/676)) ([db9b5e2](https://github.com/zaxbysauce/opencode-swarm/commit/db9b5e2ca750f201690aa25411c663a4c8e3dddf))
+
 ## [6.86.7](https://github.com/zaxbysauce/opencode-swarm/compare/v6.86.6...v6.86.7) (2026-04-28)
 
 
