@@ -26,7 +26,7 @@ async function runCLI(
 	args: string[],
 	env: Record<string, string> = {},
 ): Promise<{ exitCode: number; stdout: string; stderr: string }> {
-	const proc = Bun.spawn(['bun', 'run', CLI_PATH, ...args], {
+	const proc = Bun.spawn([process.execPath, 'run', CLI_PATH, ...args], {
 		env: { ...process.env, ...env },
 		stdout: 'pipe',
 		stderr: 'pipe',
@@ -43,6 +43,7 @@ describe('CLI update command', () => {
 	let xdgConfigHome: string;
 	let xdgCachePluginPath: string;
 	let nodeModulesPluginPath: string;
+	let xdgCacheNodeModulesPluginPath: string;
 
 	beforeEach(async () => {
 		tempDir = await mkdtemp(join(tmpdir(), 'opencode-swarm-update-'));
@@ -56,6 +57,12 @@ describe('CLI update command', () => {
 		);
 		nodeModulesPluginPath = join(
 			xdgConfigHome,
+			'opencode',
+			'node_modules',
+			'opencode-swarm',
+		);
+		xdgCacheNodeModulesPluginPath = join(
+			xdgCacheHome,
 			'opencode',
 			'node_modules',
 			'opencode-swarm',
@@ -178,6 +185,95 @@ describe('CLI update command', () => {
 		expect(result.stdout).toContain('update');
 		expect(result.stdout).toContain(
 			"Refresh OpenCode's plugin cache so the next start fetches latest from npm",
+		);
+	});
+
+	test('clears canonical XDG cache node_modules layout when present (OpenCode v20+)', async () => {
+		await mkdir(xdgCacheNodeModulesPluginPath, { recursive: true });
+		await writeFile(
+			join(xdgCacheNodeModulesPluginPath, 'package.json'),
+			'{"name":"stale-canonical"}',
+		);
+
+		const result = await runCLI(['update'], {
+			XDG_CACHE_HOME: xdgCacheHome,
+			XDG_CONFIG_HOME: xdgConfigHome,
+		});
+
+		expect(result.exitCode).toBe(0);
+		expect(result.stdout).toContain('✓ Cleared');
+		// The canonical path includes both 'cache' and 'node_modules' segments
+		expect(result.stdout).toContain('node_modules');
+		expect(result.stdout).toMatch(
+			/cache.*opencode.*node_modules.*opencode-swarm/,
+		);
+		expect(existsSync(xdgCacheNodeModulesPluginPath)).toBe(false);
+	});
+
+	test('clears ALL THREE layouts when all are present', async () => {
+		await mkdir(xdgCachePluginPath, { recursive: true });
+		await mkdir(nodeModulesPluginPath, { recursive: true });
+		await mkdir(xdgCacheNodeModulesPluginPath, { recursive: true });
+
+		const result = await runCLI(['update'], {
+			XDG_CACHE_HOME: xdgCacheHome,
+			XDG_CONFIG_HOME: xdgConfigHome,
+		});
+
+		expect(result.exitCode).toBe(0);
+		expect(existsSync(xdgCachePluginPath)).toBe(false);
+		expect(existsSync(nodeModulesPluginPath)).toBe(false);
+		expect(existsSync(xdgCacheNodeModulesPluginPath)).toBe(false);
+		// All three paths should appear in the cleared output
+		expect(result.stdout.match(/✓ Cleared/g)?.length).toBeGreaterThanOrEqual(3);
+	});
+
+	test('Checked locations output lists all three cache paths', async () => {
+		const result = await runCLI(['update'], {
+			XDG_CACHE_HOME: xdgCacheHome,
+			XDG_CONFIG_HOME: xdgConfigHome,
+		});
+
+		expect(result.exitCode).toBe(0);
+		expect(result.stdout).toContain('No cached plugin found');
+		expect(result.stdout).toContain('Checked locations:');
+		// All three layouts should be enumerated. Use [\\/] to accept either
+		// path separator (Windows uses \, POSIX uses /).
+		expect(result.stdout).toMatch(/packages[\\/]opencode-swarm@latest/);
+		expect(result.stdout).toMatch(
+			/config[\\/]opencode[\\/]node_modules[\\/]opencode-swarm/,
+		);
+		expect(result.stdout).toMatch(
+			/cache[\\/]opencode[\\/]node_modules[\\/]opencode-swarm/,
+		);
+	});
+
+	test('refuses deletion when XDG_CACHE_HOME is pathologically set to /', async () => {
+		// Adversarial: if a user (or a misconfigured environment) sets
+		// XDG_CACHE_HOME='/', the resolved cache path becomes
+		// '/opencode/node_modules/opencode-swarm' which has a recognized
+		// leaf name but is OUTSIDE the user's home directory. The safety
+		// guard must refuse this path. Issue #675 hardening.
+		//
+		// We do NOT create that directory (it's at root and we don't have
+		// permission anyway). We only verify the CLI exits cleanly without
+		// attempting to delete anything outside the user's control.
+		const result = await runCLI(['update'], {
+			XDG_CACHE_HOME: '/',
+			XDG_CONFIG_HOME: xdgConfigHome,
+		});
+
+		// Either: (a) the path doesn't exist (existsSync gate trips first),
+		// producing 'No cached plugin found' and exit 0; or (b) the path
+		// exists somehow and isSafeCachePath refuses, producing
+		// '✗ Could not clear: ... refused: failed safety check' and exit 1.
+		// BOTH outcomes are SAFE — no catastrophic deletion occurred.
+		expect(result.exitCode).toBeLessThanOrEqual(1);
+		// Critically: the stdout/stderr must NOT contain '✓ Cleared:
+		// /opencode/node_modules/opencode-swarm'. That would mean we
+		// actually nuked a system path.
+		expect(result.stdout).not.toMatch(
+			/✓ Cleared:[\s]*[\\/]opencode[\\/]node_modules[\\/]opencode-swarm/,
 		);
 	});
 });

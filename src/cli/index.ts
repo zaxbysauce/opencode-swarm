@@ -4,52 +4,66 @@ import * as os from 'node:os';
 import * as path from 'node:path';
 import packageJson from '../../package.json' with { type: 'json' };
 import { resolveCommand, VALID_COMMANDS } from '../commands/registry.js';
+import {
+	getPluginCachePaths,
+	getPluginConfigDir,
+} from '../config/cache-paths.js';
 
 const { version } = packageJson;
 
-const CONFIG_DIR = path.join(
-	process.env.XDG_CONFIG_HOME || path.join(os.homedir(), '.config'),
-	'opencode',
-);
+const CONFIG_DIR = getPluginConfigDir();
 
 const OPENCODE_CONFIG_PATH = path.join(CONFIG_DIR, 'opencode.json');
 const PLUGIN_CONFIG_PATH = path.join(CONFIG_DIR, 'opencode-swarm.json');
 const PROMPTS_DIR = path.join(CONFIG_DIR, 'opencode-swarm');
 
-// OpenCode caches plugins in two layouts depending on the host:
-// 1. XDG cache layout (some Windows + macOS installs):
-//    `~/.cache/opencode/packages/opencode-swarm@latest/`
-// 2. node_modules layout (most Linux installs, devcontainers, GitHub
-//    Codespaces): `~/.config/opencode/node_modules/opencode-swarm/`
-//    OpenCode keeps a `package.json` + `package-lock.json` at CONFIG_DIR and
-//    npm-installs plugins into a sibling `node_modules/` (issue #675).
-//
-// `update` and `install` evict both layouts so a stale cache anywhere is
-// guaranteed to be refreshed on the next opencode startup.
-const OPENCODE_PLUGIN_CACHE_PATHS: readonly string[] = [
-	path.join(
-		process.env.XDG_CACHE_HOME || path.join(os.homedir(), '.cache'),
-		'opencode',
-		'packages',
-		'opencode-swarm@latest',
-	),
-	path.join(CONFIG_DIR, 'node_modules', 'opencode-swarm'),
-];
+const OPENCODE_PLUGIN_CACHE_PATHS = getPluginCachePaths();
 
-// Safety floor: refuse to recursively delete a path that would be a
-// catastrophic deletion (root, home directory, etc.). The cache paths above
-// are derived from env-vars that, if pathologically set (e.g., XDG_CACHE_HOME=/),
-// would have us rm-rf'ing the user's filesystem. This guard rejects any path
-// shorter than the depth a real cache directory would have.
+// Safety floor: refuse to recursively delete a path that could catastrophically
+// damage the user's filesystem if XDG_CACHE_HOME or XDG_CONFIG_HOME are
+// pathologically set (e.g., XDG_CACHE_HOME='/'). Defense in depth, four checks:
+//   1. Refuse root, home, or shorter-than-home paths.
+//   2. Require ≥ 4 path components from root (the canonical cache layout has
+//      AT LEAST: <root>/opencode/{packages|node_modules}/<leaf> = 3 segments,
+//      so any LEGITIMATE cache lives at least one segment deeper. This rejects
+//      XDG_CACHE_HOME='/' which produces '/opencode/node_modules/opencode-swarm'
+//      (3 segments) while accepting XDG_CACHE_HOME='/var/cache' (5+ segments)
+//      AND tmpdir-based test paths on every CI platform.
+//   3. Require a recognized leaf name ('opencode-swarm' or 'opencode-swarm@latest').
+//   4. Require the canonical OpenCode plugin structure as the parent chain:
+//      .../opencode/{packages|node_modules}/<leaf>. This prevents any pattern
+//      that happens to have a recognized leaf but isn't the actual cache.
+// Issue #675 hardening — round 3 (depth-based guard replaces home-containment
+// after critic's cross-platform CI regression finding).
 function isSafeCachePath(p: string): boolean {
 	const resolved = path.resolve(p);
 	const home = path.resolve(os.homedir());
-	if (resolved === '/' || resolved === home || resolved.length <= home.length)
+	// 1. Catastrophic-path floor.
+	if (resolved === '/' || resolved === home || resolved.length <= home.length) {
 		return false;
-	// Cache paths must end in a known cache leaf to limit blast radius
-	// even if someone redirects an env var.
+	}
+	// 2. Require ≥ 4 path components from root. This rejects pathological
+	// XDG_CACHE_HOME='/' (3 components) while accepting any legitimate cache
+	// layout including non-default XDG_CACHE_HOME=/var/cache and tmpdir paths.
+	const segments = resolved.split(path.sep).filter((s) => s.length > 0);
+	if (segments.length < 4) {
+		return false;
+	}
+	// 3. Must end in a known cache leaf.
 	const leaf = path.basename(resolved);
-	return leaf === 'opencode-swarm@latest' || leaf === 'opencode-swarm';
+	if (leaf !== 'opencode-swarm@latest' && leaf !== 'opencode-swarm') {
+		return false;
+	}
+	// 4. Must match the canonical .../opencode/{packages|node_modules}/<leaf> shape.
+	const parent = path.basename(path.dirname(resolved));
+	if (parent !== 'packages' && parent !== 'node_modules') {
+		return false;
+	}
+	const grandparent = path.basename(path.dirname(path.dirname(resolved)));
+	if (grandparent !== 'opencode') {
+		return false;
+	}
+	return true;
 }
 
 interface OpenCodeConfig {
