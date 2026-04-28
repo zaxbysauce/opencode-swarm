@@ -52,7 +52,7 @@ var package_default;
 var init_package = __esm(() => {
   package_default = {
     name: "opencode-swarm",
-    version: "6.86.4",
+    version: "6.86.5",
     description: "Architect-centric agentic swarm plugin for OpenCode - hub-and-spoke orchestration with SME consultation, code generation, and QA review",
     main: "dist/index.js",
     types: "dist/index.d.ts",
@@ -66705,6 +66705,17 @@ var init_suggest_patch = __esm(() => {
 function slugify2(str) {
   return str.replace(/[^a-zA-Z0-9_-]/g, "_").replace(/_+/g, "_");
 }
+function extractJsonArray(text) {
+  const trimmed = text.trim();
+  const fenceMatch = trimmed.match(/```(?:json)?\s*\n?([\s\S]*?)\n?```/);
+  if (fenceMatch)
+    return fenceMatch[1].trim();
+  const start2 = trimmed.search(/\[\s*[{["0-9\]tfn]/);
+  const end = trimmed.lastIndexOf("]");
+  if (start2 !== -1 && end > start2)
+    return trimmed.slice(start2, end + 1);
+  return trimmed;
+}
 async function generateMutants(files, ctx) {
   if (!ctx) {
     console.warn("[generateMutants] No ToolContext \u2014 cannot call LLM; returning empty patch set");
@@ -66749,9 +66760,9 @@ Return a JSON array where each element has:
 - id: unique string like "mut-001"
 - mutationType: one of: ${mutationTypes}
 - patch: unified diff format (--- a/file\\n+++ a/file\\n@@ ... @@\\n-old\\n+new)
-- Generate 5-10 mutations per function
+- Generate 3-5 mutations per function
 
-Return ONLY valid JSON array, no markdown, no explanation.`;
+Return ONLY a valid JSON array. No markdown, no code fences, no explanation. Start your response with [ and end with ].`;
     const promptResult = await client.session.prompt({
       path: { id: ephemeralSessionId },
       body: {
@@ -66769,9 +66780,11 @@ Return ONLY valid JSON array, no markdown, no explanation.`;
 `);
     let parsed;
     try {
-      parsed = JSON.parse(rawText);
+      parsed = JSON.parse(extractJsonArray(rawText));
     } catch (error93) {
-      console.warn(`[generateMutants] Failed to parse LLM response as MutationPatch[]: ${error93 instanceof Error ? error93.message : String(error93)}; returning empty patch set`);
+      const msg = error93 instanceof Error ? error93.message : String(error93);
+      const hint = msg.includes("EOF") || msg.includes("Unexpected end") ? " (response appears truncated \u2014 LLM may have hit an output token limit)" : "";
+      console.warn(`[generateMutants] Failed to parse LLM response as MutationPatch[]: ${msg}${hint}; returning empty patch set`);
       return [];
     }
     if (!Array.isArray(parsed) || parsed.length === 0) {
