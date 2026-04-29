@@ -292,7 +292,7 @@ async function initializeOpenCodeSwarm(ctx: Parameters<Plugin>[0]) {
 	initTelemetry(ctx.directory);
 	writeSwarmConfigExampleIfNew(ctx.directory);
 	// Warn once per process if .swarm/ is not gitignored (audit logs may contain secrets)
-	warnIfSwarmNotGitignored(ctx.directory);
+	warnIfSwarmNotGitignored(ctx.directory, config.quiet);
 	// Background staleness check against npm. Detached, never blocks init,
 	// throttled to 24h on disk. See services/version-check.ts (issue #675).
 	if (config.version_check !== false) {

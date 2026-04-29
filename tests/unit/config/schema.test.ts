@@ -305,7 +305,7 @@ describe('PluginConfigSchema', () => {
 				inject_phase_reminders: true,
 				execution_mode: 'balanced',
 				turbo_mode: false,
-				quiet: false,
+				quiet: true,
 				version_check: true,
 				adversarial_testing: { enabled: true, scope: 'all' },
 				full_auto: {

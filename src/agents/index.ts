@@ -277,8 +277,8 @@ function createSwarmAgents(
 	// Get qa_retry_limit from config (default: 3)
 	const qaRetryLimit = pluginConfig?.qa_retry_limit ?? 3;
 
-	// Get quiet mode from config (default: false)
-	const quiet = pluginConfig?.quiet ?? false;
+	// Get quiet mode from config (default: true — matches schema default)
+	const quiet = pluginConfig?.quiet ?? true;
 
 	// Helper to get model for agent (pass base name, not prefixed)
 	const getModel = (baseName: string) =>
@@ -603,7 +603,7 @@ export function getAgentConfigs(
 	// Check if tool filtering is disabled globally
 	const toolFilterEnabled = config?.tool_filter?.enabled ?? true;
 	const toolFilterOverrides = config?.tool_filter?.overrides ?? {};
-	const quiet = config?.quiet ?? false;
+	const quiet = config?.quiet ?? true;
 
 	// Track warning for missing whitelist entries (warn once per unique base name)
 	const warnedMissingWhitelist = new Set<string>();

@@ -28,7 +28,7 @@ describe('SECURITY: quiet config adversarial attacks', () => {
 			const result = PluginConfigSchema.safeParse({ quiet: undefined });
 			expect(result.success).toBe(true);
 			if (result.success) {
-				expect(result.data.quiet).toBe(false);
+				expect(result.data.quiet).toBe(true);
 			}
 		});
 
@@ -272,11 +272,11 @@ describe('SECURITY: quiet config adversarial attacks', () => {
 	// ===========================================================================
 
 	describe('Missing quiet field in partial config', () => {
-		it('should use default (false) when quiet is missing', () => {
+		it('should use default (true) when quiet is missing', () => {
 			const result = PluginConfigSchema.safeParse({});
 			expect(result.success).toBe(true);
 			if (result.success) {
-				expect(result.data.quiet).toBe(false);
+				expect(result.data.quiet).toBe(true);
 			}
 		});
 
@@ -287,7 +287,7 @@ describe('SECURITY: quiet config adversarial attacks', () => {
 			});
 			expect(result.success).toBe(true);
 			if (result.success) {
-				expect(result.data.quiet).toBe(false);
+				expect(result.data.quiet).toBe(true);
 				expect(result.data.max_iterations).toBe(5);
 				expect(result.data.qa_retry_limit).toBe(3);
 			}
@@ -301,7 +301,7 @@ describe('SECURITY: quiet config adversarial attacks', () => {
 			});
 			expect(result.success).toBe(true);
 			if (result.success) {
-				expect(result.data.quiet).toBe(false);
+				expect(result.data.quiet).toBe(true);
 			}
 		});
 
@@ -311,7 +311,7 @@ describe('SECURITY: quiet config adversarial attacks', () => {
 			});
 			expect(result.success).toBe(true);
 			if (result.success) {
-				expect(result.data.quiet).toBe(false);
+				expect(result.data.quiet).toBe(true);
 			}
 		});
 	});
