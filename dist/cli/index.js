@@ -18598,7 +18598,7 @@ import * as path33 from "path";
 // package.json
 var package_default = {
   name: "opencode-swarm",
-  version: "6.86.11",
+  version: "6.86.12",
   description: "Architect-centric agentic swarm plugin for OpenCode - hub-and-spoke orchestration with SME consultation, code generation, and QA review",
   main: "dist/index.js",
   types: "dist/index.d.ts",
@@ -19490,7 +19490,8 @@ var PlanCursorConfigSchema = exports_external.object({
 });
 var CheckpointConfigSchema = exports_external.object({
   enabled: exports_external.boolean().default(true),
-  auto_checkpoint_threshold: exports_external.number().int().min(1).max(20).default(3)
+  auto_checkpoint_threshold: exports_external.number().int().min(1).max(20).default(3),
+  allow_empty_commits: exports_external.boolean().default(false)
 }).strict();
 var AutomationModeSchema = exports_external.enum(["manual", "hybrid", "auto"]);
 var AutomationCapabilitiesSchema = exports_external.object({
@@ -19701,7 +19702,7 @@ var PluginConfigSchema = exports_external.object({
   council: CouncilConfigSchema.optional(),
   parallelization: ParallelizationConfigSchema.optional(),
   turbo_mode: exports_external.boolean().default(false).optional(),
-  quiet: exports_external.boolean().default(false).optional(),
+  quiet: exports_external.boolean().default(true).optional(),
   version_check: exports_external.boolean().default(true).optional(),
   full_auto: exports_external.object({
     enabled: exports_external.boolean().default(false),
@@ -33518,9 +33519,11 @@ function isGitRepo() {
 function handleSave(label, directory) {
   try {
     let maxCheckpoints = 20;
+    let allowEmptyCommits = false;
     try {
       const { config: config3 } = loadPluginConfigWithMeta(directory);
       maxCheckpoints = config3.checkpoint?.auto_checkpoint_threshold ?? maxCheckpoints;
+      allowEmptyCommits = config3.checkpoint?.allow_empty_commits === true;
     } catch {}
     const log2 = readCheckpointLog(directory);
     const existingCheckpoint = log2.checkpoints.find((c) => c.label === label);
@@ -33531,9 +33534,21 @@ function handleSave(label, directory) {
         error: `duplicate label: "${label}" already exists. Use a different label or delete the existing checkpoint first.`
       }, null, 2);
     }
-    const _sha = getCurrentSha();
     const timestamp = new Date().toISOString();
-    gitExec(["commit", "--allow-empty", "-m", `checkpoint: ${label}`]);
+    gitExec(["add", "--all", "--", ":!.swarm/"]);
+    const hasStagedChanges = (() => {
+      try {
+        gitExec(["diff", "--cached", "--quiet"]);
+        return false;
+      } catch {
+        return true;
+      }
+    })();
+    if (hasStagedChanges) {
+      gitExec(["commit", "-m", `checkpoint: ${label}`]);
+    } else if (allowEmptyCommits) {
+      gitExec(["commit", "--allow-empty", "-m", `checkpoint: ${label}`]);
+    }
     const newSha = getCurrentSha();
     log2.checkpoints.push({
       label,
@@ -33612,7 +33627,7 @@ function handleDelete(label, directory) {
       action: "delete",
       success: true,
       label,
-      message: `Checkpoint deleted: "${label}" (git commit preserved)`
+      message: `Checkpoint deleted: "${label}"`
     }, null, 2);
   } catch (e) {
     const errorMessage = e instanceof Error ? `delete failed: ${e.message}` : "delete failed: unknown error";

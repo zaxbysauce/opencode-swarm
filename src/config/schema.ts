@@ -758,6 +758,10 @@ export const CheckpointConfigSchema = z
 	.object({
 		enabled: z.boolean().default(true),
 		auto_checkpoint_threshold: z.number().int().min(1).max(20).default(3),
+		// When false (default), checkpoint save skips the git commit if the working
+		// tree is clean, recording only the current HEAD SHA. Set to true to restore
+		// the previous behaviour of creating a git commit even with no file changes.
+		allow_empty_commits: z.boolean().default(false),
 	})
 	.strict();
 
@@ -1262,8 +1266,10 @@ export const PluginConfigSchema = z.object({
 	// Turbo mode — bypasses reviewer/test gates for rapid iteration (v6.40)
 	turbo_mode: z.boolean().default(false).optional(),
 
-	// Quiet mode — suppress non-critical startup warnings (v6.xx)
-	quiet: z.boolean().default(false).optional(),
+	// Quiet mode — suppress non-critical startup warnings. Defaults to true so
+	// console output does not bleed into the OpenCode TUI as overlay notifications.
+	// Set to false to restore verbose warnings (e.g. for debugging startup issues).
+	quiet: z.boolean().default(true).optional(),
 
 	// Background staleness check against npm. When a newer version of
 	// opencode-swarm has been published, emit a single deferred warning so

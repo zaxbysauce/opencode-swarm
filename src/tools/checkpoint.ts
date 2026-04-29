@@ -190,12 +190,14 @@ function isGitRepo(): boolean {
  */
 function handleSave(label: string, directory: string): string {
 	try {
-		// Read checkpoint config for limits
+		// Read checkpoint config
 		let maxCheckpoints = 20; // sensible default
+		let allowEmptyCommits = false;
 		try {
 			const { config } = loadPluginConfigWithMeta(directory);
 			maxCheckpoints =
 				config.checkpoint?.auto_checkpoint_threshold ?? maxCheckpoints;
+			allowEmptyCommits = config.checkpoint?.allow_empty_commits === true;
 		} catch {
 			// Config load failure — use defaults
 		}
@@ -215,14 +217,35 @@ function handleSave(label: string, directory: string): string {
 			);
 		}
 
-		// Get current SHA before creating commit
-		const _sha = getCurrentSha();
 		const timestamp = new Date().toISOString();
 
-		// Create a checkpoint commit with the label (label with spaces works correctly)
-		gitExec(['commit', '--allow-empty', '-m', `checkpoint: ${label}`]);
+		// Stage all changes, excluding .swarm/ to avoid committing checkpoint metadata
+		// into project history. On timeout or permission error this throws, which
+		// propagates to the outer catch — safer than committing a partially-staged tree.
+		gitExec(['add', '--all', '--', ':!.swarm/']);
 
-		// Get the new SHA after commit
+		// Check whether anything was staged (exit 0 = nothing staged, non-zero = changes)
+		const hasStagedChanges = (() => {
+			try {
+				gitExec(['diff', '--cached', '--quiet']);
+				return false;
+			} catch {
+				return true;
+			}
+		})();
+
+		if (hasStagedChanges) {
+			gitExec(['commit', '-m', `checkpoint: ${label}`]);
+		} else if (allowEmptyCommits) {
+			// Explicit opt-in: preserve legacy behaviour of creating a commit even
+			// when the working tree is clean.
+			gitExec(['commit', '--allow-empty', '-m', `checkpoint: ${label}`]);
+		}
+		// Otherwise: nothing to commit — checkpoint records current HEAD SHA without
+		// creating a new git commit. Two consecutive clean-tree saves will share the
+		// same SHA in the log; both restore correctly to the same HEAD position.
+
+		// Get SHA (equals _sha when no commit was made)
 		const newSha = getCurrentSha();
 
 		// Append to log
@@ -367,7 +390,7 @@ function handleDelete(label: string, directory: string): string {
 				action: 'delete',
 				success: true,
 				label,
-				message: `Checkpoint deleted: "${label}" (git commit preserved)`,
+				message: `Checkpoint deleted: "${label}"`,
 			},
 			null,
 			2,

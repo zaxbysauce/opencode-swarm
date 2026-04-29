@@ -380,6 +380,7 @@ export type PlanCursorConfig = z.infer<typeof PlanCursorConfigSchema>;
 export declare const CheckpointConfigSchema: z.ZodObject<{
     enabled: z.ZodDefault<z.ZodBoolean>;
     auto_checkpoint_threshold: z.ZodDefault<z.ZodNumber>;
+    allow_empty_commits: z.ZodDefault<z.ZodBoolean>;
 }, z.core.$strict>;
 export type CheckpointConfig = z.infer<typeof CheckpointConfigSchema>;
 export declare const AutomationModeSchema: z.ZodEnum<{
@@ -885,6 +886,7 @@ export declare const PluginConfigSchema: z.ZodObject<{
     checkpoint: z.ZodOptional<z.ZodObject<{
         enabled: z.ZodDefault<z.ZodBoolean>;
         auto_checkpoint_threshold: z.ZodDefault<z.ZodNumber>;
+        allow_empty_commits: z.ZodDefault<z.ZodBoolean>;
     }, z.core.$strict>>;
     automation: z.ZodOptional<z.ZodType<{
         mode: "auto" | "manual" | "hybrid";

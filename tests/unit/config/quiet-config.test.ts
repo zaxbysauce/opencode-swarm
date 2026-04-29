@@ -2,9 +2,9 @@
  * Tests for quiet config implementation (FR-003, FR-004)
  *
  * Verifies:
- * 1. quiet config defaults to false
+ * 1. quiet config defaults to true
  * 2. With quiet:true, non-critical warnings are suppressed
- * 3. With quiet:false/default, warnings still appear
+ * 3. With quiet:false (explicit opt-out), warnings still appear
  * 4. Security-critical guardrails warning is NOT suppressed by quiet:true
  */
 
@@ -30,23 +30,23 @@ afterEach(() => {
 });
 
 // ─────────────────────────────────────────────────────────────────────────────
-// 1. SCHEMA TESTS — quiet defaults to false
+// 1. SCHEMA TESTS — quiet defaults to true
 // ─────────────────────────────────────────────────────────────────────────────
 
 describe('quiet config schema', () => {
-	it('1.1 quiet field is defined as boolean with default false', () => {
+	it('1.1 quiet field is defined as boolean with default true', () => {
 		const result = PluginConfigSchema.safeParse({});
 		expect(result.success).toBe(true);
 		if (result.success) {
-			expect(result.data.quiet).toBe(false);
+			expect(result.data.quiet).toBe(true);
 		}
 	});
 
-	it('1.2 quiet:undefined parses to false (uses default)', () => {
+	it('1.2 quiet:undefined parses to true (uses default)', () => {
 		const result = PluginConfigSchema.safeParse({ quiet: undefined });
 		expect(result.success).toBe(true);
 		if (result.success) {
-			expect(result.data.quiet).toBe(false);
+			expect(result.data.quiet).toBe(true);
 		}
 	});
 
@@ -139,7 +139,8 @@ describe('quiet:true suppresses non-critical warnings', () => {
 		expect(deprecationWarnings.length).toBeGreaterThan(0);
 	});
 
-	it('2.3 quiet omitted (default false) shows deprecation warning', () => {
+	it('2.3 quiet omitted (default true) suppresses deprecation warning', () => {
+		// Default quiet is now true — omitting the key should suppress warnings
 		const config = {
 			agents: {
 				coder: {
@@ -157,7 +158,7 @@ describe('quiet:true suppresses non-critical warnings', () => {
 				call[0].includes('Deprecation') &&
 				call[0].includes('variant'),
 		);
-		expect(deprecationWarnings.length).toBeGreaterThan(0);
+		expect(deprecationWarnings.length).toBe(0);
 	});
 });
 
@@ -172,15 +173,16 @@ describe('security-critical warnings are NOT suppressed by quiet:true', () => {
 	beforeEach(() => {
 		warnSpy = spyOn(console, 'warn').mockImplementation(() => {});
 		originalEnv = { ...process.env };
-		const configPath = path.join(tempDir, 'opencode-swarm.json');
+		// loadPluginConfigWithMeta reads the project config from <dir>/.opencode/opencode-swarm.json
+		const configDir = path.join(tempDir, '.opencode');
+		mkdirSync(configDir, { recursive: true });
 		writeFileSync(
-			configPath,
+			path.join(configDir, 'opencode-swarm.json'),
 			JSON.stringify({
 				guardrails: { enabled: false },
 				quiet: true, // This should NOT suppress the security warning
 			}),
 		);
-		process.env.OPENCODE_CONFIG_DIR = tempDir;
 	});
 
 	afterEach(() => {
@@ -313,7 +315,7 @@ describe('quiet config edge cases', () => {
 		}
 	});
 
-	it('4.4 explicit quiet:false is distinct from omitted (both resolve to false)', () => {
+	it('4.4 explicit quiet:false differs from omitted (omitted defaults to true)', () => {
 		const withExplicit = PluginConfigSchema.safeParse({ quiet: false });
 		const omitted = PluginConfigSchema.safeParse({});
 
@@ -321,8 +323,9 @@ describe('quiet config edge cases', () => {
 		expect(omitted.success).toBe(true);
 
 		if (withExplicit.success && omitted.success) {
-			expect(withExplicit.data.quiet).toBe(omitted.data.quiet);
 			expect(withExplicit.data.quiet).toBe(false);
+			expect(omitted.data.quiet).toBe(true);
+			expect(withExplicit.data.quiet).not.toBe(omitted.data.quiet);
 		}
 	});
 });

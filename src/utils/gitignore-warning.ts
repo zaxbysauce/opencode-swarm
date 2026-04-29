@@ -68,11 +68,14 @@ function readFileSafe(filePath: string): string | null {
 /**
  * Checks whether `.swarm/` is covered by `.gitignore` or `.git/info/exclude`
  * in the git repo rooted at or above `directory`. If not covered, emits a
- * single `console.warn`. Fires at most once per process.
+ * single `console.warn` (unless `quiet` is true). Fires at most once per process.
  *
  * Never throws — any file-system error silently skips the check.
  */
-export function warnIfSwarmNotGitignored(directory: string): void {
+export function warnIfSwarmNotGitignored(
+	directory: string,
+	quiet = false,
+): void {
 	if (_gitignoreWarningEmitted) return;
 
 	try {
@@ -93,11 +96,13 @@ export function warnIfSwarmNotGitignored(directory: string): void {
 			return;
 		}
 
-		// Not covered by either source — emit warning
+		// Not covered by either source — emit warning (suppressed when quiet:true)
 		_gitignoreWarningEmitted = true;
-		console.warn(
-			'[opencode-swarm] WARNING: .swarm/ is not in your .gitignore. Shell audit logs may contain API keys. Add ".swarm/" to your .gitignore to prevent accidental commits.',
-		);
+		if (!quiet) {
+			console.warn(
+				'[opencode-swarm] WARNING: .swarm/ is not in your .gitignore. Shell audit logs may contain API keys. Add ".swarm/" to your .gitignore to prevent accidental commits.',
+			);
+		}
 	} catch {
 		// Silently swallow any unexpected error — never block plugin init
 	}
