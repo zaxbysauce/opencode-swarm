@@ -417,6 +417,7 @@ describe('knowledge-query tool verification tests', () => {
 				'debugging',
 				'performance',
 				'integration',
+				'todo',
 				'other',
 			] as const;
 

@@ -24,6 +24,7 @@ const VALID_CATEGORIES: KnowledgeCategory[] = [
 	'debugging',
 	'performance',
 	'integration',
+	'todo',
 	'other',
 ];
 

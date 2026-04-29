@@ -958,10 +958,9 @@ export async function applyCuratorKnowledgeUpdates(
 				appliedIds.add(entry.id);
 				applied++;
 				modified = true;
-				// 'archived' is an extension to the status union per spec
 				return {
 					...entry,
-					status: 'archived' as SwarmKnowledgeEntry['status'],
+					status: 'archived',
 					updated_at: new Date().toISOString(),
 				};
 			case 'flag_contradiction':

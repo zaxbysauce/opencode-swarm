@@ -254,6 +254,11 @@ describe('knowledge_add tool verification tests', () => {
 					lesson: 'Use contract testing between microservice boundaries',
 				},
 				{
+					category: 'todo',
+					lesson:
+						'Remember to add error handling to the payment flow before release',
+				},
+				{
 					category: 'other',
 					lesson: 'Commit messages should reference ticket numbers',
 				},
@@ -273,9 +278,9 @@ describe('knowledge_add tool verification tests', () => {
 				expect(parsed.category).toBe(category);
 			}
 
-			// Verify all 9 entries were stored (none rejected as near-duplicates)
+			// Verify all 10 entries were stored (none rejected as near-duplicates)
 			const entries = readKnowledgeEntries();
-			expect(entries).toHaveLength(9);
+			expect(entries).toHaveLength(10);
 		});
 	});
 
