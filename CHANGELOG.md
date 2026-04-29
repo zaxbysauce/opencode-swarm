@@ -1,5 +1,12 @@
 # Changelog
 
+## [6.86.12](https://github.com/zaxbysauce/opencode-swarm/compare/v6.86.11...v6.86.12) (2026-04-29)
+
+
+### Bug Fixes
+
+* **knowledge:** repair hive promotion path, align todo category, fix list/quarantine ergonomics ([#685](https://github.com/zaxbysauce/opencode-swarm/issues/685)) ([0f2aaa3](https://github.com/zaxbysauce/opencode-swarm/commit/0f2aaa3e8eb677dfbe0bc25288cf11bb7527c5da))
+
 ## [6.86.11](https://github.com/zaxbysauce/opencode-swarm/compare/v6.86.10...v6.86.11) (2026-04-29)
 
 
