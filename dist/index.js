@@ -51,7 +51,7 @@ var package_default;
 var init_package = __esm(() => {
   package_default = {
     name: "opencode-swarm",
-    version: "6.86.13",
+    version: "6.86.14",
     description: "Architect-centric agentic swarm plugin for OpenCode - hub-and-spoke orchestration with SME consultation, code generation, and QA review",
     main: "dist/index.js",
     types: "dist/index.d.ts",
@@ -558,8 +558,8 @@ var init_constants = __esm(() => {
     lint_spec: "validate .swarm/spec.md format and required fields",
     get_approved_plan: "retrieve the last critic-approved immutable plan snapshot for baseline drift comparison",
     repo_map: "query the repo code graph: importers, dependencies, blast radius, and localization context for structural awareness before refactoring",
-    get_qa_gate_profile: "retrieve the QA gate profile for the current plan: gates (reviewer, test_engineer, sme_enabled, critic_pre_plan, sast_enabled, council_mode, hallucination_guard, mutation_test, council_general_review), lock state, and profile hash. Read-only.",
-    set_qa_gates: "configure the QA gate profile for the current plan. Architect-only. Ratchet-tighter only — rejected once the profile is locked after critic approval. Supports: reviewer, test_engineer, sme_enabled, critic_pre_plan, sast_enabled, council_mode, hallucination_guard, mutation_test, council_general_review.",
+    get_qa_gate_profile: "retrieve the QA gate profile for the current plan: gates (reviewer, test_engineer, sme_enabled, critic_pre_plan, sast_enabled, council_mode, hallucination_guard, mutation_test, council_general_review, drift_check), lock state, and profile hash. Read-only.",
+    set_qa_gates: "configure the QA gate profile for the current plan. Architect-only. Ratchet-tighter only — rejected once the profile is locked after critic approval. Supports: reviewer, test_engineer, sme_enabled, critic_pre_plan, sast_enabled, council_mode, hallucination_guard, mutation_test, council_general_review, drift_check.",
     req_coverage: "query requirement coverage status for tracked functional requirements"
   };
   for (const [agentName, tools] of Object.entries(AGENT_TOOL_MAP)) {
@@ -15354,6 +15354,8 @@ var init_schema = __esm(() => {
     enabled: exports_external.boolean().default(false),
     maxConcurrentTasks: exports_external.number().int().min(1).max(64).default(1),
     evidenceLockTimeoutMs: exports_external.number().int().min(1000).max(300000).default(60000),
+    max_coders: exports_external.number().int().min(1).max(16).default(3),
+    max_reviewers: exports_external.number().int().min(1).max(16).default(2),
     stageB: exports_external.object({
       parallel: exports_external.object({
         enabled: exports_external.boolean().default(false)
@@ -15612,6 +15614,7 @@ var init_plan_schema = __esm(() => {
     name: exports_external.string().min(1),
     status: PhaseStatusSchema.default("pending"),
     tasks: exports_external.array(TaskSchema).default([]),
+    type: exports_external.enum(["code", "non-code"]).optional(),
     required_agents: exports_external.array(exports_external.string()).optional()
   });
   PlanSchema = exports_external.object({
@@ -19946,7 +19949,8 @@ var init_qa_gate_profile = __esm(() => {
     hallucination_guard: false,
     sast_enabled: true,
     mutation_test: false,
-    council_general_review: false
+    council_general_review: false,
+    drift_check: true
   };
 });
 
@@ -39936,22 +39940,219 @@ function getCurrentBranch(cwd) {
   const output = gitExec2(["rev-parse", "--abbrev-ref", "HEAD"], cwd);
   return output.trim();
 }
-function getDefaultBaseBranch(cwd) {
-  try {
-    gitExec2(["rev-parse", "--verify", "origin/main"], cwd);
-    return "origin/main";
-  } catch {
-    try {
-      gitExec2(["rev-parse", "--verify", "origin/master"], cwd);
-      return "origin/master";
-    } catch {
-      return "origin/main";
-    }
-  }
-}
 function hasUncommittedChanges(cwd) {
   const status = gitExec2(["status", "--porcelain"], cwd);
   return status.trim().length > 0;
+}
+function detectDefaultRemoteBranch(cwd) {
+  try {
+    const output = gitExec2(["symbolic-ref", "refs/remotes/origin/HEAD"], cwd);
+    const trimmed = output.trim();
+    if (trimmed.startsWith("refs/remotes/origin/")) {
+      return trimmed.slice("refs/remotes/origin/".length);
+    }
+  } catch {}
+  try {
+    const output = gitExec2(["config", "init.defaultBranch"], cwd);
+    const branch = output.trim();
+    if (branch) {
+      return branch;
+    }
+  } catch {}
+  try {
+    gitExec2(["rev-parse", "--verify", "origin/main"], cwd);
+    return "main";
+  } catch {}
+  try {
+    gitExec2(["rev-parse", "--verify", "origin/master"], cwd);
+    return "master";
+  } catch {
+    return null;
+  }
+}
+function resetToRemoteBranch(cwd, options) {
+  const warnings = [];
+  const prunedBranches = [];
+  try {
+    const currentBranch = getCurrentBranch(cwd);
+    const defaultRemoteBranch = detectDefaultRemoteBranch(cwd);
+    if (!defaultRemoteBranch) {
+      return {
+        success: false,
+        targetBranch: "",
+        localBranch: currentBranch,
+        message: "Could not detect default remote branch",
+        alreadyAligned: false,
+        prunedBranches: [],
+        warnings: []
+      };
+    }
+    const targetBranch = `origin/${defaultRemoteBranch}`;
+    if (currentBranch === "HEAD") {
+      return {
+        success: false,
+        targetBranch,
+        localBranch: "HEAD",
+        message: "Cannot reset: detached HEAD state",
+        alreadyAligned: false,
+        prunedBranches: [],
+        warnings: []
+      };
+    }
+    if (hasUncommittedChanges(cwd)) {
+      return {
+        success: false,
+        targetBranch,
+        localBranch: currentBranch,
+        message: "Cannot reset: uncommitted changes in working tree",
+        alreadyAligned: false,
+        prunedBranches: [],
+        warnings: []
+      };
+    }
+    try {
+      const logOutput = gitExec2(["log", `${targetBranch}..HEAD`, "--oneline"], cwd);
+      if (logOutput.trim().length > 0) {
+        return {
+          success: false,
+          targetBranch,
+          localBranch: currentBranch,
+          message: "Cannot reset: unpushed commits",
+          alreadyAligned: false,
+          prunedBranches: [],
+          warnings: []
+        };
+      }
+    } catch {}
+    try {
+      gitExec2(["fetch", "--prune", "origin"], cwd);
+    } catch (err2) {
+      return {
+        success: false,
+        targetBranch,
+        localBranch: currentBranch,
+        message: `Fetch failed: ${err2 instanceof Error ? err2.message : String(err2)}`,
+        alreadyAligned: false,
+        prunedBranches: [],
+        warnings: []
+      };
+    }
+    const headSha = gitExec2(["rev-parse", "HEAD"], cwd).trim();
+    const remoteSha = gitExec2(["rev-parse", `${targetBranch}`], cwd).trim();
+    if (headSha === remoteSha) {
+      return {
+        success: true,
+        targetBranch,
+        localBranch: currentBranch,
+        message: "Already aligned with remote",
+        alreadyAligned: true,
+        prunedBranches: [],
+        warnings: []
+      };
+    }
+    try {
+      gitExec2(["checkout", currentBranch], cwd);
+    } catch (err2) {
+      return {
+        success: false,
+        targetBranch,
+        localBranch: currentBranch,
+        message: `Checkout failed: ${err2 instanceof Error ? err2.message : String(err2)}`,
+        alreadyAligned: false,
+        prunedBranches: [],
+        warnings: []
+      };
+    }
+    let resetSucceeded = false;
+    let lastError;
+    for (let retry = 0;retry < 4; retry++) {
+      if (retry > 0) {
+        const endTime = Date.now() + 500;
+        while (Date.now() < endTime) {}
+      }
+      try {
+        gitExec2(["reset", "--hard", targetBranch], cwd);
+        resetSucceeded = true;
+        break;
+      } catch (err2) {
+        lastError = err2;
+      }
+    }
+    if (!resetSucceeded) {
+      return {
+        success: false,
+        targetBranch,
+        localBranch: currentBranch,
+        message: `Reset failed: ${lastError instanceof Error ? lastError.message : String(lastError)}`,
+        alreadyAligned: false,
+        prunedBranches: [],
+        warnings: []
+      };
+    }
+    if (options?.pruneBranches) {
+      try {
+        const mergedOutput = gitExec2(["branch", "--merged", targetBranch], cwd);
+        const mergedLines = mergedOutput.split(`
+`);
+        for (const line of mergedLines) {
+          const trimmedLine = line.trim();
+          if (!trimmedLine || trimmedLine.startsWith("*")) {
+            continue;
+          }
+          try {
+            gitExec2(["branch", "-d", trimmedLine], cwd);
+            prunedBranches.push(trimmedLine);
+          } catch {
+            warnings.push(`Could not safely delete branch: ${trimmedLine}`);
+          }
+        }
+      } catch (err2) {
+        warnings.push(`Failed to get merged branches: ${err2 instanceof Error ? err2.message : String(err2)}`);
+      }
+      try {
+        const branchVvOutput = gitExec2(["branch", "-vv"], cwd);
+        const vvLines = branchVvOutput.split(`
+`);
+        for (const line of vvLines) {
+          const trimmedLine = line.trim();
+          if (!trimmedLine || trimmedLine.startsWith("*")) {
+            continue;
+          }
+          if (trimmedLine.includes(": gone]")) {
+            const parts2 = trimmedLine.split(/\s+/);
+            const branchName = parts2[0];
+            try {
+              gitExec2(["branch", "-d", branchName], cwd);
+              prunedBranches.push(branchName);
+            } catch {
+              warnings.push(`Could not delete gone branch: ${branchName}`);
+            }
+          }
+        }
+      } catch (err2) {
+        warnings.push(`Failed to prune gone branches: ${err2 instanceof Error ? err2.message : String(err2)}`);
+      }
+    }
+    return {
+      success: true,
+      targetBranch,
+      localBranch: currentBranch,
+      message: "Successfully reset to remote branch",
+      alreadyAligned: false,
+      prunedBranches,
+      warnings
+    };
+  } catch (err2) {
+    return {
+      success: false,
+      targetBranch: "",
+      localBranch: "",
+      message: `Unexpected error: ${err2 instanceof Error ? err2.message : String(err2)}`,
+      alreadyAligned: false,
+      prunedBranches: [],
+      warnings: []
+    };
+  }
 }
 var GIT_TIMEOUT_MS2 = 30000;
 var init_branch = __esm(() => {
@@ -41606,9 +41807,28 @@ var init_write_retro = __esm(() => {
 });
 
 // src/commands/close.ts
-import { execFileSync } from "node:child_process";
 import { promises as fs12 } from "node:fs";
 import path18 from "node:path";
+function guaranteeAllPlansComplete(planData) {
+  const closedPhaseIds = [];
+  const closedTaskIds = [];
+  for (const phase of planData.phases ?? []) {
+    const wasComplete = phase.status === "complete" || phase.status === "completed" || phase.status === "closed";
+    if (!wasComplete) {
+      phase.status = "closed";
+      closedPhaseIds.push(phase.id);
+    }
+    for (const task of phase.tasks ?? []) {
+      const wasTaskDone = task.status === "completed" || task.status === "complete" || task.status === "closed";
+      if (!wasTaskDone) {
+        task.status = "closed";
+        task.close_reason = "session_terminated";
+        closedTaskIds.push(task.id);
+      }
+    }
+  }
+  return { closedPhaseIds, closedTaskIds };
+}
 async function handleCloseCommand(directory, args2) {
   const planPath = validateSwarmPath(directory, "plan.json");
   const swarmDir = path18.join(directory, ".swarm");
@@ -41726,41 +41946,62 @@ async function handleCloseCommand(directory, args2) {
     explicitLessons = lessonsText.split(`
 `).map((line) => line.trim()).filter((line) => line.length > 0 && !line.startsWith("#"));
   } catch {}
+  const retroLessons = [];
+  try {
+    const evidenceDir = path18.join(swarmDir, "evidence");
+    const evidenceEntries = await fs12.readdir(evidenceDir);
+    const retroDirs = evidenceEntries.filter((e) => e.startsWith("retro-"));
+    for (const retroDir of retroDirs) {
+      const evidencePath = path18.join(evidenceDir, retroDir, "evidence.json");
+      try {
+        const content = await fs12.readFile(evidencePath, "utf-8");
+        const parsed = JSON.parse(content);
+        const entries = parsed.entries ?? [parsed];
+        for (const entry of entries) {
+          if (Array.isArray(entry.lessons_learned)) {
+            for (const lesson of entry.lessons_learned) {
+              if (typeof lesson === "string" && lesson.trim().length > 0) {
+                retroLessons.push(lesson.trim());
+              }
+            }
+          }
+        }
+      } catch {}
+    }
+  } catch {}
+  const allLessons = [...new Set([...explicitLessons, ...retroLessons])];
   let curationSucceeded = false;
   try {
-    await curateAndStoreSwarm(explicitLessons, projectName, { phase_number: 0 }, directory, config3);
+    await curateAndStoreSwarm(allLessons, projectName, { phase_number: 0 }, directory, config3);
     curationSucceeded = true;
   } catch (error93) {
     const msg = error93 instanceof Error ? error93.message : String(error93);
     warnings.push(`Lessons curation failed: ${msg}`);
     console.warn("[close-command] curateAndStoreSwarm error:", error93);
   }
-  if (curationSucceeded && explicitLessons.length > 0) {
+  if (curationSucceeded && allLessons.length > 0) {
     await fs12.unlink(lessonsFilePath).catch(() => {});
   }
-  if (planExists && !planAlreadyDone) {
-    for (const phase of phases) {
-      if (phase.status !== "complete" && phase.status !== "completed") {
-        phase.status = "closed";
-        if (!closedPhases.includes(phase.id)) {
-          closedPhases.push(phase.id);
-        }
-      }
-      for (const task of phase.tasks ?? []) {
-        if (task.status !== "completed" && task.status !== "complete") {
-          task.status = "closed";
-          if (!closedTasks.includes(task.id)) {
-            closedTasks.push(task.id);
-          }
-        }
+  if (planExists) {
+    const guaranteeResult = guaranteeAllPlansComplete(planData);
+    for (const phaseId of guaranteeResult.closedPhaseIds) {
+      if (!closedPhases.includes(phaseId)) {
+        closedPhases.push(phaseId);
       }
     }
-    try {
-      await fs12.writeFile(planPath, JSON.stringify(planData, null, 2), "utf-8");
-    } catch (error93) {
-      const msg = error93 instanceof Error ? error93.message : String(error93);
-      warnings.push(`Failed to persist terminal plan.json state: ${msg}`);
-      console.warn("[close-command] Failed to write plan.json:", error93);
+    for (const taskId of guaranteeResult.closedTaskIds) {
+      if (!closedTasks.includes(taskId)) {
+        closedTasks.push(taskId);
+      }
+    }
+    if (!planAlreadyDone || guaranteeResult.closedPhaseIds.length > 0 || guaranteeResult.closedTaskIds.length > 0) {
+      try {
+        await fs12.writeFile(planPath, JSON.stringify(planData, null, 2), "utf-8");
+      } catch (error93) {
+        const msg = error93 instanceof Error ? error93.message : String(error93);
+        warnings.push(`Failed to persist terminal plan.json state: ${msg}`);
+        console.warn("[close-command] Failed to write plan.json:", error93);
+      }
     }
   }
   const timestamp = new Date().toISOString().replace(/[:.]/g, "-");
@@ -41899,111 +42140,27 @@ async function handleCloseCommand(directory, args2) {
     console.warn("[close-command] Failed to write context.md:", error93);
   }
   const pruneBranches = args2.includes("--prune-branches");
-  const prunedBranches = [];
-  const pruneErrors = [];
   let gitAlignResult = "";
+  const prunedBranches = [];
   const isGit = isGitRepo2(directory);
   if (isGit) {
-    try {
-      const currentBranch = getCurrentBranch(directory);
-      if (currentBranch === "HEAD") {
-        gitAlignResult = "Skipped git alignment: detached HEAD state";
-        warnings.push("Repo is in detached HEAD state. Checkout a branch before starting a new swarm.");
-      } else if (hasUncommittedChanges(directory)) {
-        gitAlignResult = "Skipped git alignment: uncommitted changes in worktree";
-        warnings.push("Uncommitted changes detected. Commit or stash before aligning to main.");
-      } else {
-        const baseBranch = getDefaultBaseBranch(directory);
-        const localBase = baseBranch.replace(/^origin\//, "");
-        if (currentBranch === localBase) {
-          try {
-            execFileSync("git", ["fetch", "origin", localBase], {
-              cwd: directory,
-              encoding: "utf-8",
-              timeout: 30000,
-              stdio: ["pipe", "pipe", "pipe"]
-            });
-            const mergeBase = execFileSync("git", ["merge-base", "HEAD", baseBranch], {
-              cwd: directory,
-              encoding: "utf-8",
-              timeout: 1e4,
-              stdio: ["pipe", "pipe", "pipe"]
-            }).trim();
-            const headSha = execFileSync("git", ["rev-parse", "HEAD"], {
-              cwd: directory,
-              encoding: "utf-8",
-              timeout: 1e4,
-              stdio: ["pipe", "pipe", "pipe"]
-            }).trim();
-            if (mergeBase === headSha) {
-              execFileSync("git", ["merge", "--ff-only", baseBranch], {
-                cwd: directory,
-                encoding: "utf-8",
-                timeout: 30000,
-                stdio: ["pipe", "pipe", "pipe"]
-              });
-              gitAlignResult = `Aligned to ${baseBranch} (fast-forward)`;
-            } else {
-              gitAlignResult = `On ${localBase} but cannot fast-forward to ${baseBranch} (diverged)`;
-              warnings.push(`Local ${localBase} has diverged from ${baseBranch}. Manual merge/rebase needed.`);
-            }
-          } catch (fetchErr) {
-            gitAlignResult = `Fetch from origin/${localBase} failed — remote may be unavailable`;
-            warnings.push(`Git fetch failed: ${fetchErr instanceof Error ? fetchErr.message : String(fetchErr)}`);
-          }
-        } else {
-          gitAlignResult = `On branch ${currentBranch}. Switch to ${localBase} manually when ready for a new swarm.`;
-        }
-      }
-    } catch (gitError) {
-      gitAlignResult = `Git alignment error: ${gitError instanceof Error ? gitError.message : String(gitError)}`;
+    const alignResult = resetToRemoteBranch(directory, { pruneBranches });
+    gitAlignResult = alignResult.message;
+    prunedBranches.push(...alignResult.prunedBranches);
+    if (!alignResult.success) {
+      warnings.push(`Git alignment: ${alignResult.message}`);
     }
-    if (pruneBranches) {
-      try {
-        const branchOutput = execFileSync("git", ["branch", "-vv"], {
-          cwd: directory,
-          encoding: "utf-8",
-          stdio: ["pipe", "pipe", "pipe"]
-        });
-        const goneBranches = branchOutput.split(`
-`).filter((line) => line.includes(": gone]")).map((line) => line.trim().replace(/^[*+]\s+/, "").split(/\s+/)[0]).filter(Boolean);
-        for (const branch of goneBranches) {
-          try {
-            execFileSync("git", ["branch", "-d", branch], {
-              cwd: directory,
-              encoding: "utf-8",
-              stdio: ["pipe", "pipe", "pipe"]
-            });
-            prunedBranches.push(branch);
-          } catch {
-            pruneErrors.push(branch);
-          }
-        }
-      } catch {}
+    if (alignResult.alreadyAligned) {
+      gitAlignResult = `Already aligned with ${alignResult.targetBranch}`;
+    }
+    for (const w of alignResult.warnings) {
+      warnings.push(w);
     }
   } else {
     gitAlignResult = "Not a git repository — skipped git alignment";
   }
   const closeSummaryPath = validateSwarmPath(directory, "close-summary.md");
   const finalizationType = isForced ? "Forced closure" : planAlreadyDone ? "Plan already terminal — cleanup only" : "Normal finalization";
-  const actionsPerformed = [
-    ...!planAlreadyDone && inProgressPhases.length > 0 ? ["- Wrote retrospectives for in-progress phases"] : [],
-    `- ${archiveResult}`,
-    ...cleanedFiles.length > 0 ? [
-      `- Cleaned ${cleanedFiles.length} active-state file(s): ${cleanedFiles.join(", ")}`
-    ] : [],
-    "- Reset context.md for next session",
-    ...configBackupsRemoved > 0 ? [`- Removed ${configBackupsRemoved} stale config backup file(s)`] : [],
-    ...swarmPlanFilesRemoved > 0 ? [
-      `- Removed ${swarmPlanFilesRemoved} root-level SWARM_PLAN checkpoint artifact(s)`
-    ] : [],
-    ...prunedBranches.length > 0 ? [
-      `- Pruned ${prunedBranches.length} stale local git branch(es): ${prunedBranches.join(", ")}`
-    ] : [],
-    "- Cleared agent sessions and delegation chains",
-    ...planExists && !planAlreadyDone ? ["- Set non-completed phases/tasks to closed status"] : [],
-    ...gitAlignResult ? [`- Git: ${gitAlignResult}`] : []
-  ];
   const summaryContent = [
     "# Swarm Close Summary",
     "",
@@ -42011,16 +42168,34 @@ async function handleCloseCommand(directory, args2) {
     `**Closed:** ${new Date().toISOString()}`,
     `**Finalization:** ${finalizationType}`,
     "",
-    `## Phases Closed: ${closedPhases.length}`,
-    !planExists ? "_No plan — ad-hoc session_" : closedPhases.length > 0 ? closedPhases.map((id) => `- Phase ${id}`).join(`
-`) : "_No phases to close_",
+    "## Retrospective",
+    !planExists ? "_No plan — ad-hoc session_" : closedPhases.length > 0 ? closedPhases.map((id) => `- Phase ${id} closed`).join(`
+`) : "_No phases closed this run_",
+    ...closedTasks.length > 0 ? [
+      "",
+      `**Tasks marked closed:** ${closedTasks.length}`,
+      ...closedTasks.map((id) => `- ${id}`)
+    ] : [],
     "",
-    `## Tasks Closed: ${closedTasks.length}`,
-    closedTasks.length > 0 ? closedTasks.map((id) => `- ${id}`).join(`
-`) : "_No incomplete tasks_",
+    "## Lessons Committed",
+    allLessons.length > 0 ? `| # | Lesson |` : "_No lessons committed_",
+    ...allLessons.length > 0 ? ["| --- | --- |", ...allLessons.map((l, i2) => `| ${i2 + 1} | ${l} |`)] : [],
     "",
-    "## Actions Performed",
-    ...actionsPerformed,
+    "## Local Repo State",
+    ...gitAlignResult ? [`- **Git:** ${gitAlignResult}`] : ["- Git alignment skipped"],
+    ...prunedBranches.length > 0 ? [`- **Pruned branches:** ${prunedBranches.join(", ")}`] : [],
+    `- **Archive:** ${archiveResult}`,
+    ...cleanedFiles.length > 0 ? [`- **Cleaned:** ${cleanedFiles.length} file(s)`] : [],
+    "",
+    "## Context",
+    "- Reset context.md for next session",
+    "- Cleared agent sessions and delegation chains",
+    ...configBackupsRemoved > 0 ? [`- Removed ${configBackupsRemoved} stale config backup file(s)`] : [],
+    ...swarmPlanFilesRemoved > 0 ? [
+      `- Removed ${swarmPlanFilesRemoved} root-level SWARM_PLAN checkpoint artifact(s)`
+    ] : [],
+    ...planExists && !planAlreadyDone ? ["- Set non-completed phases/tasks to closed status"] : [],
+    ...curationSucceeded && allLessons.length > 0 ? [`- Committed ${allLessons.length} lesson(s) to knowledge store`] : [],
     "",
     ...warnings.length > 0 ? ["## Warnings", ...warnings.map((w) => `- ${w}`), ""] : []
   ].join(`
@@ -42048,9 +42223,6 @@ async function handleCloseCommand(directory, args2) {
   swarmState.fullAutoEnabledInConfig = preservedFullAutoFlag;
   swarmState.curatorInitAgentNames = preservedCuratorInitNames;
   swarmState.curatorPhaseAgentNames = preservedCuratorPhaseNames;
-  if (pruneErrors.length > 0) {
-    warnings.push(`Could not prune ${pruneErrors.length} branch(es) (unmerged or checked out): ${pruneErrors.join(", ")}`);
-  }
   const retroWarnings = warnings.filter((w) => w.includes("Retrospective write") || w.includes("retrospective write") || w.includes("Session retrospective"));
   const otherWarnings = warnings.filter((w) => !w.includes("Retrospective write") && !w.includes("retrospective write") && !w.includes("Session retrospective"));
   let warningMsg = "";
@@ -42068,16 +42240,19 @@ ${retroWarnings.map((w) => `- ${w}`).join(`
 ${otherWarnings.map((w) => `- ${w}`).join(`
 `)}`;
   }
+  const lessonSummary = curationSucceeded && allLessons.length > 0 ? `
+
+**Lessons Committed:** ${allLessons.length} lesson(s) committed to knowledge store` : "";
   if (planAlreadyDone) {
     return `✅ Session finalized. Plan was already in a terminal state — cleanup and archive applied.
 
 **Archive:** ${archiveResult}
-**Git:** ${gitAlignResult}${warningMsg}`;
+**Git:** ${gitAlignResult}${lessonSummary}${warningMsg}`;
   }
   return `✅ Swarm finalized. ${closedPhases.length} phase(s) closed, ${closedTasks.length} incomplete task(s) marked closed.
 
 **Archive:** ${archiveResult}
-**Git:** ${gitAlignResult}${warningMsg}`;
+**Git:** ${gitAlignResult}${lessonSummary}${warningMsg}`;
 }
 var ARCHIVE_ARTIFACTS, ACTIVE_STATE_TO_CLEAN;
 var init_close = __esm(() => {
@@ -48203,6 +48378,216 @@ var init_history = __esm(() => {
   init_history_service();
 });
 
+// src/commands/issue.ts
+import { execSync as execSync2 } from "node:child_process";
+function sanitizeUrl(raw) {
+  let urlStr = raw.trim();
+  urlStr = urlStr.replace(/\[\s*MODE\s*:[^\]]*\]/gi, "");
+  const fragmentIdx = urlStr.indexOf("#");
+  if (fragmentIdx !== -1) {
+    urlStr = urlStr.slice(0, fragmentIdx);
+  }
+  const queryIdx = urlStr.indexOf("?");
+  if (queryIdx !== -1) {
+    urlStr = urlStr.slice(0, queryIdx);
+  }
+  urlStr = urlStr.replace(/^[A-Za-z][A-Za-z0-9+.-]*:\/\/[^@/]+@/, "https://");
+  if (urlStr.length > MAX_URL_LEN) {
+    urlStr = urlStr.slice(0, MAX_URL_LEN);
+  }
+  return urlStr.trim();
+}
+function isPrivateHost(url3) {
+  const host = url3.hostname.toLowerCase();
+  if (host === "localhost" || host === "127.0.0.1" || host === "::1" || host === "0.0.0.0") {
+    return true;
+  }
+  if (host.startsWith("localhost") || host === "localhost.com") {
+    return true;
+  }
+  const ipv4Private = /^10\./;
+  const ipv4172 = /^172\.(1[6-9]|2\d|3[0-1])\./;
+  const ipv4192 = /^192\.168\./;
+  const ipv6Private = /^fe80:/i;
+  const ipv6Unique = /^f[cd][0-9a-f]{2}:/i;
+  if (ipv4Private.test(host) || ipv4172.test(host) || ipv4192.test(host) || ipv6Private.test(host) || ipv6Unique.test(host)) {
+    return true;
+  }
+  if (host.startsWith("::ffff:")) {
+    const inner = host.slice(7);
+    if (ipv4Private.test(inner) || ipv4172.test(inner) || ipv4192.test(inner)) {
+      return true;
+    }
+  }
+  return false;
+}
+function validateAndSanitizeUrl(rawUrl) {
+  const sanitized = sanitizeUrl(rawUrl);
+  if (!sanitized) {
+    return { error: "Empty URL" };
+  }
+  if (!sanitized.startsWith("https://")) {
+    return { error: "URL must use HTTPS scheme" };
+  }
+  try {
+    const url3 = new URL(sanitized);
+    const hostname5 = url3.hostname;
+    if (/[\u0080-\u{10FFFF}]/u.test(hostname5)) {
+      return { error: "Non-ASCII hostnames are not allowed" };
+    }
+    if (isPrivateHost(url3)) {
+      return { error: "Private or localhost URLs are not allowed" };
+    }
+    const githubIssuePattern = /^https:\/\/github\.com\/([^/]+)\/([^/]+)\/issues\/([0-9]+)\/?$/;
+    if (!githubIssuePattern.test(sanitized)) {
+      return {
+        error: "URL must be a GitHub issue URL (https://github.com/owner/repo/issues/N)"
+      };
+    }
+    return { sanitized };
+  } catch {
+    return { error: "Invalid URL format" };
+  }
+}
+function parseArgs2(args2) {
+  const out2 = {
+    plan: false,
+    trace: false,
+    noRepro: false,
+    rest: []
+  };
+  for (const token of args2) {
+    if (token === "--plan") {
+      out2.plan = true;
+      continue;
+    }
+    if (token === "--trace") {
+      out2.trace = true;
+      out2.plan = true;
+      continue;
+    }
+    if (token === "--no-repro") {
+      out2.noRepro = true;
+      continue;
+    }
+    out2.rest.push(token);
+  }
+  return out2;
+}
+function parseIssueRef(input) {
+  const urlMatch = input.match(/^https:\/\/github\.com\/([^/]+)\/([^/]+)\/issues\/(\d+)\/?$/i);
+  if (urlMatch) {
+    return {
+      owner: urlMatch[1],
+      repo: urlMatch[2],
+      number: parseInt(urlMatch[3], 10)
+    };
+  }
+  const shorthandMatch = input.match(/^([^/]+)\/([^#]+)#(\d+)$/);
+  if (shorthandMatch) {
+    return {
+      owner: shorthandMatch[1],
+      repo: shorthandMatch[2],
+      number: parseInt(shorthandMatch[3], 10)
+    };
+  }
+  const bareMatch = input.match(/^(\d+)$/);
+  if (bareMatch) {
+    const issueNumber = parseInt(bareMatch[1], 10);
+    const remoteUrl = detectGitRemote();
+    if (!remoteUrl) {
+      return null;
+    }
+    const parsed = parseGitRemoteUrl(remoteUrl);
+    if (!parsed) {
+      return null;
+    }
+    return {
+      owner: parsed.owner,
+      repo: parsed.repo,
+      number: issueNumber
+    };
+  }
+  return null;
+}
+function detectGitRemote() {
+  try {
+    const remoteUrl = execSync2("git remote get-url origin", {
+      encoding: "utf-8",
+      stdio: ["pipe", "pipe", "pipe"],
+      timeout: 5000
+    }).trim();
+    return remoteUrl || null;
+  } catch {
+    return null;
+  }
+}
+function parseGitRemoteUrl(remoteUrl) {
+  const httpsMatch = remoteUrl.match(/^https:\/\/github\.com\/([^/]+)\/([^/]+?)(?:\.git)?\/?$/i);
+  if (httpsMatch) {
+    return {
+      owner: httpsMatch[1],
+      repo: httpsMatch[2].replace(/\.git$/, "")
+    };
+  }
+  const sshMatch = remoteUrl.match(/^git@github\.com:([^/]+)\/([^/]+?)(?:\.git)?$/i);
+  if (sshMatch) {
+    return {
+      owner: sshMatch[1],
+      repo: sshMatch[2].replace(/\.git$/, "")
+    };
+  }
+  return null;
+}
+function handleIssueCommand(_directory, args2) {
+  const parsed = parseArgs2(args2);
+  const rawInput = parsed.rest.join(" ").trim();
+  if (!rawInput) {
+    return USAGE2;
+  }
+  const isFullUrl = /^https?:\/\//i.test(rawInput);
+  const issueInfo = parseIssueRef(isFullUrl ? sanitizeUrl(rawInput) : rawInput);
+  if (!issueInfo) {
+    return `Error: Could not parse issue reference from "${rawInput}"
+
+${USAGE2}`;
+  }
+  const issueUrl = `https://github.com/${issueInfo.owner}/${issueInfo.repo}/issues/${issueInfo.number}`;
+  const result = validateAndSanitizeUrl(issueUrl);
+  if ("error" in result) {
+    return `Error: ${result.error}
+
+${USAGE2}`;
+  }
+  const flags2 = [];
+  if (parsed.plan)
+    flags2.push("plan=true");
+  if (parsed.trace)
+    flags2.push("trace=true");
+  if (parsed.noRepro)
+    flags2.push("noRepro=true");
+  const flagsStr = flags2.length > 0 ? ` ${flags2.join(" ")}` : "";
+  return `[MODE: ISSUE_INGEST issue="${result.sanitized}"${flagsStr}]`;
+}
+var MAX_URL_LEN = 2048, USAGE2;
+var init_issue = __esm(() => {
+  USAGE2 = [
+    "Usage: /swarm issue <url|owner/repo#N|N> [--plan] [--trace] [--no-repro]",
+    "",
+    "Ingest a GitHub issue into the swarm workflow.",
+    "  /swarm issue https://github.com/owner/repo/issues/42",
+    "  /swarm issue owner/repo#42",
+    "  /swarm issue 42 --plan",
+    "  /swarm issue 42 --trace --no-repro",
+    "",
+    "Flags:",
+    "  --plan        Transition to plan creation after spec generation",
+    "  --trace       Run full fix-and-PR workflow (implies --plan)",
+    "  --no-repro    Skip reproduction step"
+  ].join(`
+`);
+});
+
 // src/hooks/knowledge-migrator.ts
 import { randomUUID as randomUUID3 } from "node:crypto";
 import { existsSync as existsSync16, readFileSync as readFileSync11 } from "node:fs";
@@ -48709,6 +49094,192 @@ var init_plan_service = __esm(() => {
 // src/commands/plan.ts
 var init_plan = __esm(() => {
   init_plan_service();
+});
+
+// src/commands/pr-review.ts
+import { execSync as execSync3 } from "node:child_process";
+function sanitizeUrl2(raw) {
+  let urlStr = raw.trim();
+  urlStr = urlStr.replace(/\[\s*MODE\s*:[^\]]*\]/gi, "");
+  const fragmentIdx = urlStr.indexOf("#");
+  if (fragmentIdx !== -1) {
+    urlStr = urlStr.slice(0, fragmentIdx);
+  }
+  const queryIdx = urlStr.indexOf("?");
+  if (queryIdx !== -1) {
+    urlStr = urlStr.slice(0, queryIdx);
+  }
+  urlStr = urlStr.replace(/^[A-Za-z][A-Za-z0-9+.-]*:\/\/[^@/]+@/, "https://");
+  if (urlStr.length > MAX_URL_LEN2) {
+    urlStr = urlStr.slice(0, MAX_URL_LEN2);
+  }
+  return urlStr.trim();
+}
+function isPrivateHost2(url3) {
+  const host = url3.hostname.toLowerCase();
+  if (host === "localhost" || host === "127.0.0.1" || host === "::1" || host === "0.0.0.0") {
+    return true;
+  }
+  if (host.startsWith("localhost") || host === "localhost.com") {
+    return true;
+  }
+  const ipv4Private = /^10\./;
+  const ipv4172 = /^172\.(1[6-9]|2\d|3[0-1])\./;
+  const ipv4192 = /^192\.168\./;
+  const ipv6Private = /^fe80:/i;
+  const ipv6Unique = /^f[cd][0-9a-f]{2}:/i;
+  if (ipv4Private.test(host) || ipv4172.test(host) || ipv4192.test(host) || ipv6Private.test(host) || ipv6Unique.test(host)) {
+    return true;
+  }
+  if (host.startsWith("::ffff:")) {
+    const inner = host.slice(7);
+    if (ipv4Private.test(inner) || ipv4172.test(inner) || ipv4192.test(inner)) {
+      return true;
+    }
+  }
+  return false;
+}
+function validateAndSanitizeUrl2(rawUrl) {
+  const sanitized = sanitizeUrl2(rawUrl);
+  if (!sanitized) {
+    return { error: "Empty URL" };
+  }
+  if (!sanitized.startsWith("https://")) {
+    return { error: "URL must use HTTPS scheme" };
+  }
+  try {
+    const url3 = new URL(sanitized);
+    const hostname5 = url3.hostname;
+    if (/[\u0080-\u{10FFFF}]/u.test(hostname5)) {
+      return { error: "Non-ASCII hostnames are not allowed" };
+    }
+    if (isPrivateHost2(url3)) {
+      return { error: "Private or localhost URLs are not allowed" };
+    }
+    const githubPrPattern = /^https:\/\/github\.com\/([^/]+)\/([^/]+)\/pull\/([0-9]+)\/?$/;
+    if (!githubPrPattern.test(sanitized)) {
+      return {
+        error: "URL must be a GitHub pull request URL (https://github.com/owner/repo/pull/N)"
+      };
+    }
+    return { sanitized };
+  } catch {
+    return { error: "Invalid URL format" };
+  }
+}
+function parseArgs3(args2) {
+  const out2 = { council: false, rest: [] };
+  for (const token of args2) {
+    if (token === "--council") {
+      out2.council = true;
+      continue;
+    }
+    out2.rest.push(token);
+  }
+  return out2;
+}
+function parsePrRef(input) {
+  const urlMatch = input.match(/^https:\/\/github\.com\/([^/]+)\/([^/]+)\/pull\/(\d+)\/?$/i);
+  if (urlMatch) {
+    return {
+      owner: urlMatch[1],
+      repo: urlMatch[2],
+      number: parseInt(urlMatch[3], 10)
+    };
+  }
+  const shorthandMatch = input.match(/^([^/]+)\/([^#]+)#(\d+)$/);
+  if (shorthandMatch) {
+    return {
+      owner: shorthandMatch[1],
+      repo: shorthandMatch[2],
+      number: parseInt(shorthandMatch[3], 10)
+    };
+  }
+  const bareMatch = input.match(/^(\d+)$/);
+  if (bareMatch) {
+    const prNumber = parseInt(bareMatch[1], 10);
+    const remoteUrl = detectGitRemote2();
+    if (!remoteUrl) {
+      return null;
+    }
+    const parsed = parseGitRemoteUrl2(remoteUrl);
+    if (!parsed) {
+      return null;
+    }
+    return {
+      owner: parsed.owner,
+      repo: parsed.repo,
+      number: prNumber
+    };
+  }
+  return null;
+}
+function detectGitRemote2() {
+  try {
+    const remoteUrl = execSync3("git remote get-url origin", {
+      encoding: "utf-8",
+      stdio: ["pipe", "pipe", "pipe"],
+      timeout: 5000
+    }).trim();
+    return remoteUrl || null;
+  } catch {
+    return null;
+  }
+}
+function parseGitRemoteUrl2(remoteUrl) {
+  const httpsMatch = remoteUrl.match(/^https:\/\/github\.com\/([^/]+)\/([^/]+?)(?:\.git)?\/?$/i);
+  if (httpsMatch) {
+    return {
+      owner: httpsMatch[1],
+      repo: httpsMatch[2].replace(/\.git$/, "")
+    };
+  }
+  const sshMatch = remoteUrl.match(/^git@github\.com:([^/]+)\/([^/]+?)(?:\.git)?$/i);
+  if (sshMatch) {
+    return {
+      owner: sshMatch[1],
+      repo: sshMatch[2].replace(/\.git$/, "")
+    };
+  }
+  return null;
+}
+function handlePrReviewCommand(_directory, args2) {
+  const parsed = parseArgs3(args2);
+  const rawInput = parsed.rest.join(" ").trim();
+  if (!rawInput) {
+    return USAGE3;
+  }
+  const isFullUrl = /^https?:\/\//i.test(rawInput);
+  const prInfo = parsePrRef(isFullUrl ? sanitizeUrl2(rawInput) : rawInput);
+  if (!prInfo) {
+    return `Error: Could not parse PR reference from "${rawInput}"
+
+${USAGE3}`;
+  }
+  const prUrl = `https://github.com/${prInfo.owner}/${prInfo.repo}/pull/${prInfo.number}`;
+  const result = validateAndSanitizeUrl2(prUrl);
+  if ("error" in result) {
+    return `Error: ${result.error}
+
+${USAGE3}`;
+  }
+  const councilFlag = parsed.council ? "council=true" : "council=false";
+  return `[MODE: PR_REVIEW pr="${result.sanitized}" ${councilFlag}]`;
+}
+var MAX_URL_LEN2 = 2048, USAGE3;
+var init_pr_review = __esm(() => {
+  USAGE3 = [
+    "Usage: /swarm pr-review <url|owner/repo#N|N> [--council]",
+    "",
+    "Run a full swarm PR review on a GitHub pull request.",
+    "  /swarm pr-review https://github.com/owner/repo/pull/42",
+    "  /swarm pr-review owner/repo#42",
+    "  /swarm pr-review 42 --council",
+    "",
+    "Flags:",
+    "  --council     Run adversarial council variant (all lanes assume work is wrong)"
+  ].join(`
+`);
 });
 
 // src/utils/path-security.ts
@@ -52671,7 +53242,8 @@ var init_qa_gates = __esm(() => {
     "hallucination_guard",
     "sast_enabled",
     "mutation_test",
-    "council_general_review"
+    "council_general_review",
+    "drift_check"
   ];
 });
 
@@ -54351,8 +54923,10 @@ var init_registry = __esm(() => {
   init_full_auto();
   init_handoff();
   init_history();
+  init_issue();
   init_knowledge();
   init_plan();
+  init_pr_review();
   init_preflight();
   init_promote();
   init_qa_gates();
@@ -54507,11 +55081,23 @@ var init_registry = __esm(() => {
       args: "<question> [--preset <name>] [--spec-review]",
       details: "Triggers the architect to convene a configurable General Council: each member independently web-searches, answers, and engages in one structured deliberation round on disagreements; an optional moderator pass synthesizes the final answer. --preset <name> selects a member group from council.general.presets. --spec-review switches to single-pass advisory mode for spec review. Requires council.general.enabled: true and a search API key in opencode-swarm.json."
     },
+    "pr-review": {
+      handler: async (ctx) => handlePrReviewCommand(ctx.directory, ctx.args),
+      description: "Launch deep PR review with multi-lane analysis [url] [--council]",
+      args: "<pr-url|owner/repo#N|N> [--council]",
+      details: "Launches a structured PR review: reconstructs PR intent via obligation extraction cascade, runs 6 parallel explorer lanes (correctness, security, dependencies, docs-intent-vs-actual, tests, performance-architecture), validates findings through independent reviewer confirmation, applies critic challenge to HIGH/CRITICAL findings, synthesizes structured report. --council variant fires adversarial multi-model review. Supports full GitHub URL, owner/repo#N shorthand, or bare PR number (resolves against origin remote)."
+    },
+    issue: {
+      handler: async (ctx) => handleIssueCommand(ctx.directory, ctx.args),
+      description: "Ingest a GitHub issue into the swarm workflow [url] [--plan] [--trace] [--no-repro]",
+      args: "<issue-url|owner/repo#N|N> [--plan] [--trace] [--no-repro]",
+      details: "Triggers the architect to enter MODE: ISSUE_INGEST — ingests a GitHub issue, restructures it into a normalized intake note, localizes root cause through hypothesis-driven tracing, and outputs a resolution spec. --plan transitions to plan creation after spec generation. --trace runs the full fix-and-PR workflow (implies --plan). --no-repro skips the reproduction step. Supports full GitHub URL, owner/repo#N shorthand, or bare issue number (resolves against origin remote)."
+    },
     "qa-gates": {
       handler: (ctx) => handleQaGatesCommand(ctx.directory, ctx.args, ctx.sessionID),
       description: "View or modify QA gate profile for the current plan [enable|override <gate>...]",
       args: "[show|enable|override] <gate>...",
-      details: "show: display spec-level, session-override, and effective QA gates for the current plan. enable: persist gate(s) into the locked-once profile (architect; rejected after critic approval lock). override: session-only ratchet-tighter enable. Valid gates: reviewer, test_engineer, council_mode, sme_enabled, critic_pre_plan, hallucination_guard, sast_enabled, mutation_test, council_general_review."
+      details: "show: display spec-level, session-override, and effective QA gates for the current plan. enable: persist gate(s) into the locked-once profile (architect; rejected after critic approval lock). override: session-only ratchet-tighter enable. Valid gates: reviewer, test_engineer, council_mode, sme_enabled, critic_pre_plan, hallucination_guard, sast_enabled, mutation_test, council_general_review, drift_check."
     },
     promote: {
       handler: (ctx) => handlePromoteCommand(ctx.directory, ctx.args),
@@ -54727,7 +55313,7 @@ function buildQaGateSelectionDialogue(modeLabel) {
   const leadIn = modeLabel === "BRAINSTORM" ? "Now ask the user which QA gates to enable for this plan — do not select on their behalf." : modeLabel === "SPECIFY" ? "Ask the user which QA gates to enable for this plan before suggesting the next step." : "No pending gate selection found in `.swarm/context.md`. Ask the user inline now.";
   return `${leadIn}
 
-Present the nine gates with their defaults (DEFAULT_QA_GATES) as a single user-facing question. Offer the user a one-shot choice: accept defaults, or customize. The nine gates are:
+Present the ten gates with their defaults (DEFAULT_QA_GATES) as a single user-facing question. Offer the user a one-shot choice: accept defaults, or customize. The ten gates are:
 - reviewer (default: ON) — code review of coder output
 - test_engineer (default: ON) — test verification of coder output
 - sme_enabled (default: ON) — SME consultation during planning/clarification
@@ -54737,6 +55323,7 @@ Present the nine gates with their defaults (DEFAULT_QA_GATES) as a single user-f
 - hallucination_guard (default: OFF) — when enabled, mandatory per-phase API/signature/claim/citation verification via critic_hallucination_verifier at PHASE-WRAP; phase_complete will REJECT phase completion unless .swarm/evidence/{phase}/hallucination-guard.json exists with an APPROVED verdict (recommended for claim-heavy or research-heavy work)
 - mutation_test (default: OFF) — when enabled, runs mutation testing on source files touched this phase via generate_mutants + mutation_test + write_mutation_evidence at PHASE-WRAP; FAIL verdict blocks phase_complete; WARN is non-blocking (recommended for projects with coverage gaps or safety-critical code)
 - council_general_review (default: OFF) — when enabled, MODE: SPECIFY runs convene_general_council on the draft spec before the critic-gate; multiple models each independently search the web, deliberate on disagreements, and a moderator synthesizes a final answer that the architect folds into the spec (recommended for novel architecture, unclear best practices, or high-risk design decisions). Requires council.general.enabled: true and a configured search API key.
+- drift_check (default: ON) — when enabled, mandatory per-phase drift verification via critic_drift_verifier at PHASE-WRAP; compares implemented changes against spec.md intent; hard-blocks phase_complete when spec.md exists and drift evidence is missing or REJECTED; advisory-only when no spec.md exists (recommended for all projects with a specification)
 
 One question, one message, defaults pre-stated. Wait for the user's answer.`;
 }
@@ -55482,6 +56069,7 @@ Do NOT call \`set_qa_gates\` yet — \`plan.json\` does not exist at this point.
 - hallucination_guard: <true|false>
 - mutation_test: <true|false>
 - council_general_review: <true|false>
+- drift_check: <true|false>
 - recorded_at: <ISO timestamp>
 \`\`\`
 MODE: PLAN applies these after \`save_plan\` succeeds via \`set_qa_gates\`.
@@ -55559,6 +56147,7 @@ Do NOT call \`set_qa_gates\` yet — \`plan.json\` does not exist at this point.
 - hallucination_guard: <true|false>
 - mutation_test: <true|false>
 - council_general_review: <true|false>
+- drift_check: <true|false>
 - recorded_at: <ISO timestamp>
 \`\`\`
 MODE: PLAN will read this section after \`save_plan\` succeeds and persist via \`set_qa_gates\`.
@@ -55789,6 +56378,61 @@ This mode is ADVISORY — it does NOT block any other workflow and does NOT modi
    - If the moderator pass ran: present the moderator's output verbatim, prefaced with the participating models (one line).
    - If no moderator: present the structural \`synthesis\` markdown from the tool's return.
    In either case, do NOT present the raw per-member JSON. Do NOT silently pick a winner among persisting disagreements — surface them honestly.
+
+### MODE: ISSUE_INGEST
+Activates when: user invokes \`/swarm issue <url>\`; OR architect receives \`[MODE: ISSUE_INGEST issue="<url>"]\` signal.
+
+Purpose: ingest a GitHub issue, localize root cause, and produce a resolution spec. The issue URL points to a GitHub issue that describes a bug, feature request, or task to be resolved.
+
+Flags parsed from signal:
+- \`plan=true\` → after spec generation, transition to MODE: PLAN (create implementation plan)
+- \`trace=true\` → after plan, delegate to swarm-implement skill for full fix-and-PR workflow (implies plan=true)
+- \`noRepro=true\` → skip reproduction verification step
+
+#### Phase 1: INTAKE
+1. Fetch the issue body using the GitHub CLI (\`gh issue view <N> --repo <owner>/<repo> --json title,body,labels,assignees,comments\`) or web fetch.
+2. Parse the issue into a normalized **Intake Note** with four required fields:
+   - **Observed behavior**: what the issue reports
+   - **Expected behavior**: what should happen instead
+   - **Reproduction steps**: how to trigger the issue (may be absent; flag with \`[NEEDS REPRO]\` if missing)
+   - **Environment**: platform, version, configuration context
+3. If any required field is missing and cannot be inferred from context, flag as \`[NEEDS REPRO]\`.
+4. If \`--no-repro\` flag is set, skip reproduction verification and proceed with available information.
+5. Exit when the Intake Note is complete or all missing fields are flagged.
+
+#### Phase 2: LOCALIZATION
+1. Delegate to \`mega_explorer\` to scan the codebase for code areas related to the issue's observed behavior.
+2. Build 2–5 candidate hypotheses for root cause, each with:
+   - **Location**: file(s) and function(s) most likely responsible
+   - **Confidence**: composite score (stack-trace match 0.4, recency 0.25, call-graph proximity 0.2, test-failure correlation 0.15)
+   - **Falsifiability**: a specific test or observation that would disprove this hypothesis
+3. Validate top-3 hypotheses in parallel using targeted \`mega_sme\` consultations.
+4. Prune to a single root cause hypothesis with supporting evidence.
+5. Exit when a root cause is identified with ≥70% confidence, or when all hypotheses are exhausted (report ambiguity).
+
+#### Phase 3: SPEC GENERATION
+0. Include a **Root Cause** section derived from Phase 2 localization results: concise statement of the identified root cause, location, and confidence score. Include a **Fix Strategy** section at product/behavior level (what the fix must accomplish, not how to implement it).
+1. Generate \`.swarm/spec.md\` using the same SPEC CONTENT RULES as MODE: SPECIFY:
+   - WHAT users need and WHY — never HOW to implement
+   - FR-### / SC-### numbering, Given/When/Then scenarios
+   - No technology stack, APIs, or code structure
+   - \`[NEEDS CLARIFICATION]\` markers (max 3)
+2. Cross-reference the spec against the issue's expected behavior to ensure alignment.
+3. If the issue is a bug: spec must describe the correct behavior, not the broken behavior.
+4. If the issue is a feature: spec must describe the user-facing outcome, not the implementation.
+5. QA GATE SELECTION: Ask user which QA gates to enable (same dialogue as MODE: SPECIFY). Write to \`.swarm/context.md\` under \`## Pending QA Gate Selection\`.
+
+#### Phase 4: TRANSITION
+Based on flags:
+- No flags → report spec summary and suggest \`PLAN\` or \`CLARIFY-SPEC\`
+- \`plan=true\` → transition to MODE: PLAN using the generated spec
+- \`trace=true\` → transition to MODE: PLAN, then delegate to swarm-implement skill for full fix workflow
+
+RULES:
+- One question per message in INTAKE dialogue (max 6 questions)
+- Hypotheses must be falsifiable — no unfalsifiable hypotheses
+- Spec must be independently testable — each FR must have a verification path
+- The issue URL is already sanitized by the issue command — do not re-sanitize
 
 ### MODE: PLAN
 
@@ -72804,7 +73448,7 @@ function deserializeAgentSession(s) {
   for (const [key, win] of Object.entries(s.windows ?? {})) {
     windows[key] = {
       ...win,
-      transientRetryCount: win.transientRetryCount ?? 0
+      transientRetryCount: "transientRetryCount" in win ? win.transientRetryCount ?? 0 : 0
     };
   }
   return {
@@ -78144,7 +78788,7 @@ async function executePhaseComplete(args2, workingDirectory, directory) {
     }, null, 2);
   }
   if (hasActiveTurboMode(sessionID)) {
-    console.warn(`[phase_complete] Turbo mode active — skipping completion-verify, drift-verifier, hallucination-guard, and mutation-gate gates for phase ${phase}`);
+    console.warn(`[phase_complete] Turbo mode active — skipping completion-verify, drift-verifier, hallucination-guard, mutation-gate, and phase-council gates for phase ${phase}`);
   } else {
     try {
       const completionResultRaw = await executeCompletionVerify({ phase }, dir);
@@ -78166,88 +78810,138 @@ async function executePhaseComplete(args2, workingDirectory, directory) {
     } catch (completionError) {
       safeWarn(`[phase_complete] Completion verify error (non-blocking):`, completionError);
     }
+    let driftCheckEnabled = true;
+    let driftHasSpecMd = false;
     try {
-      const driftEvidencePath = path81.join(dir, ".swarm", "evidence", String(phase), "drift-verifier.json");
-      let driftVerdictFound = false;
-      let driftVerdictApproved = false;
+      const specMdPath = path81.join(dir, ".swarm", "spec.md");
+      driftHasSpecMd = fs65.existsSync(specMdPath);
+      const gatePlan = await loadPlan(dir);
+      if (gatePlan) {
+        const gatePlanId = `${gatePlan.swarm}-${gatePlan.title}`.replace(/[^a-zA-Z0-9-_]/g, "_");
+        const gateProfile = getProfile(dir, gatePlanId);
+        if (gateProfile) {
+          const gateSession = sessionID ? swarmState.agentSessions.get(sessionID) : undefined;
+          const gateOverrides = gateSession?.qaGateSessionOverrides ?? {};
+          const gateEffective = getEffectiveGates(gateProfile, gateOverrides);
+          driftCheckEnabled = gateEffective.drift_check === true;
+        }
+      }
+    } catch (gateLoadError) {
+      safeWarn(`[phase_complete] QA gate profile load error, drift_check defaults to enabled:`, gateLoadError);
+    }
+    if (!driftCheckEnabled) {
+      console.info(`[phase_complete] drift_check disabled — skipping drift verification gate for phase ${phase}`);
+      warnings.push(`drift_check gate is disabled. Drift verification was skipped for phase ${phase}.`);
+    } else {
+      let phaseType;
       try {
-        const driftEvidenceContent = fs65.readFileSync(driftEvidencePath, "utf-8");
-        const driftEvidence = JSON.parse(driftEvidenceContent);
-        const entries = driftEvidence.entries ?? [];
-        for (const entry of entries) {
-          if (typeof entry.type === "string" && entry.type.includes("drift") && typeof entry.verdict === "string") {
-            driftVerdictFound = true;
-            if (entry.verdict === "approved") {
-              driftVerdictApproved = true;
+        const planPath = path81.join(dir, ".swarm", "plan.json");
+        if (fs65.existsSync(planPath)) {
+          const planRaw = fs65.readFileSync(planPath, "utf-8");
+          const plan = JSON.parse(planRaw);
+          const targetPhase = plan.phases?.find((p) => p.id === phase);
+          phaseType = targetPhase?.type;
+        }
+      } catch {}
+      if (phaseType === "non-code") {
+        console.info(`[phase_complete] Phase ${phase} annotated as 'non-code' — drift verification skipped.`);
+        warnings.push(`Phase ${phase} is annotated as 'non-code'. Drift verification was skipped per phase type annotation.`);
+      } else {
+        try {
+          const driftEvidencePath = path81.join(dir, ".swarm", "evidence", String(phase), "drift-verifier.json");
+          let driftVerdictFound = false;
+          let driftVerdictApproved = false;
+          try {
+            const driftEvidenceContent = fs65.readFileSync(driftEvidencePath, "utf-8");
+            const driftEvidence = JSON.parse(driftEvidenceContent);
+            const entries = driftEvidence.entries ?? [];
+            for (const entry of entries) {
+              if (typeof entry.type === "string" && entry.type.includes("drift") && typeof entry.verdict === "string") {
+                driftVerdictFound = true;
+                if (entry.verdict === "approved") {
+                  driftVerdictApproved = true;
+                }
+                if (entry.verdict === "rejected" || typeof entry.summary === "string" && entry.summary.includes("NEEDS_REVISION")) {
+                  return JSON.stringify({
+                    success: false,
+                    phase,
+                    status: "blocked",
+                    reason: "DRIFT_VERIFICATION_REJECTED",
+                    message: `Phase ${phase} cannot be completed: drift verifier returned verdict '${entry.verdict}'. Address the drift issues before completing the phase.`,
+                    agentsDispatched,
+                    agentsMissing: [],
+                    warnings: []
+                  }, null, 2);
+                }
+              }
             }
-            if (entry.verdict === "rejected" || typeof entry.summary === "string" && entry.summary.includes("NEEDS_REVISION")) {
+          } catch (readError) {
+            if (readError.code !== "ENOENT") {
+              safeWarn(`[phase_complete] Drift verifier evidence unreadable:`, readError);
+            }
+            driftVerdictFound = false;
+          }
+          if (!driftVerdictFound) {
+            if (!driftHasSpecMd) {
+              let incompleteTaskCount = 0;
+              let planParseable = false;
+              try {
+                const planPath = path81.join(dir, ".swarm", "plan.json");
+                if (fs65.existsSync(planPath)) {
+                  const planRaw = fs65.readFileSync(planPath, "utf-8");
+                  const plan = JSON.parse(planRaw);
+                  planParseable = true;
+                  const planPhase = plan.phases?.find((p) => p.id === phase);
+                  if (planPhase?.tasks) {
+                    incompleteTaskCount = planPhase.tasks.filter((t) => t.status !== "completed" && t.status !== "closed").length;
+                  }
+                }
+              } catch {}
+              if (!planParseable) {
+                warnings.push(`No spec.md found and drift verification evidence missing — consider running critic_drift_verifier before phase completion.`);
+              } else if (incompleteTaskCount > 0) {
+                warnings.push(`No spec.md found and drift verification evidence missing. Phase ${phase} has ${incompleteTaskCount} incomplete task(s) in plan.json — consider running critic_drift_verifier before phase completion.`);
+              } else {
+                warnings.push(`No spec.md found. Phase ${phase} tasks are all completed in plan.json. Drift verification was skipped.`);
+              }
+            } else {
               return JSON.stringify({
                 success: false,
                 phase,
                 status: "blocked",
-                reason: "DRIFT_VERIFICATION_REJECTED",
-                message: `Phase ${phase} cannot be completed: drift verifier returned verdict '${entry.verdict}'. Address the drift issues before completing the phase.`,
+                reason: "DRIFT_VERIFICATION_MISSING",
+                message: `Phase ${phase} cannot be completed: drift_check is enabled and drift verifier evidence not found at .swarm/evidence/${phase}/drift-verifier.json. Run drift verification before completing the phase.`,
                 agentsDispatched,
                 agentsMissing: [],
                 warnings: []
               }, null, 2);
             }
           }
-        }
-      } catch (readError) {
-        if (readError.code !== "ENOENT") {
-          safeWarn(`[phase_complete] Drift verifier evidence unreadable:`, readError);
-        }
-        driftVerdictFound = false;
-      }
-      if (!driftVerdictFound) {
-        const specPath = path81.join(dir, ".swarm", "spec.md");
-        const specExists = fs65.existsSync(specPath);
-        if (!specExists) {
-          let incompleteTaskCount = 0;
-          let planPhaseFound = false;
-          try {
-            const planPath = validateSwarmPath(dir, "plan.json");
-            const planRaw = fs65.readFileSync(planPath, "utf-8");
-            const plan = JSON.parse(planRaw);
-            const targetPhase = plan.phases.find((p) => p.id === phase);
-            if (targetPhase) {
-              planPhaseFound = true;
-              incompleteTaskCount = targetPhase.tasks.filter((t) => t.status !== "completed").length;
-            }
-          } catch {}
-          if (incompleteTaskCount > 0 || !planPhaseFound) {
-            warnings.push(`No spec.md found and drift verification evidence missing. Phase ${phase} has ${incompleteTaskCount} incomplete task(s) in plan.json — consider running critic_drift_verifier before phase completion.`);
-          } else {
-            warnings.push(`No spec.md found. Phase ${phase} tasks are all completed in plan.json. Drift verification was skipped.`);
+          if (!driftVerdictApproved && driftVerdictFound) {
+            return JSON.stringify({
+              success: false,
+              phase,
+              status: "blocked",
+              reason: "DRIFT_VERIFICATION_REJECTED",
+              message: `Phase ${phase} cannot be completed: drift verifier verdict is not approved.`,
+              agentsDispatched,
+              agentsMissing: [],
+              warnings: []
+            }, null, 2);
           }
-        } else {
+        } catch (driftError) {
           return JSON.stringify({
             success: false,
             phase,
             status: "blocked",
-            reason: "DRIFT_VERIFICATION_MISSING",
-            message: `Phase ${phase} cannot be completed: drift verifier evidence not found at .swarm/evidence/${phase}/drift-verifier.json. Run drift verification before completing the phase.`,
+            reason: "DRIFT_VERIFICATION_ERROR",
+            message: `Phase ${phase} cannot be completed: drift verification encountered an error: ${driftError instanceof Error ? driftError.message : String(driftError)}. This is a hard block — resolve the error before completing the phase.`,
             agentsDispatched,
             agentsMissing: [],
             warnings: []
           }, null, 2);
         }
       }
-      if (!driftVerdictApproved && driftVerdictFound) {
-        return JSON.stringify({
-          success: false,
-          phase,
-          status: "blocked",
-          reason: "DRIFT_VERIFICATION_REJECTED",
-          message: `Phase ${phase} cannot be completed: drift verifier verdict is not approved.`,
-          agentsDispatched,
-          agentsMissing: [],
-          warnings: []
-        }, null, 2);
-      }
-    } catch (driftError) {
-      safeWarn(`[phase_complete] Drift verifier error (non-blocking):`, driftError);
     }
     try {
       const plan = await loadPlan(dir);
@@ -78392,6 +79086,210 @@ async function executePhaseComplete(args2, workingDirectory, directory) {
       }
     } catch (mgError) {
       safeWarn(`[phase_complete] Mutation gate error (non-blocking):`, mgError);
+    }
+    let councilModeEnabled = false;
+    try {
+      const plan = await loadPlan(dir);
+      if (plan) {
+        const planId = `${plan.swarm}-${plan.title}`.replace(/[^a-zA-Z0-9-_]/g, "_");
+        const profile = getProfile(dir, planId);
+        if (profile) {
+          const session2 = sessionID ? swarmState.agentSessions.get(sessionID) : undefined;
+          const overrides = session2?.qaGateSessionOverrides ?? {};
+          const effective = getEffectiveGates(profile, overrides);
+          if (effective.council_mode === true) {
+            councilModeEnabled = true;
+            const pcPath = path81.join(dir, ".swarm", "evidence", String(phase), "phase-council.json");
+            let pcVerdictFound = false;
+            let _pcVerdict;
+            let pcQuorumSize;
+            let pcTimestamp;
+            let pcPhaseNumber;
+            try {
+              const pcContent = fs65.readFileSync(pcPath, "utf-8");
+              const pcBundle = JSON.parse(pcContent);
+              for (const entry of pcBundle.entries ?? []) {
+                if (typeof entry.type === "string" && entry.type === "phase-council" && typeof entry.verdict === "string") {
+                  pcVerdictFound = true;
+                  _pcVerdict = entry.verdict;
+                  pcQuorumSize = typeof entry.quorumSize === "number" ? entry.quorumSize : undefined;
+                  pcTimestamp = typeof entry.timestamp === "string" ? entry.timestamp : undefined;
+                  pcPhaseNumber = typeof entry.phase_number === "number" ? entry.phase_number : typeof entry.phase === "number" ? entry.phase : undefined;
+                  const now2 = new Date;
+                  const pcTime = pcTimestamp ? new Date(pcTimestamp) : null;
+                  if (!pcTime || Number.isNaN(pcTime.getTime())) {
+                    return JSON.stringify({
+                      success: false,
+                      phase,
+                      status: "blocked",
+                      reason: "PHASE_COUNCIL_INVALID_TIMESTAMP",
+                      message: `Phase ${phase} cannot be completed: phase council evidence has missing or invalid timestamp.`,
+                      agentsDispatched,
+                      agentsMissing: [],
+                      warnings: []
+                    }, null, 2);
+                  }
+                  const maxAge = 24 * 60 * 60 * 1000;
+                  if (pcTime.getTime() > now2.getTime()) {
+                    return JSON.stringify({
+                      success: false,
+                      phase,
+                      status: "blocked",
+                      reason: "PHASE_COUNCIL_FUTURE_TIMESTAMP",
+                      message: `Phase ${phase} cannot be completed: phase council evidence timestamp is in the future.`,
+                      agentsDispatched,
+                      agentsMissing: [],
+                      warnings: []
+                    }, null, 2);
+                  }
+                  if (now2.getTime() - pcTime.getTime() > maxAge) {
+                    return JSON.stringify({
+                      success: false,
+                      phase,
+                      status: "blocked",
+                      reason: "PHASE_COUNCIL_STALE_EVIDENCE",
+                      message: `Phase ${phase} cannot be completed: phase council evidence is older than 24 hours. Re-convene council for fresh review.`,
+                      agentsDispatched,
+                      agentsMissing: [],
+                      warnings: []
+                    }, null, 2);
+                  }
+                  if (entry.verdict === "REJECT" || entry.verdict === "reject") {
+                    const requiredFixes = entry.requiredFixes ?? entry.required_fixes ?? [];
+                    const fixesDetail = Array.isArray(requiredFixes) && requiredFixes.length > 0 ? `
+Required fixes: ${requiredFixes.map((f) => f.detail ?? JSON.stringify(f)).join("; ")}` : "";
+                    return JSON.stringify({
+                      success: false,
+                      phase,
+                      status: "blocked",
+                      reason: "PHASE_COUNCIL_REJECTED",
+                      message: `Phase ${phase} cannot be completed: phase council returned verdict 'REJECT'. Address the required fixes before completing the phase.${fixesDetail}`,
+                      agentsDispatched,
+                      agentsMissing: [],
+                      warnings: []
+                    }, null, 2);
+                  }
+                  if (entry.verdict === "CONCERNS" || entry.verdict === "concerns") {
+                    const phaseConcernsAllow = false;
+                    if (!phaseConcernsAllow) {
+                      const advisoryNotes = entry.advisoryNotes ?? entry.advisory_notes ?? [];
+                      const notesDetail = Array.isArray(advisoryNotes) && advisoryNotes.length > 0 ? `
+Advisory notes: ${advisoryNotes.join("; ")}` : "";
+                      return JSON.stringify({
+                        success: false,
+                        phase,
+                        status: "blocked",
+                        reason: "PHASE_COUNCIL_CONCERNS",
+                        message: `Phase ${phase} cannot be completed: phase council returned verdict 'CONCERNS'.${notesDetail}`,
+                        agentsDispatched,
+                        agentsMissing: [],
+                        warnings: []
+                      }, null, 2);
+                    }
+                    safeWarn(`[phase_complete] Phase council returned CONCERNS for phase ${phase} — proceeding because config.council.phaseConcernsAllowComplete is true`, undefined);
+                  }
+                  if (entry.verdict !== "APPROVE" && entry.verdict !== "approve") {
+                    return JSON.stringify({
+                      success: false,
+                      phase,
+                      status: "blocked",
+                      reason: "PHASE_COUNCIL_INVALID",
+                      message: `Phase ${phase} cannot be completed: phase council evidence contains unrecognized verdict '${entry.verdict}'. Expected one of: APPROVE, CONCERNS, REJECT.`,
+                      agentsDispatched,
+                      agentsMissing: [],
+                      warnings: []
+                    }, null, 2);
+                  }
+                }
+              }
+            } catch (readErr) {
+              if (readErr.code !== "ENOENT") {
+                safeWarn(`[phase_complete] Phase council evidence unreadable:`, readErr);
+              }
+              pcVerdictFound = false;
+            }
+            if (!pcVerdictFound) {
+              return JSON.stringify({
+                success: false,
+                phase,
+                status: "blocked",
+                reason: "PHASE_COUNCIL_REQUIRED",
+                phase_council_required: true,
+                message: `Phase ${phase} cannot be completed: council_mode is enabled and phase council evidence not found at .swarm/evidence/${phase}/phase-council.json. Convene a phase-level council (dispatch 5 members, collect verdicts, call submit_council_verdicts) before completing the phase.`,
+                agentsDispatched,
+                agentsMissing: [],
+                warnings: [
+                  `Phase council required — convene 5 council members (critic, reviewer, sme, test_engineer, explorer) for holistic phase review. Call submit_council_verdicts to synthesize verdicts and write phase-council.json evidence.`
+                ]
+              }, null, 2);
+            }
+            if (pcQuorumSize === undefined || typeof pcQuorumSize !== "number") {
+              return JSON.stringify({
+                success: false,
+                phase,
+                status: "blocked",
+                reason: "PHASE_COUNCIL_MISSING_QUORUM",
+                message: `Phase ${phase} cannot be completed: phase council evidence is missing quorumSize field.`,
+                agentsDispatched,
+                agentsMissing: [],
+                warnings: []
+              }, null, 2);
+            }
+            if (pcQuorumSize < 3) {
+              return JSON.stringify({
+                success: false,
+                phase,
+                status: "blocked",
+                reason: "PHASE_COUNCIL_INSUFFICIENT_QUORUM",
+                message: `Phase ${phase} cannot be completed: phase council quorum (${pcQuorumSize}) is below minimum (3). Re-convene council with sufficient members.`,
+                agentsDispatched,
+                agentsMissing: [],
+                warnings: []
+              }, null, 2);
+            }
+            if (pcPhaseNumber === undefined || typeof pcPhaseNumber !== "number") {
+              return JSON.stringify({
+                success: false,
+                phase,
+                status: "blocked",
+                reason: "PHASE_COUNCIL_MISSING_PHASE",
+                message: `Phase ${phase} cannot be completed: phase council evidence is missing phase_number field.`,
+                agentsDispatched,
+                agentsMissing: [],
+                warnings: []
+              }, null, 2);
+            }
+            if (pcPhaseNumber !== phase) {
+              return JSON.stringify({
+                success: false,
+                phase,
+                status: "blocked",
+                reason: "PHASE_COUNCIL_PHASE_MISMATCH",
+                message: `Phase ${phase} cannot be completed: phase council evidence is for phase ${pcPhaseNumber}, not phase ${phase}. Run council for the correct phase.`,
+                agentsDispatched,
+                agentsMissing: [],
+                warnings: []
+              }, null, 2);
+            }
+          }
+        }
+      }
+    } catch (pcError) {
+      if (councilModeEnabled) {
+        warnings.push(`PHASE_COUNCIL_ERROR: ${String(pcError)}`);
+        return JSON.stringify({
+          success: false,
+          phase,
+          status: "blocked",
+          reason: "PHASE_COUNCIL_ERROR",
+          message: `Phase ${phase} cannot be completed: phase council gate encountered an error when council_mode was enabled. Error: ${String(pcError)}`,
+          agentsDispatched,
+          agentsMissing: [],
+          warnings: [`PHASE_COUNCIL_ERROR: ${String(pcError)}`]
+        }, null, 2);
+      } else {
+        safeWarn(`[phase_complete] Phase council gate error (non-blocking):`, pcError);
+      }
     }
   }
   let knowledgeConfig;
@@ -78577,7 +79475,7 @@ async function executePhaseComplete(args2, workingDirectory, directory) {
   const lockTaskId = `phase-complete-${Date.now()}`;
   const eventsFilePath = "events.jsonl";
   let agentName = "phase-complete";
-  for (const [, agent] of swarmState.activeAgent) {
+  for (const [, agent] of swarmState?.activeAgent ?? []) {
     agentName = agent;
     break;
   }
@@ -85735,7 +86633,8 @@ async function executeSetQaGates(args2, directory) {
     "hallucination_guard",
     "sast_enabled",
     "mutation_test",
-    "council_general_review"
+    "council_general_review",
+    "drift_check"
   ]) {
     if (args2[key] !== undefined)
       partial3[key] = args2[key];
@@ -85782,6 +86681,7 @@ var set_qa_gates = createSwarmTool({
     sast_enabled: exports_external.boolean().optional().describe("Enable SAST scanning as a required QA gate."),
     mutation_test: exports_external.boolean().optional().describe("Enable the mutation-testing gate (default: off). Requires mutation " + "tests to achieve a passing kill rate before phase completion; " + "WARN verdict allows advancement, FAIL blocks."),
     council_general_review: exports_external.boolean().optional().describe("Enable the council_general_review gate (default: off). When on, " + "MODE: SPECIFY runs convene_general_council on the draft spec " + "before the critic-gate, folding multi-model deliberation into " + "the spec. Requires council.general.enabled and a search API key."),
+    drift_check: exports_external.boolean().optional().describe("Enable drift verification gate (default: on). Blocks phase_complete " + "until drift-verifier.json has an approved verdict. When disabled, " + "drift verification is skipped entirely."),
     project_type: exports_external.string().optional().describe('Project type label (e.g. "ts", "python"). Only applied when the profile is being created for the first time.')
   },
   execute: async (args2, directory) => {

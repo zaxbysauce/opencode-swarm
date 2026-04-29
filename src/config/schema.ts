@@ -1092,6 +1092,10 @@ export const ParallelizationConfigSchema = z.object({
 	maxConcurrentTasks: z.number().int().min(1).max(64).default(1),
 	/** Timeout in ms for evidence file locks before throwing EvidenceLockTimeoutError. */
 	evidenceLockTimeoutMs: z.number().int().min(1000).max(300000).default(60000),
+	/** Maximum concurrent coder dispatches. Controls agent-type concurrency limit. */
+	max_coders: z.number().int().min(1).max(16).default(3),
+	/** Maximum concurrent reviewer dispatches. Controls agent-type concurrency limit. */
+	max_reviewers: z.number().int().min(1).max(16).default(2),
 	/**
 	 * Stage B (reviewer + test_engineer) parallelization settings.
 	 * PR 2 runtime gating — defaults to disabled so no production path activates

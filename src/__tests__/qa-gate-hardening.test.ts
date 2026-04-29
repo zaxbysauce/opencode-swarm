@@ -52,8 +52,8 @@ describe('council_general_review gate', () => {
 		expect(DEFAULT_QA_GATES.council_general_review).toBe(false);
 	});
 
-	test('DEFAULT_QA_GATES has exactly nine fields', () => {
-		expect(Object.keys(DEFAULT_QA_GATES).length).toBe(9);
+	test('DEFAULT_QA_GATES has exactly ten fields', () => {
+		expect(Object.keys(DEFAULT_QA_GATES).length).toBe(10);
 	});
 
 	test('setGates persists council_general_review = true', () => {
@@ -98,22 +98,22 @@ describe('council_general_review gate', () => {
 });
 
 describe('buildQaGateSelectionDialogue text', () => {
-	test('SPECIFY mode includes nine gates and council_general_review', () => {
+	test('SPECIFY mode includes ten gates and council_general_review', () => {
 		const text = buildQaGateSelectionDialogue('SPECIFY');
-		expect(text).toContain('nine gates');
+		expect(text).toContain('ten gates');
 		expect(text).toContain('council_general_review');
-		expect(text).not.toContain('Present the eight gates');
+		expect(text).not.toContain('Present the nine gates');
 	});
 
-	test('BRAINSTORM mode includes nine gates and council_general_review', () => {
+	test('BRAINSTORM mode includes ten gates and council_general_review', () => {
 		const text = buildQaGateSelectionDialogue('BRAINSTORM');
-		expect(text).toContain('nine gates');
+		expect(text).toContain('ten gates');
 		expect(text).toContain('council_general_review');
 	});
 
-	test('PLAN mode includes nine gates and council_general_review', () => {
+	test('PLAN mode includes ten gates and council_general_review', () => {
 		const text = buildQaGateSelectionDialogue('PLAN');
-		expect(text).toContain('nine gates');
+		expect(text).toContain('ten gates');
 		expect(text).toContain('council_general_review');
 	});
 });

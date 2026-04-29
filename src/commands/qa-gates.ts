@@ -35,6 +35,7 @@ const ALL_GATE_NAMES: ReadonlyArray<keyof QaGates> = [
 	'sast_enabled',
 	'mutation_test',
 	'council_general_review',
+	'drift_check',
 ];
 
 function derivePlanId(plan: { swarm: string; title: string }): string {

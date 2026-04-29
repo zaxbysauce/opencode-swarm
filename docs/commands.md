@@ -76,6 +76,57 @@ Enter architect MODE: COUNCIL — convene a configurable multi-model General Cou
 
 **No-args behavior:** prints a usage string. The command never throws on bad input — invalid preset names and injected `[MODE: ...]` headers are silently dropped.
 
+### `/swarm pr-review <pr-url|owner/repo#N|N> [--council]`
+
+Launch a structured deep PR review using multi-lane parallel analysis with independent confirmation and critic challenge.
+
+| Argument | Description |
+|----------|-------------|
+| `<pr-url>` | Full GitHub PR URL (e.g., `https://github.com/owner/repo/pull/42`) |
+| `owner/repo#N` | Shorthand format — resolves owner and repo from the reference |
+| `N` | Bare PR number — resolves owner and repo from the git remote `origin` |
+| `--council` | Enable adversarial multi-model council review variant |
+
+**URL sanitization:** Enforces `https`-only scheme, blocks `localhost`/private IPs, strips credentials and query strings, enforces max 2048 characters, rejects non-ASCII hostnames.
+
+**Workflow:**
+1. **Intent Reconstruction** — Extract obligations from PR body checkboxes, linked issues, commit scopes, test names, and interface changes
+2. **Parallel Explorer Lanes** — 6 lanes: correctness, security, dependencies, docs-vs-intent, tests, performance/architecture
+3. **Independent Reviewer Confirmation** — Validate each finding with file:line evidence
+4. **Critic Challenge** — Adversarial review of HIGH/CRITICAL findings only
+5. **Synthesis** — Obligation assessment, findings table, merge recommendation
+
+**Council variant** (`--council`): After standard review, convene a General Council to evaluate review quality and hunt for blind spots. Council findings are supplementary.
+
+**No-args behavior:** prints a usage string. The command never throws on bad input.
+
+### `/swarm issue <issue-url|owner/repo#N|N> [--plan] [--trace] [--no-repro]`
+
+Ingest a GitHub issue into the swarm workflow for root-cause localization and resolution spec generation.
+
+| Argument | Description |
+|----------|-------------|
+| `<issue-url>` | Full GitHub issue URL (e.g., `https://github.com/owner/repo/issues/42`) |
+| `owner/repo#N` | Shorthand format — resolves owner and repo from the reference |
+| `N` | Bare issue number — resolves owner and repo from the git remote `origin` |
+| `--plan` | Transition to plan creation after spec generation |
+| `--trace` | Run full fix-and-PR workflow (implies `--plan`) |
+| `--no-repro` | Skip reproduction verification step |
+
+**URL sanitization:** Enforces `https`-only scheme, blocks `localhost`/private IPs, strips credentials and query strings, enforces max 2048 characters, rejects non-ASCII hostnames.
+
+**Workflow:**
+1. **Intake** — Fetch issue body via GitHub CLI, normalize into structured intake note (observed behavior, expected behavior, repro steps, environment)
+2. **Localization** — Build 2–5 root-cause hypotheses with composite scoring (stack-trace 0.4, recency 0.25, call-graph 0.2, test-failure 0.15), validate top-3 in parallel, prune to single root cause
+3. **Spec Generation** — Output resolution spec with root cause, fix strategy, FR/SC numbering, Given/When/Then scenarios
+4. **Transition** — Based on flags: report spec (`no flags`), create plan (`--plan`), or run full fix workflow (`--trace`)
+
+**Flag interactions:** `--trace` implies `--plan`. Both flags can be combined with `--no-repro`.
+
+**No-args behavior:** prints a usage string. The command never throws on bad input.
+
+**Output signal:** Successful execution emits `[MODE: ISSUE_INGEST issue="<sanitized-url>" plan=true trace=true noRepro=true]` with only the flags that were set.
+
 ### `/swarm sync-plan`
 
 Force `plan.md` regeneration from canonical `plan-ledger.jsonl`. Safe, read-only.
@@ -132,6 +183,10 @@ View or modify QA gate profile for the current plan.
 - `override`: session-only ratchet-tighter enable.
 
 Valid gates: `reviewer`, `test_engineer`, `council_mode`, `sme_enabled`, `critic_pre_plan`, `hallucination_guard`, `sast_enabled`, `mutation_test`, `council_general_review`.
+
+**Gate descriptions:**
+
+- `council_mode` — Multi-member phase-level council gate. When enabled, council runs at phase completion for holistic review of the full phase body of work. Stage B (reviewer + test_engineer in parallel) always runs per-task regardless. Council is additive — never replaces Stage B.
 
 ---
 

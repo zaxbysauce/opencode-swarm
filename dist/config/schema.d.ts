@@ -625,6 +625,8 @@ export declare const ParallelizationConfigSchema: z.ZodObject<{
     enabled: z.ZodDefault<z.ZodBoolean>;
     maxConcurrentTasks: z.ZodDefault<z.ZodNumber>;
     evidenceLockTimeoutMs: z.ZodDefault<z.ZodNumber>;
+    max_coders: z.ZodDefault<z.ZodNumber>;
+    max_reviewers: z.ZodDefault<z.ZodNumber>;
     stageB: z.ZodDefault<z.ZodObject<{
         parallel: z.ZodDefault<z.ZodObject<{
             enabled: z.ZodDefault<z.ZodBoolean>;
@@ -1048,6 +1050,8 @@ export declare const PluginConfigSchema: z.ZodObject<{
         enabled: z.ZodDefault<z.ZodBoolean>;
         maxConcurrentTasks: z.ZodDefault<z.ZodNumber>;
         evidenceLockTimeoutMs: z.ZodDefault<z.ZodNumber>;
+        max_coders: z.ZodDefault<z.ZodNumber>;
+        max_reviewers: z.ZodDefault<z.ZodNumber>;
         stageB: z.ZodDefault<z.ZodObject<{
             parallel: z.ZodDefault<z.ZodObject<{
                 enabled: z.ZodDefault<z.ZodBoolean>;

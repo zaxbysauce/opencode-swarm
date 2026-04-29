@@ -103,6 +103,10 @@ export declare const PhaseSchema: z.ZodObject<{
         evidence_path: z.ZodOptional<z.ZodString>;
         blocked_reason: z.ZodOptional<z.ZodString>;
     }, z.core.$strip>>>;
+    type: z.ZodOptional<z.ZodEnum<{
+        code: "code";
+        "non-code": "non-code";
+    }>>;
     required_agents: z.ZodOptional<z.ZodArray<z.ZodString>>;
 }, z.core.$strip>;
 export type Phase = z.infer<typeof PhaseSchema>;
@@ -144,6 +148,10 @@ export declare const PlanSchema: z.ZodObject<{
             evidence_path: z.ZodOptional<z.ZodString>;
             blocked_reason: z.ZodOptional<z.ZodString>;
         }, z.core.$strip>>>;
+        type: z.ZodOptional<z.ZodEnum<{
+            code: "code";
+            "non-code": "non-code";
+        }>>;
         required_agents: z.ZodOptional<z.ZodArray<z.ZodString>>;
     }, z.core.$strip>>;
     migration_status: z.ZodOptional<z.ZodEnum<{

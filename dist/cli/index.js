@@ -14073,6 +14073,7 @@ var init_plan_schema = __esm(() => {
     name: exports_external.string().min(1),
     status: PhaseStatusSchema.default("pending"),
     tasks: exports_external.array(TaskSchema).default([]),
+    type: exports_external.enum(["code", "non-code"]).optional(),
     required_agents: exports_external.array(exports_external.string()).optional()
   });
   PlanSchema = exports_external.object({
@@ -18598,7 +18599,7 @@ import * as path33 from "path";
 // package.json
 var package_default = {
   name: "opencode-swarm",
-  version: "6.86.13",
+  version: "6.86.14",
   description: "Architect-centric agentic swarm plugin for OpenCode - hub-and-spoke orchestration with SME consultation, code generation, and QA review",
   main: "dist/index.js",
   types: "dist/index.d.ts",
@@ -19647,6 +19648,8 @@ var ParallelizationConfigSchema = exports_external.object({
   enabled: exports_external.boolean().default(false),
   maxConcurrentTasks: exports_external.number().int().min(1).max(64).default(1),
   evidenceLockTimeoutMs: exports_external.number().int().min(1000).max(300000).default(60000),
+  max_coders: exports_external.number().int().min(1).max(16).default(3),
+  max_reviewers: exports_external.number().int().min(1).max(16).default(2),
   stageB: exports_external.object({
     parallel: exports_external.object({
       enabled: exports_external.boolean().default(false)
@@ -20084,7 +20087,8 @@ var DEFAULT_QA_GATES = {
   hallucination_guard: false,
   sast_enabled: true,
   mutation_test: false,
-  council_general_review: false
+  council_general_review: false,
+  drift_check: true
 };
 function rowToProfile(row) {
   let parsed = {};
@@ -33840,7 +33844,6 @@ async function handleClarifyCommand(_directory, args) {
 }
 
 // src/commands/close.ts
-import { execFileSync } from "child_process";
 import { promises as fs7 } from "fs";
 import path12 from "path";
 init_manager2();
@@ -33873,22 +33876,219 @@ function getCurrentBranch(cwd) {
   const output = gitExec2(["rev-parse", "--abbrev-ref", "HEAD"], cwd);
   return output.trim();
 }
-function getDefaultBaseBranch(cwd) {
-  try {
-    gitExec2(["rev-parse", "--verify", "origin/main"], cwd);
-    return "origin/main";
-  } catch {
-    try {
-      gitExec2(["rev-parse", "--verify", "origin/master"], cwd);
-      return "origin/master";
-    } catch {
-      return "origin/main";
-    }
-  }
-}
 function hasUncommittedChanges(cwd) {
   const status = gitExec2(["status", "--porcelain"], cwd);
   return status.trim().length > 0;
+}
+function detectDefaultRemoteBranch(cwd) {
+  try {
+    const output = gitExec2(["symbolic-ref", "refs/remotes/origin/HEAD"], cwd);
+    const trimmed = output.trim();
+    if (trimmed.startsWith("refs/remotes/origin/")) {
+      return trimmed.slice("refs/remotes/origin/".length);
+    }
+  } catch {}
+  try {
+    const output = gitExec2(["config", "init.defaultBranch"], cwd);
+    const branch = output.trim();
+    if (branch) {
+      return branch;
+    }
+  } catch {}
+  try {
+    gitExec2(["rev-parse", "--verify", "origin/main"], cwd);
+    return "main";
+  } catch {}
+  try {
+    gitExec2(["rev-parse", "--verify", "origin/master"], cwd);
+    return "master";
+  } catch {
+    return null;
+  }
+}
+function resetToRemoteBranch(cwd, options) {
+  const warnings = [];
+  const prunedBranches = [];
+  try {
+    const currentBranch = getCurrentBranch(cwd);
+    const defaultRemoteBranch = detectDefaultRemoteBranch(cwd);
+    if (!defaultRemoteBranch) {
+      return {
+        success: false,
+        targetBranch: "",
+        localBranch: currentBranch,
+        message: "Could not detect default remote branch",
+        alreadyAligned: false,
+        prunedBranches: [],
+        warnings: []
+      };
+    }
+    const targetBranch = `origin/${defaultRemoteBranch}`;
+    if (currentBranch === "HEAD") {
+      return {
+        success: false,
+        targetBranch,
+        localBranch: "HEAD",
+        message: "Cannot reset: detached HEAD state",
+        alreadyAligned: false,
+        prunedBranches: [],
+        warnings: []
+      };
+    }
+    if (hasUncommittedChanges(cwd)) {
+      return {
+        success: false,
+        targetBranch,
+        localBranch: currentBranch,
+        message: "Cannot reset: uncommitted changes in working tree",
+        alreadyAligned: false,
+        prunedBranches: [],
+        warnings: []
+      };
+    }
+    try {
+      const logOutput = gitExec2(["log", `${targetBranch}..HEAD`, "--oneline"], cwd);
+      if (logOutput.trim().length > 0) {
+        return {
+          success: false,
+          targetBranch,
+          localBranch: currentBranch,
+          message: "Cannot reset: unpushed commits",
+          alreadyAligned: false,
+          prunedBranches: [],
+          warnings: []
+        };
+      }
+    } catch {}
+    try {
+      gitExec2(["fetch", "--prune", "origin"], cwd);
+    } catch (err) {
+      return {
+        success: false,
+        targetBranch,
+        localBranch: currentBranch,
+        message: `Fetch failed: ${err instanceof Error ? err.message : String(err)}`,
+        alreadyAligned: false,
+        prunedBranches: [],
+        warnings: []
+      };
+    }
+    const headSha = gitExec2(["rev-parse", "HEAD"], cwd).trim();
+    const remoteSha = gitExec2(["rev-parse", `${targetBranch}`], cwd).trim();
+    if (headSha === remoteSha) {
+      return {
+        success: true,
+        targetBranch,
+        localBranch: currentBranch,
+        message: "Already aligned with remote",
+        alreadyAligned: true,
+        prunedBranches: [],
+        warnings: []
+      };
+    }
+    try {
+      gitExec2(["checkout", currentBranch], cwd);
+    } catch (err) {
+      return {
+        success: false,
+        targetBranch,
+        localBranch: currentBranch,
+        message: `Checkout failed: ${err instanceof Error ? err.message : String(err)}`,
+        alreadyAligned: false,
+        prunedBranches: [],
+        warnings: []
+      };
+    }
+    let resetSucceeded = false;
+    let lastError;
+    for (let retry = 0;retry < 4; retry++) {
+      if (retry > 0) {
+        const endTime = Date.now() + 500;
+        while (Date.now() < endTime) {}
+      }
+      try {
+        gitExec2(["reset", "--hard", targetBranch], cwd);
+        resetSucceeded = true;
+        break;
+      } catch (err) {
+        lastError = err;
+      }
+    }
+    if (!resetSucceeded) {
+      return {
+        success: false,
+        targetBranch,
+        localBranch: currentBranch,
+        message: `Reset failed: ${lastError instanceof Error ? lastError.message : String(lastError)}`,
+        alreadyAligned: false,
+        prunedBranches: [],
+        warnings: []
+      };
+    }
+    if (options?.pruneBranches) {
+      try {
+        const mergedOutput = gitExec2(["branch", "--merged", targetBranch], cwd);
+        const mergedLines = mergedOutput.split(`
+`);
+        for (const line of mergedLines) {
+          const trimmedLine = line.trim();
+          if (!trimmedLine || trimmedLine.startsWith("*")) {
+            continue;
+          }
+          try {
+            gitExec2(["branch", "-d", trimmedLine], cwd);
+            prunedBranches.push(trimmedLine);
+          } catch {
+            warnings.push(`Could not safely delete branch: ${trimmedLine}`);
+          }
+        }
+      } catch (err) {
+        warnings.push(`Failed to get merged branches: ${err instanceof Error ? err.message : String(err)}`);
+      }
+      try {
+        const branchVvOutput = gitExec2(["branch", "-vv"], cwd);
+        const vvLines = branchVvOutput.split(`
+`);
+        for (const line of vvLines) {
+          const trimmedLine = line.trim();
+          if (!trimmedLine || trimmedLine.startsWith("*")) {
+            continue;
+          }
+          if (trimmedLine.includes(": gone]")) {
+            const parts = trimmedLine.split(/\s+/);
+            const branchName = parts[0];
+            try {
+              gitExec2(["branch", "-d", branchName], cwd);
+              prunedBranches.push(branchName);
+            } catch {
+              warnings.push(`Could not delete gone branch: ${branchName}`);
+            }
+          }
+        }
+      } catch (err) {
+        warnings.push(`Failed to prune gone branches: ${err instanceof Error ? err.message : String(err)}`);
+      }
+    }
+    return {
+      success: true,
+      targetBranch,
+      localBranch: currentBranch,
+      message: "Successfully reset to remote branch",
+      alreadyAligned: false,
+      prunedBranches,
+      warnings
+    };
+  } catch (err) {
+    return {
+      success: false,
+      targetBranch: "",
+      localBranch: "",
+      message: `Unexpected error: ${err instanceof Error ? err.message : String(err)}`,
+      alreadyAligned: false,
+      prunedBranches: [],
+      warnings: []
+    };
+  }
 }
 
 // src/hooks/knowledge-store.ts
@@ -35017,6 +35217,26 @@ var ACTIVE_STATE_TO_CLEAN = [
   "handoff-consumed.md",
   "escalation-report.md"
 ];
+function guaranteeAllPlansComplete(planData) {
+  const closedPhaseIds = [];
+  const closedTaskIds = [];
+  for (const phase of planData.phases ?? []) {
+    const wasComplete = phase.status === "complete" || phase.status === "completed" || phase.status === "closed";
+    if (!wasComplete) {
+      phase.status = "closed";
+      closedPhaseIds.push(phase.id);
+    }
+    for (const task of phase.tasks ?? []) {
+      const wasTaskDone = task.status === "completed" || task.status === "complete" || task.status === "closed";
+      if (!wasTaskDone) {
+        task.status = "closed";
+        task.close_reason = "session_terminated";
+        closedTaskIds.push(task.id);
+      }
+    }
+  }
+  return { closedPhaseIds, closedTaskIds };
+}
 async function handleCloseCommand(directory, args) {
   const planPath = validateSwarmPath(directory, "plan.json");
   const swarmDir = path12.join(directory, ".swarm");
@@ -35134,41 +35354,62 @@ async function handleCloseCommand(directory, args) {
     explicitLessons = lessonsText.split(`
 `).map((line) => line.trim()).filter((line) => line.length > 0 && !line.startsWith("#"));
   } catch {}
+  const retroLessons = [];
+  try {
+    const evidenceDir = path12.join(swarmDir, "evidence");
+    const evidenceEntries = await fs7.readdir(evidenceDir);
+    const retroDirs = evidenceEntries.filter((e) => e.startsWith("retro-"));
+    for (const retroDir of retroDirs) {
+      const evidencePath = path12.join(evidenceDir, retroDir, "evidence.json");
+      try {
+        const content = await fs7.readFile(evidencePath, "utf-8");
+        const parsed = JSON.parse(content);
+        const entries = parsed.entries ?? [parsed];
+        for (const entry of entries) {
+          if (Array.isArray(entry.lessons_learned)) {
+            for (const lesson of entry.lessons_learned) {
+              if (typeof lesson === "string" && lesson.trim().length > 0) {
+                retroLessons.push(lesson.trim());
+              }
+            }
+          }
+        }
+      } catch {}
+    }
+  } catch {}
+  const allLessons = [...new Set([...explicitLessons, ...retroLessons])];
   let curationSucceeded = false;
   try {
-    await curateAndStoreSwarm(explicitLessons, projectName, { phase_number: 0 }, directory, config3);
+    await curateAndStoreSwarm(allLessons, projectName, { phase_number: 0 }, directory, config3);
     curationSucceeded = true;
   } catch (error93) {
     const msg = error93 instanceof Error ? error93.message : String(error93);
     warnings.push(`Lessons curation failed: ${msg}`);
     console.warn("[close-command] curateAndStoreSwarm error:", error93);
   }
-  if (curationSucceeded && explicitLessons.length > 0) {
+  if (curationSucceeded && allLessons.length > 0) {
     await fs7.unlink(lessonsFilePath).catch(() => {});
   }
-  if (planExists && !planAlreadyDone) {
-    for (const phase of phases) {
-      if (phase.status !== "complete" && phase.status !== "completed") {
-        phase.status = "closed";
-        if (!closedPhases.includes(phase.id)) {
-          closedPhases.push(phase.id);
-        }
-      }
-      for (const task of phase.tasks ?? []) {
-        if (task.status !== "completed" && task.status !== "complete") {
-          task.status = "closed";
-          if (!closedTasks.includes(task.id)) {
-            closedTasks.push(task.id);
-          }
-        }
+  if (planExists) {
+    const guaranteeResult = guaranteeAllPlansComplete(planData);
+    for (const phaseId of guaranteeResult.closedPhaseIds) {
+      if (!closedPhases.includes(phaseId)) {
+        closedPhases.push(phaseId);
       }
     }
-    try {
-      await fs7.writeFile(planPath, JSON.stringify(planData, null, 2), "utf-8");
-    } catch (error93) {
-      const msg = error93 instanceof Error ? error93.message : String(error93);
-      warnings.push(`Failed to persist terminal plan.json state: ${msg}`);
-      console.warn("[close-command] Failed to write plan.json:", error93);
+    for (const taskId of guaranteeResult.closedTaskIds) {
+      if (!closedTasks.includes(taskId)) {
+        closedTasks.push(taskId);
+      }
+    }
+    if (!planAlreadyDone || guaranteeResult.closedPhaseIds.length > 0 || guaranteeResult.closedTaskIds.length > 0) {
+      try {
+        await fs7.writeFile(planPath, JSON.stringify(planData, null, 2), "utf-8");
+      } catch (error93) {
+        const msg = error93 instanceof Error ? error93.message : String(error93);
+        warnings.push(`Failed to persist terminal plan.json state: ${msg}`);
+        console.warn("[close-command] Failed to write plan.json:", error93);
+      }
     }
   }
   const timestamp = new Date().toISOString().replace(/[:.]/g, "-");
@@ -35307,111 +35548,27 @@ async function handleCloseCommand(directory, args) {
     console.warn("[close-command] Failed to write context.md:", error93);
   }
   const pruneBranches = args.includes("--prune-branches");
-  const prunedBranches = [];
-  const pruneErrors = [];
   let gitAlignResult = "";
+  const prunedBranches = [];
   const isGit = isGitRepo2(directory);
   if (isGit) {
-    try {
-      const currentBranch = getCurrentBranch(directory);
-      if (currentBranch === "HEAD") {
-        gitAlignResult = "Skipped git alignment: detached HEAD state";
-        warnings.push("Repo is in detached HEAD state. Checkout a branch before starting a new swarm.");
-      } else if (hasUncommittedChanges(directory)) {
-        gitAlignResult = "Skipped git alignment: uncommitted changes in worktree";
-        warnings.push("Uncommitted changes detected. Commit or stash before aligning to main.");
-      } else {
-        const baseBranch = getDefaultBaseBranch(directory);
-        const localBase = baseBranch.replace(/^origin\//, "");
-        if (currentBranch === localBase) {
-          try {
-            execFileSync("git", ["fetch", "origin", localBase], {
-              cwd: directory,
-              encoding: "utf-8",
-              timeout: 30000,
-              stdio: ["pipe", "pipe", "pipe"]
-            });
-            const mergeBase = execFileSync("git", ["merge-base", "HEAD", baseBranch], {
-              cwd: directory,
-              encoding: "utf-8",
-              timeout: 1e4,
-              stdio: ["pipe", "pipe", "pipe"]
-            }).trim();
-            const headSha = execFileSync("git", ["rev-parse", "HEAD"], {
-              cwd: directory,
-              encoding: "utf-8",
-              timeout: 1e4,
-              stdio: ["pipe", "pipe", "pipe"]
-            }).trim();
-            if (mergeBase === headSha) {
-              execFileSync("git", ["merge", "--ff-only", baseBranch], {
-                cwd: directory,
-                encoding: "utf-8",
-                timeout: 30000,
-                stdio: ["pipe", "pipe", "pipe"]
-              });
-              gitAlignResult = `Aligned to ${baseBranch} (fast-forward)`;
-            } else {
-              gitAlignResult = `On ${localBase} but cannot fast-forward to ${baseBranch} (diverged)`;
-              warnings.push(`Local ${localBase} has diverged from ${baseBranch}. Manual merge/rebase needed.`);
-            }
-          } catch (fetchErr) {
-            gitAlignResult = `Fetch from origin/${localBase} failed \u2014 remote may be unavailable`;
-            warnings.push(`Git fetch failed: ${fetchErr instanceof Error ? fetchErr.message : String(fetchErr)}`);
-          }
-        } else {
-          gitAlignResult = `On branch ${currentBranch}. Switch to ${localBase} manually when ready for a new swarm.`;
-        }
-      }
-    } catch (gitError) {
-      gitAlignResult = `Git alignment error: ${gitError instanceof Error ? gitError.message : String(gitError)}`;
+    const alignResult = resetToRemoteBranch(directory, { pruneBranches });
+    gitAlignResult = alignResult.message;
+    prunedBranches.push(...alignResult.prunedBranches);
+    if (!alignResult.success) {
+      warnings.push(`Git alignment: ${alignResult.message}`);
     }
-    if (pruneBranches) {
-      try {
-        const branchOutput = execFileSync("git", ["branch", "-vv"], {
-          cwd: directory,
-          encoding: "utf-8",
-          stdio: ["pipe", "pipe", "pipe"]
-        });
-        const goneBranches = branchOutput.split(`
-`).filter((line) => line.includes(": gone]")).map((line) => line.trim().replace(/^[*+]\s+/, "").split(/\s+/)[0]).filter(Boolean);
-        for (const branch of goneBranches) {
-          try {
-            execFileSync("git", ["branch", "-d", branch], {
-              cwd: directory,
-              encoding: "utf-8",
-              stdio: ["pipe", "pipe", "pipe"]
-            });
-            prunedBranches.push(branch);
-          } catch {
-            pruneErrors.push(branch);
-          }
-        }
-      } catch {}
+    if (alignResult.alreadyAligned) {
+      gitAlignResult = `Already aligned with ${alignResult.targetBranch}`;
+    }
+    for (const w of alignResult.warnings) {
+      warnings.push(w);
     }
   } else {
     gitAlignResult = "Not a git repository \u2014 skipped git alignment";
   }
   const closeSummaryPath = validateSwarmPath(directory, "close-summary.md");
   const finalizationType = isForced ? "Forced closure" : planAlreadyDone ? "Plan already terminal \u2014 cleanup only" : "Normal finalization";
-  const actionsPerformed = [
-    ...!planAlreadyDone && inProgressPhases.length > 0 ? ["- Wrote retrospectives for in-progress phases"] : [],
-    `- ${archiveResult}`,
-    ...cleanedFiles.length > 0 ? [
-      `- Cleaned ${cleanedFiles.length} active-state file(s): ${cleanedFiles.join(", ")}`
-    ] : [],
-    "- Reset context.md for next session",
-    ...configBackupsRemoved > 0 ? [`- Removed ${configBackupsRemoved} stale config backup file(s)`] : [],
-    ...swarmPlanFilesRemoved > 0 ? [
-      `- Removed ${swarmPlanFilesRemoved} root-level SWARM_PLAN checkpoint artifact(s)`
-    ] : [],
-    ...prunedBranches.length > 0 ? [
-      `- Pruned ${prunedBranches.length} stale local git branch(es): ${prunedBranches.join(", ")}`
-    ] : [],
-    "- Cleared agent sessions and delegation chains",
-    ...planExists && !planAlreadyDone ? ["- Set non-completed phases/tasks to closed status"] : [],
-    ...gitAlignResult ? [`- Git: ${gitAlignResult}`] : []
-  ];
   const summaryContent = [
     "# Swarm Close Summary",
     "",
@@ -35419,16 +35576,34 @@ async function handleCloseCommand(directory, args) {
     `**Closed:** ${new Date().toISOString()}`,
     `**Finalization:** ${finalizationType}`,
     "",
-    `## Phases Closed: ${closedPhases.length}`,
-    !planExists ? "_No plan \u2014 ad-hoc session_" : closedPhases.length > 0 ? closedPhases.map((id) => `- Phase ${id}`).join(`
-`) : "_No phases to close_",
+    "## Retrospective",
+    !planExists ? "_No plan \u2014 ad-hoc session_" : closedPhases.length > 0 ? closedPhases.map((id) => `- Phase ${id} closed`).join(`
+`) : "_No phases closed this run_",
+    ...closedTasks.length > 0 ? [
+      "",
+      `**Tasks marked closed:** ${closedTasks.length}`,
+      ...closedTasks.map((id) => `- ${id}`)
+    ] : [],
     "",
-    `## Tasks Closed: ${closedTasks.length}`,
-    closedTasks.length > 0 ? closedTasks.map((id) => `- ${id}`).join(`
-`) : "_No incomplete tasks_",
+    "## Lessons Committed",
+    allLessons.length > 0 ? `| # | Lesson |` : "_No lessons committed_",
+    ...allLessons.length > 0 ? ["| --- | --- |", ...allLessons.map((l, i) => `| ${i + 1} | ${l} |`)] : [],
     "",
-    "## Actions Performed",
-    ...actionsPerformed,
+    "## Local Repo State",
+    ...gitAlignResult ? [`- **Git:** ${gitAlignResult}`] : ["- Git alignment skipped"],
+    ...prunedBranches.length > 0 ? [`- **Pruned branches:** ${prunedBranches.join(", ")}`] : [],
+    `- **Archive:** ${archiveResult}`,
+    ...cleanedFiles.length > 0 ? [`- **Cleaned:** ${cleanedFiles.length} file(s)`] : [],
+    "",
+    "## Context",
+    "- Reset context.md for next session",
+    "- Cleared agent sessions and delegation chains",
+    ...configBackupsRemoved > 0 ? [`- Removed ${configBackupsRemoved} stale config backup file(s)`] : [],
+    ...swarmPlanFilesRemoved > 0 ? [
+      `- Removed ${swarmPlanFilesRemoved} root-level SWARM_PLAN checkpoint artifact(s)`
+    ] : [],
+    ...planExists && !planAlreadyDone ? ["- Set non-completed phases/tasks to closed status"] : [],
+    ...curationSucceeded && allLessons.length > 0 ? [`- Committed ${allLessons.length} lesson(s) to knowledge store`] : [],
     "",
     ...warnings.length > 0 ? ["## Warnings", ...warnings.map((w) => `- ${w}`), ""] : []
   ].join(`
@@ -35456,9 +35631,6 @@ async function handleCloseCommand(directory, args) {
   swarmState.fullAutoEnabledInConfig = preservedFullAutoFlag;
   swarmState.curatorInitAgentNames = preservedCuratorInitNames;
   swarmState.curatorPhaseAgentNames = preservedCuratorPhaseNames;
-  if (pruneErrors.length > 0) {
-    warnings.push(`Could not prune ${pruneErrors.length} branch(es) (unmerged or checked out): ${pruneErrors.join(", ")}`);
-  }
   const retroWarnings = warnings.filter((w) => w.includes("Retrospective write") || w.includes("retrospective write") || w.includes("Session retrospective"));
   const otherWarnings = warnings.filter((w) => !w.includes("Retrospective write") && !w.includes("retrospective write") && !w.includes("Session retrospective"));
   let warningMsg = "";
@@ -35476,16 +35648,19 @@ ${retroWarnings.map((w) => `- ${w}`).join(`
 ${otherWarnings.map((w) => `- ${w}`).join(`
 `)}`;
   }
+  const lessonSummary = curationSucceeded && allLessons.length > 0 ? `
+
+**Lessons Committed:** ${allLessons.length} lesson(s) committed to knowledge store` : "";
   if (planAlreadyDone) {
     return `\u2705 Session finalized. Plan was already in a terminal state \u2014 cleanup and archive applied.
 
 **Archive:** ${archiveResult}
-**Git:** ${gitAlignResult}${warningMsg}`;
+**Git:** ${gitAlignResult}${lessonSummary}${warningMsg}`;
   }
   return `\u2705 Swarm finalized. ${closedPhases.length} phase(s) closed, ${closedTasks.length} incomplete task(s) marked closed.
 
 **Archive:** ${archiveResult}
-**Git:** ${gitAlignResult}${warningMsg}`;
+**Git:** ${gitAlignResult}${lessonSummary}${warningMsg}`;
 }
 
 // src/commands/config.ts
@@ -39516,6 +39691,214 @@ async function handleHistoryCommand(directory, _args) {
   const historyData = await getHistoryData(directory);
   return formatHistoryMarkdown(historyData);
 }
+// src/commands/issue.ts
+import { execSync as execSync2 } from "child_process";
+var MAX_URL_LEN = 2048;
+var USAGE2 = [
+  "Usage: /swarm issue <url|owner/repo#N|N> [--plan] [--trace] [--no-repro]",
+  "",
+  "Ingest a GitHub issue into the swarm workflow.",
+  "  /swarm issue https://github.com/owner/repo/issues/42",
+  "  /swarm issue owner/repo#42",
+  "  /swarm issue 42 --plan",
+  "  /swarm issue 42 --trace --no-repro",
+  "",
+  "Flags:",
+  "  --plan        Transition to plan creation after spec generation",
+  "  --trace       Run full fix-and-PR workflow (implies --plan)",
+  "  --no-repro    Skip reproduction step"
+].join(`
+`);
+function sanitizeUrl(raw) {
+  let urlStr = raw.trim();
+  urlStr = urlStr.replace(/\[\s*MODE\s*:[^\]]*\]/gi, "");
+  const fragmentIdx = urlStr.indexOf("#");
+  if (fragmentIdx !== -1) {
+    urlStr = urlStr.slice(0, fragmentIdx);
+  }
+  const queryIdx = urlStr.indexOf("?");
+  if (queryIdx !== -1) {
+    urlStr = urlStr.slice(0, queryIdx);
+  }
+  urlStr = urlStr.replace(/^[A-Za-z][A-Za-z0-9+.-]*:\/\/[^@/]+@/, "https://");
+  if (urlStr.length > MAX_URL_LEN) {
+    urlStr = urlStr.slice(0, MAX_URL_LEN);
+  }
+  return urlStr.trim();
+}
+function isPrivateHost(url3) {
+  const host = url3.hostname.toLowerCase();
+  if (host === "localhost" || host === "127.0.0.1" || host === "::1" || host === "0.0.0.0") {
+    return true;
+  }
+  if (host.startsWith("localhost") || host === "localhost.com") {
+    return true;
+  }
+  const ipv4Private = /^10\./;
+  const ipv4172 = /^172\.(1[6-9]|2\d|3[0-1])\./;
+  const ipv4192 = /^192\.168\./;
+  const ipv6Private = /^fe80:/i;
+  const ipv6Unique = /^f[cd][0-9a-f]{2}:/i;
+  if (ipv4Private.test(host) || ipv4172.test(host) || ipv4192.test(host) || ipv6Private.test(host) || ipv6Unique.test(host)) {
+    return true;
+  }
+  if (host.startsWith("::ffff:")) {
+    const inner = host.slice(7);
+    if (ipv4Private.test(inner) || ipv4172.test(inner) || ipv4192.test(inner)) {
+      return true;
+    }
+  }
+  return false;
+}
+function validateAndSanitizeUrl(rawUrl) {
+  const sanitized = sanitizeUrl(rawUrl);
+  if (!sanitized) {
+    return { error: "Empty URL" };
+  }
+  if (!sanitized.startsWith("https://")) {
+    return { error: "URL must use HTTPS scheme" };
+  }
+  try {
+    const url3 = new URL(sanitized);
+    const hostname5 = url3.hostname;
+    if (/[\u0080-\u{10FFFF}]/u.test(hostname5)) {
+      return { error: "Non-ASCII hostnames are not allowed" };
+    }
+    if (isPrivateHost(url3)) {
+      return { error: "Private or localhost URLs are not allowed" };
+    }
+    const githubIssuePattern = /^https:\/\/github\.com\/([^/]+)\/([^/]+)\/issues\/([0-9]+)\/?$/;
+    if (!githubIssuePattern.test(sanitized)) {
+      return {
+        error: "URL must be a GitHub issue URL (https://github.com/owner/repo/issues/N)"
+      };
+    }
+    return { sanitized };
+  } catch {
+    return { error: "Invalid URL format" };
+  }
+}
+function parseArgs2(args) {
+  const out = {
+    plan: false,
+    trace: false,
+    noRepro: false,
+    rest: []
+  };
+  for (const token of args) {
+    if (token === "--plan") {
+      out.plan = true;
+      continue;
+    }
+    if (token === "--trace") {
+      out.trace = true;
+      out.plan = true;
+      continue;
+    }
+    if (token === "--no-repro") {
+      out.noRepro = true;
+      continue;
+    }
+    out.rest.push(token);
+  }
+  return out;
+}
+function parseIssueRef(input) {
+  const urlMatch = input.match(/^https:\/\/github\.com\/([^/]+)\/([^/]+)\/issues\/(\d+)\/?$/i);
+  if (urlMatch) {
+    return {
+      owner: urlMatch[1],
+      repo: urlMatch[2],
+      number: parseInt(urlMatch[3], 10)
+    };
+  }
+  const shorthandMatch = input.match(/^([^/]+)\/([^#]+)#(\d+)$/);
+  if (shorthandMatch) {
+    return {
+      owner: shorthandMatch[1],
+      repo: shorthandMatch[2],
+      number: parseInt(shorthandMatch[3], 10)
+    };
+  }
+  const bareMatch = input.match(/^(\d+)$/);
+  if (bareMatch) {
+    const issueNumber = parseInt(bareMatch[1], 10);
+    const remoteUrl = detectGitRemote();
+    if (!remoteUrl) {
+      return null;
+    }
+    const parsed = parseGitRemoteUrl(remoteUrl);
+    if (!parsed) {
+      return null;
+    }
+    return {
+      owner: parsed.owner,
+      repo: parsed.repo,
+      number: issueNumber
+    };
+  }
+  return null;
+}
+function detectGitRemote() {
+  try {
+    const remoteUrl = execSync2("git remote get-url origin", {
+      encoding: "utf-8",
+      stdio: ["pipe", "pipe", "pipe"],
+      timeout: 5000
+    }).trim();
+    return remoteUrl || null;
+  } catch {
+    return null;
+  }
+}
+function parseGitRemoteUrl(remoteUrl) {
+  const httpsMatch = remoteUrl.match(/^https:\/\/github\.com\/([^/]+)\/([^/]+?)(?:\.git)?\/?$/i);
+  if (httpsMatch) {
+    return {
+      owner: httpsMatch[1],
+      repo: httpsMatch[2].replace(/\.git$/, "")
+    };
+  }
+  const sshMatch = remoteUrl.match(/^git@github\.com:([^/]+)\/([^/]+?)(?:\.git)?$/i);
+  if (sshMatch) {
+    return {
+      owner: sshMatch[1],
+      repo: sshMatch[2].replace(/\.git$/, "")
+    };
+  }
+  return null;
+}
+function handleIssueCommand(_directory, args) {
+  const parsed = parseArgs2(args);
+  const rawInput = parsed.rest.join(" ").trim();
+  if (!rawInput) {
+    return USAGE2;
+  }
+  const isFullUrl = /^https?:\/\//i.test(rawInput);
+  const issueInfo = parseIssueRef(isFullUrl ? sanitizeUrl(rawInput) : rawInput);
+  if (!issueInfo) {
+    return `Error: Could not parse issue reference from "${rawInput}"
+
+${USAGE2}`;
+  }
+  const issueUrl = `https://github.com/${issueInfo.owner}/${issueInfo.repo}/issues/${issueInfo.number}`;
+  const result = validateAndSanitizeUrl(issueUrl);
+  if ("error" in result) {
+    return `Error: ${result.error}
+
+${USAGE2}`;
+  }
+  const flags = [];
+  if (parsed.plan)
+    flags.push("plan=true");
+  if (parsed.trace)
+    flags.push("trace=true");
+  if (parsed.noRepro)
+    flags.push("noRepro=true");
+  const flagsStr = flags.length > 0 ? ` ${flags.join(" ")}` : "";
+  return `[MODE: ISSUE_INGEST issue="${result.sanitized}"${flagsStr}]`;
+}
+
 // src/commands/knowledge.ts
 import { join as join21 } from "path";
 
@@ -40008,6 +40391,190 @@ async function handlePlanCommand(directory, args) {
   const planData = await getPlanData(directory, phaseArg);
   return formatPlanMarkdown(planData);
 }
+// src/commands/pr-review.ts
+import { execSync as execSync3 } from "child_process";
+var MAX_URL_LEN2 = 2048;
+var USAGE3 = [
+  "Usage: /swarm pr-review <url|owner/repo#N|N> [--council]",
+  "",
+  "Run a full swarm PR review on a GitHub pull request.",
+  "  /swarm pr-review https://github.com/owner/repo/pull/42",
+  "  /swarm pr-review owner/repo#42",
+  "  /swarm pr-review 42 --council",
+  "",
+  "Flags:",
+  "  --council     Run adversarial council variant (all lanes assume work is wrong)"
+].join(`
+`);
+function sanitizeUrl2(raw) {
+  let urlStr = raw.trim();
+  urlStr = urlStr.replace(/\[\s*MODE\s*:[^\]]*\]/gi, "");
+  const fragmentIdx = urlStr.indexOf("#");
+  if (fragmentIdx !== -1) {
+    urlStr = urlStr.slice(0, fragmentIdx);
+  }
+  const queryIdx = urlStr.indexOf("?");
+  if (queryIdx !== -1) {
+    urlStr = urlStr.slice(0, queryIdx);
+  }
+  urlStr = urlStr.replace(/^[A-Za-z][A-Za-z0-9+.-]*:\/\/[^@/]+@/, "https://");
+  if (urlStr.length > MAX_URL_LEN2) {
+    urlStr = urlStr.slice(0, MAX_URL_LEN2);
+  }
+  return urlStr.trim();
+}
+function isPrivateHost2(url3) {
+  const host = url3.hostname.toLowerCase();
+  if (host === "localhost" || host === "127.0.0.1" || host === "::1" || host === "0.0.0.0") {
+    return true;
+  }
+  if (host.startsWith("localhost") || host === "localhost.com") {
+    return true;
+  }
+  const ipv4Private = /^10\./;
+  const ipv4172 = /^172\.(1[6-9]|2\d|3[0-1])\./;
+  const ipv4192 = /^192\.168\./;
+  const ipv6Private = /^fe80:/i;
+  const ipv6Unique = /^f[cd][0-9a-f]{2}:/i;
+  if (ipv4Private.test(host) || ipv4172.test(host) || ipv4192.test(host) || ipv6Private.test(host) || ipv6Unique.test(host)) {
+    return true;
+  }
+  if (host.startsWith("::ffff:")) {
+    const inner = host.slice(7);
+    if (ipv4Private.test(inner) || ipv4172.test(inner) || ipv4192.test(inner)) {
+      return true;
+    }
+  }
+  return false;
+}
+function validateAndSanitizeUrl2(rawUrl) {
+  const sanitized = sanitizeUrl2(rawUrl);
+  if (!sanitized) {
+    return { error: "Empty URL" };
+  }
+  if (!sanitized.startsWith("https://")) {
+    return { error: "URL must use HTTPS scheme" };
+  }
+  try {
+    const url3 = new URL(sanitized);
+    const hostname5 = url3.hostname;
+    if (/[\u0080-\u{10FFFF}]/u.test(hostname5)) {
+      return { error: "Non-ASCII hostnames are not allowed" };
+    }
+    if (isPrivateHost2(url3)) {
+      return { error: "Private or localhost URLs are not allowed" };
+    }
+    const githubPrPattern = /^https:\/\/github\.com\/([^/]+)\/([^/]+)\/pull\/([0-9]+)\/?$/;
+    if (!githubPrPattern.test(sanitized)) {
+      return {
+        error: "URL must be a GitHub pull request URL (https://github.com/owner/repo/pull/N)"
+      };
+    }
+    return { sanitized };
+  } catch {
+    return { error: "Invalid URL format" };
+  }
+}
+function parseArgs3(args) {
+  const out = { council: false, rest: [] };
+  for (const token of args) {
+    if (token === "--council") {
+      out.council = true;
+      continue;
+    }
+    out.rest.push(token);
+  }
+  return out;
+}
+function parsePrRef(input) {
+  const urlMatch = input.match(/^https:\/\/github\.com\/([^/]+)\/([^/]+)\/pull\/(\d+)\/?$/i);
+  if (urlMatch) {
+    return {
+      owner: urlMatch[1],
+      repo: urlMatch[2],
+      number: parseInt(urlMatch[3], 10)
+    };
+  }
+  const shorthandMatch = input.match(/^([^/]+)\/([^#]+)#(\d+)$/);
+  if (shorthandMatch) {
+    return {
+      owner: shorthandMatch[1],
+      repo: shorthandMatch[2],
+      number: parseInt(shorthandMatch[3], 10)
+    };
+  }
+  const bareMatch = input.match(/^(\d+)$/);
+  if (bareMatch) {
+    const prNumber = parseInt(bareMatch[1], 10);
+    const remoteUrl = detectGitRemote2();
+    if (!remoteUrl) {
+      return null;
+    }
+    const parsed = parseGitRemoteUrl2(remoteUrl);
+    if (!parsed) {
+      return null;
+    }
+    return {
+      owner: parsed.owner,
+      repo: parsed.repo,
+      number: prNumber
+    };
+  }
+  return null;
+}
+function detectGitRemote2() {
+  try {
+    const remoteUrl = execSync3("git remote get-url origin", {
+      encoding: "utf-8",
+      stdio: ["pipe", "pipe", "pipe"],
+      timeout: 5000
+    }).trim();
+    return remoteUrl || null;
+  } catch {
+    return null;
+  }
+}
+function parseGitRemoteUrl2(remoteUrl) {
+  const httpsMatch = remoteUrl.match(/^https:\/\/github\.com\/([^/]+)\/([^/]+?)(?:\.git)?\/?$/i);
+  if (httpsMatch) {
+    return {
+      owner: httpsMatch[1],
+      repo: httpsMatch[2].replace(/\.git$/, "")
+    };
+  }
+  const sshMatch = remoteUrl.match(/^git@github\.com:([^/]+)\/([^/]+?)(?:\.git)?$/i);
+  if (sshMatch) {
+    return {
+      owner: sshMatch[1],
+      repo: sshMatch[2].replace(/\.git$/, "")
+    };
+  }
+  return null;
+}
+function handlePrReviewCommand(_directory, args) {
+  const parsed = parseArgs3(args);
+  const rawInput = parsed.rest.join(" ").trim();
+  if (!rawInput) {
+    return USAGE3;
+  }
+  const isFullUrl = /^https?:\/\//i.test(rawInput);
+  const prInfo = parsePrRef(isFullUrl ? sanitizeUrl2(rawInput) : rawInput);
+  if (!prInfo) {
+    return `Error: Could not parse PR reference from "${rawInput}"
+
+${USAGE3}`;
+  }
+  const prUrl = `https://github.com/${prInfo.owner}/${prInfo.repo}/pull/${prInfo.number}`;
+  const result = validateAndSanitizeUrl2(prUrl);
+  if ("error" in result) {
+    return `Error: ${result.error}
+
+${USAGE3}`;
+  }
+  const councilFlag = parsed.council ? "council=true" : "council=false";
+  return `[MODE: PR_REVIEW pr="${result.sanitized}" ${councilFlag}]`;
+}
+
 // src/services/preflight-service.ts
 init_manager2();
 init_manager();
@@ -43785,7 +44352,8 @@ var ALL_GATE_NAMES = [
   "hallucination_guard",
   "sast_enabled",
   "mutation_test",
-  "council_general_review"
+  "council_general_review",
+  "drift_check"
 ];
 function derivePlanId(plan) {
   return `${plan.swarm}-${plan.title}`.replace(/[^a-zA-Z0-9-_]/g, "_");
@@ -45357,11 +45925,23 @@ var COMMAND_REGISTRY = {
     args: "<question> [--preset <name>] [--spec-review]",
     details: "Triggers the architect to convene a configurable General Council: each member independently web-searches, answers, and engages in one structured deliberation round on disagreements; an optional moderator pass synthesizes the final answer. --preset <name> selects a member group from council.general.presets. --spec-review switches to single-pass advisory mode for spec review. Requires council.general.enabled: true and a search API key in opencode-swarm.json."
   },
+  "pr-review": {
+    handler: async (ctx) => handlePrReviewCommand(ctx.directory, ctx.args),
+    description: "Launch deep PR review with multi-lane analysis [url] [--council]",
+    args: "<pr-url|owner/repo#N|N> [--council]",
+    details: "Launches a structured PR review: reconstructs PR intent via obligation extraction cascade, runs 6 parallel explorer lanes (correctness, security, dependencies, docs-intent-vs-actual, tests, performance-architecture), validates findings through independent reviewer confirmation, applies critic challenge to HIGH/CRITICAL findings, synthesizes structured report. --council variant fires adversarial multi-model review. Supports full GitHub URL, owner/repo#N shorthand, or bare PR number (resolves against origin remote)."
+  },
+  issue: {
+    handler: async (ctx) => handleIssueCommand(ctx.directory, ctx.args),
+    description: "Ingest a GitHub issue into the swarm workflow [url] [--plan] [--trace] [--no-repro]",
+    args: "<issue-url|owner/repo#N|N> [--plan] [--trace] [--no-repro]",
+    details: "Triggers the architect to enter MODE: ISSUE_INGEST \u2014 ingests a GitHub issue, restructures it into a normalized intake note, localizes root cause through hypothesis-driven tracing, and outputs a resolution spec. --plan transitions to plan creation after spec generation. --trace runs the full fix-and-PR workflow (implies --plan). --no-repro skips the reproduction step. Supports full GitHub URL, owner/repo#N shorthand, or bare issue number (resolves against origin remote)."
+  },
   "qa-gates": {
     handler: (ctx) => handleQaGatesCommand(ctx.directory, ctx.args, ctx.sessionID),
     description: "View or modify QA gate profile for the current plan [enable|override <gate>...]",
     args: "[show|enable|override] <gate>...",
-    details: "show: display spec-level, session-override, and effective QA gates for the current plan. enable: persist gate(s) into the locked-once profile (architect; rejected after critic approval lock). override: session-only ratchet-tighter enable. Valid gates: reviewer, test_engineer, council_mode, sme_enabled, critic_pre_plan, hallucination_guard, sast_enabled, mutation_test, council_general_review."
+    details: "show: display spec-level, session-override, and effective QA gates for the current plan. enable: persist gate(s) into the locked-once profile (architect; rejected after critic approval lock). override: session-only ratchet-tighter enable. Valid gates: reviewer, test_engineer, council_mode, sme_enabled, critic_pre_plan, hallucination_guard, sast_enabled, mutation_test, council_general_review, drift_check."
   },
   promote: {
     handler: (ctx) => handlePromoteCommand(ctx.directory, ctx.args),

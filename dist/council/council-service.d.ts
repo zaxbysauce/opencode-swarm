@@ -8,5 +8,14 @@
  * No I/O — fully unit-testable with mock inputs. All file reads/writes happen in
  * sibling modules (criteria-store, council-evidence-writer).
  */
-import type { CouncilConfig, CouncilCriteria, CouncilMemberVerdict, CouncilSynthesis } from './types';
+import type { CouncilConfig, CouncilCriteria, CouncilMemberVerdict, CouncilSynthesis, PhaseCouncilSynthesis } from './types';
 export declare function synthesizeCouncilVerdicts(taskId: string, swarmId: string, verdicts: CouncilMemberVerdict[], criteria: CouncilCriteria | null, roundNumber: number, config?: Partial<CouncilConfig>): CouncilSynthesis;
+/**
+ * Synthesize phase-level council verdicts into a PhaseCouncilSynthesis.
+ * Reuses the same veto detection, conflict detection, and finding
+ * classification logic as per-task council, but scoped to a phase number.
+ *
+ * Evidence is written to .swarm/evidence/{phase}/phase-council.json relative
+ * to workingDir (or cwd).
+ */
+export declare function synthesizePhaseCouncilAdvisory(phaseNumber: number, phaseSummary: string, verdicts: CouncilMemberVerdict[], roundNumber: number, config?: Partial<CouncilConfig>, workingDir?: string): PhaseCouncilSynthesis;

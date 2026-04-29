@@ -19,6 +19,7 @@ export interface SetQaGatesArgs {
     sast_enabled?: boolean;
     mutation_test?: boolean;
     council_general_review?: boolean;
+    drift_check?: boolean;
     project_type?: string;
 }
 interface SetQaGatesResult {

@@ -48,3 +48,23 @@ export declare function getCurrentSha(cwd: string): string;
  * Check if there are uncommitted changes
  */
 export declare function hasUncommittedChanges(cwd: string): boolean;
+export interface ResetToRemoteBranchResult {
+    success: boolean;
+    targetBranch: string;
+    localBranch: string;
+    message: string;
+    alreadyAligned: boolean;
+    prunedBranches: string[];
+    warnings: string[];
+}
+/**
+ * Reset local branch to align with its remote counterpart.
+ * Safely handles uncommitted changes, unpushed commits, and detached HEAD states.
+ *
+ * @param cwd - Working directory
+ * @param options - Options including pruneBranches flag
+ * @returns Result object with success status and details
+ */
+export declare function resetToRemoteBranch(cwd: string, options?: {
+    pruneBranches?: boolean;
+}): ResetToRemoteBranchResult;

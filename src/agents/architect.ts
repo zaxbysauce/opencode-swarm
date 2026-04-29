@@ -586,6 +586,7 @@ Do NOT call \`set_qa_gates\` yet — \`plan.json\` does not exist at this point.
 - hallucination_guard: <true|false>
 - mutation_test: <true|false>
 - council_general_review: <true|false>
+- drift_check: <true|false>
 - recorded_at: <ISO timestamp>
 \`\`\`
 MODE: PLAN applies these after \`save_plan\` succeeds via \`set_qa_gates\`.
@@ -663,6 +664,7 @@ Do NOT call \`set_qa_gates\` yet — \`plan.json\` does not exist at this point.
 - hallucination_guard: <true|false>
 - mutation_test: <true|false>
 - council_general_review: <true|false>
+- drift_check: <true|false>
 - recorded_at: <ISO timestamp>
 \`\`\`
 MODE: PLAN will read this section after \`save_plan\` succeeds and persist via \`set_qa_gates\`.
@@ -893,6 +895,61 @@ This mode is ADVISORY — it does NOT block any other workflow and does NOT modi
    - If the moderator pass ran: present the moderator's output verbatim, prefaced with the participating models (one line).
    - If no moderator: present the structural \`synthesis\` markdown from the tool's return.
    In either case, do NOT present the raw per-member JSON. Do NOT silently pick a winner among persisting disagreements — surface them honestly.
+
+### MODE: ISSUE_INGEST
+Activates when: user invokes \`/swarm issue <url>\`; OR architect receives \`[MODE: ISSUE_INGEST issue="<url>"]\` signal.
+
+Purpose: ingest a GitHub issue, localize root cause, and produce a resolution spec. The issue URL points to a GitHub issue that describes a bug, feature request, or task to be resolved.
+
+Flags parsed from signal:
+- \`plan=true\` → after spec generation, transition to MODE: PLAN (create implementation plan)
+- \`trace=true\` → after plan, delegate to swarm-implement skill for full fix-and-PR workflow (implies plan=true)
+- \`noRepro=true\` → skip reproduction verification step
+
+#### Phase 1: INTAKE
+1. Fetch the issue body using the GitHub CLI (\`gh issue view <N> --repo <owner>/<repo> --json title,body,labels,assignees,comments\`) or web fetch.
+2. Parse the issue into a normalized **Intake Note** with four required fields:
+   - **Observed behavior**: what the issue reports
+   - **Expected behavior**: what should happen instead
+   - **Reproduction steps**: how to trigger the issue (may be absent; flag with \`[NEEDS REPRO]\` if missing)
+   - **Environment**: platform, version, configuration context
+3. If any required field is missing and cannot be inferred from context, flag as \`[NEEDS REPRO]\`.
+4. If \`--no-repro\` flag is set, skip reproduction verification and proceed with available information.
+5. Exit when the Intake Note is complete or all missing fields are flagged.
+
+#### Phase 2: LOCALIZATION
+1. Delegate to \`mega_explorer\` to scan the codebase for code areas related to the issue's observed behavior.
+2. Build 2–5 candidate hypotheses for root cause, each with:
+   - **Location**: file(s) and function(s) most likely responsible
+   - **Confidence**: composite score (stack-trace match 0.4, recency 0.25, call-graph proximity 0.2, test-failure correlation 0.15)
+   - **Falsifiability**: a specific test or observation that would disprove this hypothesis
+3. Validate top-3 hypotheses in parallel using targeted \`mega_sme\` consultations.
+4. Prune to a single root cause hypothesis with supporting evidence.
+5. Exit when a root cause is identified with ≥70% confidence, or when all hypotheses are exhausted (report ambiguity).
+
+#### Phase 3: SPEC GENERATION
+0. Include a **Root Cause** section derived from Phase 2 localization results: concise statement of the identified root cause, location, and confidence score. Include a **Fix Strategy** section at product/behavior level (what the fix must accomplish, not how to implement it).
+1. Generate \`.swarm/spec.md\` using the same SPEC CONTENT RULES as MODE: SPECIFY:
+   - WHAT users need and WHY — never HOW to implement
+   - FR-### / SC-### numbering, Given/When/Then scenarios
+   - No technology stack, APIs, or code structure
+   - \`[NEEDS CLARIFICATION]\` markers (max 3)
+2. Cross-reference the spec against the issue's expected behavior to ensure alignment.
+3. If the issue is a bug: spec must describe the correct behavior, not the broken behavior.
+4. If the issue is a feature: spec must describe the user-facing outcome, not the implementation.
+5. QA GATE SELECTION: Ask user which QA gates to enable (same dialogue as MODE: SPECIFY). Write to \`.swarm/context.md\` under \`## Pending QA Gate Selection\`.
+
+#### Phase 4: TRANSITION
+Based on flags:
+- No flags → report spec summary and suggest \`PLAN\` or \`CLARIFY-SPEC\`
+- \`plan=true\` → transition to MODE: PLAN using the generated spec
+- \`trace=true\` → transition to MODE: PLAN, then delegate to swarm-implement skill for full fix workflow
+
+RULES:
+- One question per message in INTAKE dialogue (max 6 questions)
+- Hypotheses must be falsifiable — no unfalsifiable hypotheses
+- Spec must be independently testable — each FR must have a verification path
+- The issue URL is already sanitized by the issue command — do not re-sanitize
 
 ### MODE: PLAN
 
@@ -1559,7 +1616,7 @@ function buildYourToolsList(council?: CouncilWorkflowConfig): string {
  * inline path). The dialogue is dialogue-only — persistence happens during
  * MODE: PLAN after `save_plan` creates `plan.json`.
  *
- * The lead-in sentence varies per mode, but the body (nine gates with
+ * The lead-in sentence varies per mode, but the body (ten gates with
  * defaults, one-shot accept-or-customize prompt) is shared so SPECIFY,
  * BRAINSTORM, and PLAN inline paths stay in lockstep.
  */
@@ -1574,7 +1631,7 @@ export function buildQaGateSelectionDialogue(
 				: 'No pending gate selection found in `.swarm/context.md`. Ask the user inline now.';
 	return `${leadIn}
 
-Present the nine gates with their defaults (DEFAULT_QA_GATES) as a single user-facing question. Offer the user a one-shot choice: accept defaults, or customize. The nine gates are:
+Present the ten gates with their defaults (DEFAULT_QA_GATES) as a single user-facing question. Offer the user a one-shot choice: accept defaults, or customize. The ten gates are:
 - reviewer (default: ON) — code review of coder output
 - test_engineer (default: ON) — test verification of coder output
 - sme_enabled (default: ON) — SME consultation during planning/clarification
@@ -1584,6 +1641,7 @@ Present the nine gates with their defaults (DEFAULT_QA_GATES) as a single user-f
 - hallucination_guard (default: OFF) — when enabled, mandatory per-phase API/signature/claim/citation verification via critic_hallucination_verifier at PHASE-WRAP; phase_complete will REJECT phase completion unless .swarm/evidence/{phase}/hallucination-guard.json exists with an APPROVED verdict (recommended for claim-heavy or research-heavy work)
 - mutation_test (default: OFF) — when enabled, runs mutation testing on source files touched this phase via generate_mutants + mutation_test + write_mutation_evidence at PHASE-WRAP; FAIL verdict blocks phase_complete; WARN is non-blocking (recommended for projects with coverage gaps or safety-critical code)
 - council_general_review (default: OFF) — when enabled, MODE: SPECIFY runs convene_general_council on the draft spec before the critic-gate; multiple models each independently search the web, deliberate on disagreements, and a moderator synthesizes a final answer that the architect folds into the spec (recommended for novel architecture, unclear best practices, or high-risk design decisions). Requires council.general.enabled: true and a configured search API key.
+- drift_check (default: ON) — when enabled, mandatory per-phase drift verification via critic_drift_verifier at PHASE-WRAP; compares implemented changes against spec.md intent; hard-blocks phase_complete when spec.md exists and drift evidence is missing or REJECTED; advisory-only when no spec.md exists (recommended for all projects with a specification)
 
 One question, one message, defaults pre-stated. Wait for the user's answer.`;
 }

@@ -9,6 +9,8 @@
  * sibling modules (criteria-store, council-evidence-writer).
  */
 
+import fs from 'node:fs';
+import path from 'node:path';
 import type {
 	CouncilAgent,
 	CouncilConfig,
@@ -17,6 +19,7 @@ import type {
 	CouncilMemberVerdict,
 	CouncilSynthesis,
 	CouncilVerdict,
+	PhaseCouncilSynthesis,
 } from './types';
 import { COUNCIL_DEFAULTS } from './types';
 
@@ -221,6 +224,246 @@ function buildUnifiedFeedback(
 	if (verdict === 'APPROVE') {
 		lines.push(
 			'> ✅ **All council members approved.** Work may advance to `complete`.',
+		);
+	} else if (roundNumber >= maxRounds) {
+		lines.push(
+			`> ⚠️ **Max rounds (${maxRounds}) reached.** Escalate to user — do not auto-advance.`,
+		);
+	}
+
+	return lines.join('\n');
+}
+
+/**
+ * Synthesize phase-level council verdicts into a PhaseCouncilSynthesis.
+ * Reuses the same veto detection, conflict detection, and finding
+ * classification logic as per-task council, but scoped to a phase number.
+ *
+ * Evidence is written to .swarm/evidence/{phase}/phase-council.json relative
+ * to workingDir (or cwd).
+ */
+export function synthesizePhaseCouncilAdvisory(
+	phaseNumber: number,
+	phaseSummary: string,
+	verdicts: CouncilMemberVerdict[],
+	roundNumber: number,
+	config: Partial<CouncilConfig> = {},
+	workingDir?: string,
+): PhaseCouncilSynthesis {
+	const cfg: CouncilConfig = { ...COUNCIL_DEFAULTS, ...config };
+	const timestamp = new Date().toISOString();
+	const scope = 'phase' as const;
+
+	// ── Quorum ─────────────────────────────────────────────────────────
+	const quorumSize = new Set(verdicts.map((v) => v.agent)).size;
+
+	// ── Veto detection ──────────────────────────────────────────────────
+	const rejectingMembers: CouncilAgent[] = verdicts
+		.filter((v) => v.verdict === 'REJECT')
+		.map((v) => v.agent);
+
+	let overallVerdict: CouncilVerdict;
+	if (cfg.vetoPriority && rejectingMembers.length > 0) {
+		overallVerdict = 'REJECT';
+	} else if (
+		verdicts.some((v) => v.verdict === 'CONCERNS') ||
+		(!cfg.vetoPriority && rejectingMembers.length > 0)
+	) {
+		overallVerdict = 'CONCERNS';
+	} else {
+		overallVerdict = 'APPROVE';
+	}
+
+	// ── Conflict detection ──────────────────────────────────────────────
+	const unresolvedConflicts = detectConflicts(verdicts);
+
+	// ── Finding classification ──────────────────────────────────────────
+	const rejectingSet = new Set<CouncilAgent>(rejectingMembers);
+	const vetoFindings = verdicts
+		.filter((v) => rejectingSet.has(v.agent))
+		.flatMap((v) => v.findings);
+	const requiredFixes = vetoFindings.filter(
+		(f) => f.severity === 'HIGH' || f.severity === 'MEDIUM',
+	);
+	const advisoryFindings: CouncilFinding[] = [
+		...vetoFindings.filter((f) => f.severity === 'LOW'),
+		...verdicts
+			.filter((v) => !rejectingSet.has(v.agent))
+			.flatMap((v) => v.findings),
+	];
+
+	// ── Advisory notes ──────────────────────────────────────────────────
+	const advisoryNotes: string[] = [];
+	if (advisoryFindings.length > 0) {
+		advisoryNotes.push(
+			`Phase ${phaseNumber} council found ${advisoryFindings.length} advisory finding(s). Review before proceeding to next phase.`,
+		);
+	}
+	if (verdicts.length < 3) {
+		advisoryNotes.push(
+			`Phase council quorum is ${verdicts.length} members — consider convening additional members for broader review coverage.`,
+		);
+	}
+
+	// ── Criteria assessment ─────────────────────────────────────────────
+	// Phase-level council has no pre-declared criteria, so if any member
+	// reports unmet criteria, treat it as criteria not fully met.
+	const allUnmetIds = new Set(verdicts.flatMap((v) => v.criteriaUnmet));
+	const allCriteriaMet = allUnmetIds.size === 0 && verdicts.length > 0;
+
+	// ── Unified feedback ────────────────────────────────────────────────
+	const unifiedFeedbackMd = buildPhaseCouncilFeedback(
+		phaseNumber,
+		phaseSummary,
+		overallVerdict,
+		rejectingMembers,
+		requiredFixes,
+		advisoryFindings,
+		unresolvedConflicts,
+		roundNumber,
+		cfg.maxRounds,
+	);
+
+	// ── Evidence path ───────────────────────────────────────────────────
+	const evidencePath = `.swarm/evidence/${phaseNumber}/phase-council.json`;
+
+	// ── Write evidence file ─────────────────────────────────────────────
+	const baseDir = workingDir ?? process.cwd();
+	const evidenceDir = path.join(
+		baseDir,
+		'.swarm',
+		'evidence',
+		String(phaseNumber),
+	);
+	fs.mkdirSync(evidenceDir, { recursive: true });
+	const evidenceFile = path.join(evidenceDir, 'phase-council.json');
+	const evidenceBundle = {
+		entries: [
+			{
+				type: 'phase-council',
+				phase_number: phaseNumber,
+				scope: 'phase',
+				timestamp,
+				verdict: overallVerdict,
+				quorumSize,
+				phaseSummary,
+				requiredFixes: requiredFixes.map((f) => ({
+					severity: f.severity,
+					category: f.category,
+					location: f.location,
+					detail: f.detail,
+					evidence: f.evidence,
+				})),
+				advisoryNotes,
+				advisoryFindings: advisoryFindings.map((f) => ({
+					severity: f.severity,
+					category: f.category,
+					location: f.location,
+					detail: f.detail,
+					evidence: f.evidence,
+				})),
+				roundNumber,
+				allCriteriaMet,
+			},
+		],
+	};
+	try {
+		const tempFile = `${evidenceFile}.tmp-${Date.now()}`;
+		fs.writeFileSync(
+			tempFile,
+			JSON.stringify(evidenceBundle, null, 2),
+			'utf-8',
+		);
+		fs.renameSync(tempFile, evidenceFile);
+	} catch (writeErr) {
+		console.warn(
+			`[phase-council] Failed to write phase-council evidence to ${evidenceFile}: ${writeErr instanceof Error ? writeErr.message : String(writeErr)}`,
+		);
+	}
+
+	return {
+		phaseNumber,
+		scope,
+		timestamp,
+		overallVerdict,
+		vetoedBy: rejectingMembers.length > 0 ? rejectingMembers : null,
+		memberVerdicts: verdicts,
+		unresolvedConflicts,
+		requiredFixes,
+		advisoryFindings,
+		advisoryNotes,
+		unifiedFeedbackMd,
+		roundNumber,
+		allCriteriaMet,
+		quorumSize,
+		evidencePath,
+		phaseSummary,
+	};
+}
+
+/**
+ * Build unified feedback markdown for phase-level council review.
+ */
+function buildPhaseCouncilFeedback(
+	phaseNumber: number,
+	phaseSummary: string,
+	verdict: CouncilVerdict,
+	vetoedBy: CouncilAgent[],
+	requiredFixes: CouncilFinding[],
+	advisoryFindings: CouncilFinding[],
+	conflicts: string[],
+	roundNumber: number,
+	maxRounds: number,
+): string {
+	const lines: string[] = [
+		`## Phase Council Review — Round ${roundNumber}/${maxRounds}`,
+		`**Phase:** ${phaseNumber}  **Overall verdict:** ${verdict}`,
+		'',
+	];
+
+	if (phaseSummary) {
+		lines.push(`**Phase Summary:** ${phaseSummary}`);
+		lines.push('');
+	}
+
+	if (vetoedBy.length > 0) {
+		lines.push(`> ⛔ **BLOCKED** by: ${vetoedBy.join(', ')}`);
+		lines.push('');
+	}
+
+	if (requiredFixes.length > 0) {
+		lines.push('### Required Fixes (must resolve before re-submission)');
+		for (const f of requiredFixes) {
+			lines.push(
+				`- **[${f.severity}]** \`${f.location}\` — ${f.detail}`,
+				`  _Evidence:_ ${f.evidence}`,
+			);
+		}
+		lines.push('');
+	}
+
+	if (conflicts.length > 0) {
+		lines.push('### Conflicts to Resolve');
+		lines.push(
+			'_The following reviewers gave contradictory instructions. Architect must resolve before sending to coder._',
+		);
+		for (const c of conflicts) {
+			lines.push(`- ${c}`);
+		}
+		lines.push('');
+	}
+
+	if (advisoryFindings.length > 0) {
+		lines.push('### Advisory Findings (non-blocking)');
+		for (const f of advisoryFindings) {
+			lines.push(`- **[${f.severity}]** \`${f.location}\` — ${f.detail}`);
+		}
+		lines.push('');
+	}
+
+	if (verdict === 'APPROVE') {
+		lines.push(
+			'> ✅ **Phase council approved.** Phase may proceed to completion.',
 		);
 	} else if (roundNumber >= maxRounds) {
 		lines.push(
