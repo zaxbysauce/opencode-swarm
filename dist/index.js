@@ -51,7 +51,7 @@ var package_default;
 var init_package = __esm(() => {
   package_default = {
     name: "opencode-swarm",
-    version: "6.86.10",
+    version: "6.86.11",
     description: "Architect-centric agentic swarm plugin for OpenCode - hub-and-spoke orchestration with SME consultation, code generation, and QA review",
     main: "dist/index.js",
     types: "dist/index.d.ts",
@@ -48414,34 +48414,66 @@ var init_knowledge_migrator = __esm(() => {
 });
 
 // src/commands/knowledge.ts
+import { join as join28 } from "node:path";
+function resolveEntryByPrefix(entries, inputId) {
+  const exact = entries.find((e) => e.id === inputId);
+  if (exact)
+    return { entry: exact };
+  const matches = entries.filter((e) => e.id.startsWith(inputId));
+  if (matches.length === 0) {
+    return { error: `No entry found matching '${inputId}'.` };
+  }
+  if (matches.length === 1) {
+    return { entry: matches[0] };
+  }
+  const candidates = matches.map((e) => e.id).join(`
+  `);
+  return {
+    error: `Ambiguous prefix '${inputId}' matches ${matches.length} entries:
+  ${candidates}`
+  };
+}
 async function handleKnowledgeQuarantineCommand(directory, args2) {
-  const entryId = args2[0];
-  if (!entryId) {
+  const inputId = args2[0];
+  if (!inputId) {
     return "Usage: /swarm knowledge quarantine <id> [reason]";
   }
-  if (!/^[a-zA-Z0-9_-]{1,64}$/.test(entryId)) {
+  if (!/^[a-zA-Z0-9_-]{1,64}$/.test(inputId)) {
     return "Invalid entry ID. IDs must be 1-64 characters: letters, digits, hyphens, underscores only.";
   }
   const reason = args2.slice(1).join(" ") || "Quarantined via /swarm knowledge quarantine command";
   try {
-    await quarantineEntry(directory, entryId, reason, "user");
-    return `✅ Entry ${entryId} quarantined successfully.`;
+    const entries = await readKnowledge(resolveSwarmKnowledgePath(directory));
+    const resolved = resolveEntryByPrefix(entries, inputId);
+    if ("error" in resolved) {
+      return `❌ ${resolved.error}`;
+    }
+    const fullId = resolved.entry.id;
+    await quarantineEntry(directory, fullId, reason, "user");
+    return `✅ Entry ${fullId} quarantined successfully.`;
   } catch (error93) {
     console.warn("[knowledge-command] quarantineEntry error:", error93 instanceof Error ? error93.message : String(error93));
     return `❌ Failed to quarantine entry. Check the entry ID and try again.`;
   }
 }
 async function handleKnowledgeRestoreCommand(directory, args2) {
-  const entryId = args2[0];
-  if (!entryId) {
+  const inputId = args2[0];
+  if (!inputId) {
     return "Usage: /swarm knowledge restore <id>";
   }
-  if (!/^[a-zA-Z0-9_-]{1,64}$/.test(entryId)) {
+  if (!/^[a-zA-Z0-9_-]{1,64}$/.test(inputId)) {
     return "Invalid entry ID. IDs must be 1-64 characters: letters, digits, hyphens, underscores only.";
   }
   try {
-    await restoreEntry(directory, entryId);
-    return `✅ Entry ${entryId} restored successfully.`;
+    const quarantinePath = join28(directory, ".swarm", "knowledge-quarantined.jsonl");
+    const entries = await readKnowledge(quarantinePath);
+    const resolved = resolveEntryByPrefix(entries, inputId);
+    if ("error" in resolved) {
+      return `❌ ${resolved.error}`;
+    }
+    const fullId = resolved.entry.id;
+    await restoreEntry(directory, fullId);
+    return `✅ Entry ${fullId} restored successfully.`;
   } catch (error93) {
     console.warn("[knowledge-command] restoreEntry error:", error93 instanceof Error ? error93.message : String(error93));
     return `❌ Failed to restore entry. Check the entry ID and try again.`;
@@ -48479,16 +48511,16 @@ async function handleKnowledgeListCommand(directory, _args) {
     const lines = [
       `## Knowledge Entries (${entries.length} total)`,
       "",
-      "| ID | Category | Confidence | Lesson (truncated) |",
-      "|------|----------|------------|---------------------|"
+      "| ID (prefix) | Category | Confidence | Lesson (truncated) |",
+      "|--------------|----------|------------|---------------------|"
     ];
     for (const entry of entries) {
       const truncatedLesson = entry.lesson.length > 60 ? `${entry.lesson.slice(0, 57)}...` : entry.lesson;
       const confidencePct = Math.round(entry.confidence * 100);
-      lines.push(`| ${entry.id.slice(0, 8)}... | ${entry.category} | ${confidencePct}% | ${truncatedLesson} |`);
+      lines.push(`| ${entry.id.slice(0, 12)}… | ${entry.category} | ${confidencePct}% | ${truncatedLesson} |`);
     }
     lines.push("");
-    lines.push("Use `/swarm knowledge quarantine <id>` to hide an entry.");
+    lines.push("Use `/swarm knowledge quarantine <id-prefix>` to hide an entry. Prefix matching is supported — the 12-character prefix shown is unique in most stores.");
     return lines.join(`
 `);
   } catch (error93) {
@@ -63859,7 +63891,7 @@ ${content.substring(endIndex + 1)}`;
 init_manager();
 init_utils2();
 import * as fs31 from "node:fs";
-import { join as join41 } from "node:path";
+import { join as join42 } from "node:path";
 function createCompactionCustomizerHook(config3, directory) {
   const enabled = config3.hooks?.compaction !== false;
   if (!enabled) {
@@ -63904,7 +63936,7 @@ function createCompactionCustomizerHook(config3, directory) {
         }
       }
       try {
-        const summariesDir = join41(directory, ".swarm", "summaries");
+        const summariesDir = join42(directory, ".swarm", "summaries");
         const files = await fs31.promises.readdir(summariesDir);
         if (files.length > 0) {
           const count = files.length;
@@ -74637,7 +74669,7 @@ import {
   readFileSync as readFileSync36,
   writeFileSync as writeFileSync11
 } from "node:fs";
-import { join as join65 } from "node:path";
+import { join as join66 } from "node:path";
 var EVIDENCE_DIR2 = ".swarm/evidence";
 var VALID_TASK_ID = /^\d+\.\d+(\.\d+)*$/;
 var COUNCIL_GATE_NAME = "council";
@@ -74671,9 +74703,9 @@ function writeCouncilEvidence(workingDir, synthesis) {
   if (!VALID_TASK_ID.test(synthesis.taskId)) {
     throw new Error(`writeCouncilEvidence: invalid taskId "${synthesis.taskId}" — must match N.M or N.M.P format`);
   }
-  const dir = join65(workingDir, EVIDENCE_DIR2);
+  const dir = join66(workingDir, EVIDENCE_DIR2);
   mkdirSync18(dir, { recursive: true });
-  const filePath = join65(dir, `${synthesis.taskId}.json`);
+  const filePath = join66(dir, `${synthesis.taskId}.json`);
   const existingRoot = Object.create(null);
   if (existsSync37(filePath)) {
     try {
@@ -74707,7 +74739,7 @@ function writeCouncilEvidence(workingDir, synthesis) {
     updated.required_gates = [];
   writeFileSync11(filePath, JSON.stringify(updated, null, 2));
   try {
-    const councilDir = join65(workingDir, ".swarm", "council");
+    const councilDir = join66(workingDir, ".swarm", "council");
     mkdirSync18(councilDir, { recursive: true });
     const auditLine = JSON.stringify({
       round: synthesis.roundNumber,
@@ -74715,7 +74747,7 @@ function writeCouncilEvidence(workingDir, synthesis) {
       timestamp: synthesis.timestamp,
       vetoedBy: synthesis.vetoedBy
     });
-    appendFileSync6(join65(councilDir, `${synthesis.taskId}.rounds.jsonl`), `${auditLine}
+    appendFileSync6(join66(councilDir, `${synthesis.taskId}.rounds.jsonl`), `${auditLine}
 `);
   } catch (auditError) {
     console.warn(`writeCouncilEvidence: failed to append round-history audit log: ${auditError instanceof Error ? auditError.message : String(auditError)}`);
@@ -74848,20 +74880,20 @@ function buildUnifiedFeedback(taskId, verdict, vetoedBy, requiredFixes, advisory
 
 // src/council/criteria-store.ts
 import { existsSync as existsSync38, mkdirSync as mkdirSync19, readFileSync as readFileSync37, writeFileSync as writeFileSync12 } from "node:fs";
-import { join as join66 } from "node:path";
+import { join as join67 } from "node:path";
 var COUNCIL_DIR = ".swarm/council";
 function writeCriteria(workingDir, taskId, criteria) {
-  const dir = join66(workingDir, COUNCIL_DIR);
+  const dir = join67(workingDir, COUNCIL_DIR);
   mkdirSync19(dir, { recursive: true });
   const payload = {
     taskId,
     criteria,
     declaredAt: new Date().toISOString()
   };
-  writeFileSync12(join66(dir, `${safeId(taskId)}.json`), JSON.stringify(payload, null, 2));
+  writeFileSync12(join67(dir, `${safeId(taskId)}.json`), JSON.stringify(payload, null, 2));
 }
 function readCriteria(workingDir, taskId) {
-  const filePath = join66(workingDir, COUNCIL_DIR, `${safeId(taskId)}.json`);
+  const filePath = join67(workingDir, COUNCIL_DIR, `${safeId(taskId)}.json`);
   if (!existsSync38(filePath))
     return null;
   try {
@@ -77406,6 +77438,7 @@ var VALID_CATEGORIES2 = [
   "debugging",
   "performance",
   "integration",
+  "todo",
   "other"
 ];
 var knowledge_add = createSwarmTool({
@@ -77550,6 +77583,7 @@ var VALID_CATEGORIES3 = [
   "debugging",
   "performance",
   "integration",
+  "todo",
   "other"
 ];
 var VALID_STATUSES = ["candidate", "established", "promoted"];

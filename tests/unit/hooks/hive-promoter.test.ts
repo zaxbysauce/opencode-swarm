@@ -2171,3 +2171,177 @@ describe('Task 3.4: curator-summary feedback integration', () => {
 		);
 	});
 });
+
+// ===========================================================================
+// Canonical hive path and schema field verification (issue #633 tests 1-4)
+// ===========================================================================
+
+describe('promoteToHive - canonical hive path and field names', () => {
+	beforeEach(() => {
+		vi.clearAllMocks();
+		mockReadKnowledge.mockResolvedValue([]);
+		mockFindNearDuplicate.mockReturnValue(undefined);
+		mockValidateLesson.mockReturnValue({
+			valid: true,
+			layer: 0,
+			reason: '',
+			severity: undefined,
+		});
+	});
+
+	it('writes to the path returned by resolveHiveKnowledgePath, not to any hardcoded path', async () => {
+		const module = await import('../../../src/hooks/hive-promoter.js');
+		await module.promoteToHive(
+			'/test-dir',
+			'A lesson long enough to pass validation checks',
+			'process',
+		);
+
+		expect(mockAppendKnowledge).toHaveBeenCalledTimes(1);
+		const writtenPath = mockAppendKnowledge.mock.calls[0][0] as string;
+		expect(writtenPath).toBe('/hive/shared-learnings.jsonl');
+		expect(writtenPath).not.toContain('hive-knowledge.jsonl');
+	});
+
+	it('entry uses canonical field name scope (not scope_tag)', async () => {
+		const module = await import('../../../src/hooks/hive-promoter.js');
+		await module.promoteToHive(
+			'/test-dir',
+			'A lesson long enough to pass validation checks',
+			'process',
+		);
+
+		const entry = mockAppendKnowledge.mock.calls[0][1] as Record<
+			string,
+			unknown
+		>;
+		expect(entry).toHaveProperty('scope');
+		expect(entry).not.toHaveProperty('scope_tag');
+	});
+
+	it('entry uses canonical field name retrieval_outcomes (not retrievalOutcomes)', async () => {
+		const module = await import('../../../src/hooks/hive-promoter.js');
+		await module.promoteToHive(
+			'/test-dir',
+			'A lesson long enough to pass validation checks',
+			'process',
+		);
+
+		const entry = mockAppendKnowledge.mock.calls[0][1] as Record<
+			string,
+			unknown
+		>;
+		expect(entry).toHaveProperty('retrieval_outcomes');
+		expect(entry).not.toHaveProperty('retrievalOutcomes');
+	});
+
+	it('entry does not include promotedAt (not in HiveKnowledgeEntry schema)', async () => {
+		const module = await import('../../../src/hooks/hive-promoter.js');
+		await module.promoteToHive(
+			'/test-dir',
+			'A lesson long enough to pass validation checks',
+			'process',
+		);
+
+		const entry = mockAppendKnowledge.mock.calls[0][1] as Record<
+			string,
+			unknown
+		>;
+		expect(entry).not.toHaveProperty('promotedAt');
+	});
+});
+
+describe('promoteFromSwarm - canonical hive path', () => {
+	beforeEach(() => {
+		vi.clearAllMocks();
+		mockFindNearDuplicate.mockReturnValue(undefined);
+		mockValidateLesson.mockReturnValue({
+			valid: true,
+			layer: 0,
+			reason: '',
+			severity: undefined,
+		});
+	});
+
+	it('writes promoted entry to the path returned by resolveHiveKnowledgePath', async () => {
+		const module = await import('../../../src/hooks/hive-promoter.js');
+		const swarmEntry = {
+			id: 'swarm-promote-test',
+			tier: 'swarm' as const,
+			lesson: 'A lesson long enough to pass validation and be promoted to hive',
+			category: 'process' as const,
+			tags: ['testing'],
+			scope: 'global',
+			confidence: 0.8,
+			status: 'promoted' as const,
+			confirmed_by: [
+				{ project_name: 'proj', confirmed_at: '2026-01-01T00:00:00Z' },
+			],
+			retrieval_outcomes: {
+				applied_count: 3,
+				succeeded_after_count: 3,
+				failed_after_count: 0,
+			},
+			schema_version: 1,
+			created_at: '2026-01-01T00:00:00Z',
+			updated_at: '2026-01-01T00:00:00Z',
+			project_name: 'proj',
+			hive_eligible: true,
+		};
+
+		mockReadKnowledge
+			.mockResolvedValueOnce([swarmEntry])
+			.mockResolvedValueOnce([]);
+
+		await module.promoteFromSwarm('/test-dir', 'swarm-promote-test');
+
+		const hiveWriteCall = mockAppendKnowledge.mock.calls.find((call) =>
+			(call[0] as string).includes('shared-learnings'),
+		);
+		expect(hiveWriteCall).toBeDefined();
+		const writtenPath = hiveWriteCall![0] as string;
+		expect(writtenPath).toBe('/hive/shared-learnings.jsonl');
+		expect(writtenPath).not.toContain('hive-knowledge.jsonl');
+	});
+
+	it('no write call targets hive-knowledge.jsonl across both promote paths', async () => {
+		const module = await import('../../../src/hooks/hive-promoter.js');
+		const swarmEntry = {
+			id: 'no-orphan-test',
+			tier: 'swarm' as const,
+			lesson:
+				'A lesson verifying no orphaned file is written under any code path',
+			category: 'architecture' as const,
+			tags: [],
+			scope: 'global',
+			confidence: 0.9,
+			status: 'promoted' as const,
+			confirmed_by: [
+				{ project_name: 'proj', confirmed_at: '2026-01-01T00:00:00Z' },
+			],
+			retrieval_outcomes: {
+				applied_count: 1,
+				succeeded_after_count: 1,
+				failed_after_count: 0,
+			},
+			schema_version: 1,
+			created_at: '2026-01-01T00:00:00Z',
+			updated_at: '2026-01-01T00:00:00Z',
+			project_name: 'proj',
+			hive_eligible: true,
+		};
+
+		mockReadKnowledge
+			.mockResolvedValueOnce([swarmEntry])
+			.mockResolvedValueOnce([]);
+
+		await module.promoteFromSwarm('/test-dir', 'no-orphan-test');
+
+		for (const call of mockAppendKnowledge.mock.calls) {
+			expect(call[0] as string).not.toContain('hive-knowledge.jsonl');
+		}
+		for (const call of mockRewriteKnowledge.mock.calls) {
+			expect(call[0] as string).not.toContain('hive-knowledge.jsonl');
+		}
+	});
+});

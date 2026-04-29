@@ -59,8 +59,3 @@ perplexity.log
 # Generated repo graph (contains absolute workspace paths — local artifact)
 repo-graph.json
 
-
-# Test artifacts from Windows-path unit tests
-C:\\/
-C:\\projects\\myworkspace/
-\\\\server\\share/
