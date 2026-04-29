@@ -243,7 +243,10 @@ async function initializeOpenCodeSwarm(ctx: Parameters<Plugin>[0]) {
 	// no runtime protection (resolveFallbackModel returns null for length === 0).
 	{
 		const noFallback: string[] = [];
-		const hasNoFallback = (cfg: { model?: string; fallback_models?: string[] }) =>
+		const hasNoFallback = (cfg: {
+			model?: string;
+			fallback_models?: string[];
+		}) =>
 			cfg.model && (!cfg.fallback_models || cfg.fallback_models.length === 0);
 
 		if (config.agents) {
