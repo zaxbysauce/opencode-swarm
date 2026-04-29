@@ -18598,7 +18598,7 @@ import * as path33 from "path";
 // package.json
 var package_default = {
   name: "opencode-swarm",
-  version: "6.86.9",
+  version: "6.86.10",
   description: "Architect-centric agentic swarm plugin for OpenCode - hub-and-spoke orchestration with SME consultation, code generation, and QA review",
   main: "dist/index.js",
   types: "dist/index.d.ts",
@@ -19109,13 +19109,6 @@ var AgentOverrideConfigSchema = exports_external.object({
   temperature: exports_external.number().min(0).max(2).optional(),
   disabled: exports_external.boolean().optional(),
   fallback_models: exports_external.array(exports_external.string()).max(3).optional()
-}).refine((data) => {
-  if (data.model && !data.fallback_models) {
-    console.warn(`[opencode-swarm] WARNING: Agent configured with custom model "${data.model}" but no fallback_models. This means if the custom model fails, there is no fallback protection. Consider adding fallback_models for reliability.`);
-  }
-  return true;
-}, {
-  message: "Agent configuration warning: Custom model without fallback protection"
 });
 var SwarmConfigSchema = exports_external.object({
   name: exports_external.string().optional(),

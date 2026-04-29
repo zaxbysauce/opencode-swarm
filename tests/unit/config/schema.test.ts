@@ -99,7 +99,9 @@ describe('AgentOverrideConfigSchema', () => {
 	});
 
 	// Fallback models validation tests
-	it('warns when model is set without fallback_models', () => {
+	it('parses without side effects when model is set without fallback_models', () => {
+		// The schema no longer emits console.warn itself; the advisory is collected
+		// and emitted once at plugin initialization to avoid per-agent spam.
 		const originalWarn = console.warn;
 		const warnings: string[] = [];
 		console.warn = (...args: unknown[]) => {
@@ -113,8 +115,10 @@ describe('AgentOverrideConfigSchema', () => {
 		console.warn = originalWarn;
 
 		expect(result.success).toBe(true);
-		expect(warnings.some((w) => w.includes('custom-model'))).toBe(true);
-		expect(warnings.some((w) => w.includes('fallback_models'))).toBe(true);
+		expect(result.data?.model).toBe('custom-model');
+		expect(result.data?.fallback_models).toBeUndefined();
+		// Schema itself must not emit any warnings — advisory lives in initializeOpenCodeSwarm
+		expect(warnings.length).toBe(0);
 	});
 
 	it('does not warn when model is set with fallback_models', () => {
@@ -167,6 +171,18 @@ describe('AgentOverrideConfigSchema', () => {
 
 		expect(result.success).toBe(true);
 		expect(warnings.some((w) => w.includes('fallback_models'))).toBe(false);
+	});
+
+	it('accepts empty fallback_models array (schema-valid; plugin-init warning catches it)', () => {
+		// fallback_models:[] is schema-valid but provides no runtime protection.
+		// The consolidated warning in initializeOpenCodeSwarm checks length===0
+		// and treats it identically to undefined.
+		const result = AgentOverrideConfigSchema.safeParse({
+			model: 'custom-model',
+			fallback_models: [],
+		});
+		expect(result.success).toBe(true);
+		expect(result.data?.fallback_models).toEqual([]);
 	});
 
 	// Variant (reasoning-effort) field tests

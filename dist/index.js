@@ -51,7 +51,7 @@ var package_default;
 var init_package = __esm(() => {
   package_default = {
     name: "opencode-swarm",
-    version: "6.86.9",
+    version: "6.86.10",
     description: "Architect-centric agentic swarm plugin for OpenCode - hub-and-spoke orchestration with SME consultation, code generation, and QA review",
     main: "dist/index.js",
     types: "dist/index.d.ts",
@@ -14816,13 +14816,6 @@ var init_schema = __esm(() => {
     temperature: exports_external.number().min(0).max(2).optional(),
     disabled: exports_external.boolean().optional(),
     fallback_models: exports_external.array(exports_external.string()).max(3).optional()
-  }).refine((data) => {
-    if (data.model && !data.fallback_models) {
-      console.warn(`[opencode-swarm] WARNING: Agent configured with custom model "${data.model}" but no fallback_models. This means if the custom model fails, there is no fallback protection. Consider adding fallback_models for reliability.`);
-    }
-    return true;
-  }, {
-    message: "Agent configuration warning: Custom model without fallback protection"
   });
   SwarmConfigSchema = exports_external.object({
     name: exports_external.string().optional(),
@@ -88791,6 +88784,34 @@ async function initializeOpenCodeSwarm(ctx) {
         console.warn(warning);
       } else {
         addDeferredWarning(warning);
+      }
+    }
+  }
+  {
+    const noFallback = [];
+    const hasNoFallback = (cfg) => cfg.model && (!cfg.fallback_models || cfg.fallback_models.length === 0);
+    if (config3.agents) {
+      for (const [name2, cfg] of Object.entries(config3.agents)) {
+        if (hasNoFallback(cfg))
+          noFallback.push(`${name2}(${cfg.model})`);
+      }
+    }
+    if (config3.swarms) {
+      for (const [swarmId, swarm] of Object.entries(config3.swarms)) {
+        if (swarm.agents) {
+          for (const [name2, cfg] of Object.entries(swarm.agents)) {
+            if (hasNoFallback(cfg))
+              noFallback.push(`${swarmId}/${name2}(${cfg.model})`);
+          }
+        }
+      }
+    }
+    if (noFallback.length > 0) {
+      const msg = `[opencode-swarm] WARNING: ${noFallback.length} agent(s) use a custom model without fallback_models: ` + noFallback.join(", ") + '. Add "fallback_models": ["model-a"] to each agent config for reliability.';
+      if (!config3.quiet) {
+        console.warn(msg);
+      } else {
+        addDeferredWarning(msg);
       }
     }
   }

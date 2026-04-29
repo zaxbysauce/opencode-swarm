@@ -81,38 +81,21 @@ export function stripKnownSwarmPrefix(agentName: string): string {
 }
 
 // Agent override configuration
-export const AgentOverrideConfigSchema = z
-	.object({
-		model: z.string().optional(),
-		// Reasoning-effort / model variant (e.g. "low" | "medium" | "high" for
-		// gpt-5.x-codex or gpt-5.x). OpenCode treats variants as a separate field
-		// from the model id at the registry level — it is NOT a third
-		// "provider/model/variant" segment in the model string. We surface it as
-		// its own override field so users can pin reasoning effort per agent
-		// without encoding it into `model` (which OpenCode's basic 2-segment
-		// parser would mis-resolve as a missing model id and raise
-		// ProviderModelNotFoundError).
-		variant: z.string().min(1).optional(),
-		temperature: z.number().min(0).max(2).optional(),
-		disabled: z.boolean().optional(),
-		fallback_models: z.array(z.string()).max(3).optional(),
-	})
-	.refine(
-		(data) => {
-			// If model is explicitly set but fallback_models is not, warn about potential loss of protection
-			if (data.model && !data.fallback_models) {
-				console.warn(
-					`[opencode-swarm] WARNING: Agent configured with custom model "${data.model}" but no fallback_models. This means if the custom model fails, there is no fallback protection. Consider adding fallback_models for reliability.`,
-				);
-			}
-			// Always pass validation — this is a warning, not a block
-			return true;
-		},
-		{
-			message:
-				'Agent configuration warning: Custom model without fallback protection',
-		},
-	);
+export const AgentOverrideConfigSchema = z.object({
+	model: z.string().optional(),
+	// Reasoning-effort / model variant (e.g. "low" | "medium" | "high" for
+	// gpt-5.x-codex or gpt-5.x). OpenCode treats variants as a separate field
+	// from the model id at the registry level — it is NOT a third
+	// "provider/model/variant" segment in the model string. We surface it as
+	// its own override field so users can pin reasoning effort per agent
+	// without encoding it into `model` (which OpenCode's basic 2-segment
+	// parser would mis-resolve as a missing model id and raise
+	// ProviderModelNotFoundError).
+	variant: z.string().min(1).optional(),
+	temperature: z.number().min(0).max(2).optional(),
+	disabled: z.boolean().optional(),
+	fallback_models: z.array(z.string()).max(3).optional(),
+});
 
 export type AgentOverrideConfig = z.infer<typeof AgentOverrideConfigSchema>;
 
