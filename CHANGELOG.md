@@ -1,5 +1,12 @@
 # Changelog
 
+## [6.86.14](https://github.com/zaxbysauce/opencode-swarm/compare/v6.86.13...v6.86.14) (2026-04-29)
+
+
+### Bug Fixes
+
+* **guardrails:** enforce continuation on transient LLM errors (issue [#691](https://github.com/zaxbysauce/opencode-swarm/issues/691)) ([#694](https://github.com/zaxbysauce/opencode-swarm/issues/694)) ([89b479f](https://github.com/zaxbysauce/opencode-swarm/commit/89b479f5669d318c5add8f6056e9d0427a8d2f16))
+
 ## [6.86.13](https://github.com/zaxbysauce/opencode-swarm/compare/v6.86.12...v6.86.13) (2026-04-29)
 
 
