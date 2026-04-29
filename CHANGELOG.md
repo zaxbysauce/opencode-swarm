@@ -1,5 +1,12 @@
 # Changelog
 
+## [6.86.11](https://github.com/zaxbysauce/opencode-swarm/compare/v6.86.10...v6.86.11) (2026-04-29)
+
+
+### Bug Fixes
+
+* **tui:** eliminate per-agent advisory spam from fallback_models warning ([#683](https://github.com/zaxbysauce/opencode-swarm/issues/683)) ([6e8f4c9](https://github.com/zaxbysauce/opencode-swarm/commit/6e8f4c9268a2115840e38f5db5fd13cc9677f407))
+
 ## [6.86.10](https://github.com/zaxbysauce/opencode-swarm/compare/v6.86.9...v6.86.10) (2026-04-28)
 
 
