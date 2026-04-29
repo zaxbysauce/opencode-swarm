@@ -15348,6 +15348,7 @@ var init_schema = __esm(() => {
     requireAllMembers: exports_external.boolean().default(false).describe("When true, submit_council_verdicts rejects if fewer than 5 member verdicts are provided. Equivalent to minimumMembers: 5."),
     minimumMembers: exports_external.number().int().min(1).max(5).default(3).describe("Minimum distinct council member verdicts required for synthesis. Default 3. Set to 1 to disable quorum enforcement. requireAllMembers: true overrides this to 5 (stricter constraint wins)."),
     escalateOnMaxRounds: exports_external.string().optional().describe("Optional webhook URL or handler name invoked when maxRounds is reached without APPROVE. Declared for forward compatibility; no behavior is implemented yet."),
+    phaseConcernsAllowComplete: exports_external.boolean().default(true).describe("When true, a phase-level council CONCERNS verdict does NOT block phase completion — the advisory notes are logged as warnings and the phase proceeds. When false, CONCERNS blocks like REJECT. Default: true (CONCERNS is advisory)."),
     general: GeneralCouncilConfigSchema.optional()
   }).strict();
   ParallelizationConfigSchema = exports_external.object({
@@ -40066,7 +40067,7 @@ function resetToRemoteBranch(cwd, options) {
     let resetSucceeded = false;
     let lastError;
     for (let retry = 0;retry < 4; retry++) {
-      if (retry > 0) {
+      if (retry > 0 && process.platform === "win32") {
         const endTime = Date.now() + 500;
         while (Date.now() < endTime) {}
       }
@@ -75435,7 +75436,8 @@ var COUNCIL_DEFAULTS = {
   parallelTimeoutMs: 30000,
   vetoPriority: true,
   requireAllMembers: false,
-  minimumMembers: 3
+  minimumMembers: 3,
+  phaseConcernsAllowComplete: true
 };
 
 // src/council/council-service.ts
@@ -79170,7 +79172,7 @@ Required fixes: ${requiredFixes.map((f) => f.detail ?? JSON.stringify(f)).join("
                     }, null, 2);
                   }
                   if (entry.verdict === "CONCERNS" || entry.verdict === "concerns") {
-                    const phaseConcernsAllow = false;
+                    const phaseConcernsAllow = config3.council?.phaseConcernsAllowComplete ?? true;
                     if (!phaseConcernsAllow) {
                       const advisoryNotes = entry.advisoryNotes ?? entry.advisory_notes ?? [];
                       const notesDetail = Array.isArray(advisoryNotes) && advisoryNotes.length > 0 ? `
@@ -79186,9 +79188,9 @@ Advisory notes: ${advisoryNotes.join("; ")}` : "";
                         warnings: []
                       }, null, 2);
                     }
-                    safeWarn(`[phase_complete] Phase council returned CONCERNS for phase ${phase} — proceeding because config.council.phaseConcernsAllowComplete is true`, undefined);
+                    safeWarn(`[phase_complete] Phase council returned CONCERNS for phase ${phase} — proceeding (phaseConcernsAllowComplete is enabled)`, undefined);
                   }
-                  if (entry.verdict !== "APPROVE" && entry.verdict !== "approve") {
+                  if (entry.verdict !== "APPROVE" && entry.verdict !== "approve" && entry.verdict !== "CONCERNS" && entry.verdict !== "concerns") {
                     return JSON.stringify({
                       success: false,
                       phase,

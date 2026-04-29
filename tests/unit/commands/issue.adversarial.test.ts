@@ -261,6 +261,80 @@ describe('Adversarial Security Tests for issue.ts', () => {
 			]);
 			expect(result).toContain('Error:');
 		});
+
+		it('4k. IPv6 loopback [::1] URL fails (rejected before SSRF check — not github.com)', () => {
+			// Note: Rejected by parseIssueRef (not github.com), not by isPrivateHost().
+			// isPrivateHost() is defense-in-depth and cannot be directly exercised
+			// through the command pipeline since parseIssueRef restricts to github.com.
+			const result = handleIssueCommand('/test', [
+				'https://[::1]/owner/repo/issues/42',
+			]);
+			expect(result).toContain('Error:');
+		});
+
+		it('4l. IPv6 link-local fe80::1 URL fails (rejected before SSRF check — not github.com)', () => {
+			// Note: Rejected by parseIssueRef (not github.com), not by isPrivateHost().
+			// isPrivateHost() is defense-in-depth and cannot be directly exercised
+			// through the command pipeline since parseIssueRef restricts to github.com.
+			const result = handleIssueCommand('/test', [
+				'https://[fe80::1]/owner/repo/issues/42',
+			]);
+			expect(result).toContain('Error:');
+		});
+
+		it('4m. IPv6 unique local fc00::1 URL fails (rejected before SSRF check — not github.com)', () => {
+			// Note: Rejected by parseIssueRef (not github.com), not by isPrivateHost().
+			// isPrivateHost() is defense-in-depth and cannot be directly exercised
+			// through the command pipeline since parseIssueRef restricts to github.com.
+			const result = handleIssueCommand('/test', [
+				'https://[fc00::1]/owner/repo/issues/42',
+			]);
+			expect(result).toContain('Error:');
+		});
+
+		it('4n. IPv6 unique local fd00::1 URL fails (rejected before SSRF check — not github.com)', () => {
+			// Note: Rejected by parseIssueRef (not github.com), not by isPrivateHost().
+			// isPrivateHost() is defense-in-depth and cannot be directly exercised
+			// through the command pipeline since parseIssueRef restricts to github.com.
+			const result = handleIssueCommand('/test', [
+				'https://[fd00::1]/owner/repo/issues/42',
+			]);
+			expect(result).toContain('Error:');
+		});
+
+		it('4o. IPv4-mapped IPv6 ::ffff:127.0.0.1 URL fails (rejected before SSRF check — not github.com)', () => {
+			// Note: Rejected by parseIssueRef (not github.com), not by isPrivateHost().
+			// isPrivateHost() is defense-in-depth and cannot be directly exercised
+			// through the command pipeline since parseIssueRef restricts to github.com.
+			const result = handleIssueCommand('/test', [
+				'https://[::ffff:127.0.0.1]/owner/repo/issues/42',
+			]);
+			expect(result).toContain('Error:');
+		});
+
+		it('4p. IPv4-mapped IPv6 ::ffff:10.0.0.1 URL fails (rejected before SSRF check — not github.com)', () => {
+			// Note: Rejected by parseIssueRef (not github.com), not by isPrivateHost().
+			// isPrivateHost() is defense-in-depth and cannot be directly exercised
+			// through the command pipeline since parseIssueRef restricts to github.com.
+			const result = handleIssueCommand('/test', [
+				'https://[::ffff:10.0.0.1]/owner/repo/issues/42',
+			]);
+			expect(result).toContain('Error:');
+		});
+
+		it('4q. 0.0.0.0 should fail', () => {
+			const result = handleIssueCommand('/test', [
+				'https://0.0.0.0/owner/repo/issues/42',
+			]);
+			expect(result).toContain('Error:');
+		});
+
+		it('4r. localhost.com should fail', () => {
+			const result = handleIssueCommand('/test', [
+				'https://localhost.com/owner/repo/issues/42',
+			]);
+			expect(result).toContain('Error:');
+		});
 	});
 
 	// =============================================================================

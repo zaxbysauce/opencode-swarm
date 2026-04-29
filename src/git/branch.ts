@@ -338,8 +338,10 @@ export function resetToRemoteBranch(
 		let resetSucceeded = false;
 		let lastError: unknown;
 		for (let retry = 0; retry < 4; retry++) {
-			if (retry > 0) {
-				// Simple synchronous delay (500ms)
+			if (retry > 0 && process.platform === 'win32') {
+				// Synchronous delay for Windows — git file-locking race on Windows
+				// requires a brief pause between retries. On Linux/macOS the retry
+				// is immediate since the file-locking issue is Windows-specific.
 				const endTime = Date.now() + 500;
 				while (Date.now() < endTime) {
 					// busy wait

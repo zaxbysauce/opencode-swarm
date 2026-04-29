@@ -1129,8 +1129,8 @@ export async function executePhaseComplete(
 										entry.verdict === 'CONCERNS' ||
 										entry.verdict === 'concerns'
 									) {
-										// phaseConcernsAllowComplete is planned but not yet in CouncilConfigSchema — default to false (block on CONCERNS)
-										const phaseConcernsAllow = false;
+										const phaseConcernsAllow =
+											config.council?.phaseConcernsAllowComplete ?? true;
 
 										if (!phaseConcernsAllow) {
 											const advisoryNotes =
@@ -1157,14 +1157,16 @@ export async function executePhaseComplete(
 										}
 										// If concerns-pass is allowed, warn and continue
 										safeWarn(
-											`[phase_complete] Phase council returned CONCERNS for phase ${phase} — proceeding because config.council.phaseConcernsAllowComplete is true`,
+											`[phase_complete] Phase council returned CONCERNS for phase ${phase} — proceeding (phaseConcernsAllowComplete is enabled)`,
 											undefined,
 										);
 									}
 
 									if (
 										entry.verdict !== 'APPROVE' &&
-										entry.verdict !== 'approve'
+										entry.verdict !== 'approve' &&
+										entry.verdict !== 'CONCERNS' &&
+										entry.verdict !== 'concerns'
 									) {
 										return JSON.stringify(
 											{

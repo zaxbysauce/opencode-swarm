@@ -120,5 +120,7 @@ export interface CouncilConfig {
      * options: critic_oversight agent, HTTP webhook, or configurable handler.
      */
     escalateOnMaxRounds?: string;
+    /** Default true — CONCERNS verdict at phase-level council does NOT block completion (advisory). Set false to make CONCERNS block like REJECT. */
+    phaseConcernsAllowComplete: boolean;
 }
 export declare const COUNCIL_DEFAULTS: CouncilConfig;

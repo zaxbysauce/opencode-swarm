@@ -164,23 +164,23 @@ describe('handleIssueCommand', () => {
 			expect(result).toContain('Error: Could not parse issue reference');
 		});
 
-		test('Non-ASCII hostname in full URL is blocked via validation', () => {
-			// A non-ASCII hostname would pass parseIssueRef but fail validateAndSanitizeUrl
-			// We can't easily test this with a real URL since github.com is ASCII,
-			// but we verify that a standard github.com URL works correctly
+		test('Non-ASCII hostname in full URL is rejected at parse stage', () => {
+			// Non-github.com hostname is rejected by parseIssueRef before
+			// validateAndSanitizeUrl runs. This tests the full pipeline rejection,
+			// not the per-field non-ASCII hostname guard in validateAndSanitizeUrl.
 			const result = handleIssueCommand('/test', [
-				'https://github.com/owner/repo/issues/42',
+				'https://gïthub.com/owner/repo/issues/42',
 			]);
-			expect(result).toContain('[MODE: ISSUE_INGEST');
-			expect(result).toContain(
-				'issue="https://github.com/owner/repo/issues/42"',
-			);
+			expect(result).toContain('Error:');
 		});
 
-		test('Non-ASCII hostname in shorthand is blocked', () => {
-			// Shorthand with non-ASCII would parse but fail URL validation
-			const result = handleIssueCommand('/test', ['owner/repo#42']);
-			// Valid ASCII shorthand should work
+		test('Non-ASCII in shorthand path is not currently blocked (path-level non-ASCII check gap)', () => {
+			// Shorthand 'ownër/repo#42' expands to https://github.com/ownër/repo/issues/42
+			// The hostname is ASCII (github.com) but the path contains non-ASCII.
+			// validateAndSanitizeUrl checks non-ASCII on url.hostname only,
+			// not on the full URL path. This is a known gap.
+			const result = handleIssueCommand('/test', ['ownër/repo#42']);
+			// Currently passes through — document current behavior
 			expect(result).toContain('[MODE: ISSUE_INGEST');
 		});
 

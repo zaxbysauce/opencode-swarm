@@ -583,6 +583,7 @@ export declare const CouncilConfigSchema: z.ZodObject<{
     requireAllMembers: z.ZodDefault<z.ZodBoolean>;
     minimumMembers: z.ZodDefault<z.ZodNumber>;
     escalateOnMaxRounds: z.ZodOptional<z.ZodString>;
+    phaseConcernsAllowComplete: z.ZodDefault<z.ZodBoolean>;
     general: z.ZodOptional<z.ZodObject<{
         enabled: z.ZodDefault<z.ZodBoolean>;
         searchProvider: z.ZodDefault<z.ZodEnum<{
@@ -1009,6 +1010,7 @@ export declare const PluginConfigSchema: z.ZodObject<{
         requireAllMembers: z.ZodDefault<z.ZodBoolean>;
         minimumMembers: z.ZodDefault<z.ZodNumber>;
         escalateOnMaxRounds: z.ZodOptional<z.ZodString>;
+        phaseConcernsAllowComplete: z.ZodDefault<z.ZodBoolean>;
         general: z.ZodOptional<z.ZodObject<{
             enabled: z.ZodDefault<z.ZodBoolean>;
             searchProvider: z.ZodDefault<z.ZodEnum<{

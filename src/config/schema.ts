@@ -1073,6 +1073,12 @@ export const CouncilConfigSchema = z
 			.describe(
 				'Optional webhook URL or handler name invoked when maxRounds is reached without APPROVE. Declared for forward compatibility; no behavior is implemented yet.',
 			),
+		phaseConcernsAllowComplete: z
+			.boolean()
+			.default(true)
+			.describe(
+				'When true, a phase-level council CONCERNS verdict does NOT block phase completion — the advisory notes are logged as warnings and the phase proceeds. When false, CONCERNS blocks like REJECT. Default: true (CONCERNS is advisory).',
+			),
 		// General Council Mode (advisory). Optional — undefined means feature is
 		// not configured. When present and enabled: true, the architect can run
 		// `/swarm council` and the SPECIFY-COUNCIL-REVIEW gate.

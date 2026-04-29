@@ -236,7 +236,6 @@ If **any** answer is yes and unaccounted for in the finding, the finding is down
 
 ## Final Output
 
-<<<<<<< Updated upstream
 ## ⛔ Pre-synthesis gate (MANDATORY)
 Before writing the final output, you MUST print this checklist to stdout with filled values.
 Every blank field = gate not run = final output is INVALID.
@@ -275,16 +274,5 @@ Produce:
 - test / coverage gaps
 - verdict
 - merge recommendation
-=======
-Produce:
-- PR intent (reconstructed from Obligation Extraction Cascade)
-- Implementation summary (what changed, scope of files)
-- Obligation Assessment (MET / PARTIALLY MET / NOT MET / UNVERIFIABLE)
-- Confirmed findings table (severity, category, file:line, classification)
-- Pre-existing findings (not introduced by this PR)
-- Unverified but plausible risks (PLAUSIBLE_BUT_UNVERIFIED candidates)
-- Test / coverage gaps
-- Merge recommendation (APPROVE / APPROVE_WITH_NOTES / REQUEST_CHANGES / BLOCK)
->>>>>>> Stashed changes
 
 Do not let speed degrade validation quality.

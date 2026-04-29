@@ -40,12 +40,13 @@ function writePlan() {
 	);
 }
 
-function writePluginConfig() {
+function writePluginConfig(overrides?: { council?: Record<string, unknown> }) {
 	mkdirSync(join(tempDir, '.opencode'), { recursive: true });
 	writeFileSync(
 		join(tempDir, '.opencode', 'opencode-swarm.json'),
 		JSON.stringify({
 			phase_complete: { enabled: true, required_agents: [], policy: 'warn' },
+			...(overrides?.council ? { council: overrides.council } : {}),
 		}),
 	);
 }
@@ -187,10 +188,10 @@ describe('phase-council gate', () => {
 		});
 	});
 
-	describe('council_mode=true with CONCERNS verdict', () => {
-		test('blocks with PHASE_COUNCIL_CONCERNS', async () => {
+	describe('council_mode=true with unrecognized verdict', () => {
+		test('blocks as PHASE_COUNCIL_INVALID', async () => {
 			setup(true);
-			writePhaseCouncil({ verdict: 'CONCERNS', quorumSize: 3, phaseNumber: 1 });
+			writePhaseCouncil({ verdict: 'MAYBE', quorumSize: 3, phaseNumber: 1 });
 			const result = await executePhaseComplete(
 				{ phase: 1, summary: 'test', sessionID: SESSION_ID },
 				tempDir,
@@ -199,7 +200,22 @@ describe('phase-council gate', () => {
 			const parsed = JSON.parse(result);
 			expect(parsed.success).toBe(false);
 			expect(parsed.status).toBe('blocked');
-			expect(parsed.reason).toBe('PHASE_COUNCIL_CONCERNS');
+			expect(parsed.reason).toBe('PHASE_COUNCIL_INVALID');
+		});
+	});
+
+	describe('council_mode=true with CONCERNS verdict (default: phaseConcernsAllowComplete=true)', () => {
+		test('allows completion despite CONCERNS (default config)', async () => {
+			setup(true);
+			writePhaseCouncil({ verdict: 'CONCERNS', quorumSize: 3, phaseNumber: 1 });
+			const result = await executePhaseComplete(
+				{ phase: 1, summary: 'test', sessionID: SESSION_ID },
+				tempDir,
+				tempDir,
+			);
+			const parsed = JSON.parse(result);
+			expect(parsed.success).toBe(true);
+			expect(parsed.status).toBe('success');
 		});
 	});
 
@@ -288,6 +304,39 @@ describe('phase-council gate', () => {
 			const parsed = JSON.parse(result);
 			expect(parsed.success).toBe(false);
 			expect(parsed.reason).toBe('PHASE_COUNCIL_PHASE_MISMATCH');
+		});
+	});
+
+	describe('council_mode=true with CONCERNS verdict and phaseConcernsAllowComplete=true (default)', () => {
+		test('allows completion despite CONCERNS', async () => {
+			setup(true);
+			writePluginConfig({ council: { phaseConcernsAllowComplete: true } });
+			writePhaseCouncil({ verdict: 'CONCERNS', quorumSize: 3, phaseNumber: 1 });
+			const result = await executePhaseComplete(
+				{ phase: 1, summary: 'test', sessionID: SESSION_ID },
+				tempDir,
+				tempDir,
+			);
+			const parsed = JSON.parse(result);
+			expect(parsed.success).toBe(true);
+			expect(parsed.status).toBe('success');
+		});
+	});
+
+	describe('council_mode=true with CONCERNS verdict and phaseConcernsAllowComplete=false', () => {
+		test('blocks with PHASE_COUNCIL_CONCERNS', async () => {
+			setup(true);
+			writePluginConfig({ council: { phaseConcernsAllowComplete: false } });
+			writePhaseCouncil({ verdict: 'CONCERNS', quorumSize: 3, phaseNumber: 1 });
+			const result = await executePhaseComplete(
+				{ phase: 1, summary: 'test', sessionID: SESSION_ID },
+				tempDir,
+				tempDir,
+			);
+			const parsed = JSON.parse(result);
+			expect(parsed.success).toBe(false);
+			expect(parsed.status).toBe('blocked');
+			expect(parsed.reason).toBe('PHASE_COUNCIL_CONCERNS');
 		});
 	});
 });
