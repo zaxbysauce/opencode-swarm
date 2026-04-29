@@ -7,6 +7,7 @@ import { resolveCommand, VALID_COMMANDS } from '../commands/registry.js';
 import {
 	getPluginCachePaths,
 	getPluginConfigDir,
+	getPluginLockFilePaths,
 } from '../config/cache-paths.js';
 
 const { version } = packageJson;
@@ -18,6 +19,7 @@ const PLUGIN_CONFIG_PATH = path.join(CONFIG_DIR, 'opencode-swarm.json');
 const PROMPTS_DIR = path.join(CONFIG_DIR, 'opencode-swarm');
 
 const OPENCODE_PLUGIN_CACHE_PATHS = getPluginCachePaths();
+const OPENCODE_PLUGIN_LOCK_FILE_PATHS = getPluginLockFilePaths();
 
 // Safety floor: refuse to recursively delete a path that could catastrophically
 // damage the user's filesystem if XDG_CACHE_HOME or XDG_CONFIG_HOME are
@@ -35,7 +37,7 @@ const OPENCODE_PLUGIN_CACHE_PATHS = getPluginCachePaths();
 //      that happens to have a recognized leaf but isn't the actual cache.
 // Issue #675 hardening — round 3 (depth-based guard replaces home-containment
 // after critic's cross-platform CI regression finding).
-function isSafeCachePath(p: string): boolean {
+export function isSafeCachePath(p: string): boolean {
 	const resolved = path.resolve(p);
 	const home = path.resolve(os.homedir());
 	// 1. Catastrophic-path floor.
@@ -61,6 +63,37 @@ function isSafeCachePath(p: string): boolean {
 	}
 	const grandparent = path.basename(path.dirname(path.dirname(resolved)));
 	if (grandparent !== 'opencode') {
+		return false;
+	}
+	return true;
+}
+
+/**
+ * Safety guard for lock file deletion. Lock files have different basenames
+ * than cache directories so they need a separate check. Mirrors
+ * isSafeCachePath()'s defense-in-depth: minimum segment depth, recognized
+ * basename, and parent directory must be 'opencode'.
+ */
+export function isSafeLockFilePath(p: string): boolean {
+	const resolved = path.resolve(p);
+	const home = path.resolve(os.homedir());
+	if (resolved === '/' || resolved === home || resolved.length <= home.length) {
+		return false;
+	}
+	const segments = resolved.split(path.sep).filter((s) => s.length > 0);
+	if (segments.length < 4) {
+		return false;
+	}
+	const leaf = path.basename(resolved);
+	if (
+		leaf !== 'bun.lock' &&
+		leaf !== 'bun.lockb' &&
+		leaf !== 'package-lock.json'
+	) {
+		return false;
+	}
+	const parent = path.basename(path.dirname(resolved));
+	if (parent !== 'opencode') {
 		return false;
 	}
 	return true;
@@ -204,6 +237,17 @@ async function install(): Promise<number> {
 			`⚠ Could not clear opencode plugin cache — you may need to delete it manually:\n  ${failed}`,
 		);
 	}
+	const lockEvicted = evictLockFiles();
+	if (lockEvicted.cleared.length > 0) {
+		console.log(
+			`✓ Cleared opencode lock file(s) (next start will fetch latest): ${lockEvicted.cleared.join(', ')}`,
+		);
+	}
+	for (const failed of lockEvicted.failed) {
+		console.warn(
+			`⚠ Could not clear opencode lock file — you may need to delete it manually:\n  ${failed}`,
+		);
+	}
 
 	// Create default plugin config if not exists
 	if (!fs.existsSync(PLUGIN_CONFIG_PATH)) {
@@ -332,13 +376,29 @@ async function install(): Promise<number> {
 async function update(): Promise<number> {
 	console.log('🐝 Refreshing OpenCode Swarm plugin cache...\n');
 	const result = evictPluginCaches();
+	const lockResult = evictLockFiles();
 	if (result.cleared.length > 0) {
 		for (const cleared of result.cleared) {
 			console.log(`✓ Cleared: ${cleared}`);
 		}
 		console.log('\nRestart OpenCode to fetch the latest version from npm.');
 	}
-	if (result.cleared.length === 0 && result.failed.length === 0) {
+	if (lockResult.cleared.length > 0) {
+		for (const cleared of lockResult.cleared) {
+			console.log(`✓ Cleared lock file: ${cleared}`);
+		}
+	}
+	if (lockResult.failed.length > 0) {
+		for (const failed of lockResult.failed) {
+			console.error(`✗ Could not clear lock file: ${failed}`);
+		}
+	}
+	if (
+		result.cleared.length === 0 &&
+		result.failed.length === 0 &&
+		lockResult.cleared.length === 0 &&
+		lockResult.failed.length === 0
+	) {
 		console.log(
 			'No cached plugin found. Restart OpenCode to fetch the latest version from npm.',
 		);
@@ -346,11 +406,17 @@ async function update(): Promise<number> {
 		for (const p of OPENCODE_PLUGIN_CACHE_PATHS) {
 			console.log(`  - ${p}`);
 		}
+		console.log('Lock files checked:');
+		for (const p of OPENCODE_PLUGIN_LOCK_FILE_PATHS) {
+			console.log(`  - ${p}`);
+		}
 	}
 	if (result.failed.length > 0) {
 		for (const failed of result.failed) {
 			console.error(`✗ Could not clear: ${failed}`);
 		}
+	}
+	if (result.failed.length > 0 || lockResult.failed.length > 0) {
 		return 1;
 	}
 	return 0;
@@ -361,7 +427,7 @@ async function update(): Promise<number> {
  * opencode-swarm. Returns paths actually cleared and paths that errored.
  * Skips paths that don't exist or fail the safety guard.
  */
-function evictPluginCaches(): { cleared: string[]; failed: string[] } {
+export function evictPluginCaches(): { cleared: string[]; failed: string[] } {
 	const cleared: string[] = [];
 	const failed: string[] = [];
 	for (const cachePath of OPENCODE_PLUGIN_CACHE_PATHS) {
@@ -377,6 +443,41 @@ function evictPluginCaches(): { cleared: string[]; failed: string[] } {
 			failed.push(
 				`${cachePath} (${err instanceof Error ? err.message : String(err)})`,
 			);
+		}
+	}
+	return { cleared, failed };
+}
+
+/**
+ * Delete every known opencode plugin lock file (bun.lock, bun.lockb,
+ * package-lock.json). Returns paths actually cleared and paths that
+ * errored. Skips paths that don't exist or fail the safety guard.
+ *
+ * Why: opencode runs `bun install` at startup; bun.lock pins the
+ * installed plugin version. Deleting the lock forces re-resolution
+ * from npm so users actually receive the @latest version after `update`.
+ */
+export function evictLockFiles(): { cleared: string[]; failed: string[] } {
+	const cleared: string[] = [];
+	const failed: string[] = [];
+	for (const lockPath of OPENCODE_PLUGIN_LOCK_FILE_PATHS) {
+		if (!fs.existsSync(lockPath)) continue;
+		if (!isSafeLockFilePath(lockPath)) {
+			failed.push(`${lockPath} (refused: failed safety check)`);
+			continue;
+		}
+		try {
+			fs.unlinkSync(lockPath);
+			cleared.push(lockPath);
+		} catch (err: unknown) {
+			const code = (err as NodeJS.ErrnoException)?.code;
+			if (code === 'EISDIR') {
+				failed.push(`${lockPath} (path is a directory, not a file)`);
+			} else {
+				failed.push(
+					`${lockPath} (${err instanceof Error ? err.message : String(err)})`,
+				);
+			}
 		}
 	}
 	return { cleared, failed };

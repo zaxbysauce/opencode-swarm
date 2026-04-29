@@ -14754,7 +14754,7 @@ async function loadPlan(directory) {
                   const rebuilt = await replayFromLedger(directory);
                   if (rebuilt) {
                     await rebuildPlan(directory, rebuilt);
-                    warn("[loadPlan] Rebuilt plan from ledger. Checkpoint available at SWARM_PLAN.md if it exists.");
+                    warn("[loadPlan] Rebuilt plan from ledger. Checkpoint available at .swarm/SWARM_PLAN.md if it exists.");
                     return rebuilt;
                   }
                 } catch (replayError) {
@@ -14775,7 +14775,7 @@ async function loadPlan(directory) {
                       return approved.plan;
                     }
                   } catch {}
-                  warn(`[loadPlan] Ledger replay failed during hash-mismatch rebuild: ${replayError instanceof Error ? replayError.message : String(replayError)}. Returning stale plan.json. To recover: check SWARM_PLAN.md for a checkpoint, or run /swarm reset-session.`);
+                  warn(`[loadPlan] Ledger replay failed during hash-mismatch rebuild: ${replayError instanceof Error ? replayError.message : String(replayError)}. Returning stale plan.json. To recover: check .swarm/SWARM_PLAN.md for a checkpoint, or run /swarm reset-session.`);
                 }
               }
             }
@@ -14821,7 +14821,7 @@ async function loadPlan(directory) {
         }
         return validated;
       } catch (error49) {
-        warn(`[loadPlan] plan.json validation failed: ${error49 instanceof Error ? error49.message : String(error49)}. Attempting rebuild from ledger. If rebuild fails, check SWARM_PLAN.md for a checkpoint.`);
+        warn(`[loadPlan] plan.json validation failed: ${error49 instanceof Error ? error49.message : String(error49)}. Attempting rebuild from ledger. If rebuild fails, check .swarm/SWARM_PLAN.md for a checkpoint.`);
         let rawPlanId = null;
         try {
           const rawParsed = JSON.parse(planJsonContent);
@@ -18595,11 +18595,11 @@ var init_evidence_summary_service = __esm(() => {
 // src/cli/index.ts
 import * as fs21 from "fs";
 import * as os7 from "os";
-import * as path33 from "path";
+import * as path34 from "path";
 // package.json
 var package_default = {
   name: "opencode-swarm",
-  version: "6.86.14",
+  version: "7.0.0",
   description: "Architect-centric agentic swarm plugin for OpenCode - hub-and-spoke orchestration with SME consultation, code generation, and QA review",
   main: "dist/index.js",
   types: "dist/index.d.ts",
@@ -35510,22 +35510,20 @@ async function handleCloseCommand(directory, args) {
     }
   } catch {}
   let swarmPlanFilesRemoved = 0;
-  const swarmPlanJsonPath = path12.join(directory, "SWARM_PLAN.json");
-  const swarmPlanMdPath = path12.join(directory, "SWARM_PLAN.md");
-  try {
-    await fs7.unlink(swarmPlanJsonPath);
-    swarmPlanFilesRemoved++;
-  } catch (err) {
-    if (err?.code !== "ENOENT") {
-      warnings.push(`Failed to remove SWARM_PLAN.json: ${err instanceof Error ? err.message : String(err)}`);
-    }
-  }
-  try {
-    await fs7.unlink(swarmPlanMdPath);
-    swarmPlanFilesRemoved++;
-  } catch (err) {
-    if (err?.code !== "ENOENT") {
-      warnings.push(`Failed to remove SWARM_PLAN.md: ${err instanceof Error ? err.message : String(err)}`);
+  const candidates = [
+    path12.join(directory, ".swarm", "SWARM_PLAN.json"),
+    path12.join(directory, ".swarm", "SWARM_PLAN.md"),
+    path12.join(directory, "SWARM_PLAN.json"),
+    path12.join(directory, "SWARM_PLAN.md")
+  ];
+  for (const candidate of candidates) {
+    try {
+      await fs7.unlink(candidate);
+      swarmPlanFilesRemoved++;
+    } catch (err) {
+      if (err?.code !== "ENOENT") {
+        warnings.push(`Failed to remove ${path12.basename(candidate)}: ${err instanceof Error ? err.message : String(err)}`);
+      }
     }
   }
   clearAllScopes(directory);
@@ -35600,9 +35598,7 @@ async function handleCloseCommand(directory, args) {
     "- Reset context.md for next session",
     "- Cleared agent sessions and delegation chains",
     ...configBackupsRemoved > 0 ? [`- Removed ${configBackupsRemoved} stale config backup file(s)`] : [],
-    ...swarmPlanFilesRemoved > 0 ? [
-      `- Removed ${swarmPlanFilesRemoved} root-level SWARM_PLAN checkpoint artifact(s)`
-    ] : [],
+    ...swarmPlanFilesRemoved > 0 ? [`- Removed ${swarmPlanFilesRemoved} SWARM_PLAN checkpoint artifact(s)`] : [],
     ...planExists && !planAlreadyDone ? ["- Set non-completed phases/tasks to closed status"] : [],
     ...curationSucceeded && allLessons.length > 0 ? [`- Committed ${allLessons.length} lesson(s) to knowledge store`] : [],
     "",
@@ -36489,11 +36485,39 @@ function getPluginConfigDir() {
 function getPluginCachePaths() {
   const cacheBase = process.env.XDG_CACHE_HOME || path17.join(os5.homedir(), ".cache");
   const configDir = getPluginConfigDir();
-  return [
+  const paths = [
+    path17.join(cacheBase, "opencode", "node_modules", "opencode-swarm"),
     path17.join(cacheBase, "opencode", "packages", "opencode-swarm@latest"),
-    path17.join(configDir, "node_modules", "opencode-swarm"),
-    path17.join(cacheBase, "opencode", "node_modules", "opencode-swarm")
+    path17.join(configDir, "node_modules", "opencode-swarm")
   ];
+  if (process.platform === "darwin") {
+    const libCaches = path17.join(os5.homedir(), "Library", "Caches");
+    paths.push(path17.join(libCaches, "opencode", "node_modules", "opencode-swarm"), path17.join(libCaches, "opencode", "packages", "opencode-swarm@latest"));
+  }
+  if (process.platform === "win32") {
+    const localAppData = process.env.LOCALAPPDATA || path17.join(os5.homedir(), "AppData", "Local");
+    const appData = process.env.APPDATA || path17.join(os5.homedir(), "AppData", "Roaming");
+    paths.push(path17.join(localAppData, "opencode", "node_modules", "opencode-swarm"), path17.join(localAppData, "opencode", "packages", "opencode-swarm@latest"), path17.join(appData, "opencode", "node_modules", "opencode-swarm"));
+  }
+  return paths;
+}
+function getPluginLockFilePaths() {
+  const cacheBase = process.env.XDG_CACHE_HOME || path17.join(os5.homedir(), ".cache");
+  const configDir = getPluginConfigDir();
+  const paths = [
+    path17.join(cacheBase, "opencode", "bun.lock"),
+    path17.join(cacheBase, "opencode", "bun.lockb"),
+    path17.join(configDir, "package-lock.json")
+  ];
+  if (process.platform === "darwin") {
+    const libCaches = path17.join(os5.homedir(), "Library", "Caches");
+    paths.push(path17.join(libCaches, "opencode", "bun.lock"), path17.join(libCaches, "opencode", "bun.lockb"));
+  }
+  if (process.platform === "win32") {
+    const localAppData = process.env.LOCALAPPDATA || path17.join(os5.homedir(), "AppData", "Local");
+    paths.push(path17.join(localAppData, "opencode", "bun.lock"), path17.join(localAppData, "opencode", "bun.lockb"));
+  }
+  return paths;
 }
 
 // src/services/diagnose-service.ts
@@ -44472,6 +44496,7 @@ async function handleQaGatesCommand(directory, args, sessionID) {
 
 // src/commands/reset.ts
 import * as fs18 from "fs";
+import * as path30 from "path";
 
 // src/background/manager.ts
 init_utils();
@@ -45159,7 +45184,7 @@ async function handleResetCommand(directory, args) {
     return [
       "## Swarm Reset",
       "",
-      "\u26A0\uFE0F This will delete plan.md and context.md from .swarm/",
+      "\u26A0\uFE0F This will delete all swarm state from .swarm/ (plan, context, checkpoints, SWARM_PLAN artifacts)",
       "",
       "**Tip**: Run `/swarm export` first to backup your state.",
       "",
@@ -45167,7 +45192,15 @@ async function handleResetCommand(directory, args) {
     ].join(`
 `);
   }
-  const filesToReset = ["plan.md", "context.md"];
+  const filesToReset = [
+    "plan.md",
+    "plan.json",
+    "context.md",
+    "SWARM_PLAN.md",
+    "SWARM_PLAN.json",
+    "checkpoints.json",
+    "events.jsonl"
+  ];
   const results = [];
   for (const filename of filesToReset) {
     try {
@@ -45181,6 +45214,15 @@ async function handleResetCommand(directory, args) {
     } catch {
       results.push(`- \u274C Failed to delete ${filename}`);
     }
+  }
+  for (const filename of ["SWARM_PLAN.md", "SWARM_PLAN.json"]) {
+    try {
+      const rootPath = path30.join(directory, filename);
+      if (fs18.existsSync(rootPath)) {
+        fs18.unlinkSync(rootPath);
+        results.push(`- \u2705 Deleted ${filename} (root)`);
+      }
+    } catch {}
   }
   try {
     resetAutomationManager();
@@ -45212,7 +45254,7 @@ async function handleResetCommand(directory, args) {
 // src/commands/reset-session.ts
 init_utils2();
 import * as fs19 from "fs";
-import * as path30 from "path";
+import * as path31 from "path";
 async function handleResetSessionCommand(directory, _args) {
   const results = [];
   try {
@@ -45227,13 +45269,13 @@ async function handleResetSessionCommand(directory, _args) {
     results.push("\u274C Failed to delete state.json");
   }
   try {
-    const sessionDir = path30.dirname(validateSwarmPath(directory, "session/state.json"));
+    const sessionDir = path31.dirname(validateSwarmPath(directory, "session/state.json"));
     if (fs19.existsSync(sessionDir)) {
       const files = fs19.readdirSync(sessionDir);
       const otherFiles = files.filter((f) => f !== "state.json");
       let deletedCount = 0;
       for (const file3 of otherFiles) {
-        const filePath = path30.join(sessionDir, file3);
+        const filePath = path31.join(sessionDir, file3);
         if (fs19.lstatSync(filePath).isFile()) {
           fs19.unlinkSync(filePath);
           deletedCount++;
@@ -45263,7 +45305,7 @@ async function handleResetSessionCommand(directory, _args) {
 // src/summaries/manager.ts
 init_utils2();
 init_utils();
-import * as path31 from "path";
+import * as path32 from "path";
 var SUMMARY_ID_REGEX = /^S\d+$/;
 function sanitizeSummaryId(id) {
   if (!id || id.length === 0) {
@@ -45287,7 +45329,7 @@ function sanitizeSummaryId(id) {
 }
 async function loadFullOutput(directory, id) {
   const sanitizedId = sanitizeSummaryId(id);
-  const relativePath = path31.join("summaries", `${sanitizedId}.json`);
+  const relativePath = path32.join("summaries", `${sanitizedId}.json`);
   validateSwarmPath(directory, relativePath);
   const content = await readSwarmFileAsync(directory, relativePath);
   if (content === null) {
@@ -45343,7 +45385,7 @@ init_plan_schema();
 init_utils2();
 init_ledger();
 import * as fs20 from "fs";
-import * as path32 from "path";
+import * as path33 from "path";
 async function handleRollbackCommand(directory, args) {
   const phaseArg = args[0];
   if (!phaseArg) {
@@ -45408,8 +45450,8 @@ async function handleRollbackCommand(directory, args) {
     if (EXCLUDE_FILES.has(file3) || file3.startsWith("plan-ledger.archived-")) {
       continue;
     }
-    const src = path32.join(checkpointDir, file3);
-    const dest = path32.join(swarmDir, file3);
+    const src = path33.join(checkpointDir, file3);
+    const dest = path33.join(swarmDir, file3);
     try {
       fs20.cpSync(src, dest, { recursive: true, force: true });
       successes.push(file3);
@@ -45428,12 +45470,12 @@ async function handleRollbackCommand(directory, args) {
     ].join(`
 `);
   }
-  const existingLedgerPath = path32.join(swarmDir, "plan-ledger.jsonl");
+  const existingLedgerPath = path33.join(swarmDir, "plan-ledger.jsonl");
   if (fs20.existsSync(existingLedgerPath)) {
     fs20.unlinkSync(existingLedgerPath);
   }
   try {
-    const planJsonPath = path32.join(swarmDir, "plan.json");
+    const planJsonPath = path33.join(swarmDir, "plan.json");
     if (fs20.existsSync(planJsonPath)) {
       const planRaw = fs20.readFileSync(planJsonPath, "utf-8");
       const plan = PlanSchema.parse(JSON.parse(planRaw));
@@ -45506,9 +45548,9 @@ async function handleSimulateCommand(directory, args) {
   const report = reportLines.filter(Boolean).join(`
 `);
   const fs21 = await import("fs/promises");
-  const path33 = await import("path");
-  const reportPath = path33.join(directory, ".swarm", "simulate-report.md");
-  await fs21.mkdir(path33.dirname(reportPath), { recursive: true });
+  const path34 = await import("path");
+  const reportPath = path34.join(directory, ".swarm", "simulate-report.md");
+  await fs21.mkdir(path34.dirname(reportPath), { recursive: true });
   await fs21.writeFile(reportPath, report, "utf-8");
   return `${darkMatterPairs.length} hidden coupling pairs detected`;
 }
@@ -46056,30 +46098,51 @@ function resolveCommand(tokens) {
 // src/cli/index.ts
 var { version: version4 } = package_default;
 var CONFIG_DIR = getPluginConfigDir();
-var OPENCODE_CONFIG_PATH = path33.join(CONFIG_DIR, "opencode.json");
-var PLUGIN_CONFIG_PATH = path33.join(CONFIG_DIR, "opencode-swarm.json");
-var PROMPTS_DIR = path33.join(CONFIG_DIR, "opencode-swarm");
+var OPENCODE_CONFIG_PATH = path34.join(CONFIG_DIR, "opencode.json");
+var PLUGIN_CONFIG_PATH = path34.join(CONFIG_DIR, "opencode-swarm.json");
+var PROMPTS_DIR = path34.join(CONFIG_DIR, "opencode-swarm");
 var OPENCODE_PLUGIN_CACHE_PATHS = getPluginCachePaths();
+var OPENCODE_PLUGIN_LOCK_FILE_PATHS = getPluginLockFilePaths();
 function isSafeCachePath(p) {
-  const resolved = path33.resolve(p);
-  const home = path33.resolve(os7.homedir());
+  const resolved = path34.resolve(p);
+  const home = path34.resolve(os7.homedir());
   if (resolved === "/" || resolved === home || resolved.length <= home.length) {
     return false;
   }
-  const segments = resolved.split(path33.sep).filter((s) => s.length > 0);
+  const segments = resolved.split(path34.sep).filter((s) => s.length > 0);
   if (segments.length < 4) {
     return false;
   }
-  const leaf = path33.basename(resolved);
+  const leaf = path34.basename(resolved);
   if (leaf !== "opencode-swarm@latest" && leaf !== "opencode-swarm") {
     return false;
   }
-  const parent = path33.basename(path33.dirname(resolved));
+  const parent = path34.basename(path34.dirname(resolved));
   if (parent !== "packages" && parent !== "node_modules") {
     return false;
   }
-  const grandparent = path33.basename(path33.dirname(path33.dirname(resolved)));
+  const grandparent = path34.basename(path34.dirname(path34.dirname(resolved)));
   if (grandparent !== "opencode") {
+    return false;
+  }
+  return true;
+}
+function isSafeLockFilePath(p) {
+  const resolved = path34.resolve(p);
+  const home = path34.resolve(os7.homedir());
+  if (resolved === "/" || resolved === home || resolved.length <= home.length) {
+    return false;
+  }
+  const segments = resolved.split(path34.sep).filter((s) => s.length > 0);
+  if (segments.length < 4) {
+    return false;
+  }
+  const leaf = path34.basename(resolved);
+  if (leaf !== "bun.lock" && leaf !== "bun.lockb" && leaf !== "package-lock.json") {
+    return false;
+  }
+  const parent = path34.basename(path34.dirname(resolved));
+  if (parent !== "opencode") {
     return false;
   }
   return true;
@@ -46104,8 +46167,8 @@ function saveJson(filepath, data) {
 }
 function writeProjectConfigIfMissing(cwd) {
   try {
-    const opencodeDir = path33.join(cwd, ".opencode");
-    const projectConfigPath = path33.join(opencodeDir, "opencode-swarm.json");
+    const opencodeDir = path34.join(cwd, ".opencode");
+    const projectConfigPath = path34.join(opencodeDir, "opencode-swarm.json");
     if (fs21.existsSync(projectConfigPath)) {
       return;
     }
@@ -46123,7 +46186,7 @@ async function install() {
 `);
   ensureDir(CONFIG_DIR);
   ensureDir(PROMPTS_DIR);
-  const LEGACY_CONFIG_PATH = path33.join(CONFIG_DIR, "config.json");
+  const LEGACY_CONFIG_PATH = path34.join(CONFIG_DIR, "config.json");
   let opencodeConfig = loadJson(OPENCODE_CONFIG_PATH);
   if (!opencodeConfig) {
     const legacyConfig = loadJson(LEGACY_CONFIG_PATH);
@@ -46160,6 +46223,14 @@ async function install() {
   }
   for (const failed of evicted.failed) {
     console.warn(`\u26A0 Could not clear opencode plugin cache \u2014 you may need to delete it manually:
+  ${failed}`);
+  }
+  const lockEvicted = evictLockFiles();
+  if (lockEvicted.cleared.length > 0) {
+    console.log(`\u2713 Cleared opencode lock file(s) (next start will fetch latest): ${lockEvicted.cleared.join(", ")}`);
+  }
+  for (const failed of lockEvicted.failed) {
+    console.warn(`\u26A0 Could not clear opencode lock file \u2014 you may need to delete it manually:
   ${failed}`);
   }
   if (!fs21.existsSync(PLUGIN_CONFIG_PATH)) {
@@ -46264,6 +46335,7 @@ async function update() {
   console.log(`\uD83D\uDC1D Refreshing OpenCode Swarm plugin cache...
 `);
   const result = evictPluginCaches();
+  const lockResult = evictLockFiles();
   if (result.cleared.length > 0) {
     for (const cleared of result.cleared) {
       console.log(`\u2713 Cleared: ${cleared}`);
@@ -46271,10 +46343,24 @@ async function update() {
     console.log(`
 Restart OpenCode to fetch the latest version from npm.`);
   }
-  if (result.cleared.length === 0 && result.failed.length === 0) {
+  if (lockResult.cleared.length > 0) {
+    for (const cleared of lockResult.cleared) {
+      console.log(`\u2713 Cleared lock file: ${cleared}`);
+    }
+  }
+  if (lockResult.failed.length > 0) {
+    for (const failed of lockResult.failed) {
+      console.error(`\u2717 Could not clear lock file: ${failed}`);
+    }
+  }
+  if (result.cleared.length === 0 && result.failed.length === 0 && lockResult.cleared.length === 0 && lockResult.failed.length === 0) {
     console.log("No cached plugin found. Restart OpenCode to fetch the latest version from npm.");
     console.log("Checked locations:");
     for (const p of OPENCODE_PLUGIN_CACHE_PATHS) {
+      console.log(`  - ${p}`);
+    }
+    console.log("Lock files checked:");
+    for (const p of OPENCODE_PLUGIN_LOCK_FILE_PATHS) {
       console.log(`  - ${p}`);
     }
   }
@@ -46282,6 +46368,8 @@ Restart OpenCode to fetch the latest version from npm.`);
     for (const failed of result.failed) {
       console.error(`\u2717 Could not clear: ${failed}`);
     }
+  }
+  if (result.failed.length > 0 || lockResult.failed.length > 0) {
     return 1;
   }
   return 0;
@@ -46301,6 +46389,30 @@ function evictPluginCaches() {
       cleared.push(cachePath);
     } catch (err) {
       failed.push(`${cachePath} (${err instanceof Error ? err.message : String(err)})`);
+    }
+  }
+  return { cleared, failed };
+}
+function evictLockFiles() {
+  const cleared = [];
+  const failed = [];
+  for (const lockPath of OPENCODE_PLUGIN_LOCK_FILE_PATHS) {
+    if (!fs21.existsSync(lockPath))
+      continue;
+    if (!isSafeLockFilePath(lockPath)) {
+      failed.push(`${lockPath} (refused: failed safety check)`);
+      continue;
+    }
+    try {
+      fs21.unlinkSync(lockPath);
+      cleared.push(lockPath);
+    } catch (err) {
+      const code = err?.code;
+      if (code === "EISDIR") {
+        failed.push(`${lockPath} (path is a directory, not a file)`);
+      } else {
+        failed.push(`${lockPath} (${err instanceof Error ? err.message : String(err)})`);
+      }
     }
   }
   return { cleared, failed };
@@ -46470,5 +46582,9 @@ Valid commands: ${VALID_COMMANDS.join(", ")}`);
   return 0;
 }
 export {
-  run
+  run,
+  isSafeLockFilePath,
+  isSafeCachePath,
+  evictPluginCaches,
+  evictLockFiles
 };

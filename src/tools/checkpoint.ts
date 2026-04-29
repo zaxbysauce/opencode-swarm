@@ -285,6 +285,47 @@ function handleSave(label: string, directory: string): string {
 }
 
 /**
+ * Record a checkpoint without staging or committing changes.
+ * Writes only to .swarm/checkpoints.json with the current HEAD SHA.
+ * Used by spiral detection to avoid silently committing mid-flight user work.
+ */
+export function saveCheckpointRecord(
+	label: string,
+	directory: string,
+): { success: boolean; sha?: string; error?: string } {
+	const labelError = validateLabel(label);
+	if (labelError) {
+		return { success: false, error: labelError };
+	}
+	try {
+		const log = readCheckpointLog(directory);
+		if (log.checkpoints.find((c) => c.label === label)) {
+			return { success: false, error: `duplicate label: "${label}"` };
+		}
+		let sha = '';
+		if (isGitRepo()) {
+			try {
+				sha = getCurrentSha();
+			} catch {
+				sha = '';
+			}
+		}
+		log.checkpoints.push({
+			label,
+			sha,
+			timestamp: new Date().toISOString(),
+		});
+		writeCheckpointLog(log, directory);
+		return { success: true, sha };
+	} catch (e) {
+		return {
+			success: false,
+			error: e instanceof Error ? e.message : 'unknown error',
+		};
+	}
+}
+
+/**
  * Handle 'restore' action - soft reset to saved SHA
  */
 function handleRestore(label: string, directory: string): string {

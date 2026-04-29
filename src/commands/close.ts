@@ -561,30 +561,27 @@ export async function handleCloseCommand(
 		// readdir failure is non-blocking
 	}
 
-	// Remove root-level SWARM_PLAN checkpoint artifacts written by writeCheckpoint().
-	// These are redundant copies of plan.json/plan.md (already archived) and should
-	// not be left behind at the project root after close.
+	// Remove SWARM_PLAN checkpoint artifacts written by writeCheckpoint().
+	// Cleans both the canonical .swarm/ location and any legacy root-level
+	// artifacts from pre-7.0 sessions. These are redundant copies of
+	// plan.json/plan.md (already archived) and should not be left behind.
 	let swarmPlanFilesRemoved = 0;
-	const swarmPlanJsonPath = path.join(directory, 'SWARM_PLAN.json');
-	const swarmPlanMdPath = path.join(directory, 'SWARM_PLAN.md');
-	try {
-		await fs.unlink(swarmPlanJsonPath);
-		swarmPlanFilesRemoved++;
-	} catch (err: unknown) {
-		if ((err as NodeJS.ErrnoException)?.code !== 'ENOENT') {
-			warnings.push(
-				`Failed to remove SWARM_PLAN.json: ${err instanceof Error ? err.message : String(err)}`,
-			);
-		}
-	}
-	try {
-		await fs.unlink(swarmPlanMdPath);
-		swarmPlanFilesRemoved++;
-	} catch (err: unknown) {
-		if ((err as NodeJS.ErrnoException)?.code !== 'ENOENT') {
-			warnings.push(
-				`Failed to remove SWARM_PLAN.md: ${err instanceof Error ? err.message : String(err)}`,
-			);
+	const candidates = [
+		path.join(directory, '.swarm', 'SWARM_PLAN.json'),
+		path.join(directory, '.swarm', 'SWARM_PLAN.md'),
+		path.join(directory, 'SWARM_PLAN.json'),
+		path.join(directory, 'SWARM_PLAN.md'),
+	];
+	for (const candidate of candidates) {
+		try {
+			await fs.unlink(candidate);
+			swarmPlanFilesRemoved++;
+		} catch (err: unknown) {
+			if ((err as NodeJS.ErrnoException)?.code !== 'ENOENT') {
+				warnings.push(
+					`Failed to remove ${path.basename(candidate)}: ${err instanceof Error ? err.message : String(err)}`,
+				);
+			}
 		}
 	}
 
@@ -693,9 +690,7 @@ export async function handleCloseCommand(
 			? [`- Removed ${configBackupsRemoved} stale config backup file(s)`]
 			: []),
 		...(swarmPlanFilesRemoved > 0
-			? [
-					`- Removed ${swarmPlanFilesRemoved} root-level SWARM_PLAN checkpoint artifact(s)`,
-				]
+			? [`- Removed ${swarmPlanFilesRemoved} SWARM_PLAN checkpoint artifact(s)`]
 			: []),
 		...(planExists && !planAlreadyDone
 			? ['- Set non-completed phases/tasks to closed status']
@@ -728,7 +723,7 @@ export async function handleCloseCommand(
 
 	// NOTE: writeCheckpoint is intentionally NOT called here. SWARM_PLAN.json and
 	// SWARM_PLAN.md are redundant copies of plan.json/plan.md (already archived in
-	// .swarm/archive/) and should not be written to the project root during close.
+	// .swarm/archive/) and should not be written to the .swarm/ directory during close.
 	// Stage 3 cleanup removes any pre-existing SWARM_PLAN artifacts from prior sessions.
 
 	// Full session reset so subsequent /swarm invocations start from a clean slate.
