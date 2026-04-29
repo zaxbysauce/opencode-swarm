@@ -78,7 +78,7 @@ export interface SerializedAgentSession {
 /**
  * Minimal interface for serialized InvocationWindow
  */
-interface SerializedInvocationWindow {
+export interface SerializedInvocationWindow {
 	id: number;
 	agentName: string;
 	startedAtMs: number;
@@ -89,6 +89,7 @@ interface SerializedInvocationWindow {
 	recentToolCalls: Array<{ tool: string; argsHash: number; timestamp: number }>;
 	warningIssued: boolean;
 	warningReason: string;
+	transientRetryCount: number;
 }
 
 /**
@@ -159,6 +160,7 @@ export function serializeAgentSession(
 			recentToolCalls: win.recentToolCalls,
 			warningIssued: win.warningIssued,
 			warningReason: win.warningReason,
+			transientRetryCount: win.transientRetryCount ?? 0,
 		};
 	}
 

@@ -18598,7 +18598,7 @@ import * as path33 from "path";
 // package.json
 var package_default = {
   name: "opencode-swarm",
-  version: "6.86.12",
+  version: "6.86.13",
   description: "Architect-centric agentic swarm plugin for OpenCode - hub-and-spoke orchestration with SME consultation, code generation, and QA review",
   main: "dist/index.js",
   types: "dist/index.d.ts",
@@ -19389,7 +19389,8 @@ var GuardrailsProfileSchema = exports_external.object({
   max_repetitions: exports_external.number().min(3).max(50).optional(),
   max_consecutive_errors: exports_external.number().min(2).max(20).optional(),
   warning_threshold: exports_external.number().min(0.1).max(0.9).optional(),
-  idle_timeout_minutes: exports_external.number().min(5).max(240).optional()
+  idle_timeout_minutes: exports_external.number().min(5).max(240).optional(),
+  max_transient_retries: exports_external.number().min(0).max(20).optional()
 });
 var DEFAULT_AGENT_PROFILES = {
   architect: {
@@ -19450,6 +19451,7 @@ var GuardrailsConfigSchema = exports_external.object({
   max_duration_minutes: exports_external.number().min(0).max(480).default(30),
   max_repetitions: exports_external.number().min(3).max(50).default(10),
   max_consecutive_errors: exports_external.number().min(2).max(20).default(5),
+  max_transient_retries: exports_external.number().min(0).max(20).default(5),
   warning_threshold: exports_external.number().min(0.1).max(0.9).default(0.75),
   idle_timeout_minutes: exports_external.number().min(5).max(240).default(60),
   no_op_warning_threshold: exports_external.number().min(1).max(100).default(15),
@@ -34563,7 +34565,8 @@ function serializeAgentSession(s) {
       lastSuccessTimeMs: win.lastSuccessTimeMs,
       recentToolCalls: win.recentToolCalls,
       warningIssued: win.warningIssued,
-      warningReason: win.warningReason
+      warningReason: win.warningReason,
+      transientRetryCount: win.transientRetryCount ?? 0
     };
   }
   return {

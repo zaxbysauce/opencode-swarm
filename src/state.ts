@@ -296,6 +296,8 @@ export interface InvocationWindow {
 	warningIssued: boolean;
 	/** Human-readable warning reason */
 	warningReason: string;
+	/** Transient model error retry count for this invocation (resets per window) */
+	transientRetryCount: number;
 }
 
 // Process-global tool aggregates — intentionally shared across all run contexts.
@@ -793,6 +795,7 @@ export function beginInvocation(
 		recentToolCalls: [],
 		warningIssued: false,
 		warningReason: '',
+		transientRetryCount: 0,
 	};
 
 	const key = `${stripped}:${newId}`;

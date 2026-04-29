@@ -11,7 +11,11 @@ import {
 	buildRehydrationCache,
 	swarmState,
 } from '../state';
-import type { SerializedAgentSession, SnapshotData } from './snapshot-writer';
+import type {
+	SerializedAgentSession,
+	SerializedInvocationWindow,
+	SnapshotData,
+} from './snapshot-writer';
 
 /**
  * Transient session fields that must be reset on rehydration.
@@ -104,6 +108,15 @@ export function deserializeAgentSession(
 		s.lastCompletedPhaseAgentsDispatched ?? [],
 	);
 
+	// Migration: ensure transientRetryCount exists on all windows (v6.86.14)
+	const windows: Record<string, SerializedInvocationWindow> = {};
+	for (const [key, win] of Object.entries(s.windows ?? {})) {
+		windows[key] = {
+			...win,
+			transientRetryCount: (win as any).transientRetryCount ?? 0,
+		} as SerializedInvocationWindow;
+	}
+
 	return {
 		agentName: s.agentName,
 		lastToolCallTime: s.lastToolCallTime,
@@ -111,7 +124,7 @@ export function deserializeAgentSession(
 		delegationActive: s.delegationActive,
 		activeInvocationId: s.activeInvocationId,
 		lastInvocationIdByAgent: s.lastInvocationIdByAgent ?? {},
-		windows: s.windows ?? {},
+		windows,
 		lastCompactionHint: s.lastCompactionHint ?? 0,
 		architectWriteCount: s.architectWriteCount ?? 0,
 		lastCoderDelegationTaskId: s.lastCoderDelegationTaskId ?? null,

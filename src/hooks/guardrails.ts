@@ -58,7 +58,7 @@ const storedInputArgs = new Map<string, unknown>();
  * Matches: rate limits, overloaded, timeouts, model not found, temporary failures.
  */
 const TRANSIENT_MODEL_ERROR_PATTERN =
-	/rate.?limit|429|503|timeout|overloaded|model.?not.?found|temporarily unavailable|server error/i;
+	/rate.?limit|429|503|529|timeout|overloaded|model.?not.?found|temporarily unavailable|server error/i;
 
 /**
  * Retrieves stored input args for a given callID.
@@ -2454,23 +2454,33 @@ export function createGuardrailsHooks(
 				const errorContent =
 					(output as Record<string, unknown>).error ?? outputStr;
 
-				// v6.33: Transient model errors (429, 503, timeout, overloaded) while fallback
-				// models are still available do not count toward consecutiveErrors — these are
-				// infrastructure failures, not agent logic errors. Once modelFallbackExhausted
-				// is true all retries are spent, so errors count normally to eventually halt.
-				const isTransient =
-					!!session &&
-					!session.modelFallbackExhausted &&
+				// v6.34: Transient model errors (429, 503, 529, timeout, overloaded) bypass
+				// consecutiveErrors for up to cfg.max_transient_retries attempts per invocation
+				// window. This is independent of model fallback — previously the bypass required
+				// !modelFallbackExhausted, which expired immediately when no fallback_models were
+				// configured, causing the circuit breaker to fire after a single transient error.
+				const isTransientPatternMatch =
 					typeof errorContent === 'string' &&
 					TRANSIENT_MODEL_ERROR_PATTERN.test(errorContent);
 
+				const isTransient =
+					!!session &&
+					isTransientPatternMatch &&
+					window.transientRetryCount < cfg.max_transient_retries;
+
 				if (!isTransient) {
 					window.consecutiveErrors++;
+				} else {
+					window.transientRetryCount++;
 				}
 
 				// v6.33: Model fallback detection for transient model failures
 				// Only check for subagent sessions (not architect)
-				if (session && isTransient) {
+				if (
+					session &&
+					isTransientPatternMatch &&
+					!session.modelFallbackExhausted
+				) {
 					// Increment fallback index
 					session.model_fallback_index++;
 
@@ -2533,6 +2543,7 @@ export function createGuardrailsHooks(
 				}
 			} else {
 				window.consecutiveErrors = 0;
+				window.transientRetryCount = 0;
 				window.lastSuccessTimeMs = Date.now();
 
 				// Reset model fallback tracking on successful execution

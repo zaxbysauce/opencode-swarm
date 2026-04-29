@@ -51,7 +51,7 @@ var package_default;
 var init_package = __esm(() => {
   package_default = {
     name: "opencode-swarm",
-    version: "6.86.12",
+    version: "6.86.13",
     description: "Architect-centric agentic swarm plugin for OpenCode - hub-and-spoke orchestration with SME consultation, code generation, and QA review",
     main: "dist/index.js",
     types: "dist/index.d.ts",
@@ -15096,7 +15096,8 @@ var init_schema = __esm(() => {
     max_repetitions: exports_external.number().min(3).max(50).optional(),
     max_consecutive_errors: exports_external.number().min(2).max(20).optional(),
     warning_threshold: exports_external.number().min(0.1).max(0.9).optional(),
-    idle_timeout_minutes: exports_external.number().min(5).max(240).optional()
+    idle_timeout_minutes: exports_external.number().min(5).max(240).optional(),
+    max_transient_retries: exports_external.number().min(0).max(20).optional()
   });
   DEFAULT_AGENT_PROFILES = {
     architect: {
@@ -15157,6 +15158,7 @@ var init_schema = __esm(() => {
     max_duration_minutes: exports_external.number().min(0).max(480).default(30),
     max_repetitions: exports_external.number().min(3).max(50).default(10),
     max_consecutive_errors: exports_external.number().min(2).max(20).default(5),
+    max_transient_retries: exports_external.number().min(0).max(20).default(5),
     warning_threshold: exports_external.number().min(0.1).max(0.9).default(0.75),
     idle_timeout_minutes: exports_external.number().min(5).max(240).default(60),
     no_op_warning_threshold: exports_external.number().min(1).max(100).default(15),
@@ -24124,11 +24126,14 @@ function createGuardrailsHooks(directory, directoryOrConfig, config2, authorityC
       if (hasError) {
         const outputStr = typeof output.output === "string" ? output.output : "";
         const errorContent = output.error ?? outputStr;
-        const isTransient = !!session && !session.modelFallbackExhausted && typeof errorContent === "string" && TRANSIENT_MODEL_ERROR_PATTERN.test(errorContent);
+        const isTransientPatternMatch = typeof errorContent === "string" && TRANSIENT_MODEL_ERROR_PATTERN.test(errorContent);
+        const isTransient = !!session && isTransientPatternMatch && window2.transientRetryCount < cfg.max_transient_retries;
         if (!isTransient) {
           window2.consecutiveErrors++;
+        } else {
+          window2.transientRetryCount++;
         }
-        if (session && isTransient) {
+        if (session && isTransientPatternMatch && !session.modelFallbackExhausted) {
           session.model_fallback_index++;
           const baseAgentName = session.agentName ? session.agentName.replace(/^[^_]+[_]/, "") : "";
           const swarmAgents = getSwarmAgents();
@@ -24151,6 +24156,7 @@ function createGuardrailsHooks(directory, directoryOrConfig, config2, authorityC
         }
       } else {
         window2.consecutiveErrors = 0;
+        window2.transientRetryCount = 0;
         window2.lastSuccessTimeMs = Date.now();
         if (session) {
           if (session.model_fallback_index > 0) {
@@ -24739,7 +24745,7 @@ var init_guardrails = __esm(() => {
   init_normalize_tool_name();
   import_picomatch = __toESM(require_picomatch2(), 1);
   storedInputArgs = new Map;
-  TRANSIENT_MODEL_ERROR_PATTERN = /rate.?limit|429|503|timeout|overloaded|model.?not.?found|temporarily unavailable|server error/i;
+  TRANSIENT_MODEL_ERROR_PATTERN = /rate.?limit|429|503|529|timeout|overloaded|model.?not.?found|temporarily unavailable|server error/i;
   toolCallsSinceLastWrite = new Map;
   noOpWarningIssued = new Set;
   consecutiveNoToolTurns = new Map;
@@ -26036,7 +26042,8 @@ function beginInvocation(sessionId, agentName) {
     lastSuccessTimeMs: now,
     recentToolCalls: [],
     warningIssued: false,
-    warningReason: ""
+    warningReason: "",
+    transientRetryCount: 0
   };
   const key = `${stripped}:${newId}`;
   session.windows[key] = window2;
@@ -41152,7 +41159,8 @@ function serializeAgentSession(s) {
       lastSuccessTimeMs: win.lastSuccessTimeMs,
       recentToolCalls: win.recentToolCalls,
       warningIssued: win.warningIssued,
-      warningReason: win.warningReason
+      warningReason: win.warningReason,
+      transientRetryCount: win.transientRetryCount ?? 0
     };
   }
   return {
@@ -72792,6 +72800,13 @@ function deserializeAgentSession(s) {
   const catastrophicPhaseWarnings = new Set(s.catastrophicPhaseWarnings ?? []);
   const phaseAgentsDispatched = new Set(s.phaseAgentsDispatched ?? []);
   const lastCompletedPhaseAgentsDispatched = new Set(s.lastCompletedPhaseAgentsDispatched ?? []);
+  const windows = {};
+  for (const [key, win] of Object.entries(s.windows ?? {})) {
+    windows[key] = {
+      ...win,
+      transientRetryCount: win.transientRetryCount ?? 0
+    };
+  }
   return {
     agentName: s.agentName,
     lastToolCallTime: s.lastToolCallTime,
@@ -72799,7 +72814,7 @@ function deserializeAgentSession(s) {
     delegationActive: s.delegationActive,
     activeInvocationId: s.activeInvocationId,
     lastInvocationIdByAgent: s.lastInvocationIdByAgent ?? {},
-    windows: s.windows ?? {},
+    windows,
     lastCompactionHint: s.lastCompactionHint ?? 0,
     architectWriteCount: s.architectWriteCount ?? 0,
     lastCoderDelegationTaskId: s.lastCoderDelegationTaskId ?? null,

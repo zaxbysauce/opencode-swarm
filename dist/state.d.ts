@@ -231,6 +231,8 @@ export interface InvocationWindow {
     warningIssued: boolean;
     /** Human-readable warning reason */
     warningReason: string;
+    /** Transient model error retry count for this invocation (resets per window) */
+    transientRetryCount: number;
 }
 /**
  * Default run context — the single active run for current single-threaded behavior.
