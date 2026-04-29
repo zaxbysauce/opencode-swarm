@@ -1,5 +1,16 @@
 # Changelog
 
+## [7.0.0](https://github.com/zaxbysauce/opencode-swarm/compare/v6.86.14...v7.0.0) (2026-04-29)
+
+
+### ⚠ BREAKING CHANGES
+
+* council_mode semantics rewritten — Stage B (reviewer + test_engineer) now always runs per-task regardless of council_mode setting; council convenes at phase_complete for holistic phase-level review only. Users with council_mode enabled will see both per-task gates AND phase-level council where previously council replaced per-task gates.
+
+### Features
+
+* Swarm Plugin Enhancements v7.0.0 ([#697](https://github.com/zaxbysauce/opencode-swarm/issues/697)) ([6563271](https://github.com/zaxbysauce/opencode-swarm/commit/65632712a4f326ea363c92baa05441a83e105f89))
+
 ## [6.86.14](https://github.com/zaxbysauce/opencode-swarm/compare/v6.86.13...v6.86.14) (2026-04-29)
 
 
