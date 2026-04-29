@@ -373,3 +373,38 @@ Council's evidence path so the two systems never collide.
   explicitly may slip through.
 - Prompt size grows with member count and Round 2 deliberation. Practical
   ceiling depends on each member's context window.
+
+---
+
+## Phase Council Mode (Phase-Level Holistic Review)
+
+When `council_mode` is enabled in the QA gate profile, the Work Complete Council operates at the **phase level** rather than per-task. This means:
+
+1. **Stage B always runs per-task.** `reviewer` and `test_engineer` are dispatched in parallel for every Tier 1-3 task, regardless of `council_mode`. Council never replaces Stage B.
+
+2. **Council convenes at phase completion.** After all tasks in a phase have passed their individual Stage A + Stage B gates, the architect assembles a Phase Dossier (executive summary, task matrix, diff summary, retro evidence, dependency map) and dispatches the same 5 council members (`critic`, `reviewer`, `sme`, `test_engineer`, `explorer`) with phase-scoped prompts.
+
+3. **Evidence-file attestation.** Council verdicts are synthesized via `synthesizePhaseCouncilAdvisory()`, which writes `.swarm/evidence/{phase}/phase-council.json`. The `phase_complete` tool reads this evidence file and validates verdict, quorum (≥3), timestamp freshness, and phase number before allowing phase completion.
+
+4. **Verdict enforcement.** REJECT verdict blocks phase completion with required fixes. CONCERNS blocks by default (configurable via `config.council.phaseConcernsAllowComplete` — planned feature). APPROVE allows the phase to complete.
+
+### Example Phase Council Flow
+
+```
+Phase 1 tasks all complete → Phase Dossier assembled
+  → 5 council members dispatched in parallel (phase-scoped prompts)
+  → Verdicts collected → synthesizePhaseCouncilAdvisory() called
+  → .swarm/evidence/1/phase-council.json written
+  → phase_complete reads evidence → validates verdict/quorum/timestamp
+  → APPROVE → Phase 1 complete
+```
+
+### Per-Task vs Phase-Level
+
+| Aspect | Per-Task (Legacy) | Phase-Level (Current) |
+|--------|-------------------|----------------------|
+| Stage B | Replaced by council | Always runs per-task |
+| Council scope | Single task | Entire phase |
+| Trigger | Every coder delegation | phase_complete only |
+| Evidence | .swarm/evidence/{taskId}.json | .swarm/evidence/{phase}/phase-council.json |
+| Review focus | Task correctness | Cross-cutting concerns |

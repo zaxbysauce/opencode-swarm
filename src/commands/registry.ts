@@ -22,6 +22,7 @@ import { handleExportCommand } from './export.js';
 import { handleFullAutoCommand } from './full-auto.js';
 import { handleHandoffCommand } from './handoff.js';
 import { handleHistoryCommand } from './history.js';
+import { handleIssueCommand } from './issue.js';
 import {
 	handleKnowledgeListCommand,
 	handleKnowledgeMigrateCommand,
@@ -29,6 +30,7 @@ import {
 	handleKnowledgeRestoreCommand,
 } from './knowledge.js';
 import { handlePlanCommand } from './plan.js';
+import { handlePrReviewCommand } from './pr-review.js';
 import { handlePreflightCommand } from './preflight.js';
 import { handlePromoteCommand } from './promote.js';
 import { handleQaGatesCommand } from './qa-gates.js';
@@ -237,6 +239,22 @@ export const COMMAND_REGISTRY = {
 		details:
 			'Triggers the architect to convene a configurable General Council: each member independently web-searches, answers, and engages in one structured deliberation round on disagreements; an optional moderator pass synthesizes the final answer. --preset <name> selects a member group from council.general.presets. --spec-review switches to single-pass advisory mode for spec review. Requires council.general.enabled: true and a search API key in opencode-swarm.json.',
 	},
+	'pr-review': {
+		handler: async (ctx) => handlePrReviewCommand(ctx.directory, ctx.args),
+		description:
+			'Launch deep PR review with multi-lane analysis [url] [--council]',
+		args: '<pr-url|owner/repo#N|N> [--council]',
+		details:
+			'Launches a structured PR review: reconstructs PR intent via obligation extraction cascade, runs 6 parallel explorer lanes (correctness, security, dependencies, docs-intent-vs-actual, tests, performance-architecture), validates findings through independent reviewer confirmation, applies critic challenge to HIGH/CRITICAL findings, synthesizes structured report. --council variant fires adversarial multi-model review. Supports full GitHub URL, owner/repo#N shorthand, or bare PR number (resolves against origin remote).',
+	},
+	issue: {
+		handler: async (ctx) => handleIssueCommand(ctx.directory, ctx.args),
+		description:
+			'Ingest a GitHub issue into the swarm workflow [url] [--plan] [--trace] [--no-repro]',
+		args: '<issue-url|owner/repo#N|N> [--plan] [--trace] [--no-repro]',
+		details:
+			'Triggers the architect to enter MODE: ISSUE_INGEST — ingests a GitHub issue, restructures it into a normalized intake note, localizes root cause through hypothesis-driven tracing, and outputs a resolution spec. --plan transitions to plan creation after spec generation. --trace runs the full fix-and-PR workflow (implies --plan). --no-repro skips the reproduction step. Supports full GitHub URL, owner/repo#N shorthand, or bare issue number (resolves against origin remote).',
+	},
 	'qa-gates': {
 		handler: (ctx) =>
 			handleQaGatesCommand(ctx.directory, ctx.args, ctx.sessionID),
@@ -244,7 +262,7 @@ export const COMMAND_REGISTRY = {
 			'View or modify QA gate profile for the current plan [enable|override <gate>...]',
 		args: '[show|enable|override] <gate>...',
 		details:
-			'show: display spec-level, session-override, and effective QA gates for the current plan. enable: persist gate(s) into the locked-once profile (architect; rejected after critic approval lock). override: session-only ratchet-tighter enable. Valid gates: reviewer, test_engineer, council_mode, sme_enabled, critic_pre_plan, hallucination_guard, sast_enabled, mutation_test, council_general_review.',
+			'show: display spec-level, session-override, and effective QA gates for the current plan. enable: persist gate(s) into the locked-once profile (architect; rejected after critic approval lock). override: session-only ratchet-tighter enable. Valid gates: reviewer, test_engineer, council_mode, sme_enabled, critic_pre_plan, hallucination_guard, sast_enabled, mutation_test, council_general_review, drift_check.',
 	},
 	promote: {
 		handler: (ctx) => handlePromoteCommand(ctx.directory, ctx.args),

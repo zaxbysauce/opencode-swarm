@@ -151,3 +151,293 @@ export function hasUncommittedChanges(cwd: string): boolean {
 	const status = gitExec(['status', '--porcelain'], cwd);
 	return status.trim().length > 0;
 }
+
+export interface ResetToRemoteBranchResult {
+	success: boolean;
+	targetBranch: string;
+	localBranch: string;
+	message: string;
+	alreadyAligned: boolean;
+	prunedBranches: string[];
+	warnings: string[];
+}
+
+/**
+ * Detect the default remote branch using multiple fallback methods
+ */
+function detectDefaultRemoteBranch(cwd: string): string | null {
+	// Method 1: git symbolic-ref refs/remotes/origin/HEAD
+	try {
+		const output = gitExec(['symbolic-ref', 'refs/remotes/origin/HEAD'], cwd);
+		const trimmed = output.trim();
+		// Parse "refs/remotes/origin/main" -> "main"
+		if (trimmed.startsWith('refs/remotes/origin/')) {
+			return trimmed.slice('refs/remotes/origin/'.length);
+		}
+	} catch {
+		// Fall through to next method
+	}
+
+	// Method 2: git config init.defaultBranch
+	try {
+		const output = gitExec(['config', 'init.defaultBranch'], cwd);
+		const branch = output.trim();
+		if (branch) {
+			return branch;
+		}
+	} catch {
+		// Fall through to next method
+	}
+
+	// Method 3: Verify origin/main exists
+	try {
+		gitExec(['rev-parse', '--verify', 'origin/main'], cwd);
+		return 'main';
+	} catch {
+		// Fall through to next method
+	}
+
+	// Method 4: Verify origin/master exists
+	try {
+		gitExec(['rev-parse', '--verify', 'origin/master'], cwd);
+		return 'master';
+	} catch {
+		return null;
+	}
+}
+
+/**
+ * Reset local branch to align with its remote counterpart.
+ * Safely handles uncommitted changes, unpushed commits, and detached HEAD states.
+ *
+ * @param cwd - Working directory
+ * @param options - Options including pruneBranches flag
+ * @returns Result object with success status and details
+ */
+export function resetToRemoteBranch(
+	cwd: string,
+	options?: { pruneBranches?: boolean },
+): ResetToRemoteBranchResult {
+	const warnings: string[] = [];
+	const prunedBranches: string[] = [];
+
+	try {
+		// Get current branch
+		const currentBranch = getCurrentBranch(cwd);
+
+		// Detect default remote branch
+		const defaultRemoteBranch = detectDefaultRemoteBranch(cwd);
+		if (!defaultRemoteBranch) {
+			return {
+				success: false,
+				targetBranch: '',
+				localBranch: currentBranch,
+				message: 'Could not detect default remote branch',
+				alreadyAligned: false,
+				prunedBranches: [],
+				warnings: [],
+			};
+		}
+
+		const targetBranch = `origin/${defaultRemoteBranch}`;
+
+		// Safety check: Detached HEAD
+		if (currentBranch === 'HEAD') {
+			return {
+				success: false,
+				targetBranch,
+				localBranch: 'HEAD',
+				message: 'Cannot reset: detached HEAD state',
+				alreadyAligned: false,
+				prunedBranches: [],
+				warnings: [],
+			};
+		}
+
+		// Safety check: Uncommitted changes
+		if (hasUncommittedChanges(cwd)) {
+			return {
+				success: false,
+				targetBranch,
+				localBranch: currentBranch,
+				message: 'Cannot reset: uncommitted changes in working tree',
+				alreadyAligned: false,
+				prunedBranches: [],
+				warnings: [],
+			};
+		}
+
+		// Safety check: Unpushed commits
+		try {
+			const logOutput = gitExec(
+				['log', `${targetBranch}..HEAD`, '--oneline'],
+				cwd,
+			);
+			if (logOutput.trim().length > 0) {
+				return {
+					success: false,
+					targetBranch,
+					localBranch: currentBranch,
+					message: 'Cannot reset: unpushed commits',
+					alreadyAligned: false,
+					prunedBranches: [],
+					warnings: [],
+				};
+			}
+		} catch {
+			// If log fails, branch might not exist upstream, continue
+		}
+
+		// Fetch and refresh remote refs
+		try {
+			gitExec(['fetch', '--prune', 'origin'], cwd);
+		} catch (err) {
+			return {
+				success: false,
+				targetBranch,
+				localBranch: currentBranch,
+				message: `Fetch failed: ${err instanceof Error ? err.message : String(err)}`,
+				alreadyAligned: false,
+				prunedBranches: [],
+				warnings: [],
+			};
+		}
+
+		// Check if already aligned
+		const headSha = gitExec(['rev-parse', 'HEAD'], cwd).trim();
+		const remoteSha = gitExec(['rev-parse', `${targetBranch}`], cwd).trim();
+
+		if (headSha === remoteSha) {
+			return {
+				success: true,
+				targetBranch,
+				localBranch: currentBranch,
+				message: 'Already aligned with remote',
+				alreadyAligned: true,
+				prunedBranches: [],
+				warnings: [],
+			};
+		}
+
+		// Checkout the local branch first (in case we're on a different branch)
+		try {
+			gitExec(['checkout', currentBranch], cwd);
+		} catch (err) {
+			return {
+				success: false,
+				targetBranch,
+				localBranch: currentBranch,
+				message: `Checkout failed: ${err instanceof Error ? err.message : String(err)}`,
+				alreadyAligned: false,
+				prunedBranches: [],
+				warnings: [],
+			};
+		}
+
+		// Reset hard to remote branch with Windows retry
+		let resetSucceeded = false;
+		let lastError: unknown;
+		for (let retry = 0; retry < 4; retry++) {
+			if (retry > 0 && process.platform === 'win32') {
+				// Synchronous delay for Windows — git file-locking race on Windows
+				// requires a brief pause between retries. On Linux/macOS the retry
+				// is immediate since the file-locking issue is Windows-specific.
+				const endTime = Date.now() + 500;
+				while (Date.now() < endTime) {
+					// busy wait
+				}
+			}
+			try {
+				gitExec(['reset', '--hard', targetBranch], cwd);
+				resetSucceeded = true;
+				break;
+			} catch (err) {
+				lastError = err;
+			}
+		}
+
+		if (!resetSucceeded) {
+			return {
+				success: false,
+				targetBranch,
+				localBranch: currentBranch,
+				message: `Reset failed: ${lastError instanceof Error ? lastError.message : String(lastError)}`,
+				alreadyAligned: false,
+				prunedBranches: [],
+				warnings: [],
+			};
+		}
+
+		// Prune branches if requested
+		if (options?.pruneBranches) {
+			// Get merged branches and prune them
+			try {
+				const mergedOutput = gitExec(['branch', '--merged', targetBranch], cwd);
+				const mergedLines = mergedOutput.split('\n');
+				for (const line of mergedLines) {
+					const trimmedLine = line.trim();
+					if (!trimmedLine || trimmedLine.startsWith('*')) {
+						continue;
+					}
+					try {
+						gitExec(['branch', '-d', trimmedLine], cwd);
+						prunedBranches.push(trimmedLine);
+					} catch {
+						warnings.push(`Could not safely delete branch: ${trimmedLine}`);
+					}
+				}
+			} catch (err) {
+				warnings.push(
+					`Failed to get merged branches: ${err instanceof Error ? err.message : String(err)}`,
+				);
+			}
+
+			// Prune gone upstream branches
+			try {
+				const branchVvOutput = gitExec(['branch', '-vv'], cwd);
+				const vvLines = branchVvOutput.split('\n');
+				for (const line of vvLines) {
+					const trimmedLine = line.trim();
+					if (!trimmedLine || trimmedLine.startsWith('*')) {
+						continue;
+					}
+					// Format: "  branch-name abc123 [origin/branch: gone] message"
+					if (trimmedLine.includes(': gone]')) {
+						const parts = trimmedLine.split(/\s+/);
+						const branchName = parts[0];
+						try {
+							gitExec(['branch', '-d', branchName], cwd);
+							prunedBranches.push(branchName);
+						} catch {
+							warnings.push(`Could not delete gone branch: ${branchName}`);
+						}
+					}
+				}
+			} catch (err) {
+				warnings.push(
+					`Failed to prune gone branches: ${err instanceof Error ? err.message : String(err)}`,
+				);
+			}
+		}
+
+		return {
+			success: true,
+			targetBranch,
+			localBranch: currentBranch,
+			message: 'Successfully reset to remote branch',
+			alreadyAligned: false,
+			prunedBranches,
+			warnings,
+		};
+	} catch (err) {
+		return {
+			success: false,
+			targetBranch: '',
+			localBranch: '',
+			message: `Unexpected error: ${err instanceof Error ? err.message : String(err)}`,
+			alreadyAligned: false,
+			prunedBranches: [],
+			warnings: [],
+		};
+	}
+}

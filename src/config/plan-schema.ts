@@ -85,6 +85,7 @@ export const PhaseSchema = z.object({
 	name: z.string().min(1),
 	status: PhaseStatusSchema.default('pending'),
 	tasks: z.array(TaskSchema).default([]),
+	type: z.enum(['code', 'non-code']).optional(),
 	required_agents: z.array(z.string()).optional(),
 });
 export type Phase = z.infer<typeof PhaseSchema>;

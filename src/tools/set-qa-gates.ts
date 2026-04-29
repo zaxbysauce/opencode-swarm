@@ -39,6 +39,7 @@ export interface SetQaGatesArgs {
 	sast_enabled?: boolean;
 	mutation_test?: boolean;
 	council_general_review?: boolean;
+	drift_check?: boolean;
 	project_type?: string;
 }
 
@@ -86,6 +87,7 @@ export async function executeSetQaGates(
 		'sast_enabled',
 		'mutation_test',
 		'council_general_review',
+		'drift_check',
 	] as Array<keyof QaGates>) {
 		if (args[key] !== undefined) partial[key] = args[key] as boolean;
 	}
@@ -174,6 +176,14 @@ export const set_qa_gates: ReturnType<typeof tool> = createSwarmTool({
 					'MODE: SPECIFY runs convene_general_council on the draft spec ' +
 					'before the critic-gate, folding multi-model deliberation into ' +
 					'the spec. Requires council.general.enabled and a search API key.',
+			),
+		drift_check: z
+			.boolean()
+			.optional()
+			.describe(
+				'Enable drift verification gate (default: on). Blocks phase_complete ' +
+					'until drift-verifier.json has an approved verdict. When disabled, ' +
+					'drift verification is skipped entirely.',
 			),
 		project_type: z
 			.string()

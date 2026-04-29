@@ -1073,6 +1073,12 @@ export const CouncilConfigSchema = z
 			.describe(
 				'Optional webhook URL or handler name invoked when maxRounds is reached without APPROVE. Declared for forward compatibility; no behavior is implemented yet.',
 			),
+		phaseConcernsAllowComplete: z
+			.boolean()
+			.default(true)
+			.describe(
+				'When true, a phase-level council CONCERNS verdict does NOT block phase completion — the advisory notes are logged as warnings and the phase proceeds. When false, CONCERNS blocks like REJECT. Default: true (CONCERNS is advisory).',
+			),
 		// General Council Mode (advisory). Optional — undefined means feature is
 		// not configured. When present and enabled: true, the architect can run
 		// `/swarm council` and the SPECIFY-COUNCIL-REVIEW gate.
@@ -1092,6 +1098,10 @@ export const ParallelizationConfigSchema = z.object({
 	maxConcurrentTasks: z.number().int().min(1).max(64).default(1),
 	/** Timeout in ms for evidence file locks before throwing EvidenceLockTimeoutError. */
 	evidenceLockTimeoutMs: z.number().int().min(1000).max(300000).default(60000),
+	/** Maximum concurrent coder dispatches. Controls agent-type concurrency limit. */
+	max_coders: z.number().int().min(1).max(16).default(3),
+	/** Maximum concurrent reviewer dispatches. Controls agent-type concurrency limit. */
+	max_reviewers: z.number().int().min(1).max(16).default(2),
 	/**
 	 * Stage B (reviewer + test_engineer) parallelization settings.
 	 * PR 2 runtime gating — defaults to disabled so no production path activates

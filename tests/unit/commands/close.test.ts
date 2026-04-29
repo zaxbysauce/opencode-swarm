@@ -443,14 +443,11 @@ describe('handleCloseCommand', () => {
 			const summary = readFileSync(summaryPath, 'utf-8');
 			expect(summary).toContain('# Swarm Close Summary');
 			expect(summary).toContain('**Project:** Test Project');
-			expect(summary).toContain('## Phases Closed: 1');
-			expect(summary).toContain('- Phase 1');
-			expect(summary).toContain('## Tasks Closed: 1');
+			expect(summary).toContain('## Retrospective');
+			expect(summary).toContain('- Phase 1 closed');
+			expect(summary).toContain('**Tasks marked closed:** 1');
 			expect(summary).toContain('- 1.2');
-			expect(summary).toContain('## Actions Performed');
-			expect(summary).toContain(
-				'- Wrote retrospectives for in-progress phases',
-			);
+			expect(summary).toContain('## Lessons Committed');
 			expect(summary).toContain('Archived');
 			expect(summary).toContain(
 				'- Cleared agent sessions and delegation chains',
@@ -481,8 +478,8 @@ describe('handleCloseCommand', () => {
 
 			const summaryPath = path.join(testDir, '.swarm', 'close-summary.md');
 			const summary = readFileSync(summaryPath, 'utf-8');
-			expect(summary).toContain('## Tasks Closed: 0');
-			expect(summary).toContain('_No incomplete tasks_');
+			expect(summary).toContain('## Lessons Committed');
+			expect(summary).toContain('_No lessons committed_');
 		});
 	});
 
@@ -1257,6 +1254,202 @@ describe('handleCloseCommand', () => {
 				expect(result).toContain('Warnings');
 				expect(result).toContain('Lessons curation failed');
 				expect(result).toContain('curation failed');
+			});
+
+			it('LN6: Retro evidence with lessons → curateAndStoreSwarm receives merged explicit + retro lessons', async () => {
+				// Create explicit lessons file
+				writeFileSync(
+					path.join(testDir, '.swarm', 'close-lessons.md'),
+					'Explicit lesson about testing',
+				);
+
+				// Create retro evidence directory with lessons
+				const evidenceDir = path.join(testDir, '.swarm', 'evidence', 'retro-1');
+				mkdirSync(evidenceDir, { recursive: true });
+				writeFileSync(
+					path.join(evidenceDir, 'evidence.json'),
+					JSON.stringify({
+						entries: [
+							{
+								lessons_learned: [
+									'Retro lesson about deployment',
+									'Retro lesson about code review',
+								],
+							},
+						],
+					}),
+				);
+
+				// Write a plan with in-progress phase
+				writeFileSync(
+					path.join(testDir, '.swarm', 'plan.json'),
+					JSON.stringify({
+						title: 'Test Project',
+						phases: [
+							{ id: 1, name: 'Phase 1', status: 'in_progress', tasks: [] },
+						],
+					}),
+				);
+
+				await handleCloseCommand(testDir, []);
+
+				// Both explicit and retro lessons should be passed (merged, deduplicated)
+				expect(mockCurateAndStoreSwarm).toHaveBeenCalledWith(
+					[
+						'Explicit lesson about testing',
+						'Retro lesson about deployment',
+						'Retro lesson about code review',
+					],
+					'Test Project',
+					{ phase_number: 0 },
+					testDir,
+					expect.any(Object),
+				);
+			});
+
+			it('LN7: Retro evidence without lessons + explicit lessons → curateAndStoreSwarm receives only explicit lessons', async () => {
+				// Create explicit lessons file
+				writeFileSync(
+					path.join(testDir, '.swarm', 'close-lessons.md'),
+					'Explicit lesson only',
+				);
+
+				// Create retro evidence directory with NO lessons_learned
+				const evidenceDir = path.join(testDir, '.swarm', 'evidence', 'retro-1');
+				mkdirSync(evidenceDir, { recursive: true });
+				writeFileSync(
+					path.join(evidenceDir, 'evidence.json'),
+					JSON.stringify({
+						entries: [
+							{
+								phase: 1,
+								summary: 'Some retro without lessons',
+							},
+						],
+					}),
+				);
+
+				// Write a plan with in-progress phase
+				writeFileSync(
+					path.join(testDir, '.swarm', 'plan.json'),
+					JSON.stringify({
+						title: 'Test Project',
+						phases: [
+							{ id: 1, name: 'Phase 1', status: 'in_progress', tasks: [] },
+						],
+					}),
+				);
+
+				await handleCloseCommand(testDir, []);
+
+				// Only explicit lessons should be passed (retro had none)
+				expect(mockCurateAndStoreSwarm).toHaveBeenCalledWith(
+					['Explicit lesson only'],
+					'Test Project',
+					{ phase_number: 0 },
+					testDir,
+					expect.any(Object),
+				);
+			});
+
+			it('LN8: Multiple retro evidence bundles → all lessons extracted and deduplicated', async () => {
+				// Create explicit lessons
+				writeFileSync(
+					path.join(testDir, '.swarm', 'close-lessons.md'),
+					'Explicit lesson',
+				);
+
+				// Create first retro evidence bundle
+				const evidenceDir1 = path.join(
+					testDir,
+					'.swarm',
+					'evidence',
+					'retro-1',
+				);
+				mkdirSync(evidenceDir1, { recursive: true });
+				writeFileSync(
+					path.join(evidenceDir1, 'evidence.json'),
+					JSON.stringify({
+						entries: [{ lessons_learned: ['Retro lesson 1'] }],
+					}),
+				);
+
+				// Create second retro evidence bundle
+				const evidenceDir2 = path.join(
+					testDir,
+					'.swarm',
+					'evidence',
+					'retro-2',
+				);
+				mkdirSync(evidenceDir2, { recursive: true });
+				writeFileSync(
+					path.join(evidenceDir2, 'evidence.json'),
+					JSON.stringify({
+						entries: [{ lessons_learned: ['Retro lesson 2'] }],
+					}),
+				);
+
+				// Write a plan with in-progress phase
+				writeFileSync(
+					path.join(testDir, '.swarm', 'plan.json'),
+					JSON.stringify({
+						title: 'Test Project',
+						phases: [
+							{ id: 1, name: 'Phase 1', status: 'in_progress', tasks: [] },
+						],
+					}),
+				);
+
+				await handleCloseCommand(testDir, []);
+
+				// All lessons from both bundles plus explicit should be present
+				expect(mockCurateAndStoreSwarm).toHaveBeenCalledWith(
+					['Explicit lesson', 'Retro lesson 1', 'Retro lesson 2'],
+					'Test Project',
+					{ phase_number: 0 },
+					testDir,
+					expect.any(Object),
+				);
+			});
+
+			it('LN9: Retro lesson duplicates explicit lesson → deduplicated to one', async () => {
+				// Create explicit lessons with a specific lesson
+				writeFileSync(
+					path.join(testDir, '.swarm', 'close-lessons.md'),
+					'Shared lesson',
+				);
+
+				// Create retro evidence with the same lesson
+				const evidenceDir = path.join(testDir, '.swarm', 'evidence', 'retro-1');
+				mkdirSync(evidenceDir, { recursive: true });
+				writeFileSync(
+					path.join(evidenceDir, 'evidence.json'),
+					JSON.stringify({
+						entries: [{ lessons_learned: ['Shared lesson'] }],
+					}),
+				);
+
+				// Write a plan with in-progress phase
+				writeFileSync(
+					path.join(testDir, '.swarm', 'plan.json'),
+					JSON.stringify({
+						title: 'Test Project',
+						phases: [
+							{ id: 1, name: 'Phase 1', status: 'in_progress', tasks: [] },
+						],
+					}),
+				);
+
+				await handleCloseCommand(testDir, []);
+
+				// Shared lesson should appear only once (deduplicated via Set)
+				expect(mockCurateAndStoreSwarm).toHaveBeenCalledWith(
+					['Shared lesson'],
+					'Test Project',
+					{ phase_number: 0 },
+					testDir,
+					expect.any(Object),
+				);
 			});
 		});
 

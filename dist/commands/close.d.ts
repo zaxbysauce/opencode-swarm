@@ -1,5 +1,6 @@
 /**
  * Handles /swarm close command - performs full terminal session finalization:
+ * 0. Guarantee: mark all incomplete phases/tasks as closed
  * 1. Finalize: write retrospectives, produce terminal summary
  * 2. Archive: create timestamped bundle of swarm artifacts
  * 3. Clean: clear active-state files that confuse future swarms

@@ -365,9 +365,9 @@ export const TOOL_DESCRIPTIONS: Partial<Record<ToolName, string>> = {
 	repo_map:
 		'query the repo code graph: importers, dependencies, blast radius, and localization context for structural awareness before refactoring',
 	get_qa_gate_profile:
-		'retrieve the QA gate profile for the current plan: gates (reviewer, test_engineer, sme_enabled, critic_pre_plan, sast_enabled, council_mode, hallucination_guard, mutation_test, council_general_review), lock state, and profile hash. Read-only.',
+		'retrieve the QA gate profile for the current plan: gates (reviewer, test_engineer, sme_enabled, critic_pre_plan, sast_enabled, council_mode, hallucination_guard, mutation_test, council_general_review, drift_check), lock state, and profile hash. Read-only.',
 	set_qa_gates:
-		'configure the QA gate profile for the current plan. Architect-only. Ratchet-tighter only — rejected once the profile is locked after critic approval. Supports: reviewer, test_engineer, sme_enabled, critic_pre_plan, sast_enabled, council_mode, hallucination_guard, mutation_test, council_general_review.',
+		'configure the QA gate profile for the current plan. Architect-only. Ratchet-tighter only — rejected once the profile is locked after critic approval. Supports: reviewer, test_engineer, sme_enabled, critic_pre_plan, sast_enabled, council_mode, hallucination_guard, mutation_test, council_general_review, drift_check.',
 	req_coverage:
 		'query requirement coverage status for tracked functional requirements',
 };

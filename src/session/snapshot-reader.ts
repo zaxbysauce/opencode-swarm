@@ -113,7 +113,11 @@ export function deserializeAgentSession(
 	for (const [key, win] of Object.entries(s.windows ?? {})) {
 		windows[key] = {
 			...win,
-			transientRetryCount: (win as any).transientRetryCount ?? 0,
+			transientRetryCount:
+				'transientRetryCount' in win
+					? (((win as unknown as Record<string, unknown>)
+							.transientRetryCount as number) ?? 0)
+					: 0,
 		} as SerializedInvocationWindow;
 	}
 

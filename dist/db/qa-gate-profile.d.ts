@@ -7,7 +7,7 @@
  * Sessions can only ratchet gates tighter (enable more), never disable them.
  */
 /**
- * QA gate flags. All nine gates are tracked explicitly.
+ * QA gate flags. All ten gates are tracked explicitly.
  */
 export interface QaGates {
     reviewer: boolean;
@@ -19,6 +19,7 @@ export interface QaGates {
     sast_enabled: boolean;
     mutation_test: boolean;
     council_general_review: boolean;
+    drift_check: boolean;
 }
 /**
  * Default QA gate configuration for newly-created profiles.
@@ -96,6 +97,8 @@ export declare function computeProfileHash(profile: QaGateProfile): string;
  * - council_general_review — src/agents/architect.ts SPECIFY-COUNCIL-REVIEW
  *   (fires when gate is true; runs convene_general_council on draft spec before
  *   critic-gate to fold multi-model deliberation into the spec).
+ * - drift_check — src/tools/phase-complete.ts Gate 2 (blocks phase_complete when
+ *   drift-verifier.json missing or rejected)
  *
  * Session overrides are intentionally ephemeral — they live only in
  * in-memory `AgentSessionState.qaGateSessionOverrides` and are NOT

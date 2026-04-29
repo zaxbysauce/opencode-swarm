@@ -102,6 +102,14 @@ Skips the compaction service. Use when you're hitting context pressure on short 
 
 ---
 
+## QA Gate Reference
+
+### `council_mode` (Phase-Level Council)
+
+When enabled, a phase-level council of 5 members (critic, reviewer, sme, test_engineer, explorer) reviews the entire phase's work holistically at `phase_complete` time. Stage B gates (reviewer + test_engineer in parallel) always run per-task — council is additive, never a replacement. Evidence is written to `.swarm/evidence/{phase}/phase-council.json` and validated for verdict, quorum, timestamp, and phase number.
+
+---
+
 ## FAQ
 
 **Why is the README's "Strict" mode not a session command?**  
