@@ -297,6 +297,7 @@ export declare const GuardrailsProfileSchema: z.ZodObject<{
     max_consecutive_errors: z.ZodOptional<z.ZodNumber>;
     warning_threshold: z.ZodOptional<z.ZodNumber>;
     idle_timeout_minutes: z.ZodOptional<z.ZodNumber>;
+    max_transient_retries: z.ZodOptional<z.ZodNumber>;
 }, z.core.$strip>;
 export type GuardrailsProfile = z.infer<typeof GuardrailsProfileSchema>;
 export declare const DEFAULT_AGENT_PROFILES: Record<string, GuardrailsProfile>;
@@ -308,6 +309,7 @@ export declare const DEFAULT_ARCHITECT_PROFILE: {
     max_consecutive_errors?: number | undefined;
     warning_threshold?: number | undefined;
     idle_timeout_minutes?: number | undefined;
+    max_transient_retries?: number | undefined;
 };
 export declare const GuardrailsConfigSchema: z.ZodObject<{
     enabled: z.ZodDefault<z.ZodBoolean>;
@@ -315,6 +317,7 @@ export declare const GuardrailsConfigSchema: z.ZodObject<{
     max_duration_minutes: z.ZodDefault<z.ZodNumber>;
     max_repetitions: z.ZodDefault<z.ZodNumber>;
     max_consecutive_errors: z.ZodDefault<z.ZodNumber>;
+    max_transient_retries: z.ZodDefault<z.ZodNumber>;
     warning_threshold: z.ZodDefault<z.ZodNumber>;
     idle_timeout_minutes: z.ZodDefault<z.ZodNumber>;
     no_op_warning_threshold: z.ZodDefault<z.ZodNumber>;
@@ -331,6 +334,7 @@ export declare const GuardrailsConfigSchema: z.ZodObject<{
         max_consecutive_errors: z.ZodOptional<z.ZodNumber>;
         warning_threshold: z.ZodOptional<z.ZodNumber>;
         idle_timeout_minutes: z.ZodOptional<z.ZodNumber>;
+        max_transient_retries: z.ZodOptional<z.ZodNumber>;
     }, z.core.$strip>>>;
     block_destructive_commands: z.ZodDefault<z.ZodBoolean>;
     interpreter_allowed_agents: z.ZodOptional<z.ZodArray<z.ZodString>>;
@@ -758,6 +762,7 @@ export declare const PluginConfigSchema: z.ZodObject<{
         max_duration_minutes: z.ZodDefault<z.ZodNumber>;
         max_repetitions: z.ZodDefault<z.ZodNumber>;
         max_consecutive_errors: z.ZodDefault<z.ZodNumber>;
+        max_transient_retries: z.ZodDefault<z.ZodNumber>;
         warning_threshold: z.ZodDefault<z.ZodNumber>;
         idle_timeout_minutes: z.ZodDefault<z.ZodNumber>;
         no_op_warning_threshold: z.ZodDefault<z.ZodNumber>;
@@ -774,6 +779,7 @@ export declare const PluginConfigSchema: z.ZodObject<{
             max_consecutive_errors: z.ZodOptional<z.ZodNumber>;
             warning_threshold: z.ZodOptional<z.ZodNumber>;
             idle_timeout_minutes: z.ZodOptional<z.ZodNumber>;
+            max_transient_retries: z.ZodOptional<z.ZodNumber>;
         }, z.core.$strip>>>;
         block_destructive_commands: z.ZodDefault<z.ZodBoolean>;
         interpreter_allowed_agents: z.ZodOptional<z.ZodArray<z.ZodString>>;

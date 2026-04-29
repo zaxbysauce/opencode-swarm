@@ -63,7 +63,7 @@ export interface SerializedAgentSession {
 /**
  * Minimal interface for serialized InvocationWindow
  */
-interface SerializedInvocationWindow {
+export interface SerializedInvocationWindow {
     id: number;
     agentName: string;
     startedAtMs: number;
@@ -78,6 +78,7 @@ interface SerializedInvocationWindow {
     }>;
     warningIssued: boolean;
     warningReason: string;
+    transientRetryCount: number;
 }
 /**
  * Snapshot data structure written to disk
@@ -112,4 +113,3 @@ export declare function createSnapshotWriterHook(directory: string): (input: unk
  * are persisted before returning.
  */
 export declare function flushPendingSnapshot(directory: string): Promise<void>;
-export {};
