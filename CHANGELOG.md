@@ -1,5 +1,13 @@
 # Changelog
 
+## [6.86.13](https://github.com/zaxbysauce/opencode-swarm/compare/v6.86.12...v6.86.13) (2026-04-29)
+
+
+### Bug Fixes
+
+* **#686,#687:** default quiet mode and eliminate empty checkpoint commits ([#689](https://github.com/zaxbysauce/opencode-swarm/issues/689)) ([90ae113](https://github.com/zaxbysauce/opencode-swarm/commit/90ae1131542e4399646c1e18c66a4a2622d07bd9))
+* **skills:** harden swarm-pr-review with anti-self-review gate, council opt-in guard, and pre-synthesis checkpoint ([3f2766e](https://github.com/zaxbysauce/opencode-swarm/commit/3f2766e0b981dcd7c83604daaabfd28b326fff9c))
+
 ## [6.86.12](https://github.com/zaxbysauce/opencode-swarm/compare/v6.86.11...v6.86.12) (2026-04-29)
 
 
