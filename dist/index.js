@@ -64928,13 +64928,7 @@ init_constants();
 // src/config/project-init.ts
 import * as fs31 from "node:fs";
 import * as path48 from "node:path";
-var STARTER_CONTENT = `{
-` + `  // Project-level overrides for opencode-swarm.
-` + `  // Deep-merged over your global config (~/.config/opencode/opencode-swarm.json).
-` + `  // Add only the settings you want to change for this project — anything omitted
-` + `  // falls back to your global config or the built-in defaults.
-` + `  // See .swarm/config.example.json for agent/model options.
-` + `}
+var STARTER_CONTENT = `{}
 `;
 function writeProjectConfigIfNew(directory, quiet = false) {
   try {
