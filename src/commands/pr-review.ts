@@ -278,6 +278,17 @@ function parseGitRemoteUrl(
 		};
 	}
 
+	// Generic fallback: extract the last two path segments as owner/repo.
+	// Handles proxy remotes (http://proxy/git/owner/repo) and GitHub Enterprise
+	// instances whose host doesn't match github.com.
+	const pathMatch = remoteUrl.match(/\/([^/]+)\/([^/]+?)(?:\.git)?\/?$/);
+	if (pathMatch) {
+		return {
+			owner: pathMatch[1],
+			repo: pathMatch[2].replace(/\.git$/, ''),
+		};
+	}
+
 	return null;
 }
 

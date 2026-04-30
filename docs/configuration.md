@@ -235,32 +235,30 @@ For a full configuration reference, see the [Full Configuration Reference](../RE
 
 ### `council.general` — General Council Mode (advisory)
 
-Distinct from the Work Complete Council above. Where the Work Complete Council is a **verdict-based QA gate** that blocks task completion, the General Council is an **advisory deliberation system**: user-selected models each independently web-search and answer a question, then engage in one structured deliberation round on disagreements. An optional moderator agent synthesizes the final answer.
+Distinct from the Work Complete Council above. Where the Work Complete Council is a **verdict-based QA gate** that blocks task completion, the General Council is an **advisory deliberation system**: a fixed three-agent council (`council_generalist`, `council_skeptic`, `council_domain_expert`) reviews a question using an architect-supplied RESEARCH CONTEXT block, with one optional disagreement-targeted reconciliation round. The architect synthesizes the final answer directly using inline output rules.
 
-Triggered by `/swarm council <question>` (see [Commands](commands.md#swarm-council-question---preset-name---spec-review)) or by enabling the `council_general_review` QA gate (which runs the council on a draft spec during MODE: SPECIFY).
+The three agents derive their models from the `reviewer`, `critic`, and `sme` swarm config entries respectively (generalist→reviewer, skeptic→critic, domain_expert→SME). They have no tools — the architect runs `web_search` 1–3 times before dispatch and passes the results in.
+
+Triggered by `/swarm council <question>` (see [Commands](commands.md#swarm-council-question---spec-review)) or by enabling the `council_general_review` QA gate (which runs the council on a draft spec during MODE: SPECIFY).
 
 | Field | Type | Default | Description |
 |-------|------|---------|-------------|
 | `enabled` | boolean | `false` | Master switch for the General Council feature |
-| `searchProvider` | `'tavily' \| 'brave'` | `'tavily'` | Web search backend used by council members |
+| `searchProvider` | `'tavily' \| 'brave'` | `'tavily'` | Web search backend used by the architect's pre-search pass |
 | `searchApiKey` | string? | undefined | API key for the chosen provider. Falls back to `TAVILY_API_KEY` / `BRAVE_SEARCH_API_KEY` env vars when unset. |
-| `members` | array | `[]` | Default member configs (see structure below) |
-| `presets` | record | `{}` | Named member groups for `/swarm council --preset <name>` |
-| `deliberate` | boolean | `true` | When `true`, the architect routes Round 1 disagreements back to disputing members for a single Round 2 reconciliation |
-| `moderator` | boolean | `true` | When `true`, the architect delegates the final synthesis to the `council_moderator` agent |
-| `moderatorModel` | string? | undefined | Model identifier for the `council_moderator` agent. Required when `moderator: true` to override the default. |
+| `deliberate` | boolean | `true` | When `true`, the architect routes Round 1 disagreements back to disputing agents for a single Round 2 reconciliation |
 | `maxSourcesPerMember` | number | `5` | Hard cap on results per `web_search` call (1–20) |
 
-**Member shape** (each entry in `members` and `presets`):
+**Deprecated fields** (retained on the strict schema for backward compatibility; ignored at runtime):
 
-| Field | Type | Description |
-|-------|------|-------------|
-| `memberId` | string | Stable identifier (e.g. `"m1"`, `"security-skeptic"`) |
-| `model` | string | Model identifier (e.g. `"opencode/big-pickle"`) |
-| `role` | enum | One of `generalist`, `skeptic`, `domain_expert`, `devil_advocate`, `synthesizer` |
-| `persona` | string? | Optional free-form persona instructions appended to the member prompt |
+| Field | Type | Notes |
+|-------|------|-------|
+| `members` | array | No longer used — the council is a fixed three-agent set. |
+| `presets` | record | No longer used — preset-based member selection has been removed. |
+| `moderator` | boolean | No longer used — the architect synthesizes the final answer directly. |
+| `moderatorModel` | string? | No longer used — setting this triggers a deferred deprecation warning. |
 
-**Example** — Enable a 3-member general council with a moderator:
+**Example** — Enable the general council and customize the underlying models via the regular agent config:
 
 ```json
 {
@@ -271,14 +269,13 @@ Triggered by `/swarm council <question>` (see [Commands](commands.md#swarm-counc
       "searchProvider": "tavily",
       "searchApiKey": "tvly-xxxxxxxx",
       "deliberate": true,
-      "moderator": true,
-      "moderatorModel": "anthropic/claude-sonnet-4-6",
-      "members": [
-        { "memberId": "m1", "model": "anthropic/claude-opus-4-7", "role": "generalist" },
-        { "memberId": "m2", "model": "openai/gpt-5", "role": "skeptic", "persona": "Default to scepticism. Demand evidence before accepting claims." },
-        { "memberId": "m3", "model": "google/gemini-2.5-pro", "role": "domain_expert" }
-      ]
+      "maxSourcesPerMember": 5
     }
+  },
+  "agents": {
+    "reviewer": { "model": "anthropic/claude-opus-4-7" },
+    "critic": { "model": "openai/gpt-5" },
+    "sme": { "model": "google/gemini-2.5-pro" }
   }
 }
 ```

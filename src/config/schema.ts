@@ -999,10 +999,18 @@ export type AuthorityConfig = z.infer<typeof AuthorityConfigSchema>;
 // General Council Mode configuration (advisory deliberation — distinct from the
 // verdict-based Work Complete Council below). Off by default. When enabled,
 // `/swarm council <question>` and the SPECIFY-COUNCIL-REVIEW gate convene a
-// configurable multi-model council where each member independently web-searches
-// and answers, then the architect routes any disagreements back for one
-// reconciliation round, after which a `council_moderator` agent (synthesis-only,
-// no web_search) produces the final answer.
+// fixed three-agent council (council_generalist / council_skeptic /
+// council_domain_expert). The architect runs a curated pre-search pass via
+// `web_search`, dispatches the three agents in parallel with the gathered
+// RESEARCH CONTEXT, routes disagreements back for one reconciliation round,
+// and synthesizes the final answer directly via inline output rules.
+//
+// Backward compatibility: `members`, `presets`, `moderator`, and
+// `moderatorModel` are retained on the schema but are no longer used at
+// runtime — the strict schema would otherwise reject existing user configs
+// that still carry these fields. The agent registration code in
+// src/agents/index.ts surfaces a deferred deprecation warning when the
+// moderator fields are set.
 //
 // IMPORTANT: this schema is `.strict()`. A typo in any nested key will fail
 // validation and the loader (config/loader.ts:186-207) will fall back to

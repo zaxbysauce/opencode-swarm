@@ -234,10 +234,18 @@ export const COMMAND_REGISTRY = {
 	council: {
 		handler: (ctx) => handleCouncilCommand(ctx.directory, ctx.args),
 		description:
-			'Enter architect MODE: COUNCIL — multi-model deliberation [question] [--preset <name>] [--spec-review]',
-		args: '<question> [--preset <name>] [--spec-review]',
+			'Enter architect MODE: COUNCIL — multi-model deliberation [question] [--spec-review]',
+		args: '<question> [--spec-review]',
 		details:
-			'Triggers the architect to convene a configurable General Council: each member independently web-searches, answers, and engages in one structured deliberation round on disagreements; an optional moderator pass synthesizes the final answer. --preset <name> selects a member group from council.general.presets. --spec-review switches to single-pass advisory mode for spec review. Requires council.general.enabled: true and a search API key in opencode-swarm.json.',
+			'Triggers the architect to convene a three-agent General Council: ' +
+			'Generalist (reviewer model), Skeptic (critic model), and Domain Expert (SME model). ' +
+			'The architect first runs 1–3 targeted web searches and passes a compiled RESEARCH CONTEXT ' +
+			'to all three agents before dispatching them in parallel. ' +
+			'Agents deliberate using the NSED peer-review protocol (Round 1 independent analysis, ' +
+			'Round 2 MAINTAIN/CONCEDE/NUANCE for disagreements). ' +
+			'The architect synthesizes the final answer directly from convene_general_council output. ' +
+			'--spec-review switches to single-pass advisory mode for spec review. ' +
+			'Requires council.general.enabled: true and a search API key in opencode-swarm.json.',
 	},
 	'pr-review': {
 		handler: async (ctx) => handlePrReviewCommand(ctx.directory, ctx.args),

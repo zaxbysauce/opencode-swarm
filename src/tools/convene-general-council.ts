@@ -1,10 +1,11 @@
 /**
  * General Council Mode — architect-only synthesis tool.
  *
- * The architect spawns council_member subagents in parallel for Round 1,
- * collects their JSON responses, and calls this tool to synthesize results.
- * If the tool detects disagreements and Round 2 deliberation is configured,
- * the architect re-delegates to disputing members and calls this tool again
+ * The architect spawns council_generalist / council_skeptic /
+ * council_domain_expert subagents in parallel for Round 1, collects their
+ * JSON responses, and calls this tool to synthesize results. If the tool
+ * detects disagreements and Round 2 deliberation is configured, the
+ * architect re-delegates to disputing members and calls this tool again
  * with both round1Responses and round2Responses populated.
  *
  * Mirrors the convene-council.ts skeleton but explicitly does NOT inherit
@@ -87,7 +88,6 @@ interface ConveneOk {
 	persistingDisagreements: string[];
 	allSourcesCount: number;
 	synthesis: string;
-	moderatorPrompt?: string;
 	evidencePath: string;
 }
 
@@ -97,27 +97,13 @@ interface ConveneFail {
 	message: string;
 }
 
-function buildModeratorPrompt(question: string, synthesis: string): string {
-	return [
-		'A multi-model council has deliberated on the following question. Your job is to synthesize',
-		'the council output into a single coherent answer for the user, following the rules in your',
-		'system prompt (lead with consensus, acknowledge persisting disagreement honestly, cite the',
-		'strongest sources, be concise, do not invent claims, do not run new searches).',
-		'',
-		`QUESTION:\n${question}`,
-		'',
-		'COUNCIL OUTPUT:',
-		synthesis,
-	].join('\n');
-}
-
 export const convene_general_council: ReturnType<typeof tool> = createSwarmTool(
 	{
 		description:
 			'Synthesize responses from a multi-model General Council. Accepts parallel member ' +
 			'responses (Round 1, optionally Round 2), detects disagreements, and returns ' +
-			'consensus points, persisting disagreements, a structured synthesis, and an optional ' +
-			'moderator prompt. Architect-only. Config-gated on council.general.enabled.',
+			'consensus points, persisting disagreements, and a structured synthesis. ' +
+			'Architect-only. Config-gated on council.general.enabled.',
 		args: {
 			question: z
 				.string()
@@ -292,12 +278,6 @@ export const convene_general_council: ReturnType<typeof tool> = createSwarmTool(
 				// non-critical
 			}
 
-			// ── Moderator prompt (only when configured) ───────────────────────
-			const moderatorPrompt =
-				generalConfig.moderator === true
-					? buildModeratorPrompt(input.question, result.synthesis)
-					: undefined;
-
 			const ok: ConveneOk = {
 				success: true,
 				question: input.question,
@@ -308,7 +288,6 @@ export const convene_general_council: ReturnType<typeof tool> = createSwarmTool(
 				persistingDisagreements: result.persistingDisagreements,
 				allSourcesCount: result.allSources.length,
 				synthesis: result.synthesis,
-				...(moderatorPrompt !== undefined && { moderatorPrompt }),
 				evidencePath,
 			};
 			return JSON.stringify(ok, null, 2);

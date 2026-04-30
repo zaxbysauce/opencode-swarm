@@ -312,14 +312,11 @@ async function install(): Promise<number> {
 					model: 'opencode/gpt-5-nano',
 					fallback_models: ['opencode/big-pickle'],
 				},
-				council_member: {
-					model: 'opencode/gpt-5-nano',
-					fallback_models: ['opencode/big-pickle'],
-				},
-				council_moderator: {
-					model: 'opencode/gpt-5-nano',
-					fallback_models: ['opencode/big-pickle'],
-				},
+				// General Council agents derive their models from reviewer / critic /
+				// sme entries above (generalist → reviewer, skeptic → critic,
+				// domain_expert → sme). No separate config entries are needed; if you
+				// want to override per-council-agent, set temperature/variant on
+				// council_generalist / council_skeptic / council_domain_expert.
 			},
 			max_iterations: 5,
 		};

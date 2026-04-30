@@ -162,9 +162,9 @@ export declare const COMMAND_REGISTRY: {
     };
     readonly council: {
         readonly handler: (ctx: CommandContext) => Promise<string>;
-        readonly description: "Enter architect MODE: COUNCIL — multi-model deliberation [question] [--preset <name>] [--spec-review]";
-        readonly args: "<question> [--preset <name>] [--spec-review]";
-        readonly details: "Triggers the architect to convene a configurable General Council: each member independently web-searches, answers, and engages in one structured deliberation round on disagreements; an optional moderator pass synthesizes the final answer. --preset <name> selects a member group from council.general.presets. --spec-review switches to single-pass advisory mode for spec review. Requires council.general.enabled: true and a search API key in opencode-swarm.json.";
+        readonly description: "Enter architect MODE: COUNCIL — multi-model deliberation [question] [--spec-review]";
+        readonly args: "<question> [--spec-review]";
+        readonly details: string;
     };
     readonly 'pr-review': {
         readonly handler: (ctx: CommandContext) => Promise<string>;
