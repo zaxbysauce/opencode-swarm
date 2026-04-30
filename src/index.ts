@@ -14,6 +14,7 @@ import {
 import { createSwarmCommandHandler } from './commands';
 import { loadPluginConfigWithMetaAsync } from './config';
 import { DEFAULT_MODELS, ORCHESTRATOR_NAME } from './config/constants';
+import { writeProjectConfigIfNew } from './config/project-init';
 import {
 	AuthorityConfigSchema,
 	AutomationConfigSchema,
@@ -165,6 +166,9 @@ function writeSwarmConfigExampleIfNew(projectDirectory: string): void {
 		const swarmDir = path.join(projectDirectory, '.swarm');
 		const dest = path.join(swarmDir, 'config.example.json');
 		if (fs.existsSync(dest)) return;
+		if (!fs.existsSync(swarmDir)) {
+			fs.mkdirSync(swarmDir, { recursive: true });
+		}
 		const example = {
 			agents: Object.fromEntries(
 				Object.entries(DEFAULT_MODELS)
@@ -330,9 +334,10 @@ async function initializeOpenCodeSwarm(ctx: Parameters<Plugin>[0]) {
 
 	// Side tasks moved AFTER the repo-graph dispatch so the deferred init
 	// is queued first. Each is small and scoped to `<ctx.directory>/.swarm/`
-	// or the project's `.gitignore`, so none risks a home-tree scan.
+	// or `<ctx.directory>/.opencode/`, so none risks a home-tree scan.
 	initTelemetry(ctx.directory);
 	writeSwarmConfigExampleIfNew(ctx.directory);
+	writeProjectConfigIfNew(ctx.directory, config.quiet);
 	warnIfSwarmNotGitignored(ctx.directory, config.quiet);
 	// Background staleness check against npm. Detached, never blocks init,
 	// throttled to 24h on disk. See services/version-check.ts (issue #675).
