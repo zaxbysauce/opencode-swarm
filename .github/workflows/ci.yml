@@ -531,3 +531,10 @@ jobs:
         run: bun run build
       - name: Smoke tests
         run: bun test tests/smoke --timeout 120000
+      - name: Issue #704 repro — Desktop init under Node
+        # Loads the compiled dist/ under Node (the runtime OpenCode Desktop's
+        # sidecar uses on macOS) and asserts the plugin's `server()` resolves
+        # within 10s. Pre-fix this would hang. Runs on Linux, macOS, Windows
+        # so the cycle/cap/budget guards are exercised on each OS.
+        shell: bash
+        run: node scripts/repro-704.mjs

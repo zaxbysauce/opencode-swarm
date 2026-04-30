@@ -44,6 +44,7 @@ export {
 	loadAgentPrompt,
 	loadPluginConfig,
 	loadPluginConfigWithMeta,
+	loadPluginConfigWithMetaAsync,
 } from './loader';
 export type {
 	MigrationStatus,

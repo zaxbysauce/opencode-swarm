@@ -428,9 +428,9 @@ export const file2 = 'f2';`,
 		// Should have called logger.warn with truncation message
 		expect(warnSpy).toHaveBeenCalled();
 		const warningCall = warnSpy.mock.calls[0][0] as string;
-		expect(warningCall).toContain('Truncating scan');
-		expect(warningCall).toContain('5 files found');
-		expect(warningCall).toContain('capping at 2');
+		expect(warningCall).toContain('Walk truncated');
+		expect(warningCall).toContain('2 files');
+		expect(warningCall).toContain('2-file budget');
 
 		warnSpy.mockRestore();
 	});

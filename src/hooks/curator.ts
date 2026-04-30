@@ -28,13 +28,13 @@
 import { randomUUID } from 'node:crypto';
 import * as fs from 'node:fs';
 import * as path from 'node:path';
-
 import {
 	CURATOR_INIT_PROMPT,
 	CURATOR_PHASE_PROMPT,
 } from '../agents/explorer.js';
 import { getGlobalEventBus } from '../background/event-bus.js';
 import { loadPlanJsonOnly } from '../plan/manager.js';
+import { bunWrite } from '../utils/bun-compat';
 import * as logger from '../utils/logger';
 import type {
 	ComplianceObservation,
@@ -231,7 +231,7 @@ export async function writeCuratorSummary(
 
 	// Atomic write: write to temp file then rename
 	const tempPath = `${resolvedPath}.tmp.${Date.now()}.${Math.random().toString(36).slice(2)}`;
-	await Bun.write(tempPath, JSON.stringify(summary, null, 2));
+	await bunWrite(tempPath, JSON.stringify(summary, null, 2));
 	fs.renameSync(tempPath, resolvedPath);
 }
 

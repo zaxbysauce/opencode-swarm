@@ -9,6 +9,7 @@
 import * as fsSync from 'node:fs';
 import { constants, existsSync, realpathSync } from 'node:fs';
 import * as fsPromises from 'node:fs/promises';
+import * as os from 'node:os';
 import * as path from 'node:path';
 import { validateSwarmPath } from '../hooks/utils';
 import * as logger from '../utils/logger';
@@ -17,6 +18,7 @@ import {
 	containsPathTraversal,
 	validateSymlinkBoundary,
 } from '../utils/path-security';
+import { yieldToEventLoop } from '../utils/timeout';
 import { extractPythonSymbols, extractTSSymbols } from './symbols';
 
 /**
@@ -930,6 +932,51 @@ const SUPPORTED_EXTENSIONS = [
 ];
 
 /**
+ * Default safety budgets for workspace traversal.
+ */
+const DEFAULT_WALK_FILE_CAP = 10000;
+const DEFAULT_WALK_BUDGET_MS = 5000;
+const ASYNC_WALK_YIELD_INTERVAL = 200;
+
+/**
+ * Resolves to true when `target` is one of the well-known top-level paths we
+ * refuse to scan as a workspace root. Returning true here is the regression
+ * guard against the issue #704 failure mode where Desktop launches the
+ * sidecar with `ctx.directory = $HOME` (or similar), which would otherwise
+ * trigger a multi-minute or infinite recursive scan.
+ *
+ * The check uses real-paths so a symlink that resolves to `$HOME` is treated
+ * the same as `$HOME` itself.
+ */
+function isRefusedWorkspaceRoot(target: string): boolean {
+	let resolved: string;
+	try {
+		resolved = realpathSync(target);
+	} catch {
+		// If realpath fails, fall back to path.resolve. Not finding the path is
+		// already handled upstream — here we only care about the refusal check.
+		resolved = path.resolve(target);
+	}
+	const refused = new Set<string>();
+	const add = (p: string | undefined) => {
+		if (typeof p === 'string' && p.length > 0) {
+			refused.add(path.resolve(p));
+		}
+	};
+	add(os.homedir());
+	add(os.tmpdir());
+	add('/');
+	add('/Users');
+	add('/home');
+	add('/root');
+	if (process.platform === 'win32') {
+		add('C:\\');
+		add('C:\\Users');
+	}
+	return refused.has(resolved);
+}
+
+/**
  * Mapping of file extensions to language identifiers.
  */
 const EXTENSION_TO_LANGUAGE: Record<string, string> = {
@@ -1039,45 +1086,227 @@ function parseFileImports(content: string): ParsedImport[] {
  * @param stats - Scan statistics accumulator
  * @returns Array of absolute file paths
  */
-function findSourceFiles(dir: string, stats: ScanStats): string[] {
-	let entries: string[];
+/**
+ * Walk context shared between the sync and async traversals.
+ *
+ * `seenRealPaths` deduplicates by canonical path to break symlink cycles —
+ * required because the previous implementation followed symlinks via
+ * `statSync` with no visited-set, causing infinite recursion on macOS
+ * iCloud / FileVault layouts, Linux FUSE mounts, and Windows junctions
+ * (issue #704). The set is keyed by the realpath of every directory we
+ * recurse into; if we ever revisit one, we bail.
+ *
+ * `startedAt` and `walkBudgetMs` cap wall-clock so a slow filesystem
+ * (network share, NFS) cannot stall init forever. `maxFiles` short-circuits
+ * the walk *during* traversal — the previous code post-truncated the result
+ * array, which did nothing to bound walk time.
+ */
+interface WalkContext {
+	stats: ScanStats;
+	seenRealPaths: Set<string>;
+	startedAt: number;
+	walkBudgetMs: number;
+	maxFiles: number;
+	followSymlinks: boolean;
+	abortReason?: 'budget' | 'cap';
+}
+
+function isWalkBudgetExceeded(ctx: WalkContext): boolean {
+	if (ctx.abortReason !== undefined) return true;
+	if (Date.now() - ctx.startedAt > ctx.walkBudgetMs) {
+		ctx.abortReason = 'budget';
+		return true;
+	}
+	return false;
+}
+
+function isFileCapReached(ctx: WalkContext, filesLength: number): boolean {
+	if (filesLength >= ctx.maxFiles) {
+		ctx.abortReason = 'cap';
+		return true;
+	}
+	return false;
+}
+
+function canonicalDirKey(dir: string): string | null {
 	try {
-		entries = fsSync.readdirSync(dir);
+		return realpathSync(dir);
 	} catch {
-		return [];
+		return null;
+	}
+}
+
+async function canonicalDirKeyAsync(dir: string): Promise<string | null> {
+	try {
+		return await fsPromises.realpath(dir);
+	} catch {
+		return null;
+	}
+}
+
+function findSourceFiles(
+	dir: string,
+	stats: ScanStats,
+	options?: {
+		walkBudgetMs?: number;
+		maxFiles?: number;
+		followSymlinks?: boolean;
+	},
+): string[] {
+	const ctx: WalkContext = {
+		stats,
+		seenRealPaths: new Set<string>(),
+		startedAt: Date.now(),
+		walkBudgetMs: options?.walkBudgetMs ?? DEFAULT_WALK_BUDGET_MS,
+		maxFiles: options?.maxFiles ?? DEFAULT_WALK_FILE_CAP,
+		followSymlinks: options?.followSymlinks ?? false,
+	};
+	const files: string[] = [];
+	walkSyncInto(dir, ctx, files);
+	if (ctx.abortReason === 'cap' || ctx.abortReason === 'budget') {
+		stats.truncated = true;
+	}
+	return files;
+}
+
+function walkSyncInto(dir: string, ctx: WalkContext, files: string[]): void {
+	if (isWalkBudgetExceeded(ctx) || isFileCapReached(ctx, files.length)) {
+		return;
 	}
 
-	// Sort for deterministic scan order (case-insensitive)
-	entries.sort((a, b) => a.toLowerCase().localeCompare(b.toLowerCase()));
+	const key = canonicalDirKey(dir);
+	if (key !== null) {
+		if (ctx.seenRealPaths.has(key)) {
+			ctx.stats.skippedDirs++;
+			return;
+		}
+		ctx.seenRealPaths.add(key);
+	}
 
-	const files: string[] = [];
+	let entries: fsSync.Dirent[];
+	try {
+		entries = fsSync.readdirSync(dir, { withFileTypes: true });
+	} catch {
+		return;
+	}
+
+	// Deterministic order, case-insensitive — preserves prior behavior.
+	entries.sort((a, b) =>
+		a.name.toLowerCase().localeCompare(b.name.toLowerCase()),
+	);
 
 	for (const entry of entries) {
-		if (SKIP_DIRECTORIES.has(entry)) {
-			stats.skippedDirs++;
+		if (isWalkBudgetExceeded(ctx) || isFileCapReached(ctx, files.length)) {
+			return;
+		}
+		if (SKIP_DIRECTORIES.has(entry.name)) {
+			ctx.stats.skippedDirs++;
+			continue;
+		}
+		const fullPath = path.join(dir, entry.name);
+
+		// Symlinks are skipped by default. This excludes pnpm `.pnpm/` link
+		// trees (already excluded via node_modules) and prevents cycle traps
+		// on macOS/Windows. Set `followSymlinks: true` to opt in to the
+		// previous (unsafe) behavior for monorepo-style symlink layouts.
+		if (entry.isSymbolicLink() && !ctx.followSymlinks) {
+			ctx.stats.skippedDirs++;
 			continue;
 		}
 
-		const fullPath = path.join(dir, entry);
-
-		let stat: fsSync.Stats;
-		try {
-			stat = fsSync.statSync(fullPath);
-		} catch {
-			continue;
-		}
-
-		if (stat.isDirectory()) {
-			const subFiles = findSourceFiles(fullPath, stats);
-			files.push(...subFiles);
-		} else if (stat.isFile()) {
+		if (entry.isDirectory()) {
+			walkSyncInto(fullPath, ctx, files);
+		} else if (entry.isFile()) {
 			const ext = path.extname(fullPath).toLowerCase();
 			if (SUPPORTED_EXTENSIONS.includes(ext)) {
 				files.push(fullPath);
 			}
 		}
 	}
+}
 
+/**
+ * Async, chunked, cycle-safe equivalent of `findSourceFiles`.
+ *
+ * Yields to the event loop every `ASYNC_WALK_YIELD_INTERVAL` entries so the
+ * Node/Bun macrotask queue continues to drain while the walk runs. This is
+ * the variant called from the plugin init path; the sync variant remains
+ * available for non-init callers (tools, tests) for compatibility.
+ */
+async function findSourceFilesAsync(
+	dir: string,
+	stats: ScanStats,
+	options?: {
+		walkBudgetMs?: number;
+		maxFiles?: number;
+		followSymlinks?: boolean;
+	},
+): Promise<string[]> {
+	const ctx: WalkContext = {
+		stats,
+		seenRealPaths: new Set<string>(),
+		startedAt: Date.now(),
+		walkBudgetMs: options?.walkBudgetMs ?? DEFAULT_WALK_BUDGET_MS,
+		maxFiles: options?.maxFiles ?? DEFAULT_WALK_FILE_CAP,
+		followSymlinks: options?.followSymlinks ?? false,
+	};
+	const files: string[] = [];
+	const queue: string[] = [dir];
+	let processed = 0;
+	while (queue.length > 0) {
+		if (isWalkBudgetExceeded(ctx) || isFileCapReached(ctx, files.length)) {
+			break;
+		}
+		const current = queue.shift() as string;
+		const key = await canonicalDirKeyAsync(current);
+		if (key !== null) {
+			if (ctx.seenRealPaths.has(key)) {
+				ctx.stats.skippedDirs++;
+				continue;
+			}
+			ctx.seenRealPaths.add(key);
+		}
+
+		let entries: fsSync.Dirent[];
+		try {
+			entries = await fsPromises.readdir(current, { withFileTypes: true });
+		} catch {
+			continue;
+		}
+		entries.sort((a, b) =>
+			a.name.toLowerCase().localeCompare(b.name.toLowerCase()),
+		);
+
+		for (const entry of entries) {
+			if (isWalkBudgetExceeded(ctx) || isFileCapReached(ctx, files.length)) {
+				break;
+			}
+			if (SKIP_DIRECTORIES.has(entry.name)) {
+				ctx.stats.skippedDirs++;
+				continue;
+			}
+			const fullPath = path.join(current, entry.name);
+			if (entry.isSymbolicLink() && !ctx.followSymlinks) {
+				ctx.stats.skippedDirs++;
+				continue;
+			}
+			if (entry.isDirectory()) {
+				queue.push(fullPath);
+			} else if (entry.isFile()) {
+				const ext = path.extname(fullPath).toLowerCase();
+				if (SUPPORTED_EXTENSIONS.includes(ext)) {
+					files.push(fullPath);
+				}
+			}
+			processed++;
+			if (processed % ASYNC_WALK_YIELD_INTERVAL === 0) {
+				await yieldToEventLoop();
+			}
+		}
+	}
+	if (ctx.abortReason === 'cap' || ctx.abortReason === 'budget') {
+		ctx.stats.truncated = true;
+	}
 	return files;
 }
 
@@ -1132,14 +1361,23 @@ function isBinaryContent(content: string): boolean {
  * @returns Complete RepoGraph with nodes and edges
  * @throws Error if workspace validation fails
  */
+export interface BuildWorkspaceGraphOptions {
+	maxFileSizeBytes?: number;
+	maxFiles?: number;
+	walkBudgetMs?: number;
+	followSymlinks?: boolean;
+}
+
 export function buildWorkspaceGraph(
 	workspaceRoot: string,
-	options?: { maxFileSizeBytes?: number; maxFiles?: number },
+	options?: BuildWorkspaceGraphOptions,
 ): RepoGraph {
 	validateWorkspace(workspaceRoot);
 
 	const maxFileSize = options?.maxFileSizeBytes ?? 1024 * 1024; // 1MB default
-	const maxFiles = options?.maxFiles ?? 10000; // Default: 10,000 files
+	const maxFiles = options?.maxFiles ?? DEFAULT_WALK_FILE_CAP;
+	const walkBudgetMs = options?.walkBudgetMs ?? DEFAULT_WALK_BUDGET_MS;
+	const followSymlinks = options?.followSymlinks ?? false;
 
 	// Resolve workspace root to absolute path for scanning only
 	const absoluteRoot = path.resolve(workspaceRoot);
@@ -1148,6 +1386,18 @@ export function buildWorkspaceGraph(
 	// Fail fast rather than silently returning an empty graph for a missing workspace
 	if (!existsSync(absoluteRoot)) {
 		throw new Error(`Workspace directory does not exist: ${workspaceRoot}`);
+	}
+
+	// Refuse to scan top-level system paths (issue #704). The Desktop sidecar
+	// can launch with `ctx.directory` defaulting to $HOME, which previously
+	// triggered a multi-minute or infinite recursive scan. Throwing here gives
+	// the caller a clear, actionable signal — `init()` catches it and logs
+	// once.
+	if (isRefusedWorkspaceRoot(absoluteRoot)) {
+		throw new Error(
+			`Refusing to scan top-level system path as workspace: ${absoluteRoot}. ` +
+				`Set workspaceRoot to a project directory.`,
+		);
 	}
 
 	// Create graph with original workspaceRoot form (not absolute path)
@@ -1160,8 +1410,12 @@ export function buildWorkspaceGraph(
 		truncated: false,
 	};
 
-	// Find all source files in the workspace
-	const sourceFiles = findSourceFiles(absoluteRoot, stats);
+	// Find all source files in the workspace, with bounded walk
+	const sourceFiles = findSourceFiles(absoluteRoot, stats, {
+		walkBudgetMs,
+		maxFiles,
+		followSymlinks,
+	});
 
 	// Sort files for deterministic processing order
 	// Use normalized path (forward slashes) for consistent ordering
@@ -1171,14 +1425,11 @@ export function buildWorkspaceGraph(
 		return normA.localeCompare(normB);
 	});
 
-	// Truncate if file count exceeds maxFiles
-	if (sourceFiles.length > maxFiles) {
+	if (stats.truncated) {
 		logger.warn(
-			`[repo-graph] Truncating scan: ${sourceFiles.length} files found, capping at ${maxFiles}. ` +
-				`${sourceFiles.length - maxFiles} files skipped.`,
+			`[repo-graph] Walk truncated: collected ${sourceFiles.length} files within ` +
+				`${walkBudgetMs}ms / ${maxFiles}-file budget.`,
 		);
-		sourceFiles.length = maxFiles;
-		stats.truncated = true;
 	}
 
 	// Process each file to extract nodes and edges
@@ -1283,6 +1534,101 @@ export function buildWorkspaceGraph(
 	};
 
 	// Log scan statistics if any files were skipped or truncated
+	if (stats.skippedFiles > 0 || stats.skippedDirs > 0 || stats.truncated) {
+		logger.log(
+			`[repo-graph] Scan stats: ${stats.filesScanned} files scanned, ` +
+				`${stats.skippedFiles} files skipped, ${stats.skippedDirs} dirs skipped` +
+				(stats.truncated ? ', TRUNCATED' : ''),
+		);
+	}
+
+	return graph;
+}
+
+/**
+ * Async, event-loop-safe variant of `buildWorkspaceGraph`. The traversal
+ * yields between batches and uses async fs primitives, so callers can run
+ * this from plugin init without freezing the host while a large workspace
+ * is scanned. The per-file processing remains sync — it is CPU-bound symbol
+ * extraction, and the existing per-file caps already prevent runaway work.
+ *
+ * Returned shape matches `buildWorkspaceGraph`. Same homedir guard, same
+ * bounded walk behavior, same deterministic file order.
+ */
+export async function buildWorkspaceGraphAsync(
+	workspaceRoot: string,
+	options?: BuildWorkspaceGraphOptions,
+): Promise<RepoGraph> {
+	validateWorkspace(workspaceRoot);
+
+	const maxFileSize = options?.maxFileSizeBytes ?? 1024 * 1024;
+	const maxFiles = options?.maxFiles ?? DEFAULT_WALK_FILE_CAP;
+	const walkBudgetMs = options?.walkBudgetMs ?? DEFAULT_WALK_BUDGET_MS;
+	const followSymlinks = options?.followSymlinks ?? false;
+
+	const absoluteRoot = path.resolve(workspaceRoot);
+	if (!existsSync(absoluteRoot)) {
+		throw new Error(`Workspace directory does not exist: ${workspaceRoot}`);
+	}
+	if (isRefusedWorkspaceRoot(absoluteRoot)) {
+		throw new Error(
+			`Refusing to scan top-level system path as workspace: ${absoluteRoot}. ` +
+				`Set workspaceRoot to a project directory.`,
+		);
+	}
+
+	const graph = createEmptyGraph(workspaceRoot);
+	const stats: ScanStats = {
+		filesScanned: 0,
+		skippedDirs: 0,
+		skippedFiles: 0,
+		truncated: false,
+	};
+
+	const sourceFiles = await findSourceFilesAsync(absoluteRoot, stats, {
+		walkBudgetMs,
+		maxFiles,
+		followSymlinks,
+	});
+
+	sourceFiles.sort((a, b) => {
+		const normA = normalizeGraphPath(a);
+		const normB = normalizeGraphPath(b);
+		return normA.localeCompare(normB);
+	});
+
+	if (stats.truncated) {
+		logger.warn(
+			`[repo-graph] Walk truncated: collected ${sourceFiles.length} files within ` +
+				`${walkBudgetMs}ms / ${maxFiles}-file budget.`,
+		);
+	}
+
+	let processedSinceYield = 0;
+	for (const filePath of sourceFiles) {
+		const result = scanFile(filePath, absoluteRoot, maxFileSize);
+		if (result.node) {
+			upsertNode(graph, result.node);
+			for (const edge of result.edges) {
+				addEdge(graph, edge);
+			}
+			stats.filesScanned++;
+		} else {
+			stats.skippedFiles++;
+		}
+		processedSinceYield++;
+		if (processedSinceYield % ASYNC_WALK_YIELD_INTERVAL === 0) {
+			await yieldToEventLoop();
+		}
+	}
+
+	graph.metadata = {
+		generatedAt: new Date().toISOString(),
+		generator: 'repo-graph',
+		nodeCount: Object.keys(graph.nodes).length,
+		edgeCount: graph.edges.length,
+	};
+
 	if (stats.skippedFiles > 0 || stats.skippedDirs > 0 || stats.truncated) {
 		logger.log(
 			`[repo-graph] Scan stats: ${stats.filesScanned} files scanned, ` +
@@ -1412,7 +1758,7 @@ export async function updateGraphForFiles(
 ): Promise<RepoGraph> {
 	// If forced rebuild, do full rebuild and save
 	if (options?.forceRebuild) {
-		const graph = buildWorkspaceGraph(workspaceRoot);
+		const graph = await buildWorkspaceGraphAsync(workspaceRoot);
 		await saveGraph(workspaceRoot, graph);
 		return graph;
 	}
@@ -1421,7 +1767,7 @@ export async function updateGraphForFiles(
 	const existingGraph = await loadGraph(workspaceRoot);
 	if (!existingGraph) {
 		// No existing graph - fall back to full rebuild
-		const graph = buildWorkspaceGraph(workspaceRoot);
+		const graph = await buildWorkspaceGraphAsync(workspaceRoot);
 		await saveGraph(workspaceRoot, graph);
 		return graph;
 	}
@@ -1496,7 +1842,7 @@ export async function updateGraphForFiles(
 		logger.warn(
 			`[repo-graph] Incremental update failed, falling back to full rebuild`,
 		);
-		const rebuiltGraph = buildWorkspaceGraph(workspaceRoot);
+		const rebuiltGraph = await buildWorkspaceGraphAsync(workspaceRoot);
 		await saveGraph(workspaceRoot, rebuiltGraph);
 		return rebuiltGraph;
 	}

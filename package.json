@@ -45,7 +45,8 @@
 		"format": "biome format . --write",
 		"check": "biome check --write .",
 		"dev": "bun run build && opencode",
-		"prepublishOnly": "bun run build"
+		"prepublishOnly": "bun run build",
+		"repro:704": "node scripts/repro-704.mjs"
 	},
 	"dependencies": {
 		"@opencode-ai/plugin": "^1.1.53",

@@ -4,6 +4,7 @@ import * as fs from 'node:fs';
 import * as path from 'node:path';
 import type { ToolDefinition } from '@opencode-ai/plugin/tool';
 import { z } from 'zod';
+import { bunSpawn } from '../utils/bun-compat';
 import {
 	containsControlChars,
 	containsPathTraversal,
@@ -158,7 +159,7 @@ async function isRipgrepAvailable(): Promise<boolean> {
 	if (!rgPath) return false;
 
 	try {
-		const proc = Bun.spawn([rgPath, '--version'], {
+		const proc = bunSpawn([rgPath, '--version'], {
 			stdout: 'pipe',
 			stderr: 'pipe',
 		});
@@ -225,7 +226,7 @@ async function ripgrepSearch(
 	args.push(opts.workspace);
 
 	try {
-		const proc = Bun.spawn([rgPath, ...args], {
+		const proc = bunSpawn([rgPath, ...args], {
 			stdout: 'pipe',
 			stderr: 'pipe',
 			cwd: opts.workspace,
@@ -248,8 +249,8 @@ async function ripgrepSearch(
 			};
 		}
 
-		const stdout = await new Response(proc.stdout).text();
-		const stderr = await new Response(proc.stderr).text();
+		const stdout = await proc.stdout.text();
+		const stderr = await proc.stderr.text();
 
 		// If ripgrep exited with non-zero and has stderr, it might be an invalid regex
 		if (proc.exitCode !== 0 && stderr) {

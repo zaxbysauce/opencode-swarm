@@ -206,10 +206,24 @@ export declare function saveIfDirty(workspace: string): Promise<void>;
  * @returns Complete RepoGraph with nodes and edges
  * @throws Error if workspace validation fails
  */
-export declare function buildWorkspaceGraph(workspaceRoot: string, options?: {
+export interface BuildWorkspaceGraphOptions {
     maxFileSizeBytes?: number;
     maxFiles?: number;
-}): RepoGraph;
+    walkBudgetMs?: number;
+    followSymlinks?: boolean;
+}
+export declare function buildWorkspaceGraph(workspaceRoot: string, options?: BuildWorkspaceGraphOptions): RepoGraph;
+/**
+ * Async, event-loop-safe variant of `buildWorkspaceGraph`. The traversal
+ * yields between batches and uses async fs primitives, so callers can run
+ * this from plugin init without freezing the host while a large workspace
+ * is scanned. The per-file processing remains sync — it is CPU-bound symbol
+ * extraction, and the existing per-file caps already prevent runaway work.
+ *
+ * Returned shape matches `buildWorkspaceGraph`. Same homedir guard, same
+ * bounded walk behavior, same deterministic file order.
+ */
+export declare function buildWorkspaceGraphAsync(workspaceRoot: string, options?: BuildWorkspaceGraphOptions): Promise<RepoGraph>;
 /**
  * Incrementally update the graph for a set of changed files.
  * Re-scans only the specified files, updates their nodes and edges,

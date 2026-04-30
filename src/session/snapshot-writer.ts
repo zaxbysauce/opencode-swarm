@@ -13,6 +13,7 @@ import type {
 } from '../state';
 import { swarmState } from '../state';
 import { log } from '../utils';
+import { bunWrite } from '../utils/bun-compat';
 
 /**
  * v6.35.4: In-flight write guard.
@@ -243,7 +244,7 @@ export async function writeSnapshot(
 
 		// Atomic write: write to temp file then rename
 		const tempPath = `${resolvedPath}.tmp.${Date.now()}.${Math.random().toString(36).slice(2)}`;
-		await Bun.write(tempPath, content);
+		await bunWrite(tempPath, content);
 		renameSync(tempPath, resolvedPath);
 	} catch (error) {
 		log('[snapshot-writer] write failed', {

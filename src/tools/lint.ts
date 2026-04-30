@@ -4,6 +4,7 @@ import type { tool } from '@opencode-ai/plugin';
 import { z } from 'zod';
 import { isCommandAvailable } from '../build/discovery';
 import { warn } from '../utils';
+import { bunSpawn } from '../utils/bun-compat';
 import { createSwarmTool } from './create-tool';
 
 // ============ Constants ============
@@ -469,7 +470,7 @@ export async function _detectAvailableLinter(
 
 	// Try biome first (fastest, recommended)
 	try {
-		const biomeProc = Bun.spawn([biomeBin, '--version'], {
+		const biomeProc = bunSpawn([biomeBin, '--version'], {
 			stdout: 'pipe',
 			stderr: 'pipe',
 		});
@@ -493,7 +494,7 @@ export async function _detectAvailableLinter(
 
 	// Try eslint
 	try {
-		const eslintProc = Bun.spawn([eslintBin, '--version'], {
+		const eslintProc = bunSpawn([eslintBin, '--version'], {
 			stdout: 'pipe',
 			stderr: 'pipe',
 		});
@@ -539,15 +540,15 @@ export async function runLint(
 	}
 
 	try {
-		const proc = Bun.spawn(command, {
+		const proc = bunSpawn(command, {
 			stdout: 'pipe',
 			stderr: 'pipe',
 			cwd: directory,
 		});
 
 		const [stdout, stderr] = await Promise.all([
-			new Response(proc.stdout).text(),
-			new Response(proc.stderr).text(),
+			proc.stdout.text(),
+			proc.stderr.text(),
 		]);
 
 		const exitCode = await proc.exited;
@@ -619,15 +620,15 @@ export async function runAdditionalLint(
 	}
 
 	try {
-		const proc = Bun.spawn(command, {
+		const proc = bunSpawn(command, {
 			stdout: 'pipe',
 			stderr: 'pipe',
 			cwd,
 		});
 
 		const [stdout, stderr] = await Promise.all([
-			new Response(proc.stdout).text(),
-			new Response(proc.stderr).text(),
+			proc.stdout.text(),
+			proc.stderr.text(),
 		]);
 
 		const exitCode = await proc.exited;

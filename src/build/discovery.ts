@@ -4,6 +4,7 @@ import { type ToolContext, tool } from '@opencode-ai/plugin';
 import { detectProjectLanguages } from '../lang/detector';
 import { LANGUAGE_REGISTRY } from '../lang/profiles';
 import { simpleGlobToRegex, warn } from '../utils';
+import { bunSpawnSync } from '../utils/bun-compat';
 
 // ============ Types ============
 
@@ -173,8 +174,7 @@ export function isCommandAvailable(command: string): boolean {
 	const cmd = isWindows ? `${command}.exe` : command;
 
 	try {
-		const result = Bun.spawnSync({
-			cmd: isWindows ? ['where', cmd] : ['which', cmd],
+		const result = bunSpawnSync(isWindows ? ['where', cmd] : ['which', cmd], {
 			stdout: 'pipe',
 			stderr: 'pipe',
 		});

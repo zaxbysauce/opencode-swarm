@@ -12,7 +12,7 @@ import {
 	type PreflightTriggerManager,
 } from './background';
 import { createSwarmCommandHandler } from './commands';
-import { loadPluginConfigWithMeta } from './config';
+import { loadPluginConfigWithMetaAsync } from './config';
 import { DEFAULT_MODELS, ORCHESTRATOR_NAME } from './config/constants';
 import {
 	AuthorityConfigSchema,
@@ -134,6 +134,7 @@ import {
 } from './tools';
 import { log } from './utils';
 import { warnIfSwarmNotGitignored } from './utils/gitignore-warning';
+import { withTimeout } from './utils/timeout';
 import { truncateToolOutput } from './utils/tool-output';
 
 /**
@@ -206,7 +207,9 @@ const OpenCodeSwarm: Plugin = async (ctx) => {
 // does not trip excess-property checks against `Hooks`. The wrapper above is
 // typed as `Plugin`, which validates the structural shape at the call site.
 async function initializeOpenCodeSwarm(ctx: Parameters<Plugin>[0]) {
-	const { config, loadedFromFile } = loadPluginConfigWithMeta(ctx.directory);
+	const { config, loadedFromFile } = await loadPluginConfigWithMetaAsync(
+		ctx.directory,
+	);
 
 	// Clear deferred warnings at session start for per-session isolation
 	deferredWarnings.length = 0;
@@ -283,15 +286,53 @@ async function initializeOpenCodeSwarm(ctx: Parameters<Plugin>[0]) {
 	// Store SDK client for curator LLM delegation
 	swarmState.opencodeClient = ctx.client;
 
-	// v6.18 Session persistence — restore state from previous session (non-blocking)
-	await loadSnapshot(ctx.directory);
-	// Initialize telemetry first to create .swarm/ directory synchronously.
-	// This is a defensive second layer — the repo graph hook also defensively
-	// creates .swarm/ before writing, but we want it to exist before the async
-	// write is dispatched by the libuv worker.
+	// v6.18 Session persistence — restore state from previous session.
+	// Bounded with a 5s timeout (issue #704): `loadSnapshot` is read-only, so
+	// timing out is safe — it only affects rehydration, not durable state. A
+	// slow filesystem (network home, iCloud-backed mount) must never block
+	// the plugin host's `await server(...)` indefinitely.
+	await withTimeout(
+		loadSnapshot(ctx.directory),
+		5_000,
+		new Error(
+			'loadSnapshot exceeded 5s budget; continuing without snapshot rehydration',
+		),
+	).catch((err: unknown) => {
+		const msg = err instanceof Error ? err.message : String(err);
+		log('loadSnapshot timed out or failed (non-fatal)', { error: msg });
+	});
+
+	// Construct the repo-graph hook before any other side-task so we can
+	// dispatch its scan deferred to the next macrotask. Issue #704: the
+	// previous code invoked `repoGraphHook.init()` inline; because async
+	// function bodies execute synchronously up to the first `await`, the
+	// inline call blocked the event loop on the recursive workspace scan.
+	// The fix is twofold: (a) `init()` itself yields before doing any work
+	// and uses an async chunked walker; (b) we still dispatch the call via
+	// `queueMicrotask` and bound it with an unref'd 30s watchdog.
+	const repoGraphHook = createRepoGraphBuilderHook(ctx.directory);
+	queueMicrotask(() => {
+		const watchdog = setTimeout(() => {
+			log(
+				'[repo-graph] init exceeded 30s budget; scan will continue but is overdue',
+			);
+		}, 30_000);
+		if (typeof (watchdog as { unref?: () => void }).unref === 'function') {
+			(watchdog as { unref: () => void }).unref();
+		}
+		repoGraphHook
+			.init()
+			.catch(() => {
+				/* logged inside init */
+			})
+			.finally(() => clearTimeout(watchdog));
+	});
+
+	// Side tasks moved AFTER the repo-graph dispatch so the deferred init
+	// is queued first. Each is small and scoped to `<ctx.directory>/.swarm/`
+	// or the project's `.gitignore`, so none risks a home-tree scan.
 	initTelemetry(ctx.directory);
 	writeSwarmConfigExampleIfNew(ctx.directory);
-	// Warn once per process if .swarm/ is not gitignored (audit logs may contain secrets)
 	warnIfSwarmNotGitignored(ctx.directory, config.quiet);
 	// Background staleness check against npm. Detached, never blocks init,
 	// throttled to 24h on disk. See services/version-check.ts (issue #675).
@@ -304,11 +345,6 @@ async function initializeOpenCodeSwarm(ctx: Parameters<Plugin>[0]) {
 			}
 		});
 	}
-	// Non-blocking: build repo graph in background
-	const repoGraphHook = createRepoGraphBuilderHook(ctx.directory);
-	repoGraphHook.init().catch(() => {
-		/* already logged inside init */
-	});
 	const agents = getAgentConfigs(config, ctx.directory);
 	const agentDefinitions = createAgents(config);
 
