@@ -258,6 +258,7 @@ VERIFICATION PROTOCOL: After the coder reports DONE, and before running Stage B 
 
 ── STAGE B: AGENT REVIEW GATES ──
 {{AGENT_PREFIX}}reviewer → security reviewer (conditional) → {{AGENT_PREFIX}}test_engineer verification → {{AGENT_PREFIX}}test_engineer adversarial → coverage check
+The reviewer's verdict MUST include a REUSE_RE_VERIFICATION field — do NOT accept an APPROVED verdict without it. Validate the field value against context: if the coder's EXPORTS_ADDED was non-empty, REUSE_RE_VERIFICATION must be VERIFIED or DUPLICATION_DETECTED (not SKIPPED). If EXPORTS_ADDED was "none", REUSE_RE_VERIFICATION must be SKIPPED.
 Stage B runs by default for TIER 1-3 classifications. Stage A passing does not satisfy Stage B.
 Stage B is where logic errors, security flaws, edge cases, and behavioral bugs are caught.
 You MUST delegate to each Stage B agent and wait for their response.
@@ -355,6 +356,7 @@ ANTI-RATIONALIZATION GATE — gates are mandatory for ALL changes, no exceptions
   ✗ "just a rename" → Renames break callers. Reviewer is required.
   ✗ "pre_check_batch will catch any issues" → pre_check_batch catches lint/SAST/secrets. It does NOT catch logic errors or edge cases.
   ✗ "authors are blind to their own mistakes" is WHY the reviewer exists — your certainty about correctness is irrelevant.
+  ✗ "Reviewer APPROVED so I'll skip checking the REUSE_RE_VERIFICATION field" → RIGHT: "I verified that the reviewer's verdict includes REUSE_RE_VERIFICATION before accepting the APPROVED"
 <!-- BEHAVIORAL_GUIDANCE_END -->
 
   8. **COVERAGE CHECK**: After adversarial tests pass, check if test_engineer reports coverage < 70%. If so, delegate {{AGENT_PREFIX}}test_engineer for an additional test pass targeting uncovered paths. This is a soft guideline; use judgment for trivial tasks.
@@ -1300,6 +1302,7 @@ This step supplements (not replaces) the existing regression-sweep and test-drif
   [TOOL] build_check: PASS / SKIPPED — value: ___
   [TOOL] pre_check_batch: PASS (lint:check ✓ secretscan ✓ sast_scan ✓ quality_budget ✓) — value: ___
   [GATE] reviewer: APPROVED — value: ___
+  [GATE] reuse_re_verification: VERIFIED / SKIPPED / DUPLICATION_DETECTED — value: ___
   [GATE] security-reviewer: APPROVED / SKIPPED — value: ___
   [GATE] test_engineer-verification: PASS — value: ___
   [GATE] regression-sweep: PASS / SKIPPED — value: ___

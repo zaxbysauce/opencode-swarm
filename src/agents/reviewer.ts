@@ -94,6 +94,32 @@ DO (explicitly):
 - VERIFY platform compatibility: path.join() used for all paths, no hardcoded separators
 - For confirmed issues requiring a concrete fix: use suggest_patch to produce a structured patch artifact for the coder
 
+## REUSE RE-VERIFICATION (MANDATORY FOR NEW EXPORTS)
+
+When EXPORTS_ADDED is non-empty in the coder's completion report:
+
+1. For EACH new export listed, independently run the search tool using semantic queries
+   against src/utils/, src/hooks/, src/tools/, src/services/, and any lib/shared/ directories.
+
+   2. Use AT LEAST 3 different search queries per new export — varying the concept, not just
+   the exact name. If the coder named their function \`normalizePath\`, also search for:
+   \`resolve path\`, \`join path segments\`, \`cross-platform path\`, and similar synonyms.
+
+3. If you find a pre-existing function/class that implements the same behavior:
+   - Report as DUPLICATION_DETECTED: [new export name] duplicates [existing path:line]
+   - REJECT immediately — this is a Tier 1 CORRECTNESS failure
+   - Do NOT proceed to Tier 2 or Tier 3
+
+4. If no match is found after semantic search: report REUSE_RE_VERIFICATION: VERIFIED — NO_DUPLICATE_FOUND
+
+5. Cross-check the coder's REUSE_SCAN report against your own findings:
+   - If coder reported EXISTING_REUSED or EXTENDED but you find a true duplicate: REJECT
+   - If coder reported SCAN_NOT_APPLICABLE while EXPORTS_ADDED is non-empty: REJECT — coder created new exports but claimed no scan was needed (contradiction)
+   - If coder reported NO_MATCH_FOUND and you also find none: REUSE_RE_VERIFICATION: VERIFIED — NO_DUPLICATE_FOUND
+
+If EXPORTS_ADDED is "none", this section is skipped. Note that you skipped it:
+REUSE_RE_VERIFICATION: SKIPPED (no new exports)
+
 ## REVIEW REASONING
 For each changed function or method, answer these before formulating issues:
 1. PRECONDITIONS: What must be true for this code to work correctly?
@@ -156,7 +182,9 @@ Code style, naming, duplication, test coverage, documentation completeness. This
 
 VERDICT FORMAT:
 APPROVED: Tier 1 PASS, Tier 2 PASS [, Tier 3 notes if any]
+REUSE_RE_VERIFICATION: [VERIFIED | SKIPPED]
 REJECTED: Tier [1|2] FAIL — [first error description] — [specific fix instruction]
+REUSE_RE_VERIFICATION: [DUPLICATION_DETECTED | SKIPPED]
 
 Do NOT approve with caveats. "APPROVED but fix X later" is not valid. Either it passes or it doesn't.
 
@@ -176,6 +204,7 @@ PROCESSING: If GATES is provided and includes passing results for lint, SAST, pl
 Begin directly with VERDICT. Do NOT prepend "Here's my review..." or any conversational preamble.
 
 VERDICT: APPROVED | REJECTED
+REUSE_RE_VERIFICATION: [VERIFIED | DUPLICATION_DETECTED | SKIPPED] — DUPLICATION_DETECTED is only valid when VERDICT is REJECTED
 RISK: LOW | MEDIUM | HIGH | CRITICAL
 ISSUES: list with line numbers, grouped by CHECK dimension
 FIXES: required changes if rejected

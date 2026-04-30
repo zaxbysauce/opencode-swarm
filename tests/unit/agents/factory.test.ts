@@ -147,6 +147,7 @@ describe('createAgents', () => {
 		it('auto-splits variant from 3-segment model string', () => {
 			const warnSpy = spyOn(console, 'warn').mockImplementation(() => {});
 			const config = {
+				quiet: false,
 				agents: {
 					coder: {
 						model: 'grove-openai/gpt-5.3-codex/medium',
@@ -167,6 +168,7 @@ describe('createAgents', () => {
 		it('explicit variant override takes precedence over auto-split', () => {
 			const warnSpy = spyOn(console, 'warn').mockImplementation(() => {});
 			const config = {
+				quiet: false,
 				agents: {
 					coder: {
 						model: 'grove-openai/gpt-5.3-codex/medium',
