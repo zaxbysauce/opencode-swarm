@@ -393,7 +393,7 @@ export async function loadPlan(directory: string): Promise<RuntimePlan | null> {
 									if (rebuilt) {
 										await rebuildPlan(directory, rebuilt);
 										warn(
-											'[loadPlan] Rebuilt plan from ledger. Checkpoint available at SWARM_PLAN.md if it exists.',
+											'[loadPlan] Rebuilt plan from ledger. Checkpoint available at .swarm/SWARM_PLAN.md if it exists.',
 										);
 										return rebuilt;
 									}
@@ -442,7 +442,7 @@ export async function loadPlan(directory: string): Promise<RuntimePlan | null> {
 										// Fall through to the stale-plan warning below
 									}
 									warn(
-										`[loadPlan] Ledger replay failed during hash-mismatch rebuild: ${replayError instanceof Error ? replayError.message : String(replayError)}. Returning stale plan.json. To recover: check SWARM_PLAN.md for a checkpoint, or run /swarm reset-session.`,
+										`[loadPlan] Ledger replay failed during hash-mismatch rebuild: ${replayError instanceof Error ? replayError.message : String(replayError)}. Returning stale plan.json. To recover: check .swarm/SWARM_PLAN.md for a checkpoint, or run /swarm reset-session.`,
 									);
 								}
 								// Fall through and return the validated plan.json
@@ -521,7 +521,7 @@ export async function loadPlan(directory: string): Promise<RuntimePlan | null> {
 			} catch (error) {
 				// Step 2: Validation failed, log warning and fall through to legacy
 				warn(
-					`[loadPlan] plan.json validation failed: ${error instanceof Error ? error.message : String(error)}. Attempting rebuild from ledger. If rebuild fails, check SWARM_PLAN.md for a checkpoint.`,
+					`[loadPlan] plan.json validation failed: ${error instanceof Error ? error.message : String(error)}. Attempting rebuild from ledger. If rebuild fails, check .swarm/SWARM_PLAN.md for a checkpoint.`,
 				);
 				// MIGRATION GUARD (catch path): Extract swarm+title from the raw JSON
 				// before schema validation even though validation failed. If we can determine

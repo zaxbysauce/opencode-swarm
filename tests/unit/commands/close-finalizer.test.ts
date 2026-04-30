@@ -224,7 +224,9 @@ describe('handleCloseCommand — finalizer stages', () => {
 
 		it('removes root-level SWARM_PLAN.json and SWARM_PLAN.md after close', async () => {
 			writePlan();
-			// Create root-level SWARM_PLAN checkpoint artifacts
+			// Create root-level SWARM_PLAN checkpoint artifacts (legacy
+			// location — close still cleans these for backward compatibility
+			// during the transition window).
 			writeFileSync(path.join(testDir, 'SWARM_PLAN.json'), '{"title":"Test"}');
 			writeFileSync(path.join(testDir, 'SWARM_PLAN.md'), '# Test Plan');
 
@@ -233,6 +235,22 @@ describe('handleCloseCommand — finalizer stages', () => {
 			// Root-level SWARM_PLAN artifacts must be removed
 			expect(existsSync(path.join(testDir, 'SWARM_PLAN.json'))).toBe(false);
 			expect(existsSync(path.join(testDir, 'SWARM_PLAN.md'))).toBe(false);
+		});
+
+		it('removes .swarm/SWARM_PLAN.json and .swarm/SWARM_PLAN.md after close', async () => {
+			writePlan();
+			// Create canonical .swarm/-level SWARM_PLAN checkpoint artifacts
+			writeFileSync(
+				path.join(swarmDir(), 'SWARM_PLAN.json'),
+				'{"title":"Test"}',
+			);
+			writeFileSync(path.join(swarmDir(), 'SWARM_PLAN.md'), '# Test Plan');
+
+			await handleCloseCommand(testDir, []);
+
+			// .swarm/-level SWARM_PLAN artifacts must be removed
+			expect(existsSync(path.join(swarmDir(), 'SWARM_PLAN.json'))).toBe(false);
+			expect(existsSync(path.join(swarmDir(), 'SWARM_PLAN.md'))).toBe(false);
 		});
 
 		it('SWARM_PLAN cleanup is non-blocking — close succeeds even if removal fails', async () => {
