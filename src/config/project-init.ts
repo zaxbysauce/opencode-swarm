@@ -1,14 +1,7 @@
 import * as fs from 'node:fs';
 import * as path from 'node:path';
 
-const STARTER_CONTENT =
-	'{\n' +
-	'  // Project-level overrides for opencode-swarm.\n' +
-	'  // Deep-merged over your global config (~/.config/opencode/opencode-swarm.json).\n' +
-	'  // Add only the settings you want to change for this project — anything omitted\n' +
-	'  // falls back to your global config or the built-in defaults.\n' +
-	'  // See .swarm/config.example.json for agent/model options.\n' +
-	'}\n';
+const STARTER_CONTENT = '{}\n';
 
 /**
  * Creates .opencode/opencode-swarm.json in the given directory if it does not

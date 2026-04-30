@@ -40,29 +40,21 @@ describe('writeProjectConfigIfNew', () => {
 		expect(fs.existsSync(path.join(dir, '.opencode'))).toBe(true);
 	});
 
-	// 3. Created file is valid JSON after comment-stripping
-	test('3. created file parses to a valid object after comment-stripping', () => {
+	// 3. Created file is valid JSON (compatible with the JSON.parse loader)
+	test('3. created file parses as valid JSON', () => {
 		writeProjectConfigIfNew(dir);
 		const raw = fs.readFileSync(configPath(dir), 'utf-8');
-		// Strip JSONC comments (same logic as the config loader)
-		const stripped = raw
-			.replace(
-				/\\"|"(?:\\"|[^"])*"|(\/\/.*|\/\*[\s\S]*?\*\/)/g,
-				(m, comment) => (comment ? '' : m),
-			)
-			.replace(/,(\s*[}\]])/g, '$1');
-		expect(() => JSON.parse(stripped)).not.toThrow();
-		const parsed = JSON.parse(stripped);
+		expect(() => JSON.parse(raw)).not.toThrow();
+		const parsed = JSON.parse(raw);
 		expect(typeof parsed).toBe('object');
 		expect(parsed).not.toBeNull();
 	});
 
-	// 4. File contains JSONC comment referencing .swarm/config.example.json
-	test('4. created file contains guidance comments', () => {
+	// 4. Created file is an empty JSON object (deep-merges as no-op)
+	test('4. created file is an empty JSON object', () => {
 		writeProjectConfigIfNew(dir);
 		const raw = fs.readFileSync(configPath(dir), 'utf-8');
-		expect(raw).toContain('config.example.json');
-		expect(raw).toContain('global config');
+		expect(JSON.parse(raw)).toEqual({});
 	});
 
 	// 5. Does NOT overwrite an existing file
