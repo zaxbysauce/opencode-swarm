@@ -3,6 +3,7 @@
 import { appendFile, mkdir, writeFile } from 'node:fs/promises';
 import * as path from 'node:path';
 import lockfile from 'proper-lockfile';
+import { warn } from '../utils/logger.js';
 import {
 	appendKnowledge,
 	inferTags,
@@ -402,7 +403,7 @@ export async function quarantineEntry(
 ): Promise<void> {
 	// Guard against path traversal
 	if (!directory || directory.includes('..')) {
-		console.warn(
+		warn(
 			'[knowledge-validator] quarantineEntry: directory traversal attempt blocked',
 		);
 		return;
@@ -410,9 +411,7 @@ export async function quarantineEntry(
 
 	// 1. Validate inputs
 	if (!entryId || entryId.includes('\0') || entryId.includes('\n')) {
-		console.warn(
-			'[knowledge-validator] quarantineEntry: invalid entryId rejected',
-		);
+		warn('[knowledge-validator] quarantineEntry: invalid entryId rejected');
 		return;
 	}
 
@@ -525,7 +524,7 @@ export async function restoreEntry(
 ): Promise<void> {
 	// Guard against path traversal
 	if (!directory || directory.includes('..')) {
-		console.warn(
+		warn(
 			'[knowledge-validator] restoreEntry: directory traversal attempt blocked',
 		);
 		return;
@@ -533,9 +532,7 @@ export async function restoreEntry(
 
 	// 0. Validate entryId
 	if (!entryId || entryId.includes('\0') || entryId.includes('\n')) {
-		console.warn(
-			'[knowledge-validator] restoreEntry: invalid entryId rejected',
-		);
+		warn('[knowledge-validator] restoreEntry: invalid entryId rejected');
 		return;
 	}
 

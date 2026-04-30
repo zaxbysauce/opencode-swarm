@@ -9,6 +9,7 @@
 import { stripKnownSwarmPrefix } from '../config/schema.js';
 import { loadPlan } from '../plan/manager.js';
 import { getRunMemorySummary } from '../services/run-memory.js';
+import { warn } from '../utils/logger.js';
 import {
 	buildDriftInjectionText,
 	readPriorDriftReports,
@@ -18,7 +19,6 @@ import type { ProjectContext, RankedEntry } from './knowledge-reader.js';
 import { readMergedKnowledge } from './knowledge-reader.js';
 import { readRejectedLessons } from './knowledge-store.js';
 import type { KnowledgeConfig, MessageWithParts } from './knowledge-types.js';
-import { warn } from '../utils/logger.js';
 import { readSwarmFileAsync, safeHook } from './utils.js';
 
 // ============================================================================

@@ -208,9 +208,7 @@ export async function readCuratorSummary(
 
 		return parsed;
 	} catch {
-		if (process.env.DEBUG_SWARM) {
-			console.warn('Failed to parse curator-summary.json: invalid JSON');
-		}
+		logger.warn('Failed to parse curator-summary.json: invalid JSON');
 		return null;
 	}
 }
@@ -277,9 +275,7 @@ export function filterPhaseEvents(
 				}
 			}
 		} catch {
-			if (process.env.DEBUG_SWARM) {
-				console.warn('filterPhaseEvents: skipping malformed line');
-			}
+			logger.warn('filterPhaseEvents: skipping malformed line');
 		}
 	}
 
