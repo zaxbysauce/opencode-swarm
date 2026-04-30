@@ -10,6 +10,7 @@ import {
 	type FlakyTestEntry,
 } from '../test-impact/flaky-detector.js';
 import { appendTestRun, getAllHistory } from '../test-impact/history-store.js';
+import { bunSpawn } from '../utils/bun-compat';
 import {
 	containsControlChars,
 	containsPathTraversal,
@@ -1289,7 +1290,7 @@ function parseTestOutput(
  * This is critical for scope "all" where test output can be many MB/GB.
  */
 async function readBoundedStream(
-	stream: ReadableStream<Uint8Array>,
+	stream: { getReader(): ReadableStreamDefaultReader<Uint8Array> },
 	maxBytes: number,
 ): Promise<{ text: string; truncated: boolean }> {
 	const reader = stream.getReader();
@@ -1391,7 +1392,7 @@ export async function runTests(
 	const startTime = Date.now();
 
 	try {
-		const proc = Bun.spawn(command, {
+		const proc = bunSpawn(command, {
 			stdout: 'pipe',
 			stderr: 'pipe',
 			cwd: cwd,
@@ -1415,14 +1416,8 @@ export async function runTests(
 
 		const [exitCode, stdoutResult, stderrResult] = await Promise.all([
 			Promise.race([proc.exited, timeoutPromise]),
-			readBoundedStream(
-				proc.stdout as ReadableStream<Uint8Array>,
-				MAX_OUTPUT_BYTES,
-			),
-			readBoundedStream(
-				proc.stderr as ReadableStream<Uint8Array>,
-				MAX_OUTPUT_BYTES,
-			),
+			readBoundedStream(proc.stdout, MAX_OUTPUT_BYTES),
+			readBoundedStream(proc.stderr, MAX_OUTPUT_BYTES),
 		]);
 
 		const duration_ms = Date.now() - startTime;

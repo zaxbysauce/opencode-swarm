@@ -32,6 +32,7 @@ import { readSwarmFileAsync } from '../hooks/utils';
 import { emit } from '../telemetry.js';
 import type { SpecStaleDetectedEvent } from '../types/events';
 import { warn } from '../utils';
+import { bunHash, bunWrite } from '../utils/bun-compat';
 import { isSpecStale } from '../utils/spec-hash';
 import {
 	appendLedgerEvent,
@@ -233,7 +234,7 @@ function computePlanContentHash(plan: Plan): string {
 	};
 	const jsonString = JSON.stringify(content);
 	// Use Bun's hash for a compact hash string
-	return Bun.hash(jsonString).toString(36);
+	return bunHash(jsonString).toString(36);
 }
 
 /**
@@ -303,7 +304,7 @@ export async function regeneratePlanMarkdown(
 		`plan.md.tmp.${Date.now()}.${Math.floor(Math.random() * 1e9)}`,
 	);
 	try {
-		await Bun.write(mdTempPath, markdownWithHash);
+		await bunWrite(mdTempPath, markdownWithHash);
 		renameSync(mdTempPath, mdPath);
 	} finally {
 		try {
@@ -1038,7 +1039,7 @@ export async function savePlan(
 
 	// Write to temp and atomically rename
 	try {
-		await Bun.write(tempPath, JSON.stringify(validated, null, 2));
+		await bunWrite(tempPath, JSON.stringify(validated, null, 2));
 		renameSync(tempPath, planPath);
 	} finally {
 		try {
@@ -1060,7 +1061,7 @@ export async function savePlan(
 			`plan.md.tmp.${Date.now()}.${Math.floor(Math.random() * 1e9)}`,
 		);
 		try {
-			await Bun.write(mdTempPath, markdownWithHash);
+			await bunWrite(mdTempPath, markdownWithHash);
 			renameSync(mdTempPath, mdPath);
 		} finally {
 			try {
@@ -1101,7 +1102,7 @@ export async function savePlan(
 			phases_count: validated.phases.length,
 			tasks_count: tasksCount,
 		});
-		await Bun.write(markerPath, marker);
+		await bunWrite(markerPath, marker);
 	} catch {
 		/* Advisory only - marker write failure does not affect plan save */
 	}
@@ -1129,7 +1130,7 @@ export async function rebuildPlan(
 
 	// Atomic write for plan.json
 	const tempPlanPath = path.join(swarmDir, `plan.json.rebuild.${Date.now()}`);
-	await Bun.write(tempPlanPath, JSON.stringify(targetPlan, null, 2));
+	await bunWrite(tempPlanPath, JSON.stringify(targetPlan, null, 2));
 	renameSync(tempPlanPath, planPath);
 
 	// Also regenerate plan.md with content hash (matches the format written by savePlan/
@@ -1139,7 +1140,7 @@ export async function rebuildPlan(
 	const markdown = derivePlanMarkdown(targetPlan);
 	const markdownWithHash = `<!-- PLAN_HASH: ${contentHash} -->\n${markdown}`;
 	const tempMdPath = path.join(swarmDir, `plan.md.rebuild.${Date.now()}`);
-	await Bun.write(tempMdPath, markdownWithHash);
+	await bunWrite(tempMdPath, markdownWithHash);
 	renameSync(tempMdPath, mdPath);
 
 	// Update write-marker so PlanSyncWorker's checkForUnauthorizedWrite() does not
@@ -1156,7 +1157,7 @@ export async function rebuildPlan(
 			phases_count: targetPlan.phases.length,
 			tasks_count: tasksCount,
 		});
-		await Bun.write(markerPath, marker);
+		await bunWrite(markerPath, marker);
 	} catch {
 		/* Advisory only */
 	}

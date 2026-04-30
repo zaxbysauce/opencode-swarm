@@ -4,6 +4,7 @@ import type { tool } from '@opencode-ai/plugin';
 import { z } from 'zod';
 import { isCommandAvailable } from '../build/discovery';
 import { warn } from '../utils';
+import { bunSpawn } from '../utils/bun-compat';
 import { createSwarmTool } from './create-tool';
 
 // ============ Constants ============
@@ -178,7 +179,7 @@ async function runNpmAudit(directory: string): Promise<AuditResult> {
 	const command = ['npm', 'audit', '--json'];
 
 	try {
-		const proc = Bun.spawn(command, {
+		const proc = bunSpawn(command, {
 			stdout: 'pipe',
 			stderr: 'pipe',
 			cwd: directory,
@@ -188,10 +189,9 @@ async function runNpmAudit(directory: string): Promise<AuditResult> {
 			setTimeout(() => resolve('timeout'), AUDIT_TIMEOUT_MS),
 		);
 		const result = await Promise.race([
-			Promise.all([
-				new Response(proc.stdout).text(),
-				new Response(proc.stderr).text(),
-			]).then(([stdout, stderr]) => ({ stdout, stderr })),
+			Promise.all([proc.stdout.text(), proc.stderr.text()]).then(
+				([stdout, stderr]) => ({ stdout, stderr }),
+			),
 			timeoutPromise,
 		]);
 
@@ -343,7 +343,7 @@ async function runPipAudit(directory: string): Promise<AuditResult> {
 	const command = ['pip-audit', '--format=json'];
 
 	try {
-		const proc = Bun.spawn(command, {
+		const proc = bunSpawn(command, {
 			stdout: 'pipe',
 			stderr: 'pipe',
 			cwd: directory,
@@ -353,10 +353,9 @@ async function runPipAudit(directory: string): Promise<AuditResult> {
 			setTimeout(() => resolve('timeout'), AUDIT_TIMEOUT_MS),
 		);
 		const result = await Promise.race([
-			Promise.all([
-				new Response(proc.stdout).text(),
-				new Response(proc.stderr).text(),
-			]).then(([stdout, stderr]) => ({ stdout, stderr })),
+			Promise.all([proc.stdout.text(), proc.stderr.text()]).then(
+				([stdout, stderr]) => ({ stdout, stderr }),
+			),
 			timeoutPromise,
 		]);
 
@@ -545,7 +544,7 @@ async function runCargoAudit(directory: string): Promise<AuditResult> {
 	const command = ['cargo', 'audit', '--json'];
 
 	try {
-		const proc = Bun.spawn(command, {
+		const proc = bunSpawn(command, {
 			stdout: 'pipe',
 			stderr: 'pipe',
 			cwd: directory,
@@ -555,10 +554,9 @@ async function runCargoAudit(directory: string): Promise<AuditResult> {
 			setTimeout(() => resolve('timeout'), AUDIT_TIMEOUT_MS),
 		);
 		const result = await Promise.race([
-			Promise.all([
-				new Response(proc.stdout).text(),
-				new Response(proc.stderr).text(),
-			]).then(([stdout, stderr]) => ({ stdout, stderr })),
+			Promise.all([proc.stdout.text(), proc.stderr.text()]).then(
+				([stdout, stderr]) => ({ stdout, stderr }),
+			),
 			timeoutPromise,
 		]);
 
@@ -724,7 +722,7 @@ async function runGoAudit(directory: string): Promise<AuditResult> {
 	}
 
 	try {
-		const proc = Bun.spawn(command, {
+		const proc = bunSpawn(command, {
 			stdout: 'pipe',
 			stderr: 'pipe',
 			cwd: directory,
@@ -734,10 +732,9 @@ async function runGoAudit(directory: string): Promise<AuditResult> {
 			setTimeout(() => resolve('timeout'), AUDIT_TIMEOUT_MS),
 		);
 		const result = await Promise.race([
-			Promise.all([
-				new Response(proc.stdout).text(),
-				new Response(proc.stderr).text(),
-			]).then(([stdout, stderr]) => ({ stdout, stderr })),
+			Promise.all([proc.stdout.text(), proc.stderr.text()]).then(
+				([stdout, stderr]) => ({ stdout, stderr }),
+			),
 			timeoutPromise,
 		]);
 
@@ -887,7 +884,7 @@ async function runDotnetAudit(directory: string): Promise<AuditResult> {
 	}
 
 	try {
-		const proc = Bun.spawn(command, {
+		const proc = bunSpawn(command, {
 			stdout: 'pipe',
 			stderr: 'pipe',
 			cwd: directory,
@@ -897,10 +894,9 @@ async function runDotnetAudit(directory: string): Promise<AuditResult> {
 			setTimeout(() => resolve('timeout'), AUDIT_TIMEOUT_MS),
 		);
 		const result = await Promise.race([
-			Promise.all([
-				new Response(proc.stdout).text(),
-				new Response(proc.stderr).text(),
-			]).then(([stdout, stderr]) => ({ stdout, stderr })),
+			Promise.all([proc.stdout.text(), proc.stderr.text()]).then(
+				([stdout, stderr]) => ({ stdout, stderr }),
+			),
 			timeoutPromise,
 		]);
 
@@ -1057,7 +1053,7 @@ async function runBundleAudit(directory: string): Promise<AuditResult> {
 		: ['bundle-audit', 'check', '--format', 'json'];
 
 	try {
-		const proc = Bun.spawn(command, {
+		const proc = bunSpawn(command, {
 			stdout: 'pipe',
 			stderr: 'pipe',
 			cwd: directory,
@@ -1067,10 +1063,9 @@ async function runBundleAudit(directory: string): Promise<AuditResult> {
 			setTimeout(() => resolve('timeout'), AUDIT_TIMEOUT_MS),
 		);
 		const result = await Promise.race([
-			Promise.all([
-				new Response(proc.stdout).text(),
-				new Response(proc.stderr).text(),
-			]).then(([stdout, stderr]) => ({ stdout, stderr })),
+			Promise.all([proc.stdout.text(), proc.stderr.text()]).then(
+				([stdout, stderr]) => ({ stdout, stderr }),
+			),
 			timeoutPromise,
 		]);
 
@@ -1251,7 +1246,7 @@ async function runDartAudit(directory: string): Promise<AuditResult> {
 	const command = [dartBin, 'pub', 'outdated', '--json'];
 
 	try {
-		const proc = Bun.spawn(command, {
+		const proc = bunSpawn(command, {
 			stdout: 'pipe',
 			stderr: 'pipe',
 			cwd: directory,
@@ -1261,10 +1256,9 @@ async function runDartAudit(directory: string): Promise<AuditResult> {
 			setTimeout(() => resolve('timeout'), AUDIT_TIMEOUT_MS),
 		);
 		const result = await Promise.race([
-			Promise.all([
-				new Response(proc.stdout).text(),
-				new Response(proc.stderr).text(),
-			]).then(([stdout, stderr]) => ({ stdout, stderr })),
+			Promise.all([proc.stdout.text(), proc.stderr.text()]).then(
+				([stdout, stderr]) => ({ stdout, stderr }),
+			),
 			timeoutPromise,
 		]);
 
@@ -1384,7 +1378,7 @@ async function runComposerAudit(directory: string): Promise<AuditResult> {
 	}
 
 	try {
-		const proc = Bun.spawn(command, {
+		const proc = bunSpawn(command, {
 			stdout: 'pipe',
 			stderr: 'pipe',
 			cwd: directory,
@@ -1394,10 +1388,9 @@ async function runComposerAudit(directory: string): Promise<AuditResult> {
 			setTimeout(() => resolve('timeout'), AUDIT_TIMEOUT_MS),
 		);
 		const result = await Promise.race([
-			Promise.all([
-				new Response(proc.stdout).text(),
-				new Response(proc.stderr).text(),
-			]).then(([stdout, stderr]) => ({ stdout, stderr })),
+			Promise.all([proc.stdout.text(), proc.stderr.text()]).then(
+				([stdout, stderr]) => ({ stdout, stderr }),
+			),
 			timeoutPromise,
 		]);
 

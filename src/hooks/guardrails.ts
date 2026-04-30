@@ -39,6 +39,7 @@ import {
 } from '../state';
 import { telemetry } from '../telemetry.js';
 import { log, warn } from '../utils';
+import { bunHash } from '../utils/bun-compat';
 import * as logger from '../utils/logger';
 import { resolveAgentConflict } from './conflict-resolution';
 import { pendingCoderScopeByTaskId } from './delegation-gate.js';
@@ -3118,7 +3119,7 @@ export function hashArgs(args: unknown): number {
 			return 0;
 		}
 		const sortedKeys = Object.keys(args as Record<string, unknown>).sort();
-		return Number(Bun.hash(JSON.stringify(args, sortedKeys)));
+		return Number(bunHash(JSON.stringify(args, sortedKeys)));
 	} catch (error) {
 		log('[Guardrails] hashArgs failed', {
 			error: error instanceof Error ? error.message : String(error),

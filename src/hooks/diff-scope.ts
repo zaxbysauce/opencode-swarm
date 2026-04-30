@@ -7,6 +7,7 @@
 
 import * as fs from 'node:fs';
 import * as path from 'node:path';
+import { bunSpawn } from '../utils/bun-compat';
 
 /**
  * Read the declared file scope for a task from .swarm/plan.json.
@@ -53,7 +54,7 @@ function getDeclaredScope(taskId: string, directory: string): string[] | null {
 async function getChangedFiles(directory: string): Promise<string[] | null> {
 	try {
 		// Try HEAD~1 first (normal case with commits)
-		const proc = Bun.spawn(['git', 'diff', '--name-only', 'HEAD~1'], {
+		const proc = bunSpawn(['git', 'diff', '--name-only', 'HEAD~1'], {
 			cwd: directory,
 			stdout: 'pipe',
 			stderr: 'pipe',
@@ -61,7 +62,7 @@ async function getChangedFiles(directory: string): Promise<string[] | null> {
 
 		const [exitCode, stdout] = await Promise.all([
 			proc.exited,
-			new Response(proc.stdout).text(),
+			proc.stdout.text(),
 		]);
 
 		if (exitCode === 0) {
@@ -73,7 +74,7 @@ async function getChangedFiles(directory: string): Promise<string[] | null> {
 		}
 
 		// Fallback: uncommitted changes vs HEAD
-		const proc2 = Bun.spawn(['git', 'diff', '--name-only', 'HEAD'], {
+		const proc2 = bunSpawn(['git', 'diff', '--name-only', 'HEAD'], {
 			cwd: directory,
 			stdout: 'pipe',
 			stderr: 'pipe',
@@ -81,7 +82,7 @@ async function getChangedFiles(directory: string): Promise<string[] | null> {
 
 		const [exitCode2, stdout2] = await Promise.all([
 			proc2.exited,
-			new Response(proc2.stdout).text(),
+			proc2.stdout.text(),
 		]);
 
 		if (exitCode2 === 0) {

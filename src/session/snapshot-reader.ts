@@ -11,6 +11,7 @@ import {
 	buildRehydrationCache,
 	swarmState,
 } from '../state';
+import { bunFile } from '../utils/bun-compat';
 import type {
 	SerializedAgentSession,
 	SerializedInvocationWindow,
@@ -182,7 +183,7 @@ export async function readSnapshot(
 ): Promise<SnapshotData | null> {
 	try {
 		const resolvedPath = validateSwarmPath(directory, 'session/state.json');
-		const file = Bun.file(resolvedPath);
+		const file = bunFile(resolvedPath);
 		const content = await file.text();
 
 		// Check if file is empty or just whitespace

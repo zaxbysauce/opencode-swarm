@@ -13,6 +13,7 @@ import type { PluginConfig } from '../config';
 import type { SecretscanEvidence } from '../config/evidence-schema.js';
 import { saveEvidence } from '../evidence/manager.js';
 import { warn } from '../utils';
+import { bunSpawn } from '../utils/bun-compat';
 import { createSwarmTool } from './create-tool';
 import type { LintResult, LintSuccessResult, SupportedLinter } from './lint';
 import { detectAvailableLinter, resolveLinterBinPath, runLint } from './lint';
@@ -299,15 +300,15 @@ async function runLintOnFiles(
 	}
 
 	try {
-		const proc = Bun.spawn(command, {
+		const proc = bunSpawn(command, {
 			stdout: 'pipe',
 			stderr: 'pipe',
 			cwd: workspaceDir,
 		});
 
 		const [stdout, stderr] = await Promise.all([
-			new Response(proc.stdout).text(),
-			new Response(proc.stderr).text(),
+			proc.stdout.text(),
+			proc.stderr.text(),
 		]);
 
 		const exitCode = await proc.exited;
@@ -718,7 +719,7 @@ async function runGitDiff(
 	directory: string,
 ): Promise<string | null> {
 	try {
-		const proc = Bun.spawn(['git', 'diff', ...args], {
+		const proc = bunSpawn(['git', 'diff', ...args], {
 			cwd: directory,
 			stdout: 'pipe',
 			stderr: 'pipe',
@@ -726,7 +727,7 @@ async function runGitDiff(
 
 		const [exitCode, stdout] = await Promise.all([
 			proc.exited,
-			new Response(proc.stdout).text(),
+			proc.stdout.text(),
 		]);
 
 		if (exitCode !== 0) return null;
@@ -793,13 +794,13 @@ export async function getChangedLineRanges(
 			'main',
 			'master',
 		]) {
-			const mergeBaseProc = Bun.spawn(
+			const mergeBaseProc = bunSpawn(
 				['git', 'merge-base', baseBranch, 'HEAD'],
 				{ cwd: directory, stdout: 'pipe', stderr: 'pipe' },
 			);
 			const [mbExit, mbOut] = await Promise.all([
 				mergeBaseProc.exited,
-				new Response(mergeBaseProc.stdout).text(),
+				mergeBaseProc.stdout.text(),
 			]);
 			if (mbExit === 0 && mbOut.trim()) {
 				const mergeBase = mbOut.trim();

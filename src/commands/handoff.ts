@@ -15,6 +15,7 @@ import {
 	writeSnapshot,
 } from '../session/snapshot-writer';
 import { swarmState } from '../state';
+import { bunWrite } from '../utils/bun-compat';
 
 export async function handleHandoffCommand(
 	directory: string,
@@ -29,7 +30,7 @@ export async function handleHandoffCommand(
 	// Write to .swarm/handoff.md using atomic write (temp file + rename)
 	const resolvedPath = validateSwarmPath(directory, 'handoff.md');
 	const tempPath = `${resolvedPath}.tmp.${crypto.randomUUID()}`;
-	await Bun.write(tempPath, markdown);
+	await bunWrite(tempPath, markdown);
 	renameSync(tempPath, resolvedPath);
 
 	// Build continuation prompt from structured data
@@ -38,7 +39,7 @@ export async function handleHandoffCommand(
 	// Write continuation prompt as a dedicated artifact
 	const promptPath = validateSwarmPath(directory, 'handoff-prompt.md');
 	const promptTempPath = `${promptPath}.tmp.${crypto.randomUUID()}`;
-	await Bun.write(promptTempPath, continuationPrompt);
+	await bunWrite(promptTempPath, continuationPrompt);
 	renameSync(promptTempPath, promptPath);
 
 	// Trigger snapshot write

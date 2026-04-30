@@ -302,6 +302,15 @@ This covers: project setup, running `/swarm brainstorm`, confirming the plan, mo
 
 ## Troubleshooting
 
+### "OpenCode Desktop hangs on the loading screen with the swarm plugin enabled"
+
+Fixed in v7.0.3+. If you see Desktop's loading screen stall indefinitely after
+adding `opencode-swarm` to your plugin list, update to the latest published
+version (`bunx opencode-swarm update`). The pre-fix sidecar ran a synchronous
+workspace scan during plugin init that blocked Desktop's `await server(...)`
+forever. The TUI/CLI was unaffected because it tolerates the blocking init.
+Issue [#704](https://github.com/zaxbysauce/opencode-swarm/issues/704).
+
 ### "I'm stuck or something seems broken"
 
 Run the diagnostic:

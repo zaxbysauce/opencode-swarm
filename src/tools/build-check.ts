@@ -9,6 +9,7 @@ import { z } from 'zod';
 import { type BuildCommand, discoverBuildCommands } from '../build/discovery';
 import type { BuildEvidence, EvidenceVerdict } from '../config/evidence-schema';
 import { saveEvidence } from '../evidence/manager';
+import { bunSpawn } from '../utils/bun-compat';
 import { createSwarmTool } from './create-tool';
 
 // ============ Constants ============
@@ -153,8 +154,7 @@ async function executeCommand(command: BuildCommand): Promise<BuildRun> {
 		args = ['-c', command.command];
 	}
 
-	const result = Bun.spawn({
-		cmd: [...cmd, ...args],
+	const result = bunSpawn([...cmd, ...args], {
 		cwd: command.cwd,
 		stdout: 'pipe',
 		stderr: 'pipe',
@@ -167,8 +167,8 @@ async function executeCommand(command: BuildCommand): Promise<BuildRun> {
 	// the process never exited.
 	const [exitCode, stdout, stderr] = await Promise.all([
 		result.exited,
-		new Response(result.stdout).text(),
-		new Response(result.stderr).text(),
+		result.stdout.text(),
+		result.stderr.text(),
 	]);
 
 	const duration_ms = Date.now() - startTime;

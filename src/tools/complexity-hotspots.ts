@@ -3,6 +3,7 @@ import * as path from 'node:path';
 import type { tool } from '@opencode-ai/plugin';
 import { z } from 'zod';
 import { estimateCyclomaticComplexity } from '../quality/metrics';
+import { bunSpawn } from '../utils/bun-compat';
 import { createSwarmTool } from './create-tool';
 
 // ============ Constants ============
@@ -146,7 +147,7 @@ async function getGitChurn(
 ): Promise<Map<string, number>> {
 	const churnMap = new Map<string, number>();
 
-	const proc = Bun.spawn(
+	const proc = bunSpawn(
 		[
 			'git',
 			'log',
@@ -163,10 +164,7 @@ async function getGitChurn(
 
 	// Read stdout concurrently with process exit to avoid pipe deadlock.
 	// git log output can be very large for repos with extensive history.
-	const [stdout] = await Promise.all([
-		new Response(proc.stdout).text(),
-		proc.exited,
-	]);
+	const [stdout] = await Promise.all([proc.stdout.text(), proc.exited]);
 
 	// Split on CRLF for cross-platform handling
 	const lines = stdout.split(/\r?\n/);
