@@ -18,6 +18,7 @@ import type { ProjectContext, RankedEntry } from './knowledge-reader.js';
 import { readMergedKnowledge } from './knowledge-reader.js';
 import { readRejectedLessons } from './knowledge-store.js';
 import type { KnowledgeConfig, MessageWithParts } from './knowledge-types.js';
+import { warn } from '../utils/logger.js';
 import { readSwarmFileAsync, safeHook } from './utils.js';
 
 // ============================================================================
@@ -189,7 +190,7 @@ export function createKnowledgeInjectorHook(
 			const MIN_INJECT_CHARS = config.context_budget_threshold ?? 300;
 
 			if (headroomChars < MIN_INJECT_CHARS) {
-				console.warn(
+				warn(
 					`[knowledge-injector] Skipping: only ${headroomChars} chars of headroom remain (existing: ${existingChars}, limit: ${MODEL_LIMIT_CHARS})`,
 				);
 				return;

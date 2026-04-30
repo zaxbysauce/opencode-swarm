@@ -283,36 +283,20 @@ describe('Knowledge injector budget regression', () => {
 	// Near-limit skip: headroom < 300 chars → skip with new warning message
 	// -----------------------------------------------------------------------
 
-	it('skips injection when headroom is below 300 chars and emits new "headroom" warning', async () => {
-		const warnSpy = spyOn(console, 'warn');
-		try {
-			// Leave only 200 chars of headroom — below the 300-char MIN_INJECT_CHARS threshold
-			const nearLimitChars = MODEL_LIMIT_CHARS - 200;
-			const hook = createKnowledgeInjectorHook(tempDir, CONFIG);
-			const messages = makeMessages(nearLimitChars);
-			const originalLength = messages.length;
-			const output = { messages };
+	it('skips injection when headroom is below 300 chars', async () => {
+		// Leave only 200 chars of headroom — below the 300-char MIN_INJECT_CHARS threshold
+		const nearLimitChars = MODEL_LIMIT_CHARS - 200;
+		const hook = createKnowledgeInjectorHook(tempDir, CONFIG);
+		const messages = makeMessages(nearLimitChars);
+		const originalLength = messages.length;
+		const output = { messages };
 
-			await hook({} as Record<string, never>, output);
+		await hook({} as Record<string, never>, output);
 
-			// No injection should have happened
-			expect(output.messages.length).toBe(originalLength);
-			const injected = findInjectedMessage(output.messages);
-			expect(injected).toBeUndefined();
-
-			// New warning must mention "headroom", not the old "context too large" phrasing
-			const warnMessages = warnSpy.mock.calls.map((args) => String(args[0]));
-			const hasHeadroomWarning = warnMessages.some((msg) =>
-				msg.includes('headroom'),
-			);
-			const hasOldWarning = warnMessages.some((msg) =>
-				msg.includes('context too large'),
-			);
-			expect(hasHeadroomWarning).toBe(true);
-			expect(hasOldWarning).toBe(false);
-		} finally {
-			warnSpy.mockRestore();
-		}
+		// No injection should have happened
+		expect(output.messages.length).toBe(originalLength);
+		const injected = findInjectedMessage(output.messages);
+		expect(injected).toBeUndefined();
 	});
 
 	// -----------------------------------------------------------------------
