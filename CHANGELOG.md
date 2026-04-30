@@ -1,5 +1,12 @@
 # Changelog
 
+## [7.1.0](https://github.com/zaxbysauce/opencode-swarm/compare/v7.0.3...v7.1.0) (2026-04-30)
+
+
+### Features
+
+* **agents:** add mandatory reuse scan and duplicate prevention gate ([#712](https://github.com/zaxbysauce/opencode-swarm/issues/712)) ([733681f](https://github.com/zaxbysauce/opencode-swarm/commit/733681f23e1e81e55d6d293846d63f27ab9c1934))
+
 ## [7.0.3](https://github.com/zaxbysauce/opencode-swarm/compare/v7.0.2...v7.0.3) (2026-04-30)
 
 
