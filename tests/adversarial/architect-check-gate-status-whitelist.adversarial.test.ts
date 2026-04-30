@@ -216,8 +216,8 @@ describe('ADVERSARIAL: Architect whitelist check_gate_status', () => {
 	});
 
 	describe('BOUNDARY: architect tool count and composition', () => {
-		it('architect should have 55 tools', () => {
-			expect(AGENT_TOOL_MAP['architect'].length).toBe(55);
+		it('architect should have 57 tools', () => {
+			expect(AGENT_TOOL_MAP['architect'].length).toBe(57);
 		});
 
 		it('architect should include all orchestrator-specific tools', () => {
@@ -247,7 +247,7 @@ describe('ADVERSARIAL: Architect whitelist check_gate_status', () => {
 		it('architect array should not have unexpected length changes', () => {
 			const originalLength = AGENT_TOOL_MAP['architect'].length;
 			// Verify current state matches expected
-			expect(originalLength).toBe(55);
+			expect(originalLength).toBe(57);
 		});
 	});
 });
