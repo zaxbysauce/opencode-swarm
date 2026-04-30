@@ -51,8 +51,11 @@ var __require = import.meta.require;
 var init_errors = () => {};
 
 // src/utils/logger.ts
+function isDebug() {
+  return process.env.OPENCODE_SWARM_DEBUG === "1";
+}
 function log(message, data) {
-  if (!DEBUG)
+  if (!isDebug())
     return;
   const timestamp = new Date().toISOString();
   if (data !== undefined) {
@@ -62,7 +65,7 @@ function log(message, data) {
   }
 }
 function warn(message, data) {
-  if (!DEBUG)
+  if (!isDebug())
     return;
   const timestamp = new Date().toISOString();
   if (data !== undefined) {
@@ -71,10 +74,6 @@ function warn(message, data) {
     console.warn(`[opencode-swarm ${timestamp}] WARN: ${message}`);
   }
 }
-var DEBUG;
-var init_logger = __esm(() => {
-  DEBUG = process.env.OPENCODE_SWARM_DEBUG === "1";
-});
 
 // src/utils/merge.ts
 function deepMergeInternal(base, override, depth) {
@@ -114,7 +113,6 @@ function simpleGlobToRegex(pattern, flags = "i") {
 // src/utils/index.ts
 var init_utils = __esm(() => {
   init_errors();
-  init_logger();
 });
 
 // src/utils/bun-compat.ts
@@ -18929,7 +18927,7 @@ import * as path35 from "path";
 // package.json
 var package_default = {
   name: "opencode-swarm",
-  version: "7.0.3",
+  version: "7.1.0",
   description: "Architect-centric agentic swarm plugin for OpenCode - hub-and-spoke orchestration with SME consultation, code generation, and QA review",
   main: "dist/index.js",
   types: "dist/index.d.ts",
@@ -20523,7 +20521,6 @@ function getEffectiveGates(profile, sessionOverrides) {
 
 // src/hooks/delegation-gate.ts
 init_telemetry();
-init_logger();
 
 // node_modules/quick-lru/index.js
 class QuickLRU extends Map {
@@ -20998,7 +20995,6 @@ function clearAllScopes(directory) {
 init_telemetry();
 init_utils();
 init_bun_compat();
-init_logger();
 
 // src/hooks/conflict-resolution.ts
 init_telemetry();
@@ -34295,7 +34291,6 @@ import path13 from "path";
 init_manager2();
 
 // src/git/branch.ts
-init_logger();
 import * as child_process2 from "child_process";
 var GIT_TIMEOUT_MS2 = 30000;
 function gitExec2(args, cwd) {
@@ -34536,7 +34531,6 @@ function resetToRemoteBranch(cwd, options) {
     };
   }
 }
-
 // src/hooks/knowledge-store.ts
 var import_proper_lockfile3 = __toESM(require_proper_lockfile(), 1);
 import { existsSync as existsSync7 } from "fs";
@@ -34946,12 +34940,12 @@ function validateLesson(candidate, existingLessons, meta3) {
 }
 async function quarantineEntry(directory, entryId, reason, reportedBy) {
   if (!directory || directory.includes("..")) {
-    console.warn("[knowledge-validator] quarantineEntry: directory traversal attempt blocked");
+    warn("[knowledge-validator] quarantineEntry: directory traversal attempt blocked");
     return;
   }
   if (!entryId || entryId.includes("\x00") || entryId.includes(`
 `)) {
-    console.warn("[knowledge-validator] quarantineEntry: invalid entryId rejected");
+    warn("[knowledge-validator] quarantineEntry: invalid entryId rejected");
     return;
   }
   const validReportedBy = ["architect", "user", "auto"];
@@ -35011,12 +35005,12 @@ async function quarantineEntry(directory, entryId, reason, reportedBy) {
 }
 async function restoreEntry(directory, entryId) {
   if (!directory || directory.includes("..")) {
-    console.warn("[knowledge-validator] restoreEntry: directory traversal attempt blocked");
+    warn("[knowledge-validator] restoreEntry: directory traversal attempt blocked");
     return;
   }
   if (!entryId || entryId.includes("\x00") || entryId.includes(`
 `)) {
-    console.warn("[knowledge-validator] restoreEntry: invalid entryId rejected");
+    warn("[knowledge-validator] restoreEntry: invalid entryId rejected");
     return;
   }
   const knowledgePath = path11.join(directory, ".swarm", "knowledge.jsonl");
@@ -36275,7 +36269,6 @@ function getGlobalEventBus() {
 // src/hooks/curator.ts
 init_manager();
 init_bun_compat();
-init_logger();
 init_utils2();
 
 // src/hooks/hive-promoter.ts
@@ -40376,7 +40369,6 @@ ${USAGE2}`;
 import { join as join22 } from "path";
 
 // src/hooks/knowledge-migrator.ts
-init_logger();
 import { randomUUID as randomUUID2 } from "crypto";
 import { existsSync as existsSync13, readFileSync as readFileSync10 } from "fs";
 import { mkdir as mkdir4, readFile as readFile5, writeFile as writeFile5 } from "fs/promises";
