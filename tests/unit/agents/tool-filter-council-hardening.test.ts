@@ -65,6 +65,7 @@ describe('tool_filter override + council conflict detection', () => {
 						'write',
 						'task',
 						'submit_council_verdicts',
+						'submit_phase_council_verdicts',
 						'declare_council_criteria',
 					],
 				},
@@ -76,6 +77,7 @@ describe('tool_filter override + council conflict detection', () => {
 		expect(architect).toBeDefined();
 		const tools = architect.tools as Record<string, boolean> | undefined;
 		expect(tools?.submit_council_verdicts).toBe(true);
+		expect(tools?.submit_phase_council_verdicts).toBe(true);
 		expect(tools?.declare_council_criteria).toBe(true);
 	});
 

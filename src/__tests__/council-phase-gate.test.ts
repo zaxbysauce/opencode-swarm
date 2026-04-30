@@ -191,6 +191,69 @@ describe('submit_phase_council_verdicts — quorum enforcement', () => {
 	});
 });
 
+describe('submit_phase_council_verdicts — round monotonicity', () => {
+	test('rejects submission whose roundNumber does not exceed prior round', async () => {
+		writePluginConfig({ enabled: true });
+		const verdicts = [
+			makeVerdict('critic'),
+			makeVerdict('reviewer'),
+			makeVerdict('sme'),
+			makeVerdict('test_engineer'),
+			makeVerdict('explorer'),
+		];
+
+		// Round 1 succeeds.
+		const r1 = await submit_phase_council_verdicts.execute!(
+			{
+				phaseNumber: 1,
+				swarmId: PLAN_SWARM,
+				phaseSummary: 'Round 1.',
+				verdicts,
+				roundNumber: 1,
+				working_directory: tempDir,
+			} as unknown as never,
+			{ sessionID: 'sess-x' } as never,
+		);
+		const parsed1 = JSON.parse(r1 as string);
+		expect(parsed1.success).toBe(true);
+		expect(parsed1.roundNumber).toBe(1);
+
+		// Round 1 again (no increment) is rejected.
+		const r1again = await submit_phase_council_verdicts.execute!(
+			{
+				phaseNumber: 1,
+				swarmId: PLAN_SWARM,
+				phaseSummary: 'Round 1 retry — should be blocked.',
+				verdicts,
+				roundNumber: 1,
+				working_directory: tempDir,
+			} as unknown as never,
+			{ sessionID: 'sess-x' } as never,
+		);
+		const parsed1again = JSON.parse(r1again as string);
+		expect(parsed1again.success).toBe(false);
+		expect(parsed1again.reason).toBe('round_not_increasing');
+		expect(parsed1again.priorRoundNumber).toBe(1);
+		expect(parsed1again.requestedRoundNumber).toBe(1);
+
+		// Round 2 (strict increase) succeeds.
+		const r2 = await submit_phase_council_verdicts.execute!(
+			{
+				phaseNumber: 1,
+				swarmId: PLAN_SWARM,
+				phaseSummary: 'Round 2 with new verdicts.',
+				verdicts,
+				roundNumber: 2,
+				working_directory: tempDir,
+			} as unknown as never,
+			{ sessionID: 'sess-x' } as never,
+		);
+		const parsed2 = JSON.parse(r2 as string);
+		expect(parsed2.success).toBe(true);
+		expect(parsed2.roundNumber).toBe(2);
+	});
+});
+
 describe('submit_phase_council_verdicts — evidence file contents', () => {
 	test('evidence file at .swarm/evidence/{phase}/phase-council.json with phase-council entry', async () => {
 		writePluginConfig({ enabled: true });

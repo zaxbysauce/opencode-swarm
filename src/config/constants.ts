@@ -344,6 +344,8 @@ export const TOOL_DESCRIPTIONS: Partial<Record<ToolName, string>> = {
 	completion_verify: 'verify completed tasks have required evidence',
 	submit_council_verdicts:
 		'submit pre-collected council member verdicts for synthesis (architect MUST dispatch critic/reviewer/sme/test_engineer/explorer as Agent tasks first; this tool synthesizes only, it does not contact members)',
+	submit_phase_council_verdicts:
+		'submit pre-collected PHASE-LEVEL council member verdicts for synthesis. Use at phase end (after all task-level Stage B gates pass, before phase_complete) when council_mode is enabled. Architect MUST dispatch critic/reviewer/sme/test_engineer/explorer with phase-scoped context first; this tool synthesizes only and writes .swarm/evidence/{phase}/phase-council.json for Gate 5.',
 	declare_council_criteria:
 		'pre-declare acceptance criteria for a task before the coder starts work; criteria are read back during council evaluation',
 	detect_domains: 'detect which SME domains are relevant for a given text',

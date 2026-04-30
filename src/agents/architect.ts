@@ -1666,8 +1666,8 @@ One question, one message, defaults pre-stated. Wait for the user's answer.`;
  * Format: "tool1 (description), tool2 (description), ..." — tools without descriptions use name only.
  *
  * When `council?.enabled !== true`, the QA-council tools
- * (`submit_council_verdicts`, `declare_council_criteria`) are filtered out so the
- * model is not shown phantom tools the runtime gate would reject.
+ * (`submit_council_verdicts`, `submit_phase_council_verdicts`, `declare_council_criteria`)
+ * are filtered out so the model is not shown phantom tools the runtime gate would reject.
  *
  * When `council?.general?.enabled !== true`, `convene_general_council` is
  * also filtered out — same reasoning: the runtime gate at
@@ -1894,9 +1894,10 @@ export function createArchitectAgent(
 
 	// Resolve capability placeholders from AGENT_TOOL_MAP (single source of truth).
 	// Thread `council` through the tool-list builders so council-only tools
-	// (`submit_council_verdicts`, `declare_council_criteria`) are omitted when the
-	// feature is disabled — keeping the rendered tool list in sync with the
-	// runtime gate in src/tools/convene-council.ts.
+	// (`submit_council_verdicts`, `submit_phase_council_verdicts`,
+	// `declare_council_criteria`) are omitted when the feature is disabled —
+	// keeping the rendered tool list in sync with the runtime gate in
+	// src/tools/convene-council.ts and src/tools/submit-phase-council-verdicts.ts.
 	prompt = prompt
 		?.replace('{{YOUR_TOOLS}}', buildYourToolsList(council))
 		?.replace('{{AVAILABLE_TOOLS}}', buildAvailableToolsList(council))

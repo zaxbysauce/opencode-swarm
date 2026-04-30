@@ -16,6 +16,8 @@
  */
 
 import type { tool } from '@opencode-ai/plugin';
+import { existsSync, readFileSync } from 'node:fs';
+import path from 'node:path';
 import { z } from 'zod';
 import { loadPluginConfig } from '../config/loader';
 import { synthesizePhaseCouncilAdvisory } from '../council/council-service';
@@ -221,6 +223,53 @@ export const submit_phase_council_verdicts: ReturnType<typeof tool> =
 					null,
 					2,
 				);
+			}
+
+			// ── Round monotonicity gate ───────────────────────────────────────
+			// Enforce strictly-increasing roundNumber when prior phase-council
+			// evidence exists for the same phase. Prevents accidental re-use of
+			// a stale round (e.g. caller passes roundNumber=1 twice after a
+			// REJECT, or passes the same verdicts with an unchanged round).
+			const requestedRound = input.roundNumber ?? 1;
+			const evidencePathExpected = path.join(
+				workingDir,
+				'.swarm',
+				'evidence',
+				String(input.phaseNumber),
+				'phase-council.json',
+			);
+			if (existsSync(evidencePathExpected)) {
+				try {
+					const priorRaw = readFileSync(evidencePathExpected, 'utf-8');
+					const prior = JSON.parse(priorRaw) as {
+						entries?: Array<{ roundNumber?: number }>;
+					};
+					const priorRound = prior.entries?.[0]?.roundNumber;
+					if (
+						typeof priorRound === 'number' &&
+						requestedRound <= priorRound
+					) {
+						return JSON.stringify(
+							{
+								success: false,
+								reason: 'round_not_increasing',
+								message:
+									`Phase ${input.phaseNumber} already has council evidence at round ${priorRound}, ` +
+									`but this submission was sent with roundNumber=${requestedRound}. ` +
+									`Each re-council must increment the round number. ` +
+									`Re-dispatch the council with phase-scoped context, collect new verdicts, and resubmit with roundNumber=${priorRound + 1}.`,
+								priorRoundNumber: priorRound,
+								requestedRoundNumber: requestedRound,
+							},
+							null,
+							2,
+						);
+					}
+				} catch {
+					// Corrupt or unreadable prior evidence is non-fatal here:
+					// synthesis will overwrite it cleanly. Gate 5 in
+					// phase_complete is the authoritative validator.
+				}
 			}
 
 			// ── Synthesize and write phase-council.json ───────────────────────

@@ -701,6 +701,7 @@ export function getAgentConfigs(
 				const required = [
 					'declare_council_criteria',
 					'submit_council_verdicts',
+					'submit_phase_council_verdicts',
 				];
 				const missing = required.filter((t) => !override.includes(t));
 				if (missing.length > 0) {
@@ -725,6 +726,7 @@ export function getAgentConfigs(
 				const councilTools = [
 					'declare_council_criteria',
 					'submit_council_verdicts',
+					'submit_phase_council_verdicts',
 				];
 				const present = councilTools.filter((t) => override.includes(t));
 				if (present.length > 0 && !quiet) {
