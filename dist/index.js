@@ -64944,11 +64944,14 @@ function writeProjectConfigIfNew(directory, quiet = false) {
       fs31.mkdirSync(opencodeDir, { recursive: true });
     }
     try {
-      fs31.writeFileSync(dest, STARTER_CONTENT, { encoding: "utf-8", flag: "wx" });
+      fs31.writeFileSync(dest, STARTER_CONTENT, {
+        encoding: "utf-8",
+        flag: "wx"
+      });
       if (!quiet) {
         console.warn("[opencode-swarm] Created .opencode/opencode-swarm.json — " + "edit it to customize agent LLMs for this project, or commit it to share settings with your team");
       }
-    } catch (writeErr) {}
+    } catch (_writeErr) {}
   } catch {}
 }
 
