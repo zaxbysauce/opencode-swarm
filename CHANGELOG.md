@@ -1,5 +1,12 @@
 # Changelog
 
+## [7.0.2](https://github.com/zaxbysauce/opencode-swarm/compare/v7.0.1...v7.0.2) (2026-04-30)
+
+
+### Bug Fixes
+
+* **council:** replace council_member/moderator with role-framed dispatch + architect synthesis ([#703](https://github.com/zaxbysauce/opencode-swarm/issues/703)) ([f800c1a](https://github.com/zaxbysauce/opencode-swarm/commit/f800c1aa12dc6359ab945fcc0c49c7ab9f77249b))
+
 ## [7.0.1](https://github.com/zaxbysauce/opencode-swarm/compare/v7.0.0...v7.0.1) (2026-04-30)
 
 
