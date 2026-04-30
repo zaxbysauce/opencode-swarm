@@ -869,17 +869,12 @@ export async function executeUpdateTaskStatus(
 			}
 		}
 
-		// Council gate check — enforced only when council.enabled is true.
-		// Placed after reviewer gate so existing failures surface first and
-		// no council behavior activates when the feature is off (no regression).
-		const councilCheck = checkCouncilGate(directory, args.task_id);
-		if (councilCheck.blocked) {
-			return {
-				success: false,
-				message: councilCheck.reason,
-				errors: [councilCheck.reason],
-			};
-		}
+		// Council enforcement is now phase-level only (Gate 5 in phase_complete).
+		// The per-task checkCouncilGate call was removed: Stage B (reviewer +
+		// test_engineer) is the per-task review pass in both council and
+		// non-council modes; council reviews the phase holistically before
+		// phase_complete via submit_phase_council_verdicts. The checkCouncilGate
+		// function is retained at module scope for direct callers and tests.
 	}
 
 	// Step 4: Update the task status with file lock to prevent concurrent writes

@@ -92,7 +92,7 @@ describe('Architect prompt — Work Complete Council workflow block', () => {
 
 		it('describes REJECT as blocking and escalating via maxRounds', () => {
 			expect(prompt).toContain('REJECT');
-			expect(prompt).toContain('Block advancement');
+			expect(prompt).toContain('Block phase completion');
 			expect(prompt).toContain('maxRounds');
 			expect(prompt).toMatch(/surface.*unifiedFeedbackMd.*HALT/is);
 		});
@@ -129,8 +129,12 @@ describe('Architect prompt — Work Complete Council workflow block', () => {
 		});
 
 		describe('critic dispatch includes approved-plan baseline and drift analysis', () => {
-			it('contains get_approved_plan in the critic dispatch text', () => {
-				expect(prompt).toContain('get_approved_plan');
+			it('contains approved-plan baseline in the critic dispatch text', () => {
+				// Phase council critic dispatch references the approved-plan baseline
+				// for spec-intent drift analysis. The architect knows about
+				// get_approved_plan via AGENT_TOOL_MAP — the council workflow text
+				// describes the conceptual context the critic receives.
+				expect(prompt).toContain('approved-plan baseline');
 			});
 
 			it('contains baseline or approved-plan in the critic dispatch', () => {

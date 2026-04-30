@@ -165,8 +165,13 @@ describe('delegation-gate council wiring (Stage B suppression + APPROVE fast-pat
 		});
 	});
 
-	describe('council active (config + profile both true): Stage B is REPLACED', () => {
-		it('reviewer Task delegation does NOT advance state when council is authoritative', async () => {
+	describe('council active (config + profile both true): Stage B still advances per-task', () => {
+		// Council mode is additive at the phase level — Stage B (reviewer +
+		// test_engineer) always runs per-task in BOTH modes. The phase-level
+		// council review runs holistically before phase_complete via
+		// submit_phase_council_verdicts; it does not suppress per-task Stage B
+		// state advancement.
+		it('reviewer Task delegation advances state when council is authoritative', async () => {
 			writePlan();
 			enableCouncilGate();
 
@@ -188,11 +193,11 @@ describe('delegation-gate council wiring (Stage B suppression + APPROVE fast-pat
 				{},
 			);
 
-			// State should NOT advance — council Phase 1 is the sole review pass.
-			expect(getTaskState(session, '1.1')).toBe('coder_delegated');
+			// State advances regardless of council mode: Stage B runs per-task in both modes.
+			expect(getTaskState(session, '1.1')).toBe('reviewer_run');
 		});
 
-		it('test_engineer Task delegation does NOT advance state when council is authoritative', async () => {
+		it('test_engineer Task delegation advances state when council is authoritative', async () => {
 			writePlan();
 			enableCouncilGate();
 
@@ -214,7 +219,7 @@ describe('delegation-gate council wiring (Stage B suppression + APPROVE fast-pat
 				{},
 			);
 
-			expect(getTaskState(session, '1.1')).toBe('reviewer_run');
+			expect(getTaskState(session, '1.1')).toBe('tests_run');
 		});
 	});
 

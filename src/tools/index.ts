@@ -7,6 +7,7 @@ export { completion_verify } from './completion-verify';
 // v6.5
 export { complexity_hotspots } from './complexity-hotspots';
 export { submit_council_verdicts } from './convene-council';
+export { submit_phase_council_verdicts } from './submit-phase-council-verdicts';
 export { convene_general_council } from './convene-general-council';
 export { curator_analyze } from './curator-analyze';
 export { declare_council_criteria } from './declare-council-criteria';

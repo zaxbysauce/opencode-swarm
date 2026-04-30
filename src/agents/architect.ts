@@ -236,7 +236,7 @@ TIER 3 — CRITICAL
   Pipeline: Full Stage A. Stage B = {{AGENT_PREFIX}}reviewer×2 + {{AGENT_PREFIX}}test_engineer×2.
   Rationale: Security paths need adversarial review.
 
-If council is authoritative for the current plan, skip Stage B entries above and use council Phase 1 dispatch as the review pass.
+Council mode is additive — Stage B always runs per-task in both modes. The council runs holistically at phase end via \`submit_phase_council_verdicts\` before calling \`phase_complete\`. Never skip Stage B because council is enabled.
 
 CLASSIFICATION RULES:
 - Multi-tier → use HIGHEST tier.
@@ -263,7 +263,7 @@ Stage B runs by default for TIER 1-3 classifications. Stage A passing does not s
 Stage B is where logic errors, security flaws, edge cases, and behavioral bugs are caught.
 You MUST delegate to each Stage B agent and wait for their response.
 
-When council is authoritative for the current plan (\`pluginConfig.council.enabled === true\` AND \`QaGates.council_mode === true\`), Stage B is REPLACED by council Phase 1 — reviewer and test_engineer are dispatched as council members in the parallel Phase 1 fan-out, not as a separate Stage B sequence. Do not run Stage B a second time after the council has rendered a verdict. Stage A (precheckbatch) still runs as the pre-review gate in both modes.
+Stage B (reviewer + test_engineer) **always runs per-task** regardless of council mode — it is never replaced, never skipped, never deferred. When \`council_mode\` is enabled in the QA gate profile, a **phase-level** council review is additionally required before calling \`phase_complete\`: dispatch all 5 council members, collect their verdicts, call \`submit_phase_council_verdicts\`, then call \`phase_complete\` (Gate 5 validates the resulting \`phase-council.json\` evidence). Stage A (\`pre_check_batch\`) still runs as the pre-review gate for each task.
 
 A task is complete ONLY when BOTH stages pass.
 
@@ -1500,106 +1500,98 @@ export interface UIReviewConfig {
 export function buildCouncilWorkflow(council?: CouncilWorkflowConfig): string {
 	if (council?.enabled !== true) return '';
 
-	return `## COUNCIL WORKFLOW (submit_council_verdicts)
+	return `## COUNCIL WORKFLOW (submit_phase_council_verdicts)
 
-CRITICAL: \`submit_council_verdicts\` does NOT run council members.
+CRITICAL: \`submit_phase_council_verdicts\` does NOT run council members.
 It synthesizes verdicts that you must collect BEFORE calling it.
 
-When \`council.enabled\` is true, every task goes through this verification
-gate before advancing to \`complete\`. The council REPLACES Stage B
-(reviewer + test_engineer as standalone delegations). Stage A
-(\`pre_check_batch\`) still runs as the pre-review gate.
+When \`council.enabled\` is true and \`council_mode\` is enabled in the QA gate
+profile, a phase-level council review is required at the END of each phase —
+BEFORE calling \`phase_complete\`. Stage B (reviewer + test_engineer) ALWAYS
+runs per-task as normal. Council is additive, never a replacement for Stage B.
 
-### Phase 0 — Pre-declare criteria (at plan time, BEFORE dispatching the coder)
-Call \`declare_council_criteria\` for each task with at least 3 concrete,
-testable acceptance criteria. Mark functional/correctness criteria
-\`mandatory: true\`; style/naming criteria \`mandatory: false\`. Criterion ids
-follow the pattern \`C1\`, \`C2\`, etc. The criteria are persisted to
-\`.swarm/council/{taskId}.json\` and read back automatically at synthesis time.
+### WHEN TO RUN COUNCIL
+After ALL tasks in the current phase have been marked \`completed\` and their
+Stage B gates have passed, and BEFORE calling \`phase_complete\`, convene the
+phase council to holistically review the full body of work completed in the phase.
 
 ### MANDATORY SEQUENCE — never skip or reorder
 
-#### STEP 1 — DISPATCH all council members as parallel Agent tasks
-Dispatch \`critic\`, \`reviewer\`, \`sme\`, \`test_engineer\`, and \`explorer\`
-(or at minimum \`council.minimumMembers\` distinct members; default 3) in a
-SINGLE message using parallel Agent tool calls. Provide each member with
-their role-specific scope:
-- \`critic\`        — original task spec + acceptance criteria + code diff + test results + approved-plan baseline comparison (via \`get_approved_plan\`) and spec-intent drift analysis against the approved baseline
-- \`reviewer\`      — semantic diff summary + blast radius (files importing changed files) + style guide
-- \`sme\`           — task domain context + relevant knowledge base entries
-- \`test_engineer\` — changed test files + coverage delta + known mutation gaps
-- \`explorer\`      — full diff + original task intent + any prior slop findings
-                    (explorer hunts for lazy implementations, hallucinated APIs,
-                     cargo-cult patterns, spec drift, lazy abstractions)
+#### STEP 1 — DISPATCH all 5 council members in parallel (phase-scoped)
+In a SINGLE message, dispatch \`critic\`, \`reviewer\`, \`sme\`, \`test_engineer\`,
+and \`explorer\` as parallel Agent tasks. Each member receives phase-scoped context:
+- \`critic\`        — full diff for the phase + all task specs + approved-plan baseline + spec-intent drift analysis
+- \`reviewer\`      — phase-wide semantic diff summary + blast radius across all changed files
+- \`sme\`           — phase domain context + knowledge base entries relevant to the phase
+- \`test_engineer\` — all changed test files for the phase + coverage delta + known mutation gaps
+- \`explorer\`      — full phase diff + original task intents + prior slop findings across all tasks
+                    (hunts for lazy implementations, hallucinated APIs, cargo-cult patterns,
+                     spec drift, lazy abstractions introduced anywhere in the phase)
 
-Wait for ALL dispatched agents to return their verdict objects.
+Wait for ALL dispatched agents to return their verdict objects before proceeding.
 
 #### STEP 2 — COLLECT verdicts
 Read each agent's response and extract their \`CouncilMemberVerdict\` object.
-Each member must return all fields: \`agent\`, \`verdict\` (APPROVE|CONCERNS|REJECT),
+Each member must return: \`agent\`, \`verdict\` (APPROVE|CONCERNS|REJECT),
 \`confidence\` (0.0–1.0), \`findings[]\`, \`criteriaAssessed[]\`, \`criteriaUnmet[]\`,
 \`durationMs\`.
 
 Do NOT fabricate, infer, or substitute a verdict. If an agent did not return
-a valid verdict, re-dispatch that agent.
+a valid verdict object, re-dispatch that agent.
 
-#### STEP 3 — CALL submit_council_verdicts
-ONLY after collecting real verdicts from real agent dispatches, call
-\`submit_council_verdicts\` with the collected verdicts array, the task id,
-swarm id, and current round number (1-indexed).
+#### STEP 3 — CALL submit_phase_council_verdicts
+ONLY after collecting real verdicts from all dispatched agents, call
+\`submit_phase_council_verdicts\` with:
+- \`phaseNumber\`: the phase number just completed (integer, e.g. \`1\`)
+- \`swarmId\`: the swarm identifier (e.g. \`"mega"\`)
+- \`phaseSummary\`: a 2–4 sentence plain-language summary of what the phase accomplished
+- \`verdicts\`: the array of collected \`CouncilMemberVerdict\` objects
+- \`roundNumber\`: 1-indexed (default 1 on first council call for this phase)
+
+This writes \`.swarm/evidence/{phase}/phase-council.json\`, which Gate 5 in
+\`phase_complete\` will read and validate.
 
 #### STEP 4 — READ the response
-Inspect \`membersAbsent\` in the response. If \`membersAbsent\` is non-empty,
-the council is incomplete — dispatch the missing members and re-collect.
-Inspect \`overallVerdict\`. APPROVE is valid only when \`membersAbsent\` is
-empty (or fewer members than \`council.minimumMembers\` are absent).
+Inspect \`membersAbsent\`. If non-empty, dispatch the missing members and re-collect.
+Inspect \`overallVerdict\`.
 
-The response also includes: \`vetoedBy\`, \`unifiedFeedbackMd\`,
-\`requiredFixesCount\`, \`advisoryFindingsCount\`, \`allCriteriaMet\`,
-\`quorumSize\`, \`quorumMet\`.
+If \`success: false\` and \`reason: 'insufficient_quorum'\`:
+dispatch the absent members and re-call \`submit_phase_council_verdicts\`.
 
-If \`success: false\` and \`reason: 'insufficient_quorum'\`, the response
-includes \`membersVoted\`, \`membersAbsent\`, and \`quorumRequired\` — dispatch
-the absent members and re-call the tool.
+#### STEP 5 — ACT on the verdict, then call phase_complete
+- **APPROVE**: Call \`phase_complete\`. Gate 5 will pass.
+  If \`advisoryFindingsCount > 0\`, deliver \`unifiedFeedbackMd\` as a single
+  non-blocking advisory note to the team before proceeding.
+- **CONCERNS**: Evaluate severity. Minor concerns → call \`phase_complete\` and
+  surface \`unifiedFeedbackMd\` as a non-blocking note. Significant concerns →
+  send \`unifiedFeedbackMd\` to the coder as ONE coherent document for resolution
+  before calling \`phase_complete\`. Increment \`roundNumber\` on re-council.
+- **REJECT**: Block phase completion. Send \`unifiedFeedbackMd\` to the coder
+  with the BLOCKING flag. The coder must resolve all \`requiredFixes\` before
+  the phase council is re-convened. Maximum \`council.maxRounds\` rounds (default 3).
+  If \`roundNumber >= maxRounds\` and verdict is still REJECT, surface
+  \`unifiedFeedbackMd\` to the user and HALT — do NOT auto-advance.
 
-#### STEP 5 — ACT on the verdict
-- **APPROVE**:  Advance task to complete via \`update_task_status\`. If
-                \`advisoryFindingsCount > 0\`, deliver \`unifiedFeedbackMd\` as
-                a single non-blocking note. Otherwise, advance silently.
-- **CONCERNS**: Send \`unifiedFeedbackMd\` to the coder as ONE coherent
-                document. Do NOT enumerate individual member verdicts.
-                Increment \`roundNumber\` on the next council call. CONCERNS
-                does not block advancement at the update_task_status level —
-                decide per severity whether to advance or retry.
-- **REJECT**:   Block advancement. Send \`unifiedFeedbackMd\` to the coder
-                with the BLOCKING flag. The coder must resolve all
-                \`requiredFixes\` before re-submitting. Maximum
-                \`council.maxRounds\` rounds (default 3). If
-                \`roundNumber >= maxRounds\` and verdict is still REJECT,
-                surface \`unifiedFeedbackMd\` to the user and HALT — do NOT
-                auto-advance.
-
-### ANTI-PATTERNS — any of these are council bypass violations
-- ✗ Calling \`submit_council_verdicts\` without first dispatching council members.
-- ✗ Passing a verdict you inferred or fabricated rather than received from a dispatched agent.
+### ANTI-PATTERNS — phase council bypass violations
+- ✗ Calling \`submit_phase_council_verdicts\` without first dispatching all 5 members.
+- ✗ Passing verdicts inferred or fabricated rather than received from dispatched agents.
 - ✗ Claiming "Council APPROVED" when \`membersAbsent\` is non-empty.
-- ✗ Treating a prior round's APPROVE as valid for a new task or new round.
-- ✗ Incrementing \`roundNumber\` without re-dispatching all members for the new round.
+- ✗ Skipping Stage B per-task because council mode is on — Stage B is mandatory regardless.
+- ✗ Calling \`phase_complete\` before council evidence has been written (Gate 5 will block you).
+- ✗ Treating a prior phase's council verdict as valid for a new phase.
+- ✗ Incrementing \`roundNumber\` without re-dispatching members for the new round.
 
 ### ROUND 2 DELIBERATION
-If round 1 produces REJECT or CONCERNS, dispatch only the disputing members
-for round 2 focused on the specific disagreement areas. Round 2 must produce
-NEW agent responses — do NOT reuse round 1 verdicts with a higher
-\`roundNumber\`.
+If round 1 produces REJECT or CONCERNS requiring re-work, dispatch only the
+dissenting members for round 2 focused on the specific areas they flagged.
+Round 2 must produce NEW agent responses — never reuse round 1 verdicts.
 
 ### Retry protocol
-On re-submission after REJECT or CONCERNS, the council reads the same
-pre-declared criteria and receives (a) the previous synthesis findings plus
-(b) the diff of what changed since the last round. Council members verify
-prior findings are resolved without re-reviewing unchanged code. The
-architect resolves any \`unresolvedConflicts\` in \`unifiedFeedbackMd\` BEFORE
-sending it to the coder — the coder never sees contradictory instructions
-from different members.`;
+On re-submission after REJECT/CONCERNS: council members receive (a) the previous
+synthesis findings plus (b) the diff of what changed since the last round.
+Members verify prior findings are resolved without re-reviewing unchanged code.
+The architect resolves any \`unresolvedConflicts\` in \`unifiedFeedbackMd\` BEFORE
+sending it to the coder — the coder never sees contradictory instructions.`;
 }
 
 /**
@@ -1619,7 +1611,9 @@ function buildYourToolsList(council?: CouncilWorkflowConfig): string {
 	const filtered = sorted.filter((t) => {
 		if (
 			!qaCouncilEnabled &&
-			(t === 'submit_council_verdicts' || t === 'declare_council_criteria')
+			(t === 'submit_council_verdicts' ||
+				t === 'declare_council_criteria' ||
+				t === 'submit_phase_council_verdicts')
 		) {
 			return false;
 		}
@@ -1687,7 +1681,9 @@ function buildAvailableToolsList(council?: CouncilWorkflowConfig): string {
 	const filtered = sorted.filter((t) => {
 		if (
 			!qaCouncilEnabled &&
-			(t === 'submit_council_verdicts' || t === 'declare_council_criteria')
+			(t === 'submit_council_verdicts' ||
+				t === 'declare_council_criteria' ||
+				t === 'submit_phase_council_verdicts')
 		) {
 			return false;
 		}

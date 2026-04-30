@@ -53,6 +53,7 @@ export const AGENT_TOOL_MAP: Record<AgentName, ToolName[]> = {
 		'completion_verify',
 		'complexity_hotspots',
 		'submit_council_verdicts',
+		'submit_phase_council_verdicts',
 		'declare_council_criteria',
 		'detect_domains',
 		'evidence_check',
