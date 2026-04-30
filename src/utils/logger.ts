@@ -1,7 +1,9 @@
-const DEBUG = process.env.OPENCODE_SWARM_DEBUG === '1';
+function isDebug(): boolean {
+	return process.env.OPENCODE_SWARM_DEBUG === '1';
+}
 
 export function log(message: string, data?: unknown): void {
-	if (!DEBUG) return;
+	if (!isDebug()) return;
 
 	const timestamp = new Date().toISOString();
 	if (data !== undefined) {
@@ -12,7 +14,7 @@ export function log(message: string, data?: unknown): void {
 }
 
 export function warn(message: string, data?: unknown): void {
-	if (!DEBUG) return;
+	if (!isDebug()) return;
 	const timestamp = new Date().toISOString();
 	if (data !== undefined) {
 		console.warn(`[opencode-swarm ${timestamp}] WARN: ${message}`, data);

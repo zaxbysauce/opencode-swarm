@@ -529,20 +529,20 @@ export function createSystemEnhancerHook(
 										(e) => !existingLessons.has(e.lesson),
 									);
 									if (newEntries.length === 0) {
-										console.warn(
+										warn(
 											`[system-enhancer] No new knowledge entries (all duplicates)`,
 										);
 									} else {
 										for (const entry of newEntries) {
 											await appendKnowledge(knowledgePath, entry);
 										}
-										console.warn(
+										warn(
 											`[system-enhancer] Created ${newEntries.length} new knowledge entries (${knowledgeEntries.length - newEntries.length} duplicates skipped)`,
 										);
 									}
 								} catch (e) {
 									// Non-blocking: knowledge is supplementary
-									console.warn(
+									warn(
 										`[system-enhancer] Failed to create knowledge entries: ${e}`,
 									);
 								}

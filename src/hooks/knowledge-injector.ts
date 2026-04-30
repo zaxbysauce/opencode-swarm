@@ -9,6 +9,7 @@
 import { stripKnownSwarmPrefix } from '../config/schema.js';
 import { loadPlan } from '../plan/manager.js';
 import { getRunMemorySummary } from '../services/run-memory.js';
+import { warn } from '../utils/logger.js';
 import {
 	buildDriftInjectionText,
 	readPriorDriftReports,
@@ -189,7 +190,7 @@ export function createKnowledgeInjectorHook(
 			const MIN_INJECT_CHARS = config.context_budget_threshold ?? 300;
 
 			if (headroomChars < MIN_INJECT_CHARS) {
-				console.warn(
+				warn(
 					`[knowledge-injector] Skipping: only ${headroomChars} chars of headroom remain (existing: ${existingChars}, limit: ${MODEL_LIMIT_CHARS})`,
 				);
 				return;

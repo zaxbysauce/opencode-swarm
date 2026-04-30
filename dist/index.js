@@ -51,7 +51,7 @@ var package_default;
 var init_package = __esm(() => {
   package_default = {
     name: "opencode-swarm",
-    version: "7.0.3",
+    version: "7.1.0",
     description: "Architect-centric agentic swarm plugin for OpenCode - hub-and-spoke orchestration with SME consultation, code generation, and QA review",
     main: "dist/index.js",
     types: "dist/index.d.ts",
@@ -15891,8 +15891,11 @@ var init_errors3 = __esm(() => {
 });
 
 // src/utils/logger.ts
+function isDebug() {
+  return process.env.OPENCODE_SWARM_DEBUG === "1";
+}
 function log(message, data) {
-  if (!DEBUG)
+  if (!isDebug())
     return;
   const timestamp = new Date().toISOString();
   if (data !== undefined) {
@@ -15902,7 +15905,7 @@ function log(message, data) {
   }
 }
 function warn(message, data) {
-  if (!DEBUG)
+  if (!isDebug())
     return;
   const timestamp = new Date().toISOString();
   if (data !== undefined) {
@@ -15919,10 +15922,6 @@ function error48(message, data) {
     console.error(`[opencode-swarm ${timestamp}] ERROR: ${message}`);
   }
 }
-var DEBUG;
-var init_logger = __esm(() => {
-  DEBUG = process.env.OPENCODE_SWARM_DEBUG === "1";
-});
 
 // src/utils/regex.ts
 function escapeRegex2(s) {
@@ -15936,7 +15935,6 @@ function simpleGlobToRegex(pattern, flags2 = "i") {
 // src/utils/index.ts
 var init_utils = __esm(() => {
   init_errors3();
-  init_logger();
 });
 
 // src/utils/bun-compat.ts
@@ -25156,7 +25154,6 @@ var init_guardrails = __esm(() => {
   init_telemetry();
   init_utils();
   init_bun_compat();
-  init_logger();
   init_conflict_resolution();
   init_delegation_gate();
   init_loop_detector();
@@ -26116,7 +26113,6 @@ var init_delegation_gate = __esm(() => {
   init_schema();
   init_state();
   init_telemetry();
-  init_logger();
   init_guardrails();
   init_normalize_tool_name();
   init_utils2();
@@ -40604,9 +40600,7 @@ function resetToRemoteBranch(cwd, options) {
   }
 }
 var GIT_TIMEOUT_MS2 = 30000;
-var init_branch = __esm(() => {
-  init_logger();
-});
+var init_branch = () => {};
 
 // src/hooks/knowledge-store.ts
 import { existsSync as existsSync9 } from "node:fs";
@@ -40933,7 +40927,7 @@ async function recordLessonsShown(directory, lessonIds, currentPhase) {
     await mkdir4(path16.dirname(shownFile), { recursive: true });
     await writeFile4(shownFile, JSON.stringify(shownData, null, 2), "utf-8");
   } catch {
-    console.warn("[swarm] Knowledge: failed to record shown lessons");
+    warn("[swarm] Knowledge: failed to record shown lessons");
   }
 }
 async function readMergedKnowledge(directory, config3, context) {
@@ -41083,7 +41077,7 @@ async function updateRetrievalOutcome(directory, phaseInfo, phaseSucceeded) {
     delete shownData[phaseInfo];
     await writeFile4(shownFile, JSON.stringify(shownData, null, 2), "utf-8");
   } catch {
-    console.warn("[swarm] Knowledge: failed to update retrieval outcomes");
+    warn("[swarm] Knowledge: failed to update retrieval outcomes");
   }
 }
 var JACCARD_THRESHOLD = 0.6, HIVE_TIER_BOOST = 0.05, SAME_PROJECT_PENALTY = -0.05;
@@ -41234,12 +41228,12 @@ function validateLesson(candidate, existingLessons, meta3) {
 }
 async function quarantineEntry(directory, entryId, reason, reportedBy) {
   if (!directory || directory.includes("..")) {
-    console.warn("[knowledge-validator] quarantineEntry: directory traversal attempt blocked");
+    warn("[knowledge-validator] quarantineEntry: directory traversal attempt blocked");
     return;
   }
   if (!entryId || entryId.includes("\x00") || entryId.includes(`
 `)) {
-    console.warn("[knowledge-validator] quarantineEntry: invalid entryId rejected");
+    warn("[knowledge-validator] quarantineEntry: invalid entryId rejected");
     return;
   }
   const validReportedBy = ["architect", "user", "auto"];
@@ -41299,12 +41293,12 @@ async function quarantineEntry(directory, entryId, reason, reportedBy) {
 }
 async function restoreEntry(directory, entryId) {
   if (!directory || directory.includes("..")) {
-    console.warn("[knowledge-validator] restoreEntry: directory traversal attempt blocked");
+    warn("[knowledge-validator] restoreEntry: directory traversal attempt blocked");
     return;
   }
   if (!entryId || entryId.includes("\x00") || entryId.includes(`
 `)) {
-    console.warn("[knowledge-validator] restoreEntry: invalid entryId rejected");
+    warn("[knowledge-validator] restoreEntry: invalid entryId rejected");
     return;
   }
   const knowledgePath = path17.join(directory, ".swarm", "knowledge.jsonl");
@@ -43263,9 +43257,7 @@ async function readCuratorSummary(directory) {
     }
     return parsed;
   } catch {
-    if (process.env.DEBUG_SWARM) {
-      console.warn("Failed to parse curator-summary.json: invalid JSON");
-    }
+    warn("Failed to parse curator-summary.json: invalid JSON");
     return null;
   }
 }
@@ -43298,9 +43290,7 @@ function filterPhaseEvents(eventsJsonl, phase, sinceTimestamp) {
         }
       }
     } catch {
-      if (process.env.DEBUG_SWARM) {
-        console.warn("filterPhaseEvents: skipping malformed line");
-      }
+      warn("filterPhaseEvents: skipping malformed line");
     }
   }
   return filtered;
@@ -43849,7 +43839,6 @@ var init_curator = __esm(() => {
   init_event_bus();
   init_manager();
   init_bun_compat();
-  init_logger();
   init_knowledge_store();
   init_knowledge_validator();
   init_utils2();
@@ -49274,7 +49263,6 @@ async function writeSentinel(sentinelPath, migrated, dropped) {
   await writeFile6(sentinelPath, JSON.stringify(sentinel, null, 2), "utf-8");
 }
 var init_knowledge_migrator = __esm(() => {
-  init_logger();
   init_knowledge_store();
   init_knowledge_validator();
 });
@@ -60464,7 +60452,6 @@ var init_preflight_integration = __esm(() => {
   init_status_artifact();
   init_trigger();
   init_preflight_service();
-  init_logger();
 });
 
 // node_modules/web-tree-sitter/tree-sitter.js
@@ -64511,7 +64498,6 @@ function buildDriftInjectionText(report, maxChars) {
 var DRIFT_REPORT_PREFIX = "drift-report-phase-";
 var init_curator_drift = __esm(() => {
   init_event_bus();
-  init_logger();
   init_utils2();
 });
 
@@ -65739,7 +65725,6 @@ init_schema();
 init_file_locks();
 init_state();
 init_telemetry();
-init_logger();
 init_utils2();
 import * as fs33 from "node:fs";
 var END_OF_SENTENCE_QUESTION_PATTERN = /\?\s*$/;
@@ -66531,7 +66516,6 @@ import * as path52 from "node:path";
 
 // src/tools/repo-graph.ts
 init_utils2();
-init_logger();
 init_path_security();
 import * as fsSync3 from "node:fs";
 import { constants as constants4, existsSync as existsSync28, realpathSync as realpathSync6 } from "node:fs";
@@ -67663,9 +67647,7 @@ async function updateGraphForFiles(workspaceRoot, filePaths, options) {
   await saveGraph(workspaceRoot, graph);
   return graph;
 }
-
 // src/hooks/repo-graph-builder.ts
-init_logger();
 var SUPPORTED_EXTENSIONS2 = [
   ".ts",
   ".tsx",
@@ -70786,15 +70768,15 @@ function createSystemEnhancerHook(config3, directory) {
                 const existingLessons = new Set(existingEntries.map((e) => e.lesson));
                 const newEntries = knowledgeEntries.filter((e) => !existingLessons.has(e.lesson));
                 if (newEntries.length === 0) {
-                  console.warn(`[system-enhancer] No new knowledge entries (all duplicates)`);
+                  warn(`[system-enhancer] No new knowledge entries (all duplicates)`);
                 } else {
                   for (const entry of newEntries) {
                     await appendKnowledge(knowledgePath, entry);
                   }
-                  console.warn(`[system-enhancer] Created ${newEntries.length} new knowledge entries (${knowledgeEntries.length - newEntries.length} duplicates skipped)`);
+                  warn(`[system-enhancer] Created ${newEntries.length} new knowledge entries (${knowledgeEntries.length - newEntries.length} duplicates skipped)`);
                 }
               } catch (e) {
-                console.warn(`[system-enhancer] Failed to create knowledge entries: ${e}`);
+                warn(`[system-enhancer] Failed to create knowledge entries: ${e}`);
               }
             }
           }
@@ -72495,7 +72477,7 @@ function createKnowledgeInjectorHook(directory, config3) {
     const headroomChars = MODEL_LIMIT_CHARS - existingChars;
     const MIN_INJECT_CHARS = config3.context_budget_threshold ?? 300;
     if (headroomChars < MIN_INJECT_CHARS) {
-      console.warn(`[knowledge-injector] Skipping: only ${headroomChars} chars of headroom remain (existing: ${existingChars}, limit: ${MODEL_LIMIT_CHARS})`);
+      warn(`[knowledge-injector] Skipping: only ${headroomChars} chars of headroom remain (existing: ${existingChars}, limit: ${MODEL_LIMIT_CHARS})`);
       return;
     }
     const maxInjectChars = config3.inject_char_budget ?? 2000;

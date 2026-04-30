@@ -6,6 +6,7 @@
 import { existsSync } from 'node:fs';
 import { mkdir, readFile, writeFile } from 'node:fs/promises';
 import * as path from 'node:path';
+import { warn } from '../utils/logger.js';
 import {
 	jaccardBigram,
 	normalize,
@@ -281,7 +282,7 @@ async function recordLessonsShown(
 		await mkdir(path.dirname(shownFile), { recursive: true });
 		await writeFile(shownFile, JSON.stringify(shownData, null, 2), 'utf-8');
 	} catch {
-		console.warn('[swarm] Knowledge: failed to record shown lessons');
+		warn('[swarm] Knowledge: failed to record shown lessons');
 	}
 }
 
@@ -548,6 +549,6 @@ export async function updateRetrievalOutcome(
 		delete shownData[phaseInfo];
 		await writeFile(shownFile, JSON.stringify(shownData, null, 2), 'utf-8');
 	} catch {
-		console.warn('[swarm] Knowledge: failed to update retrieval outcomes');
+		warn('[swarm] Knowledge: failed to update retrieval outcomes');
 	}
 }
