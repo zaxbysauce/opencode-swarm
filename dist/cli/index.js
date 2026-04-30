@@ -18927,7 +18927,7 @@ import * as path35 from "path";
 // package.json
 var package_default = {
   name: "opencode-swarm",
-  version: "7.1.0",
+  version: "7.1.1",
   description: "Architect-centric agentic swarm plugin for OpenCode - hub-and-spoke orchestration with SME consultation, code generation, and QA review",
   main: "dist/index.js",
   types: "dist/index.d.ts",
@@ -19091,6 +19091,7 @@ var TOOL_NAMES = [
   "check_gate_status",
   "completion_verify",
   "submit_council_verdicts",
+  "submit_phase_council_verdicts",
   "declare_council_criteria",
   "sbom_generate",
   "checkpoint",
@@ -19172,6 +19173,7 @@ var AGENT_TOOL_MAP = {
     "completion_verify",
     "complexity_hotspots",
     "submit_council_verdicts",
+    "submit_phase_council_verdicts",
     "declare_council_criteria",
     "detect_domains",
     "evidence_check",
