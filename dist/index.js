@@ -51,7 +51,7 @@ var package_default;
 var init_package = __esm(() => {
   package_default = {
     name: "opencode-swarm",
-    version: "7.0.2",
+    version: "7.0.3",
     description: "Architect-centric agentic swarm plugin for OpenCode - hub-and-spoke orchestration with SME consultation, code generation, and QA review",
     main: "dist/index.js",
     types: "dist/index.d.ts",
@@ -56228,6 +56228,7 @@ VERIFICATION PROTOCOL: After the coder reports DONE, and before running Stage B 
 
 ── STAGE B: AGENT REVIEW GATES ──
 {{AGENT_PREFIX}}reviewer → security reviewer (conditional) → {{AGENT_PREFIX}}test_engineer verification → {{AGENT_PREFIX}}test_engineer adversarial → coverage check
+The reviewer's verdict MUST include a REUSE_RE_VERIFICATION field — do NOT accept an APPROVED verdict without it. Validate the field value against context: if the coder's EXPORTS_ADDED was non-empty, REUSE_RE_VERIFICATION must be VERIFIED or DUPLICATION_DETECTED (not SKIPPED). If EXPORTS_ADDED was "none", REUSE_RE_VERIFICATION must be SKIPPED.
 Stage B runs by default for TIER 1-3 classifications. Stage A passing does not satisfy Stage B.
 Stage B is where logic errors, security flaws, edge cases, and behavioral bugs are caught.
 You MUST delegate to each Stage B agent and wait for their response.
@@ -56325,6 +56326,7 @@ ANTI-RATIONALIZATION GATE — gates are mandatory for ALL changes, no exceptions
   ✗ "just a rename" → Renames break callers. Reviewer is required.
   ✗ "pre_check_batch will catch any issues" → pre_check_batch catches lint/SAST/secrets. It does NOT catch logic errors or edge cases.
   ✗ "authors are blind to their own mistakes" is WHY the reviewer exists — your certainty about correctness is irrelevant.
+  ✗ "Reviewer APPROVED so I'll skip checking the REUSE_RE_VERIFICATION field" → RIGHT: "I verified that the reviewer's verdict includes REUSE_RE_VERIFICATION before accepting the APPROVED"
 <!-- BEHAVIORAL_GUIDANCE_END -->
 
   8. **COVERAGE CHECK**: After adversarial tests pass, check if test_engineer reports coverage < 70%. If so, delegate {{AGENT_PREFIX}}test_engineer for an additional test pass targeting uncovered paths. This is a soft guideline; use judgment for trivial tasks.
@@ -57270,6 +57272,7 @@ This step supplements (not replaces) the existing regression-sweep and test-drif
   [TOOL] build_check: PASS / SKIPPED — value: ___
   [TOOL] pre_check_batch: PASS (lint:check ✓ secretscan ✓ sast_scan ✓ quality_budget ✓) — value: ___
   [GATE] reviewer: APPROVED — value: ___
+  [GATE] reuse_re_verification: VERIFIED / SKIPPED / DUPLICATION_DETECTED — value: ___
   [GATE] security-reviewer: APPROVED / SKIPPED — value: ___
   [GATE] test_engineer-verification: PASS — value: ___
   [GATE] regression-sweep: PASS / SKIPPED — value: ___
@@ -57485,6 +57488,42 @@ RIGHT: [search first, then] import { saveEvidence } from '../evidence/manager' (
 
 If available_symbols was provided in your scope declaration, you MUST only call functions from that list when importing from existing project modules. Do not invent function names that are not in the list.
 
+## REUSE SCAN PROTOCOL (MANDATORY)
+Before writing ANY new function, utility, class, hook, helper, or type:
+
+1. SCAN: Use the search tool to check for conceptually similar implementations in:
+   - src/utils/
+   - src/hooks/
+   - src/tools/
+   - src/services/
+   - Any directory named lib/, shared/, helpers/, or common/
+
+   Search queries must be SEMANTIC, not just literal. For a "path normalizer" function,
+   search for: normalize path, resolve path, join path, cross-platform path — not just
+   the exact function name you are about to write.
+
+2. READ: If any candidate result exists, read that file. Determine if it:
+   - Already implements the behavior you need (REUSE IT — do not reimplement)
+   - Partially implements it (EXTEND IT — do not duplicate)
+   - Is unrelated (PROCEED to write new code)
+
+3. REPORT: In your completion output, include a REUSE_SCAN field:
+   REUSE_SCAN: [EXISTING_REUSED | EXTENDED | NO_MATCH_FOUND | SCAN_NOT_APPLICABLE]
+   With a one-line explanation for each new function/class you wrote.
+
+AUTOMATIC REJECTION CONDITIONS:
+- If you write a function that already exists under a different name in the project
+- If you write a utility that duplicates behavior in an existing file you did not read
+- If REUSE_SCAN is missing from your completion output when new functions were created
+
+SCAN_NOT_APPLICABLE is only valid when:
+- The task is modifying an existing function (not creating new ones)
+- The task is purely adding types with no behavioral logic
+- The task explicitly states "create new, no reuse" with architect justification
+
+The Reviewer WILL independently re-run this scan. Omitting it does not save time —
+it guarantees rejection.
+
  ## DEFENSIVE CODING RULES
 - NEVER use \`any\` type in TypeScript — always use specific types
 - NEVER leave empty catch blocks — at minimum log the error
@@ -57548,6 +57587,7 @@ EXPORTS_ADDED: [new exported functions/types/classes, or "none"]
 EXPORTS_REMOVED: [removed exports, or "none"]
 EXPORTS_MODIFIED: [exports with changed signatures, or "none"]
 DEPS_ADDED: [new external package imports, or "none"]
+REUSE_SCAN: [EXISTING_REUSED | EXTENDED | NO_MATCH_FOUND | SCAN_NOT_APPLICABLE] — [explanation per new function]
 BLOCKED: [what went wrong]
 NEED: [what additional context or change would fix it]
 
@@ -57563,6 +57603,7 @@ Output only one of these structured templates:
   EXPORTS_REMOVED: [removed exports, or "none"]
   EXPORTS_MODIFIED: [exports with changed signatures, or "none"]
   DEPS_ADDED: [new external package imports, or "none"]
+  REUSE_SCAN: [EXISTING_REUSED | EXTENDED | NO_MATCH_FOUND | SCAN_NOT_APPLICABLE] — [explanation per new function]
   SELF-AUDIT: [print the checklist below with [x]/[ ] status for every line]
 - Blocked task:
   BLOCKED: [what went wrong]
@@ -57601,6 +57642,7 @@ Before you report task completion, verify:
 [ ] I did not use vague identifier names (result, data, temp, value, item, info, stuff, obj, ret, val)
 [ ] I did not write empty or tautological comments (e.g., "// sets the value", "// constructor", "// handle error")
 [ ] I did not leave placeholder JSDoc/docstring @param descriptions blank or copy-paste identical descriptions across functions
+[ ] I ran a reuse scan for every new function/class I created and included REUSE_SCAN in my output
 If ANY box is unchecked, fix it before reporting completion.
 Print this checklist with your completion report.
 
@@ -58749,6 +58791,32 @@ DO (explicitly):
 - VERIFY platform compatibility: path.join() used for all paths, no hardcoded separators
 - For confirmed issues requiring a concrete fix: use suggest_patch to produce a structured patch artifact for the coder
 
+## REUSE RE-VERIFICATION (MANDATORY FOR NEW EXPORTS)
+
+When EXPORTS_ADDED is non-empty in the coder's completion report:
+
+1. For EACH new export listed, independently run the search tool using semantic queries
+   against src/utils/, src/hooks/, src/tools/, src/services/, and any lib/shared/ directories.
+
+   2. Use AT LEAST 3 different search queries per new export — varying the concept, not just
+   the exact name. If the coder named their function \`normalizePath\`, also search for:
+   \`resolve path\`, \`join path segments\`, \`cross-platform path\`, and similar synonyms.
+
+3. If you find a pre-existing function/class that implements the same behavior:
+   - Report as DUPLICATION_DETECTED: [new export name] duplicates [existing path:line]
+   - REJECT immediately — this is a Tier 1 CORRECTNESS failure
+   - Do NOT proceed to Tier 2 or Tier 3
+
+4. If no match is found after semantic search: report REUSE_RE_VERIFICATION: VERIFIED — NO_DUPLICATE_FOUND
+
+5. Cross-check the coder's REUSE_SCAN report against your own findings:
+   - If coder reported EXISTING_REUSED or EXTENDED but you find a true duplicate: REJECT
+   - If coder reported SCAN_NOT_APPLICABLE while EXPORTS_ADDED is non-empty: REJECT — coder created new exports but claimed no scan was needed (contradiction)
+   - If coder reported NO_MATCH_FOUND and you also find none: REUSE_RE_VERIFICATION: VERIFIED — NO_DUPLICATE_FOUND
+
+If EXPORTS_ADDED is "none", this section is skipped. Note that you skipped it:
+REUSE_RE_VERIFICATION: SKIPPED (no new exports)
+
 ## REVIEW REASONING
 For each changed function or method, answer these before formulating issues:
 1. PRECONDITIONS: What must be true for this code to work correctly?
@@ -58811,7 +58879,9 @@ Code style, naming, duplication, test coverage, documentation completeness. This
 
 VERDICT FORMAT:
 APPROVED: Tier 1 PASS, Tier 2 PASS [, Tier 3 notes if any]
+REUSE_RE_VERIFICATION: [VERIFIED | SKIPPED]
 REJECTED: Tier [1|2] FAIL — [first error description] — [specific fix instruction]
+REUSE_RE_VERIFICATION: [DUPLICATION_DETECTED | SKIPPED]
 
 Do NOT approve with caveats. "APPROVED but fix X later" is not valid. Either it passes or it doesn't.
 
@@ -58831,6 +58901,7 @@ PROCESSING: If GATES is provided and includes passing results for lint, SAST, pl
 Begin directly with VERDICT. Do NOT prepend "Here's my review..." or any conversational preamble.
 
 VERDICT: APPROVED | REJECTED
+REUSE_RE_VERIFICATION: [VERIFIED | DUPLICATION_DETECTED | SKIPPED] — DUPLICATION_DETECTED is only valid when VERDICT is REJECTED
 RISK: LOW | MEDIUM | HIGH | CRITICAL
 ISSUES: list with line numbers, grouped by CHECK dimension
 FIXES: required changes if rejected
@@ -72802,6 +72873,50 @@ function checkStaleImports(content, threshold) {
     detail: `${staleImports.length} unused import identifier(s): ${staleImports.slice(0, 3).join(", ")}${staleImports.length > 3 ? "..." : ""}. Remove stale imports.`
   };
 }
+function checkDuplicateUtility(content, projectDir, startTime, targetFile) {
+  const exportMatches = content.matchAll(/^\+(?:export)\s+(?:function|class|const|type|interface)\s+(\w{3,})/gm);
+  const newExports = [];
+  for (const match of exportMatches) {
+    if (match[1])
+      newExports.push(match[1]);
+  }
+  if (newExports.length === 0)
+    return null;
+  const deadline = startTime + 480;
+  const utilityDirs = [
+    "src/utils/",
+    "src/hooks/",
+    "src/tools/",
+    "src/services/"
+  ];
+  for (const utilDir of utilityDirs) {
+    if (Date.now() > deadline)
+      break;
+    const utilPath = path66.join(projectDir, utilDir);
+    if (!fs47.existsSync(utilPath))
+      continue;
+    const files = walkFiles(utilPath, [".ts", ".tsx", ".js", ".jsx"], deadline);
+    for (const file3 of files) {
+      if (Date.now() > deadline)
+        break;
+      if (targetFile && path66.resolve(file3) === path66.resolve(targetFile))
+        continue;
+      try {
+        const text = fs47.readFileSync(file3, "utf-8");
+        for (const name2 of newExports) {
+          const exportPattern = new RegExp(`\\bexport\\s+(?:function|class|const|type|interface)\\s+${name2}\\b`);
+          if (exportPattern.test(text)) {
+            return {
+              type: "duplicate_utility",
+              detail: `New export "${name2}" already exists in ${utilDir}. Reuse the existing utility instead of duplicating it.`
+            };
+          }
+        }
+      } catch {}
+    }
+  }
+  return null;
+}
 function createSlopDetectorHook(config3, projectDir, injectSystemMessage) {
   return {
     toolAfter: async (input, output) => {
@@ -72823,6 +72938,7 @@ function createSlopDetectorHook(config3, projectDir, injectSystemMessage) {
       })();
       if (!content || content.length < 10)
         return;
+      const targetFilePath = typeof args2?.filePath === "string" ? args2.filePath : undefined;
       const taskDescription = typeof args2?.description === "string" ? args2.description : typeof args2?.task === "string" ? args2.task : "";
       const startTime = Date.now();
       const findings = [];
@@ -72842,6 +72958,11 @@ function createSlopDetectorHook(config3, projectDir, injectSystemMessage) {
           const dead = checkDeadExports(content, projectDir, startTime);
           if (dead)
             findings.push(dead);
+        } catch {}
+        try {
+          const dupUtil = checkDuplicateUtility(content, projectDir, startTime, targetFilePath);
+          if (dupUtil)
+            findings.push(dupUtil);
         } catch {}
       }
       try {
@@ -78154,7 +78275,7 @@ init_create_tool();
 var GITINGEST_TIMEOUT_MS = 1e4;
 var GITINGEST_MAX_RESPONSE_BYTES = 5242880;
 var GITINGEST_MAX_RETRIES = 2;
-var delay = (ms) => new Promise((resolve29) => setTimeout(resolve29, ms));
+var delay = (ms) => new Promise((resolve30) => setTimeout(resolve30, ms));
 async function fetchGitingest(args2) {
   for (let attempt = 0;attempt <= GITINGEST_MAX_RETRIES; attempt++) {
     try {
@@ -80237,7 +80358,7 @@ async function runNpmAudit(directory) {
       stderr: "pipe",
       cwd: directory
     });
-    const timeoutPromise = new Promise((resolve30) => setTimeout(() => resolve30("timeout"), AUDIT_TIMEOUT_MS));
+    const timeoutPromise = new Promise((resolve31) => setTimeout(() => resolve31("timeout"), AUDIT_TIMEOUT_MS));
     const result = await Promise.race([
       Promise.all([proc.stdout.text(), proc.stderr.text()]).then(([stdout2, stderr2]) => ({ stdout: stdout2, stderr: stderr2 })),
       timeoutPromise
@@ -80357,7 +80478,7 @@ async function runPipAudit(directory) {
       stderr: "pipe",
       cwd: directory
     });
-    const timeoutPromise = new Promise((resolve30) => setTimeout(() => resolve30("timeout"), AUDIT_TIMEOUT_MS));
+    const timeoutPromise = new Promise((resolve31) => setTimeout(() => resolve31("timeout"), AUDIT_TIMEOUT_MS));
     const result = await Promise.race([
       Promise.all([proc.stdout.text(), proc.stderr.text()]).then(([stdout2, stderr2]) => ({ stdout: stdout2, stderr: stderr2 })),
       timeoutPromise
@@ -80485,7 +80606,7 @@ async function runCargoAudit(directory) {
       stderr: "pipe",
       cwd: directory
     });
-    const timeoutPromise = new Promise((resolve30) => setTimeout(() => resolve30("timeout"), AUDIT_TIMEOUT_MS));
+    const timeoutPromise = new Promise((resolve31) => setTimeout(() => resolve31("timeout"), AUDIT_TIMEOUT_MS));
     const result = await Promise.race([
       Promise.all([proc.stdout.text(), proc.stderr.text()]).then(([stdout2, stderr]) => ({ stdout: stdout2, stderr })),
       timeoutPromise
@@ -80609,7 +80730,7 @@ async function runGoAudit(directory) {
       stderr: "pipe",
       cwd: directory
     });
-    const timeoutPromise = new Promise((resolve30) => setTimeout(() => resolve30("timeout"), AUDIT_TIMEOUT_MS));
+    const timeoutPromise = new Promise((resolve31) => setTimeout(() => resolve31("timeout"), AUDIT_TIMEOUT_MS));
     const result = await Promise.race([
       Promise.all([proc.stdout.text(), proc.stderr.text()]).then(([stdout2, stderr]) => ({ stdout: stdout2, stderr })),
       timeoutPromise
@@ -80742,7 +80863,7 @@ async function runDotnetAudit(directory) {
       stderr: "pipe",
       cwd: directory
     });
-    const timeoutPromise = new Promise((resolve30) => setTimeout(() => resolve30("timeout"), AUDIT_TIMEOUT_MS));
+    const timeoutPromise = new Promise((resolve31) => setTimeout(() => resolve31("timeout"), AUDIT_TIMEOUT_MS));
     const result = await Promise.race([
       Promise.all([proc.stdout.text(), proc.stderr.text()]).then(([stdout2, stderr]) => ({ stdout: stdout2, stderr })),
       timeoutPromise
@@ -80858,7 +80979,7 @@ async function runBundleAudit(directory) {
       stderr: "pipe",
       cwd: directory
     });
-    const timeoutPromise = new Promise((resolve30) => setTimeout(() => resolve30("timeout"), AUDIT_TIMEOUT_MS));
+    const timeoutPromise = new Promise((resolve31) => setTimeout(() => resolve31("timeout"), AUDIT_TIMEOUT_MS));
     const result = await Promise.race([
       Promise.all([proc.stdout.text(), proc.stderr.text()]).then(([stdout2, stderr]) => ({ stdout: stdout2, stderr })),
       timeoutPromise
@@ -81003,7 +81124,7 @@ async function runDartAudit(directory) {
       stderr: "pipe",
       cwd: directory
     });
-    const timeoutPromise = new Promise((resolve30) => setTimeout(() => resolve30("timeout"), AUDIT_TIMEOUT_MS));
+    const timeoutPromise = new Promise((resolve31) => setTimeout(() => resolve31("timeout"), AUDIT_TIMEOUT_MS));
     const result = await Promise.race([
       Promise.all([proc.stdout.text(), proc.stderr.text()]).then(([stdout2, stderr]) => ({ stdout: stdout2, stderr })),
       timeoutPromise
@@ -81118,7 +81239,7 @@ async function runComposerAudit(directory) {
       stderr: "pipe",
       cwd: directory
     });
-    const timeoutPromise = new Promise((resolve30) => setTimeout(() => resolve30("timeout"), AUDIT_TIMEOUT_MS));
+    const timeoutPromise = new Promise((resolve31) => setTimeout(() => resolve31("timeout"), AUDIT_TIMEOUT_MS));
     const result = await Promise.race([
       Promise.all([proc.stdout.text(), proc.stderr.text()]).then(([stdout2, stderr]) => ({ stdout: stdout2, stderr })),
       timeoutPromise
@@ -82758,7 +82879,7 @@ function mapSemgrepSeverity(severity) {
   }
 }
 async function executeWithTimeout(command, args2, options) {
-  return new Promise((resolve31) => {
+  return new Promise((resolve32) => {
     const child = child_process9.spawn(command, args2, {
       shell: false,
       cwd: options.cwd
@@ -82767,7 +82888,7 @@ async function executeWithTimeout(command, args2, options) {
     let stderr = "";
     const timeout = setTimeout(() => {
       child.kill("SIGTERM");
-      resolve31({
+      resolve32({
         stdout,
         stderr: "Process timed out",
         exitCode: 124
@@ -82781,7 +82902,7 @@ async function executeWithTimeout(command, args2, options) {
     });
     child.on("close", (code) => {
       clearTimeout(timeout);
-      resolve31({
+      resolve32({
         stdout,
         stderr,
         exitCode: code ?? 0
@@ -82789,7 +82910,7 @@ async function executeWithTimeout(command, args2, options) {
     });
     child.on("error", (err2) => {
       clearTimeout(timeout);
-      resolve31({
+      resolve32({
         stdout,
         stderr: err2.message,
         exitCode: 1
@@ -82974,7 +83095,7 @@ async function acquireLock(lockPath) {
       };
     } catch {
       if (attempt < LOCK_RETRY_DELAYS_MS.length) {
-        await new Promise((resolve32) => setTimeout(resolve32, LOCK_RETRY_DELAYS_MS[attempt]));
+        await new Promise((resolve33) => setTimeout(resolve33, LOCK_RETRY_DELAYS_MS[attempt]));
       }
     }
   }
@@ -86800,7 +86921,7 @@ async function ripgrepSearch(opts) {
       stderr: "pipe",
       cwd: opts.workspace
     });
-    const timeout = new Promise((resolve38) => setTimeout(() => resolve38("timeout"), REGEX_TIMEOUT_MS));
+    const timeout = new Promise((resolve39) => setTimeout(() => resolve39("timeout"), REGEX_TIMEOUT_MS));
     const exitPromise = proc.exited;
     const result = await Promise.race([exitPromise, timeout]);
     if (result === "timeout") {

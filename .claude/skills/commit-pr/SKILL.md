@@ -11,6 +11,28 @@ effort: medium
 
 Follow every step in order. Do not skip steps.
 
+### Step 0 — Session start hygiene
+
+**Run before anything else.** Prevents the three most common CI failures (stale state, stale base, dirty working tree).
+
+```bash
+# Ensure you're on the latest main as your branch point
+git fetch origin main
+
+# Create (or verify) a branch rooted at the latest main
+# If already on a feature branch, skip this line
+# git switch -c <branch> origin/main
+
+# Clear stale evidence files from prior sessions — these pollute
+# evidence-first gate checks and cause non-deterministic test failures
+rm -f .swarm/evidence/*.json
+
+# Verify working tree is clean — no uncommitted changes from prior sessions
+git status --short
+```
+
+If `git status` shows uncommitted changes, either commit them (if they're part of this PR) or stash them (if they're from a prior session).
+
 ### Step 1 — Format every commit message correctly
 
 Use `<type>(<scope>): <description>` exactly:
@@ -51,7 +73,7 @@ This file is **mandatory on every PR, no exceptions**, including one-line fixes.
 
 Do **not** edit `package.json` version field, `CHANGELOG.md`, or `.release-please-manifest.json`. Release-please manages them; manual edits cause merge conflicts and break the pipeline.
 
-### Step 5 — ⛔ MANDATORY: Run the full 5-tier test suite before pushing
+### Step 5 — ⛔ MANDATORY: Build + run the full 5-tier test suite before pushing
 
 **This step is MANDATORY. It is not optional, skippable, or conditional.**
 
@@ -63,7 +85,28 @@ Every tier MUST be run in order, regardless of:
 
 Skipping this step WILL cause CI failures that waste time and require a follow-up commit.
 
-Run every tier in order. Fix failures before proceeding.
+#### Pre-flight: build and check dist/ drift (runs before all test tiers)
+
+Build first. If `dist/` is tracked in the repo, verify a fresh build produces no uncommitted diffs.
+CI's dist-check passes by comparing committed `dist/` against a fresh build; any diff is a hard failure.
+
+```bash
+bun run build
+
+# Check for dist drift — MUST be clean before proceeding to tests
+if git diff --exit-code -- dist/; then
+    echo "dist/ is clean"
+else
+    echo "dist/ has uncommitted changes after build — stage and commit them:"
+    echo "  git add dist/ && git commit -m \"chore: update dist artifacts\""
+    echo "Then re-run this pre-flight check."
+    exit 1
+fi
+```
+
+If the build produces non-deterministic diffs on every run (no source changes), investigate before proceeding — this will also fail CI on every subsequent PR.
+
+#### Run every tier in order. Fix failures before proceeding.
 
 ```bash
 # Tier 1 — quality
@@ -95,13 +138,7 @@ bun test tests/integration ./test --timeout 120000
 bun test tests/security --timeout 120000
 bun test tests/adversarial --timeout 120000
 
-# Tier 5 — build + smoke (smoke requires a successful build first)
-bun run build
-# After building, commit any updated dist/ files if the repo tracks them.
-# CI runs a dist-check that diffs committed dist/ against a fresh build and fails
-# if they diverge. Check with: git status dist/
-# If dist/ files are modified or new, stage and commit them before pushing:
-#   git add dist/ && git commit -m "chore: update dist artifacts"
+# Tier 5 — smoke (no rebuild — already done in pre-flight)
 bun test tests/smoke --timeout 120000
 ```
 
@@ -129,7 +166,21 @@ When you rename a field in a Zod schema, TypeScript interface, or serialized for
 
 Failing to do this causes test fixtures to write stale-format JSON that passes Zod validation for the write but fails on the read path — a silent correctness hazard.
 
-If a failure is pre-existing and unrelated to your changes, note it in the PR description — do not skip the other tiers.
+### Troubleshooting — CI fails on tests that seem unrelated to your changes
+
+If a test fails and you suspect it is pre-existing (unrelated to your changes):
+
+1. **Confirm on a clean main checkout** using a disposable Git worktree:
+   ```bash
+   git worktree add /tmp/repro-check origin/main
+   bun --smol test /tmp/repro-check/<path-to-failing-test> --timeout 30000
+   git worktree remove /tmp/repro-check
+   ```
+   This avoids the risks of `git stash` (lost state, untracked files, locked files on Windows).
+
+2. **If it also fails on main**: note the failure and its test file name in the PR description under `## Pre-existing failures`. Do NOT skip the other test tiers — a pre-existing failure in one tier does not exempt you from running the others. The PR will be evaluated on net change; pre-existing failures are flagged separately.
+
+3. **If it only fails on your branch**: the failure was introduced by your changes. Fix it before proceeding.
 
 ### Step 6 — SHA-pin any workflow changes
 
@@ -162,12 +213,17 @@ git diff --name-only HEAD origin/main | grep -E '\.(local\.json|vscode|idea)' ||
 These files are modified by Claude Code and IDEs during a session but must never be committed.
 
 ```bash
-# See what you're about to squash (sanity check)
-BASE=$(git merge-base HEAD main)
-git log --oneline $BASE..HEAD
+# Fetch main to ensure origin/main is current (CI may have merged main into your branch)
+git fetch origin main
 
-# Squash everything since branching from main
-git reset --soft $BASE
+# See what you're about to squash (sanity check)
+git log --oneline origin/main..HEAD
+
+# Squash everything relative to current main
+# Using origin/main instead of git merge-base HEAD main is important because
+# CI may have auto-merged main into your branch, creating a merge commit
+# that would confuse merge-base.
+git reset --soft origin/main
 git commit -m "type(scope): description"
 
 # Force-push with lease (never plain --force)
@@ -204,7 +260,7 @@ EOF
 ### Step 9 — Pre-merge checklist
 
 Verify every item before asking for a merge:
-- [ ] Branch has exactly **one commit** — the squashed commit from Step 7 (`git log --oneline main..HEAD` shows one line)
+- [ ] Branch has exactly **one commit** — the squashed commit from Step 7 (`git log --oneline origin/main..HEAD` shows one line)
 - [ ] That commit message matches the PR title exactly, and both follow `<type>(<scope>): <description>`
 - [ ] `docs/releases/v{NEXT_VERSION}.md` exists with meaningful release notes
 - [ ] `package.json` version, `CHANGELOG.md`, `.release-please-manifest.json` are untouched

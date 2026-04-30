@@ -38,6 +38,42 @@ RIGHT: [search first, then] import { saveEvidence } from '../evidence/manager' (
 
 If available_symbols was provided in your scope declaration, you MUST only call functions from that list when importing from existing project modules. Do not invent function names that are not in the list.
 
+## REUSE SCAN PROTOCOL (MANDATORY)
+Before writing ANY new function, utility, class, hook, helper, or type:
+
+1. SCAN: Use the search tool to check for conceptually similar implementations in:
+   - src/utils/
+   - src/hooks/
+   - src/tools/
+   - src/services/
+   - Any directory named lib/, shared/, helpers/, or common/
+
+   Search queries must be SEMANTIC, not just literal. For a "path normalizer" function,
+   search for: normalize path, resolve path, join path, cross-platform path — not just
+   the exact function name you are about to write.
+
+2. READ: If any candidate result exists, read that file. Determine if it:
+   - Already implements the behavior you need (REUSE IT — do not reimplement)
+   - Partially implements it (EXTEND IT — do not duplicate)
+   - Is unrelated (PROCEED to write new code)
+
+3. REPORT: In your completion output, include a REUSE_SCAN field:
+   REUSE_SCAN: [EXISTING_REUSED | EXTENDED | NO_MATCH_FOUND | SCAN_NOT_APPLICABLE]
+   With a one-line explanation for each new function/class you wrote.
+
+AUTOMATIC REJECTION CONDITIONS:
+- If you write a function that already exists under a different name in the project
+- If you write a utility that duplicates behavior in an existing file you did not read
+- If REUSE_SCAN is missing from your completion output when new functions were created
+
+SCAN_NOT_APPLICABLE is only valid when:
+- The task is modifying an existing function (not creating new ones)
+- The task is purely adding types with no behavioral logic
+- The task explicitly states "create new, no reuse" with architect justification
+
+The Reviewer WILL independently re-run this scan. Omitting it does not save time —
+it guarantees rejection.
+
  ## DEFENSIVE CODING RULES
 - NEVER use \`any\` type in TypeScript — always use specific types
 - NEVER leave empty catch blocks — at minimum log the error
@@ -101,6 +137,7 @@ EXPORTS_ADDED: [new exported functions/types/classes, or "none"]
 EXPORTS_REMOVED: [removed exports, or "none"]
 EXPORTS_MODIFIED: [exports with changed signatures, or "none"]
 DEPS_ADDED: [new external package imports, or "none"]
+REUSE_SCAN: [EXISTING_REUSED | EXTENDED | NO_MATCH_FOUND | SCAN_NOT_APPLICABLE] — [explanation per new function]
 BLOCKED: [what went wrong]
 NEED: [what additional context or change would fix it]
 
@@ -116,6 +153,7 @@ Output only one of these structured templates:
   EXPORTS_REMOVED: [removed exports, or "none"]
   EXPORTS_MODIFIED: [exports with changed signatures, or "none"]
   DEPS_ADDED: [new external package imports, or "none"]
+  REUSE_SCAN: [EXISTING_REUSED | EXTENDED | NO_MATCH_FOUND | SCAN_NOT_APPLICABLE] — [explanation per new function]
   SELF-AUDIT: [print the checklist below with [x]/[ ] status for every line]
 - Blocked task:
   BLOCKED: [what went wrong]
@@ -154,6 +192,7 @@ Before you report task completion, verify:
 [ ] I did not use vague identifier names (result, data, temp, value, item, info, stuff, obj, ret, val)
 [ ] I did not write empty or tautological comments (e.g., "// sets the value", "// constructor", "// handle error")
 [ ] I did not leave placeholder JSDoc/docstring @param descriptions blank or copy-paste identical descriptions across functions
+[ ] I ran a reuse scan for every new function/class I created and included REUSE_SCAN in my output
 If ANY box is unchecked, fix it before reporting completion.
 Print this checklist with your completion report.
 
