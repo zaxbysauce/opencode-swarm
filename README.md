@@ -2,7 +2,9 @@
 
 <div align="center">
 
-**Your AI writes the code. Swarm makes sure it actually works.**
+# Your AI writes the code. Swarm proves it works.
+
+**Closing the trust gap between "the model said it's done" and "this actually works in production."**
 
 [![npm version](https://img.shields.io/npm/v/opencode-swarm?color=brightgreen&label=npm)](https://www.npmjs.com/package/opencode-swarm)
 [![License: MIT](https://img.shields.io/badge/License-MIT-blue.svg)](LICENSE)
@@ -14,7 +16,7 @@
 
 ---
 
-OpenCode Swarm is a plugin for [OpenCode](https://opencode.ai) that turns a single AI coding session into an **architect-led team of 17 specialized agents**. One agent writes the code. A different agent reviews it. Another writes and runs tests. Another checks security. **Nothing ships until every required gate passes.**
+OpenCode Swarm is a plugin for [OpenCode](https://opencode.ai) that turns a single AI coding session into an **architect-led team of specialized core, optional, and conditional agents** — see `/swarm agents` for the live roster. One agent writes the code. A different agent reviews it. Another writes and runs tests. Another checks security. **Nothing ships until every required gate passes.**
 
 ```bash
 bunx opencode-swarm install
@@ -22,13 +24,15 @@ bunx opencode-swarm install
 
 > This single command installs the package, registers it as an OpenCode plugin, disables conflicting default agents, and creates a ready-to-edit config at `~/.config/opencode/opencode-swarm.json`. Requires [Bun](https://bun.sh) (`bun --version` to check). If you must use npm: `npm install -g opencode-swarm && opencode-swarm install`.
 
+> ⚠️ **You must select the Swarm architect mode/agent in OpenCode after install.** The default OpenCode `Build` and `Plan` modes **bypass this plugin entirely** — none of the gates, reviewers, or test agents below run. Open the OpenCode mode/agent picker and choose the Swarm architect once; it then coordinates every other agent automatically. If you ever see Swarm "do nothing," this is almost always the cause.
+
 ### Why Swarm?
 
 Most AI coding tools let one model write code and ask that same model whether the code is good. That misses too much. Swarm separates planning, implementation, review, testing, and documentation into specialized internal roles — and enforces gated execution so agents never mutate the codebase in parallel.
 
 ### Key Features
 
-- 🏗️ **18 specialized agents (9 core + 5 optional + 4 conditional)** — architect, coder, reviewer, test_engineer, critic, explorer, sme, docs, designer, critic_oversight, critic_sounding_board, critic_drift_verifier, critic_hallucination_verifier, curator_init, curator_phase, council_generalist, council_skeptic, council_domain_expert
+- 🏗️ **Specialized core, optional, and conditional agents** — architect, coder, reviewer, test_engineer, critic, explorer, sme, docs, designer, critic_oversight, critic_sounding_board, critic_drift_verifier, critic_hallucination_verifier, curator_init, curator_phase, council_generalist, council_skeptic, council_domain_expert. Run `/swarm agents` for the live roster — that is the source of truth, not this list.
 - 🔒 **Gated pipeline** — code never ships without reviewer + test engineer approval
 - 🔄 **Phase completion gates** — completion-verify and drift verifier gates enforced before phase completion
 - 🔁 **Resumable sessions** — all state saved to `.swarm/`; pick up any project any day
@@ -37,7 +41,20 @@ Most AI coding tools let one model write code and ask that same model whether th
 - 🆓 **Free tier** — works with OpenCode Zen's free model roster
 - ⚙️ **Fully configurable** — override any agent's model, disable agents, tune guardrails
 
-> **You select a Swarm architect once in the OpenCode GUI.** The architect coordinates all other agents automatically — you never manually switch between internal roles. If you use the default OpenCode `Build` / `Plan` modes, the plugin is bypassed entirely.
+> **You select a Swarm architect once in the OpenCode GUI.** The architect coordinates all other agents automatically — you never manually switch between internal roles. If you use the default OpenCode `Build` / `Plan` modes, the plugin is bypassed entirely (see the install warning above).
+
+---
+
+## What Swarm Catches
+
+Concrete classes of failure that Swarm gates exist to stop — every item ties to an agent or pipeline gate that already runs in this repo:
+
+- **Hallucinated APIs and citations** — `critic_hallucination_verifier` verifies referenced APIs and citations against real sources before they reach the codebase.
+- **Missing tests and regressions** — `test_engineer` writes and runs tests on every task; the architect runs a regression sweep across the graph after each task (pipeline step `5l`).
+- **Unsafe secret and logging patterns** — `secretscan` and `sast_scan` (63+ rules across 9 languages, offline) run as part of the per-task `pre_check_batch`.
+- **Plan and spec drift** — `critic_drift_verifier` is a blocking phase-completion gate; `curator_phase` also flags workflow drift across phases.
+- **Placeholders and TODO stubs** — `placeholder_scan` runs in the per-task pipeline (step `5d`) and rejects code that ships incomplete stubs.
+- **Untrusted plans** — `critic` reviews the plan before any code is written; `completion-verify` is a deterministic phase-close gate that checks plan task identifiers actually exist in source files.
 
 ---
 
@@ -107,6 +124,62 @@ The 15-minute guide covers:
 
 ---
 
+## 30-Second Demo
+
+No animated GIF is shipped in the repo — instead, here is the exact terminal session you can record yourself with `asciinema rec demo.cast` (or any screen recorder). Every command below is real and runs against this repo as published.
+
+**Recording script (copy/paste-able, ~30 seconds):**
+
+```bash
+# 1. Install the plugin (5s)
+bunx opencode-swarm install
+
+# 2. Open opencode and select the Swarm architect mode/agent in the picker
+#    (this step is manual in the OpenCode UI — without it, the plugin is bypassed)
+opencode
+
+# 3. Inside the OpenCode session, verify Swarm is live (5s)
+/swarm diagnose
+/swarm agents
+
+# 4. Kick off a task — the architect plans, then gates fire automatically (15s)
+Build me a JWT auth helper with tests.
+
+# 5. Watch the gates land in real time (5s)
+/swarm status
+/swarm evidence
+```
+
+**ASCII storyboard** of what a viewer should see:
+
+```
+┌──────────────────────────────────────────────────────────────┐
+│ $ bunx opencode-swarm install                                │
+│ ✓ installed opencode-swarm                                   │
+│ ✓ wrote ~/.config/opencode/opencode-swarm.json               │
+│                                                              │
+│ $ opencode                                                   │
+│ [mode picker] → select: Swarm Architect                      │
+│                                                              │
+│ > /swarm diagnose                                            │
+│ ✓ plugin loaded   ✓ agents registered   ✓ gates armed        │
+│                                                              │
+│ > Build me a JWT auth helper with tests.                     │
+│ [architect]  PLAN → critic gate → APPROVED                   │
+│ [coder]      task 1.1 implementing…                          │
+│ [reviewer]   correctness OK                                  │
+│ [test_eng.]  3 tests written, 3 pass                         │
+│ [architect]  regression sweep clean → phase_complete         │
+│                                                              │
+│ > /swarm evidence                                            │
+│ task 1.1: review ✓  tests ✓  sast ✓  secrets ✓  drift ✓      │
+└──────────────────────────────────────────────────────────────┘
+```
+
+Each row corresponds to a real gate documented further down this README — none are simulated.
+
+---
+
 ## Upgrading
 
 **OpenCode caches plugins indefinitely.** A normal OpenCode restart does **not**
@@ -154,7 +227,7 @@ See [docs/commands.md](docs/commands.md) for the full reference (41 commands).
 
 ## The Agents
 
-Swarm has 17 specialized agents (9 core + 5 optional + 3 conditional). You don't manually switch between them — the architect coordinates automatically.
+Swarm registers a roster of specialized core, optional, and conditional agents. The exact count shifts as agents are added or feature-flagged, so treat `/swarm agents` as the live source of truth — that command lists what is actually registered in your session. You don't manually switch between them — the architect coordinates automatically.
 
 | Agent | Role | Badge |
 |---|---|---|
@@ -239,7 +312,7 @@ graph TB
 
 | Feature | Swarm | oh-my-opencode | get-shit-done |
 |---|:-:|:-:|:-:|
-| Multiple specialized agents | ✅ 17 agents | ❌ | ❌ |
+| Multiple specialized agents | ✅ Core + optional + conditional roster (`/swarm agents`) | ❌ | ❌ |
 | Plan reviewed before coding | ✅ | ❌ | ❌ |
 | Every task reviewed + tested | ✅ | ❌ | ❌ |
 | Different model for review vs. code | ✅ | ❌ | ❌ |
