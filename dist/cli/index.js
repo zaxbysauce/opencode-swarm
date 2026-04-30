@@ -18929,7 +18929,7 @@ import * as path35 from "path";
 // package.json
 var package_default = {
   name: "opencode-swarm",
-  version: "7.0.2",
+  version: "7.0.3",
   description: "Architect-centric agentic swarm plugin for OpenCode - hub-and-spoke orchestration with SME consultation, code generation, and QA review",
   main: "dist/index.js",
   types: "dist/index.d.ts",

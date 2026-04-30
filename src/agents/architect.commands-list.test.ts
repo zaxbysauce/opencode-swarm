@@ -115,6 +115,28 @@ describe('buildSlashCommandsList (via createArchitectAgent)', () => {
 
 	// ============ SUBCOMMAND PARENT ENTRY ============
 
+	// ============ REUSE_RE_VERIFICATION IN ANTI-EXEMPTION ============
+
+	it('contains REUSE_RE_VERIFICATION check in ANTI-RATIONALIZATION GATE', () => {
+		expect(prompt).toContain(
+			"Reviewer APPROVED so I'll skip checking the REUSE_RE_VERIFICATION field",
+		);
+		expect(prompt).toContain(
+			"I verified that the reviewer's verdict includes REUSE_RE_VERIFICATION before accepting the APPROVED",
+		);
+	});
+
+	it('contains REUSE_RE_VERIFICATION required field note in Stage B', () => {
+		// Verify the Stage B sentence specifically, not just a generic substring
+		expect(prompt).toContain(
+			"reviewer's verdict MUST include a REUSE_RE_VERIFICATION field",
+		);
+	});
+
+	it('contains REUSE_RE_VERIFICATION required field note in Stage B', () => {
+		expect(prompt).toContain('REUSE_RE_VERIFICATION field');
+	});
+
 	it('knowledge parent command appears before subcommands', () => {
 		const knowledgeIndex = prompt.indexOf('`/swarm knowledge`');
 		const migrateIndex = prompt.indexOf('`/swarm knowledge migrate`');
