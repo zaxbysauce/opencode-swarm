@@ -1,5 +1,12 @@
 # Changelog
 
+## [7.0.3](https://github.com/zaxbysauce/opencode-swarm/compare/v7.0.2...v7.0.3) (2026-04-30)
+
+
+### Bug Fixes
+
+* **#704:** unblock OpenCode Desktop plugin init across macOS/Linux/Windows ([#707](https://github.com/zaxbysauce/opencode-swarm/issues/707)) ([68cb660](https://github.com/zaxbysauce/opencode-swarm/commit/68cb66023ba02a48558ef1a9780a89d373b77924))
+
 ## [7.0.2](https://github.com/zaxbysauce/opencode-swarm/compare/v7.0.1...v7.0.2) (2026-04-30)
 
 
