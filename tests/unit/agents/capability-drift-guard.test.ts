@@ -212,11 +212,16 @@ describe('No unknown agents in AGENT_TOOL_MAP', () => {
 	});
 
 	test('every ALL_SUBAGENT_NAMES entry that has a tool map entry has at least 1 tool (except synthesis-only agents)', () => {
-		// Allow-list: agents whose role is pure synthesis on already-gathered
-		// content do not need tools. council_moderator is the canonical example —
-		// it writes the final user-facing answer from the council's existing
-		// research, so web_search / file tools are intentionally absent.
-		const ALLOWED_TOOLLESS = new Set<string>(['council_moderator']);
+		// Allow-list: agents whose role is pure deliberation on already-gathered
+		// content do not need tools. The three General Council agents are the
+		// canonical examples — they receive a RESEARCH CONTEXT block from the
+		// architect and reason from it; web_search / file tools are intentionally
+		// absent (the architect owns all searches pre-dispatch).
+		const ALLOWED_TOOLLESS = new Set<string>([
+			'council_generalist',
+			'council_skeptic',
+			'council_domain_expert',
+		]);
 
 		for (const subagent of ALL_SUBAGENT_NAMES) {
 			if (subagent in AGENT_TOOL_MAP) {

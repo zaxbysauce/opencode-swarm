@@ -1,5 +1,5 @@
 /**
- * web_search tool — restricted to council_member agents.
+ * web_search tool — owned by the architect for MODE: COUNCIL pre-search.
  *
  * Thin wrapper around `src/council/web-search-provider.ts`. Returns structured
  * results on success and structured errors on failure (never throws). Config-

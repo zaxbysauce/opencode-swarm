@@ -71,6 +71,15 @@ mock.module('../../../src/git/branch.js', () => ({
 	getCurrentBranch: () => 'main',
 	getDefaultBaseBranch: () => 'origin/main',
 	hasUncommittedChanges: () => false,
+	resetToRemoteBranch: () => ({
+		success: true,
+		targetBranch: 'main',
+		localBranch: 'main',
+		message: 'Already aligned with remote',
+		alreadyAligned: true,
+		prunedBranches: [],
+		warnings: [],
+	}),
 }));
 
 mock.module('../../../src/plan/checkpoint.js', () => ({

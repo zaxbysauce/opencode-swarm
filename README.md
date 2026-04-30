@@ -28,7 +28,7 @@ Most AI coding tools let one model write code and ask that same model whether th
 
 ### Key Features
 
-- 🏗️ **17 specialized agents (9 core + 5 optional + 3 conditional)** — architect, coder, reviewer, test_engineer, critic, explorer, sme, docs, designer, critic_oversight, critic_sounding_board, critic_drift_verifier, critic_hallucination_verifier, curator_init, curator_phase, council_member, council_moderator
+- 🏗️ **18 specialized agents (9 core + 5 optional + 4 conditional)** — architect, coder, reviewer, test_engineer, critic, explorer, sme, docs, designer, critic_oversight, critic_sounding_board, critic_drift_verifier, critic_hallucination_verifier, curator_init, curator_phase, council_generalist, council_skeptic, council_domain_expert
 - 🔒 **Gated pipeline** — code never ships without reviewer + test engineer approval
 - 🔄 **Phase completion gates** — completion-verify and drift verifier gates enforced before phase completion
 - 🔁 **Resumable sessions** — all state saved to `.swarm/`; pick up any project any day
@@ -173,8 +173,9 @@ Swarm has 17 specialized agents (9 core + 5 optional + 3 conditional). You don't
 | **critic_hallucination_verifier** | Verifies APIs and citations against real sources | Optional |
 | **curator_init** | Consolidates prior knowledge at session start | Optional |
 | **curator_phase** | Consolidates phase outcomes, detects workflow drift | Optional |
-| **council_member** | Web-searches and deliberates in General Council | Conditional |
-| **council_moderator** | Synthesizes council deliberation into final answer | Conditional |
+| **council_generalist** | Broad analytical voice in the General Council (uses reviewer model) | Conditional |
+| **council_skeptic** | Adversarial stress-tester voice in the General Council (uses critic model) | Conditional |
+| **council_domain_expert** | Technical-depth voice in the General Council (uses SME model) | Conditional |
 
 Legend: Core = always available, Optional = available by default (can be disabled), Conditional = requires specific feature config (ui_review or council)
 

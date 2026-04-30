@@ -314,7 +314,9 @@ export async function handleCloseCommand(
 	try {
 		const evidenceDir = path.join(swarmDir, 'evidence');
 		const evidenceEntries = await fs.readdir(evidenceDir);
-		const retroDirs = evidenceEntries.filter((e) => e.startsWith('retro-'));
+		const retroDirs = evidenceEntries
+			.filter((e) => e.startsWith('retro-'))
+			.sort((a, b) => a.localeCompare(b, undefined, { numeric: true }));
 		for (const retroDir of retroDirs) {
 			const evidencePath = path.join(evidenceDir, retroDir, 'evidence.json');
 			try {

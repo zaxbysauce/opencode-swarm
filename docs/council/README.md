@@ -238,15 +238,15 @@ keys, different evidence paths, and different runtime gates.
 | Purpose | **Verdict-based QA gate** — blocks task completion until 5 specialist agents vote APPROVE / CONCERNS / REJECT | **Advisory deliberation** — multiple models independently search the web, deliberate on disagreements, and produce a synthesized answer for the user or for spec review |
 | Config key | `council.*` | `council.general.*` |
 | Trigger | Architect calls `submit_council_verdicts` after coder + tests are done | User runs `/swarm council <question>`, or the `council_general_review` QA gate fires during MODE: SPECIFY |
-| Members | Fixed: critic, reviewer, sme, test_engineer, explorer | User-configured: any number of members with custom models, roles, and personas |
-| Verdict | APPROVE / CONCERNS / REJECT (REJECT vetoes by default) | No verdicts — produces consensus, persisting disagreements, and (optionally) a moderator synthesis |
-| Web access | None — judges existing code/tests | Each member has `web_search` (Tavily or Brave) for independent research |
+| Members | Fixed: critic, reviewer, sme, test_engineer, explorer | Fixed three-agent set: `council_generalist` (uses reviewer model), `council_skeptic` (uses critic model), `council_domain_expert` (uses SME model) |
+| Verdict | APPROVE / CONCERNS / REJECT (REJECT vetoes by default) | No verdicts — produces consensus, persisting disagreements, and a structural synthesis the architect presents directly |
+| Web access | None — judges existing code/tests | The **architect** runs 1–3 `web_search` calls upfront and passes a compiled `RESEARCH CONTEXT` block to all three agents; the agents themselves have no tools |
 | Evidence path | `.swarm/evidence/{taskId}.json` (verdict) + `.swarm/council/{taskId}.json` (criteria) | `.swarm/council/general/{ISO-timestamp}-{mode}.json` |
 | Blocking? | Yes — REJECT blocks task completion | No — output is advisory; spec_review mode folds council input into the draft spec but does not block |
 
 ### Setup
 
-Add a `council.general` block to `opencode-swarm.json`:
+Add a `council.general` block to `opencode-swarm.json` and customize the three council agents' models via the regular `agents.reviewer` / `agents.critic` / `agents.sme` config entries:
 
 ```json
 {
@@ -256,20 +256,13 @@ Add a `council.general` block to `opencode-swarm.json`:
       "searchProvider": "tavily",
       "searchApiKey": "tvly-xxxxxxxx",
       "deliberate": true,
-      "moderator": true,
-      "moderatorModel": "anthropic/claude-sonnet-4-6",
-      "members": [
-        { "memberId": "m1", "model": "anthropic/claude-opus-4-7", "role": "generalist" },
-        { "memberId": "m2", "model": "openai/gpt-5", "role": "skeptic" },
-        { "memberId": "m3", "model": "google/gemini-2.5-pro", "role": "domain_expert" }
-      ],
-      "presets": {
-        "security": [
-          { "memberId": "sec1", "model": "anthropic/claude-opus-4-7", "role": "domain_expert", "persona": "OWASP Top 10 specialist." },
-          { "memberId": "sec2", "model": "openai/gpt-5", "role": "devil_advocate", "persona": "Assume every input is malicious." }
-        ]
-      }
+      "maxSourcesPerMember": 5
     }
+  },
+  "agents": {
+    "reviewer": { "model": "anthropic/claude-opus-4-7" },
+    "critic":   { "model": "openai/gpt-5" },
+    "sme":      { "model": "google/gemini-2.5-pro" }
   }
 }
 ```
@@ -277,6 +270,12 @@ Add a `council.general` block to `opencode-swarm.json`:
 You can also supply API keys via env vars instead of inlining them: set
 `TAVILY_API_KEY` or `BRAVE_SEARCH_API_KEY` in your shell. Inline `searchApiKey`
 takes precedence when both are set.
+
+> 🛈 **Deprecated fields.** Older configs may carry `members`, `presets`,
+> `moderator`, and `moderatorModel` under `council.general`. These are
+> retained on the strict schema for backward compatibility but are ignored
+> at runtime. Setting `moderatorModel` triggers a deferred deprecation
+> warning at session start.
 
 > ⚠️ See the [strict-validation warning in configuration.md](../configuration.md#councilgeneral--general-council-mode-advisory)
 > — a typo in any `council.general.*` key fails Zod validation and silently
@@ -290,17 +289,13 @@ takes precedence when both are set.
 /swarm council What database should we use for a write-heavy multi-tenant SaaS?
 ```
 
-The architect convenes the default `members` list, runs Round 1 (parallel
-independent searches), routes any disagreements back for one Round 2
-reconciliation round, then either calls the `council_moderator` for a final
-synthesized answer (if `moderator: true`) or presents the structural
-synthesis directly.
-
-**Use a preset:**
-
-```
-/swarm council --preset security audit our session token handling for OWASP issues
-```
+The architect runs 1–3 targeted `web_search` calls, compiles a `RESEARCH
+CONTEXT` block, dispatches the three council agents in parallel
+(`council_generalist`, `council_skeptic`, `council_domain_expert`), routes
+any Round 1 disagreements back for one Round 2 reconciliation round, and
+presents a synthesized final answer directly using the inline output rules
+(LEAD WITH CONSENSUS, ACKNOWLEDGE DISAGREEMENT, CITE THE STRONGEST SOURCES,
+BE CONCISE).
 
 **Spec review (single-pass advisory):**
 
@@ -327,29 +322,36 @@ SME consultation.
 1. **Pre-flight.** The architect verifies `council.general.enabled: true` and
    that a search API key is reachable. Stops with a clear user-facing message
    if either is missing.
-2. **Round 1 — parallel independent search.** Each configured member runs
-   independently. They do NOT see each other's responses. Each member returns
-   a fenced JSON block with: response, search queries used, sources,
-   self-reported confidence (0.0–1.0), and areas of uncertainty.
-3. **Synthesis.** The architect calls `convene_general_council` with the
+2. **Research Phase.** The architect formulates 1–3 targeted `web_search`
+   queries and compiles the results into a `RESEARCH CONTEXT` block. If
+   search returns no results or errors, the architect notes this in the
+   dispatch message and proceeds — the council agents can still reason from
+   their training knowledge.
+3. **Round 1 — parallel independent analysis.** The architect dispatches
+   `council_generalist`, `council_skeptic`, and `council_domain_expert` in
+   parallel, passing the question, round number, and the full RESEARCH
+   CONTEXT block. The agents do NOT see each other's responses. Each returns
+   a fenced JSON block with: response, sources cited from the RESEARCH
+   CONTEXT, self-reported confidence (0.0–1.0), and areas of uncertainty.
+4. **Synthesis.** The architect calls `convene_general_council` with the
    Round 1 responses. The tool detects disagreements (linguistic markers
    plus a claim-divergence heuristic) and computes confidence-weighted
    consensus (Quadratic Voting from NSED arXiv:2601.16863).
-4. **Round 2 — targeted deliberation** (only when `deliberate: true`). The
-   architect re-delegates only to disputing members, passing them the
-   opposing position. Each declares their stance: **MAINTAIN** (with new
-   evidence), **CONCEDE** (state what was wrong), or **NUANCE** (boundary
-   condition that distinguishes the positions). Sycophantic capitulation
-   without new evidence is forbidden.
-5. **Moderator pass** (only when `moderator: true`). The tool returns a
-   `moderatorPrompt` that the architect delegates to the dedicated
-   `council_moderator` agent. The moderator has **no tools** — it
-   synthesizes a final answer from the already-gathered council content,
-   weighting by confidence but tie-breaking on evidence quality. It must
-   not invent claims and must not run new searches.
-6. **Output.** The architect presents either the moderator output (when
-   configured) or the structural synthesis to the user. Persisting
-   disagreements are surfaced honestly — no silent winner-picking.
+5. **Round 2 — targeted deliberation** (only when `deliberate: true`). The
+   architect re-delegates only to disputing agents, passing them the
+   opposing position and the same RESEARCH CONTEXT block. Each declares
+   their stance: **MAINTAIN** (with evidence), **CONCEDE** (state what was
+   wrong), or **NUANCE** (boundary condition that distinguishes the
+   positions). Sycophantic capitulation without evidence is forbidden.
+6. **Output.** The architect synthesizes the final answer directly from the
+   `synthesis` returned by `convene_general_council`, applying inline output
+   rules: LEAD WITH CONSENSUS (confidence-weighted, evidence breaks ties),
+   ACKNOWLEDGE DISAGREEMENT HONESTLY (`experts disagree on X because…`),
+   CITE THE STRONGEST SOURCES (`[title](url)` from the source list), and BE
+   CONCISE. The architect MUST NOT invent claims, MUST NOT add new web
+   research, and MUST NOT favor a position based on confidence alone.
+   Persisting disagreements are surfaced honestly — no silent
+   winner-picking.
 
 ### Evidence and audit
 
@@ -363,11 +365,12 @@ Council's evidence path so the two systems never collide.
 
 - Requires a search API key (Tavily or Brave). Without it, members fail
   with a structured "missing_api_key" error.
-- Each council member needs runtime access to its declared `model` — the
-  council does not validate model availability at config-load time.
-- The moderator agent is synthesis-only and does not perform fact-checking
-  with new searches. If the council's existing sources are wrong, the
-  moderator will repeat them.
+- Each council agent needs runtime access to its underlying model
+  (reviewer / critic / SME) — the council does not validate model
+  availability at config-load time.
+- The architect's synthesis pass does not perform fact-checking with new
+  searches. If the RESEARCH CONTEXT block is wrong or incomplete, the
+  synthesis will inherit those gaps.
 - Disagreement detection is heuristic (explicit linguistic markers plus a
   claim-divergence pass). Subtle disagreements that members do not flag
   explicitly may slip through.

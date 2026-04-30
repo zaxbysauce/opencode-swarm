@@ -51,7 +51,7 @@ var package_default;
 var init_package = __esm(() => {
   package_default = {
     name: "opencode-swarm",
-    version: "7.0.0",
+    version: "7.0.1",
     description: "Architect-centric agentic swarm plugin for OpenCode - hub-and-spoke orchestration with SME consultation, code generation, and QA review",
     main: "dist/index.js",
     types: "dist/index.d.ts",
@@ -263,8 +263,9 @@ var init_constants = __esm(() => {
     "critic_hallucination_verifier",
     "curator_init",
     "curator_phase",
-    "council_member",
-    "council_moderator",
+    "council_generalist",
+    "council_skeptic",
+    "council_domain_expert",
     ...QA_AGENTS,
     ...PIPELINE_AGENTS
   ];
@@ -337,7 +338,8 @@ var init_constants = __esm(() => {
       "repo_map",
       "get_qa_gate_profile",
       "set_qa_gates",
-      "convene_general_council"
+      "convene_general_council",
+      "web_search"
     ],
     explorer: [
       "complexity_hotspots",
@@ -488,8 +490,9 @@ var init_constants = __esm(() => {
     ],
     curator_init: ["knowledge_recall"],
     curator_phase: ["knowledge_recall"],
-    council_member: ["web_search"],
-    council_moderator: []
+    council_generalist: [],
+    council_skeptic: [],
+    council_domain_expert: []
   };
   WRITE_TOOL_NAMES = [
     "write",
@@ -551,8 +554,8 @@ var init_constants = __esm(() => {
     gitingest: "fetch a GitHub repository full content via gitingest.com",
     retrieve_summary: "retrieve the full content of a stored tool output summary",
     search: "Workspace-scoped ripgrep-style text search with structured JSON output. Supports literal and regex modes, glob filtering, and result limits. NOTE: This is text search, not structural AST search — use symbols and imports tools for structural queries.",
-    web_search: "External web search (Tavily or Brave) for General Council member agents. Returns titled results with snippets and URLs. Restricted to council_member agents via AGENT_TOOL_MAP. Config-gated on council.general.enabled; requires a search API key.",
-    convene_general_council: "Synthesize responses from a multi-model General Council. Accepts parallel member responses (Round 1, optionally Round 2), detects disagreements, and returns consensus points, persisting disagreements, a structured synthesis, and an optional moderator prompt. Architect-only. Config-gated on council.general.enabled.",
+    web_search: "External web search (Tavily or Brave) for architect-driven council research. Returns titled results with snippets and URLs. Config-gated on council.general.enabled; requires a search API key. Used by the architect in MODE: COUNCIL to gather a RESEARCH CONTEXT before dispatching council agents.",
+    convene_general_council: "Synthesize responses from a multi-model General Council. Accepts parallel member responses (Round 1, optionally Round 2), detects disagreements, and returns consensus points, persisting disagreements, and a structured synthesis. Architect-only. Config-gated on council.general.enabled.",
     batch_symbols: "Batched symbol extraction across multiple files. Returns per-file symbol summaries with isolated error handling.",
     suggest_patch: "Reviewer-safe structured patch suggestion tool. Produces context-anchored patch artifacts without file modification. Returns structured diagnostics on context mismatch.",
     lint_spec: "validate .swarm/spec.md format and required fields",
@@ -583,8 +586,6 @@ var init_constants = __esm(() => {
     designer: "opencode/big-pickle",
     curator_init: "opencode/big-pickle",
     curator_phase: "opencode/big-pickle",
-    council_member: "opencode/big-pickle",
-    council_moderator: "opencode/big-pickle",
     default: "opencode/big-pickle"
   };
   DEFAULT_SCORING_CONFIG = {
@@ -41984,7 +41985,7 @@ async function handleCloseCommand(directory, args2) {
   try {
     const evidenceDir = path18.join(swarmDir, "evidence");
     const evidenceEntries = await fs12.readdir(evidenceDir);
-    const retroDirs = evidenceEntries.filter((e) => e.startsWith("retro-"));
+    const retroDirs = evidenceEntries.filter((e) => e.startsWith("retro-")).sort((a, b) => a.localeCompare(b, undefined, { numeric: true }));
     for (const retroDir of retroDirs) {
       const evidencePath = path18.join(evidenceDir, retroDir, "evidence.json");
       try {
@@ -49281,6 +49282,13 @@ function parseGitRemoteUrl2(remoteUrl) {
       repo: sshMatch[2].replace(/\.git$/, "")
     };
   }
+  const pathMatch = remoteUrl.match(/\/([^/]+)\/([^/]+?)(?:\.git)?\/?$/);
+  if (pathMatch) {
+    return {
+      owner: pathMatch[1],
+      repo: pathMatch[2].replace(/\.git$/, "")
+    };
+  }
   return null;
 }
 function handlePrReviewCommand(_directory, args2) {
@@ -55135,9 +55143,9 @@ var init_registry = __esm(() => {
     },
     council: {
       handler: (ctx) => handleCouncilCommand(ctx.directory, ctx.args),
-      description: "Enter architect MODE: COUNCIL — multi-model deliberation [question] [--preset <name>] [--spec-review]",
-      args: "<question> [--preset <name>] [--spec-review]",
-      details: "Triggers the architect to convene a configurable General Council: each member independently web-searches, answers, and engages in one structured deliberation round on disagreements; an optional moderator pass synthesizes the final answer. --preset <name> selects a member group from council.general.presets. --spec-review switches to single-pass advisory mode for spec review. Requires council.general.enabled: true and a search API key in opencode-swarm.json."
+      description: "Enter architect MODE: COUNCIL — multi-model deliberation [question] [--spec-review]",
+      args: "<question> [--spec-review]",
+      details: "Triggers the architect to convene a three-agent General Council: " + "Generalist (reviewer model), Skeptic (critic model), and Domain Expert (SME model). " + "The architect first runs 1–3 targeted web searches and passes a compiled RESEARCH CONTEXT " + "to all three agents before dispatching them in parallel. " + "Agents deliberate using the NSED peer-review protocol (Round 1 independent analysis, " + "Round 2 MAINTAIN/CONCEDE/NUANCE for disagreements). " + "The architect synthesizes the final answer directly from convene_general_council output. " + "--spec-review switches to single-pass advisory mode for spec review. " + "Requires council.general.enabled: true and a search API key in opencode-swarm.json."
     },
     "pr-review": {
       handler: async (ctx) => handlePrReviewCommand(ctx.directory, ctx.args),
@@ -55380,7 +55388,7 @@ Present the ten gates with their defaults (DEFAULT_QA_GATES) as a single user-fa
 - council_mode (default: OFF) — multi-member council gate (recommended for high-impact architecture, public APIs, schema/data mutation, security-sensitive code)
 - hallucination_guard (default: OFF) — when enabled, mandatory per-phase API/signature/claim/citation verification via critic_hallucination_verifier at PHASE-WRAP; phase_complete will REJECT phase completion unless .swarm/evidence/{phase}/hallucination-guard.json exists with an APPROVED verdict (recommended for claim-heavy or research-heavy work)
 - mutation_test (default: OFF) — when enabled, runs mutation testing on source files touched this phase via generate_mutants + mutation_test + write_mutation_evidence at PHASE-WRAP; FAIL verdict blocks phase_complete; WARN is non-blocking (recommended for projects with coverage gaps or safety-critical code)
-- council_general_review (default: OFF) — when enabled, MODE: SPECIFY runs convene_general_council on the draft spec before the critic-gate; multiple models each independently search the web, deliberate on disagreements, and a moderator synthesizes a final answer that the architect folds into the spec (recommended for novel architecture, unclear best practices, or high-risk design decisions). Requires council.general.enabled: true and a configured search API key.
+- council_general_review (default: OFF) — when enabled, MODE: SPECIFY runs convene_general_council on the draft spec before the critic-gate; the architect runs a curated web_search pass, dispatches council_generalist / council_skeptic / council_domain_expert in parallel with a shared RESEARCH CONTEXT block, deliberates on disagreements, and synthesizes the result directly into the spec (recommended for novel architecture, unclear best practices, or high-risk design decisions). Requires council.general.enabled: true and a configured search API key.
 - drift_check (default: ON) — when enabled, mandatory per-phase drift verification via critic_drift_verifier at PHASE-WRAP; compares implemented changes against spec.md intent; hard-blocks phase_complete when spec.md exists and drift evidence is missing or REJECTED; advisory-only when no spec.md exists (recommended for all projects with a specification)
 
 One question, one message, defaults pre-stated. Wait for the user's answer.`;
@@ -56215,13 +56223,13 @@ Read the elected QA gates (parse the \`## Pending QA Gate Selection\` section fr
 
 If \`council_general_review\` is true:
 1. Read \`council.general\` config. If \`council.general.enabled\` is not true OR no search API key is configured, surface to the user: "council_general_review gate is enabled but the General Council is not configured. Set council.general.enabled: true and configure a search API key in opencode-swarm.json, or unset council_general_review and re-run." Then stop.
-2. Determine the council members from \`council.general.members\` (or \`council.general.presets[<name>]\` if you were invoked via \`/swarm council --preset <name>\` originally).
-3. Delegate to each council member in PARALLEL — one message per member, then STOP and wait. Pass: the spec text as the question, the member's role/persona, round number 1. Do NOT share other members' perspectives at this stage.
-4. Collect all member JSON responses.
+2. Run the Research Phase: formulate 1–3 targeted \`web_search\` queries grounded in the spec's domain, then compile a RESEARCH CONTEXT block (same format as MODE: COUNCIL step 2). If web_search fails, proceed without a context block.
+3. Dispatch \`{{AGENT_PREFIX}}council_generalist\`, \`{{AGENT_PREFIX}}council_skeptic\`, and \`{{AGENT_PREFIX}}council_domain_expert\` in PARALLEL — one message per agent, then STOP and wait. Pass: the spec text as the question, round number 1, the RESEARCH CONTEXT block, and the instruction "Cite from the RESEARCH CONTEXT for external evidence. Your memberId and role are hardcoded in your system prompt." Do NOT share other agents' perspectives at this stage.
+4. Collect all three JSON responses.
 5. Call \`convene_general_council\` with mode: 'spec_review', the spec as question, and the collected \`round1Responses\`. Omit \`round2Responses\` — spec review is a single-pass advisory, not a full deliberation.
 6. Read \`consensusPoints\` — incorporate unambiguous consensus directly into the spec.
 7. Read \`disagreements\` — for each: (a) accept one position with rationale, (b) mark as \`[NEEDS CLARIFICATION]\` in the spec, or (c) schedule an SME consultation.
-8. If \`council.general.moderator\` is true, the tool returned a \`moderatorPrompt\` field. Delegate this prompt to \`{{AGENT_PREFIX}}council_moderator\`. Use the moderator's output to refine the spec further.
+8. Synthesize the final spec-review answer directly from the \`synthesis\` returned by \`convene_general_council\`. Apply the same inline output rules as MODE: COUNCIL step 7 (LEAD WITH CONSENSUS, ACKNOWLEDGE DISAGREEMENT HONESTLY, CITE THE STRONGEST SOURCES, BE CONCISE, HARD CONSTRAINTS — never invent claims, never add new web research, never favor a position on confidence alone).
 9. Revise \`.swarm/spec.md\` to reflect the council input.
 
 <!-- BEHAVIORAL_GUIDANCE_START -->
@@ -56232,8 +56240,8 @@ SPECIFY-COUNCIL-REVIEW RULES:
     → WRONG when gate is true: the user enabled this gate for a reason. Run it regardless.
   ✗ "I'll include round2Responses for spec_review — more is better"
     → WRONG: spec review is a single advisory pass. Omit \`round2Responses\` for spec_review mode.
-  ✗ "I'll skip the moderator pass to save time"
-    → WRONG when council.general.moderator is true: invoke \`{{AGENT_PREFIX}}council_moderator\` with the moderatorPrompt the tool returns.
+  ✗ "I'll skip the Research Phase to save time"
+    → WRONG: the council agents have no tools and depend on the architect-supplied RESEARCH CONTEXT for external evidence. Skipping the pre-search degrades every downstream agent's grounding.
 <!-- BEHAVIORAL_GUIDANCE_END -->
 
 7. Report a summary to the user (MUST count, SHALL count, scenario count, clarification markers, elected QA gates) and suggest the next step: \`CLARIFY-SPEC\` (if markers exist) or \`PLAN\`.
@@ -56406,36 +56414,54 @@ GREENFIELD EXEMPTION: If the work is purely greenfield (new project, no existing
 
 ### MODE: COUNCIL
 
-Activates when: user invokes \`/swarm council <question>\` (optionally with \`--preset <name>\` or \`--spec-review\`).
+Activates when: user invokes \`/swarm council <question>\` (optionally with \`--spec-review\`).
 
-Purpose: convene a configurable multi-model General Council for an advisory deliberation. Each member independently web-searches and answers; the architect routes any disagreements back for one targeted reconciliation round; an optional moderator pass synthesizes the final user-facing answer.
+Purpose: convene a fixed three-agent multi-model General Council (generalist / skeptic / domain expert) for an advisory deliberation. The architect runs a curated web research pass upfront, dispatches the three agents in parallel with the gathered RESEARCH CONTEXT, routes any disagreements back for one targeted reconciliation round, and synthesizes the final user-facing answer directly.
 
 This mode is ADVISORY — it does NOT block any other workflow and does NOT modify code, plans, or specs. The output is for the user (general mode) or for the spec being drafted in MODE: SPECIFY (spec_review mode, gated by \`council_general_review\`).
 
 #### Pre-flight (always run first)
 1. Read \`council.general\` config. If \`council.general.enabled\` is not true OR no search API key is configured (neither \`council.general.searchApiKey\` nor the corresponding env var \`TAVILY_API_KEY\` / \`BRAVE_SEARCH_API_KEY\`), surface to the user: "General Council is not enabled. Set council.general.enabled: true and configure a search API key in opencode-swarm.json." Then STOP.
 
-#### Round 1 — Parallel Independent Search
-2. Determine council members. Default: \`council.general.members\`. If invoked with \`--preset <name>\`: \`council.general.presets[<name>]\`. If a named preset is missing, surface a clear error and stop.
-3. Delegate to each council member in PARALLEL — one message per member, then STOP and wait for all responses to come back. Pass: the question, the member's role/persona, round number 1. Do NOT share other members' responses at this stage.
-4. Collect all member JSON responses (each member returns a fenced JSON block per the council_member prompt).
+#### Research Phase (always run — before dispatching council agents)
+2. Formulate 1–3 targeted \`web_search\` queries that best capture the information needed to answer the question. Prefer specific, keyword-focused queries over broad ones. Call \`web_search\` for each query. Compile all results into a RESEARCH CONTEXT block in this format:
+\`\`\`
+RESEARCH CONTEXT
+================
+[1] <title> — <url>
+    <snippet>
+
+[2] <title> — <url>
+    <snippet>
+...
+\`\`\`
+If \`web_search\` returns no results or an error (check \`result.success\`), note this in the dispatch message and proceed without a context block. Do not stop — the council agents can still reason from their training knowledge.
+
+#### Round 1 — Parallel Independent Analysis
+3. Dispatch \`{{AGENT_PREFIX}}council_generalist\`, \`{{AGENT_PREFIX}}council_skeptic\`, and \`{{AGENT_PREFIX}}council_domain_expert\` in PARALLEL — one message per agent, then STOP and wait for all responses. Each dispatch message must include:
+   - The question
+   - Round number: 1
+   - The full RESEARCH CONTEXT block from step 2
+   - Instruction: "Cite from the RESEARCH CONTEXT for external evidence. Your memberId and role are hardcoded in your system prompt."
+Do NOT share other agents' responses at this stage.
+4. Collect all three JSON responses. The \`round1Responses\` array will contain entries with \`memberId\` of \`council_generalist\`, \`council_skeptic\`, and \`council_domain_expert\` and \`role\` of \`generalist\`, \`skeptic\`, and \`domain_expert\` respectively — these come from the agents' JSON output, no manual construction needed.
 
 #### Synthesis and Deliberation (when council.general.deliberate is true; default true)
 5. Call \`convene_general_council\` with mode set from the command (\`general\` or \`spec_review\`), \`question\`, and the collected \`round1Responses\` only (omit \`round2Responses\`). Inspect the returned \`disagreementsCount\`.
 6. If \`disagreementsCount > 0\`:
-   a. For each disagreement in the tool's response, identify the disputing members (the members listed in the disagreement's positions).
-   b. Re-delegate ONLY to the disputing members — one message per member — passing: their Round 1 response, the disagreement topic, the opposing position(s), round number 2.
+   a. For each disagreement in the tool's response, identify the disputing agents (the agents listed in the disagreement's positions, identified by memberId: \`council_generalist\`, \`council_skeptic\`, or \`council_domain_expert\`).
+   b. Re-delegate ONLY to the disputing agents — one message per agent — passing: their Round 1 response, the disagreement topic, the opposing position(s), round number 2, and the same RESEARCH CONTEXT block.
    c. Collect the Round 2 responses.
    d. Call \`convene_general_council\` AGAIN with both \`round1Responses\` AND \`round2Responses\` populated.
 
-#### Moderator Pass (when council.general.moderator is true; default true)
-7. The most recent \`convene_general_council\` call returned a \`moderatorPrompt\` field. Delegate this prompt to \`{{AGENT_PREFIX}}council_moderator\`. The moderator agent has no tools and no web access — it synthesizes a final user-facing answer from the council output you give it. Collect the moderator's markdown output.
-
 #### Output
-8. Present the final answer to the user:
-   - If the moderator pass ran: present the moderator's output verbatim, prefaced with the participating models (one line).
-   - If no moderator: present the structural \`synthesis\` markdown from the tool's return.
-   In either case, do NOT present the raw per-member JSON. Do NOT silently pick a winner among persisting disagreements — surface them honestly.
+7. Present the final answer to the user from the \`synthesis\` returned by \`convene_general_council\`. Apply these output rules directly:
+   - LEAD WITH CONSENSUS: open with the strongest consensus position. Confidence-weighted: higher-confidence claims from multiple agents rank first, but evidence quality outranks raw confidence. Never elevate a single confident voice over a well-evidenced contrary majority.
+   - ACKNOWLEDGE DISAGREEMENT HONESTLY: for each persisting disagreement, write "experts disagree on X because…" and present the strongest version of each side. Do NOT pretend disagreements are resolved. Do NOT silently pick a winner.
+   - CITE THE STRONGEST SOURCES: link key claims with [title](url) format from the source list in the synthesis. Pick the most reputable source per claim; do not cite duplicates.
+   - BE CONCISE: a few short paragraphs plus a bulleted summary. Expand only when the question genuinely requires it.
+   - HARD CONSTRAINTS: You MUST NOT invent claims not present in the council's responses. You MUST NOT add new web research. You MUST NOT favor a position based on confidence alone.
+   Preface the answer with one line listing the participating models (reviewer model as generalist, critic model as skeptic, SME model as domain expert). Do NOT present raw per-member JSON.
 
 ### MODE: ISSUE_INGEST
 Activates when: user invokes \`/swarm issue <url>\`; OR architect receives \`[MODE: ISSUE_INGEST issue="<url>"]\` signal.
@@ -57170,60 +57196,28 @@ META.SUMMARY CONVENTION — When reporting task completion, include:
 
 `;
 
-// src/agents/council-member.ts
-function createCouncilMemberAgent(model, customPrompt, customAppendPrompt) {
-  let prompt = COUNCIL_MEMBER_PROMPT;
-  if (customPrompt) {
-    prompt = customPrompt;
-  } else if (customAppendPrompt) {
-    prompt = `${COUNCIL_MEMBER_PROMPT}
-
-${customAppendPrompt}`;
-  }
-  return {
-    name: "council_member",
-    description: "General Council deliberation member. Independently web-searches and answers in Round 1; " + "targeted MAINTAIN/CONCEDE/NUANCE deliberation in Round 2. Tool-restricted to web_search only.",
-    config: {
-      model,
-      temperature: 0.4,
-      prompt,
-      tools: {
-        write: false,
-        edit: false,
-        patch: false
-      }
-    }
-  };
-}
-var COUNCIL_MEMBER_PROMPT = `You are Council Member {{MEMBER_ID}} ({{ROLE}}) on a multi-model General Council.
-
-{{PERSONA_BLOCK}}
-
-You are participating in Round {{ROUND}} of a structured deliberation. Your job is to give your independent, evidence-grounded perspective — not to agree with the group.
-
-================================================================
-ROUND {{ROUND}} PROTOCOL
+// src/agents/council-prompts.ts
+var ROUND_PROTOCOL = `================================================================
+ROUND PROTOCOL
 ================================================================
 
-ROUND 1 — Independent Research and Answer
-- Issue 1–3 targeted web_search calls to gather evidence relevant to the question.
-- Cite EVERY factual claim with a source URL from your search results.
+ROUND 1 — Independent Analysis and Answer
+- Use the RESEARCH CONTEXT block provided by the architect in your dispatch message as your external evidence source. The architect has already gathered the relevant web search results.
+- Cite EVERY factual claim that depends on external evidence with a source from the RESEARCH CONTEXT (use the title and URL exactly as given).
 - State your confidence (0.0–1.0) explicitly. Be honest — overconfident answers hurt the council.
 - Enumerate areas of uncertainty so the architect knows where you're guessing vs. where you're sure.
 - Do NOT coordinate with other members. You will not see their responses until Round 2.
 - Do NOT pad. Be concise. Substance over volume.
 
 ROUND 2 — Targeted Deliberation (ONLY when this round is invoked for you)
-- {{DISAGREEMENT_BLOCK}}
-- Issue at most 1 additional web_search call.
+- The architect will pass you the disagreement topic and the opposing position(s) in the dispatch message.
+- Re-read the RESEARCH CONTEXT for any evidence relevant to the disagreement.
 - Declare your stance explicitly using one of these keywords as the FIRST word of a paragraph:
-    MAINTAIN  — your Round 1 position holds; cite the new evidence supporting it
+    MAINTAIN  — your Round 1 position holds; cite the evidence supporting it
     CONCEDE   — the opposing position is correct; state specifically what you got wrong
     NUANCE    — both positions are partially right; state the boundary condition that distinguishes them
 - Never CONCEDE without evidence. Sycophantic capitulation degrades the council below an individual member's baseline (NSED arXiv:2601.16863).
-- Never MAINTAIN without engaging the opposing argument on its merits.
-
-================================================================
+- Never MAINTAIN without engaging the opposing argument on its merits.`, RESPONSE_FORMAT = `================================================================
 RESPONSE FORMAT (always — both rounds)
 ================================================================
 
@@ -57231,11 +57225,11 @@ Reply with a single fenced JSON block. No prose outside the block.
 
 \`\`\`json
 {
-  "memberId": "{{MEMBER_ID}}",
-  "role": "{{ROLE}}",
-  "round": {{ROUND}},
+  "memberId": "<your hardcoded memberId>",
+  "role": "<your hardcoded role>",
+  "round": 1,
   "response": "Your full answer (Round 1) or stance + reasoning (Round 2). Markdown OK inside the string.",
-  "searchQueries": ["query 1", "query 2"],
+  "searchQueries": [],
   "sources": [
     { "title": "...", "url": "...", "snippet": "...", "query": "..." }
   ],
@@ -57247,111 +57241,69 @@ Reply with a single fenced JSON block. No prose outside the block.
 }
 \`\`\`
 
-For Round 1: leave \`disagreementTopics\` as []. For Round 2: list the specific disagreement topics this response addresses.
-
-================================================================
+Notes:
+- \`searchQueries\` is optional — list queries you would have run if you had web access (the architect uses these for audit), or omit / leave empty if none.
+- \`sources\` MUST come from the RESEARCH CONTEXT only. Copy title/url/snippet/query verbatim. Never invent sources.
+- For Round 1: leave \`disagreementTopics\` as []. For Round 2: list the specific disagreement topics this response addresses.`, HARD_RULES = `================================================================
 HARD RULES
 ================================================================
-- web_search is your ONLY tool. You cannot read or write files, run commands, or delegate.
-- Never invent sources. If a search returns nothing useful, say so in \`areasOfUncertainty\`.
+- You have no tools. Reason from the provided RESEARCH CONTEXT and your training knowledge.
+- Never invent sources. If the RESEARCH CONTEXT does not cover a needed claim, say so in \`areasOfUncertainty\`.
 - Never echo other members' responses verbatim. Paraphrase or quote with attribution.
-- Stay within your role and persona. The architect chose you for a specific perspective.
+- Stay within your role and persona. The architect chose you for a specific perspective.`, GENERALIST_COUNCIL_PROMPT, SKEPTIC_COUNCIL_PROMPT, DOMAIN_EXPERT_COUNCIL_PROMPT;
+var init_council_prompts = __esm(() => {
+  GENERALIST_COUNCIL_PROMPT = `You are the GENERALIST voice on a multi-model General Council.
+
+You are the GENERALIST voice on this council. Your perspective is broad and synthesizing:
+- You reason from first principles and across disciplines.
+- You weigh competing considerations without domain bias.
+- You surface tensions between different valid approaches.
+- You are the integrating voice — you see what the specialists might miss by being too deep in their domain.
+Member ID: "council_generalist" | Role: "generalist"
+
+You are participating in a structured deliberation. Your job is to give your independent, evidence-grounded perspective — not to agree with the group.
+
+${ROUND_PROTOCOL}
+
+${RESPONSE_FORMAT}
+
+${HARD_RULES}
 `;
+  SKEPTIC_COUNCIL_PROMPT = `You are the SKEPTIC voice on a multi-model General Council.
 
-// src/agents/council-moderator.ts
-function createCouncilModeratorAgent(model, customPrompt, customAppendPrompt) {
-  let prompt = COUNCIL_MODERATOR_PROMPT;
-  if (customPrompt) {
-    prompt = customPrompt;
-  } else if (customAppendPrompt) {
-    prompt = `${COUNCIL_MODERATOR_PROMPT}
+You are the SKEPTIC voice on this council. Your job is rigorous stress-testing:
+- You challenge assumptions the other members take for granted.
+- You look for weak points, edge cases, and unstated dependencies.
+- You are NOT contrarian for its own sake — your pushback must be evidence-grounded.
+- You make the council's final answer more robust by finding what could go wrong before the user does.
+Member ID: "council_skeptic" | Role: "skeptic"
 
-${customAppendPrompt}`;
-  }
-  return {
-    name: "council_moderator",
-    description: "General Council moderator. Synthesizes a coherent final answer from member " + "responses; no web search (works on already-gathered content).",
-    config: {
-      model,
-      temperature: 0.3,
-      prompt,
-      tools: {
-        write: false,
-        edit: false,
-        patch: false
-      }
-    }
-  };
-}
-var COUNCIL_MODERATOR_PROMPT = `You are the General Council Moderator.
+You are participating in a structured deliberation. Your job is to give your independent, evidence-grounded perspective — not to agree with the group.
 
-You are receiving the structural synthesis from a multi-model council deliberation:
-- Question (and mode: general or spec_review)
-- All member Round 1 responses with sources
-- Detected disagreements
-- Round 2 deliberation responses (if any)
-- Confidence-weighted consensus claims
-- Persisting disagreements after deliberation
+${ROUND_PROTOCOL}
 
-Your job: produce a coherent, well-structured final answer for the user.
+${RESPONSE_FORMAT}
 
-================================================================
-RULES
-================================================================
-
-1. LEAD WITH CONSENSUS — open with the strongest consensus position. Use the
-   confidence-weighted ordering (Quadratic Voting): higher-confidence claims
-   from multiple members rank higher, but evidence quality outranks raw
-   confidence. Never elevate a single confident voice over a well-evidenced
-   contrary majority.
-
-2. ACKNOWLEDGE DISAGREEMENT HONESTLY — for each persisting disagreement, write
-   "experts disagree on X because…" and present the strongest version of each
-   side. Do NOT pretend disagreements are resolved when they are not. Do NOT
-   silently pick a winner.
-
-3. CITE THE STRONGEST SOURCES — link key claims with [title](url) format from
-   the deduplicated source list. Pick the most reputable source for each claim;
-   do not cite duplicates.
-
-4. BE CONCISE — the user wants an answer, not a committee report. Default
-   length: a few short paragraphs plus a bulleted summary. Expand only when
-   the question genuinely requires it.
-
-================================================================
-HARD CONSTRAINTS
-================================================================
-
-- You MUST NOT invent claims that are not present in the council's responses.
-- You MUST NOT add new web research. If something was missed, say so.
-- You MUST NOT favor a position based on member confidence alone — evidence
-  quality is the tie-breaker.
-- You have NO tools. You write the final synthesis from the input given.
-
-================================================================
-OUTPUT FORMAT
-================================================================
-
-Plain markdown. No code fences. No JSON. Suggested structure:
-
-# Answer
-
-<lead consensus position with citation(s)>
-
-<remaining consensus / context paragraphs as needed>
-
-## Where Experts Disagree
-
-- <topic 1>: <position A> vs <position B>, with sources for each
-- <topic 2>: ...
-
-## Sources
-
-- [title](url)
-- ...
-
-(Omit any section that is empty.)
+${HARD_RULES}
 `;
+  DOMAIN_EXPERT_COUNCIL_PROMPT = `You are the DOMAIN EXPERT voice on a multi-model General Council.
+
+You are the DOMAIN EXPERT voice on this council. Your perspective is technically precise:
+- You go deep where others stay broad.
+- You cite specific mechanisms, constraints, and implementation-level detail.
+- You surface edge cases and gotchas that only emerge at depth.
+- Your answers are concrete — no hand-waving, no vague recommendations.
+Member ID: "council_domain_expert" | Role: "domain_expert"
+
+You are participating in a structured deliberation. Your job is to give your independent, evidence-grounded perspective — not to agree with the group.
+
+${ROUND_PROTOCOL}
+
+${RESPONSE_FORMAT}
+
+${HARD_RULES}
+`;
+});
 
 // src/agents/critic.ts
 function parseSoundingBoardResponse(raw) {
@@ -59026,18 +58978,25 @@ If you call @coder instead of @${swarmId}_coder, the call will FAIL or go to the
     testEngineer.name = prefixName("test_engineer");
     agents.push(applyOverrides(testEngineer, swarmAgents, swarmPrefix, quiet));
   }
-  if (pluginConfig?.council?.general?.enabled === true && !isAgentDisabled("council_member", swarmAgents, swarmPrefix)) {
-    const councilMemberPrompts = getPrompts("council_member");
-    const councilMember = createCouncilMemberAgent(getModel("council_member"), councilMemberPrompts.prompt, councilMemberPrompts.appendPrompt);
-    councilMember.name = prefixName("council_member");
-    agents.push(applyOverrides(councilMember, swarmAgents, swarmPrefix, quiet));
-  }
-  if (pluginConfig?.council?.general?.enabled === true && pluginConfig?.council?.general?.moderator === true && !isAgentDisabled("council_moderator", swarmAgents, swarmPrefix)) {
-    const moderatorPrompts = getPrompts("council_moderator");
-    const moderatorModel = pluginConfig?.council?.general?.moderatorModel ?? getModel("council_moderator");
-    const councilModerator = createCouncilModeratorAgent(moderatorModel, moderatorPrompts.prompt, moderatorPrompts.appendPrompt);
-    councilModerator.name = prefixName("council_moderator");
-    agents.push(applyOverrides(councilModerator, swarmAgents, swarmPrefix, quiet));
+  if (pluginConfig?.council?.general?.enabled === true) {
+    if (!isAgentDisabled("reviewer", swarmAgents, swarmPrefix)) {
+      const councilGeneralist = createReviewerAgent(getModel("reviewer"), GENERALIST_COUNCIL_PROMPT);
+      councilGeneralist.name = prefixName("council_generalist");
+      agents.push(applyOverrides(councilGeneralist, swarmAgents, swarmPrefix, quiet));
+    }
+    if (!isAgentDisabled("critic", swarmAgents, swarmPrefix)) {
+      const councilSkeptic = createCriticAgent(getModel("critic"), SKEPTIC_COUNCIL_PROMPT);
+      councilSkeptic.name = prefixName("council_skeptic");
+      agents.push(applyOverrides(councilSkeptic, swarmAgents, swarmPrefix, quiet));
+    }
+    if (!isAgentDisabled("sme", swarmAgents, swarmPrefix)) {
+      const councilDomainExpert = createSMEAgent(getModel("sme"), DOMAIN_EXPERT_COUNCIL_PROMPT);
+      councilDomainExpert.name = prefixName("council_domain_expert");
+      agents.push(applyOverrides(councilDomainExpert, swarmAgents, swarmPrefix, quiet));
+    }
+    if (pluginConfig?.council?.general?.moderatorModel !== undefined) {
+      addDeferredWarning("[opencode-swarm] council.general.moderatorModel is deprecated and ignored. The architect now synthesizes the final answer directly using inline output rules. Remove this field (and council.general.moderator if set) from opencode-swarm.json to silence this warning.");
+    }
   }
   if (!isAgentDisabled("docs", swarmAgents, swarmPrefix)) {
     const docsPrompts = getPrompts("docs");
@@ -59173,9 +59132,11 @@ var init_agents2 = __esm(() => {
   init_schema();
   init_warning_buffer();
   init_architect();
+  init_council_prompts();
   init_curator_agent();
   init_reviewer();
   init_architect();
+  init_council_prompts();
   init_curator_agent();
   init_reviewer();
   warnedAgents = new Set;
@@ -75789,12 +75750,7 @@ function pushGeneralCouncilAdvisory(session, result) {
 ${body2}`);
 }
 function renderAdvisoryBody(result) {
-  const parts2 = [result.synthesis];
-  if (result.moderatorOutput && result.moderatorOutput.trim().length > 0) {
-    parts2.push("", "### Moderator Output", result.moderatorOutput);
-  }
-  return parts2.join(`
-`).trim();
+  return result.synthesis.trim();
 }
 
 // src/council/disagreement-detector.ts
@@ -76120,23 +76076,8 @@ var ArgsSchema2 = exports_external.object({
   round2Responses: exports_external.array(Round2ResponseSchema).optional(),
   working_directory: exports_external.string().optional()
 });
-function buildModeratorPrompt(question, synthesis) {
-  return [
-    "A multi-model council has deliberated on the following question. Your job is to synthesize",
-    "the council output into a single coherent answer for the user, following the rules in your",
-    "system prompt (lead with consensus, acknowledge persisting disagreement honestly, cite the",
-    "strongest sources, be concise, do not invent claims, do not run new searches).",
-    "",
-    `QUESTION:
-${question}`,
-    "",
-    "COUNCIL OUTPUT:",
-    synthesis
-  ].join(`
-`);
-}
 var convene_general_council = createSwarmTool({
-  description: "Synthesize responses from a multi-model General Council. Accepts parallel member " + "responses (Round 1, optionally Round 2), detects disagreements, and returns " + "consensus points, persisting disagreements, a structured synthesis, and an optional " + "moderator prompt. Architect-only. Config-gated on council.general.enabled.",
+  description: "Synthesize responses from a multi-model General Council. Accepts parallel member " + "responses (Round 1, optionally Round 2), detects disagreements, and returns " + "consensus points, persisting disagreements, and a structured synthesis. " + "Architect-only. Config-gated on council.general.enabled.",
   args: {
     question: exports_external.string().min(1).max(8000).describe("The question put to the council, or the spec text to review."),
     mode: exports_external.enum(["general", "spec_review"]).optional().describe('"general" for /swarm council; "spec_review" for SPECIFY-COUNCIL-REVIEW gate.'),
@@ -76242,7 +76183,6 @@ var convene_general_council = createSwarmTool({
         }
       }
     } catch {}
-    const moderatorPrompt = generalConfig.moderator === true ? buildModeratorPrompt(input.question, result.synthesis) : undefined;
     const ok = {
       success: true,
       question: input.question,
@@ -76253,7 +76193,6 @@ var convene_general_council = createSwarmTool({
       persistingDisagreements: result.persistingDisagreements,
       allSourcesCount: result.allSources.length,
       synthesis: result.synthesis,
-      ...moderatorPrompt !== undefined && { moderatorPrompt },
       evidencePath
     };
     return JSON.stringify(ok, null, 2);
@@ -89172,7 +89111,7 @@ var ArgsSchema4 = exports_external.object({
   working_directory: exports_external.string().optional()
 });
 var web_search = createSwarmTool({
-  description: "External web search for council member agents. Returns titled results with snippets and URLs. " + "Restricted to council_member agents via AGENT_TOOL_MAP. Requires council.general.enabled and a " + "configured search API key (Tavily or Brave). max_results is capped at 10 with default from council.general.maxSourcesPerMember.",
+  description: "External web search for architect-driven council research. Returns titled results with snippets and URLs. " + "Used by the architect in MODE: COUNCIL to gather a RESEARCH CONTEXT before dispatching council agents. " + "Requires council.general.enabled and a configured search API key (Tavily or Brave). max_results is capped at 10 with default from council.general.maxSourcesPerMember.",
   args: {
     query: exports_external.string().min(1).max(500).describe("Search query string (1–500 characters)."),
     max_results: exports_external.number().int().min(1).max(20).optional().describe(`Number of results to request (1–20). Hard-capped at ${MAX_RESULTS_HARD_CAP}. Defaults to council.general.maxSourcesPerMember.`),
@@ -90141,7 +90080,7 @@ async function initializeOpenCodeSwarm(ctx) {
         ...opencodeConfig.command || {},
         swarm: {
           template: "/swarm $ARGUMENTS",
-          description: "Swarm management commands: /swarm [status|plan|agents|history|config|evidence|handoff|archive|diagnose|diagnosis|preflight|sync-plan|benchmark|export|reset|rollback|retrieve|clarify|analyze|specify|brainstorm|qa-gates|dark-matter|knowledge|curate|turbo|full-auto|write-retro|reset-session|simulate|promote|checkpoint|acknowledge-spec-drift|doctor-tools|close]"
+          description: "Swarm management commands: /swarm [status|plan|agents|history|config|evidence|handoff|archive|diagnose|diagnosis|preflight|sync-plan|benchmark|export|reset|rollback|retrieve|clarify|analyze|specify|brainstorm|council|qa-gates|dark-matter|knowledge|curate|turbo|full-auto|write-retro|reset-session|simulate|promote|checkpoint|acknowledge-spec-drift|doctor-tools|close]"
         },
         "swarm-status": {
           template: "/swarm status",
@@ -90226,6 +90165,10 @@ async function initializeOpenCodeSwarm(ctx) {
         "swarm-brainstorm": {
           template: "/swarm brainstorm $ARGUMENTS",
           description: "Use /swarm brainstorm to enter the architect MODE: BRAINSTORM planning workflow"
+        },
+        "swarm-council": {
+          template: "/swarm council $ARGUMENTS",
+          description: "Use /swarm council <question> to convene a multi-model General Council deliberation (generalist / skeptic / domain expert) [--spec-review]"
         },
         "swarm-qa-gates": {
           template: "/swarm qa-gates $ARGUMENTS",

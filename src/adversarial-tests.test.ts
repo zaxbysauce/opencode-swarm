@@ -103,7 +103,11 @@ describe('ADVERSARIAL: constants.architect-whitelist', () => {
 		});
 
 		it('all roles should have at least 1 tool (except synthesis-only roles)', () => {
-			const synthesisOnlyRoles = new Set(['council_moderator']);
+			const synthesisOnlyRoles = new Set([
+				'council_generalist',
+				'council_skeptic',
+				'council_domain_expert',
+			]);
 			for (const [role, tools] of Object.entries(AGENT_TOOL_MAP)) {
 				if (synthesisOnlyRoles.has(role)) {
 					// Synthesis-only roles may have no tools

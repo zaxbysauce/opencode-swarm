@@ -774,7 +774,7 @@ async function initializeOpenCodeSwarm(ctx: Parameters<Plugin>[0]) {
 					// The actual command is handled by command.execute.before hook.
 					template: '/swarm $ARGUMENTS',
 					description:
-						'Swarm management commands: /swarm [status|plan|agents|history|config|evidence|handoff|archive|diagnose|diagnosis|preflight|sync-plan|benchmark|export|reset|rollback|retrieve|clarify|analyze|specify|brainstorm|qa-gates|dark-matter|knowledge|curate|turbo|full-auto|write-retro|reset-session|simulate|promote|checkpoint|acknowledge-spec-drift|doctor-tools|close]',
+						'Swarm management commands: /swarm [status|plan|agents|history|config|evidence|handoff|archive|diagnose|diagnosis|preflight|sync-plan|benchmark|export|reset|rollback|retrieve|clarify|analyze|specify|brainstorm|council|qa-gates|dark-matter|knowledge|curate|turbo|full-auto|write-retro|reset-session|simulate|promote|checkpoint|acknowledge-spec-drift|doctor-tools|close]',
 				},
 				// Individual subcommands for discoverability by weaker models (Haiku-class)
 				'swarm-status': {
@@ -874,6 +874,11 @@ async function initializeOpenCodeSwarm(ctx: Parameters<Plugin>[0]) {
 					template: '/swarm brainstorm $ARGUMENTS',
 					description:
 						'Use /swarm brainstorm to enter the architect MODE: BRAINSTORM planning workflow',
+				},
+				'swarm-council': {
+					template: '/swarm council $ARGUMENTS',
+					description:
+						'Use /swarm council <question> to convene a multi-model General Council deliberation (generalist / skeptic / domain expert) [--spec-review]',
 				},
 				'swarm-qa-gates': {
 					template: '/swarm qa-gates $ARGUMENTS',

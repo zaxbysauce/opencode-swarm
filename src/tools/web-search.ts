@@ -1,5 +1,5 @@
 /**
- * web_search tool — restricted to council_member agents.
+ * web_search tool — owned by the architect for MODE: COUNCIL pre-search.
  *
  * Thin wrapper around `src/council/web-search-provider.ts`. Returns structured
  * results on success and structured errors on failure (never throws). Config-
@@ -44,9 +44,9 @@ interface WebSearchFail {
 
 export const web_search: ReturnType<typeof tool> = createSwarmTool({
 	description:
-		'External web search for council member agents. Returns titled results with snippets and URLs. ' +
-		'Restricted to council_member agents via AGENT_TOOL_MAP. Requires council.general.enabled and a ' +
-		'configured search API key (Tavily or Brave). max_results is capped at 10 with default from council.general.maxSourcesPerMember.',
+		'External web search for architect-driven council research. Returns titled results with snippets and URLs. ' +
+		'Used by the architect in MODE: COUNCIL to gather a RESEARCH CONTEXT before dispatching council agents. ' +
+		'Requires council.general.enabled and a configured search API key (Tavily or Brave). max_results is capped at 10 with default from council.general.maxSourcesPerMember.',
 	args: {
 		query: z
 			.string()

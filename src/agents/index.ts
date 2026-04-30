@@ -11,8 +11,11 @@ import { stripKnownSwarmPrefix } from '../config/schema';
 import { addDeferredWarning } from '../services/warning-buffer.js';
 import { type AgentDefinition, createArchitectAgent } from './architect';
 import { createCoderAgent } from './coder';
-import { createCouncilMemberAgent } from './council-member';
-import { createCouncilModeratorAgent } from './council-moderator';
+import {
+	DOMAIN_EXPERT_COUNCIL_PROMPT,
+	GENERALIST_COUNCIL_PROMPT,
+	SKEPTIC_COUNCIL_PROMPT,
+} from './council-prompts';
 import {
 	type CriticRole,
 	createCriticAgent,
@@ -479,43 +482,68 @@ If you call @coder instead of @${swarmId}_coder, the call will FAIL or go to the
 		agents.push(applyOverrides(testEngineer, swarmAgents, swarmPrefix, quiet));
 	}
 
-	// 5f. General Council member (opt-in — only when council.general.enabled === true)
-	if (
-		pluginConfig?.council?.general?.enabled === true &&
-		!isAgentDisabled('council_member', swarmAgents, swarmPrefix)
-	) {
-		const councilMemberPrompts = getPrompts('council_member');
-		const councilMember = createCouncilMemberAgent(
-			getModel('council_member'),
-			councilMemberPrompts.prompt,
-			councilMemberPrompts.appendPrompt,
-		);
-		councilMember.name = prefixName('council_member');
-		agents.push(applyOverrides(councilMember, swarmAgents, swarmPrefix, quiet));
-	}
+	// 5f. General Council agents (opt-in — council.general.enabled === true).
+	// Three agents registered with council-specific prompts sourcing models from
+	// reviewer/critic/sme swarm config entries — fixing the model resolution bug
+	// where council_member always fell back to DEFAULT_MODELS.council_member.
+	// Persona mapping: generalist → reviewer model, skeptic → critic model,
+	// domain_expert → SME model. Web search is owned by the architect (a single
+	// pre-search pass), and synthesis is the architect's responsibility — the
+	// dedicated council_moderator agent has been removed.
+	if (pluginConfig?.council?.general?.enabled === true) {
+		// Generalist council agent (broad analytical voice) — uses reviewer model.
+		if (!isAgentDisabled('reviewer', swarmAgents, swarmPrefix)) {
+			const councilGeneralist = createReviewerAgent(
+				getModel('reviewer'),
+				GENERALIST_COUNCIL_PROMPT,
+			);
+			councilGeneralist.name = prefixName('council_generalist');
+			agents.push(
+				applyOverrides(councilGeneralist, swarmAgents, swarmPrefix, quiet),
+			);
+		}
 
-	// 5g. General Council moderator (opt-in — only when council.general.enabled
-	// AND council.general.moderator are both true; moderatorModel optional but
-	// recommended). The moderator has no tools — it synthesizes already-gathered
-	// member content.
-	if (
-		pluginConfig?.council?.general?.enabled === true &&
-		pluginConfig?.council?.general?.moderator === true &&
-		!isAgentDisabled('council_moderator', swarmAgents, swarmPrefix)
-	) {
-		const moderatorPrompts = getPrompts('council_moderator');
-		const moderatorModel =
-			pluginConfig?.council?.general?.moderatorModel ??
-			getModel('council_moderator');
-		const councilModerator = createCouncilModeratorAgent(
-			moderatorModel,
-			moderatorPrompts.prompt,
-			moderatorPrompts.appendPrompt,
-		);
-		councilModerator.name = prefixName('council_moderator');
-		agents.push(
-			applyOverrides(councilModerator, swarmAgents, swarmPrefix, quiet),
-		);
+		// Skeptic council agent (adversarial stress-tester) — uses critic model.
+		if (!isAgentDisabled('critic', swarmAgents, swarmPrefix)) {
+			const councilSkeptic = createCriticAgent(
+				getModel('critic'),
+				SKEPTIC_COUNCIL_PROMPT,
+			);
+			councilSkeptic.name = prefixName('council_skeptic');
+			agents.push(
+				applyOverrides(councilSkeptic, swarmAgents, swarmPrefix, quiet),
+			);
+		}
+
+		// Domain expert council agent (technical depth voice) — uses SME model.
+		if (!isAgentDisabled('sme', swarmAgents, swarmPrefix)) {
+			const councilDomainExpert = createSMEAgent(
+				getModel('sme'),
+				DOMAIN_EXPERT_COUNCIL_PROMPT,
+			);
+			councilDomainExpert.name = prefixName('council_domain_expert');
+			agents.push(
+				applyOverrides(councilDomainExpert, swarmAgents, swarmPrefix, quiet),
+			);
+		}
+
+		// Deprecation: the dedicated council_moderator agent and the
+		// council.general.moderator / council.general.moderatorModel config
+		// fields are no longer honored. The architect now synthesizes the final
+		// answer directly using inline output rules. Surface a one-time warning
+		// when the user's config still requests the old moderator pass so the
+		// drift is visible instead of silent.
+		//
+		// We only check `moderatorModel` (no schema default, so its presence
+		// implies explicit user intent). The `moderator` field has a schema
+		// default of `true`, so checking it post-parse cannot distinguish
+		// "user explicitly opted in" from "user accepted the default" — which
+		// would fire the warning for every council user, defeating its purpose.
+		if (pluginConfig?.council?.general?.moderatorModel !== undefined) {
+			addDeferredWarning(
+				'[opencode-swarm] council.general.moderatorModel is deprecated and ignored. The architect now synthesizes the final answer directly using inline output rules. Remove this field (and council.general.moderator if set) from opencode-swarm.json to silence this warning.',
+			);
+		}
 	}
 
 	// 8. Create Docs agent (enabled by default — must be explicitly disabled)
@@ -777,8 +805,11 @@ export function getAgentConfigs(
 // Re-export agent types
 export { createArchitectAgent } from './architect';
 export { createCoderAgent } from './coder';
-export { createCouncilMemberAgent } from './council-member';
-export { createCouncilModeratorAgent } from './council-moderator';
+export {
+	DOMAIN_EXPERT_COUNCIL_PROMPT,
+	GENERALIST_COUNCIL_PROMPT,
+	SKEPTIC_COUNCIL_PROMPT,
+} from './council-prompts';
 export { createCriticAgent } from './critic';
 export { createCuratorAgent } from './curator-agent';
 export { createDesignerAgent } from './designer';

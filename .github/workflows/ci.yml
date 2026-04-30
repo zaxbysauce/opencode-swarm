@@ -6,6 +6,13 @@ on:
   pull_request:
     branches: ["**"]
 
+# Cancel in-progress runs for the same branch when a new push arrives.
+# Groups push and pull_request events for the same branch together so only
+# one run proceeds at a time, preventing double-run dist-check interference.
+concurrency:
+  group: ${{ github.workflow }}-${{ github.head_ref || github.ref_name }}
+  cancel-in-progress: true
+
 permissions:
   contents: read
 

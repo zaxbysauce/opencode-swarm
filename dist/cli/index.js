@@ -18599,7 +18599,7 @@ import * as path34 from "path";
 // package.json
 var package_default = {
   name: "opencode-swarm",
-  version: "7.0.0",
+  version: "7.0.1",
   description: "Architect-centric agentic swarm plugin for OpenCode - hub-and-spoke orchestration with SME consultation, code generation, and QA review",
   main: "dist/index.js",
   types: "dist/index.d.ts",
@@ -18817,8 +18817,9 @@ var ALL_SUBAGENT_NAMES = [
   "critic_hallucination_verifier",
   "curator_init",
   "curator_phase",
-  "council_member",
-  "council_moderator",
+  "council_generalist",
+  "council_skeptic",
+  "council_domain_expert",
   ...QA_AGENTS,
   ...PIPELINE_AGENTS
 ];
@@ -18891,7 +18892,8 @@ var AGENT_TOOL_MAP = {
     "repo_map",
     "get_qa_gate_profile",
     "set_qa_gates",
-    "convene_general_council"
+    "convene_general_council",
+    "web_search"
   ],
   explorer: [
     "complexity_hotspots",
@@ -19042,8 +19044,9 @@ var AGENT_TOOL_MAP = {
   ],
   curator_init: ["knowledge_recall"],
   curator_phase: ["knowledge_recall"],
-  council_member: ["web_search"],
-  council_moderator: []
+  council_generalist: [],
+  council_skeptic: [],
+  council_domain_expert: []
 };
 for (const [agentName, tools] of Object.entries(AGENT_TOOL_MAP)) {
   const invalidTools = tools.filter((tool) => !TOOL_NAME_SET.has(tool));
@@ -20501,6 +20504,115 @@ var DeltaSpecSchema = exports_external.union([
 ]);
 // src/services/warning-buffer.ts
 var deferredWarnings = [];
+
+// src/agents/council-prompts.ts
+var ROUND_PROTOCOL = `================================================================
+ROUND PROTOCOL
+================================================================
+
+ROUND 1 \u2014 Independent Analysis and Answer
+- Use the RESEARCH CONTEXT block provided by the architect in your dispatch message as your external evidence source. The architect has already gathered the relevant web search results.
+- Cite EVERY factual claim that depends on external evidence with a source from the RESEARCH CONTEXT (use the title and URL exactly as given).
+- State your confidence (0.0\u20131.0) explicitly. Be honest \u2014 overconfident answers hurt the council.
+- Enumerate areas of uncertainty so the architect knows where you're guessing vs. where you're sure.
+- Do NOT coordinate with other members. You will not see their responses until Round 2.
+- Do NOT pad. Be concise. Substance over volume.
+
+ROUND 2 \u2014 Targeted Deliberation (ONLY when this round is invoked for you)
+- The architect will pass you the disagreement topic and the opposing position(s) in the dispatch message.
+- Re-read the RESEARCH CONTEXT for any evidence relevant to the disagreement.
+- Declare your stance explicitly using one of these keywords as the FIRST word of a paragraph:
+    MAINTAIN  \u2014 your Round 1 position holds; cite the evidence supporting it
+    CONCEDE   \u2014 the opposing position is correct; state specifically what you got wrong
+    NUANCE    \u2014 both positions are partially right; state the boundary condition that distinguishes them
+- Never CONCEDE without evidence. Sycophantic capitulation degrades the council below an individual member's baseline (NSED arXiv:2601.16863).
+- Never MAINTAIN without engaging the opposing argument on its merits.`;
+var RESPONSE_FORMAT = `================================================================
+RESPONSE FORMAT (always \u2014 both rounds)
+================================================================
+
+Reply with a single fenced JSON block. No prose outside the block.
+
+\`\`\`json
+{
+  "memberId": "<your hardcoded memberId>",
+  "role": "<your hardcoded role>",
+  "round": 1,
+  "response": "Your full answer (Round 1) or stance + reasoning (Round 2). Markdown OK inside the string.",
+  "searchQueries": [],
+  "sources": [
+    { "title": "...", "url": "...", "snippet": "...", "query": "..." }
+  ],
+  "confidence": 0.85,
+  "areasOfUncertainty": [
+    "What I'm not sure about, in plain language."
+  ],
+  "disagreementTopics": []
+}
+\`\`\`
+
+Notes:
+- \`searchQueries\` is optional \u2014 list queries you would have run if you had web access (the architect uses these for audit), or omit / leave empty if none.
+- \`sources\` MUST come from the RESEARCH CONTEXT only. Copy title/url/snippet/query verbatim. Never invent sources.
+- For Round 1: leave \`disagreementTopics\` as []. For Round 2: list the specific disagreement topics this response addresses.`;
+var HARD_RULES = `================================================================
+HARD RULES
+================================================================
+- You have no tools. Reason from the provided RESEARCH CONTEXT and your training knowledge.
+- Never invent sources. If the RESEARCH CONTEXT does not cover a needed claim, say so in \`areasOfUncertainty\`.
+- Never echo other members' responses verbatim. Paraphrase or quote with attribution.
+- Stay within your role and persona. The architect chose you for a specific perspective.`;
+var GENERALIST_COUNCIL_PROMPT = `You are the GENERALIST voice on a multi-model General Council.
+
+You are the GENERALIST voice on this council. Your perspective is broad and synthesizing:
+- You reason from first principles and across disciplines.
+- You weigh competing considerations without domain bias.
+- You surface tensions between different valid approaches.
+- You are the integrating voice \u2014 you see what the specialists might miss by being too deep in their domain.
+Member ID: "council_generalist" | Role: "generalist"
+
+You are participating in a structured deliberation. Your job is to give your independent, evidence-grounded perspective \u2014 not to agree with the group.
+
+${ROUND_PROTOCOL}
+
+${RESPONSE_FORMAT}
+
+${HARD_RULES}
+`;
+var SKEPTIC_COUNCIL_PROMPT = `You are the SKEPTIC voice on a multi-model General Council.
+
+You are the SKEPTIC voice on this council. Your job is rigorous stress-testing:
+- You challenge assumptions the other members take for granted.
+- You look for weak points, edge cases, and unstated dependencies.
+- You are NOT contrarian for its own sake \u2014 your pushback must be evidence-grounded.
+- You make the council's final answer more robust by finding what could go wrong before the user does.
+Member ID: "council_skeptic" | Role: "skeptic"
+
+You are participating in a structured deliberation. Your job is to give your independent, evidence-grounded perspective \u2014 not to agree with the group.
+
+${ROUND_PROTOCOL}
+
+${RESPONSE_FORMAT}
+
+${HARD_RULES}
+`;
+var DOMAIN_EXPERT_COUNCIL_PROMPT = `You are the DOMAIN EXPERT voice on a multi-model General Council.
+
+You are the DOMAIN EXPERT voice on this council. Your perspective is technically precise:
+- You go deep where others stay broad.
+- You cite specific mechanisms, constraints, and implementation-level detail.
+- You surface edge cases and gotchas that only emerge at depth.
+- Your answers are concrete \u2014 no hand-waving, no vague recommendations.
+Member ID: "council_domain_expert" | Role: "domain_expert"
+
+You are participating in a structured deliberation. Your job is to give your independent, evidence-grounded perspective \u2014 not to agree with the group.
+
+${ROUND_PROTOCOL}
+
+${RESPONSE_FORMAT}
+
+${HARD_RULES}
+`;
 
 // src/agents/index.ts
 var warnedAgents = new Set;
@@ -35359,7 +35471,7 @@ async function handleCloseCommand(directory, args) {
   try {
     const evidenceDir = path12.join(swarmDir, "evidence");
     const evidenceEntries = await fs7.readdir(evidenceDir);
-    const retroDirs = evidenceEntries.filter((e) => e.startsWith("retro-"));
+    const retroDirs = evidenceEntries.filter((e) => e.startsWith("retro-")).sort((a, b) => a.localeCompare(b, undefined, { numeric: true }));
     for (const retroDir of retroDirs) {
       const evidencePath = path12.join(evidenceDir, retroDir, "evidence.json");
       try {
@@ -40572,6 +40684,13 @@ function parseGitRemoteUrl2(remoteUrl) {
     return {
       owner: sshMatch[1],
       repo: sshMatch[2].replace(/\.git$/, "")
+    };
+  }
+  const pathMatch = remoteUrl.match(/\/([^/]+)\/([^/]+?)(?:\.git)?\/?$/);
+  if (pathMatch) {
+    return {
+      owner: pathMatch[1],
+      repo: pathMatch[2].replace(/\.git$/, "")
     };
   }
   return null;
@@ -45964,9 +46083,9 @@ var COMMAND_REGISTRY = {
   },
   council: {
     handler: (ctx) => handleCouncilCommand(ctx.directory, ctx.args),
-    description: "Enter architect MODE: COUNCIL \u2014 multi-model deliberation [question] [--preset <name>] [--spec-review]",
-    args: "<question> [--preset <name>] [--spec-review]",
-    details: "Triggers the architect to convene a configurable General Council: each member independently web-searches, answers, and engages in one structured deliberation round on disagreements; an optional moderator pass synthesizes the final answer. --preset <name> selects a member group from council.general.presets. --spec-review switches to single-pass advisory mode for spec review. Requires council.general.enabled: true and a search API key in opencode-swarm.json."
+    description: "Enter architect MODE: COUNCIL \u2014 multi-model deliberation [question] [--spec-review]",
+    args: "<question> [--spec-review]",
+    details: "Triggers the architect to convene a three-agent General Council: " + "Generalist (reviewer model), Skeptic (critic model), and Domain Expert (SME model). " + "The architect first runs 1\u20133 targeted web searches and passes a compiled RESEARCH CONTEXT " + "to all three agents before dispatching them in parallel. " + "Agents deliberate using the NSED peer-review protocol (Round 1 independent analysis, " + "Round 2 MAINTAIN/CONCEDE/NUANCE for disagreements). " + "The architect synthesizes the final answer directly from convene_general_council output. " + "--spec-review switches to single-pass advisory mode for spec review. " + "Requires council.general.enabled: true and a search API key in opencode-swarm.json."
   },
   "pr-review": {
     handler: async (ctx) => handlePrReviewCommand(ctx.directory, ctx.args),
@@ -46289,14 +46408,6 @@ async function install() {
           fallback_models: ["opencode/big-pickle"]
         },
         curator_phase: {
-          model: "opencode/gpt-5-nano",
-          fallback_models: ["opencode/big-pickle"]
-        },
-        council_member: {
-          model: "opencode/gpt-5-nano",
-          fallback_models: ["opencode/big-pickle"]
-        },
-        council_moderator: {
           model: "opencode/gpt-5-nano",
           fallback_models: ["opencode/big-pickle"]
         }

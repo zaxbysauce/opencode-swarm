@@ -115,7 +115,11 @@ describe('AGENT_TOOL_MAP.architect whitelist verification', () => {
 		});
 
 		it('each role should have at least one tool (except synthesis-only roles)', () => {
-			const synthesisOnlyRoles = new Set(['council_moderator']);
+			const synthesisOnlyRoles = new Set([
+				'council_generalist',
+				'council_skeptic',
+				'council_domain_expert',
+			]);
 			Object.entries(AGENT_TOOL_MAP).forEach(([role, tools]) => {
 				if (synthesisOnlyRoles.has(role)) {
 					// Synthesis-only roles may have no tools (they aggregate/write from existing data)
