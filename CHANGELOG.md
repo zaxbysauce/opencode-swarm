@@ -1,5 +1,12 @@
 # Changelog
 
+## [7.0.1](https://github.com/zaxbysauce/opencode-swarm/compare/v7.0.0...v7.0.1) (2026-04-30)
+
+
+### Bug Fixes
+
+* **#583,#698:** confine SWARM_PLAN to .swarm/, prevent spiral commits, fix update across platforms ([#700](https://github.com/zaxbysauce/opencode-swarm/issues/700)) ([c371c26](https://github.com/zaxbysauce/opencode-swarm/commit/c371c26f9b4976fe1a87cb24739ffd60fd156123))
+
 ## [7.0.0](https://github.com/zaxbysauce/opencode-swarm/compare/v6.86.14...v7.0.0) (2026-04-29)
 
 
