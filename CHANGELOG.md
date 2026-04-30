@@ -1,5 +1,12 @@
 # Changelog
 
+## [7.1.1](https://github.com/zaxbysauce/opencode-swarm/compare/v7.1.0...v7.1.1) (2026-04-30)
+
+
+### Bug Fixes
+
+* suppress knowledge-injector headroom warning from chat UI ([#715](https://github.com/zaxbysauce/opencode-swarm/issues/715)) ([db63336](https://github.com/zaxbysauce/opencode-swarm/commit/db633360573e34d0698d77702fb0a7bacb8aacd0))
+
 ## [7.1.0](https://github.com/zaxbysauce/opencode-swarm/compare/v7.0.3...v7.1.0) (2026-04-30)
 
 
