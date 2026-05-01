@@ -368,7 +368,10 @@ export declare function recordPhaseAgentDispatch(sessionId: string, agentName: s
  * @param taskId - The task identifier
  * @param newState - The requested new state
  */
-export declare function advanceTaskState(session: AgentSessionState, taskId: string, newState: TaskWorkflowState, councilConfig?: {
+export declare function advanceTaskState(session: AgentSessionState, taskId: string, newState: TaskWorkflowState, options?: {
+    telemetrySessionId?: string;
+    emitTelemetry?: boolean;
+}, councilConfig?: {
     minimumMembers?: number;
     requireAllMembers?: boolean;
 }): void;
@@ -389,7 +392,10 @@ export declare function advanceTaskState(session: AgentSessionState, taskId: str
  * not break the in-memory state machine — matches the existing defensive
  * pattern around advanceTaskState call sites.
  */
-export declare function advanceTaskStateAndPersist(session: AgentSessionState, taskId: string, newState: TaskWorkflowState, directory: string, councilConfig?: {
+export declare function advanceTaskStateAndPersist(session: AgentSessionState, taskId: string, newState: TaskWorkflowState, directory: string, options?: {
+    telemetrySessionId?: string;
+    emitTelemetry?: boolean;
+}, councilConfig?: {
     minimumMembers?: number;
     requireAllMembers?: boolean;
 }): Promise<void>;

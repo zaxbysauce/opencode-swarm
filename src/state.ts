@@ -921,6 +921,10 @@ export function advanceTaskState(
 	session: AgentSessionState,
 	taskId: string,
 	newState: TaskWorkflowState,
+	options?: {
+		telemetrySessionId?: string;
+		emitTelemetry?: boolean;
+	},
 	councilConfig?: { minimumMembers?: number; requireAllMembers?: boolean },
 ): void {
 	// Guard against invalid taskId - safely return without mutating state
@@ -983,7 +987,14 @@ export function advanceTaskState(
 	}
 
 	session.taskWorkflowStates.set(taskId, newState);
-	telemetry.taskStateChanged(session.agentName, taskId, newState, current);
+	if (options?.emitTelemetry !== false) {
+		telemetry.taskStateChanged(
+			options?.telemetrySessionId ?? session.agentName,
+			taskId,
+			newState,
+			current,
+		);
+	}
 }
 
 /**
@@ -1008,9 +1019,13 @@ export async function advanceTaskStateAndPersist(
 	taskId: string,
 	newState: TaskWorkflowState,
 	directory: string,
+	options?: {
+		telemetrySessionId?: string;
+		emitTelemetry?: boolean;
+	},
 	councilConfig?: { minimumMembers?: number; requireAllMembers?: boolean },
 ): Promise<void> {
-	advanceTaskState(session, taskId, newState, councilConfig);
+	advanceTaskState(session, taskId, newState, options, councilConfig);
 
 	if (newState !== 'coder_delegated' && newState !== 'complete') {
 		return;
