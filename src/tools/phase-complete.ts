@@ -1203,11 +1203,11 @@ export async function executePhaseComplete(
 									status: 'blocked' as const,
 									reason: 'PHASE_COUNCIL_REQUIRED',
 									phase_council_required: true,
-									message: `Phase ${phase} cannot be completed: council_mode is enabled and phase council evidence not found at .swarm/evidence/${phase}/phase-council.json. Convene a phase-level council (dispatch 5 members, collect verdicts, call submit_council_verdicts) before completing the phase.`,
+									message: `Phase ${phase} cannot be completed: council_mode is enabled and phase council evidence not found at .swarm/evidence/${phase}/phase-council.json. Convene a phase-level council (dispatch 5 members, collect verdicts, call submit_phase_council_verdicts) before completing the phase.`,
 									agentsDispatched,
 									agentsMissing: [],
 									warnings: [
-										`Phase council required — convene 5 council members (critic, reviewer, sme, test_engineer, explorer) for holistic phase review. Call submit_council_verdicts to synthesize verdicts and write phase-council.json evidence.`,
+										`Phase council required — convene 5 council members (critic, reviewer, sme, test_engineer, explorer) for holistic phase review. Call submit_phase_council_verdicts to synthesize verdicts and write phase-council.json evidence.`,
 									],
 								},
 								null,

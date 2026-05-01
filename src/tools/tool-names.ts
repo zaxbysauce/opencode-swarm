@@ -24,6 +24,7 @@ export type ToolName =
 	| 'check_gate_status'
 	| 'completion_verify'
 	| 'submit_council_verdicts'
+	| 'submit_phase_council_verdicts'
 	| 'declare_council_criteria'
 	| 'sbom_generate'
 	| 'checkpoint'
@@ -85,6 +86,7 @@ export const TOOL_NAMES: readonly ToolName[] = [
 	'check_gate_status',
 	'completion_verify',
 	'submit_council_verdicts',
+	'submit_phase_council_verdicts',
 	'declare_council_criteria',
 	'sbom_generate',
 	'checkpoint',
