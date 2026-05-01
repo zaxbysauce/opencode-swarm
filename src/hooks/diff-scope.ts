@@ -115,11 +115,17 @@ export async function validateDiffScope(
 		const changedFiles = await getChangedFiles(directory);
 		if (!changedFiles) return null; // git unavailable — skip
 
+		// Filter .swarm/ runtime paths — tracked .swarm files must not produce
+		// spurious scope warnings in QA review. .swarm/ is always local runtime state.
+		const nonSwarmFiles = changedFiles.filter(
+			(f) => !f.replace(/\\/g, '/').startsWith('.swarm/'),
+		);
+
 		// Normalise paths for comparison (forward slashes, no leading ./)
 		const normalise = (p: string) => p.replace(/\\/g, '/').replace(/^\.\//, '');
 
 		const normScope = new Set(declaredScope.map(normalise));
-		const undeclared = changedFiles
+		const undeclared = nonSwarmFiles
 			.map(normalise)
 			.filter((f) => !normScope.has(f));
 

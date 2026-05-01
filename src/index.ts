@@ -1,4 +1,3 @@
-import * as fs from 'node:fs';
 import * as path from 'node:path';
 import type { Plugin } from '@opencode-ai/plugin';
 import packageJson from '../package.json' with { type: 'json' };
@@ -137,7 +136,7 @@ import {
 	write_retro,
 } from './tools';
 import { log } from './utils';
-import { warnIfSwarmNotGitignored } from './utils/gitignore-warning';
+import { ensureSwarmGitExcluded } from './utils/gitignore-warning';
 import { withTimeout } from './utils/timeout';
 import { truncateToolOutput } from './utils/tool-output';
 
@@ -302,13 +301,22 @@ async function initializeOpenCodeSwarm(ctx: Parameters<Plugin>[0]) {
 			.finally(() => clearTimeout(watchdog));
 	});
 
+	// Protect .swarm/ from Git before any write. Uses git CLI so worktrees and
+	// submodules (where .git is a file, not a directory) are handled correctly.
+	// The await is intentional: the exclude write must complete before the writes
+	// below create .swarm/ artifacts. The git subprocess calls finish in <50ms.
+	// Note: repoGraphHook.init() is queued via queueMicrotask above and begins
+	// its async workspace scan during this await, but writes .swarm/repo-graph.json
+	// only after a slow directory traversal — in practice the exclude write
+	// completes first. This ordering gap is accepted as non-critical.
+	await ensureSwarmGitExcluded(ctx.directory, { quiet: config.quiet });
+
 	// Side tasks moved AFTER the repo-graph dispatch so the deferred init
 	// is queued first. Each is small and scoped to `<ctx.directory>/.swarm/`
 	// or `<ctx.directory>/.opencode/`, so none risks a home-tree scan.
 	initTelemetry(ctx.directory);
 	writeSwarmConfigExampleIfNew(ctx.directory);
 	writeProjectConfigIfNew(ctx.directory, config.quiet);
-	warnIfSwarmNotGitignored(ctx.directory, config.quiet);
 	// Background staleness check against npm. Detached, never blocks init,
 	// throttled to 24h on disk. See services/version-check.ts (issue #675).
 	if (config.version_check !== false) {

@@ -80,7 +80,7 @@ export function createAgentActivityHooks(
 			const explicitSuccess =
 				typeof output.success === 'boolean' ? output.success : undefined;
 			const explicitFailure = explicitSuccess === false || !!output.error;
-			const success = explicitFailure ? false : true;
+			const success = !explicitFailure;
 
 			// Update toolAggregates
 			const key = entry.tool;

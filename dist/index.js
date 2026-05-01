@@ -51,7 +51,7 @@ var package_default;
 var init_package = __esm(() => {
   package_default = {
     name: "opencode-swarm",
-    version: "7.3.1",
+    version: "7.3.2",
     description: "Architect-centric agentic swarm plugin for OpenCode - hub-and-spoke orchestration with SME consultation, code generation, and QA review",
     main: "dist/index.js",
     types: "dist/index.d.ts",
@@ -65392,7 +65392,7 @@ function createAgentActivityHooks(config3, directory) {
       const duration5 = Date.now() - entry.startTime;
       const explicitSuccess = typeof output.success === "boolean" ? output.success : undefined;
       const explicitFailure = explicitSuccess === false || !!output.error;
-      const success3 = explicitFailure ? false : true;
+      const success3 = !explicitFailure;
       const key = entry.tool;
       const existing = swarmState.toolAggregates.get(key) ?? {
         tool: key,
@@ -89702,9 +89702,10 @@ async function validateDiffScope(taskId, directory) {
     const changedFiles = await getChangedFiles(directory);
     if (!changedFiles)
       return null;
+    const nonSwarmFiles = changedFiles.filter((f) => !f.replace(/\\/g, "/").startsWith(".swarm/"));
     const normalise = (p) => p.replace(/\\/g, "/").replace(/^\.\//, "");
     const normScope = new Set(declaredScope.map(normalise));
-    const undeclared = changedFiles.map(normalise).filter((f) => !normScope.has(f));
+    const undeclared = nonSwarmFiles.map(normalise).filter((f) => !normScope.has(f));
     if (undeclared.length === 0)
       return null;
     const scopeStr = declaredScope.join(", ");
@@ -90830,26 +90831,10 @@ init_write_retro();
 init_utils();
 
 // src/utils/gitignore-warning.ts
+init_bun_compat();
 import * as fs89 from "node:fs";
 import * as path109 from "node:path";
-var _gitignoreWarningEmitted = false;
-function findGitRoot(startDir) {
-  let current = startDir;
-  while (true) {
-    try {
-      const gitPath = path109.join(current, ".git");
-      const stat6 = fs89.statSync(gitPath);
-      if (stat6.isDirectory()) {
-        return current;
-      }
-    } catch {}
-    const parent = path109.dirname(current);
-    if (parent === current) {
-      return null;
-    }
-    current = parent;
-  }
-}
+var _swarmGitExcludedChecked = false;
 function fileCoversSwarm(content) {
   for (const rawLine of content.split(`
 `)) {
@@ -90861,33 +90846,65 @@ function fileCoversSwarm(content) {
   }
   return false;
 }
-function readFileSafe(filePath) {
-  try {
-    return fs89.readFileSync(filePath, "utf8");
-  } catch {
-    return null;
-  }
-}
-function warnIfSwarmNotGitignored(directory, quiet = false) {
-  if (_gitignoreWarningEmitted)
+async function ensureSwarmGitExcluded(directory, options = {}) {
+  if (_swarmGitExcludedChecked)
     return;
+  _swarmGitExcludedChecked = true;
+  const { quiet = false } = options;
   try {
-    const gitRoot = findGitRoot(directory);
+    const gitRootProc = bunSpawn(["git", "-C", directory, "rev-parse", "--show-toplevel"], { stdout: "pipe", stderr: "pipe" });
+    const [gitRootExitCode, gitRootOutput] = await Promise.all([
+      gitRootProc.exited,
+      gitRootProc.stdout.text()
+    ]);
+    if (gitRootExitCode !== 0)
+      return;
+    const gitRoot = gitRootOutput.trim();
     if (!gitRoot)
       return;
-    const gitignoreContent = readFileSafe(path109.join(gitRoot, ".gitignore"));
-    if (gitignoreContent !== null && fileCoversSwarm(gitignoreContent)) {
-      _gitignoreWarningEmitted = true;
+    const excludePathProc = bunSpawn(["git", "-C", directory, "rev-parse", "--git-path", "info/exclude"], { stdout: "pipe", stderr: "pipe" });
+    const [excludePathExitCode, excludePathRaw] = await Promise.all([
+      excludePathProc.exited,
+      excludePathProc.stdout.text()
+    ]);
+    if (excludePathExitCode !== 0)
       return;
-    }
-    const excludeContent = readFileSafe(path109.join(gitRoot, ".git", "info", "exclude"));
-    if (excludeContent !== null && fileCoversSwarm(excludeContent)) {
-      _gitignoreWarningEmitted = true;
+    const excludeRelPath = excludePathRaw.trim();
+    if (!excludeRelPath)
       return;
+    const excludePath = path109.isAbsolute(excludeRelPath) ? excludeRelPath : path109.join(directory, excludeRelPath);
+    const checkIgnoreProc = bunSpawn(["git", "-C", directory, "check-ignore", "-q", ".swarm/.gitkeep"], { stdout: "pipe", stderr: "pipe" });
+    const checkIgnoreExitCode = await checkIgnoreProc.exited;
+    if (checkIgnoreExitCode !== 0) {
+      try {
+        fs89.mkdirSync(path109.dirname(excludePath), { recursive: true });
+        let existing = "";
+        try {
+          existing = fs89.readFileSync(excludePath, "utf8");
+        } catch {}
+        if (!fileCoversSwarm(existing)) {
+          fs89.appendFileSync(excludePath, `
+# opencode-swarm local runtime state
+.swarm/
+`, "utf8");
+          if (!quiet) {
+            console.warn("[opencode-swarm] Added .swarm/ to .git/info/exclude to prevent runtime state from appearing in git status.");
+          }
+        }
+      } catch {}
     }
-    _gitignoreWarningEmitted = true;
-    if (!quiet) {
-      console.warn('[opencode-swarm] WARNING: .swarm/ is not in your .gitignore. Shell audit logs may contain API keys. Add ".swarm/" to your .gitignore to prevent accidental commits.');
+    const trackedProc = bunSpawn(["git", "-C", directory, "ls-files", "--", ".swarm"], { stdout: "pipe", stderr: "pipe" });
+    const [trackedExitCode, trackedOutput] = await Promise.all([
+      trackedProc.exited,
+      trackedProc.stdout.text()
+    ]);
+    if (trackedExitCode === 0 && trackedOutput.trim().length > 0) {
+      console.warn(`[opencode-swarm] WARNING: .swarm/ files are tracked by Git.
+` + `.swarm/ contains local runtime state and may contain sensitive session data.
+` + `Ignoring will not affect already-tracked files. To stop tracking them, run:
+` + `  git rm -r --cached .swarm
+` + `  echo ".swarm/" >> .gitignore
+` + '  git commit -m "Stop tracking opencode-swarm runtime state"');
     }
   } catch {}
 }
@@ -90995,10 +91012,10 @@ async function initializeOpenCodeSwarm(ctx) {
     }
     repoGraphHook.init().catch(() => {}).finally(() => clearTimeout(watchdog));
   });
+  await ensureSwarmGitExcluded(ctx.directory, { quiet: config3.quiet });
   initTelemetry(ctx.directory);
   writeSwarmConfigExampleIfNew(ctx.directory);
   writeProjectConfigIfNew(ctx.directory, config3.quiet);
-  warnIfSwarmNotGitignored(ctx.directory, config3.quiet);
   if (config3.version_check !== false) {
     scheduleVersionCheck(package_default.version, (msg) => {
       if (config3.quiet) {
