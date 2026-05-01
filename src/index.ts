@@ -14,7 +14,10 @@ import {
 import { createSwarmCommandHandler } from './commands';
 import { loadPluginConfigWithMetaAsync } from './config';
 import { DEFAULT_MODELS, ORCHESTRATOR_NAME } from './config/constants';
-import { writeProjectConfigIfNew } from './config/project-init';
+import {
+	writeProjectConfigIfNew,
+	writeSwarmConfigExampleIfNew,
+} from './config/project-init';
 import {
 	AuthorityConfigSchema,
 	AutomationConfigSchema,
@@ -155,39 +158,6 @@ import {
 	addDeferredWarning,
 	deferredWarnings,
 } from './services/warning-buffer.js';
-
-// Writes .swarm/config.example.json on first plugin init for a given project.
-// This gives new users a ready-to-edit reference that shows all agent model
-// defaults. To override, copy entries into .opencode/opencode-swarm.json
-// (project-local) or ~/.config/opencode/opencode-swarm.json (global).
-// Non-fatal: all errors are silently ignored.
-function writeSwarmConfigExampleIfNew(projectDirectory: string): void {
-	try {
-		const swarmDir = path.join(projectDirectory, '.swarm');
-		const dest = path.join(swarmDir, 'config.example.json');
-		if (fs.existsSync(dest)) return;
-		if (!fs.existsSync(swarmDir)) {
-			fs.mkdirSync(swarmDir, { recursive: true });
-		}
-		const example = {
-			agents: Object.fromEntries(
-				Object.entries(DEFAULT_MODELS)
-					.filter(([name]) => name !== 'default')
-					.map(([name, model]) => [
-						name,
-						{
-							model,
-							fallback_models: ['opencode/gpt-5-nano', 'opencode/big-pickle'],
-						},
-					]),
-			),
-			max_iterations: 5,
-		};
-		fs.writeFileSync(dest, `${JSON.stringify(example, null, 2)}\n`, 'utf-8');
-	} catch {
-		// Non-fatal
-	}
-}
 
 const OpenCodeSwarm: Plugin = async (ctx) => {
 	try {

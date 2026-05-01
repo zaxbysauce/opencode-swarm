@@ -7,3 +7,9 @@
  * plugin continues with its default or global config.
  */
 export declare function writeProjectConfigIfNew(directory: string, quiet?: boolean): void;
+/**
+ * Writes .swarm/config.example.json on first plugin init for a given project.
+ * Creates .swarm/ if it does not yet exist. Non-fatal: all errors are silently
+ * ignored.
+ */
+export declare function writeSwarmConfigExampleIfNew(projectDirectory: string): void;

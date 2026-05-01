@@ -64504,7 +64504,6 @@ var init_curator_drift = __esm(() => {
 // src/index.ts
 init_package();
 init_agents2();
-import * as fs88 from "node:fs";
 import * as path108 from "node:path";
 
 // src/background/index.ts
@@ -64926,6 +64925,7 @@ init_config();
 init_constants();
 
 // src/config/project-init.ts
+init_constants();
 import * as fs31 from "node:fs";
 import * as path48 from "node:path";
 var STARTER_CONTENT = `{}
@@ -64934,6 +64934,14 @@ function writeProjectConfigIfNew(directory, quiet = false) {
   try {
     const opencodeDir = path48.join(directory, ".opencode");
     const dest = path48.join(opencodeDir, "opencode-swarm.json");
+    try {
+      const stat4 = fs31.lstatSync(opencodeDir);
+      if (stat4.isSymbolicLink())
+        return;
+    } catch (err2) {
+      if (err2.code !== "ENOENT")
+        return;
+    }
     if (!fs31.existsSync(opencodeDir)) {
       fs31.mkdirSync(opencodeDir, { recursive: true });
     }
@@ -64946,6 +64954,29 @@ function writeProjectConfigIfNew(directory, quiet = false) {
         console.warn("[opencode-swarm] Created .opencode/opencode-swarm.json — " + "edit it to customize agent LLMs for this project, or commit it to share settings with your team");
       }
     } catch (_writeErr) {}
+  } catch {}
+}
+function writeSwarmConfigExampleIfNew(projectDirectory) {
+  try {
+    const swarmDir = path48.join(projectDirectory, ".swarm");
+    const dest = path48.join(swarmDir, "config.example.json");
+    if (fs31.existsSync(dest))
+      return;
+    if (!fs31.existsSync(swarmDir)) {
+      fs31.mkdirSync(swarmDir, { recursive: true });
+    }
+    const example = {
+      agents: Object.fromEntries(Object.entries(DEFAULT_MODELS).filter(([name2]) => name2 !== "default").map(([name2, model]) => [
+        name2,
+        {
+          model,
+          fallback_models: ["opencode/gpt-5-nano", "opencode/big-pickle"]
+        }
+      ])),
+      max_iterations: 5
+    };
+    fs31.writeFileSync(dest, `${JSON.stringify(example, null, 2)}
+`, "utf-8");
   } catch {}
 }
 
@@ -90318,29 +90349,6 @@ ${footerLines.join(`
 // src/index.ts
 init_warning_buffer();
 var _heartbeatTimers = new Map;
-function writeSwarmConfigExampleIfNew(projectDirectory) {
-  try {
-    const swarmDir = path108.join(projectDirectory, ".swarm");
-    const dest = path108.join(swarmDir, "config.example.json");
-    if (fs88.existsSync(dest))
-      return;
-    if (!fs88.existsSync(swarmDir)) {
-      fs88.mkdirSync(swarmDir, { recursive: true });
-    }
-    const example = {
-      agents: Object.fromEntries(Object.entries(DEFAULT_MODELS).filter(([name2]) => name2 !== "default").map(([name2, model]) => [
-        name2,
-        {
-          model,
-          fallback_models: ["opencode/gpt-5-nano", "opencode/big-pickle"]
-        }
-      ])),
-      max_iterations: 5
-    };
-    fs88.writeFileSync(dest, `${JSON.stringify(example, null, 2)}
-`, "utf-8");
-  } catch {}
-}
 var OpenCodeSwarm = async (ctx) => {
   try {
     return await initializeOpenCodeSwarm(ctx);
