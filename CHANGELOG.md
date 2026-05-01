@@ -1,5 +1,12 @@
 # Changelog
 
+## [7.3.0](https://github.com/zaxbysauce/opencode-swarm/compare/v7.2.0...v7.3.0) (2026-05-01)
+
+
+### Features
+
+* add first-run UX, categorized help, and deprecation aliases ([#723](https://github.com/zaxbysauce/opencode-swarm/issues/723)) ([0e2ed93](https://github.com/zaxbysauce/opencode-swarm/commit/0e2ed930f7050dfb979995139ee1129a32a9a264))
+
 ## [7.2.0](https://github.com/zaxbysauce/opencode-swarm/compare/v7.1.1...v7.2.0) (2026-05-01)
 
 
