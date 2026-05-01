@@ -15,6 +15,10 @@ import { createSwarmCommandHandler } from './commands';
 import { loadPluginConfigWithMetaAsync } from './config';
 import { DEFAULT_MODELS, ORCHESTRATOR_NAME } from './config/constants';
 import {
+	writeProjectConfigIfNew,
+	writeSwarmConfigExampleIfNew,
+} from './config/project-init';
+import {
 	AuthorityConfigSchema,
 	AutomationConfigSchema,
 	GuardrailsConfigSchema,
@@ -154,36 +158,6 @@ import {
 	addDeferredWarning,
 	deferredWarnings,
 } from './services/warning-buffer.js';
-
-// Writes .swarm/config.example.json on first plugin init for a given project.
-// This gives new users a ready-to-edit reference that shows all agent model
-// defaults. To override, copy entries into .opencode/opencode-swarm.json
-// (project-local) or ~/.config/opencode/opencode-swarm.json (global).
-// Non-fatal: all errors are silently ignored.
-function writeSwarmConfigExampleIfNew(projectDirectory: string): void {
-	try {
-		const swarmDir = path.join(projectDirectory, '.swarm');
-		const dest = path.join(swarmDir, 'config.example.json');
-		if (fs.existsSync(dest)) return;
-		const example = {
-			agents: Object.fromEntries(
-				Object.entries(DEFAULT_MODELS)
-					.filter(([name]) => name !== 'default')
-					.map(([name, model]) => [
-						name,
-						{
-							model,
-							fallback_models: ['opencode/gpt-5-nano', 'opencode/big-pickle'],
-						},
-					]),
-			),
-			max_iterations: 5,
-		};
-		fs.writeFileSync(dest, `${JSON.stringify(example, null, 2)}\n`, 'utf-8');
-	} catch {
-		// Non-fatal
-	}
-}
 
 const OpenCodeSwarm: Plugin = async (ctx) => {
 	try {
@@ -330,9 +304,10 @@ async function initializeOpenCodeSwarm(ctx: Parameters<Plugin>[0]) {
 
 	// Side tasks moved AFTER the repo-graph dispatch so the deferred init
 	// is queued first. Each is small and scoped to `<ctx.directory>/.swarm/`
-	// or the project's `.gitignore`, so none risks a home-tree scan.
+	// or `<ctx.directory>/.opencode/`, so none risks a home-tree scan.
 	initTelemetry(ctx.directory);
 	writeSwarmConfigExampleIfNew(ctx.directory);
+	writeProjectConfigIfNew(ctx.directory, config.quiet);
 	warnIfSwarmNotGitignored(ctx.directory, config.quiet);
 	// Background staleness check against npm. Detached, never blocks init,
 	// throttled to 24h on disk. See services/version-check.ts (issue #675).
