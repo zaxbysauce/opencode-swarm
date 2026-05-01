@@ -1,5 +1,12 @@
 # Changelog
 
+## [7.3.2](https://github.com/zaxbysauce/opencode-swarm/compare/v7.3.1...v7.3.2) (2026-05-01)
+
+
+### Bug Fixes
+
+* **council:** make council additive at phase-level, never suppress per-task Stage B gates ([#728](https://github.com/zaxbysauce/opencode-swarm/issues/728)) ([aa96c74](https://github.com/zaxbysauce/opencode-swarm/commit/aa96c7487e5d80b4fd1cd709bc141ecbad50e4a8))
+
 ## [7.3.1](https://github.com/zaxbysauce/opencode-swarm/compare/v7.3.0...v7.3.1) (2026-05-01)
 
 
