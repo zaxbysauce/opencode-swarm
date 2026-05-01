@@ -1,4 +1,5 @@
 import { describe, expect, test } from 'bun:test';
+import { execSync } from 'node:child_process';
 import * as fs from 'node:fs';
 import * as os from 'node:os';
 import * as path from 'node:path';
@@ -227,5 +228,120 @@ describe('validateDiffScope', () => {
 		// 6th and 7th undeclared (g, h) should NOT appear (replaced by +2 more)
 		expect(result!.includes('src/g.ts')).toBe(false);
 		expect(result!.includes('src/h.ts')).toBe(false);
+	});
+
+	// ── 10. .swarm/ paths filtered out — never trigger scope warnings ───────────
+	test('10. swarm-filter: tracked .swarm/ changes are excluded from scope validation', async () => {
+		// Create a real git repo using execSync (disabling commit signing for test env).
+		const dir = mkTempDir();
+		try {
+			execSync('git init', { cwd: dir, stdio: 'pipe' });
+			execSync('git config user.email "test@test.com"', {
+				cwd: dir,
+				stdio: 'pipe',
+			});
+			execSync('git config user.name "Test"', { cwd: dir, stdio: 'pipe' });
+			execSync('git config commit.gpgsign false', { cwd: dir, stdio: 'pipe' });
+
+			// Initial commit
+			fs.writeFileSync(path.join(dir, 'dummy.txt'), 'initial');
+			execSync('git add dummy.txt', { cwd: dir, stdio: 'pipe' });
+			execSync('git commit -m "initial"', { cwd: dir, stdio: 'pipe' });
+
+			// Create and commit a .swarm/ file (simulates already-tracked state)
+			fs.mkdirSync(path.join(dir, '.swarm'), { recursive: true });
+			fs.writeFileSync(path.join(dir, '.swarm', 'state.json'), '{"version":1}');
+			execSync('git add .swarm/state.json', { cwd: dir, stdio: 'pipe' });
+			execSync('git commit -m "track swarm"', { cwd: dir, stdio: 'pipe' });
+
+			// Modify the tracked .swarm file — this would appear in git diff HEAD~1
+			fs.writeFileSync(path.join(dir, '.swarm', 'state.json'), '{"version":2}');
+			execSync('git add .swarm/state.json', { cwd: dir, stdio: 'pipe' });
+
+			// Scope: only src/app.ts declared — .swarm/state.json is NOT declared
+			createPlanJson(dir, [{ id: '10.1', files_touched: ['src/app.ts'] }]);
+
+			const result = await validateDiffScope('10.1', dir);
+
+			// .swarm/state.json should be filtered out — the only changed file is a .swarm/
+			// runtime path which must never trigger a scope warning.
+			expect(result).toBeNull();
+		} finally {
+			fs.rmSync(dir, { recursive: true, force: true });
+		}
+	});
+
+	// ── 11. Primary HEAD~1 path — exercises git diff HEAD~1 (not the fallback) ────
+	// Tests 1-9 only have one commit, so git diff HEAD~1 fails and the fallback
+	// (git diff HEAD vs staged) is used. This test has two commits so the primary
+	// path is exercised.
+	test('11. primary-path: git diff HEAD~1 is used when a second commit exists', async () => {
+		const dir = mkTempDir();
+		try {
+			execSync('git init', { cwd: dir, stdio: 'pipe' });
+			execSync('git config user.email "test@test.com"', {
+				cwd: dir,
+				stdio: 'pipe',
+			});
+			execSync('git config user.name "Test"', { cwd: dir, stdio: 'pipe' });
+			execSync('git config commit.gpgsign false', { cwd: dir, stdio: 'pipe' });
+
+			// Initial commit
+			fs.writeFileSync(path.join(dir, 'dummy.txt'), 'initial');
+			execSync('git add dummy.txt', { cwd: dir, stdio: 'pipe' });
+			execSync('git commit -m "initial"', { cwd: dir, stdio: 'pipe' });
+
+			// Second commit with src/foo.ts — this makes HEAD~1 resolvable
+			fs.mkdirSync(path.join(dir, 'src'), { recursive: true });
+			fs.writeFileSync(path.join(dir, 'src', 'foo.ts'), 'content');
+			execSync('git add src/foo.ts', { cwd: dir, stdio: 'pipe' });
+			execSync('git commit -m "add foo"', { cwd: dir, stdio: 'pipe' });
+
+			createPlanJson(dir, [{ id: '11.1', files_touched: ['src/foo.ts'] }]);
+
+			const result = await validateDiffScope('11.1', dir);
+
+			// src/foo.ts is in scope — no warning
+			expect(result).toBeNull();
+		} finally {
+			fs.rmSync(dir, { recursive: true, force: true });
+		}
+	});
+
+	// ── 12. Primary HEAD~1 path — out-of-scope file triggers warning ──────────────
+	test('12. primary-path-oos: git diff HEAD~1 detects undeclared file via primary path', async () => {
+		const dir = mkTempDir();
+		try {
+			execSync('git init', { cwd: dir, stdio: 'pipe' });
+			execSync('git config user.email "test@test.com"', {
+				cwd: dir,
+				stdio: 'pipe',
+			});
+			execSync('git config user.name "Test"', { cwd: dir, stdio: 'pipe' });
+			execSync('git config commit.gpgsign false', { cwd: dir, stdio: 'pipe' });
+
+			// Initial commit
+			fs.writeFileSync(path.join(dir, 'dummy.txt'), 'initial');
+			execSync('git add dummy.txt', { cwd: dir, stdio: 'pipe' });
+			execSync('git commit -m "initial"', { cwd: dir, stdio: 'pipe' });
+
+			// Second commit with two files — only one is in declared scope
+			fs.mkdirSync(path.join(dir, 'src'), { recursive: true });
+			fs.writeFileSync(path.join(dir, 'src', 'foo.ts'), 'content');
+			fs.writeFileSync(path.join(dir, 'src', 'bar.ts'), 'content');
+			execSync('git add src/foo.ts src/bar.ts', { cwd: dir, stdio: 'pipe' });
+			execSync('git commit -m "add foo and bar"', { cwd: dir, stdio: 'pipe' });
+
+			createPlanJson(dir, [{ id: '12.1', files_touched: ['src/foo.ts'] }]);
+
+			const result = await validateDiffScope('12.1', dir);
+
+			// src/bar.ts is out of scope — warning expected
+			expect(result).not.toBeNull();
+			expect(result!.includes('SCOPE WARNING')).toBe(true);
+			expect(result!.includes('src/bar.ts')).toBe(true);
+		} finally {
+			fs.rmSync(dir, { recursive: true, force: true });
+		}
 	});
 });
