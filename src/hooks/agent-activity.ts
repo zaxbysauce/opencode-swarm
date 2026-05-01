@@ -27,16 +27,16 @@ export function createAgentActivityHooks(
 		input: { tool: string; sessionID: string; callID: string },
 		output: { args: unknown },
 	) => Promise<void>;
-		toolAfter: (
-			input: { tool: string; sessionID: string; callID: string },
-			output: {
-				title?: string;
-				output?: unknown;
-				metadata?: unknown;
-				error?: unknown;
-				success?: boolean;
-			},
-		) => Promise<void>;
+	toolAfter: (
+		input: { tool: string; sessionID: string; callID: string },
+		output: {
+			title?: string;
+			output?: unknown;
+			metadata?: unknown;
+			error?: unknown;
+			success?: boolean;
+		},
+	) => Promise<void>;
 } {
 	// If agent activity tracking is disabled, return no-op handlers
 	if (config.hooks?.agent_activity === false) {
@@ -79,9 +79,7 @@ export function createAgentActivityHooks(
 			// the hook receives an explicit failure signal.
 			const explicitSuccess =
 				typeof output.success === 'boolean' ? output.success : undefined;
-			const explicitFailure =
-				explicitSuccess === false ||
-				output.error !== null && output.error !== undefined;
+			const explicitFailure = explicitSuccess === false || !!output.error;
 			const success = explicitFailure ? false : true;
 
 			// Update toolAggregates

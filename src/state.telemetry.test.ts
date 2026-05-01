@@ -1,10 +1,10 @@
 import { afterEach, beforeEach, describe, expect, test } from 'bun:test';
+import { advanceTaskState, ensureAgentSession, resetSwarmState } from './state';
 import {
 	addTelemetryListener,
 	initTelemetry,
 	resetTelemetryForTesting,
 } from './telemetry';
-import { advanceTaskState, ensureAgentSession, resetSwarmState } from './state';
 
 describe('state telemetry', () => {
 	beforeEach(() => {
@@ -29,7 +29,9 @@ describe('state telemetry', () => {
 			telemetrySessionId: 'architect-session',
 		});
 
-		const stateEvent = events.find((entry) => entry.event === 'task_state_changed');
+		const stateEvent = events.find(
+			(entry) => entry.event === 'task_state_changed',
+		);
 		expect(stateEvent?.data.sessionId).toBe('architect-session');
 	});
 
@@ -44,6 +46,8 @@ describe('state telemetry', () => {
 			emitTelemetry: false,
 		});
 
-		expect(events.some((entry) => entry.event === 'task_state_changed')).toBe(false);
+		expect(events.some((entry) => entry.event === 'task_state_changed')).toBe(
+			false,
+		);
 	});
 });

@@ -7,16 +7,16 @@
 import { afterEach, beforeEach, describe, expect, it } from 'bun:test';
 import type { PluginConfig } from '../config';
 import {
-	addTelemetryListener,
-	initTelemetry,
-	resetTelemetryForTesting,
-} from '../telemetry';
-import {
 	ensureAgentSession,
 	getTaskState,
 	resetSwarmState,
 	swarmState,
 } from '../state';
+import {
+	addTelemetryListener,
+	initTelemetry,
+	resetTelemetryForTesting,
+} from '../telemetry';
 import { createDelegationGateHook } from './delegation-gate';
 
 function makeConfig(): PluginConfig {

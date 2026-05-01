@@ -25725,7 +25725,9 @@ function createDelegationGateHook(config2, directory) {
                   ] of otherSession.taskWorkflowStates) {
                     if (state === "coder_delegated" || state === "pre_check_passed") {
                       try {
-                        advanceTaskState(otherSession, taskId, "reviewer_run");
+                        advanceTaskState(otherSession, taskId, "reviewer_run", {
+                          emitTelemetry: false
+                        });
                       } catch (err2) {
                         warn(`[delegation-gate] toolAfter cross-session: could not advance ${taskId} (${state}) → reviewer_run: ${err2 instanceof Error ? err2.message : String(err2)}`);
                       }
@@ -25743,7 +25745,9 @@ function createDelegationGateHook(config2, directory) {
                   ] of otherSession.taskWorkflowStates) {
                     if (state === "reviewer_run") {
                       try {
-                        advanceTaskState(otherSession, taskId, "tests_run");
+                        advanceTaskState(otherSession, taskId, "tests_run", {
+                          emitTelemetry: false
+                        });
                       } catch (err2) {
                         warn(`[delegation-gate] toolAfter cross-session: could not advance ${taskId} (${state}) → tests_run: ${err2 instanceof Error ? err2.message : String(err2)}`);
                       }
@@ -65399,7 +65403,7 @@ function createAgentActivityHooks(config3, directory) {
       swarmState.activeToolCalls.delete(input.callID);
       const duration5 = Date.now() - entry.startTime;
       const explicitSuccess = typeof output.success === "boolean" ? output.success : undefined;
-      const explicitFailure = explicitSuccess === false || output.error !== null && output.error !== undefined;
+      const explicitFailure = explicitSuccess === false || !!output.error;
       const success3 = explicitFailure ? false : true;
       const key = entry.tool;
       const existing = swarmState.toolAggregates.get(key) ?? {
