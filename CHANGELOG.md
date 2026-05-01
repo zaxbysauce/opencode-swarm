@@ -1,5 +1,12 @@
 # Changelog
 
+## [7.3.1](https://github.com/zaxbysauce/opencode-swarm/compare/v7.3.0...v7.3.1) (2026-05-01)
+
+
+### Bug Fixes
+
+* reduce false telemetry failures and mirrored state spam ([#727](https://github.com/zaxbysauce/opencode-swarm/issues/727)) ([079d8cc](https://github.com/zaxbysauce/opencode-swarm/commit/079d8cc0d312f6c78e8f41ed26775804e25102e0))
+
 ## [7.3.0](https://github.com/zaxbysauce/opencode-swarm/compare/v7.2.0...v7.3.0) (2026-05-01)
 
 
