@@ -51,7 +51,7 @@ var package_default;
 var init_package = __esm(() => {
   package_default = {
     name: "opencode-swarm",
-    version: "7.2.0",
+    version: "7.3.0",
     description: "Architect-centric agentic swarm plugin for OpenCode - hub-and-spoke orchestration with SME consultation, code generation, and QA review",
     main: "dist/index.js",
     types: "dist/index.d.ts",
@@ -25597,7 +25597,7 @@ function createDelegationGateHook(config2, directory) {
             });
             if (councilActive && result.overallVerdict === "APPROVE" && result.allCriteriaMet === true && (result.requiredFixesCount ?? 0) === 0) {
               try {
-                await advanceTaskStateAndPersist(session, taskId, "complete", directory, config2.council);
+                await advanceTaskStateAndPersist(session, taskId, "complete", directory, { telemetrySessionId: input.sessionID }, config2.council);
               } catch (err2) {
                 warn(`[delegation-gate] toolAfter submit_council_verdicts: could not advance ${taskId} → complete: ${err2 instanceof Error ? err2.message : String(err2)}`);
               }
@@ -25638,9 +25638,13 @@ function createDelegationGateHook(config2, directory) {
                 if (hasBothStageBCompletions(session, taskId)) {
                   try {
                     if (eligibleState === "coder_delegated" || eligibleState === "pre_check_passed") {
-                      advanceTaskState(session, taskId, "reviewer_run");
+                      advanceTaskState(session, taskId, "reviewer_run", {
+                        telemetrySessionId: input.sessionID
+                      });
                     }
-                    advanceTaskState(session, taskId, "tests_run");
+                    advanceTaskState(session, taskId, "tests_run", {
+                      telemetrySessionId: input.sessionID
+                    });
                   } catch (err2) {
                     warn(`[delegation-gate] toolAfter stage-b-parallel: could not advance ${taskId} (${eligibleState}) → tests_run: ${err2 instanceof Error ? err2.message : String(err2)}`);
                   }
@@ -25665,9 +25669,11 @@ function createDelegationGateHook(config2, directory) {
                   if (hasBothStageBCompletions(otherSession, seedTaskId)) {
                     try {
                       if (seedEligibleState === "coder_delegated" || seedEligibleState === "pre_check_passed") {
-                        advanceTaskState(otherSession, seedTaskId, "reviewer_run");
+                        advanceTaskState(otherSession, seedTaskId, "reviewer_run", { emitTelemetry: false });
                       }
-                      advanceTaskState(otherSession, seedTaskId, "tests_run");
+                      advanceTaskState(otherSession, seedTaskId, "tests_run", {
+                        emitTelemetry: false
+                      });
                     } catch (err2) {
                       warn(`[delegation-gate] toolAfter cross-session stage-b-parallel: could not advance ${seedTaskId} (${seedEligibleState}) → tests_run: ${err2 instanceof Error ? err2.message : String(err2)}`);
                     }
@@ -25680,7 +25686,9 @@ function createDelegationGateHook(config2, directory) {
               for (const [taskId, state] of session.taskWorkflowStates) {
                 if (state === "coder_delegated" || state === "pre_check_passed") {
                   try {
-                    advanceTaskState(session, taskId, "reviewer_run");
+                    advanceTaskState(session, taskId, "reviewer_run", {
+                      telemetrySessionId: input.sessionID
+                    });
                   } catch (err2) {
                     warn(`[delegation-gate] toolAfter: could not advance ${taskId} (${state}) → reviewer_run: ${err2 instanceof Error ? err2.message : String(err2)}`);
                   }
@@ -25691,7 +25699,9 @@ function createDelegationGateHook(config2, directory) {
               for (const [taskId, state] of session.taskWorkflowStates) {
                 if (state === "reviewer_run") {
                   try {
-                    advanceTaskState(session, taskId, "tests_run");
+                    advanceTaskState(session, taskId, "tests_run", {
+                      telemetrySessionId: input.sessionID
+                    });
                   } catch (err2) {
                     warn(`[delegation-gate] toolAfter: could not advance ${taskId} (${state}) → tests_run: ${err2 instanceof Error ? err2.message : String(err2)}`);
                   }
@@ -25836,7 +25846,9 @@ function createDelegationGateHook(config2, directory) {
                 for (const [taskId, state] of otherSession.taskWorkflowStates) {
                   if (state === "coder_delegated" || state === "pre_check_passed") {
                     try {
-                      advanceTaskState(otherSession, taskId, "reviewer_run");
+                      advanceTaskState(otherSession, taskId, "reviewer_run", {
+                        emitTelemetry: false
+                      });
                     } catch (err2) {
                       warn(`[delegation-gate] fallback cross-session: could not advance ${taskId} (${state}) → reviewer_run: ${err2 instanceof Error ? err2.message : String(err2)}`);
                     }
@@ -25857,7 +25869,9 @@ function createDelegationGateHook(config2, directory) {
                 for (const [taskId, state] of otherSession.taskWorkflowStates) {
                   if (state === "reviewer_run") {
                     try {
-                      advanceTaskState(otherSession, taskId, "tests_run");
+                      advanceTaskState(otherSession, taskId, "tests_run", {
+                        emitTelemetry: false
+                      });
                     } catch (err2) {
                       warn(`[delegation-gate] fallback cross-session: could not advance ${taskId} (${state}) → tests_run: ${err2 instanceof Error ? err2.message : String(err2)}`);
                     }
@@ -25984,7 +25998,7 @@ ${trimComment}${after}`;
           pendingCoderScopeByTaskId.delete(currentTaskId);
         }
         try {
-          await advanceTaskStateAndPersist(session, currentTaskId, "coder_delegated", directory);
+          await advanceTaskStateAndPersist(session, currentTaskId, "coder_delegated", directory, { telemetrySessionId: sessionID });
         } catch (err2) {
           warn(`[delegation-gate] state machine warn: ${err2 instanceof Error ? err2.message : String(err2)}`);
         }
@@ -26510,7 +26524,7 @@ function isValidTaskId2(taskId) {
   const trimmed = taskId.trim();
   return trimmed.length > 0;
 }
-function advanceTaskState(session, taskId, newState, councilConfig) {
+function advanceTaskState(session, taskId, newState, options, councilConfig) {
   if (!isValidTaskId2(taskId)) {
     return;
   }
@@ -26541,10 +26555,12 @@ function advanceTaskState(session, taskId, newState, councilConfig) {
     }
   }
   session.taskWorkflowStates.set(taskId, newState);
-  telemetry.taskStateChanged(session.agentName, taskId, newState, current);
+  if (options?.emitTelemetry !== false) {
+    telemetry.taskStateChanged(options?.telemetrySessionId ?? session.agentName, taskId, newState, current);
+  }
 }
-async function advanceTaskStateAndPersist(session, taskId, newState, directory, councilConfig) {
-  advanceTaskState(session, taskId, newState, councilConfig);
+async function advanceTaskStateAndPersist(session, taskId, newState, directory, options, councilConfig) {
+  advanceTaskState(session, taskId, newState, options, councilConfig);
   if (newState !== "coder_delegated" && newState !== "complete") {
     return;
   }
@@ -65382,8 +65398,9 @@ function createAgentActivityHooks(config3, directory) {
         return;
       swarmState.activeToolCalls.delete(input.callID);
       const duration5 = Date.now() - entry.startTime;
-      const rawOutput = output.output;
-      const success3 = rawOutput !== null && rawOutput !== undefined;
+      const explicitSuccess = typeof output.success === "boolean" ? output.success : undefined;
+      const explicitFailure = explicitSuccess === false || output.error !== null && output.error !== undefined;
+      const success3 = explicitFailure ? false : true;
       const key = entry.tool;
       const existing = swarmState.toolAggregates.get(key) ?? {
         tool: key,
