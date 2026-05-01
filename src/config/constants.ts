@@ -53,6 +53,7 @@ export const AGENT_TOOL_MAP: Record<AgentName, ToolName[]> = {
 		'completion_verify',
 		'complexity_hotspots',
 		'submit_council_verdicts',
+		'submit_phase_council_verdicts',
 		'declare_council_criteria',
 		'detect_domains',
 		'evidence_check',
@@ -343,6 +344,8 @@ export const TOOL_DESCRIPTIONS: Partial<Record<ToolName, string>> = {
 	completion_verify: 'verify completed tasks have required evidence',
 	submit_council_verdicts:
 		'submit pre-collected council member verdicts for synthesis (architect MUST dispatch critic/reviewer/sme/test_engineer/explorer as Agent tasks first; this tool synthesizes only, it does not contact members)',
+	submit_phase_council_verdicts:
+		'submit pre-collected phase-level council member verdicts for holistic phase synthesis (architect MUST dispatch all 5 council members with phase-scoped context first; this tool synthesizes only, it does not contact members)',
 	declare_council_criteria:
 		'pre-declare acceptance criteria for a task before the coder starts work; criteria are read back during council evaluation',
 	detect_domains: 'detect which SME domains are relevant for a given text',

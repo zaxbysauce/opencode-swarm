@@ -868,18 +868,6 @@ export async function executeUpdateTaskStatus(
 				};
 			}
 		}
-
-		// Council gate check — enforced only when council.enabled is true.
-		// Placed after reviewer gate so existing failures surface first and
-		// no council behavior activates when the feature is off (no regression).
-		const councilCheck = checkCouncilGate(directory, args.task_id);
-		if (councilCheck.blocked) {
-			return {
-				success: false,
-				message: councilCheck.reason,
-				errors: [councilCheck.reason],
-			};
-		}
 	}
 
 	// Step 4: Update the task status with file lock to prevent concurrent writes

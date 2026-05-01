@@ -18,14 +18,13 @@ import {
  */
 describe('Architect prompt — Work Complete Council workflow block', () => {
 	// Sentinel phrases that are UNIQUE to the council workflow block. These
-	// were chosen to NOT overlap with the auto-generated tool-description list
-	// (which mentions "submit_council_verdicts" even when the workflow block is
-	// absent), so they truly identify the block itself.
+	// were chosen to NOT overlap with the auto-generated tool-description list,
+	// so they truly identify the block itself. Keep in sync with buildCouncilWorkflow().
 	const COUNCIL_SENTINELS = [
-		'## COUNCIL WORKFLOW (submit_council_verdicts)',
-		'Phase 0 — Pre-declare criteria',
+		'## COUNCIL WORKFLOW (submit_phase_council_verdicts)',
+		'WHEN TO RUN COUNCIL',
 		'STEP 1 — DISPATCH',
-		'STEP 3 — CALL submit_council_verdicts',
+		'STEP 3 — CALL submit_phase_council_verdicts',
 		'STEP 5 — ACT on the verdict',
 		'ANTI-PATTERNS',
 		'ROUND 2 DELIBERATION',
@@ -49,8 +48,8 @@ describe('Architect prompt — Work Complete Council workflow block', () => {
 			expect(prompt).toContain('## COUNCIL WORKFLOW');
 		});
 
-		it('includes all five workflow steps (Phase 0 + STEP 1..STEP 5)', () => {
-			expect(prompt).toContain('Phase 0');
+		it('includes WHEN TO RUN COUNCIL section and STEP 1..STEP 5', () => {
+			expect(prompt).toContain('WHEN TO RUN COUNCIL');
 			expect(prompt).toContain('STEP 1');
 			expect(prompt).toContain('STEP 2');
 			expect(prompt).toContain('STEP 3');
@@ -281,13 +280,14 @@ describe('Architect prompt — Work Complete Council workflow block', () => {
 		});
 	});
 
-	describe.skip('council_mode rewrite — Stage B parallel + ADDITIONAL gate semantics (TODO: implement post-patch council rewrite in buildCouncilWorkflow)', () => {
-		// These tests verify the council_mode prompt rewrite that changed:
-		// 1. Stage B description changed from sequential (→) to parallel (+) notation
-		// 2. Council is "ADDITIONAL" gate at PHASE LEVEL, not a replacement for Stage B
-		// 3. PHASE COUNCIL section added for phase-level holistic review
+	describe('council_mode rewrite — ADDITIONAL gate semantics + phase-level council (post-patch)', () => {
+		// These tests verify the council_mode prompt rewrite:
+		// 1. Council is "ADDITIONAL" gate at PHASE LEVEL, not a replacement for Stage B
+		// 2. PHASE COUNCIL section added for phase-level holistic review
+		// Note: Stage B parallel dispatch notation tests (DISPATCH/PARALLEL/Never run them sequentially)
+		// require ARCHITECT_PROMPT Stage B section changes and remain skipped for a follow-up PR.
 
-		describe('Stage B DISPATCH in PARALLEL (council.enabled === true)', () => {
+		describe.skip('Stage B DISPATCH in PARALLEL (council.enabled === true)', () => {
 			const agent = createArchitectAgent(
 				'test-model',
 				undefined,
@@ -328,7 +328,7 @@ describe('Architect prompt — Work Complete Council workflow block', () => {
 			});
 		});
 
-		describe('Stage B DISPATCH in PARALLEL (council.enabled === false)', () => {
+		describe.skip('Stage B DISPATCH in PARALLEL (council.enabled === false)', () => {
 			const agent = createArchitectAgent(
 				'test-model',
 				undefined,

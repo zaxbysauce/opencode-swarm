@@ -86,6 +86,7 @@ export {
 	secretscan,
 } from './secretscan';
 export { set_qa_gates } from './set-qa-gates';
+export { submit_phase_council_verdicts } from './submit-phase-council-verdicts';
 
 import { suggestPatch } from './suggest-patch';
 

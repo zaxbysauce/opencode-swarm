@@ -46,9 +46,9 @@ describe('architect prompt tool alignment', () => {
 
 	test('YOUR TOOLS with all councils disabled (default) excludes the three council tools', () => {
 		// Default no-arg call: council is undefined, which the prompt builder
-		// treats as disabled. submit_council_verdicts, declare_council_criteria, and
-		// convene_general_council must all be filtered out so the model is
-		// not shown phantom tools the runtime gates would reject.
+		// treats as disabled. submit_council_verdicts, declare_council_criteria,
+		// submit_phase_council_verdicts, and convene_general_council must all be
+		// filtered out so the model is not shown phantom tools the runtime gates would reject.
 		const agent = createArchitectAgent('test-model');
 		const prompt =
 			((agent.config as Record<string, unknown>).prompt as string) ?? '';
@@ -59,6 +59,7 @@ describe('architect prompt tool alignment', () => {
 				(t) =>
 					t !== 'submit_council_verdicts' &&
 					t !== 'declare_council_criteria' &&
+					t !== 'submit_phase_council_verdicts' &&
 					t !== 'convene_general_council',
 			)
 			.sort();
@@ -70,6 +71,9 @@ describe('architect prompt tool alignment', () => {
 		expect(promptToolsWithoutTask).toEqual(expected);
 		expect(promptToolsWithoutTask).not.toContain('submit_council_verdicts');
 		expect(promptToolsWithoutTask).not.toContain('declare_council_criteria');
+		expect(promptToolsWithoutTask).not.toContain(
+			'submit_phase_council_verdicts',
+		);
 		expect(promptToolsWithoutTask).not.toContain('convene_general_council');
 	});
 

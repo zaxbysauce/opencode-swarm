@@ -42,6 +42,7 @@ export { schema_drift } from './schema-drift';
 export { search } from './search';
 export { type SecretFinding, type SecretscanResult, secretscan, } from './secretscan';
 export { set_qa_gates } from './set-qa-gates';
+export { submit_phase_council_verdicts } from './submit-phase-council-verdicts';
 import { suggestPatch } from './suggest-patch';
 export { suggestPatch };
 export type { SuggestPatchArgs } from './suggest-patch';

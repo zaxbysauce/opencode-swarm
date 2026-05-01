@@ -1,12 +1,12 @@
 /**
- * Tests for the submit_council_verdicts branch in delegation-gate.ts toolAfter, plus
- * Stage B suppression when council is authoritative for the current plan.
+ * Tests for the submit_council_verdicts branch in delegation-gate.ts toolAfter.
+ * Council mode is additive at phase level — it never suppresses per-task Stage B gates.
  *
- * v6.71+ — covers:
- *   - council disabled (default): reviewer/test_engineer Stage B advancement still works.
+ * Covers:
+ *   - council disabled (default): reviewer/test_engineer Stage B advancement works.
  *   - council active (config.enabled=true AND QaGates.council_mode=true):
- *     Stage B advancement is REPLACED by the council; reviewer/test_engineer
- *     Task delegations remain observable but do NOT advance task state.
+ *     Stage B advancement still runs unconditionally — council does NOT replace it.
+ *     reviewer/test_engineer Task delegations advance task state regardless.
  *   - submit_council_verdicts APPROVE + allCriteriaMet + zero required fixes from
  *     pre_check_passed → state advances to 'complete'.
  *   - submit_council_verdicts REJECT → no advancement; verdict still recorded.
@@ -165,8 +165,8 @@ describe('delegation-gate council wiring (Stage B suppression + APPROVE fast-pat
 		});
 	});
 
-	describe('council active (config + profile both true): Stage B is REPLACED', () => {
-		it('reviewer Task delegation does NOT advance state when council is authoritative', async () => {
+	describe('council active (config + profile both true): Stage B still runs per-task', () => {
+		it('reviewer Task delegation still advances state when council is active', async () => {
 			writePlan();
 			enableCouncilGate();
 
@@ -188,11 +188,11 @@ describe('delegation-gate council wiring (Stage B suppression + APPROVE fast-pat
 				{},
 			);
 
-			// State should NOT advance — council Phase 1 is the sole review pass.
-			expect(getTaskState(session, '1.1')).toBe('coder_delegated');
+			// State MUST advance — council is additive at phase level, never suppresses Stage B.
+			expect(getTaskState(session, '1.1')).toBe('reviewer_run');
 		});
 
-		it('test_engineer Task delegation does NOT advance state when council is authoritative', async () => {
+		it('test_engineer Task delegation still advances state when council is active', async () => {
 			writePlan();
 			enableCouncilGate();
 
@@ -214,7 +214,8 @@ describe('delegation-gate council wiring (Stage B suppression + APPROVE fast-pat
 				{},
 			);
 
-			expect(getTaskState(session, '1.1')).toBe('reviewer_run');
+			// State MUST advance — Stage B always runs per-task regardless of council mode.
+			expect(getTaskState(session, '1.1')).toBe('tests_run');
 		});
 	});
 
@@ -531,7 +532,8 @@ describe('delegation-gate council wiring (Stage B suppression + APPROVE fast-pat
 			expect(getTaskState(session, '1.1')).toBe('complete');
 
 			// Step 2: a reviewer Task delegation arrives immediately after (late dispatch).
-			// With councilActive=true the reviewer branch is suppressed — state must remain complete.
+			// Advancing a task already at 'complete' is an invalid transition (caught and logged).
+			// State must remain complete regardless.
 			await hook.toolAfter(
 				{
 					tool: 'Task',

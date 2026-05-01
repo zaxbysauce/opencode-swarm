@@ -30,8 +30,8 @@ describe('architect custom prompt override + council hardening', () => {
 
 		expect(rendered.startsWith(customPrompt)).toBe(true);
 		expect(rendered).toContain('COUNCIL WORKFLOW');
-		expect(rendered).toContain('declare_council_criteria');
-		expect(rendered).toContain('submit_council_verdicts');
+		expect(rendered).toContain('submit_phase_council_verdicts');
+		expect(rendered).toContain('phase council');
 	});
 
 	test('custom prompt without placeholder stays clean when council disabled', () => {
