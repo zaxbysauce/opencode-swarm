@@ -1,5 +1,12 @@
 # Changelog
 
+## [7.3.3](https://github.com/zaxbysauce/opencode-swarm/compare/v7.3.2...v7.3.3) (2026-05-01)
+
+
+### Bug Fixes
+
+* **git-hygiene:** auto-protect .swarm/ from Git pollution before any write ([#732](https://github.com/zaxbysauce/opencode-swarm/issues/732)) ([17fc49f](https://github.com/zaxbysauce/opencode-swarm/commit/17fc49f585931256654bdbb506b3f50b4891e673))
+
 ## [7.3.2](https://github.com/zaxbysauce/opencode-swarm/compare/v7.3.1...v7.3.2) (2026-05-01)
 
 
