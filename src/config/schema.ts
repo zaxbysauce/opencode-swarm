@@ -1134,6 +1134,11 @@ export const PluginConfigSchema = z.object({
 	// Legacy: Per-agent overrides (default swarm)
 	agents: z.record(z.string(), AgentOverrideConfigSchema).optional(),
 
+	// Default agent — specifies which agent is set as primary mode.
+	// When not specified, 'architect' is the default primary agent.
+	// Valid values are restricted to known agent names via ALL_AGENT_NAMES enum.
+	default_agent: z.enum(ALL_AGENT_NAMES).default('architect').optional(),
+
 	// Multiple swarms support
 	// Keys are swarm IDs (e.g., "cloud", "local", "fast")
 	// First swarm or one named "default" becomes the primary architect

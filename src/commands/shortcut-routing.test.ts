@@ -87,6 +87,13 @@ describe('swarm-* shortcut command routing', () => {
 		// Enable config-level full-auto so full-auto command activation succeeds
 		swarmState.fullAutoEnabledInConfig = true;
 		makeSession(sessionId);
+		// Pre-create the first-run sentinel so the welcome message is not shown during tests
+		const swarmDir = path.join(tempDir, '.swarm');
+		fs.mkdirSync(swarmDir, { recursive: true });
+		fs.writeFileSync(
+			path.join(swarmDir, '.first-run-complete'),
+			`first-run-complete: ${new Date().toISOString()}\n`,
+		);
 	});
 
 	afterEach(() => {

@@ -643,6 +643,26 @@ export declare const PluginConfigSchema: z.ZodObject<{
         disabled: z.ZodOptional<z.ZodBoolean>;
         fallback_models: z.ZodOptional<z.ZodArray<z.ZodString>>;
     }, z.core.$strip>>>;
+    default_agent: z.ZodOptional<z.ZodDefault<z.ZodEnum<{
+        architect: "architect";
+        sme: "sme";
+        docs: "docs";
+        designer: "designer";
+        critic_sounding_board: "critic_sounding_board";
+        critic_drift_verifier: "critic_drift_verifier";
+        critic_hallucination_verifier: "critic_hallucination_verifier";
+        curator_init: "curator_init";
+        curator_phase: "curator_phase";
+        council_generalist: "council_generalist";
+        council_skeptic: "council_skeptic";
+        council_domain_expert: "council_domain_expert";
+        reviewer: "reviewer";
+        critic: "critic";
+        critic_oversight: "critic_oversight";
+        explorer: "explorer";
+        coder: "coder";
+        test_engineer: "test_engineer";
+    }>>>;
     swarms: z.ZodOptional<z.ZodRecord<z.ZodString, z.ZodObject<{
         name: z.ZodOptional<z.ZodString>;
         agents: z.ZodOptional<z.ZodRecord<z.ZodString, z.ZodObject<{

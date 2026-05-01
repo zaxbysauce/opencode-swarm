@@ -1,8 +1,9 @@
+import fs from 'node:fs';
+import path from 'node:path';
 import type { AgentDefinition } from '../agents/index.js';
 import {
 	COMMAND_REGISTRY,
 	type CommandEntry,
-	type RegisteredCommand,
 	resolveCommand,
 	VALID_COMMANDS,
 } from './registry.js';
@@ -41,6 +42,7 @@ export { handlePlanCommand } from './plan';
 export { handlePreflightCommand } from './preflight';
 export { handlePromoteCommand } from './promote';
 export { handleQaGatesCommand } from './qa-gates';
+export { handleHelpCommand } from './registry';
 export type {
 	CommandContext,
 	CommandEntry,
@@ -66,50 +68,97 @@ export { handleWriteRetroCommand } from './write-retro';
 export function buildHelpText(): string {
 	const lines: string[] = ['## Swarm Commands', ''];
 
-	// Track which compound commands have been shown as subcommands
-	const shownAsSubcommand = new Set<string>();
+	// Valid categories in display order
+	const CATEGORIES = [
+		'core',
+		'agent',
+		'config',
+		'diagnostics',
+		'utility',
+	] as const;
+	type Category = (typeof CATEGORIES)[number];
 
-	// First pass: show parent commands and their subcommands
+	// Group commands by category
+	const byCategory = new Map<Category, string[]>();
+	for (const cat of CATEGORIES) {
+		byCategory.set(cat, []);
+	}
+
+	// Collect deprecated aliases for later
+	const deprecatedAliases: Array<{ name: string; aliasOf: string }> = [];
+
+	// First pass: organize commands into categories, skip aliases and subcommands
 	for (const cmd of VALID_COMMANDS) {
-		// Skip if this is a compound command that will be shown under its parent
-		if (cmd.includes(' ')) {
-			const parent = cmd.split(' ')[0];
-			// Check if parent is in VALID_COMMANDS — if so, this compound will be shown under it
-			if (VALID_COMMANDS.includes(parent as RegisteredCommand)) {
-				shownAsSubcommand.add(cmd);
-			}
-			continue;
-		}
-
 		const entry = COMMAND_REGISTRY[
 			cmd as keyof typeof COMMAND_REGISTRY
 		] as CommandEntry;
-		lines.push(`- \`/swarm ${cmd}\` — ${entry.description}`);
 
-		if (entry.args) {
-			lines.push(`  Args: \`${entry.args}\``);
-		}
-		if (entry.details) {
-			lines.push(`  ${entry.details}`);
+		// Skip aliases - they go in deprecated section
+		if (entry.aliasOf) {
+			deprecatedAliases.push({ name: cmd, aliasOf: entry.aliasOf });
+			continue;
 		}
 
-		// Show subcommands grouped under this parent
-		const subcommands = VALID_COMMANDS.filter(
-			(sub) => sub.startsWith(`${cmd} `) && sub !== cmd,
-		);
-		for (const sub of subcommands) {
-			const subEntry = COMMAND_REGISTRY[
-				sub as keyof typeof COMMAND_REGISTRY
+		// Skip subcommands - they're shown under their parent
+		if (entry.subcommandOf) {
+			continue;
+		}
+
+		// Skip compound commands (with spaces) - handled below as top-level
+		if (cmd.includes(' ')) {
+			continue;
+		}
+
+		const category = (entry.category || 'utility') as Category;
+		const catLines = byCategory.get(category) || [];
+		catLines.push(cmd);
+		byCategory.set(category, catLines);
+	}
+
+	// Track which compound commands have been shown as subcommands
+	const shownAsSubcommand = new Set<string>();
+
+	// Output each category
+	for (const cat of CATEGORIES) {
+		const catLines = byCategory.get(cat);
+		if (!catLines || catLines.length === 0) continue;
+
+		const catTitle = cat.charAt(0).toUpperCase() + cat.slice(1);
+		lines.push(`### ${catTitle}`, '');
+
+		for (const cmd of catLines) {
+			const entry = COMMAND_REGISTRY[
+				cmd as keyof typeof COMMAND_REGISTRY
 			] as CommandEntry;
-			const subName = sub.slice(cmd.length + 1); // e.g. "migrate" from "knowledge migrate"
-			lines.push(`  - \`${subName}\` — ${subEntry.description}`);
-			if (subEntry.args) {
-				lines.push(`    Args: \`${subEntry.args}\``);
+			lines.push(`- \`/swarm ${cmd}\` — ${entry.description}`);
+
+			if (entry.args) {
+				lines.push(`  Args: \`${entry.args}\``);
 			}
-			if (subEntry.details) {
-				lines.push(`    ${subEntry.details}`);
+			if (entry.details) {
+				lines.push(`  ${entry.details}`);
+			}
+
+			// Show subcommands grouped under this parent
+			const subcommands = VALID_COMMANDS.filter(
+				(sub) => sub.startsWith(`${cmd} `) && sub !== cmd,
+			);
+			for (const sub of subcommands) {
+				shownAsSubcommand.add(sub);
+				const subEntry = COMMAND_REGISTRY[
+					sub as keyof typeof COMMAND_REGISTRY
+				] as CommandEntry;
+				const subName = sub.slice(cmd.length + 1);
+				lines.push(`  - \`${subName}\` — ${subEntry.description}`);
+				if (subEntry.args) {
+					lines.push(`    Args: \`${subEntry.args}\``);
+				}
+				if (subEntry.details) {
+					lines.push(`    ${subEntry.details}`);
+				}
 			}
 		}
+		lines.push('');
 	}
 
 	// Second pass: show compound commands that don't have a parent in VALID_COMMANDS
@@ -118,12 +167,24 @@ export function buildHelpText(): string {
 		const entry = COMMAND_REGISTRY[
 			cmd as keyof typeof COMMAND_REGISTRY
 		] as CommandEntry;
+
+		// Skip aliases and subcommands
+		if (entry.aliasOf || entry.subcommandOf) continue;
+
 		lines.push(`- \`/swarm ${cmd}\` — ${entry.description}`);
 		if (entry.args) {
 			lines.push(`  Args: \`${entry.args}\``);
 		}
 		if (entry.details) {
 			lines.push(`  ${entry.details}`);
+		}
+	}
+
+	// Deprecated section
+	if (deprecatedAliases.length > 0) {
+		lines.push('### Deprecated Commands', '');
+		for (const { name, aliasOf } of deprecatedAliases) {
+			lines.push(`- \`/swarm ${name}\` → Use \`/swarm ${aliasOf}\``);
 		}
 	}
 
@@ -163,6 +224,23 @@ export function createSwarmCommandHandler(
 			return;
 		}
 
+		// First-run sentinel detection (atomic — only swarm commands can initialize)
+		let isFirstRun = false;
+		const sentinelPath = path.join(directory, '.swarm', '.first-run-complete');
+		try {
+			const swarmDir = path.join(directory, '.swarm');
+			fs.mkdirSync(swarmDir, { recursive: true });
+			// 'wx' flag: write-only, fails atomically if file already exists
+			fs.writeFileSync(
+				sentinelPath,
+				`first-run-complete: ${new Date().toISOString()}\n`,
+				{ flag: 'wx' },
+			);
+			isFirstRun = true; // Only reached if write succeeded (file didn't exist)
+		} catch (_err) {
+			// EEXIST means file already existed — not first run; other errors: proceed silently
+		}
+
 		// Verified: input.arguments receives the expanded $ARGUMENTS from the template.
 		// The hook output.parts overrides the LLM response in the UI.
 		// Parse arguments
@@ -192,11 +270,25 @@ export function createSwarmCommandHandler(
 					sessionID: input.sessionID,
 					agents,
 				});
-			} catch (err) {
+			} catch (_err) {
 				const cmdName = tokens[0] || 'unknown';
-				const errMsg = err instanceof Error ? err.message : String(err);
+				const errMsg = _err instanceof Error ? _err.message : String(_err);
 				text = `Error executing /swarm ${cmdName}: ${errMsg}`;
 			}
+
+			// Prepend deprecation warning if the resolved command is a deprecated alias
+			if (resolved.warning) {
+				text = `${resolved.warning}\n\n${text}`;
+			}
+		}
+
+		// Prepend welcome message on first run
+		if (isFirstRun) {
+			const welcomeMessage =
+				`Welcome to OpenCode Swarm! 🐝\n` +
+				`\n` +
+				`Run \`/swarm help\` to see all available commands, or \`/swarm config\` to review your configuration.\n`;
+			text = welcomeMessage + text;
 		}
 
 		// Convert string result to Part[]

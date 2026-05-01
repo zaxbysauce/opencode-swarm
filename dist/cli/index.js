@@ -47,6 +47,80 @@ var __export = (target, all) => {
 var __esm = (fn, res) => () => (fn && (res = fn(fn = 0)), res);
 var __require = import.meta.require;
 
+// package.json
+var package_default;
+var init_package = __esm(() => {
+  package_default = {
+    name: "opencode-swarm",
+    version: "7.2.0",
+    description: "Architect-centric agentic swarm plugin for OpenCode - hub-and-spoke orchestration with SME consultation, code generation, and QA review",
+    main: "dist/index.js",
+    types: "dist/index.d.ts",
+    bin: {
+      "opencode-swarm": "./dist/cli/index.js"
+    },
+    type: "module",
+    engines: {
+      bun: ">=1.0.0"
+    },
+    license: "MIT",
+    repository: {
+      type: "git",
+      url: "https://github.com/zaxbysauce/opencode-swarm.git"
+    },
+    publishConfig: {
+      access: "public",
+      registry: "https://registry.npmjs.org/"
+    },
+    keywords: [
+      "opencode",
+      "opencode-plugin",
+      "ai",
+      "agents",
+      "orchestration",
+      "swarm",
+      "multi-agent",
+      "llm"
+    ],
+    files: [
+      "dist",
+      "dist/lang/grammars",
+      "README.md",
+      "LICENSE"
+    ],
+    scripts: {
+      clean: `bun -e "require('fs').rmSync('dist',{recursive:true,force:true})"`,
+      build: "bun run clean && bun run scripts/copy-grammars.ts && bun build src/index.ts --outdir dist --target node --format esm && bun build src/cli/index.ts --outdir dist/cli --target bun --format esm && bun run scripts/copy-grammars.ts --to-dist && tsc --emitDeclarationOnly",
+      typecheck: "tsc --noEmit",
+      test: "bun test",
+      lint: "biome lint .",
+      format: "biome format . --write",
+      check: "biome check --write .",
+      dev: "bun run build && opencode",
+      prepublishOnly: "bun run build",
+      "repro:704": "node scripts/repro-704.mjs"
+    },
+    dependencies: {
+      "@opencode-ai/plugin": "^1.1.53",
+      "@opencode-ai/sdk": "^1.1.53",
+      "@vscode/tree-sitter-wasm": "^0.3.0",
+      "p-limit": "^7.3.0",
+      picomatch: "^4.0.4",
+      "proper-lockfile": "^4.1.2",
+      "quick-lru": "^7.3.0",
+      "web-tree-sitter": "^0.25.0",
+      zod: "^4.1.8"
+    },
+    devDependencies: {
+      "@biomejs/biome": "2.3.14",
+      "@types/picomatch": "^4.0.3",
+      "bun-types": "1.3.8",
+      "js-yaml": "^4.1.1",
+      typescript: "^5.7.3"
+    }
+  };
+});
+
 // src/utils/errors.ts
 var init_errors = () => {};
 
@@ -15792,6 +15866,1325 @@ var init_manager = __esm(() => {
   recoveryMutexes = new Map;
 });
 
+// src/commands/acknowledge-spec-drift.ts
+import { promises as fsPromises3 } from "fs";
+async function handleAcknowledgeSpecDriftCommand(directory, _args) {
+  const specStalenessPath = validateSwarmPath(directory, "spec-staleness.json");
+  let stalenessContent;
+  try {
+    stalenessContent = await fsPromises3.readFile(specStalenessPath, "utf-8");
+  } catch (error49) {
+    if (error49?.code === "ENOENT") {
+      return "No spec drift detected.";
+    }
+    throw error49;
+  }
+  let stalenessData;
+  try {
+    stalenessData = JSON.parse(stalenessContent);
+  } catch {
+    await fsPromises3.unlink(specStalenessPath).catch(() => {});
+    return "Spec staleness file was corrupted. It has been removed.";
+  }
+  const { planTitle, phase } = stalenessData;
+  await fsPromises3.unlink(specStalenessPath);
+  let currentHash = null;
+  let planUpdateSkipped = false;
+  try {
+    const plan = await loadPlanJsonOnly(directory);
+    if (plan?.specHash) {
+      currentHash = await computeSpecHash(directory);
+      plan.specHash = currentHash ?? undefined;
+      await savePlan(directory, plan);
+    }
+  } catch (planError) {
+    console.error("[acknowledge-spec-drift] Failed to update plan specHash:", planError instanceof Error ? planError.message : String(planError));
+    planUpdateSkipped = true;
+  }
+  const eventsPath = validateSwarmPath(directory, "events.jsonl");
+  const acknowledgmentEvent = {
+    type: "spec_drift_acknowledged",
+    timestamp: new Date().toISOString(),
+    phase,
+    planTitle,
+    acknowledgedBy: "architect",
+    previousHash: stalenessData.specHash_plan,
+    newHash: currentHash
+  };
+  let eventWriteFailed = false;
+  try {
+    await fsPromises3.appendFile(eventsPath, `${JSON.stringify(acknowledgmentEvent)}
+`, "utf-8");
+  } catch (appendError) {
+    console.error("[acknowledge-spec-drift] Failed to write acknowledgment event:", appendError instanceof Error ? appendError.message : String(appendError));
+    eventWriteFailed = true;
+  }
+  const warnings = [];
+  if (planUpdateSkipped) {
+    warnings.push("Plan specHash update was skipped due to an error.");
+  }
+  if (eventWriteFailed) {
+    warnings.push("Event logging failed \u2014 audit trail may be incomplete.");
+  }
+  const baseMessage = `Spec drift acknowledged for plan "${planTitle}" (phase ${phase}).`;
+  const warningMessage = warnings.length > 0 ? `
+
+\u26A0\uFE0F  Warnings:
+${warnings.map((w) => `  - ${w}`).join(`
+`)}` : "";
+  const cautionMessage = `
+
+\u26A0\uFE0F  Warning: Spec drift was acknowledged \u2014 verify that the implementation still matches the spec before proceeding.`;
+  return baseMessage + warningMessage + cautionMessage;
+}
+var init_acknowledge_spec_drift = __esm(() => {
+  init_utils2();
+  init_manager();
+  init_spec_hash();
+});
+
+// src/tools/tool-names.ts
+var TOOL_NAMES, TOOL_NAME_SET;
+var init_tool_names = __esm(() => {
+  TOOL_NAMES = [
+    "diff",
+    "diff_summary",
+    "syntax_check",
+    "placeholder_scan",
+    "imports",
+    "lint",
+    "secretscan",
+    "sast_scan",
+    "build_check",
+    "pre_check_batch",
+    "quality_budget",
+    "symbols",
+    "complexity_hotspots",
+    "schema_drift",
+    "todo_extract",
+    "evidence_check",
+    "check_gate_status",
+    "completion_verify",
+    "submit_council_verdicts",
+    "declare_council_criteria",
+    "sbom_generate",
+    "checkpoint",
+    "pkg_audit",
+    "test_runner",
+    "test_impact",
+    "mutation_test",
+    "generate_mutants",
+    "detect_domains",
+    "gitingest",
+    "retrieve_summary",
+    "extract_code_blocks",
+    "phase_complete",
+    "save_plan",
+    "update_task_status",
+    "lint_spec",
+    "write_retro",
+    "write_drift_evidence",
+    "write_hallucination_evidence",
+    "write_mutation_evidence",
+    "declare_scope",
+    "knowledge_query",
+    "doc_scan",
+    "doc_extract",
+    "curator_analyze",
+    "knowledge_add",
+    "knowledge_recall",
+    "knowledge_remove",
+    "co_change_analyzer",
+    "search",
+    "batch_symbols",
+    "suggest_patch",
+    "req_coverage",
+    "get_approved_plan",
+    "repo_map",
+    "get_qa_gate_profile",
+    "set_qa_gates",
+    "web_search",
+    "convene_general_council"
+  ];
+  TOOL_NAME_SET = new Set(TOOL_NAMES);
+});
+
+// src/config/constants.ts
+var QA_AGENTS, PIPELINE_AGENTS, ORCHESTRATOR_NAME = "architect", ALL_SUBAGENT_NAMES, ALL_AGENT_NAMES, OPENCODE_NATIVE_AGENTS, AGENT_TOOL_MAP, DEFAULT_AGENT_CONFIGS;
+var init_constants = __esm(() => {
+  init_tool_names();
+  QA_AGENTS = ["reviewer", "critic", "critic_oversight"];
+  PIPELINE_AGENTS = ["explorer", "coder", "test_engineer"];
+  ALL_SUBAGENT_NAMES = [
+    "sme",
+    "docs",
+    "designer",
+    "critic_sounding_board",
+    "critic_drift_verifier",
+    "critic_hallucination_verifier",
+    "curator_init",
+    "curator_phase",
+    "council_generalist",
+    "council_skeptic",
+    "council_domain_expert",
+    ...QA_AGENTS,
+    ...PIPELINE_AGENTS
+  ];
+  ALL_AGENT_NAMES = [
+    ORCHESTRATOR_NAME,
+    ...ALL_SUBAGENT_NAMES
+  ];
+  OPENCODE_NATIVE_AGENTS = new Set([
+    "build",
+    "plan",
+    "general",
+    "explore",
+    "compaction",
+    "title",
+    "summary"
+  ]);
+  AGENT_TOOL_MAP = {
+    architect: [
+      "checkpoint",
+      "check_gate_status",
+      "completion_verify",
+      "complexity_hotspots",
+      "submit_council_verdicts",
+      "declare_council_criteria",
+      "detect_domains",
+      "evidence_check",
+      "extract_code_blocks",
+      "gitingest",
+      "imports",
+      "knowledge_query",
+      "lint",
+      "diff",
+      "diff_summary",
+      "pkg_audit",
+      "pre_check_batch",
+      "quality_budget",
+      "retrieve_summary",
+      "save_plan",
+      "search",
+      "batch_symbols",
+      "schema_drift",
+      "secretscan",
+      "symbols",
+      "test_runner",
+      "test_impact",
+      "mutation_test",
+      "generate_mutants",
+      "write_mutation_evidence",
+      "todo_extract",
+      "update_task_status",
+      "lint_spec",
+      "write_retro",
+      "write_drift_evidence",
+      "write_hallucination_evidence",
+      "declare_scope",
+      "sast_scan",
+      "sbom_generate",
+      "build_check",
+      "syntax_check",
+      "placeholder_scan",
+      "phase_complete",
+      "doc_scan",
+      "doc_extract",
+      "curator_analyze",
+      "knowledge_add",
+      "knowledge_recall",
+      "knowledge_remove",
+      "co_change_analyzer",
+      "suggest_patch",
+      "repo_map",
+      "get_qa_gate_profile",
+      "set_qa_gates",
+      "convene_general_council",
+      "web_search"
+    ],
+    explorer: [
+      "complexity_hotspots",
+      "detect_domains",
+      "extract_code_blocks",
+      "gitingest",
+      "imports",
+      "retrieve_summary",
+      "schema_drift",
+      "search",
+      "batch_symbols",
+      "symbols",
+      "todo_extract",
+      "doc_scan",
+      "knowledge_recall",
+      "repo_map"
+    ],
+    coder: [
+      "diff",
+      "imports",
+      "lint",
+      "symbols",
+      "extract_code_blocks",
+      "retrieve_summary",
+      "search",
+      "build_check",
+      "syntax_check",
+      "knowledge_add",
+      "knowledge_recall",
+      "repo_map"
+    ],
+    test_engineer: [
+      "test_runner",
+      "test_impact",
+      "mutation_test",
+      "diff",
+      "symbols",
+      "extract_code_blocks",
+      "retrieve_summary",
+      "imports",
+      "complexity_hotspots",
+      "pkg_audit",
+      "build_check",
+      "syntax_check",
+      "search"
+    ],
+    sme: [
+      "complexity_hotspots",
+      "detect_domains",
+      "extract_code_blocks",
+      "imports",
+      "retrieve_summary",
+      "schema_drift",
+      "symbols",
+      "knowledge_recall"
+    ],
+    reviewer: [
+      "diff",
+      "diff_summary",
+      "imports",
+      "lint",
+      "pkg_audit",
+      "pre_check_batch",
+      "secretscan",
+      "symbols",
+      "complexity_hotspots",
+      "retrieve_summary",
+      "extract_code_blocks",
+      "test_runner",
+      "test_impact",
+      "sast_scan",
+      "placeholder_scan",
+      "knowledge_recall",
+      "search",
+      "batch_symbols",
+      "suggest_patch",
+      "repo_map"
+    ],
+    critic: [
+      "complexity_hotspots",
+      "detect_domains",
+      "imports",
+      "retrieve_summary",
+      "symbols",
+      "knowledge_recall",
+      "req_coverage",
+      "get_approved_plan",
+      "repo_map"
+    ],
+    critic_sounding_board: [
+      "complexity_hotspots",
+      "detect_domains",
+      "imports",
+      "retrieve_summary",
+      "symbols",
+      "knowledge_recall",
+      "req_coverage",
+      "repo_map"
+    ],
+    critic_drift_verifier: [
+      "complexity_hotspots",
+      "detect_domains",
+      "imports",
+      "retrieve_summary",
+      "symbols",
+      "knowledge_recall",
+      "req_coverage",
+      "get_approved_plan",
+      "repo_map"
+    ],
+    critic_hallucination_verifier: [
+      "complexity_hotspots",
+      "detect_domains",
+      "imports",
+      "retrieve_summary",
+      "symbols",
+      "batch_symbols",
+      "search",
+      "pkg_audit",
+      "knowledge_recall",
+      "req_coverage",
+      "repo_map"
+    ],
+    critic_oversight: [
+      "complexity_hotspots",
+      "detect_domains",
+      "imports",
+      "retrieve_summary",
+      "symbols",
+      "knowledge_recall"
+    ],
+    docs: [
+      "detect_domains",
+      "extract_code_blocks",
+      "gitingest",
+      "imports",
+      "retrieve_summary",
+      "schema_drift",
+      "symbols",
+      "todo_extract",
+      "knowledge_recall"
+    ],
+    designer: [
+      "extract_code_blocks",
+      "retrieve_summary",
+      "symbols",
+      "knowledge_recall"
+    ],
+    curator_init: ["knowledge_recall"],
+    curator_phase: ["knowledge_recall"],
+    council_generalist: [],
+    council_skeptic: [],
+    council_domain_expert: []
+  };
+  for (const [agentName, tools] of Object.entries(AGENT_TOOL_MAP)) {
+    const invalidTools = tools.filter((tool) => !TOOL_NAME_SET.has(tool));
+    if (invalidTools.length > 0) {
+      throw new Error(`Agent '${agentName}' has invalid tool names: [${invalidTools.join(", ")}]. ` + `All tools must be registered in TOOL_NAME_SET.`);
+    }
+  }
+  DEFAULT_AGENT_CONFIGS = {
+    coder: {
+      model: "opencode/minimax-m2.5-free",
+      fallback_models: ["opencode/gpt-5-nano", "opencode/big-pickle"]
+    },
+    reviewer: {
+      model: "opencode/big-pickle",
+      fallback_models: ["opencode/gpt-5-nano", "opencode/big-pickle"]
+    },
+    test_engineer: {
+      model: "opencode/gpt-5-nano",
+      fallback_models: ["opencode/big-pickle"]
+    },
+    explorer: {
+      model: "opencode/big-pickle",
+      fallback_models: ["opencode/gpt-5-nano", "opencode/big-pickle"]
+    },
+    sme: {
+      model: "opencode/big-pickle",
+      fallback_models: ["opencode/gpt-5-nano", "opencode/big-pickle"]
+    },
+    critic: {
+      model: "opencode/big-pickle",
+      fallback_models: ["opencode/gpt-5-nano", "opencode/big-pickle"]
+    },
+    docs: {
+      model: "opencode/big-pickle",
+      fallback_models: ["opencode/gpt-5-nano", "opencode/big-pickle"]
+    },
+    designer: {
+      model: "opencode/big-pickle",
+      fallback_models: ["opencode/gpt-5-nano", "opencode/big-pickle"]
+    },
+    critic_sounding_board: {
+      model: "opencode/gpt-5-nano",
+      fallback_models: ["opencode/big-pickle"]
+    },
+    critic_drift_verifier: {
+      model: "opencode/gpt-5-nano",
+      fallback_models: ["opencode/big-pickle"]
+    },
+    critic_hallucination_verifier: {
+      model: "opencode/gpt-5-nano",
+      fallback_models: ["opencode/big-pickle"]
+    },
+    critic_oversight: {
+      model: "opencode/gpt-5-nano",
+      fallback_models: ["opencode/big-pickle"]
+    },
+    curator_init: {
+      model: "opencode/gpt-5-nano",
+      fallback_models: ["opencode/big-pickle"]
+    },
+    curator_phase: {
+      model: "opencode/gpt-5-nano",
+      fallback_models: ["opencode/big-pickle"]
+    }
+  };
+});
+
+// src/config/schema.ts
+function stripKnownSwarmPrefix(agentName) {
+  if (!agentName)
+    return agentName;
+  const normalized = agentName.toLowerCase();
+  let stripped = normalized;
+  let previous = "";
+  while (stripped !== previous) {
+    previous = stripped;
+    for (const prefix of KNOWN_SWARM_PREFIXES) {
+      for (const sep2 of SEPARATORS) {
+        const prefixWithSep = prefix + sep2;
+        if (stripped.startsWith(prefixWithSep)) {
+          stripped = stripped.slice(prefixWithSep.length);
+          break;
+        }
+      }
+      if (stripped !== previous)
+        break;
+    }
+  }
+  if (ALL_AGENT_NAMES.includes(stripped)) {
+    return stripped;
+  }
+  for (const agent of ALL_AGENT_NAMES) {
+    for (const sep2 of SEPARATORS) {
+      const suffix = sep2 + agent;
+      if (normalized.endsWith(suffix)) {
+        return agent;
+      }
+    }
+    if (normalized === agent) {
+      return agent;
+    }
+  }
+  return agentName;
+}
+var KNOWN_SWARM_PREFIXES, SEPARATORS, AgentOverrideConfigSchema, SwarmConfigSchema, HooksConfigSchema, ScoringWeightsSchema, DecisionDecaySchema, TokenRatiosSchema, ScoringConfigSchema, ContextBudgetConfigSchema, EvidenceConfigSchema, GateFeatureSchema, PlaceholderScanConfigSchema, QualityBudgetConfigSchema, GateConfigSchema, PipelineConfigSchema, PhaseCompleteConfigSchema, SummaryConfigSchema, ReviewPassesConfigSchema, AdversarialDetectionConfigSchema, AdversarialTestingConfigSchemaBase, AdversarialTestingConfigSchema, IntegrationAnalysisConfigSchema, DocsConfigSchema, UIReviewConfigSchema, CompactionAdvisoryConfigSchema, LintConfigSchema, SecretscanConfigSchema, GuardrailsProfileSchema, DEFAULT_AGENT_PROFILES, DEFAULT_ARCHITECT_PROFILE, GuardrailsConfigSchema, WatchdogConfigSchema, SelfReviewConfigSchema, ToolFilterConfigSchema, PlanCursorConfigSchema, CheckpointConfigSchema, AutomationModeSchema, AutomationCapabilitiesSchema, AutomationConfigSchemaBase, AutomationConfigSchema, KnowledgeConfigSchema, CuratorConfigSchema, SlopDetectorConfigSchema, IncrementalVerifyConfigSchema, CompactionConfigSchema, PrmConfigSchema, AgentAuthorityRuleSchema, AuthorityConfigSchema, GeneralCouncilMemberConfigSchema, GeneralCouncilConfigSchema, CouncilConfigSchema, ParallelizationConfigSchema, PluginConfigSchema;
+var init_schema = __esm(() => {
+  init_zod();
+  init_constants();
+  KNOWN_SWARM_PREFIXES = [
+    "paid",
+    "local",
+    "cloud",
+    "enterprise",
+    "mega",
+    "default",
+    "custom",
+    "team",
+    "project",
+    "swarm",
+    "synthetic"
+  ];
+  SEPARATORS = ["_", "-", " "];
+  AgentOverrideConfigSchema = exports_external.object({
+    model: exports_external.string().optional(),
+    variant: exports_external.string().min(1).optional(),
+    temperature: exports_external.number().min(0).max(2).optional(),
+    disabled: exports_external.boolean().optional(),
+    fallback_models: exports_external.array(exports_external.string()).max(3).optional()
+  });
+  SwarmConfigSchema = exports_external.object({
+    name: exports_external.string().optional(),
+    agents: exports_external.record(exports_external.string(), AgentOverrideConfigSchema).optional()
+  });
+  HooksConfigSchema = exports_external.object({
+    system_enhancer: exports_external.boolean().default(true),
+    compaction: exports_external.boolean().default(true),
+    agent_activity: exports_external.boolean().default(true),
+    delegation_tracker: exports_external.boolean().default(false),
+    agent_awareness_max_chars: exports_external.number().min(50).max(2000).default(300),
+    delegation_gate: exports_external.boolean().default(true),
+    delegation_max_chars: exports_external.number().min(500).max(20000).default(4000)
+  });
+  ScoringWeightsSchema = exports_external.object({
+    phase: exports_external.number().min(0).max(5).default(1),
+    current_task: exports_external.number().min(0).max(5).default(2),
+    blocked_task: exports_external.number().min(0).max(5).default(1.5),
+    recent_failure: exports_external.number().min(0).max(5).default(2.5),
+    recent_success: exports_external.number().min(0).max(5).default(0.5),
+    evidence_presence: exports_external.number().min(0).max(5).default(1),
+    decision_recency: exports_external.number().min(0).max(5).default(1.5),
+    dependency_proximity: exports_external.number().min(0).max(5).default(1)
+  });
+  DecisionDecaySchema = exports_external.object({
+    mode: exports_external.enum(["linear", "exponential"]).default("exponential"),
+    half_life_hours: exports_external.number().min(1).max(168).default(24)
+  });
+  TokenRatiosSchema = exports_external.object({
+    prose: exports_external.number().min(0.1).max(1).default(0.25),
+    code: exports_external.number().min(0.1).max(1).default(0.4),
+    markdown: exports_external.number().min(0.1).max(1).default(0.3),
+    json: exports_external.number().min(0.1).max(1).default(0.35)
+  });
+  ScoringConfigSchema = exports_external.object({
+    enabled: exports_external.boolean().default(false),
+    max_candidates: exports_external.number().min(10).max(500).default(100),
+    weights: ScoringWeightsSchema.optional(),
+    decision_decay: DecisionDecaySchema.optional(),
+    token_ratios: TokenRatiosSchema.optional()
+  });
+  ContextBudgetConfigSchema = exports_external.object({
+    enabled: exports_external.boolean().default(true),
+    warn_threshold: exports_external.number().min(0).max(1).default(0.7),
+    critical_threshold: exports_external.number().min(0).max(1).default(0.9),
+    model_limits: exports_external.record(exports_external.string(), exports_external.number().min(1000)).default({ default: 128000 }),
+    max_injection_tokens: exports_external.number().min(100).max(50000).default(4000),
+    tracked_agents: exports_external.array(exports_external.string()).default(["architect"]),
+    scoring: ScoringConfigSchema.optional(),
+    enforce: exports_external.boolean().default(true),
+    prune_target: exports_external.number().min(0).max(1).default(0.7),
+    preserve_last_n_turns: exports_external.number().min(0).max(100).default(4),
+    recent_window: exports_external.number().min(1).max(100).default(10),
+    enforce_on_agent_switch: exports_external.boolean().default(true),
+    tool_output_mask_threshold: exports_external.number().min(100).max(1e5).default(2000)
+  });
+  EvidenceConfigSchema = exports_external.object({
+    enabled: exports_external.boolean().default(true),
+    max_age_days: exports_external.number().min(1).max(365).default(90),
+    max_bundles: exports_external.number().min(10).max(1e4).default(1000),
+    auto_archive: exports_external.boolean().default(false)
+  });
+  GateFeatureSchema = exports_external.object({
+    enabled: exports_external.boolean().default(true)
+  });
+  PlaceholderScanConfigSchema = GateFeatureSchema.extend({
+    deny_patterns: exports_external.array(exports_external.string()).default([
+      "TODO",
+      "FIXME",
+      "TBD",
+      "XXX",
+      "placeholder",
+      "stub",
+      "wip",
+      "not implemented"
+    ]),
+    allow_globs: exports_external.array(exports_external.string()).default([
+      "docs/**",
+      "examples/**",
+      "tests/**",
+      "**/*.test.*",
+      "**/*.spec.*",
+      "**/mocks/**",
+      "**/__tests__/**"
+    ]),
+    max_allowed_findings: exports_external.number().min(0).default(0)
+  });
+  QualityBudgetConfigSchema = GateFeatureSchema.extend({
+    max_complexity_delta: exports_external.number().default(5),
+    max_public_api_delta: exports_external.number().default(10),
+    max_duplication_ratio: exports_external.number().default(0.05),
+    min_test_to_code_ratio: exports_external.number().default(0.3),
+    enforce_on_globs: exports_external.array(exports_external.string()).default(["src/**"]),
+    exclude_globs: exports_external.array(exports_external.string()).default(["docs/**", "tests/**", "**/*.test.*"])
+  });
+  GateConfigSchema = exports_external.object({
+    syntax_check: GateFeatureSchema.default({ enabled: true }),
+    placeholder_scan: PlaceholderScanConfigSchema.default({
+      enabled: true,
+      deny_patterns: [
+        "TODO",
+        "FIXME",
+        "TBD",
+        "XXX",
+        "placeholder",
+        "stub",
+        "wip",
+        "not implemented"
+      ],
+      allow_globs: [
+        "docs/**",
+        "examples/**",
+        "tests/**",
+        "**/*.test.*",
+        "**/*.spec.*",
+        "**/mocks/**",
+        "**/__tests__/**"
+      ],
+      max_allowed_findings: 0
+    }),
+    sast_scan: GateFeatureSchema.default({ enabled: true }),
+    sbom_generate: GateFeatureSchema.default({ enabled: true }),
+    build_check: GateFeatureSchema.default({ enabled: true }),
+    quality_budget: QualityBudgetConfigSchema
+  });
+  PipelineConfigSchema = exports_external.object({
+    parallel_precheck: exports_external.boolean().default(true)
+  });
+  PhaseCompleteConfigSchema = exports_external.object({
+    enabled: exports_external.boolean().default(true),
+    required_agents: exports_external.array(exports_external.enum(["coder", "reviewer", "test_engineer"])).default(["coder", "reviewer", "test_engineer"]),
+    require_docs: exports_external.boolean().default(true),
+    policy: exports_external.enum(["enforce", "warn"]).default("enforce"),
+    regression_sweep: exports_external.object({
+      enforce: exports_external.boolean().default(false)
+    }).optional()
+  });
+  SummaryConfigSchema = exports_external.object({
+    enabled: exports_external.boolean().default(true),
+    threshold_bytes: exports_external.number().min(1024).max(1048576).default(102400),
+    max_summary_chars: exports_external.number().min(100).max(5000).default(1000),
+    max_stored_bytes: exports_external.number().min(10240).max(104857600).default(10485760),
+    retention_days: exports_external.number().min(1).max(365).default(7),
+    exempt_tools: exports_external.array(exports_external.string()).default(["retrieve_summary", "task", "read"])
+  });
+  ReviewPassesConfigSchema = exports_external.object({
+    always_security_review: exports_external.boolean().default(false),
+    security_globs: exports_external.array(exports_external.string()).default([
+      "**/auth/**",
+      "**/api/**",
+      "**/crypto/**",
+      "**/security/**",
+      "**/middleware/**",
+      "**/session/**",
+      "**/token/**"
+    ])
+  });
+  AdversarialDetectionConfigSchema = exports_external.object({
+    enabled: exports_external.boolean().default(true),
+    policy: exports_external.enum(["warn", "gate", "ignore"]).default("warn"),
+    pairs: exports_external.array(exports_external.tuple([exports_external.string(), exports_external.string()])).default([["coder", "reviewer"]])
+  });
+  AdversarialTestingConfigSchemaBase = exports_external.object({
+    enabled: exports_external.boolean().default(true),
+    scope: exports_external.enum(["all", "security-only"]).default("all")
+  });
+  AdversarialTestingConfigSchema = AdversarialTestingConfigSchemaBase.default(() => ({
+    enabled: true,
+    scope: "all"
+  }));
+  IntegrationAnalysisConfigSchema = exports_external.object({
+    enabled: exports_external.boolean().default(true)
+  });
+  DocsConfigSchema = exports_external.object({
+    enabled: exports_external.boolean().default(true),
+    doc_patterns: exports_external.array(exports_external.string()).default([
+      "README.md",
+      "CONTRIBUTING.md",
+      "docs/**/*.md",
+      "docs/**/*.rst",
+      "**/CHANGELOG.md"
+    ])
+  });
+  UIReviewConfigSchema = exports_external.object({
+    enabled: exports_external.boolean().default(false),
+    trigger_paths: exports_external.array(exports_external.string()).default([
+      "**/pages/**",
+      "**/components/**",
+      "**/views/**",
+      "**/screens/**",
+      "**/ui/**",
+      "**/layouts/**"
+    ]),
+    trigger_keywords: exports_external.array(exports_external.string()).default([
+      "new page",
+      "new screen",
+      "new component",
+      "redesign",
+      "layout change",
+      "form",
+      "modal",
+      "dialog",
+      "dropdown",
+      "sidebar",
+      "navbar",
+      "dashboard",
+      "landing page",
+      "signup",
+      "login form",
+      "settings page",
+      "profile page"
+    ])
+  });
+  CompactionAdvisoryConfigSchema = exports_external.object({
+    enabled: exports_external.boolean().default(true),
+    thresholds: exports_external.array(exports_external.number().int().min(10).max(500)).default([50, 75, 100, 125, 150]),
+    message: exports_external.string().default("[SWARM HINT] Session has " + "$" + "{totalToolCalls} tool calls. Consider compacting at next phase boundary to maintain context quality.")
+  });
+  LintConfigSchema = exports_external.object({
+    enabled: exports_external.boolean().default(true),
+    mode: exports_external.enum(["check", "fix"]).default("check"),
+    linter: exports_external.enum(["biome", "eslint", "auto"]).default("auto"),
+    patterns: exports_external.array(exports_external.string()).default([
+      "**/*.{ts,tsx,js,jsx,mjs,cjs}",
+      "**/biome.json",
+      "**/biome.jsonc"
+    ]),
+    exclude: exports_external.array(exports_external.string()).default([
+      "**/node_modules/**",
+      "**/dist/**",
+      "**/.git/**",
+      "**/coverage/**",
+      "**/*.min.js"
+    ])
+  });
+  SecretscanConfigSchema = exports_external.object({
+    enabled: exports_external.boolean().default(true),
+    patterns: exports_external.array(exports_external.string()).default([
+      "**/*.{env,properties,yml,yaml,json,js,ts}",
+      "**/.env*",
+      "**/secrets/**",
+      "**/credentials/**",
+      "**/config/**/*.ts",
+      "**/config/**/*.js"
+    ]),
+    exclude: exports_external.array(exports_external.string()).default([
+      "**/node_modules/**",
+      "**/dist/**",
+      "**/.git/**",
+      "**/coverage/**",
+      "**/test/**",
+      "**/tests/**",
+      "**/__tests__/**",
+      "**/*.test.ts",
+      "**/*.test.js",
+      "**/*.spec.ts",
+      "**/*.spec.js"
+    ]),
+    extensions: exports_external.array(exports_external.string()).default([
+      ".env",
+      ".properties",
+      ".yml",
+      ".yaml",
+      ".json",
+      ".js",
+      ".ts",
+      ".py",
+      ".rb",
+      ".go",
+      ".java",
+      ".cs",
+      ".php"
+    ])
+  });
+  GuardrailsProfileSchema = exports_external.object({
+    max_tool_calls: exports_external.number().min(0).max(1000).optional(),
+    max_duration_minutes: exports_external.number().min(0).max(480).optional(),
+    max_repetitions: exports_external.number().min(3).max(50).optional(),
+    max_consecutive_errors: exports_external.number().min(2).max(20).optional(),
+    warning_threshold: exports_external.number().min(0.1).max(0.9).optional(),
+    idle_timeout_minutes: exports_external.number().min(5).max(240).optional(),
+    max_transient_retries: exports_external.number().min(0).max(20).optional()
+  });
+  DEFAULT_AGENT_PROFILES = {
+    architect: {
+      max_tool_calls: 0,
+      max_duration_minutes: 0,
+      max_consecutive_errors: 8,
+      warning_threshold: 0.75
+    },
+    coder: {
+      max_tool_calls: 400,
+      max_duration_minutes: 45,
+      max_consecutive_errors: 8,
+      warning_threshold: 0.85
+    },
+    test_engineer: {
+      max_tool_calls: 400,
+      max_duration_minutes: 45,
+      max_consecutive_errors: 8,
+      warning_threshold: 0.85
+    },
+    explorer: {
+      max_tool_calls: 150,
+      max_duration_minutes: 20,
+      max_consecutive_errors: 8,
+      warning_threshold: 0.75
+    },
+    reviewer: {
+      max_tool_calls: 200,
+      max_duration_minutes: 30,
+      max_consecutive_errors: 8,
+      warning_threshold: 0.65
+    },
+    critic: {
+      max_tool_calls: 200,
+      max_duration_minutes: 30,
+      warning_threshold: 0.65
+    },
+    sme: {
+      max_tool_calls: 200,
+      max_duration_minutes: 30,
+      warning_threshold: 0.65
+    },
+    docs: {
+      max_tool_calls: 200,
+      max_duration_minutes: 30,
+      warning_threshold: 0.75
+    },
+    designer: {
+      max_tool_calls: 150,
+      max_duration_minutes: 20,
+      warning_threshold: 0.75
+    }
+  };
+  DEFAULT_ARCHITECT_PROFILE = DEFAULT_AGENT_PROFILES.architect;
+  GuardrailsConfigSchema = exports_external.object({
+    enabled: exports_external.boolean().default(true),
+    max_tool_calls: exports_external.number().min(0).max(1000).default(200),
+    max_duration_minutes: exports_external.number().min(0).max(480).default(30),
+    max_repetitions: exports_external.number().min(3).max(50).default(10),
+    max_consecutive_errors: exports_external.number().min(2).max(20).default(5),
+    max_transient_retries: exports_external.number().min(0).max(20).default(5),
+    warning_threshold: exports_external.number().min(0.1).max(0.9).default(0.75),
+    idle_timeout_minutes: exports_external.number().min(5).max(240).default(60),
+    no_op_warning_threshold: exports_external.number().min(1).max(100).default(15),
+    max_coder_revisions: exports_external.number().int().min(1).max(20).default(5),
+    runaway_output_max_turns: exports_external.number().int().min(1).max(20).default(5),
+    qa_gates: exports_external.object({
+      required_tools: exports_external.array(exports_external.string().min(1)).default([
+        "diff",
+        "syntax_check",
+        "placeholder_scan",
+        "lint",
+        "pre_check_batch"
+      ]),
+      require_reviewer_test_engineer: exports_external.boolean().default(true)
+    }).optional(),
+    profiles: exports_external.record(exports_external.string(), GuardrailsProfileSchema).optional(),
+    block_destructive_commands: exports_external.boolean().default(true),
+    interpreter_allowed_agents: exports_external.array(exports_external.string().min(1)).optional(),
+    shell_audit_log: exports_external.boolean().default(true)
+  });
+  WatchdogConfigSchema = exports_external.object({
+    scope_guard: exports_external.boolean().default(true),
+    skip_in_turbo: exports_external.boolean().default(false),
+    delegation_ledger: exports_external.boolean().default(true)
+  });
+  SelfReviewConfigSchema = exports_external.object({
+    enabled: exports_external.boolean().default(true),
+    skip_in_turbo: exports_external.boolean().default(true)
+  });
+  ToolFilterConfigSchema = exports_external.object({
+    enabled: exports_external.boolean().default(true),
+    overrides: exports_external.record(exports_external.string(), exports_external.array(exports_external.string())).default({})
+  });
+  PlanCursorConfigSchema = exports_external.object({
+    enabled: exports_external.boolean().default(true),
+    max_tokens: exports_external.number().min(500).max(4000).default(1500),
+    lookahead_tasks: exports_external.number().min(0).max(5).default(2)
+  });
+  CheckpointConfigSchema = exports_external.object({
+    enabled: exports_external.boolean().default(true),
+    auto_checkpoint_threshold: exports_external.number().int().min(1).max(20).default(3),
+    allow_empty_commits: exports_external.boolean().default(false)
+  }).strict();
+  AutomationModeSchema = exports_external.enum(["manual", "hybrid", "auto"]);
+  AutomationCapabilitiesSchema = exports_external.object({
+    plan_sync: exports_external.boolean().default(true),
+    phase_preflight: exports_external.boolean().default(false),
+    config_doctor_on_startup: exports_external.boolean().default(false),
+    config_doctor_autofix: exports_external.boolean().default(false),
+    evidence_auto_summaries: exports_external.boolean().default(true),
+    decision_drift_detection: exports_external.boolean().default(true)
+  });
+  AutomationConfigSchemaBase = exports_external.object({
+    mode: AutomationModeSchema.default("manual"),
+    capabilities: AutomationCapabilitiesSchema.default({
+      plan_sync: true,
+      phase_preflight: false,
+      config_doctor_on_startup: false,
+      config_doctor_autofix: false,
+      evidence_auto_summaries: true,
+      decision_drift_detection: true
+    })
+  });
+  AutomationConfigSchema = AutomationConfigSchemaBase;
+  KnowledgeConfigSchema = exports_external.object({
+    enabled: exports_external.boolean().default(true),
+    swarm_max_entries: exports_external.number().min(1).max(1e4).default(100),
+    hive_max_entries: exports_external.number().min(1).max(1e5).default(200),
+    auto_promote_days: exports_external.number().min(1).max(3650).default(90),
+    max_inject_count: exports_external.number().min(0).max(50).default(5),
+    inject_char_budget: exports_external.number().min(200).max(1e4).default(2000),
+    context_budget_threshold: exports_external.number().int().positive().optional(),
+    max_lesson_display_chars: exports_external.number().min(40).max(280).default(120),
+    dedup_threshold: exports_external.number().min(0).max(1).default(0.6),
+    scope_filter: exports_external.array(exports_external.string()).default(["global"]),
+    hive_enabled: exports_external.boolean().default(true),
+    rejected_max_entries: exports_external.number().min(1).max(1000).default(20),
+    validation_enabled: exports_external.boolean().default(true),
+    evergreen_confidence: exports_external.number().min(0).max(1).default(0.9),
+    evergreen_utility: exports_external.number().min(0).max(1).default(0.8),
+    low_utility_threshold: exports_external.number().min(0).max(1).default(0.3),
+    min_retrievals_for_utility: exports_external.number().min(1).max(100).default(3),
+    schema_version: exports_external.number().int().min(1).default(1),
+    same_project_weight: exports_external.number().min(0).max(5).default(1),
+    cross_project_weight: exports_external.number().min(0).max(5).default(0.5),
+    min_encounter_score: exports_external.number().min(0).max(1).default(0.1),
+    initial_encounter_score: exports_external.number().min(0).max(5).default(1),
+    encounter_increment: exports_external.number().min(0).max(1).default(0.1),
+    max_encounter_score: exports_external.number().min(1).max(20).default(10),
+    default_max_phases: exports_external.number().int().positive().default(10),
+    todo_max_phases: exports_external.number().int().positive().default(3),
+    sweep_enabled: exports_external.boolean().default(true)
+  });
+  CuratorConfigSchema = exports_external.object({
+    enabled: exports_external.boolean().default(true),
+    init_enabled: exports_external.boolean().default(true),
+    phase_enabled: exports_external.boolean().default(true),
+    max_summary_tokens: exports_external.number().min(500).max(8000).default(2000),
+    min_knowledge_confidence: exports_external.number().min(0).max(1).default(0.7),
+    compliance_report: exports_external.boolean().default(true),
+    suppress_warnings: exports_external.boolean().default(true),
+    drift_inject_max_chars: exports_external.number().min(100).max(2000).default(500),
+    llm_timeout_ms: exports_external.number().int().min(5000).max(600000).default(300000)
+  });
+  SlopDetectorConfigSchema = exports_external.object({
+    enabled: exports_external.boolean().default(true),
+    classThreshold: exports_external.number().int().min(1).default(3),
+    commentStripThreshold: exports_external.number().int().min(1).default(5),
+    diffLineThreshold: exports_external.number().int().min(10).default(200),
+    importHygieneThreshold: exports_external.number().int().min(1).default(2)
+  });
+  IncrementalVerifyConfigSchema = exports_external.object({
+    enabled: exports_external.boolean().default(true),
+    command: exports_external.union([exports_external.string(), exports_external.array(exports_external.string())]).nullable().default(null),
+    timeoutMs: exports_external.number().int().min(1000).max(300000).default(30000),
+    triggerAgents: exports_external.array(exports_external.string()).default(["coder"])
+  });
+  CompactionConfigSchema = exports_external.object({
+    enabled: exports_external.boolean().default(true),
+    observationThreshold: exports_external.number().min(1).max(99).default(40),
+    reflectionThreshold: exports_external.number().min(1).max(99).default(60),
+    emergencyThreshold: exports_external.number().min(1).max(99).default(80),
+    preserveLastNTurns: exports_external.number().int().min(1).default(5)
+  });
+  PrmConfigSchema = exports_external.object({
+    enabled: exports_external.boolean().default(true),
+    pattern_thresholds: exports_external.object({
+      repetition_loop: exports_external.number().min(1).default(2),
+      ping_pong: exports_external.number().min(1).default(2),
+      expansion_drift: exports_external.number().min(1).default(3),
+      stuck_on_test: exports_external.number().min(1).default(3),
+      context_thrash: exports_external.number().min(1).default(3)
+    }).default(() => ({
+      repetition_loop: 2,
+      ping_pong: 2,
+      expansion_drift: 3,
+      stuck_on_test: 3,
+      context_thrash: 3
+    })),
+    max_trajectory_lines: exports_external.number().min(10).default(1000),
+    escalation_enabled: exports_external.boolean().default(true),
+    detection_timeout_ms: exports_external.number().min(10).default(100)
+  });
+  AgentAuthorityRuleSchema = exports_external.object({
+    readOnly: exports_external.boolean().optional(),
+    blockedExact: exports_external.array(exports_external.string()).optional(),
+    allowedExact: exports_external.array(exports_external.string()).optional(),
+    blockedPrefix: exports_external.array(exports_external.string()).optional(),
+    allowedPrefix: exports_external.array(exports_external.string()).optional(),
+    blockedZones: exports_external.array(exports_external.enum(["production", "test", "config", "generated", "docs", "build"])).optional(),
+    blockedGlobs: exports_external.array(exports_external.string()).optional(),
+    allowedGlobs: exports_external.array(exports_external.string()).optional()
+  });
+  AuthorityConfigSchema = exports_external.object({
+    enabled: exports_external.boolean().default(true),
+    rules: exports_external.record(exports_external.string(), AgentAuthorityRuleSchema).default({}),
+    universal_deny_prefixes: exports_external.array(exports_external.string().min(1)).default([])
+  });
+  GeneralCouncilMemberConfigSchema = exports_external.object({
+    memberId: exports_external.string().min(1),
+    model: exports_external.string().min(1),
+    role: exports_external.enum([
+      "generalist",
+      "skeptic",
+      "domain_expert",
+      "devil_advocate",
+      "synthesizer"
+    ]),
+    persona: exports_external.string().optional()
+  }).strict();
+  GeneralCouncilConfigSchema = exports_external.object({
+    enabled: exports_external.boolean().default(false),
+    searchProvider: exports_external.enum(["tavily", "brave"]).default("tavily"),
+    searchApiKey: exports_external.string().optional(),
+    members: exports_external.array(GeneralCouncilMemberConfigSchema).default([]),
+    presets: exports_external.record(exports_external.string(), exports_external.array(GeneralCouncilMemberConfigSchema)).default({}),
+    deliberate: exports_external.boolean().default(true),
+    moderator: exports_external.boolean().default(true),
+    moderatorModel: exports_external.string().optional(),
+    maxSourcesPerMember: exports_external.number().int().min(1).max(20).default(5)
+  }).strict();
+  CouncilConfigSchema = exports_external.object({
+    enabled: exports_external.boolean().default(false),
+    maxRounds: exports_external.number().int().min(1).max(10).default(3),
+    parallelTimeoutMs: exports_external.number().int().min(5000).max(120000).default(30000),
+    vetoPriority: exports_external.boolean().default(true),
+    requireAllMembers: exports_external.boolean().default(false).describe("When true, submit_council_verdicts rejects if fewer than 5 member verdicts are provided. Equivalent to minimumMembers: 5."),
+    minimumMembers: exports_external.number().int().min(1).max(5).default(3).describe("Minimum distinct council member verdicts required for synthesis. Default 3. Set to 1 to disable quorum enforcement. requireAllMembers: true overrides this to 5 (stricter constraint wins)."),
+    escalateOnMaxRounds: exports_external.string().optional().describe("Optional webhook URL or handler name invoked when maxRounds is reached without APPROVE. Declared for forward compatibility; no behavior is implemented yet."),
+    phaseConcernsAllowComplete: exports_external.boolean().default(true).describe("When true, a phase-level council CONCERNS verdict does NOT block phase completion \u2014 the advisory notes are logged as warnings and the phase proceeds. When false, CONCERNS blocks like REJECT. Default: true (CONCERNS is advisory)."),
+    general: GeneralCouncilConfigSchema.optional()
+  }).strict();
+  ParallelizationConfigSchema = exports_external.object({
+    enabled: exports_external.boolean().default(false),
+    maxConcurrentTasks: exports_external.number().int().min(1).max(64).default(1),
+    evidenceLockTimeoutMs: exports_external.number().int().min(1000).max(300000).default(60000),
+    max_coders: exports_external.number().int().min(1).max(16).default(3),
+    max_reviewers: exports_external.number().int().min(1).max(16).default(2),
+    stageB: exports_external.object({
+      parallel: exports_external.object({
+        enabled: exports_external.boolean().default(false)
+      }).default({ enabled: false })
+    }).default({ parallel: { enabled: false } })
+  });
+  PluginConfigSchema = exports_external.object({
+    agents: exports_external.record(exports_external.string(), AgentOverrideConfigSchema).optional(),
+    default_agent: exports_external.enum(ALL_AGENT_NAMES).default("architect").optional(),
+    swarms: exports_external.record(exports_external.string(), SwarmConfigSchema).optional(),
+    max_iterations: exports_external.number().min(1).max(10).default(5),
+    pipeline: PipelineConfigSchema.optional(),
+    phase_complete: PhaseCompleteConfigSchema.optional(),
+    qa_retry_limit: exports_external.number().min(1).max(10).default(3),
+    execution_mode: exports_external.enum(["strict", "balanced", "fast"]).default("balanced"),
+    inject_phase_reminders: exports_external.boolean().default(true),
+    hooks: HooksConfigSchema.optional(),
+    gates: GateConfigSchema.optional(),
+    context_budget: ContextBudgetConfigSchema.optional(),
+    guardrails: GuardrailsConfigSchema.optional(),
+    watchdog: WatchdogConfigSchema.optional(),
+    self_review: SelfReviewConfigSchema.optional(),
+    tool_filter: ToolFilterConfigSchema.optional(),
+    authority: AuthorityConfigSchema.optional(),
+    plan_cursor: PlanCursorConfigSchema.optional(),
+    evidence: EvidenceConfigSchema.optional(),
+    summaries: SummaryConfigSchema.optional(),
+    review_passes: ReviewPassesConfigSchema.optional(),
+    adversarial_detection: AdversarialDetectionConfigSchema.optional(),
+    adversarial_testing: AdversarialTestingConfigSchema.optional(),
+    integration_analysis: IntegrationAnalysisConfigSchema.optional(),
+    docs: DocsConfigSchema.optional(),
+    ui_review: UIReviewConfigSchema.optional(),
+    compaction_advisory: CompactionAdvisoryConfigSchema.optional(),
+    lint: LintConfigSchema.optional(),
+    secretscan: SecretscanConfigSchema.optional(),
+    checkpoint: CheckpointConfigSchema.optional(),
+    automation: AutomationConfigSchema.optional(),
+    knowledge: KnowledgeConfigSchema.optional(),
+    curator: CuratorConfigSchema.optional(),
+    tool_output: exports_external.object({
+      truncation_enabled: exports_external.boolean().default(true),
+      max_lines: exports_external.number().min(10).max(500).default(150),
+      per_tool: exports_external.record(exports_external.string(), exports_external.number()).optional(),
+      truncation_tools: exports_external.array(exports_external.string()).optional().describe("Tools to apply output truncation to. Defaults to diff, symbols, bash, shell, test_runner, lint, pre_check_batch, complexity_hotspots, pkg_audit, sbom_generate, schema_drift.")
+    }).optional(),
+    slop_detector: SlopDetectorConfigSchema.optional(),
+    todo_gate: exports_external.object({
+      enabled: exports_external.boolean().default(true),
+      max_high_priority: exports_external.number().int().min(-1).default(0).describe("Max new high-priority TODOs (FIXME/HACK/XXX) before warning. 0 = warn on any. Set to -1 to disable."),
+      block_on_threshold: exports_external.boolean().default(false).describe("If true, block phase completion when threshold exceeded. Default: advisory only.")
+    }).optional(),
+    incremental_verify: IncrementalVerifyConfigSchema.optional(),
+    compaction_service: CompactionConfigSchema.optional(),
+    prm: PrmConfigSchema.optional(),
+    council: CouncilConfigSchema.optional(),
+    parallelization: ParallelizationConfigSchema.optional(),
+    turbo_mode: exports_external.boolean().default(false).optional(),
+    quiet: exports_external.boolean().default(true).optional(),
+    version_check: exports_external.boolean().default(true).optional(),
+    full_auto: exports_external.object({
+      enabled: exports_external.boolean().default(false),
+      critic_model: exports_external.string().optional(),
+      max_interactions_per_phase: exports_external.number().int().min(5).max(200).default(50),
+      deadlock_threshold: exports_external.number().int().min(2).max(10).default(3),
+      escalation_mode: exports_external.enum(["pause", "terminate"]).default("pause")
+    }).optional().default({
+      enabled: false,
+      max_interactions_per_phase: 50,
+      deadlock_threshold: 3,
+      escalation_mode: "pause"
+    })
+  });
+});
+
+// src/commands/agents.ts
+function handleAgentsCommand(agents, guardrails) {
+  const entries = Object.entries(agents);
+  if (entries.length === 0) {
+    return "No agents registered.";
+  }
+  const allAgentKeys = entries.map(([key]) => key);
+  const registeredBaseNames = allAgentKeys.map((key) => stripKnownSwarmPrefix(key)).filter((stripped) => ALL_SUBAGENT_NAMES.includes(stripped));
+  const unregistered = ALL_SUBAGENT_NAMES.filter((name) => !registeredBaseNames.includes(name));
+  const hasUnregistered = unregistered.length > 0;
+  const headerLabel = hasUnregistered ? `${entries.length} registered + ${unregistered.length} unregistered` : `${entries.length} total`;
+  const lines = [`## Registered Agents (${headerLabel})`, ""];
+  for (const [key, agent] of entries) {
+    const model = agent.config.model || "default";
+    const temp = agent.config.temperature !== undefined ? agent.config.temperature.toString() : "default";
+    const tools = agent.config.tools || {};
+    const isReadOnly = tools.write === false || tools.edit === false;
+    const access2 = isReadOnly ? "\uD83D\uDD12 read-only" : "\u270F\uFE0F read-write";
+    const desc = agent.description || agent.config.description || "";
+    const hasCustomProfile = guardrails?.profiles?.[key] !== undefined;
+    const profileIndicator = hasCustomProfile ? " | \u26A1 custom limits" : "";
+    lines.push(`- **${key}** | model: \`${model}\` | temp: ${temp} | ${access2}${profileIndicator}`);
+    if (desc) {
+      lines.push(`  ${desc}`);
+    }
+  }
+  if (hasUnregistered) {
+    lines.push("", "### Unregistered Subagents");
+    for (const name of unregistered) {
+      lines.push(`- **${name}** (requires configuration)`);
+    }
+  }
+  if (guardrails?.profiles && Object.keys(guardrails.profiles).length > 0) {
+    lines.push("", "### Guardrail Profiles", "");
+    for (const [profileName, profile] of Object.entries(guardrails.profiles)) {
+      const overrides = [];
+      if (profile.max_tool_calls !== undefined) {
+        overrides.push(`max_tool_calls=${profile.max_tool_calls}`);
+      }
+      if (profile.max_duration_minutes !== undefined) {
+        overrides.push(`max_duration_minutes=${profile.max_duration_minutes}`);
+      }
+      if (profile.max_repetitions !== undefined) {
+        overrides.push(`max_repetitions=${profile.max_repetitions}`);
+      }
+      if (profile.max_consecutive_errors !== undefined) {
+        overrides.push(`max_consecutive_errors=${profile.max_consecutive_errors}`);
+      }
+      if (profile.warning_threshold !== undefined) {
+        overrides.push(`warning_threshold=${profile.warning_threshold}`);
+      }
+      const overrideStr = overrides.length > 0 ? overrides.join(", ") : "no overrides";
+      lines.push(`- **${profileName}**: ${overrideStr}`);
+    }
+  }
+  return lines.join(`
+`);
+}
+var init_agents = __esm(() => {
+  init_constants();
+  init_schema();
+});
+
+// src/commands/analyze.ts
+async function handleAnalyzeCommand(_directory, args) {
+  const description = args.join(" ").trim();
+  if (description) {
+    return `[MODE: ANALYZE] ${description}`;
+  }
+  return "[MODE: ANALYZE] Please analyze the spec against the plan using MODE: ANALYZE.";
+}
+
+// src/config/loader.ts
+import * as fs2 from "fs";
+import * as os2 from "os";
+import * as path5 from "path";
+function getUserConfigDir() {
+  return process.env.XDG_CONFIG_HOME || path5.join(os2.homedir(), ".config");
+}
+function loadRawConfigFromPath(configPath) {
+  try {
+    const stats = fs2.statSync(configPath);
+    if (stats.size > MAX_CONFIG_FILE_BYTES) {
+      console.warn(`[opencode-swarm] Config file too large (max 100 KB): ${configPath}`);
+      console.warn("[opencode-swarm] \u26A0\uFE0F SECURITY: Config file exceeds size limit. Falling back to safe defaults with guardrails ENABLED.");
+      return { config: null, fileExisted: true, hadError: true };
+    }
+    const content = fs2.readFileSync(configPath, "utf-8");
+    if (content.length > MAX_CONFIG_FILE_BYTES) {
+      console.warn(`[opencode-swarm] Config file too large after read (max 100 KB): ${configPath}`);
+      console.warn("[opencode-swarm] \u26A0\uFE0F SECURITY: Config file exceeds size limit. Falling back to safe defaults with guardrails ENABLED.");
+      return { config: null, fileExisted: true, hadError: true };
+    }
+    let sanitizedContent = content;
+    if (content.charCodeAt(0) === 65279) {
+      sanitizedContent = content.slice(1);
+    }
+    const rawConfig = JSON.parse(sanitizedContent);
+    if (typeof rawConfig !== "object" || rawConfig === null || Array.isArray(rawConfig)) {
+      console.warn(`[opencode-swarm] Invalid config at ${configPath}: expected an object`);
+      console.warn("[opencode-swarm] \u26A0\uFE0F SECURITY: Config format invalid. Falling back to safe defaults with guardrails ENABLED.");
+      return { config: null, fileExisted: true, hadError: true };
+    }
+    return {
+      config: rawConfig,
+      fileExisted: true,
+      hadError: false
+    };
+  } catch (error49) {
+    const isFileNotFoundError = error49 instanceof Error && "code" in error49 && error49.code === "ENOENT";
+    if (!isFileNotFoundError) {
+      const errorMessage = error49 instanceof Error ? error49.message : String(error49);
+      console.warn(`[opencode-swarm] \u26A0\uFE0F CONFIG LOAD FAILURE \u2014 config exists at ${configPath} but could not be loaded: ${errorMessage}`);
+      console.warn("[opencode-swarm] \u26A0\uFE0F SECURITY: Config load failed. Falling back to safe defaults with guardrails ENABLED.");
+      return { config: null, fileExisted: true, hadError: true };
+    }
+    return { config: null, fileExisted: false, hadError: false };
+  }
+}
+function migratePresetsConfig(raw) {
+  if (raw.presets && typeof raw.presets === "object" && !raw.agents) {
+    const presetName = raw.preset || "remote";
+    const presets = raw.presets;
+    const activePreset = presets[presetName] || Object.values(presets)[0];
+    if (activePreset && typeof activePreset === "object") {
+      const migrated = { ...raw, agents: activePreset };
+      delete migrated.preset;
+      delete migrated.presets;
+      delete migrated.swarm_mode;
+      console.warn("[opencode-swarm] Migrated v6.12 presets config to agents format. Consider updating your opencode-swarm.json.");
+      return migrated;
+    }
+  }
+  return raw;
+}
+function loadPluginConfig(directory) {
+  const userConfigPath = path5.join(getUserConfigDir(), "opencode", CONFIG_FILENAME);
+  const projectConfigPath = path5.join(directory, ".opencode", CONFIG_FILENAME);
+  const userResult = loadRawConfigFromPath(userConfigPath);
+  const projectResult = loadRawConfigFromPath(projectConfigPath);
+  const rawUserConfig = userResult.config;
+  const rawProjectConfig = projectResult.config;
+  const loadedFromFile = userResult.fileExisted || projectResult.fileExisted;
+  const configHadErrors = userResult.hadError || projectResult.hadError;
+  let mergedRaw = rawUserConfig ?? {};
+  if (rawProjectConfig) {
+    mergedRaw = deepMerge(mergedRaw, rawProjectConfig);
+  }
+  mergedRaw = migratePresetsConfig(mergedRaw);
+  const result = PluginConfigSchema.safeParse(mergedRaw);
+  if (!result.success) {
+    if (rawUserConfig) {
+      const userParseResult = PluginConfigSchema.safeParse(rawUserConfig);
+      if (userParseResult.success) {
+        console.warn("[opencode-swarm] Project config ignored due to validation errors. Using user config.");
+        return userParseResult.data;
+      }
+    }
+    console.warn("[opencode-swarm] Merged config validation failed:");
+    console.warn(result.error.format());
+    console.warn("[opencode-swarm] \u26A0\uFE0F SECURITY: Falling back to conservative defaults with guardrails ENABLED. Fix the config file to restore custom configuration.");
+    return PluginConfigSchema.parse({
+      guardrails: { enabled: true }
+    });
+  }
+  if (loadedFromFile && configHadErrors) {
+    return PluginConfigSchema.parse({
+      ...mergedRaw,
+      guardrails: { enabled: true }
+    });
+  }
+  return result.data;
+}
+function loadPluginConfigWithMeta(directory) {
+  const userConfigPath = path5.join(getUserConfigDir(), "opencode", CONFIG_FILENAME);
+  const projectConfigPath = path5.join(directory, ".opencode", CONFIG_FILENAME);
+  const userResult = loadRawConfigFromPath(userConfigPath);
+  const projectResult = loadRawConfigFromPath(projectConfigPath);
+  const loadedFromFile = userResult.fileExisted || projectResult.fileExisted;
+  const config2 = loadPluginConfig(directory);
+  return { config: config2, loadedFromFile };
+}
+var CONFIG_FILENAME = "opencode-swarm.json", MAX_CONFIG_FILE_BYTES = 102400;
+var init_loader = __esm(() => {
+  init_schema();
+});
+
 // src/config/evidence-schema.ts
 var EVIDENCE_MAX_JSON_BYTES, EVIDENCE_MAX_PATCH_BYTES, EVIDENCE_MAX_TASK_BYTES, EvidenceTypeSchema, EvidenceVerdictSchema, BaseEvidenceSchema, ReviewEvidenceSchema, TestEvidenceSchema, DiffEvidenceSchema, ApprovalEvidenceSchema, NoteEvidenceSchema, RetrospectiveEvidenceSchema, SyntaxEvidenceSchema, PlaceholderEvidenceSchema, SastFindingSchema, SastEvidenceSchema, SbomEvidenceSchema, BuildEvidenceSchema, QualityBudgetEvidenceSchema, SecretscanEvidenceSchema, EvidenceSchema, EvidenceBundleSchema;
 var init_evidence_schema = __esm(() => {
@@ -18001,2244 +19394,7 @@ var init_manager2 = __esm(() => {
   };
 });
 
-// src/services/config-doctor.ts
-var exports_config_doctor = {};
-__export(exports_config_doctor, {
-  writeDoctorArtifact: () => writeDoctorArtifact,
-  writeBackupArtifact: () => writeBackupArtifact,
-  shouldRunOnStartup: () => shouldRunOnStartup,
-  runConfigDoctorWithFixes: () => runConfigDoctorWithFixes,
-  runConfigDoctor: () => runConfigDoctor,
-  restoreFromBackup: () => restoreFromBackup,
-  getConfigPaths: () => getConfigPaths,
-  createConfigBackup: () => createConfigBackup,
-  applySafeAutoFixes: () => applySafeAutoFixes
-});
-import * as crypto3 from "crypto";
-import * as fs8 from "fs";
-import * as os6 from "os";
-import * as path20 from "path";
-function getUserConfigDir3() {
-  return process.env.XDG_CONFIG_HOME || path20.join(os6.homedir(), ".config");
-}
-function getConfigPaths(directory) {
-  const userConfigPath = path20.join(getUserConfigDir3(), "opencode", "opencode-swarm.json");
-  const projectConfigPath = path20.join(directory, ".opencode", "opencode-swarm.json");
-  return { userConfigPath, projectConfigPath };
-}
-function computeHash(content) {
-  return crypto3.createHash("sha256").update(content, "utf-8").digest("hex");
-}
-function isValidConfigPath(configPath, directory) {
-  const normalizedPath = configPath.replace(/\\/g, "/");
-  const pathParts = normalizedPath.split("/");
-  for (const part of pathParts) {
-    if (part === ".." || part === "") {
-      if (part === "..") {
-        return false;
-      }
-    }
-  }
-  for (const pattern of VALID_CONFIG_PATTERNS) {
-    if (pattern.test(normalizedPath)) {
-      return true;
-    }
-  }
-  const { userConfigPath, projectConfigPath } = getConfigPaths(directory);
-  const normalizedUser = userConfigPath.replace(/\\/g, "/");
-  const normalizedProject = projectConfigPath.replace(/\\/g, "/");
-  try {
-    const resolvedConfig = path20.resolve(configPath);
-    const resolvedUser = path20.resolve(normalizedUser);
-    const resolvedProject = path20.resolve(normalizedProject);
-    return resolvedConfig === resolvedUser || resolvedConfig === resolvedProject;
-  } catch {
-    return false;
-  }
-}
-function createConfigBackup(directory) {
-  const { userConfigPath, projectConfigPath } = getConfigPaths(directory);
-  let configPath = projectConfigPath;
-  let content = null;
-  if (fs8.existsSync(projectConfigPath)) {
-    try {
-      content = fs8.readFileSync(projectConfigPath, "utf-8");
-    } catch (error93) {
-      log("[ConfigDoctor] project config read failed", {
-        error: error93 instanceof Error ? error93.message : String(error93)
-      });
-    }
-  }
-  if (content === null && fs8.existsSync(userConfigPath)) {
-    configPath = userConfigPath;
-    try {
-      content = fs8.readFileSync(userConfigPath, "utf-8");
-    } catch (error93) {
-      log("[ConfigDoctor] user config read failed", {
-        error: error93 instanceof Error ? error93.message : String(error93)
-      });
-    }
-  }
-  if (content === null) {
-    return null;
-  }
-  return {
-    createdAt: Date.now(),
-    configPath,
-    content,
-    contentHash: computeHash(content)
-  };
-}
-function writeBackupArtifact(directory, backup) {
-  const swarmDir = path20.join(directory, ".swarm");
-  if (!fs8.existsSync(swarmDir)) {
-    fs8.mkdirSync(swarmDir, { recursive: true });
-  }
-  const backupFilename = `config-backup-${backup.createdAt}.json`;
-  const backupPath = path20.join(swarmDir, backupFilename);
-  const artifact = {
-    createdAt: backup.createdAt,
-    configPath: backup.configPath,
-    contentHash: backup.contentHash,
-    content: backup.content,
-    preview: backup.content.substring(0, 500) + (backup.content.length > 500 ? "..." : "")
-  };
-  fs8.writeFileSync(backupPath, JSON.stringify(artifact, null, 2), "utf-8");
-  return backupPath;
-}
-function restoreFromBackup(backupPath, directory) {
-  if (!fs8.existsSync(backupPath)) {
-    return null;
-  }
-  try {
-    const artifact = JSON.parse(fs8.readFileSync(backupPath, "utf-8"));
-    if (!artifact.content || !artifact.configPath || !artifact.contentHash) {
-      return null;
-    }
-    if (!isValidConfigPath(artifact.configPath, directory)) {
-      return null;
-    }
-    const computedHash = computeHash(artifact.content);
-    const storedHash = artifact.contentHash;
-    const isLegacyHash = /^\d+$/.test(storedHash);
-    if (!isLegacyHash && computedHash !== storedHash) {
-      return null;
-    }
-    const targetPath = artifact.configPath;
-    const targetDir = path20.dirname(targetPath);
-    if (!fs8.existsSync(targetDir)) {
-      fs8.mkdirSync(targetDir, { recursive: true });
-    }
-    fs8.writeFileSync(targetPath, artifact.content, "utf-8");
-    return targetPath;
-  } catch {
-    return null;
-  }
-}
-function readConfigFromFile(directory) {
-  const { userConfigPath, projectConfigPath } = getConfigPaths(directory);
-  let configPath = projectConfigPath;
-  let configContent = null;
-  if (fs8.existsSync(projectConfigPath)) {
-    configPath = projectConfigPath;
-    configContent = fs8.readFileSync(projectConfigPath, "utf-8");
-  } else if (fs8.existsSync(userConfigPath)) {
-    configPath = userConfigPath;
-    configContent = fs8.readFileSync(userConfigPath, "utf-8");
-  }
-  if (configContent === null) {
-    return null;
-  }
-  try {
-    const config3 = JSON.parse(configContent);
-    return { config: config3, configPath };
-  } catch {
-    return null;
-  }
-}
-function validateConfigKey(path21, value, _config) {
-  const findings = [];
-  switch (path21) {
-    case "agents": {
-      if (value !== undefined) {
-        findings.push({
-          id: "deprecated-agents-config",
-          title: "Deprecated agents configuration",
-          description: 'The "agents" field is deprecated. Use "swarms" instead for multi-swarm support.',
-          severity: "warn",
-          path: "agents",
-          currentValue: value,
-          autoFixable: false,
-          proposedFix: {
-            type: "remove",
-            path: "agents",
-            description: "Remove deprecated agents config - use swarms instead",
-            risk: "low"
-          }
-        });
-      }
-      break;
-    }
-    case "guardrails.enabled": {
-      if (value === false) {
-        findings.push({
-          id: "guardrails-disabled",
-          title: "Guardrails disabled",
-          description: "Guardrails have been explicitly disabled. This removes safety limits.",
-          severity: "error",
-          path: "guardrails.enabled",
-          currentValue: value,
-          autoFixable: false
-        });
-      }
-      break;
-    }
-    case "guardrails.profiles": {
-      const profiles = value;
-      if (profiles) {
-        const validAgents = [
-          "architect",
-          "coder",
-          "test_engineer",
-          "explorer",
-          "reviewer",
-          "critic",
-          "sme",
-          "docs",
-          "designer"
-        ];
-        for (const [agentName, profile] of Object.entries(profiles)) {
-          if (!validAgents.includes(agentName)) {
-            findings.push({
-              id: "unknown-agent-profile",
-              title: "Unknown agent profile",
-              description: `Profile for unknown agent "${agentName}" will be ignored.`,
-              severity: "info",
-              path: `guardrails.profiles.${agentName}`,
-              currentValue: profile,
-              autoFixable: true,
-              proposedFix: {
-                type: "remove",
-                path: `guardrails.profiles.${agentName}`,
-                description: `Remove unknown agent profile "${agentName}"`,
-                risk: "low"
-              }
-            });
-          }
-        }
-      }
-      break;
-    }
-    case "automation.mode": {
-      const validModes = ["manual", "hybrid", "auto"];
-      if (value !== undefined && !validModes.includes(value)) {
-        findings.push({
-          id: "invalid-automation-mode",
-          title: "Invalid automation mode",
-          description: `Invalid automation mode "${value}". Valid: ${validModes.join(", ")}`,
-          severity: "error",
-          path: "automation.mode",
-          currentValue: value,
-          autoFixable: true,
-          proposedFix: {
-            type: "update",
-            path: "automation.mode",
-            value: "manual",
-            description: 'Reset to safe default "manual"',
-            risk: "low"
-          }
-        });
-      }
-      break;
-    }
-    case "automation.capabilities": {
-      const caps = value;
-      if (caps) {
-        const capabilityNames = [
-          "plan_sync",
-          "phase_preflight",
-          "config_doctor_on_startup",
-          "evidence_auto_summaries",
-          "decision_drift_detection"
-        ];
-        for (const [name, capValue] of Object.entries(caps)) {
-          if (capabilityNames.includes(name) && typeof capValue !== "boolean") {
-            findings.push({
-              id: "invalid-capability-type",
-              title: "Invalid capability type",
-              description: `Capability "${name}" must be boolean, got ${typeof capValue}`,
-              severity: "error",
-              path: `automation.capabilities.${name}`,
-              currentValue: capValue,
-              autoFixable: true,
-              proposedFix: {
-                type: "update",
-                path: `automation.capabilities.${name}`,
-                value: false,
-                description: `Reset capability "${name}" to false`,
-                risk: "low"
-              }
-            });
-          }
-        }
-      }
-      break;
-    }
-    case "hooks": {
-      const hooks = value;
-      if (hooks) {
-        const validHooks = [
-          "system_enhancer",
-          "compaction",
-          "agent_activity",
-          "delegation_tracker",
-          "agent_awareness_max_chars",
-          "delegation_gate",
-          "delegation_max_chars"
-        ];
-        for (const hookName of Object.keys(hooks)) {
-          if (!validHooks.includes(hookName)) {
-            findings.push({
-              id: "unknown-hook-field",
-              title: "Unknown hook configuration",
-              description: `Unknown hook "${hookName}" will be ignored.`,
-              severity: "info",
-              path: `hooks.${hookName}`,
-              currentValue: hooks[hookName],
-              autoFixable: true,
-              proposedFix: {
-                type: "remove",
-                path: `hooks.${hookName}`,
-                description: `Remove unknown hook "${hookName}"`,
-                risk: "low"
-              }
-            });
-          }
-        }
-      }
-      break;
-    }
-    case "max_iterations": {
-      const numValue = value;
-      if (typeof numValue === "number") {
-        if (numValue < 1 || numValue > 10) {
-          findings.push({
-            id: "out-of-bounds-iterations",
-            title: "max_iterations out of bounds",
-            description: `max_iterations must be 1-10, got ${numValue}`,
-            severity: "error",
-            path: "max_iterations",
-            currentValue: numValue,
-            autoFixable: true,
-            proposedFix: {
-              type: "update",
-              path: "max_iterations",
-              value: Math.max(1, Math.min(10, numValue)),
-              description: "Clamp to valid range 1-10",
-              risk: "low"
-            }
-          });
-        }
-      }
-      break;
-    }
-    case "qa_retry_limit": {
-      const numValue = value;
-      if (typeof numValue === "number") {
-        if (numValue < 1 || numValue > 10) {
-          findings.push({
-            id: "out-of-bounds-retry-limit",
-            title: "qa_retry_limit out of bounds",
-            description: `qa_retry_limit must be 1-10, got ${numValue}`,
-            severity: "error",
-            path: "qa_retry_limit",
-            currentValue: numValue,
-            autoFixable: true,
-            proposedFix: {
-              type: "update",
-              path: "qa_retry_limit",
-              value: Math.max(1, Math.min(10, numValue)),
-              description: "Clamp to valid range 1-10",
-              risk: "low"
-            }
-          });
-        }
-      }
-      break;
-    }
-    case "swarms": {
-      const swarms = value;
-      if (swarms && typeof swarms === "object") {
-        for (const [swarmId, swarmConfig] of Object.entries(swarms)) {
-          const swarm = swarmConfig;
-          if (swarm.agents && typeof swarm.agents === "object") {
-            for (const [agentName] of Object.entries(swarm.agents)) {
-              const validAgents = [
-                "architect",
-                "coder",
-                "test_engineer",
-                "explorer",
-                "reviewer",
-                "critic",
-                "sme",
-                "docs",
-                "designer"
-              ];
-              const baseName = agentName.replace(/^[a-zA-Z0-9]+_/, "");
-              if (!validAgents.includes(baseName)) {
-                findings.push({
-                  id: "unknown-swarm-agent",
-                  title: "Unknown agent in swarm",
-                  description: `Agent "${agentName}" in swarm "${swarmId}" may not be recognized.`,
-                  severity: "info",
-                  path: `swarms.${swarmId}.agents.${agentName}`,
-                  currentValue: swarm.agents[agentName],
-                  autoFixable: false
-                });
-              }
-            }
-          }
-        }
-      }
-      break;
-    }
-  }
-  return findings;
-}
-function walkConfigAndValidate(obj, path21, config3, findings) {
-  if (obj === null || obj === undefined) {
-    return;
-  }
-  if (path21 && typeof obj === "object" && !Array.isArray(obj)) {
-    const keyFindings = validateConfigKey(path21, obj, config3);
-    findings.push(...keyFindings);
-  }
-  if (typeof obj !== "object") {
-    const keyFindings = validateConfigKey(path21, obj, config3);
-    findings.push(...keyFindings);
-    return;
-  }
-  if (Array.isArray(obj)) {
-    obj.forEach((item, index) => {
-      walkConfigAndValidate(item, `${path21}[${index}]`, config3, findings);
-    });
-    return;
-  }
-  for (const [key, value] of Object.entries(obj)) {
-    const newPath = path21 ? `${path21}.${key}` : key;
-    walkConfigAndValidate(value, newPath, config3, findings);
-  }
-}
-function runConfigDoctor(config3, directory) {
-  const findings = [];
-  walkConfigAndValidate(config3, "", config3, findings);
-  const summary = {
-    info: findings.filter((f) => f.severity === "info").length,
-    warn: findings.filter((f) => f.severity === "warn").length,
-    error: findings.filter((f) => f.severity === "error").length
-  };
-  const hasAutoFixableIssues = findings.some((f) => f.autoFixable && f.proposedFix?.risk === "low");
-  const { userConfigPath, projectConfigPath } = getConfigPaths(directory);
-  let configSource = "defaults";
-  if (fs8.existsSync(projectConfigPath)) {
-    configSource = projectConfigPath;
-  } else if (fs8.existsSync(userConfigPath)) {
-    configSource = userConfigPath;
-  }
-  return {
-    findings,
-    summary,
-    hasAutoFixableIssues,
-    timestamp: Date.now(),
-    configSource
-  };
-}
-function isDangerousPathSegment(segment) {
-  return DANGEROUS_PATH_SEGMENTS.has(segment);
-}
-function isPathSafe(fixPath) {
-  const segments = fixPath.split(".");
-  for (const segment of segments) {
-    if (isDangerousPathSegment(segment)) {
-      return false;
-    }
-  }
-  return true;
-}
-function applySafeAutoFixes(directory, result) {
-  const appliedFixes = [];
-  let updatedConfigPath = null;
-  const { userConfigPath, projectConfigPath } = getConfigPaths(directory);
-  let configPath = projectConfigPath;
-  let configContent;
-  if (fs8.existsSync(projectConfigPath)) {
-    configPath = projectConfigPath;
-    configContent = fs8.readFileSync(projectConfigPath, "utf-8");
-  } else if (fs8.existsSync(userConfigPath)) {
-    configPath = userConfigPath;
-    configContent = fs8.readFileSync(userConfigPath, "utf-8");
-  } else {
-    return { appliedFixes, updatedConfigPath: null };
-  }
-  let config3;
-  try {
-    config3 = JSON.parse(configContent);
-  } catch {
-    return { appliedFixes, updatedConfigPath: null };
-  }
-  const safeFixes = result.findings.filter((f) => f.autoFixable && f.proposedFix?.risk === "low");
-  for (const finding of safeFixes) {
-    const fix = finding.proposedFix;
-    if (!fix)
-      continue;
-    if (!isPathSafe(fix.path)) {
-      continue;
-    }
-    const pathParts = fix.path.split(".");
-    let current = config3;
-    let navigated = true;
-    for (let i = 0;i < pathParts.length - 1; i++) {
-      const part = pathParts[i];
-      if (current === null || current === undefined) {
-        navigated = false;
-        break;
-      }
-      if (typeof current !== "object" || Array.isArray(current)) {
-        navigated = false;
-        break;
-      }
-      const obj = current;
-      if (obj[part] === undefined) {
-        obj[part] = {};
-      } else if (obj[part] === null) {
-        navigated = false;
-        break;
-      } else if (typeof obj[part] !== "object") {
-        navigated = false;
-        break;
-      }
-      current = obj[part];
-    }
-    if (!navigated) {
-      continue;
-    }
-    const lastPart = pathParts[pathParts.length - 1];
-    switch (fix.type) {
-      case "remove":
-        if (current !== null && current !== undefined && typeof current === "object") {
-          delete current[lastPart];
-          appliedFixes.push(fix);
-        }
-        break;
-      case "update":
-        if (current !== null && current !== undefined && typeof current === "object") {
-          current[lastPart] = fix.value;
-          appliedFixes.push(fix);
-        }
-        break;
-      case "add":
-        if (current !== null && current !== undefined && typeof current === "object") {
-          current[lastPart] = fix.value;
-          appliedFixes.push(fix);
-        }
-        break;
-    }
-  }
-  if (appliedFixes.length > 0) {
-    const configDir = path20.dirname(configPath);
-    if (!fs8.existsSync(configDir)) {
-      fs8.mkdirSync(configDir, { recursive: true });
-    }
-    fs8.writeFileSync(configPath, JSON.stringify(config3, null, 2), "utf-8");
-    updatedConfigPath = configPath;
-  }
-  return { appliedFixes, updatedConfigPath };
-}
-function writeDoctorArtifact(directory, result) {
-  const swarmDir = path20.join(directory, ".swarm");
-  if (!fs8.existsSync(swarmDir)) {
-    fs8.mkdirSync(swarmDir, { recursive: true });
-  }
-  const artifactFilename = "config-doctor.json";
-  const artifactPath = path20.join(swarmDir, artifactFilename);
-  const guiOutput = {
-    timestamp: result.timestamp,
-    summary: result.summary,
-    hasAutoFixableIssues: result.hasAutoFixableIssues,
-    configSource: result.configSource,
-    findings: result.findings.map((f) => ({
-      id: f.id,
-      title: f.title,
-      description: f.description,
-      severity: f.severity,
-      path: f.path,
-      autoFixable: f.autoFixable,
-      proposedFix: f.proposedFix ? {
-        type: f.proposedFix.type,
-        path: f.proposedFix.path,
-        description: f.proposedFix.description,
-        risk: f.proposedFix.risk
-      } : null
-    }))
-  };
-  fs8.writeFileSync(artifactPath, JSON.stringify(guiOutput, null, 2), "utf-8");
-  return artifactPath;
-}
-function shouldRunOnStartup(automationConfig) {
-  if (!automationConfig) {
-    return false;
-  }
-  if (automationConfig.mode === "manual") {
-    return false;
-  }
-  return automationConfig.capabilities?.config_doctor_on_startup === true;
-}
-async function runConfigDoctorWithFixes(directory, config3, autoFix = false) {
-  const result = runConfigDoctor(config3, directory);
-  const artifactPath = writeDoctorArtifact(directory, result);
-  if (!autoFix) {
-    return {
-      result,
-      backupPath: null,
-      appliedFixes: [],
-      updatedConfigPath: null,
-      artifactPath
-    };
-  }
-  const backup = createConfigBackup(directory);
-  let backupPath = null;
-  if (backup) {
-    backupPath = writeBackupArtifact(directory, backup);
-  }
-  const { appliedFixes, updatedConfigPath } = applySafeAutoFixes(directory, result);
-  if (appliedFixes.length > 0) {
-    const freshConfig = readConfigFromFile(directory);
-    if (freshConfig) {
-      const newResult = runConfigDoctor(freshConfig.config, directory);
-      writeDoctorArtifact(directory, newResult);
-    }
-  }
-  return {
-    result,
-    backupPath,
-    appliedFixes,
-    updatedConfigPath,
-    artifactPath
-  };
-}
-var VALID_CONFIG_PATTERNS, DANGEROUS_PATH_SEGMENTS;
-var init_config_doctor = __esm(() => {
-  init_utils();
-  VALID_CONFIG_PATTERNS = [
-    /^\.config[\\/]opencode[\\/]opencode-swarm\.json$/,
-    /\.opencode[\\/]opencode-swarm\.json$/
-  ];
-  DANGEROUS_PATH_SEGMENTS = new Set([
-    "__proto__",
-    "constructor",
-    "prototype"
-  ]);
-});
-
-// src/services/evidence-summary-service.ts
-var exports_evidence_summary_service = {};
-__export(exports_evidence_summary_service, {
-  isAutoSummaryEnabled: () => isAutoSummaryEnabled,
-  buildEvidenceSummary: () => buildEvidenceSummary,
-  REQUIRED_EVIDENCE_TYPES: () => REQUIRED_EVIDENCE_TYPES,
-  EVIDENCE_SUMMARY_VERSION: () => EVIDENCE_SUMMARY_VERSION
-});
-function normalizeBundleEntries(bundle) {
-  if (!bundle) {
-    return [];
-  }
-  const entries = bundle.entries;
-  if (!Array.isArray(entries)) {
-    return [];
-  }
-  const validEntries = [];
-  for (const entry of entries) {
-    if (entry === null || entry === undefined) {
-      continue;
-    }
-    if (typeof entry !== "object") {
-      continue;
-    }
-    const typedEntry = entry;
-    if (!typedEntry.type || !VALID_EVIDENCE_TYPES2.has(typedEntry.type)) {
-      continue;
-    }
-    if (!typedEntry.task_id || !typedEntry.timestamp || !typedEntry.agent) {
-      continue;
-    }
-    if (!typedEntry.verdict || !typedEntry.summary) {
-      continue;
-    }
-    validEntries.push(typedEntry);
-  }
-  return validEntries;
-}
-function getTaskStatus(task, bundle) {
-  if (task?.status) {
-    return task.status;
-  }
-  const entries = normalizeBundleEntries(bundle);
-  if (entries.length > 0) {
-    return "completed";
-  }
-  return "pending";
-}
-function isEvidenceComplete(bundle) {
-  const entries = normalizeBundleEntries(bundle);
-  if (entries.length === 0) {
-    return {
-      isComplete: false,
-      missingEvidence: [...REQUIRED_EVIDENCE_TYPES]
-    };
-  }
-  const typesPresent = new Set(entries.map((e) => e.type));
-  const missing = [];
-  for (const required3 of REQUIRED_EVIDENCE_TYPES) {
-    if (!typesPresent.has(required3)) {
-      missing.push(required3);
-    }
-  }
-  return {
-    isComplete: missing.length === 0,
-    missingEvidence: missing
-  };
-}
-function getTaskBlockers(task, summary, status) {
-  const blockers = [];
-  if (task?.blocked_reason) {
-    blockers.push(task.blocked_reason);
-  }
-  if (status === "blocked") {
-    blockers.push("Task is marked as blocked");
-  }
-  if (summary.missingEvidence.length > 0 && status !== "pending") {
-    blockers.push(`Missing evidence: ${summary.missingEvidence.join(", ")}`);
-  }
-  return blockers;
-}
-async function buildTaskSummary(directory, task, taskId) {
-  const result = await loadEvidence(directory, taskId);
-  const bundle = result.status === "found" ? result.bundle : null;
-  const phase = task?.phase ?? 0;
-  const status = getTaskStatus(task, bundle);
-  const evidenceCheck = isEvidenceComplete(bundle);
-  const blockers = getTaskBlockers(task, evidenceCheck, status);
-  const entries = normalizeBundleEntries(bundle);
-  const hasReview = entries.some((e) => e.type === "review");
-  const hasTest = entries.some((e) => e.type === "test");
-  const hasApproval = entries.some((e) => e.type === "approval");
-  let lastTimestamp = null;
-  if (entries.length > 0) {
-    const timestamps = entries.map((e) => e.timestamp).sort().reverse();
-    lastTimestamp = timestamps[0] ?? null;
-  }
-  return {
-    taskId,
-    phase,
-    taskStatus: status,
-    evidenceCount: entries.length,
-    hasReview,
-    hasTest,
-    hasApproval,
-    missingEvidence: evidenceCheck.missingEvidence,
-    isComplete: evidenceCheck.isComplete && status === "completed",
-    blockers,
-    lastEvidenceTimestamp: lastTimestamp
-  };
-}
-async function buildPhaseSummary(directory, phase) {
-  const taskIds = await listEvidenceTaskIds(directory);
-  const phaseTaskIds = new Set(phase.tasks.map((t) => t.id));
-  const taskSummaries = [];
-  const _taskMap = new Map(phase.tasks.map((t) => [t.id, t]));
-  for (const task of phase.tasks) {
-    const summary = await buildTaskSummary(directory, task, task.id);
-    taskSummaries.push(summary);
-  }
-  const extraTaskIds = taskIds.filter((id) => !phaseTaskIds.has(id));
-  for (const taskId of extraTaskIds) {
-    const summary = await buildTaskSummary(directory, undefined, taskId);
-    if (summary.phase === phase.id) {
-      taskSummaries.push(summary);
-    }
-  }
-  const completedTasks = taskSummaries.filter((s) => s.taskStatus === "completed").length;
-  const tasksWithEvidence = taskSummaries.filter((s) => s.evidenceCount > 0).length;
-  const tasksWithCompleteEvidence = taskSummaries.filter((s) => s.isComplete).length;
-  const missingByType = {};
-  for (const summary of taskSummaries) {
-    for (const missing of summary.missingEvidence) {
-      if (!missingByType[missing]) {
-        missingByType[missing] = [];
-      }
-      if (!missingByType[missing].includes(summary.taskId)) {
-        missingByType[missing].push(summary.taskId);
-      }
-    }
-  }
-  const phaseBlockers = [];
-  for (const [type, taskIds2] of Object.entries(missingByType)) {
-    phaseBlockers.push({
-      type: "missing_evidence",
-      taskId: taskIds2.join(", "),
-      reason: `${type} evidence missing for ${taskIds2.length} task(s)`,
-      severity: "high"
-    });
-  }
-  const incomplete = taskSummaries.filter((s) => s.taskStatus === "completed" && !s.isComplete);
-  for (const task of incomplete) {
-    phaseBlockers.push({
-      type: "incomplete_task",
-      taskId: task.taskId,
-      reason: "Task marked complete but missing required evidence",
-      severity: "medium"
-    });
-  }
-  const blocked = taskSummaries.filter((s) => s.taskStatus === "blocked" || s.blockers.length > 0);
-  for (const task of blocked) {
-    phaseBlockers.push({
-      type: "blocked_task",
-      taskId: task.taskId,
-      reason: task.blockers.join("; ") || "Task is blocked",
-      severity: "high"
-    });
-  }
-  return {
-    phaseId: phase.id,
-    phaseName: phase.name,
-    phaseStatus: phase.status,
-    totalTasks: phase.tasks.length,
-    completedTasks,
-    tasksWithEvidence,
-    tasksWithCompleteEvidence,
-    completionRatio: phase.tasks.length > 0 ? completedTasks / phase.tasks.length : 0,
-    missingEvidenceByType: missingByType,
-    blockers: phaseBlockers,
-    tasks: taskSummaries
-  };
-}
-function generateSummaryText(artifact) {
-  const lines = [];
-  lines.push(`Evidence Summary for "${artifact.planTitle}"`);
-  lines.push(`Generated: ${new Date(artifact.generated_at).toISOString()}`);
-  lines.push("");
-  lines.push(`Overall Completion: ${(artifact.overallCompletionRatio * 100).toFixed(1)}%`);
-  lines.push(`Current Phase: ${artifact.currentPhase}`);
-  lines.push("");
-  for (const phase of artifact.phaseSummaries) {
-    lines.push(`## Phase ${phase.phaseId}: ${phase.phaseName}`);
-    lines.push(`  Tasks: ${phase.completedTasks}/${phase.totalTasks} completed (${(phase.completionRatio * 100).toFixed(1)}%)`);
-    lines.push(`  Evidence: ${phase.tasksWithCompleteEvidence}/${phase.totalTasks} complete`);
-    if (phase.blockers.length > 0) {
-      lines.push("  Blockers:");
-      for (const blocker of phase.blockers) {
-        lines.push(`    - [${blocker.severity}] ${blocker.reason}`);
-      }
-    }
-    lines.push("");
-  }
-  if (artifact.overallBlockers.length > 0) {
-    lines.push("## Overall Blockers");
-    for (const blocker of artifact.overallBlockers) {
-      lines.push(`- [${blocker.severity}] ${blocker.reason}`);
-    }
-  }
-  return lines.join(`
-`);
-}
-async function buildEvidenceSummary(directory, currentPhase) {
-  log("[EvidenceSummary] Building summary for directory", { directory });
-  const plan = await loadPlanJsonOnly(directory);
-  if (!plan) {
-    log("[EvidenceSummary] No plan found, skipping summary generation");
-    return null;
-  }
-  const phasesToProcess = currentPhase !== undefined ? plan.phases.filter((p) => p.id <= currentPhase) : plan.phases;
-  const phaseSummaries = [];
-  let totalTasks = 0;
-  let completedTasks = 0;
-  for (const phase of phasesToProcess) {
-    const summary = await buildPhaseSummary(directory, phase);
-    phaseSummaries.push(summary);
-    totalTasks += summary.totalTasks;
-    completedTasks += summary.completedTasks;
-  }
-  const overallCompletionRatio = totalTasks > 0 ? completedTasks / totalTasks : 0;
-  const overallBlockers = [];
-  for (const phase of phaseSummaries) {
-    if (phase.phaseStatus !== "complete") {
-      overallBlockers.push(...phase.blockers);
-    }
-  }
-  const artifact = {
-    schema_version: EVIDENCE_SUMMARY_VERSION,
-    generated_at: new Date().toISOString(),
-    planTitle: plan.title,
-    currentPhase: currentPhase ?? plan.current_phase ?? 1,
-    phaseSummaries,
-    overallCompletionRatio,
-    overallBlockers,
-    summaryText: ""
-  };
-  artifact.summaryText = generateSummaryText(artifact);
-  log("[EvidenceSummary] Summary built", {
-    phases: phaseSummaries.length,
-    totalTasks,
-    completedTasks,
-    completionRatio: overallCompletionRatio,
-    blockers: overallBlockers.length
-  });
-  return artifact;
-}
-function isAutoSummaryEnabled(automationConfig) {
-  if (!automationConfig) {
-    return false;
-  }
-  if (automationConfig.mode === "manual") {
-    return false;
-  }
-  return automationConfig.capabilities?.evidence_auto_summaries === true;
-}
-var VALID_EVIDENCE_TYPES2, REQUIRED_EVIDENCE_TYPES, EVIDENCE_SUMMARY_VERSION = "1.0.0";
-var init_evidence_summary_service = __esm(() => {
-  init_manager2();
-  init_manager();
-  init_utils();
-  VALID_EVIDENCE_TYPES2 = new Set([
-    "review",
-    "test",
-    "diff",
-    "approval",
-    "note",
-    "retrospective"
-  ]);
-  REQUIRED_EVIDENCE_TYPES = ["review", "test"];
-});
-
-// src/cli/index.ts
-import * as fs21 from "fs";
-import * as os7 from "os";
-import * as path35 from "path";
-// package.json
-var package_default = {
-  name: "opencode-swarm",
-  version: "7.1.1",
-  description: "Architect-centric agentic swarm plugin for OpenCode - hub-and-spoke orchestration with SME consultation, code generation, and QA review",
-  main: "dist/index.js",
-  types: "dist/index.d.ts",
-  bin: {
-    "opencode-swarm": "./dist/cli/index.js"
-  },
-  type: "module",
-  engines: {
-    bun: ">=1.0.0"
-  },
-  license: "MIT",
-  repository: {
-    type: "git",
-    url: "https://github.com/zaxbysauce/opencode-swarm.git"
-  },
-  publishConfig: {
-    access: "public",
-    registry: "https://registry.npmjs.org/"
-  },
-  keywords: [
-    "opencode",
-    "opencode-plugin",
-    "ai",
-    "agents",
-    "orchestration",
-    "swarm",
-    "multi-agent",
-    "llm"
-  ],
-  files: [
-    "dist",
-    "dist/lang/grammars",
-    "README.md",
-    "LICENSE"
-  ],
-  scripts: {
-    clean: `bun -e "require('fs').rmSync('dist',{recursive:true,force:true})"`,
-    build: "bun run clean && bun run scripts/copy-grammars.ts && bun build src/index.ts --outdir dist --target node --format esm && bun build src/cli/index.ts --outdir dist/cli --target bun --format esm && bun run scripts/copy-grammars.ts --to-dist && tsc --emitDeclarationOnly",
-    typecheck: "tsc --noEmit",
-    test: "bun test",
-    lint: "biome lint .",
-    format: "biome format . --write",
-    check: "biome check --write .",
-    dev: "bun run build && opencode",
-    prepublishOnly: "bun run build",
-    "repro:704": "node scripts/repro-704.mjs"
-  },
-  dependencies: {
-    "@opencode-ai/plugin": "^1.1.53",
-    "@opencode-ai/sdk": "^1.1.53",
-    "@vscode/tree-sitter-wasm": "^0.3.0",
-    "p-limit": "^7.3.0",
-    picomatch: "^4.0.4",
-    "proper-lockfile": "^4.1.2",
-    "quick-lru": "^7.3.0",
-    "web-tree-sitter": "^0.25.0",
-    zod: "^4.1.8"
-  },
-  devDependencies: {
-    "@biomejs/biome": "2.3.14",
-    "@types/picomatch": "^4.0.3",
-    "bun-types": "1.3.8",
-    "js-yaml": "^4.1.1",
-    typescript: "^5.7.3"
-  }
-};
-
-// src/commands/acknowledge-spec-drift.ts
-init_utils2();
-init_manager();
-init_spec_hash();
-import { promises as fsPromises3 } from "fs";
-async function handleAcknowledgeSpecDriftCommand(directory, _args) {
-  const specStalenessPath = validateSwarmPath(directory, "spec-staleness.json");
-  let stalenessContent;
-  try {
-    stalenessContent = await fsPromises3.readFile(specStalenessPath, "utf-8");
-  } catch (error49) {
-    if (error49?.code === "ENOENT") {
-      return "No spec drift detected.";
-    }
-    throw error49;
-  }
-  let stalenessData;
-  try {
-    stalenessData = JSON.parse(stalenessContent);
-  } catch {
-    await fsPromises3.unlink(specStalenessPath).catch(() => {});
-    return "Spec staleness file was corrupted. It has been removed.";
-  }
-  const { planTitle, phase } = stalenessData;
-  await fsPromises3.unlink(specStalenessPath);
-  let currentHash = null;
-  let planUpdateSkipped = false;
-  try {
-    const plan = await loadPlanJsonOnly(directory);
-    if (plan?.specHash) {
-      currentHash = await computeSpecHash(directory);
-      plan.specHash = currentHash ?? undefined;
-      await savePlan(directory, plan);
-    }
-  } catch (planError) {
-    console.error("[acknowledge-spec-drift] Failed to update plan specHash:", planError instanceof Error ? planError.message : String(planError));
-    planUpdateSkipped = true;
-  }
-  const eventsPath = validateSwarmPath(directory, "events.jsonl");
-  const acknowledgmentEvent = {
-    type: "spec_drift_acknowledged",
-    timestamp: new Date().toISOString(),
-    phase,
-    planTitle,
-    acknowledgedBy: "architect",
-    previousHash: stalenessData.specHash_plan,
-    newHash: currentHash
-  };
-  let eventWriteFailed = false;
-  try {
-    await fsPromises3.appendFile(eventsPath, `${JSON.stringify(acknowledgmentEvent)}
-`, "utf-8");
-  } catch (appendError) {
-    console.error("[acknowledge-spec-drift] Failed to write acknowledgment event:", appendError instanceof Error ? appendError.message : String(appendError));
-    eventWriteFailed = true;
-  }
-  const warnings = [];
-  if (planUpdateSkipped) {
-    warnings.push("Plan specHash update was skipped due to an error.");
-  }
-  if (eventWriteFailed) {
-    warnings.push("Event logging failed \u2014 audit trail may be incomplete.");
-  }
-  const baseMessage = `Spec drift acknowledged for plan "${planTitle}" (phase ${phase}).`;
-  const warningMessage = warnings.length > 0 ? `
-
-\u26A0\uFE0F  Warnings:
-${warnings.map((w) => `  - ${w}`).join(`
-`)}` : "";
-  const cautionMessage = `
-
-\u26A0\uFE0F  Warning: Spec drift was acknowledged \u2014 verify that the implementation still matches the spec before proceeding.`;
-  return baseMessage + warningMessage + cautionMessage;
-}
-
-// src/tools/tool-names.ts
-var TOOL_NAMES = [
-  "diff",
-  "diff_summary",
-  "syntax_check",
-  "placeholder_scan",
-  "imports",
-  "lint",
-  "secretscan",
-  "sast_scan",
-  "build_check",
-  "pre_check_batch",
-  "quality_budget",
-  "symbols",
-  "complexity_hotspots",
-  "schema_drift",
-  "todo_extract",
-  "evidence_check",
-  "check_gate_status",
-  "completion_verify",
-  "submit_council_verdicts",
-  "declare_council_criteria",
-  "sbom_generate",
-  "checkpoint",
-  "pkg_audit",
-  "test_runner",
-  "test_impact",
-  "mutation_test",
-  "generate_mutants",
-  "detect_domains",
-  "gitingest",
-  "retrieve_summary",
-  "extract_code_blocks",
-  "phase_complete",
-  "save_plan",
-  "update_task_status",
-  "lint_spec",
-  "write_retro",
-  "write_drift_evidence",
-  "write_hallucination_evidence",
-  "write_mutation_evidence",
-  "declare_scope",
-  "knowledge_query",
-  "doc_scan",
-  "doc_extract",
-  "curator_analyze",
-  "knowledge_add",
-  "knowledge_recall",
-  "knowledge_remove",
-  "co_change_analyzer",
-  "search",
-  "batch_symbols",
-  "suggest_patch",
-  "req_coverage",
-  "get_approved_plan",
-  "repo_map",
-  "get_qa_gate_profile",
-  "set_qa_gates",
-  "web_search",
-  "convene_general_council"
-];
-var TOOL_NAME_SET = new Set(TOOL_NAMES);
-
-// src/config/constants.ts
-var QA_AGENTS = ["reviewer", "critic", "critic_oversight"];
-var PIPELINE_AGENTS = ["explorer", "coder", "test_engineer"];
-var ORCHESTRATOR_NAME = "architect";
-var ALL_SUBAGENT_NAMES = [
-  "sme",
-  "docs",
-  "designer",
-  "critic_sounding_board",
-  "critic_drift_verifier",
-  "critic_hallucination_verifier",
-  "curator_init",
-  "curator_phase",
-  "council_generalist",
-  "council_skeptic",
-  "council_domain_expert",
-  ...QA_AGENTS,
-  ...PIPELINE_AGENTS
-];
-var ALL_AGENT_NAMES = [
-  ORCHESTRATOR_NAME,
-  ...ALL_SUBAGENT_NAMES
-];
-var OPENCODE_NATIVE_AGENTS = new Set([
-  "build",
-  "plan",
-  "general",
-  "explore",
-  "compaction",
-  "title",
-  "summary"
-]);
-var AGENT_TOOL_MAP = {
-  architect: [
-    "checkpoint",
-    "check_gate_status",
-    "completion_verify",
-    "complexity_hotspots",
-    "submit_council_verdicts",
-    "declare_council_criteria",
-    "detect_domains",
-    "evidence_check",
-    "extract_code_blocks",
-    "gitingest",
-    "imports",
-    "knowledge_query",
-    "lint",
-    "diff",
-    "diff_summary",
-    "pkg_audit",
-    "pre_check_batch",
-    "quality_budget",
-    "retrieve_summary",
-    "save_plan",
-    "search",
-    "batch_symbols",
-    "schema_drift",
-    "secretscan",
-    "symbols",
-    "test_runner",
-    "test_impact",
-    "mutation_test",
-    "generate_mutants",
-    "write_mutation_evidence",
-    "todo_extract",
-    "update_task_status",
-    "lint_spec",
-    "write_retro",
-    "write_drift_evidence",
-    "write_hallucination_evidence",
-    "declare_scope",
-    "sast_scan",
-    "sbom_generate",
-    "build_check",
-    "syntax_check",
-    "placeholder_scan",
-    "phase_complete",
-    "doc_scan",
-    "doc_extract",
-    "curator_analyze",
-    "knowledge_add",
-    "knowledge_recall",
-    "knowledge_remove",
-    "co_change_analyzer",
-    "suggest_patch",
-    "repo_map",
-    "get_qa_gate_profile",
-    "set_qa_gates",
-    "convene_general_council",
-    "web_search"
-  ],
-  explorer: [
-    "complexity_hotspots",
-    "detect_domains",
-    "extract_code_blocks",
-    "gitingest",
-    "imports",
-    "retrieve_summary",
-    "schema_drift",
-    "search",
-    "batch_symbols",
-    "symbols",
-    "todo_extract",
-    "doc_scan",
-    "knowledge_recall",
-    "repo_map"
-  ],
-  coder: [
-    "diff",
-    "imports",
-    "lint",
-    "symbols",
-    "extract_code_blocks",
-    "retrieve_summary",
-    "search",
-    "build_check",
-    "syntax_check",
-    "knowledge_add",
-    "knowledge_recall",
-    "repo_map"
-  ],
-  test_engineer: [
-    "test_runner",
-    "test_impact",
-    "mutation_test",
-    "diff",
-    "symbols",
-    "extract_code_blocks",
-    "retrieve_summary",
-    "imports",
-    "complexity_hotspots",
-    "pkg_audit",
-    "build_check",
-    "syntax_check",
-    "search"
-  ],
-  sme: [
-    "complexity_hotspots",
-    "detect_domains",
-    "extract_code_blocks",
-    "imports",
-    "retrieve_summary",
-    "schema_drift",
-    "symbols",
-    "knowledge_recall"
-  ],
-  reviewer: [
-    "diff",
-    "diff_summary",
-    "imports",
-    "lint",
-    "pkg_audit",
-    "pre_check_batch",
-    "secretscan",
-    "symbols",
-    "complexity_hotspots",
-    "retrieve_summary",
-    "extract_code_blocks",
-    "test_runner",
-    "test_impact",
-    "sast_scan",
-    "placeholder_scan",
-    "knowledge_recall",
-    "search",
-    "batch_symbols",
-    "suggest_patch",
-    "repo_map"
-  ],
-  critic: [
-    "complexity_hotspots",
-    "detect_domains",
-    "imports",
-    "retrieve_summary",
-    "symbols",
-    "knowledge_recall",
-    "req_coverage",
-    "get_approved_plan",
-    "repo_map"
-  ],
-  critic_sounding_board: [
-    "complexity_hotspots",
-    "detect_domains",
-    "imports",
-    "retrieve_summary",
-    "symbols",
-    "knowledge_recall",
-    "req_coverage",
-    "repo_map"
-  ],
-  critic_drift_verifier: [
-    "complexity_hotspots",
-    "detect_domains",
-    "imports",
-    "retrieve_summary",
-    "symbols",
-    "knowledge_recall",
-    "req_coverage",
-    "get_approved_plan",
-    "repo_map"
-  ],
-  critic_hallucination_verifier: [
-    "complexity_hotspots",
-    "detect_domains",
-    "imports",
-    "retrieve_summary",
-    "symbols",
-    "batch_symbols",
-    "search",
-    "pkg_audit",
-    "knowledge_recall",
-    "req_coverage",
-    "repo_map"
-  ],
-  critic_oversight: [
-    "complexity_hotspots",
-    "detect_domains",
-    "imports",
-    "retrieve_summary",
-    "symbols",
-    "knowledge_recall"
-  ],
-  docs: [
-    "detect_domains",
-    "extract_code_blocks",
-    "gitingest",
-    "imports",
-    "retrieve_summary",
-    "schema_drift",
-    "symbols",
-    "todo_extract",
-    "knowledge_recall"
-  ],
-  designer: [
-    "extract_code_blocks",
-    "retrieve_summary",
-    "symbols",
-    "knowledge_recall"
-  ],
-  curator_init: ["knowledge_recall"],
-  curator_phase: ["knowledge_recall"],
-  council_generalist: [],
-  council_skeptic: [],
-  council_domain_expert: []
-};
-for (const [agentName, tools] of Object.entries(AGENT_TOOL_MAP)) {
-  const invalidTools = tools.filter((tool) => !TOOL_NAME_SET.has(tool));
-  if (invalidTools.length > 0) {
-    throw new Error(`Agent '${agentName}' has invalid tool names: [${invalidTools.join(", ")}]. ` + `All tools must be registered in TOOL_NAME_SET.`);
-  }
-}
-
-// src/config/schema.ts
-init_zod();
-var KNOWN_SWARM_PREFIXES = [
-  "paid",
-  "local",
-  "cloud",
-  "enterprise",
-  "mega",
-  "default",
-  "custom",
-  "team",
-  "project",
-  "swarm",
-  "synthetic"
-];
-var SEPARATORS = ["_", "-", " "];
-function stripKnownSwarmPrefix(agentName) {
-  if (!agentName)
-    return agentName;
-  const normalized = agentName.toLowerCase();
-  let stripped = normalized;
-  let previous = "";
-  while (stripped !== previous) {
-    previous = stripped;
-    for (const prefix of KNOWN_SWARM_PREFIXES) {
-      for (const sep2 of SEPARATORS) {
-        const prefixWithSep = prefix + sep2;
-        if (stripped.startsWith(prefixWithSep)) {
-          stripped = stripped.slice(prefixWithSep.length);
-          break;
-        }
-      }
-      if (stripped !== previous)
-        break;
-    }
-  }
-  if (ALL_AGENT_NAMES.includes(stripped)) {
-    return stripped;
-  }
-  for (const agent of ALL_AGENT_NAMES) {
-    for (const sep2 of SEPARATORS) {
-      const suffix = sep2 + agent;
-      if (normalized.endsWith(suffix)) {
-        return agent;
-      }
-    }
-    if (normalized === agent) {
-      return agent;
-    }
-  }
-  return agentName;
-}
-var AgentOverrideConfigSchema = exports_external.object({
-  model: exports_external.string().optional(),
-  variant: exports_external.string().min(1).optional(),
-  temperature: exports_external.number().min(0).max(2).optional(),
-  disabled: exports_external.boolean().optional(),
-  fallback_models: exports_external.array(exports_external.string()).max(3).optional()
-});
-var SwarmConfigSchema = exports_external.object({
-  name: exports_external.string().optional(),
-  agents: exports_external.record(exports_external.string(), AgentOverrideConfigSchema).optional()
-});
-var HooksConfigSchema = exports_external.object({
-  system_enhancer: exports_external.boolean().default(true),
-  compaction: exports_external.boolean().default(true),
-  agent_activity: exports_external.boolean().default(true),
-  delegation_tracker: exports_external.boolean().default(false),
-  agent_awareness_max_chars: exports_external.number().min(50).max(2000).default(300),
-  delegation_gate: exports_external.boolean().default(true),
-  delegation_max_chars: exports_external.number().min(500).max(20000).default(4000)
-});
-var ScoringWeightsSchema = exports_external.object({
-  phase: exports_external.number().min(0).max(5).default(1),
-  current_task: exports_external.number().min(0).max(5).default(2),
-  blocked_task: exports_external.number().min(0).max(5).default(1.5),
-  recent_failure: exports_external.number().min(0).max(5).default(2.5),
-  recent_success: exports_external.number().min(0).max(5).default(0.5),
-  evidence_presence: exports_external.number().min(0).max(5).default(1),
-  decision_recency: exports_external.number().min(0).max(5).default(1.5),
-  dependency_proximity: exports_external.number().min(0).max(5).default(1)
-});
-var DecisionDecaySchema = exports_external.object({
-  mode: exports_external.enum(["linear", "exponential"]).default("exponential"),
-  half_life_hours: exports_external.number().min(1).max(168).default(24)
-});
-var TokenRatiosSchema = exports_external.object({
-  prose: exports_external.number().min(0.1).max(1).default(0.25),
-  code: exports_external.number().min(0.1).max(1).default(0.4),
-  markdown: exports_external.number().min(0.1).max(1).default(0.3),
-  json: exports_external.number().min(0.1).max(1).default(0.35)
-});
-var ScoringConfigSchema = exports_external.object({
-  enabled: exports_external.boolean().default(false),
-  max_candidates: exports_external.number().min(10).max(500).default(100),
-  weights: ScoringWeightsSchema.optional(),
-  decision_decay: DecisionDecaySchema.optional(),
-  token_ratios: TokenRatiosSchema.optional()
-});
-var ContextBudgetConfigSchema = exports_external.object({
-  enabled: exports_external.boolean().default(true),
-  warn_threshold: exports_external.number().min(0).max(1).default(0.7),
-  critical_threshold: exports_external.number().min(0).max(1).default(0.9),
-  model_limits: exports_external.record(exports_external.string(), exports_external.number().min(1000)).default({ default: 128000 }),
-  max_injection_tokens: exports_external.number().min(100).max(50000).default(4000),
-  tracked_agents: exports_external.array(exports_external.string()).default(["architect"]),
-  scoring: ScoringConfigSchema.optional(),
-  enforce: exports_external.boolean().default(true),
-  prune_target: exports_external.number().min(0).max(1).default(0.7),
-  preserve_last_n_turns: exports_external.number().min(0).max(100).default(4),
-  recent_window: exports_external.number().min(1).max(100).default(10),
-  enforce_on_agent_switch: exports_external.boolean().default(true),
-  tool_output_mask_threshold: exports_external.number().min(100).max(1e5).default(2000)
-});
-var EvidenceConfigSchema = exports_external.object({
-  enabled: exports_external.boolean().default(true),
-  max_age_days: exports_external.number().min(1).max(365).default(90),
-  max_bundles: exports_external.number().min(10).max(1e4).default(1000),
-  auto_archive: exports_external.boolean().default(false)
-});
-var GateFeatureSchema = exports_external.object({
-  enabled: exports_external.boolean().default(true)
-});
-var PlaceholderScanConfigSchema = GateFeatureSchema.extend({
-  deny_patterns: exports_external.array(exports_external.string()).default([
-    "TODO",
-    "FIXME",
-    "TBD",
-    "XXX",
-    "placeholder",
-    "stub",
-    "wip",
-    "not implemented"
-  ]),
-  allow_globs: exports_external.array(exports_external.string()).default([
-    "docs/**",
-    "examples/**",
-    "tests/**",
-    "**/*.test.*",
-    "**/*.spec.*",
-    "**/mocks/**",
-    "**/__tests__/**"
-  ]),
-  max_allowed_findings: exports_external.number().min(0).default(0)
-});
-var QualityBudgetConfigSchema = GateFeatureSchema.extend({
-  max_complexity_delta: exports_external.number().default(5),
-  max_public_api_delta: exports_external.number().default(10),
-  max_duplication_ratio: exports_external.number().default(0.05),
-  min_test_to_code_ratio: exports_external.number().default(0.3),
-  enforce_on_globs: exports_external.array(exports_external.string()).default(["src/**"]),
-  exclude_globs: exports_external.array(exports_external.string()).default(["docs/**", "tests/**", "**/*.test.*"])
-});
-var GateConfigSchema = exports_external.object({
-  syntax_check: GateFeatureSchema.default({ enabled: true }),
-  placeholder_scan: PlaceholderScanConfigSchema.default({
-    enabled: true,
-    deny_patterns: [
-      "TODO",
-      "FIXME",
-      "TBD",
-      "XXX",
-      "placeholder",
-      "stub",
-      "wip",
-      "not implemented"
-    ],
-    allow_globs: [
-      "docs/**",
-      "examples/**",
-      "tests/**",
-      "**/*.test.*",
-      "**/*.spec.*",
-      "**/mocks/**",
-      "**/__tests__/**"
-    ],
-    max_allowed_findings: 0
-  }),
-  sast_scan: GateFeatureSchema.default({ enabled: true }),
-  sbom_generate: GateFeatureSchema.default({ enabled: true }),
-  build_check: GateFeatureSchema.default({ enabled: true }),
-  quality_budget: QualityBudgetConfigSchema
-});
-var PipelineConfigSchema = exports_external.object({
-  parallel_precheck: exports_external.boolean().default(true)
-});
-var PhaseCompleteConfigSchema = exports_external.object({
-  enabled: exports_external.boolean().default(true),
-  required_agents: exports_external.array(exports_external.enum(["coder", "reviewer", "test_engineer"])).default(["coder", "reviewer", "test_engineer"]),
-  require_docs: exports_external.boolean().default(true),
-  policy: exports_external.enum(["enforce", "warn"]).default("enforce"),
-  regression_sweep: exports_external.object({
-    enforce: exports_external.boolean().default(false)
-  }).optional()
-});
-var SummaryConfigSchema = exports_external.object({
-  enabled: exports_external.boolean().default(true),
-  threshold_bytes: exports_external.number().min(1024).max(1048576).default(102400),
-  max_summary_chars: exports_external.number().min(100).max(5000).default(1000),
-  max_stored_bytes: exports_external.number().min(10240).max(104857600).default(10485760),
-  retention_days: exports_external.number().min(1).max(365).default(7),
-  exempt_tools: exports_external.array(exports_external.string()).default(["retrieve_summary", "task", "read"])
-});
-var ReviewPassesConfigSchema = exports_external.object({
-  always_security_review: exports_external.boolean().default(false),
-  security_globs: exports_external.array(exports_external.string()).default([
-    "**/auth/**",
-    "**/api/**",
-    "**/crypto/**",
-    "**/security/**",
-    "**/middleware/**",
-    "**/session/**",
-    "**/token/**"
-  ])
-});
-var AdversarialDetectionConfigSchema = exports_external.object({
-  enabled: exports_external.boolean().default(true),
-  policy: exports_external.enum(["warn", "gate", "ignore"]).default("warn"),
-  pairs: exports_external.array(exports_external.tuple([exports_external.string(), exports_external.string()])).default([["coder", "reviewer"]])
-});
-var AdversarialTestingConfigSchemaBase = exports_external.object({
-  enabled: exports_external.boolean().default(true),
-  scope: exports_external.enum(["all", "security-only"]).default("all")
-});
-var AdversarialTestingConfigSchema = AdversarialTestingConfigSchemaBase.default(() => ({
-  enabled: true,
-  scope: "all"
-}));
-var IntegrationAnalysisConfigSchema = exports_external.object({
-  enabled: exports_external.boolean().default(true)
-});
-var DocsConfigSchema = exports_external.object({
-  enabled: exports_external.boolean().default(true),
-  doc_patterns: exports_external.array(exports_external.string()).default([
-    "README.md",
-    "CONTRIBUTING.md",
-    "docs/**/*.md",
-    "docs/**/*.rst",
-    "**/CHANGELOG.md"
-  ])
-});
-var UIReviewConfigSchema = exports_external.object({
-  enabled: exports_external.boolean().default(false),
-  trigger_paths: exports_external.array(exports_external.string()).default([
-    "**/pages/**",
-    "**/components/**",
-    "**/views/**",
-    "**/screens/**",
-    "**/ui/**",
-    "**/layouts/**"
-  ]),
-  trigger_keywords: exports_external.array(exports_external.string()).default([
-    "new page",
-    "new screen",
-    "new component",
-    "redesign",
-    "layout change",
-    "form",
-    "modal",
-    "dialog",
-    "dropdown",
-    "sidebar",
-    "navbar",
-    "dashboard",
-    "landing page",
-    "signup",
-    "login form",
-    "settings page",
-    "profile page"
-  ])
-});
-var CompactionAdvisoryConfigSchema = exports_external.object({
-  enabled: exports_external.boolean().default(true),
-  thresholds: exports_external.array(exports_external.number().int().min(10).max(500)).default([50, 75, 100, 125, 150]),
-  message: exports_external.string().default("[SWARM HINT] Session has " + "$" + "{totalToolCalls} tool calls. Consider compacting at next phase boundary to maintain context quality.")
-});
-var LintConfigSchema = exports_external.object({
-  enabled: exports_external.boolean().default(true),
-  mode: exports_external.enum(["check", "fix"]).default("check"),
-  linter: exports_external.enum(["biome", "eslint", "auto"]).default("auto"),
-  patterns: exports_external.array(exports_external.string()).default([
-    "**/*.{ts,tsx,js,jsx,mjs,cjs}",
-    "**/biome.json",
-    "**/biome.jsonc"
-  ]),
-  exclude: exports_external.array(exports_external.string()).default([
-    "**/node_modules/**",
-    "**/dist/**",
-    "**/.git/**",
-    "**/coverage/**",
-    "**/*.min.js"
-  ])
-});
-var SecretscanConfigSchema = exports_external.object({
-  enabled: exports_external.boolean().default(true),
-  patterns: exports_external.array(exports_external.string()).default([
-    "**/*.{env,properties,yml,yaml,json,js,ts}",
-    "**/.env*",
-    "**/secrets/**",
-    "**/credentials/**",
-    "**/config/**/*.ts",
-    "**/config/**/*.js"
-  ]),
-  exclude: exports_external.array(exports_external.string()).default([
-    "**/node_modules/**",
-    "**/dist/**",
-    "**/.git/**",
-    "**/coverage/**",
-    "**/test/**",
-    "**/tests/**",
-    "**/__tests__/**",
-    "**/*.test.ts",
-    "**/*.test.js",
-    "**/*.spec.ts",
-    "**/*.spec.js"
-  ]),
-  extensions: exports_external.array(exports_external.string()).default([
-    ".env",
-    ".properties",
-    ".yml",
-    ".yaml",
-    ".json",
-    ".js",
-    ".ts",
-    ".py",
-    ".rb",
-    ".go",
-    ".java",
-    ".cs",
-    ".php"
-  ])
-});
-var GuardrailsProfileSchema = exports_external.object({
-  max_tool_calls: exports_external.number().min(0).max(1000).optional(),
-  max_duration_minutes: exports_external.number().min(0).max(480).optional(),
-  max_repetitions: exports_external.number().min(3).max(50).optional(),
-  max_consecutive_errors: exports_external.number().min(2).max(20).optional(),
-  warning_threshold: exports_external.number().min(0.1).max(0.9).optional(),
-  idle_timeout_minutes: exports_external.number().min(5).max(240).optional(),
-  max_transient_retries: exports_external.number().min(0).max(20).optional()
-});
-var DEFAULT_AGENT_PROFILES = {
-  architect: {
-    max_tool_calls: 0,
-    max_duration_minutes: 0,
-    max_consecutive_errors: 8,
-    warning_threshold: 0.75
-  },
-  coder: {
-    max_tool_calls: 400,
-    max_duration_minutes: 45,
-    max_consecutive_errors: 8,
-    warning_threshold: 0.85
-  },
-  test_engineer: {
-    max_tool_calls: 400,
-    max_duration_minutes: 45,
-    max_consecutive_errors: 8,
-    warning_threshold: 0.85
-  },
-  explorer: {
-    max_tool_calls: 150,
-    max_duration_minutes: 20,
-    max_consecutive_errors: 8,
-    warning_threshold: 0.75
-  },
-  reviewer: {
-    max_tool_calls: 200,
-    max_duration_minutes: 30,
-    max_consecutive_errors: 8,
-    warning_threshold: 0.65
-  },
-  critic: {
-    max_tool_calls: 200,
-    max_duration_minutes: 30,
-    warning_threshold: 0.65
-  },
-  sme: {
-    max_tool_calls: 200,
-    max_duration_minutes: 30,
-    warning_threshold: 0.65
-  },
-  docs: {
-    max_tool_calls: 200,
-    max_duration_minutes: 30,
-    warning_threshold: 0.75
-  },
-  designer: {
-    max_tool_calls: 150,
-    max_duration_minutes: 20,
-    warning_threshold: 0.75
-  }
-};
-var DEFAULT_ARCHITECT_PROFILE = DEFAULT_AGENT_PROFILES.architect;
-var GuardrailsConfigSchema = exports_external.object({
-  enabled: exports_external.boolean().default(true),
-  max_tool_calls: exports_external.number().min(0).max(1000).default(200),
-  max_duration_minutes: exports_external.number().min(0).max(480).default(30),
-  max_repetitions: exports_external.number().min(3).max(50).default(10),
-  max_consecutive_errors: exports_external.number().min(2).max(20).default(5),
-  max_transient_retries: exports_external.number().min(0).max(20).default(5),
-  warning_threshold: exports_external.number().min(0.1).max(0.9).default(0.75),
-  idle_timeout_minutes: exports_external.number().min(5).max(240).default(60),
-  no_op_warning_threshold: exports_external.number().min(1).max(100).default(15),
-  max_coder_revisions: exports_external.number().int().min(1).max(20).default(5),
-  runaway_output_max_turns: exports_external.number().int().min(1).max(20).default(5),
-  qa_gates: exports_external.object({
-    required_tools: exports_external.array(exports_external.string().min(1)).default([
-      "diff",
-      "syntax_check",
-      "placeholder_scan",
-      "lint",
-      "pre_check_batch"
-    ]),
-    require_reviewer_test_engineer: exports_external.boolean().default(true)
-  }).optional(),
-  profiles: exports_external.record(exports_external.string(), GuardrailsProfileSchema).optional(),
-  block_destructive_commands: exports_external.boolean().default(true),
-  interpreter_allowed_agents: exports_external.array(exports_external.string().min(1)).optional(),
-  shell_audit_log: exports_external.boolean().default(true)
-});
-var WatchdogConfigSchema = exports_external.object({
-  scope_guard: exports_external.boolean().default(true),
-  skip_in_turbo: exports_external.boolean().default(false),
-  delegation_ledger: exports_external.boolean().default(true)
-});
-var SelfReviewConfigSchema = exports_external.object({
-  enabled: exports_external.boolean().default(true),
-  skip_in_turbo: exports_external.boolean().default(true)
-});
-var ToolFilterConfigSchema = exports_external.object({
-  enabled: exports_external.boolean().default(true),
-  overrides: exports_external.record(exports_external.string(), exports_external.array(exports_external.string())).default({})
-});
-var PlanCursorConfigSchema = exports_external.object({
-  enabled: exports_external.boolean().default(true),
-  max_tokens: exports_external.number().min(500).max(4000).default(1500),
-  lookahead_tasks: exports_external.number().min(0).max(5).default(2)
-});
-var CheckpointConfigSchema = exports_external.object({
-  enabled: exports_external.boolean().default(true),
-  auto_checkpoint_threshold: exports_external.number().int().min(1).max(20).default(3),
-  allow_empty_commits: exports_external.boolean().default(false)
-}).strict();
-var AutomationModeSchema = exports_external.enum(["manual", "hybrid", "auto"]);
-var AutomationCapabilitiesSchema = exports_external.object({
-  plan_sync: exports_external.boolean().default(true),
-  phase_preflight: exports_external.boolean().default(false),
-  config_doctor_on_startup: exports_external.boolean().default(false),
-  config_doctor_autofix: exports_external.boolean().default(false),
-  evidence_auto_summaries: exports_external.boolean().default(true),
-  decision_drift_detection: exports_external.boolean().default(true)
-});
-var AutomationConfigSchemaBase = exports_external.object({
-  mode: AutomationModeSchema.default("manual"),
-  capabilities: AutomationCapabilitiesSchema.default({
-    plan_sync: true,
-    phase_preflight: false,
-    config_doctor_on_startup: false,
-    config_doctor_autofix: false,
-    evidence_auto_summaries: true,
-    decision_drift_detection: true
-  })
-});
-var AutomationConfigSchema = AutomationConfigSchemaBase;
-var KnowledgeConfigSchema = exports_external.object({
-  enabled: exports_external.boolean().default(true),
-  swarm_max_entries: exports_external.number().min(1).max(1e4).default(100),
-  hive_max_entries: exports_external.number().min(1).max(1e5).default(200),
-  auto_promote_days: exports_external.number().min(1).max(3650).default(90),
-  max_inject_count: exports_external.number().min(0).max(50).default(5),
-  inject_char_budget: exports_external.number().min(200).max(1e4).default(2000),
-  context_budget_threshold: exports_external.number().int().positive().optional(),
-  max_lesson_display_chars: exports_external.number().min(40).max(280).default(120),
-  dedup_threshold: exports_external.number().min(0).max(1).default(0.6),
-  scope_filter: exports_external.array(exports_external.string()).default(["global"]),
-  hive_enabled: exports_external.boolean().default(true),
-  rejected_max_entries: exports_external.number().min(1).max(1000).default(20),
-  validation_enabled: exports_external.boolean().default(true),
-  evergreen_confidence: exports_external.number().min(0).max(1).default(0.9),
-  evergreen_utility: exports_external.number().min(0).max(1).default(0.8),
-  low_utility_threshold: exports_external.number().min(0).max(1).default(0.3),
-  min_retrievals_for_utility: exports_external.number().min(1).max(100).default(3),
-  schema_version: exports_external.number().int().min(1).default(1),
-  same_project_weight: exports_external.number().min(0).max(5).default(1),
-  cross_project_weight: exports_external.number().min(0).max(5).default(0.5),
-  min_encounter_score: exports_external.number().min(0).max(1).default(0.1),
-  initial_encounter_score: exports_external.number().min(0).max(5).default(1),
-  encounter_increment: exports_external.number().min(0).max(1).default(0.1),
-  max_encounter_score: exports_external.number().min(1).max(20).default(10),
-  default_max_phases: exports_external.number().int().positive().default(10),
-  todo_max_phases: exports_external.number().int().positive().default(3),
-  sweep_enabled: exports_external.boolean().default(true)
-});
-var CuratorConfigSchema = exports_external.object({
-  enabled: exports_external.boolean().default(true),
-  init_enabled: exports_external.boolean().default(true),
-  phase_enabled: exports_external.boolean().default(true),
-  max_summary_tokens: exports_external.number().min(500).max(8000).default(2000),
-  min_knowledge_confidence: exports_external.number().min(0).max(1).default(0.7),
-  compliance_report: exports_external.boolean().default(true),
-  suppress_warnings: exports_external.boolean().default(true),
-  drift_inject_max_chars: exports_external.number().min(100).max(2000).default(500),
-  llm_timeout_ms: exports_external.number().int().min(5000).max(600000).default(300000)
-});
-var SlopDetectorConfigSchema = exports_external.object({
-  enabled: exports_external.boolean().default(true),
-  classThreshold: exports_external.number().int().min(1).default(3),
-  commentStripThreshold: exports_external.number().int().min(1).default(5),
-  diffLineThreshold: exports_external.number().int().min(10).default(200),
-  importHygieneThreshold: exports_external.number().int().min(1).default(2)
-});
-var IncrementalVerifyConfigSchema = exports_external.object({
-  enabled: exports_external.boolean().default(true),
-  command: exports_external.union([exports_external.string(), exports_external.array(exports_external.string())]).nullable().default(null),
-  timeoutMs: exports_external.number().int().min(1000).max(300000).default(30000),
-  triggerAgents: exports_external.array(exports_external.string()).default(["coder"])
-});
-var CompactionConfigSchema = exports_external.object({
-  enabled: exports_external.boolean().default(true),
-  observationThreshold: exports_external.number().min(1).max(99).default(40),
-  reflectionThreshold: exports_external.number().min(1).max(99).default(60),
-  emergencyThreshold: exports_external.number().min(1).max(99).default(80),
-  preserveLastNTurns: exports_external.number().int().min(1).default(5)
-});
-var PrmConfigSchema = exports_external.object({
-  enabled: exports_external.boolean().default(true),
-  pattern_thresholds: exports_external.object({
-    repetition_loop: exports_external.number().min(1).default(2),
-    ping_pong: exports_external.number().min(1).default(2),
-    expansion_drift: exports_external.number().min(1).default(3),
-    stuck_on_test: exports_external.number().min(1).default(3),
-    context_thrash: exports_external.number().min(1).default(3)
-  }).default(() => ({
-    repetition_loop: 2,
-    ping_pong: 2,
-    expansion_drift: 3,
-    stuck_on_test: 3,
-    context_thrash: 3
-  })),
-  max_trajectory_lines: exports_external.number().min(10).default(1000),
-  escalation_enabled: exports_external.boolean().default(true),
-  detection_timeout_ms: exports_external.number().min(10).default(100)
-});
-var AgentAuthorityRuleSchema = exports_external.object({
-  readOnly: exports_external.boolean().optional(),
-  blockedExact: exports_external.array(exports_external.string()).optional(),
-  allowedExact: exports_external.array(exports_external.string()).optional(),
-  blockedPrefix: exports_external.array(exports_external.string()).optional(),
-  allowedPrefix: exports_external.array(exports_external.string()).optional(),
-  blockedZones: exports_external.array(exports_external.enum(["production", "test", "config", "generated", "docs", "build"])).optional(),
-  blockedGlobs: exports_external.array(exports_external.string()).optional(),
-  allowedGlobs: exports_external.array(exports_external.string()).optional()
-});
-var AuthorityConfigSchema = exports_external.object({
-  enabled: exports_external.boolean().default(true),
-  rules: exports_external.record(exports_external.string(), AgentAuthorityRuleSchema).default({}),
-  universal_deny_prefixes: exports_external.array(exports_external.string().min(1)).default([])
-});
-var GeneralCouncilMemberConfigSchema = exports_external.object({
-  memberId: exports_external.string().min(1),
-  model: exports_external.string().min(1),
-  role: exports_external.enum([
-    "generalist",
-    "skeptic",
-    "domain_expert",
-    "devil_advocate",
-    "synthesizer"
-  ]),
-  persona: exports_external.string().optional()
-}).strict();
-var GeneralCouncilConfigSchema = exports_external.object({
-  enabled: exports_external.boolean().default(false),
-  searchProvider: exports_external.enum(["tavily", "brave"]).default("tavily"),
-  searchApiKey: exports_external.string().optional(),
-  members: exports_external.array(GeneralCouncilMemberConfigSchema).default([]),
-  presets: exports_external.record(exports_external.string(), exports_external.array(GeneralCouncilMemberConfigSchema)).default({}),
-  deliberate: exports_external.boolean().default(true),
-  moderator: exports_external.boolean().default(true),
-  moderatorModel: exports_external.string().optional(),
-  maxSourcesPerMember: exports_external.number().int().min(1).max(20).default(5)
-}).strict();
-var CouncilConfigSchema = exports_external.object({
-  enabled: exports_external.boolean().default(false),
-  maxRounds: exports_external.number().int().min(1).max(10).default(3),
-  parallelTimeoutMs: exports_external.number().int().min(5000).max(120000).default(30000),
-  vetoPriority: exports_external.boolean().default(true),
-  requireAllMembers: exports_external.boolean().default(false).describe("When true, submit_council_verdicts rejects if fewer than 5 member verdicts are provided. Equivalent to minimumMembers: 5."),
-  minimumMembers: exports_external.number().int().min(1).max(5).default(3).describe("Minimum distinct council member verdicts required for synthesis. Default 3. Set to 1 to disable quorum enforcement. requireAllMembers: true overrides this to 5 (stricter constraint wins)."),
-  escalateOnMaxRounds: exports_external.string().optional().describe("Optional webhook URL or handler name invoked when maxRounds is reached without APPROVE. Declared for forward compatibility; no behavior is implemented yet."),
-  phaseConcernsAllowComplete: exports_external.boolean().default(true).describe("When true, a phase-level council CONCERNS verdict does NOT block phase completion \u2014 the advisory notes are logged as warnings and the phase proceeds. When false, CONCERNS blocks like REJECT. Default: true (CONCERNS is advisory)."),
-  general: GeneralCouncilConfigSchema.optional()
-}).strict();
-var ParallelizationConfigSchema = exports_external.object({
-  enabled: exports_external.boolean().default(false),
-  maxConcurrentTasks: exports_external.number().int().min(1).max(64).default(1),
-  evidenceLockTimeoutMs: exports_external.number().int().min(1000).max(300000).default(60000),
-  max_coders: exports_external.number().int().min(1).max(16).default(3),
-  max_reviewers: exports_external.number().int().min(1).max(16).default(2),
-  stageB: exports_external.object({
-    parallel: exports_external.object({
-      enabled: exports_external.boolean().default(false)
-    }).default({ enabled: false })
-  }).default({ parallel: { enabled: false } })
-});
-var PluginConfigSchema = exports_external.object({
-  agents: exports_external.record(exports_external.string(), AgentOverrideConfigSchema).optional(),
-  swarms: exports_external.record(exports_external.string(), SwarmConfigSchema).optional(),
-  max_iterations: exports_external.number().min(1).max(10).default(5),
-  pipeline: PipelineConfigSchema.optional(),
-  phase_complete: PhaseCompleteConfigSchema.optional(),
-  qa_retry_limit: exports_external.number().min(1).max(10).default(3),
-  execution_mode: exports_external.enum(["strict", "balanced", "fast"]).default("balanced"),
-  inject_phase_reminders: exports_external.boolean().default(true),
-  hooks: HooksConfigSchema.optional(),
-  gates: GateConfigSchema.optional(),
-  context_budget: ContextBudgetConfigSchema.optional(),
-  guardrails: GuardrailsConfigSchema.optional(),
-  watchdog: WatchdogConfigSchema.optional(),
-  self_review: SelfReviewConfigSchema.optional(),
-  tool_filter: ToolFilterConfigSchema.optional(),
-  authority: AuthorityConfigSchema.optional(),
-  plan_cursor: PlanCursorConfigSchema.optional(),
-  evidence: EvidenceConfigSchema.optional(),
-  summaries: SummaryConfigSchema.optional(),
-  review_passes: ReviewPassesConfigSchema.optional(),
-  adversarial_detection: AdversarialDetectionConfigSchema.optional(),
-  adversarial_testing: AdversarialTestingConfigSchema.optional(),
-  integration_analysis: IntegrationAnalysisConfigSchema.optional(),
-  docs: DocsConfigSchema.optional(),
-  ui_review: UIReviewConfigSchema.optional(),
-  compaction_advisory: CompactionAdvisoryConfigSchema.optional(),
-  lint: LintConfigSchema.optional(),
-  secretscan: SecretscanConfigSchema.optional(),
-  checkpoint: CheckpointConfigSchema.optional(),
-  automation: AutomationConfigSchema.optional(),
-  knowledge: KnowledgeConfigSchema.optional(),
-  curator: CuratorConfigSchema.optional(),
-  tool_output: exports_external.object({
-    truncation_enabled: exports_external.boolean().default(true),
-    max_lines: exports_external.number().min(10).max(500).default(150),
-    per_tool: exports_external.record(exports_external.string(), exports_external.number()).optional(),
-    truncation_tools: exports_external.array(exports_external.string()).optional().describe("Tools to apply output truncation to. Defaults to diff, symbols, bash, shell, test_runner, lint, pre_check_batch, complexity_hotspots, pkg_audit, sbom_generate, schema_drift.")
-  }).optional(),
-  slop_detector: SlopDetectorConfigSchema.optional(),
-  todo_gate: exports_external.object({
-    enabled: exports_external.boolean().default(true),
-    max_high_priority: exports_external.number().int().min(-1).default(0).describe("Max new high-priority TODOs (FIXME/HACK/XXX) before warning. 0 = warn on any. Set to -1 to disable."),
-    block_on_threshold: exports_external.boolean().default(false).describe("If true, block phase completion when threshold exceeded. Default: advisory only.")
-  }).optional(),
-  incremental_verify: IncrementalVerifyConfigSchema.optional(),
-  compaction_service: CompactionConfigSchema.optional(),
-  prm: PrmConfigSchema.optional(),
-  council: CouncilConfigSchema.optional(),
-  parallelization: ParallelizationConfigSchema.optional(),
-  turbo_mode: exports_external.boolean().default(false).optional(),
-  quiet: exports_external.boolean().default(true).optional(),
-  version_check: exports_external.boolean().default(true).optional(),
-  full_auto: exports_external.object({
-    enabled: exports_external.boolean().default(false),
-    critic_model: exports_external.string().optional(),
-    max_interactions_per_phase: exports_external.number().int().min(5).max(200).default(50),
-    deadlock_threshold: exports_external.number().int().min(2).max(10).default(3),
-    escalation_mode: exports_external.enum(["pause", "terminate"]).default("pause")
-  }).optional().default({
-    enabled: false,
-    max_interactions_per_phase: 50,
-    deadlock_threshold: 3,
-    escalation_mode: "pause"
-  })
-});
-
-// src/commands/agents.ts
-function handleAgentsCommand(agents, guardrails) {
-  const entries = Object.entries(agents);
-  if (entries.length === 0) {
-    return "No agents registered.";
-  }
-  const allAgentKeys = entries.map(([key]) => key);
-  const registeredBaseNames = allAgentKeys.map((key) => stripKnownSwarmPrefix(key)).filter((stripped) => ALL_SUBAGENT_NAMES.includes(stripped));
-  const unregistered = ALL_SUBAGENT_NAMES.filter((name) => !registeredBaseNames.includes(name));
-  const hasUnregistered = unregistered.length > 0;
-  const headerLabel = hasUnregistered ? `${entries.length} registered + ${unregistered.length} unregistered` : `${entries.length} total`;
-  const lines = [`## Registered Agents (${headerLabel})`, ""];
-  for (const [key, agent] of entries) {
-    const model = agent.config.model || "default";
-    const temp = agent.config.temperature !== undefined ? agent.config.temperature.toString() : "default";
-    const tools = agent.config.tools || {};
-    const isReadOnly = tools.write === false || tools.edit === false;
-    const access2 = isReadOnly ? "\uD83D\uDD12 read-only" : "\u270F\uFE0F read-write";
-    const desc = agent.description || agent.config.description || "";
-    const hasCustomProfile = guardrails?.profiles?.[key] !== undefined;
-    const profileIndicator = hasCustomProfile ? " | \u26A1 custom limits" : "";
-    lines.push(`- **${key}** | model: \`${model}\` | temp: ${temp} | ${access2}${profileIndicator}`);
-    if (desc) {
-      lines.push(`  ${desc}`);
-    }
-  }
-  if (hasUnregistered) {
-    lines.push("", "### Unregistered Subagents");
-    for (const name of unregistered) {
-      lines.push(`- **${name}** (requires configuration)`);
-    }
-  }
-  if (guardrails?.profiles && Object.keys(guardrails.profiles).length > 0) {
-    lines.push("", "### Guardrail Profiles", "");
-    for (const [profileName, profile] of Object.entries(guardrails.profiles)) {
-      const overrides = [];
-      if (profile.max_tool_calls !== undefined) {
-        overrides.push(`max_tool_calls=${profile.max_tool_calls}`);
-      }
-      if (profile.max_duration_minutes !== undefined) {
-        overrides.push(`max_duration_minutes=${profile.max_duration_minutes}`);
-      }
-      if (profile.max_repetitions !== undefined) {
-        overrides.push(`max_repetitions=${profile.max_repetitions}`);
-      }
-      if (profile.max_consecutive_errors !== undefined) {
-        overrides.push(`max_consecutive_errors=${profile.max_consecutive_errors}`);
-      }
-      if (profile.warning_threshold !== undefined) {
-        overrides.push(`warning_threshold=${profile.warning_threshold}`);
-      }
-      const overrideStr = overrides.length > 0 ? overrides.join(", ") : "no overrides";
-      lines.push(`- **${profileName}**: ${overrideStr}`);
-    }
-  }
-  return lines.join(`
-`);
-}
-
-// src/commands/analyze.ts
-async function handleAnalyzeCommand(_directory, args) {
-  const description = args.join(" ").trim();
-  if (description) {
-    return `[MODE: ANALYZE] ${description}`;
-  }
-  return "[MODE: ANALYZE] Please analyze the spec against the plan using MODE: ANALYZE.";
-}
-
-// src/config/loader.ts
-import * as fs2 from "fs";
-import * as os2 from "os";
-import * as path5 from "path";
-var CONFIG_FILENAME = "opencode-swarm.json";
-var MAX_CONFIG_FILE_BYTES = 102400;
-function getUserConfigDir() {
-  return process.env.XDG_CONFIG_HOME || path5.join(os2.homedir(), ".config");
-}
-function loadRawConfigFromPath(configPath) {
-  try {
-    const stats = fs2.statSync(configPath);
-    if (stats.size > MAX_CONFIG_FILE_BYTES) {
-      console.warn(`[opencode-swarm] Config file too large (max 100 KB): ${configPath}`);
-      console.warn("[opencode-swarm] \u26A0\uFE0F SECURITY: Config file exceeds size limit. Falling back to safe defaults with guardrails ENABLED.");
-      return { config: null, fileExisted: true, hadError: true };
-    }
-    const content = fs2.readFileSync(configPath, "utf-8");
-    if (content.length > MAX_CONFIG_FILE_BYTES) {
-      console.warn(`[opencode-swarm] Config file too large after read (max 100 KB): ${configPath}`);
-      console.warn("[opencode-swarm] \u26A0\uFE0F SECURITY: Config file exceeds size limit. Falling back to safe defaults with guardrails ENABLED.");
-      return { config: null, fileExisted: true, hadError: true };
-    }
-    let sanitizedContent = content;
-    if (content.charCodeAt(0) === 65279) {
-      sanitizedContent = content.slice(1);
-    }
-    const rawConfig = JSON.parse(sanitizedContent);
-    if (typeof rawConfig !== "object" || rawConfig === null || Array.isArray(rawConfig)) {
-      console.warn(`[opencode-swarm] Invalid config at ${configPath}: expected an object`);
-      console.warn("[opencode-swarm] \u26A0\uFE0F SECURITY: Config format invalid. Falling back to safe defaults with guardrails ENABLED.");
-      return { config: null, fileExisted: true, hadError: true };
-    }
-    return {
-      config: rawConfig,
-      fileExisted: true,
-      hadError: false
-    };
-  } catch (error49) {
-    const isFileNotFoundError = error49 instanceof Error && "code" in error49 && error49.code === "ENOENT";
-    if (!isFileNotFoundError) {
-      const errorMessage = error49 instanceof Error ? error49.message : String(error49);
-      console.warn(`[opencode-swarm] \u26A0\uFE0F CONFIG LOAD FAILURE \u2014 config exists at ${configPath} but could not be loaded: ${errorMessage}`);
-      console.warn("[opencode-swarm] \u26A0\uFE0F SECURITY: Config load failed. Falling back to safe defaults with guardrails ENABLED.");
-      return { config: null, fileExisted: true, hadError: true };
-    }
-    return { config: null, fileExisted: false, hadError: false };
-  }
-}
-function migratePresetsConfig(raw) {
-  if (raw.presets && typeof raw.presets === "object" && !raw.agents) {
-    const presetName = raw.preset || "remote";
-    const presets = raw.presets;
-    const activePreset = presets[presetName] || Object.values(presets)[0];
-    if (activePreset && typeof activePreset === "object") {
-      const migrated = { ...raw, agents: activePreset };
-      delete migrated.preset;
-      delete migrated.presets;
-      delete migrated.swarm_mode;
-      console.warn("[opencode-swarm] Migrated v6.12 presets config to agents format. Consider updating your opencode-swarm.json.");
-      return migrated;
-    }
-  }
-  return raw;
-}
-function loadPluginConfig(directory) {
-  const userConfigPath = path5.join(getUserConfigDir(), "opencode", CONFIG_FILENAME);
-  const projectConfigPath = path5.join(directory, ".opencode", CONFIG_FILENAME);
-  const userResult = loadRawConfigFromPath(userConfigPath);
-  const projectResult = loadRawConfigFromPath(projectConfigPath);
-  const rawUserConfig = userResult.config;
-  const rawProjectConfig = projectResult.config;
-  const loadedFromFile = userResult.fileExisted || projectResult.fileExisted;
-  const configHadErrors = userResult.hadError || projectResult.hadError;
-  let mergedRaw = rawUserConfig ?? {};
-  if (rawProjectConfig) {
-    mergedRaw = deepMerge(mergedRaw, rawProjectConfig);
-  }
-  mergedRaw = migratePresetsConfig(mergedRaw);
-  const result = PluginConfigSchema.safeParse(mergedRaw);
-  if (!result.success) {
-    if (rawUserConfig) {
-      const userParseResult = PluginConfigSchema.safeParse(rawUserConfig);
-      if (userParseResult.success) {
-        console.warn("[opencode-swarm] Project config ignored due to validation errors. Using user config.");
-        return userParseResult.data;
-      }
-    }
-    console.warn("[opencode-swarm] Merged config validation failed:");
-    console.warn(result.error.format());
-    console.warn("[opencode-swarm] \u26A0\uFE0F SECURITY: Falling back to conservative defaults with guardrails ENABLED. Fix the config file to restore custom configuration.");
-    return PluginConfigSchema.parse({
-      guardrails: { enabled: true }
-    });
-  }
-  if (loadedFromFile && configHadErrors) {
-    return PluginConfigSchema.parse({
-      ...mergedRaw,
-      guardrails: { enabled: true }
-    });
-  }
-  return result.data;
-}
-function loadPluginConfigWithMeta(directory) {
-  const userConfigPath = path5.join(getUserConfigDir(), "opencode", CONFIG_FILENAME);
-  const projectConfigPath = path5.join(directory, ".opencode", CONFIG_FILENAME);
-  const userResult = loadRawConfigFromPath(userConfigPath);
-  const projectResult = loadRawConfigFromPath(projectConfigPath);
-  const loadedFromFile = userResult.fileExisted || projectResult.fileExisted;
-  const config2 = loadPluginConfig(directory);
-  return { config: config2, loadedFromFile };
-}
-
 // src/commands/archive.ts
-init_manager2();
 async function handleArchiveCommand(directory, args) {
   const config2 = loadPluginConfig(directory);
   const maxAgeDays = config2?.evidence?.max_age_days ?? 90;
@@ -20307,21 +19463,15 @@ async function handleArchiveCommand(directory, args) {
   return lines.join(`
 `);
 }
-
-// src/commands/benchmark.ts
-init_manager2();
-
-// src/state.ts
-init_plan_schema();
-
-// src/db/qa-gate-profile.ts
-import { createHash as createHash3 } from "crypto";
+var init_archive = __esm(() => {
+  init_loader();
+  init_manager2();
+});
 
 // src/db/project-db.ts
 import { existsSync as existsSync5, mkdirSync as mkdirSync4 } from "fs";
 import { createRequire } from "module";
 import { join as join8, resolve as resolve5 } from "path";
-var _DatabaseCtor = null;
 function loadDatabaseCtor() {
   if (_DatabaseCtor)
     return _DatabaseCtor;
@@ -20329,42 +19479,6 @@ function loadDatabaseCtor() {
   _DatabaseCtor = req("bun:sqlite").Database;
   return _DatabaseCtor;
 }
-var MIGRATIONS = [
-  {
-    version: 1,
-    name: "create_project_constraints",
-    sql: `CREATE TABLE project_constraints (
-			id INTEGER PRIMARY KEY AUTOINCREMENT,
-			constraint_type TEXT NOT NULL,
-			content TEXT NOT NULL,
-			created_at TEXT NOT NULL DEFAULT (datetime('now'))
-		)`
-  },
-  {
-    version: 2,
-    name: "create_qa_gate_profile",
-    sql: `CREATE TABLE qa_gate_profile (
-			id INTEGER PRIMARY KEY AUTOINCREMENT,
-			plan_id TEXT NOT NULL UNIQUE,
-			created_at TEXT NOT NULL DEFAULT (datetime('now')),
-			project_type TEXT,
-			gates TEXT NOT NULL DEFAULT '{}',
-			locked_at TEXT,
-			locked_by_snapshot_seq INTEGER
-		)`
-  },
-  {
-    version: 3,
-    name: "create_qa_gate_profile_immutability_trigger",
-    sql: `CREATE TRIGGER IF NOT EXISTS trg_qa_gate_profile_no_update_after_lock
-			BEFORE UPDATE ON qa_gate_profile
-			WHEN OLD.locked_at IS NOT NULL
-			BEGIN
-				SELECT RAISE(ABORT, 'qa_gate_profile row is locked and cannot be modified after critic approval');
-			END`
-  }
-];
-var _projectDbs = new Map;
 function runProjectMigrations(db) {
   db.run(`CREATE TABLE IF NOT EXISTS schema_migrations (
 		version INTEGER PRIMARY KEY,
@@ -20409,20 +19523,48 @@ function getProjectDb(directory) {
   _projectDbs.set(key, db);
   return db;
 }
+var _DatabaseCtor = null, MIGRATIONS, _projectDbs;
+var init_project_db = __esm(() => {
+  MIGRATIONS = [
+    {
+      version: 1,
+      name: "create_project_constraints",
+      sql: `CREATE TABLE project_constraints (
+			id INTEGER PRIMARY KEY AUTOINCREMENT,
+			constraint_type TEXT NOT NULL,
+			content TEXT NOT NULL,
+			created_at TEXT NOT NULL DEFAULT (datetime('now'))
+		)`
+    },
+    {
+      version: 2,
+      name: "create_qa_gate_profile",
+      sql: `CREATE TABLE qa_gate_profile (
+			id INTEGER PRIMARY KEY AUTOINCREMENT,
+			plan_id TEXT NOT NULL UNIQUE,
+			created_at TEXT NOT NULL DEFAULT (datetime('now')),
+			project_type TEXT,
+			gates TEXT NOT NULL DEFAULT '{}',
+			locked_at TEXT,
+			locked_by_snapshot_seq INTEGER
+		)`
+    },
+    {
+      version: 3,
+      name: "create_qa_gate_profile_immutability_trigger",
+      sql: `CREATE TRIGGER IF NOT EXISTS trg_qa_gate_profile_no_update_after_lock
+			BEFORE UPDATE ON qa_gate_profile
+			WHEN OLD.locked_at IS NOT NULL
+			BEGIN
+				SELECT RAISE(ABORT, 'qa_gate_profile row is locked and cannot be modified after critic approval');
+			END`
+    }
+  ];
+  _projectDbs = new Map;
+});
 
 // src/db/qa-gate-profile.ts
-var DEFAULT_QA_GATES = {
-  reviewer: true,
-  test_engineer: true,
-  council_mode: false,
-  sme_enabled: true,
-  critic_pre_plan: true,
-  hallucination_guard: false,
-  sast_enabled: true,
-  mutation_test: false,
-  council_general_review: false,
-  drift_check: true
-};
+import { createHash as createHash3 } from "crypto";
 function rowToProfile(row) {
   let parsed = {};
   try {
@@ -20518,321 +19660,354 @@ function getEffectiveGates(profile, sessionOverrides) {
   }
   return merged;
 }
-
-// src/hooks/delegation-gate.ts
-init_telemetry();
-
+var DEFAULT_QA_GATES;
+var init_qa_gate_profile = __esm(() => {
+  init_project_db();
+  DEFAULT_QA_GATES = {
+    reviewer: true,
+    test_engineer: true,
+    council_mode: false,
+    sme_enabled: true,
+    critic_pre_plan: true,
+    hallucination_guard: false,
+    sast_enabled: true,
+    mutation_test: false,
+    council_general_review: false,
+    drift_check: true
+  };
+});
 // node_modules/quick-lru/index.js
-class QuickLRU extends Map {
-  #size = 0;
-  #cache = new Map;
-  #oldCache = new Map;
-  #maxSize;
-  #maxAge;
-  #onEviction;
-  constructor(options = {}) {
-    super();
-    if (!(options.maxSize && options.maxSize > 0)) {
-      throw new TypeError("`maxSize` must be a number greater than 0");
+var QuickLRU;
+var init_quick_lru = __esm(() => {
+  QuickLRU = class QuickLRU extends Map {
+    #size = 0;
+    #cache = new Map;
+    #oldCache = new Map;
+    #maxSize;
+    #maxAge;
+    #onEviction;
+    constructor(options = {}) {
+      super();
+      if (!(options.maxSize && options.maxSize > 0)) {
+        throw new TypeError("`maxSize` must be a number greater than 0");
+      }
+      if (typeof options.maxAge === "number" && options.maxAge === 0) {
+        throw new TypeError("`maxAge` must be a number greater than 0");
+      }
+      this.#maxSize = options.maxSize;
+      this.#maxAge = options.maxAge || Number.POSITIVE_INFINITY;
+      this.#onEviction = options.onEviction;
     }
-    if (typeof options.maxAge === "number" && options.maxAge === 0) {
-      throw new TypeError("`maxAge` must be a number greater than 0");
+    get __oldCache() {
+      return this.#oldCache;
     }
-    this.#maxSize = options.maxSize;
-    this.#maxAge = options.maxAge || Number.POSITIVE_INFINITY;
-    this.#onEviction = options.onEviction;
-  }
-  get __oldCache() {
-    return this.#oldCache;
-  }
-  #emitEvictions(cache) {
-    if (typeof this.#onEviction !== "function") {
-      return;
-    }
-    for (const [key, item] of cache) {
-      this.#onEviction(key, item.value);
-    }
-  }
-  #deleteIfExpired(key, item) {
-    if (typeof item.expiry === "number" && item.expiry <= Date.now()) {
-      if (typeof this.#onEviction === "function") {
+    #emitEvictions(cache) {
+      if (typeof this.#onEviction !== "function") {
+        return;
+      }
+      for (const [key, item] of cache) {
         this.#onEviction(key, item.value);
       }
-      return this.delete(key);
     }
-    return false;
-  }
-  #getOrDeleteIfExpired(key, item) {
-    const deleted = this.#deleteIfExpired(key, item);
-    if (deleted === false) {
-      return item.value;
+    #deleteIfExpired(key, item) {
+      if (typeof item.expiry === "number" && item.expiry <= Date.now()) {
+        if (typeof this.#onEviction === "function") {
+          this.#onEviction(key, item.value);
+        }
+        return this.delete(key);
+      }
+      return false;
     }
-  }
-  #getItemValue(key, item) {
-    return item.expiry ? this.#getOrDeleteIfExpired(key, item) : item.value;
-  }
-  #peek(key, cache) {
-    const item = cache.get(key);
-    return this.#getItemValue(key, item);
-  }
-  #set(key, value) {
-    this.#cache.set(key, value);
-    this.#size++;
-    if (this.#size >= this.#maxSize) {
-      this.#size = 0;
-      this.#emitEvictions(this.#oldCache);
-      this.#oldCache = this.#cache;
-      this.#cache = new Map;
+    #getOrDeleteIfExpired(key, item) {
+      const deleted = this.#deleteIfExpired(key, item);
+      if (deleted === false) {
+        return item.value;
+      }
     }
-  }
-  #moveToRecent(key, item) {
-    this.#oldCache.delete(key);
-    this.#set(key, item);
-  }
-  *#entriesAscending() {
-    for (const item of this.#oldCache) {
-      const [key, value] = item;
-      if (!this.#cache.has(key)) {
+    #getItemValue(key, item) {
+      return item.expiry ? this.#getOrDeleteIfExpired(key, item) : item.value;
+    }
+    #peek(key, cache) {
+      const item = cache.get(key);
+      return this.#getItemValue(key, item);
+    }
+    #set(key, value) {
+      this.#cache.set(key, value);
+      this.#size++;
+      if (this.#size >= this.#maxSize) {
+        this.#size = 0;
+        this.#emitEvictions(this.#oldCache);
+        this.#oldCache = this.#cache;
+        this.#cache = new Map;
+      }
+    }
+    #moveToRecent(key, item) {
+      this.#oldCache.delete(key);
+      this.#set(key, item);
+    }
+    *#entriesAscending() {
+      for (const item of this.#oldCache) {
+        const [key, value] = item;
+        if (!this.#cache.has(key)) {
+          const deleted = this.#deleteIfExpired(key, value);
+          if (deleted === false) {
+            yield item;
+          }
+        }
+      }
+      for (const item of this.#cache) {
+        const [key, value] = item;
         const deleted = this.#deleteIfExpired(key, value);
         if (deleted === false) {
           yield item;
         }
       }
     }
-    for (const item of this.#cache) {
-      const [key, value] = item;
-      const deleted = this.#deleteIfExpired(key, value);
-      if (deleted === false) {
-        yield item;
+    get(key) {
+      if (this.#cache.has(key)) {
+        const item = this.#cache.get(key);
+        return this.#getItemValue(key, item);
+      }
+      if (this.#oldCache.has(key)) {
+        const item = this.#oldCache.get(key);
+        if (this.#deleteIfExpired(key, item) === false) {
+          this.#moveToRecent(key, item);
+          return item.value;
+        }
       }
     }
-  }
-  get(key) {
-    if (this.#cache.has(key)) {
-      const item = this.#cache.get(key);
-      return this.#getItemValue(key, item);
+    set(key, value, { maxAge = this.#maxAge } = {}) {
+      const expiry = typeof maxAge === "number" && maxAge !== Number.POSITIVE_INFINITY ? Date.now() + maxAge : undefined;
+      if (this.#cache.has(key)) {
+        this.#cache.set(key, {
+          value,
+          expiry
+        });
+      } else {
+        this.#set(key, { value, expiry });
+      }
+      return this;
     }
-    if (this.#oldCache.has(key)) {
-      const item = this.#oldCache.get(key);
-      if (this.#deleteIfExpired(key, item) === false) {
-        this.#moveToRecent(key, item);
-        return item.value;
+    has(key) {
+      if (this.#cache.has(key)) {
+        return !this.#deleteIfExpired(key, this.#cache.get(key));
+      }
+      if (this.#oldCache.has(key)) {
+        return !this.#deleteIfExpired(key, this.#oldCache.get(key));
+      }
+      return false;
+    }
+    peek(key) {
+      if (this.#cache.has(key)) {
+        return this.#peek(key, this.#cache);
+      }
+      if (this.#oldCache.has(key)) {
+        return this.#peek(key, this.#oldCache);
       }
     }
-  }
-  set(key, value, { maxAge = this.#maxAge } = {}) {
-    const expiry = typeof maxAge === "number" && maxAge !== Number.POSITIVE_INFINITY ? Date.now() + maxAge : undefined;
-    if (this.#cache.has(key)) {
-      this.#cache.set(key, {
-        value,
-        expiry
-      });
-    } else {
-      this.#set(key, { value, expiry });
-    }
-    return this;
-  }
-  has(key) {
-    if (this.#cache.has(key)) {
-      return !this.#deleteIfExpired(key, this.#cache.get(key));
-    }
-    if (this.#oldCache.has(key)) {
-      return !this.#deleteIfExpired(key, this.#oldCache.get(key));
-    }
-    return false;
-  }
-  peek(key) {
-    if (this.#cache.has(key)) {
-      return this.#peek(key, this.#cache);
-    }
-    if (this.#oldCache.has(key)) {
-      return this.#peek(key, this.#oldCache);
-    }
-  }
-  expiresIn(key) {
-    const item = this.#cache.get(key) ?? this.#oldCache.get(key);
-    if (item) {
-      return item.expiry ? item.expiry - Date.now() : Number.POSITIVE_INFINITY;
-    }
-  }
-  delete(key) {
-    const deleted = this.#cache.delete(key);
-    if (deleted) {
-      this.#size--;
-    }
-    return this.#oldCache.delete(key) || deleted;
-  }
-  clear() {
-    this.#cache.clear();
-    this.#oldCache.clear();
-    this.#size = 0;
-  }
-  resize(newSize) {
-    if (!(newSize && newSize > 0)) {
-      throw new TypeError("`maxSize` must be a number greater than 0");
-    }
-    const items = [...this.#entriesAscending()];
-    const removeCount = items.length - newSize;
-    if (removeCount < 0) {
-      this.#cache = new Map(items);
-      this.#oldCache = new Map;
-      this.#size = items.length;
-    } else {
-      if (removeCount > 0) {
-        this.#emitEvictions(items.slice(0, removeCount));
+    expiresIn(key) {
+      const item = this.#cache.get(key) ?? this.#oldCache.get(key);
+      if (item) {
+        return item.expiry ? item.expiry - Date.now() : Number.POSITIVE_INFINITY;
       }
-      this.#oldCache = new Map(items.slice(removeCount));
+    }
+    delete(key) {
+      const deleted = this.#cache.delete(key);
+      if (deleted) {
+        this.#size--;
+      }
+      return this.#oldCache.delete(key) || deleted;
+    }
+    clear() {
+      this.#cache.clear();
+      this.#oldCache.clear();
+      this.#size = 0;
+    }
+    resize(newSize) {
+      if (!(newSize && newSize > 0)) {
+        throw new TypeError("`maxSize` must be a number greater than 0");
+      }
+      const items = [...this.#entriesAscending()];
+      const removeCount = items.length - newSize;
+      if (removeCount < 0) {
+        this.#cache = new Map(items);
+        this.#oldCache = new Map;
+        this.#size = items.length;
+      } else {
+        if (removeCount > 0) {
+          this.#emitEvictions(items.slice(0, removeCount));
+        }
+        this.#oldCache = new Map(items.slice(removeCount));
+        this.#cache = new Map;
+        this.#size = 0;
+      }
+      this.#maxSize = newSize;
+    }
+    evict(count = 1) {
+      const requested = Number(count);
+      if (!requested || requested <= 0) {
+        return;
+      }
+      const items = [...this.#entriesAscending()];
+      const evictCount = Math.trunc(Math.min(requested, Math.max(items.length - 1, 0)));
+      if (evictCount <= 0) {
+        return;
+      }
+      this.#emitEvictions(items.slice(0, evictCount));
+      this.#oldCache = new Map(items.slice(evictCount));
       this.#cache = new Map;
       this.#size = 0;
     }
-    this.#maxSize = newSize;
-  }
-  evict(count = 1) {
-    const requested = Number(count);
-    if (!requested || requested <= 0) {
-      return;
-    }
-    const items = [...this.#entriesAscending()];
-    const evictCount = Math.trunc(Math.min(requested, Math.max(items.length - 1, 0)));
-    if (evictCount <= 0) {
-      return;
-    }
-    this.#emitEvictions(items.slice(0, evictCount));
-    this.#oldCache = new Map(items.slice(evictCount));
-    this.#cache = new Map;
-    this.#size = 0;
-  }
-  *keys() {
-    for (const [key] of this) {
-      yield key;
-    }
-  }
-  *values() {
-    for (const [, value] of this) {
-      yield value;
-    }
-  }
-  *[Symbol.iterator]() {
-    for (const item of this.#cache) {
-      const [key, value] = item;
-      const deleted = this.#deleteIfExpired(key, value);
-      if (deleted === false) {
-        yield [key, value.value];
+    *keys() {
+      for (const [key] of this) {
+        yield key;
       }
     }
-    for (const item of this.#oldCache) {
-      const [key, value] = item;
-      if (!this.#cache.has(key)) {
+    *values() {
+      for (const [, value] of this) {
+        yield value;
+      }
+    }
+    *[Symbol.iterator]() {
+      for (const item of this.#cache) {
+        const [key, value] = item;
         const deleted = this.#deleteIfExpired(key, value);
         if (deleted === false) {
           yield [key, value.value];
         }
       }
-    }
-  }
-  *entriesDescending() {
-    let items = [...this.#cache];
-    for (let i = items.length - 1;i >= 0; --i) {
-      const item = items[i];
-      const [key, value] = item;
-      const deleted = this.#deleteIfExpired(key, value);
-      if (deleted === false) {
-        yield [key, value.value];
+      for (const item of this.#oldCache) {
+        const [key, value] = item;
+        if (!this.#cache.has(key)) {
+          const deleted = this.#deleteIfExpired(key, value);
+          if (deleted === false) {
+            yield [key, value.value];
+          }
+        }
       }
     }
-    items = [...this.#oldCache];
-    for (let i = items.length - 1;i >= 0; --i) {
-      const item = items[i];
-      const [key, value] = item;
-      if (!this.#cache.has(key)) {
+    *entriesDescending() {
+      let items = [...this.#cache];
+      for (let i = items.length - 1;i >= 0; --i) {
+        const item = items[i];
+        const [key, value] = item;
         const deleted = this.#deleteIfExpired(key, value);
         if (deleted === false) {
           yield [key, value.value];
         }
       }
-    }
-  }
-  *entriesAscending() {
-    for (const [key, value] of this.#entriesAscending()) {
-      yield [key, value.value];
-    }
-  }
-  get size() {
-    if (!this.#size) {
-      return this.#oldCache.size;
-    }
-    let oldCacheSize = 0;
-    for (const key of this.#oldCache.keys()) {
-      if (!this.#cache.has(key)) {
-        oldCacheSize++;
+      items = [...this.#oldCache];
+      for (let i = items.length - 1;i >= 0; --i) {
+        const item = items[i];
+        const [key, value] = item;
+        if (!this.#cache.has(key)) {
+          const deleted = this.#deleteIfExpired(key, value);
+          if (deleted === false) {
+            yield [key, value.value];
+          }
+        }
       }
     }
-    return Math.min(this.#size + oldCacheSize, this.#maxSize);
-  }
-  get maxSize() {
-    return this.#maxSize;
-  }
-  get maxAge() {
-    return this.#maxAge;
-  }
-  entries() {
-    return this.entriesAscending();
-  }
-  forEach(callbackFunction, thisArgument = this) {
-    for (const [key, value] of this.entriesAscending()) {
-      callbackFunction.call(thisArgument, value, key, this);
+    *entriesAscending() {
+      for (const [key, value] of this.#entriesAscending()) {
+        yield [key, value.value];
+      }
     }
-  }
-  get [Symbol.toStringTag]() {
-    return "QuickLRU";
-  }
-  toString() {
-    return `QuickLRU(${this.size}/${this.maxSize})`;
-  }
-  [Symbol.for("nodejs.util.inspect.custom")]() {
-    return this.toString();
-  }
-}
-
-// src/config/index.ts
-init_evidence_schema();
-init_plan_schema();
+    get size() {
+      if (!this.#size) {
+        return this.#oldCache.size;
+      }
+      let oldCacheSize = 0;
+      for (const key of this.#oldCache.keys()) {
+        if (!this.#cache.has(key)) {
+          oldCacheSize++;
+        }
+      }
+      return Math.min(this.#size + oldCacheSize, this.#maxSize);
+    }
+    get maxSize() {
+      return this.#maxSize;
+    }
+    get maxAge() {
+      return this.#maxAge;
+    }
+    entries() {
+      return this.entriesAscending();
+    }
+    forEach(callbackFunction, thisArgument = this) {
+      for (const [key, value] of this.entriesAscending()) {
+        callbackFunction.call(thisArgument, value, key, this);
+      }
+    }
+    get [Symbol.toStringTag]() {
+      return "QuickLRU";
+    }
+    toString() {
+      return `QuickLRU(${this.size}/${this.maxSize})`;
+    }
+    [Symbol.for("nodejs.util.inspect.custom")]() {
+      return this.toString();
+    }
+  };
+});
 
 // src/config/spec-schema.ts
-init_zod();
-var ObligationSchema = exports_external.enum(["MUST", "SHALL", "SHOULD", "MAY"]);
-var SpecRequirementSchema = exports_external.object({
-  id: exports_external.string().regex(/^FR-(?!000)\d{3}$/, "Requirement ID must match FR-### pattern (e.g., FR-001)"),
-  obligation: ObligationSchema,
-  text: exports_external.string().min(1)
+var ObligationSchema, SpecRequirementSchema, SpecScenarioSchema, SpecSectionSchema, SwarmSpecSchema, SpecDeltaSchema, DeltaSpecSchema;
+var init_spec_schema = __esm(() => {
+  init_zod();
+  ObligationSchema = exports_external.enum(["MUST", "SHALL", "SHOULD", "MAY"]);
+  SpecRequirementSchema = exports_external.object({
+    id: exports_external.string().regex(/^FR-(?!000)\d{3}$/, "Requirement ID must match FR-### pattern (e.g., FR-001)"),
+    obligation: ObligationSchema,
+    text: exports_external.string().min(1)
+  });
+  SpecScenarioSchema = exports_external.object({
+    name: exports_external.string().min(1),
+    given: exports_external.array(exports_external.string()).optional().default([]),
+    when: exports_external.array(exports_external.string()).min(1, 'Scenario must have at least one "when" clause'),
+    thenClauses: exports_external.array(exports_external.string()).min(1, 'Scenario must have at least one "then" clause')
+  });
+  SpecSectionSchema = exports_external.object({
+    name: exports_external.string().min(1),
+    requirements: exports_external.array(SpecRequirementSchema).default([])
+  });
+  SwarmSpecSchema = exports_external.object({
+    title: exports_external.string().min(1),
+    purpose: exports_external.string().min(1),
+    sections: exports_external.array(SpecSectionSchema).min(1, "Spec must have at least one section")
+  });
+  SpecDeltaSchema = exports_external.object({
+    added: exports_external.array(SpecRequirementSchema).default([]),
+    modified: exports_external.array(SpecRequirementSchema).default([]),
+    removed: exports_external.array(SpecRequirementSchema).default([])
+  });
+  DeltaSpecSchema = exports_external.union([
+    SwarmSpecSchema,
+    SpecDeltaSchema
+  ]);
 });
-var SpecScenarioSchema = exports_external.object({
-  name: exports_external.string().min(1),
-  given: exports_external.array(exports_external.string()).optional().default([]),
-  when: exports_external.array(exports_external.string()).min(1, 'Scenario must have at least one "when" clause'),
-  thenClauses: exports_external.array(exports_external.string()).min(1, 'Scenario must have at least one "then" clause')
-});
-var SpecSectionSchema = exports_external.object({
-  name: exports_external.string().min(1),
-  requirements: exports_external.array(SpecRequirementSchema).default([])
-});
-var SwarmSpecSchema = exports_external.object({
-  title: exports_external.string().min(1),
-  purpose: exports_external.string().min(1),
-  sections: exports_external.array(SpecSectionSchema).min(1, "Spec must have at least one section")
-});
-var SpecDeltaSchema = exports_external.object({
-  added: exports_external.array(SpecRequirementSchema).default([]),
-  modified: exports_external.array(SpecRequirementSchema).default([]),
-  removed: exports_external.array(SpecRequirementSchema).default([])
-});
-var DeltaSpecSchema = exports_external.union([
-  SwarmSpecSchema,
-  SpecDeltaSchema
-]);
-// src/services/warning-buffer.ts
-var deferredWarnings = [];
 
+// src/config/index.ts
+var init_config = __esm(() => {
+  init_constants();
+  init_evidence_schema();
+  init_loader();
+  init_plan_schema();
+  init_schema();
+  init_spec_schema();
+});
+
+// src/services/warning-buffer.ts
+var deferredWarnings;
+var init_warning_buffer = __esm(() => {
+  deferredWarnings = [];
+});
+
+// src/agents/architect.ts
+var init_architect = __esm(() => {
+  init_registry();
+  init_constants();
+});
 // src/agents/council-prompts.ts
 var ROUND_PROTOCOL = `================================================================
 ROUND PROTOCOL
@@ -20854,8 +20029,7 @@ ROUND 2 \u2014 Targeted Deliberation (ONLY when this round is invoked for you)
     CONCEDE   \u2014 the opposing position is correct; state specifically what you got wrong
     NUANCE    \u2014 both positions are partially right; state the boundary condition that distinguishes them
 - Never CONCEDE without evidence. Sycophantic capitulation degrades the council below an individual member's baseline (NSED arXiv:2601.16863).
-- Never MAINTAIN without engaging the opposing argument on its merits.`;
-var RESPONSE_FORMAT = `================================================================
+- Never MAINTAIN without engaging the opposing argument on its merits.`, RESPONSE_FORMAT = `================================================================
 RESPONSE FORMAT (always \u2014 both rounds)
 ================================================================
 
@@ -20882,15 +20056,15 @@ Reply with a single fenced JSON block. No prose outside the block.
 Notes:
 - \`searchQueries\` is optional \u2014 list queries you would have run if you had web access (the architect uses these for audit), or omit / leave empty if none.
 - \`sources\` MUST come from the RESEARCH CONTEXT only. Copy title/url/snippet/query verbatim. Never invent sources.
-- For Round 1: leave \`disagreementTopics\` as []. For Round 2: list the specific disagreement topics this response addresses.`;
-var HARD_RULES = `================================================================
+- For Round 1: leave \`disagreementTopics\` as []. For Round 2: list the specific disagreement topics this response addresses.`, HARD_RULES = `================================================================
 HARD RULES
 ================================================================
 - You have no tools. Reason from the provided RESEARCH CONTEXT and your training knowledge.
 - Never invent sources. If the RESEARCH CONTEXT does not cover a needed claim, say so in \`areasOfUncertainty\`.
 - Never echo other members' responses verbatim. Paraphrase or quote with attribution.
-- Stay within your role and persona. The architect chose you for a specific perspective.`;
-var GENERALIST_COUNCIL_PROMPT = `You are the GENERALIST voice on a multi-model General Council.
+- Stay within your role and persona. The architect chose you for a specific perspective.`, GENERALIST_COUNCIL_PROMPT, SKEPTIC_COUNCIL_PROMPT, DOMAIN_EXPERT_COUNCIL_PROMPT;
+var init_council_prompts = __esm(() => {
+  GENERALIST_COUNCIL_PROMPT = `You are the GENERALIST voice on a multi-model General Council.
 
 You are the GENERALIST voice on this council. Your perspective is broad and synthesizing:
 - You reason from first principles and across disciplines.
@@ -20907,7 +20081,7 @@ ${RESPONSE_FORMAT}
 
 ${HARD_RULES}
 `;
-var SKEPTIC_COUNCIL_PROMPT = `You are the SKEPTIC voice on a multi-model General Council.
+  SKEPTIC_COUNCIL_PROMPT = `You are the SKEPTIC voice on a multi-model General Council.
 
 You are the SKEPTIC voice on this council. Your job is rigorous stress-testing:
 - You challenge assumptions the other members take for granted.
@@ -20924,7 +20098,7 @@ ${RESPONSE_FORMAT}
 
 ${HARD_RULES}
 `;
-var DOMAIN_EXPERT_COUNCIL_PROMPT = `You are the DOMAIN EXPERT voice on a multi-model General Council.
+  DOMAIN_EXPERT_COUNCIL_PROMPT = `You are the DOMAIN EXPERT voice on a multi-model General Council.
 
 You are the DOMAIN EXPERT voice on this council. Your perspective is technically precise:
 - You go deep where others stay broad.
@@ -20941,47 +20115,31 @@ ${RESPONSE_FORMAT}
 
 ${HARD_RULES}
 `;
-
+});
+// src/agents/curator-agent.ts
+var init_curator_agent = () => {};
+// src/agents/reviewer.ts
+var init_reviewer = () => {};
 // src/agents/index.ts
-var warnedAgents = new Set;
-
-// src/hooks/guardrails.ts
-init_manager();
-
+var warnedAgents;
+var init_agents2 = __esm(() => {
+  init_config();
+  init_constants();
+  init_schema();
+  init_warning_buffer();
+  init_architect();
+  init_council_prompts();
+  init_curator_agent();
+  init_reviewer();
+  init_architect();
+  init_council_prompts();
+  init_curator_agent();
+  init_reviewer();
+  warnedAgents = new Set;
+});
 // src/scope/scope-persistence.ts
-init_bun_compat();
-var import_proper_lockfile2 = __toESM(require_proper_lockfile(), 1);
 import * as fs5 from "fs";
 import * as path8 from "path";
-var DEFAULT_TTL_MS = 24 * 60 * 60 * 1000;
-var LOCK_STALE_MS = 30 * 1000;
-var SCOPES_DIR = ".swarm/scopes";
-var MAX_PLAN_BYTES = 10 * 1024 * 1024;
-var MAX_SCOPE_BYTES = 2 * 1024 * 1024;
-var WINDOWS_RESERVED = new Set([
-  "CON",
-  "PRN",
-  "AUX",
-  "NUL",
-  "COM1",
-  "COM2",
-  "COM3",
-  "COM4",
-  "COM5",
-  "COM6",
-  "COM7",
-  "COM8",
-  "COM9",
-  "LPT1",
-  "LPT2",
-  "LPT3",
-  "LPT4",
-  "LPT5",
-  "LPT6",
-  "LPT7",
-  "LPT8",
-  "LPT9"
-]);
 function getScopesDir(directory) {
   return path8.join(directory, SCOPES_DIR);
 }
@@ -20990,14 +20148,45 @@ function clearAllScopes(directory) {
     fs5.rmSync(getScopesDir(directory), { recursive: true, force: true });
   } catch {}
 }
-
-// src/hooks/guardrails.ts
-init_telemetry();
-init_utils();
-init_bun_compat();
+var import_proper_lockfile2, DEFAULT_TTL_MS, LOCK_STALE_MS, SCOPES_DIR = ".swarm/scopes", MAX_PLAN_BYTES, MAX_SCOPE_BYTES, WINDOWS_RESERVED;
+var init_scope_persistence = __esm(() => {
+  init_bun_compat();
+  import_proper_lockfile2 = __toESM(require_proper_lockfile(), 1);
+  DEFAULT_TTL_MS = 24 * 60 * 60 * 1000;
+  LOCK_STALE_MS = 30 * 1000;
+  MAX_PLAN_BYTES = 10 * 1024 * 1024;
+  MAX_SCOPE_BYTES = 2 * 1024 * 1024;
+  WINDOWS_RESERVED = new Set([
+    "CON",
+    "PRN",
+    "AUX",
+    "NUL",
+    "COM1",
+    "COM2",
+    "COM3",
+    "COM4",
+    "COM5",
+    "COM6",
+    "COM7",
+    "COM8",
+    "COM9",
+    "LPT1",
+    "LPT2",
+    "LPT3",
+    "LPT4",
+    "LPT5",
+    "LPT6",
+    "LPT7",
+    "LPT8",
+    "LPT9"
+  ]);
+});
 
 // src/hooks/conflict-resolution.ts
-init_telemetry();
+var init_conflict_resolution = __esm(() => {
+  init_state();
+  init_telemetry();
+});
 
 // src/hooks/extractors.ts
 function extractCurrentPhase(planContent) {
@@ -21039,54 +20228,88 @@ function extractCurrentPhaseFromPlan(plan) {
   return `Phase ${phase.id}: ${phase.name} [${statusText}]`;
 }
 
+// src/hooks/loop-detector.ts
+var init_loop_detector = __esm(() => {
+  init_state();
+});
+
 // src/hooks/model-limits.ts
-init_utils();
-var loggedFirstCalls = new Set;
+var loggedFirstCalls;
+var init_model_limits = __esm(() => {
+  init_utils();
+  loggedFirstCalls = new Set;
+});
+
+// src/hooks/normalize-tool-name.ts
+var init_normalize_tool_name = () => {};
 
 // src/hooks/guardrails.ts
-var storedInputArgs = new Map;
-var toolCallsSinceLastWrite = new Map;
-var noOpWarningIssued = new Set;
-var consecutiveNoToolTurns = new Map;
-var DC_SAFE_TARGETS = new Set([
-  "node_modules",
-  ".git",
-  "dist",
-  "build",
-  "coverage",
-  ".next",
-  ".turbo",
-  ".cache",
-  ".venv",
-  "venv",
-  "__pycache__",
-  "target",
-  "out",
-  ".parcel-cache",
-  ".svelte-kit",
-  ".nuxt",
-  ".output",
-  ".angular",
-  ".gradle",
-  "vendor"
-]);
-var DC_FS_ROOTS = new Set(["/", "C:\\", "C:/", "D:\\", "D:/", "E:\\", "E:/"]);
-var pathNormalizationCache = new QuickLRU({
-  maxSize: 500
-});
-var globMatcherCache = new QuickLRU({
-  maxSize: 200
+var storedInputArgs, toolCallsSinceLastWrite, noOpWarningIssued, consecutiveNoToolTurns, DC_SAFE_TARGETS, DC_FS_ROOTS, pathNormalizationCache, globMatcherCache;
+var init_guardrails = __esm(() => {
+  init_quick_lru();
+  init_agents2();
+  init_constants();
+  init_schema();
+  init_manager();
+  init_scope_persistence();
+  init_state();
+  init_telemetry();
+  init_utils();
+  init_bun_compat();
+  init_conflict_resolution();
+  init_delegation_gate();
+  init_loop_detector();
+  init_model_limits();
+  init_normalize_tool_name();
+  storedInputArgs = new Map;
+  toolCallsSinceLastWrite = new Map;
+  noOpWarningIssued = new Set;
+  consecutiveNoToolTurns = new Map;
+  DC_SAFE_TARGETS = new Set([
+    "node_modules",
+    ".git",
+    "dist",
+    "build",
+    "coverage",
+    ".next",
+    ".turbo",
+    ".cache",
+    ".venv",
+    "venv",
+    "__pycache__",
+    "target",
+    "out",
+    ".parcel-cache",
+    ".svelte-kit",
+    ".nuxt",
+    ".output",
+    ".angular",
+    ".gradle",
+    "vendor"
+  ]);
+  DC_FS_ROOTS = new Set(["/", "C:\\", "C:/", "D:\\", "D:/", "E:\\", "E:/"]);
+  pathNormalizationCache = new QuickLRU({
+    maxSize: 500
+  });
+  globMatcherCache = new QuickLRU({
+    maxSize: 200
+  });
 });
 
 // src/hooks/delegation-gate.ts
-init_utils2();
-var pendingCoderScopeByTaskId = new Map;
 function clearPendingCoderScope() {
   pendingCoderScopeByTaskId.clear();
 }
-
-// src/state.ts
-init_manager();
+var pendingCoderScopeByTaskId;
+var init_delegation_gate = __esm(() => {
+  init_schema();
+  init_state();
+  init_telemetry();
+  init_guardrails();
+  init_normalize_tool_name();
+  init_utils2();
+  pendingCoderScopeByTaskId = new Map;
+});
 
 // src/state/agent-run-context.ts
 class AgentRunContext {
@@ -21109,27 +20332,6 @@ class AgentRunContext {
 }
 
 // src/state.ts
-init_telemetry();
-var _rehydrationCache = null;
-var _councilDisagreementWarned = new Set;
-var _toolAggregates = new Map;
-var defaultRunContext = new AgentRunContext("default", _toolAggregates);
-var _runContexts = new Map;
-var swarmState = {
-  activeToolCalls: defaultRunContext.activeToolCalls,
-  toolAggregates: defaultRunContext.toolAggregates,
-  activeAgent: defaultRunContext.activeAgent,
-  delegationChains: defaultRunContext.delegationChains,
-  pendingEvents: 0,
-  opencodeClient: null,
-  curatorInitAgentNames: [],
-  curatorPhaseAgentNames: [],
-  lastBudgetPct: 0,
-  agentSessions: defaultRunContext.agentSessions,
-  pendingRehydrations: new Set,
-  fullAutoEnabledInConfig: false,
-  environmentProfiles: defaultRunContext.environmentProfiles
-};
 function resetSwarmState() {
   swarmState.activeToolCalls.clear();
   swarmState.toolAggregates.clear();
@@ -21163,19 +20365,37 @@ function hasActiveTurboMode(sessionID) {
   }
   return false;
 }
+var _rehydrationCache = null, _councilDisagreementWarned, _toolAggregates, defaultRunContext, _runContexts, swarmState;
+var init_state = __esm(() => {
+  init_constants();
+  init_plan_schema();
+  init_schema();
+  init_qa_gate_profile();
+  init_delegation_gate();
+  init_manager();
+  init_telemetry();
+  _councilDisagreementWarned = new Set;
+  _toolAggregates = new Map;
+  defaultRunContext = new AgentRunContext("default", _toolAggregates);
+  _runContexts = new Map;
+  swarmState = {
+    activeToolCalls: defaultRunContext.activeToolCalls,
+    toolAggregates: defaultRunContext.toolAggregates,
+    activeAgent: defaultRunContext.activeAgent,
+    delegationChains: defaultRunContext.delegationChains,
+    pendingEvents: 0,
+    opencodeClient: null,
+    curatorInitAgentNames: [],
+    curatorPhaseAgentNames: [],
+    lastBudgetPct: 0,
+    agentSessions: defaultRunContext.agentSessions,
+    pendingRehydrations: new Set,
+    fullAutoEnabledInConfig: false,
+    environmentProfiles: defaultRunContext.environmentProfiles
+  };
+});
 
 // src/commands/benchmark.ts
-init_utils();
-var CI = {
-  review_pass_rate: 70,
-  test_pass_rate: 80,
-  max_agent_error_rate: 20,
-  max_hard_limit_hits: 1,
-  max_complexity_delta: 5,
-  max_public_api_delta: 10,
-  max_duplication_ratio: 5,
-  min_test_to_code_ratio: 30
-};
 async function handleBenchmarkCommand(directory, args) {
   let cumulative = args.includes("--cumulative");
   if (args.includes("--ci-gate"))
@@ -21482,6 +20702,22 @@ async function handleBenchmarkCommand(directory, args) {
   return lines.join(`
 `);
 }
+var CI;
+var init_benchmark = __esm(() => {
+  init_manager2();
+  init_state();
+  init_utils();
+  CI = {
+    review_pass_rate: 70,
+    test_pass_rate: 80,
+    max_agent_error_rate: 20,
+    max_hard_limit_hits: 1,
+    max_complexity_delta: 5,
+    max_public_api_delta: 10,
+    max_duplication_ratio: 5,
+    min_test_to_code_ratio: 30
+  };
+});
 
 // src/commands/brainstorm.ts
 function sanitizeTopic(raw) {
@@ -21501,513 +20737,7 @@ async function handleBrainstormCommand(_directory, args) {
   return "[MODE: BRAINSTORM] Please enter MODE: BRAINSTORM and begin the structured brainstorm workflow (CONTEXT SCAN \u2192 DIALOGUE \u2192 APPROACHES \u2192 DESIGN SECTIONS \u2192 SPEC WRITE + SELF-REVIEW \u2192 QA GATE SELECTION \u2192 TRANSITION).";
 }
 
-// src/commands/checkpoint.ts
-init_zod();
-
-// src/tools/checkpoint.ts
-init_zod();
-import * as child_process from "child_process";
-import * as fs6 from "fs";
-import * as path9 from "path";
-
-// node_modules/@opencode-ai/plugin/node_modules/zod/v4/classic/external.js
-var exports_external2 = {};
-__export(exports_external2, {
-  xid: () => xid4,
-  void: () => _void4,
-  uuidv7: () => uuidv72,
-  uuidv6: () => uuidv62,
-  uuidv4: () => uuidv42,
-  uuid: () => uuid5,
-  util: () => exports_util2,
-  url: () => url2,
-  uppercase: () => _uppercase2,
-  unknown: () => unknown2,
-  union: () => union2,
-  undefined: () => _undefined6,
-  ulid: () => ulid4,
-  uint64: () => uint642,
-  uint32: () => uint322,
-  tuple: () => tuple2,
-  trim: () => _trim2,
-  treeifyError: () => treeifyError2,
-  transform: () => transform2,
-  toUpperCase: () => _toUpperCase2,
-  toLowerCase: () => _toLowerCase2,
-  toJSONSchema: () => toJSONSchema2,
-  templateLiteral: () => templateLiteral2,
-  symbol: () => symbol2,
-  superRefine: () => superRefine2,
-  success: () => success2,
-  stringbool: () => stringbool2,
-  stringFormat: () => stringFormat2,
-  string: () => string5,
-  strictObject: () => strictObject2,
-  startsWith: () => _startsWith2,
-  size: () => _size2,
-  setErrorMap: () => setErrorMap2,
-  set: () => set2,
-  safeParseAsync: () => safeParseAsync4,
-  safeParse: () => safeParse4,
-  safeEncodeAsync: () => safeEncodeAsync4,
-  safeEncode: () => safeEncode4,
-  safeDecodeAsync: () => safeDecodeAsync4,
-  safeDecode: () => safeDecode4,
-  registry: () => registry2,
-  regexes: () => exports_regexes2,
-  regex: () => _regex2,
-  refine: () => refine2,
-  record: () => record2,
-  readonly: () => readonly2,
-  property: () => _property2,
-  promise: () => promise2,
-  prettifyError: () => prettifyError2,
-  preprocess: () => preprocess2,
-  prefault: () => prefault2,
-  positive: () => _positive2,
-  pipe: () => pipe2,
-  partialRecord: () => partialRecord2,
-  parseAsync: () => parseAsync4,
-  parse: () => parse7,
-  overwrite: () => _overwrite2,
-  optional: () => optional2,
-  object: () => object2,
-  number: () => number5,
-  nullish: () => nullish4,
-  nullable: () => nullable2,
-  null: () => _null6,
-  normalize: () => _normalize2,
-  nonpositive: () => _nonpositive2,
-  nonoptional: () => nonoptional2,
-  nonnegative: () => _nonnegative2,
-  never: () => never2,
-  negative: () => _negative2,
-  nativeEnum: () => nativeEnum2,
-  nanoid: () => nanoid4,
-  nan: () => nan2,
-  multipleOf: () => _multipleOf2,
-  minSize: () => _minSize2,
-  minLength: () => _minLength2,
-  mime: () => _mime2,
-  maxSize: () => _maxSize2,
-  maxLength: () => _maxLength2,
-  map: () => map2,
-  lte: () => _lte2,
-  lt: () => _lt2,
-  lowercase: () => _lowercase2,
-  looseObject: () => looseObject2,
-  locales: () => exports_locales2,
-  literal: () => literal2,
-  length: () => _length2,
-  lazy: () => lazy2,
-  ksuid: () => ksuid4,
-  keyof: () => keyof2,
-  jwt: () => jwt2,
-  json: () => json2,
-  iso: () => exports_iso2,
-  ipv6: () => ipv64,
-  ipv4: () => ipv44,
-  intersection: () => intersection2,
-  int64: () => int642,
-  int32: () => int322,
-  int: () => int2,
-  instanceof: () => _instanceof2,
-  includes: () => _includes2,
-  httpUrl: () => httpUrl2,
-  hostname: () => hostname4,
-  hex: () => hex4,
-  hash: () => hash2,
-  guid: () => guid4,
-  gte: () => _gte2,
-  gt: () => _gt2,
-  globalRegistry: () => globalRegistry2,
-  getErrorMap: () => getErrorMap2,
-  function: () => _function2,
-  formatError: () => formatError2,
-  float64: () => float642,
-  float32: () => float322,
-  flattenError: () => flattenError2,
-  file: () => file2,
-  enum: () => _enum4,
-  endsWith: () => _endsWith2,
-  encodeAsync: () => encodeAsync4,
-  encode: () => encode4,
-  emoji: () => emoji4,
-  email: () => email4,
-  e164: () => e1644,
-  discriminatedUnion: () => discriminatedUnion2,
-  decodeAsync: () => decodeAsync4,
-  decode: () => decode4,
-  date: () => date7,
-  custom: () => custom2,
-  cuid2: () => cuid24,
-  cuid: () => cuid6,
-  core: () => exports_core4,
-  config: () => config2,
-  coerce: () => exports_coerce2,
-  codec: () => codec2,
-  clone: () => clone2,
-  cidrv6: () => cidrv64,
-  cidrv4: () => cidrv44,
-  check: () => check2,
-  catch: () => _catch4,
-  boolean: () => boolean5,
-  bigint: () => bigint5,
-  base64url: () => base64url4,
-  base64: () => base644,
-  array: () => array2,
-  any: () => any2,
-  _function: () => _function2,
-  _default: () => _default4,
-  _ZodString: () => _ZodString2,
-  ZodXID: () => ZodXID2,
-  ZodVoid: () => ZodVoid2,
-  ZodUnknown: () => ZodUnknown2,
-  ZodUnion: () => ZodUnion2,
-  ZodUndefined: () => ZodUndefined2,
-  ZodUUID: () => ZodUUID2,
-  ZodURL: () => ZodURL2,
-  ZodULID: () => ZodULID2,
-  ZodType: () => ZodType2,
-  ZodTuple: () => ZodTuple2,
-  ZodTransform: () => ZodTransform2,
-  ZodTemplateLiteral: () => ZodTemplateLiteral2,
-  ZodSymbol: () => ZodSymbol2,
-  ZodSuccess: () => ZodSuccess2,
-  ZodStringFormat: () => ZodStringFormat2,
-  ZodString: () => ZodString2,
-  ZodSet: () => ZodSet2,
-  ZodRecord: () => ZodRecord2,
-  ZodRealError: () => ZodRealError2,
-  ZodReadonly: () => ZodReadonly2,
-  ZodPromise: () => ZodPromise2,
-  ZodPrefault: () => ZodPrefault2,
-  ZodPipe: () => ZodPipe2,
-  ZodOptional: () => ZodOptional2,
-  ZodObject: () => ZodObject2,
-  ZodNumberFormat: () => ZodNumberFormat2,
-  ZodNumber: () => ZodNumber2,
-  ZodNullable: () => ZodNullable2,
-  ZodNull: () => ZodNull2,
-  ZodNonOptional: () => ZodNonOptional2,
-  ZodNever: () => ZodNever2,
-  ZodNanoID: () => ZodNanoID2,
-  ZodNaN: () => ZodNaN2,
-  ZodMap: () => ZodMap2,
-  ZodLiteral: () => ZodLiteral2,
-  ZodLazy: () => ZodLazy2,
-  ZodKSUID: () => ZodKSUID2,
-  ZodJWT: () => ZodJWT2,
-  ZodIssueCode: () => ZodIssueCode2,
-  ZodIntersection: () => ZodIntersection2,
-  ZodISOTime: () => ZodISOTime2,
-  ZodISODuration: () => ZodISODuration2,
-  ZodISODateTime: () => ZodISODateTime2,
-  ZodISODate: () => ZodISODate2,
-  ZodIPv6: () => ZodIPv62,
-  ZodIPv4: () => ZodIPv42,
-  ZodGUID: () => ZodGUID2,
-  ZodFunction: () => ZodFunction2,
-  ZodFirstPartyTypeKind: () => ZodFirstPartyTypeKind2,
-  ZodFile: () => ZodFile2,
-  ZodError: () => ZodError2,
-  ZodEnum: () => ZodEnum2,
-  ZodEmoji: () => ZodEmoji2,
-  ZodEmail: () => ZodEmail2,
-  ZodE164: () => ZodE1642,
-  ZodDiscriminatedUnion: () => ZodDiscriminatedUnion2,
-  ZodDefault: () => ZodDefault2,
-  ZodDate: () => ZodDate2,
-  ZodCustomStringFormat: () => ZodCustomStringFormat2,
-  ZodCustom: () => ZodCustom2,
-  ZodCodec: () => ZodCodec2,
-  ZodCatch: () => ZodCatch2,
-  ZodCUID2: () => ZodCUID22,
-  ZodCUID: () => ZodCUID3,
-  ZodCIDRv6: () => ZodCIDRv62,
-  ZodCIDRv4: () => ZodCIDRv42,
-  ZodBoolean: () => ZodBoolean2,
-  ZodBigIntFormat: () => ZodBigIntFormat2,
-  ZodBigInt: () => ZodBigInt2,
-  ZodBase64URL: () => ZodBase64URL2,
-  ZodBase64: () => ZodBase642,
-  ZodArray: () => ZodArray2,
-  ZodAny: () => ZodAny2,
-  TimePrecision: () => TimePrecision2,
-  NEVER: () => NEVER2,
-  $output: () => $output2,
-  $input: () => $input2,
-  $brand: () => $brand2
-});
-
-// node_modules/@opencode-ai/plugin/node_modules/zod/v4/core/index.js
-var exports_core4 = {};
-__export(exports_core4, {
-  version: () => version2,
-  util: () => exports_util2,
-  treeifyError: () => treeifyError2,
-  toJSONSchema: () => toJSONSchema2,
-  toDotPath: () => toDotPath2,
-  safeParseAsync: () => safeParseAsync3,
-  safeParse: () => safeParse3,
-  safeEncodeAsync: () => safeEncodeAsync3,
-  safeEncode: () => safeEncode3,
-  safeDecodeAsync: () => safeDecodeAsync3,
-  safeDecode: () => safeDecode3,
-  registry: () => registry2,
-  regexes: () => exports_regexes2,
-  prettifyError: () => prettifyError2,
-  parseAsync: () => parseAsync3,
-  parse: () => parse5,
-  locales: () => exports_locales2,
-  isValidJWT: () => isValidJWT2,
-  isValidBase64URL: () => isValidBase64URL2,
-  isValidBase64: () => isValidBase642,
-  globalRegistry: () => globalRegistry2,
-  globalConfig: () => globalConfig2,
-  formatError: () => formatError2,
-  flattenError: () => flattenError2,
-  encodeAsync: () => encodeAsync3,
-  encode: () => encode3,
-  decodeAsync: () => decodeAsync3,
-  decode: () => decode3,
-  config: () => config2,
-  clone: () => clone2,
-  _xid: () => _xid2,
-  _void: () => _void3,
-  _uuidv7: () => _uuidv72,
-  _uuidv6: () => _uuidv62,
-  _uuidv4: () => _uuidv42,
-  _uuid: () => _uuid2,
-  _url: () => _url2,
-  _uppercase: () => _uppercase2,
-  _unknown: () => _unknown2,
-  _union: () => _union2,
-  _undefined: () => _undefined5,
-  _ulid: () => _ulid2,
-  _uint64: () => _uint642,
-  _uint32: () => _uint322,
-  _tuple: () => _tuple2,
-  _trim: () => _trim2,
-  _transform: () => _transform2,
-  _toUpperCase: () => _toUpperCase2,
-  _toLowerCase: () => _toLowerCase2,
-  _templateLiteral: () => _templateLiteral2,
-  _symbol: () => _symbol2,
-  _superRefine: () => _superRefine2,
-  _success: () => _success2,
-  _stringbool: () => _stringbool2,
-  _stringFormat: () => _stringFormat2,
-  _string: () => _string2,
-  _startsWith: () => _startsWith2,
-  _size: () => _size2,
-  _set: () => _set2,
-  _safeParseAsync: () => _safeParseAsync2,
-  _safeParse: () => _safeParse2,
-  _safeEncodeAsync: () => _safeEncodeAsync2,
-  _safeEncode: () => _safeEncode2,
-  _safeDecodeAsync: () => _safeDecodeAsync2,
-  _safeDecode: () => _safeDecode2,
-  _regex: () => _regex2,
-  _refine: () => _refine2,
-  _record: () => _record2,
-  _readonly: () => _readonly2,
-  _property: () => _property2,
-  _promise: () => _promise2,
-  _positive: () => _positive2,
-  _pipe: () => _pipe2,
-  _parseAsync: () => _parseAsync2,
-  _parse: () => _parse2,
-  _overwrite: () => _overwrite2,
-  _optional: () => _optional2,
-  _number: () => _number2,
-  _nullable: () => _nullable2,
-  _null: () => _null5,
-  _normalize: () => _normalize2,
-  _nonpositive: () => _nonpositive2,
-  _nonoptional: () => _nonoptional2,
-  _nonnegative: () => _nonnegative2,
-  _never: () => _never2,
-  _negative: () => _negative2,
-  _nativeEnum: () => _nativeEnum2,
-  _nanoid: () => _nanoid2,
-  _nan: () => _nan2,
-  _multipleOf: () => _multipleOf2,
-  _minSize: () => _minSize2,
-  _minLength: () => _minLength2,
-  _min: () => _gte2,
-  _mime: () => _mime2,
-  _maxSize: () => _maxSize2,
-  _maxLength: () => _maxLength2,
-  _max: () => _lte2,
-  _map: () => _map2,
-  _lte: () => _lte2,
-  _lt: () => _lt2,
-  _lowercase: () => _lowercase2,
-  _literal: () => _literal2,
-  _length: () => _length2,
-  _lazy: () => _lazy2,
-  _ksuid: () => _ksuid2,
-  _jwt: () => _jwt2,
-  _isoTime: () => _isoTime2,
-  _isoDuration: () => _isoDuration2,
-  _isoDateTime: () => _isoDateTime2,
-  _isoDate: () => _isoDate2,
-  _ipv6: () => _ipv62,
-  _ipv4: () => _ipv42,
-  _intersection: () => _intersection2,
-  _int64: () => _int642,
-  _int32: () => _int322,
-  _int: () => _int2,
-  _includes: () => _includes2,
-  _guid: () => _guid2,
-  _gte: () => _gte2,
-  _gt: () => _gt2,
-  _float64: () => _float642,
-  _float32: () => _float322,
-  _file: () => _file2,
-  _enum: () => _enum3,
-  _endsWith: () => _endsWith2,
-  _encodeAsync: () => _encodeAsync2,
-  _encode: () => _encode2,
-  _emoji: () => _emoji4,
-  _email: () => _email2,
-  _e164: () => _e1642,
-  _discriminatedUnion: () => _discriminatedUnion2,
-  _default: () => _default3,
-  _decodeAsync: () => _decodeAsync2,
-  _decode: () => _decode2,
-  _date: () => _date2,
-  _custom: () => _custom2,
-  _cuid2: () => _cuid22,
-  _cuid: () => _cuid3,
-  _coercedString: () => _coercedString2,
-  _coercedNumber: () => _coercedNumber2,
-  _coercedDate: () => _coercedDate2,
-  _coercedBoolean: () => _coercedBoolean2,
-  _coercedBigint: () => _coercedBigint2,
-  _cidrv6: () => _cidrv62,
-  _cidrv4: () => _cidrv42,
-  _check: () => _check2,
-  _catch: () => _catch3,
-  _boolean: () => _boolean2,
-  _bigint: () => _bigint2,
-  _base64url: () => _base64url2,
-  _base64: () => _base642,
-  _array: () => _array2,
-  _any: () => _any2,
-  TimePrecision: () => TimePrecision2,
-  NEVER: () => NEVER2,
-  JSONSchemaGenerator: () => JSONSchemaGenerator2,
-  JSONSchema: () => exports_json_schema2,
-  Doc: () => Doc2,
-  $output: () => $output2,
-  $input: () => $input2,
-  $constructor: () => $constructor2,
-  $brand: () => $brand2,
-  $ZodXID: () => $ZodXID2,
-  $ZodVoid: () => $ZodVoid2,
-  $ZodUnknown: () => $ZodUnknown2,
-  $ZodUnion: () => $ZodUnion2,
-  $ZodUndefined: () => $ZodUndefined2,
-  $ZodUUID: () => $ZodUUID2,
-  $ZodURL: () => $ZodURL2,
-  $ZodULID: () => $ZodULID2,
-  $ZodType: () => $ZodType2,
-  $ZodTuple: () => $ZodTuple2,
-  $ZodTransform: () => $ZodTransform2,
-  $ZodTemplateLiteral: () => $ZodTemplateLiteral2,
-  $ZodSymbol: () => $ZodSymbol2,
-  $ZodSuccess: () => $ZodSuccess2,
-  $ZodStringFormat: () => $ZodStringFormat2,
-  $ZodString: () => $ZodString2,
-  $ZodSet: () => $ZodSet2,
-  $ZodRegistry: () => $ZodRegistry2,
-  $ZodRecord: () => $ZodRecord2,
-  $ZodRealError: () => $ZodRealError2,
-  $ZodReadonly: () => $ZodReadonly2,
-  $ZodPromise: () => $ZodPromise2,
-  $ZodPrefault: () => $ZodPrefault2,
-  $ZodPipe: () => $ZodPipe2,
-  $ZodOptional: () => $ZodOptional2,
-  $ZodObjectJIT: () => $ZodObjectJIT2,
-  $ZodObject: () => $ZodObject2,
-  $ZodNumberFormat: () => $ZodNumberFormat2,
-  $ZodNumber: () => $ZodNumber2,
-  $ZodNullable: () => $ZodNullable2,
-  $ZodNull: () => $ZodNull2,
-  $ZodNonOptional: () => $ZodNonOptional2,
-  $ZodNever: () => $ZodNever2,
-  $ZodNanoID: () => $ZodNanoID2,
-  $ZodNaN: () => $ZodNaN2,
-  $ZodMap: () => $ZodMap2,
-  $ZodLiteral: () => $ZodLiteral2,
-  $ZodLazy: () => $ZodLazy2,
-  $ZodKSUID: () => $ZodKSUID2,
-  $ZodJWT: () => $ZodJWT2,
-  $ZodIntersection: () => $ZodIntersection2,
-  $ZodISOTime: () => $ZodISOTime2,
-  $ZodISODuration: () => $ZodISODuration2,
-  $ZodISODateTime: () => $ZodISODateTime2,
-  $ZodISODate: () => $ZodISODate2,
-  $ZodIPv6: () => $ZodIPv62,
-  $ZodIPv4: () => $ZodIPv42,
-  $ZodGUID: () => $ZodGUID2,
-  $ZodFunction: () => $ZodFunction2,
-  $ZodFile: () => $ZodFile2,
-  $ZodError: () => $ZodError2,
-  $ZodEnum: () => $ZodEnum2,
-  $ZodEncodeError: () => $ZodEncodeError2,
-  $ZodEmoji: () => $ZodEmoji2,
-  $ZodEmail: () => $ZodEmail2,
-  $ZodE164: () => $ZodE1642,
-  $ZodDiscriminatedUnion: () => $ZodDiscriminatedUnion2,
-  $ZodDefault: () => $ZodDefault2,
-  $ZodDate: () => $ZodDate2,
-  $ZodCustomStringFormat: () => $ZodCustomStringFormat2,
-  $ZodCustom: () => $ZodCustom2,
-  $ZodCodec: () => $ZodCodec2,
-  $ZodCheckUpperCase: () => $ZodCheckUpperCase2,
-  $ZodCheckStringFormat: () => $ZodCheckStringFormat2,
-  $ZodCheckStartsWith: () => $ZodCheckStartsWith2,
-  $ZodCheckSizeEquals: () => $ZodCheckSizeEquals2,
-  $ZodCheckRegex: () => $ZodCheckRegex2,
-  $ZodCheckProperty: () => $ZodCheckProperty2,
-  $ZodCheckOverwrite: () => $ZodCheckOverwrite2,
-  $ZodCheckNumberFormat: () => $ZodCheckNumberFormat2,
-  $ZodCheckMultipleOf: () => $ZodCheckMultipleOf2,
-  $ZodCheckMinSize: () => $ZodCheckMinSize2,
-  $ZodCheckMinLength: () => $ZodCheckMinLength2,
-  $ZodCheckMimeType: () => $ZodCheckMimeType2,
-  $ZodCheckMaxSize: () => $ZodCheckMaxSize2,
-  $ZodCheckMaxLength: () => $ZodCheckMaxLength2,
-  $ZodCheckLowerCase: () => $ZodCheckLowerCase2,
-  $ZodCheckLessThan: () => $ZodCheckLessThan2,
-  $ZodCheckLengthEquals: () => $ZodCheckLengthEquals2,
-  $ZodCheckIncludes: () => $ZodCheckIncludes2,
-  $ZodCheckGreaterThan: () => $ZodCheckGreaterThan2,
-  $ZodCheckEndsWith: () => $ZodCheckEndsWith2,
-  $ZodCheckBigIntFormat: () => $ZodCheckBigIntFormat2,
-  $ZodCheck: () => $ZodCheck2,
-  $ZodCatch: () => $ZodCatch2,
-  $ZodCUID2: () => $ZodCUID22,
-  $ZodCUID: () => $ZodCUID3,
-  $ZodCIDRv6: () => $ZodCIDRv62,
-  $ZodCIDRv4: () => $ZodCIDRv42,
-  $ZodBoolean: () => $ZodBoolean2,
-  $ZodBigIntFormat: () => $ZodBigIntFormat2,
-  $ZodBigInt: () => $ZodBigInt2,
-  $ZodBase64URL: () => $ZodBase64URL2,
-  $ZodBase64: () => $ZodBase642,
-  $ZodAsyncError: () => $ZodAsyncError2,
-  $ZodArray: () => $ZodArray2,
-  $ZodAny: () => $ZodAny2
-});
-
 // node_modules/@opencode-ai/plugin/node_modules/zod/v4/core/core.js
-var NEVER2 = Object.freeze({
-  status: "aborted"
-});
 function $constructor2(name, initializer3, params) {
   function init(inst, def) {
     var _a2;
@@ -22051,26 +20781,31 @@ function $constructor2(name, initializer3, params) {
   Object.defineProperty(_, "name", { value: name });
   return _;
 }
-var $brand2 = Symbol("zod_brand");
-
-class $ZodAsyncError2 extends Error {
-  constructor() {
-    super(`Encountered Promise during synchronous parse. Use .parseAsync() instead.`);
-  }
-}
-
-class $ZodEncodeError2 extends Error {
-  constructor(name) {
-    super(`Encountered unidirectional transform during encode: ${name}`);
-    this.name = "ZodEncodeError";
-  }
-}
-var globalConfig2 = {};
 function config2(newConfig) {
   if (newConfig)
     Object.assign(globalConfig2, newConfig);
   return globalConfig2;
 }
+var NEVER2, $brand2, $ZodAsyncError2, $ZodEncodeError2, globalConfig2;
+var init_core3 = __esm(() => {
+  NEVER2 = Object.freeze({
+    status: "aborted"
+  });
+  $brand2 = Symbol("zod_brand");
+  $ZodAsyncError2 = class $ZodAsyncError2 extends Error {
+    constructor() {
+      super(`Encountered Promise during synchronous parse. Use .parseAsync() instead.`);
+    }
+  };
+  $ZodEncodeError2 = class $ZodEncodeError2 extends Error {
+    constructor(name) {
+      super(`Encountered unidirectional transform during encode: ${name}`);
+      this.name = "ZodEncodeError";
+    }
+  };
+  globalConfig2 = {};
+});
+
 // node_modules/@opencode-ai/plugin/node_modules/zod/v4/core/util.js
 var exports_util2 = {};
 __export(exports_util2, {
@@ -22195,7 +20930,6 @@ function floatSafeRemainder2(val, step) {
   const stepInt = Number.parseInt(step.toFixed(decCount).replace(".", ""));
   return valInt % stepInt / 10 ** decCount;
 }
-var EVALUATING2 = Symbol("evaluating");
 function defineLazy2(object2, key, getter) {
   let value = undefined;
   Object.defineProperty(object2, key, {
@@ -22266,22 +21000,9 @@ function randomString2(length = 10) {
 function esc2(str) {
   return JSON.stringify(str);
 }
-var captureStackTrace2 = "captureStackTrace" in Error ? Error.captureStackTrace : (..._args) => {};
 function isObject2(data) {
   return typeof data === "object" && data !== null && !Array.isArray(data);
 }
-var allowsEval2 = cached2(() => {
-  if (typeof navigator !== "undefined" && navigator?.userAgent?.includes("Cloudflare")) {
-    return false;
-  }
-  try {
-    const F = Function;
-    new F("");
-    return true;
-  } catch (_) {
-    return false;
-  }
-});
 function isPlainObject2(o) {
   if (isObject2(o) === false)
     return false;
@@ -22312,52 +21033,6 @@ function numKeys2(data) {
   }
   return keyCount;
 }
-var getParsedType2 = (data) => {
-  const t = typeof data;
-  switch (t) {
-    case "undefined":
-      return "undefined";
-    case "string":
-      return "string";
-    case "number":
-      return Number.isNaN(data) ? "nan" : "number";
-    case "boolean":
-      return "boolean";
-    case "function":
-      return "function";
-    case "bigint":
-      return "bigint";
-    case "symbol":
-      return "symbol";
-    case "object":
-      if (Array.isArray(data)) {
-        return "array";
-      }
-      if (data === null) {
-        return "null";
-      }
-      if (data.then && typeof data.then === "function" && data.catch && typeof data.catch === "function") {
-        return "promise";
-      }
-      if (typeof Map !== "undefined" && data instanceof Map) {
-        return "map";
-      }
-      if (typeof Set !== "undefined" && data instanceof Set) {
-        return "set";
-      }
-      if (typeof Date !== "undefined" && data instanceof Date) {
-        return "date";
-      }
-      if (typeof File !== "undefined" && data instanceof File) {
-        return "file";
-      }
-      return "object";
-    default:
-      throw new Error(`Unknown data type: ${t}`);
-  }
-};
-var propertyKeyTypes2 = new Set(["string", "number", "symbol"]);
-var primitiveTypes2 = new Set(["string", "number", "bigint", "boolean", "symbol", "undefined"]);
 function escapeRegex3(str) {
   return str.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
 }
@@ -22428,17 +21103,6 @@ function optionalKeys2(shape) {
     return shape[k]._zod.optin === "optional" && shape[k]._zod.optout === "optional";
   });
 }
-var NUMBER_FORMAT_RANGES2 = {
-  safeint: [Number.MIN_SAFE_INTEGER, Number.MAX_SAFE_INTEGER],
-  int32: [-2147483648, 2147483647],
-  uint32: [0, 4294967295],
-  float32: [-340282346638528860000000000000000000000, 340282346638528860000000000000000000000],
-  float64: [-Number.MAX_VALUE, Number.MAX_VALUE]
-};
-var BIGINT_FORMAT_RANGES2 = {
-  int64: [/* @__PURE__ */ BigInt("-9223372036854775808"), /* @__PURE__ */ BigInt("9223372036854775807")],
-  uint64: [/* @__PURE__ */ BigInt(0), /* @__PURE__ */ BigInt("18446744073709551615")]
-};
 function pick2(schema, mask) {
   const currDef = schema._zod.def;
   const def = mergeDefs2(schema._zod.def, {
@@ -22699,26 +21363,81 @@ function uint8ArrayToHex2(bytes) {
 class Class2 {
   constructor(..._args) {}
 }
+var EVALUATING2, captureStackTrace2, allowsEval2, getParsedType2 = (data) => {
+  const t = typeof data;
+  switch (t) {
+    case "undefined":
+      return "undefined";
+    case "string":
+      return "string";
+    case "number":
+      return Number.isNaN(data) ? "nan" : "number";
+    case "boolean":
+      return "boolean";
+    case "function":
+      return "function";
+    case "bigint":
+      return "bigint";
+    case "symbol":
+      return "symbol";
+    case "object":
+      if (Array.isArray(data)) {
+        return "array";
+      }
+      if (data === null) {
+        return "null";
+      }
+      if (data.then && typeof data.then === "function" && data.catch && typeof data.catch === "function") {
+        return "promise";
+      }
+      if (typeof Map !== "undefined" && data instanceof Map) {
+        return "map";
+      }
+      if (typeof Set !== "undefined" && data instanceof Set) {
+        return "set";
+      }
+      if (typeof Date !== "undefined" && data instanceof Date) {
+        return "date";
+      }
+      if (typeof File !== "undefined" && data instanceof File) {
+        return "file";
+      }
+      return "object";
+    default:
+      throw new Error(`Unknown data type: ${t}`);
+  }
+}, propertyKeyTypes2, primitiveTypes2, NUMBER_FORMAT_RANGES2, BIGINT_FORMAT_RANGES2;
+var init_util2 = __esm(() => {
+  EVALUATING2 = Symbol("evaluating");
+  captureStackTrace2 = "captureStackTrace" in Error ? Error.captureStackTrace : (..._args) => {};
+  allowsEval2 = cached2(() => {
+    if (typeof navigator !== "undefined" && navigator?.userAgent?.includes("Cloudflare")) {
+      return false;
+    }
+    try {
+      const F = Function;
+      new F("");
+      return true;
+    } catch (_) {
+      return false;
+    }
+  });
+  propertyKeyTypes2 = new Set(["string", "number", "symbol"]);
+  primitiveTypes2 = new Set(["string", "number", "bigint", "boolean", "symbol", "undefined"]);
+  NUMBER_FORMAT_RANGES2 = {
+    safeint: [Number.MIN_SAFE_INTEGER, Number.MAX_SAFE_INTEGER],
+    int32: [-2147483648, 2147483647],
+    uint32: [0, 4294967295],
+    float32: [-340282346638528860000000000000000000000, 340282346638528860000000000000000000000],
+    float64: [-Number.MAX_VALUE, Number.MAX_VALUE]
+  };
+  BIGINT_FORMAT_RANGES2 = {
+    int64: [/* @__PURE__ */ BigInt("-9223372036854775808"), /* @__PURE__ */ BigInt("9223372036854775807")],
+    uint64: [/* @__PURE__ */ BigInt(0), /* @__PURE__ */ BigInt("18446744073709551615")]
+  };
+});
 
 // node_modules/@opencode-ai/plugin/node_modules/zod/v4/core/errors.js
-var initializer3 = (inst, def) => {
-  inst.name = "$ZodError";
-  Object.defineProperty(inst, "_zod", {
-    value: inst._zod,
-    enumerable: false
-  });
-  Object.defineProperty(inst, "issues", {
-    value: def,
-    enumerable: false
-  });
-  inst.message = JSON.stringify(def, jsonStringifyReplacer2, 2);
-  Object.defineProperty(inst, "toString", {
-    value: () => inst.message,
-    enumerable: false
-  });
-};
-var $ZodError2 = $constructor2("$ZodError", initializer3);
-var $ZodRealError2 = $constructor2("$ZodError", initializer3, { Parent: Error });
 function flattenError2(error49, mapper = (issue3) => issue3.message) {
   const fieldErrors = {};
   const formErrors = [];
@@ -22842,6 +21561,28 @@ function prettifyError2(error49) {
   return lines.join(`
 `);
 }
+var initializer3 = (inst, def) => {
+  inst.name = "$ZodError";
+  Object.defineProperty(inst, "_zod", {
+    value: inst._zod,
+    enumerable: false
+  });
+  Object.defineProperty(inst, "issues", {
+    value: def,
+    enumerable: false
+  });
+  inst.message = JSON.stringify(def, jsonStringifyReplacer2, 2);
+  Object.defineProperty(inst, "toString", {
+    value: () => inst.message,
+    enumerable: false
+  });
+}, $ZodError2, $ZodRealError2;
+var init_errors4 = __esm(() => {
+  init_core3();
+  init_util2();
+  $ZodError2 = $constructor2("$ZodError", initializer3);
+  $ZodRealError2 = $constructor2("$ZodError", initializer3, { Parent: Error });
+});
 
 // node_modules/@opencode-ai/plugin/node_modules/zod/v4/core/parse.js
 var _parse2 = (_Err) => (schema, value, _ctx, _params) => {
@@ -22856,9 +21597,7 @@ var _parse2 = (_Err) => (schema, value, _ctx, _params) => {
     throw e;
   }
   return result.value;
-};
-var parse5 = /* @__PURE__ */ _parse2($ZodRealError2);
-var _parseAsync2 = (_Err) => async (schema, value, _ctx, params) => {
+}, parse5, _parseAsync2 = (_Err) => async (schema, value, _ctx, params) => {
   const ctx = _ctx ? Object.assign(_ctx, { async: true }) : { async: true };
   let result = schema._zod.run({ value, issues: [] }, ctx);
   if (result instanceof Promise)
@@ -22869,9 +21608,7 @@ var _parseAsync2 = (_Err) => async (schema, value, _ctx, params) => {
     throw e;
   }
   return result.value;
-};
-var parseAsync3 = /* @__PURE__ */ _parseAsync2($ZodRealError2);
-var _safeParse2 = (_Err) => (schema, value, _ctx) => {
+}, parseAsync3, _safeParse2 = (_Err) => (schema, value, _ctx) => {
   const ctx = _ctx ? { ..._ctx, async: false } : { async: false };
   const result = schema._zod.run({ value, issues: [] }, ctx);
   if (result instanceof Promise) {
@@ -22881,9 +21618,7 @@ var _safeParse2 = (_Err) => (schema, value, _ctx) => {
     success: false,
     error: new (_Err ?? $ZodError2)(result.issues.map((iss) => finalizeIssue2(iss, ctx, config2())))
   } : { success: true, data: result.value };
-};
-var safeParse3 = /* @__PURE__ */ _safeParse2($ZodRealError2);
-var _safeParseAsync2 = (_Err) => async (schema, value, _ctx) => {
+}, safeParse3, _safeParseAsync2 = (_Err) => async (schema, value, _ctx) => {
   const ctx = _ctx ? Object.assign(_ctx, { async: true }) : { async: true };
   let result = schema._zod.run({ value, issues: [] }, ctx);
   if (result instanceof Promise)
@@ -22892,44 +21627,45 @@ var _safeParseAsync2 = (_Err) => async (schema, value, _ctx) => {
     success: false,
     error: new _Err(result.issues.map((iss) => finalizeIssue2(iss, ctx, config2())))
   } : { success: true, data: result.value };
-};
-var safeParseAsync3 = /* @__PURE__ */ _safeParseAsync2($ZodRealError2);
-var _encode2 = (_Err) => (schema, value, _ctx) => {
+}, safeParseAsync3, _encode2 = (_Err) => (schema, value, _ctx) => {
   const ctx = _ctx ? Object.assign(_ctx, { direction: "backward" }) : { direction: "backward" };
   return _parse2(_Err)(schema, value, ctx);
-};
-var encode3 = /* @__PURE__ */ _encode2($ZodRealError2);
-var _decode2 = (_Err) => (schema, value, _ctx) => {
+}, encode3, _decode2 = (_Err) => (schema, value, _ctx) => {
   return _parse2(_Err)(schema, value, _ctx);
-};
-var decode3 = /* @__PURE__ */ _decode2($ZodRealError2);
-var _encodeAsync2 = (_Err) => async (schema, value, _ctx) => {
+}, decode3, _encodeAsync2 = (_Err) => async (schema, value, _ctx) => {
   const ctx = _ctx ? Object.assign(_ctx, { direction: "backward" }) : { direction: "backward" };
   return _parseAsync2(_Err)(schema, value, ctx);
-};
-var encodeAsync3 = /* @__PURE__ */ _encodeAsync2($ZodRealError2);
-var _decodeAsync2 = (_Err) => async (schema, value, _ctx) => {
+}, encodeAsync3, _decodeAsync2 = (_Err) => async (schema, value, _ctx) => {
   return _parseAsync2(_Err)(schema, value, _ctx);
-};
-var decodeAsync3 = /* @__PURE__ */ _decodeAsync2($ZodRealError2);
-var _safeEncode2 = (_Err) => (schema, value, _ctx) => {
+}, decodeAsync3, _safeEncode2 = (_Err) => (schema, value, _ctx) => {
   const ctx = _ctx ? Object.assign(_ctx, { direction: "backward" }) : { direction: "backward" };
   return _safeParse2(_Err)(schema, value, ctx);
-};
-var safeEncode3 = /* @__PURE__ */ _safeEncode2($ZodRealError2);
-var _safeDecode2 = (_Err) => (schema, value, _ctx) => {
+}, safeEncode3, _safeDecode2 = (_Err) => (schema, value, _ctx) => {
   return _safeParse2(_Err)(schema, value, _ctx);
-};
-var safeDecode3 = /* @__PURE__ */ _safeDecode2($ZodRealError2);
-var _safeEncodeAsync2 = (_Err) => async (schema, value, _ctx) => {
+}, safeDecode3, _safeEncodeAsync2 = (_Err) => async (schema, value, _ctx) => {
   const ctx = _ctx ? Object.assign(_ctx, { direction: "backward" }) : { direction: "backward" };
   return _safeParseAsync2(_Err)(schema, value, ctx);
-};
-var safeEncodeAsync3 = /* @__PURE__ */ _safeEncodeAsync2($ZodRealError2);
-var _safeDecodeAsync2 = (_Err) => async (schema, value, _ctx) => {
+}, safeEncodeAsync3, _safeDecodeAsync2 = (_Err) => async (schema, value, _ctx) => {
   return _safeParseAsync2(_Err)(schema, value, _ctx);
-};
-var safeDecodeAsync3 = /* @__PURE__ */ _safeDecodeAsync2($ZodRealError2);
+}, safeDecodeAsync3;
+var init_parse3 = __esm(() => {
+  init_core3();
+  init_errors4();
+  init_util2();
+  parse5 = /* @__PURE__ */ _parse2($ZodRealError2);
+  parseAsync3 = /* @__PURE__ */ _parseAsync2($ZodRealError2);
+  safeParse3 = /* @__PURE__ */ _safeParse2($ZodRealError2);
+  safeParseAsync3 = /* @__PURE__ */ _safeParseAsync2($ZodRealError2);
+  encode3 = /* @__PURE__ */ _encode2($ZodRealError2);
+  decode3 = /* @__PURE__ */ _decode2($ZodRealError2);
+  encodeAsync3 = /* @__PURE__ */ _encodeAsync2($ZodRealError2);
+  decodeAsync3 = /* @__PURE__ */ _decodeAsync2($ZodRealError2);
+  safeEncode3 = /* @__PURE__ */ _safeEncode2($ZodRealError2);
+  safeDecode3 = /* @__PURE__ */ _safeDecode2($ZodRealError2);
+  safeEncodeAsync3 = /* @__PURE__ */ _safeEncodeAsync2($ZodRealError2);
+  safeDecodeAsync3 = /* @__PURE__ */ _safeDecodeAsync2($ZodRealError2);
+});
+
 // node_modules/@opencode-ai/plugin/node_modules/zod/v4/core/regexes.js
 var exports_regexes2 = {};
 __export(exports_regexes2, {
@@ -22991,44 +21727,9 @@ __export(exports_regexes2, {
   base64url: () => base64url3,
   base64: () => base643
 });
-var cuid5 = /^[cC][^\s-]{8,}$/;
-var cuid23 = /^[0-9a-z]+$/;
-var ulid3 = /^[0-9A-HJKMNP-TV-Za-hjkmnp-tv-z]{26}$/;
-var xid3 = /^[0-9a-vA-V]{20}$/;
-var ksuid3 = /^[A-Za-z0-9]{27}$/;
-var nanoid3 = /^[a-zA-Z0-9_-]{21}$/;
-var duration3 = /^P(?:(\d+W)|(?!.*W)(?=\d|T\d)(\d+Y)?(\d+M)?(\d+D)?(T(?=\d)(\d+H)?(\d+M)?(\d+([.,]\d+)?S)?)?)$/;
-var extendedDuration2 = /^[-+]?P(?!$)(?:(?:[-+]?\d+Y)|(?:[-+]?\d+[.,]\d+Y$))?(?:(?:[-+]?\d+M)|(?:[-+]?\d+[.,]\d+M$))?(?:(?:[-+]?\d+W)|(?:[-+]?\d+[.,]\d+W$))?(?:(?:[-+]?\d+D)|(?:[-+]?\d+[.,]\d+D$))?(?:T(?=[\d+-])(?:(?:[-+]?\d+H)|(?:[-+]?\d+[.,]\d+H$))?(?:(?:[-+]?\d+M)|(?:[-+]?\d+[.,]\d+M$))?(?:[-+]?\d+(?:[.,]\d+)?S)?)??$/;
-var guid3 = /^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{12})$/;
-var uuid3 = (version2) => {
-  if (!version2)
-    return /^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$/;
-  return new RegExp(`^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-${version2}[0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12})$`);
-};
-var uuid42 = /* @__PURE__ */ uuid3(4);
-var uuid62 = /* @__PURE__ */ uuid3(6);
-var uuid72 = /* @__PURE__ */ uuid3(7);
-var email3 = /^(?!\.)(?!.*\.\.)([A-Za-z0-9_'+\-\.]*)[A-Za-z0-9_+-]@([A-Za-z0-9][A-Za-z0-9\-]*\.)+[A-Za-z]{2,}$/;
-var html5Email2 = /^[a-zA-Z0-9.!#$%&'*+/=?^_`{|}~-]+@[a-zA-Z0-9](?:[a-zA-Z0-9-]{0,61}[a-zA-Z0-9])?(?:\.[a-zA-Z0-9](?:[a-zA-Z0-9-]{0,61}[a-zA-Z0-9])?)*$/;
-var rfc5322Email2 = /^(([^<>()\[\]\\.,;:\s@"]+(\.[^<>()\[\]\\.,;:\s@"]+)*)|(".+"))@((\[[0-9]{1,3}\.[0-9]{1,3}\.[0-9]{1,3}\.[0-9]{1,3}])|(([a-zA-Z\-0-9]+\.)+[a-zA-Z]{2,}))$/;
-var unicodeEmail2 = /^[^\s@"]{1,64}@[^\s@]{1,255}$/u;
-var idnEmail2 = unicodeEmail2;
-var browserEmail2 = /^[a-zA-Z0-9.!#$%&'*+/=?^_`{|}~-]+@[a-zA-Z0-9](?:[a-zA-Z0-9-]{0,61}[a-zA-Z0-9])?(?:\.[a-zA-Z0-9](?:[a-zA-Z0-9-]{0,61}[a-zA-Z0-9])?)*$/;
-var _emoji3 = `^(\\p{Extended_Pictographic}|\\p{Emoji_Component})+$`;
 function emoji3() {
   return new RegExp(_emoji3, "u");
 }
-var ipv43 = /^(?:(?:25[0-5]|2[0-4][0-9]|1[0-9][0-9]|[1-9][0-9]|[0-9])\.){3}(?:25[0-5]|2[0-4][0-9]|1[0-9][0-9]|[1-9][0-9]|[0-9])$/;
-var ipv63 = /^(([0-9a-fA-F]{1,4}:){7}[0-9a-fA-F]{1,4}|([0-9a-fA-F]{1,4}:){1,7}:|([0-9a-fA-F]{1,4}:){1,6}:[0-9a-fA-F]{1,4}|([0-9a-fA-F]{1,4}:){1,5}(:[0-9a-fA-F]{1,4}){1,2}|([0-9a-fA-F]{1,4}:){1,4}(:[0-9a-fA-F]{1,4}){1,3}|([0-9a-fA-F]{1,4}:){1,3}(:[0-9a-fA-F]{1,4}){1,4}|([0-9a-fA-F]{1,4}:){1,2}(:[0-9a-fA-F]{1,4}){1,5}|[0-9a-fA-F]{1,4}:((:[0-9a-fA-F]{1,4}){1,6})|:((:[0-9a-fA-F]{1,4}){1,7}|:))$/;
-var cidrv43 = /^((25[0-5]|2[0-4][0-9]|1[0-9][0-9]|[1-9][0-9]|[0-9])\.){3}(25[0-5]|2[0-4][0-9]|1[0-9][0-9]|[1-9][0-9]|[0-9])\/([0-9]|[1-2][0-9]|3[0-2])$/;
-var cidrv63 = /^(([0-9a-fA-F]{1,4}:){7}[0-9a-fA-F]{1,4}|::|([0-9a-fA-F]{1,4})?::([0-9a-fA-F]{1,4}:?){0,6})\/(12[0-8]|1[01][0-9]|[1-9]?[0-9])$/;
-var base643 = /^$|^(?:[0-9a-zA-Z+/]{4})*(?:(?:[0-9a-zA-Z+/]{2}==)|(?:[0-9a-zA-Z+/]{3}=))?$/;
-var base64url3 = /^[A-Za-z0-9_-]*$/;
-var hostname3 = /^(?=.{1,253}\.?$)[a-zA-Z0-9](?:[a-zA-Z0-9-]{0,61}[a-zA-Z0-9])?(?:\.[a-zA-Z0-9](?:[-0-9a-zA-Z]{0,61}[0-9a-zA-Z])?)*\.?$/;
-var domain2 = /^([a-zA-Z0-9](?:[a-zA-Z0-9-]{0,61}[a-zA-Z0-9])?\.)+[a-zA-Z]{2,}$/;
-var e1643 = /^\+(?:[0-9]){6,14}[0-9]$/;
-var dateSource2 = `(?:(?:\\d\\d[2468][048]|\\d\\d[13579][26]|\\d\\d0[48]|[02468][048]00|[13579][26]00)-02-29|\\d{4}-(?:(?:0[13578]|1[02])-(?:0[1-9]|[12]\\d|3[01])|(?:0[469]|11)-(?:0[1-9]|[12]\\d|30)|(?:02)-(?:0[1-9]|1\\d|2[0-8])))`;
-var date5 = /* @__PURE__ */ new RegExp(`^${dateSource2}$`);
 function timeSource2(args) {
   const hhmm = `(?:[01]\\d|2[0-3]):[0-5]\\d`;
   const regex = typeof args.precision === "number" ? args.precision === -1 ? `${hhmm}` : args.precision === 0 ? `${hhmm}:[0-5]\\d` : `${hhmm}:[0-5]\\d\\.\\d{${args.precision}}` : `${hhmm}(?::[0-5]\\d(?:\\.\\d+)?)?`;
@@ -23047,580 +21748,620 @@ function datetime3(args) {
   const timeRegex = `${time4}(?:${opts.join("|")})`;
   return new RegExp(`^${dateSource2}T(?:${timeRegex})$`);
 }
-var string4 = (params) => {
-  const regex = params ? `[\\s\\S]{${params?.minimum ?? 0},${params?.maximum ?? ""}}` : `[\\s\\S]*`;
-  return new RegExp(`^${regex}$`);
-};
-var bigint4 = /^-?\d+n?$/;
-var integer2 = /^-?\d+$/;
-var number4 = /^-?\d+(?:\.\d+)?/;
-var boolean4 = /^(?:true|false)$/i;
-var _null4 = /^null$/i;
-var _undefined4 = /^undefined$/i;
-var lowercase2 = /^[^A-Z]*$/;
-var uppercase2 = /^[^a-z]*$/;
-var hex3 = /^[0-9a-fA-F]*$/;
 function fixedBase642(bodyLength, padding) {
   return new RegExp(`^[A-Za-z0-9+/]{${bodyLength}}${padding}$`);
 }
 function fixedBase64url2(length) {
   return new RegExp(`^[A-Za-z0-9_-]{${length}}$`);
 }
-var md5_hex2 = /^[0-9a-fA-F]{32}$/;
-var md5_base642 = /* @__PURE__ */ fixedBase642(22, "==");
-var md5_base64url2 = /* @__PURE__ */ fixedBase64url2(22);
-var sha1_hex2 = /^[0-9a-fA-F]{40}$/;
-var sha1_base642 = /* @__PURE__ */ fixedBase642(27, "=");
-var sha1_base64url2 = /* @__PURE__ */ fixedBase64url2(27);
-var sha256_hex2 = /^[0-9a-fA-F]{64}$/;
-var sha256_base642 = /* @__PURE__ */ fixedBase642(43, "=");
-var sha256_base64url2 = /* @__PURE__ */ fixedBase64url2(43);
-var sha384_hex2 = /^[0-9a-fA-F]{96}$/;
-var sha384_base642 = /* @__PURE__ */ fixedBase642(64, "");
-var sha384_base64url2 = /* @__PURE__ */ fixedBase64url2(64);
-var sha512_hex2 = /^[0-9a-fA-F]{128}$/;
-var sha512_base642 = /* @__PURE__ */ fixedBase642(86, "==");
-var sha512_base64url2 = /* @__PURE__ */ fixedBase64url2(86);
+var cuid5, cuid23, ulid3, xid3, ksuid3, nanoid3, duration3, extendedDuration2, guid3, uuid3 = (version2) => {
+  if (!version2)
+    return /^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$/;
+  return new RegExp(`^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-${version2}[0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12})$`);
+}, uuid42, uuid62, uuid72, email3, html5Email2, rfc5322Email2, unicodeEmail2, idnEmail2, browserEmail2, _emoji3 = `^(\\p{Extended_Pictographic}|\\p{Emoji_Component})+$`, ipv43, ipv63, cidrv43, cidrv63, base643, base64url3, hostname3, domain2, e1643, dateSource2 = `(?:(?:\\d\\d[2468][048]|\\d\\d[13579][26]|\\d\\d0[48]|[02468][048]00|[13579][26]00)-02-29|\\d{4}-(?:(?:0[13578]|1[02])-(?:0[1-9]|[12]\\d|3[01])|(?:0[469]|11)-(?:0[1-9]|[12]\\d|30)|(?:02)-(?:0[1-9]|1\\d|2[0-8])))`, date5, string4 = (params) => {
+  const regex = params ? `[\\s\\S]{${params?.minimum ?? 0},${params?.maximum ?? ""}}` : `[\\s\\S]*`;
+  return new RegExp(`^${regex}$`);
+}, bigint4, integer2, number4, boolean4, _null4, _undefined4, lowercase2, uppercase2, hex3, md5_hex2, md5_base642, md5_base64url2, sha1_hex2, sha1_base642, sha1_base64url2, sha256_hex2, sha256_base642, sha256_base64url2, sha384_hex2, sha384_base642, sha384_base64url2, sha512_hex2, sha512_base642, sha512_base64url2;
+var init_regexes2 = __esm(() => {
+  cuid5 = /^[cC][^\s-]{8,}$/;
+  cuid23 = /^[0-9a-z]+$/;
+  ulid3 = /^[0-9A-HJKMNP-TV-Za-hjkmnp-tv-z]{26}$/;
+  xid3 = /^[0-9a-vA-V]{20}$/;
+  ksuid3 = /^[A-Za-z0-9]{27}$/;
+  nanoid3 = /^[a-zA-Z0-9_-]{21}$/;
+  duration3 = /^P(?:(\d+W)|(?!.*W)(?=\d|T\d)(\d+Y)?(\d+M)?(\d+D)?(T(?=\d)(\d+H)?(\d+M)?(\d+([.,]\d+)?S)?)?)$/;
+  extendedDuration2 = /^[-+]?P(?!$)(?:(?:[-+]?\d+Y)|(?:[-+]?\d+[.,]\d+Y$))?(?:(?:[-+]?\d+M)|(?:[-+]?\d+[.,]\d+M$))?(?:(?:[-+]?\d+W)|(?:[-+]?\d+[.,]\d+W$))?(?:(?:[-+]?\d+D)|(?:[-+]?\d+[.,]\d+D$))?(?:T(?=[\d+-])(?:(?:[-+]?\d+H)|(?:[-+]?\d+[.,]\d+H$))?(?:(?:[-+]?\d+M)|(?:[-+]?\d+[.,]\d+M$))?(?:[-+]?\d+(?:[.,]\d+)?S)?)??$/;
+  guid3 = /^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{12})$/;
+  uuid42 = /* @__PURE__ */ uuid3(4);
+  uuid62 = /* @__PURE__ */ uuid3(6);
+  uuid72 = /* @__PURE__ */ uuid3(7);
+  email3 = /^(?!\.)(?!.*\.\.)([A-Za-z0-9_'+\-\.]*)[A-Za-z0-9_+-]@([A-Za-z0-9][A-Za-z0-9\-]*\.)+[A-Za-z]{2,}$/;
+  html5Email2 = /^[a-zA-Z0-9.!#$%&'*+/=?^_`{|}~-]+@[a-zA-Z0-9](?:[a-zA-Z0-9-]{0,61}[a-zA-Z0-9])?(?:\.[a-zA-Z0-9](?:[a-zA-Z0-9-]{0,61}[a-zA-Z0-9])?)*$/;
+  rfc5322Email2 = /^(([^<>()\[\]\\.,;:\s@"]+(\.[^<>()\[\]\\.,;:\s@"]+)*)|(".+"))@((\[[0-9]{1,3}\.[0-9]{1,3}\.[0-9]{1,3}\.[0-9]{1,3}])|(([a-zA-Z\-0-9]+\.)+[a-zA-Z]{2,}))$/;
+  unicodeEmail2 = /^[^\s@"]{1,64}@[^\s@]{1,255}$/u;
+  idnEmail2 = unicodeEmail2;
+  browserEmail2 = /^[a-zA-Z0-9.!#$%&'*+/=?^_`{|}~-]+@[a-zA-Z0-9](?:[a-zA-Z0-9-]{0,61}[a-zA-Z0-9])?(?:\.[a-zA-Z0-9](?:[a-zA-Z0-9-]{0,61}[a-zA-Z0-9])?)*$/;
+  ipv43 = /^(?:(?:25[0-5]|2[0-4][0-9]|1[0-9][0-9]|[1-9][0-9]|[0-9])\.){3}(?:25[0-5]|2[0-4][0-9]|1[0-9][0-9]|[1-9][0-9]|[0-9])$/;
+  ipv63 = /^(([0-9a-fA-F]{1,4}:){7}[0-9a-fA-F]{1,4}|([0-9a-fA-F]{1,4}:){1,7}:|([0-9a-fA-F]{1,4}:){1,6}:[0-9a-fA-F]{1,4}|([0-9a-fA-F]{1,4}:){1,5}(:[0-9a-fA-F]{1,4}){1,2}|([0-9a-fA-F]{1,4}:){1,4}(:[0-9a-fA-F]{1,4}){1,3}|([0-9a-fA-F]{1,4}:){1,3}(:[0-9a-fA-F]{1,4}){1,4}|([0-9a-fA-F]{1,4}:){1,2}(:[0-9a-fA-F]{1,4}){1,5}|[0-9a-fA-F]{1,4}:((:[0-9a-fA-F]{1,4}){1,6})|:((:[0-9a-fA-F]{1,4}){1,7}|:))$/;
+  cidrv43 = /^((25[0-5]|2[0-4][0-9]|1[0-9][0-9]|[1-9][0-9]|[0-9])\.){3}(25[0-5]|2[0-4][0-9]|1[0-9][0-9]|[1-9][0-9]|[0-9])\/([0-9]|[1-2][0-9]|3[0-2])$/;
+  cidrv63 = /^(([0-9a-fA-F]{1,4}:){7}[0-9a-fA-F]{1,4}|::|([0-9a-fA-F]{1,4})?::([0-9a-fA-F]{1,4}:?){0,6})\/(12[0-8]|1[01][0-9]|[1-9]?[0-9])$/;
+  base643 = /^$|^(?:[0-9a-zA-Z+/]{4})*(?:(?:[0-9a-zA-Z+/]{2}==)|(?:[0-9a-zA-Z+/]{3}=))?$/;
+  base64url3 = /^[A-Za-z0-9_-]*$/;
+  hostname3 = /^(?=.{1,253}\.?$)[a-zA-Z0-9](?:[a-zA-Z0-9-]{0,61}[a-zA-Z0-9])?(?:\.[a-zA-Z0-9](?:[-0-9a-zA-Z]{0,61}[0-9a-zA-Z])?)*\.?$/;
+  domain2 = /^([a-zA-Z0-9](?:[a-zA-Z0-9-]{0,61}[a-zA-Z0-9])?\.)+[a-zA-Z]{2,}$/;
+  e1643 = /^\+(?:[0-9]){6,14}[0-9]$/;
+  date5 = /* @__PURE__ */ new RegExp(`^${dateSource2}$`);
+  bigint4 = /^-?\d+n?$/;
+  integer2 = /^-?\d+$/;
+  number4 = /^-?\d+(?:\.\d+)?/;
+  boolean4 = /^(?:true|false)$/i;
+  _null4 = /^null$/i;
+  _undefined4 = /^undefined$/i;
+  lowercase2 = /^[^A-Z]*$/;
+  uppercase2 = /^[^a-z]*$/;
+  hex3 = /^[0-9a-fA-F]*$/;
+  md5_hex2 = /^[0-9a-fA-F]{32}$/;
+  md5_base642 = /* @__PURE__ */ fixedBase642(22, "==");
+  md5_base64url2 = /* @__PURE__ */ fixedBase64url2(22);
+  sha1_hex2 = /^[0-9a-fA-F]{40}$/;
+  sha1_base642 = /* @__PURE__ */ fixedBase642(27, "=");
+  sha1_base64url2 = /* @__PURE__ */ fixedBase64url2(27);
+  sha256_hex2 = /^[0-9a-fA-F]{64}$/;
+  sha256_base642 = /* @__PURE__ */ fixedBase642(43, "=");
+  sha256_base64url2 = /* @__PURE__ */ fixedBase64url2(43);
+  sha384_hex2 = /^[0-9a-fA-F]{96}$/;
+  sha384_base642 = /* @__PURE__ */ fixedBase642(64, "");
+  sha384_base64url2 = /* @__PURE__ */ fixedBase64url2(64);
+  sha512_hex2 = /^[0-9a-fA-F]{128}$/;
+  sha512_base642 = /* @__PURE__ */ fixedBase642(86, "==");
+  sha512_base64url2 = /* @__PURE__ */ fixedBase64url2(86);
+});
 
 // node_modules/@opencode-ai/plugin/node_modules/zod/v4/core/checks.js
-var $ZodCheck2 = /* @__PURE__ */ $constructor2("$ZodCheck", (inst, def) => {
-  var _a2;
-  inst._zod ?? (inst._zod = {});
-  inst._zod.def = def;
-  (_a2 = inst._zod).onattach ?? (_a2.onattach = []);
-});
-var numericOriginMap2 = {
-  number: "number",
-  bigint: "bigint",
-  object: "date"
-};
-var $ZodCheckLessThan2 = /* @__PURE__ */ $constructor2("$ZodCheckLessThan", (inst, def) => {
-  $ZodCheck2.init(inst, def);
-  const origin = numericOriginMap2[typeof def.value];
-  inst._zod.onattach.push((inst2) => {
-    const bag = inst2._zod.bag;
-    const curr = (def.inclusive ? bag.maximum : bag.exclusiveMaximum) ?? Number.POSITIVE_INFINITY;
-    if (def.value < curr) {
-      if (def.inclusive)
-        bag.maximum = def.value;
-      else
-        bag.exclusiveMaximum = def.value;
-    }
-  });
-  inst._zod.check = (payload) => {
-    if (def.inclusive ? payload.value <= def.value : payload.value < def.value) {
-      return;
-    }
-    payload.issues.push({
-      origin,
-      code: "too_big",
-      maximum: def.value,
-      input: payload.value,
-      inclusive: def.inclusive,
-      inst,
-      continue: !def.abort
-    });
-  };
-});
-var $ZodCheckGreaterThan2 = /* @__PURE__ */ $constructor2("$ZodCheckGreaterThan", (inst, def) => {
-  $ZodCheck2.init(inst, def);
-  const origin = numericOriginMap2[typeof def.value];
-  inst._zod.onattach.push((inst2) => {
-    const bag = inst2._zod.bag;
-    const curr = (def.inclusive ? bag.minimum : bag.exclusiveMinimum) ?? Number.NEGATIVE_INFINITY;
-    if (def.value > curr) {
-      if (def.inclusive)
-        bag.minimum = def.value;
-      else
-        bag.exclusiveMinimum = def.value;
-    }
-  });
-  inst._zod.check = (payload) => {
-    if (def.inclusive ? payload.value >= def.value : payload.value > def.value) {
-      return;
-    }
-    payload.issues.push({
-      origin,
-      code: "too_small",
-      minimum: def.value,
-      input: payload.value,
-      inclusive: def.inclusive,
-      inst,
-      continue: !def.abort
-    });
-  };
-});
-var $ZodCheckMultipleOf2 = /* @__PURE__ */ $constructor2("$ZodCheckMultipleOf", (inst, def) => {
-  $ZodCheck2.init(inst, def);
-  inst._zod.onattach.push((inst2) => {
+function handleCheckPropertyResult2(result, payload, property) {
+  if (result.issues.length) {
+    payload.issues.push(...prefixIssues2(property, result.issues));
+  }
+}
+var $ZodCheck2, numericOriginMap2, $ZodCheckLessThan2, $ZodCheckGreaterThan2, $ZodCheckMultipleOf2, $ZodCheckNumberFormat2, $ZodCheckBigIntFormat2, $ZodCheckMaxSize2, $ZodCheckMinSize2, $ZodCheckSizeEquals2, $ZodCheckMaxLength2, $ZodCheckMinLength2, $ZodCheckLengthEquals2, $ZodCheckStringFormat2, $ZodCheckRegex2, $ZodCheckLowerCase2, $ZodCheckUpperCase2, $ZodCheckIncludes2, $ZodCheckStartsWith2, $ZodCheckEndsWith2, $ZodCheckProperty2, $ZodCheckMimeType2, $ZodCheckOverwrite2;
+var init_checks3 = __esm(() => {
+  init_core3();
+  init_regexes2();
+  init_util2();
+  $ZodCheck2 = /* @__PURE__ */ $constructor2("$ZodCheck", (inst, def) => {
     var _a2;
-    (_a2 = inst2._zod.bag).multipleOf ?? (_a2.multipleOf = def.value);
+    inst._zod ?? (inst._zod = {});
+    inst._zod.def = def;
+    (_a2 = inst._zod).onattach ?? (_a2.onattach = []);
   });
-  inst._zod.check = (payload) => {
-    if (typeof payload.value !== typeof def.value)
-      throw new Error("Cannot mix number and bigint in multiple_of check.");
-    const isMultiple = typeof payload.value === "bigint" ? payload.value % def.value === BigInt(0) : floatSafeRemainder2(payload.value, def.value) === 0;
-    if (isMultiple)
-      return;
-    payload.issues.push({
-      origin: typeof payload.value,
-      code: "not_multiple_of",
-      divisor: def.value,
-      input: payload.value,
-      inst,
-      continue: !def.abort
-    });
+  numericOriginMap2 = {
+    number: "number",
+    bigint: "bigint",
+    object: "date"
   };
-});
-var $ZodCheckNumberFormat2 = /* @__PURE__ */ $constructor2("$ZodCheckNumberFormat", (inst, def) => {
-  $ZodCheck2.init(inst, def);
-  def.format = def.format || "float64";
-  const isInt = def.format?.includes("int");
-  const origin = isInt ? "int" : "number";
-  const [minimum, maximum] = NUMBER_FORMAT_RANGES2[def.format];
-  inst._zod.onattach.push((inst2) => {
-    const bag = inst2._zod.bag;
-    bag.format = def.format;
-    bag.minimum = minimum;
-    bag.maximum = maximum;
-    if (isInt)
-      bag.pattern = integer2;
+  $ZodCheckLessThan2 = /* @__PURE__ */ $constructor2("$ZodCheckLessThan", (inst, def) => {
+    $ZodCheck2.init(inst, def);
+    const origin = numericOriginMap2[typeof def.value];
+    inst._zod.onattach.push((inst2) => {
+      const bag = inst2._zod.bag;
+      const curr = (def.inclusive ? bag.maximum : bag.exclusiveMaximum) ?? Number.POSITIVE_INFINITY;
+      if (def.value < curr) {
+        if (def.inclusive)
+          bag.maximum = def.value;
+        else
+          bag.exclusiveMaximum = def.value;
+      }
+    });
+    inst._zod.check = (payload) => {
+      if (def.inclusive ? payload.value <= def.value : payload.value < def.value) {
+        return;
+      }
+      payload.issues.push({
+        origin,
+        code: "too_big",
+        maximum: def.value,
+        input: payload.value,
+        inclusive: def.inclusive,
+        inst,
+        continue: !def.abort
+      });
+    };
   });
-  inst._zod.check = (payload) => {
-    const input = payload.value;
-    if (isInt) {
-      if (!Number.isInteger(input)) {
+  $ZodCheckGreaterThan2 = /* @__PURE__ */ $constructor2("$ZodCheckGreaterThan", (inst, def) => {
+    $ZodCheck2.init(inst, def);
+    const origin = numericOriginMap2[typeof def.value];
+    inst._zod.onattach.push((inst2) => {
+      const bag = inst2._zod.bag;
+      const curr = (def.inclusive ? bag.minimum : bag.exclusiveMinimum) ?? Number.NEGATIVE_INFINITY;
+      if (def.value > curr) {
+        if (def.inclusive)
+          bag.minimum = def.value;
+        else
+          bag.exclusiveMinimum = def.value;
+      }
+    });
+    inst._zod.check = (payload) => {
+      if (def.inclusive ? payload.value >= def.value : payload.value > def.value) {
+        return;
+      }
+      payload.issues.push({
+        origin,
+        code: "too_small",
+        minimum: def.value,
+        input: payload.value,
+        inclusive: def.inclusive,
+        inst,
+        continue: !def.abort
+      });
+    };
+  });
+  $ZodCheckMultipleOf2 = /* @__PURE__ */ $constructor2("$ZodCheckMultipleOf", (inst, def) => {
+    $ZodCheck2.init(inst, def);
+    inst._zod.onattach.push((inst2) => {
+      var _a2;
+      (_a2 = inst2._zod.bag).multipleOf ?? (_a2.multipleOf = def.value);
+    });
+    inst._zod.check = (payload) => {
+      if (typeof payload.value !== typeof def.value)
+        throw new Error("Cannot mix number and bigint in multiple_of check.");
+      const isMultiple = typeof payload.value === "bigint" ? payload.value % def.value === BigInt(0) : floatSafeRemainder2(payload.value, def.value) === 0;
+      if (isMultiple)
+        return;
+      payload.issues.push({
+        origin: typeof payload.value,
+        code: "not_multiple_of",
+        divisor: def.value,
+        input: payload.value,
+        inst,
+        continue: !def.abort
+      });
+    };
+  });
+  $ZodCheckNumberFormat2 = /* @__PURE__ */ $constructor2("$ZodCheckNumberFormat", (inst, def) => {
+    $ZodCheck2.init(inst, def);
+    def.format = def.format || "float64";
+    const isInt = def.format?.includes("int");
+    const origin = isInt ? "int" : "number";
+    const [minimum, maximum] = NUMBER_FORMAT_RANGES2[def.format];
+    inst._zod.onattach.push((inst2) => {
+      const bag = inst2._zod.bag;
+      bag.format = def.format;
+      bag.minimum = minimum;
+      bag.maximum = maximum;
+      if (isInt)
+        bag.pattern = integer2;
+    });
+    inst._zod.check = (payload) => {
+      const input = payload.value;
+      if (isInt) {
+        if (!Number.isInteger(input)) {
+          payload.issues.push({
+            expected: origin,
+            format: def.format,
+            code: "invalid_type",
+            continue: false,
+            input,
+            inst
+          });
+          return;
+        }
+        if (!Number.isSafeInteger(input)) {
+          if (input > 0) {
+            payload.issues.push({
+              input,
+              code: "too_big",
+              maximum: Number.MAX_SAFE_INTEGER,
+              note: "Integers must be within the safe integer range.",
+              inst,
+              origin,
+              continue: !def.abort
+            });
+          } else {
+            payload.issues.push({
+              input,
+              code: "too_small",
+              minimum: Number.MIN_SAFE_INTEGER,
+              note: "Integers must be within the safe integer range.",
+              inst,
+              origin,
+              continue: !def.abort
+            });
+          }
+          return;
+        }
+      }
+      if (input < minimum) {
         payload.issues.push({
-          expected: origin,
-          format: def.format,
-          code: "invalid_type",
-          continue: false,
+          origin: "number",
           input,
+          code: "too_small",
+          minimum,
+          inclusive: true,
+          inst,
+          continue: !def.abort
+        });
+      }
+      if (input > maximum) {
+        payload.issues.push({
+          origin: "number",
+          input,
+          code: "too_big",
+          maximum,
           inst
         });
-        return;
       }
-      if (!Number.isSafeInteger(input)) {
-        if (input > 0) {
-          payload.issues.push({
-            input,
-            code: "too_big",
-            maximum: Number.MAX_SAFE_INTEGER,
-            note: "Integers must be within the safe integer range.",
-            inst,
-            origin,
-            continue: !def.abort
-          });
-        } else {
-          payload.issues.push({
-            input,
-            code: "too_small",
-            minimum: Number.MIN_SAFE_INTEGER,
-            note: "Integers must be within the safe integer range.",
-            inst,
-            origin,
-            continue: !def.abort
-          });
-        }
-        return;
+    };
+  });
+  $ZodCheckBigIntFormat2 = /* @__PURE__ */ $constructor2("$ZodCheckBigIntFormat", (inst, def) => {
+    $ZodCheck2.init(inst, def);
+    const [minimum, maximum] = BIGINT_FORMAT_RANGES2[def.format];
+    inst._zod.onattach.push((inst2) => {
+      const bag = inst2._zod.bag;
+      bag.format = def.format;
+      bag.minimum = minimum;
+      bag.maximum = maximum;
+    });
+    inst._zod.check = (payload) => {
+      const input = payload.value;
+      if (input < minimum) {
+        payload.issues.push({
+          origin: "bigint",
+          input,
+          code: "too_small",
+          minimum,
+          inclusive: true,
+          inst,
+          continue: !def.abort
+        });
       }
-    }
-    if (input < minimum) {
+      if (input > maximum) {
+        payload.issues.push({
+          origin: "bigint",
+          input,
+          code: "too_big",
+          maximum,
+          inst
+        });
+      }
+    };
+  });
+  $ZodCheckMaxSize2 = /* @__PURE__ */ $constructor2("$ZodCheckMaxSize", (inst, def) => {
+    var _a2;
+    $ZodCheck2.init(inst, def);
+    (_a2 = inst._zod.def).when ?? (_a2.when = (payload) => {
+      const val = payload.value;
+      return !nullish3(val) && val.size !== undefined;
+    });
+    inst._zod.onattach.push((inst2) => {
+      const curr = inst2._zod.bag.maximum ?? Number.POSITIVE_INFINITY;
+      if (def.maximum < curr)
+        inst2._zod.bag.maximum = def.maximum;
+    });
+    inst._zod.check = (payload) => {
+      const input = payload.value;
+      const size = input.size;
+      if (size <= def.maximum)
+        return;
       payload.issues.push({
-        origin: "number",
-        input,
-        code: "too_small",
-        minimum,
+        origin: getSizableOrigin2(input),
+        code: "too_big",
+        maximum: def.maximum,
         inclusive: true,
+        input,
         inst,
         continue: !def.abort
       });
-    }
-    if (input > maximum) {
-      payload.issues.push({
-        origin: "number",
-        input,
-        code: "too_big",
-        maximum,
-        inst
-      });
-    }
-  };
-});
-var $ZodCheckBigIntFormat2 = /* @__PURE__ */ $constructor2("$ZodCheckBigIntFormat", (inst, def) => {
-  $ZodCheck2.init(inst, def);
-  const [minimum, maximum] = BIGINT_FORMAT_RANGES2[def.format];
-  inst._zod.onattach.push((inst2) => {
-    const bag = inst2._zod.bag;
-    bag.format = def.format;
-    bag.minimum = minimum;
-    bag.maximum = maximum;
+    };
   });
-  inst._zod.check = (payload) => {
-    const input = payload.value;
-    if (input < minimum) {
+  $ZodCheckMinSize2 = /* @__PURE__ */ $constructor2("$ZodCheckMinSize", (inst, def) => {
+    var _a2;
+    $ZodCheck2.init(inst, def);
+    (_a2 = inst._zod.def).when ?? (_a2.when = (payload) => {
+      const val = payload.value;
+      return !nullish3(val) && val.size !== undefined;
+    });
+    inst._zod.onattach.push((inst2) => {
+      const curr = inst2._zod.bag.minimum ?? Number.NEGATIVE_INFINITY;
+      if (def.minimum > curr)
+        inst2._zod.bag.minimum = def.minimum;
+    });
+    inst._zod.check = (payload) => {
+      const input = payload.value;
+      const size = input.size;
+      if (size >= def.minimum)
+        return;
       payload.issues.push({
-        origin: "bigint",
-        input,
+        origin: getSizableOrigin2(input),
         code: "too_small",
-        minimum,
+        minimum: def.minimum,
         inclusive: true,
+        input,
         inst,
         continue: !def.abort
       });
-    }
-    if (input > maximum) {
+    };
+  });
+  $ZodCheckSizeEquals2 = /* @__PURE__ */ $constructor2("$ZodCheckSizeEquals", (inst, def) => {
+    var _a2;
+    $ZodCheck2.init(inst, def);
+    (_a2 = inst._zod.def).when ?? (_a2.when = (payload) => {
+      const val = payload.value;
+      return !nullish3(val) && val.size !== undefined;
+    });
+    inst._zod.onattach.push((inst2) => {
+      const bag = inst2._zod.bag;
+      bag.minimum = def.size;
+      bag.maximum = def.size;
+      bag.size = def.size;
+    });
+    inst._zod.check = (payload) => {
+      const input = payload.value;
+      const size = input.size;
+      if (size === def.size)
+        return;
+      const tooBig = size > def.size;
       payload.issues.push({
-        origin: "bigint",
-        input,
-        code: "too_big",
-        maximum,
-        inst
+        origin: getSizableOrigin2(input),
+        ...tooBig ? { code: "too_big", maximum: def.size } : { code: "too_small", minimum: def.size },
+        inclusive: true,
+        exact: true,
+        input: payload.value,
+        inst,
+        continue: !def.abort
       });
-    }
-  };
-});
-var $ZodCheckMaxSize2 = /* @__PURE__ */ $constructor2("$ZodCheckMaxSize", (inst, def) => {
-  var _a2;
-  $ZodCheck2.init(inst, def);
-  (_a2 = inst._zod.def).when ?? (_a2.when = (payload) => {
-    const val = payload.value;
-    return !nullish3(val) && val.size !== undefined;
+    };
   });
-  inst._zod.onattach.push((inst2) => {
-    const curr = inst2._zod.bag.maximum ?? Number.POSITIVE_INFINITY;
-    if (def.maximum < curr)
-      inst2._zod.bag.maximum = def.maximum;
-  });
-  inst._zod.check = (payload) => {
-    const input = payload.value;
-    const size = input.size;
-    if (size <= def.maximum)
-      return;
-    payload.issues.push({
-      origin: getSizableOrigin2(input),
-      code: "too_big",
-      maximum: def.maximum,
-      inclusive: true,
-      input,
-      inst,
-      continue: !def.abort
+  $ZodCheckMaxLength2 = /* @__PURE__ */ $constructor2("$ZodCheckMaxLength", (inst, def) => {
+    var _a2;
+    $ZodCheck2.init(inst, def);
+    (_a2 = inst._zod.def).when ?? (_a2.when = (payload) => {
+      const val = payload.value;
+      return !nullish3(val) && val.length !== undefined;
     });
-  };
-});
-var $ZodCheckMinSize2 = /* @__PURE__ */ $constructor2("$ZodCheckMinSize", (inst, def) => {
-  var _a2;
-  $ZodCheck2.init(inst, def);
-  (_a2 = inst._zod.def).when ?? (_a2.when = (payload) => {
-    const val = payload.value;
-    return !nullish3(val) && val.size !== undefined;
-  });
-  inst._zod.onattach.push((inst2) => {
-    const curr = inst2._zod.bag.minimum ?? Number.NEGATIVE_INFINITY;
-    if (def.minimum > curr)
-      inst2._zod.bag.minimum = def.minimum;
-  });
-  inst._zod.check = (payload) => {
-    const input = payload.value;
-    const size = input.size;
-    if (size >= def.minimum)
-      return;
-    payload.issues.push({
-      origin: getSizableOrigin2(input),
-      code: "too_small",
-      minimum: def.minimum,
-      inclusive: true,
-      input,
-      inst,
-      continue: !def.abort
+    inst._zod.onattach.push((inst2) => {
+      const curr = inst2._zod.bag.maximum ?? Number.POSITIVE_INFINITY;
+      if (def.maximum < curr)
+        inst2._zod.bag.maximum = def.maximum;
     });
-  };
-});
-var $ZodCheckSizeEquals2 = /* @__PURE__ */ $constructor2("$ZodCheckSizeEquals", (inst, def) => {
-  var _a2;
-  $ZodCheck2.init(inst, def);
-  (_a2 = inst._zod.def).when ?? (_a2.when = (payload) => {
-    const val = payload.value;
-    return !nullish3(val) && val.size !== undefined;
+    inst._zod.check = (payload) => {
+      const input = payload.value;
+      const length = input.length;
+      if (length <= def.maximum)
+        return;
+      const origin = getLengthableOrigin2(input);
+      payload.issues.push({
+        origin,
+        code: "too_big",
+        maximum: def.maximum,
+        inclusive: true,
+        input,
+        inst,
+        continue: !def.abort
+      });
+    };
   });
-  inst._zod.onattach.push((inst2) => {
-    const bag = inst2._zod.bag;
-    bag.minimum = def.size;
-    bag.maximum = def.size;
-    bag.size = def.size;
-  });
-  inst._zod.check = (payload) => {
-    const input = payload.value;
-    const size = input.size;
-    if (size === def.size)
-      return;
-    const tooBig = size > def.size;
-    payload.issues.push({
-      origin: getSizableOrigin2(input),
-      ...tooBig ? { code: "too_big", maximum: def.size } : { code: "too_small", minimum: def.size },
-      inclusive: true,
-      exact: true,
-      input: payload.value,
-      inst,
-      continue: !def.abort
+  $ZodCheckMinLength2 = /* @__PURE__ */ $constructor2("$ZodCheckMinLength", (inst, def) => {
+    var _a2;
+    $ZodCheck2.init(inst, def);
+    (_a2 = inst._zod.def).when ?? (_a2.when = (payload) => {
+      const val = payload.value;
+      return !nullish3(val) && val.length !== undefined;
     });
-  };
-});
-var $ZodCheckMaxLength2 = /* @__PURE__ */ $constructor2("$ZodCheckMaxLength", (inst, def) => {
-  var _a2;
-  $ZodCheck2.init(inst, def);
-  (_a2 = inst._zod.def).when ?? (_a2.when = (payload) => {
-    const val = payload.value;
-    return !nullish3(val) && val.length !== undefined;
-  });
-  inst._zod.onattach.push((inst2) => {
-    const curr = inst2._zod.bag.maximum ?? Number.POSITIVE_INFINITY;
-    if (def.maximum < curr)
-      inst2._zod.bag.maximum = def.maximum;
-  });
-  inst._zod.check = (payload) => {
-    const input = payload.value;
-    const length = input.length;
-    if (length <= def.maximum)
-      return;
-    const origin = getLengthableOrigin2(input);
-    payload.issues.push({
-      origin,
-      code: "too_big",
-      maximum: def.maximum,
-      inclusive: true,
-      input,
-      inst,
-      continue: !def.abort
+    inst._zod.onattach.push((inst2) => {
+      const curr = inst2._zod.bag.minimum ?? Number.NEGATIVE_INFINITY;
+      if (def.minimum > curr)
+        inst2._zod.bag.minimum = def.minimum;
     });
-  };
-});
-var $ZodCheckMinLength2 = /* @__PURE__ */ $constructor2("$ZodCheckMinLength", (inst, def) => {
-  var _a2;
-  $ZodCheck2.init(inst, def);
-  (_a2 = inst._zod.def).when ?? (_a2.when = (payload) => {
-    const val = payload.value;
-    return !nullish3(val) && val.length !== undefined;
+    inst._zod.check = (payload) => {
+      const input = payload.value;
+      const length = input.length;
+      if (length >= def.minimum)
+        return;
+      const origin = getLengthableOrigin2(input);
+      payload.issues.push({
+        origin,
+        code: "too_small",
+        minimum: def.minimum,
+        inclusive: true,
+        input,
+        inst,
+        continue: !def.abort
+      });
+    };
   });
-  inst._zod.onattach.push((inst2) => {
-    const curr = inst2._zod.bag.minimum ?? Number.NEGATIVE_INFINITY;
-    if (def.minimum > curr)
-      inst2._zod.bag.minimum = def.minimum;
-  });
-  inst._zod.check = (payload) => {
-    const input = payload.value;
-    const length = input.length;
-    if (length >= def.minimum)
-      return;
-    const origin = getLengthableOrigin2(input);
-    payload.issues.push({
-      origin,
-      code: "too_small",
-      minimum: def.minimum,
-      inclusive: true,
-      input,
-      inst,
-      continue: !def.abort
+  $ZodCheckLengthEquals2 = /* @__PURE__ */ $constructor2("$ZodCheckLengthEquals", (inst, def) => {
+    var _a2;
+    $ZodCheck2.init(inst, def);
+    (_a2 = inst._zod.def).when ?? (_a2.when = (payload) => {
+      const val = payload.value;
+      return !nullish3(val) && val.length !== undefined;
     });
-  };
-});
-var $ZodCheckLengthEquals2 = /* @__PURE__ */ $constructor2("$ZodCheckLengthEquals", (inst, def) => {
-  var _a2;
-  $ZodCheck2.init(inst, def);
-  (_a2 = inst._zod.def).when ?? (_a2.when = (payload) => {
-    const val = payload.value;
-    return !nullish3(val) && val.length !== undefined;
-  });
-  inst._zod.onattach.push((inst2) => {
-    const bag = inst2._zod.bag;
-    bag.minimum = def.length;
-    bag.maximum = def.length;
-    bag.length = def.length;
-  });
-  inst._zod.check = (payload) => {
-    const input = payload.value;
-    const length = input.length;
-    if (length === def.length)
-      return;
-    const origin = getLengthableOrigin2(input);
-    const tooBig = length > def.length;
-    payload.issues.push({
-      origin,
-      ...tooBig ? { code: "too_big", maximum: def.length } : { code: "too_small", minimum: def.length },
-      inclusive: true,
-      exact: true,
-      input: payload.value,
-      inst,
-      continue: !def.abort
+    inst._zod.onattach.push((inst2) => {
+      const bag = inst2._zod.bag;
+      bag.minimum = def.length;
+      bag.maximum = def.length;
+      bag.length = def.length;
     });
-  };
-});
-var $ZodCheckStringFormat2 = /* @__PURE__ */ $constructor2("$ZodCheckStringFormat", (inst, def) => {
-  var _a2, _b;
-  $ZodCheck2.init(inst, def);
-  inst._zod.onattach.push((inst2) => {
-    const bag = inst2._zod.bag;
-    bag.format = def.format;
-    if (def.pattern) {
-      bag.patterns ?? (bag.patterns = new Set);
-      bag.patterns.add(def.pattern);
-    }
+    inst._zod.check = (payload) => {
+      const input = payload.value;
+      const length = input.length;
+      if (length === def.length)
+        return;
+      const origin = getLengthableOrigin2(input);
+      const tooBig = length > def.length;
+      payload.issues.push({
+        origin,
+        ...tooBig ? { code: "too_big", maximum: def.length } : { code: "too_small", minimum: def.length },
+        inclusive: true,
+        exact: true,
+        input: payload.value,
+        inst,
+        continue: !def.abort
+      });
+    };
   });
-  if (def.pattern)
-    (_a2 = inst._zod).check ?? (_a2.check = (payload) => {
+  $ZodCheckStringFormat2 = /* @__PURE__ */ $constructor2("$ZodCheckStringFormat", (inst, def) => {
+    var _a2, _b;
+    $ZodCheck2.init(inst, def);
+    inst._zod.onattach.push((inst2) => {
+      const bag = inst2._zod.bag;
+      bag.format = def.format;
+      if (def.pattern) {
+        bag.patterns ?? (bag.patterns = new Set);
+        bag.patterns.add(def.pattern);
+      }
+    });
+    if (def.pattern)
+      (_a2 = inst._zod).check ?? (_a2.check = (payload) => {
+        def.pattern.lastIndex = 0;
+        if (def.pattern.test(payload.value))
+          return;
+        payload.issues.push({
+          origin: "string",
+          code: "invalid_format",
+          format: def.format,
+          input: payload.value,
+          ...def.pattern ? { pattern: def.pattern.toString() } : {},
+          inst,
+          continue: !def.abort
+        });
+      });
+    else
+      (_b = inst._zod).check ?? (_b.check = () => {});
+  });
+  $ZodCheckRegex2 = /* @__PURE__ */ $constructor2("$ZodCheckRegex", (inst, def) => {
+    $ZodCheckStringFormat2.init(inst, def);
+    inst._zod.check = (payload) => {
       def.pattern.lastIndex = 0;
       if (def.pattern.test(payload.value))
         return;
       payload.issues.push({
         origin: "string",
         code: "invalid_format",
-        format: def.format,
+        format: "regex",
         input: payload.value,
-        ...def.pattern ? { pattern: def.pattern.toString() } : {},
+        pattern: def.pattern.toString(),
         inst,
         continue: !def.abort
       });
-    });
-  else
-    (_b = inst._zod).check ?? (_b.check = () => {});
-});
-var $ZodCheckRegex2 = /* @__PURE__ */ $constructor2("$ZodCheckRegex", (inst, def) => {
-  $ZodCheckStringFormat2.init(inst, def);
-  inst._zod.check = (payload) => {
-    def.pattern.lastIndex = 0;
-    if (def.pattern.test(payload.value))
-      return;
-    payload.issues.push({
-      origin: "string",
-      code: "invalid_format",
-      format: "regex",
-      input: payload.value,
-      pattern: def.pattern.toString(),
-      inst,
-      continue: !def.abort
-    });
-  };
-});
-var $ZodCheckLowerCase2 = /* @__PURE__ */ $constructor2("$ZodCheckLowerCase", (inst, def) => {
-  def.pattern ?? (def.pattern = lowercase2);
-  $ZodCheckStringFormat2.init(inst, def);
-});
-var $ZodCheckUpperCase2 = /* @__PURE__ */ $constructor2("$ZodCheckUpperCase", (inst, def) => {
-  def.pattern ?? (def.pattern = uppercase2);
-  $ZodCheckStringFormat2.init(inst, def);
-});
-var $ZodCheckIncludes2 = /* @__PURE__ */ $constructor2("$ZodCheckIncludes", (inst, def) => {
-  $ZodCheck2.init(inst, def);
-  const escapedRegex = escapeRegex3(def.includes);
-  const pattern = new RegExp(typeof def.position === "number" ? `^.{${def.position}}${escapedRegex}` : escapedRegex);
-  def.pattern = pattern;
-  inst._zod.onattach.push((inst2) => {
-    const bag = inst2._zod.bag;
-    bag.patterns ?? (bag.patterns = new Set);
-    bag.patterns.add(pattern);
+    };
   });
-  inst._zod.check = (payload) => {
-    if (payload.value.includes(def.includes, def.position))
-      return;
-    payload.issues.push({
-      origin: "string",
-      code: "invalid_format",
-      format: "includes",
-      includes: def.includes,
-      input: payload.value,
-      inst,
-      continue: !def.abort
-    });
-  };
-});
-var $ZodCheckStartsWith2 = /* @__PURE__ */ $constructor2("$ZodCheckStartsWith", (inst, def) => {
-  $ZodCheck2.init(inst, def);
-  const pattern = new RegExp(`^${escapeRegex3(def.prefix)}.*`);
-  def.pattern ?? (def.pattern = pattern);
-  inst._zod.onattach.push((inst2) => {
-    const bag = inst2._zod.bag;
-    bag.patterns ?? (bag.patterns = new Set);
-    bag.patterns.add(pattern);
+  $ZodCheckLowerCase2 = /* @__PURE__ */ $constructor2("$ZodCheckLowerCase", (inst, def) => {
+    def.pattern ?? (def.pattern = lowercase2);
+    $ZodCheckStringFormat2.init(inst, def);
   });
-  inst._zod.check = (payload) => {
-    if (payload.value.startsWith(def.prefix))
-      return;
-    payload.issues.push({
-      origin: "string",
-      code: "invalid_format",
-      format: "starts_with",
-      prefix: def.prefix,
-      input: payload.value,
-      inst,
-      continue: !def.abort
-    });
-  };
-});
-var $ZodCheckEndsWith2 = /* @__PURE__ */ $constructor2("$ZodCheckEndsWith", (inst, def) => {
-  $ZodCheck2.init(inst, def);
-  const pattern = new RegExp(`.*${escapeRegex3(def.suffix)}$`);
-  def.pattern ?? (def.pattern = pattern);
-  inst._zod.onattach.push((inst2) => {
-    const bag = inst2._zod.bag;
-    bag.patterns ?? (bag.patterns = new Set);
-    bag.patterns.add(pattern);
+  $ZodCheckUpperCase2 = /* @__PURE__ */ $constructor2("$ZodCheckUpperCase", (inst, def) => {
+    def.pattern ?? (def.pattern = uppercase2);
+    $ZodCheckStringFormat2.init(inst, def);
   });
-  inst._zod.check = (payload) => {
-    if (payload.value.endsWith(def.suffix))
-      return;
-    payload.issues.push({
-      origin: "string",
-      code: "invalid_format",
-      format: "ends_with",
-      suffix: def.suffix,
-      input: payload.value,
-      inst,
-      continue: !def.abort
+  $ZodCheckIncludes2 = /* @__PURE__ */ $constructor2("$ZodCheckIncludes", (inst, def) => {
+    $ZodCheck2.init(inst, def);
+    const escapedRegex = escapeRegex3(def.includes);
+    const pattern = new RegExp(typeof def.position === "number" ? `^.{${def.position}}${escapedRegex}` : escapedRegex);
+    def.pattern = pattern;
+    inst._zod.onattach.push((inst2) => {
+      const bag = inst2._zod.bag;
+      bag.patterns ?? (bag.patterns = new Set);
+      bag.patterns.add(pattern);
     });
-  };
-});
-function handleCheckPropertyResult2(result, payload, property) {
-  if (result.issues.length) {
-    payload.issues.push(...prefixIssues2(property, result.issues));
-  }
-}
-var $ZodCheckProperty2 = /* @__PURE__ */ $constructor2("$ZodCheckProperty", (inst, def) => {
-  $ZodCheck2.init(inst, def);
-  inst._zod.check = (payload) => {
-    const result = def.schema._zod.run({
-      value: payload.value[def.property],
-      issues: []
-    }, {});
-    if (result instanceof Promise) {
-      return result.then((result2) => handleCheckPropertyResult2(result2, payload, def.property));
-    }
-    handleCheckPropertyResult2(result, payload, def.property);
-    return;
-  };
-});
-var $ZodCheckMimeType2 = /* @__PURE__ */ $constructor2("$ZodCheckMimeType", (inst, def) => {
-  $ZodCheck2.init(inst, def);
-  const mimeSet = new Set(def.mime);
-  inst._zod.onattach.push((inst2) => {
-    inst2._zod.bag.mime = def.mime;
+    inst._zod.check = (payload) => {
+      if (payload.value.includes(def.includes, def.position))
+        return;
+      payload.issues.push({
+        origin: "string",
+        code: "invalid_format",
+        format: "includes",
+        includes: def.includes,
+        input: payload.value,
+        inst,
+        continue: !def.abort
+      });
+    };
   });
-  inst._zod.check = (payload) => {
-    if (mimeSet.has(payload.value.type))
-      return;
-    payload.issues.push({
-      code: "invalid_value",
-      values: def.mime,
-      input: payload.value.type,
-      inst,
-      continue: !def.abort
+  $ZodCheckStartsWith2 = /* @__PURE__ */ $constructor2("$ZodCheckStartsWith", (inst, def) => {
+    $ZodCheck2.init(inst, def);
+    const pattern = new RegExp(`^${escapeRegex3(def.prefix)}.*`);
+    def.pattern ?? (def.pattern = pattern);
+    inst._zod.onattach.push((inst2) => {
+      const bag = inst2._zod.bag;
+      bag.patterns ?? (bag.patterns = new Set);
+      bag.patterns.add(pattern);
     });
-  };
-});
-var $ZodCheckOverwrite2 = /* @__PURE__ */ $constructor2("$ZodCheckOverwrite", (inst, def) => {
-  $ZodCheck2.init(inst, def);
-  inst._zod.check = (payload) => {
-    payload.value = def.tx(payload.value);
-  };
+    inst._zod.check = (payload) => {
+      if (payload.value.startsWith(def.prefix))
+        return;
+      payload.issues.push({
+        origin: "string",
+        code: "invalid_format",
+        format: "starts_with",
+        prefix: def.prefix,
+        input: payload.value,
+        inst,
+        continue: !def.abort
+      });
+    };
+  });
+  $ZodCheckEndsWith2 = /* @__PURE__ */ $constructor2("$ZodCheckEndsWith", (inst, def) => {
+    $ZodCheck2.init(inst, def);
+    const pattern = new RegExp(`.*${escapeRegex3(def.suffix)}$`);
+    def.pattern ?? (def.pattern = pattern);
+    inst._zod.onattach.push((inst2) => {
+      const bag = inst2._zod.bag;
+      bag.patterns ?? (bag.patterns = new Set);
+      bag.patterns.add(pattern);
+    });
+    inst._zod.check = (payload) => {
+      if (payload.value.endsWith(def.suffix))
+        return;
+      payload.issues.push({
+        origin: "string",
+        code: "invalid_format",
+        format: "ends_with",
+        suffix: def.suffix,
+        input: payload.value,
+        inst,
+        continue: !def.abort
+      });
+    };
+  });
+  $ZodCheckProperty2 = /* @__PURE__ */ $constructor2("$ZodCheckProperty", (inst, def) => {
+    $ZodCheck2.init(inst, def);
+    inst._zod.check = (payload) => {
+      const result = def.schema._zod.run({
+        value: payload.value[def.property],
+        issues: []
+      }, {});
+      if (result instanceof Promise) {
+        return result.then((result2) => handleCheckPropertyResult2(result2, payload, def.property));
+      }
+      handleCheckPropertyResult2(result, payload, def.property);
+      return;
+    };
+  });
+  $ZodCheckMimeType2 = /* @__PURE__ */ $constructor2("$ZodCheckMimeType", (inst, def) => {
+    $ZodCheck2.init(inst, def);
+    const mimeSet = new Set(def.mime);
+    inst._zod.onattach.push((inst2) => {
+      inst2._zod.bag.mime = def.mime;
+    });
+    inst._zod.check = (payload) => {
+      if (mimeSet.has(payload.value.type))
+        return;
+      payload.issues.push({
+        code: "invalid_value",
+        values: def.mime,
+        input: payload.value.type,
+        inst,
+        continue: !def.abort
+      });
+    };
+  });
+  $ZodCheckOverwrite2 = /* @__PURE__ */ $constructor2("$ZodCheckOverwrite", (inst, def) => {
+    $ZodCheck2.init(inst, def);
+    inst._zod.check = (payload) => {
+      payload.value = def.tx(payload.value);
+    };
+  });
 });
 
 // node_modules/@opencode-ai/plugin/node_modules/zod/v4/core/doc.js
@@ -23662,329 +22403,16 @@ class Doc2 {
 }
 
 // node_modules/@opencode-ai/plugin/node_modules/zod/v4/core/versions.js
-var version2 = {
-  major: 4,
-  minor: 1,
-  patch: 8
-};
+var version2;
+var init_versions2 = __esm(() => {
+  version2 = {
+    major: 4,
+    minor: 1,
+    patch: 8
+  };
+});
 
 // node_modules/@opencode-ai/plugin/node_modules/zod/v4/core/schemas.js
-var $ZodType2 = /* @__PURE__ */ $constructor2("$ZodType", (inst, def) => {
-  var _a2;
-  inst ?? (inst = {});
-  inst._zod.def = def;
-  inst._zod.bag = inst._zod.bag || {};
-  inst._zod.version = version2;
-  const checks3 = [...inst._zod.def.checks ?? []];
-  if (inst._zod.traits.has("$ZodCheck")) {
-    checks3.unshift(inst);
-  }
-  for (const ch of checks3) {
-    for (const fn of ch._zod.onattach) {
-      fn(inst);
-    }
-  }
-  if (checks3.length === 0) {
-    (_a2 = inst._zod).deferred ?? (_a2.deferred = []);
-    inst._zod.deferred?.push(() => {
-      inst._zod.run = inst._zod.parse;
-    });
-  } else {
-    const runChecks = (payload, checks4, ctx) => {
-      let isAborted = aborted2(payload);
-      let asyncResult;
-      for (const ch of checks4) {
-        if (ch._zod.def.when) {
-          const shouldRun = ch._zod.def.when(payload);
-          if (!shouldRun)
-            continue;
-        } else if (isAborted) {
-          continue;
-        }
-        const currLen = payload.issues.length;
-        const _ = ch._zod.check(payload);
-        if (_ instanceof Promise && ctx?.async === false) {
-          throw new $ZodAsyncError2;
-        }
-        if (asyncResult || _ instanceof Promise) {
-          asyncResult = (asyncResult ?? Promise.resolve()).then(async () => {
-            await _;
-            const nextLen = payload.issues.length;
-            if (nextLen === currLen)
-              return;
-            if (!isAborted)
-              isAborted = aborted2(payload, currLen);
-          });
-        } else {
-          const nextLen = payload.issues.length;
-          if (nextLen === currLen)
-            continue;
-          if (!isAborted)
-            isAborted = aborted2(payload, currLen);
-        }
-      }
-      if (asyncResult) {
-        return asyncResult.then(() => {
-          return payload;
-        });
-      }
-      return payload;
-    };
-    const handleCanaryResult = (canary, payload, ctx) => {
-      if (aborted2(canary)) {
-        canary.aborted = true;
-        return canary;
-      }
-      const checkResult = runChecks(payload, checks3, ctx);
-      if (checkResult instanceof Promise) {
-        if (ctx.async === false)
-          throw new $ZodAsyncError2;
-        return checkResult.then((checkResult2) => inst._zod.parse(checkResult2, ctx));
-      }
-      return inst._zod.parse(checkResult, ctx);
-    };
-    inst._zod.run = (payload, ctx) => {
-      if (ctx.skipChecks) {
-        return inst._zod.parse(payload, ctx);
-      }
-      if (ctx.direction === "backward") {
-        const canary = inst._zod.parse({ value: payload.value, issues: [] }, { ...ctx, skipChecks: true });
-        if (canary instanceof Promise) {
-          return canary.then((canary2) => {
-            return handleCanaryResult(canary2, payload, ctx);
-          });
-        }
-        return handleCanaryResult(canary, payload, ctx);
-      }
-      const result = inst._zod.parse(payload, ctx);
-      if (result instanceof Promise) {
-        if (ctx.async === false)
-          throw new $ZodAsyncError2;
-        return result.then((result2) => runChecks(result2, checks3, ctx));
-      }
-      return runChecks(result, checks3, ctx);
-    };
-  }
-  inst["~standard"] = {
-    validate: (value) => {
-      try {
-        const r = safeParse3(inst, value);
-        return r.success ? { value: r.data } : { issues: r.error?.issues };
-      } catch (_) {
-        return safeParseAsync3(inst, value).then((r) => r.success ? { value: r.data } : { issues: r.error?.issues });
-      }
-    },
-    vendor: "zod",
-    version: 1
-  };
-});
-var $ZodString2 = /* @__PURE__ */ $constructor2("$ZodString", (inst, def) => {
-  $ZodType2.init(inst, def);
-  inst._zod.pattern = [...inst?._zod.bag?.patterns ?? []].pop() ?? string4(inst._zod.bag);
-  inst._zod.parse = (payload, _) => {
-    if (def.coerce)
-      try {
-        payload.value = String(payload.value);
-      } catch (_2) {}
-    if (typeof payload.value === "string")
-      return payload;
-    payload.issues.push({
-      expected: "string",
-      code: "invalid_type",
-      input: payload.value,
-      inst
-    });
-    return payload;
-  };
-});
-var $ZodStringFormat2 = /* @__PURE__ */ $constructor2("$ZodStringFormat", (inst, def) => {
-  $ZodCheckStringFormat2.init(inst, def);
-  $ZodString2.init(inst, def);
-});
-var $ZodGUID2 = /* @__PURE__ */ $constructor2("$ZodGUID", (inst, def) => {
-  def.pattern ?? (def.pattern = guid3);
-  $ZodStringFormat2.init(inst, def);
-});
-var $ZodUUID2 = /* @__PURE__ */ $constructor2("$ZodUUID", (inst, def) => {
-  if (def.version) {
-    const versionMap = {
-      v1: 1,
-      v2: 2,
-      v3: 3,
-      v4: 4,
-      v5: 5,
-      v6: 6,
-      v7: 7,
-      v8: 8
-    };
-    const v = versionMap[def.version];
-    if (v === undefined)
-      throw new Error(`Invalid UUID version: "${def.version}"`);
-    def.pattern ?? (def.pattern = uuid3(v));
-  } else
-    def.pattern ?? (def.pattern = uuid3());
-  $ZodStringFormat2.init(inst, def);
-});
-var $ZodEmail2 = /* @__PURE__ */ $constructor2("$ZodEmail", (inst, def) => {
-  def.pattern ?? (def.pattern = email3);
-  $ZodStringFormat2.init(inst, def);
-});
-var $ZodURL2 = /* @__PURE__ */ $constructor2("$ZodURL", (inst, def) => {
-  $ZodStringFormat2.init(inst, def);
-  inst._zod.check = (payload) => {
-    try {
-      const trimmed = payload.value.trim();
-      const url2 = new URL(trimmed);
-      if (def.hostname) {
-        def.hostname.lastIndex = 0;
-        if (!def.hostname.test(url2.hostname)) {
-          payload.issues.push({
-            code: "invalid_format",
-            format: "url",
-            note: "Invalid hostname",
-            pattern: hostname3.source,
-            input: payload.value,
-            inst,
-            continue: !def.abort
-          });
-        }
-      }
-      if (def.protocol) {
-        def.protocol.lastIndex = 0;
-        if (!def.protocol.test(url2.protocol.endsWith(":") ? url2.protocol.slice(0, -1) : url2.protocol)) {
-          payload.issues.push({
-            code: "invalid_format",
-            format: "url",
-            note: "Invalid protocol",
-            pattern: def.protocol.source,
-            input: payload.value,
-            inst,
-            continue: !def.abort
-          });
-        }
-      }
-      if (def.normalize) {
-        payload.value = url2.href;
-      } else {
-        payload.value = trimmed;
-      }
-      return;
-    } catch (_) {
-      payload.issues.push({
-        code: "invalid_format",
-        format: "url",
-        input: payload.value,
-        inst,
-        continue: !def.abort
-      });
-    }
-  };
-});
-var $ZodEmoji2 = /* @__PURE__ */ $constructor2("$ZodEmoji", (inst, def) => {
-  def.pattern ?? (def.pattern = emoji3());
-  $ZodStringFormat2.init(inst, def);
-});
-var $ZodNanoID2 = /* @__PURE__ */ $constructor2("$ZodNanoID", (inst, def) => {
-  def.pattern ?? (def.pattern = nanoid3);
-  $ZodStringFormat2.init(inst, def);
-});
-var $ZodCUID3 = /* @__PURE__ */ $constructor2("$ZodCUID", (inst, def) => {
-  def.pattern ?? (def.pattern = cuid5);
-  $ZodStringFormat2.init(inst, def);
-});
-var $ZodCUID22 = /* @__PURE__ */ $constructor2("$ZodCUID2", (inst, def) => {
-  def.pattern ?? (def.pattern = cuid23);
-  $ZodStringFormat2.init(inst, def);
-});
-var $ZodULID2 = /* @__PURE__ */ $constructor2("$ZodULID", (inst, def) => {
-  def.pattern ?? (def.pattern = ulid3);
-  $ZodStringFormat2.init(inst, def);
-});
-var $ZodXID2 = /* @__PURE__ */ $constructor2("$ZodXID", (inst, def) => {
-  def.pattern ?? (def.pattern = xid3);
-  $ZodStringFormat2.init(inst, def);
-});
-var $ZodKSUID2 = /* @__PURE__ */ $constructor2("$ZodKSUID", (inst, def) => {
-  def.pattern ?? (def.pattern = ksuid3);
-  $ZodStringFormat2.init(inst, def);
-});
-var $ZodISODateTime2 = /* @__PURE__ */ $constructor2("$ZodISODateTime", (inst, def) => {
-  def.pattern ?? (def.pattern = datetime3(def));
-  $ZodStringFormat2.init(inst, def);
-});
-var $ZodISODate2 = /* @__PURE__ */ $constructor2("$ZodISODate", (inst, def) => {
-  def.pattern ?? (def.pattern = date5);
-  $ZodStringFormat2.init(inst, def);
-});
-var $ZodISOTime2 = /* @__PURE__ */ $constructor2("$ZodISOTime", (inst, def) => {
-  def.pattern ?? (def.pattern = time3(def));
-  $ZodStringFormat2.init(inst, def);
-});
-var $ZodISODuration2 = /* @__PURE__ */ $constructor2("$ZodISODuration", (inst, def) => {
-  def.pattern ?? (def.pattern = duration3);
-  $ZodStringFormat2.init(inst, def);
-});
-var $ZodIPv42 = /* @__PURE__ */ $constructor2("$ZodIPv4", (inst, def) => {
-  def.pattern ?? (def.pattern = ipv43);
-  $ZodStringFormat2.init(inst, def);
-  inst._zod.onattach.push((inst2) => {
-    const bag = inst2._zod.bag;
-    bag.format = `ipv4`;
-  });
-});
-var $ZodIPv62 = /* @__PURE__ */ $constructor2("$ZodIPv6", (inst, def) => {
-  def.pattern ?? (def.pattern = ipv63);
-  $ZodStringFormat2.init(inst, def);
-  inst._zod.onattach.push((inst2) => {
-    const bag = inst2._zod.bag;
-    bag.format = `ipv6`;
-  });
-  inst._zod.check = (payload) => {
-    try {
-      new URL(`http://[${payload.value}]`);
-    } catch {
-      payload.issues.push({
-        code: "invalid_format",
-        format: "ipv6",
-        input: payload.value,
-        inst,
-        continue: !def.abort
-      });
-    }
-  };
-});
-var $ZodCIDRv42 = /* @__PURE__ */ $constructor2("$ZodCIDRv4", (inst, def) => {
-  def.pattern ?? (def.pattern = cidrv43);
-  $ZodStringFormat2.init(inst, def);
-});
-var $ZodCIDRv62 = /* @__PURE__ */ $constructor2("$ZodCIDRv6", (inst, def) => {
-  def.pattern ?? (def.pattern = cidrv63);
-  $ZodStringFormat2.init(inst, def);
-  inst._zod.check = (payload) => {
-    const parts = payload.value.split("/");
-    try {
-      if (parts.length !== 2)
-        throw new Error;
-      const [address, prefix] = parts;
-      if (!prefix)
-        throw new Error;
-      const prefixNum = Number(prefix);
-      if (`${prefixNum}` !== prefix)
-        throw new Error;
-      if (prefixNum < 0 || prefixNum > 128)
-        throw new Error;
-      new URL(`http://[${address}]`);
-    } catch {
-      payload.issues.push({
-        code: "invalid_format",
-        format: "cidrv6",
-        input: payload.value,
-        inst,
-        continue: !def.abort
-      });
-    }
-  };
-});
 function isValidBase642(data) {
   if (data === "")
     return true;
@@ -23997,24 +22425,6 @@ function isValidBase642(data) {
     return false;
   }
 }
-var $ZodBase642 = /* @__PURE__ */ $constructor2("$ZodBase64", (inst, def) => {
-  def.pattern ?? (def.pattern = base643);
-  $ZodStringFormat2.init(inst, def);
-  inst._zod.onattach.push((inst2) => {
-    inst2._zod.bag.contentEncoding = "base64";
-  });
-  inst._zod.check = (payload) => {
-    if (isValidBase642(payload.value))
-      return;
-    payload.issues.push({
-      code: "invalid_format",
-      format: "base64",
-      input: payload.value,
-      inst,
-      continue: !def.abort
-    });
-  };
-});
 function isValidBase64URL2(data) {
   if (!base64url3.test(data))
     return false;
@@ -24022,28 +22432,6 @@ function isValidBase64URL2(data) {
   const padded = base644.padEnd(Math.ceil(base644.length / 4) * 4, "=");
   return isValidBase642(padded);
 }
-var $ZodBase64URL2 = /* @__PURE__ */ $constructor2("$ZodBase64URL", (inst, def) => {
-  def.pattern ?? (def.pattern = base64url3);
-  $ZodStringFormat2.init(inst, def);
-  inst._zod.onattach.push((inst2) => {
-    inst2._zod.bag.contentEncoding = "base64url";
-  });
-  inst._zod.check = (payload) => {
-    if (isValidBase64URL2(payload.value))
-      return;
-    payload.issues.push({
-      code: "invalid_format",
-      format: "base64url",
-      input: payload.value,
-      inst,
-      continue: !def.abort
-    });
-  };
-});
-var $ZodE1642 = /* @__PURE__ */ $constructor2("$ZodE164", (inst, def) => {
-  def.pattern ?? (def.pattern = e1643);
-  $ZodStringFormat2.init(inst, def);
-});
 function isValidJWT2(token, algorithm = null) {
   try {
     const tokensParts = token.split(".");
@@ -24064,252 +22452,12 @@ function isValidJWT2(token, algorithm = null) {
     return false;
   }
 }
-var $ZodJWT2 = /* @__PURE__ */ $constructor2("$ZodJWT", (inst, def) => {
-  $ZodStringFormat2.init(inst, def);
-  inst._zod.check = (payload) => {
-    if (isValidJWT2(payload.value, def.alg))
-      return;
-    payload.issues.push({
-      code: "invalid_format",
-      format: "jwt",
-      input: payload.value,
-      inst,
-      continue: !def.abort
-    });
-  };
-});
-var $ZodCustomStringFormat2 = /* @__PURE__ */ $constructor2("$ZodCustomStringFormat", (inst, def) => {
-  $ZodStringFormat2.init(inst, def);
-  inst._zod.check = (payload) => {
-    if (def.fn(payload.value))
-      return;
-    payload.issues.push({
-      code: "invalid_format",
-      format: def.format,
-      input: payload.value,
-      inst,
-      continue: !def.abort
-    });
-  };
-});
-var $ZodNumber2 = /* @__PURE__ */ $constructor2("$ZodNumber", (inst, def) => {
-  $ZodType2.init(inst, def);
-  inst._zod.pattern = inst._zod.bag.pattern ?? number4;
-  inst._zod.parse = (payload, _ctx) => {
-    if (def.coerce)
-      try {
-        payload.value = Number(payload.value);
-      } catch (_) {}
-    const input = payload.value;
-    if (typeof input === "number" && !Number.isNaN(input) && Number.isFinite(input)) {
-      return payload;
-    }
-    const received = typeof input === "number" ? Number.isNaN(input) ? "NaN" : !Number.isFinite(input) ? "Infinity" : undefined : undefined;
-    payload.issues.push({
-      expected: "number",
-      code: "invalid_type",
-      input,
-      inst,
-      ...received ? { received } : {}
-    });
-    return payload;
-  };
-});
-var $ZodNumberFormat2 = /* @__PURE__ */ $constructor2("$ZodNumber", (inst, def) => {
-  $ZodCheckNumberFormat2.init(inst, def);
-  $ZodNumber2.init(inst, def);
-});
-var $ZodBoolean2 = /* @__PURE__ */ $constructor2("$ZodBoolean", (inst, def) => {
-  $ZodType2.init(inst, def);
-  inst._zod.pattern = boolean4;
-  inst._zod.parse = (payload, _ctx) => {
-    if (def.coerce)
-      try {
-        payload.value = Boolean(payload.value);
-      } catch (_) {}
-    const input = payload.value;
-    if (typeof input === "boolean")
-      return payload;
-    payload.issues.push({
-      expected: "boolean",
-      code: "invalid_type",
-      input,
-      inst
-    });
-    return payload;
-  };
-});
-var $ZodBigInt2 = /* @__PURE__ */ $constructor2("$ZodBigInt", (inst, def) => {
-  $ZodType2.init(inst, def);
-  inst._zod.pattern = bigint4;
-  inst._zod.parse = (payload, _ctx) => {
-    if (def.coerce)
-      try {
-        payload.value = BigInt(payload.value);
-      } catch (_) {}
-    if (typeof payload.value === "bigint")
-      return payload;
-    payload.issues.push({
-      expected: "bigint",
-      code: "invalid_type",
-      input: payload.value,
-      inst
-    });
-    return payload;
-  };
-});
-var $ZodBigIntFormat2 = /* @__PURE__ */ $constructor2("$ZodBigInt", (inst, def) => {
-  $ZodCheckBigIntFormat2.init(inst, def);
-  $ZodBigInt2.init(inst, def);
-});
-var $ZodSymbol2 = /* @__PURE__ */ $constructor2("$ZodSymbol", (inst, def) => {
-  $ZodType2.init(inst, def);
-  inst._zod.parse = (payload, _ctx) => {
-    const input = payload.value;
-    if (typeof input === "symbol")
-      return payload;
-    payload.issues.push({
-      expected: "symbol",
-      code: "invalid_type",
-      input,
-      inst
-    });
-    return payload;
-  };
-});
-var $ZodUndefined2 = /* @__PURE__ */ $constructor2("$ZodUndefined", (inst, def) => {
-  $ZodType2.init(inst, def);
-  inst._zod.pattern = _undefined4;
-  inst._zod.values = new Set([undefined]);
-  inst._zod.optin = "optional";
-  inst._zod.optout = "optional";
-  inst._zod.parse = (payload, _ctx) => {
-    const input = payload.value;
-    if (typeof input === "undefined")
-      return payload;
-    payload.issues.push({
-      expected: "undefined",
-      code: "invalid_type",
-      input,
-      inst
-    });
-    return payload;
-  };
-});
-var $ZodNull2 = /* @__PURE__ */ $constructor2("$ZodNull", (inst, def) => {
-  $ZodType2.init(inst, def);
-  inst._zod.pattern = _null4;
-  inst._zod.values = new Set([null]);
-  inst._zod.parse = (payload, _ctx) => {
-    const input = payload.value;
-    if (input === null)
-      return payload;
-    payload.issues.push({
-      expected: "null",
-      code: "invalid_type",
-      input,
-      inst
-    });
-    return payload;
-  };
-});
-var $ZodAny2 = /* @__PURE__ */ $constructor2("$ZodAny", (inst, def) => {
-  $ZodType2.init(inst, def);
-  inst._zod.parse = (payload) => payload;
-});
-var $ZodUnknown2 = /* @__PURE__ */ $constructor2("$ZodUnknown", (inst, def) => {
-  $ZodType2.init(inst, def);
-  inst._zod.parse = (payload) => payload;
-});
-var $ZodNever2 = /* @__PURE__ */ $constructor2("$ZodNever", (inst, def) => {
-  $ZodType2.init(inst, def);
-  inst._zod.parse = (payload, _ctx) => {
-    payload.issues.push({
-      expected: "never",
-      code: "invalid_type",
-      input: payload.value,
-      inst
-    });
-    return payload;
-  };
-});
-var $ZodVoid2 = /* @__PURE__ */ $constructor2("$ZodVoid", (inst, def) => {
-  $ZodType2.init(inst, def);
-  inst._zod.parse = (payload, _ctx) => {
-    const input = payload.value;
-    if (typeof input === "undefined")
-      return payload;
-    payload.issues.push({
-      expected: "void",
-      code: "invalid_type",
-      input,
-      inst
-    });
-    return payload;
-  };
-});
-var $ZodDate2 = /* @__PURE__ */ $constructor2("$ZodDate", (inst, def) => {
-  $ZodType2.init(inst, def);
-  inst._zod.parse = (payload, _ctx) => {
-    if (def.coerce) {
-      try {
-        payload.value = new Date(payload.value);
-      } catch (_err) {}
-    }
-    const input = payload.value;
-    const isDate = input instanceof Date;
-    const isValidDate = isDate && !Number.isNaN(input.getTime());
-    if (isValidDate)
-      return payload;
-    payload.issues.push({
-      expected: "date",
-      code: "invalid_type",
-      input,
-      ...isDate ? { received: "Invalid Date" } : {},
-      inst
-    });
-    return payload;
-  };
-});
 function handleArrayResult2(result, final, index) {
   if (result.issues.length) {
     final.issues.push(...prefixIssues2(index, result.issues));
   }
   final.value[index] = result.value;
 }
-var $ZodArray2 = /* @__PURE__ */ $constructor2("$ZodArray", (inst, def) => {
-  $ZodType2.init(inst, def);
-  inst._zod.parse = (payload, ctx) => {
-    const input = payload.value;
-    if (!Array.isArray(input)) {
-      payload.issues.push({
-        expected: "array",
-        code: "invalid_type",
-        input,
-        inst
-      });
-      return payload;
-    }
-    payload.value = Array(input.length);
-    const proms = [];
-    for (let i = 0;i < input.length; i++) {
-      const item = input[i];
-      const result = def.element._zod.run({
-        value: item,
-        issues: []
-      }, ctx);
-      if (result instanceof Promise) {
-        proms.push(result.then((result2) => handleArrayResult2(result2, payload, i)));
-      } else {
-        handleArrayResult2(result, payload, i);
-      }
-    }
-    if (proms.length) {
-      return Promise.all(proms).then(() => payload);
-    }
-    return payload;
-  };
-});
 function handlePropertyResult2(result, final, key, input) {
   if (result.issues.length) {
     final.issues.push(...prefixIssues2(key, result.issues));
@@ -24371,131 +22519,6 @@ function handleCatchall2(proms, input, payload, ctx, def, inst) {
     return payload;
   });
 }
-var $ZodObject2 = /* @__PURE__ */ $constructor2("$ZodObject", (inst, def) => {
-  $ZodType2.init(inst, def);
-  const _normalized = cached2(() => normalizeDef2(def));
-  defineLazy2(inst._zod, "propValues", () => {
-    const shape = def.shape;
-    const propValues = {};
-    for (const key in shape) {
-      const field = shape[key]._zod;
-      if (field.values) {
-        propValues[key] ?? (propValues[key] = new Set);
-        for (const v of field.values)
-          propValues[key].add(v);
-      }
-    }
-    return propValues;
-  });
-  const isObject3 = isObject2;
-  const catchall = def.catchall;
-  let value;
-  inst._zod.parse = (payload, ctx) => {
-    value ?? (value = _normalized.value);
-    const input = payload.value;
-    if (!isObject3(input)) {
-      payload.issues.push({
-        expected: "object",
-        code: "invalid_type",
-        input,
-        inst
-      });
-      return payload;
-    }
-    payload.value = {};
-    const proms = [];
-    const shape = value.shape;
-    for (const key of value.keys) {
-      const el = shape[key];
-      const r = el._zod.run({ value: input[key], issues: [] }, ctx);
-      if (r instanceof Promise) {
-        proms.push(r.then((r2) => handlePropertyResult2(r2, payload, key, input)));
-      } else {
-        handlePropertyResult2(r, payload, key, input);
-      }
-    }
-    if (!catchall) {
-      return proms.length ? Promise.all(proms).then(() => payload) : payload;
-    }
-    return handleCatchall2(proms, input, payload, ctx, _normalized.value, inst);
-  };
-});
-var $ZodObjectJIT2 = /* @__PURE__ */ $constructor2("$ZodObjectJIT", (inst, def) => {
-  $ZodObject2.init(inst, def);
-  const superParse = inst._zod.parse;
-  const _normalized = cached2(() => normalizeDef2(def));
-  const generateFastpass = (shape) => {
-    const doc2 = new Doc2(["shape", "payload", "ctx"]);
-    const normalized = _normalized.value;
-    const parseStr = (key) => {
-      const k = esc2(key);
-      return `shape[${k}]._zod.run({ value: input[${k}], issues: [] }, ctx)`;
-    };
-    doc2.write(`const input = payload.value;`);
-    const ids = Object.create(null);
-    let counter = 0;
-    for (const key of normalized.keys) {
-      ids[key] = `key_${counter++}`;
-    }
-    doc2.write(`const newResult = {};`);
-    for (const key of normalized.keys) {
-      const id = ids[key];
-      const k = esc2(key);
-      doc2.write(`const ${id} = ${parseStr(key)};`);
-      doc2.write(`
-        if (${id}.issues.length) {
-          payload.issues = payload.issues.concat(${id}.issues.map(iss => ({
-            ...iss,
-            path: iss.path ? [${k}, ...iss.path] : [${k}]
-          })));
-        }
-        
-        
-        if (${id}.value === undefined) {
-          if (${k} in input) {
-            newResult[${k}] = undefined;
-          }
-        } else {
-          newResult[${k}] = ${id}.value;
-        }
-        
-      `);
-    }
-    doc2.write(`payload.value = newResult;`);
-    doc2.write(`return payload;`);
-    const fn = doc2.compile();
-    return (payload, ctx) => fn(shape, payload, ctx);
-  };
-  let fastpass;
-  const isObject3 = isObject2;
-  const jit = !globalConfig2.jitless;
-  const allowsEval3 = allowsEval2;
-  const fastEnabled = jit && allowsEval3.value;
-  const catchall = def.catchall;
-  let value;
-  inst._zod.parse = (payload, ctx) => {
-    value ?? (value = _normalized.value);
-    const input = payload.value;
-    if (!isObject3(input)) {
-      payload.issues.push({
-        expected: "object",
-        code: "invalid_type",
-        input,
-        inst
-      });
-      return payload;
-    }
-    if (jit && fastEnabled && ctx?.async === false && ctx.jitless !== true) {
-      if (!fastpass)
-        fastpass = generateFastpass(def.shape);
-      payload = fastpass(payload, ctx);
-      if (!catchall)
-        return payload;
-      return handleCatchall2([], input, payload, ctx, value, inst);
-    }
-    return superParse(payload, ctx);
-  };
-});
 function handleUnionResults2(results, final, inst, ctx) {
   for (const result of results) {
     if (result.issues.length === 0) {
@@ -24516,132 +22539,6 @@ function handleUnionResults2(results, final, inst, ctx) {
   });
   return final;
 }
-var $ZodUnion2 = /* @__PURE__ */ $constructor2("$ZodUnion", (inst, def) => {
-  $ZodType2.init(inst, def);
-  defineLazy2(inst._zod, "optin", () => def.options.some((o) => o._zod.optin === "optional") ? "optional" : undefined);
-  defineLazy2(inst._zod, "optout", () => def.options.some((o) => o._zod.optout === "optional") ? "optional" : undefined);
-  defineLazy2(inst._zod, "values", () => {
-    if (def.options.every((o) => o._zod.values)) {
-      return new Set(def.options.flatMap((option) => Array.from(option._zod.values)));
-    }
-    return;
-  });
-  defineLazy2(inst._zod, "pattern", () => {
-    if (def.options.every((o) => o._zod.pattern)) {
-      const patterns = def.options.map((o) => o._zod.pattern);
-      return new RegExp(`^(${patterns.map((p) => cleanRegex2(p.source)).join("|")})$`);
-    }
-    return;
-  });
-  const single = def.options.length === 1;
-  const first = def.options[0]._zod.run;
-  inst._zod.parse = (payload, ctx) => {
-    if (single) {
-      return first(payload, ctx);
-    }
-    let async = false;
-    const results = [];
-    for (const option of def.options) {
-      const result = option._zod.run({
-        value: payload.value,
-        issues: []
-      }, ctx);
-      if (result instanceof Promise) {
-        results.push(result);
-        async = true;
-      } else {
-        if (result.issues.length === 0)
-          return result;
-        results.push(result);
-      }
-    }
-    if (!async)
-      return handleUnionResults2(results, payload, inst, ctx);
-    return Promise.all(results).then((results2) => {
-      return handleUnionResults2(results2, payload, inst, ctx);
-    });
-  };
-});
-var $ZodDiscriminatedUnion2 = /* @__PURE__ */ $constructor2("$ZodDiscriminatedUnion", (inst, def) => {
-  $ZodUnion2.init(inst, def);
-  const _super = inst._zod.parse;
-  defineLazy2(inst._zod, "propValues", () => {
-    const propValues = {};
-    for (const option of def.options) {
-      const pv = option._zod.propValues;
-      if (!pv || Object.keys(pv).length === 0)
-        throw new Error(`Invalid discriminated union option at index "${def.options.indexOf(option)}"`);
-      for (const [k, v] of Object.entries(pv)) {
-        if (!propValues[k])
-          propValues[k] = new Set;
-        for (const val of v) {
-          propValues[k].add(val);
-        }
-      }
-    }
-    return propValues;
-  });
-  const disc = cached2(() => {
-    const opts = def.options;
-    const map2 = new Map;
-    for (const o of opts) {
-      const values = o._zod.propValues?.[def.discriminator];
-      if (!values || values.size === 0)
-        throw new Error(`Invalid discriminated union option at index "${def.options.indexOf(o)}"`);
-      for (const v of values) {
-        if (map2.has(v)) {
-          throw new Error(`Duplicate discriminator value "${String(v)}"`);
-        }
-        map2.set(v, o);
-      }
-    }
-    return map2;
-  });
-  inst._zod.parse = (payload, ctx) => {
-    const input = payload.value;
-    if (!isObject2(input)) {
-      payload.issues.push({
-        code: "invalid_type",
-        expected: "object",
-        input,
-        inst
-      });
-      return payload;
-    }
-    const opt = disc.value.get(input?.[def.discriminator]);
-    if (opt) {
-      return opt._zod.run(payload, ctx);
-    }
-    if (def.unionFallback) {
-      return _super(payload, ctx);
-    }
-    payload.issues.push({
-      code: "invalid_union",
-      errors: [],
-      note: "No matching discriminator",
-      discriminator: def.discriminator,
-      input,
-      path: [def.discriminator],
-      inst
-    });
-    return payload;
-  };
-});
-var $ZodIntersection2 = /* @__PURE__ */ $constructor2("$ZodIntersection", (inst, def) => {
-  $ZodType2.init(inst, def);
-  inst._zod.parse = (payload, ctx) => {
-    const input = payload.value;
-    const left = def.left._zod.run({ value: input, issues: [] }, ctx);
-    const right = def.right._zod.run({ value: input, issues: [] }, ctx);
-    const async = left instanceof Promise || right instanceof Promise;
-    if (async) {
-      return Promise.all([left, right]).then(([left2, right2]) => {
-        return handleIntersectionResults2(payload, left2, right2);
-      });
-    }
-    return handleIntersectionResults2(payload, left, right);
-  };
-});
 function mergeValues2(a, b) {
   if (a === b) {
     return { valid: true, data: a };
@@ -24702,203 +22599,12 @@ function handleIntersectionResults2(result, left, right) {
   result.value = merged.data;
   return result;
 }
-var $ZodTuple2 = /* @__PURE__ */ $constructor2("$ZodTuple", (inst, def) => {
-  $ZodType2.init(inst, def);
-  const items = def.items;
-  const optStart = items.length - [...items].reverse().findIndex((item) => item._zod.optin !== "optional");
-  inst._zod.parse = (payload, ctx) => {
-    const input = payload.value;
-    if (!Array.isArray(input)) {
-      payload.issues.push({
-        input,
-        inst,
-        expected: "tuple",
-        code: "invalid_type"
-      });
-      return payload;
-    }
-    payload.value = [];
-    const proms = [];
-    if (!def.rest) {
-      const tooBig = input.length > items.length;
-      const tooSmall = input.length < optStart - 1;
-      if (tooBig || tooSmall) {
-        payload.issues.push({
-          ...tooBig ? { code: "too_big", maximum: items.length } : { code: "too_small", minimum: items.length },
-          input,
-          inst,
-          origin: "array"
-        });
-        return payload;
-      }
-    }
-    let i = -1;
-    for (const item of items) {
-      i++;
-      if (i >= input.length) {
-        if (i >= optStart)
-          continue;
-      }
-      const result = item._zod.run({
-        value: input[i],
-        issues: []
-      }, ctx);
-      if (result instanceof Promise) {
-        proms.push(result.then((result2) => handleTupleResult2(result2, payload, i)));
-      } else {
-        handleTupleResult2(result, payload, i);
-      }
-    }
-    if (def.rest) {
-      const rest = input.slice(items.length);
-      for (const el of rest) {
-        i++;
-        const result = def.rest._zod.run({
-          value: el,
-          issues: []
-        }, ctx);
-        if (result instanceof Promise) {
-          proms.push(result.then((result2) => handleTupleResult2(result2, payload, i)));
-        } else {
-          handleTupleResult2(result, payload, i);
-        }
-      }
-    }
-    if (proms.length)
-      return Promise.all(proms).then(() => payload);
-    return payload;
-  };
-});
 function handleTupleResult2(result, final, index) {
   if (result.issues.length) {
     final.issues.push(...prefixIssues2(index, result.issues));
   }
   final.value[index] = result.value;
 }
-var $ZodRecord2 = /* @__PURE__ */ $constructor2("$ZodRecord", (inst, def) => {
-  $ZodType2.init(inst, def);
-  inst._zod.parse = (payload, ctx) => {
-    const input = payload.value;
-    if (!isPlainObject2(input)) {
-      payload.issues.push({
-        expected: "record",
-        code: "invalid_type",
-        input,
-        inst
-      });
-      return payload;
-    }
-    const proms = [];
-    if (def.keyType._zod.values) {
-      const values = def.keyType._zod.values;
-      payload.value = {};
-      for (const key of values) {
-        if (typeof key === "string" || typeof key === "number" || typeof key === "symbol") {
-          const result = def.valueType._zod.run({ value: input[key], issues: [] }, ctx);
-          if (result instanceof Promise) {
-            proms.push(result.then((result2) => {
-              if (result2.issues.length) {
-                payload.issues.push(...prefixIssues2(key, result2.issues));
-              }
-              payload.value[key] = result2.value;
-            }));
-          } else {
-            if (result.issues.length) {
-              payload.issues.push(...prefixIssues2(key, result.issues));
-            }
-            payload.value[key] = result.value;
-          }
-        }
-      }
-      let unrecognized;
-      for (const key in input) {
-        if (!values.has(key)) {
-          unrecognized = unrecognized ?? [];
-          unrecognized.push(key);
-        }
-      }
-      if (unrecognized && unrecognized.length > 0) {
-        payload.issues.push({
-          code: "unrecognized_keys",
-          input,
-          inst,
-          keys: unrecognized
-        });
-      }
-    } else {
-      payload.value = {};
-      for (const key of Reflect.ownKeys(input)) {
-        if (key === "__proto__")
-          continue;
-        const keyResult = def.keyType._zod.run({ value: key, issues: [] }, ctx);
-        if (keyResult instanceof Promise) {
-          throw new Error("Async schemas not supported in object keys currently");
-        }
-        if (keyResult.issues.length) {
-          payload.issues.push({
-            code: "invalid_key",
-            origin: "record",
-            issues: keyResult.issues.map((iss) => finalizeIssue2(iss, ctx, config2())),
-            input: key,
-            path: [key],
-            inst
-          });
-          payload.value[keyResult.value] = keyResult.value;
-          continue;
-        }
-        const result = def.valueType._zod.run({ value: input[key], issues: [] }, ctx);
-        if (result instanceof Promise) {
-          proms.push(result.then((result2) => {
-            if (result2.issues.length) {
-              payload.issues.push(...prefixIssues2(key, result2.issues));
-            }
-            payload.value[keyResult.value] = result2.value;
-          }));
-        } else {
-          if (result.issues.length) {
-            payload.issues.push(...prefixIssues2(key, result.issues));
-          }
-          payload.value[keyResult.value] = result.value;
-        }
-      }
-    }
-    if (proms.length) {
-      return Promise.all(proms).then(() => payload);
-    }
-    return payload;
-  };
-});
-var $ZodMap2 = /* @__PURE__ */ $constructor2("$ZodMap", (inst, def) => {
-  $ZodType2.init(inst, def);
-  inst._zod.parse = (payload, ctx) => {
-    const input = payload.value;
-    if (!(input instanceof Map)) {
-      payload.issues.push({
-        expected: "map",
-        code: "invalid_type",
-        input,
-        inst
-      });
-      return payload;
-    }
-    const proms = [];
-    payload.value = new Map;
-    for (const [key, value] of input) {
-      const keyResult = def.keyType._zod.run({ value: key, issues: [] }, ctx);
-      const valueResult = def.valueType._zod.run({ value, issues: [] }, ctx);
-      if (keyResult instanceof Promise || valueResult instanceof Promise) {
-        proms.push(Promise.all([keyResult, valueResult]).then(([keyResult2, valueResult2]) => {
-          handleMapResult2(keyResult2, valueResult2, payload, key, input, inst, ctx);
-        }));
-      } else {
-        handleMapResult2(keyResult, valueResult, payload, key, input, inst, ctx);
-      }
-    }
-    if (proms.length)
-      return Promise.all(proms).then(() => payload);
-    return payload;
-  };
-});
 function handleMapResult2(keyResult, valueResult, final, key, input, inst, ctx) {
   if (keyResult.issues.length) {
     if (propertyKeyTypes2.has(typeof key)) {
@@ -24929,216 +22635,24 @@ function handleMapResult2(keyResult, valueResult, final, key, input, inst, ctx) 
   }
   final.value.set(keyResult.value, valueResult.value);
 }
-var $ZodSet2 = /* @__PURE__ */ $constructor2("$ZodSet", (inst, def) => {
-  $ZodType2.init(inst, def);
-  inst._zod.parse = (payload, ctx) => {
-    const input = payload.value;
-    if (!(input instanceof Set)) {
-      payload.issues.push({
-        input,
-        inst,
-        expected: "set",
-        code: "invalid_type"
-      });
-      return payload;
-    }
-    const proms = [];
-    payload.value = new Set;
-    for (const item of input) {
-      const result = def.valueType._zod.run({ value: item, issues: [] }, ctx);
-      if (result instanceof Promise) {
-        proms.push(result.then((result2) => handleSetResult2(result2, payload)));
-      } else
-        handleSetResult2(result, payload);
-    }
-    if (proms.length)
-      return Promise.all(proms).then(() => payload);
-    return payload;
-  };
-});
 function handleSetResult2(result, final) {
   if (result.issues.length) {
     final.issues.push(...result.issues);
   }
   final.value.add(result.value);
 }
-var $ZodEnum2 = /* @__PURE__ */ $constructor2("$ZodEnum", (inst, def) => {
-  $ZodType2.init(inst, def);
-  const values = getEnumValues2(def.entries);
-  const valuesSet = new Set(values);
-  inst._zod.values = valuesSet;
-  inst._zod.pattern = new RegExp(`^(${values.filter((k) => propertyKeyTypes2.has(typeof k)).map((o) => typeof o === "string" ? escapeRegex3(o) : o.toString()).join("|")})$`);
-  inst._zod.parse = (payload, _ctx) => {
-    const input = payload.value;
-    if (valuesSet.has(input)) {
-      return payload;
-    }
-    payload.issues.push({
-      code: "invalid_value",
-      values,
-      input,
-      inst
-    });
-    return payload;
-  };
-});
-var $ZodLiteral2 = /* @__PURE__ */ $constructor2("$ZodLiteral", (inst, def) => {
-  $ZodType2.init(inst, def);
-  if (def.values.length === 0) {
-    throw new Error("Cannot create literal schema with no valid values");
-  }
-  inst._zod.values = new Set(def.values);
-  inst._zod.pattern = new RegExp(`^(${def.values.map((o) => typeof o === "string" ? escapeRegex3(o) : o ? escapeRegex3(o.toString()) : String(o)).join("|")})$`);
-  inst._zod.parse = (payload, _ctx) => {
-    const input = payload.value;
-    if (inst._zod.values.has(input)) {
-      return payload;
-    }
-    payload.issues.push({
-      code: "invalid_value",
-      values: def.values,
-      input,
-      inst
-    });
-    return payload;
-  };
-});
-var $ZodFile2 = /* @__PURE__ */ $constructor2("$ZodFile", (inst, def) => {
-  $ZodType2.init(inst, def);
-  inst._zod.parse = (payload, _ctx) => {
-    const input = payload.value;
-    if (input instanceof File)
-      return payload;
-    payload.issues.push({
-      expected: "file",
-      code: "invalid_type",
-      input,
-      inst
-    });
-    return payload;
-  };
-});
-var $ZodTransform2 = /* @__PURE__ */ $constructor2("$ZodTransform", (inst, def) => {
-  $ZodType2.init(inst, def);
-  inst._zod.parse = (payload, ctx) => {
-    if (ctx.direction === "backward") {
-      throw new $ZodEncodeError2(inst.constructor.name);
-    }
-    const _out = def.transform(payload.value, payload);
-    if (ctx.async) {
-      const output = _out instanceof Promise ? _out : Promise.resolve(_out);
-      return output.then((output2) => {
-        payload.value = output2;
-        return payload;
-      });
-    }
-    if (_out instanceof Promise) {
-      throw new $ZodAsyncError2;
-    }
-    payload.value = _out;
-    return payload;
-  };
-});
 function handleOptionalResult2(result, input) {
   if (result.issues.length && input === undefined) {
     return { issues: [], value: undefined };
   }
   return result;
 }
-var $ZodOptional2 = /* @__PURE__ */ $constructor2("$ZodOptional", (inst, def) => {
-  $ZodType2.init(inst, def);
-  inst._zod.optin = "optional";
-  inst._zod.optout = "optional";
-  defineLazy2(inst._zod, "values", () => {
-    return def.innerType._zod.values ? new Set([...def.innerType._zod.values, undefined]) : undefined;
-  });
-  defineLazy2(inst._zod, "pattern", () => {
-    const pattern = def.innerType._zod.pattern;
-    return pattern ? new RegExp(`^(${cleanRegex2(pattern.source)})?$`) : undefined;
-  });
-  inst._zod.parse = (payload, ctx) => {
-    if (def.innerType._zod.optin === "optional") {
-      const result = def.innerType._zod.run(payload, ctx);
-      if (result instanceof Promise)
-        return result.then((r) => handleOptionalResult2(r, payload.value));
-      return handleOptionalResult2(result, payload.value);
-    }
-    if (payload.value === undefined) {
-      return payload;
-    }
-    return def.innerType._zod.run(payload, ctx);
-  };
-});
-var $ZodNullable2 = /* @__PURE__ */ $constructor2("$ZodNullable", (inst, def) => {
-  $ZodType2.init(inst, def);
-  defineLazy2(inst._zod, "optin", () => def.innerType._zod.optin);
-  defineLazy2(inst._zod, "optout", () => def.innerType._zod.optout);
-  defineLazy2(inst._zod, "pattern", () => {
-    const pattern = def.innerType._zod.pattern;
-    return pattern ? new RegExp(`^(${cleanRegex2(pattern.source)}|null)$`) : undefined;
-  });
-  defineLazy2(inst._zod, "values", () => {
-    return def.innerType._zod.values ? new Set([...def.innerType._zod.values, null]) : undefined;
-  });
-  inst._zod.parse = (payload, ctx) => {
-    if (payload.value === null)
-      return payload;
-    return def.innerType._zod.run(payload, ctx);
-  };
-});
-var $ZodDefault2 = /* @__PURE__ */ $constructor2("$ZodDefault", (inst, def) => {
-  $ZodType2.init(inst, def);
-  inst._zod.optin = "optional";
-  defineLazy2(inst._zod, "values", () => def.innerType._zod.values);
-  inst._zod.parse = (payload, ctx) => {
-    if (ctx.direction === "backward") {
-      return def.innerType._zod.run(payload, ctx);
-    }
-    if (payload.value === undefined) {
-      payload.value = def.defaultValue;
-      return payload;
-    }
-    const result = def.innerType._zod.run(payload, ctx);
-    if (result instanceof Promise) {
-      return result.then((result2) => handleDefaultResult2(result2, def));
-    }
-    return handleDefaultResult2(result, def);
-  };
-});
 function handleDefaultResult2(payload, def) {
   if (payload.value === undefined) {
     payload.value = def.defaultValue;
   }
   return payload;
 }
-var $ZodPrefault2 = /* @__PURE__ */ $constructor2("$ZodPrefault", (inst, def) => {
-  $ZodType2.init(inst, def);
-  inst._zod.optin = "optional";
-  defineLazy2(inst._zod, "values", () => def.innerType._zod.values);
-  inst._zod.parse = (payload, ctx) => {
-    if (ctx.direction === "backward") {
-      return def.innerType._zod.run(payload, ctx);
-    }
-    if (payload.value === undefined) {
-      payload.value = def.defaultValue;
-    }
-    return def.innerType._zod.run(payload, ctx);
-  };
-});
-var $ZodNonOptional2 = /* @__PURE__ */ $constructor2("$ZodNonOptional", (inst, def) => {
-  $ZodType2.init(inst, def);
-  defineLazy2(inst._zod, "values", () => {
-    const v = def.innerType._zod.values;
-    return v ? new Set([...v].filter((x) => x !== undefined)) : undefined;
-  });
-  inst._zod.parse = (payload, ctx) => {
-    const result = def.innerType._zod.run(payload, ctx);
-    if (result instanceof Promise) {
-      return result.then((result2) => handleNonOptionalResult2(result2, inst));
-    }
-    return handleNonOptionalResult2(result, inst);
-  };
-});
 function handleNonOptionalResult2(payload, inst) {
   if (!payload.issues.length && payload.value === undefined) {
     payload.issues.push({
@@ -25150,99 +22664,6 @@ function handleNonOptionalResult2(payload, inst) {
   }
   return payload;
 }
-var $ZodSuccess2 = /* @__PURE__ */ $constructor2("$ZodSuccess", (inst, def) => {
-  $ZodType2.init(inst, def);
-  inst._zod.parse = (payload, ctx) => {
-    if (ctx.direction === "backward") {
-      throw new $ZodEncodeError2("ZodSuccess");
-    }
-    const result = def.innerType._zod.run(payload, ctx);
-    if (result instanceof Promise) {
-      return result.then((result2) => {
-        payload.value = result2.issues.length === 0;
-        return payload;
-      });
-    }
-    payload.value = result.issues.length === 0;
-    return payload;
-  };
-});
-var $ZodCatch2 = /* @__PURE__ */ $constructor2("$ZodCatch", (inst, def) => {
-  $ZodType2.init(inst, def);
-  defineLazy2(inst._zod, "optin", () => def.innerType._zod.optin);
-  defineLazy2(inst._zod, "optout", () => def.innerType._zod.optout);
-  defineLazy2(inst._zod, "values", () => def.innerType._zod.values);
-  inst._zod.parse = (payload, ctx) => {
-    if (ctx.direction === "backward") {
-      return def.innerType._zod.run(payload, ctx);
-    }
-    const result = def.innerType._zod.run(payload, ctx);
-    if (result instanceof Promise) {
-      return result.then((result2) => {
-        payload.value = result2.value;
-        if (result2.issues.length) {
-          payload.value = def.catchValue({
-            ...payload,
-            error: {
-              issues: result2.issues.map((iss) => finalizeIssue2(iss, ctx, config2()))
-            },
-            input: payload.value
-          });
-          payload.issues = [];
-        }
-        return payload;
-      });
-    }
-    payload.value = result.value;
-    if (result.issues.length) {
-      payload.value = def.catchValue({
-        ...payload,
-        error: {
-          issues: result.issues.map((iss) => finalizeIssue2(iss, ctx, config2()))
-        },
-        input: payload.value
-      });
-      payload.issues = [];
-    }
-    return payload;
-  };
-});
-var $ZodNaN2 = /* @__PURE__ */ $constructor2("$ZodNaN", (inst, def) => {
-  $ZodType2.init(inst, def);
-  inst._zod.parse = (payload, _ctx) => {
-    if (typeof payload.value !== "number" || !Number.isNaN(payload.value)) {
-      payload.issues.push({
-        input: payload.value,
-        inst,
-        expected: "nan",
-        code: "invalid_type"
-      });
-      return payload;
-    }
-    return payload;
-  };
-});
-var $ZodPipe2 = /* @__PURE__ */ $constructor2("$ZodPipe", (inst, def) => {
-  $ZodType2.init(inst, def);
-  defineLazy2(inst._zod, "values", () => def.in._zod.values);
-  defineLazy2(inst._zod, "optin", () => def.in._zod.optin);
-  defineLazy2(inst._zod, "optout", () => def.out._zod.optout);
-  defineLazy2(inst._zod, "propValues", () => def.in._zod.propValues);
-  inst._zod.parse = (payload, ctx) => {
-    if (ctx.direction === "backward") {
-      const right = def.out._zod.run(payload, ctx);
-      if (right instanceof Promise) {
-        return right.then((right2) => handlePipeResult2(right2, def.in, ctx));
-      }
-      return handlePipeResult2(right, def.in, ctx);
-    }
-    const left = def.in._zod.run(payload, ctx);
-    if (left instanceof Promise) {
-      return left.then((left2) => handlePipeResult2(left2, def.out, ctx));
-    }
-    return handlePipeResult2(left, def.out, ctx);
-  };
-});
 function handlePipeResult2(left, next, ctx) {
   if (left.issues.length) {
     left.aborted = true;
@@ -25250,29 +22671,6 @@ function handlePipeResult2(left, next, ctx) {
   }
   return next._zod.run({ value: left.value, issues: left.issues }, ctx);
 }
-var $ZodCodec2 = /* @__PURE__ */ $constructor2("$ZodCodec", (inst, def) => {
-  $ZodType2.init(inst, def);
-  defineLazy2(inst._zod, "values", () => def.in._zod.values);
-  defineLazy2(inst._zod, "optin", () => def.in._zod.optin);
-  defineLazy2(inst._zod, "optout", () => def.out._zod.optout);
-  defineLazy2(inst._zod, "propValues", () => def.in._zod.propValues);
-  inst._zod.parse = (payload, ctx) => {
-    const direction = ctx.direction || "forward";
-    if (direction === "forward") {
-      const left = def.in._zod.run(payload, ctx);
-      if (left instanceof Promise) {
-        return left.then((left2) => handleCodecAResult2(left2, def, ctx));
-      }
-      return handleCodecAResult2(left, def, ctx);
-    } else {
-      const right = def.out._zod.run(payload, ctx);
-      if (right instanceof Promise) {
-        return right.then((right2) => handleCodecAResult2(right2, def, ctx));
-      }
-      return handleCodecAResult2(right, def, ctx);
-    }
-  };
-});
 function handleCodecAResult2(result, def, ctx) {
   if (result.issues.length) {
     result.aborted = true;
@@ -25300,183 +22698,10 @@ function handleCodecTxResult2(left, value, nextSchema, ctx) {
   }
   return nextSchema._zod.run({ value, issues: left.issues }, ctx);
 }
-var $ZodReadonly2 = /* @__PURE__ */ $constructor2("$ZodReadonly", (inst, def) => {
-  $ZodType2.init(inst, def);
-  defineLazy2(inst._zod, "propValues", () => def.innerType._zod.propValues);
-  defineLazy2(inst._zod, "values", () => def.innerType._zod.values);
-  defineLazy2(inst._zod, "optin", () => def.innerType._zod.optin);
-  defineLazy2(inst._zod, "optout", () => def.innerType._zod.optout);
-  inst._zod.parse = (payload, ctx) => {
-    if (ctx.direction === "backward") {
-      return def.innerType._zod.run(payload, ctx);
-    }
-    const result = def.innerType._zod.run(payload, ctx);
-    if (result instanceof Promise) {
-      return result.then(handleReadonlyResult2);
-    }
-    return handleReadonlyResult2(result);
-  };
-});
 function handleReadonlyResult2(payload) {
   payload.value = Object.freeze(payload.value);
   return payload;
 }
-var $ZodTemplateLiteral2 = /* @__PURE__ */ $constructor2("$ZodTemplateLiteral", (inst, def) => {
-  $ZodType2.init(inst, def);
-  const regexParts = [];
-  for (const part of def.parts) {
-    if (typeof part === "object" && part !== null) {
-      if (!part._zod.pattern) {
-        throw new Error(`Invalid template literal part, no pattern found: ${[...part._zod.traits].shift()}`);
-      }
-      const source = part._zod.pattern instanceof RegExp ? part._zod.pattern.source : part._zod.pattern;
-      if (!source)
-        throw new Error(`Invalid template literal part: ${part._zod.traits}`);
-      const start = source.startsWith("^") ? 1 : 0;
-      const end = source.endsWith("$") ? source.length - 1 : source.length;
-      regexParts.push(source.slice(start, end));
-    } else if (part === null || primitiveTypes2.has(typeof part)) {
-      regexParts.push(escapeRegex3(`${part}`));
-    } else {
-      throw new Error(`Invalid template literal part: ${part}`);
-    }
-  }
-  inst._zod.pattern = new RegExp(`^${regexParts.join("")}$`);
-  inst._zod.parse = (payload, _ctx) => {
-    if (typeof payload.value !== "string") {
-      payload.issues.push({
-        input: payload.value,
-        inst,
-        expected: "template_literal",
-        code: "invalid_type"
-      });
-      return payload;
-    }
-    inst._zod.pattern.lastIndex = 0;
-    if (!inst._zod.pattern.test(payload.value)) {
-      payload.issues.push({
-        input: payload.value,
-        inst,
-        code: "invalid_format",
-        format: def.format ?? "template_literal",
-        pattern: inst._zod.pattern.source
-      });
-      return payload;
-    }
-    return payload;
-  };
-});
-var $ZodFunction2 = /* @__PURE__ */ $constructor2("$ZodFunction", (inst, def) => {
-  $ZodType2.init(inst, def);
-  inst._def = def;
-  inst._zod.def = def;
-  inst.implement = (func) => {
-    if (typeof func !== "function") {
-      throw new Error("implement() must be called with a function");
-    }
-    return function(...args) {
-      const parsedArgs = inst._def.input ? parse5(inst._def.input, args) : args;
-      const result = Reflect.apply(func, this, parsedArgs);
-      if (inst._def.output) {
-        return parse5(inst._def.output, result);
-      }
-      return result;
-    };
-  };
-  inst.implementAsync = (func) => {
-    if (typeof func !== "function") {
-      throw new Error("implementAsync() must be called with a function");
-    }
-    return async function(...args) {
-      const parsedArgs = inst._def.input ? await parseAsync3(inst._def.input, args) : args;
-      const result = await Reflect.apply(func, this, parsedArgs);
-      if (inst._def.output) {
-        return await parseAsync3(inst._def.output, result);
-      }
-      return result;
-    };
-  };
-  inst._zod.parse = (payload, _ctx) => {
-    if (typeof payload.value !== "function") {
-      payload.issues.push({
-        code: "invalid_type",
-        expected: "function",
-        input: payload.value,
-        inst
-      });
-      return payload;
-    }
-    const hasPromiseOutput = inst._def.output && inst._def.output._zod.def.type === "promise";
-    if (hasPromiseOutput) {
-      payload.value = inst.implementAsync(payload.value);
-    } else {
-      payload.value = inst.implement(payload.value);
-    }
-    return payload;
-  };
-  inst.input = (...args) => {
-    const F = inst.constructor;
-    if (Array.isArray(args[0])) {
-      return new F({
-        type: "function",
-        input: new $ZodTuple2({
-          type: "tuple",
-          items: args[0],
-          rest: args[1]
-        }),
-        output: inst._def.output
-      });
-    }
-    return new F({
-      type: "function",
-      input: args[0],
-      output: inst._def.output
-    });
-  };
-  inst.output = (output) => {
-    const F = inst.constructor;
-    return new F({
-      type: "function",
-      input: inst._def.input,
-      output
-    });
-  };
-  return inst;
-});
-var $ZodPromise2 = /* @__PURE__ */ $constructor2("$ZodPromise", (inst, def) => {
-  $ZodType2.init(inst, def);
-  inst._zod.parse = (payload, ctx) => {
-    return Promise.resolve(payload.value).then((inner) => def.innerType._zod.run({ value: inner, issues: [] }, ctx));
-  };
-});
-var $ZodLazy2 = /* @__PURE__ */ $constructor2("$ZodLazy", (inst, def) => {
-  $ZodType2.init(inst, def);
-  defineLazy2(inst._zod, "innerType", () => def.getter());
-  defineLazy2(inst._zod, "pattern", () => inst._zod.innerType._zod.pattern);
-  defineLazy2(inst._zod, "propValues", () => inst._zod.innerType._zod.propValues);
-  defineLazy2(inst._zod, "optin", () => inst._zod.innerType._zod.optin ?? undefined);
-  defineLazy2(inst._zod, "optout", () => inst._zod.innerType._zod.optout ?? undefined);
-  inst._zod.parse = (payload, ctx) => {
-    const inner = inst._zod.innerType;
-    return inner._zod.run(payload, ctx);
-  };
-});
-var $ZodCustom2 = /* @__PURE__ */ $constructor2("$ZodCustom", (inst, def) => {
-  $ZodCheck2.init(inst, def);
-  $ZodType2.init(inst, def);
-  inst._zod.parse = (payload, _) => {
-    return payload;
-  };
-  inst._zod.check = (payload) => {
-    const input = payload.value;
-    const r = def.fn(input);
-    if (r instanceof Promise) {
-      return r.then((r2) => handleRefineResult2(r2, payload, input, inst));
-    }
-    handleRefineResult2(r, payload, input, inst);
-    return;
-  };
-});
 function handleRefineResult2(result, payload, input, inst) {
   if (!result) {
     const _iss = {
@@ -25491,58 +22716,1542 @@ function handleRefineResult2(result, payload, input, inst) {
     payload.issues.push(issue2(_iss));
   }
 }
-// node_modules/@opencode-ai/plugin/node_modules/zod/v4/locales/index.js
-var exports_locales2 = {};
-__export(exports_locales2, {
-  zhTW: () => zh_TW_default2,
-  zhCN: () => zh_CN_default2,
-  yo: () => yo_default2,
-  vi: () => vi_default2,
-  ur: () => ur_default2,
-  uk: () => uk_default2,
-  ua: () => ua_default2,
-  tr: () => tr_default2,
-  th: () => th_default2,
-  ta: () => ta_default2,
-  sv: () => sv_default2,
-  sl: () => sl_default2,
-  ru: () => ru_default2,
-  pt: () => pt_default2,
-  ps: () => ps_default2,
-  pl: () => pl_default2,
-  ota: () => ota_default2,
-  no: () => no_default2,
-  nl: () => nl_default2,
-  ms: () => ms_default2,
-  mk: () => mk_default2,
-  lt: () => lt_default2,
-  ko: () => ko_default2,
-  km: () => km_default2,
-  kh: () => kh_default2,
-  ka: () => ka_default2,
-  ja: () => ja_default2,
-  it: () => it_default2,
-  is: () => is_default2,
-  id: () => id_default2,
-  hu: () => hu_default2,
-  he: () => he_default2,
-  frCA: () => fr_CA_default2,
-  fr: () => fr_default2,
-  fi: () => fi_default2,
-  fa: () => fa_default2,
-  es: () => es_default2,
-  eo: () => eo_default2,
-  en: () => en_default2,
-  de: () => de_default2,
-  da: () => da_default2,
-  cs: () => cs_default2,
-  ca: () => ca_default2,
-  be: () => be_default2,
-  az: () => az_default2,
-  ar: () => ar_default2
+var $ZodType2, $ZodString2, $ZodStringFormat2, $ZodGUID2, $ZodUUID2, $ZodEmail2, $ZodURL2, $ZodEmoji2, $ZodNanoID2, $ZodCUID3, $ZodCUID22, $ZodULID2, $ZodXID2, $ZodKSUID2, $ZodISODateTime2, $ZodISODate2, $ZodISOTime2, $ZodISODuration2, $ZodIPv42, $ZodIPv62, $ZodCIDRv42, $ZodCIDRv62, $ZodBase642, $ZodBase64URL2, $ZodE1642, $ZodJWT2, $ZodCustomStringFormat2, $ZodNumber2, $ZodNumberFormat2, $ZodBoolean2, $ZodBigInt2, $ZodBigIntFormat2, $ZodSymbol2, $ZodUndefined2, $ZodNull2, $ZodAny2, $ZodUnknown2, $ZodNever2, $ZodVoid2, $ZodDate2, $ZodArray2, $ZodObject2, $ZodObjectJIT2, $ZodUnion2, $ZodDiscriminatedUnion2, $ZodIntersection2, $ZodTuple2, $ZodRecord2, $ZodMap2, $ZodSet2, $ZodEnum2, $ZodLiteral2, $ZodFile2, $ZodTransform2, $ZodOptional2, $ZodNullable2, $ZodDefault2, $ZodPrefault2, $ZodNonOptional2, $ZodSuccess2, $ZodCatch2, $ZodNaN2, $ZodPipe2, $ZodCodec2, $ZodReadonly2, $ZodTemplateLiteral2, $ZodFunction2, $ZodPromise2, $ZodLazy2, $ZodCustom2;
+var init_schemas3 = __esm(() => {
+  init_checks3();
+  init_core3();
+  init_parse3();
+  init_regexes2();
+  init_util2();
+  init_versions2();
+  init_util2();
+  $ZodType2 = /* @__PURE__ */ $constructor2("$ZodType", (inst, def) => {
+    var _a2;
+    inst ?? (inst = {});
+    inst._zod.def = def;
+    inst._zod.bag = inst._zod.bag || {};
+    inst._zod.version = version2;
+    const checks3 = [...inst._zod.def.checks ?? []];
+    if (inst._zod.traits.has("$ZodCheck")) {
+      checks3.unshift(inst);
+    }
+    for (const ch of checks3) {
+      for (const fn of ch._zod.onattach) {
+        fn(inst);
+      }
+    }
+    if (checks3.length === 0) {
+      (_a2 = inst._zod).deferred ?? (_a2.deferred = []);
+      inst._zod.deferred?.push(() => {
+        inst._zod.run = inst._zod.parse;
+      });
+    } else {
+      const runChecks = (payload, checks4, ctx) => {
+        let isAborted = aborted2(payload);
+        let asyncResult;
+        for (const ch of checks4) {
+          if (ch._zod.def.when) {
+            const shouldRun = ch._zod.def.when(payload);
+            if (!shouldRun)
+              continue;
+          } else if (isAborted) {
+            continue;
+          }
+          const currLen = payload.issues.length;
+          const _ = ch._zod.check(payload);
+          if (_ instanceof Promise && ctx?.async === false) {
+            throw new $ZodAsyncError2;
+          }
+          if (asyncResult || _ instanceof Promise) {
+            asyncResult = (asyncResult ?? Promise.resolve()).then(async () => {
+              await _;
+              const nextLen = payload.issues.length;
+              if (nextLen === currLen)
+                return;
+              if (!isAborted)
+                isAborted = aborted2(payload, currLen);
+            });
+          } else {
+            const nextLen = payload.issues.length;
+            if (nextLen === currLen)
+              continue;
+            if (!isAborted)
+              isAborted = aborted2(payload, currLen);
+          }
+        }
+        if (asyncResult) {
+          return asyncResult.then(() => {
+            return payload;
+          });
+        }
+        return payload;
+      };
+      const handleCanaryResult = (canary, payload, ctx) => {
+        if (aborted2(canary)) {
+          canary.aborted = true;
+          return canary;
+        }
+        const checkResult = runChecks(payload, checks3, ctx);
+        if (checkResult instanceof Promise) {
+          if (ctx.async === false)
+            throw new $ZodAsyncError2;
+          return checkResult.then((checkResult2) => inst._zod.parse(checkResult2, ctx));
+        }
+        return inst._zod.parse(checkResult, ctx);
+      };
+      inst._zod.run = (payload, ctx) => {
+        if (ctx.skipChecks) {
+          return inst._zod.parse(payload, ctx);
+        }
+        if (ctx.direction === "backward") {
+          const canary = inst._zod.parse({ value: payload.value, issues: [] }, { ...ctx, skipChecks: true });
+          if (canary instanceof Promise) {
+            return canary.then((canary2) => {
+              return handleCanaryResult(canary2, payload, ctx);
+            });
+          }
+          return handleCanaryResult(canary, payload, ctx);
+        }
+        const result = inst._zod.parse(payload, ctx);
+        if (result instanceof Promise) {
+          if (ctx.async === false)
+            throw new $ZodAsyncError2;
+          return result.then((result2) => runChecks(result2, checks3, ctx));
+        }
+        return runChecks(result, checks3, ctx);
+      };
+    }
+    inst["~standard"] = {
+      validate: (value) => {
+        try {
+          const r = safeParse3(inst, value);
+          return r.success ? { value: r.data } : { issues: r.error?.issues };
+        } catch (_) {
+          return safeParseAsync3(inst, value).then((r) => r.success ? { value: r.data } : { issues: r.error?.issues });
+        }
+      },
+      vendor: "zod",
+      version: 1
+    };
+  });
+  $ZodString2 = /* @__PURE__ */ $constructor2("$ZodString", (inst, def) => {
+    $ZodType2.init(inst, def);
+    inst._zod.pattern = [...inst?._zod.bag?.patterns ?? []].pop() ?? string4(inst._zod.bag);
+    inst._zod.parse = (payload, _) => {
+      if (def.coerce)
+        try {
+          payload.value = String(payload.value);
+        } catch (_2) {}
+      if (typeof payload.value === "string")
+        return payload;
+      payload.issues.push({
+        expected: "string",
+        code: "invalid_type",
+        input: payload.value,
+        inst
+      });
+      return payload;
+    };
+  });
+  $ZodStringFormat2 = /* @__PURE__ */ $constructor2("$ZodStringFormat", (inst, def) => {
+    $ZodCheckStringFormat2.init(inst, def);
+    $ZodString2.init(inst, def);
+  });
+  $ZodGUID2 = /* @__PURE__ */ $constructor2("$ZodGUID", (inst, def) => {
+    def.pattern ?? (def.pattern = guid3);
+    $ZodStringFormat2.init(inst, def);
+  });
+  $ZodUUID2 = /* @__PURE__ */ $constructor2("$ZodUUID", (inst, def) => {
+    if (def.version) {
+      const versionMap = {
+        v1: 1,
+        v2: 2,
+        v3: 3,
+        v4: 4,
+        v5: 5,
+        v6: 6,
+        v7: 7,
+        v8: 8
+      };
+      const v = versionMap[def.version];
+      if (v === undefined)
+        throw new Error(`Invalid UUID version: "${def.version}"`);
+      def.pattern ?? (def.pattern = uuid3(v));
+    } else
+      def.pattern ?? (def.pattern = uuid3());
+    $ZodStringFormat2.init(inst, def);
+  });
+  $ZodEmail2 = /* @__PURE__ */ $constructor2("$ZodEmail", (inst, def) => {
+    def.pattern ?? (def.pattern = email3);
+    $ZodStringFormat2.init(inst, def);
+  });
+  $ZodURL2 = /* @__PURE__ */ $constructor2("$ZodURL", (inst, def) => {
+    $ZodStringFormat2.init(inst, def);
+    inst._zod.check = (payload) => {
+      try {
+        const trimmed = payload.value.trim();
+        const url2 = new URL(trimmed);
+        if (def.hostname) {
+          def.hostname.lastIndex = 0;
+          if (!def.hostname.test(url2.hostname)) {
+            payload.issues.push({
+              code: "invalid_format",
+              format: "url",
+              note: "Invalid hostname",
+              pattern: hostname3.source,
+              input: payload.value,
+              inst,
+              continue: !def.abort
+            });
+          }
+        }
+        if (def.protocol) {
+          def.protocol.lastIndex = 0;
+          if (!def.protocol.test(url2.protocol.endsWith(":") ? url2.protocol.slice(0, -1) : url2.protocol)) {
+            payload.issues.push({
+              code: "invalid_format",
+              format: "url",
+              note: "Invalid protocol",
+              pattern: def.protocol.source,
+              input: payload.value,
+              inst,
+              continue: !def.abort
+            });
+          }
+        }
+        if (def.normalize) {
+          payload.value = url2.href;
+        } else {
+          payload.value = trimmed;
+        }
+        return;
+      } catch (_) {
+        payload.issues.push({
+          code: "invalid_format",
+          format: "url",
+          input: payload.value,
+          inst,
+          continue: !def.abort
+        });
+      }
+    };
+  });
+  $ZodEmoji2 = /* @__PURE__ */ $constructor2("$ZodEmoji", (inst, def) => {
+    def.pattern ?? (def.pattern = emoji3());
+    $ZodStringFormat2.init(inst, def);
+  });
+  $ZodNanoID2 = /* @__PURE__ */ $constructor2("$ZodNanoID", (inst, def) => {
+    def.pattern ?? (def.pattern = nanoid3);
+    $ZodStringFormat2.init(inst, def);
+  });
+  $ZodCUID3 = /* @__PURE__ */ $constructor2("$ZodCUID", (inst, def) => {
+    def.pattern ?? (def.pattern = cuid5);
+    $ZodStringFormat2.init(inst, def);
+  });
+  $ZodCUID22 = /* @__PURE__ */ $constructor2("$ZodCUID2", (inst, def) => {
+    def.pattern ?? (def.pattern = cuid23);
+    $ZodStringFormat2.init(inst, def);
+  });
+  $ZodULID2 = /* @__PURE__ */ $constructor2("$ZodULID", (inst, def) => {
+    def.pattern ?? (def.pattern = ulid3);
+    $ZodStringFormat2.init(inst, def);
+  });
+  $ZodXID2 = /* @__PURE__ */ $constructor2("$ZodXID", (inst, def) => {
+    def.pattern ?? (def.pattern = xid3);
+    $ZodStringFormat2.init(inst, def);
+  });
+  $ZodKSUID2 = /* @__PURE__ */ $constructor2("$ZodKSUID", (inst, def) => {
+    def.pattern ?? (def.pattern = ksuid3);
+    $ZodStringFormat2.init(inst, def);
+  });
+  $ZodISODateTime2 = /* @__PURE__ */ $constructor2("$ZodISODateTime", (inst, def) => {
+    def.pattern ?? (def.pattern = datetime3(def));
+    $ZodStringFormat2.init(inst, def);
+  });
+  $ZodISODate2 = /* @__PURE__ */ $constructor2("$ZodISODate", (inst, def) => {
+    def.pattern ?? (def.pattern = date5);
+    $ZodStringFormat2.init(inst, def);
+  });
+  $ZodISOTime2 = /* @__PURE__ */ $constructor2("$ZodISOTime", (inst, def) => {
+    def.pattern ?? (def.pattern = time3(def));
+    $ZodStringFormat2.init(inst, def);
+  });
+  $ZodISODuration2 = /* @__PURE__ */ $constructor2("$ZodISODuration", (inst, def) => {
+    def.pattern ?? (def.pattern = duration3);
+    $ZodStringFormat2.init(inst, def);
+  });
+  $ZodIPv42 = /* @__PURE__ */ $constructor2("$ZodIPv4", (inst, def) => {
+    def.pattern ?? (def.pattern = ipv43);
+    $ZodStringFormat2.init(inst, def);
+    inst._zod.onattach.push((inst2) => {
+      const bag = inst2._zod.bag;
+      bag.format = `ipv4`;
+    });
+  });
+  $ZodIPv62 = /* @__PURE__ */ $constructor2("$ZodIPv6", (inst, def) => {
+    def.pattern ?? (def.pattern = ipv63);
+    $ZodStringFormat2.init(inst, def);
+    inst._zod.onattach.push((inst2) => {
+      const bag = inst2._zod.bag;
+      bag.format = `ipv6`;
+    });
+    inst._zod.check = (payload) => {
+      try {
+        new URL(`http://[${payload.value}]`);
+      } catch {
+        payload.issues.push({
+          code: "invalid_format",
+          format: "ipv6",
+          input: payload.value,
+          inst,
+          continue: !def.abort
+        });
+      }
+    };
+  });
+  $ZodCIDRv42 = /* @__PURE__ */ $constructor2("$ZodCIDRv4", (inst, def) => {
+    def.pattern ?? (def.pattern = cidrv43);
+    $ZodStringFormat2.init(inst, def);
+  });
+  $ZodCIDRv62 = /* @__PURE__ */ $constructor2("$ZodCIDRv6", (inst, def) => {
+    def.pattern ?? (def.pattern = cidrv63);
+    $ZodStringFormat2.init(inst, def);
+    inst._zod.check = (payload) => {
+      const parts = payload.value.split("/");
+      try {
+        if (parts.length !== 2)
+          throw new Error;
+        const [address, prefix] = parts;
+        if (!prefix)
+          throw new Error;
+        const prefixNum = Number(prefix);
+        if (`${prefixNum}` !== prefix)
+          throw new Error;
+        if (prefixNum < 0 || prefixNum > 128)
+          throw new Error;
+        new URL(`http://[${address}]`);
+      } catch {
+        payload.issues.push({
+          code: "invalid_format",
+          format: "cidrv6",
+          input: payload.value,
+          inst,
+          continue: !def.abort
+        });
+      }
+    };
+  });
+  $ZodBase642 = /* @__PURE__ */ $constructor2("$ZodBase64", (inst, def) => {
+    def.pattern ?? (def.pattern = base643);
+    $ZodStringFormat2.init(inst, def);
+    inst._zod.onattach.push((inst2) => {
+      inst2._zod.bag.contentEncoding = "base64";
+    });
+    inst._zod.check = (payload) => {
+      if (isValidBase642(payload.value))
+        return;
+      payload.issues.push({
+        code: "invalid_format",
+        format: "base64",
+        input: payload.value,
+        inst,
+        continue: !def.abort
+      });
+    };
+  });
+  $ZodBase64URL2 = /* @__PURE__ */ $constructor2("$ZodBase64URL", (inst, def) => {
+    def.pattern ?? (def.pattern = base64url3);
+    $ZodStringFormat2.init(inst, def);
+    inst._zod.onattach.push((inst2) => {
+      inst2._zod.bag.contentEncoding = "base64url";
+    });
+    inst._zod.check = (payload) => {
+      if (isValidBase64URL2(payload.value))
+        return;
+      payload.issues.push({
+        code: "invalid_format",
+        format: "base64url",
+        input: payload.value,
+        inst,
+        continue: !def.abort
+      });
+    };
+  });
+  $ZodE1642 = /* @__PURE__ */ $constructor2("$ZodE164", (inst, def) => {
+    def.pattern ?? (def.pattern = e1643);
+    $ZodStringFormat2.init(inst, def);
+  });
+  $ZodJWT2 = /* @__PURE__ */ $constructor2("$ZodJWT", (inst, def) => {
+    $ZodStringFormat2.init(inst, def);
+    inst._zod.check = (payload) => {
+      if (isValidJWT2(payload.value, def.alg))
+        return;
+      payload.issues.push({
+        code: "invalid_format",
+        format: "jwt",
+        input: payload.value,
+        inst,
+        continue: !def.abort
+      });
+    };
+  });
+  $ZodCustomStringFormat2 = /* @__PURE__ */ $constructor2("$ZodCustomStringFormat", (inst, def) => {
+    $ZodStringFormat2.init(inst, def);
+    inst._zod.check = (payload) => {
+      if (def.fn(payload.value))
+        return;
+      payload.issues.push({
+        code: "invalid_format",
+        format: def.format,
+        input: payload.value,
+        inst,
+        continue: !def.abort
+      });
+    };
+  });
+  $ZodNumber2 = /* @__PURE__ */ $constructor2("$ZodNumber", (inst, def) => {
+    $ZodType2.init(inst, def);
+    inst._zod.pattern = inst._zod.bag.pattern ?? number4;
+    inst._zod.parse = (payload, _ctx) => {
+      if (def.coerce)
+        try {
+          payload.value = Number(payload.value);
+        } catch (_) {}
+      const input = payload.value;
+      if (typeof input === "number" && !Number.isNaN(input) && Number.isFinite(input)) {
+        return payload;
+      }
+      const received = typeof input === "number" ? Number.isNaN(input) ? "NaN" : !Number.isFinite(input) ? "Infinity" : undefined : undefined;
+      payload.issues.push({
+        expected: "number",
+        code: "invalid_type",
+        input,
+        inst,
+        ...received ? { received } : {}
+      });
+      return payload;
+    };
+  });
+  $ZodNumberFormat2 = /* @__PURE__ */ $constructor2("$ZodNumber", (inst, def) => {
+    $ZodCheckNumberFormat2.init(inst, def);
+    $ZodNumber2.init(inst, def);
+  });
+  $ZodBoolean2 = /* @__PURE__ */ $constructor2("$ZodBoolean", (inst, def) => {
+    $ZodType2.init(inst, def);
+    inst._zod.pattern = boolean4;
+    inst._zod.parse = (payload, _ctx) => {
+      if (def.coerce)
+        try {
+          payload.value = Boolean(payload.value);
+        } catch (_) {}
+      const input = payload.value;
+      if (typeof input === "boolean")
+        return payload;
+      payload.issues.push({
+        expected: "boolean",
+        code: "invalid_type",
+        input,
+        inst
+      });
+      return payload;
+    };
+  });
+  $ZodBigInt2 = /* @__PURE__ */ $constructor2("$ZodBigInt", (inst, def) => {
+    $ZodType2.init(inst, def);
+    inst._zod.pattern = bigint4;
+    inst._zod.parse = (payload, _ctx) => {
+      if (def.coerce)
+        try {
+          payload.value = BigInt(payload.value);
+        } catch (_) {}
+      if (typeof payload.value === "bigint")
+        return payload;
+      payload.issues.push({
+        expected: "bigint",
+        code: "invalid_type",
+        input: payload.value,
+        inst
+      });
+      return payload;
+    };
+  });
+  $ZodBigIntFormat2 = /* @__PURE__ */ $constructor2("$ZodBigInt", (inst, def) => {
+    $ZodCheckBigIntFormat2.init(inst, def);
+    $ZodBigInt2.init(inst, def);
+  });
+  $ZodSymbol2 = /* @__PURE__ */ $constructor2("$ZodSymbol", (inst, def) => {
+    $ZodType2.init(inst, def);
+    inst._zod.parse = (payload, _ctx) => {
+      const input = payload.value;
+      if (typeof input === "symbol")
+        return payload;
+      payload.issues.push({
+        expected: "symbol",
+        code: "invalid_type",
+        input,
+        inst
+      });
+      return payload;
+    };
+  });
+  $ZodUndefined2 = /* @__PURE__ */ $constructor2("$ZodUndefined", (inst, def) => {
+    $ZodType2.init(inst, def);
+    inst._zod.pattern = _undefined4;
+    inst._zod.values = new Set([undefined]);
+    inst._zod.optin = "optional";
+    inst._zod.optout = "optional";
+    inst._zod.parse = (payload, _ctx) => {
+      const input = payload.value;
+      if (typeof input === "undefined")
+        return payload;
+      payload.issues.push({
+        expected: "undefined",
+        code: "invalid_type",
+        input,
+        inst
+      });
+      return payload;
+    };
+  });
+  $ZodNull2 = /* @__PURE__ */ $constructor2("$ZodNull", (inst, def) => {
+    $ZodType2.init(inst, def);
+    inst._zod.pattern = _null4;
+    inst._zod.values = new Set([null]);
+    inst._zod.parse = (payload, _ctx) => {
+      const input = payload.value;
+      if (input === null)
+        return payload;
+      payload.issues.push({
+        expected: "null",
+        code: "invalid_type",
+        input,
+        inst
+      });
+      return payload;
+    };
+  });
+  $ZodAny2 = /* @__PURE__ */ $constructor2("$ZodAny", (inst, def) => {
+    $ZodType2.init(inst, def);
+    inst._zod.parse = (payload) => payload;
+  });
+  $ZodUnknown2 = /* @__PURE__ */ $constructor2("$ZodUnknown", (inst, def) => {
+    $ZodType2.init(inst, def);
+    inst._zod.parse = (payload) => payload;
+  });
+  $ZodNever2 = /* @__PURE__ */ $constructor2("$ZodNever", (inst, def) => {
+    $ZodType2.init(inst, def);
+    inst._zod.parse = (payload, _ctx) => {
+      payload.issues.push({
+        expected: "never",
+        code: "invalid_type",
+        input: payload.value,
+        inst
+      });
+      return payload;
+    };
+  });
+  $ZodVoid2 = /* @__PURE__ */ $constructor2("$ZodVoid", (inst, def) => {
+    $ZodType2.init(inst, def);
+    inst._zod.parse = (payload, _ctx) => {
+      const input = payload.value;
+      if (typeof input === "undefined")
+        return payload;
+      payload.issues.push({
+        expected: "void",
+        code: "invalid_type",
+        input,
+        inst
+      });
+      return payload;
+    };
+  });
+  $ZodDate2 = /* @__PURE__ */ $constructor2("$ZodDate", (inst, def) => {
+    $ZodType2.init(inst, def);
+    inst._zod.parse = (payload, _ctx) => {
+      if (def.coerce) {
+        try {
+          payload.value = new Date(payload.value);
+        } catch (_err) {}
+      }
+      const input = payload.value;
+      const isDate = input instanceof Date;
+      const isValidDate = isDate && !Number.isNaN(input.getTime());
+      if (isValidDate)
+        return payload;
+      payload.issues.push({
+        expected: "date",
+        code: "invalid_type",
+        input,
+        ...isDate ? { received: "Invalid Date" } : {},
+        inst
+      });
+      return payload;
+    };
+  });
+  $ZodArray2 = /* @__PURE__ */ $constructor2("$ZodArray", (inst, def) => {
+    $ZodType2.init(inst, def);
+    inst._zod.parse = (payload, ctx) => {
+      const input = payload.value;
+      if (!Array.isArray(input)) {
+        payload.issues.push({
+          expected: "array",
+          code: "invalid_type",
+          input,
+          inst
+        });
+        return payload;
+      }
+      payload.value = Array(input.length);
+      const proms = [];
+      for (let i = 0;i < input.length; i++) {
+        const item = input[i];
+        const result = def.element._zod.run({
+          value: item,
+          issues: []
+        }, ctx);
+        if (result instanceof Promise) {
+          proms.push(result.then((result2) => handleArrayResult2(result2, payload, i)));
+        } else {
+          handleArrayResult2(result, payload, i);
+        }
+      }
+      if (proms.length) {
+        return Promise.all(proms).then(() => payload);
+      }
+      return payload;
+    };
+  });
+  $ZodObject2 = /* @__PURE__ */ $constructor2("$ZodObject", (inst, def) => {
+    $ZodType2.init(inst, def);
+    const _normalized = cached2(() => normalizeDef2(def));
+    defineLazy2(inst._zod, "propValues", () => {
+      const shape = def.shape;
+      const propValues = {};
+      for (const key in shape) {
+        const field = shape[key]._zod;
+        if (field.values) {
+          propValues[key] ?? (propValues[key] = new Set);
+          for (const v of field.values)
+            propValues[key].add(v);
+        }
+      }
+      return propValues;
+    });
+    const isObject3 = isObject2;
+    const catchall = def.catchall;
+    let value;
+    inst._zod.parse = (payload, ctx) => {
+      value ?? (value = _normalized.value);
+      const input = payload.value;
+      if (!isObject3(input)) {
+        payload.issues.push({
+          expected: "object",
+          code: "invalid_type",
+          input,
+          inst
+        });
+        return payload;
+      }
+      payload.value = {};
+      const proms = [];
+      const shape = value.shape;
+      for (const key of value.keys) {
+        const el = shape[key];
+        const r = el._zod.run({ value: input[key], issues: [] }, ctx);
+        if (r instanceof Promise) {
+          proms.push(r.then((r2) => handlePropertyResult2(r2, payload, key, input)));
+        } else {
+          handlePropertyResult2(r, payload, key, input);
+        }
+      }
+      if (!catchall) {
+        return proms.length ? Promise.all(proms).then(() => payload) : payload;
+      }
+      return handleCatchall2(proms, input, payload, ctx, _normalized.value, inst);
+    };
+  });
+  $ZodObjectJIT2 = /* @__PURE__ */ $constructor2("$ZodObjectJIT", (inst, def) => {
+    $ZodObject2.init(inst, def);
+    const superParse = inst._zod.parse;
+    const _normalized = cached2(() => normalizeDef2(def));
+    const generateFastpass = (shape) => {
+      const doc2 = new Doc2(["shape", "payload", "ctx"]);
+      const normalized = _normalized.value;
+      const parseStr = (key) => {
+        const k = esc2(key);
+        return `shape[${k}]._zod.run({ value: input[${k}], issues: [] }, ctx)`;
+      };
+      doc2.write(`const input = payload.value;`);
+      const ids = Object.create(null);
+      let counter = 0;
+      for (const key of normalized.keys) {
+        ids[key] = `key_${counter++}`;
+      }
+      doc2.write(`const newResult = {};`);
+      for (const key of normalized.keys) {
+        const id = ids[key];
+        const k = esc2(key);
+        doc2.write(`const ${id} = ${parseStr(key)};`);
+        doc2.write(`
+        if (${id}.issues.length) {
+          payload.issues = payload.issues.concat(${id}.issues.map(iss => ({
+            ...iss,
+            path: iss.path ? [${k}, ...iss.path] : [${k}]
+          })));
+        }
+        
+        
+        if (${id}.value === undefined) {
+          if (${k} in input) {
+            newResult[${k}] = undefined;
+          }
+        } else {
+          newResult[${k}] = ${id}.value;
+        }
+        
+      `);
+      }
+      doc2.write(`payload.value = newResult;`);
+      doc2.write(`return payload;`);
+      const fn = doc2.compile();
+      return (payload, ctx) => fn(shape, payload, ctx);
+    };
+    let fastpass;
+    const isObject3 = isObject2;
+    const jit = !globalConfig2.jitless;
+    const allowsEval3 = allowsEval2;
+    const fastEnabled = jit && allowsEval3.value;
+    const catchall = def.catchall;
+    let value;
+    inst._zod.parse = (payload, ctx) => {
+      value ?? (value = _normalized.value);
+      const input = payload.value;
+      if (!isObject3(input)) {
+        payload.issues.push({
+          expected: "object",
+          code: "invalid_type",
+          input,
+          inst
+        });
+        return payload;
+      }
+      if (jit && fastEnabled && ctx?.async === false && ctx.jitless !== true) {
+        if (!fastpass)
+          fastpass = generateFastpass(def.shape);
+        payload = fastpass(payload, ctx);
+        if (!catchall)
+          return payload;
+        return handleCatchall2([], input, payload, ctx, value, inst);
+      }
+      return superParse(payload, ctx);
+    };
+  });
+  $ZodUnion2 = /* @__PURE__ */ $constructor2("$ZodUnion", (inst, def) => {
+    $ZodType2.init(inst, def);
+    defineLazy2(inst._zod, "optin", () => def.options.some((o) => o._zod.optin === "optional") ? "optional" : undefined);
+    defineLazy2(inst._zod, "optout", () => def.options.some((o) => o._zod.optout === "optional") ? "optional" : undefined);
+    defineLazy2(inst._zod, "values", () => {
+      if (def.options.every((o) => o._zod.values)) {
+        return new Set(def.options.flatMap((option) => Array.from(option._zod.values)));
+      }
+      return;
+    });
+    defineLazy2(inst._zod, "pattern", () => {
+      if (def.options.every((o) => o._zod.pattern)) {
+        const patterns = def.options.map((o) => o._zod.pattern);
+        return new RegExp(`^(${patterns.map((p) => cleanRegex2(p.source)).join("|")})$`);
+      }
+      return;
+    });
+    const single = def.options.length === 1;
+    const first = def.options[0]._zod.run;
+    inst._zod.parse = (payload, ctx) => {
+      if (single) {
+        return first(payload, ctx);
+      }
+      let async = false;
+      const results = [];
+      for (const option of def.options) {
+        const result = option._zod.run({
+          value: payload.value,
+          issues: []
+        }, ctx);
+        if (result instanceof Promise) {
+          results.push(result);
+          async = true;
+        } else {
+          if (result.issues.length === 0)
+            return result;
+          results.push(result);
+        }
+      }
+      if (!async)
+        return handleUnionResults2(results, payload, inst, ctx);
+      return Promise.all(results).then((results2) => {
+        return handleUnionResults2(results2, payload, inst, ctx);
+      });
+    };
+  });
+  $ZodDiscriminatedUnion2 = /* @__PURE__ */ $constructor2("$ZodDiscriminatedUnion", (inst, def) => {
+    $ZodUnion2.init(inst, def);
+    const _super = inst._zod.parse;
+    defineLazy2(inst._zod, "propValues", () => {
+      const propValues = {};
+      for (const option of def.options) {
+        const pv = option._zod.propValues;
+        if (!pv || Object.keys(pv).length === 0)
+          throw new Error(`Invalid discriminated union option at index "${def.options.indexOf(option)}"`);
+        for (const [k, v] of Object.entries(pv)) {
+          if (!propValues[k])
+            propValues[k] = new Set;
+          for (const val of v) {
+            propValues[k].add(val);
+          }
+        }
+      }
+      return propValues;
+    });
+    const disc = cached2(() => {
+      const opts = def.options;
+      const map2 = new Map;
+      for (const o of opts) {
+        const values = o._zod.propValues?.[def.discriminator];
+        if (!values || values.size === 0)
+          throw new Error(`Invalid discriminated union option at index "${def.options.indexOf(o)}"`);
+        for (const v of values) {
+          if (map2.has(v)) {
+            throw new Error(`Duplicate discriminator value "${String(v)}"`);
+          }
+          map2.set(v, o);
+        }
+      }
+      return map2;
+    });
+    inst._zod.parse = (payload, ctx) => {
+      const input = payload.value;
+      if (!isObject2(input)) {
+        payload.issues.push({
+          code: "invalid_type",
+          expected: "object",
+          input,
+          inst
+        });
+        return payload;
+      }
+      const opt = disc.value.get(input?.[def.discriminator]);
+      if (opt) {
+        return opt._zod.run(payload, ctx);
+      }
+      if (def.unionFallback) {
+        return _super(payload, ctx);
+      }
+      payload.issues.push({
+        code: "invalid_union",
+        errors: [],
+        note: "No matching discriminator",
+        discriminator: def.discriminator,
+        input,
+        path: [def.discriminator],
+        inst
+      });
+      return payload;
+    };
+  });
+  $ZodIntersection2 = /* @__PURE__ */ $constructor2("$ZodIntersection", (inst, def) => {
+    $ZodType2.init(inst, def);
+    inst._zod.parse = (payload, ctx) => {
+      const input = payload.value;
+      const left = def.left._zod.run({ value: input, issues: [] }, ctx);
+      const right = def.right._zod.run({ value: input, issues: [] }, ctx);
+      const async = left instanceof Promise || right instanceof Promise;
+      if (async) {
+        return Promise.all([left, right]).then(([left2, right2]) => {
+          return handleIntersectionResults2(payload, left2, right2);
+        });
+      }
+      return handleIntersectionResults2(payload, left, right);
+    };
+  });
+  $ZodTuple2 = /* @__PURE__ */ $constructor2("$ZodTuple", (inst, def) => {
+    $ZodType2.init(inst, def);
+    const items = def.items;
+    const optStart = items.length - [...items].reverse().findIndex((item) => item._zod.optin !== "optional");
+    inst._zod.parse = (payload, ctx) => {
+      const input = payload.value;
+      if (!Array.isArray(input)) {
+        payload.issues.push({
+          input,
+          inst,
+          expected: "tuple",
+          code: "invalid_type"
+        });
+        return payload;
+      }
+      payload.value = [];
+      const proms = [];
+      if (!def.rest) {
+        const tooBig = input.length > items.length;
+        const tooSmall = input.length < optStart - 1;
+        if (tooBig || tooSmall) {
+          payload.issues.push({
+            ...tooBig ? { code: "too_big", maximum: items.length } : { code: "too_small", minimum: items.length },
+            input,
+            inst,
+            origin: "array"
+          });
+          return payload;
+        }
+      }
+      let i = -1;
+      for (const item of items) {
+        i++;
+        if (i >= input.length) {
+          if (i >= optStart)
+            continue;
+        }
+        const result = item._zod.run({
+          value: input[i],
+          issues: []
+        }, ctx);
+        if (result instanceof Promise) {
+          proms.push(result.then((result2) => handleTupleResult2(result2, payload, i)));
+        } else {
+          handleTupleResult2(result, payload, i);
+        }
+      }
+      if (def.rest) {
+        const rest = input.slice(items.length);
+        for (const el of rest) {
+          i++;
+          const result = def.rest._zod.run({
+            value: el,
+            issues: []
+          }, ctx);
+          if (result instanceof Promise) {
+            proms.push(result.then((result2) => handleTupleResult2(result2, payload, i)));
+          } else {
+            handleTupleResult2(result, payload, i);
+          }
+        }
+      }
+      if (proms.length)
+        return Promise.all(proms).then(() => payload);
+      return payload;
+    };
+  });
+  $ZodRecord2 = /* @__PURE__ */ $constructor2("$ZodRecord", (inst, def) => {
+    $ZodType2.init(inst, def);
+    inst._zod.parse = (payload, ctx) => {
+      const input = payload.value;
+      if (!isPlainObject2(input)) {
+        payload.issues.push({
+          expected: "record",
+          code: "invalid_type",
+          input,
+          inst
+        });
+        return payload;
+      }
+      const proms = [];
+      if (def.keyType._zod.values) {
+        const values = def.keyType._zod.values;
+        payload.value = {};
+        for (const key of values) {
+          if (typeof key === "string" || typeof key === "number" || typeof key === "symbol") {
+            const result = def.valueType._zod.run({ value: input[key], issues: [] }, ctx);
+            if (result instanceof Promise) {
+              proms.push(result.then((result2) => {
+                if (result2.issues.length) {
+                  payload.issues.push(...prefixIssues2(key, result2.issues));
+                }
+                payload.value[key] = result2.value;
+              }));
+            } else {
+              if (result.issues.length) {
+                payload.issues.push(...prefixIssues2(key, result.issues));
+              }
+              payload.value[key] = result.value;
+            }
+          }
+        }
+        let unrecognized;
+        for (const key in input) {
+          if (!values.has(key)) {
+            unrecognized = unrecognized ?? [];
+            unrecognized.push(key);
+          }
+        }
+        if (unrecognized && unrecognized.length > 0) {
+          payload.issues.push({
+            code: "unrecognized_keys",
+            input,
+            inst,
+            keys: unrecognized
+          });
+        }
+      } else {
+        payload.value = {};
+        for (const key of Reflect.ownKeys(input)) {
+          if (key === "__proto__")
+            continue;
+          const keyResult = def.keyType._zod.run({ value: key, issues: [] }, ctx);
+          if (keyResult instanceof Promise) {
+            throw new Error("Async schemas not supported in object keys currently");
+          }
+          if (keyResult.issues.length) {
+            payload.issues.push({
+              code: "invalid_key",
+              origin: "record",
+              issues: keyResult.issues.map((iss) => finalizeIssue2(iss, ctx, config2())),
+              input: key,
+              path: [key],
+              inst
+            });
+            payload.value[keyResult.value] = keyResult.value;
+            continue;
+          }
+          const result = def.valueType._zod.run({ value: input[key], issues: [] }, ctx);
+          if (result instanceof Promise) {
+            proms.push(result.then((result2) => {
+              if (result2.issues.length) {
+                payload.issues.push(...prefixIssues2(key, result2.issues));
+              }
+              payload.value[keyResult.value] = result2.value;
+            }));
+          } else {
+            if (result.issues.length) {
+              payload.issues.push(...prefixIssues2(key, result.issues));
+            }
+            payload.value[keyResult.value] = result.value;
+          }
+        }
+      }
+      if (proms.length) {
+        return Promise.all(proms).then(() => payload);
+      }
+      return payload;
+    };
+  });
+  $ZodMap2 = /* @__PURE__ */ $constructor2("$ZodMap", (inst, def) => {
+    $ZodType2.init(inst, def);
+    inst._zod.parse = (payload, ctx) => {
+      const input = payload.value;
+      if (!(input instanceof Map)) {
+        payload.issues.push({
+          expected: "map",
+          code: "invalid_type",
+          input,
+          inst
+        });
+        return payload;
+      }
+      const proms = [];
+      payload.value = new Map;
+      for (const [key, value] of input) {
+        const keyResult = def.keyType._zod.run({ value: key, issues: [] }, ctx);
+        const valueResult = def.valueType._zod.run({ value, issues: [] }, ctx);
+        if (keyResult instanceof Promise || valueResult instanceof Promise) {
+          proms.push(Promise.all([keyResult, valueResult]).then(([keyResult2, valueResult2]) => {
+            handleMapResult2(keyResult2, valueResult2, payload, key, input, inst, ctx);
+          }));
+        } else {
+          handleMapResult2(keyResult, valueResult, payload, key, input, inst, ctx);
+        }
+      }
+      if (proms.length)
+        return Promise.all(proms).then(() => payload);
+      return payload;
+    };
+  });
+  $ZodSet2 = /* @__PURE__ */ $constructor2("$ZodSet", (inst, def) => {
+    $ZodType2.init(inst, def);
+    inst._zod.parse = (payload, ctx) => {
+      const input = payload.value;
+      if (!(input instanceof Set)) {
+        payload.issues.push({
+          input,
+          inst,
+          expected: "set",
+          code: "invalid_type"
+        });
+        return payload;
+      }
+      const proms = [];
+      payload.value = new Set;
+      for (const item of input) {
+        const result = def.valueType._zod.run({ value: item, issues: [] }, ctx);
+        if (result instanceof Promise) {
+          proms.push(result.then((result2) => handleSetResult2(result2, payload)));
+        } else
+          handleSetResult2(result, payload);
+      }
+      if (proms.length)
+        return Promise.all(proms).then(() => payload);
+      return payload;
+    };
+  });
+  $ZodEnum2 = /* @__PURE__ */ $constructor2("$ZodEnum", (inst, def) => {
+    $ZodType2.init(inst, def);
+    const values = getEnumValues2(def.entries);
+    const valuesSet = new Set(values);
+    inst._zod.values = valuesSet;
+    inst._zod.pattern = new RegExp(`^(${values.filter((k) => propertyKeyTypes2.has(typeof k)).map((o) => typeof o === "string" ? escapeRegex3(o) : o.toString()).join("|")})$`);
+    inst._zod.parse = (payload, _ctx) => {
+      const input = payload.value;
+      if (valuesSet.has(input)) {
+        return payload;
+      }
+      payload.issues.push({
+        code: "invalid_value",
+        values,
+        input,
+        inst
+      });
+      return payload;
+    };
+  });
+  $ZodLiteral2 = /* @__PURE__ */ $constructor2("$ZodLiteral", (inst, def) => {
+    $ZodType2.init(inst, def);
+    if (def.values.length === 0) {
+      throw new Error("Cannot create literal schema with no valid values");
+    }
+    inst._zod.values = new Set(def.values);
+    inst._zod.pattern = new RegExp(`^(${def.values.map((o) => typeof o === "string" ? escapeRegex3(o) : o ? escapeRegex3(o.toString()) : String(o)).join("|")})$`);
+    inst._zod.parse = (payload, _ctx) => {
+      const input = payload.value;
+      if (inst._zod.values.has(input)) {
+        return payload;
+      }
+      payload.issues.push({
+        code: "invalid_value",
+        values: def.values,
+        input,
+        inst
+      });
+      return payload;
+    };
+  });
+  $ZodFile2 = /* @__PURE__ */ $constructor2("$ZodFile", (inst, def) => {
+    $ZodType2.init(inst, def);
+    inst._zod.parse = (payload, _ctx) => {
+      const input = payload.value;
+      if (input instanceof File)
+        return payload;
+      payload.issues.push({
+        expected: "file",
+        code: "invalid_type",
+        input,
+        inst
+      });
+      return payload;
+    };
+  });
+  $ZodTransform2 = /* @__PURE__ */ $constructor2("$ZodTransform", (inst, def) => {
+    $ZodType2.init(inst, def);
+    inst._zod.parse = (payload, ctx) => {
+      if (ctx.direction === "backward") {
+        throw new $ZodEncodeError2(inst.constructor.name);
+      }
+      const _out = def.transform(payload.value, payload);
+      if (ctx.async) {
+        const output = _out instanceof Promise ? _out : Promise.resolve(_out);
+        return output.then((output2) => {
+          payload.value = output2;
+          return payload;
+        });
+      }
+      if (_out instanceof Promise) {
+        throw new $ZodAsyncError2;
+      }
+      payload.value = _out;
+      return payload;
+    };
+  });
+  $ZodOptional2 = /* @__PURE__ */ $constructor2("$ZodOptional", (inst, def) => {
+    $ZodType2.init(inst, def);
+    inst._zod.optin = "optional";
+    inst._zod.optout = "optional";
+    defineLazy2(inst._zod, "values", () => {
+      return def.innerType._zod.values ? new Set([...def.innerType._zod.values, undefined]) : undefined;
+    });
+    defineLazy2(inst._zod, "pattern", () => {
+      const pattern = def.innerType._zod.pattern;
+      return pattern ? new RegExp(`^(${cleanRegex2(pattern.source)})?$`) : undefined;
+    });
+    inst._zod.parse = (payload, ctx) => {
+      if (def.innerType._zod.optin === "optional") {
+        const result = def.innerType._zod.run(payload, ctx);
+        if (result instanceof Promise)
+          return result.then((r) => handleOptionalResult2(r, payload.value));
+        return handleOptionalResult2(result, payload.value);
+      }
+      if (payload.value === undefined) {
+        return payload;
+      }
+      return def.innerType._zod.run(payload, ctx);
+    };
+  });
+  $ZodNullable2 = /* @__PURE__ */ $constructor2("$ZodNullable", (inst, def) => {
+    $ZodType2.init(inst, def);
+    defineLazy2(inst._zod, "optin", () => def.innerType._zod.optin);
+    defineLazy2(inst._zod, "optout", () => def.innerType._zod.optout);
+    defineLazy2(inst._zod, "pattern", () => {
+      const pattern = def.innerType._zod.pattern;
+      return pattern ? new RegExp(`^(${cleanRegex2(pattern.source)}|null)$`) : undefined;
+    });
+    defineLazy2(inst._zod, "values", () => {
+      return def.innerType._zod.values ? new Set([...def.innerType._zod.values, null]) : undefined;
+    });
+    inst._zod.parse = (payload, ctx) => {
+      if (payload.value === null)
+        return payload;
+      return def.innerType._zod.run(payload, ctx);
+    };
+  });
+  $ZodDefault2 = /* @__PURE__ */ $constructor2("$ZodDefault", (inst, def) => {
+    $ZodType2.init(inst, def);
+    inst._zod.optin = "optional";
+    defineLazy2(inst._zod, "values", () => def.innerType._zod.values);
+    inst._zod.parse = (payload, ctx) => {
+      if (ctx.direction === "backward") {
+        return def.innerType._zod.run(payload, ctx);
+      }
+      if (payload.value === undefined) {
+        payload.value = def.defaultValue;
+        return payload;
+      }
+      const result = def.innerType._zod.run(payload, ctx);
+      if (result instanceof Promise) {
+        return result.then((result2) => handleDefaultResult2(result2, def));
+      }
+      return handleDefaultResult2(result, def);
+    };
+  });
+  $ZodPrefault2 = /* @__PURE__ */ $constructor2("$ZodPrefault", (inst, def) => {
+    $ZodType2.init(inst, def);
+    inst._zod.optin = "optional";
+    defineLazy2(inst._zod, "values", () => def.innerType._zod.values);
+    inst._zod.parse = (payload, ctx) => {
+      if (ctx.direction === "backward") {
+        return def.innerType._zod.run(payload, ctx);
+      }
+      if (payload.value === undefined) {
+        payload.value = def.defaultValue;
+      }
+      return def.innerType._zod.run(payload, ctx);
+    };
+  });
+  $ZodNonOptional2 = /* @__PURE__ */ $constructor2("$ZodNonOptional", (inst, def) => {
+    $ZodType2.init(inst, def);
+    defineLazy2(inst._zod, "values", () => {
+      const v = def.innerType._zod.values;
+      return v ? new Set([...v].filter((x) => x !== undefined)) : undefined;
+    });
+    inst._zod.parse = (payload, ctx) => {
+      const result = def.innerType._zod.run(payload, ctx);
+      if (result instanceof Promise) {
+        return result.then((result2) => handleNonOptionalResult2(result2, inst));
+      }
+      return handleNonOptionalResult2(result, inst);
+    };
+  });
+  $ZodSuccess2 = /* @__PURE__ */ $constructor2("$ZodSuccess", (inst, def) => {
+    $ZodType2.init(inst, def);
+    inst._zod.parse = (payload, ctx) => {
+      if (ctx.direction === "backward") {
+        throw new $ZodEncodeError2("ZodSuccess");
+      }
+      const result = def.innerType._zod.run(payload, ctx);
+      if (result instanceof Promise) {
+        return result.then((result2) => {
+          payload.value = result2.issues.length === 0;
+          return payload;
+        });
+      }
+      payload.value = result.issues.length === 0;
+      return payload;
+    };
+  });
+  $ZodCatch2 = /* @__PURE__ */ $constructor2("$ZodCatch", (inst, def) => {
+    $ZodType2.init(inst, def);
+    defineLazy2(inst._zod, "optin", () => def.innerType._zod.optin);
+    defineLazy2(inst._zod, "optout", () => def.innerType._zod.optout);
+    defineLazy2(inst._zod, "values", () => def.innerType._zod.values);
+    inst._zod.parse = (payload, ctx) => {
+      if (ctx.direction === "backward") {
+        return def.innerType._zod.run(payload, ctx);
+      }
+      const result = def.innerType._zod.run(payload, ctx);
+      if (result instanceof Promise) {
+        return result.then((result2) => {
+          payload.value = result2.value;
+          if (result2.issues.length) {
+            payload.value = def.catchValue({
+              ...payload,
+              error: {
+                issues: result2.issues.map((iss) => finalizeIssue2(iss, ctx, config2()))
+              },
+              input: payload.value
+            });
+            payload.issues = [];
+          }
+          return payload;
+        });
+      }
+      payload.value = result.value;
+      if (result.issues.length) {
+        payload.value = def.catchValue({
+          ...payload,
+          error: {
+            issues: result.issues.map((iss) => finalizeIssue2(iss, ctx, config2()))
+          },
+          input: payload.value
+        });
+        payload.issues = [];
+      }
+      return payload;
+    };
+  });
+  $ZodNaN2 = /* @__PURE__ */ $constructor2("$ZodNaN", (inst, def) => {
+    $ZodType2.init(inst, def);
+    inst._zod.parse = (payload, _ctx) => {
+      if (typeof payload.value !== "number" || !Number.isNaN(payload.value)) {
+        payload.issues.push({
+          input: payload.value,
+          inst,
+          expected: "nan",
+          code: "invalid_type"
+        });
+        return payload;
+      }
+      return payload;
+    };
+  });
+  $ZodPipe2 = /* @__PURE__ */ $constructor2("$ZodPipe", (inst, def) => {
+    $ZodType2.init(inst, def);
+    defineLazy2(inst._zod, "values", () => def.in._zod.values);
+    defineLazy2(inst._zod, "optin", () => def.in._zod.optin);
+    defineLazy2(inst._zod, "optout", () => def.out._zod.optout);
+    defineLazy2(inst._zod, "propValues", () => def.in._zod.propValues);
+    inst._zod.parse = (payload, ctx) => {
+      if (ctx.direction === "backward") {
+        const right = def.out._zod.run(payload, ctx);
+        if (right instanceof Promise) {
+          return right.then((right2) => handlePipeResult2(right2, def.in, ctx));
+        }
+        return handlePipeResult2(right, def.in, ctx);
+      }
+      const left = def.in._zod.run(payload, ctx);
+      if (left instanceof Promise) {
+        return left.then((left2) => handlePipeResult2(left2, def.out, ctx));
+      }
+      return handlePipeResult2(left, def.out, ctx);
+    };
+  });
+  $ZodCodec2 = /* @__PURE__ */ $constructor2("$ZodCodec", (inst, def) => {
+    $ZodType2.init(inst, def);
+    defineLazy2(inst._zod, "values", () => def.in._zod.values);
+    defineLazy2(inst._zod, "optin", () => def.in._zod.optin);
+    defineLazy2(inst._zod, "optout", () => def.out._zod.optout);
+    defineLazy2(inst._zod, "propValues", () => def.in._zod.propValues);
+    inst._zod.parse = (payload, ctx) => {
+      const direction = ctx.direction || "forward";
+      if (direction === "forward") {
+        const left = def.in._zod.run(payload, ctx);
+        if (left instanceof Promise) {
+          return left.then((left2) => handleCodecAResult2(left2, def, ctx));
+        }
+        return handleCodecAResult2(left, def, ctx);
+      } else {
+        const right = def.out._zod.run(payload, ctx);
+        if (right instanceof Promise) {
+          return right.then((right2) => handleCodecAResult2(right2, def, ctx));
+        }
+        return handleCodecAResult2(right, def, ctx);
+      }
+    };
+  });
+  $ZodReadonly2 = /* @__PURE__ */ $constructor2("$ZodReadonly", (inst, def) => {
+    $ZodType2.init(inst, def);
+    defineLazy2(inst._zod, "propValues", () => def.innerType._zod.propValues);
+    defineLazy2(inst._zod, "values", () => def.innerType._zod.values);
+    defineLazy2(inst._zod, "optin", () => def.innerType._zod.optin);
+    defineLazy2(inst._zod, "optout", () => def.innerType._zod.optout);
+    inst._zod.parse = (payload, ctx) => {
+      if (ctx.direction === "backward") {
+        return def.innerType._zod.run(payload, ctx);
+      }
+      const result = def.innerType._zod.run(payload, ctx);
+      if (result instanceof Promise) {
+        return result.then(handleReadonlyResult2);
+      }
+      return handleReadonlyResult2(result);
+    };
+  });
+  $ZodTemplateLiteral2 = /* @__PURE__ */ $constructor2("$ZodTemplateLiteral", (inst, def) => {
+    $ZodType2.init(inst, def);
+    const regexParts = [];
+    for (const part of def.parts) {
+      if (typeof part === "object" && part !== null) {
+        if (!part._zod.pattern) {
+          throw new Error(`Invalid template literal part, no pattern found: ${[...part._zod.traits].shift()}`);
+        }
+        const source = part._zod.pattern instanceof RegExp ? part._zod.pattern.source : part._zod.pattern;
+        if (!source)
+          throw new Error(`Invalid template literal part: ${part._zod.traits}`);
+        const start = source.startsWith("^") ? 1 : 0;
+        const end = source.endsWith("$") ? source.length - 1 : source.length;
+        regexParts.push(source.slice(start, end));
+      } else if (part === null || primitiveTypes2.has(typeof part)) {
+        regexParts.push(escapeRegex3(`${part}`));
+      } else {
+        throw new Error(`Invalid template literal part: ${part}`);
+      }
+    }
+    inst._zod.pattern = new RegExp(`^${regexParts.join("")}$`);
+    inst._zod.parse = (payload, _ctx) => {
+      if (typeof payload.value !== "string") {
+        payload.issues.push({
+          input: payload.value,
+          inst,
+          expected: "template_literal",
+          code: "invalid_type"
+        });
+        return payload;
+      }
+      inst._zod.pattern.lastIndex = 0;
+      if (!inst._zod.pattern.test(payload.value)) {
+        payload.issues.push({
+          input: payload.value,
+          inst,
+          code: "invalid_format",
+          format: def.format ?? "template_literal",
+          pattern: inst._zod.pattern.source
+        });
+        return payload;
+      }
+      return payload;
+    };
+  });
+  $ZodFunction2 = /* @__PURE__ */ $constructor2("$ZodFunction", (inst, def) => {
+    $ZodType2.init(inst, def);
+    inst._def = def;
+    inst._zod.def = def;
+    inst.implement = (func) => {
+      if (typeof func !== "function") {
+        throw new Error("implement() must be called with a function");
+      }
+      return function(...args) {
+        const parsedArgs = inst._def.input ? parse5(inst._def.input, args) : args;
+        const result = Reflect.apply(func, this, parsedArgs);
+        if (inst._def.output) {
+          return parse5(inst._def.output, result);
+        }
+        return result;
+      };
+    };
+    inst.implementAsync = (func) => {
+      if (typeof func !== "function") {
+        throw new Error("implementAsync() must be called with a function");
+      }
+      return async function(...args) {
+        const parsedArgs = inst._def.input ? await parseAsync3(inst._def.input, args) : args;
+        const result = await Reflect.apply(func, this, parsedArgs);
+        if (inst._def.output) {
+          return await parseAsync3(inst._def.output, result);
+        }
+        return result;
+      };
+    };
+    inst._zod.parse = (payload, _ctx) => {
+      if (typeof payload.value !== "function") {
+        payload.issues.push({
+          code: "invalid_type",
+          expected: "function",
+          input: payload.value,
+          inst
+        });
+        return payload;
+      }
+      const hasPromiseOutput = inst._def.output && inst._def.output._zod.def.type === "promise";
+      if (hasPromiseOutput) {
+        payload.value = inst.implementAsync(payload.value);
+      } else {
+        payload.value = inst.implement(payload.value);
+      }
+      return payload;
+    };
+    inst.input = (...args) => {
+      const F = inst.constructor;
+      if (Array.isArray(args[0])) {
+        return new F({
+          type: "function",
+          input: new $ZodTuple2({
+            type: "tuple",
+            items: args[0],
+            rest: args[1]
+          }),
+          output: inst._def.output
+        });
+      }
+      return new F({
+        type: "function",
+        input: args[0],
+        output: inst._def.output
+      });
+    };
+    inst.output = (output) => {
+      const F = inst.constructor;
+      return new F({
+        type: "function",
+        input: inst._def.input,
+        output
+      });
+    };
+    return inst;
+  });
+  $ZodPromise2 = /* @__PURE__ */ $constructor2("$ZodPromise", (inst, def) => {
+    $ZodType2.init(inst, def);
+    inst._zod.parse = (payload, ctx) => {
+      return Promise.resolve(payload.value).then((inner) => def.innerType._zod.run({ value: inner, issues: [] }, ctx));
+    };
+  });
+  $ZodLazy2 = /* @__PURE__ */ $constructor2("$ZodLazy", (inst, def) => {
+    $ZodType2.init(inst, def);
+    defineLazy2(inst._zod, "innerType", () => def.getter());
+    defineLazy2(inst._zod, "pattern", () => inst._zod.innerType._zod.pattern);
+    defineLazy2(inst._zod, "propValues", () => inst._zod.innerType._zod.propValues);
+    defineLazy2(inst._zod, "optin", () => inst._zod.innerType._zod.optin ?? undefined);
+    defineLazy2(inst._zod, "optout", () => inst._zod.innerType._zod.optout ?? undefined);
+    inst._zod.parse = (payload, ctx) => {
+      const inner = inst._zod.innerType;
+      return inner._zod.run(payload, ctx);
+    };
+  });
+  $ZodCustom2 = /* @__PURE__ */ $constructor2("$ZodCustom", (inst, def) => {
+    $ZodCheck2.init(inst, def);
+    $ZodType2.init(inst, def);
+    inst._zod.parse = (payload, _) => {
+      return payload;
+    };
+    inst._zod.check = (payload) => {
+      const input = payload.value;
+      const r = def.fn(input);
+      if (r instanceof Promise) {
+        return r.then((r2) => handleRefineResult2(r2, payload, input, inst));
+      }
+      handleRefineResult2(r, payload, input, inst);
+      return;
+    };
+  });
 });
 
 // node_modules/@opencode-ai/plugin/node_modules/zod/v4/locales/ar.js
+function ar_default2() {
+  return {
+    localeError: error49()
+  };
+}
 var error49 = () => {
   const Sizable = {
     string: { unit: "\u062D\u0631\u0641", verb: "\u0623\u0646 \u064A\u062D\u0648\u064A" },
@@ -25653,12 +24362,16 @@ var error49 = () => {
     }
   };
 };
-function ar_default2() {
+var init_ar2 = __esm(() => {
+  init_util2();
+});
+
+// node_modules/@opencode-ai/plugin/node_modules/zod/v4/locales/az.js
+function az_default2() {
   return {
-    localeError: error49()
+    localeError: error50()
   };
 }
-// node_modules/@opencode-ai/plugin/node_modules/zod/v4/locales/az.js
 var error50 = () => {
   const Sizable = {
     string: { unit: "simvol", verb: "olmal\u0131d\u0131r" },
@@ -25768,11 +24481,10 @@ var error50 = () => {
     }
   };
 };
-function az_default2() {
-  return {
-    localeError: error50()
-  };
-}
+var init_az2 = __esm(() => {
+  init_util2();
+});
+
 // node_modules/@opencode-ai/plugin/node_modules/zod/v4/locales/be.js
 function getBelarusianPlural2(count, one, few, many) {
   const absCount = Math.abs(count);
@@ -25788,6 +24500,11 @@ function getBelarusianPlural2(count, one, few, many) {
     return few;
   }
   return many;
+}
+function be_default2() {
+  return {
+    localeError: error51()
+  };
 }
 var error51 = () => {
   const Sizable = {
@@ -25932,12 +24649,16 @@ var error51 = () => {
     }
   };
 };
-function be_default2() {
+var init_be2 = __esm(() => {
+  init_util2();
+});
+
+// node_modules/@opencode-ai/plugin/node_modules/zod/v4/locales/ca.js
+function ca_default2() {
   return {
-    localeError: error51()
+    localeError: error52()
   };
 }
-// node_modules/@opencode-ai/plugin/node_modules/zod/v4/locales/ca.js
 var error52 = () => {
   const Sizable = {
     string: { unit: "car\xE0cters", verb: "contenir" },
@@ -26049,12 +24770,16 @@ var error52 = () => {
     }
   };
 };
-function ca_default2() {
+var init_ca2 = __esm(() => {
+  init_util2();
+});
+
+// node_modules/@opencode-ai/plugin/node_modules/zod/v4/locales/cs.js
+function cs_default2() {
   return {
-    localeError: error52()
+    localeError: error53()
   };
 }
-// node_modules/@opencode-ai/plugin/node_modules/zod/v4/locales/cs.js
 var error53 = () => {
   const Sizable = {
     string: { unit: "znak\u016F", verb: "m\xEDt" },
@@ -26184,12 +24909,16 @@ var error53 = () => {
     }
   };
 };
-function cs_default2() {
+var init_cs2 = __esm(() => {
+  init_util2();
+});
+
+// node_modules/@opencode-ai/plugin/node_modules/zod/v4/locales/da.js
+function da_default2() {
   return {
-    localeError: error53()
+    localeError: error54()
   };
 }
-// node_modules/@opencode-ai/plugin/node_modules/zod/v4/locales/da.js
 var error54 = () => {
   const Sizable = {
     string: { unit: "tegn", verb: "havde" },
@@ -26315,12 +25044,16 @@ var error54 = () => {
     }
   };
 };
-function da_default2() {
+var init_da2 = __esm(() => {
+  init_util2();
+});
+
+// node_modules/@opencode-ai/plugin/node_modules/zod/v4/locales/de.js
+function de_default2() {
   return {
-    localeError: error54()
+    localeError: error55()
   };
 }
-// node_modules/@opencode-ai/plugin/node_modules/zod/v4/locales/de.js
 var error55 = () => {
   const Sizable = {
     string: { unit: "Zeichen", verb: "zu haben" },
@@ -26431,12 +25164,16 @@ var error55 = () => {
     }
   };
 };
-function de_default2() {
+var init_de2 = __esm(() => {
+  init_util2();
+});
+
+// node_modules/@opencode-ai/plugin/node_modules/zod/v4/locales/en.js
+function en_default2() {
   return {
-    localeError: error55()
+    localeError: error56()
   };
 }
-// node_modules/@opencode-ai/plugin/node_modules/zod/v4/locales/en.js
 var parsedType2 = (data) => {
   const t = typeof data;
   switch (t) {
@@ -26456,8 +25193,7 @@ var parsedType2 = (data) => {
     }
   }
   return t;
-};
-var error56 = () => {
+}, error56 = () => {
   const Sizable = {
     string: { unit: "characters", verb: "to have" },
     file: { unit: "bytes", verb: "to have" },
@@ -26548,12 +25284,16 @@ var error56 = () => {
     }
   };
 };
-function en_default2() {
+var init_en2 = __esm(() => {
+  init_util2();
+});
+
+// node_modules/@opencode-ai/plugin/node_modules/zod/v4/locales/eo.js
+function eo_default2() {
   return {
-    localeError: error56()
+    localeError: error57()
   };
 }
-// node_modules/@opencode-ai/plugin/node_modules/zod/v4/locales/eo.js
 var parsedType3 = (data) => {
   const t = typeof data;
   switch (t) {
@@ -26573,8 +25313,7 @@ var parsedType3 = (data) => {
     }
   }
   return t;
-};
-var error57 = () => {
+}, error57 = () => {
   const Sizable = {
     string: { unit: "karaktrojn", verb: "havi" },
     file: { unit: "bajtojn", verb: "havi" },
@@ -26664,12 +25403,16 @@ var error57 = () => {
     }
   };
 };
-function eo_default2() {
+var init_eo2 = __esm(() => {
+  init_util2();
+});
+
+// node_modules/@opencode-ai/plugin/node_modules/zod/v4/locales/es.js
+function es_default2() {
   return {
-    localeError: error57()
+    localeError: error58()
   };
 }
-// node_modules/@opencode-ai/plugin/node_modules/zod/v4/locales/es.js
 var error58 = () => {
   const Sizable = {
     string: { unit: "caracteres", verb: "tener" },
@@ -26812,12 +25555,16 @@ var error58 = () => {
     }
   };
 };
-function es_default2() {
+var init_es2 = __esm(() => {
+  init_util2();
+});
+
+// node_modules/@opencode-ai/plugin/node_modules/zod/v4/locales/fa.js
+function fa_default2() {
   return {
-    localeError: error58()
+    localeError: error59()
   };
 }
-// node_modules/@opencode-ai/plugin/node_modules/zod/v4/locales/fa.js
 var error59 = () => {
   const Sizable = {
     string: { unit: "\u06A9\u0627\u0631\u0627\u06A9\u062A\u0631", verb: "\u062F\u0627\u0634\u062A\u0647 \u0628\u0627\u0634\u062F" },
@@ -26934,12 +25681,16 @@ var error59 = () => {
     }
   };
 };
-function fa_default2() {
+var init_fa2 = __esm(() => {
+  init_util2();
+});
+
+// node_modules/@opencode-ai/plugin/node_modules/zod/v4/locales/fi.js
+function fi_default2() {
   return {
-    localeError: error59()
+    localeError: error60()
   };
 }
-// node_modules/@opencode-ai/plugin/node_modules/zod/v4/locales/fi.js
 var error60 = () => {
   const Sizable = {
     string: { unit: "merkki\xE4", subject: "merkkijonon" },
@@ -27056,12 +25807,16 @@ var error60 = () => {
     }
   };
 };
-function fi_default2() {
+var init_fi2 = __esm(() => {
+  init_util2();
+});
+
+// node_modules/@opencode-ai/plugin/node_modules/zod/v4/locales/fr.js
+function fr_default2() {
   return {
-    localeError: error60()
+    localeError: error61()
   };
 }
-// node_modules/@opencode-ai/plugin/node_modules/zod/v4/locales/fr.js
 var error61 = () => {
   const Sizable = {
     string: { unit: "caract\xE8res", verb: "avoir" },
@@ -27172,12 +25927,16 @@ var error61 = () => {
     }
   };
 };
-function fr_default2() {
+var init_fr2 = __esm(() => {
+  init_util2();
+});
+
+// node_modules/@opencode-ai/plugin/node_modules/zod/v4/locales/fr-CA.js
+function fr_CA_default2() {
   return {
-    localeError: error61()
+    localeError: error62()
   };
 }
-// node_modules/@opencode-ai/plugin/node_modules/zod/v4/locales/fr-CA.js
 var error62 = () => {
   const Sizable = {
     string: { unit: "caract\xE8res", verb: "avoir" },
@@ -27289,12 +26048,16 @@ var error62 = () => {
     }
   };
 };
-function fr_CA_default2() {
+var init_fr_CA2 = __esm(() => {
+  init_util2();
+});
+
+// node_modules/@opencode-ai/plugin/node_modules/zod/v4/locales/he.js
+function he_default2() {
   return {
-    localeError: error62()
+    localeError: error63()
   };
 }
-// node_modules/@opencode-ai/plugin/node_modules/zod/v4/locales/he.js
 var error63 = () => {
   const Sizable = {
     string: { unit: "\u05D0\u05D5\u05EA\u05D9\u05D5\u05EA", verb: "\u05DC\u05DB\u05DC\u05D5\u05DC" },
@@ -27405,12 +26168,16 @@ var error63 = () => {
     }
   };
 };
-function he_default2() {
+var init_he2 = __esm(() => {
+  init_util2();
+});
+
+// node_modules/@opencode-ai/plugin/node_modules/zod/v4/locales/hu.js
+function hu_default2() {
   return {
-    localeError: error63()
+    localeError: error64()
   };
 }
-// node_modules/@opencode-ai/plugin/node_modules/zod/v4/locales/hu.js
 var error64 = () => {
   const Sizable = {
     string: { unit: "karakter", verb: "legyen" },
@@ -27521,12 +26288,16 @@ var error64 = () => {
     }
   };
 };
-function hu_default2() {
+var init_hu2 = __esm(() => {
+  init_util2();
+});
+
+// node_modules/@opencode-ai/plugin/node_modules/zod/v4/locales/id.js
+function id_default2() {
   return {
-    localeError: error64()
+    localeError: error65()
   };
 }
-// node_modules/@opencode-ai/plugin/node_modules/zod/v4/locales/id.js
 var error65 = () => {
   const Sizable = {
     string: { unit: "karakter", verb: "memiliki" },
@@ -27637,12 +26408,16 @@ var error65 = () => {
     }
   };
 };
-function id_default2() {
+var init_id2 = __esm(() => {
+  init_util2();
+});
+
+// node_modules/@opencode-ai/plugin/node_modules/zod/v4/locales/is.js
+function is_default2() {
   return {
-    localeError: error65()
+    localeError: error66()
   };
 }
-// node_modules/@opencode-ai/plugin/node_modules/zod/v4/locales/is.js
 var parsedType4 = (data) => {
   const t = typeof data;
   switch (t) {
@@ -27662,8 +26437,7 @@ var parsedType4 = (data) => {
     }
   }
   return t;
-};
-var error66 = () => {
+}, error66 = () => {
   const Sizable = {
     string: { unit: "stafi", verb: "a\xF0 hafa" },
     file: { unit: "b\xE6ti", verb: "a\xF0 hafa" },
@@ -27754,12 +26528,16 @@ var error66 = () => {
     }
   };
 };
-function is_default2() {
+var init_is2 = __esm(() => {
+  init_util2();
+});
+
+// node_modules/@opencode-ai/plugin/node_modules/zod/v4/locales/it.js
+function it_default2() {
   return {
-    localeError: error66()
+    localeError: error67()
   };
 }
-// node_modules/@opencode-ai/plugin/node_modules/zod/v4/locales/it.js
 var error67 = () => {
   const Sizable = {
     string: { unit: "caratteri", verb: "avere" },
@@ -27870,12 +26648,16 @@ var error67 = () => {
     }
   };
 };
-function it_default2() {
+var init_it2 = __esm(() => {
+  init_util2();
+});
+
+// node_modules/@opencode-ai/plugin/node_modules/zod/v4/locales/ja.js
+function ja_default2() {
   return {
-    localeError: error67()
+    localeError: error68()
   };
 }
-// node_modules/@opencode-ai/plugin/node_modules/zod/v4/locales/ja.js
 var error68 = () => {
   const Sizable = {
     string: { unit: "\u6587\u5B57", verb: "\u3067\u3042\u308B" },
@@ -27985,12 +26767,16 @@ var error68 = () => {
     }
   };
 };
-function ja_default2() {
+var init_ja2 = __esm(() => {
+  init_util2();
+});
+
+// node_modules/@opencode-ai/plugin/node_modules/zod/v4/locales/ka.js
+function ka_default2() {
   return {
-    localeError: error68()
+    localeError: error69()
   };
 }
-// node_modules/@opencode-ai/plugin/node_modules/zod/v4/locales/ka.js
 var parsedType5 = (data) => {
   const t = typeof data;
   switch (t) {
@@ -28018,8 +26804,7 @@ var parsedType5 = (data) => {
     function: "\u10E4\u10E3\u10DC\u10E5\u10EA\u10D8\u10D0"
   };
   return typeMap[t] ?? t;
-};
-var error69 = () => {
+}, error69 = () => {
   const Sizable = {
     string: { unit: "\u10E1\u10D8\u10DB\u10D1\u10DD\u10DA\u10DD", verb: "\u10E3\u10DC\u10D3\u10D0 \u10E8\u10D4\u10D8\u10EA\u10D0\u10D5\u10D3\u10D4\u10E1" },
     file: { unit: "\u10D1\u10D0\u10D8\u10E2\u10D8", verb: "\u10E3\u10DC\u10D3\u10D0 \u10E8\u10D4\u10D8\u10EA\u10D0\u10D5\u10D3\u10D4\u10E1" },
@@ -28110,12 +26895,16 @@ var error69 = () => {
     }
   };
 };
-function ka_default2() {
+var init_ka2 = __esm(() => {
+  init_util2();
+});
+
+// node_modules/@opencode-ai/plugin/node_modules/zod/v4/locales/km.js
+function km_default2() {
   return {
-    localeError: error69()
+    localeError: error70()
   };
 }
-// node_modules/@opencode-ai/plugin/node_modules/zod/v4/locales/km.js
 var error70 = () => {
   const Sizable = {
     string: { unit: "\u178F\u17BD\u17A2\u1780\u17D2\u179F\u179A", verb: "\u1782\u17BD\u179A\u1798\u17B6\u1793" },
@@ -28227,17 +27016,24 @@ var error70 = () => {
     }
   };
 };
-function km_default2() {
-  return {
-    localeError: error70()
-  };
-}
+var init_km2 = __esm(() => {
+  init_util2();
+});
 
 // node_modules/@opencode-ai/plugin/node_modules/zod/v4/locales/kh.js
 function kh_default2() {
   return km_default2();
 }
+var init_kh2 = __esm(() => {
+  init_km2();
+});
+
 // node_modules/@opencode-ai/plugin/node_modules/zod/v4/locales/ko.js
+function ko_default2() {
+  return {
+    localeError: error71()
+  };
+}
 var error71 = () => {
   const Sizable = {
     string: { unit: "\uBB38\uC790", verb: "to have" },
@@ -28353,17 +27149,30 @@ var error71 = () => {
     }
   };
 };
-function ko_default2() {
+var init_ko2 = __esm(() => {
+  init_util2();
+});
+
+// node_modules/@opencode-ai/plugin/node_modules/zod/v4/locales/lt.js
+function getUnitTypeFromNumber2(number5) {
+  const abs = Math.abs(number5);
+  const last = abs % 10;
+  const last2 = abs % 100;
+  if (last2 >= 11 && last2 <= 19 || last === 0)
+    return "many";
+  if (last === 1)
+    return "one";
+  return "few";
+}
+function lt_default2() {
   return {
-    localeError: error71()
+    localeError: error72()
   };
 }
-// node_modules/@opencode-ai/plugin/node_modules/zod/v4/locales/lt.js
 var parsedType6 = (data) => {
   const t = typeof data;
   return parsedTypeFromType(t, data);
-};
-var parsedTypeFromType = (t, data = undefined) => {
+}, parsedTypeFromType = (t, data = undefined) => {
   switch (t) {
     case "number": {
       return Number.isNaN(data) ? "NaN" : "skai\u010Dius";
@@ -28404,21 +27213,9 @@ var parsedTypeFromType = (t, data = undefined) => {
     }
   }
   return t;
-};
-var capitalizeFirstCharacter2 = (text) => {
+}, capitalizeFirstCharacter2 = (text) => {
   return text.charAt(0).toUpperCase() + text.slice(1);
-};
-function getUnitTypeFromNumber2(number5) {
-  const abs = Math.abs(number5);
-  const last = abs % 10;
-  const last2 = abs % 100;
-  if (last2 >= 11 && last2 <= 19 || last === 0)
-    return "many";
-  if (last === 1)
-    return "one";
-  return "few";
-}
-var error72 = () => {
+}, error72 = () => {
   const Sizable = {
     string: {
       unit: {
@@ -28582,12 +27379,16 @@ var error72 = () => {
     }
   };
 };
-function lt_default2() {
+var init_lt2 = __esm(() => {
+  init_util2();
+});
+
+// node_modules/@opencode-ai/plugin/node_modules/zod/v4/locales/mk.js
+function mk_default2() {
   return {
-    localeError: error72()
+    localeError: error73()
   };
 }
-// node_modules/@opencode-ai/plugin/node_modules/zod/v4/locales/mk.js
 var error73 = () => {
   const Sizable = {
     string: { unit: "\u0437\u043D\u0430\u0446\u0438", verb: "\u0434\u0430 \u0438\u043C\u0430\u0430\u0442" },
@@ -28699,12 +27500,16 @@ var error73 = () => {
     }
   };
 };
-function mk_default2() {
+var init_mk2 = __esm(() => {
+  init_util2();
+});
+
+// node_modules/@opencode-ai/plugin/node_modules/zod/v4/locales/ms.js
+function ms_default2() {
   return {
-    localeError: error73()
+    localeError: error74()
   };
 }
-// node_modules/@opencode-ai/plugin/node_modules/zod/v4/locales/ms.js
 var error74 = () => {
   const Sizable = {
     string: { unit: "aksara", verb: "mempunyai" },
@@ -28815,12 +27620,16 @@ var error74 = () => {
     }
   };
 };
-function ms_default2() {
+var init_ms2 = __esm(() => {
+  init_util2();
+});
+
+// node_modules/@opencode-ai/plugin/node_modules/zod/v4/locales/nl.js
+function nl_default2() {
   return {
-    localeError: error74()
+    localeError: error75()
   };
 }
-// node_modules/@opencode-ai/plugin/node_modules/zod/v4/locales/nl.js
 var error75 = () => {
   const Sizable = {
     string: { unit: "tekens" },
@@ -28932,12 +27741,16 @@ var error75 = () => {
     }
   };
 };
-function nl_default2() {
+var init_nl2 = __esm(() => {
+  init_util2();
+});
+
+// node_modules/@opencode-ai/plugin/node_modules/zod/v4/locales/no.js
+function no_default2() {
   return {
-    localeError: error75()
+    localeError: error76()
   };
 }
-// node_modules/@opencode-ai/plugin/node_modules/zod/v4/locales/no.js
 var error76 = () => {
   const Sizable = {
     string: { unit: "tegn", verb: "\xE5 ha" },
@@ -29048,12 +27861,16 @@ var error76 = () => {
     }
   };
 };
-function no_default2() {
+var init_no2 = __esm(() => {
+  init_util2();
+});
+
+// node_modules/@opencode-ai/plugin/node_modules/zod/v4/locales/ota.js
+function ota_default2() {
   return {
-    localeError: error76()
+    localeError: error77()
   };
 }
-// node_modules/@opencode-ai/plugin/node_modules/zod/v4/locales/ota.js
 var error77 = () => {
   const Sizable = {
     string: { unit: "harf", verb: "olmal\u0131d\u0131r" },
@@ -29164,12 +27981,16 @@ var error77 = () => {
     }
   };
 };
-function ota_default2() {
+var init_ota2 = __esm(() => {
+  init_util2();
+});
+
+// node_modules/@opencode-ai/plugin/node_modules/zod/v4/locales/ps.js
+function ps_default2() {
   return {
-    localeError: error77()
+    localeError: error78()
   };
 }
-// node_modules/@opencode-ai/plugin/node_modules/zod/v4/locales/ps.js
 var error78 = () => {
   const Sizable = {
     string: { unit: "\u062A\u0648\u06A9\u064A", verb: "\u0648\u0644\u0631\u064A" },
@@ -29286,12 +28107,16 @@ var error78 = () => {
     }
   };
 };
-function ps_default2() {
+var init_ps2 = __esm(() => {
+  init_util2();
+});
+
+// node_modules/@opencode-ai/plugin/node_modules/zod/v4/locales/pl.js
+function pl_default2() {
   return {
-    localeError: error78()
+    localeError: error79()
   };
 }
-// node_modules/@opencode-ai/plugin/node_modules/zod/v4/locales/pl.js
 var error79 = () => {
   const Sizable = {
     string: { unit: "znak\xF3w", verb: "mie\u0107" },
@@ -29403,12 +28228,16 @@ var error79 = () => {
     }
   };
 };
-function pl_default2() {
+var init_pl2 = __esm(() => {
+  init_util2();
+});
+
+// node_modules/@opencode-ai/plugin/node_modules/zod/v4/locales/pt.js
+function pt_default2() {
   return {
-    localeError: error79()
+    localeError: error80()
   };
 }
-// node_modules/@opencode-ai/plugin/node_modules/zod/v4/locales/pt.js
 var error80 = () => {
   const Sizable = {
     string: { unit: "caracteres", verb: "ter" },
@@ -29519,11 +28348,10 @@ var error80 = () => {
     }
   };
 };
-function pt_default2() {
-  return {
-    localeError: error80()
-  };
-}
+var init_pt2 = __esm(() => {
+  init_util2();
+});
+
 // node_modules/@opencode-ai/plugin/node_modules/zod/v4/locales/ru.js
 function getRussianPlural2(count, one, few, many) {
   const absCount = Math.abs(count);
@@ -29539,6 +28367,11 @@ function getRussianPlural2(count, one, few, many) {
     return few;
   }
   return many;
+}
+function ru_default2() {
+  return {
+    localeError: error81()
+  };
 }
 var error81 = () => {
   const Sizable = {
@@ -29683,12 +28516,16 @@ var error81 = () => {
     }
   };
 };
-function ru_default2() {
+var init_ru2 = __esm(() => {
+  init_util2();
+});
+
+// node_modules/@opencode-ai/plugin/node_modules/zod/v4/locales/sl.js
+function sl_default2() {
   return {
-    localeError: error81()
+    localeError: error82()
   };
 }
-// node_modules/@opencode-ai/plugin/node_modules/zod/v4/locales/sl.js
 var error82 = () => {
   const Sizable = {
     string: { unit: "znakov", verb: "imeti" },
@@ -29800,12 +28637,16 @@ var error82 = () => {
     }
   };
 };
-function sl_default2() {
+var init_sl2 = __esm(() => {
+  init_util2();
+});
+
+// node_modules/@opencode-ai/plugin/node_modules/zod/v4/locales/sv.js
+function sv_default2() {
   return {
-    localeError: error82()
+    localeError: error83()
   };
 }
-// node_modules/@opencode-ai/plugin/node_modules/zod/v4/locales/sv.js
 var error83 = () => {
   const Sizable = {
     string: { unit: "tecken", verb: "att ha" },
@@ -29918,12 +28759,16 @@ var error83 = () => {
     }
   };
 };
-function sv_default2() {
+var init_sv2 = __esm(() => {
+  init_util2();
+});
+
+// node_modules/@opencode-ai/plugin/node_modules/zod/v4/locales/ta.js
+function ta_default2() {
   return {
-    localeError: error83()
+    localeError: error84()
   };
 }
-// node_modules/@opencode-ai/plugin/node_modules/zod/v4/locales/ta.js
 var error84 = () => {
   const Sizable = {
     string: { unit: "\u0B8E\u0BB4\u0BC1\u0BA4\u0BCD\u0BA4\u0BC1\u0B95\u0BCD\u0B95\u0BB3\u0BCD", verb: "\u0B95\u0BCA\u0BA3\u0BCD\u0B9F\u0BBF\u0BB0\u0BC1\u0B95\u0BCD\u0B95 \u0BB5\u0BC7\u0BA3\u0BCD\u0B9F\u0BC1\u0BAE\u0BCD" },
@@ -30035,12 +28880,16 @@ var error84 = () => {
     }
   };
 };
-function ta_default2() {
+var init_ta2 = __esm(() => {
+  init_util2();
+});
+
+// node_modules/@opencode-ai/plugin/node_modules/zod/v4/locales/th.js
+function th_default2() {
   return {
-    localeError: error84()
+    localeError: error85()
   };
 }
-// node_modules/@opencode-ai/plugin/node_modules/zod/v4/locales/th.js
 var error85 = () => {
   const Sizable = {
     string: { unit: "\u0E15\u0E31\u0E27\u0E2D\u0E31\u0E01\u0E29\u0E23", verb: "\u0E04\u0E27\u0E23\u0E21\u0E35" },
@@ -30152,12 +29001,16 @@ var error85 = () => {
     }
   };
 };
-function th_default2() {
+var init_th2 = __esm(() => {
+  init_util2();
+});
+
+// node_modules/@opencode-ai/plugin/node_modules/zod/v4/locales/tr.js
+function tr_default2() {
   return {
-    localeError: error85()
+    localeError: error86()
   };
 }
-// node_modules/@opencode-ai/plugin/node_modules/zod/v4/locales/tr.js
 var parsedType7 = (data) => {
   const t = typeof data;
   switch (t) {
@@ -30177,8 +29030,7 @@ var parsedType7 = (data) => {
     }
   }
   return t;
-};
-var error86 = () => {
+}, error86 = () => {
   const Sizable = {
     string: { unit: "karakter", verb: "olmal\u0131" },
     file: { unit: "bayt", verb: "olmal\u0131" },
@@ -30267,12 +29119,16 @@ var error86 = () => {
     }
   };
 };
-function tr_default2() {
+var init_tr2 = __esm(() => {
+  init_util2();
+});
+
+// node_modules/@opencode-ai/plugin/node_modules/zod/v4/locales/uk.js
+function uk_default2() {
   return {
-    localeError: error86()
+    localeError: error87()
   };
 }
-// node_modules/@opencode-ai/plugin/node_modules/zod/v4/locales/uk.js
 var error87 = () => {
   const Sizable = {
     string: { unit: "\u0441\u0438\u043C\u0432\u043E\u043B\u0456\u0432", verb: "\u043C\u0430\u0442\u0438\u043C\u0435" },
@@ -30383,17 +29239,24 @@ var error87 = () => {
     }
   };
 };
-function uk_default2() {
-  return {
-    localeError: error87()
-  };
-}
+var init_uk2 = __esm(() => {
+  init_util2();
+});
 
 // node_modules/@opencode-ai/plugin/node_modules/zod/v4/locales/ua.js
 function ua_default2() {
   return uk_default2();
 }
+var init_ua2 = __esm(() => {
+  init_uk2();
+});
+
 // node_modules/@opencode-ai/plugin/node_modules/zod/v4/locales/ur.js
+function ur_default2() {
+  return {
+    localeError: error88()
+  };
+}
 var error88 = () => {
   const Sizable = {
     string: { unit: "\u062D\u0631\u0648\u0641", verb: "\u06C1\u0648\u0646\u0627" },
@@ -30505,12 +29368,16 @@ var error88 = () => {
     }
   };
 };
-function ur_default2() {
+var init_ur2 = __esm(() => {
+  init_util2();
+});
+
+// node_modules/@opencode-ai/plugin/node_modules/zod/v4/locales/vi.js
+function vi_default2() {
   return {
-    localeError: error88()
+    localeError: error89()
   };
 }
-// node_modules/@opencode-ai/plugin/node_modules/zod/v4/locales/vi.js
 var error89 = () => {
   const Sizable = {
     string: { unit: "k\xFD t\u1EF1", verb: "c\xF3" },
@@ -30621,12 +29488,16 @@ var error89 = () => {
     }
   };
 };
-function vi_default2() {
+var init_vi2 = __esm(() => {
+  init_util2();
+});
+
+// node_modules/@opencode-ai/plugin/node_modules/zod/v4/locales/zh-CN.js
+function zh_CN_default2() {
   return {
-    localeError: error89()
+    localeError: error90()
   };
 }
-// node_modules/@opencode-ai/plugin/node_modules/zod/v4/locales/zh-CN.js
 var error90 = () => {
   const Sizable = {
     string: { unit: "\u5B57\u7B26", verb: "\u5305\u542B" },
@@ -30737,12 +29608,16 @@ var error90 = () => {
     }
   };
 };
-function zh_CN_default2() {
+var init_zh_CN2 = __esm(() => {
+  init_util2();
+});
+
+// node_modules/@opencode-ai/plugin/node_modules/zod/v4/locales/zh-TW.js
+function zh_TW_default2() {
   return {
-    localeError: error90()
+    localeError: error91()
   };
 }
-// node_modules/@opencode-ai/plugin/node_modules/zod/v4/locales/zh-TW.js
 var error91 = () => {
   const Sizable = {
     string: { unit: "\u5B57\u5143", verb: "\u64C1\u6709" },
@@ -30854,12 +29729,16 @@ var error91 = () => {
     }
   };
 };
-function zh_TW_default2() {
+var init_zh_TW2 = __esm(() => {
+  init_util2();
+});
+
+// node_modules/@opencode-ai/plugin/node_modules/zod/v4/locales/yo.js
+function yo_default2() {
   return {
-    localeError: error91()
+    localeError: error92()
   };
 }
-// node_modules/@opencode-ai/plugin/node_modules/zod/v4/locales/yo.js
 var error92 = () => {
   const Sizable = {
     string: { unit: "\xE0mi", verb: "n\xED" },
@@ -30969,15 +29848,110 @@ var error92 = () => {
     }
   };
 };
-function yo_default2() {
-  return {
-    localeError: error92()
-  };
-}
-// node_modules/@opencode-ai/plugin/node_modules/zod/v4/core/registries.js
-var $output2 = Symbol("ZodOutput");
-var $input2 = Symbol("ZodInput");
+var init_yo2 = __esm(() => {
+  init_util2();
+});
 
+// node_modules/@opencode-ai/plugin/node_modules/zod/v4/locales/index.js
+var exports_locales2 = {};
+__export(exports_locales2, {
+  zhTW: () => zh_TW_default2,
+  zhCN: () => zh_CN_default2,
+  yo: () => yo_default2,
+  vi: () => vi_default2,
+  ur: () => ur_default2,
+  uk: () => uk_default2,
+  ua: () => ua_default2,
+  tr: () => tr_default2,
+  th: () => th_default2,
+  ta: () => ta_default2,
+  sv: () => sv_default2,
+  sl: () => sl_default2,
+  ru: () => ru_default2,
+  pt: () => pt_default2,
+  ps: () => ps_default2,
+  pl: () => pl_default2,
+  ota: () => ota_default2,
+  no: () => no_default2,
+  nl: () => nl_default2,
+  ms: () => ms_default2,
+  mk: () => mk_default2,
+  lt: () => lt_default2,
+  ko: () => ko_default2,
+  km: () => km_default2,
+  kh: () => kh_default2,
+  ka: () => ka_default2,
+  ja: () => ja_default2,
+  it: () => it_default2,
+  is: () => is_default2,
+  id: () => id_default2,
+  hu: () => hu_default2,
+  he: () => he_default2,
+  frCA: () => fr_CA_default2,
+  fr: () => fr_default2,
+  fi: () => fi_default2,
+  fa: () => fa_default2,
+  es: () => es_default2,
+  eo: () => eo_default2,
+  en: () => en_default2,
+  de: () => de_default2,
+  da: () => da_default2,
+  cs: () => cs_default2,
+  ca: () => ca_default2,
+  be: () => be_default2,
+  az: () => az_default2,
+  ar: () => ar_default2
+});
+var init_locales2 = __esm(() => {
+  init_ar2();
+  init_az2();
+  init_be2();
+  init_ca2();
+  init_cs2();
+  init_da2();
+  init_de2();
+  init_en2();
+  init_eo2();
+  init_es2();
+  init_fa2();
+  init_fi2();
+  init_fr2();
+  init_fr_CA2();
+  init_he2();
+  init_hu2();
+  init_id2();
+  init_is2();
+  init_it2();
+  init_ja2();
+  init_ka2();
+  init_kh2();
+  init_km2();
+  init_ko2();
+  init_lt2();
+  init_mk2();
+  init_ms2();
+  init_nl2();
+  init_no2();
+  init_ota2();
+  init_ps2();
+  init_pl2();
+  init_pt2();
+  init_ru2();
+  init_sl2();
+  init_sv2();
+  init_ta2();
+  init_th2();
+  init_tr2();
+  init_ua2();
+  init_uk2();
+  init_ur2();
+  init_vi2();
+  init_zh_CN2();
+  init_zh_TW2();
+  init_yo2();
+});
+
+// node_modules/@opencode-ai/plugin/node_modules/zod/v4/core/registries.js
 class $ZodRegistry2 {
   constructor() {
     this._map = new WeakMap;
@@ -31024,7 +29998,13 @@ class $ZodRegistry2 {
 function registry2() {
   return new $ZodRegistry2;
 }
-var globalRegistry2 = /* @__PURE__ */ registry2();
+var $output2, $input2, globalRegistry2;
+var init_registries2 = __esm(() => {
+  $output2 = Symbol("ZodOutput");
+  $input2 = Symbol("ZodInput");
+  globalRegistry2 = /* @__PURE__ */ registry2();
+});
+
 // node_modules/@opencode-ai/plugin/node_modules/zod/v4/core/api.js
 function _string2(Class3, params) {
   return new Class3({
@@ -31240,13 +30220,6 @@ function _jwt2(Class3, params) {
     ...normalizeParams2(params)
   });
 }
-var TimePrecision2 = {
-  Any: null,
-  Minute: -1,
-  Second: 0,
-  Millisecond: 3,
-  Microsecond: 6
-};
 function _isoDateTime2(Class3, params) {
   return new Class3({
     type: "string",
@@ -31903,6 +30876,20 @@ function _stringFormat2(Class3, format, fnOrRegex, _params = {}) {
   const inst = new Class3(def);
   return inst;
 }
+var TimePrecision2;
+var init_api2 = __esm(() => {
+  init_checks3();
+  init_schemas3();
+  init_util2();
+  TimePrecision2 = {
+    Any: null,
+    Minute: -1,
+    Second: 0,
+    Millisecond: 3,
+    Microsecond: 6
+  };
+});
+
 // node_modules/@opencode-ai/plugin/node_modules/zod/v4/core/to-json-schema.js
 class JSONSchemaGenerator2 {
   constructor(params) {
@@ -32707,8 +31694,299 @@ function isTransforming2(_schema, _ctx) {
   }
   throw new Error(`Unknown schema type: ${def.type}`);
 }
+var init_to_json_schema2 = __esm(() => {
+  init_registries2();
+  init_util2();
+});
+
 // node_modules/@opencode-ai/plugin/node_modules/zod/v4/core/json-schema.js
 var exports_json_schema2 = {};
+var init_json_schema2 = () => {};
+
+// node_modules/@opencode-ai/plugin/node_modules/zod/v4/core/index.js
+var exports_core4 = {};
+__export(exports_core4, {
+  version: () => version2,
+  util: () => exports_util2,
+  treeifyError: () => treeifyError2,
+  toJSONSchema: () => toJSONSchema2,
+  toDotPath: () => toDotPath2,
+  safeParseAsync: () => safeParseAsync3,
+  safeParse: () => safeParse3,
+  safeEncodeAsync: () => safeEncodeAsync3,
+  safeEncode: () => safeEncode3,
+  safeDecodeAsync: () => safeDecodeAsync3,
+  safeDecode: () => safeDecode3,
+  registry: () => registry2,
+  regexes: () => exports_regexes2,
+  prettifyError: () => prettifyError2,
+  parseAsync: () => parseAsync3,
+  parse: () => parse5,
+  locales: () => exports_locales2,
+  isValidJWT: () => isValidJWT2,
+  isValidBase64URL: () => isValidBase64URL2,
+  isValidBase64: () => isValidBase642,
+  globalRegistry: () => globalRegistry2,
+  globalConfig: () => globalConfig2,
+  formatError: () => formatError2,
+  flattenError: () => flattenError2,
+  encodeAsync: () => encodeAsync3,
+  encode: () => encode3,
+  decodeAsync: () => decodeAsync3,
+  decode: () => decode3,
+  config: () => config2,
+  clone: () => clone2,
+  _xid: () => _xid2,
+  _void: () => _void3,
+  _uuidv7: () => _uuidv72,
+  _uuidv6: () => _uuidv62,
+  _uuidv4: () => _uuidv42,
+  _uuid: () => _uuid2,
+  _url: () => _url2,
+  _uppercase: () => _uppercase2,
+  _unknown: () => _unknown2,
+  _union: () => _union2,
+  _undefined: () => _undefined5,
+  _ulid: () => _ulid2,
+  _uint64: () => _uint642,
+  _uint32: () => _uint322,
+  _tuple: () => _tuple2,
+  _trim: () => _trim2,
+  _transform: () => _transform2,
+  _toUpperCase: () => _toUpperCase2,
+  _toLowerCase: () => _toLowerCase2,
+  _templateLiteral: () => _templateLiteral2,
+  _symbol: () => _symbol2,
+  _superRefine: () => _superRefine2,
+  _success: () => _success2,
+  _stringbool: () => _stringbool2,
+  _stringFormat: () => _stringFormat2,
+  _string: () => _string2,
+  _startsWith: () => _startsWith2,
+  _size: () => _size2,
+  _set: () => _set2,
+  _safeParseAsync: () => _safeParseAsync2,
+  _safeParse: () => _safeParse2,
+  _safeEncodeAsync: () => _safeEncodeAsync2,
+  _safeEncode: () => _safeEncode2,
+  _safeDecodeAsync: () => _safeDecodeAsync2,
+  _safeDecode: () => _safeDecode2,
+  _regex: () => _regex2,
+  _refine: () => _refine2,
+  _record: () => _record2,
+  _readonly: () => _readonly2,
+  _property: () => _property2,
+  _promise: () => _promise2,
+  _positive: () => _positive2,
+  _pipe: () => _pipe2,
+  _parseAsync: () => _parseAsync2,
+  _parse: () => _parse2,
+  _overwrite: () => _overwrite2,
+  _optional: () => _optional2,
+  _number: () => _number2,
+  _nullable: () => _nullable2,
+  _null: () => _null5,
+  _normalize: () => _normalize2,
+  _nonpositive: () => _nonpositive2,
+  _nonoptional: () => _nonoptional2,
+  _nonnegative: () => _nonnegative2,
+  _never: () => _never2,
+  _negative: () => _negative2,
+  _nativeEnum: () => _nativeEnum2,
+  _nanoid: () => _nanoid2,
+  _nan: () => _nan2,
+  _multipleOf: () => _multipleOf2,
+  _minSize: () => _minSize2,
+  _minLength: () => _minLength2,
+  _min: () => _gte2,
+  _mime: () => _mime2,
+  _maxSize: () => _maxSize2,
+  _maxLength: () => _maxLength2,
+  _max: () => _lte2,
+  _map: () => _map2,
+  _lte: () => _lte2,
+  _lt: () => _lt2,
+  _lowercase: () => _lowercase2,
+  _literal: () => _literal2,
+  _length: () => _length2,
+  _lazy: () => _lazy2,
+  _ksuid: () => _ksuid2,
+  _jwt: () => _jwt2,
+  _isoTime: () => _isoTime2,
+  _isoDuration: () => _isoDuration2,
+  _isoDateTime: () => _isoDateTime2,
+  _isoDate: () => _isoDate2,
+  _ipv6: () => _ipv62,
+  _ipv4: () => _ipv42,
+  _intersection: () => _intersection2,
+  _int64: () => _int642,
+  _int32: () => _int322,
+  _int: () => _int2,
+  _includes: () => _includes2,
+  _guid: () => _guid2,
+  _gte: () => _gte2,
+  _gt: () => _gt2,
+  _float64: () => _float642,
+  _float32: () => _float322,
+  _file: () => _file2,
+  _enum: () => _enum3,
+  _endsWith: () => _endsWith2,
+  _encodeAsync: () => _encodeAsync2,
+  _encode: () => _encode2,
+  _emoji: () => _emoji4,
+  _email: () => _email2,
+  _e164: () => _e1642,
+  _discriminatedUnion: () => _discriminatedUnion2,
+  _default: () => _default3,
+  _decodeAsync: () => _decodeAsync2,
+  _decode: () => _decode2,
+  _date: () => _date2,
+  _custom: () => _custom2,
+  _cuid2: () => _cuid22,
+  _cuid: () => _cuid3,
+  _coercedString: () => _coercedString2,
+  _coercedNumber: () => _coercedNumber2,
+  _coercedDate: () => _coercedDate2,
+  _coercedBoolean: () => _coercedBoolean2,
+  _coercedBigint: () => _coercedBigint2,
+  _cidrv6: () => _cidrv62,
+  _cidrv4: () => _cidrv42,
+  _check: () => _check2,
+  _catch: () => _catch3,
+  _boolean: () => _boolean2,
+  _bigint: () => _bigint2,
+  _base64url: () => _base64url2,
+  _base64: () => _base642,
+  _array: () => _array2,
+  _any: () => _any2,
+  TimePrecision: () => TimePrecision2,
+  NEVER: () => NEVER2,
+  JSONSchemaGenerator: () => JSONSchemaGenerator2,
+  JSONSchema: () => exports_json_schema2,
+  Doc: () => Doc2,
+  $output: () => $output2,
+  $input: () => $input2,
+  $constructor: () => $constructor2,
+  $brand: () => $brand2,
+  $ZodXID: () => $ZodXID2,
+  $ZodVoid: () => $ZodVoid2,
+  $ZodUnknown: () => $ZodUnknown2,
+  $ZodUnion: () => $ZodUnion2,
+  $ZodUndefined: () => $ZodUndefined2,
+  $ZodUUID: () => $ZodUUID2,
+  $ZodURL: () => $ZodURL2,
+  $ZodULID: () => $ZodULID2,
+  $ZodType: () => $ZodType2,
+  $ZodTuple: () => $ZodTuple2,
+  $ZodTransform: () => $ZodTransform2,
+  $ZodTemplateLiteral: () => $ZodTemplateLiteral2,
+  $ZodSymbol: () => $ZodSymbol2,
+  $ZodSuccess: () => $ZodSuccess2,
+  $ZodStringFormat: () => $ZodStringFormat2,
+  $ZodString: () => $ZodString2,
+  $ZodSet: () => $ZodSet2,
+  $ZodRegistry: () => $ZodRegistry2,
+  $ZodRecord: () => $ZodRecord2,
+  $ZodRealError: () => $ZodRealError2,
+  $ZodReadonly: () => $ZodReadonly2,
+  $ZodPromise: () => $ZodPromise2,
+  $ZodPrefault: () => $ZodPrefault2,
+  $ZodPipe: () => $ZodPipe2,
+  $ZodOptional: () => $ZodOptional2,
+  $ZodObjectJIT: () => $ZodObjectJIT2,
+  $ZodObject: () => $ZodObject2,
+  $ZodNumberFormat: () => $ZodNumberFormat2,
+  $ZodNumber: () => $ZodNumber2,
+  $ZodNullable: () => $ZodNullable2,
+  $ZodNull: () => $ZodNull2,
+  $ZodNonOptional: () => $ZodNonOptional2,
+  $ZodNever: () => $ZodNever2,
+  $ZodNanoID: () => $ZodNanoID2,
+  $ZodNaN: () => $ZodNaN2,
+  $ZodMap: () => $ZodMap2,
+  $ZodLiteral: () => $ZodLiteral2,
+  $ZodLazy: () => $ZodLazy2,
+  $ZodKSUID: () => $ZodKSUID2,
+  $ZodJWT: () => $ZodJWT2,
+  $ZodIntersection: () => $ZodIntersection2,
+  $ZodISOTime: () => $ZodISOTime2,
+  $ZodISODuration: () => $ZodISODuration2,
+  $ZodISODateTime: () => $ZodISODateTime2,
+  $ZodISODate: () => $ZodISODate2,
+  $ZodIPv6: () => $ZodIPv62,
+  $ZodIPv4: () => $ZodIPv42,
+  $ZodGUID: () => $ZodGUID2,
+  $ZodFunction: () => $ZodFunction2,
+  $ZodFile: () => $ZodFile2,
+  $ZodError: () => $ZodError2,
+  $ZodEnum: () => $ZodEnum2,
+  $ZodEncodeError: () => $ZodEncodeError2,
+  $ZodEmoji: () => $ZodEmoji2,
+  $ZodEmail: () => $ZodEmail2,
+  $ZodE164: () => $ZodE1642,
+  $ZodDiscriminatedUnion: () => $ZodDiscriminatedUnion2,
+  $ZodDefault: () => $ZodDefault2,
+  $ZodDate: () => $ZodDate2,
+  $ZodCustomStringFormat: () => $ZodCustomStringFormat2,
+  $ZodCustom: () => $ZodCustom2,
+  $ZodCodec: () => $ZodCodec2,
+  $ZodCheckUpperCase: () => $ZodCheckUpperCase2,
+  $ZodCheckStringFormat: () => $ZodCheckStringFormat2,
+  $ZodCheckStartsWith: () => $ZodCheckStartsWith2,
+  $ZodCheckSizeEquals: () => $ZodCheckSizeEquals2,
+  $ZodCheckRegex: () => $ZodCheckRegex2,
+  $ZodCheckProperty: () => $ZodCheckProperty2,
+  $ZodCheckOverwrite: () => $ZodCheckOverwrite2,
+  $ZodCheckNumberFormat: () => $ZodCheckNumberFormat2,
+  $ZodCheckMultipleOf: () => $ZodCheckMultipleOf2,
+  $ZodCheckMinSize: () => $ZodCheckMinSize2,
+  $ZodCheckMinLength: () => $ZodCheckMinLength2,
+  $ZodCheckMimeType: () => $ZodCheckMimeType2,
+  $ZodCheckMaxSize: () => $ZodCheckMaxSize2,
+  $ZodCheckMaxLength: () => $ZodCheckMaxLength2,
+  $ZodCheckLowerCase: () => $ZodCheckLowerCase2,
+  $ZodCheckLessThan: () => $ZodCheckLessThan2,
+  $ZodCheckLengthEquals: () => $ZodCheckLengthEquals2,
+  $ZodCheckIncludes: () => $ZodCheckIncludes2,
+  $ZodCheckGreaterThan: () => $ZodCheckGreaterThan2,
+  $ZodCheckEndsWith: () => $ZodCheckEndsWith2,
+  $ZodCheckBigIntFormat: () => $ZodCheckBigIntFormat2,
+  $ZodCheck: () => $ZodCheck2,
+  $ZodCatch: () => $ZodCatch2,
+  $ZodCUID2: () => $ZodCUID22,
+  $ZodCUID: () => $ZodCUID3,
+  $ZodCIDRv6: () => $ZodCIDRv62,
+  $ZodCIDRv4: () => $ZodCIDRv42,
+  $ZodBoolean: () => $ZodBoolean2,
+  $ZodBigIntFormat: () => $ZodBigIntFormat2,
+  $ZodBigInt: () => $ZodBigInt2,
+  $ZodBase64URL: () => $ZodBase64URL2,
+  $ZodBase64: () => $ZodBase642,
+  $ZodAsyncError: () => $ZodAsyncError2,
+  $ZodArray: () => $ZodArray2,
+  $ZodAny: () => $ZodAny2
+});
+var init_core4 = __esm(() => {
+  init_util2();
+  init_regexes2();
+  init_locales2();
+  init_json_schema2();
+  init_core3();
+  init_parse3();
+  init_errors4();
+  init_schemas3();
+  init_checks3();
+  init_versions2();
+  init_registries2();
+  init_api2();
+  init_to_json_schema2();
+});
+
+// node_modules/@opencode-ai/plugin/node_modules/zod/v4/classic/checks.js
+var init_checks4 = __esm(() => {
+  init_core4();
+});
+
 // node_modules/@opencode-ai/plugin/node_modules/zod/v4/classic/iso.js
 var exports_iso2 = {};
 __export(exports_iso2, {
@@ -32721,34 +31999,39 @@ __export(exports_iso2, {
   ZodISODateTime: () => ZodISODateTime2,
   ZodISODate: () => ZodISODate2
 });
-var ZodISODateTime2 = /* @__PURE__ */ $constructor2("ZodISODateTime", (inst, def) => {
-  $ZodISODateTime2.init(inst, def);
-  ZodStringFormat2.init(inst, def);
-});
 function datetime4(params) {
   return _isoDateTime2(ZodISODateTime2, params);
 }
-var ZodISODate2 = /* @__PURE__ */ $constructor2("ZodISODate", (inst, def) => {
-  $ZodISODate2.init(inst, def);
-  ZodStringFormat2.init(inst, def);
-});
 function date6(params) {
   return _isoDate2(ZodISODate2, params);
 }
-var ZodISOTime2 = /* @__PURE__ */ $constructor2("ZodISOTime", (inst, def) => {
-  $ZodISOTime2.init(inst, def);
-  ZodStringFormat2.init(inst, def);
-});
 function time4(params) {
   return _isoTime2(ZodISOTime2, params);
 }
-var ZodISODuration2 = /* @__PURE__ */ $constructor2("ZodISODuration", (inst, def) => {
-  $ZodISODuration2.init(inst, def);
-  ZodStringFormat2.init(inst, def);
-});
 function duration4(params) {
   return _isoDuration2(ZodISODuration2, params);
 }
+var ZodISODateTime2, ZodISODate2, ZodISOTime2, ZodISODuration2;
+var init_iso2 = __esm(() => {
+  init_core4();
+  init_schemas4();
+  ZodISODateTime2 = /* @__PURE__ */ $constructor2("ZodISODateTime", (inst, def) => {
+    $ZodISODateTime2.init(inst, def);
+    ZodStringFormat2.init(inst, def);
+  });
+  ZodISODate2 = /* @__PURE__ */ $constructor2("ZodISODate", (inst, def) => {
+    $ZodISODate2.init(inst, def);
+    ZodStringFormat2.init(inst, def);
+  });
+  ZodISOTime2 = /* @__PURE__ */ $constructor2("ZodISOTime", (inst, def) => {
+    $ZodISOTime2.init(inst, def);
+    ZodStringFormat2.init(inst, def);
+  });
+  ZodISODuration2 = /* @__PURE__ */ $constructor2("ZodISODuration", (inst, def) => {
+    $ZodISODuration2.init(inst, def);
+    ZodStringFormat2.init(inst, def);
+  });
+});
 
 // node_modules/@opencode-ai/plugin/node_modules/zod/v4/classic/errors.js
 var initializer4 = (inst, issues) => {
@@ -32779,177 +32062,46 @@ var initializer4 = (inst, issues) => {
       }
     }
   });
-};
-var ZodError2 = $constructor2("ZodError", initializer4);
-var ZodRealError2 = $constructor2("ZodError", initializer4, {
-  Parent: Error
+}, ZodError2, ZodRealError2;
+var init_errors5 = __esm(() => {
+  init_core4();
+  init_core4();
+  init_util2();
+  ZodError2 = $constructor2("ZodError", initializer4);
+  ZodRealError2 = $constructor2("ZodError", initializer4, {
+    Parent: Error
+  });
 });
 
 // node_modules/@opencode-ai/plugin/node_modules/zod/v4/classic/parse.js
-var parse7 = /* @__PURE__ */ _parse2(ZodRealError2);
-var parseAsync4 = /* @__PURE__ */ _parseAsync2(ZodRealError2);
-var safeParse4 = /* @__PURE__ */ _safeParse2(ZodRealError2);
-var safeParseAsync4 = /* @__PURE__ */ _safeParseAsync2(ZodRealError2);
-var encode4 = /* @__PURE__ */ _encode2(ZodRealError2);
-var decode4 = /* @__PURE__ */ _decode2(ZodRealError2);
-var encodeAsync4 = /* @__PURE__ */ _encodeAsync2(ZodRealError2);
-var decodeAsync4 = /* @__PURE__ */ _decodeAsync2(ZodRealError2);
-var safeEncode4 = /* @__PURE__ */ _safeEncode2(ZodRealError2);
-var safeDecode4 = /* @__PURE__ */ _safeDecode2(ZodRealError2);
-var safeEncodeAsync4 = /* @__PURE__ */ _safeEncodeAsync2(ZodRealError2);
-var safeDecodeAsync4 = /* @__PURE__ */ _safeDecodeAsync2(ZodRealError2);
+var parse7, parseAsync4, safeParse4, safeParseAsync4, encode4, decode4, encodeAsync4, decodeAsync4, safeEncode4, safeDecode4, safeEncodeAsync4, safeDecodeAsync4;
+var init_parse4 = __esm(() => {
+  init_core4();
+  init_errors5();
+  parse7 = /* @__PURE__ */ _parse2(ZodRealError2);
+  parseAsync4 = /* @__PURE__ */ _parseAsync2(ZodRealError2);
+  safeParse4 = /* @__PURE__ */ _safeParse2(ZodRealError2);
+  safeParseAsync4 = /* @__PURE__ */ _safeParseAsync2(ZodRealError2);
+  encode4 = /* @__PURE__ */ _encode2(ZodRealError2);
+  decode4 = /* @__PURE__ */ _decode2(ZodRealError2);
+  encodeAsync4 = /* @__PURE__ */ _encodeAsync2(ZodRealError2);
+  decodeAsync4 = /* @__PURE__ */ _decodeAsync2(ZodRealError2);
+  safeEncode4 = /* @__PURE__ */ _safeEncode2(ZodRealError2);
+  safeDecode4 = /* @__PURE__ */ _safeDecode2(ZodRealError2);
+  safeEncodeAsync4 = /* @__PURE__ */ _safeEncodeAsync2(ZodRealError2);
+  safeDecodeAsync4 = /* @__PURE__ */ _safeDecodeAsync2(ZodRealError2);
+});
 
 // node_modules/@opencode-ai/plugin/node_modules/zod/v4/classic/schemas.js
-var ZodType2 = /* @__PURE__ */ $constructor2("ZodType", (inst, def) => {
-  $ZodType2.init(inst, def);
-  inst.def = def;
-  inst.type = def.type;
-  Object.defineProperty(inst, "_def", { value: def });
-  inst.check = (...checks4) => {
-    return inst.clone({
-      ...def,
-      checks: [
-        ...def.checks ?? [],
-        ...checks4.map((ch) => typeof ch === "function" ? { _zod: { check: ch, def: { check: "custom" }, onattach: [] } } : ch)
-      ]
-    });
-  };
-  inst.clone = (def2, params) => clone2(inst, def2, params);
-  inst.brand = () => inst;
-  inst.register = (reg, meta3) => {
-    reg.add(inst, meta3);
-    return inst;
-  };
-  inst.parse = (data, params) => parse7(inst, data, params, { callee: inst.parse });
-  inst.safeParse = (data, params) => safeParse4(inst, data, params);
-  inst.parseAsync = async (data, params) => parseAsync4(inst, data, params, { callee: inst.parseAsync });
-  inst.safeParseAsync = async (data, params) => safeParseAsync4(inst, data, params);
-  inst.spa = inst.safeParseAsync;
-  inst.encode = (data, params) => encode4(inst, data, params);
-  inst.decode = (data, params) => decode4(inst, data, params);
-  inst.encodeAsync = async (data, params) => encodeAsync4(inst, data, params);
-  inst.decodeAsync = async (data, params) => decodeAsync4(inst, data, params);
-  inst.safeEncode = (data, params) => safeEncode4(inst, data, params);
-  inst.safeDecode = (data, params) => safeDecode4(inst, data, params);
-  inst.safeEncodeAsync = async (data, params) => safeEncodeAsync4(inst, data, params);
-  inst.safeDecodeAsync = async (data, params) => safeDecodeAsync4(inst, data, params);
-  inst.refine = (check2, params) => inst.check(refine2(check2, params));
-  inst.superRefine = (refinement) => inst.check(superRefine2(refinement));
-  inst.overwrite = (fn) => inst.check(_overwrite2(fn));
-  inst.optional = () => optional2(inst);
-  inst.nullable = () => nullable2(inst);
-  inst.nullish = () => optional2(nullable2(inst));
-  inst.nonoptional = (params) => nonoptional2(inst, params);
-  inst.array = () => array2(inst);
-  inst.or = (arg) => union2([inst, arg]);
-  inst.and = (arg) => intersection2(inst, arg);
-  inst.transform = (tx) => pipe2(inst, transform2(tx));
-  inst.default = (def2) => _default4(inst, def2);
-  inst.prefault = (def2) => prefault2(inst, def2);
-  inst.catch = (params) => _catch4(inst, params);
-  inst.pipe = (target) => pipe2(inst, target);
-  inst.readonly = () => readonly2(inst);
-  inst.describe = (description) => {
-    const cl = inst.clone();
-    globalRegistry2.add(cl, { description });
-    return cl;
-  };
-  Object.defineProperty(inst, "description", {
-    get() {
-      return globalRegistry2.get(inst)?.description;
-    },
-    configurable: true
-  });
-  inst.meta = (...args) => {
-    if (args.length === 0) {
-      return globalRegistry2.get(inst);
-    }
-    const cl = inst.clone();
-    globalRegistry2.add(cl, args[0]);
-    return cl;
-  };
-  inst.isOptional = () => inst.safeParse(undefined).success;
-  inst.isNullable = () => inst.safeParse(null).success;
-  return inst;
-});
-var _ZodString2 = /* @__PURE__ */ $constructor2("_ZodString", (inst, def) => {
-  $ZodString2.init(inst, def);
-  ZodType2.init(inst, def);
-  const bag = inst._zod.bag;
-  inst.format = bag.format ?? null;
-  inst.minLength = bag.minimum ?? null;
-  inst.maxLength = bag.maximum ?? null;
-  inst.regex = (...args) => inst.check(_regex2(...args));
-  inst.includes = (...args) => inst.check(_includes2(...args));
-  inst.startsWith = (...args) => inst.check(_startsWith2(...args));
-  inst.endsWith = (...args) => inst.check(_endsWith2(...args));
-  inst.min = (...args) => inst.check(_minLength2(...args));
-  inst.max = (...args) => inst.check(_maxLength2(...args));
-  inst.length = (...args) => inst.check(_length2(...args));
-  inst.nonempty = (...args) => inst.check(_minLength2(1, ...args));
-  inst.lowercase = (params) => inst.check(_lowercase2(params));
-  inst.uppercase = (params) => inst.check(_uppercase2(params));
-  inst.trim = () => inst.check(_trim2());
-  inst.normalize = (...args) => inst.check(_normalize2(...args));
-  inst.toLowerCase = () => inst.check(_toLowerCase2());
-  inst.toUpperCase = () => inst.check(_toUpperCase2());
-});
-var ZodString2 = /* @__PURE__ */ $constructor2("ZodString", (inst, def) => {
-  $ZodString2.init(inst, def);
-  _ZodString2.init(inst, def);
-  inst.email = (params) => inst.check(_email2(ZodEmail2, params));
-  inst.url = (params) => inst.check(_url2(ZodURL2, params));
-  inst.jwt = (params) => inst.check(_jwt2(ZodJWT2, params));
-  inst.emoji = (params) => inst.check(_emoji4(ZodEmoji2, params));
-  inst.guid = (params) => inst.check(_guid2(ZodGUID2, params));
-  inst.uuid = (params) => inst.check(_uuid2(ZodUUID2, params));
-  inst.uuidv4 = (params) => inst.check(_uuidv42(ZodUUID2, params));
-  inst.uuidv6 = (params) => inst.check(_uuidv62(ZodUUID2, params));
-  inst.uuidv7 = (params) => inst.check(_uuidv72(ZodUUID2, params));
-  inst.nanoid = (params) => inst.check(_nanoid2(ZodNanoID2, params));
-  inst.guid = (params) => inst.check(_guid2(ZodGUID2, params));
-  inst.cuid = (params) => inst.check(_cuid3(ZodCUID3, params));
-  inst.cuid2 = (params) => inst.check(_cuid22(ZodCUID22, params));
-  inst.ulid = (params) => inst.check(_ulid2(ZodULID2, params));
-  inst.base64 = (params) => inst.check(_base642(ZodBase642, params));
-  inst.base64url = (params) => inst.check(_base64url2(ZodBase64URL2, params));
-  inst.xid = (params) => inst.check(_xid2(ZodXID2, params));
-  inst.ksuid = (params) => inst.check(_ksuid2(ZodKSUID2, params));
-  inst.ipv4 = (params) => inst.check(_ipv42(ZodIPv42, params));
-  inst.ipv6 = (params) => inst.check(_ipv62(ZodIPv62, params));
-  inst.cidrv4 = (params) => inst.check(_cidrv42(ZodCIDRv42, params));
-  inst.cidrv6 = (params) => inst.check(_cidrv62(ZodCIDRv62, params));
-  inst.e164 = (params) => inst.check(_e1642(ZodE1642, params));
-  inst.datetime = (params) => inst.check(datetime4(params));
-  inst.date = (params) => inst.check(date6(params));
-  inst.time = (params) => inst.check(time4(params));
-  inst.duration = (params) => inst.check(duration4(params));
-});
 function string5(params) {
   return _string2(ZodString2, params);
 }
-var ZodStringFormat2 = /* @__PURE__ */ $constructor2("ZodStringFormat", (inst, def) => {
-  $ZodStringFormat2.init(inst, def);
-  _ZodString2.init(inst, def);
-});
-var ZodEmail2 = /* @__PURE__ */ $constructor2("ZodEmail", (inst, def) => {
-  $ZodEmail2.init(inst, def);
-  ZodStringFormat2.init(inst, def);
-});
 function email4(params) {
   return _email2(ZodEmail2, params);
 }
-var ZodGUID2 = /* @__PURE__ */ $constructor2("ZodGUID", (inst, def) => {
-  $ZodGUID2.init(inst, def);
-  ZodStringFormat2.init(inst, def);
-});
 function guid4(params) {
   return _guid2(ZodGUID2, params);
 }
-var ZodUUID2 = /* @__PURE__ */ $constructor2("ZodUUID", (inst, def) => {
-  $ZodUUID2.init(inst, def);
-  ZodStringFormat2.init(inst, def);
-});
 function uuid5(params) {
   return _uuid2(ZodUUID2, params);
 }
@@ -32962,10 +32114,6 @@ function uuidv62(params) {
 function uuidv72(params) {
   return _uuidv72(ZodUUID2, params);
 }
-var ZodURL2 = /* @__PURE__ */ $constructor2("ZodURL", (inst, def) => {
-  $ZodURL2.init(inst, def);
-  ZodStringFormat2.init(inst, def);
-});
 function url2(params) {
   return _url2(ZodURL2, params);
 }
@@ -32976,115 +32124,51 @@ function httpUrl2(params) {
     ...exports_util2.normalizeParams(params)
   });
 }
-var ZodEmoji2 = /* @__PURE__ */ $constructor2("ZodEmoji", (inst, def) => {
-  $ZodEmoji2.init(inst, def);
-  ZodStringFormat2.init(inst, def);
-});
 function emoji4(params) {
   return _emoji4(ZodEmoji2, params);
 }
-var ZodNanoID2 = /* @__PURE__ */ $constructor2("ZodNanoID", (inst, def) => {
-  $ZodNanoID2.init(inst, def);
-  ZodStringFormat2.init(inst, def);
-});
 function nanoid4(params) {
   return _nanoid2(ZodNanoID2, params);
 }
-var ZodCUID3 = /* @__PURE__ */ $constructor2("ZodCUID", (inst, def) => {
-  $ZodCUID3.init(inst, def);
-  ZodStringFormat2.init(inst, def);
-});
 function cuid6(params) {
   return _cuid3(ZodCUID3, params);
 }
-var ZodCUID22 = /* @__PURE__ */ $constructor2("ZodCUID2", (inst, def) => {
-  $ZodCUID22.init(inst, def);
-  ZodStringFormat2.init(inst, def);
-});
 function cuid24(params) {
   return _cuid22(ZodCUID22, params);
 }
-var ZodULID2 = /* @__PURE__ */ $constructor2("ZodULID", (inst, def) => {
-  $ZodULID2.init(inst, def);
-  ZodStringFormat2.init(inst, def);
-});
 function ulid4(params) {
   return _ulid2(ZodULID2, params);
 }
-var ZodXID2 = /* @__PURE__ */ $constructor2("ZodXID", (inst, def) => {
-  $ZodXID2.init(inst, def);
-  ZodStringFormat2.init(inst, def);
-});
 function xid4(params) {
   return _xid2(ZodXID2, params);
 }
-var ZodKSUID2 = /* @__PURE__ */ $constructor2("ZodKSUID", (inst, def) => {
-  $ZodKSUID2.init(inst, def);
-  ZodStringFormat2.init(inst, def);
-});
 function ksuid4(params) {
   return _ksuid2(ZodKSUID2, params);
 }
-var ZodIPv42 = /* @__PURE__ */ $constructor2("ZodIPv4", (inst, def) => {
-  $ZodIPv42.init(inst, def);
-  ZodStringFormat2.init(inst, def);
-});
 function ipv44(params) {
   return _ipv42(ZodIPv42, params);
 }
-var ZodIPv62 = /* @__PURE__ */ $constructor2("ZodIPv6", (inst, def) => {
-  $ZodIPv62.init(inst, def);
-  ZodStringFormat2.init(inst, def);
-});
 function ipv64(params) {
   return _ipv62(ZodIPv62, params);
 }
-var ZodCIDRv42 = /* @__PURE__ */ $constructor2("ZodCIDRv4", (inst, def) => {
-  $ZodCIDRv42.init(inst, def);
-  ZodStringFormat2.init(inst, def);
-});
 function cidrv44(params) {
   return _cidrv42(ZodCIDRv42, params);
 }
-var ZodCIDRv62 = /* @__PURE__ */ $constructor2("ZodCIDRv6", (inst, def) => {
-  $ZodCIDRv62.init(inst, def);
-  ZodStringFormat2.init(inst, def);
-});
 function cidrv64(params) {
   return _cidrv62(ZodCIDRv62, params);
 }
-var ZodBase642 = /* @__PURE__ */ $constructor2("ZodBase64", (inst, def) => {
-  $ZodBase642.init(inst, def);
-  ZodStringFormat2.init(inst, def);
-});
 function base644(params) {
   return _base642(ZodBase642, params);
 }
-var ZodBase64URL2 = /* @__PURE__ */ $constructor2("ZodBase64URL", (inst, def) => {
-  $ZodBase64URL2.init(inst, def);
-  ZodStringFormat2.init(inst, def);
-});
 function base64url4(params) {
   return _base64url2(ZodBase64URL2, params);
 }
-var ZodE1642 = /* @__PURE__ */ $constructor2("ZodE164", (inst, def) => {
-  $ZodE1642.init(inst, def);
-  ZodStringFormat2.init(inst, def);
-});
 function e1644(params) {
   return _e1642(ZodE1642, params);
 }
-var ZodJWT2 = /* @__PURE__ */ $constructor2("ZodJWT", (inst, def) => {
-  $ZodJWT2.init(inst, def);
-  ZodStringFormat2.init(inst, def);
-});
 function jwt2(params) {
   return _jwt2(ZodJWT2, params);
 }
-var ZodCustomStringFormat2 = /* @__PURE__ */ $constructor2("ZodCustomStringFormat", (inst, def) => {
-  $ZodCustomStringFormat2.init(inst, def);
-  ZodStringFormat2.init(inst, def);
-});
 function stringFormat2(format, fnOrRegex, _params = {}) {
   return _stringFormat2(ZodCustomStringFormat2, format, fnOrRegex, _params);
 }
@@ -33102,38 +32186,9 @@ function hash2(alg, params) {
     throw new Error(`Unrecognized hash format: ${format}`);
   return _stringFormat2(ZodCustomStringFormat2, format, regex, params);
 }
-var ZodNumber2 = /* @__PURE__ */ $constructor2("ZodNumber", (inst, def) => {
-  $ZodNumber2.init(inst, def);
-  ZodType2.init(inst, def);
-  inst.gt = (value, params) => inst.check(_gt2(value, params));
-  inst.gte = (value, params) => inst.check(_gte2(value, params));
-  inst.min = (value, params) => inst.check(_gte2(value, params));
-  inst.lt = (value, params) => inst.check(_lt2(value, params));
-  inst.lte = (value, params) => inst.check(_lte2(value, params));
-  inst.max = (value, params) => inst.check(_lte2(value, params));
-  inst.int = (params) => inst.check(int2(params));
-  inst.safe = (params) => inst.check(int2(params));
-  inst.positive = (params) => inst.check(_gt2(0, params));
-  inst.nonnegative = (params) => inst.check(_gte2(0, params));
-  inst.negative = (params) => inst.check(_lt2(0, params));
-  inst.nonpositive = (params) => inst.check(_lte2(0, params));
-  inst.multipleOf = (value, params) => inst.check(_multipleOf2(value, params));
-  inst.step = (value, params) => inst.check(_multipleOf2(value, params));
-  inst.finite = () => inst;
-  const bag = inst._zod.bag;
-  inst.minValue = Math.max(bag.minimum ?? Number.NEGATIVE_INFINITY, bag.exclusiveMinimum ?? Number.NEGATIVE_INFINITY) ?? null;
-  inst.maxValue = Math.min(bag.maximum ?? Number.POSITIVE_INFINITY, bag.exclusiveMaximum ?? Number.POSITIVE_INFINITY) ?? null;
-  inst.isInt = (bag.format ?? "").includes("int") || Number.isSafeInteger(bag.multipleOf ?? 0.5);
-  inst.isFinite = true;
-  inst.format = bag.format ?? null;
-});
 function number5(params) {
   return _number2(ZodNumber2, params);
 }
-var ZodNumberFormat2 = /* @__PURE__ */ $constructor2("ZodNumberFormat", (inst, def) => {
-  $ZodNumberFormat2.init(inst, def);
-  ZodNumber2.init(inst, def);
-});
 function int2(params) {
   return _int2(ZodNumberFormat2, params);
 }
@@ -33149,118 +32204,42 @@ function int322(params) {
 function uint322(params) {
   return _uint322(ZodNumberFormat2, params);
 }
-var ZodBoolean2 = /* @__PURE__ */ $constructor2("ZodBoolean", (inst, def) => {
-  $ZodBoolean2.init(inst, def);
-  ZodType2.init(inst, def);
-});
 function boolean5(params) {
   return _boolean2(ZodBoolean2, params);
 }
-var ZodBigInt2 = /* @__PURE__ */ $constructor2("ZodBigInt", (inst, def) => {
-  $ZodBigInt2.init(inst, def);
-  ZodType2.init(inst, def);
-  inst.gte = (value, params) => inst.check(_gte2(value, params));
-  inst.min = (value, params) => inst.check(_gte2(value, params));
-  inst.gt = (value, params) => inst.check(_gt2(value, params));
-  inst.gte = (value, params) => inst.check(_gte2(value, params));
-  inst.min = (value, params) => inst.check(_gte2(value, params));
-  inst.lt = (value, params) => inst.check(_lt2(value, params));
-  inst.lte = (value, params) => inst.check(_lte2(value, params));
-  inst.max = (value, params) => inst.check(_lte2(value, params));
-  inst.positive = (params) => inst.check(_gt2(BigInt(0), params));
-  inst.negative = (params) => inst.check(_lt2(BigInt(0), params));
-  inst.nonpositive = (params) => inst.check(_lte2(BigInt(0), params));
-  inst.nonnegative = (params) => inst.check(_gte2(BigInt(0), params));
-  inst.multipleOf = (value, params) => inst.check(_multipleOf2(value, params));
-  const bag = inst._zod.bag;
-  inst.minValue = bag.minimum ?? null;
-  inst.maxValue = bag.maximum ?? null;
-  inst.format = bag.format ?? null;
-});
 function bigint5(params) {
   return _bigint2(ZodBigInt2, params);
 }
-var ZodBigIntFormat2 = /* @__PURE__ */ $constructor2("ZodBigIntFormat", (inst, def) => {
-  $ZodBigIntFormat2.init(inst, def);
-  ZodBigInt2.init(inst, def);
-});
 function int642(params) {
   return _int642(ZodBigIntFormat2, params);
 }
 function uint642(params) {
   return _uint642(ZodBigIntFormat2, params);
 }
-var ZodSymbol2 = /* @__PURE__ */ $constructor2("ZodSymbol", (inst, def) => {
-  $ZodSymbol2.init(inst, def);
-  ZodType2.init(inst, def);
-});
 function symbol2(params) {
   return _symbol2(ZodSymbol2, params);
 }
-var ZodUndefined2 = /* @__PURE__ */ $constructor2("ZodUndefined", (inst, def) => {
-  $ZodUndefined2.init(inst, def);
-  ZodType2.init(inst, def);
-});
 function _undefined6(params) {
   return _undefined5(ZodUndefined2, params);
 }
-var ZodNull2 = /* @__PURE__ */ $constructor2("ZodNull", (inst, def) => {
-  $ZodNull2.init(inst, def);
-  ZodType2.init(inst, def);
-});
 function _null6(params) {
   return _null5(ZodNull2, params);
 }
-var ZodAny2 = /* @__PURE__ */ $constructor2("ZodAny", (inst, def) => {
-  $ZodAny2.init(inst, def);
-  ZodType2.init(inst, def);
-});
 function any2() {
   return _any2(ZodAny2);
 }
-var ZodUnknown2 = /* @__PURE__ */ $constructor2("ZodUnknown", (inst, def) => {
-  $ZodUnknown2.init(inst, def);
-  ZodType2.init(inst, def);
-});
 function unknown2() {
   return _unknown2(ZodUnknown2);
 }
-var ZodNever2 = /* @__PURE__ */ $constructor2("ZodNever", (inst, def) => {
-  $ZodNever2.init(inst, def);
-  ZodType2.init(inst, def);
-});
 function never2(params) {
   return _never2(ZodNever2, params);
 }
-var ZodVoid2 = /* @__PURE__ */ $constructor2("ZodVoid", (inst, def) => {
-  $ZodVoid2.init(inst, def);
-  ZodType2.init(inst, def);
-});
 function _void4(params) {
   return _void3(ZodVoid2, params);
 }
-var ZodDate2 = /* @__PURE__ */ $constructor2("ZodDate", (inst, def) => {
-  $ZodDate2.init(inst, def);
-  ZodType2.init(inst, def);
-  inst.min = (value, params) => inst.check(_gte2(value, params));
-  inst.max = (value, params) => inst.check(_lte2(value, params));
-  const c = inst._zod.bag;
-  inst.minDate = c.minimum ? new Date(c.minimum) : null;
-  inst.maxDate = c.maximum ? new Date(c.maximum) : null;
-});
 function date7(params) {
   return _date2(ZodDate2, params);
 }
-var ZodArray2 = /* @__PURE__ */ $constructor2("ZodArray", (inst, def) => {
-  $ZodArray2.init(inst, def);
-  ZodType2.init(inst, def);
-  inst.element = def.element;
-  inst.min = (minLength, params) => inst.check(_minLength2(minLength, params));
-  inst.nonempty = (params) => inst.check(_minLength2(1, params));
-  inst.max = (maxLength, params) => inst.check(_maxLength2(maxLength, params));
-  inst.length = (len, params) => inst.check(_length2(len, params));
-  inst.unwrap = () => inst.element;
-});
 function array2(element, params) {
   return _array2(ZodArray2, element, params);
 }
@@ -33268,28 +32247,6 @@ function keyof2(schema) {
   const shape = schema._zod.def.shape;
   return _enum4(Object.keys(shape));
 }
-var ZodObject2 = /* @__PURE__ */ $constructor2("ZodObject", (inst, def) => {
-  $ZodObjectJIT2.init(inst, def);
-  ZodType2.init(inst, def);
-  exports_util2.defineLazy(inst, "shape", () => def.shape);
-  inst.keyof = () => _enum4(Object.keys(inst._zod.def.shape));
-  inst.catchall = (catchall) => inst.clone({ ...inst._zod.def, catchall });
-  inst.passthrough = () => inst.clone({ ...inst._zod.def, catchall: unknown2() });
-  inst.loose = () => inst.clone({ ...inst._zod.def, catchall: unknown2() });
-  inst.strict = () => inst.clone({ ...inst._zod.def, catchall: never2() });
-  inst.strip = () => inst.clone({ ...inst._zod.def, catchall: undefined });
-  inst.extend = (incoming) => {
-    return exports_util2.extend(inst, incoming);
-  };
-  inst.safeExtend = (incoming) => {
-    return exports_util2.safeExtend(inst, incoming);
-  };
-  inst.merge = (other) => exports_util2.merge(inst, other);
-  inst.pick = (mask) => exports_util2.pick(inst, mask);
-  inst.omit = (mask) => exports_util2.omit(inst, mask);
-  inst.partial = (...args) => exports_util2.partial(ZodOptional2, inst, args[0]);
-  inst.required = (...args) => exports_util2.required(ZodNonOptional2, inst, args[0]);
-});
 function object2(shape, params) {
   const def = {
     type: "object",
@@ -33323,11 +32280,6 @@ function looseObject2(shape, params) {
     ...exports_util2.normalizeParams(params)
   });
 }
-var ZodUnion2 = /* @__PURE__ */ $constructor2("ZodUnion", (inst, def) => {
-  $ZodUnion2.init(inst, def);
-  ZodType2.init(inst, def);
-  inst.options = def.options;
-});
 function union2(options, params) {
   return new ZodUnion2({
     type: "union",
@@ -33335,10 +32287,6 @@ function union2(options, params) {
     ...exports_util2.normalizeParams(params)
   });
 }
-var ZodDiscriminatedUnion2 = /* @__PURE__ */ $constructor2("ZodDiscriminatedUnion", (inst, def) => {
-  ZodUnion2.init(inst, def);
-  $ZodDiscriminatedUnion2.init(inst, def);
-});
 function discriminatedUnion2(discriminator, options, params) {
   return new ZodDiscriminatedUnion2({
     type: "union",
@@ -33347,10 +32295,6 @@ function discriminatedUnion2(discriminator, options, params) {
     ...exports_util2.normalizeParams(params)
   });
 }
-var ZodIntersection2 = /* @__PURE__ */ $constructor2("ZodIntersection", (inst, def) => {
-  $ZodIntersection2.init(inst, def);
-  ZodType2.init(inst, def);
-});
 function intersection2(left, right) {
   return new ZodIntersection2({
     type: "intersection",
@@ -33358,14 +32302,6 @@ function intersection2(left, right) {
     right
   });
 }
-var ZodTuple2 = /* @__PURE__ */ $constructor2("ZodTuple", (inst, def) => {
-  $ZodTuple2.init(inst, def);
-  ZodType2.init(inst, def);
-  inst.rest = (rest) => inst.clone({
-    ...inst._zod.def,
-    rest
-  });
-});
 function tuple2(items, _paramsOrRest, _params) {
   const hasRest = _paramsOrRest instanceof $ZodType2;
   const params = hasRest ? _params : _paramsOrRest;
@@ -33377,12 +32313,6 @@ function tuple2(items, _paramsOrRest, _params) {
     ...exports_util2.normalizeParams(params)
   });
 }
-var ZodRecord2 = /* @__PURE__ */ $constructor2("ZodRecord", (inst, def) => {
-  $ZodRecord2.init(inst, def);
-  ZodType2.init(inst, def);
-  inst.keyType = def.keyType;
-  inst.valueType = def.valueType;
-});
 function record2(keyType, valueType, params) {
   return new ZodRecord2({
     type: "record",
@@ -33401,12 +32331,6 @@ function partialRecord2(keyType, valueType, params) {
     ...exports_util2.normalizeParams(params)
   });
 }
-var ZodMap2 = /* @__PURE__ */ $constructor2("ZodMap", (inst, def) => {
-  $ZodMap2.init(inst, def);
-  ZodType2.init(inst, def);
-  inst.keyType = def.keyType;
-  inst.valueType = def.valueType;
-});
 function map2(keyType, valueType, params) {
   return new ZodMap2({
     type: "map",
@@ -33415,14 +32339,6 @@ function map2(keyType, valueType, params) {
     ...exports_util2.normalizeParams(params)
   });
 }
-var ZodSet2 = /* @__PURE__ */ $constructor2("ZodSet", (inst, def) => {
-  $ZodSet2.init(inst, def);
-  ZodType2.init(inst, def);
-  inst.min = (...args) => inst.check(_minSize2(...args));
-  inst.nonempty = (params) => inst.check(_minSize2(1, params));
-  inst.max = (...args) => inst.check(_maxSize2(...args));
-  inst.size = (...args) => inst.check(_size2(...args));
-});
 function set2(valueType, params) {
   return new ZodSet2({
     type: "set",
@@ -33430,43 +32346,6 @@ function set2(valueType, params) {
     ...exports_util2.normalizeParams(params)
   });
 }
-var ZodEnum2 = /* @__PURE__ */ $constructor2("ZodEnum", (inst, def) => {
-  $ZodEnum2.init(inst, def);
-  ZodType2.init(inst, def);
-  inst.enum = def.entries;
-  inst.options = Object.values(def.entries);
-  const keys = new Set(Object.keys(def.entries));
-  inst.extract = (values, params) => {
-    const newEntries = {};
-    for (const value of values) {
-      if (keys.has(value)) {
-        newEntries[value] = def.entries[value];
-      } else
-        throw new Error(`Key ${value} not found in enum`);
-    }
-    return new ZodEnum2({
-      ...def,
-      checks: [],
-      ...exports_util2.normalizeParams(params),
-      entries: newEntries
-    });
-  };
-  inst.exclude = (values, params) => {
-    const newEntries = { ...def.entries };
-    for (const value of values) {
-      if (keys.has(value)) {
-        delete newEntries[value];
-      } else
-        throw new Error(`Key ${value} not found in enum`);
-    }
-    return new ZodEnum2({
-      ...def,
-      checks: [],
-      ...exports_util2.normalizeParams(params),
-      entries: newEntries
-    });
-  };
-});
 function _enum4(values, params) {
   const entries = Array.isArray(values) ? Object.fromEntries(values.map((v) => [v, v])) : values;
   return new ZodEnum2({
@@ -33482,19 +32361,6 @@ function nativeEnum2(entries, params) {
     ...exports_util2.normalizeParams(params)
   });
 }
-var ZodLiteral2 = /* @__PURE__ */ $constructor2("ZodLiteral", (inst, def) => {
-  $ZodLiteral2.init(inst, def);
-  ZodType2.init(inst, def);
-  inst.values = new Set(def.values);
-  Object.defineProperty(inst, "value", {
-    get() {
-      if (def.values.length > 1) {
-        throw new Error("This schema contains multiple valid literal values. Use `.values` instead.");
-      }
-      return def.values[0];
-    }
-  });
-});
 function literal2(value, params) {
   return new ZodLiteral2({
     type: "literal",
@@ -33502,69 +32368,21 @@ function literal2(value, params) {
     ...exports_util2.normalizeParams(params)
   });
 }
-var ZodFile2 = /* @__PURE__ */ $constructor2("ZodFile", (inst, def) => {
-  $ZodFile2.init(inst, def);
-  ZodType2.init(inst, def);
-  inst.min = (size, params) => inst.check(_minSize2(size, params));
-  inst.max = (size, params) => inst.check(_maxSize2(size, params));
-  inst.mime = (types, params) => inst.check(_mime2(Array.isArray(types) ? types : [types], params));
-});
 function file2(params) {
   return _file2(ZodFile2, params);
 }
-var ZodTransform2 = /* @__PURE__ */ $constructor2("ZodTransform", (inst, def) => {
-  $ZodTransform2.init(inst, def);
-  ZodType2.init(inst, def);
-  inst._zod.parse = (payload, _ctx) => {
-    if (_ctx.direction === "backward") {
-      throw new $ZodEncodeError2(inst.constructor.name);
-    }
-    payload.addIssue = (issue3) => {
-      if (typeof issue3 === "string") {
-        payload.issues.push(exports_util2.issue(issue3, payload.value, def));
-      } else {
-        const _issue = issue3;
-        if (_issue.fatal)
-          _issue.continue = false;
-        _issue.code ?? (_issue.code = "custom");
-        _issue.input ?? (_issue.input = payload.value);
-        _issue.inst ?? (_issue.inst = inst);
-        payload.issues.push(exports_util2.issue(_issue));
-      }
-    };
-    const output = def.transform(payload.value, payload);
-    if (output instanceof Promise) {
-      return output.then((output2) => {
-        payload.value = output2;
-        return payload;
-      });
-    }
-    payload.value = output;
-    return payload;
-  };
-});
 function transform2(fn) {
   return new ZodTransform2({
     type: "transform",
     transform: fn
   });
 }
-var ZodOptional2 = /* @__PURE__ */ $constructor2("ZodOptional", (inst, def) => {
-  $ZodOptional2.init(inst, def);
-  ZodType2.init(inst, def);
-  inst.unwrap = () => inst._zod.def.innerType;
-});
 function optional2(innerType) {
   return new ZodOptional2({
     type: "optional",
     innerType
   });
 }
-var ZodNullable2 = /* @__PURE__ */ $constructor2("ZodNullable", (inst, def) => {
-  $ZodNullable2.init(inst, def);
-  ZodType2.init(inst, def);
-  inst.unwrap = () => inst._zod.def.innerType;
-});
 function nullable2(innerType) {
   return new ZodNullable2({
     type: "nullable",
@@ -33574,12 +32392,6 @@ function nullable2(innerType) {
 function nullish4(innerType) {
   return optional2(nullable2(innerType));
 }
-var ZodDefault2 = /* @__PURE__ */ $constructor2("ZodDefault", (inst, def) => {
-  $ZodDefault2.init(inst, def);
-  ZodType2.init(inst, def);
-  inst.unwrap = () => inst._zod.def.innerType;
-  inst.removeDefault = inst.unwrap;
-});
 function _default4(innerType, defaultValue) {
   return new ZodDefault2({
     type: "default",
@@ -33589,11 +32401,6 @@ function _default4(innerType, defaultValue) {
     }
   });
 }
-var ZodPrefault2 = /* @__PURE__ */ $constructor2("ZodPrefault", (inst, def) => {
-  $ZodPrefault2.init(inst, def);
-  ZodType2.init(inst, def);
-  inst.unwrap = () => inst._zod.def.innerType;
-});
 function prefault2(innerType, defaultValue) {
   return new ZodPrefault2({
     type: "prefault",
@@ -33603,11 +32410,6 @@ function prefault2(innerType, defaultValue) {
     }
   });
 }
-var ZodNonOptional2 = /* @__PURE__ */ $constructor2("ZodNonOptional", (inst, def) => {
-  $ZodNonOptional2.init(inst, def);
-  ZodType2.init(inst, def);
-  inst.unwrap = () => inst._zod.def.innerType;
-});
 function nonoptional2(innerType, params) {
   return new ZodNonOptional2({
     type: "nonoptional",
@@ -33615,23 +32417,12 @@ function nonoptional2(innerType, params) {
     ...exports_util2.normalizeParams(params)
   });
 }
-var ZodSuccess2 = /* @__PURE__ */ $constructor2("ZodSuccess", (inst, def) => {
-  $ZodSuccess2.init(inst, def);
-  ZodType2.init(inst, def);
-  inst.unwrap = () => inst._zod.def.innerType;
-});
 function success2(innerType) {
   return new ZodSuccess2({
     type: "success",
     innerType
   });
 }
-var ZodCatch2 = /* @__PURE__ */ $constructor2("ZodCatch", (inst, def) => {
-  $ZodCatch2.init(inst, def);
-  ZodType2.init(inst, def);
-  inst.unwrap = () => inst._zod.def.innerType;
-  inst.removeCatch = inst.unwrap;
-});
 function _catch4(innerType, catchValue) {
   return new ZodCatch2({
     type: "catch",
@@ -33639,19 +32430,9 @@ function _catch4(innerType, catchValue) {
     catchValue: typeof catchValue === "function" ? catchValue : () => catchValue
   });
 }
-var ZodNaN2 = /* @__PURE__ */ $constructor2("ZodNaN", (inst, def) => {
-  $ZodNaN2.init(inst, def);
-  ZodType2.init(inst, def);
-});
 function nan2(params) {
   return _nan2(ZodNaN2, params);
 }
-var ZodPipe2 = /* @__PURE__ */ $constructor2("ZodPipe", (inst, def) => {
-  $ZodPipe2.init(inst, def);
-  ZodType2.init(inst, def);
-  inst.in = def.in;
-  inst.out = def.out;
-});
 function pipe2(in_, out) {
   return new ZodPipe2({
     type: "pipe",
@@ -33659,10 +32440,6 @@ function pipe2(in_, out) {
     out
   });
 }
-var ZodCodec2 = /* @__PURE__ */ $constructor2("ZodCodec", (inst, def) => {
-  ZodPipe2.init(inst, def);
-  $ZodCodec2.init(inst, def);
-});
 function codec2(in_, out, params) {
   return new ZodCodec2({
     type: "pipe",
@@ -33672,21 +32449,12 @@ function codec2(in_, out, params) {
     reverseTransform: params.encode
   });
 }
-var ZodReadonly2 = /* @__PURE__ */ $constructor2("ZodReadonly", (inst, def) => {
-  $ZodReadonly2.init(inst, def);
-  ZodType2.init(inst, def);
-  inst.unwrap = () => inst._zod.def.innerType;
-});
 function readonly2(innerType) {
   return new ZodReadonly2({
     type: "readonly",
     innerType
   });
 }
-var ZodTemplateLiteral2 = /* @__PURE__ */ $constructor2("ZodTemplateLiteral", (inst, def) => {
-  $ZodTemplateLiteral2.init(inst, def);
-  ZodType2.init(inst, def);
-});
 function templateLiteral2(parts, params) {
   return new ZodTemplateLiteral2({
     type: "template_literal",
@@ -33694,32 +32462,18 @@ function templateLiteral2(parts, params) {
     ...exports_util2.normalizeParams(params)
   });
 }
-var ZodLazy2 = /* @__PURE__ */ $constructor2("ZodLazy", (inst, def) => {
-  $ZodLazy2.init(inst, def);
-  ZodType2.init(inst, def);
-  inst.unwrap = () => inst._zod.def.getter();
-});
 function lazy2(getter) {
   return new ZodLazy2({
     type: "lazy",
     getter
   });
 }
-var ZodPromise2 = /* @__PURE__ */ $constructor2("ZodPromise", (inst, def) => {
-  $ZodPromise2.init(inst, def);
-  ZodType2.init(inst, def);
-  inst.unwrap = () => inst._zod.def.innerType;
-});
 function promise2(innerType) {
   return new ZodPromise2({
     type: "promise",
     innerType
   });
 }
-var ZodFunction2 = /* @__PURE__ */ $constructor2("ZodFunction", (inst, def) => {
-  $ZodFunction2.init(inst, def);
-  ZodType2.init(inst, def);
-});
 function _function2(params) {
   return new ZodFunction2({
     type: "function",
@@ -33727,10 +32481,6 @@ function _function2(params) {
     output: params?.output ?? unknown2()
   });
 }
-var ZodCustom2 = /* @__PURE__ */ $constructor2("ZodCustom", (inst, def) => {
-  $ZodCustom2.init(inst, def);
-  ZodType2.init(inst, def);
-});
 function check2(fn) {
   const ch = new $ZodCheck2({
     check: "custom"
@@ -33760,11 +32510,6 @@ function _instanceof2(cls, params = {
   inst._zod.bag.Class = cls;
   return inst;
 }
-var stringbool2 = (...args) => _stringbool2({
-  Codec: ZodCodec2,
-  Boolean: ZodBoolean2,
-  String: ZodString2
-}, ...args);
 function json2(params) {
   const jsonSchema = lazy2(() => {
     return union2([string5(params), number5(), boolean5(), _null6(), array2(jsonSchema), record2(string5(), jsonSchema)]);
@@ -33774,20 +32519,563 @@ function json2(params) {
 function preprocess2(fn, schema) {
   return pipe2(transform2(fn), schema);
 }
+var ZodType2, _ZodString2, ZodString2, ZodStringFormat2, ZodEmail2, ZodGUID2, ZodUUID2, ZodURL2, ZodEmoji2, ZodNanoID2, ZodCUID3, ZodCUID22, ZodULID2, ZodXID2, ZodKSUID2, ZodIPv42, ZodIPv62, ZodCIDRv42, ZodCIDRv62, ZodBase642, ZodBase64URL2, ZodE1642, ZodJWT2, ZodCustomStringFormat2, ZodNumber2, ZodNumberFormat2, ZodBoolean2, ZodBigInt2, ZodBigIntFormat2, ZodSymbol2, ZodUndefined2, ZodNull2, ZodAny2, ZodUnknown2, ZodNever2, ZodVoid2, ZodDate2, ZodArray2, ZodObject2, ZodUnion2, ZodDiscriminatedUnion2, ZodIntersection2, ZodTuple2, ZodRecord2, ZodMap2, ZodSet2, ZodEnum2, ZodLiteral2, ZodFile2, ZodTransform2, ZodOptional2, ZodNullable2, ZodDefault2, ZodPrefault2, ZodNonOptional2, ZodSuccess2, ZodCatch2, ZodNaN2, ZodPipe2, ZodCodec2, ZodReadonly2, ZodTemplateLiteral2, ZodLazy2, ZodPromise2, ZodFunction2, ZodCustom2, stringbool2 = (...args) => _stringbool2({
+  Codec: ZodCodec2,
+  Boolean: ZodBoolean2,
+  String: ZodString2
+}, ...args);
+var init_schemas4 = __esm(() => {
+  init_core4();
+  init_core4();
+  init_checks4();
+  init_iso2();
+  init_parse4();
+  ZodType2 = /* @__PURE__ */ $constructor2("ZodType", (inst, def) => {
+    $ZodType2.init(inst, def);
+    inst.def = def;
+    inst.type = def.type;
+    Object.defineProperty(inst, "_def", { value: def });
+    inst.check = (...checks4) => {
+      return inst.clone({
+        ...def,
+        checks: [
+          ...def.checks ?? [],
+          ...checks4.map((ch) => typeof ch === "function" ? { _zod: { check: ch, def: { check: "custom" }, onattach: [] } } : ch)
+        ]
+      });
+    };
+    inst.clone = (def2, params) => clone2(inst, def2, params);
+    inst.brand = () => inst;
+    inst.register = (reg, meta3) => {
+      reg.add(inst, meta3);
+      return inst;
+    };
+    inst.parse = (data, params) => parse7(inst, data, params, { callee: inst.parse });
+    inst.safeParse = (data, params) => safeParse4(inst, data, params);
+    inst.parseAsync = async (data, params) => parseAsync4(inst, data, params, { callee: inst.parseAsync });
+    inst.safeParseAsync = async (data, params) => safeParseAsync4(inst, data, params);
+    inst.spa = inst.safeParseAsync;
+    inst.encode = (data, params) => encode4(inst, data, params);
+    inst.decode = (data, params) => decode4(inst, data, params);
+    inst.encodeAsync = async (data, params) => encodeAsync4(inst, data, params);
+    inst.decodeAsync = async (data, params) => decodeAsync4(inst, data, params);
+    inst.safeEncode = (data, params) => safeEncode4(inst, data, params);
+    inst.safeDecode = (data, params) => safeDecode4(inst, data, params);
+    inst.safeEncodeAsync = async (data, params) => safeEncodeAsync4(inst, data, params);
+    inst.safeDecodeAsync = async (data, params) => safeDecodeAsync4(inst, data, params);
+    inst.refine = (check2, params) => inst.check(refine2(check2, params));
+    inst.superRefine = (refinement) => inst.check(superRefine2(refinement));
+    inst.overwrite = (fn) => inst.check(_overwrite2(fn));
+    inst.optional = () => optional2(inst);
+    inst.nullable = () => nullable2(inst);
+    inst.nullish = () => optional2(nullable2(inst));
+    inst.nonoptional = (params) => nonoptional2(inst, params);
+    inst.array = () => array2(inst);
+    inst.or = (arg) => union2([inst, arg]);
+    inst.and = (arg) => intersection2(inst, arg);
+    inst.transform = (tx) => pipe2(inst, transform2(tx));
+    inst.default = (def2) => _default4(inst, def2);
+    inst.prefault = (def2) => prefault2(inst, def2);
+    inst.catch = (params) => _catch4(inst, params);
+    inst.pipe = (target) => pipe2(inst, target);
+    inst.readonly = () => readonly2(inst);
+    inst.describe = (description) => {
+      const cl = inst.clone();
+      globalRegistry2.add(cl, { description });
+      return cl;
+    };
+    Object.defineProperty(inst, "description", {
+      get() {
+        return globalRegistry2.get(inst)?.description;
+      },
+      configurable: true
+    });
+    inst.meta = (...args) => {
+      if (args.length === 0) {
+        return globalRegistry2.get(inst);
+      }
+      const cl = inst.clone();
+      globalRegistry2.add(cl, args[0]);
+      return cl;
+    };
+    inst.isOptional = () => inst.safeParse(undefined).success;
+    inst.isNullable = () => inst.safeParse(null).success;
+    return inst;
+  });
+  _ZodString2 = /* @__PURE__ */ $constructor2("_ZodString", (inst, def) => {
+    $ZodString2.init(inst, def);
+    ZodType2.init(inst, def);
+    const bag = inst._zod.bag;
+    inst.format = bag.format ?? null;
+    inst.minLength = bag.minimum ?? null;
+    inst.maxLength = bag.maximum ?? null;
+    inst.regex = (...args) => inst.check(_regex2(...args));
+    inst.includes = (...args) => inst.check(_includes2(...args));
+    inst.startsWith = (...args) => inst.check(_startsWith2(...args));
+    inst.endsWith = (...args) => inst.check(_endsWith2(...args));
+    inst.min = (...args) => inst.check(_minLength2(...args));
+    inst.max = (...args) => inst.check(_maxLength2(...args));
+    inst.length = (...args) => inst.check(_length2(...args));
+    inst.nonempty = (...args) => inst.check(_minLength2(1, ...args));
+    inst.lowercase = (params) => inst.check(_lowercase2(params));
+    inst.uppercase = (params) => inst.check(_uppercase2(params));
+    inst.trim = () => inst.check(_trim2());
+    inst.normalize = (...args) => inst.check(_normalize2(...args));
+    inst.toLowerCase = () => inst.check(_toLowerCase2());
+    inst.toUpperCase = () => inst.check(_toUpperCase2());
+  });
+  ZodString2 = /* @__PURE__ */ $constructor2("ZodString", (inst, def) => {
+    $ZodString2.init(inst, def);
+    _ZodString2.init(inst, def);
+    inst.email = (params) => inst.check(_email2(ZodEmail2, params));
+    inst.url = (params) => inst.check(_url2(ZodURL2, params));
+    inst.jwt = (params) => inst.check(_jwt2(ZodJWT2, params));
+    inst.emoji = (params) => inst.check(_emoji4(ZodEmoji2, params));
+    inst.guid = (params) => inst.check(_guid2(ZodGUID2, params));
+    inst.uuid = (params) => inst.check(_uuid2(ZodUUID2, params));
+    inst.uuidv4 = (params) => inst.check(_uuidv42(ZodUUID2, params));
+    inst.uuidv6 = (params) => inst.check(_uuidv62(ZodUUID2, params));
+    inst.uuidv7 = (params) => inst.check(_uuidv72(ZodUUID2, params));
+    inst.nanoid = (params) => inst.check(_nanoid2(ZodNanoID2, params));
+    inst.guid = (params) => inst.check(_guid2(ZodGUID2, params));
+    inst.cuid = (params) => inst.check(_cuid3(ZodCUID3, params));
+    inst.cuid2 = (params) => inst.check(_cuid22(ZodCUID22, params));
+    inst.ulid = (params) => inst.check(_ulid2(ZodULID2, params));
+    inst.base64 = (params) => inst.check(_base642(ZodBase642, params));
+    inst.base64url = (params) => inst.check(_base64url2(ZodBase64URL2, params));
+    inst.xid = (params) => inst.check(_xid2(ZodXID2, params));
+    inst.ksuid = (params) => inst.check(_ksuid2(ZodKSUID2, params));
+    inst.ipv4 = (params) => inst.check(_ipv42(ZodIPv42, params));
+    inst.ipv6 = (params) => inst.check(_ipv62(ZodIPv62, params));
+    inst.cidrv4 = (params) => inst.check(_cidrv42(ZodCIDRv42, params));
+    inst.cidrv6 = (params) => inst.check(_cidrv62(ZodCIDRv62, params));
+    inst.e164 = (params) => inst.check(_e1642(ZodE1642, params));
+    inst.datetime = (params) => inst.check(datetime4(params));
+    inst.date = (params) => inst.check(date6(params));
+    inst.time = (params) => inst.check(time4(params));
+    inst.duration = (params) => inst.check(duration4(params));
+  });
+  ZodStringFormat2 = /* @__PURE__ */ $constructor2("ZodStringFormat", (inst, def) => {
+    $ZodStringFormat2.init(inst, def);
+    _ZodString2.init(inst, def);
+  });
+  ZodEmail2 = /* @__PURE__ */ $constructor2("ZodEmail", (inst, def) => {
+    $ZodEmail2.init(inst, def);
+    ZodStringFormat2.init(inst, def);
+  });
+  ZodGUID2 = /* @__PURE__ */ $constructor2("ZodGUID", (inst, def) => {
+    $ZodGUID2.init(inst, def);
+    ZodStringFormat2.init(inst, def);
+  });
+  ZodUUID2 = /* @__PURE__ */ $constructor2("ZodUUID", (inst, def) => {
+    $ZodUUID2.init(inst, def);
+    ZodStringFormat2.init(inst, def);
+  });
+  ZodURL2 = /* @__PURE__ */ $constructor2("ZodURL", (inst, def) => {
+    $ZodURL2.init(inst, def);
+    ZodStringFormat2.init(inst, def);
+  });
+  ZodEmoji2 = /* @__PURE__ */ $constructor2("ZodEmoji", (inst, def) => {
+    $ZodEmoji2.init(inst, def);
+    ZodStringFormat2.init(inst, def);
+  });
+  ZodNanoID2 = /* @__PURE__ */ $constructor2("ZodNanoID", (inst, def) => {
+    $ZodNanoID2.init(inst, def);
+    ZodStringFormat2.init(inst, def);
+  });
+  ZodCUID3 = /* @__PURE__ */ $constructor2("ZodCUID", (inst, def) => {
+    $ZodCUID3.init(inst, def);
+    ZodStringFormat2.init(inst, def);
+  });
+  ZodCUID22 = /* @__PURE__ */ $constructor2("ZodCUID2", (inst, def) => {
+    $ZodCUID22.init(inst, def);
+    ZodStringFormat2.init(inst, def);
+  });
+  ZodULID2 = /* @__PURE__ */ $constructor2("ZodULID", (inst, def) => {
+    $ZodULID2.init(inst, def);
+    ZodStringFormat2.init(inst, def);
+  });
+  ZodXID2 = /* @__PURE__ */ $constructor2("ZodXID", (inst, def) => {
+    $ZodXID2.init(inst, def);
+    ZodStringFormat2.init(inst, def);
+  });
+  ZodKSUID2 = /* @__PURE__ */ $constructor2("ZodKSUID", (inst, def) => {
+    $ZodKSUID2.init(inst, def);
+    ZodStringFormat2.init(inst, def);
+  });
+  ZodIPv42 = /* @__PURE__ */ $constructor2("ZodIPv4", (inst, def) => {
+    $ZodIPv42.init(inst, def);
+    ZodStringFormat2.init(inst, def);
+  });
+  ZodIPv62 = /* @__PURE__ */ $constructor2("ZodIPv6", (inst, def) => {
+    $ZodIPv62.init(inst, def);
+    ZodStringFormat2.init(inst, def);
+  });
+  ZodCIDRv42 = /* @__PURE__ */ $constructor2("ZodCIDRv4", (inst, def) => {
+    $ZodCIDRv42.init(inst, def);
+    ZodStringFormat2.init(inst, def);
+  });
+  ZodCIDRv62 = /* @__PURE__ */ $constructor2("ZodCIDRv6", (inst, def) => {
+    $ZodCIDRv62.init(inst, def);
+    ZodStringFormat2.init(inst, def);
+  });
+  ZodBase642 = /* @__PURE__ */ $constructor2("ZodBase64", (inst, def) => {
+    $ZodBase642.init(inst, def);
+    ZodStringFormat2.init(inst, def);
+  });
+  ZodBase64URL2 = /* @__PURE__ */ $constructor2("ZodBase64URL", (inst, def) => {
+    $ZodBase64URL2.init(inst, def);
+    ZodStringFormat2.init(inst, def);
+  });
+  ZodE1642 = /* @__PURE__ */ $constructor2("ZodE164", (inst, def) => {
+    $ZodE1642.init(inst, def);
+    ZodStringFormat2.init(inst, def);
+  });
+  ZodJWT2 = /* @__PURE__ */ $constructor2("ZodJWT", (inst, def) => {
+    $ZodJWT2.init(inst, def);
+    ZodStringFormat2.init(inst, def);
+  });
+  ZodCustomStringFormat2 = /* @__PURE__ */ $constructor2("ZodCustomStringFormat", (inst, def) => {
+    $ZodCustomStringFormat2.init(inst, def);
+    ZodStringFormat2.init(inst, def);
+  });
+  ZodNumber2 = /* @__PURE__ */ $constructor2("ZodNumber", (inst, def) => {
+    $ZodNumber2.init(inst, def);
+    ZodType2.init(inst, def);
+    inst.gt = (value, params) => inst.check(_gt2(value, params));
+    inst.gte = (value, params) => inst.check(_gte2(value, params));
+    inst.min = (value, params) => inst.check(_gte2(value, params));
+    inst.lt = (value, params) => inst.check(_lt2(value, params));
+    inst.lte = (value, params) => inst.check(_lte2(value, params));
+    inst.max = (value, params) => inst.check(_lte2(value, params));
+    inst.int = (params) => inst.check(int2(params));
+    inst.safe = (params) => inst.check(int2(params));
+    inst.positive = (params) => inst.check(_gt2(0, params));
+    inst.nonnegative = (params) => inst.check(_gte2(0, params));
+    inst.negative = (params) => inst.check(_lt2(0, params));
+    inst.nonpositive = (params) => inst.check(_lte2(0, params));
+    inst.multipleOf = (value, params) => inst.check(_multipleOf2(value, params));
+    inst.step = (value, params) => inst.check(_multipleOf2(value, params));
+    inst.finite = () => inst;
+    const bag = inst._zod.bag;
+    inst.minValue = Math.max(bag.minimum ?? Number.NEGATIVE_INFINITY, bag.exclusiveMinimum ?? Number.NEGATIVE_INFINITY) ?? null;
+    inst.maxValue = Math.min(bag.maximum ?? Number.POSITIVE_INFINITY, bag.exclusiveMaximum ?? Number.POSITIVE_INFINITY) ?? null;
+    inst.isInt = (bag.format ?? "").includes("int") || Number.isSafeInteger(bag.multipleOf ?? 0.5);
+    inst.isFinite = true;
+    inst.format = bag.format ?? null;
+  });
+  ZodNumberFormat2 = /* @__PURE__ */ $constructor2("ZodNumberFormat", (inst, def) => {
+    $ZodNumberFormat2.init(inst, def);
+    ZodNumber2.init(inst, def);
+  });
+  ZodBoolean2 = /* @__PURE__ */ $constructor2("ZodBoolean", (inst, def) => {
+    $ZodBoolean2.init(inst, def);
+    ZodType2.init(inst, def);
+  });
+  ZodBigInt2 = /* @__PURE__ */ $constructor2("ZodBigInt", (inst, def) => {
+    $ZodBigInt2.init(inst, def);
+    ZodType2.init(inst, def);
+    inst.gte = (value, params) => inst.check(_gte2(value, params));
+    inst.min = (value, params) => inst.check(_gte2(value, params));
+    inst.gt = (value, params) => inst.check(_gt2(value, params));
+    inst.gte = (value, params) => inst.check(_gte2(value, params));
+    inst.min = (value, params) => inst.check(_gte2(value, params));
+    inst.lt = (value, params) => inst.check(_lt2(value, params));
+    inst.lte = (value, params) => inst.check(_lte2(value, params));
+    inst.max = (value, params) => inst.check(_lte2(value, params));
+    inst.positive = (params) => inst.check(_gt2(BigInt(0), params));
+    inst.negative = (params) => inst.check(_lt2(BigInt(0), params));
+    inst.nonpositive = (params) => inst.check(_lte2(BigInt(0), params));
+    inst.nonnegative = (params) => inst.check(_gte2(BigInt(0), params));
+    inst.multipleOf = (value, params) => inst.check(_multipleOf2(value, params));
+    const bag = inst._zod.bag;
+    inst.minValue = bag.minimum ?? null;
+    inst.maxValue = bag.maximum ?? null;
+    inst.format = bag.format ?? null;
+  });
+  ZodBigIntFormat2 = /* @__PURE__ */ $constructor2("ZodBigIntFormat", (inst, def) => {
+    $ZodBigIntFormat2.init(inst, def);
+    ZodBigInt2.init(inst, def);
+  });
+  ZodSymbol2 = /* @__PURE__ */ $constructor2("ZodSymbol", (inst, def) => {
+    $ZodSymbol2.init(inst, def);
+    ZodType2.init(inst, def);
+  });
+  ZodUndefined2 = /* @__PURE__ */ $constructor2("ZodUndefined", (inst, def) => {
+    $ZodUndefined2.init(inst, def);
+    ZodType2.init(inst, def);
+  });
+  ZodNull2 = /* @__PURE__ */ $constructor2("ZodNull", (inst, def) => {
+    $ZodNull2.init(inst, def);
+    ZodType2.init(inst, def);
+  });
+  ZodAny2 = /* @__PURE__ */ $constructor2("ZodAny", (inst, def) => {
+    $ZodAny2.init(inst, def);
+    ZodType2.init(inst, def);
+  });
+  ZodUnknown2 = /* @__PURE__ */ $constructor2("ZodUnknown", (inst, def) => {
+    $ZodUnknown2.init(inst, def);
+    ZodType2.init(inst, def);
+  });
+  ZodNever2 = /* @__PURE__ */ $constructor2("ZodNever", (inst, def) => {
+    $ZodNever2.init(inst, def);
+    ZodType2.init(inst, def);
+  });
+  ZodVoid2 = /* @__PURE__ */ $constructor2("ZodVoid", (inst, def) => {
+    $ZodVoid2.init(inst, def);
+    ZodType2.init(inst, def);
+  });
+  ZodDate2 = /* @__PURE__ */ $constructor2("ZodDate", (inst, def) => {
+    $ZodDate2.init(inst, def);
+    ZodType2.init(inst, def);
+    inst.min = (value, params) => inst.check(_gte2(value, params));
+    inst.max = (value, params) => inst.check(_lte2(value, params));
+    const c = inst._zod.bag;
+    inst.minDate = c.minimum ? new Date(c.minimum) : null;
+    inst.maxDate = c.maximum ? new Date(c.maximum) : null;
+  });
+  ZodArray2 = /* @__PURE__ */ $constructor2("ZodArray", (inst, def) => {
+    $ZodArray2.init(inst, def);
+    ZodType2.init(inst, def);
+    inst.element = def.element;
+    inst.min = (minLength, params) => inst.check(_minLength2(minLength, params));
+    inst.nonempty = (params) => inst.check(_minLength2(1, params));
+    inst.max = (maxLength, params) => inst.check(_maxLength2(maxLength, params));
+    inst.length = (len, params) => inst.check(_length2(len, params));
+    inst.unwrap = () => inst.element;
+  });
+  ZodObject2 = /* @__PURE__ */ $constructor2("ZodObject", (inst, def) => {
+    $ZodObjectJIT2.init(inst, def);
+    ZodType2.init(inst, def);
+    exports_util2.defineLazy(inst, "shape", () => def.shape);
+    inst.keyof = () => _enum4(Object.keys(inst._zod.def.shape));
+    inst.catchall = (catchall) => inst.clone({ ...inst._zod.def, catchall });
+    inst.passthrough = () => inst.clone({ ...inst._zod.def, catchall: unknown2() });
+    inst.loose = () => inst.clone({ ...inst._zod.def, catchall: unknown2() });
+    inst.strict = () => inst.clone({ ...inst._zod.def, catchall: never2() });
+    inst.strip = () => inst.clone({ ...inst._zod.def, catchall: undefined });
+    inst.extend = (incoming) => {
+      return exports_util2.extend(inst, incoming);
+    };
+    inst.safeExtend = (incoming) => {
+      return exports_util2.safeExtend(inst, incoming);
+    };
+    inst.merge = (other) => exports_util2.merge(inst, other);
+    inst.pick = (mask) => exports_util2.pick(inst, mask);
+    inst.omit = (mask) => exports_util2.omit(inst, mask);
+    inst.partial = (...args) => exports_util2.partial(ZodOptional2, inst, args[0]);
+    inst.required = (...args) => exports_util2.required(ZodNonOptional2, inst, args[0]);
+  });
+  ZodUnion2 = /* @__PURE__ */ $constructor2("ZodUnion", (inst, def) => {
+    $ZodUnion2.init(inst, def);
+    ZodType2.init(inst, def);
+    inst.options = def.options;
+  });
+  ZodDiscriminatedUnion2 = /* @__PURE__ */ $constructor2("ZodDiscriminatedUnion", (inst, def) => {
+    ZodUnion2.init(inst, def);
+    $ZodDiscriminatedUnion2.init(inst, def);
+  });
+  ZodIntersection2 = /* @__PURE__ */ $constructor2("ZodIntersection", (inst, def) => {
+    $ZodIntersection2.init(inst, def);
+    ZodType2.init(inst, def);
+  });
+  ZodTuple2 = /* @__PURE__ */ $constructor2("ZodTuple", (inst, def) => {
+    $ZodTuple2.init(inst, def);
+    ZodType2.init(inst, def);
+    inst.rest = (rest) => inst.clone({
+      ...inst._zod.def,
+      rest
+    });
+  });
+  ZodRecord2 = /* @__PURE__ */ $constructor2("ZodRecord", (inst, def) => {
+    $ZodRecord2.init(inst, def);
+    ZodType2.init(inst, def);
+    inst.keyType = def.keyType;
+    inst.valueType = def.valueType;
+  });
+  ZodMap2 = /* @__PURE__ */ $constructor2("ZodMap", (inst, def) => {
+    $ZodMap2.init(inst, def);
+    ZodType2.init(inst, def);
+    inst.keyType = def.keyType;
+    inst.valueType = def.valueType;
+  });
+  ZodSet2 = /* @__PURE__ */ $constructor2("ZodSet", (inst, def) => {
+    $ZodSet2.init(inst, def);
+    ZodType2.init(inst, def);
+    inst.min = (...args) => inst.check(_minSize2(...args));
+    inst.nonempty = (params) => inst.check(_minSize2(1, params));
+    inst.max = (...args) => inst.check(_maxSize2(...args));
+    inst.size = (...args) => inst.check(_size2(...args));
+  });
+  ZodEnum2 = /* @__PURE__ */ $constructor2("ZodEnum", (inst, def) => {
+    $ZodEnum2.init(inst, def);
+    ZodType2.init(inst, def);
+    inst.enum = def.entries;
+    inst.options = Object.values(def.entries);
+    const keys = new Set(Object.keys(def.entries));
+    inst.extract = (values, params) => {
+      const newEntries = {};
+      for (const value of values) {
+        if (keys.has(value)) {
+          newEntries[value] = def.entries[value];
+        } else
+          throw new Error(`Key ${value} not found in enum`);
+      }
+      return new ZodEnum2({
+        ...def,
+        checks: [],
+        ...exports_util2.normalizeParams(params),
+        entries: newEntries
+      });
+    };
+    inst.exclude = (values, params) => {
+      const newEntries = { ...def.entries };
+      for (const value of values) {
+        if (keys.has(value)) {
+          delete newEntries[value];
+        } else
+          throw new Error(`Key ${value} not found in enum`);
+      }
+      return new ZodEnum2({
+        ...def,
+        checks: [],
+        ...exports_util2.normalizeParams(params),
+        entries: newEntries
+      });
+    };
+  });
+  ZodLiteral2 = /* @__PURE__ */ $constructor2("ZodLiteral", (inst, def) => {
+    $ZodLiteral2.init(inst, def);
+    ZodType2.init(inst, def);
+    inst.values = new Set(def.values);
+    Object.defineProperty(inst, "value", {
+      get() {
+        if (def.values.length > 1) {
+          throw new Error("This schema contains multiple valid literal values. Use `.values` instead.");
+        }
+        return def.values[0];
+      }
+    });
+  });
+  ZodFile2 = /* @__PURE__ */ $constructor2("ZodFile", (inst, def) => {
+    $ZodFile2.init(inst, def);
+    ZodType2.init(inst, def);
+    inst.min = (size, params) => inst.check(_minSize2(size, params));
+    inst.max = (size, params) => inst.check(_maxSize2(size, params));
+    inst.mime = (types, params) => inst.check(_mime2(Array.isArray(types) ? types : [types], params));
+  });
+  ZodTransform2 = /* @__PURE__ */ $constructor2("ZodTransform", (inst, def) => {
+    $ZodTransform2.init(inst, def);
+    ZodType2.init(inst, def);
+    inst._zod.parse = (payload, _ctx) => {
+      if (_ctx.direction === "backward") {
+        throw new $ZodEncodeError2(inst.constructor.name);
+      }
+      payload.addIssue = (issue3) => {
+        if (typeof issue3 === "string") {
+          payload.issues.push(exports_util2.issue(issue3, payload.value, def));
+        } else {
+          const _issue = issue3;
+          if (_issue.fatal)
+            _issue.continue = false;
+          _issue.code ?? (_issue.code = "custom");
+          _issue.input ?? (_issue.input = payload.value);
+          _issue.inst ?? (_issue.inst = inst);
+          payload.issues.push(exports_util2.issue(_issue));
+        }
+      };
+      const output = def.transform(payload.value, payload);
+      if (output instanceof Promise) {
+        return output.then((output2) => {
+          payload.value = output2;
+          return payload;
+        });
+      }
+      payload.value = output;
+      return payload;
+    };
+  });
+  ZodOptional2 = /* @__PURE__ */ $constructor2("ZodOptional", (inst, def) => {
+    $ZodOptional2.init(inst, def);
+    ZodType2.init(inst, def);
+    inst.unwrap = () => inst._zod.def.innerType;
+  });
+  ZodNullable2 = /* @__PURE__ */ $constructor2("ZodNullable", (inst, def) => {
+    $ZodNullable2.init(inst, def);
+    ZodType2.init(inst, def);
+    inst.unwrap = () => inst._zod.def.innerType;
+  });
+  ZodDefault2 = /* @__PURE__ */ $constructor2("ZodDefault", (inst, def) => {
+    $ZodDefault2.init(inst, def);
+    ZodType2.init(inst, def);
+    inst.unwrap = () => inst._zod.def.innerType;
+    inst.removeDefault = inst.unwrap;
+  });
+  ZodPrefault2 = /* @__PURE__ */ $constructor2("ZodPrefault", (inst, def) => {
+    $ZodPrefault2.init(inst, def);
+    ZodType2.init(inst, def);
+    inst.unwrap = () => inst._zod.def.innerType;
+  });
+  ZodNonOptional2 = /* @__PURE__ */ $constructor2("ZodNonOptional", (inst, def) => {
+    $ZodNonOptional2.init(inst, def);
+    ZodType2.init(inst, def);
+    inst.unwrap = () => inst._zod.def.innerType;
+  });
+  ZodSuccess2 = /* @__PURE__ */ $constructor2("ZodSuccess", (inst, def) => {
+    $ZodSuccess2.init(inst, def);
+    ZodType2.init(inst, def);
+    inst.unwrap = () => inst._zod.def.innerType;
+  });
+  ZodCatch2 = /* @__PURE__ */ $constructor2("ZodCatch", (inst, def) => {
+    $ZodCatch2.init(inst, def);
+    ZodType2.init(inst, def);
+    inst.unwrap = () => inst._zod.def.innerType;
+    inst.removeCatch = inst.unwrap;
+  });
+  ZodNaN2 = /* @__PURE__ */ $constructor2("ZodNaN", (inst, def) => {
+    $ZodNaN2.init(inst, def);
+    ZodType2.init(inst, def);
+  });
+  ZodPipe2 = /* @__PURE__ */ $constructor2("ZodPipe", (inst, def) => {
+    $ZodPipe2.init(inst, def);
+    ZodType2.init(inst, def);
+    inst.in = def.in;
+    inst.out = def.out;
+  });
+  ZodCodec2 = /* @__PURE__ */ $constructor2("ZodCodec", (inst, def) => {
+    ZodPipe2.init(inst, def);
+    $ZodCodec2.init(inst, def);
+  });
+  ZodReadonly2 = /* @__PURE__ */ $constructor2("ZodReadonly", (inst, def) => {
+    $ZodReadonly2.init(inst, def);
+    ZodType2.init(inst, def);
+    inst.unwrap = () => inst._zod.def.innerType;
+  });
+  ZodTemplateLiteral2 = /* @__PURE__ */ $constructor2("ZodTemplateLiteral", (inst, def) => {
+    $ZodTemplateLiteral2.init(inst, def);
+    ZodType2.init(inst, def);
+  });
+  ZodLazy2 = /* @__PURE__ */ $constructor2("ZodLazy", (inst, def) => {
+    $ZodLazy2.init(inst, def);
+    ZodType2.init(inst, def);
+    inst.unwrap = () => inst._zod.def.getter();
+  });
+  ZodPromise2 = /* @__PURE__ */ $constructor2("ZodPromise", (inst, def) => {
+    $ZodPromise2.init(inst, def);
+    ZodType2.init(inst, def);
+    inst.unwrap = () => inst._zod.def.innerType;
+  });
+  ZodFunction2 = /* @__PURE__ */ $constructor2("ZodFunction", (inst, def) => {
+    $ZodFunction2.init(inst, def);
+    ZodType2.init(inst, def);
+  });
+  ZodCustom2 = /* @__PURE__ */ $constructor2("ZodCustom", (inst, def) => {
+    $ZodCustom2.init(inst, def);
+    ZodType2.init(inst, def);
+  });
+});
+
 // node_modules/@opencode-ai/plugin/node_modules/zod/v4/classic/compat.js
-var ZodIssueCode2 = {
-  invalid_type: "invalid_type",
-  too_big: "too_big",
-  too_small: "too_small",
-  invalid_format: "invalid_format",
-  not_multiple_of: "not_multiple_of",
-  unrecognized_keys: "unrecognized_keys",
-  invalid_union: "invalid_union",
-  invalid_key: "invalid_key",
-  invalid_element: "invalid_element",
-  invalid_value: "invalid_value",
-  custom: "custom"
-};
 function setErrorMap2(map3) {
   config2({
     customError: map3
@@ -33796,8 +33084,25 @@ function setErrorMap2(map3) {
 function getErrorMap2() {
   return config2().customError;
 }
-var ZodFirstPartyTypeKind2;
-(function(ZodFirstPartyTypeKind3) {})(ZodFirstPartyTypeKind2 || (ZodFirstPartyTypeKind2 = {}));
+var ZodIssueCode2, ZodFirstPartyTypeKind2;
+var init_compat2 = __esm(() => {
+  init_core4();
+  ZodIssueCode2 = {
+    invalid_type: "invalid_type",
+    too_big: "too_big",
+    too_small: "too_small",
+    invalid_format: "invalid_format",
+    not_multiple_of: "not_multiple_of",
+    unrecognized_keys: "unrecognized_keys",
+    invalid_union: "invalid_union",
+    invalid_key: "invalid_key",
+    invalid_element: "invalid_element",
+    invalid_value: "invalid_value",
+    custom: "custom"
+  };
+  (function(ZodFirstPartyTypeKind3) {})(ZodFirstPartyTypeKind2 || (ZodFirstPartyTypeKind2 = {}));
+});
+
 // node_modules/@opencode-ai/plugin/node_modules/zod/v4/classic/coerce.js
 var exports_coerce2 = {};
 __export(exports_coerce2, {
@@ -33822,14 +33127,277 @@ function bigint6(params) {
 function date8(params) {
   return _coercedDate2(ZodDate2, params);
 }
+var init_coerce2 = __esm(() => {
+  init_core4();
+  init_schemas4();
+});
 
 // node_modules/@opencode-ai/plugin/node_modules/zod/v4/classic/external.js
-config2(en_default2());
+var exports_external2 = {};
+__export(exports_external2, {
+  xid: () => xid4,
+  void: () => _void4,
+  uuidv7: () => uuidv72,
+  uuidv6: () => uuidv62,
+  uuidv4: () => uuidv42,
+  uuid: () => uuid5,
+  util: () => exports_util2,
+  url: () => url2,
+  uppercase: () => _uppercase2,
+  unknown: () => unknown2,
+  union: () => union2,
+  undefined: () => _undefined6,
+  ulid: () => ulid4,
+  uint64: () => uint642,
+  uint32: () => uint322,
+  tuple: () => tuple2,
+  trim: () => _trim2,
+  treeifyError: () => treeifyError2,
+  transform: () => transform2,
+  toUpperCase: () => _toUpperCase2,
+  toLowerCase: () => _toLowerCase2,
+  toJSONSchema: () => toJSONSchema2,
+  templateLiteral: () => templateLiteral2,
+  symbol: () => symbol2,
+  superRefine: () => superRefine2,
+  success: () => success2,
+  stringbool: () => stringbool2,
+  stringFormat: () => stringFormat2,
+  string: () => string5,
+  strictObject: () => strictObject2,
+  startsWith: () => _startsWith2,
+  size: () => _size2,
+  setErrorMap: () => setErrorMap2,
+  set: () => set2,
+  safeParseAsync: () => safeParseAsync4,
+  safeParse: () => safeParse4,
+  safeEncodeAsync: () => safeEncodeAsync4,
+  safeEncode: () => safeEncode4,
+  safeDecodeAsync: () => safeDecodeAsync4,
+  safeDecode: () => safeDecode4,
+  registry: () => registry2,
+  regexes: () => exports_regexes2,
+  regex: () => _regex2,
+  refine: () => refine2,
+  record: () => record2,
+  readonly: () => readonly2,
+  property: () => _property2,
+  promise: () => promise2,
+  prettifyError: () => prettifyError2,
+  preprocess: () => preprocess2,
+  prefault: () => prefault2,
+  positive: () => _positive2,
+  pipe: () => pipe2,
+  partialRecord: () => partialRecord2,
+  parseAsync: () => parseAsync4,
+  parse: () => parse7,
+  overwrite: () => _overwrite2,
+  optional: () => optional2,
+  object: () => object2,
+  number: () => number5,
+  nullish: () => nullish4,
+  nullable: () => nullable2,
+  null: () => _null6,
+  normalize: () => _normalize2,
+  nonpositive: () => _nonpositive2,
+  nonoptional: () => nonoptional2,
+  nonnegative: () => _nonnegative2,
+  never: () => never2,
+  negative: () => _negative2,
+  nativeEnum: () => nativeEnum2,
+  nanoid: () => nanoid4,
+  nan: () => nan2,
+  multipleOf: () => _multipleOf2,
+  minSize: () => _minSize2,
+  minLength: () => _minLength2,
+  mime: () => _mime2,
+  maxSize: () => _maxSize2,
+  maxLength: () => _maxLength2,
+  map: () => map2,
+  lte: () => _lte2,
+  lt: () => _lt2,
+  lowercase: () => _lowercase2,
+  looseObject: () => looseObject2,
+  locales: () => exports_locales2,
+  literal: () => literal2,
+  length: () => _length2,
+  lazy: () => lazy2,
+  ksuid: () => ksuid4,
+  keyof: () => keyof2,
+  jwt: () => jwt2,
+  json: () => json2,
+  iso: () => exports_iso2,
+  ipv6: () => ipv64,
+  ipv4: () => ipv44,
+  intersection: () => intersection2,
+  int64: () => int642,
+  int32: () => int322,
+  int: () => int2,
+  instanceof: () => _instanceof2,
+  includes: () => _includes2,
+  httpUrl: () => httpUrl2,
+  hostname: () => hostname4,
+  hex: () => hex4,
+  hash: () => hash2,
+  guid: () => guid4,
+  gte: () => _gte2,
+  gt: () => _gt2,
+  globalRegistry: () => globalRegistry2,
+  getErrorMap: () => getErrorMap2,
+  function: () => _function2,
+  formatError: () => formatError2,
+  float64: () => float642,
+  float32: () => float322,
+  flattenError: () => flattenError2,
+  file: () => file2,
+  enum: () => _enum4,
+  endsWith: () => _endsWith2,
+  encodeAsync: () => encodeAsync4,
+  encode: () => encode4,
+  emoji: () => emoji4,
+  email: () => email4,
+  e164: () => e1644,
+  discriminatedUnion: () => discriminatedUnion2,
+  decodeAsync: () => decodeAsync4,
+  decode: () => decode4,
+  date: () => date7,
+  custom: () => custom2,
+  cuid2: () => cuid24,
+  cuid: () => cuid6,
+  core: () => exports_core4,
+  config: () => config2,
+  coerce: () => exports_coerce2,
+  codec: () => codec2,
+  clone: () => clone2,
+  cidrv6: () => cidrv64,
+  cidrv4: () => cidrv44,
+  check: () => check2,
+  catch: () => _catch4,
+  boolean: () => boolean5,
+  bigint: () => bigint5,
+  base64url: () => base64url4,
+  base64: () => base644,
+  array: () => array2,
+  any: () => any2,
+  _function: () => _function2,
+  _default: () => _default4,
+  _ZodString: () => _ZodString2,
+  ZodXID: () => ZodXID2,
+  ZodVoid: () => ZodVoid2,
+  ZodUnknown: () => ZodUnknown2,
+  ZodUnion: () => ZodUnion2,
+  ZodUndefined: () => ZodUndefined2,
+  ZodUUID: () => ZodUUID2,
+  ZodURL: () => ZodURL2,
+  ZodULID: () => ZodULID2,
+  ZodType: () => ZodType2,
+  ZodTuple: () => ZodTuple2,
+  ZodTransform: () => ZodTransform2,
+  ZodTemplateLiteral: () => ZodTemplateLiteral2,
+  ZodSymbol: () => ZodSymbol2,
+  ZodSuccess: () => ZodSuccess2,
+  ZodStringFormat: () => ZodStringFormat2,
+  ZodString: () => ZodString2,
+  ZodSet: () => ZodSet2,
+  ZodRecord: () => ZodRecord2,
+  ZodRealError: () => ZodRealError2,
+  ZodReadonly: () => ZodReadonly2,
+  ZodPromise: () => ZodPromise2,
+  ZodPrefault: () => ZodPrefault2,
+  ZodPipe: () => ZodPipe2,
+  ZodOptional: () => ZodOptional2,
+  ZodObject: () => ZodObject2,
+  ZodNumberFormat: () => ZodNumberFormat2,
+  ZodNumber: () => ZodNumber2,
+  ZodNullable: () => ZodNullable2,
+  ZodNull: () => ZodNull2,
+  ZodNonOptional: () => ZodNonOptional2,
+  ZodNever: () => ZodNever2,
+  ZodNanoID: () => ZodNanoID2,
+  ZodNaN: () => ZodNaN2,
+  ZodMap: () => ZodMap2,
+  ZodLiteral: () => ZodLiteral2,
+  ZodLazy: () => ZodLazy2,
+  ZodKSUID: () => ZodKSUID2,
+  ZodJWT: () => ZodJWT2,
+  ZodIssueCode: () => ZodIssueCode2,
+  ZodIntersection: () => ZodIntersection2,
+  ZodISOTime: () => ZodISOTime2,
+  ZodISODuration: () => ZodISODuration2,
+  ZodISODateTime: () => ZodISODateTime2,
+  ZodISODate: () => ZodISODate2,
+  ZodIPv6: () => ZodIPv62,
+  ZodIPv4: () => ZodIPv42,
+  ZodGUID: () => ZodGUID2,
+  ZodFunction: () => ZodFunction2,
+  ZodFirstPartyTypeKind: () => ZodFirstPartyTypeKind2,
+  ZodFile: () => ZodFile2,
+  ZodError: () => ZodError2,
+  ZodEnum: () => ZodEnum2,
+  ZodEmoji: () => ZodEmoji2,
+  ZodEmail: () => ZodEmail2,
+  ZodE164: () => ZodE1642,
+  ZodDiscriminatedUnion: () => ZodDiscriminatedUnion2,
+  ZodDefault: () => ZodDefault2,
+  ZodDate: () => ZodDate2,
+  ZodCustomStringFormat: () => ZodCustomStringFormat2,
+  ZodCustom: () => ZodCustom2,
+  ZodCodec: () => ZodCodec2,
+  ZodCatch: () => ZodCatch2,
+  ZodCUID2: () => ZodCUID22,
+  ZodCUID: () => ZodCUID3,
+  ZodCIDRv6: () => ZodCIDRv62,
+  ZodCIDRv4: () => ZodCIDRv42,
+  ZodBoolean: () => ZodBoolean2,
+  ZodBigIntFormat: () => ZodBigIntFormat2,
+  ZodBigInt: () => ZodBigInt2,
+  ZodBase64URL: () => ZodBase64URL2,
+  ZodBase64: () => ZodBase642,
+  ZodArray: () => ZodArray2,
+  ZodAny: () => ZodAny2,
+  TimePrecision: () => TimePrecision2,
+  NEVER: () => NEVER2,
+  $output: () => $output2,
+  $input: () => $input2,
+  $brand: () => $brand2
+});
+var init_external2 = __esm(() => {
+  init_core4();
+  init_core4();
+  init_en2();
+  init_core4();
+  init_locales2();
+  init_iso2();
+  init_iso2();
+  init_coerce2();
+  init_schemas4();
+  init_checks4();
+  init_errors5();
+  init_parse4();
+  init_compat2();
+  config2(en_default2());
+});
+
+// node_modules/@opencode-ai/plugin/node_modules/zod/index.js
+var init_zod2 = __esm(() => {
+  init_external2();
+  init_external2();
+});
+
 // node_modules/@opencode-ai/plugin/dist/tool.js
 function tool(input) {
   return input;
 }
-tool.schema = exports_external2;
+var init_tool = __esm(() => {
+  init_zod2();
+  tool.schema = exports_external2;
+});
+
+// node_modules/@opencode-ai/plugin/dist/index.js
+var init_dist = __esm(() => {
+  init_tool();
+});
+
 // src/tools/create-tool.ts
 function classifyToolError(error93) {
   const msg = (error93 instanceof Error ? error93.message ?? "" : String(error93)).toLowerCase();
@@ -33862,15 +33430,14 @@ function createSwarmTool(opts) {
     }
   });
 }
+var init_create_tool = __esm(() => {
+  init_dist();
+});
 
 // src/tools/checkpoint.ts
-var CHECKPOINT_LOG_PATH = ".swarm/checkpoints.json";
-var MAX_LABEL_LENGTH = 100;
-var GIT_TIMEOUT_MS = 30000;
-var SHELL_METACHARACTERS = /[;|&$`(){}<>!'"]/;
-var SAFE_LABEL_PATTERN = /^[a-zA-Z0-9_ -]+$/;
-var CONTROL_CHAR_PATTERN = /[\x00-\x08\x0b\x0c\x0e-\x1f\x7f]/;
-var NON_ASCII_PATTERN = /[^\x20-\x7E]/;
+import * as child_process from "child_process";
+import * as fs6 from "fs";
+import * as path9 from "path";
 function containsNonAsciiChars(label) {
   for (let i = 0;i < label.length; i++) {
     const charCode = label.charCodeAt(i);
@@ -34086,83 +33653,87 @@ function handleDelete(label, directory) {
     }, null, 2);
   }
 }
-var checkpoint = createSwarmTool({
-  description: "Save, restore, list, and delete git checkpoints. " + "Use save to create a named snapshot, restore to return to a checkpoint (soft reset), " + "list to see all checkpoints, and delete to remove a checkpoint from the log. " + "Git commits are preserved on delete.",
-  args: {
-    action: exports_external.string().describe("Action to perform: save, restore, list, or delete"),
-    label: exports_external.string().optional().describe("Checkpoint label (required for save, restore, delete)")
-  },
-  execute: async (args, directory) => {
-    if (!isGitRepo()) {
-      return JSON.stringify({
-        action: "unknown",
-        success: false,
-        error: "not a git repository"
-      }, null, 2);
-    }
-    let action;
-    let label;
-    try {
-      action = String(args.action);
-      label = args.label !== undefined && args.label !== null ? String(args.label) : undefined;
-    } catch {
-      return JSON.stringify({
-        action: "unknown",
-        success: false,
-        error: "invalid arguments"
-      }, null, 2);
-    }
-    const validActions = ["save", "restore", "list", "delete"];
-    if (!validActions.includes(action)) {
-      return JSON.stringify({
-        action,
-        success: false,
-        error: `invalid action: "${action}". Valid actions: ${validActions.join(", ")}`
-      }, null, 2);
-    }
-    if (["save", "restore", "delete"].includes(action)) {
-      if (!label) {
+var CHECKPOINT_LOG_PATH = ".swarm/checkpoints.json", MAX_LABEL_LENGTH = 100, GIT_TIMEOUT_MS = 30000, SHELL_METACHARACTERS, SAFE_LABEL_PATTERN, CONTROL_CHAR_PATTERN, NON_ASCII_PATTERN, checkpoint;
+var init_checkpoint = __esm(() => {
+  init_zod();
+  init_config();
+  init_create_tool();
+  SHELL_METACHARACTERS = /[;|&$`(){}<>!'"]/;
+  SAFE_LABEL_PATTERN = /^[a-zA-Z0-9_ -]+$/;
+  CONTROL_CHAR_PATTERN = /[\x00-\x08\x0b\x0c\x0e-\x1f\x7f]/;
+  NON_ASCII_PATTERN = /[^\x20-\x7E]/;
+  checkpoint = createSwarmTool({
+    description: "Save, restore, list, and delete git checkpoints. " + "Use save to create a named snapshot, restore to return to a checkpoint (soft reset), " + "list to see all checkpoints, and delete to remove a checkpoint from the log. " + "Git commits are preserved on delete.",
+    args: {
+      action: exports_external.string().describe("Action to perform: save, restore, list, or delete"),
+      label: exports_external.string().optional().describe("Checkpoint label (required for save, restore, delete)")
+    },
+    execute: async (args, directory) => {
+      if (!isGitRepo()) {
         return JSON.stringify({
-          action,
+          action: "unknown",
           success: false,
-          error: `label is required for ${action} action`
+          error: "not a git repository"
         }, null, 2);
       }
-      const labelError = validateLabel(label);
-      if (labelError) {
+      let action;
+      let label;
+      try {
+        action = String(args.action);
+        label = args.label !== undefined && args.label !== null ? String(args.label) : undefined;
+      } catch {
         return JSON.stringify({
-          action,
+          action: "unknown",
           success: false,
-          error: `invalid label: ${labelError}`
+          error: "invalid arguments"
         }, null, 2);
       }
-    }
-    switch (action) {
-      case "save":
-        return handleSave(label, directory);
-      case "restore":
-        return handleRestore(label, directory);
-      case "list":
-        return handleList(directory);
-      case "delete":
-        return handleDelete(label, directory);
-      default:
+      const validActions = ["save", "restore", "list", "delete"];
+      if (!validActions.includes(action)) {
         return JSON.stringify({
           action,
           success: false,
-          error: "unreachable"
+          error: `invalid action: "${action}". Valid actions: ${validActions.join(", ")}`
         }, null, 2);
+      }
+      if (["save", "restore", "delete"].includes(action)) {
+        if (!label) {
+          return JSON.stringify({
+            action,
+            success: false,
+            error: `label is required for ${action} action`
+          }, null, 2);
+        }
+        const labelError = validateLabel(label);
+        if (labelError) {
+          return JSON.stringify({
+            action,
+            success: false,
+            error: `invalid label: ${labelError}`
+          }, null, 2);
+        }
+      }
+      switch (action) {
+        case "save":
+          return handleSave(label, directory);
+        case "restore":
+          return handleRestore(label, directory);
+        case "list":
+          return handleList(directory);
+        case "delete":
+          return handleDelete(label, directory);
+        default:
+          return JSON.stringify({
+            action,
+            success: false,
+            error: "unreachable"
+          }, null, 2);
+      }
     }
-  }
+  });
 });
 
 // src/commands/checkpoint.ts
-var CheckpointResultSchema = exports_external.object({
-  action: exports_external.string().optional(),
-  success: exports_external.boolean(),
-  error: exports_external.string().optional(),
-  checkpoints: exports_external.array(exports_external.unknown()).optional()
-}).passthrough();
 function safeParseResult(result) {
   const jsonStr = typeof result === "string" ? result : result.output;
   const parsed = CheckpointResultSchema.safeParse(JSON.parse(jsonStr));
@@ -34275,6 +33846,17 @@ async function handleList2(directory) {
     return `Error: ${msg}`;
   }
 }
+var CheckpointResultSchema;
+var init_checkpoint2 = __esm(() => {
+  init_zod();
+  init_checkpoint();
+  CheckpointResultSchema = exports_external.object({
+    action: exports_external.string().optional(),
+    success: exports_external.boolean(),
+    error: exports_external.string().optional(),
+    checkpoints: exports_external.array(exports_external.unknown()).optional()
+  }).passthrough();
+});
 
 // src/commands/clarify.ts
 async function handleClarifyCommand(_directory, args) {
@@ -34285,14 +33867,8 @@ async function handleClarifyCommand(_directory, args) {
   return "[MODE: CLARIFY-SPEC] Please enter MODE: CLARIFY-SPEC and clarify the existing spec.";
 }
 
-// src/commands/close.ts
-import { promises as fs7 } from "fs";
-import path13 from "path";
-init_manager2();
-
 // src/git/branch.ts
 import * as child_process2 from "child_process";
-var GIT_TIMEOUT_MS2 = 30000;
 function gitExec2(args, cwd) {
   const result = child_process2.spawnSync("git", args, {
     cwd,
@@ -34531,8 +34107,10 @@ function resetToRemoteBranch(cwd, options) {
     };
   }
 }
+var GIT_TIMEOUT_MS2 = 30000;
+var init_branch = () => {};
+
 // src/hooks/knowledge-store.ts
-var import_proper_lockfile3 = __toESM(require_proper_lockfile(), 1);
 import { existsSync as existsSync7 } from "fs";
 import { appendFile as appendFile2, mkdir as mkdir2, readFile as readFile3, writeFile as writeFile3 } from "fs/promises";
 import * as os3 from "os";
@@ -34694,112 +34272,19 @@ function inferTags(lesson) {
     tags.push("opencode-swarm");
   return Array.from(new Set(tags));
 }
+var import_proper_lockfile3;
+var init_knowledge_store = __esm(() => {
+  import_proper_lockfile3 = __toESM(require_proper_lockfile(), 1);
+});
+
+// src/hooks/knowledge-reader.ts
+var init_knowledge_reader = __esm(() => {
+  init_knowledge_store();
+});
 
 // src/hooks/knowledge-validator.ts
-var import_proper_lockfile4 = __toESM(require_proper_lockfile(), 1);
 import { appendFile as appendFile3, mkdir as mkdir3, writeFile as writeFile4 } from "fs/promises";
 import * as path11 from "path";
-var DANGEROUS_COMMAND_PATTERNS = [
-  /\brm\s+-rf\b/,
-  /\bsudo\s+rm\b/,
-  /\bformat\b/,
-  /\bmkfs\b/,
-  /\bdd\s+if=/,
-  /:\(\)\s*\{/,
-  /\bchmod\s+-R\s+777\b/,
-  /\bdeltree\b/,
-  /\brmdir\s+\/s\b/,
-  /\bkill\s+-9\b/,
-  /\bpkill\b/,
-  /\bkillall\b/,
-  /`[^`]*`/,
-  /\$\([^)]*\)/
-];
-var SECURITY_DEGRADING_PATTERNS = [
-  /disable\s+.{0,50}firewall/i,
-  /turn\s+off\s+.{0,50}security/i,
-  /skip\s+.{0,50}auth/i,
-  /bypass\s+.{0,50}auth/i,
-  /ignore\s+.{0,50}certificate/i,
-  /disable\s+.{0,50}tls/i,
-  /disable\s+.{0,50}ssl/i,
-  /no\s+.{0,50}validation/i,
-  /disable\s+.{0,50}2fa/i,
-  /remove\s+.{0,50}password/i
-];
-var INVISIBLE_FORMAT_CHARS = /[\u00AD\u200B-\u200F\u202A-\u202E\u2060-\u2064\u2066-\u2069\uFEFF]/g;
-var INJECTION_PATTERNS = [
-  /[\x00-\x08\x0b-\x0c\x0e-\x1f\x7f\x0d]/,
-  /[\u00AD\u200B-\u200F\u202A-\u202E\u2060-\u2064\u2066-\u2069\uFEFF]/,
-  /^system\s*:/i,
-  /<script/i,
-  /javascript:/i,
-  /\beval\(/i,
-  /\b__proto__\b/,
-  /\bconstructor\[/,
-  /\.prototype\[/
-];
-var VALID_CATEGORIES = new Set([
-  "process",
-  "architecture",
-  "tooling",
-  "security",
-  "testing",
-  "debugging",
-  "performance",
-  "integration",
-  "todo",
-  "other"
-]);
-var TECH_REFERENCE_WORDS = new Set([
-  "git",
-  "docker",
-  "typescript",
-  "bun",
-  "vitest",
-  "node",
-  "python",
-  "react",
-  "sql",
-  "api",
-  "hook",
-  "test",
-  "schema",
-  "config",
-  "file",
-  "function",
-  "class",
-  "module",
-  "import",
-  "export"
-]);
-var ACTION_VERB_WORDS = new Set([
-  "use",
-  "avoid",
-  "prefer",
-  "run",
-  "check",
-  "always",
-  "never",
-  "ensure",
-  "call",
-  "write",
-  "add",
-  "remove",
-  "update",
-  "set",
-  "enable",
-  "disable"
-]);
-var NEGATION_PAIRS = [
-  ["always", "never"],
-  ["must", "must not"],
-  ["must", "should not"],
-  ["enable", "disable"],
-  ["use", "avoid"],
-  ["use", "don't use"],
-  ["recommended", "not recommended"]
-];
 function normalizeText(text) {
   return text.normalize("NFKC").toLowerCase().replace(/[^\w\s]/g, " ").replace(/\s+/g, " ").trim();
 }
@@ -35048,10 +34533,114 @@ async function restoreEntry(directory, entryId) {
     }
   }
 }
+var import_proper_lockfile4, DANGEROUS_COMMAND_PATTERNS, SECURITY_DEGRADING_PATTERNS, INVISIBLE_FORMAT_CHARS, INJECTION_PATTERNS, VALID_CATEGORIES, TECH_REFERENCE_WORDS, ACTION_VERB_WORDS, NEGATION_PAIRS;
+var init_knowledge_validator = __esm(() => {
+  init_knowledge_store();
+  import_proper_lockfile4 = __toESM(require_proper_lockfile(), 1);
+  DANGEROUS_COMMAND_PATTERNS = [
+    /\brm\s+-rf\b/,
+    /\bsudo\s+rm\b/,
+    /\bformat\b/,
+    /\bmkfs\b/,
+    /\bdd\s+if=/,
+    /:\(\)\s*\{/,
+    /\bchmod\s+-R\s+777\b/,
+    /\bdeltree\b/,
+    /\brmdir\s+\/s\b/,
+    /\bkill\s+-9\b/,
+    /\bpkill\b/,
+    /\bkillall\b/,
+    /`[^`]*`/,
+    /\$\([^)]*\)/
+  ];
+  SECURITY_DEGRADING_PATTERNS = [
+    /disable\s+.{0,50}firewall/i,
+    /turn\s+off\s+.{0,50}security/i,
+    /skip\s+.{0,50}auth/i,
+    /bypass\s+.{0,50}auth/i,
+    /ignore\s+.{0,50}certificate/i,
+    /disable\s+.{0,50}tls/i,
+    /disable\s+.{0,50}ssl/i,
+    /no\s+.{0,50}validation/i,
+    /disable\s+.{0,50}2fa/i,
+    /remove\s+.{0,50}password/i
+  ];
+  INVISIBLE_FORMAT_CHARS = /[\u00AD\u200B-\u200F\u202A-\u202E\u2060-\u2064\u2066-\u2069\uFEFF]/g;
+  INJECTION_PATTERNS = [
+    /[\x00-\x08\x0b-\x0c\x0e-\x1f\x7f\x0d]/,
+    /[\u00AD\u200B-\u200F\u202A-\u202E\u2060-\u2064\u2066-\u2069\uFEFF]/,
+    /^system\s*:/i,
+    /<script/i,
+    /javascript:/i,
+    /\beval\(/i,
+    /\b__proto__\b/,
+    /\bconstructor\[/,
+    /\.prototype\[/
+  ];
+  VALID_CATEGORIES = new Set([
+    "process",
+    "architecture",
+    "tooling",
+    "security",
+    "testing",
+    "debugging",
+    "performance",
+    "integration",
+    "todo",
+    "other"
+  ]);
+  TECH_REFERENCE_WORDS = new Set([
+    "git",
+    "docker",
+    "typescript",
+    "bun",
+    "vitest",
+    "node",
+    "python",
+    "react",
+    "sql",
+    "api",
+    "hook",
+    "test",
+    "schema",
+    "config",
+    "file",
+    "function",
+    "class",
+    "module",
+    "import",
+    "export"
+  ]);
+  ACTION_VERB_WORDS = new Set([
+    "use",
+    "avoid",
+    "prefer",
+    "run",
+    "check",
+    "always",
+    "never",
+    "ensure",
+    "call",
+    "write",
+    "add",
+    "remove",
+    "update",
+    "set",
+    "enable",
+    "disable"
+  ]);
+  NEGATION_PAIRS = [
+    ["always", "never"],
+    ["must", "must not"],
+    ["must", "should not"],
+    ["enable", "disable"],
+    ["use", "avoid"],
+    ["use", "don't use"],
+    ["recommended", "not recommended"]
+  ];
+});
 
 // src/hooks/knowledge-curator.ts
-init_utils2();
-var seenRetroSections = new Map;
 async function curateAndStoreSwarm(lessons, projectName, phaseInfo, directory, config3) {
   const knowledgePath = resolveSwarmKnowledgePath(directory);
   const existingEntries = await readKnowledge(knowledgePath) ?? [];
@@ -35167,17 +34756,18 @@ async function runAutoPromotion(directory, config3) {
     await rewriteKnowledge(knowledgePath, entries);
   }
 }
-
-// src/commands/close.ts
-init_utils2();
+var seenRetroSections;
+var init_knowledge_curator = __esm(() => {
+  init_knowledge_reader();
+  init_knowledge_store();
+  init_knowledge_validator();
+  init_utils2();
+  seenRetroSections = new Map;
+});
 
 // src/session/snapshot-writer.ts
-init_utils2();
 import { mkdirSync as mkdirSync7, renameSync as renameSync5 } from "fs";
 import * as path12 from "path";
-init_utils();
-init_bun_compat();
-var _writeInFlight = Promise.resolve();
 function serializeAgentSession(s) {
   const gateLog = {};
   const rawGateLog = s.gateLog ?? new Map;
@@ -35282,11 +34872,16 @@ async function flushPendingSnapshot(directory) {
   _writeInFlight = _writeInFlight.then(() => writeSnapshot(directory, swarmState), () => writeSnapshot(directory, swarmState));
   await _writeInFlight;
 }
+var _writeInFlight;
+var init_snapshot_writer = __esm(() => {
+  init_utils2();
+  init_state();
+  init_utils();
+  init_bun_compat();
+  _writeInFlight = Promise.resolve();
+});
 
 // src/tools/write-retro.ts
-init_zod();
-init_evidence_schema();
-init_manager2();
 async function executeWriteRetro(args, directory) {
   if (/^(CON|PRN|AUX|NUL|COM[0-9]|LPT[0-9])(:|$)/i.test(directory)) {
     return JSON.stringify({
@@ -35587,77 +35182,64 @@ async function executeWriteRetro(args, directory) {
     }, null, 2);
   }
 }
-var write_retro = createSwarmTool({
-  description: "Write a retrospective evidence bundle for a completed phase. " + "Accepts flat retro fields and writes a correctly-wrapped EvidenceBundle to " + ".swarm/evidence/retro-{phase}/evidence.json. " + "Use this instead of manually writing retro JSON to avoid schema validation failures in phase_complete.",
-  args: {
-    phase: exports_external.number().int().min(1).max(99).describe("The phase number being completed (e.g., 1, 2, 3)"),
-    summary: exports_external.string().describe("Human-readable summary of the phase"),
-    task_count: exports_external.number().int().min(1).max(9999).describe("Count of tasks completed in this phase"),
-    task_complexity: exports_external.enum(["trivial", "simple", "moderate", "complex"]).describe("Complexity level of the completed tasks"),
-    total_tool_calls: exports_external.number().int().min(0).max(9999).describe("Total number of tool calls in this phase"),
-    coder_revisions: exports_external.number().int().min(0).max(999).describe("Number of coder revisions made"),
-    reviewer_rejections: exports_external.number().int().min(0).max(999).describe("Number of reviewer rejections received"),
-    loop_detections: exports_external.number().int().min(0).max(9999).optional().describe("Number of loop detection events in this phase"),
-    circuit_breaker_trips: exports_external.number().int().min(0).max(9999).optional().describe("Number of circuit breaker trips in this phase"),
-    test_failures: exports_external.number().int().min(0).max(9999).describe("Number of test failures encountered"),
-    security_findings: exports_external.number().int().min(0).max(999).describe("Number of security findings"),
-    integration_issues: exports_external.number().int().min(0).max(999).describe("Number of integration issues"),
-    lessons_learned: exports_external.array(exports_external.string()).max(5).optional().describe("Key lessons learned from this phase (max 5)"),
-    top_rejection_reasons: exports_external.array(exports_external.string()).optional().describe("Top reasons for reviewer rejections"),
-    task_id: exports_external.string().optional().describe("Optional custom task ID (defaults to retro-{phase})"),
-    metadata: exports_external.record(exports_external.string(), exports_external.unknown()).optional().describe("Optional additional metadata")
-  },
-  execute: async (args, directory) => {
-    const rawPhase = args.phase !== undefined ? Number(args.phase) : 0;
-    try {
-      const writeRetroArgs = {
-        phase: Number(args.phase),
-        summary: String(args.summary ?? ""),
-        task_count: Number(args.task_count),
-        task_complexity: args.task_complexity,
-        total_tool_calls: Number(args.total_tool_calls),
-        coder_revisions: Number(args.coder_revisions),
-        reviewer_rejections: Number(args.reviewer_rejections),
-        loop_detections: args.loop_detections != null ? Number(args.loop_detections) : undefined,
-        circuit_breaker_trips: args.circuit_breaker_trips != null ? Number(args.circuit_breaker_trips) : undefined,
-        test_failures: Number(args.test_failures),
-        security_findings: Number(args.security_findings),
-        integration_issues: Number(args.integration_issues),
-        lessons_learned: Array.isArray(args.lessons_learned) ? args.lessons_learned.map(String) : undefined,
-        top_rejection_reasons: Array.isArray(args.top_rejection_reasons) ? args.top_rejection_reasons.map(String) : undefined,
-        task_id: args.task_id !== undefined ? String(args.task_id) : undefined,
-        metadata: args.metadata
-      };
-      return await executeWriteRetro(writeRetroArgs, directory);
-    } catch {
-      return JSON.stringify({ success: false, phase: rawPhase, message: "Invalid arguments" }, null, 2);
+var write_retro;
+var init_write_retro = __esm(() => {
+  init_zod();
+  init_evidence_schema();
+  init_manager2();
+  init_create_tool();
+  write_retro = createSwarmTool({
+    description: "Write a retrospective evidence bundle for a completed phase. " + "Accepts flat retro fields and writes a correctly-wrapped EvidenceBundle to " + ".swarm/evidence/retro-{phase}/evidence.json. " + "Use this instead of manually writing retro JSON to avoid schema validation failures in phase_complete.",
+    args: {
+      phase: exports_external.number().int().min(1).max(99).describe("The phase number being completed (e.g., 1, 2, 3)"),
+      summary: exports_external.string().describe("Human-readable summary of the phase"),
+      task_count: exports_external.number().int().min(1).max(9999).describe("Count of tasks completed in this phase"),
+      task_complexity: exports_external.enum(["trivial", "simple", "moderate", "complex"]).describe("Complexity level of the completed tasks"),
+      total_tool_calls: exports_external.number().int().min(0).max(9999).describe("Total number of tool calls in this phase"),
+      coder_revisions: exports_external.number().int().min(0).max(999).describe("Number of coder revisions made"),
+      reviewer_rejections: exports_external.number().int().min(0).max(999).describe("Number of reviewer rejections received"),
+      loop_detections: exports_external.number().int().min(0).max(9999).optional().describe("Number of loop detection events in this phase"),
+      circuit_breaker_trips: exports_external.number().int().min(0).max(9999).optional().describe("Number of circuit breaker trips in this phase"),
+      test_failures: exports_external.number().int().min(0).max(9999).describe("Number of test failures encountered"),
+      security_findings: exports_external.number().int().min(0).max(999).describe("Number of security findings"),
+      integration_issues: exports_external.number().int().min(0).max(999).describe("Number of integration issues"),
+      lessons_learned: exports_external.array(exports_external.string()).max(5).optional().describe("Key lessons learned from this phase (max 5)"),
+      top_rejection_reasons: exports_external.array(exports_external.string()).optional().describe("Top reasons for reviewer rejections"),
+      task_id: exports_external.string().optional().describe("Optional custom task ID (defaults to retro-{phase})"),
+      metadata: exports_external.record(exports_external.string(), exports_external.unknown()).optional().describe("Optional additional metadata")
+    },
+    execute: async (args, directory) => {
+      const rawPhase = args.phase !== undefined ? Number(args.phase) : 0;
+      try {
+        const writeRetroArgs = {
+          phase: Number(args.phase),
+          summary: String(args.summary ?? ""),
+          task_count: Number(args.task_count),
+          task_complexity: args.task_complexity,
+          total_tool_calls: Number(args.total_tool_calls),
+          coder_revisions: Number(args.coder_revisions),
+          reviewer_rejections: Number(args.reviewer_rejections),
+          loop_detections: args.loop_detections != null ? Number(args.loop_detections) : undefined,
+          circuit_breaker_trips: args.circuit_breaker_trips != null ? Number(args.circuit_breaker_trips) : undefined,
+          test_failures: Number(args.test_failures),
+          security_findings: Number(args.security_findings),
+          integration_issues: Number(args.integration_issues),
+          lessons_learned: Array.isArray(args.lessons_learned) ? args.lessons_learned.map(String) : undefined,
+          top_rejection_reasons: Array.isArray(args.top_rejection_reasons) ? args.top_rejection_reasons.map(String) : undefined,
+          task_id: args.task_id !== undefined ? String(args.task_id) : undefined,
+          metadata: args.metadata
+        };
+        return await executeWriteRetro(writeRetroArgs, directory);
+      } catch {
+        return JSON.stringify({ success: false, phase: rawPhase, message: "Invalid arguments" }, null, 2);
+      }
     }
-  }
+  });
 });
 
 // src/commands/close.ts
-var ARCHIVE_ARTIFACTS = [
-  "plan.json",
-  "plan.md",
-  "plan-ledger.jsonl",
-  "context.md",
-  "events.jsonl",
-  "handoff.md",
-  "handoff-prompt.md",
-  "handoff-consumed.md",
-  "escalation-report.md",
-  "close-lessons.md"
-];
-var ACTIVE_STATE_TO_CLEAN = [
-  "plan.json",
-  "plan.md",
-  "plan-ledger.jsonl",
-  "events.jsonl",
-  "handoff.md",
-  "handoff-prompt.md",
-  "handoff-consumed.md",
-  "escalation-report.md"
-];
+import { promises as fs7 } from "fs";
+import path13 from "path";
 function guaranteeAllPlansComplete(planData) {
   const closedPhaseIds = [];
   const closedTaskIds = [];
@@ -36099,6 +35681,40 @@ ${otherWarnings.map((w) => `- ${w}`).join(`
 **Archive:** ${archiveResult}
 **Git:** ${gitAlignResult}${lessonSummary}${warningMsg}`;
 }
+var ARCHIVE_ARTIFACTS, ACTIVE_STATE_TO_CLEAN;
+var init_close = __esm(() => {
+  init_schema();
+  init_manager2();
+  init_branch();
+  init_knowledge_curator();
+  init_utils2();
+  init_scope_persistence();
+  init_snapshot_writer();
+  init_state();
+  init_write_retro();
+  ARCHIVE_ARTIFACTS = [
+    "plan.json",
+    "plan.md",
+    "plan-ledger.jsonl",
+    "context.md",
+    "events.jsonl",
+    "handoff.md",
+    "handoff-prompt.md",
+    "handoff-consumed.md",
+    "escalation-report.md",
+    "close-lessons.md"
+  ];
+  ACTIVE_STATE_TO_CLEAN = [
+    "plan.json",
+    "plan.md",
+    "plan-ledger.jsonl",
+    "events.jsonl",
+    "handoff.md",
+    "handoff-prompt.md",
+    "handoff-consumed.md",
+    "escalation-report.md"
+  ];
+});
 
 // src/commands/config.ts
 import * as os4 from "os";
@@ -36125,9 +35741,11 @@ async function handleConfigCommand(directory, _args) {
   return lines.join(`
 `);
 }
+var init_config2 = __esm(() => {
+  init_loader();
+});
 
 // src/commands/council.ts
-var MAX_QUESTION_LEN = 2000;
 function sanitizeQuestion(raw) {
   const collapsed = raw.replace(/\s+/g, " ").trim();
   const stripped = collapsed.replace(/\[\s*MODE\s*:[^\]]*\]/gi, "");
@@ -36168,16 +35786,6 @@ function parseArgs(args) {
   }
   return out;
 }
-var USAGE = [
-  "Usage: /swarm council <question> [--preset <name>] [--spec-review]",
-  "",
-  "  question         The question to put to the council",
-  "  --preset <name>  Use a named member preset from council.general.presets",
-  "  --spec-review    Use spec_review mode (single advisory pass on a draft spec)",
-  "",
-  "Requires council.general.enabled: true and a configured search API key in opencode-swarm.json."
-].join(`
-`);
 async function handleCouncilCommand(_directory, args) {
   const parsed = parseArgs(args);
   const question = sanitizeQuestion(parsed.rest.join(" "));
@@ -36193,13 +35801,21 @@ async function handleCouncilCommand(_directory, args) {
   }
   return `[${tokens.join(" ")}] ${question}`;
 }
-
-// src/hooks/hive-promoter.ts
-import path15 from "path";
+var MAX_QUESTION_LEN = 2000, USAGE;
+var init_council = __esm(() => {
+  USAGE = [
+    "Usage: /swarm council <question> [--preset <name>] [--spec-review]",
+    "",
+    "  question         The question to put to the council",
+    "  --preset <name>  Use a named member preset from council.general.presets",
+    "  --spec-review    Use spec_review mode (single advisory pass on a draft spec)",
+    "",
+    "Requires council.general.enabled: true and a configured search API key in opencode-swarm.json."
+  ].join(`
+`);
+});
 
 // src/background/event-bus.ts
-init_utils();
-
 class AutomationEventBus {
   listeners = new Map;
   eventHistory = [];
@@ -36258,21 +35874,29 @@ class AutomationEventBus {
     return this.getListenerCount(type) > 0;
   }
 }
-var globalEventBus = null;
 function getGlobalEventBus() {
   if (!globalEventBus) {
     globalEventBus = new AutomationEventBus;
   }
   return globalEventBus;
 }
+var globalEventBus = null;
+var init_event_bus = __esm(() => {
+  init_utils();
+});
 
 // src/hooks/curator.ts
-init_manager();
-init_bun_compat();
-init_utils2();
+var init_curator = __esm(() => {
+  init_event_bus();
+  init_manager();
+  init_bun_compat();
+  init_knowledge_store();
+  init_knowledge_validator();
+  init_utils2();
+});
 
 // src/hooks/hive-promoter.ts
-init_utils2();
+import path15 from "path";
 function isAlreadyInHive(entry, hiveEntries, threshold) {
   return findNearDuplicate(entry.lesson, hiveEntries, threshold) !== undefined;
 }
@@ -36499,6 +36123,12 @@ async function promoteFromSwarm(directory, lessonId) {
   await appendKnowledge(resolveHiveKnowledgePath(), newHiveEntry);
   return `Promoted lesson ${lessonId} from swarm to hive: "${swarmEntry.lesson.slice(0, 50)}${swarmEntry.lesson.length > 50 ? "..." : ""}"`;
 }
+var init_hive_promoter = __esm(() => {
+  init_curator();
+  init_knowledge_store();
+  init_knowledge_validator();
+  init_utils2();
+});
 
 // src/commands/curate.ts
 async function handleCurateCommand(directory, _args) {
@@ -36527,12 +36157,13 @@ function formatCurationSummary(summary) {
   return lines.join(`
 `);
 }
-
-// src/commands/dark-matter.ts
-import path17 from "path";
+var init_curate = __esm(() => {
+  init_schema();
+  init_hive_promoter();
+  init_knowledge_store();
+});
 
 // src/tools/co-change-analyzer.ts
-init_zod();
 import * as child_process3 from "child_process";
 import { randomUUID } from "crypto";
 import { readdir, readFile as readFile4, stat as stat2 } from "fs/promises";
@@ -36836,40 +36467,46 @@ ${rows}
 These pairs likely share an architectural concern invisible to static analysis.
 Consider adding explicit documentation or extracting the shared concern.`;
 }
-var co_change_analyzer = createSwarmTool({
-  description: "Detects hidden couplings (dark matter) by analyzing git history to find file pairs that frequently co-change but have no import relationship. Useful for identifying architectural concerns that are not explicitly documented.",
-  args: {
-    min_commits: exports_external.number().optional().describe("Minimum commit count to analyze (default: 20)"),
-    min_co_changes: exports_external.number().optional().describe("Minimum co-change count to consider (default: 3)"),
-    threshold: exports_external.number().optional().describe("NPMI threshold for filtering (default: 0.5)"),
-    max_commits: exports_external.number().optional().describe("Maximum commits to analyze (default: 500)")
-  },
-  async execute(args, directory) {
-    let minCommits;
-    let minCoChanges;
-    let npmiThreshold;
-    let maxCommitsToAnalyze;
-    try {
-      if (args && typeof args === "object") {
-        const obj = args;
-        minCommits = typeof obj.min_commits === "number" ? obj.min_commits : undefined;
-        minCoChanges = typeof obj.min_co_changes === "number" ? obj.min_co_changes : undefined;
-        npmiThreshold = typeof obj.threshold === "number" ? obj.threshold : undefined;
-        maxCommitsToAnalyze = typeof obj.max_commits === "number" ? obj.max_commits : undefined;
-      }
-    } catch {}
-    const options = {
-      minCommits,
-      minCoChanges,
-      npmiThreshold,
-      maxCommitsToAnalyze
-    };
-    const pairs = await detectDarkMatter(directory, options);
-    return formatDarkMatterOutput(pairs);
-  }
+var co_change_analyzer;
+var init_co_change_analyzer = __esm(() => {
+  init_zod();
+  init_create_tool();
+  co_change_analyzer = createSwarmTool({
+    description: "Detects hidden couplings (dark matter) by analyzing git history to find file pairs that frequently co-change but have no import relationship. Useful for identifying architectural concerns that are not explicitly documented.",
+    args: {
+      min_commits: exports_external.number().optional().describe("Minimum commit count to analyze (default: 20)"),
+      min_co_changes: exports_external.number().optional().describe("Minimum co-change count to consider (default: 3)"),
+      threshold: exports_external.number().optional().describe("NPMI threshold for filtering (default: 0.5)"),
+      max_commits: exports_external.number().optional().describe("Maximum commits to analyze (default: 500)")
+    },
+    async execute(args, directory) {
+      let minCommits;
+      let minCoChanges;
+      let npmiThreshold;
+      let maxCommitsToAnalyze;
+      try {
+        if (args && typeof args === "object") {
+          const obj = args;
+          minCommits = typeof obj.min_commits === "number" ? obj.min_commits : undefined;
+          minCoChanges = typeof obj.min_co_changes === "number" ? obj.min_co_changes : undefined;
+          npmiThreshold = typeof obj.threshold === "number" ? obj.threshold : undefined;
+          maxCommitsToAnalyze = typeof obj.max_commits === "number" ? obj.max_commits : undefined;
+        }
+      } catch {}
+      const options = {
+        minCommits,
+        minCoChanges,
+        npmiThreshold,
+        maxCommitsToAnalyze
+      };
+      const pairs = await detectDarkMatter(directory, options);
+      return formatDarkMatterOutput(pairs);
+    }
+  });
 });
 
 // src/commands/dark-matter.ts
+import path17 from "path";
 async function handleDarkMatterCommand(directory, args) {
   const options = {};
   for (let i = 0;i < args.length; i++) {
@@ -36909,12 +36546,10 @@ async function handleDarkMatterCommand(directory, args) {
   }
   return output;
 }
-
-// src/services/diagnose-service.ts
-import * as child_process4 from "child_process";
-import { existsSync as existsSync9, readdirSync as readdirSync4, readFileSync as readFileSync6, statSync as statSync6 } from "fs";
-import path19 from "path";
-import { fileURLToPath } from "url";
+var init_dark_matter = __esm(() => {
+  init_knowledge_store();
+  init_co_change_analyzer();
+});
 
 // src/config/cache-paths.ts
 import * as os5 from "os";
@@ -36959,17 +36594,12 @@ function getPluginLockFilePaths() {
   }
   return paths;
 }
-
-// src/services/diagnose-service.ts
-init_manager2();
-init_utils2();
-init_manager();
+var init_cache_paths = () => {};
 
 // src/services/version-check.ts
 import { existsSync as existsSync8, mkdirSync as mkdirSync8, readFileSync as readFileSync5, writeFileSync as writeFileSync4 } from "fs";
 import { homedir as homedir5 } from "os";
 import { join as join16 } from "path";
-var CHECK_INTERVAL_MS = 24 * 60 * 60 * 1000;
 function cacheDir() {
   const xdg = process.env.XDG_CACHE_HOME;
   const base = xdg && xdg.length > 0 ? xdg : join16(homedir5(), ".cache");
@@ -37015,9 +36645,16 @@ function compareVersions(a, b) {
     return aPre < bPre ? -1 : aPre > bPre ? 1 : 0;
   return 0;
 }
+var CHECK_INTERVAL_MS;
+var init_version_check = __esm(() => {
+  CHECK_INTERVAL_MS = 24 * 60 * 60 * 1000;
+});
 
 // src/services/diagnose-service.ts
-var { version: version3 } = package_default;
+import * as child_process4 from "child_process";
+import { existsSync as existsSync9, readdirSync as readdirSync4, readFileSync as readFileSync6, statSync as statSync6 } from "fs";
+import path19 from "path";
+import { fileURLToPath } from "url";
 function validateTaskDag(plan) {
   const allTaskIds = new Set;
   for (const phase of plan.phases) {
@@ -37798,20 +37435,662 @@ async function handleDiagnoseCommand(directory, _args) {
   const diagnoseData = await getDiagnoseData(directory);
   return formatDiagnoseMarkdown(diagnoseData);
 }
-// src/commands/doctor.ts
-init_config_doctor();
+var version3;
+var init_diagnose_service = __esm(() => {
+  init_package();
+  init_cache_paths();
+  init_loader();
+  init_manager2();
+  init_utils2();
+  init_manager();
+  init_version_check();
+  init_warning_buffer();
+  ({ version: version3 } = package_default);
+});
 
-// src/services/tool-doctor.ts
-import * as fs10 from "fs";
-import * as path22 from "path";
+// src/commands/diagnose.ts
+var init_diagnose = __esm(() => {
+  init_diagnose_service();
+});
 
-// src/build/discovery.ts
-import * as fs9 from "fs";
-import * as path21 from "path";
-
-// src/lang/detector.ts
-import { access as access3, readdir as readdir2 } from "fs/promises";
-import { extname as extname2, join as join18 } from "path";
+// src/services/config-doctor.ts
+var exports_config_doctor = {};
+__export(exports_config_doctor, {
+  writeDoctorArtifact: () => writeDoctorArtifact,
+  writeBackupArtifact: () => writeBackupArtifact,
+  shouldRunOnStartup: () => shouldRunOnStartup,
+  runConfigDoctorWithFixes: () => runConfigDoctorWithFixes,
+  runConfigDoctor: () => runConfigDoctor,
+  restoreFromBackup: () => restoreFromBackup,
+  getConfigPaths: () => getConfigPaths,
+  createConfigBackup: () => createConfigBackup,
+  applySafeAutoFixes: () => applySafeAutoFixes
+});
+import * as crypto3 from "crypto";
+import * as fs8 from "fs";
+import * as os6 from "os";
+import * as path20 from "path";
+function getUserConfigDir3() {
+  return process.env.XDG_CONFIG_HOME || path20.join(os6.homedir(), ".config");
+}
+function getConfigPaths(directory) {
+  const userConfigPath = path20.join(getUserConfigDir3(), "opencode", "opencode-swarm.json");
+  const projectConfigPath = path20.join(directory, ".opencode", "opencode-swarm.json");
+  return { userConfigPath, projectConfigPath };
+}
+function computeHash(content) {
+  return crypto3.createHash("sha256").update(content, "utf-8").digest("hex");
+}
+function isValidConfigPath(configPath, directory) {
+  const normalizedPath = configPath.replace(/\\/g, "/");
+  const pathParts = normalizedPath.split("/");
+  for (const part of pathParts) {
+    if (part === ".." || part === "") {
+      if (part === "..") {
+        return false;
+      }
+    }
+  }
+  for (const pattern of VALID_CONFIG_PATTERNS) {
+    if (pattern.test(normalizedPath)) {
+      return true;
+    }
+  }
+  const { userConfigPath, projectConfigPath } = getConfigPaths(directory);
+  const normalizedUser = userConfigPath.replace(/\\/g, "/");
+  const normalizedProject = projectConfigPath.replace(/\\/g, "/");
+  try {
+    const resolvedConfig = path20.resolve(configPath);
+    const resolvedUser = path20.resolve(normalizedUser);
+    const resolvedProject = path20.resolve(normalizedProject);
+    return resolvedConfig === resolvedUser || resolvedConfig === resolvedProject;
+  } catch {
+    return false;
+  }
+}
+function createConfigBackup(directory) {
+  const { userConfigPath, projectConfigPath } = getConfigPaths(directory);
+  let configPath = projectConfigPath;
+  let content = null;
+  if (fs8.existsSync(projectConfigPath)) {
+    try {
+      content = fs8.readFileSync(projectConfigPath, "utf-8");
+    } catch (error93) {
+      log("[ConfigDoctor] project config read failed", {
+        error: error93 instanceof Error ? error93.message : String(error93)
+      });
+    }
+  }
+  if (content === null && fs8.existsSync(userConfigPath)) {
+    configPath = userConfigPath;
+    try {
+      content = fs8.readFileSync(userConfigPath, "utf-8");
+    } catch (error93) {
+      log("[ConfigDoctor] user config read failed", {
+        error: error93 instanceof Error ? error93.message : String(error93)
+      });
+    }
+  }
+  if (content === null) {
+    return null;
+  }
+  return {
+    createdAt: Date.now(),
+    configPath,
+    content,
+    contentHash: computeHash(content)
+  };
+}
+function writeBackupArtifact(directory, backup) {
+  const swarmDir = path20.join(directory, ".swarm");
+  if (!fs8.existsSync(swarmDir)) {
+    fs8.mkdirSync(swarmDir, { recursive: true });
+  }
+  const backupFilename = `config-backup-${backup.createdAt}.json`;
+  const backupPath = path20.join(swarmDir, backupFilename);
+  const artifact = {
+    createdAt: backup.createdAt,
+    configPath: backup.configPath,
+    contentHash: backup.contentHash,
+    content: backup.content,
+    preview: backup.content.substring(0, 500) + (backup.content.length > 500 ? "..." : "")
+  };
+  fs8.writeFileSync(backupPath, JSON.stringify(artifact, null, 2), "utf-8");
+  return backupPath;
+}
+function restoreFromBackup(backupPath, directory) {
+  if (!fs8.existsSync(backupPath)) {
+    return null;
+  }
+  try {
+    const artifact = JSON.parse(fs8.readFileSync(backupPath, "utf-8"));
+    if (!artifact.content || !artifact.configPath || !artifact.contentHash) {
+      return null;
+    }
+    if (!isValidConfigPath(artifact.configPath, directory)) {
+      return null;
+    }
+    const computedHash = computeHash(artifact.content);
+    const storedHash = artifact.contentHash;
+    const isLegacyHash = /^\d+$/.test(storedHash);
+    if (!isLegacyHash && computedHash !== storedHash) {
+      return null;
+    }
+    const targetPath = artifact.configPath;
+    const targetDir = path20.dirname(targetPath);
+    if (!fs8.existsSync(targetDir)) {
+      fs8.mkdirSync(targetDir, { recursive: true });
+    }
+    fs8.writeFileSync(targetPath, artifact.content, "utf-8");
+    return targetPath;
+  } catch {
+    return null;
+  }
+}
+function readConfigFromFile(directory) {
+  const { userConfigPath, projectConfigPath } = getConfigPaths(directory);
+  let configPath = projectConfigPath;
+  let configContent = null;
+  if (fs8.existsSync(projectConfigPath)) {
+    configPath = projectConfigPath;
+    configContent = fs8.readFileSync(projectConfigPath, "utf-8");
+  } else if (fs8.existsSync(userConfigPath)) {
+    configPath = userConfigPath;
+    configContent = fs8.readFileSync(userConfigPath, "utf-8");
+  }
+  if (configContent === null) {
+    return null;
+  }
+  try {
+    const config3 = JSON.parse(configContent);
+    return { config: config3, configPath };
+  } catch {
+    return null;
+  }
+}
+function validateConfigKey(path21, value, _config) {
+  const findings = [];
+  switch (path21) {
+    case "agents": {
+      if (value !== undefined) {
+        findings.push({
+          id: "deprecated-agents-config",
+          title: "Deprecated agents configuration",
+          description: 'The "agents" field is deprecated. Use "swarms" instead for multi-swarm support.',
+          severity: "warn",
+          path: "agents",
+          currentValue: value,
+          autoFixable: false,
+          proposedFix: {
+            type: "remove",
+            path: "agents",
+            description: "Remove deprecated agents config - use swarms instead",
+            risk: "low"
+          }
+        });
+      }
+      break;
+    }
+    case "guardrails.enabled": {
+      if (value === false) {
+        findings.push({
+          id: "guardrails-disabled",
+          title: "Guardrails disabled",
+          description: "Guardrails have been explicitly disabled. This removes safety limits.",
+          severity: "error",
+          path: "guardrails.enabled",
+          currentValue: value,
+          autoFixable: false
+        });
+      }
+      break;
+    }
+    case "guardrails.profiles": {
+      const profiles = value;
+      if (profiles) {
+        const validAgents = [
+          "architect",
+          "coder",
+          "test_engineer",
+          "explorer",
+          "reviewer",
+          "critic",
+          "sme",
+          "docs",
+          "designer"
+        ];
+        for (const [agentName, profile] of Object.entries(profiles)) {
+          if (!validAgents.includes(agentName)) {
+            findings.push({
+              id: "unknown-agent-profile",
+              title: "Unknown agent profile",
+              description: `Profile for unknown agent "${agentName}" will be ignored.`,
+              severity: "info",
+              path: `guardrails.profiles.${agentName}`,
+              currentValue: profile,
+              autoFixable: true,
+              proposedFix: {
+                type: "remove",
+                path: `guardrails.profiles.${agentName}`,
+                description: `Remove unknown agent profile "${agentName}"`,
+                risk: "low"
+              }
+            });
+          }
+        }
+      }
+      break;
+    }
+    case "automation.mode": {
+      const validModes = ["manual", "hybrid", "auto"];
+      if (value !== undefined && !validModes.includes(value)) {
+        findings.push({
+          id: "invalid-automation-mode",
+          title: "Invalid automation mode",
+          description: `Invalid automation mode "${value}". Valid: ${validModes.join(", ")}`,
+          severity: "error",
+          path: "automation.mode",
+          currentValue: value,
+          autoFixable: true,
+          proposedFix: {
+            type: "update",
+            path: "automation.mode",
+            value: "manual",
+            description: 'Reset to safe default "manual"',
+            risk: "low"
+          }
+        });
+      }
+      break;
+    }
+    case "automation.capabilities": {
+      const caps = value;
+      if (caps) {
+        const capabilityNames = [
+          "plan_sync",
+          "phase_preflight",
+          "config_doctor_on_startup",
+          "evidence_auto_summaries",
+          "decision_drift_detection"
+        ];
+        for (const [name, capValue] of Object.entries(caps)) {
+          if (capabilityNames.includes(name) && typeof capValue !== "boolean") {
+            findings.push({
+              id: "invalid-capability-type",
+              title: "Invalid capability type",
+              description: `Capability "${name}" must be boolean, got ${typeof capValue}`,
+              severity: "error",
+              path: `automation.capabilities.${name}`,
+              currentValue: capValue,
+              autoFixable: true,
+              proposedFix: {
+                type: "update",
+                path: `automation.capabilities.${name}`,
+                value: false,
+                description: `Reset capability "${name}" to false`,
+                risk: "low"
+              }
+            });
+          }
+        }
+      }
+      break;
+    }
+    case "hooks": {
+      const hooks = value;
+      if (hooks) {
+        const validHooks = [
+          "system_enhancer",
+          "compaction",
+          "agent_activity",
+          "delegation_tracker",
+          "agent_awareness_max_chars",
+          "delegation_gate",
+          "delegation_max_chars"
+        ];
+        for (const hookName of Object.keys(hooks)) {
+          if (!validHooks.includes(hookName)) {
+            findings.push({
+              id: "unknown-hook-field",
+              title: "Unknown hook configuration",
+              description: `Unknown hook "${hookName}" will be ignored.`,
+              severity: "info",
+              path: `hooks.${hookName}`,
+              currentValue: hooks[hookName],
+              autoFixable: true,
+              proposedFix: {
+                type: "remove",
+                path: `hooks.${hookName}`,
+                description: `Remove unknown hook "${hookName}"`,
+                risk: "low"
+              }
+            });
+          }
+        }
+      }
+      break;
+    }
+    case "max_iterations": {
+      const numValue = value;
+      if (typeof numValue === "number") {
+        if (numValue < 1 || numValue > 10) {
+          findings.push({
+            id: "out-of-bounds-iterations",
+            title: "max_iterations out of bounds",
+            description: `max_iterations must be 1-10, got ${numValue}`,
+            severity: "error",
+            path: "max_iterations",
+            currentValue: numValue,
+            autoFixable: true,
+            proposedFix: {
+              type: "update",
+              path: "max_iterations",
+              value: Math.max(1, Math.min(10, numValue)),
+              description: "Clamp to valid range 1-10",
+              risk: "low"
+            }
+          });
+        }
+      }
+      break;
+    }
+    case "qa_retry_limit": {
+      const numValue = value;
+      if (typeof numValue === "number") {
+        if (numValue < 1 || numValue > 10) {
+          findings.push({
+            id: "out-of-bounds-retry-limit",
+            title: "qa_retry_limit out of bounds",
+            description: `qa_retry_limit must be 1-10, got ${numValue}`,
+            severity: "error",
+            path: "qa_retry_limit",
+            currentValue: numValue,
+            autoFixable: true,
+            proposedFix: {
+              type: "update",
+              path: "qa_retry_limit",
+              value: Math.max(1, Math.min(10, numValue)),
+              description: "Clamp to valid range 1-10",
+              risk: "low"
+            }
+          });
+        }
+      }
+      break;
+    }
+    case "swarms": {
+      const swarms = value;
+      if (swarms && typeof swarms === "object") {
+        for (const [swarmId, swarmConfig] of Object.entries(swarms)) {
+          const swarm = swarmConfig;
+          if (swarm.agents && typeof swarm.agents === "object") {
+            for (const [agentName] of Object.entries(swarm.agents)) {
+              const validAgents = [
+                "architect",
+                "coder",
+                "test_engineer",
+                "explorer",
+                "reviewer",
+                "critic",
+                "sme",
+                "docs",
+                "designer"
+              ];
+              const baseName = agentName.replace(/^[a-zA-Z0-9]+_/, "");
+              if (!validAgents.includes(baseName)) {
+                findings.push({
+                  id: "unknown-swarm-agent",
+                  title: "Unknown agent in swarm",
+                  description: `Agent "${agentName}" in swarm "${swarmId}" may not be recognized.`,
+                  severity: "info",
+                  path: `swarms.${swarmId}.agents.${agentName}`,
+                  currentValue: swarm.agents[agentName],
+                  autoFixable: false
+                });
+              }
+            }
+          }
+        }
+      }
+      break;
+    }
+  }
+  return findings;
+}
+function walkConfigAndValidate(obj, path21, config3, findings) {
+  if (obj === null || obj === undefined) {
+    return;
+  }
+  if (path21 && typeof obj === "object" && !Array.isArray(obj)) {
+    const keyFindings = validateConfigKey(path21, obj, config3);
+    findings.push(...keyFindings);
+  }
+  if (typeof obj !== "object") {
+    const keyFindings = validateConfigKey(path21, obj, config3);
+    findings.push(...keyFindings);
+    return;
+  }
+  if (Array.isArray(obj)) {
+    obj.forEach((item, index) => {
+      walkConfigAndValidate(item, `${path21}[${index}]`, config3, findings);
+    });
+    return;
+  }
+  for (const [key, value] of Object.entries(obj)) {
+    const newPath = path21 ? `${path21}.${key}` : key;
+    walkConfigAndValidate(value, newPath, config3, findings);
+  }
+}
+function runConfigDoctor(config3, directory) {
+  const findings = [];
+  walkConfigAndValidate(config3, "", config3, findings);
+  const summary = {
+    info: findings.filter((f) => f.severity === "info").length,
+    warn: findings.filter((f) => f.severity === "warn").length,
+    error: findings.filter((f) => f.severity === "error").length
+  };
+  const hasAutoFixableIssues = findings.some((f) => f.autoFixable && f.proposedFix?.risk === "low");
+  const { userConfigPath, projectConfigPath } = getConfigPaths(directory);
+  let configSource = "defaults";
+  if (fs8.existsSync(projectConfigPath)) {
+    configSource = projectConfigPath;
+  } else if (fs8.existsSync(userConfigPath)) {
+    configSource = userConfigPath;
+  }
+  return {
+    findings,
+    summary,
+    hasAutoFixableIssues,
+    timestamp: Date.now(),
+    configSource
+  };
+}
+function isDangerousPathSegment(segment) {
+  return DANGEROUS_PATH_SEGMENTS.has(segment);
+}
+function isPathSafe(fixPath) {
+  const segments = fixPath.split(".");
+  for (const segment of segments) {
+    if (isDangerousPathSegment(segment)) {
+      return false;
+    }
+  }
+  return true;
+}
+function applySafeAutoFixes(directory, result) {
+  const appliedFixes = [];
+  let updatedConfigPath = null;
+  const { userConfigPath, projectConfigPath } = getConfigPaths(directory);
+  let configPath = projectConfigPath;
+  let configContent;
+  if (fs8.existsSync(projectConfigPath)) {
+    configPath = projectConfigPath;
+    configContent = fs8.readFileSync(projectConfigPath, "utf-8");
+  } else if (fs8.existsSync(userConfigPath)) {
+    configPath = userConfigPath;
+    configContent = fs8.readFileSync(userConfigPath, "utf-8");
+  } else {
+    return { appliedFixes, updatedConfigPath: null };
+  }
+  let config3;
+  try {
+    config3 = JSON.parse(configContent);
+  } catch {
+    return { appliedFixes, updatedConfigPath: null };
+  }
+  const safeFixes = result.findings.filter((f) => f.autoFixable && f.proposedFix?.risk === "low");
+  for (const finding of safeFixes) {
+    const fix = finding.proposedFix;
+    if (!fix)
+      continue;
+    if (!isPathSafe(fix.path)) {
+      continue;
+    }
+    const pathParts = fix.path.split(".");
+    let current = config3;
+    let navigated = true;
+    for (let i = 0;i < pathParts.length - 1; i++) {
+      const part = pathParts[i];
+      if (current === null || current === undefined) {
+        navigated = false;
+        break;
+      }
+      if (typeof current !== "object" || Array.isArray(current)) {
+        navigated = false;
+        break;
+      }
+      const obj = current;
+      if (obj[part] === undefined) {
+        obj[part] = {};
+      } else if (obj[part] === null) {
+        navigated = false;
+        break;
+      } else if (typeof obj[part] !== "object") {
+        navigated = false;
+        break;
+      }
+      current = obj[part];
+    }
+    if (!navigated) {
+      continue;
+    }
+    const lastPart = pathParts[pathParts.length - 1];
+    switch (fix.type) {
+      case "remove":
+        if (current !== null && current !== undefined && typeof current === "object") {
+          delete current[lastPart];
+          appliedFixes.push(fix);
+        }
+        break;
+      case "update":
+        if (current !== null && current !== undefined && typeof current === "object") {
+          current[lastPart] = fix.value;
+          appliedFixes.push(fix);
+        }
+        break;
+      case "add":
+        if (current !== null && current !== undefined && typeof current === "object") {
+          current[lastPart] = fix.value;
+          appliedFixes.push(fix);
+        }
+        break;
+    }
+  }
+  if (appliedFixes.length > 0) {
+    const configDir = path20.dirname(configPath);
+    if (!fs8.existsSync(configDir)) {
+      fs8.mkdirSync(configDir, { recursive: true });
+    }
+    fs8.writeFileSync(configPath, JSON.stringify(config3, null, 2), "utf-8");
+    updatedConfigPath = configPath;
+  }
+  return { appliedFixes, updatedConfigPath };
+}
+function writeDoctorArtifact(directory, result) {
+  const swarmDir = path20.join(directory, ".swarm");
+  if (!fs8.existsSync(swarmDir)) {
+    fs8.mkdirSync(swarmDir, { recursive: true });
+  }
+  const artifactFilename = "config-doctor.json";
+  const artifactPath = path20.join(swarmDir, artifactFilename);
+  const guiOutput = {
+    timestamp: result.timestamp,
+    summary: result.summary,
+    hasAutoFixableIssues: result.hasAutoFixableIssues,
+    configSource: result.configSource,
+    findings: result.findings.map((f) => ({
+      id: f.id,
+      title: f.title,
+      description: f.description,
+      severity: f.severity,
+      path: f.path,
+      autoFixable: f.autoFixable,
+      proposedFix: f.proposedFix ? {
+        type: f.proposedFix.type,
+        path: f.proposedFix.path,
+        description: f.proposedFix.description,
+        risk: f.proposedFix.risk
+      } : null
+    }))
+  };
+  fs8.writeFileSync(artifactPath, JSON.stringify(guiOutput, null, 2), "utf-8");
+  return artifactPath;
+}
+function shouldRunOnStartup(automationConfig) {
+  if (!automationConfig) {
+    return false;
+  }
+  if (automationConfig.mode === "manual") {
+    return false;
+  }
+  return automationConfig.capabilities?.config_doctor_on_startup === true;
+}
+async function runConfigDoctorWithFixes(directory, config3, autoFix = false) {
+  const result = runConfigDoctor(config3, directory);
+  const artifactPath = writeDoctorArtifact(directory, result);
+  if (!autoFix) {
+    return {
+      result,
+      backupPath: null,
+      appliedFixes: [],
+      updatedConfigPath: null,
+      artifactPath
+    };
+  }
+  const backup = createConfigBackup(directory);
+  let backupPath = null;
+  if (backup) {
+    backupPath = writeBackupArtifact(directory, backup);
+  }
+  const { appliedFixes, updatedConfigPath } = applySafeAutoFixes(directory, result);
+  if (appliedFixes.length > 0) {
+    const freshConfig = readConfigFromFile(directory);
+    if (freshConfig) {
+      const newResult = runConfigDoctor(freshConfig.config, directory);
+      writeDoctorArtifact(directory, newResult);
+    }
+  }
+  return {
+    result,
+    backupPath,
+    appliedFixes,
+    updatedConfigPath,
+    artifactPath
+  };
+}
+var VALID_CONFIG_PATTERNS, DANGEROUS_PATH_SEGMENTS;
+var init_config_doctor = __esm(() => {
+  init_utils();
+  VALID_CONFIG_PATTERNS = [
+    /^\.config[\\/]opencode[\\/]opencode-swarm\.json$/,
+    /\.opencode[\\/]opencode-swarm\.json$/
+  ];
+  DANGEROUS_PATH_SEGMENTS = new Set([
+    "__proto__",
+    "constructor",
+    "prototype"
+  ]);
+});
 
 // src/lang/profiles.ts
 class LanguageRegistry {
@@ -37847,935 +38126,940 @@ class LanguageRegistry {
     return Array.from(this.profiles.values()).filter((p) => p.tier === tier);
   }
 }
-var LANGUAGE_REGISTRY = new LanguageRegistry;
-LANGUAGE_REGISTRY.register({
-  id: "typescript",
-  displayName: "TypeScript / JavaScript",
-  tier: 1,
-  extensions: [".ts", ".tsx", ".js", ".jsx", ".mjs", ".cjs"],
-  treeSitter: {
-    grammarId: "typescript",
-    wasmFile: "tree-sitter-typescript.wasm"
-  },
-  build: {
-    detectFiles: ["package.json"],
-    commands: [
-      {
-        name: "bun build",
-        cmd: "bun run build",
-        detectFile: "package.json",
-        priority: 10
-      },
-      {
-        name: "tsc",
-        cmd: "npx tsc --noEmit",
-        detectFile: "tsconfig.json",
-        priority: 9
-      },
-      {
-        name: "vite build",
-        cmd: "npx vite build",
-        detectFile: "vite.config.ts",
-        priority: 8
-      }
-    ]
-  },
-  test: {
-    detectFiles: ["package.json", "vitest.config.ts", "jest.config.js"],
-    frameworks: [
-      {
-        name: "vitest",
-        detect: "vitest.config.ts",
-        cmd: "bun test",
-        priority: 10
-      },
-      { name: "jest", detect: "jest.config.js", cmd: "npx jest", priority: 9 },
-      {
-        name: "bun:test",
-        detect: "package.json",
-        cmd: "bun test",
-        priority: 8
-      }
-    ]
-  },
-  lint: {
-    detectFiles: [
-      "biome.json",
-      "biome.jsonc",
-      ".eslintrc.js",
-      ".eslintrc.json"
-    ],
-    linters: [
-      {
-        name: "biome",
-        detect: "biome.json",
-        cmd: "biome check --write .",
-        priority: 10
-      },
-      {
-        name: "eslint",
-        detect: ".eslintrc.js",
-        cmd: "npx eslint --fix .",
-        priority: 9
-      }
-    ]
-  },
-  audit: {
-    detectFiles: ["package.json"],
-    command: "npm audit --json",
-    outputFormat: "json"
-  },
-  sast: { nativeRuleSet: "javascript", semgrepSupport: "ga" },
-  prompts: {
-    coderConstraints: [
-      "Use strict TypeScript; no implicit any or type assertions without justification",
-      "Prefer async/await over raw Promises; always handle rejections",
-      "Use const/let, never var; prefer immutable data structures",
-      "Follow existing import style (ESM); no require() in .ts files",
-      "Add JSDoc for all exported functions and types"
-    ],
-    reviewerChecklist: [
-      "Verify no implicit any or unsafe type casts",
-      "Check async error handling \u2014 unhandled Promises are bugs",
-      "Confirm ESM import consistency (no mixed require/import)",
-      "Validate exported API surface matches declared types",
-      "Check for missing null/undefined guards on optional fields"
-    ]
-  }
-});
-LANGUAGE_REGISTRY.register({
-  id: "python",
-  displayName: "Python",
-  tier: 1,
-  extensions: [".py", ".pyw"],
-  treeSitter: { grammarId: "python", wasmFile: "tree-sitter-python.wasm" },
-  build: {
-    detectFiles: ["setup.py", "pyproject.toml", "setup.cfg"],
-    commands: [
-      {
-        name: "pip install",
-        cmd: "pip install -e .",
-        detectFile: "setup.py",
-        priority: 10
-      },
-      {
-        name: "build",
-        cmd: "python -m build",
-        detectFile: "pyproject.toml",
-        priority: 9
-      }
-    ]
-  },
-  test: {
-    detectFiles: ["pytest.ini", "pyproject.toml", "setup.cfg", "conftest.py"],
-    frameworks: [
-      { name: "pytest", detect: "pytest.ini", cmd: "pytest", priority: 10 },
-      {
-        name: "unittest",
-        detect: "setup.py",
-        cmd: "python -m unittest discover",
-        priority: 8
-      }
-    ]
-  },
-  lint: {
-    detectFiles: ["pyproject.toml", ".ruff.toml", "setup.cfg"],
-    linters: [
-      {
-        name: "ruff",
-        detect: "pyproject.toml",
-        cmd: "ruff check --fix .",
-        priority: 10
-      },
-      { name: "flake8", detect: "setup.cfg", cmd: "flake8 .", priority: 8 }
-    ]
-  },
-  audit: {
-    detectFiles: ["requirements.txt", "Pipfile.lock", "pyproject.toml"],
-    command: "pip-audit --format json",
-    outputFormat: "json"
-  },
-  sast: { nativeRuleSet: "python", semgrepSupport: "ga" },
-  prompts: {
-    coderConstraints: [
-      "Use type annotations on all function signatures (PEP 484)",
-      "Prefer f-strings over .format() or % formatting",
-      "Use pathlib.Path over os.path for filesystem operations",
-      "Never use bare except:; catch specific exception types",
-      "Follow PEP 8 style; max line length 120 characters"
-    ],
-    reviewerChecklist: [
-      "Verify type annotations are present on all public functions",
-      "Check for bare except clauses or overly broad exception handling",
-      "Confirm no mutable default arguments (def f(x=[]) anti-pattern)",
-      "Validate f-string usage and no format string injection risks",
-      "Check imports are organized (stdlib \u2192 third-party \u2192 local)"
-    ]
-  }
-});
-LANGUAGE_REGISTRY.register({
-  id: "rust",
-  displayName: "Rust",
-  tier: 1,
-  extensions: [".rs"],
-  treeSitter: { grammarId: "rust", wasmFile: "tree-sitter-rust.wasm" },
-  build: {
-    detectFiles: ["Cargo.toml"],
-    commands: [
-      {
-        name: "cargo build",
-        cmd: "cargo build",
-        detectFile: "Cargo.toml",
-        priority: 10
-      },
-      {
-        name: "cargo check",
-        cmd: "cargo check",
-        detectFile: "Cargo.toml",
-        priority: 9
-      }
-    ]
-  },
-  test: {
-    detectFiles: ["Cargo.toml"],
-    frameworks: [
-      {
-        name: "cargo test",
-        detect: "Cargo.toml",
-        cmd: "cargo test",
-        priority: 10
-      }
-    ]
-  },
-  lint: {
-    detectFiles: ["Cargo.toml"],
-    linters: [
-      {
-        name: "clippy",
-        detect: "Cargo.toml",
-        cmd: "cargo clippy --fix --allow-dirty",
-        priority: 10
-      },
-      { name: "rustfmt", detect: "Cargo.toml", cmd: "cargo fmt", priority: 9 }
-    ]
-  },
-  audit: {
-    detectFiles: ["Cargo.lock"],
-    command: "cargo audit --json",
-    outputFormat: "json"
-  },
-  sast: { nativeRuleSet: "rust", semgrepSupport: "ga" },
-  prompts: {
-    coderConstraints: [
-      "Prefer owned types over references where ownership is clear; use lifetimes sparingly",
-      "Use Result<T, E> and ? operator for error propagation; never unwrap() in library code",
-      "Prefer iterators and combinators over explicit loops",
-      "Derive standard traits (Debug, Clone, PartialEq) whenever sensible",
-      "Avoid unsafe blocks; document any unsafe usage with SAFETY comments"
-    ],
-    reviewerChecklist: [
-      "Verify no unwrap() or expect() calls in library/production paths",
-      "Check for potential panics in indexing, arithmetic overflow, or slice operations",
-      "Confirm error types implement std::error::Error and are propagated correctly",
-      "Validate lifetime annotations are minimal and correct",
-      "Check unsafe blocks have SAFETY comments explaining invariants"
-    ]
-  }
-});
-LANGUAGE_REGISTRY.register({
-  id: "go",
-  displayName: "Go",
-  tier: 1,
-  extensions: [".go"],
-  treeSitter: { grammarId: "go", wasmFile: "tree-sitter-go.wasm" },
-  build: {
-    detectFiles: ["go.mod"],
-    commands: [
-      {
-        name: "go build",
-        cmd: "go build ./...",
-        detectFile: "go.mod",
-        priority: 10
-      },
-      {
-        name: "go vet",
-        cmd: "go vet ./...",
-        detectFile: "go.mod",
-        priority: 9
-      }
-    ]
-  },
-  test: {
-    detectFiles: ["go.mod"],
-    frameworks: [
-      { name: "go test", detect: "go.mod", cmd: "go test ./...", priority: 10 }
-    ]
-  },
-  lint: {
-    detectFiles: ["go.mod", ".golangci.yml", ".golangci.yaml"],
-    linters: [
-      {
-        name: "golangci-lint",
-        detect: ".golangci.yml",
-        cmd: "golangci-lint run --fix",
-        priority: 10
-      },
-      { name: "gofmt", detect: "go.mod", cmd: "gofmt -w .", priority: 9 }
-    ]
-  },
-  audit: {
-    detectFiles: ["go.mod"],
-    command: "govulncheck -json ./...",
-    outputFormat: "json"
-  },
-  sast: { nativeRuleSet: null, semgrepSupport: "ga" },
-  prompts: {
-    coderConstraints: [
-      "Always check and return errors; never discard error return values",
-      "Use idiomatic Go error wrapping with fmt.Errorf and %w verb",
-      "Prefer table-driven tests; use t.Run for subtests",
-      "Avoid global mutable state; use dependency injection via interfaces",
-      "Use context.Context as first parameter for all I/O-bound functions"
-    ],
-    reviewerChecklist: [
-      "Verify all error return values are checked (no _ = err pattern)",
-      "Check goroutine usage \u2014 confirm no goroutine leaks or missing WaitGroups",
-      "Validate context propagation through call chains",
-      "Confirm exported types/functions have doc comments",
-      "Check for data races in concurrent code (verify sync usage)"
-    ]
-  }
-});
-LANGUAGE_REGISTRY.register({
-  id: "java",
-  displayName: "Java",
-  tier: 2,
-  extensions: [".java"],
-  treeSitter: { grammarId: "java", wasmFile: "tree-sitter-java.wasm" },
-  build: {
-    detectFiles: ["pom.xml", "build.gradle", "build.gradle.kts"],
-    commands: [
-      {
-        name: "maven",
-        cmd: "mvn compile -q",
-        detectFile: "pom.xml",
-        priority: 10
-      },
-      {
-        name: "gradle",
-        cmd: "gradle build -q",
-        detectFile: "build.gradle",
-        priority: 9
-      },
-      {
-        name: "gradle-kts",
-        cmd: "gradle build -q",
-        detectFile: "build.gradle.kts",
-        priority: 8
-      }
-    ]
-  },
-  test: {
-    detectFiles: ["pom.xml", "build.gradle", "build.gradle.kts"],
-    frameworks: [
-      {
-        name: "maven-test",
-        detect: "pom.xml",
-        cmd: "mvn test -q",
-        priority: 10
-      },
-      {
-        name: "gradle-test",
-        detect: "build.gradle",
-        cmd: "gradle test -q",
-        priority: 9
-      }
-    ]
-  },
-  lint: {
-    detectFiles: ["checkstyle.xml", "pom.xml"],
-    linters: [
-      {
-        name: "checkstyle",
-        detect: "checkstyle.xml",
-        cmd: "mvn checkstyle:check",
-        priority: 10
-      }
-    ]
-  },
-  audit: {
-    detectFiles: ["pom.xml", "build.gradle"],
-    command: null,
-    outputFormat: "json"
-  },
-  sast: { nativeRuleSet: "java", semgrepSupport: "ga" },
-  prompts: {
-    coderConstraints: [
-      "Use checked exceptions for recoverable conditions; unchecked for programming errors",
-      "Prefer composition over inheritance; favor interfaces over abstract classes",
-      "Use Optional<T> for nullable return values rather than returning null",
-      "Follow Java naming conventions: PascalCase classes, camelCase methods/fields",
-      "Close resources in try-with-resources blocks; never rely on finalizers"
-    ],
-    reviewerChecklist: [
-      "Check for unclosed resources \u2014 verify try-with-resources or explicit close()",
-      "Verify null checks are present for all external/injected dependencies",
-      "Confirm thread safety for shared mutable state (synchronized, volatile, atomic)",
-      "Validate exception handling \u2014 no swallowed exceptions or empty catch blocks",
-      "Check for proper equals()/hashCode() overrides on value objects"
-    ]
-  }
-});
-LANGUAGE_REGISTRY.register({
-  id: "kotlin",
-  displayName: "Kotlin",
-  tier: 2,
-  extensions: [".kt", ".kts"],
-  treeSitter: { grammarId: "kotlin", wasmFile: "tree-sitter-kotlin.wasm" },
-  build: {
-    detectFiles: ["build.gradle.kts", "build.gradle", "pom.xml"],
-    commands: [
-      {
-        name: "gradle-kts",
-        cmd: "gradle build -q",
-        detectFile: "build.gradle.kts",
-        priority: 10
-      },
-      {
-        name: "gradle",
-        cmd: "gradle build -q",
-        detectFile: "build.gradle",
-        priority: 9
-      },
-      {
-        name: "maven",
-        cmd: "mvn compile -q",
-        detectFile: "pom.xml",
-        priority: 8
-      }
-    ]
-  },
-  test: {
-    detectFiles: ["build.gradle.kts", "build.gradle"],
-    frameworks: [
-      {
-        name: "gradle-test",
-        detect: "build.gradle.kts",
-        cmd: "gradle test -q",
-        priority: 10
-      },
-      {
-        name: "gradle-test-groovy",
-        detect: "build.gradle",
-        cmd: "gradle test -q",
-        priority: 9
-      }
-    ]
-  },
-  lint: {
-    detectFiles: [".editorconfig", "build.gradle.kts"],
-    linters: [
-      {
-        name: "ktlint",
-        detect: ".editorconfig",
-        cmd: "ktlint --format",
-        priority: 10
-      }
-    ]
-  },
-  audit: {
-    detectFiles: ["build.gradle.kts", "build.gradle"],
-    command: null,
-    outputFormat: "json"
-  },
-  sast: { nativeRuleSet: null, semgrepSupport: "beta" },
-  prompts: {
-    coderConstraints: [
-      "Prefer val over var; use data classes for value objects",
-      "Use Kotlin coroutines for async operations; avoid blocking calls on Dispatchers.Main",
-      "Leverage extension functions instead of utility classes",
-      "Use sealed classes for exhaustive when expressions",
-      "Avoid platform types; always declare explicit nullability in API surfaces"
-    ],
-    reviewerChecklist: [
-      "Verify no non-null assertions (!!) in production code without justification",
-      "Check coroutine scope lifecycle \u2014 confirm scopes are cancelled when no longer needed",
-      "Validate when expressions are exhaustive (sealed class coverage)",
-      "Confirm data class equals/hashCode/copy semantics are appropriate",
-      "Check for blocking I/O on the wrong coroutine dispatcher"
-    ]
-  }
-});
-LANGUAGE_REGISTRY.register({
-  id: "csharp",
-  displayName: "C# / .NET",
-  tier: 2,
-  extensions: [".cs", ".csx"],
-  treeSitter: { grammarId: "csharp", wasmFile: "tree-sitter-c-sharp.wasm" },
-  build: {
-    detectFiles: ["*.csproj", "*.sln", "Directory.Build.props"],
-    commands: [
-      {
-        name: "dotnet build",
-        cmd: "dotnet build -v quiet",
-        detectFile: "*.csproj",
-        priority: 10
-      },
-      {
-        name: "dotnet build sln",
-        cmd: "dotnet build -v quiet",
-        detectFile: "*.sln",
-        priority: 9
-      }
-    ]
-  },
-  test: {
-    detectFiles: ["*.csproj", "*.sln"],
-    frameworks: [
-      {
-        name: "dotnet test",
-        detect: "*.csproj",
-        cmd: "dotnet test",
-        priority: 10
-      }
-    ]
-  },
-  lint: {
-    detectFiles: ["*.csproj", ".editorconfig"],
-    linters: [
-      {
-        name: "dotnet-format",
-        detect: "*.csproj",
-        cmd: "dotnet format",
-        priority: 10
-      }
-    ]
-  },
-  audit: {
-    detectFiles: ["*.csproj", "packages.lock.json"],
-    command: "dotnet list package --vulnerable --include-transitive",
-    outputFormat: "text"
-  },
-  sast: { nativeRuleSet: "csharp", semgrepSupport: "ga" },
-  prompts: {
-    coderConstraints: [
-      "Use async/await throughout; avoid .Result or .Wait() which can deadlock",
-      "Prefer records for immutable value types; use struct only for small value types",
-      "Use nullable reference types (NRT) \u2014 enable <Nullable>enable</Nullable>",
-      "Dispose IDisposable resources with using statements or declarations",
-      "Follow C# naming conventions: PascalCase for public members, _camelCase for private fields"
-    ],
-    reviewerChecklist: [
-      "Verify no .Result or .Wait() calls that could cause deadlocks",
-      "Check all IDisposable are properly disposed (using / IAsyncDisposable)",
-      "Confirm nullable reference type annotations are present and correct",
-      "Validate LINQ queries do not cause N+1 query patterns in EF contexts",
-      "Check for missing ConfigureAwait(false) in library code"
-    ]
-  }
-});
-LANGUAGE_REGISTRY.register({
-  id: "cpp",
-  displayName: "C / C++",
-  tier: 2,
-  extensions: [".c", ".h", ".cpp", ".hpp", ".cc", ".cxx"],
-  treeSitter: { grammarId: "cpp", wasmFile: "tree-sitter-cpp.wasm" },
-  build: {
-    detectFiles: ["CMakeLists.txt", "Makefile", "meson.build"],
-    commands: [
-      {
-        name: "cmake",
-        cmd: "cmake --build build",
-        detectFile: "CMakeLists.txt",
-        priority: 10
-      },
-      { name: "make", cmd: "make", detectFile: "Makefile", priority: 9 },
-      {
-        name: "meson",
-        cmd: "meson compile -C builddir",
-        detectFile: "meson.build",
-        priority: 8
-      }
-    ]
-  },
-  test: {
-    detectFiles: ["CMakeLists.txt"],
-    frameworks: [
-      {
-        name: "ctest",
-        detect: "CMakeLists.txt",
-        cmd: "ctest --test-dir build",
-        priority: 10
-      }
-    ]
-  },
-  lint: {
-    detectFiles: [".clang-tidy", "CMakeLists.txt"],
-    linters: [
-      {
-        name: "cppcheck",
-        detect: "CMakeLists.txt",
-        cmd: "cppcheck --error-exitcode=1 .",
-        priority: 10
-      },
-      {
-        name: "clang-tidy",
-        detect: ".clang-tidy",
-        cmd: "clang-tidy -p build",
-        priority: 9
-      }
-    ]
-  },
-  audit: {
-    detectFiles: ["CMakeLists.txt", "vcpkg.json", "conanfile.txt"],
-    command: null,
-    outputFormat: "json"
-  },
-  sast: { nativeRuleSet: "cpp", semgrepSupport: "experimental" },
-  prompts: {
-    coderConstraints: [
-      "Prefer RAII and smart pointers (unique_ptr, shared_ptr) over raw pointers",
-      "Use const-correctness throughout; mark all non-mutating methods const",
-      "Avoid undefined behaviour: no out-of-bounds access, no use-after-free",
-      "Initialize all variables; prefer in-class initializers for member variables",
-      "Use std::array or std::vector instead of C-style arrays"
-    ],
-    reviewerChecklist: [
-      "Verify no raw owning pointers; confirm smart pointer ownership semantics",
-      "Check for memory leaks \u2014 every new has a corresponding delete or smart pointer",
-      "Validate bounds checking on all array/buffer accesses",
-      "Confirm no undefined behavior patterns (signed overflow, strict aliasing violations)",
-      "Check thread safety for shared data (mutex, atomic, lock-free patterns)"
-    ]
-  }
-});
-LANGUAGE_REGISTRY.register({
-  id: "swift",
-  displayName: "Swift",
-  tier: 2,
-  extensions: [".swift"],
-  treeSitter: { grammarId: "swift", wasmFile: "tree-sitter-swift.wasm" },
-  build: {
-    detectFiles: ["Package.swift", "*.xcodeproj", "*.xcworkspace"],
-    commands: [
-      {
-        name: "swift build",
-        cmd: "swift build",
-        detectFile: "Package.swift",
-        priority: 10
-      },
-      {
-        name: "xcodebuild",
-        cmd: "xcodebuild build -quiet",
-        detectFile: "*.xcodeproj",
-        priority: 9
-      }
-    ]
-  },
-  test: {
-    detectFiles: ["Package.swift", "*.xcodeproj"],
-    frameworks: [
-      {
-        name: "swift test",
-        detect: "Package.swift",
-        cmd: "swift test",
-        priority: 10
-      },
-      {
-        name: "xcodebuild-test",
-        detect: "*.xcodeproj",
-        cmd: "xcodebuild test -quiet",
-        priority: 9
-      }
-    ]
-  },
-  lint: {
-    detectFiles: [".swiftlint.yml", "Package.swift"],
-    linters: [
-      {
-        name: "swiftlint",
-        detect: ".swiftlint.yml",
-        cmd: "swiftlint --fix",
-        priority: 10
-      }
-    ]
-  },
-  audit: {
-    detectFiles: ["Package.resolved", "Package.swift"],
-    command: null,
-    outputFormat: "json"
-  },
-  sast: { nativeRuleSet: null, semgrepSupport: "experimental" },
-  prompts: {
-    coderConstraints: [
-      "Prefer value types (structs, enums) over classes; use classes only for reference semantics",
-      "Use Swift concurrency (async/await, actors) over GCD for new code",
-      "Avoid force unwrap (!) and force cast (as!); use guard let or if let",
-      "Use Swift Package Manager for dependencies where possible",
-      "Mark types and methods as final when subclassing is not intended"
-    ],
-    reviewerChecklist: [
-      "Verify no force unwraps (!) or force casts (as!) in production code",
-      "Check for retain cycles in closures \u2014 confirm [weak self] where needed",
-      "Validate Swift concurrency usage \u2014 no data races across actor boundaries",
-      "Confirm proper error handling with do-try-catch or Result<T,E>",
-      "Check value vs reference type choice is appropriate for the use case"
-    ]
-  }
-});
-LANGUAGE_REGISTRY.register({
-  id: "dart",
-  displayName: "Dart / Flutter",
-  tier: 3,
-  extensions: [".dart"],
-  treeSitter: { grammarId: "dart", wasmFile: "tree-sitter-dart.wasm" },
-  build: {
-    detectFiles: ["pubspec.yaml"],
-    commands: [
-      {
-        name: "flutter build",
-        cmd: "flutter build apk",
-        detectFile: "pubspec.yaml",
-        priority: 10
-      },
-      {
-        name: "dart compile",
-        cmd: "dart compile exe .",
-        detectFile: "pubspec.yaml",
-        priority: 9
-      }
-    ]
-  },
-  test: {
-    detectFiles: ["pubspec.yaml"],
-    frameworks: [
-      {
-        name: "flutter test",
-        detect: "pubspec.yaml",
-        cmd: "flutter test",
-        priority: 10
-      },
-      {
-        name: "dart test",
-        detect: "pubspec.yaml",
-        cmd: "dart test",
-        priority: 9
-      }
-    ]
-  },
-  lint: {
-    detectFiles: ["analysis_options.yaml", "pubspec.yaml"],
-    linters: [
-      {
-        name: "dart analyze",
-        detect: "pubspec.yaml",
-        cmd: "dart analyze",
-        priority: 10
-      }
-    ]
-  },
-  audit: {
-    detectFiles: ["pubspec.yaml", "pubspec.lock"],
-    command: "dart pub outdated --json",
-    outputFormat: "json"
-  },
-  sast: { nativeRuleSet: null, semgrepSupport: "none" },
-  prompts: {
-    coderConstraints: [
-      "Use null safety features \u2014 prefer late, required, and ? annotations over dynamic",
-      "Follow Dart effective style: lowerCamelCase for variables, UpperCamelCase for types",
-      "Prefer const constructors where possible for performance",
-      "Use async/await over raw Future callbacks",
-      "Separate business logic from UI widgets; use BLoC or Provider patterns"
-    ],
-    reviewerChecklist: [
-      "Verify null safety annotations are correct (no unnecessary ?)",
-      "Check that const constructors are used where the widget tree is static",
-      "Confirm async operations handle error states (catchError or try-catch)",
-      "Validate no direct UI state mutation outside setState or stream",
-      "Check for platform-specific code isolation (dart:io vs dart:html)"
-    ]
-  }
-});
-LANGUAGE_REGISTRY.register({
-  id: "ruby",
-  displayName: "Ruby",
-  tier: 3,
-  extensions: [".rb", ".rake", ".gemspec"],
-  treeSitter: { grammarId: "ruby", wasmFile: "tree-sitter-ruby.wasm" },
-  build: {
-    detectFiles: ["Gemfile", "Rakefile"],
-    commands: [
-      {
-        name: "bundle install",
-        cmd: "bundle install",
-        detectFile: "Gemfile",
-        priority: 10
-      },
-      { name: "rake", cmd: "rake", detectFile: "Rakefile", priority: 9 }
-    ]
-  },
-  test: {
-    detectFiles: ["Gemfile", ".rspec", "spec/spec_helper.rb"],
-    frameworks: [
-      {
-        name: "rspec",
-        detect: ".rspec",
-        cmd: "bundle exec rspec",
-        priority: 10
-      },
-      {
-        name: "minitest",
-        detect: "Rakefile",
-        cmd: "bundle exec rake test",
-        priority: 9
-      }
-    ]
-  },
-  lint: {
-    detectFiles: [".rubocop.yml", "Gemfile"],
-    linters: [
-      {
-        name: "rubocop",
-        detect: ".rubocop.yml",
-        cmd: "rubocop --autocorrect",
-        priority: 10
-      }
-    ]
-  },
-  audit: {
-    detectFiles: ["Gemfile.lock"],
-    command: "bundle-audit check --format json",
-    outputFormat: "json"
-  },
-  sast: { nativeRuleSet: null, semgrepSupport: "experimental" },
-  prompts: {
-    coderConstraints: [
-      "Follow Ruby community style (Rubocop defaults); 120-char line limit",
-      "Prefer symbols over strings for hash keys",
-      "Use frozen_string_literal: true magic comment in all files",
-      "Avoid monkey-patching core classes; prefer refinements",
-      "Use keyword arguments for methods with more than 2 parameters"
-    ],
-    reviewerChecklist: [
-      "Verify frozen_string_literal comment is present in new files",
-      "Check for N+1 query patterns in ActiveRecord code",
-      "Validate no eval or send with user-controlled input (code injection risk)",
-      "Confirm exception handling is specific \u2014 no bare rescue",
-      "Check for missing validations on ActiveRecord models"
-    ]
-  }
-});
-LANGUAGE_REGISTRY.register({
-  id: "php",
-  displayName: "PHP",
-  tier: 3,
-  extensions: [".php", ".phtml", ".blade.php"],
-  treeSitter: { grammarId: "php", wasmFile: "tree-sitter-php.wasm" },
-  build: {
-    detectFiles: ["composer.json"],
-    commands: [
-      {
-        name: "Composer Install",
-        cmd: "composer install --no-interaction --prefer-dist",
-        detectFile: "composer.json",
-        priority: 1
-      }
-    ]
-  },
-  test: {
-    detectFiles: ["Pest.php", "phpunit.xml", "phpunit.xml.dist"],
-    frameworks: [
-      {
-        name: "Pest",
-        detect: "Pest.php",
-        cmd: "vendor/bin/pest",
-        priority: 1
-      },
-      {
-        name: "PHPUnit",
-        detect: "phpunit.xml",
-        cmd: "vendor/bin/phpunit",
-        priority: 3
-      },
-      {
-        name: "PHPUnit",
-        detect: "phpunit.xml.dist",
-        cmd: "vendor/bin/phpunit",
-        priority: 4
-      }
-    ]
-  },
-  lint: {
-    detectFiles: [
-      "phpstan.neon",
-      "phpstan.neon.dist",
-      "pint.json",
-      ".php-cs-fixer.php",
-      "phpcs.xml"
-    ],
-    linters: [
-      {
-        name: "PHPStan",
-        detect: "phpstan.neon",
-        cmd: "vendor/bin/phpstan analyse",
-        priority: 1
-      },
-      {
-        name: "PHPStan",
-        detect: "phpstan.neon.dist",
-        cmd: "vendor/bin/phpstan analyse",
-        priority: 2
-      },
-      {
-        name: "Pint",
-        detect: "pint.json",
-        cmd: "vendor/bin/pint --test",
-        priority: 3
-      },
-      {
-        name: "PHP-CS-Fixer",
-        detect: ".php-cs-fixer.php",
-        cmd: "vendor/bin/php-cs-fixer fix --dry-run --diff",
-        priority: 4
-      }
-    ]
-  },
-  audit: {
-    detectFiles: ["composer.lock"],
-    command: "composer audit --locked --format=json",
-    outputFormat: "json"
-  },
-  sast: { nativeRuleSet: "php", semgrepSupport: "ga" },
-  prompts: {
-    coderConstraints: [
-      "Follow PSR-12 coding standards",
-      "Use strict types declaration: declare(strict_types=1)",
-      "Prefer type hints and return type declarations on all functions",
-      "Use dependency injection over static methods and singletons",
-      "Prefer named constructors and value objects over primitive obsession"
-    ],
-    reviewerChecklist: [
-      "Verify no user input reaches SQL queries without parameterised binding",
-      "Check for XSS \u2014 all output must be escaped with htmlspecialchars()",
-      "Confirm no eval(), exec(), or shell_exec() with user-controlled input",
-      "Validate proper error handling \u2014 no bare catch blocks that swallow errors",
-      "Challenge any PHP/Laravel documentation or README claim that exceeds what is implemented and CI-verified in v6.49.0 (composer build, PHPUnit/Pest/artisan test, Pint/PHP-CS-Fixer lint, PHPStan static analysis, composer audit, Laravel detection, Blade scanning, 3 Laravel SAST rules). If a PR adds docs claiming broader support, verify it is backed by tests."
-    ],
-    testConstraints: [
-      "Prefer feature tests for HTTP, middleware, and authentication flows \u2014 use Laravel RefreshDatabase or DatabaseTransactions traits",
-      "Use unit tests for isolated business logic classes that do not require the full Laravel application container",
-      "Pest and PHPUnit coexist in many Laravel repos \u2014 php artisan test runs both; do not assume PHPUnit-only",
-      "Use .env.testing for test environment configuration; run php artisan config:clear when environment changes affect tests",
-      "For database tests, prefer RefreshDatabase over manual setUp/tearDown to avoid state leakage between tests",
-      "Run php artisan config:clear and php artisan cache:clear before running tests if environment variables changed",
-      "Use separate .env.testing file for test-specific configuration; never rely on .env for CI test runs",
-      "For parallel testing with php artisan test --parallel, ensure database connections use separate databases per worker (APP_ENV=testing + test database suffix pattern)"
-    ]
-  }
+var LANGUAGE_REGISTRY;
+var init_profiles = __esm(() => {
+  LANGUAGE_REGISTRY = new LanguageRegistry;
+  LANGUAGE_REGISTRY.register({
+    id: "typescript",
+    displayName: "TypeScript / JavaScript",
+    tier: 1,
+    extensions: [".ts", ".tsx", ".js", ".jsx", ".mjs", ".cjs"],
+    treeSitter: {
+      grammarId: "typescript",
+      wasmFile: "tree-sitter-typescript.wasm"
+    },
+    build: {
+      detectFiles: ["package.json"],
+      commands: [
+        {
+          name: "bun build",
+          cmd: "bun run build",
+          detectFile: "package.json",
+          priority: 10
+        },
+        {
+          name: "tsc",
+          cmd: "npx tsc --noEmit",
+          detectFile: "tsconfig.json",
+          priority: 9
+        },
+        {
+          name: "vite build",
+          cmd: "npx vite build",
+          detectFile: "vite.config.ts",
+          priority: 8
+        }
+      ]
+    },
+    test: {
+      detectFiles: ["package.json", "vitest.config.ts", "jest.config.js"],
+      frameworks: [
+        {
+          name: "vitest",
+          detect: "vitest.config.ts",
+          cmd: "bun test",
+          priority: 10
+        },
+        { name: "jest", detect: "jest.config.js", cmd: "npx jest", priority: 9 },
+        {
+          name: "bun:test",
+          detect: "package.json",
+          cmd: "bun test",
+          priority: 8
+        }
+      ]
+    },
+    lint: {
+      detectFiles: [
+        "biome.json",
+        "biome.jsonc",
+        ".eslintrc.js",
+        ".eslintrc.json"
+      ],
+      linters: [
+        {
+          name: "biome",
+          detect: "biome.json",
+          cmd: "biome check --write .",
+          priority: 10
+        },
+        {
+          name: "eslint",
+          detect: ".eslintrc.js",
+          cmd: "npx eslint --fix .",
+          priority: 9
+        }
+      ]
+    },
+    audit: {
+      detectFiles: ["package.json"],
+      command: "npm audit --json",
+      outputFormat: "json"
+    },
+    sast: { nativeRuleSet: "javascript", semgrepSupport: "ga" },
+    prompts: {
+      coderConstraints: [
+        "Use strict TypeScript; no implicit any or type assertions without justification",
+        "Prefer async/await over raw Promises; always handle rejections",
+        "Use const/let, never var; prefer immutable data structures",
+        "Follow existing import style (ESM); no require() in .ts files",
+        "Add JSDoc for all exported functions and types"
+      ],
+      reviewerChecklist: [
+        "Verify no implicit any or unsafe type casts",
+        "Check async error handling \u2014 unhandled Promises are bugs",
+        "Confirm ESM import consistency (no mixed require/import)",
+        "Validate exported API surface matches declared types",
+        "Check for missing null/undefined guards on optional fields"
+      ]
+    }
+  });
+  LANGUAGE_REGISTRY.register({
+    id: "python",
+    displayName: "Python",
+    tier: 1,
+    extensions: [".py", ".pyw"],
+    treeSitter: { grammarId: "python", wasmFile: "tree-sitter-python.wasm" },
+    build: {
+      detectFiles: ["setup.py", "pyproject.toml", "setup.cfg"],
+      commands: [
+        {
+          name: "pip install",
+          cmd: "pip install -e .",
+          detectFile: "setup.py",
+          priority: 10
+        },
+        {
+          name: "build",
+          cmd: "python -m build",
+          detectFile: "pyproject.toml",
+          priority: 9
+        }
+      ]
+    },
+    test: {
+      detectFiles: ["pytest.ini", "pyproject.toml", "setup.cfg", "conftest.py"],
+      frameworks: [
+        { name: "pytest", detect: "pytest.ini", cmd: "pytest", priority: 10 },
+        {
+          name: "unittest",
+          detect: "setup.py",
+          cmd: "python -m unittest discover",
+          priority: 8
+        }
+      ]
+    },
+    lint: {
+      detectFiles: ["pyproject.toml", ".ruff.toml", "setup.cfg"],
+      linters: [
+        {
+          name: "ruff",
+          detect: "pyproject.toml",
+          cmd: "ruff check --fix .",
+          priority: 10
+        },
+        { name: "flake8", detect: "setup.cfg", cmd: "flake8 .", priority: 8 }
+      ]
+    },
+    audit: {
+      detectFiles: ["requirements.txt", "Pipfile.lock", "pyproject.toml"],
+      command: "pip-audit --format json",
+      outputFormat: "json"
+    },
+    sast: { nativeRuleSet: "python", semgrepSupport: "ga" },
+    prompts: {
+      coderConstraints: [
+        "Use type annotations on all function signatures (PEP 484)",
+        "Prefer f-strings over .format() or % formatting",
+        "Use pathlib.Path over os.path for filesystem operations",
+        "Never use bare except:; catch specific exception types",
+        "Follow PEP 8 style; max line length 120 characters"
+      ],
+      reviewerChecklist: [
+        "Verify type annotations are present on all public functions",
+        "Check for bare except clauses or overly broad exception handling",
+        "Confirm no mutable default arguments (def f(x=[]) anti-pattern)",
+        "Validate f-string usage and no format string injection risks",
+        "Check imports are organized (stdlib \u2192 third-party \u2192 local)"
+      ]
+    }
+  });
+  LANGUAGE_REGISTRY.register({
+    id: "rust",
+    displayName: "Rust",
+    tier: 1,
+    extensions: [".rs"],
+    treeSitter: { grammarId: "rust", wasmFile: "tree-sitter-rust.wasm" },
+    build: {
+      detectFiles: ["Cargo.toml"],
+      commands: [
+        {
+          name: "cargo build",
+          cmd: "cargo build",
+          detectFile: "Cargo.toml",
+          priority: 10
+        },
+        {
+          name: "cargo check",
+          cmd: "cargo check",
+          detectFile: "Cargo.toml",
+          priority: 9
+        }
+      ]
+    },
+    test: {
+      detectFiles: ["Cargo.toml"],
+      frameworks: [
+        {
+          name: "cargo test",
+          detect: "Cargo.toml",
+          cmd: "cargo test",
+          priority: 10
+        }
+      ]
+    },
+    lint: {
+      detectFiles: ["Cargo.toml"],
+      linters: [
+        {
+          name: "clippy",
+          detect: "Cargo.toml",
+          cmd: "cargo clippy --fix --allow-dirty",
+          priority: 10
+        },
+        { name: "rustfmt", detect: "Cargo.toml", cmd: "cargo fmt", priority: 9 }
+      ]
+    },
+    audit: {
+      detectFiles: ["Cargo.lock"],
+      command: "cargo audit --json",
+      outputFormat: "json"
+    },
+    sast: { nativeRuleSet: "rust", semgrepSupport: "ga" },
+    prompts: {
+      coderConstraints: [
+        "Prefer owned types over references where ownership is clear; use lifetimes sparingly",
+        "Use Result<T, E> and ? operator for error propagation; never unwrap() in library code",
+        "Prefer iterators and combinators over explicit loops",
+        "Derive standard traits (Debug, Clone, PartialEq) whenever sensible",
+        "Avoid unsafe blocks; document any unsafe usage with SAFETY comments"
+      ],
+      reviewerChecklist: [
+        "Verify no unwrap() or expect() calls in library/production paths",
+        "Check for potential panics in indexing, arithmetic overflow, or slice operations",
+        "Confirm error types implement std::error::Error and are propagated correctly",
+        "Validate lifetime annotations are minimal and correct",
+        "Check unsafe blocks have SAFETY comments explaining invariants"
+      ]
+    }
+  });
+  LANGUAGE_REGISTRY.register({
+    id: "go",
+    displayName: "Go",
+    tier: 1,
+    extensions: [".go"],
+    treeSitter: { grammarId: "go", wasmFile: "tree-sitter-go.wasm" },
+    build: {
+      detectFiles: ["go.mod"],
+      commands: [
+        {
+          name: "go build",
+          cmd: "go build ./...",
+          detectFile: "go.mod",
+          priority: 10
+        },
+        {
+          name: "go vet",
+          cmd: "go vet ./...",
+          detectFile: "go.mod",
+          priority: 9
+        }
+      ]
+    },
+    test: {
+      detectFiles: ["go.mod"],
+      frameworks: [
+        { name: "go test", detect: "go.mod", cmd: "go test ./...", priority: 10 }
+      ]
+    },
+    lint: {
+      detectFiles: ["go.mod", ".golangci.yml", ".golangci.yaml"],
+      linters: [
+        {
+          name: "golangci-lint",
+          detect: ".golangci.yml",
+          cmd: "golangci-lint run --fix",
+          priority: 10
+        },
+        { name: "gofmt", detect: "go.mod", cmd: "gofmt -w .", priority: 9 }
+      ]
+    },
+    audit: {
+      detectFiles: ["go.mod"],
+      command: "govulncheck -json ./...",
+      outputFormat: "json"
+    },
+    sast: { nativeRuleSet: null, semgrepSupport: "ga" },
+    prompts: {
+      coderConstraints: [
+        "Always check and return errors; never discard error return values",
+        "Use idiomatic Go error wrapping with fmt.Errorf and %w verb",
+        "Prefer table-driven tests; use t.Run for subtests",
+        "Avoid global mutable state; use dependency injection via interfaces",
+        "Use context.Context as first parameter for all I/O-bound functions"
+      ],
+      reviewerChecklist: [
+        "Verify all error return values are checked (no _ = err pattern)",
+        "Check goroutine usage \u2014 confirm no goroutine leaks or missing WaitGroups",
+        "Validate context propagation through call chains",
+        "Confirm exported types/functions have doc comments",
+        "Check for data races in concurrent code (verify sync usage)"
+      ]
+    }
+  });
+  LANGUAGE_REGISTRY.register({
+    id: "java",
+    displayName: "Java",
+    tier: 2,
+    extensions: [".java"],
+    treeSitter: { grammarId: "java", wasmFile: "tree-sitter-java.wasm" },
+    build: {
+      detectFiles: ["pom.xml", "build.gradle", "build.gradle.kts"],
+      commands: [
+        {
+          name: "maven",
+          cmd: "mvn compile -q",
+          detectFile: "pom.xml",
+          priority: 10
+        },
+        {
+          name: "gradle",
+          cmd: "gradle build -q",
+          detectFile: "build.gradle",
+          priority: 9
+        },
+        {
+          name: "gradle-kts",
+          cmd: "gradle build -q",
+          detectFile: "build.gradle.kts",
+          priority: 8
+        }
+      ]
+    },
+    test: {
+      detectFiles: ["pom.xml", "build.gradle", "build.gradle.kts"],
+      frameworks: [
+        {
+          name: "maven-test",
+          detect: "pom.xml",
+          cmd: "mvn test -q",
+          priority: 10
+        },
+        {
+          name: "gradle-test",
+          detect: "build.gradle",
+          cmd: "gradle test -q",
+          priority: 9
+        }
+      ]
+    },
+    lint: {
+      detectFiles: ["checkstyle.xml", "pom.xml"],
+      linters: [
+        {
+          name: "checkstyle",
+          detect: "checkstyle.xml",
+          cmd: "mvn checkstyle:check",
+          priority: 10
+        }
+      ]
+    },
+    audit: {
+      detectFiles: ["pom.xml", "build.gradle"],
+      command: null,
+      outputFormat: "json"
+    },
+    sast: { nativeRuleSet: "java", semgrepSupport: "ga" },
+    prompts: {
+      coderConstraints: [
+        "Use checked exceptions for recoverable conditions; unchecked for programming errors",
+        "Prefer composition over inheritance; favor interfaces over abstract classes",
+        "Use Optional<T> for nullable return values rather than returning null",
+        "Follow Java naming conventions: PascalCase classes, camelCase methods/fields",
+        "Close resources in try-with-resources blocks; never rely on finalizers"
+      ],
+      reviewerChecklist: [
+        "Check for unclosed resources \u2014 verify try-with-resources or explicit close()",
+        "Verify null checks are present for all external/injected dependencies",
+        "Confirm thread safety for shared mutable state (synchronized, volatile, atomic)",
+        "Validate exception handling \u2014 no swallowed exceptions or empty catch blocks",
+        "Check for proper equals()/hashCode() overrides on value objects"
+      ]
+    }
+  });
+  LANGUAGE_REGISTRY.register({
+    id: "kotlin",
+    displayName: "Kotlin",
+    tier: 2,
+    extensions: [".kt", ".kts"],
+    treeSitter: { grammarId: "kotlin", wasmFile: "tree-sitter-kotlin.wasm" },
+    build: {
+      detectFiles: ["build.gradle.kts", "build.gradle", "pom.xml"],
+      commands: [
+        {
+          name: "gradle-kts",
+          cmd: "gradle build -q",
+          detectFile: "build.gradle.kts",
+          priority: 10
+        },
+        {
+          name: "gradle",
+          cmd: "gradle build -q",
+          detectFile: "build.gradle",
+          priority: 9
+        },
+        {
+          name: "maven",
+          cmd: "mvn compile -q",
+          detectFile: "pom.xml",
+          priority: 8
+        }
+      ]
+    },
+    test: {
+      detectFiles: ["build.gradle.kts", "build.gradle"],
+      frameworks: [
+        {
+          name: "gradle-test",
+          detect: "build.gradle.kts",
+          cmd: "gradle test -q",
+          priority: 10
+        },
+        {
+          name: "gradle-test-groovy",
+          detect: "build.gradle",
+          cmd: "gradle test -q",
+          priority: 9
+        }
+      ]
+    },
+    lint: {
+      detectFiles: [".editorconfig", "build.gradle.kts"],
+      linters: [
+        {
+          name: "ktlint",
+          detect: ".editorconfig",
+          cmd: "ktlint --format",
+          priority: 10
+        }
+      ]
+    },
+    audit: {
+      detectFiles: ["build.gradle.kts", "build.gradle"],
+      command: null,
+      outputFormat: "json"
+    },
+    sast: { nativeRuleSet: null, semgrepSupport: "beta" },
+    prompts: {
+      coderConstraints: [
+        "Prefer val over var; use data classes for value objects",
+        "Use Kotlin coroutines for async operations; avoid blocking calls on Dispatchers.Main",
+        "Leverage extension functions instead of utility classes",
+        "Use sealed classes for exhaustive when expressions",
+        "Avoid platform types; always declare explicit nullability in API surfaces"
+      ],
+      reviewerChecklist: [
+        "Verify no non-null assertions (!!) in production code without justification",
+        "Check coroutine scope lifecycle \u2014 confirm scopes are cancelled when no longer needed",
+        "Validate when expressions are exhaustive (sealed class coverage)",
+        "Confirm data class equals/hashCode/copy semantics are appropriate",
+        "Check for blocking I/O on the wrong coroutine dispatcher"
+      ]
+    }
+  });
+  LANGUAGE_REGISTRY.register({
+    id: "csharp",
+    displayName: "C# / .NET",
+    tier: 2,
+    extensions: [".cs", ".csx"],
+    treeSitter: { grammarId: "csharp", wasmFile: "tree-sitter-c-sharp.wasm" },
+    build: {
+      detectFiles: ["*.csproj", "*.sln", "Directory.Build.props"],
+      commands: [
+        {
+          name: "dotnet build",
+          cmd: "dotnet build -v quiet",
+          detectFile: "*.csproj",
+          priority: 10
+        },
+        {
+          name: "dotnet build sln",
+          cmd: "dotnet build -v quiet",
+          detectFile: "*.sln",
+          priority: 9
+        }
+      ]
+    },
+    test: {
+      detectFiles: ["*.csproj", "*.sln"],
+      frameworks: [
+        {
+          name: "dotnet test",
+          detect: "*.csproj",
+          cmd: "dotnet test",
+          priority: 10
+        }
+      ]
+    },
+    lint: {
+      detectFiles: ["*.csproj", ".editorconfig"],
+      linters: [
+        {
+          name: "dotnet-format",
+          detect: "*.csproj",
+          cmd: "dotnet format",
+          priority: 10
+        }
+      ]
+    },
+    audit: {
+      detectFiles: ["*.csproj", "packages.lock.json"],
+      command: "dotnet list package --vulnerable --include-transitive",
+      outputFormat: "text"
+    },
+    sast: { nativeRuleSet: "csharp", semgrepSupport: "ga" },
+    prompts: {
+      coderConstraints: [
+        "Use async/await throughout; avoid .Result or .Wait() which can deadlock",
+        "Prefer records for immutable value types; use struct only for small value types",
+        "Use nullable reference types (NRT) \u2014 enable <Nullable>enable</Nullable>",
+        "Dispose IDisposable resources with using statements or declarations",
+        "Follow C# naming conventions: PascalCase for public members, _camelCase for private fields"
+      ],
+      reviewerChecklist: [
+        "Verify no .Result or .Wait() calls that could cause deadlocks",
+        "Check all IDisposable are properly disposed (using / IAsyncDisposable)",
+        "Confirm nullable reference type annotations are present and correct",
+        "Validate LINQ queries do not cause N+1 query patterns in EF contexts",
+        "Check for missing ConfigureAwait(false) in library code"
+      ]
+    }
+  });
+  LANGUAGE_REGISTRY.register({
+    id: "cpp",
+    displayName: "C / C++",
+    tier: 2,
+    extensions: [".c", ".h", ".cpp", ".hpp", ".cc", ".cxx"],
+    treeSitter: { grammarId: "cpp", wasmFile: "tree-sitter-cpp.wasm" },
+    build: {
+      detectFiles: ["CMakeLists.txt", "Makefile", "meson.build"],
+      commands: [
+        {
+          name: "cmake",
+          cmd: "cmake --build build",
+          detectFile: "CMakeLists.txt",
+          priority: 10
+        },
+        { name: "make", cmd: "make", detectFile: "Makefile", priority: 9 },
+        {
+          name: "meson",
+          cmd: "meson compile -C builddir",
+          detectFile: "meson.build",
+          priority: 8
+        }
+      ]
+    },
+    test: {
+      detectFiles: ["CMakeLists.txt"],
+      frameworks: [
+        {
+          name: "ctest",
+          detect: "CMakeLists.txt",
+          cmd: "ctest --test-dir build",
+          priority: 10
+        }
+      ]
+    },
+    lint: {
+      detectFiles: [".clang-tidy", "CMakeLists.txt"],
+      linters: [
+        {
+          name: "cppcheck",
+          detect: "CMakeLists.txt",
+          cmd: "cppcheck --error-exitcode=1 .",
+          priority: 10
+        },
+        {
+          name: "clang-tidy",
+          detect: ".clang-tidy",
+          cmd: "clang-tidy -p build",
+          priority: 9
+        }
+      ]
+    },
+    audit: {
+      detectFiles: ["CMakeLists.txt", "vcpkg.json", "conanfile.txt"],
+      command: null,
+      outputFormat: "json"
+    },
+    sast: { nativeRuleSet: "cpp", semgrepSupport: "experimental" },
+    prompts: {
+      coderConstraints: [
+        "Prefer RAII and smart pointers (unique_ptr, shared_ptr) over raw pointers",
+        "Use const-correctness throughout; mark all non-mutating methods const",
+        "Avoid undefined behaviour: no out-of-bounds access, no use-after-free",
+        "Initialize all variables; prefer in-class initializers for member variables",
+        "Use std::array or std::vector instead of C-style arrays"
+      ],
+      reviewerChecklist: [
+        "Verify no raw owning pointers; confirm smart pointer ownership semantics",
+        "Check for memory leaks \u2014 every new has a corresponding delete or smart pointer",
+        "Validate bounds checking on all array/buffer accesses",
+        "Confirm no undefined behavior patterns (signed overflow, strict aliasing violations)",
+        "Check thread safety for shared data (mutex, atomic, lock-free patterns)"
+      ]
+    }
+  });
+  LANGUAGE_REGISTRY.register({
+    id: "swift",
+    displayName: "Swift",
+    tier: 2,
+    extensions: [".swift"],
+    treeSitter: { grammarId: "swift", wasmFile: "tree-sitter-swift.wasm" },
+    build: {
+      detectFiles: ["Package.swift", "*.xcodeproj", "*.xcworkspace"],
+      commands: [
+        {
+          name: "swift build",
+          cmd: "swift build",
+          detectFile: "Package.swift",
+          priority: 10
+        },
+        {
+          name: "xcodebuild",
+          cmd: "xcodebuild build -quiet",
+          detectFile: "*.xcodeproj",
+          priority: 9
+        }
+      ]
+    },
+    test: {
+      detectFiles: ["Package.swift", "*.xcodeproj"],
+      frameworks: [
+        {
+          name: "swift test",
+          detect: "Package.swift",
+          cmd: "swift test",
+          priority: 10
+        },
+        {
+          name: "xcodebuild-test",
+          detect: "*.xcodeproj",
+          cmd: "xcodebuild test -quiet",
+          priority: 9
+        }
+      ]
+    },
+    lint: {
+      detectFiles: [".swiftlint.yml", "Package.swift"],
+      linters: [
+        {
+          name: "swiftlint",
+          detect: ".swiftlint.yml",
+          cmd: "swiftlint --fix",
+          priority: 10
+        }
+      ]
+    },
+    audit: {
+      detectFiles: ["Package.resolved", "Package.swift"],
+      command: null,
+      outputFormat: "json"
+    },
+    sast: { nativeRuleSet: null, semgrepSupport: "experimental" },
+    prompts: {
+      coderConstraints: [
+        "Prefer value types (structs, enums) over classes; use classes only for reference semantics",
+        "Use Swift concurrency (async/await, actors) over GCD for new code",
+        "Avoid force unwrap (!) and force cast (as!); use guard let or if let",
+        "Use Swift Package Manager for dependencies where possible",
+        "Mark types and methods as final when subclassing is not intended"
+      ],
+      reviewerChecklist: [
+        "Verify no force unwraps (!) or force casts (as!) in production code",
+        "Check for retain cycles in closures \u2014 confirm [weak self] where needed",
+        "Validate Swift concurrency usage \u2014 no data races across actor boundaries",
+        "Confirm proper error handling with do-try-catch or Result<T,E>",
+        "Check value vs reference type choice is appropriate for the use case"
+      ]
+    }
+  });
+  LANGUAGE_REGISTRY.register({
+    id: "dart",
+    displayName: "Dart / Flutter",
+    tier: 3,
+    extensions: [".dart"],
+    treeSitter: { grammarId: "dart", wasmFile: "tree-sitter-dart.wasm" },
+    build: {
+      detectFiles: ["pubspec.yaml"],
+      commands: [
+        {
+          name: "flutter build",
+          cmd: "flutter build apk",
+          detectFile: "pubspec.yaml",
+          priority: 10
+        },
+        {
+          name: "dart compile",
+          cmd: "dart compile exe .",
+          detectFile: "pubspec.yaml",
+          priority: 9
+        }
+      ]
+    },
+    test: {
+      detectFiles: ["pubspec.yaml"],
+      frameworks: [
+        {
+          name: "flutter test",
+          detect: "pubspec.yaml",
+          cmd: "flutter test",
+          priority: 10
+        },
+        {
+          name: "dart test",
+          detect: "pubspec.yaml",
+          cmd: "dart test",
+          priority: 9
+        }
+      ]
+    },
+    lint: {
+      detectFiles: ["analysis_options.yaml", "pubspec.yaml"],
+      linters: [
+        {
+          name: "dart analyze",
+          detect: "pubspec.yaml",
+          cmd: "dart analyze",
+          priority: 10
+        }
+      ]
+    },
+    audit: {
+      detectFiles: ["pubspec.yaml", "pubspec.lock"],
+      command: "dart pub outdated --json",
+      outputFormat: "json"
+    },
+    sast: { nativeRuleSet: null, semgrepSupport: "none" },
+    prompts: {
+      coderConstraints: [
+        "Use null safety features \u2014 prefer late, required, and ? annotations over dynamic",
+        "Follow Dart effective style: lowerCamelCase for variables, UpperCamelCase for types",
+        "Prefer const constructors where possible for performance",
+        "Use async/await over raw Future callbacks",
+        "Separate business logic from UI widgets; use BLoC or Provider patterns"
+      ],
+      reviewerChecklist: [
+        "Verify null safety annotations are correct (no unnecessary ?)",
+        "Check that const constructors are used where the widget tree is static",
+        "Confirm async operations handle error states (catchError or try-catch)",
+        "Validate no direct UI state mutation outside setState or stream",
+        "Check for platform-specific code isolation (dart:io vs dart:html)"
+      ]
+    }
+  });
+  LANGUAGE_REGISTRY.register({
+    id: "ruby",
+    displayName: "Ruby",
+    tier: 3,
+    extensions: [".rb", ".rake", ".gemspec"],
+    treeSitter: { grammarId: "ruby", wasmFile: "tree-sitter-ruby.wasm" },
+    build: {
+      detectFiles: ["Gemfile", "Rakefile"],
+      commands: [
+        {
+          name: "bundle install",
+          cmd: "bundle install",
+          detectFile: "Gemfile",
+          priority: 10
+        },
+        { name: "rake", cmd: "rake", detectFile: "Rakefile", priority: 9 }
+      ]
+    },
+    test: {
+      detectFiles: ["Gemfile", ".rspec", "spec/spec_helper.rb"],
+      frameworks: [
+        {
+          name: "rspec",
+          detect: ".rspec",
+          cmd: "bundle exec rspec",
+          priority: 10
+        },
+        {
+          name: "minitest",
+          detect: "Rakefile",
+          cmd: "bundle exec rake test",
+          priority: 9
+        }
+      ]
+    },
+    lint: {
+      detectFiles: [".rubocop.yml", "Gemfile"],
+      linters: [
+        {
+          name: "rubocop",
+          detect: ".rubocop.yml",
+          cmd: "rubocop --autocorrect",
+          priority: 10
+        }
+      ]
+    },
+    audit: {
+      detectFiles: ["Gemfile.lock"],
+      command: "bundle-audit check --format json",
+      outputFormat: "json"
+    },
+    sast: { nativeRuleSet: null, semgrepSupport: "experimental" },
+    prompts: {
+      coderConstraints: [
+        "Follow Ruby community style (Rubocop defaults); 120-char line limit",
+        "Prefer symbols over strings for hash keys",
+        "Use frozen_string_literal: true magic comment in all files",
+        "Avoid monkey-patching core classes; prefer refinements",
+        "Use keyword arguments for methods with more than 2 parameters"
+      ],
+      reviewerChecklist: [
+        "Verify frozen_string_literal comment is present in new files",
+        "Check for N+1 query patterns in ActiveRecord code",
+        "Validate no eval or send with user-controlled input (code injection risk)",
+        "Confirm exception handling is specific \u2014 no bare rescue",
+        "Check for missing validations on ActiveRecord models"
+      ]
+    }
+  });
+  LANGUAGE_REGISTRY.register({
+    id: "php",
+    displayName: "PHP",
+    tier: 3,
+    extensions: [".php", ".phtml", ".blade.php"],
+    treeSitter: { grammarId: "php", wasmFile: "tree-sitter-php.wasm" },
+    build: {
+      detectFiles: ["composer.json"],
+      commands: [
+        {
+          name: "Composer Install",
+          cmd: "composer install --no-interaction --prefer-dist",
+          detectFile: "composer.json",
+          priority: 1
+        }
+      ]
+    },
+    test: {
+      detectFiles: ["Pest.php", "phpunit.xml", "phpunit.xml.dist"],
+      frameworks: [
+        {
+          name: "Pest",
+          detect: "Pest.php",
+          cmd: "vendor/bin/pest",
+          priority: 1
+        },
+        {
+          name: "PHPUnit",
+          detect: "phpunit.xml",
+          cmd: "vendor/bin/phpunit",
+          priority: 3
+        },
+        {
+          name: "PHPUnit",
+          detect: "phpunit.xml.dist",
+          cmd: "vendor/bin/phpunit",
+          priority: 4
+        }
+      ]
+    },
+    lint: {
+      detectFiles: [
+        "phpstan.neon",
+        "phpstan.neon.dist",
+        "pint.json",
+        ".php-cs-fixer.php",
+        "phpcs.xml"
+      ],
+      linters: [
+        {
+          name: "PHPStan",
+          detect: "phpstan.neon",
+          cmd: "vendor/bin/phpstan analyse",
+          priority: 1
+        },
+        {
+          name: "PHPStan",
+          detect: "phpstan.neon.dist",
+          cmd: "vendor/bin/phpstan analyse",
+          priority: 2
+        },
+        {
+          name: "Pint",
+          detect: "pint.json",
+          cmd: "vendor/bin/pint --test",
+          priority: 3
+        },
+        {
+          name: "PHP-CS-Fixer",
+          detect: ".php-cs-fixer.php",
+          cmd: "vendor/bin/php-cs-fixer fix --dry-run --diff",
+          priority: 4
+        }
+      ]
+    },
+    audit: {
+      detectFiles: ["composer.lock"],
+      command: "composer audit --locked --format=json",
+      outputFormat: "json"
+    },
+    sast: { nativeRuleSet: "php", semgrepSupport: "ga" },
+    prompts: {
+      coderConstraints: [
+        "Follow PSR-12 coding standards",
+        "Use strict types declaration: declare(strict_types=1)",
+        "Prefer type hints and return type declarations on all functions",
+        "Use dependency injection over static methods and singletons",
+        "Prefer named constructors and value objects over primitive obsession"
+      ],
+      reviewerChecklist: [
+        "Verify no user input reaches SQL queries without parameterised binding",
+        "Check for XSS \u2014 all output must be escaped with htmlspecialchars()",
+        "Confirm no eval(), exec(), or shell_exec() with user-controlled input",
+        "Validate proper error handling \u2014 no bare catch blocks that swallow errors",
+        "Challenge any PHP/Laravel documentation or README claim that exceeds what is implemented and CI-verified in v6.49.0 (composer build, PHPUnit/Pest/artisan test, Pint/PHP-CS-Fixer lint, PHPStan static analysis, composer audit, Laravel detection, Blade scanning, 3 Laravel SAST rules). If a PR adds docs claiming broader support, verify it is backed by tests."
+      ],
+      testConstraints: [
+        "Prefer feature tests for HTTP, middleware, and authentication flows \u2014 use Laravel RefreshDatabase or DatabaseTransactions traits",
+        "Use unit tests for isolated business logic classes that do not require the full Laravel application container",
+        "Pest and PHPUnit coexist in many Laravel repos \u2014 php artisan test runs both; do not assume PHPUnit-only",
+        "Use .env.testing for test environment configuration; run php artisan config:clear when environment changes affect tests",
+        "For database tests, prefer RefreshDatabase over manual setUp/tearDown to avoid state leakage between tests",
+        "Run php artisan config:clear and php artisan cache:clear before running tests if environment variables changed",
+        "Use separate .env.testing file for test-specific configuration; never rely on .env for CI test runs",
+        "For parallel testing with php artisan test --parallel, ensure database connections use separate databases per worker (APP_ENV=testing + test database suffix pattern)"
+      ]
+    }
+  });
 });
 
 // src/lang/detector.ts
+import { access as access3, readdir as readdir2 } from "fs/promises";
+import { extname as extname2, join as join18 } from "path";
 async function detectProjectLanguages(projectDir) {
   const detected = new Set;
   async function scanDir(dir) {
@@ -38825,121 +39109,13 @@ async function detectProjectLanguages(projectDir) {
   result.sort((a, b) => a.tier - b.tier);
   return result;
 }
+var init_detector = __esm(() => {
+  init_profiles();
+});
 
 // src/build/discovery.ts
-init_utils();
-init_bun_compat();
-var ECOSYSTEMS = [
-  {
-    ecosystem: "node",
-    buildFiles: ["package.json"],
-    toolchainCommands: ["npm", "yarn", "pnpm"],
-    commands: [
-      { command: "npm run build", priority: 1 },
-      { command: "npm run typecheck", priority: 2 },
-      { command: "npm run check", priority: 3 }
-    ],
-    repoDefinedScripts: ["build", "typecheck", "check", "compile"]
-  },
-  {
-    ecosystem: "rust",
-    buildFiles: ["Cargo.toml"],
-    toolchainCommands: ["cargo"],
-    commands: [
-      { command: "cargo build", priority: 1 },
-      { command: "cargo check", priority: 2 }
-    ]
-  },
-  {
-    ecosystem: "go",
-    buildFiles: ["go.mod"],
-    toolchainCommands: ["go"],
-    commands: [{ command: "go build ./...", priority: 1 }]
-  },
-  {
-    ecosystem: "python",
-    buildFiles: ["pyproject.toml", "setup.py", "setup.cfg"],
-    toolchainCommands: ["python", "python3", "py"],
-    commands: [
-      { command: "python -m py_compile", priority: 1 },
-      { command: "python -m build", priority: 2 }
-    ]
-  },
-  {
-    ecosystem: "java-maven",
-    buildFiles: ["pom.xml"],
-    toolchainCommands: ["mvn"],
-    commands: [{ command: "mvn compile", priority: 1 }]
-  },
-  {
-    ecosystem: "java-gradle",
-    buildFiles: ["build.gradle", "build.gradle.kts", "gradle.properties"],
-    toolchainCommands: ["gradle", "gradlew"],
-    commands: [
-      {
-        command: process.platform === "win32" ? "gradlew.bat build" : "./gradlew build",
-        priority: 1
-      },
-      { command: "gradle build", priority: 2 }
-    ]
-  },
-  {
-    ecosystem: "dotnet",
-    buildFiles: ["*.csproj", "*.fsproj", "*.vbproj"],
-    toolchainCommands: ["dotnet"],
-    commands: [{ command: "dotnet build", priority: 1 }]
-  },
-  {
-    ecosystem: "swift",
-    buildFiles: ["Package.swift"],
-    toolchainCommands: ["swift"],
-    commands: [{ command: "swift build", priority: 1 }]
-  },
-  {
-    ecosystem: "dart",
-    buildFiles: ["pubspec.yaml", "pubspec.lock"],
-    toolchainCommands: ["dart", "flutter"],
-    commands: [
-      { command: "dart analyze", priority: 1 },
-      { command: "dart compile", priority: 2 }
-    ]
-  },
-  {
-    ecosystem: "cpp",
-    buildFiles: ["Makefile", "CMakeLists.txt"],
-    toolchainCommands: ["make", "cmake"],
-    commands: [
-      { command: "make", priority: 1 },
-      { command: "cmake -B build && cmake --build build", priority: 2 }
-    ]
-  },
-  {
-    ecosystem: "php-composer",
-    buildFiles: ["composer.json"],
-    toolchainCommands: ["composer"],
-    commands: [
-      {
-        command: "composer install --no-interaction --prefer-dist",
-        priority: 1
-      }
-    ]
-  }
-];
-var PROFILE_TO_ECOSYSTEM_NAMES = {
-  typescript: ["node"],
-  python: ["python"],
-  rust: ["rust"],
-  go: ["go"],
-  java: ["java-maven", "java-gradle"],
-  kotlin: ["java-gradle"],
-  csharp: ["dotnet"],
-  cpp: ["cpp"],
-  swift: ["swift"],
-  dart: ["dart"],
-  ruby: [],
-  php: ["php-composer"]
-};
-var toolchainCache = new Map;
+import * as fs9 from "fs";
+import * as path21 from "path";
 function isCommandAvailable(command) {
   if (toolchainCache.has(command)) {
     return toolchainCache.get(command);
@@ -39151,37 +39327,144 @@ async function discoverBuildCommands(workingDir, options) {
   commands.sort((a, b) => a.priority - b.priority);
   return { commands, skipped };
 }
-var build_discovery = tool({
-  description: "Discover build commands for various ecosystems in a project directory",
-  args: {
-    workingDir: tool.schema.string().describe("Directory to scan for build commands (defaults to current directory)"),
-    scope: tool.schema.string().optional().describe('Scope of detection: "all" for all build files, "changed" for only changed files'),
-    changedFiles: tool.schema.array(tool.schema.string()).optional().describe('List of changed files when scope is "changed"')
-  },
-  async execute(args, _context) {
-    const result = await discoverBuildCommands(args.workingDir, {
-      scope: args.scope ?? "all",
-      changedFiles: args.changedFiles ?? []
-    });
-    return JSON.stringify(result, null, 2);
-  }
+var ECOSYSTEMS, PROFILE_TO_ECOSYSTEM_NAMES, toolchainCache, build_discovery;
+var init_discovery = __esm(() => {
+  init_dist();
+  init_detector();
+  init_profiles();
+  init_utils();
+  init_bun_compat();
+  ECOSYSTEMS = [
+    {
+      ecosystem: "node",
+      buildFiles: ["package.json"],
+      toolchainCommands: ["npm", "yarn", "pnpm"],
+      commands: [
+        { command: "npm run build", priority: 1 },
+        { command: "npm run typecheck", priority: 2 },
+        { command: "npm run check", priority: 3 }
+      ],
+      repoDefinedScripts: ["build", "typecheck", "check", "compile"]
+    },
+    {
+      ecosystem: "rust",
+      buildFiles: ["Cargo.toml"],
+      toolchainCommands: ["cargo"],
+      commands: [
+        { command: "cargo build", priority: 1 },
+        { command: "cargo check", priority: 2 }
+      ]
+    },
+    {
+      ecosystem: "go",
+      buildFiles: ["go.mod"],
+      toolchainCommands: ["go"],
+      commands: [{ command: "go build ./...", priority: 1 }]
+    },
+    {
+      ecosystem: "python",
+      buildFiles: ["pyproject.toml", "setup.py", "setup.cfg"],
+      toolchainCommands: ["python", "python3", "py"],
+      commands: [
+        { command: "python -m py_compile", priority: 1 },
+        { command: "python -m build", priority: 2 }
+      ]
+    },
+    {
+      ecosystem: "java-maven",
+      buildFiles: ["pom.xml"],
+      toolchainCommands: ["mvn"],
+      commands: [{ command: "mvn compile", priority: 1 }]
+    },
+    {
+      ecosystem: "java-gradle",
+      buildFiles: ["build.gradle", "build.gradle.kts", "gradle.properties"],
+      toolchainCommands: ["gradle", "gradlew"],
+      commands: [
+        {
+          command: process.platform === "win32" ? "gradlew.bat build" : "./gradlew build",
+          priority: 1
+        },
+        { command: "gradle build", priority: 2 }
+      ]
+    },
+    {
+      ecosystem: "dotnet",
+      buildFiles: ["*.csproj", "*.fsproj", "*.vbproj"],
+      toolchainCommands: ["dotnet"],
+      commands: [{ command: "dotnet build", priority: 1 }]
+    },
+    {
+      ecosystem: "swift",
+      buildFiles: ["Package.swift"],
+      toolchainCommands: ["swift"],
+      commands: [{ command: "swift build", priority: 1 }]
+    },
+    {
+      ecosystem: "dart",
+      buildFiles: ["pubspec.yaml", "pubspec.lock"],
+      toolchainCommands: ["dart", "flutter"],
+      commands: [
+        { command: "dart analyze", priority: 1 },
+        { command: "dart compile", priority: 2 }
+      ]
+    },
+    {
+      ecosystem: "cpp",
+      buildFiles: ["Makefile", "CMakeLists.txt"],
+      toolchainCommands: ["make", "cmake"],
+      commands: [
+        { command: "make", priority: 1 },
+        { command: "cmake -B build && cmake --build build", priority: 2 }
+      ]
+    },
+    {
+      ecosystem: "php-composer",
+      buildFiles: ["composer.json"],
+      toolchainCommands: ["composer"],
+      commands: [
+        {
+          command: "composer install --no-interaction --prefer-dist",
+          priority: 1
+        }
+      ]
+    }
+  ];
+  PROFILE_TO_ECOSYSTEM_NAMES = {
+    typescript: ["node"],
+    python: ["python"],
+    rust: ["rust"],
+    go: ["go"],
+    java: ["java-maven", "java-gradle"],
+    kotlin: ["java-gradle"],
+    csharp: ["dotnet"],
+    cpp: ["cpp"],
+    swift: ["swift"],
+    dart: ["dart"],
+    ruby: [],
+    php: ["php-composer"]
+  };
+  toolchainCache = new Map;
+  build_discovery = tool({
+    description: "Discover build commands for various ecosystems in a project directory",
+    args: {
+      workingDir: tool.schema.string().describe("Directory to scan for build commands (defaults to current directory)"),
+      scope: tool.schema.string().optional().describe('Scope of detection: "all" for all build files, "changed" for only changed files'),
+      changedFiles: tool.schema.array(tool.schema.string()).optional().describe('List of changed files when scope is "changed"')
+    },
+    async execute(args, _context) {
+      const result = await discoverBuildCommands(args.workingDir, {
+        scope: args.scope ?? "all",
+        changedFiles: args.changedFiles ?? []
+      });
+      return JSON.stringify(result, null, 2);
+    }
+  });
 });
 
 // src/services/tool-doctor.ts
-var BINARY_CHECKLIST = [
-  { binary: "ruff", language: "Python" },
-  { binary: "cargo", language: "Rust (via clippy)" },
-  { binary: "golangci-lint", language: "Go" },
-  { binary: "mvn", language: "Java (Maven)" },
-  { binary: "gradle", language: "Java (Gradle)" },
-  { binary: "dotnet", language: ".NET" },
-  { binary: "swift", language: "Swift" },
-  { binary: "swiftlint", language: "Swift (linting)" },
-  { binary: "dart", language: "Dart" },
-  { binary: "flutter", language: "Flutter/Dart" },
-  { binary: "biome", language: "JS/TS (already in project)" },
-  { binary: "eslint", language: "JS/TS" }
-];
+import * as fs10 from "fs";
+import * as path22 from "path";
 function extractRegisteredToolKeys(indexPath) {
   const registeredKeys = new Set;
   try {
@@ -39287,6 +39570,26 @@ function runToolDoctor(_directory, pluginRoot) {
     configSource: indexPath
   };
 }
+var BINARY_CHECKLIST;
+var init_tool_doctor = __esm(() => {
+  init_discovery();
+  init_constants();
+  init_tool_names();
+  BINARY_CHECKLIST = [
+    { binary: "ruff", language: "Python" },
+    { binary: "cargo", language: "Rust (via clippy)" },
+    { binary: "golangci-lint", language: "Go" },
+    { binary: "mvn", language: "Java (Maven)" },
+    { binary: "gradle", language: "Java (Gradle)" },
+    { binary: "dotnet", language: ".NET" },
+    { binary: "swift", language: "Swift" },
+    { binary: "swiftlint", language: "Swift (linting)" },
+    { binary: "dart", language: "Dart" },
+    { binary: "flutter", language: "Flutter/Dart" },
+    { binary: "biome", language: "JS/TS (already in project)" },
+    { binary: "eslint", language: "JS/TS" }
+  ];
+});
 
 // src/commands/doctor.ts
 function formatToolDoctorMarkdown(result) {
@@ -39376,9 +39679,293 @@ async function handleDoctorToolsCommand(directory, _args) {
   const result = runToolDoctor(directory);
   return formatToolDoctorMarkdown(result);
 }
+var init_doctor = __esm(() => {
+  init_loader();
+  init_config_doctor();
+  init_tool_doctor();
+});
+
+// src/services/evidence-summary-service.ts
+var exports_evidence_summary_service = {};
+__export(exports_evidence_summary_service, {
+  isAutoSummaryEnabled: () => isAutoSummaryEnabled,
+  buildEvidenceSummary: () => buildEvidenceSummary,
+  REQUIRED_EVIDENCE_TYPES: () => REQUIRED_EVIDENCE_TYPES,
+  EVIDENCE_SUMMARY_VERSION: () => EVIDENCE_SUMMARY_VERSION
+});
+function normalizeBundleEntries(bundle) {
+  if (!bundle) {
+    return [];
+  }
+  const entries = bundle.entries;
+  if (!Array.isArray(entries)) {
+    return [];
+  }
+  const validEntries = [];
+  for (const entry of entries) {
+    if (entry === null || entry === undefined) {
+      continue;
+    }
+    if (typeof entry !== "object") {
+      continue;
+    }
+    const typedEntry = entry;
+    if (!typedEntry.type || !VALID_EVIDENCE_TYPES2.has(typedEntry.type)) {
+      continue;
+    }
+    if (!typedEntry.task_id || !typedEntry.timestamp || !typedEntry.agent) {
+      continue;
+    }
+    if (!typedEntry.verdict || !typedEntry.summary) {
+      continue;
+    }
+    validEntries.push(typedEntry);
+  }
+  return validEntries;
+}
+function getTaskStatus(task, bundle) {
+  if (task?.status) {
+    return task.status;
+  }
+  const entries = normalizeBundleEntries(bundle);
+  if (entries.length > 0) {
+    return "completed";
+  }
+  return "pending";
+}
+function isEvidenceComplete(bundle) {
+  const entries = normalizeBundleEntries(bundle);
+  if (entries.length === 0) {
+    return {
+      isComplete: false,
+      missingEvidence: [...REQUIRED_EVIDENCE_TYPES]
+    };
+  }
+  const typesPresent = new Set(entries.map((e) => e.type));
+  const missing = [];
+  for (const required3 of REQUIRED_EVIDENCE_TYPES) {
+    if (!typesPresent.has(required3)) {
+      missing.push(required3);
+    }
+  }
+  return {
+    isComplete: missing.length === 0,
+    missingEvidence: missing
+  };
+}
+function getTaskBlockers(task, summary, status) {
+  const blockers = [];
+  if (task?.blocked_reason) {
+    blockers.push(task.blocked_reason);
+  }
+  if (status === "blocked") {
+    blockers.push("Task is marked as blocked");
+  }
+  if (summary.missingEvidence.length > 0 && status !== "pending") {
+    blockers.push(`Missing evidence: ${summary.missingEvidence.join(", ")}`);
+  }
+  return blockers;
+}
+async function buildTaskSummary(directory, task, taskId) {
+  const result = await loadEvidence(directory, taskId);
+  const bundle = result.status === "found" ? result.bundle : null;
+  const phase = task?.phase ?? 0;
+  const status = getTaskStatus(task, bundle);
+  const evidenceCheck = isEvidenceComplete(bundle);
+  const blockers = getTaskBlockers(task, evidenceCheck, status);
+  const entries = normalizeBundleEntries(bundle);
+  const hasReview = entries.some((e) => e.type === "review");
+  const hasTest = entries.some((e) => e.type === "test");
+  const hasApproval = entries.some((e) => e.type === "approval");
+  let lastTimestamp = null;
+  if (entries.length > 0) {
+    const timestamps = entries.map((e) => e.timestamp).sort().reverse();
+    lastTimestamp = timestamps[0] ?? null;
+  }
+  return {
+    taskId,
+    phase,
+    taskStatus: status,
+    evidenceCount: entries.length,
+    hasReview,
+    hasTest,
+    hasApproval,
+    missingEvidence: evidenceCheck.missingEvidence,
+    isComplete: evidenceCheck.isComplete && status === "completed",
+    blockers,
+    lastEvidenceTimestamp: lastTimestamp
+  };
+}
+async function buildPhaseSummary(directory, phase) {
+  const taskIds = await listEvidenceTaskIds(directory);
+  const phaseTaskIds = new Set(phase.tasks.map((t) => t.id));
+  const taskSummaries = [];
+  const _taskMap = new Map(phase.tasks.map((t) => [t.id, t]));
+  for (const task of phase.tasks) {
+    const summary = await buildTaskSummary(directory, task, task.id);
+    taskSummaries.push(summary);
+  }
+  const extraTaskIds = taskIds.filter((id) => !phaseTaskIds.has(id));
+  for (const taskId of extraTaskIds) {
+    const summary = await buildTaskSummary(directory, undefined, taskId);
+    if (summary.phase === phase.id) {
+      taskSummaries.push(summary);
+    }
+  }
+  const completedTasks = taskSummaries.filter((s) => s.taskStatus === "completed").length;
+  const tasksWithEvidence = taskSummaries.filter((s) => s.evidenceCount > 0).length;
+  const tasksWithCompleteEvidence = taskSummaries.filter((s) => s.isComplete).length;
+  const missingByType = {};
+  for (const summary of taskSummaries) {
+    for (const missing of summary.missingEvidence) {
+      if (!missingByType[missing]) {
+        missingByType[missing] = [];
+      }
+      if (!missingByType[missing].includes(summary.taskId)) {
+        missingByType[missing].push(summary.taskId);
+      }
+    }
+  }
+  const phaseBlockers = [];
+  for (const [type, taskIds2] of Object.entries(missingByType)) {
+    phaseBlockers.push({
+      type: "missing_evidence",
+      taskId: taskIds2.join(", "),
+      reason: `${type} evidence missing for ${taskIds2.length} task(s)`,
+      severity: "high"
+    });
+  }
+  const incomplete = taskSummaries.filter((s) => s.taskStatus === "completed" && !s.isComplete);
+  for (const task of incomplete) {
+    phaseBlockers.push({
+      type: "incomplete_task",
+      taskId: task.taskId,
+      reason: "Task marked complete but missing required evidence",
+      severity: "medium"
+    });
+  }
+  const blocked = taskSummaries.filter((s) => s.taskStatus === "blocked" || s.blockers.length > 0);
+  for (const task of blocked) {
+    phaseBlockers.push({
+      type: "blocked_task",
+      taskId: task.taskId,
+      reason: task.blockers.join("; ") || "Task is blocked",
+      severity: "high"
+    });
+  }
+  return {
+    phaseId: phase.id,
+    phaseName: phase.name,
+    phaseStatus: phase.status,
+    totalTasks: phase.tasks.length,
+    completedTasks,
+    tasksWithEvidence,
+    tasksWithCompleteEvidence,
+    completionRatio: phase.tasks.length > 0 ? completedTasks / phase.tasks.length : 0,
+    missingEvidenceByType: missingByType,
+    blockers: phaseBlockers,
+    tasks: taskSummaries
+  };
+}
+function generateSummaryText(artifact) {
+  const lines = [];
+  lines.push(`Evidence Summary for "${artifact.planTitle}"`);
+  lines.push(`Generated: ${new Date(artifact.generated_at).toISOString()}`);
+  lines.push("");
+  lines.push(`Overall Completion: ${(artifact.overallCompletionRatio * 100).toFixed(1)}%`);
+  lines.push(`Current Phase: ${artifact.currentPhase}`);
+  lines.push("");
+  for (const phase of artifact.phaseSummaries) {
+    lines.push(`## Phase ${phase.phaseId}: ${phase.phaseName}`);
+    lines.push(`  Tasks: ${phase.completedTasks}/${phase.totalTasks} completed (${(phase.completionRatio * 100).toFixed(1)}%)`);
+    lines.push(`  Evidence: ${phase.tasksWithCompleteEvidence}/${phase.totalTasks} complete`);
+    if (phase.blockers.length > 0) {
+      lines.push("  Blockers:");
+      for (const blocker of phase.blockers) {
+        lines.push(`    - [${blocker.severity}] ${blocker.reason}`);
+      }
+    }
+    lines.push("");
+  }
+  if (artifact.overallBlockers.length > 0) {
+    lines.push("## Overall Blockers");
+    for (const blocker of artifact.overallBlockers) {
+      lines.push(`- [${blocker.severity}] ${blocker.reason}`);
+    }
+  }
+  return lines.join(`
+`);
+}
+async function buildEvidenceSummary(directory, currentPhase) {
+  log("[EvidenceSummary] Building summary for directory", { directory });
+  const plan = await loadPlanJsonOnly(directory);
+  if (!plan) {
+    log("[EvidenceSummary] No plan found, skipping summary generation");
+    return null;
+  }
+  const phasesToProcess = currentPhase !== undefined ? plan.phases.filter((p) => p.id <= currentPhase) : plan.phases;
+  const phaseSummaries = [];
+  let totalTasks = 0;
+  let completedTasks = 0;
+  for (const phase of phasesToProcess) {
+    const summary = await buildPhaseSummary(directory, phase);
+    phaseSummaries.push(summary);
+    totalTasks += summary.totalTasks;
+    completedTasks += summary.completedTasks;
+  }
+  const overallCompletionRatio = totalTasks > 0 ? completedTasks / totalTasks : 0;
+  const overallBlockers = [];
+  for (const phase of phaseSummaries) {
+    if (phase.phaseStatus !== "complete") {
+      overallBlockers.push(...phase.blockers);
+    }
+  }
+  const artifact = {
+    schema_version: EVIDENCE_SUMMARY_VERSION,
+    generated_at: new Date().toISOString(),
+    planTitle: plan.title,
+    currentPhase: currentPhase ?? plan.current_phase ?? 1,
+    phaseSummaries,
+    overallCompletionRatio,
+    overallBlockers,
+    summaryText: ""
+  };
+  artifact.summaryText = generateSummaryText(artifact);
+  log("[EvidenceSummary] Summary built", {
+    phases: phaseSummaries.length,
+    totalTasks,
+    completedTasks,
+    completionRatio: overallCompletionRatio,
+    blockers: overallBlockers.length
+  });
+  return artifact;
+}
+function isAutoSummaryEnabled(automationConfig) {
+  if (!automationConfig) {
+    return false;
+  }
+  if (automationConfig.mode === "manual") {
+    return false;
+  }
+  return automationConfig.capabilities?.evidence_auto_summaries === true;
+}
+var VALID_EVIDENCE_TYPES2, REQUIRED_EVIDENCE_TYPES, EVIDENCE_SUMMARY_VERSION = "1.0.0";
+var init_evidence_summary_service = __esm(() => {
+  init_manager2();
+  init_manager();
+  init_utils();
+  VALID_EVIDENCE_TYPES2 = new Set([
+    "review",
+    "test",
+    "diff",
+    "approval",
+    "note",
+    "retrospective"
+  ]);
+  REQUIRED_EVIDENCE_TYPES = ["review", "test"];
+});
 
 // src/services/evidence-service.ts
-init_manager2();
 function getVerdictIcon(verdict) {
   switch (verdict) {
     case "pass":
@@ -39563,9 +40150,16 @@ async function handleEvidenceSummaryCommand(directory) {
   return lines.join(`
 `);
 }
+var init_evidence_service = __esm(() => {
+  init_manager2();
+});
+
+// src/commands/evidence.ts
+var init_evidence = __esm(() => {
+  init_evidence_service();
+});
+
 // src/services/export-service.ts
-init_utils2();
-init_manager();
 async function getExportData(directory) {
   const planStructured = await loadPlanJsonOnly(directory);
   const planContent = await readSwarmFileAsync(directory, "plan.md");
@@ -39593,6 +40187,16 @@ async function handleExportCommand(directory, _args) {
   const exportData = await getExportData(directory);
   return formatExportMarkdown(exportData);
 }
+var init_export_service = __esm(() => {
+  init_utils2();
+  init_manager();
+});
+
+// src/commands/export.ts
+var init_export = __esm(() => {
+  init_export_service();
+});
+
 // src/commands/full-auto.ts
 async function handleFullAutoCommand(_directory, args, sessionID) {
   if (!sessionID || sessionID.trim() === "") {
@@ -39622,20 +40226,11 @@ async function handleFullAutoCommand(_directory, args, sessionID) {
   }
   return newFullAutoMode ? "Full-Auto Mode enabled" : "Full-Auto Mode disabled";
 }
-
-// src/commands/handoff.ts
-init_utils2();
-import crypto4 from "crypto";
-import { renameSync as renameSync6 } from "fs";
+var init_full_auto = __esm(() => {
+  init_state();
+});
 
 // src/services/handoff-service.ts
-init_utils2();
-init_manager();
-init_utils();
-var RTL_OVERRIDE_PATTERN = /[\u202e\u202d\u202c\u200f]/g;
-var MAX_TASK_ID_LENGTH = 100;
-var MAX_DECISION_LENGTH = 500;
-var MAX_INCOMPLETE_TASKS = 20;
 function escapeHtml(str) {
   return str.replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;").replace(/"/g, "&quot;").replace(/'/g, "&#39;");
 }
@@ -39995,9 +40590,17 @@ ${lines.join(`
 `)}
 \`\`\``;
 }
+var RTL_OVERRIDE_PATTERN, MAX_TASK_ID_LENGTH = 100, MAX_DECISION_LENGTH = 500, MAX_INCOMPLETE_TASKS = 20;
+var init_handoff_service = __esm(() => {
+  init_utils2();
+  init_manager();
+  init_utils();
+  RTL_OVERRIDE_PATTERN = /[\u202e\u202d\u202c\u200f]/g;
+});
 
 // src/commands/handoff.ts
-init_bun_compat();
+import crypto4 from "crypto";
+import { renameSync as renameSync6 } from "fs";
 async function handleHandoffCommand(directory, _args) {
   const handoffData = await getHandoffData(directory);
   const markdown = formatHandoffMarkdown(handoffData);
@@ -40027,10 +40630,15 @@ Copy and paste the block below into your next session to resume cleanly:
 
 ${continuationPrompt}`;
 }
+var init_handoff = __esm(() => {
+  init_utils2();
+  init_handoff_service();
+  init_snapshot_writer();
+  init_state();
+  init_bun_compat();
+});
 
 // src/services/history-service.ts
-init_utils2();
-init_manager();
 function getStatusText(status) {
   const statusMap = {
     complete: "COMPLETE",
@@ -40157,24 +40765,18 @@ async function handleHistoryCommand(directory, _args) {
   const historyData = await getHistoryData(directory);
   return formatHistoryMarkdown(historyData);
 }
+var init_history_service = __esm(() => {
+  init_utils2();
+  init_manager();
+});
+
+// src/commands/history.ts
+var init_history = __esm(() => {
+  init_history_service();
+});
+
 // src/commands/issue.ts
 import { execSync as execSync2 } from "child_process";
-var MAX_URL_LEN = 2048;
-var USAGE2 = [
-  "Usage: /swarm issue <url|owner/repo#N|N> [--plan] [--trace] [--no-repro]",
-  "",
-  "Ingest a GitHub issue into the swarm workflow.",
-  "  /swarm issue https://github.com/owner/repo/issues/42",
-  "  /swarm issue owner/repo#42",
-  "  /swarm issue 42 --plan",
-  "  /swarm issue 42 --trace --no-repro",
-  "",
-  "Flags:",
-  "  --plan        Transition to plan creation after spec generation",
-  "  --trace       Run full fix-and-PR workflow (implies --plan)",
-  "  --no-repro    Skip reproduction step"
-].join(`
-`);
 function sanitizeUrl(raw) {
   let urlStr = raw.trim();
   urlStr = urlStr.replace(/\[\s*MODE\s*:[^\]]*\]/gi, "");
@@ -40364,9 +40966,24 @@ ${USAGE2}`;
   const flagsStr = flags.length > 0 ? ` ${flags.join(" ")}` : "";
   return `[MODE: ISSUE_INGEST issue="${result.sanitized}"${flagsStr}]`;
 }
-
-// src/commands/knowledge.ts
-import { join as join22 } from "path";
+var MAX_URL_LEN = 2048, USAGE2;
+var init_issue = __esm(() => {
+  USAGE2 = [
+    "Usage: /swarm issue <url|owner/repo#N|N> [--plan] [--trace] [--no-repro]",
+    "",
+    "Ingest a GitHub issue into the swarm workflow.",
+    "  /swarm issue https://github.com/owner/repo/issues/42",
+    "  /swarm issue owner/repo#42",
+    "  /swarm issue 42 --plan",
+    "  /swarm issue 42 --trace --no-repro",
+    "",
+    "Flags:",
+    "  --plan        Transition to plan creation after spec generation",
+    "  --trace       Run full fix-and-PR workflow (implies --plan)",
+    "  --no-repro    Skip reproduction step"
+  ].join(`
+`);
+});
 
 // src/hooks/knowledge-migrator.ts
 import { randomUUID as randomUUID2 } from "crypto";
@@ -40595,8 +41212,13 @@ async function writeSentinel(sentinelPath, migrated, dropped) {
   await mkdir4(path23.dirname(sentinelPath), { recursive: true });
   await writeFile5(sentinelPath, JSON.stringify(sentinel, null, 2), "utf-8");
 }
+var init_knowledge_migrator = __esm(() => {
+  init_knowledge_store();
+  init_knowledge_validator();
+});
 
 // src/commands/knowledge.ts
+import { join as join22 } from "path";
 function resolveEntryByPrefix(entries, inputId) {
   const exact = entries.find((e) => e.id === inputId);
   if (exact)
@@ -40710,10 +41332,14 @@ async function handleKnowledgeListCommand(directory, _args) {
     return "\u274C Failed to list knowledge entries. Ensure .swarm/knowledge.jsonl exists.";
   }
 }
+var init_knowledge = __esm(() => {
+  init_schema();
+  init_knowledge_migrator();
+  init_knowledge_store();
+  init_knowledge_validator();
+});
 
 // src/services/plan-service.ts
-init_utils2();
-init_manager();
 async function getPlanData(directory, phaseArg) {
   const plan = await loadPlanJsonOnly(directory);
   if (plan) {
@@ -40856,21 +41482,18 @@ async function handlePlanCommand(directory, args) {
   const planData = await getPlanData(directory, phaseArg);
   return formatPlanMarkdown(planData);
 }
+var init_plan_service = __esm(() => {
+  init_utils2();
+  init_manager();
+});
+
+// src/commands/plan.ts
+var init_plan = __esm(() => {
+  init_plan_service();
+});
+
 // src/commands/pr-review.ts
 import { execSync as execSync3 } from "child_process";
-var MAX_URL_LEN2 = 2048;
-var USAGE3 = [
-  "Usage: /swarm pr-review <url|owner/repo#N|N> [--council]",
-  "",
-  "Run a full swarm PR review on a GitHub pull request.",
-  "  /swarm pr-review https://github.com/owner/repo/pull/42",
-  "  /swarm pr-review owner/repo#42",
-  "  /swarm pr-review 42 --council",
-  "",
-  "Flags:",
-  "  --council     Run adversarial council variant (all lanes assume work is wrong)"
-].join(`
-`);
 function sanitizeUrl2(raw) {
   let urlStr = raw.trim();
   urlStr = urlStr.replace(/\[\s*MODE\s*:[^\]]*\]/gi, "");
@@ -41046,19 +41669,21 @@ ${USAGE3}`;
   const councilFlag = parsed.council ? "council=true" : "council=false";
   return `[MODE: PR_REVIEW pr="${result.sanitized}" ${councilFlag}]`;
 }
-
-// src/services/preflight-service.ts
-init_manager2();
-init_manager();
-import * as fs17 from "fs";
-import * as path30 from "path";
-
-// src/tools/lint.ts
-init_zod();
-import * as fs11 from "fs";
-import * as path24 from "path";
-init_utils();
-init_bun_compat();
+var MAX_URL_LEN2 = 2048, USAGE3;
+var init_pr_review = __esm(() => {
+  USAGE3 = [
+    "Usage: /swarm pr-review <url|owner/repo#N|N> [--council]",
+    "",
+    "Run a full swarm PR review on a GitHub pull request.",
+    "  /swarm pr-review https://github.com/owner/repo/pull/42",
+    "  /swarm pr-review owner/repo#42",
+    "  /swarm pr-review 42 --council",
+    "",
+    "Flags:",
+    "  --council     Run adversarial council variant (all lanes assume work is wrong)"
+  ].join(`
+`);
+});
 
 // src/utils/path-security.ts
 function containsPathTraversal(str) {
@@ -41089,10 +41714,11 @@ function containsPathTraversal(str) {
 function containsControlChars(str) {
   return /[\0\t\r\n]/.test(str);
 }
+var init_path_security = () => {};
 
 // src/tools/lint.ts
-var MAX_OUTPUT_BYTES = 512000;
-var MAX_COMMAND_LENGTH = 500;
+import * as fs11 from "fs";
+import * as path24 from "path";
 function validateArgs(args) {
   if (typeof args !== "object" || args === null)
     return false;
@@ -41444,236 +42070,65 @@ async function runAdditionalLint(linter, mode, cwd) {
     };
   }
 }
-var lint = createSwarmTool({
-  description: "Run project linter in check or fix mode. Supports biome, eslint (JS/TS), ruff (Python), clippy (Rust), golangci-lint (Go), checkstyle (Java), ktlint (Kotlin), dotnet-format (C#), cppcheck (C/C++), swiftlint (Swift), dart analyze (Dart), and rubocop (Ruby). Returns JSON with success status, exit code, and output for architect pre-reviewer gate. Use check mode for CI/linting and fix mode to automatically apply fixes.",
-  args: {
-    mode: exports_external.enum(["fix", "check"]).describe('Linting mode: "check" for read-only lint check, "fix" to automatically apply fixes')
-  },
-  async execute(args, directory) {
-    if (!validateArgs(args)) {
-      const errorResult2 = {
+var MAX_OUTPUT_BYTES = 512000, MAX_COMMAND_LENGTH = 500, lint;
+var init_lint = __esm(() => {
+  init_zod();
+  init_discovery();
+  init_utils();
+  init_bun_compat();
+  init_create_tool();
+  init_path_security();
+  lint = createSwarmTool({
+    description: "Run project linter in check or fix mode. Supports biome, eslint (JS/TS), ruff (Python), clippy (Rust), golangci-lint (Go), checkstyle (Java), ktlint (Kotlin), dotnet-format (C#), cppcheck (C/C++), swiftlint (Swift), dart analyze (Dart), and rubocop (Ruby). Returns JSON with success status, exit code, and output for architect pre-reviewer gate. Use check mode for CI/linting and fix mode to automatically apply fixes.",
+    args: {
+      mode: exports_external.enum(["fix", "check"]).describe('Linting mode: "check" for read-only lint check, "fix" to automatically apply fixes')
+    },
+    async execute(args, directory) {
+      if (!validateArgs(args)) {
+        const errorResult2 = {
+          success: false,
+          mode: "check",
+          error: 'Invalid arguments: mode must be "fix" or "check"'
+        };
+        return JSON.stringify(errorResult2, null, 2);
+      }
+      if (!directory || typeof directory !== "string" || directory.trim() === "") {
+        const errorResult2 = {
+          success: false,
+          mode: "check",
+          error: "project directory is required but was not provided"
+        };
+        return JSON.stringify(errorResult2, null, 2);
+      }
+      const { mode } = args;
+      const cwd = directory;
+      const linter = await detectAvailableLinter(directory);
+      if (linter) {
+        const result = await runLint(linter, mode, directory);
+        return JSON.stringify(result, null, 2);
+      }
+      const additionalLinter = detectAdditionalLinter(cwd);
+      if (additionalLinter) {
+        warn(`[lint] Using ${additionalLinter} linter for this project`);
+        const result = await runAdditionalLint(additionalLinter, mode, cwd);
+        return JSON.stringify(result, null, 2);
+      }
+      const errorResult = {
         success: false,
-        mode: "check",
-        error: 'Invalid arguments: mode must be "fix" or "check"'
-      };
-      return JSON.stringify(errorResult2, null, 2);
-    }
-    if (!directory || typeof directory !== "string" || directory.trim() === "") {
-      const errorResult2 = {
-        success: false,
-        mode: "check",
-        error: "project directory is required but was not provided"
-      };
-      return JSON.stringify(errorResult2, null, 2);
-    }
-    const { mode } = args;
-    const cwd = directory;
-    const linter = await detectAvailableLinter(directory);
-    if (linter) {
-      const result = await runLint(linter, mode, directory);
-      return JSON.stringify(result, null, 2);
-    }
-    const additionalLinter = detectAdditionalLinter(cwd);
-    if (additionalLinter) {
-      warn(`[lint] Using ${additionalLinter} linter for this project`);
-      const result = await runAdditionalLint(additionalLinter, mode, cwd);
-      return JSON.stringify(result, null, 2);
-    }
-    const errorResult = {
-      success: false,
-      mode,
-      error: "No linter found. Install biome or eslint for JS/TS projects, or a supported linter for your language (ruff, cargo clippy, golangci-lint, ktlint, dotnet format, cppcheck, swiftlint, dart analyze, rubocop).",
-      message: `For JS/TS: npm install -D @biomejs/biome eslint
+        mode,
+        error: "No linter found. Install biome or eslint for JS/TS projects, or a supported linter for your language (ruff, cargo clippy, golangci-lint, ktlint, dotnet format, cppcheck, swiftlint, dart analyze, rubocop).",
+        message: `For JS/TS: npm install -D @biomejs/biome eslint
 For Python: pip install ruff
 For Rust: rustup component add clippy`
-    };
-    return JSON.stringify(errorResult, null, 2);
-  }
+      };
+      return JSON.stringify(errorResult, null, 2);
+    }
+  });
 });
 
 // src/tools/secretscan.ts
-init_zod();
 import * as fs12 from "fs";
 import * as path25 from "path";
-var MAX_FILE_PATH_LENGTH = 500;
-var MAX_FILE_SIZE_BYTES = 512 * 1024;
-var MAX_FILES_SCANNED = 1000;
-var MAX_FINDINGS = 100;
-var MAX_OUTPUT_BYTES2 = 512000;
-var MAX_LINE_LENGTH = 1e4;
-var MAX_CONTENT_BYTES = 50 * 1024;
-var BINARY_SIGNATURES = [
-  0,
-  2303741511,
-  4292411360,
-  1195984440,
-  626017350,
-  1347093252
-];
-var BINARY_PREFIX_BYTES = 4;
-var BINARY_NULL_CHECK_BYTES = 8192;
-var BINARY_NULL_THRESHOLD = 0.1;
-var DEFAULT_EXCLUDE_DIRS = new Set([
-  "node_modules",
-  ".git",
-  "dist",
-  "build",
-  "out",
-  "coverage",
-  ".next",
-  ".nuxt",
-  ".cache",
-  "vendor",
-  ".svn",
-  ".hg",
-  ".gradle",
-  "target",
-  "__pycache__",
-  ".pytest_cache",
-  ".venv",
-  "venv",
-  ".env",
-  ".idea",
-  ".vscode"
-]);
-var DEFAULT_EXCLUDE_EXTENSIONS = new Set([
-  ".png",
-  ".jpg",
-  ".jpeg",
-  ".gif",
-  ".ico",
-  ".svg",
-  ".pdf",
-  ".zip",
-  ".tar",
-  ".gz",
-  ".rar",
-  ".7z",
-  ".exe",
-  ".dll",
-  ".so",
-  ".dylib",
-  ".bin",
-  ".dat",
-  ".db",
-  ".sqlite",
-  ".lock",
-  ".log",
-  ".md"
-]);
-var SECRET_PATTERNS = [
-  {
-    type: "aws_access_key",
-    regex: /(?:AWS_ACCESS_KEY_ID|AWS_SECRET_ACCESS_KEY|aws_access_key_id|aws_secret_access_key)\s*[=:]\s*['"]?([A-Z0-9]{20})['"]?/gi,
-    confidence: "high",
-    severity: "critical",
-    redactTemplate: () => "AKIA[REDACTED]"
-  },
-  {
-    type: "aws_secret_key",
-    regex: /(?:AWS_SECRET_ACCESS_KEY|aws_secret_access_key)\s*[=:]\s*['"]?([A-Za-z0-9+/=]{40})['"]?/gi,
-    confidence: "high",
-    severity: "critical",
-    redactTemplate: () => "[REDACTED_AWS_SECRET]"
-  },
-  {
-    type: "api_key",
-    regex: /(?:api[_-]?key|apikey|API[_-]?KEY)\s*[=:]\s*['"]?([a-zA-Z0-9_-]{16,64})['"]?/gi,
-    confidence: "medium",
-    severity: "high",
-    redactTemplate: (m) => {
-      const key = m.match(/[a-zA-Z0-9_-]{16,64}/)?.[0] || "";
-      return `api_key=${key.slice(0, 4)}...${key.slice(-4)}`;
-    }
-  },
-  {
-    type: "bearer_token",
-    regex: /(?:bearer\s+|Bearer\s+)([a-zA-Z0-9_\-.]{1,200})[\s"'<]/gi,
-    confidence: "medium",
-    severity: "high",
-    redactTemplate: () => "bearer [REDACTED]"
-  },
-  {
-    type: "basic_auth",
-    regex: /(?:basic\s+|Basic\s+)([a-zA-Z0-9+/=]{1,200})[\s"'<]/gi,
-    confidence: "medium",
-    severity: "high",
-    redactTemplate: () => "basic [REDACTED]"
-  },
-  {
-    type: "database_url",
-    regex: /(?:mysql|postgres|postgresql|mongodb|redis):\/\/[^\s"'/:]+:[^\s"'/:]+@[^\s"']+/gi,
-    confidence: "high",
-    severity: "critical",
-    redactTemplate: () => "mysql://[user]:[password]@[host]"
-  },
-  {
-    type: "github_token",
-    regex: /(?:ghp|gho|ghu|ghs|ghr)_[a-zA-Z0-9]{36,}/gi,
-    confidence: "high",
-    severity: "critical",
-    redactTemplate: () => "ghp_[REDACTED]"
-  },
-  {
-    type: "generic_token",
-    regex: /(?:token|TOKEN)\s*[=:]\s*['"]?([a-zA-Z0-9_\-.]{20,80})['"]?/gi,
-    confidence: "low",
-    severity: "medium",
-    redactTemplate: (m) => {
-      const token = m.match(/[a-zA-Z0-9_\-.]{20,80}/)?.[0] || "";
-      return `token=${token.slice(0, 4)}...`;
-    }
-  },
-  {
-    type: "password",
-    regex: /(?:password|passwd|pwd|PASSWORD|PASSWD)\s*[=:]\s*['"]?([^\s'"]{4,100})['"]?/gi,
-    confidence: "medium",
-    severity: "high",
-    redactTemplate: () => "password=[REDACTED]"
-  },
-  {
-    type: "private_key",
-    regex: /-----BEGIN (?:RSA |EC |DSA |OPENSSH )?PRIVATE KEY-----/gi,
-    confidence: "high",
-    severity: "critical",
-    redactTemplate: () => "-----BEGIN PRIVATE KEY-----"
-  },
-  {
-    type: "jwt",
-    regex: /eyJ[a-zA-Z0-9_-]*\.eyJ[a-zA-Z0-9_-]*\.[a-zA-Z0-9_-]*/g,
-    confidence: "high",
-    severity: "high",
-    redactTemplate: (m) => `eyJ...${m.slice(-10)}`
-  },
-  {
-    type: "stripe_key",
-    regex: /(?:sk|pk)_(?:live|test)_[a-zA-Z0-9]{24,}/gi,
-    confidence: "high",
-    severity: "critical",
-    redactTemplate: () => "sk_live_[REDACTED]"
-  },
-  {
-    type: "slack_token",
-    regex: /xox[baprs]-[0-9]{10,13}-[0-9]{10,13}[a-zA-Z0-9-]*/g,
-    confidence: "high",
-    severity: "critical",
-    redactTemplate: () => "xoxb-[REDACTED]"
-  },
-  {
-    type: "sendgrid_key",
-    regex: /SG\.[a-zA-Z0-9_-]{22}\.[a-zA-Z0-9_-]{43}/g,
-    confidence: "high",
-    severity: "critical",
-    redactTemplate: () => "SG.[REDACTED]"
-  },
-  {
-    type: "twilio_key",
-    regex: /SK[a-f0-9]{32}/gi,
-    confidence: "high",
-    severity: "critical",
-    redactTemplate: () => "SK[REDACTED]"
-  }
-];
 function calculateShannonEntropy(str) {
   if (str.length === 0)
     return 0;
@@ -41840,7 +42295,6 @@ function createRedactedContext(line, findings) {
   result += line.slice(lastEnd);
   return result;
 }
-var O_NOFOLLOW = process.platform !== "win32" ? fs12.constants.O_NOFOLLOW : undefined;
 function scanFileForSecrets(filePath) {
   const findings = [];
   try {
@@ -41976,201 +42430,6 @@ function findScannableFiles(dir, excludeExact, excludeGlobs, scanDir, visited, s
   }
   return files;
 }
-var secretscan = createSwarmTool({
-  description: "Scan directory for potential secrets (API keys, tokens, passwords) using regex patterns and entropy heuristics. Returns metadata-only findings with redacted previews - NEVER returns raw secrets. Excludes common directories (node_modules, .git, dist, etc.) by default. Supports glob patterns (e.g. **/.svelte-kit/**, **/*.test.ts) and reads .secretscanignore at the scan root.",
-  args: {
-    directory: exports_external.string().describe('Directory to scan for secrets (e.g., "." or "./src")'),
-    exclude: exports_external.array(exports_external.string()).optional().describe("Patterns to exclude: plain directory names (e.g. node_modules), relative paths, or globs (e.g. **/.svelte-kit/**, **/*.test.ts). Added to default exclusions.")
-  },
-  async execute(args, _directory, _ctx) {
-    const typedArgs = args;
-    let directory;
-    let exclude;
-    try {
-      if (typedArgs && typeof typedArgs === "object") {
-        directory = typedArgs.directory;
-        exclude = typedArgs.exclude;
-      }
-    } catch {}
-    if (directory === undefined) {
-      const errorResult = {
-        error: "invalid arguments: directory is required",
-        scan_dir: "",
-        findings: [],
-        count: 0,
-        files_scanned: 0,
-        skipped_files: 0
-      };
-      return JSON.stringify(errorResult, null, 2);
-    }
-    const dirValidationError = validateDirectoryInput(directory);
-    if (dirValidationError) {
-      const errorResult = {
-        error: `invalid directory: ${dirValidationError}`,
-        scan_dir: directory,
-        findings: [],
-        count: 0,
-        files_scanned: 0,
-        skipped_files: 0
-      };
-      return JSON.stringify(errorResult, null, 2);
-    }
-    if (exclude) {
-      for (const exc of exclude) {
-        const err = validateExcludePattern(exc);
-        if (err) {
-          const errorResult = {
-            error: err,
-            scan_dir: directory,
-            findings: [],
-            count: 0,
-            files_scanned: 0,
-            skipped_files: 0
-          };
-          return JSON.stringify(errorResult, null, 2);
-        }
-      }
-    }
-    try {
-      const _scanDirRaw = path25.resolve(directory);
-      const scanDir = (() => {
-        try {
-          return fs12.realpathSync(_scanDirRaw);
-        } catch {
-          return _scanDirRaw;
-        }
-      })();
-      if (!fs12.existsSync(scanDir)) {
-        const errorResult = {
-          error: "directory not found",
-          scan_dir: directory,
-          findings: [],
-          count: 0,
-          files_scanned: 0,
-          skipped_files: 0
-        };
-        return JSON.stringify(errorResult, null, 2);
-      }
-      const dirStat = fs12.statSync(scanDir);
-      if (!dirStat.isDirectory()) {
-        const errorResult = {
-          error: "target must be a directory, not a file",
-          scan_dir: directory,
-          findings: [],
-          count: 0,
-          files_scanned: 0,
-          skipped_files: 0
-        };
-        return JSON.stringify(errorResult, null, 2);
-      }
-      const excludeExact = new Set(DEFAULT_EXCLUDE_DIRS);
-      const excludeGlobs = [];
-      const ignoreFilePatterns = loadSecretScanIgnore(scanDir);
-      const allUserPatterns = [...exclude ?? [], ...ignoreFilePatterns];
-      for (const exc of allUserPatterns) {
-        if (exc.length === 0)
-          continue;
-        if (isGlobOrPathPattern(exc)) {
-          excludeGlobs.push(exc);
-        } else {
-          excludeExact.add(exc);
-        }
-      }
-      const stats = {
-        skippedDirs: 0,
-        skippedFiles: 0,
-        fileErrors: 0,
-        symlinkSkipped: 0
-      };
-      const visited = new Set;
-      const files = findScannableFiles(scanDir, excludeExact, excludeGlobs, scanDir, visited, stats);
-      files.sort((a, b) => {
-        const aLower = a.toLowerCase();
-        const bLower = b.toLowerCase();
-        if (aLower < bLower)
-          return -1;
-        if (aLower > bLower)
-          return 1;
-        return a.localeCompare(b);
-      });
-      const filesToScan = files.slice(0, MAX_FILES_SCANNED);
-      const allFindings = [];
-      let filesScanned = 0;
-      let skippedFiles = stats.skippedFiles;
-      for (const filePath of filesToScan) {
-        if (allFindings.length >= MAX_FINDINGS)
-          break;
-        const fileFindings = scanFileForSecrets(filePath);
-        try {
-          const stat3 = fs12.statSync(filePath);
-          if (stat3.size > MAX_FILE_SIZE_BYTES) {
-            skippedFiles++;
-            continue;
-          }
-        } catch {}
-        filesScanned++;
-        for (const finding of fileFindings) {
-          if (allFindings.length >= MAX_FINDINGS)
-            break;
-          allFindings.push(finding);
-        }
-      }
-      allFindings.sort((a, b) => {
-        const aPathLower = a.path.toLowerCase();
-        const bPathLower = b.path.toLowerCase();
-        if (aPathLower < bPathLower)
-          return -1;
-        if (aPathLower > bPathLower)
-          return 1;
-        if (a.path < b.path)
-          return -1;
-        if (a.path > b.path)
-          return 1;
-        return a.line - b.line;
-      });
-      const result = {
-        scan_dir: directory,
-        findings: allFindings,
-        count: allFindings.length,
-        files_scanned: filesScanned,
-        skipped_files: skippedFiles + stats.fileErrors + stats.symlinkSkipped
-      };
-      const parts = [];
-      if (files.length > MAX_FILES_SCANNED) {
-        parts.push(`Found ${files.length} files, scanned ${MAX_FILES_SCANNED}`);
-      }
-      if (allFindings.length >= MAX_FINDINGS) {
-        parts.push(`Results limited to ${MAX_FINDINGS} findings`);
-      }
-      if (skippedFiles > 0 || stats.fileErrors > 0 || stats.symlinkSkipped > 0) {
-        parts.push(`${skippedFiles + stats.fileErrors + stats.symlinkSkipped} files skipped (binary/oversized/symlinks/errors)`);
-      }
-      if (parts.length > 0) {
-        result.message = `${parts.join("; ")}.`;
-      }
-      let jsonOutput = JSON.stringify(result, null, 2);
-      if (jsonOutput.length > MAX_OUTPUT_BYTES2) {
-        const truncatedResult = {
-          ...result,
-          findings: result.findings.slice(0, Math.floor(MAX_OUTPUT_BYTES2 * 0.8 / 200)),
-          message: "Output truncated due to size limits."
-        };
-        jsonOutput = JSON.stringify(truncatedResult, null, 2);
-      }
-      return jsonOutput;
-    } catch (e) {
-      const errorResult = {
-        error: e instanceof Error ? `scan failed: ${e.message || "internal error"}` : "scan failed: unknown error",
-        scan_dir: directory,
-        findings: [],
-        count: 0,
-        files_scanned: 0,
-        skipped_files: 0
-      };
-      return JSON.stringify(errorResult, null, 2);
-    }
-  }
-});
 async function runSecretscan(directory) {
   try {
     const result = await secretscan.execute({ directory }, {});
@@ -42188,19 +42447,383 @@ async function runSecretscan(directory) {
     return errorResult;
   }
 }
-
-// src/tools/test-runner.ts
-init_zod();
-import * as fs16 from "fs";
-import * as path29 from "path";
+var MAX_FILE_PATH_LENGTH = 500, MAX_FILE_SIZE_BYTES, MAX_FILES_SCANNED = 1000, MAX_FINDINGS = 100, MAX_OUTPUT_BYTES2 = 512000, MAX_LINE_LENGTH = 1e4, MAX_CONTENT_BYTES, BINARY_SIGNATURES, BINARY_PREFIX_BYTES = 4, BINARY_NULL_CHECK_BYTES = 8192, BINARY_NULL_THRESHOLD = 0.1, DEFAULT_EXCLUDE_DIRS, DEFAULT_EXCLUDE_EXTENSIONS, SECRET_PATTERNS, O_NOFOLLOW, secretscan;
+var init_secretscan = __esm(() => {
+  init_zod();
+  init_path_security();
+  init_create_tool();
+  MAX_FILE_SIZE_BYTES = 512 * 1024;
+  MAX_CONTENT_BYTES = 50 * 1024;
+  BINARY_SIGNATURES = [
+    0,
+    2303741511,
+    4292411360,
+    1195984440,
+    626017350,
+    1347093252
+  ];
+  DEFAULT_EXCLUDE_DIRS = new Set([
+    "node_modules",
+    ".git",
+    "dist",
+    "build",
+    "out",
+    "coverage",
+    ".next",
+    ".nuxt",
+    ".cache",
+    "vendor",
+    ".svn",
+    ".hg",
+    ".gradle",
+    "target",
+    "__pycache__",
+    ".pytest_cache",
+    ".venv",
+    "venv",
+    ".env",
+    ".idea",
+    ".vscode"
+  ]);
+  DEFAULT_EXCLUDE_EXTENSIONS = new Set([
+    ".png",
+    ".jpg",
+    ".jpeg",
+    ".gif",
+    ".ico",
+    ".svg",
+    ".pdf",
+    ".zip",
+    ".tar",
+    ".gz",
+    ".rar",
+    ".7z",
+    ".exe",
+    ".dll",
+    ".so",
+    ".dylib",
+    ".bin",
+    ".dat",
+    ".db",
+    ".sqlite",
+    ".lock",
+    ".log",
+    ".md"
+  ]);
+  SECRET_PATTERNS = [
+    {
+      type: "aws_access_key",
+      regex: /(?:AWS_ACCESS_KEY_ID|AWS_SECRET_ACCESS_KEY|aws_access_key_id|aws_secret_access_key)\s*[=:]\s*['"]?([A-Z0-9]{20})['"]?/gi,
+      confidence: "high",
+      severity: "critical",
+      redactTemplate: () => "AKIA[REDACTED]"
+    },
+    {
+      type: "aws_secret_key",
+      regex: /(?:AWS_SECRET_ACCESS_KEY|aws_secret_access_key)\s*[=:]\s*['"]?([A-Za-z0-9+/=]{40})['"]?/gi,
+      confidence: "high",
+      severity: "critical",
+      redactTemplate: () => "[REDACTED_AWS_SECRET]"
+    },
+    {
+      type: "api_key",
+      regex: /(?:api[_-]?key|apikey|API[_-]?KEY)\s*[=:]\s*['"]?([a-zA-Z0-9_-]{16,64})['"]?/gi,
+      confidence: "medium",
+      severity: "high",
+      redactTemplate: (m) => {
+        const key = m.match(/[a-zA-Z0-9_-]{16,64}/)?.[0] || "";
+        return `api_key=${key.slice(0, 4)}...${key.slice(-4)}`;
+      }
+    },
+    {
+      type: "bearer_token",
+      regex: /(?:bearer\s+|Bearer\s+)([a-zA-Z0-9_\-.]{1,200})[\s"'<]/gi,
+      confidence: "medium",
+      severity: "high",
+      redactTemplate: () => "bearer [REDACTED]"
+    },
+    {
+      type: "basic_auth",
+      regex: /(?:basic\s+|Basic\s+)([a-zA-Z0-9+/=]{1,200})[\s"'<]/gi,
+      confidence: "medium",
+      severity: "high",
+      redactTemplate: () => "basic [REDACTED]"
+    },
+    {
+      type: "database_url",
+      regex: /(?:mysql|postgres|postgresql|mongodb|redis):\/\/[^\s"'/:]+:[^\s"'/:]+@[^\s"']+/gi,
+      confidence: "high",
+      severity: "critical",
+      redactTemplate: () => "mysql://[user]:[password]@[host]"
+    },
+    {
+      type: "github_token",
+      regex: /(?:ghp|gho|ghu|ghs|ghr)_[a-zA-Z0-9]{36,}/gi,
+      confidence: "high",
+      severity: "critical",
+      redactTemplate: () => "ghp_[REDACTED]"
+    },
+    {
+      type: "generic_token",
+      regex: /(?:token|TOKEN)\s*[=:]\s*['"]?([a-zA-Z0-9_\-.]{20,80})['"]?/gi,
+      confidence: "low",
+      severity: "medium",
+      redactTemplate: (m) => {
+        const token = m.match(/[a-zA-Z0-9_\-.]{20,80}/)?.[0] || "";
+        return `token=${token.slice(0, 4)}...`;
+      }
+    },
+    {
+      type: "password",
+      regex: /(?:password|passwd|pwd|PASSWORD|PASSWD)\s*[=:]\s*['"]?([^\s'"]{4,100})['"]?/gi,
+      confidence: "medium",
+      severity: "high",
+      redactTemplate: () => "password=[REDACTED]"
+    },
+    {
+      type: "private_key",
+      regex: /-----BEGIN (?:RSA |EC |DSA |OPENSSH )?PRIVATE KEY-----/gi,
+      confidence: "high",
+      severity: "critical",
+      redactTemplate: () => "-----BEGIN PRIVATE KEY-----"
+    },
+    {
+      type: "jwt",
+      regex: /eyJ[a-zA-Z0-9_-]*\.eyJ[a-zA-Z0-9_-]*\.[a-zA-Z0-9_-]*/g,
+      confidence: "high",
+      severity: "high",
+      redactTemplate: (m) => `eyJ...${m.slice(-10)}`
+    },
+    {
+      type: "stripe_key",
+      regex: /(?:sk|pk)_(?:live|test)_[a-zA-Z0-9]{24,}/gi,
+      confidence: "high",
+      severity: "critical",
+      redactTemplate: () => "sk_live_[REDACTED]"
+    },
+    {
+      type: "slack_token",
+      regex: /xox[baprs]-[0-9]{10,13}-[0-9]{10,13}[a-zA-Z0-9-]*/g,
+      confidence: "high",
+      severity: "critical",
+      redactTemplate: () => "xoxb-[REDACTED]"
+    },
+    {
+      type: "sendgrid_key",
+      regex: /SG\.[a-zA-Z0-9_-]{22}\.[a-zA-Z0-9_-]{43}/g,
+      confidence: "high",
+      severity: "critical",
+      redactTemplate: () => "SG.[REDACTED]"
+    },
+    {
+      type: "twilio_key",
+      regex: /SK[a-f0-9]{32}/gi,
+      confidence: "high",
+      severity: "critical",
+      redactTemplate: () => "SK[REDACTED]"
+    }
+  ];
+  O_NOFOLLOW = process.platform !== "win32" ? fs12.constants.O_NOFOLLOW : undefined;
+  secretscan = createSwarmTool({
+    description: "Scan directory for potential secrets (API keys, tokens, passwords) using regex patterns and entropy heuristics. Returns metadata-only findings with redacted previews - NEVER returns raw secrets. Excludes common directories (node_modules, .git, dist, etc.) by default. Supports glob patterns (e.g. **/.svelte-kit/**, **/*.test.ts) and reads .secretscanignore at the scan root.",
+    args: {
+      directory: exports_external.string().describe('Directory to scan for secrets (e.g., "." or "./src")'),
+      exclude: exports_external.array(exports_external.string()).optional().describe("Patterns to exclude: plain directory names (e.g. node_modules), relative paths, or globs (e.g. **/.svelte-kit/**, **/*.test.ts). Added to default exclusions.")
+    },
+    async execute(args, _directory, _ctx) {
+      const typedArgs = args;
+      let directory;
+      let exclude;
+      try {
+        if (typedArgs && typeof typedArgs === "object") {
+          directory = typedArgs.directory;
+          exclude = typedArgs.exclude;
+        }
+      } catch {}
+      if (directory === undefined) {
+        const errorResult = {
+          error: "invalid arguments: directory is required",
+          scan_dir: "",
+          findings: [],
+          count: 0,
+          files_scanned: 0,
+          skipped_files: 0
+        };
+        return JSON.stringify(errorResult, null, 2);
+      }
+      const dirValidationError = validateDirectoryInput(directory);
+      if (dirValidationError) {
+        const errorResult = {
+          error: `invalid directory: ${dirValidationError}`,
+          scan_dir: directory,
+          findings: [],
+          count: 0,
+          files_scanned: 0,
+          skipped_files: 0
+        };
+        return JSON.stringify(errorResult, null, 2);
+      }
+      if (exclude) {
+        for (const exc of exclude) {
+          const err = validateExcludePattern(exc);
+          if (err) {
+            const errorResult = {
+              error: err,
+              scan_dir: directory,
+              findings: [],
+              count: 0,
+              files_scanned: 0,
+              skipped_files: 0
+            };
+            return JSON.stringify(errorResult, null, 2);
+          }
+        }
+      }
+      try {
+        const _scanDirRaw = path25.resolve(directory);
+        const scanDir = (() => {
+          try {
+            return fs12.realpathSync(_scanDirRaw);
+          } catch {
+            return _scanDirRaw;
+          }
+        })();
+        if (!fs12.existsSync(scanDir)) {
+          const errorResult = {
+            error: "directory not found",
+            scan_dir: directory,
+            findings: [],
+            count: 0,
+            files_scanned: 0,
+            skipped_files: 0
+          };
+          return JSON.stringify(errorResult, null, 2);
+        }
+        const dirStat = fs12.statSync(scanDir);
+        if (!dirStat.isDirectory()) {
+          const errorResult = {
+            error: "target must be a directory, not a file",
+            scan_dir: directory,
+            findings: [],
+            count: 0,
+            files_scanned: 0,
+            skipped_files: 0
+          };
+          return JSON.stringify(errorResult, null, 2);
+        }
+        const excludeExact = new Set(DEFAULT_EXCLUDE_DIRS);
+        const excludeGlobs = [];
+        const ignoreFilePatterns = loadSecretScanIgnore(scanDir);
+        const allUserPatterns = [...exclude ?? [], ...ignoreFilePatterns];
+        for (const exc of allUserPatterns) {
+          if (exc.length === 0)
+            continue;
+          if (isGlobOrPathPattern(exc)) {
+            excludeGlobs.push(exc);
+          } else {
+            excludeExact.add(exc);
+          }
+        }
+        const stats = {
+          skippedDirs: 0,
+          skippedFiles: 0,
+          fileErrors: 0,
+          symlinkSkipped: 0
+        };
+        const visited = new Set;
+        const files = findScannableFiles(scanDir, excludeExact, excludeGlobs, scanDir, visited, stats);
+        files.sort((a, b) => {
+          const aLower = a.toLowerCase();
+          const bLower = b.toLowerCase();
+          if (aLower < bLower)
+            return -1;
+          if (aLower > bLower)
+            return 1;
+          return a.localeCompare(b);
+        });
+        const filesToScan = files.slice(0, MAX_FILES_SCANNED);
+        const allFindings = [];
+        let filesScanned = 0;
+        let skippedFiles = stats.skippedFiles;
+        for (const filePath of filesToScan) {
+          if (allFindings.length >= MAX_FINDINGS)
+            break;
+          const fileFindings = scanFileForSecrets(filePath);
+          try {
+            const stat3 = fs12.statSync(filePath);
+            if (stat3.size > MAX_FILE_SIZE_BYTES) {
+              skippedFiles++;
+              continue;
+            }
+          } catch {}
+          filesScanned++;
+          for (const finding of fileFindings) {
+            if (allFindings.length >= MAX_FINDINGS)
+              break;
+            allFindings.push(finding);
+          }
+        }
+        allFindings.sort((a, b) => {
+          const aPathLower = a.path.toLowerCase();
+          const bPathLower = b.path.toLowerCase();
+          if (aPathLower < bPathLower)
+            return -1;
+          if (aPathLower > bPathLower)
+            return 1;
+          if (a.path < b.path)
+            return -1;
+          if (a.path > b.path)
+            return 1;
+          return a.line - b.line;
+        });
+        const result = {
+          scan_dir: directory,
+          findings: allFindings,
+          count: allFindings.length,
+          files_scanned: filesScanned,
+          skipped_files: skippedFiles + stats.fileErrors + stats.symlinkSkipped
+        };
+        const parts = [];
+        if (files.length > MAX_FILES_SCANNED) {
+          parts.push(`Found ${files.length} files, scanned ${MAX_FILES_SCANNED}`);
+        }
+        if (allFindings.length >= MAX_FINDINGS) {
+          parts.push(`Results limited to ${MAX_FINDINGS} findings`);
+        }
+        if (skippedFiles > 0 || stats.fileErrors > 0 || stats.symlinkSkipped > 0) {
+          parts.push(`${skippedFiles + stats.fileErrors + stats.symlinkSkipped} files skipped (binary/oversized/symlinks/errors)`);
+        }
+        if (parts.length > 0) {
+          result.message = `${parts.join("; ")}.`;
+        }
+        let jsonOutput = JSON.stringify(result, null, 2);
+        if (jsonOutput.length > MAX_OUTPUT_BYTES2) {
+          const truncatedResult = {
+            ...result,
+            findings: result.findings.slice(0, Math.floor(MAX_OUTPUT_BYTES2 * 0.8 / 200)),
+            message: "Output truncated due to size limits."
+          };
+          jsonOutput = JSON.stringify(truncatedResult, null, 2);
+        }
+        return jsonOutput;
+      } catch (e) {
+        const errorResult = {
+          error: e instanceof Error ? `scan failed: ${e.message || "internal error"}` : "scan failed: unknown error",
+          scan_dir: directory,
+          findings: [],
+          count: 0,
+          files_scanned: 0,
+          skipped_files: 0
+        };
+        return JSON.stringify(errorResult, null, 2);
+      }
+    }
+  });
+});
 
 // src/test-impact/analyzer.ts
 import fs13 from "fs";
 import path26 from "path";
-var IMPORT_REGEX_ES = /import\s+.*?\s+from\s+['"]([^'"]+)['"]/g;
-var IMPORT_REGEX_REQUIRE = /require\s*\(\s*['"]([^'"]+)['"]\s*\)/g;
-var IMPORT_REGEX_REEXPORT = /export\s+(?:\{[^}]*\}|\*)\s+from\s+['"]([^'"]+)['"]/g;
-var EXTENSIONS_TO_TRY = [".ts", ".tsx", ".js", ".jsx", ".mjs", ".cjs"];
 function normalizePath(p) {
   return p.replace(/\\/g, "/");
 }
@@ -42411,6 +43034,13 @@ async function analyzeImpact(changedFiles, cwd) {
     impactMap
   };
 }
+var IMPORT_REGEX_ES, IMPORT_REGEX_REQUIRE, IMPORT_REGEX_REEXPORT, EXTENSIONS_TO_TRY;
+var init_analyzer = __esm(() => {
+  IMPORT_REGEX_ES = /import\s+.*?\s+from\s+['"]([^'"]+)['"]/g;
+  IMPORT_REGEX_REQUIRE = /require\s*\(\s*['"]([^'"]+)['"]\s*\)/g;
+  IMPORT_REGEX_REEXPORT = /export\s+(?:\{[^}]*\}|\*)\s+from\s+['"]([^'"]+)['"]/g;
+  EXTENSIONS_TO_TRY = [".ts", ".tsx", ".js", ".jsx", ".mjs", ".cjs"];
+});
 
 // src/test-impact/failure-classifier.ts
 function computeConfidence2(historyLength) {
@@ -42556,9 +43186,6 @@ function classifyAndCluster(testResults, history) {
 }
 
 // src/test-impact/flaky-detector.ts
-var FLAKY_THRESHOLD = 0.3;
-var MIN_RUNS_FOR_QUARANTINE = 5;
-var MAX_HISTORY_RUNS = 20;
 function detectFlakyTests(allHistory) {
   const grouped = new Map;
   for (const record3 of allHistory) {
@@ -42618,14 +43245,11 @@ function detectFlakyTests(allHistory) {
   }
   return results;
 }
+var FLAKY_THRESHOLD = 0.3, MIN_RUNS_FOR_QUARANTINE = 5, MAX_HISTORY_RUNS = 20;
 
 // src/test-impact/history-store.ts
 import fs14 from "fs";
 import path27 from "path";
-var MAX_HISTORY_PER_TEST = 20;
-var MAX_ERROR_LENGTH = 500;
-var MAX_STACK_LENGTH = 200;
-var MAX_CHANGED_FILES = 50;
 function getHistoryPath(workingDir) {
   return path27.join(workingDir || process.cwd(), ".swarm", "cache", "test-history.jsonl");
 }
@@ -42647,11 +43271,6 @@ function sanitizeStackPrefix(stackPrefix) {
   }
   return stackPrefix;
 }
-var DANGEROUS_PROPERTY_NAMES = new Set([
-  "__proto__",
-  "constructor",
-  "prototype"
-]);
 function sanitizeChangedFiles(changedFiles) {
   const validFiles = changedFiles.filter((f) => typeof f === "string" && f.length > 0 && !DANGEROUS_PROPERTY_NAMES.has(f));
   return validFiles.slice(0, MAX_CHANGED_FILES);
@@ -42758,9 +43377,14 @@ function getAllHistory(workingDir) {
   records.sort((a, b) => new Date(a.timestamp).getTime() - new Date(b.timestamp).getTime());
   return records;
 }
-
-// src/tools/test-runner.ts
-init_bun_compat();
+var MAX_HISTORY_PER_TEST = 20, MAX_ERROR_LENGTH = 500, MAX_STACK_LENGTH = 200, MAX_CHANGED_FILES = 50, DANGEROUS_PROPERTY_NAMES;
+var init_history_store = __esm(() => {
+  DANGEROUS_PROPERTY_NAMES = new Set([
+    "__proto__",
+    "constructor",
+    "prototype"
+  ]);
+});
 
 // src/tools/resolve-working-directory.ts
 import * as fs15 from "fs";
@@ -42836,13 +43460,11 @@ function resolveWorkingDirectory(workingDirectory, fallbackDirectory) {
   }
   return { success: true, directory: resolvedDir };
 }
+var init_resolve_working_directory = () => {};
 
 // src/tools/test-runner.ts
-var MAX_OUTPUT_BYTES3 = 512000;
-var MAX_COMMAND_LENGTH2 = 500;
-var DEFAULT_TIMEOUT_MS = 60000;
-var MAX_TIMEOUT_MS = 300000;
-var MAX_SAFE_TEST_FILES = 50;
+import * as fs16 from "fs";
+import * as path29 from "path";
 function isAbsolutePath(str) {
   if (str.startsWith("/"))
     return true;
@@ -42854,7 +43476,6 @@ function isAbsolutePath(str) {
     return true;
   return false;
 }
-var POWERSHELL_METACHARACTERS = /[|;&`$(){}[\]<>"'#*?\x00-\x1f]/;
 function containsPowerShellMetacharacters(str) {
   return POWERSHELL_METACHARACTERS.test(str);
 }
@@ -43039,20 +43660,6 @@ async function detectTestFramework(cwd) {
     return "minitest";
   return "none";
 }
-var COMPOUND_TEST_EXTENSIONS = [
-  ".test.ts",
-  ".test.tsx",
-  ".test.js",
-  ".test.jsx",
-  ".tests.ps1",
-  ".spec.ts",
-  ".spec.tsx",
-  ".spec.js",
-  ".spec.jsx",
-  ".test.ps1",
-  ".spec.ps1"
-];
-var TEST_DIRECTORY_NAMES = ["__tests__", "tests", "test", "spec"];
 function isTestDirectoryPath(normalizedPath) {
   return normalizedPath.split("/").some((segment) => TEST_DIRECTORY_NAMES.includes(segment));
 }
@@ -43781,58 +44388,6 @@ async function runTests(framework, scope, files, coverage, timeout_ms, cwd) {
     };
   }
 }
-var SOURCE_EXTENSIONS = new Set([
-  ".ts",
-  ".tsx",
-  ".js",
-  ".jsx",
-  ".mjs",
-  ".cjs",
-  ".py",
-  ".rs",
-  ".ps1",
-  ".psm1",
-  ".go",
-  ".java",
-  ".kt",
-  ".kts",
-  ".cs",
-  ".c",
-  ".h",
-  ".cpp",
-  ".hpp",
-  ".cc",
-  ".cxx",
-  ".swift",
-  ".dart",
-  ".rb",
-  ".pyi"
-]);
-var SKIP_DIRECTORIES = new Set([
-  "node_modules",
-  ".git",
-  "dist",
-  "build",
-  "out",
-  "coverage",
-  ".next",
-  ".nuxt",
-  ".cache",
-  "vendor",
-  ".svn",
-  ".hg",
-  "__pycache__",
-  ".pytest_cache",
-  "target",
-  ".gradle",
-  ".dart_tool",
-  ".build",
-  "Pods",
-  "bin",
-  "obj",
-  ".bundle",
-  ".tox"
-]);
 function recordAndAnalyzeResults(result, testFiles, workingDir, sourceFiles) {
   if (!result.totals || result.totals.total === 0)
     return;
@@ -43880,224 +44435,313 @@ function analyzeFailures(workingDir) {
   } catch {}
   return report;
 }
-var test_runner = createSwarmTool({
-  description: 'Run project tests with framework detection. Supports bun, vitest, jest, mocha, pytest, cargo, pester, go-test, maven, gradle, dotnet-test, ctest, swift-test, dart-test, rspec, and minitest. Returns deterministic normalized JSON with framework, scope, command, totals, coverage, duration, success status, and failures. Use scope "all" for full suite, "convention" to accept direct test files or map source files to test files, "graph" to find related tests via imports from source files, or "impact" to find tests covering changed source files using test-impact analysis.',
-  args: {
-    scope: exports_external.enum(["all", "convention", "graph", "impact"]).optional().describe('Test scope: "all" runs full suite, "convention" accepts direct test files or maps source files to tests by naming, "graph" finds related tests via imports from source files, "impact" finds tests covering changed source files via test-impact analysis'),
-    files: exports_external.array(exports_external.string()).optional().describe('Specific files to test. For "convention", pass source files or direct test files. For "graph" and "impact", pass source files only.'),
-    coverage: exports_external.boolean().optional().describe("Enable coverage reporting if supported"),
-    timeout_ms: exports_external.number().optional().describe("Timeout in milliseconds (default 60000, max 300000)"),
-    allow_full_suite: exports_external.boolean().optional().describe('Explicit opt-in for scope "all". Required because full-suite output can destabilize SSE streaming.'),
-    working_directory: exports_external.string().optional().describe("Explicit project root directory. When provided, tests run relative to this path instead of the plugin context directory. Use this when CWD differs from the actual project root.")
-  },
-  async execute(args, directory) {
-    let workingDirInput;
-    if (args && typeof args === "object") {
-      const obj = args;
-      workingDirInput = typeof obj.working_directory === "string" ? obj.working_directory : undefined;
-    }
-    const dirResult = resolveWorkingDirectory(workingDirInput, directory);
-    if (!dirResult.success) {
-      const errorResult = {
-        success: false,
-        framework: "none",
-        scope: "all",
-        error: dirResult.message,
-        outcome: "error"
-      };
-      return JSON.stringify(errorResult, null, 2);
-    }
-    const workingDir = dirResult.directory;
-    if (workingDir.length > 4096) {
-      const errorResult = {
-        success: false,
-        framework: "none",
-        scope: "all",
-        error: "Invalid working directory",
-        outcome: "error"
-      };
-      return JSON.stringify(errorResult, null, 2);
-    }
-    if (/^[/\\]{2}/.test(workingDir)) {
-      const errorResult = {
-        success: false,
-        framework: "none",
-        scope: "all",
-        error: "Invalid working directory",
-        outcome: "error"
-      };
-      return JSON.stringify(errorResult, null, 2);
-    }
-    if (containsControlChars(workingDir)) {
-      const errorResult = {
-        success: false,
-        framework: "none",
-        scope: "all",
-        error: "Invalid working directory",
-        outcome: "error"
-      };
-      return JSON.stringify(errorResult, null, 2);
-    }
-    if (containsPathTraversal(workingDir)) {
-      const errorResult = {
-        success: false,
-        framework: "none",
-        scope: "all",
-        error: "Invalid working directory",
-        outcome: "error"
-      };
-      return JSON.stringify(errorResult, null, 2);
-    }
-    if (!validateArgs2(args)) {
-      const errorResult = {
-        success: false,
-        framework: "none",
-        scope: "all",
-        error: "Invalid arguments",
-        message: 'scope must be "all", "convention", "graph", or "impact"; files must be array of strings; coverage must be boolean; timeout_ms must be a positive number',
-        outcome: "error"
-      };
-      return JSON.stringify(errorResult, null, 2);
-    }
-    const scope = args.scope || "all";
-    if (scope === "all") {
-      if (!args.allow_full_suite) {
+var MAX_OUTPUT_BYTES3 = 512000, MAX_COMMAND_LENGTH2 = 500, DEFAULT_TIMEOUT_MS = 60000, MAX_TIMEOUT_MS = 300000, MAX_SAFE_TEST_FILES = 50, POWERSHELL_METACHARACTERS, COMPOUND_TEST_EXTENSIONS, TEST_DIRECTORY_NAMES, SOURCE_EXTENSIONS, SKIP_DIRECTORIES, test_runner;
+var init_test_runner = __esm(() => {
+  init_zod();
+  init_discovery();
+  init_analyzer();
+  init_history_store();
+  init_bun_compat();
+  init_path_security();
+  init_create_tool();
+  init_resolve_working_directory();
+  POWERSHELL_METACHARACTERS = /[|;&`$(){}[\]<>"'#*?\x00-\x1f]/;
+  COMPOUND_TEST_EXTENSIONS = [
+    ".test.ts",
+    ".test.tsx",
+    ".test.js",
+    ".test.jsx",
+    ".tests.ps1",
+    ".spec.ts",
+    ".spec.tsx",
+    ".spec.js",
+    ".spec.jsx",
+    ".test.ps1",
+    ".spec.ps1"
+  ];
+  TEST_DIRECTORY_NAMES = ["__tests__", "tests", "test", "spec"];
+  SOURCE_EXTENSIONS = new Set([
+    ".ts",
+    ".tsx",
+    ".js",
+    ".jsx",
+    ".mjs",
+    ".cjs",
+    ".py",
+    ".rs",
+    ".ps1",
+    ".psm1",
+    ".go",
+    ".java",
+    ".kt",
+    ".kts",
+    ".cs",
+    ".c",
+    ".h",
+    ".cpp",
+    ".hpp",
+    ".cc",
+    ".cxx",
+    ".swift",
+    ".dart",
+    ".rb",
+    ".pyi"
+  ]);
+  SKIP_DIRECTORIES = new Set([
+    "node_modules",
+    ".git",
+    "dist",
+    "build",
+    "out",
+    "coverage",
+    ".next",
+    ".nuxt",
+    ".cache",
+    "vendor",
+    ".svn",
+    ".hg",
+    "__pycache__",
+    ".pytest_cache",
+    "target",
+    ".gradle",
+    ".dart_tool",
+    ".build",
+    "Pods",
+    "bin",
+    "obj",
+    ".bundle",
+    ".tox"
+  ]);
+  test_runner = createSwarmTool({
+    description: 'Run project tests with framework detection. Supports bun, vitest, jest, mocha, pytest, cargo, pester, go-test, maven, gradle, dotnet-test, ctest, swift-test, dart-test, rspec, and minitest. Returns deterministic normalized JSON with framework, scope, command, totals, coverage, duration, success status, and failures. Use scope "all" for full suite, "convention" to accept direct test files or map source files to test files, "graph" to find related tests via imports from source files, or "impact" to find tests covering changed source files using test-impact analysis.',
+    args: {
+      scope: exports_external.enum(["all", "convention", "graph", "impact"]).optional().describe('Test scope: "all" runs full suite, "convention" accepts direct test files or maps source files to tests by naming, "graph" finds related tests via imports from source files, "impact" finds tests covering changed source files via test-impact analysis'),
+      files: exports_external.array(exports_external.string()).optional().describe('Specific files to test. For "convention", pass source files or direct test files. For "graph" and "impact", pass source files only.'),
+      coverage: exports_external.boolean().optional().describe("Enable coverage reporting if supported"),
+      timeout_ms: exports_external.number().optional().describe("Timeout in milliseconds (default 60000, max 300000)"),
+      allow_full_suite: exports_external.boolean().optional().describe('Explicit opt-in for scope "all". Required because full-suite output can destabilize SSE streaming.'),
+      working_directory: exports_external.string().optional().describe("Explicit project root directory. When provided, tests run relative to this path instead of the plugin context directory. Use this when CWD differs from the actual project root.")
+    },
+    async execute(args, directory) {
+      let workingDirInput;
+      if (args && typeof args === "object") {
+        const obj = args;
+        workingDirInput = typeof obj.working_directory === "string" ? obj.working_directory : undefined;
+      }
+      const dirResult = resolveWorkingDirectory(workingDirInput, directory);
+      if (!dirResult.success) {
         const errorResult = {
           success: false,
           framework: "none",
           scope: "all",
-          error: 'scope "all" is not allowed without explicit files. Use scope "convention" or "graph" with a files array to run targeted tests.',
-          message: 'Running the full test suite without file targeting is blocked. Provide scope "convention" or "graph" with specific source files in the files array. Example: { scope: "convention", files: ["src/tools/test-runner.ts"] }',
+          error: dirResult.message,
           outcome: "error"
         };
         return JSON.stringify(errorResult, null, 2);
       }
-    }
-    if ((scope === "convention" || scope === "graph" || scope === "impact") && (!args.files || args.files.length === 0)) {
-      const errorResult = {
-        success: false,
-        framework: "none",
-        scope,
-        error: 'scope "convention" and "graph" require explicit files array - omitting files causes unsafe full-project discovery',
-        message: 'When using scope "convention" or "graph", you must provide a non-empty "files" array. Use scope "all" for full project test suite without specifying files.',
-        outcome: "error"
-      };
-      return JSON.stringify(errorResult, null, 2);
-    }
-    const _files = args.files || [];
-    const coverage = args.coverage || false;
-    const timeout_ms = Math.min(args.timeout_ms || DEFAULT_TIMEOUT_MS, MAX_TIMEOUT_MS);
-    const framework = await detectTestFramework(workingDir);
-    if (framework === "none") {
-      const result2 = {
-        success: false,
-        framework: "none",
-        scope,
-        error: "No test framework detected",
-        message: "No supported test framework found. Install bun, vitest, jest, mocha, pytest, cargo, pester, or a supported language test runner (go test, maven, gradle, dotnet test, ctest, swift test, dart test, rspec, minitest).",
-        totals: {
-          passed: 0,
-          failed: 0,
-          skipped: 0,
-          total: 0
-        },
-        outcome: "error"
-      };
-      return JSON.stringify(result2, null, 2);
-    }
-    let testFiles = [];
-    let graphFallbackReason;
-    let effectiveScope = scope;
-    if (scope === "all") {} else if (scope === "convention") {
-      const directTestFiles = args.files.filter((file3) => isConventionTestFilePath(file3));
-      const sourceFiles = args.files.filter((file3) => {
-        if (directTestFiles.includes(file3))
-          return false;
-        const ext = path29.extname(file3).toLowerCase();
-        return SOURCE_EXTENSIONS.has(ext);
-      });
-      const invalidFiles = args.files.filter((file3) => !directTestFiles.includes(file3) && !sourceFiles.includes(file3));
-      if (directTestFiles.length === 0 && sourceFiles.length === 0) {
+      const workingDir = dirResult.directory;
+      if (workingDir.length > 4096) {
         const errorResult = {
           success: false,
-          framework,
-          scope,
-          error: "Provided files contain no recognized source files or direct test files",
-          message: "The files array must contain at least one source file with a recognized extension (.ts, .tsx, .js, .jsx, .py, .rs, .ps1, etc.) or a direct test file in a supported test location/naming convention.",
+          framework: "none",
+          scope: "all",
+          error: "Invalid working directory",
           outcome: "error"
         };
         return JSON.stringify(errorResult, null, 2);
       }
-      if (invalidFiles.length > 0) {
+      if (/^[/\\]{2}/.test(workingDir)) {
         const errorResult = {
           success: false,
-          framework,
-          scope,
-          error: "Provided files include entries that are neither recognized source files nor direct test files",
-          message: `These files are not valid for targeted test discovery: ${invalidFiles.join(", ")}`,
+          framework: "none",
+          scope: "all",
+          error: "Invalid working directory",
           outcome: "error"
         };
         return JSON.stringify(errorResult, null, 2);
       }
-      testFiles = [
-        ...directTestFiles,
-        ...getTestFilesFromConvention(sourceFiles, workingDir)
-      ].filter((file3, index, items) => items.indexOf(file3) === index);
-    } else if (scope === "graph") {
-      const sourceFiles = args.files.filter((f) => {
-        if (isConventionTestFilePath(f)) {
-          return false;
+      if (containsControlChars(workingDir)) {
+        const errorResult = {
+          success: false,
+          framework: "none",
+          scope: "all",
+          error: "Invalid working directory",
+          outcome: "error"
+        };
+        return JSON.stringify(errorResult, null, 2);
+      }
+      if (containsPathTraversal(workingDir)) {
+        const errorResult = {
+          success: false,
+          framework: "none",
+          scope: "all",
+          error: "Invalid working directory",
+          outcome: "error"
+        };
+        return JSON.stringify(errorResult, null, 2);
+      }
+      if (!validateArgs2(args)) {
+        const errorResult = {
+          success: false,
+          framework: "none",
+          scope: "all",
+          error: "Invalid arguments",
+          message: 'scope must be "all", "convention", "graph", or "impact"; files must be array of strings; coverage must be boolean; timeout_ms must be a positive number',
+          outcome: "error"
+        };
+        return JSON.stringify(errorResult, null, 2);
+      }
+      const scope = args.scope || "all";
+      if (scope === "all") {
+        if (!args.allow_full_suite) {
+          const errorResult = {
+            success: false,
+            framework: "none",
+            scope: "all",
+            error: 'scope "all" is not allowed without explicit files. Use scope "convention" or "graph" with a files array to run targeted tests.',
+            message: 'Running the full test suite without file targeting is blocked. Provide scope "convention" or "graph" with specific source files in the files array. Example: { scope: "convention", files: ["src/tools/test-runner.ts"] }',
+            outcome: "error"
+          };
+          return JSON.stringify(errorResult, null, 2);
         }
-        const ext = path29.extname(f).toLowerCase();
-        return SOURCE_EXTENSIONS.has(ext);
-      });
-      if (sourceFiles.length === 0) {
+      }
+      if ((scope === "convention" || scope === "graph" || scope === "impact") && (!args.files || args.files.length === 0)) {
         const errorResult = {
           success: false,
-          framework,
+          framework: "none",
           scope,
-          error: "Provided files contain no source files with recognized extensions",
-          message: 'The files array for scope "graph" must contain at least one source file with a recognized extension (.ts, .tsx, .js, .jsx, .py, .rs, .ps1, etc.). Direct test files belong in scope "convention".',
+          error: 'scope "convention" and "graph" require explicit files array - omitting files causes unsafe full-project discovery',
+          message: 'When using scope "convention" or "graph", you must provide a non-empty "files" array. Use scope "all" for full project test suite without specifying files.',
           outcome: "error"
         };
         return JSON.stringify(errorResult, null, 2);
       }
-      const graphTestFiles = await getTestFilesFromGraph(sourceFiles, workingDir);
-      if (graphTestFiles.length > 0) {
-        testFiles = graphTestFiles;
-      } else {
-        graphFallbackReason = "imports resolution returned no results, falling back to convention";
-        effectiveScope = "convention";
-        testFiles = getTestFilesFromConvention(sourceFiles, workingDir);
+      const _files = args.files || [];
+      const coverage = args.coverage || false;
+      const timeout_ms = Math.min(args.timeout_ms || DEFAULT_TIMEOUT_MS, MAX_TIMEOUT_MS);
+      const framework = await detectTestFramework(workingDir);
+      if (framework === "none") {
+        const result2 = {
+          success: false,
+          framework: "none",
+          scope,
+          error: "No test framework detected",
+          message: "No supported test framework found. Install bun, vitest, jest, mocha, pytest, cargo, pester, or a supported language test runner (go test, maven, gradle, dotnet test, ctest, swift test, dart test, rspec, minitest).",
+          totals: {
+            passed: 0,
+            failed: 0,
+            skipped: 0,
+            total: 0
+          },
+          outcome: "error"
+        };
+        return JSON.stringify(result2, null, 2);
       }
-    } else if (scope === "impact") {
-      const sourceFiles = args.files.filter((f) => {
-        if (isConventionTestFilePath(f)) {
-          return false;
+      let testFiles = [];
+      let graphFallbackReason;
+      let effectiveScope = scope;
+      if (scope === "all") {} else if (scope === "convention") {
+        const directTestFiles = args.files.filter((file3) => isConventionTestFilePath(file3));
+        const sourceFiles = args.files.filter((file3) => {
+          if (directTestFiles.includes(file3))
+            return false;
+          const ext = path29.extname(file3).toLowerCase();
+          return SOURCE_EXTENSIONS.has(ext);
+        });
+        const invalidFiles = args.files.filter((file3) => !directTestFiles.includes(file3) && !sourceFiles.includes(file3));
+        if (directTestFiles.length === 0 && sourceFiles.length === 0) {
+          const errorResult = {
+            success: false,
+            framework,
+            scope,
+            error: "Provided files contain no recognized source files or direct test files",
+            message: "The files array must contain at least one source file with a recognized extension (.ts, .tsx, .js, .jsx, .py, .rs, .ps1, etc.) or a direct test file in a supported test location/naming convention.",
+            outcome: "error"
+          };
+          return JSON.stringify(errorResult, null, 2);
         }
-        const ext = path29.extname(f).toLowerCase();
-        return SOURCE_EXTENSIONS.has(ext);
-      });
-      if (sourceFiles.length === 0) {
-        const errorResult = {
-          success: false,
-          framework,
-          scope,
-          error: "Provided files contain no source files with recognized extensions",
-          message: 'The files array for scope "impact" must contain at least one source file with a recognized extension (.ts, .tsx, .js, .jsx, .py, .rs, .ps1, etc.). Direct test files belong in scope "convention".',
-          outcome: "error"
-        };
-        return JSON.stringify(errorResult, null, 2);
-      }
-      try {
-        const impactResult = await analyzeImpact(sourceFiles, workingDir);
-        if (impactResult.impactedTests.length > 0) {
-          testFiles = impactResult.impactedTests.map((absPath) => {
-            const relativePath = path29.relative(workingDir, absPath);
-            return path29.isAbsolute(relativePath) ? absPath : relativePath;
-          });
+        if (invalidFiles.length > 0) {
+          const errorResult = {
+            success: false,
+            framework,
+            scope,
+            error: "Provided files include entries that are neither recognized source files nor direct test files",
+            message: `These files are not valid for targeted test discovery: ${invalidFiles.join(", ")}`,
+            outcome: "error"
+          };
+          return JSON.stringify(errorResult, null, 2);
+        }
+        testFiles = [
+          ...directTestFiles,
+          ...getTestFilesFromConvention(sourceFiles, workingDir)
+        ].filter((file3, index, items) => items.indexOf(file3) === index);
+      } else if (scope === "graph") {
+        const sourceFiles = args.files.filter((f) => {
+          if (isConventionTestFilePath(f)) {
+            return false;
+          }
+          const ext = path29.extname(f).toLowerCase();
+          return SOURCE_EXTENSIONS.has(ext);
+        });
+        if (sourceFiles.length === 0) {
+          const errorResult = {
+            success: false,
+            framework,
+            scope,
+            error: "Provided files contain no source files with recognized extensions",
+            message: 'The files array for scope "graph" must contain at least one source file with a recognized extension (.ts, .tsx, .js, .jsx, .py, .rs, .ps1, etc.). Direct test files belong in scope "convention".',
+            outcome: "error"
+          };
+          return JSON.stringify(errorResult, null, 2);
+        }
+        const graphTestFiles = await getTestFilesFromGraph(sourceFiles, workingDir);
+        if (graphTestFiles.length > 0) {
+          testFiles = graphTestFiles;
         } else {
-          graphFallbackReason = "no impacted tests found via impact analysis, falling back to graph";
+          graphFallbackReason = "imports resolution returned no results, falling back to convention";
+          effectiveScope = "convention";
+          testFiles = getTestFilesFromConvention(sourceFiles, workingDir);
+        }
+      } else if (scope === "impact") {
+        const sourceFiles = args.files.filter((f) => {
+          if (isConventionTestFilePath(f)) {
+            return false;
+          }
+          const ext = path29.extname(f).toLowerCase();
+          return SOURCE_EXTENSIONS.has(ext);
+        });
+        if (sourceFiles.length === 0) {
+          const errorResult = {
+            success: false,
+            framework,
+            scope,
+            error: "Provided files contain no source files with recognized extensions",
+            message: 'The files array for scope "impact" must contain at least one source file with a recognized extension (.ts, .tsx, .js, .jsx, .py, .rs, .ps1, etc.). Direct test files belong in scope "convention".',
+            outcome: "error"
+          };
+          return JSON.stringify(errorResult, null, 2);
+        }
+        try {
+          const impactResult = await analyzeImpact(sourceFiles, workingDir);
+          if (impactResult.impactedTests.length > 0) {
+            testFiles = impactResult.impactedTests.map((absPath) => {
+              const relativePath = path29.relative(workingDir, absPath);
+              return path29.isAbsolute(relativePath) ? absPath : relativePath;
+            });
+          } else {
+            graphFallbackReason = "no impacted tests found via impact analysis, falling back to graph";
+            effectiveScope = "graph";
+            const graphTestFiles = await getTestFilesFromGraph(sourceFiles, workingDir);
+            if (graphTestFiles.length > 0) {
+              testFiles = graphTestFiles;
+            } else {
+              graphFallbackReason = "imports resolution returned no results, falling back to convention";
+              effectiveScope = "convention";
+              testFiles = getTestFilesFromConvention(sourceFiles, workingDir);
+            }
+          }
+        } catch {
+          graphFallbackReason = "impact analysis failed, falling back to graph";
           effectiveScope = "graph";
           const graphTestFiles = await getTestFilesFromGraph(sourceFiles, workingDir);
           if (graphTestFiles.length > 0) {
@@ -44108,78 +44752,57 @@ var test_runner = createSwarmTool({
             testFiles = getTestFilesFromConvention(sourceFiles, workingDir);
           }
         }
-      } catch {
-        graphFallbackReason = "impact analysis failed, falling back to graph";
-        effectiveScope = "graph";
-        const graphTestFiles = await getTestFilesFromGraph(sourceFiles, workingDir);
-        if (graphTestFiles.length > 0) {
-          testFiles = graphTestFiles;
-        } else {
-          graphFallbackReason = "imports resolution returned no results, falling back to convention";
-          effectiveScope = "convention";
-          testFiles = getTestFilesFromConvention(sourceFiles, workingDir);
+      }
+      if (scope !== "all" && testFiles.length === 0) {
+        const baseMessage = "No matching test files found for the provided source files. Check that test files exist with matching naming conventions (.spec.*, .test.*, .Tests.ps1, __tests__/, tests/, test/, spec/).";
+        const errorResult = {
+          success: false,
+          framework,
+          scope: effectiveScope,
+          error: "Provided source files resolved to zero test files",
+          message: graphFallbackReason ? `${baseMessage} (${graphFallbackReason})` : baseMessage,
+          outcome: "skip",
+          ...scope === "graph" && { attempted_scope: "graph" },
+          ...scope === "impact" && { attempted_scope: "graph" }
+        };
+        return JSON.stringify(errorResult, null, 2);
+      }
+      if (scope !== "all" && testFiles.length > MAX_SAFE_TEST_FILES) {
+        const sampleFiles = testFiles.slice(0, 5);
+        const errorResult = {
+          success: false,
+          framework,
+          scope: effectiveScope,
+          error: `Resolved test file count (${testFiles.length}) exceeds safe maximum (${MAX_SAFE_TEST_FILES})`,
+          message: `Too many test files resolved (${testFiles.length}). Maximum allowed is ${MAX_SAFE_TEST_FILES}. Treat this as SKIP without retry. Provide more specific source files to narrow down test scope. First few resolved: ${sampleFiles.join(", ")}`,
+          outcome: "scope_exceeded"
+        };
+        return JSON.stringify(errorResult, null, 2);
+      }
+      const result = await runTests(framework, effectiveScope, testFiles, coverage, timeout_ms, workingDir);
+      recordAndAnalyzeResults(result, testFiles, workingDir, _files.length > 0 ? _files : undefined);
+      let historyReport;
+      if (!result.success && result.totals && result.totals.failed > 0) {
+        historyReport = analyzeFailures(workingDir);
+        if (historyReport.quarantinedFailures.length > 0) {
+          result.message = (result.message || "") + ` | QUARANTINED (flaky): ${historyReport.quarantinedFailures.join(", ")}`;
+        }
+        if (historyReport.failureClusters.length > 0) {
+          const clusterSummary = historyReport.failureClusters.slice(0, 3).map((c) => `${c.classification}: ${c.rootCause.substring(0, 80)}`).join("; ");
+          result.message = `${result.message || ""} | FAILURE ANALYSIS: ${clusterSummary}`;
         }
       }
-    }
-    if (scope !== "all" && testFiles.length === 0) {
-      const baseMessage = "No matching test files found for the provided source files. Check that test files exist with matching naming conventions (.spec.*, .test.*, .Tests.ps1, __tests__/, tests/, test/, spec/).";
-      const errorResult = {
-        success: false,
-        framework,
-        scope: effectiveScope,
-        error: "Provided source files resolved to zero test files",
-        message: graphFallbackReason ? `${baseMessage} (${graphFallbackReason})` : baseMessage,
-        outcome: "skip",
-        ...scope === "graph" && { attempted_scope: "graph" },
-        ...scope === "impact" && { attempted_scope: "graph" }
-      };
-      return JSON.stringify(errorResult, null, 2);
-    }
-    if (scope !== "all" && testFiles.length > MAX_SAFE_TEST_FILES) {
-      const sampleFiles = testFiles.slice(0, 5);
-      const errorResult = {
-        success: false,
-        framework,
-        scope: effectiveScope,
-        error: `Resolved test file count (${testFiles.length}) exceeds safe maximum (${MAX_SAFE_TEST_FILES})`,
-        message: `Too many test files resolved (${testFiles.length}). Maximum allowed is ${MAX_SAFE_TEST_FILES}. Treat this as SKIP without retry. Provide more specific source files to narrow down test scope. First few resolved: ${sampleFiles.join(", ")}`,
-        outcome: "scope_exceeded"
-      };
-      return JSON.stringify(errorResult, null, 2);
-    }
-    const result = await runTests(framework, effectiveScope, testFiles, coverage, timeout_ms, workingDir);
-    recordAndAnalyzeResults(result, testFiles, workingDir, _files.length > 0 ? _files : undefined);
-    let historyReport;
-    if (!result.success && result.totals && result.totals.failed > 0) {
-      historyReport = analyzeFailures(workingDir);
-      if (historyReport.quarantinedFailures.length > 0) {
-        result.message = (result.message || "") + ` | QUARANTINED (flaky): ${historyReport.quarantinedFailures.join(", ")}`;
+      if (graphFallbackReason && result.message) {
+        result.message = `${result.message} (${graphFallbackReason})`;
       }
-      if (historyReport.failureClusters.length > 0) {
-        const clusterSummary = historyReport.failureClusters.slice(0, 3).map((c) => `${c.classification}: ${c.rootCause.substring(0, 80)}`).join("; ");
-        result.message = `${result.message || ""} | FAILURE ANALYSIS: ${clusterSummary}`;
-      }
+      return JSON.stringify(result, null, 2);
     }
-    if (graphFallbackReason && result.message) {
-      result.message = `${result.message} (${graphFallbackReason})`;
-    }
-    return JSON.stringify(result, null, 2);
-  }
+  });
 });
 
 // src/services/preflight-service.ts
-init_utils();
-var MIN_CHECK_TIMEOUT_MS = 5000;
-var MAX_CHECK_TIMEOUT_MS = 300000;
-var DEFAULT_CONFIG = {
-  checkTimeoutMs: 60000,
-  skipTests: false,
-  skipSecrets: false,
-  skipEvidence: false,
-  skipVersion: false,
-  testScope: "convention",
-  linter: "biome"
-};
+import * as fs17 from "fs";
+import * as path30 from "path";
 function validateDirectoryPath(dir) {
   if (!dir || typeof dir !== "string") {
     throw new Error("Directory path is required");
@@ -44776,6 +45399,30 @@ async function handlePreflightCommand(directory, _args) {
   const report = await runPreflight(directory, phase);
   return formatPreflightMarkdown(report);
 }
+var MIN_CHECK_TIMEOUT_MS = 5000, MAX_CHECK_TIMEOUT_MS = 300000, DEFAULT_CONFIG;
+var init_preflight_service = __esm(() => {
+  init_manager2();
+  init_manager();
+  init_lint();
+  init_secretscan();
+  init_test_runner();
+  init_utils();
+  DEFAULT_CONFIG = {
+    checkTimeoutMs: 60000,
+    skipTests: false,
+    skipSecrets: false,
+    skipEvidence: false,
+    skipVersion: false,
+    testScope: "convention",
+    linter: "biome"
+  };
+});
+
+// src/commands/preflight.ts
+var init_preflight = __esm(() => {
+  init_preflight_service();
+});
+
 // src/commands/promote.ts
 async function handlePromoteCommand(directory, args) {
   let category;
@@ -44816,21 +45463,11 @@ async function handlePromoteCommand(directory, args) {
     return `Failed to promote lesson: ${error93 instanceof Error ? error93.message : String(error93)}`;
   }
 }
+var init_promote = __esm(() => {
+  init_hive_promoter();
+});
 
 // src/commands/qa-gates.ts
-init_manager();
-var ALL_GATE_NAMES = [
-  "reviewer",
-  "test_engineer",
-  "council_mode",
-  "sme_enabled",
-  "critic_pre_plan",
-  "hallucination_guard",
-  "sast_enabled",
-  "mutation_test",
-  "council_general_review",
-  "drift_check"
-];
 function derivePlanId(plan) {
   return `${plan.swarm}-${plan.title}`.replace(/[^a-zA-Z0-9-_]/g, "_");
 }
@@ -44944,13 +45581,24 @@ async function handleQaGatesCommand(directory, args, sessionID) {
   ].join(`
 `);
 }
-
-// src/commands/reset.ts
-import * as fs18 from "fs";
-import * as path31 from "path";
-
-// src/background/manager.ts
-init_utils();
+var ALL_GATE_NAMES;
+var init_qa_gates = __esm(() => {
+  init_qa_gate_profile();
+  init_manager();
+  init_state();
+  ALL_GATE_NAMES = [
+    "reviewer",
+    "test_engineer",
+    "council_mode",
+    "sme_enabled",
+    "critic_pre_plan",
+    "hallucination_guard",
+    "sast_enabled",
+    "mutation_test",
+    "council_general_review",
+    "drift_check"
+  ];
+});
 
 // src/background/circuit-breaker.ts
 class CircuitBreaker {
@@ -45289,6 +45937,9 @@ class AutomationQueue {
     };
   }
 }
+var init_queue = __esm(() => {
+  init_event_bus();
+});
 
 // src/background/worker.ts
 function sleep(ms) {
@@ -45461,6 +46112,9 @@ class WorkerManager {
     return stats;
   }
 }
+var init_worker = __esm(() => {
+  init_event_bus();
+});
 
 // src/background/manager.ts
 class BackgroundAutomationManager {
@@ -45619,16 +46273,23 @@ class BackgroundAutomationManager {
     this.isInitialized = false;
   }
 }
-var managerInstance = null;
 function resetAutomationManager() {
   if (managerInstance) {
     managerInstance.reset();
     managerInstance = null;
   }
 }
+var managerInstance = null;
+var init_manager3 = __esm(() => {
+  init_utils();
+  init_event_bus();
+  init_queue();
+  init_worker();
+});
 
 // src/commands/reset.ts
-init_utils2();
+import * as fs18 from "fs";
+import * as path31 from "path";
 async function handleResetCommand(directory, args) {
   const hasConfirm = args.includes("--confirm");
   if (!hasConfirm) {
@@ -45701,9 +46362,12 @@ async function handleResetCommand(directory, args) {
   ].join(`
 `);
 }
+var init_reset = __esm(() => {
+  init_manager3();
+  init_utils2();
+});
 
 // src/commands/reset-session.ts
-init_utils2();
 import * as fs19 from "fs";
 import * as path32 from "path";
 async function handleResetSessionCommand(directory, _args) {
@@ -45752,13 +46416,13 @@ async function handleResetSessionCommand(directory, _args) {
   ].join(`
 `);
 }
+var init_reset_session = __esm(() => {
+  init_utils2();
+  init_state();
+});
 
 // src/summaries/manager.ts
-init_utils2();
-init_utils();
-init_bun_compat();
 import * as path33 from "path";
-var SUMMARY_ID_REGEX = /^S\d+$/;
 function sanitizeSummaryId(id) {
   if (!id || id.length === 0) {
     throw new Error("Invalid summary ID: empty string");
@@ -45799,6 +46463,13 @@ async function loadFullOutput(directory, id) {
     return null;
   }
 }
+var SUMMARY_ID_REGEX;
+var init_manager4 = __esm(() => {
+  init_utils2();
+  init_utils();
+  init_bun_compat();
+  SUMMARY_ID_REGEX = /^S\d+$/;
+});
 
 // src/commands/retrieve.ts
 async function handleRetrieveCommand(directory, args) {
@@ -45831,11 +46502,11 @@ Use a valid summary ID (e.g., S1, S2, S3).`;
 ${error93 instanceof Error ? error93.message : String(error93)}`;
   }
 }
+var init_retrieve = __esm(() => {
+  init_manager4();
+});
 
 // src/commands/rollback.ts
-init_plan_schema();
-init_utils2();
-init_ledger();
 import * as fs20 from "fs";
 import * as path34 from "path";
 async function handleRollbackCommand(directory, args) {
@@ -45963,6 +46634,11 @@ async function handleRollbackCommand(directory, args) {
   }
   return `Rolled back to phase ${targetPhase}: ${checkpoint2.label || "no label"}`;
 }
+var init_rollback = __esm(() => {
+  init_plan_schema();
+  init_utils2();
+  init_ledger();
+});
 
 // src/commands/simulate.ts
 async function handleSimulateCommand(directory, args) {
@@ -46006,6 +46682,9 @@ async function handleSimulateCommand(directory, args) {
   await fs21.writeFile(reportPath, report, "utf-8");
   return `${darkMatterPairs.length} hidden coupling pairs detected`;
 }
+var init_simulate = __esm(() => {
+  init_co_change_analyzer();
+});
 
 // src/commands/specify.ts
 async function handleSpecifyCommand(_directory, args) {
@@ -46015,10 +46694,6 @@ async function handleSpecifyCommand(_directory, args) {
   }
   return "[MODE: SPECIFY] Please enter MODE: SPECIFY and generate a spec for this project.";
 }
-
-// src/services/status-service.ts
-init_utils2();
-init_manager();
 
 // src/services/compaction-service.ts
 function makeInitialState() {
@@ -46032,7 +46707,6 @@ function makeInitialState() {
     lastSnapshotAt: null
   };
 }
-var sessionStates = new Map;
 function getSessionState(sessionId) {
   let state = sessionStates.get(sessionId);
   if (!state) {
@@ -46059,18 +46733,27 @@ function getCompactionMetrics(sessionId) {
   }
   return { compactionCount: total, lastSnapshotAt: lastSnapshot };
 }
+var sessionStates;
+var init_compaction_service = __esm(() => {
+  init_state();
+  sessionStates = new Map;
+});
 
 // src/services/context-budget-service.ts
-init_utils2();
-init_bun_compat();
-var DEFAULT_CONTEXT_BUDGET_CONFIG = {
-  enabled: true,
-  budgetTokens: 40000,
-  warningPct: 70,
-  criticalPct: 90,
-  warningMode: "once",
-  warningIntervalTurns: 20
-};
+var DEFAULT_CONTEXT_BUDGET_CONFIG;
+var init_context_budget_service = __esm(() => {
+  init_utils2();
+  init_bun_compat();
+  init_path_security();
+  DEFAULT_CONTEXT_BUDGET_CONFIG = {
+    enabled: true,
+    budgetTokens: 40000,
+    warningPct: 70,
+    criticalPct: 90,
+    warningMode: "once",
+    warningIntervalTurns: 20
+  };
+});
 
 // src/services/status-service.ts
 async function getStatusData(directory, agents) {
@@ -46169,8 +46852,20 @@ async function handleStatusCommand(directory, agents) {
   }
   return formatStatusMarkdown(statusData);
 }
+var init_status_service = __esm(() => {
+  init_utils2();
+  init_manager();
+  init_state();
+  init_compaction_service();
+  init_context_budget_service();
+});
+
+// src/commands/status.ts
+var init_status = __esm(() => {
+  init_status_service();
+});
+
 // src/commands/sync-plan.ts
-init_manager();
 async function handleSyncPlanCommand(directory, _args) {
   const plan = await loadPlan(directory);
   if (!plan) {
@@ -46193,6 +46888,9 @@ No active swarm plan found. Nothing to sync.`;
   return lines.join(`
 `);
 }
+var init_sync_plan = __esm(() => {
+  init_manager();
+});
 
 // src/commands/turbo.ts
 async function handleTurboCommand(_directory, args, sessionID) {
@@ -46219,6 +46917,9 @@ async function handleTurboCommand(_directory, args, sessionID) {
   session.turboMode = newTurboMode;
   return feedback;
 }
+var init_turbo = __esm(() => {
+  init_state();
+});
 
 // src/commands/write-retro.ts
 async function handleWriteRetroCommand(directory, args) {
@@ -46277,337 +46978,866 @@ Run \`/swarm evidence ${result.task_id ?? "unknown"}\` to view it, or \`/swarm s
   }
   return `Error: ${result.message}`;
 }
+var init_write_retro2 = __esm(() => {
+  init_write_retro();
+});
+
+// src/commands/index.ts
+var exports_commands = {};
+__export(exports_commands, {
+  resolveCommand: () => resolveCommand,
+  handleWriteRetroCommand: () => handleWriteRetroCommand,
+  handleTurboCommand: () => handleTurboCommand,
+  handleSyncPlanCommand: () => handleSyncPlanCommand,
+  handleStatusCommand: () => handleStatusCommand,
+  handleSpecifyCommand: () => handleSpecifyCommand,
+  handleSimulateCommand: () => handleSimulateCommand,
+  handleRollbackCommand: () => handleRollbackCommand,
+  handleRetrieveCommand: () => handleRetrieveCommand,
+  handleResetSessionCommand: () => handleResetSessionCommand,
+  handleResetCommand: () => handleResetCommand,
+  handleQaGatesCommand: () => handleQaGatesCommand,
+  handlePromoteCommand: () => handlePromoteCommand,
+  handlePreflightCommand: () => handlePreflightCommand,
+  handlePlanCommand: () => handlePlanCommand,
+  handleKnowledgeRestoreCommand: () => handleKnowledgeRestoreCommand,
+  handleKnowledgeQuarantineCommand: () => handleKnowledgeQuarantineCommand,
+  handleKnowledgeMigrateCommand: () => handleKnowledgeMigrateCommand,
+  handleKnowledgeListCommand: () => handleKnowledgeListCommand,
+  handleHistoryCommand: () => handleHistoryCommand,
+  handleHelpCommand: () => handleHelpCommand,
+  handleHandoffCommand: () => handleHandoffCommand,
+  handleFullAutoCommand: () => handleFullAutoCommand,
+  handleExportCommand: () => handleExportCommand,
+  handleEvidenceSummaryCommand: () => handleEvidenceSummaryCommand,
+  handleEvidenceCommand: () => handleEvidenceCommand,
+  handleDoctorCommand: () => handleDoctorCommand,
+  handleDiagnoseCommand: () => handleDiagnoseCommand,
+  handleDarkMatterCommand: () => handleDarkMatterCommand,
+  handleCurateCommand: () => handleCurateCommand,
+  handleCouncilCommand: () => handleCouncilCommand,
+  handleConfigCommand: () => handleConfigCommand,
+  handleCloseCommand: () => handleCloseCommand,
+  handleClarifyCommand: () => handleClarifyCommand,
+  handleCheckpointCommand: () => handleCheckpointCommand,
+  handleBrainstormCommand: () => handleBrainstormCommand,
+  handleBenchmarkCommand: () => handleBenchmarkCommand,
+  handleArchiveCommand: () => handleArchiveCommand,
+  handleAnalyzeCommand: () => handleAnalyzeCommand,
+  handleAgentsCommand: () => handleAgentsCommand,
+  handleAcknowledgeSpecDriftCommand: () => handleAcknowledgeSpecDriftCommand,
+  createSwarmCommandHandler: () => createSwarmCommandHandler,
+  buildHelpText: () => buildHelpText,
+  VALID_COMMANDS: () => VALID_COMMANDS,
+  COMMAND_REGISTRY: () => COMMAND_REGISTRY
+});
+import fs21 from "fs";
+import path35 from "path";
+function buildHelpText() {
+  const lines = ["## Swarm Commands", ""];
+  const CATEGORIES = [
+    "core",
+    "agent",
+    "config",
+    "diagnostics",
+    "utility"
+  ];
+  const byCategory = new Map;
+  for (const cat of CATEGORIES) {
+    byCategory.set(cat, []);
+  }
+  const deprecatedAliases = [];
+  for (const cmd of VALID_COMMANDS) {
+    const entry = COMMAND_REGISTRY[cmd];
+    if (entry.aliasOf) {
+      deprecatedAliases.push({ name: cmd, aliasOf: entry.aliasOf });
+      continue;
+    }
+    if (entry.subcommandOf) {
+      continue;
+    }
+    if (cmd.includes(" ")) {
+      continue;
+    }
+    const category = entry.category || "utility";
+    const catLines = byCategory.get(category) || [];
+    catLines.push(cmd);
+    byCategory.set(category, catLines);
+  }
+  const shownAsSubcommand = new Set;
+  for (const cat of CATEGORIES) {
+    const catLines = byCategory.get(cat);
+    if (!catLines || catLines.length === 0)
+      continue;
+    const catTitle = cat.charAt(0).toUpperCase() + cat.slice(1);
+    lines.push(`### ${catTitle}`, "");
+    for (const cmd of catLines) {
+      const entry = COMMAND_REGISTRY[cmd];
+      lines.push(`- \`/swarm ${cmd}\` \u2014 ${entry.description}`);
+      if (entry.args) {
+        lines.push(`  Args: \`${entry.args}\``);
+      }
+      if (entry.details) {
+        lines.push(`  ${entry.details}`);
+      }
+      const subcommands = VALID_COMMANDS.filter((sub) => sub.startsWith(`${cmd} `) && sub !== cmd);
+      for (const sub of subcommands) {
+        shownAsSubcommand.add(sub);
+        const subEntry = COMMAND_REGISTRY[sub];
+        const subName = sub.slice(cmd.length + 1);
+        lines.push(`  - \`${subName}\` \u2014 ${subEntry.description}`);
+        if (subEntry.args) {
+          lines.push(`    Args: \`${subEntry.args}\``);
+        }
+        if (subEntry.details) {
+          lines.push(`    ${subEntry.details}`);
+        }
+      }
+    }
+    lines.push("");
+  }
+  for (const cmd of VALID_COMMANDS) {
+    if (!cmd.includes(" ") || shownAsSubcommand.has(cmd))
+      continue;
+    const entry = COMMAND_REGISTRY[cmd];
+    if (entry.aliasOf || entry.subcommandOf)
+      continue;
+    lines.push(`- \`/swarm ${cmd}\` \u2014 ${entry.description}`);
+    if (entry.args) {
+      lines.push(`  Args: \`${entry.args}\``);
+    }
+    if (entry.details) {
+      lines.push(`  ${entry.details}`);
+    }
+  }
+  if (deprecatedAliases.length > 0) {
+    lines.push("### Deprecated Commands", "");
+    for (const { name, aliasOf } of deprecatedAliases) {
+      lines.push(`- \`/swarm ${name}\` \u2192 Use \`/swarm ${aliasOf}\``);
+    }
+  }
+  return lines.join(`
+`);
+}
+function getHelpText() {
+  if (!_helpText) {
+    _helpText = buildHelpText();
+  }
+  return _helpText;
+}
+function createSwarmCommandHandler(directory, agents) {
+  return async (input, output) => {
+    if (input.command !== "swarm" && !input.command.startsWith("swarm-")) {
+      return;
+    }
+    let isFirstRun = false;
+    const sentinelPath = path35.join(directory, ".swarm", ".first-run-complete");
+    try {
+      const swarmDir = path35.join(directory, ".swarm");
+      fs21.mkdirSync(swarmDir, { recursive: true });
+      fs21.writeFileSync(sentinelPath, `first-run-complete: ${new Date().toISOString()}
+`, { flag: "wx" });
+      isFirstRun = true;
+    } catch (_err) {}
+    let tokens;
+    if (input.command === "swarm") {
+      tokens = input.arguments.trim().split(/\s+/).filter(Boolean);
+    } else {
+      const subcommand = input.command.slice("swarm-".length);
+      const extraArgs = input.arguments.trim().split(/\s+/).filter(Boolean);
+      tokens = [subcommand, ...extraArgs];
+    }
+    let text;
+    const resolved = resolveCommand(tokens);
+    if (!resolved) {
+      text = getHelpText();
+    } else {
+      try {
+        text = await resolved.entry.handler({
+          directory,
+          args: resolved.remainingArgs,
+          sessionID: input.sessionID,
+          agents
+        });
+      } catch (_err) {
+        const cmdName = tokens[0] || "unknown";
+        const errMsg = _err instanceof Error ? _err.message : String(_err);
+        text = `Error executing /swarm ${cmdName}: ${errMsg}`;
+      }
+      if (resolved.warning) {
+        text = `${resolved.warning}
+
+${text}`;
+      }
+    }
+    if (isFirstRun) {
+      const welcomeMessage = `Welcome to OpenCode Swarm! \uD83D\uDC1D
+` + `
+` + `Run \`/swarm help\` to see all available commands, or \`/swarm config\` to review your configuration.
+`;
+      text = welcomeMessage + text;
+    }
+    output.parts = [
+      { type: "text", text }
+    ];
+  };
+}
+var _helpText;
+var init_commands = __esm(() => {
+  init_registry();
+  init_acknowledge_spec_drift();
+  init_agents();
+  init_archive();
+  init_benchmark();
+  init_checkpoint2();
+  init_close();
+  init_config2();
+  init_council();
+  init_curate();
+  init_dark_matter();
+  init_diagnose();
+  init_doctor();
+  init_evidence();
+  init_export();
+  init_full_auto();
+  init_handoff();
+  init_history();
+  init_knowledge();
+  init_plan();
+  init_preflight();
+  init_promote();
+  init_qa_gates();
+  init_registry();
+  init_registry();
+  init_reset();
+  init_reset_session();
+  init_retrieve();
+  init_rollback();
+  init_simulate();
+  init_status();
+  init_sync_plan();
+  init_turbo();
+  init_write_retro2();
+});
 
 // src/commands/registry.ts
-var COMMAND_REGISTRY = {
-  "acknowledge-spec-drift": {
-    handler: (ctx) => handleAcknowledgeSpecDriftCommand(ctx.directory, ctx.args),
-    description: "Acknowledge that the spec has drifted from the plan and suppress further warnings",
-    args: ""
-  },
-  status: {
-    handler: (ctx) => handleStatusCommand(ctx.directory, ctx.agents),
-    description: "Show current swarm state"
-  },
-  plan: {
-    handler: (ctx) => handlePlanCommand(ctx.directory, ctx.args),
-    description: "Show plan (optionally filter by phase number)"
-  },
-  agents: {
-    handler: (ctx) => Promise.resolve(handleAgentsCommand(ctx.agents, undefined)),
-    description: "List registered agents"
-  },
-  history: {
-    handler: (ctx) => handleHistoryCommand(ctx.directory, ctx.args),
-    description: "Show completed phases summary"
-  },
-  config: {
-    handler: (ctx) => handleConfigCommand(ctx.directory, ctx.args),
-    description: "Show current resolved configuration"
-  },
-  "config doctor": {
-    handler: (ctx) => handleDoctorCommand(ctx.directory, ctx.args),
-    description: "Run config doctor checks",
-    subcommandOf: "config"
-  },
-  "config-doctor": {
-    handler: (ctx) => handleDoctorCommand(ctx.directory, ctx.args),
-    description: "Run config doctor checks",
-    subcommandOf: "config"
-  },
-  "doctor tools": {
-    handler: (ctx) => handleDoctorToolsCommand(ctx.directory, ctx.args),
-    description: "Run tool registration coherence check"
-  },
-  diagnose: {
-    handler: (ctx) => handleDiagnoseCommand(ctx.directory, ctx.args),
-    description: "Run health check on swarm state"
-  },
-  diagnosis: {
-    handler: (ctx) => handleDiagnoseCommand(ctx.directory, ctx.args),
-    description: "Run health check on swarm state"
-  },
-  preflight: {
-    handler: (ctx) => handlePreflightCommand(ctx.directory, ctx.args),
-    description: "Run preflight automation checks"
-  },
-  "sync-plan": {
-    handler: (ctx) => handleSyncPlanCommand(ctx.directory, ctx.args),
-    description: "Ensure plan.json and plan.md are synced",
-    args: ""
-  },
-  benchmark: {
-    handler: (ctx) => handleBenchmarkCommand(ctx.directory, ctx.args),
-    description: "Show performance metrics [--cumulative] [--ci-gate]",
-    args: "--cumulative, --ci-gate"
-  },
-  export: {
-    handler: (ctx) => handleExportCommand(ctx.directory, ctx.args),
-    description: "Export plan and context as JSON",
-    args: "",
-    details: "Exports the current plan and context as JSON to stdout. Useful for piping to external tools or debugging swarm state."
-  },
-  evidence: {
-    handler: (ctx) => handleEvidenceCommand(ctx.directory, ctx.args),
-    description: "Show evidence bundles [taskId]",
-    args: "<taskId>",
-    details: 'Displays review results, test verdicts, and other evidence bundles for the given task ID (e.g., "2.1").'
-  },
-  "evidence summary": {
-    handler: (ctx) => handleEvidenceSummaryCommand(ctx.directory),
-    description: "Generate evidence summary with completion ratio and blockers",
-    subcommandOf: "evidence",
-    args: "",
-    details: "Generates a summary showing completion ratio across all tasks, lists blockers, and identifies missing evidence."
-  },
-  "evidence-summary": {
-    handler: (ctx) => handleEvidenceSummaryCommand(ctx.directory),
-    description: "Generate evidence summary with completion ratio and blockers",
-    subcommandOf: "evidence",
-    args: "",
-    details: "Generates a summary showing completion ratio across all tasks, lists blockers, and identifies missing evidence."
-  },
-  archive: {
-    handler: (ctx) => handleArchiveCommand(ctx.directory, ctx.args),
-    description: "Archive old evidence bundles [--dry-run]",
-    details: "Archives evidence bundles older than max_age_days (config, default 90) or beyond max_bundles cap (config, default 1000). --dry-run previews which bundles would be archived without deleting them. Applies two-tier retention: age-based first, then count-based on oldest remaining.",
-    args: "--dry-run"
-  },
-  curate: {
-    handler: (ctx) => handleCurateCommand(ctx.directory, ctx.args),
-    description: "Run knowledge curation and hive promotion review",
-    args: ""
-  },
-  "dark-matter": {
-    handler: (ctx) => handleDarkMatterCommand(ctx.directory, ctx.args),
-    description: "Detect hidden file couplings via co-change NPMI analysis",
-    args: "--threshold <number>, --min-commits <number>"
-  },
-  close: {
-    handler: (ctx) => handleCloseCommand(ctx.directory, ctx.args),
-    description: "Use /swarm close to close the swarm project and archive evidence",
-    details: "Idempotent 4-stage terminal finalization: (1) finalize writes retrospectives for in-progress phases, (2) archive creates timestamped bundle of swarm artifacts and evidence, (3) clean removes active-state files for a clean slate, (4) align performs safe git ff-only to main. Resets agent sessions and delegation chains. Reads .swarm/close-lessons.md for explicit lessons and runs curation.",
-    args: "--prune-branches"
-  },
-  simulate: {
-    handler: (ctx) => handleSimulateCommand(ctx.directory, ctx.args),
-    description: "Dry-run hidden coupling analysis with configurable thresholds",
-    args: "--threshold <number>, --min-commits <number>"
-  },
-  analyze: {
-    handler: (ctx) => handleAnalyzeCommand(ctx.directory, ctx.args),
-    description: "Analyze spec.md vs plan.md for requirement coverage gaps",
-    args: ""
-  },
-  clarify: {
-    handler: (ctx) => handleClarifyCommand(ctx.directory, ctx.args),
-    description: "Clarify and refine an existing feature specification",
-    args: "[description-text]"
-  },
-  specify: {
-    handler: (ctx) => handleSpecifyCommand(ctx.directory, ctx.args),
-    description: "Generate or import a feature specification [description]",
-    args: "[description-text]"
-  },
-  brainstorm: {
-    handler: (ctx) => handleBrainstormCommand(ctx.directory, ctx.args),
-    description: "Enter architect MODE: BRAINSTORM \u2014 structured seven-phase planning workflow [topic]",
-    args: "[topic-text]",
-    details: "Triggers the architect to run the brainstorm workflow: CONTEXT SCAN, single-question DIALOGUE, APPROACHES, DESIGN SECTIONS, SPEC WRITE + SELF-REVIEW, QA GATE SELECTION, TRANSITION. Use for new plans where requirements need to be drawn out before writing spec.md / plan.md."
-  },
-  council: {
-    handler: (ctx) => handleCouncilCommand(ctx.directory, ctx.args),
-    description: "Enter architect MODE: COUNCIL \u2014 multi-model deliberation [question] [--spec-review]",
-    args: "<question> [--spec-review]",
-    details: "Triggers the architect to convene a three-agent General Council: " + "Generalist (reviewer model), Skeptic (critic model), and Domain Expert (SME model). " + "The architect first runs 1\u20133 targeted web searches and passes a compiled RESEARCH CONTEXT " + "to all three agents before dispatching them in parallel. " + "Agents deliberate using the NSED peer-review protocol (Round 1 independent analysis, " + "Round 2 MAINTAIN/CONCEDE/NUANCE for disagreements). " + "The architect synthesizes the final answer directly from convene_general_council output. " + "--spec-review switches to single-pass advisory mode for spec review. " + "Requires council.general.enabled: true and a search API key in opencode-swarm.json."
-  },
-  "pr-review": {
-    handler: async (ctx) => handlePrReviewCommand(ctx.directory, ctx.args),
-    description: "Launch deep PR review with multi-lane analysis [url] [--council]",
-    args: "<pr-url|owner/repo#N|N> [--council]",
-    details: "Launches a structured PR review: reconstructs PR intent via obligation extraction cascade, runs 6 parallel explorer lanes (correctness, security, dependencies, docs-intent-vs-actual, tests, performance-architecture), validates findings through independent reviewer confirmation, applies critic challenge to HIGH/CRITICAL findings, synthesizes structured report. --council variant fires adversarial multi-model review. Supports full GitHub URL, owner/repo#N shorthand, or bare PR number (resolves against origin remote)."
-  },
-  issue: {
-    handler: async (ctx) => handleIssueCommand(ctx.directory, ctx.args),
-    description: "Ingest a GitHub issue into the swarm workflow [url] [--plan] [--trace] [--no-repro]",
-    args: "<issue-url|owner/repo#N|N> [--plan] [--trace] [--no-repro]",
-    details: "Triggers the architect to enter MODE: ISSUE_INGEST \u2014 ingests a GitHub issue, restructures it into a normalized intake note, localizes root cause through hypothesis-driven tracing, and outputs a resolution spec. --plan transitions to plan creation after spec generation. --trace runs the full fix-and-PR workflow (implies --plan). --no-repro skips the reproduction step. Supports full GitHub URL, owner/repo#N shorthand, or bare issue number (resolves against origin remote)."
-  },
-  "qa-gates": {
-    handler: (ctx) => handleQaGatesCommand(ctx.directory, ctx.args, ctx.sessionID),
-    description: "View or modify QA gate profile for the current plan [enable|override <gate>...]",
-    args: "[show|enable|override] <gate>...",
-    details: "show: display spec-level, session-override, and effective QA gates for the current plan. enable: persist gate(s) into the locked-once profile (architect; rejected after critic approval lock). override: session-only ratchet-tighter enable. Valid gates: reviewer, test_engineer, council_mode, sme_enabled, critic_pre_plan, hallucination_guard, sast_enabled, mutation_test, council_general_review, drift_check."
-  },
-  promote: {
-    handler: (ctx) => handlePromoteCommand(ctx.directory, ctx.args),
-    description: "Manually promote lesson to hive knowledge",
-    details: "Promotes a lesson directly to hive knowledge (--category flag sets category) or references an existing swarm lesson by ID (--from-swarm). Validates lesson text before promotion. Either direct text or --from-swarm ID is required.",
-    args: "--category <category>, --from-swarm <lesson-id>, <lesson-text>"
-  },
-  reset: {
-    handler: (ctx) => handleResetCommand(ctx.directory, ctx.args),
-    description: "Clear swarm state files [--confirm]",
-    details: "DELETES plan.md, context.md, and summaries/ directory from .swarm/. Stops background automation and clears in-memory queues. SAFETY: requires --confirm flag \u2014 without it, displays a warning and tips to export first.",
-    args: "--confirm (required)"
-  },
-  "reset-session": {
-    handler: (ctx) => handleResetSessionCommand(ctx.directory, ctx.args),
-    description: "Clear session state while preserving plan, evidence, and knowledge",
-    details: "Deletes only .swarm/session/state.json and any other session files. Clears in-memory agent sessions and delegation chains. Preserves plan, evidence, and knowledge for cross-session continuity.",
-    args: ""
-  },
-  rollback: {
-    handler: (ctx) => handleRollbackCommand(ctx.directory, ctx.args),
-    description: "Restore swarm state to a checkpoint <phase>",
-    details: "Restores .swarm/ state by directly overwriting files from a checkpoint directory (checkpoints/phase-<N>). Writes rollback event to events.jsonl. Without phase argument, lists available checkpoints. Partial failures are reported but processing continues.",
-    args: "<phase-number>"
-  },
-  retrieve: {
-    handler: (ctx) => handleRetrieveCommand(ctx.directory, ctx.args),
-    description: "Retrieve full output from a summary <id>",
-    args: "<summary-id>",
-    details: "Loads the full tool output that was previously summarized (referenced by IDs like S1, S2). Use when you need the complete output instead of the truncated summary."
-  },
-  handoff: {
-    handler: (ctx) => handleHandoffCommand(ctx.directory, ctx.args),
-    description: "Prepare state for clean model switch (new session)",
-    args: "",
-    details: "Generates handoff.md with full session state snapshot, including plan progress, recent decisions, and agent delegation history. Prepended to the next session prompt for seamless model switches."
-  },
-  turbo: {
-    handler: (ctx) => handleTurboCommand(ctx.directory, ctx.args, ctx.sessionID),
-    description: "Toggle Turbo Mode for the active session [on|off]",
-    args: "on, off",
-    details: 'Toggles Turbo Mode which skips non-critical QA gates for faster iteration. When enabled, the architect can proceed without waiting for all automated checks. Session-scoped \u2014 resets on new session. Use "on" or "off" to set explicitly, or toggle with no argument.'
-  },
-  "full-auto": {
-    handler: (ctx) => handleFullAutoCommand(ctx.directory, ctx.args, ctx.sessionID),
-    description: "Toggle Full-Auto Mode for the active session [on|off]",
-    args: "on, off",
-    details: 'Toggles Full-Auto Mode which enables autonomous execution without confirmation prompts. When enabled, the architect proceeds through implementation steps automatically. Session-scoped \u2014 resets on new session. Use "on" or "off" to set explicitly, or toggle with no argument.'
-  },
-  "write-retro": {
-    handler: (ctx) => handleWriteRetroCommand(ctx.directory, ctx.args),
-    description: "Write a retrospective evidence bundle for a completed phase <json>",
-    details: "Writes retrospective evidence bundle to .swarm/evidence/retro-{phase}/evidence.json. Required JSON: phase, summary, task_count, task_complexity, total_tool_calls, coder_revisions, reviewer_rejections, test_failures, security_findings, integration_issues. Optional: lessons_learned (max 5), top_rejection_reasons, task_id, metadata.",
-    args: "<json: {phase, summary, task_count, task_complexity, ...}>"
-  },
-  "knowledge migrate": {
-    handler: (ctx) => handleKnowledgeMigrateCommand(ctx.directory, ctx.args),
-    description: "Migrate knowledge entries to the current format",
-    subcommandOf: "knowledge",
-    details: "One-time migration from .swarm/context.md SME cache to .swarm/knowledge.jsonl. Skips if sentinel file .swarm/.knowledge-migrated exists, if context.md is absent, or if context.md is empty. Reports entries migrated, dropped (validation/dedup), and total processed.",
-    args: "<directory>"
-  },
-  "knowledge quarantine": {
-    handler: (ctx) => handleKnowledgeQuarantineCommand(ctx.directory, ctx.args),
-    description: "Move a knowledge entry to quarantine <id> [reason]",
-    subcommandOf: "knowledge",
-    details: 'Moves a knowledge entry to quarantine with optional reason string (defaults to "Quarantined via /swarm knowledge quarantine command"). Validates entry ID format (1-64 alphanumeric/hyphen/underscore). Quarantined entries are excluded from knowledge queries.',
-    args: "<entry-id> [reason]"
-  },
-  "knowledge restore": {
-    handler: (ctx) => handleKnowledgeRestoreCommand(ctx.directory, ctx.args),
-    description: "Restore a quarantined knowledge entry <id>",
-    subcommandOf: "knowledge",
-    details: "Restores a quarantined knowledge entry back to the active knowledge store by ID. Validates entry ID format (1-64 alphanumeric/hyphen/underscore). Entry must currently be in quarantine state.",
-    args: "<entry-id>"
-  },
-  knowledge: {
-    handler: (ctx) => handleKnowledgeListCommand(ctx.directory, ctx.args),
-    description: "List knowledge entries"
-  },
-  checkpoint: {
-    handler: (ctx) => handleCheckpointCommand(ctx.directory, ctx.args),
-    description: "Manage project checkpoints [save|restore|delete|list] <label>",
-    details: "save: creates named snapshot of current .swarm/ state. restore: soft-resets to checkpoint by overwriting current .swarm/ files. delete: removes named checkpoint. list: shows all checkpoints with timestamps. All subcommands require a label except list.",
-    args: "<save|restore|delete|list> <label>"
+function levenshteinDistance(a, b) {
+  const matrix = [];
+  for (let i = 0;i <= b.length; i++) {
+    matrix[i] = [i];
   }
-};
-var VALID_COMMANDS = Object.keys(COMMAND_REGISTRY);
+  for (let j = 0;j <= a.length; j++) {
+    matrix[0][j] = j;
+  }
+  for (let i = 1;i <= b.length; i++) {
+    for (let j = 1;j <= a.length; j++) {
+      if (b.charAt(i - 1) === a.charAt(j - 1)) {
+        matrix[i][j] = matrix[i - 1][j - 1];
+      } else {
+        matrix[i][j] = Math.min(matrix[i - 1][j - 1] + 1, matrix[i][j - 1] + 1, matrix[i - 1][j] + 1);
+      }
+    }
+  }
+  return matrix[b.length][a.length];
+}
+function findSimilarCommands(query) {
+  const q = query.toLowerCase();
+  const scored = VALID_COMMANDS.filter((cmd) => {
+    if (cmd.includes(" ") || cmd.includes("-"))
+      return false;
+    return cmd.toLowerCase().includes(q) || q.includes(cmd.toLowerCase());
+  }).map((cmd) => ({
+    cmd,
+    score: cmd.length < q.length ? q.length - cmd.length : levenshteinDistance(q, cmd)
+  }));
+  scored.sort((a, b) => a.score - b.score);
+  return scored.slice(0, 3).map((s) => s.cmd);
+}
+function buildDetailedHelp(commandName, entry) {
+  const lines = [];
+  lines.push(`## /swarm ${commandName}`, "");
+  lines.push(entry.description, "");
+  const usage = `/swarm ${commandName}`;
+  lines.push(`**Usage:** \`${usage}\``, "");
+  const argsDisplay = entry.args || "None";
+  lines.push(`**Args:** ${argsDisplay}`, "");
+  lines.push("**Description:**");
+  if (entry.details) {
+    lines.push(entry.details);
+  } else {
+    lines.push(entry.description);
+  }
+  lines.push("");
+  return lines.join(`
+`);
+}
+async function handleHelpCommand(ctx) {
+  const targetCommand = ctx.args.join(" ");
+  if (!targetCommand) {
+    const { buildHelpText: buildHelpText2 } = await Promise.resolve().then(() => (init_commands(), exports_commands));
+    return buildHelpText2();
+  }
+  const tokens = targetCommand.split(/\s+/);
+  const resolved = resolveCommand(tokens);
+  if (resolved) {
+    return buildDetailedHelp(resolved.key, resolved.entry);
+  }
+  const similar = findSimilarCommands(targetCommand);
+  const { buildHelpText: fullHelp } = await Promise.resolve().then(() => (init_commands(), exports_commands));
+  if (similar.length > 0) {
+    return `Command '/swarm ${targetCommand}' not found.
+
+Did you mean:
+` + similar.map((cmd) => `  - \`/swarm ${cmd}\``).join(`
+`) + `
+
+Showing full help:
+
+` + fullHelp();
+  }
+  return `Command '/swarm ${targetCommand}' not found.
+
+Showing full help:
+
+` + fullHelp();
+}
+function validateAliases() {
+  const errors5 = [];
+  const warnings = [];
+  const aliasTargets = new Map;
+  for (const [name, entry] of Object.entries(COMMAND_REGISTRY)) {
+    const cmdEntry = entry;
+    if (cmdEntry.aliasOf) {
+      const target = cmdEntry.aliasOf;
+      if (!Object.hasOwn(COMMAND_REGISTRY, target)) {
+        errors5.push(`Alias '${name}' points to non-existent command '${target}'`);
+        continue;
+      }
+      if (!aliasTargets.has(target)) {
+        aliasTargets.set(target, []);
+      }
+      aliasTargets.get(target).push(name);
+      const visited = new Set;
+      const path36 = [];
+      let current = target;
+      while (current) {
+        const currentEntry = COMMAND_REGISTRY[current];
+        if (!currentEntry)
+          break;
+        if (visited.has(current)) {
+          const cycleStart = path36.indexOf(current);
+          const fullChain = [
+            name,
+            ...path36.slice(0, cycleStart > 0 ? cycleStart : path36.length),
+            current
+          ].join(" \u2192 ");
+          errors5.push(`Circular alias detected: ${fullChain}`);
+          break;
+        }
+        visited.add(current);
+        path36.push(current);
+        current = currentEntry.aliasOf || "";
+      }
+    }
+  }
+  for (const [target, aliases] of aliasTargets.entries()) {
+    if (aliases.length > 1) {
+      warnings.push(`Multiple aliases point to '${target}': ${aliases.join(", ")}`);
+    }
+  }
+  return { valid: errors5.length === 0, errors: errors5, warnings };
+}
 function resolveCommand(tokens) {
   if (tokens.length === 0)
     return null;
   if (tokens.length >= 2) {
     const compound = `${tokens[0]} ${tokens[1]}`;
     if (Object.hasOwn(COMMAND_REGISTRY, compound)) {
+      const entry = COMMAND_REGISTRY[compound];
+      const warning = entry.deprecated ? `\u26A0\uFE0F "/swarm ${compound}" is deprecated. Use "/swarm ${entry.aliasOf}" instead.` : undefined;
       return {
-        entry: COMMAND_REGISTRY[compound],
-        remainingArgs: tokens.slice(2)
+        entry,
+        remainingArgs: tokens.slice(2),
+        key: compound,
+        warning
       };
     }
   }
   const key = tokens[0];
   if (Object.hasOwn(COMMAND_REGISTRY, key)) {
+    const entry = COMMAND_REGISTRY[key];
+    const warning = entry.deprecated ? `\u26A0\uFE0F "/swarm ${key}" is deprecated. Use "/swarm ${entry.aliasOf}" instead.` : undefined;
     return {
-      entry: COMMAND_REGISTRY[key],
-      remainingArgs: tokens.slice(1)
+      entry,
+      remainingArgs: tokens.slice(1),
+      key,
+      warning
     };
   }
   return null;
 }
+var COMMAND_REGISTRY, VALID_COMMANDS, validation;
+var init_registry = __esm(() => {
+  init_acknowledge_spec_drift();
+  init_agents();
+  init_archive();
+  init_benchmark();
+  init_checkpoint2();
+  init_close();
+  init_config2();
+  init_council();
+  init_curate();
+  init_dark_matter();
+  init_diagnose();
+  init_doctor();
+  init_evidence();
+  init_export();
+  init_full_auto();
+  init_handoff();
+  init_history();
+  init_issue();
+  init_knowledge();
+  init_plan();
+  init_pr_review();
+  init_preflight();
+  init_promote();
+  init_qa_gates();
+  init_reset();
+  init_reset_session();
+  init_retrieve();
+  init_rollback();
+  init_simulate();
+  init_status();
+  init_sync_plan();
+  init_turbo();
+  init_write_retro2();
+  COMMAND_REGISTRY = {
+    "acknowledge-spec-drift": {
+      handler: (ctx) => handleAcknowledgeSpecDriftCommand(ctx.directory, ctx.args),
+      description: "Acknowledge that the spec has drifted from the plan and suppress further warnings",
+      args: "",
+      category: "diagnostics"
+    },
+    status: {
+      handler: (ctx) => handleStatusCommand(ctx.directory, ctx.agents),
+      description: "Show current swarm state",
+      category: "core"
+    },
+    plan: {
+      handler: (ctx) => handlePlanCommand(ctx.directory, ctx.args),
+      description: "Show plan (optionally filter by phase number)",
+      category: "core"
+    },
+    agents: {
+      handler: (ctx) => Promise.resolve(handleAgentsCommand(ctx.agents, undefined)),
+      description: "List registered agents",
+      category: "core"
+    },
+    help: {
+      handler: (ctx) => handleHelpCommand(ctx),
+      description: "Show help for swarm commands",
+      category: "core",
+      args: "[command]",
+      details: "Without argument, shows full command listing. With argument, shows detailed help for a specific command."
+    },
+    history: {
+      handler: (ctx) => handleHistoryCommand(ctx.directory, ctx.args),
+      description: "Show completed phases summary",
+      category: "utility"
+    },
+    config: {
+      handler: (ctx) => handleConfigCommand(ctx.directory, ctx.args),
+      description: "Show current resolved configuration",
+      category: "config"
+    },
+    "config doctor": {
+      handler: (ctx) => handleDoctorCommand(ctx.directory, ctx.args),
+      description: "Run config doctor checks",
+      subcommandOf: "config",
+      category: "diagnostics"
+    },
+    "config-doctor": {
+      handler: (ctx) => handleDoctorCommand(ctx.directory, ctx.args),
+      description: "Run config doctor checks",
+      subcommandOf: "config",
+      category: "diagnostics",
+      aliasOf: "config doctor",
+      deprecated: true
+    },
+    "doctor tools": {
+      handler: (ctx) => handleDoctorToolsCommand(ctx.directory, ctx.args),
+      description: "Run tool registration coherence check",
+      category: "diagnostics"
+    },
+    diagnose: {
+      handler: (ctx) => handleDiagnoseCommand(ctx.directory, ctx.args),
+      description: "Run health check on swarm state",
+      category: "diagnostics"
+    },
+    diagnosis: {
+      handler: (ctx) => handleDiagnoseCommand(ctx.directory, ctx.args),
+      description: "Run health check on swarm state",
+      category: "diagnostics",
+      aliasOf: "diagnose",
+      deprecated: true
+    },
+    preflight: {
+      handler: (ctx) => handlePreflightCommand(ctx.directory, ctx.args),
+      description: "Run preflight automation checks",
+      category: "diagnostics"
+    },
+    "sync-plan": {
+      handler: (ctx) => handleSyncPlanCommand(ctx.directory, ctx.args),
+      description: "Ensure plan.json and plan.md are synced",
+      args: "",
+      category: "config"
+    },
+    benchmark: {
+      handler: (ctx) => handleBenchmarkCommand(ctx.directory, ctx.args),
+      description: "Show performance metrics [--cumulative] [--ci-gate]",
+      args: "--cumulative, --ci-gate",
+      category: "diagnostics"
+    },
+    export: {
+      handler: (ctx) => handleExportCommand(ctx.directory, ctx.args),
+      description: "Export plan and context as JSON",
+      args: "",
+      details: "Exports the current plan and context as JSON to stdout. Useful for piping to external tools or debugging swarm state.",
+      category: "utility"
+    },
+    evidence: {
+      handler: (ctx) => handleEvidenceCommand(ctx.directory, ctx.args),
+      description: "Show evidence bundles [taskId]",
+      args: "<taskId>",
+      details: 'Displays review results, test verdicts, and other evidence bundles for the given task ID (e.g., "2.1").',
+      category: "utility"
+    },
+    "evidence summary": {
+      handler: (ctx) => handleEvidenceSummaryCommand(ctx.directory),
+      description: "Generate evidence summary with completion ratio and blockers",
+      subcommandOf: "evidence",
+      args: "",
+      details: "Generates a summary showing completion ratio across all tasks, lists blockers, and identifies missing evidence.",
+      category: "utility"
+    },
+    "evidence-summary": {
+      handler: (ctx) => handleEvidenceSummaryCommand(ctx.directory),
+      description: "Generate evidence summary with completion ratio and blockers",
+      subcommandOf: "evidence",
+      args: "",
+      details: "Generates a summary showing completion ratio across all tasks, lists blockers, and identifies missing evidence.",
+      category: "utility",
+      aliasOf: "evidence summary",
+      deprecated: true
+    },
+    doctor: {
+      handler: (ctx) => handleDoctorCommand(ctx.directory, ctx.args),
+      description: "Run config doctor checks",
+      category: "diagnostics",
+      aliasOf: "config doctor",
+      deprecated: true
+    },
+    info: {
+      handler: (ctx) => handleStatusCommand(ctx.directory, ctx.agents),
+      description: "Show current swarm state",
+      category: "core",
+      aliasOf: "status",
+      deprecated: true
+    },
+    "list-agents": {
+      handler: (ctx) => Promise.resolve(handleAgentsCommand(ctx.agents, undefined)),
+      description: "List registered agents",
+      category: "core",
+      aliasOf: "agents",
+      deprecated: true
+    },
+    health: {
+      handler: (ctx) => handleDiagnoseCommand(ctx.directory, ctx.args),
+      description: "Run health check on swarm state",
+      category: "diagnostics",
+      aliasOf: "diagnose",
+      deprecated: true
+    },
+    check: {
+      handler: (ctx) => handlePreflightCommand(ctx.directory, ctx.args),
+      description: "Run preflight automation checks",
+      category: "diagnostics",
+      aliasOf: "preflight",
+      deprecated: true
+    },
+    clear: {
+      handler: (ctx) => handleResetSessionCommand(ctx.directory, ctx.args),
+      description: "Clear session state while preserving plan, evidence, and knowledge",
+      category: "utility",
+      aliasOf: "reset-session",
+      deprecated: true
+    },
+    archive: {
+      handler: (ctx) => handleArchiveCommand(ctx.directory, ctx.args),
+      description: "Archive old evidence bundles [--dry-run]",
+      details: "Archives evidence bundles older than max_age_days (config, default 90) or beyond max_bundles cap (config, default 1000). --dry-run previews which bundles would be archived without deleting them. Applies two-tier retention: age-based first, then count-based on oldest remaining.",
+      args: "--dry-run",
+      category: "utility"
+    },
+    curate: {
+      handler: (ctx) => handleCurateCommand(ctx.directory, ctx.args),
+      description: "Run knowledge curation and hive promotion review",
+      args: "",
+      category: "utility"
+    },
+    "dark-matter": {
+      handler: (ctx) => handleDarkMatterCommand(ctx.directory, ctx.args),
+      description: "Detect hidden file couplings via co-change NPMI analysis",
+      args: "--threshold <number>, --min-commits <number>",
+      category: "diagnostics"
+    },
+    close: {
+      handler: (ctx) => handleCloseCommand(ctx.directory, ctx.args),
+      description: "Use /swarm close to close the swarm project and archive evidence",
+      details: "Idempotent 4-stage terminal finalization: (1) finalize writes retrospectives for in-progress phases, (2) archive creates timestamped bundle of swarm artifacts and evidence, (3) clean removes active-state files for a clean slate, (4) align performs safe git ff-only to main. Resets agent sessions and delegation chains. Reads .swarm/close-lessons.md for explicit lessons and runs curation.",
+      args: "--prune-branches",
+      category: "core"
+    },
+    simulate: {
+      handler: (ctx) => handleSimulateCommand(ctx.directory, ctx.args),
+      description: "Dry-run hidden coupling analysis with configurable thresholds",
+      args: "--threshold <number>, --min-commits <number>",
+      category: "diagnostics"
+    },
+    analyze: {
+      handler: (ctx) => handleAnalyzeCommand(ctx.directory, ctx.args),
+      description: "Analyze spec.md vs plan.md for requirement coverage gaps",
+      args: "",
+      category: "agent"
+    },
+    clarify: {
+      handler: (ctx) => handleClarifyCommand(ctx.directory, ctx.args),
+      description: "Clarify and refine an existing feature specification",
+      args: "[description-text]",
+      category: "agent"
+    },
+    specify: {
+      handler: (ctx) => handleSpecifyCommand(ctx.directory, ctx.args),
+      description: "Generate or import a feature specification [description]",
+      args: "[description-text]",
+      category: "agent"
+    },
+    brainstorm: {
+      handler: (ctx) => handleBrainstormCommand(ctx.directory, ctx.args),
+      description: "Enter architect MODE: BRAINSTORM \u2014 structured seven-phase planning workflow [topic]",
+      args: "[topic-text]",
+      details: "Triggers the architect to run the brainstorm workflow: CONTEXT SCAN, single-question DIALOGUE, APPROACHES, DESIGN SECTIONS, SPEC WRITE + SELF-REVIEW, QA GATE SELECTION, TRANSITION. Use for new plans where requirements need to be drawn out before writing spec.md / plan.md.",
+      category: "agent"
+    },
+    council: {
+      handler: (ctx) => handleCouncilCommand(ctx.directory, ctx.args),
+      description: "Enter architect MODE: COUNCIL \u2014 multi-model deliberation [question] [--spec-review]",
+      args: "<question> [--spec-review]",
+      details: "Triggers the architect to convene a three-agent General Council: Generalist (reviewer model), Skeptic (critic model), and Domain Expert (SME model). " + "The architect first runs 1\u20133 targeted web searches and passes a compiled RESEARCH CONTEXT " + "to all three agents before dispatching them in parallel. Agents deliberate using the NSED peer-review protocol (Round 1 independent analysis, Round 2 MAINTAIN/CONCEDE/NUANCE for disagreements). The architect synthesizes the final answer directly from convene_general_council output. --spec-review switches to single-pass advisory mode for spec review. Requires council.general.enabled: true and a search API key in opencode-swarm.json.",
+      category: "agent"
+    },
+    "pr-review": {
+      handler: async (ctx) => handlePrReviewCommand(ctx.directory, ctx.args),
+      description: "Launch deep PR review with multi-lane analysis [url] [--council]",
+      args: "<pr-url|owner/repo#N|N> [--council]",
+      details: "Launches a structured PR review: reconstructs PR intent via obligation extraction cascade, runs 6 parallel explorer lanes (correctness, security, dependencies, docs-intent-vs-actual, tests, performance-architecture), validates findings through independent reviewer confirmation, applies critic challenge to HIGH/CRITICAL findings, synthesizes structured report. --council variant fires adversarial multi-model review. Supports full GitHub URL, owner/repo#N shorthand, or bare PR number (resolves against origin remote).",
+      category: "agent"
+    },
+    issue: {
+      handler: async (ctx) => handleIssueCommand(ctx.directory, ctx.args),
+      description: "Ingest a GitHub issue into the swarm workflow [url] [--plan] [--trace] [--no-repro]",
+      args: "<issue-url|owner/repo#N|N> [--plan] [--trace] [--no-repro]",
+      details: "Triggers the architect to enter MODE: ISSUE_INGEST \u2014 ingests a GitHub issue, restructures it into a normalized intake note, localizes root cause through hypothesis-driven tracing, and outputs a resolution spec. --plan transitions to plan creation after spec generation. --trace runs the full fix-and-PR workflow (implies --plan). --no-repro skips the reproduction step. Supports full GitHub URL, owner/repo#N shorthand, or bare issue number (resolves against origin remote).",
+      category: "agent"
+    },
+    "qa-gates": {
+      handler: (ctx) => handleQaGatesCommand(ctx.directory, ctx.args, ctx.sessionID),
+      description: "View or modify QA gate profile for the current plan [enable|override <gate>...]",
+      args: "[show|enable|override] <gate>...",
+      details: "show: display spec-level, session-override, and effective QA gates for the current plan. enable: persist gate(s) into the locked-once profile (architect; rejected after critic approval lock). override: session-only ratchet-tighter enable. Valid gates: reviewer, test_engineer, council_mode, sme_enabled, critic_pre_plan, hallucination_guard, sast_enabled, mutation_test, council_general_review, drift_check.",
+      category: "config"
+    },
+    promote: {
+      handler: (ctx) => handlePromoteCommand(ctx.directory, ctx.args),
+      description: "Manually promote lesson to hive knowledge",
+      details: "Promotes a lesson directly to hive knowledge (--category flag sets category) or references an existing swarm lesson by ID (--from-swarm). Validates lesson text before promotion. Either direct text or --from-swarm ID is required.",
+      args: "--category <category>, --from-swarm <lesson-id>, <lesson-text>",
+      category: "utility"
+    },
+    reset: {
+      handler: (ctx) => handleResetCommand(ctx.directory, ctx.args),
+      description: "Clear swarm state files [--confirm]",
+      details: "DELETES plan.md, context.md, and summaries/ directory from .swarm/. Stops background automation and clears in-memory queues. SAFETY: requires --confirm flag \u2014 without it, displays a warning and tips to export first.",
+      args: "--confirm (required)",
+      category: "utility"
+    },
+    "reset-session": {
+      handler: (ctx) => handleResetSessionCommand(ctx.directory, ctx.args),
+      description: "Clear session state while preserving plan, evidence, and knowledge",
+      details: "Deletes only .swarm/session/state.json and any other session files. Clears in-memory agent sessions and delegation chains. Preserves plan, evidence, and knowledge for cross-session continuity.",
+      args: "",
+      category: "utility"
+    },
+    rollback: {
+      handler: (ctx) => handleRollbackCommand(ctx.directory, ctx.args),
+      description: "Restore swarm state to a checkpoint <phase>",
+      details: "Restores .swarm/ state by directly overwriting files from a checkpoint directory (checkpoints/phase-<N>). Writes rollback event to events.jsonl. Without phase argument, lists available checkpoints. Partial failures are reported but processing continues.",
+      args: "<phase-number>",
+      category: "utility"
+    },
+    retrieve: {
+      handler: (ctx) => handleRetrieveCommand(ctx.directory, ctx.args),
+      description: "Retrieve full output from a summary <id>",
+      args: "<summary-id>",
+      details: "Loads the full tool output that was previously summarized (referenced by IDs like S1, S2). Use when you need the complete output instead of the truncated summary.",
+      category: "utility"
+    },
+    handoff: {
+      handler: (ctx) => handleHandoffCommand(ctx.directory, ctx.args),
+      description: "Prepare state for clean model switch (new session)",
+      args: "",
+      details: "Generates handoff.md with full session state snapshot, including plan progress, recent decisions, and agent delegation history. Prepended to the next session prompt for seamless model switches.",
+      category: "core"
+    },
+    turbo: {
+      handler: (ctx) => handleTurboCommand(ctx.directory, ctx.args, ctx.sessionID),
+      description: "Toggle Turbo Mode for the active session [on|off]",
+      args: "on, off",
+      details: 'Toggles Turbo Mode which skips non-critical QA gates for faster iteration. When enabled, the architect can proceed without waiting for all automated checks. Session-scoped \u2014 resets on new session. Use "on" or "off" to set explicitly, or toggle with no argument.',
+      category: "utility"
+    },
+    "full-auto": {
+      handler: (ctx) => handleFullAutoCommand(ctx.directory, ctx.args, ctx.sessionID),
+      description: "Toggle Full-Auto Mode for the active session [on|off]",
+      args: "on, off",
+      details: 'Toggles Full-Auto Mode which enables autonomous execution without confirmation prompts. When enabled, the architect proceeds through implementation steps automatically. Session-scoped \u2014 resets on new session. Use "on" or "off" to set explicitly, or toggle with no argument.',
+      category: "utility"
+    },
+    "write-retro": {
+      handler: (ctx) => handleWriteRetroCommand(ctx.directory, ctx.args),
+      description: "Write a retrospective evidence bundle for a completed phase <json>",
+      details: "Writes retrospective evidence bundle to .swarm/evidence/retro-{phase}/evidence.json. Required JSON: phase, summary, task_count, task_complexity, total_tool_calls, coder_revisions, reviewer_rejections, test_failures, security_findings, integration_issues. Optional: lessons_learned (max 5), top_rejection_reasons, task_id, metadata.",
+      args: "<json: {phase, summary, task_count, task_complexity, ...}>",
+      category: "utility"
+    },
+    "knowledge migrate": {
+      handler: (ctx) => handleKnowledgeMigrateCommand(ctx.directory, ctx.args),
+      description: "Migrate knowledge entries to the current format",
+      subcommandOf: "knowledge",
+      details: "One-time migration from .swarm/context.md SME cache to .swarm/knowledge.jsonl. Skips if sentinel file .swarm/.knowledge-migrated exists, if context.md is absent, or if context.md is empty. Reports entries migrated, dropped (validation/dedup), and total processed.",
+      args: "<directory>",
+      category: "utility"
+    },
+    "knowledge quarantine": {
+      handler: (ctx) => handleKnowledgeQuarantineCommand(ctx.directory, ctx.args),
+      description: "Move a knowledge entry to quarantine <id> [reason]",
+      subcommandOf: "knowledge",
+      details: 'Moves a knowledge entry to quarantine with optional reason string (defaults to "Quarantined via /swarm knowledge quarantine command"). Validates entry ID format (1-64 alphanumeric/hyphen/underscore). Quarantined entries are excluded from knowledge queries.',
+      args: "<entry-id> [reason]",
+      category: "utility"
+    },
+    "knowledge restore": {
+      handler: (ctx) => handleKnowledgeRestoreCommand(ctx.directory, ctx.args),
+      description: "Restore a quarantined knowledge entry <id>",
+      subcommandOf: "knowledge",
+      details: "Restores a quarantined knowledge entry back to the active knowledge store by ID. Validates entry ID format (1-64 alphanumeric/hyphen/underscore). Entry must currently be in quarantine state.",
+      args: "<entry-id>",
+      category: "utility"
+    },
+    knowledge: {
+      handler: (ctx) => handleKnowledgeListCommand(ctx.directory, ctx.args),
+      description: "List knowledge entries",
+      category: "utility"
+    },
+    checkpoint: {
+      handler: (ctx) => handleCheckpointCommand(ctx.directory, ctx.args),
+      description: "Manage project checkpoints [save|restore|delete|list] <label>",
+      details: "save: creates named snapshot of current .swarm/ state. restore: soft-resets to checkpoint by overwriting current .swarm/ files. delete: removes named checkpoint. list: shows all checkpoints with timestamps. All subcommands require a label except list.",
+      args: "<save|restore|delete|list> <label>",
+      category: "utility"
+    }
+  };
+  VALID_COMMANDS = Object.keys(COMMAND_REGISTRY);
+  validation = validateAliases();
+  if (!validation.valid) {
+    throw new Error(`COMMAND_REGISTRY alias validation failed:
+${validation.errors.join(`
+`)}`);
+  }
+  if (validation.warnings.length > 0) {
+    console.warn(`COMMAND_REGISTRY alias warnings:
+${validation.warnings.join(`
+`)}`);
+  }
+});
 
 // src/cli/index.ts
+init_package();
+init_registry();
+init_cache_paths();
+init_constants();
+import * as fs22 from "fs";
+import * as os7 from "os";
+import * as path36 from "path";
 var { version: version4 } = package_default;
 var CONFIG_DIR = getPluginConfigDir();
-var OPENCODE_CONFIG_PATH = path35.join(CONFIG_DIR, "opencode.json");
-var PLUGIN_CONFIG_PATH = path35.join(CONFIG_DIR, "opencode-swarm.json");
-var PROMPTS_DIR = path35.join(CONFIG_DIR, "opencode-swarm");
+var OPENCODE_CONFIG_PATH = path36.join(CONFIG_DIR, "opencode.json");
+var PLUGIN_CONFIG_PATH = path36.join(CONFIG_DIR, "opencode-swarm.json");
+var PROMPTS_DIR = path36.join(CONFIG_DIR, "opencode-swarm");
 var OPENCODE_PLUGIN_CACHE_PATHS = getPluginCachePaths();
 var OPENCODE_PLUGIN_LOCK_FILE_PATHS = getPluginLockFilePaths();
 function isSafeCachePath(p) {
-  const resolved = path35.resolve(p);
-  const home = path35.resolve(os7.homedir());
+  const resolved = path36.resolve(p);
+  const home = path36.resolve(os7.homedir());
   if (resolved === "/" || resolved === home || resolved.length <= home.length) {
     return false;
   }
-  const segments = resolved.split(path35.sep).filter((s) => s.length > 0);
+  const segments = resolved.split(path36.sep).filter((s) => s.length > 0);
   if (segments.length < 4) {
     return false;
   }
-  const leaf = path35.basename(resolved);
+  const leaf = path36.basename(resolved);
   if (leaf !== "opencode-swarm@latest" && leaf !== "opencode-swarm") {
     return false;
   }
-  const parent = path35.basename(path35.dirname(resolved));
+  const parent = path36.basename(path36.dirname(resolved));
   if (parent !== "packages" && parent !== "node_modules") {
     return false;
   }
-  const grandparent = path35.basename(path35.dirname(path35.dirname(resolved)));
+  const grandparent = path36.basename(path36.dirname(path36.dirname(resolved)));
   if (grandparent !== "opencode") {
     return false;
   }
   return true;
 }
 function isSafeLockFilePath(p) {
-  const resolved = path35.resolve(p);
-  const home = path35.resolve(os7.homedir());
+  const resolved = path36.resolve(p);
+  const home = path36.resolve(os7.homedir());
   if (resolved === "/" || resolved === home || resolved.length <= home.length) {
     return false;
   }
-  const segments = resolved.split(path35.sep).filter((s) => s.length > 0);
+  const segments = resolved.split(path36.sep).filter((s) => s.length > 0);
   if (segments.length < 4) {
     return false;
   }
-  const leaf = path35.basename(resolved);
+  const leaf = path36.basename(resolved);
   if (leaf !== "bun.lock" && leaf !== "bun.lockb" && leaf !== "package-lock.json") {
     return false;
   }
-  const parent = path35.basename(path35.dirname(resolved));
+  const parent = path36.basename(path36.dirname(resolved));
   if (parent !== "opencode") {
     return false;
   }
   return true;
 }
 function ensureDir(dir) {
-  if (!fs21.existsSync(dir)) {
-    fs21.mkdirSync(dir, { recursive: true });
+  if (!fs22.existsSync(dir)) {
+    fs22.mkdirSync(dir, { recursive: true });
   }
 }
 function loadJson(filepath) {
   try {
-    const content = fs21.readFileSync(filepath, "utf-8");
+    const content = fs22.readFileSync(filepath, "utf-8");
     const stripped = content.replace(/\\"|"(?:\\"|[^"])*"|(\/\/.*|\/\*[\s\S]*?\*\/)/g, (match, comment) => comment ? "" : match).replace(/,(\s*[}\]])/g, "$1");
     return JSON.parse(stripped);
   } catch {
@@ -46615,18 +47845,21 @@ function loadJson(filepath) {
   }
 }
 function saveJson(filepath, data) {
-  fs21.writeFileSync(filepath, `${JSON.stringify(data, null, 2)}
+  fs22.writeFileSync(filepath, `${JSON.stringify(data, null, 2)}
 `, "utf-8");
 }
 function writeProjectConfigIfMissing(cwd) {
   try {
-    const opencodeDir = path35.join(cwd, ".opencode");
-    const projectConfigPath = path35.join(opencodeDir, "opencode-swarm.json");
-    if (fs21.existsSync(projectConfigPath)) {
+    const opencodeDir = path36.join(cwd, ".opencode");
+    const projectConfigPath = path36.join(opencodeDir, "opencode-swarm.json");
+    if (fs22.existsSync(projectConfigPath)) {
       return;
     }
     ensureDir(opencodeDir);
-    const starterConfig = { agents: {} };
+    const starterConfig = {
+      agents: { ...DEFAULT_AGENT_CONFIGS },
+      default_agent: "architect"
+    };
     saveJson(projectConfigPath, starterConfig);
     console.log("\u2713 Created project config at:", projectConfigPath);
   } catch (error93) {
@@ -46639,7 +47872,7 @@ async function install() {
 `);
   ensureDir(CONFIG_DIR);
   ensureDir(PROMPTS_DIR);
-  const LEGACY_CONFIG_PATH = path35.join(CONFIG_DIR, "config.json");
+  const LEGACY_CONFIG_PATH = path36.join(CONFIG_DIR, "config.json");
   let opencodeConfig = loadJson(OPENCODE_CONFIG_PATH);
   if (!opencodeConfig) {
     const legacyConfig = loadJson(LEGACY_CONFIG_PATH);
@@ -46686,66 +47919,9 @@ async function install() {
     console.warn(`\u26A0 Could not clear opencode lock file \u2014 you may need to delete it manually:
   ${failed}`);
   }
-  if (!fs21.existsSync(PLUGIN_CONFIG_PATH)) {
+  if (!fs22.existsSync(PLUGIN_CONFIG_PATH)) {
     const defaultConfig = {
-      agents: {
-        coder: {
-          model: "opencode/minimax-m2.5-free",
-          fallback_models: ["opencode/gpt-5-nano", "opencode/big-pickle"]
-        },
-        reviewer: {
-          model: "opencode/big-pickle",
-          fallback_models: ["opencode/gpt-5-nano", "opencode/big-pickle"]
-        },
-        test_engineer: {
-          model: "opencode/gpt-5-nano",
-          fallback_models: ["opencode/big-pickle"]
-        },
-        explorer: {
-          model: "opencode/big-pickle",
-          fallback_models: ["opencode/gpt-5-nano", "opencode/big-pickle"]
-        },
-        sme: {
-          model: "opencode/big-pickle",
-          fallback_models: ["opencode/gpt-5-nano", "opencode/big-pickle"]
-        },
-        critic: {
-          model: "opencode/big-pickle",
-          fallback_models: ["opencode/gpt-5-nano", "opencode/big-pickle"]
-        },
-        docs: {
-          model: "opencode/big-pickle",
-          fallback_models: ["opencode/gpt-5-nano", "opencode/big-pickle"]
-        },
-        designer: {
-          model: "opencode/big-pickle",
-          fallback_models: ["opencode/gpt-5-nano", "opencode/big-pickle"]
-        },
-        critic_sounding_board: {
-          model: "opencode/gpt-5-nano",
-          fallback_models: ["opencode/big-pickle"]
-        },
-        critic_drift_verifier: {
-          model: "opencode/gpt-5-nano",
-          fallback_models: ["opencode/big-pickle"]
-        },
-        critic_hallucination_verifier: {
-          model: "opencode/gpt-5-nano",
-          fallback_models: ["opencode/big-pickle"]
-        },
-        critic_oversight: {
-          model: "opencode/gpt-5-nano",
-          fallback_models: ["opencode/big-pickle"]
-        },
-        curator_init: {
-          model: "opencode/gpt-5-nano",
-          fallback_models: ["opencode/big-pickle"]
-        },
-        curator_phase: {
-          model: "opencode/gpt-5-nano",
-          fallback_models: ["opencode/big-pickle"]
-        }
-      },
+      agents: { ...DEFAULT_AGENT_CONFIGS },
       max_iterations: 5
     };
     saveJson(PLUGIN_CONFIG_PATH, defaultConfig);
@@ -46764,9 +47940,8 @@ async function install() {
   console.log(`
 Next steps:`);
   console.log('1. Run "opencode" in your project directory');
-  console.log("2. Select the Architect agent in the OpenCode agent/mode dropdown");
-  console.log("3. Ask it anything \u2014 the Architect coordinates all other agents automatically");
-  console.log("4. Run /swarm diagnose inside OpenCode to confirm the plugin loaded");
+  console.log("2. Ask the Architect anything \u2014 it coordinates all other agents automatically");
+  console.log("3. Run /swarm diagnose inside OpenCode to confirm the plugin loaded");
   console.log("   (also try: /swarm agents  /swarm config)");
   console.log(`
 \uD83D\uDCA1 Model configuration:`);
@@ -46823,14 +47998,14 @@ function evictPluginCaches() {
   const cleared = [];
   const failed = [];
   for (const cachePath of OPENCODE_PLUGIN_CACHE_PATHS) {
-    if (!fs21.existsSync(cachePath))
+    if (!fs22.existsSync(cachePath))
       continue;
     if (!isSafeCachePath(cachePath)) {
       failed.push(`${cachePath} (refused: failed safety check)`);
       continue;
     }
     try {
-      fs21.rmSync(cachePath, { recursive: true, force: true });
+      fs22.rmSync(cachePath, { recursive: true, force: true });
       cleared.push(cachePath);
     } catch (err) {
       failed.push(`${cachePath} (${err instanceof Error ? err.message : String(err)})`);
@@ -46842,14 +48017,14 @@ function evictLockFiles() {
   const cleared = [];
   const failed = [];
   for (const lockPath of OPENCODE_PLUGIN_LOCK_FILE_PATHS) {
-    if (!fs21.existsSync(lockPath))
+    if (!fs22.existsSync(lockPath))
       continue;
     if (!isSafeLockFilePath(lockPath)) {
       failed.push(`${lockPath} (refused: failed safety check)`);
       continue;
     }
     try {
-      fs21.unlinkSync(lockPath);
+      fs22.unlinkSync(lockPath);
       cleared.push(lockPath);
     } catch (err) {
       const code = err?.code;
@@ -46868,7 +48043,7 @@ async function uninstall() {
 `);
     const opencodeConfig = loadJson(OPENCODE_CONFIG_PATH);
     if (!opencodeConfig) {
-      if (fs21.existsSync(OPENCODE_CONFIG_PATH)) {
+      if (fs22.existsSync(OPENCODE_CONFIG_PATH)) {
         console.log(`\u2717 Could not parse opencode config at: ${OPENCODE_CONFIG_PATH}`);
         return 1;
       } else {
@@ -46900,13 +48075,13 @@ async function uninstall() {
     console.log("\u2713 Re-enabled default OpenCode agents (explore, general)");
     if (process.argv.includes("--clean")) {
       let cleaned = false;
-      if (fs21.existsSync(PLUGIN_CONFIG_PATH)) {
-        fs21.unlinkSync(PLUGIN_CONFIG_PATH);
+      if (fs22.existsSync(PLUGIN_CONFIG_PATH)) {
+        fs22.unlinkSync(PLUGIN_CONFIG_PATH);
         console.log(`\u2713 Removed plugin config: ${PLUGIN_CONFIG_PATH}`);
         cleaned = true;
       }
-      if (fs21.existsSync(PROMPTS_DIR)) {
-        fs21.rmSync(PROMPTS_DIR, { recursive: true });
+      if (fs22.existsSync(PROMPTS_DIR)) {
+        fs22.rmSync(PROMPTS_DIR, { recursive: true });
         console.log(`\u2713 Removed custom prompts: ${PROMPTS_DIR}`);
         cleaned = true;
       }

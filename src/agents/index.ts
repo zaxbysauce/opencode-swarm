@@ -6,7 +6,11 @@ import {
 	type PluginConfig,
 	type SwarmConfig,
 } from '../config';
-import { AGENT_TOOL_MAP, DEFAULT_MODELS } from '../config/constants';
+import {
+	AGENT_TOOL_MAP,
+	ALL_AGENT_NAMES,
+	DEFAULT_MODELS,
+} from '../config/constants';
 import { stripKnownSwarmPrefix } from '../config/schema';
 import { addDeferredWarning } from '../services/warning-buffer.js';
 import { type AgentDefinition, createArchitectAgent } from './architect';
@@ -647,10 +651,31 @@ export function getAgentConfigs(
 			};
 
 			// Apply mode based on agent type
-			// Architects are primary, everything else is subagent
-			if (agent.name === 'architect' || agent.name.endsWith('_architect')) {
+			// The default_agent config field controls which agent is set as primary mode.
+			// If not specified, 'architect' (or agents ending with '_architect') is primary by default.
+			// Other agents are subagents unless explicitly set as default_agent.
+			// Defensive fallback: if default_agent is set but invalid, fall back to 'architect'.
+			let defaultAgent = config?.default_agent ?? 'architect';
+			if (
+				defaultAgent !== 'architect' &&
+				!(ALL_AGENT_NAMES as readonly string[]).includes(defaultAgent)
+			) {
+				if (!quiet) {
+					console.warn(
+						`[swarm] Invalid default_agent '${defaultAgent}' — falling back to 'architect'. Valid values: ${ALL_AGENT_NAMES.join(', ')}`,
+					);
+				} else {
+					addDeferredWarning(
+						`[swarm] Invalid default_agent '${defaultAgent}' — falling back to 'architect'. Valid values: ${ALL_AGENT_NAMES.join(', ')}`,
+					);
+				}
+				defaultAgent = 'architect';
+			}
+			const isPrimaryAgent = agent.name === defaultAgent;
+
+			if (isPrimaryAgent) {
 				sdkConfig.mode = 'primary';
-				// Allow task delegation for architect agents
+				// Allow task delegation for primary agents
 				(sdkConfig.permission as Record<string, 'allow'>) = { task: 'allow' };
 			} else {
 				sdkConfig.mode = 'subagent';

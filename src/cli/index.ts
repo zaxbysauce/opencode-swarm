@@ -9,6 +9,7 @@ import {
 	getPluginConfigDir,
 	getPluginLockFilePaths,
 } from '../config/cache-paths.js';
+import { DEFAULT_AGENT_CONFIGS } from '../config/constants.js';
 
 const { version } = packageJson;
 
@@ -144,8 +145,11 @@ function writeProjectConfigIfMissing(cwd: string): void {
 		// Create .opencode/ directory if it doesn't exist
 		ensureDir(opencodeDir);
 
-		// Write minimal starter content
-		const starterConfig = { agents: {} };
+		// Write starter content with default agent configs
+		const starterConfig = {
+			agents: { ...DEFAULT_AGENT_CONFIGS },
+			default_agent: 'architect',
+		};
 		saveJson(projectConfigPath, starterConfig);
 		console.log('✓ Created project config at:', projectConfigPath);
 	} catch (error) {
@@ -255,69 +259,11 @@ async function install(): Promise<number> {
 			// Must match PluginConfigSchema in src/config/schema.ts
 			// v6.14: free OpenCode Zen models; v6.73+ switched to big-pickle with gpt-5-nano fallback; architect inherits OpenCode UI selection
 			// v6.85+: Multi-level fallback chains - only big-pickle and gpt-5-nano are consistently available in free tier
-			agents: {
-				coder: {
-					model: 'opencode/minimax-m2.5-free',
-					fallback_models: ['opencode/gpt-5-nano', 'opencode/big-pickle'],
-				},
-				reviewer: {
-					model: 'opencode/big-pickle',
-					fallback_models: ['opencode/gpt-5-nano', 'opencode/big-pickle'],
-				},
-				test_engineer: {
-					model: 'opencode/gpt-5-nano',
-					fallback_models: ['opencode/big-pickle'],
-				},
-				explorer: {
-					model: 'opencode/big-pickle',
-					fallback_models: ['opencode/gpt-5-nano', 'opencode/big-pickle'],
-				},
-				sme: {
-					model: 'opencode/big-pickle',
-					fallback_models: ['opencode/gpt-5-nano', 'opencode/big-pickle'],
-				},
-				critic: {
-					model: 'opencode/big-pickle',
-					fallback_models: ['opencode/gpt-5-nano', 'opencode/big-pickle'],
-				},
-				docs: {
-					model: 'opencode/big-pickle',
-					fallback_models: ['opencode/gpt-5-nano', 'opencode/big-pickle'],
-				},
-				designer: {
-					model: 'opencode/big-pickle',
-					fallback_models: ['opencode/gpt-5-nano', 'opencode/big-pickle'],
-				},
-				critic_sounding_board: {
-					model: 'opencode/gpt-5-nano',
-					fallback_models: ['opencode/big-pickle'],
-				},
-				critic_drift_verifier: {
-					model: 'opencode/gpt-5-nano',
-					fallback_models: ['opencode/big-pickle'],
-				},
-				critic_hallucination_verifier: {
-					model: 'opencode/gpt-5-nano',
-					fallback_models: ['opencode/big-pickle'],
-				},
-				critic_oversight: {
-					model: 'opencode/gpt-5-nano',
-					fallback_models: ['opencode/big-pickle'],
-				},
-				curator_init: {
-					model: 'opencode/gpt-5-nano',
-					fallback_models: ['opencode/big-pickle'],
-				},
-				curator_phase: {
-					model: 'opencode/gpt-5-nano',
-					fallback_models: ['opencode/big-pickle'],
-				},
-				// General Council agents derive their models from reviewer / critic /
-				// sme entries above (generalist → reviewer, skeptic → critic,
-				// domain_expert → sme). No separate config entries are needed; if you
-				// want to override per-council-agent, set temperature/variant on
-				// council_generalist / council_skeptic / council_domain_expert.
-			},
+			// General Council agents (council_generalist, council_skeptic, council_domain_expert)
+			// derive their models from reviewer/critic/sme entries above. No separate config
+			// entries are needed; if you want to override per-council-agent, set
+			// temperature/variant on council_generalist / council_skeptic / council_domain_expert.
+			agents: { ...DEFAULT_AGENT_CONFIGS },
 			max_iterations: 5,
 		};
 		saveJson(PLUGIN_CONFIG_PATH, defaultConfig);
@@ -338,13 +284,10 @@ async function install(): Promise<number> {
 	console.log('\nNext steps:');
 	console.log('1. Run "opencode" in your project directory');
 	console.log(
-		'2. Select the Architect agent in the OpenCode agent/mode dropdown',
+		'2. Ask the Architect anything — it coordinates all other agents automatically',
 	);
 	console.log(
-		'3. Ask it anything — the Architect coordinates all other agents automatically',
-	);
-	console.log(
-		'4. Run /swarm diagnose inside OpenCode to confirm the plugin loaded',
+		'3. Run /swarm diagnose inside OpenCode to confirm the plugin loaded',
 	);
 	console.log('   (also try: /swarm agents  /swarm config)');
 

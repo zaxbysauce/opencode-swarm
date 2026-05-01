@@ -24,7 +24,7 @@ bunx opencode-swarm install
 
 > This single command installs the package, registers it as an OpenCode plugin, disables conflicting default agents, and creates a ready-to-edit config at `~/.config/opencode/opencode-swarm.json`. Requires [Bun](https://bun.sh) (`bun --version` to check). If you must use npm: `npm install -g opencode-swarm && opencode-swarm install`.
 
-> ⚠️ **You must select the Swarm architect mode/agent in OpenCode after install.** The default OpenCode `Build` and `Plan` modes **bypass this plugin entirely** — none of the gates, reviewers, or test agents below run. Open the OpenCode mode/agent picker and choose the Swarm architect once; it then coordinates every other agent automatically. If you ever see Swarm "do nothing," this is almost always the cause.
+> ⚠️ **On first run, Swarm auto-selects the architect and shows a welcome message.** The default OpenCode `Build` and `Plan` modes **bypass this plugin entirely** — none of the gates, reviewers, or test agents below run. If you ever need to switch architect manually, open the OpenCode mode/agent picker and choose the Swarm architect; it then coordinates every other agent automatically. If you ever see Swarm "do nothing," this is almost always the cause.
 
 ### Why Swarm?
 
@@ -41,7 +41,7 @@ Most AI coding tools let one model write code and ask that same model whether th
 - 🆓 **Free tier** — works with OpenCode Zen's free model roster
 - ⚙️ **Fully configurable** — override any agent's model, disable agents, tune guardrails
 
-> **You select a Swarm architect once in the OpenCode GUI.** The architect coordinates all other agents automatically — you never manually switch between internal roles. If you use the default OpenCode `Build` / `Plan` modes, the plugin is bypassed entirely (see the install warning above).
+> **The Swarm architect is auto-selected on first run and coordinates all other agents automatically.** You never manually switch between internal roles. If you use the default OpenCode `Build` / `Plan` modes, the plugin is bypassed entirely (see the install warning above).
 
 ---
 
@@ -118,9 +118,14 @@ Switch session modes with `/swarm turbo [on|off]` or `/swarm full-auto [on|off]`
 
 The 15-minute guide covers:
 - Installation (`bunx opencode-swarm install`)
-- Selecting the architect in OpenCode
+- First-run auto-configuration (architect selected automatically)
 - Running your first task
 - Troubleshooting common issues
+
+On first run, Swarm automatically:
+- Creates project config at `.opencode/opencode-swarm.json` with all agents enabled
+- Selects the Swarm architect as the default
+- Shows a welcome message with next steps
 
 ---
 
@@ -134,12 +139,12 @@ No animated GIF is shipped in the repo — instead, here is the exact terminal s
 # 1. Install the plugin (5s)
 bunx opencode-swarm install
 
-# 2. Open opencode and select the Swarm architect mode/agent in the picker
-#    (this step is manual in the OpenCode UI — without it, the plugin is bypassed)
+# 2. Open opencode — Swarm auto-selects architect on first run
+#    (the architect is auto-selected; manual selection is only needed to override)
 opencode
 
 # 3. Inside the OpenCode session, verify Swarm is live (5s)
-/swarm diagnose
+/swarm help
 /swarm agents
 
 # 4. Kick off a task — the architect plans, then gates fire automatically (15s)
@@ -156,13 +161,13 @@ Build me a JWT auth helper with tests.
 ┌──────────────────────────────────────────────────────────────┐
 │ $ bunx opencode-swarm install                                │
 │ ✓ installed opencode-swarm                                   │
-│ ✓ wrote ~/.config/opencode/opencode-swarm.json               │
+│ ✓ created .opencode/opencode-swarm.json                     │
 │                                                              │
 │ $ opencode                                                   │
-│ [mode picker] → select: Swarm Architect                      │
+│ [Swarm] Welcome! Architect auto-selected. Type /swarm help  │
 │                                                              │
-│ > /swarm diagnose                                            │
-│ ✓ plugin loaded   ✓ agents registered   ✓ gates armed        │
+│ > /swarm help                                                │
+│ Available commands: status, plan, agents, help, diagnose... │
 │                                                              │
 │ > Build me a JWT auth helper with tests.                     │
 │ [architect]  PLAN → critic gate → APPROVED                   │
@@ -213,6 +218,7 @@ in your `opencode-swarm.json`.
 All 41 subcommands at a glance:
 
 ```bash
+/swarm help [command]      # List all commands or get detailed help for a specific command
 /swarm status              # Current phase and task
 /swarm plan [N]            # Full plan or filtered by phase
 /swarm agents              # Registered agents and models
@@ -221,7 +227,27 @@ All 41 subcommands at a glance:
 /swarm reset --confirm     # Clear swarm state
 ```
 
+Use `/swarm help` to see all available commands categorized by function. Use `/swarm help <command>` for detailed usage information on a specific command.
+
 See [docs/commands.md](docs/commands.md) for the full reference (41 commands).
+
+## Command Aliases
+
+Some commands are available under deprecated names for backwards compatibility. Using the canonical name is recommended:
+
+| Alias (deprecated) | Canonical command |
+|--------------------|-------------------|
+| `/swarm config-doctor` | `/swarm config doctor` |
+| `/swarm diagnosis` | `/swarm diagnose` |
+| `/swarm evidence-summary` | `/swarm evidence summary` |
+| `/swarm doctor` | `/swarm config doctor` |
+| `/swarm info` | `/swarm status` |
+| `/swarm list-agents` | `/swarm agents` |
+| `/swarm health` | `/swarm diagnose` |
+| `/swarm check` | `/swarm preflight` |
+| `/swarm clear` | `/swarm reset-session` |
+
+Aliases are hidden from help output but still function. The canonical command should be used in scripts and documentation.
 
 ---
 
@@ -1278,6 +1304,7 @@ Control how tool outputs are summarized for LLM context.
 
 | Command | Description |
 |---------|-------------|
+| `/swarm help [command]` | List all commands or get detailed help for a specific command |
 | `/swarm status` | Current phase, task progress, agent count |
 | `/swarm plan [N]` | Full plan or filtered by phase |
 | `/swarm agents` | Registered agents with models and permissions |

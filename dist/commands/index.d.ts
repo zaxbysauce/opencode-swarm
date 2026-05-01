@@ -24,6 +24,7 @@ export { handlePlanCommand } from './plan';
 export { handlePreflightCommand } from './preflight';
 export { handlePromoteCommand } from './promote';
 export { handleQaGatesCommand } from './qa-gates';
+export { handleHelpCommand } from './registry';
 export type { CommandContext, CommandEntry, RegisteredCommand, } from './registry.js';
 export { COMMAND_REGISTRY, resolveCommand, VALID_COMMANDS, } from './registry.js';
 export { handleResetCommand } from './reset';
