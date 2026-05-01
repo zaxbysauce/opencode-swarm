@@ -27,10 +27,16 @@ export function createAgentActivityHooks(
 		input: { tool: string; sessionID: string; callID: string },
 		output: { args: unknown },
 	) => Promise<void>;
-	toolAfter: (
-		input: { tool: string; sessionID: string; callID: string },
-		output: { title: string; output: string; metadata: unknown },
-	) => Promise<void>;
+		toolAfter: (
+			input: { tool: string; sessionID: string; callID: string },
+			output: {
+				title?: string;
+				output?: unknown;
+				metadata?: unknown;
+				error?: unknown;
+				success?: boolean;
+			},
+		) => Promise<void>;
 } {
 	// If agent activity tracking is disabled, return no-op handlers
 	if (config.hooks?.agent_activity === false) {
@@ -69,9 +75,14 @@ export function createAgentActivityHooks(
 			// Compute duration
 			const duration = Date.now() - entry.startTime;
 
-			// Determine success: a non-null/undefined output field means the tool produced output
-			const rawOutput = (output as { output?: unknown }).output;
-			const success = rawOutput !== null && rawOutput !== undefined;
+			// Some tools succeed without populating output.output. Only count a failure when
+			// the hook receives an explicit failure signal.
+			const explicitSuccess =
+				typeof output.success === 'boolean' ? output.success : undefined;
+			const explicitFailure =
+				explicitSuccess === false ||
+				output.error !== null && output.error !== undefined;
+			const success = explicitFailure ? false : true;
 
 			// Update toolAggregates
 			const key = entry.tool;

@@ -673,6 +673,7 @@ export function createDelegationGateHook(
 									taskId,
 									'complete',
 									directory,
+									{ telemetrySessionId: input.sessionID },
 									config.council,
 								);
 							} catch (err) {
@@ -759,12 +760,16 @@ export function createDelegationGateHook(
 									// step so the state machine stays consistent.
 									try {
 										if (
-											eligibleState === 'coder_delegated' ||
-											eligibleState === 'pre_check_passed'
-										) {
-											advanceTaskState(session, taskId, 'reviewer_run');
-										}
-										advanceTaskState(session, taskId, 'tests_run');
+									eligibleState === 'coder_delegated' ||
+									eligibleState === 'pre_check_passed'
+								) {
+									advanceTaskState(session, taskId, 'reviewer_run', {
+										telemetrySessionId: input.sessionID,
+									});
+								}
+								advanceTaskState(session, taskId, 'tests_run', {
+									telemetrySessionId: input.sessionID,
+								});
 									} catch (err) {
 										logger.warn(
 											`[delegation-gate] toolAfter stage-b-parallel: could not advance ${taskId} (${eligibleState}) → tests_run: ${err instanceof Error ? err.message : String(err)}`,
@@ -811,13 +816,16 @@ export function createDelegationGateHook(
 												seedEligibleState === 'coder_delegated' ||
 												seedEligibleState === 'pre_check_passed'
 											) {
-												advanceTaskState(
-													otherSession,
-													seedTaskId,
-													'reviewer_run',
-												);
-											}
-											advanceTaskState(otherSession, seedTaskId, 'tests_run');
+											advanceTaskState(
+												otherSession,
+												seedTaskId,
+												'reviewer_run',
+												{ emitTelemetry: false },
+											);
+										}
+										advanceTaskState(otherSession, seedTaskId, 'tests_run', {
+											emitTelemetry: false,
+										});
 										} catch (err) {
 											logger.warn(
 												`[delegation-gate] toolAfter cross-session stage-b-parallel: could not advance ${seedTaskId} (${seedEligibleState}) → tests_run: ${err instanceof Error ? err.message : String(err)}`,
@@ -836,9 +844,11 @@ export function createDelegationGateHook(
 									state === 'coder_delegated' ||
 									state === 'pre_check_passed'
 								) {
-									try {
-										advanceTaskState(session, taskId, 'reviewer_run');
-									} catch (err) {
+								try {
+									advanceTaskState(session, taskId, 'reviewer_run', {
+										telemetrySessionId: input.sessionID,
+									});
+								} catch (err) {
 										// Non-fatal: state may already be at or past reviewer_run.
 										// Log so that silent swallowing does not hide root-cause bugs
 										// (e.g. INVALID_TASK_STATE_TRANSITION from PR #123 strict mode).
@@ -854,9 +864,11 @@ export function createDelegationGateHook(
 						if (targetAgent === 'test_engineer' && session.taskWorkflowStates) {
 							for (const [taskId, state] of session.taskWorkflowStates) {
 								if (state === 'reviewer_run') {
-									try {
-										advanceTaskState(session, taskId, 'tests_run');
-									} catch (err) {
+								try {
+									advanceTaskState(session, taskId, 'tests_run', {
+										telemetrySessionId: input.sessionID,
+									});
+								} catch (err) {
 										// Non-fatal: state may already be at or past tests_run.
 										// Log so advancement failures are diagnosable.
 										logger.warn(
@@ -1099,7 +1111,9 @@ export function createDelegationGateHook(
 										state === 'pre_check_passed'
 									) {
 										try {
-											advanceTaskState(otherSession, taskId, 'reviewer_run');
+											advanceTaskState(otherSession, taskId, 'reviewer_run', {
+												emitTelemetry: false,
+											});
 										} catch (err) {
 											logger.warn(
 												`[delegation-gate] fallback cross-session: could not advance ${taskId} (${state}) → reviewer_run: ${err instanceof Error ? err.message : String(err)}`,
@@ -1129,7 +1143,9 @@ export function createDelegationGateHook(
 								for (const [taskId, state] of otherSession.taskWorkflowStates) {
 									if (state === 'reviewer_run') {
 										try {
-											advanceTaskState(otherSession, taskId, 'tests_run');
+											advanceTaskState(otherSession, taskId, 'tests_run', {
+												emitTelemetry: false,
+											});
 										} catch (err) {
 											logger.warn(
 												`[delegation-gate] fallback cross-session: could not advance ${taskId} (${state}) → tests_run: ${err instanceof Error ? err.message : String(err)}`,
@@ -1347,6 +1363,7 @@ export function createDelegationGateHook(
 						currentTaskId,
 						'coder_delegated',
 						directory,
+						{ telemetrySessionId: sessionID },
 					);
 				} catch (err) {
 					// INVALID_TASK_STATE_TRANSITION is non-fatal in Phase 2 (observe-only)
