@@ -1,5 +1,12 @@
 # Changelog
 
+## [7.2.0](https://github.com/zaxbysauce/opencode-swarm/compare/v7.1.1...v7.2.0) (2026-05-01)
+
+
+### Features
+
+* **config:** auto-create .opencode/opencode-swarm.json on plugin init ([#657](https://github.com/zaxbysauce/opencode-swarm/issues/657)) ([#719](https://github.com/zaxbysauce/opencode-swarm/issues/719)) ([6c60d4d](https://github.com/zaxbysauce/opencode-swarm/commit/6c60d4df5ef486ce11aa89c4f4124c2aa2e93cec))
+
 ## [7.1.1](https://github.com/zaxbysauce/opencode-swarm/compare/v7.1.0...v7.1.1) (2026-04-30)
 
 
