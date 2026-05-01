@@ -145,16 +145,24 @@ describe('buildHelpText()', () => {
 			}
 		});
 
-		test('no top-level entry for compound commands that have a parent in VALID_COMMANDS', () => {
+		test('no top-level entry for compound commands that have a non-alias parent in VALID_COMMANDS', () => {
 			// Commands like "knowledge migrate" should NOT appear as top-level
 			// They should appear as subcommands under "knowledge"
-			const compoundWithParent = VALID_COMMANDS.filter((cmd) => {
+			// But if the parent is an alias (like "doctor" which is aliasOf: 'config doctor'),
+			// the compound command HAS no parent to appear under, so it CAN appear as top-level
+			const compoundWithNonAliasParent = VALID_COMMANDS.filter((cmd) => {
 				if (!cmd.includes(' ')) return false;
-				const parent = cmd.split(' ')[0];
-				return VALID_COMMANDS.includes(parent as RegisteredCommand);
+				const parentKey = cmd.split(' ')[0];
+				if (!VALID_COMMANDS.includes(parentKey as RegisteredCommand))
+					return false;
+				const parentEntry = (COMMAND_REGISTRY as Record<string, CommandEntry>)[
+					parentKey
+				];
+				const parentIsAlias = parentEntry?.aliasOf !== undefined;
+				return !parentIsAlias;
 			});
 
-			for (const cmd of compoundWithParent) {
+			for (const cmd of compoundWithNonAliasParent) {
 				// The compound command should NOT appear as a top-level entry
 				const topLevelPattern = new RegExp(
 					`^- \`/swarm ${cmd.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')}\``,

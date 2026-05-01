@@ -303,6 +303,7 @@ describe('PluginConfigSchema', () => {
 				max_iterations: 5,
 				qa_retry_limit: 3,
 				inject_phase_reminders: true,
+				default_agent: 'architect',
 				execution_mode: 'balanced',
 				turbo_mode: false,
 				quiet: true,

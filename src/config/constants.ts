@@ -401,19 +401,85 @@ export const DEFAULT_MODELS: Record<string, string> = {
 	// SME, Critic variants, Docs, Designer — reasoning/general tasks
 	sme: 'opencode/big-pickle',
 	critic: 'opencode/big-pickle',
-	critic_sounding_board: 'opencode/big-pickle',
-	critic_drift_verifier: 'opencode/big-pickle',
-	critic_hallucination_verifier: 'opencode/big-pickle',
-	critic_oversight: 'opencode/big-pickle',
+	critic_sounding_board: 'opencode/gpt-5-nano',
+	critic_drift_verifier: 'opencode/gpt-5-nano',
+	critic_hallucination_verifier: 'opencode/gpt-5-nano',
+	critic_oversight: 'opencode/gpt-5-nano',
 	docs: 'opencode/big-pickle',
 	designer: 'opencode/big-pickle',
 
 	// Curator agents — lightweight read-only analysis (same model family as explorer)
-	curator_init: 'opencode/big-pickle',
-	curator_phase: 'opencode/big-pickle',
+	curator_init: 'opencode/gpt-5-nano',
+	curator_phase: 'opencode/gpt-5-nano',
 
 	// Fallback
 	default: 'opencode/big-pickle',
+};
+
+// Full agent configuration with model and fallback_models chains.
+// Used by install() and writeProjectConfigIfMissing() to populate default configs.
+// General Council agents (council_generalist, council_skeptic, council_domain_expert)
+// derive their models from reviewer/critic/sme entries and don't need separate entries.
+export const DEFAULT_AGENT_CONFIGS: Record<
+	string,
+	{ model: string; fallback_models: string[] }
+> = {
+	coder: {
+		model: 'opencode/minimax-m2.5-free',
+		fallback_models: ['opencode/gpt-5-nano', 'opencode/big-pickle'],
+	},
+	reviewer: {
+		model: 'opencode/big-pickle',
+		fallback_models: ['opencode/gpt-5-nano', 'opencode/big-pickle'],
+	},
+	test_engineer: {
+		model: 'opencode/gpt-5-nano',
+		fallback_models: ['opencode/big-pickle'],
+	},
+	explorer: {
+		model: 'opencode/big-pickle',
+		fallback_models: ['opencode/gpt-5-nano', 'opencode/big-pickle'],
+	},
+	sme: {
+		model: 'opencode/big-pickle',
+		fallback_models: ['opencode/gpt-5-nano', 'opencode/big-pickle'],
+	},
+	critic: {
+		model: 'opencode/big-pickle',
+		fallback_models: ['opencode/gpt-5-nano', 'opencode/big-pickle'],
+	},
+	docs: {
+		model: 'opencode/big-pickle',
+		fallback_models: ['opencode/gpt-5-nano', 'opencode/big-pickle'],
+	},
+	designer: {
+		model: 'opencode/big-pickle',
+		fallback_models: ['opencode/gpt-5-nano', 'opencode/big-pickle'],
+	},
+	critic_sounding_board: {
+		model: 'opencode/gpt-5-nano',
+		fallback_models: ['opencode/big-pickle'],
+	},
+	critic_drift_verifier: {
+		model: 'opencode/gpt-5-nano',
+		fallback_models: ['opencode/big-pickle'],
+	},
+	critic_hallucination_verifier: {
+		model: 'opencode/gpt-5-nano',
+		fallback_models: ['opencode/big-pickle'],
+	},
+	critic_oversight: {
+		model: 'opencode/gpt-5-nano',
+		fallback_models: ['opencode/big-pickle'],
+	},
+	curator_init: {
+		model: 'opencode/gpt-5-nano',
+		fallback_models: ['opencode/big-pickle'],
+	},
+	curator_phase: {
+		model: 'opencode/gpt-5-nano',
+		fallback_models: ['opencode/big-pickle'],
+	},
 };
 
 // Check if agent is in QA category

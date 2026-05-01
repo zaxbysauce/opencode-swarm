@@ -23,6 +23,10 @@ export declare const WRITE_TOOL_NAMES: readonly ["write", "edit", "patch", "appl
 export type WriteToolName = (typeof WRITE_TOOL_NAMES)[number];
 export declare const TOOL_DESCRIPTIONS: Partial<Record<ToolName, string>>;
 export declare const DEFAULT_MODELS: Record<string, string>;
+export declare const DEFAULT_AGENT_CONFIGS: Record<string, {
+    model: string;
+    fallback_models: string[];
+}>;
 export declare function isQAAgent(name: string): name is QAAgentName;
 export declare function isSubagent(name: string): boolean;
 import type { ScoringConfig } from './schema';
