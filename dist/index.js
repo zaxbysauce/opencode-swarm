@@ -51,7 +51,7 @@ var package_default;
 var init_package = __esm(() => {
   package_default = {
     name: "opencode-swarm",
-    version: "7.3.2",
+    version: "7.3.3",
     description: "Architect-centric agentic swarm plugin for OpenCode - hub-and-spoke orchestration with SME consultation, code generation, and QA review",
     main: "dist/index.js",
     types: "dist/index.d.ts",
@@ -89628,19 +89628,141 @@ init_loader();
 init_schema();
 init_qa_gate_profile();
 init_gate_evidence();
-import * as fs85 from "node:fs";
-import * as path105 from "node:path";
+import * as fs86 from "node:fs";
+import * as path106 from "node:path";
 
 // src/hooks/diff-scope.ts
 init_bun_compat();
+import * as fs85 from "node:fs";
+import * as path105 from "node:path";
+
+// src/utils/gitignore-warning.ts
+init_bun_compat();
 import * as fs84 from "node:fs";
 import * as path104 from "node:path";
+var _internals = { bunSpawn };
+var _swarmGitExcludedChecked = false;
+function fileCoversSwarm(content) {
+  for (const rawLine of content.split(`
+`)) {
+    const line = rawLine.trim();
+    if (line.startsWith("#") || line.length === 0)
+      continue;
+    if (line === ".swarm" || line === ".swarm/")
+      return true;
+  }
+  return false;
+}
+var ENSURE_SWARM_GIT_EXCLUDED_OUTER_TIMEOUT_MS = 3000;
+var ENSURE_SWARM_GIT_EXCLUDED_PER_CALL_TIMEOUT_MS = 1500;
+var GIT_SPAWN_OPTIONS = {
+  timeout: ENSURE_SWARM_GIT_EXCLUDED_PER_CALL_TIMEOUT_MS,
+  stdin: "ignore",
+  stdout: "pipe",
+  stderr: "pipe"
+};
+async function ensureSwarmGitExcluded(directory, options = {}) {
+  if (_swarmGitExcludedChecked)
+    return;
+  _swarmGitExcludedChecked = true;
+  const { quiet = false } = options;
+  try {
+    const gitRootProc = _internals.bunSpawn(["git", "-C", directory, "rev-parse", "--show-toplevel"], GIT_SPAWN_OPTIONS);
+    let gitRootExitCode;
+    let gitRootOutput;
+    try {
+      [gitRootExitCode, gitRootOutput] = await Promise.all([
+        gitRootProc.exited,
+        gitRootProc.stdout.text()
+      ]);
+    } finally {
+      try {
+        gitRootProc.kill();
+      } catch {}
+    }
+    if (gitRootExitCode !== 0)
+      return;
+    const gitRoot = gitRootOutput.trim();
+    if (!gitRoot)
+      return;
+    const excludePathProc = _internals.bunSpawn(["git", "-C", directory, "rev-parse", "--git-path", "info/exclude"], GIT_SPAWN_OPTIONS);
+    let excludePathExitCode;
+    let excludePathRaw;
+    try {
+      [excludePathExitCode, excludePathRaw] = await Promise.all([
+        excludePathProc.exited,
+        excludePathProc.stdout.text()
+      ]);
+    } finally {
+      try {
+        excludePathProc.kill();
+      } catch {}
+    }
+    if (excludePathExitCode !== 0)
+      return;
+    const excludeRelPath = excludePathRaw.trim();
+    if (!excludeRelPath)
+      return;
+    const excludePath = path104.isAbsolute(excludeRelPath) ? excludeRelPath : path104.join(directory, excludeRelPath);
+    const checkIgnoreProc = _internals.bunSpawn(["git", "-C", directory, "check-ignore", "-q", ".swarm/.gitkeep"], GIT_SPAWN_OPTIONS);
+    let checkIgnoreExitCode;
+    try {
+      checkIgnoreExitCode = await checkIgnoreProc.exited;
+    } finally {
+      try {
+        checkIgnoreProc.kill();
+      } catch {}
+    }
+    if (checkIgnoreExitCode !== 0) {
+      try {
+        fs84.mkdirSync(path104.dirname(excludePath), { recursive: true });
+        let existing = "";
+        try {
+          existing = fs84.readFileSync(excludePath, "utf8");
+        } catch {}
+        if (!fileCoversSwarm(existing)) {
+          fs84.appendFileSync(excludePath, `
+# opencode-swarm local runtime state
+.swarm/
+`, "utf8");
+          if (!quiet) {
+            console.warn("[opencode-swarm] Added .swarm/ to .git/info/exclude to prevent runtime state from appearing in git status.");
+          }
+        }
+      } catch {}
+    }
+    const trackedProc = _internals.bunSpawn(["git", "-C", directory, "ls-files", "--", ".swarm"], GIT_SPAWN_OPTIONS);
+    let trackedExitCode;
+    let trackedOutput;
+    try {
+      [trackedExitCode, trackedOutput] = await Promise.all([
+        trackedProc.exited,
+        trackedProc.stdout.text()
+      ]);
+    } finally {
+      try {
+        trackedProc.kill();
+      } catch {}
+    }
+    if (trackedExitCode === 0 && trackedOutput.trim().length > 0) {
+      console.warn(`[opencode-swarm] WARNING: .swarm/ files are tracked by Git.
+` + `.swarm/ contains local runtime state and may contain sensitive session data.
+` + `Ignoring will not affect already-tracked files. To stop tracking them, run:
+` + `  git rm -r --cached .swarm
+` + `  echo ".swarm/" >> .gitignore
+` + '  git commit -m "Stop tracking opencode-swarm runtime state"');
+    }
+  } catch {}
+}
+
+// src/hooks/diff-scope.ts
+var _internals2 = { bunSpawn };
 function getDeclaredScope(taskId, directory) {
   try {
-    const planPath = path104.join(directory, ".swarm", "plan.json");
-    if (!fs84.existsSync(planPath))
+    const planPath = path105.join(directory, ".swarm", "plan.json");
+    if (!fs85.existsSync(planPath))
       return null;
-    const raw = fs84.readFileSync(planPath, "utf-8");
+    const raw = fs85.readFileSync(planPath, "utf-8");
     const plan = JSON.parse(raw);
     for (const phase of plan.phases ?? []) {
       for (const task of phase.tasks ?? []) {
@@ -89661,30 +89783,47 @@ function getDeclaredScope(taskId, directory) {
     return null;
   }
 }
+var GIT_DIFF_SPAWN_OPTIONS = {
+  timeout: ENSURE_SWARM_GIT_EXCLUDED_PER_CALL_TIMEOUT_MS,
+  stdin: "ignore",
+  stdout: "pipe",
+  stderr: "pipe"
+};
 async function getChangedFiles(directory) {
   try {
-    const proc = bunSpawn(["git", "diff", "--name-only", "HEAD~1"], {
+    const proc = _internals2.bunSpawn(["git", "diff", "--name-only", "HEAD~1"], {
       cwd: directory,
-      stdout: "pipe",
-      stderr: "pipe"
+      ...GIT_DIFF_SPAWN_OPTIONS
     });
-    const [exitCode, stdout] = await Promise.all([
-      proc.exited,
-      proc.stdout.text()
-    ]);
+    let exitCode;
+    let stdout;
+    try {
+      [exitCode, stdout] = await Promise.all([proc.exited, proc.stdout.text()]);
+    } finally {
+      try {
+        proc.kill();
+      } catch {}
+    }
     if (exitCode === 0) {
       return stdout.trim().split(`
 `).map((f) => f.trim()).filter((f) => f.length > 0);
     }
-    const proc2 = bunSpawn(["git", "diff", "--name-only", "HEAD"], {
+    const proc2 = _internals2.bunSpawn(["git", "diff", "--name-only", "HEAD"], {
       cwd: directory,
-      stdout: "pipe",
-      stderr: "pipe"
+      ...GIT_DIFF_SPAWN_OPTIONS
     });
-    const [exitCode2, stdout2] = await Promise.all([
-      proc2.exited,
-      proc2.stdout.text()
-    ]);
+    let exitCode2;
+    let stdout2;
+    try {
+      [exitCode2, stdout2] = await Promise.all([
+        proc2.exited,
+        proc2.stdout.text()
+      ]);
+    } finally {
+      try {
+        proc2.kill();
+      } catch {}
+    }
     if (exitCode2 === 0) {
       return stdout2.trim().split(`
 `).map((f) => f.trim()).filter((f) => f.length > 0);
@@ -89757,7 +89896,7 @@ var TIER_3_PATTERNS = [
 ];
 function matchesTier3Pattern(files) {
   for (const file3 of files) {
-    const fileName = path105.basename(file3);
+    const fileName = path106.basename(file3);
     for (const pattern of TIER_3_PATTERNS) {
       if (pattern.test(fileName)) {
         return true;
@@ -89771,8 +89910,8 @@ function checkReviewerGate(taskId, workingDirectory, stageBParallelEnabled = fal
     if (hasActiveTurboMode()) {
       const resolvedDir2 = workingDirectory;
       try {
-        const planPath = path105.join(resolvedDir2, ".swarm", "plan.json");
-        const planRaw = fs85.readFileSync(planPath, "utf-8");
+        const planPath = path106.join(resolvedDir2, ".swarm", "plan.json");
+        const planRaw = fs86.readFileSync(planPath, "utf-8");
         const plan = JSON.parse(planRaw);
         for (const planPhase of plan.phases ?? []) {
           for (const task of planPhase.tasks ?? []) {
@@ -89841,8 +89980,8 @@ function checkReviewerGate(taskId, workingDirectory, stageBParallelEnabled = fal
     }
     try {
       const resolvedDir2 = workingDirectory;
-      const planPath = path105.join(resolvedDir2, ".swarm", "plan.json");
-      const planRaw = fs85.readFileSync(planPath, "utf-8");
+      const planPath = path106.join(resolvedDir2, ".swarm", "plan.json");
+      const planRaw = fs86.readFileSync(planPath, "utf-8");
       const plan = JSON.parse(planRaw);
       for (const planPhase of plan.phases ?? []) {
         for (const task of planPhase.tasks ?? []) {
@@ -90031,8 +90170,8 @@ async function executeUpdateTaskStatus(args2, fallbackDir) {
         };
       }
     }
-    normalizedDir = path105.normalize(args2.working_directory);
-    const pathParts = normalizedDir.split(path105.sep);
+    normalizedDir = path106.normalize(args2.working_directory);
+    const pathParts = normalizedDir.split(path106.sep);
     if (pathParts.includes("..")) {
       return {
         success: false,
@@ -90042,11 +90181,11 @@ async function executeUpdateTaskStatus(args2, fallbackDir) {
         ]
       };
     }
-    const resolvedDir = path105.resolve(normalizedDir);
+    const resolvedDir = path106.resolve(normalizedDir);
     try {
-      const realPath = fs85.realpathSync(resolvedDir);
-      const planPath = path105.join(realPath, ".swarm", "plan.json");
-      if (!fs85.existsSync(planPath)) {
+      const realPath = fs86.realpathSync(resolvedDir);
+      const planPath = path106.join(realPath, ".swarm", "plan.json");
+      if (!fs86.existsSync(planPath)) {
         return {
           success: false,
           message: `Invalid working_directory: plan not found in "${realPath}"`,
@@ -90077,22 +90216,22 @@ async function executeUpdateTaskStatus(args2, fallbackDir) {
   }
   if (args2.status === "in_progress") {
     try {
-      const evidencePath = path105.join(directory, ".swarm", "evidence", `${args2.task_id}.json`);
-      fs85.mkdirSync(path105.dirname(evidencePath), { recursive: true });
-      const fd = fs85.openSync(evidencePath, "wx");
+      const evidencePath = path106.join(directory, ".swarm", "evidence", `${args2.task_id}.json`);
+      fs86.mkdirSync(path106.dirname(evidencePath), { recursive: true });
+      const fd = fs86.openSync(evidencePath, "wx");
       let writeOk = false;
       try {
-        fs85.writeSync(fd, JSON.stringify({
+        fs86.writeSync(fd, JSON.stringify({
           taskId: args2.task_id,
           required_gates: ["reviewer", "test_engineer"],
           gates: {}
         }, null, 2));
         writeOk = true;
       } finally {
-        fs85.closeSync(fd);
+        fs86.closeSync(fd);
         if (!writeOk) {
           try {
-            fs85.unlinkSync(evidencePath);
+            fs86.unlinkSync(evidencePath);
           } catch {}
         }
       }
@@ -90102,8 +90241,8 @@ async function executeUpdateTaskStatus(args2, fallbackDir) {
     recoverTaskStateFromDelegations(args2.task_id);
     let phaseRequiresReviewer = true;
     try {
-      const planPath = path105.join(directory, ".swarm", "plan.json");
-      const planRaw = fs85.readFileSync(planPath, "utf-8");
+      const planPath = path106.join(directory, ".swarm", "plan.json");
+      const planRaw = fs86.readFileSync(planPath, "utf-8");
       const plan = JSON.parse(planRaw);
       const taskPhase = plan.phases.find((p) => p.tasks.some((t) => t.id === args2.task_id));
       if (taskPhase?.required_agents && !taskPhase.required_agents.includes("reviewer")) {
@@ -90413,8 +90552,8 @@ init_utils2();
 init_ledger();
 init_manager();
 init_create_tool();
-import fs86 from "node:fs";
-import path106 from "node:path";
+import fs87 from "node:fs";
+import path107 from "node:path";
 function derivePlanId5(plan) {
   return `${plan.swarm}-${plan.title}`.replace(/[^a-zA-Z0-9-_]/g, "_");
 }
@@ -90465,7 +90604,7 @@ async function executeWriteDriftEvidence(args2, directory) {
     entries: [evidenceEntry]
   };
   const filename = "drift-verifier.json";
-  const relativePath = path106.join("evidence", String(phase), filename);
+  const relativePath = path107.join("evidence", String(phase), filename);
   let validatedPath;
   try {
     validatedPath = validateSwarmPath(directory, relativePath);
@@ -90476,12 +90615,12 @@ async function executeWriteDriftEvidence(args2, directory) {
       message: error93 instanceof Error ? error93.message : "Failed to validate path"
     }, null, 2);
   }
-  const evidenceDir = path106.dirname(validatedPath);
+  const evidenceDir = path107.dirname(validatedPath);
   try {
-    await fs86.promises.mkdir(evidenceDir, { recursive: true });
-    const tempPath = path106.join(evidenceDir, `.${filename}.tmp`);
-    await fs86.promises.writeFile(tempPath, JSON.stringify(evidenceContent, null, 2), "utf-8");
-    await fs86.promises.rename(tempPath, validatedPath);
+    await fs87.promises.mkdir(evidenceDir, { recursive: true });
+    const tempPath = path107.join(evidenceDir, `.${filename}.tmp`);
+    await fs87.promises.writeFile(tempPath, JSON.stringify(evidenceContent, null, 2), "utf-8");
+    await fs87.promises.rename(tempPath, validatedPath);
     let snapshotInfo;
     let snapshotError;
     let qaProfileLocked;
@@ -90575,8 +90714,8 @@ var write_drift_evidence = createSwarmTool({
 init_zod();
 init_utils2();
 init_create_tool();
-import fs87 from "node:fs";
-import path107 from "node:path";
+import fs88 from "node:fs";
+import path108 from "node:path";
 function normalizeVerdict2(verdict) {
   switch (verdict) {
     case "APPROVED":
@@ -90624,7 +90763,7 @@ async function executeWriteHallucinationEvidence(args2, directory) {
     entries: [evidenceEntry]
   };
   const filename = "hallucination-guard.json";
-  const relativePath = path107.join("evidence", String(phase), filename);
+  const relativePath = path108.join("evidence", String(phase), filename);
   let validatedPath;
   try {
     validatedPath = validateSwarmPath(directory, relativePath);
@@ -90635,12 +90774,12 @@ async function executeWriteHallucinationEvidence(args2, directory) {
       message: error93 instanceof Error ? error93.message : "Failed to validate path"
     }, null, 2);
   }
-  const evidenceDir = path107.dirname(validatedPath);
+  const evidenceDir = path108.dirname(validatedPath);
   try {
-    await fs87.promises.mkdir(evidenceDir, { recursive: true });
-    const tempPath = path107.join(evidenceDir, `.${filename}.tmp`);
-    await fs87.promises.writeFile(tempPath, JSON.stringify(evidenceContent, null, 2), "utf-8");
-    await fs87.promises.rename(tempPath, validatedPath);
+    await fs88.promises.mkdir(evidenceDir, { recursive: true });
+    const tempPath = path108.join(evidenceDir, `.${filename}.tmp`);
+    await fs88.promises.writeFile(tempPath, JSON.stringify(evidenceContent, null, 2), "utf-8");
+    await fs88.promises.rename(tempPath, validatedPath);
     return JSON.stringify({
       success: true,
       phase,
@@ -90686,8 +90825,8 @@ var write_hallucination_evidence = createSwarmTool({
 init_zod();
 init_utils2();
 init_create_tool();
-import fs88 from "node:fs";
-import path108 from "node:path";
+import fs89 from "node:fs";
+import path109 from "node:path";
 function normalizeVerdict3(verdict) {
   switch (verdict) {
     case "PASS":
@@ -90761,7 +90900,7 @@ async function executeWriteMutationEvidence(args2, directory) {
     entries: [evidenceEntry]
   };
   const filename = "mutation-gate.json";
-  const relativePath = path108.join("evidence", String(phase), filename);
+  const relativePath = path109.join("evidence", String(phase), filename);
   let validatedPath;
   try {
     validatedPath = validateSwarmPath(directory, relativePath);
@@ -90772,12 +90911,12 @@ async function executeWriteMutationEvidence(args2, directory) {
       message: error93 instanceof Error ? error93.message : "Failed to validate path"
     }, null, 2);
   }
-  const evidenceDir = path108.dirname(validatedPath);
+  const evidenceDir = path109.dirname(validatedPath);
   try {
-    await fs88.promises.mkdir(evidenceDir, { recursive: true });
-    const tempPath = path108.join(evidenceDir, `.${filename}.tmp`);
-    await fs88.promises.writeFile(tempPath, JSON.stringify(evidenceContent, null, 2), "utf-8");
-    await fs88.promises.rename(tempPath, validatedPath);
+    await fs89.promises.mkdir(evidenceDir, { recursive: true });
+    const tempPath = path109.join(evidenceDir, `.${filename}.tmp`);
+    await fs89.promises.writeFile(tempPath, JSON.stringify(evidenceContent, null, 2), "utf-8");
+    await fs89.promises.rename(tempPath, validatedPath);
     return JSON.stringify({
       success: true,
       phase,
@@ -90829,85 +90968,6 @@ init_write_retro();
 
 // src/index.ts
 init_utils();
-
-// src/utils/gitignore-warning.ts
-init_bun_compat();
-import * as fs89 from "node:fs";
-import * as path109 from "node:path";
-var _swarmGitExcludedChecked = false;
-function fileCoversSwarm(content) {
-  for (const rawLine of content.split(`
-`)) {
-    const line = rawLine.trim();
-    if (line.startsWith("#") || line.length === 0)
-      continue;
-    if (line === ".swarm" || line === ".swarm/")
-      return true;
-  }
-  return false;
-}
-async function ensureSwarmGitExcluded(directory, options = {}) {
-  if (_swarmGitExcludedChecked)
-    return;
-  _swarmGitExcludedChecked = true;
-  const { quiet = false } = options;
-  try {
-    const gitRootProc = bunSpawn(["git", "-C", directory, "rev-parse", "--show-toplevel"], { stdout: "pipe", stderr: "pipe" });
-    const [gitRootExitCode, gitRootOutput] = await Promise.all([
-      gitRootProc.exited,
-      gitRootProc.stdout.text()
-    ]);
-    if (gitRootExitCode !== 0)
-      return;
-    const gitRoot = gitRootOutput.trim();
-    if (!gitRoot)
-      return;
-    const excludePathProc = bunSpawn(["git", "-C", directory, "rev-parse", "--git-path", "info/exclude"], { stdout: "pipe", stderr: "pipe" });
-    const [excludePathExitCode, excludePathRaw] = await Promise.all([
-      excludePathProc.exited,
-      excludePathProc.stdout.text()
-    ]);
-    if (excludePathExitCode !== 0)
-      return;
-    const excludeRelPath = excludePathRaw.trim();
-    if (!excludeRelPath)
-      return;
-    const excludePath = path109.isAbsolute(excludeRelPath) ? excludeRelPath : path109.join(directory, excludeRelPath);
-    const checkIgnoreProc = bunSpawn(["git", "-C", directory, "check-ignore", "-q", ".swarm/.gitkeep"], { stdout: "pipe", stderr: "pipe" });
-    const checkIgnoreExitCode = await checkIgnoreProc.exited;
-    if (checkIgnoreExitCode !== 0) {
-      try {
-        fs89.mkdirSync(path109.dirname(excludePath), { recursive: true });
-        let existing = "";
-        try {
-          existing = fs89.readFileSync(excludePath, "utf8");
-        } catch {}
-        if (!fileCoversSwarm(existing)) {
-          fs89.appendFileSync(excludePath, `
-# opencode-swarm local runtime state
-.swarm/
-`, "utf8");
-          if (!quiet) {
-            console.warn("[opencode-swarm] Added .swarm/ to .git/info/exclude to prevent runtime state from appearing in git status.");
-          }
-        }
-      } catch {}
-    }
-    const trackedProc = bunSpawn(["git", "-C", directory, "ls-files", "--", ".swarm"], { stdout: "pipe", stderr: "pipe" });
-    const [trackedExitCode, trackedOutput] = await Promise.all([
-      trackedProc.exited,
-      trackedProc.stdout.text()
-    ]);
-    if (trackedExitCode === 0 && trackedOutput.trim().length > 0) {
-      console.warn(`[opencode-swarm] WARNING: .swarm/ files are tracked by Git.
-` + `.swarm/ contains local runtime state and may contain sensitive session data.
-` + `Ignoring will not affect already-tracked files. To stop tracking them, run:
-` + `  git rm -r --cached .swarm
-` + `  echo ".swarm/" >> .gitignore
-` + '  git commit -m "Stop tracking opencode-swarm runtime state"');
-    }
-  } catch {}
-}
 
 // src/utils/tool-output.ts
 function truncateToolOutput(output, maxLines, toolName, tailLines = 10) {
@@ -91012,7 +91072,12 @@ async function initializeOpenCodeSwarm(ctx) {
     }
     repoGraphHook.init().catch(() => {}).finally(() => clearTimeout(watchdog));
   });
-  await ensureSwarmGitExcluded(ctx.directory, { quiet: config3.quiet });
+  await withTimeout(ensureSwarmGitExcluded(ctx.directory, { quiet: config3.quiet }), ENSURE_SWARM_GIT_EXCLUDED_OUTER_TIMEOUT_MS, new Error(`ensureSwarmGitExcluded exceeded ${ENSURE_SWARM_GIT_EXCLUDED_OUTER_TIMEOUT_MS}ms budget; continuing without git-hygiene check`)).catch((err3) => {
+    const msg = err3 instanceof Error ? err3.message : String(err3);
+    log("ensureSwarmGitExcluded timed out or failed (non-fatal)", {
+      error: msg
+    });
+  });
   initTelemetry(ctx.directory);
   writeSwarmConfigExampleIfNew(ctx.directory);
   writeProjectConfigIfNew(ctx.directory, config3.quiet);

@@ -11,6 +11,49 @@ effort: medium
 
 Follow every step in order. Do not skip steps.
 
+### Step −1 — ⛔ MANDATORY: Engineering invariant audit (read AGENTS.md, not "looks fine")
+
+**Before** running any test tier, before any build, before any push: read [`AGENTS.md`](../../../AGENTS.md) at the repo root and audit your change against the 12 non-negotiable invariants. The invariant list and the historical failure map are in [`docs/engineering-invariants.md`](../../../docs/engineering-invariants.md).
+
+For every invariant **touched** by this PR (not "maybe touched" — actually touched), produce a one-line entry of the form `<id> (<short name>): touched — <evidence>`. Evidence must be a concrete artifact: a command + its output, a test that proves the invariant, a grep showing no remaining anti-patterns, or a quoted spec citation. "Looks fine" is not evidence. The PR body must include a `## Invariant audit` section in the format shown in `AGENTS.md` (12 lines, one per invariant, each marked touched/not-touched with evidence).
+
+Hard stop:
+
+> **If any touched invariant cannot be proven from source and test output, do not push.**
+
+#### Required invariant-specific validations (run when the named invariants are touched)
+
+**(1, 2, 3) Plugin initialization, runtime portability, or any subprocess change** — run all three:
+
+```bash
+bun run build
+node scripts/repro-704.mjs
+node --input-type=module -e "await import('./dist/index.js'); console.log('dist import OK')"
+```
+
+The `repro-704.mjs` harness asserts plugin entry resolves under a deadline; the `dist import` line catches Node-ESM regressions (top-level `bun:` imports, broken default export shape) before CI does.
+
+**(3) Subprocesses** — grep every changed file for spawn call sites and account for each one in the audit:
+
+```bash
+git diff --name-only origin/main..HEAD | xargs -r grep -nE "bunSpawn\(|spawn\(|spawnSync\(" || true
+```
+
+For every match, the `## Invariant audit` evidence must confirm the call passes `cwd` (or `git -C <directory>` for Git CLI calls), `stdin: 'ignore'` (unless intentionally interactive), `timeout`, bounded stdio, and `proc.kill()` in `finally`.
+
+**(11) Tool registration** — run the tool / config tests:
+
+```bash
+bun --smol test tests/unit/config --timeout 60000
+for f in tests/unit/tools/*.test.ts; do bun --smol test "$f" --timeout 30000; done
+```
+
+`/swarm doctor tools` is the runtime equivalent — its tests must remain green.
+
+**(7) Test writing** — confirm you loaded the writing-tests skill (`.claude/skills/writing-tests/SKILL.md` or `.opencode/skills/writing-tests/SKILL.md`). Confirm any new mocks use a file-scoped `_internals` DI seam, not `mock.module`, OR are isolated to a test file whose `mock.module` cannot leak into other suites.
+
+**(6) `test_runner` safety** — the OpenCode `test_runner` tool is for targeted agent validation only. Do NOT use it with `scope: 'all'` or broad `'graph'` / `'impact'` scope for repo validation. For repo validation, use the shell commands in Step 5 below.
+
 ### Step 0 — Session start hygiene
 
 **Run before anything else.** Prevents the three most common CI failures (stale state, stale base, dirty working tree).
@@ -260,6 +303,10 @@ EOF
 ### Step 9 — Pre-merge checklist
 
 Verify every item before asking for a merge:
+- [ ] Step −1 invariant audit completed; `## Invariant audit` section present in the PR body in the format from `AGENTS.md`
+- [ ] If the audit lists invariants 1, 2, or 3 as touched: `bun run build`, `node scripts/repro-704.mjs`, and `node --input-type=module -e "await import('./dist/index.js'); console.log('dist import OK')"` all ran cleanly with output in context
+- [ ] If invariant 3 (subprocesses) is touched: every `bunSpawn` / `spawn` / `spawnSync` call in changed files passes `cwd` (or `git -C <directory>` for Git CLI calls), `stdin: 'ignore'`, `timeout`, bounded stdio, and `proc.kill()` in `finally`
+- [ ] `test_runner` was NOT used with `scope: 'all'` or broad `'graph'` / `'impact'` scope to validate this repo (use shell commands instead)
 - [ ] Branch has exactly **one commit** — the squashed commit from Step 7 (`git log --oneline origin/main..HEAD` shows one line)
 - [ ] That commit message matches the PR title exactly, and both follow `<type>(<scope>): <description>`
 - [ ] `docs/releases/v{NEXT_VERSION}.md` exists with meaningful release notes
@@ -267,5 +314,5 @@ Verify every item before asking for a merge:
 - [ ] All 5 test tiers from Step 5 were actually run (not assumed — you must have the output in context), including `bunx biome ci .` on the full project (not scoped)
 - [ ] If the repo tracks `dist/` files: `bun run build` was run and dist/ artifacts are included in the squash commit
 - [ ] All workflow `uses:` references are SHA-pinned (if workflows changed)
-- [ ] PR body has `## Summary` and `## Test plan`
+- [ ] PR body has `## Summary`, `## Invariant audit`, and `## Test plan`
 - [ ] All CI checks are green before merging
