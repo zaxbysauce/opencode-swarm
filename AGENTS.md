@@ -43,7 +43,7 @@ Every PR that touches a relevant area must list which of these invariants it tou
 ### 3. Subprocesses — bounded, non-interactive, killable, portable
 
 - **Array-form spawn only.** No shell-string commands unless the use case is independently justified and quoted.
-- Set `cwd` explicitly. Do not rely on the inherited working directory.
+- Set `cwd` explicitly, OR for Git CLI calls use an explicit `git -C <directory>` argument. Do not rely on inherited process cwd.
 - `stdin: 'ignore'` unless the spawn is intentionally interactive. A never-closed stdin pipe under Bun on Windows can block the child from exiting (see v7.3.3 fix).
 - `timeout: <ms>` is required for git, package managers, test runners, language tooling, and any external binary. There is no platform on which "git is always fast" is a safe assumption.
 - Consume, bound, or ignore stdout/stderr. Never leave a piped stream unattended on a long-running child.

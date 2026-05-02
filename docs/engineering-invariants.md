@@ -166,7 +166,6 @@ const [exit, out] = await Promise.all([proc.exited, proc.stdout.text()]);
 
 ```ts
 const proc = bunSpawn(['git', '-C', dir, 'rev-parse', '--show-toplevel'], {
-  cwd: dir,
   stdin: 'ignore',
   stdout: 'pipe',
   stderr: 'pipe',
@@ -183,7 +182,7 @@ try {
 
 **Verification:**
 
-- `grep -n "bunSpawn\\|spawn(\\|spawnSync(" src/<changed>/*.ts` — every match has `timeout`, `stdin: 'ignore'` (unless intentionally interactive), and a `kill()` in the cleanup path.
+- `grep -n "bunSpawn\\|spawn(\\|spawnSync(" src/<changed>/*.ts` — every match has `timeout`, `stdin: 'ignore'` (unless intentionally interactive), `cwd` or `git -C <directory>`, and a `kill()` in the cleanup path.
 - A test mocks the spawn function (via the file-scoped `_internals` seam, not `mock.module`) to never resolve and asserts the call returns within bounded time.
 
 ### 4. Working directory and `.swarm/` containment

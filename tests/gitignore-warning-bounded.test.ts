@@ -96,11 +96,14 @@ describe('ensureSwarmGitExcluded — bounded execution', () => {
 		const killCalls = { count: 0 };
 		let callIndex = 0;
 
+		// Use os.tmpdir() + mkdtempSync — never hardcode /tmp (AGENTS.md invariant 7).
+		const fakeGitRoot = fs.mkdtempSync(path.join(os.tmpdir(), 'fake-gitroot-'));
+
 		const responses: Array<{ exitCode: number; stdout: string }> = [
 			// 1. rev-parse --show-toplevel
-			{ exitCode: 0, stdout: '/tmp/fake-gitroot\n' },
+			{ exitCode: 0, stdout: `${fakeGitRoot}\n` },
 			// 2. rev-parse --git-path info/exclude
-			{ exitCode: 0, stdout: '/tmp/fake-gitroot/.git/info/exclude\n' },
+			{ exitCode: 0, stdout: `${fakeGitRoot}/.git/info/exclude\n` },
 			// 3. check-ignore -q .swarm/.gitkeep — non-zero means NOT ignored
 			{ exitCode: 1, stdout: '' },
 			// 4. ls-files -- .swarm — empty stdout means no tracked files
@@ -124,7 +127,9 @@ describe('ensureSwarmGitExcluded — bounded execution', () => {
 
 		const tmpDir = fs.mkdtempSync(path.join(os.tmpdir(), 'swarm-bounded-2-'));
 		try {
-			fs.mkdirSync('/tmp/fake-gitroot/.git/info', { recursive: true });
+			fs.mkdirSync(path.join(fakeGitRoot, '.git', 'info'), {
+				recursive: true,
+			});
 			await ensureSwarmGitExcluded(tmpDir, { quiet: true });
 			expect(cmds.length).toBe(4);
 			expect(cmds[0]).toEqual([
@@ -162,7 +167,50 @@ describe('ensureSwarmGitExcluded — bounded execution', () => {
 			expect(killCalls.count).toBe(4);
 		} finally {
 			fs.rmSync(tmpDir, { recursive: true, force: true });
-			fs.rmSync('/tmp/fake-gitroot', { recursive: true, force: true });
+			fs.rmSync(fakeGitRoot, { recursive: true, force: true });
+		}
+	});
+
+	test('never-resolving spawn — outer timer must intervene (confirms withTimeout in src/index.ts guards plugin init)', async () => {
+		// When the runtime's per-call `timeout` option is honored, bunSpawn kills
+		// the child, settling proc.exited and triggering the try/finally proc.kill().
+		// When mocked to never resolve (e.g. in this test), the function hangs
+		// indefinitely on its own — only the outer withTimeout in src/index.ts
+		// makes plugin init bounded. This test proves that dependency.
+		_internals.bunSpawn = (() => ({
+			stdout: {
+				text: () =>
+					new Promise<string>(() => {
+						/* never */
+					}),
+			},
+			stderr: { text: () => Promise.resolve('') },
+			exited: new Promise<number>(() => {
+				/* never */
+			}),
+			exitCode: null,
+			kill: () => {
+				/* no-op — finally never runs without proc.exited settling */
+			},
+		})) as unknown as typeof realBunSpawn;
+
+		const tmpDir = fs.mkdtempSync(
+			path.join(os.tmpdir(), 'swarm-bounded-never-'),
+		);
+		try {
+			// 100 ms is enough to prove the function does not self-bound.
+			// The outer withTimeout(ENSURE_SWARM_GIT_EXCLUDED_OUTER_TIMEOUT_MS)
+			// in src/index.ts is what actually bounds plugin init.
+			const outerTimerFired = await Promise.race([
+				ensureSwarmGitExcluded(tmpDir, { quiet: true }).then(
+					() => false as const,
+				),
+				new Promise<true>((resolve) => setTimeout(resolve, 100, true)),
+			]);
+
+			expect(outerTimerFired).toBe(true);
+		} finally {
+			fs.rmSync(tmpDir, { recursive: true, force: true });
 		}
 	});
 });

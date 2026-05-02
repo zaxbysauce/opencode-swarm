@@ -39,13 +39,13 @@ The `repro-704.mjs` harness asserts plugin entry resolves under a deadline; the 
 git diff --name-only origin/main..HEAD | xargs -r grep -nE "bunSpawn\(|spawn\(|spawnSync\(" || true
 ```
 
-For every match, the `## Invariant audit` evidence must confirm the call passes `cwd`, `stdin: 'ignore'` (unless intentionally interactive), `timeout`, bounded stdio, and `proc.kill()` in `finally`.
+For every match, the `## Invariant audit` evidence must confirm the call passes `cwd` (or `git -C <directory>` for Git CLI calls), `stdin: 'ignore'` (unless intentionally interactive), `timeout`, bounded stdio, and `proc.kill()` in `finally`.
 
 **(11) Tool registration** — run the tool / config tests:
 
 ```bash
 bun --smol test tests/unit/config --timeout 60000
-bun --smol test tests/unit/tools --timeout 60000
+for f in tests/unit/tools/*.test.ts; do bun --smol test "$f" --timeout 30000; done
 ```
 
 `/swarm doctor tools` is the runtime equivalent — its tests must remain green.
@@ -305,7 +305,7 @@ EOF
 Verify every item before asking for a merge:
 - [ ] Step −1 invariant audit completed; `## Invariant audit` section present in the PR body in the format from `AGENTS.md`
 - [ ] If the audit lists invariants 1, 2, or 3 as touched: `bun run build`, `node scripts/repro-704.mjs`, and `node --input-type=module -e "await import('./dist/index.js'); console.log('dist import OK')"` all ran cleanly with output in context
-- [ ] If invariant 3 (subprocesses) is touched: every `bunSpawn` / `spawn` / `spawnSync` call in changed files passes `cwd`, `stdin: 'ignore'`, `timeout`, bounded stdio, and `proc.kill()` in `finally`
+- [ ] If invariant 3 (subprocesses) is touched: every `bunSpawn` / `spawn` / `spawnSync` call in changed files passes `cwd` (or `git -C <directory>` for Git CLI calls), `stdin: 'ignore'`, `timeout`, bounded stdio, and `proc.kill()` in `finally`
 - [ ] `test_runner` was NOT used with `scope: 'all'` or broad `'graph'` / `'impact'` scope to validate this repo (use shell commands instead)
 - [ ] Branch has exactly **one commit** — the squashed commit from Step 7 (`git log --oneline origin/main..HEAD` shows one line)
 - [ ] That commit message matches the PR title exactly, and both follow `<type>(<scope>): <description>`
