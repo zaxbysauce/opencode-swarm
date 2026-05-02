@@ -1,3 +1,15 @@
+import { bunSpawn } from './bun-compat';
+/**
+ * Test-only dependency-injection seam. Production code calls
+ * `_internals.bunSpawn(...)` so tests can replace the function on this object
+ * without touching the real `./bun-compat` module — `mock.module` from
+ * `bun:test` leaks across files in Bun's shared test-runner process, which
+ * would corrupt unrelated suites that import `bun-compat`. Mutating this
+ * local object is file-scoped and trivially restorable via `afterEach`.
+ */
+export declare const _internals: {
+    bunSpawn: typeof bunSpawn;
+};
 /**
  * Module-level flag so the warning fires at most once per process.
  * Exported for test reset purposes only — do not use in production code.
@@ -30,6 +42,31 @@ export declare function warnIfSwarmNotGitignored(directory: string, quiet?: bool
 export interface EnsureSwarmGitExcludedOptions {
     quiet?: boolean;
 }
+/**
+ * Hard upper bound on the entire `ensureSwarmGitExcluded` operation when
+ * called from plugin init. The plugin host (OpenCode TUI / Desktop) will
+ * silently drop a plugin whose entry never resolves (issue #704); every
+ * awaited call on the init path therefore has an obligation to be bounded.
+ *
+ * 3_000 ms is ~30× the realistic worst-case duration on a healthy host (all
+ * four `git` calls land in well under 200 ms in aggregate) and ~6× the
+ * per-call budget below. Slower-than-3 s hosts are pathological (NFS-stalled
+ * `.git`, antivirus quarantine) and we deliberately fail-open: a debug log
+ * is emitted and the plugin continues to load without the hygiene exclude.
+ */
+export declare const ENSURE_SWARM_GIT_EXCLUDED_OUTER_TIMEOUT_MS = 3000;
+/**
+ * Hard upper bound on each individual `git` subprocess invoked by
+ * `ensureSwarmGitExcluded` (and reused by `validateDiffScope`). Both Bun's
+ * `Bun.spawn` and the Node fallback in `bunSpawn` honor this `timeout`
+ * option and kill the child on expiry (`bun-compat.ts` Node fallback calls
+ * `proc.kill('SIGKILL')`; Bun kills via `killSignal`).
+ *
+ * 1_500 ms gives a ~30× margin over the realistic worst case and is well
+ * below the outer wrapper budget so the inner kills fire first on a
+ * pathological host.
+ */
+export declare const ENSURE_SWARM_GIT_EXCLUDED_PER_CALL_TIMEOUT_MS = 1500;
 /**
  * Automatically protect `.swarm/` from Git pollution before any `.swarm/` write.
  *

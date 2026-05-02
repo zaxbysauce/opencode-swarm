@@ -136,7 +136,10 @@ import {
 	write_retro,
 } from './tools';
 import { log } from './utils';
-import { ensureSwarmGitExcluded } from './utils/gitignore-warning';
+import {
+	ENSURE_SWARM_GIT_EXCLUDED_OUTER_TIMEOUT_MS,
+	ensureSwarmGitExcluded,
+} from './utils/gitignore-warning';
 import { withTimeout } from './utils/timeout';
 import { truncateToolOutput } from './utils/tool-output';
 
@@ -303,13 +306,32 @@ async function initializeOpenCodeSwarm(ctx: Parameters<Plugin>[0]) {
 
 	// Protect .swarm/ from Git before any write. Uses git CLI so worktrees and
 	// submodules (where .git is a file, not a directory) are handled correctly.
-	// The await is intentional: the exclude write must complete before the writes
-	// below create .swarm/ artifacts. The git subprocess calls finish in <50ms.
-	// Note: repoGraphHook.init() is queued via queueMicrotask above and begins
-	// its async workspace scan during this await, but writes .swarm/repo-graph.json
+	// The await is intentional: the exclude write should complete before the
+	// writes below create .swarm/ artifacts. The git subprocess calls finish in
+	// <50ms on a healthy host.
+	//
+	// HARD-BOUNDED via withTimeout because the OpenCode plugin host silently
+	// drops a plugin whose entry never resolves (issue #704). On a pathological
+	// host (antivirus interception, credential helper prompt, NFS-stalled .git,
+	// Bun-on-Windows stdin pipe semantics) this call could otherwise block
+	// plugin init forever and produce the symptom "no agents in TUI/GUI".
+	// On timeout we fail open: log non-fatal and let init continue.
+	// The repoGraphHook.init() above is queued via queueMicrotask and begins
+	// its async workspace scan during this await; writes .swarm/repo-graph.json
 	// only after a slow directory traversal — in practice the exclude write
 	// completes first. This ordering gap is accepted as non-critical.
-	await ensureSwarmGitExcluded(ctx.directory, { quiet: config.quiet });
+	await withTimeout(
+		ensureSwarmGitExcluded(ctx.directory, { quiet: config.quiet }),
+		ENSURE_SWARM_GIT_EXCLUDED_OUTER_TIMEOUT_MS,
+		new Error(
+			`ensureSwarmGitExcluded exceeded ${ENSURE_SWARM_GIT_EXCLUDED_OUTER_TIMEOUT_MS}ms budget; continuing without git-hygiene check`,
+		),
+	).catch((err: unknown) => {
+		const msg = err instanceof Error ? err.message : String(err);
+		log('ensureSwarmGitExcluded timed out or failed (non-fatal)', {
+			error: msg,
+		});
+	});
 
 	// Side tasks moved AFTER the repo-graph dispatch so the deferred init
 	// is queued first. Each is small and scoped to `<ctx.directory>/.swarm/`

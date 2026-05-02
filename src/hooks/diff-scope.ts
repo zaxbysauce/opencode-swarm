@@ -8,6 +8,15 @@
 import * as fs from 'node:fs';
 import * as path from 'node:path';
 import { bunSpawn } from '../utils/bun-compat';
+import { ENSURE_SWARM_GIT_EXCLUDED_PER_CALL_TIMEOUT_MS } from '../utils/gitignore-warning';
+
+/**
+ * Test-only dependency-injection seam — see `gitignore-warning.ts:_internals`
+ * for the rationale (`mock.module` from `bun:test` leaks across files in
+ * Bun's shared test-runner process). Mutating this local object is
+ * file-scoped and trivially restorable via `afterEach`.
+ */
+export const _internals: { bunSpawn: typeof bunSpawn } = { bunSpawn };
 
 /**
  * Read the declared file scope for a task from .swarm/plan.json.
@@ -51,19 +60,42 @@ function getDeclaredScope(taskId: string, directory: string): string[] | null {
  * Run git diff --name-only to get files changed since HEAD~1.
  * Returns array of changed file paths, or null if git is unavailable.
  */
+/**
+ * Spawn options shared by both `git diff` invocations below.
+ *
+ * `timeout` and `stdin: 'ignore'` are required to make the call hang-free on
+ * every supported platform — see `gitignore-warning.ts` for full rationale.
+ * Without `stdin: 'ignore'`, Bun on Windows may leave the child waiting for
+ * a stdin EOF that never arrives; without `timeout`, the awaited
+ * `Promise.all([proc.exited, proc.stdout.text()])` can block indefinitely
+ * if antivirus / credential prompts / NFS stall the child.
+ */
+const GIT_DIFF_SPAWN_OPTIONS = {
+	timeout: ENSURE_SWARM_GIT_EXCLUDED_PER_CALL_TIMEOUT_MS,
+	stdin: 'ignore',
+	stdout: 'pipe',
+	stderr: 'pipe',
+} as const;
+
 async function getChangedFiles(directory: string): Promise<string[] | null> {
 	try {
 		// Try HEAD~1 first (normal case with commits)
-		const proc = bunSpawn(['git', 'diff', '--name-only', 'HEAD~1'], {
+		const proc = _internals.bunSpawn(['git', 'diff', '--name-only', 'HEAD~1'], {
 			cwd: directory,
-			stdout: 'pipe',
-			stderr: 'pipe',
+			...GIT_DIFF_SPAWN_OPTIONS,
 		});
 
-		const [exitCode, stdout] = await Promise.all([
-			proc.exited,
-			proc.stdout.text(),
-		]);
+		let exitCode: number;
+		let stdout: string;
+		try {
+			[exitCode, stdout] = await Promise.all([proc.exited, proc.stdout.text()]);
+		} finally {
+			try {
+				proc.kill();
+			} catch {
+				// Already exited — kill is a no-op.
+			}
+		}
 
 		if (exitCode === 0) {
 			return stdout
@@ -74,16 +106,25 @@ async function getChangedFiles(directory: string): Promise<string[] | null> {
 		}
 
 		// Fallback: uncommitted changes vs HEAD
-		const proc2 = bunSpawn(['git', 'diff', '--name-only', 'HEAD'], {
+		const proc2 = _internals.bunSpawn(['git', 'diff', '--name-only', 'HEAD'], {
 			cwd: directory,
-			stdout: 'pipe',
-			stderr: 'pipe',
+			...GIT_DIFF_SPAWN_OPTIONS,
 		});
 
-		const [exitCode2, stdout2] = await Promise.all([
-			proc2.exited,
-			proc2.stdout.text(),
-		]);
+		let exitCode2: number;
+		let stdout2: string;
+		try {
+			[exitCode2, stdout2] = await Promise.all([
+				proc2.exited,
+				proc2.stdout.text(),
+			]);
+		} finally {
+			try {
+				proc2.kill();
+			} catch {
+				// Already exited — kill is a no-op.
+			}
+		}
 
 		if (exitCode2 === 0) {
 			return stdout2

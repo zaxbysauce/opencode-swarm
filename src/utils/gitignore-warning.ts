@@ -3,6 +3,16 @@ import * as path from 'node:path';
 import { bunSpawn } from './bun-compat';
 
 /**
+ * Test-only dependency-injection seam. Production code calls
+ * `_internals.bunSpawn(...)` so tests can replace the function on this object
+ * without touching the real `./bun-compat` module — `mock.module` from
+ * `bun:test` leaks across files in Bun's shared test-runner process, which
+ * would corrupt unrelated suites that import `bun-compat`. Mutating this
+ * local object is file-scoped and trivially restorable via `afterEach`.
+ */
+export const _internals: { bunSpawn: typeof bunSpawn } = { bunSpawn };
+
+/**
  * Module-level flag so the warning fires at most once per process.
  * Exported for test reset purposes only — do not use in production code.
  */
@@ -134,6 +144,53 @@ export interface EnsureSwarmGitExcludedOptions {
 }
 
 /**
+ * Hard upper bound on the entire `ensureSwarmGitExcluded` operation when
+ * called from plugin init. The plugin host (OpenCode TUI / Desktop) will
+ * silently drop a plugin whose entry never resolves (issue #704); every
+ * awaited call on the init path therefore has an obligation to be bounded.
+ *
+ * 3_000 ms is ~30× the realistic worst-case duration on a healthy host (all
+ * four `git` calls land in well under 200 ms in aggregate) and ~6× the
+ * per-call budget below. Slower-than-3 s hosts are pathological (NFS-stalled
+ * `.git`, antivirus quarantine) and we deliberately fail-open: a debug log
+ * is emitted and the plugin continues to load without the hygiene exclude.
+ */
+export const ENSURE_SWARM_GIT_EXCLUDED_OUTER_TIMEOUT_MS = 3_000;
+
+/**
+ * Hard upper bound on each individual `git` subprocess invoked by
+ * `ensureSwarmGitExcluded` (and reused by `validateDiffScope`). Both Bun's
+ * `Bun.spawn` and the Node fallback in `bunSpawn` honor this `timeout`
+ * option and kill the child on expiry (`bun-compat.ts` Node fallback calls
+ * `proc.kill('SIGKILL')`; Bun kills via `killSignal`).
+ *
+ * 1_500 ms gives a ~30× margin over the realistic worst case and is well
+ * below the outer wrapper budget so the inner kills fire first on a
+ * pathological host.
+ */
+export const ENSURE_SWARM_GIT_EXCLUDED_PER_CALL_TIMEOUT_MS = 1_500;
+
+/**
+ * Spawn options reused by every `git` subprocess in `ensureSwarmGitExcluded`
+ * and `validateDiffScope`. Notes:
+ *
+ * - `timeout` bounds each child individually. Honored by both runtimes.
+ * - `stdin: 'ignore'` removes any stdin pipe. None of the git commands in
+ *   scope (`rev-parse`, `check-ignore`, `ls-files`, `diff --name-only`)
+ *   read stdin, and a never-closed stdin pipe under Bun on Windows can
+ *   block the child from exiting (it waits for stdin EOF that never
+ *   arrives). Forcing `'ignore'` removes that failure mode.
+ * - `stdout: 'pipe'` / `stderr: 'pipe'` are required so the wrapper can
+ *   capture output (existing behavior).
+ */
+const GIT_SPAWN_OPTIONS = {
+	timeout: ENSURE_SWARM_GIT_EXCLUDED_PER_CALL_TIMEOUT_MS,
+	stdin: 'ignore',
+	stdout: 'pipe',
+	stderr: 'pipe',
+} as const;
+
+/**
  * Automatically protect `.swarm/` from Git pollution before any `.swarm/` write.
  *
  * Uses git CLI (not filesystem walks) so it correctly handles Git worktrees
@@ -163,28 +220,48 @@ export async function ensureSwarmGitExcluded(
 
 	try {
 		// Step 1: Get git root using CLI (handles worktrees/submodules)
-		const gitRootProc = bunSpawn(
+		const gitRootProc = _internals.bunSpawn(
 			['git', '-C', directory, 'rev-parse', '--show-toplevel'],
-			{ stdout: 'pipe', stderr: 'pipe' },
+			GIT_SPAWN_OPTIONS,
 		);
-		const [gitRootExitCode, gitRootOutput] = await Promise.all([
-			gitRootProc.exited,
-			gitRootProc.stdout.text(),
-		]);
+		let gitRootExitCode: number;
+		let gitRootOutput: string;
+		try {
+			[gitRootExitCode, gitRootOutput] = await Promise.all([
+				gitRootProc.exited,
+				gitRootProc.stdout.text(),
+			]);
+		} finally {
+			try {
+				gitRootProc.kill();
+			} catch {
+				// Already exited — kill is a no-op.
+			}
+		}
 		if (gitRootExitCode !== 0) return; // Not a git repo
 
 		const gitRoot = gitRootOutput.trim();
 		if (!gitRoot) return;
 
 		// Step 2: Get the correct exclude path (resolves through worktree .git files)
-		const excludePathProc = bunSpawn(
+		const excludePathProc = _internals.bunSpawn(
 			['git', '-C', directory, 'rev-parse', '--git-path', 'info/exclude'],
-			{ stdout: 'pipe', stderr: 'pipe' },
+			GIT_SPAWN_OPTIONS,
 		);
-		const [excludePathExitCode, excludePathRaw] = await Promise.all([
-			excludePathProc.exited,
-			excludePathProc.stdout.text(),
-		]);
+		let excludePathExitCode: number;
+		let excludePathRaw: string;
+		try {
+			[excludePathExitCode, excludePathRaw] = await Promise.all([
+				excludePathProc.exited,
+				excludePathProc.stdout.text(),
+			]);
+		} finally {
+			try {
+				excludePathProc.kill();
+			} catch {
+				// Already exited — kill is a no-op.
+			}
+		}
 		if (excludePathExitCode !== 0) return;
 
 		const excludeRelPath = excludePathRaw.trim();
@@ -200,11 +277,20 @@ export async function ensureSwarmGitExcluded(
 
 		// Step 3: Check if .swarm/ is already ignored by any source
 		// (covers .gitignore, global gitignore, and info/exclude)
-		const checkIgnoreProc = bunSpawn(
+		const checkIgnoreProc = _internals.bunSpawn(
 			['git', '-C', directory, 'check-ignore', '-q', '.swarm/.gitkeep'],
-			{ stdout: 'pipe', stderr: 'pipe' },
+			GIT_SPAWN_OPTIONS,
 		);
-		const checkIgnoreExitCode = await checkIgnoreProc.exited;
+		let checkIgnoreExitCode: number;
+		try {
+			checkIgnoreExitCode = await checkIgnoreProc.exited;
+		} finally {
+			try {
+				checkIgnoreProc.kill();
+			} catch {
+				// Already exited — kill is a no-op.
+			}
+		}
 
 		if (checkIgnoreExitCode !== 0) {
 			// .swarm/ is NOT ignored — write to local exclude file
@@ -239,14 +325,24 @@ export async function ensureSwarmGitExcluded(
 
 		// Step 4: Detect already-tracked .swarm/ files
 		// NOTE: ignore rules have no effect on tracked files; git rm --cached is required.
-		const trackedProc = bunSpawn(
+		const trackedProc = _internals.bunSpawn(
 			['git', '-C', directory, 'ls-files', '--', '.swarm'],
-			{ stdout: 'pipe', stderr: 'pipe' },
+			GIT_SPAWN_OPTIONS,
 		);
-		const [trackedExitCode, trackedOutput] = await Promise.all([
-			trackedProc.exited,
-			trackedProc.stdout.text(),
-		]);
+		let trackedExitCode: number;
+		let trackedOutput: string;
+		try {
+			[trackedExitCode, trackedOutput] = await Promise.all([
+				trackedProc.exited,
+				trackedProc.stdout.text(),
+			]);
+		} finally {
+			try {
+				trackedProc.kill();
+			} catch {
+				// Already exited — kill is a no-op.
+			}
+		}
 
 		if (trackedExitCode === 0 && trackedOutput.trim().length > 0) {
 			// INTENTIONALLY NOT gated behind quiet — hygiene warning must always be visible

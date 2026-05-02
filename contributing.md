@@ -1,6 +1,15 @@
 # Contributing to OpenCode Swarm
 
 > **This file is the authoritative reference for any automated agent (LLM, Copilot, CI bot) or human contributor submitting a PR to this repository. Read it fully before making any commit.**
+>
+> **Required reading before code changes:**
+> 1. [`AGENTS.md`](./AGENTS.md) — root engineering contract (12 non-negotiable invariants).
+> 2. [`docs/engineering-invariants.md`](./docs/engineering-invariants.md) — long-form rationale and historical failure map (skim, deep-dive on touched invariants).
+> 3. This file (`contributing.md`) — release-please workflow and CI pipeline.
+> 4. The `writing-tests` skill — for any test changes (`.opencode/skills/writing-tests/SKILL.md` or `.claude/skills/writing-tests/SKILL.md`).
+> 5. The `commit-pr` skill — before committing or opening a PR (`.claude/skills/commit-pr/SKILL.md`). It enforces the invariant audit gate.
+>
+> When this file conflicts with `AGENTS.md`, `AGENTS.md` wins.
 
 ---
 
@@ -308,6 +317,10 @@ gh api repos/{owner}/{repo}/git/ref/tags/{tag} --jq '.object.sha'
 
 ## Summary checklist for any PR
 
+- [ ] [`AGENTS.md`](./AGENTS.md) read; touched invariants identified
+- [ ] PR body includes an `## Invariant audit` section in the format from `AGENTS.md` (when relevant invariants are touched)
+- [ ] OpenCode `test_runner` was NOT used with `scope: 'all'` or broad `'graph'` / `'impact'` scope to validate this repo (use shell commands instead)
+- [ ] If invariants 1, 2, or 3 (plugin init / runtime portability / subprocesses) are touched: ran `bun run build`, `node scripts/repro-704.mjs`, and `node --input-type=module -e "await import('./dist/index.js'); console.log('dist import OK')"` cleanly
 - [ ] Branch created from latest `main`
 - [ ] Every commit message follows `<type>(<scope>): <description>` format
 - [ ] PR title follows the same format and matches the primary change
