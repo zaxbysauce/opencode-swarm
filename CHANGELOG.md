@@ -1,5 +1,12 @@
 # Changelog
 
+## [7.3.4](https://github.com/zaxbysauce/opencode-swarm/compare/v7.3.3...v7.3.4) (2026-05-02)
+
+
+### Bug Fixes
+
+* **plugin-init:** bound ensureSwarmGitExcluded to prevent cross-platform load hang ([#735](https://github.com/zaxbysauce/opencode-swarm/issues/735)) ([8672cb1](https://github.com/zaxbysauce/opencode-swarm/commit/8672cb155648a628b23ce9edeffa9544b0898587))
+
 ## [7.3.3](https://github.com/zaxbysauce/opencode-swarm/compare/v7.3.2...v7.3.3) (2026-05-01)
 
 
