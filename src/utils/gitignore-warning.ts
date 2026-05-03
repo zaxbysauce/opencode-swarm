@@ -234,10 +234,10 @@ export async function ensureSwarmGitExcluded(
 					GIT_SPAWN_OPTIONS,
 				);
 				try {
-					return (await Promise.all([
-						proc.exited,
-						proc.stdout.text(),
-					])) as [number, string];
+					return (await Promise.all([proc.exited, proc.stdout.text()])) as [
+						number,
+						string,
+					];
 				} finally {
 					try {
 						proc.kill();
@@ -253,10 +253,10 @@ export async function ensureSwarmGitExcluded(
 					GIT_SPAWN_OPTIONS,
 				);
 				try {
-					return (await Promise.all([
-						proc.exited,
-						proc.stdout.text(),
-					])) as [number, string];
+					return (await Promise.all([proc.exited, proc.stdout.text()])) as [
+						number,
+						string,
+					];
 				} finally {
 					try {
 						proc.kill();

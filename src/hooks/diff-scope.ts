@@ -161,11 +161,7 @@ export async function validateDiffScope(
 		// Normalize ./ prefix before the startsWith check so that git output of the
 		// form ./.swarm/foo (rare but theoretically possible) is also filtered.
 		const nonSwarmFiles = changedFiles.filter(
-			(f) =>
-				!f
-					.replace(/\\/g, '/')
-					.replace(/^\.\//, '')
-					.startsWith('.swarm/'),
+			(f) => !f.replace(/\\/g, '/').replace(/^\.\//, '').startsWith('.swarm/'),
 		);
 
 		// Normalise paths for comparison (forward slashes, no leading ./)
