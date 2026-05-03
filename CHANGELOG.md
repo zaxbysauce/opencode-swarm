@@ -1,5 +1,19 @@
 # Changelog
 
+## [7.4.0](https://github.com/zaxbysauce/opencode-swarm/compare/v7.3.7...v7.4.0) (2026-05-03)
+
+
+### Features
+
+* add three-layer swarm command conflict prevention system ([563f314](https://github.com/zaxbysauce/opencode-swarm/commit/563f31474804b03f8611c3538f02f7fb7ef9a8b4))
+* add three-layer swarm command conflict prevention system ([522e67c](https://github.com/zaxbysauce/opencode-swarm/commit/522e67ce877b12ef5adc46c47f5bab70260de473))
+
+
+### Bug Fixes
+
+* **cc-command-intercept:** fix tautological assertion; add /checkpoint test coverage ([f30a4cf](https://github.com/zaxbysauce/opencode-swarm/commit/f30a4cff9ce19abc914001c1fcc86ea6e6a6f821))
+* **ci:** remove push trigger to prevent dual workflow runs and stale checks ([ae53078](https://github.com/zaxbysauce/opencode-swarm/commit/ae53078be719ffe125205bf9630c03d8b83d37d3))
+
 ## [Unreleased]
 
 ### Features
