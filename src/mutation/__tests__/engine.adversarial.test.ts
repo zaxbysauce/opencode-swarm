@@ -4,7 +4,12 @@ import type {
 	MutationPatch,
 	MutationResult,
 } from '../engine.js';
-import { buildGitApplyArgs, buildGitRevertArgs, computeReport, executeMutationSuite } from '../engine.js';
+import {
+	buildGitApplyArgs,
+	buildGitRevertArgs,
+	computeReport,
+	executeMutationSuite,
+} from '../engine.js';
 
 describe('computeReport adversarial tests', () => {
 	// 1. All-equivalent results — adjustedKillRate denominator should not divide by zero

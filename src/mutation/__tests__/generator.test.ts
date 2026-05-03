@@ -337,7 +337,9 @@ describe('generateMutants — timeout behaviour', () => {
 		_internals.timeoutMs = 50; // 50 ms
 
 		const hangingPrompt = mock(() => new Promise<never>(() => {})); // never resolves
-		const immediateCreate = mock(async () => ({ data: { id: 'session-timeout-test' } }));
+		const immediateCreate = mock(async () => ({
+			data: { id: 'session-timeout-test' },
+		}));
 		const bestEffortDelete = mock(async () => ({ data: {} }));
 
 		const mockHangClient = {

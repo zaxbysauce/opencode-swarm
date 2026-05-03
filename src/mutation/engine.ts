@@ -186,15 +186,11 @@ export async function executeMutation(
 	} finally {
 		if (patchFile) {
 			try {
-				const revertResult = spawnSync(
-					'git',
-					buildGitRevertArgs(patchFile),
-					{
-						cwd: workingDir,
-						timeout: GIT_APPLY_TIMEOUT_MS,
-						stdio: 'pipe',
-					},
-				);
+				const revertResult = spawnSync('git', buildGitRevertArgs(patchFile), {
+					cwd: workingDir,
+					timeout: GIT_APPLY_TIMEOUT_MS,
+					stdio: 'pipe',
+				});
 				if (revertResult.error) {
 					const code = (revertResult.error as NodeJS.ErrnoException).code;
 					if (code === 'ENOENT') {

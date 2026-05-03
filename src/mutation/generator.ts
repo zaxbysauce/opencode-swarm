@@ -6,8 +6,8 @@
  */
 
 import type { ToolContext } from '@opencode-ai/plugin';
-import { withTimeout } from '../utils/timeout.js';
 import { swarmState } from '../state.js';
+import { withTimeout } from '../utils/timeout.js';
 import type { MutationPatch } from './engine.js';
 
 /** Slugify a string for use in mutation IDs */
