@@ -166,7 +166,9 @@ export function createCcCommandInterceptHook(
 				if (
 					blockDestructive &&
 					conflict.severity === 'CRITICAL' &&
-					(bareCmd === 'reset' || bareCmd === 'clear' || bareCmd === 'checkpoint')
+					(bareCmd === 'reset' ||
+						bareCmd === 'clear' ||
+						bareCmd === 'checkpoint')
 				) {
 					hasBlocked = true;
 					resultLines.push(
