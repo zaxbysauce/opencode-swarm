@@ -184,6 +184,23 @@ describe('resolvePrimaryAgentNames', () => {
 		]);
 	});
 
+	test('known base role with zero matching agents ⇒ falls through to architect fallback', () => {
+		// Exercises the fall-through path at src/agents/index.ts:707-708:
+		// ALL_AGENT_NAMES.includes('reviewer') is true, but no generated agent
+		// has base role 'reviewer', so the base-role block finds nothing and
+		// falls through. The exact-match check also misses ('reviewer' is not
+		// a generated name), so the resolver falls back to architect-role primaries.
+		const names = ['local_architect', 'mega_architect', 'mega_coder'];
+		const r = resolvePrimaryAgentNames(names, 'reviewer');
+		expect(r.reason).toBe('fallback-architects');
+		expect(r.warning).toBeDefined();
+		expect(r.warning).toMatch(/reviewer/);
+		expect([...r.primaryNames].sort()).toEqual([
+			'local_architect',
+			'mega_architect',
+		]);
+	});
+
 	test('arbitrary "not_an_architect" is NOT treated as base-role architect', () => {
 		// Important matching detail from the spec: stripKnownSwarmPrefix returns
 		// "architect" for a name ending in "_architect", but the literal user
