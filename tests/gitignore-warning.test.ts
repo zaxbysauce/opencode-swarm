@@ -24,6 +24,7 @@ import * as fs from 'node:fs';
 import * as os from 'node:os';
 import * as path from 'node:path';
 import {
+	_internals,
 	ensureSwarmGitExcluded,
 	resetGitignoreWarningState,
 	resetSwarmGitExcludedState,
@@ -295,6 +296,7 @@ describe('ensureSwarmGitExcluded', () => {
 		await ensureSwarmGitExcluded(tmpDir);
 
 		const exclude = readExclude(tmpDir);
+		expect(exclude).toContain('# opencode-swarm');
 		expect(exclude).toContain('.swarm/');
 	});
 
@@ -444,5 +446,97 @@ describe('ensureSwarmGitExcluded', () => {
 			String(c[0]).includes('.swarm/ files are tracked by Git'),
 		);
 		expect(trackedWarning).toBeDefined();
+	});
+
+	// 11. Worktree — .git is a file, not a directory (core worktree-safety claim)
+	it('handles git worktrees where .git is a file, not a directory', async () => {
+		makeRealGitRepo(tmpDir);
+		// Need an initial commit for worktree creation
+		fs.writeFileSync(path.join(tmpDir, 'dummy.txt'), 'initial');
+		execSync('git add dummy.txt', { cwd: tmpDir, stdio: 'pipe' });
+		execSync('git commit -m "initial"', { cwd: tmpDir, stdio: 'pipe' });
+
+		const worktreeDir = fs.mkdtempSync(
+			path.join(os.tmpdir(), 'swarm-worktree-test-'),
+		);
+		try {
+			execSync('git branch worktree-branch', { cwd: tmpDir, stdio: 'pipe' });
+			execSync(`git worktree add "${worktreeDir}" worktree-branch`, {
+				cwd: tmpDir,
+				stdio: 'pipe',
+			});
+
+			// Verify .git in worktree is a file (not a directory)
+			const gitPath = path.join(worktreeDir, '.git');
+			const stat = fs.statSync(gitPath);
+			expect(stat.isFile()).toBe(true);
+
+			resetSwarmGitExcludedState();
+			await ensureSwarmGitExcluded(worktreeDir);
+
+			// Resolve the worktree-specific exclude path via git CLI
+			const excludeRelPath = execSync(
+				`git -C "${worktreeDir}" rev-parse --git-path info/exclude`,
+				{ stdio: 'pipe' },
+			)
+				.toString()
+				.trim();
+			const excludePath = path.isAbsolute(excludeRelPath)
+				? excludeRelPath
+				: path.join(worktreeDir, excludeRelPath);
+			const exclude = fs.readFileSync(excludePath, 'utf8');
+
+			expect(exclude).toContain('# opencode-swarm');
+			expect(exclude).toContain('.swarm/');
+		} finally {
+			try {
+				execSync(`git worktree remove --force "${worktreeDir}"`, {
+					cwd: tmpDir,
+					stdio: 'pipe',
+				});
+			} catch {
+				rmrf(worktreeDir);
+			}
+		}
+	});
+
+	// 12. git not on PATH — ENOENT is silently swallowed, never throws
+	it('does not throw when git is not on PATH (simulated ENOENT)', async () => {
+		const noGitDir = fs.mkdtempSync(
+			path.join(os.tmpdir(), 'swarm-enoent-test-'),
+		);
+		const originalBunSpawn = _internals.bunSpawn;
+		try {
+			makeRealGitRepo(noGitDir);
+			resetSwarmGitExcludedState();
+			// Simulate git not found on PATH
+			_internals.bunSpawn = () => {
+				throw Object.assign(new Error('spawn git ENOENT'), { code: 'ENOENT' });
+			};
+			await expect(ensureSwarmGitExcluded(noGitDir)).resolves.toBeUndefined();
+			// No exclude written — git was unavailable
+			const exclude = readExclude(noGitDir);
+			expect(exclude).not.toContain('.swarm/');
+		} finally {
+			_internals.bunSpawn = originalBunSpawn;
+			rmrf(noGitDir);
+		}
+	});
+
+	// 13. Concurrent calls — synchronous deduplication flag prevents duplicate writes
+	it('concurrent calls write .swarm/ exactly once due to synchronous flag', async () => {
+		makeRealGitRepo(tmpDir);
+		resetSwarmGitExcludedState();
+
+		// Both calls start before either can set the flag; the flag is set
+		// synchronously at the top of the function so the second call no-ops.
+		await Promise.all([
+			ensureSwarmGitExcluded(tmpDir),
+			ensureSwarmGitExcluded(tmpDir),
+		]);
+
+		const exclude = readExclude(tmpDir);
+		const matches = exclude.match(/^\.swarm\/$/gm);
+		expect(matches?.length ?? 0).toBe(1);
 	});
 });

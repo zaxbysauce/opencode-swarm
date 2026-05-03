@@ -51,7 +51,7 @@ var package_default;
 var init_package = __esm(() => {
   package_default = {
     name: "opencode-swarm",
-    version: "7.4.0",
+    version: "7.4.1",
     description: "Architect-centric agentic swarm plugin for OpenCode - hub-and-spoke orchestration with SME consultation, code generation, and QA review",
     main: "dist/index.js",
     types: "dist/index.d.ts",
@@ -90134,52 +90134,53 @@ async function ensureSwarmGitExcluded(directory, options = {}) {
   _swarmGitExcludedChecked = true;
   const { quiet = false } = options;
   try {
-    const gitRootProc = _internals.bunSpawn(["git", "-C", directory, "rev-parse", "--show-toplevel"], GIT_SPAWN_OPTIONS);
-    let gitRootExitCode;
-    let gitRootOutput;
-    try {
-      [gitRootExitCode, gitRootOutput] = await Promise.all([
-        gitRootProc.exited,
-        gitRootProc.stdout.text()
-      ]);
-    } finally {
-      try {
-        gitRootProc.kill();
-      } catch {}
-    }
+    const [
+      [gitRootExitCode, gitRootOutput],
+      [excludePathExitCode, excludePathRaw],
+      checkIgnoreExitCode
+    ] = await Promise.all([
+      (async () => {
+        const proc = _internals.bunSpawn(["git", "-C", directory, "rev-parse", "--show-toplevel"], GIT_SPAWN_OPTIONS);
+        try {
+          return await Promise.all([proc.exited, proc.stdout.text()]);
+        } finally {
+          try {
+            proc.kill();
+          } catch {}
+        }
+      })(),
+      (async () => {
+        const proc = _internals.bunSpawn(["git", "-C", directory, "rev-parse", "--git-path", "info/exclude"], GIT_SPAWN_OPTIONS);
+        try {
+          return await Promise.all([proc.exited, proc.stdout.text()]);
+        } finally {
+          try {
+            proc.kill();
+          } catch {}
+        }
+      })(),
+      (async () => {
+        const proc = _internals.bunSpawn(["git", "-C", directory, "check-ignore", "-q", ".swarm/.gitkeep"], GIT_SPAWN_OPTIONS);
+        try {
+          return await proc.exited;
+        } finally {
+          try {
+            proc.kill();
+          } catch {}
+        }
+      })()
+    ]);
     if (gitRootExitCode !== 0)
       return;
     const gitRoot = gitRootOutput.trim();
     if (!gitRoot)
       return;
-    const excludePathProc = _internals.bunSpawn(["git", "-C", directory, "rev-parse", "--git-path", "info/exclude"], GIT_SPAWN_OPTIONS);
-    let excludePathExitCode;
-    let excludePathRaw;
-    try {
-      [excludePathExitCode, excludePathRaw] = await Promise.all([
-        excludePathProc.exited,
-        excludePathProc.stdout.text()
-      ]);
-    } finally {
-      try {
-        excludePathProc.kill();
-      } catch {}
-    }
     if (excludePathExitCode !== 0)
       return;
     const excludeRelPath = excludePathRaw.trim();
     if (!excludeRelPath)
       return;
     const excludePath = path104.isAbsolute(excludeRelPath) ? excludeRelPath : path104.join(directory, excludeRelPath);
-    const checkIgnoreProc = _internals.bunSpawn(["git", "-C", directory, "check-ignore", "-q", ".swarm/.gitkeep"], GIT_SPAWN_OPTIONS);
-    let checkIgnoreExitCode;
-    try {
-      checkIgnoreExitCode = await checkIgnoreProc.exited;
-    } finally {
-      try {
-        checkIgnoreProc.kill();
-      } catch {}
-    }
     if (checkIgnoreExitCode !== 0) {
       try {
         fs84.mkdirSync(path104.dirname(excludePath), { recursive: true });
@@ -90308,7 +90309,7 @@ async function validateDiffScope(taskId, directory) {
     const changedFiles = await getChangedFiles(directory);
     if (!changedFiles)
       return null;
-    const nonSwarmFiles = changedFiles.filter((f) => !f.replace(/\\/g, "/").startsWith(".swarm/"));
+    const nonSwarmFiles = changedFiles.filter((f) => !f.replace(/\\/g, "/").replace(/^\.\//, "").startsWith(".swarm/"));
     const normalise = (p) => p.replace(/\\/g, "/").replace(/^\.\//, "");
     const normScope = new Set(declaredScope.map(normalise));
     const undeclared = nonSwarmFiles.map(normalise).filter((f) => !normScope.has(f));
