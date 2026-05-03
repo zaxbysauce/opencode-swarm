@@ -31,6 +31,8 @@ export type CommandEntry = {
     aliasOf?: string;
     /** Whether this entry is deprecated — prefer aliasOf target instead */
     deprecated?: boolean;
+    /** If set, this command shares a name with a Claude Code built-in slash command */
+    clashesWithNativeCcCommand?: string;
 };
 export declare const COMMAND_REGISTRY: {
     readonly 'acknowledge-spec-drift': {
@@ -43,16 +45,19 @@ export declare const COMMAND_REGISTRY: {
         readonly handler: (ctx: CommandContext) => Promise<string>;
         readonly description: "Show current swarm state";
         readonly category: "core";
+        readonly clashesWithNativeCcCommand: "/status";
     };
     readonly plan: {
         readonly handler: (ctx: CommandContext) => Promise<string>;
         readonly description: "Show plan (optionally filter by phase number)";
         readonly category: "core";
+        readonly clashesWithNativeCcCommand: "/plan";
     };
     readonly agents: {
         readonly handler: (ctx: CommandContext) => Promise<string>;
         readonly description: "List registered agents";
         readonly category: "core";
+        readonly clashesWithNativeCcCommand: "/agents";
     };
     readonly help: {
         readonly handler: (ctx: CommandContext) => Promise<string>;
@@ -65,11 +70,13 @@ export declare const COMMAND_REGISTRY: {
         readonly handler: (ctx: CommandContext) => Promise<string>;
         readonly description: "Show completed phases summary";
         readonly category: "utility";
+        readonly clashesWithNativeCcCommand: "/history";
     };
     readonly config: {
         readonly handler: (ctx: CommandContext) => Promise<string>;
         readonly description: "Show current resolved configuration";
         readonly category: "config";
+        readonly clashesWithNativeCcCommand: "/config";
     };
     readonly 'config doctor': {
         readonly handler: (ctx: CommandContext) => Promise<string>;
@@ -125,6 +132,7 @@ export declare const COMMAND_REGISTRY: {
         readonly args: "";
         readonly details: "Exports the current plan and context as JSON to stdout. Useful for piping to external tools or debugging swarm state.";
         readonly category: "utility";
+        readonly clashesWithNativeCcCommand: "/export";
     };
     readonly evidence: {
         readonly handler: (ctx: CommandContext) => Promise<string>;
@@ -157,6 +165,7 @@ export declare const COMMAND_REGISTRY: {
         readonly category: "diagnostics";
         readonly aliasOf: "config doctor";
         readonly deprecated: true;
+        readonly clashesWithNativeCcCommand: "/doctor";
     };
     readonly info: {
         readonly handler: (ctx: CommandContext) => Promise<string>;
@@ -291,6 +300,7 @@ export declare const COMMAND_REGISTRY: {
         readonly details: "DELETES plan.md, context.md, and summaries/ directory from .swarm/. Stops background automation and clears in-memory queues. SAFETY: requires --confirm flag — without it, displays a warning and tips to export first.";
         readonly args: "--confirm (required)";
         readonly category: "utility";
+        readonly clashesWithNativeCcCommand: "/reset";
     };
     readonly 'reset-session': {
         readonly handler: (ctx: CommandContext) => Promise<string>;
@@ -376,6 +386,7 @@ export declare const COMMAND_REGISTRY: {
         readonly details: "save: creates named snapshot of current .swarm/ state. restore: soft-resets to checkpoint by overwriting current .swarm/ files. delete: removes named checkpoint. list: shows all checkpoints with timestamps. All subcommands require a label except list.";
         readonly args: "<save|restore|delete|list> <label>";
         readonly category: "utility";
+        readonly clashesWithNativeCcCommand: "/checkpoint";
     };
 };
 export type RegisteredCommand = keyof typeof COMMAND_REGISTRY;

@@ -1,17 +1,16 @@
 name: CI
 
 on:
-  push:
-    branches: ["**"]
   pull_request:
     branches: ["**"]
 
-# Cancel in-progress runs for the same branch when a new push arrives.
-# Groups push and pull_request events for the same branch together so only
-# one run proceeds at a time, preventing double-run dist-check interference.
+# Serialize CI runs for the same branch/PR to prevent double-run dist-check
+# interference. Old runs are NOT cancelled because cancelling leaves stale
+# check statuses that persist on PRs and block merging even after a new
+# successful run completes.
 concurrency:
   group: ${{ github.workflow }}-${{ github.head_ref || github.ref_name }}
-  cancel-in-progress: true
+  cancel-in-progress: false
 
 permissions:
   contents: read

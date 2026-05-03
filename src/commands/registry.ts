@@ -190,6 +190,8 @@ export type CommandEntry = {
 	aliasOf?: string;
 	/** Whether this entry is deprecated — prefer aliasOf target instead */
 	deprecated?: boolean;
+	/** If set, this command shares a name with a Claude Code built-in slash command */
+	clashesWithNativeCcCommand?: string;
 };
 
 // The registry is the single source of truth.
@@ -208,11 +210,13 @@ export const COMMAND_REGISTRY = {
 		handler: (ctx) => handleStatusCommand(ctx.directory, ctx.agents),
 		description: 'Show current swarm state',
 		category: 'core',
+		clashesWithNativeCcCommand: '/status',
 	},
 	plan: {
 		handler: (ctx) => handlePlanCommand(ctx.directory, ctx.args),
 		description: 'Show plan (optionally filter by phase number)',
 		category: 'core',
+		clashesWithNativeCcCommand: '/plan',
 	},
 	agents: {
 		// handleAgentsCommand is synchronous — wrap in Promise.resolve
@@ -220,6 +224,7 @@ export const COMMAND_REGISTRY = {
 			Promise.resolve(handleAgentsCommand(ctx.agents, undefined)),
 		description: 'List registered agents',
 		category: 'core',
+		clashesWithNativeCcCommand: '/agents',
 	},
 	help: {
 		handler: (ctx) => handleHelpCommand(ctx),
@@ -233,11 +238,13 @@ export const COMMAND_REGISTRY = {
 		handler: (ctx) => handleHistoryCommand(ctx.directory, ctx.args),
 		description: 'Show completed phases summary',
 		category: 'utility',
+		clashesWithNativeCcCommand: '/history',
 	},
 	config: {
 		handler: (ctx) => handleConfigCommand(ctx.directory, ctx.args),
 		description: 'Show current resolved configuration',
 		category: 'config',
+		clashesWithNativeCcCommand: '/config',
 	},
 	'config doctor': {
 		handler: (ctx) => handleDoctorCommand(ctx.directory, ctx.args),
@@ -297,6 +304,7 @@ export const COMMAND_REGISTRY = {
 		details:
 			'Exports the current plan and context as JSON to stdout. Useful for piping to external tools or debugging swarm state.',
 		category: 'utility',
+		clashesWithNativeCcCommand: '/export',
 	},
 	evidence: {
 		handler: (ctx) => handleEvidenceCommand(ctx.directory, ctx.args),
@@ -335,6 +343,7 @@ export const COMMAND_REGISTRY = {
 		category: 'diagnostics',
 		aliasOf: 'config doctor',
 		deprecated: true,
+		clashesWithNativeCcCommand: '/doctor',
 	},
 	info: {
 		handler: (ctx) => handleStatusCommand(ctx.directory, ctx.agents),
@@ -496,6 +505,7 @@ export const COMMAND_REGISTRY = {
 			'DELETES plan.md, context.md, and summaries/ directory from .swarm/. Stops background automation and clears in-memory queues. SAFETY: requires --confirm flag — without it, displays a warning and tips to export first.',
 		args: '--confirm (required)',
 		category: 'utility',
+		clashesWithNativeCcCommand: '/reset',
 	},
 	'reset-session': {
 		handler: (ctx) => handleResetSessionCommand(ctx.directory, ctx.args),
@@ -597,6 +607,7 @@ export const COMMAND_REGISTRY = {
 			'save: creates named snapshot of current .swarm/ state. restore: soft-resets to checkpoint by overwriting current .swarm/ files. delete: removes named checkpoint. list: shows all checkpoints with timestamps. All subcommands require a label except list.',
 		args: '<save|restore|delete|list> <label>',
 		category: 'utility',
+		clashesWithNativeCcCommand: '/checkpoint',
 	},
 } as const satisfies Record<string, CommandEntry>;
 

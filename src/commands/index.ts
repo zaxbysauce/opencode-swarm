@@ -132,6 +132,12 @@ export function buildHelpText(): string {
 			] as CommandEntry;
 			lines.push(`- \`/swarm ${cmd}\` — ${entry.description}`);
 
+			if (entry.clashesWithNativeCcCommand) {
+				lines.push(
+					`  ⚠️ Name conflicts with CC built-in \`${entry.clashesWithNativeCcCommand}\` — always use \`/swarm ${cmd}\``,
+				);
+			}
+
 			if (entry.args) {
 				lines.push(`  Args: \`${entry.args}\``);
 			}
@@ -172,6 +178,11 @@ export function buildHelpText(): string {
 		if (entry.aliasOf || entry.subcommandOf) continue;
 
 		lines.push(`- \`/swarm ${cmd}\` — ${entry.description}`);
+		if (entry.clashesWithNativeCcCommand) {
+			lines.push(
+				`  ⚠️ Name conflicts with CC built-in \`${entry.clashesWithNativeCcCommand}\` — always use \`/swarm ${cmd}\``,
+			);
+		}
 		if (entry.args) {
 			lines.push(`  Args: \`${entry.args}\``);
 		}
@@ -185,6 +196,15 @@ export function buildHelpText(): string {
 		lines.push('### Deprecated Commands', '');
 		for (const { name, aliasOf } of deprecatedAliases) {
 			lines.push(`- \`/swarm ${name}\` → Use \`/swarm ${aliasOf}\``);
+			// Check if this deprecated alias has a clash warning
+			const aliasEntry = COMMAND_REGISTRY[
+				name as keyof typeof COMMAND_REGISTRY
+			] as CommandEntry;
+			if (aliasEntry?.clashesWithNativeCcCommand) {
+				lines.push(
+					`  ⚠️ Name conflicts with CC built-in \`${aliasEntry.clashesWithNativeCcCommand}\` — always use \`/swarm ${aliasOf}\``,
+				);
+			}
 		}
 	}
 

@@ -53,6 +53,7 @@ import {
 	handleDebuggingSpiral,
 	recordToolCall,
 } from './hooks/adversarial-detector.js';
+import { createCcCommandInterceptHook } from './hooks/cc-command-intercept.js';
 import { createCoChangeSuggesterHook } from './hooks/co-change-suggester.js';
 import { createDarkMatterDetectorHook } from './hooks/dark-matter-detector.js';
 import { createDelegationLedgerHook } from './hooks/delegation-ledger.js';
@@ -446,6 +447,9 @@ async function initializeOpenCodeSwarm(ctx: Parameters<Plugin>[0]) {
 		config,
 		ctx.directory,
 	);
+
+	// CC command intercept: handle Claude Code command interception
+	const ccCommandInterceptHook = createCcCommandInterceptHook({});
 
 	// Watchdog: scope-guard + delegation-ledger
 	const watchdogConfig = WatchdogConfigSchema.parse(config.watchdog ?? {});
@@ -1032,6 +1036,7 @@ async function initializeOpenCodeSwarm(ctx: Parameters<Plugin>[0]) {
 				contextBudgetHandler,
 				guardrailsHooks.messagesTransform,
 				fullAutoInterceptHook?.messagesTransform,
+				ccCommandInterceptHook?.messagesTransform,
 				delegationGateHooks.messagesTransform,
 				delegationSanitizerHook,
 				knowledgeInjectorHook, // v6.17 knowledge injection
