@@ -298,12 +298,14 @@ describe('PluginConfigSchema', () => {
 		const result = PluginConfigSchema.safeParse({});
 		expect(result.success).toBe(true);
 		if (result.success) {
-			// adversarial_testing has a schema-level default so it appears in the output
+			// adversarial_testing has a schema-level default so it appears in the output.
+			// default_agent is intentionally optional with NO schema default — see
+			// src/config/schema.ts for the full rationale (issue: multi-swarm
+			// prefixed architects disappearing from OpenCode after v7.3.x).
 			expect(result.data).toEqual({
 				max_iterations: 5,
 				qa_retry_limit: 3,
 				inject_phase_reminders: true,
-				default_agent: 'architect',
 				execution_mode: 'balanced',
 				turbo_mode: false,
 				quiet: true,
@@ -316,6 +318,10 @@ describe('PluginConfigSchema', () => {
 					escalation_mode: 'pause',
 				},
 			});
+			// default_agent is omitted from the output because no schema default
+			// applies — distinguishing omitted from explicit "architect" is a
+			// load-bearing semantic.
+			expect(result.data.default_agent).toBeUndefined();
 		}
 	});
 

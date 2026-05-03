@@ -1,306 +1,463 @@
 import { afterEach, beforeEach, describe, expect, mock, test } from 'bun:test';
-import { getAgentConfigs } from '../../../src/agents/index';
+import {
+	getAgentConfigs,
+	resolvePrimaryAgentNames,
+} from '../../../src/agents/index';
 import { PluginConfigSchema } from '../../../src/config/schema';
 
-// Mock the fs/promises module to avoid file system operations in getAgentConfigs
-// The agent tool snapshot writing calls mkdir + writeFile
+// Mock node:fs/promises to avoid the agent-tool snapshot writer touching disk.
 mock.module('node:fs/promises', () => ({
 	mkdir: mock(() => Promise.resolve()),
 	writeFile: mock(() => Promise.resolve()),
 }));
 
-describe('PluginConfigSchema — default_agent field', () => {
-	describe('acceptance and validation', () => {
-		test('accepts valid default_agent value', () => {
-			const result = PluginConfigSchema.safeParse({
-				default_agent: 'coder',
-			});
-			expect(result.success).toBe(true);
-			if (result.success) {
-				expect(result.data.default_agent).toBe('coder');
-			}
-		});
-
-		test('accepts all valid agent names as default_agent', () => {
-			const validAgents = [
-				'architect',
-				'coder',
-				'reviewer',
-				'test_engineer',
-				'explorer',
-				'critic',
-				'sme',
-				'docs',
-				'designer',
-			];
-
-			for (const agent of validAgents) {
-				const result = PluginConfigSchema.safeParse({
-					default_agent: agent,
-				});
-				expect(result.success, `${agent} should be valid`).toBe(true);
-			}
-		});
-
-		test('accepts empty object (backward compatibility)', () => {
-			const result = PluginConfigSchema.safeParse({});
-			expect(result.success).toBe(true);
-		});
-
-		test('accepts null/undefined default_agent (treated as missing)', () => {
-			// default_agent is optional, so undefined is fine
-			const result = PluginConfigSchema.safeParse({
-				default_agent: undefined,
-			});
-			expect(result.success).toBe(true);
-		});
-
-		test('rejects invalid default_agent value', () => {
-			// Invalid values like 'foo' should be rejected by the schema
-			const result = PluginConfigSchema.safeParse({
-				default_agent: 'foo',
-			});
-			expect(result.success).toBe(false);
-		});
-
-		test('rejects arbitrary string as default_agent', () => {
-			const result = PluginConfigSchema.safeParse({
-				default_agent: 'nonexistent',
-			});
-			expect(result.success).toBe(false);
-		});
-	});
-
-	describe('default value', () => {
-		test('defaults to architect when not specified', () => {
-			const result = PluginConfigSchema.safeParse({});
-			expect(result.success).toBe(true);
-			if (result.success) {
-				// The .default('architect') ensures this
-				expect(result.data.default_agent).toBe('architect');
-			}
-		});
-
-		test('explicit architect value is accepted', () => {
-			const result = PluginConfigSchema.safeParse({
-				default_agent: 'architect',
-			});
-			expect(result.success).toBe(true);
-			if (result.success) {
-				expect(result.data.default_agent).toBe('architect');
-			}
-		});
-	});
-});
-
-describe('getAgentConfigs — primary mode based on default_agent', () => {
-	beforeEach(() => {
-		// Reset any module state if needed
-	});
-
-	describe('architect as default primary when default_agent not specified', () => {
-		test('sets architect to primary mode when default_agent absent', () => {
-			const config: Record<string, unknown> = {};
-			const result = getAgentConfigs(config as any);
-
-			// architect should be primary
-			expect(result['architect']).toBeDefined();
-			expect(result['architect'].mode).toBe('primary');
-
-			// other agents should be subagents
-			expect(result['coder'].mode).toBe('subagent');
-			expect(result['reviewer'].mode).toBe('subagent');
-			expect(result['test_engineer'].mode).toBe('subagent');
-			expect(result['explorer'].mode).toBe('subagent');
-		});
-
-		test('sets architect to primary mode when default_agent is architect', () => {
-			const config = { default_agent: 'architect' };
-			const result = getAgentConfigs(config as any);
-
-			expect(result['architect'].mode).toBe('primary');
-			expect(result['coder'].mode).toBe('subagent');
-		});
-	});
-
-	describe('specified agent as primary when default_agent is set', () => {
-		test('sets coder as primary when default_agent is coder', () => {
-			const config = { default_agent: 'coder' };
-			const result = getAgentConfigs(config as any);
-
-			expect(result['architect'].mode).toBe('subagent');
-			expect(result['coder'].mode).toBe('primary');
-			expect(result['reviewer'].mode).toBe('subagent');
-		});
-
-		test('sets reviewer as primary when default_agent is reviewer', () => {
-			const config = { default_agent: 'reviewer' };
-			const result = getAgentConfigs(config as any);
-
-			expect(result['architect'].mode).toBe('subagent');
-			expect(result['coder'].mode).toBe('subagent');
-			expect(result['reviewer'].mode).toBe('primary');
-		});
-
-		test('sets test_engineer as primary when default_agent is test_engineer', () => {
-			const config = { default_agent: 'test_engineer' };
-			const result = getAgentConfigs(config as any);
-
-			expect(result['architect'].mode).toBe('subagent');
-			expect(result['test_engineer'].mode).toBe('primary');
-		});
-
-		test('sets explorer as primary when default_agent is explorer', () => {
-			const config = { default_agent: 'explorer' };
-			const result = getAgentConfigs(config as any);
-
-			expect(result['architect'].mode).toBe('subagent');
-			expect(result['explorer'].mode).toBe('primary');
-		});
-	});
-
-	describe('primary agent permission handling', () => {
-		test('primary agent has task:allow permission', () => {
-			const config = { default_agent: 'coder' };
-			const result = getAgentConfigs(config as any);
-
-			// Primary agent should have task permission
-			expect(result['coder'].permission).toEqual({ task: 'allow' });
-		});
-
-		test('subagent does not have task:allow permission', () => {
-			const config = { default_agent: 'coder' };
-			const result = getAgentConfigs(config as any);
-
-			// Subagent should not have task permission
-			expect(result['architect'].permission).toBeUndefined();
-		});
-
-		test('primary agent has no model (orchestrator selects)', () => {
-			const config = { default_agent: 'architect' };
-			const result = getAgentConfigs(config as any);
-
-			// Primary agent should have model deleted (orchestrator handles model selection)
-			expect(result['architect'].model).toBeUndefined();
-		});
-	});
-
-	describe('backward compatibility', () => {
-		test('existing config without default_agent still works', () => {
-			// Simulate existing config that was used before default_agent was added
-			const existingConfig = {
-				agents: {
-					coder: { model: 'opencode/gpt-5' },
-					reviewer: { model: 'opencode/gpt-5' },
-				},
-				max_iterations: 5,
-				execution_mode: 'balanced' as const,
-			};
-
-			const result = getAgentConfigs(existingConfig as any);
-
-			// Should still work and architect should be primary
-			expect(result['architect'].mode).toBe('primary');
-			expect(result['coder'].mode).toBe('subagent');
-			expect(result['reviewer'].mode).toBe('subagent');
-		});
-
-		test('minimal empty config defaults to architect as primary', () => {
-			const result = getAgentConfigs({} as any);
-
-			expect(result['architect'].mode).toBe('primary');
-		});
-
-		test('undefined config still works', () => {
-			const result = getAgentConfigs(undefined);
-
-			expect(result['architect'].mode).toBe('primary');
-			expect(result['coder'].mode).toBe('subagent');
-		});
-	});
-
-	describe('agent name matching with prefixes', () => {
-		test('handles prefixed agent names (cloud_coder)', () => {
-			// When using swarms, agents can have prefixes like 'cloud_coder'
-			// The default_agent matching should handle this via endsWith check
-			const config = { default_agent: 'coder' };
-			const result = getAgentConfigs(config as any);
-
-			// The coder agent name 'coder' should match default_agent 'coder'
-			expect(result['coder'].mode).toBe('primary');
-		});
-
-		test('handles hyphenated agent names (cloud-coder)', () => {
-			// Hyphe nation separators are also supported
-			const config = { default_agent: 'coder' };
-			const result = getAgentConfigs(config as any);
-
-			// The matching logic checks endsWith(`_${defaultAgent}`) and endsWith(`-${defaultAgent}`)
-			expect(result['coder'].mode).toBe('primary');
-		});
-	});
-
-	describe('invalid default_agent fallback', () => {
-		test('falls back to architect when default_agent is invalid string', () => {
-			// An invalid default_agent like 'foo' should not cause all agents to be subagents
-			// Instead, it should fall back to architect being primary
-			const config = { default_agent: 'foo' } as any;
-			const result = getAgentConfigs(config);
-
-			// architect should be primary due to fallback
-			expect(result['architect'].mode).toBe('primary');
-			// all other agents should be subagents
-			expect(result['coder'].mode).toBe('subagent');
-			expect(result['reviewer'].mode).toBe('subagent');
-			expect(result['test_engineer'].mode).toBe('subagent');
-			expect(result['explorer'].mode).toBe('subagent');
-		});
-
-		test('falls back to architect when default_agent is arbitrary unknown value', () => {
-			const config = { default_agent: 'nonexistent_agent_xyz' } as any;
-			const result = getAgentConfigs(config);
-
-			// Should still have exactly one primary agent (architect)
-			const primaryAgents = Object.values(result).filter(
-				(a) => a.mode === 'primary',
-			);
-			expect(primaryAgents).toHaveLength(1);
-			expect(result['architect'].mode).toBe('primary');
-		});
-	});
-});
-
-describe('Integration: Schema validation + getAgentConfigs', () => {
-	test('parsed schema value flows correctly to getAgentConfigs', () => {
-		const input = {
-			default_agent: 'reviewer',
-			agents: {
-				coder: { model: 'opencode/gpt-5' },
+// ─── Helper: build a multi-swarm PluginConfig ──────────────────────────────
+function multiSwarmConfig(extra: Record<string, unknown> = {}) {
+	return {
+		swarms: {
+			local: { name: 'Local', agents: { coder: { model: 'm-local' } } },
+			mega: { name: 'Mega', agents: { coder: { model: 'm-mega' } } },
+			paid: { name: 'Paid', agents: { coder: { model: 'm-paid' } } },
+			modelrelay: {
+				name: 'Modelrelay',
+				agents: { coder: { model: 'm-relay' } },
 			},
-		};
+		},
+		...extra,
+	} as Record<string, unknown>;
+}
 
-		const parsed = PluginConfigSchema.safeParse(input);
-		expect(parsed.success).toBe(true);
+function multiSwarmWithDefaultConfig(extra: Record<string, unknown> = {}) {
+	return {
+		swarms: {
+			default: {
+				name: 'Default',
+				agents: { coder: { model: 'm-default' } },
+			},
+			local: { name: 'Local', agents: { coder: { model: 'm-local' } } },
+			mega: { name: 'Mega', agents: { coder: { model: 'm-mega' } } },
+		},
+		...extra,
+	} as Record<string, unknown>;
+}
 
-		if (parsed.success) {
-			const result = getAgentConfigs(parsed.data);
-			expect(result['reviewer'].mode).toBe('primary');
-			expect(result['architect'].mode).toBe('subagent');
+// ─── Schema semantics ──────────────────────────────────────────────────────
+
+describe('PluginConfigSchema — default_agent field (post-v7.3.5 semantics)', () => {
+	test('omitted default_agent is preserved as undefined (no schema default)', () => {
+		const result = PluginConfigSchema.safeParse({});
+		expect(result.success).toBe(true);
+		if (result.success) {
+			// CRITICAL regression: previously schema applied .default("architect").
+			// That default broke multi-swarm configs because no agent in those
+			// configs is literally named "architect" — they are all prefixed.
+			expect(result.data.default_agent).toBeUndefined();
 		}
 	});
 
-	test('schema default flows to getAgentConfigs primary selection', () => {
-		const input = {};
+	test('explicit "architect" is preserved (distinct from omitted)', () => {
+		const result = PluginConfigSchema.safeParse({ default_agent: 'architect' });
+		expect(result.success).toBe(true);
+		if (result.success) expect(result.data.default_agent).toBe('architect');
+	});
 
-		const parsed = PluginConfigSchema.safeParse(input);
-		expect(parsed.success).toBe(true);
-
-		if (parsed.success) {
-			// parsed.data.default_agent should be 'architect' due to schema default
-			expect(parsed.data.default_agent).toBe('architect');
-
-			const result = getAgentConfigs(parsed.data);
-			expect(result['architect'].mode).toBe('primary');
+	test('accepts base role names (coder, reviewer, explorer, test_engineer)', () => {
+		for (const v of ['coder', 'reviewer', 'explorer', 'test_engineer']) {
+			const r = PluginConfigSchema.safeParse({ default_agent: v });
+			expect(r.success, `${v} should parse`).toBe(true);
+			if (r.success) expect(r.data.default_agent).toBe(v);
 		}
+	});
+
+	test('accepts prefixed/generated agent names (local_architect, paid_coder, modelrelay_reviewer)', () => {
+		for (const v of [
+			'local_architect',
+			'mega_architect',
+			'paid_coder',
+			'modelrelay_reviewer',
+		]) {
+			const r = PluginConfigSchema.safeParse({ default_agent: v });
+			expect(r.success, `${v} should parse`).toBe(true);
+			if (r.success) expect(r.data.default_agent).toBe(v);
+		}
+	});
+
+	test('does not reject arbitrary strings at parse time (semantic validation only)', () => {
+		// Previously the schema rejected anything not in the enum, which made an
+		// invalid default_agent invalidate the entire plugin config and trigger
+		// the loader's safe-defaults fallback. Now the schema accepts arbitrary
+		// strings and the resolver issues a warning + falls back at agent-gen.
+		const r = PluginConfigSchema.safeParse({
+			default_agent: 'not_a_real_agent',
+		});
+		expect(r.success).toBe(true);
+		if (r.success) expect(r.data.default_agent).toBe('not_a_real_agent');
+	});
+
+	test('treats whitespace-only / empty default_agent as omitted', () => {
+		for (const v of ['', '   ', '\t', '\n']) {
+			const r = PluginConfigSchema.safeParse({ default_agent: v });
+			expect(r.success, `'${v}' should parse`).toBe(true);
+			if (r.success) expect(r.data.default_agent).toBeUndefined();
+		}
+	});
+});
+
+// ─── Resolver: resolvePrimaryAgentNames ────────────────────────────────────
+
+describe('resolvePrimaryAgentNames', () => {
+	test('omitted ⇒ all architect-role agents are primary (multi-swarm)', () => {
+		const names = [
+			'local_architect',
+			'mega_architect',
+			'paid_coder',
+			'local_coder',
+		];
+		const r = resolvePrimaryAgentNames(names);
+		expect(r.reason).toBe('implicit-architects');
+		expect([...r.primaryNames].sort()).toEqual([
+			'local_architect',
+			'mega_architect',
+		]);
+		expect(r.warning).toBeUndefined();
+	});
+
+	test('omitted with single legacy architect ⇒ that architect is primary', () => {
+		const r = resolvePrimaryAgentNames(['architect', 'coder', 'reviewer']);
+		expect(r.reason).toBe('implicit-architects');
+		expect([...r.primaryNames]).toEqual(['architect']);
+	});
+
+	test('exact generated-name match wins over base role for prefixed names', () => {
+		// "local_architect" is NOT a base role (not in ALL_AGENT_NAMES), so the
+		// resolver hits the exact-match branch.
+		const names = ['local_architect', 'mega_architect', 'paid_architect'];
+		const r = resolvePrimaryAgentNames(names, 'local_architect');
+		expect(r.reason).toBe('exact');
+		expect([...r.primaryNames]).toEqual(['local_architect']);
+	});
+
+	test('base role "architect" beats exact match when both are present (default swarm + extras)', () => {
+		// Subtle: when the user passes "architect" AND there is a literal
+		// "architect" agent registered AND there are *_architect agents, the
+		// spec requires ALL architect-role agents to be primary (not just the
+		// unprefixed one). "architect" is in ALL_AGENT_NAMES, so the resolver
+		// takes the base-role branch first.
+		const names = ['architect', 'local_architect', 'mega_architect', 'coder'];
+		const r = resolvePrimaryAgentNames(names, 'architect');
+		expect(r.reason).toBe('base-role');
+		expect([...r.primaryNames].sort()).toEqual([
+			'architect',
+			'local_architect',
+			'mega_architect',
+		]);
+	});
+
+	test('base role "architect" ⇒ all architect-role agents primary', () => {
+		const names = [
+			'local_architect',
+			'mega_architect',
+			'local_coder',
+			'mega_coder',
+		];
+		const r = resolvePrimaryAgentNames(names, 'architect');
+		expect(r.reason).toBe('base-role');
+		expect([...r.primaryNames].sort()).toEqual([
+			'local_architect',
+			'mega_architect',
+		]);
+	});
+
+	test('base role "coder" ⇒ all coder-role agents primary in multi-swarm', () => {
+		const names = [
+			'local_architect',
+			'local_coder',
+			'mega_coder',
+			'paid_coder',
+		];
+		const r = resolvePrimaryAgentNames(names, 'coder');
+		expect(r.reason).toBe('base-role');
+		expect([...r.primaryNames].sort()).toEqual([
+			'local_coder',
+			'mega_coder',
+			'paid_coder',
+		]);
+	});
+
+	test('known base role with zero matching agents ⇒ falls through to architect fallback', () => {
+		// Exercises the fall-through path at src/agents/index.ts:707-708:
+		// ALL_AGENT_NAMES.includes('reviewer') is true, but no generated agent
+		// has base role 'reviewer', so the base-role block finds nothing and
+		// falls through. The exact-match check also misses ('reviewer' is not
+		// a generated name), so the resolver falls back to architect-role primaries.
+		const names = ['local_architect', 'mega_architect', 'mega_coder'];
+		const r = resolvePrimaryAgentNames(names, 'reviewer');
+		expect(r.reason).toBe('fallback-architects');
+		expect(r.warning).toBeDefined();
+		expect(r.warning).toMatch(/reviewer/);
+		expect([...r.primaryNames].sort()).toEqual([
+			'local_architect',
+			'mega_architect',
+		]);
+	});
+
+	test('arbitrary "not_an_architect" is NOT treated as base-role architect', () => {
+		// Important matching detail from the spec: stripKnownSwarmPrefix returns
+		// "architect" for a name ending in "_architect", but the literal user
+		// value here is not in ALL_AGENT_NAMES, so it must fall back rather
+		// than match the architect role.
+		const names = ['local_architect', 'mega_architect', 'local_coder'];
+		const r = resolvePrimaryAgentNames(names, 'not_an_architect');
+		// Falls back to architect-role agents and emits a warning.
+		expect(r.reason).toBe('fallback-architects');
+		expect(r.warning).toBeDefined();
+		expect([...r.primaryNames].sort()).toEqual([
+			'local_architect',
+			'mega_architect',
+		]);
+	});
+
+	test('invalid default_agent ⇒ warns and falls back to architect-role primaries', () => {
+		const names = ['local_architect', 'local_coder'];
+		const r = resolvePrimaryAgentNames(names, 'totally_made_up_xyz');
+		expect(r.reason).toBe('fallback-architects');
+		expect(r.warning).toMatch(/totally_made_up_xyz/);
+		expect([...r.primaryNames]).toEqual(['local_architect']);
+	});
+
+	test('no architects + invalid default_agent ⇒ first agent primary, warns', () => {
+		const names = ['local_coder', 'mega_coder'];
+		const r = resolvePrimaryAgentNames(names, 'totally_made_up');
+		expect(r.reason).toBe('fallback-first');
+		expect(r.warning).toMatch(/local_coder/);
+		expect([...r.primaryNames]).toEqual(['local_coder']);
+	});
+
+	test('no architects + omitted default_agent ⇒ first agent primary, warns', () => {
+		const r = resolvePrimaryAgentNames(['local_coder', 'mega_coder']);
+		expect(r.reason).toBe('fallback-first');
+		expect(r.warning).toMatch(/local_coder/);
+		expect([...r.primaryNames]).toEqual(['local_coder']);
+	});
+
+	test('whitespace default_agent treated as omitted', () => {
+		const r = resolvePrimaryAgentNames(
+			['local_architect', 'local_coder'],
+			'  ',
+		);
+		expect(r.reason).toBe('implicit-architects');
+		expect([...r.primaryNames]).toEqual(['local_architect']);
+	});
+
+	test('empty agent list ⇒ empty primaries (no crash)', () => {
+		const r = resolvePrimaryAgentNames([], 'architect');
+		expect(r.primaryNames.size).toBe(0);
+	});
+});
+
+// ─── getAgentConfigs end-to-end ────────────────────────────────────────────
+
+describe('getAgentConfigs — primary mode resolution', () => {
+	beforeEach(() => {
+		// no-op, kept for symmetry with prior file
+	});
+	afterEach(() => {});
+
+	describe('legacy single-swarm', () => {
+		test('undefined config ⇒ unprefixed architect primary', () => {
+			const r = getAgentConfigs(undefined);
+			expect(r['architect'].mode).toBe('primary');
+			expect(r['coder'].mode).toBe('subagent');
+			expect(r['reviewer'].mode).toBe('subagent');
+			expect(r['test_engineer'].mode).toBe('subagent');
+		});
+
+		test('empty config ⇒ unprefixed architect primary', () => {
+			expect(getAgentConfigs({} as never)['architect'].mode).toBe('primary');
+		});
+
+		test('legacy config with agents only ⇒ architect primary', () => {
+			const cfg = {
+				agents: { coder: { model: 'opencode/gpt-5' } },
+				max_iterations: 5,
+				execution_mode: 'balanced',
+			} as never;
+			const r = getAgentConfigs(cfg);
+			expect(r['architect'].mode).toBe('primary');
+			expect(r['coder'].mode).toBe('subagent');
+		});
+
+		test('default_agent: "coder" ⇒ coder primary', () => {
+			const r = getAgentConfigs({ default_agent: 'coder' } as never);
+			expect(r['architect'].mode).toBe('subagent');
+			expect(r['coder'].mode).toBe('primary');
+			expect(r['coder'].permission).toEqual({ task: 'allow' });
+		});
+
+		test('default_agent: "reviewer" ⇒ reviewer primary', () => {
+			const r = getAgentConfigs({ default_agent: 'reviewer' } as never);
+			expect(r['architect'].mode).toBe('subagent');
+			expect(r['reviewer'].mode).toBe('primary');
+		});
+	});
+
+	describe('multi-swarm (the bug surface)', () => {
+		test('only prefixed swarms, no default_agent ⇒ every *_architect is primary', () => {
+			const r = getAgentConfigs(multiSwarmConfig() as never);
+			// Each swarm registers its own architect under a prefix.
+			expect(r['local_architect'].mode).toBe('primary');
+			expect(r['mega_architect'].mode).toBe('primary');
+			expect(r['paid_architect'].mode).toBe('primary');
+			expect(r['modelrelay_architect'].mode).toBe('primary');
+			// Coders are subagents.
+			expect(r['local_coder'].mode).toBe('subagent');
+			expect(r['mega_coder'].mode).toBe('subagent');
+			// There is no unprefixed architect agent in this config.
+			expect(r['architect']).toBeUndefined();
+		});
+
+		test('regression: at least one primary agent exists when only prefixed swarms (no default)', () => {
+			const r = getAgentConfigs(multiSwarmConfig() as never);
+			const primaries = Object.entries(r).filter(
+				([, v]) => v.mode === 'primary',
+			);
+			// Previous v7.3.x bug zeroed this out — no agent was primary because
+			// PluginConfigSchema defaulted default_agent to "architect" and no
+			// agent literally named "architect" existed.
+			expect(primaries.length).toBeGreaterThan(0);
+		});
+
+		test('default swarm + extra swarms, no default_agent ⇒ architect AND every *_architect primary', () => {
+			const r = getAgentConfigs(multiSwarmWithDefaultConfig() as never);
+			expect(r['architect'].mode).toBe('primary');
+			expect(r['local_architect'].mode).toBe('primary');
+			expect(r['mega_architect'].mode).toBe('primary');
+			expect(r['local_coder'].mode).toBe('subagent');
+		});
+
+		test('default_agent: "local_architect" ⇒ only local_architect primary', () => {
+			const r = getAgentConfigs(
+				multiSwarmConfig({ default_agent: 'local_architect' }) as never,
+			);
+			expect(r['local_architect'].mode).toBe('primary');
+			expect(r['mega_architect'].mode).toBe('subagent');
+			expect(r['paid_architect'].mode).toBe('subagent');
+			expect(r['modelrelay_architect'].mode).toBe('subagent');
+		});
+
+		test('default_agent: "architect" ⇒ all generated architect-role agents primary', () => {
+			const r = getAgentConfigs(
+				multiSwarmConfig({ default_agent: 'architect' }) as never,
+			);
+			expect(r['local_architect'].mode).toBe('primary');
+			expect(r['mega_architect'].mode).toBe('primary');
+			expect(r['paid_architect'].mode).toBe('primary');
+			expect(r['modelrelay_architect'].mode).toBe('primary');
+			expect(r['local_coder'].mode).toBe('subagent');
+		});
+
+		test('default_agent: "architect" with default swarm + extras ⇒ unprefixed AND all *_architect primary', () => {
+			// Tests the base-role-beats-exact-match ordering when both forms of
+			// architect agent exist in the same plugin config.
+			const r = getAgentConfigs(
+				multiSwarmWithDefaultConfig({ default_agent: 'architect' }) as never,
+			);
+			expect(r['architect'].mode).toBe('primary');
+			expect(r['local_architect'].mode).toBe('primary');
+			expect(r['mega_architect'].mode).toBe('primary');
+			expect(r['local_coder'].mode).toBe('subagent');
+		});
+
+		test('default_agent: "local_coder" ⇒ only local_coder primary', () => {
+			const r = getAgentConfigs(
+				multiSwarmConfig({ default_agent: 'local_coder' }) as never,
+			);
+			expect(r['local_coder'].mode).toBe('primary');
+			expect(r['mega_coder'].mode).toBe('subagent');
+			expect(r['local_architect'].mode).toBe('subagent');
+		});
+
+		test('default_agent: "coder" ⇒ all generated coder-role agents primary', () => {
+			const r = getAgentConfigs(
+				multiSwarmConfig({ default_agent: 'coder' }) as never,
+			);
+			expect(r['local_coder'].mode).toBe('primary');
+			expect(r['mega_coder'].mode).toBe('primary');
+			expect(r['paid_coder'].mode).toBe('primary');
+			expect(r['modelrelay_coder'].mode).toBe('primary');
+			expect(r['local_architect'].mode).toBe('subagent');
+		});
+
+		test('invalid default_agent in multi-swarm ⇒ falls back to architect-role agents', () => {
+			const r = getAgentConfigs(
+				multiSwarmConfig({ default_agent: 'totally_invalid_xyz' }) as never,
+			);
+			expect(r['local_architect'].mode).toBe('primary');
+			expect(r['mega_architect'].mode).toBe('primary');
+			expect(r['paid_architect'].mode).toBe('primary');
+			expect(r['modelrelay_architect'].mode).toBe('primary');
+			// Did not zero out primaries.
+			const primaries = Object.values(r).filter((c) => c.mode === 'primary');
+			expect(primaries.length).toBeGreaterThan(0);
+		});
+
+		test('all architects disabled + invalid default_agent ⇒ falls back to one primary, never zero', () => {
+			const cfg = {
+				swarms: {
+					local: {
+						name: 'Local',
+						agents: {
+							architect: { disabled: true },
+							coder: { model: 'm' },
+						},
+					},
+					mega: {
+						name: 'Mega',
+						agents: {
+							architect: { disabled: true },
+							coder: { model: 'm' },
+						},
+					},
+				},
+				default_agent: 'made_up_xyz',
+			} as never;
+			const r = getAgentConfigs(cfg);
+			const primaries = Object.entries(r).filter(
+				([, v]) => v.mode === 'primary',
+			);
+			expect(primaries.length).toBeGreaterThanOrEqual(1);
+			expect(r['local_architect']).toBeUndefined();
+			expect(r['mega_architect']).toBeUndefined();
+		});
+	});
+
+	describe('primary agent permissions and model handling', () => {
+		test('primary has task:allow and no model; subagents retain model', () => {
+			const r = getAgentConfigs({ default_agent: 'coder' } as never);
+			expect(r['coder'].permission).toEqual({ task: 'allow' });
+			expect(r['coder'].model).toBeUndefined();
+			// architect (subagent now) keeps its model field untouched
+			expect(r['architect'].permission).toBeUndefined();
+		});
+
+		test('multi-swarm primary architects have permission set; subagent coders do not', () => {
+			const r = getAgentConfigs(multiSwarmConfig() as never);
+			expect(r['local_architect'].permission).toEqual({ task: 'allow' });
+			expect(r['mega_architect'].permission).toEqual({ task: 'allow' });
+			expect(r['local_coder'].permission).toBeUndefined();
+		});
+	});
+
+	describe('integration: schema parse → resolver', () => {
+		test('parsed schema flows to resolver, omitted default_agent stays undefined', () => {
+			const parsed = PluginConfigSchema.safeParse(multiSwarmConfig());
+			expect(parsed.success).toBe(true);
+			if (parsed.success) {
+				expect(parsed.data.default_agent).toBeUndefined();
+				const r = getAgentConfigs(parsed.data);
+				expect(r['local_architect'].mode).toBe('primary');
+				expect(r['mega_architect'].mode).toBe('primary');
+			}
+		});
 	});
 });

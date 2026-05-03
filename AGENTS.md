@@ -105,6 +105,7 @@ Every PR that touches a relevant area must list which of these invariants it tou
 - A tool addition is **incomplete** until: (a) export from `src/tools/index.ts`, (b) registration in the plugin `tool: {}` block in `src/index.ts`, (c) entry in `TOOL_NAMES` and `AGENT_TOOL_MAP` in `src/config/constants.ts`, (d) help/documentation surfaces, (e) tests covering the new entry.
 - Run `tests/unit/config/*.test.ts` and `/swarm doctor tools` after any tool, agent-map, command, or help change. See v6.48.0.
 - Parity assertions across sibling map entries are intentional. If a parity test fails, mirror the change to siblings (most common) or update the invariant test if the design intent has actually changed.
+- **Agent registration changes must test both legacy unprefixed AND multi-swarm prefixed agent names.** v7.3.x regression: a schema default on `default_agent` ("architect") combined with strict equality demoted every `*_architect` to subagent in multi-swarm configs, so OpenCode showed the plugin as loaded but no swarm architect agents appeared. Tests that only used legacy unprefixed `architect` missed the bug entirely. Any change to primary/subagent selection, `default_agent`, or `getAgentConfigs` MUST include a multi-swarm `swarms: { local: ..., mega: ... }` test that asserts at least one prefixed agent is `mode: 'primary'`.
 
 ### 12. Release / cache hygiene
 

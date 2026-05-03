@@ -1135,9 +1135,35 @@ export const PluginConfigSchema = z.object({
 	agents: z.record(z.string(), AgentOverrideConfigSchema).optional(),
 
 	// Default agent — specifies which agent is set as primary mode.
-	// When not specified, 'architect' is the default primary agent.
-	// Valid values are restricted to known agent names via ALL_AGENT_NAMES enum.
-	default_agent: z.enum(ALL_AGENT_NAMES).default('architect').optional(),
+	//
+	// Semantics (resolved by resolvePrimaryAgentNames in src/agents/index.ts):
+	//   - Omitted: every generated *_architect role is primary (multi-swarm-aware,
+	//     restores v7.0.0 behavior — see #735 follow-up / v7.3.5).
+	//   - Exact generated name (e.g. "local_architect"): only that agent is primary.
+	//   - Base role name in ALL_AGENT_NAMES (e.g. "coder"): every generated agent
+	//     whose canonical base role matches is primary.
+	//   - Unknown / invalid string: warns once and falls back to architect-role
+	//     primaries (or the first generated agent if architects are disabled).
+	//
+	// Schema-level rules:
+	//   - The field MUST stay optional (no `.default(...)`) so omitted vs explicit
+	//     "architect" are distinguishable. The previous `.default("architect")` was
+	//     the root cause of all *_architect agents being demoted to subagents in
+	//     multi-swarm configs (issue: GUI/TUI showed plugin loaded but no swarm
+	//     architect agents).
+	//   - Accepts arbitrary strings here. Validation against the generated agent
+	//     set happens semantically at agent-generation time so an unknown value
+	//     does not invalidate the entire plugin config and trigger a fallback to
+	//     safe defaults.
+	//   - Empty / whitespace-only strings are normalized to `undefined`.
+	default_agent: z
+		.string()
+		.optional()
+		.transform((v) => {
+			if (v === undefined) return undefined;
+			const trimmed = v.trim();
+			return trimmed === '' ? undefined : trimmed;
+		}),
 
 	// Multiple swarms support
 	// Keys are swarm IDs (e.g., "cloud", "local", "fast")

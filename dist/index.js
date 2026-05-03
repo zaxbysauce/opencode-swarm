@@ -51,7 +51,7 @@ var package_default;
 var init_package = __esm(() => {
   package_default = {
     name: "opencode-swarm",
-    version: "7.3.3",
+    version: "7.3.4",
     description: "Architect-centric agentic swarm plugin for OpenCode - hub-and-spoke orchestration with SME consultation, code generation, and QA review",
     main: "dist/index.js",
     types: "dist/index.d.ts",
@@ -15370,7 +15370,12 @@ var init_schema = __esm(() => {
   });
   PluginConfigSchema = exports_external.object({
     agents: exports_external.record(exports_external.string(), AgentOverrideConfigSchema).optional(),
-    default_agent: exports_external.enum(ALL_AGENT_NAMES).default("architect").optional(),
+    default_agent: exports_external.string().optional().transform((v) => {
+      if (v === undefined)
+        return;
+      const trimmed = v.trim();
+      return trimmed === "" ? undefined : trimmed;
+    }),
     swarms: exports_external.record(exports_external.string(), SwarmConfigSchema).optional(),
     max_iterations: exports_external.number().min(1).max(10).default(5),
     pipeline: PipelineConfigSchema.optional(),
@@ -60004,6 +60009,52 @@ function createAgents(config3) {
   }
   return allAgents;
 }
+function resolvePrimaryAgentNames(agentNames, defaultAgent) {
+  const collectArchitectRole = () => agentNames.filter((n) => stripKnownSwarmPrefix(n) === "architect");
+  const trimmed = typeof defaultAgent === "string" ? defaultAgent.trim() : undefined;
+  const value = trimmed === "" ? undefined : trimmed;
+  if (agentNames.length === 0) {
+    return { primaryNames: new Set, reason: "implicit-architects" };
+  }
+  if (value === undefined) {
+    const architects2 = collectArchitectRole();
+    if (architects2.length > 0) {
+      return {
+        primaryNames: new Set(architects2),
+        reason: "implicit-architects"
+      };
+    }
+    const first2 = agentNames[0];
+    return {
+      primaryNames: new Set([first2]),
+      reason: "fallback-first",
+      warning: `[swarm] No architect-role agents are registered and default_agent is unset; falling back to '${first2}' as primary. Re-enable an architect agent or set default_agent to silence this warning.`
+    };
+  }
+  if (ALL_AGENT_NAMES.includes(value)) {
+    const matching = agentNames.filter((n) => stripKnownSwarmPrefix(n) === value);
+    if (matching.length > 0) {
+      return { primaryNames: new Set(matching), reason: "base-role" };
+    }
+  }
+  if (agentNames.includes(value)) {
+    return { primaryNames: new Set([value]), reason: "exact" };
+  }
+  const architects = collectArchitectRole();
+  if (architects.length > 0) {
+    return {
+      primaryNames: new Set(architects),
+      reason: "fallback-architects",
+      warning: `[swarm] default_agent '${value}' did not match any registered agent; falling back to architect-role primaries: ${architects.join(", ")}.`
+    };
+  }
+  const first = agentNames[0];
+  return {
+    primaryNames: new Set([first]),
+    reason: "fallback-first",
+    warning: `[swarm] default_agent '${value}' did not match any registered agent and no architect-role agents are registered; falling back to '${first}' as primary.`
+  };
+}
 function getAgentConfigs(config3, directory, sessionId) {
   const agents = createAgents(config3);
   const toolFilterEnabled = config3?.tool_filter?.enabled ?? true;
@@ -60011,21 +60062,29 @@ function getAgentConfigs(config3, directory, sessionId) {
   const quiet = config3?.quiet ?? true;
   const warnedMissingWhitelist = new Set;
   const agentToolSnapshot = {};
+  const resolution = resolvePrimaryAgentNames(agents.map((a) => a.name), config3?.default_agent);
+  if (resolution.warning) {
+    if (!quiet) {
+      console.warn(resolution.warning);
+    } else {
+      addDeferredWarning(resolution.warning);
+    }
+  }
+  if (agents.length > 0 && resolution.primaryNames.size === 0) {
+    const generated = agents.map((a) => a.name).join(", ");
+    const diagnostic = `[swarm] DIAGNOSTIC: ${agents.length} generated agents but zero primaries. Likely cause: a regression in resolvePrimaryAgentNames. Generated: ${generated}.`;
+    if (!quiet) {
+      console.warn(diagnostic);
+    } else {
+      addDeferredWarning(diagnostic);
+    }
+  }
   const result = Object.fromEntries(agents.map((agent) => {
     const sdkConfig = {
       ...agent.config,
       description: agent.description
     };
-    let defaultAgent = config3?.default_agent ?? "architect";
-    if (defaultAgent !== "architect" && !ALL_AGENT_NAMES.includes(defaultAgent)) {
-      if (!quiet) {
-        console.warn(`[swarm] Invalid default_agent '${defaultAgent}' — falling back to 'architect'. Valid values: ${ALL_AGENT_NAMES.join(", ")}`);
-      } else {
-        addDeferredWarning(`[swarm] Invalid default_agent '${defaultAgent}' — falling back to 'architect'. Valid values: ${ALL_AGENT_NAMES.join(", ")}`);
-      }
-      defaultAgent = "architect";
-    }
-    const isPrimaryAgent = agent.name === defaultAgent;
+    const isPrimaryAgent = resolution.primaryNames.has(agent.name);
     if (isPrimaryAgent) {
       sdkConfig.mode = "primary";
       sdkConfig.permission = { task: "allow" };
