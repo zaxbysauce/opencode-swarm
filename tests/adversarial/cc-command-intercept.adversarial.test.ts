@@ -342,7 +342,9 @@ describe('ADVERSARIAL: cc-command-intercept hook evasion tests', () => {
 			// hard-block list (lines 168-169) only includes 'reset' and 'clear'.
 			// /checkpoint falls through to HIGH advisory path which preserves the line.
 			// This is a known gap - see GitHub issue #740.
-			expect(output.messages![0].parts[0].text).toBe('/checkpoint save my-state');
+			expect(output.messages![0].parts[0].text).toBe(
+				'/checkpoint save my-state',
+			);
 			// HIGH advisory does NOT modify the message (no [CC_COMMAND_INTERCEPT] prefix)
 			expect(output.messages![0].parts[0].text).not.toContain(
 				'[CC_COMMAND_INTERCEPT]',
