@@ -1,5 +1,12 @@
 # Changelog
 
+## [7.3.7](https://github.com/zaxbysauce/opencode-swarm/compare/v7.3.6...v7.3.7) (2026-05-03)
+
+
+### Bug Fixes
+
+* rename release docs from v7.3.6 to v7.3.7; improve deadlock reset assertion ([dd04c18](https://github.com/zaxbysauce/opencode-swarm/commit/dd04c1814b322569e42c3e4d6e40fdfb01b44bf0))
+
 ## [7.3.6](https://github.com/zaxbysauce/opencode-swarm/compare/v7.3.5...v7.3.6) (2026-05-03)
 
 
