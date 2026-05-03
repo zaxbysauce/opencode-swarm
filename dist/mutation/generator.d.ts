@@ -7,6 +7,13 @@
 import type { ToolContext } from '@opencode-ai/plugin';
 import type { MutationPatch } from './engine.js';
 /**
+ * Dependency-injection seam.  Tests may override `timeoutMs` to a short value
+ * to exercise the timeout path without waiting 90 seconds.
+ */
+export declare const _internals: {
+    timeoutMs: number;
+};
+/**
  * Generate mutation testing patches for the given source files using an LLM.
  *
  * @param files - Array of file paths to generate mutations for

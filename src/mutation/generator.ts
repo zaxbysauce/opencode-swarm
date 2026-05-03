@@ -7,12 +7,24 @@
 
 import type { ToolContext } from '@opencode-ai/plugin';
 import { swarmState } from '../state.js';
+import { withTimeout } from '../utils/timeout.js';
 import type { MutationPatch } from './engine.js';
 
 /** Slugify a string for use in mutation IDs */
 function slugify(str: string): string {
 	return str.replace(/[^a-zA-Z0-9_-]/g, '_').replace(/_+/g, '_');
 }
+
+/** Maximum milliseconds to wait for the LLM session create + prompt. */
+const GENERATE_MUTANTS_TIMEOUT_MS = 90_000;
+
+/**
+ * Dependency-injection seam.  Tests may override `timeoutMs` to a short value
+ * to exercise the timeout path without waiting 90 seconds.
+ */
+export const _internals = {
+	timeoutMs: GENERATE_MUTANTS_TIMEOUT_MS,
+};
 
 /**
  * Extract a JSON array substring from an LLM response that may include
@@ -78,29 +90,31 @@ export async function generateMutants(
 	};
 
 	try {
-		// 1. Create ephemeral session scoped to project directory
-		const createResult = await client.session.create({
-			query: { directory },
-		});
-		if (!createResult.data) {
-			console.warn(
-				`[generateMutants] Failed to create session: ${JSON.stringify(createResult.error)}; returning empty patch set`,
-			);
-			return [];
-		}
-		ephemeralSessionId = createResult.data.id;
+		const patches = await withTimeout(
+			(async (): Promise<MutationPatch[]> => {
+				// 1. Create ephemeral session scoped to project directory
+				const createResult = await client.session.create({
+					query: { directory },
+				});
+				if (!createResult.data) {
+					console.warn(
+						`[generateMutants] Failed to create session: ${JSON.stringify(createResult.error)}; returning empty patch set`,
+					);
+					return [];
+				}
+				ephemeralSessionId = createResult.data.id;
 
-		// 2. Prompt the LLM to generate mutation patches
-		const mutationTypes = [
-			'off-by-one',
-			'null-substitution',
-			'operator-swap',
-			'guard-removal',
-			'branch-swap',
-			'side-effect-deletion',
-		].join(', ');
+				// 2. Prompt the LLM to generate mutation patches
+				const mutationTypes = [
+					'off-by-one',
+					'null-substitution',
+					'operator-swap',
+					'guard-removal',
+					'branch-swap',
+					'side-effect-deletion',
+				].join(', ');
 
-		const promptText = `Generate mutation testing patches for the following files: ${files.join(', ')}
+				const promptText = `Generate mutation testing patches for the following files: ${files.join(', ')}
 
 Return a JSON array where each element has:
 { id, filePath, functionName, mutationType, patch, lineNumber }
@@ -112,86 +126,91 @@ Return a JSON array where each element has:
 
 Return ONLY a valid JSON array. No markdown, no code fences, no explanation. Start your response with [ and end with ].`;
 
-		const promptResult = await client.session.prompt({
-			path: { id: ephemeralSessionId },
-			body: {
-				// Use default session agent (no specific agent name)
-				agent: undefined,
-				tools: { write: false, edit: false, patch: false },
-				parts: [{ type: 'text', text: promptText }],
-			},
-		});
+				const promptResult = await client.session.prompt({
+					path: { id: ephemeralSessionId },
+					body: {
+						// Use default session agent (no specific agent name)
+						agent: undefined,
+						tools: { write: false, edit: false, patch: false },
+						parts: [{ type: 'text', text: promptText }],
+					},
+				});
 
-		if (!promptResult.data) {
-			console.warn(
-				`[generateMutants] LLM prompt failed: ${JSON.stringify(promptResult.error)}; returning empty patch set`,
-			);
-			return [];
-		}
+				if (!promptResult.data) {
+					console.warn(
+						`[generateMutants] LLM prompt failed: ${JSON.stringify(promptResult.error)}; returning empty patch set`,
+					);
+					return [];
+				}
 
-		// 3. Extract text parts from response
-		const textParts = promptResult.data.parts.filter(
-			(p): p is typeof p & { text: string } => p.type === 'text',
+				// 3. Extract text parts from response
+				const textParts = promptResult.data.parts.filter(
+					(p): p is typeof p & { text: string } => p.type === 'text',
+				);
+				const rawText = textParts.map((p) => p.text).join('\n');
+
+				// 4. Parse JSON response — strip markdown fences and prose preamble first
+				let parsed: unknown;
+				try {
+					parsed = JSON.parse(extractJsonArray(rawText));
+				} catch (error) {
+					const msg = error instanceof Error ? error.message : String(error);
+					const hint =
+						msg.includes('EOF') || msg.includes('Unexpected end')
+							? ' (response appears truncated — LLM may have hit an output token limit)'
+							: '';
+					console.warn(
+						`[generateMutants] Failed to parse LLM response as MutationPatch[]: ${msg}${hint}; returning empty patch set`,
+					);
+					return [];
+				}
+
+				// 5. Validate structure
+				if (!Array.isArray(parsed) || parsed.length === 0) {
+					return [];
+				}
+
+				// 6. Normalize and validate each patch
+				const patches: MutationPatch[] = [];
+				for (const item of parsed) {
+					if (
+						typeof item !== 'object' ||
+						item === null ||
+						typeof item.filePath !== 'string' ||
+						typeof item.functionName !== 'string' ||
+						typeof item.mutationType !== 'string' ||
+						typeof item.patch !== 'string'
+					) {
+						continue;
+					}
+
+					const mutationType = item.mutationType;
+					const fileSlug = slugify(item.filePath);
+					const fnSlug = slugify(item.functionName);
+					const typeSlug = slugify(mutationType);
+
+					// Generate unique ID if not provided or doesn't match expected format
+					const idStr = typeof item.id === 'string' ? item.id : '';
+					const id = idStr.startsWith('mut-')
+						? idStr
+						: `mut-${fileSlug}-${fnSlug}-${typeSlug}-${String(patches.length + 1).padStart(3, '0')}`;
+
+					patches.push({
+						id,
+						filePath: item.filePath,
+						functionName: item.functionName,
+						mutationType,
+						patch: item.patch,
+						lineNumber:
+							typeof item.lineNumber === 'number' ? item.lineNumber : undefined,
+					});
+				}
+
+				return patches;
+			})(),
+			_internals.timeoutMs,
+			new Error('generateMutants: LLM call timed out'),
 		);
-		const rawText = textParts.map((p) => p.text).join('\n');
-
-		// 4. Parse JSON response — strip markdown fences and prose preamble first
-		let parsed: unknown;
-		try {
-			parsed = JSON.parse(extractJsonArray(rawText));
-		} catch (error) {
-			const msg = error instanceof Error ? error.message : String(error);
-			const hint =
-				msg.includes('EOF') || msg.includes('Unexpected end')
-					? ' (response appears truncated — LLM may have hit an output token limit)'
-					: '';
-			console.warn(
-				`[generateMutants] Failed to parse LLM response as MutationPatch[]: ${msg}${hint}; returning empty patch set`,
-			);
-			return [];
-		}
-
-		// 5. Validate structure
-		if (!Array.isArray(parsed) || parsed.length === 0) {
-			return [];
-		}
-
-		// 6. Normalize and validate each patch
-		const patches: MutationPatch[] = [];
-		for (const item of parsed) {
-			if (
-				typeof item !== 'object' ||
-				item === null ||
-				typeof item.filePath !== 'string' ||
-				typeof item.functionName !== 'string' ||
-				typeof item.mutationType !== 'string' ||
-				typeof item.patch !== 'string'
-			) {
-				continue;
-			}
-
-			const mutationType = item.mutationType;
-			const fileSlug = slugify(item.filePath);
-			const fnSlug = slugify(item.functionName);
-			const typeSlug = slugify(mutationType);
-
-			// Generate unique ID if not provided or doesn't match expected format
-			const idStr = typeof item.id === 'string' ? item.id : '';
-			const id = idStr.startsWith('mut-')
-				? idStr
-				: `mut-${fileSlug}-${fnSlug}-${typeSlug}-${String(patches.length + 1).padStart(3, '0')}`;
-
-			patches.push({
-				id,
-				filePath: item.filePath,
-				functionName: item.functionName,
-				mutationType,
-				patch: item.patch,
-				lineNumber:
-					typeof item.lineNumber === 'number' ? item.lineNumber : undefined,
-			});
-		}
-
 		return patches;
 	} catch (error) {
 		console.warn(

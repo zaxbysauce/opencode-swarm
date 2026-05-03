@@ -4,7 +4,12 @@ import type {
 	MutationPatch,
 	MutationResult,
 } from '../engine.js';
-import { computeReport, executeMutationSuite } from '../engine.js';
+import {
+	buildGitApplyArgs,
+	buildGitRevertArgs,
+	computeReport,
+	executeMutationSuite,
+} from '../engine.js';
 
 describe('computeReport adversarial tests', () => {
 	// 1. All-equivalent results — adjustedKillRate denominator should not divide by zero
@@ -402,5 +407,70 @@ describe('computeReport adversarial tests', () => {
 		expect(report.durationMs).toBe(-5000);
 		// -5000 > 300000 (TOTAL_BUDGET_MS) is false — negative duration never exceeds budget
 		expect(report.budgetExceeded).toBe(false);
+	});
+});
+
+// ---------------------------------------------------------------------------
+// Cross-platform git apply argument tests
+// These tests verify that buildGitApplyArgs and buildGitRevertArgs include
+// --ignore-whitespace, which is required for Windows compatibility where
+// core.autocrlf=true causes CRLF line endings in working-tree files while
+// LLM-generated patches always use LF in context lines.
+// ---------------------------------------------------------------------------
+describe('git apply argument builders — cross-platform whitespace compatibility', () => {
+	const patchFile = '/tmp/.mutation_patch_test-001.diff';
+
+	// 1. buildGitApplyArgs includes --ignore-whitespace
+	test('buildGitApplyArgs includes --ignore-whitespace flag', () => {
+		const args = buildGitApplyArgs(patchFile);
+		expect(args).toContain('--ignore-whitespace');
+	});
+
+	// 2. buildGitApplyArgs starts with 'apply' and ends with the patch file path
+	test('buildGitApplyArgs has correct structure: apply ... -- <patchFile>', () => {
+		const args = buildGitApplyArgs(patchFile);
+		expect(args[0]).toBe('apply');
+		expect(args[args.length - 1]).toBe(patchFile);
+		// '--' separator must appear before the file path
+		const separatorIdx = args.indexOf('--');
+		expect(separatorIdx).toBeGreaterThan(0);
+		expect(args.indexOf(patchFile)).toBe(separatorIdx + 1);
+	});
+
+	// 3. buildGitRevertArgs includes --ignore-whitespace
+	test('buildGitRevertArgs includes --ignore-whitespace flag', () => {
+		const args = buildGitRevertArgs(patchFile);
+		expect(args).toContain('--ignore-whitespace');
+	});
+
+	// 4. buildGitRevertArgs includes the -R (reverse) flag
+	test('buildGitRevertArgs includes -R flag for reverse application', () => {
+		const args = buildGitRevertArgs(patchFile);
+		expect(args).toContain('-R');
+	});
+
+	// 5. buildGitRevertArgs starts with 'apply' and ends with the patch file path
+	test('buildGitRevertArgs has correct structure: apply -R ... -- <patchFile>', () => {
+		const args = buildGitRevertArgs(patchFile);
+		expect(args[0]).toBe('apply');
+		expect(args[args.length - 1]).toBe(patchFile);
+		const separatorIdx = args.indexOf('--');
+		expect(separatorIdx).toBeGreaterThan(0);
+		expect(args.indexOf(patchFile)).toBe(separatorIdx + 1);
+	});
+
+	// 6. Both builders accept Windows-style backslash paths without throwing
+	test('buildGitApplyArgs accepts Windows-style backslash path', () => {
+		const winPath = 'C:\\Users\\runner\\project\\.mutation_patch_x.diff';
+		const args = buildGitApplyArgs(winPath);
+		expect(args[args.length - 1]).toBe(winPath);
+		expect(args).toContain('--ignore-whitespace');
+	});
+
+	test('buildGitRevertArgs accepts Windows-style backslash path', () => {
+		const winPath = 'C:\\Users\\runner\\project\\.mutation_patch_x.diff';
+		const args = buildGitRevertArgs(winPath);
+		expect(args[args.length - 1]).toBe(winPath);
+		expect(args).toContain('--ignore-whitespace');
 	});
 });

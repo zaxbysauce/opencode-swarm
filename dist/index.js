@@ -51,7 +51,7 @@ var package_default;
 var init_package = __esm(() => {
   package_default = {
     name: "opencode-swarm",
-    version: "7.3.4",
+    version: "7.3.5",
     description: "Architect-centric agentic swarm plugin for OpenCode - hub-and-spoke orchestration with SME consultation, code generation, and QA review",
     main: "dist/index.js",
     types: "dist/index.d.ts",
@@ -88365,6 +88365,10 @@ init_state();
 function slugify2(str) {
   return str.replace(/[^a-zA-Z0-9_-]/g, "_").replace(/_+/g, "_");
 }
+var GENERATE_MUTANTS_TIMEOUT_MS = 90000;
+var _internals = {
+  timeoutMs: GENERATE_MUTANTS_TIMEOUT_MS
+};
 function extractJsonArray(text) {
   const trimmed = text.trim();
   const fenceMatch = trimmed.match(/```(?:json)?\s*\n?([\s\S]*?)\n?```/);
@@ -88396,23 +88400,24 @@ async function generateMutants(files, ctx) {
     }
   };
   try {
-    const createResult = await client.session.create({
-      query: { directory }
-    });
-    if (!createResult.data) {
-      console.warn(`[generateMutants] Failed to create session: ${JSON.stringify(createResult.error)}; returning empty patch set`);
-      return [];
-    }
-    ephemeralSessionId = createResult.data.id;
-    const mutationTypes = [
-      "off-by-one",
-      "null-substitution",
-      "operator-swap",
-      "guard-removal",
-      "branch-swap",
-      "side-effect-deletion"
-    ].join(", ");
-    const promptText = `Generate mutation testing patches for the following files: ${files.join(", ")}
+    const patches = await withTimeout((async () => {
+      const createResult = await client.session.create({
+        query: { directory }
+      });
+      if (!createResult.data) {
+        console.warn(`[generateMutants] Failed to create session: ${JSON.stringify(createResult.error)}; returning empty patch set`);
+        return [];
+      }
+      ephemeralSessionId = createResult.data.id;
+      const mutationTypes = [
+        "off-by-one",
+        "null-substitution",
+        "operator-swap",
+        "guard-removal",
+        "branch-swap",
+        "side-effect-deletion"
+      ].join(", ");
+      const promptText = `Generate mutation testing patches for the following files: ${files.join(", ")}
 
 Return a JSON array where each element has:
 { id, filePath, functionName, mutationType, patch, lineNumber }
@@ -88423,53 +88428,55 @@ Return a JSON array where each element has:
 - Generate 3-5 mutations per function
 
 Return ONLY a valid JSON array. No markdown, no code fences, no explanation. Start your response with [ and end with ].`;
-    const promptResult = await client.session.prompt({
-      path: { id: ephemeralSessionId },
-      body: {
-        agent: undefined,
-        tools: { write: false, edit: false, patch: false },
-        parts: [{ type: "text", text: promptText }]
-      }
-    });
-    if (!promptResult.data) {
-      console.warn(`[generateMutants] LLM prompt failed: ${JSON.stringify(promptResult.error)}; returning empty patch set`);
-      return [];
-    }
-    const textParts = promptResult.data.parts.filter((p) => p.type === "text");
-    const rawText = textParts.map((p) => p.text).join(`
-`);
-    let parsed;
-    try {
-      parsed = JSON.parse(extractJsonArray(rawText));
-    } catch (error93) {
-      const msg = error93 instanceof Error ? error93.message : String(error93);
-      const hint = msg.includes("EOF") || msg.includes("Unexpected end") ? " (response appears truncated — LLM may have hit an output token limit)" : "";
-      console.warn(`[generateMutants] Failed to parse LLM response as MutationPatch[]: ${msg}${hint}; returning empty patch set`);
-      return [];
-    }
-    if (!Array.isArray(parsed) || parsed.length === 0) {
-      return [];
-    }
-    const patches = [];
-    for (const item of parsed) {
-      if (typeof item !== "object" || item === null || typeof item.filePath !== "string" || typeof item.functionName !== "string" || typeof item.mutationType !== "string" || typeof item.patch !== "string") {
-        continue;
-      }
-      const mutationType = item.mutationType;
-      const fileSlug = slugify2(item.filePath);
-      const fnSlug = slugify2(item.functionName);
-      const typeSlug = slugify2(mutationType);
-      const idStr = typeof item.id === "string" ? item.id : "";
-      const id = idStr.startsWith("mut-") ? idStr : `mut-${fileSlug}-${fnSlug}-${typeSlug}-${String(patches.length + 1).padStart(3, "0")}`;
-      patches.push({
-        id,
-        filePath: item.filePath,
-        functionName: item.functionName,
-        mutationType,
-        patch: item.patch,
-        lineNumber: typeof item.lineNumber === "number" ? item.lineNumber : undefined
+      const promptResult = await client.session.prompt({
+        path: { id: ephemeralSessionId },
+        body: {
+          agent: undefined,
+          tools: { write: false, edit: false, patch: false },
+          parts: [{ type: "text", text: promptText }]
+        }
       });
-    }
+      if (!promptResult.data) {
+        console.warn(`[generateMutants] LLM prompt failed: ${JSON.stringify(promptResult.error)}; returning empty patch set`);
+        return [];
+      }
+      const textParts = promptResult.data.parts.filter((p) => p.type === "text");
+      const rawText = textParts.map((p) => p.text).join(`
+`);
+      let parsed;
+      try {
+        parsed = JSON.parse(extractJsonArray(rawText));
+      } catch (error93) {
+        const msg = error93 instanceof Error ? error93.message : String(error93);
+        const hint = msg.includes("EOF") || msg.includes("Unexpected end") ? " (response appears truncated — LLM may have hit an output token limit)" : "";
+        console.warn(`[generateMutants] Failed to parse LLM response as MutationPatch[]: ${msg}${hint}; returning empty patch set`);
+        return [];
+      }
+      if (!Array.isArray(parsed) || parsed.length === 0) {
+        return [];
+      }
+      const patches2 = [];
+      for (const item of parsed) {
+        if (typeof item !== "object" || item === null || typeof item.filePath !== "string" || typeof item.functionName !== "string" || typeof item.mutationType !== "string" || typeof item.patch !== "string") {
+          continue;
+        }
+        const mutationType = item.mutationType;
+        const fileSlug = slugify2(item.filePath);
+        const fnSlug = slugify2(item.functionName);
+        const typeSlug = slugify2(mutationType);
+        const idStr = typeof item.id === "string" ? item.id : "";
+        const id = idStr.startsWith("mut-") ? idStr : `mut-${fileSlug}-${fnSlug}-${typeSlug}-${String(patches2.length + 1).padStart(3, "0")}`;
+        patches2.push({
+          id,
+          filePath: item.filePath,
+          functionName: item.functionName,
+          mutationType,
+          patch: item.patch,
+          lineNumber: typeof item.lineNumber === "number" ? item.lineNumber : undefined
+        });
+      }
+      return patches2;
+    })(), _internals.timeoutMs, new Error("generateMutants: LLM call timed out"));
     return patches;
   } catch (error93) {
     console.warn(`[generateMutants] LLM call failed: ${error93 instanceof Error ? error93.message : String(error93)}; returning empty patch set`);
@@ -88784,6 +88791,12 @@ async function batchCheckEquivalence(patches, llmJudge) {
 var MUTATION_TIMEOUT_MS = 30000;
 var TOTAL_BUDGET_MS = 300000;
 var GIT_APPLY_TIMEOUT_MS = 5000;
+function buildGitApplyArgs(patchFile) {
+  return ["apply", "--ignore-whitespace", "--", patchFile];
+}
+function buildGitRevertArgs(patchFile) {
+  return ["apply", "-R", "--ignore-whitespace", "--", patchFile];
+}
 async function executeMutation(patch, testCommand, _testFiles, workingDir) {
   const startTime = Date.now();
   let outcome = "survived";
@@ -88810,7 +88823,7 @@ async function executeMutation(patch, testCommand, _testFiles, workingDir) {
       };
     }
     try {
-      const applyResult = spawnSync3("git", ["apply", "--", patchFile], {
+      const applyResult = spawnSync3("git", buildGitApplyArgs(patchFile), {
         cwd: workingDir,
         timeout: GIT_APPLY_TIMEOUT_MS,
         stdio: "pipe"
@@ -88872,7 +88885,7 @@ async function executeMutation(patch, testCommand, _testFiles, workingDir) {
   } finally {
     if (patchFile) {
       try {
-        const revertResult = spawnSync3("git", ["apply", "-R", "--", patchFile], {
+        const revertResult = spawnSync3("git", buildGitRevertArgs(patchFile), {
           cwd: workingDir,
           timeout: GIT_APPLY_TIMEOUT_MS,
           stdio: "pipe"
@@ -89699,7 +89712,7 @@ import * as path105 from "node:path";
 init_bun_compat();
 import * as fs84 from "node:fs";
 import * as path104 from "node:path";
-var _internals = { bunSpawn };
+var _internals2 = { bunSpawn };
 var _swarmGitExcludedChecked = false;
 function fileCoversSwarm(content) {
   for (const rawLine of content.split(`
@@ -89726,7 +89739,7 @@ async function ensureSwarmGitExcluded(directory, options = {}) {
   _swarmGitExcludedChecked = true;
   const { quiet = false } = options;
   try {
-    const gitRootProc = _internals.bunSpawn(["git", "-C", directory, "rev-parse", "--show-toplevel"], GIT_SPAWN_OPTIONS);
+    const gitRootProc = _internals2.bunSpawn(["git", "-C", directory, "rev-parse", "--show-toplevel"], GIT_SPAWN_OPTIONS);
     let gitRootExitCode;
     let gitRootOutput;
     try {
@@ -89744,7 +89757,7 @@ async function ensureSwarmGitExcluded(directory, options = {}) {
     const gitRoot = gitRootOutput.trim();
     if (!gitRoot)
       return;
-    const excludePathProc = _internals.bunSpawn(["git", "-C", directory, "rev-parse", "--git-path", "info/exclude"], GIT_SPAWN_OPTIONS);
+    const excludePathProc = _internals2.bunSpawn(["git", "-C", directory, "rev-parse", "--git-path", "info/exclude"], GIT_SPAWN_OPTIONS);
     let excludePathExitCode;
     let excludePathRaw;
     try {
@@ -89763,7 +89776,7 @@ async function ensureSwarmGitExcluded(directory, options = {}) {
     if (!excludeRelPath)
       return;
     const excludePath = path104.isAbsolute(excludeRelPath) ? excludeRelPath : path104.join(directory, excludeRelPath);
-    const checkIgnoreProc = _internals.bunSpawn(["git", "-C", directory, "check-ignore", "-q", ".swarm/.gitkeep"], GIT_SPAWN_OPTIONS);
+    const checkIgnoreProc = _internals2.bunSpawn(["git", "-C", directory, "check-ignore", "-q", ".swarm/.gitkeep"], GIT_SPAWN_OPTIONS);
     let checkIgnoreExitCode;
     try {
       checkIgnoreExitCode = await checkIgnoreProc.exited;
@@ -89790,7 +89803,7 @@ async function ensureSwarmGitExcluded(directory, options = {}) {
         }
       } catch {}
     }
-    const trackedProc = _internals.bunSpawn(["git", "-C", directory, "ls-files", "--", ".swarm"], GIT_SPAWN_OPTIONS);
+    const trackedProc = _internals2.bunSpawn(["git", "-C", directory, "ls-files", "--", ".swarm"], GIT_SPAWN_OPTIONS);
     let trackedExitCode;
     let trackedOutput;
     try {
@@ -89815,7 +89828,7 @@ async function ensureSwarmGitExcluded(directory, options = {}) {
 }
 
 // src/hooks/diff-scope.ts
-var _internals2 = { bunSpawn };
+var _internals3 = { bunSpawn };
 function getDeclaredScope(taskId, directory) {
   try {
     const planPath = path105.join(directory, ".swarm", "plan.json");
@@ -89850,7 +89863,7 @@ var GIT_DIFF_SPAWN_OPTIONS = {
 };
 async function getChangedFiles(directory) {
   try {
-    const proc = _internals2.bunSpawn(["git", "diff", "--name-only", "HEAD~1"], {
+    const proc = _internals3.bunSpawn(["git", "diff", "--name-only", "HEAD~1"], {
       cwd: directory,
       ...GIT_DIFF_SPAWN_OPTIONS
     });
@@ -89867,7 +89880,7 @@ async function getChangedFiles(directory) {
       return stdout.trim().split(`
 `).map((f) => f.trim()).filter((f) => f.length > 0);
     }
-    const proc2 = _internals2.bunSpawn(["git", "diff", "--name-only", "HEAD"], {
+    const proc2 = _internals3.bunSpawn(["git", "diff", "--name-only", "HEAD"], {
       cwd: directory,
       ...GIT_DIFF_SPAWN_OPTIONS
     });
