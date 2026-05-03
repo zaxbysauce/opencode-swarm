@@ -1,5 +1,12 @@
 # Changelog
 
+## [7.4.1](https://github.com/zaxbysauce/opencode-swarm/compare/v7.4.0...v7.4.1) (2026-05-03)
+
+
+### Bug Fixes
+
+* **cc-command-intercept:** hard-block /checkpoint like /reset and /clear ([#747](https://github.com/zaxbysauce/opencode-swarm/issues/747)) ([0cece27](https://github.com/zaxbysauce/opencode-swarm/commit/0cece277ff4e8367866e33939352067b8bce83e8))
+
 ## [7.4.0](https://github.com/zaxbysauce/opencode-swarm/compare/v7.3.7...v7.4.0) (2026-05-03)
 
 
