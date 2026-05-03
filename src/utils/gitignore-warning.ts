@@ -219,49 +219,76 @@ export async function ensureSwarmGitExcluded(
 	const { quiet = false } = options;
 
 	try {
-		// Step 1: Get git root using CLI (handles worktrees/submodules)
-		const gitRootProc = _internals.bunSpawn(
-			['git', '-C', directory, 'rev-parse', '--show-toplevel'],
-			GIT_SPAWN_OPTIONS,
-		);
-		let gitRootExitCode: number;
-		let gitRootOutput: string;
-		try {
-			[gitRootExitCode, gitRootOutput] = await Promise.all([
-				gitRootProc.exited,
-				gitRootProc.stdout.text(),
-			]);
-		} finally {
-			try {
-				gitRootProc.kill();
-			} catch {
-				// Already exited — kill is a no-op.
-			}
-		}
+		// Steps 1, 2, and 3 are independent — run them in parallel to reduce
+		// startup latency. Each adds ~10-50 ms; parallelizing saves up to 100 ms
+		// on cold cache.
+		const [
+			[gitRootExitCode, gitRootOutput],
+			[excludePathExitCode, excludePathRaw],
+			checkIgnoreExitCode,
+		] = await Promise.all([
+			// Step 1: Get git root using CLI (handles worktrees/submodules)
+			(async (): Promise<[number, string]> => {
+				const proc = _internals.bunSpawn(
+					['git', '-C', directory, 'rev-parse', '--show-toplevel'],
+					GIT_SPAWN_OPTIONS,
+				);
+				try {
+					return (await Promise.all([
+						proc.exited,
+						proc.stdout.text(),
+					])) as [number, string];
+				} finally {
+					try {
+						proc.kill();
+					} catch {
+						// Already exited — kill is a no-op.
+					}
+				}
+			})(),
+			// Step 2: Get the correct exclude path (resolves through worktree .git files)
+			(async (): Promise<[number, string]> => {
+				const proc = _internals.bunSpawn(
+					['git', '-C', directory, 'rev-parse', '--git-path', 'info/exclude'],
+					GIT_SPAWN_OPTIONS,
+				);
+				try {
+					return (await Promise.all([
+						proc.exited,
+						proc.stdout.text(),
+					])) as [number, string];
+				} finally {
+					try {
+						proc.kill();
+					} catch {
+						// Already exited — kill is a no-op.
+					}
+				}
+			})(),
+			// Step 3: Check if .swarm/ is already ignored by any source
+			// (covers .gitignore, global gitignore, and info/exclude)
+			(async (): Promise<number> => {
+				const proc = _internals.bunSpawn(
+					['git', '-C', directory, 'check-ignore', '-q', '.swarm/.gitkeep'],
+					GIT_SPAWN_OPTIONS,
+				);
+				try {
+					return await proc.exited;
+				} finally {
+					try {
+						proc.kill();
+					} catch {
+						// Already exited — kill is a no-op.
+					}
+				}
+			})(),
+		]);
+
 		if (gitRootExitCode !== 0) return; // Not a git repo
 
 		const gitRoot = gitRootOutput.trim();
 		if (!gitRoot) return;
 
-		// Step 2: Get the correct exclude path (resolves through worktree .git files)
-		const excludePathProc = _internals.bunSpawn(
-			['git', '-C', directory, 'rev-parse', '--git-path', 'info/exclude'],
-			GIT_SPAWN_OPTIONS,
-		);
-		let excludePathExitCode: number;
-		let excludePathRaw: string;
-		try {
-			[excludePathExitCode, excludePathRaw] = await Promise.all([
-				excludePathProc.exited,
-				excludePathProc.stdout.text(),
-			]);
-		} finally {
-			try {
-				excludePathProc.kill();
-			} catch {
-				// Already exited — kill is a no-op.
-			}
-		}
 		if (excludePathExitCode !== 0) return;
 
 		const excludeRelPath = excludePathRaw.trim();
@@ -274,23 +301,6 @@ export async function ensureSwarmGitExcluded(
 		const excludePath = path.isAbsolute(excludeRelPath)
 			? excludeRelPath
 			: path.join(directory, excludeRelPath);
-
-		// Step 3: Check if .swarm/ is already ignored by any source
-		// (covers .gitignore, global gitignore, and info/exclude)
-		const checkIgnoreProc = _internals.bunSpawn(
-			['git', '-C', directory, 'check-ignore', '-q', '.swarm/.gitkeep'],
-			GIT_SPAWN_OPTIONS,
-		);
-		let checkIgnoreExitCode: number;
-		try {
-			checkIgnoreExitCode = await checkIgnoreProc.exited;
-		} finally {
-			try {
-				checkIgnoreProc.kill();
-			} catch {
-				// Already exited — kill is a no-op.
-			}
-		}
 
 		if (checkIgnoreExitCode !== 0) {
 			// .swarm/ is NOT ignored — write to local exclude file

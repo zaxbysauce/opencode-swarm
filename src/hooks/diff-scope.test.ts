@@ -1,4 +1,4 @@
-import { describe, expect, test } from 'bun:test';
+import { afterEach, describe, expect, test } from 'bun:test';
 import { execSync } from 'node:child_process';
 import * as fs from 'node:fs';
 import * as os from 'node:os';
@@ -71,9 +71,25 @@ async function stageFiles(cwd: string, files: string[]): Promise<void> {
 }
 
 describe('validateDiffScope', () => {
+	// Tracks the temp directory created by tests 1-9 for afterEach cleanup.
+	// Tests 10-12 manage their own cleanup via try/finally and do not set this.
+	let tmpDirToClean: string | undefined;
+
+	afterEach(() => {
+		if (tmpDirToClean) {
+			try {
+				fs.rmSync(tmpDirToClean, { recursive: true, force: true });
+			} catch {
+				// best-effort cleanup
+			}
+			tmpDirToClean = undefined;
+		}
+	});
+
 	// ── 1. No warning when changed files match declared scope ──────────────────
 	test('1. in-scope: returns null when git-changed files exactly match declared scope', async () => {
 		const dir = mkTempDir();
+		tmpDirToClean = dir;
 		await gitInit(dir);
 		await stageFiles(dir, ['src/foo.ts']);
 		createPlanJson(dir, [{ id: '1.1', files_touched: ['src/foo.ts'] }]);
@@ -86,6 +102,7 @@ describe('validateDiffScope', () => {
 	// ── 2. Warning when undeclared files modified ───────────────────────────────
 	test('2. out-of-scope: returns SCOPE WARNING with undeclared file names', async () => {
 		const dir = mkTempDir();
+		tmpDirToClean = dir;
 		await gitInit(dir);
 		await stageFiles(dir, ['src/foo.ts', 'src/bar.ts']);
 		createPlanJson(dir, [{ id: '2.1', files_touched: ['src/foo.ts'] }]);
@@ -101,6 +118,7 @@ describe('validateDiffScope', () => {
 	// ── 3. Null for task with empty/absent files_touched ───────────────────────
 	test('3. no-scope: returns null when task exists but files_touched is absent', async () => {
 		const dir = mkTempDir();
+		tmpDirToClean = dir;
 		await gitInit(dir);
 		await stageFiles(dir, ['src/foo.ts']);
 		createPlanJson(dir, [{ id: '3.1' }]); // no files_touched
@@ -112,6 +130,7 @@ describe('validateDiffScope', () => {
 
 	test('3b. no-scope: returns null when task exists but files_touched is empty array', async () => {
 		const dir = mkTempDir();
+		tmpDirToClean = dir;
 		await gitInit(dir);
 		await stageFiles(dir, ['src/foo.ts']);
 		createPlanJson(dir, [{ id: '3.2', files_touched: [] }]);
@@ -124,6 +143,7 @@ describe('validateDiffScope', () => {
 	// ── 4. Null when git unavailable (non-git directory) ──────────────────────
 	test('4. no-git: returns null without throwing when directory is not a git repo', async () => {
 		const dir = mkTempDir();
+		tmpDirToClean = dir;
 		createPlanJson(dir, [{ id: '4.1', files_touched: ['src/foo.ts'] }]);
 		fs.mkdirSync(path.join(dir, 'src'), { recursive: true });
 		fs.writeFileSync(path.join(dir, 'src', 'foo.ts'), 'content');
@@ -137,6 +157,7 @@ describe('validateDiffScope', () => {
 	// ── 5. Null when task not found in plan.json ───────────────────────────────
 	test('5. task-not-found: returns null when taskId does not exist in plan.json', async () => {
 		const dir = mkTempDir();
+		tmpDirToClean = dir;
 		await gitInit(dir);
 		await stageFiles(dir, ['src/foo.ts']);
 		createPlanJson(dir, [{ id: '5.1', files_touched: ['src/foo.ts'] }]);
@@ -149,6 +170,7 @@ describe('validateDiffScope', () => {
 	// ── 6. Null when plan.json missing ─────────────────────────────────────────
 	test('6. no-plan: returns null without throwing when .swarm/plan.json is absent', async () => {
 		const dir = mkTempDir();
+		tmpDirToClean = dir;
 		await gitInit(dir);
 		await stageFiles(dir, ['src/foo.ts']);
 
@@ -163,6 +185,7 @@ describe('validateDiffScope', () => {
 	// ── 7. Windows-style paths normalised ─────────────────────────────────────
 	test('7. windows-paths: backslash paths in plan.json are normalised to forward slashes', async () => {
 		const dir = mkTempDir();
+		tmpDirToClean = dir;
 		await gitInit(dir);
 		await stageFiles(dir, ['src/foo.ts']);
 		// Manually write plan.json with Windows-style paths
@@ -186,6 +209,7 @@ describe('validateDiffScope', () => {
 	// ── 8. files_touched as single string (not array) ─────────────────────────
 	test('8. string-scope: files_touched as a single string (not array) still works', async () => {
 		const dir = mkTempDir();
+		tmpDirToClean = dir;
 		await gitInit(dir);
 		await stageFiles(dir, ['src/foo.ts']);
 		createPlanJson(dir, [{ id: '8.1', files_touched: 'src/foo.ts' }]);
@@ -198,6 +222,7 @@ describe('validateDiffScope', () => {
 	// ── 9. More than 5 undeclared files truncated ───────────────────────────────
 	test('9. truncation: warning lists first 5 undeclared files then (+N more)', async () => {
 		const dir = mkTempDir();
+		tmpDirToClean = dir;
 		await gitInit(dir);
 		// Stage 8 files; scope declares only 1
 		await stageFiles(dir, [
