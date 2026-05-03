@@ -317,6 +317,40 @@ describe('ADVERSARIAL: cc-command-intercept hook evasion tests', () => {
 			);
 		});
 
+		test('triple-backtick block containing /checkpoint is NOT detected', async () => {
+			const hook = createCcCommandInterceptHook();
+			const output = createMessage('```\n/checkpoint save my-state\n```');
+
+			await hook.messagesTransform({}, output);
+
+			// Should NOT be modified - /checkpoint is inside a code fence
+			expect(output.messages![0].parts[0].text).toBe(
+				'```\n/checkpoint save my-state\n```',
+			);
+			expect(output.messages![0].parts[0].text).not.toContain(
+				'[CC_COMMAND_INTERCEPT]',
+			);
+		});
+
+		test('/checkpoint outside fence is NOT hard-blocked (falls through to HIGH advisory)', async () => {
+			const hook = createCcCommandInterceptHook();
+			const output = createMessage('/checkpoint save my-state');
+
+			await hook.messagesTransform({}, output);
+
+			// /checkpoint is registered as CRITICAL in conflict-registry but the hook's
+			// hard-block list (lines 168-169) only includes 'reset' and 'clear'.
+			// /checkpoint falls through to HIGH advisory path which preserves the line.
+			// This is a known gap - see GitHub issue #740.
+			expect(output.messages![0].parts[0].text).toBe('/checkpoint save my-state');
+			// HIGH advisory does NOT modify the message (no [CC_COMMAND_INTERCEPT] prefix)
+			expect(output.messages![0].parts[0].text).not.toContain(
+				'[CC_COMMAND_INTERCEPT]',
+			);
+			// Should NOT contain BLOCKED format (that's for reset/clear only)
+			expect(output.messages![0].parts[0].text).not.toContain('BLOCKED:');
+		});
+
 		test('normal text after fence close is still checked', async () => {
 			const hook = createCcCommandInterceptHook();
 			const output = createMessage(
@@ -332,9 +366,16 @@ describe('ADVERSARIAL: cc-command-intercept hook evasion tests', () => {
 			expect(output.messages![0].parts[0].text).toContain(
 				'[CC_COMMAND_INTERCEPT] BLOCKED: /reset',
 			);
-			expect(output.messages![0].parts[0].text).not.toContain(
-				'BLOCKED: /reset everything',
+			// Inside fence /reset should be preserved (not blocked)
+			expect(output.messages![0].parts[0].text).toContain(
+				'/reset inside fence',
 			);
+			// Outside fence /reset should be blocked
+			expect(output.messages![0].parts[0].text).toContain(
+				'[CC_COMMAND_INTERCEPT] BLOCKED: /reset',
+			);
+			// Verify the blocked message doesn't include the argument
+			expect(output.messages![0].parts[0].text).not.toContain('everything');
 		});
 	});
 });
