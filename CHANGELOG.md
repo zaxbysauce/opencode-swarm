@@ -1,18 +1,17 @@
 # Changelog
 
-## [7.3.7](https://github.com/zaxbysauce/opencode-swarm/compare/v7.3.6...v7.3.7) (2026-05-03)
+## [Unreleased]
 
+### Features
 
-### Bug Fixes
+* **conflict-registry:** add pure-data module mapping 9 swarm commands to their CC built-in counterparts with severity ratings (CRITICAL/HIGH/MEDIUM); commands with conflicts display a ⚠️ warning in `/swarm help` output
+* **ci-gate:** add `src/commands/conflict-registry.test.ts` CI gate that prevents new CRITICAL conflicts from being merged without explicit acknowledgment in the test allow-list
+* **constants:** add `CLAUDE_CODE_NATIVE_COMMANDS` frozen set (115 CC built-in commands) to `src/config/constants.ts` for runtime intercept hook; includes `freezeSet()` helper that throws on mutation attempts
 
-* rename release docs from v7.3.6 to v7.3.7; improve deadlock reset assertion ([dd04c18](https://github.com/zaxbysauce/opencode-swarm/commit/dd04c1814b322569e42c3e4d6e40fdfb01b44bf0))
+### Changed
 
-## [7.3.6](https://github.com/zaxbysauce/opencode-swarm/compare/v7.3.5...v7.3.6) (2026-05-03)
-
-
-### Bug Fixes
-
-* **mutation:** bound generateMutants with timeout; fix git apply CRLF failure on Windows ([#739](https://github.com/zaxbysauce/opencode-swarm/issues/739)) ([de535a2](https://github.com/zaxbysauce/opencode-swarm/commit/de535a2ef37bd8d07b45c906ea499e9ddd065b92))
+* **registry:** add optional `clashesWithNativeCcCommand` field to `CommandEntry` type; populated on 9 commands (`plan`, `reset`, `checkpoint`, `status`, `agents`, `config`, `export`, `doctor`, `history`)
+* **index:** `buildHelpText()` now renders a ⚠️ conflict warning line for every command that has `clashesWithNativeCcCommand` set
 
 ## [7.3.5](https://github.com/zaxbysauce/opencode-swarm/compare/v7.3.4...v7.3.5) (2026-05-03)
 

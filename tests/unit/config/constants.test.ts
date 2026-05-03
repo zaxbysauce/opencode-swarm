@@ -3,6 +3,7 @@ import {
 	AGENT_TOOL_MAP,
 	ALL_AGENT_NAMES,
 	ALL_SUBAGENT_NAMES,
+	CLAUDE_CODE_NATIVE_COMMANDS,
 	DEFAULT_MODELS,
 	isQAAgent,
 	isSubagent,
@@ -161,6 +162,66 @@ describe('constants.ts', () => {
 			for (const tool of TOOL_NAMES) {
 				expect(assignedTools.has(tool)).toBe(true);
 			}
+		});
+	});
+
+	describe('CLAUDE_CODE_NATIVE_COMMANDS', () => {
+		it('includes plan and reset (known conflicting CC commands)', () => {
+			expect(CLAUDE_CODE_NATIVE_COMMANDS.has('plan')).toBe(true);
+			expect(CLAUDE_CODE_NATIVE_COMMANDS.has('reset')).toBe(true);
+		});
+
+		it('includes known documented CC built-in commands', () => {
+			// Critical commands that must always be present
+			const requiredCommands = [
+				'clear',
+				'compact',
+				'config',
+				'diff',
+				'doctor',
+				'export',
+				'help',
+				'init',
+				'memory',
+				'model',
+				'plan',
+				'reset',
+				'status',
+				'review',
+				'security-review',
+				'agents',
+				'history',
+				'checkpoint',
+				'rewind',
+				'undo',
+				'rename',
+				'resume',
+				'fork',
+				'permissions',
+				'plugin',
+			];
+			for (const cmd of requiredCommands) {
+				expect(CLAUDE_CODE_NATIVE_COMMANDS.has(cmd)).toBe(true);
+			}
+		});
+
+		it('is a frozen ReadonlySet', () => {
+			const size = CLAUDE_CODE_NATIVE_COMMANDS.size;
+			expect(() =>
+				(CLAUDE_CODE_NATIVE_COMMANDS as Set<string>).add('test'),
+			).toThrow();
+			// Verify size unchanged after attempted mutation
+			expect(CLAUDE_CODE_NATIVE_COMMANDS.size).toBe(size);
+		});
+
+		it('has at least 80 entries (comprehensive command coverage)', () => {
+			expect(CLAUDE_CODE_NATIVE_COMMANDS.size).toBeGreaterThanOrEqual(80);
+		});
+
+		it('does not contain undefined (sanity check)', () => {
+			expect(
+				CLAUDE_CODE_NATIVE_COMMANDS.has(undefined as unknown as string),
+			).toBe(false);
 		});
 	});
 });

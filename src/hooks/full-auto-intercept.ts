@@ -10,75 +10,14 @@
 
 import * as fs from 'node:fs';
 
-import type { OpencodeClient } from '@opencode-ai/sdk';
-import type { AgentDefinition } from '../agents/architect.js';
+import { createCriticAutonomousOversightAgent } from '../agents/critic';
 import type { PluginConfig } from '../config';
 import { stripKnownSwarmPrefix } from '../config/schema.js';
 import { tryAcquireLock } from '../parallel/file-locks.js';
-import type { AgentSessionState } from '../state.js';
+import { hasActiveFullAuto, swarmState } from '../state.js';
 import { telemetry } from '../telemetry';
 import * as logger from '../utils/logger';
 import { validateSwarmPath } from './utils';
-
-// ---------------------------------------------------------------------------
-// Lazy module loaders
-//
-// `state.ts` and `agents/critic.ts` pull in a large transitive dependency
-// tree (delegation-gate → guardrails → agents/index → …). Importing them at
-// module-load time means that every test file that does
-//   `await import('../hooks/full-auto-intercept.js')`
-// also loads that entire tree — which conflicts with the partial mocks that
-// full-auto-intercept tests register via `mock.module`, causing SyntaxErrors
-// ("export X not found") in test files that run later in the same Bun process.
-//
-// Deferring the real imports to the first time the hook actually executes
-// (and never in tests, because `_internals.*` is always set before the hook
-// runs) eliminates all cross-file mock contamination without any change to
-// production behaviour.
-// ---------------------------------------------------------------------------
-
-let _stateCache: Awaited<typeof import('../state.js')> | null = null;
-async function _loadState() {
-	if (_stateCache === null) {
-		_stateCache = await import('../state.js');
-	}
-	return _stateCache;
-}
-
-let _criticCache: Awaited<typeof import('../agents/critic.js')> | null = null;
-async function _loadCritic() {
-	if (_criticCache === null) {
-		_criticCache = await import('../agents/critic.js');
-	}
-	return _criticCache;
-}
-
-/**
- * Test-only dependency-injection seam. Production code accesses state through
- * `_internals.*` so tests can swap individual functions on this object without
- * resorting to `mock.module('../../../src/state.js', ...)`, which leaks across
- * test files in Bun's shared test-runner process and contaminates unrelated
- * suites (see `gitignore-warning.ts:_internals` and `diff-scope.ts:_internals`
- * for the pattern rationale). Tests should restore overridden properties in
- * `afterEach`.
- *
- * All fields default to `null`. In production the lazy loaders (`_loadState`,
- * `_loadCritic`) are used as fallbacks. In tests, set a non-null override
- * before calling the hook to bypass the real module entirely.
- */
-export const _internals: {
-	hasActiveFullAuto: ((sessionId?: string) => boolean) | null;
-	ensureAgentSession: ((sessionId: string) => AgentSessionState) | null;
-	swarmState: { opencodeClient: OpencodeClient | null } | null;
-	createCriticAutonomousOversightAgent:
-		| ((model: string, customAppendPrompt?: string) => AgentDefinition)
-		| null;
-} = {
-	hasActiveFullAuto: null,
-	ensureAgentSession: null,
-	swarmState: null,
-	createCriticAutonomousOversightAgent: null,
-};
 
 // Pattern for detecting end-of-sentence question marks (not mid-sentence like "v1?")
 // Matches "?" at end of text or followed by whitespace/newline
@@ -607,7 +546,6 @@ export async function dispatchCriticAndWriteEvent(
 	deadlockCount: number,
 	oversightAgentName: string,
 ): Promise<CriticDispatchResult> {
-	const swarmState = _internals.swarmState ?? (await _loadState()).swarmState;
 	const client = swarmState.opencodeClient;
 
 	// If no client (e.g., in tests), fall back to PENDING
@@ -636,10 +574,10 @@ export async function dispatchCriticAndWriteEvent(
 		return result;
 	}
 
-	const createCriticFn =
-		_internals.createCriticAutonomousOversightAgent ??
-		(await _loadCritic()).createCriticAutonomousOversightAgent;
-	const oversightAgent = createCriticFn(criticModel, criticContext);
+	const oversightAgent = createCriticAutonomousOversightAgent(
+		criticModel,
+		criticContext,
+	);
 	logger.log(
 		`[full-auto-intercept] Dispatching critic: ${oversightAgent.name} using model ${criticModel}`,
 	);
@@ -831,15 +769,15 @@ export function createFullAutoInterceptHook(
 		const sessionID = architectMessage.info?.sessionID;
 
 		// Check if full-auto is active for this session
-		const hasActiveFullAuto =
-			_internals.hasActiveFullAuto ?? (await _loadState()).hasActiveFullAuto;
 		if (!hasActiveFullAuto(sessionID)) return;
 
 		// Get or create session state for tracking
-		const ensureAgentSession =
-			_internals.ensureAgentSession ?? (await _loadState()).ensureAgentSession;
-		let session: AgentSessionState | null = null;
+		let session: ReturnType<
+			typeof import('../state').ensureAgentSession
+		> | null = null;
 		if (sessionID) {
+			// Only import and use ensureAgentSession if we have a sessionID
+			const { ensureAgentSession } = await import('../state');
 			session = ensureAgentSession(sessionID);
 		}
 
@@ -917,10 +855,10 @@ export function createFullAutoInterceptHook(
 			fullAutoConfig.critic_model ?? 'claude-sonnet-4-20250514';
 
 		// Create the oversight agent
-		const createCriticFn =
-			_internals.createCriticAutonomousOversightAgent ??
-			(await _loadCritic()).createCriticAutonomousOversightAgent;
-		const oversightAgent = createCriticFn(criticModel, criticContext);
+		const oversightAgent = createCriticAutonomousOversightAgent(
+			criticModel,
+			criticContext,
+		);
 
 		// Resolve the oversight agent name for the current swarm
 		const architectAgent = architectMessage.info?.agent;

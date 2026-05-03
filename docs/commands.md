@@ -6,6 +6,34 @@ Commands are grouped by function. Compound commands (e.g., `/swarm config doctor
 
 ---
 
+## Claude Code Command Conflicts
+
+Several swarm subcommands share exact names with Claude Code built-in slash commands.
+This is a known source of model confusion — AI agents trained on Claude Code may try
+to invoke the CC built-in instead of the swarm subcommand.
+
+All swarm commands must use the full `/swarm <subcommand>` form. Never reference a
+conflicting swarm subcommand by its bare name when inside a swarm agent context.
+
+| Swarm Command | Conflicts With | Severity | CC Behavior |
+|---|---|---|---|
+| `/swarm plan` | `/plan` | 🔴 CRITICAL | Enters plan mode — Claude proposes before executing |
+| `/swarm reset` | `/reset` | 🔴 CRITICAL | Alias for `/clear` — wipes entire conversation |
+| `/swarm checkpoint` | `/checkpoint` | 🔴 CRITICAL | Alias for `/rewind` — restores prior conversation state |
+| `/swarm status` | `/status` | 🟠 HIGH | Shows Claude version, model, account info |
+| `/swarm agents` | `/agents` | 🟠 HIGH | Manages Claude subagent configurations |
+| `/swarm config` | `/config` | 🟠 HIGH | Opens Claude Code settings interface |
+| `/swarm export` | `/export` | 🟠 HIGH | Exports conversation as plain text |
+| `/swarm config doctor` | `/doctor` | 🟠 HIGH | Diagnoses Claude Code installation |
+| `/swarm history` | `/history` | 🟡 MEDIUM | Shows Claude Code session history |
+
+For contributors: Adding a new swarm command that matches a CC built-in requires
+updating `src/commands/conflict-registry.ts` with an explicit severity and
+disambiguation note. The CI test in `src/commands/conflict-registry.test.ts` will
+fail until this is done.
+
+---
+
 ## Status and Health
 
 ### `/swarm status`
@@ -330,6 +358,38 @@ When you type a two-word command like `/swarm config doctor`, Swarm tries the co
 |---------|-------|
 | `/swarm config doctor` | `/swarm config-doctor` |
 | `/swarm evidence summary` | `/swarm evidence-summary` |
+
+---
+
+## Command Conflicts
+
+Nine swarm commands share names with Claude Code built-in slash commands. Using the bare CC command instead of `/swarm <command>` has different — sometimes destructive — behavior. Swarm shows a ⚠️ warning in help output for these commands, and a CI gate test (`src/commands/conflict-registry.test.ts`) prevents new CRITICAL conflicts from being added without explicit acknowledgment.
+
+### Conflict Registry
+
+| Swarm Command | CC Built-in | Severity | CC Behavior | Swarm Behavior |
+|---|---|---|---|---|
+| `/swarm plan` | `/plan` | CRITICAL | Enters Claude Code plan mode — Claude proposes all actions before executing | Displays the current `.swarm/plan.md` task list |
+| `/swarm reset` | `/reset` | CRITICAL | Alias for `/clear` — wipes the entire conversation context window | Clears `.swarm` state files (requires `--confirm` flag) |
+| `/swarm checkpoint` | `/checkpoint` | CRITICAL | Alias for `/rewind` — restores conversation and code to a prior state | Manages named swarm project snapshots (save\|restore\|delete\|list) |
+| `/swarm status` | `/status` | HIGH | Shows CC version, model, account, and API connectivity | Shows current swarm state: active phase, task counts, registered agents |
+| `/swarm agents` | `/agents` | HIGH | Manages Claude Code subagent configurations and teams | Lists registered swarm plugin agents with model, temperature, and guardrail info |
+| `/swarm config` | `/config` | HIGH | Opens Claude Code settings interface | Shows the current resolved opencode-swarm plugin configuration |
+| `/swarm export` | `/export` | HIGH | Exports the current CC conversation as plain text to a file | Exports the swarm plan and context as JSON to stdout |
+| `/swarm doctor` | `/doctor` | HIGH | Diagnoses the CC installation (version, auth, permissions) | Runs health checks on swarm configuration and state files |
+| `/swarm history` | `/history` | MEDIUM | Shows CC session history | Shows completed swarm phases with status icons |
+
+### Severity Levels
+
+| Level | Meaning |
+|-------|---------|
+| **CRITICAL** | Bare CC invocation causes destructive behavior (context wipe, conversation rewind, plan mode block). Always use `/swarm`. |
+| **HIGH** | CC invocation does something unrelated to swarm. Confusing but recoverable. |
+| **MEDIUM** | CC invocation does something tangentially related. Low risk of confusion. |
+
+### CI Gate
+
+`src/commands/conflict-registry.test.ts` enforces a hard gate: new CRITICAL conflict entries fail the test suite unless the entry is added to an explicit allow-list array in the test. This prevents accidental CRITICAL conflicts from being merged without review.
 
 ---
 

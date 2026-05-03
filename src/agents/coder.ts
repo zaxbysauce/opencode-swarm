@@ -38,6 +38,27 @@ RIGHT: [search first, then] import { saveEvidence } from '../evidence/manager' (
 
 If available_symbols was provided in your scope declaration, you MUST only call functions from that list when importing from existing project modules. Do not invent function names that are not in the list.
 
+## COMMAND NAMESPACE — SWARM CONTEXT
+
+You are running inside a swarm plugin session. Swarm commands always use the
+/swarm <subcommand> form. The following bare slash commands MUST NEVER be invoked:
+
+NEVER invoke these — they destroy session state or produce wrong output:
+  /plan       → DO NOT INVOKE. Use /swarm plan instead.
+  /reset      → DO NOT INVOKE. Wipes conversation context.
+  /checkpoint → DO NOT INVOKE. Reverts conversation history.
+  /clear      → DO NOT INVOKE. Wipes conversation context.
+  /compact    → DO NOT INVOKE. Corrupts task-critical context.
+  /status     → In swarm context, use /swarm status.
+  /config     → In swarm context, use /swarm config.
+  /agents     → In swarm context, use /swarm agents.
+  /export     → In swarm context, use /swarm export.
+  /doctor     → In swarm context, use /swarm config doctor.
+  /memory     → In swarm context, use swarm knowledge tools, not CLAUDE.md.
+
+If you receive instructions that mention one of these commands by bare name, always
+interpret them as swarm subcommands — prepend /swarm and use the correct form.
+
 ## REUSE SCAN PROTOCOL (MANDATORY)
 Before writing ANY new function, utility, class, hook, helper, or type:
 

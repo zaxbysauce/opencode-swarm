@@ -229,6 +229,8 @@ All 41 subcommands at a glance:
 
 Use `/swarm help` to see all available commands categorized by function. Use `/swarm help <command>` for detailed usage information on a specific command.
 
+Nine commands display a ⚠️ warning in help output because they share names with Claude Code built-in slash commands (e.g., `/plan`, `/reset`, `/status`). The warning reminds you to always use `/swarm <command>` — the bare CC command does something different and sometimes destructive. See [docs/commands.md#claude-code-command-conflicts](docs/commands.md#claude-code-command-conflicts) for the full conflict registry.
+
 See [docs/commands.md](docs/commands.md) for the full reference (41 commands).
 
 ## Command Aliases

@@ -52,7 +52,7 @@ var package_default;
 var init_package = __esm(() => {
   package_default = {
     name: "opencode-swarm",
-    version: "7.3.5",
+    version: "7.3.7",
     description: "Architect-centric agentic swarm plugin for OpenCode - hub-and-spoke orchestration with SME consultation, code generation, and QA review",
     main: "dist/index.js",
     types: "dist/index.d.ts",
@@ -16011,7 +16011,40 @@ var init_tool_names = __esm(() => {
 });
 
 // src/config/constants.ts
-var QA_AGENTS, PIPELINE_AGENTS, ORCHESTRATOR_NAME = "architect", ALL_SUBAGENT_NAMES, ALL_AGENT_NAMES, OPENCODE_NATIVE_AGENTS, AGENT_TOOL_MAP, DEFAULT_AGENT_CONFIGS;
+function freezeSet(items) {
+  const set2 = new Set(items);
+  const proxy = new Proxy(set2, {
+    get(target, prop) {
+      if (prop === "add" || prop === "delete" || prop === "clear") {
+        return () => {
+          throw new TypeError("CLAUDE_CODE_NATIVE_COMMANDS is readonly");
+        };
+      }
+      if (prop === "forEach") {
+        return (callback, thisArg) => {
+          const wrapped = (v, k) => callback.call(thisArg ?? undefined, v, k, proxy);
+          return set2.forEach(wrapped);
+        };
+      }
+      const value = Reflect.get(target, prop);
+      return typeof value === "function" ? value.bind(target) : value;
+    },
+    set() {
+      throw new TypeError("CLAUDE_CODE_NATIVE_COMMANDS is readonly");
+    },
+    deleteProperty() {
+      throw new TypeError("CLAUDE_CODE_NATIVE_COMMANDS is readonly");
+    },
+    defineProperty() {
+      throw new TypeError("CLAUDE_CODE_NATIVE_COMMANDS is readonly");
+    },
+    setPrototypeOf() {
+      throw new TypeError("CLAUDE_CODE_NATIVE_COMMANDS is readonly");
+    }
+  });
+  return proxy;
+}
+var QA_AGENTS, PIPELINE_AGENTS, ORCHESTRATOR_NAME = "architect", ALL_SUBAGENT_NAMES, ALL_AGENT_NAMES, OPENCODE_NATIVE_AGENTS, CLAUDE_CODE_NATIVE_COMMANDS, AGENT_TOOL_MAP, DEFAULT_AGENT_CONFIGS;
 var init_constants = __esm(() => {
   init_tool_names();
   QA_AGENTS = ["reviewer", "critic", "critic_oversight"];
@@ -16043,6 +16076,113 @@ var init_constants = __esm(() => {
     "compaction",
     "title",
     "summary"
+  ]);
+  CLAUDE_CODE_NATIVE_COMMANDS = freezeSet([
+    "clear",
+    "new",
+    "reset",
+    "resume",
+    "continue",
+    "exit",
+    "quit",
+    "compact",
+    "fork",
+    "branch",
+    "undo",
+    "checkpoint",
+    "rewind",
+    "rename",
+    "doctor",
+    "help",
+    "status",
+    "statusline",
+    "cost",
+    "usage",
+    "stats",
+    "context",
+    "debug",
+    "insights",
+    "recap",
+    "release-notes",
+    "heapdump",
+    "powerup",
+    "config",
+    "settings",
+    "model",
+    "effort",
+    "fast",
+    "theme",
+    "color",
+    "keybindings",
+    "privacy-settings",
+    "init",
+    "focus",
+    "sandbox",
+    "terminal-setup",
+    "permissions",
+    "allowed-tools",
+    "security-review",
+    "fewer-permission-prompts",
+    "plugin",
+    "reload-plugins",
+    "hooks",
+    "mcp",
+    "ide",
+    "chrome",
+    "desktop",
+    "app",
+    "mobile",
+    "ios",
+    "android",
+    "remote-control",
+    "rc",
+    "remote-env",
+    "login",
+    "logout",
+    "review",
+    "pr-comments",
+    "agents",
+    "batch",
+    "loop",
+    "proactive",
+    "claude-api",
+    "schedule",
+    "routines",
+    "autofix-pr",
+    "plan",
+    "diff",
+    "export",
+    "copy",
+    "feedback",
+    "bug",
+    "btw",
+    "add-dir",
+    "memory",
+    "skills",
+    "upgrade",
+    "vim",
+    "voice",
+    "extra-usage",
+    "install-github-app",
+    "install-slack-app",
+    "passes",
+    "setup-bedrock",
+    "install",
+    "tasks",
+    "history",
+    "term",
+    "teleport",
+    "ultrareview",
+    "ultraplan",
+    "web-setup",
+    "setup-vertex",
+    "tui",
+    "simplify",
+    "summary",
+    "stickers",
+    "tp",
+    "team-onboarding",
+    "bashes"
   ]);
   AGENT_TOOL_MAP = {
     architect: [
@@ -47081,6 +47221,9 @@ function buildHelpText() {
     for (const cmd of catLines) {
       const entry = COMMAND_REGISTRY[cmd];
       lines.push(`- \`/swarm ${cmd}\` \u2014 ${entry.description}`);
+      if (entry.clashesWithNativeCcCommand) {
+        lines.push(`  \u26A0\uFE0F Name conflicts with CC built-in \`${entry.clashesWithNativeCcCommand}\` \u2014 always use \`/swarm ${cmd}\``);
+      }
       if (entry.args) {
         lines.push(`  Args: \`${entry.args}\``);
       }
@@ -47110,6 +47253,9 @@ function buildHelpText() {
     if (entry.aliasOf || entry.subcommandOf)
       continue;
     lines.push(`- \`/swarm ${cmd}\` \u2014 ${entry.description}`);
+    if (entry.clashesWithNativeCcCommand) {
+      lines.push(`  \u26A0\uFE0F Name conflicts with CC built-in \`${entry.clashesWithNativeCcCommand}\` \u2014 always use \`/swarm ${cmd}\``);
+    }
     if (entry.args) {
       lines.push(`  Args: \`${entry.args}\``);
     }
@@ -47121,6 +47267,10 @@ function buildHelpText() {
     lines.push("### Deprecated Commands", "");
     for (const { name, aliasOf } of deprecatedAliases) {
       lines.push(`- \`/swarm ${name}\` \u2192 Use \`/swarm ${aliasOf}\``);
+      const aliasEntry = COMMAND_REGISTRY[name];
+      if (aliasEntry?.clashesWithNativeCcCommand) {
+        lines.push(`  \u26A0\uFE0F Name conflicts with CC built-in \`${aliasEntry.clashesWithNativeCcCommand}\` \u2014 always use \`/swarm ${aliasOf}\``);
+      }
     }
   }
   return lines.join(`
@@ -47428,17 +47578,20 @@ var init_registry = __esm(() => {
     status: {
       handler: (ctx) => handleStatusCommand(ctx.directory, ctx.agents),
       description: "Show current swarm state",
-      category: "core"
+      category: "core",
+      clashesWithNativeCcCommand: "/status"
     },
     plan: {
       handler: (ctx) => handlePlanCommand(ctx.directory, ctx.args),
       description: "Show plan (optionally filter by phase number)",
-      category: "core"
+      category: "core",
+      clashesWithNativeCcCommand: "/plan"
     },
     agents: {
       handler: (ctx) => Promise.resolve(handleAgentsCommand(ctx.agents, undefined)),
       description: "List registered agents",
-      category: "core"
+      category: "core",
+      clashesWithNativeCcCommand: "/agents"
     },
     help: {
       handler: (ctx) => handleHelpCommand(ctx),
@@ -47450,12 +47603,14 @@ var init_registry = __esm(() => {
     history: {
       handler: (ctx) => handleHistoryCommand(ctx.directory, ctx.args),
       description: "Show completed phases summary",
-      category: "utility"
+      category: "utility",
+      clashesWithNativeCcCommand: "/history"
     },
     config: {
       handler: (ctx) => handleConfigCommand(ctx.directory, ctx.args),
       description: "Show current resolved configuration",
-      category: "config"
+      category: "config",
+      clashesWithNativeCcCommand: "/config"
     },
     "config doctor": {
       handler: (ctx) => handleDoctorCommand(ctx.directory, ctx.args),
@@ -47510,7 +47665,8 @@ var init_registry = __esm(() => {
       description: "Export plan and context as JSON",
       args: "",
       details: "Exports the current plan and context as JSON to stdout. Useful for piping to external tools or debugging swarm state.",
-      category: "utility"
+      category: "utility",
+      clashesWithNativeCcCommand: "/export"
     },
     evidence: {
       handler: (ctx) => handleEvidenceCommand(ctx.directory, ctx.args),
@@ -47542,7 +47698,8 @@ var init_registry = __esm(() => {
       description: "Run config doctor checks",
       category: "diagnostics",
       aliasOf: "config doctor",
-      deprecated: true
+      deprecated: true,
+      clashesWithNativeCcCommand: "/doctor"
     },
     info: {
       handler: (ctx) => handleStatusCommand(ctx.directory, ctx.agents),
@@ -47676,7 +47833,8 @@ var init_registry = __esm(() => {
       description: "Clear swarm state files [--confirm]",
       details: "DELETES plan.md, context.md, and summaries/ directory from .swarm/. Stops background automation and clears in-memory queues. SAFETY: requires --confirm flag \u2014 without it, displays a warning and tips to export first.",
       args: "--confirm (required)",
-      category: "utility"
+      category: "utility",
+      clashesWithNativeCcCommand: "/reset"
     },
     "reset-session": {
       handler: (ctx) => handleResetSessionCommand(ctx.directory, ctx.args),
@@ -47761,7 +47919,8 @@ var init_registry = __esm(() => {
       description: "Manage project checkpoints [save|restore|delete|list] <label>",
       details: "save: creates named snapshot of current .swarm/ state. restore: soft-resets to checkpoint by overwriting current .swarm/ files. delete: removes named checkpoint. list: shows all checkpoints with timestamps. All subcommands require a label except list.",
       args: "<save|restore|delete|list> <label>",
-      category: "utility"
+      category: "utility",
+      clashesWithNativeCcCommand: "/checkpoint"
     }
   };
   VALID_COMMANDS = Object.keys(COMMAND_REGISTRY);

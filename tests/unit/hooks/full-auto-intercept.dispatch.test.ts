@@ -20,8 +20,48 @@ const consoleWarnCalls: string[] = [];
 const consoleLogCalls: string[] = [];
 const consoleErrorCalls: string[] = [];
 
+// Persistent session state storage
+interface SessionState {
+	fullAutoInteractionCount: number;
+	fullAutoDeadlockCount: number;
+	fullAutoLastQuestionHash: string | undefined;
+}
+
+const globalState = globalThis as typeof globalThis & {
+	_sessionStorage?: Map<string, SessionState>;
+};
+
+if (!globalState._sessionStorage) {
+	globalState._sessionStorage = new Map<string, SessionState>();
+}
+
+const stateRef: { sessionStorage: Map<string, SessionState> } = {
+	sessionStorage: globalState._sessionStorage,
+};
+
 // Mock dependencies
 const mockHasActiveFullAuto = mock(() => true);
+
+mock.module('../../../src/state.js', () => ({
+	hasActiveFullAuto: mockHasActiveFullAuto,
+	swarmState: {
+		agentSessions: stateRef.sessionStorage,
+		opencodeClient: null, // Default to null for fallback tests
+	},
+	ensureAgentSession: (sessionId: string) => {
+		if (!stateRef.sessionStorage.has(sessionId)) {
+			stateRef.sessionStorage.set(sessionId, {
+				fullAutoInteractionCount: 0,
+				fullAutoDeadlockCount: 0,
+				fullAutoLastQuestionHash: undefined,
+			});
+		}
+		return stateRef.sessionStorage.get(sessionId)!;
+	},
+	resetSwarmState: () => {
+		stateRef.sessionStorage.clear();
+	},
+}));
 
 mock.module('../../../src/telemetry.js', () => ({
 	telemetry: {
@@ -45,21 +85,11 @@ mock.module('../../../src/telemetry.js', () => ({
 		heartbeat: mock(() => {}),
 		turboModeChanged: mock(() => {}),
 	},
-	// emit() is used by plan/manager.ts and other modules loaded transitively
-	// through state.ts — must be present in the mock to avoid SyntaxError at link time
-	emit: mock(() => {}),
 }));
 
 mock.module('../../../src/hooks/utils.js', () => ({
 	validateSwarmPath: (dir: string, file: string) =>
 		path.join(dir, '.swarm', file),
-	// The following exports are imported by modules loaded transitively through
-	// state.ts (plan/manager.ts, delegation-gate.ts, etc.) — must be present in
-	// the mock to avoid SyntaxError at link time
-	readSwarmFileAsync: mock(async () => null),
-	safeHook: mock((_fn: unknown) => _fn),
-	composeHandlers: mock((..._fns: unknown[]) => _fns[0]),
-	estimateTokens: mock((_text: string) => 0),
 }));
 
 mock.module('../../../src/parallel/file-locks.js', () => ({
@@ -69,24 +99,18 @@ mock.module('../../../src/parallel/file-locks.js', () => ({
 	})),
 }));
 
-// agents/critic.js is NOT mocked here — `createCriticAutonomousOversightAgent`
-// is injected via `_internals` in beforeEach where needed, so the real module
-// is never loaded in test processes and cannot contaminate later test files.
+mock.module('../../../src/agents/critic.js', () => ({
+	createCriticAutonomousOversightAgent: mock(() => ({
+		name: 'critic_oversight',
+	})),
+}));
 
-// Import after mock setup (telemetry/utils/file-locks mocks registered above)
+// Import after mock setup
 const {
 	parseCriticResponse,
 	dispatchCriticAndWriteEvent,
 	injectVerdictIntoMessages,
-	_internals,
 } = await import('../../../src/hooks/full-auto-intercept.js');
-
-// Capture defaults so afterEach can restore them
-const _defaultHasActiveFullAuto = _internals.hasActiveFullAuto;
-const _defaultEnsureAgentSession = _internals.ensureAgentSession;
-const _defaultSwarmState = _internals.swarmState;
-const _defaultCreateCriticAgent =
-	_internals.createCriticAutonomousOversightAgent;
 
 let testDir: string;
 let originalConsoleLog: typeof console.log;
@@ -522,13 +546,6 @@ describe('dispatchCriticAndWriteEvent fallback', () => {
 		testDir = fs.mkdtempSync(path.join(os.tmpdir(), 'dispatch-test-'));
 		fs.mkdirSync(path.join(testDir, '.swarm'), { recursive: true });
 
-		// Install DI seam override: set opencodeClient to null so the hook uses
-		// the fallback path (no real LLM call). This replaces the old mock.module
-		// approach that leaked across test files in the same Bun process.
-		_internals.swarmState = {
-			opencodeClient: null,
-		} as typeof _internals.swarmState;
-
 		originalConsoleLog = console.log;
 		originalConsoleWarn = console.warn;
 		originalConsoleError = console.error;
@@ -553,12 +570,6 @@ describe('dispatchCriticAndWriteEvent fallback', () => {
 		console.log = originalConsoleLog;
 		console.warn = originalConsoleWarn;
 		console.error = originalConsoleError;
-		// Restore DI seam to real state so other test files in the same Bun process
-		// are not affected
-		_internals.hasActiveFullAuto = _defaultHasActiveFullAuto;
-		_internals.ensureAgentSession = _defaultEnsureAgentSession;
-		_internals.swarmState = _defaultSwarmState;
-		_internals.createCriticAutonomousOversightAgent = _defaultCreateCriticAgent;
 		try {
 			fs.rmSync(testDir, { recursive: true, force: true });
 		} catch {

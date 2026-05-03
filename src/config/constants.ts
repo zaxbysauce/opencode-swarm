@@ -40,6 +40,171 @@ export const OPENCODE_NATIVE_AGENTS = new Set([
 	'summary',
 ] as const);
 
+/**
+ * Claude Code built-in slash commands (without leading slash).
+ * Used by the cc-command-intercept hook to detect accidental CC command invocations
+ * inside swarm agent message streams.
+ *
+ * Source: https://code.claude.com/docs/en/commands (verified April 2026)
+ * Keep in sync with Claude Code releases. When adding a command here, check
+ * src/commands/conflict-registry.ts and update CLAUDE_CODE_CONFLICTS if the
+ * command also matches a swarm subcommand.
+ */
+function freezeSet<T>(items: readonly T[]): ReadonlySet<T> {
+	const set = new Set(items);
+	const proxy = new Proxy(set, {
+		get(target, prop) {
+			if (prop === 'add' || prop === 'delete' || prop === 'clear') {
+				return () => {
+					throw new TypeError('CLAUDE_CODE_NATIVE_COMMANDS is readonly');
+				};
+			}
+			// Wrap forEach to prevent exposing the raw Set as callback's 3rd arg
+			if (prop === 'forEach') {
+				return (
+					callback: (value: T, key: T, set: ReadonlySet<T>) => void,
+					thisArg?: unknown,
+				) => {
+					const wrapped = (v: T, k: T) =>
+						callback.call(thisArg ?? (undefined as unknown), v, k, proxy);
+					return set.forEach(wrapped);
+				};
+			}
+			const value = Reflect.get(target, prop);
+			return typeof value === 'function' ? value.bind(target) : value;
+		},
+		set() {
+			throw new TypeError('CLAUDE_CODE_NATIVE_COMMANDS is readonly');
+		},
+		deleteProperty() {
+			throw new TypeError('CLAUDE_CODE_NATIVE_COMMANDS is readonly');
+		},
+		defineProperty() {
+			throw new TypeError('CLAUDE_CODE_NATIVE_COMMANDS is readonly');
+		},
+		setPrototypeOf() {
+			throw new TypeError('CLAUDE_CODE_NATIVE_COMMANDS is readonly');
+		},
+	});
+	return proxy;
+}
+
+export const CLAUDE_CODE_NATIVE_COMMANDS: ReadonlySet<string> = freezeSet([
+	// Session management
+	'clear',
+	'new',
+	'reset', // aliases for /clear
+	'resume',
+	'continue', // alias for /resume
+	'exit',
+	'quit', // aliases
+	'compact',
+	'fork',
+	'branch', // alias for /fork
+	'undo',
+	'checkpoint',
+	'rewind', // aliases for /rewind
+	'rename',
+	// Diagnostics & info
+	'doctor',
+	'help',
+	'status',
+	'statusline',
+	'cost',
+	'usage', // aliases
+	'stats',
+	'context',
+	'debug',
+	'insights',
+	'recap',
+	'release-notes',
+	'heapdump',
+	'powerup',
+	// Config & settings
+	'config',
+	'settings', // aliases
+	'model',
+	'effort',
+	'fast',
+	'theme',
+	'color',
+	'keybindings',
+	'privacy-settings',
+	'init',
+	'focus',
+	'sandbox',
+	'terminal-setup',
+	// Permissions & security
+	'permissions',
+	'allowed-tools', // aliases
+	'security-review',
+	'fewer-permission-prompts', // skill
+	// Plugins & integrations
+	'plugin',
+	'reload-plugins',
+	'hooks',
+	'mcp',
+	'ide',
+	'chrome',
+	'desktop',
+	'app', // alias for /desktop
+	'mobile',
+	'ios',
+	'android', // aliases for /mobile
+	'remote-control',
+	'rc', // aliases
+	'remote-env',
+	'login',
+	'logout',
+	// Skills & workflows
+	'review',
+	'pr-comments',
+	'agents',
+	'batch', // skill
+	'loop',
+	'proactive', // alias for /loop
+	'claude-api', // skill
+	'schedule',
+	'routines', // alias for /schedule
+	'autofix-pr',
+	// Plan & execution
+	'plan',
+	'diff',
+	'export',
+	'copy',
+	'feedback',
+	'bug', // aliases
+	'btw',
+	'add-dir',
+	// Memory & knowledge
+	'memory',
+	'skills',
+	'upgrade',
+	'vim',
+	'voice',
+	'extra-usage',
+	'install-github-app',
+	'install-slack-app',
+	'passes',
+	'setup-bedrock',
+	'install', // alias
+	'tasks',
+	'history',
+	'term',
+	'teleport',
+	'ultrareview',
+	'ultraplan',
+	'web-setup',
+	'setup-vertex',
+	'tui',
+	'simplify',
+	'summary',
+	'stickers',
+	'tp', // alias for /teleport
+	'team-onboarding',
+	'bashes', // alias for /tasks
+]);
+
 // Type definitions
 export type QAAgentName = (typeof QA_AGENTS)[number];
 export type PipelineAgentName = (typeof PIPELINE_AGENTS)[number];

@@ -5,6 +5,7 @@ export declare const ORCHESTRATOR_NAME: "architect";
 export declare const ALL_SUBAGENT_NAMES: readonly ["sme", "docs", "designer", "critic_sounding_board", "critic_drift_verifier", "critic_hallucination_verifier", "curator_init", "curator_phase", "council_generalist", "council_skeptic", "council_domain_expert", "reviewer", "critic", "critic_oversight", "explorer", "coder", "test_engineer"];
 export declare const ALL_AGENT_NAMES: readonly ["architect", "sme", "docs", "designer", "critic_sounding_board", "critic_drift_verifier", "critic_hallucination_verifier", "curator_init", "curator_phase", "council_generalist", "council_skeptic", "council_domain_expert", "reviewer", "critic", "critic_oversight", "explorer", "coder", "test_engineer"];
 export declare const OPENCODE_NATIVE_AGENTS: Set<"compaction" | "title" | "build" | "general" | "plan" | "explore" | "summary">;
+export declare const CLAUDE_CODE_NATIVE_COMMANDS: ReadonlySet<string>;
 export type QAAgentName = (typeof QA_AGENTS)[number];
 export type PipelineAgentName = (typeof PIPELINE_AGENTS)[number];
 export type AgentName = (typeof ALL_AGENT_NAMES)[number];
