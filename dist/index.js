@@ -51,7 +51,7 @@ var package_default;
 var init_package = __esm(() => {
   package_default = {
     name: "opencode-swarm",
-    version: "7.3.7",
+    version: "7.4.0",
     description: "Architect-centric agentic swarm plugin for OpenCode - hub-and-spoke orchestration with SME consultation, code generation, and QA review",
     main: "dist/index.js",
     types: "dist/index.d.ts",
@@ -65924,7 +65924,7 @@ function createCcCommandInterceptHook(config3 = {}) {
           resultLines.push(line);
           continue;
         }
-        if (blockDestructive && conflict.severity === "CRITICAL" && (bareCmd === "reset" || bareCmd === "clear")) {
+        if (blockDestructive && conflict.severity === "CRITICAL" && (bareCmd === "reset" || bareCmd === "clear" || bareCmd === "checkpoint")) {
           hasBlocked = true;
           resultLines.push(`[CC_COMMAND_INTERCEPT] BLOCKED: /${bareCmd} — this wipes conversation context. Use /swarm ${bareCmd} instead where applicable.`);
           continue;
