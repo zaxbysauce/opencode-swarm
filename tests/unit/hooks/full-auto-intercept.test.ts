@@ -42,44 +42,25 @@ interface SessionState {
 	fullAutoLastQuestionHash: string | undefined;
 }
 
-// Global storage that both mock and tests can access
-const globalState = globalThis as typeof globalThis & {
-	_sessionStorage?: Map<string, SessionState>;
-};
-
-if (!globalState._sessionStorage) {
-	globalState._sessionStorage = new Map<string, SessionState>();
-}
-
+// Session state storage for the mock ensureAgentSession
 const stateRef: { sessionStorage: Map<string, SessionState> } = {
-	sessionStorage: globalState._sessionStorage,
+	sessionStorage: new Map<string, SessionState>(),
 };
 
-// Backwards-compatible alias for tests that reference sessionStorage directly
-const sessionStorage = stateRef.sessionStorage;
-
-// Mock dependencies before importing the hook module
+// Mock hasActiveFullAuto — starts returning false by default
 const mockHasActiveFullAuto = mock(() => false);
 
-mock.module('../../../src/state.js', () => ({
-	hasActiveFullAuto: mockHasActiveFullAuto,
-	swarmState: {
-		agentSessions: stateRef.sessionStorage,
-	},
-	ensureAgentSession: (sessionId: string) => {
-		if (!stateRef.sessionStorage.has(sessionId)) {
-			stateRef.sessionStorage.set(sessionId, {
-				fullAutoInteractionCount: 0,
-				fullAutoDeadlockCount: 0,
-				fullAutoLastQuestionHash: undefined,
-			});
-		}
-		return stateRef.sessionStorage.get(sessionId)!;
-	},
-	resetSwarmState: () => {
-		stateRef.sessionStorage.clear();
-	},
-}));
+// Mock ensureAgentSession — stores sessions in stateRef so tests can inspect them
+const mockEnsureAgentSession = (sessionId: string) => {
+	if (!stateRef.sessionStorage.has(sessionId)) {
+		stateRef.sessionStorage.set(sessionId, {
+			fullAutoInteractionCount: 0,
+			fullAutoDeadlockCount: 0,
+			fullAutoLastQuestionHash: undefined,
+		});
+	}
+	return stateRef.sessionStorage.get(sessionId)!;
+};
 
 mock.module('../../../src/telemetry.js', () => ({
 	telemetry: {
@@ -119,11 +100,21 @@ mock.module('../../../src/telemetry.js', () => ({
 		heartbeat: mock(() => {}),
 		turboModeChanged: mock(() => {}),
 	},
+	// emit() is used by plan/manager.ts and other modules loaded transitively
+	// through state.ts — must be present in the mock to avoid SyntaxError at link time
+	emit: mock(() => {}),
 }));
 
 mock.module('../../../src/hooks/utils.js', () => ({
 	validateSwarmPath: (dir: string, file: string) =>
 		path.join(dir, '.swarm', file),
+	// The following exports are imported by modules loaded transitively through
+	// state.ts (plan/manager.ts, delegation-gate.ts, etc.) — must be present in
+	// the mock to avoid SyntaxError at link time
+	readSwarmFileAsync: mock(async () => null),
+	safeHook: mock((_fn: unknown) => _fn),
+	composeHandlers: mock((..._fns: unknown[]) => _fns[0]),
+	estimateTokens: mock((_text: string) => 0),
 }));
 
 mock.module('../../../src/parallel/file-locks.js', () => ({
@@ -133,16 +124,23 @@ mock.module('../../../src/parallel/file-locks.js', () => ({
 	})),
 }));
 
-mock.module('../../../src/agents/critic.js', () => ({
-	createCriticAutonomousOversightAgent: mock(() => ({
-		name: 'critic_oversight',
-	})),
-}));
+// agents/critic.js is NOT mocked here — `createCriticAutonomousOversightAgent`
+// is injected via `_internals` in each beforeEach so the real module is never
+// loaded in test processes and cannot contaminate test files that run later.
+// (Previously a sparse mock.module for agents/critic caused SyntaxError in
+// self-coding-detection tests when agents/index.ts tried to re-export the
+// missing `createCriticAgent`.)
 
-// Import after mock setup
-const { createFullAutoInterceptHook } = await import(
+// Import after mock setup (telemetry/utils/file-locks mocks registered above)
+const { createFullAutoInterceptHook, _internals } = await import(
 	'../../../src/hooks/full-auto-intercept.js'
 );
+
+// Capture defaults so afterEach can restore them
+const _defaultHasActiveFullAuto = _internals.hasActiveFullAuto;
+const _defaultEnsureAgentSession = _internals.ensureAgentSession;
+const _defaultSwarmState = _internals.swarmState;
+const _defaultCreateCriticAgent = _internals.createCriticAutonomousOversightAgent;
 
 let testDir: string;
 
@@ -203,6 +201,27 @@ describe('full-auto-intercept detectEscalation via messagesTransform', () => {
 		// Clear the shared stateRef that the mock uses
 		stateRef.sessionStorage.clear();
 
+		// Install DI seam overrides so the hook uses mock state without
+		// mock.module (which would leak across test files in the same Bun process)
+		_internals.hasActiveFullAuto =
+			mockHasActiveFullAuto as unknown as typeof _internals.hasActiveFullAuto;
+		_internals.ensureAgentSession =
+			mockEnsureAgentSession as unknown as typeof _internals.ensureAgentSession;
+		_internals.swarmState = {
+			opencodeClient: null,
+		} as typeof _internals.swarmState;
+		_internals.createCriticAutonomousOversightAgent = mock(
+			() =>
+				({
+					name: 'critic_oversight',
+					config: {},
+				}) as ReturnType<
+					NonNullable<
+						typeof _internals.createCriticAutonomousOversightAgent
+					>
+				>,
+		);
+
 		// Save original console.log and console.warn
 		originalConsoleLog = console.log;
 		originalConsoleWarn = console.warn;
@@ -231,10 +250,12 @@ describe('full-auto-intercept detectEscalation via messagesTransform', () => {
 		consoleLogCalls.length = 0;
 		consoleWarnCalls.length = 0;
 		stateRef.sessionStorage.clear();
-		// Note: We intentionally do NOT call mock.restore() here because
-		// mock.module mocks persist for the lifetime of the test file.
-		// Calling restore would clear the src/state.js mock, causing
-		// subsequent tests to use the real module instead of our mock.
+		// Restore DI seam to real state so other test files in the same Bun process
+		// are not affected (replaces the old mock.module approach that contaminated)
+		_internals.hasActiveFullAuto = _defaultHasActiveFullAuto;
+		_internals.ensureAgentSession = _defaultEnsureAgentSession;
+		_internals.swarmState = _defaultSwarmState;
+		_internals.createCriticAutonomousOversightAgent = _defaultCreateCriticAgent;
 		try {
 			fs.rmSync(testDir, { recursive: true, force: true });
 		} catch {
