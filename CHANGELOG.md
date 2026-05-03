@@ -1,5 +1,12 @@
 # Changelog
 
+## [7.4.2](https://github.com/zaxbysauce/opencode-swarm/compare/v7.4.1...v7.4.2) (2026-05-03)
+
+
+### Bug Fixes
+
+* **test-quality:** address PR [#732](https://github.com/zaxbysauce/opencode-swarm/issues/732) follow-up — temp leaks, missing coverage, parallelization, docs ([#749](https://github.com/zaxbysauce/opencode-swarm/issues/749)) ([86ee386](https://github.com/zaxbysauce/opencode-swarm/commit/86ee38691fbcb3423028b4c2aa5921141b5de4e3))
+
 ## [7.4.1](https://github.com/zaxbysauce/opencode-swarm/compare/v7.4.0...v7.4.1) (2026-05-03)
 
 
