@@ -615,16 +615,19 @@ export { foo, test };
 			);
 			await hooks.messagesTransform({}, { messages: messages4 });
 
-			// Should still be 1/2, not 2/2 (count was reset)
+			// After reset, asking question1 again should show 1/2 (reset worked), not 2/2
 			const countAfterReset = consoleWarnCalls.filter((log) =>
 				log.includes('Potential deadlock detected'),
 			);
-			// After reset and asking question1 again, we should have:
-			// 1. 1/2 (first question1)
-			// 2. 2/2 (second question1 - but this triggers escalation before reset)
-			// Actually with threshold=2, the 2nd identical question triggers escalation
-			// So we need to trace through more carefully
-			expect(countAfterReset.length).toBeGreaterThanOrEqual(1);
+			// Sequence of deadlock warnings:
+			// 1. First question1: 1/2
+			// 2. Second question1: 2/2 (escalation)
+			// 3. question1 after reset: should be 1/2 (reset cleared the count)
+			//
+			// The LAST deadlock warning should be "1/2", proving the reset worked.
+			// If reset didn't work, it would show "2/2" (continuing from before).
+			const lastDeadlockWarning = countAfterReset[countAfterReset.length - 1];
+			expect(lastDeadlockWarning).toContain('count: 1/2');
 		});
 	});
 
