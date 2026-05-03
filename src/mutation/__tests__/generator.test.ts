@@ -321,3 +321,85 @@ describe('generateMutants', () => {
 		expect(result).toEqual([]);
 	});
 });
+
+// Isolated describe block so the _internals mutation is always restored in afterEach
+// without interfering with other test groups.
+describe('generateMutants — timeout behaviour', () => {
+	afterEach(() => {
+		mock.restore();
+	});
+
+	// 16. LLM prompt never resolves → withTimeout fires → returns []
+	test('returns empty array when LLM prompt never resolves (timeout)', async () => {
+		// Set a very short timeout via the _internals seam so the test runs fast.
+		const { _internals, generateMutants } = await import('../generator.js');
+		const originalTimeout = _internals.timeoutMs;
+		_internals.timeoutMs = 50; // 50 ms
+
+		const hangingPrompt = mock(() => new Promise<never>(() => {})); // never resolves
+		const immediateCreate = mock(async () => ({ data: { id: 'session-timeout-test' } }));
+		const bestEffortDelete = mock(async () => ({ data: {} }));
+
+		const mockHangClient = {
+			session: {
+				create: immediateCreate,
+				prompt: hangingPrompt,
+				delete: bestEffortDelete,
+			},
+		};
+
+		mock.module('../../state.js', () => ({
+			swarmState: { opencodeClient: mockHangClient },
+		}));
+
+		try {
+			const start = Date.now();
+			const result = await generateMutants(['src/foo.ts'], {
+				directory: '/proj',
+			} as any);
+			const elapsed = Date.now() - start;
+
+			// Must return the empty SKIP array (not throw)
+			expect(result).toEqual([]);
+			// Must complete well before the 90 s default; well after the 50 ms synthetic timeout
+			expect(elapsed).toBeGreaterThanOrEqual(40);
+			expect(elapsed).toBeLessThan(2000);
+		} finally {
+			// Always restore so subsequent tests are not affected
+			_internals.timeoutMs = originalTimeout;
+		}
+	});
+
+	// 17. LLM session.create never resolves → withTimeout fires → returns []
+	test('returns empty array when LLM session.create never resolves (timeout)', async () => {
+		const { _internals, generateMutants } = await import('../generator.js');
+		const originalTimeout = _internals.timeoutMs;
+		_internals.timeoutMs = 50; // 50 ms
+
+		const hangingCreate = mock(() => new Promise<never>(() => {}));
+		const mockHangClient = {
+			session: {
+				create: hangingCreate,
+				prompt: mock(async () => ({ data: { parts: [] } })),
+				delete: mock(async () => ({ data: {} })),
+			},
+		};
+
+		mock.module('../../state.js', () => ({
+			swarmState: { opencodeClient: mockHangClient },
+		}));
+
+		try {
+			const start = Date.now();
+			const result = await generateMutants(['src/foo.ts'], {
+				directory: '/proj',
+			} as any);
+			const elapsed = Date.now() - start;
+
+			expect(result).toEqual([]);
+			expect(elapsed).toBeLessThan(2000);
+		} finally {
+			_internals.timeoutMs = originalTimeout;
+		}
+	});
+});

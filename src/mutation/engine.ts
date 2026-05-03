@@ -68,6 +68,25 @@ const MUTATION_TIMEOUT_MS = 30_000;
 const TOTAL_BUDGET_MS = 300_000;
 const GIT_APPLY_TIMEOUT_MS = 5_000;
 
+/**
+ * Build the argument array for `git apply` with cross-platform whitespace
+ * tolerance.  `--ignore-whitespace` makes git ignore CRLF/LF differences in
+ * context lines, which is required on Windows where `core.autocrlf=true`
+ * causes checked-out files to use CRLF while LLM-generated patches use LF.
+ * The flag is a no-op on macOS and Linux (files already use LF).
+ */
+export function buildGitApplyArgs(patchFile: string): string[] {
+	return ['apply', '--ignore-whitespace', '--', patchFile];
+}
+
+/**
+ * Build the argument array for `git apply -R` (revert) with the same
+ * cross-platform whitespace tolerance as `buildGitApplyArgs`.
+ */
+export function buildGitRevertArgs(patchFile: string): string[] {
+	return ['apply', '-R', '--ignore-whitespace', '--', patchFile];
+}
+
 export async function executeMutation(
 	patch: MutationPatch,
 	testCommand: string[],
@@ -101,7 +120,7 @@ export async function executeMutation(
 		}
 
 		try {
-			const applyResult = spawnSync('git', ['apply', '--', patchFile], {
+			const applyResult = spawnSync('git', buildGitApplyArgs(patchFile), {
 				cwd: workingDir,
 				timeout: GIT_APPLY_TIMEOUT_MS,
 				stdio: 'pipe',
@@ -169,7 +188,7 @@ export async function executeMutation(
 			try {
 				const revertResult = spawnSync(
 					'git',
-					['apply', '-R', '--', patchFile],
+					buildGitRevertArgs(patchFile),
 					{
 						cwd: workingDir,
 						timeout: GIT_APPLY_TIMEOUT_MS,
