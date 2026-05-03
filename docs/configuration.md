@@ -93,6 +93,21 @@ If you currently have a config like `{ "model": "grove-openai/gpt-5.3-codex/medi
 }
 ```
 
+## `default_agent` — selecting which agents are exposed as primary
+
+`default_agent` (top-level, optional `string`) controls which generated agents OpenCode treats as **primary** (selectable as the session's default agent and given `task: allow` permission). All other generated agents become `subagent`s.
+
+| Value | Effect |
+|---|---|
+| _(omitted)_ | Every architect-role agent is primary. In a legacy single-swarm config that means `architect`. In a multi-swarm config it means `architect` (if a `default` swarm is defined) plus every `*_architect` (`local_architect`, `mega_architect`, `paid_architect`, `modelrelay_architect`, …). This restores v7.0.0 behavior. |
+| `"architect"` _(or any other base role)_ | Every generated agent whose canonical base role matches becomes primary. `default_agent: "coder"` exposes `coder` in legacy mode and every `*_coder` in multi-swarm mode. |
+| `"local_architect"` _(or any other exact generated name)_ | Only that exact generated agent becomes primary. Useful for pinning a single swarm. |
+| Unknown / invalid value | A one-time warning is logged and the resolver falls back to architect-role primaries (or, if all architect roles are disabled, the first generated agent). The plugin never produces zero primaries when at least one agent exists. |
+
+Empty or whitespace-only values are treated as omitted.
+
+> Why this matters: in v7.3.x the schema applied an implicit `.default("architect")`. In a multi-swarm config there is no agent literally named `architect` — they are all prefixed — so every architect was demoted to subagent and OpenCode showed only the native `build`/`plan` agents. The omitted-vs-explicit distinction is now load-bearing; do not re-introduce a schema default.
+
 ## How to verify the resolved config
 
 Run:

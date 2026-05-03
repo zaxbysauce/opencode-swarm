@@ -788,6 +788,17 @@ Prefixed agents (e.g., `paid_coder`, `mega_reviewer`, `local_architect`) inherit
 
 In this example, `paid_coder` gets its own explicit rule, while other prefixed coders (e.g., `mega_coder`) fall back to `coder`.
 
+#### Selecting the primary agent in multi-swarm configs (`default_agent`)
+
+The top-level `default_agent` field controls which generated agents OpenCode treats as primary. **It is optional.** Behavior:
+
+- **Omitted** — every architect-role agent is primary. In a multi-swarm config that means each swarm exposes its own architect (`local_architect`, `mega_architect`, `paid_architect`, `modelrelay_architect`, …) as a selectable session default. This is the v7.0.0-compatible behavior and the recommended setup.
+- **Base role** (e.g. `"coder"`) — every generated agent whose canonical base role matches becomes primary (`local_coder`, `mega_coder`, …).
+- **Exact generated name** (e.g. `"local_architect"`) — only that agent is primary.
+- **Unknown / invalid value** — a one-time warning is logged and the resolver falls back to architect-role primaries (or the first generated agent if architects are disabled). The plugin never produces zero primaries when at least one agent exists.
+
+See [`docs/configuration.md`](docs/configuration.md) for the full table.
+
 ### Runtime Enforcement
 
 Architect direct writes are enforced at runtime via `toolBefore` hook. This tracks writes to source code paths outside `.swarm/` and protects `.swarm/plan.md` and `.swarm/plan.json` from direct modification.

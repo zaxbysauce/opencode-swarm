@@ -35,6 +35,34 @@ export declare function getSwarmAgents(): Record<string, {
  */
 export declare function createAgents(config?: PluginConfig): AgentDefinition[];
 /**
+ * Resolve the set of generated agent names that should be marked as primary
+ * for OpenCode's session-default-agent resolution.
+ *
+ * Resolution rules (see schema.ts default_agent comment for full semantics):
+ *   - default_agent omitted ⇒ every architect-role agent is primary
+ *     (canonical base role === "architect"). This restores v7.0.0 behavior in
+ *     multi-swarm configs where there is no unprefixed `architect` agent.
+ *   - default_agent exactly matches a generated agent name ⇒ only that agent.
+ *     Exact match wins over base-role match — `local_architect` resolves to
+ *     just `local_architect`, never the entire architect role.
+ *   - default_agent is a base role in ALL_AGENT_NAMES ⇒ every generated agent
+ *     whose canonical base role matches that role.
+ *   - default_agent is invalid (matches nothing) ⇒ fall back to architect-role
+ *     primaries; if no architect roles exist (architects disabled), fall back
+ *     to the first generated agent. Always warns. Never returns empty when
+ *     `agentNames` is non-empty.
+ *
+ * Important matching detail: a value like "not_an_architect" is NOT treated
+ * as a base-role request even though stripKnownSwarmPrefix() returns
+ * "architect" for it. Base-role matching only fires when the user-supplied
+ * value is itself one of ALL_AGENT_NAMES.
+ */
+export declare function resolvePrimaryAgentNames(agentNames: string[], defaultAgent?: string): {
+    primaryNames: Set<string>;
+    reason: 'implicit-architects' | 'exact' | 'base-role' | 'fallback-architects' | 'fallback-first';
+    warning?: string;
+};
+/**
  * Get agent configurations formatted for the OpenCode SDK.
  */
 export declare function getAgentConfigs(config?: PluginConfig, directory?: string, sessionId?: string): Record<string, SDKAgentConfig>;

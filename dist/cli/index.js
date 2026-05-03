@@ -52,7 +52,7 @@ var package_default;
 var init_package = __esm(() => {
   package_default = {
     name: "opencode-swarm",
-    version: "7.3.3",
+    version: "7.3.4",
     description: "Architect-centric agentic swarm plugin for OpenCode - hub-and-spoke orchestration with SME consultation, code generation, and QA review",
     main: "dist/index.js",
     types: "dist/index.d.ts",
@@ -16933,7 +16933,12 @@ var init_schema = __esm(() => {
   });
   PluginConfigSchema = exports_external.object({
     agents: exports_external.record(exports_external.string(), AgentOverrideConfigSchema).optional(),
-    default_agent: exports_external.enum(ALL_AGENT_NAMES).default("architect").optional(),
+    default_agent: exports_external.string().optional().transform((v) => {
+      if (v === undefined)
+        return;
+      const trimmed = v.trim();
+      return trimmed === "" ? undefined : trimmed;
+    }),
     swarms: exports_external.record(exports_external.string(), SwarmConfigSchema).optional(),
     max_iterations: exports_external.number().min(1).max(10).default(5),
     pipeline: PipelineConfigSchema.optional(),

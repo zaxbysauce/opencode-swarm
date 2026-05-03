@@ -623,6 +623,119 @@ export function createAgents(config?: PluginConfig): AgentDefinition[] {
 }
 
 /**
+ * Resolve the set of generated agent names that should be marked as primary
+ * for OpenCode's session-default-agent resolution.
+ *
+ * Resolution rules (see schema.ts default_agent comment for full semantics):
+ *   - default_agent omitted ⇒ every architect-role agent is primary
+ *     (canonical base role === "architect"). This restores v7.0.0 behavior in
+ *     multi-swarm configs where there is no unprefixed `architect` agent.
+ *   - default_agent exactly matches a generated agent name ⇒ only that agent.
+ *     Exact match wins over base-role match — `local_architect` resolves to
+ *     just `local_architect`, never the entire architect role.
+ *   - default_agent is a base role in ALL_AGENT_NAMES ⇒ every generated agent
+ *     whose canonical base role matches that role.
+ *   - default_agent is invalid (matches nothing) ⇒ fall back to architect-role
+ *     primaries; if no architect roles exist (architects disabled), fall back
+ *     to the first generated agent. Always warns. Never returns empty when
+ *     `agentNames` is non-empty.
+ *
+ * Important matching detail: a value like "not_an_architect" is NOT treated
+ * as a base-role request even though stripKnownSwarmPrefix() returns
+ * "architect" for it. Base-role matching only fires when the user-supplied
+ * value is itself one of ALL_AGENT_NAMES.
+ */
+export function resolvePrimaryAgentNames(
+	agentNames: string[],
+	defaultAgent?: string,
+): {
+	primaryNames: Set<string>;
+	reason:
+		| 'implicit-architects'
+		| 'exact'
+		| 'base-role'
+		| 'fallback-architects'
+		| 'fallback-first';
+	warning?: string;
+} {
+	const collectArchitectRole = (): string[] =>
+		agentNames.filter((n) => stripKnownSwarmPrefix(n) === 'architect');
+
+	const trimmed =
+		typeof defaultAgent === 'string' ? defaultAgent.trim() : undefined;
+	const value = trimmed === '' ? undefined : trimmed;
+
+	if (agentNames.length === 0) {
+		return { primaryNames: new Set(), reason: 'implicit-architects' };
+	}
+
+	// Implicit: omitted default_agent ⇒ all architect-role agents.
+	if (value === undefined) {
+		const architects = collectArchitectRole();
+		if (architects.length > 0) {
+			return {
+				primaryNames: new Set(architects),
+				reason: 'implicit-architects',
+			};
+		}
+		// No architects at all (e.g. all disabled). Fall back to the first
+		// generated agent so OpenCode always has at least one primary. Warn.
+		const first = agentNames[0];
+		return {
+			primaryNames: new Set([first]),
+			reason: 'fallback-first',
+			warning: `[swarm] No architect-role agents are registered and default_agent is unset; falling back to '${first}' as primary. Re-enable an architect agent or set default_agent to silence this warning.`,
+		};
+	}
+
+	// Base-role match (preferred when the value is itself a canonical base
+	// role like "architect" / "coder"): mark every generated agent whose
+	// canonical base role matches. We deliberately do NOT call
+	// stripKnownSwarmPrefix on the user value — "not_an_architect" must not
+	// collapse to "architect". Putting base-role BEFORE exact-match here is
+	// load-bearing for the "default swarm + extra swarms + default_agent:
+	// 'architect'" case: the user expects all architect-role agents primary
+	// (including unprefixed `architect` AND every `*_architect`), not just the
+	// agent literally named "architect".
+	if ((ALL_AGENT_NAMES as readonly string[]).includes(value)) {
+		const matching = agentNames.filter(
+			(n) => stripKnownSwarmPrefix(n) === value,
+		);
+		if (matching.length > 0) {
+			return { primaryNames: new Set(matching), reason: 'base-role' };
+		}
+		// Known role but no generated agent for it (entire role disabled).
+		// Fall through to fallback so the user still gets a usable primary.
+	}
+
+	// Exact generated-name match: only fires when the value is NOT a base role
+	// in ALL_AGENT_NAMES (handled above), so this path serves prefixed names
+	// like "local_architect" / "paid_coder". `agentNames.includes(value)` is
+	// the literal-string match — no stripping — which is what the spec means
+	// by "exact generated-name matching".
+	if (agentNames.includes(value)) {
+		return { primaryNames: new Set([value]), reason: 'exact' };
+	}
+
+	// Invalid / unmatched: fall back to architect-role agents, or to the first
+	// generated agent if no architect role exists. Always warn.
+	const architects = collectArchitectRole();
+	if (architects.length > 0) {
+		return {
+			primaryNames: new Set(architects),
+			reason: 'fallback-architects',
+			warning: `[swarm] default_agent '${value}' did not match any registered agent; falling back to architect-role primaries: ${architects.join(', ')}.`,
+		};
+	}
+	const first = agentNames[0];
+	return {
+		primaryNames: new Set([first]),
+		reason: 'fallback-first',
+		warning: `[swarm] default_agent '${value}' did not match any registered agent and no architect-role agents are registered; falling back to '${first}' as primary.`,
+	};
+}
+
+/**
  * Get agent configurations formatted for the OpenCode SDK.
  */
 export function getAgentConfigs(
@@ -643,6 +756,32 @@ export function getAgentConfigs(
 	// Accumulate per-agent tool snapshot for evidence writing
 	const agentToolSnapshot: Record<string, string[]> = {};
 
+	// Resolve which agents are primary once, before mapping over agents.
+	const resolution = resolvePrimaryAgentNames(
+		agents.map((a) => a.name),
+		config?.default_agent,
+	);
+	if (resolution.warning) {
+		if (!quiet) {
+			console.warn(resolution.warning);
+		} else {
+			addDeferredWarning(resolution.warning);
+		}
+	}
+	// Diagnostic invariant: a non-empty generated agent set must produce at least
+	// one primary. resolvePrimaryAgentNames already guarantees this; this is a
+	// defense-in-depth check that surfaces a deferred warning if the invariant
+	// is ever violated by future changes. It must never block plugin startup.
+	if (agents.length > 0 && resolution.primaryNames.size === 0) {
+		const generated = agents.map((a) => a.name).join(', ');
+		const diagnostic = `[swarm] DIAGNOSTIC: ${agents.length} generated agents but zero primaries. Likely cause: a regression in resolvePrimaryAgentNames. Generated: ${generated}.`;
+		if (!quiet) {
+			console.warn(diagnostic);
+		} else {
+			addDeferredWarning(diagnostic);
+		}
+	}
+
 	const result = Object.fromEntries(
 		agents.map((agent) => {
 			const sdkConfig: SDKAgentConfig = {
@@ -650,28 +789,7 @@ export function getAgentConfigs(
 				description: agent.description,
 			};
 
-			// Apply mode based on agent type
-			// The default_agent config field controls which agent is set as primary mode.
-			// If not specified, 'architect' (or agents ending with '_architect') is primary by default.
-			// Other agents are subagents unless explicitly set as default_agent.
-			// Defensive fallback: if default_agent is set but invalid, fall back to 'architect'.
-			let defaultAgent = config?.default_agent ?? 'architect';
-			if (
-				defaultAgent !== 'architect' &&
-				!(ALL_AGENT_NAMES as readonly string[]).includes(defaultAgent)
-			) {
-				if (!quiet) {
-					console.warn(
-						`[swarm] Invalid default_agent '${defaultAgent}' — falling back to 'architect'. Valid values: ${ALL_AGENT_NAMES.join(', ')}`,
-					);
-				} else {
-					addDeferredWarning(
-						`[swarm] Invalid default_agent '${defaultAgent}' — falling back to 'architect'. Valid values: ${ALL_AGENT_NAMES.join(', ')}`,
-					);
-				}
-				defaultAgent = 'architect';
-			}
-			const isPrimaryAgent = agent.name === defaultAgent;
+			const isPrimaryAgent = resolution.primaryNames.has(agent.name);
 
 			if (isPrimaryAgent) {
 				sdkConfig.mode = 'primary';
