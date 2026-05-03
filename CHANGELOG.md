@@ -1,5 +1,12 @@
 # Changelog
 
+## [7.3.5](https://github.com/zaxbysauce/opencode-swarm/compare/v7.3.4...v7.3.5) (2026-05-03)
+
+
+### Bug Fixes
+
+* **agents:** restore multi-swarm primary architects after v7.3.x regression ([#737](https://github.com/zaxbysauce/opencode-swarm/issues/737)) ([0c8d94e](https://github.com/zaxbysauce/opencode-swarm/commit/0c8d94e2cbd40ceb72b2f3a7210e2ce028f5bccf))
+
 ## [7.3.4](https://github.com/zaxbysauce/opencode-swarm/compare/v7.3.3...v7.3.4) (2026-05-02)
 
 
