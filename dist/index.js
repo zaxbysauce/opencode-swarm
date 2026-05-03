@@ -51,7 +51,7 @@ var package_default;
 var init_package = __esm(() => {
   package_default = {
     name: "opencode-swarm",
-    version: "7.3.4",
+    version: "7.3.5",
     description: "Architect-centric agentic swarm plugin for OpenCode - hub-and-spoke orchestration with SME consultation, code generation, and QA review",
     main: "dist/index.js",
     types: "dist/index.d.ts",
@@ -58254,6 +58254,18 @@ ${HARD_RULES}
 });
 
 // src/agents/critic.ts
+var exports_critic = {};
+__export(exports_critic, {
+  parseSoundingBoardResponse: () => parseSoundingBoardResponse,
+  createCriticDriftVerifierAgent: () => createCriticDriftVerifierAgent,
+  createCriticAutonomousOversightAgent: () => createCriticAutonomousOversightAgent,
+  createCriticAgent: () => createCriticAgent,
+  SOUNDING_BOARD_PROMPT: () => SOUNDING_BOARD_PROMPT,
+  PLAN_CRITIC_PROMPT: () => PLAN_CRITIC_PROMPT,
+  PHASE_DRIFT_VERIFIER_PROMPT: () => PHASE_DRIFT_VERIFIER_PROMPT,
+  HALLUCINATION_VERIFIER_PROMPT: () => HALLUCINATION_VERIFIER_PROMPT,
+  AUTONOMOUS_OVERSIGHT_PROMPT: () => AUTONOMOUS_OVERSIGHT_PROMPT
+});
 function parseSoundingBoardResponse(raw) {
   if (typeof raw !== "string" || raw.trim().length === 0)
     return null;
@@ -58307,6 +58319,25 @@ ${customAppendPrompt}` : rolePrompt;
   return {
     name: config3.name,
     description: config3.description,
+    config: {
+      model,
+      temperature: 0.1,
+      prompt,
+      tools: {
+        write: false,
+        edit: false,
+        patch: false
+      }
+    }
+  };
+}
+function createCriticDriftVerifierAgent(model, customAppendPrompt) {
+  const prompt = customAppendPrompt ? `${PHASE_DRIFT_VERIFIER_PROMPT}
+
+${customAppendPrompt}` : PHASE_DRIFT_VERIFIER_PROMPT;
+  return {
+    name: "critic",
+    description: "Phase drift verifier. Independently verifies that every task in a completed phase was actually implemented as specified.",
     config: {
       model,
       temperature: 0.1,
@@ -66218,10 +66249,29 @@ function createDelegationTrackerHook(config3, guardrailsEnabled = true) {
 // src/hooks/full-auto-intercept.ts
 init_schema();
 init_file_locks();
-init_state();
 init_telemetry();
 init_utils2();
 import * as fs35 from "node:fs";
+var _stateCache = null;
+async function _loadState() {
+  if (_stateCache === null) {
+    _stateCache = await Promise.resolve().then(() => (init_state(), exports_state));
+  }
+  return _stateCache;
+}
+var _criticCache = null;
+async function _loadCritic() {
+  if (_criticCache === null) {
+    _criticCache = await Promise.resolve().then(() => exports_critic);
+  }
+  return _criticCache;
+}
+var _internals = {
+  hasActiveFullAuto: null,
+  ensureAgentSession: null,
+  swarmState: null,
+  createCriticAutonomousOversightAgent: null
+};
 var END_OF_SENTENCE_QUESTION_PATTERN = /\?\s*$/;
 var PHASE_COMPLETION_PATTERNS = [
   /Ready for Phase (?:\d+|\[?N\+1\]?)\??/i,
@@ -66528,7 +66578,8 @@ Critic reasoning: ${criticResult.reasoning}`
   }
 }
 async function dispatchCriticAndWriteEvent(directory, architectOutput, criticContext, criticModel, escalationType, interactionCount, deadlockCount, oversightAgentName) {
-  const client = swarmState.opencodeClient;
+  const swarmState2 = _internals.swarmState ?? (await _loadState()).swarmState;
+  const client = swarmState2.opencodeClient;
   if (!client) {
     warn("[full-auto-intercept] No opencodeClient — critic dispatch skipped (fallback to PENDING)");
     const result = {
@@ -66542,7 +66593,8 @@ async function dispatchCriticAndWriteEvent(directory, architectOutput, criticCon
     await writeAutoOversightEvent(directory, architectOutput, result.verdict, result.reasoning, result.evidenceChecked, interactionCount, deadlockCount, escalationType);
     return result;
   }
-  const oversightAgent = createCriticAutonomousOversightAgent(criticModel, criticContext);
+  const createCriticFn = _internals.createCriticAutonomousOversightAgent ?? (await _loadCritic()).createCriticAutonomousOversightAgent;
+  const oversightAgent = createCriticFn(criticModel, criticContext);
   log(`[full-auto-intercept] Dispatching critic: ${oversightAgent.name} using model ${criticModel}`);
   let ephemeralSessionId;
   const cleanup = () => {
@@ -66648,11 +66700,12 @@ function createFullAutoInterceptHook(config3, directory) {
     if (!architectText)
       return;
     const sessionID = architectMessage.info?.sessionID;
-    if (!hasActiveFullAuto(sessionID))
+    const hasActiveFullAuto2 = _internals.hasActiveFullAuto ?? (await _loadState()).hasActiveFullAuto;
+    if (!hasActiveFullAuto2(sessionID))
       return;
+    const ensureAgentSession2 = _internals.ensureAgentSession ?? (await _loadState()).ensureAgentSession;
     let session = null;
     if (sessionID) {
-      const { ensureAgentSession: ensureAgentSession2 } = await Promise.resolve().then(() => (init_state(), exports_state));
       session = ensureAgentSession2(sessionID);
     }
     if (session) {
@@ -66690,7 +66743,8 @@ function createFullAutoInterceptHook(config3, directory) {
     log(`[full-auto-intercept] Escalation detected (${escalationType}) — triggering autonomous oversight`);
     const criticContext = buildCriticContext(architectText, escalationType);
     const criticModel = fullAutoConfig.critic_model ?? "claude-sonnet-4-20250514";
-    const oversightAgent = createCriticAutonomousOversightAgent(criticModel, criticContext);
+    const createCriticFn = _internals.createCriticAutonomousOversightAgent ?? (await _loadCritic()).createCriticAutonomousOversightAgent;
+    const oversightAgent = createCriticFn(criticModel, criticContext);
     const architectAgent = architectMessage.info?.agent;
     const resolvedOversightAgentName = resolveOversightAgentName(architectAgent);
     const dispatchAgentName = resolvedOversightAgentName && resolvedOversightAgentName.length > 0 ? resolvedOversightAgentName : "critic_oversight";
@@ -89699,7 +89753,7 @@ import * as path105 from "node:path";
 init_bun_compat();
 import * as fs84 from "node:fs";
 import * as path104 from "node:path";
-var _internals = { bunSpawn };
+var _internals2 = { bunSpawn };
 var _swarmGitExcludedChecked = false;
 function fileCoversSwarm(content) {
   for (const rawLine of content.split(`
@@ -89726,7 +89780,7 @@ async function ensureSwarmGitExcluded(directory, options = {}) {
   _swarmGitExcludedChecked = true;
   const { quiet = false } = options;
   try {
-    const gitRootProc = _internals.bunSpawn(["git", "-C", directory, "rev-parse", "--show-toplevel"], GIT_SPAWN_OPTIONS);
+    const gitRootProc = _internals2.bunSpawn(["git", "-C", directory, "rev-parse", "--show-toplevel"], GIT_SPAWN_OPTIONS);
     let gitRootExitCode;
     let gitRootOutput;
     try {
@@ -89744,7 +89798,7 @@ async function ensureSwarmGitExcluded(directory, options = {}) {
     const gitRoot = gitRootOutput.trim();
     if (!gitRoot)
       return;
-    const excludePathProc = _internals.bunSpawn(["git", "-C", directory, "rev-parse", "--git-path", "info/exclude"], GIT_SPAWN_OPTIONS);
+    const excludePathProc = _internals2.bunSpawn(["git", "-C", directory, "rev-parse", "--git-path", "info/exclude"], GIT_SPAWN_OPTIONS);
     let excludePathExitCode;
     let excludePathRaw;
     try {
@@ -89763,7 +89817,7 @@ async function ensureSwarmGitExcluded(directory, options = {}) {
     if (!excludeRelPath)
       return;
     const excludePath = path104.isAbsolute(excludeRelPath) ? excludeRelPath : path104.join(directory, excludeRelPath);
-    const checkIgnoreProc = _internals.bunSpawn(["git", "-C", directory, "check-ignore", "-q", ".swarm/.gitkeep"], GIT_SPAWN_OPTIONS);
+    const checkIgnoreProc = _internals2.bunSpawn(["git", "-C", directory, "check-ignore", "-q", ".swarm/.gitkeep"], GIT_SPAWN_OPTIONS);
     let checkIgnoreExitCode;
     try {
       checkIgnoreExitCode = await checkIgnoreProc.exited;
@@ -89790,7 +89844,7 @@ async function ensureSwarmGitExcluded(directory, options = {}) {
         }
       } catch {}
     }
-    const trackedProc = _internals.bunSpawn(["git", "-C", directory, "ls-files", "--", ".swarm"], GIT_SPAWN_OPTIONS);
+    const trackedProc = _internals2.bunSpawn(["git", "-C", directory, "ls-files", "--", ".swarm"], GIT_SPAWN_OPTIONS);
     let trackedExitCode;
     let trackedOutput;
     try {
@@ -89815,7 +89869,7 @@ async function ensureSwarmGitExcluded(directory, options = {}) {
 }
 
 // src/hooks/diff-scope.ts
-var _internals2 = { bunSpawn };
+var _internals3 = { bunSpawn };
 function getDeclaredScope(taskId, directory) {
   try {
     const planPath = path105.join(directory, ".swarm", "plan.json");
@@ -89850,7 +89904,7 @@ var GIT_DIFF_SPAWN_OPTIONS = {
 };
 async function getChangedFiles(directory) {
   try {
-    const proc = _internals2.bunSpawn(["git", "diff", "--name-only", "HEAD~1"], {
+    const proc = _internals3.bunSpawn(["git", "diff", "--name-only", "HEAD~1"], {
       cwd: directory,
       ...GIT_DIFF_SPAWN_OPTIONS
     });
@@ -89867,7 +89921,7 @@ async function getChangedFiles(directory) {
       return stdout.trim().split(`
 `).map((f) => f.trim()).filter((f) => f.length > 0);
     }
-    const proc2 = _internals2.bunSpawn(["git", "diff", "--name-only", "HEAD"], {
+    const proc2 = _internals3.bunSpawn(["git", "diff", "--name-only", "HEAD"], {
       cwd: directory,
       ...GIT_DIFF_SPAWN_OPTIONS
     });

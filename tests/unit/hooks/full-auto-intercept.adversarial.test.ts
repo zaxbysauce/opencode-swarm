@@ -144,7 +144,8 @@ const { createFullAutoInterceptHook, _internals } = await import(
 const _defaultHasActiveFullAuto = _internals.hasActiveFullAuto;
 const _defaultEnsureAgentSession = _internals.ensureAgentSession;
 const _defaultSwarmState = _internals.swarmState;
-const _defaultCreateCriticAgent = _internals.createCriticAutonomousOversightAgent;
+const _defaultCreateCriticAgent =
+	_internals.createCriticAutonomousOversightAgent;
 
 let testDir: string;
 
@@ -222,9 +223,7 @@ describe('full-auto-intercept ADVERSARIAL tests', () => {
 					name: 'critic_oversight',
 					config: {},
 				}) as ReturnType<
-					NonNullable<
-						typeof _internals.createCriticAutonomousOversightAgent
-					>
+					NonNullable<typeof _internals.createCriticAutonomousOversightAgent>
 				>,
 		);
 

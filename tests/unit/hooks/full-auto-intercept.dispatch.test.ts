@@ -85,7 +85,8 @@ const {
 const _defaultHasActiveFullAuto = _internals.hasActiveFullAuto;
 const _defaultEnsureAgentSession = _internals.ensureAgentSession;
 const _defaultSwarmState = _internals.swarmState;
-const _defaultCreateCriticAgent = _internals.createCriticAutonomousOversightAgent;
+const _defaultCreateCriticAgent =
+	_internals.createCriticAutonomousOversightAgent;
 
 let testDir: string;
 let originalConsoleLog: typeof console.log;

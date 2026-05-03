@@ -607,8 +607,7 @@ export async function dispatchCriticAndWriteEvent(
 	deadlockCount: number,
 	oversightAgentName: string,
 ): Promise<CriticDispatchResult> {
-	const swarmState =
-		_internals.swarmState ?? (await _loadState()).swarmState;
+	const swarmState = _internals.swarmState ?? (await _loadState()).swarmState;
 	const client = swarmState.opencodeClient;
 
 	// If no client (e.g., in tests), fall back to PENDING
@@ -833,14 +832,12 @@ export function createFullAutoInterceptHook(
 
 		// Check if full-auto is active for this session
 		const hasActiveFullAuto =
-			_internals.hasActiveFullAuto ??
-			(await _loadState()).hasActiveFullAuto;
+			_internals.hasActiveFullAuto ?? (await _loadState()).hasActiveFullAuto;
 		if (!hasActiveFullAuto(sessionID)) return;
 
 		// Get or create session state for tracking
 		const ensureAgentSession =
-			_internals.ensureAgentSession ??
-			(await _loadState()).ensureAgentSession;
+			_internals.ensureAgentSession ?? (await _loadState()).ensureAgentSession;
 		let session: AgentSessionState | null = null;
 		if (sessionID) {
 			session = ensureAgentSession(sessionID);

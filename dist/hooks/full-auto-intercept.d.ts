@@ -7,7 +7,31 @@
  * This hook runs as a chat.message transform — it inspects the architect's output
  * and injects the critic's autonomous oversight response when escalation is detected.
  */
+import type { OpencodeClient } from '@opencode-ai/sdk';
+import type { AgentDefinition } from '../agents/architect.js';
 import type { PluginConfig } from '../config';
+import type { AgentSessionState } from '../state.js';
+/**
+ * Test-only dependency-injection seam. Production code accesses state through
+ * `_internals.*` so tests can swap individual functions on this object without
+ * resorting to `mock.module('../../../src/state.js', ...)`, which leaks across
+ * test files in Bun's shared test-runner process and contaminates unrelated
+ * suites (see `gitignore-warning.ts:_internals` and `diff-scope.ts:_internals`
+ * for the pattern rationale). Tests should restore overridden properties in
+ * `afterEach`.
+ *
+ * All fields default to `null`. In production the lazy loaders (`_loadState`,
+ * `_loadCritic`) are used as fallbacks. In tests, set a non-null override
+ * before calling the hook to bypass the real module entirely.
+ */
+export declare const _internals: {
+    hasActiveFullAuto: ((sessionId?: string) => boolean) | null;
+    ensureAgentSession: ((sessionId: string) => AgentSessionState) | null;
+    swarmState: {
+        opencodeClient: OpencodeClient | null;
+    } | null;
+    createCriticAutonomousOversightAgent: ((model: string, customAppendPrompt?: string) => AgentDefinition) | null;
+};
 interface MessageWithParts {
     info: {
         role: string;
