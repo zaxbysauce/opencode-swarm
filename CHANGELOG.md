@@ -1,5 +1,12 @@
 # Changelog
 
+## [7.3.6](https://github.com/zaxbysauce/opencode-swarm/compare/v7.3.5...v7.3.6) (2026-05-03)
+
+
+### Bug Fixes
+
+* **mutation:** bound generateMutants with timeout; fix git apply CRLF failure on Windows ([#739](https://github.com/zaxbysauce/opencode-swarm/issues/739)) ([de535a2](https://github.com/zaxbysauce/opencode-swarm/commit/de535a2ef37bd8d07b45c906ea499e9ddd065b92))
+
 ## [7.3.5](https://github.com/zaxbysauce/opencode-swarm/compare/v7.3.4...v7.3.5) (2026-05-03)
 
 
