@@ -954,6 +954,8 @@ describe('Post-compaction rehydration cache refresh', () => {
 	});
 
 	afterEach(async () => {
+		const { resetSwarmState } = await import('../../../src/state');
+		resetSwarmState();
 		await rm(tempDir, { recursive: true, force: true });
 	});
 
@@ -995,7 +997,11 @@ describe('Post-compaction rehydration cache refresh', () => {
 		await buildRehydrationCache(tempDir);
 
 		// Verify: session created now should have task 1.1 as idle
-		const sessionBefore = ensureAgentSession('session-before', 'architect', tempDir);
+		const sessionBefore = ensureAgentSession(
+			'session-before',
+			'architect',
+			tempDir,
+		);
 		expect(sessionBefore.taskWorkflowStates?.get('1.1')).toBe('idle');
 
 		resetSwarmState();
@@ -1024,7 +1030,11 @@ describe('Post-compaction rehydration cache refresh', () => {
 		await handler({ sessionID: 'test-session' }, output);
 
 		// The hook must have refreshed the cache. A new session should see task 1.1 as complete.
-		const sessionAfter = ensureAgentSession('session-after', 'architect', tempDir);
+		const sessionAfter = ensureAgentSession(
+			'session-after',
+			'architect',
+			tempDir,
+		);
 		expect(sessionAfter.taskWorkflowStates?.get('1.1')).toBe('complete');
 	});
 });

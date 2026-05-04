@@ -1336,7 +1336,8 @@ async function readGateEvidenceFromDisk(
  */
 /**
  * Reads plan.json + evidence/*.json from the project directory and populates the
- * module-level _rehydrationCache.  Called once at plugin init by loadSnapshot().
+ * module-level _rehydrationCache.  Called at plugin init by loadSnapshot() and
+ * refreshed after compaction by the compaction hook (src/hooks/compaction-customizer.ts).
  * Non-fatal: missing/malformed files leave an empty cache.
  */
 export async function buildRehydrationCache(directory: string): Promise<void> {
