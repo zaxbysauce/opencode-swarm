@@ -1,5 +1,12 @@
 # Changelog
 
+## [7.4.3](https://github.com/zaxbysauce/opencode-swarm/compare/v7.4.2...v7.4.3) (2026-05-04)
+
+
+### Bug Fixes
+
+* **plan-sync:** ← CURRENT marker in extractIncompleteTasksFromPlan + refresh rehydration cache after compaction ([#751](https://github.com/zaxbysauce/opencode-swarm/issues/751)) ([dbcd0be](https://github.com/zaxbysauce/opencode-swarm/commit/dbcd0be55279e278aaf8bbe21e9ccb38462d283f))
+
 ## [7.4.2](https://github.com/zaxbysauce/opencode-swarm/compare/v7.4.1...v7.4.2) (2026-05-03)
 
 
