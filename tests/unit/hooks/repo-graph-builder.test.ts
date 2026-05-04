@@ -419,15 +419,6 @@ describe('workspace boundary validation', () => {
 		}
 	});
 
-	afterEach(() => {
-		// Clean up temp directory
-		try {
-			fs.rmSync(tempDir, { recursive: true, force: true });
-		} catch {
-			// Ignore cleanup errors
-		}
-	});
-
 	test('file inside workspace triggers updateGraphForFiles', async () => {
 		const hook = createRepoGraphBuilderHook(workspaceRoot, {
 			buildWorkspaceGraph: mockBuildWorkspaceGraph,
