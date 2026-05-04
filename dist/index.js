@@ -51,7 +51,7 @@ var package_default;
 var init_package = __esm(() => {
   package_default = {
     name: "opencode-swarm",
-    version: "7.4.1",
+    version: "7.4.2",
     description: "Architect-centric agentic swarm plugin for OpenCode - hub-and-spoke orchestration with SME consultation, code generation, and QA review",
     main: "dist/index.js",
     types: "dist/index.d.ts",
@@ -23164,7 +23164,8 @@ function extractIncompleteTasksFromPlan(plan, maxChars = 500) {
     return null;
   const lines = incomplete.map((t) => {
     const deps = t.depends.length > 0 ? ` (depends: ${t.depends.join(", ")})` : "";
-    return `- [ ] ${t.id}: ${t.description} [${t.size.toUpperCase()}]${deps}`;
+    const marker = t.status === "in_progress" ? " ← CURRENT" : "";
+    return `- [ ] ${t.id}: ${t.description} [${t.size.toUpperCase()}]${deps}${marker}`;
   });
   const text = lines.join(`
 `);
@@ -65957,6 +65958,7 @@ function createCcCommandInterceptHook(config3 = {}) {
 }
 // src/hooks/compaction-customizer.ts
 init_manager();
+init_state();
 init_utils2();
 import * as fs33 from "node:fs";
 import { join as join45 } from "node:path";
@@ -66013,6 +66015,7 @@ function createCompactionCustomizerHook(config3, directory) {
         }
       } catch {}
       output.context.push("[KNOWLEDGE TOOLS] You have persistent knowledge tools: knowledge_recall (search for relevant past decisions), knowledge_add (store a new lesson), knowledge_remove (delete outdated entries). Use knowledge_recall when past context would help.");
+      await buildRehydrationCache(directory);
     })
   };
 }

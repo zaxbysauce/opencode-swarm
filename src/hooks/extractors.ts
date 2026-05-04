@@ -274,7 +274,8 @@ export function extractIncompleteTasksFromPlan(
 	const lines = incomplete.map((t) => {
 		const deps =
 			t.depends.length > 0 ? ` (depends: ${t.depends.join(', ')})` : '';
-		return `- [ ] ${t.id}: ${t.description} [${t.size.toUpperCase()}]${deps}`;
+		const marker = t.status === 'in_progress' ? ' ← CURRENT' : '';
+		return `- [ ] ${t.id}: ${t.description} [${t.size.toUpperCase()}]${deps}${marker}`;
 	});
 
 	const text = lines.join('\n');
