@@ -3358,10 +3358,12 @@ export const DEFAULT_AGENT_AUTHORITY_RULES: Record<string, AgentRule> = {
 		// v7.x (#bug-test-engineer-write-access): allow writes to any tests/test
 		// directory at any depth (e.g. src-tauri/tests/, packages/foo/test/) and
 		// to any .test.* / .spec.* file so that projects with non-root test
-		// layouts are not blocked. allowedGlobs runs at Step 5, BEFORE blockedPrefix
-		// at Step 6; this ordering is intentional — it means test files inside a
+		// layouts are not blocked. allowedGlobs runs at Step 6, BEFORE blockedPrefix
+		// at Step 7; this ordering is intentional — it means test files inside a
 		// blocked directory like src/ (e.g. src/__tests__/, src/auth/login.test.ts)
 		// are explicitly re-allowed by the glob before blockedPrefix can deny them.
+		// NOTE: blockedZones runs at Step 5, BEFORE allowedGlobs, so test files
+		// inside generated output dirs (dist/, build/) are still blocked.
 		allowedGlobs: [
 			'**/tests/**',
 			'**/test/**',
@@ -3512,10 +3514,12 @@ export function isOnDifferentFilesystemRoot(
  * 2. blockedExact - exact path matches (fast path)
  * 3. blockedGlobs - glob pattern matches
  * 4. allowedExact - explicit allow for exact paths
- * 5. allowedGlobs - explicit allow for glob patterns
- * 6. blockedPrefix - prefix-based blocking (takes priority over allowedPrefix)
- * 7. allowedPrefix - prefix-based allow (whitelist)
- * 8. blockedZones - zone-based blocking
+ * 5. blockedZones - zone-based blocking (runs before allowedGlobs so that generated
+ *    output dirs like dist/ and build/ cannot be bypassed by a glob pattern match)
+ * 6. allowedGlobs - explicit allow for glob patterns (overrides blockedPrefix/allowedPrefix
+ *    but NOT blockedZones, which is already decided in Step 5)
+ * 7. blockedPrefix - prefix-based blocking (takes priority over allowedPrefix)
+ * 8. allowedPrefix - prefix-based allow (whitelist)
  */
 function checkFileAuthorityWithRules(
 	agentName: string,
@@ -3624,7 +3628,27 @@ function checkFileAuthorityWithRules(
 		}
 	}
 
-	// Step 5: allowedGlobs - explicit allow for glob patterns (overrides blocked rules)
+	// Step 5: blockedZones - zone-based blocking (runs before allowedGlobs so that
+	// generated output directories like dist/ and build/ cannot be accidentally
+	// re-allowed by a glob pattern such as **/*.test.* or **/*.md).
+	if (rules.blockedZones && rules.blockedZones.length > 0) {
+		const { zone } = classifyFile(normalizedPath);
+		if (rules.blockedZones.includes(zone)) {
+			return {
+				allowed: false,
+				reason: `Path blocked: ${normalizedPath} is in ${zone} zone`,
+				zone,
+			};
+		}
+	}
+
+	// Step 6: allowedGlobs - explicit allow for glob patterns (overrides blockedPrefix
+	// and allowedPrefix, but NOT blockedZones which is already enforced in Step 5).
+	//
+	// v7.x (#bug-test-engineer-write-access): allowedGlobs runs BEFORE blockedPrefix
+	// at Step 7; this ordering is intentional — it means test files inside a
+	// blocked directory like src/ (e.g. src/__tests__/, src/auth/login.test.ts)
+	// are explicitly re-allowed by the glob before blockedPrefix can deny them.
 	if (rules.allowedGlobs && rules.allowedGlobs.length > 0) {
 		const isGlobAllowed = rules.allowedGlobs.some((glob) => {
 			const matcher = getGlobMatcher(glob);
@@ -3635,7 +3659,7 @@ function checkFileAuthorityWithRules(
 		}
 	}
 
-	// Step 6: blockedPrefix - prefix-based blocking (runs before allowedPrefix so that
+	// Step 7: blockedPrefix - prefix-based blocking (runs before allowedPrefix so that
 	// explicit block rules take priority over allowlist rules)
 	if (rules.blockedPrefix && rules.blockedPrefix.length > 0) {
 		for (const prefix of rules.blockedPrefix) {
@@ -3648,7 +3672,7 @@ function checkFileAuthorityWithRules(
 		}
 	}
 
-	// Step 7: allowedPrefix - prefix-based allow (whitelist model)
+	// Step 8: allowedPrefix - prefix-based allow (whitelist model)
 	// If configured, only paths starting with these prefixes are allowed.
 	//
 	// v6.70.0 (#496): If the architect has declared an explicit scope via the
@@ -3657,7 +3681,7 @@ function checkFileAuthorityWithRules(
 	// paths (Rails `config/`, `app/`, `db/`; Python `module/`, `pyproject.toml`; etc.)
 	// without editing the default rule set.
 	//
-	// SECURITY: declaredScope ONLY relaxes allowedPrefix (Step 7). All DENY rules
+	// SECURITY: declaredScope ONLY relaxes allowedPrefix (Step 8). All DENY rules
 	// (readOnly, blockedExact, blockedGlobs, blockedPrefix, blockedZones) and
 	// universal_deny_prefixes (checked upstream in toolBefore) remain fully
 	// enforced. A declared scope cannot grant writes into .env, .git/, secrets/,
@@ -3695,18 +3719,6 @@ function checkFileAuthorityWithRules(
 			return {
 				allowed: false,
 				reason: `Path ${normalizedPath} not in allowed list for ${normalizedAgent}`,
-			};
-		}
-	}
-
-	// Step 8: blockedZones - zone-based blocking
-	if (rules.blockedZones && rules.blockedZones.length > 0) {
-		const { zone } = classifyFile(normalizedPath);
-		if (rules.blockedZones.includes(zone)) {
-			return {
-				allowed: false,
-				reason: `Path blocked: ${normalizedPath} is in ${zone} zone`,
-				zone,
 			};
 		}
 	}

@@ -409,7 +409,11 @@ describe('guardrails-authority - File Authority Enforcement', () => {
 		});
 
 		it('blocks docs from writing TypeScript source files (no doc marker)', () => {
-			const result = checkFileAuthority('docs', 'src/utils/helpers.ts', tempDir);
+			const result = checkFileAuthority(
+				'docs',
+				'src/utils/helpers.ts',
+				tempDir,
+			);
 			expect(result.allowed).toBe(false);
 		});
 
@@ -438,6 +442,85 @@ describe('guardrails-authority - File Authority Enforcement', () => {
 				tempDir,
 			);
 			expect(result.allowed).toBe(false);
+		});
+	});
+
+	// ─────────────────────────────────────────────────────────────────────────────
+	// Generated-zone blocking survives allowedGlobs (blockedZones Step 5 > allowedGlobs Step 6)
+	//
+	// allowedGlobs patterns like **/*.test.* and **/*.md can superficially match
+	// paths inside dist/ or build/, but those directories are classified as the
+	// 'generated' zone. blockedZones runs at Step 5, before allowedGlobs at Step 6,
+	// so generated-output paths are always blocked regardless of the filename.
+	// ─────────────────────────────────────────────────────────────────────────────
+	describe('Generated-zone blocking survives allowedGlobs', () => {
+		it('blocks test_engineer from writing dist/foo.test.ts (generated zone beats *.test.* glob)', () => {
+			const result = checkFileAuthority(
+				'test_engineer',
+				'dist/foo.test.ts',
+				tempDir,
+			);
+			expect(result.allowed).toBe(false);
+			if (isDenied(result)) {
+				expect(result.reason).toContain('generated');
+			}
+		});
+
+		it('blocks test_engineer from writing build/foo.test.ts (generated zone beats *.test.* glob)', () => {
+			const result = checkFileAuthority(
+				'test_engineer',
+				'build/foo.test.ts',
+				tempDir,
+			);
+			expect(result.allowed).toBe(false);
+			if (isDenied(result)) {
+				expect(result.reason).toContain('generated');
+			}
+		});
+
+		it('blocks test_engineer from writing nested/dist/spec/foo.spec.ts', () => {
+			const result = checkFileAuthority(
+				'test_engineer',
+				'packages/core/dist/foo.spec.ts',
+				tempDir,
+			);
+			expect(result.allowed).toBe(false);
+		});
+
+		it('blocks docs from writing dist/README.md (generated zone beats *.md glob)', () => {
+			const result = checkFileAuthority('docs', 'dist/README.md', tempDir);
+			expect(result.allowed).toBe(false);
+			if (isDenied(result)) {
+				expect(result.reason).toContain('generated');
+			}
+		});
+
+		it('blocks docs from writing build/docs/api.md (generated zone beats **/docs/** glob)', () => {
+			const result = checkFileAuthority('docs', 'build/docs/api.md', tempDir);
+			expect(result.allowed).toBe(false);
+			if (isDenied(result)) {
+				expect(result.reason).toContain('generated');
+			}
+		});
+
+		it('blocks designer from writing dist/design.md (generated zone beats *.md glob)', () => {
+			const result = checkFileAuthority('designer', 'dist/design.md', tempDir);
+			expect(result.allowed).toBe(false);
+			if (isDenied(result)) {
+				expect(result.reason).toContain('generated');
+			}
+		});
+
+		it('blocks designer from writing build/docs/design.md (generated zone beats **/docs/** glob)', () => {
+			const result = checkFileAuthority(
+				'designer',
+				'build/docs/design.md',
+				tempDir,
+			);
+			expect(result.allowed).toBe(false);
+			if (isDenied(result)) {
+				expect(result.reason).toContain('generated');
+			}
 		});
 	});
 
@@ -517,6 +600,42 @@ describe('guardrails-authority - File Authority Enforcement', () => {
 
 		it('allows unprefixed canonical coder to write to src/file.ts', () => {
 			const result = checkFileAuthority('coder', 'src/file.ts', tempDir);
+			expect(result.allowed).toBe(true);
+		});
+
+		it('allows local_docs to write to packages/core/docs/api.md (inherits docs allowedGlobs)', () => {
+			const result = checkFileAuthority(
+				'local_docs',
+				'packages/core/docs/api.md',
+				tempDir,
+			);
+			expect(result.allowed).toBe(true);
+		});
+
+		it('allows local_docs to write to packages/core/README.md (inherits docs *.md glob)', () => {
+			const result = checkFileAuthority(
+				'local_docs',
+				'packages/core/README.md',
+				tempDir,
+			);
+			expect(result.allowed).toBe(true);
+		});
+
+		it('allows paid_designer to write to apps/frontend/docs/design.md (inherits designer allowedGlobs)', () => {
+			const result = checkFileAuthority(
+				'paid_designer',
+				'apps/frontend/docs/design.md',
+				tempDir,
+			);
+			expect(result.allowed).toBe(true);
+		});
+
+		it('allows mega_docs to write .mdx files at arbitrary paths (inherits docs *.mdx glob)', () => {
+			const result = checkFileAuthority(
+				'mega_docs',
+				'apps/web/src/pages/intro.mdx',
+				tempDir,
+			);
 			expect(result.allowed).toBe(true);
 		});
 	});
@@ -1117,6 +1236,52 @@ describe('guardrails-authority - File Authority Enforcement', () => {
 				hooks.toolBefore(
 					{ tool: 'write', sessionID: sessionId, callID: 'call-6' },
 					{ args: { filePath: 'src/file.ts' } },
+				),
+			).rejects.toThrow(/WRITE BLOCKED/i);
+		});
+
+		/**
+		 * Test 7: test_engineer writes to packages/core/tests/unit/foo.test.ts via hook.
+		 * Exercises the full hook pipeline for nested test paths — this is the
+		 * primary real-world scenario that triggered #bug-test-engineer-write-access.
+		 * delegationActive=true simulates the architect→test_engineer delegation.
+		 */
+		it('test_engineer can write to nested packages/core/tests/unit/foo.test.ts via toolBefore hook', async () => {
+			const sessionId = 'toolbefore-testengineer-nested';
+			ensureAgentSession(sessionId, 'test_engineer');
+			swarmState.activeAgent.set(sessionId, 'test_engineer');
+			const session = getAgentSession(sessionId)!;
+			session.delegationActive = true;
+			beginInvocation(sessionId, 'test_engineer');
+
+			const hooks = createGuardrailsHooks(tempDir, hooksConfig);
+
+			// Should NOT throw — allowedGlobs matches **/tests/** at Step 6
+			await hooks.toolBefore(
+				{ tool: 'write', sessionID: sessionId, callID: 'call-7' },
+				{ args: { filePath: 'packages/core/tests/unit/foo.test.ts' } },
+			);
+		});
+
+		/**
+		 * Test 8: test_engineer blocked from writing dist/foo.test.ts via hook.
+		 * blockedZones (Step 5) fires before allowedGlobs (Step 6) so the generated
+		 * zone beats the *.test.* glob.  delegationActive=true.
+		 */
+		it('test_engineer blocked from dist/foo.test.ts via toolBefore hook (generated zone)', async () => {
+			const sessionId = 'toolbefore-testengineer-dist';
+			ensureAgentSession(sessionId, 'test_engineer');
+			swarmState.activeAgent.set(sessionId, 'test_engineer');
+			const session = getAgentSession(sessionId)!;
+			session.delegationActive = true;
+			beginInvocation(sessionId, 'test_engineer');
+
+			const hooks = createGuardrailsHooks(tempDir, hooksConfig);
+
+			await expect(
+				hooks.toolBefore(
+					{ tool: 'write', sessionID: sessionId, callID: 'call-8' },
+					{ args: { filePath: 'nested/dist/foo.test.ts' } },
 				),
 			).rejects.toThrow(/WRITE BLOCKED/i);
 		});
