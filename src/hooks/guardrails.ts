@@ -3372,10 +3372,17 @@ export const DEFAULT_AGENT_AUTHORITY_RULES: Record<string, AgentRule> = {
 	},
 	docs: {
 		allowedPrefix: ['docs/', '.swarm/outputs/'],
+		// v7.x (#bug-test-engineer-write-access follow-up): allow writes to any
+		// docs/ directory at any depth (e.g. packages/core/docs/, apps/web/docs/)
+		// and to Markdown/RST documentation files co-located anywhere in the tree.
+		allowedGlobs: ['**/docs/**', '**/*.md', '**/*.mdx', '**/*.rst'],
 		blockedZones: ['generated'],
 	},
 	designer: {
 		allowedPrefix: ['docs/', '.swarm/outputs/'],
+		// v7.x (#bug-test-engineer-write-access follow-up): same reasoning as docs —
+		// UI scaffolds and design docs may live in nested package directories.
+		allowedGlobs: ['**/docs/**', '**/*.md', '**/*.mdx', '**/*.rst'],
 		blockedZones: ['generated'],
 	},
 	critic: {

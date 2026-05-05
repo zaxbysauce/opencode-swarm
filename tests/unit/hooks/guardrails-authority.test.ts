@@ -368,6 +368,77 @@ describe('guardrails-authority - File Authority Enforcement', () => {
 			const result = checkFileAuthority('designer', 'src/app.ts', tempDir);
 			expect(result.allowed).toBe(false);
 		});
+
+		// Regression tests for #bug-test-engineer-write-access follow-up:
+		// docs/designer must be able to write to docs/ at any depth and to
+		// markdown files co-located anywhere in the project.
+		it('allows docs to write to a nested package docs/ dir', () => {
+			const result = checkFileAuthority(
+				'docs',
+				'packages/core/docs/api.md',
+				tempDir,
+			);
+			expect(result.allowed).toBe(true);
+		});
+
+		it('allows docs to write to a markdown file co-located in a package', () => {
+			const result = checkFileAuthority(
+				'docs',
+				'packages/core/README.md',
+				tempDir,
+			);
+			expect(result.allowed).toBe(true);
+		});
+
+		it('allows docs to write .mdx files at arbitrary paths', () => {
+			const result = checkFileAuthority(
+				'docs',
+				'apps/web/src/pages/intro.mdx',
+				tempDir,
+			);
+			expect(result.allowed).toBe(true);
+		});
+
+		it('allows docs to write .rst files at arbitrary paths', () => {
+			const result = checkFileAuthority(
+				'docs',
+				'backend/docs/conf.rst',
+				tempDir,
+			);
+			expect(result.allowed).toBe(true);
+		});
+
+		it('blocks docs from writing TypeScript source files (no doc marker)', () => {
+			const result = checkFileAuthority('docs', 'src/utils/helpers.ts', tempDir);
+			expect(result.allowed).toBe(false);
+		});
+
+		it('allows designer to write to a nested package docs/ dir', () => {
+			const result = checkFileAuthority(
+				'designer',
+				'apps/frontend/docs/design-system.md',
+				tempDir,
+			);
+			expect(result.allowed).toBe(true);
+		});
+
+		it('allows designer to write .md files at arbitrary paths', () => {
+			const result = checkFileAuthority(
+				'designer',
+				'packages/ui/CHANGELOG.md',
+				tempDir,
+			);
+			expect(result.allowed).toBe(true);
+		});
+
+		it('blocks designer from writing TypeScript source files (no doc marker)', () => {
+			const result = checkFileAuthority(
+				'designer',
+				'src/components/Button.tsx',
+				tempDir,
+			);
+			expect(result.allowed).toBe(false);
+		});
 	});
 
 	describe('Critic write scope', () => {
