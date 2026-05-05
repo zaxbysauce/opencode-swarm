@@ -3358,9 +3358,10 @@ export const DEFAULT_AGENT_AUTHORITY_RULES: Record<string, AgentRule> = {
 		// v7.x (#bug-test-engineer-write-access): allow writes to any tests/test
 		// directory at any depth (e.g. src-tauri/tests/, packages/foo/test/) and
 		// to any .test.* / .spec.* file so that projects with non-root test
-		// layouts are not blocked. allowedGlobs is evaluated at Step 5, before
-		// blockedPrefix at Step 6, so test files inside src/ sub-directories
-		// (e.g. src/__tests__/) are also covered — writing there is intentional.
+		// layouts are not blocked. allowedGlobs runs at Step 5, BEFORE blockedPrefix
+		// at Step 6; this ordering is intentional — it means test files inside a
+		// blocked directory like src/ (e.g. src/__tests__/, src/auth/login.test.ts)
+		// are explicitly re-allowed by the glob before blockedPrefix can deny them.
 		allowedGlobs: [
 			'**/tests/**',
 			'**/test/**',
