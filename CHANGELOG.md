@@ -1,5 +1,12 @@
 # Changelog
 
+## [7.5.0](https://github.com/zaxbysauce/opencode-swarm/compare/v7.4.3...v7.5.0) (2026-05-05)
+
+
+### Features
+
+* repo graph post-hardening improvements (module split, symlink safety, concurrency, escalation) ([#754](https://github.com/zaxbysauce/opencode-swarm/issues/754)) ([3713d05](https://github.com/zaxbysauce/opencode-swarm/commit/3713d05b58d9321bd5a2f7223a9105ec8fe08034))
+
 ## [7.4.3](https://github.com/zaxbysauce/opencode-swarm/compare/v7.4.2...v7.4.3) (2026-05-04)
 
 
