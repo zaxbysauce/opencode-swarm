@@ -478,7 +478,7 @@ describe('guardrails-authority - File Authority Enforcement', () => {
 			}
 		});
 
-		it('blocks test_engineer from writing nested/dist/spec/foo.spec.ts', () => {
+		it('blocks test_engineer from writing packages/core/dist/foo.spec.ts', () => {
 			const result = checkFileAuthority(
 				'test_engineer',
 				'packages/core/dist/foo.spec.ts',
@@ -1241,7 +1241,7 @@ describe('guardrails-authority - File Authority Enforcement', () => {
 		});
 
 		/**
-		 * Test 7: test_engineer writes to packages/core/tests/unit/foo.test.ts via hook.
+		 * Hook test: test_engineer writes to packages/core/tests/unit/foo.test.ts via hook.
 		 * Exercises the full hook pipeline for nested test paths — this is the
 		 * primary real-world scenario that triggered #bug-test-engineer-write-access.
 		 * delegationActive=true simulates the architect→test_engineer delegation.
@@ -1264,11 +1264,11 @@ describe('guardrails-authority - File Authority Enforcement', () => {
 		});
 
 		/**
-		 * Test 8: test_engineer blocked from writing dist/foo.test.ts via hook.
+		 * Hook test: test_engineer blocked from nested/dist/foo.test.ts via hook.
 		 * blockedZones (Step 5) fires before allowedGlobs (Step 6) so the generated
 		 * zone beats the *.test.* glob.  delegationActive=true.
 		 */
-		it('test_engineer blocked from dist/foo.test.ts via toolBefore hook (generated zone)', async () => {
+		it('test_engineer blocked from nested/dist/foo.test.ts via toolBefore hook (generated zone)', async () => {
 			const sessionId = 'toolbefore-testengineer-dist';
 			ensureAgentSession(sessionId, 'test_engineer');
 			swarmState.activeAgent.set(sessionId, 'test_engineer');
