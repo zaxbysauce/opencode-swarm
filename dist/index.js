@@ -51,7 +51,7 @@ var package_default;
 var init_package = __esm(() => {
   package_default = {
     name: "opencode-swarm",
-    version: "7.5.2",
+    version: "7.5.3",
     description: "Architect-centric agentic swarm plugin for OpenCode - hub-and-spoke orchestration with SME consultation, code generation, and QA review",
     main: "dist/index.js",
     types: "dist/index.d.ts",
@@ -26492,7 +26492,7 @@ function startAgentSession(sessionId, agentName, staleDurationMs = 7200000, dire
   if (directory) {
     let rehydrationPromise;
     rehydrationPromise = _internals9.rehydrateSessionFromDisk(directory, sessionState).catch((err2) => {
-      console.warn("[state] Rehydration failed:", err2 instanceof Error ? err2.message : String(err2));
+      warn("[state] Rehydration failed:", err2 instanceof Error ? err2.message : String(err2));
     }).finally(() => {
       swarmState.pendingRehydrations.delete(rehydrationPromise);
     });
@@ -26778,7 +26778,7 @@ async function advanceTaskStateAndPersist(session, taskId, newState, directory, 
   try {
     await updateTaskStatus(directory, taskId, planStatus);
   } catch (err2) {
-    console.warn(`[advanceTaskStateAndPersist] persist ${taskId} → ${planStatus} failed (in-memory state still advanced): ${err2 instanceof Error ? err2.message : String(err2)}`);
+    warn(`[advanceTaskStateAndPersist] persist ${taskId} → ${planStatus} failed (in-memory state still advanced): ${err2 instanceof Error ? err2.message : String(err2)}`);
   }
 }
 function getTaskState(session, taskId) {
@@ -26833,7 +26833,7 @@ async function isCouncilGateActive(directory, council) {
     const msg = err2 instanceof Error ? err2.message : String(err2);
     const isBenign = msg.includes("SQLITE_CANTOPEN") || msg.includes("ENOENT");
     if (!isBenign) {
-      console.warn(`[isCouncilGateActive] getProfile threw unexpectedly for plan ${planId}: ${msg}. Treating council as inactive.`);
+      warn(`[isCouncilGateActive] getProfile threw unexpectedly for plan ${planId}: ${msg}. Treating council as inactive.`);
     }
     profile = null;
   }
@@ -26846,7 +26846,7 @@ async function isCouncilGateActive(directory, council) {
   }
   if (enabled !== councilMode && !_councilDisagreementWarned.has(planId)) {
     _councilDisagreementWarned.add(planId);
-    console.warn(`[delegation-gate] Council mode mismatch for plan ${planId}: ` + `pluginConfig.council.enabled=${enabled}, QaGates.council_mode=${councilMode}. ` + "Falling back to Stage B (non-council) advancement.");
+    warn(`[delegation-gate] Council mode mismatch for plan ${planId}: ` + `pluginConfig.council.enabled=${enabled}, QaGates.council_mode=${councilMode}. ` + "Falling back to Stage B (non-council) advancement.");
   }
   return false;
 }
@@ -27056,6 +27056,7 @@ var init_state = __esm(() => {
   init_delegation_gate();
   init_manager();
   init_telemetry();
+  init_logger();
   _councilDisagreementWarned = new Set;
   _toolAggregates = new Map;
   defaultRunContext = new AgentRunContext("default", _toolAggregates);
