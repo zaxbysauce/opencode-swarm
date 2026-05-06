@@ -51,7 +51,7 @@ var package_default;
 var init_package = __esm(() => {
   package_default = {
     name: "opencode-swarm",
-    version: "7.5.1",
+    version: "7.5.2",
     description: "Architect-centric agentic swarm plugin for OpenCode - hub-and-spoke orchestration with SME consultation, code generation, and QA review",
     main: "dist/index.js",
     types: "dist/index.d.ts",
@@ -60303,8 +60303,10 @@ function applyOverrides(agent, swarmAgents, swarmPrefix, quiet) {
   }
   const variantOverride = getVariantOverride(agent.name, swarmAgents, swarmPrefix);
   const modelSegments = agent.config.model?.split("/") ?? [];
-  if (modelSegments.length >= 3) {
-    const autoVariant = modelSegments[modelSegments.length - 1];
+  const lastSegment = modelSegments[modelSegments.length - 1] ?? "";
+  const hasEmbeddedVariant = modelSegments.length >= 3 && KNOWN_VARIANT_VALUES.has(lastSegment);
+  if (hasEmbeddedVariant) {
+    const autoVariant = lastSegment;
     const cleanedModel = modelSegments.slice(0, -1).join("/");
     const effectiveVariant = variantOverride ?? autoVariant;
     if (!quiet) {
@@ -60636,7 +60638,7 @@ function getAgentConfigs(config3, directory, sessionId) {
   }
   return result;
 }
-var warnedAgents, _swarmAgents;
+var warnedAgents, _swarmAgents, KNOWN_VARIANT_VALUES;
 var init_agents2 = __esm(() => {
   init_config();
   init_constants();
@@ -60653,6 +60655,7 @@ var init_agents2 = __esm(() => {
   init_curator_agent();
   init_reviewer();
   warnedAgents = new Set;
+  KNOWN_VARIANT_VALUES = new Set(["low", "medium", "high", "thinking"]);
 });
 
 // src/background/evidence-summary-integration.ts
