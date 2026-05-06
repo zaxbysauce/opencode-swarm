@@ -181,6 +181,14 @@ export function checkReviewerGate(
 
 		// === evidence-first check (durable, survives restarts) ===
 		const resolvedDir = workingDirectory ?? process.cwd();
+		// When the evidence file exists but gates are incomplete, save the reason and fall
+		// through to session state instead of blocking immediately. Evidence recording can
+		// fail silently (lock timeout, permission error, etc.) while the in-memory session
+		// state is correctly advanced by the delegation hook. The session state and
+		// delegation chain checks below then serve as the authoritative source.
+		// Only when BOTH the evidence and the session state agree that gates are missing do
+		// we return blocked — using the evidence reason for its more-specific message.
+		let evidenceIncompleteReason: string | null = null;
 		try {
 			const evidence = readTaskEvidenceRaw(resolvedDir, taskId);
 
@@ -197,24 +205,18 @@ export function checkReviewerGate(
 				if (allGatesMet) {
 					return { blocked: false, reason: '' };
 				}
-				// Evidence file is authoritative when it exists — don't fall through to session state
+				// Evidence file shows incomplete gates — save the reason and fall through to
+				// session state. The session state check below may still allow completion if
+				// the delegation hook advanced state correctly (even if evidence recording
+				// failed silently). Only block after all fallbacks are exhausted.
 				const missingGates = evidence.required_gates.filter(
 					(gate: string) => evidence.gates![gate] == null,
 				);
-				telemetry.gateFailed(
-					'',
-					'qa_gate',
-					taskId,
-					`Missing gates: [${missingGates.join(', ')}]`,
-				);
-				return {
-					blocked: true,
-					reason:
-						`Task ${taskId} is missing required gates: [${missingGates.join(', ')}]. ` +
-						`Required: [${evidence.required_gates.join(', ')}]. ` +
-						`Completed: [${Object.keys(evidence.gates).join(', ')}]. ` +
-						`Delegate the missing gate agents before marking task as completed.`,
-				};
+				evidenceIncompleteReason =
+					`Task ${taskId} is missing required gates: [${missingGates.join(', ')}]. ` +
+					`Required: [${evidence.required_gates.join(', ')}]. ` +
+					`Completed: [${Object.keys(evidence.gates).join(', ')}]. ` +
+					`Delegate the missing gate agents before marking task as completed.`;
 			}
 		} catch (error) {
 			// Malformed JSON, permission error, or other non-ENOENT issue — BLOCK
@@ -357,15 +359,22 @@ export function checkReviewerGate(
 
 		const currentStateStr =
 			stateEntries.length > 0 ? stateEntries.join(', ') : 'no active sessions';
+		// Prefer evidence-specific reason (lists which gates are missing) when available;
+		// fall back to generic session-state reason.
+		const finalReason =
+			evidenceIncompleteReason ??
+			`Task ${taskId} has not passed QA gates. Current state by session: [${currentStateStr}]. Missing required state: tests_run or complete in at least one valid session. Do not write directly to plan files — use update_task_status after running the reviewer and test_engineer agents.`;
 		telemetry.gateFailed(
 			'',
 			'qa_gate',
 			taskId,
-			`Missing state: tests_run or complete`,
+			evidenceIncompleteReason
+				? `Missing gates: evidence incomplete`
+				: `Missing state: tests_run or complete`,
 		);
 		return {
 			blocked: true,
-			reason: `Task ${taskId} has not passed QA gates. Current state by session: [${currentStateStr}]. Missing required state: tests_run or complete in at least one valid session. Do not write directly to plan files — use update_task_status after running the reviewer and test_engineer agents.`,
+			reason: finalReason,
 		};
 	} catch {
 		// If state inspection throws, allow through

@@ -32,6 +32,7 @@ import type {
 	EnvelopeValidationResult,
 } from '../types/delegation.js';
 import * as logger from '../utils/logger';
+import { isStrictTaskId } from '../validation/task-id';
 import { deleteStoredInputArgs, getStoredInputArgs } from './guardrails';
 import { normalizeToolName } from './normalize-tool-name';
 import { validateSwarmPath } from './utils';
@@ -948,7 +949,7 @@ export function createDelegationGateHook(
 					const evidenceTaskId =
 						typeof rawTaskId === 'string' &&
 						rawTaskId.length <= 20 &&
-						/^\d+\.\d+$/.test(rawTaskId.trim())
+						isStrictTaskId(rawTaskId.trim())
 							? rawTaskId.trim()
 							: await getEvidenceTaskId(session, directory);
 					if (evidenceTaskId) {
@@ -1146,7 +1147,7 @@ export function createDelegationGateHook(
 					const evidenceTaskId =
 						typeof rawTaskId === 'string' &&
 						rawTaskId.length <= 20 &&
-						/^\d+\.\d+$/.test(rawTaskId.trim())
+						isStrictTaskId(rawTaskId.trim())
 							? rawTaskId.trim()
 							: await getEvidenceTaskId(session, directory);
 					if (evidenceTaskId) {
