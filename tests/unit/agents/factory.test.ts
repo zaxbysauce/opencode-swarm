@@ -289,6 +289,11 @@ describe('createAgents', () => {
 					'grove-openai/gpt-5.3-codex',
 					'thinking',
 				],
+				[
+					'gateway/ns/gpt-5.3-codex/medium',
+					'gateway/ns/gpt-5.3-codex',
+					'medium',
+				],
 			];
 
 			for (const [fullModel, expectedModel, expectedVariant] of variantCases) {
