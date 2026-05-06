@@ -51,7 +51,7 @@ var package_default;
 var init_package = __esm(() => {
   package_default = {
     name: "opencode-swarm",
-    version: "7.4.3",
+    version: "7.5.0",
     description: "Architect-centric agentic swarm plugin for OpenCode - hub-and-spoke orchestration with SME consultation, code generation, and QA review",
     main: "dist/index.js",
     types: "dist/index.d.ts",
@@ -22655,7 +22655,7 @@ var init_quick_lru = __esm(() => {
 // src/context/zone-classifier.ts
 function classifyFile(filePath) {
   const normalized = filePath.toLowerCase().replace(/\\/g, "/");
-  if (normalized.endsWith(".wasm") || normalized.includes("/dist/") || normalized.includes("/build/") || normalized.includes(".swarm/checkpoints/")) {
+  if (normalized.endsWith(".wasm") || normalized.startsWith("dist/") || normalized.includes("/dist/") || normalized.startsWith("build/") || normalized.includes("/build/") || normalized.includes(".swarm/checkpoints/")) {
     return {
       filePath,
       zone: "generated",
@@ -25243,6 +25243,16 @@ function checkFileAuthorityWithRules(agentName, filePath, cwd, effectiveRules, o
       return { allowed: true };
     }
   }
+  if (rules.blockedZones && rules.blockedZones.length > 0) {
+    const { zone } = classifyFile(normalizedPath);
+    if (rules.blockedZones.includes(zone)) {
+      return {
+        allowed: false,
+        reason: `Path blocked: ${normalizedPath} is in ${zone} zone`,
+        zone
+      };
+    }
+  }
   if (rules.allowedGlobs && rules.allowedGlobs.length > 0) {
     const isGlobAllowed = rules.allowedGlobs.some((glob) => {
       const matcher = getGlobMatcher(glob);
@@ -25277,16 +25287,6 @@ function checkFileAuthorityWithRules(agentName, filePath, cwd, effectiveRules, o
       return {
         allowed: false,
         reason: `Path ${normalizedPath} not in allowed list for ${normalizedAgent}`
-      };
-    }
-  }
-  if (rules.blockedZones && rules.blockedZones.length > 0) {
-    const { zone } = classifyFile(normalizedPath);
-    if (rules.blockedZones.includes(zone)) {
-      return {
-        allowed: false,
-        reason: `Path blocked: ${normalizedPath} is in ${zone} zone`,
-        zone
       };
     }
   }
@@ -25408,15 +25408,24 @@ var init_guardrails = __esm(() => {
     test_engineer: {
       blockedExact: [".swarm/plan.md", ".swarm/plan.json"],
       blockedPrefix: ["src/"],
-      allowedPrefix: ["tests/", ".swarm/evidence/"],
+      allowedPrefix: ["tests/", "test/", ".swarm/evidence/"],
+      allowedGlobs: [
+        "**/tests/**",
+        "**/test/**",
+        "**/__tests__/**",
+        "**/*.test.*",
+        "**/*.spec.*"
+      ],
       blockedZones: ["generated"]
     },
     docs: {
       allowedPrefix: ["docs/", ".swarm/outputs/"],
+      allowedGlobs: ["**/docs/**", "**/*.md", "**/*.mdx", "**/*.rst"],
       blockedZones: ["generated"]
     },
     designer: {
       allowedPrefix: ["docs/", ".swarm/outputs/"],
+      allowedGlobs: ["**/docs/**", "**/*.md", "**/*.mdx", "**/*.rst"],
       blockedZones: ["generated"]
     },
     critic: {
