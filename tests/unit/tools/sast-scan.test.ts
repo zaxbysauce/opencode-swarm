@@ -84,6 +84,10 @@ describe('sastScan', () => {
 		vi.clearAllMocks();
 	});
 
+	afterEach(() => {
+		mock.restore();
+	});
+
 	describe('Basic functionality', () => {
 		// R2 SAST zero-coverage semantic test
 		it('should fail verdict when enabled mode and zero files scanned', async () => {

@@ -169,7 +169,6 @@ afterEach(() => mock.restore());
 
 Some test files use top-level `mock.module` that must persist across all tests in the file. These files use `mockReset()`/`mockClear()` in `beforeEach` instead of `mock.restore()` in `afterEach`:
 
-- `tests/unit/tools/pkg-audit-cwd.test.ts` — mocks `discovery.js`
 - `src/__tests__/preflight-phase.test.ts` — mocks `plan/manager` and `preflight-service`
 
 ## CI Pipeline Structure
