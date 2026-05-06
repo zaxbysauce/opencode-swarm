@@ -415,10 +415,11 @@ describe('delegation-gate council wiring (Stage B suppression + APPROVE fast-pat
 
 			// Capture warnings to assert the disagreement notice surfaces once.
 			const warnings: string[] = [];
-			const origWarn = console.warn;
-			console.warn = (...args: unknown[]) => {
-				warnings.push(args.map(String).join(' '));
-			};
+			const warnSpy = spyOn(logger, 'warn').mockImplementation(
+				(msg: string) => {
+					warnings.push(msg);
+				},
+			);
 
 			try {
 				await hook.toolAfter(
@@ -441,7 +442,7 @@ describe('delegation-gate council wiring (Stage B suppression + APPROVE fast-pat
 					{},
 				);
 			} finally {
-				console.warn = origWarn;
+				warnSpy.mockRestore();
 			}
 
 			// Stage B path ran — state advanced.
