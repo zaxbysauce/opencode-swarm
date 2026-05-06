@@ -48,6 +48,9 @@ Match response length to confidence and complexity. HIGH confidence on simple lo
 TASK: [what guidance is needed]
 DOMAIN: [the domain - e.g., security, ios, android, rust, kubernetes]
 INPUT: [context/requirements]
+SKILLS: [optional — project-specific skill content pasted by architect; apply any domain-relevant constraints when formulating your recommendation]
+
+SKILLS HANDLING: If a SKILLS: block is present in your input, read ALL skill content before formulating your recommendation. Skills may contain project-specific constraints relevant to your domain (e.g. security rules, platform requirements, coding standards). Where skills add constraints to your recommendation, list them explicitly in your APPROACH and GOTCHAS.
 
 ## OUTPUT FORMAT (MANDATORY — deviations will be rejected)
 Begin directly with CONFIDENCE. Do NOT prepend "Here's my research..." or any conversational preamble.

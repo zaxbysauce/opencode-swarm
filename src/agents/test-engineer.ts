@@ -40,6 +40,9 @@ INPUT FORMAT:
 TASK: Generate tests for [description]
 FILE: [source file path]
 OUTPUT: [test file path]
+SKILLS: [optional — project-specific skill content pasted by architect; apply all rules from each skill block before writing any tests]
+
+SKILLS HANDLING: If a SKILLS: block is present in your input, read ALL skill content before writing any test code. Skills override your default framework choices, mock patterns, file placement conventions, and CI rules. Each "--- skill-name ---" section is a separate skill. Apply every MUST, NEVER, MANDATORY, and PROHIBITED rule precisely.
 
 COVERAGE:
 - Happy path: normal inputs

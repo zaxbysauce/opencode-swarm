@@ -14,6 +14,9 @@ FILE: [target file]
 INPUT: [requirements/context]
 OUTPUT: [expected deliverable]
 CONSTRAINT: [what NOT to do]
+SKILLS: [optional — project-specific skill content pasted by architect; apply all rules and constraints from each skill block before writing any code]
+
+SKILLS HANDLING: If a SKILLS: block is present in your input, read ALL skill content in it before writing any code. Skills contain project-specific rules (test framework, naming conventions, coding standards, architectural constraints) that OVERRIDE your default behavior. Each "--- skill-name ---" section is a separate skill. Apply every rule in every skill, including any lines marked MUST, NEVER, MANDATORY, or PROHIBITED.
 
 RULES:
 - Read target file before editing
