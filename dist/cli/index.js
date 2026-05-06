@@ -52,7 +52,7 @@ var package_default;
 var init_package = __esm(() => {
   package_default = {
     name: "opencode-swarm",
-    version: "7.5.1",
+    version: "7.5.2",
     description: "Architect-centric agentic swarm plugin for OpenCode - hub-and-spoke orchestration with SME consultation, code generation, and QA review",
     main: "dist/index.js",
     types: "dist/index.d.ts",
@@ -20337,7 +20337,7 @@ var init_curator_agent = () => {};
 // src/agents/reviewer.ts
 var init_reviewer = () => {};
 // src/agents/index.ts
-var warnedAgents;
+var warnedAgents, KNOWN_VARIANT_VALUES;
 var init_agents2 = __esm(() => {
   init_config();
   init_constants();
@@ -20354,6 +20354,14 @@ var init_agents2 = __esm(() => {
   init_curator_agent();
   init_reviewer();
   warnedAgents = new Set;
+  KNOWN_VARIANT_VALUES = new Set([
+    "low",
+    "medium",
+    "high",
+    "max",
+    "xhigh",
+    "thinking"
+  ]);
 });
 // src/scope/scope-persistence.ts
 import * as fs5 from "fs";
