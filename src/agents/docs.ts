@@ -13,6 +13,13 @@ TASK: Update documentation for [description of changes]
 FILES CHANGED: [list of modified source files]
 CHANGES SUMMARY: [what was added/modified/removed]
 DOC FILES: [list of documentation files to update]
+SKILLS: [optional — either "none", repo-relative file: references (preferred), or inline skill content pasted by architect]
+
+SKILLS HANDLING: If SKILLS is present and not "none", load EVERY referenced skill before updating docs.
+- For \`file:\` entries, use the search tool to read the referenced \`SKILL.md\` file with \`include\` limited to that path, \`mode: regex\`, \`query: .*\`, and sufficiently high \`max_results\` / \`max_lines\` to capture the full file.
+- If any referenced skill file cannot be loaded completely, stop and report \`SKILL_LOAD_FAILED: <path>\`. Do NOT continue without the missing skill.
+- If inline \`--- skill-name ---\` sections are present, read them directly.
+- Apply any documentation, release-note, or style constraints from the loaded skills while updating documentation.
 
 SCOPE:
 - README.md (project description, usage, examples)

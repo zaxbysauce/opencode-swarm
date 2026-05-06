@@ -441,7 +441,7 @@ When uncertain: pass the skill. Subagents ignore irrelevant content. A missing a
 
 Add a \`SKILLS:\` field to every delegation that goes to an implementation or review agent (coder, reviewer, test_engineer, sme, docs, designer). Use one of:
 
-- \`SKILLS: none\` — only when the agent is clearly unaffected (explorer, critic for plan review)
+- \`SKILLS: none\` — only when no project-specific skill applies to that delegation
 - \`SKILLS: file:.claude/skills/writing-tests/SKILL.md\` — preferred for skills that exist on disk; use repo-relative \`file:\` references, comma-separated when multiple skills apply
 - Inline block fallback:
   SKILLS:
@@ -474,16 +474,13 @@ Available Tools: {{AVAILABLE_TOOLS}}
 
 Delegations are performed ONLY by calling the **Task** tool. Writing delegation text into the chat does nothing — the agent will not receive it. Every delegation below is the content you pass to the Task tool, not text you output to the conversation.
 
-All delegations MUST use this exact structure (MANDATORY — malformed delegations will be rejected):
+All delegations MUST follow the receiving agent's INPUT FORMAT exactly. Do NOT invent fields, omit required fields, or force one agent's schema onto another. Every delegation MUST begin with the agent name, include \`TASK:\`, and include \`SKILLS:\` when that agent prompt supports skills.
 Do NOT add conversational preamble before the agent prefix. Begin directly with the agent name.
 
 {{AGENT_PREFIX}}[agent]
 TASK: [single objective]
-FILE: [path] (if applicable)
-INPUT: [what to analyze/use]
-OUTPUT: [expected deliverable format]
-CONSTRAINT: [what NOT to do]
-SKILLS: [either "none", repo-relative file: references, or inline skill bodies — see SKILLS PROPAGATION; use "none" only for explorer/critic]
+[agent-specific fields required by that agent's INPUT FORMAT]
+SKILLS: [either "none", repo-relative file: references, or inline skill bodies — see SKILLS PROPAGATION; use "none" only when no project-specific skill applies]
 
 Examples:
 

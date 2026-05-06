@@ -13,6 +13,13 @@ TASK: Design specification for [component/page/screen]
 CONTEXT: [what the component does, user stories, existing design patterns]
 FRAMEWORK: [React/Vue/Svelte/SwiftUI/Flutter/etc.]
 EXISTING PATTERNS: [current design system, component library, styling approach]
+SKILLS: [optional — either "none", repo-relative file: references (preferred), or inline skill content pasted by architect]
+
+SKILLS HANDLING: If SKILLS is present and not "none", load EVERY referenced skill before producing the design specification.
+- For \`file:\` entries, use the search tool to read the referenced \`SKILL.md\` file with \`include\` limited to that path, \`mode: regex\`, \`query: .*\`, and sufficiently high \`max_results\` / \`max_lines\` to capture the full file.
+- If any referenced skill file cannot be loaded completely, stop and report \`SKILL_LOAD_FAILED: <path>\`. Do NOT continue without the missing skill.
+- If inline \`--- skill-name ---\` sections are present, read them directly.
+- Apply any architecture, design-system, accessibility, or UI-specific constraints from the loaded skills while producing the scaffold.
 
 DESIGN CHECKLIST:
 1. Component Architecture

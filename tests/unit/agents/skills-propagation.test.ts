@@ -11,6 +11,8 @@
 import { describe, expect, it } from 'bun:test';
 import { createArchitectAgent } from '../../../src/agents/architect';
 import { createCoderAgent } from '../../../src/agents/coder';
+import { createDesignerAgent } from '../../../src/agents/designer';
+import { createDocsAgent } from '../../../src/agents/docs';
 import { createReviewerAgent } from '../../../src/agents/reviewer';
 import { createSMEAgent } from '../../../src/agents/sme';
 import { createTestEngineerAgent } from '../../../src/agents/test-engineer';
@@ -55,6 +57,13 @@ describe('Skills Propagation to Subagents', () => {
 			expect(skillsSection).toContain('file:');
 		});
 
+		it('prefers file references by default and keeps inline fallback for load failures', () => {
+			const skillsSection = prompt.slice(prompt.indexOf('SKILLS PROPAGATION'));
+			expect(skillsSection).toContain('Default to repo-relative `file:` references');
+			expect(skillsSection).toContain('SKILL_LOAD_FAILED');
+			expect(skillsSection).toContain('Use inline skill bodies only');
+		});
+
 		it('includes anti-rationalization rules against skipping skills', () => {
 			const skillsSection = prompt.slice(prompt.indexOf('SKILLS PROPAGATION'));
 			expect(skillsSection).toContain('ANTI-RATIONALIZATION');
@@ -78,6 +87,18 @@ describe('Skills Propagation to Subagents', () => {
 				prompt.indexOf('## DELEGATION FORMAT'),
 			);
 			expect(delegationSection).toContain('SKILLS:');
+		});
+
+		it('delegation format defers to each receiving agent input schema', () => {
+			const delegationSection = prompt.slice(
+				prompt.indexOf('## DELEGATION FORMAT'),
+			);
+			expect(delegationSection).toContain(
+				"follow the receiving agent's INPUT FORMAT exactly",
+			);
+			expect(delegationSection).toContain(
+				'[agent-specific fields required by that agent',
+			);
 		});
 
 		it('coder delegation example includes file-based SKILLS reference', () => {
@@ -116,6 +137,14 @@ describe('Skills Propagation to Subagents', () => {
 				prompt.indexOf('TASK: Review auth token patterns'),
 			);
 			expect(explorerExample).toContain('SKILLS: none');
+		});
+
+		it('SME delegation examples may use SKILLS: none when no repo skill applies', () => {
+			const smeExample = prompt.slice(
+				prompt.indexOf('TASK: Review auth token patterns'),
+				prompt.indexOf('PRE-STEP (required):'),
+			);
+			expect(smeExample).toContain('SKILLS: none');
 		});
 
 		it('critic delegation example uses SKILLS: none', () => {
@@ -183,6 +212,11 @@ describe('Skills Propagation to Subagents', () => {
 			expect(skillsHandling).toContain('Flag any violation');
 		});
 
+		it('SKILLS HANDLING fails loudly when a referenced skill cannot be loaded', () => {
+			const skillsHandling = prompt.slice(prompt.indexOf('SKILLS HANDLING'));
+			expect(skillsHandling).toContain('SKILL_LOAD_FAILED');
+		});
+
 		it('PROCESSING line is preserved after SKILLS HANDLING', () => {
 			// PROCESSING was there before; must remain
 			expect(prompt).toContain('PROCESSING: If GATES is provided');
@@ -220,6 +254,11 @@ describe('Skills Propagation to Subagents', () => {
 				'override your default framework choices',
 			);
 		});
+
+		it('SKILLS HANDLING fails loudly when a referenced skill cannot be loaded', () => {
+			const skillsHandling = prompt.slice(prompt.indexOf('SKILLS HANDLING'));
+			expect(skillsHandling).toContain('SKILL_LOAD_FAILED');
+		});
 	});
 
 	describe('SME Prompt — SKILLS field in INPUT FORMAT', () => {
@@ -241,14 +280,54 @@ describe('Skills Propagation to Subagents', () => {
 			expect(skillsHandling).toContain('use the search tool');
 			expect(skillsHandling).toContain('before formulating');
 		});
+
+		it('SKILLS HANDLING fails loudly when a referenced skill cannot be loaded', () => {
+			const skillsHandling = prompt.slice(prompt.indexOf('SKILLS HANDLING'));
+			expect(skillsHandling).toContain('SKILL_LOAD_FAILED');
+		});
+	});
+
+	describe('Docs Prompt — SKILLS field in INPUT FORMAT', () => {
+		const prompt = createDocsAgent('test-model').config.prompt!;
+
+		it('INPUT FORMAT contains SKILLS field', () => {
+			const inputSection = prompt.slice(prompt.indexOf('INPUT FORMAT'));
+			expect(inputSection).toContain('SKILLS:');
+			expect(inputSection).toContain('file: references');
+		});
+
+		it('contains SKILLS HANDLING instructions', () => {
+			expect(prompt).toContain('SKILLS HANDLING');
+			expect(prompt).toContain('use the search tool');
+			expect(prompt).toContain('SKILL_LOAD_FAILED');
+		});
+	});
+
+	describe('Designer Prompt — SKILLS field in INPUT FORMAT', () => {
+		const prompt = createDesignerAgent('test-model').config.prompt!;
+
+		it('INPUT FORMAT contains SKILLS field', () => {
+			const inputSection = prompt.slice(prompt.indexOf('INPUT FORMAT'));
+			expect(inputSection).toContain('SKILLS:');
+			expect(inputSection).toContain('file: references');
+		});
+
+		it('contains SKILLS HANDLING instructions', () => {
+			expect(prompt).toContain('SKILLS HANDLING');
+			expect(prompt).toContain('use the search tool');
+			expect(prompt).toContain('SKILL_LOAD_FAILED');
+		});
 	});
 
 	describe('Skill-loading agents have a tool capable of reading file-based skills', () => {
-		it('coder, reviewer, test_engineer, and sme all include search', () => {
+		it('architect and every skill-loading agent include search', () => {
+			expect(AGENT_TOOL_MAP.architect).toContain('search');
 			expect(AGENT_TOOL_MAP.coder).toContain('search');
 			expect(AGENT_TOOL_MAP.reviewer).toContain('search');
 			expect(AGENT_TOOL_MAP.test_engineer).toContain('search');
 			expect(AGENT_TOOL_MAP.sme).toContain('search');
+			expect(AGENT_TOOL_MAP.docs).toContain('search');
+			expect(AGENT_TOOL_MAP.designer).toContain('search');
 		});
 	});
 });

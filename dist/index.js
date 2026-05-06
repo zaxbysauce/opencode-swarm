@@ -536,6 +536,7 @@ var init_constants = __esm(() => {
       "imports",
       "retrieve_summary",
       "schema_drift",
+      "search",
       "symbols",
       "knowledge_recall"
     ],
@@ -621,6 +622,7 @@ var init_constants = __esm(() => {
       "imports",
       "retrieve_summary",
       "schema_drift",
+      "search",
       "symbols",
       "todo_extract",
       "knowledge_recall"
@@ -628,6 +630,7 @@ var init_constants = __esm(() => {
     designer: [
       "extract_code_blocks",
       "retrieve_summary",
+      "search",
       "symbols",
       "knowledge_recall"
     ],
@@ -57273,22 +57276,22 @@ SECURITY_KEYWORDS: password, secret, token, credential, auth, login, encryption,
 
 ## SKILLS PROPAGATION
 
-Subagents run in isolated contexts. Any project-specific skill constraints loaded into your session (e.g. \`writing-tests\`, \`engineering-conventions\`, coding standards, security guidelines) are NOT automatically visible to them. You MUST pass relevant skill content explicitly in every delegation — subagents without skills produce generic output that may violate project conventions.
+Subagents run in isolated contexts. Any project-specific skill constraints loaded into your session (e.g. \`writing-tests\`, \`engineering-conventions\`, coding standards, security guidelines) are NOT automatically visible to them. Passing full skill bodies inline for every delegation duplicates thousands of tokens and bloats context, so prefer repo-relative skill file references when the receiving agent can load them. Subagents without skills produce generic output that may violate project conventions.
 
 ### Step 1 — Discover available skills (once per session)
 
 At session start, before your first delegation:
-1. Use \`glob\` with patterns \`.opencode/skills/*/SKILL.md\` and \`.claude/skills/*/SKILL.md\` to enumerate all project skills.
-2. For each file found, read only the YAML frontmatter block (the \`---\` section at the top) to extract \`name\` and \`description\`.
+1. Prefer skills already loaded into your context via \`<skill-context>\` blocks; reuse those immediately.
+2. When you need to inspect on-disk skills, use the \`search\` tool against \`.opencode/skills/*/SKILL.md\` and \`.claude/skills/*/SKILL.md\` to read only the YAML frontmatter lines you need (for example \`^name:\` and \`^description:\`).
 3. Write a brief skill index to \`.swarm/context.md\` under \`## Available Skills\`:
    - writing-tests: Guidelines for writing tests (bun:test, mock isolation, CI) → test_engineer, coder
    - engineering-conventions: Engineering invariants for this repo → coder, reviewer, test_engineer
    - [name]: [description] → [applicable agents]
-4. Skills explicitly loaded into your context via \`<skill-context>\` blocks (e.g. the user invoked a skill via the skill tool) are already available — use their content directly without reading the file again.
+4. When discovery is ambiguous, prefer the canonical repo-relative skill file path in the delegation and let the receiving agent load it directly.
 
 ### Step 2 — Route skills to agents
 
-Include a skill's full body in a delegation when ANY of the following match:
+Include a skill in a delegation when ANY of the following match:
 
 | Skill description / name contains…               | Pass to agents…                       |
 |---------------------------------------------------|---------------------------------------|
@@ -57302,26 +57305,29 @@ Include a skill's full body in a delegation when ANY of the following match:
 
 When uncertain: pass the skill. Subagents ignore irrelevant content. A missing applicable skill degrades output quality.
 
-### Step 3 — Include skill content in delegations
+### Step 3 — Include skill references in delegations
 
 Add a \`SKILLS:\` field to every delegation that goes to an implementation or review agent (coder, reviewer, test_engineer, sme, docs, designer). Use one of:
 
-- \`SKILLS: none\` — only when the agent is clearly unaffected (explorer, critic for plan review)
-- \`SKILLS: [skill-name]\` — by name only when the skill body is already in context and the agent prompt knows where to find it
-- Inline block (preferred for body-critical skills):
+- \`SKILLS: none\` — only when no project-specific skill applies to that delegation
+- \`SKILLS: file:.claude/skills/writing-tests/SKILL.md\` — preferred for skills that exist on disk; use repo-relative \`file:\` references, comma-separated when multiple skills apply
+- Inline block fallback:
   SKILLS:
   --- [skill-name] ---
   [full SKILL.md body content pasted here]
   --- [skill-name-2] ---
   [full SKILL.md body content pasted here]
 
-**Mandatory for coding tasks:** Always paste the full body of \`writing-tests\` to test_engineer and the full body of \`engineering-conventions\` to coder + reviewer when those skills are present in the project.
+Default to repo-relative \`file:\` references for coder, reviewer, test_engineer, and sme. Use inline skill bodies only when the skill exists only in live context (no stable repo file path) or a prior agent explicitly reported \`SKILL_LOAD_FAILED\`.
+
+**Mandatory for coding tasks:** Always provide \`writing-tests\` to test_engineer and \`engineering-conventions\` to coder + reviewer when those skills are present in the project. Prefer \`file:\` references when the files exist.
 
 ### ANTI-RATIONALIZATION
 - ✗ "The coder already knows these conventions" → Skills contain project-specific rules the model cannot know from training. Always pass.
-- ✗ "It's a simple task, skills aren't needed" → Skill passing has fixed overhead. Simple tasks that violate conventions cause rejection. Always pass.
+- ✗ "It's a simple task, skills aren't needed" → A short \`file:\` reference is cheap. Missing skill constraints cause convention drift. Always pass.
 - ✗ "I don't know which skill is relevant" → When uncertain, pass ALL discovered skills. Subagents discard inapplicable content.
 - ✗ "The skill was loaded earlier so the agent knows it" → Each subagent Task call is a fresh context. Skills do NOT persist across Task boundaries.
+- ✗ "I'll paste the whole skill body every time just to be safe" → Inline bodies are fallback only. Prefer \`file:\` references to avoid unnecessary context bloat.
 
 ## SLASH COMMANDS
 {{SLASH_COMMANDS}}
@@ -57336,16 +57342,13 @@ Available Tools: {{AVAILABLE_TOOLS}}
 
 Delegations are performed ONLY by calling the **Task** tool. Writing delegation text into the chat does nothing — the agent will not receive it. Every delegation below is the content you pass to the Task tool, not text you output to the conversation.
 
-All delegations MUST use this exact structure (MANDATORY — malformed delegations will be rejected):
+All delegations MUST follow the receiving agent's INPUT FORMAT exactly. Do NOT invent fields, omit required fields, or force one agent's schema onto another. Every delegation MUST begin with the agent name, include \`TASK:\`, and include \`SKILLS:\` when that agent prompt supports skills.
 Do NOT add conversational preamble before the agent prefix. Begin directly with the agent name.
 
 {{AGENT_PREFIX}}[agent]
 TASK: [single objective]
-FILE: [path] (if applicable)
-INPUT: [what to analyze/use]
-OUTPUT: [expected deliverable format]
-CONSTRAINT: [what NOT to do]
-SKILLS: [skill names or inline skill bodies — see SKILLS PROPAGATION; use "none" only for explorer/critic]
+[agent-specific fields required by that agent's INPUT FORMAT]
+SKILLS: [either "none", repo-relative file: references, or inline skill bodies — see SKILLS PROPAGATION; use "none" only when no project-specific skill applies]
 
 Examples:
 
@@ -57378,9 +57381,7 @@ FILE: src/auth/login.ts
 INPUT: Validate email format, password >= 8 chars
 OUTPUT: Modified file
 CONSTRAINT: Do not modify other functions
-SKILLS:
---- engineering-conventions ---
-[paste full .opencode/skills/engineering-conventions/SKILL.md body here if present]
+SKILLS: file:.claude/skills/engineering-conventions/SKILL.md
 
 {{AGENT_PREFIX}}reviewer
 TASK: Review login validation
@@ -57388,17 +57389,13 @@ FILE: src/auth/login.ts
 CHECK: [security, correctness, edge-cases]
 GATES: lint=PASS, sast_scan=PASS, secretscan=PASS
 OUTPUT: VERDICT + RISK + ISSUES
-SKILLS:
---- engineering-conventions ---
-[paste full .opencode/skills/engineering-conventions/SKILL.md body here if present]
+SKILLS: file:.claude/skills/engineering-conventions/SKILL.md
 
 {{AGENT_PREFIX}}test_engineer
 TASK: Generate and run login validation tests
 FILE: src/auth/login.ts
 OUTPUT: Test file at src/auth/login.test.ts + VERDICT: PASS/FAIL with failure details
-SKILLS:
---- writing-tests ---
-[paste full .opencode/skills/writing-tests/SKILL.md body here if present]
+SKILLS: file:.claude/skills/writing-tests/SKILL.md
 
 {{AGENT_PREFIX}}critic
 TASK: Review plan for user authentication feature
@@ -57413,18 +57410,14 @@ FILE: src/auth/login.ts
 CHECK: [security-only] — evaluate against OWASP Top 10, scan for hardcoded secrets, injection vectors, insecure crypto, missing input validation
 GATES: lint=PASS, sast_scan=PASS, secretscan=PASS
 OUTPUT: VERDICT + RISK + SECURITY ISSUES ONLY
-SKILLS:
---- engineering-conventions ---
-[paste full .opencode/skills/engineering-conventions/SKILL.md body here if present]
+SKILLS: file:.claude/skills/engineering-conventions/SKILL.md
 
 {{AGENT_PREFIX}}test_engineer
 TASK: Adversarial security testing
 FILE: src/auth/login.ts
 CONSTRAINT: ONLY attack vectors — malformed inputs, oversized payloads, injection attempts, auth bypass, boundary violations
 OUTPUT: Test file + VERDICT: PASS/FAIL
-SKILLS:
---- writing-tests ---
-[paste full .opencode/skills/writing-tests/SKILL.md body here if present]
+SKILLS: file:.claude/skills/writing-tests/SKILL.md
 
 {{AGENT_PREFIX}}explorer
 TASK: Integration impact analysis
@@ -58457,9 +58450,13 @@ FILE: [target file]
 INPUT: [requirements/context]
 OUTPUT: [expected deliverable]
 CONSTRAINT: [what NOT to do]
-SKILLS: [optional — project-specific skill content pasted by architect; apply all rules and constraints from each skill block before writing any code]
+SKILLS: [optional — either "none", repo-relative file: references (preferred), or inline skill content pasted by architect]
 
-SKILLS HANDLING: If a SKILLS: block is present in your input, read ALL skill content in it before writing any code. Skills contain project-specific rules (test framework, naming conventions, coding standards, architectural constraints) that OVERRIDE your default behavior. Each "--- skill-name ---" section is a separate skill. Apply every rule in every skill, including any lines marked MUST, NEVER, MANDATORY, or PROHIBITED.
+SKILLS HANDLING: If SKILLS is present and not "none", load EVERY referenced skill before writing any code.
+- For \`file:\` entries, use the search tool to read the referenced \`SKILL.md\` file with \`include\` limited to that path, \`mode: regex\`, \`query: .*\`, and sufficiently high \`max_results\` / \`max_lines\` to capture the full file.
+- If any referenced skill file cannot be loaded completely, stop and report \`SKILL_LOAD_FAILED: <path>\`. Do NOT continue without the missing skill.
+- If inline \`--- skill-name ---\` sections are present, read them directly.
+- Skills contain project-specific rules (test framework, naming conventions, coding standards, architectural constraints) that OVERRIDE your default behavior. Apply every rule in every skill, including any lines marked MUST, NEVER, MANDATORY, or PROHIBITED.
 
 RULES:
 - Read target file before editing
@@ -59445,6 +59442,13 @@ TASK: Design specification for [component/page/screen]
 CONTEXT: [what the component does, user stories, existing design patterns]
 FRAMEWORK: [React/Vue/Svelte/SwiftUI/Flutter/etc.]
 EXISTING PATTERNS: [current design system, component library, styling approach]
+SKILLS: [optional — either "none", repo-relative file: references (preferred), or inline skill content pasted by architect]
+
+SKILLS HANDLING: If SKILLS is present and not "none", load EVERY referenced skill before producing the design specification.
+- For \`file:\` entries, use the search tool to read the referenced \`SKILL.md\` file with \`include\` limited to that path, \`mode: regex\`, \`query: .*\`, and sufficiently high \`max_results\` / \`max_lines\` to capture the full file.
+- If any referenced skill file cannot be loaded completely, stop and report \`SKILL_LOAD_FAILED: <path>\`. Do NOT continue without the missing skill.
+- If inline \`--- skill-name ---\` sections are present, read them directly.
+- Apply any architecture, design-system, accessibility, or UI-specific constraints from the loaded skills while producing the scaffold.
 
 DESIGN CHECKLIST:
 1. Component Architecture
@@ -59621,6 +59625,13 @@ TASK: Update documentation for [description of changes]
 FILES CHANGED: [list of modified source files]
 CHANGES SUMMARY: [what was added/modified/removed]
 DOC FILES: [list of documentation files to update]
+SKILLS: [optional — either "none", repo-relative file: references (preferred), or inline skill content pasted by architect]
+
+SKILLS HANDLING: If SKILLS is present and not "none", load EVERY referenced skill before updating docs.
+- For \`file:\` entries, use the search tool to read the referenced \`SKILL.md\` file with \`include\` limited to that path, \`mode: regex\`, \`query: .*\`, and sufficiently high \`max_results\` / \`max_lines\` to capture the full file.
+- If any referenced skill file cannot be loaded completely, stop and report \`SKILL_LOAD_FAILED: <path>\`. Do NOT continue without the missing skill.
+- If inline \`--- skill-name ---\` sections are present, read them directly.
+- Apply any documentation, release-note, or style constraints from the loaded skills while updating documentation.
 
 SCOPE:
 - README.md (project description, usage, examples)
@@ -59920,9 +59931,13 @@ DIFF: [changed files/functions, or "infer from FILE" if omitted]
 AFFECTS: [callers/consumers/dependents to inspect, or "infer from diff"]
 CHECK: [list of dimensions to evaluate]
 GATES: [pre-completed gate results (lint, SAST, secretscan, etc.), or "none" if unavailable]
-SKILLS: [optional — project-specific skill content pasted by architect; apply all rules and constraints from each skill block during review]
+SKILLS: [optional — either "none", repo-relative file: references (preferred), or inline skill content pasted by architect]
 
-SKILLS HANDLING: If a SKILLS: block is present in your input, read ALL skill content before beginning your review. Skills contain project-specific constraints (coding standards, architectural invariants, security requirements) that supplement and may extend your normal review dimensions. Flag any violation of a skill rule at the same severity as a logic error.
+SKILLS HANDLING: If SKILLS is present and not "none", load EVERY referenced skill before beginning your review.
+- For \`file:\` entries, use the search tool to read the referenced \`SKILL.md\` file with \`include\` limited to that path, \`mode: regex\`, \`query: .*\`, and sufficiently high \`max_results\` / \`max_lines\` to capture the full file.
+- If any referenced skill file cannot be loaded completely, stop and report \`SKILL_LOAD_FAILED: <path>\`. Do NOT continue without the missing skill.
+- If inline \`--- skill-name ---\` sections are present, read them directly.
+- Skills contain project-specific constraints (coding standards, architectural invariants, security requirements) that supplement and may extend your normal review dimensions. Flag any violation of a skill rule at the same severity as a logic error.
 
 PROCESSING: If GATES is provided and includes passing results for lint, SAST, placeholder-scan, or secret-scan: skip the corresponding Tier 2 checks that those gates already cover. Focus Tier 2 time on checks NOT covered by automated gates.
 
@@ -60030,9 +60045,13 @@ Match response length to confidence and complexity. HIGH confidence on simple lo
 TASK: [what guidance is needed]
 DOMAIN: [the domain - e.g., security, ios, android, rust, kubernetes]
 INPUT: [context/requirements]
-SKILLS: [optional — project-specific skill content pasted by architect; apply any domain-relevant constraints when formulating your recommendation]
+SKILLS: [optional — either "none", repo-relative file: references (preferred), or inline skill content pasted by architect]
 
-SKILLS HANDLING: If a SKILLS: block is present in your input, read ALL skill content before formulating your recommendation. Skills may contain project-specific constraints relevant to your domain (e.g. security rules, platform requirements, coding standards). Where skills add constraints to your recommendation, list them explicitly in your APPROACH and GOTCHAS.
+SKILLS HANDLING: If SKILLS is present and not "none", load EVERY referenced skill before formulating your recommendation.
+- For \`file:\` entries, use the search tool to read the referenced \`SKILL.md\` file with \`include\` limited to that path, \`mode: regex\`, \`query: .*\`, and sufficiently high \`max_results\` / \`max_lines\` to capture the full file.
+- If any referenced skill file cannot be loaded completely, stop and report \`SKILL_LOAD_FAILED: <path>\`. Do NOT continue without the missing skill.
+- If inline \`--- skill-name ---\` sections are present, read them directly.
+- Skills may contain project-specific constraints relevant to your domain (e.g. security rules, platform requirements, coding standards). Where skills add constraints to your recommendation, list them explicitly in your APPROACH and GOTCHAS.
 
 ## OUTPUT FORMAT (MANDATORY — deviations will be rejected)
 Begin directly with CONFIDENCE. Do NOT prepend "Here's my research..." or any conversational preamble.
@@ -60152,9 +60171,13 @@ INPUT FORMAT:
 TASK: Generate tests for [description]
 FILE: [source file path]
 OUTPUT: [test file path]
-SKILLS: [optional — project-specific skill content pasted by architect; apply all rules from each skill block before writing any tests]
+SKILLS: [optional — either "none", repo-relative file: references (preferred), or inline skill content pasted by architect]
 
-SKILLS HANDLING: If a SKILLS: block is present in your input, read ALL skill content before writing any test code. Skills override your default framework choices, mock patterns, file placement conventions, and CI rules. Each "--- skill-name ---" section is a separate skill. Apply every MUST, NEVER, MANDATORY, and PROHIBITED rule precisely.
+SKILLS HANDLING: If SKILLS is present and not "none", load EVERY referenced skill before writing any test code.
+- For \`file:\` entries, use the search tool to read the referenced \`SKILL.md\` file with \`include\` limited to that path, \`mode: regex\`, \`query: .*\`, and sufficiently high \`max_results\` / \`max_lines\` to capture the full file.
+- If any referenced skill file cannot be loaded completely, stop and report \`SKILL_LOAD_FAILED: <path>\`. Do NOT continue without the missing skill.
+- If inline \`--- skill-name ---\` sections are present, read them directly.
+- Skills override your default framework choices, mock patterns, file placement conventions, and CI rules. Apply every MUST, NEVER, MANDATORY, and PROHIBITED rule precisely.
 
 COVERAGE:
 - Happy path: normal inputs

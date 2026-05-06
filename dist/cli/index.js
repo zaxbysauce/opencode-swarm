@@ -16349,6 +16349,7 @@ var init_constants = __esm(() => {
       "imports",
       "retrieve_summary",
       "schema_drift",
+      "search",
       "symbols",
       "knowledge_recall"
     ],
@@ -16434,6 +16435,7 @@ var init_constants = __esm(() => {
       "imports",
       "retrieve_summary",
       "schema_drift",
+      "search",
       "symbols",
       "todo_extract",
       "knowledge_recall"
@@ -16441,6 +16443,7 @@ var init_constants = __esm(() => {
     designer: [
       "extract_code_blocks",
       "retrieve_summary",
+      "search",
       "symbols",
       "knowledge_recall"
     ],
