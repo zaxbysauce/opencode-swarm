@@ -162,6 +162,7 @@ export const diff: ReturnType<typeof createSwarmTool> = createSwarmTool({
 				timeout: DIFF_TIMEOUT_MS,
 				maxBuffer: MAX_BUFFER_BYTES,
 				cwd: directory,
+				stdio: ['ignore', 'pipe', 'pipe'],
 			});
 
 			const fullDiffOutput = child_process.execFileSync('git', fullDiffArgs, {
@@ -169,6 +170,7 @@ export const diff: ReturnType<typeof createSwarmTool> = createSwarmTool({
 				timeout: DIFF_TIMEOUT_MS,
 				maxBuffer: MAX_BUFFER_BYTES,
 				cwd: directory,
+				stdio: ['ignore', 'pipe', 'pipe'],
 			});
 
 			const files: Array<{
@@ -227,7 +229,7 @@ export const diff: ReturnType<typeof createSwarmTool> = createSwarmTool({
 						encoding: 'utf-8',
 						timeout: 3000,
 						cwd: directory,
-						stdio: 'pipe',
+						stdio: ['ignore', 'pipe', 'pipe'],
 					});
 					return true;
 				} catch (e: unknown) {
@@ -244,9 +246,9 @@ export const diff: ReturnType<typeof createSwarmTool> = createSwarmTool({
 			function getContentFromRef(refPath: string): string {
 				return child_process.execFileSync('git', ['show', refPath], {
 					encoding: 'utf-8',
-					timeout: 5000,
+					timeout: 15_000,
 					cwd: directory,
-					stdio: 'pipe',
+					stdio: ['ignore', 'pipe', 'pipe'],
 				});
 			}
 

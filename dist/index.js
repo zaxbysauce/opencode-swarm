@@ -51,7 +51,7 @@ var package_default;
 var init_package = __esm(() => {
   package_default = {
     name: "opencode-swarm",
-    version: "7.5.4",
+    version: "7.6.0",
     description: "Architect-centric agentic swarm plugin for OpenCode - hub-and-spoke orchestration with SME consultation, code generation, and QA review",
     main: "dist/index.js",
     types: "dist/index.d.ts",
@@ -78873,7 +78873,7 @@ var diff = createSwarmTool({
             encoding: "utf-8",
             timeout: 3000,
             cwd: directory,
-            stdio: "pipe"
+            stdio: ["ignore", "pipe", "pipe"]
           });
           return true;
         } catch (e) {
@@ -78887,9 +78887,9 @@ var diff = createSwarmTool({
       }, getContentFromRef = function(refPath) {
         return child_process7.execFileSync("git", ["show", refPath], {
           encoding: "utf-8",
-          timeout: 5000,
+          timeout: 15000,
           cwd: directory,
-          stdio: "pipe"
+          stdio: ["ignore", "pipe", "pipe"]
         });
       };
       if (!directory || typeof directory !== "string" || directory.trim() === "") {
@@ -78940,13 +78940,15 @@ var diff = createSwarmTool({
         encoding: "utf-8",
         timeout: DIFF_TIMEOUT_MS,
         maxBuffer: MAX_BUFFER_BYTES,
-        cwd: directory
+        cwd: directory,
+        stdio: ["ignore", "pipe", "pipe"]
       });
       const fullDiffOutput = child_process7.execFileSync("git", fullDiffArgs, {
         encoding: "utf-8",
         timeout: DIFF_TIMEOUT_MS,
         maxBuffer: MAX_BUFFER_BYTES,
-        cwd: directory
+        cwd: directory,
+        stdio: ["ignore", "pipe", "pipe"]
       });
       const files = [];
       const numstatLines = numstatOutput.split(`
