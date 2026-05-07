@@ -1,5 +1,13 @@
 # Changelog
 
+## [7.6.1](https://github.com/zaxbysauce/opencode-swarm/compare/v7.6.0...v7.6.1) (2026-05-07)
+
+
+### Bug Fixes
+
+* **gate:** evidence-incomplete no longer hard-blocks task completion when session state confirms gates passed ([#780](https://github.com/zaxbysauce/opencode-swarm/issues/780)) ([7d7d3e1](https://github.com/zaxbysauce/opencode-swarm/commit/7d7d3e19190866d391dcaebcd5b10ca52c530261))
+* **tools:** add stdin:ignore to all diff tool execFileSync calls (Invariant [#3](https://github.com/zaxbysauce/opencode-swarm/issues/3)) ([#784](https://github.com/zaxbysauce/opencode-swarm/issues/784)) ([3b6c873](https://github.com/zaxbysauce/opencode-swarm/commit/3b6c8732e6d9018d40e304ee5300db54943a86c3))
+
 ## [7.6.0](https://github.com/zaxbysauce/opencode-swarm/compare/v7.5.4...v7.6.0) (2026-05-07)
 
 
