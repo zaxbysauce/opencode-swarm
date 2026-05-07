@@ -1,5 +1,12 @@
 # Changelog
 
+## [7.8.0](https://github.com/zaxbysauce/opencode-swarm/compare/v7.7.0...v7.8.0) (2026-05-07)
+
+
+### Features
+
+* **full-auto:** v2 autonomy control plane with deterministic policy + critic oversight ([#789](https://github.com/zaxbysauce/opencode-swarm/issues/789)) ([1255264](https://github.com/zaxbysauce/opencode-swarm/commit/12552648b4527c13029a80fe849c807462549908))
+
 ## [7.7.0](https://github.com/zaxbysauce/opencode-swarm/compare/v7.6.1...v7.7.0) (2026-05-07)
 
 
